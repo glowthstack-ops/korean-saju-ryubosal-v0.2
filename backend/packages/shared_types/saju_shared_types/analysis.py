@@ -9,7 +9,8 @@ class FiveElementAnalysis(BaseModel):
     raw_visible: dict[str, float]
     hidden_base: dict[str, float]
     effective_force: dict[str, float]
-    effective_percent: dict[str, float]
+    effective_percent: dict[str, float]  # 판정용(내부/고급 실세력)
+    visible_percent: dict[str, float] = Field(default_factory=dict)  # 표시용(암장 제외)
     strongest_element: str
     weakest_element: str
     excessive_elements: list[str] = Field(default_factory=list)
@@ -24,7 +25,9 @@ class FiveElementAnalysis(BaseModel):
 class TenGodAnalysis(BaseModel):
     raw_visible: dict[str, float]
     effective: dict[str, float]
-    effective_percent: dict[str, float]
+    effective_percent: dict[str, float]  # 판정용(내부/고급)
+    visible_percent: dict[str, float] = Field(default_factory=dict)  # 표시용(암장 제외)
+    visible_absent: list[str] = Field(default_factory=list)  # 표면에 없는 십성(화면에서 '-')
     groups: dict[str, float]  # peer/resource/output/wealth/officer powers
     strongest_ten_god: str
     missing_ten_gods: list[str] = Field(default_factory=list)

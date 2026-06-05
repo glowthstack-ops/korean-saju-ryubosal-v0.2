@@ -53,9 +53,9 @@ export function QuickSummaryBar({ result }: { result: ManseResult }) {
   const gong = result.pillars.gongmang_branches.join("");
   const amjang = fe.hidden_only_elements ?? [];
   return (
-    <Card title="요약" info="화면 오행은 천간·지지 표면 개수입니다. 지장간에만 있는 오행은 '암장'으로 따로 표기하며, 강한 오행으로 보지 않습니다. 부족한 오행이 곧 용신은 아닙니다.">
+    <Card title="요약" info="화면 오행은 표면(천간·지지 본기) 분포입니다. 지장간에만 있는 오행은 '암장'으로 따로 표기하며 퍼센트에서 제외합니다(예: 木 0%). 부족한 오행이 곧 용신은 아닙니다.">
       <div className="text-xs text-gray-700">
-        <div>오행(표면): {Object.entries(fe.raw_visible).map(([e, v]) => `${elementLabel(e)} ${v}`).join(" · ")}</div>
+        <div>오행: {Object.entries(fe.visible_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
         {amjang.length > 0 && (
           <div className="mt-1 text-gray-500">
             암장: {amjang.map((h) => `${elementLabel(h.element)}(${h.sources.join(",")})`).join(" · ")}
@@ -91,18 +91,28 @@ export function DistributionPanel({ result }: { result: ManseResult }) {
   const tg = result.force_analysis.ten_gods;
   const amjang = fe.hidden_only_elements ?? [];
   return (
-    <Card title="오행 · 십성 분포" info="표면(개수)·암장(지장간만)·실세력(월령·통근 반영 %)을 분리해 봅니다. 표면 부족과 실세력은 다릅니다.">
+    <Card title="오행 · 십성 분포" info="기본은 표면(암장 제외) 분포입니다. 암장(지장간만)은 작동성 낮음으로 별도 표기하고, 실세력(월령·통근 반영)은 내부/고급 판정용입니다.">
       <div className="space-y-1 text-xs text-gray-700">
-        <div>표면: {Object.entries(fe.raw_visible).map(([e, v]) => `${elementLabel(e)} ${v}`).join(" · ")}</div>
+        <div>오행(표면): {Object.entries(fe.visible_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
+        <div>
+          십성(표면): {Object.entries(tg.visible_percent).filter(([, v]) => v > 0)
+            .map(([k, v]) => `${k} ${v}%`).join(" · ")}
+          {tg.visible_absent.length > 0 && (
+            <span className="text-gray-400"> · 없음: {tg.visible_absent.join("·")}</span>
+          )}
+        </div>
         {amjang.length > 0 && (
           <div className="text-gray-500">
             암장(지장간): {amjang.map((h) => elementLabel(h.element)).join(" · ")} — 작동성 낮음
           </div>
         )}
-        <div className="text-gray-500">
-          실세력(고급): {Object.entries(fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}
-        </div>
-        <div>최강 {elementLabel(fe.strongest_element)} · 십성그룹: {Object.entries(tg.groups).map(([k, v]) => `${k} ${Math.round(v)}`).join(" · ")}</div>
+        <details className="text-gray-500">
+          <summary className="cursor-pointer">실세력(고급/내부 판정용)</summary>
+          <div className="mt-1">
+            오행: {Object.entries(fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}
+          </div>
+          <div>십성그룹: {Object.entries(tg.groups).map(([k, v]) => `${k} ${Math.round(v)}`).join(" · ")}</div>
+        </details>
       </div>
     </Card>
   );

@@ -8,11 +8,14 @@ from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.pillars import FourPillarsResult
 
 # Position weights (오행/십성 effective distribution) — five_element spec §8.
+# NOTE: 분포(effective/visible)의 지장간 가중치는 별도 상수가 아니라 지지별 budget(합=1.0,
+# constants.hidden_stems_for)을 쓴다(버그픽스). 분포용 hidden 가중치 상수를 두지 않는다.
 STEM_POS_WEIGHT: dict[str, int] = {"year": 8, "month": 12, "day": 0, "hour": 10}
 BRANCH_POS_WEIGHT: dict[str, int] = {"year": 12, "month": 28, "day": 24, "hour": 16}
-HIDDEN_EFF_WEIGHT: dict[str, float] = {"main": 1.00, "middle": 0.60, "residual": 0.35}
 
-# Root-score weights — strength_9_band spec §4 (distinct from distribution weights).
+# Root-score weights — strength_9_band spec §4. 통근 점수 전용이며, 분포의 budget(0.75/0.25 …)과
+# 의도적으로 다르다(통근은 '뿌리의 버팀'을 보므로 본기 1.0/중기 0.60/여기 0.35로 더 강하게 본다).
+# 분포 계산에는 절대 사용하지 않는다.
 ROOT_BRANCH_WEIGHT: dict[str, int] = {"month": 35, "day": 30, "hour": 18, "year": 12}
 ROOT_HIDDEN_WEIGHT: dict[str, float] = {"main": 1.00, "middle": 0.60, "residual": 0.35}
 ROOT_STRENGTH_BY_POSITION: dict[str, str] = {

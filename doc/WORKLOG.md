@@ -468,3 +468,19 @@ cross-process 결정성 가드 추가.
 水 최강 유지. 木 = 암장(亥중甲×2, 작동성 낮음)로 표기. 신강약 신약 유지(점수 스냅샷 갱신).
 
 검증: backend **129 pass**·ruff·mypy clean / frontend **7 pass**·build OK. fixture/실패케이스 테스트 추가.
+
+### 버그픽스 후속 — 표시용/판정용 분포 분리 + 회귀 고정(감사 반영) ✅
+감사 권고 반영:
+1. **effective 정확 lock**: 버그케이스 effective_percent를 pytest.approx로 고정
+   (木 10.89·火 19.87·土 10.92·金 18.35·水 39.96) — 예전 과대 산식 재발 방지.
+2. **죽은 상수 제거**: `_chart.HIDDEN_EFF_WEIGHT(1.0/0.6/0.35)` 삭제(분포는 budget 사용).
+   `ROOT_HIDDEN_WEIGHT`는 통근 전용·분포 budget과 의도적 차이임을 주석 명시.
+3. **표면 최강/최약 tie 배열화**: `strongest_visible_elements`/`weakest_visible_elements`.
+4. **표시용(visible) 분포 신설**: 천간(일간 제외)+지지 본기, **암장 제외**, 정규화 →
+   `five_elements.visible_percent`/`ten_gods.visible_percent`(+`visible_absent`).
+   버그케이스: 오행 木 0%·水 47.3% 과다·火 25.5·金 18.2·土 9.1, 십성 정재 47.3 최강·
+   정관/편관 0(표면 부재). effective는 "내부/고급 판정용"으로 격하.
+5. **UI**: 요약/분포 패널 기본값을 표시용(암장 제외)로, 암장 별도, 실세력은 접이식 "고급".
+
+본기/중기 비중: 분포 budget(본기 0.70/0.75 > 중기 0.20/0.25), 표시용(본기만), 통근(본기 1.0 >
+중기 0.6) — 각 레이어가 본기>중기로 차등. 검증: backend **132 pass**·clean / frontend 7 pass·build OK.

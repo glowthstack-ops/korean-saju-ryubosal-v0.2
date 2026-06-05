@@ -75,6 +75,34 @@ def test_element_distribution_trace_records_modifiers(force) -> None:
     assert trace["non_main_bonus_cap"] == 1.03
 
 
+def test_effective_percent_exact_lock(force) -> None:
+    # 버그픽스 회귀 고정: 예전 과대 산식(亥중甲 0.6 + 글로벌 계절보정)이 돌아오면 실패해야.
+    eff = force.five_elements.effective_percent
+    assert eff["木"] == pytest.approx(10.89, abs=0.2)  # 19.48에서 교정
+    assert eff["火"] == pytest.approx(19.87, abs=0.2)
+    assert eff["土"] == pytest.approx(10.92, abs=0.2)  # 8.72에서 교정
+    assert eff["金"] == pytest.approx(18.35, abs=0.2)
+    assert eff["水"] == pytest.approx(39.96, abs=0.2)
+
+
+def test_visible_display_excludes_amjang(force) -> None:
+    # 표시용(visible) 분포: 암장 제외 → 木 0%, 水 40%대 과다·최강.
+    vis = force.five_elements.visible_percent
+    assert vis["木"] == 0.0
+    assert vis["水"] > 40.0 and max(vis, key=lambda e: vis[e]) == "水"
+    # 십성 표시용: 정재(水) 최강, 정관/편관은 표면 부재(-).
+    tg = force.ten_gods
+    assert max(tg.visible_percent, key=lambda t: tg.visible_percent[t]) == "정재"
+    assert tg.visible_percent["정관"] == 0.0
+    assert "정관" in tg.visible_absent
+
+
+def test_strongest_visible_elements_handles_tie(force) -> None:
+    # 표면 개수가 동률(火土金水=2)이면 단일값이 아니라 배열로 표기.
+    arr = force.five_elements.display_summary["strongest_visible_elements"]
+    assert isinstance(arr, list) and set(arr) == {"火", "土", "金", "水"}
+
+
 def test_hidden_only_wood_is_amjang(force) -> None:
     # 버그픽스: 표면 木 없음, 亥중甲만 → 암장(hidden-only), 강한 오행 아님.
     fe = force.five_elements

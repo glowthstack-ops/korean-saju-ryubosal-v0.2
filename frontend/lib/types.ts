@@ -171,6 +171,7 @@ export interface ManseResult {
   force_analysis: {
     five_elements: {
       effective_percent: Record<string, number>;
+      visible_percent: Record<string, number>;
       raw_visible: Record<string, number>;
       strongest_element: string;
       weakest_element: string;
@@ -187,7 +188,12 @@ export interface ManseResult {
         warnings?: string[];
       };
     };
-    ten_gods: { effective_percent: Record<string, number>; groups: Record<string, number> };
+    ten_gods: {
+      effective_percent: Record<string, number>;
+      visible_percent: Record<string, number>;
+      visible_absent: string[];
+      groups: Record<string, number>;
+    };
     rooting: Record<string, unknown>;
     strength: StrengthResult;
   };

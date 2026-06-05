@@ -12,6 +12,7 @@ from saju_shared_types.constants import (
     BRANCH_ELEMENT,
     STEM_ELEMENT,
     hidden_stems_for,
+    main_hidden_stem,
 )
 from saju_shared_types.enums import Element, Stem
 from saju_shared_types.pillars import FourPillarsResult
@@ -60,6 +61,22 @@ def _exposure_multiplier(cv: ChartView, hidden_stem: Stem) -> float:
     if str(STEM_ELEMENT[hidden_stem]) in cv.heavenly_elements:
         return 1.08
     return 1.0
+
+
+def _visible_distribution(cv: ChartView) -> dict[str, float]:
+    """표시용(display) 분포: 천간(일간 제외) + 지지 본기, **암장 제외**, 위치가중·정규화.
+
+    암장(중기/여기)은 퍼센트에서 빠지므로 표면에 없는 오행은 0%가 된다(예: 木 0%).
+    """
+    vis = _empty()
+    for pos, stem in cv.stems:
+        w = STEM_POS_WEIGHT[pos]
+        if w == 0:  # 일간은 기준점 → 제외(원국 보드에 별도 표시)
+            continue
+        vis[str(STEM_ELEMENT[stem])] += w
+    for pos, branch in cv.branches:
+        vis[str(STEM_ELEMENT[main_hidden_stem(branch)])] += BRANCH_POS_WEIGHT[pos]
+    return _percent(vis)
 
 
 def compute_element_distribution(pillars: FourPillarsResult) -> dict:
@@ -134,18 +151,24 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
     # 암장(hidden-only): 표면(visible)엔 없고 지장간에만 존재하는 오행.
     hidden_only = _hidden_only_elements(cv, raw, hidden_base)
     hidden_only_names = [h["element"] for h in hidden_only]
+    # 표시용(display) 분포 — 암장 제외. 사용자 화면 기본값.
+    visible_percent = _visible_distribution(cv)
     deficient_visible = [e for e in _ELEMENTS if raw[e] == 0]
-    visible_present = [e for e in _ELEMENTS if raw[e] > 0]
-    strongest_visible = max(visible_present, key=lambda e: raw[e]) if visible_present else None
-    weakest_visible = min(visible_present, key=lambda e: raw[e]) if visible_present else None
+    present = [e for e in _ELEMENTS if raw[e] > 0]
+    max_cnt = max((raw[e] for e in present), default=0.0)
+    min_cnt = min((raw[e] for e in present), default=0.0)
+    # tie 안전: 표면 최강/최약을 배열로(개수 동률 처리).
+    strongest_visible_elements = [e for e in present if raw[e] == max_cnt]
+    weakest_visible_elements = [e for e in present if raw[e] == min_cnt]
     warnings = [
         f"{name}은 지장간에만 존재(암장)하므로 화면 분포에서 강한 오행으로 보지 않습니다."
         for name in hidden_only_names
     ]
     display_summary = {
         "visible_counts": raw,
-        "strongest_visible": strongest_visible,
-        "weakest_visible_present": weakest_visible,
+        "visible_percent": visible_percent,
+        "strongest_visible_elements": strongest_visible_elements,
+        "weakest_visible_elements": weakest_visible_elements,
         "strongest_effective": strongest,
         "hidden_only_elements": hidden_only_names,
         "deficient_visible_elements": deficient_visible,
@@ -158,6 +181,7 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
         "hidden_base": {e: round(v, 4) for e, v in hidden_base.items()},
         "effective_force": eff,
         "effective_percent": percent,
+        "visible_percent": visible_percent,
         "strongest_element": strongest,
         "weakest_element": weakest,
         "excessive_elements": excessive,
