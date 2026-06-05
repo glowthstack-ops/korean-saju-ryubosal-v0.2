@@ -88,6 +88,40 @@ class SolarTermTable:
             i -= 1
         raise ValueError(f"no governing month term found for {dt}")  # pragma: no cover
 
+    def bounding_month_terms(self, dt: datetime) -> tuple[datetime, datetime]:
+        """The month-defining 節 immediately before and after *dt* (대운수용).
+
+        Unlike :meth:`surrounding_terms`, this skips 中氣 and returns only 節
+        boundaries, which is what 대운 start-age (절기 거리) requires.
+        """
+        u = self._to_utc(dt)
+        prev: datetime | None = None
+        nxt: datetime | None = None
+        for inst, name in zip(self._instants, self._names, strict=False):
+            if name not in MONTH_TERMS:
+                continue
+            if inst <= u:
+                prev = inst
+            elif nxt is None:
+                nxt = inst
+                break
+        if prev is None or nxt is None:
+            raise ValueError(f"no bounding month terms for {dt}")
+        return prev, nxt
+
+    def month_terms_in_solar_year(self, year: int) -> list[tuple[datetime, str, Branch]]:
+        """The 12 month-defining 節 of the solar year (입춘 *year* → next 입춘)."""
+        start = self.lichun_for_year(year)
+        result: list[tuple[datetime, str, Branch]] = []
+        for inst, name in zip(self._instants, self._names, strict=False):
+            if inst < start:
+                continue
+            if name in MONTH_TERMS:
+                result.append((inst, name, MONTH_TERMS[name]))
+            if len(result) == 12:
+                break
+        return result
+
     def lichun_for_year(self, year: int) -> datetime:
         """The 입춘 instant whose calendar year (UTC) equals *year*."""
         for inst, name in zip(self._instants, self._names, strict=False):

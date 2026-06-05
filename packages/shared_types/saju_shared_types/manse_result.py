@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from .analysis import ForceAnalysis
+from .luck import LuckCycles
 from .pillars import FourPillarsResult
 from .structure import GeokgukResult, StructureAnalysis
 from .time_correction import SolarTermBasis, TimeCorrectionResult
@@ -36,9 +37,9 @@ class ManseV2Result(BaseModel):
     structure_analysis: StructureAnalysis | None = None
     geokguk: GeokgukResult | None = None
     yongsin_analysis: AggregatedYongsinResult | None = None
+    luck_cycles: LuckCycles | None = None
 
     # Filled in later phases — schema slots reserved now.
-    luck_cycles: dict[str, Any] | None = None
     calibration: dict[str, Any] | None = None
     traditional_extras: dict[str, Any] | None = None
 

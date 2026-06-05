@@ -6,6 +6,7 @@ import hashlib
 from datetime import UTC
 
 from saju_manse_analysis import analyze_chart
+from saju_manse_analysis.luck import compute_luck_cycles
 
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_manse_core.pillars import four_pillars
@@ -41,6 +42,7 @@ def _chart_id(birth: BirthInput) -> str:
             birth.longitude,
             birth.timezone,
             birth.gender,
+            birth.reference_date,
             birth.time_options.model_dump(),
         )
     )
@@ -160,6 +162,22 @@ def calculate(birth: BirthInput) -> ManseV2Result:
 
     chart_analysis = analyze_chart(pillars)
 
+    direction = _daewoon_direction(birth, year_stem)
+    luck_cycles = None
+    if direction is not None:
+        luck_cycles = compute_luck_cycles(
+            pillars=pillars,
+            absolute_instant=absolute_instant,
+            birth_date=norm.solar_date,
+            direction=direction,
+            useful_elements={c.element for c in chart_analysis.yongsin.useful_candidates},
+            unfavorable_elements={
+                c.element for c in chart_analysis.yongsin.unfavorable_candidates
+            },
+            table=table,
+            reference_date=birth.reference_date,
+        )
+
     return ManseV2Result(
         chart_id=_chart_id(birth),
         input_summary=input_summary,
@@ -170,6 +188,7 @@ def calculate(birth: BirthInput) -> ManseV2Result:
         structure_analysis=chart_analysis.structure,
         geokguk=chart_analysis.geokguk,
         yongsin_analysis=chart_analysis.yongsin,
+        luck_cycles=luck_cycles,
         metadata=metadata,
         trace={
             "absolute_instant_utc": absolute_instant.astimezone(UTC).isoformat(),

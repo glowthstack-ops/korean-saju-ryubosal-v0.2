@@ -67,6 +67,8 @@ def test_calculate_returns_full_schema() -> None:
     assert body["geokguk"]["main_structure"] == "정재격"
     assert body["yongsin_analysis"]["status"] == "candidate"
     assert body["yongsin_analysis"]["final"]["yongsin"] == "土"
+    assert body["luck_cycles"]["direction"] == "forward"
+    assert len(body["luck_cycles"]["daewoon_table"]) == 9
 
 
 def test_unknown_location_returns_422() -> None:

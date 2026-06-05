@@ -190,3 +190,29 @@ blocker 단위테스트(寅亥 육합 + 寅申 충) 및 격국 self_punished rea
 - `ElementCandidate.model`/`reason`을 채움(최고 점수를 낸 모델 출처 + 역할 yongsin/heesin/
   gisin/gusin) — 검증 루프(4c) 질문 생성에서 후보 provenance 사용 예정.
 - candidate_score full scoring 연기 사항을 위 결정/연기에 명시.
+
+---
+
+## Phase 4b — 대운/세운/월운/일운 ✅
+
+감사 반영해 범위를 **대운/세운/월운/일운**으로 확장. 운은 원국 분포를 바꾸지 않는
+별도 레이어. `manse_analysis/luck/luck_cycles.py` + `shared_types/luck.py`.
+
+- **대운**: 순역(양남음녀 순행/음남양녀 역행), 시작나이=절기(월령 節) 거리/3
+  (中氣 아닌 節 경계 사용; `SolarTermTable.bounding_month_terms`), 9구간 표,
+  간지(월주에서 순/역 진행)·십성·12운성·상반기(천간)/하반기(지지)·원국과의 관계
+  (충/육합/천간합/삼합기여)·raw/transformed 오행·용신관계·volatility.
+- **세운/월운/일운**: 날짜 함수라 결정론적. 세운=연 간지(입춘 기준), 월운=절기 12개월
+  + 둔월법, 일운=해당 월 일주(JDN). 각 항목에 용신정렬(용신운/기신운/혼합/평운).
+- **reference_date**(신규 입력, optional): 없으면 대운표만(완전 결정론). 있으면 current_age·
+  current_daewoon_index + 세운(±2년)·월운(해당년 12)·일운(해당월) 채움. chart_id에도 포함.
+
+### 검증 (Golden Fixture, ref=2015-06-15)
+- 순행, 시작나이 **5**(exact 4.985 = 약 15일/3), 대운 戊子→己丑→庚寅→辛卯…(월주 丁亥 순행).
+- current_age 34 → 대운 index 2(庚寅, age25-35). 세운 2015=乙未, 월운 12개, 일운 30개.
+- 여성(양녀)→역행 첫 대운 丙戌. 용신운/기신운 라벨링 동작(己丑 土=용신운).
+- ref 없으면 세/월/일운 빈 리스트(결정론). pytest **87 pass** · `mypy .` clean(79파일) · ruff clean.
+
+### 결정/연기
+- 운의 transformed 오행은 육합/삼합기여 기반 경량 산출(합화 confidence 정밀화는 후속).
+- luck_effect의 정밀 정렬 점수(yongsin_alignment_score 수치)는 4c 검증 루프에서 활용 시 보강.

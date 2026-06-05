@@ -135,6 +135,17 @@ def test_yongsin_candidates(result) -> None:
     assert y.final["selected_model"] == "support_day_master"
 
 
+def test_luck_cycles(result) -> None:
+    lc = result.luck_cycles
+    assert lc is not None
+    assert lc.direction == "forward"  # 양남(庚) 순행
+    assert lc.start_age == 5
+    assert lc.daewoon_table[0].ganji == "戊子"  # 월주 丁亥 다음
+    assert len(lc.daewoon_table) == 9
+    # reference_date 없는 fixture → 세운/월운/일운은 비어 있고 대운표만.
+    assert lc.yearly_luck == []
+
+
 def test_deterministic(fixture: dict) -> None:
     a = calculate(BirthInput(**fixture["input"]))
     b = calculate(BirthInput(**fixture["input"]))

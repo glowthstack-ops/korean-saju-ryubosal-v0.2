@@ -38,6 +38,10 @@ class BirthInput(BaseModel):
     daewoon_direction_basis: Literal["gender_yinyang", "manual"] = "gender_yinyang"
     manual_daewoon_direction: Literal["forward", "backward"] | None = None
 
+    # Optional anchor for current-age-dependent luck (세운/월운/일운). When omitted
+    # the engine stays fully deterministic and returns only the 대운 table.
+    reference_date: date | None = None
+
     time_options: TimeCalculationOptions = Field(default_factory=TimeCalculationOptions)
 
     @model_validator(mode="after")
