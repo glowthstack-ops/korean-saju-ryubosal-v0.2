@@ -1,0 +1,30 @@
+{
+  "name": "1980-11-22 09:08 Seoul male",
+  "source": "v1 reference values (saju_v2_manse_engine_codex_spec.md §18.1)",
+  "input": {
+    "calendar_type": "solar",
+    "birth_date": "1980-11-22",
+    "birth_time": "09:08",
+    "birth_place_name": "서울",
+    "gender": "male",
+    "time_options": {"apply_true_solar_time": true, "day_boundary_rule": "23:00", "ja_hour_rule": "standard_zi"}
+  },
+  "expected": {
+    "year_pillar": "庚申",
+    "month_pillar": "丁亥",
+    "day_pillar": "己亥",
+    "day_master": "己",
+    "standard_time_hour_pillar": "己巳",
+    "true_solar_time_hour_pillar": "戊辰",
+    "hour_pillar_changed_by_true_solar_time": true,
+    "month_governing_term": "입동",
+    "gongmang_branches": ["辰", "巳"],
+    "daewoon_direction": "forward",
+    "ten_gods": {
+      "year_stem": "상관",
+      "month_stem": "편인",
+      "month_branch_main": "정재",
+      "hour_stem_true_solar": "겁재"
+    }
+  }
+}

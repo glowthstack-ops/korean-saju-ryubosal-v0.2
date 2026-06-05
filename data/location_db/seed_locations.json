@@ -1,0 +1,37 @@
+{
+  "version": "seed-2024.1",
+  "locations": [
+    {
+      "name": "서울",
+      "aliases": ["Seoul", "서울특별시", "seoul"],
+      "country_code": "KR",
+      "latitude": 37.5665,
+      "longitude": 126.978,
+      "iana_timezone": "Asia/Seoul"
+    },
+    {
+      "name": "부산",
+      "aliases": ["Busan", "부산광역시", "busan"],
+      "country_code": "KR",
+      "latitude": 35.1796,
+      "longitude": 129.0756,
+      "iana_timezone": "Asia/Seoul"
+    },
+    {
+      "name": "Tokyo",
+      "aliases": ["도쿄", "동경", "tokyo"],
+      "country_code": "JP",
+      "latitude": 35.6762,
+      "longitude": 139.6503,
+      "iana_timezone": "Asia/Tokyo"
+    },
+    {
+      "name": "New York",
+      "aliases": ["뉴욕", "newyork", "new york"],
+      "country_code": "US",
+      "latitude": 40.7128,
+      "longitude": -74.006,
+      "iana_timezone": "America/New_York"
+    }
+  ]
+}
