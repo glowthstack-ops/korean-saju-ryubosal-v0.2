@@ -129,46 +129,38 @@ def _geoksin_combined_away(structure: StructureAnalysis) -> bool:
     )
 
 
-# ── confidence (0~1) ──────────────────────────────────────────────────────
+# ── confidence (0~100, A~E) — geokguk_master_v2 gukguk_confidence_score 7요소 ──
 
 def _confidence(
     pillars: FourPillarsResult, name: str, geoksin: Stem,
-    groups: dict[str, int], structure: StructureAnalysis, month_void: bool,
-) -> tuple[float, list[dict]]:
-    score = 0.0
+    groups: dict[str, int], structure: StructureAnalysis,
+    has_failures: bool, clean: bool,
+) -> tuple[int, list[dict]]:
     factors: list[dict] = []
+    score = 0
 
+    def add(label: str, pts: int, ok: bool, note: str) -> None:
+        nonlocal score
+        got = pts if ok else 0
+        score += got
+        factors.append({"factor": label, "score": got, "max": pts, "note": note})
+
+    add("월지 본기 기준 격 성립", 20, bool(name), name or "X")
     rank = _month_revealed_rank(pillars)
-    tu = {"main": 0.35, "middle": 0.25, "residual": 0.15}.get(rank or "", 0.0)
-    score += tu
-    factors.append({"factor": "월지 투간", "value": tu, "note": rank or "없음"})
-
-    rooted = _geoksin_rooted(pillars, geoksin)
-    score += 0.20 if rooted else 0.0
-    factors.append({"factor": "격신 뿌리", "value": 0.20 if rooted else 0.0,
-                    "note": "통근" if rooted else "무근"})
-
+    add("지장간 천간 투간", 20, rank is not None, rank or "없음")
+    add("격신 통근", 15, _geoksin_rooted(pillars, geoksin), str(geoksin))
+    # 격신 = 월지 본기 → 월령 득(격이 월지 기반이면 성립).
+    add("격신 월령 득", 15, bool(name), "월령")
     sangsin = _GEOK_SANGSIN.get(name, [])
-    has_sangsin = any(groups.get(g, 0) >= 1 for g in sangsin)
-    score += 0.20 if has_sangsin else 0.0
-    factors.append({"factor": "상신 존재", "value": 0.20 if has_sangsin else 0.0,
-                    "note": "·".join(_GROUP_KO[g] for g in sangsin) or "매핑없음"})
-
-    if _month_clashed(structure):
-        score -= 0.20
-        factors.append({"factor": "월지 충/형", "value": -0.20, "note": "손상"})
-    if _geoksin_combined_away(structure):
-        score -= 0.15
-        factors.append({"factor": "격신 합거", "value": -0.15, "note": "변질"})
-    if month_void:
-        score -= 0.10
-        factors.append({"factor": "월지 공망", "value": -0.10, "note": "공망"})
-
-    return _clamp(score, 0.0, 1.0), factors
+    add("상신 존재", 15, any(groups.get(g, 0) >= 1 for g in sangsin),
+        "·".join(_GROUP_KO[g] for g in sangsin) or "매핑없음")
+    add("명확한 파격 없음", 10, not has_failures, "파격" if has_failures else "없음")
+    add("청정 구조", 5, clean, "청" if clean else "혼잡")
+    return score, factors
 
 
-def _confidence_grade(c: float) -> str:
-    return "A" if c >= 0.8 else "B" if c >= 0.6 else "C" if c >= 0.4 else "D" if c >= 0.2 else "E"
+def _confidence_grade(c: int) -> str:
+    return "A" if c >= 80 else "B" if c >= 60 else "C" if c >= 40 else "D" if c >= 20 else "E"
 
 
 # ── 파격 / 구제 ───────────────────────────────────────────────────────────
@@ -229,40 +221,61 @@ def _detect_failures(
     return out
 
 
-# ── 성패 score (-100~100) ─────────────────────────────────────────────────
+# ── 성패 score (-100~100) — geokguk_master_v2 success_failure_factors 6요소 ──
+
+# 일간 감당력(factor 2) band별 raw.
+_DM_CAPABILITY = {
+    "극신약": -70, "태신약": -45, "신약": -40, "중화신약": -10,
+    "중화": 20, "중화신강": 40, "신강": 50, "태신강": 30, "극신강": 10,
+}
+
 
 def _success_failure(
-    confidence: float, band: str, sangsin_groups: list[str],
-    groups: dict[str, int], failures: list[dict],
+    pillars: FourPillarsResult, name: str, geoksin: Stem, band: str,
+    sangsin_groups: list[str], groups: dict[str, int],
+    failures: list[dict], structure: StructureAnalysis, clean: bool,
 ) -> tuple[float, str, str]:
-    s = 0.0
-    # 격신 신뢰도 (투간/뿌리/상신 종합) → ±
-    s += (confidence - 0.4) * 100 * 0.40  # 0.4 기준 중립
-    # 일간 감당
-    s += {"극신약": -70, "태신약": -45, "신약": -25, "중화신약": -5,
-          "중화": 10, "중화신강": 20, "신강": 25, "태신강": 10, "극신강": -10}.get(band, 0) * 0.20
-    # 상신 존재
-    has = any(groups.get(g, 0) >= 1 for g in sangsin_groups)
-    s += (40 if has else -30) * 0.20
-    # 파격 (역)
+    # 1) 격신 성형 (0.20)
+    f1 = 20.0  # 월령(격이 월지 기반)
+    if _geoksin_rooted(pillars, geoksin):
+        f1 += 40
+    if _month_revealed_rank(pillars) is not None:
+        f1 += 30
+    if _month_clashed(structure):
+        f1 -= 50
+    if _geoksin_combined_away(structure):
+        f1 -= 30
+    f1 = _clamp(f1, -100, 100)
+    # 2) 일간 감당력 (0.20)
+    f2 = _DM_CAPABILITY.get(band, 0)
+    # 3) 상신 존재 (0.20)
+    f3 = 40 if any(groups.get(g, 0) >= 1 for g in sangsin_groups) else -30
+    # 4) 파격 없음 (0.20, 역)
     active = [f for f in failures if f["active"]]
-    s += (50 if not active else -25 * min(len(active), 3)) * 0.20
-    # 구제
+    f4 = 50 if not active else -25 * min(len(active), 3)
+    # 5) 구제 존재 (0.15)
+    f5 = 0.0
     if active:
         rescued = sum(1 for f in active if f["rescued"])
-        s += (rescued / len(active) * 60 - 30) * 0.15
-    score = _clamp(s, -100, 100)
+        f5 = rescued / len(active) * 60 - 30
+    # 6) 청탁 (0.05)
+    f6 = 50 if clean else -20
 
-    if score >= 60:
-        grade, label = "complete_success", "성격(완성형)"
-    elif score >= 30:
-        grade, label = "partial_success", "성격(일부 혼잡)"
+    score = _clamp(
+        f1 * 0.20 + f2 * 0.20 + f3 * 0.20 + f4 * 0.20 + f5 * 0.15 + f6 * 0.05, -100, 100
+    )
+    if score >= 70:
+        grade, label = "complete_success", "완전 성격"
+    elif score >= 40:
+        grade, label = "partial_success", "성격이나 약간 혼잡"
     elif score >= -10:
         grade, label = "mixed", "반성반패"
-    elif score >= -35:
+    elif score >= -30:
         grade, label = "failure_with_rescue", "패격이나 구제 있음"
-    else:
+    elif score >= -70:
         grade, label = "clear_failure", "명확한 패격"
+    else:
+        grade, label = "severe_muddiness", "심한 혼탁"
     return round(score, 1), grade, label
 
 
@@ -282,14 +295,14 @@ _CLARITY_POLICY = {
 _BASE_WEIGHT = 0.25
 
 
-def _clarity_level(confidence: float, sf_score: float, band: str, root_score: float) -> str:
+def _clarity_level(confidence: int, sf_score: float, band: str, root_score: float) -> str:
     if band in ("극신약", "태신약") and root_score < 8.0:
         return "special_pattern_uncertain"  # 종격 의심
-    if confidence >= 0.8 and sf_score >= 40:
+    if confidence >= 80 and sf_score >= 40:
         return "very_clear"
-    if confidence >= 0.6 and sf_score >= -10:
+    if confidence >= 60 and sf_score >= -10:
         return "clear_but_mixed"
-    if confidence >= 0.4:
+    if confidence >= 40:
         return "unclear"
     if band in _WEAK:
         return "weak_gukguk_priority"
@@ -326,34 +339,37 @@ def evaluate_geokguk(
     band = force.strength.band
     root_score = float(force.strength.components.get("root_score", 0.0))
 
-    confidence, conf_factors = _confidence(
-        pillars, name, geoksin, groups, structure, month_void
-    )
-    grade = _confidence_grade(confidence)
-
     failures = _detect_failures(
         counts, groups, band, _month_clashed(structure), month_void
     )
     damage_types = [f["type"] for f in failures if f["active"]]
     total_active = len(damage_types)
     total_rescued = sum(1 for f in failures if f["active"] and f["rescued"])
+    total = sum(groups.values()) or 1
+    clean = all(v / total < 0.50 for v in groups.values())  # 청정(한 그룹 50% 미만)
+
+    confidence, conf_factors = _confidence(
+        pillars, name, geoksin, groups, structure, total_active > 0, clean
+    )
+    grade = _confidence_grade(confidence)
 
     sangsin_groups = _GEOK_SANGSIN.get(name, [])
     sf_score, sf_grade, sf_label = _success_failure(
-        confidence, band, sangsin_groups, groups, failures
+        pillars, name, geoksin, band, sangsin_groups, groups, failures, structure, clean
     )
 
     level = _clarity_level(confidence, sf_score, band, root_score)
     final_weight, fw_interp = _final_weight(level)
 
     expr = (
-        "격국 무대(직업성·역할)가 매우 선명" if confidence >= 0.8 else
-        "격국 무대가 비교적 선명" if confidence >= 0.6 else
-        "격국 무대가 혼재" if confidence >= 0.4 else "격국 무대가 흐릿"
+        "격국 무대(직업성·역할)가 매우 선명" if confidence >= 80 else
+        "격국 무대가 비교적 선명" if confidence >= 60 else
+        "격국 무대가 혼재" if confidence >= 40 else "격국 무대가 흐릿"
     )
 
     return GeokgukEvaluation(
-        pattern_confidence=round(confidence, 3),
+        confidence_score=confidence,
+        pattern_confidence=round(confidence / 100, 3),
         confidence_grade=grade,
         confidence_factors=conf_factors,
         success_failure_score=sf_score,

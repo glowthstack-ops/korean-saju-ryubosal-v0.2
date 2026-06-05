@@ -25,6 +25,7 @@ def evaluation():
 
 
 def test_confidence_range_and_grade(evaluation) -> None:
+    assert 0 <= evaluation.confidence_score <= 100  # 마스터 7요소(0~100)
     assert 0.0 <= evaluation.pattern_confidence <= 1.0
     assert evaluation.confidence_grade in {"A", "B", "C", "D", "E"}
 
@@ -50,9 +51,10 @@ def test_active_failures_have_rescue_verdict(evaluation) -> None:
 
 
 def test_1980_snapshot(evaluation) -> None:
-    # 정재격, 월지 亥 자형 손상 → 신뢰도 낮음·격국 보조 참고.
-    assert evaluation.pattern_confidence == pytest.approx(0.35, abs=0.05)
+    # 정재격: 투간(戊)·통근(壬)·상신·청정 다 충족 → 신뢰도 90(A). 월지 자형은 성패에서 감점.
+    assert evaluation.confidence_score == 90
+    assert evaluation.confidence_grade == "A"
     assert "chung_month_branch" in evaluation.damage_types
-    assert evaluation.clarity_level == "weak_gukguk_priority"
-    assert evaluation.final_weight == pytest.approx(0.15, abs=0.01)
+    assert evaluation.clarity_level == "clear_but_mixed"
+    assert evaluation.final_weight == pytest.approx(0.30, abs=0.01)
     assert "성공" not in evaluation.social_expression  # '성공 크기' 단정 금지

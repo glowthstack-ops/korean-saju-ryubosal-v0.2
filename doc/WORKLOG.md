@@ -596,3 +596,13 @@ final_weight 0.15.
 - 골든 재고정: australia 신강·india 중화신약·japan 중화(가종)·lunar 극신약·uk/us 극신강·zi 중화(가종).
   test_strength 밴드/경계·test_structure·fixture·sinsal 스냅샷 갱신. v1 parity/불변식 테스트 추가.
 검증: backend **147 pass**·ruff·mypy clean / frontend 7 pass·build OK.
+
+### 격국 평가 — geokguk_master_v2.json 권위표로 정렬 ✅
+Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공식은 마스터 7요소 채택).
+- 신뢰도: §7(0~1) → **마스터 7요소(0~100)** 20·20·15·15·15·10·5 + A~E 등급. pattern_confidence는
+  =score/100로 보존(용신 가중 호환). 충/합거/공망은 성패로 이동.
+- 성패: 6요소 가중치를 마스터(격신성형·일간감당·상신·파격없음 각 0.20 + 구제 0.15 + 청탁 0.05)로 교체,
+  6등급(complete_success…severe_muddiness).
+- clarity·final_weight(0.25×clarity_mult, cap 0.10~0.60)는 마스터와 동일 확인.
+- 1980: 정재격 신뢰도 90(A)·성패 7.0(반성반패)·clarity clear_but_mixed·final_weight 0.30. 용신 土 유지.
+검증: backend 147 pass·ruff·mypy clean / frontend 7 pass·build OK.

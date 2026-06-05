@@ -63,7 +63,8 @@ class StructureAnalysis(BaseModel):
 class GeokgukEvaluation(BaseModel):
     """격국 평가 — 용신 후보 우선순위 보정 레이어(단독 확정자 아님)."""
 
-    pattern_confidence: float  # 0~1 (월지 투간/뿌리/상신 − 충·합거·공망)
+    confidence_score: int = 0  # 0~100 (geokguk_master_v2 7요소)
+    pattern_confidence: float  # 0~1 (= confidence_score/100, 용신 가중 계산용)
     confidence_grade: str  # A~E
     confidence_factors: list[dict] = Field(default_factory=list)
     success_failure_score: float  # -100~100 (성격 ↔ 패격)
