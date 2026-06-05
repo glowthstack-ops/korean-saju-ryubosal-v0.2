@@ -65,6 +65,8 @@ def test_calculate_returns_full_schema() -> None:
     assert body["structure_analysis"]["structure_modifier"] is not None
     assert isinstance(body["structure_analysis"]["interactions"], list)
     assert body["geokguk"]["main_structure"] == "정재격"
+    assert body["yongsin_analysis"]["status"] == "candidate"
+    assert body["yongsin_analysis"]["final"]["yongsin"] == "土"
 
 
 def test_unknown_location_returns_422() -> None:

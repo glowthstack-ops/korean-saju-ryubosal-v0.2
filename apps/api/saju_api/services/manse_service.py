@@ -169,6 +169,7 @@ def calculate(birth: BirthInput) -> ManseV2Result:
         force_analysis=chart_analysis.force,
         structure_analysis=chart_analysis.structure,
         geokguk=chart_analysis.geokguk,
+        yongsin_analysis=chart_analysis.yongsin,
         metadata=metadata,
         trace={
             "absolute_instant_utc": absolute_instant.astimezone(UTC).isoformat(),

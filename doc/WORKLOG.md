@@ -151,3 +151,35 @@ Phase 3 진입 전 재현성 문제 정리.
    `month_branch_clashed/punished/self_punished` 구분. 1980 fixture는 亥亥 →
    `month_branch_self_punished`로 정확 표기.
 3. **WORKLOG 순서 정정**: 통합테스트 hang 2차 정정 블록을 Phase 2.1 아래로 이동.
+
+검증: **pytest 75 pass** · `mypy .` clean(70파일) · ruff clean ·
+blocker 단위테스트(寅亥 육합 + 寅申 충) 및 격국 self_punished reason 테스트 추가.
+
+---
+
+## Phase 4a — 용신 후보 산출 ✅
+
+신규 패키지 `manse_analysis/yongsin` (특수격 검사 → 모델별 후보 → 통합).
+
+- **group↔element 매핑**(`shared_types/constants.group_elements`): 일간 오행 기준
+  peer/resource/output/wealth/officer → 오행.
+- **특수격 검사**(`special_cases.py`, 보수적): 합화(구조작용 confirmed), 전왕(한 오행 ≥60% +
+  신강계열), 종격(극신약/태신약 + 무근), 통관(상극 두 오행 모두 ≥25%), 고립/병약(부족 오행이
+  손상 관계 노출). 억부보다 먼저 검사.
+- **후보 모델**(`candidates.py`): 부일간형(용=비겁·희=인성·기=관살·구=재성·한=식상),
+  인성용신형(관인상생), 식상용신형(제살), 억부형(신강 설기·재관), 조후 보조형(한/난 월령),
+  종격/전왕. v2.1 신약 3분기(신왕+관강→식상 / 유근+재·식강→인성 / else 비겁).
+- **통합/확정**: 용신·희신 → useful(상위2), 기신·구신 → unfavorable(상위2). 검증 전 status는
+  candidate(단일·고신뢰·특수격無·경쟁無이면 probable), `requires_validation=True` 유지.
+  `analyze_chart()`/service가 `yongsin_analysis` 채움.
+
+### 검증 (Golden Fixture)
+- **용신 土 · 희신 火 · 기신 木 · 구신 水** — v1과 정확히 일치.
+  selected_model=부일간형, 경쟁 모델(인성용신·조후) 동시 제시, status=candidate.
+- 목은 raw 표면 부족이나 자동 용신이 아니라 **기신(관살)**으로 분류(부족≠용신 원칙 입증).
+- 특수격 5종 모두 미검출(중화권 아닌 신약 → 부일간 경로). pytest **80 pass** ·
+  `mypy .` clean(75파일) · ruff clean · 라이브 API 직렬화 확인.
+
+### 결정/연기
+- 용신 status는 검증 전 candidate/probable까지만(calibrated는 4c 검증 후).
+- climate_context 미구현 → 조후는 월령 한난(亥子丑/巳午未) 기반 경량 판정(단독 확정 금지).

@@ -276,6 +276,24 @@ SEASON_SCORE: dict[str, int] = {
 }
 
 
+def group_elements(day_master_element: Element) -> dict[str, Element]:
+    """Map 십성 그룹 → 오행, relative to the day master's element.
+
+    peer=일간 오행, resource=일간을 생하는 오행, output=일간이 생하는 오행,
+    wealth=일간이 극하는 오행, officer=일간을 극하는 오행.
+    """
+    d = day_master_element
+    resource = next(x for x in Element if GENERATES[x] == d)
+    officer = next(x for x in Element if CONTROLS[x] == d)
+    return {
+        "peer": d,
+        "resource": resource,
+        "output": GENERATES[d],
+        "wealth": CONTROLS[d],
+        "officer": officer,
+    }
+
+
 def season_state(element: Element, month_branch: Branch) -> str:
     """왕(wang)/상(xiang)/휴(xiu)/수(qiu)/사(si) of *element* in *month_branch*."""
     season = SEASON_ELEMENT_BY_MONTH[month_branch]

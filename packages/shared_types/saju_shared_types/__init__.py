@@ -32,6 +32,12 @@ from .structure import (
     TransformationCheck,
 )
 from .time_correction import SolarTermBasis, TimeCorrectionResult
+from .yongsin import (
+    AggregatedYongsinResult,
+    ElementCandidate,
+    SpecialCaseCheck,
+    YongsinCandidateModel,
+)
 
 __all__ = [
     "BirthInput",
@@ -63,4 +69,8 @@ __all__ = [
     "StructuralInteraction",
     "StructureAnalysis",
     "TransformationCheck",
+    "AggregatedYongsinResult",
+    "ElementCandidate",
+    "SpecialCaseCheck",
+    "YongsinCandidateModel",
 ]

@@ -122,6 +122,19 @@ def test_geokguk(result) -> None:
     assert any("발현" in a for a in g.auxiliary_structures)
 
 
+def test_yongsin_candidates(result) -> None:
+    y = result.yongsin_analysis
+    assert y is not None
+    assert y.status == "candidate"
+    assert y.requires_validation is True
+    # v1 reference: 용신 토 · 희신 화 · 기신 목 · 구신 수
+    assert y.final["yongsin"] == "土"
+    assert y.final["heesin"] == "火"
+    assert y.final["gisin"] == "木"
+    assert y.final["gusin"] == "水"
+    assert y.final["selected_model"] == "support_day_master"
+
+
 def test_deterministic(fixture: dict) -> None:
     a = calculate(BirthInput(**fixture["input"]))
     b = calculate(BirthInput(**fixture["input"]))
