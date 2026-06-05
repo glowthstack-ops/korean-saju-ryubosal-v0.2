@@ -1,0 +1,24 @@
+{
+  "name": "us_newyork_dst",
+  "input": {
+    "calendar_type": "solar",
+    "birth_date": "1990-07-01",
+    "birth_time": "12:00",
+    "birth_place_name": "New York",
+    "gender": "male"
+  },
+  "expected": {
+    "year_pillar": "庚午",
+    "month_pillar": "壬午",
+    "day_pillar": "丁卯",
+    "hour_pillar": "丙午",
+    "day_master": "丁",
+    "timezone_offset_minutes": -240,
+    "daylight_saving_applied": true,
+    "local_time_status": "valid",
+    "hour_pillar_changed_by_true_solar_time": false,
+    "lunar_converted_solar_date": null,
+    "strength_band": "태신강",
+    "geokguk_main_structure": "건록격"
+  }
+}

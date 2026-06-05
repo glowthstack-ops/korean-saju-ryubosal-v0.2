@@ -85,6 +85,12 @@ def _detect(pillars: FourPillarsResult) -> list[_Detection]:
         if Stem(p.stem) in cat.HYEONCHIM_STEMS or Branch(p.branch) in cat.HYEONCHIM_BRANCHES:
             out.append(("현침", "health_risk", pos, f"{p.stem}{p.branch} 현침 글자"))
 
+    # 공망 (일주 旬 기준 공망 지지가 다른 주에 있을 때)
+    void = set(pillars.gongmang_branches)
+    for pos, p in positions:
+        if pos != "day" and p.branch in void:
+            out.append(("공망", "miscellaneous", pos, f"일주 기준 공망 {p.branch}"))
+
     # 귀문관살 / 원진 (두 지지 쌍)
     for i in range(len(positions)):
         for j in range(i + 1, len(positions)):

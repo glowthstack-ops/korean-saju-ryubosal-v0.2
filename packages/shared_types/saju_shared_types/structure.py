@@ -42,6 +42,7 @@ class StructureAnalysis(BaseModel):
     amplifiers: list[StructuralInteraction] = Field(default_factory=list)  # 병존/간여지동
     stability: StabilityScores
     volatility_score: float
+    gongmang: dict = Field(default_factory=dict)  # 공망: empty_branches / affected_positions
     structure_modifier: float
     structure_modifier_breakdown: list[str] = Field(default_factory=list)
     calculation_trace: dict = Field(default_factory=dict)

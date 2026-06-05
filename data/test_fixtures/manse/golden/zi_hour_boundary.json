@@ -1,0 +1,24 @@
+{
+  "name": "zi_hour_boundary",
+  "input": {
+    "calendar_type": "solar",
+    "birth_date": "1980-11-22",
+    "birth_time": "23:30",
+    "birth_place_name": "서울",
+    "gender": "male"
+  },
+  "expected": {
+    "year_pillar": "庚申",
+    "month_pillar": "丁亥",
+    "day_pillar": "庚子",
+    "hour_pillar": "丙子",
+    "day_master": "庚",
+    "timezone_offset_minutes": 540,
+    "daylight_saving_applied": false,
+    "local_time_status": "valid",
+    "hour_pillar_changed_by_true_solar_time": false,
+    "lunar_converted_solar_date": null,
+    "strength_band": "신약",
+    "geokguk_main_structure": "식신격"
+  }
+}

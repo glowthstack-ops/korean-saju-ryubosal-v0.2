@@ -200,6 +200,18 @@ def analyze_structure(
         pillars, relations, day_master, root_positions, gongmang_branches, transformed
     )
 
+    void = set(gongmang_branches)
+    affected = [
+        pos for pos in ("year", "month", "day", "hour")
+        if getattr(pillars, pos) is not None and getattr(pillars, pos).branch in void
+    ]
+    gongmang = {
+        "empty_branches": list(gongmang_branches),
+        "affected_positions": affected,
+        "affected_palaces": [_PALACE[p] for p in affected if p in _PALACE],
+        "activation_note": "원국 공망은 배경값이며 대운·세운·운에서 충/합으로 자극될 때 발동 가능.",
+    }
+
     analysis = StructureAnalysis(
         interactions=interactions,
         transformed_candidates=transformed,
@@ -207,6 +219,7 @@ def analyze_structure(
         amplifiers=amplifiers,
         stability=stability,
         volatility_score=volatility,
+        gongmang=gongmang,
         structure_modifier=modifier,
         structure_modifier_breakdown=breakdown,
         calculation_trace={

@@ -1,0 +1,24 @@
+{
+  "name": "korea_seoul_1980_11_22",
+  "input": {
+    "calendar_type": "solar",
+    "birth_date": "1980-11-22",
+    "birth_time": "09:08",
+    "birth_place_name": "서울",
+    "gender": "male"
+  },
+  "expected": {
+    "year_pillar": "庚申",
+    "month_pillar": "丁亥",
+    "day_pillar": "己亥",
+    "hour_pillar": "戊辰",
+    "day_master": "己",
+    "timezone_offset_minutes": 540,
+    "daylight_saving_applied": false,
+    "local_time_status": "valid",
+    "hour_pillar_changed_by_true_solar_time": true,
+    "lunar_converted_solar_date": null,
+    "strength_band": "신약",
+    "geokguk_main_structure": "정재격"
+  }
+}

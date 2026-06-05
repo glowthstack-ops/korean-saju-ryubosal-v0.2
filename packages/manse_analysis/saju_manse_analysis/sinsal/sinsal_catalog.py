@@ -42,6 +42,7 @@ CATALOG_META: dict[str, dict] = {
     "현침": {"category": "health_risk", "polarity": "caution", "tags": ["바늘", "수술", "예리"]},
     "귀문관살": {"category": "isolation_conflict", "polarity": "caution", "tags": ["예민", "직관"]},
     "원진": {"category": "isolation_conflict", "polarity": "caution", "tags": ["반목", "원망"]},
+    "공망": {"category": "miscellaneous", "polarity": "caution", "tags": ["공허", "무력화"]},
 }
 
 ALL_CATEGORIES = [

@@ -302,7 +302,7 @@ blocker 단위테스트(寅亥 육합 + 寅申 충) 및 격국 self_punished rea
 
 ### 검증 (Golden Fixture)
 - 18개 신살. 천을귀인@년(己→申), 12신살 申=지살·亥=망신살(월·일 반복→very_high)·辰=화개살,
-  귀문관살/원진(辰亥), 백호(戊辰 아님-검증), 납음(庚申=석류목) 등.
+  귀문관살/원진(辰亥), 백호(시주 戊辰 인정 — 백호대살 7종에 戊辰 포함), 납음(庚申=석류목) 등.
 - 신살이 신강약(신약 26.51)·용신(土)·격국(정재격)을 바꾸지 않음을 테스트로 고정.
 - 시간모름 → 시주 신살 미생성. pytest **98 pass** · `mypy .` clean(85파일) · ruff clean.
 
@@ -313,3 +313,36 @@ calibration/traditional_extras 모두 산출. (만세력 UI = apps/web는 백엔
 ### 결정/연기
 - 신살 catalog은 default 표(유파 차이는 config 교체 전제). 추가 신살(공망살 등 별도 표기)은
   필요 시 확장. 신살의 대운/세운 활성화(운에서의 신살)는 후속.
+
+---
+
+## Phase 6 — 회귀 고정 + 공망 보강 ✅
+
+검증 명세(`saju_v2_stable_engine_validation_spec`)의 골든 픽스처/스냅샷/실패테스트 반영.
+
+- **골든 회귀 하니스**(`tests/regression/test_golden_snapshots.py` + `data/.../golden/*.json`):
+  korea_seoul_1980 / japan_tokyo / us_newyork_dst / uk_london_bst / india_half_offset /
+  australia_dst / zi_hour_boundary / lunar_leap_month — 핵심 간지·일간·tz offset·DST·
+  진태양시 시주변화·윤달변환·신강약 band·격국을 lock. 각 케이스 **결정론(동일 JSON)** +
+  버전(engine/solar_terms/tzdata)·trace 필드 존재 검증.
+  - 행동 가드: DST 케이스 실제 DST 적용(무시 시 실패), 자시경계 23:30 → 일주 己亥→庚子.
+- **공망 first-class 보강**(감사 후속): `StructureAnalysis.gongmang`(empty_branches·
+  affected_positions·affected_palaces·activation_note) + **공망살**을 신살 full_list에 표시
+  (miscellaneous, use_for_yongsin_decision=False).
+- **공망 정책 회귀**(`tests/unit/test_gongmang_policy.py`): 공망 글자 분포 유지(제거 금지)·
+  월지 공망→격국 패+month_branch_void 사유·신강약 -2 보정·공망살 표시. 기존 분포/신살/
+  신강약/confidence의 공망 반영은 이전 단계에서 이미 구현됨을 회귀로 고정.
+- 백호 문구 정정: 시주 戊辰은 백호대살 7종에 포함 → 인정이 의도(WORKLOG 정정).
+
+### 검증
+- pytest **120 pass**(unit/regression/integration) · `mypy .` clean(87파일) · ruff clean.
+- 골든 8케이스 결정론·버전·trace·tz/DST 동작 고정.
+
+### 연기(후속, 명세 §운/공망)
+- 오행/십성 effective 분포의 void_modifier(분포 trace deferred) 정밀 반영.
+- 대운·세운·운에서의 공망 발동/해소(gongmang_activation) 분석.
+- 만세력 UI(apps/web)는 백엔드 우선 결정으로 보류.
+
+### Phase 6 = 백엔드 엔진 마일스톤 완료
+명세 인덱스 Phase 0–6의 백엔드 범위 완료(UI 제외). ManseV2Result 10개 레이어 전부 산출 +
+지역/DST/윤달/자시/공망 회귀 고정.

@@ -1,0 +1,27 @@
+{
+  "name": "india_half_offset",
+  "input": {
+    "calendar_type": "solar",
+    "birth_date": "1990-01-01",
+    "birth_time": "10:00",
+    "birth_place_name": "Kolkata",
+    "latitude": 22.5726,
+    "longitude": 88.3639,
+    "timezone": "Asia/Kolkata",
+    "gender": "male"
+  },
+  "expected": {
+    "year_pillar": "己巳",
+    "month_pillar": "丙子",
+    "day_pillar": "丙寅",
+    "hour_pillar": "癸巳",
+    "day_master": "丙",
+    "timezone_offset_minutes": 330,
+    "daylight_saving_applied": false,
+    "local_time_status": "valid",
+    "hour_pillar_changed_by_true_solar_time": false,
+    "lunar_converted_solar_date": null,
+    "strength_band": "중화",
+    "geokguk_main_structure": "정관격"
+  }
+}

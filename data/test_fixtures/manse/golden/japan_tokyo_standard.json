@@ -1,0 +1,24 @@
+{
+  "name": "japan_tokyo_standard",
+  "input": {
+    "calendar_type": "solar",
+    "birth_date": "1985-03-15",
+    "birth_time": "14:30",
+    "birth_place_name": "Tokyo",
+    "gender": "male"
+  },
+  "expected": {
+    "year_pillar": "乙丑",
+    "month_pillar": "己卯",
+    "day_pillar": "癸丑",
+    "hour_pillar": "己未",
+    "day_master": "癸",
+    "timezone_offset_minutes": 540,
+    "daylight_saving_applied": false,
+    "local_time_status": "valid",
+    "hour_pillar_changed_by_true_solar_time": false,
+    "lunar_converted_solar_date": null,
+    "strength_band": "신약",
+    "geokguk_main_structure": "식신격"
+  }
+}

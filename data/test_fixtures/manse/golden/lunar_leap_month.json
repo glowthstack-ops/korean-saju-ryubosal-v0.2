@@ -1,0 +1,25 @@
+{
+  "name": "lunar_leap_month",
+  "input": {
+    "calendar_type": "lunar",
+    "is_leap_month": true,
+    "birth_date": "2020-04-15",
+    "birth_time": "10:00",
+    "birth_place_name": "서울",
+    "gender": "male"
+  },
+  "expected": {
+    "year_pillar": "庚子",
+    "month_pillar": "壬午",
+    "day_pillar": "庚辰",
+    "hour_pillar": "辛巳",
+    "day_master": "庚",
+    "timezone_offset_minutes": 540,
+    "daylight_saving_applied": false,
+    "local_time_status": "valid",
+    "hour_pillar_changed_by_true_solar_time": false,
+    "lunar_converted_solar_date": "2020-06-06",
+    "strength_band": "중화신약",
+    "geokguk_main_structure": "정관격"
+  }
+}
