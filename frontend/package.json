@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "rm -rf .next",
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "NEXT_DIST_DIR=.next-prod next build",
+    "start": "NEXT_DIST_DIR=.next-prod next start",
+    "clean": "rm -rf .next .next-prod node_modules/.cache",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
