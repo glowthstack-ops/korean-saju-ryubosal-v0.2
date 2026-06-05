@@ -22,6 +22,18 @@ export function elementLabel(element: string | null | undefined): string {
   return `${element}(${ELEMENT_KO[element] ?? ""})`;
 }
 
+// 천간 음양(陰陽). 지지는 본기(정기) 지장간의 음양으로 표기한다(체용 기준: 巳=양화, 亥=양수).
+export const STEM_YINYANG: Record<string, "양" | "음"> = {
+  "甲": "양", "乙": "음", "丙": "양", "丁": "음", "戊": "양",
+  "己": "음", "庚": "양", "辛": "음", "壬": "양", "癸": "음",
+};
+
+// 양 → "+", 음 → "−".
+export function yinyangSign(stem: string): string {
+  const y = STEM_YINYANG[stem];
+  return y === "양" ? "+" : y === "음" ? "−" : "";
+}
+
 const STEM_KO: Record<string, string> = {
   "甲": "갑", "乙": "을", "丙": "병", "丁": "정", "戊": "무",
   "己": "기", "庚": "경", "辛": "신", "壬": "임", "癸": "계",

@@ -1,14 +1,25 @@
-import { elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
+import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo, yinyangSign } from "@/lib/elements";
 import type { ManseResult, Pillar } from "@/lib/types";
 
-function Cell({ char, ko, element, sub }: { char: string; ko: string; element: string; sub: string }) {
+function Cell(
+  { char, ko, element, mark, sub }:
+  { char: string; ko: string; element: string; mark: string; sub: string },
+) {
   return (
     <div className={`rounded p-2 text-center ${elementStyle(element)}`}>
-      <div className="text-2xl font-bold leading-none">{char}</div>
+      <div className="flex items-start justify-center gap-0.5">
+        <span className="text-2xl font-bold leading-none">{char}</span>
+        <span className="mt-0.5 text-[9px] opacity-80">{mark}</span>
+      </div>
       <div className="text-[11px] opacity-80">{ko}</div>
       <div className="mt-1 text-[11px]">{sub}</div>
     </div>
   );
+}
+
+// 지지 음양 표기는 본기(정기) 지장간 기준. 없으면 첫 지장간으로 폴백.
+function _mainHidden(p: Pillar): string {
+  return (p.hidden_stems.find((h) => h.type === "main") ?? p.hidden_stems[0])?.stem ?? "";
 }
 
 function Column({ title, p }: { title: string; p: Pillar | null }) {
@@ -28,8 +39,16 @@ function Column({ title, p }: { title: string; p: Pillar | null }) {
         {p.gongmang_hit && <span className="ml-1 rounded bg-gray-200 px-1 text-[10px]">공망</span>}
       </div>
       <div className="space-y-1">
-        <Cell char={p.stem} ko={ganjiKo(p.stem)} element={p.stem_element} sub={p.stem_ten_god} />
-        <Cell char={p.branch} ko={ganjiKo(p.branch)} element={p.branch_element} sub={p.branch_main_ten_god} />
+        <Cell
+          char={p.stem} ko={ganjiKo(p.stem)} element={p.stem_element}
+          mark={`${yinyangSign(p.stem)}${ELEMENT_KO[p.stem_element] ?? ""}`}
+          sub={p.stem_ten_god}
+        />
+        <Cell
+          char={p.branch} ko={ganjiKo(p.branch)} element={p.branch_element}
+          mark={`${yinyangSign(_mainHidden(p))}${ELEMENT_KO[p.branch_element] ?? ""}`}
+          sub={p.branch_main_ten_god}
+        />
       </div>
       <div className="mt-2 text-center text-[11px] text-gray-600">{p.twelve_unseong}</div>
       <div className="mt-1 text-center text-[10px] text-gray-500">
