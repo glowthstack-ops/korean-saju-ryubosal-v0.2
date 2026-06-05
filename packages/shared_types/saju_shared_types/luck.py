@@ -30,8 +30,9 @@ class LuckPillar(BaseModel):
 class DaewoonItem(BaseModel):
     index: int
     start_age: int
-    start_date: date
-    end_date: date
+    # 정수 나이 기반 근사 교운일(생일 기준). 정밀 교운일시는 LuckCycles.trace 참조.
+    approx_start_date: date
+    approx_end_date: date
     ganji: str
     stem: str
     branch: str

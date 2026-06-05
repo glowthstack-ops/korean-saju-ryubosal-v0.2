@@ -74,6 +74,20 @@ def _relations_to_chart(stem: Stem, branch: Branch, pillars: FourPillarsResult) 
     return out
 
 
+def _transformed_elements(branch: Branch, pillars: FourPillarsResult) -> list[str]:
+    """운 지지가 원국과 육합/삼합으로 만들어내는 변환 오행(target element)."""
+    natal_branches = [Branch(p.branch) for p in _natal(pillars)]
+    out: set[str] = set()
+    for nb in natal_branches:
+        key = frozenset({branch, nb})
+        if branch != nb and key in SIX_COMBINATIONS:
+            out.add(str(SIX_COMBINATIONS[key]))
+    for members, element, _royal in THREE_HARMONY:
+        if branch in members and (members - {branch}) & set(natal_branches):
+            out.add(str(element))
+    return sorted(out)
+
+
 def _natal(pillars: FourPillarsResult) -> list:
     items = [pillars.year, pillars.month, pillars.day]
     if pillars.hour is not None:
@@ -141,18 +155,20 @@ def compute_luck_cycles(
     start_age = max(int(round(start_exact)), 0)
 
     daewoon: list[DaewoonItem] = []
+    exact_jiao_un: list[str] = []
     for i in range(9):
         stem, branch = ganzi_from_index(month_idx + step * (i + 1))
         age = start_age + 10 * i
         sdate = _add_years(birth_date, age)
         edate = _add_years(birth_date, age + 10)
+        # 정밀 교운일시(소수 나이 기반): 출생 절대시각 + (정확 시작나이 + 10i)년.
+        exact_dt = absolute_instant + timedelta(days=(start_exact + 10 * i) * 365.2425)
+        exact_jiao_un.append(exact_dt.date().isoformat())
         rels = _relations_to_chart(stem, branch, pillars)
         raw = sorted({str(STEM_ELEMENT[stem]), str(BRANCH_ELEMENT[branch])})
-        transformed = sorted(
-            {r.split(":")[1] for r in rels if r.startswith(("육합", "삼합기여"))}
-        )
+        transformed = _transformed_elements(branch, pillars)
         daewoon.append(DaewoonItem(
-            index=i, start_age=age, start_date=sdate, end_date=edate,
+            index=i, start_age=age, approx_start_date=sdate, approx_end_date=edate,
             ganji=f"{stem}{branch}", stem=str(stem), branch=str(branch),
             stem_ten_god=str(ten_god(dm, stem)),
             branch_ten_god=str(ten_god(dm, main_hidden_stem(branch))),
@@ -169,7 +185,12 @@ def compute_luck_cycles(
         start_age=start_age,
         start_age_exact=round(start_exact, 3),
         daewoon_table=daewoon,
-        trace={"rule": "3일=1년 절기거리", "month_pillar_index": month_idx},
+        trace={
+            "rule": "3일=1년 절기거리",
+            "month_pillar_index": month_idx,
+            "exact_jiao_un_dates": exact_jiao_un,
+            "approx_date_note": "approx_*_date는 정수나이 기반 근사; 정밀일은 exact_jiao_un_dates",
+        },
     )
 
     if reference_date is not None:

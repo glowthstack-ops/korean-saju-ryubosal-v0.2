@@ -19,7 +19,19 @@ def test_daewoon_table_forward() -> None:
     assert lc.daewoon_table[1].ganji == "己丑"
     first = lc.daewoon_table[0]
     assert first.first_half_focus == "stem" and first.second_half_focus == "branch"
-    assert (first.end_date.year - first.start_date.year) == 10
+    assert (first.approx_end_date.year - first.approx_start_date.year) == 10
+
+
+def test_daewoon_transformed_elements_are_real_elements() -> None:
+    # transformed_elements 에는 오행(木火土金水)만 들어가야 한다(쌍 문자열 금지).
+    r = calculate(BirthInput(gender="male", **_BASE))
+    lc = r.luck_cycles
+    assert lc is not None
+    valid = {"木", "火", "土", "金", "水"}
+    for d in lc.daewoon_table:
+        assert all(e in valid for e in d.transformed_elements)
+    # 정밀 교운일시가 trace에 남는다.
+    assert len(lc.trace["exact_jiao_un_dates"]) == 9
 
 
 def test_daewoon_direction_backward_for_yang_year_female() -> None:

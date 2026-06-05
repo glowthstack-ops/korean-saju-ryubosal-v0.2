@@ -216,3 +216,13 @@ blocker 단위테스트(寅亥 육합 + 寅申 충) 및 격국 self_punished rea
 ### 결정/연기
 - 운의 transformed 오행은 육합/삼합기여 기반 경량 산출(합화 confidence 정밀화는 후속).
 - luck_effect의 정밀 정렬 점수(yongsin_alignment_score 수치)는 4c 검증 루프에서 활용 시 보강.
+
+### Phase 4b.1 — 감사(codex) 보완 ✅
+1. **대운 transformed_elements 버그 수정**: `육합:子-丑` 문자열을 `split(":")[1]`로 넣어
+   오행 아닌 쌍(子-丑)이 들어가던 문제 → `_transformed_elements()` 신설, SIX_COMBINATIONS의
+   target 오행 + 삼합 target만 넣도록 수정(戊子→水, 庚寅→木 등 검증).
+2. **대운 start_date 표현 정정**: `start_date/end_date` → **`approx_start_date/approx_end_date`**
+   (정수 나이 기반 근사임을 명시). 정밀 교운일시는 `LuckCycles.trace.exact_jiao_un_dates`에
+   별도 보관(출생 절대시각 + 정확 시작나이년). 1985-11-17 등.
+
+검증: **pytest 88 pass** · `mypy .` clean(79파일) · ruff clean.
