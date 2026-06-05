@@ -34,6 +34,7 @@ from .pillars import FourPillarsResult, HiddenStem, Pillar
 from .sinsal import SinsalAnalysis, SinsalItem, TraditionalExtras
 from .structure import (
     GeokgukResult,
+    GongmangAnalysis,
     StabilityScores,
     StructuralInteraction,
     StructureAnalysis,
@@ -73,6 +74,7 @@ __all__ = [
     "SolarTermBasis",
     "TimeCorrectionResult",
     "GeokgukResult",
+    "GongmangAnalysis",
     "StabilityScores",
     "StructuralInteraction",
     "StructureAnalysis",

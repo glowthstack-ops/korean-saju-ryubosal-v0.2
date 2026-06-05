@@ -80,7 +80,9 @@ def compute(
     m_stem, m_branch, prev_term, next_term = month_pillar(absolute_instant, y_stem, table)
     d_stem, d_branch = day_pillar(final_local, day_boundary_rule, ja_hour_rule)
 
-    gongmang = set(gongmang_branches(d_stem, d_branch))
+    # 일공망(旬 기준) — 반환 순서를 canonical로 유지(set은 membership 전용).
+    gongmang_list = gongmang_branches(d_stem, d_branch)
+    gongmang = set(gongmang_list)
 
     year_p = build_pillar(d_stem, y_stem, y_branch, "year", gongmang)
     month_p = build_pillar(d_stem, m_stem, m_branch, "month", gongmang)
@@ -119,7 +121,7 @@ def compute(
         day=day_p,
         hour=hour_p,
         day_master=str(d_stem),
-        gongmang_branches=[str(b) for b in gongmang],
+        gongmang_branches=[str(b) for b in gongmang_list],
         trace=trace,
         warnings=warnings,
     )

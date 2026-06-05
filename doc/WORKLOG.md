@@ -346,3 +346,17 @@ calibration/traditional_extras 모두 산출. (만세력 UI = apps/web는 백엔
 ### Phase 6 = 백엔드 엔진 마일스톤 완료
 명세 인덱스 Phase 0–6의 백엔드 범위 완료(UI 제외). ManseV2Result 10개 레이어 전부 산출 +
 지역/DST/윤달/자시/공망 회귀 고정.
+
+### Phase 6.1 — 감사(codex) 보완 + 공망 정책 변경 ✅
+- **Blocker(hash-seed 비결정성) 수정**: `four_pillars`/`conftest`에서 `gongmang_branches()`의
+  순서 있는 결과를 set→list로 되돌려 순서가 PYTHONHASHSEED에 따라 흔들리던 문제 →
+  **canonical list 유지**(set은 membership 전용). pytest seed 0/1/2 모두 121 pass.
+  **cross-process 결정성 테스트**(PYTHONHASHSEED 1 vs 2 subprocess JSON 동일) 추가.
+- **공망을 신살과 분리**(사용자 지시): 신살 catalog/full_list에서 공망 제거 →
+  `StructureAnalysis.gongmang`를 **타입 모델 `GongmangAnalysis`로 승격**(dict→model).
+- **일공망 중심·년공망 참조**(사용자 지시): `day_basis_empty_branches`(중심, 신강약/격국
+  보정에 사용) + `year_basis_empty_branches`(참조정보, 점수 미사용) 분리. primary_basis="day".
+  1980: 일공망 辰巳 / 년공망 子丑(참조).
+
+검증: pytest **121 pass**(seed 0/1/2 동일) · `mypy .` clean(87파일) · ruff clean ·
+cross-process 결정성 가드 추가.

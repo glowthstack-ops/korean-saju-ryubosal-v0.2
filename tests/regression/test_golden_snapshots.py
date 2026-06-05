@@ -8,6 +8,9 @@ required reproducibility fields.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -72,6 +75,25 @@ def test_dst_cases_actually_apply_dst() -> None:
         r = calculate(BirthInput(**fx["input"]))
         assert r.time_correction is not None
         assert r.time_correction.daylight_saving_applied is True
+
+
+def test_cross_process_hashseed_determinism() -> None:
+    # 서로 다른 PYTHONHASHSEED에서도 동일 JSON이어야 한다(set→list 순서 누수 가드).
+    code = (
+        "from saju_api.services.manse_service import calculate;"
+        "from saju_shared_types.birth_input import BirthInput;"
+        "print(calculate(BirthInput(calendar_type='solar',birth_date='1980-11-22',"
+        "birth_time='09:08',birth_place_name='서울',gender='male')).model_dump_json())"
+    )
+
+    def run(seed: str) -> str:
+        env = {**os.environ, "PYTHONHASHSEED": seed}
+        out = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, env=env, check=True
+        )
+        return out.stdout
+
+    assert run("1") == run("2")
 
 
 def test_zi_hour_boundary_rolls_day_pillar() -> None:

@@ -35,6 +35,18 @@ class StabilityScores(BaseModel):
     root_stability: float
 
 
+class GongmangAnalysis(BaseModel):
+    """공망 분석 (신살과 별개 레이어). 일공망(日 기준)을 중심으로, 년공망(年 기준)은 참조."""
+
+    day_basis_empty_branches: list[str] = Field(default_factory=list)  # 일공망 (중심)
+    day_affected_positions: list[str] = Field(default_factory=list)
+    day_affected_palaces: list[str] = Field(default_factory=list)
+    year_basis_empty_branches: list[str] = Field(default_factory=list)  # 년공망 (참조)
+    year_affected_positions: list[str] = Field(default_factory=list)
+    primary_basis: str = "day"  # 일공망 중심
+    activation_note: str = ""
+
+
 class StructureAnalysis(BaseModel):
     interactions: list[StructuralInteraction]
     transformed_candidates: list[TransformationCheck] = Field(default_factory=list)
@@ -42,7 +54,7 @@ class StructureAnalysis(BaseModel):
     amplifiers: list[StructuralInteraction] = Field(default_factory=list)  # 병존/간여지동
     stability: StabilityScores
     volatility_score: float
-    gongmang: dict = Field(default_factory=dict)  # 공망: empty_branches / affected_positions
+    gongmang: GongmangAnalysis | None = None
     structure_modifier: float
     structure_modifier_breakdown: list[str] = Field(default_factory=list)
     calculation_trace: dict = Field(default_factory=dict)

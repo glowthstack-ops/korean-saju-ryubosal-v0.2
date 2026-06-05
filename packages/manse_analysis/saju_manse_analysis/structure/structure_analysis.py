@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from saju_manse_core.pillars.gongmang import gongmang_branches
 from saju_manse_core.relations import Relation
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
@@ -20,6 +21,7 @@ from saju_shared_types.constants import (
 from saju_shared_types.enums import Branch, Element, Stem, TenGod
 from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.structure import (
+    GongmangAnalysis,
     StabilityScores,
     StructuralInteraction,
     StructureAnalysis,
@@ -200,17 +202,7 @@ def analyze_structure(
         pillars, relations, day_master, root_positions, gongmang_branches, transformed
     )
 
-    void = set(gongmang_branches)
-    affected = [
-        pos for pos in ("year", "month", "day", "hour")
-        if getattr(pillars, pos) is not None and getattr(pillars, pos).branch in void
-    ]
-    gongmang = {
-        "empty_branches": list(gongmang_branches),
-        "affected_positions": affected,
-        "affected_palaces": [_PALACE[p] for p in affected if p in _PALACE],
-        "activation_note": "원국 공망은 배경값이며 대운·세운·운에서 충/합으로 자극될 때 발동 가능.",
-    }
+    gongmang = _gongmang_analysis(pillars, gongmang_branches)
 
     analysis = StructureAnalysis(
         interactions=interactions,
@@ -228,6 +220,36 @@ def analyze_structure(
         },
     )
     return StructureBundle(analysis, modifier, relation_stability)
+
+
+def _affected_positions(pillars: FourPillarsResult, void: set[str]) -> list[str]:
+    return [
+        pos for pos in ("year", "month", "day", "hour")
+        if getattr(pillars, pos) is not None and getattr(pillars, pos).branch in void
+    ]
+
+
+def _gongmang_analysis(
+    pillars: FourPillarsResult, day_basis: list[str]
+) -> GongmangAnalysis:
+    """일공망(중심) + 년공망(참조). 일공망만 신강약/격국 보정에 사용한다."""
+    year_basis = [
+        str(b) for b in gongmang_branches(Stem(pillars.year.stem), Branch(pillars.year.branch))
+    ]
+    day_void, year_void = set(day_basis), set(year_basis)
+    day_affected = _affected_positions(pillars, day_void)
+    return GongmangAnalysis(
+        day_basis_empty_branches=list(day_basis),
+        day_affected_positions=day_affected,
+        day_affected_palaces=[_PALACE[p] for p in day_affected if p in _PALACE],
+        year_basis_empty_branches=year_basis,
+        year_affected_positions=_affected_positions(pillars, year_void),
+        primary_basis="day",
+        activation_note=(
+            "일공망 중심. 년공망은 참조. 원국 공망은 배경값이며 "
+            "대운·세운·운에서 충/합으로 자극될 때 발동 가능."
+        ),
+    )
 
 
 def _structure_modifier(

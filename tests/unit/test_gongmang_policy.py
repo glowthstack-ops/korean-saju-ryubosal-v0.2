@@ -1,4 +1,4 @@
-"""공망 정책 회귀: 분포 유지 / 월지 공망 패격 / 신강약 보정 / 신살 강도·표시."""
+"""공망 정책 회귀: 분포 유지 / 월지 공망 패격 / 신강약 보정 / 신살과 분리 표시."""
 
 from __future__ import annotations
 
@@ -17,15 +17,19 @@ def _void_chart(make_pillars):
 
 def test_gongmang_does_not_remove_element_from_distribution(make_pillars) -> None:
     ca = analyze_chart(_void_chart(make_pillars))
-    # 旬 공망은 戌亥, 戌(토)가 공망이어도 오행분포에서 토가 제거되지 않는다(정책).
-    assert ca.structure.gongmang["empty_branches"] == ["戌", "亥"]
+    g = ca.structure.gongmang
+    assert g is not None
+    # 일공망(旬 戌亥) — canonical 순서 고정. 戌(토)가 공망이어도 토는 분포에서 유지.
+    assert g.day_basis_empty_branches == ["戌", "亥"]
     assert ca.force.five_elements.effective_force["土"] > 0
 
 
 def test_month_void_marks_geokguk_pae(make_pillars) -> None:
     ca = analyze_chart(_void_chart(make_pillars))
-    assert "戌" in ca.structure.gongmang["empty_branches"]
-    assert "month" in ca.structure.gongmang["affected_positions"]
+    g = ca.structure.gongmang
+    assert g is not None
+    assert "戌" in g.day_basis_empty_branches
+    assert "month" in g.day_affected_positions
     assert ca.geokguk.formation_level == "패"
     assert "month_branch_void" in ca.geokguk.stability["reasons"]
 
@@ -35,9 +39,13 @@ def test_void_applies_strength_modifier(make_pillars) -> None:
     assert "month_branch_void:-2" in ca.structure.structure_modifier_breakdown
 
 
-def test_gongmang_listed_as_sinsal_with_context(make_pillars) -> None:
+def test_gongmang_is_separate_layer_not_a_sinsal(make_pillars) -> None:
     ca = analyze_chart(_void_chart(make_pillars))
+    # 공망은 신살 목록에 포함되지 않고 별도 레이어로 표시된다.
     assert ca.traditional.sinsal is not None
-    gm = [it for it in ca.traditional.sinsal.full_list if it.name == "공망"]
-    assert any(it.position == "month" for it in gm)
-    assert all(it.use_for_yongsin_decision is False for it in gm)
+    assert "공망" not in {it.name for it in ca.traditional.sinsal.full_list}
+    # 일공망 중심, 년공망은 참조정보.
+    g = ca.structure.gongmang
+    assert g is not None
+    assert g.primary_basis == "day"
+    assert g.day_basis_empty_branches and isinstance(g.year_basis_empty_branches, list)

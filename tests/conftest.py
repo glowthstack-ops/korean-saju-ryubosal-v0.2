@@ -25,14 +25,15 @@ def make_pillars() -> Callable[..., FourPillarsResult]:
         hour: PillarSpec,
         dm: Stem,
     ) -> FourPillarsResult:
-        g = set(gongmang_branches(dm, day[1]))
+        glist = gongmang_branches(dm, day[1])
+        g = set(glist)
         return FourPillarsResult(
             year=build_pillar(dm, year[0], year[1], "year", g),
             month=build_pillar(dm, month[0], month[1], "month", g),
             day=build_pillar(dm, day[0], day[1], "day", g),
             hour=build_pillar(dm, hour[0], hour[1], "hour", g),
             day_master=str(dm),
-            gongmang_branches=[str(b) for b in g],
+            gongmang_branches=[str(b) for b in glist],
         )
 
     return _make
