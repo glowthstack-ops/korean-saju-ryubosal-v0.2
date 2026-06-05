@@ -35,9 +35,9 @@ def test_hidden_wood_present(force) -> None:
     assert force.five_elements.effective_force["木"] > 0.0
 
 
-def test_effective_strongest_is_water(force) -> None:
-    # 일반시(己巳) 차트: 재성 水가 최강(월률분야 일수 budget 적용 후에도 유지).
+def test_effective_strongest_is_water_and_excessive(force) -> None:
     assert force.five_elements.strongest_element == "水"
+    assert "水" in force.five_elements.excessive_elements
 
 
 def test_effective_percent_normalized(force) -> None:
@@ -78,12 +78,11 @@ def test_element_distribution_trace_records_modifiers(force) -> None:
 def test_effective_percent_exact_lock(force) -> None:
     # 버그픽스 회귀 고정: 예전 과대 산식(亥중甲 0.6 + 글로벌 계절보정)이 돌아오면 실패해야.
     eff = force.five_elements.effective_percent
-    # 월률분야 일수 budget(생지 7:7:16, 亥 여기 戊 등) 반영 후 고정값.
-    assert eff["木"] == pytest.approx(10.32, abs=0.2)
-    assert eff["火"] == pytest.approx(18.10, abs=0.2)
-    assert eff["土"] == pytest.approx(24.72, abs=0.2)
-    assert eff["金"] == pytest.approx(17.07, abs=0.2)
-    assert eff["水"] == pytest.approx(29.79, abs=0.2)
+    assert eff["木"] == pytest.approx(8.73, abs=0.2)  # 19.48→교정(budget+표준 지장간)
+    assert eff["火"] == pytest.approx(19.92, abs=0.2)
+    assert eff["土"] == pytest.approx(15.44, abs=0.2)  # 8.72→교정(亥戊 여기 뿌리 반영)
+    assert eff["金"] == pytest.approx(18.39, abs=0.2)
+    assert eff["水"] == pytest.approx(37.52, abs=0.2)
 
 
 def test_visible_is_simple_surface_count_not_weighted(force) -> None:

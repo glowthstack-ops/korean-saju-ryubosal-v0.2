@@ -529,3 +529,10 @@ cross-process 결정성 가드 추가.
   金17.07·水29.79(水 최강 유지).
 - 골든: uk 극신강→태신강, zi_hour 신약→중화신약. effective lock·sinsal·fixture·yongsin 스냅샷 갱신.
 검증: backend **136 pass**·ruff·mypy clean / frontend 7 pass·build OK.
+
+### 정정 — 비중 계산에서 일수 budget 제거(자리별 가중치만 유지) ✅
+직전 '월률분야 일수 budget' 적용이 사용자 의도와 달랐음. 오행/십성 **비중 계산은 지장간에
+자리별(위치) 가중치(BRANCH_POS_WEIGHT)만** 적용하고, 지지 내 본/중/여는 구조적 budget으로 나눈다.
+일수(7:7:16 등)는 비중 산식에 곱하지 않는다(표시·사령 참고 표준으로만 보관).
+- constants/테스트/골든을 일수 이전(d6c032c, count-budget) 계산 상태로 복구.
+- 프론트 '표면+실세력 병표'는 유지. 검증: backend 136 pass·clean / frontend build OK.

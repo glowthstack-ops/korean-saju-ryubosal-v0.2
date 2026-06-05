@@ -92,88 +92,95 @@ CONTROLS: dict[Element, Element] = {
 }
 
 # ---------------------------------------------------------------------------
-# 지장간 (hidden stems): ordered residual(여기) → middle(중기) → main(정기).
-# 월률분야(月律分野) 일수 기반 — 한 지지 = 30일. budget = 일수/30 (지지별 합 = 1.0).
-# 채택 학파(doc/jijanggan_weolryulbunya_ratio.md):
-#   생지 寅申巳亥 = 7:7:16 / 고지 辰戌丑未 = 9:3:18 / 왕지 子卯酉 = 10:20 / 午(예외) = 10:10:10.
-#   亥 戊 인정(7:7:16). 자리별(위치) 가중치는 분포 계층에서 BRANCH_POS_WEIGHT로 별도 적용.
+# 지장간 (hidden stems): ordered residual → middle → main.
+# Pillar-layer weights sum to 1.0 per branch (single=1.0; two=0.75/0.25;
+# three=0.70/0.20/0.10). See saju_v2_pillar_calculation_spec.md.
 # ---------------------------------------------------------------------------
-_HIDDEN_DAYS: dict[Branch, list[tuple[Stem, HiddenStemType, int]]] = {
-    Branch.JA: [  # 子 = 壬10 癸20
-        (Stem.IM, HiddenStemType.RESIDUAL, 10),
-        (Stem.GYE, HiddenStemType.MAIN, 20),
+_HIDDEN_RAW: dict[Branch, list[tuple[Stem, HiddenStemType]]] = {
+    # 子 = 壬(여) 癸(정)
+    Branch.JA: [
+        (Stem.IM, HiddenStemType.RESIDUAL),
+        (Stem.GYE, HiddenStemType.MAIN),
     ],
-    Branch.CHUK: [  # 丑 = 癸9 辛3 己18
-        (Stem.GYE, HiddenStemType.RESIDUAL, 9),
-        (Stem.SIN, HiddenStemType.MIDDLE, 3),
-        (Stem.GI, HiddenStemType.MAIN, 18),
+    Branch.CHUK: [
+        (Stem.GYE, HiddenStemType.RESIDUAL),
+        (Stem.SIN, HiddenStemType.MIDDLE),
+        (Stem.GI, HiddenStemType.MAIN),
     ],
-    Branch.IN: [  # 寅 = 戊7 丙7 甲16
-        (Stem.MU, HiddenStemType.RESIDUAL, 7),
-        (Stem.BYEONG, HiddenStemType.MIDDLE, 7),
-        (Stem.GAP, HiddenStemType.MAIN, 16),
+    Branch.IN: [
+        (Stem.MU, HiddenStemType.RESIDUAL),
+        (Stem.BYEONG, HiddenStemType.MIDDLE),
+        (Stem.GAP, HiddenStemType.MAIN),
     ],
-    Branch.MYO: [  # 卯 = 甲10 乙20
-        (Stem.GAP, HiddenStemType.RESIDUAL, 10),
-        (Stem.EUL, HiddenStemType.MAIN, 20),
+    # 卯 = 甲(여) 乙(정)
+    Branch.MYO: [
+        (Stem.GAP, HiddenStemType.RESIDUAL),
+        (Stem.EUL, HiddenStemType.MAIN),
     ],
-    Branch.JIN: [  # 辰 = 乙9 癸3 戊18
-        (Stem.EUL, HiddenStemType.RESIDUAL, 9),
-        (Stem.GYE, HiddenStemType.MIDDLE, 3),
-        (Stem.MU, HiddenStemType.MAIN, 18),
+    Branch.JIN: [
+        (Stem.EUL, HiddenStemType.RESIDUAL),
+        (Stem.GYE, HiddenStemType.MIDDLE),
+        (Stem.MU, HiddenStemType.MAIN),
     ],
-    Branch.SA: [  # 巳 = 戊7 庚7 丙16
-        (Stem.MU, HiddenStemType.RESIDUAL, 7),
-        (Stem.GYEONG, HiddenStemType.MIDDLE, 7),
-        (Stem.BYEONG, HiddenStemType.MAIN, 16),
+    Branch.SA: [
+        (Stem.MU, HiddenStemType.RESIDUAL),
+        (Stem.GYEONG, HiddenStemType.MIDDLE),
+        (Stem.BYEONG, HiddenStemType.MAIN),
     ],
-    Branch.O: [  # 午(예외) = 丙10 己10 丁10
-        (Stem.BYEONG, HiddenStemType.RESIDUAL, 10),
-        (Stem.GI, HiddenStemType.MIDDLE, 10),
-        (Stem.JEONG, HiddenStemType.MAIN, 10),
+    # 午 = 丙(여) 己(중) 丁(정)
+    Branch.O: [
+        (Stem.BYEONG, HiddenStemType.RESIDUAL),
+        (Stem.GI, HiddenStemType.MIDDLE),
+        (Stem.JEONG, HiddenStemType.MAIN),
     ],
-    Branch.MI: [  # 未 = 丁9 乙3 己18
-        (Stem.JEONG, HiddenStemType.RESIDUAL, 9),
-        (Stem.EUL, HiddenStemType.MIDDLE, 3),
-        (Stem.GI, HiddenStemType.MAIN, 18),
+    Branch.MI: [
+        (Stem.JEONG, HiddenStemType.RESIDUAL),
+        (Stem.EUL, HiddenStemType.MIDDLE),
+        (Stem.GI, HiddenStemType.MAIN),
     ],
-    Branch.SIN: [  # 申 = 戊7 壬7 庚16
-        (Stem.MU, HiddenStemType.RESIDUAL, 7),
-        (Stem.IM, HiddenStemType.MIDDLE, 7),
-        (Stem.GYEONG, HiddenStemType.MAIN, 16),
+    Branch.SIN: [
+        (Stem.MU, HiddenStemType.RESIDUAL),
+        (Stem.IM, HiddenStemType.MIDDLE),
+        (Stem.GYEONG, HiddenStemType.MAIN),
     ],
-    Branch.YU: [  # 酉 = 庚10 辛20
-        (Stem.GYEONG, HiddenStemType.RESIDUAL, 10),
-        (Stem.SIN, HiddenStemType.MAIN, 20),
+    # 酉 = 庚(여) 辛(정)
+    Branch.YU: [
+        (Stem.GYEONG, HiddenStemType.RESIDUAL),
+        (Stem.SIN, HiddenStemType.MAIN),
     ],
-    Branch.SUL: [  # 戌 = 辛9 丁3 戊18
-        (Stem.SIN, HiddenStemType.RESIDUAL, 9),
-        (Stem.JEONG, HiddenStemType.MIDDLE, 3),
-        (Stem.MU, HiddenStemType.MAIN, 18),
+    Branch.SUL: [
+        (Stem.SIN, HiddenStemType.RESIDUAL),
+        (Stem.JEONG, HiddenStemType.MIDDLE),
+        (Stem.MU, HiddenStemType.MAIN),
     ],
-    Branch.HAE: [  # 亥 = 戊7 甲7 壬16 (戊 인정)
-        (Stem.MU, HiddenStemType.RESIDUAL, 7),
-        (Stem.GAP, HiddenStemType.MIDDLE, 7),
-        (Stem.IM, HiddenStemType.MAIN, 16),
+    # 亥 = 戊(여) 甲(중) 壬(정)
+    Branch.HAE: [
+        (Stem.MU, HiddenStemType.RESIDUAL),
+        (Stem.GAP, HiddenStemType.MIDDLE),
+        (Stem.IM, HiddenStemType.MAIN),
     ],
 }
 
-_MONTH_DAYS = 30  # 월률분야 기준일
+# Pillar-layer weights keyed by how many hidden stems the branch has.
+# 2지장간(왕지 子卯酉)은 정기(本氣)+여기(餘氣) 구성이므로 MIDDLE/RESIDUAL 모두 0.25로 둔다
+# (둘 중 실제 존재하는 보조기 하나만 쓰이며, 합은 항상 1.0).
+_PILLAR_WEIGHTS: dict[int, dict[HiddenStemType, float]] = {
+    1: {HiddenStemType.MAIN: 1.00},
+    2: {HiddenStemType.MAIN: 0.75, HiddenStemType.MIDDLE: 0.25, HiddenStemType.RESIDUAL: 0.25},
+    3: {HiddenStemType.MAIN: 0.70, HiddenStemType.MIDDLE: 0.20, HiddenStemType.RESIDUAL: 0.10},
+}
 
 
 def hidden_stems_for(branch: Branch) -> list[tuple[Stem, HiddenStemType, float]]:
-    """Return ``(stem, type, budget)`` per hidden stem — budget = 월률분야 일수/30 (합=1.0)."""
-    return [(stem, kind, days / _MONTH_DAYS) for stem, kind, days in _HIDDEN_DAYS[branch]]
-
-
-def hidden_stem_days(branch: Branch) -> list[tuple[Stem, HiddenStemType, int]]:
-    """Raw 월률분야 일수 (여기/중기/정기), 합 = 30."""
-    return list(_HIDDEN_DAYS[branch])
+    """Return ``(stem, type, pillar_weight)`` for each hidden stem of *branch*."""
+    raw = _HIDDEN_RAW[branch]
+    weights = _PILLAR_WEIGHTS[len(raw)]
+    return [(stem, kind, weights[kind]) for stem, kind in raw]
 
 
 def main_hidden_stem(branch: Branch) -> Stem:
     """본기 (main hidden stem) of *branch* — used for the branch's representative ten god."""
-    for stem, kind, _days in _HIDDEN_DAYS[branch]:
+    for stem, kind in _HIDDEN_RAW[branch]:
         if kind is HiddenStemType.MAIN:
             return stem
     raise KeyError(branch)  # pragma: no cover

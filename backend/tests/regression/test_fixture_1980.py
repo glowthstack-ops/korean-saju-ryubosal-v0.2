@@ -80,8 +80,8 @@ def test_force_analysis_strength_band(result) -> None:
 
 def test_force_analysis_distribution_invariants(result) -> None:
     fe = result.force_analysis.five_elements
-    # 월률분야 일수 budget 적용 후: 진태양시(戊辰) 차트는 戊 시간·辰·亥亥申 여기 戊로 土가 최강.
-    assert fe.strongest_element == "土"
+    assert fe.strongest_element == "水"  # 재성 수 강함
+    assert "水" in fe.excessive_elements
     assert fe.raw_visible["木"] == 0.0  # 목 표면 부족
     assert fe.hidden_base["木"] > 0.0  # 지장간 목 존재
     # 공망 지지가 분포에서 제거되지 않는다 (정책)
