@@ -9,7 +9,10 @@ class FiveElementAnalysis(BaseModel):
     raw_visible: dict[str, float]
     hidden_base: dict[str, float]
     effective_force: dict[str, float]
-    effective_percent: dict[str, float]  # 판정용(내부/고급 실세력)
+    effective_percent: dict[str, float]  # 판정용(내부/고급 실세력: 월령/통근/공망 반영)
+    # 표시용 분포율(자리별 가중치 × 지장간 비율). total=일간 포함, environment=일간 제외.
+    distribution_total: dict[str, float] = Field(default_factory=dict)
+    distribution_environment: dict[str, float] = Field(default_factory=dict)
     visible_percent: dict[str, float] = Field(default_factory=dict)  # 표시용(단순 표면, 일간 포함)
     visible_percent_without_day_master: dict[str, float] = Field(default_factory=dict)
     # 오행별 지장간 출처(표면 유무 무관) — 예: 土 → [申여戊, 巳여戊]. 표면 %에는 섞지 않음.
@@ -29,6 +32,8 @@ class TenGodAnalysis(BaseModel):
     raw_visible: dict[str, float]
     effective: dict[str, float]
     effective_percent: dict[str, float]  # 판정용(내부/고급)
+    # 표시용 십성 분포율(일간 제외, 자리별 가중치 × 지장간 비율).
+    distribution: dict[str, float] = Field(default_factory=dict)
     visible_percent: dict[str, float] = Field(default_factory=dict)  # 표시용(암장 제외)
     visible_absent: list[str] = Field(default_factory=list)  # 표면에 없는 십성(화면에서 '-')
     groups: dict[str, float]  # peer/resource/output/wealth/officer powers

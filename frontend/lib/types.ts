@@ -171,6 +171,8 @@ export interface ManseResult {
   force_analysis: {
     five_elements: {
       effective_percent: Record<string, number>;
+      distribution_total: Record<string, number>;
+      distribution_environment: Record<string, number>;
       visible_percent: Record<string, number>;
       visible_percent_without_day_master: Record<string, number>;
       raw_visible: Record<string, number>;
@@ -192,6 +194,7 @@ export interface ManseResult {
     };
     ten_gods: {
       effective_percent: Record<string, number>;
+      distribution: Record<string, number>;
       visible_percent: Record<string, number>;
       visible_absent: string[];
       groups: Record<string, number>;

@@ -58,9 +58,9 @@ export function QuickSummaryBar({ result }: { result: ManseResult }) {
   const gong = result.pillars.gongmang_branches.join("");
   const amjang = fe.hidden_only_elements ?? [];
   return (
-    <Card title="요약" info="화면 오행은 천간·지지에 실제 드러난 글자 기준(표면)입니다. 지장간에만 있는 오행은 '암장'으로 따로 표기하며 퍼센트에서 제외합니다(예: 木 0%). 부족한 오행이 곧 용신은 아닙니다.">
+    <Card title="요약" info="오행 분포는 자리별 가중치(月支 중심)×지장간 비율로 산출한 원국 분포(일간 포함)입니다. 지장간에만 있는 오행은 '암장'으로 참고 표기. 부족한 오행이 곧 용신은 아닙니다.">
       <div className="text-xs text-gray-700">
-        <div>오행(표면): {ent(fe.visible_percent ?? fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
+        <div>오행: {ent(fe.distribution_total ?? fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
         {amjang.length > 0 && (
           <div className="mt-1 text-gray-500">
             암장: {amjang.map((h) => `${elementLabel(h.element)}(${h.sources.join(",")})`).join(" · ")}
@@ -96,35 +96,28 @@ export function DistributionPanel({ result }: { result: ManseResult }) {
   const tg = result.force_analysis.ten_gods;
   const amjang = fe.hidden_only_elements ?? [];
   return (
-    <Card title="오행 · 십성 분포" info="표면=천간·지지에 실제 드러난 글자 기준(단순 카운트). 실세력=지장간에 자리별 가중치(月支 중심)+월령·통근·공망을 반영한 비중. 암장=지장간에만 있는 잠재 요소(표면 %엔 미포함). 표면과 실세력을 함께 봅니다.">
+    <Card title="오행 · 십성 분포" info="오행=원국 분포(일간 포함), 십성=관계 분포(일간 제외). 둘 다 자리별 가중치(年10·月25·日15·時15 등)×지장간 비율로 산출(월령·통근·공망 등 보정은 별도 실세력 레이어). 환경 오행(일간 제외)·실세력은 고급에서.">
       <div className="space-y-2 text-xs text-gray-700">
-        <div className="space-y-1">
-          <div className="font-semibold text-gray-500">표면 (드러난 글자)</div>
-          <div>오행: {ent(fe.visible_percent ?? fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
-          <div>
-            십성(일간 제외): {ent(tg.visible_percent).filter(([, v]) => v > 0)
-              .map(([k, v]) => `${k} ${v}%`).join(" · ")}
-            {(tg.visible_absent ?? []).length > 0 && (
-              <span className="text-gray-400"> · 없음: {(tg.visible_absent ?? []).join("·")}</span>
-            )}
-          </div>
-        </div>
-        <div className="space-y-1">
-          <div className="font-semibold text-gray-500">실세력 (지장간 자리별 가중)</div>
-          <div>오행: {ent(fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
-          <div>십성그룹: {ent(tg.groups).map(([k, v]) => `${k} ${Math.round(v)}`).join(" · ")}</div>
+        <div>오행 분포(일간 포함): {ent(fe.distribution_total ?? fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
+        <div>십성 분포(일간 제외): {ent(tg.distribution).filter(([, v]) => v > 0)
+            .map(([k, v]) => `${k} ${v}%`).join(" · ")}
+          {(tg.visible_absent ?? []).length > 0 && (
+            <span className="text-gray-400"> · 없음: {(tg.visible_absent ?? []).join("·")}</span>
+          )}
         </div>
         {amjang.length > 0 && (
           <div className="text-gray-500">
             암장(지장간만): {amjang.map((h) => `${elementLabel(h.element)}(${h.sources.join(",")})`).join(" · ")} — 작동성 낮음
           </div>
         )}
-        {fe.hidden_support && Object.keys(fe.hidden_support).length > 0 && (
-          <div className="text-gray-400">
-            지장간 보조: {Object.entries(fe.hidden_support)
-              .map(([e, src]) => `${elementLabel(e)}←${src.join(",")}`).join(" · ")}
-          </div>
-        )}
+        <details className="text-gray-500">
+          <summary className="cursor-pointer">고급 (환경 오행 · 실세력)</summary>
+          <div className="mt-1">환경 오행(일간 제외): {ent(fe.distribution_environment).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
+          <div>실세력(월령·통근·공망 반영): {ent(fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
+          {fe.hidden_support && Object.keys(fe.hidden_support).length > 0 && (
+            <div>지장간 보조: {Object.entries(fe.hidden_support).map(([e, src]) => `${elementLabel(e)}←${src.join(",")}`).join(" · ")}</div>
+          )}
+        </details>
       </div>
     </Card>
   );

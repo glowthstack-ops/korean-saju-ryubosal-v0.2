@@ -107,6 +107,19 @@ def test_visible_without_day_master_drops_one_earth(force) -> None:
     assert wo["木"] == 0.0
 
 
+def test_distribution_rates_normalized_and_day_master_handling(force) -> None:
+    fe = force.five_elements
+    tg = force.ten_gods
+    # 세 분포 모두 100%로 정규화.
+    assert sum(fe.distribution_total.values()) == pytest.approx(100, abs=0.1)
+    assert sum(fe.distribution_environment.values()) == pytest.approx(100, abs=0.1)
+    assert sum(tg.distribution.values()) == pytest.approx(100, abs=0.1)
+    # 원국(일간 포함)은 일간 己(土)를 포함하므로 환경(일간 제외)보다 土 비중이 높다.
+    assert fe.distribution_total["土"] > fe.distribution_environment["土"]
+    # 십성 분포(일간 제외): 재성 水 = 정재가 최강, 일간 비견 자동가산 없음.
+    assert max(tg.distribution, key=lambda t: tg.distribution[t]) == "정재"
+
+
 def test_hidden_support_lists_amjang_sources(force) -> None:
     # 표면에도 있는 오행의 지장간 보조도 설명 가능(표면 %에는 섞지 않음).
     hs = force.five_elements.hidden_support

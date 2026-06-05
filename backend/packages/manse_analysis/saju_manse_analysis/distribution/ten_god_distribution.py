@@ -10,7 +10,13 @@ from saju_shared_types.constants import (
 from saju_shared_types.enums import TenGod
 from saju_shared_types.pillars import FourPillarsResult
 
-from .._chart import BRANCH_POS_WEIGHT, STEM_POS_WEIGHT, view
+from .._chart import (
+    BRANCH_POS_WEIGHT,
+    DIST_BRANCH_WEIGHT,
+    DIST_STEM_WEIGHT,
+    STEM_POS_WEIGHT,
+    view,
+)
 from .element_distribution import (
     _MONTH_MAIN_QI_BONUS,
     _NON_MAIN_BONUS_CAP,
@@ -99,10 +105,22 @@ def compute_ten_god_distribution(pillars: FourPillarsResult) -> dict:
     visible_percent = _percent(vis)
     visible_absent = [tg for tg in TEN_GODS if vis[tg] == 0]
 
+    # 표시용 십성 분포율 — 일간 제외, 자리별 가중치 × 지장간 비율(월령/투간/공망 미적용), 100%.
+    dist = {tg: 0.0 for tg in TEN_GODS}
+    for pos, stem in cv.stems:
+        if pos == "day":  # 십성은 항상 일간(기준점) 제외
+            continue
+        dist[str(ten_god(dm, stem))] += DIST_STEM_WEIGHT[pos]
+    for pos, branch in cv.branches:
+        for hstem, _kind, ratio in hidden_stems_for(branch):
+            dist[str(ten_god(dm, hstem))] += DIST_BRANCH_WEIGHT[pos] * ratio
+    distribution = _percent(dist)
+
     return {
         "raw_visible": raw,
         "effective": eff,
         "effective_percent": _percent(eff),
+        "distribution": distribution,
         "visible_percent": visible_percent,
         "visible_absent": visible_absent,
         "groups": groups,

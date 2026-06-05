@@ -18,6 +18,8 @@ from saju_shared_types.pillars import FourPillarsResult
 
 from .._chart import (
     BRANCH_POS_WEIGHT,
+    DIST_BRANCH_WEIGHT,
+    DIST_STEM_WEIGHT,
     STEM_POS_WEIGHT,
     ChartView,
     view,
@@ -60,6 +62,22 @@ def _exposure_multiplier(cv: ChartView, hidden_stem: Stem) -> float:
     if str(STEM_ELEMENT[hidden_stem]) in cv.heavenly_elements:
         return 1.08
     return 1.0
+
+
+def _position_ratio_element(cv: ChartView, include_day_master: bool) -> dict[str, float]:
+    """표시용 오행 분포율 — 자리별 가중치 × 지장간 비율(월령/투간/공망 미적용), 100% 정규화.
+
+    include_day_master=True → 원국 오행(일간 포함, raw 110), False → 환경 오행(일간 제외, 100).
+    """
+    acc = _empty()
+    for pos, stem in cv.stems:
+        if pos == "day" and not include_day_master:
+            continue
+        acc[str(STEM_ELEMENT[stem])] += DIST_STEM_WEIGHT[pos]
+    for pos, branch in cv.branches:
+        for hstem, _kind, ratio in hidden_stems_for(branch):
+            acc[str(STEM_ELEMENT[hstem])] += DIST_BRANCH_WEIGHT[pos] * ratio
+    return _percent(acc)
 
 
 def _hidden_sources(cv: ChartView) -> dict[str, list[str]]:
@@ -181,6 +199,9 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
         "hidden_base": {e: round(v, 4) for e, v in hidden_base.items()},
         "effective_force": eff,
         "effective_percent": percent,
+        # 표시용 분포율(자리별 가중치 × 지장간 비율).
+        "distribution_total": _position_ratio_element(cv, include_day_master=True),
+        "distribution_environment": _position_ratio_element(cv, include_day_master=False),
         "visible_percent": visible_percent,
         "visible_percent_without_day_master": visible_percent_without_day_master,
         "strongest_element": strongest,

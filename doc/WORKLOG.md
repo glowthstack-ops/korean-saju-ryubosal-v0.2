@@ -544,3 +544,14 @@ cross-process 결정성 가드 추가.
 - 1980: bug effective 木8.8·火18.83·土22.32·金17.36·水32.69(水 최강), 진태양시 중화신약 39.56·
   용신 土. 골든 전부 동일(밴드 변동 없음). effective lock·sinsal·yongsin(bridge 허용) 스냅샷 갱신.
 검증: backend 136 pass·clean / frontend 7 pass·build OK.
+
+### 오행/십성 분포율 — 자리별 가중치 × 지장간 비율 + 일간 포함/제외 3분할 ✅
+사용자 가이드 반영. 표시용 분포율 = 자리별 가중치(천간 각10, 지지 年15·月25·日15·時15) × 지장간
+비율(0.2/0.2/0.6 등). 월령/투간/공망 보정은 미적용(별도 실세력 레이어).
+- `five_elements.distribution_total`(오행, 일간 포함, raw110→100) — 화면 기본
+- `five_elements.distribution_environment`(오행, 일간 제외, 100) — 고급
+- `ten_gods.distribution`(십성, 일간 제외, 100) — 화면 기본
+- 기존 effective_percent(월령·통근·공망)는 신강약/용신 내부용·고급 표기로 유지(미변경).
+- UI: 오행=일간 포함, 십성=일간 제외 기본 / 환경 오행·실세력은 '고급' 접기.
+1980(일반시): 오행 원국 木7.3·火17.3·土30.9·金20·水24.6, 십성 정재27·상관22·겁재14 …(합100).
+검증: backend 137 pass·clean / frontend 7 pass·build OK. (신강약/용신 스냅샷 불변)
