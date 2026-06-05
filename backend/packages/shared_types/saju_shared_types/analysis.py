@@ -13,6 +13,8 @@ class FiveElementAnalysis(BaseModel):
     # 표시용 분포율(자리별 가중치 × 지장간 비율). total=일간 포함, environment=일간 제외.
     distribution_total: dict[str, float] = Field(default_factory=dict)
     distribution_environment: dict[str, float] = Field(default_factory=dict)
+    # 세력 판단용 월령 보정 오행 세력(환경 분포 × SEASON_FACTOR). 표시 분포와 분리.
+    season_adjusted_element_strength: dict[str, float] = Field(default_factory=dict)
     visible_percent: dict[str, float] = Field(default_factory=dict)  # 표시용(단순 표면, 일간 포함)
     visible_percent_without_day_master: dict[str, float] = Field(default_factory=dict)
     # 오행별 지장간 출처(표면 유무 무관) — 예: 土 → [申여戊, 巳여戊]. 표면 %에는 섞지 않음.

@@ -130,8 +130,10 @@ def build_yongsin(
 
     # 특수격 우선
     if checks["dominant_one_element"].detected:
-        strongest = max(force.five_elements.effective_percent,
-                        key=lambda e: force.five_elements.effective_percent[e])
+        # 오행 과다/부족은 월령 보정 세력 기준(없으면 effective 폴백).
+        fe = force.five_elements
+        sas = fe.season_adjusted_element_strength or fe.effective_percent
+        strongest = max(sas, key=lambda e: sas[e])
         models.append(YongsinCandidateModel(
             model_type="dominant_one_element", label="전왕/일행득기형",
             yongsin=strongest, heesin=_e(g["output"]),

@@ -173,6 +173,7 @@ export interface ManseResult {
       effective_percent: Record<string, number>;
       distribution_total: Record<string, number>;
       distribution_environment: Record<string, number>;
+      season_adjusted_element_strength: Record<string, number>;
       visible_percent: Record<string, number>;
       visible_percent_without_day_master: Record<string, number>;
       raw_visible: Record<string, number>;

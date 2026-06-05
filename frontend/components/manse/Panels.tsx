@@ -111,9 +111,9 @@ export function DistributionPanel({ result }: { result: ManseResult }) {
           </div>
         )}
         <details className="text-gray-500">
-          <summary className="cursor-pointer">고급 (환경 오행 · 실세력)</summary>
+          <summary className="cursor-pointer">고급 (환경 오행 · 월령 세력)</summary>
           <div className="mt-1">환경 오행(일간 제외): {ent(fe.distribution_environment).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
-          <div>실세력(월령·통근·공망 반영): {ent(fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
+          <div>월령 보정 세력(신강약·용신용): {ent(fe.season_adjusted_element_strength).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
           {fe.hidden_support && Object.keys(fe.hidden_support).length > 0 && (
             <div>지장간 보조: {Object.entries(fe.hidden_support).map(([e, src]) => `${elementLabel(e)}←${src.join(",")}`).join(" · ")}</div>
           )}

@@ -555,3 +555,14 @@ cross-process 결정성 가드 추가.
 - UI: 오행=일간 포함, 십성=일간 제외 기본 / 환경 오행·실세력은 '고급' 접기.
 1980(일반시): 오행 원국 木7.3·火17.3·土30.9·金20·水24.6, 십성 정재27·상관22·겁재14 …(합100).
 검증: backend 137 pass·clean / frontend 7 pass·build OK. (신강약/용신 스냅샷 불변)
+
+### 세력 판단 레이어 분리 — 월령·통근·공망을 분포에서 분리(가이드 반영) ✅
+'월령/통근/공망을 분포 그래프에 섞지 말고 세력 판단용으로 분리'하는 4단계 구조 반영.
+- **월령**: `five_elements.season_adjusted_element_strength` 신설 = 환경 오행 분포 × SEASON_FACTOR[월지].
+  (constants.SEASON_FACTOR 12지지 계수 추가) 용신 전왕/오행 과다·부족 판단도 이 값 사용.
+- **신강약 side_balance**: 십성 effective(혼합) → **clean distribution(ten_gods.distribution)** groups로 전환.
+  일간 월령이 season과 이중 반영되던 문제 해소.
+- **통근**(root_score)·**공망**(structure_modifier)은 기존대로 별도 컴포넌트 유지.
+- effective_percent는 주 경로에서 제외(참고 trace). UI 고급은 '월령 보정 세력'으로 표기.
+영향: 1980 중화신약 39.99·용신 土·희신 火 유지. 골든 uk 극신강→태신강, zi_hour 신약→중화신약.
+검증: backend 139 pass·clean / frontend 7 pass·build OK.

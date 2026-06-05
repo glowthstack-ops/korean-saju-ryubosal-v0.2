@@ -286,6 +286,23 @@ SEASON_SCORE: dict[str, int] = {
     "wang": 90, "xiang": 75, "xiu": 50, "qiu": 35, "si": 20,
 }
 
+# 월령 계수 — 월지가 각 오행을 계절적으로 얼마나 밀어주는가(세력 판단용).
+# season_adjusted = 환경 오행 분포 × SEASON_FACTOR[월지][오행]. 표시 분포엔 미적용.
+SEASON_FACTOR: dict[Branch, dict[Element, float]] = {
+    Branch.HAE: {Element.WOOD: 1.10, Element.FIRE: 0.70, Element.EARTH: 0.85, Element.METAL: 0.95, Element.WATER: 1.40},  # noqa: E501
+    Branch.JA: {Element.WOOD: 1.05, Element.FIRE: 0.60, Element.EARTH: 0.80, Element.METAL: 0.90, Element.WATER: 1.50},  # noqa: E501
+    Branch.CHUK: {Element.WOOD: 0.85, Element.FIRE: 0.70, Element.EARTH: 1.20, Element.METAL: 1.05, Element.WATER: 1.25},  # noqa: E501
+    Branch.IN: {Element.WOOD: 1.40, Element.FIRE: 1.10, Element.EARTH: 0.85, Element.METAL: 0.70, Element.WATER: 0.95},  # noqa: E501
+    Branch.MYO: {Element.WOOD: 1.50, Element.FIRE: 1.15, Element.EARTH: 0.80, Element.METAL: 0.60, Element.WATER: 0.90},  # noqa: E501
+    Branch.JIN: {Element.WOOD: 1.20, Element.FIRE: 1.00, Element.EARTH: 1.20, Element.METAL: 0.80, Element.WATER: 0.90},  # noqa: E501
+    Branch.SA: {Element.WOOD: 0.95, Element.FIRE: 1.40, Element.EARTH: 1.10, Element.METAL: 0.80, Element.WATER: 0.60},  # noqa: E501
+    Branch.O: {Element.WOOD: 0.90, Element.FIRE: 1.50, Element.EARTH: 1.15, Element.METAL: 0.70, Element.WATER: 0.50},  # noqa: E501
+    Branch.MI: {Element.WOOD: 0.85, Element.FIRE: 1.20, Element.EARTH: 1.30, Element.METAL: 0.85, Element.WATER: 0.60},  # noqa: E501
+    Branch.SIN: {Element.WOOD: 0.70, Element.FIRE: 0.80, Element.EARTH: 1.00, Element.METAL: 1.40, Element.WATER: 1.10},  # noqa: E501
+    Branch.YU: {Element.WOOD: 0.60, Element.FIRE: 0.70, Element.EARTH: 0.95, Element.METAL: 1.50, Element.WATER: 1.05},  # noqa: E501
+    Branch.SUL: {Element.WOOD: 0.75, Element.FIRE: 0.95, Element.EARTH: 1.30, Element.METAL: 1.15, Element.WATER: 0.75},  # noqa: E501
+}
+
 
 def group_elements(day_master_element: Element) -> dict[str, Element]:
     """Map 십성 그룹 → 오행, relative to the day master's element.

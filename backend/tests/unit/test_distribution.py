@@ -120,6 +120,23 @@ def test_distribution_rates_normalized_and_day_master_handling(force) -> None:
     assert max(tg.distribution, key=lambda t: tg.distribution[t]) == "정재"
 
 
+def test_season_adjusted_strength_reflects_month_command(force) -> None:
+    # 월령 보정 세력 = 환경 오행 × SEASON_FACTOR[월지]. 亥월(겨울 水) → 水가 월령으로 강화돼 최강.
+    fe = force.five_elements
+    sas = fe.season_adjusted_element_strength
+    assert sum(sas.values()) == pytest.approx(100, abs=0.1)
+    assert max(sas, key=lambda e: sas[e]) == "水"
+    # 환경 분포 대비 水는 월령(亥)으로 상승, 火는 하락.
+    assert sas["水"] > fe.distribution_environment["水"]
+    assert sas["火"] < fe.distribution_environment["火"]
+
+
+def test_strength_side_balance_uses_clean_distribution(force) -> None:
+    # 신강약 side_balance는 깨끗한 십성 분포(groups)에서 나온다(월령·공망 이중반영 제거).
+    groups = force.ten_gods.groups
+    assert sum(groups.values()) == pytest.approx(100, abs=0.5)  # distribution 기반 → 합 ≈ 100
+
+
 def test_hidden_support_lists_amjang_sources(force) -> None:
     # 표면에도 있는 오행의 지장간 보조도 설명 가능(표면 %에는 섞지 않음).
     hs = force.five_elements.hidden_support

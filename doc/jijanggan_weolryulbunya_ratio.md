@@ -12,8 +12,17 @@
 - **오행 환경(일간 제외)** `distribution_environment` — 일간 제외, 100. 고급(십성과 분모 동일, 비교용).
 - **십성(일간 제외)** `ten_gods.distribution` — 일간은 기준점이라 제외, 7자리 100. **화면 기본 십성.**
 
-> 신강약/용신 내부 판정에 쓰는 `effective_percent`는 위 분포율과 별개로 월령·통근·공망을 반영한
-> '실세력'이며 고급으로만 노출한다.
+### 세력 판단 레이어 (분포 그래프와 분리)
+월령·통근·공망은 **표시 분포에 섞지 않고** 별도 세력 레이어로 둔다(가이드 반영):
+- **월령**: `season_adjusted_element_strength` = 환경 오행 분포 × `SEASON_FACTOR[월지][오행]`.
+  신강약 season(일간 왕상휴수사) + 용신 오행 과다/부족·전왕 판단에 사용.
+- **통근**: `root_score`(지장간 개별 점수 기반, ROOT_HIDDEN_WEIGHT). 신강약 root 컴포넌트.
+- **공망**: 구조작용 `structure_modifier`(원국 지지 약화). 대운/세운 공망은 운 이벤트 플래그(별도).
+- **신강약 side_balance**: '깨끗한' 십성 분포(`ten_gods.distribution`, 월령·공망 미반영)의 groups에서
+  산출 → 월령이 season과 이중 반영되던 문제 해소.
+
+> 과거의 `effective_percent`(위치×budget×월령×투간×공망 혼합)는 더 이상 분포/판정의 주 경로가
+> 아니며 참고 trace로만 남긴다.
 
 ## 적용 본/중/여 분배 비율 (budget, 합=1.0)
 

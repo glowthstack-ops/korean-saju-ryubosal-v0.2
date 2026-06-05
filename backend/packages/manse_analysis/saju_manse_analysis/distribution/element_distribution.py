@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
+    SEASON_FACTOR,
     STEM_ELEMENT,
     hidden_stems_for,
 )
@@ -78,6 +79,17 @@ def _position_ratio_element(cv: ChartView, include_day_master: bool) -> dict[str
         for hstem, _kind, ratio in hidden_stems_for(branch):
             acc[str(STEM_ELEMENT[hstem])] += DIST_BRANCH_WEIGHT[pos] * ratio
     return _percent(acc)
+
+
+def _season_adjusted_strength(cv: ChartView) -> dict[str, float]:
+    """월령 보정 오행 세력 — 환경 오행 분포(일간 제외) × SEASON_FACTOR[월지], 100% 정규화.
+
+    세력 판단용(신강약/용신)이며, 표시용 오행/십성 분포 그래프에는 섞지 않는다.
+    """
+    env = _position_ratio_element(cv, include_day_master=False)  # 일간 제외 환경 오행 %
+    factor = SEASON_FACTOR[cv.month_branch]
+    adjusted = {e: env[e] * factor[Element(e)] for e in _ELEMENTS}
+    return _percent(adjusted)
 
 
 def _hidden_sources(cv: ChartView) -> dict[str, list[str]]:
@@ -202,6 +214,8 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
         # 표시용 분포율(자리별 가중치 × 지장간 비율).
         "distribution_total": _position_ratio_element(cv, include_day_master=True),
         "distribution_environment": _position_ratio_element(cv, include_day_master=False),
+        # 세력 판단용(월령 보정). 표시 분포엔 미적용.
+        "season_adjusted_element_strength": _season_adjusted_strength(cv),
         "visible_percent": visible_percent,
         "visible_percent_without_day_master": visible_percent_without_day_master,
         "strongest_element": strongest,

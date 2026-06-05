@@ -58,6 +58,6 @@ def test_sinsal_does_not_affect_strength_or_yongsin() -> None:
     r, s = _sinsal()
     assert all(it.use_for_yongsin_decision is False for it in s.full_list)
     assert r.force_analysis.strength.band == "중화신약"
-    assert r.force_analysis.strength.score == 39.56  # 본/중/여 비율(0.2/0.2/0.6 등) 반영 스냅샷
+    assert r.force_analysis.strength.score == 39.99  # side_balance를 깨끗한 분포로 분리 후 스냅샷
     assert r.yongsin_analysis.final["yongsin"] == "土"
     assert r.geokguk.main_structure == "정재격"

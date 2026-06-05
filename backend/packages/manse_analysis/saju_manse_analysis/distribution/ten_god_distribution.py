@@ -86,9 +86,6 @@ def compute_ten_god_distribution(pillars: FourPillarsResult) -> dict:
             eff[tg] += base
 
     eff = {tg: round(v, 4) for tg, v in eff.items()}
-    groups = {
-        g: round(sum(eff[tg] for tg in members), 4) for g, members in GROUPS.items()
-    }
     strongest = max(eff, key=lambda t: eff[t])
     missing = [tg for tg in TEN_GODS if tg not in anywhere]
     hidden_only = [tg for tg in TEN_GODS if tg in anywhere and tg not in visible]
@@ -115,6 +112,12 @@ def compute_ten_god_distribution(pillars: FourPillarsResult) -> dict:
         for hstem, _kind, ratio in hidden_stems_for(branch):
             dist[str(ten_god(dm, hstem))] += DIST_BRANCH_WEIGHT[pos] * ratio
     distribution = _percent(dist)
+
+    # 신강약 side_balance / 용신 ally·pressure 는 '깨끗한' 분포율(월령·공망 미반영)에서 산출.
+    # 월령은 season+season_adjusted, 공망은 structure_modifier로 따로 반영(중복 방지).
+    groups = {
+        g: round(sum(dist[tg] for tg in members), 4) for g, members in GROUPS.items()
+    }
 
     return {
         "raw_visible": raw,

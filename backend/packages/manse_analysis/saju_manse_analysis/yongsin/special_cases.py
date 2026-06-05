@@ -16,7 +16,9 @@ def detect_special_cases(
     force: ForceAnalysis,
     structure: StructureAnalysis,
 ) -> dict[str, SpecialCaseCheck]:
-    pct = force.five_elements.effective_percent
+    # 전왕/오행 과다 판단은 월령 보정 세력 기준(없으면 effective 폴백).
+    fe = force.five_elements
+    pct = fe.season_adjusted_element_strength or fe.effective_percent
     band = force.strength.band
     root_score = force.strength.components.get("root_score", 0.0)
 
