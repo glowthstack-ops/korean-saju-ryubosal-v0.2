@@ -65,10 +65,12 @@ function Box({ label, v }: { label: string; v: string | null }) {
 export function CalibrationPanel({
   result,
   profile,
+  referenceDate,
   onResult,
 }: {
   result: ManseResult;
   profile: Profile;
+  referenceDate: string;
   onResult: (r: CalibrationResult) => void;
 }) {
   const questions = result.calibration?.questions ?? [];
@@ -96,7 +98,7 @@ export function CalibrationPanel({
         overall_rating: answers[q.id]?.rating ?? "unknown",
         selected_events: answers[q.id]?.events ?? [],
       }));
-      onResult(await submitCalibration(profile, payload));
+      onResult(await submitCalibration(profile, payload, referenceDate));
     } catch (e) {
       setError(e instanceof Error ? e.message : "검증 제출 실패");
     } finally {

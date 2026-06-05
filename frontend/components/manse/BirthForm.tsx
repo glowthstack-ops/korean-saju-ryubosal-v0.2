@@ -105,7 +105,9 @@ export function BirthForm({ onSubmit }: { onSubmit: (p: Profile) => void }) {
         className="w-full rounded bg-gray-900 py-2 text-white disabled:bg-gray-400">
         만세력 보기
       </button>
-      <p className="text-xs text-gray-400">입력 정보는 서버로 전송·저장되지 않고 브라우저에 암호화 저장됩니다.</p>
+      <p className="text-xs text-gray-400">
+        입력 정보는 서버에 저장하지 않으며, 계산 요청 시에만 전송되고 브라우저에 암호화 저장됩니다.
+      </p>
     </form>
   );
 }

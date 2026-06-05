@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from saju_manse_core.calendar.ganji_calendar import build_month
 from saju_shared_types.calendar_view import CalendarMonth
+
+_KST = ZoneInfo("Asia/Seoul")
 
 
 def month(year: int, month: int) -> CalendarMonth:
@@ -15,5 +18,6 @@ def month(year: int, month: int) -> CalendarMonth:
 
 
 def today_month() -> CalendarMonth:
-    t = date.today()
+    # 달력은 KST 만세력 기준 → '오늘'도 KST로 고정(서버 리전 무관).
+    t = datetime.now(_KST).date()
     return month(t.year, t.month)

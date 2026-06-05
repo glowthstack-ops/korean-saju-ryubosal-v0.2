@@ -175,6 +175,22 @@ export function LuckPanel({ result }: { result: ManseResult }) {
           세운: {lc.yearly_luck.map((y) => `${y.label} ${y.ganji}(${y.yongsin_alignment})`).join(" · ")}
         </p>
       )}
+      {lc.monthly_luck.length > 0 && (
+        <p className="mt-1 text-[11px] text-gray-500">
+          월운: {lc.monthly_luck.map((m) => `${m.label} ${m.ganji}`).join(" · ")}
+        </p>
+      )}
+      {lc.daily_luck.length > 0 && (
+        <p className="mt-1 text-[11px] text-gray-500">
+          일운: {lc.daily_luck.slice(0, 5).map((d) => `${d.label.slice(5)} ${d.ganji}`).join(" · ")}
+          {lc.daily_luck.length > 5 && ` … (총 ${lc.daily_luck.length}일)`}
+        </p>
+      )}
+      {lc.yearly_luck.length === 0 && (
+        <p className="mt-2 text-[11px] text-gray-400">
+          세운/월운/일운은 기준일(오늘)이 있을 때 표시됩니다.
+        </p>
+      )}
     </Card>
   );
 }

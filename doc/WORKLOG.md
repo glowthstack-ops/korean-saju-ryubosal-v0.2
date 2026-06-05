@@ -409,3 +409,15 @@ cross-process 결정성 가드 추가.
 ### 결정/연기
 - 실제 광고 네트워크 연동·배포·i18n, 서비스 #2(LLM)는 후속.
 - 개인정보는 로컬 암호화 캐시만(서버 저장 없음) — 명세 개인정보 최소화 정책 준수.
+
+### 서비스 #1.1 — 감사(codex) 보완 ✅
+1. **/calendar/today KST 고정**: `date.today()`(서버 로컬) → `datetime.now(ZoneInfo("Asia/Seoul")).date()`.
+2. **용신 검증 기준일 고정**: 결과 페이지가 마운트 시 `referenceDate=todayISO()`를 state로 1회 고정,
+   `calculateManse`와 `submitCalibration`에 동일 값 전달(자정/연 경계에서 질문 재생성 불일치 방지).
+3. **월운/일운 렌더 추가**: LuckPanel에 monthly_luck(월운) 전체·daily_luck(일운) 요약(앞 5일+총개수) 노출.
+4. **개인정보 문구 정정**: "서버로 전송·저장되지 않고" → "서버에 저장하지 않으며, 계산 요청 시에만
+   전송하고 브라우저에 암호화 저장".
+- 재진입 UX 확인: `/manse`는 IndexedDB 저장 프로필 감지 시 자동으로 `/manse/result`로 이동(재입력 불필요).
+  정보 변경은 결과 페이지의 "등록 정보 초기화" 버튼으로.
+
+검증: backend 125 pass·ruff·mypy clean / frontend vitest 7 pass·next build 성공.

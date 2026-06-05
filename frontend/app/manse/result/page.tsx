@@ -15,7 +15,7 @@ import {
   TrueSolarTimeCard,
 } from "@/components/manse/Panels";
 import { PillarBoard } from "@/components/manse/PillarBoard";
-import { calculateManse } from "@/lib/api";
+import { calculateManse, todayISO } from "@/lib/api";
 import { clearProfile, loadProfile } from "@/lib/storage";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
 
@@ -25,6 +25,8 @@ export default function ManseResultPage() {
   const [result, setResult] = useState<ManseResult | null>(null);
   const [calibration, setCalibration] = useState<CalibrationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 질문 생성/피드백 채점에 동일 기준일을 쓰도록 마운트 시 한 번 고정(자정·연 경계 안전).
+  const [referenceDate] = useState(() => todayISO());
 
   useEffect(() => {
     loadProfile().then((p) => {
@@ -33,11 +35,11 @@ export default function ManseResultPage() {
         return;
       }
       setProfile(p);
-      calculateManse(p)
+      calculateManse(p, referenceDate)
         .then(setResult)
         .catch((e) => setError(e instanceof Error ? e.message : "계산 실패"));
     });
-  }, [router]);
+  }, [router, referenceDate]);
 
   const reset = async () => {
     await clearProfile();
@@ -73,7 +75,12 @@ export default function ManseResultPage() {
       <GeokgukPanel result={result} />
 
       <YongsinPanel result={result} calibration={calibration} />
-      <CalibrationPanel result={result} profile={profile} onResult={setCalibration} />
+      <CalibrationPanel
+        result={result}
+        profile={profile}
+        referenceDate={referenceDate}
+        onResult={setCalibration}
+      />
 
       <LuckPanel result={result} />
       <SinsalPanel result={result} />
