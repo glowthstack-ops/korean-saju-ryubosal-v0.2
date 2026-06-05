@@ -10,13 +10,25 @@ LLM에 의존하지 않는 **결정론적 만세력 엔진**을 기반으로 한
 
 ```
 saju_v2/
-  backend/      # ✅ 결정론적 만세력 계산 엔진 + API (Python/FastAPI) — 현재 구현됨
-  frontend/     # ☐ 만세력 UI (예정, apps/web)
+  backend/      # ✅ 결정론적 만세력 계산 엔진 + API (Python/FastAPI)
+  frontend/     # ✅ 서비스 #1: 만세력 + 간지달력 페이지뷰 웹 (Next.js/TS)
   doc/          # v2.1 명세 번들 + 작업 이력 (전체 서비스 공통 기준)
 ```
 
-> 현재 저장소에는 전체 서비스 중 **백엔드**(만세력 엔진 + API)가 구현되어 있다.
-> 프론트엔드(만세력 UI), LLM 풀이 서비스, 어드민 등은 후속 마일스톤이다.
+> 서비스 #1 = 페이지뷰/광고 수익형(만세력·대운/세운/월운·간지달력)이 구현되어 있다.
+> 서비스 #2(대화형 LLM 사주), 어드민 등은 후속 마일스톤이다.
+
+## 프론트엔드 (서비스 #1)
+
+Next.js App Router. 만세력은 클라이언트 렌더(개인정보는 IndexedDB에 Web Crypto로 암호화 저장,
+서버 미저장), 간지달력은 SSR(SEO). 계산은 모두 백엔드 API 호출.
+
+```bash
+cd frontend
+npm install
+NEXT_PUBLIC_API_BASE=http://localhost:8000 npm run dev   # 백엔드와 함께 기동
+npm test && npm run build
+```
 
 ## 백엔드
 
