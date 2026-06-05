@@ -61,7 +61,7 @@ def test_calculate_returns_full_schema() -> None:
     ):
         assert field in body
     assert body["pillars"]["day"]["ganji"] == "己亥"
-    assert body["force_analysis"]["strength"]["band"] == "신약"
+    assert body["force_analysis"]["strength"]["band"] == "중화신약"
     assert body["structure_analysis"]["structure_modifier"] is not None
     assert isinstance(body["structure_analysis"]["interactions"], list)
     assert body["geokguk"]["main_structure"] == "정재격"

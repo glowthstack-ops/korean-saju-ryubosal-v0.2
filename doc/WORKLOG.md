@@ -497,3 +497,19 @@ cross-process 결정성 가드 추가.
   툴팁에 표면/실세력 정의 구분.
 - 테스트: 표면 25/25/25/25/0 고정 + 위치가중 비영향 회귀 + 시간모름 정규화 + hidden_support +
   without_day_master. backend **135 pass**·clean / frontend 7 pass·build OK.
+
+### 버그픽스 — 지장간 표 오류(여기 누락) 교정 ✅
+사용자 제보: 亥 지장간이 화면에 甲壬만 표시(표준은 戊甲壬). 표준 지장간표 대조 결과 **왕지·해의
+여기(餘氣) 5개 누락** 확인:
+- 子 癸 → **壬·癸**, 卯 乙 → **甲·乙**, 酉 辛 → **庚·辛** (왕지: 여기+정기 2개)
+- 午 己·丁 → **丙·己·丁**, 亥 甲·壬 → **戊·甲·壬** (3개)
+- 나머지 丑寅辰巳未申戌은 정확.
+수정: `_HIDDEN_RAW` 교정 + 2지장간 budget이 여기(RESIDUAL)도 처리(MAIN 0.75/보조 0.25, 합 1.0).
+회귀 락 테스트 `test_hidden_stem_table_matches_standard`(12지지 전체 + budget 합=1.0) 추가.
+
+영향(정당한 스냅샷 변동, 용신·격국 불변):
+- 己 일간이 亥戊·巳戊 등으로 뿌리 강화 → 1980 케이스 신강약 **신약→중화신약**(38.17),
+  effective 土 10.92→15.44·木 10.89→8.73 등. 용신 土·정재격 유지.
+- 골든: korea 신약→중화신약, uk/us 태신강→극신강(geokguk 불변). effective lock·sinsal·api·
+  fixture·golden 스냅샷 갱신.
+검증: backend **136 pass**·ruff·mypy clean / frontend 7 pass·build OK.

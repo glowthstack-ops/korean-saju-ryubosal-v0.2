@@ -97,7 +97,11 @@ CONTROLS: dict[Element, Element] = {
 # three=0.70/0.20/0.10). See saju_v2_pillar_calculation_spec.md.
 # ---------------------------------------------------------------------------
 _HIDDEN_RAW: dict[Branch, list[tuple[Stem, HiddenStemType]]] = {
-    Branch.JA: [(Stem.GYE, HiddenStemType.MAIN)],
+    # 子 = 壬(여) 癸(정)
+    Branch.JA: [
+        (Stem.IM, HiddenStemType.RESIDUAL),
+        (Stem.GYE, HiddenStemType.MAIN),
+    ],
     Branch.CHUK: [
         (Stem.GYE, HiddenStemType.RESIDUAL),
         (Stem.SIN, HiddenStemType.MIDDLE),
@@ -108,7 +112,11 @@ _HIDDEN_RAW: dict[Branch, list[tuple[Stem, HiddenStemType]]] = {
         (Stem.BYEONG, HiddenStemType.MIDDLE),
         (Stem.GAP, HiddenStemType.MAIN),
     ],
-    Branch.MYO: [(Stem.EUL, HiddenStemType.MAIN)],
+    # 卯 = 甲(여) 乙(정)
+    Branch.MYO: [
+        (Stem.GAP, HiddenStemType.RESIDUAL),
+        (Stem.EUL, HiddenStemType.MAIN),
+    ],
     Branch.JIN: [
         (Stem.EUL, HiddenStemType.RESIDUAL),
         (Stem.GYE, HiddenStemType.MIDDLE),
@@ -119,7 +127,9 @@ _HIDDEN_RAW: dict[Branch, list[tuple[Stem, HiddenStemType]]] = {
         (Stem.GYEONG, HiddenStemType.MIDDLE),
         (Stem.BYEONG, HiddenStemType.MAIN),
     ],
+    # 午 = 丙(여) 己(중) 丁(정)
     Branch.O: [
+        (Stem.BYEONG, HiddenStemType.RESIDUAL),
         (Stem.GI, HiddenStemType.MIDDLE),
         (Stem.JEONG, HiddenStemType.MAIN),
     ],
@@ -133,22 +143,30 @@ _HIDDEN_RAW: dict[Branch, list[tuple[Stem, HiddenStemType]]] = {
         (Stem.IM, HiddenStemType.MIDDLE),
         (Stem.GYEONG, HiddenStemType.MAIN),
     ],
-    Branch.YU: [(Stem.SIN, HiddenStemType.MAIN)],
+    # 酉 = 庚(여) 辛(정)
+    Branch.YU: [
+        (Stem.GYEONG, HiddenStemType.RESIDUAL),
+        (Stem.SIN, HiddenStemType.MAIN),
+    ],
     Branch.SUL: [
         (Stem.SIN, HiddenStemType.RESIDUAL),
         (Stem.JEONG, HiddenStemType.MIDDLE),
         (Stem.MU, HiddenStemType.MAIN),
     ],
+    # 亥 = 戊(여) 甲(중) 壬(정)
     Branch.HAE: [
+        (Stem.MU, HiddenStemType.RESIDUAL),
         (Stem.GAP, HiddenStemType.MIDDLE),
         (Stem.IM, HiddenStemType.MAIN),
     ],
 }
 
 # Pillar-layer weights keyed by how many hidden stems the branch has.
+# 2지장간(왕지 子卯酉)은 정기(本氣)+여기(餘氣) 구성이므로 MIDDLE/RESIDUAL 모두 0.25로 둔다
+# (둘 중 실제 존재하는 보조기 하나만 쓰이며, 합은 항상 1.0).
 _PILLAR_WEIGHTS: dict[int, dict[HiddenStemType, float]] = {
     1: {HiddenStemType.MAIN: 1.00},
-    2: {HiddenStemType.MAIN: 0.75, HiddenStemType.MIDDLE: 0.25},
+    2: {HiddenStemType.MAIN: 0.75, HiddenStemType.MIDDLE: 0.25, HiddenStemType.RESIDUAL: 0.25},
     3: {HiddenStemType.MAIN: 0.70, HiddenStemType.MIDDLE: 0.20, HiddenStemType.RESIDUAL: 0.10},
 }
 
