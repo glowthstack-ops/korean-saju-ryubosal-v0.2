@@ -29,6 +29,23 @@ _STRONG = {"신강", "태신강", "극신강"}
 _COLD_MONTHS = {Branch.HAE, Branch.JA, Branch.CHUK}
 _HOT_MONTHS = {Branch.SA, Branch.O, Branch.MI}
 
+# 모델 → 용신 판단 축. (격국/병약/조후는 보정 레이어, 특수격은 우선)
+_AXIS_OF: dict[str, str] = {
+    "support_day_master": "eokbu", "resource_as_yongsin": "eokbu",
+    "output_as_yongsin": "eokbu", "eokbu_normal": "eokbu",
+    "johu": "johu", "pattern_sangsin": "pattern", "disease_remedy": "disease",
+    "dominant_one_element": "special", "follow_structure": "special",
+}
+# 파격(damage) → 약신(repair) 그룹.
+_DAMAGE_REPAIR: dict[str, str] = {
+    "shangguan_attacks_officer": "resource",   # 인성으로 상관 제어
+    "mixed_officer_killing": "output",          # 식신제살
+    "killing_overwhelms_weak": "resource",      # 살인상생
+    "wealth_overwhelms_weak": "peer",           # 비겁 부조
+    "pyeonin_dosik": "wealth",                  # 재성으로 편인 제어
+    "bigyeob_jaengjae": "officer",              # 관성으로 비겁 제어
+}
+
 
 def _e(el: Element) -> str:
     return str(el)
@@ -110,6 +127,84 @@ def _johu_model(month_branch: Branch, g: dict[str, Element]) -> YongsinCandidate
     )
 
 
+def _pattern_model(geokguk: GeokgukResult, g: dict[str, Element]) -> YongsinCandidateModel | None:
+    """격국용신형: 성격(成格) 시 상신 그룹을 용신 후보로(보정 레이어). 패격이면 병약이 담당."""
+    ev = geokguk.evaluation
+    if ev is None or ev.pattern_confidence < 0.4 or geokguk.formation_level == "패":
+        return None
+    sangsin = _GEOK_SANGSIN_GROUPS.get(geokguk.main_structure or "", [])
+    if not sangsin:
+        return None
+    return YongsinCandidateModel(
+        model_type="pattern_sangsin", label="격국용신형(상신)",
+        yongsin=_e(g[sangsin[0]]),
+        heesin=_e(g[sangsin[1]]) if len(sangsin) > 1 else None,
+        confidence=round(ev.pattern_confidence, 4),
+        reasons=[
+            f"{geokguk.main_structure} 성격 → 상신 격국용신 후보",
+            "단독 확정 금지(보정 레이어)",
+        ],
+        is_auxiliary=True,
+    )
+
+
+def _disease_models(
+    geokguk: GeokgukResult, g: dict[str, Element]
+) -> list[YongsinCandidateModel]:
+    """병약용신형: 격국 파격 원인(damage_types)을 제거하는 약신 후보."""
+    ev = geokguk.evaluation
+    if ev is None:
+        return []
+    out: list[YongsinCandidateModel] = []
+    seen: set[str] = set()
+    for dmg in ev.damage_types:
+        grp = _DAMAGE_REPAIR.get(dmg)
+        if grp is None or grp in seen:
+            continue
+        seen.add(grp)
+        out.append(YongsinCandidateModel(
+            model_type="disease_remedy", label="병약용신형(약신)",
+            yongsin=_e(g[grp]),
+            confidence=0.5,
+            reasons=[f"파격({dmg}) 제거 약신", "병약은 패격 보정 후보"],
+            is_auxiliary=True,
+        ))
+    return out
+
+
+_GEOK_SANGSIN_GROUPS: dict[str, list[str]] = {
+    "정관격": ["wealth", "resource"], "편관격": ["output", "resource"],
+    "정재격": ["output", "peer"], "편재격": ["output", "peer"],
+    "식신격": ["wealth"], "상관격": ["resource", "wealth"],
+    "정인격": ["officer"], "편인격": ["wealth", "output"],
+    "건록격": ["wealth", "officer"], "양인격": ["officer", "output"],
+}
+
+
+def _select_axis_weights(
+    band: str, month_branch: Branch, geokguk: GeokgukResult, special: bool
+) -> dict[str, float]:
+    """상황별 동적 축 가중치(사용자 §10). 신약은 억부 우선 → 용신 안정."""
+    if special:
+        return {"special": 1.0, "eokbu": 0.1, "johu": 0.1, "pattern": 0.1, "disease": 0.1}
+    ev = geokguk.evaluation
+    active = ev.total_active if ev else 0
+    fw = ev.final_weight if ev else 0.15
+    cold_hot = (
+        month_branch in (_COLD_MONTHS | _HOT_MONTHS)
+        and SEASON_ELEMENT_BY_MONTH[month_branch] != Element.EARTH
+    )
+    if band in _WEAK:  # 신약/중화신약 → 억부 우선(종격은 special에서 처리)
+        return {"eokbu": 0.45, "johu": 0.25, "pattern": 0.15, "disease": 0.15, "special": 0.1}
+    if active >= 2:  # 파격 뚜렷 → 병약 우선
+        return {"disease": 0.35, "eokbu": 0.25, "johu": 0.20, "pattern": 0.20, "special": 0.1}
+    if cold_hot:  # 중화/신강 + 한습·조열 → 조후 우선
+        return {"johu": 0.40, "eokbu": 0.25, "pattern": 0.20, "disease": 0.15, "special": 0.1}
+    if fw >= 0.30:  # 격국 선명 → 격국 우선
+        return {"pattern": 0.40, "eokbu": 0.25, "johu": 0.20, "disease": 0.15, "special": 0.1}
+    return {"eokbu": 0.35, "johu": 0.20, "pattern": 0.25, "disease": 0.20, "special": 0.1}
+
+
 def build_yongsin(
     pillars: FourPillarsResult,
     force: ForceAnalysis,
@@ -168,13 +263,24 @@ def build_yongsin(
     johu = _johu_model(month_branch, g)
     if johu is not None and SEASON_ELEMENT_BY_MONTH[month_branch] != Element.EARTH:
         models.append(johu)
+    # 격국(상신)·병약(약신) 보정 축 — 용신을 단독 확정하지 않고 후보 우선순위만 조정.
+    pattern = _pattern_model(geokguk, g)
+    if pattern is not None:
+        models.append(pattern)
+    models.extend(_disease_models(geokguk, g))
     if checks["bridge_required"].detected:
         warnings.append(f"통관 가능 구조: {checks['bridge_required'].detail}")
     if checks["isolation_health"].detected:
         warnings.append(f"고립/병약 리스크: {checks['isolation_health'].detail} (건강 레이어)")
 
-    # 후보 통합: 용신/희신 → useful, 기신/구신 → unfavorable. 각 원소의 최고 점수를
-    # 낸 모델(출처)과 역할을 함께 보관해 후보 provenance를 노출한다(검증 루프용).
+    # 동적 축 가중치(상황별) — 격국/조후/병약을 '보정 레이어'로 반영, 신약은 억부 우선.
+    special = checks["dominant_one_element"].detected or checks["follow_structure"].detected
+    axis_weights = _select_axis_weights(band, month_branch, geokguk, special)
+
+    def _w(model_type: str) -> float:
+        return axis_weights.get(_AXIS_OF.get(model_type, "eokbu"), 0.2)
+
+    # 후보 통합: 용신/희신 → useful, 기신/구신 → unfavorable. 점수 = 모델 신뢰도 × 축 가중치.
     useful: dict[str, tuple[float, str, str]] = {}
     unfavorable: dict[str, tuple[float, str, str]] = {}
 
@@ -184,10 +290,25 @@ def build_yongsin(
             table[el] = (score, model, role)
 
     for m in models:
-        _put(useful, m.yongsin, m.confidence, m.model_type, "yongsin")
-        _put(useful, m.heesin, m.confidence * 0.85, m.model_type, "heesin")
-        _put(unfavorable, m.gisin, m.confidence, m.model_type, "gisin")
-        _put(unfavorable, m.gusin, m.confidence * 0.9, m.model_type, "gusin")
+        w = _w(m.model_type)
+        _put(useful, m.yongsin, m.confidence * w, m.model_type, "yongsin")
+        _put(useful, m.heesin, m.confidence * w * 0.85, m.model_type, "heesin")
+        _put(unfavorable, m.gisin, m.confidence * w, m.model_type, "gisin")
+        _put(unfavorable, m.gusin, m.confidence * w * 0.9, m.model_type, "gusin")
+
+    # 축별 기여 요약(어느 축이 어떤 오행을 얼마로 밀었는가).
+    axes_summary: list[dict] = []
+    for axis in ("special", "eokbu", "johu", "pattern", "disease"):
+        contrib = [
+            (m.yongsin, m.confidence * axis_weights.get(axis, 0.0))
+            for m in models if _AXIS_OF.get(m.model_type) == axis and m.yongsin
+        ]
+        if contrib:
+            top_el, top_sc = max(contrib, key=lambda x: x[1])
+            axes_summary.append({
+                "axis": axis, "weight": round(axis_weights.get(axis, 0.0), 3),
+                "top_element": top_el, "score": round(top_sc, 4),
+            })
 
     useful_sorted = sorted(useful.items(), key=lambda kv: kv[1][0], reverse=True)[:2]
     unfav_sorted = sorted(unfavorable.items(), key=lambda kv: kv[1][0], reverse=True)[:2]
@@ -225,6 +346,8 @@ def build_yongsin(
         candidate_models=models,
         useful_candidates=useful_candidates,
         unfavorable_candidates=unfavorable_candidates,
+        axis_weights=axis_weights,
+        axes=axes_summary,
         final=final,
         requires_validation=True,
         warnings=warnings,

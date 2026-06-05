@@ -74,3 +74,52 @@ def test_no_special_structure_on_fixture(make_pillars) -> None:
     checks = analyze_chart(pillars).yongsin.special_case_checks
     for key in ("transformation_structure", "dominant_one_element", "follow_structure"):
         assert not checks[key].detected, key
+
+
+def test_multi_axis_weights_and_ranking(make_pillars) -> None:
+    # 1980 신약: 억부 축이 우세(eokbu 0.45) → 용신 土 유지, 축 가중치/기여 노출.
+    pillars = make_pillars(
+        (Stem.GYEONG, Branch.SIN), (Stem.JEONG, Branch.HAE),
+        (Stem.GI, Branch.HAE), (Stem.MU, Branch.JIN), Stem.GI,
+    )
+    y = analyze_chart(pillars).yongsin
+    aw = y.axis_weights
+    assert set(aw) == {"eokbu", "johu", "pattern", "disease", "special"}
+    assert aw["eokbu"] == 0.45  # 신약 → 억부 우선
+    assert y.final["yongsin"] == "土"
+    # 축 기여는 점수 내림차순으로 정렬되어 있고 억부가 최상위.
+    scores = [a["score"] for a in y.axes]
+    assert scores == sorted(scores, reverse=True)
+    assert y.axes[0]["axis"] == "eokbu"
+
+
+def test_axis_weight_sets_by_situation() -> None:
+    # 상황별 동적 축 가중치(사용자 §10) 단위 검증.
+    from saju_manse_analysis.yongsin.candidates import _select_axis_weights
+
+    from saju_shared_types.structure import GeokgukResult
+
+    def gk(final_weight: float, active: int) -> GeokgukResult:
+        ev = {
+            "pattern_confidence": 0.5, "confidence_grade": "C", "success_failure_score": 0.0,
+            "success_failure_grade": "mixed", "success_failure_label": "x",
+            "damage_types": [], "failures": [], "total_active": active, "total_rescued": 0,
+            "clarity_level": "unclear", "clarity_policy": "", "final_weight": final_weight,
+            "final_weight_interpretation": "", "social_expression": "",
+        }
+        return GeokgukResult(
+            main_structure="정관격", basis={}, exposure={}, formation_level="성",
+            stability={}, evaluation=ev,
+        )
+
+    # 특수격 → special 1.0
+    w = _select_axis_weights("중화", Branch.JIN, gk(0.30, 0), special=True)
+    assert w["special"] == 1.0
+    # 신약 → 억부 우선
+    assert _select_axis_weights("신약", Branch.JIN, gk(0.40, 0), special=False)["eokbu"] == 0.45
+    # 중화 + 파격 뚜렷 → 병약 우선
+    assert _select_axis_weights("중화", Branch.JIN, gk(0.20, 2), special=False)["disease"] == 0.35
+    # 중화 + 한습월(亥) → 조후 우선
+    assert _select_axis_weights("중화", Branch.HAE, gk(0.20, 0), special=False)["johu"] == 0.40
+    # 중화 + 격국 선명 → 격국 우선
+    assert _select_axis_weights("중화", Branch.JIN, gk(0.40, 0), special=False)["pattern"] == 0.40

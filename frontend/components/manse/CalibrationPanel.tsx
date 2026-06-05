@@ -14,6 +14,10 @@ const RATINGS: { value: string; label: string }[] = [
   { value: "unknown", label: "기억 안 남" },
 ];
 
+const axisKo: Record<string, string> = {
+  eokbu: "억부", johu: "조후", pattern: "격국", disease: "병약", special: "특수격",
+};
+
 export function YongsinPanel({
   result,
   calibration,
@@ -44,6 +48,11 @@ export function YongsinPanel({
       <p className="mt-2 text-[11px] text-gray-500">
         후보 모델: {y.candidate_models.map((m) => `${m.label}${m.is_auxiliary ? "(보조)" : ""}`).join(" · ")}
       </p>
+      {(y.axes ?? []).length > 0 && (
+        <p className="mt-1 text-[11px] text-gray-500">
+          판단 축(가중치): {y.axes.map((a) => `${axisKo[a.axis] ?? a.axis} ${a.weight}→${a.top_element}`).join(" · ")}
+        </p>
+      )}
       {calibration && (
         <p className="mt-1 text-[11px] text-gray-500">
           검증결과 match {calibration.match_rate} · 근거 {calibration.evidence_count}개 · 모델 {calibration.selected_model}

@@ -80,6 +80,8 @@ export interface YongsinAnalysis {
   candidate_models: YongsinModel[];
   useful_candidates: ElementCandidate[];
   unfavorable_candidates: ElementCandidate[];
+  axis_weights: Record<string, number>;
+  axes: Array<{ axis: string; weight: number; top_element: string; score: number }>;
   final: Record<string, string | number | null>;
   requires_validation: boolean;
   warnings: string[];

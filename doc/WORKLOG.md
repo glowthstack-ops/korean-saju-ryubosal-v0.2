@@ -566,3 +566,18 @@ cross-process 결정성 가드 추가.
 - effective_percent는 주 경로에서 제외(참고 trace). UI 고급은 '월령 보정 세력'으로 표기.
 영향: 1980 중화신약 39.99·용신 土·희신 火 유지. 골든 uk 극신강→태신강, zi_hour 신약→중화신약.
 검증: backend 139 pass·clean / frontend 7 pass·build OK.
+
+### 격국 평가 + 용신 다축 랭킹 (Phase A/B) ✅
+v1 geokguk_master_v2를 v2 네이티브 이식 + 용신을 다축 보정 랭킹으로 개선(사용자 가이드 반영).
+
+**Phase A — 격국 평가**(`structure/geokguk_eval.py`): pattern_confidence(0~1, §7 공식), 성패(-100~100)+
+damage_types, 파격/구제, clarity(6 levels), final_weight(0.10~0.60). GeokgukResult.evaluation 추가.
+신뢰도는 '성공 크기' 아닌 '무대 선명도(social_expression)'. 1980 정재격·신뢰도 0.35(D)·월지 자형·
+final_weight 0.15.
+
+**Phase B — 용신 다축 랭킹**(`yongsin/candidates.py`): 억부/조후/격국(상신)/병약(약신)/특수격 5축 +
+동적 가중치(band/조후/파격/격국선명별 §10 세트). 신약→억부0.45 우선으로 용신 안정. 격국·조후·병약은
+'보정 레이어'(단독 확정 금지). YongsinAnalysis에 axis_weights/axes 추가. 1980 용신 土·희신 火 유지.
+극신약→종격 우선 체크는 special_cases가 억부 전에 처리(유지).
+
+검증: backend **147 pass**·ruff·mypy clean / frontend 7 pass·build OK. 기존 강약/골든/effective 스냅샷 불변.

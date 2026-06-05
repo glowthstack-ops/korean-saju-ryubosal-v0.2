@@ -43,6 +43,9 @@ class AggregatedYongsinResult(BaseModel):
     candidate_models: list[YongsinCandidateModel] = Field(default_factory=list)
     useful_candidates: list[ElementCandidate] = Field(default_factory=list)
     unfavorable_candidates: list[ElementCandidate] = Field(default_factory=list)
+    # 다축(억부/조후/격국/병약/특수격) 동적 가중치 + 축별 기여(보정 레이어).
+    axis_weights: dict[str, float] = Field(default_factory=dict)
+    axes: list[dict] = Field(default_factory=list)  # [{axis, weight, top_element, score}]
     final: dict = Field(default_factory=dict)
     requires_validation: bool = True
     warnings: list[str] = Field(default_factory=list)
