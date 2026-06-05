@@ -309,6 +309,7 @@ def build_yongsin(
                 "axis": axis, "weight": round(axis_weights.get(axis, 0.0), 3),
                 "top_element": top_el, "score": round(top_sc, 4),
             })
+    axes_summary.sort(key=lambda a: a["score"], reverse=True)  # 기여 점수 내림차순
 
     useful_sorted = sorted(useful.items(), key=lambda kv: kv[1][0], reverse=True)[:2]
     unfav_sorted = sorted(unfavorable.items(), key=lambda kv: kv[1][0], reverse=True)[:2]

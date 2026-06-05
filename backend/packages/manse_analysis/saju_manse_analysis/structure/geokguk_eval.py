@@ -310,13 +310,14 @@ def _clarity_level(confidence: int, sf_score: float, band: str, root_score: floa
 
 
 def _final_weight(level: str) -> tuple[float, str]:
+    # geokguk_master_v2 final_gukguk_application_formula 해석 구간.
     raw = _BASE_WEIGHT * _CLARITY_MULT.get(level, 1.0)
     final = round(_clamp(raw, 0.10, 0.60), 3)
-    if final >= 0.40:
-        interp = "격국을 핵심 축으로 사용"
-    elif final >= 0.30:
+    if final >= 0.46:
+        interp = "격국 또는 특수격의 핵심 기준으로 사용"
+    elif final >= 0.36:
         interp = "격국 중심 해석 가능"
-    elif final >= 0.20:
+    elif final >= 0.21:
         interp = "격국을 주요 참고 축으로 사용"
     else:
         interp = "격국은 보조 참고"

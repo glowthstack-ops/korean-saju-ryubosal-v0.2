@@ -606,3 +606,13 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
 - clarity·final_weight(0.25×clarity_mult, cap 0.10~0.60)는 마스터와 동일 확인.
 - 1980: 정재격 신뢰도 90(A)·성패 7.0(반성반패)·clarity clear_but_mixed·final_weight 0.30. 용신 土 유지.
 검증: backend 147 pass·ruff·mypy clean / frontend 7 pass·build OK.
+
+### 격국 표시 일관성 — 성격(formation)을 성패와 일치 ✅
+화면에 '성격 패' ↔ '성패 반성반패/격국 중심'이 모순돼 보이던 문제 수정.
+- `formation_level`을 success_failure 등급에서 도출(성격/중성/패) — 월지 손상 하나로 '패' 단정하지 않음.
+  월지 공망/충은 damage_type(void_month_branch/chung_month_branch)로 성패에 반영.
+- final_weight 해석 구간을 마스터(0.46↑ 핵심 / 0.36↑ 격국중심 / 0.21↑ 주요참고 / 보조)로 정정 →
+  0.30은 '주요 참고 축'.
+- 용신 axes를 기여 점수 내림차순 정렬.
+- 1980: 정재격 성격 중성 · 성패 반성반패 · 가중치 0.30(주요 참고). 용신 土 유지.
+검증: backend 147 pass·clean / frontend build OK.

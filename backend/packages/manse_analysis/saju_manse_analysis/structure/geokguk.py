@@ -105,6 +105,14 @@ def detect_geokguk(
         else None
     )
 
+    # 성격/패격은 평가의 성패(success_failure)와 일관되게 — 월지 손상 하나로 단정하지 않는다.
+    if evaluation is not None:
+        formation_level = {
+            "complete_success": "성", "partial_success": "성",
+            "mixed": "중성",
+            "failure_with_rescue": "패", "clear_failure": "패", "severe_muddiness": "패",
+        }.get(evaluation.success_failure_grade, formation_level)
+
     return GeokgukResult(
         main_structure=main_structure,
         basis={

@@ -24,14 +24,16 @@ def test_gongmang_does_not_remove_element_from_distribution(make_pillars) -> Non
     assert ca.force.five_elements.effective_force["土"] > 0
 
 
-def test_month_void_marks_geokguk_pae(make_pillars) -> None:
+def test_month_void_registered_as_geokguk_damage(make_pillars) -> None:
+    # 월지 공망은 자동 '패'가 아니라 격국 파격(void_month_branch)으로 성패에 반영된다(마스터 정책).
     ca = analyze_chart(_void_chart(make_pillars))
     g = ca.structure.gongmang
     assert g is not None
     assert "戌" in g.day_basis_empty_branches
     assert "month" in g.day_affected_positions
-    assert ca.geokguk.formation_level == "패"
     assert "month_branch_void" in ca.geokguk.stability["reasons"]
+    assert ca.geokguk.evaluation is not None
+    assert "void_month_branch" in ca.geokguk.evaluation.damage_types
 
 
 def test_void_applies_strength_modifier(make_pillars) -> None:
