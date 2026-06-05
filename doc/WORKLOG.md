@@ -513,3 +513,19 @@ cross-process 결정성 가드 추가.
 - 골든: korea 신약→중화신약, uk/us 태신강→극신강(geokguk 불변). effective lock·sinsal·api·
   fixture·golden 스냅샷 갱신.
 검증: backend **136 pass**·ruff·mypy clean / frontend 7 pass·build OK.
+
+### 지장간 비중 — 월률분야 일수(月律分野) budget 적용 ✅
+사용자 결정(doc/jijanggan_weolryulbunya_ratio.md): 지지 내 본/중/여 비율을 카운트 기반
+(0.70/0.20/0.10·0.75/0.25)에서 **월률분야 일수(30일 기준)**로 교체.
+- 생지 寅申巳亥=7:7:16 / 고지 辰戌丑未=9:3:18 / 왕지 子卯酉=10:20 / 午(예외)=10:10:10. 亥 戊 인정.
+- `_HIDDEN_DAYS`(일수 테이블)로 통합, `hidden_stems_for`=일수/30, `hidden_stem_days` 추가.
+  회귀 락 테스트를 글자+일수+합30+budget합1.0까지 고정.
+- **자리별(위치) 가중치는 분포 계층의 BRANCH_POS_WEIGHT로 별도 적용**(이번 변경과 독립).
+- 분포 표시: 표면(단순)과 실세력(자리별 가중) **둘 다 동등 병표**(접기 제거).
+
+영향(정당, 용신 土 유지): 정기 비중↓·여기 비중↑로 재이동.
+- 진태양시(戊辰) 1980: 최강 오행 水→**土**(31%, 戊 시간·辰·亥亥申 여기 戊), 신강약 40.08(중화신약),
+  土↔水 근접으로 bridge_required(통관) 감지. 일반시(己巳): effective 木10.32·火18.1·土24.72·
+  金17.07·水29.79(水 최강 유지).
+- 골든: uk 극신강→태신강, zi_hour 신약→중화신약. effective lock·sinsal·fixture·yongsin 스냅샷 갱신.
+검증: backend **136 pass**·ruff·mypy clean / frontend 7 pass·build OK.

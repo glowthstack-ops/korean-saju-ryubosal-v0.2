@@ -96,15 +96,23 @@ export function DistributionPanel({ result }: { result: ManseResult }) {
   const tg = result.force_analysis.ten_gods;
   const amjang = fe.hidden_only_elements ?? [];
   return (
-    <Card title="오행 · 십성 분포" info="표면=천간·지지에 실제 드러난 글자 기준(단순 카운트). 암장=지장간에만 있는 잠재 요소(표면 %에 섞지 않음). 실세력=월령·통근·공망·지장간 budget 등이 반영된 내부/고급 판정용.">
-      <div className="space-y-1 text-xs text-gray-700">
-        <div>오행(표면): {ent(fe.visible_percent ?? fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
-        <div>
-          십성(표면, 일간 제외): {ent(tg.visible_percent).filter(([, v]) => v > 0)
-            .map(([k, v]) => `${k} ${v}%`).join(" · ")}
-          {(tg.visible_absent ?? []).length > 0 && (
-            <span className="text-gray-400"> · 없음: {(tg.visible_absent ?? []).join("·")}</span>
-          )}
+    <Card title="오행 · 십성 분포" info="표면=천간·지지에 실제 드러난 글자 기준(단순 카운트). 실세력=지장간에 자리별 가중치(月支 중심)+월령·통근·공망을 반영한 비중. 암장=지장간에만 있는 잠재 요소(표면 %엔 미포함). 표면과 실세력을 함께 봅니다.">
+      <div className="space-y-2 text-xs text-gray-700">
+        <div className="space-y-1">
+          <div className="font-semibold text-gray-500">표면 (드러난 글자)</div>
+          <div>오행: {ent(fe.visible_percent ?? fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
+          <div>
+            십성(일간 제외): {ent(tg.visible_percent).filter(([, v]) => v > 0)
+              .map(([k, v]) => `${k} ${v}%`).join(" · ")}
+            {(tg.visible_absent ?? []).length > 0 && (
+              <span className="text-gray-400"> · 없음: {(tg.visible_absent ?? []).join("·")}</span>
+            )}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="font-semibold text-gray-500">실세력 (지장간 자리별 가중)</div>
+          <div>오행: {ent(fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
+          <div>십성그룹: {ent(tg.groups).map(([k, v]) => `${k} ${Math.round(v)}`).join(" · ")}</div>
         </div>
         {amjang.length > 0 && (
           <div className="text-gray-500">
@@ -117,13 +125,6 @@ export function DistributionPanel({ result }: { result: ManseResult }) {
               .map(([e, src]) => `${elementLabel(e)}←${src.join(",")}`).join(" · ")}
           </div>
         )}
-        <details className="text-gray-500">
-          <summary className="cursor-pointer">실세력(고급/내부 판정용)</summary>
-          <div className="mt-1">
-            오행: {ent(fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}
-          </div>
-          <div>십성그룹: {ent(tg.groups).map(([k, v]) => `${k} ${Math.round(v)}`).join(" · ")}</div>
-        </details>
       </div>
     </Card>
   );

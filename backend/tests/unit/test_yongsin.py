@@ -64,10 +64,13 @@ def test_candidate_provenance_populated(make_pillars) -> None:
     assert top.element == "土" and top.model == "support_day_master"
 
 
-def test_no_special_cases_on_fixture(make_pillars) -> None:
+def test_no_special_structure_on_fixture(make_pillars) -> None:
+    # 격국 특수구조(종격/전왕/화격)는 미감지. 단, 월률분야 일수 budget 적용 후 土↔水 근접으로
+    # bridge_required(통관 필요)는 정보성으로 감지될 수 있어 구조형만 검사한다.
     pillars = make_pillars(
         (Stem.GYEONG, Branch.SIN), (Stem.JEONG, Branch.HAE),
         (Stem.GI, Branch.HAE), (Stem.MU, Branch.JIN), Stem.GI,
     )
     checks = analyze_chart(pillars).yongsin.special_case_checks
-    assert all(not c.detected for c in checks.values())
+    for key in ("transformation_structure", "dominant_one_element", "follow_structure"):
+        assert not checks[key].detected, key
