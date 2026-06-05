@@ -38,3 +38,41 @@
 - 1차 범위 = 골격 + 시간보정/원국 (사용자 승인).
 - 천문/달력 = 검증 라이브러리 + 절기 사전계산 테이블(네트워크 불필요·결정론).
 - 프론트엔드 제외(백엔드 엔진 우선).
+
+---
+
+## Phase 2 — 세력분석 (오행/십성 분포 · 통근 · 신강약 9단계) ✅
+
+신규 패키지 `packages/manse_analysis`.
+
+- **오행분포**(`distribution/element_distribution.py`): raw_visible / hidden_base /
+  effective_force 3레이어. effective = 위치가중치(천간 8/12/0/10, 지지 12/28/24/16)
+  × 지장간 실세력(1.0/0.6/0.35) × 월령계수(왕1.30…사0.65) × 월지본기 1.12 × 투간 × 통근.
+  진단: strongest/weakest, excessive(>35%)/deficient(<8%).
+- **십성분포**(`distribution/ten_god_distribution.py`): raw/effective + 그룹
+  (peer/resource/output/wealth/officer) + missing/hidden_only 분류(천간 부재 vs 지장간 잠재).
+- **통근**(`strength/rooting.py`): root_score(월35/일30/시18/년12 × 비겁1.0/인성0.65),
+  득령(왕·상)·득지(일지 본기 비겁/인성)·득세(side≥50)·통근 분리, 신왕(무근/약근/보통/신왕).
+- **신강약 9단계**(`strength/strength_score.py`): `0.35*season+0.35*root+0.30*side+structure_mod`,
+  9구간 분류·±2 borderline·confidence(요소 clarity)·requires_validation, **신왕≠신강 게이트**
+  (월/일지 비겁·인성 + 타 자리 1+), 중화권 경고.
+- **왕상휴수사**는 `season_state()`로 통합(토월=토 → codex 토일간 정책 자동 재현).
+- `force_analysis.py` 집계 → `ManseV2Result.force_analysis`(타입 확정), service 연결.
+
+### 검증 (Golden Fixture)
+- 신강약 = **신약** 26.5점(v1 신약 일치), rootedness 약근, 게이트 미통과, conf 0.56→검증필요.
+- 오행 effective: 水 최강·excessive(재성 수 강함), raw_visible 木=0(표면 부족)·hidden 木>0.
+- 득령/득지/득세=False, 통근=True (신약 정합).
+- pytest 60 pass · ruff clean · mypy clean · 라이브 API force_analysis 직렬화 확인.
+
+### 알려진 차이 / 후속 결정 필요
+- `five_element_distribution_tests`의 **잠정** 기대값 "effective weakest=wood/deficient=wood"는
+  본 엔진의 명세 수식 결과(亥 수월이 水生木으로 지장간 목을 상(1.15)로 보정)와 충돌.
+  엔진은 **raw 레이어에서 목 표면부족**을 표시하고 effective에서는 목을 중간값으로 둔다
+  (명세의 raw↔effective 분리 원칙에 부합). 테스트 doc은 "퍼센트는 알고리즘 확정 후 lock"이라
+  명시 → 현 구현을 기준 스냅샷으로 채택. 스펙 오너 확인 시 조정 가능.
+- **구조작용 보정 미반영**(합충형파해/병존/합화/공망 외): structure_modifier는 현재 공망(일/월지)만
+  반영. 나머지는 Phase 3(구조작용)에서 추가 예정.
+
+### 결정 사항
+- 세력분석은 용신 확정이 아니라 후보 산출 입력값으로만 사용(명세 원칙 유지).

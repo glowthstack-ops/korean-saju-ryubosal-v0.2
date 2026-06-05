@@ -11,6 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from .analysis import ForceAnalysis
 from .pillars import FourPillarsResult
 from .time_correction import SolarTermBasis, TimeCorrectionResult
 
@@ -29,8 +30,9 @@ class ManseV2Result(BaseModel):
     solar_term_basis: SolarTermBasis | None = None
     pillars: FourPillarsResult | None = None
 
+    force_analysis: ForceAnalysis | None = None
+
     # Filled in later phases — schema slots reserved now.
-    force_analysis: dict[str, Any] | None = None
     structure_analysis: dict[str, Any] | None = None
     geokguk: dict[str, Any] | None = None
     yongsin_analysis: dict[str, Any] | None = None

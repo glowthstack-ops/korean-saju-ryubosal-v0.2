@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from .analysis import (
+    FiveElementAnalysis,
+    ForceAnalysis,
+    RootingAnalysis,
+    StrengthResult,
+    TenGodAnalysis,
+)
 from .birth_input import BirthInput, TimeCalculationOptions
 from .enums import (
     Branch,
@@ -34,6 +41,11 @@ __all__ = [
     "YinYang",
     "EngineMetadata",
     "ManseV2Result",
+    "FiveElementAnalysis",
+    "ForceAnalysis",
+    "RootingAnalysis",
+    "StrengthResult",
+    "TenGodAnalysis",
     "FourPillarsResult",
     "HiddenStem",
     "Pillar",

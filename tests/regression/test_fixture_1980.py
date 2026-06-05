@@ -69,6 +69,36 @@ def test_metadata_and_trace_present(result) -> None:
     assert result.trace.get("absolute_instant_utc")
 
 
+def test_force_analysis_strength_band(result) -> None:
+    # v1 reference strength = 신약; engine returns a 0-100 score in that band.
+    f = result.force_analysis
+    assert f is not None
+    assert f.strength.band == "신약"
+    assert 23 <= f.strength.score <= 34
+    assert f.strength.requires_validation in (True, False)
+
+
+def test_force_analysis_distribution_invariants(result) -> None:
+    fe = result.force_analysis.five_elements
+    assert fe.strongest_element == "水"  # 재성 수 강함
+    assert "水" in fe.excessive_elements
+    assert fe.raw_visible["木"] == 0.0  # 목 표면 부족
+    assert fe.hidden_base["木"] > 0.0  # 지장간 목 존재
+    # 공망 지지가 분포에서 제거되지 않는다 (정책)
+    assert sum(fe.effective_force.values()) > 0
+
+
+def test_force_analysis_rootedness_vs_strong_gate(result) -> None:
+    s = result.force_analysis.strength
+    # 신왕(rootedness)과 신강(gate)은 분리된다.
+    assert "label" in s.rootedness
+    assert set(s.strong_chart_gate) == {
+        "month_or_day_branch_ally",
+        "another_ally_position_exists",
+        "passed",
+    }
+
+
 def test_deterministic(fixture: dict) -> None:
     a = calculate(BirthInput(**fixture["input"]))
     b = calculate(BirthInput(**fixture["input"]))

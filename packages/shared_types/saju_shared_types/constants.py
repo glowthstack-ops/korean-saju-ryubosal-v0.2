@@ -253,6 +253,43 @@ def ten_god(day_master: Stem, target: Stem) -> TenGod:
     return TenGod.PYEONIN if same_polarity else TenGod.JEONGIN
 
 
+# ---------------------------------------------------------------------------
+# 왕상휴수사 (seasonal state) — season element per month branch + state of any
+# element relative to it. Earth months (辰戌丑未) take 土 as the season element,
+# which reproduces the codex earth-day-master policy exactly.
+# ---------------------------------------------------------------------------
+SEASON_ELEMENT_BY_MONTH: dict[Branch, Element] = {
+    Branch.IN: Element.WOOD, Branch.MYO: Element.WOOD,
+    Branch.SA: Element.FIRE, Branch.O: Element.FIRE,
+    Branch.SIN: Element.METAL, Branch.YU: Element.METAL,
+    Branch.HAE: Element.WATER, Branch.JA: Element.WATER,
+    Branch.JIN: Element.EARTH, Branch.SUL: Element.EARTH,
+    Branch.CHUK: Element.EARTH, Branch.MI: Element.EARTH,
+}
+
+# state → (distribution coefficient, strength season_score)
+SEASON_COEFFICIENT: dict[str, float] = {
+    "wang": 1.30, "xiang": 1.15, "xiu": 1.00, "qiu": 0.80, "si": 0.65,
+}
+SEASON_SCORE: dict[str, int] = {
+    "wang": 90, "xiang": 75, "xiu": 50, "qiu": 35, "si": 20,
+}
+
+
+def season_state(element: Element, month_branch: Branch) -> str:
+    """왕(wang)/상(xiang)/휴(xiu)/수(qiu)/사(si) of *element* in *month_branch*."""
+    season = SEASON_ELEMENT_BY_MONTH[month_branch]
+    if element == season:
+        return "wang"
+    if GENERATES[season] == element:  # season generates element
+        return "xiang"
+    if GENERATES[element] == season:  # element generates season (mother)
+        return "xiu"
+    if CONTROLS[element] == season:  # element controls season
+        return "qiu"
+    return "si"  # season controls element
+
+
 # Engine/data versions stamped onto every result for reproducibility.
 ENGINE_VERSION = "v2.1.0"
 RULESET_VERSION = "pillars-2024.1"

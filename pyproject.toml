@@ -36,6 +36,7 @@ astro = [
 where = [
     "packages/shared_types",
     "packages/manse_core",
+    "packages/manse_analysis",
     "apps/api",
 ]
 
