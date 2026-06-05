@@ -125,9 +125,28 @@ export function DistributionPanel({ result }: { result: ManseResult }) {
 
 export function GeokgukPanel({ result }: { result: ManseResult }) {
   const g = result.geokguk as Record<string, unknown>;
+  const e = g.evaluation as Record<string, unknown> | null | undefined;
+  const damage = (e?.damage_types as string[] | undefined) ?? [];
   return (
-    <Card title="격국" info="격국은 참고 레이어이며 단독으로 용신을 확정하지 않습니다.">
+    <Card title="격국" info="격국은 용신 후보 우선순위를 조정하는 보정 레이어이며 단독으로 용신을 확정하지 않습니다. 신뢰도는 성공 크기가 아니라 직업성·역할 무대의 선명도입니다.">
       <p className="text-sm"><b>{String(g.main_structure)}</b> · 성격 {String(g.formation_level)}</p>
+      {e && (
+        <div className="mt-1 space-y-0.5 text-xs text-gray-600">
+          <div>
+            신뢰도 {Math.round(Number(e.pattern_confidence) * 100)}점 ({String(e.confidence_grade)})
+            · 성패 {String(e.success_failure_label)} ({String(e.success_failure_score)})
+          </div>
+          <div>
+            명확도 {String(e.clarity_level)} · 격국 가중치 {String(e.final_weight)} — {String(e.final_weight_interpretation)}
+          </div>
+          {damage.length > 0 && (
+            <div className="text-amber-700">
+              파격 {String(e.total_active)}건(구제 {String(e.total_rescued)}): {damage.join(", ")}
+            </div>
+          )}
+          <div className="text-gray-400">{String(e.social_expression)}</div>
+        </div>
+      )}
       <ul className="mt-1 list-disc pl-4 text-xs text-gray-600">
         {(g.auxiliary_structures as string[] | undefined)?.map((a) => <li key={a}>{a}</li>)}
       </ul>

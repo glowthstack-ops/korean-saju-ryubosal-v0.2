@@ -82,7 +82,7 @@ def analyze_chart(pillars: FourPillarsResult) -> ChartAnalysis:
         rooting=RootingAnalysis(**rooting),
         strength=StrengthResult(**strength),
     )
-    geokguk = detect_geokguk(pillars, dm, bundle.analysis, pillars.gongmang_branches)
+    geokguk = detect_geokguk(pillars, dm, bundle.analysis, pillars.gongmang_branches, force)
     yongsin = build_yongsin(pillars, force, bundle.analysis, geokguk)
 
     sinsal = analyze_sinsal(pillars, bundle.analysis)

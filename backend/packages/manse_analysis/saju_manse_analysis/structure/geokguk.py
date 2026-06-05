@@ -10,6 +10,8 @@ from saju_shared_types.enums import Branch, Stem, TenGod
 from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.structure import GeokgukResult, StructureAnalysis
 
+from .geokguk_eval import evaluate_geokguk
+
 # 월지 정기 십성 → 주격 명칭 (비견/겁재는 건록/양인 특수 월령 구조).
 _SPECIAL = {TenGod.BIGYEON: "건록격", TenGod.GEOMJAE: "양인격"}
 
@@ -19,6 +21,7 @@ def detect_geokguk(
     day_master: Stem,
     structure: StructureAnalysis,
     gongmang_branches: list[str],
+    force=None,  # ForceAnalysis — 격국 평가(신뢰도/성패/가중치)용
 ) -> GeokgukResult:
     month = pillars.month
     month_branch = Branch(month.branch)
@@ -94,6 +97,14 @@ def detect_geokguk(
             continue  # 주격 본기와 동일하면 보조로 중복 표기하지 않음
         auxiliary.append(f"{label} {tg.value} 발현")
 
+    evaluation = (
+        evaluate_geokguk(
+            pillars, main_structure, main_ten_god, force, structure, gongmang_branches
+        )
+        if force is not None
+        else None
+    )
+
     return GeokgukResult(
         main_structure=main_structure,
         basis={
@@ -111,6 +122,7 @@ def detect_geokguk(
         formation_level=formation_level,
         stability={"score": stability_score, "label": stability_label, "reasons": reasons},
         auxiliary_structures=auxiliary,
+        evaluation=evaluation,
         warnings=["격국은 참고 레이어이며 단독 용신 확정 근거로 사용하지 않는다."],
         explanation=[
             f"월지 {month_branch} 정기 {main_stem}({main_ten_god.value}) 기준 {main_structure}, "

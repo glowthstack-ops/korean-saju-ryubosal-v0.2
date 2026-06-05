@@ -60,6 +60,27 @@ class StructureAnalysis(BaseModel):
     calculation_trace: dict = Field(default_factory=dict)
 
 
+class GeokgukEvaluation(BaseModel):
+    """격국 평가 — 용신 후보 우선순위 보정 레이어(단독 확정자 아님)."""
+
+    pattern_confidence: float  # 0~1 (월지 투간/뿌리/상신 − 충·합거·공망)
+    confidence_grade: str  # A~E
+    confidence_factors: list[dict] = Field(default_factory=list)
+    success_failure_score: float  # -100~100 (성격 ↔ 패격)
+    success_failure_grade: str
+    success_failure_label: str
+    damage_types: list[str] = Field(default_factory=list)  # 파격 원인(병)
+    failures: list[dict] = Field(default_factory=list)  # 파격 + 구제 상세
+    total_active: int = 0
+    total_rescued: int = 0
+    clarity_level: str
+    clarity_policy: str
+    final_weight: float  # 0.10~0.60 — 격국 axis 가중치
+    final_weight_interpretation: str
+    # 격국 신뢰도는 '성공 크기'가 아니라 '삶의 무대(직업성·역할)의 선명도'.
+    social_expression: str
+
+
 class GeokgukResult(BaseModel):
     main_structure: str | None
     basis: dict
@@ -67,5 +88,6 @@ class GeokgukResult(BaseModel):
     formation_level: str  # 성 / 중성 / 패 / 불명확
     stability: dict
     auxiliary_structures: list[str] = Field(default_factory=list)
+    evaluation: GeokgukEvaluation | None = None
     warnings: list[str] = Field(default_factory=list)
     explanation: list[str] = Field(default_factory=list)
