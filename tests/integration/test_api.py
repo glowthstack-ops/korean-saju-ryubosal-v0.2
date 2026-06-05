@@ -69,6 +69,8 @@ def test_calculate_returns_full_schema() -> None:
     assert body["yongsin_analysis"]["final"]["yongsin"] == "土"
     assert body["luck_cycles"]["direction"] == "forward"
     assert len(body["luck_cycles"]["daewoon_table"]) == 9
+    assert body["traditional_extras"]["sinsal"]["full_list"]
+    assert "천을귀인" in {s["name"] for s in body["traditional_extras"]["sinsal"]["full_list"]}
 
 
 def test_calibration_feedback_endpoint() -> None:

@@ -14,11 +14,13 @@ from saju_shared_types.analysis import (
 )
 from saju_shared_types.enums import Stem
 from saju_shared_types.pillars import FourPillarsResult
+from saju_shared_types.sinsal import TraditionalExtras
 from saju_shared_types.structure import GeokgukResult, StructureAnalysis
 from saju_shared_types.yongsin import AggregatedYongsinResult
 
 from .distribution.element_distribution import compute_element_distribution
 from .distribution.ten_god_distribution import compute_ten_god_distribution
+from .sinsal import analyze_sinsal
 from .strength.rooting import compute_rooting
 from .strength.strength_score import compute_strength, side_balance_score
 from .structure.geokguk import detect_geokguk
@@ -32,6 +34,7 @@ class ChartAnalysis:
     structure: StructureAnalysis
     geokguk: GeokgukResult
     yongsin: AggregatedYongsinResult
+    traditional: TraditionalExtras
 
 
 def analyze(pillars: FourPillarsResult) -> ForceAnalysis:
@@ -81,6 +84,14 @@ def analyze_chart(pillars: FourPillarsResult) -> ChartAnalysis:
     )
     geokguk = detect_geokguk(pillars, dm, bundle.analysis, pillars.gongmang_branches)
     yongsin = build_yongsin(pillars, force, bundle.analysis, geokguk)
+
+    sinsal = analyze_sinsal(pillars, bundle.analysis)
+    naeum = {pos: getattr(pillars, pos).naeum
+             for pos in ("year", "month", "day", "hour")
+             if getattr(pillars, pos) is not None}
+    traditional = TraditionalExtras(sinsal=sinsal, naeum=naeum)
+
     return ChartAnalysis(
-        force=force, structure=bundle.analysis, geokguk=geokguk, yongsin=yongsin
+        force=force, structure=bundle.analysis, geokguk=geokguk,
+        yongsin=yongsin, traditional=traditional,
     )

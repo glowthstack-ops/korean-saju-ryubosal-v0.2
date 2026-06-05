@@ -198,6 +198,7 @@ def calculate(birth: BirthInput) -> ManseV2Result:
         yongsin_analysis=chart_analysis.yongsin,
         luck_cycles=luck_cycles,
         calibration=calibration,
+        traditional_extras=chart_analysis.traditional,
         metadata=metadata,
         trace={
             "absolute_instant_utc": absolute_instant.astimezone(UTC).isoformat(),

@@ -130,6 +130,7 @@ def score_calibration(
         evidence_count=evidence_count,
         match_rate=match_rate,
         model_scores={k: round(v, 4) for k, v in scores.items()},
+        weighted_model_scores={k: round(v, 4) for k, v in weighted.items()},
         selected_model=best,
         explanation=explanation,
     )

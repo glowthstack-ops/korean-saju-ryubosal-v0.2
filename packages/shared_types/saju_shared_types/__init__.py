@@ -31,6 +31,7 @@ from .enums import (
 from .luck import DaewoonItem, LuckCycles, LuckPillar
 from .manse_result import EngineMetadata, ManseV2Result
 from .pillars import FourPillarsResult, HiddenStem, Pillar
+from .sinsal import SinsalAnalysis, SinsalItem, TraditionalExtras
 from .structure import (
     GeokgukResult,
     StabilityScores,
@@ -87,4 +88,7 @@ __all__ = [
     "CalibrationQuestionSet",
     "CalibrationResult",
     "FeedbackAnswer",
+    "SinsalAnalysis",
+    "SinsalItem",
+    "TraditionalExtras",
 ]

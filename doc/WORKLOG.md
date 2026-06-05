@@ -276,3 +276,40 @@ blocker 단위테스트(寅亥 육합 + 寅申 충) 및 격국 self_punished rea
 - 결과: 1980 fixture 전부 positive → johu(raw 6.0)가 아니라 **support_day_master(土)** 선택.
 - 테스트 추가: `test_auxiliary_johu_cannot_be_solely_calibrated`. pytest **93 pass** ·
   `mypy .` clean · ruff clean.
+
+---
+
+## Phase 4 후속 — weighted_model_scores 노출 ✅
+- 감사 권고 반영: `CalibrationResult.weighted_model_scores`(confidence 가중=실제 선택 기준)
+  를 raw `model_scores`와 함께 노출(UI/로그 혼동 방지).
+
+---
+
+## Phase 5 — 전체 신살 엔진 (traditional_extras) ✅
+
+신규 패키지 `manse_analysis/sinsal` + `shared_types/sinsal.py`.
+프론트 UI는 초기 결정상 보류, 백엔드 신살 엔진 우선.
+
+- **catalog**(`sinsal_catalog.py`, default·config 교체 가능): 12신살(삼합 생지 기준),
+  천을/천덕/월덕/태극/문창/학당 귀인, 금여·암록, 도화·홍염, 양인·괴강·백호·현침,
+  귀문관살·원진 — 표준 공식 테이블. 카테고리/길흉/해석태그 메타 포함.
+- **detector + aggregator**(`sinsal_aggregator.py`): 일간·년지·월지·주간지·지지쌍 기준
+  감지 → 주별/카테고리별/full_list. **강도**(반복+0.20·월일+0.15·일지+0.12·충형겹침+0.12·
+  공망-0.05 → low/medium/high/very_high), 반복 플래그, 구조작용 겹침(activated_by_relations),
+  궁성·십성·오행 context. 시간모름 시 시주 신살 미생성 + warning.
+- **정책**: 전체 표시하되 `use_for_yongsin_decision=False` — 신강약/용신/격국 점수 불변.
+- `ManseV2Result.traditional_extras`(TraditionalExtras: sinsal + 납음) 타입 확정·연결.
+
+### 검증 (Golden Fixture)
+- 18개 신살. 천을귀인@년(己→申), 12신살 申=지살·亥=망신살(월·일 반복→very_high)·辰=화개살,
+  귀문관살/원진(辰亥), 백호(戊辰 아님-검증), 납음(庚申=석류목) 등.
+- 신살이 신강약(신약 26.51)·용신(土)·격국(정재격)을 바꾸지 않음을 테스트로 고정.
+- 시간모름 → 시주 신살 미생성. pytest **98 pass** · `mypy .` clean(85파일) · ruff clean.
+
+### Phase 5 완료 — ManseV2Result 전 레이어 채워짐
+time_correction/solar_term_basis/pillars/force/structure/geokguk/yongsin/luck/
+calibration/traditional_extras 모두 산출. (만세력 UI = apps/web는 백엔드 우선 결정으로 보류.)
+
+### 결정/연기
+- 신살 catalog은 default 표(유파 차이는 config 교체 전제). 추가 신살(공망살 등 별도 표기)은
+  필요 시 확장. 신살의 대운/세운 활성화(운에서의 신살)는 후속.

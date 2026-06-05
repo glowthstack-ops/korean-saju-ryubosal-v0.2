@@ -15,6 +15,7 @@ from .analysis import ForceAnalysis
 from .calibration import CalibrationQuestionSet
 from .luck import LuckCycles
 from .pillars import FourPillarsResult
+from .sinsal import TraditionalExtras
 from .structure import GeokgukResult, StructureAnalysis
 from .time_correction import SolarTermBasis, TimeCorrectionResult
 from .yongsin import AggregatedYongsinResult
@@ -40,9 +41,7 @@ class ManseV2Result(BaseModel):
     yongsin_analysis: AggregatedYongsinResult | None = None
     luck_cycles: LuckCycles | None = None
     calibration: CalibrationQuestionSet | None = None
-
-    # Filled in later phases — schema slots reserved now.
-    traditional_extras: dict[str, Any] | None = None
+    traditional_extras: TraditionalExtras | None = None
 
     metadata: EngineMetadata
     trace: dict[str, Any] = Field(default_factory=dict)

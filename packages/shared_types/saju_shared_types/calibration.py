@@ -73,6 +73,8 @@ class CalibrationResult(BaseModel):
     confidence: float = 0.0
     evidence_count: int = 0
     match_rate: float = 0.0
-    model_scores: dict[str, float] = Field(default_factory=dict)
+    model_scores: dict[str, float] = Field(default_factory=dict)  # raw 피드백 점수
+    # confidence 가중(실제 선택 기준)
+    weighted_model_scores: dict[str, float] = Field(default_factory=dict)
     selected_model: str | None = None
     explanation: list[str] = Field(default_factory=list)
