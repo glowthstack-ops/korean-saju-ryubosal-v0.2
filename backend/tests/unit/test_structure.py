@@ -18,8 +18,8 @@ def test_structure_modifier_penalizes_clashed_only_root(make_pillars) -> None:
     assert "only_root_damaged:-6" in sm.structure_modifier_breakdown
     assert -10 <= sm.structure_modifier <= 10
     assert sm.structure_modifier < 0
-    # strength must consume the same modifier.
-    assert ca.force.strength.components["structure_modifier"] == sm.structure_modifier
+    # 강약은 v1.3 8성분(자체 충/합 보정 포함)으로 산출 — 충 성분이 컴포넌트에 존재.
+    assert "clash_adjustment" in ca.force.strength.components
 
 
 def test_stability_and_volatility_bounds(make_pillars) -> None:

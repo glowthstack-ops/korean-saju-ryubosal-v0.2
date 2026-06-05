@@ -70,11 +70,11 @@ def test_metadata_and_trace_present(result) -> None:
 
 
 def test_force_analysis_strength_band(result) -> None:
-    # 표준 지장간(亥=戊甲壬 등) 교정 후 己 일간이 亥戊·巳戊로 뿌리가 강해져 중화신약으로 상향.
+    # v1.3 8성분 강약(진태양시 戊辰): 己 일간 중화신약(score ~ -22.7).
     f = result.force_analysis
     assert f is not None
     assert f.strength.band == "중화신약"
-    assert 34 <= f.strength.score <= 42
+    assert -30 <= f.strength.score <= -15
     assert f.strength.requires_validation in (True, False)
 
 

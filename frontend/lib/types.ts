@@ -53,6 +53,7 @@ export interface StrengthResult {
   basis: Record<string, boolean>;
   rootedness: Record<string, unknown>;
   strong_chart_gate: Record<string, boolean>;
+  warnings?: string[];
 }
 
 export interface ElementCandidate {

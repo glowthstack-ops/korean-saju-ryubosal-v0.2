@@ -3,34 +3,26 @@
 from __future__ import annotations
 
 from saju_shared_types.constants import (
-    SEASON_SCORE,
-    STEM_ELEMENT,
     main_hidden_stem,
-    season_state,
     ten_god,
 )
 from saju_shared_types.enums import Branch, Stem, TenGod
 from saju_shared_types.pillars import FourPillarsResult
 
 from .._chart import view
+from .strength_v1 import compute_v1, is_borderline_v1
 
-_BAND_BOUNDS = [
-    (11, "극신약"), (22, "태신약"), (34, "신약"), (44, "중화신약"), (55, "중화"),
-    (65, "중화신강"), (77, "신강"), (88, "태신강"), (100, "극신강"),
-]
-_BOUNDARY_POINTS = [11, 22, 34, 44, 55, 65, 77, 88]
 _ALLY_GROUPS = {TenGod.BIGYEON, TenGod.GEOMJAE, TenGod.JEONGIN, TenGod.PYEONIN}
+_NEUTRAL_BANDS = {"중화", "중화신약", "중화신강"}
 
 
 def classify_band(score: float) -> str:
-    for upper, name in _BAND_BOUNDS:
-        if score <= upper:
-            return name
-    return "극신강"
+    from .strength_v1 import _label
+    return _label(score)
 
 
 def is_borderline(score: float) -> bool:
-    return any(abs(score - b) <= 2 for b in _BOUNDARY_POINTS)
+    return is_borderline_v1(score)
 
 
 def side_balance_score(groups: dict[str, float]) -> float:
@@ -80,35 +72,23 @@ def compute_strength(
     structure_modifier: float,
     relation_stability: float,
 ) -> dict:
+    """신강·신약 v1.3 — 8성분 합산(strength_v1) + 가종격 분기 + 신강 게이트."""
     cv = view(pillars)
     dm = cv.day_master
-    dm_el = STEM_ELEMENT[dm]
     warnings: list[str] = []
 
-    season = SEASON_SCORE[season_state(dm_el, cv.month_branch)]
-    side = side_balance_score(ten_god_groups)
-
-    # structure_modifier 는 구조작용(합충형파해/병존/합화/공망) 단계에서 완성되어 주입된다.
-    structure_modifier = _clamp(structure_modifier, -10, 10)
-
-    score = _clamp(0.35 * season + 0.35 * root_score + 0.30 * side + structure_modifier, 0, 100)
-    band = classify_band(score)
+    v1 = compute_v1(pillars)
+    score = v1["score"]
+    band = v1["label"]
+    root_total = v1["root_total"]
     borderline = is_borderline(score)
 
-    # confidence — clarity of each component + relation stability.
-    season_clarity = _clamp(abs(season - 50) / 40, 0, 1)
-    root_clarity = _clamp(abs(root_score - 50) / 50, 0, 1)
-    side_clarity = _clamp(abs(side - 50) / 50, 0, 1)
-    confidence = round(
-        0.35 * season_clarity + 0.30 * root_clarity + 0.20 * side_clarity
-        + 0.15 * relation_stability,
-        4,
-    )
+    # confidence — |score| 가 클수록(밴드 중심에서 멀수록) 명료. 관계 안정도 가미.
+    magnitude = _clamp(abs(score) / 80, 0, 1)
+    confidence = round(_clamp(0.45 + 0.40 * magnitude + 0.15 * relation_stability, 0, 1), 4)
+    requires_validation = band in _NEUTRAL_BANDS or borderline or confidence < 0.70
 
-    requires_validation = (35 <= score <= 65) or confidence < 0.70 or borderline
-
-    # 신강 최소 조건 게이트 (신왕 ≠ 신강): ① 월지 또는 일지가 비겁/인성,
-    # ② 그 자리 외의 다른 자리에도 비겁/인성이 하나 이상.
+    # 신강 최소 조건 게이트 (신왕 ≠ 신강).
     month_ally = _is_ally_branch(dm, cv.month_branch)
     day_ally = _is_ally_branch(dm, cv.branches[2][1])
     ally_labels: set[str] = set()
@@ -120,40 +100,36 @@ def compute_strength(
     for pos, branch in cv.branches:
         if ten_god(dm, main_hidden_stem(branch)) in _ALLY_GROUPS:
             ally_labels.add(f"{pos}_branch")
-
     gate = evaluate_strong_gate(month_ally, day_ally, ally_labels)
-    gate_passed = gate["passed"]
 
-    if band in ("중화신약", "중화", "중화신강"):
+    if band in _NEUTRAL_BANDS:
         warnings.append("neutral_zone: 용신 단정 금지, 경쟁 모델/검증 필요")
-    if root_score >= 50 and not gate_passed:
+    if v1["jong"]["active"]:
+        warnings.append(f"가종격(假從) 신호: {v1['jong']['evidence']} → 억부 우선 검토")
+    if root_total >= 40 and not gate["passed"]:
         warnings.append("rooted_but_not_strong: 신왕하나 신강 게이트 미통과")
 
     rootedness_label = (
-        "무근" if root_score < 10 else
-        "약근" if root_score < 30 else
-        "보통" if root_score < 50 else "신왕"
+        "무근" if root_total < 10 else
+        "약근" if root_total < 25 else
+        "보통" if root_total < 45 else "신왕"
     )
 
     return {
-        "score": round(score, 2),
+        "score": score,
         "band": band,
         "borderline": borderline,
         "confidence": confidence,
         "requires_validation": requires_validation,
-        "components": {
-            "season_score": float(season),
-            "root_score": round(root_score, 2),
-            "side_balance_score": round(side, 2),
-            "structure_modifier": structure_modifier,
-        },
+        "components": v1["components"],  # 8성분 (root_score 키 포함)
         "basis": {},  # filled by aggregator from rooting
-        "rootedness": {"label": rootedness_label, "score": round(root_score, 2)},
+        "rootedness": {"label": rootedness_label, "score": round(root_total, 2)},
         "strong_chart_gate": gate,
         "explanation": [
-            f"season_score={season}, root_score={round(root_score, 1)}, "
-            f"side_balance={round(side, 1)}, structure={structure_modifier}",
+            f"v1.3 score={score} ({band}); "
+            + "; ".join(f"{k}={v}" for k, v in v1["components"].items()),
+            f"가종격={'O' if v1['jong']['active'] else 'X'} ({v1['jong']['evidence']})",
         ],
         "warnings": warnings,
-        "_side_balance_score": round(side, 2),
+        "_side_balance_score": 0.0,
     }

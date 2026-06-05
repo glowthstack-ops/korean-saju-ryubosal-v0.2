@@ -58,7 +58,7 @@ def _strongest_pressure(groups: dict[str, float]) -> str:
 
 def _support_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
     """부일간형: 신약 일간을 비겁으로 직접 보강 (용=비겁, 희=인성, 기=관살, 구=재성, 한=식상)."""
-    conf = round(min(0.5 + (50 - strength.score) / 100, 0.85), 4)
+    conf = round(min(0.5 + (-strength.score) / 120, 0.85), 4)
     return YongsinCandidateModel(
         model_type="support_day_master",
         label="부일간형(비겁 보강)",
@@ -71,7 +71,7 @@ def _support_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
 
 def _resource_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
     """인성용신형: 재성·식상으로 빠지는 기운을 인성으로 회복 (관인상생, 희=관살)."""
-    conf = round(min(0.45 + (50 - strength.score) / 120, 0.78), 4)
+    conf = round(min(0.45 + (-strength.score) / 150, 0.78), 4)
     return YongsinCandidateModel(
         model_type="resource_as_yongsin",
         label="인성용신형(관인상생)",
@@ -96,7 +96,7 @@ def _output_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
 
 def _eokbu_strong_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
     """일반 억부(신강): 식상 설기 + 재성, 기신=인성/비겁."""
-    conf = round(min(0.5 + (strength.score - 50) / 100, 0.85), 4)
+    conf = round(min(0.5 + strength.score / 120, 0.85), 4)
     return YongsinCandidateModel(
         model_type="eokbu_normal",
         label="억부형(설기·재관)",

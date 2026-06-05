@@ -76,11 +76,14 @@ export function StrengthPanel({ result }: { result: ManseResult }) {
   const st = result.force_analysis.strength;
   const b = st.basis;
   return (
-    <Card title="신강/신약 9단계" info="통근(지장간 뿌리)과 득지(일지가 일간을 직접 지지)는 다릅니다. 뿌리가 튼튼해도(신왕) 신강은 아닙니다.">
+    <Card title="신강/신약 (v1.3 8성분)" info="월령·통근·투간·천간/지장간 십성·합국·충·조후 8성분 합산 점수(-100~+100대) → 7단계. 통근(뿌리)과 신강은 다르며, 일간이 극약하고 외부로 종하면 가종격으로 봅니다.">
       <p className="text-sm">
         <b>{st.band}</b> · {st.score}점 · 신뢰도 {st.confidence}
         {st.borderline && " · 경계값"}
       </p>
+      {(st.warnings ?? []).some((w) => w.includes("가종")) && (
+        <p className="mt-1 text-[11px] text-amber-700">가종격(假從) 신호 — 종격/억부 병행 검토</p>
+      )}
       <p className="mt-1 text-xs text-gray-600">
         득령 {b.deukryeong ? "O" : "X"} · 득지 {b.deukji ? "O" : "X"} · 득세 {b.deukse ? "O" : "X"} · 통근 {b.tonggeun ? "O" : "X"}
       </p>

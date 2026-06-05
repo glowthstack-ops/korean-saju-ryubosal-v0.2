@@ -581,3 +581,18 @@ final_weight 0.15.
 극신약→종격 우선 체크는 special_cases가 억부 전에 처리(유지).
 
 검증: backend **147 pass**·ruff·mypy clean / frontend 7 pass·build OK. 기존 강약/골든/effective 스냅샷 불변.
+
+### 신강·신약 v1.3 8성분 전면 재산정 (day_strength_v1.json 이식) ✅
+사용자 제공 v1 마스터를 v2에 네이티브 이식. 강약 점수식을 v1 8성분 합산으로 전면 교체.
+- `strength/strength_v1.py` 신설: 월령(관계×월지강도)·통근(정/중/여기)·투간(부호별)·천간십성·
+  지장간십성(위치×단계)·합국(삼합/방합/육합 max k)·충(통근지지/월지/관성)·조후 8성분 → score(-100~+100대).
+  구조(합/충) 탐지는 v2 constants 재사용, 계수만 v1 마스터에서 이식.
+- 7밴드(극신강/신강/중화신강/중화/중화신약/신약/극신약) + **가종격(假從)** 분기
+  (일간그룹≤40%·외부≥60%·통근≤15 → band 중화 재라벨, 억부 우선 warning).
+- `strength_score.compute_strength`가 compute_v1에 위임(게이트/rootedness/confidence/components 계약 유지).
+  components는 8성분(root_score 키 포함) → 격국/용신 다운스트림 호환.
+- 용신 신뢰도 공식을 0-100→v1 스케일(중심 0)로 보정.
+- **v1 재현 확인**: 1980.11.22 일반시(己巳) = **-53.8 신약**(레퍼런스 일치). 진태양시(戊辰) = -22.7 중화신약, 용신 土 유지.
+- 골든 재고정: australia 신강·india 중화신약·japan 중화(가종)·lunar 극신약·uk/us 극신강·zi 중화(가종).
+  test_strength 밴드/경계·test_structure·fixture·sinsal 스냅샷 갱신. v1 parity/불변식 테스트 추가.
+검증: backend **147 pass**·ruff·mypy clean / frontend 7 pass·build OK.
