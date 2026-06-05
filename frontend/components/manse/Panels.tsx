@@ -20,6 +20,17 @@ function r1(v: unknown): string {
   return Number.isFinite(n) ? String(Math.round(n * 10) / 10) : String(v ?? "");
 }
 
+// 표준시 offset(분) → "UTC+9시간" / "UTC+5:30".
+function fmtOffset(v: unknown): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v ?? "");
+  const sign = n >= 0 ? "+" : "-";
+  const a = Math.abs(n);
+  const h = Math.floor(a / 60);
+  const m = a % 60;
+  return m ? `UTC${sign}${h}:${String(m).padStart(2, "0")}` : `UTC${sign}${h}시간`;
+}
+
 function Card({ title, info, children }: { title: string; info?: string; children: React.ReactNode }) {
   return (
     <section className="rounded-lg border bg-white p-4">
@@ -52,7 +63,7 @@ export function TrueSolarTimeCard({ result }: { result: ManseResult }) {
   return (
     <Card title="시간 보정 · 진태양시" info="법정시→표준시(서머타임 제거)→경도보정→균시차→진태양시 순으로 계산합니다.">
       <ul className="space-y-1 text-xs text-gray-600">
-        <li>표준시 offset: {String(tc.timezone_offset_minutes)}분 · 서머타임: {tc.daylight_saving_applied ? "적용" : "미적용"}</li>
+        <li>표준시: {fmtOffset(tc.timezone_offset_minutes)} · 서머타임: {tc.daylight_saving_applied ? "적용" : "미적용"}</li>
         <li>경도보정: {r1(tc.longitude_correction_minutes)}분 · 균시차: {r1(tc.equation_of_time_minutes)}분</li>
         <li>진태양시: {fmtDT(tc.true_solar_datetime)}</li>
         {changed && (
