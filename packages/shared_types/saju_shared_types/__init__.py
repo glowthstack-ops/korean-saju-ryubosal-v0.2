@@ -24,6 +24,13 @@ from .enums import (
 )
 from .manse_result import EngineMetadata, ManseV2Result
 from .pillars import FourPillarsResult, HiddenStem, Pillar
+from .structure import (
+    GeokgukResult,
+    StabilityScores,
+    StructuralInteraction,
+    StructureAnalysis,
+    TransformationCheck,
+)
 from .time_correction import SolarTermBasis, TimeCorrectionResult
 
 __all__ = [
@@ -51,4 +58,9 @@ __all__ = [
     "Pillar",
     "SolarTermBasis",
     "TimeCorrectionResult",
+    "GeokgukResult",
+    "StabilityScores",
+    "StructuralInteraction",
+    "StructureAnalysis",
+    "TransformationCheck",
 ]

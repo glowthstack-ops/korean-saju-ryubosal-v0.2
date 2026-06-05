@@ -290,6 +290,86 @@ def season_state(element: Element, month_branch: Branch) -> str:
     return "si"  # season controls element
 
 
+# ---------------------------------------------------------------------------
+# 합충형파해 (relation) tables — canonical traditional sets.
+# Keys/members use enums; combinations are unordered (frozenset).
+# ---------------------------------------------------------------------------
+# 천간합 (五合) → 합화 오행
+STEM_COMBINATIONS: dict[frozenset[Stem], Element] = {
+    frozenset({Stem.GAP, Stem.GI}): Element.EARTH,
+    frozenset({Stem.EUL, Stem.GYEONG}): Element.METAL,
+    frozenset({Stem.BYEONG, Stem.SIN}): Element.WATER,
+    frozenset({Stem.JEONG, Stem.IM}): Element.WOOD,
+    frozenset({Stem.MU, Stem.GYE}): Element.FIRE,
+}
+
+# 지지육합 (六合) → 합화 오행 (午未는 통설상 火/土 양설 → 火로 표기, 신뢰도 보수)
+SIX_COMBINATIONS: dict[frozenset[Branch], Element] = {
+    frozenset({Branch.JA, Branch.CHUK}): Element.EARTH,
+    frozenset({Branch.IN, Branch.HAE}): Element.WOOD,
+    frozenset({Branch.MYO, Branch.SUL}): Element.FIRE,
+    frozenset({Branch.JIN, Branch.YU}): Element.METAL,
+    frozenset({Branch.SA, Branch.SIN}): Element.WATER,
+    frozenset({Branch.O, Branch.MI}): Element.FIRE,
+}
+
+# 삼합 (三合): (members, 합화 오행, 왕지)
+THREE_HARMONY: list[tuple[frozenset[Branch], Element, Branch]] = [
+    (frozenset({Branch.SIN, Branch.JA, Branch.JIN}), Element.WATER, Branch.JA),
+    (frozenset({Branch.IN, Branch.O, Branch.SUL}), Element.FIRE, Branch.O),
+    (frozenset({Branch.SA, Branch.YU, Branch.CHUK}), Element.METAL, Branch.YU),
+    (frozenset({Branch.HAE, Branch.MYO, Branch.MI}), Element.WOOD, Branch.MYO),
+]
+
+# 방합 (方合): (members, 오행)
+DIRECTIONAL_COMBINATIONS: list[tuple[frozenset[Branch], Element]] = [
+    (frozenset({Branch.IN, Branch.MYO, Branch.JIN}), Element.WOOD),
+    (frozenset({Branch.SA, Branch.O, Branch.MI}), Element.FIRE),
+    (frozenset({Branch.SIN, Branch.YU, Branch.SUL}), Element.METAL),
+    (frozenset({Branch.HAE, Branch.JA, Branch.CHUK}), Element.WATER),
+]
+
+# 지지충 (六沖)
+BRANCH_CLASHES: set[frozenset[Branch]] = {
+    frozenset({Branch.JA, Branch.O}),
+    frozenset({Branch.CHUK, Branch.MI}),
+    frozenset({Branch.IN, Branch.SIN}),
+    frozenset({Branch.MYO, Branch.YU}),
+    frozenset({Branch.JIN, Branch.SUL}),
+    frozenset({Branch.SA, Branch.HAE}),
+}
+
+# 형 (刑): 삼형 + 상형 + 자형
+PUNISHMENT_TRIPLES: list[frozenset[Branch]] = [
+    frozenset({Branch.IN, Branch.SA, Branch.SIN}),  # 무은지형
+    frozenset({Branch.CHUK, Branch.SUL, Branch.MI}),  # 지세지형
+]
+PUNISHMENT_MUTUAL: set[frozenset[Branch]] = {
+    frozenset({Branch.JA, Branch.MYO}),  # 무례지형
+}
+SELF_PUNISHMENT: set[Branch] = {Branch.JIN, Branch.O, Branch.YU, Branch.HAE}
+
+# 파 (六破)
+BRANCH_BREAKS: set[frozenset[Branch]] = {
+    frozenset({Branch.JA, Branch.YU}),
+    frozenset({Branch.O, Branch.MYO}),
+    frozenset({Branch.SIN, Branch.SA}),
+    frozenset({Branch.IN, Branch.HAE}),
+    frozenset({Branch.JIN, Branch.CHUK}),
+    frozenset({Branch.SUL, Branch.MI}),
+}
+
+# 해 (六害)
+BRANCH_HARMS: set[frozenset[Branch]] = {
+    frozenset({Branch.JA, Branch.MI}),
+    frozenset({Branch.CHUK, Branch.O}),
+    frozenset({Branch.IN, Branch.SA}),
+    frozenset({Branch.MYO, Branch.JIN}),
+    frozenset({Branch.SIN, Branch.HAE}),
+    frozenset({Branch.YU, Branch.SUL}),
+}
+
+
 # Engine/data versions stamped onto every result for reproducibility.
 ENGINE_VERSION = "v2.1.0"
 RULESET_VERSION = "pillars-2024.1"

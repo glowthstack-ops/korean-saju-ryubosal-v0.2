@@ -1,5 +1,5 @@
-"""Saju v2 analysis engine (force analysis: distributions, rooting, strength)."""
+"""Saju v2 analysis engine: distributions, 통근, 신강약, 구조작용, 격국."""
 
-from .force_analysis import analyze
+from .force_analysis import ChartAnalysis, analyze, analyze_chart
 
-__all__ = ["analyze"]
+__all__ = ["ChartAnalysis", "analyze", "analyze_chart"]

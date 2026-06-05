@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from .analysis import ForceAnalysis
 from .pillars import FourPillarsResult
+from .structure import GeokgukResult, StructureAnalysis
 from .time_correction import SolarTermBasis, TimeCorrectionResult
 
 
@@ -31,10 +32,10 @@ class ManseV2Result(BaseModel):
     pillars: FourPillarsResult | None = None
 
     force_analysis: ForceAnalysis | None = None
+    structure_analysis: StructureAnalysis | None = None
+    geokguk: GeokgukResult | None = None
 
     # Filled in later phases — schema slots reserved now.
-    structure_analysis: dict[str, Any] | None = None
-    geokguk: dict[str, Any] | None = None
     yongsin_analysis: dict[str, Any] | None = None
     luck_cycles: dict[str, Any] | None = None
     calibration: dict[str, Any] | None = None

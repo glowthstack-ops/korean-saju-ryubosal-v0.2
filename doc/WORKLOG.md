@@ -99,6 +99,41 @@ Phase 3 진입 전 재현성 문제 정리.
 검증: **pytest 64 pass(unit 52 / regression 9 / integration 3)** ·
 `mypy .` clean · ruff clean.
 
+---
+
+## Phase 3 — 구조작용 + structure_modifier 완성 + 격국 ✅
+
+권장 순서대로 구조작용 → structure_modifier 완성 → 격국.
+
+- **관계 테이블**(`shared_types/constants.py`): 천간합·지지육합·삼합·방합·충·형(삼형/상형/자형)·
+  파·해 정규 테이블(육합 辰酉金·巳申水 등 정설 채택, 午未는 火 보수표기).
+- **관계 감지**(`manse_core/relations/relations.py`): 천간합, 삼합/반합(왕지 포함)/방합, 육합/충/
+  파/해/상형, 삼형(셋 중 2+), 자형, 병존(인접 동일 간/지), 간여지동(주 내 간지 동일 오행).
+- **구조작용 집계**(`manse_analysis/structure/structure_analysis.py`): 합화 판정(월령·뿌리·방해
+  요소 → exists/possible/confirmed/confidence, 보수적), 궁성 연결, 안정도(용신/격국/뿌리,
+  명세 §7 stability_modifier), volatility, calculation_trace.
+- **structure_modifier 완성**(strength_9_band §6): day_master_root_clashed(-4)/only_root_damaged
+  (-6)/strong_peer_duplication(+3)/strong_resource_support(+2)/day·month_branch_void(-2)/
+  transformation_supports·against(±3, 확정 합화만)/self_punishment_on_support_root(-2),
+  clamp[-10,10] + breakdown. confidence의 relation_stability도 구조작용 기반으로 산출.
+  Phase 2의 공망-only 잠정 structure_modifier를 대체(strength에 주입).
+- **격국**(`manse_analysis/structure/geokguk.py`): 월지 정기 주격(비견/겁재→건록/양인격),
+  투간(정기/동일십성), 성격/패격/중성(월지 충·형·공망→패), 안정도, 보조 구조("발현" 표기).
+- 오케스트레이터 `analyze_chart()` 신설: 분포→통근→구조작용→신강약(구조보정 주입)→격국.
+  service가 `force_analysis`/`structure_analysis`/`geokguk` 동시 채움.
+
+### 검증 (Golden Fixture)
+- 구조작용: 申亥 해×2, 亥亥 자형, 庚申·戊辰 간여지동, 亥亥 병존 정확 감지.
+  structure_modifier=0(뿌리 申/辰 미충·일월지 공망 없음), 안정도 용신0.72/격국0.80/뿌리0.84.
+- 격국: **정재격**(월지 亥 정기 壬, v1 일치), 성격=패(亥亥 자형), 보조 "년주 상관/월간 편인/시주 겁재 발현".
+- 신강약: structure_modifier 주입 후에도 신약 26.51(이 케이스는 보정 0이라 동일).
+- pytest **73 pass** · `mypy .` clean(70파일) · ruff clean · 라이브 API 직렬화 확인.
+
+### 결정/연기
+- 합화 확정은 보수적(월령+뿌리+무방해) — 불완전 시 합반/합거로만 처리(명세 원칙).
+- 오행/십성 effective 분포의 관계 보정(합충형파해 multiplier)은 여전히 별도 후속 항목으로 연기
+  (분포 trace의 deferred_modifiers에 명시). structure_modifier(신강약)는 본 단계에서 완성됨.
+
 **통합테스트 hang 후속 정정(2차)**: ASGITransport 전환만으로는 부족했음 — 라우터가
 동기 `def`라 FastAPI가 threadpool(`anyio.to_thread`)로 디스패치하는 지점이 일부
 샌드박스에서 hang. `health`/`calculate` 핸들러를 **`async def`**로 전환해 threadpool

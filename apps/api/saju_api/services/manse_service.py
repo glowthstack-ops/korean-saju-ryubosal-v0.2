@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC
 
-from saju_manse_analysis import analyze
+from saju_manse_analysis import analyze_chart
 
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_manse_core.pillars import four_pillars
@@ -158,7 +158,7 @@ def calculate(birth: BirthInput) -> ManseV2Result:
         solar_terms_version=table.version,
     )
 
-    force = analyze(pillars)
+    chart_analysis = analyze_chart(pillars)
 
     return ManseV2Result(
         chart_id=_chart_id(birth),
@@ -166,7 +166,9 @@ def calculate(birth: BirthInput) -> ManseV2Result:
         time_correction=time_correction,
         solar_term_basis=solar_basis,
         pillars=pillars,
-        force_analysis=force,
+        force_analysis=chart_analysis.force,
+        structure_analysis=chart_analysis.structure,
+        geokguk=chart_analysis.geokguk,
         metadata=metadata,
         trace={
             "absolute_instant_utc": absolute_instant.astimezone(UTC).isoformat(),

@@ -77,7 +77,8 @@ def compute_strength(
     pillars: FourPillarsResult,
     ten_god_groups: dict[str, float],
     root_score: float,
-    gongmang_branches: list[str],
+    structure_modifier: float,
+    relation_stability: float,
 ) -> dict:
     cv = view(pillars)
     dm = cv.day_master
@@ -87,27 +88,17 @@ def compute_strength(
     season = SEASON_SCORE[season_state(dm_el, cv.month_branch)]
     side = side_balance_score(ten_god_groups)
 
-    # structure_modifier — only non-relation factors in this phase (공망 on
-    # day/month branch). 합충형파해/병존/합화 보정은 구조작용 단계에서 추가.
-    void = set(gongmang_branches)
-    structure_modifier = 0.0
-    day_void = pillars.day.branch in void
-    month_void = pillars.month.branch in void
-    if day_void:
-        structure_modifier -= 2
-    if month_void:
-        structure_modifier -= 2
+    # structure_modifier 는 구조작용(합충형파해/병존/합화/공망) 단계에서 완성되어 주입된다.
     structure_modifier = _clamp(structure_modifier, -10, 10)
 
     score = _clamp(0.35 * season + 0.35 * root_score + 0.30 * side + structure_modifier, 0, 100)
     band = classify_band(score)
     borderline = is_borderline(score)
 
-    # confidence — clarity of each component + relation stability (voids only here).
+    # confidence — clarity of each component + relation stability.
     season_clarity = _clamp(abs(season - 50) / 40, 0, 1)
     root_clarity = _clamp(abs(root_score - 50) / 50, 0, 1)
     side_clarity = _clamp(abs(side - 50) / 50, 0, 1)
-    relation_stability = _clamp(1.0 - 0.15 * (int(day_void) + int(month_void)), 0, 1)
     confidence = round(
         0.35 * season_clarity + 0.30 * root_clarity + 0.20 * side_clarity
         + 0.15 * relation_stability,

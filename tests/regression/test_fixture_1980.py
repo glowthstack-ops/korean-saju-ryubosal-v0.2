@@ -99,6 +99,29 @@ def test_force_analysis_rootedness_vs_strong_gate(result) -> None:
     }
 
 
+def test_structure_analysis(result) -> None:
+    sa = result.structure_analysis
+    assert sa is not None
+    rel_types = {i.relation_type for i in sa.interactions}
+    # 申亥 해 + 亥亥 자형
+    assert "harm" in rel_types
+    assert "self_punishment" in rel_types
+    amp_types = {a.relation_type for a in sa.amplifiers}
+    assert "gan_yeo_ji_dong" in amp_types  # 庚申, 戊辰
+    assert "branch_duplication" in amp_types  # 亥亥
+    assert -10 <= sa.structure_modifier <= 10
+    for v in (sa.stability.yongsin_stability, sa.stability.root_stability):
+        assert 0.0 <= v <= 1.0
+
+
+def test_geokguk(result) -> None:
+    g = result.geokguk
+    assert g is not None
+    assert g.main_structure == "정재격"  # v1 reference 격국
+    assert g.basis["month_branch"] == "亥"
+    assert any("발현" in a for a in g.auxiliary_structures)
+
+
 def test_deterministic(fixture: dict) -> None:
     a = calculate(BirthInput(**fixture["input"]))
     b = calculate(BirthInput(**fixture["input"]))
