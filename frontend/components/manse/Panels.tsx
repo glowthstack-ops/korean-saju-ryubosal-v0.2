@@ -46,7 +46,10 @@ function Card({ title, info, children }: { title: string; info?: string; childre
 export function BirthSummaryBar({ result }: { result: ManseResult }) {
   const s = result.input_summary as Record<string, unknown>;
   const cal = s.calendar_type === "lunar" ? "음력" : "양력";
-  const time = s.birth_time_unknown ? "시간 모름" : String(s.birth_time ?? "");
+  // 입력 시간은 HH:MM 까지만(초 제거).
+  const time = s.birth_time_unknown
+    ? "시간 모름"
+    : String(s.birth_time ?? "").slice(0, 5);
   const dir = s.daewoon_direction === "forward" ? "순행대운" : s.daewoon_direction === "backward" ? "역행대운" : "";
   return (
     <div className="rounded-lg bg-gray-900 p-3 text-sm text-white">
