@@ -16,7 +16,8 @@ function localTodayISO(): string {
 // backend weekday: Mon=0..Sun=6 → 일요일 시작 컬럼(Sun=0).
 const sunFirstCol = (weekday: number) => (weekday + 1) % 7;
 
-function lunarShort(iso: string, leap: boolean): string {
+function lunarShort(iso: string | undefined, leap: boolean): string {
+  if (!iso) return "";
   const [, m, d] = iso.split("-");
   return `${leap ? "윤" : "음"}${Number(m)}.${Number(d)}`;
 }
