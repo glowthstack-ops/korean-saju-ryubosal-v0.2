@@ -71,6 +71,31 @@ def test_calculate_returns_full_schema() -> None:
     assert len(body["luck_cycles"]["daewoon_table"]) == 9
 
 
+def test_calibration_feedback_endpoint() -> None:
+    birth = {
+        "calendar_type": "solar",
+        "birth_date": "1980-11-22",
+        "birth_time": "09:08",
+        "birth_place_name": "서울",
+        "gender": "male",
+        "reference_date": "2015-06-15",
+    }
+    calc = _request("POST", "/api/v2/manse/calculate", json=birth).json()
+    questions = calc["calibration"]["questions"]
+    assert len(questions) == 5
+    answers = [
+        {"question_id": q["id"], "overall_rating": "positive", "selected_events": ["취업"]}
+        for q in questions
+    ]
+    r = _request(
+        "POST", "/api/v2/manse/calibration/feedback", json={"birth": birth, "answers": answers}
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] in ("calibrated", "probable", "uncertain")
+    assert "model_scores" in body
+
+
 def test_unknown_location_returns_422() -> None:
     payload = {
         "calendar_type": "solar",

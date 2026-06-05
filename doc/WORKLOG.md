@@ -226,3 +226,42 @@ blocker 단위테스트(寅亥 육합 + 寅申 충) 및 격국 self_punished rea
    별도 보관(출생 절대시각 + 정확 시작나이년). 1985-11-17 등.
 
 검증: **pytest 88 pass** · `mypy .` clean(79파일) · ruff clean.
+
+---
+
+## Phase 4c — 용신 검증 루프 ✅ (Phase 4 완료)
+
+`manse_calibration` 골격을 실구현(NotImplementedError 제거).
+
+- **검증 기간 선택**(`period_selector.py`): 기억 가능 연령대(만 12세~기준연도) 각 해의
+  연간지 오행이 후보 모델별로 positive/negative/mixed/neutral 중 무엇인지 산출 →
+  비중립·모델 불일치(경쟁) 가중으로 정보량 점수화·정렬.
+- **질문 5종**(`question_generator.py`): ① 용신 긍정 ② 기신 부정 ③ 경쟁 모델 비교
+  ④ 사건 도메인 ⑤ 년월 상세. **같은 연도 중복 금지**(used_years), 사건 도메인 옵션 +
+  "기억나지 않음" 포함, target_models·expected_effect_by_model 부착.
+- **피드백 점수화**(`feedback_scorer.py`): score_feedback(positive→점수/negative→-점수/
+  mixed→0.5|x|/volatile→0.3|x|), **unknown 제외**, 중대 사건 1.5 가중. 모델별 누적 →
+  best 모델 match_rate·evidence·gap → **calibrated(≥4·≥0.75·gap≥0.15)/probable(≥3·≥0.60)/
+  uncertain**.
+- **연결**: `ManseV2Result.calibration`(reference_date 있을 때 질문 생성, 없으면 None) +
+  **`POST /api/v2/manse/calibration/feedback`**(무상태: birth 재계산 → 동일 질문 채점 →
+  CalibrationResult). `ManseV2Result.calibration` 타입 확정, 골격 패키지 → 실구현으로 교체.
+
+### 검증 (Golden Fixture, ref=2015-06-15)
+- 질문 5종(2014/2012/2013/2007/2002 — **중복 연도 없음**), 유형 5종 모두 생성.
+- 전부 unknown → uncertain·evidence 0. 전부 positive → 모델 점수화 후 판정(calibrated 등).
+- reference_date 없으면 calibration None. pytest **92 pass** · `mypy .` clean(80파일) ·
+  ruff clean · 피드백 API 직렬화 확인.
+
+### 결정/연기
+- calibration은 무상태(persistence 없음): 제출 시 birth로 동일 질문을 결정론 재생성해 채점.
+  영속 저장/티켓/세션은 Milestone 5 범위.
+- period_confidence·event_weight 정밀화, 월 단위 expected(현재 연 단위)는 후속 보정.
+
+---
+
+## Phase 4 완료 요약
+
+용신 후보(4a) → 대운/세운/월운/일운(4b) → 검증 루프(4c)로 명세 인덱스 Phase 4 완료.
+`ManseV2Result`의 force/structure/geokguk/yongsin/luck/calibration 전 레이어가 채워짐
+(traditional_extras·신살 전체·UI는 Phase 5 범위).

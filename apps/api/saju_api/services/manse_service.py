@@ -7,6 +7,7 @@ from datetime import UTC
 
 from saju_manse_analysis import analyze_chart
 from saju_manse_analysis.luck import compute_luck_cycles
+from saju_manse_calibration import generate_calibration, score_calibration
 
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_manse_core.pillars import four_pillars
@@ -16,6 +17,7 @@ from saju_manse_core.time_correction import true_solar_time
 from saju_manse_core.time_correction.input_normalizer import normalize
 from saju_manse_core.time_correction.timezone_resolver import TZDATA_VERSION, resolve
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.calibration import CalibrationResult, FeedbackAnswer
 from saju_shared_types.constants import (
     ENGINE_VERSION,
     RULESET_VERSION,
@@ -178,6 +180,12 @@ def calculate(birth: BirthInput) -> ManseV2Result:
             reference_date=birth.reference_date,
         )
 
+    calibration = None
+    if birth.reference_date is not None and chart_analysis.yongsin.candidate_models:
+        calibration = generate_calibration(
+            chart_analysis.yongsin, norm.solar_date.year, birth.reference_date.year
+        )
+
     return ManseV2Result(
         chart_id=_chart_id(birth),
         input_summary=input_summary,
@@ -189,10 +197,24 @@ def calculate(birth: BirthInput) -> ManseV2Result:
         geokguk=chart_analysis.geokguk,
         yongsin_analysis=chart_analysis.yongsin,
         luck_cycles=luck_cycles,
+        calibration=calibration,
         metadata=metadata,
         trace={
             "absolute_instant_utc": absolute_instant.astimezone(UTC).isoformat(),
             "final_chart_datetime": tc.final_chart_datetime.isoformat(),
             "standard_datetime": tc.standard_datetime.isoformat(),
         },
+    )
+
+
+def calibrate_feedback(birth: BirthInput, answers: list[FeedbackAnswer]) -> CalibrationResult:
+    """Recompute the chart deterministically and score user feedback against the
+    same validation questions (stateless calibration)."""
+    result = calculate(birth)
+    if result.calibration is None or result.yongsin_analysis is None:
+        raise ValueError(
+            "calibration unavailable: provide reference_date and a chart with candidate models"
+        )
+    return score_calibration(
+        result.calibration.questions, answers, result.yongsin_analysis
     )
