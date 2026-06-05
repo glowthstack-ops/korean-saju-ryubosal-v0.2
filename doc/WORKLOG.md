@@ -360,3 +360,18 @@ calibration/traditional_extras 모두 산출. (만세력 UI = apps/web는 백엔
 
 검증: pytest **121 pass**(seed 0/1/2 동일) · `mypy .` clean(87파일) · ruff clean ·
 cross-process 결정성 가드 추가.
+
+---
+
+## 구조 정리 — 백엔드 경계 분리 ✅
+
+전체 서비스 관점에서 현 구현물은 **백엔드**(만세력 엔진 + API)임을 반영해 폴더 재배치.
+
+- `apps/`·`packages/`·`data/`·`scripts/`·`tests/`·`pyproject.toml` → **`backend/`** 하위로 이동
+  (git mv로 이력 보존). `__file__` 상대경로 깊이가 보존되어 코드 변경 없음.
+- 루트는 전체 서비스 기준: `backend/`(구현됨) · `frontend/`(예정) · `doc/`(공통 명세·이력).
+- 루트 `README.md`=전체 서비스 개요, `backend/README.md`=엔진 상세.
+- CI: `working-directory: backend`로 조정(job명 backend). `.venv`는 루트 유지, 설치는
+  `pip install -e ./backend`.
+
+검증: backend/에서 pytest **121 pass(seed 0/1/2)** · `mypy .` clean(87파일) · ruff clean.
