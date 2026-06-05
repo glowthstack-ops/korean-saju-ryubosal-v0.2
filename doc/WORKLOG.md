@@ -96,5 +96,10 @@ Phase 3 진입 전 재현성 문제 정리.
 5. **신왕 게이트 정정**: "월/일지 외 다른 자리" 의미로 `evaluate_strong_gate()` 분리
    (월·일지 동시 동류는 한쪽이 ②역할). 순수함수로 단위테스트 추가.
 
-검증: **pytest 63 pass(unit 51 / regression 9 / integration 3)** ·
-`mypy .` clean · ruff clean · 통합테스트 hang 해소.
+검증: **pytest 64 pass(unit 52 / regression 9 / integration 3)** ·
+`mypy .` clean · ruff clean.
+
+**통합테스트 hang 후속 정정(2차)**: ASGITransport 전환만으로는 부족했음 — 라우터가
+동기 `def`라 FastAPI가 threadpool(`anyio.to_thread`)로 디스패치하는 지점이 일부
+샌드박스에서 hang. `health`/`calculate` 핸들러를 **`async def`**로 전환해 threadpool
+디스패치 자체를 제거(엔진은 빠른 결정론적 CPU 작업이라 인라인 호출). 통합 3개 정상 종료.

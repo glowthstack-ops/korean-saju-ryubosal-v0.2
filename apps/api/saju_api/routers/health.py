@@ -10,5 +10,7 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-def health() -> dict[str, str]:
+async def health() -> dict[str, str]:
+    # async so FastAPI runs it on the event loop instead of dispatching the sync
+    # handler to a threadpool (which can hang under restricted sandboxes).
     return {"status": "ok", "engine_version": ENGINE_VERSION}
