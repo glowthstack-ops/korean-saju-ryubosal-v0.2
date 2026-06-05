@@ -27,6 +27,8 @@ class YongsinCandidateModel(BaseModel):
     confidence: float
     reasons: list[str] = Field(default_factory=list)
     requires_validation: bool = True
+    # 조후·고립/건강 등 보조 모델은 단독으로 용신을 확정할 수 없다.
+    is_auxiliary: bool = False
 
 
 class SpecialCaseCheck(BaseModel):

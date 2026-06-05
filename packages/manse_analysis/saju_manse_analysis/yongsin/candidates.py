@@ -106,6 +106,7 @@ def _johu_model(month_branch: Branch, g: dict[str, Element]) -> YongsinCandidate
         yongsin=_e(yong),
         confidence=0.4,
         reasons=[reason, "조후는 단독 확정 금지, 억부와 함께 검증"],
+        is_auxiliary=True,
     )
 
 

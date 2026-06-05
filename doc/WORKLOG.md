@@ -265,3 +265,14 @@ blocker 단위테스트(寅亥 육합 + 寅申 충) 및 격국 self_punished rea
 용신 후보(4a) → 대운/세운/월운/일운(4b) → 검증 루프(4c)로 명세 인덱스 Phase 4 완료.
 `ManseV2Result`의 force/structure/geokguk/yongsin/luck/calibration 전 레이어가 채워짐
 (traditional_extras·신살 전체·UI는 Phase 5 범위).
+
+### Phase 4c.1 — 감사(codex) 보완 ✅ (조후 단독 확정 금지)
+- **Blocker 수정**: 조후 보조형(johu)이 raw 점수만으로 단독 calibrated 되던 문제.
+  - `YongsinCandidateModel.is_auxiliary` 추가, johu에 True.
+  - 피드백 점수에 **모델 confidence prior 가중**(weighted = score × confidence) 적용.
+  - **최종 용신 확정은 primary 모델만으로** 수행(보조 모델 단독 확정 금지). 보조가 동일
+    용신을 지지하면 보조 근거로만 반영(+0.05), 다른 용신을 지지하며 우세하면 "단독 확정
+    불가, primary 기준 채택"을 explanation에 기록. primary 점수 비양수면 uncertain.
+- 결과: 1980 fixture 전부 positive → johu(raw 6.0)가 아니라 **support_day_master(土)** 선택.
+- 테스트 추가: `test_auxiliary_johu_cannot_be_solely_calibrated`. pytest **93 pass** ·
+  `mypy .` clean · ruff clean.

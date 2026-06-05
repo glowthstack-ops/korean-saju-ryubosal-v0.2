@@ -67,3 +67,18 @@ def test_feedback_scores_models_and_decides() -> None:
     assert res.selected_model in res.model_scores
     if res.status != "uncertain":
         assert res.final_yongsin is not None
+
+
+def test_auxiliary_johu_cannot_be_solely_calibrated() -> None:
+    # 조후(보조 모델)는 raw 점수가 가장 높아도 단독 확정 금지 → primary 모델이 선택돼야.
+    b = BirthInput(reference_date="2015-06-15", **_BASE)
+    r = calculate(b)
+    assert r.calibration is not None
+    answers = [
+        FeedbackAnswer(question_id=q.id, overall_rating="positive", selected_events=["취업"])
+        for q in r.calibration.questions
+    ]
+    res = calibrate_feedback(b, answers)
+    assert res.selected_model != "johu"
+    assert res.selected_model == "support_day_master"
+    assert res.final_yongsin == "土"  # primary 부일간형 기준 (조후 火 아님)

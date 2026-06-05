@@ -67,15 +67,34 @@ def score_calibration(
             model_scores={k: round(v, 4) for k, v in scores.items()},
         )
 
-    ranked = sorted(scores, key=lambda m: scores[m], reverse=True)
+    # 모델 신뢰도(prior)로 가중 — confidence 0.4인 보조 모델이 질문 구성만으로
+    # 1등이 되지 않도록 한다.
+    weighted = {mt: scores[mt] * models[mt].confidence for mt in models}
+
+    # 최종 용신 확정은 primary 모델만으로 한다(조후 등 보조 모델 단독 확정 금지).
+    primary = [mt for mt in models if not models[mt].is_auxiliary]
+    explanation: list[str] = []
+
+    if not primary:
+        return CalibrationResult(
+            status="uncertain",
+            evidence_count=0,
+            model_scores={k: round(v, 4) for k, v in scores.items()},
+            explanation=["primary 모델 부재(보조 모델만 존재) → 단독 확정 불가."],
+        )
+
+    ranked = sorted(primary, key=lambda m: weighted[m], reverse=True)
     best = ranked[0]
-    best_score = scores[best]
-    second_score = scores[ranked[1]] if len(ranked) > 1 else 0.0
+    best_w = weighted[best]
+    second_w = weighted[ranked[1]] if len(ranked) > 1 else 0.0
     evidence_count = totals[best]
     match_rate = round(hits[best] / totals[best], 4) if totals[best] else 0.0
-    gap = (best_score - second_score) / (abs(best_score) + 1e-6)
+    gap = (best_w - second_w) / (abs(best_w) + 1e-6)
 
-    if evidence_count >= 4 and match_rate >= 0.75 and gap >= 0.15:
+    if best_w <= 0:
+        status = "uncertain"
+        explanation.append("긍정 근거가 부족합니다(primary 모델 점수 비양수).")
+    elif evidence_count >= 4 and match_rate >= 0.75 and gap >= 0.15:
         status = "calibrated"
     elif evidence_count >= 3 and match_rate >= 0.60:
         status = "probable"
@@ -83,19 +102,34 @@ def score_calibration(
         status = "uncertain"
 
     m = models[best]
+
+    # 보조 모델 corroboration: 보조가 best여도 단독 확정 금지. 동일 용신을 지지하면
+    # 보조 근거로만 반영, 다른 용신을 지지하면 단독 확정 불가를 명시.
+    aux = [mt for mt in models if models[mt].is_auxiliary and scores[mt] > 0]
+    aux_top = max(aux, key=lambda mt: weighted[mt], default=None)
+    confidence = match_rate
+    if aux_top is not None:
+        if models[aux_top].yongsin == m.yongsin:
+            confidence = min(confidence + 0.05, 0.95)
+            explanation.append(f"보조 모델({aux_top})이 동일 용신 지지 → 보조 근거 반영.")
+        elif weighted.get(aux_top, 0) > best_w:
+            explanation.append(
+                f"보조 모델({aux_top}) 우세하나 단독 확정 불가 → primary({best}) 기준 채택."
+            )
+
+    explanation.insert(0, f"최적 primary 모델={best}({m.label}), match_rate={match_rate}, "
+                          f"evidence={evidence_count}, 판정={status}(gap={round(gap, 3)})")
+
     return CalibrationResult(
         status=status,
         final_yongsin=m.yongsin if status != "uncertain" else None,
         final_heesin=m.heesin if status != "uncertain" else None,
         final_gisin=m.gisin if status != "uncertain" else None,
         final_gusin=m.gusin if status != "uncertain" else None,
-        confidence=round(min(match_rate, 0.95), 4),
+        confidence=round(min(confidence, 0.95), 4),
         evidence_count=evidence_count,
         match_rate=match_rate,
         model_scores={k: round(v, 4) for k, v in scores.items()},
         selected_model=best,
-        explanation=[
-            f"최적 모델={best}({m.label}), match_rate={match_rate}, evidence={evidence_count}",
-            f"판정={status} (gap={round(gap, 3)})",
-        ],
+        explanation=explanation,
     )
