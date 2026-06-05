@@ -15,6 +15,7 @@ def test_time_unknown_suppresses_hour_pillar() -> None:
             gender="male",
         )
     )
+    assert r.pillars is not None and r.time_correction is not None
     assert r.pillars.hour is None
     assert r.pillars.day.ganji == "己亥"  # date-stable pillars remain valid
     assert r.input_summary["birth_time_unknown"] is True
@@ -32,6 +33,8 @@ def test_lunar_conversion_matches_solar_fixture() -> None:
             birth_place_name="서울",
         )
     )
-    assert r.time_correction.lunar_converted_solar_date.isoformat() == "1980-11-22"
+    assert r.time_correction is not None and r.pillars is not None
+    converted = r.time_correction.lunar_converted_solar_date
+    assert converted is not None and converted.isoformat() == "1980-11-22"
     assert r.pillars.day.ganji == "己亥"
     assert r.pillars.month.ganji == "丁亥"

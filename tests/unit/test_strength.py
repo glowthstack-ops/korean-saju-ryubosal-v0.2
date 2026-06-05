@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from saju_manse_analysis.strength.strength_score import (
     classify_band,
+    evaluate_strong_gate,
     is_borderline,
     side_balance_score,
 )
@@ -46,6 +47,17 @@ def test_season_state_spring_wood_month() -> None:
     assert season_state(Element.WATER, Branch.IN) == "xiu"
     assert season_state(Element.METAL, Branch.IN) == "qiu"
     assert season_state(Element.EARTH, Branch.IN) == "si"
+
+
+def test_strong_gate_requires_ally_outside_month_day() -> None:
+    # 월지만 동류 + 다른 자리 동류 없음 → ② 미충족으로 게이트 실패.
+    assert evaluate_strong_gate(True, False, {"month_branch"})["passed"] is False
+    # 월지 동류 + 시지(다른 자리)에도 동류 → 통과.
+    assert evaluate_strong_gate(True, False, {"month_branch", "hour_branch"})["passed"] is True
+    # 월지·일지 모두 동류 → 한쪽이 "다른 자리" 역할 → 통과.
+    assert evaluate_strong_gate(True, True, {"month_branch", "day_branch"})["passed"] is True
+    # 월·일지 모두 비동류 → 게이트 자체 실패.
+    assert evaluate_strong_gate(False, False, {"year_stem"})["passed"] is False
 
 
 def test_season_state_earth_day_master_policy() -> None:

@@ -55,3 +55,19 @@ def test_ten_god_presence_classification(force) -> None:
     tg = force.ten_gods
     # missing vs hidden_only are disjoint, and a hidden-only god is not "missing".
     assert set(tg.missing_ten_gods).isdisjoint(tg.hidden_only_ten_gods)
+
+
+def test_element_distribution_trace_records_modifiers(force) -> None:
+    trace = force.five_elements.calculation_trace
+    for key in (
+        "position_weights",
+        "season_coefficient",
+        "month_main_qi_bonus",
+        "rooting_multipliers",
+        "exposure_multipliers",
+        "deferred_modifiers",
+    ):
+        assert key in trace
+    # 합충형파해/공망/병존 보정은 Phase 3로 명시 연기됨이 trace에 남는다.
+    assert "relation" in trace["deferred_modifiers"]
+    assert set(trace["season_coefficient"]) == {"木", "火", "土", "金", "水"}

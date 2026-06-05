@@ -14,6 +14,7 @@ class FiveElementAnalysis(BaseModel):
     weakest_element: str
     excessive_elements: list[str] = Field(default_factory=list)
     deficient_elements: list[str] = Field(default_factory=list)
+    calculation_trace: dict = Field(default_factory=dict)
 
 
 class TenGodAnalysis(BaseModel):

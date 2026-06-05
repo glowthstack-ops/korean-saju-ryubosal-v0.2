@@ -76,3 +76,25 @@
 
 ### 결정 사항
 - 세력분석은 용신 확정이 아니라 후보 산출 입력값으로만 사용(명세 원칙 유지).
+
+---
+
+## Phase 2.1 — 감사(codex) 지적 반영 ✅
+
+Phase 3 진입 전 재현성 문제 정리.
+
+1. **통합테스트 재현성**: `tests/integration/test_api.py`를 Starlette `TestClient`
+   (anyio portal/스레드 기동 → 일부 샌드박스에서 hang)에서 **httpx `ASGITransport` +
+   `anyio.run`** 인프로세스 호출로 교체. deprecation 경고도 제거.
+2. **mypy 범위 정정 및 강화**: 테스트의 Optional 접근에 assert 추가 →
+   이제 `mypy .`(테스트 포함 61파일) clean. CI도 `mypy .`로 상향.
+3. **manse_calibration 골격 추가**: `packages/manse_calibration`(period_selector·
+   question_generator·feedback_scorer) skeleton — import 가능, 본 구현은 Phase 4
+   (`NotImplementedError`). 인덱스/greenfield의 Phase 0 패키지 4종 구성 충족.
+4. **오행분포 trace 추가**: `five_elements.calculation_trace`에 위치가중치·월령계수·
+   월지본기 보너스·투간/통근 multiplier·연기된 보정(relation/void/coexistence) 기록.
+5. **신왕 게이트 정정**: "월/일지 외 다른 자리" 의미로 `evaluate_strong_gate()` 분리
+   (월·일지 동시 동류는 한쪽이 ②역할). 순수함수로 단위테스트 추가.
+
+검증: **pytest 63 pass(unit 51 / regression 9 / integration 3)** ·
+`mypy .` clean · ruff clean · 통합테스트 hang 해소.

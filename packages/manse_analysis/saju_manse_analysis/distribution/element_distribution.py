@@ -79,24 +79,48 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
         for hstem, _htype, w in hidden_stems_for(branch):
             hidden_base[str(STEM_ELEMENT[hstem])] += w
 
-    # Layer 3: effective_force.
+    # Layer 3: effective_force. Each applied modifier is recorded in the trace.
     eff = _empty()
+    rooting_trace: dict[str, float] = {}
+    exposure_trace: dict[str, float] = {}
+    month_bonus_trace: list[str] = []
     for pos, stem in cv.stems:
         w = STEM_POS_WEIGHT[pos]
         if w == 0:  # day master excluded as reference point
             continue
-        eff[str(STEM_ELEMENT[stem])] += w * _rooting_multiplier(cv, stem)
+        mult = _rooting_multiplier(cv, stem)
+        if mult != 1.0:
+            rooting_trace[f"{pos}:{stem}"] = round(mult, 4)
+        eff[str(STEM_ELEMENT[stem])] += w * mult
     for pos, branch in cv.branches:
         for hstem, htype, _w in hidden_stems_for(branch):
             base = BRANCH_POS_WEIGHT[pos] * HIDDEN_EFF_WEIGHT[htype.value]
             if pos == "month" and htype.value == "main":
                 base *= 1.12  # month main-qi bonus
-            base *= _exposure_multiplier(cv, hstem)
+                month_bonus_trace.append(f"{pos}:{branch}:{hstem}")
+            exp = _exposure_multiplier(cv, hstem)
+            if exp != 1.0:
+                exposure_trace[f"{pos}:{branch}:{hstem}"] = round(exp, 4)
+            base *= exp
             eff[str(STEM_ELEMENT[hstem])] += base
     # Seasonal coefficient applied to each element's total power.
+    season_trace = {
+        str(el): round(SEASON_COEFFICIENT[season_state(el, cv.month_branch)], 4)
+        for el in Element
+    }
     for el in Element:
         eff[str(el)] *= SEASON_COEFFICIENT[season_state(el, cv.month_branch)]
     eff = {e: round(v, 4) for e, v in eff.items()}
+
+    trace = {
+        "position_weights": {"stem": STEM_POS_WEIGHT, "branch": BRANCH_POS_WEIGHT},
+        "hidden_effective_weight": HIDDEN_EFF_WEIGHT,
+        "season_coefficient": season_trace,
+        "month_main_qi_bonus": {"factor": 1.12, "applied_to": month_bonus_trace},
+        "rooting_multipliers": rooting_trace,
+        "exposure_multipliers": exposure_trace,
+        "deferred_modifiers": ["relation", "void", "coexistence"],
+    }
 
     percent = _percent(eff)
     strongest = max(percent, key=lambda e: percent[e])
@@ -113,4 +137,5 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
         "weakest_element": weakest,
         "excessive_elements": excessive,
         "deficient_elements": deficient,
+        "calculation_trace": trace,
     }

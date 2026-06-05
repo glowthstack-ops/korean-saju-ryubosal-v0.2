@@ -50,6 +50,29 @@ def _is_ally_branch(dm: Stem, branch: Branch) -> bool:
     return ten_god(dm, main_hidden_stem(branch)) in _ALLY_GROUPS
 
 
+def evaluate_strong_gate(
+    month_ally: bool, day_ally: bool, ally_labels: set[str]
+) -> dict[str, bool]:
+    """신강 최소 조건 게이트.
+
+    ① 월지 또는 일지가 비겁/인성, ② 그 자리 외의 다른 자리에도 비겁/인성이 하나 이상.
+    월지·일지가 모두 동류면 한쪽이 ②의 "다른 자리" 역할을 한다.
+    """
+    month_or_day_ally = month_ally or day_ally
+    if month_ally and day_ally:
+        another = True
+    elif month_or_day_ally:
+        satisfier = "month_branch" if month_ally else "day_branch"
+        another = bool(ally_labels - {satisfier})
+    else:
+        another = bool(ally_labels)
+    return {
+        "month_or_day_branch_ally": month_or_day_ally,
+        "another_ally_position_exists": another,
+        "passed": month_or_day_ally and another,
+    }
+
+
 def compute_strength(
     pillars: FourPillarsResult,
     ten_god_groups: dict[str, float],
@@ -93,21 +116,22 @@ def compute_strength(
 
     requires_validation = (35 <= score <= 65) or confidence < 0.70 or borderline
 
-    # 신강 최소 조건 게이트 (신왕 ≠ 신강).
+    # 신강 최소 조건 게이트 (신왕 ≠ 신강): ① 월지 또는 일지가 비겁/인성,
+    # ② 그 자리 외의 다른 자리에도 비겁/인성이 하나 이상.
     month_ally = _is_ally_branch(dm, cv.month_branch)
     day_ally = _is_ally_branch(dm, cv.branches[2][1])
-    ally_positions = 0
+    ally_labels: set[str] = set()
     for pos, stem in cv.stems:
         if pos == "day":
             continue
         if ten_god(dm, stem) in _ALLY_GROUPS:
-            ally_positions += 1
-    for _pos, branch in cv.branches:
+            ally_labels.add(f"{pos}_stem")
+    for pos, branch in cv.branches:
         if ten_god(dm, main_hidden_stem(branch)) in _ALLY_GROUPS:
-            ally_positions += 1
-    month_or_day_ally = month_ally or day_ally
-    another_ally_exists = ally_positions >= 2
-    gate_passed = month_or_day_ally and another_ally_exists
+            ally_labels.add(f"{pos}_branch")
+
+    gate = evaluate_strong_gate(month_ally, day_ally, ally_labels)
+    gate_passed = gate["passed"]
 
     if band in ("중화신약", "중화", "중화신강"):
         warnings.append("neutral_zone: 용신 단정 금지, 경쟁 모델/검증 필요")
@@ -134,11 +158,7 @@ def compute_strength(
         },
         "basis": {},  # filled by aggregator from rooting
         "rootedness": {"label": rootedness_label, "score": round(root_score, 2)},
-        "strong_chart_gate": {
-            "month_or_day_branch_ally": month_or_day_ally,
-            "another_ally_position_exists": another_ally_exists,
-            "passed": gate_passed,
-        },
+        "strong_chart_gate": gate,
         "explanation": [
             f"season_score={season}, root_score={round(root_score, 1)}, "
             f"side_balance={round(side, 1)}, structure={structure_modifier}",

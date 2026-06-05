@@ -37,6 +37,7 @@ where = [
     "packages/shared_types",
     "packages/manse_core",
     "packages/manse_analysis",
+    "packages/manse_calibration",
     "apps/api",
 ]
 
