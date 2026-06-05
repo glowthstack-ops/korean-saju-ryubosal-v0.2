@@ -7,6 +7,19 @@ function ent(obj: Record<string, number> | undefined | null): [string, number][]
   return Object.entries(obj ?? {});
 }
 
+// ISO datetime → "YYYY-MM-DD HH:MM" (T 제거, 분까지만).
+function fmtDT(v: unknown): string {
+  const s = String(v ?? "");
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+  return m ? `${m[1]} ${m[2]}` : s;
+}
+
+// 숫자를 소수 1자리로 정리(분 단위 보정값 가독성).
+function r1(v: unknown): string {
+  const n = Number(v);
+  return Number.isFinite(n) ? String(Math.round(n * 10) / 10) : String(v ?? "");
+}
+
 function Card({ title, info, children }: { title: string; info?: string; children: React.ReactNode }) {
   return (
     <section className="rounded-lg border bg-white p-4">
@@ -40,8 +53,8 @@ export function TrueSolarTimeCard({ result }: { result: ManseResult }) {
     <Card title="시간 보정 · 진태양시" info="법정시→표준시(서머타임 제거)→경도보정→균시차→진태양시 순으로 계산합니다.">
       <ul className="space-y-1 text-xs text-gray-600">
         <li>표준시 offset: {String(tc.timezone_offset_minutes)}분 · 서머타임: {tc.daylight_saving_applied ? "적용" : "미적용"}</li>
-        <li>경도보정: {String(tc.longitude_correction_minutes)}분 · 균시차: {String(tc.equation_of_time_minutes)}분</li>
-        <li>진태양시: {String(tc.true_solar_datetime)}</li>
+        <li>경도보정: {r1(tc.longitude_correction_minutes)}분 · 균시차: {r1(tc.equation_of_time_minutes)}분</li>
+        <li>진태양시: {fmtDT(tc.true_solar_datetime)}</li>
         {changed && (
           <li className="rounded bg-amber-100 p-1 text-amber-800">
             ⚠ 진태양시 적용으로 시주 변경: {String(tc.standard_time_hour_pillar)}(일반시) → {String(tc.true_solar_time_hour_pillar)}(진태양시)
