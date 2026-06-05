@@ -51,7 +51,14 @@ export function PillarBoard({ result }: { result: ManseResult }) {
         <Column title="월주" p={month} />
         <Column title="년주" p={year} />
       </div>
-      <p className="mt-1 text-[11px] text-gray-400">오행: {["木", "火", "土", "金", "水"].map(elementLabel).join(" ")}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px]">
+        <span className="text-gray-400">오행</span>
+        {["木", "火", "土", "金", "水"].map((e) => (
+          <span key={e} className={`rounded px-1.5 py-0.5 ${elementStyle(e)}`}>
+            {elementLabel(e)}
+          </span>
+        ))}
+      </div>
     </section>
   );
 }
