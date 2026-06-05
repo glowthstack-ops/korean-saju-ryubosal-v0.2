@@ -25,3 +25,11 @@ def test_lichun_boundary_changes_year_and_month_ganji() -> None:
     assert days[5]["month_ganji"] == "丙寅"
     # 간지 한글 병기.
     assert days[5]["day_ganji_ko"] and days[5]["year_ganji_ko"] == "갑진"
+
+
+def test_calendar_enrichment_lunar_naeum_zodiac() -> None:
+    d10 = next(d for d in build_month(2024, 2)["days"] if d["date"].day == 10)
+    assert d10["lunar_date"] == "2024-01-01"  # 설날
+    assert d10["is_leap_month"] is False
+    assert d10["naeum"]  # 일주 납음
+    assert d10["year_zodiac"] == "용"  # 2024 甲辰년 = 용띠

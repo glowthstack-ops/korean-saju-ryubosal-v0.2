@@ -17,6 +17,10 @@ class CalendarDay(BaseModel):
     year_ganji: str
     year_ganji_ko: str
     solar_term: str | None = None  # 그날에 절기가 들면 절기명
+    lunar_date: str  # 음력 'YYYY-MM-DD'
+    is_leap_month: bool = False  # 음력 윤달 여부
+    naeum: str | None = None  # 일주 납음
+    year_zodiac: str  # 띠 (년지 기준)
 
 
 class SolarTermMark(BaseModel):

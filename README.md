@@ -18,6 +18,15 @@ saju_v2/
 > 서비스 #1 = 페이지뷰/광고 수익형(만세력·대운/세운/월운·간지달력)이 구현되어 있다.
 > 서비스 #2(대화형 LLM 사주), 어드민 등은 후속 마일스톤이다.
 
+## 개발 서버 (한 번에)
+
+```bash
+./scripts/dev.sh   # 백엔드(:8000) + 프론트(:3000) 동시 기동 → http://localhost:3000
+```
+
+수동 실행은 아래 백엔드/프론트 섹션 참고. 프론트 API 주소는 `frontend/.env.local`
+(`NEXT_PUBLIC_API_BASE`, 예시는 `frontend/.env.example`)로 바꿀 수 있다.
+
 ## 프론트엔드 (서비스 #1)
 
 Next.js App Router. 만세력은 클라이언트 렌더(개인정보는 IndexedDB에 Web Crypto로 암호화 저장,

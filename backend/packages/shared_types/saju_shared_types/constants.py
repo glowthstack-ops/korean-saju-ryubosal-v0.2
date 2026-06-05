@@ -36,6 +36,13 @@ ELEMENT_KO: dict[Element, str] = {
     Element.METAL: "금", Element.WATER: "수",
 }
 
+# 띠 (지지 동물)
+BRANCH_ZODIAC: dict[Branch, str] = {
+    Branch.JA: "쥐", Branch.CHUK: "소", Branch.IN: "호랑이", Branch.MYO: "토끼",
+    Branch.JIN: "용", Branch.SA: "뱀", Branch.O: "말", Branch.MI: "양",
+    Branch.SIN: "원숭이", Branch.YU: "닭", Branch.SUL: "개", Branch.HAE: "돼지",
+}
+
 # ---------------------------------------------------------------------------
 # Stem → element / yinyang
 # ---------------------------------------------------------------------------

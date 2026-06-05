@@ -12,14 +12,17 @@ from zoneinfo import ZoneInfo
 
 from saju_shared_types.constants import (
     BRANCH_KO,
+    BRANCH_ZODIAC,
     MONTH_BRANCH_ORDER,
     MONTH_STEM_START,
+    NAEUM,
     STEM_INDEX,
     STEM_KO,
     STEMS,
 )
 from saju_shared_types.enums import Branch, Stem
 
+from .lunar_solar_converter import solar_to_lunar
 from .sexagenary_cycle import day_ganzi, year_ganzi
 from .solar_terms import SolarTermTable, get_table
 
@@ -64,6 +67,7 @@ def build_month(year: int, month: int, table: SolarTermTable | None = None) -> d
         d_hanja, d_ko = _ganji(d_stem, d_branch)
         m_hanja, m_ko = _ganji(m_stem, m_branch)
         y_hanja, y_ko = _ganji(y_stem, y_branch)
+        lunar_iso, is_leap = solar_to_lunar(the_date)
         days.append({
             "date": the_date,
             "weekday": the_date.weekday(),
@@ -71,6 +75,9 @@ def build_month(year: int, month: int, table: SolarTermTable | None = None) -> d
             "month_ganji": m_hanja, "month_ganji_ko": m_ko,
             "year_ganji": y_hanja, "year_ganji_ko": y_ko,
             "solar_term": term_by_date.get(the_date),
+            "lunar_date": lunar_iso, "is_leap_month": is_leap,
+            "naeum": NAEUM.get((d_stem, d_branch)),
+            "year_zodiac": BRANCH_ZODIAC[y_branch],
         })
 
     return {

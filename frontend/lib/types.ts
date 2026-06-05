@@ -203,6 +203,10 @@ export interface CalendarDay {
   year_ganji: string;
   year_ganji_ko: string;
   solar_term: string | null;
+  lunar_date: string;
+  is_leap_month: boolean;
+  naeum: string | null;
+  year_zodiac: string;
 }
 
 export interface CalendarMonth {

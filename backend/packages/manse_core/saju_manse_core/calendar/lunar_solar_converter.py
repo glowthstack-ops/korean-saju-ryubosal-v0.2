@@ -7,6 +7,15 @@ from datetime import date
 from korean_lunar_calendar import KoreanLunarCalendar
 
 
+def solar_to_lunar(solar: date) -> tuple[str, bool]:
+    """Return (lunar ISO date 'YYYY-MM-DD', is_leap_month) for a solar date."""
+    cal = KoreanLunarCalendar()
+    if not cal.setSolarDate(solar.year, solar.month, solar.day):
+        raise ValueError(f"solar date out of range: {solar.isoformat()}")
+    iso = f"{cal.lunarYear:04d}-{cal.lunarMonth:02d}-{cal.lunarDay:02d}"
+    return iso, bool(cal.isIntercalation)
+
+
 def lunar_to_solar(lunar: date, is_leap_month: bool) -> date:
     """Convert a Korean lunar date to the proleptic Gregorian (solar) date."""
     cal = KoreanLunarCalendar()

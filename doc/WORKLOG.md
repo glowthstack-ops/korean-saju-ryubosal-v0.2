@@ -421,3 +421,28 @@ cross-process 결정성 가드 추가.
   정보 변경은 결과 페이지의 "등록 정보 초기화" 버튼으로.
 
 검증: backend 125 pass·ruff·mypy clean / frontend vitest 7 pass·next build 성공.
+
+---
+
+## 후속 3 — 엔진 정밀화 (공망 연기분 완성) ✅
+
+- **오행/십성 effective 분포 void_modifier**: 공망 지지의 지장간 기여에 **×0.85**(제거하지 않음)
+  적용, trace `void_modifier{factor,applied_to}` 기록, `deferred_modifiers`에서 void 제거
+  (이제 relation/coexistence만 연기). 1980 케이스 신강약 26.51→26.28(밴드 신약·용신 土 불변).
+- **운 공망 발동/해소(gongmang_activation)**: 대운/세운/월운/일운 지지가 원국 공망 지지를
+  전실(채움)/충(발동)/육합(해소)로 자극하면 표기. `DaewoonItem`/`LuckPillar.gongmang_activation`.
+  1980: 壬辰·癸巳 대운 공망전실, 丙申 대운 공망해소(申-巳) 등.
+
+## 후속 4 — 간지달력 고도화 ✅
+
+- 백엔드 `CalendarDay`에 **음력(lunar_date·윤달)**, **납음(일주)**, **띠(년지 zodiac)** 추가
+  (solar→lunar는 korean_lunar_calendar, 띠는 BRANCH_ZODIAC). 월건(month_ganji)은 기존 제공.
+- 프론트 달력: 셀에 음력(음 M.D/윤) 표기, **일 클릭 시 상세 패널**(양력·요일·음력·년/월/일주 한자+한글·
+  납음·절기·띠), 월 헤더에 년 간지·띠·월건 요약.
+
+## 개발 서버 편의 ✅
+- `scripts/dev.sh`(백엔드:8000 + 프론트:3000 동시 기동), `frontend/.env.example`,
+  README "개발 서버" 섹션.
+
+검증: backend **128 pass** · ruff/mypy clean / frontend **7 pass** · next build 성공 ·
+라이브 캘린더 음력/납음/띠 필드 확인.
