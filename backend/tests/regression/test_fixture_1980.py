@@ -80,8 +80,7 @@ def test_force_analysis_strength_band(result) -> None:
 
 def test_force_analysis_distribution_invariants(result) -> None:
     fe = result.force_analysis.five_elements
-    assert fe.strongest_element == "水"  # 재성 수 강함
-    assert "水" in fe.excessive_elements
+    assert fe.strongest_element == "水"  # 재성 수 최강
     assert fe.raw_visible["木"] == 0.0  # 목 표면 부족
     assert fe.hidden_base["木"] > 0.0  # 지장간 목 존재
     # 공망 지지가 분포에서 제거되지 않는다 (정책)

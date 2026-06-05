@@ -536,3 +536,11 @@ cross-process 결정성 가드 추가.
 일수(7:7:16 등)는 비중 산식에 곱하지 않는다(표시·사령 참고 표준으로만 보관).
 - constants/테스트/골든을 일수 이전(d6c032c, count-budget) 계산 상태로 복구.
 - 프론트 '표면+실세력 병표'는 유지. 검증: backend 136 pass·clean / frontend build OK.
+
+### 지장간 본/중/여 분배 비율 — 사용자 지정표 적용 ✅
+오행/십성 비중 = **자리별 가중치(BRANCH_POS_WEIGHT) × 본/중/여 비율(사용자 지정)**. 일수 미사용.
+- 비율: 3지장간 0.20·0.20·0.60 / 왕지(子卯酉) 0.30·0.70 / 午(예외) 0.30·0.20·0.50. 亥 戊 인정.
+- constants `_HIDDEN`(stem,type,ratio)로 통합, 회귀 락 테스트에 비율까지 고정.
+- 1980: bug effective 木8.8·火18.83·土22.32·金17.36·水32.69(水 최강), 진태양시 중화신약 39.56·
+  용신 土. 골든 전부 동일(밴드 변동 없음). effective lock·sinsal·yongsin(bridge 허용) 스냅샷 갱신.
+검증: backend 136 pass·clean / frontend 7 pass·build OK.
