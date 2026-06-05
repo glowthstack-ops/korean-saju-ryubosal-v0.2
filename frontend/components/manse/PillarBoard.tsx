@@ -6,10 +6,14 @@ function Cell(
   { char: string; ko: string; element: string; mark: string; sub: string; isVoid?: boolean },
 ) {
   return (
-    <div className={`relative rounded p-2 text-center ${elementStyle(element)}`}>
+    <div className={`relative rounded border border-gray-200 p-2 text-center ${elementStyle(element)}`}>
       {/* 음양·공망은 absolute 코너 배치 → 메인 글자 중앙정렬에 영향 없음 */}
       {isVoid && (
-        <span className="absolute left-1 top-1 rounded bg-rose-600 px-1 py-0.5 text-[10px] font-semibold leading-none text-white shadow">공망</span>
+        <span
+          className="absolute left-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/90 text-[10px] font-bold leading-none text-rose-600 shadow"
+          title="공망"
+          aria-label="공망"
+        >⊘</span>
       )}
       <span className="absolute right-1 top-1 text-[10px] font-medium leading-none opacity-90">{mark}</span>
       <div className="text-2xl font-bold leading-none">{char}</div>
@@ -60,6 +64,10 @@ function Column({ title, p }: { title: string; p: Pillar | null }) {
 
 export function PillarBoard({ result }: { result: ManseResult }) {
   const { year, month, day, hour, day_master } = result.pillars;
+  // 원국에서 실제 공망에 해당하는 지지(중복 제거).
+  const voidChars = [...new Set(
+    [hour, day, month, year].filter((p) => p?.gongmang_hit).map((p) => p!.branch),
+  )];
   return (
     <section>
       <h2 className="mb-2 text-sm font-semibold">사주 원국 (일간 {day_master}·{ganjiKo(day_master)})</h2>
@@ -69,13 +77,19 @@ export function PillarBoard({ result }: { result: ManseResult }) {
         <Column title="월주" p={month} />
         <Column title="년주" p={year} />
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px]">
-        <span className="text-gray-400">오행</span>
-        {["木", "火", "土", "金", "水"].map((e) => (
-          <span key={e} className={`rounded px-1.5 py-0.5 ${elementStyle(e)}`}>
-            {elementLabel(e)}
-          </span>
-        ))}
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+        <span className="flex items-center gap-1">
+          <span className="text-gray-400">오행</span>
+          {["木", "火", "土", "金", "水"].map((e) => (
+            <span key={e} className={`rounded px-1.5 py-0.5 ${elementStyle(e)}`}>
+              {elementLabel(e)}
+            </span>
+          ))}
+        </span>
+        <span className="flex items-center gap-1 text-gray-500">
+          <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-rose-600 shadow ring-1 ring-rose-200">⊘</span>
+          공망{voidChars.length ? `: ${voidChars.map((c) => `${c}(${ganjiKo(c)})`).join(", ")}` : " 없음"}
+        </span>
       </div>
     </section>
   );

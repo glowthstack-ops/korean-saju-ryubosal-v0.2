@@ -9,7 +9,7 @@ export const ELEMENT_STYLE: Record<string, string> = {
   "木": "bg-green-600 text-white",
   "火": "bg-red-600 text-white",
   "土": "bg-yellow-500 text-black",
-  "金": "bg-gray-100 text-black border border-gray-300",
+  "金": "bg-gray-100 text-black",
   "水": "bg-gray-900 text-white",
 };
 
