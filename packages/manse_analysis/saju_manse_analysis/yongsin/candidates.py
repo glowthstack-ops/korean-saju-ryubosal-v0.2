@@ -170,24 +170,31 @@ def build_yongsin(
     if checks["isolation_health"].detected:
         warnings.append(f"고립/병약 리스크: {checks['isolation_health'].detail} (건강 레이어)")
 
-    # 후보 통합: 용신/희신 → useful, 기신/구신 → unfavorable.
-    useful: dict[str, float] = {}
-    unfavorable: dict[str, float] = {}
-    for m in models:
-        if m.yongsin:
-            useful[m.yongsin] = max(useful.get(m.yongsin, 0.0), m.confidence)
-        if m.heesin:
-            useful[m.heesin] = max(useful.get(m.heesin, 0.0), m.confidence * 0.85)
-        if m.gisin:
-            unfavorable[m.gisin] = max(unfavorable.get(m.gisin, 0.0), m.confidence)
-        if m.gusin:
-            unfavorable[m.gusin] = max(unfavorable.get(m.gusin, 0.0), m.confidence * 0.9)
+    # 후보 통합: 용신/희신 → useful, 기신/구신 → unfavorable. 각 원소의 최고 점수를
+    # 낸 모델(출처)과 역할을 함께 보관해 후보 provenance를 노출한다(검증 루프용).
+    useful: dict[str, tuple[float, str, str]] = {}
+    unfavorable: dict[str, tuple[float, str, str]] = {}
 
-    useful_sorted = sorted(useful.items(), key=lambda kv: kv[1], reverse=True)[:2]
-    unfav_sorted = sorted(unfavorable.items(), key=lambda kv: kv[1], reverse=True)[:2]
-    useful_candidates = [ElementCandidate(element=e, score=round(s, 4)) for e, s in useful_sorted]
+    def _put(table: dict[str, tuple[float, str, str]], el: str | None,
+             score: float, model: str, role: str) -> None:
+        if el and score > table.get(el, (0.0, "", ""))[0]:
+            table[el] = (score, model, role)
+
+    for m in models:
+        _put(useful, m.yongsin, m.confidence, m.model_type, "yongsin")
+        _put(useful, m.heesin, m.confidence * 0.85, m.model_type, "heesin")
+        _put(unfavorable, m.gisin, m.confidence, m.model_type, "gisin")
+        _put(unfavorable, m.gusin, m.confidence * 0.9, m.model_type, "gusin")
+
+    useful_sorted = sorted(useful.items(), key=lambda kv: kv[1][0], reverse=True)[:2]
+    unfav_sorted = sorted(unfavorable.items(), key=lambda kv: kv[1][0], reverse=True)[:2]
+    useful_candidates = [
+        ElementCandidate(element=e, score=round(s, 4), model=mdl, reason=role)
+        for e, (s, mdl, role) in useful_sorted
+    ]
     unfavorable_candidates = [
-        ElementCandidate(element=e, score=round(s, 4)) for e, s in unfav_sorted
+        ElementCandidate(element=e, score=round(s, 4), model=mdl, reason=role)
+        for e, (s, mdl, role) in unfav_sorted
     ]
 
     # 확정 정책: 검증 전에는 candidate. 단일 모델·고신뢰·특수격 없음·경쟁 미존재면 probable.

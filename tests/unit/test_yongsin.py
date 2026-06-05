@@ -51,6 +51,19 @@ def test_deficient_element_not_auto_yongsin(make_pillars) -> None:
     assert "木" in {c.element for c in y.unfavorable_candidates}
 
 
+def test_candidate_provenance_populated(make_pillars) -> None:
+    pillars = make_pillars(
+        (Stem.GYEONG, Branch.SIN), (Stem.JEONG, Branch.HAE),
+        (Stem.GI, Branch.HAE), (Stem.MU, Branch.JIN), Stem.GI,
+    )
+    y = analyze_chart(pillars).yongsin
+    for c in y.useful_candidates + y.unfavorable_candidates:
+        assert c.model  # 후보를 낸 모델 출처가 채워진다
+        assert c.reason in ("yongsin", "heesin", "gisin", "gusin")
+    top = y.useful_candidates[0]
+    assert top.element == "土" and top.model == "support_day_master"
+
+
 def test_no_special_cases_on_fixture(make_pillars) -> None:
     pillars = make_pillars(
         (Stem.GYEONG, Branch.SIN), (Stem.JEONG, Branch.HAE),

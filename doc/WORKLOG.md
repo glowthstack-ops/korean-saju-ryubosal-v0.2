@@ -183,3 +183,10 @@ blocker 단위테스트(寅亥 육합 + 寅申 충) 및 격국 self_punished rea
 ### 결정/연기
 - 용신 status는 검증 전 candidate/probable까지만(calibrated는 4c 검증 후).
 - climate_context 미구현 → 조후는 월령 한난(亥子丑/巳午未) 기반 경량 판정(단독 확정 금지).
+- **후보 통합 점수는 경량(모델 confidence max 기반)**. 명세의 full candidate_score
+  (model_confidence·strength/structure/climate/geokguk_alignment·stability 가중합)은 후속 보정.
+
+### Phase 4a.1 — 감사(codex) 보완 ✅
+- `ElementCandidate.model`/`reason`을 채움(최고 점수를 낸 모델 출처 + 역할 yongsin/heesin/
+  gisin/gusin) — 검증 루프(4c) 질문 생성에서 후보 provenance 사용 예정.
+- candidate_score full scoring 연기 사항을 위 결정/연기에 명시.
