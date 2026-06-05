@@ -10,7 +10,7 @@ function Cell(
       {/* 음양·공망은 absolute 코너 배치 → 메인 글자 중앙정렬에 영향 없음 */}
       {isVoid && (
         <span
-          className="absolute left-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/90 text-[10px] font-bold leading-none text-rose-600 shadow"
+          className="absolute left-1 top-1 text-[12px] font-bold leading-none opacity-90"
           title="공망"
           aria-label="공망"
         >⊘</span>
@@ -87,7 +87,7 @@ export function PillarBoard({ result }: { result: ManseResult }) {
           ))}
         </span>
         <span className="flex items-center gap-1 text-gray-500">
-          <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-rose-600 shadow ring-1 ring-rose-200">⊘</span>
+          <span className="font-bold text-gray-700">⊘</span>
           공망{voidChars.length ? `: ${voidChars.map((c) => `${c}(${ganjiKo(c)})`).join(", ")}` : " 없음"}
         </span>
       </div>
