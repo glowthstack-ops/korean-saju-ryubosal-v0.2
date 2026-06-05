@@ -61,13 +61,26 @@ def test_element_distribution_trace_records_modifiers(force) -> None:
     trace = force.five_elements.calculation_trace
     for key in (
         "position_weights",
-        "season_coefficient",
+        "hidden_weight",
         "month_main_qi_bonus",
-        "rooting_multipliers",
-        "exposure_multipliers",
+        "non_main_bonus_cap",
+        "void_modifier",
         "deferred_modifiers",
     ):
         assert key in trace
-    # 합충형파해/공망/병존 보정은 Phase 3로 명시 연기됨이 trace에 남는다.
+    # 합충형파해/병존 보정은 구조작용 단계로 연기됨이 trace에 남는다.
     assert "relation" in trace["deferred_modifiers"]
-    assert set(trace["season_coefficient"]) == {"木", "火", "土", "金", "水"}
+    # 월령 본기 보정 + 중기/여기 cap.
+    assert trace["month_main_qi_bonus"]["factor"] == 1.30
+    assert trace["non_main_bonus_cap"] == 1.03
+
+
+def test_hidden_only_wood_is_amjang(force) -> None:
+    # 버그픽스: 표면 木 없음, 亥중甲만 → 암장(hidden-only), 강한 오행 아님.
+    fe = force.five_elements
+    assert fe.raw_visible["木"] == 0.0
+    names = [h["element"] for h in fe.hidden_only_elements]
+    assert "木" in names
+    wood = next(h for h in fe.hidden_only_elements if h["element"] == "木")
+    assert wood["operability"] == "low" and wood["label"] == "암장"
+    assert "木" in fe.display_summary["deficient_visible_elements"]

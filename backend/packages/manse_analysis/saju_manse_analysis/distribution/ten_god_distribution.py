@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 from saju_shared_types.constants import (
-    SEASON_COEFFICIENT,
-    STEM_ELEMENT,
     hidden_stems_for,
     main_hidden_stem,
-    season_state,
     ten_god,
 )
 from saju_shared_types.enums import TenGod
 from saju_shared_types.pillars import FourPillarsResult
 
-from .._chart import BRANCH_POS_WEIGHT, HIDDEN_EFF_WEIGHT, STEM_POS_WEIGHT, view
-from .element_distribution import _exposure_multiplier, _rooting_multiplier
+from .._chart import BRANCH_POS_WEIGHT, STEM_POS_WEIGHT, view
+from .element_distribution import (
+    _MONTH_MAIN_QI_BONUS,
+    _NON_MAIN_BONUS_CAP,
+    _exposure_multiplier,
+    _rooting_multiplier,
+)
 
 TEN_GODS = [str(tg) for tg in TenGod if tg is not TenGod.ILGAN]
 
@@ -54,8 +56,7 @@ def compute_ten_god_distribution(pillars: FourPillarsResult) -> dict:
         anywhere.add(tg)
         w = STEM_POS_WEIGHT[pos]
         if w:
-            coef = SEASON_COEFFICIENT[season_state(STEM_ELEMENT[stem], cv.month_branch)]
-            eff[tg] += w * _rooting_multiplier(cv, stem) * coef
+            eff[tg] += w * _rooting_multiplier(cv, stem)
 
     # Branch hidden stems; branch's representative ten god = main hidden 본기.
     void = set(pillars.gongmang_branches)  # 공망: 0.85배(제거하지 않음)
@@ -63,14 +64,17 @@ def compute_ten_god_distribution(pillars: FourPillarsResult) -> dict:
         main_tg = str(ten_god(dm, main_hidden_stem(branch)))
         raw[main_tg] += 1.0
         visible.add(main_tg)
-        for hstem, htype, _w in hidden_stems_for(branch):
+        for hstem, htype, budget in hidden_stems_for(branch):  # budget: 지지별 합=1.0
+            is_main = htype.value == "main"
             tg = str(ten_god(dm, hstem))
             anywhere.add(tg)
-            base = BRANCH_POS_WEIGHT[pos] * HIDDEN_EFF_WEIGHT[htype.value]
-            if pos == "month" and htype.value == "main":
-                base *= 1.12
-            base *= _exposure_multiplier(cv, hstem)
-            base *= SEASON_COEFFICIENT[season_state(STEM_ELEMENT[hstem], cv.month_branch)]
+            base = BRANCH_POS_WEIGHT[pos] * budget
+            if pos == "month" and is_main:
+                base *= _MONTH_MAIN_QI_BONUS  # 월령 본기에만 강한 보정
+            exp = _exposure_multiplier(cv, hstem)
+            if not is_main:
+                exp = min(exp, _NON_MAIN_BONUS_CAP)
+            base *= exp
             if str(branch) in void:
                 base *= 0.85
             eff[tg] += base

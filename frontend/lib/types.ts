@@ -176,6 +176,16 @@ export interface ManseResult {
       weakest_element: string;
       excessive_elements: string[];
       deficient_elements: string[];
+      hidden_only_elements: Array<{
+        element: string;
+        sources: string[];
+        label: string;
+        operability: string;
+      }>;
+      display_summary: {
+        deficient_visible_elements?: string[];
+        warnings?: string[];
+      };
     };
     ten_gods: { effective_percent: Record<string, number>; groups: Record<string, number> };
     rooting: Record<string, unknown>;

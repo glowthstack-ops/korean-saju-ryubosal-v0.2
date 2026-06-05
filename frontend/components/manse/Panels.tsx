@@ -51,10 +51,16 @@ export function QuickSummaryBar({ result }: { result: ManseResult }) {
   const fe = result.force_analysis.five_elements;
   const st = result.force_analysis.strength;
   const gong = result.pillars.gongmang_branches.join("");
+  const amjang = fe.hidden_only_elements ?? [];
   return (
-    <Card title="요약" info="오행 effective 분포(%)와 신강약 단계입니다. 부족한 오행이 곧 용신은 아닙니다.">
+    <Card title="요약" info="화면 오행은 천간·지지 표면 개수입니다. 지장간에만 있는 오행은 '암장'으로 따로 표기하며, 강한 오행으로 보지 않습니다. 부족한 오행이 곧 용신은 아닙니다.">
       <div className="text-xs text-gray-700">
-        <div>오행: {Object.entries(fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}</div>
+        <div>오행(표면): {Object.entries(fe.raw_visible).map(([e, v]) => `${elementLabel(e)} ${v}`).join(" · ")}</div>
+        {amjang.length > 0 && (
+          <div className="mt-1 text-gray-500">
+            암장: {amjang.map((h) => `${elementLabel(h.element)}(${h.sources.join(",")})`).join(" · ")}
+          </div>
+        )}
         <div className="mt-1">공망: {gong} · 신강약: <b>{st.band}</b> ({st.score}점){st.requires_validation && " · 검증 필요"}</div>
       </div>
     </Card>
@@ -83,11 +89,20 @@ export function StrengthPanel({ result }: { result: ManseResult }) {
 export function DistributionPanel({ result }: { result: ManseResult }) {
   const fe = result.force_analysis.five_elements;
   const tg = result.force_analysis.ten_gods;
+  const amjang = fe.hidden_only_elements ?? [];
   return (
-    <Card title="오행 · 십성 분포" info="raw=표면, effective=월령·통근·투간 반영 실세력. 표면 부족과 실세력은 다릅니다.">
-      <div className="text-xs text-gray-700">
-        <div>최강 {elementLabel(fe.strongest_element)} · 최약 {elementLabel(fe.weakest_element)}</div>
-        <div className="mt-1">십성그룹: {Object.entries(tg.groups).map(([k, v]) => `${k} ${Math.round(v)}`).join(" · ")}</div>
+    <Card title="오행 · 십성 분포" info="표면(개수)·암장(지장간만)·실세력(월령·통근 반영 %)을 분리해 봅니다. 표면 부족과 실세력은 다릅니다.">
+      <div className="space-y-1 text-xs text-gray-700">
+        <div>표면: {Object.entries(fe.raw_visible).map(([e, v]) => `${elementLabel(e)} ${v}`).join(" · ")}</div>
+        {amjang.length > 0 && (
+          <div className="text-gray-500">
+            암장(지장간): {amjang.map((h) => elementLabel(h.element)).join(" · ")} — 작동성 낮음
+          </div>
+        )}
+        <div className="text-gray-500">
+          실세력(고급): {Object.entries(fe.effective_percent).map(([e, v]) => `${elementLabel(e)} ${v}%`).join(" · ")}
+        </div>
+        <div>최강 {elementLabel(fe.strongest_element)} · 십성그룹: {Object.entries(tg.groups).map(([k, v]) => `${k} ${Math.round(v)}`).join(" · ")}</div>
       </div>
     </Card>
   );

@@ -1,31 +1,32 @@
-"""오행분포 — raw_visible / hidden_base / effective_force layers.
+"""오행분포 — visible / hidden_included / effective_force + display_summary 레이어.
 
-Relation / void / coexistence modifiers (합충형파해, 공망, 병존) are deferred to the
-구조작용 phase; this layer implements position weights, hidden-stem weights, the
-seasonal coefficient, the month main-qi bonus, 투간 (exposure) and 통근 (rooting).
+버그픽스(saju_v2_five_element_weight_bugfix_spec): 지장간은 '추가'가 아니라 '분배'다 —
+지지별 지장간 가중치 합은 1.0. 월령(월지) 보정은 본기에만 강하게 적용하고 중기/여기는 cap.
+표면(visible)에 없고 지장간에만 있는 오행은 '암장(hidden-only)'으로 분리 표기한다.
+관계/병존 보정은 구조작용 단계로 연기.
 """
 
 from __future__ import annotations
 
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
-    SEASON_COEFFICIENT,
     STEM_ELEMENT,
     hidden_stems_for,
-    season_state,
 )
 from saju_shared_types.enums import Element, Stem
 from saju_shared_types.pillars import FourPillarsResult
 
 from .._chart import (
     BRANCH_POS_WEIGHT,
-    HIDDEN_EFF_WEIGHT,
     STEM_POS_WEIGHT,
     ChartView,
     view,
 )
 
 _ELEMENTS = [str(e) for e in Element]
+_MONTH_MAIN_QI_BONUS = 1.30  # 월령 본기 강화
+_NON_MAIN_BONUS_CAP = 1.03  # 중기/여기 보정 상한
+_HIDDEN_TYPE_KO = {"main": "정", "middle": "중", "residual": "여"}
 
 
 def _empty() -> dict[str, float]:
@@ -79,7 +80,7 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
         for hstem, _htype, w in hidden_stems_for(branch):
             hidden_base[str(STEM_ELEMENT[hstem])] += w
 
-    # Layer 3: effective_force. Each applied modifier is recorded in the trace.
+    # Layer 3: effective_force. 지장간은 지지별 budget(합=1.0)으로 분배.
     eff = _empty()
     void = set(pillars.gongmang_branches)  # 공망: 0.85배(제거하지 않음)
     rooting_trace: dict[str, float] = {}
@@ -95,12 +96,15 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
             rooting_trace[f"{pos}:{stem}"] = round(mult, 4)
         eff[str(STEM_ELEMENT[stem])] += w * mult
     for pos, branch in cv.branches:
-        for hstem, htype, _w in hidden_stems_for(branch):
-            base = BRANCH_POS_WEIGHT[pos] * HIDDEN_EFF_WEIGHT[htype.value]
-            if pos == "month" and htype.value == "main":
-                base *= 1.12  # month main-qi bonus
+        for hstem, htype, budget in hidden_stems_for(branch):  # budget: 지지별 합=1.0
+            is_main = htype.value == "main"
+            base = BRANCH_POS_WEIGHT[pos] * budget
+            if pos == "month" and is_main:
+                base *= _MONTH_MAIN_QI_BONUS  # 월령 본기에만 강한 보정
                 month_bonus_trace.append(f"{pos}:{branch}:{hstem}")
             exp = _exposure_multiplier(cv, hstem)
+            if not is_main:
+                exp = min(exp, _NON_MAIN_BONUS_CAP)  # 중기/여기 cap
             if exp != 1.0:
                 exposure_trace[f"{pos}:{branch}:{hstem}"] = round(exp, 4)
             base *= exp
@@ -108,20 +112,13 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
                 base *= 0.85  # 공망 보정(글자는 유지)
                 void_trace.append(f"{pos}:{branch}")
             eff[str(STEM_ELEMENT[hstem])] += base
-    # Seasonal coefficient applied to each element's total power.
-    season_trace = {
-        str(el): round(SEASON_COEFFICIENT[season_state(el, cv.month_branch)], 4)
-        for el in Element
-    }
-    for el in Element:
-        eff[str(el)] *= SEASON_COEFFICIENT[season_state(el, cv.month_branch)]
     eff = {e: round(v, 4) for e, v in eff.items()}
 
     trace = {
         "position_weights": {"stem": STEM_POS_WEIGHT, "branch": BRANCH_POS_WEIGHT},
-        "hidden_effective_weight": HIDDEN_EFF_WEIGHT,
-        "season_coefficient": season_trace,
-        "month_main_qi_bonus": {"factor": 1.12, "applied_to": month_bonus_trace},
+        "hidden_weight": "지지별 budget(합=1.0)",
+        "month_main_qi_bonus": {"factor": _MONTH_MAIN_QI_BONUS, "applied_to": month_bonus_trace},
+        "non_main_bonus_cap": _NON_MAIN_BONUS_CAP,
         "rooting_multipliers": rooting_trace,
         "exposure_multipliers": exposure_trace,
         "void_modifier": {"factor": 0.85, "applied_to": sorted(set(void_trace))},
@@ -134,6 +131,28 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
     excessive = [e for e, p in percent.items() if p > 35.0]
     deficient = [e for e, p in percent.items() if p < 8.0]
 
+    # 암장(hidden-only): 표면(visible)엔 없고 지장간에만 존재하는 오행.
+    hidden_only = _hidden_only_elements(cv, raw, hidden_base)
+    hidden_only_names = [h["element"] for h in hidden_only]
+    deficient_visible = [e for e in _ELEMENTS if raw[e] == 0]
+    visible_present = [e for e in _ELEMENTS if raw[e] > 0]
+    strongest_visible = max(visible_present, key=lambda e: raw[e]) if visible_present else None
+    weakest_visible = min(visible_present, key=lambda e: raw[e]) if visible_present else None
+    warnings = [
+        f"{name}은 지장간에만 존재(암장)하므로 화면 분포에서 강한 오행으로 보지 않습니다."
+        for name in hidden_only_names
+    ]
+    display_summary = {
+        "visible_counts": raw,
+        "strongest_visible": strongest_visible,
+        "weakest_visible_present": weakest_visible,
+        "strongest_effective": strongest,
+        "hidden_only_elements": hidden_only_names,
+        "deficient_visible_elements": deficient_visible,
+        "excessive_effective_elements": excessive,
+        "warnings": warnings,
+    }
+
     return {
         "raw_visible": raw,
         "hidden_base": {e: round(v, 4) for e, v in hidden_base.items()},
@@ -143,5 +162,28 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
         "weakest_element": weakest,
         "excessive_elements": excessive,
         "deficient_elements": deficient,
+        "hidden_only_elements": hidden_only,
+        "display_summary": display_summary,
         "calculation_trace": trace,
     }
+
+
+def _hidden_only_elements(
+    cv: ChartView, raw: dict[str, float], hidden_base: dict[str, float]
+) -> list[dict]:
+    out: list[dict] = []
+    for el in _ELEMENTS:
+        if raw[el] == 0 and hidden_base[el] > 0:
+            sources = [
+                f"{branch}{_HIDDEN_TYPE_KO[htype.value]}{hstem}"
+                for _pos, branch in cv.branches
+                for hstem, htype, _w in hidden_stems_for(branch)
+                if str(STEM_ELEMENT[hstem]) == el
+            ]
+            out.append({
+                "element": el,
+                "sources": sources,
+                "label": "암장",
+                "operability": "low",
+            })
+    return out

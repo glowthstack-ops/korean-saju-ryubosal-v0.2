@@ -14,6 +14,10 @@ class FiveElementAnalysis(BaseModel):
     weakest_element: str
     excessive_elements: list[str] = Field(default_factory=list)
     deficient_elements: list[str] = Field(default_factory=list)
+    # 표면(visible)엔 없고 지장간에만 있는 오행(암장). 강한 오행으로 표기하지 않는다.
+    hidden_only_elements: list[dict] = Field(default_factory=list)
+    # 사용자 표시용 요약(visible 우선). effective는 고급/내부 분석용.
+    display_summary: dict = Field(default_factory=dict)
     calculation_trace: dict = Field(default_factory=dict)
 
 

@@ -58,6 +58,6 @@ def test_sinsal_does_not_affect_strength_or_yongsin() -> None:
     r, s = _sinsal()
     assert all(it.use_for_yongsin_decision is False for it in s.full_list)
     assert r.force_analysis.strength.band == "신약"
-    assert r.force_analysis.strength.score == 26.28  # 공망 void_modifier 반영 후 스냅샷
+    assert r.force_analysis.strength.score == 30.61  # 분포 버그픽스(budget/월령본기) 반영 스냅샷
     assert r.yongsin_analysis.final["yongsin"] == "土"
     assert r.geokguk.main_structure == "정재격"
