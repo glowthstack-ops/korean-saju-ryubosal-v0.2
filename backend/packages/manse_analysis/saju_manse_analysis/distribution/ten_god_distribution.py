@@ -58,6 +58,7 @@ def compute_ten_god_distribution(pillars: FourPillarsResult) -> dict:
             eff[tg] += w * _rooting_multiplier(cv, stem) * coef
 
     # Branch hidden stems; branch's representative ten god = main hidden 본기.
+    void = set(pillars.gongmang_branches)  # 공망: 0.85배(제거하지 않음)
     for pos, branch in cv.branches:
         main_tg = str(ten_god(dm, main_hidden_stem(branch)))
         raw[main_tg] += 1.0
@@ -70,6 +71,8 @@ def compute_ten_god_distribution(pillars: FourPillarsResult) -> dict:
                 base *= 1.12
             base *= _exposure_multiplier(cv, hstem)
             base *= SEASON_COEFFICIENT[season_state(STEM_ELEMENT[hstem], cv.month_branch)]
+            if str(branch) in void:
+                base *= 0.85
             eff[tg] += base
 
     eff = {tg: round(v, 4) for tg, v in eff.items()}

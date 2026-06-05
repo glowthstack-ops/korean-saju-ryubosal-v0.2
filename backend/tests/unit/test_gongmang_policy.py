@@ -39,6 +39,15 @@ def test_void_applies_strength_modifier(make_pillars) -> None:
     assert "month_branch_void:-2" in ca.structure.structure_modifier_breakdown
 
 
+def test_void_modifier_applied_to_effective_distribution(make_pillars) -> None:
+    ca = analyze_chart(_void_chart(make_pillars))
+    trace = ca.force.five_elements.calculation_trace
+    # 공망 0.85배가 effective 분포에 반영되고, 더 이상 deferred가 아니다.
+    assert trace["void_modifier"]["factor"] == 0.85
+    assert "month:戌" in trace["void_modifier"]["applied_to"]
+    assert "void" not in trace["deferred_modifiers"]
+
+
 def test_gongmang_is_separate_layer_not_a_sinsal(make_pillars) -> None:
     ca = analyze_chart(_void_chart(make_pillars))
     # 공망은 신살 목록에 포함되지 않고 별도 레이어로 표시된다.

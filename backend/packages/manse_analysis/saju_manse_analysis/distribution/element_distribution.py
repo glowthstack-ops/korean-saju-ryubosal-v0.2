@@ -81,9 +81,11 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
 
     # Layer 3: effective_force. Each applied modifier is recorded in the trace.
     eff = _empty()
+    void = set(pillars.gongmang_branches)  # 공망: 0.85배(제거하지 않음)
     rooting_trace: dict[str, float] = {}
     exposure_trace: dict[str, float] = {}
     month_bonus_trace: list[str] = []
+    void_trace: list[str] = []
     for pos, stem in cv.stems:
         w = STEM_POS_WEIGHT[pos]
         if w == 0:  # day master excluded as reference point
@@ -102,6 +104,9 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
             if exp != 1.0:
                 exposure_trace[f"{pos}:{branch}:{hstem}"] = round(exp, 4)
             base *= exp
+            if str(branch) in void:
+                base *= 0.85  # 공망 보정(글자는 유지)
+                void_trace.append(f"{pos}:{branch}")
             eff[str(STEM_ELEMENT[hstem])] += base
     # Seasonal coefficient applied to each element's total power.
     season_trace = {
@@ -119,7 +124,8 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
         "month_main_qi_bonus": {"factor": 1.12, "applied_to": month_bonus_trace},
         "rooting_multipliers": rooting_trace,
         "exposure_multipliers": exposure_trace,
-        "deferred_modifiers": ["relation", "void", "coexistence"],
+        "void_modifier": {"factor": 0.85, "applied_to": sorted(set(void_trace))},
+        "deferred_modifiers": ["relation", "coexistence"],
     }
 
     percent = _percent(eff)

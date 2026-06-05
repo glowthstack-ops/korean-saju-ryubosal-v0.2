@@ -95,6 +95,22 @@ def _natal(pillars: FourPillarsResult) -> list:
     return items
 
 
+def _gongmang_activation(branch: Branch, pillars: FourPillarsResult) -> list[str]:
+    """운 지지가 원국 공망 지지를 자극: 전실(채움)/충(발동)/합(해소)."""
+    out: list[str] = []
+    for vb in pillars.gongmang_branches:
+        vbranch = Branch(vb)
+        if branch == vbranch:
+            out.append(f"공망전실:{vb}")
+            continue
+        key = frozenset({branch, vbranch})
+        if key in BRANCH_CLASHES:
+            out.append(f"공망발동(충):{branch}-{vb}")
+        elif key in SIX_COMBINATIONS:
+            out.append(f"공망해소(합):{branch}-{vb}")
+    return out
+
+
 def _volatility(relations: list[str]) -> float:
     return round(sum(3.0 if r.startswith("충") else 1.0 for r in relations), 2)
 
@@ -122,6 +138,7 @@ def _luck_pillar(
         branch_ten_god=str(ten_god(dm, main_hidden_stem(branch))),
         raw_elements=sorted(elements),
         relations_to_chart=rels,
+        gongmang_activation=_gongmang_activation(branch, pillars),
         yongsin_alignment=_alignment(elements, useful, unfavorable),
         solar_term_range=solar_range,
     )
@@ -174,6 +191,7 @@ def compute_luck_cycles(
             branch_ten_god=str(ten_god(dm, main_hidden_stem(branch))),
             twelve_unseong=twelve_unseong(dm, branch),
             relations_to_chart=rels,
+            gongmang_activation=_gongmang_activation(branch, pillars),
             raw_elements=raw,
             transformed_elements=transformed,
             yongsin_relation=_alignment(set(raw), useful_elements, unfavorable_elements),

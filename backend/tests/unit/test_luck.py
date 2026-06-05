@@ -54,6 +54,15 @@ def test_reference_date_populates_current_and_se_wol_il() -> None:
     assert lc.yearly_luck[2].ganji == "乙未"  # 2015 = 乙未
 
 
+def test_daewoon_gongmang_activation() -> None:
+    # 1980 fixture 공망 辰巳 → 壬辰/癸巳 대운에서 공망전실 등 활성이 잡힌다.
+    r = calculate(BirthInput(gender="male", **_BASE))
+    lc = r.luck_cycles
+    assert lc is not None
+    acts = [a for d in lc.daewoon_table for a in d.gongmang_activation]
+    assert any("공망" in a for a in acts)
+
+
 def test_no_reference_date_is_deterministic_table_only() -> None:
     r = calculate(BirthInput(gender="male", **_BASE))
     lc = r.luck_cycles

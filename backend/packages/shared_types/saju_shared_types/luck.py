@@ -23,6 +23,7 @@ class LuckPillar(BaseModel):
     branch_ten_god: str
     raw_elements: list[str] = Field(default_factory=list)
     relations_to_chart: list[str] = Field(default_factory=list)
+    gongmang_activation: list[str] = Field(default_factory=list)  # 운이 원국 공망을 자극
     yongsin_alignment: str = "평운"  # 용신운 / 기신운 / 혼합 / 평운
     solar_term_range: str | None = None
 
@@ -42,6 +43,7 @@ class DaewoonItem(BaseModel):
     first_half_focus: str = "stem"  # 0-4년 천간 주도
     second_half_focus: str = "branch"  # 5-9년 지지 주도
     relations_to_chart: list[str] = Field(default_factory=list)
+    gongmang_activation: list[str] = Field(default_factory=list)  # 운이 원국 공망을 자극
     raw_elements: list[str] = Field(default_factory=list)
     transformed_elements: list[str] = Field(default_factory=list)
     yongsin_relation: str = "평운"
