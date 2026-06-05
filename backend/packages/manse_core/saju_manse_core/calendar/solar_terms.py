@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import json
 from bisect import bisect_right
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from functools import lru_cache
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from saju_shared_types.enums import Branch
 
@@ -121,6 +122,17 @@ class SolarTermTable:
             if len(result) == 12:
                 break
         return result
+
+    def terms_in_civil_month(
+        self, year: int, month: int, tz: ZoneInfo
+    ) -> list[tuple[date, str]]:
+        """All 24 solar terms whose *local* (tz) date falls in (year, month)."""
+        out: list[tuple[date, str]] = []
+        for inst, name in zip(self._instants, self._names, strict=False):
+            local = inst.astimezone(tz)
+            if local.year == year and local.month == month:
+                out.append((local.date(), name))
+        return out
 
     def lichun_for_year(self, year: int) -> datetime:
         """The 입춘 instant whose calendar year (UTC) equals *year*."""

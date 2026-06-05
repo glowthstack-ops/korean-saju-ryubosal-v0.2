@@ -107,3 +107,18 @@ def test_unknown_location_returns_422() -> None:
     }
     r = _request("POST", "/api/v2/manse/calculate", json=payload)
     assert r.status_code == 422
+
+
+def test_calendar_month_endpoint() -> None:
+    r = _request("GET", "/api/v2/calendar/2024/2")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["year"] == 2024 and body["month"] == 2
+    assert len(body["days"]) == 29
+    assert any(t["name"] == "입춘" for t in body["solar_terms"])
+    assert body["days"][0]["day_ganji"] and body["days"][0]["day_ganji_ko"]
+
+
+def test_calendar_invalid_month_returns_422() -> None:
+    r = _request("GET", "/api/v2/calendar/2024/13")
+    assert r.status_code == 422
