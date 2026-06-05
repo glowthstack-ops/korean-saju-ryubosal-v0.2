@@ -50,6 +50,32 @@ def test_geokguk_main_structure_and_aux(make_pillars) -> None:
     assert any("발현" in a for a in g.auxiliary_structures)
 
 
+def test_transformation_blocked_by_clash(make_pillars) -> None:
+    # 寅亥 육합(木) 이지만 寅申 충이 합을 방해 → confirmed=False, blockers 기록.
+    # (간지는 실제 60갑자: 乙亥·庚申·甲寅·丙午)
+    pillars = make_pillars(
+        (Stem.EUL, Branch.HAE), (Stem.GYEONG, Branch.SIN),
+        (Stem.GAP, Branch.IN), (Stem.BYEONG, Branch.O), Stem.GAP,
+    )
+    s = analyze_chart(pillars).structure
+    in_hae = [t for t in s.transformed_candidates if set(t.members) == {"寅", "亥"}]
+    assert in_hae, "寅亥 육합 변환 후보가 있어야 한다"
+    t = in_hae[0]
+    assert t.blockers  # 충이 blocker로 잡혀야 한다
+    assert t.confirmed is False
+
+
+def test_geokguk_reason_is_relation_specific(make_pillars) -> None:
+    # 1980 fixture: 월지 亥亥 자형 → self_punished 라벨(단순 clashed 아님).
+    pillars = make_pillars(
+        (Stem.GYEONG, Branch.SIN), (Stem.JEONG, Branch.HAE),
+        (Stem.GI, Branch.HAE), (Stem.MU, Branch.JIN), Stem.GI,
+    )
+    g = analyze_chart(pillars).geokguk
+    assert "month_branch_self_punished" in g.stability["reasons"]
+    assert "month_branch_clashed" not in g.stability["reasons"]
+
+
 def test_geokguk_special_structure_label(make_pillars) -> None:
     # 월지 본기가 비견이면 건록격으로 표기.
     pillars = make_pillars(

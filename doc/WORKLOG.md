@@ -99,6 +99,11 @@ Phase 3 진입 전 재현성 문제 정리.
 검증: **pytest 64 pass(unit 52 / regression 9 / integration 3)** ·
 `mypy .` clean · ruff clean.
 
+**통합테스트 hang 후속 정정(2차)**: ASGITransport 전환만으로는 부족했음 — 라우터가
+동기 `def`라 FastAPI가 threadpool(`anyio.to_thread`)로 디스패치하는 지점이 일부
+샌드박스에서 hang. `health`/`calculate` 핸들러를 **`async def`**로 전환해 threadpool
+디스패치 자체를 제거(엔진은 빠른 결정론적 CPU 작업이라 인라인 호출). 통합 3개 정상 종료.
+
 ---
 
 ## Phase 3 — 구조작용 + structure_modifier 완성 + 격국 ✅
@@ -134,7 +139,15 @@ Phase 3 진입 전 재현성 문제 정리.
 - 오행/십성 effective 분포의 관계 보정(합충형파해 multiplier)은 여전히 별도 후속 항목으로 연기
   (분포 trace의 deferred_modifiers에 명시). structure_modifier(신강약)는 본 단계에서 완성됨.
 
-**통합테스트 hang 후속 정정(2차)**: ASGITransport 전환만으로는 부족했음 — 라우터가
-동기 `def`라 FastAPI가 threadpool(`anyio.to_thread`)로 디스패치하는 지점이 일부
-샌드박스에서 hang. `health`/`calculate` 핸들러를 **`async def`**로 전환해 threadpool
-디스패치 자체를 제거(엔진은 빠른 결정론적 CPU 작업이라 인라인 호출). 통합 3개 정상 종료.
+---
+
+## Phase 3.1 — 감사(codex) 지적 반영 ✅
+
+1. **합화 blockers 실제 구현**: 기존 `blockers=[]` 고정 → 합 참여 글자가 충/형/자형으로
+   흔들리거나(관계 교차), 천간합 글자가 타 천간에 극당하면 blocker로 기록. `confirmed`는
+   이제 월령+뿌리+**무방해**를 실제로 만족해야 True, blocker당 confidence -0.15.
+   (structure_modifier의 합화 ±3에 직접 영향.)
+2. **격국 손상 사유 라벨 정정**: 항상 `month_branch_clashed` → 실제 관계 유형으로
+   `month_branch_clashed/punished/self_punished` 구분. 1980 fixture는 亥亥 →
+   `month_branch_self_punished`로 정확 표기.
+3. **WORKLOG 순서 정정**: 통합테스트 hang 2차 정정 블록을 Phase 2.1 아래로 이동.

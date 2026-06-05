@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from saju_manse_core.relations import Relation
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
+    CONTROLS,
     SEASON_ELEMENT_BY_MONTH,
     STEM_ELEMENT,
     main_hidden_stem,
@@ -74,7 +75,11 @@ def _affected(rel: Relation, dm: Stem) -> tuple[list[str], list[str]]:
 
 
 def _transformation(
-    rel: Relation, pillars: FourPillarsResult, month_branch: Branch
+    rel: Relation,
+    pillars: FourPillarsResult,
+    month_branch: Branch,
+    relations: list[Relation],
+    heavenly_stems: set[Stem],
 ) -> TransformationCheck:
     target = Element(rel.transform_element)  # type: ignore[arg-type]
     season_el = SEASON_ELEMENT_BY_MONTH[month_branch]
@@ -87,8 +92,29 @@ def _transformation(
         BRANCH_ELEMENT[Branch(b)] == target or STEM_ELEMENT[main_hidden_stem(Branch(b))] == target
         for b in branches
     )
+
+    # 방해 요소(blockers): 합에 참여한 글자가 충/형으로 흔들리거나, 천간합 글자가
+    # 다른 천간에 의해 극당하면 합화가 불완전해진다.
     blockers: list[str] = []
-    confidence = 0.3 + 0.3 * month_supports + 0.2 * root_exists
+    member_set = set(rel.members)
+    member_positions = set(rel.positions)
+    disruptive = ("clash", "punishment", "self_punishment")
+    for other in relations:
+        if other is rel or other.rel_type not in disruptive:
+            continue
+        if member_set & set(other.members) or member_positions & set(other.positions):
+            blockers.append(f"{other.rel_type}:{'·'.join(other.members)}")
+    if rel.rel_type == "stem_combination":
+        member_stems = {Stem(m) for m in rel.members}
+        for stem in member_stems:
+            for hv in heavenly_stems:
+                if hv in member_stems:
+                    continue
+                if CONTROLS[STEM_ELEMENT[hv]] == STEM_ELEMENT[stem]:
+                    blockers.append(f"극:{hv}→{stem}")
+    blockers = sorted(set(blockers))
+
+    confidence = 0.3 + 0.3 * month_supports + 0.2 * root_exists - 0.15 * len(blockers)
     confirmed = month_supports and root_exists and not blockers
     if confirmed:
         confidence += 0.2
@@ -96,9 +122,9 @@ def _transformation(
         members=rel.members,
         target_element=str(target),
         exists=True,
-        possible=month_supports or root_exists,
+        possible=(month_supports or root_exists) and not blockers,
         confirmed=confirmed,
-        confidence=round(min(confidence, 0.95), 4),
+        confidence=round(max(min(confidence, 0.95), 0.0), 4),
         blockers=blockers,
     )
 
@@ -111,6 +137,9 @@ def analyze_structure(
     gongmang_branches: list[str],
 ) -> StructureBundle:
     month_branch = Branch(pillars.month.branch)
+    heavenly_stems = {
+        Stem(p.stem) for p in (pillars.year, pillars.month, pillars.day, pillars.hour) if p
+    }
     interactions: list[StructuralInteraction] = []
     amplifiers: list[StructuralInteraction] = []
     palace_interactions: list[dict] = []
@@ -144,7 +173,9 @@ def analyze_structure(
         if rel.transform_element is not None and rel.rel_type in (
             "stem_combination", "six_combination", "three_harmony", "directional"
         ):
-            transformed.append(_transformation(rel, pillars, month_branch))
+            transformed.append(
+                _transformation(rel, pillars, month_branch, relations, heavenly_stems)
+            )
 
     # 안정도
     all_effects = sum(i.stability_effect for i in interactions)

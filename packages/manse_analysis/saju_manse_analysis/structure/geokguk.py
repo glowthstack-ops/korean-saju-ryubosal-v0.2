@@ -52,13 +52,19 @@ def detect_geokguk(
     ]
     month_void = month.branch in set(gongmang_branches)
 
+    # 손상 사유는 실제 관계 유형으로 라벨링한다(충/형/자형 구분).
+    _REASON_BY_REL = {
+        "clash": "month_branch_clashed",
+        "punishment": "month_branch_punished",
+        "self_punishment": "month_branch_self_punished",
+    }
     reasons: list[str] = []
     if main_qi_exposed:
         reasons.append("main_qi_exposed")
     if not month_damaged_rels:
         reasons.append("month_branch_supported")
-    if month_damaged_rels:
-        reasons.append("month_branch_clashed")
+    for i in month_damaged_rels:
+        reasons.append(_REASON_BY_REL.get(i.relation_type, "month_branch_damaged"))
     if month_void:
         reasons.append("month_branch_void")
 
