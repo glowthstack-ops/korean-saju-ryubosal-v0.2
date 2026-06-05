@@ -87,16 +87,15 @@ def compute_ten_god_distribution(pillars: FourPillarsResult) -> dict:
     missing = [tg for tg in TEN_GODS if tg not in anywhere]
     hidden_only = [tg for tg in TEN_GODS if tg in anywhere and tg not in visible]
 
-    # 표시용(display) 십성분포 — 천간(일간 제외) + 지지 본기, 암장 제외, 정규화.
+    # 표시용(display) 십성분포 — **단순 표면 글자 수**(위치가중치 미사용).
+    # 천간은 일간(기준점) 제외, 지지는 본기 십성을 표면 대표값으로 1글자 카운트.
     vis = {tg: 0.0 for tg in TEN_GODS}
     for pos, stem in cv.stems:
-        if pos == "day":
+        if pos == "day":  # 일간 제외(표면 라벨에 '일간 제외' 명시)
             continue
-        w = STEM_POS_WEIGHT[pos]
-        if w:
-            vis[str(ten_god(dm, stem))] += w
-    for pos, branch in cv.branches:
-        vis[str(ten_god(dm, main_hidden_stem(branch)))] += BRANCH_POS_WEIGHT[pos]
+        vis[str(ten_god(dm, stem))] += 1.0
+    for _pos, branch in cv.branches:
+        vis[str(ten_god(dm, main_hidden_stem(branch)))] += 1.0
     visible_percent = _percent(vis)
     visible_absent = [tg for tg in TEN_GODS if vis[tg] == 0]
 

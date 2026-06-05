@@ -10,7 +10,10 @@ class FiveElementAnalysis(BaseModel):
     hidden_base: dict[str, float]
     effective_force: dict[str, float]
     effective_percent: dict[str, float]  # 판정용(내부/고급 실세력)
-    visible_percent: dict[str, float] = Field(default_factory=dict)  # 표시용(암장 제외)
+    visible_percent: dict[str, float] = Field(default_factory=dict)  # 표시용(단순 표면, 일간 포함)
+    visible_percent_without_day_master: dict[str, float] = Field(default_factory=dict)
+    # 오행별 지장간 출처(표면 유무 무관) — 예: 土 → [申여戊, 巳여戊]. 표면 %에는 섞지 않음.
+    hidden_support: dict[str, list[str]] = Field(default_factory=dict)
     strongest_element: str
     weakest_element: str
     excessive_elements: list[str] = Field(default_factory=list)

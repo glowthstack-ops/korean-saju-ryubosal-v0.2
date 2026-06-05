@@ -484,3 +484,16 @@ cross-process 결정성 가드 추가.
 
 본기/중기 비중: 분포 budget(본기 0.70/0.75 > 중기 0.20/0.25), 표시용(본기만), 통근(본기 1.0 >
 중기 0.6) — 각 레이어가 본기>중기로 차등. 검증: backend **132 pass**·clean / frontend 7 pass·build OK.
+
+### 후속 — 표면(visible)을 단순 글자수로 재정의(감사 지시) ✅
+표면이 판정용 위치가중치를 쓰던 문제 → **표시용은 단순 표면 글자 수**로 분리.
+- `five_elements.visible_percent`: 천간(일간 포함) + 지지 표면, **위치가중치 미사용**, 정규화.
+  庚申丁亥己亥己巳 → 木 0·火 25·土 25·金 25·水 25(%). 시간 모름이면 존재 6글자 기준 정규화.
+- `visible_percent_without_day_master` 별도 필드(일간 1글자만 제외).
+- `ten_gods.visible_percent`: 단순 표면(천간 일간 제외 + 지지 본기), `visible_absent`로 표면 부재(-).
+- `hidden_support`: 오행별 지장간 출처(표면 유무 무관, 예: 土←申여戊·巳여戊) — 표면 %엔 섞지 않음.
+- effective_percent(위치가중·월령·통근·공망·budget)는 **판정용(고급/내부)** 그대로 유지·분리.
+- UI: 요약/분포 기본을 표면(단순)으로, 십성은 '일간 제외' 명시, 지장간 보조 라인 추가,
+  툴팁에 표면/실세력 정의 구분.
+- 테스트: 표면 25/25/25/25/0 고정 + 위치가중 비영향 회귀 + 시간모름 정규화 + hidden_support +
+  without_day_master. backend **135 pass**·clean / frontend 7 pass·build OK.

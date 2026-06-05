@@ -172,6 +172,7 @@ export interface ManseResult {
     five_elements: {
       effective_percent: Record<string, number>;
       visible_percent: Record<string, number>;
+      visible_percent_without_day_master: Record<string, number>;
       raw_visible: Record<string, number>;
       strongest_element: string;
       weakest_element: string;
@@ -183,6 +184,7 @@ export interface ManseResult {
         label: string;
         operability: string;
       }>;
+      hidden_support: Record<string, string[]>;
       display_summary: {
         deficient_visible_elements?: string[];
         warnings?: string[];

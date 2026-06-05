@@ -12,7 +12,6 @@ from saju_shared_types.constants import (
     BRANCH_ELEMENT,
     STEM_ELEMENT,
     hidden_stems_for,
-    main_hidden_stem,
 )
 from saju_shared_types.enums import Element, Stem
 from saju_shared_types.pillars import FourPillarsResult
@@ -63,20 +62,15 @@ def _exposure_multiplier(cv: ChartView, hidden_stem: Stem) -> float:
     return 1.0
 
 
-def _visible_distribution(cv: ChartView) -> dict[str, float]:
-    """표시용(display) 분포: 천간(일간 제외) + 지지 본기, **암장 제외**, 위치가중·정규화.
-
-    암장(중기/여기)은 퍼센트에서 빠지므로 표면에 없는 오행은 0%가 된다(예: 木 0%).
-    """
-    vis = _empty()
-    for pos, stem in cv.stems:
-        w = STEM_POS_WEIGHT[pos]
-        if w == 0:  # 일간은 기준점 → 제외(원국 보드에 별도 표시)
-            continue
-        vis[str(STEM_ELEMENT[stem])] += w
-    for pos, branch in cv.branches:
-        vis[str(STEM_ELEMENT[main_hidden_stem(branch)])] += BRANCH_POS_WEIGHT[pos]
-    return _percent(vis)
+def _hidden_sources(cv: ChartView) -> dict[str, list[str]]:
+    """오행별 지장간 출처(표면 유무와 무관). 예: 土 → [申여戊, 巳여戊]."""
+    m: dict[str, list[str]] = {e: [] for e in _ELEMENTS}
+    for _pos, branch in cv.branches:
+        for hstem, htype, _w in hidden_stems_for(branch):
+            m[str(STEM_ELEMENT[hstem])].append(
+                f"{branch}{_HIDDEN_TYPE_KO[htype.value]}{hstem}"
+            )
+    return {e: s for e, s in m.items() if s}
 
 
 def compute_element_distribution(pillars: FourPillarsResult) -> dict:
@@ -151,8 +145,14 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
     # 암장(hidden-only): 표면(visible)엔 없고 지장간에만 존재하는 오행.
     hidden_only = _hidden_only_elements(cv, raw, hidden_base)
     hidden_only_names = [h["element"] for h in hidden_only]
-    # 표시용(display) 분포 — 암장 제외. 사용자 화면 기본값.
-    visible_percent = _visible_distribution(cv)
+    # 표시용(display) 분포 — **단순 표면 글자 수** 기준(위치가중치 미사용). 사용자 화면 기본값.
+    # raw = 천간 8글자(일간 포함) + 지지 표면. 시간 모름이면 이미 시주가 빠져 있어 정규화 자연 처리.
+    visible_percent = _percent(raw)
+    # 일간 제외 버전(필요 시): 일간 1글자만 제외.
+    raw_wo_dm = dict(raw)
+    raw_wo_dm[str(STEM_ELEMENT[cv.day_master])] -= 1.0
+    visible_percent_without_day_master = _percent(raw_wo_dm)
+    hidden_support = _hidden_sources(cv)
     deficient_visible = [e for e in _ELEMENTS if raw[e] == 0]
     present = [e for e in _ELEMENTS if raw[e] > 0]
     max_cnt = max((raw[e] for e in present), default=0.0)
@@ -182,11 +182,13 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
         "effective_force": eff,
         "effective_percent": percent,
         "visible_percent": visible_percent,
+        "visible_percent_without_day_master": visible_percent_without_day_master,
         "strongest_element": strongest,
         "weakest_element": weakest,
         "excessive_elements": excessive,
         "deficient_elements": deficient,
         "hidden_only_elements": hidden_only,
+        "hidden_support": hidden_support,
         "display_summary": display_summary,
         "calculation_trace": trace,
     }

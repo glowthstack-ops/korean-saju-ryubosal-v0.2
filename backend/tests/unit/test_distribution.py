@@ -85,16 +85,50 @@ def test_effective_percent_exact_lock(force) -> None:
     assert eff["水"] == pytest.approx(39.96, abs=0.2)
 
 
-def test_visible_display_excludes_amjang(force) -> None:
-    # 표시용(visible) 분포: 암장 제외 → 木 0%, 水 40%대 과다·최강.
+def test_visible_is_simple_surface_count_not_weighted(force) -> None:
+    # 표시용(visible)은 **단순 표면 글자 수** — 위치가중치 영향 없음.
+    # 庚申丁亥己亥己巳: 표면 木0·火2·土2·金2·水2 → 木0·火25·土25·金25·水25.
     vis = force.five_elements.visible_percent
     assert vis["木"] == 0.0
-    assert vis["水"] > 40.0 and max(vis, key=lambda e: vis[e]) == "水"
-    # 십성 표시용: 정재(水) 최강, 정관/편관은 표면 부재(-).
+    assert vis["火"] == 25.0 and vis["土"] == 25.0 and vis["金"] == 25.0 and vis["水"] == 25.0
+    # 위치가중(effective)과 명확히 다르다(섞이지 않음).
+    assert force.five_elements.effective_percent["水"] != vis["水"]
+    # 십성 표시용: 정관/편관은 표면 부재(-), 정재는 표면 존재.
     tg = force.ten_gods
-    assert max(tg.visible_percent, key=lambda t: tg.visible_percent[t]) == "정재"
-    assert tg.visible_percent["정관"] == 0.0
-    assert "정관" in tg.visible_absent
+    assert tg.visible_percent["정관"] == 0.0 and "정관" in tg.visible_absent
+    assert tg.visible_percent["정재"] > 0.0
+
+
+def test_visible_without_day_master_drops_one_earth(force) -> None:
+    # 일간(己=土) 1글자만 제외한 별도 필드.
+    wo = force.five_elements.visible_percent_without_day_master
+    assert wo["土"] < force.five_elements.visible_percent["土"]
+    assert wo["木"] == 0.0
+
+
+def test_hidden_support_lists_amjang_sources(force) -> None:
+    # 표면에도 있는 오행의 지장간 보조도 설명 가능(표면 %에는 섞지 않음).
+    hs = force.five_elements.hidden_support
+    assert "申여戊" in hs.get("土", []) and "巳여戊" in hs.get("土", [])
+
+
+def test_visible_normalizes_over_present_chars_when_time_unknown() -> None:
+    # 시간 모름 → 시주 제외, 존재하는 6글자(천간3+지지3) 기준으로 정규화.
+    r = calculate(
+        BirthInput(
+            birth_date="1980-11-22",
+            birth_time_unknown=True,
+            birth_place_name="서울",
+            gender="male",
+        )
+    )
+    assert r.force_analysis is not None
+    vis = r.force_analysis.five_elements.visible_percent
+    assert vis["木"] == 0.0
+    assert sum(vis.values()) == pytest.approx(100.0, abs=0.1)
+    # 6글자 중 火(丁)·土(己) 각 1 → 16.67%, 金(庚申)·水(亥亥) 각 2 → 33.33%.
+    assert vis["火"] == pytest.approx(16.67, abs=0.1)
+    assert vis["水"] == pytest.approx(33.33, abs=0.1)
 
 
 def test_strongest_visible_elements_handles_tie(force) -> None:
