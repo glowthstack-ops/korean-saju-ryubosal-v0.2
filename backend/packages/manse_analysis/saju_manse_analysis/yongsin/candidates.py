@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from saju_shared_types.analysis import ForceAnalysis
 from saju_shared_types.constants import (
-    SEASON_ELEMENT_BY_MONTH,
     STEM_ELEMENT,
     group_elements,
 )
@@ -33,7 +32,8 @@ _HOT_MONTHS = {Branch.SA, Branch.O, Branch.MI}
 _AXIS_OF: dict[str, str] = {
     "support_day_master": "eokbu", "resource_as_yongsin": "eokbu",
     "output_as_yongsin": "eokbu", "eokbu_normal": "eokbu",
-    "wealth_breaks_resource": "eokbu",
+    "wealth_breaks_resource": "eokbu", "officer_controls_peer": "eokbu",
+    "resource_curbs_output": "eokbu",
     "johu": "johu", "pattern_sangsin": "pattern", "disease_remedy": "disease",
     "dominant_one_element": "special", "follow_structure": "special",
 }
@@ -125,15 +125,49 @@ def _resource_overload_strict(groups: dict[str, float]) -> bool:
     return resource / total >= 0.40 and resource > groups.get("peer", 0.0) * 2.0
 
 
+def _bigyeob_overload(groups: dict[str, float]) -> bool:
+    """비겁과다(군겁쟁재) — 비겁이 재성을 압도하는 신강. 재성은 군겁대상이라 용·희 부적격."""
+    total = sum(groups.values()) or 1.0
+    peer = groups.get("peer", 0.0)
+    return peer / total >= 0.35 and peer > groups.get("wealth", 0.0) * 1.5
+
+
+def _officer_heavy(groups: dict[str, float]) -> bool:
+    """관살과다(살중) — 관성이 비겁을 압도하는 신약. 비겁은 관극비로 깨져 인성(살인상생)이 정석."""
+    total = sum(groups.values()) or 1.0
+    officer = groups.get("officer", 0.0)
+    return officer / total >= 0.30 and officer > groups.get("peer", 0.0) * 1.5
+
+
+def _output_heavy(groups: dict[str, float]) -> bool:
+    """식상과다 — 식상이 압도하는 신약. 인성으로 제식상·생일간(印制食). 비겁은 식상을 생해 악화."""
+    total = sum(groups.values()) or 1.0
+    output = groups.get("output", 0.0)
+    return output / total >= 0.35 and output > groups.get("peer", 0.0) * 1.5
+
+
 def _johu_or_disease_active(month_branch: Branch, geokguk: GeokgukResult) -> bool:
     """조후(한습·조열 월령) 또는 병증(파격 2건+)이 우선되는 상황인가."""
     ev = geokguk.evaluation
     active = ev.total_active if ev else 0
-    cold_hot = (
-        month_branch in (_COLD_MONTHS | _HOT_MONTHS)
-        and SEASON_ELEMENT_BY_MONTH[month_branch] != Element.EARTH
-    )
+    cold_hot = month_branch in (_COLD_MONTHS | _HOT_MONTHS)
     return cold_hot or active >= 2
+
+
+def _jaeda_sinyak(groups: dict[str, float]) -> bool:
+    """재다신약 — 재성이 인성을 압도(재극인·무근)하고 일간보다 강함. 인성은 용·희 부적격."""
+    return groups["wealth"] > groups["resource"] * 3 and groups["wealth"] > groups["peer"]
+
+
+def _climate_harmful(month_branch: Branch, force: ForceAnalysis) -> str | None:
+    """조후 역행 원소(용·희 부적격). 한습(亥子丑)+火 미약 → 水, 조열(巳午未)+水 미약 → 火."""
+    dist = force.five_elements.season_adjusted_element_strength or {}
+    total = sum(dist.values()) or 1.0
+    if month_branch in _COLD_MONTHS and dist.get(Element.FIRE, 0.0) / total < 0.22:
+        return _e(Element.WATER)
+    if month_branch in _HOT_MONTHS and dist.get(Element.WATER, 0.0) / total < 0.22:
+        return _e(Element.FIRE)
+    return None
 
 
 def _resource_excess_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
@@ -148,6 +182,54 @@ def _resource_excess_model(g: dict[str, Element], strength) -> YongsinCandidateM
         reasons=[
             "인성 과다 → 재성으로 인성 제어(財損印)",
             "관성으로 일간 억제·조후, 식상은 인성에 극당해 무력",
+        ],
+    )
+
+
+def _bigyeob_rob_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
+    """군겁쟁재형: 비겁 태왕 → 관성으로 제압·식상으로 통관. 재성 직접은 군겁쟁재(한신)."""
+    conf = round(min(0.55 + max(strength.score - 50.0, 0.0) / 60, 0.9), 4)
+    return YongsinCandidateModel(
+        model_type="officer_controls_peer",
+        label="군겁쟁재형(관성 제겁)",
+        yongsin=_e(g["officer"]), heesin=_e(g["output"]),
+        gisin=_e(g["peer"]), gusin=_e(g["resource"]), hansin=_e(g["wealth"]),
+        confidence=conf,
+        reasons=[
+            "비겁 태왕 → 관성으로 제압(관극비)",
+            "식상으로 통관(비겁→식상→재), 재성 직접은 군겁쟁재",
+        ],
+    )
+
+
+def _kill_to_resource_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
+    """살인상생형(살중용인): 관살 태왕 → 인성으로 살을 화하고 일간 생. 비겁은 방조(희)."""
+    conf = round(min(0.6 + max(50.0 - strength.score, 0.0) / 55, 0.9), 4)
+    return YongsinCandidateModel(
+        model_type="resource_as_yongsin",
+        label="살인상생형(살중용인)",
+        yongsin=_e(g["resource"]), heesin=_e(g["peer"]),
+        gisin=_e(g["wealth"]), gusin=_e(g["output"]), hansin=_e(g["officer"]),
+        confidence=conf,
+        reasons=[
+            "관살 태왕 → 인성으로 살을 화함(살인상생)",
+            "비겁은 일간 방조(희신), 재성은 재생살·재극인으로 기신",
+        ],
+    )
+
+
+def _output_overload_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
+    """인성제식상형(식상과다 신약): 인성으로 식상 제어·생일간(印制食). 비겁 방조, 관성 관인상생."""
+    conf = round(min(0.6 + max(50.0 - strength.score, 0.0) / 55, 0.9), 4)
+    return YongsinCandidateModel(
+        model_type="resource_curbs_output",
+        label="인성제식상형(식상과다)",
+        yongsin=_e(g["resource"]), heesin=_e(g["peer"]),
+        gisin=_e(g["output"]), gusin=_e(g["wealth"]), hansin=_e(g["officer"]),
+        confidence=conf,
+        reasons=[
+            "식상 과다 → 인성으로 제어·생일간(印制食)",
+            "식상이 병(기신)·재성 구신, 관성은 관인상생(한신)",
         ],
     )
 
@@ -236,10 +318,8 @@ def _select_axis_weights(
     ev = geokguk.evaluation
     active = ev.total_active if ev else 0
     fw = ev.final_weight if ev else 0.15
-    cold_hot = (
-        month_branch in (_COLD_MONTHS | _HOT_MONTHS)
-        and SEASON_ELEMENT_BY_MONTH[month_branch] != Element.EARTH
-    )
+    # 丑(한겨울)·未(한여름)은 土월이라도 한난이 극단 → 조후 대상에 포함.
+    cold_hot = month_branch in (_COLD_MONTHS | _HOT_MONTHS)
     if band in _WEAK:  # 신약/중화신약 → 억부 우선(종격은 special에서 처리)
         return {"eokbu": 0.45, "johu": 0.25, "pattern": 0.15, "disease": 0.15, "special": 0.1}
     if active >= 2:  # 파격 뚜렷 → 병약 우선
@@ -292,17 +372,30 @@ def build_yongsin(
             reasons=["극신약 + 무근 → 따르는 세력이 용신", "억지로 돕는 비겁/인성은 기신"],
         ))
     elif band in _WEAK:
-        models.append(_support_model(g, strength))
         sp = _strongest_pressure(groups)
         rooted_strong = strength.rootedness.get("label") == "신왕"
         has_root = bool(force.rooting.tonggeun)
-        if rooted_strong and sp == "officer":
-            models.append(_output_model(g, strength))
-        elif has_root and sp in ("wealth", "output"):
-            models.append(_resource_model(g, strength))
+        if _output_heavy(groups):
+            # 식상과다 → 인성으로 제식상·생일간(印制食). 비겁은 식상을 생해 악화 → 부일간형 제외.
+            models.append(_output_overload_model(g, strength))
+        elif _officer_heavy(groups):
+            # 살중(관살 태왕) → 살인상생(인성) 우선, 비겁은 방조. 뿌리 강하면 식신제살도 경쟁.
+            models.append(_support_model(g, strength))
+            models.append(_kill_to_resource_model(g, strength))
+            if rooted_strong:
+                models.append(_output_model(g, strength))
+        else:
+            models.append(_support_model(g, strength))
+            if rooted_strong and sp == "officer":
+                models.append(_output_model(g, strength))
+            elif has_root and sp in ("wealth", "output") and not _jaeda_sinyak(groups):
+                # 재다신약은 재극인으로 인성용신 불가 → 인성용신형 제외(부일간형만).
+                models.append(_resource_model(g, strength))
     elif band in _STRONG:
         if _resource_overload(groups):
             models.append(_resource_excess_model(g, strength))  # 인성과다 → 財損印
+        elif _bigyeob_overload(groups):
+            models.append(_bigyeob_rob_model(g, strength))  # 비겁과다 → 군겁쟁재(관성 제겁)
         else:
             models.append(_eokbu_strong_model(g, strength))
     else:  # 중화권 — 경쟁 모델 강제 + 검증
@@ -319,8 +412,10 @@ def build_yongsin(
             warnings.append("neutral_zone: 인성과다(財損印) 후보 조건부 추가")
         warnings.append("neutral_zone: 경쟁 모델 동시 제시, 사용자 검증 필요")
 
+    # 조후: _johu_model이 한습(亥子丑)·조열(巳午未)만 모델을 내므로(辰·戌은 None) 그대로 사용.
+    # (丑=한겨울·未=한여름은 土월이라도 조후가 핵심 — 월령오행으로 걸러내면 안 됨.)
     johu = _johu_model(month_branch, g)
-    if johu is not None and SEASON_ELEMENT_BY_MONTH[month_branch] != Element.EARTH:
+    if johu is not None:
         models.append(johu)
     # 격국(상신)·병약(약신) 보정 축 — 용신을 단독 확정하지 않고 후보 우선순위만 조정.
     pattern = _pattern_model(geokguk, g)
@@ -374,6 +469,34 @@ def build_yongsin(
                 "top_element": top_el, "score": round(top_sc, 4),
             })
     axes_summary.sort(key=lambda a: a["score"], reverse=True)  # 기여 점수 내림차순
+
+    # 부적격 원소 강등(용·희 → 불리).
+    def _demote(el: str | None, tag: str) -> None:
+        if el and el in useful:
+            sc = useful.pop(el)
+            _put(unfavorable, el, sc[0] * 0.9, sc[1], tag)
+
+    # ① 조후 역행(한습 水 / 조열 火)은 용·희 부적격.
+    _demote(_climate_harmful(month_branch, force), "climate_demote")
+    # ② 극파 무력: 용/희 원소가 그것을 극하는 그룹에게 압도(>3배·최강군)당하면 강등
+    #    (재다→인성, 군겁→재성, 인성과다→식상, 상관견관→관성 등 일괄).
+    #    단 비겁(일간 동기·방조 유효)·조후 필요 원소(한습 火/조열 水)는 보존.
+    _ctrl_grp = {"wealth": "peer", "resource": "wealth", "output": "resource", "officer": "output"}
+    _johu_need = (
+        _e(Element.FIRE) if month_branch in _COLD_MONTHS
+        else _e(Element.WATER) if month_branch in _HOT_MONTHS else None
+    )
+    _el2grp = {str(v): k for k, v in g.items()}
+    _mx = max(groups.values()) if groups else 0.0
+    for _el in list(useful):
+        if _el == _johu_need:
+            continue
+        _grp = _el2grp.get(_el)
+        _ctrl = _ctrl_grp.get(_grp or "")
+        if _grp is None or _ctrl is None:
+            continue
+        if groups[_ctrl] > groups[_grp] * 3 and groups[_ctrl] >= _mx and groups[_ctrl] > 0:
+            _demote(_el, f"overwhelmed_by_{_ctrl}")
 
     useful_sorted = sorted(useful.items(), key=lambda kv: kv[1][0], reverse=True)[:2]
     unfav_sorted = sorted(unfavorable.items(), key=lambda kv: kv[1][0], reverse=True)[:2]
