@@ -7,19 +7,23 @@ from saju_manse_analysis import analyze_chart
 from saju_shared_types.enums import Branch, Stem
 
 
-def test_structure_modifier_penalizes_clashed_only_root(make_pillars) -> None:
-    # 甲 일간, 유일한 뿌리(인성 癸)가 일지 子인데 년지 午가 子午충 → only_root_damaged.
+def test_root_clash_handled_by_rooting_not_structure(make_pillars) -> None:
+    # 甲 일간, 유일한 뿌리(인성 癸)가 일지 子인데 년지 午가 子午충.
+    # (나') 역할 분리: 뿌리 손상은 rooting.reliability에서 처리하고 structure_modifier에서
+    # 같은 충을 다시 감산하지 않는다(이중 반영 방지).
     pillars = make_pillars(
         (Stem.MU, Branch.O), (Stem.MU, Branch.SUL),
         (Stem.GAP, Branch.JA), (Stem.GYEONG, Branch.SUL), Stem.GAP,
     )
     ca = analyze_chart(pillars)
-    sm = ca.structure
-    assert "only_root_damaged:-6" in sm.structure_modifier_breakdown
-    assert -10 <= sm.structure_modifier <= 10
-    assert sm.structure_modifier < 0
-    # 강약은 v1.3 8성분(자체 충/합 보정 포함)으로 산출 — 충 성분이 컴포넌트에 존재.
-    assert "clash_adjustment" in ca.force.strength.components
+    bd = ca.structure.structure_modifier_breakdown
+    assert "only_root_damaged:-6" not in bd  # root 충은 structure에서 감산하지 않음
+    assert "day_master_root_clashed:-4" not in bd
+    assert -10 <= ca.structure.structure_modifier <= 10
+    # 충 맞은 뿌리(子)는 통근 reliability(<1.0)로 약화된다.
+    clashed = next((r for r in ca.force.rooting.roots if r.branch == "子"), None)
+    assert clashed is not None and clashed.reliability < 1.0
+    assert "structure_modifier" in ca.force.strength.components
 
 
 def test_stability_and_volatility_bounds(make_pillars) -> None:

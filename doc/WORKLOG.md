@@ -616,3 +616,288 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
 - 용신 axes를 기여 점수 내림차순 정렬.
 - 1980: 정재격 성격 중성 · 성패 반성반패 · 가중치 0.30(주요 참고). 용신 土 유지.
 검증: backend 147 pass·clean / frontend build OK.
+
+### 격국 다후보 엔진화 + 정밀화 (정기단일 → 후보 랭킹·특수격·격별 위험규칙) ✅
+- **배경/문제**: 격이 '월지 정기 1글자'로만 단일 확정 → 중기/여기 투간으로 생기는 격 후보 누락,
+  극신약/극신강을 일반 내격으로 고정, 음간 겁재를 일괄 '양인격'으로 오판, 디버그(후보·근거) 부재.
+- **해결**:
+  - `geokguk_eval`: `GeokCandidate`/`build_candidates`(지장간 전체+투간위치), `score_candidate`
+    (위계30·격신투간25[월간]/15[년시]·통근15·상신15·무파격10·청정5=100), `score_all_candidates`(랭킹),
+    `special_signal`(전왕/종격), `evaluate_geokguk`를 선택 후보 기준으로 파라미터화.
+  - `geokguk.detect_geokguk`: 다후보 산출→랭킹→주격 선택, `candidates[]`·`special_pattern` 출력.
+  - **양인 지지조건**: 양인은 양간+양인지지(`_YANGIN`)만, 그 외 겁재월은 `월겁격`(음간 양인 제거).
+    yongsin `_GEOK_SANGSIN_GROUPS`에 `월겁격` 매핑 추가(격국용신 누락 회귀 수정).
+  - **특수격 치환**: 강신호(타입별 `dominant 0.60`/`follow 0.70`)면 `main_structure`를 특수격으로 치환,
+    정격은 `candidates`·`special.jeonggyeok`로 병기. 경계(가전왕/가종)는 '병행 검토'만.
+  - **격별 위험규칙(5종)**: 칠살격 무제·인성과다·상관 무로·정관 합거(쟁합 구제)·식신 도식 가중(f1 −25).
+  - **격신 투간 정밀화**: '아무 지장간 투간'이 아니라 '주격 격신 본인의 투간'만 가산
+    (무관한 여기 투간 과대평가 제거). 1980 정재격 신뢰도 90→**65(B)**로 정정.
+  - **모델**: `GeokgukResult`에 `candidates`·`special_pattern` 필드 추가.
+  - **프론트**: `GeokgukPanel`에 후보 랭킹 리스트(이름·출처·신뢰도·투간·주격/보조) + 특수격 박스
+    (override 시 '특수격(주격)' / 정격 병기).
+- **CLAUDE.md 준수 정리**: 신규/재작성 함수 docstring 추가(`detect_geokguk`/`evaluate_geokguk`/
+  `candidate_dict`), `special_signal` 타입 안전화(`top` 기본 `""`)로 geokguk 파일 mypy clean.
+- **검증**: 골든/회귀/yongsin/api 불변(선택 격 동일, 신뢰도만 정밀화). 동작 확인 — 1986 극신약→종재격
+  치환(정격 정재격 병기), 1983 dominant 0.42→병행, 1970 정관격 합거 감지, 식신격+도식→반성반패.
+검증: backend 147 pass·ruff clean·mypy(geokguk.py/geokguk_eval.py) clean / frontend tsc OK.
+(잔여: `structure/structure_analysis.py:86` unused type-ignore — 본 변경 범위 밖 기존 항목)
+
+### 격국 박스 정리 — 내부 배점/변수 숨김(사용자 친화) ✅
+- **문제**: `GeokgukPanel`이 내부 수치·변수를 노출(신뢰도 65점(B)·성패 -5·명확도 `clear_but_mixed`
+  enum·격국 가중치 0.3·파격 코드 `chung_month_branch`·후보 신뢰도 숫자).
+- **해결**(frontend `GeokgukPanel`만): 정성적 한글로 치환 — 성패는 색 배지(한글 라벨), 선명도/방침은
+  `social_expression`+`clarity_policy` 문장, 파격은 `failures[].evidence`(한글)+구제 여부, 특수격은
+  `신뢰도 %` 제거·`dominant/follow`→`전왕·일행득기/종격`. 격 후보는 숫자 빼고 접기(▸)로 이동.
+  백엔드/데이터 변경 없음.
+검증: frontend tsc OK.
+
+### 격국 명확도 정책 문구 정정 — 억부는 용신법(목적 아님) ✅
+- **문제**: `_CLARITY_POLICY`가 `억부·용신`/`억부·조후·용신`처럼 나열 → 방법(억부)과 목적(용신)을
+  병렬로 둬 개념 혼동(억부 ⊂ 용신법).
+- **해결**: `clear_but_mixed` "…억부용신으로 보완한다", `unclear` "…억부·조후 용신 중심으로 해석한다"로 정정.
+검증: backend 147 pass·ruff clean.
+
+### ? 툴팁 사용자 친화 정리 + 화면 이탈 방지 ✅
+- **문제**: `?` 툴팁이 내부 용어·로직(8성분 점수범위, 레이어, 원점수/보정 등)을 노출. 일부는 화면
+  우측을 벗어남. 제목 `신강/신약 (v1.3 8성분)`에 버전·로직 노출.
+- **해결**(frontend): 툴팁 7종을 '항목 설명(용도·풀이)'로 교체(시간보정·신강약·오행십성분포·격국·
+  신살·대운세운월운·용신). 제목 `(v1.3 8성분)` 제거. `InfoTooltip`을 client 컴포넌트로 바꿔
+  열릴 때 위치 측정→뷰포트 밖이면 자동으로 안쪽 이동(좌/우 8px 여백), max-w 90vw로 확대.
+검증: frontend tsc OK.
+  (후속: 경계 변경 핫리로드 한계로 position:fixed+뷰포트 클램프 방식으로 재작성, dev 서버 1회 재시작 필요)
+
+### 암장(지장간만) 표기 개선 — 위치 포함·중복 제거·한글 통일 ✅
+- **문제**: `암장: 木(목)(亥중甲,亥중甲)`처럼 위치 없음·중복·혼합표기(한자+한글 한 토큰)로 읽기 어려움.
+- **해결**: backend `_hidden_only_elements` 출처를 `위치(년/월/일/시지) 지지 단계(정/중/여기) 지장간`
+  한글 통일 문자열로 생성(`STEM_KO`/`BRANCH_KO` 사용) → 위치로 자연 중복 제거.
+  frontend 표기를 `목 — 월지 해 중기 갑 · 일지 해 중기 갑 · 시지 진 여기 을 · 표면에 안 드러나
+  작동력 낮음`으로 정리. (`hidden_support`의 "申여戊" 포맷은 테스트 고정이라 유지)
+검증: backend 147 pass·ruff·mypy(element_distribution.py) clean / frontend tsc OK.
+  (후속: 암장은 오행 내용이므로 **오행 차트 하단**으로 이동, 오행은 사주 원국 **범례 색 배지
+  `木(목)`** 방식으로 표기. 지장간 출처는 한글 유지.)
+
+### 암장 — 오행이자 십성으로 재구성(위치별 오행+십성) ✅
+- **인식**: 암장 지장간(갑)은 오행(木)이자 십성(정관)이라, 한쪽에만 두면 안 됨.
+- **해결**: backend `_hidden_only_elements` 출처를 구조화 — `{position, branch, stage, stem, element,
+  ten_god}`(위치별 오행·십성 포함, `ten_god(day_master, stem)`). frontend는 패널 **하단에 합쳐**
+  위치(월지/일지/시지)별로 `{위치} {지장간} [오행 색배지 木(목)] {십성}` 한 줄씩(인라인) 표기.
+  예: `월지 중기 갑 [木(목)] [정관]`. 표기 세분 — 텍스트 `{위치} {단계} {지장간}`,
+  오행은 범례 색 배지(elementStyle+elementLabel), 십성은 십성 그래프 과다/부족과 동일한
+  단일 컬러 인디고 칩(tgBadge).
+- types.ts `hidden_only_elements.sources` 타입 string[]→구조체 배열로 갱신.
+검증: backend 147 pass·ruff·mypy(element_distribution.py) clean / frontend tsc OK / 라이브 API dict 확인.
+
+### 신강·신약 — 별개 v1 엔진을 '우리 값' 통합형으로 복원 + 보수화(merge-A + C) ✅
+- **문제**: v1.3 8성분 엔진(`strength_v1.py`)이 분포/통근/구조 값을 인자로 받고도 **무시하고
+  자체 테이블로 재계산**(별개 로직). `side_balance_score`는 죽은 코드(0.0)였음.
+- **A. 통합 공식 복원**: `score = clamp(0.35·season + 0.35·root + 0.30·side + structure_mod, 0,100)`.
+  season=SEASON_SCORE[season_state], root=rooting.root_score, side=side_balance_score(십성그룹,
+  일간 기준 생조/극설 비율), structure_mod=합충형파해/공망. `strength_v1.py` 삭제. 9밴드 복원
+  (태신약/태신강 부활 — geokguk `_WEAK/_STRONG`와 정합). side 가중치 사용자값(식상0.60·관성0.90).
+- **밴드 임계(사용자 지정)**: 28/34/42/47/53/58/66/75 (상한 inclusive).
+- **보완 3종**: 오행구족(표면 5오행 존재, 신강약과 분리) · 오행 편중도(max/min) · '중화이나 편중'
+  · 판정 사유(reason). 모델/타입에 신규 필드 추가, 프론트 StrengthPanel에 표시(내부 '구성:' 키 제거).
+- **C. 통근 보수화**(rooting.py): 본기(같은 천간)1.0 / **동기(같은 오행 다른 천간)0.85** / 인성0.65.
+  뿌리 지지의 **공망·충 reliability**(공망0.60·충0.75·둘다0.45) 추가. → 신약화의 핵심 동력은
+  동기 감산이 아니라 reliability(목표 분석과 일치).
+- **캡 룰**: `season≤38 and root≤45 and side≤48 → 신약 이상 금지`(오행구족·일부 통근이 점수를
+  우연히 끌어올려도 신약 캡). 구조보정(#4)은 root reliability와 **중복 감산 방지로 현행 유지**.
+- **결과**: 1980(진태양시 戊辰, 己 일간) **신약**(score 40→**35.5**, root 44.95→32.1로 borderline 탈출).
+  골든 8개 밴드는 임계 변경 시 재고정값과 **동일**(통근 보수화가 밴드 불변). 240표본 분포 균형적
+  (약39/중26/강35%), 토일간 과편향 없음.
+- **cascade**: 1980 밴드 중화신약→신약으로 **용신 土→火**(亥월 한습 → 조후축 우세). yongsin/sinsal/
+  fixture/api 테스트를 새 출력으로 재고정. (※ 신약인데 희신 金(설기)이 나오는 등 yongsin 축 가중은
+  별도 검토 여지 — strength 범위 밖.)
+- 진태양시 정책(09:08→08:49→辰시→戊辰)은 Phase 1부터 의도·골든 락 확인(회귀 아님).
+- `structure_analysis.py` Element() type-ignore에 사유 주석(전체 mypy clean).
+검증: **backend 146 pass · ruff · mypy 전체 clean(63파일) / frontend tsc OK**.
+
+### 신강약 — 충/공망 이중 감산 제거(역할 분리 '나'') ✅
+- **문제**: 같은 巳亥충이 **두 번 감산**됨 — rooting.reliability(巳 ×0.45) + structure_modifier
+  `day_master_root_clashed:-4`. 09:40 명식(己巳, 巳 공망+巳亥충)이 score 33.2로 **태신약**(실제 신약).
+- **해결(역할 분리)**: 뿌리 지지의 충/공망은 **rooting.reliability가 전담**, structure_modifier에서
+  중복 항목 제거 — `only_root_damaged`/`day_master_root_clashed`(root 충) 삭제, 궁성 공망(day/month
+  branch void)은 **그 지지가 뿌리면 비적용**(rooting이 처리). structure_modifier는 병존·자형·합화·
+  비root 궁성 공망 등 전체 구조만 담당. relation_stability(안정도, 점수 아님)는 충/공망 그대로 집계.
+- `RootItem`에 `root_kind`·`reliability` 노출(디버그/검증).
+- **결과**: 09:40(己巳) score 33.2→**37.2 신약**(목표 달성), 09:08(戊辰) 신약 유지. 골든 **1건만 변동**
+  (india 중화신약→중화, void 게이팅 +4). 나머지 7개 불변. test_structure를 역할 분리로 갱신.
+검증: backend 146 pass · ruff · mypy 전체 clean(63파일) / frontend tsc OK.
+
+### 용신 — 억부 신뢰도 공식의 강약 스케일 회귀 수정 ✅
+- **문제(회귀)**: 용신 모델 신뢰도가 옛 강약 스케일(-100~+100, 신약=음수)을 전제했는데, 강약 통합이
+  0~100(신약=양수)으로 바뀌며 `_support_model`/`_resource_model`의 `0.5+(-score)/120`이 **역전**.
+  신약 09:40에서 부일간 conf가 0.19로 붕괴 → "단독 확정 금지"인 조후·격국이 실질 용신을 확정하고
+  **신약인데 희신이 金(식상=설기)** 모순. 같은 신약을 옛 -53→conf 0.85, 신 +37→0.19로 검증.
+- **(A) 신뢰도 공식 재정의**: 중화(50) 기준 거리로 — 신약 `0.5+max(50-score,0)/60`(cap .85),
+  인성 `0.45+…/75`(cap .78), 신강 `0.5+max(score-50,0)/60`. 약할수록/강할수록 conf↑(정상화).
+- **(B) 자동 교정**: 억부 정상화로 신약에서 억부축(0.45) 주도 → 09:40·09:08 모두
+  **용 土(비겁)·희 火(인성)·기 木·구 水** 부일간형. 식상 희신 모순 제거. (강약 통합 때 발생했던
+  "용신 土→火 cascade"가 이 버그의 산물이었음 → 도메인 정답 土로 복귀.)
+- **(C) selected_model 일치**: `final.selected_model`/`confidence`를 첫 생성 모델이 아니라 **실제
+  top 용신을 만든 모델**로 보고(`useful_candidates[0].model`). india(중화) johu/johu 일치 확인.
+- 골든 밴드 불변, 용신만 정합화(신약군 일관 부일간형). 1980 용신 테스트 6건을 土 기반으로 재고정.
+검증: backend 146 pass · ruff · mypy 전체 clean(63파일) / frontend tsc OK.
+
+### 용신 검증 질문 — 연도 명시 + 답변 축 정합화 ✅
+- **문제①(모호)**: "{연도}년 전후" — 16~18 흐름인지 16→17 변화인지 불명확. 실제 검증 대상은 그 해
+  세운 1년임. → `_anchor`로 **{연도}년({간지}·만N세)** 명시, "전후" 제거.
+- **문제②(불일치)**: 질문은 "…강했나요?"인데 답은 좋음/힘듦(방향). 채점은 방향(좋/나)으로 용신을
+  검증하므로 방향은 유지 필요. → 질문을 **방향 단정 없는 중립 문구**("삶의 흐름은 어땠나요?")로,
+  답변은 **방향·강도 1축**(크게 좋아짐~크게 힘들어짐·기억없음) + **영향 영역 멀티(범주)**로 분리.
+- 영역을 개별 사건→**범주**(직업·금전·연애/부부·건강·이동·학업·계약/공공)로. `DOMAIN_LABELS` 신설,
+  가중치를 `MAJOR_EVENTS`→`MAJOR_DOMAINS`(직업·금전·연애/부부·건강·이동 1.5×)로 교체.
+- 프론트 행 라벨 "그 해 흐름"/"영향 영역(복수)", 등급 라벨 방향·강도 표현으로. 채점 로직(방향) 불변.
+- 테스트 `selected_events ["취업"]→["직업"]`(범주) 갱신.
+검증: backend 146 pass · ruff · mypy 전체 clean(63파일) / frontend tsc OK.
+
+### 용신 검증 질문 — 세운(입춘) 범위 명시 + 군 입대 영역(남성) ✅
+- **입춘 경계**: 세운은 양력 1/1이 아니라 입춘(~2/4)에 바뀜 → "2001년"과 세운(辛巳) 불일치. period에
+  `range_label` 추가(`get_table().lichun_for_year(Y/Y+1)` KST 변환 → "입춘 기준 2001-02-04 ~
+  2002-02-03"). 앵커를 `{year}년({간지}세운·만N세)`로(세운 명시), `CalibrationQuestion.period_range`
+  필드 신설, 프론트 질문 아래 회색 서브타이틀로 노출.
+- **군 입대/제대 영역(남성 한정)**: 나이 고정(~20)·고회상·관성/신분변화 신호 → 검증 정확도↑. `gender`를
+  generate_calibration→generate_questions에 전달, 남성 명식에만 영역 칩 추가. `MILITARY_DOMAIN` 상수,
+  MAJOR_DOMAINS(1.5×)에 포함. 여성은 미노출 확인.
+- 프론트 영역 칩 `slice(0,9)` 제거(범주 ≤10개 전부 표시).
+검증: backend 146 pass · ruff · mypy 전체 clean(73파일) / frontend tsc OK.
+
+### 운(대운·세운·월운·일운) — 천간/지지 분리 + 강약·세분 라벨 ✅
+- **문제**: 용신운/기신운을 {천간오행,지지오행} 한 집합으로 묶어 단일 라벨만 냄. 천간(드러남)과
+  지지(기반·사건화)의 작동 방식 차이, 지장간 강약이 반영 안 됨.
+- **분리 평가**(luck_cycles.py): `_stem_effect`(천간 1오행) + `_branch_effect`(지장간 정·중·여 **가중
+  합**으로 강약, 예 巳=戊庚丙→火 +0.8) + `_relation_modifier`(충 −0.15·합변환 ±0.1·공망, ±0.3 제한).
+- **가중 점수**: 대운 0.35·천간+0.65·지지, 세운 0.45/0.55, 월·일 0.40/0.60 + 관계.
+- **세분 라벨**: pure_yongsin/pure_gisin/**mixed_yongsin_surface**(천용·지기=겉기회·현실부담)/
+  **mixed_gisin_surface**(천기·지용=초반압박·기반회복)/partial_*/trigger/neutral + 한글 요약.
+- 스키마 `LuckPolarity`(element·type·score·detail) 신설, `LuckPillar`/`DaewoonItem`에
+  stem_effect·branch_effect·luck_score·luck_label(_code)·luck_summary 추가. 기존 yongsin_relation/
+  alignment은 coarse 도출로 **호환 유지**(기존 테스트 불변).
+- 프론트 LuckPanel: 대운표에 세분 라벨 칩 + 천간/지지(↑용신↓기신) + 범례, 세운에 세분 라벨.
+- 검증 예(1980 남): 戊子=천용·지기, 己丑=강한 용신운, 甲午=천기·지용. 지장간 가중 테스트 추가.
+검증: backend 148 pass · ruff · mypy 전체 clean(73파일) / frontend tsc OK.
+
+### 운 지지 — 공망·충 동태(실속·사건성) 분리 ✅
+- **원칙**: 방향(용신/기신)은 유지, **공망=실속·작동력**, **충=사건화·변동성**으로 분리. 운 평가 내에서
+  같은 충/공망을 두 번 깎지 않도록 `_relation_modifier`의 충·공망 항을 제거하고 지지 동태로 이관.
+- `_branch_dynamics`(luck_cycles.py): 공망 ×0.60(신뢰0.6)·충 ×0.80(트리거+1)·**공망+충 ×0.65**(트리거1.5·
+  변동1.5·신뢰0.5). 경우 A/B: 용신지지가 원국 기신을 충거(정리)=트리거↑, 기신지지가 원국 용신 충=변동↑.
+  라벨 공망/충발/공망충발 용신운·기신운. `LuckPolarity`에 base_score·is_void·has_clash·branch_label·
+  event_trigger·volatility·reliability 추가.
+- 검증 예(1980 남, 공망 辰巳): 壬辰=공망 용신운(0.2→0.12·신뢰0.6), 癸巳=공망충발 용신운·원국 기신(水)
+  충거(트리거2.5·변동1.5·신뢰0.5), 庚寅=충동 기신운. 프론트 대운표에 동태 라벨(보라) + 범례.
+검증: backend 149 pass · ruff · mypy 전체 clean(73파일) / frontend tsc OK.
+
+### 용신 검증 — 운 동태(공망·충)를 검증 기간·채점·문구에 연동 ✅
+- **문제**: 검증 기간 선택이 세운을 {천간,지지오행}만으로 거칠게 판정 — 공망/충을 무시해, 공망으로
+  muted된 해를 깨끗한 용신해처럼 묻고 사용자가 "별로"라 답하면 모델을 오답 처리할 위험.
+- **연동**(period_selector): 원국 pillars를 받아 세운 지지의 **공망(원국 공망지지)·충(원국 충)** 판정.
+  `_apply_dynamics`로 expected 보정 — **공망=mixed(절반 반영), 충=volatile(약한 반영)**. **깨끗한
+  해(공망·충 없음)에 score +2** → 방향 신호가 또렷한 해를 검증 우선순위로.
+- **문구 힌트**(question_generator): 부득이 공망/충 해가 뽑히면 "결과가 지연·무산"(공망)/"이동·변화·
+  사건"(충) 회상 단서를 질문에 덧붙임. generate_calibration→select에 pillars 전달.
+- 채점(feedback_scorer)은 mixed(0.5·|x|)·volatile(0.3·|x|)을 이미 처리 → 연결만으로 동작.
+- 결과(1980 남): 5문항 모두 깨끗한 해(乙未·辛卯·甲午·戊子·丁亥)로 선택됨. 공망 辰/巳 세운은 is_void
+  표시·mixed 보정. test_auxiliary_johu는 핵심 불변(보조 단독 확정 금지→primary)으로 갱신.
+검증: backend 150 pass · ruff · mypy 전체 clean(73파일) / frontend tsc OK.
+
+### 용신 검증 제출 — 결과 피드백 가시성 수정 ✅
+- **증상**: "검증 질문 제출했는데 변화가 없어." 백엔드/엔드포인트/와이어링은 정상(확정·match 등 정상 반환).
+- **원인**: 제출 결과가 위쪽 `용신 후보`(YongsinPanel)에만 반영되고, 제출 버튼이 있는 `검증 질문`
+  패널엔 로컬 피드백이 없었음. 답변이 부일간형(土)을 지지하면 용신 글자도 그대로라 더더욱 무변화로 보임.
+- **수정**(CalibrationPanel, 프론트 전용): 제출 후 **결과 배너**(상태·용신/희신/기신/구신·일치도·근거·
+  채택 모델 + "위 패널 반영" 안내), `N/5개 응답` 카운터 + 0개 응답 경고, 버튼 "다시 검증 제출". 상태
+  라벨 STATUS_KO 모듈 상수화. uncertain(final None)이면 '근거 부족' 안내.
+검증: frontend tsc OK (CalibrationPanel은 기존 client 컴포넌트라 재시작 불요).
+
+### 용신 검증 제출 후 UX — 문항 접고 완료/재시도 ✅
+- 제출 후 노출되던 기술 수치(일치도·근거·채택 모델)는 일반 사용자에 불필요 → 제거.
+- 제출되면 **문항 영역 전체를 접고**, "답변 반영 완료(결과는 위 용신 후보에 반영)" + **검증 다시 진행**
+  버튼만 표시. '다시 진행'은 done 해제로 문항 재노출(이전 답변 유지) → 반복 검증 가능.
+검증: frontend tsc OK.
+
+### 용신 후보 박스 — 완료/재시도 내장 + 한신 + 오행 색상 ✅
+- 별도 완료 박스가 영역을 크게 차지 → 제거. **제출되면 CalibrationPanel은 숨기고**(submitted prop),
+  "답변 반영 완료 + 검증 다시 진행"을 **용신 후보 박스 안**의 컴팩트 바로 이동(onRedo=calibration 해제).
+- **한신 추가**: 용/희/기/구에 안 들어간 나머지 한 오행을 계산해 5칸으로 표시.
+- **오행 색상**: 5칸에 `elementStyle`(파스텔 오방색) + `elementLabel`(한자+한글) 적용.
+- 기술 수치(검증결과 match/근거/모델) 라인 제거.
+검증: frontend tsc OK.
+
+### 대운·세운·월운 — 만세력 카드형 + 대운 상세표(교운일) ✅
+- **카드형 스트립**(LuckCol/LuckStrip): 칸별 상단(나이/년/월 + 천간 십성) → **천간 박스**(오행색·한자+
+  한글) → **지지 박스**(오행색) → 하단(지지 십성·운성). 색은 stem_effect/branch_effect.element.
+  대운·세운·월운 각각 가로 스크롤, 현재 구간 강조(대운 index·세운 current_year·월운 current_month).
+- **대운 상세 정리** 표(접이): 기존 표를 details로, **용신관계 우측에 교운일 컬럼**(trace.exact_jiao_un_dates).
+- **백엔드 보강**: 대운 9→**10**, 세운 5→**10**(기준연−4~+5), `LuckPillar.twelve_unseong` 추가(세운·
+  월운 운성), `LuckCycles.current_year/current_month` 추가(카드 강조). 영향 테스트 갱신(대운 10·교운일
+  10·세운 10창/乙未 index4·운성).
+검증: backend 150 pass · ruff · mypy 전체 clean(73파일) / frontend tsc OK.
+
+### 운 카드 연동 — 대운→세운→월운 선택 + 마진·역순·달력링크 ✅
+- **연동 선택**: 대운 칸 클릭 → 그 대운 **세운 10년** 노출, 세운 칸 클릭 → 그 해 **월운 12개** 노출,
+  월운 칸 클릭 → **`/calendar/{년}/{월}`** 이동. 기본 선택=현재 대운·현재 연도(강조).
+- **데이터**: `DaewoonItem.sewoon`(대운별 10세운) 메인 응답에 선계산. 월운은 양이 커 **온디맨드
+  엔드포인트** `POST /api/v2/manse/luck/months {birth, year}` 신설(`manse_service.luck_months` +
+  `monthly_luck_for_year`). 프론트 `fetchLuckMonths`로 세운 선택 시 조회·캐시.
+- **표시 정리**: 카드 **마진 확대**(strip mt-4·gap-2·여백), **우→좌 오름차순**(배열 역순 렌더),
+  **일운 제거**, 선택 칸 인디고 링·현재 칸 노랑 링.
+- 테스트: test_daewoon_carries_sewoon(대운별 10세운·운성), test_luck_months_endpoint(12개).
+검증: backend 152 pass · ruff · mypy 전체 clean(73파일) / frontend tsc OK.
+- **후속 보완**(프론트): 선택 링이 가로 스크롤 컨테이너에 잘리던 문제 → 스트립에 pt/pb 여백.
+  최초 진입 시 선택(현재) 칸을 **가운데 정렬**(centerInScroll: 선택 요소를 스크롤 부모 중앙으로,
+  페이지 세로 스크롤 불변). 월운 라벨 "월운 (2026)" → **"월운 - 2026년"**.
+  검증: frontend tsc OK.
+
+### 교운일 산식 검토 — 현행(생일+절기거리) 방식 확정 ✅ (코드 변경 없음)
+- 사용자 제보: 교운일이 "12월 11일경"이어야 하는데 엔진은 11월로 나온다.
+- 사용자 제공 참고 구현(`myeongli.py` calc_daewun) 산식을 우리 절기표로 재현 비교:
+  | 방식 | 대운수 | 첫 교운일(1980-11-22 09:08) |
+  |---|---|---|
+  | 참고 파일(생일+절기거리, 달력 사다리, 버림 //3) | 4 | 1985-11-15 |
+  | 우리 엔진(생일+절기거리, 선형 ×365.2425, 반올림) | 5 | 1985-11-17 |
+  | 절기(절입일=대설) 기준 | (5) | 1985-12-07 |
+- **결론**: 참고 파일도 11/15(우리와 같은 「생일+절기거리」 계열, 2일차)로, 12월을 만들지 않음 → 엔진이
+  사실상 정합. "12월"은 절기(절입일) 기준 표기의 다른 계열일 뿐. **현행 방식을 정설로 확정**(변경 없음).
+- (메모) 참고 파일과의 미세 차이: 대운수 반올림 vs 버림(//3), 교운 선형 vs 달력 시/분 사다리(±2일). 추후
+  절기 기준 표기를 원하면 별도 옵션으로 검토.
+
+### 신살 — 표준 명리표 14종 추가 + 패널 정리 ✅
+- 패널 제목 "전체 신살"→**"신살/길성, 납음오행"**, 시/일/월/년→**시주/일주/월주/년주**, 영문 intensity 제거,
+  각 주 하단에 **납음오행 색배지** 추가(끝 글자 오행으로 색 판별).
+- 참고 `myeongli.py`/`constants.py`로 누락 신살 점검(파일은 인코딩 손상 → 역마살 대조로 표준표임 확인 후
+  **표준 명리표로 재작성, 각 표 주석 명시**). 추가 14종:
+  - 길성(8): 천록귀인(건록)·천주귀인(식신건록)·관귀학관(관 장생)·문곡귀인(문창 충)·일덕·일귀·천의성
+    (월지 직전)·천문성(일지 戌亥).
+  - 흉살(6): 낙정관살·비인살(양인 충)·격각살(일지+2)·천라지망살(戌亥/辰巳)·고신살·과숙살(년지 삼방)·
+    단교관살(월별). (※ 유파 편차 큰 천복귀인·복성귀인·부벽살·혈인살은 깨끗한 표 확보 시 별도.)
+- `sinsal_catalog.py`에 표·META, `sinsal_aggregator.py`에 감지 로직 추가. 검증 예(1980 진태양시): 관귀학관·
+  고신살·천문성 신규 감지. test_sinsal 2건 추가(감지+표 lookup).
+검증: backend 154 pass · ruff · mypy 전체 clean(73파일) / frontend tsc OK.
+
+### 신살 — 12신살 일지 기준 추가(역마 누락 수정) + 협록(夾祿) ✅
+- **버그**: 12신살을 년지 기준으로만 산출 → 09:40(己亥일) 시주 巳가 년지 申 기준 겁살로만 잡히고 **일지 亥
+  기준 역마살 누락**. 참고 파일은 년지+일지 모두 본다 → 일지 기준 12신살 추가(같은 자리 같은 이름은 1회).
+- **협록(夾祿)** 추가: 일간 정록(L)을 두 지지가 L−1·L+1로 끼면 성립(CHEONROK=정록표 재사용). ※ 09:40
+  명식(申亥亥巳, 己 정록 午)은 午을 끼려면 巳+未 필요한데 未가 없어 미성립(정상).
+- 검증: 09:40 시주 역마살 감지. test_sinsal 1건 추가.
+검증: backend 155 pass · ruff · mypy 전체 clean(73파일) / frontend tsc OK.
+
+### 신살 — 위치별 12신살 폐지 + 역마/도화/화개 글자살로 전환 ✅
+- 사용자 정책: "일간·연지 중심 항목 + 지지글자(도화류)만 노출". 참고 앱은 위치별 12신살을 펼치지 않고
+  역마=寅申巳亥 글자로 본다(申亥亥巳가 전부 역마).
+- **변경**: 삼합기준 위치별 12신살(겁살·재살·천살·지살·년살·월살·망신·장성·반안·육해 등) **폐지**. 대신
+  **역마살(寅申巳亥)·도화살(子午卯酉)·화개살(辰戌丑未)을 지지 글자살**로 표시(`SASAENG/SAJEONG/SAGO`).
+  천문성도 일지→**戌亥 글자(위치 무관)**로. `_twelve_sinsal`/YEOKMA·DOHWA·HWAGAE 제거.
+- 결과(09:40 申亥亥巳): 년 금여·역마·천을·현침 / 월·일 고신·관귀학관·역마·천문성 / 시 낙정관살·역마 →
+  참고 앱과 일치(낙정관살만 추가, 일간 기준이라 정책상 유지). test_sinsal 갱신.
+검증: backend 155 pass · ruff · mypy 전체 clean(73파일) / frontend tsc OK.
+
+### 용신 검증 상태 — localStorage(IndexedDB) 영구 저장 ✅
+- 증상: 검증 결과/답변이 React state로만 있어 reload 시 사라짐.
+- storage.ts: `saveCalibration/loadCalibration/clearCalibration` + `profileSig`(기준일 제외 안정 키) 추가.
+  프로필과 동일 AES-GCM 암호화로 IndexedDB 저장. `clearProfile`에 검증 삭제 포함.
+- 복원 정책: **sig(출생) 동일** → 확정 결과(용신 후보) 유지 / **chartId(기준일 포함) 동일** → 답변까지 복원
+  (다른 날엔 질문셋이 달라지므로 답변은 미복원·결과만 유지). 제출 시 자동 저장, '등록 정보 초기화' 시 삭제.
+- CalibrationPanel: `initialAnswers` 복원(useEffect), `onResult(res, answers)`로 답변 전달.
+검증: frontend tsc OK.

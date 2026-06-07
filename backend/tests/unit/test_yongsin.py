@@ -17,8 +17,8 @@ def test_group_elements_for_earth_day_master() -> None:
     assert g["officer"] is Element.WOOD  # 木克土
 
 
-def test_weak_chart_yields_support_model_matching_v1(make_pillars) -> None:
-    # 1980 fixture (신약 己): v1 용신 토·희신 화·기신 목·구신 수 재현.
+def test_weak_chart_yields_support_model(make_pillars) -> None:
+    # 1980 진태양시(신약 己): 억부 우선 → 부일간형 용 土(비겁)·희 火(인성)·기 木(관)·구 水(재).
     pillars = make_pillars(
         (Stem.GYEONG, Branch.SIN), (Stem.JEONG, Branch.HAE),
         (Stem.GI, Branch.HAE), (Stem.MU, Branch.JIN), Stem.GI,
@@ -77,7 +77,7 @@ def test_no_special_structure_on_fixture(make_pillars) -> None:
 
 
 def test_multi_axis_weights_and_ranking(make_pillars) -> None:
-    # 1980 신약: 억부 축이 우세(eokbu 0.45) → 용신 土 유지, 축 가중치/기여 노출.
+    # 1980 신약(亥월 한습): 억부 가중치 0.45 + 정상 신뢰도 → 억부축 최상위, 용신 土.
     pillars = make_pillars(
         (Stem.GYEONG, Branch.SIN), (Stem.JEONG, Branch.HAE),
         (Stem.GI, Branch.HAE), (Stem.MU, Branch.JIN), Stem.GI,
@@ -85,7 +85,7 @@ def test_multi_axis_weights_and_ranking(make_pillars) -> None:
     y = analyze_chart(pillars).yongsin
     aw = y.axis_weights
     assert set(aw) == {"eokbu", "johu", "pattern", "disease", "special"}
-    assert aw["eokbu"] == 0.45  # 신약 → 억부 우선
+    assert aw["eokbu"] == 0.45  # 신약 → 억부 가중치 우선
     assert y.final["yongsin"] == "土"
     # 축 기여는 점수 내림차순으로 정렬되어 있고 억부가 최상위.
     scores = [a["score"] for a in y.axes]

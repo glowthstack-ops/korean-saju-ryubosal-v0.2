@@ -8,7 +8,6 @@ import {
   DistributionPanel,
   GeokgukPanel,
   LuckPanel,
-  QuickSummaryBar,
   SinsalPanel,
   StrengthPanel,
   StructurePanel,
@@ -16,14 +15,19 @@ import {
 } from "@/components/manse/Panels";
 import { PillarBoard } from "@/components/manse/PillarBoard";
 import { calculateManse, todayISO } from "@/lib/api";
-import { clearProfile, loadProfile } from "@/lib/storage";
+import {
+  clearProfile, loadCalibration, loadProfile, profileSig, saveCalibration,
+} from "@/lib/storage";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
+
+type AnswerMap = Record<string, { rating: string; events: string[] }>;
 
 export default function ManseResultPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [result, setResult] = useState<ManseResult | null>(null);
   const [calibration, setCalibration] = useState<CalibrationResult | null>(null);
+  const [savedAnswers, setSavedAnswers] = useState<AnswerMap>({});
   const [error, setError] = useState<string | null>(null);
   // 질문 생성/피드백 채점에 동일 기준일을 쓰도록 마운트 시 한 번 고정(자정·연 경계 안전).
   const [referenceDate] = useState(() => todayISO());
@@ -36,7 +40,15 @@ export default function ManseResultPage() {
       }
       setProfile(p);
       calculateManse(p, referenceDate)
-        .then(setResult)
+        .then(async (r) => {
+          setResult(r);
+          // 저장된 검증 상태 복원: 명식(sig) 같으면 확정 결과 유지, 질문셋(chartId) 같으면 답변도 복원.
+          const saved = await loadCalibration().catch(() => null);
+          if (saved && saved.sig === profileSig(p)) {
+            setCalibration(saved.result);
+            if (saved.chartId === r.chart_id) setSavedAnswers(saved.answers ?? {});
+          }
+        })
         .catch((e) => setError(e instanceof Error ? e.message : "계산 실패"));
     });
   }, [router, referenceDate]);
@@ -44,6 +56,16 @@ export default function ManseResultPage() {
   const reset = async () => {
     await clearProfile();
     router.replace("/manse");
+  };
+
+  // 검증 제출 시: 화면 반영 + localStorage 저장(reload 후에도 유지).
+  const onCalibrationResult = (res: CalibrationResult, answers: AnswerMap) => {
+    setCalibration(res);
+    if (profile && result) {
+      void saveCalibration({
+        sig: profileSig(profile), chartId: result.chart_id, answers, result: res,
+      });
+    }
   };
 
   if (error) {
@@ -68,22 +90,27 @@ export default function ManseResultPage() {
       <BirthSummaryBar result={result} />
       <TrueSolarTimeCard result={result} />
       <PillarBoard result={result} />
-      <QuickSummaryBar result={result} />
       <StructurePanel result={result} />
-      <StrengthPanel result={result} />
+      <SinsalPanel result={result} />
       <DistributionPanel result={result} />
       <GeokgukPanel result={result} />
+      <StrengthPanel result={result} />
 
-      <YongsinPanel result={result} calibration={calibration} />
+      <YongsinPanel
+        result={result}
+        calibration={calibration}
+        onRedo={() => setCalibration(null)}
+      />
       <CalibrationPanel
         result={result}
         profile={profile}
         referenceDate={referenceDate}
-        onResult={setCalibration}
+        onResult={onCalibrationResult}
+        initialAnswers={savedAnswers}
+        submitted={calibration !== null}
       />
 
-      <LuckPanel result={result} />
-      <SinsalPanel result={result} />
+      <LuckPanel result={result} profile={profile} />
     </div>
   );
 }

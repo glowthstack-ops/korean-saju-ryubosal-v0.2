@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import dataclass
 
-from saju_shared_types.constants import main_hidden_stem
+from saju_shared_types.constants import STEM_ELEMENT, ten_god
 from saju_shared_types.enums import Branch, Stem, TenGod
 from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.structure import GeokgukEvaluation, StructureAnalysis
@@ -27,7 +28,7 @@ _GEOK_GROUP: dict[str, str] = {
     "정재격": "wealth", "편재격": "wealth",
     "식신격": "output", "상관격": "output",
     "정인격": "resource", "편인격": "resource",
-    "건록격": "peer", "양인격": "peer",
+    "건록격": "peer", "양인격": "peer", "월겁격": "peer",
 }
 # 격국명 → 상신 그룹(들). (v1 §6 success_condition)
 _GEOK_SANGSIN: dict[str, list[str]] = {
@@ -41,12 +42,72 @@ _GEOK_SANGSIN: dict[str, list[str]] = {
     "편인격": ["wealth", "output"],
     "건록격": ["wealth", "officer"],
     "양인격": ["officer", "output"],
+    "월겁격": ["officer", "output"],
 }
 
 _WEAK = {"극신약", "태신약", "신약", "중화신약"}
 _STRONG = {"중화신강", "신강", "태신강", "극신강"}
 _GROUP_KO = {"peer": "비겁", "resource": "인성", "output": "식상",
              "wealth": "재성", "officer": "관성"}
+
+# ── 격 후보(월지 지장간 정기/중기/여기) ──────────────────────────────────────
+_STAGE_BASE = {"main": 30, "middle": 20, "residual": 15}  # 위계별 격 성립 기본점
+_STAGE_RANK = {"main": 3, "middle": 2, "residual": 1}
+_STAGE_KO = {"main": "정기", "middle": "중기", "residual": "여기"}
+# 양인(羊刃) 지지 — 양간만 성립. 일간 → 월지가 이 지지일 때만 양인격(음간엔 양인 없음).
+_YANGIN = {
+    Stem.GAP: Branch.MYO, Stem.BYEONG: Branch.O, Stem.MU: Branch.O,
+    Stem.GYEONG: Branch.YU, Stem.IM: Branch.JA,
+}
+
+
+def pattern_name(
+    tg: TenGod, day_master: Stem | None = None, month_branch: Branch | None = None,
+) -> str:
+    """십성 → 격국명. 비견=건록격, 겁재=양인격(양간+양인지지)/월겁격(그 외)."""
+    if tg == TenGod.BIGYEON:
+        return "건록격"
+    if tg == TenGod.GEOMJAE:
+        if day_master is not None and _YANGIN.get(day_master) == month_branch:
+            return "양인격"
+        return "월겁격"
+    return f"{tg.value}격"
+
+
+@dataclass
+class GeokCandidate:
+    name: str
+    stem: Stem
+    ten_god: TenGod
+    hidden_type: str  # main/middle/residual
+    ratio: float
+    revealed_position: str | None  # 천간 투간 위치(month 우선) / None
+
+    @property
+    def revealed(self) -> bool:
+        return self.revealed_position is not None
+
+
+def build_candidates(pillars: FourPillarsResult, day_master: Stem) -> list[GeokCandidate]:
+    """월지 지장간 전체(정기/중기/여기)를 격 후보로 산출. 투간 위치 포함."""
+    month_branch = Branch(pillars.month.branch)
+    chart_stems = {
+        pos: Stem(getattr(pillars, pos).stem)
+        for pos in ("year", "month", "hour")
+        if getattr(pillars, pos) is not None
+    }
+    cands: list[GeokCandidate] = []
+    for h in pillars.month.hidden_stems:
+        stem = Stem(h.stem)
+        tg = ten_god(day_master, stem)
+        name = pattern_name(tg, day_master, month_branch)
+        rev_pos = None
+        for pos in ("month", "year", "hour"):  # 월간 투간 우선
+            if chart_stems.get(pos) == stem:
+                rev_pos = pos
+                break
+        cands.append(GeokCandidate(name, stem, tg, h.type, float(h.weight), rev_pos))
+    return cands
 
 
 def _clamp(x: float, lo: float, hi: float) -> float:
@@ -76,30 +137,8 @@ def _group_counts(counts: Counter[str]) -> dict[str, int]:
     return g
 
 
-def _heavenly_stems(pillars: FourPillarsResult) -> set[str]:
-    out = {pillars.year.stem, pillars.month.stem, pillars.day.stem}
-    if pillars.hour is not None:
-        out.add(pillars.hour.stem)
-    return out
-
-
-def _month_revealed_rank(pillars: FourPillarsResult) -> str | None:
-    """월지 지장간 중 천간에 투간된 최고 위계(main>middle>residual) 반환."""
-    heavenly = _heavenly_stems(pillars)
-    order = {"main": 3, "middle": 2, "residual": 1}
-    best: str | None = None
-    best_rank = 0
-    for h in pillars.month.hidden_stems:
-        if h.stem in heavenly:
-            r = order.get(h.type, 0)
-            if r > best_rank:
-                best_rank, best = r, h.type
-    return best
-
-
 def _geoksin_rooted(pillars: FourPillarsResult, geoksin: Stem) -> bool:
     """격신(월지 정기) 오행이 지지 지장간에 ≥2회 통근."""
-    from saju_shared_types.constants import STEM_ELEMENT
     el = STEM_ELEMENT[geoksin]
     cnt = 0
     for pos in ("year", "month", "day", "hour"):
@@ -129,33 +168,31 @@ def _geoksin_combined_away(structure: StructureAnalysis) -> bool:
     )
 
 
-# ── confidence (0~100, A~E) — geokguk_master_v2 gukguk_confidence_score 7요소 ──
+# ── confidence (0~100, A~E) — 후보별 7요소(위계/투간/통근/상신/파격/청정) ──
 
-def _confidence(
-    pillars: FourPillarsResult, name: str, geoksin: Stem,
-    groups: dict[str, int], structure: StructureAnalysis,
-    has_failures: bool, clean: bool,
+def score_candidate(
+    pillars: FourPillarsResult, cand: GeokCandidate,
+    groups: dict[str, int], has_failures: bool, clean: bool,
 ) -> tuple[int, list[dict]]:
+    """격 후보 신뢰도(0~100). 위계 base + 이 후보의 투간 + 통근 + 상신 + 무파격 + 청정."""
     factors: list[dict] = []
     score = 0
 
-    def add(label: str, pts: int, ok: bool, note: str) -> None:
+    def add(label: str, got: int, mx: int, note: str) -> None:
         nonlocal score
-        got = pts if ok else 0
         score += got
-        factors.append({"factor": label, "score": got, "max": pts, "note": note})
+        factors.append({"factor": label, "score": got, "max": mx, "note": note})
 
-    add("월지 본기 기준 격 성립", 20, bool(name), name or "X")
-    rank = _month_revealed_rank(pillars)
-    add("지장간 천간 투간", 20, rank is not None, rank or "없음")
-    add("격신 통근", 15, _geoksin_rooted(pillars, geoksin), str(geoksin))
-    # 격신 = 월지 본기 → 월령 득(격이 월지 기반이면 성립).
-    add("격신 월령 득", 15, bool(name), "월령")
-    sangsin = _GEOK_SANGSIN.get(name, [])
-    add("상신 존재", 15, any(groups.get(g, 0) >= 1 for g in sangsin),
+    add("월지 위계 격 성립", _STAGE_BASE.get(cand.hidden_type, 0), 30,
+        _STAGE_KO.get(cand.hidden_type, "?"))
+    rev = 25 if cand.revealed_position == "month" else 15 if cand.revealed else 0
+    add("격신 투간", rev, 25, cand.revealed_position or "없음")
+    add("격신 통근", 15 if _geoksin_rooted(pillars, cand.stem) else 0, 15, str(cand.stem))
+    sangsin = _GEOK_SANGSIN.get(cand.name, [])
+    add("상신 존재", 15 if any(groups.get(g, 0) >= 1 for g in sangsin) else 0, 15,
         "·".join(_GROUP_KO[g] for g in sangsin) or "매핑없음")
-    add("명확한 파격 없음", 10, not has_failures, "파격" if has_failures else "없음")
-    add("청정 구조", 5, clean, "청" if clean else "혼잡")
+    add("명확한 파격 없음", 0 if has_failures else 10, 10, "파격" if has_failures else "없음")
+    add("청정 구조", 5 if clean else 0, 5, "청" if clean else "혼잡")
     return score, factors
 
 
@@ -167,7 +204,8 @@ def _confidence_grade(c: int) -> str:
 
 def _detect_failures(
     counts: Counter[str], groups: dict[str, int], band: str,
-    month_clashed: bool, month_void: bool,
+    month_clashed: bool, month_void: bool, pattern_name: str | None = None,
+    structure: StructureAnalysis | None = None, day_master: Stem | None = None,
 ) -> list[dict]:
     total = sum(groups.values()) or 1
     weak = band in _WEAK
@@ -218,6 +256,32 @@ def _detect_failures(
     if month_void:
         add("void_month_branch", True, "월지 공망", False, "운 충·합 자극 시 활성")
 
+    # ── 격별 맞춤 위험 (선택 격이 주어질 때만) ──
+    # 칠살격 무제: 편관격인데 제살(식신)·화살(인성)·합살(양인) 모두 없음.
+    if pattern_name == "편관격" and sg.get("식신", 0) == 0 and g["resource"] == 0 and g["peer"] < 2:
+        add("killing_uncontrolled", True, "편관격 제·화·합살 부재",
+            False, "식신제살/인성화살/양인합살 필요")
+    # 인성과다: 인격인데 인성이 과다(≥40%)로 식상이 막힘.
+    if pattern_name in ("정인격", "편인격") and g["resource"] / total >= 0.40:
+        resc = g["wealth"] >= 1
+        add("resource_overload", True, f"인성{int(g['resource'] / total * 100)}%",
+            resc, "재성 제인(설인)" if resc else "재성 없음")
+    # 상관 무로: 상관격인데 패인(인성)·생재(재성)가 모두 없어 상관이 방치됨.
+    if pattern_name == "상관격" and g["resource"] == 0 and g["wealth"] == 0:
+        add("shanggwan_unguided", True, "상관격 패인·생재 부재",
+            False, "인성 패인/재성 생재 필요")
+    # 정관 합거: 정관격인데 정관(격신)이 천간합으로 묶임 → 격신 변질.
+    if pattern_name == "정관격" and structure is not None and day_master is not None:
+        officer_combined = any(
+            ten_god(day_master, Stem(m)) == TenGod.JEONGGWAN
+            for i in structure.interactions if i.relation_type == "stem_combination"
+            for m in i.members
+        )
+        if officer_combined:
+            resc = sg.get("정관", 0) >= 2  # 쟁합(정관 2개+)이면 합거 완화
+            add("officer_combined_away", True, "정관 천간합 합거",
+                resc, "쟁합 완화" if resc else "합거 손상")
+
     return out
 
 
@@ -231,20 +295,25 @@ _DM_CAPABILITY = {
 
 
 def _success_failure(
-    pillars: FourPillarsResult, name: str, geoksin: Stem, band: str,
+    pillars: FourPillarsResult, cand: GeokCandidate, band: str,
     sangsin_groups: list[str], groups: dict[str, int],
     failures: list[dict], structure: StructureAnalysis, clean: bool,
 ) -> tuple[float, str, str]:
     # 1) 격신 성형 (0.20)
     f1 = 20.0  # 월령(격이 월지 기반)
-    if _geoksin_rooted(pillars, geoksin):
+    if _geoksin_rooted(pillars, cand.stem):
         f1 += 40
-    if _month_revealed_rank(pillars) is not None:
+    if cand.revealed:  # 선택 격신의 투간
         f1 += 30
     if _month_clashed(structure):
         f1 -= 50
     if _geoksin_combined_away(structure):
         f1 -= 30
+    # 격별 가중: 식신격 도식(편인이 격신 식신을 직접 극)은 격을 직접 깬다 → 추가 감점.
+    if cand.name == "식신격" and any(
+        f["type"] == "pyeonin_dosik" and f["active"] and not f["rescued"] for f in failures
+    ):
+        f1 -= 25
     f1 = _clamp(f1, -100, 100)
     # 2) 일간 감당력 (0.20)
     f2 = _DM_CAPABILITY.get(band, 0)
@@ -287,8 +356,8 @@ _CLARITY_MULT = {
 }
 _CLARITY_POLICY = {
     "very_clear": "격국 중심으로 해석한다.",
-    "clear_but_mixed": "격국을 중심으로 보되 억부·용신으로 보완한다.",
-    "unclear": "격국 단정보다 억부·조후·용신 중심으로 해석한다.",
+    "clear_but_mixed": "격국을 중심으로 보되 억부용신으로 보완한다.",
+    "unclear": "격국 단정보다 억부·조후 용신 중심으로 해석한다.",
     "weak_gukguk_priority": "격국은 보조 설명으로만 사용한다.",
     "special_pattern_uncertain": "정격·종격 양쪽 가능성을 함께 비교한다.",
 }
@@ -324,16 +393,91 @@ def _final_weight(level: str) -> tuple[float, str]:
     return final, interp
 
 
+# ── 후보 랭킹 / 출력 / 특수격 신호 ────────────────────────────────────────────
+
+def score_all_candidates(
+    pillars: FourPillarsResult, cands: list[GeokCandidate],
+    force, structure: StructureAnalysis, gongmang_branches: list[str],
+) -> list[tuple[GeokCandidate, int, list[dict]]]:
+    """후보별 confidence 산출 후 (confidence desc, 위계 desc)로 정렬. force=None이면 위계/투간만."""
+    if force is not None:
+        counts = _tg_counts(pillars)
+        groups = _group_counts(counts)
+        band = force.strength.band
+        month_void = pillars.month.branch in set(gongmang_branches)
+        failures = _detect_failures(counts, groups, band, _month_clashed(structure), month_void)
+        has_failures = any(f["active"] for f in failures)
+        total = sum(groups.values()) or 1
+        clean = all(v / total < 0.50 for v in groups.values())
+    else:
+        groups = {k: 0 for k in ("peer", "resource", "output", "wealth", "officer")}
+        has_failures, clean = False, True
+    scored = [(c, *score_candidate(pillars, c, groups, has_failures, clean)) for c in cands]
+    scored.sort(key=lambda t: (t[1], _STAGE_RANK.get(t[0].hidden_type, 0)), reverse=True)
+    return scored
+
+
+def candidate_dict(cand: GeokCandidate, confidence: int, status: str) -> dict:
+    """격 후보를 화면/디버그용 dict로 직렬화(이름·출처·위계·투간·신뢰도·상태)."""
+    stage = _STAGE_KO.get(cand.hidden_type, "?")
+    return {
+        "name": cand.name,
+        "ten_god": cand.ten_god.value,
+        "hidden_stem": str(cand.stem),
+        "hidden_type": cand.hidden_type,
+        "hidden_stage": stage,
+        "hidden_ratio": round(cand.ratio, 3),
+        "source": f"월지 {stage} {cand.stem}",
+        "revealed": cand.revealed,
+        "revealed_position": cand.revealed_position,
+        "confidence": confidence,
+        "status": status,
+    }
+
+
+_DOMINANT_NAME = {"木": "곡직격", "火": "염상격", "土": "가색격", "金": "종혁격", "水": "윤하격"}
+_FOLLOW_NAME = {"wealth": "종재격", "officer": "종살격", "output": "종아격"}
+
+
+def special_signal(force, pillars: FourPillarsResult) -> dict | None:
+    """종격/전왕 신호(정격과 병행 검토용). 확정 아님 — 화면/용신 보조 가중치."""
+    band = force.strength.band
+    root = float(force.strength.components.get("root_score", 0.0))
+    fe = force.five_elements
+    pct = fe.season_adjusted_element_strength or fe.distribution_environment
+    if pct:
+        strongest = max(pct, key=lambda e: pct[e])
+        maxp = pct[strongest]
+        if maxp >= 60.0 and band in ("신강", "태신강", "극신강"):
+            return {
+                "name": _DOMINANT_NAME.get(strongest, "전왕격"),
+                "type": "dominant",
+                "confidence": round(min((maxp - 50) / 50, 0.95), 3),
+                "reason": f"{strongest} {maxp}% 압도 + {band} → 전왕/일행득기 가능",
+            }
+    if band in ("극신약", "태신약") and root < 8.0:
+        counts = _tg_counts(pillars)
+        groups = _group_counts(counts)
+        ext = {g: groups[g] for g in ("wealth", "officer", "output")}
+        top = max(ext, key=lambda g: ext[g]) if any(ext.values()) else ""
+        return {
+            "name": _FOLLOW_NAME.get(top, "종세격"),
+            "type": "follow",
+            "confidence": round(min(max((10 - root) / 10, 0.0), 0.9), 3),
+            "reason": f"극신약+무근(root={root:.1f}) → 종격 가능",
+        }
+    return None
+
+
 def evaluate_geokguk(
     pillars: FourPillarsResult,
-    main_structure: str | None,
-    main_ten_god: TenGod,
+    cand: GeokCandidate,
     force,  # ForceAnalysis (avoid import cycle)
     structure: StructureAnalysis,
     gongmang_branches: list[str],
 ) -> GeokgukEvaluation:
-    name = main_structure or ""
-    geoksin = main_hidden_stem(Branch(pillars.month.branch))
+    """선택 격 후보 기준 전체 평가 — 신뢰도(7요소)·성패(6요소)·파격/구제·명확도·최종가중치."""
+    name = cand.name
     counts = _tg_counts(pillars)
     groups = _group_counts(counts)
     month_void = pillars.month.branch in set(gongmang_branches)
@@ -341,7 +485,8 @@ def evaluate_geokguk(
     root_score = float(force.strength.components.get("root_score", 0.0))
 
     failures = _detect_failures(
-        counts, groups, band, _month_clashed(structure), month_void
+        counts, groups, band, _month_clashed(structure), month_void,
+        cand.name, structure, Stem(pillars.day.stem),
     )
     damage_types = [f["type"] for f in failures if f["active"]]
     total_active = len(damage_types)
@@ -349,14 +494,14 @@ def evaluate_geokguk(
     total = sum(groups.values()) or 1
     clean = all(v / total < 0.50 for v in groups.values())  # 청정(한 그룹 50% 미만)
 
-    confidence, conf_factors = _confidence(
-        pillars, name, geoksin, groups, structure, total_active > 0, clean
+    confidence, conf_factors = score_candidate(
+        pillars, cand, groups, total_active > 0, clean
     )
     grade = _confidence_grade(confidence)
 
     sangsin_groups = _GEOK_SANGSIN.get(name, [])
     sf_score, sf_grade, sf_label = _success_failure(
-        pillars, name, geoksin, band, sangsin_groups, groups, failures, structure, clean
+        pillars, cand, band, sangsin_groups, groups, failures, structure, clean
     )
 
     level = _clarity_level(confidence, sf_score, band, root_score)

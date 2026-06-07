@@ -1,11 +1,15 @@
 import type {
   CalendarMonth,
   CalibrationResult,
+  LuckPillar,
   ManseResult,
   Profile,
 } from "./types";
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+// 클라이언트 호출: 상대경로(빈 base) → Next 리라이트가 백엔드로 프록시(터널과 같은 출처).
+const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
+// 서버사이드(getCalendar 등)는 상대경로 fetch 불가 → 호스트 내부 절대주소 사용.
+const SERVER_BASE = process.env.SAJU_BACKEND_URL || "http://localhost:8000";
 
 function profileToBirthInput(profile: Profile, referenceDate: string) {
   return {
@@ -66,12 +70,23 @@ export async function submitCalibration(
   });
 }
 
+export async function fetchLuckMonths(
+  profile: Profile,
+  year: number,
+  referenceDate: string = todayISO(),
+): Promise<LuckPillar[]> {
+  return postJSON<LuckPillar[]>("/api/v2/manse/luck/months", {
+    birth: profileToBirthInput(profile, referenceDate),
+    year,
+  });
+}
+
 export async function getCalendar(
   year: number,
   month: number,
   revalidateSeconds = 3600,
 ): Promise<CalendarMonth> {
-  const res = await fetch(`${BASE}/api/v2/calendar/${year}/${month}`, {
+  const res = await fetch(`${SERVER_BASE}/api/v2/calendar/${year}/${month}`, {
     next: { revalidate: revalidateSeconds },
   });
   if (!res.ok) throw new Error(`달력 조회 실패 (${res.status})`);

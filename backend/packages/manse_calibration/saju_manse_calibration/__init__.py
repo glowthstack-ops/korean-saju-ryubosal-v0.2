@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from saju_shared_types.calibration import CalibrationQuestionSet
+from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.yongsin import AggregatedYongsinResult
 
 from .feedback_scorer import score_calibration, score_feedback
@@ -25,7 +26,9 @@ def generate_calibration(
     yongsin: AggregatedYongsinResult,
     birth_year: int,
     reference_year: int,
+    pillars: FourPillarsResult | None = None,
+    gender: str | None = None,
 ) -> CalibrationQuestionSet:
     """검증 기간 선택 + 질문 5종 생성을 한 번에 수행."""
-    periods = select_validation_periods(yongsin, birth_year, reference_year)
-    return generate_questions(periods, yongsin)
+    periods = select_validation_periods(yongsin, birth_year, reference_year, pillars)
+    return generate_questions(periods, yongsin, gender)

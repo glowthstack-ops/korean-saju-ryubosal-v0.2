@@ -1,4 +1,4 @@
-import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo, yinyangSign } from "@/lib/elements";
+import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo, naeumElement, yinyangSign } from "@/lib/elements";
 import type { ManseResult, Pillar } from "@/lib/types";
 
 function Cell(
@@ -54,10 +54,34 @@ function Column({ title, p }: { title: string; p: Pillar | null }) {
         />
       </div>
       <div className="mt-2 text-center text-[11px] text-gray-600">{p.twelve_unseong}</div>
-      <div className="mt-1 text-center text-[10px] text-gray-500">
-        {p.hidden_stems.map((h) => `${h.stem}`).join(" ")}
+      {/* 지장간: 여기·중기·정기 3슬롯 고정. 없는 단계(예: 중기)는 자리를 비워 정렬 유지. */}
+      <div className="mt-1 flex justify-center gap-0.5">
+        {(["residual", "middle", "main"] as const).map((stage) => {
+          const h = p.hidden_stems.find((x) => x.type === stage);
+          if (!h) {
+            return (
+              <span key={stage} className="invisible rounded px-1 text-[10px] leading-tight">　</span>
+            );
+          }
+          return (
+            <span
+              key={stage}
+              className={`rounded px-1 text-[10px] leading-tight ${elementStyle(h.element)}`}
+            >
+              {h.stem}
+            </span>
+          );
+        })}
       </div>
       <div className="mt-1 text-center text-[10px] text-gray-400">{p.palace}</div>
+      {/* 납음오행 — 박스 하단(구분선 아래) 색배지. */}
+      {p.naeum && (
+        <div className="mt-1.5 border-t pt-1.5 text-center">
+          <span className={`rounded px-1.5 py-0.5 text-[10px] ${elementStyle(naeumElement(p.naeum))}`}>
+            {p.naeum}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -71,13 +95,7 @@ export function PillarBoard({ result }: { result: ManseResult }) {
   return (
     <section>
       <h2 className="mb-2 text-sm font-semibold">사주 원국 (일간 {day_master}·{ganjiKo(day_master)})</h2>
-      <div className="flex gap-2">
-        <Column title="시주" p={hour} />
-        <Column title="일주" p={day} />
-        <Column title="월주" p={month} />
-        <Column title="년주" p={year} />
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
         <span className="flex items-center gap-1">
           <span className="text-gray-400">오행</span>
           {["木", "火", "土", "金", "水"].map((e) => (
@@ -90,6 +108,12 @@ export function PillarBoard({ result }: { result: ManseResult }) {
           <span className="font-bold text-gray-700">⊘</span>
           공망{voidChars.length ? `: ${voidChars.map((c) => `${c}(${ganjiKo(c)})`).join(", ")}` : " 없음"}
         </span>
+      </div>
+      <div className="flex gap-2">
+        <Column title="시주" p={hour} />
+        <Column title="일주" p={day} />
+        <Column title="월주" p={month} />
+        <Column title="년주" p={year} />
       </div>
     </section>
   );

@@ -83,7 +83,7 @@ def _transformation(
     relations: list[Relation],
     heavenly_stems: set[Stem],
 ) -> TransformationCheck:
-    target = Element(rel.transform_element)  # type: ignore[arg-type]
+    target = Element(rel.transform_element)  # type: ignore[arg-type]  # caller ensures non-None
     season_el = SEASON_ELEMENT_BY_MONTH[month_branch]
     month_supports = season_el == target or BRANCH_ELEMENT[month_branch] == target
 
@@ -265,17 +265,9 @@ def _structure_modifier(
     void = set(gongmang_branches)
     dm_el = STEM_ELEMENT[dm]
 
-    clash_positions = {
-        p for r in relations if r.rel_type in ("clash", "punishment") for p in r.positions
-    }
-    root_clashed = bool(root_positions & clash_positions)
-
-    if root_clashed and len(root_positions) == 1:
-        modifier -= 6
-        breakdown.append("only_root_damaged:-6")
-    elif root_clashed:
-        modifier -= 4
-        breakdown.append("day_master_root_clashed:-4")
+    # 주: 뿌리 지지의 충/공망은 rooting.root_score의 reliability(공망0.60·충0.75·둘다0.45)가
+    # 전담한다. 여기서 root_clashed를 또 감산하면 사용자 §7의 이중 감산이 되므로 두지 않는다.
+    # structure_modifier는 '전체 구조 불안정'(병존·자형·합화·궁성 공망)만 작게 반영한다.
 
     # 비겁 병존 → 일간 직접 강화
     for r in relations:
@@ -297,10 +289,12 @@ def _structure_modifier(
             breakdown.append("strong_resource_support:+2")
             break
 
-    if pillars.day.branch in void:
+    # 궁성 공망 — 단, 그 지지가 일간 뿌리면 공망 약화는 rooting.reliability가 전담하므로
+    # 여기서 다시 감산하지 않는다(이중 반영 방지). 비root 지지의 궁성 공망만 반영.
+    if pillars.day.branch in void and "day" not in root_positions:
         modifier -= 2
         breakdown.append("day_branch_void:-2")
-    if pillars.month.branch in void:
+    if pillars.month.branch in void and "month" not in root_positions:
         modifier -= 2
         breakdown.append("month_branch_void:-2")
 
@@ -328,10 +322,14 @@ def _structure_modifier(
 
     modifier = _clamp(modifier, -10, 10)
 
+    # relation_stability(안정도 0~1, 점수 아님) — 참고용 지표라 충/공망을 그대로 센다.
+    clash_positions = {
+        p for r in relations if r.rel_type in ("clash", "punishment") for p in r.positions
+    }
     penalties = (
         int(pillars.day.branch in void)
         + int(pillars.month.branch in void)
-        + int(root_clashed)
+        + int(bool(root_positions & clash_positions))
     )
     relation_stability = round(_clamp(1.0 - 0.15 * penalties, 0, 1), 4)
     return modifier, breakdown, relation_stability

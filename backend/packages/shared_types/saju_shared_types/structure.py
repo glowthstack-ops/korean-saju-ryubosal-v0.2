@@ -89,6 +89,10 @@ class GeokgukResult(BaseModel):
     formation_level: str  # 성 / 중성 / 패 / 불명확
     stability: dict
     auxiliary_structures: list[str] = Field(default_factory=list)
+    # 월지 지장간(정기/중기/여기) 전체에서 산출한 격 후보 랭킹(주격=[0]).
+    candidates: list[dict] = Field(default_factory=list)
+    # 종격/전왕 등 특수격 신호(있으면 정격과 병행 검토). 없으면 None.
+    special_pattern: dict | None = None
     evaluation: GeokgukEvaluation | None = None
     warnings: list[str] = Field(default_factory=list)
     explanation: list[str] = Field(default_factory=list)

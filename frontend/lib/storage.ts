@@ -1,7 +1,7 @@
 // 사용자 프로필을 IndexedDB에 암호화 저장한다.
 // 키는 AES-GCM 256 비트 non-extractable CryptoKey로, IndexedDB에 저장되지만 추출 불가능하다.
 
-import type { Profile } from "./types";
+import type { CalibrationResult, Profile } from "./types";
 
 const DB_NAME = "ryubosal";
 const DB_VERSION = 1;
@@ -93,5 +93,57 @@ export async function loadProfile(): Promise<Profile | null> {
 export async function clearProfile(): Promise<void> {
   const db = await openDB();
   await tx(db, DATA_STORE, "readwrite", (s) => s.delete(DATA_ID));
+  await tx(db, DATA_STORE, "readwrite", (s) => s.delete(CALIB_ID));
   await tx(db, KEY_STORE, "readwrite", (s) => s.delete(KEY_ID));
+}
+
+// ── 용신 검증 상태 저장 ──────────────────────────────────────────
+// 답변/결과를 같은 키(AES-GCM)로 암호화해 IndexedDB에 보존한다.
+// sig(출생 시그니처)로 동일 명식 여부를, chartId(기준일 포함)로 동일 질문셋 여부를 판별한다.
+const CALIB_ID = "calibration";
+
+export type SavedCalibration = {
+  sig: string;
+  chartId: string;
+  answers: Record<string, { rating: string; events: string[] }>;
+  result: CalibrationResult | null;
+};
+
+// 출생 기반 안정 시그니처(기준일 제외) — 명식이 같으면 확정 결과를 유지.
+export function profileSig(p: Profile): string {
+  return JSON.stringify([
+    p.calendarType, p.isLeapMonth, p.birthDate, p.birthTime, p.timeUnknown,
+    p.place?.name, p.gender,
+  ]);
+}
+
+export async function saveCalibration(data: SavedCalibration): Promise<void> {
+  const key = await getKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    enc.encode(JSON.stringify(data)),
+  );
+  const db = await openDB();
+  await tx(db, DATA_STORE, "readwrite", (s) => s.put({ iv, ciphertext }, CALIB_ID));
+}
+
+export async function loadCalibration(): Promise<SavedCalibration | null> {
+  const db = await openDB();
+  const rec = (await tx<{ iv: Uint8Array; ciphertext: ArrayBuffer } | undefined>(
+    db,
+    DATA_STORE,
+    "readonly",
+    (s) => s.get(CALIB_ID) as IDBRequest<{ iv: Uint8Array; ciphertext: ArrayBuffer } | undefined>,
+  )) as { iv: Uint8Array; ciphertext: ArrayBuffer } | undefined;
+  if (!rec) return null;
+  const key = await getKey();
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: rec.iv }, key, rec.ciphertext);
+  return JSON.parse(dec.decode(plain)) as SavedCalibration;
+}
+
+export async function clearCalibration(): Promise<void> {
+  const db = await openDB();
+  await tx(db, DATA_STORE, "readwrite", (s) => s.delete(CALIB_ID));
 }

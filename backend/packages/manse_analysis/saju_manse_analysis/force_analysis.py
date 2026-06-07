@@ -49,7 +49,7 @@ def analyze_chart(pillars: FourPillarsResult) -> ChartAnalysis:
     ten_gods = compute_ten_god_distribution(pillars)
 
     side = side_balance_score(ten_gods["groups"])
-    rooting = compute_rooting(pillars, side)
+    rooting = compute_rooting(pillars, side, pillars.gongmang_branches)
     root_positions = {r["position"] for r in rooting["roots"]}
 
     relations = detect(pillars)
@@ -67,6 +67,8 @@ def analyze_chart(pillars: FourPillarsResult) -> ChartAnalysis:
         root_score=rooting["root_score"],
         structure_modifier=bundle.structure_modifier,
         relation_stability=bundle.relation_stability,
+        raw_visible=elements["raw_visible"],
+        season_adjusted=elements["season_adjusted_element_strength"],
     )
     strength.pop("_side_balance_score", None)
     strength["basis"] = {

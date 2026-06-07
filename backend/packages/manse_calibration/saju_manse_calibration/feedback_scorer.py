@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from saju_shared_types.calibration import (
     FEEDBACK_SCALE,
-    MAJOR_EVENTS,
+    MAJOR_DOMAINS,
     CalibrationQuestion,
     CalibrationResult,
     FeedbackAnswer,
@@ -50,7 +50,7 @@ def score_calibration(
         user_score = FEEDBACK_SCALE.get(ans.overall_rating)
         if user_score is None:  # 기억나지 않음 → 점수 제외
             continue
-        weight = 1.5 if (set(ans.selected_events) & MAJOR_EVENTS) else 1.0
+        weight = 1.5 if (set(ans.selected_events) & MAJOR_DOMAINS) else 1.0
         for model_type, expected in q.expected_effect_by_model.items():
             if model_type not in scores:
                 continue

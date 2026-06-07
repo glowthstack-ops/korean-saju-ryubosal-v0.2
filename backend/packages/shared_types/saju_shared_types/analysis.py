@@ -36,6 +36,8 @@ class TenGodAnalysis(BaseModel):
     effective_percent: dict[str, float]  # 판정용(내부/고급)
     # 표시용 십성 분포율(일간 제외, 자리별 가중치 × 지장간 비율).
     distribution: dict[str, float] = Field(default_factory=dict)
+    # 세력 판단용 월령 보정 십성 세력(환경 분포 × SEASON_FACTOR). 표시 분포와 분리.
+    season_adjusted_ten_god_strength: dict[str, float] = Field(default_factory=dict)
     visible_percent: dict[str, float] = Field(default_factory=dict)  # 표시용(암장 제외)
     visible_absent: list[str] = Field(default_factory=list)  # 표면에 없는 십성(화면에서 '-')
     groups: dict[str, float]  # peer/resource/output/wealth/officer powers
@@ -49,6 +51,8 @@ class RootItem(BaseModel):
     branch: str
     hidden_stem: str
     root_type: str  # peer_root / resource_root
+    root_kind: str = ""  # primary_root / same_element_root / resource_root
+    reliability: float = 1.0  # 공망/충 신뢰도(1.0 정상, <1 약화)
     strength: str  # weak/medium/strong
     score: float
 
@@ -74,6 +78,14 @@ class StrengthResult(BaseModel):
     basis: dict[str, bool]
     rootedness: dict[str, object]
     strong_chart_gate: dict[str, bool]
+    # 오행구족(구성 상태) — 신강약(세력 상태)과 분리한 별도 라벨.
+    has_all_elements: bool = False
+    element_presence_label: str = ""
+    # 오행 편중도(중화 단정 보조 지표).
+    imbalance_ratio: float = 1.0
+    element_balance_status: str = ""
+    band_note: str = ""  # '중화이나 편중' 등
+    reason: list[str] = Field(default_factory=list)
     explanation: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 

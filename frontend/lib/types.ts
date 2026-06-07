@@ -53,6 +53,12 @@ export interface StrengthResult {
   basis: Record<string, boolean>;
   rootedness: Record<string, unknown>;
   strong_chart_gate: Record<string, boolean>;
+  has_all_elements?: boolean;
+  element_presence_label?: string;
+  imbalance_ratio?: number;
+  element_balance_status?: string;
+  band_note?: string;
+  reason?: string[];
   warnings?: string[];
 }
 
@@ -88,26 +94,58 @@ export interface YongsinAnalysis {
   warnings: string[];
 }
 
+export interface LuckPolarity {
+  element: string;
+  type: string; // 용신 / 기신 / 한신
+  score: number;
+  detail?: string;
+  base_score?: number | null;
+  is_void?: boolean;
+  has_clash?: boolean;
+  branch_label?: string;
+  event_trigger?: number;
+  volatility?: number;
+  reliability?: number;
+}
+
 export interface DaewoonItem {
   index: number;
   start_age: number;
   approx_start_date: string;
   approx_end_date: string;
   ganji: string;
+  stem: string;
+  branch: string;
   stem_ten_god: string;
   branch_ten_god: string;
   twelve_unseong: string;
   yongsin_relation: string;
+  stem_effect?: LuckPolarity | null;
+  branch_effect?: LuckPolarity | null;
+  luck_score?: number;
+  luck_label?: string;
+  luck_label_code?: string;
+  luck_summary?: string;
   volatility_score: number;
   relations_to_chart: string[];
+  sewoon?: LuckPillar[];
 }
 
 export interface LuckPillar {
   label: string;
   ganji: string;
+  stem: string;
+  branch: string;
   stem_ten_god: string;
   branch_ten_god: string;
+  twelve_unseong?: string;
   yongsin_alignment: string;
+  stem_effect?: LuckPolarity | null;
+  branch_effect?: LuckPolarity | null;
+  luck_score?: number;
+  luck_label?: string;
+  luck_label_code?: string;
+  luck_summary?: string;
   solar_term_range?: string | null;
 }
 
@@ -116,10 +154,13 @@ export interface LuckCycles {
   start_age: number;
   current_age: number | null;
   current_daewoon_index: number | null;
+  current_year?: number | null;
+  current_month?: number | null;
   daewoon_table: DaewoonItem[];
   yearly_luck: LuckPillar[];
   monthly_luck: LuckPillar[];
   daily_luck: LuckPillar[];
+  trace?: Record<string, unknown>;
 }
 
 export interface SinsalItem {
@@ -140,6 +181,7 @@ export interface CalibrationQuestion {
   question_type: string;
   year: number;
   period_label: string;
+  period_range?: string;
   question_text: string;
   ask_domains: string[];
   options: string[];
@@ -186,7 +228,14 @@ export interface ManseResult {
       deficient_elements: string[];
       hidden_only_elements: Array<{
         element: string;
-        sources: string[];
+        sources: Array<{
+          position: string;
+          branch: string;
+          stage: string;
+          stem: string;
+          element: string;
+          ten_god: string;
+        }>;
         label: string;
         operability: string;
       }>;
@@ -199,6 +248,7 @@ export interface ManseResult {
     ten_gods: {
       effective_percent: Record<string, number>;
       distribution: Record<string, number>;
+      season_adjusted_ten_god_strength: Record<string, number>;
       visible_percent: Record<string, number>;
       visible_absent: string[];
       groups: Record<string, number>;
@@ -208,6 +258,7 @@ export interface ManseResult {
   };
   structure_analysis: {
     interactions: Array<Record<string, unknown>>;
+    amplifiers?: Array<Record<string, unknown>>;
     gongmang: Record<string, unknown> | null;
   };
   geokguk: Record<string, unknown>;

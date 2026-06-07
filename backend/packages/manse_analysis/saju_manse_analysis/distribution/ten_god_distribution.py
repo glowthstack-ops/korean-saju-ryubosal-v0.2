@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from saju_shared_types.constants import (
+    SEASON_FACTOR,
+    STEM_ELEMENT,
     hidden_stems_for,
     main_hidden_stem,
     ten_god,
@@ -113,6 +115,21 @@ def compute_ten_god_distribution(pillars: FourPillarsResult) -> dict:
             dist[str(ten_god(dm, hstem))] += DIST_BRANCH_WEIGHT[pos] * ratio
     distribution = _percent(dist)
 
+    # 월령 보정 십성 세력(세력/용신용, 표시 분포와 분리) — 환경 십성 분배 × SEASON_FACTOR.
+    # 오행 season_adjusted_element_strength와 대칭. 표시 그래프 기본값엔 쓰지 않는다.
+    factor = SEASON_FACTOR[cv.month_branch]
+    dist_sa = {tg: 0.0 for tg in TEN_GODS}
+    for pos, stem in cv.stems:
+        if pos == "day":
+            continue
+        dist_sa[str(ten_god(dm, stem))] += DIST_STEM_WEIGHT[pos] * factor[STEM_ELEMENT[stem]]
+    for pos, branch in cv.branches:
+        for hstem, _kind, ratio in hidden_stems_for(branch):
+            dist_sa[str(ten_god(dm, hstem))] += (
+                DIST_BRANCH_WEIGHT[pos] * ratio * factor[STEM_ELEMENT[hstem]]
+            )
+    season_adjusted = _percent(dist_sa)
+
     # 신강약 side_balance / 용신 ally·pressure 는 '깨끗한' 분포율(월령·공망 미반영)에서 산출.
     # 월령은 season+season_adjusted, 공망은 structure_modifier로 따로 반영(중복 방지).
     groups = {
@@ -124,6 +141,7 @@ def compute_ten_god_distribution(pillars: FourPillarsResult) -> dict:
         "effective": eff,
         "effective_percent": _percent(eff),
         "distribution": distribution,
+        "season_adjusted_ten_god_strength": season_adjusted,
         "visible_percent": visible_percent,
         "visible_absent": visible_absent,
         "groups": groups,

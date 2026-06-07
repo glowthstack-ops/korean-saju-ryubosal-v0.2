@@ -58,7 +58,8 @@ def _strongest_pressure(groups: dict[str, float]) -> str:
 
 def _support_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
     """부일간형: 신약 일간을 비겁으로 직접 보강 (용=비겁, 희=인성, 기=관살, 구=재성, 한=식상)."""
-    conf = round(min(0.5 + (-strength.score) / 120, 0.85), 4)
+    # 통합형 강약(0~100, 중화 50). 약할수록(50에서 멀수록) 부일간 신뢰도가 높다.
+    conf = round(min(0.5 + max(50.0 - strength.score, 0.0) / 60, 0.85), 4)
     return YongsinCandidateModel(
         model_type="support_day_master",
         label="부일간형(비겁 보강)",
@@ -71,7 +72,8 @@ def _support_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
 
 def _resource_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
     """인성용신형: 재성·식상으로 빠지는 기운을 인성으로 회복 (관인상생, 희=관살)."""
-    conf = round(min(0.45 + (-strength.score) / 150, 0.78), 4)
+    # 통합형 강약 거리 기준(부일간형보다 base·기울기를 낮게 — 2차 후보).
+    conf = round(min(0.45 + max(50.0 - strength.score, 0.0) / 75, 0.78), 4)
     return YongsinCandidateModel(
         model_type="resource_as_yongsin",
         label="인성용신형(관인상생)",
@@ -96,7 +98,8 @@ def _output_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
 
 def _eokbu_strong_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
     """일반 억부(신강): 식상 설기 + 재성, 기신=인성/비겁."""
-    conf = round(min(0.5 + strength.score / 120, 0.85), 4)
+    # 통합형 강약 거리 기준. 강할수록(50에서 위로 멀수록) 설기·재관 신뢰도가 높다.
+    conf = round(min(0.5 + max(strength.score - 50.0, 0.0) / 60, 0.85), 4)
     return YongsinCandidateModel(
         model_type="eokbu_normal",
         label="억부형(설기·재관)",
@@ -178,6 +181,7 @@ _GEOK_SANGSIN_GROUPS: dict[str, list[str]] = {
     "식신격": ["wealth"], "상관격": ["resource", "wealth"],
     "정인격": ["officer"], "편인격": ["wealth", "output"],
     "건록격": ["wealth", "officer"], "양인격": ["officer", "output"],
+    "월겁격": ["officer", "output"],
 }
 
 
@@ -225,9 +229,10 @@ def build_yongsin(
 
     # 특수격 우선
     if checks["dominant_one_element"].detected:
-        # 오행 과다/부족은 월령 보정 세력 기준(없으면 effective 폴백).
+        # 오행 과다/부족은 월령 보정 세력 기준. 폴백도 보정이 섞인 effective 대신
+        # '원점수' 환경 분포(일간 제외)를 쓴다(통근/투간/공망 중복 반영 방지).
         fe = force.five_elements
-        sas = fe.season_adjusted_element_strength or fe.effective_percent
+        sas = fe.season_adjusted_element_strength or fe.distribution_environment
         strongest = max(sas, key=lambda e: sas[e])
         models.append(YongsinCandidateModel(
             model_type="dominant_one_element", label="전왕/일행득기형",
@@ -332,13 +337,18 @@ def build_yongsin(
     else:
         status = "candidate"
 
+    # selected_model/confidence는 실제 top 용신을 만든 모델로 보고(첫 생성 모델 아님).
+    model_conf = {m.model_type: m.confidence for m in models}
+    top_model = useful_candidates[0].model if useful_candidates else (
+        models[0].model_type if models else None
+    )
     final = {
         "yongsin": useful_candidates[0].element if useful_candidates else None,
         "heesin": useful_candidates[1].element if len(useful_candidates) > 1 else None,
         "gisin": unfavorable_candidates[0].element if unfavorable_candidates else None,
         "gusin": unfavorable_candidates[1].element if len(unfavorable_candidates) > 1 else None,
-        "confidence": models[0].confidence if models else 0.0,
-        "selected_model": models[0].model_type if models else None,
+        "confidence": round(model_conf.get(top_model or "", 0.0), 4),
+        "selected_model": top_model,
     }
 
     return AggregatedYongsinResult(

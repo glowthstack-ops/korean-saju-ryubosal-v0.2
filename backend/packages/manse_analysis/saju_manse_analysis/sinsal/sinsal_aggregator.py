@@ -23,23 +23,23 @@ def _positions(pillars: FourPillarsResult) -> list[tuple[str, Pillar]]:
     return items
 
 
-def _twelve_sinsal(ref: Branch, target: Branch) -> str:
-    saengji = cat.TRINE_SAENGJI[ref]
-    start = (BRANCH_INDEX[saengji] - 3) % 12
-    off = (BRANCH_INDEX[target] - start) % 12
-    return cat.TWELVE_SINSAL_ORDER[off]
-
-
 def _detect(pillars: FourPillarsResult) -> list[_Detection]:
     out: list[_Detection] = []
     positions = _positions(pillars)
     day_stem = Stem(pillars.day.stem)
     year_branch = Branch(pillars.year.branch)
+    day_branch = Branch(pillars.day.branch)
 
-    # 12신살 (년지 기준) — 모든 주 지지에 1개씩.
+    # 역마·도화·화개 — 지지 글자(사생·사정·사고지) 기준. 위치별 12신살 전체는 펼치지 않는다.
+    char_groups: list[tuple[str, frozenset[Branch]]] = [
+        ("역마살", cat.SASAENG), ("도화살", cat.SAJEONG), ("화개살", cat.SAGO),
+    ]
     for pos, p in positions:
-        name = _twelve_sinsal(year_branch, Branch(p.branch))
-        out.append((name, "twelve_sinsal", pos, f"년지 {year_branch} 기준 {p.branch}=>{name}"))
+        cb = Branch(p.branch)
+        for name, group in char_groups:
+            if cb in group:
+                meta = cat.CATALOG_META[name]
+                out.append((name, meta["category"], pos, f"{p.branch} {name}(글자살)"))
 
     # 일간 기준 지지 타깃 신살.
     stem_branch_targets: list[tuple[str, list[Branch]]] = [
@@ -98,6 +98,78 @@ def _detect(pillars: FourPillarsResult) -> list[_Detection]:
             if len(pair) == 2 and pair in cat.WONJIN:
                 for pos in (pa, pb):
                     out.append(("원진", "isolation_conflict", pos, f"{label} 원진"))
+
+    # 추가 신살 (표준 명리표) ---------------------------------------------------
+    # 일간 → 지지 단일 타깃 (천록/천주/관귀학관/문곡/낙정관/비인).
+    extra_stem: list[tuple[str, Branch | None]] = [
+        ("천록귀인", cat.CHEONROK.get(day_stem)),
+        ("천주귀인", cat.CHEONJU.get(day_stem)),
+        ("관귀학관", cat.GWANGWI.get(day_stem)),
+        ("문곡귀인", cat.MUNGOK.get(day_stem)),
+        ("낙정관살", cat.NAKJEONG.get(day_stem)),
+        ("비인살", cat.BIIN.get(day_stem)),
+    ]
+    for name, tgt in extra_stem:
+        if tgt is None:
+            continue
+        meta = cat.CATALOG_META[name]
+        for pos, p in positions:
+            if Branch(p.branch) == tgt:
+                out.append((name, meta["category"], pos, f"일간 {day_stem} 기준 {p.branch}"))
+
+    # 월지 기준 (천의성=월지 직전, 단교관살).
+    month_targets: list[tuple[str, Branch]] = [
+        ("천의성", cat.branch_at(BRANCH_INDEX[month_branch] - 1)),
+        ("단교관살", cat.DANGYO[month_branch]),
+    ]
+    for name, tgt in month_targets:
+        meta = cat.CATALOG_META[name]
+        for pos, p in positions:
+            if Branch(p.branch) == tgt:
+                out.append((name, meta["category"], pos, f"월지 {month_branch} 기준 {p.branch}"))
+
+    # 년지 기준 (고신/과숙).
+    for name, table in [("고신살", cat.GOSHIN), ("과숙살", cat.GWASUK)]:
+        tgt = table[year_branch]
+        meta = cat.CATALOG_META[name]
+        for pos, p in positions:
+            if Branch(p.branch) == tgt:
+                out.append((name, meta["category"], pos, f"년지 {year_branch} 기준 {p.branch}"))
+
+    # 격각살: 일지 +2 지지(자기 자리 제외).
+    gyeokgak = cat.branch_at(BRANCH_INDEX[day_branch] + 2)
+    for pos, p in positions:
+        if pos != "day" and Branch(p.branch) == gyeokgak:
+            out.append(("격각살", "isolation_conflict", pos, f"일지 {day_branch} 격각 {p.branch}"))
+
+    # 일덕 / 일귀 (일주 간지 자체).
+    day_gz = (day_stem, day_branch)
+    if day_gz in cat.ILDEOK:
+        out.append(("일덕", "noble_stars", "day", f"{pillars.day.stem}{pillars.day.branch} 일덕"))
+    if day_gz in cat.ILGWI:
+        out.append(("일귀", "noble_stars", "day", f"{pillars.day.stem}{pillars.day.branch} 일귀"))
+
+    # 천문성: 戌·亥 글자(지지 기준, 위치 무관).
+    for pos, p in positions:
+        if Branch(p.branch) in cat.CHEONMUN_BRANCHES:
+            out.append(("천문성", "spiritual_intuition", pos, f"{p.branch} 천문(글자)"))
+
+    # 천라지망살: 戌亥(천라)·辰巳(지망)가 모두 명식에 있을 때.
+    chart_branches = {Branch(p.branch) for _pos, p in positions}
+    for pair_b, kind in [(cat.CHEONRA, "천라(戌亥)"), (cat.JIMANG, "지망(辰巳)")]:
+        if set(pair_b) <= chart_branches:
+            for pos, p in positions:
+                if Branch(p.branch) in pair_b:
+                    out.append(("천라지망살", "isolation_conflict", pos, kind))
+
+    # 협록(夾祿): 일간 정록(L)을 두 지지가 L-1·L+1로 끼면(夾) 성립.
+    rok = cat.CHEONROK[day_stem]
+    prev_b = cat.branch_at(BRANCH_INDEX[rok] - 1)
+    next_b = cat.branch_at(BRANCH_INDEX[rok] + 1)
+    if prev_b in chart_branches and next_b in chart_branches:
+        for pos, p in positions:
+            if Branch(p.branch) in (prev_b, next_b):
+                out.append(("협록", "wealth_status", pos, f"정록 {rok} 협({prev_b}{next_b})"))
     return out
 
 

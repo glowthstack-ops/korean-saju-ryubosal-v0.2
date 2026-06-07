@@ -11,6 +11,8 @@ _DAMAGE_TYPES = {
     "shangguan_attacks_officer", "mixed_officer_killing", "killing_overwhelms_weak",
     "wealth_overwhelms_weak", "pyeonin_dosik", "bigyeob_jaengjae",
     "chung_month_branch", "void_month_branch",
+    "killing_uncontrolled", "resource_overload", "shanggwan_unguided",
+    "officer_combined_away",
 }
 
 
@@ -51,9 +53,10 @@ def test_active_failures_have_rescue_verdict(evaluation) -> None:
 
 
 def test_1980_snapshot(evaluation) -> None:
-    # 정재격: 투간(戊)·통근(壬)·상신·청정 다 충족 → 신뢰도 90(A). 월지 자형은 성패에서 감점.
-    assert evaluation.confidence_score == 90
-    assert evaluation.confidence_grade == "A"
+    # 정재격(월지 정기 壬). 격신 壬 자체는 투간 없음(여기 戊만 투간) → '격신 투간' 0점.
+    # 위계 정기30 + 통근15 + 상신15 + 청정5 = 65(B). 월지 자형은 파격(무파격 0)·성패 감점.
+    assert evaluation.confidence_score == 65
+    assert evaluation.confidence_grade == "B"
     assert "chung_month_branch" in evaluation.damage_types
     assert evaluation.clarity_level == "clear_but_mixed"
     assert evaluation.final_weight == pytest.approx(0.30, abs=0.01)

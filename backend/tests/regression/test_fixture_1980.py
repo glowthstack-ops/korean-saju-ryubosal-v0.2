@@ -70,11 +70,11 @@ def test_metadata_and_trace_present(result) -> None:
 
 
 def test_force_analysis_strength_band(result) -> None:
-    # v1.3 8성분 강약(진태양시 戊辰): 己 일간 중화신약(score ~ -22.7).
+    # 통합형 강약(진태양시 戊辰): 己 일간 신약(score ~ 35.5). 亥월 수왕·약한 통근.
     f = result.force_analysis
     assert f is not None
-    assert f.strength.band == "중화신약"
-    assert -30 <= f.strength.score <= -15
+    assert f.strength.band == "신약"
+    assert 34 < f.strength.score <= 42
     assert f.strength.requires_validation in (True, False)
 
 
@@ -126,7 +126,7 @@ def test_yongsin_candidates(result) -> None:
     assert y is not None
     assert y.status == "candidate"
     assert y.requires_validation is True
-    # v1 reference: 용신 토 · 희신 화 · 기신 목 · 구신 수
+    # 신약(진태양시 戊辰) → 억부 부일간형: 용신 토 · 희신 화 · 기신 목 · 구신 수
     assert y.final["yongsin"] == "土"
     assert y.final["heesin"] == "火"
     assert y.final["gisin"] == "木"
@@ -140,7 +140,7 @@ def test_luck_cycles(result) -> None:
     assert lc.direction == "forward"  # 양남(庚) 순행
     assert lc.start_age == 5
     assert lc.daewoon_table[0].ganji == "戊子"  # 월주 丁亥 다음
-    assert len(lc.daewoon_table) == 9
+    assert len(lc.daewoon_table) == 10
     # reference_date 없는 fixture → 세운/월운/일운은 비어 있고 대운표만.
     assert lc.yearly_luck == []
 

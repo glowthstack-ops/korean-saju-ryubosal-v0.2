@@ -10,9 +10,12 @@ from __future__ import annotations
 
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
+    BRANCH_KO,
     SEASON_FACTOR,
     STEM_ELEMENT,
+    STEM_KO,
     hidden_stems_for,
+    ten_god,
 )
 from saju_shared_types.enums import Element, Stem
 from saju_shared_types.pillars import FourPillarsResult
@@ -30,6 +33,9 @@ _ELEMENTS = [str(e) for e in Element]
 _MONTH_MAIN_QI_BONUS = 1.30  # 월령 본기 강화
 _NON_MAIN_BONUS_CAP = 1.03  # 중기/여기 보정 상한
 _HIDDEN_TYPE_KO = {"main": "정", "middle": "중", "residual": "여"}
+# 암장(hidden-only) 출처 표기용 — 위치·단계 한글(전체 표기는 한글 통일).
+_POS_JI_KO = {"year": "년지", "month": "월지", "day": "일지", "hour": "시지"}
+_STAGE_FULL_KO = {"main": "정기", "middle": "중기", "residual": "여기"}
 
 
 def _empty() -> dict[str, float]:
@@ -170,7 +176,7 @@ def compute_element_distribution(pillars: FourPillarsResult) -> dict:
     strongest = max(percent, key=lambda e: percent[e])
     weakest = min(percent, key=lambda e: percent[e])
     excessive = [e for e, p in percent.items() if p > 35.0]
-    deficient = [e for e, p in percent.items() if p < 8.0]
+    deficient = [e for e, p in percent.items() if p < 9.0]
 
     # 암장(hidden-only): 표면(visible)엔 없고 지장간에만 존재하는 오행.
     hidden_only = _hidden_only_elements(cv, raw, hidden_base)
@@ -235,9 +241,17 @@ def _hidden_only_elements(
     out: list[dict] = []
     for el in _ELEMENTS:
         if raw[el] == 0 and hidden_base[el] > 0:
+            # 암장은 오행이자 십성 — 위치별로 지장간·오행·십성을 함께 제공(한글 통일).
             sources = [
-                f"{branch}{_HIDDEN_TYPE_KO[htype.value]}{hstem}"
-                for _pos, branch in cv.branches
+                {
+                    "position": _POS_JI_KO[pos],
+                    "branch": BRANCH_KO[branch],
+                    "stage": _STAGE_FULL_KO[htype.value],
+                    "stem": STEM_KO[hstem],
+                    "element": el,  # 木 (오행 색배지·라벨용)
+                    "ten_god": str(ten_god(cv.day_master, hstem)),
+                }
+                for pos, branch in cv.branches
                 for hstem, htype, _w in hidden_stems_for(branch)
                 if str(STEM_ELEMENT[hstem]) == el
             ]

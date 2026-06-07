@@ -61,14 +61,14 @@ def test_calculate_returns_full_schema() -> None:
     ):
         assert field in body
     assert body["pillars"]["day"]["ganji"] == "己亥"
-    assert body["force_analysis"]["strength"]["band"] == "중화신약"
+    assert body["force_analysis"]["strength"]["band"] == "신약"
     assert body["structure_analysis"]["structure_modifier"] is not None
     assert isinstance(body["structure_analysis"]["interactions"], list)
     assert body["geokguk"]["main_structure"] == "정재격"
     assert body["yongsin_analysis"]["status"] == "candidate"
     assert body["yongsin_analysis"]["final"]["yongsin"] == "土"
     assert body["luck_cycles"]["direction"] == "forward"
-    assert len(body["luck_cycles"]["daewoon_table"]) == 9
+    assert len(body["luck_cycles"]["daewoon_table"]) == 10
     assert body["traditional_extras"]["sinsal"]["full_list"]
     assert "천을귀인" in {s["name"] for s in body["traditional_extras"]["sinsal"]["full_list"]}
 
@@ -86,7 +86,7 @@ def test_calibration_feedback_endpoint() -> None:
     questions = calc["calibration"]["questions"]
     assert len(questions) == 5
     answers = [
-        {"question_id": q["id"], "overall_rating": "positive", "selected_events": ["취업"]}
+        {"question_id": q["id"], "overall_rating": "positive", "selected_events": ["직업"]}
         for q in questions
     ]
     r = _request(
@@ -96,6 +96,22 @@ def test_calibration_feedback_endpoint() -> None:
     body = r.json()
     assert body["status"] in ("calibrated", "probable", "uncertain")
     assert "model_scores" in body
+
+
+def test_luck_months_endpoint() -> None:
+    birth = {
+        "calendar_type": "solar",
+        "birth_date": "1980-11-22",
+        "birth_time": "09:08",
+        "birth_place_name": "서울",
+        "gender": "male",
+        "reference_date": "2015-06-15",
+    }
+    r = _request("POST", "/api/v2/manse/luck/months", json={"birth": birth, "year": 2015})
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) == 12  # 월운 12개
+    assert body[0]["twelve_unseong"] and body[0]["stem"] and body[0]["branch"]
 
 
 def test_unknown_location_returns_422() -> None:

@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { submitCalibration, type FeedbackAnswer } from "@/lib/api";
+import { elementLabel, elementStyle } from "@/lib/elements";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
 
+const ALL_ELEMENTS = ["木", "火", "土", "金", "水"];
+
 const RATINGS: { value: string; label: string }[] = [
-  { value: "very_positive", label: "매우 좋았다" },
-  { value: "positive", label: "좋았다" },
-  { value: "neutral", label: "보통" },
-  { value: "negative", label: "힘들었다" },
-  { value: "very_negative", label: "매우 힘들었다" },
+  { value: "very_positive", label: "크게 좋아짐" },
+  { value: "positive", label: "좋아짐" },
+  { value: "neutral", label: "비슷·잔잔" },
+  { value: "negative", label: "힘들어짐" },
+  { value: "very_negative", label: "크게 힘들어짐" },
   { value: "unknown", label: "기억 안 남" },
 ];
 
@@ -18,32 +21,43 @@ const axisKo: Record<string, string> = {
   eokbu: "억부", johu: "조후", pattern: "격국", disease: "병약", special: "특수격",
 };
 
+const STATUS_KO: Record<string, string> = {
+  calibrated: "확정", probable: "유력", uncertain: "불확실", candidate: "후보(검증 필요)",
+};
+
 export function YongsinPanel({
   result,
   calibration,
+  onRedo,
 }: {
   result: ManseResult;
   calibration: CalibrationResult | null;
+  onRedo?: () => void;
 }) {
   const y = result.yongsin_analysis;
-  const statusKo: Record<string, string> = {
-    calibrated: "확정", probable: "유력", uncertain: "불확실",
-    candidate: "후보(검증 필요)",
-  };
+  const statusKo = STATUS_KO;
+  const yongsin = (calibration?.final_yongsin ?? y.final.yongsin) as string | null;
+  const heesin = (calibration?.final_heesin ?? y.final.heesin) as string | null;
+  const gisin = (calibration?.final_gisin ?? y.final.gisin) as string | null;
+  const gusin = (calibration?.final_gusin ?? y.final.gusin) as string | null;
+  // 한신 = 용/희/기/구에 배정되지 않은 나머지 한 오행.
+  const assigned = [yongsin, heesin, gisin, gusin].filter(Boolean) as string[];
+  const hansin = ALL_ELEMENTS.find((e) => !assigned.includes(e)) ?? null;
   return (
     <section className="rounded-lg border bg-white p-4">
       <h2 className="mb-2 flex items-center text-sm font-semibold">
         용신 후보
-        <InfoTooltip text="용신은 최초 계산에서 확정하지 않습니다. 후보로 제시되며 과거 사건 검증 후 확정/유력/불확실로 판정됩니다. 부족한 오행이 곧 용신은 아닙니다." />
+        <InfoTooltip text="사주의 균형을 잡아 주는, 가장 필요한 핵심 기운입니다. 먼저 후보로 제시하고 과거 경험과 맞춰 본 뒤 확정합니다. 부족한 오행이 곧 용신은 아닙니다." />
       </h2>
       <p className="text-sm">
         상태: <b>{statusKo[calibration?.status ?? y.status] ?? y.status}</b>
       </p>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-        <Box label="용신" v={(calibration?.final_yongsin ?? y.final.yongsin) as string | null} />
-        <Box label="희신" v={(calibration?.final_heesin ?? y.final.heesin) as string | null} />
-        <Box label="기신" v={(calibration?.final_gisin ?? y.final.gisin) as string | null} />
-        <Box label="구신" v={(calibration?.final_gusin ?? y.final.gusin) as string | null} />
+      <div className="mt-2 grid grid-cols-5 gap-1.5 text-xs">
+        <Box label="용신" v={yongsin} />
+        <Box label="희신" v={heesin} />
+        <Box label="기신" v={gisin} />
+        <Box label="구신" v={gusin} />
+        <Box label="한신" v={hansin} />
       </div>
       <p className="mt-2 text-[11px] text-gray-500">
         후보 모델: {y.candidate_models.map((m) => `${m.label}${m.is_auxiliary ? "(보조)" : ""}`).join(" · ")}
@@ -54,9 +68,15 @@ export function YongsinPanel({
         </p>
       )}
       {calibration && (
-        <p className="mt-1 text-[11px] text-gray-500">
-          검증결과 match {calibration.match_rate} · 근거 {calibration.evidence_count}개 · 모델 {calibration.selected_model}
-        </p>
+        <div className="mt-3 flex items-center justify-between rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs">
+          <span className="font-semibold text-emerald-800">답변 반영 완료</span>
+          {onRedo && (
+            <button type="button" onClick={onRedo}
+              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-gray-700 hover:bg-gray-50">
+              검증 다시 진행
+            </button>
+          )}
+        </div>
       )}
     </section>
   );
@@ -64,30 +84,50 @@ export function YongsinPanel({
 
 function Box({ label, v }: { label: string; v: string | null }) {
   return (
-    <div className="rounded border p-2 text-center">
-      <div className="text-gray-400">{label}</div>
-      <div className="text-base font-bold">{v ?? "-"}</div>
+    <div className="text-center">
+      <div className="mb-1 text-[11px] text-gray-400">{label}</div>
+      <div className={`rounded border p-2 text-sm font-bold leading-tight ${v ? elementStyle(v) : "border-dashed text-gray-300"}`}>
+        {v ? elementLabel(v) : "-"}
+      </div>
     </div>
   );
 }
+
+type AnswerMap = Record<string, { rating: string; events: string[] }>;
 
 export function CalibrationPanel({
   result,
   profile,
   referenceDate,
   onResult,
+  initialAnswers,
+  submitted = false,
 }: {
   result: ManseResult;
   profile: Profile;
   referenceDate: string;
-  onResult: (r: CalibrationResult) => void;
+  onResult: (r: CalibrationResult, answers: AnswerMap) => void;
+  initialAnswers?: AnswerMap;
+  submitted?: boolean;
 }) {
   const questions = result.calibration?.questions ?? [];
-  const [answers, setAnswers] = useState<Record<string, { rating: string; events: string[] }>>({});
+  const [answers, setAnswers] = useState<AnswerMap>(initialAnswers ?? {});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (questions.length === 0) return null;
+  // 저장된 답변이 비동기로 도착하면 1회 복원(사용자 입력 전 복원되므로 안전).
+  useEffect(() => {
+    if (initialAnswers && Object.keys(initialAnswers).length > 0) {
+      setAnswers(initialAnswers);
+    }
+  }, [initialAnswers]);
+
+  // 제출 완료 시 문항을 접는다(완료 표시·재시도는 위 '용신 후보' 패널에서 처리).
+  if (questions.length === 0 || submitted) return null;
+
+  const answeredCount = questions.filter(
+    (q) => answers[q.id]?.rating && answers[q.id]?.rating !== "unknown",
+  ).length;
 
   const setRating = (id: string, rating: string) =>
     setAnswers((a) => ({ ...a, [id]: { rating, events: a[id]?.events ?? [] } }));
@@ -107,7 +147,7 @@ export function CalibrationPanel({
         overall_rating: answers[q.id]?.rating ?? "unknown",
         selected_events: answers[q.id]?.events ?? [],
       }));
-      onResult(await submitCalibration(profile, payload, referenceDate));
+      onResult(await submitCalibration(profile, payload, referenceDate), answers);
     } catch (e) {
       setError(e instanceof Error ? e.message : "검증 제출 실패");
     } finally {
@@ -125,7 +165,11 @@ export function CalibrationPanel({
         {questions.map((q) => (
           <li key={q.id} className="rounded border p-2">
             <p className="text-sm">{q.question_text}</p>
-            <div className="mt-1 flex flex-wrap gap-1">
+            {q.period_range && (
+              <p className="mt-0.5 text-[11px] text-gray-400">{q.period_range}</p>
+            )}
+            <p className="mt-1 text-[10px] font-medium text-gray-400">그 해 흐름</p>
+            <div className="mt-0.5 flex flex-wrap gap-1">
               {RATINGS.map((r) => (
                 <button key={r.value} type="button" onClick={() => setRating(q.id, r.value)}
                   className={`rounded border px-2 py-0.5 text-[11px] ${
@@ -135,8 +179,9 @@ export function CalibrationPanel({
                 </button>
               ))}
             </div>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {q.options.slice(0, 8).map((opt) => (
+            <p className="mt-1.5 text-[10px] font-medium text-gray-400">영향 영역(복수)</p>
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {q.options.map((opt) => (
                 <button key={opt} type="button" onClick={() => toggleEvent(q.id, opt)}
                   className={`rounded-full border px-2 py-0.5 text-[10px] ${
                     answers[q.id]?.events?.includes(opt) ? "border-emerald-600 bg-emerald-50" : "text-gray-500"
@@ -153,6 +198,10 @@ export function CalibrationPanel({
         className="mt-3 w-full rounded bg-gray-900 py-2 text-white disabled:bg-gray-400">
         {busy ? "검증 중…" : "검증 제출"}
       </button>
+      <p className="mt-1 text-center text-[11px] text-gray-400">
+        {answeredCount}/{questions.length}개 응답
+        {answeredCount === 0 && " · 흐름을 하나도 고르지 않으면 검증되지 않아요"}
+      </p>
     </section>
   );
 }

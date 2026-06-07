@@ -6,7 +6,7 @@ import hashlib
 from datetime import UTC
 
 from saju_manse_analysis import analyze_chart
-from saju_manse_analysis.luck import compute_luck_cycles
+from saju_manse_analysis.luck import compute_luck_cycles, monthly_luck_for_year
 from saju_manse_calibration import generate_calibration, score_calibration
 
 from saju_manse_core.calendar.solar_terms import get_table
@@ -24,6 +24,7 @@ from saju_shared_types.constants import (
     STEM_YINYANG,
 )
 from saju_shared_types.enums import Branch, Stem, YinYang
+from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import EngineMetadata, ManseV2Result
 from saju_shared_types.time_correction import SolarTermBasis, TimeCorrectionResult
 
@@ -183,7 +184,8 @@ def calculate(birth: BirthInput) -> ManseV2Result:
     calibration = None
     if birth.reference_date is not None and chart_analysis.yongsin.candidate_models:
         calibration = generate_calibration(
-            chart_analysis.yongsin, norm.solar_date.year, birth.reference_date.year
+            chart_analysis.yongsin, norm.solar_date.year, birth.reference_date.year,
+            pillars=pillars, gender=birth.gender,
         )
 
     return ManseV2Result(
@@ -218,4 +220,21 @@ def calibrate_feedback(birth: BirthInput, answers: list[FeedbackAnswer]) -> Cali
         )
     return score_calibration(
         result.calibration.questions, answers, result.yongsin_analysis
+    )
+
+
+def luck_months(birth: BirthInput, year: int) -> list[LuckPillar]:
+    """주어진 연도의 월운 12개(세운 선택 시 온디맨드 조회). 차트를 결정론적으로 재계산."""
+    result = calculate(birth)
+    pillars = result.pillars
+    y = result.yongsin_analysis
+    if pillars is None or y is None:
+        raise ValueError("luck months unavailable: chart could not be computed")
+    return monthly_luck_for_year(
+        pillars,
+        Stem(pillars.day.stem),
+        {c.element for c in y.useful_candidates},
+        {c.element for c in y.unfavorable_candidates},
+        year,
+        get_table(),
     )

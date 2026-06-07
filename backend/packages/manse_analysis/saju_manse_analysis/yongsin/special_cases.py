@@ -16,9 +16,10 @@ def detect_special_cases(
     force: ForceAnalysis,
     structure: StructureAnalysis,
 ) -> dict[str, SpecialCaseCheck]:
-    # 전왕/오행 과다 판단은 월령 보정 세력 기준(없으면 effective 폴백).
+    # 전왕/오행 과다 판단은 월령 보정 세력 기준. 폴백도 보정이 섞인 effective 대신
+    # '원점수' 환경 분포(일간 제외)를 쓴다(통근/투간/공망 중복 반영 방지).
     fe = force.five_elements
-    pct = fe.season_adjusted_element_strength or fe.effective_percent
+    pct = fe.season_adjusted_element_strength or fe.distribution_environment
     band = force.strength.band
     root_score = force.strength.components.get("root_score", 0.0)
 

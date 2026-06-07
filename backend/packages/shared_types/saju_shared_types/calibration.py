@@ -21,11 +21,19 @@ EVENT_DOMAINS: dict[str, list[str]] = {
     "legal_public": ["계약", "소송", "공공기관", "신분 변화"],
 }
 
-# 강한(중대) 사건일수록 가중.
-MAJOR_EVENTS: set[str] = {
-    "결혼", "이별", "취업", "이직", "퇴사", "입학", "졸업",
-    "이사", "해외 이동", "큰 수입", "큰 지출", "본인 건강", "신분 변화",
+# 검증 질문에 노출하는 '영향 영역' 범주 라벨(개별 사건 대신 범주 단위로 체크).
+DOMAIN_LABELS: dict[str, str] = {
+    "career": "직업", "money": "금전", "relationship": "연애/부부",
+    "family_health": "건강", "relocation": "이동", "study": "학업",
+    "legal_public": "계약/공공",
 }
+
+# 군 입대/제대 — 한국 남성 한정 노출. 나이가 거의 고정(~20세)이라 그 해를 특정해 주는
+# 강한 회상 단서이자 관성(官)·신분 변화 신호. 남성 명식에만 영역 칩으로 추가한다.
+MILITARY_DOMAIN: str = "군 입대/제대"
+
+# 삶에 큰 영향을 주는 범주일수록 가중(범주 단위).
+MAJOR_DOMAINS: set[str] = {"직업", "금전", "연애/부부", "건강", "이동", MILITARY_DOMAIN}
 
 FEEDBACK_SCALE: dict[str, int | None] = {
     "very_positive": 2, "positive": 1, "neutral": 0,
@@ -42,6 +50,7 @@ class CalibrationQuestion(BaseModel):
     year: int
     month: int | None = None
     period_label: str
+    period_range: str = ""  # 세운 범위(입춘 기준), 예: "입춘 기준 2001-02-04 ~ 2002-02-03"
     target_models: list[str] = Field(default_factory=list)
     expected_effect_by_model: dict[str, str] = Field(default_factory=dict)
     ask_domains: list[str] = Field(default_factory=list)

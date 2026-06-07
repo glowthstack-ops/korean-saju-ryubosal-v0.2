@@ -11,6 +11,23 @@ from datetime import date
 from pydantic import BaseModel, Field
 
 
+class LuckPolarity(BaseModel):
+    """운 천간/지지 한쪽의 용신 관계(드러남=천간, 기반=지지)."""
+
+    element: str  # 대표 오행(지지는 정기 기준)
+    type: str  # 용신 / 기신 / 한신
+    score: float  # +용신 ~ -기신 (지지는 지장간 가중, 공망/충 반영 후)
+    detail: str = ""  # 지장간 구성 등 부가 설명
+    # 지지 동태(공망=실속·작동력, 충=사건화·변동성) — 천간엔 미적용.
+    base_score: float | None = None  # 공망/충 반영 전 방향 점수
+    is_void: bool = False
+    has_clash: bool = False
+    branch_label: str = ""  # 공망 용신운 / 충발 용신운 / 공망 기신운 / 충동 기신운
+    event_trigger: float = 0.0  # 사건화 가능성(충↑)
+    volatility: float = 0.0  # 변동성(충·공망↑)
+    reliability: float = 1.0  # 실현 신뢰도(공망↓)
+
+
 class LuckPillar(BaseModel):
     """세운/월운/일운 공통 항목."""
 
@@ -21,10 +38,18 @@ class LuckPillar(BaseModel):
     branch: str
     stem_ten_god: str
     branch_ten_god: str
+    twelve_unseong: str = ""  # 운성(십이운성) — 카드 표시용
     raw_elements: list[str] = Field(default_factory=list)
     relations_to_chart: list[str] = Field(default_factory=list)
     gongmang_activation: list[str] = Field(default_factory=list)  # 운이 원국 공망을 자극
-    yongsin_alignment: str = "평운"  # 용신운 / 기신운 / 혼합 / 평운
+    yongsin_alignment: str = "평운"  # 용신운 / 기신운 / 혼합 / 평운 (coarse 호환)
+    # 천간(드러남)·지지(기반) 분리 평가 + 세분 라벨.
+    stem_effect: LuckPolarity | None = None
+    branch_effect: LuckPolarity | None = None
+    luck_score: float = 0.0
+    luck_label: str = ""  # 한글 세분 라벨
+    luck_label_code: str = ""  # pure_yongsin_luck / mixed_yongsin_surface / ...
+    luck_summary: str = ""
     solar_term_range: str | None = None
 
 
@@ -46,8 +71,17 @@ class DaewoonItem(BaseModel):
     gongmang_activation: list[str] = Field(default_factory=list)  # 운이 원국 공망을 자극
     raw_elements: list[str] = Field(default_factory=list)
     transformed_elements: list[str] = Field(default_factory=list)
-    yongsin_relation: str = "평운"
+    yongsin_relation: str = "평운"  # coarse 호환(용신운/기신운/혼합/평운)
+    # 천간(드러남)·지지(기반) 분리 평가 + 세분 라벨.
+    stem_effect: LuckPolarity | None = None
+    branch_effect: LuckPolarity | None = None
+    luck_score: float = 0.0
+    luck_label: str = ""
+    luck_label_code: str = ""
+    luck_summary: str = ""
     volatility_score: float = 0.0
+    # 이 대운에 속한 10개 세운(연동 표시용) — 대운 선택 시 노출.
+    sewoon: list[LuckPillar] = Field(default_factory=list)
 
 
 class LuckCycles(BaseModel):
@@ -57,6 +91,8 @@ class LuckCycles(BaseModel):
     daewoon_table: list[DaewoonItem] = Field(default_factory=list)
     current_age: int | None = None
     current_daewoon_index: int | None = None
+    current_year: int | None = None  # 세운 카드 현재 강조용
+    current_month: int | None = None  # 월운 카드 현재 강조용
     yearly_luck: list[LuckPillar] = Field(default_factory=list)
     monthly_luck: list[LuckPillar] = Field(default_factory=list)
     daily_luck: list[LuckPillar] = Field(default_factory=list)

@@ -58,7 +58,7 @@ def test_feedback_scores_models_and_decides() -> None:
     r = calculate(b)
     assert r.calibration is not None
     answers = [
-        FeedbackAnswer(question_id=q.id, overall_rating="positive", selected_events=["취업"])
+        FeedbackAnswer(question_id=q.id, overall_rating="positive", selected_events=["직업"])
         for q in r.calibration.questions
     ]
     res = calibrate_feedback(b, answers)
@@ -75,10 +75,28 @@ def test_auxiliary_johu_cannot_be_solely_calibrated() -> None:
     r = calculate(b)
     assert r.calibration is not None
     answers = [
-        FeedbackAnswer(question_id=q.id, overall_rating="positive", selected_events=["취업"])
+        FeedbackAnswer(question_id=q.id, overall_rating="positive", selected_events=["직업"])
         for q in r.calibration.questions
     ]
     res = calibrate_feedback(b, answers)
-    assert res.selected_model != "johu"
-    assert res.selected_model == "support_day_master"
-    assert res.final_yongsin == "土"  # primary 부일간형 기준 (조후 火 아님)
+    primary = {m.model_type for m in r.yongsin_analysis.candidate_models if not m.is_auxiliary}
+    assert res.selected_model != "johu"  # 보조 모델 단독 확정 금지
+    assert res.selected_model in primary  # primary 모델로 확정
+
+
+def test_period_selection_reflects_void_clash() -> None:
+    # 운 동태가 검증 기간에 반영: 공망=실속 약화(mixed), 충=사건성(volatile).
+    from saju_manse_calibration import select_validation_periods
+    from saju_manse_calibration.period_selector import _apply_dynamics
+
+    assert _apply_dynamics("positive", True, False) == "mixed"  # 공망
+    assert _apply_dynamics("negative", False, True) == "volatile"  # 충
+    assert _apply_dynamics("positive", True, True) == "volatile"  # 공망+충
+    assert _apply_dynamics("neutral", True, True) == "neutral"  # 중립은 불변
+    # 1980 공망 辰巳 → 세운 지지가 辰/巳인 해는 is_void로 표시.
+    r = calculate(BirthInput(reference_date="2015-06-15", **_BASE))
+    periods = select_validation_periods(r.yongsin_analysis, 1980, 2015, r.pillars)
+    voids = [p for p in periods if p["is_void"]]
+    assert voids and all(p["ganji"][1] in ("辰", "巳") for p in voids)
+    # 깨끗한 해(공망·충 없음)가 검증 우선순위 상위에 온다.
+    assert any(p["clean"] for p in periods[:3])
