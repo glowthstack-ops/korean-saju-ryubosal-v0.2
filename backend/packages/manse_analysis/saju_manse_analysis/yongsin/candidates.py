@@ -33,6 +33,7 @@ _HOT_MONTHS = {Branch.SA, Branch.O, Branch.MI}
 _AXIS_OF: dict[str, str] = {
     "support_day_master": "eokbu", "resource_as_yongsin": "eokbu",
     "output_as_yongsin": "eokbu", "eokbu_normal": "eokbu",
+    "wealth_breaks_resource": "eokbu",
     "johu": "johu", "pattern_sangsin": "pattern", "disease_remedy": "disease",
     "dominant_one_element": "special", "follow_structure": "special",
 }
@@ -107,6 +108,47 @@ def _eokbu_strong_model(g: dict[str, Element], strength) -> YongsinCandidateMode
         gisin=_e(g["resource"]), gusin=_e(g["peer"]), hansin=_e(g["officer"]),
         confidence=conf,
         reasons=["신강 일간을 식상으로 설기", "인성/비겁 과다는 기신"],
+    )
+
+
+def _resource_overload(groups: dict[str, float]) -> bool:
+    """인성과다(印重) — 인성이 압도적으로 큰 신강. 식상 설기보다 재성 제어가 맞다."""
+    total = sum(groups.values()) or 1.0
+    resource = groups.get("resource", 0.0)
+    return resource / total >= 0.35 and resource > groups.get("peer", 0.0) * 1.5
+
+
+def _resource_overload_strict(groups: dict[str, float]) -> bool:
+    """중화신강용 엄격 인성과다 — 비중·비겁 대비 우세를 더 높게 본다(곧바로 확정 금지)."""
+    total = sum(groups.values()) or 1.0
+    resource = groups.get("resource", 0.0)
+    return resource / total >= 0.40 and resource > groups.get("peer", 0.0) * 2.0
+
+
+def _johu_or_disease_active(month_branch: Branch, geokguk: GeokgukResult) -> bool:
+    """조후(한습·조열 월령) 또는 병증(파격 2건+)이 우선되는 상황인가."""
+    ev = geokguk.evaluation
+    active = ev.total_active if ev else 0
+    cold_hot = (
+        month_branch in (_COLD_MONTHS | _HOT_MONTHS)
+        and SEASON_ELEMENT_BY_MONTH[month_branch] != Element.EARTH
+    )
+    return cold_hot or active >= 2
+
+
+def _resource_excess_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
+    """재성용신형(財損印): 인성과다 신강 → 재성으로 인성 제어, 관성으로 일간 억제."""
+    conf = round(min(0.55 + max(strength.score - 50.0, 0.0) / 60, 0.9), 4)
+    return YongsinCandidateModel(
+        model_type="wealth_breaks_resource",
+        label="재성용신형(財損印·인성과다)",
+        yongsin=_e(g["wealth"]), heesin=_e(g["officer"]),
+        gisin=_e(g["resource"]), gusin=_e(g["peer"]), hansin=_e(g["output"]),
+        confidence=conf,
+        reasons=[
+            "인성 과다 → 재성으로 인성 제어(財損印)",
+            "관성으로 일간 억제·조후, 식상은 인성에 극당해 무력",
+        ],
     )
 
 
@@ -259,10 +301,22 @@ def build_yongsin(
         elif has_root and sp in ("wealth", "output"):
             models.append(_resource_model(g, strength))
     elif band in _STRONG:
-        models.append(_eokbu_strong_model(g, strength))
+        if _resource_overload(groups):
+            models.append(_resource_excess_model(g, strength))  # 인성과다 → 財損印
+        else:
+            models.append(_eokbu_strong_model(g, strength))
     else:  # 중화권 — 경쟁 모델 강제 + 검증
         models.append(_support_model(g, strength))
         models.append(_eokbu_strong_model(g, strength))
+        # 중화신강 + 뚜렷한 인성과다 + 조후·병증 비우선일 때만 財損印을 '경쟁 후보'로 조건부 추가.
+        # (곧바로 확정하지 않고 축가중·신뢰도 경쟁에 맡긴다 — 중화권 안전성 우선.)
+        if (
+            band == "중화신강"
+            and _resource_overload_strict(groups)
+            and not _johu_or_disease_active(month_branch, geokguk)
+        ):
+            models.append(_resource_excess_model(g, strength))
+            warnings.append("neutral_zone: 인성과다(財損印) 후보 조건부 추가")
         warnings.append("neutral_zone: 경쟁 모델 동시 제시, 사용자 검증 필요")
 
     johu = _johu_model(month_branch, g)
@@ -272,7 +326,12 @@ def build_yongsin(
     pattern = _pattern_model(geokguk, g)
     if pattern is not None:
         models.append(pattern)
-    models.extend(_disease_models(geokguk, g))
+    # 인성과다면 '인성(印)을 약신으로 쓰는 병약'은 역효과 → 제외.
+    suppress_resource = _resource_overload(groups)
+    for dis in _disease_models(geokguk, g):
+        if suppress_resource and dis.yongsin == _e(g["resource"]):
+            continue
+        models.append(dis)
     if checks["bridge_required"].detected:
         warnings.append(f"통관 가능 구조: {checks['bridge_required'].detail}")
     if checks["isolation_health"].detected:
