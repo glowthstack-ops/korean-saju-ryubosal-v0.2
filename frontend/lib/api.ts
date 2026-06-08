@@ -81,6 +81,19 @@ export async function fetchLuckMonths(
   });
 }
 
+export async function fetchLuckDays(
+  profile: Profile,
+  year: number,
+  month: number,
+  referenceDate: string = todayISO(),
+): Promise<LuckPillar[]> {
+  return postJSON<LuckPillar[]>("/api/v2/manse/luck/days", {
+    birth: profileToBirthInput(profile, referenceDate),
+    year,
+    month,
+  });
+}
+
 export async function getCalendar(
   year: number,
   month: number,

@@ -25,6 +25,17 @@ class SinsalItem(BaseModel):
     use_for_yongsin_decision: bool = False
 
 
+class LuckSinsal(BaseModel):
+    """운(대운/세운/월운/일운)이 불러오는 신살 한 항목 — 카드 표시용 경량 모델.
+
+    운의 간지를 새로운 자리(位)로 보고 원국 기준점(일간·월지·년지·일지)에 대조해 산출한다.
+    원국 4기둥 신살(SinsalItem)과 달리 위치·강도 등 상세는 생략하고 표시용 최소 정보만 담는다.
+    """
+
+    name: str
+    polarity: str = "neutral"  # positive(길신) / caution(흉성) / neutral(신살)
+
+
 class SinsalSummary(BaseModel):
     repeated: list[str] = Field(default_factory=list)
     major_positive: list[str] = Field(default_factory=list)

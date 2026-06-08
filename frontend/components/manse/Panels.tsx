@@ -5,7 +5,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { fetchLuckMonths } from "@/lib/api";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
-import type { LuckPillar, ManseResult, Profile } from "@/lib/types";
+import type { LuckPillar, LuckSinsal, ManseResult, Profile } from "@/lib/types";
 
 // 백엔드 응답에 일부 필드가 없어도(구버전/부분 데이터) 깨지지 않도록 방어.
 function ent(obj: Record<string, number> | undefined | null): [string, number][] {
@@ -709,8 +709,15 @@ function polSign(p?: { element: string; score: number } | null) {
 }
 
 // 만세력 카드 한 칸: 상단 라벨 + 천간/십성 박스 + 지지/운성 박스(오행색). 선택·클릭 지원.
+// 신살 polarity → 한글 분류(툴팁용).
+const SINSAL_POLARITY_KO: Record<string, string> = {
+  positive: "길신",
+  caution: "흉성",
+  neutral: "신살",
+};
+
 function LuckCol({
-  topLabel, stem, branch, stemEl, branchEl, stemGod, branchGod, unseong,
+  topLabel, stem, branch, stemEl, branchEl, stemGod, branchGod, unseong, sinsal,
   current, selected, onClick, colRef,
 }: {
   topLabel: string;
@@ -721,6 +728,7 @@ function LuckCol({
   stemGod: string;
   branchGod: string;
   unseong?: string;
+  sinsal?: LuckSinsal[];
   current?: boolean;
   selected?: boolean;
   onClick?: () => void;
@@ -748,6 +756,21 @@ function LuckCol({
       </div>
       <div className="text-[10px] leading-none text-gray-400">{branchGod}</div>
       {unseong && <div className="text-[10px] leading-none text-gray-400">{unseong}</div>}
+      {sinsal && sinsal.length > 0 && (
+        <div className="mt-0.5 w-full border-t border-gray-200 pt-0.5">
+          <div className="flex flex-wrap justify-center gap-x-0.5 gap-y-px leading-tight">
+            {sinsal.map((s, i) => (
+              <span
+                key={i}
+                title={`${SINSAL_POLARITY_KO[s.polarity] ?? "신살"} · ${s.name}`}
+                className="text-[9px] text-gray-500"
+              >
+                {s.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </button>
   );
 }
@@ -841,6 +864,7 @@ export function LuckPanel({ result, profile }: { result: ManseResult; profile?: 
           <LuckCol key={d.index} topLabel={`${d.start_age}세`} stem={d.stem} branch={d.branch}
             stemEl={d.stem_effect?.element} branchEl={d.branch_effect?.element}
             stemGod={d.stem_ten_god} branchGod={d.branch_ten_god} unseong={d.twelve_unseong}
+            sinsal={d.luck_sinsal}
             current={d.index === lc.current_daewoon_index} selected={d.index === selDaewoon}
             colRef={d.index === selDaewoon ? dwRef : undefined}
             onClick={() => selectDaewoon(d.index)} />
@@ -853,6 +877,7 @@ export function LuckPanel({ result, profile }: { result: ManseResult; profile?: 
             <LuckCol key={y.label} topLabel={y.label} stem={y.stem} branch={y.branch}
               stemEl={y.stem_effect?.element} branchEl={y.branch_effect?.element}
               stemGod={y.stem_ten_god} branchGod={y.branch_ten_god} unseong={y.twelve_unseong}
+              sinsal={y.luck_sinsal}
               current={Number(y.label) === lc.current_year} selected={Number(y.label) === selYear}
               colRef={Number(y.label) === selYear ? syRef : undefined}
               onClick={() => selectYear(Number(y.label))} />
@@ -869,6 +894,7 @@ export function LuckPanel({ result, profile }: { result: ManseResult; profile?: 
               <LuckCol key={m.label} topLabel={`${Number(m.label.slice(5))}월`} stem={m.stem} branch={m.branch}
                 stemEl={m.stem_effect?.element} branchEl={m.branch_effect?.element}
                 stemGod={m.stem_ten_god} branchGod={m.branch_ten_god} unseong={m.twelve_unseong}
+                sinsal={m.luck_sinsal}
                 current={m.label === curMonthLabel}
                 colRef={m.label === curMonthLabel ? moRef : undefined}
                 onClick={() => selectMonth(m.label)} />

@@ -10,6 +10,8 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
+from saju_shared_types.sinsal import LuckSinsal
+
 
 class LuckPolarity(BaseModel):
     """운 천간/지지 한쪽의 용신 관계(드러남=천간, 기반=지지)."""
@@ -51,6 +53,8 @@ class LuckPillar(BaseModel):
     luck_label_code: str = ""  # pure_yongsin_luck / mixed_yongsin_surface / ...
     luck_summary: str = ""
     solar_term_range: str | None = None
+    # 이 운이 불러오는 신살/길신/흉성 — 카드 하단(십이운성 아래) 표시용.
+    luck_sinsal: list[LuckSinsal] = Field(default_factory=list)
 
 
 class DaewoonItem(BaseModel):
@@ -80,6 +84,8 @@ class DaewoonItem(BaseModel):
     luck_label_code: str = ""
     luck_summary: str = ""
     volatility_score: float = 0.0
+    # 이 대운이 불러오는 신살/길신/흉성 — 카드 하단(십이운성 아래) 표시용.
+    luck_sinsal: list[LuckSinsal] = Field(default_factory=list)
     # 이 대운에 속한 10개 세운(연동 표시용) — 대운 선택 시 노출.
     sewoon: list[LuckPillar] = Field(default_factory=list)
 

@@ -108,6 +108,11 @@ export interface LuckPolarity {
   reliability?: number;
 }
 
+export interface LuckSinsal {
+  name: string;
+  polarity: string; // positive(길신) / caution(흉성) / neutral(신살)
+}
+
 export interface DaewoonItem {
   index: number;
   start_age: number;
@@ -128,6 +133,7 @@ export interface DaewoonItem {
   luck_summary?: string;
   volatility_score: number;
   relations_to_chart: string[];
+  luck_sinsal?: LuckSinsal[];
   sewoon?: LuckPillar[];
 }
 
@@ -147,6 +153,7 @@ export interface LuckPillar {
   luck_label_code?: string;
   luck_summary?: string;
   solar_term_range?: string | null;
+  luck_sinsal?: LuckSinsal[];
 }
 
 export interface LuckCycles {

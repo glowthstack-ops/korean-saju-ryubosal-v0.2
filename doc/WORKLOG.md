@@ -988,3 +988,50 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   승리(서빙 CSS 바이트 위치로 확인). 헤드리스 브라우저 부재로 레이아웃 육안 검증은
   실기기(터널 URL)로 위임.
 검증: dev 서버 CSS 컴파일·서빙 OK · 미디어쿼리/오버라이드 적용 확인.
+
+### 운(대운·세운·월운·일운) 카드에 신살/길신/흉성 표시 ✅
+- 목적: 대운·세운·월운 각 카드의 십이운성 아래에 구분선을 긋고, 그 운의 간지가 불러오는
+  신살/길신/흉성을 간단히(단색 회색) 표시.
+- **운의 신살 산출**: 기존 신살 로직은 원국 4기둥 전용 → 운의 간지를 새로운 자리(位)로 보고
+  원국 기준점(일간·월지·년지·일지)+운 간지 자체에 대조하는 `sinsal_for_luck()` 신설
+  (`sinsal/sinsal_aggregator.py`). 단일 간지에 적용 가능한 신살만 포함: 역마·도화·화개·현침·
+  천문성(글자), 천을·태극·문창·학당·홍염·금여·암록·양인·천록·천주·관귀학관·문곡·낙정관·비인
+  (일간 기준), 월덕·천덕·천의성·단교관살(월지), 고신·과숙(년지), 격각살(일지),
+  귀문관살·원진(운지↔원국지 쌍). 제외: 일덕·일귀(일주 고정)·천라지망·협록(원국 구조 별).
+- **분류·정렬**: 카탈로그 polarity로 길신(positive)·흉성(caution)·신살(neutral) 분류,
+  표시는 길신→신살→흉성 순. polarity는 툴팁(`길신·OO`)으로 노출.
+- **스키마**: `LuckSinsal(name, polarity)` 모델 신설(`shared_types/sinsal.py`),
+  `LuckPillar`·`DaewoonItem`에 `luck_sinsal: list[LuckSinsal]` 추가. `_luck_pillar()`와
+  대운 생성부에서 부착 → 대운·세운·월운·일운 전부 자동 적용.
+- **프론트**: `LuckCol`에 `sinsal` prop 추가, 십이운성 아래 `border-t` 구분선 + 신살명을
+  text-[9px] 회색으로 줄바꿈 표시(없으면 미표시). 대운·세운·월운 3개 호출부에 전달.
+  (text-[9px]는 ≥641px에서 12px로 확대되어 태블릿·PC 가독성 확보.)
+검증: backend 160 pass · ruff clean · mypy clean(변경 4파일) · frontend tsc OK · build OK ·
+  end-to-end(1990-05-15 샘플) 대운/세운/월운/일운 신살 산출 확인.
+
+#### 후속: 운+원국 짝-완성 신살 추가(협록·천라지망) ✅
+- 배경: 협록(夾祿)·천라지망(天羅地網)은 "짝을 이뤄야 성립"하는 신살이라 최초엔 운에서 제외했으나,
+  원국이 한쪽을 보유하고 운이 나머지를 가져오면 완성되는 대표 케이스 → 귀문관살·원진의 쌍 완성과
+  동일 논리로 `sinsal_for_luck()`에 보강.
+- 협록: 일간 정록(L)의 양 협지(L-1·L+1) 중 운이 한쪽·원국이 다른 한쪽이면 성립(길신).
+- 천라지망: 천라(戌亥)·지망(辰巳) 짝 중 운이 한쪽·원국이 나머지면 성립(흉성).
+- (일덕·일귀는 일주 간지 자체 지칭이라 운엔 계속 미적용.)
+검증: 협록(운 乙丑+원국 卯)·천라지망(운 乙亥+원국 戌) 발동 + 짝 없을 때 미발동 확인 ·
+  backend 160 pass · ruff/mypy clean · 백엔드 --reload 자동 반영.
+
+### 간지달력 — 일운(십성·십이운성·신살/길신/흉성) 오버레이 ✅
+- 목적: 간지달력 각 날짜 셀에 그날 일운의 십성·십이운성·신살(길신/흉성 포함)을 사용자 원국 기준으로 표시.
+- 아키텍처: 달력은 stateless(원국 모름)·캐시(revalidate 3600) → 캐시 모델 유지 위해 일운을
+  클라이언트에서 온디맨드 오버레이. 기존 `luck/months` 패턴 그대로 일운 경로 신설.
+- 백엔드: `daily_luck_for_month()`(luck_cycles, `_daily` 공개 래퍼) + `manse_service.luck_days()` +
+  `POST /api/v2/manse/luck/days`(LuckDaysRequest: birth/year/month) → `list[LuckPillar]`.
+  LuckPillar에 stem/branch_ten_god·twelve_unseong·luck_sinsal이 이미 있어 그대로 활용.
+  label='YYYY-MM-DD'라 달력 셀과 날짜로 매칭(달력 day_ganji와 일운 간지 일치 확인: 丙午/丁未/戊申).
+- 프론트: `fetchLuckDays(profile, year, month)`(api.ts). `CalendarGrid`가 IndexedDB 프로필 로드 후
+  일운 조회→날짜맵 오버레이. 프로필 없거나 실패 시 기본 달력만(graceful).
+  - 셀: 절기 슬롯을 고정 높이(h-[15px])로 둬 그 아래 `border-t` 구분선이 셀마다 같은 줄에 정렬.
+    구분선 아래 천간·지지 십성(편관·정관) → 십이운성 → 신살(단색 회색, polarity는 툴팁).
+  - 요일 헤더 `sticky top-0`(여백 pt-2) + bg-white로 상단 고정 → 스크롤 시 요일 가시성 확보.
+  - 상세 패널(DayDetail)에도 십성/십이운성/신살 행 추가.
+검증: backend 160 pass · ruff/mypy clean(변경 파일) · frontend tsc OK · build OK ·
+  luck/days 엔드포인트(:8000 직접·:3000 리라이트) 200 · 30일 일운 산출 확인 · 백엔드 --reload 반영.

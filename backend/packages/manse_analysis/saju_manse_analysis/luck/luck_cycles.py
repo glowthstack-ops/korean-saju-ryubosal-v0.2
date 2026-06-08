@@ -9,6 +9,7 @@ from __future__ import annotations
 import calendar as _cal
 from datetime import date, datetime, timedelta
 
+from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
 from saju_manse_core.calendar.sexagenary_cycle import (
     day_ganzi,
     ganzi_from_index,
@@ -309,6 +310,7 @@ def _luck_pillar(
         luck_label_code=eff["luck_label_code"],
         luck_summary=eff["luck_summary"],
         solar_term_range=solar_range,
+        luck_sinsal=sinsal_for_luck(pillars, stem, branch),
     )
 
 
@@ -379,6 +381,7 @@ def compute_luck_cycles(
             luck_label_code=eff["luck_label_code"],
             luck_summary=eff["luck_summary"],
             volatility_score=_volatility(rels),
+            luck_sinsal=sinsal_for_luck(pillars, stem, branch),
             sewoon=sewoon,
         ))
 
@@ -468,3 +471,18 @@ def monthly_luck_for_year(
 ) -> list[LuckPillar]:
     """주어진 연도의 월운 12개 — 세운 선택 시 온디맨드 조회용(메인 응답엔 미포함)."""
     return _monthly(pillars, day_master, useful, unfavorable, year, table)
+
+
+def daily_luck_for_month(
+    pillars: FourPillarsResult,
+    day_master: Stem,
+    useful: set[str],
+    unfavorable: set[str],
+    year: int,
+    month: int,
+) -> list[LuckPillar]:
+    """주어진 연·월의 일운(날짜별) — 간지달력의 십성·십이운성·신살 오버레이용 온디맨드 조회.
+
+    각 LuckPillar.label은 'YYYY-MM-DD'(민간력 날짜)라 달력 셀과 날짜로 매칭한다.
+    """
+    return _daily(pillars, day_master, useful, unfavorable, year, month)

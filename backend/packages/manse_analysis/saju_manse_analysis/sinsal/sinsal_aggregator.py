@@ -8,7 +8,12 @@ from __future__ import annotations
 from saju_shared_types.constants import BRANCH_INDEX, JANGSAENG_BRANCH
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.pillars import FourPillarsResult, Pillar
-from saju_shared_types.sinsal import SinsalAnalysis, SinsalItem, SinsalSummary
+from saju_shared_types.sinsal import (
+    LuckSinsal,
+    SinsalAnalysis,
+    SinsalItem,
+    SinsalSummary,
+)
 from saju_shared_types.structure import StructureAnalysis
 
 from . import sinsal_catalog as cat
@@ -192,6 +197,149 @@ def _intensity(name: str, position: str, repeated: bool, void: bool, overlaps: b
     if score >= 0.45:
         return "medium"
     return "low"
+
+
+# 표시 정렬 우선순위: 길신 → 신살 → 흉성.
+_POLARITY_ORDER = {"positive": 0, "neutral": 1, "caution": 2}
+
+
+def sinsal_for_luck(
+    pillars: FourPillarsResult, stem: Stem, branch: Branch
+) -> list[LuckSinsal]:
+    """운(대운/세운/월운/일운) 간지가 불러오는 신살/길신/흉성을 산출.
+
+    운의 간지를 새로운 자리(位)로 보고 원국 기준점(일간·월지·년지·일지)과 운 간지 자체에
+    대조한다. 단일 간지에 적용 가능한 신살만 포함하며, 일주 고정 신살(일덕·일귀)과
+    원국 구조 신살(천라지망·협록)은 운에는 적용하지 않는다.
+
+    Args:
+        pillars: 원국 사주(기준점 제공).
+        stem: 운의 천간.
+        branch: 운의 지지.
+
+    Returns:
+        길신→신살→흉성 순으로 정렬된 LuckSinsal 목록(중복 제거).
+    """
+    day_stem = Stem(pillars.day.stem)
+    month_branch = Branch(pillars.month.branch)
+    year_branch = Branch(pillars.year.branch)
+    day_branch = Branch(pillars.day.branch)
+    natal_branches = {Branch(p.branch) for _pos, p in _positions(pillars)}
+
+    names: list[str] = []
+
+    def add(name: str) -> None:
+        if name not in names:
+            names.append(name)
+
+    # 글자살: 역마/도화/화개 (운 지지 글자 기준).
+    for nm, group in (("역마살", cat.SASAENG), ("도화살", cat.SAJEONG), ("화개살", cat.SAGO)):
+        if branch in group:
+            add(nm)
+
+    # 일간 기준 지지 타깃.
+    stem_branch_targets: list[tuple[str, list[Branch]]] = [
+        ("천을귀인", cat.CHEONEUL.get(day_stem, [])),
+        ("태극귀인", cat.TAEGEUK.get(day_stem, [])),
+        ("문창귀인", [cat.MUNCHANG[day_stem]]),
+        ("학당귀인", [JANGSAENG_BRANCH[day_stem]]),
+        ("홍염", [cat.HONGYEOM[day_stem]]),
+        ("금여", [cat.GEUMYEO[day_stem]]),
+        ("암록", [cat.AMROK[day_stem]]),
+    ]
+    if day_stem in cat.YANGIN:
+        stem_branch_targets.append(("양인", [cat.YANGIN[day_stem]]))
+    for nm, targets in stem_branch_targets:
+        if branch in targets:
+            add(nm)
+
+    # 추가 일간 기준 단일 타깃(천록/천주/관귀학관/문곡/낙정관/비인).
+    extra_stem: list[tuple[str, Branch | None]] = [
+        ("천록귀인", cat.CHEONROK.get(day_stem)),
+        ("천주귀인", cat.CHEONJU.get(day_stem)),
+        ("관귀학관", cat.GWANGWI.get(day_stem)),
+        ("문곡귀인", cat.MUNGOK.get(day_stem)),
+        ("낙정관살", cat.NAKJEONG.get(day_stem)),
+        ("비인살", cat.BIIN.get(day_stem)),
+    ]
+    for nm, tgt in extra_stem:
+        if tgt is not None and branch == tgt:
+            add(nm)
+
+    # 월덕(월지→천간) / 천덕(월지→천간 or 지지).
+    wd = cat.WOLDEOK.get(month_branch)
+    if wd is not None and stem == wd:
+        add("월덕귀인")
+    cd = cat.CHEONDEOK.get(month_branch)
+    if isinstance(cd, Stem) and stem == cd:
+        add("천덕귀인")
+    elif isinstance(cd, Branch) and branch == cd:
+        add("천덕귀인")
+
+    # 월지 기준(천의성=월지 직전, 단교관살).
+    if branch == cat.branch_at(BRANCH_INDEX[month_branch] - 1):
+        add("천의성")
+    if branch == cat.DANGYO[month_branch]:
+        add("단교관살")
+
+    # 년지 기준(고신/과숙).
+    if branch == cat.GOSHIN[year_branch]:
+        add("고신살")
+    if branch == cat.GWASUK[year_branch]:
+        add("과숙살")
+
+    # 일지 기준 격각살(일지 +2 지지).
+    if branch == cat.branch_at(BRANCH_INDEX[day_branch] + 2):
+        add("격각살")
+
+    # 괴강 / 백호 (운 간지 자체).
+    gz = (stem, branch)
+    if gz in cat.GOEGANG:
+        add("괴강")
+    if gz in cat.BAEKHO:
+        add("백호")
+
+    # 현침(운 글자).
+    if stem in cat.HYEONCHIM_STEMS or branch in cat.HYEONCHIM_BRANCHES:
+        add("현침")
+
+    # 천문성(운 지지 戌·亥).
+    if branch in cat.CHEONMUN_BRANCHES:
+        add("천문성")
+
+    # 귀문관살 / 원진 (운 지지 ↔ 원국 지지 쌍).
+    for nb in natal_branches:
+        pair = frozenset({branch, nb})
+        if len(pair) == 2 and pair in cat.GWIMUN:
+            add("귀문관살")
+        if len(pair) == 2 and pair in cat.WONJIN:
+            add("원진")
+
+    # 협록(夾祿): 일간 정록(L)의 양 협지(L-1·L+1) 중 운이 한쪽, 원국이 다른 한쪽이면 완성.
+    rok = cat.CHEONROK[day_stem]
+    prev_b = cat.branch_at(BRANCH_INDEX[rok] - 1)
+    next_b = cat.branch_at(BRANCH_INDEX[rok] + 1)
+    if branch == prev_b and next_b in natal_branches:
+        add("협록")
+    elif branch == next_b and prev_b in natal_branches:
+        add("협록")
+
+    # 천라지망살: 천라(戌亥)·지망(辰巳) 짝 중 운이 한쪽, 원국이 나머지 한쪽이면 완성.
+    for pair_b in (cat.CHEONRA, cat.JIMANG):
+        if branch in pair_b:
+            other = pair_b[0] if branch == pair_b[1] else pair_b[1]
+            if other in natal_branches:
+                add("천라지망살")
+
+    items = [
+        LuckSinsal(
+            name=nm,
+            polarity=cat.CATALOG_META.get(nm, {}).get("polarity", "neutral"),
+        )
+        for nm in names
+    ]
+    items.sort(key=lambda s: _POLARITY_ORDER.get(s.polarity, 1))
+    return items
 
 
 def analyze_sinsal(
