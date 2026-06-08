@@ -4,3 +4,21 @@
 
 :root { color-scheme: light; }
 body { @apply bg-gray-50 text-gray-900; }
+
+/*
+ * 태블릿·PC(≥641px) 전반 폰트 확대. 모바일(≤640px)은 기본값 유지.
+ * 밀집 패널(사주판·운·달력)의 작은 글씨 가독성 확보가 목적.
+ * 폰트 크기만 키우고 여백/레이아웃 spacing(rem)은 건드리지 않는다.
+ * Tailwind 유틸은 'utilities' 레이어에 있고 아래 규칙은 비(非)레이어라
+ * 출처 순서와 무관하게 항상 우선 적용된다.
+ */
+@media (min-width: 641px) {
+  /* 명명 유틸 */
+  .text-xs { font-size: 13px; }   /* 12 → 13 */
+  .text-sm { font-size: 15px; }   /* 14 → 15 */
+  /* 임의 px값(밀집 패널) */
+  .text-\[9px\],
+  .text-\[10px\] { font-size: 12px; }   /* 9·10 → 12 */
+  .text-\[11px\],
+  .text-\[12px\] { font-size: 13px; }   /* 11·12 → 13 */
+}
