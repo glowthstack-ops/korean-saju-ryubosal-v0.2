@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from saju_shared_types.analysis import ForceAnalysis
-from saju_shared_types.constants import CONTROLS
+from saju_shared_types.constants import CONTROLS, GENERATES
 from saju_shared_types.enums import Element
 from saju_shared_types.structure import StructureAnalysis
 from saju_shared_types.yongsin import SpecialCaseCheck
@@ -41,26 +41,56 @@ def detect_special_cases(
         detail=f"{strongest_el} {maxpct}%",
     )
 
-    # 종격: 극신약/태신약 + 뿌리 거의 없음.
+    # 종격(從格): 비겁(同氣)이 무근이고 식·재·관 한 세력이 압도할 때 일간이 그 세력에 순응.
+    #   진종(眞從): 뿌리 자체가 거의 없음(root_score<8) — 강하게 성립(special 축 단독 주도).
+    #   가종(假從): 비겁 무근이나 약한 인성이 남아 의지처가 있음 — 진위 불확실(억부와 경쟁·검증).
+    # root_score는 비겁 통근 + 인성 생조를 합산하므로(인성만으로도 커짐) 종격 진위는
+    # root_score 단독이 아니라 비겁/인성 세력비로 판별한다.
+    tg = force.ten_gods.groups
+    g_total = sum(tg.values()) or 1.0
+    peer_ratio = tg.get("peer", 0.0) / g_total
+    resource_ratio = tg.get("resource", 0.0) / g_total
+    _pressure = {k: tg.get(k, 0.0) for k in ("output", "wealth", "officer")}
+    dom_grp = max(_pressure, key=lambda k: _pressure[k])
+    dom_ratio = _pressure[dom_grp] / g_total
+    follow_kind: str | None = None
+    if band in ("극신약", "태신약"):
+        if root_score < 8.0:
+            follow_kind = "real"  # 무근 → 진종(종세 포함)
+        elif peer_ratio < 0.07 and dom_ratio >= 0.33:
+            if resource_ratio < 0.12 and dom_ratio >= 0.40:
+                follow_kind = "real"
+            elif resource_ratio < 0.28:
+                follow_kind = "pseudo"  # 약한 인성 의지처 → 가종
     follow = SpecialCaseCheck(
-        detected=band in ("극신약", "태신약") and root_score < 8.0,
-        confidence=round(min(max((10 - root_score) / 10, 0.0), 0.9), 4) if root_score < 10 else 0.0,
-        detail=f"root_score={root_score}",
+        detected=follow_kind is not None,
+        confidence=(0.85 if follow_kind == "real" else 0.5) if follow_kind else 0.0,
+        detail=(
+            f"{follow_kind}:{dom_grp}:peer={round(peer_ratio, 3)}:res={round(resource_ratio, 3)}"
+            if follow_kind
+            else f"root_score={root_score}"
+        ),
     )
 
-    # 통관: 서로 극하는 두 오행이 모두 강함(각 25%+).
+    # 통관: 서로 극하는 두 오행이 모두 강함(각 25%+). 통관 오행(a生M·M生b)이 약하면 약신 후보.
     bridge_detail = None
     bridge_detected = False
+    bridge_mediator: str | None = None
     strong_els = [Element(e) for e, p in pct.items() if p >= 25.0]
     for a in strong_els:
         for b in strong_els:
             if a != b and CONTROLS[a] == b:
+                med = GENERATES[a]  # a生M, M生b → M이 상극을 상생으로 잇는 통관 오행
                 bridge_detected = True
-                bridge_detail = f"{a}↔{b}"
+                bridge_detail = f"{a}→{med}→{b}"
+                if pct.get(str(med), 0.0) < 15.0:  # 통관 오행이 약할수록 약신 가치 큼
+                    bridge_mediator = str(med)
     tonggwan = SpecialCaseCheck(
         detected=bridge_detected,
-        confidence=0.4 if bridge_detected else 0.0,
-        detail=bridge_detail,
+        confidence=0.5 if bridge_mediator else (0.4 if bridge_detected else 0.0),
+        detail=(
+            f"{bridge_detail}|통관용신={bridge_mediator}" if bridge_mediator else bridge_detail
+        ),
     )
 
     # 고립/병약: 부족 오행이 손상 관계에 노출.

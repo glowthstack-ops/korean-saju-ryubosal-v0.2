@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from saju_shared_types.analysis import ForceAnalysis
 from saju_shared_types.constants import (
+    GENERATES,
     STEM_ELEMENT,
     group_elements,
 )
@@ -36,6 +37,12 @@ _AXIS_OF: dict[str, str] = {
     "resource_curbs_output": "eokbu",
     "johu": "johu", "pattern_sangsin": "pattern", "disease_remedy": "disease",
     "dominant_one_element": "special", "follow_structure": "special",
+    "bridge_tonggwan": "disease",  # 통관 약신은 병약(보정) 축으로 경쟁
+}
+
+# 종격 세분: 압도 세력 그룹 → 종격 명칭.
+_FOLLOW_SUBTYPE: dict[str, str] = {
+    "output": "종아격(從兒格)", "wealth": "종재격(從財格)", "officer": "종살격(從殺格)",
 }
 # 파격(damage) → 약신(repair) 그룹.
 _DAMAGE_REPAIR: dict[str, str] = {
@@ -331,6 +338,52 @@ def _select_axis_weights(
     return {"eokbu": 0.35, "johu": 0.20, "pattern": 0.25, "disease": 0.20, "special": 0.1}
 
 
+def _weak_band_models(
+    g: dict[str, Element], groups: dict[str, float], strength, force: ForceAnalysis
+) -> list[YongsinCandidateModel]:
+    """신약(극신약~중화신약) 억부 1차 후보. follow(진종)·special 미해당 시 사용."""
+    sp = _strongest_pressure(groups)
+    rooted_strong = strength.rootedness.get("label") == "신왕"
+    has_root = bool(force.rooting.tonggeun)
+    out: list[YongsinCandidateModel] = []
+    if _output_heavy(groups):
+        # 식상과다 → 인성으로 제식상·생일간(印制食). 비겁은 식상을 생해 악화 → 부일간형 제외.
+        out.append(_output_overload_model(g, strength))
+    elif _officer_heavy(groups):
+        # 살중(관살 태왕) → 살인상생(인성) 우선, 비겁은 방조. 뿌리 강하면 식신제살도 경쟁.
+        out.append(_support_model(g, strength))
+        out.append(_kill_to_resource_model(g, strength))
+        if rooted_strong:
+            out.append(_output_model(g, strength))
+    else:
+        out.append(_support_model(g, strength))
+        if rooted_strong and sp == "officer":
+            out.append(_output_model(g, strength))
+        elif has_root and sp in ("wealth", "output") and not _jaeda_sinyak(groups):
+            # 재다신약은 재극인으로 인성용신 불가 → 인성용신형 제외(부일간형만).
+            out.append(_resource_model(g, strength))
+    return out
+
+
+def _circulation(force: ForceAnalysis) -> dict:
+    """유통(流通): 오행이 상생(목→화→토→금→수)으로 막힘없이 순환하는 정도.
+
+    신약이라도 흐름이 원활하면 한쪽 고립이 적어 유연·적응형으로 본다(정보성 지표).
+    """
+    fe = force.five_elements
+    pct = fe.season_adjusted_element_strength or fe.distribution_environment
+    present = {e for e, p in pct.items() if p >= 8.0}
+    links = sum(1 for el in Element if str(el) in present and str(GENERATES[el]) in present)
+    n_present = len(present)
+    return {
+        "score": round(links / 5.0, 3),  # 상생 고리 5개 중 성립 비율
+        "sheng_links": links,
+        "present_elements": sorted(present),
+        "all_five_present": n_present == 5,
+        "smooth": links >= 4 and n_present >= 4,
+    }
+
+
 def build_yongsin(
     pillars: FourPillarsResult,
     force: ForceAnalysis,
@@ -348,6 +401,8 @@ def build_yongsin(
     checks = detect_special_cases(force, structure)
     models: list[YongsinCandidateModel] = []
     warnings: list[str] = []
+    is_pseudo_follow = False
+    pseudo_model: YongsinCandidateModel | None = None
 
     # 특수격 우선
     if checks["dominant_one_element"].detected:
@@ -363,34 +418,35 @@ def build_yongsin(
             reasons=["특정 오행이 압도적 → 왕한 흐름을 순행", "정면으로 극하는 오행은 기신"],
         ))
     elif checks["follow_structure"].detected:
-        strongest_pressure = _strongest_pressure(groups)
-        follow_el = g[strongest_pressure]
-        models.append(YongsinCandidateModel(
-            model_type="follow_structure", label="종격형",
+        detail = checks["follow_structure"].detail or ""
+        is_pseudo_follow = detail.startswith("pseudo")
+        sp_follow = _strongest_pressure(groups)
+        follow_el = g[sp_follow]
+        subtype = _FOLLOW_SUBTYPE[sp_follow]
+        follow_model = YongsinCandidateModel(
+            model_type="follow_structure",
+            label=("가종격(假從)·" + subtype) if is_pseudo_follow else subtype,
             yongsin=_e(follow_el), gisin=_e(g["peer"]),
             confidence=round(checks["follow_structure"].confidence, 4),
-            reasons=["극신약 + 무근 → 따르는 세력이 용신", "억지로 돕는 비겁/인성은 기신"],
-        ))
-    elif band in _WEAK:
-        sp = _strongest_pressure(groups)
-        rooted_strong = strength.rootedness.get("label") == "신왕"
-        has_root = bool(force.rooting.tonggeun)
-        if _output_heavy(groups):
-            # 식상과다 → 인성으로 제식상·생일간(印制食). 비겁은 식상을 생해 악화 → 부일간형 제외.
-            models.append(_output_overload_model(g, strength))
-        elif _officer_heavy(groups):
-            # 살중(관살 태왕) → 살인상생(인성) 우선, 비겁은 방조. 뿌리 강하면 식신제살도 경쟁.
-            models.append(_support_model(g, strength))
-            models.append(_kill_to_resource_model(g, strength))
-            if rooted_strong:
-                models.append(_output_model(g, strength))
+            reasons=(
+                [f"극신약·무근 → 가장 강한 세력({subtype})에 순응", "억지로 돕는 비겁/인성은 기신"]
+                + (
+                    ["인성이 약하게 남아 가종(假從) — 운에서 비겁·인성 입운 시 파격, 검증 필요"]
+                    if is_pseudo_follow else []
+                )
+            ),
+        )
+        if is_pseudo_follow:
+            # 가종: 억부(印·比)를 1차 후보로 정상 산출, 종격(순응)은 병기(비집계·검증 위임).
+            models.extend(_weak_band_models(g, groups, strength, force))
+            pseudo_model = follow_model
+            warnings.append(
+                "pseudo_follow(가종): 억부(印·比)와 종격(순응)이 경쟁 — 사용자 검증 필요"
+            )
         else:
-            models.append(_support_model(g, strength))
-            if rooted_strong and sp == "officer":
-                models.append(_output_model(g, strength))
-            elif has_root and sp in ("wealth", "output") and not _jaeda_sinyak(groups):
-                # 재다신약은 재극인으로 인성용신 불가 → 인성용신형 제외(부일간형만).
-                models.append(_resource_model(g, strength))
+            models.append(follow_model)
+    elif band in _WEAK:
+        models.extend(_weak_band_models(g, groups, strength, force))
     elif band in _STRONG:
         if _resource_overload(groups):
             models.append(_resource_excess_model(g, strength))  # 인성과다 → 財損印
@@ -428,12 +484,28 @@ def build_yongsin(
             continue
         models.append(dis)
     if checks["bridge_required"].detected:
-        warnings.append(f"통관 가능 구조: {checks['bridge_required'].detail}")
+        det = checks["bridge_required"].detail or ""
+        warnings.append(f"통관 가능 구조: {det}")
+        # 통관 오행이 약하면(약신) 실제 용신 후보로 승격(보정 축에서 경쟁).
+        if "통관용신=" in det:
+            med = det.split("통관용신=")[1]
+            models.append(YongsinCandidateModel(
+                model_type="bridge_tonggwan", label="통관용신형",
+                yongsin=med, confidence=0.5,
+                reasons=[
+                    f"상극({det.split('|')[0]})을 상생으로 잇는 통관 오행 {med}",
+                    "약한 통관 오행을 약신으로 보강",
+                ],
+                is_auxiliary=True,
+            ))
     if checks["isolation_health"].detected:
         warnings.append(f"고립/병약 리스크: {checks['isolation_health'].detail} (건강 레이어)")
 
     # 동적 축 가중치(상황별) — 격국/조후/병약을 '보정 레이어'로 반영, 신약은 억부 우선.
-    special = checks["dominant_one_element"].detected or checks["follow_structure"].detected
+    # 가종(pseudo)은 special 단독 주도가 아니라 억부와 경쟁시키므로 special 취급에서 제외.
+    special = checks["dominant_one_element"].detected or (
+        checks["follow_structure"].detected and not is_pseudo_follow
+    )
     axis_weights = _select_axis_weights(band, month_branch, geokguk, special)
 
     def _w(model_type: str) -> float:
@@ -533,6 +605,18 @@ def build_yongsin(
         "selected_model": top_model,
     }
 
+    # 가종(pseudo) 종격 모델은 집계에 넣지 않고 후보 목록에만 병기(억부 1차 결과는 유지).
+    if pseudo_model is not None:
+        models.append(pseudo_model)
+
+    # 유통(流通) 흐름 점수 — 정보성. 신약이라도 상생 순환이 원활하면 완화 해석 메모.
+    flow = _circulation(force)
+    if flow["smooth"] and band in _WEAK:
+        warnings.append(
+            f"유통 양호(상생 고리 {flow['sheng_links']}/5): 신약이나 오행 순환 원활 — "
+            "고립 적고 유연·적응형(신약 정도 완화 해석)"
+        )
+
     return AggregatedYongsinResult(
         status=status,
         special_case_checks=checks,
@@ -542,6 +626,7 @@ def build_yongsin(
         axis_weights=axis_weights,
         axes=axes_summary,
         final=final,
+        flow_circulation=flow,
         requires_validation=True,
         warnings=warnings,
     )

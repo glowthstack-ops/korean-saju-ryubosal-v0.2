@@ -47,5 +47,8 @@ class AggregatedYongsinResult(BaseModel):
     axis_weights: dict[str, float] = Field(default_factory=dict)
     axes: list[dict] = Field(default_factory=list)  # [{axis, weight, top_element, score}]
     final: dict = Field(default_factory=dict)
+    # 유통(流通) 흐름 점수(정보성):
+    # {score, sheng_links, present_elements, all_five_present, smooth}.
+    flow_circulation: dict | None = None
     requires_validation: bool = True
     warnings: list[str] = Field(default_factory=list)

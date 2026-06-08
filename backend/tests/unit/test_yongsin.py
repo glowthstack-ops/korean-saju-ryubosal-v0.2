@@ -93,6 +93,85 @@ def test_multi_axis_weights_and_ranking(make_pillars) -> None:
     assert y.axes[0]["axis"] == "eokbu"
 
 
+def test_jongsal_follow_overrides(make_pillars) -> None:
+    # 진종(眞從) 종살격: 甲 무근 + 관성(金) 압도 → 종격이 special 축 단독 주도, 용신=金(관).
+    pillars = make_pillars(
+        (Stem.GYEONG, Branch.SIN), (Stem.GYEONG, Branch.SIN),
+        (Stem.GAP, Branch.SIN), (Stem.GYEONG, Branch.O), Stem.GAP,
+    )
+    y = analyze_chart(pillars).yongsin
+    assert y.special_case_checks["follow_structure"].detected
+    assert y.special_case_checks["follow_structure"].detail.startswith("real:officer")
+    assert y.final["selected_model"] == "follow_structure"
+    assert y.final["yongsin"] == "金"
+    labels = {m.label for m in y.candidate_models}
+    assert "종살격(從殺格)" in labels
+
+
+def test_jongjae_and_jongah_naming(make_pillars) -> None:
+    # 종재격: 甲 무근 + 재성(土) 압도 → 용신 土.
+    jae = analyze_chart(make_pillars(
+        (Stem.MU, Branch.SUL), (Stem.MU, Branch.SUL),
+        (Stem.GAP, Branch.SUL), (Stem.MU, Branch.JIN), Stem.GAP,
+    )).yongsin
+    assert jae.final["yongsin"] == "土"
+    assert "종재격(從財格)" in {m.label for m in jae.candidate_models}
+    # 종아격: 丙 무근 + 식상(土) 압도 → 용신 土.
+    ah = analyze_chart(make_pillars(
+        (Stem.MU, Branch.JIN), (Stem.MU, Branch.JIN),
+        (Stem.BYEONG, Branch.JIN), (Stem.MU, Branch.SUL), Stem.BYEONG,
+    )).yongsin
+    assert ah.final["yongsin"] == "土"
+    assert "종아격(從兒格)" in {m.label for m in ah.candidate_models}
+
+
+def test_pseudo_follow_keeps_eokbu_and_flags(make_pillars) -> None:
+    # 사천(乙丑 庚辰 丁亥 戊申, 丁 일간): 비겁 무근이나 인성(木) 잔존 → 가종아.
+    # 1차 용신은 억부(印制食 木) 유지, 종아(土)는 병기, 검증 경고.
+    pillars = make_pillars(
+        (Stem.EUL, Branch.CHUK), (Stem.GYEONG, Branch.JIN),
+        (Stem.JEONG, Branch.HAE), (Stem.MU, Branch.SIN), Stem.JEONG,
+    )
+    y = analyze_chart(pillars).yongsin
+    fc = y.special_case_checks["follow_structure"]
+    assert fc.detected and fc.detail.startswith("pseudo:output")
+    # 억부(印制食)가 1차 용신으로 유지된다(종격이 강탈하지 않음).
+    assert y.final["yongsin"] == "木"
+    assert y.final["selected_model"] == "resource_curbs_output"
+    # 가종아격이 후보 목록에 병기된다.
+    assert "가종격(假從)·종아격(從兒格)" in {m.label for m in y.candidate_models}
+    assert any("pseudo_follow" in w for w in y.warnings)
+
+
+def test_tonggwan_model_emitted(make_pillars) -> None:
+    # 木(25%+)과 土(25%+)가 상극·통관 오행 火가 약함 → 통관용신형(火) 후보 생성.
+    pillars = make_pillars(
+        (Stem.GAP, Branch.IN), (Stem.MU, Branch.JIN),
+        (Stem.GAP, Branch.IN), (Stem.MU, Branch.SUL), Stem.MU,
+    )
+    y = analyze_chart(pillars).yongsin
+    assert y.special_case_checks["bridge_required"].detected
+    assert "통관용신=火" in (y.special_case_checks["bridge_required"].detail or "")
+    tg = [m for m in y.candidate_models if m.model_type == "bridge_tonggwan"]
+    assert tg and tg[0].yongsin == "火"
+
+
+def test_flow_circulation_present(make_pillars) -> None:
+    # 1980 신약(오행 5개 전부 + 상생 5고리) → 유통 양호.
+    pillars = make_pillars(
+        (Stem.GYEONG, Branch.SIN), (Stem.JEONG, Branch.HAE),
+        (Stem.GI, Branch.HAE), (Stem.GI, Branch.SA), Stem.GI,
+    )
+    y = analyze_chart(pillars).yongsin
+    flow = y.flow_circulation
+    assert flow is not None
+    assert flow["all_five_present"] is True
+    assert flow["sheng_links"] == 5 and flow["smooth"] is True
+    assert any("유통 양호" in w for w in y.warnings)
+    # 유통은 정보성 — 용신 선택은 기존대로 억부 土.
+    assert y.final["yongsin"] == "土"
+
+
 def test_axis_weight_sets_by_situation() -> None:
     # 상황별 동적 축 가중치(사용자 §10) 단위 검증.
     from saju_manse_analysis.yongsin.candidates import _select_axis_weights
