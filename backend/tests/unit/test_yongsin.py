@@ -66,6 +66,21 @@ def test_2015_excess_resource_is_gisin(make_pillars) -> None:
     assert f["hansin"] == "土"
 
 
+def test_1985_weak_resource_yongsin(make_pillars) -> None:
+    # 1985-04-18 16:00 (乙丑 庚辰 丁亥 戊申, 丁·태신약): 인성 木 용신.
+    # 기신=재성 金(재극인=극용신) · 구신=식상 土(생재성) · 희신=비겁 火(조일간) · 한신=관성 水.
+    pillars = make_pillars(
+        (Stem.EUL, Branch.CHUK), (Stem.GYEONG, Branch.JIN),
+        (Stem.JEONG, Branch.HAE), (Stem.MU, Branch.SIN), Stem.JEONG,
+    )
+    f = analyze_chart(pillars).yongsin.final
+    assert f["yongsin"] == "木"
+    assert f["heesin"] == "火"   # 비겁(조일간) — 기신생(설기) 아님
+    assert f["gisin"] == "金"    # 재성(재극인) = 극용신
+    assert f["gusin"] == "土"    # 식상(생재성) = 생기신
+    assert f["hansin"] == "水"
+
+
 def test_deficient_element_not_auto_yongsin(make_pillars) -> None:
     # 목은 raw 표면 부족이지만 자동 용신이 아니라 기신(관살)으로 분류된다.
     pillars = make_pillars(
