@@ -1060,3 +1060,15 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   `TOC_ITEMS`(10개: 진태양시·사주원국·형충회합·신살길성·오행십성분포·격국·신강신약·용신·용신검증·대운세운월운)
   렌더 순서와 일치. 클릭 시 `scrollIntoView({behavior:'smooth'})`.
 검증: frontend tsc OK · 프로덕션 build 성공(lint/type 통과).
+
+### 신살 표기·운 서브타이틀·ToC 모바일 노출 정리 ✅
+- **신살 표기**: `도화살` → `도화`로 단축(이웃한 `홍염`과 일관). 카탈로그 키
+  `sinsal_catalog.py:36` + 글자살 탐지 2곳(`sinsal_aggregator.py` 40·240, `cat.CATALOG_META[name]`
+  조회·설명문 `f"{branch} {name}(글자살)"`에 함께 반영). 검증: 잔여 참조 0 · ruff clean ·
+  sinsal pytest 9 pass.
+- **운 서브타이틀 문구**(`Panels.tsx` LuckStrip hint): 대운 "대운 선택시 해당 세운이 표시됩니다" /
+  세운 "세운 선택시 해당 월운이 표시됩니다" / 월운 "월운 선택시 간지달력으로 이동합니다".
+- **ToC 모바일 노출**: `FloatingToc.tsx` — 기존 `hidden lg:block`(≥1024px 전용)이 모바일에서
+  ToC를 숨기던 문제 해결 → `block`(전 화면 노출). 모바일은 호버 불가라 접힌 막대를 `<button>`으로
+  바꿔 탭→펼침, 항목 선택·바깥 `pointerdown` 시 닫힘 추가. 위치는 화면(뷰포트) 끝 `right-0` 유지.
+검증: frontend tsc OK.

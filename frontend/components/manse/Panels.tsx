@@ -870,7 +870,7 @@ export function LuckPanel({ result, profile }: { result: ManseResult; profile?: 
         {lc.current_age != null && ` · 현재 ${lc.current_age}세`}
       </p>
 
-      <LuckStrip label="대운" hint="선택하면 그 10년의 세운이 보여요">
+      <LuckStrip label="대운" hint="선택 시 해당 세운이 표시됩니다">
         {[...lc.daewoon_table].reverse().map((d) => (
           <LuckCol key={d.index} topLabel={`${d.start_age}세`} stem={d.stem} branch={d.branch}
             stemEl={d.stem_effect?.element} branchEl={d.branch_effect?.element}
@@ -883,7 +883,7 @@ export function LuckPanel({ result, profile }: { result: ManseResult; profile?: 
       </LuckStrip>
 
       {sewoon.length > 0 && (
-        <LuckStrip label="세운" hint="선택하면 그 해의 월운이 보여요">
+        <LuckStrip label="세운" hint="선택 시 해당 월운이 표시됩니다">
           {[...sewoon].reverse().map((y) => (
             <LuckCol key={y.label} topLabel={y.label} stem={y.stem} branch={y.branch}
               stemEl={y.stem_effect?.element} branchEl={y.branch_effect?.element}
@@ -897,7 +897,7 @@ export function LuckPanel({ result, profile }: { result: ManseResult; profile?: 
       )}
 
       {selYear != null && (
-        <LuckStrip label={`월운 - ${selYear}년`} hint="월을 선택하면 간지달력으로">
+        <LuckStrip label="월운" hint="선택 시 간지달력으로 이동합니다">
           {loadingYear === selYear && months.length === 0 ? (
             <span className="py-4 text-[11px] text-gray-400">월운 불러오는 중…</span>
           ) : (

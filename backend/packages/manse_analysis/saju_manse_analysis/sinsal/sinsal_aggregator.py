@@ -37,7 +37,7 @@ def _detect(pillars: FourPillarsResult) -> list[_Detection]:
 
     # 역마·도화·화개 — 지지 글자(사생·사정·사고지) 기준. 위치별 12신살 전체는 펼치지 않는다.
     char_groups: list[tuple[str, frozenset[Branch]]] = [
-        ("역마살", cat.SASAENG), ("도화살", cat.SAJEONG), ("화개살", cat.SAGO),
+        ("역마살", cat.SASAENG), ("도화", cat.SAJEONG), ("화개살", cat.SAGO),
     ]
     for pos, p in positions:
         cb = Branch(p.branch)
@@ -237,7 +237,7 @@ def sinsal_for_luck(
             names.append(name)
 
     # 글자살: 역마/도화/화개 (운 지지 글자 기준).
-    for nm, group in (("역마살", cat.SASAENG), ("도화살", cat.SAJEONG), ("화개살", cat.SAGO)):
+    for nm, group in (("역마살", cat.SASAENG), ("도화", cat.SAJEONG), ("화개살", cat.SAGO)):
         if branch in group:
             add(nm)
 

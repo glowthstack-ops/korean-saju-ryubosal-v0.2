@@ -33,7 +33,7 @@ CATALOG_META: dict[str, dict] = {
     "학당귀인": {"category": "academic_document", "polarity": "positive", "tags": ["학문", "교육"]},
     "금여": {"category": "wealth_status", "polarity": "positive", "tags": ["복록", "배우자복"]},
     "암록": {"category": "wealth_status", "polarity": "positive", "tags": ["숨은 복록", "조력"]},
-    "도화살": {"category": "relationship_social", "polarity": "neutral", "tags": ["매력", "인기"]},
+    "도화": {"category": "relationship_social", "polarity": "neutral", "tags": ["매력", "인기"]},
     "홍염": {"category": "relationship_social", "polarity": "neutral", "tags": ["매력", "끼"]},
     # 흉신/주의
     "양인": {"category": "health_risk", "polarity": "caution", "tags": ["과강", "사고", "수술"]},
