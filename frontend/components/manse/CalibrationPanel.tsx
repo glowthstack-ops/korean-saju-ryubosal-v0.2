@@ -123,7 +123,20 @@ export function CalibrationPanel({
   }, [initialAnswers]);
 
   // 제출 완료 시 문항을 접는다(완료 표시·재시도는 위 '용신 후보' 패널에서 처리).
-  if (questions.length === 0 || submitted) return null;
+  if (submitted) return null;
+
+  // 문항이 없으면(예: 어린 나이로 과거 운 이력이 부족) 빈 화면 대신 사유를 안내한다.
+  if (questions.length === 0) {
+    return (
+      <section className="rounded-lg border bg-white p-4">
+        <h2 className="mb-1 text-sm font-semibold">용신 검증 질문</h2>
+        <p className="text-xs text-gray-500">
+          검증할 과거 운(運) 기간이 충분하지 않거나 후보 모델이 부족해 용신 검증 질문을
+          생성할 수 없습니다.
+        </p>
+      </section>
+    );
+  }
 
   const answeredCount = questions.filter(
     (q) => answers[q.id]?.rating && answers[q.id]?.rating !== "unknown",

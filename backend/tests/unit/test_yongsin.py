@@ -40,6 +40,32 @@ def test_weak_chart_yields_support_model(make_pillars) -> None:
     }
 
 
+def test_yongsin_roles_form_partition(make_pillars) -> None:
+    # 용·희·기·구·한은 5오행의 분할(중복·누락 없음)이어야 한다.
+    pillars = make_pillars(
+        (Stem.EUL, Branch.MI), (Stem.MU, Branch.IN),
+        (Stem.BYEONG, Branch.JA), (Stem.GI, Branch.CHUK), Stem.BYEONG,
+    )
+    f = analyze_chart(pillars).yongsin.final
+    roles = [f["yongsin"], f["heesin"], f["gisin"], f["gusin"], f["hansin"]]
+    assert set(roles) == {"木", "火", "土", "金", "水"}  # 정확히 5오행 1:1
+
+
+def test_2015_excess_resource_is_gisin(make_pillars) -> None:
+    # 2015-03-01 03:34 진태양시(乙未 戊寅 丙子 己丑, 丙·신강): 인성 木 과다가 기신.
+    # 용신 金(木 제어) · 희신 火(木 설기, 木生火) · 기신 木 · 구신 水(水生木) · 한신 土.
+    pillars = make_pillars(
+        (Stem.EUL, Branch.MI), (Stem.MU, Branch.IN),
+        (Stem.BYEONG, Branch.JA), (Stem.GI, Branch.CHUK), Stem.BYEONG,
+    )
+    f = analyze_chart(pillars).yongsin.final
+    assert f["yongsin"] == "金"
+    assert f["heesin"] == "火"   # 생용신(土) 아닌 설기 희신(火) — 木 과다를 설기
+    assert f["gisin"] == "木"    # 인성 과다 = 구조적 병
+    assert f["gusin"] == "水"    # 생기신(水生木)
+    assert f["hansin"] == "土"
+
+
 def test_deficient_element_not_auto_yongsin(make_pillars) -> None:
     # 목은 raw 표면 부족이지만 자동 용신이 아니라 기신(관살)으로 분류된다.
     pillars = make_pillars(

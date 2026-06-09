@@ -44,6 +44,8 @@ export default function ManseResultPage() {
   const [calibration, setCalibration] = useState<CalibrationResult | null>(null);
   const [savedAnswers, setSavedAnswers] = useState<AnswerMap>({});
   const [error, setError] = useState<string | null>(null);
+  // 균시차 사용 토글(풀이 스타일에 따라 선택). 기본 사용. 끄면 진태양시에서 균시차를 제외해 재계산.
+  const [applyEoT, setApplyEoT] = useState(true);
   // 질문 생성/피드백 채점에 동일 기준일을 쓰도록 마운트 시 한 번 고정(자정·연 경계 안전).
   const [referenceDate] = useState(() => todayISO());
 
@@ -71,6 +73,15 @@ export default function ManseResultPage() {
   const reset = async () => {
     await clearProfile();
     router.replace("/manse");
+  };
+
+  // 균시차 토글: 즉시 재계산(진태양시·시주가 바뀔 수 있음). 미지정 옵션은 백엔드 기본값 유지.
+  const toggleEoT = (value: boolean) => {
+    setApplyEoT(value);
+    if (!profile) return;
+    calculateManse(profile, referenceDate, { apply_equation_of_time: value })
+      .then(setResult)
+      .catch((e) => setError(e instanceof Error ? e.message : "계산 실패"));
   };
 
   // 검증 제출 시: 화면 반영 + localStorage 저장(reload 후에도 유지).
@@ -104,7 +115,11 @@ export default function ManseResultPage() {
 
       <BirthSummaryBar result={result} />
       <div id="sec-truesolar" className="scroll-mt-4">
-        <TrueSolarTimeCard result={result} />
+        <TrueSolarTimeCard
+          result={result}
+          applyEquationOfTime={applyEoT}
+          onToggleEquationOfTime={toggleEoT}
+        />
       </div>
       <div id="sec-pillar" className="scroll-mt-4">
         <PillarBoard result={result} />

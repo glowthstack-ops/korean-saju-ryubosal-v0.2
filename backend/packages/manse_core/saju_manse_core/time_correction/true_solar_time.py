@@ -61,12 +61,11 @@ def compute(
     mean_solar = standard + timedelta(minutes=lon_corr)
 
     # 3) Equation of time (mean → apparent/true solar time).
-    eot = (
-        equation_of_time_minutes(mean_solar)
-        if options.apply_equation_of_time
-        else 0.0
-    )
-    true_solar = mean_solar + timedelta(minutes=eot)
+    # 균시차는 출생시각의 고정 천문값이므로 항상 산출해 보고하고, 진태양시 적용만 옵션으로 끈다
+    # (미사용 시 보고값은 원값 유지, 진태양시에는 0으로 반영).
+    eot = equation_of_time_minutes(mean_solar)
+    eot_applied = eot if options.apply_equation_of_time else 0.0
+    true_solar = mean_solar + timedelta(minutes=eot_applied)
 
     final = true_solar if options.apply_true_solar_time else civil
 

@@ -46,11 +46,12 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
 export async function calculateManse(
   profile: Profile,
   referenceDate: string = todayISO(),
+  timeOptions?: Record<string, unknown>,
 ): Promise<ManseResult> {
-  return postJSON<ManseResult>(
-    "/api/v2/manse/calculate",
-    profileToBirthInput(profile, referenceDate),
-  );
+  const body: Record<string, unknown> = profileToBirthInput(profile, referenceDate);
+  // 부분 지정: 명시하지 않은 시간옵션은 백엔드 기본값(모두 적용)을 따른다.
+  if (timeOptions) body.time_options = timeOptions;
+  return postJSON<ManseResult>("/api/v2/manse/calculate", body);
 }
 
 export interface FeedbackAnswer {

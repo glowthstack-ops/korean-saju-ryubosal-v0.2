@@ -25,6 +25,14 @@ function r1(v: unknown): string {
   return Number.isFinite(n) ? String(Math.round(n * 10) / 10) : String(v ?? "");
 }
 
+// 부호 명시(+/−): 가산/감산이 한눈에 보이도록 양수에도 +를 붙인다.
+function s1(v: unknown): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v ?? "");
+  const r = Math.round(n * 10) / 10;
+  return (r > 0 ? "+" : "") + r;
+}
+
 // 표준시 offset(분) → "UTC+9시간" / "UTC+5:30".
 function fmtOffset(v: unknown): string {
   const n = Number(v);
@@ -36,12 +44,23 @@ function fmtOffset(v: unknown): string {
   return m ? `UTC${sign}${h}:${String(m).padStart(2, "0")}` : `UTC${sign}${h}시간`;
 }
 
-function Card({ title, info, children }: { title: string; info?: string; children: React.ReactNode }) {
+function Card({
+  title,
+  info,
+  action,
+  children,
+}: {
+  title: string;
+  info?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <section className="rounded-lg border bg-white p-4">
       <h2 className="mb-2 flex items-center text-sm font-semibold">
         {title}
         {info && <InfoTooltip text={info} />}
+        {action && <span className="ml-auto font-normal">{action}</span>}
       </h2>
       {children}
     </section>
@@ -64,15 +83,44 @@ export function BirthSummaryBar({ result }: { result: ManseResult }) {
   );
 }
 
-export function TrueSolarTimeCard({ result }: { result: ManseResult }) {
+export function TrueSolarTimeCard({
+  result,
+  applyEquationOfTime = true,
+  onToggleEquationOfTime,
+}: {
+  result: ManseResult;
+  applyEquationOfTime?: boolean;
+  onToggleEquationOfTime?: (value: boolean) => void;
+}) {
   const tc = result.time_correction as Record<string, unknown> | null;
   if (!tc) return null;
   const changed = Boolean(tc.hour_pillar_changed_by_true_solar_time);
   return (
-    <Card title="시간 보정 · 진태양시" info="태어난 지역의 경도와 균시차를 반영해 실제 태양 위치 기준 시각으로 맞춘 값입니다. 태어난 '시(時)' 기둥을 정확히 정하는 데 씁니다.">
+    <Card
+      title="시간 보정 · 진태양시"
+      info="태어난 지역의 경도와 균시차를 반영해 실제 태양 위치 기준 시각으로 맞춘 값입니다. 태어난 '시(時)' 기둥을 정확히 정하는 데 씁니다."
+      action={
+        onToggleEquationOfTime && (
+          <label className="flex items-center gap-1 text-[11px] text-gray-500">
+            <input
+              type="checkbox"
+              checked={applyEquationOfTime}
+              onChange={(e) => onToggleEquationOfTime(e.target.checked)}
+            />
+            균시차 사용
+          </label>
+        )
+      }
+    >
       <ul className="space-y-1 text-xs text-gray-600">
         <li>표준시: {fmtOffset(tc.timezone_offset_minutes)} · 서머타임: {tc.daylight_saving_applied ? "적용" : "미적용"}</li>
-        <li>경도보정: {r1(tc.longitude_correction_minutes)}분 · 균시차: {r1(tc.equation_of_time_minutes)}분</li>
+        <li>
+          경도보정: {s1(tc.longitude_correction_minutes)}분 ·{" "}
+          {/* 미사용 시 원값을 밝은 회색(비활성)으로 노출 — 진태양시에만 미반영. */}
+          <span className={applyEquationOfTime ? "" : "text-gray-300"}>
+            균시차: {s1(tc.equation_of_time_minutes)}분{!applyEquationOfTime && " (미적용)"}
+          </span>
+        </li>
         <li>진태양시: {fmtDT(tc.true_solar_datetime)}</li>
         {changed && (
           <li className="rounded bg-amber-100 p-1 text-amber-800">

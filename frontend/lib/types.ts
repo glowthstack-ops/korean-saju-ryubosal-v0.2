@@ -271,7 +271,7 @@ export interface ManseResult {
   geokguk: Record<string, unknown>;
   yongsin_analysis: YongsinAnalysis;
   luck_cycles: LuckCycles | null;
-  calibration: { status: string; questions: CalibrationQuestion[] } | null;
+  calibration: { status: string; questions: CalibrationQuestion[]; note?: string } | null;
   traditional_extras: { sinsal: { full_list: SinsalItem[] } | null } | null;
 }
 

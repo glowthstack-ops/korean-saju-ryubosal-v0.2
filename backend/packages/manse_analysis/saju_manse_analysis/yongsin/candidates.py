@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from saju_shared_types.analysis import ForceAnalysis
 from saju_shared_types.constants import (
+    CONTROLS,
     GENERATES,
     STEM_ELEMENT,
     group_elements,
@@ -175,6 +176,71 @@ def _climate_harmful(month_branch: Branch, force: ForceAnalysis) -> str | None:
     if month_branch in _HOT_MONTHS and dist.get(Element.WATER, 0.0) / total < 0.22:
         return _e(Element.FIRE)
     return None
+
+
+def _classify_roles(
+    g: dict[str, Element],
+    groups: dict[str, float],
+    useful: dict[str, tuple[float, str, str]],
+    unfavorable: dict[str, tuple[float, str, str]],
+    yongsin_el: str | None,
+) -> dict[str, str | None]:
+    """용신을 중심으로 기신·구신·희신·한신을 생극 구조로 1개씩 배정(5오행 분할).
+
+    핵심: 억부에서 용신과 '병(기신)'은 항상 극 관계다. 그래서 기신 후보는 {극용신, 용신극}
+    둘뿐이고, 그중 '병'이 큰 쪽(분포 과다 + 일간을 극하는 관성 + 흉 투표)을 기신으로 고른다.
+    기신이 정해지면 나머지는 생극으로 결정된다.
+      - 구신 = 생기신(기신을 생해 키우는 오행)
+      - 희신 = 기신이 생하는 오행(과다 기신을 설기). 1980처럼 이 오행이 곧 생용신이면 일치.
+      - 한신 = 잔여 1오행
+    희신은 "용신을 생하는 오행"만이 아니라 "과다 기신을 설기하는 오행"도 포함한다는 정의에 맞춘다.
+    """
+    if not yongsin_el:
+        return {k: None for k in ("yongsin", "heesin", "gisin", "gusin", "hansin")}
+    roles_of = {_e(v): k for k, v in g.items()}  # 오행 → 십성 역할
+    total = sum(groups.values()) or 1.0
+
+    def _ratio(el: str) -> float:
+        return groups.get(roles_of[el], 0.0) / total
+
+    def _gen_of(el: str) -> str:  # el 을 생하는 오행(생el)
+        return next(_e(x) for x in Element if GENERATES[x] == Element(el))
+
+    def _el_gen(el: str) -> str:  # el 이 생하는 오행(el생)
+        return _e(GENERATES[Element(el)])
+
+    def _ctrl_of(el: str) -> str:  # el 을 극하는 오행(극el)
+        return next(_e(x) for x in Element if CONTROLS[x] == Element(el))
+
+    ilgan = _e(g["peer"])  # 일간 오행
+    geuk_ilgan = _ctrl_of(ilgan)  # 일간을 극하는 오행(관성)
+
+    # 기신 후보: 용신과 극 관계인 두 오행(극용신·용신극). '병'이 큰 쪽을 기신으로.
+    candidates = {_ctrl_of(yongsin_el), _e(CONTROLS[Element(yongsin_el)])}  # 극용신, 용신극
+
+    def _badness(el: str) -> float:
+        b = _ratio(el)  # 분포 과다(구조적 병)
+        if el == geuk_ilgan:
+            b += 1.0  # 일간을 직접 극(관성) → 강한 병
+        b += unfavorable.get(el, (0.0, "", ""))[0] - useful.get(el, (0.0, "", ""))[0]
+        return b
+
+    gisin = max(candidates, key=_badness)
+    gusin = _gen_of(gisin)   # 생기신
+    heesin = _el_gen(gisin)  # 기신이 생하는 오행(설기 희신)
+    # 설기 희신이 스스로 과다하면(예: 일간 강화하는 비겁 과다) 강등하고 생용신을 희신으로.
+    sheng_yong = _gen_of(yongsin_el)
+    if _ratio(heesin) >= 0.33 and sheng_yong not in (yongsin_el, gisin, gusin):
+        heesin = sheng_yong
+    used = {yongsin_el, gisin, gusin, heesin}
+    hansin = next((e for e in sorted(roles_of) if e not in used), None)
+    return {
+        "yongsin": yongsin_el,
+        "heesin": heesin,
+        "gisin": gisin,
+        "gusin": gusin,
+        "hansin": hansin,
+    }
 
 
 def _resource_excess_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
@@ -596,11 +662,11 @@ def build_yongsin(
     top_model = useful_candidates[0].model if useful_candidates else (
         models[0].model_type if models else None
     )
+    # 용·희·기·구·한 최종 배정: 용신 기준 생극 구조로 1개씩 분할.
+    yongsin_el = useful_candidates[0].element if useful_candidates else None
+    roles = _classify_roles(g, groups, useful, unfavorable, yongsin_el)
     final = {
-        "yongsin": useful_candidates[0].element if useful_candidates else None,
-        "heesin": useful_candidates[1].element if len(useful_candidates) > 1 else None,
-        "gisin": unfavorable_candidates[0].element if unfavorable_candidates else None,
-        "gusin": unfavorable_candidates[1].element if len(unfavorable_candidates) > 1 else None,
+        **roles,
         "confidence": round(model_conf.get(top_model or "", 0.0), 4),
         "selected_model": top_model,
     }
