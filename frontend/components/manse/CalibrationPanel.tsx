@@ -79,7 +79,7 @@ export function YongsinPanel({
       {calibration?.selected_model && (
         <p className="mt-1 text-[11px] text-emerald-700">
           검증 확정 축: {axisKo[axisOfModel[calibration.selected_model] ?? ""] ?? calibration.selected_model}
-          {calibration.final_yongsin ? `(${elementLabel(calibration.final_yongsin)})` : ""}
+          {calibration.final_yongsin ? `[${elementLabel(calibration.final_yongsin)}]` : ""}
           {" · 피드백 일치율 "}{Math.round(calibration.match_rate * 100)}%
         </p>
       )}
