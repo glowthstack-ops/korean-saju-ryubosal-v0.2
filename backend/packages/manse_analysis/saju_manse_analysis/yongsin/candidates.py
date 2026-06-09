@@ -181,6 +181,7 @@ def _climate_harmful(month_branch: Branch, force: ForceAnalysis) -> str | None:
 def _classify_roles(
     g: dict[str, Element],
     groups: dict[str, float],
+    band: str,
     useful: dict[str, tuple[float, str, str]],
     unfavorable: dict[str, tuple[float, str, str]],
     yongsin_el: str | None,
@@ -214,26 +215,33 @@ def _classify_roles(
 
     ilgan = _e(g["peer"])  # 일간 오행
     geuk_ilgan = _ctrl_of(ilgan)  # 일간을 극하는 오행(관성)
+    weak_band = band in _WEAK  # 신약군 — 관성이 약한 일간을 극해 병이 됨
 
     # 기신 후보: 용신과 극 관계인 두 오행(극용신·용신극). '병'이 큰 쪽을 기신으로.
     candidates = {_ctrl_of(yongsin_el), _e(CONTROLS[Element(yongsin_el)])}  # 극용신, 용신극
 
     def _badness(el: str) -> float:
         b = _ratio(el)  # 분포 과다(구조적 병)
-        if el == geuk_ilgan:
-            b += 1.0  # 일간을 직접 극(관성) → 강한 병
+        if el == geuk_ilgan and weak_band:
+            b += 1.0  # 신약: 관성이 일간을 직접 극 → 강한 병(신강이면 관성은 제어=길이라 제외)
         b += unfavorable.get(el, (0.0, "", ""))[0] - useful.get(el, (0.0, "", ""))[0]
         return b
 
     gisin = max(candidates, key=_badness)
     gusin = _gen_of(gisin)   # 생기신
     heesin = _el_gen(gisin)  # 기신이 생하는 오행(설기 희신)
-    # 설기 희신이 스스로 과다하면(예: 일간 강화하는 비겁 과다) 강등하고 생용신을 희신으로.
-    sheng_yong = _gen_of(yongsin_el)
-    if _ratio(heesin) >= 0.33 and sheng_yong not in (yongsin_el, gisin, gusin):
-        heesin = sheng_yong
     used = {yongsin_el, gisin, gusin, heesin}
     hansin = next((e for e in sorted(roles_of) if e not in used), None)
+    # 신강군에서 설기 희신이 일간(비겁)이면 일간을 더 강화하므로 부적절 → 한신과 교체.
+    # (태신강·극신강은 비겁이면 무조건, 신강은 비겁이 스스로 과다할 때만. 신약군은 비겁이 길.)
+    if hansin:
+        strong = band in ("신강", "태신강", "극신강", "중화신강")
+        extreme = band in ("태신강", "극신강")
+        bad_heesin = strong and (
+            (heesin == ilgan and extreme) or _ratio(heesin) >= 0.33
+        )
+        if bad_heesin:
+            heesin, hansin = hansin, heesin
     return {
         "yongsin": yongsin_el,
         "heesin": heesin,
@@ -664,7 +672,7 @@ def build_yongsin(
     )
     # 용·희·기·구·한 최종 배정: 용신 기준 생극 구조로 1개씩 분할.
     yongsin_el = useful_candidates[0].element if useful_candidates else None
-    roles = _classify_roles(g, groups, useful, unfavorable, yongsin_el)
+    roles = _classify_roles(g, groups, band, useful, unfavorable, yongsin_el)
     final = {
         **roles,
         "confidence": round(model_conf.get(top_model or "", 0.0), 4),
