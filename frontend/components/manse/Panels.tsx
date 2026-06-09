@@ -716,6 +716,15 @@ const SINSAL_POLARITY_KO: Record<string, string> = {
   neutral: "신살",
 };
 
+// 일주복음 전용 툴팁 — 운 간지가 일주와 동일할 때만 등장.
+const BOGEUM_DESC =
+  "복음(伏吟) · 운의 간지가 일주와 동일 — 엎드려 신음하는 형국으로 정체·반복·내적 침체를 의미";
+
+function sinsalTitle(s: LuckSinsal): string {
+  if (s.name === "복음") return BOGEUM_DESC;
+  return `${SINSAL_POLARITY_KO[s.polarity] ?? "신살"} · ${s.name}`;
+}
+
 function LuckCol({
   topLabel, stem, branch, stemEl, branchEl, stemGod, branchGod, unseong, sinsal,
   current, selected, onClick, colRef,
@@ -762,8 +771,10 @@ function LuckCol({
             {sinsal.map((s, i) => (
               <span
                 key={i}
-                title={`${SINSAL_POLARITY_KO[s.polarity] ?? "신살"} · ${s.name}`}
-                className="text-[9px] text-gray-500"
+                title={sinsalTitle(s)}
+                className={s.name === "복음"
+                  ? "text-[9px] font-medium text-amber-600"
+                  : "text-[9px] text-gray-500"}
               >
                 {s.name}
               </span>

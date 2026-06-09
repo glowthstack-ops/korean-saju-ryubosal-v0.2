@@ -16,6 +16,15 @@ const SINSAL_POLARITY_KO: Record<string, string> = {
   neutral: "신살",
 };
 
+// 일주복음 전용 툴팁 — 일운 간지가 일주와 동일할 때만 등장.
+const BOGEUM_DESC =
+  "복음(伏吟) · 운의 간지가 일주와 동일 — 엎드려 신음하는 형국으로 정체·반복·내적 침체를 의미";
+
+function sinsalTitle(s: LuckSinsal): string {
+  if (s.name === "복음") return BOGEUM_DESC;
+  return `${SINSAL_POLARITY_KO[s.polarity] ?? "신살"} · ${s.name}`;
+}
+
 function localTodayISO(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -78,8 +87,10 @@ function SinsalChips({ items }: { items: LuckSinsal[] }) {
   return (
     <div className="mt-px flex flex-wrap justify-center gap-x-0.5 leading-tight">
       {items.map((s, i) => (
-        <span key={i} title={`${SINSAL_POLARITY_KO[s.polarity] ?? "신살"} · ${s.name}`}
-          className="text-[9px] text-gray-500">
+        <span key={i} title={sinsalTitle(s)}
+          className={s.name === "복음"
+            ? "text-[9px] font-medium text-amber-600"
+            : "text-[9px] text-gray-500"}>
           {s.name}
         </span>
       ))}
@@ -115,8 +126,10 @@ function DayDetail({ d, luck, onClose }: { d: CalendarDay; luck?: LuckPillar; on
               <span className="text-gray-400">신살/길흉</span>
               <span className="flex flex-wrap justify-end gap-1">
                 {luck.luck_sinsal.map((s, i) => (
-                  <span key={i} title={SINSAL_POLARITY_KO[s.polarity] ?? "신살"}
-                    className="rounded border px-1 text-xs text-gray-600">
+                  <span key={i} title={sinsalTitle(s)}
+                    className={s.name === "복음"
+                      ? "rounded border border-amber-300 px-1 text-xs font-medium text-amber-600"
+                      : "rounded border px-1 text-xs text-gray-600"}>
                     {s.name}
                   </span>
                 ))}

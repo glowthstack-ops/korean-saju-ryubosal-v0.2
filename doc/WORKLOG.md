@@ -1035,3 +1035,16 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   - 상세 패널(DayDetail)에도 십성/십이운성/신살 행 추가.
 검증: backend 160 pass · ruff/mypy clean(변경 파일) · frontend tsc OK · build OK ·
   luck/days 엔드포인트(:8000 직접·:3000 리라이트) 200 · 30일 일운 산출 확인 · 백엔드 --reload 반영.
+
+### 일주복음(伏吟) — 운 간지가 일주와 동일할 때만 표시 ✅
+- 정책: 현대 실무상 복음은 대운·세운·월운·일운에서 일반 표시하지 않으나, 일주복음만은 활용.
+  운(대운/세운/월운/일운)의 간지가 일주 간지와 완전히 동일할 때만 "복음"을 표시한다
+  (년·월·시주 대조 복음은 제외).
+- 백엔드: `sinsal_for_luck()`에서 정렬 후 `stem==일간 and branch==일지`이면
+  `LuckSinsal(name="복음", polarity="caution")`를 목록 맨 앞(index 0)에 삽입 → 신살 영역 최상단 고정.
+- 프론트: 만세력 카드(Panels.tsx `LuckCol`)·간지달력 셀/상세(CalendarGrid.tsx `SinsalChips`·`DayDetail`)에
+  `sinsalTitle()` 헬퍼 도입 — 복음 칩은 전용 툴팁(`복음(伏吟) · 운의 간지가 일주와 동일 — 엎드려
+  신음하는 형국으로 정체·반복·내적 침체를 의미`)과 강조색(amber-600)을 적용, 그 외 신살은 기존
+  `분류 · 이름` 유지. 백엔드가 0번 인덱스로 고정하므로 두 화면 모두 자동으로 최상단 표시.
+검증: 갑자 운(==일주 甲子) → 복음 최상단 / 을축 운(!=일주) → 복음 미발동 확인 ·
+  ruff clean · frontend tsc OK. (mypy의 structure_analysis.py:86 unused-ignore는 본 변경과 무관한 기존 건.)

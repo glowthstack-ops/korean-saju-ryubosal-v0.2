@@ -212,13 +212,17 @@ def sinsal_for_luck(
     대조한다. 단일 간지에 적용 가능한 신살만 포함하며, 일주 고정 신살(일덕·일귀)과
     원국 구조 신살(천라지망·협록)은 운에는 적용하지 않는다.
 
+    일주복음(伏吟): 운의 간지가 일주 간지와 완전히 동일하면 "복음"을 목록 맨 앞에 둔다.
+    현대 실무에서 복음은 운별로 일반 표시하지 않으나, 일주복음만은 활용하므로 일주
+    대조분만 포함한다(년·월·시주 대조 복음은 제외).
+
     Args:
         pillars: 원국 사주(기준점 제공).
         stem: 운의 천간.
         branch: 운의 지지.
 
     Returns:
-        길신→신살→흉성 순으로 정렬된 LuckSinsal 목록(중복 제거).
+        복음(해당 시)→길신→신살→흉성 순으로 정렬된 LuckSinsal 목록(중복 제거).
     """
     day_stem = Stem(pillars.day.stem)
     month_branch = Branch(pillars.month.branch)
@@ -339,6 +343,10 @@ def sinsal_for_luck(
         for nm in names
     ]
     items.sort(key=lambda s: _POLARITY_ORDER.get(s.polarity, 1))
+
+    # 일주복음: 운 간지 == 일주 간지이면 최상단에 고정 표시.
+    if stem == day_stem and branch == day_branch:
+        items.insert(0, LuckSinsal(name="복음", polarity="caution"))
     return items
 
 
