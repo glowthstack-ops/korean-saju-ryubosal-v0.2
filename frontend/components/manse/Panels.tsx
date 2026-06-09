@@ -854,8 +854,9 @@ function LuckStrip({
       {/* note: 서브타이틀 아래·컬럼 위에 들어가는 보조 설명(예: 대운의 순행/대운수). */}
       {note}
       {/* 우→좌 오름차순(작은 값이 오른쪽): 렌더 시 배열을 역순으로 넘긴다.
-          py로 선택 링이 스크롤 컨테이너에 잘리지 않도록 여백 확보. */}
-      <div className="flex gap-2 overflow-x-auto px-1 pt-1.5 pb-2">{children}</div>
+          py로 선택 링이 스크롤 컨테이너에 잘리지 않도록 여백 확보.
+          md↑(카드 폭 충분)에서는 gap을 좁혀 10칸이 가로 스크롤 없이 들어가게 한다. */}
+      <div className="flex gap-2 overflow-x-auto px-1 pt-1.5 pb-2 md:gap-1">{children}</div>
     </div>
   );
 }
