@@ -84,7 +84,7 @@ export function BirthForm({ onSubmit }: { onSubmit: (p: Profile) => void }) {
         <span className="mb-1 block text-sm font-medium">태어난 지역</span>
         <input value={query} onChange={(e) => { setQuery(e.target.value); setPlace(null); }}
           placeholder="도시 검색" className="w-full rounded border px-2 py-1 text-sm" />
-        <div className="mt-1 flex flex-wrap gap-1">
+        <div className="mt-1 flex max-h-32 flex-wrap gap-1 overflow-y-auto">
           {results.map((l) => (
             <button type="button" key={`${l.name}-${l.tz}`} onClick={() => setPlace(l)}
               className={`rounded border px-2 py-1 text-xs ${
