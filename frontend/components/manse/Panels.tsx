@@ -786,13 +786,25 @@ function LuckCol({
   );
 }
 
-function LuckStrip({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function LuckStrip({
+  label,
+  hint,
+  note,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  note?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="mt-4">
       <p className="mb-1.5 text-xs font-semibold text-gray-700">
         {label}
         {hint && <span className="ml-1 font-normal text-[10px] text-gray-400">{hint}</span>}
       </p>
+      {/* note: 서브타이틀 아래·컬럼 위에 들어가는 보조 설명(예: 대운의 순행/대운수). */}
+      {note}
       {/* 우→좌 오름차순(작은 값이 오른쪽): 렌더 시 배열을 역순으로 넘긴다.
           py로 선택 링이 스크롤 컨테이너에 잘리지 않도록 여백 확보. */}
       <div className="flex gap-2 overflow-x-auto px-1 pt-1.5 pb-2">{children}</div>
@@ -865,12 +877,16 @@ export function LuckPanel({ result, profile }: { result: ManseResult; profile?: 
 
   return (
     <Card title="대운 · 세운 · 월운" info="10년·1년·1달 단위로 흘러오는 운의 흐름입니다. 타고난 사주는 그대로 두고, 시기마다 어떤 기운이 더해지는지 봅니다.">
-      <p className="text-xs text-gray-600">
-        {lc.direction === "forward" ? "순행" : "역행"} · 대운수 {lc.start_age}세
-        {lc.current_age != null && ` · 현재 ${lc.current_age}세`}
-      </p>
-
-      <LuckStrip label="대운" hint="선택 시 해당 세운이 표시됩니다">
+      <LuckStrip
+        label="대운"
+        hint="선택 시 해당 세운이 표시됩니다"
+        note={
+          <p className="text-xs text-gray-600">
+            {lc.direction === "forward" ? "순행" : "역행"} · 대운수 {lc.start_age}세
+            {lc.current_age != null && ` · 현재 ${lc.current_age}세`}
+          </p>
+        }
+      >
         {[...lc.daewoon_table].reverse().map((d) => (
           <LuckCol key={d.index} topLabel={`${d.start_age}세`} stem={d.stem} branch={d.branch}
             stemEl={d.stem_effect?.element} branchEl={d.branch_effect?.element}

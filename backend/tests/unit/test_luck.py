@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from saju_manse_analysis.luck.luck_cycles import _relations_to_chart
+
 from saju_api.services.manse_service import calculate
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.enums import Branch, Stem
 
 _BASE = dict(birth_date="1980-11-22", birth_time="09:08", birth_place_name="서울")
 
@@ -146,3 +149,41 @@ def test_luck_branch_void_clash_dynamics() -> None:
     gy = by["庚寅"].branch_effect
     assert gy is not None and gy.has_clash and not gy.is_void
     assert "충동 기신운" in gy.branch_label
+
+
+def test_luck_insashin_requires_natal_day_branch(make_pillars) -> None:
+    # 원국 일지가 巳(인사신 글자) + 년지 申 → 운 寅이 오면 인사신 삼형 성립.
+    natal_day = make_pillars(
+        (Stem.GAP, Branch.SIN), (Stem.GAP, Branch.JA),
+        (Stem.EUL, Branch.SA), (Stem.GAP, Branch.SUL), Stem.EUL,
+    )
+    rels = _relations_to_chart(Stem.GAP, Branch.IN, natal_day)
+    assert any(r.startswith("삼형") for r in rels)
+
+    # 원국 일지가 子(인사신 글자 아님)이고 巳·申이 다른 자리에 있어도 → 운 寅으로 미성립.
+    natal_no_day = make_pillars(
+        (Stem.EUL, Branch.SA), (Stem.GAP, Branch.SIN),
+        (Stem.GAP, Branch.JA), (Stem.GAP, Branch.SUL), Stem.GAP,
+    )
+    rels2 = _relations_to_chart(Stem.GAP, Branch.IN, natal_no_day)
+    assert not any(r.startswith("삼형") for r in rels2)
+
+
+def test_luck_jisejihyeong_position_independent(make_pillars) -> None:
+    # 축술미는 위치 무관: 원국에 丑만 있어도 운 戌이 오면 삼형 성립.
+    natal = make_pillars(
+        (Stem.EUL, Branch.CHUK), (Stem.GAP, Branch.JA),
+        (Stem.GAP, Branch.O), (Stem.GAP, Branch.JA), Stem.GAP,
+    )
+    rels = _relations_to_chart(Stem.GAP, Branch.SUL, natal)
+    assert any(r.startswith("삼형") for r in rels)
+
+
+def test_luck_directional_contribution(make_pillars) -> None:
+    # 방합기여: 운 지지 寅 + 원국 卯(辰) → 寅卯辰 방합(木) 기여.
+    natal = make_pillars(
+        (Stem.EUL, Branch.MYO), (Stem.GAP, Branch.JA),
+        (Stem.GAP, Branch.O), (Stem.GAP, Branch.SIN), Stem.GAP,
+    )
+    rels = _relations_to_chart(Stem.GAP, Branch.IN, natal)
+    assert any(r.startswith("방합기여") for r in rels)

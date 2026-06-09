@@ -27,6 +27,7 @@ from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.pillars import FourPillarsResult
 
 _ADJACENT = [("year", "month"), ("month", "day"), ("day", "hour")]
+_ADJ_PAIRS = {frozenset(p) for p in _ADJACENT}  # 인접 자리쌍(연-월·월-일·일-시)
 
 
 @dataclass
@@ -115,20 +116,28 @@ def detect(pillars: FourPillarsResult) -> list[Relation]:
             rels.append(Relation("break", "branch", [pa, pb], [str(ba), str(bb)]))
         if key in BRANCH_HARMS:
             rels.append(Relation("harm", "branch", [pa, pb], [str(ba), str(bb)]))
-        if key in PUNISHMENT_MUTUAL:
+        # 무례지형(子卯)은 인접(연-월·월-일·일-시)할 때만 성립. 격각(연-일·월-시·연-시)은
+        # 가운데 글자에 막혀 작용력이 거의 없으므로 흉살로 잡지 않는다. (자형은 위치 무관 유지)
+        if key in PUNISHMENT_MUTUAL and frozenset({pa, pb}) in _ADJ_PAIRS:
             rels.append(Relation("punishment", "branch", [pa, pb], [str(ba), str(bb)],
                                  notes=["무례지형"]))
 
-    # 삼형 (삼합처럼 셋 중 둘 이상이면 형 성립)
+    # 삼형 (셋 중 둘 이상이면 형 성립). 단 인사신(寅巳申·무은지형)은 일지(日支)가
+    # 寅·巳·申 중 하나일 때만 성립시킨다(일지 관여설). 축술미(지세지형)는 위치 무관.
+    insashin = frozenset({Branch.IN, Branch.SA, Branch.SIN})
+    day_branch = Branch(pillars.day.branch)
     for triple in PUNISHMENT_TRIPLES:
         members_present = [(p, b) for p, b in branches if b in triple]
-        if len({b for _, b in members_present}) >= 2:
-            rels.append(
-                Relation(
-                    "punishment", "branch", [p for p, _ in members_present],
-                    [str(b) for _, b in members_present], notes=["삼형"],
-                )
+        if len({b for _, b in members_present}) < 2:
+            continue
+        if triple == insashin and day_branch not in insashin:
+            continue
+        rels.append(
+            Relation(
+                "punishment", "branch", [p for p, _ in members_present],
+                [str(b) for _, b in members_present], notes=["삼형"],
             )
+        )
 
     # 자형 (같은 지지 2개 이상이며 자형 지지)
     for b in SELF_PUNISHMENT:

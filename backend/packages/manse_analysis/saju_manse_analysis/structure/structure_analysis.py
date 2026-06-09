@@ -15,6 +15,7 @@ from saju_shared_types.constants import (
     CONTROLS,
     SEASON_ELEMENT_BY_MONTH,
     STEM_ELEMENT,
+    hidden_stems_for,
     main_hidden_stem,
     ten_god,
 )
@@ -27,6 +28,8 @@ from saju_shared_types.structure import (
     StructureAnalysis,
     TransformationCheck,
 )
+
+from .._chart import ROOT_BRANCH_WEIGHT, ROOT_HIDDEN_WEIGHT
 
 _PALACE = {
     "year": "뿌리·가족궁", "month": "직업·환경궁", "day": "배우자궁", "hour": "자녀·결과궁",
@@ -47,6 +50,39 @@ _VOLATILITY = {
 }
 _ALLY = {TenGod.BIGYEON, TenGod.GEOMJAE, TenGod.JEONGIN, TenGod.PYEONIN}
 _PEER = {TenGod.BIGYEON, TenGod.GEOMJAE}
+
+# 합화(化) 가중 임계값 모델 — 월령+통근을 이진값이 아닌 가중 점수로 본다.
+_CARDINAL = {Branch.JA, Branch.O, Branch.MYO, Branch.YU}  # 왕지(子午卯酉)
+# 합 종류별 계수: 방합(계절세력) 최고, 육합(부부합)은 월령 없으면 化 어려워 감점.
+_TRANSFORM_KIND_COEF = {
+    "directional": 1.12,
+    "three_harmony": 1.00,
+    "half_harmony": 1.00,
+    "stem_combination": 1.00,
+    "six_combination": 0.80,
+}
+_T_FULL = 0.58  # 완전 합화(confirmed) 임계
+_T_HALF = 0.40  # 가합(possible) 임계
+
+
+def _target_root_ratio(target: Element, pillars: FourPillarsResult) -> float:
+    """타깃 오행의 가중 통근 비율(0~1). 자리(월35·일30·시18·년12)×지장간 위계(정1.0·중0.6·여0.35).
+
+    월지 정기(35) 1개를 1.0 기준으로 정규화한다.
+    """
+    positions = [
+        ("year", pillars.year.branch),
+        ("month", pillars.month.branch),
+        ("day", pillars.day.branch),
+    ]
+    if pillars.hour is not None:
+        positions.append(("hour", pillars.hour.branch))
+    raw = 0.0
+    for pos, b in positions:
+        for hstem, htype, _w in hidden_stems_for(Branch(b)):
+            if STEM_ELEMENT[hstem] == target:
+                raw += ROOT_BRANCH_WEIGHT[pos] * ROOT_HIDDEN_WEIGHT[htype.value]
+    return min(raw / 35.0, 1.0)
 
 
 @dataclass
@@ -83,17 +119,18 @@ def _transformation(
     relations: list[Relation],
     heavenly_stems: set[Stem],
 ) -> TransformationCheck:
-    target = Element(rel.transform_element)  # type: ignore[arg-type]  # caller ensures non-None
+    target = Element(rel.transform_element)  # caller ensures non-None
     season_el = SEASON_ELEMENT_BY_MONTH[month_branch]
-    month_supports = season_el == target or BRANCH_ELEMENT[month_branch] == target
+    season_match = season_el == target
+    month_br_match = BRANCH_ELEMENT[month_branch] == target
+    month_supports = season_match or month_br_match
+    # 월령 지원 등급: 월지 오행 일치(1.0) > 계절 일치(0.7) > 없음(0.0).
+    wol = 1.0 if month_br_match else (0.7 if season_match else 0.0)
 
-    branches = [pillars.year.branch, pillars.month.branch, pillars.day.branch]
-    if pillars.hour is not None:
-        branches.append(pillars.hour.branch)
-    root_exists = any(
-        BRANCH_ELEMENT[Branch(b)] == target or STEM_ELEMENT[main_hidden_stem(Branch(b))] == target
-        for b in branches
-    )
+    # 타깃 오행의 가중 통근(0~1) + 왕지가 월지일 때 가산(왕지월령 → 化 세력 극대화).
+    root_ratio = _target_root_ratio(target, pillars)
+    wangji_bonus = 0.15 if (month_branch in _CARDINAL and month_br_match) else 0.0
+    coef = _TRANSFORM_KIND_COEF.get(rel.rel_type, 1.0)
 
     # 방해 요소(blockers): 합에 참여한 글자가 충/형으로 흔들리거나, 천간합 글자가
     # 다른 천간에 의해 극당하면 합화가 불완전해진다.
@@ -116,17 +153,19 @@ def _transformation(
                     blockers.append(f"극:{hv}→{stem}")
     blockers = sorted(set(blockers))
 
-    confidence = 0.3 + 0.3 * month_supports + 0.2 * root_exists - 0.15 * len(blockers)
-    confirmed = month_supports and root_exists and not blockers
-    if confirmed:
-        confidence += 0.2
+    # 가중 점수: (기본 + 월령등급 + 통근 + 왕지가산)·합종류계수 − blocker감산.
+    score = (0.30 + 0.35 * wol + 0.25 * root_ratio + wangji_bonus) * coef - 0.15 * len(blockers)
+    score = _clamp(score, 0.0, 0.95)
+    # 완전 합화는 월령 지원이 전제(계절·월지). 가합(possible)은 통근만으로도 인정.
+    confirmed = score >= _T_FULL and month_supports and not blockers
+    possible = score >= _T_HALF and not blockers
     return TransformationCheck(
         members=rel.members,
         target_element=str(target),
         exists=True,
-        possible=(month_supports or root_exists) and not blockers,
+        possible=possible,
         confirmed=confirmed,
-        confidence=round(max(min(confidence, 0.95), 0.0), 4),
+        confidence=round(score, 4),
         blockers=blockers,
     )
 

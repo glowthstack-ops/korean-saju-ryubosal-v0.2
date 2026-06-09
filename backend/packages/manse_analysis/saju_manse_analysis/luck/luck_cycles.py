@@ -19,10 +19,16 @@ from saju_manse_core.calendar.sexagenary_cycle import (
 from saju_manse_core.calendar.solar_terms import SolarTermTable
 from saju_manse_core.pillars.twelve_unseong import twelve_unseong
 from saju_shared_types.constants import (
+    BRANCH_BREAKS,
     BRANCH_CLASHES,
     BRANCH_ELEMENT,
+    BRANCH_HARMS,
+    DIRECTIONAL_COMBINATIONS,
     MONTH_BRANCH_ORDER,
     MONTH_STEM_START,
+    PUNISHMENT_MUTUAL,
+    PUNISHMENT_TRIPLES,
+    SELF_PUNISHMENT,
     SIX_COMBINATIONS,
     STEM_COMBINATIONS,
     STEM_ELEMENT,
@@ -214,8 +220,14 @@ def _luck_effect(
 
 
 def _relations_to_chart(stem: Stem, branch: Branch, pillars: FourPillarsResult) -> list[str]:
+    """운 간지가 원국과 만드는 형충회합. 형(刑)은 운으로 들어와 완성될 때도 성립시킨다.
+
+    인사신(寅巳申·무은지형)은 원국 일지가 寅·巳·申 중 하나일 때만 성립(일지 관여설).
+    축술미·자형·무례지형은 위치 무관(운+원국 글자만 모이면 성립).
+    """
     natal_branches = [Branch(p.branch) for p in _natal(pillars)]
     natal_stems = [Stem(p.stem) for p in _natal(pillars)]
+    day_branch = Branch(pillars.day.branch)
     out: list[str] = []
     for nb in natal_branches:
         key = frozenset({branch, nb})
@@ -223,12 +235,36 @@ def _relations_to_chart(stem: Stem, branch: Branch, pillars: FourPillarsResult) 
             out.append(f"충:{branch}-{nb}")
         if branch != nb and key in SIX_COMBINATIONS:
             out.append(f"육합:{branch}-{nb}")
+        if branch != nb and key in BRANCH_BREAKS:
+            out.append(f"파:{branch}-{nb}")
+        if branch != nb and key in BRANCH_HARMS:
+            out.append(f"해:{branch}-{nb}")
+        if branch != nb and key in PUNISHMENT_MUTUAL:
+            out.append(f"무례지형:{branch}-{nb}")
     for ns in natal_stems:
         if stem != ns and frozenset({stem, ns}) in STEM_COMBINATIONS:
             out.append(f"천간합:{stem}-{ns}")
     for members, element, _royal in THREE_HARMONY:
         if branch in members and (members - {branch}) & set(natal_branches):
             out.append(f"삼합기여:{element}")
+    for members, element in DIRECTIONAL_COMBINATIONS:
+        if branch in members and (members - {branch}) & set(natal_branches):
+            out.append(f"방합기여:{element}")
+    # 자형: 운 지지가 자형 지지이고 원국에 같은 지지가 있으면(2개 이상) 성립.
+    if branch in SELF_PUNISHMENT and branch in natal_branches:
+        out.append(f"자형:{branch}")
+    # 삼형: 운 지지+원국 지지로 2글자 이상 모이면 성립. 인사신은 일지 조건 충족 시만.
+    insashin = frozenset({Branch.IN, Branch.SA, Branch.SIN})
+    for triple in PUNISHMENT_TRIPLES:
+        if branch not in triple:
+            continue
+        others = (triple - {branch}) & set(natal_branches)
+        if not others:
+            continue
+        if triple == insashin and day_branch not in insashin:
+            continue
+        partners = "".join(str(o) for o in others)
+        out.append(f"삼형:{branch}-{partners}")
     return out
 
 
