@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CalibrationPanel, YongsinPanel } from "@/components/manse/CalibrationPanel";
+import { FloatingToc, type TocItem } from "@/components/manse/FloatingToc";
 import {
   BirthSummaryBar,
   DistributionPanel,
@@ -21,6 +22,20 @@ import {
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
 
 type AnswerMap = Record<string, { rating: string; events: string[] }>;
+
+// 우측 플로팅 목차 항목(섹션 id ↔ 표시 라벨). 렌더 순서와 일치시킨다.
+const TOC_ITEMS: TocItem[] = [
+  { id: "sec-truesolar", label: "진태양시" },
+  { id: "sec-pillar", label: "사주 원국" },
+  { id: "sec-structure", label: "형충회합" },
+  { id: "sec-sinsal", label: "신살·길성" },
+  { id: "sec-distribution", label: "오행·십성 분포" },
+  { id: "sec-geokguk", label: "격국" },
+  { id: "sec-strength", label: "신강·신약" },
+  { id: "sec-yongsin", label: "용신" },
+  { id: "sec-calibration", label: "용신 검증" },
+  { id: "sec-luck", label: "대운·세운·월운" },
+];
 
 export default function ManseResultPage() {
   const router = useRouter();
@@ -88,29 +103,51 @@ export default function ManseResultPage() {
       </div>
 
       <BirthSummaryBar result={result} />
-      <TrueSolarTimeCard result={result} />
-      <PillarBoard result={result} />
-      <StructurePanel result={result} />
-      <SinsalPanel result={result} />
-      <DistributionPanel result={result} />
-      <GeokgukPanel result={result} />
-      <StrengthPanel result={result} />
+      <div id="sec-truesolar" className="scroll-mt-4">
+        <TrueSolarTimeCard result={result} />
+      </div>
+      <div id="sec-pillar" className="scroll-mt-4">
+        <PillarBoard result={result} />
+      </div>
+      <div id="sec-structure" className="scroll-mt-4">
+        <StructurePanel result={result} />
+      </div>
+      <div id="sec-sinsal" className="scroll-mt-4">
+        <SinsalPanel result={result} />
+      </div>
+      <div id="sec-distribution" className="scroll-mt-4">
+        <DistributionPanel result={result} />
+      </div>
+      <div id="sec-geokguk" className="scroll-mt-4">
+        <GeokgukPanel result={result} />
+      </div>
+      <div id="sec-strength" className="scroll-mt-4">
+        <StrengthPanel result={result} />
+      </div>
 
-      <YongsinPanel
-        result={result}
-        calibration={calibration}
-        onRedo={() => setCalibration(null)}
-      />
-      <CalibrationPanel
-        result={result}
-        profile={profile}
-        referenceDate={referenceDate}
-        onResult={onCalibrationResult}
-        initialAnswers={savedAnswers}
-        submitted={calibration !== null}
-      />
+      <div id="sec-yongsin" className="scroll-mt-4">
+        <YongsinPanel
+          result={result}
+          calibration={calibration}
+          onRedo={() => setCalibration(null)}
+        />
+      </div>
+      <div id="sec-calibration" className="scroll-mt-4">
+        <CalibrationPanel
+          result={result}
+          profile={profile}
+          referenceDate={referenceDate}
+          onResult={onCalibrationResult}
+          initialAnswers={savedAnswers}
+          submitted={calibration !== null}
+        />
+      </div>
 
-      <LuckPanel result={result} profile={profile} />
+      <div id="sec-luck" className="scroll-mt-4">
+        <LuckPanel result={result} profile={profile} />
+      </div>
+
+      <FloatingToc items={TOC_ITEMS} />
     </div>
   );
 }

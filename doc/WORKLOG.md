@@ -1048,3 +1048,15 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   `분류 · 이름` 유지. 백엔드가 0번 인덱스로 고정하므로 두 화면 모두 자동으로 최상단 표시.
 검증: 갑자 운(==일주 甲子) → 복음 최상단 / 을축 운(!=일주) → 복음 미발동 확인 ·
   ruff clean · frontend tsc OK. (mypy의 structure_analysis.py:86 unused-ignore는 본 변경과 무관한 기존 건.)
+
+### 만세력 — 우측 중앙 플로팅 목차(ToC) 버튼 ✅
+- 목적: 만세력 결과 페이지 우측 중앙(상하 기준)에 노션 스타일 반투명 목차 이동 버튼 배치.
+- 컴포넌트: `components/manse/FloatingToc.tsx`(신설) — `fixed right-0 top-1/2 -translate-y-1/2`.
+  평소엔 섹션마다 얇은 가로 막대(dash)만 반투명 노출, hover 시 `bg-white/70 backdrop-blur` 패널로
+  펼쳐져 섹션 라벨 목록 표시. `IntersectionObserver`(rootMargin -45%/-50%)로 현재 섹션 강조(scroll spy).
+  hover 상태는 onMouseEnter/Leave + 좌측 `pl-10` 투명 영역으로 안정화(absolute hover-loss 회피).
+- 노출 기준: `lg:block`(≥1024px) — 본문 `max-w-3xl`(768px)과 겹치지 않는 폭에서만 표시, 그 이하 숨김.
+- 페이지: `app/manse/result/page.tsx` — 각 섹션을 `<div id="sec-*" class="scroll-mt-4">`로 감싸 앵커 부여,
+  `TOC_ITEMS`(10개: 진태양시·사주원국·형충회합·신살길성·오행십성분포·격국·신강신약·용신·용신검증·대운세운월운)
+  렌더 순서와 일치. 클릭 시 `scrollIntoView({behavior:'smooth'})`.
+검증: frontend tsc OK · 프로덕션 build 성공(lint/type 통과).
