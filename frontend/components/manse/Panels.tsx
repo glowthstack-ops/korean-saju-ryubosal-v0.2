@@ -152,6 +152,12 @@ export function StrengthPanel({ result }: { result: ManseResult }) {
         )}
       </p>
       {st.band_note && <p className="mt-1 text-[11px] text-amber-700">{st.band_note}</p>}
+      {/* 종격·가종·통관·유통 등 중화/특수 해석 경고(용신 분석 산출). 신약/신강 판정 보조. */}
+      {(result.yongsin_analysis.warnings ?? []).map((w) => (
+        <p key={w} className="mt-1 rounded bg-violet-50 px-2 py-1 text-[11px] text-violet-700">
+          ⚖ {w.replace("pseudo_follow(가종)", "가종(假從)")}
+        </p>
+      ))}
       {(st.reason ?? []).length > 0 && (
         <ul className="mt-1 list-disc pl-4 text-xs text-gray-600">
           {(st.reason ?? []).map((r) => <li key={r}>{r}</li>)}

@@ -65,7 +65,9 @@ export function BirthForm({ onSubmit }: { onSubmit: (p: Profile) => void }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm">
           <span className="mb-1 block font-medium">생년월일</span>
+          {/* min/max로 연도 입력을 4자리로 제한(브라우저 date 입력의 6자리 연도 방지). */}
           <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
+            min="1900-01-01" max={new Date().toISOString().slice(0, 10)}
             className="w-full rounded border px-2 py-1" required />
         </label>
         <label className="block text-sm">
