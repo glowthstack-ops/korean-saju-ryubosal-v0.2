@@ -51,6 +51,9 @@ class SinsalAnalysis(BaseModel):
     by_pillar: dict[str, list[str]] = Field(default_factory=dict)
     by_category: dict[str, list[str]] = Field(default_factory=dict)
     full_list: list[SinsalItem] = Field(default_factory=list)
+    # 천을귀인 대상 지지(일간 기준, 한자) — 원국 성립 여부와 무관하게 항상 제공.
+    # 프론트가 동일 표를 하드코딩 중복하지 않도록 응답에 포함한다.
+    cheoneul_targets: list[str] = Field(default_factory=list)
     hour_unknown: bool = False
     catalog_version: str = "default-2024.1"
     warnings: list[str] = Field(default_factory=list)

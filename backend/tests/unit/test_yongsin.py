@@ -141,8 +141,9 @@ def test_jongsal_follow_overrides(make_pillars) -> None:
         (Stem.GAP, Branch.SIN), (Stem.GYEONG, Branch.O), Stem.GAP,
     )
     y = analyze_chart(pillars).yongsin
-    assert y.special_case_checks["follow_structure"].detected
-    assert y.special_case_checks["follow_structure"].detail.startswith("real:officer")
+    fs = y.special_case_checks["follow_structure"]
+    assert fs.detected
+    assert fs.detail is not None and fs.detail.startswith("real:officer")
     assert y.final["selected_model"] == "follow_structure"
     assert y.final["yongsin"] == "金"
     labels = {m.label for m in y.candidate_models}
@@ -175,7 +176,7 @@ def test_pseudo_follow_keeps_eokbu_and_flags(make_pillars) -> None:
     )
     y = analyze_chart(pillars).yongsin
     fc = y.special_case_checks["follow_structure"]
-    assert fc.detected and fc.detail.startswith("pseudo:output")
+    assert fc.detected and fc.detail is not None and fc.detail.startswith("pseudo:output")
     # 억부(印制食)가 1차 용신으로 유지된다(종격이 강탈하지 않음).
     assert y.final["yongsin"] == "木"
     assert y.final["selected_model"] == "resource_curbs_output"

@@ -1144,3 +1144,37 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   **타이틀 우측**에 배치(기본 사용), 토글 시 `time_options`로 재계산. 경도보정·균시차 **부호
   명시(+/−)**, 미사용 시 밝은 회색(비활성) 노출.
 검증: frontend tsc OK · 라이브 토글(균시차 ON 진태양시 02:38 / OFF 02:51) 확인.
+
+### 만세력 서비스 캐시·chart_id 안정화 + 시간옵션 전 API 일관 적용 ✅
+- **chart_id 연 단위 안정화**(`manse_service.py` `_chart_id`): 프론트가 매 방문
+  `reference_date=오늘`을 보내는데 기존엔 전체 날짜를 해시 → 다음날 chart_id가 바뀌어
+  저장된 검증(캘리브레이션) 답변이 무효화되던 문제. 질문셋은 기준 **연도**에만 의존하므로
+  연 단위로만 해시. 대운방향 옵션(`daewoon_direction_basis`/`manual_daewoon_direction`)도
+  식별자에 포함(차트 정체성 누락 보완).
+- **calculate() 인프로세스 LRU 캐시**: 검증 피드백·월운·일운 요청이 매번 전체 파이프라인
+  (분석+질문 생성+운 기둥 100여 개)을 재계산하던 비용 제거. 키는 BirthInput 전체 canonical
+  JSON(연 단위 chart_id가 아님 — 세운/월운 anchoring은 전체 날짜 의존), OrderedDict LRU
+  64건 + `threading.Lock`(FastAPI 스레드풀 안전). 신규 테스트 6건
+  (`tests/integration/test_manse_service_cache.py`): 연내 동일 chart_id/연 경계 상이·
+  파이프라인 1회 실행·전체 날짜 키·LRU 상한.
+- **시간옵션(균시차 토글) 전 API 일관 적용**: 기존엔 `calculate`만 `time_options`를 받아
+  월운/일운/검증 채점이 화면 차트와 다른 기준으로 계산될 수 있었음.
+  `api.ts` `profileToBirthInput`에 timeOptions 통합 후 `submitCalibration`/`fetchLuckMonths`/
+  `fetchLuckDays` 전부 전달. 토글 상태는 `storage.ts` localStorage(`ryubosal:applyEquationOfTime`,
+  비민감 boolean이라 비암호화)에 저장 — 결과 페이지 마운트 시 복원, 간지달력(일운, 별도
+  라우트)도 같은 기준으로 조회. LuckPanel은 결과 재계산 시 이전 옵션 기준 월운 캐시 재시드.
+- **API 에러 메시지 개선**(`api.ts` `postJSON`): FastAPI 에러 본문 `detail` 문자열을
+  사용자 메시지로 노출(없으면 기존 기본 메시지, 상태코드 유지).
+- **천을귀인 대상 지지 응답 포함**: `SinsalAnalysis.cheoneul_targets`(일간 기준, 원국 성립
+  무관 항상 제공) 신설 — 프론트 `Panels.tsx`에 하드코딩 중복돼 있던 CHEONEUL 표를 응답값
+  우선 사용으로 전환(구버전 응답 대비 fallback 표 유지).
+검증: backend pytest 177 pass(캐시 6·천을 타깃 1 신규) · ruff clean · mypy(변경 파일 0건;
+  기존 7건은 미수정 테스트/structure_analysis 잔존 건) · frontend tsc OK · 프로덕션 build 성공.
+
+### mypy 잔존 7건 정리 — None-guard 보강 ✅
+- `structure_analysis.py:_transformation`: "caller ensures non-None" 주석을 실제
+  `assert rel.transform_element is not None`로 형식화(런타임 검증 + mypy 내로잉).
+- 테스트 None-guard: `test_yongsin.py`(special_case `detail` 2곳),
+  `test_luck.py`(甲午 stem/branch_effect, `base_score`), `test_calibration.py`
+  (`yongsin_analysis` 2곳) — Optional 필드 접근 전 `assert ... is not None` 추가.
+검증: mypy clean(95파일 0건) · ruff clean · pytest 177 pass.

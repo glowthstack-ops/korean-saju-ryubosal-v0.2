@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import threading
+from collections import OrderedDict
 from datetime import UTC
 
 from saju_manse_analysis import analyze_chart
@@ -36,6 +38,20 @@ from ..location import resolve as resolve_location
 
 
 def _chart_id(birth: BirthInput) -> str:
+    """Stable identity for a chart + its calibration question set.
+
+    Identity contract: same person (birth date/time/calendar/leap-month/gender/
+    location) + same calculation options (time_options, 대운 방향 설정) + same
+    reference YEAR → same chart_id.
+
+    The reference date is hashed at YEAR granularity on purpose: the frontend
+    sends ``reference_date = today`` on every visit, while the calibration
+    question set depends only on the reference *year*
+    (``generate_calibration(..., reference_date.year)``). Hashing the full date
+    would silently invalidate client-side calibration answers keyed by chart_id
+    the very next day. Full-date-dependent output (현재 나이 기준 세운/월운/일운
+    anchoring) is NOT part of chart identity.
+    """
     canonical = "|".join(
         str(x)
         for x in (
@@ -49,7 +65,9 @@ def _chart_id(birth: BirthInput) -> str:
             birth.longitude,
             birth.timezone,
             birth.gender,
-            birth.reference_date,
+            birth.daewoon_direction_basis,
+            birth.manual_daewoon_direction,
+            birth.reference_date.year if birth.reference_date is not None else None,
             birth.time_options.model_dump(),
         )
     )
@@ -68,7 +86,45 @@ def _daewoon_direction(birth: BirthInput, year_stem: Stem) -> str | None:
     return "forward" if forward else "backward"
 
 
+# In-process memoization of calculate(). calibrate_feedback / luck_months /
+# luck_days each deterministically recompute the full pipeline (analysis +
+# calibration generation + 100+ luck pillars) per request, and the calendar UI
+# calls luck_days once per month navigation — caching makes those O(1) lookups.
+#
+# Key: the FULL canonical serialized BirthInput (model_dump_json), NOT the
+# year-granular chart_id — calculate() output depends on the full
+# reference_date (세운/월운 anchoring), so a coarser key would serve stale luck
+# data. Bounded OrderedDict-LRU (maxsize 64) so memory stays flat under varied
+# inputs; threading.Lock because FastAPI may run sync endpoints in a thread
+# pool, and OrderedDict mutation is not thread-safe.
+_CACHE_MAXSIZE = 64
+_cache: OrderedDict[str, ManseV2Result] = OrderedDict()
+_cache_lock = threading.Lock()
+
+
 def calculate(birth: BirthInput) -> ManseV2Result:
+    """Compute (or fetch from the in-process LRU cache) the full manse result.
+
+    Deterministic for a given BirthInput; cached results are shared objects and
+    must be treated as read-only by callers.
+    """
+    key = birth.model_dump_json()
+    with _cache_lock:
+        cached = _cache.get(key)
+        if cached is not None:
+            _cache.move_to_end(key)
+            return cached
+    result = _calculate(birth)
+    with _cache_lock:
+        _cache[key] = result
+        _cache.move_to_end(key)
+        while len(_cache) > _CACHE_MAXSIZE:
+            _cache.popitem(last=False)
+    return result
+
+
+def _calculate(birth: BirthInput) -> ManseV2Result:
+    """Run the full pipeline: time correction → 원국 → 분석 → 대운/보정 질문."""
     table = get_table()
     opts = birth.time_options
 

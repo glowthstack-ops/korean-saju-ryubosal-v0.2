@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchLuckDays } from "@/lib/api";
-import { loadProfile } from "@/lib/storage";
+import { loadEotPreference, loadProfile } from "@/lib/storage";
 import type { CalendarDay, CalendarMonth, LuckPillar, LuckSinsal } from "@/lib/types";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -154,7 +154,9 @@ export function CalendarGrid({ data }: { data: CalendarMonth }) {
     loadProfile()
       .then((p) => {
         if (!p) return;
-        return fetchLuckDays(p, data.year, data.month).then((days) => {
+        // 만세력 결과 화면에서 저장한 균시차 토글 상태와 같은 기준으로 일운을 계산.
+        const timeOptions = { apply_equation_of_time: loadEotPreference() };
+        return fetchLuckDays(p, data.year, data.month, undefined, timeOptions).then((days) => {
           if (!alive) return;
           const map: Record<string, LuckPillar> = {};
           for (const lp of days) map[lp.label] = lp;

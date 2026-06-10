@@ -415,11 +415,13 @@ def analyze_sinsal(
     if pillars.hour is None:
         warnings.append("hour_unknown: 시주 신살을 계산할 수 없습니다.")
 
+    day_stem = Stem(pillars.day.stem)
     return SinsalAnalysis(
         summary=summary,
         by_pillar=by_pillar,
         by_category={k: v for k, v in by_category.items() if v},
         full_list=full,
+        cheoneul_targets=[str(b) for b in cat.CHEONEUL.get(day_stem, [])],
         hour_unknown=pillars.hour is None,
         warnings=warnings,
     )

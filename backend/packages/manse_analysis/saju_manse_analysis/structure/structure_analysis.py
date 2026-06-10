@@ -119,7 +119,8 @@ def _transformation(
     relations: list[Relation],
     heavenly_stems: set[Stem],
 ) -> TransformationCheck:
-    target = Element(rel.transform_element)  # caller ensures non-None
+    assert rel.transform_element is not None  # caller ensures non-None
+    target = Element(rel.transform_element)
     season_el = SEASON_ELEMENT_BY_MONTH[month_branch]
     season_match = season_el == target
     month_br_match = BRANCH_ELEMENT[month_branch] == target

@@ -272,7 +272,13 @@ export interface ManseResult {
   yongsin_analysis: YongsinAnalysis;
   luck_cycles: LuckCycles | null;
   calibration: { status: string; questions: CalibrationQuestion[]; note?: string } | null;
-  traditional_extras: { sinsal: { full_list: SinsalItem[] } | null } | null;
+  traditional_extras: {
+    sinsal: {
+      full_list: SinsalItem[];
+      // 천을귀인 대상 지지(일간 기준). 구버전 응답에는 없을 수 있어 optional.
+      cheoneul_targets?: string[];
+    } | null;
+  } | null;
 }
 
 // 간지달력

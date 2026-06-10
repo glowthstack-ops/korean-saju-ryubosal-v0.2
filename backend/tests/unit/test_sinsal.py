@@ -32,6 +32,8 @@ def test_known_sinsal_anchor() -> None:
     _r, s = _sinsal()
     cheoneul = [it for it in s.full_list if it.name == "천을귀인"]
     assert any(it.position == "year" for it in cheoneul)
+    # 대상 지지는 원국 성립 여부와 무관하게 항상 응답에 포함(프론트 표 중복 제거용).
+    assert s.cheoneul_targets == ["子", "申"]
     # 역마살은 사생지(寅申巳亥) 글자 기준 — 申·亥 위치에 표시.
     yeokma = [it for it in s.full_list if it.name == "역마살"]
     assert {it.position for it in yeokma} >= {"month", "day"}

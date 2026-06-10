@@ -17,7 +17,8 @@ import {
 import { PillarBoard } from "@/components/manse/PillarBoard";
 import { calculateManse, todayISO } from "@/lib/api";
 import {
-  clearProfile, loadCalibration, loadProfile, profileSig, saveCalibration,
+  clearProfile, loadCalibration, loadEotPreference, loadProfile, profileSig,
+  saveCalibration, saveEotPreference,
 } from "@/lib/storage";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
 
@@ -45,6 +46,7 @@ export default function ManseResultPage() {
   const [savedAnswers, setSavedAnswers] = useState<AnswerMap>({});
   const [error, setError] = useState<string | null>(null);
   // 균시차 사용 토글(풀이 스타일에 따라 선택). 기본 사용. 끄면 진태양시에서 균시차를 제외해 재계산.
+  // 저장된 선호는 마운트 시 복원하고, 변경 시 저장해 간지달력(일운) 등 다른 라우트와 기준을 공유.
   const [applyEoT, setApplyEoT] = useState(true);
   // 질문 생성/피드백 채점에 동일 기준일을 쓰도록 마운트 시 한 번 고정(자정·연 경계 안전).
   const [referenceDate] = useState(() => todayISO());
@@ -56,7 +58,9 @@ export default function ManseResultPage() {
         return;
       }
       setProfile(p);
-      calculateManse(p, referenceDate)
+      const eot = loadEotPreference();
+      setApplyEoT(eot);
+      calculateManse(p, referenceDate, { apply_equation_of_time: eot })
         .then(async (r) => {
           setResult(r);
           // 저장된 검증 상태 복원: 명식(sig) 같으면 확정 결과 유지, 질문셋(chartId) 같으면 답변도 복원.
@@ -78,6 +82,7 @@ export default function ManseResultPage() {
   // 균시차 토글: 즉시 재계산(진태양시·시주가 바뀔 수 있음). 미지정 옵션은 백엔드 기본값 유지.
   const toggleEoT = (value: boolean) => {
     setApplyEoT(value);
+    saveEotPreference(value);
     if (!profile) return;
     calculateManse(profile, referenceDate, { apply_equation_of_time: value })
       .then(setResult)
@@ -152,6 +157,7 @@ export default function ManseResultPage() {
           result={result}
           profile={profile}
           referenceDate={referenceDate}
+          timeOptions={{ apply_equation_of_time: applyEoT }}
           onResult={onCalibrationResult}
           initialAnswers={savedAnswers}
           submitted={calibration !== null}
@@ -159,7 +165,11 @@ export default function ManseResultPage() {
       </div>
 
       <div id="sec-luck" className="scroll-mt-4">
-        <LuckPanel result={result} profile={profile} />
+        <LuckPanel
+          result={result}
+          profile={profile}
+          timeOptions={{ apply_equation_of_time: applyEoT }}
+        />
       </div>
 
       <FloatingToc items={TOC_ITEMS} />

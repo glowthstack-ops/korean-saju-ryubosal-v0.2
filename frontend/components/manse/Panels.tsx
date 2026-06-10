@@ -477,7 +477,8 @@ const REL_LABEL: Record<string, string> = {
 // 컬럼 배치 순서 — 상단 사주 명식과 동일하게 시·일·월·년(좌→우).
 const COL_ORDER = ["hour", "day", "month", "year"] as const;
 
-// 천을귀인(일간 → 해당 지지). 백엔드 sinsal_catalog.CHEONEUL과 동일.
+// 천을귀인(일간 → 해당 지지) fallback — 백엔드 sinsal_catalog.CHEONEUL과 동일.
+// 응답에 cheoneul_targets가 있으면 그 값을 우선 사용(구버전 응답 대비 표만 유지).
 const CHEONEUL: Record<string, string[]> = {
   "甲": ["丑", "未"], "戊": ["丑", "未"], "庚": ["丑", "未"],
   "乙": ["子", "申"], "己": ["子", "申"],
@@ -652,7 +653,11 @@ export function StructurePanel({ result }: { result: ManseResult }) {
   const dayVoid = (gm?.day_basis_empty_branches as string[] | undefined) ?? [];
   const yearVoid = (gm?.year_basis_empty_branches as string[] | undefined) ?? [];
   // 천을귀인(일간 기준 지지) · 월령 — 공망과 함께 하단에 참고 표기.
-  const cheoneul = CHEONEUL[pillars.day_master] ?? [];
+  // 백엔드 산출값(cheoneul_targets) 우선, 없으면(구버전 응답) 로컬 표 fallback.
+  const cheoneul =
+    result.traditional_extras?.sinsal?.cheoneul_targets
+    ?? CHEONEUL[pillars.day_master]
+    ?? [];
   // 월령 대표 글자 = 월지의 정기(본기) 지장간. (월지 자체가 아님)
   const monthHidden = pillars.month.hidden_stems ?? [];
   const wolryeongStem = (monthHidden.find((h) => h.type === "main") ?? monthHidden[0])?.stem
@@ -874,7 +879,16 @@ function centerInScroll(el: HTMLElement | null) {
   p.scrollLeft = el.offsetLeft - p.clientWidth / 2 + el.offsetWidth / 2;
 }
 
-export function LuckPanel({ result, profile }: { result: ManseResult; profile?: Profile }) {
+export function LuckPanel({
+  result,
+  profile,
+  timeOptions,
+}: {
+  result: ManseResult;
+  profile?: Profile;
+  // 화면에 표시 중인 차트와 같은 시간옵션(균시차 토글 상태)으로 월운을 계산하기 위한 전달값.
+  timeOptions?: Record<string, unknown>;
+}) {
   const lc = result.luck_cycles;
   const router = useRouter();
   const [selDaewoon, setSelDaewoon] = useState<number>(lc?.current_daewoon_index ?? 0);
@@ -890,6 +904,10 @@ export function LuckPanel({ result, profile }: { result: ManseResult; profile?: 
   useEffect(() => centerInScroll(dwRef.current), []);
   useEffect(() => centerInScroll(syRef.current), [selDaewoon]);
   useEffect(() => centerInScroll(moRef.current), [selYear, monthsCache]);
+  // 균시차 토글 등으로 결과가 재계산되면 이전 옵션 기준의 월운 캐시를 버리고 재시드.
+  useEffect(() => {
+    setMonthsCache(lc?.current_year != null ? { [lc.current_year]: lc.monthly_luck } : {});
+  }, [lc]);
   if (!lc) return null;
 
   const jiao = (lc.trace?.exact_jiao_un_dates as string[] | undefined) ?? [];
@@ -905,7 +923,7 @@ export function LuckPanel({ result, profile }: { result: ManseResult; profile?: 
     if (year === lc.current_year || monthsCache[year] || !profile) return;
     setLoadingYear(year);
     try {
-      const m = await fetchLuckMonths(profile, year);
+      const m = await fetchLuckMonths(profile, year, undefined, timeOptions);
       setMonthsCache((c) => ({ ...c, [year]: m }));
     } catch {
       /* 무시: 로딩 실패 시 빈 상태 */

@@ -147,3 +147,26 @@ export async function clearCalibration(): Promise<void> {
   const db = await openDB();
   await tx(db, DATA_STORE, "readwrite", (s) => s.delete(CALIB_ID));
 }
+
+// ── 균시차(Equation of Time) 사용 토글 저장 ─────────────────────
+// 민감정보가 아닌 표시 옵션 boolean이라 암호화 없이 localStorage에 보존한다.
+// 만세력 결과 페이지의 토글 상태를 간지달력(일운) 등 다른 라우트와 공유하는 용도.
+const EOT_KEY = "ryubosal:applyEquationOfTime";
+
+/** 균시차 사용 여부를 저장한다(기본값 true와 무관하게 명시 저장). */
+export function saveEotPreference(value: boolean): void {
+  try {
+    localStorage.setItem(EOT_KEY, value ? "1" : "0");
+  } catch {
+    /* SSR/프라이빗 모드 등 접근 불가 시 무시 */
+  }
+}
+
+/** 저장된 균시차 사용 여부를 읽는다. 미저장/접근 불가 시 기본값 true. */
+export function loadEotPreference(): boolean {
+  try {
+    return localStorage.getItem(EOT_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}

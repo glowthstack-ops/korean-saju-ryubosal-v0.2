@@ -115,6 +115,7 @@ export function CalibrationPanel({
   result,
   profile,
   referenceDate,
+  timeOptions,
   onResult,
   initialAnswers,
   submitted = false,
@@ -122,6 +123,8 @@ export function CalibrationPanel({
   result: ManseResult;
   profile: Profile;
   referenceDate: string;
+  // 화면에 표시 중인 차트와 같은 시간옵션(균시차 토글 상태)으로 채점하기 위한 전달값.
+  timeOptions?: Record<string, unknown>;
   onResult: (r: CalibrationResult, answers: AnswerMap) => void;
   initialAnswers?: AnswerMap;
   submitted?: boolean;
@@ -176,7 +179,7 @@ export function CalibrationPanel({
         overall_rating: answers[q.id]?.rating ?? "unknown",
         selected_events: answers[q.id]?.events ?? [],
       }));
-      onResult(await submitCalibration(profile, payload, referenceDate), answers);
+      onResult(await submitCalibration(profile, payload, referenceDate, timeOptions), answers);
     } catch (e) {
       setError(e instanceof Error ? e.message : "검증 제출 실패");
     } finally {
