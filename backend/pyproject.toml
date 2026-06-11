@@ -38,6 +38,7 @@ where = [
     "packages/manse_core",
     "packages/manse_analysis",
     "packages/manse_calibration",
+    "packages/saju_engines",
     "apps/api",
 ]
 
@@ -48,7 +49,7 @@ addopts = "-q"
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["packages/shared_types", "packages/manse_core", "apps/api", "tests", "scripts"]
+src = ["packages/shared_types", "packages/manse_core", "packages/saju_engines", "apps/api", "tests", "scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

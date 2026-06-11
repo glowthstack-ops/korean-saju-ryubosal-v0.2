@@ -1178,3 +1178,42 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   `test_luck.py`(甲午 stem/branch_effect, `base_score`), `test_calibration.py`
   (`yongsin_analysis` 2곳) — Optional 필드 접근 전 `assert ... is not None` 추가.
 검증: mypy clean(95파일 0건) · ruff clean · pytest 177 pass.
+
+### v2.2 착수 — 루트 CLAUDE.md를 v2_2 가이드와 병합 ✅
+- `doc/v2_2/`(통변 서비스 v2.2 설계 문서 11종 + CLAUDE.md) 검토 완료.
+- 스택 불일치 확인: 문서는 TS/Node/zod/src 기준(v1 코드베이스 가정), 본 리포는
+  Python FastAPI+pydantic. **사용자 확정: Python 백엔드 통합 구현**(zod→pydantic,
+  src/types→backend/packages/shared_types 번역, 문서의 스키마·규격 내용은 그대로 준수).
+- 루트 `/CLAUDE.md` 업데이트: 기존 운영 규칙(체크리스트·금지사항) 전부 유지 +
+  프로젝트 요약/절대 원칙 12개/설계 문서 인덱스(doc/v2_2/docs 경로)/Python 번역
+  코드 컨벤션·목표 디렉토리 구조 추가. "현재 상태" 절은 실제 리포 기준으로 교정
+  (Python 만세력 엔진·FastAPI·Next.js UI 완성, DB 미도입). 원본은 doc/v2_2/CLAUDE.md 유지.
+검증: 문서 변경(코드 무변경) — 게이트 해당 없음.
+
+### v2.2 Phase 0 — 공유 타입 + saju_engines 어댑터/간지달력 생성기 ✅
+- **신규 패키지 `backend/packages/saju_engines/`**(pyproject packages.find·ruff src 등록).
+  만세력 엔진은 일절 수정하지 않고 어댑터·생성기만 추가(기존 엔진 수정 금지 원칙).
+- **T0.1 공유 타입**(`shared_types`, 문서 camelCase→snake_case 번역, 스키마 내용 유지):
+  - `events.py`: EventKey(taxonomy 전체 26종, wealth 하위 5종 포함)·EventType·
+    EventPolarity·Confidence·Signal·EventCandidate(score 0~100 클램프).
+  - `intent.py`: QueryType(Q1~Q14)·Domain·SubjectKind/Mode·CompanionRelationType·
+    TimeScope·Granularity·OutputFormat·SubjectRef·TimeRange·Constraints·OutputStyle·
+    IntentJson·ParsedMessage. (간지 RelationType과 충돌 회피 위해 인간관계용은 'Companion' 접두.)
+  - `ganji_calendar.py`: GanjiLevel·RelationType(13종, 엔진 한글 접두사와 1:1)·GanjiRef·
+    RelationHit·GanjiCalendarEntry.
+  - `engine_io.py`: ManseChart(신규 엔진 입력 계약, docs/02 E0) + ChartPillar·
+    FourPillarsChart·DaewoonPeriod·BirthMeta.
+- **T0.3 어댑터**(`adapter.py`): `ManseV2Result`→`ManseChart` 1:1 투영. 원국 간지/일간/
+  공망/대운표/신살(자리별)/성별(male·female·unknown→M·F·U) 매핑. 쌍둥이 미구현이라
+  chart_variant='original'/twin_shift=0 고정(미구현으로 차단·오류 금지 원칙).
+- **T0.4 간지달력 생성기**(`ganji_calendar.py`): 엔진의 표시용 관계 문자열
+  (`relations_to_chart`/`gongmang_activation`)을 구조화 `RelationHit`로 변환. 성립 판정은
+  엔진이 이미 했으므로 재계산하지 않고 파싱·보강만(엔진=SSOT). 충/육합/파/해/무례지형/
+  공망3종은 원국 자리 해소, 천간합은 원국 천간 자리, 삼합·방합 기여는 완성 오행 + 국 구성
+  원국 지지를 공유 상수 테이블에서 보강, 삼형/자형 처리. `calendar_entries_from_result`로
+  대운/세운/월운/일운 일괄 변환(levels 필터 지원). 미인식 접두사는 조용히 스킵.
+- **T0.2 사전 파이프라인 골격**: `backend/dictionaries/`(README, 규칙·목표 구조) +
+  `backend/scripts/validate_dictionaries.py`(UTF-8/BOM·JSON 파싱·reviewed:bool 플래그 검사,
+  재귀 탐색, 종료코드).
+- **루트 CLAUDE.md**: 디렉토리 구조 절에 이미 saju_engines 반영됨.
+검증: pytest 194 pass(어댑터 4·간지달력 8·validate 6 신규) · ruff clean · **mypy clean(105파일)**.
