@@ -1,0 +1,4365 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-06-11T01:49:25.065544+00:00",
+  "nodes": [
+    {
+      "id": "element_木",
+      "type": "element",
+      "label": "木(목)",
+      "attrs": {}
+    },
+    {
+      "id": "element_火",
+      "type": "element",
+      "label": "火(화)",
+      "attrs": {}
+    },
+    {
+      "id": "element_土",
+      "type": "element",
+      "label": "土(토)",
+      "attrs": {}
+    },
+    {
+      "id": "element_金",
+      "type": "element",
+      "label": "金(금)",
+      "attrs": {}
+    },
+    {
+      "id": "element_水",
+      "type": "element",
+      "label": "水(수)",
+      "attrs": {}
+    },
+    {
+      "id": "stem_甲",
+      "type": "stem",
+      "label": "甲",
+      "attrs": {
+        "yinYang": "양",
+        "tenGodByDayMaster": {
+          "甲": "비견",
+          "乙": "겁재",
+          "丙": "편인",
+          "丁": "정인",
+          "戊": "편관",
+          "己": "정관",
+          "庚": "편재",
+          "辛": "정재",
+          "壬": "식신",
+          "癸": "상관"
+        },
+        "domains": [
+          "성장",
+          "시작",
+          "리더십",
+          "추진"
+        ]
+      }
+    },
+    {
+      "id": "stem_乙",
+      "type": "stem",
+      "label": "乙",
+      "attrs": {
+        "yinYang": "음",
+        "tenGodByDayMaster": {
+          "甲": "겁재",
+          "乙": "비견",
+          "丙": "정인",
+          "丁": "편인",
+          "戊": "정관",
+          "己": "편관",
+          "庚": "정재",
+          "辛": "편재",
+          "壬": "상관",
+          "癸": "식신"
+        },
+        "domains": [
+          "유연",
+          "적응",
+          "실리",
+          "교섭"
+        ]
+      }
+    },
+    {
+      "id": "stem_丙",
+      "type": "stem",
+      "label": "丙",
+      "attrs": {
+        "yinYang": "양",
+        "tenGodByDayMaster": {
+          "甲": "식신",
+          "乙": "상관",
+          "丙": "비견",
+          "丁": "겁재",
+          "戊": "편인",
+          "己": "정인",
+          "庚": "편관",
+          "辛": "정관",
+          "壬": "편재",
+          "癸": "정재"
+        },
+        "domains": [
+          "확산",
+          "표현",
+          "명예",
+          "공개"
+        ]
+      }
+    },
+    {
+      "id": "stem_丁",
+      "type": "stem",
+      "label": "丁",
+      "attrs": {
+        "yinYang": "음",
+        "tenGodByDayMaster": {
+          "甲": "상관",
+          "乙": "식신",
+          "丙": "겁재",
+          "丁": "비견",
+          "戊": "정인",
+          "己": "편인",
+          "庚": "정관",
+          "辛": "편관",
+          "壬": "정재",
+          "癸": "편재"
+        },
+        "domains": [
+          "집중",
+          "정밀",
+          "통찰",
+          "기술"
+        ]
+      }
+    },
+    {
+      "id": "stem_戊",
+      "type": "stem",
+      "label": "戊",
+      "attrs": {
+        "yinYang": "양",
+        "tenGodByDayMaster": {
+          "甲": "편재",
+          "乙": "정재",
+          "丙": "식신",
+          "丁": "상관",
+          "戊": "비견",
+          "己": "겁재",
+          "庚": "편인",
+          "辛": "정인",
+          "壬": "편관",
+          "癸": "정관"
+        },
+        "domains": [
+          "안정",
+          "중재",
+          "신용",
+          "부동산"
+        ]
+      }
+    },
+    {
+      "id": "stem_己",
+      "type": "stem",
+      "label": "己",
+      "attrs": {
+        "yinYang": "음",
+        "tenGodByDayMaster": {
+          "甲": "정재",
+          "乙": "편재",
+          "丙": "상관",
+          "丁": "식신",
+          "戊": "겁재",
+          "己": "비견",
+          "庚": "정인",
+          "辛": "편인",
+          "壬": "정관",
+          "癸": "편관"
+        },
+        "domains": [
+          "양육",
+          "실무",
+          "관리",
+          "축적"
+        ]
+      }
+    },
+    {
+      "id": "stem_庚",
+      "type": "stem",
+      "label": "庚",
+      "attrs": {
+        "yinYang": "양",
+        "tenGodByDayMaster": {
+          "甲": "편관",
+          "乙": "정관",
+          "丙": "편재",
+          "丁": "정재",
+          "戊": "식신",
+          "己": "상관",
+          "庚": "비견",
+          "辛": "겁재",
+          "壬": "편인",
+          "癸": "정인"
+        },
+        "domains": [
+          "결단",
+          "개혁",
+          "경쟁",
+          "집행"
+        ]
+      }
+    },
+    {
+      "id": "stem_辛",
+      "type": "stem",
+      "label": "辛",
+      "attrs": {
+        "yinYang": "음",
+        "tenGodByDayMaster": {
+          "甲": "정관",
+          "乙": "편관",
+          "丙": "정재",
+          "丁": "편재",
+          "戊": "상관",
+          "己": "식신",
+          "庚": "겁재",
+          "辛": "비견",
+          "壬": "정인",
+          "癸": "편인"
+        },
+        "domains": [
+          "정밀",
+          "가치",
+          "자존",
+          "마무리"
+        ]
+      }
+    },
+    {
+      "id": "stem_壬",
+      "type": "stem",
+      "label": "壬",
+      "attrs": {
+        "yinYang": "양",
+        "tenGodByDayMaster": {
+          "甲": "편인",
+          "乙": "정인",
+          "丙": "편관",
+          "丁": "정관",
+          "戊": "편재",
+          "己": "정재",
+          "庚": "식신",
+          "辛": "상관",
+          "壬": "비견",
+          "癸": "겁재"
+        },
+        "domains": [
+          "유동",
+          "확장",
+          "지혜",
+          "유통"
+        ]
+      }
+    },
+    {
+      "id": "stem_癸",
+      "type": "stem",
+      "label": "癸",
+      "attrs": {
+        "yinYang": "음",
+        "tenGodByDayMaster": {
+          "甲": "정인",
+          "乙": "편인",
+          "丙": "정관",
+          "丁": "편관",
+          "戊": "정재",
+          "己": "편재",
+          "庚": "상관",
+          "辛": "식신",
+          "壬": "겁재",
+          "癸": "비견"
+        },
+        "domains": [
+          "침투",
+          "감성",
+          "학습",
+          "수렴"
+        ]
+      }
+    },
+    {
+      "id": "branch_子",
+      "type": "branch",
+      "label": "子",
+      "attrs": {
+        "zodiac": "쥐",
+        "hiddenStems": [
+          {
+            "stem": "壬",
+            "type": "residual",
+            "weight": 0.3
+          },
+          {
+            "stem": "癸",
+            "type": "main",
+            "weight": 0.7
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_丑",
+      "type": "branch",
+      "label": "丑",
+      "attrs": {
+        "zodiac": "소",
+        "hiddenStems": [
+          {
+            "stem": "癸",
+            "type": "residual",
+            "weight": 0.2
+          },
+          {
+            "stem": "辛",
+            "type": "middle",
+            "weight": 0.2
+          },
+          {
+            "stem": "己",
+            "type": "main",
+            "weight": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_寅",
+      "type": "branch",
+      "label": "寅",
+      "attrs": {
+        "zodiac": "호랑이",
+        "hiddenStems": [
+          {
+            "stem": "戊",
+            "type": "residual",
+            "weight": 0.2
+          },
+          {
+            "stem": "丙",
+            "type": "middle",
+            "weight": 0.2
+          },
+          {
+            "stem": "甲",
+            "type": "main",
+            "weight": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_卯",
+      "type": "branch",
+      "label": "卯",
+      "attrs": {
+        "zodiac": "토끼",
+        "hiddenStems": [
+          {
+            "stem": "甲",
+            "type": "residual",
+            "weight": 0.3
+          },
+          {
+            "stem": "乙",
+            "type": "main",
+            "weight": 0.7
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_辰",
+      "type": "branch",
+      "label": "辰",
+      "attrs": {
+        "zodiac": "용",
+        "hiddenStems": [
+          {
+            "stem": "乙",
+            "type": "residual",
+            "weight": 0.2
+          },
+          {
+            "stem": "癸",
+            "type": "middle",
+            "weight": 0.2
+          },
+          {
+            "stem": "戊",
+            "type": "main",
+            "weight": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_巳",
+      "type": "branch",
+      "label": "巳",
+      "attrs": {
+        "zodiac": "뱀",
+        "hiddenStems": [
+          {
+            "stem": "戊",
+            "type": "residual",
+            "weight": 0.2
+          },
+          {
+            "stem": "庚",
+            "type": "middle",
+            "weight": 0.2
+          },
+          {
+            "stem": "丙",
+            "type": "main",
+            "weight": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_午",
+      "type": "branch",
+      "label": "午",
+      "attrs": {
+        "zodiac": "말",
+        "hiddenStems": [
+          {
+            "stem": "丙",
+            "type": "residual",
+            "weight": 0.3
+          },
+          {
+            "stem": "己",
+            "type": "middle",
+            "weight": 0.2
+          },
+          {
+            "stem": "丁",
+            "type": "main",
+            "weight": 0.5
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_未",
+      "type": "branch",
+      "label": "未",
+      "attrs": {
+        "zodiac": "양",
+        "hiddenStems": [
+          {
+            "stem": "丁",
+            "type": "residual",
+            "weight": 0.2
+          },
+          {
+            "stem": "乙",
+            "type": "middle",
+            "weight": 0.2
+          },
+          {
+            "stem": "己",
+            "type": "main",
+            "weight": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_申",
+      "type": "branch",
+      "label": "申",
+      "attrs": {
+        "zodiac": "원숭이",
+        "hiddenStems": [
+          {
+            "stem": "戊",
+            "type": "residual",
+            "weight": 0.2
+          },
+          {
+            "stem": "壬",
+            "type": "middle",
+            "weight": 0.2
+          },
+          {
+            "stem": "庚",
+            "type": "main",
+            "weight": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_酉",
+      "type": "branch",
+      "label": "酉",
+      "attrs": {
+        "zodiac": "닭",
+        "hiddenStems": [
+          {
+            "stem": "庚",
+            "type": "residual",
+            "weight": 0.3
+          },
+          {
+            "stem": "辛",
+            "type": "main",
+            "weight": 0.7
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_戌",
+      "type": "branch",
+      "label": "戌",
+      "attrs": {
+        "zodiac": "개",
+        "hiddenStems": [
+          {
+            "stem": "辛",
+            "type": "residual",
+            "weight": 0.2
+          },
+          {
+            "stem": "丁",
+            "type": "middle",
+            "weight": 0.2
+          },
+          {
+            "stem": "戊",
+            "type": "main",
+            "weight": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "id": "branch_亥",
+      "type": "branch",
+      "label": "亥",
+      "attrs": {
+        "zodiac": "돼지",
+        "hiddenStems": [
+          {
+            "stem": "戊",
+            "type": "residual",
+            "weight": 0.2
+          },
+          {
+            "stem": "甲",
+            "type": "middle",
+            "weight": 0.2
+          },
+          {
+            "stem": "壬",
+            "type": "main",
+            "weight": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "id": "tengod_비견",
+      "type": "ten_god",
+      "label": "비견",
+      "attrs": {
+        "group": "비겁",
+        "domains": [
+          "자립",
+          "경쟁",
+          "동료",
+          "형제"
+        ]
+      }
+    },
+    {
+      "id": "tengod_겁재",
+      "type": "ten_god",
+      "label": "겁재",
+      "attrs": {
+        "group": "비겁",
+        "domains": [
+          "경쟁",
+          "분배",
+          "손재 리스크",
+          "동업 리스크"
+        ]
+      }
+    },
+    {
+      "id": "tengod_식신",
+      "type": "ten_god",
+      "label": "식신",
+      "attrs": {
+        "group": "식상",
+        "domains": [
+          "의식주",
+          "표현",
+          "생산",
+          "건강"
+        ]
+      }
+    },
+    {
+      "id": "tengod_상관",
+      "type": "ten_god",
+      "label": "상관",
+      "attrs": {
+        "group": "식상",
+        "domains": [
+          "표현",
+          "변화",
+          "기술",
+          "규범 이탈"
+        ]
+      }
+    },
+    {
+      "id": "tengod_편재",
+      "type": "ten_god",
+      "label": "편재",
+      "attrs": {
+        "group": "재성",
+        "domains": [
+          "유동 재물",
+          "사업",
+          "투자",
+          "활동"
+        ]
+      }
+    },
+    {
+      "id": "tengod_정재",
+      "type": "ten_god",
+      "label": "정재",
+      "attrs": {
+        "group": "재성",
+        "domains": [
+          "고정 수입",
+          "근면",
+          "안정 재물",
+          "계약"
+        ]
+      }
+    },
+    {
+      "id": "tengod_편관",
+      "type": "ten_god",
+      "label": "편관",
+      "attrs": {
+        "group": "관성",
+        "domains": [
+          "압박",
+          "도전",
+          "책임",
+          "돌발 사건"
+        ]
+      }
+    },
+    {
+      "id": "tengod_정관",
+      "type": "ten_god",
+      "label": "정관",
+      "attrs": {
+        "group": "관성",
+        "domains": [
+          "직업",
+          "규칙",
+          "책임",
+          "명예"
+        ]
+      }
+    },
+    {
+      "id": "tengod_편인",
+      "type": "ten_god",
+      "label": "편인",
+      "attrs": {
+        "group": "인성",
+        "domains": [
+          "직관",
+          "비정통 학문",
+          "변동 문서",
+          "고독"
+        ]
+      }
+    },
+    {
+      "id": "tengod_정인",
+      "type": "ten_god",
+      "label": "정인",
+      "attrs": {
+        "group": "인성",
+        "domains": [
+          "학문",
+          "문서",
+          "보호",
+          "자격"
+        ]
+      }
+    },
+    {
+      "id": "yongsin",
+      "type": "yongsin",
+      "label": "용신",
+      "attrs": {}
+    },
+    {
+      "id": "huisin",
+      "type": "huisin",
+      "label": "희신",
+      "attrs": {}
+    },
+    {
+      "id": "gisin",
+      "type": "gisin",
+      "label": "기신",
+      "attrs": {}
+    },
+    {
+      "id": "gusin",
+      "type": "gusin",
+      "label": "구신",
+      "attrs": {}
+    },
+    {
+      "id": "event_career_change",
+      "type": "event",
+      "label": "이직·직업 변화",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_promotion",
+      "type": "event",
+      "label": "승진",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_resignation",
+      "type": "event",
+      "label": "퇴사",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_business_start",
+      "type": "event",
+      "label": "사업 시작·개업",
+      "attrs": {
+        "eventType": "hybrid"
+      }
+    },
+    {
+      "id": "event_relationship_start",
+      "type": "event",
+      "label": "연애 시작",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_relationship_end",
+      "type": "event",
+      "label": "이별",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_marriage",
+      "type": "event",
+      "label": "결혼",
+      "attrs": {
+        "eventType": "hybrid"
+      }
+    },
+    {
+      "id": "event_childbirth",
+      "type": "event",
+      "label": "출산",
+      "attrs": {
+        "eventType": "hybrid"
+      }
+    },
+    {
+      "id": "event_relocation",
+      "type": "event",
+      "label": "이사",
+      "attrs": {
+        "eventType": "hybrid"
+      }
+    },
+    {
+      "id": "event_contract",
+      "type": "event",
+      "label": "계약",
+      "attrs": {
+        "eventType": "instant"
+      }
+    },
+    {
+      "id": "event_document",
+      "type": "event",
+      "label": "문서·서류",
+      "attrs": {
+        "eventType": "instant"
+      }
+    },
+    {
+      "id": "event_wealth_change",
+      "type": "event",
+      "label": "재물 변화(총괄)",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_income_change",
+      "type": "event",
+      "label": "수입 변화",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_expense_risk",
+      "type": "event",
+      "label": "지출·손재 위험",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_windfall",
+      "type": "event",
+      "label": "횡재(로또 등 — 표현 제한)",
+      "attrs": {
+        "eventType": "instant"
+      }
+    },
+    {
+      "id": "event_speculation_risk",
+      "type": "event",
+      "label": "투기 리스크(주식 등 — 경고 중심)",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_asset_volatility",
+      "type": "event",
+      "label": "자산 변동성",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_education_start",
+      "type": "event",
+      "label": "학업 시작·입학",
+      "attrs": {
+        "eventType": "hybrid"
+      }
+    },
+    {
+      "id": "event_education_complete",
+      "type": "event",
+      "label": "학업 완료·졸업",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_exam",
+      "type": "event",
+      "label": "시험",
+      "attrs": {
+        "eventType": "instant"
+      }
+    },
+    {
+      "id": "event_health_issue",
+      "type": "event",
+      "label": "건강 문제",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_surgery",
+      "type": "event",
+      "label": "수술(의료 조언 아님 고지)",
+      "attrs": {
+        "eventType": "instant"
+      }
+    },
+    {
+      "id": "event_family_change",
+      "type": "event",
+      "label": "가족 변화",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_lawsuit",
+      "type": "event",
+      "label": "소송·분쟁",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_travel",
+      "type": "event",
+      "label": "여행·출장",
+      "attrs": {
+        "eventType": "instant"
+      }
+    },
+    {
+      "id": "rel_甲己合",
+      "type": "combination",
+      "label": "갑기합",
+      "attrs": {
+        "relationType": "stem_combination",
+        "participants": [
+          "甲",
+          "己"
+        ],
+        "resultElement": "土",
+        "possibleModes": [
+          "합화",
+          "합반",
+          "합래",
+          "합거"
+        ],
+        "pattern": null,
+        "baseScore": 0.6,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_乙庚合",
+      "type": "combination",
+      "label": "을경합",
+      "attrs": {
+        "relationType": "stem_combination",
+        "participants": [
+          "乙",
+          "庚"
+        ],
+        "resultElement": "金",
+        "possibleModes": [
+          "합화",
+          "합반",
+          "합래",
+          "합거"
+        ],
+        "pattern": null,
+        "baseScore": 0.6,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_丙辛合",
+      "type": "combination",
+      "label": "병신합",
+      "attrs": {
+        "relationType": "stem_combination",
+        "participants": [
+          "丙",
+          "辛"
+        ],
+        "resultElement": "水",
+        "possibleModes": [
+          "합화",
+          "합반",
+          "합래",
+          "합거"
+        ],
+        "pattern": null,
+        "baseScore": 0.6,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_丁壬合",
+      "type": "combination",
+      "label": "정임합",
+      "attrs": {
+        "relationType": "stem_combination",
+        "participants": [
+          "丁",
+          "壬"
+        ],
+        "resultElement": "木",
+        "possibleModes": [
+          "합화",
+          "합반",
+          "합래",
+          "합거"
+        ],
+        "pattern": null,
+        "baseScore": 0.6,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_戊癸合",
+      "type": "combination",
+      "label": "무계합",
+      "attrs": {
+        "relationType": "stem_combination",
+        "participants": [
+          "戊",
+          "癸"
+        ],
+        "resultElement": "火",
+        "possibleModes": [
+          "합화",
+          "합반",
+          "합래",
+          "합거"
+        ],
+        "pattern": null,
+        "baseScore": 0.6,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_子丑合",
+      "type": "combination",
+      "label": "자축합",
+      "attrs": {
+        "relationType": "six_combination",
+        "participants": [
+          "子",
+          "丑"
+        ],
+        "resultElement": "土",
+        "possibleModes": [
+          "합화",
+          "합반"
+        ],
+        "pattern": null,
+        "baseScore": 0.5,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_寅亥合",
+      "type": "combination",
+      "label": "인해합",
+      "attrs": {
+        "relationType": "six_combination",
+        "participants": [
+          "寅",
+          "亥"
+        ],
+        "resultElement": "木",
+        "possibleModes": [
+          "합화",
+          "합반"
+        ],
+        "pattern": null,
+        "baseScore": 0.5,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_卯戌合",
+      "type": "combination",
+      "label": "묘술합",
+      "attrs": {
+        "relationType": "six_combination",
+        "participants": [
+          "卯",
+          "戌"
+        ],
+        "resultElement": "火",
+        "possibleModes": [
+          "합화",
+          "합반"
+        ],
+        "pattern": null,
+        "baseScore": 0.5,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_辰酉合",
+      "type": "combination",
+      "label": "진유합",
+      "attrs": {
+        "relationType": "six_combination",
+        "participants": [
+          "辰",
+          "酉"
+        ],
+        "resultElement": "金",
+        "possibleModes": [
+          "합화",
+          "합반"
+        ],
+        "pattern": null,
+        "baseScore": 0.5,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_巳申合",
+      "type": "combination",
+      "label": "사신합",
+      "attrs": {
+        "relationType": "six_combination",
+        "participants": [
+          "巳",
+          "申"
+        ],
+        "resultElement": "水",
+        "possibleModes": [
+          "합화",
+          "합반"
+        ],
+        "pattern": null,
+        "baseScore": 0.5,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_午未合",
+      "type": "combination",
+      "label": "오미합",
+      "attrs": {
+        "relationType": "six_combination",
+        "participants": [
+          "午",
+          "未"
+        ],
+        "resultElement": "火",
+        "possibleModes": [
+          "합화",
+          "합반"
+        ],
+        "pattern": null,
+        "baseScore": 0.5,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_子辰申三合",
+      "type": "combination",
+      "label": "자진신삼합",
+      "attrs": {
+        "relationType": "three_harmony",
+        "participants": [
+          "子",
+          "辰",
+          "申"
+        ],
+        "resultElement": "水",
+        "possibleModes": [
+          "합화",
+          "반합"
+        ],
+        "pattern": null,
+        "baseScore": 0.65,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_寅午戌三合",
+      "type": "combination",
+      "label": "인오술삼합",
+      "attrs": {
+        "relationType": "three_harmony",
+        "participants": [
+          "寅",
+          "午",
+          "戌"
+        ],
+        "resultElement": "火",
+        "possibleModes": [
+          "합화",
+          "반합"
+        ],
+        "pattern": null,
+        "baseScore": 0.65,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_丑巳酉三合",
+      "type": "combination",
+      "label": "축사유삼합",
+      "attrs": {
+        "relationType": "three_harmony",
+        "participants": [
+          "丑",
+          "巳",
+          "酉"
+        ],
+        "resultElement": "金",
+        "possibleModes": [
+          "합화",
+          "반합"
+        ],
+        "pattern": null,
+        "baseScore": 0.65,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_卯未亥三合",
+      "type": "combination",
+      "label": "묘미해삼합",
+      "attrs": {
+        "relationType": "three_harmony",
+        "participants": [
+          "卯",
+          "未",
+          "亥"
+        ],
+        "resultElement": "木",
+        "possibleModes": [
+          "합화",
+          "반합"
+        ],
+        "pattern": null,
+        "baseScore": 0.65,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_寅卯辰方合",
+      "type": "combination",
+      "label": "인묘진방합",
+      "attrs": {
+        "relationType": "directional",
+        "participants": [
+          "寅",
+          "卯",
+          "辰"
+        ],
+        "resultElement": "木",
+        "possibleModes": [
+          "합화",
+          "반합"
+        ],
+        "pattern": null,
+        "baseScore": 0.55,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_巳午未方合",
+      "type": "combination",
+      "label": "사오미방합",
+      "attrs": {
+        "relationType": "directional",
+        "participants": [
+          "巳",
+          "午",
+          "未"
+        ],
+        "resultElement": "火",
+        "possibleModes": [
+          "합화",
+          "반합"
+        ],
+        "pattern": null,
+        "baseScore": 0.55,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_申酉戌方合",
+      "type": "combination",
+      "label": "신유술방합",
+      "attrs": {
+        "relationType": "directional",
+        "participants": [
+          "申",
+          "酉",
+          "戌"
+        ],
+        "resultElement": "金",
+        "possibleModes": [
+          "합화",
+          "반합"
+        ],
+        "pattern": null,
+        "baseScore": 0.55,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_子丑亥方合",
+      "type": "combination",
+      "label": "자축해방합",
+      "attrs": {
+        "relationType": "directional",
+        "participants": [
+          "子",
+          "丑",
+          "亥"
+        ],
+        "resultElement": "水",
+        "possibleModes": [
+          "합화",
+          "반합"
+        ],
+        "pattern": null,
+        "baseScore": 0.55,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_子午沖",
+      "type": "clash",
+      "label": "자오충",
+      "attrs": {
+        "relationType": "branch_clash",
+        "participants": [
+          "子",
+          "午"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "충발",
+          "충거"
+        ],
+        "pattern": null,
+        "baseScore": 0.7,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_卯酉沖",
+      "type": "clash",
+      "label": "묘유충",
+      "attrs": {
+        "relationType": "branch_clash",
+        "participants": [
+          "卯",
+          "酉"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "충발",
+          "충거"
+        ],
+        "pattern": null,
+        "baseScore": 0.7,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_寅申沖",
+      "type": "clash",
+      "label": "인신충",
+      "attrs": {
+        "relationType": "branch_clash",
+        "participants": [
+          "寅",
+          "申"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "충발",
+          "충거"
+        ],
+        "pattern": null,
+        "baseScore": 0.7,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_丑未沖",
+      "type": "clash",
+      "label": "축미충",
+      "attrs": {
+        "relationType": "branch_clash",
+        "participants": [
+          "丑",
+          "未"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "충발",
+          "충거"
+        ],
+        "pattern": null,
+        "baseScore": 0.7,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_巳亥沖",
+      "type": "clash",
+      "label": "사해충",
+      "attrs": {
+        "relationType": "branch_clash",
+        "participants": [
+          "巳",
+          "亥"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "충발",
+          "충거"
+        ],
+        "pattern": null,
+        "baseScore": 0.7,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_辰戌沖",
+      "type": "clash",
+      "label": "진술충",
+      "attrs": {
+        "relationType": "branch_clash",
+        "participants": [
+          "辰",
+          "戌"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "충발",
+          "충거"
+        ],
+        "pattern": null,
+        "baseScore": 0.7,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_寅巳申三刑",
+      "type": "punishment",
+      "label": "인사신삼형",
+      "attrs": {
+        "relationType": "punishment_triple",
+        "participants": [
+          "寅",
+          "巳",
+          "申"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "형발"
+        ],
+        "pattern": null,
+        "baseScore": 0.6,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_丑戌未三刑",
+      "type": "punishment",
+      "label": "축술미삼형",
+      "attrs": {
+        "relationType": "punishment_triple",
+        "participants": [
+          "丑",
+          "戌",
+          "未"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "형발"
+        ],
+        "pattern": null,
+        "baseScore": 0.6,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_子卯刑",
+      "type": "punishment",
+      "label": "자묘형",
+      "attrs": {
+        "relationType": "punishment_mutual",
+        "participants": [
+          "子",
+          "卯"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "형발"
+        ],
+        "pattern": null,
+        "baseScore": 0.55,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_辰辰自刑",
+      "type": "self_punishment",
+      "label": "진진자형",
+      "attrs": {
+        "relationType": "self_punishment",
+        "participants": [
+          "辰",
+          "辰"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "형발"
+        ],
+        "pattern": null,
+        "baseScore": 0.45,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_午午自刑",
+      "type": "self_punishment",
+      "label": "오오자형",
+      "attrs": {
+        "relationType": "self_punishment",
+        "participants": [
+          "午",
+          "午"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "형발"
+        ],
+        "pattern": null,
+        "baseScore": 0.45,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_酉酉自刑",
+      "type": "self_punishment",
+      "label": "유유자형",
+      "attrs": {
+        "relationType": "self_punishment",
+        "participants": [
+          "酉",
+          "酉"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "형발"
+        ],
+        "pattern": null,
+        "baseScore": 0.45,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_亥亥自刑",
+      "type": "self_punishment",
+      "label": "해해자형",
+      "attrs": {
+        "relationType": "self_punishment",
+        "participants": [
+          "亥",
+          "亥"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "형발"
+        ],
+        "pattern": null,
+        "baseScore": 0.45,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_寅亥破",
+      "type": "break",
+      "label": "인해파",
+      "attrs": {
+        "relationType": "branch_break",
+        "participants": [
+          "寅",
+          "亥"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "파손"
+        ],
+        "pattern": null,
+        "baseScore": 0.3,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_未戌破",
+      "type": "break",
+      "label": "미술파",
+      "attrs": {
+        "relationType": "branch_break",
+        "participants": [
+          "未",
+          "戌"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "파손"
+        ],
+        "pattern": null,
+        "baseScore": 0.3,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_卯午破",
+      "type": "break",
+      "label": "묘오파",
+      "attrs": {
+        "relationType": "branch_break",
+        "participants": [
+          "卯",
+          "午"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "파손"
+        ],
+        "pattern": null,
+        "baseScore": 0.3,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_巳申破",
+      "type": "break",
+      "label": "사신파",
+      "attrs": {
+        "relationType": "branch_break",
+        "participants": [
+          "巳",
+          "申"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "파손"
+        ],
+        "pattern": null,
+        "baseScore": 0.3,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_丑辰破",
+      "type": "break",
+      "label": "축진파",
+      "attrs": {
+        "relationType": "branch_break",
+        "participants": [
+          "丑",
+          "辰"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "파손"
+        ],
+        "pattern": null,
+        "baseScore": 0.3,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_子酉破",
+      "type": "break",
+      "label": "자유파",
+      "attrs": {
+        "relationType": "branch_break",
+        "participants": [
+          "子",
+          "酉"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "파손"
+        ],
+        "pattern": null,
+        "baseScore": 0.3,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_子未害",
+      "type": "harm",
+      "label": "자미해",
+      "attrs": {
+        "relationType": "harm",
+        "participants": [
+          "子",
+          "未"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "해손"
+        ],
+        "pattern": null,
+        "baseScore": 0.35,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_酉戌害",
+      "type": "harm",
+      "label": "유술해",
+      "attrs": {
+        "relationType": "harm",
+        "participants": [
+          "酉",
+          "戌"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "해손"
+        ],
+        "pattern": null,
+        "baseScore": 0.35,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_卯辰害",
+      "type": "harm",
+      "label": "묘진해",
+      "attrs": {
+        "relationType": "harm",
+        "participants": [
+          "卯",
+          "辰"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "해손"
+        ],
+        "pattern": null,
+        "baseScore": 0.35,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_丑午害",
+      "type": "harm",
+      "label": "축오해",
+      "attrs": {
+        "relationType": "harm",
+        "participants": [
+          "丑",
+          "午"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "해손"
+        ],
+        "pattern": null,
+        "baseScore": 0.35,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_申亥害",
+      "type": "harm",
+      "label": "신해해",
+      "attrs": {
+        "relationType": "harm",
+        "participants": [
+          "申",
+          "亥"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "해손"
+        ],
+        "pattern": null,
+        "baseScore": 0.35,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_寅巳害",
+      "type": "harm",
+      "label": "인사해",
+      "attrs": {
+        "relationType": "harm",
+        "participants": [
+          "寅",
+          "巳"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "해손"
+        ],
+        "pattern": null,
+        "baseScore": 0.35,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_공망활성",
+      "type": "void",
+      "label": "공망 활성",
+      "attrs": {
+        "relationType": "void",
+        "participants": [],
+        "resultElement": null,
+        "possibleModes": [
+          "전실",
+          "충발동",
+          "합해소"
+        ],
+        "pattern": "운 지지가 원국 공망 지지를 채우거나(전실) 충(발동)/합(해소)으로 자극",
+        "baseScore": 0.4,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_복음",
+      "type": "fuyin",
+      "label": "복음(伏吟)",
+      "attrs": {
+        "relationType": "bokeum",
+        "participants": [],
+        "resultElement": null,
+        "possibleModes": [
+          "발동"
+        ],
+        "pattern": "운 간지가 원국 기둥 간지와 동일 — 정체·반복·내적 침체",
+        "baseScore": 0.4,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_병존",
+      "type": "duplication",
+      "label": "병존(竝存)",
+      "attrs": {
+        "relationType": "byeongjon",
+        "participants": [],
+        "resultElement": null,
+        "possibleModes": [
+          "강화"
+        ],
+        "pattern": "원국에 같은 간지 기둥이 나란히 존재 — 해당 기운 증폭",
+        "baseScore": 0.35,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_간여지동",
+      "type": "ganyeo_jidong",
+      "label": "간여지동(干與支同)",
+      "attrs": {
+        "relationType": "ganyeojidong",
+        "participants": [],
+        "resultElement": null,
+        "possibleModes": [
+          "강화"
+        ],
+        "pattern": "한 기둥의 천간·지지가 동일 오행 — 비겁 강화, 배우자궁 주제",
+        "baseScore": 0.35,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_00",
+      "type": "interpretation_rule",
+      "label": "정관합+기신 — 원치 않는 이동/배치 변경 계열 (docs/05 회귀 기준 케이스)",
+      "attrs": {
+        "signal": {
+          "tenGod": "정관",
+          "relation": "stem_combination",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": 0.75,
+            "polarity": "negative_or_forced"
+          },
+          {
+            "event": "contract",
+            "score": 0.62,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_01",
+      "type": "interpretation_rule",
+      "label": "정관합+용신 — 자발적 이동·승진 기회",
+      "attrs": {
+        "signal": {
+          "tenGod": "정관",
+          "relation": "stem_combination",
+          "favorability": "용신"
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": 0.7,
+            "polarity": "positive"
+          },
+          {
+            "event": "promotion",
+            "score": 0.6,
+            "polarity": "positive"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_02",
+      "type": "interpretation_rule",
+      "label": "편관+충+기신 — 압박에 의한 이탈",
+      "attrs": {
+        "signal": {
+          "tenGod": "편관",
+          "relation": "branch_clash",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "resignation",
+            "score": 0.65,
+            "polarity": "negative_or_forced"
+          },
+          {
+            "event": "career_change",
+            "score": 0.6,
+            "polarity": "negative_or_forced"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_03",
+      "type": "interpretation_rule",
+      "label": "상관견관 — 조직 규범과의 충돌",
+      "attrs": {
+        "signal": {
+          "tenGod": "상관",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "resignation",
+            "score": 0.6,
+            "polarity": "negative_or_forced"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_04",
+      "type": "interpretation_rule",
+      "label": "관성 충 — 직위·역할 변동 신호(용기신 미상 시 조건부)",
+      "attrs": {
+        "signal": {
+          "tenGod": "정관",
+          "relation": "branch_clash"
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": 0.55,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_05",
+      "type": "interpretation_rule",
+      "label": "인성합+용신 — 결재·문서·자격 기반 상승",
+      "attrs": {
+        "signal": {
+          "tenGod": "정인",
+          "relation": "stem_combination",
+          "favorability": "용신"
+        },
+        "candidates": [
+          {
+            "event": "promotion",
+            "score": 0.5,
+            "polarity": "conditional"
+          },
+          {
+            "event": "document",
+            "score": 0.5,
+            "polarity": "positive"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_06",
+      "type": "interpretation_rule",
+      "label": "대운 교체기 — 직업 환경 전환 배경",
+      "attrs": {
+        "signal": {
+          "daewoonTransition": true
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": 0.55,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_00",
+      "type": "interpretation_rule",
+      "label": "역마+충 — 이동 발동(이사/출장/장거리)",
+      "attrs": {
+        "signal": {
+          "relation": "branch_clash",
+          "shinsal": "역마살"
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": 0.75,
+            "polarity": "conditional"
+          },
+          {
+            "event": "travel",
+            "score": 0.6,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_01",
+      "type": "interpretation_rule",
+      "label": "충+기신 — 원치 않는 거처 변동",
+      "attrs": {
+        "signal": {
+          "relation": "branch_clash",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": 0.6,
+            "polarity": "negative_or_forced"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_02",
+      "type": "interpretation_rule",
+      "label": "이동성 합+용신 — 자발적·우호적 이동",
+      "attrs": {
+        "signal": {
+          "relation": "six_combination",
+          "favorability": "용신"
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": 0.5,
+            "polarity": "positive"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_03",
+      "type": "interpretation_rule",
+      "label": "공망 활성 — 거처 공허·이동 모색 (docs/03 graphScope: 공망 활성)",
+      "attrs": {
+        "signal": {
+          "relation": "void"
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": 0.45,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_04",
+      "type": "interpretation_rule",
+      "label": "대운 교체기 — 생활 기반 전환 배경 (docs/03 graphScope)",
+      "attrs": {
+        "signal": {
+          "daewoonTransition": true
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": 0.55,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_05",
+      "type": "interpretation_rule",
+      "label": "역마+용신 — 우호적 이동·확장",
+      "attrs": {
+        "signal": {
+          "favorability": "용신",
+          "shinsal": "역마살"
+        },
+        "candidates": [
+          {
+            "event": "travel",
+            "score": 0.55,
+            "polarity": "positive"
+          },
+          {
+            "event": "relocation",
+            "score": 0.5,
+            "polarity": "positive"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "prohibit_windfall",
+      "type": "prohibition_rule",
+      "label": "당첨·횡재 단정 금지, 로또 번호 생성 거부",
+      "attrs": {
+        "reviewed": false
+      }
+    },
+    {
+      "id": "prohibit_speculation",
+      "type": "prohibition_rule",
+      "label": "투자 조언 아님 고지, 변동성·과몰입 경고 톤 고정",
+      "attrs": {
+        "reviewed": false
+      }
+    },
+    {
+      "id": "prohibit_surgery",
+      "type": "prohibition_rule",
+      "label": "의료 조언 아님 고지, 수술 시기 단정 금지",
+      "attrs": {
+        "reviewed": false
+      }
+    },
+    {
+      "id": "prohibit_exam",
+      "type": "prohibition_rule",
+      "label": "당락·합격 단정 금지(상대 우열 + 근거까지만)",
+      "attrs": {
+        "reviewed": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "element_木",
+      "to": "element_火",
+      "type": "generates",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "element_木",
+      "to": "element_土",
+      "type": "overcomes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "element_火",
+      "to": "element_土",
+      "type": "generates",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "element_火",
+      "to": "element_金",
+      "type": "overcomes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "element_土",
+      "to": "element_金",
+      "type": "generates",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "element_土",
+      "to": "element_水",
+      "type": "overcomes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "element_金",
+      "to": "element_水",
+      "type": "generates",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "element_金",
+      "to": "element_木",
+      "type": "overcomes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "element_水",
+      "to": "element_木",
+      "type": "generates",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "element_水",
+      "to": "element_火",
+      "type": "overcomes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_甲",
+      "to": "element_木",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_乙",
+      "to": "element_木",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_丙",
+      "to": "element_火",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_丁",
+      "to": "element_火",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_戊",
+      "to": "element_土",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_己",
+      "to": "element_土",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_庚",
+      "to": "element_金",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_辛",
+      "to": "element_金",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_壬",
+      "to": "element_水",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_癸",
+      "to": "element_水",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_子",
+      "to": "element_水",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_丑",
+      "to": "element_土",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_寅",
+      "to": "element_木",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_卯",
+      "to": "element_木",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_辰",
+      "to": "element_土",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_巳",
+      "to": "element_火",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_午",
+      "to": "element_火",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_未",
+      "to": "element_土",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_申",
+      "to": "element_金",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_酉",
+      "to": "element_金",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_戌",
+      "to": "element_土",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_亥",
+      "to": "element_水",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_甲",
+      "to": "rel_甲己合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_己",
+      "to": "rel_甲己合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_甲己合",
+      "to": "element_土",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_甲己合",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "rel_甲己合",
+      "to": "event_contract",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "rel_甲己合",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "stem_乙",
+      "to": "rel_乙庚合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_庚",
+      "to": "rel_乙庚合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_乙庚合",
+      "to": "element_金",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_乙庚合",
+      "to": "event_contract",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "rel_乙庚合",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "stem_丙",
+      "to": "rel_丙辛合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_辛",
+      "to": "rel_丙辛合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丙辛合",
+      "to": "element_水",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丙辛合",
+      "to": "event_document",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "rel_丙辛合",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "stem_丁",
+      "to": "rel_丁壬合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_壬",
+      "to": "rel_丁壬合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丁壬合",
+      "to": "element_木",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丁壬合",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "rel_丁壬合",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "stem_戊",
+      "to": "rel_戊癸合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_癸",
+      "to": "rel_戊癸合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_戊癸合",
+      "to": "element_火",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_戊癸合",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "rel_戊癸合",
+      "to": "event_wealth_change",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ]
+    },
+    {
+      "from": "branch_子",
+      "to": "rel_子丑合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_丑",
+      "to": "rel_子丑合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子丑合",
+      "to": "element_土",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子丑合",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "rel_子丑合",
+      "to": "event_contract",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "branch_寅",
+      "to": "rel_寅亥合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_亥",
+      "to": "rel_寅亥合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅亥合",
+      "to": "element_木",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅亥合",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "rel_寅亥合",
+      "to": "event_contract",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "branch_卯",
+      "to": "rel_卯戌合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_戌",
+      "to": "rel_卯戌合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_卯戌合",
+      "to": "element_火",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_卯戌合",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "rel_卯戌合",
+      "to": "event_contract",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "branch_辰",
+      "to": "rel_辰酉合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_酉",
+      "to": "rel_辰酉合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_辰酉合",
+      "to": "element_金",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_辰酉合",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "rel_辰酉合",
+      "to": "event_contract",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "branch_巳",
+      "to": "rel_巳申合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_申",
+      "to": "rel_巳申合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_巳申合",
+      "to": "element_水",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_巳申合",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "rel_巳申合",
+      "to": "event_contract",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "branch_午",
+      "to": "rel_午未合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_未",
+      "to": "rel_午未合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_午未合",
+      "to": "element_火",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_午未合",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "rel_午未合",
+      "to": "event_contract",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "합화",
+        "합반"
+      ]
+    },
+    {
+      "from": "branch_子",
+      "to": "rel_子辰申三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_辰",
+      "to": "rel_子辰申三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_申",
+      "to": "rel_子辰申三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子辰申三合",
+      "to": "element_水",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子辰申三合",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "rel_子辰申三合",
+      "to": "event_business_start",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "branch_寅",
+      "to": "rel_寅午戌三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_午",
+      "to": "rel_寅午戌三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_戌",
+      "to": "rel_寅午戌三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅午戌三合",
+      "to": "element_火",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅午戌三合",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "rel_寅午戌三合",
+      "to": "event_business_start",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "branch_丑",
+      "to": "rel_丑巳酉三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_巳",
+      "to": "rel_丑巳酉三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_酉",
+      "to": "rel_丑巳酉三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丑巳酉三合",
+      "to": "element_金",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丑巳酉三合",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "rel_丑巳酉三合",
+      "to": "event_business_start",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "branch_卯",
+      "to": "rel_卯未亥三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_未",
+      "to": "rel_卯未亥三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_亥",
+      "to": "rel_卯未亥三合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_卯未亥三合",
+      "to": "element_木",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_卯未亥三合",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "rel_卯未亥三合",
+      "to": "event_business_start",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "branch_寅",
+      "to": "rel_寅卯辰方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_卯",
+      "to": "rel_寅卯辰方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_辰",
+      "to": "rel_寅卯辰方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅卯辰方合",
+      "to": "element_木",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅卯辰方合",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "rel_寅卯辰方合",
+      "to": "event_business_start",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "branch_巳",
+      "to": "rel_巳午未方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_午",
+      "to": "rel_巳午未方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_未",
+      "to": "rel_巳午未方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_巳午未方合",
+      "to": "element_火",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_巳午未方合",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "rel_巳午未方合",
+      "to": "event_business_start",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "branch_申",
+      "to": "rel_申酉戌方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_酉",
+      "to": "rel_申酉戌方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_戌",
+      "to": "rel_申酉戌方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_申酉戌方合",
+      "to": "element_金",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_申酉戌方合",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "rel_申酉戌方合",
+      "to": "event_business_start",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "branch_子",
+      "to": "rel_子丑亥方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_丑",
+      "to": "rel_子丑亥方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_亥",
+      "to": "rel_子丑亥方合",
+      "type": "combines_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子丑亥方合",
+      "to": "element_水",
+      "type": "has_element",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子丑亥方合",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "rel_子丑亥方合",
+      "to": "event_business_start",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": [
+        "합화",
+        "반합"
+      ]
+    },
+    {
+      "from": "branch_子",
+      "to": "rel_子午沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_午",
+      "to": "rel_子午沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子午沖",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "rel_子午沖",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "branch_卯",
+      "to": "rel_卯酉沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_酉",
+      "to": "rel_卯酉沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_卯酉沖",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "rel_卯酉沖",
+      "to": "event_document",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "branch_寅",
+      "to": "rel_寅申沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_申",
+      "to": "rel_寅申沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅申沖",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "rel_寅申沖",
+      "to": "event_travel",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "rel_寅申沖",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "branch_丑",
+      "to": "rel_丑未沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_未",
+      "to": "rel_丑未沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丑未沖",
+      "to": "event_document",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "rel_丑未沖",
+      "to": "event_family_change",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "branch_巳",
+      "to": "rel_巳亥沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_亥",
+      "to": "rel_巳亥沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_巳亥沖",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "rel_巳亥沖",
+      "to": "event_travel",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "rel_巳亥沖",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "branch_辰",
+      "to": "rel_辰戌沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_戌",
+      "to": "rel_辰戌沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_辰戌沖",
+      "to": "event_document",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "rel_辰戌沖",
+      "to": "event_lawsuit",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": [
+        "충발",
+        "충거"
+      ]
+    },
+    {
+      "from": "branch_寅",
+      "to": "rel_寅巳申三刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_巳",
+      "to": "rel_寅巳申三刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_申",
+      "to": "rel_寅巳申三刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅巳申三刑",
+      "to": "event_lawsuit",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "rel_寅巳申三刑",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "rel_寅巳申三刑",
+      "to": "event_document",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "branch_丑",
+      "to": "rel_丑戌未三刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_戌",
+      "to": "rel_丑戌未三刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_未",
+      "to": "rel_丑戌未三刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丑戌未三刑",
+      "to": "event_lawsuit",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "rel_丑戌未三刑",
+      "to": "event_family_change",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "branch_子",
+      "to": "rel_子卯刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_卯",
+      "to": "rel_子卯刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子卯刑",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "rel_子卯刑",
+      "to": "event_lawsuit",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "branch_辰",
+      "to": "rel_辰辰自刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_辰辰自刑",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "rel_辰辰自刑",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "branch_午",
+      "to": "rel_午午自刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_午午自刑",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "rel_午午自刑",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "branch_酉",
+      "to": "rel_酉酉自刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_酉酉自刑",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "rel_酉酉自刑",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "branch_亥",
+      "to": "rel_亥亥自刑",
+      "type": "punishes",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_亥亥自刑",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "rel_亥亥自刑",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": [
+        "형발"
+      ]
+    },
+    {
+      "from": "branch_寅",
+      "to": "rel_寅亥破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_亥",
+      "to": "rel_寅亥破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅亥破",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.3,
+      "modes": [
+        "파손"
+      ]
+    },
+    {
+      "from": "branch_未",
+      "to": "rel_未戌破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_戌",
+      "to": "rel_未戌破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_未戌破",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.3,
+      "modes": [
+        "파손"
+      ]
+    },
+    {
+      "from": "branch_卯",
+      "to": "rel_卯午破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_午",
+      "to": "rel_卯午破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_卯午破",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.3,
+      "modes": [
+        "파손"
+      ]
+    },
+    {
+      "from": "branch_巳",
+      "to": "rel_巳申破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_申",
+      "to": "rel_巳申破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_巳申破",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.3,
+      "modes": [
+        "파손"
+      ]
+    },
+    {
+      "from": "branch_丑",
+      "to": "rel_丑辰破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_辰",
+      "to": "rel_丑辰破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丑辰破",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.3,
+      "modes": [
+        "파손"
+      ]
+    },
+    {
+      "from": "branch_子",
+      "to": "rel_子酉破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_酉",
+      "to": "rel_子酉破",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子酉破",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.3,
+      "modes": [
+        "파손"
+      ]
+    },
+    {
+      "from": "branch_子",
+      "to": "rel_子未害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_未",
+      "to": "rel_子未害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子未害",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "rel_子未害",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "branch_酉",
+      "to": "rel_酉戌害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_戌",
+      "to": "rel_酉戌害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_酉戌害",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "rel_酉戌害",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "branch_卯",
+      "to": "rel_卯辰害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_辰",
+      "to": "rel_卯辰害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_卯辰害",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "rel_卯辰害",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "branch_丑",
+      "to": "rel_丑午害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_午",
+      "to": "rel_丑午害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丑午害",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "rel_丑午害",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "branch_申",
+      "to": "rel_申亥害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_亥",
+      "to": "rel_申亥害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_申亥害",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "rel_申亥害",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "branch_寅",
+      "to": "rel_寅巳害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_巳",
+      "to": "rel_寅巳害",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅巳害",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "rel_寅巳害",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "해손"
+      ]
+    },
+    {
+      "from": "rel_공망활성",
+      "to": "event_document",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "전실",
+        "충발동",
+        "합해소"
+      ]
+    },
+    {
+      "from": "rel_공망활성",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "전실",
+        "충발동",
+        "합해소"
+      ]
+    },
+    {
+      "from": "rel_간여지동",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": [
+        "강화"
+      ]
+    },
+    {
+      "from": "tengod_정관",
+      "to": "rule_career_00",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_career_00",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_career_00",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.75,
+      "modes": []
+    },
+    {
+      "from": "rule_career_00",
+      "to": "event_contract",
+      "type": "triggers",
+      "weight": 0.62,
+      "modes": []
+    },
+    {
+      "from": "tengod_정관",
+      "to": "rule_career_01",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "yongsin",
+      "to": "rule_career_01",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_career_01",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.7,
+      "modes": []
+    },
+    {
+      "from": "rule_career_01",
+      "to": "event_promotion",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "tengod_편관",
+      "to": "rule_career_02",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_career_02",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_career_02",
+      "to": "event_resignation",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": []
+    },
+    {
+      "from": "rule_career_02",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "tengod_상관",
+      "to": "rule_career_03",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_career_03",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_career_03",
+      "to": "event_resignation",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "tengod_정관",
+      "to": "rule_career_04",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_career_04",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "tengod_정인",
+      "to": "rule_career_05",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "yongsin",
+      "to": "rule_career_05",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_career_05",
+      "to": "event_promotion",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "rule_career_05",
+      "to": "event_document",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "rule_career_06",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_00",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.75,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_00",
+      "to": "event_travel",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_relocation_01",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_01",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "yongsin",
+      "to": "rule_relocation_02",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_02",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_03",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_04",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "yongsin",
+      "to": "rule_relocation_05",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_05",
+      "to": "event_travel",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_05",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "prohibit_windfall",
+      "to": "event_windfall",
+      "type": "prohibits_style",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "prohibit_speculation",
+      "to": "event_speculation_risk",
+      "type": "prohibits_style",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "prohibit_surgery",
+      "to": "event_surgery",
+      "type": "prohibits_style",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "prohibit_surgery",
+      "to": "event_health_issue",
+      "type": "prohibits_style",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "prohibit_exam",
+      "to": "event_exam",
+      "type": "prohibits_style",
+      "weight": null,
+      "modes": []
+    }
+  ]
+}

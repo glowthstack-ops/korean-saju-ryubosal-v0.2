@@ -1246,3 +1246,33 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   docs/02 EventCandidate 표준("negative_or_forced")으로 통일 — 문서 간 불일치 발견분.
 검증: pytest 207 pass(Phase1 13 신규) · ruff clean · mypy clean(107파일) ·
   validate 스크립트 실데이터 9파일 통과.
+
+### v2.2 Phase 2 — Event Graph + Scoring (T2.1~T2.5) ✅
+- **shared_types/graph.py**: GraphNode/GraphEdge(docs/04 Node·EdgeType)·EventGraph(semver)·
+  EvidencePath·EvidenceBundle.
+- **T2.1 graph_builder.py**: 사전 → 이벤트 후보 그래프 컴파일. 오행(생극)·천간·지지·십성
+  노드 + 관계(rel_*, 참여글자 combines_with/conflicts_with/punishes 엣지 + eventDomains
+  triggers 엣지 weight=baseScore) + 판정 노드 4종(용·희·기·구신) + 해석 규칙 노드
+  (events/<domain>.json 매핑 → supports/triggers) + 금기 규칙 4종(windfall 당첨 단정 금지
+  등 — 절대 원칙 3·8). `scripts/build_event_graph.py`: validate+lint 통과 후에만 빌드.
+  스냅샷 `compiled/event_graph_v1.0.0.json`(131노드/272엣지) git 체크인.
+- **T2.2 graph_retrieval.py**: 인메모리 인접 리스트 GraphIndex. graphScope(EventKey 목록)
+  역방향 triggers 탐색(기본 5-hop), 신호→이벤트 정규화 경로 + supports/contradicts +
+  prohibitions(금기 항상 첨부) + interpretation_hints 출력. 전체 검색 금지 준수.
+- **T2.3 event_scoring.py**: 결정론 EventScorer — ① RelationHit→relations.json 매칭
+  (쌍/3자/패턴 인덱스) base_score ② favorability_rules 보정(**유입 글자 오행 기준** 판정,
+  docs/04 예시 정합 — 합화 결과 오행은 "성립 시 전환 가능" 단서로 부기, 합화 판정은
+  Phase 2.5) ③ events/* 신호 매핑(십성·관계·용기신·신살·교운 AND 조건) ④ (period,event)
+  합산 → 0~100 클램프 ⑤ 계층 필터(세운 score≥70 또는 Top5).
+- **대운 교운기 가중(사용자 실측 피드백)**: 교운일 중심 **첨도 높은 정규분포형** 영향도
+  `exp(-(|Δ일|/365)^1.0)`(라플라스형, beta<2=첨도↑) — `daewoon_transition_weight()`.
+  교운일은 luck_cycles.trace.exact_jiao_un_dates 사용. 상수는 초안, 실테스트 조정 예정.
+- **T2.4**: `EventScorer.readable_path()` — evidence path 노드 ID → 한글 경로
+  (예: 甲辰 세운(2024) → 甲 → 甲己合 → 기신 → 이직·직업 변화).
+- **T2.5 회귀 픽스처 11케이스**(tests/regression/test_event_scoring_cases.py):
+  갑기합+정관+기신 → career_change 상위(docs/05 기준)·강제성 신호 존재·contract 동반·
+  역마충 relocation·evidence path 구조·클램프·계층 필터·windfall 금기 첨부·
+  retrieval 경로·교운 분포 형태(중심 1.0/단조감소/뾰족)·교운 신호 실반영.
+  절대 점수가 아닌 **상대 순위·신호 존재·극성** 고정(가중치 조정에 견디는 계약).
+검증: pytest 218 pass(Phase2 11 신규) · ruff clean · mypy clean(113파일) ·
+  그래프 빌드 스크립트 실행 성공.
