@@ -1547,3 +1547,32 @@ Phase 4 Conversation Layer(xfail 3건 해소).
   여전히 정책 거부(G6 — /api/v2/chat 정책 라우트), advice 고지 고정 — 전부 테스트 고정.
 검증: pytest 371 pass(Phase7 10 신규) · ruff clean · mypy clean(161파일) ·
   사전 validate 22파일 통과.
+
+### v2.2 Phase 8.5 — 사용자 프로필 & 페르소나 (T8.5.1~T8.5.11) ✅
+- **docs/11 전체 규격 그대로 구현**(필드·enum·분류 임의 변경 없음).
+- **사전 3종 신설**: `occupation_taxonomy.json`(O01~O18 닫힌 분류 + 물상 매핑 +
+  formBias(E3)/contextModifiers(E6, ±10 한도) — 전 항목 reviewed:false),
+  `persona_lexicon.json`(endings 4종·difficulty_rules 3종은 규격 그대로, 성별3×연령5
+  =15조합 어휘 초안 reviewed:false), `honorific_presets.json`(7종 + 금칙어 필터).
+- **`shared_types/profile.py`**: BasicProfile(윤달·시간모름·대략시간대·해외출생·
+  multipleBirth·displayName), ExtendedProfile(occupation O-ID 패턴 강제·residence·
+  maritalStatus 7종('별거' 포함)·children), PersonaConfig 5축(speech 유효 조합
+  jondae→haeyo|hapsyo / banmal→banmal_chae|hagae를 pydantic으로 강제), ChartVariantState.
+- **`profile_engine.py`**: T8.5.1 BasicProfile→BirthInput(보정은 기존 엔진 재사용,
+  3주 모드·대략 시간대 후보 2~3개 병기) · **T8.5.10 쌍둥이 시주 조정**(시지 n-1칸
+  전진+시두법 재계산, **wrap 시 일·월·년주 불변 + 원 일간 기준 시두법**,
+  TWIN_WRAP_CONVENTION 플래그, 변형 상태 original/twin_adjusted, 안내 문구 고정
+  템플릿 양방향) · T8.5.3 occupation→E3 formBias(O14+relocation→'출장·파견')/E6
+  reality_context · T8.5.4 marital 분기(기혼 연애운→배우자 우선+확인, 이혼·사별→재혼,
+  미입력 '미혼' 가정 금지) + 자녀 동반자 등록 제안(강제 아님) · T8.5.2 JIT 트래커
+  (1회 요청·거절 시 재요청 금지·한계 고지) + 개별 삭제→캐시 무효화 ·
+  T8.5.8 대화 추출 갱신(확인 전 저장 금지 — F9).
+- **`persona.py`**: T8.5.5 조합 제약(politeness↔호칭, jane→hagae 전용, custom 금칙어·
+  10자 제한) · T8.5.6 프롬프트 블록 — **5-3 고정 템플릿 슬롯 치환만**(즉석 작문 금지,
+  문체 전용 고지 포함) · T8.5.7 준수 검사 4종(종결어미 ≥95% — 스타일 접미 클래스 판정,
+  허용 외 호칭, 존대 혼용, easy 미해설 용어).
+- migrations/004_user_profiles.sql + profile_store.py(JSONB 필드 개별 삭제 지원).
+- 테스트 32건: 문서 예시 검증(乙丑 둘째→丙寅·셋째→丁卯, 亥→子 wrap 甲子),
+  T8.5.9 미입력 영향표(전 필드 부재에도 차단 없음), E6 실연동(O14→relocation +8).
+검증: pytest 403 pass(Phase8.5 32 신규) · ruff clean · mypy clean(166파일) ·
+  사전 validate 25파일 통과.

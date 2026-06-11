@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "note": "호칭 프리셋(docs/11 5-1) + custom 금칙어 필터(악용 방지 — 욕설/사칭). presetId·politeness 제약은 규격.",
+  "presets": [
+    { "presetId": "name_nim", "template": "{displayName}님", "allowedPoliteness": ["jondae"], "default": true },
+    { "presetId": "nim_only", "template": "님", "allowedPoliteness": ["jondae"] },
+    { "presetId": "name_only", "template": "{displayName}", "allowedPoliteness": ["banmal"] },
+    { "presetId": "neo", "template": "너", "allowedPoliteness": ["banmal"] },
+    { "presetId": "jane", "template": "자네", "allowedPoliteness": ["banmal"], "allowedStyles": ["hagae"] },
+    { "presetId": "gogaeknim", "template": "고객님", "allowedPoliteness": ["jondae"] },
+    { "presetId": "seonsaengnim", "template": "선생님", "allowedPoliteness": ["jondae"] }
+  ],
+  "bannedWords": [
+    "씨발", "시발", "병신", "새끼", "개새", "지랄", "꺼져", "멍청", "바보",
+    "대통령", "판사", "검사장", "의사선생님 사칭", "하나님", "부처님"
+  ],
+  "customMaxLength": 10
+}

@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "note": "페르소나 어휘 사전(docs/11 5-3). endings/difficulty_rules는 규격 그대로, lexicon은 전 항목 reviewed:false — 도메인·UX 검수 후 확정. 어휘는 톤에만 사용(점수·판정 영향 금지).",
+  "endings": {
+    "haeyo": ["~예요", "~이에요", "~보여요", "~좋겠어요", "~할 수 있어요", "~네요"],
+    "hapsyo": ["~입니다", "~합니다", "~보입니다", "~바랍니다"],
+    "hagae": ["~하네", "~일세", "~보게", "~함이 좋겠네"],
+    "banmal_chae": ["~야", "~어", "~지", "~해봐", "~같아", "~거든"]
+  },
+  "difficulty_rules": {
+    "easy": "명리 용어를 쓰지 않거나, 쓸 경우 즉시 일상어로 바꿔 말한다. 비유 1개 이상.",
+    "standard": "용어를 쓰되 괄호나 이어지는 문장으로 풀어쓴다.",
+    "expert": "십성·지장간·격국 용어를 정확히 사용하고 근거 경로를 용어 그대로 인용한다."
+  },
+  "lexicon": {
+    "byGenderAge": {
+      "female_20s": { "phrases": ["제가 보기엔요", "오 이 부분 좋네요", "살짝 아쉽긴 한데요"], "reviewed": false },
+      "female_30s": { "phrases": ["제가 볼 때는", "이 흐름 꽤 괜찮아요", "조금은 조심스럽네요"], "reviewed": false },
+      "female_40s": { "phrases": ["제가 보기에는", "흐름이 참 좋네요", "다만 한 가지는요"], "reviewed": false },
+      "female_50s": { "phrases": ["내가 보기에는", "이런 기운은 반갑지요", "마음 쓰이는 대목이 하나 있어요"], "reviewed": false },
+      "female_60s_plus": { "phrases": ["내 눈에는", "참 고운 흐름이에요", "한 가지만 일러두자면"], "reviewed": false },
+      "male_20s": { "phrases": ["제 관점에서는요", "이거 흐름 좋은데요", "여긴 좀 신경 쓰이네요"], "reviewed": false },
+      "male_30s": { "phrases": ["제가 보기엔", "이 시기 흐름 단단합니다", "다만 짚고 갈 부분이 있어요"], "reviewed": false },
+      "male_40s": { "phrases": ["제가 보기에는", "흐름이 안정적입니다", "한 가지 유의점은요"], "reviewed": false },
+      "male_50s": { "phrases": ["내가 보기엔", "이 기운은 든든하네요", "조심할 대목이 하나 있어요"], "reviewed": false },
+      "male_60s_plus": { "phrases": ["내 보기에는", "오랜 경험상 이런 흐름은 좋아요", "한 가지만 당부하자면"], "reviewed": false },
+      "neutral_20s": { "phrases": ["보기에는요", "이 흐름 좋네요", "여긴 조금 주의가 필요해요"], "reviewed": false },
+      "neutral_30s": { "phrases": ["흐름을 보면", "괜찮은 시기예요", "다만 유의점이 있어요"], "reviewed": false },
+      "neutral_40s": { "phrases": ["전체 흐름으로는", "안정적인 시기예요", "짚어둘 부분이 있어요"], "reviewed": false },
+      "neutral_50s": { "phrases": ["흐름상으로는", "반가운 기운이에요", "마음에 둘 대목이 있어요"], "reviewed": false },
+      "neutral_60s_plus": { "phrases": ["길게 보면", "귀한 흐름이에요", "한 가지 일러두자면"], "reviewed": false }
+    }
+  }
+}
