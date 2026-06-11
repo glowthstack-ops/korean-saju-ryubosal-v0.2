@@ -641,7 +641,7 @@ def build_yongsin(
             models.extend(_weak_band_models(g, groups, strength, force))
             pseudo_model = follow_model
             warnings.append(
-                "pseudo_follow(가종): 억부(印·比)와 종격(순응)이 경쟁 — 사용자 검증 필요"
+                "가종(假從): 억부(印·比)와 종격(순응)이 경쟁 — 사용자 검증 필요"
             )
         else:
             models.append(follow_model)
@@ -668,8 +668,8 @@ def build_yongsin(
             and not _johu_or_disease_active(month_branch, geokguk)
         ):
             models.append(_resource_excess_model(g, strength))
-            warnings.append("neutral_zone: 인성과다(財損印) 후보 조건부 추가")
-        warnings.append("neutral_zone: 경쟁 모델 동시 제시, 사용자 검증 필요")
+            warnings.append("중화 구간: 인성과다(財損印) 후보 조건부 추가")
+        warnings.append("중화 구간: 경쟁 모델 동시 제시, 사용자 검증 필요")
 
     # 조후: _johu_model이 한습(亥子丑)·조열(巳午未)만 모델을 내므로(辰·戌은 None) 그대로 사용.
     # (丑=한겨울·未=한여름은 土월이라도 조후가 핵심 — 월령오행으로 걸러내면 안 됨.)
@@ -796,11 +796,11 @@ def build_yongsin(
     )
     if strength.borderline:
         warnings.append(
-            f"strength_borderline: 신강약 점수 {strength.score}가 밴드 경계권 — 용희신 단정 보류"
+            f"신강약 경계: 점수 {strength.score}가 밴드 경계권 — 용희신 단정 보류"
         )
     if competing:
         warnings.append(
-            "yongsin_competing_candidates: 상위 용신 후보 점수 차가 작아 사용자 검증 필요"
+            "용신 후보 경합: 상위 후보 점수 차가 작아 사용자 검증 필요"
         )
     if (
         johu is not None
@@ -810,7 +810,7 @@ def build_yongsin(
             (c.score for c in useful_candidates if c.element == johu.yongsin), 0.0
         )) < 0.08
     ):
-        warnings.append("johu_borderline: 조후 후보가 근소 차이로 밀림 — 한난습조 맥락 병행 검토")
+        warnings.append("조후 경계: 조후 후보가 근소 차이로 밀림 — 한난습조 맥락 병행 검토")
     if len(models) == 1 and strength.confidence >= 0.7 and not any_special and not competing:
         status = "probable"
     else:

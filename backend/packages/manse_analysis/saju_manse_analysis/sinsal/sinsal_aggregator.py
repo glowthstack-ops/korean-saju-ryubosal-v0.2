@@ -418,7 +418,7 @@ def analyze_sinsal(
 
     warnings: list[str] = []
     if pillars.hour is None:
-        warnings.append("hour_unknown: 시주 신살을 계산할 수 없습니다.")
+        warnings.append("시간 미상: 시주 신살을 계산할 수 없습니다.")
 
     day_stem = Stem(pillars.day.stem)
     return SinsalAnalysis(

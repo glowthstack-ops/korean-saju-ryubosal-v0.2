@@ -179,7 +179,7 @@ def test_pseudo_follow_keeps_eokbu_and_flags(make_pillars) -> None:
     assert y.final["selected_model"] == "support_day_master"
     # 가종아격이 후보 목록에 병기된다.
     assert "가종격(假從)·종아격(從兒格)" in {m.label for m in y.candidate_models}
-    assert any("pseudo_follow" in w for w in y.warnings)
+    assert any("가종" in w for w in y.warnings)
 
 
 def test_candidate_model_types_are_unique_for_calibration(make_pillars) -> None:

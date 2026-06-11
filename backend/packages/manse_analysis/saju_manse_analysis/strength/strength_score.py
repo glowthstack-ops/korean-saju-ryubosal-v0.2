@@ -174,11 +174,11 @@ def compute_strength(
     gate = evaluate_strong_gate(month_ally, day_ally, ally_labels)
 
     if band in _NEUTRAL_BANDS:
-        warnings.append("neutral_zone: 용신 단정 금지, 경쟁 모델/검증 필요")
+        warnings.append("중화 구간: 용신 단정 금지, 경쟁 모델/검증 필요")
     if root_score >= 50 and not gate["passed"]:
-        warnings.append("rooted_but_not_strong: 신왕하나 신강 게이트 미통과")
+        warnings.append("통근 신왕: 뿌리는 있으나 신강 기준 미달")
     if strength_capped:
-        warnings.append("capped_to_weak: 월령·통근·세력 모두 중화 미만 → 신약 캡 적용")
+        warnings.append("신약 상한 적용: 월령·통근·세력 모두 중화 미만")
     if band_note:
         warnings.append(band_note)
 
