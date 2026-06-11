@@ -16,9 +16,9 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from saju_engines import EventScorer, GraphIndex, filter_year_candidates, load_event_graph
+from saju_engines.context_reducer import build_llm_input, serialize_with_guard
 from saju_engines.conversation import ConversationEngine
 from saju_engines.conversation_store import ConversationStore
-from saju_engines.context_reducer import build_llm_input, serialize_with_guard
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.planner import build_execution_plan
 from saju_engines.query_parser import parse_message
