@@ -1576,3 +1576,25 @@ Phase 4 Conversation Layer(xfail 3건 해소).
   T8.5.9 미입력 영향표(전 필드 부재에도 차단 없음), E6 실연동(O14→relocation +8).
 검증: pytest 403 pass(Phase8.5 32 신규) · ruff clean · mypy clean(166파일) ·
   사전 validate 25파일 통과.
+
+### v2.2 Phase 9 — 풀이 상품 3종 (docs/10 전체 규격) ✅
+- **`report_plan.py`**: 고정 목차 — RPT_FULL 22섹션(F-01~F-22, 분량 합계 78,000자
+  ±10% 검증) / RPT_FOCUS 8섹션(C-01~C-08). dependsOn 규칙(F-04 용신 확정 →
+  F-10~F-20 선행, F-21 → F-13~F-20 완료 후), 과거 검증(F-08/09)을 미래보다 앞에
+  두는 고정 순서(신뢰 형성 원칙). 주제 변형(compatibility/relocation)은 **제목·모듈만
+  교체, 섹션 추가/삭제 금지** — 테스트로 고정.
+- **`report_checks.py`**: 정합성 검사 8종(7장 전체) — ①분량 ②간지(미제공 간지 등장
+  = 즉시 실패) ③수치(점수·연도 정규식 대조) ④용신 일관(F-04 확정 기준) ⑤금지 표현
+  (반드시~/당첨/당선/합격 단정 등 prohibited 패턴) ⑥페르소나(docs/11 5-4 4종 재사용)
+  ⑦다중 대상 라벨 ⑧근거 경로 ≥1. **전부 코드 검증**(LLM 자기 검증 금지).
+- **`report_builder.py`**: ReportSpec→SectionPlan→컨텍스트(주입)→LLM 생성(주입)→
+  검사→**실패 섹션만 재생성(≤2회)**→2회 실패 시 on_hold(부분 산출물 보존+관리자
+  알림 대상)→조립(표지/자동 목차/부록 재현성 파라미터: dictVersion·chartVariant·
+  페르소나 스냅샷). F-04 실패 시 의존 섹션 미생성(용신 일관성 보호). F-04 확정
+  용신을 후속 섹션 검사 기준으로 전파. 원가 집계(호출 수·입출력 토큰) +
+  **단가 설정 분리**(config/model_prices.json — 하드코딩 금지).
+- **CHAT 연계(5장)**: too_broad → RPT_FULL/RPT_FOCUS 제안 카드 동반(강제 유도 금지
+  — "대화로도" 축약 답변 병행 명시).
+- docx/pdf 변환(8장)은 운영 출시 단계 항목으로 보류 — 조립은 마크다운+메타 구조까지
+  (표지·목차·부록 규격 충족). 후속: python-docx 파이프라인.
+검증: pytest 420 pass(Phase9 17 신규) · ruff clean · mypy clean(171파일).

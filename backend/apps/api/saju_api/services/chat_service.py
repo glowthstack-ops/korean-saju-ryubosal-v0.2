@@ -77,6 +77,8 @@ class ChatResponse(BaseModel):
     thread_id: str | None = None  # 멀티턴 스레드(Phase 4)
     turn_no: int | None = None
     repeated: bool = False  # F7 — 동일 질문 반복(다른 각도 제시 신호)
+    # docs/10 5장: 분량 큰 요청 → 상품 제안 카드(강제 유도 금지 — 축약 답변 병행).
+    product_suggestion: dict | None = None
 
 
 def _get_scorer() -> EventScorer:
@@ -164,10 +166,18 @@ def chat(
             else f"질문 범위가 넓어요. 이렇게 좁혀볼까요? — {suggestion_text}"
         )
         _save_thread(store, state)
+        suggestion = None
+        if assessment.status == "too_broad":
+            suggestion = {
+                "products": ["RPT_FULL", "RPT_FOCUS"],
+                "reason": "전체 흐름을 깊게 보려면 총운/집중 풀이 보고서가 적합해요",
+                "note": "대화로도 범위를 좁혀 바로 답해드릴 수 있어요",
+            }
         return ChatResponse(
             status=assessment.status, answer=answer,
             intents=parsed.intents, assessment=assessment, thread_id=thread_id,
             turn_no=state.turn_no if state else None, repeated=repeated,
+            product_suggestion=suggestion,
         )
 
     # 만세 계산(캐시) + 스코어링 + 계층 필터.
