@@ -1,19 +1,26 @@
-"""Topic Context Builder (v2.2 Phase 2.5 T2.5.6, docs/09 4장 — 모듈 전체 15종 규격).
+"""Topic Context Builder (v2.2 Phase 2.5 T2.5.6·T2.5.7, docs/09 4장 — 모듈 전체 15종 규격).
 
 각 모듈은 `(subjects, period, LuckComposite[], dictionaries) => TopicContext` 순수 함수다.
 **M01~M15가 전체이며 새 주제는 모듈 추가로만 대응한다(기존 모듈에 분기 추가 금지).**
 
-이번 구현: M07(career). M03(trait_mapping 사전)·M10(이사 — region_elements/housing_rules
-사전 + S1~S10)·M15(format_slots 템플릿)는 전용 사전 신설이 필요해 후속 단위로 보류.
-나머지 모듈은 등록만 된 계획 상태(빌더 미구현 — 호출 시 NotImplementedError).
+구현: M03(personality_traits — trait_mapping.json), M07(career),
+M10(relocation_composite — relocation.py S1~S10 위임), M15(lifestyle — format_slots.json).
+나머지는 등록만 된 계획 상태(호출 시 NotImplementedError).
+
+T0 데이터(원국 십성 분포·용신 오행)가 필요한 모듈(M03/M10)은 extras 키워드로 받는다 —
+LuckComposite 스키마(규격)에 없는 정적 차트 정보는 Static Chart Layer(T0, docs/09 1장)
+소관이므로 호출 측(오케스트레이터)이 공급한다.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
+from pathlib import Path
 
 from saju_shared_types.intent import SubjectRef
 from saju_shared_types.precompute import CompositeLevel, LuckComposite
+from saju_shared_types.relocation import RelocationQuery
 from saju_shared_types.topic_context import (
     CalendarContextEntry,
     Finding,
@@ -22,9 +29,13 @@ from saju_shared_types.topic_context import (
     TimeSeriesPoint,
     TokenBudget,
     TopicContext,
+    TraitShift,
 )
 
 from .llm_guard import CALL_LIMITS
+from .relocation import RelocationResolver
+
+_DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 
 # 모듈 전체 목록 (docs/09 4장 표 — id, 담당 질의, 구현 여부는 레지스트리로 관리).
 MODULES: dict[str, str] = {
@@ -45,7 +56,8 @@ MODULES: dict[str, str] = {
     "M15": "lifestyle",
 }
 
-BuilderFn = Callable[[list[SubjectRef], PeriodSpec, list[LuckComposite]], TopicContext]
+# 빌더 공통 시그니처: (subjects, period, composites, **extras) → TopicContext.
+BuilderFn = Callable[..., TopicContext]
 
 # 대화형 단건 기준 예산(docs/09 8장 chat_single) — 출력 글자수는 초안(검수 대상).
 _DEFAULT_BUDGET = TokenBudget(
@@ -139,9 +151,336 @@ def build_career_context(
     )
 
 
+def build_personality_context(
+    subjects: list[SubjectRef],
+    period: PeriodSpec,
+    composites: list[LuckComposite],
+    *,
+    natal_ten_god_dist: dict[str, float],
+    dictionaries_dir: Path = _DICTS_DEFAULT,
+) -> TopicContext:
+    """M03 personality_traits — 시기별 성향 변화 (docs/09 6장 계산식 전체).
+
+    effectiveDist(period) = natalDist×W_natal + 대운기여×W_daewoon + 세운기여×W_year.
+    contribution = 운 간지의 십성(천간 1.0 + 지지 본기 0.7). favorability는 분포를
+    조정하지 않고 quality_flag('발현 질')로만 반영한다(docs/09 6장).
+
+    natal_ten_god_dist는 T0(force_analysis.ten_god_analysis.distribution)에서 공급.
+    """
+    mapping = json.loads((dictionaries_dir / "trait_mapping.json").read_text("utf-8"))
+    w = mapping["weights"]
+    traits: dict[str, dict] = {t["tenGod"]: t for t in mapping["traits"]}
+    natal_top = _top_keys(natal_ten_god_dist, 3)
+
+    daewoon_contrib: dict[str, dict[str, float]] = {}
+    shifts: list[TraitShift] = []
+    targets = [
+        c for c in composites
+        if (
+            (c.level is CompositeLevel.DAEWOON)
+            or (c.level is CompositeLevel.YEAR and _in_period(c.period_key, period))
+        )
+    ]
+    for c in sorted(targets, key=lambda x: (x.level != CompositeLevel.DAEWOON, x.period_key)):
+        contribution = {c.ten_god.stem: w["stem"], c.ten_god.branch_main: w["branchMain"]}
+        if c.level is CompositeLevel.DAEWOON:
+            daewoon_contrib[c.period_key] = contribution
+            scale = w["daewoon"]
+            parent_dw: dict[str, float] = {}
+        else:
+            scale = w["year"]
+            dw_key = f"DW:{c.parent_context.daewoon}" if c.parent_context.daewoon else ""
+            parent_dw = daewoon_contrib.get(dw_key, {})
+
+        effective: dict[str, float] = {
+            tg: v * w["natal"] for tg, v in natal_ten_god_dist.items()
+        }
+        for tg, v in parent_dw.items():
+            effective[tg] = effective.get(tg, 0.0) + v * w["daewoon"]
+        for tg, v in contribution.items():
+            effective[tg] = effective.get(tg, 0.0) + v * scale
+
+        dominant = _top_keys(effective, 3)
+        rising = [tg for tg in dominant if tg not in natal_top]
+        fading = [tg for tg in natal_top if tg not in dominant]
+        quality = (
+            "pressured" if c.favorability in ("기신", "구신")
+            else "favorable" if c.favorability in ("용신", "희신")
+            else "mixed"
+        )
+        shifts.append(TraitShift(
+            period_key=c.period_key,
+            dominant_ten_gods=dominant,
+            rising_traits=[
+                t for tg in rising for t in traits.get(tg, {}).get("rising", [])
+            ],
+            fading_traits=[
+                t for tg in fading for t in traits.get(tg, {}).get("fading", [])
+            ],
+            quality_flag=quality,
+            evidence=[
+                f"{c.period_key} {c.ganji.stem}{c.ganji.branch} — "
+                f"천간 {c.ten_god.stem}·지지 본기 {c.ten_god.branch_main} 가산"
+            ],
+        ))
+
+    findings = [
+        Finding(
+            key=f"trait_shift@{s.period_key}",
+            summary=(
+                f"{s.period_key}: 활성 십성 {'·'.join(s.dominant_ten_gods)}"
+                + (f", 부상 성향 {'·'.join(s.rising_traits[:3])}" if s.rising_traits else "")
+            ),
+            score=70 if s.rising_traits else 50,  # 변화 유무 표시용 초안 점수
+            period_key=s.period_key,
+            signals=s.dominant_ten_gods,
+        )
+        for s in shifts if s.rising_traits or s.fading_traits
+    ]
+    return TopicContext(
+        module_id="M03",
+        subjects=subjects,
+        period=period,
+        calendar_context=_calendar_context(targets),
+        findings=findings[:5],
+        trait_shifts=shifts,
+        style_rules=StyleRules(
+            prohibited_expressions=[*_BASE_STYLE.prohibited_expressions, "MBTI식 고정 유형화"],
+            tone_notes=[*_BASE_STYLE.tone_notes, "성격검사화 금지(docs/02 E5)"],
+        ),
+        budget=_DEFAULT_BUDGET,
+    )
+
+
+def build_lifestyle_context(
+    subjects: list[SubjectRef],
+    period: PeriodSpec,
+    composites: list[LuckComposite],
+    *,
+    dictionaries_dir: Path = _DICTS_DEFAULT,
+) -> TopicContext:
+    """M15 lifestyle — 일일/주간/연간 종합운, 고정 슬롯 점수 (docs/02 E9 전체 슬롯).
+
+    슬롯 목록은 templates/format_slots.json(전체 규격)을 그대로 사용하며 임의
+    추가·삭제하지 않는다. 모든 슬롯을 findings로 채운다(부분 누락 금지).
+    """
+    slots_spec = json.loads(
+        (dictionaries_dir / "templates" / "format_slots.json").read_text("utf-8")
+    )
+    fortune_type = _fortune_type(period)
+    slot_names: list[str] = slots_spec[fortune_type]["slots"]
+
+    selected = [
+        c for c in composites
+        if c.level in (CompositeLevel.DAY, CompositeLevel.MONTH, CompositeLevel.YEAR)
+        and _in_period(c.period_key, period)
+    ]
+    day_comps = [c for c in selected if c.level is CompositeLevel.DAY]
+    scores = _lifestyle_scores(selected)
+
+    findings = [
+        Finding(
+            key=f"slot:{name}",
+            summary=_slot_summary(name, scores, selected, day_comps),
+            score=_slot_score(name, scores),
+            signals=[],
+        )
+        for name in slot_names
+    ]
+    return TopicContext(
+        module_id="M15",
+        subjects=subjects,
+        period=period,
+        calendar_context=_calendar_context(selected),
+        findings=findings,  # 슬롯 전체 — Top N 축약 금지(고정 템플릿)
+        style_rules=_BASE_STYLE,
+        budget=_DEFAULT_BUDGET,
+    )
+
+
+def build_relocation_context(
+    subjects: list[SubjectRef],
+    period: PeriodSpec,
+    composites: list[LuckComposite],
+    *,
+    relocation_query: RelocationQuery,
+    composites_by_subject: dict[str, list[LuckComposite]],
+    yongsin_by_subject: dict[str, str],
+    dictionaries_dir: Path = _DICTS_DEFAULT,
+) -> TopicContext:
+    """M10 relocation_composite — S1~S10은 RelocationResolver에 위임 (docs/09 7장)."""
+    from saju_shared_types.topic_context import GroupAggReport, RankedItem
+
+    resolver = RelocationResolver(dictionaries_dir)
+    result = resolver.resolve(relocation_query, composites_by_subject, yongsin_by_subject)
+
+    ranked = [
+        RankedItem(
+            label=f"{c.date} ({c.ganji})",
+            score=c.final_score,
+            reasons=c.reasons,
+            cautions=[w.signal for w in c.member_warnings],
+        )
+        for c in result.move_dates
+    ]
+    findings = [
+        Finding(
+            key=f"move@{c.date}",
+            summary=(
+                f"{c.date} {c.ganji} — 일운 {c.scores.day_execution} · "
+                f"월적합 {c.scores.month_fit}"
+                + (" · 손없는 날" if c.son_eomneun_nal else "")
+            ),
+            score=c.final_score,
+            period_key=c.date,
+        )
+        for c in result.move_dates
+    ]
+    return TopicContext(
+        module_id="M10",
+        subjects=subjects,
+        period=period,
+        calendar_context=_calendar_context(
+            [c for c in composites if _in_period(c.period_key, period)][:40]
+        ),
+        findings=findings,
+        ranked_results=ranked,
+        group_aggregation=GroupAggReport(
+            rule=relocation_query.aggregation_rule,
+            member_scores={},  # 월별 상세는 result.group_summary — LLM 입력 시 별도 직렬화
+            conflicts=result.group_summary.conflicts,
+        ),
+        style_rules=_BASE_STYLE,
+        budget=TokenBudget(
+            max_input_tokens=CALL_LIMITS["chat_compare"].max_input_tokens,
+            max_output_chars=2_400,
+        ),
+    )
+
+
+# ── M15 내부 헬퍼 ─────────────────────────────────────────────────
+
+_SLOT_DOMAIN = {  # 슬롯 → 점수 카테고리(초안 매핑, 검수 대상)
+    "일·공부": "work", "돈·소비": "money", "관계·연애": "relationship", "건강": "health",
+    "직업": "work", "재물": "money", "관계": "relationship",
+}
+_DOMAIN_TO_CATEGORY = {
+    "career": "work", "education": "work", "wealth": "money",
+    "relationship": "relationship", "health": "health", "relocation": "decision",
+    "general": "decision",
+}
+
+
+def _fortune_type(period: PeriodSpec) -> str:
+    """기간 범위 → daily/weekly/yearly (granularity·길이 기반)."""
+    if period.granularity == "year":
+        return "yearly"
+    if period.start == period.end:
+        return "daily"
+    return "weekly"
+
+
+def _lifestyle_scores(selected: list[LuckComposite]) -> dict[str, int]:
+    """카테고리 5종 점수(50 중립 ± 부호화 신호 합, docs/02 E9 scores)."""
+    acc: dict[str, float] = {
+        "work": 0.0, "money": 0.0, "relationship": 0.0, "health": 0.0, "decision": 0.0,
+    }
+    for c in selected:
+        sign = (
+            1.0 if c.favorability in ("용신", "희신")
+            else -1.0 if c.favorability in ("기신", "구신")
+            else 0.5
+        )
+        for s in c.domain_signals:
+            category = _DOMAIN_TO_CATEGORY.get(s.domain, "decision")
+            acc[category] += s.weight * sign
+    return {
+        k: max(0, min(100, round(50 + v * 50)))
+        for k, v in acc.items()
+    }
+
+
+def _slot_score(name: str, scores: dict[str, int]) -> int:
+    """슬롯 대표 점수 — 매핑된 카테고리, 없으면 전체 평균."""
+    if name in _SLOT_DOMAIN:
+        return scores[_SLOT_DOMAIN[name]]
+    return round(sum(scores.values()) / len(scores))
+
+
+def _slot_summary(
+    name: str, scores: dict[str, int],
+    selected: list[LuckComposite], day_comps: list[LuckComposite],
+) -> str:
+    """슬롯별 서술 재료(수치 확정 — LLM은 문장화만)."""
+    if name in ("핵심기운", "핵심흐름", "핵심주제"):
+        ganji = ", ".join(
+            f"{c.ganji.stem}{c.ganji.branch}({c.favorability})" for c in selected[:3]
+        )
+        return f"활성 간지: {ganji}" if ganji else "활성 신호 없음"
+    if name in ("좋은날", "기회시기"):
+        best = _extreme_periods(day_comps or selected, best=True)
+        return f"상위: {', '.join(best)}" if best else "해당 없음"
+    if name in ("주의할날", "주의시기", "주의행동"):
+        worst = _extreme_periods(day_comps or selected, best=False)
+        return f"주의: {', '.join(worst)}" if worst else "특이 주의 없음"
+    if name == "일·돈·관계·건강":
+        return (
+            f"일 {scores['work']} · 돈 {scores['money']} · "
+            f"관계 {scores['relationship']} · 건강 {scores['health']}"
+        )
+    if name == "상·하반기":
+        return _half_year_summary(selected)
+    if name in ("활용법", "행동전략"):
+        return f"의사결정운 {scores['decision']} — 강한 분야 우선 활용"
+    category = _SLOT_DOMAIN.get(name)
+    return f"점수 {scores[category]}" if category else "점수 산출"
+
+
+def _fav_sign(favorability: str) -> float:
+    """기간 favorability → 부호(용·희 +1 / 기·구 −1 / 그 외 0.5)."""
+    if favorability in ("용신", "희신"):
+        return 1.0
+    if favorability in ("기신", "구신"):
+        return -1.0
+    return 0.5
+
+
+def _extreme_periods(comps: list[LuckComposite], *, best: bool, n: int = 2) -> list[str]:
+    """부호화 신호 합 기준 상/하위 기간 키."""
+    scored = [
+        (sum(s.weight for s in c.domain_signals) * _fav_sign(c.favorability), c.period_key)
+        for c in comps
+    ]
+    scored.sort(reverse=best)
+    picked = scored[:n] if best else sorted(scored)[:n]
+    return [k for v, k in picked if (v > 0) == best or v == 0]
+
+
+def _half_year_summary(selected: list[LuckComposite]) -> str:
+    """연간: 상·하반기 월 신호 집계."""
+    h1 = [c for c in selected if c.level is CompositeLevel.MONTH and c.period_key[5:7] <= "06"]
+    h2 = [c for c in selected if c.level is CompositeLevel.MONTH and c.period_key[5:7] > "06"]
+
+    def net(group: list[LuckComposite]) -> float:
+        return sum(
+            sum(s.weight for s in c.domain_signals) * _fav_sign(c.favorability)
+            for c in group
+        )
+
+    return f"상반기 {net(h1):+.2f} · 하반기 {net(h2):+.2f}"
+
+
+def _top_keys(dist: dict[str, float], n: int) -> list[str]:
+    """분포 상위 n개 키(값 내림차순, 동률은 키 순서)."""
+    return [k for k, _v in sorted(dist.items(), key=lambda kv: (-kv[1], kv[0]))[:n]]
+
+
 # 모듈 레지스트리 — 구현된 모듈만 빌더 연결, 나머지는 계획 상태.
 BUILDERS: dict[str, BuilderFn | None] = {mid: None for mid in MODULES}
+BUILDERS["M03"] = build_personality_context  # extras: natal_ten_god_dist
 BUILDERS["M07"] = build_career_context
+BUILDERS["M10"] = build_relocation_context  # extras: relocation_query 외 2종
+BUILDERS["M15"] = build_lifestyle_context  # extras 선택
 
 
 def build_topic_context(
@@ -149,8 +488,12 @@ def build_topic_context(
     subjects: list[SubjectRef],
     period: PeriodSpec,
     composites: list[LuckComposite],
+    **extras: object,
 ) -> TopicContext:
     """모듈 디스패치 — 미등록 ID·미구현 모듈은 명시적 오류.
+
+    extras: T0 데이터가 필요한 모듈용 키워드(M03 natal_ten_god_dist,
+    M10 relocation_query/composites_by_subject/yongsin_by_subject 등).
 
     Raises:
         KeyError: M01~M15 밖의 모듈 ID(새 주제는 모듈 추가로만 대응).
@@ -163,4 +506,4 @@ def build_topic_context(
         raise NotImplementedError(
             f"{module_id}({MODULES[module_id]}) 미구현 — 후속 단위에서 추가"
         )
-    return builder(subjects, period, composites)
+    return builder(subjects, period, composites, **extras)

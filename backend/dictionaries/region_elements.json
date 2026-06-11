@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "note": "지역오행 — 명리학 표준 규격 없음(docs/09 9장 리스크 1). 지명 한자 오행/지형/방위 기반 자체 기준 초안으로, 전 항목 사용자 검수 전 출시 금지. 미등재 지역은 보정 없음(0).",
+  "items": [
+    { "region": "서울", "element": "金", "basis": "한양(漢陽)·서북 기준 관습 분류 초안", "reviewed": false },
+    { "region": "인천", "element": "水", "basis": "해안 도시(仁川 — 내 천川)", "reviewed": false },
+    { "region": "부산", "element": "水", "basis": "해안 도시(釜山 — 항만)", "reviewed": false },
+    { "region": "대구", "element": "火", "basis": "분지 고온(大邱) 관습 분류 초안", "reviewed": false },
+    { "region": "대전", "element": "土", "basis": "내륙 중앙(大田 — 밭 전田)", "reviewed": false },
+    { "region": "광주", "element": "木", "basis": "光州 — 남서 내륙 평야 초안", "reviewed": false },
+    { "region": "수원", "element": "水", "basis": "水原 — 지명 한자 수(水)", "reviewed": false },
+    { "region": "고양", "element": "土", "basis": "高陽 — 내륙 구릉 초안", "reviewed": false },
+    { "region": "성남", "element": "火", "basis": "城南 — 남향 지명 초안", "reviewed": false },
+    { "region": "춘천", "element": "水", "basis": "春川 — 내 천川, 호반 도시", "reviewed": false }
+  ]
+}

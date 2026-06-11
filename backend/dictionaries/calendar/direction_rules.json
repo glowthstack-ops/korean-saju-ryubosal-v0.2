@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "note": "용신 오행 → 길방(吉方). 오행-방위 대응은 통설(木동·火남·土중앙/사우·金서·水북) 기반 초안 — 검수 대상.",
+  "items": [
+    { "element": "木", "directions": ["동", "남동"], "reviewed": false },
+    { "element": "火", "directions": ["남"], "reviewed": false },
+    { "element": "土", "directions": ["남서", "북동"], "reviewed": false },
+    { "element": "金", "directions": ["서", "북서"], "reviewed": false },
+    { "element": "水", "directions": ["북"], "reviewed": false }
+  ],
+  "allDirections": ["동", "남동", "남", "남서", "서", "북서", "북", "북동"]
+}

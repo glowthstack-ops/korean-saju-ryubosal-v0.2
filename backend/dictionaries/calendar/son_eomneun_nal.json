@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0",
+  "rule": "lunar_day_ends_9_or_0",
+  "note": "손없는 날 = 음력 일(日)의 끝자리가 9 또는 0인 날(민속·캘린더 규칙, 명리 계산 아님 — docs/02 E10-a). 음력 변환은 만세력 엔진의 korean-lunar-calendar를 재사용한다.",
+  "movingFavorable": true,
+  "reviewed": false
+}

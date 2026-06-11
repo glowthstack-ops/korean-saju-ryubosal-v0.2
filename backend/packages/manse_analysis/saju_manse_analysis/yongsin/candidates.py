@@ -320,7 +320,9 @@ def _classify_bridge_roles(
             key=lambda el: useful.get(el, (0.0, "", ""))[0],
         ) if remaining_for_hee else None
 
-    hansin = next((e for e in sorted(elements) if e not in {yongsin_el, heesin, gisin, gusin}), None)
+    hansin = next(
+        (e for e in sorted(elements) if e not in {yongsin_el, heesin, gisin, gusin}), None
+    )
     return {
         "yongsin": yongsin_el,
         "heesin": heesin,
@@ -809,7 +811,9 @@ def build_yongsin(
     )
     roles = _classify_roles(g, groups, band, useful, unfavorable, yongsin_el)
     if top_model == "bridge_tonggwan" and yongsin_el:
-        roles = _classify_bridge_roles(g, groups, checks["bridge_required"].detail, useful, yongsin_el)
+        roles = _classify_bridge_roles(
+            g, groups, checks["bridge_required"].detail, useful, yongsin_el
+        )
     elif (
         top_model == "support_day_master"
         and band in _WEAK

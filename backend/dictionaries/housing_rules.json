@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "note": "주거 타입별 보정 — 학술 근거 약함(docs/09 9장 리스크 2). 문서운/재물운 연결 등 최소 규칙만 두고, 근거 없는 타입(신축/구축)은 0 보정 고정(임의 규칙 발명 금지).",
+  "items": [
+    { "housingType": "buy", "domainWeights": { "document": 0.15, "wealth": 0.1 }, "reviewed": false },
+    { "housingType": "jeonse", "domainWeights": { "document": 0.1 }, "reviewed": false },
+    { "housingType": "monthly", "domainWeights": { "document": 0.05 }, "reviewed": false },
+    { "housingType": "new_build", "domainWeights": {}, "reviewed": false },
+    { "housingType": "old_build", "domainWeights": {}, "reviewed": false }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "weights": {
+    "natal": 1.0,
+    "daewoon": 0.45,
+    "year": 0.25,
+    "stem": 1.0,
+    "branchMain": 0.7,
+    "reviewed": false
+  },
+  "traits": [
+    { "tenGod": "비견", "rising": ["자립심", "주도성", "내 페이스 고수"], "fading": ["타협 성향"], "reviewed": false },
+    { "tenGod": "겁재", "rising": ["승부욕", "과감한 지출", "경쟁심"], "fading": ["신중한 소비"], "reviewed": false },
+    { "tenGod": "식신", "rising": ["몰입", "취미 탐닉", "먹는 즐거움", "느긋함"], "fading": ["긴장감"], "reviewed": false },
+    { "tenGod": "상관", "rising": ["표현욕", "비판 정신", "새로움 추구"], "fading": ["규칙 순응"], "reviewed": false },
+    { "tenGod": "편재", "rising": ["활동 반경 확장", "투자 관심", "사교성"], "fading": ["안정 지향"], "reviewed": false },
+    { "tenGod": "정재", "rising": ["꼼꼼한 관리", "실속 추구", "저축 성향"], "fading": ["즉흥성"], "reviewed": false },
+    { "tenGod": "편관", "rising": ["도전 의식", "긴장감", "책임 부담"], "fading": ["여유"], "reviewed": false },
+    { "tenGod": "정관", "rising": ["규범 준수", "체면 의식", "조직 지향"], "fading": ["자유분방함"], "reviewed": false },
+    { "tenGod": "편인", "rising": ["직관 의존", "혼자만의 시간", "비주류 관심"], "fading": ["현실 감각"], "reviewed": false },
+    { "tenGod": "정인", "rising": ["배움 욕구", "안정 추구", "보수적 판단"], "fading": ["모험심"], "reviewed": false }
+  ]
+}

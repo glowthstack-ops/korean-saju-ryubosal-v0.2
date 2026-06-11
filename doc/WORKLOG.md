@@ -1333,3 +1333,32 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   M15(format_slots.json) — 전용 사전 신설 필요, 후속 단위.
 검증: pytest 255 pass(가드 6·M07 6·스케줄러 라이브 6 신규 — daily_batch 멱등/월 경계
   보충/lazy/버전 무효화 실 DB 검증) · ruff clean · mypy clean(128파일).
+
+### v2.2 Phase 2.5(완결) — M03·M10·M15 + 전용 사전 6종 ✅
+- **사전 6종 신설**(전 항목 reviewed:false — 도메인 검수 대상):
+  `templates/format_slots.json`(일일7/주간5/연간8 고정 슬롯 — docs/02 E9 전체 규격),
+  `trait_mapping.json`(W_natal 1.0·W_daewoon 0.45·W_year 0.25, 천간 1.0·본기 0.7,
+  십성→성향 어휘 10종), `calendar/direction_rules.json`(용신 오행→길방, 통설 기반),
+  `calendar/son_eomneun_nal.json`(음력 끝자리 9·0 규칙), `region_elements.json`
+  (지역오행 — **명리 표준 없음, 자체 기준 초안 10개 지역, 검수 전 출시 금지**),
+  `housing_rules.json`(buy 문서+재물 / jeonse·monthly 문서 / 신축·구축 0 보정 고정).
+- **M03 personality_traits**(docs/09 6장 계산식 전체): effectiveDist = natal×1.0 +
+  대운기여×0.45 + 세운기여×0.25. favorability는 분포 미조정, quality_flag(발현 질)로만.
+  대운(DW:)·세운 단위 TraitShift(dominant/rising/fading) + MBTI 고정 유형화 금지 스타일.
+  natal 십성 분포는 T0(force_analysis.ten_gods.distribution)에서 extras로 공급.
+- **M15 lifestyle**: format_slots 슬롯 **전부** findings로 채움(축약 금지). 카테고리
+  5점수(work/money/relationship/health/decision) = 50 중립 ± 부호화 신호 합. 연간
+  상·하반기 집계, 좋은날/주의할날 상·하위 추출.
+- **M10 relocation_composite(T2.5.7, S1~S10 전체)**: `relocation.py` RelocationResolver —
+  S1 구성원 월 시계열 → S2 그룹 집계(householder_primary 0.5/0.3/잔여균등 ·
+  balanced · protect_weakest + 구성원 충돌 경고) → S3 월 후보(상위+macro 게이트) →
+  S4 일 후보 → S5 방위 적합(미지정 시 8방위 분리 산출·단일 답 강제 금지) +
+  region_fit(동일 1.0/생 0.8/미등재 0.5 중립) → S6 주거 보정 → S7 손없는날(음력 9·0,
+  korean-lunar-calendar 재사용)·기신+충 회피일 → S8 주말 제약 → S9 체인 기본형
+  (이사일 역산 30~90일 전 계약 창) → S10 부분점수 5종 합성 랭킹.
+  shared_types/relocation.py(RelocationQuery/Result — docs/09 7장).
+- 디스패치: build_topic_context(..., **extras) — T0 데이터 필요 모듈은 extras로 주입.
+- 부수: 사용자 커밋분 잔여 게이트 정리(candidates.py 줄길이 2, test_calibration
+  import 정렬+None-guard — 로직 무변경).
+검증: pytest 270 pass(M03 3·M15 2·M10 5 신규) · ruff clean · mypy clean(131파일) ·
+  사전 validate 15파일 통과. **Phase 2.5 전체 태스크 완료.**

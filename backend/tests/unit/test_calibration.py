@@ -5,9 +5,8 @@ from __future__ import annotations
 from saju_manse_calibration import score_calibration, score_feedback
 
 from saju_api.services.manse_service import calculate, calibrate_feedback
-from saju_shared_types.calibration import CalibrationQuestion
 from saju_shared_types.birth_input import BirthInput
-from saju_shared_types.calibration import FeedbackAnswer
+from saju_shared_types.calibration import CalibrationQuestion, FeedbackAnswer
 from saju_shared_types.yongsin import AggregatedYongsinResult, YongsinCandidateModel
 
 _BASE = dict(birth_date="1980-11-22", birth_time="09:08", birth_place_name="서울", gender="male")
@@ -158,6 +157,7 @@ def test_period_selection_keeps_multiple_disease_models_distinct() -> None:
         time_options={"apply_equation_of_time": False},
     )
     r = calculate(b)
+    assert r.yongsin_analysis is not None
     periods = select_validation_periods(r.yongsin_analysis, 1985, 2026, r.pillars)
     keys = set(periods[0]["expected_by_model"])
     assert "disease_remedy:shangguan_attacks_officer" in keys
