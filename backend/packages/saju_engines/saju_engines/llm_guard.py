@@ -118,12 +118,13 @@ class LLMCallGuard:
         return tokens
 
     def request_params(self) -> dict:
-        """API 호출 파라미터 — thinking 비활성 강제 + 출력 상한."""
-        return {
-            "max_tokens": self._limit.max_output_tokens,
-            # 운영 호출 전체에서 extended thinking 비활성(절대 원칙 9, docs/09 8장).
-            "thinking": {"type": "disabled"},
-        }
+        """API 호출 파라미터 — 출력 상한 + thinking 비활성 강제.
+
+        thinking 비활성(절대 원칙 9)은 **파라미터 생략**으로 강제한다: 최신 모델은
+        thinking 미지정 시 비활성이며, 명시적 {"type": "disabled"}는 일부 모델
+        (Fable 5)에서 400을 반환한다. 이 dict에 thinking을 추가하는 변경은 금지.
+        """
+        return {"max_tokens": self._limit.max_output_tokens}
 
     def record(
         self, input_tokens: int, output_tokens: int,

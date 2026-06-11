@@ -40,9 +40,12 @@ def test_check_input_blocks_before_call() -> None:
 
 
 def test_request_params_disable_thinking() -> None:
-    """운영 호출 전체에서 extended thinking 비활성 강제(절대 원칙 9)."""
+    """운영 호출 전체에서 extended thinking 비활성 강제(절대 원칙 9).
+
+    비활성은 thinking 파라미터 생략으로 구현한다(명시적 disabled는 일부 모델 400).
+    """
     params = LLMCallGuard("chat_single").request_params()
-    assert params["thinking"] == {"type": "disabled"}
+    assert "thinking" not in params  # 생략 = 비활성, 활성화 키 자체가 없어야 함
     assert params["max_tokens"] == 1_200
 
 

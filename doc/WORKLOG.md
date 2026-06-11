@@ -1432,3 +1432,25 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
 검증: pytest 320 pass + 3 xfail(reducer 7 신규) · ruff clean · mypy clean(141파일).
 **Phase 3 코드 태스크 완료** — 잔여: LLM 파서/통변 실호출 어댑터(운영 연동 시),
 Phase 4 Conversation Layer(xfail 3건 해소).
+
+### v2.2 MVP 파이프라인 통합 — /api/v2/chat + Claude API 어댑터 ✅
+- **llm_guard 수정**: thinking 비활성을 명시적 {"type":"disabled"}가 아닌 **파라미터
+  생략**으로 강제(최신 모델은 미지정=비활성, 일부 모델은 명시적 disabled가 400 —
+  claude-api 스킬 레퍼런스 확인). request_params에 thinking 추가 금지 명문화.
+- **`llm_client.py`**: Claude API 어댑터 — 모든 호출이 가드 경유(호출 전 토큰 차단,
+  max_tokens 상한), usage(input/output_tokens)를 원가 장부에 적재. 모델 env 설정:
+  SAJU_V2_LLM_MODEL(통변 기본 claude-opus-4-8) / SAJU_V2_PARSER_MODEL(경량 파서
+  기본 claude-haiku-4-5). 표현 원칙 시스템 프롬프트 고정([필수 준수] 블록 —
+  수치 재계산 금지·변화 에너지 표현·미제공 정보 처리). anthropic>=0.40 의존성 추가.
+- **`chat_service.py`**: MVP 오케스트레이션 — 파서(룰) → 정책 라우트(Q11~Q14 고정
+  응답, 엔진·LLM 미호출) → too_broad/대상 판정(추측 실행 금지) → 만세 계산(캐시) →
+  스코어링+계층 필터 → Graph Retrieval(plan graphScope만) → Context Reduction+직렬화
+  +가드(초과 시 too_broad 안내) → LLM 서술. **API 키 미설정 시 dry-run 폴백**
+  (직렬화 본문 반환 — 개발/검증 경로).
+- **`routers/chat.py`**: POST /api/v2/chat {birth, question, today?, dry_run?} →
+  ChatResponse(status/answer/intents/assessment/prompt_preview/input_tokens).
+- E2E 7건: 이직 질문 dry-run(4요소 섹션+한도 내 토큰), intent 메타 왕복, 로또 번호
+  거부+대안, 감정 공감 우선, too_broad 제안 3종, 모의 LLM answered, 키 미설정 폴백.
+검증: pytest 327 pass + 3 xfail · ruff clean · mypy clean(145파일).
+**"단일 질문 → 정확한 풀이" MVP가 API로 동작**(실 LLM 호출은 ANTHROPIC_API_KEY
+설정 시 자동 활성).
