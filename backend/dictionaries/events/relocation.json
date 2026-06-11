@@ -1,0 +1,56 @@
+{
+  "version": "1.0.0",
+  "domain": "relocation",
+  "items": [
+    {
+      "signal": { "shinsal": "역마살", "relation": "branch_clash" },
+      "eventCandidates": [
+        { "event": "relocation", "score": 0.75, "polarity": "conditional" },
+        { "event": "travel", "score": 0.6, "polarity": "neutral" }
+      ],
+      "note": "역마+충 — 이동 발동(이사/출장/장거리)",
+      "reviewed": false
+    },
+    {
+      "signal": { "relation": "branch_clash", "favorability": "기신" },
+      "eventCandidates": [
+        { "event": "relocation", "score": 0.6, "polarity": "negative_or_forced" }
+      ],
+      "note": "충+기신 — 원치 않는 거처 변동",
+      "reviewed": false
+    },
+    {
+      "signal": { "relation": "six_combination", "favorability": "용신" },
+      "eventCandidates": [
+        { "event": "relocation", "score": 0.5, "polarity": "positive" }
+      ],
+      "note": "이동성 합+용신 — 자발적·우호적 이동",
+      "reviewed": false
+    },
+    {
+      "signal": { "relation": "void" },
+      "eventCandidates": [
+        { "event": "relocation", "score": 0.45, "polarity": "conditional" }
+      ],
+      "note": "공망 활성 — 거처 공허·이동 모색 (docs/03 graphScope: 공망 활성)",
+      "reviewed": false
+    },
+    {
+      "signal": { "daewoonTransition": true },
+      "eventCandidates": [
+        { "event": "relocation", "score": 0.55, "polarity": "conditional" }
+      ],
+      "note": "대운 교체기 — 생활 기반 전환 배경 (docs/03 graphScope)",
+      "reviewed": false
+    },
+    {
+      "signal": { "shinsal": "역마살", "favorability": "용신" },
+      "eventCandidates": [
+        { "event": "travel", "score": 0.55, "polarity": "positive" },
+        { "event": "relocation", "score": 0.5, "polarity": "positive" }
+      ],
+      "note": "역마+용신 — 우호적 이동·확장",
+      "reviewed": false
+    }
+  ]
+}

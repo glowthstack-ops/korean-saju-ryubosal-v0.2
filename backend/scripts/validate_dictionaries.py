@@ -1,12 +1,12 @@
-"""사전(JSON) 검증 스크립트 골격 (v2.2 Phase 0 T0.2, docs/05·07).
+"""사전(JSON) 검증 스크립트 (v2.2 Phase 1 T1.6, docs/05·07).
 
-사전 원본을 운영에 직접 반영하기 전 거치는 `validate` 단계의 골격이다(절대 원칙 5).
-현재는 다음 최소 검사만 수행한다. 사전 스키마(zod→pydantic)·충돌 검사(dict:lint)는
-Phase 1(T1.6)에서 확장한다.
+사전 원본을 운영에 직접 반영하기 전 거치는 `validate → lint` 단계다(절대 원칙 5).
 
-- UTF-8 디코딩 및 JSON 파싱 가능 여부
-- BOM 부재(절대 원칙: UTF-8 BOM 없음)
-- 객체/객체배열 항목의 `reviewed: false` 플래그 존재(검수 워크플로 강제)
+1. generic: UTF-8/BOM·JSON 파싱·`reviewed: bool` 플래그(검수 워크플로 강제)
+2. dict:validate: pydantic 스키마 검증 — 필수 필드, EventKey 유효성, score 범위
+   (`saju_engines.dictionaries`, 설계 문서의 zod 역할)
+3. dict:lint: 충돌 검사 — relation id 중복 / 기신인데 polarity=positive 류 모순 /
+   같은 신호의 상반 이벤트 동시 강유발
 
 사용법:
     python scripts/validate_dictionaries.py [dictionaries_dir]
@@ -19,6 +19,8 @@ import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from saju_engines.dictionaries import lint_dictionaries, validate_dictionaries
 
 _DEFAULT_DIR = Path(__file__).resolve().parent.parent / "dictionaries"
 
@@ -70,11 +72,13 @@ def validate_file(path: Path) -> list[str]:
 
 
 def validate_dir(directory: Path) -> ValidationReport:
-    """디렉토리 하위 모든 *.json 사전을 검증한다."""
+    """디렉토리 하위 모든 *.json 사전을 generic → 스키마 → lint 순으로 검증한다."""
     report = ValidationReport()
     for path in sorted(directory.rglob("*.json")):
         report.checked.append(str(path.relative_to(directory)))
         report.errors.extend(validate_file(path))
+    report.errors.extend(validate_dictionaries(directory))  # dict:validate (스키마)
+    report.errors.extend(lint_dictionaries(directory))  # dict:lint (충돌)
     return report
 
 

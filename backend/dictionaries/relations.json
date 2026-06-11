@@ -1,0 +1,947 @@
+{
+  "version": "1.0.0",
+  "items": [
+    {
+      "id": "rel_甲己合",
+      "type": "stem_combination",
+      "name": "갑기합",
+      "participants": [
+        "甲",
+        "己"
+      ],
+      "resultElement": "土",
+      "possibleModes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ],
+      "eventDomains": [
+        "career_change",
+        "contract",
+        "relocation"
+      ],
+      "baseScore": 0.6,
+      "reviewed": false
+    },
+    {
+      "id": "rel_乙庚合",
+      "type": "stem_combination",
+      "name": "을경합",
+      "participants": [
+        "乙",
+        "庚"
+      ],
+      "resultElement": "金",
+      "possibleModes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ],
+      "eventDomains": [
+        "contract",
+        "relationship_start"
+      ],
+      "baseScore": 0.6,
+      "reviewed": false
+    },
+    {
+      "id": "rel_丙辛合",
+      "type": "stem_combination",
+      "name": "병신합",
+      "participants": [
+        "丙",
+        "辛"
+      ],
+      "resultElement": "水",
+      "possibleModes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ],
+      "eventDomains": [
+        "document",
+        "relationship_start"
+      ],
+      "baseScore": 0.6,
+      "reviewed": false
+    },
+    {
+      "id": "rel_丁壬合",
+      "type": "stem_combination",
+      "name": "정임합",
+      "participants": [
+        "丁",
+        "壬"
+      ],
+      "resultElement": "木",
+      "possibleModes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ],
+      "eventDomains": [
+        "relationship_start",
+        "relationship_end"
+      ],
+      "baseScore": 0.6,
+      "reviewed": false
+    },
+    {
+      "id": "rel_戊癸合",
+      "type": "stem_combination",
+      "name": "무계합",
+      "participants": [
+        "戊",
+        "癸"
+      ],
+      "resultElement": "火",
+      "possibleModes": [
+        "합화",
+        "합반",
+        "합래",
+        "합거"
+      ],
+      "eventDomains": [
+        "relationship_start",
+        "wealth_change"
+      ],
+      "baseScore": 0.6,
+      "reviewed": false
+    },
+    {
+      "id": "rel_子丑合",
+      "type": "six_combination",
+      "name": "자축합",
+      "participants": [
+        "子",
+        "丑"
+      ],
+      "resultElement": "土",
+      "possibleModes": [
+        "합화",
+        "합반"
+      ],
+      "eventDomains": [
+        "relationship_start",
+        "contract"
+      ],
+      "baseScore": 0.5,
+      "reviewed": false
+    },
+    {
+      "id": "rel_寅亥合",
+      "type": "six_combination",
+      "name": "인해합",
+      "participants": [
+        "寅",
+        "亥"
+      ],
+      "resultElement": "木",
+      "possibleModes": [
+        "합화",
+        "합반"
+      ],
+      "eventDomains": [
+        "relationship_start",
+        "contract"
+      ],
+      "baseScore": 0.5,
+      "reviewed": false
+    },
+    {
+      "id": "rel_卯戌合",
+      "type": "six_combination",
+      "name": "묘술합",
+      "participants": [
+        "卯",
+        "戌"
+      ],
+      "resultElement": "火",
+      "possibleModes": [
+        "합화",
+        "합반"
+      ],
+      "eventDomains": [
+        "relationship_start",
+        "contract"
+      ],
+      "baseScore": 0.5,
+      "reviewed": false
+    },
+    {
+      "id": "rel_辰酉合",
+      "type": "six_combination",
+      "name": "진유합",
+      "participants": [
+        "辰",
+        "酉"
+      ],
+      "resultElement": "金",
+      "possibleModes": [
+        "합화",
+        "합반"
+      ],
+      "eventDomains": [
+        "relationship_start",
+        "contract"
+      ],
+      "baseScore": 0.5,
+      "reviewed": false
+    },
+    {
+      "id": "rel_巳申合",
+      "type": "six_combination",
+      "name": "사신합",
+      "participants": [
+        "巳",
+        "申"
+      ],
+      "resultElement": "水",
+      "possibleModes": [
+        "합화",
+        "합반"
+      ],
+      "eventDomains": [
+        "relationship_start",
+        "contract"
+      ],
+      "baseScore": 0.5,
+      "reviewed": false
+    },
+    {
+      "id": "rel_午未合",
+      "type": "six_combination",
+      "name": "오미합",
+      "participants": [
+        "午",
+        "未"
+      ],
+      "resultElement": "火",
+      "possibleModes": [
+        "합화",
+        "합반"
+      ],
+      "eventDomains": [
+        "relationship_start",
+        "contract"
+      ],
+      "baseScore": 0.5,
+      "reviewed": false
+    },
+    {
+      "id": "rel_子辰申三合",
+      "type": "three_harmony",
+      "name": "자진신삼합",
+      "participants": [
+        "子",
+        "辰",
+        "申"
+      ],
+      "resultElement": "水",
+      "possibleModes": [
+        "합화",
+        "반합"
+      ],
+      "eventDomains": [
+        "career_change",
+        "business_start"
+      ],
+      "baseScore": 0.65,
+      "reviewed": false
+    },
+    {
+      "id": "rel_寅午戌三合",
+      "type": "three_harmony",
+      "name": "인오술삼합",
+      "participants": [
+        "寅",
+        "午",
+        "戌"
+      ],
+      "resultElement": "火",
+      "possibleModes": [
+        "합화",
+        "반합"
+      ],
+      "eventDomains": [
+        "career_change",
+        "business_start"
+      ],
+      "baseScore": 0.65,
+      "reviewed": false
+    },
+    {
+      "id": "rel_丑巳酉三合",
+      "type": "three_harmony",
+      "name": "축사유삼합",
+      "participants": [
+        "丑",
+        "巳",
+        "酉"
+      ],
+      "resultElement": "金",
+      "possibleModes": [
+        "합화",
+        "반합"
+      ],
+      "eventDomains": [
+        "career_change",
+        "business_start"
+      ],
+      "baseScore": 0.65,
+      "reviewed": false
+    },
+    {
+      "id": "rel_卯未亥三合",
+      "type": "three_harmony",
+      "name": "묘미해삼합",
+      "participants": [
+        "卯",
+        "未",
+        "亥"
+      ],
+      "resultElement": "木",
+      "possibleModes": [
+        "합화",
+        "반합"
+      ],
+      "eventDomains": [
+        "career_change",
+        "business_start"
+      ],
+      "baseScore": 0.65,
+      "reviewed": false
+    },
+    {
+      "id": "rel_寅卯辰方合",
+      "type": "directional",
+      "name": "인묘진방합",
+      "participants": [
+        "寅",
+        "卯",
+        "辰"
+      ],
+      "resultElement": "木",
+      "possibleModes": [
+        "합화",
+        "반합"
+      ],
+      "eventDomains": [
+        "career_change",
+        "business_start"
+      ],
+      "baseScore": 0.55,
+      "reviewed": false
+    },
+    {
+      "id": "rel_巳午未方合",
+      "type": "directional",
+      "name": "사오미방합",
+      "participants": [
+        "巳",
+        "午",
+        "未"
+      ],
+      "resultElement": "火",
+      "possibleModes": [
+        "합화",
+        "반합"
+      ],
+      "eventDomains": [
+        "career_change",
+        "business_start"
+      ],
+      "baseScore": 0.55,
+      "reviewed": false
+    },
+    {
+      "id": "rel_申酉戌方合",
+      "type": "directional",
+      "name": "신유술방합",
+      "participants": [
+        "申",
+        "酉",
+        "戌"
+      ],
+      "resultElement": "金",
+      "possibleModes": [
+        "합화",
+        "반합"
+      ],
+      "eventDomains": [
+        "career_change",
+        "business_start"
+      ],
+      "baseScore": 0.55,
+      "reviewed": false
+    },
+    {
+      "id": "rel_子丑亥方合",
+      "type": "directional",
+      "name": "자축해방합",
+      "participants": [
+        "子",
+        "丑",
+        "亥"
+      ],
+      "resultElement": "水",
+      "possibleModes": [
+        "합화",
+        "반합"
+      ],
+      "eventDomains": [
+        "career_change",
+        "business_start"
+      ],
+      "baseScore": 0.55,
+      "reviewed": false
+    },
+    {
+      "id": "rel_子午沖",
+      "type": "branch_clash",
+      "name": "자오충",
+      "participants": [
+        "子",
+        "午"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "충발",
+        "충거"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "health_issue"
+      ],
+      "baseScore": 0.7,
+      "reviewed": false
+    },
+    {
+      "id": "rel_卯酉沖",
+      "type": "branch_clash",
+      "name": "묘유충",
+      "participants": [
+        "卯",
+        "酉"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "충발",
+        "충거"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "document"
+      ],
+      "baseScore": 0.7,
+      "reviewed": false
+    },
+    {
+      "id": "rel_寅申沖",
+      "type": "branch_clash",
+      "name": "인신충",
+      "participants": [
+        "寅",
+        "申"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "충발",
+        "충거"
+      ],
+      "eventDomains": [
+        "relocation",
+        "travel",
+        "career_change"
+      ],
+      "baseScore": 0.7,
+      "reviewed": false
+    },
+    {
+      "id": "rel_丑未沖",
+      "type": "branch_clash",
+      "name": "축미충",
+      "participants": [
+        "丑",
+        "未"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "충발",
+        "충거"
+      ],
+      "eventDomains": [
+        "document",
+        "family_change"
+      ],
+      "baseScore": 0.7,
+      "reviewed": false
+    },
+    {
+      "id": "rel_巳亥沖",
+      "type": "branch_clash",
+      "name": "사해충",
+      "participants": [
+        "巳",
+        "亥"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "충발",
+        "충거"
+      ],
+      "eventDomains": [
+        "relocation",
+        "travel",
+        "career_change"
+      ],
+      "baseScore": 0.7,
+      "reviewed": false
+    },
+    {
+      "id": "rel_辰戌沖",
+      "type": "branch_clash",
+      "name": "진술충",
+      "participants": [
+        "辰",
+        "戌"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "충발",
+        "충거"
+      ],
+      "eventDomains": [
+        "document",
+        "lawsuit"
+      ],
+      "baseScore": 0.7,
+      "reviewed": false
+    },
+    {
+      "id": "rel_寅巳申三刑",
+      "type": "punishment_triple",
+      "name": "인사신삼형",
+      "participants": [
+        "寅",
+        "巳",
+        "申"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "형발"
+      ],
+      "eventDomains": [
+        "lawsuit",
+        "health_issue",
+        "document"
+      ],
+      "baseScore": 0.6,
+      "reviewed": false
+    },
+    {
+      "id": "rel_丑戌未三刑",
+      "type": "punishment_triple",
+      "name": "축술미삼형",
+      "participants": [
+        "丑",
+        "戌",
+        "未"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "형발"
+      ],
+      "eventDomains": [
+        "lawsuit",
+        "family_change"
+      ],
+      "baseScore": 0.6,
+      "reviewed": false
+    },
+    {
+      "id": "rel_子卯刑",
+      "type": "punishment_mutual",
+      "name": "자묘형",
+      "participants": [
+        "子",
+        "卯"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "형발"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "lawsuit"
+      ],
+      "baseScore": 0.55,
+      "reviewed": false
+    },
+    {
+      "id": "rel_辰辰自刑",
+      "type": "self_punishment",
+      "name": "진진자형",
+      "participants": [
+        "辰",
+        "辰"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "형발"
+      ],
+      "eventDomains": [
+        "health_issue",
+        "expense_risk"
+      ],
+      "baseScore": 0.45,
+      "reviewed": false
+    },
+    {
+      "id": "rel_午午自刑",
+      "type": "self_punishment",
+      "name": "오오자형",
+      "participants": [
+        "午",
+        "午"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "형발"
+      ],
+      "eventDomains": [
+        "health_issue",
+        "expense_risk"
+      ],
+      "baseScore": 0.45,
+      "reviewed": false
+    },
+    {
+      "id": "rel_酉酉自刑",
+      "type": "self_punishment",
+      "name": "유유자형",
+      "participants": [
+        "酉",
+        "酉"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "형발"
+      ],
+      "eventDomains": [
+        "health_issue",
+        "expense_risk"
+      ],
+      "baseScore": 0.45,
+      "reviewed": false
+    },
+    {
+      "id": "rel_亥亥自刑",
+      "type": "self_punishment",
+      "name": "해해자형",
+      "participants": [
+        "亥",
+        "亥"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "형발"
+      ],
+      "eventDomains": [
+        "health_issue",
+        "expense_risk"
+      ],
+      "baseScore": 0.45,
+      "reviewed": false
+    },
+    {
+      "id": "rel_寅亥破",
+      "type": "branch_break",
+      "name": "인해파",
+      "participants": [
+        "寅",
+        "亥"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "파손"
+      ],
+      "eventDomains": [
+        "expense_risk"
+      ],
+      "baseScore": 0.3,
+      "reviewed": false
+    },
+    {
+      "id": "rel_未戌破",
+      "type": "branch_break",
+      "name": "미술파",
+      "participants": [
+        "未",
+        "戌"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "파손"
+      ],
+      "eventDomains": [
+        "expense_risk"
+      ],
+      "baseScore": 0.3,
+      "reviewed": false
+    },
+    {
+      "id": "rel_卯午破",
+      "type": "branch_break",
+      "name": "묘오파",
+      "participants": [
+        "卯",
+        "午"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "파손"
+      ],
+      "eventDomains": [
+        "expense_risk"
+      ],
+      "baseScore": 0.3,
+      "reviewed": false
+    },
+    {
+      "id": "rel_巳申破",
+      "type": "branch_break",
+      "name": "사신파",
+      "participants": [
+        "巳",
+        "申"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "파손"
+      ],
+      "eventDomains": [
+        "expense_risk"
+      ],
+      "baseScore": 0.3,
+      "reviewed": false
+    },
+    {
+      "id": "rel_丑辰破",
+      "type": "branch_break",
+      "name": "축진파",
+      "participants": [
+        "丑",
+        "辰"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "파손"
+      ],
+      "eventDomains": [
+        "expense_risk"
+      ],
+      "baseScore": 0.3,
+      "reviewed": false
+    },
+    {
+      "id": "rel_子酉破",
+      "type": "branch_break",
+      "name": "자유파",
+      "participants": [
+        "子",
+        "酉"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "파손"
+      ],
+      "eventDomains": [
+        "expense_risk"
+      ],
+      "baseScore": 0.3,
+      "reviewed": false
+    },
+    {
+      "id": "rel_子未害",
+      "type": "harm",
+      "name": "자미해",
+      "participants": [
+        "子",
+        "未"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "해손"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "health_issue"
+      ],
+      "baseScore": 0.35,
+      "reviewed": false
+    },
+    {
+      "id": "rel_酉戌害",
+      "type": "harm",
+      "name": "유술해",
+      "participants": [
+        "酉",
+        "戌"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "해손"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "health_issue"
+      ],
+      "baseScore": 0.35,
+      "reviewed": false
+    },
+    {
+      "id": "rel_卯辰害",
+      "type": "harm",
+      "name": "묘진해",
+      "participants": [
+        "卯",
+        "辰"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "해손"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "health_issue"
+      ],
+      "baseScore": 0.35,
+      "reviewed": false
+    },
+    {
+      "id": "rel_丑午害",
+      "type": "harm",
+      "name": "축오해",
+      "participants": [
+        "丑",
+        "午"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "해손"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "health_issue"
+      ],
+      "baseScore": 0.35,
+      "reviewed": false
+    },
+    {
+      "id": "rel_申亥害",
+      "type": "harm",
+      "name": "신해해",
+      "participants": [
+        "申",
+        "亥"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "해손"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "health_issue"
+      ],
+      "baseScore": 0.35,
+      "reviewed": false
+    },
+    {
+      "id": "rel_寅巳害",
+      "type": "harm",
+      "name": "인사해",
+      "participants": [
+        "寅",
+        "巳"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "해손"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "health_issue"
+      ],
+      "baseScore": 0.35,
+      "reviewed": false
+    },
+    {
+      "id": "rel_공망활성",
+      "type": "void",
+      "name": "공망 활성",
+      "participants": [],
+      "resultElement": null,
+      "possibleModes": [
+        "전실",
+        "충발동",
+        "합해소"
+      ],
+      "pattern": "운 지지가 원국 공망 지지를 채우거나(전실) 충(발동)/합(해소)으로 자극",
+      "eventDomains": [
+        "document",
+        "relationship_end"
+      ],
+      "baseScore": 0.4,
+      "reviewed": false
+    },
+    {
+      "id": "rel_복음",
+      "type": "bokeum",
+      "name": "복음(伏吟)",
+      "participants": [],
+      "resultElement": null,
+      "possibleModes": [
+        "발동"
+      ],
+      "pattern": "운 간지가 원국 기둥 간지와 동일 — 정체·반복·내적 침체",
+      "eventDomains": [],
+      "baseScore": 0.4,
+      "reviewed": false
+    },
+    {
+      "id": "rel_병존",
+      "type": "byeongjon",
+      "name": "병존(竝存)",
+      "participants": [],
+      "resultElement": null,
+      "possibleModes": [
+        "강화"
+      ],
+      "pattern": "원국에 같은 간지 기둥이 나란히 존재 — 해당 기운 증폭",
+      "eventDomains": [],
+      "baseScore": 0.35,
+      "reviewed": false
+    },
+    {
+      "id": "rel_간여지동",
+      "type": "ganyeojidong",
+      "name": "간여지동(干與支同)",
+      "participants": [],
+      "resultElement": null,
+      "possibleModes": [
+        "강화"
+      ],
+      "pattern": "한 기둥의 천간·지지가 동일 오행 — 비겁 강화, 배우자궁 주제",
+      "eventDomains": [
+        "relationship_end"
+      ],
+      "baseScore": 0.35,
+      "reviewed": false
+    }
+  ]
+}

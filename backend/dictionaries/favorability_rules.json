@@ -1,0 +1,65 @@
+{
+  "version": "1.0.0",
+  "items": [
+    {
+      "ruleId": "favorable_yongsin",
+      "condition": { "favorability": "용신" },
+      "effect": {
+        "polarity": "positive",
+        "scoreModifier": 0.2,
+        "interpretation": "긍정 강화 — 기회·순방향 발현"
+      },
+      "reviewed": false
+    },
+    {
+      "ruleId": "favorable_huisin",
+      "condition": { "favorability": "희신" },
+      "effect": {
+        "polarity": "positive",
+        "scoreModifier": 0.1,
+        "interpretation": "완만한 긍정 — 보조적 순풍"
+      },
+      "reviewed": false
+    },
+    {
+      "ruleId": "unfavorable_gisin",
+      "condition": { "favorability": "기신" },
+      "effect": {
+        "polarity": "negative_or_forced",
+        "scoreModifier": -0.2,
+        "interpretation": "부담·강제성 증가 — 외부 조건에 의한 변화"
+      },
+      "reviewed": false
+    },
+    {
+      "ruleId": "unfavorable_gusin",
+      "condition": { "favorability": "구신" },
+      "effect": {
+        "polarity": "negative_or_forced",
+        "scoreModifier": -0.15,
+        "interpretation": "손실·왜곡 방향 — 기신을 돕는 흐름"
+      },
+      "reviewed": false
+    },
+    {
+      "ruleId": "neutral_hansin",
+      "condition": { "favorability": "한신" },
+      "effect": {
+        "polarity": "conditional",
+        "scoreModifier": 0.0,
+        "interpretation": "조건부 — 주변 신호 구성에 따라 가변"
+      },
+      "reviewed": false
+    },
+    {
+      "ruleId": "unfavorable_ten_god_activation",
+      "condition": { "favorability": "기신", "tenGod": "정관" },
+      "effect": {
+        "polarity": "negative_or_forced",
+        "scoreModifier": -0.25,
+        "interpretation": "책임, 압박, 강제성 증가"
+      },
+      "reviewed": false
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "version": "1.0.0",
+  "domain": "career",
+  "items": [
+    {
+      "signal": { "tenGod": "정관", "relation": "stem_combination", "favorability": "기신" },
+      "eventCandidates": [
+        { "event": "career_change", "score": 0.75, "polarity": "negative_or_forced" },
+        { "event": "contract", "score": 0.62, "polarity": "conditional" }
+      ],
+      "note": "정관합+기신 — 원치 않는 이동/배치 변경 계열 (docs/05 회귀 기준 케이스)",
+      "reviewed": false
+    },
+    {
+      "signal": { "tenGod": "정관", "relation": "stem_combination", "favorability": "용신" },
+      "eventCandidates": [
+        { "event": "career_change", "score": 0.7, "polarity": "positive" },
+        { "event": "promotion", "score": 0.6, "polarity": "positive" }
+      ],
+      "note": "정관합+용신 — 자발적 이동·승진 기회",
+      "reviewed": false
+    },
+    {
+      "signal": { "tenGod": "편관", "relation": "branch_clash", "favorability": "기신" },
+      "eventCandidates": [
+        { "event": "resignation", "score": 0.65, "polarity": "negative_or_forced" },
+        { "event": "career_change", "score": 0.6, "polarity": "negative_or_forced" }
+      ],
+      "note": "편관+충+기신 — 압박에 의한 이탈",
+      "reviewed": false
+    },
+    {
+      "signal": { "tenGod": "상관", "favorability": "기신" },
+      "eventCandidates": [
+        { "event": "resignation", "score": 0.6, "polarity": "negative_or_forced" }
+      ],
+      "note": "상관견관 — 조직 규범과의 충돌",
+      "reviewed": false
+    },
+    {
+      "signal": { "tenGod": "정관", "relation": "branch_clash" },
+      "eventCandidates": [
+        { "event": "career_change", "score": 0.55, "polarity": "conditional" }
+      ],
+      "note": "관성 충 — 직위·역할 변동 신호(용기신 미상 시 조건부)",
+      "reviewed": false
+    },
+    {
+      "signal": { "tenGod": "정인", "relation": "stem_combination", "favorability": "용신" },
+      "eventCandidates": [
+        { "event": "promotion", "score": 0.5, "polarity": "conditional" },
+        { "event": "document", "score": 0.5, "polarity": "positive" }
+      ],
+      "note": "인성합+용신 — 결재·문서·자격 기반 상승",
+      "reviewed": false
+    },
+    {
+      "signal": { "daewoonTransition": true },
+      "eventCandidates": [
+        { "event": "career_change", "score": 0.55, "polarity": "conditional" }
+      ],
+      "note": "대운 교체기 — 직업 환경 전환 배경",
+      "reviewed": false
+    }
+  ]
+}

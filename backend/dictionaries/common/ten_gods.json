@@ -1,0 +1,115 @@
+{
+  "version": "1.0.0",
+  "items": [
+    {
+      "tenGod": "비견",
+      "group": "비겁",
+      "domains": [
+        "자립",
+        "경쟁",
+        "동료",
+        "형제"
+      ],
+      "reviewed": false
+    },
+    {
+      "tenGod": "겁재",
+      "group": "비겁",
+      "domains": [
+        "경쟁",
+        "분배",
+        "손재 리스크",
+        "동업 리스크"
+      ],
+      "reviewed": false
+    },
+    {
+      "tenGod": "식신",
+      "group": "식상",
+      "domains": [
+        "의식주",
+        "표현",
+        "생산",
+        "건강"
+      ],
+      "reviewed": false
+    },
+    {
+      "tenGod": "상관",
+      "group": "식상",
+      "domains": [
+        "표현",
+        "변화",
+        "기술",
+        "규범 이탈"
+      ],
+      "reviewed": false
+    },
+    {
+      "tenGod": "편재",
+      "group": "재성",
+      "domains": [
+        "유동 재물",
+        "사업",
+        "투자",
+        "활동"
+      ],
+      "reviewed": false
+    },
+    {
+      "tenGod": "정재",
+      "group": "재성",
+      "domains": [
+        "고정 수입",
+        "근면",
+        "안정 재물",
+        "계약"
+      ],
+      "reviewed": false
+    },
+    {
+      "tenGod": "편관",
+      "group": "관성",
+      "domains": [
+        "압박",
+        "도전",
+        "책임",
+        "돌발 사건"
+      ],
+      "reviewed": false
+    },
+    {
+      "tenGod": "정관",
+      "group": "관성",
+      "domains": [
+        "직업",
+        "규칙",
+        "책임",
+        "명예"
+      ],
+      "reviewed": false
+    },
+    {
+      "tenGod": "편인",
+      "group": "인성",
+      "domains": [
+        "직관",
+        "비정통 학문",
+        "변동 문서",
+        "고독"
+      ],
+      "reviewed": false
+    },
+    {
+      "tenGod": "정인",
+      "group": "인성",
+      "domains": [
+        "학문",
+        "문서",
+        "보호",
+        "자격"
+      ],
+      "reviewed": false
+    }
+  ]
+}

@@ -1,0 +1,278 @@
+{
+  "version": "1.0.0",
+  "items": [
+    {
+      "branch": "子",
+      "element": "水",
+      "yinYang": "양",
+      "zodiac": "쥐",
+      "hiddenStems": [
+        {
+          "stem": "壬",
+          "type": "residual",
+          "weight": 0.3
+        },
+        {
+          "stem": "癸",
+          "type": "main",
+          "weight": 0.7
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "丑",
+      "element": "土",
+      "yinYang": "음",
+      "zodiac": "소",
+      "hiddenStems": [
+        {
+          "stem": "癸",
+          "type": "residual",
+          "weight": 0.2
+        },
+        {
+          "stem": "辛",
+          "type": "middle",
+          "weight": 0.2
+        },
+        {
+          "stem": "己",
+          "type": "main",
+          "weight": 0.6
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "寅",
+      "element": "木",
+      "yinYang": "양",
+      "zodiac": "호랑이",
+      "hiddenStems": [
+        {
+          "stem": "戊",
+          "type": "residual",
+          "weight": 0.2
+        },
+        {
+          "stem": "丙",
+          "type": "middle",
+          "weight": 0.2
+        },
+        {
+          "stem": "甲",
+          "type": "main",
+          "weight": 0.6
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "卯",
+      "element": "木",
+      "yinYang": "음",
+      "zodiac": "토끼",
+      "hiddenStems": [
+        {
+          "stem": "甲",
+          "type": "residual",
+          "weight": 0.3
+        },
+        {
+          "stem": "乙",
+          "type": "main",
+          "weight": 0.7
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "辰",
+      "element": "土",
+      "yinYang": "양",
+      "zodiac": "용",
+      "hiddenStems": [
+        {
+          "stem": "乙",
+          "type": "residual",
+          "weight": 0.2
+        },
+        {
+          "stem": "癸",
+          "type": "middle",
+          "weight": 0.2
+        },
+        {
+          "stem": "戊",
+          "type": "main",
+          "weight": 0.6
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "巳",
+      "element": "火",
+      "yinYang": "음",
+      "zodiac": "뱀",
+      "hiddenStems": [
+        {
+          "stem": "戊",
+          "type": "residual",
+          "weight": 0.2
+        },
+        {
+          "stem": "庚",
+          "type": "middle",
+          "weight": 0.2
+        },
+        {
+          "stem": "丙",
+          "type": "main",
+          "weight": 0.6
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "午",
+      "element": "火",
+      "yinYang": "양",
+      "zodiac": "말",
+      "hiddenStems": [
+        {
+          "stem": "丙",
+          "type": "residual",
+          "weight": 0.3
+        },
+        {
+          "stem": "己",
+          "type": "middle",
+          "weight": 0.2
+        },
+        {
+          "stem": "丁",
+          "type": "main",
+          "weight": 0.5
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "未",
+      "element": "土",
+      "yinYang": "음",
+      "zodiac": "양",
+      "hiddenStems": [
+        {
+          "stem": "丁",
+          "type": "residual",
+          "weight": 0.2
+        },
+        {
+          "stem": "乙",
+          "type": "middle",
+          "weight": 0.2
+        },
+        {
+          "stem": "己",
+          "type": "main",
+          "weight": 0.6
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "申",
+      "element": "金",
+      "yinYang": "양",
+      "zodiac": "원숭이",
+      "hiddenStems": [
+        {
+          "stem": "戊",
+          "type": "residual",
+          "weight": 0.2
+        },
+        {
+          "stem": "壬",
+          "type": "middle",
+          "weight": 0.2
+        },
+        {
+          "stem": "庚",
+          "type": "main",
+          "weight": 0.6
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "酉",
+      "element": "金",
+      "yinYang": "음",
+      "zodiac": "닭",
+      "hiddenStems": [
+        {
+          "stem": "庚",
+          "type": "residual",
+          "weight": 0.3
+        },
+        {
+          "stem": "辛",
+          "type": "main",
+          "weight": 0.7
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "戌",
+      "element": "土",
+      "yinYang": "양",
+      "zodiac": "개",
+      "hiddenStems": [
+        {
+          "stem": "辛",
+          "type": "residual",
+          "weight": 0.2
+        },
+        {
+          "stem": "丁",
+          "type": "middle",
+          "weight": 0.2
+        },
+        {
+          "stem": "戊",
+          "type": "main",
+          "weight": 0.6
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "branch": "亥",
+      "element": "水",
+      "yinYang": "음",
+      "zodiac": "돼지",
+      "hiddenStems": [
+        {
+          "stem": "戊",
+          "type": "residual",
+          "weight": 0.2
+        },
+        {
+          "stem": "甲",
+          "type": "middle",
+          "weight": 0.2
+        },
+        {
+          "stem": "壬",
+          "type": "main",
+          "weight": 0.6
+        }
+      ],
+      "reviewed": false
+    }
+  ]
+}

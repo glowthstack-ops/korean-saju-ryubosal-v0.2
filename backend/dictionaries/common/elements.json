@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0",
+  "items": [
+    {
+      "element": "木",
+      "ko": "목",
+      "generates": "火",
+      "controls": "土",
+      "generatedBy": "水",
+      "controlledBy": "金",
+      "reviewed": false
+    },
+    {
+      "element": "火",
+      "ko": "화",
+      "generates": "土",
+      "controls": "金",
+      "generatedBy": "木",
+      "controlledBy": "水",
+      "reviewed": false
+    },
+    {
+      "element": "土",
+      "ko": "토",
+      "generates": "金",
+      "controls": "水",
+      "generatedBy": "火",
+      "controlledBy": "木",
+      "reviewed": false
+    },
+    {
+      "element": "金",
+      "ko": "금",
+      "generates": "水",
+      "controls": "木",
+      "generatedBy": "土",
+      "controlledBy": "火",
+      "reviewed": false
+    },
+    {
+      "element": "水",
+      "ko": "수",
+      "generates": "木",
+      "controls": "火",
+      "generatedBy": "金",
+      "controlledBy": "土",
+      "reviewed": false
+    }
+  ]
+}

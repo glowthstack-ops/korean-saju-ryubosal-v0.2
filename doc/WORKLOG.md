@@ -1217,3 +1217,32 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   재귀 탐색, 종료코드).
 - **루트 CLAUDE.md**: 디렉토리 구조 절에 이미 saju_engines 반영됨.
 검증: pytest 194 pass(어댑터 4·간지달력 8·validate 6 신규) · ruff clean · **mypy clean(105파일)**.
+
+### v2.2 Phase 1 — 사전 데이터 MVP (T1.1~T1.6) ✅
+- **생성 원칙**: 기계적 사실(십성표·지장간·오행 생극·관계 참여 글자·결과 오행)은 엔진
+  상수에서 프로그램 생성해 수기 오류 차단(엔진=SSOT, 테스트로 일치 고정). 명리 매핑·
+  가중치(eventDomains·baseScore·score·domains 키워드)는 **전 항목 reviewed:false 초안**
+  — 사용자 검수 후 true 전환(docs/07 Phase 1 워크플로).
+- **T1.1 common/ 4종**: stems(10, 일간별 십성표 10×10) · branches(12, 지장간 본중여+가중치) ·
+  ten_gods(10, 그룹·도메인 초안) · elements(5, 생극).
+- **T1.2 relations.json 48항목**: 천간합5(합화 오행 포함)·육합6·삼합4·방합4·충6·삼형2
+  (인사신/축술미)·무례지형1·자형4·파6·해6 + 패턴형 4(공망활성·복음·병존·간여지동 —
+  participants=[] + pattern 설명). id는 docs/05 형식(rel_甲己合 등).
+- **T1.3 taxonomy.json**: EventKey **25종** 전체 1:1 커버(중복 없음, 테스트 고정) +
+  progress/instant/hybrid 분류 초안. (이전 기록의 "26종"은 오기 — 실제 25종.)
+- **T1.4 events/**: career_change.json 7신호(정관합+기신 → 강제 이동 docs/05 회귀 기준
+  케이스 포함) · relocation.json 6신호(역마+충, 공망활성, 대운교체 — docs/03 graphScope).
+  signal 스키마는 docs/05의 tenGod/relation/favorability에 shinsal·daewoonTransition
+  키 확장(docs/02 Signal.type 어휘와 정합).
+- **T1.5 favorability_rules.json**: 용(+0.2)/희(+0.1)/기(−0.2)/구(−0.15)/한(0.0 조건부)
+  5규칙 + docs/05 예시(기신×정관 −0.25) 1규칙.
+- **T1.6 `saju_engines/dictionaries.py`**: 파일별 pydantic 스키마(camelCase alias,
+  extra=forbid) — EventKey/EventPolarity/EventType enum 검증, score 0~1 범위,
+  signal 최소 1조건, 패턴형 participants/pattern 상호 보완. **dict:lint**: relation id
+  중복 / 기신·구신인데 positive(용·희인데 negative) / 같은 신호 상반 이벤트 동시
+  강유발(≥0.7) / 동일 신호 중복 정의. `scripts/validate_dictionaries.py`가
+  generic → validate → lint 3단계 실행.
+- 주의(검수 필요 표시): polarity 어휘는 docs/05 예시("forced_or_burdensome")가 아닌
+  docs/02 EventCandidate 표준("negative_or_forced")으로 통일 — 문서 간 불일치 발견분.
+검증: pytest 207 pass(Phase1 13 신규) · ruff clean · mypy clean(107파일) ·
+  validate 스크립트 실데이터 9파일 통과.
