@@ -108,6 +108,8 @@ class RelationItem(_AliasModel):
     pattern: str | None = None
     event_domains: list[EventKey] = Field(alias="eventDomains")
     base_score: float = Field(alias="baseScore", ge=0.0, le=1.0)
+    # 유파 차이가 큰 관계(암합 등)는 기본 비활성 — 사전 플래그로만 켠다(docs/09 2-2).
+    enabled: bool = True
     reviewed: bool
 
     @model_validator(mode="after")

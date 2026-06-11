@@ -28,6 +28,7 @@ GRAPH_VERSION = "1.0.0"
 # 관계 type → 참여 글자 엣지 종류 (docs/04 EdgeType).
 _PARTICIPANT_EDGE: dict[str, str] = {
     "stem_combination": "combines_with",
+    "stem_clash": "conflicts_with",
     "six_combination": "combines_with",
     "three_harmony": "combines_with",
     "directional": "combines_with",
@@ -37,7 +38,11 @@ _PARTICIPANT_EDGE: dict[str, str] = {
     "self_punishment": "punishes",
     "branch_break": "conflicts_with",
     "harm": "conflicts_with",
+    "wonjin": "conflicts_with",
 }
+
+# 천간 노드를 참여자로 갖는 관계 type(나머지는 지지 노드).
+_STEM_PARTICIPANT_TYPES = {"stem_combination", "stem_clash"}
 
 # 관계 type → 그래프 노드 type (docs/04 NodeType의 관계 노드 분류).
 _RELATION_NODE_TYPE: dict[str, str] = {
@@ -45,12 +50,14 @@ _RELATION_NODE_TYPE: dict[str, str] = {
     "six_combination": "combination",
     "three_harmony": "combination",
     "directional": "combination",
+    "stem_clash": "clash",
     "branch_clash": "clash",
     "punishment_triple": "punishment",
     "punishment_mutual": "punishment",
     "self_punishment": "self_punishment",
     "branch_break": "break",
     "harm": "harm",
+    "wonjin": "harm",  # docs/04 NodeType에 원진 분류가 없어 해 계열로 수록(검수 대상)
     "void": "void",
     "bokeum": "fuyin",
     "byeongjon": "duplication",
@@ -144,6 +151,8 @@ def _relation_nodes(directory: Path) -> tuple[list[GraphNode], list[GraphEdge]]:
     edges: list[GraphEdge] = []
     relations = RelationsFile.model_validate(_load(directory, "relations.json"))
     for rel in relations.items:
+        if not rel.enabled:
+            continue  # 암합 등 기본 비활성 관계는 그래프 미수록(docs/09 2-2)
         nodes.append(GraphNode(
             id=rel.id, type=_RELATION_NODE_TYPE.get(rel.type, "combination"), label=rel.name,
             attrs={
@@ -158,7 +167,7 @@ def _relation_nodes(directory: Path) -> tuple[list[GraphNode], list[GraphEdge]]:
         ))
         edge_type = _PARTICIPANT_EDGE.get(rel.type)
         if edge_type:
-            prefix = "stem" if rel.type == "stem_combination" else "branch"
+            prefix = "stem" if rel.type in _STEM_PARTICIPANT_TYPES else "branch"
             for ch in dict.fromkeys(rel.participants):  # 자형(같은 글자 2회)은 1회만
                 edges.append(GraphEdge(from_=f"{prefix}_{ch}", to=rel.id, type=edge_type))
         if rel.result_element:

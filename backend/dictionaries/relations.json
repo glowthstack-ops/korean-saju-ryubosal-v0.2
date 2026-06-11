@@ -942,6 +942,211 @@
       ],
       "baseScore": 0.35,
       "reviewed": false
+    },
+    {
+      "id": "rel_甲庚沖",
+      "type": "stem_clash",
+      "name": "갑경충",
+      "participants": [
+        "甲",
+        "庚"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "충발"
+      ],
+      "eventDomains": [
+        "career_change",
+        "relationship_end"
+      ],
+      "baseScore": 0.5,
+      "reviewed": false
+    },
+    {
+      "id": "rel_乙辛沖",
+      "type": "stem_clash",
+      "name": "을신충",
+      "participants": [
+        "乙",
+        "辛"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "충발"
+      ],
+      "eventDomains": [
+        "career_change",
+        "relationship_end"
+      ],
+      "baseScore": 0.5,
+      "reviewed": false
+    },
+    {
+      "id": "rel_丙壬沖",
+      "type": "stem_clash",
+      "name": "병임충",
+      "participants": [
+        "丙",
+        "壬"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "충발"
+      ],
+      "eventDomains": [
+        "career_change",
+        "relationship_end"
+      ],
+      "baseScore": 0.5,
+      "reviewed": false
+    },
+    {
+      "id": "rel_丁癸沖",
+      "type": "stem_clash",
+      "name": "정계충",
+      "participants": [
+        "丁",
+        "癸"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "충발"
+      ],
+      "eventDomains": [
+        "career_change",
+        "relationship_end"
+      ],
+      "baseScore": 0.5,
+      "reviewed": false
+    },
+    {
+      "id": "rel_子未怨嗔",
+      "type": "wonjin",
+      "name": "자미원진",
+      "participants": [
+        "子",
+        "未"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "원진"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "family_change"
+      ],
+      "baseScore": 0.4,
+      "reviewed": false
+    },
+    {
+      "id": "rel_丑午怨嗔",
+      "type": "wonjin",
+      "name": "축오원진",
+      "participants": [
+        "丑",
+        "午"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "원진"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "family_change"
+      ],
+      "baseScore": 0.4,
+      "reviewed": false
+    },
+    {
+      "id": "rel_寅酉怨嗔",
+      "type": "wonjin",
+      "name": "인유원진",
+      "participants": [
+        "寅",
+        "酉"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "원진"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "family_change"
+      ],
+      "baseScore": 0.4,
+      "reviewed": false
+    },
+    {
+      "id": "rel_卯申怨嗔",
+      "type": "wonjin",
+      "name": "묘신원진",
+      "participants": [
+        "卯",
+        "申"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "원진"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "family_change"
+      ],
+      "baseScore": 0.4,
+      "reviewed": false
+    },
+    {
+      "id": "rel_辰亥怨嗔",
+      "type": "wonjin",
+      "name": "진해원진",
+      "participants": [
+        "辰",
+        "亥"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "원진"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "family_change"
+      ],
+      "baseScore": 0.4,
+      "reviewed": false
+    },
+    {
+      "id": "rel_巳戌怨嗔",
+      "type": "wonjin",
+      "name": "사술원진",
+      "participants": [
+        "巳",
+        "戌"
+      ],
+      "resultElement": null,
+      "possibleModes": [
+        "원진"
+      ],
+      "eventDomains": [
+        "relationship_end",
+        "family_change"
+      ],
+      "baseScore": 0.4,
+      "reviewed": false
+    },
+    {
+      "id": "rel_암합",
+      "type": "amhap",
+      "name": "암합(暗合)",
+      "participants": [],
+      "resultElement": null,
+      "possibleModes": [
+        "암합"
+      ],
+      "pattern": "지장간 간 합 — 유파 차이로 기본 비활성. enabled 플래그로만 활성화",
+      "eventDomains": [],
+      "baseScore": 0.3,
+      "enabled": false,
+      "reviewed": false
     }
   ]
 }

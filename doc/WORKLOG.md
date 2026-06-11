@@ -1276,3 +1276,32 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   절대 점수가 아닌 **상대 순위·신호 존재·극성** 고정(가중치 조정에 견디는 계약).
 검증: pytest 218 pass(Phase2 11 신규) · ruff clean · mypy clean(113파일) ·
   그래프 빌드 스크립트 실행 성공.
+
+### v2.2 Phase 2.5(1차) — 상호작용 탐지기 전수 + LuckComposite + 전용 DB 분리 ✅
+- **DB 분리(사용자 요구: v1과 비충돌)**: v1은 saju-db-1(5432)·saju-redis-1(6379) 사용 중 —
+  v2는 루트 `docker-compose.yml`로 **별도 컨테이너(saju-v2-db)·별도 호스트 포트(5433)·
+  별도 볼륨(saju-v2-pgdata)**, 이미지 pgvector/pgvector:pg16. 접속은
+  `SAJU_V2_DATABASE_URL`(backend/.env.example, .env는 gitignore). psycopg 의존성 추가.
+- **relations.json 보강(docs/09 2장 필수 범위)**: 천간충 4(甲庚·乙辛·丙壬·丁癸) ·
+  원진 6(子未·丑午·寅酉·卯申·辰亥·巳戌, 기본 활성) · 암합(패턴형, **enabled:false** —
+  유파 차이로 기본 비활성, 사전 플래그로만 활성화). RelationItem에 enabled 필드(기본 true).
+  총 59항목. 그래프 빌더도 신규 타입 반영(천간충 참여자=천간 노드, 비활성 관계 미수록)
+  → 스냅샷 재빌드(141노드/312엣지).
+- **T2.5.1·T2.5.2 `interactions.py`**: 풀(pool) 기반 전수 탐지기 — 천간합/충, 육합,
+  삼합(3자+**반합, 왕지 포함 플래그**), 방합(+반합), 충, 형(삼형+**부분형**·상형·자형),
+  파, 해, 원진, 암합(비활성 스킵). **다자 소스 혼합 성립**(예: 원국 申+세운 子+일운 辰 =
+  申子辰 삼합) + 참여 소스 기록. 구조 플래그: 공망활성(전실/충발/합해소)·복음·
+  **반음(천극지충)**·병존(원국 인접). 관계 글자쌍은 relations.json 단일 소스
+  (Phase 1 테스트가 엔진 상수와 일치 고정).
+- **T2.5.3 `precompute.py`+`precompute_store.py`**: 레벨별(natal/대운/세운/월운/일운)
+  LuckComposite 산출 — 레벨 레코드는 그 레벨 소스가 참여한 상호작용만(P01~P11 분할),
+  parentContext(상위 운 간지) 동반, 도메인 신호(favorability 보정+반합 0.6 감쇠 초안).
+  PG 저장소: upsert/get/list(dict_version 필터 필수)/구버전 무효화/대상 무효화/
+  day 보존 정리(과거 90·미래 400일). `migrations/001_luck_composites.sql`(docs/09 DDL).
+- **해석 결정(검수 대상, 문서 미정의)**: ① natal 레코드 대표 간지=일주 ② favorability
+  단일값은 레벨 간지의 천간 오행 기준 ③ EventKey→Domain 초안 매핑 ④ 원진의 그래프
+  노드 분류=해 계열(docs/04 NodeType에 원진 없음).
+- **보류(다음 단계)**: T2.5.4 갱신 스케줄러·T2.5.6~7 Topic Builder·T2.5.8 LLM 래퍼 —
+  대상(subject) 저장 인프라 선행 필요.
+검증: pytest 237 pass(탐지기 13·precompute 6·저장소 라이브 1 신규 — **전용 DB 기동 후
+  실제 왕복/무효화/정리 검증**) · ruff clean · mypy clean(119파일) · v1 컨테이너 무변경.

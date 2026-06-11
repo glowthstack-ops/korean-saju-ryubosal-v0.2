@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated_at": "2026-06-11T01:49:25.065544+00:00",
+  "updated_at": "2026-06-11T02:04:22.794777+00:00",
   "nodes": [
     {
       "id": "element_木",
@@ -1885,6 +1885,196 @@
         ],
         "pattern": "한 기둥의 천간·지지가 동일 오행 — 비겁 강화, 배우자궁 주제",
         "baseScore": 0.35,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_甲庚沖",
+      "type": "clash",
+      "label": "갑경충",
+      "attrs": {
+        "relationType": "stem_clash",
+        "participants": [
+          "甲",
+          "庚"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "충발"
+        ],
+        "pattern": null,
+        "baseScore": 0.5,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_乙辛沖",
+      "type": "clash",
+      "label": "을신충",
+      "attrs": {
+        "relationType": "stem_clash",
+        "participants": [
+          "乙",
+          "辛"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "충발"
+        ],
+        "pattern": null,
+        "baseScore": 0.5,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_丙壬沖",
+      "type": "clash",
+      "label": "병임충",
+      "attrs": {
+        "relationType": "stem_clash",
+        "participants": [
+          "丙",
+          "壬"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "충발"
+        ],
+        "pattern": null,
+        "baseScore": 0.5,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_丁癸沖",
+      "type": "clash",
+      "label": "정계충",
+      "attrs": {
+        "relationType": "stem_clash",
+        "participants": [
+          "丁",
+          "癸"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "충발"
+        ],
+        "pattern": null,
+        "baseScore": 0.5,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_子未怨嗔",
+      "type": "harm",
+      "label": "자미원진",
+      "attrs": {
+        "relationType": "wonjin",
+        "participants": [
+          "子",
+          "未"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "원진"
+        ],
+        "pattern": null,
+        "baseScore": 0.4,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_丑午怨嗔",
+      "type": "harm",
+      "label": "축오원진",
+      "attrs": {
+        "relationType": "wonjin",
+        "participants": [
+          "丑",
+          "午"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "원진"
+        ],
+        "pattern": null,
+        "baseScore": 0.4,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_寅酉怨嗔",
+      "type": "harm",
+      "label": "인유원진",
+      "attrs": {
+        "relationType": "wonjin",
+        "participants": [
+          "寅",
+          "酉"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "원진"
+        ],
+        "pattern": null,
+        "baseScore": 0.4,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_卯申怨嗔",
+      "type": "harm",
+      "label": "묘신원진",
+      "attrs": {
+        "relationType": "wonjin",
+        "participants": [
+          "卯",
+          "申"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "원진"
+        ],
+        "pattern": null,
+        "baseScore": 0.4,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_辰亥怨嗔",
+      "type": "harm",
+      "label": "진해원진",
+      "attrs": {
+        "relationType": "wonjin",
+        "participants": [
+          "辰",
+          "亥"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "원진"
+        ],
+        "pattern": null,
+        "baseScore": 0.4,
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rel_巳戌怨嗔",
+      "type": "harm",
+      "label": "사술원진",
+      "attrs": {
+        "relationType": "wonjin",
+        "participants": [
+          "巳",
+          "戌"
+        ],
+        "resultElement": null,
+        "possibleModes": [
+          "원진"
+        ],
+        "pattern": null,
+        "baseScore": 0.4,
         "reviewed": false
       }
     },
@@ -4093,6 +4283,326 @@
       "weight": 0.35,
       "modes": [
         "강화"
+      ]
+    },
+    {
+      "from": "stem_甲",
+      "to": "rel_甲庚沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_庚",
+      "to": "rel_甲庚沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_甲庚沖",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "충발"
+      ]
+    },
+    {
+      "from": "rel_甲庚沖",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "충발"
+      ]
+    },
+    {
+      "from": "stem_乙",
+      "to": "rel_乙辛沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_辛",
+      "to": "rel_乙辛沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_乙辛沖",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "충발"
+      ]
+    },
+    {
+      "from": "rel_乙辛沖",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "충발"
+      ]
+    },
+    {
+      "from": "stem_丙",
+      "to": "rel_丙壬沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_壬",
+      "to": "rel_丙壬沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丙壬沖",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "충발"
+      ]
+    },
+    {
+      "from": "rel_丙壬沖",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "충발"
+      ]
+    },
+    {
+      "from": "stem_丁",
+      "to": "rel_丁癸沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "stem_癸",
+      "to": "rel_丁癸沖",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丁癸沖",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "충발"
+      ]
+    },
+    {
+      "from": "rel_丁癸沖",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": [
+        "충발"
+      ]
+    },
+    {
+      "from": "branch_子",
+      "to": "rel_子未怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_未",
+      "to": "rel_子未怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_子未怨嗔",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "rel_子未怨嗔",
+      "to": "event_family_change",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "branch_丑",
+      "to": "rel_丑午怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_午",
+      "to": "rel_丑午怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_丑午怨嗔",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "rel_丑午怨嗔",
+      "to": "event_family_change",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "branch_寅",
+      "to": "rel_寅酉怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_酉",
+      "to": "rel_寅酉怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_寅酉怨嗔",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "rel_寅酉怨嗔",
+      "to": "event_family_change",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "branch_卯",
+      "to": "rel_卯申怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_申",
+      "to": "rel_卯申怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_卯申怨嗔",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "rel_卯申怨嗔",
+      "to": "event_family_change",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "branch_辰",
+      "to": "rel_辰亥怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_亥",
+      "to": "rel_辰亥怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_辰亥怨嗔",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "rel_辰亥怨嗔",
+      "to": "event_family_change",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "branch_巳",
+      "to": "rel_巳戌怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "branch_戌",
+      "to": "rel_巳戌怨嗔",
+      "type": "conflicts_with",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rel_巳戌怨嗔",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
+      ]
+    },
+    {
+      "from": "rel_巳戌怨嗔",
+      "to": "event_family_change",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": [
+        "원진"
       ]
     },
     {

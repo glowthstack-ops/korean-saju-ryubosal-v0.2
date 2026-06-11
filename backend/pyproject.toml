@@ -13,6 +13,8 @@ dependencies = [
     "uvicorn[standard]>=0.29",
     "tzdata>=2024.1",
     "korean-lunar-calendar>=0.3.1",
+    # Precompute Store (luck_composites) — v1 DB와 분리된 전용 인스턴스(5433) 사용.
+    "psycopg[binary]>=3.1",
 ]
 
 [project.optional-dependencies]

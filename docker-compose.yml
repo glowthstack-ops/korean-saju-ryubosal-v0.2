@@ -1,0 +1,22 @@
+# saju_v2 전용 인프라 — v1(saju-db-1:5432, saju-redis-1:6379)과 완전 분리.
+# 별도 컨테이너 이름 / 별도 호스트 포트(5433) / 별도 볼륨을 사용해 v1 운영에 영향 없음.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: saju-v2-db
+    environment:
+      POSTGRES_USER: saju_v2
+      POSTGRES_PASSWORD: saju_v2
+      POSTGRES_DB: saju_v2
+    ports:
+      - "5433:5432" # v1이 5432를 점유하므로 호스트 포트 5433
+    volumes:
+      - saju-v2-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saju_v2 -d saju_v2"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  saju-v2-pgdata:
