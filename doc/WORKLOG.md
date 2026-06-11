@@ -1622,3 +1622,26 @@ Phase 4 Conversation Layer(xfail 3건 해소).
 라이브 테스트(사용자) ② 사전 reviewed:false 전 항목 도메인 검수(region_elements·
 occupation 물상·persona_lexicon 등 — 검수 전 해당 기능 출시 금지) ③ employment
 EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출시 시).
+
+### v2.2 — LLM 공급자 전환: Gemini 메인 + GPT-5 mini 비상 폴백 ✅ (라이브 검증 완료)
+- **배경**: Anthropic API 결제 오류로 사용 불가(사용자 결정) → 메인 gemini-3-flash-
+  preview, 비상 gpt-5-mini로 전환. 운영 편의를 위해 **단일 설정 파일** 요구.
+- **`config/llm_config.json`(단일 관리 파일)**: 메인/폴백/파서 프로파일(공급자·모델·
+  키 env 이름·generation_extras) + 옵션(타임아웃·재시도·백오프). 모델 교체·폴백
+  순서 변경은 이 파일 수정만으로 가능(코드 불변). thinking/추론 비활성도 여기서
+  강제(Gemini thinkingLevel MINIMAL / OpenAI reasoning_effort minimal — 절대 원칙 9).
+- **`llm_client.py` 재작성**: httpx REST(공급자 SDK 의존 없음 — anthropic 의존성
+  제거). 루트 `.env` 자동 로드(무의존 간이 파서, 기존 환경변수 우선). 폴백 정책:
+  메인 N회 재시도(5xx/429/타임아웃) → 비상 모델 전환, 사용 공급자를 장부
+  product_code 접미(:gemini/:openai)로 기록. **빈 응답 가드**: 추론 모델이 출력
+  한도를 추론 토큰으로 소진하면(실측: gpt-5-mini가 통변 프롬프트에서 reasoning
+  1200/1200 소모) 빈 응답 → 오류 처리 + 프로파일별 `output_token_buffer`(폴백
+  2500)로 보전. 가드 한도는 가시 출력 기준 유지.
+- **라이브 검증(실키)**: ① Gemini 모델 목록 조회로 gemini-3-flash-preview 확인
+  ② Gemini 실호출 통변 성공(점수·간지 재계산 없이 인용, Trigger→진행 구조)
+  ③ 검증 중 실제 Gemini 503(과부하) 발생 → **폴백이 자동으로 받아 정상 통변 완성**
+  (비상 체계 실전 검증) ④ gpt-5-mini 버퍼 적용 후 정상 본문 확인.
+- model_prices.json에 gemini/gpt-5-mini 단가 추가. .env.example에 키 안내.
+- 폴백 단위 테스트 5건: 단일 파일 설정 반영·메인 성공·연속 실패→폴백·모두
+  실패 오류·한도 초과 시 호출 전 차단.
+검증: pytest 474 pass · ruff clean · mypy clean(177파일) + 라이브 E2E(answered).

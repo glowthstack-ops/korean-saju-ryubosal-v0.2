@@ -1,0 +1,33 @@
+{
+  "note": "LLM 운영 설정 — 단일 관리 파일. 모델·폴백·키 env 이름·생성 옵션을 여기서만 변경한다(코드 수정 불요). thinking/추론 모드는 모든 운영 호출에서 비활성(절대 원칙 9).",
+  "primary": {
+    "provider": "gemini",
+    "model": "gemini-3-flash-preview",
+    "api_key_env": "GEMINI_API_KEY",
+    "generation_extras": {
+      "thinkingConfig": { "thinkingLevel": "MINIMAL" }
+    }
+  },
+  "fallback": {
+    "provider": "openai",
+    "model": "gpt-5-mini",
+    "api_key_env": "OPENAI_API_KEY",
+    "generation_extras": {
+      "reasoning_effort": "minimal"
+    },
+    "output_token_buffer": 2500
+  },
+  "parser": {
+    "provider": "gemini",
+    "model": "gemini-3-flash-preview",
+    "api_key_env": "GEMINI_API_KEY",
+    "generation_extras": {
+      "thinkingConfig": { "thinkingLevel": "MINIMAL" }
+    }
+  },
+  "options": {
+    "timeout_seconds": 60,
+    "primary_attempts": 2,
+    "retry_backoff_seconds": 1.5
+  }
+}

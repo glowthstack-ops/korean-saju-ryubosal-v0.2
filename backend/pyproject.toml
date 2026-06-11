@@ -15,8 +15,8 @@ dependencies = [
     "korean-lunar-calendar>=0.3.1",
     # Precompute Store (luck_composites) — v1 DB와 분리된 전용 인스턴스(5433) 사용.
     "psycopg[binary]>=3.1",
-    # LLM 통변 서술(Claude API) — llm_guard 경유 호출 전용.
-    "anthropic>=0.40",
+    # LLM 통변 서술(Gemini 메인 + OpenAI 폴백, REST) — llm_guard 경유 호출 전용.
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
