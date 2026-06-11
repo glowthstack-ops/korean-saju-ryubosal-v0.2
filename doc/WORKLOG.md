@@ -1477,3 +1477,13 @@ Phase 4 Conversation Layer(xfail 3건 해소).
 - **골든 테스트 xfail 3건 전부 해소**(F4·F7·A13) — Conversation Layer 실통과로 교체.
   골든 34케이스 전수 통과(xfail 0).
 검증: pytest 340 pass(Phase4 10+골든 갱신 3) · ruff clean · mypy clean(149파일).
+
+### v2.2 — /api/v2/chat 멀티턴 연결(Conversation Layer 통합) ✅
+- chat_service: `thread_id` 지정 시 ConversationStore에서 상태 복원 →
+  ConversationEngine.process_turn(대상 해소·슬롯 상속·반복 감지) → 모든 응답 경로에서
+  상태 저장. 미등록 별칭 → need_subject 확인 질문. 응답 상위 이벤트를 claim/event
+  엔티티로 등록(T4.5 — 이의 재검산 대비). ChatResponse에 thread_id/turn_no/repeated 추가.
+- 라우터: ChatRequest.thread_id(선택) — 미지정 시 기존 단발 경로 그대로.
+- E2E: "올해 연애운"→"5월은 어때?" 도메인 상속 + 동일 질문 3연속 repeated=True
+  (라이브 DB 검증).
+검증: pytest 342 pass · ruff clean · mypy clean(149파일).

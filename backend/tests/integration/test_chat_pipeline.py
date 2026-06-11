@@ -119,3 +119,69 @@ def test_no_api_key_falls_back_to_dry_run(monkeypatch: pytest.MonkeyPatch) -> No
     birth = BirthInput(reference_date="2026-06-11", **_BIRTH)
     res = chat_service.chat(birth, "올해 이직운 어때?", date(2026, 6, 11))
     assert res.status == "dry_run" and res.prompt_preview is not None
+
+
+# ── 멀티턴 (Phase 4 연동 — 전용 DB 필요 시 skip) ──────────────────
+
+
+def _db_available() -> bool:
+    from saju_engines.conversation_store import ConversationStore
+    from saju_engines.precompute_store import default_dsn
+
+    try:
+        ConversationStore(
+            default_dsn() or "postgresql://saju_v2:saju_v2@localhost:5433/saju_v2"
+        ).migrate()
+        return True
+    except Exception:
+        return False
+
+
+@pytest.mark.skipif(not _db_available(), reason="saju-v2-db(5433) 미기동")
+def test_multiturn_thread_inherits_domain() -> None:
+    """멀티턴: '올해 연애운' → '5월은 어때?'가 연애 도메인을 상속한다(B2/F2)."""
+    from saju_engines.conversation_store import ConversationStore
+    from saju_engines.precompute_store import default_dsn
+
+    store = ConversationStore(
+        default_dsn() or "postgresql://saju_v2:saju_v2@localhost:5433/saju_v2"
+    )
+    store.delete("t-e2e")
+    birth = BirthInput(reference_date="2026-06-11", **_BIRTH)
+
+    first = chat_service.chat(
+        birth, "올해 연애운 어때?", date(2026, 6, 11),
+        dry_run=True, thread_id="t-e2e", store=store,
+    )
+    assert first.thread_id == "t-e2e" and first.turn_no == 1
+
+    second = chat_service.chat(
+        birth, "5월은 어때?", date(2026, 6, 11),
+        dry_run=True, thread_id="t-e2e", store=store,
+    )
+    assert second.turn_no == 2
+    intent = second.intents[0]
+    assert intent.domain.value == "relationship"  # 도메인 상속
+    assert intent.time_range is not None and intent.time_range.start == "2026-05"
+    store.delete("t-e2e")
+
+
+@pytest.mark.skipif(not _db_available(), reason="saju-v2-db(5433) 미기동")
+def test_multiturn_repeat_flag() -> None:
+    """동일 질문 3연속 → repeated=True(다른 각도 제시 신호, F7)."""
+    from saju_engines.conversation_store import ConversationStore
+    from saju_engines.precompute_store import default_dsn
+
+    store = ConversationStore(
+        default_dsn() or "postgresql://saju_v2:saju_v2@localhost:5433/saju_v2"
+    )
+    store.delete("t-repeat")
+    birth = BirthInput(reference_date="2026-06-11", **_BIRTH)
+    last = None
+    for _ in range(3):
+        last = chat_service.chat(
+            birth, "올해 이직운 어때?", date(2026, 6, 11),
+            dry_run=True, thread_id="t-repeat", store=store,
+        )
+    assert last is not None and last.repeated is True
+    store.delete("t-repeat")
