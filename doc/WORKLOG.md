@@ -1645,3 +1645,16 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
 - 폴백 단위 테스트 5건: 단일 파일 설정 반영·메인 성공·연속 실패→폴백·모두
   실패 오류·한도 초과 시 호출 전 차단.
 검증: pytest 474 pass · ruff clean · mypy clean(177파일) + 라이브 E2E(answered).
+
+### v2.2 — 프론트 대화형 통변 페이지(/chat) + 라이브 서비스 기동 ✅
+- **`app/chat/page.tsx`**: 저장된 프로필(만세력 입력 재사용)로 /api/v2/chat 호출.
+  thread_id 자동 생성으로 같은 창에서 멀티턴 유지, 추천 질문 칩, status 안내
+  (too_broad/need_subject/policy), 반복 감지·상품 제안 카드 표시. 프로필 없으면
+  만세력 입력으로 유도.
+- lib/types.ts(ChatApiResponse)·lib/api.ts(postChat) 추가, 홈에 '대화형 통변' 카드.
+- **next.config.mjs: experimental.proxyTimeout 120s** — LLM 호출(수십 초)이 Next
+  프록시 기본 30초 타임아웃에 끊기는 문제 예방(첫 스모크에서 36.6초 응답 실측).
+- 라이브 확인: 백엔드(uvicorn :8000, DB env+.env 키 자동 로드)·프론트(:3000 prod)
+  재기동 → 프록시 경유 실통변 11~15초 응답, **멀티턴 상속 동작**("재물운 봐줘" →
+  "그럼 내년은 어때?" turn 2 문맥 유지).
+검증: tsc clean · next build 통과(/chat 4.36kB) · 라이브 E2E(answered) 3회.

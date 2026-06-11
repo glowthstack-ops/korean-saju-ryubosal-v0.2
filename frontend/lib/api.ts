@@ -1,6 +1,7 @@
 import type {
   CalendarMonth,
   CalibrationResult,
+  ChatApiResponse,
   LuckPillar,
   ManseResult,
   Profile,
@@ -131,3 +132,16 @@ export async function getCalendar(
 }
 
 export { todayISO };
+
+export async function postChat(
+  profile: Profile,
+  question: string,
+  threadId?: string,
+): Promise<ChatApiResponse> {
+  return postJSON<ChatApiResponse>("/api/v2/chat", {
+    birth: profileToBirthInput(profile, todayISO()),
+    question,
+    thread_id: threadId ?? null,
+    dry_run: false,
+  });
+}

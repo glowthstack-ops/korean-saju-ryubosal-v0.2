@@ -305,3 +305,19 @@ export interface CalendarMonth {
   days: CalendarDay[];
   solar_terms: Array<{ date: string; name: string }>;
 }
+
+// 대화형 통변 (v2.2 — /api/v2/chat)
+export interface ChatApiResponse {
+  status: "answered" | "dry_run" | "policy" | "too_broad" | "need_subject";
+  answer: string | null;
+  candidate_count: number;
+  input_tokens: number | null;
+  thread_id: string | null;
+  turn_no: number | null;
+  repeated: boolean;
+  product_suggestion: {
+    products: string[];
+    reason: string;
+    note: string;
+  } | null;
+}

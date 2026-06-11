@@ -30,6 +30,16 @@ export default function HomePage() {
             날짜별 간지(한글·한자 병기)와 절기를 월 단위로 제공합니다.
           </p>
         </Link>
+        <Link
+          href="/chat"
+          className="rounded-lg border bg-white p-6 shadow-sm transition hover:shadow"
+        >
+          <h2 className="text-lg font-semibold">대화형 통변</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            엔진이 계산한 운의 신호를 근거와 함께 자연어로 풀이합니다. 같은 창에서 대화가
+            이어집니다.
+          </p>
+        </Link>
       </div>
     </div>
   );
