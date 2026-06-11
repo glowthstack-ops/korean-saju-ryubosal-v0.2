@@ -474,7 +474,11 @@ const REL_LABEL: Record<string, string> = {
   stem_combination: "합", six_combination: "합", three_harmony: "삼합",
   half_harmony: "반합", directional: "방합", clash: "충",
   punishment: "형", self_punishment: "형", break: "파", harm: "해",
+  hidden_stem_combination: "암합", hidden_hidden_combination: "지장간합",
 };
+// 지장간 기반 관계(암합·지장간합)는 보조 신호 — 다이어그램에서 제외하고
+// '원국 구조 상세' 목록에만 표기(자합은 동일 기둥이라 화살표 도식 자체가 불가).
+const DIAGRAM_EXCLUDE = new Set(["hidden_stem_combination", "hidden_hidden_combination"]);
 // 컬럼 배치 순서 — 상단 사주 명식과 동일하게 시·일·월·년(좌→우).
 const COL_ORDER = ["hour", "day", "month", "year"] as const;
 
@@ -510,6 +514,8 @@ function itemLabel(item: Record<string, unknown>): string {
     case "self_punishment": return "자형";
     case "break": return "파";
     case "harm": return "해";
+    case "hidden_stem_combination": return "암합";
+    case "hidden_hidden_combination": return "지장간합";
     case "stem_duplication": return "천간 병존";
     case "branch_duplication": return "지지 병존";
     case "gan_yeo_ji_dong": return "간여지동";
@@ -526,6 +532,8 @@ function itemOrder(item: Record<string, unknown>): number {
   if (rt === "stem_duplication") return 2; // 천간 병존
   if (["six_combination", "three_harmony", "half_harmony", "directional"].includes(rt)) return 10; // 지지합
   if (rt === "clash") return 11; // 지지충
+  if (rt === "hidden_stem_combination") return 20; // 암합(보조)
+  if (rt === "hidden_hidden_combination") return 21; // 지장간합(보조)
   if (rt === "punishment" || rt === "self_punishment") return 12; // 지지형
   if (rt === "break") return 13; // 지지파
   if (rt === "harm") return 14; // 지지해
@@ -559,6 +567,13 @@ function itemLine(item: Record<string, unknown>, pillars: Pillars): string {
     return `${itemLabel(item)}: ${chars}(${posJu}${els ? `, 오행: ${els}` : ""})`;
   }
   const pos = ordered.map((p) => POS_KO[p] ?? p).join("·");
+  // 암합·지장간합은 "丁 × 亥중壬" 형태로 풀어 표기(내부 표기 "亥:壬" 노출 방지).
+  if (scope === "hidden_stem") {
+    const readable = ((item.members as string[]) ?? [])
+      .map((m) => m.replace(":", "중"))
+      .join(" × ");
+    return `${itemLabel(item)}: ${readable}${pos ? ` (${pos})` : ""}`;
+  }
   return `${itemLabel(item)}: ${chars}${pos ? ` (${pos})` : ""}`;
 }
 
@@ -646,6 +661,8 @@ export function StructurePanel({ result }: { result: ManseResult }) {
   const items = [...result.structure_analysis.interactions].sort(
     (a, b) => relOrder(a) - relOrder(b),
   );
+  // 다이어그램은 본 신호(합충형파해)만 — 지장간 보조 신호는 상세 목록에서 확인.
+  const diagramItems = items.filter((i) => !DIAGRAM_EXCLUDE.has(String(i.relation_type)));
   // 병존·간여지동 등은 다이어그램에 안 나오므로 하단 텍스트 목록에 합쳐서 누락 방지.
   // 정렬: 천간 항목 → 지지 항목.
   const amplifiers = result.structure_analysis.amplifiers ?? [];
@@ -668,12 +685,12 @@ export function StructurePanel({ result }: { result: ManseResult }) {
     <div className="space-y-2">
       {/* px-0: 상단 명식과 좌우 폭을 맞춰 컬럼이 수직 정렬되도록. */}
       <section className="rounded-lg border bg-white py-3">
-        {items.length === 0 ? (
+        {diagramItems.length === 0 ? (
           <p className="px-4 text-xs text-gray-400">특이 관계 없음</p>
         ) : (
           // 컬럼 머리글(시·일·월·년)은 상단 명식 기준이라 생략.
           <div className="space-y-1">
-            {items.map((i, idx) => <InteractionRow key={idx} item={i} pillars={pillars} />)}
+            {diagramItems.map((i, idx) => <InteractionRow key={idx} item={i} pillars={pillars} />)}
           </div>
         )}
       </section>
