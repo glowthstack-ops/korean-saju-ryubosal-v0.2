@@ -1528,3 +1528,22 @@ Phase 4 Conversation Layer(xfail 3건 해소).
   /feedback(확인 적재 + CalibrationOutcome 반환) — 온보딩 "미래 예측 전 과거 검증
   먼저" 플로우의 서버 측 연동(docs/01).
 검증: pytest 361 pass(Phase6 7 신규) · ruff clean · mypy clean(158파일).
+
+### v2.2 Phase 7 — 생활 운세 & 택일 (T7.1~T7.7) ✅
+- (M10 이사 S1~S10·M15 lifestyle은 Phase 2.5에서 선구현 — 본 단계는 일반화·보강.)
+- **사전 3종 신설**(reviewed:false): `purpose_profiles.json`(목적 7종별 5단계 가중 +
+  옵션 — 이사: 월운+일운+손없는날 / 계약: 일운 0.5+충돌 회피 / 결혼: 세운·월운 안정 /
+  수술: 일운 회피 엄격 / 개업: 대운·세운 0.35 / 복권·투자: **일운 비중 축소+변동성
+  경고**), `calendar/holidays.json`(고정 양력 8종 + 음력 명절 정의), `calendar/
+  avoid_days.json`(금기일 룰 3종 — 기신+충 / 형 활성=수술·계약 / 원진=혼사).
+- **T7.3 `date_selection.py`**: 계산 순서 고정(docs/02 E10) — macro(세운)→월운 적합→
+  일운 실행→**금기일 필터(E10-b, 룰 사전+사유)**→손없는날·공휴일·요일(E10-a)→
+  현실 제약(T7.4 "가능한 날 중 가장 좋은 날")→목적별 가중 합산 랭킹. 부분점수 5종 +
+  risk_score(충·형 수 기반) + recommendation 3단계.
+- **T7.7 시진(時辰)**: 12시진 적합도 — 시지 오행 × 용신(동일 1.0/생용신 0.8/기본 0.5),
+  "로또 사러 가기 좋은 시간대"(C17) 대응.
+- **T7.6 표현 제한 검증**: windfall/speculation 목적 → 변동성·과몰입 경고 +
+  "당첨·수익 단정 불가/투자 조언 아님" 고정 첨부(전 후보), 로또 번호 직접 요청은
+  여전히 정책 거부(G6 — /api/v2/chat 정책 라우트), advice 고지 고정 — 전부 테스트 고정.
+검증: pytest 371 pass(Phase7 10 신규) · ruff clean · mypy clean(161파일) ·
+  사전 validate 22파일 통과.

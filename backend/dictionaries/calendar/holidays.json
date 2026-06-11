@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "note": "한국 고정(양력) 공휴일 — 캘린더 규칙(명리 계산 아님). 설·추석 등 음력 명절은 음력 변환으로 계산(lunarHolidays). 대체공휴일은 후속.",
+  "fixedSolar": [
+    { "date": "01-01", "name": "신정" },
+    { "date": "03-01", "name": "삼일절" },
+    { "date": "05-05", "name": "어린이날" },
+    { "date": "06-06", "name": "현충일" },
+    { "date": "08-15", "name": "광복절" },
+    { "date": "10-03", "name": "개천절" },
+    { "date": "10-09", "name": "한글날" },
+    { "date": "12-25", "name": "성탄절" }
+  ],
+  "lunarHolidays": [
+    { "lunar": "01-01", "name": "설날", "spanDays": [-1, 0, 1] },
+    { "lunar": "04-08", "name": "부처님오신날", "spanDays": [0] },
+    { "lunar": "08-15", "name": "추석", "spanDays": [-1, 0, 1] }
+  ],
+  "reviewed": false
+}

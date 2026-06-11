@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "note": "금기일/회피일 규칙(docs/02 E10-b — 좋은 날 선별과 별개의 필터). 룰 기반: 일운 상호작용·기조로 판정. 초안 — 검수 대상.",
+  "rules": [
+    {
+      "ruleId": "gisin_clash_day",
+      "ko": "기신 기조 + 충일",
+      "condition": { "favorability": ["기신", "구신"], "interactionKinds": ["branch_clash", "stem_clash"] },
+      "appliesTo": ["relocation", "contract", "marriage", "surgery", "business_start"],
+      "reviewed": false
+    },
+    {
+      "ruleId": "punishment_day_surgery",
+      "ko": "형(刑) 활성일 — 수술·계약 회피",
+      "condition": { "interactionKinds": ["branch_punish", "self_punish"] },
+      "appliesTo": ["surgery", "contract"],
+      "reviewed": false
+    },
+    {
+      "ruleId": "wonjin_day_marriage",
+      "ko": "원진일 — 혼사 회피",
+      "condition": { "interactionKinds": ["wonjin"] },
+      "appliesTo": ["marriage"],
+      "reviewed": false
+    }
+  ]
+}

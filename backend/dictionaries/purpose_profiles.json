@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "note": "택일 목적별 가중치 프로파일(docs/02 E10 표). 5단계 점수(macro/month/day/calendar/reality) 가중 + 목적 옵션. 초안 — 검수 대상.",
+  "items": [
+    {
+      "purpose": "relocation",
+      "ko": "이사",
+      "weights": { "macroFlow": 0.15, "monthFit": 0.3, "dayExecution": 0.3, "calendarRule": 0.15, "realityFit": 0.1 },
+      "options": { "sonEomneunNalBonus": true, "avoidClash": true, "volatilityWarning": false, "dayWeightReduced": false },
+      "reviewed": false
+    },
+    {
+      "purpose": "contract",
+      "ko": "계약",
+      "weights": { "macroFlow": 0.1, "monthFit": 0.2, "dayExecution": 0.5, "calendarRule": 0.05, "realityFit": 0.15 },
+      "options": { "sonEomneunNalBonus": false, "avoidClash": true, "volatilityWarning": false, "dayWeightReduced": false },
+      "domainOverride": "wealth",
+      "reviewed": false
+    },
+    {
+      "purpose": "marriage",
+      "ko": "결혼",
+      "weights": { "macroFlow": 0.25, "monthFit": 0.35, "dayExecution": 0.2, "calendarRule": 0.1, "realityFit": 0.1 },
+      "options": { "sonEomneunNalBonus": false, "avoidClash": true, "volatilityWarning": false, "dayWeightReduced": false },
+      "domainOverride": "relationship",
+      "reviewed": false
+    },
+    {
+      "purpose": "surgery",
+      "ko": "수술",
+      "weights": { "macroFlow": 0.1, "monthFit": 0.2, "dayExecution": 0.5, "calendarRule": 0.05, "realityFit": 0.15 },
+      "options": { "sonEomneunNalBonus": false, "avoidClash": true, "volatilityWarning": false, "dayWeightReduced": false, "strictAvoid": true },
+      "domainOverride": "health",
+      "reviewed": false
+    },
+    {
+      "purpose": "business_start",
+      "ko": "개업",
+      "weights": { "macroFlow": 0.35, "monthFit": 0.3, "dayExecution": 0.2, "calendarRule": 0.05, "realityFit": 0.1 },
+      "options": { "sonEomneunNalBonus": false, "avoidClash": true, "volatilityWarning": false, "dayWeightReduced": false },
+      "domainOverride": "career",
+      "reviewed": false
+    },
+    {
+      "purpose": "windfall",
+      "ko": "복권 구매(표현 제한)",
+      "weights": { "macroFlow": 0.2, "monthFit": 0.25, "dayExecution": 0.15, "calendarRule": 0.1, "realityFit": 0.3 },
+      "options": { "sonEomneunNalBonus": false, "avoidClash": false, "volatilityWarning": true, "dayWeightReduced": true },
+      "domainOverride": "wealth",
+      "reviewed": false
+    },
+    {
+      "purpose": "speculation_risk",
+      "ko": "투자·매매(경고 중심)",
+      "weights": { "macroFlow": 0.25, "monthFit": 0.25, "dayExecution": 0.15, "calendarRule": 0.05, "realityFit": 0.3 },
+      "options": { "sonEomneunNalBonus": false, "avoidClash": false, "volatilityWarning": true, "dayWeightReduced": true },
+      "domainOverride": "wealth",
+      "reviewed": false
+    }
+  ]
+}
