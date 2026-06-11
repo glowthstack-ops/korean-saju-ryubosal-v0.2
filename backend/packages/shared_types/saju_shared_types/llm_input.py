@@ -77,10 +77,12 @@ class LlmEventCandidate(BaseModel):
     """이벤트 후보 — 간지·대운 맥락 **반드시 포함**(LLM 간지 계산 불가 보완)."""
 
     event_key: EventKey
+    event_ko: str = ""  # 한글 라벨(taxonomy) — 답변 노출용, 내부 키 노출 방지
     period: str
     ganji: str
     daewoon_context: str
     score: int = Field(ge=0, le=100)
+    signal_count: int = 0  # 동점 변별용(점수 포화 완화)
     confidence: str
     polarity: str
     timeline: dict | None = None  # EventTimeline (Phase 5 E4)
@@ -103,6 +105,47 @@ class LlmStyleRules(BaseModel):
     templates: list[str] = Field(default_factory=list)
     tone_guide: str = ""
     llm_instruction: str = ""
+
+
+class ReferenceFrame(BaseModel):
+    """기준 시점 — LLM은 오늘이 언제인지 모른다(v1 [오늘 날짜] 원칙 계승)."""
+
+    today: str  # '2026-06-11 (목)'
+    this_year: str  # '2026'
+    this_year_ganji: str = ""  # '丙午'
+    question_period: str = ""  # '2026-01-01 ~ 2026-12-31'
+    question_period_note: str = ""  # "질문의 '올해'는 2026년을 의미한다"
+
+
+class MonthOverviewRow(BaseModel):
+    """월별 요약 한 칸 — '올해운을 월별로' 류 대응(v1 monthSummaryText 계승)."""
+
+    period: str  # '2026-03'
+    ganji: str
+    top_event_ko: str = ""  # 그 달 최고 신호(없으면 빈 값)
+    score: int | None = None
+    polarity: str = ""
+
+
+class DateChoiceRow(BaseModel):
+    """택일 추천 1행(E10 산출 — LLM은 그대로 인용만)."""
+
+    date: str
+    weekday: str  # '토'
+    ganji: str
+    score: int
+    recommendation: str  # recommended | acceptable
+    notes: list[str] = Field(default_factory=list)  # 손없는 날·공휴일·사유
+
+
+class DateSelectionBlock(BaseModel):
+    """택일 결과 블록 — 표가 있으면 회피성 답변 금지(v1 이사일 원칙 계승)."""
+
+    purpose_ko: str
+    period: str  # '2026-07-01 ~ 2026-07-31'
+    rows: list[DateChoiceRow] = Field(default_factory=list)
+    avoid: list[dict] = Field(default_factory=list)  # {'date','reason'}
+    cautions: list[str] = Field(default_factory=list)
 
 
 class PersonaBlock(BaseModel):
@@ -153,6 +196,12 @@ class LlmInput(BaseModel):
     birth_chart_summary: BirthChartSummary
     calendar_context: LlmCalendarContext = Field(default_factory=LlmCalendarContext)
     event_candidates: list[LlmEventCandidate] = Field(default_factory=list)
+    # 질문 기간 밖 상위 후보 — 참고 맥락 전용(메인 서술 금지 지시 동반).
+    out_of_range_candidates: list[LlmEventCandidate] = Field(default_factory=list)
+    no_candidates_in_period: bool = False  # 기간 내 후보 없음 → 정직한 '신호 없음' 유도
+    reference: ReferenceFrame | None = None  # 기준 시점(필수 주입 — chat 경로)
+    monthly_overview: list[MonthOverviewRow] = Field(default_factory=list)
+    date_selection: DateSelectionBlock | None = None
     evidence: list[LlmEvidence] = Field(default_factory=list)
     past_validation: PastValidationSummary | None = None
     style_rules: LlmStyleRules = Field(default_factory=LlmStyleRules)

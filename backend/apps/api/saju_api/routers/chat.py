@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.profile import PersonaConfig
 
 from ..services import chat_service
 
@@ -22,11 +23,13 @@ class ChatRequest(BaseModel):
     today: date | None = None
     dry_run: bool = False
     thread_id: str | None = None  # 지정 시 멀티턴(스레드 상태 복원·갱신)
+    persona: PersonaConfig | None = None  # 문체 전용(docs/11 — 점수·판정 불변)
 
 
 @router.post("", response_model=chat_service.ChatResponse)
 def chat(req: ChatRequest) -> chat_service.ChatResponse:
     """단일 질문 풀이 — 파서→플래너→스코어링→그래프→축소→LLM(또는 dry-run)."""
     return chat_service.chat(
-        req.birth, req.question, req.today, req.dry_run, thread_id=req.thread_id
+        req.birth, req.question, req.today, req.dry_run,
+        thread_id=req.thread_id, persona=req.persona,
     )

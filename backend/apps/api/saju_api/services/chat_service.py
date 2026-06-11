@@ -16,18 +16,28 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from saju_engines import EventScorer, GraphIndex, filter_year_candidates, load_event_graph
-from saju_engines.context_reducer import build_llm_input, serialize_with_guard
+from saju_engines.context_reducer import (
+    build_llm_input,
+    build_monthly_overview,
+    event_ko,
+    serialize_with_guard,
+)
 from saju_engines.conversation import ConversationEngine
 from saju_engines.conversation_store import ConversationStore
+from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.llm_guard import TokenBudgetExceeded
+from saju_engines.persona import PersonaEngine
 from saju_engines.planner import build_execution_plan
+from saju_engines.precompute import CompositeBuilder
 from saju_engines.query_parser import parse_message
 from saju_engines.rewriter import QueryAssessment, assess
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef
 from saju_shared_types.events import EventKey
 from saju_shared_types.ganji_calendar import GanjiLevel
-from saju_shared_types.intent import IntentJson
+from saju_shared_types.intent import IntentJson, QueryType
+from saju_shared_types.llm_input import DateChoiceRow, DateSelectionBlock
+from saju_shared_types.profile import PersonaConfig
 
 from . import llm_client
 from .manse_service import calculate
@@ -62,6 +72,15 @@ _SCORE_LEVELS = {GanjiLevel.YEAR, GanjiLevel.MONTH}
 # 모듈 캐시(사전·그래프는 결정적 — 프로세스 1회 로드).
 _scorer: EventScorer | None = None
 _graph_index: GraphIndex | None = None
+_date_engine: DateSelectionEngine | None = None
+_persona_engine: PersonaEngine | None = None
+
+# 택일 목적으로 인정되는 이벤트(purpose_profiles 키) — 그 외는 이사로 폴백.
+_DATE_PURPOSES = {
+    EventKey.RELOCATION, EventKey.CONTRACT, EventKey.MARRIAGE,
+    EventKey.SURGERY, EventKey.BUSINESS_START, EventKey.WINDFALL,
+}
+_WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
 
 
 class ChatResponse(BaseModel):
@@ -95,6 +114,74 @@ def _get_graph() -> GraphIndex:
     return _graph_index
 
 
+def _get_date_engine() -> DateSelectionEngine:
+    global _date_engine
+    if _date_engine is None:
+        _date_engine = DateSelectionEngine(_DICTS)
+    return _date_engine
+
+
+def _get_persona_engine() -> PersonaEngine:
+    global _persona_engine
+    if _persona_engine is None:
+        _persona_engine = PersonaEngine(_DICTS)
+    return _persona_engine
+
+
+def _date_selection_block(
+    birth: BirthInput, intent, today: date, yongsin: str | None
+) -> DateSelectionBlock | None:
+    """택일 라우트(P3): 질문 기간의 일운 합성을 만들어 E10 랭킹을 표로 제공.
+
+    표가 있으면 LLM의 '날짜 정보 없음' 회피 답변을 지시로 차단한다(v1 원칙).
+    """
+    # 기간: 질문 해석 결과(월 단위 권장). 연 단위/무시점이면 오늘부터 30일.
+    start_label = intent.time_range.start if intent.time_range else None
+    if start_label and len(start_label) == 7:
+        anchor = date.fromisoformat(start_label + "-15")
+        start_iso = start_label + "-01"
+        end_iso = start_label + "-31"
+    else:
+        anchor = today
+        start_iso = today.isoformat()
+        end_iso = (today.replace(day=1) + __import__("datetime").timedelta(days=62)
+                   ).replace(day=1).isoformat()
+    purpose = intent.event_key if intent.event_key in _DATE_PURPOSES else EventKey.RELOCATION
+
+    chart = calculate(birth.model_copy(update={"reference_date": anchor}))
+    composites = CompositeBuilder(_DICTS).build(
+        chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00",
+    )
+    result = _get_date_engine().select(
+        purpose, composites, start_iso, end_iso, yongsin_element=yongsin,
+    )
+    if not result.candidates:
+        return None
+    rows = [
+        DateChoiceRow(
+            date=c.date,
+            weekday=_WEEKDAY_KO[date.fromisoformat(c.date).weekday()],
+            ganji=c.ganji,
+            score=c.scores.final,
+            recommendation=c.recommendation,
+            notes=(
+                c.reasons
+                + (["손없는 날"] if c.son_eomneun_nal and "손없는 날" not in c.reasons else [])
+                + (["주말"] if c.is_weekend else [])
+            ),
+        )
+        for c in result.candidates
+        if c.recommendation != "avoid"  # 추천 표에는 회피 등급 제외(회피일은 별도 목록)
+    ]
+    return DateSelectionBlock(
+        purpose_ko=event_ko(purpose),
+        period=f"{start_iso} ~ {end_iso}",
+        rows=rows,
+        avoid=result.avoid_dates,
+        cautions=result.cautions,
+    )
+
+
 def chat(
     birth: BirthInput,
     question: str,
@@ -102,6 +189,7 @@ def chat(
     dry_run: bool = False,
     thread_id: str | None = None,
     store: ConversationStore | None = None,
+    persona: PersonaConfig | None = None,
 ) -> ChatResponse:
     """질문을 풀이한다(첫 intent 기준, 다중 intent는 메타로 동반).
 
@@ -183,18 +271,55 @@ def chat(
     # 만세 계산(캐시) + 스코어링 + 계층 필터.
     chart_birth = birth.model_copy(update={"reference_date": today})
     result = calculate(chart_birth)
-    candidates = filter_year_candidates(
-        _get_scorer().score(result, levels=_SCORE_LEVELS)
-    )
+    all_scored = _get_scorer().score(result, levels=_SCORE_LEVELS)
+    candidates = filter_year_candidates(all_scored)
+    # P2 보강: 계층 필터(Top5)가 과거 고점에 점유돼도 질문 기간 후보는 보존.
+    if intent.time_range is not None:
+        from saju_engines.context_reducer import in_question_range
+
+        seen = {(c.event_key, c.period) for c in candidates}
+        candidates += [
+            c for c in all_scored
+            if (c.event_key, c.period) not in seen
+            and in_question_range(c.period, intent.time_range.start, intent.time_range.end)
+        ]
 
     # Graph Retrieval — plan의 graphScope만(전체 검색 금지).
     scope: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
     bundles = _get_graph().retrieve(scope)
 
+    # P4: 월 단위 요청("월별로"/granularity=month)이면 질문 연도 12개월 요약 동반.
+    overview = None
+    wants_monthly = "월별" in question or (
+        intent.time_range is not None
+        and intent.time_range.granularity.value == "month"
+        and intent.time_range.start is not None
+        and len(intent.time_range.start) == 4
+    )
+    if wants_monthly:
+        start_label = intent.time_range.start if intent.time_range else None
+        target_year = int((start_label or str(today.year))[:4])
+        overview = build_monthly_overview(result, all_scored, target_year)
+
+    # P3: 택일 질문이면 E10 랭킹 표 동반(표가 있으면 회피성 답변 금지 지시).
+    date_block = None
+    if intent.query_type is QueryType.DATE_RECOMMENDATION:
+        from saju_engines.event_scoring import favorability_map
+
+        fav = favorability_map(result)
+        yongsin = next((el for el, role in fav.items() if role == "용신"), None)
+        try:
+            date_block = _date_selection_block(birth, intent, today, yongsin)
+        except Exception:  # 택일 실패는 일반 풀이로 폴백(차단 금지)
+            date_block = None
+
     # Context Reduction + 직렬화 + 가드.
     payload = build_llm_input(
         question, intent, result, candidates, bundles, _get_scorer(),
         call_type="chat_compare" if plan.per_subject else "chat_single",
+        today=today,
+        monthly_overview=overview,
+        date_selection=date_block,
     )
     try:
         prompt_text, tokens = serialize_with_guard(
@@ -235,9 +360,14 @@ def chat(
             repeated=repeated,
         )
 
+    system = None
+    if persona is not None:
+        block = _get_persona_engine().build_block(persona, "회원")
+        system = llm_client._SYSTEM_PROMPT + "\n\n" + block
     answer = llm_client.generate_reading(
         prompt_text,
         call_type="chat_compare" if plan.per_subject else "chat_single",
+        system=system,
     )
     _save_thread(store, state)
     return ChatResponse(
