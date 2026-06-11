@@ -1362,3 +1362,23 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   import 정렬+None-guard — 로직 무변경).
 검증: pytest 270 pass(M03 3·M15 2·M10 5 신규) · ruff clean · mypy clean(131파일) ·
   사전 validate 15파일 통과. **Phase 2.5 전체 태스크 완료.**
+
+### v2.2 Phase 3 착수 — T3.3 Execution Planner + T3.8 비분석 라우트 ✅
+- **shared_types/execution_plan.py**: ExecutionPlan(docs/03 B4 — intent·eventType·
+  engineCalls 순서 보장·dictionaryScope 분할 로드·graphScope·perSubject·policy_route).
+- **T3.3 `planner.py`**: queryType별 **고정 템플릿**(LLM 무관여, 동일 intent → 동일 plan
+  결정성 테스트 고정). Q1 대운스캔→세운필터→과거검증 요약 / Q2 도메인→Topic 모듈
+  (M07/M09/M10/M11/M12/M01/M15) / Q3 Scoring→Timeline→Manifestation→Advice /
+  Q4 macro→월적합→일후보→리스크→캘린더→현실제약→랭킹(+방위/시진/체인 분기) /
+  Q5 역방향+evidence / Q6 M13(다중 대상 per_subject + chat_compare 예산) /
+  Q7 선택지별+excludeOptions / Q8 T0 / Q9 M13 pairwise / Q10 remedy 체인.
+  공통 마무리: graph_retrieval→context_reduction→llm. graphScope=docs/03 C 표 +
+  명시 eventKey 합집합. dictionaryScope=docs/05 분할 로드.
+- **T3.8 비분석 라우트**: Q11 terminology(사전+예시) / Q12 claim_recheck(재검산+
+  cases.jsonl 적재) / Q13 empathy_first(엔진 미호출) / Q14 fixed_policy(엔진·LLM 모두
+  미호출 — 고정 템플릿 응답). 분석 파이프라인 미진입 테스트 고정.
+- **Phase 3 잔여(다음 단위)**: T3.1 Query Parser(경량 LLM+룰 폴백) · T3.2 Broad Query
+  Rewriter · T3.4 Context Reduction · T3.5 LLM 입력 계약 직렬화기(docs/06) ·
+  T3.6 다중 intent 파싱 · T3.7 시점 파서 18패턴 — **docs/08(실로그 2,255건 카탈로그)
+  정독 후 진행**(파서 작업 전 필독 + 골든 테스트 30케이스 원천).
+검증: pytest 282 pass(planner 12 신규) · ruff clean · mypy clean(134파일).
