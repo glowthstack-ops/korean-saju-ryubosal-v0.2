@@ -35,11 +35,17 @@ _AXIS_OF: dict[str, str] = {
     "support_day_master": "eokbu", "resource_as_yongsin": "eokbu",
     "output_as_yongsin": "eokbu", "eokbu_normal": "eokbu",
     "wealth_breaks_resource": "eokbu", "officer_controls_peer": "eokbu",
-    "resource_curbs_output": "eokbu",
+    "resource_curbs_output": "eokbu", "resource_pattern_officer": "eokbu",
     "johu": "johu", "pattern_sangsin": "pattern", "disease_remedy": "disease",
     "dominant_one_element": "special", "follow_structure": "special",
-    "bridge_tonggwan": "disease",  # 통관 약신은 병약(보정) 축으로 경쟁
+    "bridge_tonggwan": "bridge",
 }
+
+
+def _axis_of(model_type: str) -> str:
+    """Model instance keys may carry a suffix, e.g. disease_remedy:pyeonin_dosik."""
+    return _AXIS_OF.get(model_type.split(":", 1)[0], "eokbu")
+
 
 # 종격 세분: 압도 세력 그룹 → 종격 명칭.
 _FOLLOW_SUBTYPE: dict[str, str] = {
@@ -259,6 +265,71 @@ def _classify_roles(
     }
 
 
+def _classify_bridge_roles(
+    g: dict[str, Element],
+    groups: dict[str, float],
+    detail: str | None,
+    useful: dict[str, tuple[float, str, str]],
+    yongsin_el: str,
+) -> dict[str, str | None]:
+    """통관용신은 과다한 상극 축 사이를 잇는 오행이므로 억부식 극관계 배정을 쓰지 않는다."""
+    roles_of = {_e(v): k for k, v in g.items()}  # 오행 → 십성 역할
+    elements = {_e(e) for e in Element}
+    total = sum(groups.values()) or 1.0
+
+    # 통관 보조는 기존 억부/격국 모델이 명시한 희신을 우선한다.
+    heesin = next(
+        (
+            el for el, (_score, _model, role) in sorted(
+                useful.items(), key=lambda kv: kv[1][0], reverse=True
+            )
+            if el != yongsin_el and role == "heesin"
+        ),
+        None,
+    )
+
+    # detail 예: "木→火→土|통관용신=火". 앞쪽 과다·충돌 원소를 병으로 본다.
+    gisin = None
+    if detail and "→" in detail:
+        source = detail.split("|", 1)[0].split("→", 1)[0]
+        if source in elements and source != yongsin_el:
+            gisin = source
+    if gisin is None:
+        gisin = max(
+            (e for e in elements if e != yongsin_el and e != heesin),
+            key=lambda el: groups.get(roles_of[el], 0.0) / total,
+        )
+
+    # 구신은 통관 흐름의 도착점 또는 기신을 생하는 오행보다, 실제 흐름을 막는 다음 과다축으로 둔다.
+    gusin = None
+    if detail and "→" in detail:
+        parts = detail.split("|", 1)[0].split("→")
+        if len(parts) >= 3 and parts[2] in elements and parts[2] not in {yongsin_el, heesin, gisin}:
+            gusin = parts[2]
+    if gusin is None:
+        remaining_for_gusin = elements - {yongsin_el, heesin, gisin}
+        gusin = max(
+            remaining_for_gusin,
+            key=lambda el: groups.get(roles_of[el], 0.0) / total,
+        ) if remaining_for_gusin else None
+
+    if heesin is None:
+        remaining_for_hee = elements - {yongsin_el, gisin, gusin}
+        heesin = max(
+            remaining_for_hee,
+            key=lambda el: useful.get(el, (0.0, "", ""))[0],
+        ) if remaining_for_hee else None
+
+    hansin = next((e for e in sorted(elements) if e not in {yongsin_el, heesin, gisin, gusin}), None)
+    return {
+        "yongsin": yongsin_el,
+        "heesin": heesin,
+        "gisin": gisin,
+        "gusin": gusin,
+        "hansin": hansin,
+    }
+
+
 def _resource_excess_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
     """재성용신형(財損印): 인성과다 신강 → 재성으로 인성 제어, 관성으로 일간 억제."""
     conf = round(min(0.55 + max(strength.score - 50.0, 0.0) / 60, 0.9), 4)
@@ -271,6 +342,22 @@ def _resource_excess_model(g: dict[str, Element], strength) -> YongsinCandidateM
         reasons=[
             "인성 과다 → 재성으로 인성 제어(財損印)",
             "관성으로 일간 억제·조후, 식상은 인성에 극당해 무력",
+        ],
+    )
+
+
+def _resource_pattern_officer_model(g: dict[str, Element], strength) -> YongsinCandidateModel:
+    """인수격·인성과다: 관성으로 격의 상신/조후를 세우고 재성으로 탁한 인성을 제어."""
+    conf = round(min(0.58 + max(strength.score - 50.0, 0.0) / 58, 0.92), 4)
+    return YongsinCandidateModel(
+        model_type="resource_pattern_officer",
+        label="인수격 관성용신형(관성 상신·재성 보조)",
+        yongsin=_e(g["officer"]), heesin=_e(g["wealth"]),
+        gisin=_e(g["resource"]), gusin=_e(g["peer"]), hansin=_e(g["output"]),
+        confidence=conf,
+        reasons=[
+            "인수격에서 인성이 과다하면 관성으로 격의 상신을 세움",
+            "재성은 과다한 인성을 제어해 관성을 보조",
         ],
     )
 
@@ -379,7 +466,7 @@ def _disease_models(
             continue
         seen.add(grp)
         out.append(YongsinCandidateModel(
-            model_type="disease_remedy", label="병약용신형(약신)",
+            model_type=f"disease_remedy:{dmg}", label="병약용신형(약신)",
             yongsin=_e(g[grp]),
             confidence=0.5,
             reasons=[f"파격({dmg}) 제거 약신", "병약은 패격 보정 후보"],
@@ -399,25 +486,49 @@ _GEOK_SANGSIN_GROUPS: dict[str, list[str]] = {
 
 
 def _select_axis_weights(
-    band: str, month_branch: Branch, geokguk: GeokgukResult, special: bool
+    band: str, month_branch: Branch, geokguk: GeokgukResult, special: bool,
+    bridge_required: bool = False,
 ) -> dict[str, float]:
     """상황별 동적 축 가중치(사용자 §10). 신약은 억부 우선 → 용신 안정."""
     if special:
-        return {"special": 1.0, "eokbu": 0.1, "johu": 0.1, "pattern": 0.1, "disease": 0.1}
+        return {
+            "special": 1.0, "bridge": 0.1, "eokbu": 0.1,
+            "johu": 0.1, "pattern": 0.1, "disease": 0.1,
+        }
+    if bridge_required:
+        return {
+            "bridge": 0.45, "eokbu": 0.20, "disease": 0.20,
+            "pattern": 0.15, "johu": 0.10, "special": 0.1,
+        }
     ev = geokguk.evaluation
     active = ev.total_active if ev else 0
     fw = ev.final_weight if ev else 0.15
     # 丑(한겨울)·未(한여름)은 土월이라도 한난이 극단 → 조후 대상에 포함.
     cold_hot = month_branch in (_COLD_MONTHS | _HOT_MONTHS)
     if band in _WEAK:  # 신약/중화신약 → 억부 우선(종격은 special에서 처리)
-        return {"eokbu": 0.45, "johu": 0.25, "pattern": 0.15, "disease": 0.15, "special": 0.1}
+        return {
+            "eokbu": 0.45, "johu": 0.25, "pattern": 0.15,
+            "disease": 0.15, "bridge": 0.1, "special": 0.1,
+        }
     if active >= 2:  # 파격 뚜렷 → 병약 우선
-        return {"disease": 0.35, "eokbu": 0.25, "johu": 0.20, "pattern": 0.20, "special": 0.1}
+        return {
+            "disease": 0.35, "eokbu": 0.25, "johu": 0.20,
+            "pattern": 0.20, "bridge": 0.1, "special": 0.1,
+        }
     if cold_hot:  # 중화/신강 + 한습·조열 → 조후 우선
-        return {"johu": 0.40, "eokbu": 0.25, "pattern": 0.20, "disease": 0.15, "special": 0.1}
+        return {
+            "johu": 0.40, "eokbu": 0.25, "pattern": 0.20,
+            "disease": 0.15, "bridge": 0.1, "special": 0.1,
+        }
     if fw >= 0.30:  # 격국 선명 → 격국 우선
-        return {"pattern": 0.40, "eokbu": 0.25, "johu": 0.20, "disease": 0.15, "special": 0.1}
-    return {"eokbu": 0.35, "johu": 0.20, "pattern": 0.25, "disease": 0.20, "special": 0.1}
+        return {
+            "pattern": 0.40, "eokbu": 0.25, "johu": 0.20,
+            "disease": 0.15, "bridge": 0.1, "special": 0.1,
+        }
+    return {
+        "eokbu": 0.35, "johu": 0.20, "pattern": 0.25,
+        "disease": 0.20, "bridge": 0.1, "special": 0.1,
+    }
 
 
 def _weak_band_models(
@@ -428,7 +539,12 @@ def _weak_band_models(
     rooted_strong = strength.rootedness.get("label") == "신왕"
     has_root = bool(force.rooting.tonggeun)
     out: list[YongsinCandidateModel] = []
-    if _output_heavy(groups):
+    if groups.get("peer", 0.0) <= 0.0 and groups.get("resource", 0.0) > 0.0:
+        # 비겁이 전무하면 인성으로 식상을 제어하기 전에 일간 자체의 불씨를 세우는
+        # 직접 보강을 1순위로 둔다. 남은 인성은 희신/경쟁 후보로 검증한다.
+        out.append(_support_model(g, strength))
+        out.append(_resource_model(g, strength))
+    elif _output_heavy(groups):
         # 식상과다 → 인성으로 제식상·생일간(印制食). 비겁은 식상을 생해 악화 → 부일간형 제외.
         out.append(_output_overload_model(g, strength))
     elif _officer_heavy(groups):
@@ -531,7 +647,10 @@ def build_yongsin(
         models.extend(_weak_band_models(g, groups, strength, force))
     elif band in _STRONG:
         if _resource_overload(groups):
-            models.append(_resource_excess_model(g, strength))  # 인성과다 → 財損印
+            if geokguk.main_structure in ("정인격", "편인격"):
+                models.append(_resource_pattern_officer_model(g, strength))
+            else:
+                models.append(_resource_excess_model(g, strength))  # 인성과다 → 財損印
         elif _bigyeob_overload(groups):
             models.append(_bigyeob_rob_model(g, strength))  # 비겁과다 → 군겁쟁재(관성 제겁)
         else:
@@ -588,10 +707,13 @@ def build_yongsin(
     special = checks["dominant_one_element"].detected or (
         checks["follow_structure"].detected and not is_pseudo_follow
     )
-    axis_weights = _select_axis_weights(band, month_branch, geokguk, special)
+    axis_weights = _select_axis_weights(
+        band, month_branch, geokguk, special,
+        bridge_required=checks["bridge_required"].detected,
+    )
 
     def _w(model_type: str) -> float:
-        return axis_weights.get(_AXIS_OF.get(model_type, "eokbu"), 0.2)
+        return axis_weights.get(_axis_of(model_type), 0.2)
 
     # 후보 통합: 용신/희신 → useful, 기신/구신 → unfavorable. 점수 = 모델 신뢰도 × 축 가중치.
     useful: dict[str, tuple[float, str, str]] = {}
@@ -611,10 +733,10 @@ def build_yongsin(
 
     # 축별 기여 요약(어느 축이 어떤 오행을 얼마로 밀었는가).
     axes_summary: list[dict] = []
-    for axis in ("special", "eokbu", "johu", "pattern", "disease"):
+    for axis in ("special", "bridge", "eokbu", "johu", "pattern", "disease"):
         contrib = [
             (m.yongsin, m.confidence * axis_weights.get(axis, 0.0))
-            for m in models if _AXIS_OF.get(m.model_type) == axis and m.yongsin
+            for m in models if _axis_of(m.model_type) == axis and m.yongsin
         ]
         if contrib:
             top_el, top_sc = max(contrib, key=lambda x: x[1])
@@ -652,7 +774,9 @@ def build_yongsin(
         if groups[_ctrl] > groups[_grp] * 3 and groups[_ctrl] >= _mx and groups[_ctrl] > 0:
             _demote(_el, f"overwhelmed_by_{_ctrl}")
 
-    useful_sorted = sorted(useful.items(), key=lambda kv: kv[1][0], reverse=True)[:2]
+    useful_sorted = sorted(
+        useful.items(), key=lambda kv: (kv[1][2] == "yongsin", kv[1][0]), reverse=True
+    )[:2]
     unfav_sorted = sorted(unfavorable.items(), key=lambda kv: kv[1][0], reverse=True)[:2]
     useful_candidates = [
         ElementCandidate(element=e, score=round(s, 4), model=mdl, reason=role)
@@ -679,8 +803,26 @@ def build_yongsin(
         models[0].model_type if models else None
     )
     # 용·희·기·구·한 최종 배정: 용신 기준 생극 구조로 1개씩 분할.
-    yongsin_el = useful_candidates[0].element if useful_candidates else None
+    yongsin_el = next(
+        (e for e, (_s, _mdl, role) in useful_sorted if role == "yongsin"),
+        useful_candidates[0].element if useful_candidates else None,
+    )
     roles = _classify_roles(g, groups, band, useful, unfavorable, yongsin_el)
+    if top_model == "bridge_tonggwan" and yongsin_el:
+        roles = _classify_bridge_roles(g, groups, checks["bridge_required"].detail, useful, yongsin_el)
+    elif (
+        top_model == "support_day_master"
+        and band in _WEAK
+        and groups.get("peer", 0.0) <= 0.0
+        and yongsin_el == _e(g["peer"])
+    ):
+        roles = {
+            "yongsin": _e(g["peer"]),
+            "heesin": _e(g["resource"]),
+            "gisin": _e(g["output"]),
+            "gusin": _e(g["wealth"]),
+            "hansin": _e(g["officer"]),
+        }
     final = {
         **roles,
         "confidence": round(model_conf.get(top_model or "", 0.0), 4),

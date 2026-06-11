@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from saju_manse_calibration import score_feedback
+from saju_manse_calibration import score_calibration, score_feedback
 
 from saju_api.services.manse_service import calculate, calibrate_feedback
+from saju_shared_types.calibration import CalibrationQuestion
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.calibration import FeedbackAnswer
+from saju_shared_types.yongsin import AggregatedYongsinResult, YongsinCandidateModel
 
 _BASE = dict(birth_date="1980-11-22", birth_time="09:08", birth_place_name="서울", gender="male")
 
@@ -85,6 +87,43 @@ def test_auxiliary_johu_cannot_be_solely_calibrated() -> None:
     assert res.selected_model in primary  # primary 모델로 확정
 
 
+def test_final_selected_auxiliary_model_can_be_calibrated() -> None:
+    y = AggregatedYongsinResult(
+        status="candidate",
+        candidate_models=[
+            YongsinCandidateModel(
+                model_type="eokbu_normal", label="억부형",
+                yongsin="水", heesin="木", gisin="土", gusin="金",
+                confidence=0.6,
+            ),
+            YongsinCandidateModel(
+                model_type="johu", label="조후 보조형",
+                yongsin="火", heesin="木", gisin="金", gusin="土",
+                confidence=0.8, is_auxiliary=True,
+            ),
+        ],
+        final={"selected_model": "johu", "yongsin": "火", "heesin": "木"},
+    )
+    questions = [
+        CalibrationQuestion(
+            id=f"q{i}", question_type="useful", period_type="year",
+            year=2000 + i, period_label=str(2000 + i),
+            target_models=["johu"],
+            expected_effect_by_model={"johu": "positive", "eokbu_normal": "negative"},
+            ask_domains=["career"], question_text="test", options=[],
+        )
+        for i in range(4)
+    ]
+    answers = [
+        FeedbackAnswer(question_id=q.id, overall_rating="positive", selected_events=["직업"])
+        for q in questions
+    ]
+    res = score_calibration(questions, answers, y)
+    assert res.status == "calibrated"
+    assert res.selected_model == "johu"
+    assert res.final_yongsin == "火"
+
+
 def test_period_selection_reflects_void_clash() -> None:
     # 운 동태가 검증 기간에 반영: 공망=실속 약화(mixed), 충=사건성(volatile).
     from saju_manse_calibration import select_validation_periods
@@ -102,3 +141,24 @@ def test_period_selection_reflects_void_clash() -> None:
     assert voids and all(p["ganji"][1] in ("辰", "巳") for p in voids)
     # 깨끗한 해(공망·충 없음)가 검증 우선순위 상위에 온다.
     assert any(p["clean"] for p in periods[:3])
+
+
+def test_period_selection_keeps_multiple_disease_models_distinct() -> None:
+    from saju_manse_calibration import select_validation_periods
+
+    b = BirthInput(
+        birth_date="1985-04-18",
+        birth_time="16:00",
+        birth_place_name="경남 사천",
+        latitude=35.0497,
+        longitude=128.0377,
+        timezone="Asia/Seoul",
+        gender="male",
+        reference_date="2026-06-11",
+        time_options={"apply_equation_of_time": False},
+    )
+    r = calculate(b)
+    periods = select_validation_periods(r.yongsin_analysis, 1985, 2026, r.pillars)
+    keys = set(periods[0]["expected_by_model"])
+    assert "disease_remedy:shangguan_attacks_officer" in keys
+    assert "disease_remedy:pyeonin_dosik" in keys

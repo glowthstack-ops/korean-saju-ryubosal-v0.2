@@ -53,31 +53,28 @@ def test_yongsin_roles_form_partition(make_pillars) -> None:
 
 def test_2015_excess_resource_is_gisin(make_pillars) -> None:
     # 2015-03-01 03:34 진태양시(乙未 戊寅 丙子 己丑, 丙·신강): 인성 木 과다가 기신.
-    # 용신 金(木 제어) · 희신 火(木 설기, 木生火) · 기신 木 · 구신 水(水生木) · 한신 土.
+    # 木→火→土 통관 구조가 뚜렷해 통관용신 火를 우선하고, 金은 희신으로 둔다.
     pillars = make_pillars(
         (Stem.EUL, Branch.MI), (Stem.MU, Branch.IN),
         (Stem.BYEONG, Branch.JA), (Stem.GI, Branch.CHUK), Stem.BYEONG,
     )
     f = analyze_chart(pillars).yongsin.final
-    assert f["yongsin"] == "金"
-    assert f["heesin"] == "火"   # 생용신(土) 아닌 설기 희신(火) — 木 과다를 설기
+    assert f["yongsin"] == "火"
+    assert f["heesin"] == "金"
     assert f["gisin"] == "木"    # 인성 과다 = 구조적 병
-    assert f["gusin"] == "水"    # 생기신(水生木)
-    assert f["hansin"] == "土"
+    assert f["hansin"] == "水"
 
 
 def test_1985_weak_resource_yongsin(make_pillars) -> None:
-    # 1985-04-18 16:00 (乙丑 庚辰 丁亥 戊申, 丁·태신약): 인성 木 용신.
-    # 기신=재성 金(재극인=극용신) · 구신=식상 土(생재성) · 희신=비겁 火(조일간) · 한신=관성 水.
+    # 1985-04-18 16:00 (乙丑 庚辰 丁亥 戊申, 丁·태신약): 비겁이 전무해 직접 보강 火 우선.
+    # 희신=인성 木, 한신=관성 水.
     pillars = make_pillars(
         (Stem.EUL, Branch.CHUK), (Stem.GYEONG, Branch.JIN),
         (Stem.JEONG, Branch.HAE), (Stem.MU, Branch.SIN), Stem.JEONG,
     )
     f = analyze_chart(pillars).yongsin.final
-    assert f["yongsin"] == "木"
-    assert f["heesin"] == "火"   # 비겁(조일간) — 기신생(설기) 아님
-    assert f["gisin"] == "金"    # 재성(재극인) = 극용신
-    assert f["gusin"] == "土"    # 식상(생재성) = 생기신
+    assert f["yongsin"] == "火"
+    assert f["heesin"] == "木"
     assert f["hansin"] == "水"
 
 
@@ -125,7 +122,7 @@ def test_multi_axis_weights_and_ranking(make_pillars) -> None:
     )
     y = analyze_chart(pillars).yongsin
     aw = y.axis_weights
-    assert set(aw) == {"eokbu", "johu", "pattern", "disease", "special"}
+    assert set(aw) == {"eokbu", "johu", "pattern", "disease", "bridge", "special"}
     assert aw["eokbu"] == 0.45  # 신약 → 억부 가중치 우선
     assert y.final["yongsin"] == "土"
     # 축 기여는 점수 내림차순으로 정렬되어 있고 억부가 최상위.
@@ -169,7 +166,7 @@ def test_jongjae_and_jongah_naming(make_pillars) -> None:
 
 def test_pseudo_follow_keeps_eokbu_and_flags(make_pillars) -> None:
     # 사천(乙丑 庚辰 丁亥 戊申, 丁 일간): 비겁 무근이나 인성(木) 잔존 → 가종아.
-    # 1차 용신은 억부(印制食 木) 유지, 종아(土)는 병기, 검증 경고.
+    # 비겁이 전무하므로 1차 용신은 직접 보강 火, 종아(土)는 병기, 검증 경고.
     pillars = make_pillars(
         (Stem.EUL, Branch.CHUK), (Stem.GYEONG, Branch.JIN),
         (Stem.JEONG, Branch.HAE), (Stem.MU, Branch.SIN), Stem.JEONG,
@@ -177,12 +174,27 @@ def test_pseudo_follow_keeps_eokbu_and_flags(make_pillars) -> None:
     y = analyze_chart(pillars).yongsin
     fc = y.special_case_checks["follow_structure"]
     assert fc.detected and fc.detail is not None and fc.detail.startswith("pseudo:output")
-    # 억부(印制食)가 1차 용신으로 유지된다(종격이 강탈하지 않음).
-    assert y.final["yongsin"] == "木"
-    assert y.final["selected_model"] == "resource_curbs_output"
+    # 직접 보강이 1차 용신으로 유지된다(종격이 강탈하지 않음).
+    assert y.final["yongsin"] == "火"
+    assert y.final["selected_model"] == "support_day_master"
     # 가종아격이 후보 목록에 병기된다.
     assert "가종격(假從)·종아격(從兒格)" in {m.label for m in y.candidate_models}
     assert any("pseudo_follow" in w for w in y.warnings)
+
+
+def test_candidate_model_types_are_unique_for_calibration(make_pillars) -> None:
+    # 병약 후보가 여러 개 생겨도 model_type이 고유해야 검증 질문/피드백에서 덮어쓰지 않는다.
+    pillars = make_pillars(
+        (Stem.EUL, Branch.CHUK), (Stem.GYEONG, Branch.JIN),
+        (Stem.JEONG, Branch.HAE), (Stem.MU, Branch.SIN), Stem.JEONG,
+    )
+    y = analyze_chart(pillars).yongsin
+    model_types = [m.model_type for m in y.candidate_models]
+    assert len(model_types) == len(set(model_types))
+    assert {
+        "disease_remedy:shangguan_attacks_officer",
+        "disease_remedy:pyeonin_dosik",
+    } <= set(model_types)
 
 
 def test_tonggwan_model_emitted(make_pillars) -> None:

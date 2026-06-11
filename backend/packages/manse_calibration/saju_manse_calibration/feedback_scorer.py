@@ -71,8 +71,13 @@ def score_calibration(
     # 1등이 되지 않도록 한다.
     weighted = {mt: scores[mt] * models[mt].confidence for mt in models}
 
-    # 최종 용신 확정은 primary 모델만으로 한다(조후 등 보조 모델 단독 확정 금지).
-    primary = [mt for mt in models if not models[mt].is_auxiliary]
+    # 최종 용신 확정은 primary 모델을 기준으로 한다. 단, 용신 산출 단계에서 이미
+    # final.selected_model로 채택된 보조 모델(조후/통관)은 검증 대상에 포함한다.
+    selected_final_model = yongsin.final.get("selected_model")
+    primary = [
+        mt for mt in models
+        if not models[mt].is_auxiliary or mt == selected_final_model
+    ]
     explanation: list[str] = []
 
     if not primary:
@@ -114,7 +119,8 @@ def score_calibration(
             explanation.append(f"보조 모델({aux_top})이 동일 용신 지지 → 보조 근거 반영.")
         elif weighted.get(aux_top, 0) > best_w:
             explanation.append(
-                f"보조 모델({aux_top}) 우세하나 단독 확정 불가 → primary({best}) 기준 채택."
+                f"보조 모델({aux_top}) 우세하나 최종 선택 모델이 아니므로 단독 확정 불가 → "
+                f"primary({best}) 기준 채택."
             )
 
     explanation.insert(0, f"최적 primary 모델={best}({m.label}), match_rate={match_rate}, "
