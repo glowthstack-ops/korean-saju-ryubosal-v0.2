@@ -1,0 +1,71 @@
+{
+  "version": "1.0.0",
+  "note": "궁합 관계 유형별 분석 축(docs/02 E13). 유형마다 보는 축과 가중이 다르다. 초안 — 검수 대상.",
+  "items": [
+    {
+      "relationType": "spouse",
+      "axes": [
+        { "axis": "day_pillar_interaction", "ko": "일주 상호작용(일지 합충)", "weight": 0.35 },
+        { "axis": "spouse_palace", "ko": "배우자궁 상태", "weight": 0.2 },
+        { "axis": "wealth_officer_axis", "ko": "재성↔관성 축", "weight": 0.2 },
+        { "axis": "yongsin_complement", "ko": "용신 상호 보완", "weight": 0.15 },
+        { "axis": "romance_stars", "ko": "도화·홍염", "weight": 0.1 }
+      ],
+      "reviewed": false
+    },
+    {
+      "relationType": "lover",
+      "axes": [
+        { "axis": "day_pillar_interaction", "ko": "일주 상호작용(일지 합충)", "weight": 0.35 },
+        { "axis": "romance_stars", "ko": "도화·홍염", "weight": 0.2 },
+        { "axis": "wealth_officer_axis", "ko": "재성↔관성 축", "weight": 0.2 },
+        { "axis": "yongsin_complement", "ko": "용신 상호 보완", "weight": 0.25 }
+      ],
+      "reviewed": false
+    },
+    {
+      "relationType": "parent_child",
+      "axes": [
+        { "axis": "resource_output_axis", "ko": "인성↔식상 축", "weight": 0.4 },
+        { "axis": "day_pillar_interaction", "ko": "기질 상호작용(일주)", "weight": 0.35 },
+        { "axis": "yongsin_complement", "ko": "용신 상호 보완", "weight": 0.25 }
+      ],
+      "reviewed": false
+    },
+    {
+      "relationType": "business_partner",
+      "axes": [
+        { "axis": "wealth_output_complement", "ko": "재성/식상 보완", "weight": 0.4 },
+        { "axis": "peer_competition", "ko": "비겁 경쟁(탈재 리스크)", "weight": 0.3 },
+        { "axis": "day_pillar_interaction", "ko": "신뢰 축(일주 관계)", "weight": 0.3 }
+      ],
+      "reviewed": false
+    },
+    {
+      "relationType": "colleague",
+      "axes": [
+        { "axis": "officer_structure", "ko": "관성 구조(역할 정합)", "weight": 0.4 },
+        { "axis": "day_pillar_interaction", "ko": "갈등/보완(일주)", "weight": 0.35 },
+        { "axis": "yongsin_complement", "ko": "용신 상호 보완", "weight": 0.25 }
+      ],
+      "reviewed": false
+    },
+    {
+      "relationType": "boss",
+      "axes": [
+        { "axis": "officer_structure", "ko": "관성 구조(위계 정합)", "weight": 0.45 },
+        { "axis": "day_pillar_interaction", "ko": "갈등/보완(일주)", "weight": 0.3 },
+        { "axis": "yongsin_complement", "ko": "용신 상호 보완", "weight": 0.25 }
+      ],
+      "reviewed": false
+    },
+    {
+      "relationType": "friend",
+      "axes": [
+        { "axis": "day_pillar_interaction", "ko": "일주 상호작용", "weight": 0.5 },
+        { "axis": "yongsin_complement", "ko": "용신 상호 보완", "weight": 0.5 }
+      ],
+      "reviewed": false
+    }
+  ]
+}

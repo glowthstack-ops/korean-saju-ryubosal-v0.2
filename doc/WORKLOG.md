@@ -1487,3 +1487,27 @@ Phase 4 Conversation Layer(xfail 3건 해소).
 - E2E: "올해 연애운"→"5월은 어때?" 도메인 상속 + 동일 질문 3연속 repeated=True
   (라이브 DB 검증).
 검증: pytest 342 pass · ruff clean · mypy clean(149파일).
+
+### v2.2 Phase 5 — 예측 엔진 확장 (T5.1~T5.7) ✅
+- **사전 4종 신설**(전 항목 reviewed:false): `stage_mapping.json`(신호 유형 16종 →
+  awareness/exploration/action/decision 단계 — 합=인지, 충=행동, 문서/결정 룰=결정),
+  `event_forms.json`(이벤트별 발현 형태+확률, prob 합 ≤1), `remedy.json`(D-3 6분기:
+  시기회피/주의행동/기질보완/구조보완/오행생활화/민속비방 + 의료·법률·투자 고지 고정),
+  `relation_profiles.json`(관계 7유형별 분석 축·가중 — 부부/연인/부모자식/동업/동료/
+  상사/친구).
+- **`prediction.py`**: E4 Timeline(월운 신호→단계 매핑, **Activation Window**,
+  interest/action/completion 분리 점수 — 월 후보 없으면 None) · E3 Event Form
+  (form 사전 + Self Profile 실행력 보정 ±0.05, 합 ≤1 정규화) · E5 Self Profile
+  (십성 그룹·강약 기반 결정 스타일/위험 감수/실행력/4축 — **모든 축 근거 첨부**,
+  성격검사화 금지) · E6 Manifestation(event+profile+context 결합, **context 부재 시
+  modifier 0+confidence 하향** — 차단 금지) · E8 Advice(단계별 행동 조언 + remedy
+  주의 + 이벤트별 고지 자동 첨부).
+- **`relations_engines.py`**: E13 Compatibility — 관계 유형별 축 가중(relation_profiles),
+  일지 글자쌍 관계(relations.json 단일 소스: 육합 85/충 30/형·해·원진 38/파 45),
+  용신 상호 보완(상대 일간 오행이 내 용신 +20/기신 −15), 일간 생극 공통 축, 패턴/갈등
+  추출. E12 Competition — 판정일 강도(일운 0.5+월운 0.3+세운 0.2 가중 + 이벤트 신호),
+  relative_gap(clear≥15/narrow≥5), **당락 단정 금지 고정 문구** + no_hour 모드
+  (시각 미상 공인 — 비교는 지원하되 품질 표시).
+- shared_types/prediction.py: docs/02 출력 스키마 7종 전체.
+검증: pytest 354 pass(Phase5 12 신규) · ruff clean · mypy clean(153파일) ·
+  사전 validate 19파일 통과.

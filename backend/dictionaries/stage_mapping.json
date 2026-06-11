@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "note": "신호 유형 → 타임라인 단계 매핑(docs/02 E4). 트리거 합=인지, 충/이동=행동, 문서/계약=결정. 초안 — 검수 대상.",
+  "items": [
+    { "signalType": "stem_combination", "stage": "awareness", "reviewed": false },
+    { "signalType": "six_combination", "stage": "exploration", "reviewed": false },
+    { "signalType": "three_harmony_contrib", "stage": "exploration", "reviewed": false },
+    { "signalType": "directional_contrib", "stage": "exploration", "reviewed": false },
+    { "signalType": "branch_clash", "stage": "action", "reviewed": false },
+    { "signalType": "stem_clash", "stage": "action", "reviewed": false },
+    { "signalType": "punishment_triple", "stage": "action", "reviewed": false },
+    { "signalType": "punishment_mutual", "stage": "action", "reviewed": false },
+    { "signalType": "self_punishment", "stage": "awareness", "reviewed": false },
+    { "signalType": "branch_break", "stage": "action", "reviewed": false },
+    { "signalType": "harm", "stage": "awareness", "reviewed": false },
+    { "signalType": "wonjin", "stage": "awareness", "reviewed": false },
+    { "signalType": "void_fill", "stage": "exploration", "reviewed": false },
+    { "signalType": "void_trigger_clash", "stage": "action", "reviewed": false },
+    { "signalType": "void_release_combine", "stage": "decision", "reviewed": false },
+    { "signalType": "rule_match", "stage": "decision", "reviewed": false }
+  ],
+  "stageOrder": ["awareness", "exploration", "action", "decision", "completion"]
+}
