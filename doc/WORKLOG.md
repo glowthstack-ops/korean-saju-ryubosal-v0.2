@@ -1454,3 +1454,26 @@ Phase 4 Conversation Layer(xfail 3건 해소).
 검증: pytest 327 pass + 3 xfail · ruff clean · mypy clean(145파일).
 **"단일 질문 → 정확한 풀이" MVP가 API로 동작**(실 LLM 호출은 ANTHROPIC_API_KEY
 설정 시 자동 활성).
+
+### v2.2 Phase 4 — Conversation Layer (T4.1~T4.6) ✅
+- **`shared_types/conversation.py`**: ConversationState(A1 — 활성 대상/토픽/시점/이벤트/
+  누적 조건/앵커/직전 intent·결과/반복 카운트/엔티티), TrackedEntity(A2 — 7종,
+  **claim 포함**), LinkResult(A3 — 7종 linkKind), SubjectResolution(A0 — unresolved·
+  correction·time_unknown), ResultSummaryRef.
+- **`conversation.py`(T4.2~T4.4)**: 턴 처리 순서 = ①Subject Resolution(대상 우선,
+  절대 원칙 7) ②Question Linking(룰 1~4순위 — 참조어 확정/단답 슬롯상속/조건누적·
+  세분화/challenge; 5순위 LLM 분류기는 운영 연동 시) ③파서 호출+슬롯 병합 ④상태·
+  엔티티 갱신. 대상 해소: A8 본인 복귀 · A9 별칭→companion_id(미등록은 unresolved —
+  추측 금지) · A6/A7 인라인 임시 인물(Entity Tracking 필수 등록) · **F4 누적 참조**
+  ("앞서 물어본 2명" → 과거 턴 임시 인물 재호출) · A10 정정(re실행 신호 + Q12 강제) ·
+  A13 생시 미상(3주 모드 신호). **F7 반복 감지**(정규화 동일 질문 → repeat_count).
+- **T4.5 claim 엔티티**: `register_system_results()` — 시스템 답변의 명리 판정/이벤트를
+  assistant 발 엔티티로 등록(수 턴 뒤 "라고 했잖아?" 이의 → challenge 라우팅 검증).
+- **T4.1 영속화**: `migrations/003_conversation.sql`(threads, state JSONB) +
+  `conversation_store.py`(save/load/delete — 라이브 왕복 검증).
+- **T4.6 통합 시나리오**(docs/07 명시 3종 전부): ①연애운→그 사람은?→결혼 가능성
+  (도메인 상속+assistant 엔티티) ②내일운세→모레→글피(시점 체인) ③1호 2호 둘 다
+  (별칭 매핑+합산 모드) + F4/F7/A10/A13/claim/영속화 10케이스.
+- **골든 테스트 xfail 3건 전부 해소**(F4·F7·A13) — Conversation Layer 실통과로 교체.
+  골든 34케이스 전수 통과(xfail 0).
+검증: pytest 340 pass(Phase4 10+골든 갱신 3) · ruff clean · mypy clean(149파일).

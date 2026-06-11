@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
 from saju_engines.query_parser import parse_message
 from saju_engines.rewriter import assess
 from saju_shared_types.intent import (
@@ -274,20 +272,41 @@ def test_rewriter_default_period() -> None:
     assert result.default_period_months == 12
 
 
-# ── Phase 4 보류(Conversation Layer 필요 — 누락 아님 명시) ────────
+# ── Phase 4 Conversation Layer 결합 케이스(xfail 해소) ────────────
 
 
-@pytest.mark.xfail(reason="F4 임시 인물 누적 참조 — Phase 4 Entity Tracking", strict=False)
+def _engine_state():
+    from saju_engines.conversation import ConversationEngine
+    from saju_shared_types.conversation import ConversationState
+
+    return ConversationEngine(), ConversationState(thread_id="t-golden")
+
+
 def test_a7_f4_cumulative_reference() -> None:
-    intent = _one("이 3명과 앞서 물어본 2명까지 포함했을 때, 나랑 합이 좋은 사람은 누구야??")
-    assert len(intent.subjects) >= 5
+    """F4: '앞서 물어본 2명까지 포함' — 이전 턴 임시 인물 누적 호출."""
+    engine, state = _engine_state()
+    _p, state, _r, _l = engine.process_turn(
+        state, "1997.04.08 여자, 1996.11.02 여자 궁합 봐줘", _TODAY,
+    )
+    _p, _state, res, _l = engine.process_turn(
+        state,
+        "1998.07.23 여자, 1997.10.16 여자, 1998.08.24 여자 이 3명과 "
+        "앞서 물어본 2명까지 포함했을 때, 나랑 합이 좋은 사람은 누구야??",
+        _TODAY,
+    )
+    assert len([s for s in res.subjects if s.kind is SubjectKind.INLINE_TEMP]) >= 5
 
 
-@pytest.mark.xfail(reason="F7 동일 질문 반복 감지 — Phase 4 Conversation State", strict=False)
 def test_f7_repeat_detection() -> None:
-    raise NotImplementedError
+    """F7: 동일 질문 3연속 → repeat_count 누적(같은 답변 반복 금지 신호)."""
+    engine, state = _engine_state()
+    for _ in range(3):
+        _p, state, _r, _l = engine.process_turn(state, "올해 이직운 어때?", _TODAY)
+    assert state.repeat_count == 2
 
 
-@pytest.mark.xfail(reason="A13 생시 미상 3주 모드 — Phase 4 프로필 플로우", strict=False)
 def test_a13_unknown_birth_time() -> None:
-    raise NotImplementedError
+    """A13: '태어난 시간은 몰라' → 3주 모드 + 신뢰도 하향 신호."""
+    engine, state = _engine_state()
+    _p, _s, res, _l = engine.process_turn(state, "태어난 시간은 몰라", _TODAY)
+    assert res.time_unknown is True
