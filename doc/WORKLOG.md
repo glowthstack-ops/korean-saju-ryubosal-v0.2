@@ -1413,3 +1413,22 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
 - **Phase 3 잔여**: T3.4 Context Reduction + T3.5 LLM 입력 계약 직렬화기(docs/06 정독
   필요) + LLM 파서 어댑터(가드 경유).
 검증: pytest 313 pass + 3 xfail(골든 31 신규) · ruff clean · mypy clean(138파일).
+
+### v2.2 Phase 3(완결) — T3.4 Context Reduction + T3.5 LLM 입력 계약 ✅
+- **docs/06 정독 완료**: LLM 입력 4요소 필수(압축 간지달력·이벤트 후보+점수·근거 경로·
+  해석 제한 규칙), 전체 간지달력/사전/원시 그래프 투입 금지.
+- **`shared_types/llm_input.py`(T3.5)**: LlmInput 표준 스키마 전체 — birthChartSummary·
+  calendarContext(대운/선택 세운/선택 월운/택일 일운)·eventCandidates(간지+대운 맥락
+  필수)·evidence(반대 근거 동반)·styleRules·persona(Phase 8.5 전 빈 블록)·sectionMode·
+  budget. 점수→표현 강도 매핑표(85+/70/55/40 구간) 수록.
+- **`context_reducer.py`(T3.4)**: docs/03 B5 규칙 전체 — ① 간지 계층 압축(대운은 장기
+  질문이면 전체·아니면 선택 후보의 대운만, 세운은 선택분만+선별 사유, 월운은 선택 세운
+  내, 일운은 택일에서만) ② graphScope evidence만 ③ 사전 미적재(Planner 소관)
+  ④ Top5+score≥40 임계(40 미만=언급 생략 구간) ⑤ 후보마다 간지·대운 맥락 강제.
+- **직렬화기**: docs/06 '좋은 입력 예' 형태의 한국어 사실 서술([원국]/[간지달력(압축)]/
+  [이벤트 후보 — 재계산 금지]/[근거 경로]/[지시] 섹션, 지시는 데이터와 분리).
+  `serialize_with_guard`: llm_guard로 호출 전 토큰 검증, 초과 시 후보 3개·경로 1개로
+  1회 재축소 후 재검증(그래도 초과면 예외 전파).
+검증: pytest 320 pass + 3 xfail(reducer 7 신규) · ruff clean · mypy clean(141파일).
+**Phase 3 코드 태스크 완료** — 잔여: LLM 파서/통변 실호출 어댑터(운영 연동 시),
+Phase 4 Conversation Layer(xfail 3건 해소).
