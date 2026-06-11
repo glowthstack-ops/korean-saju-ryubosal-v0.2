@@ -1305,3 +1305,31 @@ Phase A 격국 평가를 사용자 제공 마스터로 재정렬(신뢰도 공�
   대상(subject) 저장 인프라 선행 필요.
 검증: pytest 237 pass(탐지기 13·precompute 6·저장소 라이브 1 신규 — **전용 DB 기동 후
   실제 왕복/무효화/정리 검증**) · ruff clean · mypy clean(119파일) · v1 컨테이너 무변경.
+
+### v2.2 Phase 2.5(2차) — 대상 영속화 + 갱신 스케줄러 + LLM 토큰 가드 + Topic Builder 골격 ✅
+- **subjects 인프라**(`migrations/002_subjects.sql`, `shared_types/subject.py`,
+  `saju_engines/subject_store.py`): self/동반자 최소 영속화(별칭·관계·출생정보 JSONB·
+  is_minor·구독). 활성 대상(docs/09 1장) = 구독 중 OR 최근 30일 대화(last_interaction_at).
+  E14 전체(별칭 학습·인라인 인물·쌍둥이 변형)는 Phase 4 확장.
+- **T2.5.4·T2.5.5 `precompute_scheduler.py`**: 경계 갱신을 **ensure-current 방식**으로
+  구현 — 운 period_key가 경계(자정/입춘/절입/교운)를 지나면 자연히 새 키가 되므로
+  "현재 기준일 레코드 누락 보충"이 곧 T1/T2 갱신. T0=on_subject_upsert(전체 무효화+
+  재계산), T2=daily_batch(활성 대상 보충+day 보존 정리), 비활성=lazy_get,
+  사전 버전 변경=on_dict_version_change(구버전 전체 무효화). 만세 계산 함수는
+  주입(compute: BirthInput→ManseV2Result) — 엔진→서비스 역의존 차단.
+- **T2.5.8 `llm_guard.py`**: docs/09 8장 한도표 6행 그대로(chat 6k/1.2k ·
+  compare 8k/1.6k · parser 2k/300 · 섹션 5k/3.5k+4,500자 · 정합성 8k/500).
+  입력 토큰 호출 전 측정→초과 시 TokenBudgetExceeded(Context Reduction 재실행 유도),
+  **thinking 비활성 강제**, 보수적(과대) 토큰 추정(ASCII 4자/tok·비ASCII 1자/tok,
+  카운터 주입 가능), LLMCostLedger 원가 집계.
+- **T2.5.6 Topic Builder 골격**(`shared_types/topic_context.py`,
+  `saju_engines/topic_builder.py`): TopicContext 표준(docs/09 5장 — findings/
+  timeSeries/rankedResults/traitShifts/groupAggregation/evidence/styleRules/budget,
+  Finding 등 세부 필드는 문서 미정의라 최소형) + **M01~M15 레지스트리 전수 등록**
+  (15종 외 추가 금지, 미구현 모듈은 NotImplementedError) + **M07 career 구현**
+  (composite career 신호 시계열 합산 → Top5 findings 확정, 압축 간지 동반,
+  단정 금지 스타일 + chat_single 예산).
+- 보류: M03(trait_mapping.json 필요)·M10 이사 S1~S10(region_elements/housing_rules) ·
+  M15(format_slots.json) — 전용 사전 신설 필요, 후속 단위.
+검증: pytest 255 pass(가드 6·M07 6·스케줄러 라이브 6 신규 — daily_batch 멱등/월 경계
+  보충/lazy/버전 무효화 실 DB 검증) · ruff clean · mypy clean(128파일).
