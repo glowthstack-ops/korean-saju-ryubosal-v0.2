@@ -1511,3 +1511,20 @@ Phase 4 Conversation Layer(xfail 3건 해소).
 - shared_types/prediction.py: docs/02 출력 스키마 7종 전체.
 검증: pytest 354 pass(Phase5 12 신규) · ruff clean · mypy clean(153파일) ·
   사전 validate 19파일 통과.
+
+### v2.2 Phase 6 — Past Validation 신뢰 엔진 (T6.1~T6.4) ✅
+- **T6.1 `past_validation.py`**: 과거 N년 이벤트 후보 — **Phase 2 스코어링 역방향
+  재사용**(세운 창 −4~+5년을 10년 간격으로 이동시켜 전 구간 커버, calculate 캐시 활용).
+  콜드리딩 방지 규칙(docs/07 리스크 3): 연도당 후보 ≤2건 · score≥70 엄격 임계 ·
+  **evidence path 필수**(스키마 min_length=1로도 강제) + 사람용 근거 경로 동반
+  ("2009 입학 ← 정관 활성" 형태의 원천).
+- **T6.3 Confidence Calibration**: 맞춘 비율 → 신뢰도(0~1) → 표현 강도 3단계
+  (normal ≥0.6 / conservative ≥0.3 / very_conservative) — 미래 예측 서술 보수화에
+  반영(docs/02 E7). 피드백 0건이면 conservative 시작.
+- **T6.2 `cases_store.py`**: cases.jsonl 적재/조회 — docs/05 행 스키마(camelCase:
+  caseId/signals/predictedEvent/actualEvent/time/matched/notes) 그대로. 회귀 테스트·
+  가중치 보정 자료의 누적 원천(절대값 신뢰는 사례 축적 후).
+- **T6.4 API**: POST /api/v2/past-validation(후보 — 기간 미지정 시 성년~작년) +
+  /feedback(확인 적재 + CalibrationOutcome 반환) — 온보딩 "미래 예측 전 과거 검증
+  먼저" 플로우의 서버 측 연동(docs/01).
+검증: pytest 361 pass(Phase6 7 신규) · ruff clean · mypy clean(158파일).

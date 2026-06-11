@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from saju_shared_types.constants import ENGINE_VERSION
 
-from .routers import calendar, chat, health, manse
+from .routers import calendar, chat, health, manse, past_validation
 
 app = FastAPI(title="류보살 v2 만세력 엔진", version=ENGINE_VERSION)
 
@@ -26,3 +26,4 @@ app.include_router(health.router)
 app.include_router(manse.router)
 app.include_router(calendar.router)
 app.include_router(chat.router)
+app.include_router(past_validation.router)
