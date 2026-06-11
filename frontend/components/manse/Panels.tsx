@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { fetchLuckMonths } from "@/lib/api";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
-import type { LuckPillar, LuckSinsal, ManseResult, Profile } from "@/lib/types";
+import { applyCalibrationToLuckCycles, applyCalibrationToLuckPillars } from "@/lib/luck-calibration";
+import type { CalibrationResult, LuckPillar, LuckSinsal, ManseResult, Profile } from "@/lib/types";
 
 // 백엔드 응답에 일부 필드가 없어도(구버전/부분 데이터) 깨지지 않도록 방어.
 function ent(obj: Record<string, number> | undefined | null): [string, number][] {
@@ -883,13 +884,18 @@ export function LuckPanel({
   result,
   profile,
   timeOptions,
+  calibration,
 }: {
   result: ManseResult;
   profile?: Profile;
+  calibration?: CalibrationResult | null;
   // 화면에 표시 중인 차트와 같은 시간옵션(균시차 토글 상태)으로 월운을 계산하기 위한 전달값.
   timeOptions?: Record<string, unknown>;
 }) {
-  const lc = result.luck_cycles;
+  const lc = useMemo(
+    () => applyCalibrationToLuckCycles(result.luck_cycles, calibration ?? null),
+    [result.luck_cycles, calibration],
+  );
   const router = useRouter();
   const [selDaewoon, setSelDaewoon] = useState<number>(lc?.current_daewoon_index ?? 0);
   const [selYear, setSelYear] = useState<number | null>(lc?.current_year ?? null);
@@ -924,7 +930,8 @@ export function LuckPanel({
     setLoadingYear(year);
     try {
       const m = await fetchLuckMonths(profile, year, undefined, timeOptions);
-      setMonthsCache((c) => ({ ...c, [year]: m }));
+      const adjusted = applyCalibrationToLuckPillars(m, calibration ?? null);
+      setMonthsCache((c) => ({ ...c, [year]: adjusted }));
     } catch {
       /* 무시: 로딩 실패 시 빈 상태 */
     } finally {

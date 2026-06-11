@@ -139,6 +139,7 @@ export interface DaewoonItem {
 
 export interface LuckPillar {
   label: string;
+  period_type?: string;
   ganji: string;
   stem: string;
   branch: string;

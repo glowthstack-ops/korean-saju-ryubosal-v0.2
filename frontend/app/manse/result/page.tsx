@@ -169,6 +169,7 @@ export default function ManseResultPage() {
           result={result}
           profile={profile}
           timeOptions={{ apply_equation_of_time: applyEoT }}
+          calibration={calibration}
         />
       </div>
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import calendar as _cal
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
 from saju_manse_core.calendar.sexagenary_cycle import (
@@ -369,6 +370,7 @@ def compute_luck_cycles(
     unfavorable_elements: set[str],
     table: SolarTermTable,
     reference_date: date | None = None,
+    timezone: str = "Asia/Seoul",
 ) -> LuckCycles:
     dm = Stem(pillars.day.stem)
     step = 1 if direction == "forward" else -1
@@ -451,7 +453,8 @@ def compute_luck_cycles(
             range(reference_date.year - 4, reference_date.year + 6),
         )
         cycles.monthly_luck = _monthly(
-            pillars, dm, useful_elements, unfavorable_elements, reference_date.year, table
+            pillars, dm, useful_elements, unfavorable_elements,
+            reference_date.year, table, timezone
         )
         cycles.daily_luck = _daily(
             pillars, dm, useful_elements, unfavorable_elements,
@@ -470,14 +473,17 @@ def _yearly(pillars, dm, useful, unfavorable, years) -> list[LuckPillar]:
 
 
 def _monthly(
-    pillars, dm, useful, unfavorable, year: int, table: SolarTermTable
+    pillars, dm, useful, unfavorable, year: int, table: SolarTermTable,
+    timezone: str = "Asia/Seoul",
 ) -> list[LuckPillar]:
     out = []
     year_stem, _yb = year_ganzi(year)
+    tz = ZoneInfo(timezone)
     for inst, name, branch in table.month_terms_in_solar_year(year):
         offset = MONTH_BRANCH_ORDER.index(branch)
         stem = STEMS[(STEM_INDEX[MONTH_STEM_START[year_stem]] + offset) % 10]
-        label = f"{inst.year}-{inst.month:02d}"
+        local = inst.astimezone(tz)
+        label = f"{local.year}-{local.month:02d}"
         out.append(_luck_pillar(
             label, "month", stem, branch, pillars, dm, useful, unfavorable, solar_range=name
         ))
@@ -504,9 +510,10 @@ def monthly_luck_for_year(
     unfavorable: set[str],
     year: int,
     table: SolarTermTable,
+    timezone: str = "Asia/Seoul",
 ) -> list[LuckPillar]:
     """주어진 연도의 월운 12개 — 세운 선택 시 온디맨드 조회용(메인 응답엔 미포함)."""
-    return _monthly(pillars, day_master, useful, unfavorable, year, table)
+    return _monthly(pillars, day_master, useful, unfavorable, year, table, timezone)
 
 
 def daily_luck_for_month(

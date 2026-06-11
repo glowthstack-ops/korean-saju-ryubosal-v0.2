@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import threading
 from collections import OrderedDict
-from datetime import UTC
+from datetime import UTC, datetime
 
 from saju_manse_analysis import analyze_chart
 from saju_manse_analysis.luck import (
@@ -86,6 +86,30 @@ def _daewoon_direction(birth: BirthInput, year_stem: Stem) -> str | None:
     return "forward" if forward else "backward"
 
 
+def _term_basis_instant(birth: BirthInput, tc, tz) -> datetime:
+    """절기 경계 비교 기준.
+
+    진태양시 적용 시 원국의 일·시뿐 아니라 년·월 절기 경계와 대운수도 같은
+    chart datetime 기준으로 맞춘다. ``final_chart_datetime``은 naive이므로 출생지
+    timezone을 붙여 solar-term table의 UTC instant와 비교 가능한 aware datetime으로 만든다.
+    """
+    if birth.time_options.apply_true_solar_time:
+        return tc.final_chart_datetime.replace(tzinfo=tz.aware_datetime.tzinfo)
+    return tz.aware_datetime
+
+
+def _luck_role_sets(y) -> tuple[set[str], set[str]]:
+    """운 판정은 검증 전이라도 최종 역할 배정(용·희 / 기·구)을 우선 사용한다."""
+    final = y.final or {}
+    useful = {v for v in (final.get("yongsin"), final.get("heesin")) if v}
+    unfavorable = {v for v in (final.get("gisin"), final.get("gusin")) if v}
+    if not useful:
+        useful = {c.element for c in y.useful_candidates}
+    if not unfavorable:
+        unfavorable = {c.element for c in y.unfavorable_candidates}
+    return useful, unfavorable
+
+
 # In-process memoization of calculate(). calibrate_feedback / luck_months /
 # luck_days each deterministically recompute the full pipeline (analysis +
 # calibration generation + 100+ luck pillars) per request, and the calendar UI
@@ -136,8 +160,9 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
     tc = true_solar_time.compute(norm.naive_local_datetime, loc.longitude, tz, opts)
 
     absolute_instant = tz.aware_datetime  # civil instant, tz-aware
+    term_basis_instant = _term_basis_instant(birth, tc, tz)
     pillars, term_info = four_pillars.compute(
-        absolute_instant=absolute_instant,
+        absolute_instant=term_basis_instant,
         final_local=tc.final_chart_datetime,
         time_known=norm.time_known,
         day_boundary_rule=opts.day_boundary_rule,
@@ -228,17 +253,17 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
     direction = _daewoon_direction(birth, year_stem)
     luck_cycles = None
     if direction is not None:
+        useful_elements, unfavorable_elements = _luck_role_sets(chart_analysis.yongsin)
         luck_cycles = compute_luck_cycles(
             pillars=pillars,
-            absolute_instant=absolute_instant,
+            absolute_instant=term_basis_instant,
             birth_date=norm.solar_date,
             direction=direction,
-            useful_elements={c.element for c in chart_analysis.yongsin.useful_candidates},
-            unfavorable_elements={
-                c.element for c in chart_analysis.yongsin.unfavorable_candidates
-            },
+            useful_elements=useful_elements,
+            unfavorable_elements=unfavorable_elements,
             table=table,
             reference_date=birth.reference_date,
+            timezone=loc.iana_timezone,
         )
 
     calibration = None
@@ -264,6 +289,7 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
         metadata=metadata,
         trace={
             "absolute_instant_utc": absolute_instant.astimezone(UTC).isoformat(),
+            "solar_term_basis_instant_utc": term_basis_instant.astimezone(UTC).isoformat(),
             "final_chart_datetime": tc.final_chart_datetime.isoformat(),
             "standard_datetime": tc.standard_datetime.isoformat(),
         },
@@ -290,13 +316,15 @@ def luck_months(birth: BirthInput, year: int) -> list[LuckPillar]:
     y = result.yongsin_analysis
     if pillars is None or y is None:
         raise ValueError("luck months unavailable: chart could not be computed")
+    useful, unfavorable = _luck_role_sets(y)
     return monthly_luck_for_year(
         pillars,
         Stem(pillars.day.stem),
-        {c.element for c in y.useful_candidates},
-        {c.element for c in y.unfavorable_candidates},
+        useful,
+        unfavorable,
         year,
         get_table(),
+        timezone=result.time_correction.timezone if result.time_correction else "Asia/Seoul",
     )
 
 
@@ -307,11 +335,12 @@ def luck_days(birth: BirthInput, year: int, month: int) -> list[LuckPillar]:
     y = result.yongsin_analysis
     if pillars is None or y is None:
         raise ValueError("luck days unavailable: chart could not be computed")
+    useful, unfavorable = _luck_role_sets(y)
     return daily_luck_for_month(
         pillars,
         Stem(pillars.day.stem),
-        {c.element for c in y.useful_candidates},
-        {c.element for c in y.unfavorable_candidates},
+        useful,
+        unfavorable,
         year,
         month,
     )

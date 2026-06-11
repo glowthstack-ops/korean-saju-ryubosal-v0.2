@@ -42,3 +42,15 @@ def test_timezone_resolution_ny_dst() -> None:
     assert tz.total_offset_minutes == -240
     assert tz.dst_applied is True
     assert tz.standard_offset_minutes == -300
+
+
+def test_timezone_resolution_ny_nonexistent_spring_forward() -> None:
+    tz = resolve(datetime(2024, 3, 10, 2, 30), "America/New_York")
+    assert tz.local_time_status == "nonexistent"
+    assert any("nonexistent" in w for w in tz.warnings)
+
+
+def test_timezone_resolution_ny_ambiguous_fall_back() -> None:
+    tz = resolve(datetime(2024, 11, 3, 1, 30), "America/New_York")
+    assert tz.local_time_status == "ambiguous"
+    assert any("ambiguous" in w for w in tz.warnings)

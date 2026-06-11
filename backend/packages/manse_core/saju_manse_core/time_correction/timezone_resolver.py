@@ -31,27 +31,34 @@ def resolve(naive_local: datetime, iana_timezone: str) -> TimezoneResolution:
     tz = ZoneInfo(iana_timezone)
     warnings: list[str] = []
 
-    aware = naive_local.replace(tzinfo=tz)
+    # Detect non-existent (spring-forward gap) and ambiguous (fall-back) times.
+    status = "valid"
+    earlier = naive_local.replace(tzinfo=tz, fold=0)
+    later = naive_local.replace(tzinfo=tz, fold=1)
+
+    def _roundtrips(candidate: datetime) -> bool:
+        rt = candidate.astimezone(ZoneInfo("UTC")).astimezone(tz)
+        return rt.replace(tzinfo=None) == naive_local
+
+    earlier_valid = _roundtrips(earlier)
+    later_valid = _roundtrips(later)
+    if not earlier_valid and not later_valid:
+        aware = later
+        status = "nonexistent"
+        warnings.append("local_time_nonexistent: time skipped by DST start")
+    elif earlier.utcoffset() != later.utcoffset() and earlier_valid and later_valid:
+        aware = earlier
+        status = "ambiguous"
+        warnings.append("dst_ambiguous: local time occurs twice; using earlier occurrence")
+    else:
+        aware = earlier if earlier_valid else later
+
     offset = aware.utcoffset() or timedelta(0)
     dst = aware.dst() or timedelta(0)
 
     total_minutes = int(offset.total_seconds() // 60)
     dst_minutes = int(dst.total_seconds() // 60)
     standard_minutes = total_minutes - dst_minutes
-
-    # Detect non-existent (spring-forward gap) and ambiguous (fall-back) times.
-    status = "valid"
-    earlier = aware
-    later = aware.replace(fold=1)
-    if earlier.utcoffset() != later.utcoffset():
-        status = "ambiguous"
-        warnings.append("dst_ambiguous: local time occurs twice; using earlier occurrence")
-    else:
-        # round-trip through UTC to spot a gap
-        roundtrip = aware.astimezone(ZoneInfo("UTC")).astimezone(tz)
-        if roundtrip.replace(tzinfo=tz) != aware:
-            status = "nonexistent"
-            warnings.append("local_time_nonexistent: time skipped by DST start")
 
     return TimezoneResolution(
         timezone=iana_timezone,
