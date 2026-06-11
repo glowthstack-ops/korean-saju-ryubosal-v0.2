@@ -1598,3 +1598,27 @@ Phase 4 Conversation Layer(xfail 3건 해소).
 - docx/pdf 변환(8장)은 운영 출시 단계 항목으로 보류 — 조립은 마크다운+메타 구조까지
   (표지·목차·부록 규격 충족). 후속: python-docx 파이프라인.
 검증: pytest 420 pass(Phase9 17 신규) · ruff clean · mypy clean(171파일).
+
+### v2.2 Phase 8 — 통합 & 품질 (T8.1~T8.4) ✅ — 전 페이즈 완료
+- **T8.1 E2E**: 질문→답변 전체 파이프라인 통합 테스트 — Q1~Q9 각 5개(총 45문,
+  docs/08 실측 어구 변형). 분류 정확 + 분석 라우트는 4요소 입력·토큰 한도 검증 +
+  어떤 질문도 예외 없이 정의된 status로 응답. **E2E가 드러낸 파서 분류 사각 보강**
+  (골든 34케이스 비파괴 확인): 소유격 용어("내 용신"→Q8, 용어교육 아님), 양자택일
+  ("~할까 말까"→Q7), 궁합/우열 어휘("궁합/중에 누가/합이 좋은"→Q6), 과거 설명
+  ("무슨 일이 있었/운 때문/이유가 사주"→Q5), 관계어+인물 질문("남편은 어떤 사람"
+  →Q9, Q8보다 우선), 손없는 날→Q4 직행.
+- **T8.2 토큰 측정**: `scripts/measure_tokens.py` — Context Reduction 전/후 입력
+  토큰 비교 리포트. 표본 5문 기준 **절감 88.9%**(축소 전 ≈5.8k → 후 ≈0.6k/질문).
+- **T8.3 CI**: `.github/workflows/backend-ci.yml` — push/PR 시 사전 validate →
+  ruff → mypy → pytest(회귀 포함). DB 라이브 테스트는 러너에서 자동 skip.
+- **T8.4 모델 평가 하네스**: `model_eval.py` — 후보 모델 응답을 **결정적 지표 3종**
+  으로 채점(LLM 채점 아님): instruction 준수(금지 표현·미제공 간지/수치 = 재계산
+  의심 감점) 0.5 + 날짜 구체성(연·월·구간·분기 인용 밀도) 0.25 + 용어 정확도(근거
+  경로 용어 재인용률·근거 밖 용어 발명 감점) 0.25 → compare_models 랭킹.
+  report_checks와 동일 원천(SectionContext) 공유.
+검증: pytest 469 pass(E2E 46+평가 3 신규) · ruff clean · mypy clean(176파일).
+
+**🎉 v2.2 로드맵 전 페이즈(0~9 + 8.5 + 8) 완료.** 남은 운영 전 작업: ① 실 API 키
+라이브 테스트(사용자) ② 사전 reviewed:false 전 항목 도메인 검수(region_elements·
+occupation 물상·persona_lexicon 등 — 검수 전 해당 기능 출시 금지) ③ employment
+EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출시 시).

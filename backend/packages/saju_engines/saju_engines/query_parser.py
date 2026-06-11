@@ -190,9 +190,13 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     # Q12 — 이의/정정 (B9/B10/A10): 직전 답변 참조 신호가 있어야 한다("vs ... 맞아?"는 Q7).
     if re.search(r"아니야\s*\?|틀렸|헷갈려|다시\s*체크|라던데\s*맞아|했잖아", text):
         return QueryType.FEEDBACK_CORRECTION
-    # Q11 — 용어 교육 (B12): 용어 + 뜻/뭐야.
+    # Q11 — 용어 교육 (B12): 용어 + 뜻/뭐야. 단 소유격("내 용신")은 본인 명식 → Q8.
     is_term = any(w in text for w in _TERM_WORDS)
-    if is_term and re.search(r"무슨\s*뜻|뜻이|뭐야|장점과\s*단점", text):
+    if (
+        is_term
+        and re.search(r"무슨\s*뜻|뜻이|뭐야|장점과\s*단점", text)
+        and not re.search(r"내\s*(용신|격국|일간|사주)", text)
+    ):
         return QueryType.TERMINOLOGY_EDUCATION
     # Q13 — 감정 토로 (B13): 질문 없이 서사/감정.
     if re.search(r"스트레스|힘들[어다]|고장나서|우울", text) and "?" not in text:
@@ -202,12 +206,21 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
         SubjectMode.PAIRWISE, SubjectMode.COMPARE_EXCLUDE_SELF, SubjectMode.RANKING,
     ):
         return QueryType.COMPARISON
-    if re.search(r"당선|승부|누가\s*이길", text):
+    if re.search(
+        r"당선|승부|누가\s*이길|궁합|중에?\s*누가|누가\s*더|합이\s*좋은|랑\s*잘\s*맞",
+        text,
+    ):
         return QueryType.COMPARISON
     # Q7 — 선택지 비교 (B6).
-    if re.search(r"\bvs\b|중에\s*뭐가|어떤\s*게\s*(?:나|맞)|도전해\s*\?", text):
+    if re.search(
+        r"\bvs\b|중에\s*뭐가|어떤\s*게\s*(?:나|맞)|도전해\s*\?"
+        r"|까\s*말까|까[,\s]+[가-힣]{1,4}까",
+        text,
+    ):
         return QueryType.DECISION_SUPPORT
     # Q4 — 택일.
+    if re.search(r"손없는\s*날", text):
+        return QueryType.DATE_RECOMMENDATION
     date_words = re.search(r"좋은\s*날|어떤\s*날|날짜|길일|좋을지|적당한\s*달|좋은.*시간대", text)
     if date_words and re.search(
         r"이사|계약|결혼|수술|개업|로또|매매", text
@@ -217,13 +230,30 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     if re.search(r"조심해야|보완|개운|비방|피해야|주의해야", text):
         return QueryType.REMEDY
     # Q5 — 과거 설명/역검증 (C15).
-    if re.search(r"왜\s*힘들었|맞춰\s*봐|언제인지\s*맞", text):
+    if re.search(
+        r"왜.{0,8}힘들었|맞춰\s*봐|언제인지\s*맞|무슨\s*일이?\s*있었"
+        r"|운\s*때문|이유가\s*사주|운이랑\s*관련",
+        text,
+    ):
         return QueryType.EVENT_EXPLANATION
     # Q3 — 시기 탐색.
     if "언제" in text:
         return QueryType.TIMING_SEARCH
+    # Q9 — 특정 인물 분석(관계어 동반)은 명식 구조보다 우선.
+    person = (
+        r"(?:엄마|아빠|부모|아들|딸|자녀|남편|아내|신랑|와이프"
+        r"|남자친구|여자친구|동업|친구|상사|동료)"
+    )
+    if re.search(person, text) and re.search(
+        r"어떤\s*사람|성격|사이|관계|부딪|잘\s*지내", text
+    ):
+        return QueryType.RELATIONSHIP_ANALYSIS
     # Q8 — 명식 구조 (D2-12 포함).
-    if re.search(r"용신이\s*뭐|내\s*사주\s*(?:는|가)?\s*어때|mbti|성격|성향", text, re.IGNORECASE):
+    if re.search(
+        r"용신이\s*뭐|내\s*사주|mbti|성격|성향|격국|신강|신약|도화|역마살|공망\s*있",
+        text,
+        re.IGNORECASE,
+    ):
         return QueryType.CHART_ANALYSIS
     # Q9 — 관계 분석.
     if re.search(r"사이는\s*어때|부모\s*복|관계는", text):

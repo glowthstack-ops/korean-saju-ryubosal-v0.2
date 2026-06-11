@@ -1,0 +1,35 @@
+# v2.2 Phase 8 T8.3 — 백엔드 회귀 게이트(검증 게이트와 동일: pytest+ruff+mypy+사전 validate).
+# DB 라이브 테스트는 러너에 saju-v2-db가 없으므로 자동 skip(테스트 측 skipif).
+name: backend-ci
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+  pull_request:
+    paths: ["backend/**"]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+      - name: Validate dictionaries
+        run: python scripts/validate_dictionaries.py
+      - name: Ruff
+        run: ruff check .
+      - name: Mypy
+        run: mypy .
+      - name: Pytest (회귀 포함)
+        run: pytest -q
