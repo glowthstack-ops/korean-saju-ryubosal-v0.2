@@ -22,6 +22,7 @@ from saju_shared_types.constants import (
     STEM_COMBINATIONS,
     STEM_ELEMENT,
     THREE_HARMONY,
+    hidden_stems_for,
 )
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.pillars import FourPillarsResult
@@ -66,6 +67,41 @@ def detect(pillars: FourPillarsResult) -> list[Relation]:
             rels.append(
                 Relation("stem_combination", "stem", [pa, pb], [str(sa), str(sb)], str(target))
             )
+
+    # 암합/명암합: 드러난 천간과 다른 지지의 지장간이 천간합을 이룰 때 표시한다.
+    # 같은 기둥의 간지 암합도 실제 해석에서 중요하므로 positions는 둘 다 남긴다.
+    for pa, sa in stems:
+        for pb, bb in branches:
+            for hs, htype, weight in hidden_stems_for(bb):
+                if sa == hs:
+                    continue
+                target = STEM_COMBINATIONS.get(frozenset({sa, hs}))
+                if target is None:
+                    continue
+                rels.append(Relation(
+                    "hidden_stem_combination", "hidden_stem",
+                    [pa, pb], [str(sa), f"{bb}:{hs}"], str(target),
+                    notes=[f"암합:{sa}-{bb}중{hs}", f"지장간:{htype.value}", f"가중치:{weight}"],
+                ))
+
+    # 지장간끼리의 합. 과다 검출을 막기 위해 서로 다른 지지 사이만 잡고, 구조 판단에서는
+    # 보조 신호로 쓰도록 low-severity relation으로 전달한다.
+    for (pa, ba), (pb, bb) in combinations(branches, 2):
+        for ha, ta, wa in hidden_stems_for(ba):
+            for hb, tb, wb in hidden_stems_for(bb):
+                if ha == hb:
+                    continue
+                target = STEM_COMBINATIONS.get(frozenset({ha, hb}))
+                if target is None:
+                    continue
+                rels.append(Relation(
+                    "hidden_hidden_combination", "hidden_stem",
+                    [pa, pb], [f"{ba}:{ha}", f"{bb}:{hb}"], str(target),
+                    notes=[
+                        f"지장간합:{ba}중{ha}-{bb}중{hb}",
+                        f"가중치:{round(wa * wb, 4)}", f"지장간:{ta.value}/{tb.value}",
+                    ],
+                ))
 
     present = {b for _, b in branches}
 

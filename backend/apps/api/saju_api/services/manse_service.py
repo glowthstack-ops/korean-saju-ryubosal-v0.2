@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import threading
 from collections import OrderedDict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from saju_manse_analysis import analyze_chart
 from saju_manse_analysis.luck import (
@@ -69,6 +69,8 @@ def _chart_id(birth: BirthInput) -> str:
             birth.manual_daewoon_direction,
             birth.reference_date.year if birth.reference_date is not None else None,
             birth.time_options.model_dump(),
+            birth.chart_variant,
+            birth.twin_shift,
         )
     )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
@@ -108,6 +110,33 @@ def _luck_role_sets(y) -> tuple[set[str], set[str]]:
     if not unfavorable:
         unfavorable = {c.element for c in y.unfavorable_candidates}
     return useful, unfavorable
+
+
+def _hour_boundary_diagnostics(tc, time_known: bool) -> tuple[list[str], dict]:
+    """Flag minute-sensitive hour/day-boundary cases without changing pillars."""
+    if not time_known:
+        return ["time_unknown: 시주·시지 기반 관계/신살은 확정할 수 없습니다."], {
+            "time_unknown": True
+        }
+    dt = tc.final_chart_datetime
+    minutes = dt.hour * 60 + dt.minute + dt.second / 60
+    # Hour branches turn every odd hour: 23, 01, 03 ... 21. Include 23:00 of the
+    # previous day as -60 minutes so births just after midnight are measured well.
+    boundaries = [-60] + [60, 180, 300, 420, 540, 660, 780, 900, 1020, 1140, 1260, 1380]
+    closest = min(boundaries, key=lambda b: abs(minutes - b))
+    delta = round(minutes - closest, 2)
+    abs_delta = abs(delta)
+    warnings: list[str] = []
+    if abs_delta <= 10:
+        warnings.append(f"hour_boundary_sensitive: 시주 경계 {abs_delta:.1f}분 이내")
+    day_delta = min(abs(minutes), abs(minutes - 24 * 60), abs(minutes - 23 * 60))
+    if day_delta <= 10:
+        warnings.append(f"day_boundary_sensitive: 일주/자시 경계 {day_delta:.1f}분 이내")
+    return warnings, {
+        "time_unknown": False,
+        "minutes_from_nearest_hour_boundary": delta,
+        "within_10_minutes": abs_delta <= 10,
+    }
 
 
 # In-process memoization of calculate(). calibrate_feedback / luck_months /
@@ -156,8 +185,12 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
         birth.birth_place_name, birth.latitude, birth.longitude, birth.timezone
     )
     norm = normalize(birth)
-    tz = resolve(norm.naive_local_datetime, loc.iana_timezone)
-    tc = true_solar_time.compute(norm.naive_local_datetime, loc.longitude, tz, opts)
+    calc_naive = norm.naive_local_datetime
+    twin_adjusted = birth.chart_variant == "twin_adjusted" and birth.twin_shift != 0
+    if twin_adjusted:
+        calc_naive = calc_naive + timedelta(minutes=birth.twin_shift)
+    tz = resolve(calc_naive, loc.iana_timezone)
+    tc = true_solar_time.compute(calc_naive, loc.longitude, tz, opts)
 
     absolute_instant = tz.aware_datetime  # civil instant, tz-aware
     term_basis_instant = _term_basis_instant(birth, tc, tz)
@@ -217,6 +250,8 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
         ja_hour_rule=opts.ja_hour_rule,
         warnings=tc.warnings,
     )
+    boundary_warnings, boundary_trace = _hour_boundary_diagnostics(tc, norm.time_known)
+    time_correction.warnings.extend(boundary_warnings)
 
     prev_term, next_term = term_info.prev_term, term_info.next_term
     solar_basis = SolarTermBasis(
@@ -239,6 +274,8 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
         "birth_place_name": loc.name,
         "gender": birth.gender,
         "daewoon_direction": _daewoon_direction(birth, year_stem),
+        "chart_variant": birth.chart_variant,
+        "twin_shift": birth.twin_shift,
     }
 
     metadata = EngineMetadata(
@@ -257,7 +294,7 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
         luck_cycles = compute_luck_cycles(
             pillars=pillars,
             absolute_instant=term_basis_instant,
-            birth_date=norm.solar_date,
+            birth_date=tc.civil_datetime.date(),
             direction=direction,
             useful_elements=useful_elements,
             unfavorable_elements=unfavorable_elements,
@@ -269,7 +306,7 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
     calibration = None
     if birth.reference_date is not None and chart_analysis.yongsin.candidate_models:
         calibration = generate_calibration(
-            chart_analysis.yongsin, norm.solar_date.year, birth.reference_date.year,
+            chart_analysis.yongsin, tc.civil_datetime.date().year, birth.reference_date.year,
             pillars=pillars, gender=birth.gender,
         )
 
@@ -292,6 +329,12 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
             "solar_term_basis_instant_utc": term_basis_instant.astimezone(UTC).isoformat(),
             "final_chart_datetime": tc.final_chart_datetime.isoformat(),
             "standard_datetime": tc.standard_datetime.isoformat(),
+            "twin_adjustment": {
+                "applied": twin_adjusted,
+                "shift_minutes": birth.twin_shift if twin_adjusted else 0,
+                "calculation_datetime": calc_naive.isoformat(),
+            },
+            "boundary_diagnostics": boundary_trace,
         },
     )
 

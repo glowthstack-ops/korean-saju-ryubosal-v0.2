@@ -209,12 +209,11 @@ def sinsal_for_luck(
     """운(대운/세운/월운/일운) 간지가 불러오는 신살/길신/흉성을 산출.
 
     운의 간지를 새로운 자리(位)로 보고 원국 기준점(일간·월지·년지·일지)과 운 간지 자체에
-    대조한다. 단일 간지에 적용 가능한 신살만 포함하며, 일주 고정 신살(일덕·일귀)과
-    원국 구조 신살(천라지망·협록)은 운에는 적용하지 않는다.
+    대조한다. 단일 간지에 적용 가능한 신살과, 운이 원국 구조 신살(천라지망·협록)을
+    완성하는 경우를 포함한다.
 
-    일주복음(伏吟): 운의 간지가 일주 간지와 완전히 동일하면 "복음"을 목록 맨 앞에 둔다.
-    현대 실무에서 복음은 운별로 일반 표시하지 않으나, 일주복음만은 활용하므로 일주
-    대조분만 포함한다(년·월·시주 대조 복음은 제외).
+    복음(伏吟): 운의 간지가 원국 특정 주와 완전히 같으면 표시한다. 일주복음은 가장
+    민감하므로 기존 호환 이름 "복음"을 유지하고 목록 맨 앞에 둔다.
 
     Args:
         pillars: 원국 사주(기준점 제공).
@@ -344,9 +343,15 @@ def sinsal_for_luck(
     ]
     items.sort(key=lambda s: _POLARITY_ORDER.get(s.polarity, 1))
 
-    # 일주복음: 운 간지 == 일주 간지이면 최상단에 고정 표시.
-    if stem == day_stem and branch == day_branch:
-        items.insert(0, LuckSinsal(name="복음", polarity="caution"))
+    # 복음: 운 간지 == 원국 주 간지. 일주복음은 기존 호환을 위해 이름 "복음" 유지.
+    labels = {"year": "년주", "month": "월주", "day": "일주", "hour": "시주"}
+    matches: list[LuckSinsal] = []
+    for pos, p in _positions(pillars):
+        if stem == Stem(p.stem) and branch == Branch(p.branch):
+            name = "복음" if pos == "day" else f"복음({labels[pos]})"
+            matches.append(LuckSinsal(name=name, polarity="caution"))
+    if matches:
+        items = matches + [i for i in items if not i.name.startswith("복음")]
     return items
 
 

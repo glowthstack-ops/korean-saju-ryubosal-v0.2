@@ -209,7 +209,9 @@ def _luck_effect(
     rel_mod = _relation_modifier(transformed, useful, unfavorable)
     w_s, w_b = _PERIOD_WEIGHTS.get(period_type, (0.4, 0.6))
     score = round(w_s * stem_eff.score + w_b * branch_eff.score + rel_mod, 4)
-    strong = branch_eff.has_clash or branch_eff.is_void
+    strong = branch_eff.has_clash or branch_eff.is_void or any(
+        ("완성" in r or "성립" in r) for r in relations
+    )
     code, label, summary = _luck_label(stem_eff.type, branch_eff.type, strong)
     if branch_eff.branch_label:  # 공망/충 동태를 요약에 덧붙임
         summary = f"{summary} · 지지 {branch_eff.branch_label}"
@@ -246,10 +248,22 @@ def _relations_to_chart(stem: Stem, branch: Branch, pillars: FourPillarsResult) 
         if stem != ns and frozenset({stem, ns}) in STEM_COMBINATIONS:
             out.append(f"천간합:{stem}-{ns}")
     for members, element, _royal in THREE_HARMONY:
-        if branch in members and (members - {branch}) & set(natal_branches):
+        natal_have = members & set(natal_branches)
+        if branch not in members or not natal_have:
+            continue
+        if (members - {branch}) <= set(natal_branches):
+            out.append(f"삼합완성:{element}")
+        elif _royal == branch or _royal in natal_have:
+            out.append(f"반합성립:{element}")
+        else:
             out.append(f"삼합기여:{element}")
     for members, element in DIRECTIONAL_COMBINATIONS:
-        if branch in members and (members - {branch}) & set(natal_branches):
+        natal_have = members & set(natal_branches)
+        if branch not in members or not natal_have:
+            continue
+        if (members - {branch}) <= set(natal_branches):
+            out.append(f"방합완성:{element}")
+        else:
             out.append(f"방합기여:{element}")
     # 자형: 운 지지가 자형 지지이고 원국에 같은 지지가 있으면(2개 이상) 성립.
     if branch in SELF_PUNISHMENT and branch in natal_branches:
@@ -270,15 +284,22 @@ def _relations_to_chart(stem: Stem, branch: Branch, pillars: FourPillarsResult) 
 
 
 def _transformed_elements(branch: Branch, pillars: FourPillarsResult) -> list[str]:
-    """운 지지가 원국과 육합/삼합으로 만들어내는 변환 오행(target element)."""
+    """운 지지가 원국과 육합/삼합/방합으로 만들어내는 변환 오행(target element)."""
     natal_branches = [Branch(p.branch) for p in _natal(pillars)]
+    natal_set = set(natal_branches)
     out: set[str] = set()
     for nb in natal_branches:
         key = frozenset({branch, nb})
         if branch != nb and key in SIX_COMBINATIONS:
             out.add(str(SIX_COMBINATIONS[key]))
     for members, element, _royal in THREE_HARMONY:
-        if branch in members and (members - {branch}) & set(natal_branches):
+        natal_have = members & natal_set
+        if branch not in members or not natal_have:
+            continue
+        if (members - {branch}) <= natal_set or _royal == branch or _royal in natal_have:
+            out.add(str(element))
+    for members, element in DIRECTIONAL_COMBINATIONS:
+        if branch in members and (members - {branch}) <= natal_set:
             out.add(str(element))
     return sorted(out)
 

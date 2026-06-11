@@ -794,6 +794,23 @@ def build_yongsin(
     competing = len(useful_candidates) >= 2 and (
         useful_candidates[0].score - useful_candidates[1].score < 0.12
     )
+    if strength.borderline:
+        warnings.append(
+            f"strength_borderline: 신강약 점수 {strength.score}가 밴드 경계권 — 용희신 단정 보류"
+        )
+    if competing:
+        warnings.append(
+            "yongsin_competing_candidates: 상위 용신 후보 점수 차가 작아 사용자 검증 필요"
+        )
+    if (
+        johu is not None
+        and useful_candidates
+        and useful_candidates[0].element != johu.yongsin
+        and abs(useful_candidates[0].score - next(
+            (c.score for c in useful_candidates if c.element == johu.yongsin), 0.0
+        )) < 0.08
+    ):
+        warnings.append("johu_borderline: 조후 후보가 근소 차이로 밀림 — 한난습조 맥락 병행 검토")
     if len(models) == 1 and strength.confidence >= 0.7 and not any_special and not competing:
         status = "probable"
     else:

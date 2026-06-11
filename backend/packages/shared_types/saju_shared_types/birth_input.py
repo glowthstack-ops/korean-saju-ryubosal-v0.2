@@ -44,6 +44,11 @@ class BirthInput(BaseModel):
 
     time_options: TimeCalculationOptions = Field(default_factory=TimeCalculationOptions)
 
+    # Twin/minute adjustment. ``twin_shift`` is a minute offset applied to the
+    # calculation basis only; omitted/zero keeps the original chart exactly.
+    chart_variant: Literal["original", "twin_adjusted"] = "original"
+    twin_shift: int = 0
+
     @model_validator(mode="after")
     def _check_lunar(self) -> BirthInput:
         if self.calendar_type == "lunar" and self.is_leap_month is None:

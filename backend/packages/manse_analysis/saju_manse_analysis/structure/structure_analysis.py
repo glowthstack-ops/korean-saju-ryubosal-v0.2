@@ -100,12 +100,13 @@ def _affected(rel: Relation, dm: Stem) -> tuple[list[str], list[str]]:
     elements: set[str] = set()
     ten_gods: set[str] = set()
     for m in rel.members:
+        raw = m.split(":", 1)[1] if ":" in m else m
         try:
-            br = Branch(m)
+            br = Branch(raw)
             elements.add(str(BRANCH_ELEMENT[br]))
             ten_gods.add(str(ten_god(dm, main_hidden_stem(br))))
         except ValueError:
-            st = Stem(m)
+            st = Stem(raw)
             elements.add(str(STEM_ELEMENT[st]))
             if st != dm:
                 ten_gods.add(str(ten_god(dm, st)))
@@ -213,7 +214,7 @@ def analyze_structure(
                 {"relation": rel.rel_type, "positions": rel.positions, "palaces": palaces}
             )
         if rel.transform_element is not None and rel.rel_type in (
-            "stem_combination", "six_combination", "three_harmony", "directional"
+            "stem_combination", "six_combination", "three_harmony", "directional",
         ):
             transformed.append(
                 _transformation(rel, pillars, month_branch, relations, heavenly_stems)

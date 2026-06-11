@@ -38,3 +38,39 @@ def test_lunar_conversion_matches_solar_fixture() -> None:
     assert converted is not None and converted.isoformat() == "1980-11-22"
     assert r.pillars.day.ganji == "己亥"
     assert r.pillars.month.ganji == "丁亥"
+
+
+def test_twin_shift_changes_calculation_basis_and_chart_id() -> None:
+    base = BirthInput(
+        birth_date="1980-11-22",
+        birth_time="00:58",
+        birth_place_name="서울",
+        gender="male",
+    )
+    shifted = BirthInput(
+        birth_date="1980-11-22",
+        birth_time="00:58",
+        birth_place_name="서울",
+        gender="male",
+        chart_variant="twin_adjusted",
+        twin_shift=5,
+    )
+    r1 = calculate(base)
+    r2 = calculate(shifted)
+    assert r1.chart_id != r2.chart_id
+    assert r2.input_summary["chart_variant"] == "twin_adjusted"
+    assert r2.trace["twin_adjustment"]["applied"] is True
+
+
+def test_hour_boundary_sensitive_warning() -> None:
+    r = calculate(
+        BirthInput(
+            birth_date="1980-11-22",
+            birth_time="01:00",
+            birth_place_name="서울",
+            gender="male",
+            time_options={"apply_true_solar_time": False},
+        )
+    )
+    assert r.time_correction is not None
+    assert any("hour_boundary_sensitive" in w for w in r.time_correction.warnings)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from saju_manse_analysis.luck.luck_cycles import _relations_to_chart
+from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
 
 from saju_api.services.manse_service import calculate
 from saju_shared_types.birth_input import BirthInput
@@ -189,3 +190,32 @@ def test_luck_directional_contribution(make_pillars) -> None:
     )
     rels = _relations_to_chart(Stem.GAP, Branch.IN, natal)
     assert any(r.startswith("방합기여") for r in rels)
+
+
+def test_luck_three_harmony_and_directional_completion(make_pillars) -> None:
+    # 원국 申子 + 운 辰 → 삼합 수국 완성.
+    natal_three = make_pillars(
+        (Stem.GAP, Branch.SIN), (Stem.GAP, Branch.JA),
+        (Stem.GAP, Branch.O), (Stem.EUL, Branch.MYO), Stem.GAP,
+    )
+    rels = _relations_to_chart(Stem.GAP, Branch.JIN, natal_three)
+    assert "삼합완성:水" in rels
+
+    # 원국 寅卯 + 운 辰 → 방합 목국 완성.
+    natal_dir = make_pillars(
+        (Stem.GAP, Branch.IN), (Stem.EUL, Branch.MYO),
+        (Stem.GAP, Branch.O), (Stem.GAP, Branch.SIN), Stem.GAP,
+    )
+    rels2 = _relations_to_chart(Stem.GAP, Branch.JIN, natal_dir)
+    assert "방합완성:木" in rels2
+
+
+def test_luck_sinsal_marks_fuyin_for_all_matching_pillars(make_pillars) -> None:
+    natal = make_pillars(
+        (Stem.GAP, Branch.JA), (Stem.EUL, Branch.CHUK),
+        (Stem.BYEONG, Branch.IN), (Stem.JEONG, Branch.MYO), Stem.BYEONG,
+    )
+    year_names = [s.name for s in sinsal_for_luck(natal, Stem.GAP, Branch.JA)]
+    assert "복음(년주)" in year_names
+    day_names = [s.name for s in sinsal_for_luck(natal, Stem.BYEONG, Branch.IN)]
+    assert day_names[0] == "복음"

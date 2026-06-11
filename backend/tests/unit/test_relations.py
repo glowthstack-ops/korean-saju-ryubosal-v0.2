@@ -96,3 +96,20 @@ def test_detect_self_punishment_and_gan_yeo_ji_dong(make_pillars) -> None:
     assert any(r.rel_type == "self_punishment" and r.members == ["亥", "亥"] for r in rels)
     assert any(r.rel_type == "gan_yeo_ji_dong" and "庚" in r.members for r in rels)
     assert any(r.rel_type == "branch_duplication" for r in rels)
+
+
+def test_detect_hidden_stem_combinations(make_pillars) -> None:
+    # 戊 천간 + 子중癸 → 戊癸暗合(火), 지장간끼리도 보조 신호로 잡는다.
+    pillars = make_pillars(
+        (Stem.MU, Branch.JA), (Stem.GAP, Branch.IN),
+        (Stem.BYEONG, Branch.SIN), (Stem.EUL, Branch.YU), Stem.BYEONG,
+    )
+    rels = detect(pillars)
+    assert any(
+        r.rel_type == "hidden_stem_combination"
+        and "戊" in r.members
+        and "子:癸" in r.members
+        and r.transform_element == "火"
+        for r in rels
+    )
+    assert any(r.rel_type == "hidden_hidden_combination" for r in rels)
