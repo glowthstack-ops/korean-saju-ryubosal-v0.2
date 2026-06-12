@@ -1,10 +1,11 @@
 "use client";
 
-// 대화형 통변 (v2.2 MVP UI) — 저장된 프로필로 /api/v2/chat 호출, thread_id로 멀티턴 유지.
+// 채팅사주풀이 (v2.2 MVP UI) — 저장된 프로필로 /api/v2/chat 호출, thread_id로 멀티턴 유지.
 // 엔진이 계산한 점수·간지를 LLM이 서술한 결과를 그대로 표시한다(프론트 가공 없음).
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { postChat } from "@/lib/api";
 import { loadProfile } from "@/lib/storage";
 import type { ChatApiResponse, Profile } from "@/lib/types";
@@ -74,7 +75,7 @@ export default function ChatPage() {
   if (!profile) {
     return (
       <section className="rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-bold">대화형 통변</h1>
+        <h1 className="text-xl font-bold">채팅사주풀이</h1>
         <p className="mt-2 text-sm text-gray-600">
           먼저 만세력에서 생년월일시·출생지를 입력하면 그 사주로 대화할 수 있어요.
         </p>
@@ -91,7 +92,7 @@ export default function ChatPage() {
   return (
     <div className="space-y-4">
       <section className="rounded-lg bg-white p-4 shadow-sm">
-        <h1 className="text-xl font-bold">대화형 통변</h1>
+        <h1 className="text-xl font-bold">채팅사주풀이</h1>
         <p className="mt-1 text-xs text-gray-500">
           {profile.birthDate} {profile.timeUnknown ? "(시간 모름)" : profile.birthTime}{" "}
           · {profile.place.name} 사주 기준 · 같은 창에서는 대화 맥락이 이어집니다.
@@ -121,11 +122,18 @@ export default function ChatPage() {
             <div
               className={
                 m.role === "user"
-                  ? "inline-block max-w-[85%] rounded-2xl bg-indigo-600 px-4 py-2 text-left text-sm text-white"
-                  : "inline-block max-w-[95%] whitespace-pre-wrap rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-800"
+                  ? "inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-4 py-2 text-left text-sm text-white"
+                  : "inline-block max-w-[95%] rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-800"
               }
             >
-              {m.text}
+              {m.role === "user" ? (
+                m.text
+              ) : (
+                // 백엔드는 평문을 보내지만, 마크다운(보고서 등)이 와도 깨지지 않게 렌더.
+                <div className="prose prose-sm max-w-none prose-p:my-1.5 prose-headings:mt-2 prose-headings:mb-1 prose-li:my-0.5">
+                  <ReactMarkdown>{m.text}</ReactMarkdown>
+                </div>
+              )}
             </div>
             {m.meta && m.meta.status !== "answered" && (
               <p className="mt-1 text-xs text-amber-600">

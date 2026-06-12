@@ -18,11 +18,14 @@ import re
 from datetime import date as date_cls
 from pathlib import Path
 
+from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
+from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.events import EventCandidate, EventKey
 from saju_shared_types.graph import EvidenceBundle
 from saju_shared_types.intent import IntentJson, QueryType
 from saju_shared_types.llm_input import (
     BirthChartSummary,
+    ChartInterpretation,
     DaewoonEntry,
     DateSelectionBlock,
     LlmBudget,
@@ -32,6 +35,7 @@ from saju_shared_types.llm_input import (
     LlmInput,
     LlmStyleRules,
     MonthOverviewRow,
+    PeriodFortune,
     ReferenceFrame,
     SelectedDay,
     SelectedMonth,
@@ -40,6 +44,8 @@ from saju_shared_types.llm_input import (
 )
 from saju_shared_types.manse_result import ManseV2Result
 
+from .amhap_luck import detect_luck_amhap
+from .chart_interpretation import build_chart_interpretation, incoming_ten_god_note
 from .event_scoring import EventScorer, favorability_map
 from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded
 
@@ -59,11 +65,153 @@ _BASE_INSTRUCTION = (
     "설명할 것. 제공된 간지·점수·근거 외의 명리 계산을 시도하지 말 것 — 데이터에 없으면 "
     "'해당 정보는 제공되지 않았다'로 처리."
 )
+# 기간 총운(E9) framing — 같은 위계·사건화 철학, 출력은 해당 기간 단위로 한정.
+# 하루 운세(E9 daily) — 하루 안에 가능한 범위로 한정(사용자 확정 2026-06-12).
+_DAILY_INSTRUCTION = (
+    " 이 질문은 '하루 운세'다 — 하루 안에 실제로 일어날 수 있는 범위로만 풀 것: "
+    "주요 사건의 '조짐/신호'(실행·확정 단정 금지), 소소한 금전·횡재, 직장에서의 가벼운 "
+    "변화나 기분, 애정 관련 만남·연락, 작은 다툼·신경전, 이동·건강·컨디션 정도다. "
+    "이직·이사 같은 인생 사건을 '오늘 일어난다'고 단정하지 말고, 그날 일진이 그런 흐름의 "
+    "'조짐을 비춘다'는 수준으로만 언급한다. [오늘의 운세] 블록의 일진·생활 슬롯 점수 "
+    "범위 안에서 핵심기운→분야별(일·돈·관계·건강)→주의·활용 순으로 간결히 서술할 것."
+)
+# 월간 총운 — 그 달의 큰 흐름. 대운·세운이 형성한 기운이 이 달에 작동하는 양상 중심.
+_MONTHLY_INSTRUCTION = (
+    " 이 질문은 '특정 한 달의 총운'이다 — 그 달의 큰 흐름을 잡되, 대운·세운이 형성한 "
+    "기운이 이 달에 어떻게 작동하는지를 중심으로 풀 것. [이번 달 총운] 블록의 분야별"
+    "(일·직업/재물/관계·연애/건강) 점수와, 그 달 안에서 상대적으로 주의할 시기·기회 "
+    "시기(주·일)를 함께 짚는다. 한 달 안에 가능한 사건의 '활성화·가능성'으로 표현하고 "
+    "특정 사건의 실행·확정은 단정하지 말 것."
+)
+# 연간 총운 — 한 해 핵심 주제. 대운이 형성한 배경 위에서 세운으로 푼다.
+_YEARLY_INSTRUCTION = (
+    " 이 질문은 '한 해(특정 연)의 총운'이다 — 한 해의 핵심 주제를, 대운이 형성한 큰 "
+    "배경 위에서 세운으로 풀 것. [올해 총운] 블록의 상·하반기 흐름과 분야별(직업/재물/"
+    "관계/건강) 기운, 주의 시기·기회 시기(월)를 짚는다. 연 단위라 사건의 방향·가능성·"
+    "시기 흐름으로 서술하고 특정 사건을 단정하지 말 것."
+)
+_PERIOD_FORTUNE_INSTRUCTION = {
+    "daily": _DAILY_INSTRUCTION,
+    "monthly": _MONTHLY_INSTRUCTION,
+    "yearly": _YEARLY_INSTRUCTION,
+}
+# 운에서 오는 신살(2026-06-12 사용자 확정) — 원국 보유와 작용 방식이 다르다.
+_LUCK_SINSAL_INSTRUCTION = (
+    " 운(運)에서 들어온 신살은 타고난 체질이 아니라 그 시기에 '사건·자극'으로 터지는 "
+    "신호다 — 블록의 운 신살 '유입 레벨'을 따를 것: 대운 신살은 향후 10년의 무대·환경이 "
+    "그 색으로 바뀌는 것, 세운 신살은 그해 실제 일어나는 사건이다. 운 신살은 단독이 "
+    "아니라 원국 글자를 합·충·형으로 건드려 발동하므로, [형충회합]에 표기된 그 운 글자가 "
+    "원국의 어느 자리를 건드리는지(월지=직업·사회, 일지=배우자·가정)와 연결해 발현 영역을 "
+    "정한다. 길흉은 ①희기 결합(나에게 희신인 글자에 실린 흉살은 통제된 권력·성취로, 기신인 "
+    "글자에 실린 길신은 생색뿐 실속이 약함) ②궁성 충돌 자리 ③공망이 충으로 풀려 묶였던 "
+    "기운이 해방되는지로 판가름하되, 신살은 끝까지 보조 자료다."
+)
+# fortune_type → (블록 헤더, 간지 줄 라벨).
+_PERIOD_FORTUNE_HEADER = {
+    "daily": ("오늘의 운세", "일진"),
+    "monthly": ("이번 달 총운", "월운"),
+    "yearly": ("올해 총운", "세운"),
+}
+# v2.2.1 — 계산 금지/의미 서술 허용 분리(docs/06 표현 원칙 4 개정).
+_MEANING_INSTRUCTION = (
+    "[명식 해석 자료]와 후보별 '해석' 줄을 적극 엮어, '이 글자가 일간에게 무엇이고 "
+    "지금 들어온 글자와 어떤 관계를 맺어 이런 신호가 되는가'의 이야기로 풍부하게 서술할 "
+    "것 — 점수와 간지를 낭독만 하지 말 것. 단, 간지·점수·합충 성립 판정의 재계산·변경은 "
+    "여전히 금지."
+)
+# regression_2025_08 — 단일 합·십성으로 사건명 재해석 금지(동반 신호 매트릭스가 결정).
+_MATRIX_INSTRUCTION = (
+    "사건명은 동반 신호 매트릭스(신호 구성·개수)로 엔진이 확정한 값이다 — 단일 합이나 "
+    "십성 하나만 근거로 다른 사건으로 재해석하지 말 것(예: 합+정관이라도 역마·식상 "
+    "동반이면 이동·이사 신호가 우세할 수 있음). 각 후보의 '동반 신호' 구성을 근거로 "
+    "인용할 것."
+)
+_AUXILIARY_INSTRUCTION = (
+    "신살·암합은 보조 참고 자료다 — '이런 점은 이런 신살의 영향일 수도 있다' 정도로만 "
+    "가볍게 곁들이고, 성향·길흉의 핵심 근거로 부각하거나 그것만으로 사건을 단정하지 "
+    "말 것. 운 암합은 '물밑·비공식'의 뉘앙스(숨은 계약·은밀한 인연·비공식 협력)로만, "
+    "암합이 건드린 궁성(연-대외/월-직장·사회/일-사생활·배우자/시-취미·투자)과 십성을 "
+    "참고해 가능성으로만 언급한다. 풀이의 중심은 일간·십성·합충형파해와 운의 관계다."
+)
+# 신살 궁성론(2026-06-12 사용자 확정) — 위치·충형공망·용기신에 따른 발현 차이.
+_SINSAL_POSITION_INSTRUCTION = (
+    "신살은 원국 위치(궁성)에 따라 시기·대상·발현이 달라진다 — 년·월은 사회·대외"
+    "(조상/부모·직장, 초중년), 일·시는 개인·가정(나·배우자/자녀·내면, 중말년)으로 "
+    "작용한다. 발췌의 '위치'·'위치별' 표기를 따라 해석하고 신살 이름만으로 뭉뚱그리지 "
+    "말 것. 또한 그 신살 자리가 충·형·공망을 맞으면 길신은 작용이 정지·반감되고 흉성은 "
+    "부작용이 커지거나(공망이면) 무력화되며, 일간 기준 용·희신이면 길작용이 강해지고 "
+    "기·구신이면 길신도 힘이 줄거나 흉신이 카리스마·전문성으로 승화될 수 있다 — 이 보정을 "
+    "[원국 관계]·공망·용희기구한 정보와 연결하되 여전히 보조 자료로만 쓴다."
+)
+# 답변 길이 — 사용자 확정(2026-06-12): 최대 1,500자.
+_LENGTH_INSTRUCTION = (
+    "답변은 공백 포함 1,500자 이내로 핵심만 간결하게 쓸 것. 길어지면 가장 중요한 "
+    "흐름부터 추리고 나머지는 생략한다."
+)
+# 마크다운 미지원 출력 — 기호가 그대로 노출되므로 평문으로(항목 4).
+_FORMAT_INSTRUCTION = (
+    "출력은 마크다운을 쓰지 말 것 — '#', '*', '**', '###', '|' 표 등 마크다운 기호 "
+    "없이 자연스러운 평문 문단으로 서술한다. 강조가 필요하면 따옴표나 줄바꿈을 쓴다."
+)
+# 이벤트 신호의 위상 — 추측값일 뿐 기간 전체를 대표하지 않음(항목 10).
+_SCOPE_INSTRUCTION = (
+    "[이벤트 후보]는 그 기간에 '가능성이 상대적으로 높은 사건'에 대한 추측 신호일 "
+    "뿐, 그 기간 전체를 대표하지 않는다. 이벤트 신호만으로 기간 전부를 규정하지 말고, "
+    "원국 구조와 대운·세운의 전반적 기운을 바탕으로 그 시기의 큰 흐름을 먼저 설명한 "
+    "뒤 이벤트 신호를 그 안의 한 가능성으로 배치할 것."
+)
+# 운의 위계 — 대운>세운>월운>일운, 상위 운이 하위 운을 지배(항목 6).
+_HIERARCHY_INSTRUCTION = (
+    "운은 위계가 있다: 대운(10년·환경/배경) > 세운(1년·사건의 발생) > 월운(달·"
+    "타이밍과 심리) > 일운(하루·체감). 상위 운이 하위 운을 지배하므로, 대운으로 큰 "
+    "흐름을 먼저 잡고 세운으로 올해의 사건을, 월운·일운으로 시점과 디테일을 조율하는 "
+    "순서로 설명할 것. 대운·세운이 받쳐주지 않으면 월운·일운만으로 큰 변화를 단정하지 "
+    "말 것."
+)
+# 원국 보유 요소 vs 운에서 들어온 요소를 반드시 구분(항목 16).
+_ORIGIN_INSTRUCTION = (
+    "원국(타고난 명식)에 본래 있는 요소와, 운에서 새로 들어와 작용하는 요소를 반드시 "
+    "구분해 서술할 것 — 예: 원국에 없던 신살·십성이 운에서 들어온 경우 '원래 가진 것'이 "
+    "아니라 '이 시기에 들어온 기운'으로 설명한다. [원국·명식 구조]에 있는 것은 원국 "
+    "보유, [이벤트 후보]·[근거 경로]의 유입 글자는 운에서 온 것이다."
+)
+# 격국·용희기구한·궁성 활용(항목 8·9·14).
+_STRUCTURE_INSTRUCTION = (
+    "[원국·명식 구조]의 격국·용희기구한(용신/희신/기신/구신/한신)·궁성(자리별 가족 "
+    "역할)을 풀이에 활용할 것 — 용신/기신만이 아니라 희신·구신·한신의 작용도, 관계·"
+    "가족 풀이에서는 궁성 자리(연-조상, 월-부모, 일-나·배우자, 시-자녀)도 함께 본다. "
+    "이 정보가 있으므로 '모른다'고 답하지 말 것."
+)
+# 길흉 반전 — 구신·기신도 조건부로 돕는다(사용자 확정 2026-06-12).
+_REVERSAL_INSTRUCTION = (
+    "용희기구한의 길흉은 고정이 아니다 — 흉신(기신·구신)도 구조·운에 따라 사주를 "
+    "돕는 반전이 있다. 구신은 ①희신이 태과할 때 그 과한 기운을 눌러 중화하거나 "
+    "②기신과 합해 기신을 묶거나(탐합망극) ③운에서 통관 글자가 들어와 징검다리가 되거나 "
+    "④제화되어 권력·전문 기술로 치환될 때 오히려 복이 된다. '구신이라 무조건 나쁘다'고 "
+    "단정하지 말고, [명식 해석 자료]의 반전 조건을 살펴 해당 시 그 가능성을 함께 풀이할 것."
+)
+# 합의 작용을 끝까지 설명(항목 17·18).
+_HARMONY_INSTRUCTION = (
+    "합·충·형·파·해의 작용은 결과까지 끝맺을 것 — '합이 되어 좋게 작용합니다'로 끝내지 "
+    "말고, '무엇과 합하여(예: 갑기합), 무엇으로 변하거나 작용하고(예: 합화 토 → 용신), "
+    "그래서 어떤 결과로 나타나는지'까지 인과를 완결한다. 합화 결과 오행이 용신/기신 중 "
+    "무엇인지가 길흉의 방향을 정한다 — 근거 경로의 합화·용기신 표시를 활용할 것."
+)
+# 방합 준방합 규칙(항목 3) — 두 글자를 방합 성립으로 단정 금지.
+_BANGHAP_INSTRUCTION = (
+    "방합(인묘진/사오미/신유술/해자축)은 같은 계절 세 글자가 모두 모여야 성립한다. "
+    "두 글자(예: 巳午)만 있으면 '사오미 방합이 형성됐다'고 단정하지 말 것 — 그 오행 "
+    "기운이 매우 강해진 '준방합' 상태로만 설명하고, 운에서 마지막 글자(예: 未)가 채워질 "
+    "때 비로소 방합이 촉발돼 사건이 크게 현실화된다고 풀이한다."
+)
 # v1 [오늘 날짜]·자체 검증 체크리스트 계승 — LLM은 어떤 계산도 할 수 없다는 전제.
 _REFERENCE_INSTRUCTION = (
     "[기준 시점]의 오늘 날짜를 기준으로 과거·현재·미래를 판단할 것 — 임의로 다른 "
     "날짜를 기준으로 삼지 말 것. 질문의 시점 표현(올해/내년/다음 달 등)은 [기준 시점]에 "
-    "해석되어 있다."
+    "해석되어 있다. 후보·근거의 기간이 오늘보다 과거(연·월이 기준 시점 이전)면 '이미 지난 "
+    "일'로 과거형으로 서술하고 앞으로 다가올 일처럼 예측하지 말 것. 시점을 명시하지 않은 "
+    "질문은 올해(현재 연도)와 가까운 미래를 답의 중심에 두고, 지난 흐름은 배경으로만 짧게 "
+    "짚되 올해를 건너뛰지 말 것."
 )
 _LABEL_INSTRUCTION = (
     "이벤트는 반드시 한글 라벨로 부를 것(예: '이직·직업 변화') — career_change 같은 "
@@ -73,6 +221,12 @@ _SELF_CHECK_INSTRUCTION = (
     "답변 작성 후 자체 검증: 답변에 등장한 모든 연도·월·날짜·간지·점수가 위 입력에 "
     "실제로 존재하는지 확인하고, 입력에 없는 항목은 삭제하거나 '해당 정보는 제공되지 "
     "않았다'로 바꿀 것."
+)
+# 후속 턴 절제(항목 19) — 멀티턴에서 인사·앞 내용 재인용 반복 금지.
+_FOLLOWUP_INSTRUCTION = (
+    "이번은 대화의 후속 답변이다 — '안녕하세요/반갑습니다' 류 인사나 자기소개를 다시 "
+    "하지 말고, 앞서 설명한 일주·격국·용신 등 배경을 길게 재인용하지 말 것. 바로 이번 "
+    "질문에 대한 새 내용으로 답한다(필요한 최소 맥락만 한 문장 이내로 언급)."
 )
 _OUT_OF_RANGE_INSTRUCTION = (
     "[참고 — 질문 기간 외 흐름]은 배경 맥락으로만 짧게 인용하고 메인 서술로 삼지 말 것. "
@@ -160,7 +314,12 @@ def reduce_candidates(
         if (not graph_scope or c.event_key in graph_scope) and c.score >= score_floor
         and in_question_range(c.period, period_start, period_end)
     ]
-    return sorted(scoped, key=lambda c: (-c.score, c.period, str(c.event_key)))[:top_n]
+    # 동점(클램프 포화) 시 raw 가중 합 우선 — 표의 '기간 내 강도 N위'와 후보 선별이
+    # 같은 달을 가리키게(강도 1위 달이 후보에서 빠져 해석 줄이 누락되던 문제, 2026-06-12).
+    return sorted(
+        scoped,
+        key=lambda c: (-c.score, -getattr(c, "raw_total", 0.0), c.period, str(c.event_key)),
+    )[:top_n]
 
 
 def reduce_with_context(
@@ -205,6 +364,29 @@ def _ganji_lookup(result: ManseV2Result) -> dict[str, str]:
     for p in [*lc.yearly_luck, *lc.monthly_luck, *lc.daily_luck]:
         out[p.label] = p.ganji
     return out
+
+
+def _exact_jiao_dates(result: ManseV2Result) -> list[date_cls]:
+    """만세력 엔진이 산출한 정확한 교운일 목록(trace.exact_jiao_un_dates)."""
+    if result.luck_cycles is None:
+        return []
+    out: list[date_cls] = []
+    for x in result.luck_cycles.trace.get("exact_jiao_un_dates", []):
+        try:
+            out.append(date_cls.fromisoformat(x) if isinstance(x, str) else x)
+        except (ValueError, TypeError):
+            continue
+    return out
+
+
+def _nearest_jiao(approx: date_cls, exact: list[date_cls], max_gap_days: int = 400) -> str:
+    """approx_start_date에 가장 가까운 정확 교운일(없거나 너무 멀면 approx)."""
+    if not exact:
+        return approx.isoformat()
+    nearest = min(exact, key=lambda d: abs((d - approx).days))
+    if abs((nearest - approx).days) > max_gap_days:
+        return approx.isoformat()
+    return nearest.isoformat()
 
 
 def build_calendar_context(
@@ -256,11 +438,15 @@ def build_calendar_context(
         intent.query_type is QueryType.FORTUNE_OVERVIEW and not has_bounded_period
     )
     wanted_dw = {dw_by_year.get(int(y), "") for y in selected_years_set if y.isdigit()}
+    # 정확한 교운일은 만세력 엔진 trace에 있다(approx_start_date는 대략값) — 가장 가까운
+    # 정확 교운일을 매칭해 프롬프트에 제공한다(사용자 지적 2026-06-12).
+    exact_jiao = _exact_jiao_dates(result)
     daewoon = [
         DaewoonEntry(
             period=f"{d.approx_start_date.year}~{d.approx_end_date.year}",
             ganji=d.ganji,
             age_range=f"{d.start_age}~{d.start_age + 9}세",
+            jiao_date=_nearest_jiao(d.approx_start_date, exact_jiao),
         )
         for d in lc.daewoon_table
         if long_term or d.ganji in wanted_dw
@@ -279,8 +465,8 @@ def _selection_reason(year_label: str, selected: list[EventCandidate]) -> str:
     return f"{top.event_key} {top.score}점"
 
 
-def _birth_summary(result: ManseV2Result) -> BirthChartSummary:
-    """원국 요약(확정값만 — LLM 재판정 금지)."""
+def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
+    """원국 요약(확정값만 — LLM 재판정 금지). 대화·보고서 공용."""
     assert result.pillars is not None
     p = result.pillars
     pillars = {"year": p.year.ganji, "month": p.month.ganji, "day": p.day.ganji}
@@ -290,35 +476,106 @@ def _birth_summary(result: ManseV2Result) -> BirthChartSummary:
     if result.force_analysis is not None:
         strength = result.force_analysis.strength.band
     fav = favorability_map(result)
+    roles = lambda name: [el for el, role in fav.items() if role == name]  # noqa: E731
+    geokguk = ""
+    g = result.geokguk
+    if g is not None and g.main_structure:
+        parts = [g.main_structure, g.formation_level]
+        if g.evaluation is not None:
+            parts.append(g.evaluation.success_failure_label)
+        geokguk = " · ".join(part for part in parts if part)
     return BirthChartSummary(
         day_master=p.day_master,
         pillars=pillars,
         void_branches=list(p.gongmang_branches),
         strength=strength,
         useful_gods=UsefulGods(
-            yongsin=[el for el, role in fav.items() if role == "용신"],
-            gisin=[el for el, role in fav.items() if role == "기신"],
+            yongsin=roles("용신"), heesin=roles("희신"), gisin=roles("기신"),
+            gusin=roles("구신"), hansin=roles("한신"),
         ),
+        geokguk=geokguk,
     )
 
 
+_MAX_SIGNALS_KO = 4  # 후보별 동반 신호 표기 상한
+
+
 def _to_llm_candidate(
-    c: EventCandidate, ganji: dict[str, str], dw_by_year: dict[int, str]
+    c: EventCandidate,
+    ganji: dict[str, str],
+    dw_by_year: dict[int, str],
+    day_master: str = "",
+    fav_map: dict[str, str] | None = None,
+    result: ManseV2Result | None = None,
 ) -> LlmEventCandidate:
+    period_ganji = ganji.get(c.period, "")
+    # 동반 신호 매트릭스(v2.2.1) — 사건명을 결정한 신호 구성을 LLM에 명시.
+    signals_ko: list[str] = []
+    for sig in c.signals:
+        label = _INTERNAL_NOTE_RE.sub("", sig.effect or sig.name).strip()
+        if label and label not in signals_ko:
+            signals_ko.append(label)
+        if len(signals_ko) >= _MAX_SIGNALS_KO:
+            break
+    note = ""
+    if day_master and period_ganji:
+        note = incoming_ten_god_note(day_master, period_ganji, fav_map or {})
+    # 운 암합(보조) — 점수 미반영, 물밑·비공식 뉘앙스 참고(2026-06-12 자료).
+    amhap_notes: list[str] = []
+    if result is not None and result.pillars is not None and len(period_ganji) == 2:
+        amhaps = detect_luck_amhap(period_ganji[0], period_ganji[1], result.pillars)
+        amhap_notes = [a.describe() for a in amhaps[:2]]
+    # 유불리 주의(후보별 사실 데이터) — 천간이 흉신이면 사건이 발생해도 계약·결실에
+    # 불리. 표 각주만으론 지지 희신 서사에 묻혀 무시되는 사례 방지(2026-06-12).
+    caution = ""
+    if fav_map and len(period_ganji) == 2:
+        try:
+            stem_el = str(STEM_ELEMENT[Stem(period_ganji[0])])
+            stem_role = fav_map.get(stem_el)
+            if stem_role in ("기신", "구신"):
+                caution = (
+                    f"천간 {period_ganji[0]}({stem_el} {stem_role}) — 사건이 "
+                    "일어나도 계약·결실·실속에 불리한 시기(조건 악화·소모 주의). "
+                    "이 시기를 우호적으로만 서술하지 말 것."
+                )
+        except ValueError:
+            pass
+    # 검토월 판정(G3 — 계사월 케이스 일반화): 불안정 신호(중복 충·공망·대운 공망)가
+    # 동반되면 이동·변동 신호가 강해도 계약 유지력이 낮다 — 실행이 아니라 검토의 시기.
+    unstable = any(
+        ("중복 충" in (s.effect or "")) or ("공망" in (s.effect or ""))
+        for s in c.signals
+    )
+    if unstable:
+        review_note = (
+            "이동·변동 신호는 강하나 공망·중복 충으로 계약 유지력이 낮은 시기 — "
+            "'실행월'이 아니라 '검토월'(조사·조건 확인까지)로 안내할 것."
+        )
+        caution = f"{caution} {review_note}".strip()
     return LlmEventCandidate(
         event_key=c.event_key,
         event_ko=event_ko(c.event_key),
         period=c.period,
-        ganji=ganji.get(c.period, ""),
+        ganji=period_ganji,
         daewoon_context=dw_by_year.get(int(c.period[:4]), "") if c.period[:4].isdigit() else "",
         score=c.score,
         signal_count=len(c.signals),
         confidence=str(c.confidence),
         polarity=str(c.polarity),
+        signals_ko=signals_ko,
+        incoming_note=note,
+        amhap_notes=amhap_notes,
+        caution_note=caution,
     )
 
 
 _WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
+
+
+def _prev_month(month: str) -> str:
+    """'YYYY-MM' 직전 달 라벨."""
+    y, m = int(month[:4]), int(month[5:7])
+    return f"{y - 1}-12" if m == 1 else f"{y}-{m - 1:02d}"
 
 
 def build_reference_frame(
@@ -333,6 +590,17 @@ def build_reference_frame(
         f"질문의 시점 표현은 {period} 구간으로 해석되었다."
         if period else "질문에 시점이 명시되지 않았다 — 오늘 기준 흐름으로 안내."
     )
+    # P6(2026-06-12): 질문 창이 과거~미래에 걸치면(예: '올해') 이미 지난 구간과 남은
+    # 구간을 데이터로 명시 — 지난 달(4월 등)을 다가올 트리거처럼 서술하는 오류 차단.
+    if start and end:
+        cur = f"{today.year}-{today.month:02d}"
+        start_m = start[:7] if len(start) >= 7 else f"{start}-01"
+        end_m = end[:7] if len(end) >= 7 else f"{end}-12"
+        if start_m < cur <= end_m:
+            note += (
+                f" 이 중 {start_m}~{_prev_month(cur)}는 이미 지났다(과거형으로만, "
+                f"앞으로의 권고·트리거로 쓰지 말 것) — 남은 구간은 {cur}~{end_m}이다."
+            )
     return ReferenceFrame(
         today=f"{today.isoformat()} ({_WEEKDAY_KO[today.weekday()]})",
         this_year=str(today.year),
@@ -343,27 +611,102 @@ def build_reference_frame(
 
 
 def build_monthly_overview(
-    result: ManseV2Result, candidates: list[EventCandidate], year: int
+    result: ManseV2Result,
+    candidates: list[EventCandidate],
+    year: int | None = None,
+    months: list[str] | None = None,
 ) -> list[MonthOverviewRow]:
-    """해당 연도 12개월 요약(P4 — v1 monthSummaryText 계승). 신호 없는 달도 표기."""
+    """12개월 요약(P4 — v1 monthSummaryText 계승). 신호 없는 달도 표기.
+
+    year: 달력상 한 해(1~12월) 요약. months: 명시적 'YYYY-MM' 목록(오늘 기준
+    롤링 창 등 달력 연도와 무관한 구간). 둘 중 하나는 제공해야 한다.
+    """
+    if months is None:
+        if year is None:
+            raise ValueError("build_monthly_overview: year 또는 months 필요")
+        months = [f"{year}-{m:02d}" for m in range(1, 13)]
     ganji = _ganji_lookup(result)
-    by_month: dict[str, EventCandidate] = {}
+    # 교운(대운 교체) 근접 라벨 — 월운 점수가 cap에 포화돼도 교운일 중심 가중 차이가
+    # 표에서 변별되게(2026-06-12 지적). 엔진의 교운 가중 모델과 같은 거리 기준.
+    jiao_dates = _exact_jiao_dates(result)
+    fav_map = favorability_map(result)
+
+    def _roles_for(period: str) -> str:
+        """그 달 천간·지지의 용기신 역할 '癸水 구신·巳火 희신' — 유불리 변별용."""
+        gj = ganji.get(period, "")
+        if len(gj) < 2:
+            return ""
+        try:
+            stem_el = str(STEM_ELEMENT[Stem(gj[0])])
+            branch_el = str(BRANCH_ELEMENT[Branch(gj[1])])
+        except ValueError:
+            return ""
+        parts = []
+        if fav_map.get(stem_el):
+            parts.append(f"{gj[0]}{stem_el} {fav_map[stem_el]}")
+        if fav_map.get(branch_el):
+            parts.append(f"{gj[1]}{branch_el} {fav_map[branch_el]}")
+        roles = "·".join(parts)
+        # 천간 흉신은 행에 경고를 직접 부착 — 각주만으론 우호 신호(지지 희신)에 묻혀
+        # 무시되는 사례 방지(2026-06-12: 1위 달을 '계약 기회'로 둔갑 서술).
+        if fav_map.get(stem_el) in ("기신", "구신"):
+            roles += " ⚠계약·결실 불리"
+        return roles
+
+    def _transition_for(period: str) -> str:
+        if not jiao_dates:
+            return ""
+        try:
+            mid = (
+                date_cls(int(period[:4]), 7, 1) if len(period) == 4
+                else date_cls(int(period[:4]), int(period[5:7]), 15)
+            )
+        except ValueError:
+            return ""
+        d = min(abs((mid - jd).days) for jd in jiao_dates)
+        if d <= 45:
+            return "대운 교체 정점"
+        if d <= 180:
+            return "대운 교체기"
+        if d <= 365:
+            return "대운 교체 영향권"
+        return ""
+    period_set = set(months)
+    # 월당 후보를 모아 상위 2개를 표기 — 한 달에 직업·이사처럼 성격이 다른 신호가 함께
+    # 강할 때 1개만 보여주면 다른 신호가 누락된다(2026-06-12: 2025-08 이사 누락 지적).
+    by_month: dict[str, list[EventCandidate]] = {}
     for c in candidates:
-        if len(c.period) == 7 and c.period.startswith(str(year)):
-            cur = by_month.get(c.period)
-            if cur is None or c.score > cur.score:
-                by_month[c.period] = c
+        if c.period in period_set:  # 월('YYYY-MM') 또는 연('YYYY') 라벨 — 창이 결정
+            by_month.setdefault(c.period, []).append(c)
     rows: list[MonthOverviewRow] = []
-    for m in range(1, 13):
-        period = f"{year}-{m:02d}"
-        top = by_month.get(period)
-        rows.append(MonthOverviewRow(
-            period=period,
-            ganji=ganji.get(period, ""),
-            top_event_ko=event_ko(top.event_key) if top else "",
-            score=top.score if top else None,
-            polarity=str(top.polarity) if top else "",
-        ))
+    month_raw: dict[str, float] = {}  # 달별 최강 후보의 raw — 창 내 상대 순위용
+    for period in months:
+        # 동점 시 동반 신호 수 우선(이벤트 후보 정렬과 일관).
+        cs = sorted(
+            by_month.get(period, []),
+            key=lambda x: (-x.score, -getattr(x, "raw_total", 0.0), -len(x.signals)),
+        )[:2]
+        if cs:
+            # 사건명은 발생 가능성 순(앞이 우세) — '>'로 우열을 명시(나열 오해 방지).
+            label = " > ".join(event_ko(c.event_key) for c in cs)
+            month_raw[period] = getattr(cs[0], "raw_total", 0.0)
+            rows.append(MonthOverviewRow(
+                period=period, ganji=ganji.get(period, ""),
+                top_event_ko=label, score=cs[0].score, polarity=str(cs[0].polarity),
+                transition=_transition_for(period), luck_roles=_roles_for(period),
+            ))
+        else:
+            rows.append(MonthOverviewRow(
+                period=period, ganji=ganji.get(period, ""),
+                top_event_ko="", score=None, polarity="",
+                transition=_transition_for(period), luck_roles=_roles_for(period),
+            ))
+    # 창 내 상대 강도 순위(클램프 전 raw 기준, 상위 3위까지) — 톤(점수 cap 포화)이
+    # 같아 보여도 '진짜 중요한 달'이 변별되게(절대값보다 상대 순위 신뢰 — docs/07).
+    ranked = sorted(month_raw.items(), key=lambda kv: (-kv[1], kv[0]))
+    rank_of = {p: i + 1 for i, (p, _v) in enumerate(ranked[:3])}
+    for row in rows:
+        row.strength_rank = rank_of.get(row.period)
     return rows
 
 
@@ -378,34 +721,69 @@ def build_llm_input(
     today: date_cls | None = None,
     monthly_overview: list[MonthOverviewRow] | None = None,
     date_selection: DateSelectionBlock | None = None,
+    is_followup_turn: bool = False,
+    period_fortune: PeriodFortune | None = None,
+    default_period: tuple[str, str] | None = None,
+    prior_claims: list[str] | None = None,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
 
     P1: today 제공 시 [기준 시점] 동반(LLM은 오늘을 모른다).
     P2: 질문 기간 내 후보 우선 — 기간 외 상위는 참고 블록으로 분리.
+    P5·P6(2026-06-12): default_period = 후보 축소용 **유효 창**(호출부가 '오늘이 속한
+    달'로 시작을 클램프해 전달) — 질문 창보다 우선한다. 이미 지난 달 후보가 메인에 올라
+    미래처럼 서술되는 시점 오류 차단(지난 기간은 out_of_range 배경 + '지남' 마커).
+    기준 시점 표시(P1)는 원래 질문 창을 그대로 쓴다.
     """
     graph_scope = [k for k in [intent.event_key, *intent.event_keys] if k is not None]
-    period_start = intent.time_range.start if intent.time_range else None
-    period_end = intent.time_range.end if intent.time_range else None
+    period_start: str | None
+    period_end: str | None
+    if default_period is not None:
+        period_start, period_end = default_period
+    elif intent.time_range is not None:
+        period_start = intent.time_range.start
+        period_end = intent.time_range.end
+    else:
+        period_start = period_end = None
     selected, out_of_range = reduce_with_context(
         candidates, graph_scope or [b.event_key for b in bundles],
         period_start, period_end,
     )
     dw_by_year = _daewoon_lookup(result)
     ganji = _ganji_lookup(result)
+    day_master = result.pillars.day_master if result.pillars else ""
+    fav_map = favorability_map(result)
 
-    llm_candidates = [_to_llm_candidate(c, ganji, dw_by_year) for c in selected]
-    out_candidates = [_to_llm_candidate(c, ganji, dw_by_year) for c in out_of_range]
-    selected_keys = {c.event_key for c in [*selected, *out_of_range]}
-    evidence = [
-        LlmEvidence(
-            event_key=b.event_key,
-            readable_paths=[p.readable for p in b.paths[:MAX_PATHS_PER_EVENT]],
-            contradicts=b.contradicts,
-        )
-        for b in bundles
-        if b.event_key in selected_keys
+    llm_candidates = [
+        _to_llm_candidate(c, ganji, dw_by_year, day_master, fav_map, result)
+        for c in selected
     ]
+    out_candidates = [
+        _to_llm_candidate(c, ganji, dw_by_year, day_master, fav_map, result)
+        for c in out_of_range
+    ]
+    selected_keys = {c.event_key for c in [*selected, *out_of_range]}
+    # 근거 경로(v2.2.1) — 이 사용자·이 시점의 **인스턴스 경로**(스코어러 산출)를 우선하고,
+    # 정적 그래프 경로는 인스턴스 경로가 없는 이벤트의 폴백으로만 쓴다.
+    instance_paths: dict[EventKey, list[list[str]]] = {}
+    for c in selected:
+        path = scorer.readable_path(c)
+        if path and path not in instance_paths.setdefault(c.event_key, []):
+            instance_paths[c.event_key].append(path)
+    evidence = []
+    for b in bundles:
+        if b.event_key not in selected_keys:
+            continue
+        paths = instance_paths.get(b.event_key) or [
+            p.readable for p in b.paths[:MAX_PATHS_PER_EVENT]
+        ]
+        evidence.append(LlmEvidence(
+            event_key=b.event_key,
+            readable_paths=paths[:MAX_PATHS_PER_EVENT],
+            contradicts=b.contradicts,
+            supports=b.supports,
+            interpretation_hints=b.interpretation_hints,
+        ))
     prohibited = list(_BASE_PROHIBITED)
     for b in bundles:
         if b.event_key in selected_keys:
@@ -415,19 +793,28 @@ def build_llm_input(
     return LlmInput(
         user_question=user_question,
         resolved_intent=intent,
-        birth_chart_summary=_birth_summary(result),
+        birth_chart_summary=build_birth_summary(result),
+        chart_interpretation=build_chart_interpretation(result),
         calendar_context=build_calendar_context(result, selected, intent),
         event_candidates=llm_candidates,
         out_of_range_candidates=out_candidates,
         no_candidates_in_period=bool(period_start or period_end) and not llm_candidates,
         reference=build_reference_frame(today, intent, result) if today else None,
+        is_followup_turn=is_followup_turn,
+        prior_claims=prior_claims or [],
         monthly_overview=monthly_overview or [],
+        period_fortune=period_fortune,
         date_selection=date_selection,
         evidence=evidence,
         style_rules=LlmStyleRules(
             prohibited=prohibited,
             tone_guide=_TONE_GUIDE,
-            llm_instruction=_BASE_INSTRUCTION,
+            llm_instruction=(
+                _BASE_INSTRUCTION
+                + _PERIOD_FORTUNE_INSTRUCTION.get(period_fortune.fortune_type, "")
+                + (_LUCK_SINSAL_INSTRUCTION if period_fortune.sinsal_lines else "")
+                if period_fortune is not None else _BASE_INSTRUCTION
+            ),
         ),
         budget=LlmBudget(
             max_input_tokens=limit.max_input_tokens,
@@ -436,14 +823,61 @@ def build_llm_input(
     )
 
 
+def serialize_chart_prefix(
+    summary: BirthChartSummary, ci: ChartInterpretation | None
+) -> list[str]:
+    """고정 prefix([원국·명식 구조]+[명식 해석 자료]) 직렬화 — 대화·보고서 공용.
+
+    사용자별로 바이트 단위 동일해야 한다(provider 캐시 조건) — 가변 값 삽입 금지.
+    """
+    ug = summary.useful_gods
+    lines: list[str] = [
+        "[원국·명식 구조 — 엔진 확정값]",
+        f"일간 {summary.day_master} · 명식 "
+        + " ".join(f"{k}:{v}" for k, v in summary.pillars.items())
+        + f" · 공망 {''.join(summary.void_branches) or '없음'} · 강약 {summary.strength}",
+        # 용희기구한 5역할 전부(항목 8) — 희신/구신/한신 질문에도 답할 수 있게.
+        f"용신 {','.join(ug.yongsin) or '미정'} · 희신 {','.join(ug.heesin) or '없음'} · "
+        f"기신 {','.join(ug.gisin) or '미정'} · 구신 {','.join(ug.gusin) or '없음'} · "
+        f"한신 {','.join(ug.hansin) or '없음'}",
+    ]
+    if summary.geokguk:
+        lines.append(f"격국: {summary.geokguk}")  # 항목 9
+    if ci is not None:
+        for pd in ci.pillar_details:
+            line = (
+                f"{pd.palace_ko} {pd.ganji} · 천간 {pd.stem_ten_god} · "
+                f"지지 {pd.branch_ten_god} · 운성 {pd.twelve_stage}"
+            )
+            if pd.palace_role:
+                line += f" · 궁성: {pd.palace_role}"
+            if pd.sinsal:
+                line += f" · 신살(보조): {','.join(pd.sinsal)}"
+            lines.append(line)
+        if ci.natal_relations:
+            lines.append("원국 관계: " + " / ".join(ci.natal_relations))
+        if ci.ilju_text or ci.excerpts:
+            lines += ["", "[명식 해석 자료 — 의미 서술의 근거(점수·판정 변경 금지)]"]
+            if ci.ilju_text:
+                lines.append(ci.ilju_text)
+            for ex in ci.excerpts:
+                lines.append(f"{ex.key}: {ex.text}")
+    return lines
+
+
 def serialize_llm_input(payload: LlmInput) -> str:
     """계약 → LLM 프롬프트 본문(한국어 사실 서술 — docs/06 '좋은 입력 예' 형태).
 
+    v2.2.1 2층 구조(docs/06): 고정 prefix([원국·명식 구조]+[명식 해석 자료] — 사용자별
+    멀티턴 동일, provider 캐시 대상) → 동적 suffix([기준 시점] 이하 — 질문마다 변경).
+    고정 prefix에는 날짜 등 가변 값을 넣지 않는다(캐시 무효화 방지).
     지시는 명령형으로, 데이터와 분리한다(표현 원칙 5).
     """
-    s = payload.birth_chart_summary
-    lines: list[str] = []
-    # [기준 시점] — 항상 최상단(P1): LLM은 오늘이 언제인지 모른다.
+    lines: list[str] = serialize_chart_prefix(
+        payload.birth_chart_summary, payload.chart_interpretation,
+    )
+    lines.append("")
+    # ── 동적 suffix (질문마다 변경) ──────────────────────────────
     if payload.reference is not None:
         r = payload.reference
         lines += [
@@ -455,19 +889,13 @@ def serialize_llm_input(payload: LlmInput) -> str:
             "",
         ]
     lines += [
-        "[원국]",
-        f"일간 {s.day_master} · 명식 "
-        + " ".join(f"{k}:{v}" for k, v in s.pillars.items())
-        + f" · 공망 {''.join(s.void_branches) or '없음'} · 강약 {s.strength}",
-        f"용신 {','.join(s.useful_gods.yongsin) or '미정'} / "
-        f"기신 {','.join(s.useful_gods.gisin) or '미정'}",
-        "",
         "[간지달력(압축)]",
     ]
     for d in payload.calendar_context.daewoon:
         period = d.period.replace("~", "-")
         ages = d.age_range.replace("~", "-")
-        lines.append(f"대운 {d.ganji} ({period}, {ages})")
+        jiao = f", 교운일 {d.jiao_date}" if d.jiao_date else ""
+        lines.append(f"대운 {d.ganji} ({period}, {ages}{jiao})")
     for y in payload.calendar_context.selected_years:
         lines.append(f"세운 {y.year} {y.ganji} (대운 {y.daewoon} 내) — 선별: {y.reason_selected}")
     for m in payload.calendar_context.selected_months:
@@ -475,48 +903,187 @@ def serialize_llm_input(payload: LlmInput) -> str:
     for day in payload.calendar_context.selected_days:
         lines.append(f"일운 {day.date} {day.ganji}")
     def candidate_line(c: LlmEventCandidate) -> str:
+        # 점수 숫자·신호 건수는 내부 변수라 노출하지 않는다(항목 5) — 강도는 치환
+        # 문장(tone_for_score)으로만 전달해 '100점=확정' 오인을 막는다.
         label = c.event_ko or event_ko(c.event_key)
         return (
             f"{label} @ {c.period}({c.ganji}, 대운 {c.daewoon_context}) "
-            f"{c.score}점(신호 {c.signal_count}건) · {polarity_ko(c.polarity)} · "
-            f"신뢰도 {c.confidence} → {tone_for_score(c.score)}"
+            f"— {tone_for_score(c.score)} · {polarity_ko(c.polarity)}"
         )
 
+    def candidate_block(c: LlmEventCandidate, with_notes: bool = True) -> list[str]:
+        block = [candidate_line(c)]
+        if with_notes and c.signals_ko:
+            block.append("  동반 신호: " + " / ".join(c.signals_ko))
+        if with_notes and c.incoming_note:
+            block.append(f"  해석: {c.incoming_note}")
+        if with_notes and c.amhap_notes:
+            # 운 암합 — 보조(물밑·비공식), 단독 결론 금지.
+            block.append("  운 암합(보조·물밑): " + " / ".join(c.amhap_notes))
+        if with_notes and c.caution_note:
+            # 유불리 주의 — 천간 흉신 시기는 발생해도 결실 불리(우호 단정 방지).
+            block.append(f"  ⚠유불리: {c.caution_note}")
+        return block
+
+    if payload.prior_claims:
+        lines.append("")
+        lines.append(
+            "[이전 답변에서 이미 제시한 엔진 결과 — 아래 사실과 모순 금지: 같은 기간을 "
+            "다른 사건·성격으로 뒤집지 말 것. 새 질문의 관점에서 재해석은 가능하나, "
+            "이미 말한 시기 판정과 어긋나면 그 차이를 명시적으로 설명할 것]"
+        )
+        for cl in payload.prior_claims:
+            lines.append(f"- {cl}")
     lines.append("")
-    lines.append("[이벤트 후보 — 점수는 확정값, 재계산 금지]")
+    lines.append(
+        "[이벤트 후보 — 그 기간에 가능성이 상대적으로 높은 사건의 추측 신호. "
+        "기간 전체를 대표하지 않음, 강도는 표현 그대로 인용]"
+    )
     if payload.no_candidates_in_period:
         lines.append(
             "질문 기간 내 해당 도메인 후보 없음 — '해당 기간에는 뚜렷한 신호가 "
             "없습니다'로 정직하게 안내할 것(추측 금지)."
         )
     for c in payload.event_candidates:
-        lines.append(candidate_line(c))
+        lines += candidate_block(c)
+    # 현재 달(기준 시점) — 지난 기간 행·후보에 '지남' 마커를 붙여 미래 서술을 차단(P6).
+    cur_month = payload.reference.today[:7] if payload.reference else ""
     if payload.out_of_range_candidates:
         lines.append("")
         lines.append("[참고 — 질문 기간 외 흐름(메인 서술 금지, 배경 맥락 전용)]")
         for c in payload.out_of_range_candidates:
-            lines.append(candidate_line(c))
+            lines += candidate_block(c, with_notes=False)
+            c_end = c.period[:7] if len(c.period) >= 7 else f"{c.period}-12"
+            if cur_month and c_end < cur_month:
+                lines.append("  ※ 위 기간은 이미 지났다 — 과거형으로만, 앞으로의 권고 금지.")
     if payload.monthly_overview:
         lines.append("")
-        lines.append("[월별 요약 — 질문 연도 12개월(값 그대로 사용, 추측 금지)]")
+        _ov = payload.monthly_overview
+        _span = f"{_ov[0].period}~{_ov[-1].period}" if _ov else ""
+        _is_yearly = bool(_ov) and len(_ov[0].period) == 4
+        lines.append(
+            f"[연도별 흐름 — {_span} {len(_ov)}년(값 그대로 사용, 추측 금지; "
+            "점수 낮은 해 = 그 사건의 신호가 거의 없던 해)]"
+            if _is_yearly else
+            f"[월별 요약 — {_span} {len(_ov)}개월(값 그대로 사용, 추측 금지)]"
+        )
+        has_transition = False
+        has_rank = False
         for row in payload.monthly_overview:
+            row_cmp = cur_month[: len(row.period)] if cur_month else ""
+            past_mark = (
+                " · 지남(과거형으로만)"
+                if row_cmp and row.period < row_cmp else ""
+            )
+            tr_mark = f" · {row.transition}" if row.transition else ""
+            has_transition = has_transition or bool(row.transition)
+            rank_mark = ""
+            if row.strength_rank is not None:
+                has_rank = True
+                rank_mark = (
+                    " · ★기간 내 강도 1위" if row.strength_rank == 1
+                    else f" · 기간 내 강도 {row.strength_rank}위"
+                )
+            roles_mark = f" [{row.luck_roles}]" if row.luck_roles else ""
             if row.score is not None:
                 lines.append(
-                    f"{row.period} {row.ganji}: {row.top_event_ko} {row.score}점 "
+                    f"{row.period} {row.ganji}{roles_mark}: {row.top_event_ko} "
                     f"· {polarity_ko(row.polarity)} → {tone_for_score(row.score)}"
+                    f"{rank_mark}{tr_mark}{past_mark}"
                 )
             elif not row.ganji:
                 lines.append(f"{row.period}: 입춘 전 — 전년 세운 구간(월운 정보 없음)")
             else:
-                lines.append(f"{row.period} {row.ganji}: 특이 신호 없음")
+                lines.append(
+                    f"{row.period} {row.ganji}{roles_mark}: 특이 신호 없음"
+                    f"{tr_mark}{past_mark}"
+                )
+        lines.append(
+            "(표 읽는 법: 사건명은 그 달 발생 가능성 순 — '>' 앞이 우세. [간지 역할]은 "
+            "유불리 — 천간이 구신·기신인 달은 사건이 발생해도 계약·결실·실속에 불리할 수 "
+            "있으니 '좋은 달'로 단정하지 말 것(발생 강도와 유불리를 구분)."
+            + (
+                " 표현 강도가 같아 보여도 '기간 내 강도 N위'가 실제 상대 순위 — "
+                "가장 유력한 달은 1위부터 지목하되 유불리를 함께 밝힐 것."
+                if has_rank else ""
+            )
+            + (
+                " 교운 표기는 '정점'에 가까울수록 대운 교체의 갑작스러운·비자발적 "
+                "전환 에너지가 강함 — 동급이면 교운 근접 달을 우선."
+                if has_transition else ""
+            )
+            + ")"
+        )
+        # 유력 달 종합 판정(2026-06-12) — 순위·우세 사건·유불리·교운이 표·후보에
+        # 흩어져 LLM이 일부를 누락하는 문제를 엔진 사전 종합으로 차단. 답의 골자.
+        ranked_rows = sorted(
+            (r for r in payload.monthly_overview if r.strength_rank is not None),
+            key=lambda r: r.strength_rank or 9,
+        )
+        if ranked_rows:
+            asked_ko = (
+                event_ko(payload.resolved_intent.event_key)
+                if payload.resolved_intent.event_key is not None else ""
+            )
+            lines.append(
+                "[유력 달 종합 — 엔진 확정 골자. 각 달을 서술할 때 아래의 우세 사건·"
+                "유불리·주의를 반드시 그대로 함께 밝힐 것(누락 금지)]"
+            )
+            for mr in ranked_rows:
+                events = mr.top_event_ko.split(" > ")
+                dominant = events[0] if events else ""
+                second = f"(2순위 {events[1]})" if len(events) > 1 else ""
+                bits = [
+                    f"우세 사건 '{dominant}'{second}",
+                    f"성격 {polarity_ko(mr.polarity)}",
+                ]
+                # 질문 사건과 그 달 우세 사건이 다르면 명시 — 사건명 단정 오류 방지
+                # (regression_2025_08: 甲申월은 이사 우세, 이직은 동반 2순위).
+                if asked_ko and dominant and dominant != asked_ko:
+                    bits.append(
+                        f"※ 이 달의 주된 신호는 '{dominant}' — "
+                        f"질문하신 '{asked_ko}'은(는) 동반 신호로만 서술할 것"
+                    )
+                if mr.luck_roles:
+                    bits.append(f"간지 역할 {mr.luck_roles}")
+                if mr.transition:
+                    bits.append(mr.transition)
+                line = f"{mr.strength_rank}위 {mr.period} {mr.ganji}: " + " · ".join(bits)
+                if "⚠" in (mr.luck_roles or ""):
+                    line += (
+                        " — 발생 신호는 강하나 결실·실속이 불리한 '검토월' 성격"
+                        "(이 달을 우호적으로만 서술 금지)"
+                    )
+                lines.append(line)
+    if payload.period_fortune is not None:
+        pf = payload.period_fortune
+        header, pillar_label = _PERIOD_FORTUNE_HEADER.get(
+            pf.fortune_type, ("기간 총운", "운")
+        )
+        lines.append("")
+        lines.append(
+            f"[{header} — {pf.period_label} {pf.ganji} · {pillar_label}·슬롯(엔진 확정값)]"
+        )
+        lines.append(f"{pillar_label}: {pf.pillar_line}")
+        if pf.luck_label or pf.luck_summary:
+            lines.append(f"운 요약: {pf.luck_label} — {pf.luck_summary}")
+        for rl in pf.relation_lines:
+            lines.append(f"형충회합: {rl}")
+        for sl in pf.sinsal_lines:
+            lines.append(sl)
+        if pf.gongmang:
+            lines.append("공망: " + ", ".join(pf.gongmang))
+        for slot in pf.slots:
+            lines.append(f"· {slot.name}({tone_for_score(slot.score)}): {slot.summary}")
     if payload.date_selection is not None:
         ds = payload.date_selection
         lines.append("")
         lines.append(f"[택일 결과 — {ds.purpose_ko} · {ds.period} · 엔진 확정값]")
         for drow in ds.rows:
             notes = " · ".join(drow.notes) if drow.notes else ""
+            # 택일 점수도 내부값 — 추천 등급(라벨)만 노출(항목 5).
             lines.append(
-                f"{drow.date}({drow.weekday}) {drow.ganji} {drow.score}점 "
+                f"{drow.date}({drow.weekday}) {drow.ganji} "
                 f"[{drow.recommendation}]" + (f" — {notes}" if notes else "")
             )
         for avoid in ds.avoid[:5]:
@@ -530,12 +1097,31 @@ def serialize_llm_input(payload: LlmInput) -> str:
         for path in e.readable_paths:
             cleaned = [_INTERNAL_NOTE_RE.sub("", step) for step in path]
             lines.append(f"{label}: " + " → ".join(cleaned))
+        if e.supports:
+            cleaned_sup = [_INTERNAL_NOTE_RE.sub("", x) for x in e.supports]
+            lines.append(f"{label} 보조 근거: {', '.join(cleaned_sup)}")
         if e.contradicts:
             cleaned_contra = [_INTERNAL_NOTE_RE.sub("", x) for x in e.contradicts]
             lines.append(f"{label} 반대 근거: {', '.join(cleaned_contra)}")
+        if e.interpretation_hints:
+            cleaned_hints = [_INTERNAL_NOTE_RE.sub("", x) for x in e.interpretation_hints]
+            lines.append(f"{label} 해석 힌트: {', '.join(cleaned_hints)}")
     lines.append("")
     lines.append("[지시]")
     lines.append(payload.style_rules.llm_instruction)
+    if payload.chart_interpretation is not None:
+        lines.append(_MEANING_INSTRUCTION)
+        lines.append(_AUXILIARY_INSTRUCTION)
+        lines.append(_SINSAL_POSITION_INSTRUCTION)
+        lines.append(_ORIGIN_INSTRUCTION)
+        lines.append(_STRUCTURE_INSTRUCTION)
+        lines.append(_REVERSAL_INSTRUCTION)
+        lines.append(_HARMONY_INSTRUCTION)
+        lines.append(_BANGHAP_INSTRUCTION)
+    if payload.event_candidates:
+        lines.append(_MATRIX_INSTRUCTION)
+        lines.append(_SCOPE_INSTRUCTION)
+        lines.append(_HIERARCHY_INSTRUCTION)
     if payload.reference is not None:
         lines.append(_REFERENCE_INSTRUCTION)
     lines.append(_LABEL_INSTRUCTION)
@@ -544,7 +1130,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
     if payload.date_selection is not None:
         lines.append(_DATE_TABLE_INSTRUCTION)
     lines.append(_SELF_CHECK_INSTRUCTION)
-    lines.append(f"표현 강도: {payload.style_rules.tone_guide}")
+    if payload.is_followup_turn:
+        lines.append(_FOLLOWUP_INSTRUCTION)
+    lines.append(_FORMAT_INSTRUCTION)
+    lines.append(_LENGTH_INSTRUCTION)
     lines.append("금기 표현: " + ", ".join(payload.style_rules.prohibited))
     if payload.persona.prompt_block:
         lines.append(payload.persona.prompt_block)
@@ -565,12 +1154,17 @@ def serialize_with_guard(
     try:
         return text, guard.check_input(text)
     except TokenBudgetExceeded:
+        ci = payload.chart_interpretation
         shrunk = payload.model_copy(update={
             "event_candidates": payload.event_candidates[:3],
             "evidence": [
                 e.model_copy(update={"readable_paths": e.readable_paths[:1]})
                 for e in payload.evidence[:3]
             ],
+            # 해석 발췌도 절반으로 — 일주 본문·명식 구조는 보존(풀이 품질 우선).
+            "chart_interpretation": (
+                ci.model_copy(update={"excerpts": ci.excerpts[:4]}) if ci else None
+            ),
         })
         text = serialize_llm_input(shrunk)
         return text, guard.check_input(text)

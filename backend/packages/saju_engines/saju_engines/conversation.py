@@ -184,7 +184,11 @@ class ConversationEngine:
         # 2순위 — 단답(10자 이하) + 슬롯 1개만 → 교체상속(B2/B3).
         compact = text.replace(" ", "")
         if len(compact) <= 10:
-            if re.search(r"\d{1,2}월|오늘|내일|모레|글피|올해|내년|이번\s*주", text):
+            if re.search(
+                r"\d{1,2}월|오늘|내일|모레|글피|올해|내년|이번\s*주"
+                r"|[년연월주일]\s*단위",  # '년단위였어' — 직전 질문의 기간 단위 정정(2026-06-12)
+                text,
+            ):
                 return self._follow(parent_id, LinkKind.TIME_SHIFT, state)
             if _detect_domains(text):
                 return self._follow(parent_id, LinkKind.DOMAIN_SHIFT, state)

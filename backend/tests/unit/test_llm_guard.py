@@ -15,9 +15,12 @@ from saju_engines.llm_guard import (
 
 def test_limit_table_matches_spec() -> None:
     """docs/09 8장 한도표 6행이 그대로 수록된다(임의 상향 금지의 기준점)."""
-    assert CALL_LIMITS["chat_single"].max_input_tokens == 6_000
-    assert CALL_LIMITS["chat_single"].max_output_tokens == 1_200
-    assert CALL_LIMITS["chat_compare"].max_input_tokens == 8_000
+    # v2.2.1 개정표(2026-06-12 사용자 승인 — 해석 사전 prefix 포함 상향).
+    assert CALL_LIMITS["chat_single"].max_input_tokens == 12_000
+    # 출력 토큰 상한 = thinking + 가시 출력 합산(Gemini) — thinking 잠식 방지 상향.
+    assert CALL_LIMITS["chat_single"].max_output_tokens == 5_000
+    assert CALL_LIMITS["chat_single"].max_output_chars == 1_500
+    assert CALL_LIMITS["chat_compare"].max_input_tokens == 14_000
     assert CALL_LIMITS["query_parser"].max_input_tokens == 2_000
     assert CALL_LIMITS["report_focus_section"].max_output_chars == 4_500
     assert CALL_LIMITS["consistency_check"].max_output_tokens == 500
@@ -39,14 +42,14 @@ def test_check_input_blocks_before_call() -> None:
         guard.check_input("가" * 2_001)
 
 
-def test_request_params_disable_thinking() -> None:
-    """운영 호출 전체에서 extended thinking 비활성 강제(절대 원칙 9).
+def test_request_params_no_thinking_key() -> None:
+    """thinking 수준은 llm_config.json에서만 관리(절대 원칙 9 v2.2.1 — low 이하).
 
-    비활성은 thinking 파라미터 생략으로 구현한다(명시적 disabled는 일부 모델 400).
+    가드 파라미터에는 thinking 키 자체가 없어야 한다(설정 파일 단일 관리).
     """
     params = LLMCallGuard("chat_single").request_params()
-    assert "thinking" not in params  # 생략 = 비활성, 활성화 키 자체가 없어야 함
-    assert params["max_tokens"] == 1_200
+    assert "thinking" not in params
+    assert params["max_tokens"] == 5_000
 
 
 def test_unknown_call_type_rejected() -> None:

@@ -96,10 +96,11 @@ def test_serialized_prompt_within_guard(chart, candidates, bundles, scorer) -> N
     """직렬화 본문이 한도(chat_single 6k) 안에서 통과하고 4요소를 포함한다."""
     payload = build_llm_input("올해 이직운 어때?", _intent(), chart, candidates, bundles, scorer)
     text, tokens = serialize_with_guard(payload, "chat_single")
-    assert 0 < tokens <= 6_000
-    for section in ("[원국]", "[간지달력(압축)]", "[이벤트 후보", "[근거 경로]", "[지시]"):
+    assert 0 < tokens <= 12_000
+    for section in ("[원국·명식 구조", "[간지달력(압축)]", "[이벤트 후보", "[근거 경로]", "[지시]"):
         assert section in text
-    assert "재계산 금지" in text  # LLM 계산 금지 고지
+    # 이벤트 후보는 점수 확정값이 아니라 '추측 신호'로 고지(항목 10).
+    assert "추측 신호" in text
 
 
 def test_tone_mapping_table() -> None:
@@ -124,4 +125,4 @@ def test_budget_from_call_limits(chart, candidates, bundles, scorer) -> None:
     payload = build_llm_input(
         "이직운", _intent(), chart, candidates, bundles, scorer, call_type="chat_compare",
     )
-    assert payload.budget.max_input_tokens == 8_000
+    assert payload.budget.max_input_tokens == 14_000

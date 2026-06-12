@@ -1,0 +1,143 @@
+{
+  "version": "1.0.0",
+  "domain": "relationship",
+  "items": [
+    {
+      "signal": {
+        "shinsal": "도화",
+        "relation": "six_combination"
+      },
+      "eventCandidates": [
+        {
+          "event": "relationship_start",
+          "score": 0.65,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "도화+합 — 인연·매력 활성(동반 신호 매트릭스: 신살 단독 판정 금지)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "정재",
+        "relation": "six_combination"
+      },
+      "eventCandidates": [
+        {
+          "event": "relationship_start",
+          "score": 0.6,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "재성 유입+합 — 인연 결합 신호",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "정관",
+        "relation": "six_combination"
+      },
+      "eventCandidates": [
+        {
+          "event": "relationship_start",
+          "score": 0.6,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "관성 유입+합 — 인연 결합 신호",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "three_harmony",
+        "favorability": "용신"
+      },
+      "eventCandidates": [
+        {
+          "event": "marriage",
+          "score": 0.55,
+          "polarity": "positive"
+        },
+        {
+          "event": "relationship_start",
+          "score": 0.5,
+          "polarity": "positive"
+        }
+      ],
+      "note": "삼합 세력+용신 — 관계 결속·결혼 후보",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "branch_clash",
+        "favorability": "기신"
+      },
+      "eventCandidates": [
+        {
+          "event": "relationship_end",
+          "score": 0.6,
+          "polarity": "negative_or_forced"
+        }
+      ],
+      "note": "충+기신 — 관계 긴장·이별 리스크(단정 금지, 활성창 안내)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "harm",
+        "branchTenGod": "정재"
+      },
+      "eventCandidates": [
+        {
+          "event": "relationship_end",
+          "score": 0.45,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "해(害)+재성 지지 — 가까운 관계의 서운함 누적 신호",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "shinsal": "고신살"
+      },
+      "eventCandidates": [
+        {
+          "event": "relationship_start",
+          "score": -0.3,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 고신살: 홀로서기 기운이 새 인연 시작을 지연(통설)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "shinsal": "과숙살"
+      },
+      "eventCandidates": [
+        {
+          "event": "relationship_start",
+          "score": -0.3,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 과숙살: 고독 기운이 새 인연 시작을 지연(통설)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "void"
+      },
+      "eventCandidates": [
+        {
+          "event": "marriage",
+          "score": -0.25,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 공망 활성: 혼인 결실의 확정력이 공허해짐",
+      "reviewed": false
+    }
+  ]
+}

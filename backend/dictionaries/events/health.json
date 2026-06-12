@@ -1,0 +1,122 @@
+{
+  "version": "1.0.0",
+  "domain": "health",
+  "items": [
+    {
+      "signal": {
+        "relation": "branch_clash",
+        "favorability": "기신"
+      },
+      "eventCandidates": [
+        {
+          "event": "health_issue",
+          "score": 0.55,
+          "polarity": "negative_or_forced"
+        }
+      ],
+      "note": "충+기신 — 컨디션 저하·과로 신호(의료 조언 아님 고지 동반)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "punishment_triple"
+      },
+      "eventCandidates": [
+        {
+          "event": "health_issue",
+          "score": 0.5,
+          "polarity": "conditional"
+        },
+        {
+          "event": "surgery",
+          "score": 0.4,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "삼형 — 조정·치료(수술 포함) 가능 국면(단정 금지·의료 고지)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "편관",
+        "favorability": "기신"
+      },
+      "eventCandidates": [
+        {
+          "event": "health_issue",
+          "score": 0.5,
+          "polarity": "negative_or_forced"
+        }
+      ],
+      "note": "칠살+기신 — 압박·소모 누적(휴식 부족) 신호",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "branchTenGod": "식신",
+        "relation": "branch_clash"
+      },
+      "eventCandidates": [
+        {
+          "event": "health_issue",
+          "score": 0.45,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "식신(의식주·건강) 지지 충 — 생활 리듬·소화 계통 관리 신호",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "self_punishment"
+      },
+      "eventCandidates": [
+        {
+          "event": "health_issue",
+          "score": 0.4,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "자형 — 자기 소모·스트레스 관리 신호",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "shinsal": "천덕귀인"
+      },
+      "eventCandidates": [
+        {
+          "event": "health_issue",
+          "score": -0.25,
+          "polarity": "neutral"
+        },
+        {
+          "event": "surgery",
+          "score": -0.2,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 천덕귀인: 음덕이 건강 흉사·수술 리스크를 완화(흉사 완충 통설)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "shinsal": "월덕귀인"
+      },
+      "eventCandidates": [
+        {
+          "event": "health_issue",
+          "score": -0.2,
+          "polarity": "neutral"
+        },
+        {
+          "event": "lawsuit",
+          "score": -0.15,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 월덕귀인: 덕성이 건강·관재 흉사를 완화(흉사 완충 통설)",
+      "reviewed": false
+    }
+  ]
+}

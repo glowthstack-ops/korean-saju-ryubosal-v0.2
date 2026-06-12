@@ -1,11 +1,13 @@
 {
-  "note": "LLM 운영 설정 — 단일 관리 파일. 모델·폴백·키 env 이름·생성 옵션을 여기서만 변경한다(코드 수정 불요). thinking/추론 모드는 모든 운영 호출에서 비활성(절대 원칙 9).",
+  "note": "LLM 운영 설정 — 단일 관리 파일. 모델·폴백·키 env 이름·생성 옵션을 여기서만 변경한다(코드 수정 불요). thinking은 절대 원칙 9(v2.2.1)에 따라 low 이하 — 통변 호출은 LOW, Query Parser는 MINIMAL(비활성 상당) 유지. [2026-06-12: gemini-3-flash-preview 503/행 장애로 안정판 gemini-2.5-flash 전환(thinkingBudget 512=LOW 상당). 프리뷰 안정화 시 원복 검토.]",
   "primary": {
     "provider": "gemini",
-    "model": "gemini-3-flash-preview",
+    "model": "gemini-2.5-flash",
     "api_key_env": "GEMINI_API_KEY",
     "generation_extras": {
-      "thinkingConfig": { "thinkingLevel": "MINIMAL" }
+      "thinkingConfig": {
+        "thinkingBudget": 512
+      }
     }
   },
   "fallback": {
@@ -13,7 +15,7 @@
     "model": "gpt-5-mini",
     "api_key_env": "OPENAI_API_KEY",
     "generation_extras": {
-      "reasoning_effort": "minimal"
+      "reasoning_effort": "low"
     },
     "output_token_buffer": 2500
   },
@@ -22,7 +24,9 @@
     "model": "gemini-3-flash-preview",
     "api_key_env": "GEMINI_API_KEY",
     "generation_extras": {
-      "thinkingConfig": { "thinkingLevel": "MINIMAL" }
+      "thinkingConfig": {
+        "thinkingLevel": "MINIMAL"
+      }
     }
   },
   "options": {

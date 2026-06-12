@@ -1,0 +1,148 @@
+{
+  "version": "1.0.0",
+  "reviewed": false,
+  "stages": {
+    "장생": {
+      "group": "성장기",
+      "phaseType": "growth",
+      "keywords": ["시작", "생기", "성장", "보호받는 출발"],
+      "stability": 0.35,
+      "changeDrive": 0.55,
+      "careerChangeBias": 0.1,
+      "relocationBias": 0.1,
+      "relationshipBias": 0.2
+    },
+    "목욕": {
+      "group": "성장기",
+      "phaseType": "exposure",
+      "keywords": ["노출", "도화", "변덕", "감정기복", "이미지 변화"],
+      "stability": 0.15,
+      "changeDrive": 0.75,
+      "careerChangeBias": 0.15,
+      "relocationBias": 0.1,
+      "relationshipBias": 0.45
+    },
+    "관대": {
+      "group": "성장기",
+      "phaseType": "expansion",
+      "keywords": ["확장", "자기주장", "도전", "사회적 진입"],
+      "stability": 0.45,
+      "changeDrive": 0.65,
+      "careerChangeBias": 0.25,
+      "relocationBias": 0.1,
+      "relationshipBias": 0.2
+    },
+    "건록": {
+      "group": "왕성기",
+      "phaseType": "established",
+      "keywords": ["안정", "자립", "현상유지", "직위", "기반", "정착"],
+      "stability": 0.85,
+      "changeDrive": 0.25,
+      "careerChangeBias": -0.35,
+      "relocationBias": -0.2,
+      "relationshipBias": -0.05
+    },
+    "제왕": {
+      "group": "왕성기",
+      "phaseType": "peak",
+      "keywords": ["정점", "강한 주도권", "독립성", "고집", "극대화"],
+      "stability": 0.7,
+      "changeDrive": 0.45,
+      "careerChangeBias": 0.05,
+      "relocationBias": 0.0,
+      "relationshipBias": -0.05
+    },
+    "쇠": {
+      "group": "왕성기",
+      "phaseType": "soft_decline",
+      "keywords": ["완만한 하강", "조정", "보수화", "관리"],
+      "stability": 0.65,
+      "changeDrive": 0.3,
+      "careerChangeBias": -0.15,
+      "relocationBias": -0.05,
+      "relationshipBias": -0.05
+    },
+    "병": {
+      "group": "쇠퇴기",
+      "phaseType": "weakening",
+      "keywords": ["피로", "약화", "정리 필요", "불안정"],
+      "stability": 0.25,
+      "changeDrive": 0.55,
+      "careerChangeBias": 0.15,
+      "relocationBias": 0.1,
+      "relationshipBias": 0.0
+    },
+    "사": {
+      "group": "쇠퇴기",
+      "phaseType": "ending",
+      "keywords": ["종료", "단절", "멈춤", "내면화"],
+      "stability": 0.2,
+      "changeDrive": 0.6,
+      "careerChangeBias": 0.2,
+      "relocationBias": 0.15,
+      "relationshipBias": -0.05
+    },
+    "묘": {
+      "group": "쇠퇴기",
+      "phaseType": "storage",
+      "keywords": ["저장", "숨김", "정체", "보류", "마무리"],
+      "stability": 0.55,
+      "changeDrive": 0.25,
+      "careerChangeBias": -0.1,
+      "relocationBias": -0.05,
+      "relationshipBias": -0.1
+    },
+    "절": {
+      "group": "재생기",
+      "phaseType": "cutoff",
+      "keywords": ["단절", "리셋", "급변", "끊김"],
+      "stability": 0.05,
+      "changeDrive": 0.85,
+      "careerChangeBias": 0.35,
+      "relocationBias": 0.25,
+      "relationshipBias": 0.1
+    },
+    "태": {
+      "group": "재생기",
+      "phaseType": "conception",
+      "keywords": ["가능성", "준비", "구상", "잠재"],
+      "stability": 0.3,
+      "changeDrive": 0.45,
+      "careerChangeBias": 0.05,
+      "relocationBias": 0.05,
+      "relationshipBias": 0.15
+    },
+    "양": {
+      "group": "재생기",
+      "phaseType": "nurturing",
+      "keywords": ["보호", "준비", "양육", "내부 성장"],
+      "stability": 0.5,
+      "changeDrive": 0.3,
+      "careerChangeBias": -0.05,
+      "relocationBias": -0.05,
+      "relationshipBias": 0.05
+    }
+  },
+  "groups": {
+    "성장기": {
+      "members": ["장생", "목욕", "관대"],
+      "meaning": "시작, 성장, 표현, 외부 노출",
+      "defaultChangeModifier": 0.1
+    },
+    "왕성기": {
+      "members": ["건록", "제왕", "쇠"],
+      "meaning": "자립, 기반, 사회적 안정, 현상 유지",
+      "defaultChangeModifier": -0.15
+    },
+    "쇠퇴기": {
+      "members": ["병", "사", "묘"],
+      "meaning": "약화, 정리, 보류, 종료",
+      "defaultChangeModifier": 0.05
+    },
+    "재생기": {
+      "members": ["절", "태", "양"],
+      "meaning": "단절, 재시작, 잠재, 준비",
+      "defaultChangeModifier": 0.15
+    }
+  }
+}

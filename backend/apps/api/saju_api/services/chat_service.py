@@ -16,6 +16,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from saju_engines import EventScorer, GraphIndex, filter_year_candidates, load_event_graph
+from saju_engines.chart_interpretation import build_luck_grounding
 from saju_engines.context_reducer import (
     build_llm_input,
     build_monthly_overview,
@@ -31,16 +32,24 @@ from saju_engines.planner import build_execution_plan
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.query_parser import parse_message
 from saju_engines.rewriter import QueryAssessment, assess
+from saju_engines.topic_builder import build_lifestyle_context
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef
 from saju_shared_types.events import EventKey
 from saju_shared_types.ganji_calendar import GanjiLevel
-from saju_shared_types.intent import IntentJson, QueryType
-from saju_shared_types.llm_input import DateChoiceRow, DateSelectionBlock
+from saju_shared_types.intent import IntentJson, QueryType, SubjectKind, SubjectRef
+from saju_shared_types.llm_input import (
+    DateChoiceRow,
+    DateSelectionBlock,
+    PeriodFortune,
+    PeriodFortuneSlot,
+)
+from saju_shared_types.precompute import CompositeLevel
 from saju_shared_types.profile import PersonaConfig
+from saju_shared_types.topic_context import PeriodSpec
 
 from . import llm_client
-from .manse_service import calculate
+from .manse_service import calculate, luck_days, luck_months
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
@@ -81,6 +90,14 @@ _DATE_PURPOSES = {
     EventKey.SURGERY, EventKey.BUSINESS_START, EventKey.WINDFALL,
 }
 _WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
+# 과거 회고 신호 — 있으면 미래지향 앵커링(default_period)을 적용하지 않는다.
+# 과거형 어미('쉬었던/언제였을까' 등) 포함 — 미감지 시 과거 질문이 미래 창으로
+# 클램프돼 '이전 데이터 미제공' 회피가 발생(2026-06-12 지적).
+_PAST_KEYWORDS = (
+    "작년", "재작년", "지난", "과거", "예전", "그때", "했었", "였었",
+    "무슨 일", "뭐였", "어땠", "있었",
+    "였을까", "었을까", "았을까", "였던", "었던", "았던", "였지", "었지",
+)
 
 
 class ChatResponse(BaseModel):
@@ -126,6 +143,153 @@ def _get_persona_engine() -> PersonaEngine:
     if _persona_engine is None:
         _persona_engine = PersonaEngine(_DICTS)
     return _persona_engine
+
+
+def _months_between(start_month: str, end_month: str, cap: int = 13) -> list[str]:
+    """'YYYY-MM' 구간의 월 라벨 목록(양끝 포함, cap 상한) — '지난 1년' 등 창 기반 표용."""
+    sy, sm = int(start_month[:4]), int(start_month[5:7])
+    ey, em = int(end_month[:4]), int(end_month[5:7])
+    count = min((ey * 12 + em) - (sy * 12 + sm) + 1, cap)
+    return _rolling_months(sy, sm, max(count, 1))
+
+
+def _rolling_months(year: int, month: int, count: int = 12) -> list[str]:
+    """주어진 (연, 월)부터 count개월의 'YYYY-MM' 라벨을 순서대로 반환한다.
+
+    '앞으로 1년' 등 상대-미래 질문에서 오늘(기준 시점)의 달부터 시작하는 롤링
+    창을 만든다. 달력상 1~12월이 아니라 기준 시점 기반이어야 한다(2026-06-12 지적).
+    """
+    out: list[str] = []
+    for i in range(count):
+        idx = (month - 1) + i
+        yy = year + idx // 12
+        mm = idx % 12 + 1
+        out.append(f"{yy}-{mm:02d}")
+    return out
+
+
+def _period_fortune_type(intent: IntentJson, question: str) -> str | None:
+    """총운 라우팅 대상이면 fortune_type('daily'/'monthly'/'yearly')을, 아니면 None.
+
+    특정 기간(단일 일/월/연)의 종합운(fortune_overview)만 대상이다. 주간(일 범위)은
+    날들의 종합이라 성격이 달라 제외하고, 도메인 한정 질문도 제외한다. '월별/달별/
+    일별' 등 하위 단위 분해 요청은 총운이 아니라 월별 표 경로이므로 제외한다.
+    """
+    if intent.query_type is not QueryType.FORTUNE_OVERVIEW:
+        return None
+    if any(k in question for k in ("월별", "달별", "일별", "날짜별", "주별")):
+        return None
+    tr = intent.time_range
+    if tr is None or not tr.start:
+        return None
+    if (tr.end or tr.start) != tr.start:  # 단일 기간만(범위는 기존 경로)
+        return None
+    g = tr.granularity.value
+    if g == "day" and len(tr.start) == 10:
+        return "daily"
+    if g == "month" and len(tr.start) == 7:
+        return "monthly"
+    if g == "year" and len(tr.start) == 4:
+        return "yearly"
+    return None
+
+
+def _build_period_fortune(
+    birth: BirthInput, intent: IntentJson, today: date, fortune_type: str
+) -> PeriodFortune | None:
+    """특정 기간(일/월/연) 총운 — E9 Lifestyle 슬롯 + 해당 기간 간지 grounding 조립.
+
+    운 위계(대운>세운>월>일)에서 상위가 형성한 기운이 하위 기간에서 사건화되며,
+    슬롯 점수는 위계 가중 합산이다(topic_builder). 출력 framing은 해당 기간 단위
+    사건·조짐으로 한정하고 인생 사건의 실행·확정은 단정하지 않는다(절대원칙 3·4).
+
+    Args:
+        birth: 대상 출생 정보.
+        intent: 파서가 확정한 의도(time_range.start = 'YYYY-MM-DD'/'YYYY-MM'/'YYYY').
+        today: 기준일(computed_at 결정성 유지용).
+        fortune_type: 'daily' | 'monthly' | 'yearly'.
+
+    Returns:
+        조립된 PeriodFortune. 해당 기간 운을 찾지 못하면 None(일반 경로 폴백).
+    """
+    assert intent.time_range is not None and intent.time_range.start is not None
+    start = intent.time_range.start
+    computed_at = f"{today.isoformat()}T00:00:00+00:00"
+    _DAY_LEVELS = {
+        CompositeLevel.DAY, CompositeLevel.MONTH, CompositeLevel.YEAR, CompositeLevel.NATAL,
+    }
+    _YEAR_LEVELS = {CompositeLevel.MONTH, CompositeLevel.YEAR, CompositeLevel.NATAL}
+
+    if fortune_type == "daily":
+        try:
+            target = date.fromisoformat(start)
+        except ValueError:
+            return None
+        chart = calculate(birth.model_copy(update={"reference_date": target}))
+        days = luck_days(birth, target.year, target.month)
+        if chart.luck_cycles is not None:
+            chart.luck_cycles.daily_luck = days
+        pillar = next((p for p in days if p.label == start), None)
+        period = PeriodSpec(start=start, end=start, granularity="day")
+        levels = _DAY_LEVELS
+        label = f"{start} ({_WEEKDAY_KO[target.weekday()]})"
+    elif fortune_type == "monthly":
+        year, mon = int(start[:4]), int(start[5:7])
+        anchor = date(year, mon, 15)
+        chart = calculate(birth.model_copy(update={"reference_date": anchor}))
+        if chart.luck_cycles is not None:
+            chart.luck_cycles.monthly_luck = luck_months(birth, year)
+            chart.luck_cycles.daily_luck = luck_days(birth, year, mon)
+            pillar = next(
+                (p for p in chart.luck_cycles.monthly_luck if p.label == start), None
+            )
+        else:
+            pillar = None
+        period = PeriodSpec(start=f"{start}-01", end=f"{start}-31", granularity="month")
+        levels = _DAY_LEVELS
+        label = start
+    else:  # yearly
+        year = int(start[:4])
+        anchor = date(year, 7, 1)
+        chart = calculate(birth.model_copy(update={"reference_date": anchor}))
+        if chart.luck_cycles is not None:
+            chart.luck_cycles.monthly_luck = luck_months(birth, year)
+            pillar = next(
+                (p for p in chart.luck_cycles.yearly_luck if p.label == start), None
+            )
+        else:
+            pillar = None
+        period = PeriodSpec(start=f"{start}-01-01", end=f"{start}-12-31", granularity="year")
+        levels = _YEAR_LEVELS
+        label = start
+
+    if pillar is None:
+        return None
+
+    composites = CompositeBuilder(_DICTS).build(chart, "chat", "1.0.0", computed_at, levels=levels)
+    ctx = build_lifestyle_context(
+        [SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        period, composites, dictionaries_dir=_DICTS,
+    )
+    grounding = build_luck_grounding(chart, pillar)
+    slots = [
+        PeriodFortuneSlot(
+            name=f.key.removeprefix("slot:"), score=f.score, summary=f.summary,
+        )
+        for f in ctx.findings
+    ]
+    return PeriodFortune(
+        fortune_type=fortune_type,
+        period_label=label,
+        ganji=pillar.ganji,
+        pillar_line=grounding["pillar_line"],
+        luck_label=pillar.luck_label,
+        luck_summary=pillar.luck_summary,
+        relation_lines=grounding["relation_lines"],
+        sinsal_lines=grounding["sinsal_lines"],
+        gongmang=grounding["gongmang"],
+        slots=slots,
+    )
 
 
 def _date_selection_block(
@@ -272,34 +436,175 @@ def chat(
     chart_birth = birth.model_copy(update={"reference_date": today})
     result = calculate(chart_birth)
     all_scored = _get_scorer().score(result, levels=_SCORE_LEVELS)
-    candidates = filter_year_candidates(all_scored)
-    # P2 보강: 계층 필터(Top5)가 과거 고점에 점유돼도 질문 기간 후보는 보존.
-    if intent.time_range is not None:
-        from saju_engines.context_reducer import in_question_range
 
-        seen = {(c.event_key, c.period) for c in candidates}
-        candidates += [
-            c for c in all_scored
-            if (c.event_key, c.period) not in seen
-            and in_question_range(c.period, intent.time_range.start, intent.time_range.end)
-        ]
+    # E9 Lifestyle — 특정 기간(일/월/연) 총운은 인생 사건이 아니라 생활 슬롯으로
+    # 한정한다(2026-06-12 지적). 위계(대운>세운>월>일)에서 상위가 형성한 기운이 하위
+    # 기간에서 사건화되며, 점수는 위계 가중 합산. 총운 경로면 거시 이벤트 후보·그래프·
+    # 월별 요약을 메인에서 배제해 이직·이사 단정이 새지 않게 한다. 주간은 제외(날 종합).
+    period_type = _period_fortune_type(intent, question)
+    period_fortune = (
+        _build_period_fortune(birth, intent, today, period_type)
+        if period_type else None
+    )
 
-    # Graph Retrieval — plan의 graphScope만(전체 검색 금지).
-    scope: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
-    bundles = _get_graph().retrieve(scope)
+    # P5·P6(2026-06-12): 미래지향 질문의 유효 창은 '오늘이 속한 달'에서 시작한다.
+    # ① 시점 미지정('이직 제안 들어올까?') → 현재 달 ~ +2년. ② '올해'처럼 연 단위 창이
+    # 미래를 포함하면 시작을 현재 달로 클램프 — 이미 지난 1~5월 후보(4월 트리거 등)가
+    # 메인에 올라 미래처럼 서술되는 시점 오류를 엔진 차원에서 차단(지난 달은 배경 분리).
+    # 과거 회고(event_explanation·과거 키워드)와 명시적 과거 창은 클램프하지 않는다.
+    current_month = f"{today.year}-{today.month:02d}"
+    is_retro = (
+        intent.query_type is QueryType.EVENT_EXPLANATION
+        or any(k in question for k in _PAST_KEYWORDS)
+        # open_when = '언제였는지' 과거 개방 탐색(C15) — 후속 단답('년단위였어')처럼
+        # 질문 텍스트에 과거 어미가 없어도 상속된 intent로 과거 회고를 식별(2026-06-12).
+        or (
+            intent.time_range is not None
+            and intent.time_range.type == "open_when"
+        )
+    )
+    default_period: tuple[str, str] | None = None
+    if period_fortune is None and is_retro:
+        # 과거 회고인데 시점 미정(open_when 포함 — '오래 쉬었던 기간 언제였을까') →
+        # 과거 10년 창으로 후보 앵커링. 미래 창으로 흘러 '이전 데이터 미제공' 회피가
+        # 나오는 것을 차단(2026-06-12 지적). 명시 과거 창은 그대로 둔다.
+        tr = intent.time_range
+        if tr is None or not tr.start:
+            default_period = (str(today.year - 10), current_month)
+    elif period_fortune is None:
+        tr = intent.time_range
+        if tr is None or not tr.start:
+            default_period = (current_month, str(today.year + 2))
+        else:
+            end = tr.end or tr.start
+            # 창의 끝/시작을 월 단위로 정규화해 '미래 포함 + 과거 시작' 여부 판정.
+            end_month = end[:7] if len(end) >= 7 else f"{end}-12"
+            start_month = tr.start[:7] if len(tr.start) >= 7 else f"{tr.start}-01"
+            if end_month >= current_month and start_month < current_month:
+                default_period = (current_month, end)
 
-    # P4: 월 단위 요청("월별로"/granularity=month)이면 질문 연도 12개월 요약 동반.
+    if period_fortune is not None:
+        candidates = []
+        bundles = []
+    else:
+        candidates = filter_year_candidates(all_scored)
+        # P2 보강: 계층 필터(Top5)가 과거 고점에 점유돼도 유효 창(클램프 반영) 후보는 보존.
+        win_start: str | None
+        win_end: str | None
+        if default_period is not None:
+            win_start, win_end = default_period
+        elif intent.time_range is not None:
+            win_start, win_end = intent.time_range.start, intent.time_range.end
+        else:
+            win_start = win_end = None
+        if win_start or win_end:
+            from saju_engines.context_reducer import in_question_range
+
+            seen = {(c.event_key, c.period) for c in candidates}
+            candidates += [
+                c for c in all_scored
+                if (c.event_key, c.period) not in seen
+                and in_question_range(c.period, win_start, win_end)
+            ]
+        # Graph Retrieval — plan의 graphScope만(전체 검색 금지).
+        scope: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
+        bundles = _get_graph().retrieve(scope)
+
+    # P4: 월 단위·시기 특정 요청이면 12개월 요약 동반 — '몇 월/언제' 질문엔 월운이 답이라
+    # 세운만으로 답을 회피('달 특정 불가')하지 않도록 월별 표를 보장한다(2026-06-12 지적).
     overview = None
-    wants_monthly = "월별" in question or (
+    gran_month = (
         intent.time_range is not None
         and intent.time_range.granularity.value == "month"
-        and intent.time_range.start is not None
-        and len(intent.time_range.start) == 4
     )
-    if wants_monthly:
+    wants_monthly = period_fortune is None and (
+        "월별" in question
+        or intent.query_type is QueryType.TIMING_SEARCH
+        or gran_month
+        or any(k in question for k in ("몇 월", "몇월", "언제", "어느 달"))
+        or any(k in question for k in ("앞으로", "향후", "다가오는", "1년 내", "1년내"))
+    )
+    result_for_llm = result  # on-demand 월운 주입 시 교체(간지·해석 lookup 커버용)
+    if wants_monthly and result.luck_cycles is not None:
         start_label = intent.time_range.start if intent.time_range else None
-        target_year = int((start_label or str(today.year))[:4])
-        overview = build_monthly_overview(result, all_scored, target_year)
+        window_months: list[str] | None = None
+        target_year: int | None = None
+        end_label = intent.time_range.end if intent.time_range else None
+        if is_retro and not start_label:
+            # 과거 회고 + 시점 미정('오래 쉬었던 기간 언제') — 과거 10년 연도별 흐름 표.
+            # 공백·정체는 신호 '부재'라 상위 후보로 안 나오므로, 연도별 점수 흐름으로
+            # 저점(신호 없던 해)이 드러나게 한다(2026-06-12 지적).
+            have = {pl.label for pl in result.luck_cycles.yearly_luck}
+            years = [
+                str(y) for y in range(today.year - 10, today.year + 1)
+                if str(y) in have  # 세운 데이터 있는 연도만(거짓 '정보 없음' 행 방지)
+            ]
+            overview = build_monthly_overview(result, all_scored, months=years)
+        elif start_label and len(start_label) == 10:
+            # 상대 기준 앵커(YYYY-MM-DD = '앞으로/향후 1년' 등) — 그 달부터 12개월 롤링.
+            window_months = _rolling_months(int(start_label[:4]), int(start_label[5:7]))
+        elif (
+            start_label and end_label
+            and len(start_label) == 7 and len(end_label) == 7
+            and start_label != end_label
+        ):
+            # 다중 월 창('지난 1년'=직전 12개월 등, 2026-06-12) — 질문 창 그대로 월별 표.
+            window_months = _months_between(start_label, end_label)
+        elif start_label and len(start_label) >= 4:
+            # 명시 연·월('2025년 8월', '2025') — 해당 달력 연도.
+            target_year = int(start_label[:4])
+        elif any(k in question for k in ("앞으로", "향후", "다가오는", "1년 내", "1년내")):
+            # 시점 미지정 상대-미래 — 오늘(기준 시점)의 달부터 12개월 롤링(2026-06-12 지적:
+            # 달력상 1~12월이 아니라 오늘 기준 롤링 창이어야 한다).
+            window_months = _rolling_months(today.year, today.month)
+        elif any(k in question for k in ("최근", "지난", "작년", "올해까지")):
+            target_year = today.year - 1
+        else:
+            target_year = today.year
+
+        if overview is not None:
+            pass  # 과거 회고 연도별 흐름 표 이미 생성(위 is_retro 분기)
+        elif window_months is not None:
+            # 롤링 창은 달력 연도 경계를 넘으므로(예: 2026-06~2027-05) 닿는 연도별
+            # 월운을 on-demand로 합쳐 스코어한다. 월운은 기본 미래 12개월만 계산됨.
+            years_needed = sorted({int(mm[:4]) for mm in window_months})
+            monthly_all = []
+            for yr in years_needed:
+                monthly_all += luck_months(chart_birth, yr)
+            result_win = result.model_copy(deep=True)
+            assert result_win.luck_cycles is not None
+            result_win.luck_cycles.monthly_luck = monthly_all
+            scored_win = _get_scorer().score(result_win, levels={GanjiLevel.MONTH})
+            overview = build_monthly_overview(result_win, scored_win, months=window_months)
+            # 창 내 월 후보(기본 월운 범위 밖 과거 달 포함)를 메인 후보에도 보존 —
+            # '재취업한 달은 언제' 류에서 표와 근거 경로가 같은 달을 가리키게(2026-06-12).
+            win_set = set(window_months)
+            seen_c = {(c.event_key, c.period) for c in candidates}
+            candidates += [
+                c for c in scored_win
+                if c.period in win_set and (c.event_key, c.period) not in seen_c
+            ]
+            # 간지 lookup·incoming_note(천간 용기신 역할)가 창 월을 커버하게 —
+            # 누락 시 '癸(水 구신)' 같은 불리 정보가 월 후보에서 사라진다(2026-06-12).
+            result_for_llm = result_win
+        else:
+            # 과거/범위 밖 연도면 그 해 월운을 on-demand로 계산·스코어해서
+            # 빈 표('정보 없음' 회피)를 막는다(2026-06-12 지적).
+            assert target_year is not None
+            years_in_result = {p.label[:4] for p in result.luck_cycles.monthly_luck}
+            if str(target_year) in years_in_result:
+                overview = build_monthly_overview(result, all_scored, year=target_year)
+            else:
+                year_months = luck_months(chart_birth, target_year)
+                result_year = result.model_copy(deep=True)
+                assert result_year.luck_cycles is not None
+                result_year.luck_cycles.monthly_luck = year_months
+                scored_year = _get_scorer().score(result_year, levels={GanjiLevel.MONTH})
+                overview = build_monthly_overview(result_year, scored_year, year=target_year)
+                result_for_llm = result_year
+        # 신호가 하나도 없는 빈 표는 넣지 않는다(빈 표가 회피를 유발).
+        if overview is not None and not any(r.score is not None for r in overview):
+            overview = None
 
     # P3: 택일 질문이면 E10 랭킹 표 동반(표가 있으면 회피성 답변 금지 지시).
     date_block = None
@@ -314,12 +619,30 @@ def chat(
             date_block = None
 
     # Context Reduction + 직렬화 + 가드.
+    # 후속 턴(2턴째 이상)이면 인사·재인용 절제 지시(항목 19).
+    is_followup = state is not None and state.turn_no >= 2
+    # 턴 간 모순 방지(2026-06-12) — 이전 턴에서 제시한 엔진 결과를 한글화해 동반.
+    prior_claims: list[str] = []
+    if is_followup and state is not None:
+        for ref in state.last_results[:5]:
+            label = ref.label
+            if ref.kind == "event" and "@" in label:
+                key, _, period = label.partition("@")
+                try:
+                    label = f"{event_ko(EventKey(key))} @ {period}"
+                except ValueError:
+                    pass
+            prior_claims.append(f"{label}" + (f" — {ref.detail}" if ref.detail else ""))
     payload = build_llm_input(
-        question, intent, result, candidates, bundles, _get_scorer(),
+        question, intent, result_for_llm, candidates, bundles, _get_scorer(),
         call_type="chat_compare" if plan.per_subject else "chat_single",
         today=today,
         monthly_overview=overview,
+        period_fortune=period_fortune,
         date_selection=date_block,
+        is_followup_turn=is_followup,
+        default_period=default_period,
+        prior_claims=prior_claims,
     )
     try:
         prompt_text, tokens = serialize_with_guard(

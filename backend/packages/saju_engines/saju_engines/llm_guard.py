@@ -1,12 +1,15 @@
-"""LLM 호출 토큰 거버넌스 (v2.2 Phase 2.5 T2.5.8, docs/09 8장 — 전체 한도표).
+"""LLM 호출 토큰 거버넌스 (docs/09 8장 v2.2.1 개정표 — 전체 한도표).
 
 가드 규칙(docs/09):
 - 입력 토큰을 호출 **전** 측정해 상한 초과 시 예외 → 호출자는 Context Reduction 재실행.
 - 상한을 늘리는 코드 수정은 금지(사용자 승인 필요) — 한도표는 이 모듈의 단일 상수.
-- extended thinking은 모든 운영 호출에서 **비활성** 강제.
-- 모든 호출의 입출력 토큰을 로깅해 상품별 원가 대시보드에 집계.
+  (v2.2.1 상향은 2026-06-12 사용자 승인 완료 — 해석 사전 직렬화 도입, 품질>토큰.)
+- thinking(추론 모드)은 **low 이하**로 제한(절대 원칙 9 v2.2.1) — 설정은
+  llm_config.json generation_extras에서 관리, Query Parser는 비활성 유지.
+- 모든 호출의 입출력 토큰을 로깅해 상품별 원가 대시보드에 집계하고, **캐시 적중
+  토큰을 별도 집계**해 실비용을 추적한다(고정 prefix는 provider 캐시로 흡수).
 
-실제 API 클라이언트는 이후 단계(llm/ 패키지)에서 이 가드를 통과해서만 호출한다.
+실제 API 클라이언트(llm_client)는 이 가드를 통과해서만 호출한다.
 """
 
 from __future__ import annotations
@@ -28,13 +31,17 @@ class CallLimit:
     max_output_chars: int | None = None  # 보고서 섹션류는 글자수 상한 병행
 
 
-# docs/09 8장 전체 한도표 — 항목·수치 변경은 사용자 승인 필요(임의 상향 금지).
+# docs/09 8장 전체 한도표(v2.2.1) — 항목·수치 변경은 사용자 승인 필요(임의 상향 금지).
+# v2.2.1 상향(2026-06-12 승인): 해석 사전 고정 prefix(~5k, 캐시 대상) 포함분.
+# 출력 토큰 상한 = thinking 토큰 + 가시 출력 합산(Gemini maxOutputTokens 동작) — thinking
+# (LOW도 ~1.2k 소모)이 가시 답변을 잠식해 잘리지 않도록 여유 확보(2026-06-12 사용자 확정).
+# 실제 가시 답변 길이는 max_output_chars + 프롬프트 지시(_LENGTH_INSTRUCTION)가 강제한다.
 CALL_LIMITS: dict[str, CallLimit] = {
-    "chat_single": CallLimit(6_000, 1_200),
-    "chat_compare": CallLimit(8_000, 1_600),
+    "chat_single": CallLimit(12_000, 5_000, max_output_chars=1_500),
+    "chat_compare": CallLimit(14_000, 5_500, max_output_chars=2_400),
     "query_parser": CallLimit(2_000, 300),
-    "report_focus_section": CallLimit(5_000, 3_500, max_output_chars=4_500),
-    "report_full_section": CallLimit(5_000, 3_500, max_output_chars=4_500),
+    "report_focus_section": CallLimit(10_000, 8_000, max_output_chars=4_500),
+    "report_full_section": CallLimit(10_000, 8_000, max_output_chars=4_500),
     "consistency_check": CallLimit(8_000, 500),
 }
 
@@ -57,6 +64,8 @@ class LLMCallLog:
     call_type: str
     input_tokens: int
     output_tokens: int = 0
+    # 캐시 적중 입력 토큰(v2.2.1) — 고정 prefix가 provider 캐시에 맞은 분량(할인 비용).
+    cached_input_tokens: int = 0
     product_code: str | None = None  # RPT_FULL / RPT_FOCUS / CHAT
     section_id: str | None = None
 
@@ -118,23 +127,25 @@ class LLMCallGuard:
         return tokens
 
     def request_params(self) -> dict:
-        """API 호출 파라미터 — 출력 상한 + thinking 비활성 강제.
+        """API 호출 파라미터 — 출력 상한만 강제.
 
-        thinking 비활성(절대 원칙 9)은 **파라미터 생략**으로 강제한다: 최신 모델은
-        thinking 미지정 시 비활성이며, 명시적 {"type": "disabled"}는 일부 모델
-        (Fable 5)에서 400을 반환한다. 이 dict에 thinking을 추가하는 변경은 금지.
+        thinking은 절대 원칙 9(v2.2.1)에 따라 **low 이하**로 제한하되, 수준 설정은
+        llm_config.json의 generation_extras에서만 관리한다(Query Parser는 비활성).
+        이 dict에 thinking 파라미터를 추가하는 변경은 금지 — 설정 파일 단일 관리.
         """
         return {"max_tokens": self._limit.max_output_tokens}
 
     def record(
         self, input_tokens: int, output_tokens: int,
         product_code: str | None = None, section_id: str | None = None,
+        cached_input_tokens: int = 0,
     ) -> LLMCallLog:
-        """호출 결과 토큰을 로깅(원가 집계)."""
+        """호출 결과 토큰을 로깅(원가 집계 — 캐시 적중분 별도)."""
         log = LLMCallLog(
             call_type=self._call_type,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            cached_input_tokens=cached_input_tokens,
             product_code=product_code,
             section_id=section_id,
         )

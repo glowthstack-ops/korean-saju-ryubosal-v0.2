@@ -16,10 +16,16 @@ from .intent import IntentJson
 
 
 class UsefulGods(BaseModel):
-    """용·기신 요약(LLM 판정 금지 — 확정값 전달)."""
+    """용희기구한 요약(LLM 판정 금지 — 확정값 전달). v2.2.1: 5역할 전부 제공.
+
+    희신/구신/한신까지 제공해야 사용자가 물었을 때 환각·'모름' 없이 답한다(항목 8).
+    """
 
     yongsin: list[str] = Field(default_factory=list)
+    heesin: list[str] = Field(default_factory=list)  # 용신을 돕는 기운
     gisin: list[str] = Field(default_factory=list)
+    gusin: list[str] = Field(default_factory=list)  # 기신을 돕는 기운
+    hansin: list[str] = Field(default_factory=list)  # 조건부 작용
 
 
 class BirthChartSummary(BaseModel):
@@ -30,6 +36,40 @@ class BirthChartSummary(BaseModel):
     void_branches: list[str] = Field(default_factory=list)
     strength: str = ""  # '중화신강'
     useful_gods: UsefulGods = Field(default_factory=UsefulGods)
+    geokguk: str = ""  # '정재격 · 중성 · 반성반패'(항목 9 — 격국 정보)
+
+
+class PillarDetail(BaseModel):
+    """주(柱) 1개의 구조 — 엔진 계산값(LLM 재판정 금지). v2.2.1 ⑤."""
+
+    palace: str  # 'year' | 'month' | 'day' | 'hour'
+    palace_ko: str = ""  # '연주' 등
+    ganji: str
+    stem_ten_god: str  # 일간 주는 '일원'
+    branch_ten_god: str
+    twelve_stage: str
+    sinsal: list[str] = Field(default_factory=list)  # 보조 자료 — 단독 결론 금지
+    palace_role: str = ""  # 궁성 자리역할(항목 14): '천간 부친 · 지지 모친' 등
+
+
+class InterpretationExcerpt(BaseModel):
+    """해석 사전 발췌 1건 — Planner dictionaryScope 선별 결과만(전체 투입 금지)."""
+
+    kind: str  # 'ten_god' | 'relation' | 'sinsal' | 'twelve_stage' | 'ilju'
+    key: str  # '정관' | '갑기합' | ...
+    text: str
+
+
+class ChartInterpretation(BaseModel):
+    """⑤ 명식 구조 + 해석 자료 (docs/06 v2.2.1 — 캐시되는 고정 prefix에 직렬화).
+
+    사용자별로 멀티턴·전 섹션에서 동일해야 한다(가변 값 금지 — 캐시 무효화 방지).
+    """
+
+    pillar_details: list[PillarDetail] = Field(default_factory=list)
+    natal_relations: list[str] = Field(default_factory=list)  # 원국 내 합충·병존·간여지동
+    ilju_text: str = ""  # interpretations/ilju.json 해당 엔트리 직렬화
+    excerpts: list[InterpretationExcerpt] = Field(default_factory=list)
 
 
 class DaewoonEntry(BaseModel):
@@ -38,6 +78,7 @@ class DaewoonEntry(BaseModel):
     period: str  # '2025~2035'
     ganji: str
     age_range: str  # '45~54세'
+    jiao_date: str = ""  # 교운일(대운 시작) — 교운기 영향 판단용(항목 1)
 
 
 class SelectedYear(BaseModel):
@@ -85,6 +126,15 @@ class LlmEventCandidate(BaseModel):
     signal_count: int = 0  # 동점 변별용(점수 포화 완화)
     confidence: str
     polarity: str
+    # v2.2.1 — 동반 신호 매트릭스: 사건명은 단일 합·십성이 아니라 신호 구성이 결정
+    # (regression_2025_08: 갑기합만 보고 취업 단정 금지 — 역마+식상이면 이동 우세).
+    signals_ko: list[str] = Field(default_factory=list)
+    # v2.2.1 — 운 유입 글자의 일간 기준 십성 해석(해석 사전 발췌, 엔진 계산).
+    incoming_note: str = ""
+    # 운 암합(보조 자료) — 점수 미반영, 물밑·비공식 뉘앙스 참고용(2026-06-12 자료).
+    amhap_notes: list[str] = Field(default_factory=list)
+    # 유불리 주의(후보별 사실) — 천간 흉신 시기: 발생해도 계약·결실 불리(우호 단정 방지).
+    caution_note: str = ""
     timeline: dict | None = None  # EventTimeline (Phase 5 E4)
     realization_score: int | None = None  # Manifestation (Phase 5 E6)
     likely_forms: list[str] = Field(default_factory=list)
@@ -96,6 +146,9 @@ class LlmEvidence(BaseModel):
     event_key: EventKey
     readable_paths: list[list[str]] = Field(default_factory=list)
     contradicts: list[str] = Field(default_factory=list)
+    # graph rag 실효화(항목 15) — 보조 근거·해석 규칙 힌트도 프롬프트에 전달.
+    supports: list[str] = Field(default_factory=list)
+    interpretation_hints: list[str] = Field(default_factory=list)
 
 
 class LlmStyleRules(BaseModel):
@@ -125,6 +178,42 @@ class MonthOverviewRow(BaseModel):
     top_event_ko: str = ""  # 그 달 최고 신호(없으면 빈 값)
     score: int | None = None
     polarity: str = ""
+    # 교운(대운 교체) 근접 라벨 — 점수 cap 포화로 사라지는 교운일 가중 차이를 표면화.
+    transition: str = ""
+    # 창 내 상대 강도 순위(1=최강, 클램프 전 raw 가중 합 기준) — 톤이 포화돼도
+    # '진짜 중요한 달'이 변별되게(절대값보다 상대 순위 신뢰 — docs/07 리스크 1).
+    strength_rank: int | None = None
+    # 그 달 간지의 용기신 역할 '癸水 구신·巳火 희신' — 발생 강도와 별개로 유불리
+    # (구신 천간 달=계약·결실 불리)가 표에서 변별되게(2026-06-12 사용자 도메인 지식).
+    luck_roles: str = ""
+
+
+class PeriodFortuneSlot(BaseModel):
+    """종합운 고정 슬롯 1칸 (docs/02 E9 — 엔진 확정값, LLM은 문장화만)."""
+
+    name: str  # '돈·소비' | '재물'
+    score: int = Field(ge=0, le=100)
+    summary: str  # 엔진 산출 재료(수치/간지) — LLM은 이 범위로만 서술
+
+
+class PeriodFortune(BaseModel):
+    """특정 기간 총운 — E9 Lifestyle 슬롯 + 해당 기간 간지 grounding(엔진 확정값).
+
+    fortune_type별로 일/월/연 총운을 담는다. 운 위계(대운>세운>월>일)에서 상위가
+    형성한 기운이 하위 기간에서 사건화되며, 점수는 위계 가중 합산이다. 출력은 해당
+    기간 단위 사건·조짐으로 한정하고 인생 사건의 실행·확정은 단정하지 않는다(절대원칙 3·4).
+    """
+
+    fortune_type: str  # 'daily' | 'monthly' | 'yearly'
+    period_label: str  # '2026-06-12 (금)' | '2026-07' | '2026'
+    ganji: str  # 해당 기간 간지(일진/월운/세운) '丁巳'
+    pillar_line: str  # 십성·십이운성·용신정렬 요약 1줄(grounding)
+    luck_label: str = ""  # '강한 용신운'
+    luck_summary: str = ""  # 엔진 운 요약 그대로
+    relation_lines: list[str] = Field(default_factory=list)  # 형충회합(운 성립 시 의미)
+    sinsal_lines: list[str] = Field(default_factory=list)  # 신살 보조·양면
+    gongmang: list[str] = Field(default_factory=list)  # 공망 활성
+    slots: list[PeriodFortuneSlot] = Field(default_factory=list)  # 고정 슬롯(기간별)
 
 
 class DateChoiceRow(BaseModel):
@@ -194,13 +283,20 @@ class LlmInput(BaseModel):
     resolved_intent: IntentJson
 
     birth_chart_summary: BirthChartSummary
+    # ⑤ 명식 구조+해석 자료(v2.2.1) — 고정 prefix(캐시 대상)에 직렬화.
+    chart_interpretation: ChartInterpretation | None = None
     calendar_context: LlmCalendarContext = Field(default_factory=LlmCalendarContext)
     event_candidates: list[LlmEventCandidate] = Field(default_factory=list)
     # 질문 기간 밖 상위 후보 — 참고 맥락 전용(메인 서술 금지 지시 동반).
     out_of_range_candidates: list[LlmEventCandidate] = Field(default_factory=list)
     no_candidates_in_period: bool = False  # 기간 내 후보 없음 → 정직한 '신호 없음' 유도
     reference: ReferenceFrame | None = None  # 기준 시점(필수 주입 — chat 경로)
+    is_followup_turn: bool = False  # 멀티턴 2턴째 이상 — 인사·재인용 절제 지시(항목 19)
+    # 이전 턴에서 시스템이 이미 제시한 엔진 결과(한글화) — 턴 간 모순 방지(2026-06-12:
+    # 같은 기간을 1턴 '재취업 성공'↔2턴 '공백기'로 뒤집던 결함).
+    prior_claims: list[str] = Field(default_factory=list)
     monthly_overview: list[MonthOverviewRow] = Field(default_factory=list)
+    period_fortune: PeriodFortune | None = None  # 기간 총운(E9) — 일/월/연 경로
     date_selection: DateSelectionBlock | None = None
     evidence: list[LlmEvidence] = Field(default_factory=list)
     past_validation: PastValidationSummary | None = None

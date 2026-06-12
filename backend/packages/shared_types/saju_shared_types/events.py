@@ -113,3 +113,5 @@ class EventCandidate(BaseModel):
     polarity: EventPolarity
     signals: list[Signal] = Field(default_factory=list)
     evidence_path: list[str] = Field(default_factory=list)
+    # 클램프(0~100) 전 raw 가중 합 — 동점 후보의 우위 변별용(내부 정렬).
+    raw_total: float = 0.0

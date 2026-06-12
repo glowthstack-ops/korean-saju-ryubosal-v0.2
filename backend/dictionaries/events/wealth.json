@@ -1,0 +1,159 @@
+{
+  "version": "1.0.0",
+  "domain": "wealth",
+  "items": [
+    {
+      "signal": {
+        "tenGod": "편재",
+        "favorability": "용신"
+      },
+      "eventCandidates": [
+        {
+          "event": "wealth_change",
+          "score": 0.65,
+          "polarity": "positive"
+        },
+        {
+          "event": "income_change",
+          "score": 0.55,
+          "polarity": "positive"
+        }
+      ],
+      "note": "편재+용신 — 유동 재물 기회 활성",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "정재",
+        "favorability": "용신"
+      },
+      "eventCandidates": [
+        {
+          "event": "income_change",
+          "score": 0.6,
+          "polarity": "positive"
+        },
+        {
+          "event": "contract",
+          "score": 0.5,
+          "polarity": "positive"
+        }
+      ],
+      "note": "정재+용신 — 안정 수입·계약 결실",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "겁재",
+        "favorability": "기신"
+      },
+      "eventCandidates": [
+        {
+          "event": "expense_risk",
+          "score": 0.65,
+          "polarity": "negative_or_forced"
+        },
+        {
+          "event": "speculation_risk",
+          "score": 0.5,
+          "polarity": "negative_or_forced"
+        }
+      ],
+      "note": "겁재+기신 — 탈재·분재 리스크(빌려주는 돈·충동 베팅 주의)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "branch_clash",
+        "branchTenGod": "정재"
+      },
+      "eventCandidates": [
+        {
+          "event": "asset_volatility",
+          "score": 0.6,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "재성 지지 충 — 자산 변동성 확대(동반 신호 매트릭스)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "편재",
+        "relation": "three_harmony"
+      },
+      "eventCandidates": [
+        {
+          "event": "wealth_change",
+          "score": 0.6,
+          "polarity": "conditional"
+        },
+        {
+          "event": "speculation_risk",
+          "score": 0.45,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "편재+삼합 세력 — 판이 커지는 재물 흐름(과욕 경계 동반)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "편재",
+        "favorability": "기신"
+      },
+      "eventCandidates": [
+        {
+          "event": "speculation_risk",
+          "score": 0.6,
+          "polarity": "negative_or_forced"
+        },
+        {
+          "event": "windfall",
+          "score": 0.4,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "편재+기신 — 투기 충동·예상 밖 지출(windfall은 표현 제한 — 당첨 단정 금지)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "void"
+      },
+      "eventCandidates": [
+        {
+          "event": "windfall",
+          "score": -0.3,
+          "polarity": "neutral"
+        },
+        {
+          "event": "income_change",
+          "score": -0.2,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 공망 활성: 재물 결실이 공허해짐(횡재 기대 억제)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "shinsal": "천덕귀인"
+      },
+      "eventCandidates": [
+        {
+          "event": "expense_risk",
+          "score": -0.15,
+          "polarity": "neutral"
+        },
+        {
+          "event": "speculation_risk",
+          "score": -0.15,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 천덕귀인: 음덕이 손재·투기 리스크를 완화(흉사 완충 통설)",
+      "reviewed": false
+    }
+  ]
+}

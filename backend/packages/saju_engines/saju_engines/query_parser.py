@@ -23,6 +23,7 @@ from saju_shared_types.intent import (
     CompanionRelationType,
     Constraints,
     Domain,
+    Granularity,
     InlineBirth,
     IntentJson,
     OutputFormat,
@@ -32,6 +33,7 @@ from saju_shared_types.intent import (
     SubjectKind,
     SubjectMode,
     SubjectRef,
+    TimeRange,
     TimeScope,
 )
 
@@ -248,9 +250,10 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
         r"어떤\s*사람|성격|사이|관계|부딪|잘\s*지내", text
     ):
         return QueryType.RELATIONSHIP_ANALYSIS
-    # Q8 — 명식 구조 (D2-12 포함).
+    # Q8 — 명식 구조 (D2-12 포함). 일주 캐릭터/기질형 + 용희기구한 질문(v2.2.1).
     if re.search(
-        r"용신이\s*뭐|내\s*사주|mbti|성격|성향|격국|신강|신약|도화|역마살|공망\s*있",
+        r"용신|희신|기신|구신|한신|내\s*사주|mbti|성격|성향|격국|신강|신약|도화|역마살"
+        r"|공망|일주|캐릭터|기질|타고난|어떤\s*사람|십성|신살|궁성",
         text,
         re.IGNORECASE,
     ):
@@ -351,6 +354,24 @@ def parse_message(
     """
     # B2 단답 후속: 시점 슬롯만 교체, 나머지 직전 intent 상속.
     time_range, time_scope = parse_time(text, today, birth_year)
+    # B2b 단위 정정 단답('년단위였어') — 시점 자체가 아니라 직전 질문의 기간 단위를
+    # 바꾸는 후속(2026-06-12). 직전 intent를 상속하고 granularity만 갱신한다.
+    unit_m = re.search(r"([년연월주일])\s*단위", text)
+    if prev_intent is not None and _is_short_followup(text) and unit_m and time_range is None:
+        gran = {
+            "년": Granularity.YEAR, "연": Granularity.YEAR, "월": Granularity.MONTH,
+            "주": Granularity.DAY, "일": Granularity.DAY,
+        }[unit_m.group(1)]
+        new_tr = (
+            prev_intent.time_range.model_copy(update={"granularity": gran})
+            if prev_intent.time_range is not None
+            else TimeRange(type="open_when", granularity=gran)
+        )
+        inherited = prev_intent.model_copy(update={
+            "intent_id": f"{prev_intent.intent_id}+unit",
+            "time_range": new_tr,
+        })
+        return ParsedMessage(intents=[inherited], raw_text=text)
     if prev_intent is not None and _is_short_followup(text) and time_range is not None:
         inherited = prev_intent.model_copy(update={
             "intent_id": f"{prev_intent.intent_id}+followup",

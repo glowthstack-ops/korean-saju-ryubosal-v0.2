@@ -125,6 +125,25 @@ def parse_time(
             type="open_when", granularity=Granularity.YEAR, urgency=urgency,
         ), TimeScope.PAST
 
+    # C8b 과거 상대 기간 — "지난 1년(내)", "최근 6개월", "지난 반년"(2026-06-12 추가).
+    # 현재 달 포함 직전 N개월 창(미래 롤링과 대칭). '재취업한 달은 언제' 류 과거 회고용.
+    m = re.search(r"(지난|최근)\s*(\d+)?\s*(개월|달|년|반년)", text)
+    # 숫자 없는 '지난달/지난해' 단수 표현은 별개 의미 — 이 규칙은 N 명시·반년만 처리.
+    if m and (m.group(2) or m.group(3) == "반년"):
+        n_raw, unit = m.group(2), m.group(3)
+        months = (
+            6 if unit == "반년"
+            else int(n_raw) * (12 if unit == "년" else 1)
+        )
+        end_y, end_m = today.year, today.month
+        idx = (end_y * 12 + end_m - 1) - (months - 1)
+        start_y, start_m = idx // 12, idx % 12 + 1
+        return TimeRange(
+            type="relative", granularity=Granularity.MONTH,
+            start=f"{start_y}-{start_m:02d}", end=f"{end_y}-{end_m:02d}",
+            urgency=urgency,
+        ), TimeScope.PAST
+
     # C8 상대 기간 — "6개월 안에", "3개월 이내", "1년 안으로", "향후 30년".
     m = re.search(r"(\d+)\s*(개월|달|년)\s*(안에|이내|안으로|이내에)?", text)
     if m and (m.group(3) or re.search(r"향후|앞으로", text)):
@@ -160,7 +179,8 @@ def parse_time(
     # C7 반기 (특정월보다 먼저 — "하반기"가 월 표현과 혼동되지 않게).
     for word, (m1, m2) in _HALF.items():
         if word in text:
-            year = today.year + (1 if "내년" in text else 0)
+            ym = re.search(r"(20\d{2})\s*년", text)
+            year = int(ym.group(1)) if ym else today.year + (1 if "내년" in text else 0)
             return TimeRange(
                 type="absolute", granularity=Granularity.MONTH,
                 start=f"{year}-{m1}", end=f"{year}-{m2}", urgency=urgency,
@@ -171,7 +191,8 @@ def parse_time(
     m = re.search(r"(\d{1,2})\s*월", text)
     if m and not re.search(r"\d{1,2}\s*월\s*\d{1,2}\s*일", text):
         month = int(m.group(1))
-        year = today.year + (1 if "내년" in text else 0)
+        ym = re.search(r"(20\d{2})\s*년", text)
+        year = int(ym.group(1)) if ym else today.year + (1 if "내년" in text else 0)
         key = f"{year}-{month:02d}"
         return TimeRange(
             type="absolute", granularity=Granularity.MONTH,

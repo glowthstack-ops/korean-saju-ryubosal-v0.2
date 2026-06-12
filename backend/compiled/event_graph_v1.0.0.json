@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated_at": "2026-06-11T02:04:22.794777+00:00",
+  "updated_at": "2026-06-12T07:36:13.923160+00:00",
   "nodes": [
     {
       "id": "element_木",
@@ -2219,7 +2219,7 @@
     {
       "id": "rule_career_06",
       "type": "interpretation_rule",
-      "label": "대운 교체기 — 직업 환경 전환 배경",
+      "label": "대운 교체기 — 환경이 떠미는 비자발적 전환(직업 환경 강제 전환 배경)",
       "attrs": {
         "signal": {
           "daewoonTransition": true
@@ -2228,6 +2228,380 @@
           {
             "event": "career_change",
             "score": 0.55,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_07",
+      "type": "interpretation_rule",
+      "label": "정관+인성(문서) 동반 — 취업/합격/입사 후보 매트릭스 (regression_2025_08 일반화: 정관+합+인성/문서 → 취업·합격)",
+      "attrs": {
+        "signal": {
+          "tenGod": "정관",
+          "branchTenGod": "정인"
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": 0.6,
+            "polarity": "conditional"
+          },
+          {
+            "event": "document",
+            "score": 0.55,
+            "polarity": "conditional"
+          },
+          {
+            "event": "exam",
+            "score": 0.5,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_08",
+      "type": "interpretation_rule",
+      "label": "공망 활성 — 취업·문서·계약 결과가 지연·무산되기 쉬운 불안정 신호",
+      "attrs": {
+        "signal": {
+          "relation": "void"
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": 0.35,
+            "polarity": "conditional"
+          },
+          {
+            "event": "document",
+            "score": 0.4,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_education_00",
+      "type": "interpretation_rule",
+      "label": "정인+용신 — 학업·시험·문서(합격증·자격) 활성",
+      "attrs": {
+        "signal": {
+          "tenGod": "정인",
+          "favorability": "용신"
+        },
+        "candidates": [
+          {
+            "event": "education_start",
+            "score": 0.6,
+            "polarity": "positive"
+          },
+          {
+            "event": "exam",
+            "score": 0.55,
+            "polarity": "positive"
+          },
+          {
+            "event": "document",
+            "score": 0.5,
+            "polarity": "positive"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_education_01",
+      "type": "interpretation_rule",
+      "label": "인성 지지+문창 — 시험·학습 능률 신호(신살은 보조, 인성 동반 시에만)",
+      "attrs": {
+        "signal": {
+          "branchTenGod": "정인",
+          "shinsal": "문창귀인"
+        },
+        "candidates": [
+          {
+            "event": "exam",
+            "score": 0.6,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_education_02",
+      "type": "interpretation_rule",
+      "label": "편인+합 — 자격·특수 분야 학습 인연",
+      "attrs": {
+        "signal": {
+          "tenGod": "편인",
+          "relation": "six_combination"
+        },
+        "candidates": [
+          {
+            "event": "education_start",
+            "score": 0.5,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_education_03",
+      "type": "interpretation_rule",
+      "label": "상관+기신 — 시험 집중 분산·규정 실수 주의",
+      "attrs": {
+        "signal": {
+          "tenGod": "상관",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "exam",
+            "score": 0.45,
+            "polarity": "negative_or_forced"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_education_04",
+      "type": "interpretation_rule",
+      "label": "인성 세력 결집 — 과정 마무리·수료 흐름",
+      "attrs": {
+        "signal": {
+          "branchTenGod": "정인",
+          "relation": "three_harmony"
+        },
+        "candidates": [
+          {
+            "event": "education_complete",
+            "score": 0.5,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_health_00",
+      "type": "interpretation_rule",
+      "label": "충+기신 — 컨디션 저하·과로 신호(의료 조언 아님 고지 동반)",
+      "attrs": {
+        "signal": {
+          "relation": "branch_clash",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "health_issue",
+            "score": 0.55,
+            "polarity": "negative_or_forced"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_health_01",
+      "type": "interpretation_rule",
+      "label": "삼형 — 조정·치료(수술 포함) 가능 국면(단정 금지·의료 고지)",
+      "attrs": {
+        "signal": {
+          "relation": "punishment_triple"
+        },
+        "candidates": [
+          {
+            "event": "health_issue",
+            "score": 0.5,
+            "polarity": "conditional"
+          },
+          {
+            "event": "surgery",
+            "score": 0.4,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_health_02",
+      "type": "interpretation_rule",
+      "label": "칠살+기신 — 압박·소모 누적(휴식 부족) 신호",
+      "attrs": {
+        "signal": {
+          "tenGod": "편관",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "health_issue",
+            "score": 0.5,
+            "polarity": "negative_or_forced"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_health_03",
+      "type": "interpretation_rule",
+      "label": "식신(의식주·건강) 지지 충 — 생활 리듬·소화 계통 관리 신호",
+      "attrs": {
+        "signal": {
+          "branchTenGod": "식신",
+          "relation": "branch_clash"
+        },
+        "candidates": [
+          {
+            "event": "health_issue",
+            "score": 0.45,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_health_04",
+      "type": "interpretation_rule",
+      "label": "자형 — 자기 소모·스트레스 관리 신호",
+      "attrs": {
+        "signal": {
+          "relation": "self_punishment"
+        },
+        "candidates": [
+          {
+            "event": "health_issue",
+            "score": 0.4,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relationship_00",
+      "type": "interpretation_rule",
+      "label": "도화+합 — 인연·매력 활성(동반 신호 매트릭스: 신살 단독 판정 금지)",
+      "attrs": {
+        "signal": {
+          "relation": "six_combination",
+          "shinsal": "도화"
+        },
+        "candidates": [
+          {
+            "event": "relationship_start",
+            "score": 0.65,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relationship_01",
+      "type": "interpretation_rule",
+      "label": "재성 유입+합 — 인연 결합 신호",
+      "attrs": {
+        "signal": {
+          "tenGod": "정재",
+          "relation": "six_combination"
+        },
+        "candidates": [
+          {
+            "event": "relationship_start",
+            "score": 0.6,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relationship_02",
+      "type": "interpretation_rule",
+      "label": "관성 유입+합 — 인연 결합 신호",
+      "attrs": {
+        "signal": {
+          "tenGod": "정관",
+          "relation": "six_combination"
+        },
+        "candidates": [
+          {
+            "event": "relationship_start",
+            "score": 0.6,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relationship_03",
+      "type": "interpretation_rule",
+      "label": "삼합 세력+용신 — 관계 결속·결혼 후보",
+      "attrs": {
+        "signal": {
+          "relation": "three_harmony",
+          "favorability": "용신"
+        },
+        "candidates": [
+          {
+            "event": "marriage",
+            "score": 0.55,
+            "polarity": "positive"
+          },
+          {
+            "event": "relationship_start",
+            "score": 0.5,
+            "polarity": "positive"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relationship_04",
+      "type": "interpretation_rule",
+      "label": "충+기신 — 관계 긴장·이별 리스크(단정 금지, 활성창 안내)",
+      "attrs": {
+        "signal": {
+          "relation": "branch_clash",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "relationship_end",
+            "score": 0.6,
+            "polarity": "negative_or_forced"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relationship_05",
+      "type": "interpretation_rule",
+      "label": "해(害)+재성 지지 — 가까운 관계의 서운함 누적 신호",
+      "attrs": {
+        "signal": {
+          "branchTenGod": "정재",
+          "relation": "harm"
+        },
+        "candidates": [
+          {
+            "event": "relationship_end",
+            "score": 0.45,
             "polarity": "conditional"
           }
         ],
@@ -2317,7 +2691,7 @@
     {
       "id": "rule_relocation_04",
       "type": "interpretation_rule",
-      "label": "대운 교체기 — 생활 기반 전환 배경 (docs/03 graphScope)",
+      "label": "대운 교체기 — 환경이 떠미는 비자발적 전환(생활 기반 강제 전환 배경)",
       "attrs": {
         "signal": {
           "daewoonTransition": true
@@ -2351,6 +2725,208 @@
             "event": "relocation",
             "score": 0.5,
             "polarity": "positive"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_06",
+      "type": "interpretation_rule",
+      "label": "식상(상관) 이동성+역마 — 거처·환경 변동 우세 (regression_2025_08: 합·정관 동반 시에도 이동 신호가 사건명을 결정)",
+      "attrs": {
+        "signal": {
+          "branchTenGod": "상관",
+          "shinsal": "역마살"
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": 0.85,
+            "polarity": "conditional"
+          },
+          {
+            "event": "travel",
+            "score": 0.55,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_07",
+      "type": "interpretation_rule",
+      "label": "식신 이동성+역마 — 환경 변화·이동 모색",
+      "attrs": {
+        "signal": {
+          "branchTenGod": "식신",
+          "shinsal": "역마살"
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": 0.6,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_08",
+      "type": "interpretation_rule",
+      "label": "정관합+기신 — 원치 않는 이동·배치(이사·거처 변동 계열, regression_2025_08)",
+      "attrs": {
+        "signal": {
+          "tenGod": "정관",
+          "relation": "stem_combination",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": 0.55,
+            "polarity": "negative_or_forced"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_wealth_00",
+      "type": "interpretation_rule",
+      "label": "편재+용신 — 유동 재물 기회 활성",
+      "attrs": {
+        "signal": {
+          "tenGod": "편재",
+          "favorability": "용신"
+        },
+        "candidates": [
+          {
+            "event": "wealth_change",
+            "score": 0.65,
+            "polarity": "positive"
+          },
+          {
+            "event": "income_change",
+            "score": 0.55,
+            "polarity": "positive"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_wealth_01",
+      "type": "interpretation_rule",
+      "label": "정재+용신 — 안정 수입·계약 결실",
+      "attrs": {
+        "signal": {
+          "tenGod": "정재",
+          "favorability": "용신"
+        },
+        "candidates": [
+          {
+            "event": "income_change",
+            "score": 0.6,
+            "polarity": "positive"
+          },
+          {
+            "event": "contract",
+            "score": 0.5,
+            "polarity": "positive"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_wealth_02",
+      "type": "interpretation_rule",
+      "label": "겁재+기신 — 탈재·분재 리스크(빌려주는 돈·충동 베팅 주의)",
+      "attrs": {
+        "signal": {
+          "tenGod": "겁재",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "expense_risk",
+            "score": 0.65,
+            "polarity": "negative_or_forced"
+          },
+          {
+            "event": "speculation_risk",
+            "score": 0.5,
+            "polarity": "negative_or_forced"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_wealth_03",
+      "type": "interpretation_rule",
+      "label": "재성 지지 충 — 자산 변동성 확대(동반 신호 매트릭스)",
+      "attrs": {
+        "signal": {
+          "branchTenGod": "정재",
+          "relation": "branch_clash"
+        },
+        "candidates": [
+          {
+            "event": "asset_volatility",
+            "score": 0.6,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_wealth_04",
+      "type": "interpretation_rule",
+      "label": "편재+삼합 세력 — 판이 커지는 재물 흐름(과욕 경계 동반)",
+      "attrs": {
+        "signal": {
+          "tenGod": "편재",
+          "relation": "three_harmony"
+        },
+        "candidates": [
+          {
+            "event": "wealth_change",
+            "score": 0.6,
+            "polarity": "conditional"
+          },
+          {
+            "event": "speculation_risk",
+            "score": 0.45,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_wealth_05",
+      "type": "interpretation_rule",
+      "label": "편재+기신 — 투기 충동·예상 밖 지출(windfall은 표현 제한 — 당첨 단정 금지)",
+      "attrs": {
+        "signal": {
+          "tenGod": "편재",
+          "favorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "speculation_risk",
+            "score": 0.6,
+            "polarity": "negative_or_forced"
+          },
+          {
+            "event": "windfall",
+            "score": 0.4,
+            "polarity": "conditional"
           }
         ],
         "reviewed": false
@@ -4760,6 +5336,272 @@
       "modes": []
     },
     {
+      "from": "tengod_정관",
+      "to": "rule_career_07",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_career_07",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "rule_career_07",
+      "to": "event_document",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "rule_career_07",
+      "to": "event_exam",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "rule_career_08",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.35,
+      "modes": []
+    },
+    {
+      "from": "rule_career_08",
+      "to": "event_document",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": []
+    },
+    {
+      "from": "tengod_정인",
+      "to": "rule_education_00",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "yongsin",
+      "to": "rule_education_00",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_education_00",
+      "to": "event_education_start",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "rule_education_00",
+      "to": "event_exam",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "rule_education_00",
+      "to": "event_document",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "rule_education_01",
+      "to": "event_exam",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "tengod_편인",
+      "to": "rule_education_02",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_education_02",
+      "to": "event_education_start",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "tengod_상관",
+      "to": "rule_education_03",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_education_03",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_education_03",
+      "to": "event_exam",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": []
+    },
+    {
+      "from": "rule_education_04",
+      "to": "event_education_complete",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_health_00",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_health_00",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "rule_health_01",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "rule_health_01",
+      "to": "event_surgery",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": []
+    },
+    {
+      "from": "tengod_편관",
+      "to": "rule_health_02",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_health_02",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_health_02",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "rule_health_03",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": []
+    },
+    {
+      "from": "rule_health_04",
+      "to": "event_health_issue",
+      "type": "triggers",
+      "weight": 0.4,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_00",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": []
+    },
+    {
+      "from": "tengod_정재",
+      "to": "rule_relationship_01",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_01",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "tengod_정관",
+      "to": "rule_relationship_02",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_02",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "yongsin",
+      "to": "rule_relationship_03",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_03",
+      "to": "event_marriage",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_03",
+      "to": "event_relationship_start",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_relationship_04",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_04",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_05",
+      "to": "event_relationship_end",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": []
+    },
+    {
       "from": "rule_relocation_00",
       "to": "event_relocation",
       "type": "triggers",
@@ -4834,6 +5676,188 @@
       "to": "event_relocation",
       "type": "triggers",
       "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_06",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.85,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_06",
+      "to": "event_travel",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_07",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "tengod_정관",
+      "to": "rule_relocation_08",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_relocation_08",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_08",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "tengod_편재",
+      "to": "rule_wealth_00",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "yongsin",
+      "to": "rule_wealth_00",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_00",
+      "to": "event_wealth_change",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_00",
+      "to": "event_income_change",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "tengod_정재",
+      "to": "rule_wealth_01",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "yongsin",
+      "to": "rule_wealth_01",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_01",
+      "to": "event_income_change",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_01",
+      "to": "event_contract",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "tengod_겁재",
+      "to": "rule_wealth_02",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_wealth_02",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_02",
+      "to": "event_expense_risk",
+      "type": "triggers",
+      "weight": 0.65,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_02",
+      "to": "event_speculation_risk",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_03",
+      "to": "event_asset_volatility",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "tengod_편재",
+      "to": "rule_wealth_04",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_04",
+      "to": "event_wealth_change",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_04",
+      "to": "event_speculation_risk",
+      "type": "triggers",
+      "weight": 0.45,
+      "modes": []
+    },
+    {
+      "from": "tengod_편재",
+      "to": "rule_wealth_05",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_wealth_05",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_05",
+      "to": "event_speculation_risk",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_05",
+      "to": "event_windfall",
+      "type": "triggers",
+      "weight": 0.4,
       "modes": []
     },
     {

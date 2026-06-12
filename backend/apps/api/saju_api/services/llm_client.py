@@ -88,8 +88,8 @@ def is_available() -> bool:
 
 def _call_gemini(
     profile: dict, system: str, prompt: str, max_tokens: int, timeout: float
-) -> tuple[str, int, int]:
-    """Google Gemini generateContent 호출."""
+) -> tuple[str, int, int, int]:
+    """Google Gemini generateContent 호출 — (텍스트, 입력, 출력, 캐시 적중) 토큰."""
     key = _api_key(profile)
     if not key:
         raise RuntimeError(f"{profile['api_key_env']} 미설정")
@@ -117,13 +117,15 @@ def _call_gemini(
         text,
         int(usage.get("promptTokenCount", 0)),
         int(usage.get("candidatesTokenCount", 0)),
+        # 고정 prefix(implicit caching) 적중분 — 원가 대시보드에서 할인 비용 추적.
+        int(usage.get("cachedContentTokenCount", 0)),
     )
 
 
 def _call_openai(
     profile: dict, system: str, prompt: str, max_tokens: int, timeout: float
-) -> tuple[str, int, int]:
-    """OpenAI chat.completions 호출(비상 폴백)."""
+) -> tuple[str, int, int, int]:
+    """OpenAI chat.completions 호출(비상 폴백) — (텍스트, 입력, 출력, 캐시 적중) 토큰."""
     key = _api_key(profile)
     if not key:
         raise RuntimeError(f"{profile['api_key_env']} 미설정")
@@ -146,10 +148,12 @@ def _call_openai(
     data = res.json()
     text = data["choices"][0]["message"]["content"] or ""
     usage = data.get("usage", {})
+    cached = int((usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0))
     return (
         text,
         int(usage.get("prompt_tokens", 0)),
         int(usage.get("completion_tokens", 0)),
+        cached,
     )
 
 
@@ -158,19 +162,19 @@ _PROVIDERS = {"gemini": _call_gemini, "openai": _call_openai}
 
 def _call_profile(
     profile: dict, system: str, prompt: str, max_tokens: int, timeout: float
-) -> tuple[str, int, int]:
+) -> tuple[str, int, int, int]:
     caller = _PROVIDERS.get(profile["provider"])
     if caller is None:
         raise RuntimeError(f"알 수 없는 공급자: {profile['provider']}")
     # 추론(reasoning) 모델은 내부 추론 토큰이 출력 한도를 잠식한다 — 프로파일별
     # 버퍼로 보전(가드 한도는 가시 출력 기준, 버퍼는 설정 파일에서 관리).
     max_tokens += int(profile.get("output_token_buffer", 0))
-    text, in_tok, out_tok = caller(profile, system, prompt, max_tokens, timeout)
+    text, in_tok, out_tok, cached = caller(profile, system, prompt, max_tokens, timeout)
     if not text.strip():
         raise RuntimeError(
             f"{profile['provider']} 빈 응답(추론 토큰 소진 의심) — 버퍼 조정 필요"
         )
-    return text, in_tok, out_tok
+    return text, in_tok, out_tok, cached
 
 
 def generate_reading(
@@ -207,12 +211,13 @@ def generate_reading(
     if _api_key(cfg["primary"]):
         for attempt in range(attempts):
             try:
-                text, in_tok, out_tok = _call_profile(
+                text, in_tok, out_tok, cached = _call_profile(
                     cfg["primary"], sys_text, prompt_text, max_tokens, timeout,
                 )
                 guard.record(
                     input_tokens=in_tok or input_est,
                     output_tokens=out_tok,
+                    cached_input_tokens=cached,
                     product_code=f"{product_code}:{cfg['primary']['provider']}",
                 )
                 return text
@@ -224,12 +229,13 @@ def generate_reading(
     # 비상 폴백(OpenAI).
     if _api_key(cfg["fallback"]):
         try:
-            text, in_tok, out_tok = _call_profile(
+            text, in_tok, out_tok, cached = _call_profile(
                 cfg["fallback"], sys_text, prompt_text, max_tokens, timeout,
             )
             guard.record(
                 input_tokens=in_tok or input_est,
                 output_tokens=out_tok,
+                cached_input_tokens=cached,
                 product_code=f"{product_code}:{cfg['fallback']['provider']}",
             )
             return text
@@ -239,13 +245,25 @@ def generate_reading(
     raise RuntimeError(f"LLM 호출 실패(메인·폴백 모두): {last_error}")
 
 
-# 표현 원칙 고정 블록(docs/06 — 시스템 프롬프트에 고정).
+# 표현 원칙 고정 블록(docs/06 v2.2.1 — 시스템 프롬프트에 고정).
+# 전 사용자 공통·불변 텍스트(캐시되는 고정 prefix의 1층) — 가변 값 삽입 금지.
 _SYSTEM_PROMPT = (
     "당신은 사주 통변 서술가다. [필수 준수]\n"
-    "1. 입력의 [이벤트 후보]/[근거 경로] 수치·간지·점수를 절대 재계산·변경하지 않는다.\n"
-    "2. 사건 발생이 아니라 '변화 에너지의 활성화'로 표현하고, "
-    "Trigger→진행→결과 구조로 설명한다.\n"
-    "3. 입력에 없는 명리 규칙·간지·수치가 필요하면 '해당 정보는 제공되지 않았다'로 처리한다.\n"
-    "4. [지시] 블록의 금기 표현과 표현 강도 가이드를 준수한다.\n"
+    "1. 계산 금지: 입력의 간지·점수·합충 성립 판정을 절대 재계산·변경하지 않는다. "
+    "입력에 없는 간지·수치·날짜가 필요하면 '해당 정보는 제공되지 않았다'로 처리한다.\n"
+    "2. 의미 서술 의무: [원국·명식 구조]와 [명식 해석 자료], 후보별 '동반 신호'·'해석' "
+    "줄을 적극 엮어 — 이 글자가 일간에게 무엇이고, 운에서 온 글자와 어떤 관계를 맺어 "
+    "이런 신호가 되는지 — 사용자가 자기 사주로 납득할 수 있는 이야기로 풀어낸다. "
+    "점수와 간지의 낭독만으로 답하지 않는다.\n"
+    "3. 사건명은 동반 신호 매트릭스로 엔진이 확정한 값이다 — 단일 합·십성만 근거로 "
+    "다른 사건으로 재해석하지 않는다.\n"
+    "4. 신살은 보조 참고 자료다 — '이런 신살의 영향일 수도 있다' 정도로만 곁들이고 "
+    "성향의 핵심 근거로 부각하거나 단독으로 길흉·사건을 단정하지 않는다.\n"
+    "5. 사건 발생이 아니라 '변화 에너지의 활성화'로 표현하고, "
+    "Trigger→진행→결과 구조로 설명한다. 합·충 등 관계는 '무엇과 합/충하여 무엇으로 "
+    "작용해 어떤 결과가 되는지'까지 인과를 끝맺는다.\n"
+    "6. 점수·숫자를 답변에 노출하지 않는다 — 강도는 제공된 표현 문장으로만 전달한다.\n"
+    "7. 출력은 마크다운 기호(#, *, |, ### 등) 없이 평문으로, 공백 포함 1,500자 이내로 "
+    "쓴다.\n"
     "응답은 한국어로, 제공된 근거를 인용하며 서술한다."
 )

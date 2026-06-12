@@ -30,7 +30,10 @@ def _preview(question: str) -> str:
 
 def test_reference_frame_always_present() -> None:
     text = _preview("올해 연애운은 어때?")
-    assert text.startswith("[기준 시점]")
+    # v2.2.1 2층 구조: 고정 prefix(명식 구조·해석 자료)가 먼저, [기준 시점]은
+    # 동적 suffix의 최상단(캐시 무효화 방지 — docs/06).
+    assert text.startswith("[원국·명식 구조")
+    assert text.index("[기준 시점]") < text.index("[간지달력")
     assert "오늘: 2026-06-11 (목)" in text
     assert "올해: 2026년" in text
     assert "질문 기간: 2026" in text  # '올해' 해석 결과 명시
@@ -98,12 +101,18 @@ def test_korean_labels_and_no_internal_notes() -> None:
     assert "부담·비자발 계열" in text or "우호적" in text  # polarity 한글
 
 
-# ── P6 — 신호 수 병기(동점 변별) ─────────────────────────────────
+# ── P6 — 점수·신호 건수 미노출, 강도는 치환 문장만(v2.2.1 항목 5) ──────
 
 
-def test_signal_count_displayed() -> None:
+def test_scores_not_exposed_only_phrases() -> None:
+    """점수 숫자·신호 건수는 내부 변수라 노출 금지 — 강도는 표현 문장으로만."""
     text = _preview("올해 이직운 어때?")
-    assert "점(신호 " in text
+    assert "점(신호 " not in text  # 'NN점(신호 N건)' 형태 제거
+    # 강도 치환 문장(tone_for_score)이 후보 줄에 들어간다.
+    assert any(
+        phrase in text
+        for phrase in ("신호가 매우 강합니다", "가능성이 높습니다", "흐름이 나타날 수 있습니다")
+    )
 
 
 # ── P7 — 자가 검증 지시 + 페르소나 결합 ──────────────────────────

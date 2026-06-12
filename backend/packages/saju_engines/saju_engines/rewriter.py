@@ -82,10 +82,12 @@ def assess(intent: IntentJson, original_query: str = "") -> QueryAssessment:
     has_time = intent.time_range is not None
     has_domain = intent.domain is not Domain.GENERAL or bool(intent.domains)
 
-    # 비분석 라우트는 판정 불요.
+    # 비분석 라우트는 판정 불요. CHART_ANALYSIS(Q8 — 일주/명식 구조)는 원국(T0)
+    # 질문이라 시점·분야가 본질적으로 불요(v2.2.1 — '나의 일주캐릭터는?' 골든 스타일).
     if intent.query_type in (
         QueryType.TERMINOLOGY_EDUCATION, QueryType.FEEDBACK_CORRECTION,
         QueryType.EMOTIONAL_SUPPORT, QueryType.OUT_OF_SCOPE,
+        QueryType.CHART_ANALYSIS,
     ):
         return QueryAssessment(status="ok")
 

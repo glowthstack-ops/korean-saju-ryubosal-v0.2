@@ -10,6 +10,7 @@ export function Nav() {
         <div className="flex gap-4 text-sm">
           <Link href="/manse" className="hover:underline">만세력</Link>
           <Link href="/calendar" className="hover:underline">간지달력</Link>
+          <Link href="/chat" className="hover:underline">채팅사주풀이</Link>
         </div>
       </nav>
     </header>

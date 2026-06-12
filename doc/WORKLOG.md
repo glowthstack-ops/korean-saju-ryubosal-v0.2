@@ -1711,3 +1711,456 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   "다음 달 이사 날짜" → 2026-07 인지 + 택일 표 기반 날짜 추천(회피성 답변 소멸).
 검증: pytest 483 pass(품질 회귀 9 신규) · ruff clean · mypy clean(178파일) ·
   라이브 2문 확인.
+
+## v2.2.1 — 해석 사전 계층 신설 (PR-A 문서 개정 + PR-B 1순위 사전) ✅
+
+- **배경**: 풀이가 글자 의미·관계 해석 없이 계산 결과(점수·간지)만 낭독하는 결함
+  확인(2026-06-12 점검). 원인 = ①의미 사전 미직렬화 ②시스템 프롬프트의 LLM 자체
+  지식 차단 이중 봉쇄. 보완 방향 사용자 승인: "계산은 엔진, 의미는 사전, 서술은 LLM".
+- **PR-A 문서 개정**: docs/05에 `interpretations/` 계층(6종)·공통 규칙 6항(basis
+  의무·엔진 교차검증·일간 중심·신살/암합 보조자료) 신설, docs/06에 ⑤
+  chart_interpretation 요소 + 프롬프트 2층 구조(캐시 prefix/동적 suffix) 신설,
+  docs/09 8장 한도표 상향(대화형 12k/2.4k 등 + thinking low 이하, 캐시 적중 별도
+  집계), CLAUDE.md 원칙 9 문구 개정(양쪽). **품질>토큰 정책**(사용자 확정).
+- **PR-B 사전 집필(전량)**: `interpretations/ilju.json` 60갑자(물상·일주 동물·
+  캐릭터 서사·빛/그림자·배우자궁·computed·basis — 예시 풀이(己亥) 스타일 기준),
+  `ten_gods_text.json` 10종(natal/excess/absence/incoming/asYongsin/asGisin —
+  일간 중심·상황 의존), `twelve_stages_text.json` 12종, `relations_text.json`
+  59종(relations.json 1:1, 원국 내 vs 운 유입 구분, 암합 role=auxiliary).
+- **검증기**: dictionaries.py에 스키마 4종 + lint 확장 — ilju computed ↔ 만세력
+  엔진 전수 교차검증(십성·십이운성·지장간·오행색·띠), 십성/운성 커버리지,
+  relations_text 1:1 정합, 암합 auxiliary 강제. `scripts/export_review_sheet.py`
+  — 전문가 감수용 Markdown 시트(basis 열 기준, 검수 현황 집계).
+- **콘텐츠 규율**: 단정 표현 금지를 사전 콘텐츠에도 적용(테스트로 강제,
+  "반드시" 2건 적발·수정). 전 항목 `reviewed:false` 시작 — 전문가 감수 전 출시 금지.
+- 검증: pytest 490 pass(해석 사전 회귀 7 신규) · ruff clean · mypy clean(180파일) ·
+  validate_dictionaries 29파일 통과.
+- **남은 단계**: PR-C(context_reducer 2층 직렬화 + [명식 구조]/[해석 자료] 섹션 +
+  근거 경로 의미 결합 + 시스템 프롬프트 분리 + llm_config thinking LOW + 캐시 로깅),
+  PR-D(신살·물상·terminology·templates·events 4종 + 골든 스타일 회귀),
+  PR-E(풀이 상품 F-01~F-06 컨텍스트 빌더 운영 배선).
+
+## v2.2.1 PR-C — 프롬프트 직렬화 개편 + Graph RAG 정밀화 (해석 레이어 실가동) ✅
+
+- **Graph RAG 사용 실태 점검**(사용자 요청 — 2025-08 케이스 기준): ①후보 생성
+  (relations eventDomains 복수 전파)과 AND-조건 동반 신호 합산은 구현돼 있었으나
+  ②신호 매칭이 천간 십성만 지원(甲申월 申 상관 이동성 표현 불가) ③프롬프트
+  [근거 경로]가 정적 사전 경로(graph retrieve)뿐 — 스코어러의 사용자별 인스턴스
+  경로(readable_path)는 미사용(scorer 파라미터 수령 후 무시) ④해당 회귀 케이스
+  미저장. 4건 모두 본 PR에서 해소.
+- **동반 신호 매트릭스 보강**: SignalSpec에 `branchTenGod`(운 지지 본기 십성) 추가
+  + _match_signal 확장, relocation.json에 상관/식신+역마 룰 2건(reviewed:false),
+  docs/05 events 스키마·매트릭스 원칙 명문화, compiled 그래프 재빌드(143노드).
+  **cases.jsonl에 regression_2025_08_move_not_job 적재**(2025-08 이사 / 2025-11말
+  합격 / 2025-12 출근 — "정관합=직장" 단정 금지의 기준 사례).
+- **⑤ chart_interpretation**: chart_interpretation.py 신규 — 주별 십성·운성·신살
+  (보조 표기)·원국 관계(암합류 제외)+병존·간여지동, 일주 사전 엔트리 직렬화,
+  원국 활성 십성·일지 운성·관계 해석 발췌(전체 사전 투입 금지·상한 가드).
+- **2층 직렬화**: [원국·명식 구조]+[명식 해석 자료] = 고정 prefix(사용자별 바이트
+  동일 — 캐시 조건, 테스트로 고정) → [기준 시점] 이하 동적 suffix. 후보별
+  "동반 신호:"(매트릭스 구성 명시) + "해석:"(운 유입 천간·지지 십성 + 발췌 —
+  甲申=정관+상관 양표기). 근거 경로는 인스턴스 경로 우선·정적 경로 폴백.
+- **지시·프롬프트 개정**: 시스템 프롬프트 6항(계산 금지/의미 서술 의무 분리 +
+  매트릭스 재해석 금지 + 신살·암합 보조) + [지시]에 _MEANING/_MATRIX/_AUXILIARY
+  3종 추가.
+- **한도·설정**: llm_guard CALL_LIMITS v2.2.1(채팅 12k/2.4k, 비교 14k/2.8k,
+  섹션 입력 10k — 사용자 승인), LLMCallLog.cached_input_tokens 신설,
+  llm_client 공급자 응답에서 캐시 적중 토큰 수집(Gemini cachedContentTokenCount /
+  OpenAI cached_tokens), llm_config thinking LOW(파서 MINIMAL 유지).
+- 실측: "올해 이직운" 프롬프트 3,256tok(한도 12k 내) — 일주 서사·십성/관계 해석·
+  동반 신호·운 유입 해석 포함 확인.
+- 검증: pytest 496 pass(신규 6 — 고정 prefix 동일성·해석 노트·branchTenGod 매칭·
+  회귀 케이스 보존) · ruff clean · mypy clean(182파일).
+- **남은 단계**: PR-D(신살·물상·terminology·templates·prohibited_styles·events 4종
+  + 골든 스타일 회귀), PR-E(보고서 F-01~F-06 컨텍스트 빌더 운영 배선), 라이브
+  키로 실응답 품질 확인.
+
+## v2.2.1 PR-D + PR-E — 잔여 사전 완비 + 골든 스타일 회귀 + 보고서 운영 배선 ✅
+
+- **PR-D 사전(docs/05 잔여 전량)**: events 4종 신설(relationship 6룰·wealth 6·
+  education 5·health 5 — 전부 동반 신호 2조건 이상, 신살 단독 룰 금지) +
+  career_change에 취업 매트릭스 룰(정관+인성/문서 — regression_2025_08 일반화).
+  `interpretations/sinsal_text.json` 44종 — **전 항목 flipSide(양면 해석) 의무**
+  (사용자 확정: 천을귀인 과다=나태, 고신살=일 몰두형 성공·자발적 만혼, 양인=
+  외과의사·군인 적성 등 길신의 그림자·흉성의 빛 병기, 스키마로 강제).
+  `stems_branches_text.json`(천간10·지지12 물상), `terminology.json` 53용어,
+  `templates/interpretation.json`(이벤트×극성 29 + generic 폴백),
+  `templates/prohibited_styles.json` 20패턴. 스키마 5종 등록 + lint(물상
+  오행·띠 엔진 교차검증, 템플릿 EventKey 유효성·중복).
+- **신살 발췌 프롬프트 연결**: chart_interpretation에 주요 신살(길신/주의 우선
+  +일주) 발췌 — "(보조 — 단독 판정 금지) 의미+발현+양면" 형식으로 고정 prefix 탑재.
+- **실결함 수정**: "나의 일주캐릭터는?"이 fortune_overview→too_broad로 차단되던
+  문제 — 파서 Q8 패턴(일주/캐릭터/기질/타고난/어떤 사람) 추가 + CHART_ANALYSIS는
+  B3 판정 면제(원국 T0 질문 — 시점·분야 불요). 골든 스타일 픽스처
+  (tests/fixtures/golden_style_ilju_example.md — 사용자 제공 己亥 예시) + 회귀 4건
+  (Q8 흐름·스타일 재료·신살 양면·페르소나 쉬움/존대 준수).
+- **PR-E 보고서 운영 배선**: `report_service.py` — _ReportData(만세+스코어링
+  1회 공유), build_section_context(고정 prefix 재사용 — serialize_chart_prefix
+  공용화 + 섹션 과제/가이드 + 운 섹션 데이터 블록(대운표·후보 Top·근거 경로) +
+  검사 기준 실값(allowed_ganji/scores/years·F-04 용신 확정)), generate_report
+  (llm_client 주입·페르소나 블록·재생성 힌트), plan_report(dry-run).
+  **POST /api/v2/report** 라우터(dry_run 미리보기 포함). 실컨텍스트+모의 LLM으로
+  RPT_FOCUS 8섹션 정합성 검사 전체 통과 확인.
+- 검증: pytest 504 pass(골든 스타일 4 + 보고서 4 신규) · ruff clean ·
+  mypy clean(186파일) · validate 38파일 통과 · 그래프 재빌드(166노드).
+- **남은 운영 전 작업**: ①라이브 키 실응답 품질 확인(/chat·/report) ②사전
+  reviewed:false 전 항목 전문가 감수(export_review_sheet.py 시트) ③F-08/F-09
+  (과거 복원 M14)·C-03~C-07 모듈 데이터 정밀화(현재 공용 데이터 블록) ④docx/pdf.
+
+## v2.2.1 풀이 교정 1차 — 출력·관점 (사용자 18항목 중 5·13·4·2·18·10·6·16) ✅
+
+- 점수·신호건수 미노출(항목 5): candidate_line·월별·택일에서 숫자 제거, 강도는 tone_for_score 치환 문장만. 이벤트 헤더 '추측 신호'로 변경.
+- 출력 1,500자(항목 13): _LENGTH_INSTRUCTION + 시스템 프롬프트 + llm_guard chat_single 출력 1,800tok/1,500자 안전망.
+- 마크다운 금지(항목 4, 백엔드측): _FORMAT_INSTRUCTION + 시스템 프롬프트(평문).
+- 신살 보조 강화(항목 2): _AUXILIARY_INSTRUCTION '이런 신살의 영향일 수도' 톤, 성향 부각 금지.
+- 합 인과 완결(항목 18): _HARMONY_INSTRUCTION '무엇과 합하여 무엇으로 작용해 어떤 결과'까지.
+- 이벤트=추측값(항목 10): _SCOPE_INSTRUCTION '기간 전체 대표 아님, 원국+대운 흐름 먼저'.
+- 대운>세운>월운>일운 위계(항목 6): _HIERARCHY_INSTRUCTION.
+- 원국 vs 운 구분(항목 16): _ORIGIN_INSTRUCTION.
+- 검증: pytest 504 pass(영향 테스트 6건 갱신) · ruff·mypy clean. 라이브: "올해 이직운" 1,232자·마크다운/점수 없음·대운 배경·합 인과 완결·원국/운 구분 확인.
+- 남은 배치: 2차 입력확충(희신/구신/한신·격국·공망활성·합화방식·궁성·원국암합), 3차 엔진(방합 준방합 규칙·운 암합 이벤트·graph rag 심화), 4차 설계(용신 확정 질문·균시차 검증보고).
+
+## v2.2.1 풀이 교정 2·3차 — 입력 확충 + 방합 규칙 (항목 8·9·14·1·17·3) ✅
+
+- 용희기구한 5역할(항목 8): UsefulGods에 heesin/gusin/hansin 추가, favorability_map에서 전 역할 추출, 고정 prefix에 '용신·희신·기신·구신·한신' 전부 직렬화. 라이브: "격국·희신·구신?" 질문에 정재격 + 5역할 전부 정확 답변(환각·모름 없음).
+- 격국(항목 9): BirthChartSummary.geokguk = '정재격 · 중성 · 반성반패', prefix에 '격국:' 표기.
+- 궁성 자리역할(항목 14): PillarDetail.palace_role(연-조상/월-부모/일-나·배우자/시-자녀, 천간·지지 구분), prefix에 '궁성:' 표기.
+- 원국 암합(항목 9): chart_interpretation에서 hidden_ 관계를 제외→'암합(보조·단독 판정 금지)' 라벨로 상한 3개 표기.
+- 교운일(항목 1): DaewoonEntry.jiao_date, 대운 줄에 '교운일 YYYY-MM-DD'.
+- _STRUCTURE_INSTRUCTION(격국·용희기구한·궁성 활용 지시).
+- 방합 준방합(항목 3, 사용자 정통 기준): relations_text directional 4종에 '세 글자 모두 모여야 진방합, 두 글자는 준방합(화기 강화·미완성), 운에서 마지막 글자 채워질 때 촉발' 규칙 추가 + _BANGHAP_INSTRUCTION. (엔진 점수 로직은 회귀 위험으로 보존 — 설명 왜곡만 교정)
+- 균시차(항목 12): 검증 완료 — manse_service.calculate가 진태양시·균시차 보정된 final_chart_datetime으로 원국을 세움. 추가 작업 불요.
+- 검증: pytest 504 pass · ruff·mypy clean. 라이브 2건 확인.
+- 남은 항목(다음 배치): 갑기합 이사우위 점수 보강·운 암합 이벤트(7)·공망활성 신호 노출(1)·graph rag 심화(15)·용신 확정 질문 재설계(11)·프론트 react-markdown(4 근본).
+
+## v2.2.1 풀이 교정 3차-b + 멀티턴 절제 (항목 15·19, 7 부분) ✅
+
+- graph rag 실효화(항목 15): LlmEvidence에 supports·interpretation_hints 추가, 근거 경로 블록에 '보조 근거'·'해석 힌트' 직렬화. 컴파일 그래프에 interpretation_rule 38노드·supports 36엣지 실재 → "정관합+기신/정관합+용신/정관+인성→취업" 등 동반 신호 매트릭스 규칙이 해석 힌트로 LLM에 전달됨(갑기합 이사우위 판단 간접 보강).
+- 후속 턴 절제(항목 19, 사용자 추가 요청): LlmInput.is_followup_turn(state.turn_no≥2), _FOLLOWUP_INSTRUCTION '인사·자기소개 반복 금지, 앞 배경 재인용 금지'. 라이브 2턴 검증: 1턴 "회원님 반갑습니다" → 2턴 인사 없이 본론 직행.
+- 운 암합(항목 7): 원국 암합(2차) + graph 해석힌트로 부분 충족. 운 암합 단독 이벤트 점수화는 보조 자료 원칙(단독 결론 금지) + 회귀 영향이 커 별도 검토로 보류.
+- 검증: pytest 504 pass · ruff·mypy clean. 라이브 멀티턴·graph 힌트 확인.
+- 남은 항목: 용신 확정 질문 재설계(11, calibration 패키지), 프론트 react-markdown(4 근본 — 현재 백엔드 평문 지시로 증상 차단됨).
+
+## v2.2.1 풀이 교정 4차-a — 용신 확정 질문 재설계 (항목 11) ✅
+
+- 질문을 '막연한 흐름' → '대표 영역(intent) 제시 + 긍정/부정 흐름 택일'로 개선(2026-06-12 사용자 확정). q1=용신 긍정후보(직업·학업·연애 중 중요 영역), q2=기신 부정후보(금전·건강·계약), q3=모델 비교. 흐름은 기존 overall_rating(very_positive~very_negative)으로 받아 score_feedback이 모델 예측과 대조 — 스키마·채점 로직 불변(안전).
+- 라이브: "2017년(丁酉세운·만37세)는 좋은 기운이 들어올 것으로 본 해예요. 그 무렵 직업·학업·연애/부부 중 본인이 가장 중요하게 여긴 영역의 흐름은 순조로웠나요, 힘들었나요?" 생성 확인.
+- 항목 4(마크다운): 백엔드 평문 지시(1차)로 실질 해결 — 프론트 react-markdown 도입은 npm 의존성 추가라 별도 확인 후 진행(보고서 등 대비 보강).
+- 검증: pytest 504 pass · ruff·mypy clean.
+
+## v2.2.1 풀이 교정 5차 — 구신 반전 + 프론트 마크다운 + 보류 3건 정리 ✅
+
+- 구신 반전(사용자 추가 요청 2026-06-12): interpretations/favorability_text.json 신설(용희기구한 5역할 + reversal 의무). 구신 4반전(①희신 태과 제어 ②탐합망극으로 기신 합거 ③운 통관 징검다리 ④제화로 권력·기술 치환) + 기신 반전(합거·제화). chart_interpretation이 사용자 명식의 구신·기신 reversal 발췌, _REVERSAL_INSTRUCTION 지시. 파서 Q8에 용신/희신/기신/구신/한신·십성·신살·궁성 키워드 추가(too_broad 방지). 라이브: "구신 나쁘기만 한거야?" → "무조건 나쁜 게 아니라 균형의 핵심 성분" + 정임합 묶음 설명(1,395자).
+- 프론트 react-markdown(항목 4 근본): react-markdown@9 + @tailwindcss/typography 설치, chat/page.tsx 어시스턴트 메시지를 ReactMarkdown+prose 렌더로 교체(마크다운이 와도 깨지지 않음). tsc·prod build 통과.
+- 보류 3건 처리 결과:
+  · 공망활성(보류-3): 이미 신호로 노출 확인("공망 활성 → 金 용신" 등) — 추가 작업 불요.
+  · 갑기합 이사우위(보류-1): graph 해석 힌트(매트릭스 규칙 전체)+_MATRIX_INSTRUCTION으로 LLM이 동반 신호로 판단. 점수 클램프(100) 동점은 구조적 한계 — 절대 점수 보강은 명리 검수 후 별도(상대 순위 신뢰 원칙).
+  · 운 암합(보류-2): 원국 암합 보조 표기 + graph 힌트 + 암합 지시로 부분 충족. 완전한 운 암합 이벤트화는 만세력 엔진(luck relations_to_chart)에 암합 산출 추가가 필요 — 만세력 수정 금지 원칙 + 회귀 영향으로 별도 검토.
+- 검증: pytest 505 pass(favorability 회귀 1 신규) · ruff·mypy clean · 프론트 build 통과.
+
+## v2.2.1 풀이 교정 6차 — 운 암합 구현 + 갑기합 정렬 + 교운 가중 확인 ✅
+
+- 교운일 변동성 가중(사용자 확인 요청): 검증 완료 — event_scoring.daewoon_transition_weight = exp(-(d/365)^1.0), 첨도 큰 라플라스형. jiao_dates(trace.exact_jiao_un_dates) 정상 채움, 세운/월운 신호에 분포 가중 적용. 교운일 1.0 / ±1년 0.368 / ±2년 0.135 / ±3년 floor(0.05) — 전후 2년이 핵심 작용 구간(메모리 [[daewoon-transition-influence-model]] 실측 모델 그대로).
+- 운 암합 구현(보류-2 해소, 2026-06-12 사용자 자료): amhap_luck.py 신설 — ①명암합(운 천간+원국 지장간) ②지장간암합(운 지지 지장간+원국 지장간), 천간오합(STEM_COMBINATIONS) 기준. 궁성 매칭(연-대외/월-직장·사회/일-사생활·배우자 비중 최대/시-취미·투자) + 십성(지장간↔일간). LlmEventCandidate.amhap_notes로 프롬프트에 '운 암합(보조·물밑)' 표기 — 점수 미반영(보조 원칙·회귀 0), _AUXILIARY_INSTRUCTION에 궁성·십성 참고 안내. 라이브 탐지 확인(丁↔壬 정재 일지 명암합 등).
+- 갑기합 이사우위(보류-1 해소): 점수 클램프(100) 동점 시 동반 신호 수로 정렬(-score,-len(signals),period,key) — 사건명은 매트릭스 일치 수가 결정(2025-08: 이사 2신호 > 직장 1신호). 회귀 케이스(2024 동반 없음 → career 상위권) 영향 없음.
+- 검증: pytest 507 pass(운 암합 회귀 2 신규) · ruff·mypy clean(187파일).
+
+## v2.2.1 풀이 교정 7차 — 엔진 polarity 종합화 (지시문→엔진 전환, 사용자 피드백) ✅
+
+- **방향 전환(사용자 피드백)**: "프롬프트 지시로 모든 걸 커버 = v1 실패(프롬프트 180k)". 교운기·공망 지시문(_TRANSITION/_VOID)을 제거하고 엔진/데이터로 이전.
+- polarity 종합화(근본): 기존 polarity=top.polarity(단일 최강 신호) → `_aggregate_polarity` — 긍/부정 신호 weight 비교 + 충·형·공망 얽힘 복잡도 + 운 천간/지지 오행 용기신을 종합. 희신 충이 강해도 공망·다중 충형·운 천간 흉신이 얽히면 conditional(변동)로.
+- 운 천간/지지 오행 용기신 반영(사용자 지적 "5월 계수=구신"): score()에서 운 간지 오행 role 맵 구축 → _aggregate_polarity에 전달, 구신·기신이면 부정 가중(천간 0.4/지지 0.2). incoming_note에 "癸 편재(水 구신)" 형태로 오행 용기신 명시.
+- 교운기 비자발성(데이터): events career_change/relocation의 daewoonTransition note를 "환경이 떠미는 비자발적 전환"으로 강화(지시문 대신 데이터 — graph 자동 반영).
+- 공망 발동 불리(데이터): career_change.json에 void→career/document conditional 룰 추가(공망 충발 시 결과 지연·무산).
+- 출력 토큰 상한(Gemini thinking+가시 합산): chat 1,800→5,000(thinking 잠식으로 답변 잘림 해소). docs/09 8장 갱신.
+- 검증: 사용자 차트(1980-11-22 0940 진태양시 미적용) 라이브 — 2025 conditional / 4월 positive(용신) / 5월 conditional(구신+공망+충) / 6월 negative. 교운기 비자발·5월 구신/변동 답변 반영 확인. pytest 507 pass · ruff·mypy clean.
+
+## v2.2.1 풀이 교정 8차 — 운 위계(대운>세운>월운>일운) 점수 차등 (사용자 지적) ✅
+
+- **진단**: level은 후보 분류(라벨)에만 쓰이고 신호 weight에 level 차등이 전혀 없었음 — 같은 신호가 월운에서 와도 세운·대운과 동일 점수(위계 미반영).
+- 위계 가중(event_scoring): `_LEVEL_WEIGHT`(대운1.0/세운0.85/월운0.6/일운0.4)를 _relation_contributions·_mapping_contributions의 weight에 곱. 교운기(daewoonTransition) 신호는 대운 작용이므로 발생 계층과 무관히 대운 위상(1.0)으로 처리.
+- 위계 점수 상한(클램프): `_LEVEL_CAP`(대운100/세운90/월운75/일운55) — 월운/일운에 충·합이 몰려도 세운·대운을 넘지 못하게(점수 클램프 100에 묻히던 역전 해소).
+- 결과(사용자 차트): 대운 2025~2035=100 > 세운 2025=90/2026=85 > 월운 2026-05=75. 강도 표현(tone_for_score)도 차등되어 LLM에 전달.
+- 라이브: "올해 직업운" → 임진 대운(교운기·환경 강제)을 큰 배경으로 먼저, 세운 병오년 희신, 4·5·6월 월운을 디테일로 배치 — 대운>세운>월운 위계 구조 반영 확인.
+- 검증: pytest 507 pass · ruff·mypy clean.
+
+## v2.2.1 풀이 교정 9차 — 대운 교운일 정확값 제공 (사용자 지적) ✅
+
+- 지적: 질문 연관 대운의 교운일이 프롬프트에 제대로 제공되지 않음 — 만세력 엔진에 정확 교운일이 있는데 대략값(approx_start_date)을 쓰고 있었음.
+- 수정: context_reducer build_calendar_context가 만세력 엔진 trace.exact_jiao_un_dates에서 각 대운 approx_start_date에 가장 가까운 정확 교운일을 매칭해 DaewoonEntry.jiao_date로 제공(_exact_jiao_dates·_nearest_jiao 헬퍼, 차이 400일 초과 시 approx 폴백).
+- 결과: "올해 직업운" → 대운 壬辰(2025-2035), 교운일 2025-11-22(대략) → 2025-11-14(엔진 정확값). 질문 연관 대운(현재 대운)이 교운일과 함께 프롬프트 [간지달력]에 노출.
+- 검증: pytest exit 0(통과) · ruff·mypy clean(편집 파일).
+
+## v2.2.1 풀이 교정 10차 — '몇 월' 시기 질문에 월운 보장 (사용자 지적) ✅
+
+- 지적: "재취업한 달은 언제" 질문(몇 월 명시 요구)에 "달을 특정할 수 없다"고 회피.
+- 진단: query_type=timing_search·granularity=month인데 이벤트 후보에 월운 0개(세운만) + 월별 요약 미동반. 위계 cap(월운 75<세운 90)으로 월운이 Top N에서 밀리고, "최근 1년"이 time_range로 파싱 안 돼(open_when) 월별 트리거(start 4자리 조건)에 안 걸림.
+- 수정(chat_service): wants_monthly 트리거 확장 — "월별" 키워드 OR query_type=timing_search OR granularity=month OR "몇 월/언제/어느 달" 키워드. 시점 미지정 시 '최근/지난/작년'이면 직전 해(today-1), 아니면 올해를 target_year로 월별 요약 생성. (_SCORE_LEVELS에 MONTH 포함돼 월운 데이터 존재.)
+- 결과: 같은 질문 라이브 — 회피 사라지고 "작년 하반기~올해 초" 시기 제시 + 교운일(11/14) 짚음.
+- 유사 케이스 처리: 시기 특정형 질문(timing_search/월 granularity/몇월·언제·어느달) 전반에 월별 표 보장.
+- 검증: ruff·mypy clean(편집 파일), 라이브 확인. pytest 백그라운드 실행 중.
+
+## v2.2.1 풀이 교정 11차 — 과거 월운 on-demand 계산 (회피 답변 근절) ✅
+
+- 지적: "2025년 월별 정보 미제공 → 특정 달 확언 어렵다" 회피 — 신뢰 훼손("다 확인 안 하고 아무말").
+- 진단: monthly_luck은 미래 12개월(2026-02~2027-01)만 계산, 과거(2025) 빈 표. 10차에서 "최근→직전해(2025)"로 잡았더니 빈 표가 들어가 회피 유발.
+- 수정(chat_service): target_year가 result.monthly_luck 범위 밖이면 luck_months(birth, year) 어댑터로 그 해 월운 on-demand 계산 → result 사본 monthly_luck 교체 → MONTH 레벨 재스코어 → build_monthly_overview. 신호 0인 빈 표는 overview=None으로 차단(빈 표가 회피 유발).
+- 결과: "최근 1년 재취업한 달" 라이브 — 회피 사라지고 2025년 12개월 표(간지·이벤트·극성·강도) 제공, 2025-07 계미월(우호적)·2025-10 병술월 등 구체 월 특정. 11월 교운기·비자발·사해충 근거 제시.
+- 검증: pytest exit 0 · ruff·mypy clean(편집 파일) · 라이브 확인.
+
+## v2.2.1 풀이 교정 12차 — 월별 표 누락 신호 보완 (2025-08 이사 누락) ✅
+
+- 지적: 2025-08(甲申)은 이사 신호가 더 큰데 답변이 재취업만 단정(regression_2025_08 재발).
+- 진단: graph rag·매트릭스·정렬은 이벤트 후보 경로엔 적용됐으나, 월별 표(build_monthly_overview)는 별도 경로로 월당 최상위 1개만 표기. 2025-08 career(신호7) > relocation(신호5)이라 이사 통째 누락.
+- 수정: build_monthly_overview를 월당 상위 2개 이벤트로(점수→신호수 정렬, 이벤트 후보와 일관). 2025-08 → "이직·직업 변화 / 이사" 병기.
+- 결과: 라이브 "2025년 8월 변화" → 이사 신호 우세(상관+역마, 거처 강제 전환) 먼저 서술 + 직업 변화 병기. 공망 지연도 언급.
+- 남은 한계: 갑기합·삼합·방합이 career_change로 매핑돼 career 신호 수 부풀림(점수는 동점) — '이사 점수 우위'까지 하려면 범용 관계 신호 방향 가중 약화 또는 정관합+역마/식상 동반 시 relocation 재배분 필요(명리 검수 동반, 별도).
+- 검증: pytest exit 0 · 라이브 확인.
+
+## v2.2.1 풀이 교정 13차 — 2025-08 이사 점수 우위 (범용 신호 감쇄 + raw 정렬) ✅
+
+- 목표: 2025-08(甲申)을 점수상으로도 이사 우위로(이전엔 career 신호수 우위로 이사 누락/2순위).
+- 근본 원인: 갑기합·삼합·방합이 career_change로 매핑돼 career 신호 부풀림 + 정렬이 신호 수 기준.
+- 수정: ①삼합/방합이 한신·중립일 때 사건 기여 ×0.4 감쇄(_GENERIC_NEUTRAL_FACTOR — 방향 결정력 약한 범용 세력) ②relocation '상관+역마' 0.7→0.85(이동성 특이 신호 강화) ③relocation에 '정관합+기신→원치 않는 이동·배치' 0.55 추가(이사 의미) ④EventCandidate.raw_total 추가, 정렬 (-score, -raw_total, -신호수)로 변경(클램프 동점을 raw로 변별) ⑤월별 표 정렬도 raw_total 통일.
+- 결과: 2025-08 relocation raw 2.019 > career 1.857(1위), 월별 표 "이사 / 이직·직업 변화" 순. 직업 핵심 달(4·6·7월)은 이직 먼저 유지.
+- 검증: pytest exit 0 · ruff·mypy clean · validate 통과 · 월별 표 확인.
+- 별도 미해결: '2025년 8월' 단발 과거 월 질문에서 target_year(월별표 기준 연도)가 2025로 일관 파싱 안 됨 → LLM이 2026-08로 대체하는 경우. 파서 보강 필요(이사 우위와 별개).
+
+## v2.2.1 풀이 교정 14차 — 절대 연·월 파싱 버그 (2025년 8월 → 2026 오인) ✅
+
+- 지적: "2025년 8월" 단발 질문에서 LLM이 2026-08로 대체.
+- 진단: time_parser C5(월 단위)가 "8월"을 잡으며 연도를 today.year(2026)로만 채우고 명시 연도(2025)를 무시(C6 연도 처리가 뒤에 있어 도달 못 함). C7(반기)도 동일.
+- 수정: C5·C7에서 "(20\d{2})년" 절대 연도가 있으면 우선 사용(없으면 당해/내년). "2025년 8월"→2025-08, "2025년 하반기"→2025-07~12.
+- 효과: 과거 월운 on-demand 계산(11차)·월별 표(12차)·이사 우위(13차)가 올바른 연도로 연결.
+- 검증: pytest exit 0 · 파서 진단 정확 · 라이브("2025년 8월" → 2025년 답변, 이사 신호 강조) 확인.
+
+## v2.2.1 풀이 교정 15차 — '1년 내/앞으로 1년' 월별 요약 롤링 창 (오늘 기준) ✅
+
+- 지적: "1년 내라고 하면 오늘(2026-06-12) 기준이어야 하는데 왜 2025만 봤나."
+- 진단: build_monthly_overview가 '달력상 한 해(1~12월)'만 그리도록 설계됨. 상대-미래 질문에서도 연도만 뽑아(2026) 1~12월을 그려 ① 이미 지난 2026-01~05 포함 ② 2027-01~05 누락 → 오늘 기준 롤링 창이 아님. "1년 내"는 time_range가 없어 월별 표 자체가 안 나옴.
+- 수정:
+  - context_reducer.build_monthly_overview: months(명시적 'YYYY-MM' 목록) 파라미터 추가 — 달력 연도와 무관한 롤링 창 지원. 헤더도 "질문 연도" → 실제 구간 "{첫달}~{끝달}"로 정확화.
+  - chat_service: start가 'YYYY-MM-DD' 앵커이거나 '앞으로/향후/다가오는/1년 내' 키워드면 _rolling_months(today.year, today.month)로 오늘 달부터 12개월 롤링 창 생성. 연도 경계를 넘으므로 닿는 연도별 luck_months를 합쳐 on-demand 스코어. 명시 연도('2025년 8월')·과거('작년')는 기존 달력-연도 로직 유지.
+  - _rolling_months 헬퍼 추가. wants_monthly에 상대-미래 키워드 추가.
+- 효과: '앞으로 1년' → 2026-06~2027-05 롤링 창. '2025년 8월'은 그대로 2025년(14차).
+- 검증: pytest exit 0 · ruff/mypy clean · 롤링 빌드(2026-06~2027-05 확인) · 라이브("앞으로 1년" → 2026 병오년부터, 2025-11은 대운 교체 배경으로만).
+
+## v2.2.1 풀이 교정 16차 — '오늘의 운세'(일 단위) E9 Lifestyle 라우팅 + 위계 가중 ✅
+
+- 치명 오류: "오늘의 운세"(gran=day)인데 chat_service에 일 분기가 없어 세운/월운 거시 이벤트(이직·이사)만 후보로 넘겨, 하루 질문에 인생 사건을 단정. 정작 그날 일진(丁巳 등)은 LLM에 전달 안 됨.
+- 진단: 파서는 정상(gran=day). E9 Lifestyle(daily) 엔진(build_lifestyle_context, M15)은 이미 구현돼 있었으나 chat이 라우팅하지 않음. 데이터(일운 LuckPillar: 간지·십성·운성·형충회합·공망·신살·luck_summary)는 완비.
+- 구현:
+  - shared_types/llm_input.py: DailyFortune/DailyFortuneSlot 모델 + LlmInput.daily_fortune.
+  - chart_interpretation.py: build_daily_grounding(일진 십성·운성·형충회합 fromLuck·신살 양면·공망). 관계 fromLuck 매칭 위해 relations_text 역색인(_luck_rel_text_index, 관계명 한자 제외).
+  - chat_service.py: _build_daily_fortune — gran=day면 luck_days로 해당일 일운 확보, CompositeBuilder로 컴포지트 생성, build_lifestyle_context로 7슬롯(핵심기운/일·공부/돈·소비/관계·연애/건강/주의행동/활용법)+점수 산출, grounding 결합. 일일 경로는 거시 이벤트 후보·그래프·월별표 배제(이직·이사 단정 차단).
+  - context_reducer.py: build_llm_input daily_fortune 처리 + [오늘의 운세] 직렬화 + _DAILY_INSTRUCTION(하루 범위 한정: 조짐·횡재·가벼운 변화·만남·다툼·컨디션, 인생사건 실행 단정 금지).
+- 점수 모델(사용자 2회 정정 후 확정): 일일 슬롯 점수는 운 위계 가중 합산(대운1.0>세운0.85>월0.6>일0.4, event_scoring._LEVEL_WEIGHT 동일 철학). 대운·세운이 형성한 기운을 월이 더하고 일에서 사건화. topic_builder._lifestyle_scores에 _LIFESTYLE_LEVEL_WEIGHT 적용. (초안 일>월>세는 사용자 반박으로 폐기 — 거시 형성 에너지를 빼면 안 됨; 출력 framing만 하루 단위로 한정.)
+- 효과: "오늘의 운세" → 丁巳 일진 중심, 사해충/사신합을 하루 단위 트리거·조짐으로 서술, 이직·이사 단정 0. 슬롯 점수 극단(0/100)→9~79로 안정.
+- 검증: pytest exit 0 · ruff/mypy clean · 라이브(1100자, 이직/이사 단정 없음) 확인.
+
+## v2.2.1 풀이 교정 17차 — 월간·연간 총운 E9 라우팅(일 총운과 동일 철학) ✅
+
+- 요청: 특정 월간·연간 운세도 일 총운과 같은 철학으로 정리(주간은 '날들의 종합'이라 성격 달라 제외).
+- 규격 보완: format_slots.json·docs/02 E9에 **monthly 슬롯 신설**(연간 도메인형 월 스케일: 핵심흐름/일·직업/재물/관계·연애/건강/주의시기/기회시기, reviewed:false, 사용자 확정). docs E9에 위계·사건화 철학 주석 추가.
+- 일반화:
+  - llm_input: DailyFortune→**PeriodFortune**(fortune_type·period_label 추가), DailyFortuneSlot→PeriodFortuneSlot, LlmInput.period_fortune.
+  - chart_interpretation: build_daily_grounding→**build_luck_grounding**(일/월/세운 LuckPillar 공용).
+  - topic_builder: _fortune_type에 monthly 분기, _SLOT_DOMAIN에 '일·직업'→work.
+  - context_reducer: period_fortune 직렬화(헤더·라벨 fortune_type별), _MONTHLY_/_YEARLY_INSTRUCTION + _PERIOD_FORTUNE_INSTRUCTION/_HEADER 맵.
+  - chat_service: _build_daily_fortune→**_build_period_fortune**(일/월/연), _period_fortune_type 게이트(FORTUNE_OVERVIEW·단일 기간만; 주간·도메인·'월별/달별' 분해는 제외해 월별 표 경로 양보). 일=단일일(start==end)로 제한해 주간 분리.
+- 점수 정규화(극단 0/100 해소): _lifestyle_scores를 **레벨 내 평균 후 위계 가중 결합**으로 변경 — 월간(~30일)·연간(12개월) 하위 레벨 개수 폭주 방지. 일간은 레벨당 1개라 불변. 위계 가중(대운1.0>세운0.85>월0.6>일0.4)은 유지(사건화 철학).
+- 효과: 이번 달/특정 월/올해/특정 연 총운이 해당 기간 간지(월운/세운)·분야 슬롯·주의·기회 시기 중심으로 정리. '올해운을 월별로'는 월별 표 경로 유지. 라이브 월간(갑오월 갑기합 활성화)·연간(병오년 화 희신·직업·상하반기·도화) 확인.
+- 검증: pytest 507 passed · ruff clean · mypy 내 코드 clean(기존 manse_core stub 2건은 baseline·수정 금지 영역, 회귀 아님).
+
+## v2.2.1 풀이 교정 18차 — 신살 궁성론(위치별 해석) 반영 ✅
+
+- 요청: 신살은 원국 위치(궁성)·운 유입 레벨에 따라 의미가 다르다 — 검색 확인 후 시스템 반영.
+- 검증: 웹 검색으로 궁성론 통설 확인(년=초년·조상/고향, 월=청년·직장/부모·작용력 최대, 일=장년·본인/배우자, 시=말년·자녀/내면; 역마·도화·화개는 年月=사회 vs 日時=개인/가정으로 발현 분기). 제미나이 내용과 일치.
+- 현황: 엔진은 신살 위치(by_pillar) 이미 추적·_PALACE_ROLE 존재했으나, 해석부(_sinsal_excerpts)·사전(sinsal_text.json)에 위치별 발현 차이 없었음.
+- 반영(사용자 확정 범위 = 주요 신살 byPosition + 공통 L1·L3·L4):
+  - L2 데이터: sinsal_text.json 15종(역마·도화·화개·천을/천덕/월덕귀인·문창/문곡귀인·고신·과숙·양인·백호·괴강·홍염·현침)에 **byPosition{social(年月)/personal(日時)}** 저작. dictionaries.py에 SinsalByPosition 모델 + SinsalTextItem.by_position(선택). reviewed:false(감수 대상).
+  - L1 프레임워크: chart_interpretation._sinsal_excerpts가 신살 위치(_SINSAL_PALACE_LABEL)를 표기하고, 자리에 사회궁(年月)/개인궁(日時)이 걸린 쪽 byPosition만 부착. _sinsal_positions(by_pillar 역색인).
+  - L3 보정 지시: context_reducer._SINSAL_POSITION_INSTRUCTION — 위치 축 + 신살 자리의 충·형·공망(작용 정지/배가/무력화)·일간 용기신(반감/승화) 보정을 원국 관계·공망·용희기구한과 연결. chart_interpretation 동반 시 출력.
+  - L4 운 신살 레벨: build_luck_grounding이 운 신살에 유입 레벨(대운=장기/세운=올해/월/일) 표기(_LUCK_LEVEL_KO).
+- 효과: 같은 역마살이 연주(초년 사회이동)↔시주(말년 활동)로 갈리고, 천을귀인 사회조력·고신살 일몰두 등 byPosition 변주가 풀이에 반영. 라이브("신살 위치별") 확인.
+- 검증: pytest 507 passed · ruff clean · mypy 내 코드 clean(기존 manse_core stub 2건 무관) · 사전 스키마 검증 45/45(byPosition 15).
+
+## v2.2.1 풀이 교정 19차 — 운(運)에서 오는 신살 해석 ✅
+
+- 요청: 운(대운·세운)에서 오는 신살은 원국 보유와 작용 방식이 다름(체질 vs 사건/자극) — 해석 추가.
+- 원리(통설 확인): 운 신살은 원국 글자를 합·충·형으로 건드려 발동(작동 스위치), 대운=10년 무대·환경, 세운=그해 실제 사건. 길흉 3기준: ①희기 결합(희신+흉살=통제된 권력, 기신+길신=실속 약) ②원국 궁성(월지=직업/일지=배우자) 충돌 ③공망이 충으로 풀려 해방.
+- 반영(18차 byPosition과 동일 15종 + 공통 지시):
+  - 데이터: sinsal_text.json 15종에 **fromLuck**(운 도래 시 현실 징후) 저작. dictionaries.py SinsalTextItem.from_luck(선택). reviewed:false.
+  - build_luck_grounding: 운 신살 서술을 manifestation 대신 **fromLuck 우선**(없으면 폴백) — 운 신살=사건 프레이밍.
+  - 지시(L5): context_reducer._LUCK_SINSAL_INSTRUCTION — 운 신살=사건 타이머(체질 아님)·대운(환경)/세운(사건) 역할·합충형 발동(형충회합/궁성 연결)·길흉 3기준. period_fortune에 운 신살 있을 때 출력.
+- 효과: '올해 운세'에서 천록귀인=수입 기반·도화=사회 주목·현침=신경 날카로움 등 운 신살이 '들어오는 사건'으로 서술. 라이브 확인.
+- 검증: pytest 507 passed · ruff clean · mypy 내 코드 clean · 사전 검증 45/45(byPosition 15·fromLuck 15).
+
+## v2.2.1 풀이 교정 20차 — 시점 미지정 미래지향 질문의 현재(올해) 앵커링 ✅
+
+- 지적: '이직 제안 들어올까?'(시점 미지정) 답변이 과거 2025년을 '현재'로 서술하고 올해 2026을 건너뛰어 2025→2027로 점프.
+- 진단: query_type=domain_analysis·time_range=None → filter_year_candidates가 시점 무관 고점 반환. 상위가 2025·2024(과거 90)·2031(먼 미래)이고 2026(career 85 positive)은 Top5에서 탈락. in_question_range가 time_range None일 때 전부 통과시켜 과거 고점이 메인 점유.
+- 수정:
+  - chat_service: 미래지향 질문(time_range None·query≠event_explanation·과거 키워드 없음) 감지 → default_period=(today.year, +2). 근미래 창 후보를 all_scored에서 보존(기존 P2 메커니즘 확장)해 2026/2027 누락 방지.
+  - context_reducer.build_llm_input: default_period 파라미터 — time_range 없을 때 후보 reduce 창으로 사용(과거는 out_of_range 배경으로 분리).
+  - _REFERENCE_INSTRUCTION 강화: 오늘보다 과거 기간은 '이미 지난 일'로 과거형 서술·예측 금지, 시점 미지정 질문은 올해+근미래 중심·올해 건너뛰기 금지.
+- 효과: 메인 후보 2026·2027, 참고(배경) 2024·2025로 분리. 라이브('이직 제안')에서 올해 2026 병오년 중심→2027 전망, 2025는 진행 중 대운 교체 배경으로만.
+- 검증: pytest 507 passed · ruff clean · mypy 내 코드 clean.
+
+## v2.2.1 풀이 교정 21차 — 이벤트 감점(억제) 룰 도입 ✅
+
+- 지적: 이벤트 신호가 가점뿐, 감점 요소 점검 없음 — 전 이벤트 점검 요청.
+- 점검 결과: 전 사전 59룰 전부 가점·감점 0. 스키마 score ge=0.0이 음수 금지(docs/02는 'weight 양/음수 가능(공망 활성 -8)' 명시 — 구현이 설계보다 좁음). 기신 modifier는 max(…,0) 클램프로 감쇄만 가능, 공망도 가점(document 등)만.
+- 반영(사용자 확정 = 핵심 감점 룰 일괄):
+  - 스키마: EventCandidateSpec.score ge=-1.0(감점 허용), SignalSpec.relationAlso(복합 관계 조건 — relation과 동시 성립). 감점 룰 polarity=neutral 컨벤션(극성 집계 왜곡 방지).
+  - 스코어러: _match_signal에 relationAlso 조건. 합산(total)에서 음수 기여가 자연 차감, 0 클램프·raw_total 정렬 기존 유지.
+  - 감점 룰 11항목(16후보, 전부 reviewed:false): ①공망→결실·확정 감점(promotion/contract/marriage/windfall/income_change/exam/education_complete) — career_change.json은 기존 void 가점 항목에 병합(한 신호가 불안정 가점+결실 감점 양방향) ②탐합망충(branch_clash+six_combination)→career_change/relocation/travel 감점 ③천덕·월덕귀인→health_issue/surgery/lawsuit/expense_risk/speculation_risk 완화 감점 ④고신·과숙→relationship_start 감점.
+- 한계(보고): ⑤'강한 인성+건록(안정)→이직 감점'은 십이운성 조건이 SignalSpec에 없어 보류. 탐합망충 매칭은 '같은 기간 동시 존재' 기준이라 같은 글자 경합보다 넓음(보수적 가중 -0.15~-0.25, 감수 대상).
+- 효과: 샘플 차트 230후보 중 88개에 감점 신호 실림(raw_total 차감·약한 후보 점수 하락), LLM 입력 동반 신호에 '감점 — …' 표기.
+- 검증: dict validate 0·lint 0 · pytest 507 passed(회귀 픽스처 상대순위 유지) · ruff/mypy clean.
+
+## v2.2.1 풀이 교정 22차 — 십이운성 SignalSpec 조건 + 안정/리셋 modifier 룰 ✅
+
+- 요청: 십이운성 조건 확장 스펙(JSON) 반영 — 21차 보류분('인성 강+건록 → 이직 감점') 해소. 재미 위주 그룹명은 서빙 적합어로 대치(응애존→성장기, 청년기→왕성기, 노년존→쇠퇴기, 세포존→재생기).
+- 스키마(dictionaries.py):
+  - SignalSpec 4조건 추가: unseong(운 유입 글자 운성)/natalUnseong(원국 월·일주 운성)/tenGodGroupStrong(십성군 강 — 인성·비겁·식상·재성·관성)/absentRelations(does_not_apply_when — 충·형 등 외부 강트리거 동반 시 룰 미적용).
+  - common/twelve_unseong_groups.json 신설(12운성 stability·changeDrive·도메인 bias + 4그룹, 그룹명 정제, reviewed:false) + TwelveUnseongGroupsFile 스키마 등록.
+- 스코어러(event_scoring.py): _strong_ten_god_groups(force_analysis.ten_gods.groups percent>=30 → 강), _PeriodContext에 natal_unseongs(월·일주)/strong_groups 주입, _match_signal에 4조건.
+- 룰 6건(reviewed:false, modifier 전용 — 가중을 낮게 저작해 합충형파해·공망·용기신보다 자연 하위):
+  - career: 인성강+운건록 -0.12 / 인성강+원국건록 -0.12 (둘 다 absentRelations로 충·형 시 미적용) / 운절 +0.10 / 운사 +0.06 (가점은 conditional — 리셋성 전환).
+  - relocation: 운건록 -0.07(정착) / 운절 +0.08(리셋).
+- 실측: 인성 19% 차트 → 감점 미발동(정확). 午=기토 건록 → 2026 병오·6월 갑오 relocation 정착 감점. 인성강+월주건록 차트(1975-06-20) → career 감점 발동(2027 점수 0). scoring_policy(우선순위 하위·modifier 전용) 준수.
+- 검증: dict validate 0·lint 0 · pytest 507 passed · ruff/mypy clean.
+
+## v2.2.1 풀이 교정 23차 — 유효 창 현재 달 클램프(지속 시점 오류 근본 수정) ✅
+
+- 지적: '이직 제안(무시점)'·'올해 연애' 답변이 이미 지난 2026년 4·5월을 다가올 트리거처럼 서술 — 한 해 전체를 미래로 잡는 지속적 시점 오류.
+- 진단: ①'올해'(2026) 창=1~12월이라 지난 4월 후보(임진월 정임합 등)가 '기간 내' 메인으로 서빙 ②무시점 default_period도 연 단위(2026~2028)라 1~5월 포함. 20차 수정(과거 연도 분리)은 연 단위만 다뤄 '올해 안의 지난 달'을 놓침.
+- 수정(엔진/데이터 차원 — 프롬프트 지시 의존 금지 원칙):
+  - chat_service P6: 유효 창 시작을 '오늘이 속한 달'로 클램프. 무시점 → (현재 달, +2년). 질문 창이 '과거 시작+미래 포함'(올해 등)이면 (현재 달, 원래 끝). 과거 회고(event_explanation·_PAST_KEYWORDS)·전체 과거 창은 클램프 제외. P2 보존 블록도 유효 창 기준.
+  - build_llm_input: default_period(유효 창)가 후보 축소에서 질문 창보다 우선(기준 시점 표시는 원래 창 유지).
+  - build_reference_frame: 창이 과거~미래에 걸치면 '이 중 X~Y는 이미 지남(과거형으로만·앞으로의 권고 금지) — 남은 구간 Z~W' 데이터 노트(_prev_month 헬퍼).
+  - 직렬화 '지남' 마커: 기간 외 후보 블록에 '※ 위 기간은 이미 지났다', 월별 요약 행에 '· 지남(과거형으로만)' — 현재 달은 reference.today에서 산출.
+- 효과: '올해 연애' → 메인 후보 없음(남은 6~12월 기준) 정직 안내 + 2022/2025 과거형 배경, 4월 미래 둔갑 소멸. '이직 제안' → 메인 2026·2026-06~08·2027. '2025년 8월' 과거 회고는 비클램프 유지.
+- 검증: pytest 507 passed · ruff/mypy clean · dry-run 3종 창 확인 · 라이브('올해 연애') 확인.
+
+## v2.2.1 풀이 교정 24차 — '지난 N년/개월' 과거 롤링 창(시점 처리 5단계) ✅
+
+- 지적: '지난 1년내 재취업한 달은?'에 2026년 1·4·5월을 꼽고 '2025-06~12 데이터 미제공' 회피 — 과거 방향 롤링 창 누락(15차는 미래 방향만).
+- 진단: time_parser에 '지난/최근 N년·N개월·반년' 규칙이 없어 time_range=None → 후보가 시점 무관 고점(기본 월운 창 2026 월들)으로 흘러감. 월별 표도 질문 창과 불일치.
+- 수정:
+  - time_parser C8b: '지난/최근 N년·N개월·반년' → 현재 달 포함 직전 N개월 절대 창(예: 지난 1년=2025-07~2026-06), scope=PAST. 숫자 없는 '지난달/지난해' 단수는 비처리(오인 방지).
+  - chat_service: wants_monthly에 다중 월 창 분기(start·end 모두 YYYY-MM이고 다르면 _months_between으로 질문 창 그대로 표, 상한 13). 창 스코어 후보(scored_win)를 메인 후보에도 보존 — 표와 근거 경로가 같은 달을 가리키게.
+  - 직렬화: 월별 요약 헤더 '12개월' 하드코딩 → 실제 행 수.
+- 효과: 표 2025-07~2026-06 12행, 메인 후보 2025·2025-07~09·2026(미래월 오염 0). 라이브: 2025년 7월 최유력 + 8·9월 비자발 비교 + 2026년 1월 보조 — 전부 과거형, '미제공' 회피 소멸. 8월 甲申 비자발 구분은 13차 회귀와 일관.
+- 기존 보존: '지난달'(단수) 비처리, '앞으로 1년' 미래 롤링, '2025년 8월' 절대 월, 23차 클램프(과거 키워드 제외) 모두 유지.
+- 검증: pytest 507 passed · ruff clean · mypy clean(기존 manse_core stub 2건 외 0) · 라이브 확인.
+
+## v2.2.1 풀이 교정 25차 — 교운기 가중의 표면화(점수 cap 포화 보완) ✅
+
+- 지적: '지난 1년 재취업' 답변에서 대운 교운기 가점이 모두 무시된 듯 — 교운 근접 달(2025-10~12)이 부각되지 않음.
+- 진단: 교운 가중은 내부적으로 정확(교운일 2025-11-14 중심 첨도 분포, w 39~55). 그러나 월운 점수가 _LEVEL_CAP(75)에 전월 포화 → 표·톤이 전부 '가능성이 높습니다'로 동일해져 교운 근접 차이가 LLM 입력에서 소실. cap(위계 모델, 사용자 확정)은 유지하고 교운 근접도를 데이터로 표면화.
+- 수정:
+  - event_scoring: 교운 신호 effect에 근접도 라벨 부기 — _transition_label(w): ≥0.8 '정점권(교운일 임박·직후)' / ≥0.5 '근접' / 그 외 '영향권(완만)'. 후보 동반 신호(signals_ko)에서 차등 변별.
+  - MonthOverviewRow.transition 필드 + build_monthly_overview에서 교운일 거리 기반 라벨(≤45일 '대운 교체 정점' / ≤180 '대운 교체기' / ≤365 '영향권') — 엔진 가중 모델과 동일 거리 기준.
+  - 직렬화: 표 행에 '· 대운 교체 정점' 등 표기 + 사용 노트('같은 강도의 달이 여럿이면 교운 근접 달을 우선 지목').
+- 효과: 표에서 2025-10~12 '정점' 차등 노출. 라이브: '갑작스러운 변화라는 측면에서 가장 뚜렷한 구간은 대운 교체일 2025-11-14 전후' — 7월(우호 시작)→8·9월(정체)→11월(교운 폭발=재취업) 서사로 질문 의도('갑작스럽게')와 정합.
+- 검증: pytest 507 passed · ruff/mypy clean · dry-run 표 라벨·라이브 확인.
+
+## v2.2.1 풀이 교정 26차 — 월별 표 상대 강도 순위·사건 우열 표기 ✅
+
+- 지적: LLM 입력 프롬프트만 봐서는 '진짜 중요한 달'을 알 수 없음(전월 '가능성이 높습니다' 포화). 달 내 사건 나열('이사 / 이직')이 발생 가능성 순이라는 의미도 무시됨.
+- 수정(절대값보다 상대 순위 신뢰 — docs/07 원칙의 표면화):
+  - MonthOverviewRow.strength_rank — 창 내 달별 최강 후보의 raw(클램프 전) 기준 상위 3위 산출(build_monthly_overview).
+  - 직렬화: '★기간 내 강도 1위'/'2위'/'3위' 마커, 사건 나열 구분자 ' / '→' > '(앞이 우세).
+  - 표 읽는 법 노트 통합: '>' 의미 + 'N위가 실제 상대 순위 — 가장 유력한 달은 1위부터' + 교운 표기 의미(25차 노트 흡수).
+- 효과: 표에서 1위 2026-05·2위 2025-08·3위 2025-11 즉시 변별. 라이브: '가장 강렬하게 분출된 시점은 2026년 5월(강도 최고)' → 2025-11 교운 정점 보조 → 2025-08 비자발 비교 — 데이터 순위가 답변 구조로 직결.
+- 참고: 순위는 reviewed:false 가중 초안 기반 결정론 산출 — 도메인 직관과 다르면 가중 튜닝 대상(cases.jsonl 축적 후).
+- 검증: pytest 507 passed · ruff/mypy clean · dry-run 표·라이브 확인.
+
+## v2.2.1 풀이 교정 27차 — 운 천간 구신의 유불리 반영(발생 강도와 분리) ✅
+
+- 지적: 2026-05(癸巳)는 계수=구신이라 계약 등에 불리해 이동하면 안 되는 달인데, 이벤트 스코어에 반영됐는지?
+- 진단(부분 반영 + 누락 2건):
+  - 반영돼 있던 것: polarity 조건부(극성 종합 모델), 결실류 저점(contract 24·document 54, 공망 감점).
+  - 누락 ①: 천간 癸(구신) 자체가 career 점수 기여에 전무 — 기여 전부가 지지 巳(희신) 관계·교운·공망. ②버그: 과거 창 월 후보의 간지가 빈 값('@ 2025-07(,') → incoming_note('癸 편재(水 구신)') 월 후보에 누락 — ganji lookup이 원본 result(기본 월운 창)만 봄. ③표가 발생 강도 순위만 노출해 '유리한 달'로 오독.
+- 수정:
+  - (버그) chat_service result_for_llm — on-demand 월운 주입본(result_win/result_year)을 build_llm_input에 전달 → 창 월 간지·해석 줄 복원(2025-07 癸未 등 5건).
+  - 표 행에 간지 용기신 역할 표기: MonthOverviewRow.luck_roles('癸水 구신·巳火 희신') + 표 읽는 법에 '천간 구신·기신 달은 발생해도 계약·결실·실속에 불리 — 좋은 달로 단정 금지(발생 강도와 유불리 구분)'.
+  - SignalSpec.stemFavorability(운 천간 오행 용기신 단독 조건) + 감점 룰: 천간 구신 → contract -0.2·document -0.15(reviewed:false, 사용자 도메인 지식). 효과: 2026-05 contract 24→12·document 54→45.
+- 검증: dict validate/lint 0 · pytest 507 passed · ruff/mypy clean · 라이브 미래 권고형('이직 좋은 달·피할 달')에서 강도 1위 달(2027-05)을 추천이 아닌 '조건 까다로움' 경고로 구분 — 발생 강도/유불리 분리가 답변 구조에 구현됨.
+- 메모: 발생 회고형('성공한 달은?') 답변에서는 구신 코멘트가 생략될 수 있음(질문 성격상) — 권고형에서 분리가 작동하는 것이 핵심.
+
+## v2.2.1 풀이 교정 27차 보완 — 천간 기신 감점 룰(기신·구신 대칭) ✅
+
+- 정정: 27차는 구신만 저작 — 의도는 천간이 '기신 또는 구신'일 때의 감점 요인 점검.
+- 점검: 기신 천간 기존 반영 = 관계 기여 modifier(-0.2, 0 클램프 감쇄)·polarity 종합(neg+0.4)뿐 — 결실류 감점 룰 부재. 실측: 2026-06(甲午, 甲=木 기신) contract 75점 방치(구신 달 2026-04 contract 0과 비대칭).
+- 수정: {stemFavorability:"기신"} → contract -0.25·document -0.2 (기신은 용신을 직접 극 — 구신(-0.2/-0.15)보다 강하게, reviewed:false). 효과: 2026-06 contract 75→70·document→0. 잔여 점수는 정관합 등 발생 신호 — '불리한 계약 사건 발생 가능성'로 polarity(negative_or_forced)가 유불리 담당(score=발생/polarity=유불리 원칙 일관).
+- 검증: dict validate/lint 0 · pytest 507 passed · ruff clean.
+
+## v2.2.1 풀이 교정 28차 — 미발동 글자의 용기신 기본 가감(일반 원칙) ✅
+
+- 사용자 원칙: "천간·지지에 들어온 글자가 합충형파해 등 어떤 형태로도 가점·감점에 기여하지 않은 경우, 용신·희신·기신·구신 여부에 따라 가감될 수 있다."
+- 기존: 미발동 글자의 용기신 역할은 극성 종합·표시(incoming_note)에만 반영 — 점수 기여 0.
+- 구현:
+  - 사전: common/ten_god_events.json 신설 — 십성→대표 이벤트 매핑 9종(비견·식신→business_start, 상관·편관·정관→career_change, 편재·정재→income_change, 편인→education_start, 정인→document). 리스크형 이벤트(손재·송사)는 가감 방향이 반대라 1차 제외(겁재 미등재, note 명시). TenGodEventsFile 스키마 등록.
+  - 스코어러: _PeriodContext.stem_anchored/branch_anchored 플래그 — 관계 기여(천간합=stem/그 외=branch)·매핑 룰 매칭(tenGod·stemFavorability=stem / branchTenGod·shinsal·unseong=branch) 시 기록. _baseline_contributions: 미발동 글자만 — favorability_rules modifier 재사용(용신+0.2/희신+0.1/기신-0.2/구신-0.15, 한신·무매핑 십성 제외) × 레벨 가중. polarity: 가점=positive/감점=neutral. 신호 type='baseline_favorability', effect '미발동 글자 기본 가점/감점 — 천간 己(土 용신) 비견: …'.
+- 효과: 미발동 용신 己→business_start +20, 희신 丙·丁→document/education +10, 기신 卯(편관)→career_change -20. 발동 글자는 제외(8/238 후보만) — 베이스라인 < 트리거 위계 유지(±10~25 raw vs 발동 60~80).
+- 검증: dict validate/lint 0 · pytest 507 passed(회귀 상대순위 유지) · ruff/mypy clean. 매핑·계수 reviewed:false(감수 대상).
+
+## v2.2.1 풀이 교정 29차 — 유불리가 풀이에 미반영되던 잔여 결함 2건 ✅
+
+- 지적: 프롬프트(표 역할·각주)는 수정됐으나 풀이가 여전히 1위 달(癸巳)을 '계약·문서 기회'로 우호 서술.
+- 진단(근본 원인): ①**후보 선별(reduce_candidates)이 raw_total 무시** — (-score, 기간 오름차순) 정렬이라 동점(75) 중 이른 달(2025-07~09)만 Top5에 들고, 강도 1위 2026-05는 후보 블록에 아예 없음 → '癸(水 구신)' 해석 줄이 LLM에 미전달. ②표 각주는 지지 희신 서사에 묻혀 무시됨.
+- 수정:
+  - reduce_candidates 정렬에 -raw_total 추가 — 후보 선별이 표의 '기간 내 강도 N위'와 같은 달을 가리킴(후보: 2026-05·2025-08·2025-11 = 표 1·2·3위 일치).
+  - 표 행 역할에 천간 흉신 경고 직접 부착: '[癸水 구신·巳火 희신 ⚠계약·결실 불리]'.
+  - LlmEventCandidate.caution_note(후보별 사실 데이터) + 직렬화 '⚠유불리:' 줄 — 천간 기·구신 후보에 '사건이 일어나도 계약·결실·실속에 불리(조건 악화·소모 주의), 우호적으로만 서술 금지'.
+- 효과(라이브): "가장 눈에 띄는 변화는 2026년 5월 … 다만 천간의 계수가 구신으로 작용해 계약 조건이 까다로웠거나 실속 면에서 고민이 따랐을 수 있지만…" — 1위 지목+유불리 단서가 한 문단에 완결. 11월(교운 정점·비자발)·8월(기신 정관합 배치변경) 차등 서술 유지.
+- 검증: pytest 507 passed · ruff/mypy clean · 라이브 확인.
+
+## v2.2.1 풀이 교정 30차 — 계사월 케이스 일반화: 중복 충·대운 공망·검토월 ✅
+
+- 사용자 도메인 풀이(2026-05 계사월에 이동하면 안 되는 이유)를 일반 룰로 정리·반영:
+  - G1 **중복 충 불안정**(스코어러 _instability_contributions): 같은 운 글자가 원국 2글자 이상과 동일 충(巳亥沖×2 등)이면 변동 과다·결정 불안정 — 발생 점수(career/relocation)는 유지, 결실류 감점(contract -0.15·document -0.1, 레벨 가중). '이동수는 켜져도 계약 유지력 약화'.
+  - G2 **대운 지지 공망 배경 제약**: SignalSpec.daewoonBranchVoid 조건 신설(_PeriodContext에 daewoon_branch·natal_void 주입) + 룰: contract -0.15/document -0.1/relocation -0.1 — 대운 전 기간 새 계약·환경 진입 실속 부족·지연(임진 대운 辰=공망 케이스).
+  - G3 **검토월 표면화**: 후보에 불안정 신호(중복 충·공망 계열) 동반 시 ⚠유불리에 "'실행월'이 아니라 '검토월'(조사·조건 확인까지)" 부기 — judgement {movement high, contract_stability low}의 데이터 표현.
+  - (공망 글자 재등장 감점은 기존 21차 반영 확인 — 중복 저작 안 함.)
+- 효과: 2026-05 contract 12→0·document 45→33, career 75 유지(발생/유불리 분리 원칙 일관). 후보 블록에 구신+검토월 명시.
+- 검증: dict validate/lint 0 · pytest 507 passed · ruff/mypy clean. 룰 reviewed:false.
+
+## v2.2.1 풀이 교정 31차 — 유력 달 종합 블록 + Gemini 프리뷰 장애 발견·전환 ✅
+
+- 지적: 표·후보 데이터는 완비됐는데 풀이에 '8월=이사 우세'·'2026-05 검토월'이 계속 미반영.
+- 원인 2중:
+  ① 정보가 표·후보·각주에 분산돼 LLM이 서사에서 일부 누락(비결정).
+  ② **gemini-3-flash-preview 서비스 장애(503/응답 행 — 11.9k 프롬프트에서 180s+ 타임아웃)** → 모든 라이브 응답이 GPT-5 mini 폴백으로 처리되고 있었음(Trigger/진행/결과 문체·내부 표기 노출이 단서). 단순 프롬프트는 정상이라 장애가 가려짐.
+- 수정:
+  - **[유력 달 종합] 블록**(직렬화, 엔진 사전 종합): 순위·우세 사건(2순위 포함)·성격·간지 역할·교운을 달별 한 줄로 — '답의 골자, 누락 금지'. ⚠ 보유 달엔 '검토월 성격(우호 서술 금지)', 질문 사건≠우세 사건이면 '※ 이 달의 주된 신호는 X — 질문 사건은 동반 신호로만'(regression_2025_08 데이터화).
+  - **모델 전환**: config/llm_config.json primary gemini-3-flash-preview → **gemini-2.5-flash**(thinkingBudget 512 = LOW 상당, 절대 원칙 9). 실측: 동일 프롬프트 7.6s OK vs 프리뷰 503. note에 원복 검토 명시.
+- 효과(라이브): "2026-05 … 癸水 구신 때문에 계약·결실·실속 불리 — 실행월이 아니라 검토월" + "2025-08 … 월별 요약에서는 이사 신호가 더 우세, 이직은 동반 신호" + 2025-11 교운 정점·계약 유지력 낮음 — 지적 2건 완전 반영.
+- 검증: pytest 507 passed · ruff clean · 라이브 확인.
+- 운영 메모: 프리뷰 모델 장애 시 폴백이 무음으로 대체하므로, 응답 문체 급변(구조체 영어 헤더 등)은 폴백 신호로 볼 것. 모델 헬스 체크/폴백 알림은 추후 운영 과제.
+
+## v2.2.1 풀이 교정 32차 — 과거 개방형 회고(공백기 탐색) 경로 ✅
+
+- 지적(대화 3턴 다발 결함): ①'오래 쉬었던 기간 언제였을까'가 올해(2026) 데이터로만 답하고 '2026 이전 데이터 미제공' 자백 ②후속 단답 '년단위였어'가 too_broad 거절(엉뚱한 연애운 제안) ③턴 간 모순(1턴 2026-05 재취업 성공 ↔ 2턴 같은 기간 공백기).
+- 이번 수정(①):
+  - _PAST_KEYWORDS에 과거형 어미 추가('였을까/었을까/았을까/였던/었던/았던/였지/었지') — 미감지 시 과거 질문이 미래 창(+2년)으로 클램프되던 근본 원인.
+  - 과거 회고 + 시점 미정(open_when 포함) → default_period=(today-10년, 현재 달) 과거 창 앵커링.
+  - **연도별 흐름 표**: 과거 회고 timing_search에 과거 10년(세운 데이터 있는 연도로 클립) 연도별 표 — build_monthly_overview를 연 라벨('YYYY')도 받게 일반화(매칭·교운 중점·헤더 분기), '점수 낮은 해=신호 없던 해' 노트로 공백 연도(2023 '뚜렷한 신호 없음')가 데이터로 드러남.
+  - 연 라벨 '지남' 마커 비교 보정(현재 연도 오표기 제거).
+  - 모델 전환(31차) 추종: test_llm_client_failover의 하드코딩 모델명 → '단일 파일 계약'만 고정하도록 완화.
+- 효과(라이브): '미제공' 회피 소멸 — 2022·2024·2025 비자발 변화 흐름 + 연도별 표 기반 서술.
+- 검증: pytest 507 passed · ruff/mypy clean · dry-run 표·라이브 확인.
+- 남은 과제(보고): ②후속 단답('년단위였어') 질문 링킹 미발동 — ConversationEngine 단답 상속 점검 필요. ③턴 간 모순 — state에 등록된 이전 시스템 claim을 후속 턴 프롬프트에 '[이전 답변 결과 — 모순 금지]'로 주입하는 작업 필요.
+
+## v2.2.1 풀이 교정 33차 — 멀티턴 모순 방지 + 후속 단답('년단위였어') 링킹 ✅
+
+- (④ 턴 간 모순) LlmInput.prior_claims + 직렬화 '[이전 답변에서 이미 제시한 엔진 결과 — 모순 금지(같은 기간을 다른 사건·성격으로 뒤집지 말 것, 어긋나면 차이를 명시)]' 블록. chat_service가 후속 턴에서 state.last_results(T4.5 claim 등록분)를 한글화(event_ko)해 주입.
+- (③ 단답 링킹) '년단위였어' too_broad 원인 3중 수정:
+  - conversation.link_question 2순위 시간 단서에 '[년연월주일]\s*단위' 추가(TIME_SHIFT).
+  - query_parser B2b: 단위 정정 단답은 time_range 미파싱이어도 직전 intent 상속 + granularity만 갱신(년→YEAR 등, open_when 보존).
+  - chat_service is_retro에 open_when 포함 — 후속 단답엔 과거 어미가 없어도 상속 intent로 과거 회고 식별.
+- 라이브 3턴 검증(thread_id): 1턴 재취업 성공 달 → 2턴 공백기 질문이 '2026 공백' 모순 없이 2024 甲辰(기신 정관·비자발·계약 불리→재취업 곤란)·2025 압박 이탈로 일관 서술 → 3턴 '년단위였어' answered("지난 답변에 이어 년 단위 흐름…", 2023 무신호 연도 언급).
+- mypy 변수 충돌(r 재사용) 정리(mr), 게이트: pytest 507 passed · ruff clean · mypy 0(기존 stub 2건 외).

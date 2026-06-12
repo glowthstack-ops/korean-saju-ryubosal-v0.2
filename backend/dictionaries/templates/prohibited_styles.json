@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "note": "금기 표현 사전 (docs/05 templates/ — v2.2.1). 절대 원칙 3(단정 금지)·8(승부 단정 금지)·공포 조장 금지를 표현 수준에서 차단한다. pattern은 부분 일치 검사용, category별 대체 지침(replacementHint) 동반.",
+  "items": [
+    { "pattern": "반드시", "category": "단정", "replacementHint": "'~할 가능성이 높습니다' / '~신호가 강합니다'", "reviewed": false },
+    { "pattern": "무조건", "category": "단정", "replacementHint": "'~흐름이 뚜렷합니다'", "reviewed": false },
+    { "pattern": "확정적으로 발생", "category": "단정", "replacementHint": "'변화 에너지가 활성화됩니다'", "reviewed": false },
+    { "pattern": "100%", "category": "단정", "replacementHint": "확률 수치 단정 금지 — 표현 강도 가이드 사용", "reviewed": false },
+    { "pattern": "틀림없이", "category": "단정", "replacementHint": "'~로 보는 편이 자연스럽습니다'", "reviewed": false },
+    { "pattern": "반드시 이직한다", "category": "단정", "replacementHint": "'직업 변화 에너지가 활성화됩니다'", "reviewed": false },
+    { "pattern": "무조건 헤어진다", "category": "단정", "replacementHint": "'관계 긴장 신호 — 점검의 시기'", "reviewed": false },
+    { "pattern": "당선됩니다", "category": "승부단정", "replacementHint": "상대 우열+근거까지만 — 당락 확정 금지(절대 원칙 8)", "reviewed": false },
+    { "pattern": "합격합니다", "category": "승부단정", "replacementHint": "'학업·시험 결실 에너지가 강한 흐름'까지만", "reviewed": false },
+    { "pattern": "당첨", "category": "승부단정", "replacementHint": "'단기 재물 변동성/예상 밖 수입·지출'로 표현", "reviewed": false },
+    { "pattern": "로또 번호", "category": "정책거부", "replacementHint": "번호 생성은 어떤 형태로도 거부(절대 원칙 8)", "reviewed": false },
+    { "pattern": "죽음", "category": "공포조장", "replacementHint": "수명·생사 언급 금지 — 건강 관리 환기로 대체", "reviewed": false },
+    { "pattern": "요절", "category": "공포조장", "replacementHint": "수명 단정 금지", "reviewed": false },
+    { "pattern": "불치", "category": "공포조장", "replacementHint": "의료 단정 금지 — '전문의 상담' 안내", "reviewed": false },
+    { "pattern": "저주", "category": "공포조장", "replacementHint": "공포 마케팅 표현 전면 금지", "reviewed": false },
+    { "pattern": "삼재라서 큰일", "category": "공포조장", "replacementHint": "신살·삼재는 보조 자료 — 단독 결론 금지", "reviewed": false },
+    { "pattern": "암에 걸린다", "category": "의료단정", "replacementHint": "질병 진단·예언 금지 — 검진 권유 수준", "reviewed": false },
+    { "pattern": "이혼한다", "category": "단정", "replacementHint": "'관계 긴장 활성창 — 대화·점검 시기'", "reviewed": false },
+    { "pattern": "파산한다", "category": "단정", "replacementHint": "'지출·손재 변동성 확대 — 상한 관리'", "reviewed": false },
+    { "pattern": "절대 하지 마세요", "category": "단정", "replacementHint": "'신중히 살펴볼 시기입니다' — 선택권은 사용자에게", "reviewed": false }
+  ]
+}

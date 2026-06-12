@@ -43,11 +43,12 @@ def test_career_question_produces_guarded_prompt() -> None:
     body = res.json()
     assert body["status"] == "dry_run"
     assert body["candidate_count"] >= 1
-    assert 0 < body["input_tokens"] <= 6_000  # chat_single 한도(docs/09 8장)
+    assert 0 < body["input_tokens"] <= 12_000  # chat_single 한도(docs/09 8장 v2.2.1)
     preview = body["prompt_preview"]
-    for section in ("[원국]", "[간지달력(압축)]", "[이벤트 후보", "[근거 경로]", "[지시]"):
+    for section in ("[원국·명식 구조", "[간지달력(압축)]", "[이벤트 후보", "[근거 경로]", "[지시]"):
         assert section in preview
-    assert "재계산 금지" in preview  # LLM 계산 금지 고지(절대 원칙 1)
+    # 계산 금지 고지(절대 원칙 1)는 base instruction의 '명리 계산을 시도하지 말 것'에 유지.
+    assert "명리 계산을 시도하지 말 것" in preview
 
 
 def test_intent_metadata_round_trip() -> None:

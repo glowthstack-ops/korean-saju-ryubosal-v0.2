@@ -1,0 +1,30 @@
+{
+  "version": "1.0.0",
+  "note": "천간 10·지지 12 물상 사전 (docs/05 interpretations/ — v2.2.1). 모든 비유의 원천 재료 — 일주·운 유입 해석에서 글자의 그림을 공급한다. 단정 표현 금지.",
+  "stems": [
+    { "char": "甲", "element": "木", "yinYang": "양", "imagery": "하늘로 곧게 자란 큰 소나무·대들보", "keywords": ["시작", "성장", "곧음", "리더십"], "narrative": "숲에서 가장 먼저 하늘을 향해 뻗는 큰 나무 — 시작과 개척, 굽히지 않는 곧음의 기운이에요.", "reviewed": false },
+    { "char": "乙", "element": "木", "yinYang": "음", "imagery": "바람에 휘면서도 살아남는 화초·덩굴·잔디", "keywords": ["유연", "적응", "생존력", "교섭"], "narrative": "밟혀도 다시 일어나는 들풀 — 부드럽게 감고 올라가 끝내 살아남는 유연한 생명력이에요.", "reviewed": false },
+    { "char": "丙", "element": "火", "yinYang": "양", "imagery": "만물을 비추는 한낮의 태양", "keywords": ["확산", "표현", "명예", "공개"], "narrative": "숨기는 것 없이 세상을 비추는 태양 — 존재만으로 주변이 밝아지는 확산의 기운이에요.", "reviewed": false },
+    { "char": "丁", "element": "火", "yinYang": "음", "imagery": "어둠을 밝히는 촛불·화롯불·달빛", "keywords": ["집중", "온기", "정밀", "헌신"], "narrative": "필요한 곳을 정확히 데우는 등불 — 화려하진 않아도 꺼지지 않는 집중과 온기예요.", "reviewed": false },
+    { "char": "戊", "element": "土", "yinYang": "양", "imagery": "흔들리지 않는 큰 산·너른 대지", "keywords": ["신뢰", "중후", "포용", "책임"], "narrative": "비바람에도 자리를 지키는 큰 산 — 기대고 싶어지는 묵직한 신뢰의 기운이에요.", "reviewed": false },
+    { "char": "己", "element": "土", "yinYang": "음", "imagery": "무엇이든 길러내는 기름진 논밭·정원", "keywords": ["양육", "실속", "수용", "겸손"], "narrative": "씨앗을 받아 결실로 돌려주는 옥토 — 품 안에 들어온 것을 길러내는 실속의 기운이에요.", "reviewed": false },
+    { "char": "庚", "element": "金", "yinYang": "양", "imagery": "제련 전의 무쇠·바위·도끼", "keywords": ["결단", "추진", "의리", "개혁"], "narrative": "단단한 원석이자 길을 내는 도끼 — 망설임 없이 자르고 밀고 나가는 결단의 기운이에요.", "reviewed": false },
+    { "char": "辛", "element": "金", "yinYang": "음", "imagery": "세공된 보석·예리한 침과 가위", "keywords": ["정밀", "심미", "자존심", "완성"], "narrative": "다듬어져 빛나는 보석 — 작은 흠도 허락하지 않는 정밀함과 높은 자존감의 기운이에요.", "reviewed": false },
+    { "char": "壬", "element": "水", "yinYang": "양", "imagery": "끝이 보이지 않는 바다·큰 강", "keywords": ["지혜", "포용", "스케일", "유동"], "narrative": "모든 물줄기를 받아들이는 큰 바다 — 깊이를 알 수 없는 지혜와 큰 그릇의 기운이에요.", "reviewed": false },
+    { "char": "癸", "element": "水", "yinYang": "음", "imagery": "만물을 적시는 이슬비·옹달샘·시냇물", "keywords": ["섬세", "스며듦", "직관", "순수"], "narrative": "소리 없이 대지를 적시는 봄비 — 필요한 곳에 스며들어 살리는 섬세한 지혜예요.", "reviewed": false }
+  ],
+  "branches": [
+    { "char": "子", "element": "水", "yinYang": "양", "zodiac": "쥐", "imagery": "한밤의 깊고 맑은 샘물", "keywords": ["지혜", "민첩", "은밀", "시작"], "reviewed": false },
+    { "char": "丑", "element": "土", "yinYang": "음", "zodiac": "소", "imagery": "한겨울 얼어붙은 논밭 — 봄을 준비하는 땅", "keywords": ["인내", "근면", "축적", "신용"], "reviewed": false },
+    { "char": "寅", "element": "木", "yinYang": "양", "zodiac": "호랑이", "imagery": "이른 봄 깨어나는 숲", "keywords": ["개척", "추진", "기상", "이동"], "reviewed": false },
+    { "char": "卯", "element": "木", "yinYang": "음", "zodiac": "토끼", "imagery": "봄 들판 가득 돋은 새싹", "keywords": ["성장", "온화", "다산", "유연"], "reviewed": false },
+    { "char": "辰", "element": "土", "yinYang": "양", "zodiac": "용", "imagery": "봄비 머금은 옥토 — 용이 깃든 물창고", "keywords": ["포부", "변화", "저장", "조화"], "reviewed": false },
+    { "char": "巳", "element": "火", "yinYang": "음", "zodiac": "뱀", "imagery": "초여름 피어오르는 불씨와 아지랑이", "keywords": ["명민", "집중", "변신", "이동"], "reviewed": false },
+    { "char": "午", "element": "火", "yinYang": "양", "zodiac": "말", "imagery": "정오의 태양 아래 달리는 말", "keywords": ["열정", "발산", "정점", "솔직"], "reviewed": false },
+    { "char": "未", "element": "土", "yinYang": "음", "zodiac": "양", "imagery": "한여름 곡식이 익어 가는 마른 들", "keywords": ["온건", "축적", "결실", "끈기"], "reviewed": false },
+    { "char": "申", "element": "金", "yinYang": "양", "zodiac": "원숭이", "imagery": "초가을 바위산 — 재주 많은 쇠의 기운", "keywords": ["재주", "결단", "이동", "기술"], "reviewed": false },
+    { "char": "酉", "element": "金", "yinYang": "음", "zodiac": "닭", "imagery": "가을 결실로 빚어진 보석", "keywords": ["정밀", "완성", "심미", "예리"], "reviewed": false },
+    { "char": "戌", "element": "土", "yinYang": "양", "zodiac": "개", "imagery": "늦가을 산 — 거둔 것을 지키는 파수꾼의 땅", "keywords": ["신의", "수호", "저장", "마무리"], "reviewed": false },
+    { "char": "亥", "element": "水", "yinYang": "음", "zodiac": "돼지", "imagery": "겨울로 향하는 깊고 너른 강물", "keywords": ["포용", "지혜", "풍요", "상상"], "reviewed": false }
+  ]
+}

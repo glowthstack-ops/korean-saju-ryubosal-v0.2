@@ -189,7 +189,7 @@ def test_m10_topic_context_wrapper(composites_with_feb_days, relocation_query) -
     )
     assert ctx.module_id == "M10" and ctx.ranked_results
     assert ctx.group_aggregation is not None
-    assert ctx.budget.max_input_tokens == 8_000
+    assert ctx.budget.max_input_tokens == 14_000
 
 
 def test_m10_region_fit_uses_dictionary() -> None:

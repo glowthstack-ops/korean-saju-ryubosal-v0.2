@@ -44,6 +44,12 @@ def _dynamics_hint(period: dict) -> str:
     return ""
 
 
+def _domains_ko(domains: list[str]) -> str:
+    """대표 영역(intent) 라벨을 한글로 — 질문에 '어떤 영역을 보는지' 제시(항목 11)."""
+    labels = [DOMAIN_LABELS.get(d, d) for d in domains]
+    return "·".join(labels)
+
+
 def _targets(period: dict) -> tuple[list[str], dict[str, str]]:
     exp = {m: e for m, e in period["expected_by_model"].items() if e != "neutral"}
     return list(exp), exp
@@ -90,28 +96,39 @@ def generate_questions(
     questions: list[CalibrationQuestion] = []
     opts = _options(gender)
 
+    # 질문 = 대표 영역(intent) 제시 + 긍정/부정 흐름 택일(항목 11, 2026-06-12 사용자 확정).
+    # 흐름은 overall_rating(very_positive~very_negative)으로 받아 score_feedback이
+    # 모델 예측(positive/negative)과 대조한다 — 사용자가 중요시하는 영역 기준으로 답하게.
+    d1 = ["career", "study", "relationship"]
     p1 = pick(lambda p: "positive" in p["expected_by_model"].values())
     if p1:
         questions.append(_make(
             "q1", "useful", p1,
-            f"{_anchor(p1)} 무렵, 삶의 흐름은 전반적으로 어땠나요?{_dynamics_hint(p1)}",
-            ["career", "study", "relationship"], opts,
+            f"{_anchor(p1)}는 좋은 기운이 들어올 것으로 본 해예요. 그 무렵 "
+            f"{_domains_ko(d1)} 중 본인이 가장 중요하게 여긴 영역의 흐름은 순조로웠나요, "
+            f"힘들었나요?{_dynamics_hint(p1)}",
+            d1, opts,
         ))
 
+    d2 = ["money", "family_health", "legal_public"]
     p2 = pick(lambda p: "negative" in p["expected_by_model"].values())
     if p2:
         questions.append(_make(
             "q2", "unfavorable", p2,
-            f"{_anchor(p2)} 무렵, 삶의 흐름은 전반적으로 어땠나요?{_dynamics_hint(p2)}",
-            ["money", "family_health", "legal_public"], opts,
+            f"{_anchor(p2)}는 다소 까다로운 기운이 예상된 해예요. 그 무렵 "
+            f"{_domains_ko(d2)} 면에서 어려움이 있었나요, 오히려 순조로웠나요?"
+            f"{_dynamics_hint(p2)}",
+            d2, opts,
         ))
 
+    d3 = ["career", "money", "relationship", "family_health"]
     p3 = pick(lambda p: p["disagree"])
     if p3:
         questions.append(_make(
             "q3", "contrast", p3,
-            f"{_anchor(p3)}는 어땠나요? (모델 간 예측이 갈리는 해){_dynamics_hint(p3)}",
-            ["career", "money", "relationship", "family_health"], opts,
+            f"{_anchor(p3)}는 해석이 갈리는 해예요. {_domains_ko(d3)} 중 가장 마음 쓰인 "
+            f"영역에서 그해 흐름이 긍정적이었나요, 부정적이었나요?{_dynamics_hint(p3)}",
+            d3, opts,
         ))
 
     p4 = pick(lambda _p: True)

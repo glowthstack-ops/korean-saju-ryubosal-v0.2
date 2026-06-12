@@ -3,53 +3,222 @@
   "domain": "relocation",
   "items": [
     {
-      "signal": { "shinsal": "역마살", "relation": "branch_clash" },
+      "signal": {
+        "shinsal": "역마살",
+        "relation": "branch_clash"
+      },
       "eventCandidates": [
-        { "event": "relocation", "score": 0.75, "polarity": "conditional" },
-        { "event": "travel", "score": 0.6, "polarity": "neutral" }
+        {
+          "event": "relocation",
+          "score": 0.75,
+          "polarity": "conditional"
+        },
+        {
+          "event": "travel",
+          "score": 0.6,
+          "polarity": "neutral"
+        }
       ],
       "note": "역마+충 — 이동 발동(이사/출장/장거리)",
       "reviewed": false
     },
     {
-      "signal": { "relation": "branch_clash", "favorability": "기신" },
+      "signal": {
+        "relation": "branch_clash",
+        "favorability": "기신"
+      },
       "eventCandidates": [
-        { "event": "relocation", "score": 0.6, "polarity": "negative_or_forced" }
+        {
+          "event": "relocation",
+          "score": 0.6,
+          "polarity": "negative_or_forced"
+        }
       ],
       "note": "충+기신 — 원치 않는 거처 변동",
       "reviewed": false
     },
     {
-      "signal": { "relation": "six_combination", "favorability": "용신" },
+      "signal": {
+        "relation": "six_combination",
+        "favorability": "용신"
+      },
       "eventCandidates": [
-        { "event": "relocation", "score": 0.5, "polarity": "positive" }
+        {
+          "event": "relocation",
+          "score": 0.5,
+          "polarity": "positive"
+        }
       ],
       "note": "이동성 합+용신 — 자발적·우호적 이동",
       "reviewed": false
     },
     {
-      "signal": { "relation": "void" },
+      "signal": {
+        "relation": "void"
+      },
       "eventCandidates": [
-        { "event": "relocation", "score": 0.45, "polarity": "conditional" }
+        {
+          "event": "relocation",
+          "score": 0.45,
+          "polarity": "conditional"
+        }
       ],
       "note": "공망 활성 — 거처 공허·이동 모색 (docs/03 graphScope: 공망 활성)",
       "reviewed": false
     },
     {
-      "signal": { "daewoonTransition": true },
+      "signal": {
+        "daewoonTransition": true
+      },
       "eventCandidates": [
-        { "event": "relocation", "score": 0.55, "polarity": "conditional" }
+        {
+          "event": "relocation",
+          "score": 0.55,
+          "polarity": "conditional"
+        }
       ],
-      "note": "대운 교체기 — 생활 기반 전환 배경 (docs/03 graphScope)",
+      "note": "대운 교체기 — 환경이 떠미는 비자발적 전환(생활 기반 강제 전환 배경)",
       "reviewed": false
     },
     {
-      "signal": { "shinsal": "역마살", "favorability": "용신" },
+      "signal": {
+        "shinsal": "역마살",
+        "favorability": "용신"
+      },
       "eventCandidates": [
-        { "event": "travel", "score": 0.55, "polarity": "positive" },
-        { "event": "relocation", "score": 0.5, "polarity": "positive" }
+        {
+          "event": "travel",
+          "score": 0.55,
+          "polarity": "positive"
+        },
+        {
+          "event": "relocation",
+          "score": 0.5,
+          "polarity": "positive"
+        }
       ],
       "note": "역마+용신 — 우호적 이동·확장",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "branchTenGod": "상관",
+        "shinsal": "역마살"
+      },
+      "eventCandidates": [
+        {
+          "event": "relocation",
+          "score": 0.85,
+          "polarity": "conditional"
+        },
+        {
+          "event": "travel",
+          "score": 0.55,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "식상(상관) 이동성+역마 — 거처·환경 변동 우세 (regression_2025_08: 합·정관 동반 시에도 이동 신호가 사건명을 결정)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "branchTenGod": "식신",
+        "shinsal": "역마살"
+      },
+      "eventCandidates": [
+        {
+          "event": "relocation",
+          "score": 0.6,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "식신 이동성+역마 — 환경 변화·이동 모색",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "정관",
+        "relation": "stem_combination",
+        "favorability": "기신"
+      },
+      "eventCandidates": [
+        {
+          "event": "relocation",
+          "score": 0.55,
+          "polarity": "negative_or_forced"
+        }
+      ],
+      "note": "정관합+기신 — 원치 않는 이동·배치(이사·거처 변동 계열, regression_2025_08)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "branch_clash",
+        "relationAlso": "six_combination"
+      },
+      "eventCandidates": [
+        {
+          "event": "relocation",
+          "score": -0.25,
+          "polarity": "neutral"
+        },
+        {
+          "event": "travel",
+          "score": -0.15,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 탐합망충: 충의 이동 동력이 합으로 묶여 이사·이동 발동이 약화",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "unseong": "건록",
+        "absentRelations": [
+          "branch_clash",
+          "punishment_triple",
+          "punishment_mutual",
+          "self_punishment",
+          "branch_break",
+          "harm"
+        ]
+      },
+      "eventCandidates": [
+        {
+          "event": "relocation",
+          "score": -0.07,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 운 건록: 정착·기반 유지 성향이 이사 동력을 낮춤(충·형 등 동반 시 미적용)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "unseong": "절"
+      },
+      "eventCandidates": [
+        {
+          "event": "relocation",
+          "score": 0.08,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "가점 — 운 절(絶): 공간·환경의 단절·리셋 기운이 이사 가능성을 가산(modifier)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "daewoonBranchVoid": true
+      },
+      "eventCandidates": [
+        {
+          "event": "relocation",
+          "score": -0.1,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 대운 지지가 원국 공망: 새 주거·환경 진입의 실속 부족·지연 배경(계사월 케이스 일반화 2026-06-12)",
       "reviewed": false
     }
   ]

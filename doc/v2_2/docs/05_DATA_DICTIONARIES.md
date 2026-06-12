@@ -17,6 +17,13 @@ src/dictionaries/
     ten_gods.json           # 십성 → 도메인 매핑
     elements.json           # 오행 생극
   relations.json            # 합충형파해/공망/병존/복음/간여지동
+  interpretations/          # ★ 해석 사전 계층 (v2.2.1 신설) — "글자의 의미"를 LLM에 공급하는 원천
+    ilju.json               # 60갑자 일주 — 물상/일주 동물/캐릭터 서사/빛·그림자 성향/배우자궁 함의
+    ten_gods_text.json      # 십성 10종 — 의미/과다·부재·혼잡/용신·기신 발현 차이/일상 비유
+    relations_text.json     # 합충형파해·원진·암합·병존·간여지동·복음·공망 작용 해석 (궁위별/원국 vs 운)
+    twelve_stages_text.json # 십이운성 12종 — 에너지 단계 의미/일상 비유
+    sinsal_text.json        # 신살 — 의미/발현 영역/주의점 (공포 조장 금지 톤)
+    stems_branches_text.json# 천간 10·지지 12 물상 — 모든 비유의 원천 재료
   favorability_rules.json   # 용신/희신/기신/구신/한신 보정
   events/
     taxonomy.json           # EventKey 표준 + progress/instant/hybrid 분류
@@ -71,6 +78,34 @@ compiled/
 }
 ```
 
+### interpretations/ilju.json (항목 예 — v2.2.1 신설)
+
+```json
+{
+  "ganji": "己亥",
+  "animal": { "color": "노란", "name": "돼지", "derivation": "천간 己=토(황) + 지지 亥=돼지" },
+  "imagery": "평화롭고 비옥한 들판(己) 아래로 맑고 깊은 강물(亥)이 유유히 흐르는 형상",
+  "narrative": "겉으로는 부드럽고 다정한 정원사 같지만, 내면에 바다 같은 지혜와 냉철한 판단력을 숨긴 사람…",
+  "traits": {
+    "light": ["온화·단정해 어디서나 환영받음", "실속을 차분히 챙기는 영리함"],
+    "shadow": ["속내를 잘 드러내지 않아 답답하게 보일 수 있음"]
+  },
+  "spouse_palace_note": "일지 정재 — 배우자·재물 안정 지향, 가정에 충실한 경향",
+  "computed": { "iljiTenGod": "정재", "twelveStage": "태", "hiddenStems": ["戊", "甲", "壬"] },
+  "basis": "자평 통설: 己土가 亥 중 壬水 정재에 좌(坐) — 재성 좌는 실리·안정 지향. 물상은 전답 위 강물의 전통 비유.",
+  "reviewed": false
+}
+```
+
+**해석 사전(interpretations/) 공통 규칙:**
+
+1. **`basis` 필드 의무** — 모든 서술의 명리적 근거(자평 통설 기준)를 명시한다. 전문가 감수는 이 필드를 기준으로 수행하며, `scripts/export_review_sheet.py`로 감수 시트를 추출한다.
+2. **`computed` 블록은 만세력 엔진과 전수 교차검증** — validate 단계에서 십성·십이운성·지장간·오행색·띠 동물이 엔진 계산과 하나라도 어긋나면 컴파일 실패. (서술의 기술적 오류를 기계적으로 차단)
+3. **`narrative`·`imagery`는 `basis`에서 도출 가능한 범위로만 집필** — 근거 없는 단정(수명·재앙·확정 길흉)은 `templates/prohibited_styles.json`과 동일 기준으로 사전 콘텐츠에서도 금지. 일상 속 비유와 서사를 적극 사용한다(사용자 이해도 우선 — 2026-06-12 사용자 확정).
+4. **운영 로드는 발췌만** — 전체 사전 투입 금지(절대 원칙 2). Planner의 dictionaryScope가 질문 주제와 관련된 엔트리만 선별하고, 사용자별 고정분(일주·원국 활성 십성/신살/관계)은 캐시되는 프롬프트 prefix에 배치한다(docs/06).
+5. **일간 중심·상황 의존 해석** — 십성·십이운성·관계 해석은 고정 키워드가 아니라 "일간 기준으로 원국 보유 시 / 운에서 들어올 때 / 용신·기신일 때"를 구분해 집필한다. 정교한 구분이 풀이 정확도를 결정한다(2026-06-12 사용자 확정).
+6. **신살·암합 = 보조 자료(auxiliary)** — 풀이의 색채를 더하는 참고일 뿐 결론의 근거가 될 수 없다. `sinsal_text.json`·암합 엔트리는 `role:"auxiliary"`를 의무 표기하고, 신살/암합 단독으로 길흉·이벤트를 판정하는 서술을 금지한다(2026-06-12 사용자 확정).
+
 ### relations.json (항목 예)
 
 ```json
@@ -114,6 +149,14 @@ compiled/
 }
 ```
 
+signal 키(v2.2.1): `tenGod`(운 천간 십성) / **`branchTenGod`(운 지지 본기 십성 — 신설)** /
+`relation` / `favorability` / `shinsal` / `daewoonTransition`. 모든 키는 AND 조건이다.
+
+> **동반 신호 매트릭스 원칙 (regression_2025_08)**: 합·정관 신호는 "사건 후보"만 만든다.
+> 최종 사건명은 동반 신호 매트릭스(일치 신호의 구성·개수 합산)가 결정한다.
+> 예: 甲申월 = 甲己合+정관(직장 후보)이라도 역마+申 상관(식상 이동성)이 동반하면
+> 이동·이사 신호가 우세 — "정관합=직장운" 단정은 금지 회귀(cases.jsonl 기준 사례).
+
 ### templates/interpretation.json (예)
 
 ```json
@@ -136,6 +179,7 @@ compiled/
 JSON 사전 수정
   ↓
 npm run dict:validate     # zod 스키마 검증: 필수 필드, EventKey 유효성, score 범위
+                          # + interpretations/ computed 블록 ↔ 만세력 엔진 전수 교차검증
   ↓
 npm run dict:lint         # 충돌 검사:
                           #  - 같은 신호가 상반 이벤트를 동시에 강하게 유발
@@ -160,6 +204,9 @@ npm run test:regression   # cases.jsonl 재실행 — 기존에 맞춘 사례가
 4순위: favorability_rules.json
 5순위: templates/
 6순위: cases.jsonl (운영하며 누적)
+7순위(v2.2.1 — 풀이 품질 보완): interpretations/ilju + ten_gods_text + relations_text
+8순위(v2.2.1): interpretations/twelve_stages_text + sinsal_text + stems_branches_text,
+              terminology.json, templates/interpretation·prohibited_styles, events/ 누락 4종
 ```
 
 가장 먼저 만들 것은 **"십성·관계·용기신이 어떤 이벤트로 이어지는가" 매핑 테이블**. 이것이 Event Graph RAG의 뼈대다.

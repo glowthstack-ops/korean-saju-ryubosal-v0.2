@@ -21,10 +21,12 @@ def test_config_single_file_drives_models() -> None:
     """모델·폴백·키 env가 llm_config.json 한 파일에서 결정된다."""
     cfg = llm_client.load_config()
     assert cfg["primary"]["provider"] == "gemini"
-    assert cfg["primary"]["model"] == "gemini-3-flash-preview"
+    # 구체 모델명은 운영 결정으로 바뀐다(예: 2026-06-12 프리뷰 503 장애 → 2.5-flash
+    # 전환) — 테스트는 '단일 파일이 모델을 결정'하는 계약만 고정한다.
+    assert cfg["primary"]["model"].startswith("gemini-")
     assert cfg["fallback"]["provider"] == "openai"
     assert cfg["fallback"]["model"] == "gpt-5-mini"
-    assert llm_client.reading_model() == "gemini-3-flash-preview"
+    assert llm_client.reading_model() == cfg["primary"]["model"]
     assert llm_client.is_available() is True
 
 
@@ -34,20 +36,22 @@ def test_primary_success_records_provider(monkeypatch: pytest.MonkeyPatch) -> No
 
     def fake_gemini(profile, system, prompt, max_tokens, timeout):
         calls.append("gemini")
-        return "통변 본문(모의)", 500, 300
+        return "통변 본문(모의)", 500, 300, 120  # 마지막 = 캐시 적중 토큰(v2.2.1)
 
     def fake_openai(profile, system, prompt, max_tokens, timeout):
         calls.append("openai")
-        return "폴백 본문", 1, 1
+        return "폴백 본문", 1, 1, 0
 
     monkeypatch.setitem(llm_client._PROVIDERS, "gemini", fake_gemini)
     monkeypatch.setitem(llm_client._PROVIDERS, "openai", fake_openai)
 
     text = llm_client.generate_reading("질문 본문", product_code="TEST")
     assert text == "통변 본문(모의)" and calls == ["gemini"]
-    assert any(
-        e.product_code == "TEST:gemini" for e in llm_client.COST_LEDGER.entries
+    entry = next(
+        e for e in llm_client.COST_LEDGER.entries if e.product_code == "TEST:gemini"
     )
+    # 캐시 적중 토큰 별도 집계(v2.2.1 — 고정 prefix 실비용 추적).
+    assert entry.cached_input_tokens == 120
 
 
 def test_failover_to_openai_on_primary_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -60,7 +64,7 @@ def test_failover_to_openai_on_primary_error(monkeypatch: pytest.MonkeyPatch) ->
 
     def fake_openai(profile, system, prompt, max_tokens, timeout):
         calls.append("openai")
-        return "비상 폴백 본문", 400, 200
+        return "비상 폴백 본문", 400, 200, 0
 
     monkeypatch.setitem(llm_client._PROVIDERS, "gemini", broken_gemini)
     monkeypatch.setitem(llm_client._PROVIDERS, "openai", fake_openai)

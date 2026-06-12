@@ -103,9 +103,9 @@ def test_full_pipeline(question: str, expected_type: str, route: str) -> None:
         assert res.status == "dry_run", f"{question} → {res.status}: {res.answer}"
     if res.status == "dry_run":
         assert res.prompt_preview is not None
-        for section in ("[원국]", "[이벤트 후보", "[지시]"):
+        for section in ("[원국·명식 구조", "[이벤트 후보", "[지시]"):
             assert section in res.prompt_preview, f"{question}: {section} 누락"
-        assert res.input_tokens is not None and res.input_tokens <= 8_000
+        assert res.input_tokens is not None and res.input_tokens <= 14_000
 
 
 def test_all_nine_types_covered() -> None:

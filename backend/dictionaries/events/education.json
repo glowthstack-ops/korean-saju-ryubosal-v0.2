@@ -1,0 +1,110 @@
+{
+  "version": "1.0.0",
+  "domain": "education",
+  "items": [
+    {
+      "signal": {
+        "tenGod": "정인",
+        "favorability": "용신"
+      },
+      "eventCandidates": [
+        {
+          "event": "education_start",
+          "score": 0.6,
+          "polarity": "positive"
+        },
+        {
+          "event": "exam",
+          "score": 0.55,
+          "polarity": "positive"
+        },
+        {
+          "event": "document",
+          "score": 0.5,
+          "polarity": "positive"
+        }
+      ],
+      "note": "정인+용신 — 학업·시험·문서(합격증·자격) 활성",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "branchTenGod": "정인",
+        "shinsal": "문창귀인"
+      },
+      "eventCandidates": [
+        {
+          "event": "exam",
+          "score": 0.6,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "인성 지지+문창 — 시험·학습 능률 신호(신살은 보조, 인성 동반 시에만)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "편인",
+        "relation": "six_combination"
+      },
+      "eventCandidates": [
+        {
+          "event": "education_start",
+          "score": 0.5,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "편인+합 — 자격·특수 분야 학습 인연",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "상관",
+        "favorability": "기신"
+      },
+      "eventCandidates": [
+        {
+          "event": "exam",
+          "score": 0.45,
+          "polarity": "negative_or_forced"
+        }
+      ],
+      "note": "상관+기신 — 시험 집중 분산·규정 실수 주의",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "three_harmony",
+        "branchTenGod": "정인"
+      },
+      "eventCandidates": [
+        {
+          "event": "education_complete",
+          "score": 0.5,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "인성 세력 결집 — 과정 마무리·수료 흐름",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "void"
+      },
+      "eventCandidates": [
+        {
+          "event": "exam",
+          "score": -0.2,
+          "polarity": "neutral"
+        },
+        {
+          "event": "education_complete",
+          "score": -0.2,
+          "polarity": "neutral"
+        }
+      ],
+      "note": "감점 — 공망 활성: 시험·수료 결실의 확정력이 공허해짐",
+      "reviewed": false
+    }
+  ]
+}

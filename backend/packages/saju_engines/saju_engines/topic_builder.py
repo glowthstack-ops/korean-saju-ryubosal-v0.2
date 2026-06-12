@@ -362,7 +362,7 @@ def build_relocation_context(
 
 _SLOT_DOMAIN = {  # 슬롯 → 점수 카테고리(초안 매핑, 검수 대상)
     "일·공부": "work", "돈·소비": "money", "관계·연애": "relationship", "건강": "health",
-    "직업": "work", "재물": "money", "관계": "relationship",
+    "직업": "work", "재물": "money", "관계": "relationship", "일·직업": "work",
 }
 _DOMAIN_TO_CATEGORY = {
     "career": "work", "education": "work", "wealth": "money",
@@ -372,28 +372,60 @@ _DOMAIN_TO_CATEGORY = {
 
 
 def _fortune_type(period: PeriodSpec) -> str:
-    """기간 범위 → daily/weekly/yearly (granularity·길이 기반)."""
+    """기간 범위 → daily/weekly/monthly/yearly (granularity·길이 기반)."""
     if period.granularity == "year":
         return "yearly"
+    if period.granularity == "month":
+        return "monthly"
     if period.start == period.end:
         return "daily"
     return "weekly"
 
 
+# 종합운 점수의 레벨 가중 — 운의 위계(대운>세운>월>일, event_scoring._LEVEL_WEIGHT와
+# 동일 철학)를 따른다. 대운·세운에서 형성된 기운을 월이 더하고 일에서 사건화(트리거)
+# 되므로, 상위 운이 기운의 크기를 정하고 하위 운이 방아쇠를 당긴다(2026-06-12 사용자
+# 확정). 일일 운세도 거시 형성 에너지를 점수에 반영하되, 출력 framing은 하루 단위
+# 사건·조짐으로 한정한다(_DAILY_INSTRUCTION + 일진 grounding 담당).
+_LIFESTYLE_LEVEL_WEIGHT = {
+    CompositeLevel.DAEWOON: 1.0,
+    CompositeLevel.YEAR: 0.85,
+    CompositeLevel.MONTH: 0.6,
+    CompositeLevel.DAY: 0.4,
+    CompositeLevel.NATAL: 0.0,
+}
+
+
 def _lifestyle_scores(selected: list[LuckComposite]) -> dict[str, int]:
-    """카테고리 5종 점수(50 중립 ± 부호화 신호 합, docs/02 E9 scores)."""
-    acc: dict[str, float] = {
-        "work": 0.0, "money": 0.0, "relationship": 0.0, "health": 0.0, "decision": 0.0,
-    }
+    """카테고리 5종 점수(50 중립 ± 부호화 신호 합, docs/02 E9 scores).
+
+    운 위계 가중(대운>세운>월>일)으로 레벨을 결합하되, **레벨 안에서는 평균**해
+    개수를 정규화한다 — 월간(그 달 ~30일)·연간(12개월)에서 하위 레벨 컴포지트 개수가
+    많아 점수가 0/100으로 폭주하는 것을 막는다(2026-06-12 사용자 확정 보완). 하위
+    기간은 '그 기간의 전형적 기운'으로 반영되고, 피크 시기는 주의/기회 시기 슬롯이
+    담당한다. 일간은 레벨당 1개라 결과 불변.
+    """
+    cats = ("work", "money", "relationship", "health", "decision")
+    by_level: dict[CompositeLevel, list[LuckComposite]] = {}
     for c in selected:
-        sign = (
-            1.0 if c.favorability in ("용신", "희신")
-            else -1.0 if c.favorability in ("기신", "구신")
-            else 0.5
-        )
-        for s in c.domain_signals:
-            category = _DOMAIN_TO_CATEGORY.get(s.domain, "decision")
-            acc[category] += s.weight * sign
+        by_level.setdefault(c.level, []).append(c)
+
+    acc: dict[str, float] = dict.fromkeys(cats, 0.0)
+    for level, comps in by_level.items():
+        level_w = _LIFESTYLE_LEVEL_WEIGHT.get(level, 0.5)
+        level_acc: dict[str, float] = dict.fromkeys(cats, 0.0)
+        for c in comps:
+            sign = (
+                1.0 if c.favorability in ("용신", "희신")
+                else -1.0 if c.favorability in ("기신", "구신")
+                else 0.5
+            )
+            for s in c.domain_signals:
+                category = _DOMAIN_TO_CATEGORY.get(s.domain, "decision")
+                level_acc[category] += s.weight * sign
+        # 레벨 내 평균(개수 정규화) 후 위계 가중 결합.
+        for category in cats:
+            acc[category] += (level_acc[category] / len(comps)) * level_w
     return {
         k: max(0, min(100, round(50 + v * 50)))
         for k, v in acc.items()
