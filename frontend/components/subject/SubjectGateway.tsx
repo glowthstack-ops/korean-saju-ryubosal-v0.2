@@ -8,7 +8,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
+import { InlinePartnerForm } from "@/components/subject/InlinePartnerForm";
 import { SubjectCard } from "@/components/subject/SubjectCard";
+import type { CompanionChoice } from "@/lib/themes";
 import { listSubjects } from "@/lib/subjects";
 import type { SubjectSummary } from "@/lib/types";
 
@@ -23,7 +25,7 @@ interface Props {
   /** 추가 완료 후 돌아올 경로(온보딩 next). */
   returnTo: string;
   title?: string;
-  onResolved: (primary: SubjectSummary, companion?: SubjectSummary) => void;
+  onResolved: (primary: SubjectSummary, companion?: CompanionChoice) => void;
 }
 
 export function SubjectGateway({
@@ -91,7 +93,7 @@ export function SubjectGateway({
         )}
         {others.length === 0 ? (
           <p className="text-sm text-gray-500">
-            등록된 다른 사주가 없어요.{" "}
+            등록된 다른 사주가 없어요. 아래에서 즉석으로 입력하거나{" "}
             <Link href={addHref} className="text-blue-600 hover:underline">
               동반자 사주 추가
             </Link>
@@ -104,12 +106,28 @@ export function SubjectGateway({
                 subject={s}
                 onSelect={(comp) => {
                   setCompanion({ subjectId: comp.subject_id, label: comp.label });
-                  onResolved(primary, comp);
+                  onResolved(primary, { mode: "registered", subject: comp });
                 }}
               />
             ))}
           </div>
         )}
+
+        {/* 즉석 상대 입력(미등록) — 1회 궁합 분석용. */}
+        <details className="rounded-lg border bg-gray-50 p-3">
+          <summary className="cursor-pointer text-sm font-medium text-gray-700">
+            상대 정보 즉석 입력 (등록 없이)
+          </summary>
+          <div className="mt-3">
+            <InlinePartnerForm
+              onSubmit={(label, birth) => {
+                setCompanion(null);
+                onResolved(primary, { mode: "inline", label, birth });
+              }}
+            />
+          </div>
+        </details>
+
         <button
           onClick={() => setPrimary(null)}
           className="text-xs text-gray-500 hover:underline"

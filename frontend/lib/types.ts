@@ -173,11 +173,21 @@ export interface ProfileUpsert {
   confirmed_yongsin?: string | null;
 }
 
+// 미등록 즉석 상대 출생정보(intent.InlineBirth). 등록 없이 궁합 1회 분석에 쓴다.
+export interface InlineBirthDTO {
+  date: string; // YYYY-MM-DD
+  time?: string | null; // HH:MM, 없으면 시주 제외
+  calendar_type?: "solar" | "lunar";
+  gender?: "M" | "F" | null;
+  birthplace?: string | null;
+}
+
 // 리포트(테마사주) — report 라우터.
 export interface SubjectRef {
   kind: "self" | "companion" | "inline_temp" | "partial_info";
   label: string;
   companion_id?: string | null;
+  inline_birth?: InlineBirthDTO | null;
 }
 
 export interface ReportSpec {

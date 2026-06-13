@@ -5,7 +5,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { SubjectGateway } from "@/components/subject/SubjectGateway";
-import { buildReportSpec, themeBySlug } from "@/lib/themes";
+import { buildReportSpec, themeBySlug, type CompanionChoice } from "@/lib/themes";
 import { createReportJob } from "@/lib/subjects";
 import type { SubjectSummary } from "@/lib/types";
 
@@ -20,7 +20,7 @@ export default function ThemeStartPage() {
     return <p className="text-sm text-red-500">알 수 없는 테마입니다.</p>;
   }
 
-  async function start(primary: SubjectSummary, companion?: SubjectSummary) {
+  async function start(primary: SubjectSummary, companion?: CompanionChoice) {
     if (!theme) return;
     setBusy(true);
     setError(null);

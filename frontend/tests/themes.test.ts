@@ -41,15 +41,28 @@ describe("themes", () => {
     expect(spec.topic).toBe("career");
   });
 
-  it("relationship(optional) includes companion subject ref when given", () => {
-    const spec = buildReportSpec(
-      themeBySlug("relationship")!,
-      subject("a", "본인"),
-      subject("b", "상대"),
-    );
+  it("relationship(optional) includes registered companion ref when given", () => {
+    const spec = buildReportSpec(themeBySlug("relationship")!, subject("a", "본인"), {
+      mode: "registered",
+      subject: subject("b", "상대"),
+    });
     expect(spec.topic).toBe("relationship");
     expect(spec.subjects).toHaveLength(2);
     expect(spec.subjects[1]).toMatchObject({ kind: "companion", companion_id: "b" });
+  });
+
+  it("relationship with inline partner emits inline_temp + inline_birth", () => {
+    const spec = buildReportSpec(themeBySlug("relationship")!, subject("a", "본인"), {
+      mode: "inline",
+      label: "상대",
+      birth: { date: "1990-05-05", time: "10:30", calendar_type: "solar", gender: "F" },
+    });
+    expect(spec.subjects).toHaveLength(2);
+    expect(spec.subjects[1]).toMatchObject({
+      kind: "inline_temp",
+      label: "상대",
+      inline_birth: { date: "1990-05-05", gender: "F" },
+    });
   });
 
   it("relationship without companion omits the second ref (단독 모드)", () => {

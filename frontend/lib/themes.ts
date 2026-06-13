@@ -1,7 +1,12 @@
 // 테마사주 초기 4종(사용자 확정). 섹션 구성은 백엔드 build_section_plans가 고정하며,
 // 여기서는 product_code·topic·동반자 필요 여부만 정의한다(docs/10).
 
-import type { ReportSpec, SubjectRef, SubjectSummary } from "./types";
+import type { InlineBirthDTO, ReportSpec, SubjectRef, SubjectSummary } from "./types";
+
+// 상대 선택 결과: 등록 동반자 / 즉석 입력(미등록). 관계운 optional·required에서 사용.
+export type CompanionChoice =
+  | { mode: "registered"; subject: SubjectSummary }
+  | { mode: "inline"; label: string; birth: InlineBirthDTO };
 
 // 동반자(상대) 선택 정책: none=단독 전용 / optional=상대 추가 선택 가능(내 명식만도 가능) /
 // required=상대 필수(두 사람 분석). 관계·애정운은 optional — 상대 등록 시 궁합 모드(RP-*),
@@ -80,19 +85,28 @@ function lifetimePeriod(birthDate: string): { start: string; end: string } {
   return { start: `${year}-01`, end: `${year + 90}-12` };
 }
 
-/** 테마 + 선택 사주(+동반자) → ReportSpec. 상대는 companionMode!=none이고 선택됐을 때만 포함. */
+/** 테마 + 선택 사주(+상대) → ReportSpec. 상대는 companionMode!=none이고 선택됐을 때만 포함.
+ *  상대는 등록 동반자(companion_id) 또는 즉석 입력(inline_birth) 둘 다 가능. */
 export function buildReportSpec(
   theme: Theme,
   primary: SubjectSummary,
-  companion?: SubjectSummary,
+  companion?: CompanionChoice,
 ): ReportSpec {
   const subjects: SubjectRef[] = [{ kind: "self", label: primary.label }];
   if (theme.companionMode !== "none" && companion) {
-    subjects.push({
-      kind: "companion",
-      label: companion.label,
-      companion_id: companion.subject_id,
-    });
+    if (companion.mode === "registered") {
+      subjects.push({
+        kind: "companion",
+        label: companion.subject.label,
+        companion_id: companion.subject.subject_id,
+      });
+    } else {
+      subjects.push({
+        kind: "inline_temp",
+        label: companion.label,
+        inline_birth: companion.birth,
+      });
+    }
   }
   return {
     product_code: theme.productCode,
