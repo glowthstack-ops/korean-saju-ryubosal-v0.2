@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { AdSlot } from "@/components/layout/AdSlot";
 import { Gnb } from "@/components/layout/Gnb";
 import { Providers } from "@/components/providers/Providers";
 
@@ -16,9 +15,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <Gnb />
           <main className="mx-auto max-w-5xl px-4 py-6">
-            <AdSlot label="상단 광고" />
+            {/* 광고 영역은 무료 사용 흐름 확정 후 재도입 — AdSlot 컴포넌트는 보존. */}
             {children}
-            <AdSlot label="하단 광고" />
           </main>
           <footer className="border-t bg-white py-6 text-center text-xs text-gray-400">
             류보살 v2 · 계산은 결정론적 만세력 엔진, 개인정보는 브라우저에만 암호화 저장됩니다.
