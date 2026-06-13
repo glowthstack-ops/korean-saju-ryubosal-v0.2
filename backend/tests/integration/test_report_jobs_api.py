@@ -84,6 +84,14 @@ def test_job_lifecycle_fails_without_llm(monkeypatch: pytest.MonkeyPatch) -> Non
     assert r.status_code == 202, r.text
     job_id = r.json()["job_id"]
 
+    # 내 풀이 내역 목록에 방금 생성한 잡이 노출(테마·대상 메타 포함).
+    listing = _request("GET", "/api/v2/report/jobs", headers=auth).json()
+    mine = next((x for x in listing if x["job_id"] == job_id), None)
+    assert mine is not None
+    assert mine["product_code"] == "RPT_FOCUS"
+    assert mine["topic"] == "career"
+    assert mine["subject_labels"] == ["본인"]  # spec.subjects의 라벨 반영
+
     # 폴링 — 백그라운드 종료 후 failed(키 미설정).
     status = None
     for _ in range(10):

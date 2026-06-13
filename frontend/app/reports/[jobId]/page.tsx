@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { PdfExportButton } from "@/components/reports/PdfExportButton";
 import { ReportPager, type ReportSection } from "@/components/reports/ReportPager";
 import { getReportJob } from "@/lib/subjects";
+import { themeLabel } from "@/lib/themes";
 import type { ReportJobStatus } from "@/lib/types";
 
 const POLL_MS = 3000;
@@ -15,6 +16,7 @@ interface ReportResultLike {
   sections?: ReportSection[];
   status?: string;
   meta?: Record<string, unknown>;
+  spec?: { product_code?: string; topic?: string | null; subjects?: { label?: string }[] };
 }
 
 export default function ReportJobPage() {
@@ -80,10 +82,18 @@ export default function ReportJobPage() {
 
   const result = (job.result ?? {}) as ReportResultLike;
   const sections = result.sections ?? [];
+  const spec = result.spec;
+  const heading = spec ? themeLabel(spec.product_code ?? "", spec.topic ?? null) : "풀이 결과";
+  const who = spec?.subjects?.map((s) => s.label).filter(Boolean).join(", ");
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between print:hidden">
-        <h1 className="text-xl font-bold">풀이 결과</h1>
+        <div>
+          <h1 className="text-xl font-bold">
+            {heading}
+            {who && <span className="ml-2 text-sm font-normal text-gray-500">· {who}</span>}
+          </h1>
+        </div>
         <PdfExportButton />
       </div>
       {result.status === "on_hold" && (

@@ -142,7 +142,15 @@ export function Gnb() {
               ))}
             </nav>
 
-            <div className="border-t px-4 py-3">
+            <div className="border-t px-2 py-2">
+              {isLoggedIn && (
+                <Link
+                  href="/reports"
+                  className="block rounded px-2 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  내 풀이 내역
+                </Link>
+              )}
               <Link
                 href="/settings"
                 className="block rounded px-2 py-2 text-sm text-gray-700 hover:bg-gray-50"

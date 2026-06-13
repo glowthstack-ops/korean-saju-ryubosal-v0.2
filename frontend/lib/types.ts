@@ -189,6 +189,18 @@ export interface ReportSpec {
   language?: "ko";
 }
 
+// 내 풀이 내역 1건(목록) — report 라우터 GET /jobs.
+export interface ReportJobSummary {
+  job_id: string;
+  status: "queued" | "running" | "completed" | "on_hold" | "failed";
+  product_code: "RPT_FULL" | "RPT_FOCUS";
+  topic: string | null;
+  subject_labels: string[];
+  sections_done: number;
+  sections_total: number;
+  created_at: string | null;
+}
+
 export interface ReportJobStatus {
   job_id: string;
   status: "queued" | "running" | "completed" | "on_hold" | "failed";

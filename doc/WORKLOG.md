@@ -2283,3 +2283,15 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   테마사주 4종(폴링·페이저·PDF 인쇄)·AI채팅 재배선·설정. 게이트: tsc 0, vitest 22 pass, 빌드 성공.
 - 미해결(보고): 궁합 쌍방(M13) 본문은 단일 차트 기반(후속). 리포트 PDF는 클라이언트 인쇄(MVP),
   서버 docx→pdf는 후속(docs/10 8장). 실 LLM 키 환경에서 리포트 완료 경로 라이브 검증 권장.
+
+## v2.2 프론트 확장 — 내 풀이 내역(구매·결과 재확인 + PDF) ✅
+
+- 배경: 로그인 사용자가 생성한 풀이(구매내역·결과)를 다시 보고 PDF로 출력할 진입점 필요.
+- 백엔드: `report_job_store.list_by_owner`(owner별 최신순 메타 — result 제외), `routers/report.py`
+  GET /api/v2/report/jobs(ReportJobSummary: product_code·topic·subject_labels·status·created_at,
+  spec에서 추출). 소유자 한정.
+- 프론트: `lib/subjects.listReportJobs`, `lib/themes.themeLabel`(product/topic→테마명),
+  `app/reports/page.tsx`(내역 목록·상태칩·상세 링크), 상세 뷰어 헤더에 테마·대상 표기(재확인),
+  GNB 드로어에 '내 풀이 내역' 링크(로그인 시). 열람·PDF는 기존 /reports/[jobId] 재사용.
+- 검증: ruff/mypy clean · test_report_jobs_api 목록 단언 추가(생성 잡이 내역에 노출·메타 일치)
+  9 pass · tsc 0 · 빌드 성공 · 터널 라이브(빈 목록 200·미인증 401) 확인.

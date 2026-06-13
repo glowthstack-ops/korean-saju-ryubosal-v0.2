@@ -7,6 +7,7 @@ import type {
   ProfileResponse,
   ProfileUpsert,
   ReportJobStatus,
+  ReportJobSummary,
   ReportSpec,
   SubjectSummary,
   SubjectUpsert,
@@ -69,4 +70,8 @@ export function createReportJob(
 
 export function getReportJob(jobId: string): Promise<ReportJobStatus> {
   return getJSON<ReportJobStatus>(`/api/v2/report/jobs/${jobId}`);
+}
+
+export function listReportJobs(): Promise<ReportJobSummary[]> {
+  return getJSON<ReportJobSummary[]>("/api/v2/report/jobs");
 }

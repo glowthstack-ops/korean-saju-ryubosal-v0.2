@@ -101,6 +101,27 @@ class ReportJobStore:
             ).fetchone()
         return ReportJobRecord(row) if row else None
 
+    def list_by_owner(self, owner_id: str) -> list[dict]:
+        """소유자의 잡 목록(최신순) — 본문(result)은 제외한 메타만 반환(가벼운 내역용)."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT job_id, spec, status, sections_done, sections_total, error, created_at "
+                "FROM report_jobs WHERE owner_id=%s ORDER BY created_at DESC",
+                (owner_id,),
+            ).fetchall()
+        return [
+            {
+                "job_id": r[0],
+                "spec": r[1],
+                "status": r[2],
+                "sections_done": r[3],
+                "sections_total": r[4],
+                "error": r[5],
+                "created_at": r[6].isoformat() if r[6] else None,
+            }
+            for r in rows
+        ]
+
     def _set_status(self, job_id: str, status: str) -> None:
         with self._connect() as conn:
             conn.execute(

@@ -61,6 +61,13 @@ export function themeBySlug(slug: string): Theme | undefined {
   return THEMES.find((t) => t.slug === slug);
 }
 
+/** product_code+topic → 표시용 테마 이름(내역 등). 매칭 없으면 코드 그대로. */
+export function themeLabel(productCode: string, topic: string | null): string {
+  if (productCode === "RPT_FULL") return "총운";
+  const t = THEMES.find((x) => x.productCode === productCode && x.topic === topic);
+  return t ? t.title : (topic ?? productCode);
+}
+
 /** 인생 전반 기간 — 출생년 ~ +90년(엔진이 가용 운 데이터로 클립). */
 function lifetimePeriod(birthDate: string): { start: string; end: string } {
   const year = Number(birthDate.slice(0, 4)) || 1990;
