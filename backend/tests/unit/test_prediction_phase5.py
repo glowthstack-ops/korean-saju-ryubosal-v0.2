@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from saju_api.services.manse_service import calculate
-from saju_engines import EventScorer
+from saju_engines import EventEngineV2
 from saju_engines.prediction import PredictionEngines
 from saju_engines.relations_engines import CompatibilityEngine, CompetitionEngine
 from saju_shared_types.birth_input import BirthInput
@@ -44,7 +44,7 @@ def engines() -> PredictionEngines:
 @pytest.fixture(scope="module")
 def candidates(chart):
     """세운+월운 후보."""
-    return EventScorer(_DICTS).score(
+    return EventEngineV2(_DICTS).score_legacy(
         chart, levels={GanjiLevel.YEAR, GanjiLevel.MONTH}
     )
 
@@ -65,7 +65,7 @@ def test_timeline_activation_window_and_stages(engines, candidates) -> None:
 
 def test_timeline_none_without_monthly(engines, chart) -> None:
     """월 단위 후보가 없으면 None(연 단위만으로 단계 생성 금지)."""
-    yearly_only = EventScorer(_DICTS).score(chart, levels={GanjiLevel.YEAR})
+    yearly_only = EventEngineV2(_DICTS).score_legacy(chart, levels={GanjiLevel.YEAR})
     monthly = [c for c in yearly_only if len(c.period) == 7]
     assert not monthly
     assert engines.build_timeline(EventKey.CAREER_CHANGE, yearly_only) is None
@@ -130,7 +130,7 @@ def test_advice_follows_timeline_stages(engines, candidates) -> None:
 
 def test_advice_disclaimers_fixed(engines) -> None:
     """의료·투자 고지 문구는 템플릿 레벨 고정(docs/07 리스크 6)."""
-    health = engines.advice(EventKey.SURGERY, None)
+    health = engines.advice(EventKey.HEALTH_ATTENTION, None)
     assert any("의료" in d for d in health.disclaimers)
     windfall = engines.advice(EventKey.WINDFALL, None)
     assert any("투자" in d for d in windfall.disclaimers)
@@ -162,11 +162,11 @@ def test_compatibility_deterministic(chart, chart_b) -> None:
 def test_competition_prohibitions_and_gap(chart, chart_b, candidates) -> None:
     """상대 우열 + 근거까지만 — 당락 단정 금지 문구 고정 첨부."""
     engine = CompetitionEngine()
-    cands_b = EventScorer(_DICTS).score(chart_b, levels={GanjiLevel.YEAR})
+    cands_b = EventEngineV2(_DICTS).score_legacy(chart_b, levels={GanjiLevel.YEAR})
     result = engine.compare(
         [("후보1", chart, candidates), ("후보2", chart_b, cands_b)],
         anchor_date="2026-06-03",  # 투표일(C11 앵커)
-        event_key=EventKey.EXAM,
+        event_key=EventKey.EDUCATION_ADMISSION,
     )
     assert result.relative_gap in ("clear", "narrow", "inconclusive")
     assert any("단정" in p for p in result.prohibitions)

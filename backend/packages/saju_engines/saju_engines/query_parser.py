@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 from datetime import date
 
+from saju_shared_types.event_taxonomy_v2 import EVENT_WORDS
 from saju_shared_types.events import EventKey
 from saju_shared_types.intent import (
     ChainedStep,
@@ -50,21 +51,8 @@ _DOMAIN_WORDS: dict[Domain, list[str]] = {
     Domain.EDUCATION: ["학업", "시험", "합격", "공부", "입시", "자격증", "선행"],
 }
 
-_EVENT_WORDS: dict[EventKey, list[str]] = {
-    EventKey.CAREER_CHANGE: ["이직", "취업"],  # 취업(employment)은 taxonomy 부재 — 이직에 잠정 매핑
-    EventKey.RESIGNATION: ["퇴사"],
-    EventKey.PROMOTION: ["승진"],
-    EventKey.BUSINESS_START: ["창업", "개업", "사업 시작"],
-    EventKey.MARRIAGE: ["결혼", "재혼"],
-    EventKey.RELATIONSHIP_START: ["연애"],
-    EventKey.RELATIONSHIP_END: ["이별", "헤어"],
-    EventKey.CHILDBIRTH: ["출산", "자녀가 있을지"],
-    EventKey.RELOCATION: ["이사"],
-    EventKey.CONTRACT: ["계약"],
-    EventKey.EXAM: ["시험", "합격"],
-    EventKey.WINDFALL: ["로또", "복권", "횡재"],
-    EventKey.SURGERY: ["수술"],
-}
+# 이벤트 키워드 — 21키 EventKeyV2 기준(진급·평가·오디션·대회·고시·자격증 포함, Phase 7).
+_EVENT_WORDS = EVENT_WORDS
 
 # 관계어 → 동반자 관계(A2 — companion_id 매핑은 Subject Manager 몫).
 _RELATION_WORDS: dict[str, CompanionRelationType] = {

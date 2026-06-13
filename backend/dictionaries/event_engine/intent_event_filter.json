@@ -1,0 +1,24 @@
+{
+  "schema": "intent_event_filter.v1",
+  "reviewed": false,
+  "purpose": "사용자 질문 의도(우리 Domain enum) + 풀이 컨텍스트(일운/세운/리포트 주제)에 따라 출력 이벤트 후보를 제한·우선순위화한다. 오케스트레이터(planner)·report topic·chat에 연결.",
+  "service_domain_mapping": {
+    "note": "키는 saju_shared_types.intent.Domain 값 + 풀이 컨텍스트. family_issue 등 궁성 컨텍스트 도메인은 별도 태그.",
+    "domains": ["career", "wealth", "relationship", "relocation", "education", "health", "general"]
+  },
+  "intent_map": {
+    "career": {"include": ["career_change", "job_gain", "promotion", "contract_document", "social_conflict"], "exclude_or_deprioritize": ["new_relationship", "childbirth", "windfall"]},
+    "wealth": {"include": ["wealth_change", "windfall", "business_start", "business_expansion", "contract_document"], "exclude_or_deprioritize": ["relationship_change", "education_admission"]},
+    "relationship": {"include": ["relationship_change", "new_relationship", "marriage_signal", "social_conflict"], "exclude_or_deprioritize": ["business_start", "education_completion"]},
+    "relocation": {"include": ["relocation", "contract_document", "wealth_change"], "exclude_or_deprioritize": ["promotion", "new_relationship"]},
+    "education": {"include": ["education_admission", "education_completion", "contract_document", "creative_output"], "exclude_or_deprioritize": ["windfall", "marriage_signal"]},
+    "health": {"include": ["health_attention", "social_conflict", "preparation_delay"], "exclude_or_deprioritize": ["windfall", "promotion"]},
+    "general": {"include": ["career_change", "job_gain", "wealth_change", "relationship_change", "relocation", "education_admission", "contract_document"]}
+  },
+  "context_overlays": {
+    "daily_fortune": {"description": "일운 풀이 — 즉효성 위주", "include": ["wealth_change", "contract_document", "social_conflict", "health_attention", "public_exposure"], "exclude_or_deprioritize": ["marriage_signal", "childbirth", "career_change", "business_start"]},
+    "annual_fortune": {"description": "세운 종합", "include": ["career_change", "job_gain", "wealth_change", "relationship_change", "relocation", "education_admission", "contract_document"]},
+    "report_full": {"description": "총운 리포트 — 전 도메인 허용", "include": "all"}
+  },
+  "application_rule": "include는 노출 우선, exclude_or_deprioritize는 점수 -15 또는 상위 N에서 제외(완전 차단 아님 — 강한 신호는 보조로 언급 가능)."
+}

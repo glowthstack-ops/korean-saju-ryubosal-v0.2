@@ -1,0 +1,858 @@
+{
+  "schema": "transit_ten_god_event_branching_addendum.v1",
+  "reviewed": false,
+  "extends": "transit_ten_god_event_branching.v1",
+  "purpose": "십성 조합 이벤트 분기에서 누락되기 쉬운 보조 판단 기준을 추가한다.",
+  "sections": [
+    "transit_source_strength",
+    "three_god_combination_rules",
+    "ten_god_flow_rules",
+    "conflict_resolution_rules",
+    "event_disambiguation_rules",
+    "event_gate_safety_rules",
+    "volition_rules",
+    "duration_latency_rules",
+    "failure_mode_rules"
+  ],
+  "transit_source_strength": {
+    "description": "운에서 들어온 십성이 어디에서 왔는지에 따라 사건화 강도를 다르게 본다.",
+    "source_types": {
+      "stem": {
+        "name": "운 천간 십성",
+        "visibility": "explicit",
+        "event_power": "외부에 드러나는 명확한 사건 신호",
+        "score_multiplier": 1.0,
+        "notes": "제안, 발표, 계약, 직책, 대외 변화처럼 표면화되기 쉽다."
+      },
+      "branch_main_qi": {
+        "name": "운 지지 본기 십성",
+        "visibility": "semi_explicit",
+        "event_power": "현실 기반과 환경 변화 신호",
+        "score_multiplier": 0.9,
+        "notes": "실제 생활 환경, 장소, 관계, 몸의 체감으로 나타나기 쉽다."
+      },
+      "branch_middle_qi": {
+        "name": "운 지지 중기 십성",
+        "visibility": "hidden",
+        "event_power": "보조 신호",
+        "score_multiplier": 0.55,
+        "notes": "단독 사건화보다는 다른 신호를 보강한다."
+      },
+      "branch_initial_qi": {
+        "name": "운 지지 여기 십성",
+        "visibility": "latent",
+        "event_power": "잠재 신호",
+        "score_multiplier": 0.35,
+        "notes": "단독 이벤트로 쓰지 않고 보조 가중치만 준다."
+      },
+      "stem_branch_same_god": {
+        "name": "운 천간과 지지 본기가 같은 십성 계열",
+        "visibility": "strong",
+        "event_power": "강한 반복 신호",
+        "score_multiplier": 1.25,
+        "notes": "천간 표출과 지지 현실 기반이 동시에 생겨 사건화 가능성이 오른다."
+      },
+      "transit_hidden_only": {
+        "name": "지장간에만 있는 십성",
+        "visibility": "weak",
+        "event_power": "약한 배경 신호",
+        "score_multiplier": 0.45,
+        "notes": "이벤트 라벨을 단독 생성하지 않는다."
+      }
+    },
+    "minimum_rule": {
+      "do_not_emit_strong_event_if": [
+        "해당 십성이 지장간 여기 또는 중기에만 있음",
+        "상위 운층의 보조가 없음",
+        "관련 궁성 또는 합충형파해 활성 신호가 없음"
+      ],
+      "allowed_output": [
+        "theme_only",
+        "weak_event_candidate"
+      ]
+    }
+  },
+  "three_god_combination_rules": [
+    {
+      "id": "TRI_PEER_OUTPUT_WEALTH",
+      "groups": [
+        "peer",
+        "output",
+        "wealth"
+      ],
+      "meaning": "자기 주도성 → 생산물 → 수익화",
+      "primary_events": [
+        {
+          "event": "business_start",
+          "score": 64
+        },
+        {
+          "event": "business_expansion",
+          "score": 60
+        },
+        {
+          "event": "wealth_change",
+          "score": 60
+        },
+        {
+          "event": "creative_output",
+          "score": 56
+        }
+      ],
+      "positive_condition": "식신·정재 중심이면 안정적 수익화",
+      "negative_condition": "겁재·상관·편재 중심이면 투기성, 동업 갈등, 손익 변동"
+    },
+    {
+      "id": "TRI_OUTPUT_WEALTH_AUTHORITY",
+      "groups": [
+        "output",
+        "wealth",
+        "authority"
+      ],
+      "meaning": "성과와 돈이 공식 계약·직책·제도권으로 연결",
+      "primary_events": [
+        {
+          "event": "contract_document",
+          "score": 64
+        },
+        {
+          "event": "job_gain",
+          "score": 56
+        },
+        {
+          "event": "promotion",
+          "score": 56
+        },
+        {
+          "event": "business_expansion",
+          "score": 56
+        }
+      ],
+      "positive_condition": "식신+정재+정관이면 안정적 성과 인정",
+      "negative_condition": "상관+편재+편관이면 무리한 확장, 규제, 제재"
+    },
+    {
+      "id": "TRI_WEALTH_AUTHORITY_RESOURCE",
+      "groups": [
+        "wealth",
+        "authority",
+        "resource"
+      ],
+      "meaning": "재생관 후 관인상생. 돈·직장·문서가 이어짐",
+      "primary_events": [
+        {
+          "event": "job_gain",
+          "score": 68
+        },
+        {
+          "event": "promotion",
+          "score": 64
+        },
+        {
+          "event": "contract_document",
+          "score": 68
+        },
+        {
+          "event": "marriage_signal",
+          "score": 56
+        },
+        {
+          "event": "education_admission",
+          "score": 56
+        }
+      ],
+      "positive_condition": "정재+정관+정인 조합이면 매우 안정적",
+      "negative_condition": "편재+편관+편인 조합이면 큰 기회와 큰 부담이 동반"
+    },
+    {
+      "id": "TRI_AUTHORITY_RESOURCE_PEER",
+      "groups": [
+        "authority",
+        "resource",
+        "peer"
+      ],
+      "meaning": "제도·문서·지원이 나를 강화하거나 경쟁 구도를 만든다.",
+      "primary_events": [
+        {
+          "event": "job_gain",
+          "score": 56
+        },
+        {
+          "event": "education_admission",
+          "score": 56
+        },
+        {
+          "event": "social_conflict",
+          "score": 45
+        },
+        {
+          "event": "preparation_delay",
+          "score": 45
+        }
+      ],
+      "positive_condition": "관인상생 후 비견이면 합격 후 소속·동료 형성",
+      "negative_condition": "편관·편인·겁재가 강하면 조직 압박과 경쟁"
+    },
+    {
+      "id": "TRI_RESOURCE_PEER_OUTPUT",
+      "groups": [
+        "resource",
+        "peer",
+        "output"
+      ],
+      "meaning": "학습·준비 → 자기 강화 → 결과물 생산",
+      "primary_events": [
+        {
+          "event": "education_completion",
+          "score": 60
+        },
+        {
+          "event": "creative_output",
+          "score": 60
+        },
+        {
+          "event": "business_start",
+          "score": 49
+        },
+        {
+          "event": "preparation_delay",
+          "score": 45
+        }
+      ],
+      "positive_condition": "정인+비견+식신이면 안정적 결과물",
+      "negative_condition": "편인+겁재+상관이면 산만함, 지연, 불완전한 발표"
+    },
+    {
+      "id": "TRI_PEER_WEALTH_AUTHORITY",
+      "groups": [
+        "peer",
+        "wealth",
+        "authority"
+      ],
+      "meaning": "돈·조직·경쟁이 얽힘",
+      "primary_events": [
+        {
+          "event": "career_change",
+          "score": 56
+        },
+        {
+          "event": "wealth_change",
+          "score": 56
+        },
+        {
+          "event": "legal_conflict",
+          "score": 49
+        },
+        {
+          "event": "relationship_change",
+          "score": 45
+        }
+      ],
+      "positive_condition": "정재+정관이 중심이고 비견이 보조면 경쟁 속 성취",
+      "negative_condition": "겁재+편재+편관이면 손재, 분쟁, 압박"
+    },
+    {
+      "id": "TRI_OUTPUT_AUTHORITY_RESOURCE",
+      "groups": [
+        "output",
+        "authority",
+        "resource"
+      ],
+      "meaning": "표현·성과와 제도·문서가 충돌하거나 조정됨",
+      "primary_events": [
+        {
+          "event": "career_change",
+          "score": 60
+        },
+        {
+          "event": "education_completion",
+          "score": 52
+        },
+        {
+          "event": "contract_document",
+          "score": 52
+        },
+        {
+          "event": "legal_conflict",
+          "score": 49
+        }
+      ],
+      "positive_condition": "식신+정관+정인이면 성과의 공식 인정",
+      "negative_condition": "상관+정관 조합을 인성이 제어하지 못하면 상관견관으로 분쟁"
+    },
+    {
+      "id": "TRI_WEALTH_RESOURCE_OUTPUT",
+      "groups": [
+        "wealth",
+        "resource",
+        "output"
+      ],
+      "meaning": "돈·문서·결과물이 얽힘",
+      "primary_events": [
+        {
+          "event": "contract_document",
+          "score": 56
+        },
+        {
+          "event": "wealth_change",
+          "score": 56
+        },
+        {
+          "event": "education_completion",
+          "score": 49
+        },
+        {
+          "event": "relocation",
+          "score": 41
+        }
+      ],
+      "positive_condition": "정재+정인+식신이면 문서 기반 결과와 수익",
+      "negative_condition": "편재가 인성을 극하고 편인이 식신을 막으면 계약 지연·결과물 지연"
+    }
+  ],
+  "ten_god_flow_rules": {
+    "description": "십성 흐름은 사건의 자연스러운 진행 방향을 판단하는 보조 기준이다.",
+    "generating_flow": [
+      "peer",
+      "output",
+      "wealth",
+      "authority",
+      "resource",
+      "peer"
+    ],
+    "flow_meaning": {
+      "peer_to_output": "자기 주도성이 결과물로 나감",
+      "output_to_wealth": "결과물이 돈이 됨",
+      "wealth_to_authority": "돈·계약이 공식 역할로 연결됨",
+      "authority_to_resource": "조직·제도가 문서·승인·자격으로 연결됨",
+      "resource_to_peer": "문서·학습·지원이 나를 강화함"
+    },
+    "upper_to_lower_layer_flow": {
+      "description": "대운 → 세운 → 월운 → 일운 순서가 생성 흐름이면 사건 진행이 자연스럽다.",
+      "score_bonus": 8,
+      "example": "대운 식상, 세운 재성, 월운 관성은 성과 → 돈 → 공식 계약 흐름"
+    },
+    "reverse_flow": {
+      "description": "하위 운에서만 생성 흐름이 있고 상위 운이 받치지 않으면 단기 체감으로 낮춘다.",
+      "score_penalty": -8
+    },
+    "controlling_flow": {
+      "peer_controls_wealth": "비겁이 재성을 빼앗거나 나누는 구조",
+      "output_controls_authority": "식상이 관성을 치는 구조",
+      "wealth_controls_resource": "재성이 인성을 극해 학업·문서·보호를 흔드는 구조",
+      "authority_controls_peer": "관성이 비겁을 통제하는 구조",
+      "resource_controls_output": "인성이 식상을 막아 결과물을 지연시키는 구조"
+    }
+  },
+  "conflict_resolution_rules": [
+    {
+      "id": "PRIORITY_UPPER_LAYER_CONTEXT",
+      "rule": "대운은 사건의 배경을 정하고 세운은 사건 타입을 구체화한다.",
+      "example": "대운 인성, 세운 관성이면 관인상생. 세운 관성이 단독일 때보다 취업·합격 신호가 강하다."
+    },
+    {
+      "id": "SEWOON_OVERRIDES_WOLWOON_FOR_YEAR_EVENT",
+      "rule": "연도 사건 타입은 세운을 우선한다. 월운은 발생 월과 세부 양상을 정한다.",
+      "example": "세운 재성, 월운 상관이면 기본은 재물·계약이고 월운 상관은 변동·표현·충돌 양상을 추가한다."
+    },
+    {
+      "id": "ILWOON_CANNOT_CREATE_MAJOR_EVENT_ALONE",
+      "rule": "일운 십성만으로 이직·이사·결혼·합격 같은 큰 사건을 생성하지 않는다.",
+      "allowed": [
+        "택일",
+        "실행일",
+        "체감일",
+        "연락일",
+        "계약서 작성일"
+      ]
+    },
+    {
+      "id": "MONTH_DAY_TRIGGER_REQUIRES_UPPER_SUPPORT",
+      "rule": "월운+일운이 강해도 대운·세운에 같은 이벤트 후보가 없으면 즉효성 작은 사건으로 낮춘다."
+    },
+    {
+      "id": "SAME_EVENT_DIFFERENT_GODS",
+      "rule": "서로 다른 십성이 같은 이벤트를 가리키면 점수를 합산하되, 발현 양상은 십성별로 분리 기록한다.",
+      "example": "상관은 이직 욕구, 편관은 외부 압박, 정인은 문서 절차로 기록"
+    }
+  ],
+  "event_disambiguation_rules": [
+    {
+      "id": "CAREER_CHANGE_VS_JOB_GAIN",
+      "confused_events": [
+        "career_change",
+        "job_gain"
+      ],
+      "job_gain_if": [
+        "정관 또는 정인이 중심",
+        "관인상생 조합",
+        "재성+관성 조합",
+        "기존 무직·학생·프리랜서 상태에서 조직 진입"
+      ],
+      "career_change_if": [
+        "상관 또는 편관이 중심",
+        "상관견관",
+        "겁재·상관·편관이 반복",
+        "기존 직장 상태에서 역할·조직·계약 변화"
+      ]
+    },
+    {
+      "id": "BUSINESS_START_VS_WEALTH_CHANGE",
+      "confused_events": [
+        "business_start",
+        "wealth_change"
+      ],
+      "business_start_if": [
+        "식상+재성",
+        "비겁+식상",
+        "상관+편재",
+        "대운 또는 세운에서 식상·재성 흐름이 지속"
+      ],
+      "wealth_change_if": [
+        "재성 단독",
+        "비겁+재성",
+        "월운·일운 재성만 강함",
+        "사업 실행 신호 없이 돈의 출입만 있음"
+      ]
+    },
+    {
+      "id": "RELOCATION_VS_CONTRACT_DOCUMENT",
+      "confused_events": [
+        "relocation",
+        "contract_document"
+      ],
+      "relocation_if": [
+        "인성 또는 재성이 거처·부동산 문서로 작동",
+        "지지 충·역마·거처궁 활성",
+        "월운에서 이동성 신호 동반",
+        "계약 문서가 생활 공간 변화와 연결"
+      ],
+      "contract_document_if": [
+        "정인·정관·정재 중심",
+        "지지 이동 신호 없음",
+        "궁성 활성 없이 문서 처리만 있음"
+      ]
+    },
+    {
+      "id": "WINDFALL_VS_WEALTH_CHANGE",
+      "confused_events": [
+        "windfall",
+        "wealth_change"
+      ],
+      "windfall_if": [
+        "편재 중심",
+        "상관 또는 겁재 동반",
+        "월운·일운에서 강하게 발동",
+        "투기·보너스·예상 밖 수익 맥락"
+      ],
+      "wealth_change_if": [
+        "정재 중심",
+        "세운 단위의 수입·지출 변화",
+        "급여·계약금·생활비·고정 지출"
+      ]
+    },
+    {
+      "id": "RELATIONSHIP_VS_CONTRACT",
+      "confused_events": [
+        "relationship_change",
+        "contract_document"
+      ],
+      "relationship_if": [
+        "남성 명식에서 재성 강함",
+        "여성 명식에서 관성 강함",
+        "배우자궁 활성",
+        "도화·홍염·합 신호 동반"
+      ],
+      "contract_if": [
+        "정인·정관·정재 중심",
+        "배우자궁 활성 없음",
+        "문서·승인·금전 거래 맥락"
+      ]
+    },
+    {
+      "id": "CHILDBIRTH_VS_CREATIVE_OUTPUT",
+      "confused_events": [
+        "childbirth",
+        "creative_output"
+      ],
+      "childbirth_if": [
+        "식상 신호",
+        "자녀궁 활성",
+        "연령·혼인·관계 상태 게이트 통과",
+        "세운·월운에서 생명·결과물 신호 반복"
+      ],
+      "creative_output_if": [
+        "식상 신호만 있음",
+        "자녀궁·관계 상태 게이트 없음",
+        "프로젝트·콘텐츠·성과물 맥락"
+      ]
+    }
+  ],
+  "event_gate_safety_rules": {
+    "description": "십성 조합만으로 과도한 사건 라벨을 내지 않기 위한 안전장치",
+    "business_start": {
+      "do_not_emit_as_strong_event_if": [
+        "비견 또는 식신 단독 신호만 있음",
+        "재성 보조 없음",
+        "세운·월운에서 실행 신호 없음",
+        "직업 상태가 직장인이고 독립 맥락이 없음"
+      ],
+      "downgrade_to": [
+        "creative_output",
+        "business_start_theme",
+        "business_interest"
+      ]
+    },
+    "relocation": {
+      "do_not_emit_as_strong_event_if": [
+        "인성 또는 재성만 있고 지지 이동 신호가 없음",
+        "거처궁 활성 없음",
+        "계약 문서 신호만 있음"
+      ],
+      "downgrade_to": [
+        "contract_document",
+        "preparation_delay"
+      ]
+    },
+    "marriage_signal": {
+      "do_not_emit_as_strong_event_if": [
+        "재성 또는 관성 단독",
+        "배우자궁 활성 없음",
+        "관계 상태 정보 없음",
+        "월운·일운 단기 신호뿐임"
+      ],
+      "downgrade_to": [
+        "relationship_change",
+        "new_relationship"
+      ]
+    },
+    "childbirth": {
+      "do_not_emit_as_strong_event_if": [
+        "식상 단독",
+        "자녀궁 활성 없음",
+        "연령·관계 상태·현실 정보 게이트 없음"
+      ],
+      "downgrade_to": [
+        "creative_output",
+        "education_completion"
+      ]
+    },
+    "job_gain": {
+      "do_not_emit_as_strong_event_if": [
+        "관성 단독",
+        "인성 또는 재성 보조 없음",
+        "현재 직업 상태가 이미 안정 직장이고 변화 맥락 없음"
+      ],
+      "downgrade_to": [
+        "promotion",
+        "contract_document"
+      ]
+    },
+    "windfall": {
+      "do_not_emit_as_strong_event_if": [
+        "편재 단독",
+        "월운·일운 트리거 없음",
+        "겁재 또는 상관이 기신으로 강해 손실 위험이 큼"
+      ],
+      "downgrade_to": [
+        "wealth_change"
+      ]
+    }
+  },
+  "volition_rules": {
+    "description": "사건이 본인 의지인지, 외부 압박인지 구분한다.",
+    "self_initiated": {
+      "strong_ten_gods": [
+        "BIJIAN",
+        "SHISHEN",
+        "SHANGGUAN",
+        "PIANCAI"
+      ],
+      "events": [
+        "business_start",
+        "career_change",
+        "creative_output",
+        "public_exposure"
+      ],
+      "interpretation": "본인이 먼저 움직이거나 선택하는 사건"
+    },
+    "externally_forced": {
+      "strong_ten_gods": [
+        "QISHA",
+        "ZHENGGUAN",
+        "JIECAI"
+      ],
+      "events": [
+        "career_change",
+        "legal_conflict",
+        "health_attention",
+        "social_conflict"
+      ],
+      "interpretation": "외부 규칙·조직·경쟁·압박에 의해 발생하는 사건"
+    },
+    "document_or_system_driven": {
+      "strong_ten_gods": [
+        "ZHENGYIN",
+        "PIANYIN",
+        "ZHENGGUAN"
+      ],
+      "events": [
+        "contract_document",
+        "education_admission",
+        "job_gain",
+        "preparation_delay"
+      ],
+      "interpretation": "서류·승인·제도·심사 과정 중심의 사건"
+    },
+    "money_or_relationship_driven": {
+      "strong_ten_gods": [
+        "ZHENGCAI",
+        "PIANCAI"
+      ],
+      "events": [
+        "wealth_change",
+        "relationship_change",
+        "contract_document",
+        "business_expansion"
+      ],
+      "interpretation": "돈, 거래, 현실 관계 때문에 움직이는 사건"
+    }
+  },
+  "duration_latency_rules": {
+    "description": "십성 조합에 따라 사건이 바로 터지는지, 누적되는지, 결과로 나오는지 구분한다.",
+    "immediate_trigger": {
+      "ten_gods": [
+        "SHANGGUAN",
+        "QISHA",
+        "JIECAI",
+        "PIANCAI"
+      ],
+      "typical_layers": [
+        "wolwoon",
+        "ilwoon"
+      ],
+      "events": [
+        "windfall",
+        "social_conflict",
+        "legal_conflict",
+        "health_attention",
+        "public_exposure"
+      ],
+      "description": "갑작스럽고 체감이 빠른 사건"
+    },
+    "cumulative_process": {
+      "ten_gods": [
+        "ZHENGGUAN",
+        "ZHENGYIN",
+        "ZHENGCAI",
+        "SHISHEN"
+      ],
+      "typical_layers": [
+        "daewoon",
+        "sewoon"
+      ],
+      "events": [
+        "job_gain",
+        "promotion",
+        "education_admission",
+        "business_start",
+        "wealth_change"
+      ],
+      "description": "준비와 누적 끝에 나타나는 사건"
+    },
+    "delayed_or_blocked": {
+      "ten_gods": [
+        "PIANYIN",
+        "JIECAI",
+        "QISHA"
+      ],
+      "typical_combinations": [
+        "PIANYIN+SHISHEN",
+        "JIECAI+ZHENGCAI",
+        "QISHA+PIANYIN"
+      ],
+      "events": [
+        "preparation_delay",
+        "contract_document",
+        "education_completion",
+        "career_change"
+      ],
+      "description": "진행이 막히거나 조건부로 지연되는 사건"
+    },
+    "result_delivery": {
+      "ten_gods": [
+        "SHISHEN",
+        "ZHENGYIN",
+        "ZHENGGUAN"
+      ],
+      "typical_combinations": [
+        "SHISHEN+ZHENGGUAN",
+        "ZHENGGUAN+ZHENGYIN",
+        "RESOURCE+OUTPUT"
+      ],
+      "events": [
+        "education_completion",
+        "promotion",
+        "contract_document",
+        "creative_output"
+      ],
+      "description": "이미 준비된 일이 결과로 나오는 사건"
+    }
+  },
+  "failure_mode_rules": {
+    "description": "같은 이벤트 타입이라도 기신성 또는 충돌 조합이면 실패·손실·지연으로 분기한다.",
+    "contract_document": {
+      "positive": [
+        "정인+정관",
+        "정재+정관",
+        "재성+관성+인성"
+      ],
+      "negative": [
+        "상관+정관",
+        "편재+편관",
+        "편인 과다"
+      ],
+      "failure_modes": [
+        "계약 지연",
+        "조건 불리",
+        "승인 반려",
+        "문서 오류",
+        "약속 파기"
+      ]
+    },
+    "business_start": {
+      "positive": [
+        "식신+정재",
+        "식상+재성",
+        "비견+식신+재성"
+      ],
+      "negative": [
+        "겁재+편재",
+        "상관+편재+편관",
+        "비겁 과다 재성 약함"
+      ],
+      "failure_modes": [
+        "동업 갈등",
+        "초기 자금 손실",
+        "준비 부족",
+        "홍보만 있고 매출 부족",
+        "무리한 확장"
+      ]
+    },
+    "career_change": {
+      "positive": [
+        "정관+정인",
+        "식신+정관",
+        "재성+관성"
+      ],
+      "negative": [
+        "상관+정관",
+        "편관+편인",
+        "겁재+편관"
+      ],
+      "failure_modes": [
+        "퇴사 압박",
+        "상사 갈등",
+        "직무 불안",
+        "제안 취소",
+        "조직 내 제재"
+      ]
+    },
+    "wealth_change": {
+      "positive": [
+        "식신+정재",
+        "식신+편재",
+        "정재+정관"
+      ],
+      "negative": [
+        "겁재+정재",
+        "겁재+편재",
+        "편재+편관"
+      ],
+      "failure_modes": [
+        "손재",
+        "투자 손실",
+        "분배 갈등",
+        "예상 밖 지출",
+        "수익 지연"
+      ]
+    },
+    "relationship_change": {
+      "positive": [
+        "정재+정관",
+        "재성+인성",
+        "관성+인성"
+      ],
+      "negative": [
+        "겁재+정재",
+        "상관+정관",
+        "편재+편관"
+      ],
+      "failure_modes": [
+        "삼각관계",
+        "관계 불안",
+        "공식화 실패",
+        "갈등 후 거리감",
+        "짧은 인연"
+      ]
+    },
+    "education_admission": {
+      "positive": [
+        "정관+정인",
+        "편관+정인",
+        "정인+식신"
+      ],
+      "negative": [
+        "편인+식신",
+        "재성+편인",
+        "상관+정관"
+      ],
+      "failure_modes": [
+        "합격 지연",
+        "서류 보완",
+        "준비 부족",
+        "전공 변경",
+        "중도 포기"
+      ]
+    }
+  },
+  "profile_gate_rules": {
+    "description": "사용자 상태에 따라 같은 십성 신호의 이벤트 라벨을 다르게 낸다.",
+    "occupation_status": {
+      "student": {
+        "authority_resource": "education_admission 또는 education_completion 우선",
+        "wealth_authority": "인턴·취업 준비·공식 활동으로 해석"
+      },
+      "employee": {
+        "authority": "job_gain보다 promotion 또는 career_change 우선",
+        "output_authority": "직무 변화·상사 갈등·성과 평가"
+      },
+      "business_owner": {
+        "wealth_output": "business_expansion 우선",
+        "authority_resource": "허가·세무·계약·제도 이슈"
+      },
+      "unemployed": {
+        "authority_resource": "job_gain 우선",
+        "resource_peer": "준비·교육·자격 취득"
+      }
+    },
+    "relationship_status": {
+      "single": {
+        "wealth_or_authority": "new_relationship 가능",
+        "formal_combo": "marriage_signal은 낮게 시작"
+      },
+      "in_relationship": {
+        "wealth_or_authority": "relationship_change 우선",
+        "formal_combo": "marriage_signal 가능"
+      },
+      "married": {
+        "wealth_or_authority": "배우자 이슈·가정 재정·계약으로 전환"
+      }
+    },
+    "age_gate": {
+      "childbirth": "연령과 현실 상태를 필수 게이트로 둔다.",
+      "education_admission": "나이에 따라 학교 입학, 자격증, 대학원, 재교육으로 라벨 세분화한다.",
+      "job_gain": "은퇴 연령 이후에는 직책보다 사회활동·계약·자문으로 전환할 수 있다."
+    }
+  }
+}

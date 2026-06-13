@@ -249,14 +249,11 @@ class PredictionEngines:
                 cautions += branch["guides"][:1]
 
         disclaimers: list[str] = []
-        if event_key in (EventKey.HEALTH_ISSUE, EventKey.SURGERY):
+        if event_key is EventKey.HEALTH_ATTENTION:
             disclaimers.append(self._disclaimers["health"])
-        if event_key in (EventKey.LAWSUIT,):
+        if event_key is EventKey.LEGAL_CONFLICT:
             disclaimers.append(self._disclaimers["legal"])
-        if event_key in (
-            EventKey.WINDFALL, EventKey.SPECULATION_RISK, EventKey.ASSET_VOLATILITY,
-            EventKey.WEALTH_CHANGE,
-        ):
+        if event_key in (EventKey.WINDFALL, EventKey.WEALTH_CHANGE):
             disclaimers.append(self._disclaimers["finance"])
 
         return AdviceResult(

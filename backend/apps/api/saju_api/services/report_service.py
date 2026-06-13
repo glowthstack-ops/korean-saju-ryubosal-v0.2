@@ -19,10 +19,11 @@ from saju_engines.context_reducer import (
     polarity_ko,
     serialize_chart_prefix,
 )
-from saju_engines.event_scoring import EventScorer
+from saju_engines.event_engine_v2 import EventEngineV2
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_plan import build_section_plans
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as _EVENT_DOMAIN_V2
 from saju_shared_types.events import EventCandidate
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.manse_result import ManseV2Result
@@ -30,24 +31,14 @@ from saju_shared_types.report import ReportResult, ReportSpec, SectionContext, S
 
 from . import llm_client
 from .manse_service import calculate
+from .personalization import fetch_personal_inputs
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
 _SCORE_LEVELS = {GanjiLevel.YEAR, GanjiLevel.MONTH}
 _TOP_CANDIDATES = 8
-# 이벤트 종류 → 도메인(EventKey 기준). FOCUS 주제 스코핑에 쓴다. compatibility는 쌍방(M13)
-# 으로 다뤄 여기서 필터하지 않는다. 매핑에 없는 키(contract·lawsuit·travel 등)는 일반.
-_EVENT_DOMAIN: dict[str, str] = {
-    "career_change": "career", "promotion": "career", "resignation": "career",
-    "business_start": "career",
-    "relationship_start": "relationship", "relationship_end": "relationship",
-    "marriage": "relationship", "childbirth": "relationship", "family_change": "relationship",
-    "relocation": "relocation",
-    "wealth_change": "wealth", "income_change": "wealth", "expense_risk": "wealth",
-    "windfall": "wealth", "speculation_risk": "wealth", "asset_volatility": "wealth",
-    "education_start": "education", "education_complete": "education", "exam": "education",
-    "health_issue": "health", "surgery": "health",
-}
+# 이벤트 종류 → 도메인(21키 EventKeyV2 기준, Phase 7). FOCUS 주제 스코핑에 쓴다.
+_EVENT_DOMAIN: dict[str, str] = {str(k): v for k, v in _EVENT_DOMAIN_V2.items()}
 _TOPIC_DOMAINS = set(_EVENT_DOMAIN.values())
 
 # 섹션별 작성 지침(docs/10 3·4장 데이터소스 요약 — 목차 규격은 report_plan이 강제).
@@ -70,16 +61,25 @@ _DEFAULT_GUIDE = "아래 데이터 블록의 사실만 사용해 섹션 제목�
 class _ReportData:
     """보고서 1건의 공유 데이터 — 섹션마다 재계산하지 않는다(사전계산 우선)."""
 
-    def __init__(self, birth: BirthInput, spec: ReportSpec, today: date) -> None:
+    def __init__(
+        self, birth: BirthInput, spec: ReportSpec, today: date,
+        *, owner_id: str | None = None, subject_id: str | None = None,
+    ) -> None:
         chart_birth = birth.model_copy(update={"reference_date": today})
         self.result: ManseV2Result = calculate(chart_birth)
-        self.scorer = EventScorer(_DICTS)
-        scored = self.scorer.score(self.result, levels=_SCORE_LEVELS)
+        self.scorer = EventEngineV2(_DICTS)
+        # 개인화(저장된 subject 한정): 현실 신호 시그니처 + 활성 코호트 → LEI 정렬축.
+        # 미설정·실패 시 무개인화 폴백(규칙11).
+        sig, cohort = fetch_personal_inputs(owner_id, subject_id, self.result)
+        scored = self.scorer.score_legacy_personalized(
+            self.result, levels=_SCORE_LEVELS, signature=sig, cohort=cohort,
+        )
         in_period = [
             c for c in scored
             if spec.period.start[:4] <= c.period[:4] <= spec.period.end[:4]
         ]
-        pool = sorted(in_period or scored, key=lambda c: -c.score)
+        # LEI 정렬축(현실적합>과거유사>점수) — 개인 시그니처 미배선 시 -c.score와 동치.
+        pool = sorted(in_period or scored, key=lambda c: (-c.life_fit, -c.personal_match, -c.score))
         # 주제 스코핑(FOCUS): 해당 도메인 신호를 가진 후보만 남겨 직장운·금전운 본문을
         # 차별화한다. 도메인 후보가 없으면 빈 리포트 방지를 위해 전체를 유지한다.
         if spec.product_code == "RPT_FOCUS" and spec.topic in _TOPIC_DOMAINS:
@@ -195,15 +195,22 @@ def generate_report(
     spec: ReportSpec,
     today: date | None = None,
     display_name: str = "회원",
+    *,
+    owner_id: str | None = None,
+    subject_id: str | None = None,
 ) -> ReportResult:
     """보고서 실생성 — ReportBuilder에 실데이터 컨텍스트 + llm_client 주입.
+
+    owner_id·subject_id가 있으면 개인화(현실 신호 시그니처·코호트) LEI 정렬축이 후보 선별에 반영.
 
     Raises:
         RuntimeError: LLM 키 미설정(메인·폴백 모두) — 호출 측에서 dry-run 안내.
     """
     if not llm_client.is_available():
         raise RuntimeError("LLM API 키 미설정 — plan_report(dry-run)로 검증하세요")
-    data = _ReportData(birth, spec, today or date.today())
+    data = _ReportData(
+        birth, spec, today or date.today(), owner_id=owner_id, subject_id=subject_id,
+    )
     call_type = (
         "report_full_section" if spec.product_code == "RPT_FULL" else "report_focus_section"
     )

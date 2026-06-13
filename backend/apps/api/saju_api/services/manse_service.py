@@ -18,7 +18,8 @@ from saju_manse_analysis.luck import (
 from saju_manse_calibration import generate_calibration, score_calibration
 
 from saju_engines.context_reducer import event_ko
-from saju_engines.event_scoring import EventScorer, favorability_map_from_model
+from saju_engines.event_engine_v2 import EventEngineV2
+from saju_engines.event_scoring import favorability_map_from_model
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_manse_core.pillars import four_pillars
 from saju_manse_core.pillars.day_pillar import day_pillar
@@ -28,7 +29,6 @@ from saju_manse_core.time_correction.input_normalizer import normalize
 from saju_manse_core.time_correction.timezone_resolver import TZDATA_VERSION, resolve
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.calibration import (
-    EVENT_CATEGORY,
     CalibrationEventItem,
     CalibrationResult,
     FeedbackAnswer,
@@ -39,6 +39,8 @@ from saju_shared_types.constants import (
     STEM_YINYANG,
 )
 from saju_shared_types.enums import Branch, Stem, YinYang
+from saju_shared_types.event_taxonomy_v2 import EVENT_CATEGORY
+from saju_shared_types.events import Confidence
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import EngineMetadata, ManseV2Result
 from saju_shared_types.time_correction import SolarTermBasis, TimeCorrectionResult
@@ -48,7 +50,7 @@ from ..location import resolve as resolve_location
 
 # 용신 검증 이벤트 검출용 — 이벤트 사전 위치 + 단일 스코어러(지연 초기화).
 _DICTS = Path(__file__).resolve().parents[4] / "dictionaries"
-_event_scorer: EventScorer | None = None
+_event_scorer: EventEngineV2 | None = None
 # EventCandidate.polarity → 검증 기대 극성 라벨.
 _POLARITY_EXPECTED = {
     "positive": "positive",
@@ -67,11 +69,11 @@ _CALIB_LABEL_OVERRIDE = {
 _BASELINE_SIGNAL = "baseline_favorability"
 
 
-def _scorer() -> EventScorer:
+def _scorer() -> EventEngineV2:
     """이벤트 스코어러 단일 인스턴스(사전 1회 로드)."""
     global _event_scorer
     if _event_scorer is None:
-        _event_scorer = EventScorer(_DICTS)
+        _event_scorer = EventEngineV2(_DICTS)
     return _event_scorer
 
 
@@ -94,10 +96,10 @@ def _event_items_provider(
         if year in cache:
             return cache[year]
         # 차트 용신으로 그 해 표시 이벤트 선별(상위 N, 카테고리 보유분).
-        base = sorted(scorer.score_years(result, [year]), key=lambda c: -c.score)
+        base = sorted(scorer.score_legacy_years(result, [year]), key=lambda c: -c.score)
         # 모델별 그 해 재계산 극성: {model_type: {event_key: polarity}}.
         per_model = {
-            mt: {str(c.event_key): str(c.polarity) for c in scorer.score_years(
+            mt: {str(c.event_key): str(c.polarity) for c in scorer.score_legacy_years(
                 result, [year], fav_override=fav)}
             for mt, fav in fav_by_model.items()
         }
@@ -105,12 +107,12 @@ def _event_items_provider(
         seen: set[str] = set()
         for c in base:
             ek = str(c.event_key)
-            category = EVENT_CATEGORY.get(ek)
+            category = EVENT_CATEGORY.get(c.event_key)
             if category is None or ek in seen:
                 continue
             # 약한 proxy(십성 baseline 신호만)인 후보는 검증 질문에서 제외 — 사용자가 사건으로
             # 오인하지 않도록. 관계·룰 등 baseline 외 신호가 하나라도 있으면 노출한다.
-            if all(s.type == _BASELINE_SIGNAL for s in c.signals):
+            if c.confidence == Confidence.LOW:
                 continue
             seen.add(ek)
             expected = {

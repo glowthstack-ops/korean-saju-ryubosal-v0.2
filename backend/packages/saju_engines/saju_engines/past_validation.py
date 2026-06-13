@@ -23,7 +23,7 @@ from saju_shared_types.past_validation import (
     PastValidationResult,
 )
 
-from .event_scoring import EventScorer
+from .event_engine_v2 import EventEngineV2
 
 ComputeFn = Callable[[BirthInput], ManseV2Result]
 
@@ -36,7 +36,7 @@ _LEVEL_CONSERVATIVE = 0.3
 
 def generate_past_candidates(
     birth: BirthInput,
-    scorer: EventScorer,
+    scorer: EventEngineV2,
     compute: ComputeFn,
     start_year: int,
     end_year: int,
@@ -47,7 +47,7 @@ def generate_past_candidates(
 
     Args:
         birth: 대상 출생 정보.
-        scorer: Phase 2 EventScorer(사전 로드 공유).
+        scorer: EventEngineV2(사전 로드 공유) — 레거시 호환 score_legacy 사용.
         compute: 만세 계산 함수(서비스 calculate 주입 — 캐시 활용).
         start_year, end_year: 검증 대상 연도 구간(과거).
         per_year_max: 연도당 후보 상한(콜드리딩 방지).
@@ -62,7 +62,7 @@ def generate_past_candidates(
     while ref - 4 <= end_year:
         chart_birth = birth.model_copy(update={"reference_date": date(ref, 6, 15)})
         result = compute(chart_birth)
-        for c in scorer.score(result, levels={GanjiLevel.YEAR}):
+        for c in scorer.score_legacy(result, levels={GanjiLevel.YEAR}):
             year = c.period[:4]
             if year.isdigit() and start_year <= int(year) <= end_year:
                 by_year.setdefault(year, []).append(c)

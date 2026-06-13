@@ -12,11 +12,6 @@
           "event": "wealth_change",
           "score": 0.65,
           "polarity": "positive"
-        },
-        {
-          "event": "income_change",
-          "score": 0.55,
-          "polarity": "positive"
         }
       ],
       "note": "편재+용신 — 유동 재물 기회 활성",
@@ -29,12 +24,12 @@
       },
       "eventCandidates": [
         {
-          "event": "income_change",
+          "event": "wealth_change",
           "score": 0.6,
           "polarity": "positive"
         },
         {
-          "event": "contract",
+          "event": "contract_document",
           "score": 0.5,
           "polarity": "positive"
         }
@@ -49,13 +44,8 @@
       },
       "eventCandidates": [
         {
-          "event": "expense_risk",
+          "event": "wealth_change",
           "score": 0.65,
-          "polarity": "negative_or_forced"
-        },
-        {
-          "event": "speculation_risk",
-          "score": 0.5,
           "polarity": "negative_or_forced"
         }
       ],
@@ -69,7 +59,7 @@
       },
       "eventCandidates": [
         {
-          "event": "asset_volatility",
+          "event": "wealth_change",
           "score": 0.6,
           "polarity": "conditional"
         }
@@ -87,11 +77,6 @@
           "event": "wealth_change",
           "score": 0.6,
           "polarity": "conditional"
-        },
-        {
-          "event": "speculation_risk",
-          "score": 0.45,
-          "polarity": "conditional"
         }
       ],
       "note": "편재+삼합 세력 — 판이 커지는 재물 흐름(과욕 경계 동반)",
@@ -104,7 +89,7 @@
       },
       "eventCandidates": [
         {
-          "event": "speculation_risk",
+          "event": "wealth_change",
           "score": 0.6,
           "polarity": "negative_or_forced"
         },
@@ -128,7 +113,7 @@
           "polarity": "neutral"
         },
         {
-          "event": "income_change",
+          "event": "wealth_change",
           "score": -0.2,
           "polarity": "neutral"
         }
@@ -142,12 +127,7 @@
       },
       "eventCandidates": [
         {
-          "event": "expense_risk",
-          "score": -0.15,
-          "polarity": "neutral"
-        },
-        {
-          "event": "speculation_risk",
+          "event": "wealth_change",
           "score": -0.15,
           "polarity": "neutral"
         }

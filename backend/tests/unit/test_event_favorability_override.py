@@ -11,8 +11,8 @@ from datetime import date
 from pathlib import Path
 
 from saju_api.services.manse_service import calculate
+from saju_engines.event_engine_v2 import EventEngineV2
 from saju_engines.event_scoring import (
-    EventScorer,
     favorability_map,
     favorability_map_from_model,
 )
@@ -48,8 +48,8 @@ def test_partial_model_skips_empty_roles() -> None:
 
 def test_override_changes_polarity_distribution() -> None:
     result = _result()
-    scorer = EventScorer(_DICTS)
-    base = scorer.score(result, levels={GanjiLevel.YEAR})
+    scorer = EventEngineV2(_DICTS)
+    base = scorer.score_legacy(result, levels={GanjiLevel.YEAR})
 
     # 차트 용신과 정반대 역할을 준 모델로 재계산하면 극성 분포가 달라져야 한다.
     chart_fav = favorability_map(result)
@@ -62,7 +62,7 @@ def test_override_changes_polarity_distribution() -> None:
         hansin=swapped.get("한신"), confidence=1.0,
     )
     override = favorability_map_from_model(inverted)
-    inv = scorer.score(result, levels={GanjiLevel.YEAR}, fav_override=override)
+    inv = scorer.score_legacy(result, levels={GanjiLevel.YEAR}, fav_override=override)
 
     # 같은 연도·이벤트가 두 실행 모두 나오되, 극성이 적어도 한 건 이상 달라야 한다(변별력).
     base_pol = {(c.period, str(c.event_key)): str(c.polarity) for c in base}

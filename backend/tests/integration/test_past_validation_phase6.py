@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from saju_api.main import app
 from saju_api.services.manse_service import calculate
-from saju_engines import EventScorer
+from saju_engines import EventEngineV2
 from saju_engines.cases_store import CaseRow, CasesStore
 from saju_engines.past_validation import calibrate_confidence, generate_past_candidates
 from saju_shared_types.birth_input import BirthInput
@@ -26,8 +26,8 @@ _BIRTH = BirthInput(
 
 
 @pytest.fixture(scope="module")
-def scorer() -> EventScorer:
-    return EventScorer(_DICTS)
+def scorer() -> EventEngineV2:
+    return EventEngineV2(_DICTS)
 
 
 @pytest.fixture(scope="module")

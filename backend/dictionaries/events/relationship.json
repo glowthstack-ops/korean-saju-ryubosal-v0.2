@@ -9,7 +9,7 @@
       },
       "eventCandidates": [
         {
-          "event": "relationship_start",
+          "event": "new_relationship",
           "score": 0.65,
           "polarity": "conditional"
         }
@@ -24,7 +24,7 @@
       },
       "eventCandidates": [
         {
-          "event": "relationship_start",
+          "event": "new_relationship",
           "score": 0.6,
           "polarity": "conditional"
         }
@@ -39,7 +39,7 @@
       },
       "eventCandidates": [
         {
-          "event": "relationship_start",
+          "event": "new_relationship",
           "score": 0.6,
           "polarity": "conditional"
         }
@@ -54,12 +54,12 @@
       },
       "eventCandidates": [
         {
-          "event": "marriage",
+          "event": "marriage_signal",
           "score": 0.55,
           "polarity": "positive"
         },
         {
-          "event": "relationship_start",
+          "event": "new_relationship",
           "score": 0.5,
           "polarity": "positive"
         }
@@ -74,7 +74,7 @@
       },
       "eventCandidates": [
         {
-          "event": "relationship_end",
+          "event": "relationship_change",
           "score": 0.6,
           "polarity": "negative_or_forced"
         }
@@ -89,7 +89,7 @@
       },
       "eventCandidates": [
         {
-          "event": "relationship_end",
+          "event": "relationship_change",
           "score": 0.45,
           "polarity": "conditional"
         }
@@ -103,7 +103,7 @@
       },
       "eventCandidates": [
         {
-          "event": "relationship_start",
+          "event": "new_relationship",
           "score": -0.3,
           "polarity": "neutral"
         }
@@ -117,7 +117,7 @@
       },
       "eventCandidates": [
         {
-          "event": "relationship_start",
+          "event": "new_relationship",
           "score": -0.3,
           "polarity": "neutral"
         }
@@ -131,7 +131,7 @@
       },
       "eventCandidates": [
         {
-          "event": "marriage",
+          "event": "marriage_signal",
           "score": -0.25,
           "polarity": "neutral"
         }

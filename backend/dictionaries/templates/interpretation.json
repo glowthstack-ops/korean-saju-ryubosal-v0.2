@@ -2,34 +2,143 @@
   "version": "1.0.0",
   "note": "이벤트×극성 해석 템플릿 (docs/05 templates/ — v2.2.1). LLM 문장 가이드 — 슬롯({timeScope},{trigger},{domain},{unfavorableReason})은 직렬화 시 치환되거나 LLM이 입력 사실로 채운다. 단정 표현 금지 구조 내장. generic 항목은 미정의 이벤트×극성의 폴백.",
   "items": [
-    { "event": "career_change", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 직업 변화 에너지가 우호적으로 활성화됩니다. 자발적으로 판을 바꾸기 좋은 흐름이니, 탐색→행동→결정의 단계를 밟아 보세요.", "reviewed": false },
-    { "event": "career_change", "polarity": "negative_or_forced", "template": "{timeScope}에는 {trigger} 때문에 직업 변화 신호가 있습니다. 다만 {unfavorableReason}이므로 자발적 확장보다는 외부 조건에 의한 변화로 보는 편이 자연스럽습니다 — 선택지를 미리 준비해 두면 강제성이 줄어듭니다.", "reviewed": false },
-    { "event": "career_change", "polarity": "conditional", "template": "{timeScope}의 직업 변화 신호는 조건부입니다 — {trigger}의 동반 신호 구성에 따라 이동·계약 등 다른 형태로 발현될 수 있으니 함께 살펴보세요.", "reviewed": false },
-    { "event": "promotion", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 인정과 직위 상승의 에너지가 활성화됩니다. 성과를 보이는 자리에 서기 좋은 흐름입니다.", "reviewed": false },
-    { "event": "resignation", "polarity": "negative_or_forced", "template": "{timeScope}에는 {trigger}로 떠나고 싶은 마음이 강해질 수 있습니다. 감정이 아닌 조건으로 판단하도록, 결정 전 비교표를 만들어 보세요.", "reviewed": false },
-    { "event": "relocation", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 거처·환경 이동의 에너지가 우호적으로 열립니다. 원하던 이동을 실행에 옮기기 좋은 흐름입니다.", "reviewed": false },
-    { "event": "relocation", "polarity": "negative_or_forced", "template": "{timeScope}의 이동 신호는 {unfavorableReason} 성격이 있어, 원치 않는 이사·배치 변경의 얼굴로 올 수 있습니다. 미리 대안을 마련하면 부담이 줄어듭니다.", "reviewed": false },
-    { "event": "relocation", "polarity": "conditional", "template": "{timeScope}에는 {trigger}로 이동·이사의 변화 에너지가 활성화됩니다. 실제 이사인지 출장·환경 변화인지는 동반 신호와 본인의 선택에 달려 있습니다.", "reviewed": false },
-    { "event": "contract", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 계약·합의가 성사되기 좋은 에너지가 흐릅니다. 조건 확인 후 매듭짓기 좋은 흐름입니다.", "reviewed": false },
-    { "event": "contract", "polarity": "conditional", "template": "{timeScope}의 계약 신호는 조건부입니다 — 세부 조항과 상대 조건을 확인한 뒤 진행하는 것이 흐름에 맞습니다.", "reviewed": false },
-    { "event": "document", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 문서·자격·승인 관련 결실의 에너지가 활성화됩니다.", "reviewed": false },
-    { "event": "relationship_start", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 새 인연의 에너지가 우호적으로 열립니다. 사람이 모이는 자리에 나가 보세요.", "reviewed": false },
-    { "event": "relationship_start", "polarity": "conditional", "template": "{timeScope}에는 인연의 신호가 있으나 조건부입니다 — 끌림과 실제 합은 다를 수 있으니 서두르지 않는 편이 자연스럽습니다.", "reviewed": false },
-    { "event": "relationship_end", "polarity": "negative_or_forced", "template": "{timeScope}에는 {trigger}로 관계의 긴장 에너지가 높아질 수 있습니다. 이별의 확정이 아니라 관계를 점검하라는 신호로 읽어 주세요.", "reviewed": false },
-    { "event": "marriage", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 결합·결속의 에너지가 강해집니다. 관계를 한 단계 매듭짓기 좋은 흐름입니다.", "reviewed": false },
-    { "event": "wealth_change", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 재물 흐름이 우호적으로 활성화됩니다. 움직인 만큼 들어오는 구조이니 실행 계획을 세워 보세요.", "reviewed": false },
-    { "event": "income_change", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 수입 구조에 긍정적 변화 에너지가 흐릅니다.", "reviewed": false },
-    { "event": "expense_risk", "polarity": "negative_or_forced", "template": "{timeScope}에는 {trigger}로 지출·손재의 변동성이 커질 수 있습니다. 빌려주는 돈과 충동 지출의 상한을 미리 정해 두세요.", "reviewed": false },
-    { "event": "speculation_risk", "polarity": "negative_or_forced", "template": "{timeScope}에는 투기 충동이 커지기 쉬운 기운입니다. 수익 단정은 불가능하며, 잃어도 되는 금액의 상한을 먼저 정하는 것이 이 시기의 정답입니다.", "reviewed": false },
-    { "event": "windfall", "polarity": "conditional", "template": "{timeScope}에는 예상 밖의 수입·지출 변동성이 있는 흐름입니다. 당첨·횡재의 확정 표현은 불가능합니다 — 단기 변동성으로만 읽어 주세요.", "reviewed": false },
-    { "event": "exam", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 학업·시험의 결실 에너지가 활성화됩니다. 합격 확정이 아니라 능률이 오르는 흐름이니 마무리 점검에 집중하세요.", "reviewed": false },
-    { "event": "education_start", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 배움을 시작하기 좋은 에너지가 흐릅니다.", "reviewed": false },
-    { "event": "health_issue", "polarity": "negative_or_forced", "template": "{timeScope}에는 {trigger}로 컨디션 관리가 필요한 신호가 있습니다. 의료 진단이 아니며, 휴식과 검진 일정을 챙기라는 환기로 읽어 주세요.", "reviewed": false },
-    { "event": "surgery", "polarity": "conditional", "template": "{timeScope}에는 치료·조정의 기운이 있습니다. 의료적 판단은 반드시 전문의와 상의하세요 — 사주는 시기 참고일 뿐입니다.", "reviewed": false },
-    { "event": "travel", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 여행·출장 등 가벼운 이동의 에너지가 활성화됩니다.", "reviewed": false },
-    { "event": "generic", "polarity": "positive", "template": "{timeScope}에는 {trigger}로 {domain} 영역의 변화 에너지가 우호적으로 활성화됩니다.", "reviewed": false },
-    { "event": "generic", "polarity": "negative_or_forced", "template": "{timeScope}에는 {trigger}로 {domain} 영역에 부담스러운 변화 에너지가 있습니다. {unfavorableReason}이므로 대비와 선택지가 부담을 줄여 줍니다.", "reviewed": false },
-    { "event": "generic", "polarity": "conditional", "template": "{timeScope}의 {domain} 신호는 조건부입니다 — 동반 신호와 본인의 선택에 따라 발현 형태가 달라집니다.", "reviewed": false },
-    { "event": "generic", "polarity": "neutral", "template": "{timeScope}의 {domain} 흐름은 큰 굴곡 없이 평탄한 편입니다 — 기본기를 다지기 좋은 시기입니다.", "reviewed": false }
+    {
+      "event": "career_change",
+      "polarity": "positive",
+      "template": "{timeScope}에는 {trigger}로 직업 변화 에너지가 우호적으로 활성화됩니다. 자발적으로 판을 바꾸기 좋은 흐름이니, 탐색→행동→결정의 단계를 밟아 보세요.",
+      "reviewed": false
+    },
+    {
+      "event": "career_change",
+      "polarity": "negative_or_forced",
+      "template": "{timeScope}에는 {trigger} 때문에 직업 변화 신호가 있습니다. 다만 {unfavorableReason}이므로 자발적 확장보다는 외부 조건에 의한 변화로 보는 편이 자연스럽습니다 — 선택지를 미리 준비해 두면 강제성이 줄어듭니다.",
+      "reviewed": false
+    },
+    {
+      "event": "career_change",
+      "polarity": "conditional",
+      "template": "{timeScope}의 직업 변화 신호는 조건부입니다 — {trigger}의 동반 신호 구성에 따라 이동·계약 등 다른 형태로 발현될 수 있으니 함께 살펴보세요.",
+      "reviewed": false
+    },
+    {
+      "event": "promotion",
+      "polarity": "positive",
+      "template": "{timeScope}에는 {trigger}로 인정과 직위 상승의 에너지가 활성화됩니다. 성과를 보이는 자리에 서기 좋은 흐름입니다.",
+      "reviewed": false
+    },
+    {
+      "event": "relocation",
+      "polarity": "positive",
+      "template": "{timeScope}에는 {trigger}로 거처·환경 이동의 에너지가 우호적으로 열립니다. 원하던 이동을 실행에 옮기기 좋은 흐름입니다.",
+      "reviewed": false
+    },
+    {
+      "event": "relocation",
+      "polarity": "negative_or_forced",
+      "template": "{timeScope}의 이동 신호는 {unfavorableReason} 성격이 있어, 원치 않는 이사·배치 변경의 얼굴로 올 수 있습니다. 미리 대안을 마련하면 부담이 줄어듭니다.",
+      "reviewed": false
+    },
+    {
+      "event": "relocation",
+      "polarity": "conditional",
+      "template": "{timeScope}에는 {trigger}로 이동·이사의 변화 에너지가 활성화됩니다. 실제 이사인지 출장·환경 변화인지는 동반 신호와 본인의 선택에 달려 있습니다.",
+      "reviewed": false
+    },
+    {
+      "event": "contract_document",
+      "polarity": "positive",
+      "template": "{timeScope}에는 {trigger}로 계약·합의가 성사되기 좋은 에너지가 흐릅니다. 조건 확인 후 매듭짓기 좋은 흐름입니다.",
+      "reviewed": false
+    },
+    {
+      "event": "contract_document",
+      "polarity": "conditional",
+      "template": "{timeScope}의 계약 신호는 조건부입니다 — 세부 조항과 상대 조건을 확인한 뒤 진행하는 것이 흐름에 맞습니다.",
+      "reviewed": false
+    },
+    {
+      "event": "new_relationship",
+      "polarity": "positive",
+      "template": "{timeScope}에는 {trigger}로 새 인연의 에너지가 우호적으로 열립니다. 사람이 모이는 자리에 나가 보세요.",
+      "reviewed": false
+    },
+    {
+      "event": "new_relationship",
+      "polarity": "conditional",
+      "template": "{timeScope}에는 인연의 신호가 있으나 조건부입니다 — 끌림과 실제 합은 다를 수 있으니 서두르지 않는 편이 자연스럽습니다.",
+      "reviewed": false
+    },
+    {
+      "event": "relationship_change",
+      "polarity": "negative_or_forced",
+      "template": "{timeScope}에는 {trigger}로 관계의 긴장 에너지가 높아질 수 있습니다. 이별의 확정이 아니라 관계를 점검하라는 신호로 읽어 주세요.",
+      "reviewed": false
+    },
+    {
+      "event": "marriage_signal",
+      "polarity": "positive",
+      "template": "{timeScope}에는 {trigger}로 결합·결속의 에너지가 강해집니다. 관계를 한 단계 매듭짓기 좋은 흐름입니다.",
+      "reviewed": false
+    },
+    {
+      "event": "wealth_change",
+      "polarity": "positive",
+      "template": "{timeScope}에는 {trigger}로 재물 흐름이 우호적으로 활성화됩니다. 움직인 만큼 들어오는 구조이니 실행 계획을 세워 보세요.",
+      "reviewed": false
+    },
+    {
+      "event": "wealth_change",
+      "polarity": "negative_or_forced",
+      "template": "{timeScope}에는 {trigger}로 지출·손재의 변동성이 커질 수 있습니다. 빌려주는 돈과 충동 지출의 상한을 미리 정해 두세요.",
+      "reviewed": false
+    },
+    {
+      "event": "windfall",
+      "polarity": "conditional",
+      "template": "{timeScope}에는 예상 밖의 수입·지출 변동성이 있는 흐름입니다. 당첨·횡재의 확정 표현은 불가능합니다 — 단기 변동성으로만 읽어 주세요.",
+      "reviewed": false
+    },
+    {
+      "event": "education_admission",
+      "polarity": "positive",
+      "template": "{timeScope}에는 {trigger}로 학업·시험의 결실 에너지가 활성화됩니다. 합격 확정이 아니라 능률이 오르는 흐름이니 마무리 점검에 집중하세요.",
+      "reviewed": false
+    },
+    {
+      "event": "health_attention",
+      "polarity": "negative_or_forced",
+      "template": "{timeScope}에는 {trigger}로 컨디션 관리가 필요한 신호가 있습니다. 의료 진단이 아니며, 휴식과 검진 일정을 챙기라는 환기로 읽어 주세요.",
+      "reviewed": false
+    },
+    {
+      "event": "health_attention",
+      "polarity": "conditional",
+      "template": "{timeScope}에는 치료·조정의 기운이 있습니다. 의료적 판단은 반드시 전문의와 상의하세요 — 사주는 시기 참고일 뿐입니다.",
+      "reviewed": false
+    },
+    {
+      "event": "generic",
+      "polarity": "positive",
+      "template": "{timeScope}에는 {trigger}로 {domain} 영역의 변화 에너지가 우호적으로 활성화됩니다.",
+      "reviewed": false
+    },
+    {
+      "event": "generic",
+      "polarity": "negative_or_forced",
+      "template": "{timeScope}에는 {trigger}로 {domain} 영역에 부담스러운 변화 에너지가 있습니다. {unfavorableReason}이므로 대비와 선택지가 부담을 줄여 줍니다.",
+      "reviewed": false
+    },
+    {
+      "event": "generic",
+      "polarity": "conditional",
+      "template": "{timeScope}의 {domain} 신호는 조건부입니다 — 동반 신호와 본인의 선택에 따라 발현 형태가 달라집니다.",
+      "reviewed": false
+    },
+    {
+      "event": "generic",
+      "polarity": "neutral",
+      "template": "{timeScope}의 {domain} 흐름은 큰 굴곡 없이 평탄한 편입니다 — 기본기를 다지기 좋은 시기입니다.",
+      "reviewed": false
+    }
   ]
 }

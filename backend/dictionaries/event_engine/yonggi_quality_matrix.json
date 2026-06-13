@@ -1,0 +1,29 @@
+{
+  "schema": "yonggi_event_quality_matrix.v1",
+  "reviewed": false,
+  "purpose": "같은 이벤트라도 용신성인지 기신성인지에 따라 발현 품질(좋은 이직 vs 밀려나는 이직)을 다르게 해석한다. 풀이 문장 품질 향상 + 단정 표현 회피.",
+  "note": "transit_ten_god_branching.polarity_rules의 점수 배율과 결합. 본 파일은 품질(quality)·서술 방향을 정한다.",
+  "rules": {
+    "career_change": {"yong": "좋은 제안, 자발적 이직, 역할 상승", "gi": "압박성 이직, 퇴사 압박, 조직 갈등, 조건 악화"},
+    "job_gain": {"yong": "합격, 취업, 안정적 직책 획득", "gi": "부담 큰 직장, 불리한 조건, 책임 과다"},
+    "promotion": {"yong": "공식 인정, 승진, 권한 상승", "gi": "감투만 큰 책임, 견제, 과부하"},
+    "business_start": {"yong": "준비된 창업, 수익화 가능성", "gi": "무리한 독립, 동업 갈등, 자금 압박"},
+    "business_expansion": {"yong": "안정적 확장, 거래처 증가", "gi": "과잉 확장, 자금 경색, 관리 부담"},
+    "wealth_change": {"yong": "수익 증가, 안정적 재물 흐름", "gi": "지출 증가, 손재, 회수 지연"},
+    "windfall": {"yong": "예상 밖 수익·보너스", "gi": "한탕 후 손실·투기 리스크(표현 제한)"},
+    "relationship_change": {"yong": "좋은 인연, 관계 안정, 공식화", "gi": "갈등, 삼각관계, 불안정한 인연"},
+    "new_relationship": {"yong": "건강한 새 인연", "gi": "소모적·불안정한 만남"},
+    "marriage_signal": {"yong": "안정적 혼인·공식화", "gi": "조건 압박·서두른 결정"},
+    "relocation": {"yong": "필요한 이동, 더 나은 거처", "gi": "강제 이동, 계약 문제, 조건 불리"},
+    "contract_document": {"yong": "승인, 계약 성사, 조건 안정", "gi": "서류 지연, 조건 불리, 파기 가능성"},
+    "education_admission": {"yong": "합격·진학·자격 취득", "gi": "준비 부족·재수·조건 불리"},
+    "education_completion": {"yong": "수료·졸업·성과 마무리", "gi": "지연 졸업·미완·재이수"},
+    "childbirth": {"yong": "순조로운 결실·자녀", "gi": "건강·시기 주의(현실 게이트 필수)"},
+    "health_attention": {"yong": "회복·관리 강화 계기", "gi": "컨디션 저하·과로·사고 주의"},
+    "legal_conflict": {"yong": "규칙 정비·문제 정리", "gi": "분쟁·징계·제재"},
+    "social_conflict": {"yong": "건강한 경쟁·관계 정리", "gi": "갈등·손재·평판 손상"},
+    "preparation_delay": {"yong": "내실 다지는 준비기", "gi": "정체·보류·기회 지연"},
+    "creative_output": {"yong": "성과물·작품 결실", "gi": "산만·미완·과로"},
+    "public_exposure": {"yong": "좋은 홍보·발표 기회", "gi": "구설·노출 리스크"}
+  }
+}

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated_at": "2026-06-12T07:36:13.923160+00:00",
+  "updated_at": "2026-06-13T00:00:00+00:00",
   "nodes": [
     {
       "id": "element_木",
@@ -750,17 +750,17 @@
       }
     },
     {
-      "id": "event_promotion",
+      "id": "event_job_gain",
       "type": "event",
-      "label": "승진",
+      "label": "취업·합격",
       "attrs": {
         "eventType": "progress"
       }
     },
     {
-      "id": "event_resignation",
+      "id": "event_promotion",
       "type": "event",
-      "label": "퇴사",
+      "label": "승진·인정",
       "attrs": {
         "eventType": "progress"
       }
@@ -770,85 +770,21 @@
       "type": "event",
       "label": "사업 시작·개업",
       "attrs": {
-        "eventType": "hybrid"
-      }
-    },
-    {
-      "id": "event_relationship_start",
-      "type": "event",
-      "label": "연애 시작",
-      "attrs": {
         "eventType": "progress"
       }
     },
     {
-      "id": "event_relationship_end",
+      "id": "event_business_expansion",
       "type": "event",
-      "label": "이별",
+      "label": "사업 확장",
       "attrs": {
         "eventType": "progress"
-      }
-    },
-    {
-      "id": "event_marriage",
-      "type": "event",
-      "label": "결혼",
-      "attrs": {
-        "eventType": "hybrid"
-      }
-    },
-    {
-      "id": "event_childbirth",
-      "type": "event",
-      "label": "출산",
-      "attrs": {
-        "eventType": "hybrid"
-      }
-    },
-    {
-      "id": "event_relocation",
-      "type": "event",
-      "label": "이사",
-      "attrs": {
-        "eventType": "hybrid"
-      }
-    },
-    {
-      "id": "event_contract",
-      "type": "event",
-      "label": "계약",
-      "attrs": {
-        "eventType": "instant"
-      }
-    },
-    {
-      "id": "event_document",
-      "type": "event",
-      "label": "문서·서류",
-      "attrs": {
-        "eventType": "instant"
       }
     },
     {
       "id": "event_wealth_change",
       "type": "event",
-      "label": "재물 변화(총괄)",
-      "attrs": {
-        "eventType": "progress"
-      }
-    },
-    {
-      "id": "event_income_change",
-      "type": "event",
-      "label": "수입 변화",
-      "attrs": {
-        "eventType": "progress"
-      }
-    },
-    {
-      "id": "event_expense_risk",
-      "type": "event",
-      "label": "지출·손재 위험",
+      "label": "재물 변화",
       "attrs": {
         "eventType": "progress"
       }
@@ -856,87 +792,119 @@
     {
       "id": "event_windfall",
       "type": "event",
-      "label": "횡재(로또 등 — 표현 제한)",
+      "label": "횡재(표현 제한)",
       "attrs": {
         "eventType": "instant"
       }
     },
     {
-      "id": "event_speculation_risk",
+      "id": "event_contract_document",
       "type": "event",
-      "label": "투기 리스크(주식 등 — 경고 중심)",
+      "label": "계약·문서",
+      "attrs": {
+        "eventType": "instant"
+      }
+    },
+    {
+      "id": "event_education_admission",
+      "type": "event",
+      "label": "합격·진학·자격",
       "attrs": {
         "eventType": "progress"
       }
     },
     {
-      "id": "event_asset_volatility",
+      "id": "event_education_completion",
       "type": "event",
-      "label": "자산 변동성",
+      "label": "수료·졸업",
       "attrs": {
         "eventType": "progress"
       }
     },
     {
-      "id": "event_education_start",
+      "id": "event_relationship_change",
       "type": "event",
-      "label": "학업 시작·입학",
+      "label": "관계 변화",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_new_relationship",
+      "type": "event",
+      "label": "새 인연",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_marriage_signal",
+      "type": "event",
+      "label": "결혼 신호",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_childbirth",
+      "type": "event",
+      "label": "출산·자녀",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_relocation",
+      "type": "event",
+      "label": "이사·이동",
       "attrs": {
         "eventType": "hybrid"
       }
     },
     {
-      "id": "event_education_complete",
+      "id": "event_legal_conflict",
       "type": "event",
-      "label": "학업 완료·졸업",
+      "label": "법적 갈등",
       "attrs": {
         "eventType": "progress"
       }
     },
     {
-      "id": "event_exam",
+      "id": "event_health_attention",
       "type": "event",
-      "label": "시험",
+      "label": "건강 주의",
+      "attrs": {
+        "eventType": "progress"
+      }
+    },
+    {
+      "id": "event_social_conflict",
+      "type": "event",
+      "label": "사회적 갈등",
       "attrs": {
         "eventType": "instant"
       }
     },
     {
-      "id": "event_health_issue",
+      "id": "event_preparation_delay",
       "type": "event",
-      "label": "건강 문제",
+      "label": "준비·지연",
       "attrs": {
         "eventType": "progress"
       }
     },
     {
-      "id": "event_surgery",
+      "id": "event_creative_output",
       "type": "event",
-      "label": "수술(의료 조언 아님 고지)",
-      "attrs": {
-        "eventType": "instant"
-      }
-    },
-    {
-      "id": "event_family_change",
-      "type": "event",
-      "label": "가족 변화",
+      "label": "결과물·창작",
       "attrs": {
         "eventType": "progress"
       }
     },
     {
-      "id": "event_lawsuit",
+      "id": "event_public_exposure",
       "type": "event",
-      "label": "소송·분쟁",
-      "attrs": {
-        "eventType": "progress"
-      }
-    },
-    {
-      "id": "event_travel",
-      "type": "event",
-      "label": "여행·출장",
+      "label": "공개 노출·평가",
       "attrs": {
         "eventType": "instant"
       }
@@ -2095,7 +2063,7 @@
             "polarity": "negative_or_forced"
           },
           {
-            "event": "contract",
+            "event": "contract_document",
             "score": 0.62,
             "polarity": "conditional"
           }
@@ -2140,13 +2108,8 @@
         },
         "candidates": [
           {
-            "event": "resignation",
-            "score": 0.65,
-            "polarity": "negative_or_forced"
-          },
-          {
             "event": "career_change",
-            "score": 0.6,
+            "score": 0.65,
             "polarity": "negative_or_forced"
           }
         ],
@@ -2164,7 +2127,7 @@
         },
         "candidates": [
           {
-            "event": "resignation",
+            "event": "career_change",
             "score": 0.6,
             "polarity": "negative_or_forced"
           }
@@ -2208,7 +2171,7 @@
             "polarity": "conditional"
           },
           {
-            "event": "document",
+            "event": "contract_document",
             "score": 0.5,
             "polarity": "positive"
           }
@@ -2250,12 +2213,12 @@
             "polarity": "conditional"
           },
           {
-            "event": "document",
+            "event": "contract_document",
             "score": 0.55,
             "polarity": "conditional"
           },
           {
-            "event": "exam",
+            "event": "education_admission",
             "score": 0.5,
             "polarity": "conditional"
           }
@@ -2266,7 +2229,7 @@
     {
       "id": "rule_career_08",
       "type": "interpretation_rule",
-      "label": "공망 활성 — 취업·문서·계약 결과가 지연·무산되기 쉬운 불안정 신호",
+      "label": "공망 활성 — 취업·문서·계약 결과가 지연·무산되기 쉬운 불안정 신호 / 감점 — 공망 활성: 결실·확정(승진·계약)의 동력이 공허해짐(docs/02 음수 weight 예시 계승)",
       "attrs": {
         "signal": {
           "relation": "void"
@@ -2278,9 +2241,177 @@
             "polarity": "conditional"
           },
           {
-            "event": "document",
+            "event": "contract_document",
             "score": 0.4,
             "polarity": "conditional"
+          },
+          {
+            "event": "promotion",
+            "score": -0.25,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_09",
+      "type": "interpretation_rule",
+      "label": "감점 — 탐합망충: 충(변동 동력)이 같은 기간 합으로 묶여 이동 발동이 약화",
+      "attrs": {
+        "signal": {
+          "relation": "branch_clash",
+          "relationAlso": "six_combination"
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": -0.2,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_10",
+      "type": "interpretation_rule",
+      "label": "감점 — 인성 강 + 운 건록: 보호·기반·현상유지 성향이 자발적 이직 동력을 낮춤(외부 강트리거(충·형 등) 동반 시 미적용, 십이운성 modifier 스펙)",
+      "attrs": {
+        "signal": {
+          "unseong": "건록",
+          "tenGodGroupStrong": "인성",
+          "absentRelations": [
+            "branch_clash",
+            "punishment_triple",
+            "punishment_mutual",
+            "self_punishment",
+            "branch_break",
+            "harm"
+          ]
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": -0.12,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_11",
+      "type": "interpretation_rule",
+      "label": "감점 — 인성 강 + 원국 월·일주 건록: 안정·정착 체질이 자발적 이직 가능성을 낮춤(충·형 등 동반 시 미적용)",
+      "attrs": {
+        "signal": {
+          "natalUnseong": "건록",
+          "tenGodGroupStrong": "인성",
+          "absentRelations": [
+            "branch_clash",
+            "punishment_triple",
+            "punishment_mutual",
+            "self_punishment",
+            "branch_break",
+            "harm"
+          ]
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": -0.12,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_12",
+      "type": "interpretation_rule",
+      "label": "가점 — 운 절(絶): 단절·리셋 기운이 직업 변화 가능성을 가산(modifier — 주 트리거 아님)",
+      "attrs": {
+        "signal": {
+          "unseong": "절"
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": 0.1,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_13",
+      "type": "interpretation_rule",
+      "label": "가점 — 운 사(死): 기존 흐름 종료 신호로 직업 변화 가능성을 소폭 가산(modifier)",
+      "attrs": {
+        "signal": {
+          "unseong": "사"
+        },
+        "candidates": [
+          {
+            "event": "career_change",
+            "score": 0.06,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_14",
+      "type": "interpretation_rule",
+      "label": "감점 — 운 천간이 구신인 시기: 계약·문서 결실에 불리(실속 손상·조건 악화 주의 — 2026-06-12 사용자 도메인 지식, 발생 가능성과 유불리 분리)",
+      "attrs": {
+        "signal": {
+          "stemFavorability": "구신"
+        },
+        "candidates": [
+          {
+            "event": "contract_document",
+            "score": -0.2,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_15",
+      "type": "interpretation_rule",
+      "label": "감점 — 운 천간이 기신인 시기: 계약·문서 결실에 가장 불리(용신을 직접 극 — 구신보다 강한 감점, 2026-06-12 사용자 도메인 지식)",
+      "attrs": {
+        "signal": {
+          "stemFavorability": "기신"
+        },
+        "candidates": [
+          {
+            "event": "contract_document",
+            "score": -0.25,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_career_16",
+      "type": "interpretation_rule",
+      "label": "감점 — 대운 지지가 원국 공망: 새 계약·문서 결실의 실속 부족·지연 배경(대운 전 기간 제약, 계사월 케이스 일반화 2026-06-12)",
+      "attrs": {
+        "signal": {
+          "daewoonBranchVoid": true
+        },
+        "candidates": [
+          {
+            "event": "contract_document",
+            "score": -0.15,
+            "polarity": "neutral"
           }
         ],
         "reviewed": false
@@ -2297,17 +2428,12 @@
         },
         "candidates": [
           {
-            "event": "education_start",
+            "event": "education_admission",
             "score": 0.6,
             "polarity": "positive"
           },
           {
-            "event": "exam",
-            "score": 0.55,
-            "polarity": "positive"
-          },
-          {
-            "event": "document",
+            "event": "contract_document",
             "score": 0.5,
             "polarity": "positive"
           }
@@ -2326,7 +2452,7 @@
         },
         "candidates": [
           {
-            "event": "exam",
+            "event": "education_admission",
             "score": 0.6,
             "polarity": "conditional"
           }
@@ -2345,7 +2471,7 @@
         },
         "candidates": [
           {
-            "event": "education_start",
+            "event": "education_admission",
             "score": 0.5,
             "polarity": "conditional"
           }
@@ -2364,7 +2490,7 @@
         },
         "candidates": [
           {
-            "event": "exam",
+            "event": "education_admission",
             "score": 0.45,
             "polarity": "negative_or_forced"
           }
@@ -2383,9 +2509,32 @@
         },
         "candidates": [
           {
-            "event": "education_complete",
+            "event": "education_completion",
             "score": 0.5,
             "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_education_05",
+      "type": "interpretation_rule",
+      "label": "감점 — 공망 활성: 시험·수료 결실의 확정력이 공허해짐",
+      "attrs": {
+        "signal": {
+          "relation": "void"
+        },
+        "candidates": [
+          {
+            "event": "education_admission",
+            "score": -0.2,
+            "polarity": "neutral"
+          },
+          {
+            "event": "education_completion",
+            "score": -0.2,
+            "polarity": "neutral"
           }
         ],
         "reviewed": false
@@ -2402,7 +2551,7 @@
         },
         "candidates": [
           {
-            "event": "health_issue",
+            "event": "health_attention",
             "score": 0.55,
             "polarity": "negative_or_forced"
           }
@@ -2420,13 +2569,8 @@
         },
         "candidates": [
           {
-            "event": "health_issue",
+            "event": "health_attention",
             "score": 0.5,
-            "polarity": "conditional"
-          },
-          {
-            "event": "surgery",
-            "score": 0.4,
             "polarity": "conditional"
           }
         ],
@@ -2444,7 +2588,7 @@
         },
         "candidates": [
           {
-            "event": "health_issue",
+            "event": "health_attention",
             "score": 0.5,
             "polarity": "negative_or_forced"
           }
@@ -2463,7 +2607,7 @@
         },
         "candidates": [
           {
-            "event": "health_issue",
+            "event": "health_attention",
             "score": 0.45,
             "polarity": "conditional"
           }
@@ -2481,9 +2625,50 @@
         },
         "candidates": [
           {
-            "event": "health_issue",
+            "event": "health_attention",
             "score": 0.4,
             "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_health_05",
+      "type": "interpretation_rule",
+      "label": "감점 — 천덕귀인: 음덕이 건강 흉사·수술 리스크를 완화(흉사 완충 통설)",
+      "attrs": {
+        "signal": {
+          "shinsal": "천덕귀인"
+        },
+        "candidates": [
+          {
+            "event": "health_attention",
+            "score": -0.25,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_health_06",
+      "type": "interpretation_rule",
+      "label": "감점 — 월덕귀인: 덕성이 건강·관재 흉사를 완화(흉사 완충 통설)",
+      "attrs": {
+        "signal": {
+          "shinsal": "월덕귀인"
+        },
+        "candidates": [
+          {
+            "event": "health_attention",
+            "score": -0.2,
+            "polarity": "neutral"
+          },
+          {
+            "event": "legal_conflict",
+            "score": -0.15,
+            "polarity": "neutral"
           }
         ],
         "reviewed": false
@@ -2500,7 +2685,7 @@
         },
         "candidates": [
           {
-            "event": "relationship_start",
+            "event": "new_relationship",
             "score": 0.65,
             "polarity": "conditional"
           }
@@ -2519,7 +2704,7 @@
         },
         "candidates": [
           {
-            "event": "relationship_start",
+            "event": "new_relationship",
             "score": 0.6,
             "polarity": "conditional"
           }
@@ -2538,7 +2723,7 @@
         },
         "candidates": [
           {
-            "event": "relationship_start",
+            "event": "new_relationship",
             "score": 0.6,
             "polarity": "conditional"
           }
@@ -2557,12 +2742,12 @@
         },
         "candidates": [
           {
-            "event": "marriage",
+            "event": "marriage_signal",
             "score": 0.55,
             "polarity": "positive"
           },
           {
-            "event": "relationship_start",
+            "event": "new_relationship",
             "score": 0.5,
             "polarity": "positive"
           }
@@ -2581,7 +2766,7 @@
         },
         "candidates": [
           {
-            "event": "relationship_end",
+            "event": "relationship_change",
             "score": 0.6,
             "polarity": "negative_or_forced"
           }
@@ -2600,9 +2785,63 @@
         },
         "candidates": [
           {
-            "event": "relationship_end",
+            "event": "relationship_change",
             "score": 0.45,
             "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relationship_06",
+      "type": "interpretation_rule",
+      "label": "감점 — 고신살: 홀로서기 기운이 새 인연 시작을 지연(통설)",
+      "attrs": {
+        "signal": {
+          "shinsal": "고신살"
+        },
+        "candidates": [
+          {
+            "event": "new_relationship",
+            "score": -0.3,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relationship_07",
+      "type": "interpretation_rule",
+      "label": "감점 — 과숙살: 고독 기운이 새 인연 시작을 지연(통설)",
+      "attrs": {
+        "signal": {
+          "shinsal": "과숙살"
+        },
+        "candidates": [
+          {
+            "event": "new_relationship",
+            "score": -0.3,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relationship_08",
+      "type": "interpretation_rule",
+      "label": "감점 — 공망 활성: 혼인 결실의 확정력이 공허해짐",
+      "attrs": {
+        "signal": {
+          "relation": "void"
+        },
+        "candidates": [
+          {
+            "event": "marriage_signal",
+            "score": -0.25,
+            "polarity": "neutral"
           }
         ],
         "reviewed": false
@@ -2622,11 +2861,6 @@
             "event": "relocation",
             "score": 0.75,
             "polarity": "conditional"
-          },
-          {
-            "event": "travel",
-            "score": 0.6,
-            "polarity": "neutral"
           }
         ],
         "reviewed": false
@@ -2717,13 +2951,8 @@
         },
         "candidates": [
           {
-            "event": "travel",
-            "score": 0.55,
-            "polarity": "positive"
-          },
-          {
             "event": "relocation",
-            "score": 0.5,
+            "score": 0.55,
             "polarity": "positive"
           }
         ],
@@ -2744,11 +2973,6 @@
             "event": "relocation",
             "score": 0.85,
             "polarity": "conditional"
-          },
-          {
-            "event": "travel",
-            "score": 0.55,
-            "polarity": "neutral"
           }
         ],
         "reviewed": false
@@ -2794,6 +3018,87 @@
       }
     },
     {
+      "id": "rule_relocation_09",
+      "type": "interpretation_rule",
+      "label": "감점 — 탐합망충: 충의 이동 동력이 합으로 묶여 이사·이동 발동이 약화",
+      "attrs": {
+        "signal": {
+          "relation": "branch_clash",
+          "relationAlso": "six_combination"
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": -0.25,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_10",
+      "type": "interpretation_rule",
+      "label": "감점 — 운 건록: 정착·기반 유지 성향이 이사 동력을 낮춤(충·형 등 동반 시 미적용)",
+      "attrs": {
+        "signal": {
+          "unseong": "건록",
+          "absentRelations": [
+            "branch_clash",
+            "punishment_triple",
+            "punishment_mutual",
+            "self_punishment",
+            "branch_break",
+            "harm"
+          ]
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": -0.07,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_11",
+      "type": "interpretation_rule",
+      "label": "가점 — 운 절(絶): 공간·환경의 단절·리셋 기운이 이사 가능성을 가산(modifier)",
+      "attrs": {
+        "signal": {
+          "unseong": "절"
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": 0.08,
+            "polarity": "conditional"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_relocation_12",
+      "type": "interpretation_rule",
+      "label": "감점 — 대운 지지가 원국 공망: 새 주거·환경 진입의 실속 부족·지연 배경(계사월 케이스 일반화 2026-06-12)",
+      "attrs": {
+        "signal": {
+          "daewoonBranchVoid": true
+        },
+        "candidates": [
+          {
+            "event": "relocation",
+            "score": -0.1,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
       "id": "rule_wealth_00",
       "type": "interpretation_rule",
       "label": "편재+용신 — 유동 재물 기회 활성",
@@ -2806,11 +3111,6 @@
           {
             "event": "wealth_change",
             "score": 0.65,
-            "polarity": "positive"
-          },
-          {
-            "event": "income_change",
-            "score": 0.55,
             "polarity": "positive"
           }
         ],
@@ -2828,12 +3128,12 @@
         },
         "candidates": [
           {
-            "event": "income_change",
+            "event": "wealth_change",
             "score": 0.6,
             "polarity": "positive"
           },
           {
-            "event": "contract",
+            "event": "contract_document",
             "score": 0.5,
             "polarity": "positive"
           }
@@ -2852,13 +3152,8 @@
         },
         "candidates": [
           {
-            "event": "expense_risk",
+            "event": "wealth_change",
             "score": 0.65,
-            "polarity": "negative_or_forced"
-          },
-          {
-            "event": "speculation_risk",
-            "score": 0.5,
             "polarity": "negative_or_forced"
           }
         ],
@@ -2876,7 +3171,7 @@
         },
         "candidates": [
           {
-            "event": "asset_volatility",
+            "event": "wealth_change",
             "score": 0.6,
             "polarity": "conditional"
           }
@@ -2898,11 +3193,6 @@
             "event": "wealth_change",
             "score": 0.6,
             "polarity": "conditional"
-          },
-          {
-            "event": "speculation_risk",
-            "score": 0.45,
-            "polarity": "conditional"
           }
         ],
         "reviewed": false
@@ -2919,7 +3209,7 @@
         },
         "candidates": [
           {
-            "event": "speculation_risk",
+            "event": "wealth_change",
             "score": 0.6,
             "polarity": "negative_or_forced"
           },
@@ -2933,25 +3223,66 @@
       }
     },
     {
+      "id": "rule_wealth_06",
+      "type": "interpretation_rule",
+      "label": "감점 — 공망 활성: 재물 결실이 공허해짐(횡재 기대 억제)",
+      "attrs": {
+        "signal": {
+          "relation": "void"
+        },
+        "candidates": [
+          {
+            "event": "windfall",
+            "score": -0.3,
+            "polarity": "neutral"
+          },
+          {
+            "event": "wealth_change",
+            "score": -0.2,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_wealth_07",
+      "type": "interpretation_rule",
+      "label": "감점 — 천덕귀인: 음덕이 손재·투기 리스크를 완화(흉사 완충 통설)",
+      "attrs": {
+        "signal": {
+          "shinsal": "천덕귀인"
+        },
+        "candidates": [
+          {
+            "event": "wealth_change",
+            "score": -0.15,
+            "polarity": "neutral"
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
       "id": "prohibit_windfall",
       "type": "prohibition_rule",
-      "label": "당첨·횡재 단정 금지, 로또 번호 생성 거부",
+      "label": "당첨·횡재 단정 금지, 로또 번호 생성 거부, 투기 과몰입 경고",
       "attrs": {
         "reviewed": false
       }
     },
     {
-      "id": "prohibit_speculation",
+      "id": "prohibit_finance",
       "type": "prohibition_rule",
-      "label": "투자 조언 아님 고지, 변동성·과몰입 경고 톤 고정",
+      "label": "투자 손익 보장 없음 고지(투자 조언 아님)",
       "attrs": {
         "reviewed": false
       }
     },
     {
-      "id": "prohibit_surgery",
+      "id": "prohibit_medical",
       "type": "prohibition_rule",
-      "label": "의료 조언 아님 고지, 수술 시기 단정 금지",
+      "label": "의료 조언 아님 고지, 수술·질병 시기 단정 금지",
       "attrs": {
         "reviewed": false
       }
@@ -2959,7 +3290,23 @@
     {
       "id": "prohibit_exam",
       "type": "prohibition_rule",
-      "label": "당락·합격 단정 금지(상대 우열 + 근거까지만)",
+      "label": "합격·당락 단정 금지(상대 우열 + 준비도·근거까지만)",
+      "attrs": {
+        "reviewed": false
+      }
+    },
+    {
+      "id": "prohibit_competition",
+      "type": "prohibition_rule",
+      "label": "경쟁(오디션·대회·선거) 승부 단정 금지(상대 우열 + 근거까지만)",
+      "attrs": {
+        "reviewed": false
+      }
+    },
+    {
+      "id": "prohibit_legal",
+      "type": "prohibition_rule",
+      "label": "법률 조언 아님 고지, 승소·판결 단정 금지",
       "attrs": {
         "reviewed": false
       }
@@ -3225,7 +3572,7 @@
     },
     {
       "from": "rel_甲己合",
-      "to": "event_contract",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -3270,7 +3617,7 @@
     },
     {
       "from": "rel_乙庚合",
-      "to": "event_contract",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -3282,7 +3629,7 @@
     },
     {
       "from": "rel_乙庚合",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -3315,7 +3662,7 @@
     },
     {
       "from": "rel_丙辛合",
-      "to": "event_document",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -3327,7 +3674,7 @@
     },
     {
       "from": "rel_丙辛合",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -3360,7 +3707,7 @@
     },
     {
       "from": "rel_丁壬合",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -3372,7 +3719,7 @@
     },
     {
       "from": "rel_丁壬合",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -3405,7 +3752,7 @@
     },
     {
       "from": "rel_戊癸合",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -3450,7 +3797,7 @@
     },
     {
       "from": "rel_子丑合",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3460,7 +3807,7 @@
     },
     {
       "from": "rel_子丑合",
-      "to": "event_contract",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3491,7 +3838,7 @@
     },
     {
       "from": "rel_寅亥合",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3501,7 +3848,7 @@
     },
     {
       "from": "rel_寅亥合",
-      "to": "event_contract",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3532,7 +3879,7 @@
     },
     {
       "from": "rel_卯戌合",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3542,7 +3889,7 @@
     },
     {
       "from": "rel_卯戌合",
-      "to": "event_contract",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3573,7 +3920,7 @@
     },
     {
       "from": "rel_辰酉合",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3583,7 +3930,7 @@
     },
     {
       "from": "rel_辰酉合",
-      "to": "event_contract",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3614,7 +3961,7 @@
     },
     {
       "from": "rel_巳申合",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3624,7 +3971,7 @@
     },
     {
       "from": "rel_巳申合",
-      "to": "event_contract",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3655,7 +4002,7 @@
     },
     {
       "from": "rel_午未合",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -3665,7 +4012,7 @@
     },
     {
       "from": "rel_午未合",
-      "to": "event_contract",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -4073,7 +4420,7 @@
     },
     {
       "from": "rel_子午沖",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.7,
       "modes": [
@@ -4083,7 +4430,7 @@
     },
     {
       "from": "rel_子午沖",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.7,
       "modes": [
@@ -4107,7 +4454,7 @@
     },
     {
       "from": "rel_卯酉沖",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.7,
       "modes": [
@@ -4117,7 +4464,7 @@
     },
     {
       "from": "rel_卯酉沖",
-      "to": "event_document",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.7,
       "modes": [
@@ -4151,16 +4498,6 @@
     },
     {
       "from": "rel_寅申沖",
-      "to": "event_travel",
-      "type": "triggers",
-      "weight": 0.7,
-      "modes": [
-        "충발",
-        "충거"
-      ]
-    },
-    {
-      "from": "rel_寅申沖",
       "to": "event_career_change",
       "type": "triggers",
       "weight": 0.7,
@@ -4185,7 +4522,7 @@
     },
     {
       "from": "rel_丑未沖",
-      "to": "event_document",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.7,
       "modes": [
@@ -4195,7 +4532,7 @@
     },
     {
       "from": "rel_丑未沖",
-      "to": "event_family_change",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.7,
       "modes": [
@@ -4229,16 +4566,6 @@
     },
     {
       "from": "rel_巳亥沖",
-      "to": "event_travel",
-      "type": "triggers",
-      "weight": 0.7,
-      "modes": [
-        "충발",
-        "충거"
-      ]
-    },
-    {
-      "from": "rel_巳亥沖",
       "to": "event_career_change",
       "type": "triggers",
       "weight": 0.7,
@@ -4263,7 +4590,7 @@
     },
     {
       "from": "rel_辰戌沖",
-      "to": "event_document",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.7,
       "modes": [
@@ -4273,7 +4600,7 @@
     },
     {
       "from": "rel_辰戌沖",
-      "to": "event_lawsuit",
+      "to": "event_legal_conflict",
       "type": "triggers",
       "weight": 0.7,
       "modes": [
@@ -4304,7 +4631,7 @@
     },
     {
       "from": "rel_寅巳申三刑",
-      "to": "event_lawsuit",
+      "to": "event_legal_conflict",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -4313,7 +4640,7 @@
     },
     {
       "from": "rel_寅巳申三刑",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -4322,7 +4649,7 @@
     },
     {
       "from": "rel_寅巳申三刑",
-      "to": "event_document",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -4352,7 +4679,7 @@
     },
     {
       "from": "rel_丑戌未三刑",
-      "to": "event_lawsuit",
+      "to": "event_legal_conflict",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -4361,7 +4688,7 @@
     },
     {
       "from": "rel_丑戌未三刑",
-      "to": "event_family_change",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.6,
       "modes": [
@@ -4384,7 +4711,7 @@
     },
     {
       "from": "rel_子卯刑",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.55,
       "modes": [
@@ -4393,7 +4720,7 @@
     },
     {
       "from": "rel_子卯刑",
-      "to": "event_lawsuit",
+      "to": "event_legal_conflict",
       "type": "triggers",
       "weight": 0.55,
       "modes": [
@@ -4409,7 +4736,7 @@
     },
     {
       "from": "rel_辰辰自刑",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.45,
       "modes": [
@@ -4418,7 +4745,7 @@
     },
     {
       "from": "rel_辰辰自刑",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.45,
       "modes": [
@@ -4434,7 +4761,7 @@
     },
     {
       "from": "rel_午午自刑",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.45,
       "modes": [
@@ -4443,7 +4770,7 @@
     },
     {
       "from": "rel_午午自刑",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.45,
       "modes": [
@@ -4459,7 +4786,7 @@
     },
     {
       "from": "rel_酉酉自刑",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.45,
       "modes": [
@@ -4468,7 +4795,7 @@
     },
     {
       "from": "rel_酉酉自刑",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.45,
       "modes": [
@@ -4484,7 +4811,7 @@
     },
     {
       "from": "rel_亥亥自刑",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.45,
       "modes": [
@@ -4493,7 +4820,7 @@
     },
     {
       "from": "rel_亥亥自刑",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.45,
       "modes": [
@@ -4516,7 +4843,7 @@
     },
     {
       "from": "rel_寅亥破",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.3,
       "modes": [
@@ -4539,7 +4866,7 @@
     },
     {
       "from": "rel_未戌破",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.3,
       "modes": [
@@ -4562,7 +4889,7 @@
     },
     {
       "from": "rel_卯午破",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.3,
       "modes": [
@@ -4585,7 +4912,7 @@
     },
     {
       "from": "rel_巳申破",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.3,
       "modes": [
@@ -4608,7 +4935,7 @@
     },
     {
       "from": "rel_丑辰破",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.3,
       "modes": [
@@ -4631,7 +4958,7 @@
     },
     {
       "from": "rel_子酉破",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.3,
       "modes": [
@@ -4654,7 +4981,7 @@
     },
     {
       "from": "rel_子未害",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4663,7 +4990,7 @@
     },
     {
       "from": "rel_子未害",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4686,7 +5013,7 @@
     },
     {
       "from": "rel_酉戌害",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4695,7 +5022,7 @@
     },
     {
       "from": "rel_酉戌害",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4718,7 +5045,7 @@
     },
     {
       "from": "rel_卯辰害",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4727,7 +5054,7 @@
     },
     {
       "from": "rel_卯辰害",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4750,7 +5077,7 @@
     },
     {
       "from": "rel_丑午害",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4759,7 +5086,7 @@
     },
     {
       "from": "rel_丑午害",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4782,7 +5109,7 @@
     },
     {
       "from": "rel_申亥害",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4791,7 +5118,7 @@
     },
     {
       "from": "rel_申亥害",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4814,7 +5141,7 @@
     },
     {
       "from": "rel_寅巳害",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4823,7 +5150,7 @@
     },
     {
       "from": "rel_寅巳害",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4832,7 +5159,7 @@
     },
     {
       "from": "rel_공망활성",
-      "to": "event_document",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.4,
       "modes": [
@@ -4843,7 +5170,7 @@
     },
     {
       "from": "rel_공망활성",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.4,
       "modes": [
@@ -4854,7 +5181,7 @@
     },
     {
       "from": "rel_간여지동",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.35,
       "modes": [
@@ -4886,7 +5213,7 @@
     },
     {
       "from": "rel_甲庚沖",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -4918,7 +5245,7 @@
     },
     {
       "from": "rel_乙辛沖",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -4950,7 +5277,7 @@
     },
     {
       "from": "rel_丙壬沖",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -4982,7 +5309,7 @@
     },
     {
       "from": "rel_丁癸沖",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.5,
       "modes": [
@@ -5005,16 +5332,7 @@
     },
     {
       "from": "rel_子未怨嗔",
-      "to": "event_relationship_end",
-      "type": "triggers",
-      "weight": 0.4,
-      "modes": [
-        "원진"
-      ]
-    },
-    {
-      "from": "rel_子未怨嗔",
-      "to": "event_family_change",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.4,
       "modes": [
@@ -5037,16 +5355,7 @@
     },
     {
       "from": "rel_丑午怨嗔",
-      "to": "event_relationship_end",
-      "type": "triggers",
-      "weight": 0.4,
-      "modes": [
-        "원진"
-      ]
-    },
-    {
-      "from": "rel_丑午怨嗔",
-      "to": "event_family_change",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.4,
       "modes": [
@@ -5069,16 +5378,7 @@
     },
     {
       "from": "rel_寅酉怨嗔",
-      "to": "event_relationship_end",
-      "type": "triggers",
-      "weight": 0.4,
-      "modes": [
-        "원진"
-      ]
-    },
-    {
-      "from": "rel_寅酉怨嗔",
-      "to": "event_family_change",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.4,
       "modes": [
@@ -5101,16 +5401,7 @@
     },
     {
       "from": "rel_卯申怨嗔",
-      "to": "event_relationship_end",
-      "type": "triggers",
-      "weight": 0.4,
-      "modes": [
-        "원진"
-      ]
-    },
-    {
-      "from": "rel_卯申怨嗔",
-      "to": "event_family_change",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.4,
       "modes": [
@@ -5133,16 +5424,7 @@
     },
     {
       "from": "rel_辰亥怨嗔",
-      "to": "event_relationship_end",
-      "type": "triggers",
-      "weight": 0.4,
-      "modes": [
-        "원진"
-      ]
-    },
-    {
-      "from": "rel_辰亥怨嗔",
-      "to": "event_family_change",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.4,
       "modes": [
@@ -5165,16 +5447,7 @@
     },
     {
       "from": "rel_巳戌怨嗔",
-      "to": "event_relationship_end",
-      "type": "triggers",
-      "weight": 0.4,
-      "modes": [
-        "원진"
-      ]
-    },
-    {
-      "from": "rel_巳戌怨嗔",
-      "to": "event_family_change",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.4,
       "modes": [
@@ -5204,7 +5477,7 @@
     },
     {
       "from": "rule_career_00",
-      "to": "event_contract",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.62,
       "modes": []
@@ -5253,16 +5526,9 @@
     },
     {
       "from": "rule_career_02",
-      "to": "event_resignation",
-      "type": "triggers",
-      "weight": 0.65,
-      "modes": []
-    },
-    {
-      "from": "rule_career_02",
       "to": "event_career_change",
       "type": "triggers",
-      "weight": 0.6,
+      "weight": 0.65,
       "modes": []
     },
     {
@@ -5281,7 +5547,7 @@
     },
     {
       "from": "rule_career_03",
-      "to": "event_resignation",
+      "to": "event_career_change",
       "type": "triggers",
       "weight": 0.6,
       "modes": []
@@ -5323,7 +5589,7 @@
     },
     {
       "from": "rule_career_05",
-      "to": "event_document",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.5,
       "modes": []
@@ -5351,14 +5617,14 @@
     },
     {
       "from": "rule_career_07",
-      "to": "event_document",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.55,
       "modes": []
     },
     {
       "from": "rule_career_07",
-      "to": "event_exam",
+      "to": "event_education_admission",
       "type": "triggers",
       "weight": 0.5,
       "modes": []
@@ -5372,9 +5638,72 @@
     },
     {
       "from": "rule_career_08",
-      "to": "event_document",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.4,
+      "modes": []
+    },
+    {
+      "from": "rule_career_08",
+      "to": "event_promotion",
+      "type": "triggers",
+      "weight": -0.25,
+      "modes": []
+    },
+    {
+      "from": "rule_career_09",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": -0.2,
+      "modes": []
+    },
+    {
+      "from": "rule_career_10",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": -0.12,
+      "modes": []
+    },
+    {
+      "from": "rule_career_11",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": -0.12,
+      "modes": []
+    },
+    {
+      "from": "rule_career_12",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.1,
+      "modes": []
+    },
+    {
+      "from": "rule_career_13",
+      "to": "event_career_change",
+      "type": "triggers",
+      "weight": 0.06,
+      "modes": []
+    },
+    {
+      "from": "rule_career_14",
+      "to": "event_contract_document",
+      "type": "triggers",
+      "weight": -0.2,
+      "modes": []
+    },
+    {
+      "from": "rule_career_15",
+      "to": "event_contract_document",
+      "type": "triggers",
+      "weight": -0.25,
+      "modes": []
+    },
+    {
+      "from": "rule_career_16",
+      "to": "event_contract_document",
+      "type": "triggers",
+      "weight": -0.15,
       "modes": []
     },
     {
@@ -5393,28 +5722,21 @@
     },
     {
       "from": "rule_education_00",
-      "to": "event_education_start",
+      "to": "event_education_admission",
       "type": "triggers",
       "weight": 0.6,
       "modes": []
     },
     {
       "from": "rule_education_00",
-      "to": "event_exam",
-      "type": "triggers",
-      "weight": 0.55,
-      "modes": []
-    },
-    {
-      "from": "rule_education_00",
-      "to": "event_document",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.5,
       "modes": []
     },
     {
       "from": "rule_education_01",
-      "to": "event_exam",
+      "to": "event_education_admission",
       "type": "triggers",
       "weight": 0.6,
       "modes": []
@@ -5428,7 +5750,7 @@
     },
     {
       "from": "rule_education_02",
-      "to": "event_education_start",
+      "to": "event_education_admission",
       "type": "triggers",
       "weight": 0.5,
       "modes": []
@@ -5449,16 +5771,30 @@
     },
     {
       "from": "rule_education_03",
-      "to": "event_exam",
+      "to": "event_education_admission",
       "type": "triggers",
       "weight": 0.45,
       "modes": []
     },
     {
       "from": "rule_education_04",
-      "to": "event_education_complete",
+      "to": "event_education_completion",
       "type": "triggers",
       "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "rule_education_05",
+      "to": "event_education_admission",
+      "type": "triggers",
+      "weight": -0.2,
+      "modes": []
+    },
+    {
+      "from": "rule_education_05",
+      "to": "event_education_completion",
+      "type": "triggers",
+      "weight": -0.2,
       "modes": []
     },
     {
@@ -5470,23 +5806,16 @@
     },
     {
       "from": "rule_health_00",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.55,
       "modes": []
     },
     {
       "from": "rule_health_01",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.5,
-      "modes": []
-    },
-    {
-      "from": "rule_health_01",
-      "to": "event_surgery",
-      "type": "triggers",
-      "weight": 0.4,
       "modes": []
     },
     {
@@ -5505,28 +5834,49 @@
     },
     {
       "from": "rule_health_02",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.5,
       "modes": []
     },
     {
       "from": "rule_health_03",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.45,
       "modes": []
     },
     {
       "from": "rule_health_04",
-      "to": "event_health_issue",
+      "to": "event_health_attention",
       "type": "triggers",
       "weight": 0.4,
       "modes": []
     },
     {
+      "from": "rule_health_05",
+      "to": "event_health_attention",
+      "type": "triggers",
+      "weight": -0.25,
+      "modes": []
+    },
+    {
+      "from": "rule_health_06",
+      "to": "event_health_attention",
+      "type": "triggers",
+      "weight": -0.2,
+      "modes": []
+    },
+    {
+      "from": "rule_health_06",
+      "to": "event_legal_conflict",
+      "type": "triggers",
+      "weight": -0.15,
+      "modes": []
+    },
+    {
       "from": "rule_relationship_00",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.65,
       "modes": []
@@ -5540,7 +5890,7 @@
     },
     {
       "from": "rule_relationship_01",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.6,
       "modes": []
@@ -5554,7 +5904,7 @@
     },
     {
       "from": "rule_relationship_02",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.6,
       "modes": []
@@ -5568,14 +5918,14 @@
     },
     {
       "from": "rule_relationship_03",
-      "to": "event_marriage",
+      "to": "event_marriage_signal",
       "type": "triggers",
       "weight": 0.55,
       "modes": []
     },
     {
       "from": "rule_relationship_03",
-      "to": "event_relationship_start",
+      "to": "event_new_relationship",
       "type": "triggers",
       "weight": 0.5,
       "modes": []
@@ -5589,16 +5939,37 @@
     },
     {
       "from": "rule_relationship_04",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.6,
       "modes": []
     },
     {
       "from": "rule_relationship_05",
-      "to": "event_relationship_end",
+      "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.45,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_06",
+      "to": "event_new_relationship",
+      "type": "triggers",
+      "weight": -0.3,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_07",
+      "to": "event_new_relationship",
+      "type": "triggers",
+      "weight": -0.3,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_08",
+      "to": "event_marriage_signal",
+      "type": "triggers",
+      "weight": -0.25,
       "modes": []
     },
     {
@@ -5606,13 +5977,6 @@
       "to": "event_relocation",
       "type": "triggers",
       "weight": 0.75,
-      "modes": []
-    },
-    {
-      "from": "rule_relocation_00",
-      "to": "event_travel",
-      "type": "triggers",
-      "weight": 0.6,
       "modes": []
     },
     {
@@ -5666,16 +6030,9 @@
     },
     {
       "from": "rule_relocation_05",
-      "to": "event_travel",
-      "type": "triggers",
-      "weight": 0.55,
-      "modes": []
-    },
-    {
-      "from": "rule_relocation_05",
       "to": "event_relocation",
       "type": "triggers",
-      "weight": 0.5,
+      "weight": 0.55,
       "modes": []
     },
     {
@@ -5683,13 +6040,6 @@
       "to": "event_relocation",
       "type": "triggers",
       "weight": 0.85,
-      "modes": []
-    },
-    {
-      "from": "rule_relocation_06",
-      "to": "event_travel",
-      "type": "triggers",
-      "weight": 0.55,
       "modes": []
     },
     {
@@ -5721,6 +6071,34 @@
       "modes": []
     },
     {
+      "from": "rule_relocation_09",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": -0.25,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_10",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": -0.07,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_11",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.08,
+      "modes": []
+    },
+    {
+      "from": "rule_relocation_12",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": -0.1,
+      "modes": []
+    },
+    {
       "from": "tengod_편재",
       "to": "rule_wealth_00",
       "type": "supports",
@@ -5742,13 +6120,6 @@
       "modes": []
     },
     {
-      "from": "rule_wealth_00",
-      "to": "event_income_change",
-      "type": "triggers",
-      "weight": 0.55,
-      "modes": []
-    },
-    {
       "from": "tengod_정재",
       "to": "rule_wealth_01",
       "type": "supports",
@@ -5764,14 +6135,14 @@
     },
     {
       "from": "rule_wealth_01",
-      "to": "event_income_change",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.6,
       "modes": []
     },
     {
       "from": "rule_wealth_01",
-      "to": "event_contract",
+      "to": "event_contract_document",
       "type": "triggers",
       "weight": 0.5,
       "modes": []
@@ -5792,21 +6163,14 @@
     },
     {
       "from": "rule_wealth_02",
-      "to": "event_expense_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.65,
       "modes": []
     },
     {
-      "from": "rule_wealth_02",
-      "to": "event_speculation_risk",
-      "type": "triggers",
-      "weight": 0.5,
-      "modes": []
-    },
-    {
       "from": "rule_wealth_03",
-      "to": "event_asset_volatility",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.6,
       "modes": []
@@ -5826,13 +6190,6 @@
       "modes": []
     },
     {
-      "from": "rule_wealth_04",
-      "to": "event_speculation_risk",
-      "type": "triggers",
-      "weight": 0.45,
-      "modes": []
-    },
-    {
       "from": "tengod_편재",
       "to": "rule_wealth_05",
       "type": "supports",
@@ -5848,7 +6205,7 @@
     },
     {
       "from": "rule_wealth_05",
-      "to": "event_speculation_risk",
+      "to": "event_wealth_change",
       "type": "triggers",
       "weight": 0.6,
       "modes": []
@@ -5861,6 +6218,27 @@
       "modes": []
     },
     {
+      "from": "rule_wealth_06",
+      "to": "event_windfall",
+      "type": "triggers",
+      "weight": -0.3,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_06",
+      "to": "event_wealth_change",
+      "type": "triggers",
+      "weight": -0.2,
+      "modes": []
+    },
+    {
+      "from": "rule_wealth_07",
+      "to": "event_wealth_change",
+      "type": "triggers",
+      "weight": -0.15,
+      "modes": []
+    },
+    {
       "from": "prohibit_windfall",
       "to": "event_windfall",
       "type": "prohibits_style",
@@ -5868,29 +6246,36 @@
       "modes": []
     },
     {
-      "from": "prohibit_speculation",
-      "to": "event_speculation_risk",
+      "from": "prohibit_finance",
+      "to": "event_wealth_change",
       "type": "prohibits_style",
       "weight": null,
       "modes": []
     },
     {
-      "from": "prohibit_surgery",
-      "to": "event_surgery",
-      "type": "prohibits_style",
-      "weight": null,
-      "modes": []
-    },
-    {
-      "from": "prohibit_surgery",
-      "to": "event_health_issue",
+      "from": "prohibit_medical",
+      "to": "event_health_attention",
       "type": "prohibits_style",
       "weight": null,
       "modes": []
     },
     {
       "from": "prohibit_exam",
-      "to": "event_exam",
+      "to": "event_education_admission",
+      "type": "prohibits_style",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "prohibit_competition",
+      "to": "event_public_exposure",
+      "type": "prohibits_style",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "prohibit_legal",
+      "to": "event_legal_conflict",
       "type": "prohibits_style",
       "weight": null,
       "modes": []

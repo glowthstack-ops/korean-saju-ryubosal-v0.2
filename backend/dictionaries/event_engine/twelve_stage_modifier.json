@@ -1,0 +1,83 @@
+{
+  "schema": "twelve_life_stage_event_modifier.v1",
+  "reviewed": false,
+  "extends": ["transit_ten_god_event_branching.v1", "transit_ten_god_event_branching_addendum.v1"],
+  "purpose": "운에서 들어온 지지의 12운성을 이용해 십성 기반 이벤트 후보의 발현 단계, 강도, 시차, 성패 가능성을 보정한다.",
+  "core_principle": {
+    "primary_rule": "십성은 사건의 종류를 정하고, 12운성은 사건의 상태를 정한다.",
+    "do_not_use_alone": true,
+    "warning": "12운성 단독으로 이직, 이사, 결혼, 합격 같은 사건을 생성하지 않는다.",
+    "recommended_usage": ["이벤트 발생 강도 보정", "시작·성장·정점·쇠퇴·종료·재시작 단계 판단", "즉효성·지연성 판단", "성취형 사건과 정리형 사건 구분", "대운·세운·월운·일운의 사건 진행 흐름 판단"]
+  },
+  "calculation_basis": {
+    "primary": "운 지지를 일간 기준으로 12운성 계산",
+    "secondary": "필요 시 운 지지가 자극하는 원국 글자 또는 궁성의 12운성도 참고",
+    "layer_usage": {"daewoon": "10년 단위 인생 국면", "sewoon": "해당 연도 사건의 성숙도", "wolwoon": "사건 활성 월의 컨디션", "ilwoon": "실행일·체감일·택일 보정"}
+  },
+  "twelve_life_stages": {
+    "JANGSAENG": "장생", "MOKYOK": "목욕", "GWANDAE": "관대", "GEONROK": "건록",
+    "JEWANG": "제왕", "SOE": "쇠", "BYEONG": "병", "SA": "사", "MYO": "묘", "JEOL": "절", "TAE": "태", "YANG": "양"
+  },
+  "stage_groups": {
+    "seed_group": {"name": "씨앗·준비 단계", "stages": ["JEOL", "TAE", "YANG"], "meaning": "끊김 이후 새 가능성이 생기거나, 아직 배양 중인 상태", "event_status": ["reset", "incubation", "preparation"]},
+    "growth_group": {"name": "시작·성장 단계", "stages": ["JANGSAENG", "MOKYOK", "GWANDAE"], "meaning": "새로운 사건이 시작되고 외부에 드러나며 형식을 갖추는 단계", "event_status": ["start", "exposure", "formalization"]},
+    "peak_group": {"name": "안정·정점 단계", "stages": ["GEONROK", "JEWANG"], "meaning": "사건의 힘이 강하고 결과가 현실화되기 쉬운 단계", "event_status": ["stabilization", "peak", "achievement"]},
+    "decline_group": {"name": "쇠퇴·관리 단계", "stages": ["SOE", "BYEONG", "SA", "MYO"], "meaning": "기세가 꺾이거나 정리·보관·내면화되는 단계", "event_status": ["decline", "fatigue", "closure", "storage"]}
+  },
+  "stage_modifier_rules": [
+    {"stage": "JANGSAENG", "name": "장생", "event_phase": "new_start", "score_modifier": 8, "meaning": "새로운 시작, 진입, 성장 가능성", "strength": "medium_positive", "good_for": ["job_gain", "education_admission", "business_start", "new_relationship", "creative_output"], "caution_for": ["education_completion", "marriage_signal", "promotion"], "interpretation": "사건이 막 시작되는 단계다. 결과 확정보다는 진입·착수·첫 신호로 해석한다."},
+    {"stage": "MOKYOK", "name": "목욕", "event_phase": "exposure_volatility", "score_modifier": 5, "meaning": "노출, 변화, 유혹, 불안정, 대외성", "strength": "volatile", "good_for": ["public_exposure", "new_relationship", "relationship_change", "creative_output", "business_expansion"], "caution_for": ["contract_document", "marriage_signal", "job_gain"], "interpretation": "관심과 노출은 커지지만 안정성은 낮다. 연애·홍보·외부 노출에는 강하나 계약 확정에는 불안정하다."},
+    {"stage": "GWANDAE", "name": "관대", "event_phase": "formalization", "score_modifier": 10, "meaning": "격식, 준비 완료, 자격, 사회적 진입", "strength": "positive", "good_for": ["job_gain", "education_admission", "contract_document", "promotion", "marriage_signal"], "caution_for": ["windfall"], "interpretation": "공식화에 유리하다. 시험, 입사, 계약, 직책, 관계의 형식화에 좋다."},
+    {"stage": "GEONROK", "name": "건록", "event_phase": "stabilization", "score_modifier": 12, "meaning": "안정, 자립, 직업성, 기반 확보", "strength": "strong_positive", "good_for": ["job_gain", "promotion", "wealth_change", "business_start", "contract_document"], "caution_for": ["relocation", "career_change"], "interpretation": "안정과 기반 확보에 강하다. 다만 이미 안정된 상태라면 무리한 이동·이직은 감점될 수 있다."},
+    {"stage": "JEWANG", "name": "제왕", "event_phase": "peak", "score_modifier": 15, "meaning": "정점, 확장, 권한, 강한 발현", "strength": "very_strong", "good_for": ["promotion", "business_expansion", "public_exposure", "wealth_change", "job_gain"], "caution_for": ["social_conflict", "legal_conflict", "health_attention"], "interpretation": "사건의 힘이 매우 강하다. 용신이면 성취, 기신이면 과잉·충돌·무리수로 발현될 수 있다."},
+    {"stage": "SOE", "name": "쇠", "event_phase": "decline_adjustment", "score_modifier": -3, "meaning": "기세 저하, 조정, 역할 축소", "strength": "weakening", "good_for": ["preparation_delay", "career_change", "contract_document"], "caution_for": ["business_expansion", "promotion", "windfall"], "interpretation": "확장보다 조정과 축소에 가깝다. 기존 역할의 조정, 업무 축소, 방향 전환으로 본다."},
+    {"stage": "BYEONG", "name": "병", "event_phase": "fatigue_problem", "score_modifier": -8, "meaning": "피로, 문제 노출, 건강 주의, 약화", "strength": "negative", "good_for": ["health_attention", "preparation_delay"], "caution_for": ["job_gain", "business_start", "promotion", "contract_document"], "interpretation": "사건을 밀어붙이기보다 컨디션 저하나 문제 발견으로 본다. 편관·편인·상관과 결합하면 건강·갈등 주의."},
+    {"stage": "SA", "name": "사", "event_phase": "closure_hidden", "score_modifier": -5, "meaning": "정리, 내면화, 종료 전 단계, 비공개 검토", "strength": "closing", "good_for": ["preparation_delay", "contract_document", "education_completion"], "caution_for": ["business_start", "new_relationship", "public_exposure"], "interpretation": "밖으로 크게 시작하기보다 내부 정리·검토·마무리 단계다."},
+    {"stage": "MYO", "name": "묘", "event_phase": "storage_concealment", "score_modifier": -4, "meaning": "보관, 축적, 숨김, 묶임, 마무리", "strength": "stored", "good_for": ["contract_document", "wealth_change", "preparation_delay", "relocation"], "caution_for": ["public_exposure", "new_relationship", "business_expansion"], "interpretation": "사건이 드러나기보다 보관·계약·정리·묶임으로 간다. 부동산·상속·보관성 재물과 연결 가능."},
+    {"stage": "JEOL", "name": "절", "event_phase": "cut_reset", "score_modifier": -12, "meaning": "단절, 끊김, 종료, 리셋", "strength": "severing", "good_for": ["career_change", "relationship_change", "relocation", "preparation_delay"], "caution_for": ["job_gain", "marriage_signal", "contract_document", "business_expansion"], "interpretation": "기존 흐름이 끊기는 신호다. 이직·이별·계약 해지·이사처럼 단절성 사건과 연결될 수 있다."},
+    {"stage": "TAE", "name": "태", "event_phase": "conception_planning", "score_modifier": 3, "meaning": "잉태, 계획, 가능성, 초기 구상", "strength": "latent_positive", "good_for": ["business_start", "new_relationship", "childbirth", "creative_output", "education_admission"], "caution_for": ["promotion", "education_completion", "contract_document"], "interpretation": "아직 현실화 전의 씨앗 단계다. 계획·구상·임신 가능성·초기 제안으로 본다."},
+    {"stage": "YANG", "name": "양", "event_phase": "nurturing_preparation", "score_modifier": 5, "meaning": "양육, 준비, 보호, 성장 전 단계", "strength": "preparatory_positive", "good_for": ["education_admission", "preparation_delay", "childbirth", "business_start", "creative_output"], "caution_for": ["promotion", "business_expansion", "windfall"], "interpretation": "기르는 단계다. 당장 결과보다 준비·훈련·보호·육성으로 본다."}
+  ],
+  "event_specific_modifiers": {
+    "job_gain": {"boost_stages": ["JANGSAENG", "GWANDAE", "GEONROK", "JEWANG"], "reduce_stages": ["BYEONG", "SA", "JEOL"], "notes": "취업·입사는 장생·관대·건록에서 강하고, 절·병에서는 지연 또는 조건 불리로 본다."},
+    "promotion": {"boost_stages": ["GWANDAE", "GEONROK", "JEWANG"], "reduce_stages": ["SOE", "BYEONG", "JEOL"], "notes": "승진은 관대·건록·제왕이 좋다. 제왕은 성취와 과잉을 동시에 본다."},
+    "career_change": {"boost_stages": ["MOKYOK", "SOE", "SA", "JEOL"], "reduce_stages": ["GEONROK"], "notes": "이직·퇴사는 절·사·쇠에서 강해질 수 있다. 건록은 안정성이 강해 무리한 이직 감점."},
+    "business_start": {"boost_stages": ["JANGSAENG", "GWANDAE", "GEONROK", "TAE", "YANG"], "reduce_stages": ["BYEONG", "SA", "MYO"], "notes": "태·양은 준비 단계, 장생은 시작, 건록은 기반 확보, 제왕은 확장으로 분리한다."},
+    "business_expansion": {"boost_stages": ["MOKYOK", "JEWANG", "GEONROK"], "reduce_stages": ["SOE", "BYEONG", "SA", "MYO"], "notes": "확장은 제왕·목욕에서 강하지만 기신이면 무리한 확장으로 본다."},
+    "wealth_change": {"boost_stages": ["GEONROK", "JEWANG", "MYO"], "volatile_stages": ["MOKYOK", "JEOL"], "reduce_stages": ["BYEONG"], "notes": "건록·제왕은 현실 수익, 묘는 축적·보관·묶인 돈, 목욕·절은 변동성으로 본다."},
+    "windfall": {"boost_stages": ["MOKYOK", "JEWANG"], "reduce_stages": ["GEONROK", "SA", "MYO", "YANG"], "notes": "횡재는 목욕·제왕처럼 노출·변동·강한 발현에서 강하나 안정성은 낮다."},
+    "contract_document": {"boost_stages": ["GWANDAE", "GEONROK", "MYO"], "reduce_stages": ["MOKYOK", "BYEONG", "JEOL"], "notes": "문서·계약은 관대·건록이 안정적이고, 묘는 보관·등기·저장성 문서에 유리하다."},
+    "education_admission": {"boost_stages": ["JANGSAENG", "GWANDAE", "YANG"], "reduce_stages": ["BYEONG", "JEOL"], "notes": "입학·합격은 장생·관대·양이 좋다. 양은 준비·육성, 관대는 공식 진입."},
+    "education_completion": {"boost_stages": ["GWANDAE", "GEONROK", "SA", "MYO"], "reduce_stages": ["TAE", "YANG", "JANGSAENG"], "notes": "졸업·수료는 시작 단계보다 정리·완성 단계에서 강하다."},
+    "relationship_change": {"boost_stages": ["MOKYOK", "JANGSAENG", "TAE"], "formalize_stages": ["GWANDAE", "GEONROK"], "ending_stages": ["SA", "MYO", "JEOL"], "notes": "목욕은 연애 노출, 태는 새로운 씨앗, 관대·건록은 공식화, 절은 단절."},
+    "marriage_signal": {"boost_stages": ["GWANDAE", "GEONROK"], "reduce_stages": ["MOKYOK", "JEOL", "BYEONG"], "notes": "혼인은 목욕보다 관대·건록처럼 형식과 안정이 있는 단계가 좋다."},
+    "childbirth": {"boost_stages": ["TAE", "YANG", "JANGSAENG"], "reduce_stages": ["BYEONG", "JEOL"], "notes": "태·양·장생은 출산·임신·자녀 신호를 보조하되, 현실 게이트 없이는 창작물·결과물로 낮춘다."},
+    "relocation": {"boost_stages": ["MOKYOK", "JEOL", "JANGSAENG"], "document_stages": ["GWANDAE", "MYO"], "reduce_stages": ["GEONROK"], "notes": "절은 기존 거처와의 단절, 장생은 새 거처 시작, 묘는 부동산·보관·등기 문서 신호. 건록은 안정 거주라 이동 감점."},
+    "health_attention": {"boost_stages": ["BYEONG", "SA", "SOE", "JEOL"], "reduce_stages": ["JANGSAENG", "GEONROK"], "notes": "병·사·쇠·절은 컨디션 저하, 피로, 회복 필요 신호로 본다."},
+    "legal_conflict": {"boost_stages": ["JEWANG", "MOKYOK", "JEOL", "BYEONG"], "reduce_stages": ["GWANDAE", "GEONROK"], "notes": "제왕은 힘의 충돌, 목욕은 노출, 절은 단절, 병은 문제 노출. 관대·건록은 절차화로 안정 가능."}
+  },
+  "layer_stage_combination_rules": [
+    {"id": "DAEWOON_SEED_SEWOON_START", "condition": {"daewoon_stage_group": "seed_group", "sewoon_stage_group": "growth_group"}, "meaning": "대운에서 준비된 씨앗이 세운에서 시작된다.", "score_bonus": 10, "good_for": ["business_start", "job_gain", "education_admission", "new_relationship"]},
+    {"id": "DAEWOON_GROWTH_SEWOON_PEAK", "condition": {"daewoon_stage_group": "growth_group", "sewoon_stage_group": "peak_group"}, "meaning": "시작된 사건이 연도 단위로 성취·확장된다.", "score_bonus": 12, "good_for": ["promotion", "business_expansion", "wealth_change", "contract_document"]},
+    {"id": "DAEWOON_PEAK_SEWOON_DECLINE", "condition": {"daewoon_stage_group": "peak_group", "sewoon_stage_group": "decline_group"}, "meaning": "정점 이후 조정·축소·정리 국면", "score_bonus": 6, "good_for": ["career_change", "contract_document", "preparation_delay", "health_attention"], "caution": "확장 이벤트는 감점하고 정리 이벤트는 가점한다."},
+    {"id": "DAEWOON_DECLINE_SEWOON_CUT", "condition": {"daewoon_stage_group": "decline_group", "sewoon_stage": "JEOL"}, "meaning": "누적된 쇠퇴가 단절·종료로 현실화", "score_bonus": 14, "good_for": ["career_change", "relationship_change", "relocation"], "caution": "기신성 관성·상관·겁재가 동반되면 강제성 증가"},
+    {"id": "SEWOON_START_WOLWOON_FORMALIZE", "condition": {"sewoon_stage_group": "growth_group", "wolwoon_stage": "GWANDAE"}, "meaning": "연도 시작 신호가 월운에서 공식화", "score_bonus": 10, "good_for": ["contract_document", "job_gain", "education_admission", "marriage_signal"]},
+    {"id": "SEWOON_EVENT_WOLWOON_ILWOON_TRIGGER", "condition": {"sewoon_has_event_candidate": true, "wolwoon_stage_group": "growth_group", "ilwoon_stage_group": "peak_group"}, "meaning": "연도 사건 후보가 월·일에서 실행되기 쉬움", "score_bonus": 8, "usage": "택일·실행일 후보"}
+  ],
+  "twelve_stage_safety_rules": {
+    "do_not_overread": [
+      {"rule": "태·양만으로 출산을 확정하지 않는다.", "downgrade_to": ["preparation_delay", "creative_output", "future_possibility"]},
+      {"rule": "목욕만으로 연애를 확정하지 않는다.", "downgrade_to": ["public_exposure", "new_relationship", "social_attention"]},
+      {"rule": "절만으로 이별·퇴사·이사를 확정하지 않는다.", "required_support": ["상관 또는 편관", "재성·관성 관계 신호", "궁성 활성", "합충형파해"]},
+      {"rule": "건록만으로 취업·승진을 확정하지 않는다.", "required_support": ["정관", "정인", "재성+관성", "관인상생"]},
+      {"rule": "제왕은 무조건 길하지 않다.", "interpretation": "용신이면 성취, 기신이면 과잉·충돌·무리수"}
+    ]
+  },
+  "integration_pipeline": [
+    {"step": 1, "module": "ten_god_event_brancher", "output": "십성 기반 이벤트 후보 생성"},
+    {"step": 2, "module": "twelve_life_stage_modifier", "output": "이벤트 후보의 상태, 강도, 시차 보정"},
+    {"step": 3, "module": "relation_signal_engine", "output": "합충형파해, 공망, 궁성 활성으로 사건화 여부 보정"},
+    {"step": 4, "module": "yonggi_quality_engine", "output": "용신·기신에 따른 길흉 품질 보정"},
+    {"step": 5, "module": "event_ranker", "output": "최종 이벤트 랭킹"}
+  ]
+}

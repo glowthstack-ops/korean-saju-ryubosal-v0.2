@@ -56,7 +56,7 @@ def test_q2_routes_to_domain_module() -> None:
 def test_q3_timing_search_progress_pipeline() -> None:
     """Q3: Event Scoring → Timeline → Manifestation → Advice (docs/03 B4)."""
     plan = build_execution_plan(_intent(
-        query_type=QueryType.TIMING_SEARCH, event_key=EventKey.MARRIAGE,
+        query_type=QueryType.TIMING_SEARCH, event_key=EventKey.MARRIAGE_SIGNAL,
         domain=Domain.RELATIONSHIP,
     ))
     engines = [c.engine for c in plan.engine_calls]
@@ -124,7 +124,7 @@ def test_multi_intent_plan_array() -> None:
     intents = [
         _intent(intent_id="i1"),
         _intent(intent_id="i2", query_type=QueryType.TIMING_SEARCH,
-                domain=Domain.RELATIONSHIP, event_key=EventKey.MARRIAGE),
+                domain=Domain.RELATIONSHIP, event_key=EventKey.MARRIAGE_SIGNAL),
     ]
     plans = build_plans(intents)
     assert len(plans) == 2
@@ -134,6 +134,6 @@ def test_multi_intent_plan_array() -> None:
 def test_graph_scope_includes_explicit_event_keys() -> None:
     """명시 eventKey는 도메인 기본 graphScope에 추가된다."""
     plan = build_execution_plan(_intent(
-        domain=Domain.GENERAL, event_key=EventKey.LAWSUIT,
+        domain=Domain.GENERAL, event_key=EventKey.LEGAL_CONFLICT,
     ))
-    assert EventKey.LAWSUIT in plan.graph_scope
+    assert EventKey.LEGAL_CONFLICT in plan.graph_scope

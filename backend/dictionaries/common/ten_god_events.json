@@ -3,14 +3,50 @@
   "reviewed": false,
   "note": "미발동(관계·룰 비기여) 운 글자의 용기신 기본 가감 대상 — 십성별 대표 이벤트(2026-06-12 사용자 원칙). 리스크형 이벤트(손재·송사 등)는 가감 방향이 반대라 1차 제외(겁재 미등재).",
   "items": [
-    { "tenGod": "비견", "event": "business_start", "reviewed": false },
-    { "tenGod": "식신", "event": "business_start", "reviewed": false },
-    { "tenGod": "상관", "event": "career_change", "reviewed": false },
-    { "tenGod": "편재", "event": "income_change", "reviewed": false },
-    { "tenGod": "정재", "event": "income_change", "reviewed": false },
-    { "tenGod": "편관", "event": "career_change", "reviewed": false },
-    { "tenGod": "정관", "event": "career_change", "reviewed": false },
-    { "tenGod": "편인", "event": "education_start", "reviewed": false },
-    { "tenGod": "정인", "event": "document", "reviewed": false }
+    {
+      "tenGod": "비견",
+      "event": "business_start",
+      "reviewed": false
+    },
+    {
+      "tenGod": "식신",
+      "event": "business_start",
+      "reviewed": false
+    },
+    {
+      "tenGod": "상관",
+      "event": "career_change",
+      "reviewed": false
+    },
+    {
+      "tenGod": "편재",
+      "event": "wealth_change",
+      "reviewed": false
+    },
+    {
+      "tenGod": "정재",
+      "event": "wealth_change",
+      "reviewed": false
+    },
+    {
+      "tenGod": "편관",
+      "event": "career_change",
+      "reviewed": false
+    },
+    {
+      "tenGod": "정관",
+      "event": "career_change",
+      "reviewed": false
+    },
+    {
+      "tenGod": "편인",
+      "event": "education_admission",
+      "reviewed": false
+    },
+    {
+      "tenGod": "정인",
+      "event": "contract_document",
+      "reviewed": false
+    }
   ]
 }

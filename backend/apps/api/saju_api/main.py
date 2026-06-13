@@ -18,6 +18,7 @@ from .routers import (
     manse,
     past_validation,
     profile,
+    reality_calibration,
     report,
     subjects,
 )
@@ -42,4 +43,5 @@ app.include_router(manse.router)
 app.include_router(calendar.router)
 app.include_router(chat.router)
 app.include_router(past_validation.router)
+app.include_router(reality_calibration.router)
 app.include_router(report.router)

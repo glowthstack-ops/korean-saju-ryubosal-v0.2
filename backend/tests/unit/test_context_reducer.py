@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from saju_api.services.manse_service import calculate
-from saju_engines import EventScorer, GraphIndex, load_event_graph
+from saju_engines import EventEngineV2, GraphIndex, load_event_graph
 from saju_engines.context_reducer import (
     SCORE_FLOOR,
     TOP_N_CANDIDATES,
@@ -37,21 +37,21 @@ def chart():
 
 
 @pytest.fixture(scope="module")
-def scorer() -> EventScorer:
-    return EventScorer(_DICTS)
+def scorer() -> EventEngineV2:
+    return EventEngineV2(_DICTS)
 
 
 @pytest.fixture(scope="module")
 def candidates(chart, scorer):
     """세운 후보 전체."""
-    return scorer.score(chart, levels={GanjiLevel.YEAR})
+    return scorer.score_legacy(chart, levels={GanjiLevel.YEAR})
 
 
 @pytest.fixture(scope="module")
 def bundles():
     """career graphScope의 EvidenceBundle."""
     graph = load_event_graph(_BACKEND / "compiled" / "event_graph_v1.0.0.json")
-    return GraphIndex(graph).retrieve([EventKey.CAREER_CHANGE, EventKey.CONTRACT])
+    return GraphIndex(graph).retrieve([EventKey.CAREER_CHANGE, EventKey.CONTRACT_DOCUMENT])
 
 
 def _intent(**over) -> IntentJson:

@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from saju_engines import EventScorer
+from saju_engines import EventEngineV2
 from saju_engines.cases_store import CaseRow, CasesStore
 from saju_engines.past_validation import calibrate_confidence, generate_past_candidates
 from saju_shared_types.birth_input import BirthInput
@@ -26,13 +26,13 @@ from ..services.manse_service import calculate
 router = APIRouter(prefix="/api/v2/past-validation", tags=["past-validation"])
 
 _BACKEND = Path(__file__).resolve().parents[4]
-_scorer: EventScorer | None = None
+_scorer: EventEngineV2 | None = None
 
 
-def _get_scorer() -> EventScorer:
+def _get_scorer() -> EventEngineV2:
     global _scorer
     if _scorer is None:
-        _scorer = EventScorer(_BACKEND / "dictionaries")
+        _scorer = EventEngineV2(_BACKEND / "dictionaries")
     return _scorer
 
 

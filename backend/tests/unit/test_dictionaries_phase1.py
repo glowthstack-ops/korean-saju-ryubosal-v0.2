@@ -28,7 +28,6 @@ from saju_shared_types.constants import (
     ten_god,
 )
 from saju_shared_types.enums import Branch, Element, Stem
-from saju_shared_types.events import EventKey
 
 _DICT_DIR = Path(__file__).resolve().parents[2] / "dictionaries"
 
@@ -113,11 +112,15 @@ def test_relations_fixed_pairs_match_engine_tables() -> None:
 
 
 def test_taxonomy_covers_event_keys_exactly() -> None:
-    """taxonomy.json이 EventKey 전체를 중복 없이 1:1 커버한다."""
-    data = _load("events/taxonomy.json")
-    keys = [item["eventKey"] for item in data["items"]]
-    assert len(keys) == len(set(keys))
-    assert set(keys) == {str(k) for k in EventKey}
+    """21키 taxonomy_v2(EVENT_KO)가 EventKeyV2 전체를 중복 없이 1:1 커버한다(Phase 7).
+
+    레거시 events/taxonomy.json은 구 25키 보존 아티팩트로 graph_builder가 21키로 리맵한다.
+    """
+    from saju_shared_types.event_engine import EventKeyV2
+    from saju_shared_types.event_taxonomy_v2 import EVENT_KO
+
+    assert set(EVENT_KO) == set(EventKeyV2)
+    assert len(EVENT_KO) == 21
 
 
 def test_all_items_carry_reviewed_flag() -> None:

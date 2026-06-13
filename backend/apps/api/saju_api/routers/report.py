@@ -112,13 +112,17 @@ class ReportJobStatus(BaseModel):
 
 
 def _run_report_job(
-    job_id: str, birth: BirthInput, spec: ReportSpec, today: date | None, display_name: str
+    job_id: str, birth: BirthInput, spec: ReportSpec, today: date | None, display_name: str,
+    owner_id: str, subject_id: str,
 ) -> None:
     """백그라운드 실행 — 생성 성공 시 complete, LLM 키 미설정 등 실패 시 fail."""
     store = ReportJobStore()
     store.mark_running(job_id)
     try:
-        result = report_service.generate_report(birth, spec, today, display_name=display_name)
+        result = report_service.generate_report(
+            birth, spec, today, display_name=display_name,
+            owner_id=owner_id, subject_id=subject_id,
+        )
         store.complete(job_id, result.model_dump(mode="json"), len(result.sections))
     except RuntimeError as exc:
         store.fail(job_id, str(exc))
@@ -143,6 +147,7 @@ def create_job(
     jobs.create(job_id, owner_id, req.spec.model_dump(mode="json"), total)
     background.add_task(
         _run_report_job, job_id, record.birth, req.spec, req.today, record.label,
+        owner_id, req.subject_id,
     )
     return ReportJobCreated(job_id=job_id)
 

@@ -143,7 +143,8 @@ def test_occupation_context_feeds_manifestation() -> None:
     tax = OccupationTaxonomy(_DICTS)
     extended = ExtendedProfile(occupation=Occupation(category_id="O14"))
     ctx = tax.reality_context(extended)
-    assert ctx["relocation"] == 8 and all(-10 <= v <= 10 for v in ctx.values())
+    # 운송/여행 직군 → relocation 보정(21키 이관으로 travel이 relocation에 병합, 클램프 ≤10).
+    assert ctx["relocation"] >= 8 and all(-10 <= v <= 10 for v in ctx.values())
     assert tax.reality_context(None) == {}  # 미입력 → 보정 0(차단 금지)
 
     # E6 실연동.
@@ -151,9 +152,9 @@ def test_occupation_context_feeds_manifestation() -> None:
         update={"reference_date": __import__("datetime").date(2026, 6, 11)}
     ))
     engines = PredictionEngines(_DICTS)
-    from saju_engines import EventScorer
+    from saju_engines import EventEngineV2
 
-    cands = EventScorer(_DICTS).score(chart, levels={GanjiLevel.YEAR})
+    cands = EventEngineV2(_DICTS).score_legacy(chart, levels={GanjiLevel.YEAR})
     reloc = next((c for c in cands if c.event_key is EventKey.RELOCATION), None)
     if reloc is not None:
         profile = engines.self_profile(chart)

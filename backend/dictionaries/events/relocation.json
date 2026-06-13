@@ -12,11 +12,6 @@
           "event": "relocation",
           "score": 0.75,
           "polarity": "conditional"
-        },
-        {
-          "event": "travel",
-          "score": 0.6,
-          "polarity": "neutral"
         }
       ],
       "note": "역마+충 — 이동 발동(이사/출장/장거리)",
@@ -87,13 +82,8 @@
       },
       "eventCandidates": [
         {
-          "event": "travel",
-          "score": 0.55,
-          "polarity": "positive"
-        },
-        {
           "event": "relocation",
-          "score": 0.5,
+          "score": 0.55,
           "polarity": "positive"
         }
       ],
@@ -110,11 +100,6 @@
           "event": "relocation",
           "score": 0.85,
           "polarity": "conditional"
-        },
-        {
-          "event": "travel",
-          "score": 0.55,
-          "polarity": "neutral"
         }
       ],
       "note": "식상(상관) 이동성+역마 — 거처·환경 변동 우세 (regression_2025_08: 합·정관 동반 시에도 이동 신호가 사건명을 결정)",
@@ -160,11 +145,6 @@
         {
           "event": "relocation",
           "score": -0.25,
-          "polarity": "neutral"
-        },
-        {
-          "event": "travel",
-          "score": -0.15,
           "polarity": "neutral"
         }
       ],

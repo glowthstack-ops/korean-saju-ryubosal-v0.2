@@ -60,9 +60,9 @@ def test_relocation_ranking_with_part_scores(engine, composites) -> None:
 def test_purpose_changes_weighting(engine, composites) -> None:
     """목적이 다르면 가중이 달라 랭킹/점수가 달라질 수 있다(프로파일 사전)."""
     move = engine.select(EventKey.RELOCATION, composites, "2026-06-01", "2026-06-30")
-    contract = engine.select(EventKey.CONTRACT, composites, "2026-06-01", "2026-06-30")
+    contract = engine.select(EventKey.CONTRACT_DOCUMENT, composites, "2026-06-01", "2026-06-30")
     assert move.purpose is EventKey.RELOCATION
-    assert contract.purpose is EventKey.CONTRACT
+    assert contract.purpose is EventKey.CONTRACT_DOCUMENT
     # 동일 날짜의 최종 점수가 목적별 가중으로 달라진다(전부 동일하면 가중 미적용 의심).
     move_by_date = {c.date: c.scores.final for c in move.candidates}
     diff = [

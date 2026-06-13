@@ -5,46 +5,88 @@
     {
       "eventKey": "career_change",
       "forms": [
-        { "name": "이직(회사 이동)", "prob": 0.45 },
-        { "name": "역할·직무 변경", "prob": 0.3 },
-        { "name": "조직 개편·배치 전환", "prob": 0.2 }
+        {
+          "name": "이직(회사 이동)",
+          "prob": 0.45
+        },
+        {
+          "name": "역할·직무 변경",
+          "prob": 0.3
+        },
+        {
+          "name": "조직 개편·배치 전환",
+          "prob": 0.2
+        },
+        {
+          "name": "자발적 퇴사",
+          "prob": 0.45
+        },
+        {
+          "name": "이직 동반 퇴사",
+          "prob": 0.35
+        },
+        {
+          "name": "휴직·일시 중단",
+          "prob": 0.15
+        }
       ],
       "reviewed": false
     },
     {
       "eventKey": "relocation",
       "forms": [
-        { "name": "이사(거주 이동)", "prob": 0.5 },
-        { "name": "출장·파견", "prob": 0.2 },
-        { "name": "직무상 근무지 이동", "prob": 0.15 },
-        { "name": "장거리 관계·왕래 증가", "prob": 0.1 }
+        {
+          "name": "이사(거주 이동)",
+          "prob": 0.5
+        },
+        {
+          "name": "출장·파견",
+          "prob": 0.2
+        },
+        {
+          "name": "직무상 근무지 이동",
+          "prob": 0.15
+        },
+        {
+          "name": "장거리 관계·왕래 증가",
+          "prob": 0.1
+        }
       ],
       "reviewed": false
     },
     {
-      "eventKey": "relationship_start",
+      "eventKey": "new_relationship",
       "forms": [
-        { "name": "새로운 만남", "prob": 0.5 },
-        { "name": "지인에서 발전", "prob": 0.3 },
-        { "name": "재회·재점화", "prob": 0.15 }
+        {
+          "name": "새로운 만남",
+          "prob": 0.5
+        },
+        {
+          "name": "지인에서 발전",
+          "prob": 0.3
+        },
+        {
+          "name": "재회·재점화",
+          "prob": 0.15
+        }
       ],
       "reviewed": false
     },
     {
       "eventKey": "wealth_change",
       "forms": [
-        { "name": "수입원 변화", "prob": 0.4 },
-        { "name": "지출 구조 변화", "prob": 0.3 },
-        { "name": "자산 이동(매매·계약)", "prob": 0.25 }
-      ],
-      "reviewed": false
-    },
-    {
-      "eventKey": "resignation",
-      "forms": [
-        { "name": "자발적 퇴사", "prob": 0.45 },
-        { "name": "이직 동반 퇴사", "prob": 0.35 },
-        { "name": "휴직·일시 중단", "prob": 0.15 }
+        {
+          "name": "수입원 변화",
+          "prob": 0.4
+        },
+        {
+          "name": "지출 구조 변화",
+          "prob": 0.3
+        },
+        {
+          "name": "자산 이동(매매·계약)",
+          "prob": 0.25
+        }
       ],
       "reviewed": false
     }

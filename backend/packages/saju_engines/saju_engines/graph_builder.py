@@ -12,6 +12,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from saju_shared_types.event_taxonomy_v2 import (
+    EVENT_KO,
+    EVENT_TYPE,
+    LEGACY_EVENT_KEY_MAP,
+    PROHIBITIONS,
+)
 from saju_shared_types.graph import EventGraph, GraphEdge, GraphNode
 
 from .dictionaries import (
@@ -19,7 +25,6 @@ from .dictionaries import (
     EventMappingFile,
     RelationsFile,
     StemsFile,
-    TaxonomyFile,
     TenGodsFile,
 )
 
@@ -72,14 +77,7 @@ _FAVORABILITY_NODES = {
     "구신": ("gusin", "구신"),
 }
 
-# 금기 표현 규칙 (절대 원칙 3·8, docs/04 Retrieval 규칙 4) — 표현 정책이므로 정적 부착.
-_PROHIBITIONS: list[tuple[str, str, list[str]]] = [
-    ("prohibit_windfall", "당첨·횡재 단정 금지, 로또 번호 생성 거부", ["windfall"]),
-    ("prohibit_speculation", "투자 조언 아님 고지, 변동성·과몰입 경고 톤 고정",
-     ["speculation_risk"]),
-    ("prohibit_surgery", "의료 조언 아님 고지, 수술 시기 단정 금지", ["surgery", "health_issue"]),
-    ("prohibit_exam", "당락·합격 단정 금지(상대 우열 + 근거까지만)", ["exam"]),
-]
+# 금기 표현 규칙은 event_taxonomy_v2.PROHIBITIONS(21키, 경쟁·고시 보호 포함)를 정적 부착한다.
 
 
 def _load(directory: Path, rel: str) -> dict:
@@ -175,23 +173,36 @@ def _relation_nodes(directory: Path) -> tuple[list[GraphNode], list[GraphEdge]]:
                 from_=rel.id, to=f"element_{rel.result_element}", type="has_element",
             ))
         for ev in rel.event_domains:
+            norm = _norm_event(ev)
+            if norm is None:
+                continue
             edges.append(GraphEdge(
-                from_=rel.id, to=f"event_{ev}", type="triggers",
+                from_=rel.id, to=f"event_{norm}", type="triggers",
                 weight=rel.base_score, modes=rel.possible_modes,
             ))
     return nodes, edges
 
 
 def _event_nodes(directory: Path) -> list[GraphNode]:
-    """이벤트 노드 (events/taxonomy.json 전수)."""
-    taxonomy = TaxonomyFile.model_validate(_load(directory, "events/taxonomy.json"))
+    """이벤트 노드 (21키 taxonomy_v2 전수, Phase 7)."""
     return [
         GraphNode(
-            id=f"event_{item.event_key}", type="event", label=item.ko,
-            attrs={"eventType": str(item.event_type)},
+            id=f"event_{key.value}", type="event", label=ko,
+            attrs={"eventType": EVENT_TYPE.get(key, "progress")},
         )
-        for item in taxonomy.items
+        for key, ko in EVENT_KO.items()
     ]
+
+
+_VALID_EVENTS: frozenset[str] = frozenset(str(k) for k in EVENT_KO)
+
+
+def _norm_event(ev: str) -> str | None:
+    """구/신 이벤트 키 → 21키. 구키는 LEGACY로 리맵, 미매핑은 None(엣지 생략)."""
+    if ev in _VALID_EVENTS:
+        return ev
+    mapped = LEGACY_EVENT_KEY_MAP.get(ev)
+    return mapped.value if mapped is not None else None
 
 
 def _rule_nodes(directory: Path) -> tuple[list[GraphNode], list[GraphEdge]]:
@@ -224,8 +235,11 @@ def _rule_nodes(directory: Path) -> tuple[list[GraphNode], list[GraphEdge]]:
                 node_type, _label = _FAVORABILITY_NODES[signal.favorability]
                 edges.append(GraphEdge(from_=node_type, to=rule_id, type="supports"))
             for cand in item.event_candidates:
+                norm = _norm_event(cand.event)
+                if norm is None:
+                    continue
                 edges.append(GraphEdge(
-                    from_=rule_id, to=f"event_{cand.event}", type="triggers",
+                    from_=rule_id, to=f"event_{norm}", type="triggers",
                     weight=cand.score,
                 ))
     return nodes, edges
@@ -261,12 +275,14 @@ def build_event_graph(directory: Path, updated_at: str | None = None) -> EventGr
     nodes += rule_nodes
     edges += rule_edges
 
-    for pid, label, events in _PROHIBITIONS:
+    for pid, label, events in PROHIBITIONS:
         nodes.append(GraphNode(
             id=pid, type="prohibition_rule", label=label, attrs={"reviewed": False},
         ))
         for ev in events:
-            edges.append(GraphEdge(from_=pid, to=f"event_{ev}", type="prohibits_style"))
+            norm = _norm_event(ev)
+            if norm is not None:
+                edges.append(GraphEdge(from_=pid, to=f"event_{norm}", type="prohibits_style"))
 
     return EventGraph(version=GRAPH_VERSION, updated_at=updated_at, nodes=nodes, edges=edges)
 

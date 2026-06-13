@@ -1,30 +1,131 @@
 {
   "version": "1.0.0",
   "items": [
-    { "eventKey": "career_change", "ko": "이직·직업 변화", "eventType": "progress", "reviewed": false },
-    { "eventKey": "promotion", "ko": "승진", "eventType": "progress", "reviewed": false },
-    { "eventKey": "resignation", "ko": "퇴사", "eventType": "progress", "reviewed": false },
-    { "eventKey": "business_start", "ko": "사업 시작·개업", "eventType": "hybrid", "reviewed": false },
-    { "eventKey": "relationship_start", "ko": "연애 시작", "eventType": "progress", "reviewed": false },
-    { "eventKey": "relationship_end", "ko": "이별", "eventType": "progress", "reviewed": false },
-    { "eventKey": "marriage", "ko": "결혼", "eventType": "hybrid", "reviewed": false },
-    { "eventKey": "childbirth", "ko": "출산", "eventType": "hybrid", "reviewed": false },
-    { "eventKey": "relocation", "ko": "이사", "eventType": "hybrid", "reviewed": false },
-    { "eventKey": "contract", "ko": "계약", "eventType": "instant", "reviewed": false },
-    { "eventKey": "document", "ko": "문서·서류", "eventType": "instant", "reviewed": false },
-    { "eventKey": "wealth_change", "ko": "재물 변화(총괄)", "eventType": "progress", "reviewed": false },
-    { "eventKey": "income_change", "ko": "수입 변화", "eventType": "progress", "reviewed": false },
-    { "eventKey": "expense_risk", "ko": "지출·손재 위험", "eventType": "progress", "reviewed": false },
-    { "eventKey": "windfall", "ko": "횡재(로또 등 — 표현 제한)", "eventType": "instant", "reviewed": false },
-    { "eventKey": "speculation_risk", "ko": "투기 리스크(주식 등 — 경고 중심)", "eventType": "progress", "reviewed": false },
-    { "eventKey": "asset_volatility", "ko": "자산 변동성", "eventType": "progress", "reviewed": false },
-    { "eventKey": "education_start", "ko": "학업 시작·입학", "eventType": "hybrid", "reviewed": false },
-    { "eventKey": "education_complete", "ko": "학업 완료·졸업", "eventType": "progress", "reviewed": false },
-    { "eventKey": "exam", "ko": "시험", "eventType": "instant", "reviewed": false },
-    { "eventKey": "health_issue", "ko": "건강 문제", "eventType": "progress", "reviewed": false },
-    { "eventKey": "surgery", "ko": "수술(의료 조언 아님 고지)", "eventType": "instant", "reviewed": false },
-    { "eventKey": "family_change", "ko": "가족 변화", "eventType": "progress", "reviewed": false },
-    { "eventKey": "lawsuit", "ko": "소송·분쟁", "eventType": "progress", "reviewed": false },
-    { "eventKey": "travel", "ko": "여행·출장", "eventType": "instant", "reviewed": false }
+    {
+      "eventKey": "career_change",
+      "ko": "이직·직업 변화",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "job_gain",
+      "ko": "취업·합격",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "promotion",
+      "ko": "승진·인정",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "business_start",
+      "ko": "사업 시작·개업",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "business_expansion",
+      "ko": "사업 확장",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "wealth_change",
+      "ko": "재물 변화",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "windfall",
+      "ko": "횡재(표현 제한)",
+      "eventType": "instant",
+      "reviewed": false
+    },
+    {
+      "eventKey": "contract_document",
+      "ko": "계약·문서",
+      "eventType": "instant",
+      "reviewed": false
+    },
+    {
+      "eventKey": "education_admission",
+      "ko": "합격·진학·자격",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "education_completion",
+      "ko": "수료·졸업",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "relationship_change",
+      "ko": "관계 변화",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "new_relationship",
+      "ko": "새 인연",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "marriage_signal",
+      "ko": "결혼 신호",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "childbirth",
+      "ko": "출산·자녀",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "relocation",
+      "ko": "이사·이동",
+      "eventType": "hybrid",
+      "reviewed": false
+    },
+    {
+      "eventKey": "legal_conflict",
+      "ko": "법적 갈등",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "health_attention",
+      "ko": "건강 주의",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "social_conflict",
+      "ko": "사회적 갈등",
+      "eventType": "instant",
+      "reviewed": false
+    },
+    {
+      "eventKey": "preparation_delay",
+      "ko": "준비·지연",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "creative_output",
+      "ko": "결과물·창작",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
+      "eventKey": "public_exposure",
+      "ko": "공개 노출·평가",
+      "eventType": "instant",
+      "reviewed": false
+    }
   ]
 }

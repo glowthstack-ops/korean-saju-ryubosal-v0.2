@@ -15,7 +15,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from saju_engines import EventScorer, GraphIndex, filter_year_candidates, load_event_graph
+from saju_engines import EventEngineV2, GraphIndex, filter_year_candidates, load_event_graph
 from saju_engines.chart_interpretation import build_luck_grounding
 from saju_engines.context_reducer import (
     build_llm_input,
@@ -26,6 +26,7 @@ from saju_engines.context_reducer import (
 from saju_engines.conversation import ConversationEngine
 from saju_engines.conversation_store import ConversationStore
 from saju_engines.date_selection import DateSelectionEngine
+from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.persona import PersonaEngine
 from saju_engines.planner import build_execution_plan
@@ -35,6 +36,7 @@ from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.topic_builder import build_lifestyle_context
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef
+from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES
 from saju_shared_types.events import EventKey
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import IntentJson, QueryType, SubjectKind, SubjectRef
@@ -50,6 +52,7 @@ from saju_shared_types.topic_context import PeriodSpec
 
 from . import llm_client
 from .manse_service import calculate, luck_days, luck_months
+from .personalization import fetch_personal_inputs
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
@@ -79,16 +82,14 @@ _POLICY_ANSWERS = {
 _SCORE_LEVELS = {GanjiLevel.YEAR, GanjiLevel.MONTH}
 
 # 모듈 캐시(사전·그래프는 결정적 — 프로세스 1회 로드).
-_scorer: EventScorer | None = None
+_scorer: EventEngineV2 | None = None
 _graph_index: GraphIndex | None = None
 _date_engine: DateSelectionEngine | None = None
 _persona_engine: PersonaEngine | None = None
+_intent_filter: IntentEventFilter | None = None
 
-# 택일 목적으로 인정되는 이벤트(purpose_profiles 키) — 그 외는 이사로 폴백.
-_DATE_PURPOSES = {
-    EventKey.RELOCATION, EventKey.CONTRACT, EventKey.MARRIAGE,
-    EventKey.SURGERY, EventKey.BUSINESS_START, EventKey.WINDFALL,
-}
+# 택일 목적으로 인정되는 이벤트(purpose_profiles 키) — 그 외는 이사로 폴백. 21키 기준(Phase 7).
+_DATE_PURPOSES = DATE_PURPOSES
 _WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
 # 과거 회고 신호 — 있으면 미래지향 앵커링(default_period)을 적용하지 않는다.
 # 과거형 어미('쉬었던/언제였을까' 등) 포함 — 미감지 시 과거 질문이 미래 창으로
@@ -117,10 +118,10 @@ class ChatResponse(BaseModel):
     product_suggestion: dict | None = None
 
 
-def _get_scorer() -> EventScorer:
+def _get_scorer() -> EventEngineV2:
     global _scorer
     if _scorer is None:
-        _scorer = EventScorer(_DICTS)
+        _scorer = EventEngineV2(_DICTS)
     return _scorer
 
 
@@ -129,6 +130,13 @@ def _get_graph() -> GraphIndex:
     if _graph_index is None:
         _graph_index = GraphIndex(load_event_graph(_COMPILED_GRAPH))
     return _graph_index
+
+
+def _get_intent_filter() -> IntentEventFilter:
+    global _intent_filter
+    if _intent_filter is None:
+        _intent_filter = IntentEventFilter(_DICTS)
+    return _intent_filter
 
 
 def _get_date_engine() -> DateSelectionEngine:
@@ -354,6 +362,8 @@ def chat(
     thread_id: str | None = None,
     store: ConversationStore | None = None,
     persona: PersonaConfig | None = None,
+    owner_id: str | None = None,
+    subject_id: str | None = None,
 ) -> ChatResponse:
     """질문을 풀이한다(첫 intent 기준, 다중 intent는 메타로 동반).
 
@@ -435,7 +445,12 @@ def chat(
     # 만세 계산(캐시) + 스코어링 + 계층 필터.
     chart_birth = birth.model_copy(update={"reference_date": today})
     result = calculate(chart_birth)
-    all_scored = _get_scorer().score(result, levels=_SCORE_LEVELS)
+    # 개인화(저장된 subject 한정): 현실 신호 시그니처 + 활성 코호트 → LEI 정렬축. 미설정·실패 시
+    # life_fit·personal_match=0이라 기존 정렬과 동치(무개인화 폴백, 규칙11).
+    _sig, _cohort = fetch_personal_inputs(owner_id, subject_id, result)
+    all_scored = _get_scorer().score_legacy_personalized(
+        result, levels=_SCORE_LEVELS, signature=_sig, cohort=_cohort,
+    )
 
     # E9 Lifestyle — 특정 기간(일/월/연) 총운은 인생 사건이 아니라 생활 슬롯으로
     # 한정한다(2026-06-12 지적). 위계(대운>세운>월>일)에서 상위가 형성한 기운이 하위
@@ -506,6 +521,9 @@ def chat(
                 if (c.event_key, c.period) not in seen
                 and in_question_range(c.period, win_start, win_end)
             ]
+        # 의도 필터(intent_event_filter) — 질문 도메인과 무관한 후보를 억제한다.
+        # 빈 결과를 만들지 않으며(fallback 원본 유지), general 도메인은 전부 통과.
+        candidates = _get_intent_filter().filter(candidates, str(intent.domain))
         # Graph Retrieval — plan의 graphScope만(전체 검색 금지).
         scope: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
         bundles = _get_graph().retrieve(scope)
@@ -574,7 +592,7 @@ def chat(
             result_win = result.model_copy(deep=True)
             assert result_win.luck_cycles is not None
             result_win.luck_cycles.monthly_luck = monthly_all
-            scored_win = _get_scorer().score(result_win, levels={GanjiLevel.MONTH})
+            scored_win = _get_scorer().score_legacy(result_win, levels={GanjiLevel.MONTH})
             overview = build_monthly_overview(result_win, scored_win, months=window_months)
             # 창 내 월 후보(기본 월운 범위 밖 과거 달 포함)를 메인 후보에도 보존 —
             # '재취업한 달은 언제' 류에서 표와 근거 경로가 같은 달을 가리키게(2026-06-12).
@@ -599,7 +617,7 @@ def chat(
                 result_year = result.model_copy(deep=True)
                 assert result_year.luck_cycles is not None
                 result_year.luck_cycles.monthly_luck = year_months
-                scored_year = _get_scorer().score(result_year, levels={GanjiLevel.MONTH})
+                scored_year = _get_scorer().score_legacy(result_year, levels={GanjiLevel.MONTH})
                 overview = build_monthly_overview(result_year, scored_year, year=target_year)
                 result_for_llm = result_year
         # 신호가 하나도 없는 빈 표는 넣지 않는다(빈 표가 회피를 유발).

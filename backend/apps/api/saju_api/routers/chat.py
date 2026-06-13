@@ -37,6 +37,7 @@ class ChatRequest(BaseModel):
     thread_id: str | None = None  # 지정 시 멀티턴(스레드 상태 복원·갱신)
     persona: PersonaConfig | None = None  # 문체 전용(docs/11 — 점수·판정 불변)
     subject_label: str | None = None  # 대화 기준 사주 별명(저장 표시용)
+    subject_id: str | None = None  # 저장된 사주 id — 개인화(현실 신호 시그니처·코호트, 소유자 검증)
 
 
 class ChatThreadSummary(BaseModel):
@@ -71,6 +72,7 @@ def chat(
     res = chat_service.chat(
         req.birth, req.question, req.today, req.dry_run,
         thread_id=req.thread_id, persona=req.persona,
+        owner_id=owner_id, subject_id=req.subject_id,
     )
     if owner_id and not req.dry_run and req.thread_id and res.answer:
         try:

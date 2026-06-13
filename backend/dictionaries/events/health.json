@@ -9,7 +9,7 @@
       },
       "eventCandidates": [
         {
-          "event": "health_issue",
+          "event": "health_attention",
           "score": 0.55,
           "polarity": "negative_or_forced"
         }
@@ -23,13 +23,8 @@
       },
       "eventCandidates": [
         {
-          "event": "health_issue",
+          "event": "health_attention",
           "score": 0.5,
-          "polarity": "conditional"
-        },
-        {
-          "event": "surgery",
-          "score": 0.4,
           "polarity": "conditional"
         }
       ],
@@ -43,7 +38,7 @@
       },
       "eventCandidates": [
         {
-          "event": "health_issue",
+          "event": "health_attention",
           "score": 0.5,
           "polarity": "negative_or_forced"
         }
@@ -58,7 +53,7 @@
       },
       "eventCandidates": [
         {
-          "event": "health_issue",
+          "event": "health_attention",
           "score": 0.45,
           "polarity": "conditional"
         }
@@ -72,7 +67,7 @@
       },
       "eventCandidates": [
         {
-          "event": "health_issue",
+          "event": "health_attention",
           "score": 0.4,
           "polarity": "conditional"
         }
@@ -86,13 +81,8 @@
       },
       "eventCandidates": [
         {
-          "event": "health_issue",
+          "event": "health_attention",
           "score": -0.25,
-          "polarity": "neutral"
-        },
-        {
-          "event": "surgery",
-          "score": -0.2,
           "polarity": "neutral"
         }
       ],
@@ -105,12 +95,12 @@
       },
       "eventCandidates": [
         {
-          "event": "health_issue",
+          "event": "health_attention",
           "score": -0.2,
           "polarity": "neutral"
         },
         {
-          "event": "lawsuit",
+          "event": "legal_conflict",
           "score": -0.15,
           "polarity": "neutral"
         }

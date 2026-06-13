@@ -14,27 +14,26 @@ from saju_shared_types.events import EventKey
 from saju_shared_types.execution_plan import EngineCall, ExecutionPlan
 from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectMode
 
-# 분야별 Graph 조회 범위 (docs/03 C — graphScope 기본값).
+# 분야별 Graph 조회 범위 (docs/03 C — graphScope 기본값). 21키 EventKeyV2 기준(Phase 7).
 _DOMAIN_GRAPH_SCOPE: dict[Domain, list[EventKey]] = {
     Domain.CAREER: [
-        EventKey.CAREER_CHANGE, EventKey.PROMOTION, EventKey.RESIGNATION,
-        EventKey.BUSINESS_START, EventKey.CONTRACT,
+        EventKey.CAREER_CHANGE, EventKey.JOB_GAIN, EventKey.PROMOTION,
+        EventKey.BUSINESS_START, EventKey.BUSINESS_EXPANSION,
+        EventKey.CREATIVE_OUTPUT, EventKey.PUBLIC_EXPOSURE, EventKey.CONTRACT_DOCUMENT,
     ],
     Domain.RELATIONSHIP: [
-        EventKey.RELATIONSHIP_START, EventKey.RELATIONSHIP_END,
-        EventKey.MARRIAGE, EventKey.CHILDBIRTH,
+        EventKey.RELATIONSHIP_CHANGE, EventKey.NEW_RELATIONSHIP,
+        EventKey.MARRIAGE_SIGNAL, EventKey.CHILDBIRTH,
     ],
-    Domain.RELOCATION: [EventKey.RELOCATION, EventKey.TRAVEL, EventKey.CONTRACT],
+    Domain.RELOCATION: [EventKey.RELOCATION, EventKey.CONTRACT_DOCUMENT],
     Domain.WEALTH: [
-        EventKey.WEALTH_CHANGE, EventKey.INCOME_CHANGE, EventKey.EXPENSE_RISK,
-        EventKey.WINDFALL, EventKey.SPECULATION_RISK, EventKey.ASSET_VOLATILITY,
-        EventKey.DOCUMENT,
+        EventKey.WEALTH_CHANGE, EventKey.WINDFALL, EventKey.CONTRACT_DOCUMENT,
     ],
     Domain.EDUCATION: [
-        EventKey.EDUCATION_START, EventKey.EDUCATION_COMPLETE, EventKey.EXAM,
-        EventKey.DOCUMENT,
+        EventKey.EDUCATION_ADMISSION, EventKey.EDUCATION_COMPLETION,
+        EventKey.CONTRACT_DOCUMENT,
     ],
-    Domain.HEALTH: [EventKey.HEALTH_ISSUE, EventKey.SURGERY],
+    Domain.HEALTH: [EventKey.HEALTH_ATTENTION],
     Domain.GENERAL: [],
 }
 

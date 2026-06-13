@@ -1,0 +1,27 @@
+{
+  "schema": "event_conflict_resolver_duration.v1",
+  "reviewed": false,
+  "purpose": "여러 이벤트 후보가 동시에 나올 때 대표 이벤트를 결정하고(우선순위), 사건을 즉효/진행/구조/결과/반복으로 분류해 일·월운의 과잉 예측을 막는다.",
+  "event_conflict_resolver": {
+    "purpose": "같은 신호가 여러 이벤트로 튈 때 최종 대표 이벤트를 결정한다.",
+    "priority_rules": [
+      {"if": ["day_branch_activated", "wealth_or_authority_signal", "relationship_context_exists"], "prefer": "relationship_change", "over": ["contract_document", "wealth_change"]},
+      {"if": ["day_branch_activated", "resource_or_wealth_signal", "relocation_relation_signal_exists"], "prefer": "relocation", "over": ["contract_document"]},
+      {"if": ["month_pillar_activated", "authority_or_output_signal", "career_context_exists"], "prefer": "career_change", "over": ["social_conflict", "contract_document"]},
+      {"if": ["hour_pillar_activated", "output_signal", "childbirth_profile_gate_false"], "prefer": "creative_output", "over": ["childbirth"]},
+      {"if": ["wealth_signal", "peer_signal", "no_business_context"], "prefer": "wealth_change", "over": ["business_start"]}
+    ],
+    "tie_breaker": "동점·근접 시 evidence_grading 등급이 높은 후보 우선, 등급도 같으면 질문 의도(intent_event_filter) include 후보 우선."
+  },
+  "event_duration_classifier": {
+    "purpose": "사건을 즉효성, 진행형, 결과형, 구조형, 반복형으로 분류한다(일운 풀이의 과잉 해석 방지).",
+    "event_duration_types": {
+      "instant": {"description": "당일 또는 며칠 안에 체감되는 사건", "events": ["windfall", "social_conflict", "contract_document", "health_attention", "public_exposure"], "main_layers": ["wolwoon", "ilwoon"]},
+      "progressive": {"description": "몇 달 이상 진행되는 사건", "events": ["career_change", "business_start", "relationship_change", "relocation"], "main_layers": ["sewoon", "wolwoon"]},
+      "structural": {"description": "대운·세운에서 형성되는 큰 구조 변화", "events": ["job_gain", "marriage_signal", "education_admission", "relocation", "business_expansion"], "main_layers": ["daewoon", "sewoon"]},
+      "result": {"description": "이미 준비된 일이 결과로 드러나는 사건", "events": ["education_completion", "promotion", "contract_document", "creative_output"], "main_layers": ["sewoon", "wolwoon", "ilwoon"]},
+      "repeating": {"description": "복음·병존·자형 등으로 반복되는 사건", "events": ["social_conflict", "health_attention", "relationship_change", "career_change"], "main_signals": ["fueum", "byeongjon", "self_punishment"]}
+    },
+    "day_level_guard": "일운 단독으로 structural(결혼·취업·이사 등) 사건을 확정하지 않는다(택일·실행일·체감 한정)."
+  }
+}

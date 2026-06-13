@@ -18,7 +18,7 @@
       ],
       "eventDomains": [
         "career_change",
-        "contract",
+        "contract_document",
         "relocation"
       ],
       "baseScore": 0.6,
@@ -40,8 +40,8 @@
         "합거"
       ],
       "eventDomains": [
-        "contract",
-        "relationship_start"
+        "contract_document",
+        "new_relationship"
       ],
       "baseScore": 0.6,
       "reviewed": false
@@ -62,8 +62,8 @@
         "합거"
       ],
       "eventDomains": [
-        "document",
-        "relationship_start"
+        "contract_document",
+        "new_relationship"
       ],
       "baseScore": 0.6,
       "reviewed": false
@@ -84,8 +84,8 @@
         "합거"
       ],
       "eventDomains": [
-        "relationship_start",
-        "relationship_end"
+        "new_relationship",
+        "relationship_change"
       ],
       "baseScore": 0.6,
       "reviewed": false
@@ -106,7 +106,7 @@
         "합거"
       ],
       "eventDomains": [
-        "relationship_start",
+        "new_relationship",
         "wealth_change"
       ],
       "baseScore": 0.6,
@@ -126,8 +126,8 @@
         "합반"
       ],
       "eventDomains": [
-        "relationship_start",
-        "contract"
+        "new_relationship",
+        "contract_document"
       ],
       "baseScore": 0.5,
       "reviewed": false
@@ -146,8 +146,8 @@
         "합반"
       ],
       "eventDomains": [
-        "relationship_start",
-        "contract"
+        "new_relationship",
+        "contract_document"
       ],
       "baseScore": 0.5,
       "reviewed": false
@@ -166,8 +166,8 @@
         "합반"
       ],
       "eventDomains": [
-        "relationship_start",
-        "contract"
+        "new_relationship",
+        "contract_document"
       ],
       "baseScore": 0.5,
       "reviewed": false
@@ -186,8 +186,8 @@
         "합반"
       ],
       "eventDomains": [
-        "relationship_start",
-        "contract"
+        "new_relationship",
+        "contract_document"
       ],
       "baseScore": 0.5,
       "reviewed": false
@@ -206,8 +206,8 @@
         "합반"
       ],
       "eventDomains": [
-        "relationship_start",
-        "contract"
+        "new_relationship",
+        "contract_document"
       ],
       "baseScore": 0.5,
       "reviewed": false
@@ -226,8 +226,8 @@
         "합반"
       ],
       "eventDomains": [
-        "relationship_start",
-        "contract"
+        "new_relationship",
+        "contract_document"
       ],
       "baseScore": 0.5,
       "reviewed": false
@@ -414,8 +414,8 @@
         "충거"
       ],
       "eventDomains": [
-        "relationship_end",
-        "health_issue"
+        "relationship_change",
+        "health_attention"
       ],
       "baseScore": 0.7,
       "reviewed": false
@@ -434,8 +434,8 @@
         "충거"
       ],
       "eventDomains": [
-        "relationship_end",
-        "document"
+        "relationship_change",
+        "contract_document"
       ],
       "baseScore": 0.7,
       "reviewed": false
@@ -455,7 +455,6 @@
       ],
       "eventDomains": [
         "relocation",
-        "travel",
         "career_change"
       ],
       "baseScore": 0.7,
@@ -475,8 +474,8 @@
         "충거"
       ],
       "eventDomains": [
-        "document",
-        "family_change"
+        "contract_document",
+        "relationship_change"
       ],
       "baseScore": 0.7,
       "reviewed": false
@@ -496,7 +495,6 @@
       ],
       "eventDomains": [
         "relocation",
-        "travel",
         "career_change"
       ],
       "baseScore": 0.7,
@@ -516,8 +514,8 @@
         "충거"
       ],
       "eventDomains": [
-        "document",
-        "lawsuit"
+        "contract_document",
+        "legal_conflict"
       ],
       "baseScore": 0.7,
       "reviewed": false
@@ -536,9 +534,9 @@
         "형발"
       ],
       "eventDomains": [
-        "lawsuit",
-        "health_issue",
-        "document"
+        "legal_conflict",
+        "health_attention",
+        "contract_document"
       ],
       "baseScore": 0.6,
       "reviewed": false
@@ -557,8 +555,8 @@
         "형발"
       ],
       "eventDomains": [
-        "lawsuit",
-        "family_change"
+        "legal_conflict",
+        "relationship_change"
       ],
       "baseScore": 0.6,
       "reviewed": false
@@ -576,8 +574,8 @@
         "형발"
       ],
       "eventDomains": [
-        "relationship_end",
-        "lawsuit"
+        "relationship_change",
+        "legal_conflict"
       ],
       "baseScore": 0.55,
       "reviewed": false
@@ -595,8 +593,8 @@
         "형발"
       ],
       "eventDomains": [
-        "health_issue",
-        "expense_risk"
+        "health_attention",
+        "wealth_change"
       ],
       "baseScore": 0.45,
       "reviewed": false
@@ -614,8 +612,8 @@
         "형발"
       ],
       "eventDomains": [
-        "health_issue",
-        "expense_risk"
+        "health_attention",
+        "wealth_change"
       ],
       "baseScore": 0.45,
       "reviewed": false
@@ -633,8 +631,8 @@
         "형발"
       ],
       "eventDomains": [
-        "health_issue",
-        "expense_risk"
+        "health_attention",
+        "wealth_change"
       ],
       "baseScore": 0.45,
       "reviewed": false
@@ -652,8 +650,8 @@
         "형발"
       ],
       "eventDomains": [
-        "health_issue",
-        "expense_risk"
+        "health_attention",
+        "wealth_change"
       ],
       "baseScore": 0.45,
       "reviewed": false
@@ -671,7 +669,7 @@
         "파손"
       ],
       "eventDomains": [
-        "expense_risk"
+        "wealth_change"
       ],
       "baseScore": 0.3,
       "reviewed": false
@@ -689,7 +687,7 @@
         "파손"
       ],
       "eventDomains": [
-        "expense_risk"
+        "wealth_change"
       ],
       "baseScore": 0.3,
       "reviewed": false
@@ -707,7 +705,7 @@
         "파손"
       ],
       "eventDomains": [
-        "expense_risk"
+        "wealth_change"
       ],
       "baseScore": 0.3,
       "reviewed": false
@@ -725,7 +723,7 @@
         "파손"
       ],
       "eventDomains": [
-        "expense_risk"
+        "wealth_change"
       ],
       "baseScore": 0.3,
       "reviewed": false
@@ -743,7 +741,7 @@
         "파손"
       ],
       "eventDomains": [
-        "expense_risk"
+        "wealth_change"
       ],
       "baseScore": 0.3,
       "reviewed": false
@@ -761,7 +759,7 @@
         "파손"
       ],
       "eventDomains": [
-        "expense_risk"
+        "wealth_change"
       ],
       "baseScore": 0.3,
       "reviewed": false
@@ -779,8 +777,8 @@
         "해손"
       ],
       "eventDomains": [
-        "relationship_end",
-        "health_issue"
+        "relationship_change",
+        "health_attention"
       ],
       "baseScore": 0.35,
       "reviewed": false
@@ -798,8 +796,8 @@
         "해손"
       ],
       "eventDomains": [
-        "relationship_end",
-        "health_issue"
+        "relationship_change",
+        "health_attention"
       ],
       "baseScore": 0.35,
       "reviewed": false
@@ -817,8 +815,8 @@
         "해손"
       ],
       "eventDomains": [
-        "relationship_end",
-        "health_issue"
+        "relationship_change",
+        "health_attention"
       ],
       "baseScore": 0.35,
       "reviewed": false
@@ -836,8 +834,8 @@
         "해손"
       ],
       "eventDomains": [
-        "relationship_end",
-        "health_issue"
+        "relationship_change",
+        "health_attention"
       ],
       "baseScore": 0.35,
       "reviewed": false
@@ -855,8 +853,8 @@
         "해손"
       ],
       "eventDomains": [
-        "relationship_end",
-        "health_issue"
+        "relationship_change",
+        "health_attention"
       ],
       "baseScore": 0.35,
       "reviewed": false
@@ -874,8 +872,8 @@
         "해손"
       ],
       "eventDomains": [
-        "relationship_end",
-        "health_issue"
+        "relationship_change",
+        "health_attention"
       ],
       "baseScore": 0.35,
       "reviewed": false
@@ -893,8 +891,8 @@
       ],
       "pattern": "운 지지가 원국 공망 지지를 채우거나(전실) 충(발동)/합(해소)으로 자극",
       "eventDomains": [
-        "document",
-        "relationship_end"
+        "contract_document",
+        "relationship_change"
       ],
       "baseScore": 0.4,
       "reviewed": false
@@ -938,7 +936,7 @@
       ],
       "pattern": "한 기둥의 천간·지지가 동일 오행 — 비겁 강화, 배우자궁 주제",
       "eventDomains": [
-        "relationship_end"
+        "relationship_change"
       ],
       "baseScore": 0.35,
       "reviewed": false
@@ -957,7 +955,7 @@
       ],
       "eventDomains": [
         "career_change",
-        "relationship_end"
+        "relationship_change"
       ],
       "baseScore": 0.5,
       "reviewed": false
@@ -976,7 +974,7 @@
       ],
       "eventDomains": [
         "career_change",
-        "relationship_end"
+        "relationship_change"
       ],
       "baseScore": 0.5,
       "reviewed": false
@@ -995,7 +993,7 @@
       ],
       "eventDomains": [
         "career_change",
-        "relationship_end"
+        "relationship_change"
       ],
       "baseScore": 0.5,
       "reviewed": false
@@ -1014,7 +1012,7 @@
       ],
       "eventDomains": [
         "career_change",
-        "relationship_end"
+        "relationship_change"
       ],
       "baseScore": 0.5,
       "reviewed": false
@@ -1032,8 +1030,7 @@
         "원진"
       ],
       "eventDomains": [
-        "relationship_end",
-        "family_change"
+        "relationship_change"
       ],
       "baseScore": 0.4,
       "reviewed": false
@@ -1051,8 +1048,7 @@
         "원진"
       ],
       "eventDomains": [
-        "relationship_end",
-        "family_change"
+        "relationship_change"
       ],
       "baseScore": 0.4,
       "reviewed": false
@@ -1070,8 +1066,7 @@
         "원진"
       ],
       "eventDomains": [
-        "relationship_end",
-        "family_change"
+        "relationship_change"
       ],
       "baseScore": 0.4,
       "reviewed": false
@@ -1089,8 +1084,7 @@
         "원진"
       ],
       "eventDomains": [
-        "relationship_end",
-        "family_change"
+        "relationship_change"
       ],
       "baseScore": 0.4,
       "reviewed": false
@@ -1108,8 +1102,7 @@
         "원진"
       ],
       "eventDomains": [
-        "relationship_end",
-        "family_change"
+        "relationship_change"
       ],
       "baseScore": 0.4,
       "reviewed": false
@@ -1127,8 +1120,7 @@
         "원진"
       ],
       "eventDomains": [
-        "relationship_end",
-        "family_change"
+        "relationship_change"
       ],
       "baseScore": 0.4,
       "reviewed": false

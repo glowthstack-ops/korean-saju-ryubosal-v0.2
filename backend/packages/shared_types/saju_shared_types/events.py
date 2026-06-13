@@ -14,44 +14,11 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-
-class EventKey(StrEnum):
-    """이벤트 표준 키 (docs/02 Event Taxonomy 전체 목록).
-
-    wealth_change 계열은 하위 5종으로 세분된다. windfall(로또 등)·speculation_risk
-    (주식 등)는 표현 제한 대상이다(절대 원칙 8, docs/08 G6).
-    """
-
-    CAREER_CHANGE = "career_change"
-    PROMOTION = "promotion"
-    RESIGNATION = "resignation"
-    BUSINESS_START = "business_start"
-
-    RELATIONSHIP_START = "relationship_start"
-    RELATIONSHIP_END = "relationship_end"
-    MARRIAGE = "marriage"
-    CHILDBIRTH = "childbirth"
-
-    RELOCATION = "relocation"
-    CONTRACT = "contract"
-    DOCUMENT = "document"
-
-    WEALTH_CHANGE = "wealth_change"
-    INCOME_CHANGE = "income_change"
-    EXPENSE_RISK = "expense_risk"
-    WINDFALL = "windfall"  # 표현 제한 필수
-    SPECULATION_RISK = "speculation_risk"  # 변동성/리스크 경고 중심
-    ASSET_VOLATILITY = "asset_volatility"
-
-    EDUCATION_START = "education_start"
-    EDUCATION_COMPLETE = "education_complete"
-    EXAM = "exam"
-
-    HEALTH_ISSUE = "health_issue"
-    SURGERY = "surgery"
-    FAMILY_CHANGE = "family_change"
-    LAWSUIT = "lawsuit"
-    TRAVEL = "travel"
+# v2.2 Phase 7 하드 스위치(2026-06-13 사용자 확정): 표준 이벤트 키를 21키 EventKeyV2로 일원화한다.
+# 구 25키는 폐기하고 EventKey는 EventKeyV2 별칭으로 둔다(타입 주석 호환). 구→신 매핑·한글·카테고리·
+# 금기룰은 event_taxonomy_v2 참조. EventType/EventPolarity/Confidence/Signal/EventCandidate는 DTO로
+# 유지(EventEngineV2가 어댑터로 산출). 점수 산출은 EventEngineV2가 담당하고 구 EventScorer는 제거됨.
+from .event_engine import EventKeyV2 as EventKey  # noqa: F401  (canonical 21-key alias)
 
 
 class EventType(StrEnum):
@@ -115,3 +82,6 @@ class EventCandidate(BaseModel):
     evidence_path: list[str] = Field(default_factory=list)
     # 클램프(0~100) 전 raw 가중 합 — 동점 후보의 우위 변별용(내부 정렬).
     raw_total: float = 0.0
+    # Life Event Inference 정렬축 전달(EventCandidateV2→어댑터) — 0이면 기존 score 정렬과 동치.
+    life_fit: float = 0.0
+    personal_match: float = 0.0

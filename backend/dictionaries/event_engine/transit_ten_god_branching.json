@@ -1,0 +1,1689 @@
+{
+  "schema": "transit_ten_god_event_branching.v1",
+  "reviewed": false,
+  "scope": {
+    "description": "운에서 들어오는 십성을 기준으로 사건 후보를 분기한다.",
+    "basis": "대운, 세운, 월운, 일운의 천간·지지 십성을 일간 기준으로 계산한 결과를 사용한다.",
+    "important_note": "LLM은 간지나 십성을 직접 계산하지 않고, 엔진이 계산한 십성 신호만 입력받는다.",
+    "excluded_from_this_file": [
+      "합충형파해",
+      "공망",
+      "십이운성",
+      "신강약",
+      "용신기신 산출",
+      "궁성 활성화",
+      "실제 택일 계산"
+    ]
+  },
+  "ten_god_keys": {
+    "BIJIAN": "비견",
+    "JIECAI": "겁재",
+    "SHISHEN": "식신",
+    "SHANGGUAN": "상관",
+    "ZHENGCAI": "정재",
+    "PIANCAI": "편재",
+    "ZHENGGUAN": "정관",
+    "QISHA": "편관",
+    "ZHENGYIN": "정인",
+    "PIANYIN": "편인"
+  },
+  "ten_god_groups": {
+    "peer": [
+      "BIJIAN",
+      "JIECAI"
+    ],
+    "output": [
+      "SHISHEN",
+      "SHANGGUAN"
+    ],
+    "wealth": [
+      "ZHENGCAI",
+      "PIANCAI"
+    ],
+    "authority": [
+      "ZHENGGUAN",
+      "QISHA"
+    ],
+    "resource": [
+      "ZHENGYIN",
+      "PIANYIN"
+    ]
+  },
+  "event_keys": {
+    "career_change": "이직·직무변동·퇴사·조직 변화",
+    "job_gain": "취업·입사·직책 획득",
+    "promotion": "승진·직위 상승·공적 인정",
+    "business_start": "사업 시작·창업·독립 프로젝트",
+    "business_expansion": "사업 확장·거래처 확대",
+    "wealth_change": "수입·지출·재물 변동",
+    "windfall": "단기 횡재·투기성 수익·예상 밖 금전",
+    "contract_document": "계약·문서·승인·증명",
+    "education_admission": "입학·합격·자격 취득",
+    "education_completion": "졸업·수료·결과물 완성",
+    "relationship_change": "연애·배우자·관계 변화",
+    "new_relationship": "새 만남·연애 시작",
+    "marriage_signal": "혼인·공식 관계화",
+    "childbirth": "출산·자녀·결과물 탄생",
+    "relocation": "이사·이동·거처 변화",
+    "legal_conflict": "법적 문제·규칙 위반·제재",
+    "health_attention": "건강 주의·컨디션 저하·사고 주의",
+    "social_conflict": "대인 갈등·경쟁·분쟁",
+    "preparation_delay": "준비·보류·지연·정체",
+    "creative_output": "창작·표현·성과물 생산",
+    "public_exposure": "노출·홍보·발표·대외 활동"
+  },
+  "layer_roles": {
+    "daewoon": {
+      "name": "대운",
+      "role": "장기 배경과 큰 방향성",
+      "event_power": "단독으로는 사건 확정보다 환경 변화 가능성을 만든다.",
+      "default_weight": 0.35
+    },
+    "sewoon": {
+      "name": "세운",
+      "role": "해당 연도의 사건화 가능성",
+      "event_power": "대운의 배경을 실제 연도 사건으로 끌어낸다.",
+      "default_weight": 0.35
+    },
+    "wolwoon": {
+      "name": "월운",
+      "role": "월 단위 활성화와 사건 발생 구간",
+      "event_power": "세운 후보를 특정 월에 활성화한다.",
+      "default_weight": 0.2
+    },
+    "ilwoon": {
+      "name": "일운",
+      "role": "실행·체감·발생일 트리거",
+      "event_power": "단독 예측보다 택일·실행일·체감일 판단에 사용한다.",
+      "default_weight": 0.1
+    }
+  },
+  "temporal_modes": {
+    "long_term": {
+      "description": "대운·세운 중심의 장기 진행형 사건",
+      "weights": {
+        "daewoon": 0.35,
+        "sewoon": 0.35,
+        "wolwoon": 0.2,
+        "ilwoon": 0.1
+      },
+      "typical_events": [
+        "career_change",
+        "job_gain",
+        "promotion",
+        "business_start",
+        "marriage_signal",
+        "relocation",
+        "education_admission",
+        "education_completion"
+      ]
+    },
+    "medium_term": {
+      "description": "세운·월운 중심의 특정 시기 활성 사건",
+      "weights": {
+        "daewoon": 0.2,
+        "sewoon": 0.35,
+        "wolwoon": 0.35,
+        "ilwoon": 0.1
+      },
+      "typical_events": [
+        "wealth_change",
+        "relationship_change",
+        "contract_document",
+        "business_expansion",
+        "public_exposure",
+        "social_conflict"
+      ]
+    },
+    "immediate": {
+      "description": "월운·일운 중심의 즉효성 사건",
+      "weights": {
+        "daewoon": 0.1,
+        "sewoon": 0.2,
+        "wolwoon": 0.35,
+        "ilwoon": 0.35
+      },
+      "typical_events": [
+        "windfall",
+        "contract_document",
+        "legal_conflict",
+        "health_attention",
+        "social_conflict",
+        "public_exposure"
+      ]
+    }
+  },
+  "polarity_rules": {
+    "YONG": {
+      "name": "용신성 신호",
+      "effect": "사건이 기회·성취·확장 쪽으로 발현되기 쉽다.",
+      "score_multiplier": 1.075
+    },
+    "HEE": {
+      "name": "희신성 신호",
+      "effect": "사건이 비교적 순조롭게 보조된다.",
+      "score_multiplier": 1.04
+    },
+    "NEUTRAL": {
+      "name": "중립 신호",
+      "effect": "사건 타입만 판단하고 길흉은 다른 조건으로 판정한다.",
+      "score_multiplier": 1.0
+    },
+    "GI": {
+      "name": "기신성 신호",
+      "effect": "사건이 압박·실패·지연·손실 쪽으로 발현되기 쉽다.",
+      "score_multiplier": 1.075,
+      "quality_flip": true
+    }
+  },
+  "activation_thresholds": {
+    "theme_only": 35,
+    "event_candidate": 55,
+    "strong_event_candidate": 70,
+    "high_probability_event": 82
+  },
+  "single_transit_rules": [
+    {
+      "id": "SINGLE_BIJIAN",
+      "incoming": "BIJIAN",
+      "group": "peer",
+      "base_events": [
+        {
+          "event": "social_conflict",
+          "score": 34,
+          "reason": "동료·경쟁자·동급자 신호"
+        },
+        {
+          "event": "business_start",
+          "score": 26,
+          "reason": "독립성은 있으나 식상·재성 보조가 필요"
+        },
+        {
+          "event": "career_change",
+          "score": 22,
+          "reason": "기존 조직과의 거리감 또는 독립 욕구"
+        }
+      ]
+    },
+    {
+      "id": "SINGLE_JIECAI",
+      "incoming": "JIECAI",
+      "group": "peer",
+      "base_events": [
+        {
+          "event": "wealth_change",
+          "score": 38,
+          "reason": "재물 분탈·공동 자금·지출 증가"
+        },
+        {
+          "event": "social_conflict",
+          "score": 41,
+          "reason": "경쟁·손재·분쟁성 증가"
+        },
+        {
+          "event": "business_start",
+          "score": 26,
+          "reason": "무리한 독립·동업 시도 가능"
+        }
+      ]
+    },
+    {
+      "id": "SINGLE_SHISHEN",
+      "incoming": "SHISHEN",
+      "group": "output",
+      "base_events": [
+        {
+          "event": "creative_output",
+          "score": 41,
+          "reason": "생산·표현·성과물"
+        },
+        {
+          "event": "business_start",
+          "score": 34,
+          "reason": "기술·콘텐츠·생산 기반 사업"
+        },
+        {
+          "event": "childbirth",
+          "score": 30,
+          "reason": "자녀·결과물·탄생 신호"
+        },
+        {
+          "event": "education_completion",
+          "score": 26,
+          "reason": "학습 결과물 완성"
+        }
+      ]
+    },
+    {
+      "id": "SINGLE_SHANGGUAN",
+      "incoming": "SHANGGUAN",
+      "group": "output",
+      "base_events": [
+        {
+          "event": "career_change",
+          "score": 41,
+          "reason": "규칙·상사·조직과의 충돌 또는 이탈"
+        },
+        {
+          "event": "public_exposure",
+          "score": 38,
+          "reason": "발표·표현·외부 노출"
+        },
+        {
+          "event": "legal_conflict",
+          "score": 26,
+          "reason": "관성 동반 시 규칙 위반·제재로 강화"
+        },
+        {
+          "event": "business_start",
+          "score": 30,
+          "reason": "기존 틀을 벗어난 독립 시도"
+        }
+      ]
+    },
+    {
+      "id": "SINGLE_ZHENGCAI",
+      "incoming": "ZHENGCAI",
+      "group": "wealth",
+      "base_events": [
+        {
+          "event": "wealth_change",
+          "score": 41,
+          "reason": "고정 수입·급여·현실 재물"
+        },
+        {
+          "event": "contract_document",
+          "score": 34,
+          "reason": "정상 거래·계약·구매"
+        },
+        {
+          "event": "relationship_change",
+          "score": 34,
+          "reason": "남성 명식에서는 배우자·연애 신호로 강화"
+        },
+        {
+          "event": "marriage_signal",
+          "score": 26,
+          "reason": "정관·정인 또는 배우자궁 활성 필요"
+        }
+      ]
+    },
+    {
+      "id": "SINGLE_PIANCAI",
+      "incoming": "PIANCAI",
+      "group": "wealth",
+      "base_events": [
+        {
+          "event": "wealth_change",
+          "score": 41,
+          "reason": "유동 자금·거래·외부 기회"
+        },
+        {
+          "event": "windfall",
+          "score": 34,
+          "reason": "예상 밖 수익·투기성 재물"
+        },
+        {
+          "event": "business_expansion",
+          "score": 38,
+          "reason": "영업·확장·외부 거래처"
+        },
+        {
+          "event": "new_relationship",
+          "score": 30,
+          "reason": "남성 명식에서는 새로운 이성 인연 신호"
+        }
+      ]
+    },
+    {
+      "id": "SINGLE_ZHENGGUAN",
+      "incoming": "ZHENGGUAN",
+      "group": "authority",
+      "base_events": [
+        {
+          "event": "job_gain",
+          "score": 41,
+          "reason": "직장·직책·공식 역할"
+        },
+        {
+          "event": "promotion",
+          "score": 34,
+          "reason": "책임·인정·공식 지위"
+        },
+        {
+          "event": "contract_document",
+          "score": 30,
+          "reason": "제도권 승인·규칙"
+        },
+        {
+          "event": "marriage_signal",
+          "score": 30,
+          "reason": "여성 명식에서는 배우자·공식 관계 신호"
+        }
+      ]
+    },
+    {
+      "id": "SINGLE_QISHA",
+      "incoming": "QISHA",
+      "group": "authority",
+      "base_events": [
+        {
+          "event": "career_change",
+          "score": 41,
+          "reason": "압박·위기·강제적 역할 변화"
+        },
+        {
+          "event": "health_attention",
+          "score": 34,
+          "reason": "스트레스·사고·과로 신호"
+        },
+        {
+          "event": "legal_conflict",
+          "score": 30,
+          "reason": "제재·감사·규제성 압박"
+        },
+        {
+          "event": "job_gain",
+          "score": 26,
+          "reason": "긴급한 직책·고압적 조직 진입"
+        }
+      ]
+    },
+    {
+      "id": "SINGLE_ZHENGYIN",
+      "incoming": "ZHENGYIN",
+      "group": "resource",
+      "base_events": [
+        {
+          "event": "contract_document",
+          "score": 41,
+          "reason": "문서·승인·보호·증명"
+        },
+        {
+          "event": "education_admission",
+          "score": 38,
+          "reason": "입학·합격·자격·학습 지원"
+        },
+        {
+          "event": "preparation_delay",
+          "score": 26,
+          "reason": "준비와 보호가 강해 실행이 늦어질 수 있음"
+        },
+        {
+          "event": "job_gain",
+          "score": 26,
+          "reason": "관성 동반 시 관인상생으로 강화"
+        }
+      ]
+    },
+    {
+      "id": "SINGLE_PIANYIN",
+      "incoming": "PIANYIN",
+      "group": "resource",
+      "base_events": [
+        {
+          "event": "preparation_delay",
+          "score": 41,
+          "reason": "비정형 학습·고립·보류·불확실성"
+        },
+        {
+          "event": "education_admission",
+          "score": 30,
+          "reason": "특수 공부·연구·자격 준비"
+        },
+        {
+          "event": "contract_document",
+          "score": 26,
+          "reason": "비정형 문서·숨은 승인·검토"
+        },
+        {
+          "event": "health_attention",
+          "score": 26,
+          "reason": "심리적 피로·소화되지 않는 부담"
+        }
+      ]
+    }
+  ],
+  "group_combination_rules": [
+    {
+      "id": "COMBO_PEER_OUTPUT",
+      "groups": [
+        "peer",
+        "output"
+      ],
+      "meaning": "내 힘이 밖으로 표출됨",
+      "primary_events": [
+        {
+          "event": "business_start",
+          "score": 49
+        },
+        {
+          "event": "creative_output",
+          "score": 49
+        },
+        {
+          "event": "career_change",
+          "score": 38
+        }
+      ],
+      "negative_branch": [
+        {
+          "event": "social_conflict",
+          "score": 45,
+          "condition": "겁재 또는 상관이 강하고 기신성일 때"
+        }
+      ]
+    },
+    {
+      "id": "COMBO_OUTPUT_WEALTH",
+      "groups": [
+        "output",
+        "wealth"
+      ],
+      "meaning": "성과물이 돈으로 연결됨",
+      "primary_events": [
+        {
+          "event": "wealth_change",
+          "score": 56
+        },
+        {
+          "event": "business_start",
+          "score": 52
+        },
+        {
+          "event": "business_expansion",
+          "score": 49
+        },
+        {
+          "event": "windfall",
+          "score": 41,
+          "condition": "편재 또는 일운 트리거가 강할 때"
+        }
+      ]
+    },
+    {
+      "id": "COMBO_WEALTH_AUTHORITY",
+      "groups": [
+        "wealth",
+        "authority"
+      ],
+      "meaning": "재성이 관성을 생하여 공식 역할·계약·직장 이슈로 연결됨",
+      "primary_events": [
+        {
+          "event": "job_gain",
+          "score": 52
+        },
+        {
+          "event": "promotion",
+          "score": 49
+        },
+        {
+          "event": "contract_document",
+          "score": 52
+        },
+        {
+          "event": "marriage_signal",
+          "score": 45
+        }
+      ],
+      "negative_branch": [
+        {
+          "event": "legal_conflict",
+          "score": 50,
+          "condition": "편관이 강하고 기신성일 때"
+        }
+      ]
+    },
+    {
+      "id": "COMBO_AUTHORITY_RESOURCE",
+      "groups": [
+        "authority",
+        "resource"
+      ],
+      "meaning": "관인상생. 제도권 승인·합격·취업·승진 신호",
+      "primary_events": [
+        {
+          "event": "job_gain",
+          "score": 60
+        },
+        {
+          "event": "promotion",
+          "score": 52
+        },
+        {
+          "event": "education_admission",
+          "score": 56
+        },
+        {
+          "event": "contract_document",
+          "score": 52
+        }
+      ]
+    },
+    {
+      "id": "COMBO_RESOURCE_PEER",
+      "groups": [
+        "resource",
+        "peer"
+      ],
+      "meaning": "지원·문서·학습이 나를 강화함",
+      "primary_events": [
+        {
+          "event": "preparation_delay",
+          "score": 45
+        },
+        {
+          "event": "education_admission",
+          "score": 41
+        },
+        {
+          "event": "job_gain",
+          "score": 34,
+          "condition": "관성이 추가될 때"
+        }
+      ]
+    },
+    {
+      "id": "COMBO_PEER_WEALTH",
+      "groups": [
+        "peer",
+        "wealth"
+      ],
+      "meaning": "비겁이 재성을 건드림. 돈·관계·경쟁 이슈",
+      "primary_events": [
+        {
+          "event": "wealth_change",
+          "score": 52
+        },
+        {
+          "event": "social_conflict",
+          "score": 45
+        },
+        {
+          "event": "relationship_change",
+          "score": 38,
+          "condition": "남성 명식 또는 배우자궁 활성 시"
+        }
+      ],
+      "negative_branch": [
+        {
+          "event": "wealth_change",
+          "score": 80,
+          "quality": "loss",
+          "condition": "겁재가 강하고 재성이 기신 또는 충·파 동반"
+        }
+      ]
+    },
+    {
+      "id": "COMBO_OUTPUT_AUTHORITY",
+      "groups": [
+        "output",
+        "authority"
+      ],
+      "meaning": "식상이 관성을 제어하거나 충돌함",
+      "primary_events": [
+        {
+          "event": "career_change",
+          "score": 56
+        },
+        {
+          "event": "legal_conflict",
+          "score": 45
+        },
+        {
+          "event": "public_exposure",
+          "score": 41
+        }
+      ],
+      "positive_branch": [
+        {
+          "event": "promotion",
+          "score": 55,
+          "condition": "식신+정관이고 용신성일 때 성과 기반 인정"
+        }
+      ],
+      "negative_branch": [
+        {
+          "event": "career_change",
+          "score": 85,
+          "quality": "resignation_or_conflict",
+          "condition": "상관+정관 조합"
+        }
+      ]
+    },
+    {
+      "id": "COMBO_WEALTH_RESOURCE",
+      "groups": [
+        "wealth",
+        "resource"
+      ],
+      "meaning": "재성이 인성을 극함. 돈과 문서·학업·보호의 충돌",
+      "primary_events": [
+        {
+          "event": "contract_document",
+          "score": 45
+        },
+        {
+          "event": "wealth_change",
+          "score": 45
+        },
+        {
+          "event": "education_admission",
+          "score": 34
+        },
+        {
+          "event": "preparation_delay",
+          "score": 41
+        }
+      ],
+      "special_branch": [
+        {
+          "event": "relocation",
+          "score": 50,
+          "condition": "부동산·거처 문서 신호와 합충형파해가 동반될 때"
+        }
+      ]
+    },
+    {
+      "id": "COMBO_RESOURCE_OUTPUT",
+      "groups": [
+        "resource",
+        "output"
+      ],
+      "meaning": "인성이 식상을 제어함. 학습·문서와 표현·성과의 충돌",
+      "primary_events": [
+        {
+          "event": "education_completion",
+          "score": 45
+        },
+        {
+          "event": "creative_output",
+          "score": 41
+        },
+        {
+          "event": "preparation_delay",
+          "score": 49
+        }
+      ],
+      "negative_branch": [
+        {
+          "event": "preparation_delay",
+          "score": 75,
+          "condition": "편인이 강하고 식신을 제어할 때"
+        }
+      ]
+    },
+    {
+      "id": "COMBO_AUTHORITY_PEER",
+      "groups": [
+        "authority",
+        "peer"
+      ],
+      "meaning": "관성이 비겁을 제어함. 조직·규칙·압박이 나와 경쟁자를 통제",
+      "primary_events": [
+        {
+          "event": "job_gain",
+          "score": 41
+        },
+        {
+          "event": "career_change",
+          "score": 49
+        },
+        {
+          "event": "social_conflict",
+          "score": 41
+        },
+        {
+          "event": "legal_conflict",
+          "score": 34
+        }
+      ]
+    }
+  ],
+  "specific_combination_rules": [
+    {
+      "id": "SPEC_ZHENGGUAN_ZHENGYIN",
+      "combination": [
+        "ZHENGGUAN",
+        "ZHENGYIN"
+      ],
+      "name": "정관+정인",
+      "classic_pattern": "관인상생",
+      "events": [
+        {
+          "event": "job_gain",
+          "score": 64
+        },
+        {
+          "event": "promotion",
+          "score": 60
+        },
+        {
+          "event": "education_admission",
+          "score": 60
+        },
+        {
+          "event": "contract_document",
+          "score": 56
+        }
+      ],
+      "quality": "공식 승인·합격·직책 획득 쪽으로 가장 안정적인 조합"
+    },
+    {
+      "id": "SPEC_ZHENGGUAN_PIANYIN",
+      "combination": [
+        "ZHENGGUAN",
+        "PIANYIN"
+      ],
+      "name": "정관+편인",
+      "events": [
+        {
+          "event": "job_gain",
+          "score": 49
+        },
+        {
+          "event": "education_admission",
+          "score": 49
+        },
+        {
+          "event": "preparation_delay",
+          "score": 45
+        }
+      ],
+      "quality": "공식 기회는 있으나 특수성·검토·지연 가능성"
+    },
+    {
+      "id": "SPEC_QISHA_ZHENGYIN",
+      "combination": [
+        "QISHA",
+        "ZHENGYIN"
+      ],
+      "name": "편관+정인",
+      "classic_pattern": "살인상생",
+      "events": [
+        {
+          "event": "career_change",
+          "score": 56
+        },
+        {
+          "event": "job_gain",
+          "score": 52
+        },
+        {
+          "event": "education_admission",
+          "score": 49
+        },
+        {
+          "event": "health_attention",
+          "score": 34
+        }
+      ],
+      "quality": "압박이 있으나 문서·자격·보호로 제도권 진입 가능"
+    },
+    {
+      "id": "SPEC_QISHA_PIANYIN",
+      "combination": [
+        "QISHA",
+        "PIANYIN"
+      ],
+      "name": "편관+편인",
+      "events": [
+        {
+          "event": "career_change",
+          "score": 52
+        },
+        {
+          "event": "health_attention",
+          "score": 52
+        },
+        {
+          "event": "legal_conflict",
+          "score": 45
+        },
+        {
+          "event": "preparation_delay",
+          "score": 45
+        }
+      ],
+      "quality": "압박·불확실성·고립성 강함. 기신이면 위험 신호"
+    },
+    {
+      "id": "SPEC_SHISHEN_ZHENGCAI",
+      "combination": [
+        "SHISHEN",
+        "ZHENGCAI"
+      ],
+      "name": "식신+정재",
+      "events": [
+        {
+          "event": "wealth_change",
+          "score": 60
+        },
+        {
+          "event": "business_start",
+          "score": 52
+        },
+        {
+          "event": "creative_output",
+          "score": 52
+        },
+        {
+          "event": "childbirth",
+          "score": 41
+        }
+      ],
+      "quality": "생산물이 안정 수입으로 연결"
+    },
+    {
+      "id": "SPEC_SHISHEN_PIANCAI",
+      "combination": [
+        "SHISHEN",
+        "PIANCAI"
+      ],
+      "name": "식신+편재",
+      "events": [
+        {
+          "event": "business_expansion",
+          "score": 56
+        },
+        {
+          "event": "wealth_change",
+          "score": 56
+        },
+        {
+          "event": "windfall",
+          "score": 49
+        }
+      ],
+      "quality": "기술·콘텐츠·성과가 외부 돈으로 확장"
+    },
+    {
+      "id": "SPEC_SHANGGUAN_ZHENGCAI",
+      "combination": [
+        "SHANGGUAN",
+        "ZHENGCAI"
+      ],
+      "name": "상관+정재",
+      "events": [
+        {
+          "event": "wealth_change",
+          "score": 52
+        },
+        {
+          "event": "career_change",
+          "score": 49
+        },
+        {
+          "event": "business_start",
+          "score": 45
+        },
+        {
+          "event": "contract_document",
+          "score": 38
+        }
+      ],
+      "quality": "능력으로 돈을 만들지만 기존 규칙과 충돌 가능"
+    },
+    {
+      "id": "SPEC_SHANGGUAN_PIANCAI",
+      "combination": [
+        "SHANGGUAN",
+        "PIANCAI"
+      ],
+      "name": "상관+편재",
+      "events": [
+        {
+          "event": "business_start",
+          "score": 56
+        },
+        {
+          "event": "business_expansion",
+          "score": 56
+        },
+        {
+          "event": "windfall",
+          "score": 52
+        },
+        {
+          "event": "public_exposure",
+          "score": 49
+        }
+      ],
+      "quality": "공격적 사업·투자·영업·대외 확장"
+    },
+    {
+      "id": "SPEC_SHISHEN_ZHENGGUAN",
+      "combination": [
+        "SHISHEN",
+        "ZHENGGUAN"
+      ],
+      "name": "식신+정관",
+      "events": [
+        {
+          "event": "promotion",
+          "score": 52
+        },
+        {
+          "event": "job_gain",
+          "score": 49
+        },
+        {
+          "event": "education_completion",
+          "score": 45
+        }
+      ],
+      "quality": "성과가 공식 인정으로 이어짐"
+    },
+    {
+      "id": "SPEC_SHANGGUAN_ZHENGGUAN",
+      "combination": [
+        "SHANGGUAN",
+        "ZHENGGUAN"
+      ],
+      "name": "상관+정관",
+      "classic_pattern": "상관견관",
+      "events": [
+        {
+          "event": "career_change",
+          "score": 64
+        },
+        {
+          "event": "legal_conflict",
+          "score": 56
+        },
+        {
+          "event": "social_conflict",
+          "score": 52
+        },
+        {
+          "event": "contract_document",
+          "score": 41
+        }
+      ],
+      "quality": "조직·규칙·상사와 충돌. 용신이면 개혁, 기신이면 제재·퇴사"
+    },
+    {
+      "id": "SPEC_ZHENGCAI_ZHENGGUAN",
+      "combination": [
+        "ZHENGCAI",
+        "ZHENGGUAN"
+      ],
+      "name": "정재+정관",
+      "classic_pattern": "재생관",
+      "events": [
+        {
+          "event": "job_gain",
+          "score": 60
+        },
+        {
+          "event": "promotion",
+          "score": 56
+        },
+        {
+          "event": "contract_document",
+          "score": 60
+        },
+        {
+          "event": "marriage_signal",
+          "score": 52
+        }
+      ],
+      "quality": "돈·계약·직장이 안정적으로 공식화"
+    },
+    {
+      "id": "SPEC_PIANCAI_ZHENGGUAN",
+      "combination": [
+        "PIANCAI",
+        "ZHENGGUAN"
+      ],
+      "name": "편재+정관",
+      "events": [
+        {
+          "event": "business_expansion",
+          "score": 52
+        },
+        {
+          "event": "contract_document",
+          "score": 52
+        },
+        {
+          "event": "job_gain",
+          "score": 49
+        },
+        {
+          "event": "public_exposure",
+          "score": 45
+        }
+      ],
+      "quality": "외부 거래·사업 기회가 공식 역할로 연결"
+    },
+    {
+      "id": "SPEC_PIANCAI_QISHA",
+      "combination": [
+        "PIANCAI",
+        "QISHA"
+      ],
+      "name": "편재+편관",
+      "events": [
+        {
+          "event": "wealth_change",
+          "score": 56
+        },
+        {
+          "event": "windfall",
+          "score": 52
+        },
+        {
+          "event": "career_change",
+          "score": 52
+        },
+        {
+          "event": "health_attention",
+          "score": 41
+        }
+      ],
+      "quality": "큰 기회와 큰 압박이 동시에 옴. 투기·위험성 강함"
+    },
+    {
+      "id": "SPEC_BIJIAN_ZHENGCAI",
+      "combination": [
+        "BIJIAN",
+        "ZHENGCAI"
+      ],
+      "name": "비견+정재",
+      "events": [
+        {
+          "event": "wealth_change",
+          "score": 49
+        },
+        {
+          "event": "relationship_change",
+          "score": 41
+        },
+        {
+          "event": "social_conflict",
+          "score": 38
+        }
+      ],
+      "quality": "고정 재물·관계에 경쟁자 또는 동급자 개입"
+    },
+    {
+      "id": "SPEC_JIECAI_ZHENGCAI",
+      "combination": [
+        "JIECAI",
+        "ZHENGCAI"
+      ],
+      "name": "겁재+정재",
+      "events": [
+        {
+          "event": "wealth_change",
+          "score": 64,
+          "quality": "loss_or_split"
+        },
+        {
+          "event": "social_conflict",
+          "score": 56
+        },
+        {
+          "event": "relationship_change",
+          "score": 49
+        }
+      ],
+      "quality": "손재·분탈·경쟁성 강함"
+    },
+    {
+      "id": "SPEC_JIECAI_PIANCAI",
+      "combination": [
+        "JIECAI",
+        "PIANCAI"
+      ],
+      "name": "겁재+편재",
+      "events": [
+        {
+          "event": "windfall",
+          "score": 49
+        },
+        {
+          "event": "wealth_change",
+          "score": 60
+        },
+        {
+          "event": "business_expansion",
+          "score": 45
+        },
+        {
+          "event": "social_conflict",
+          "score": 52
+        }
+      ],
+      "quality": "큰돈을 건 경쟁·투자·동업 이슈. 손익 변동 큼"
+    },
+    {
+      "id": "SPEC_PIANYIN_SHISHEN",
+      "combination": [
+        "PIANYIN",
+        "SHISHEN"
+      ],
+      "name": "편인+식신",
+      "classic_pattern": "도식",
+      "events": [
+        {
+          "event": "preparation_delay",
+          "score": 60
+        },
+        {
+          "event": "creative_output",
+          "score": 34
+        },
+        {
+          "event": "health_attention",
+          "score": 41
+        },
+        {
+          "event": "education_completion",
+          "score": 34
+        }
+      ],
+      "quality": "결과물·생산이 막히거나 지연됨. 용신이면 깊은 연구로 전환"
+    },
+    {
+      "id": "SPEC_ZHENGYIN_SHANGGUAN",
+      "combination": [
+        "ZHENGYIN",
+        "SHANGGUAN"
+      ],
+      "name": "정인+상관",
+      "events": [
+        {
+          "event": "contract_document",
+          "score": 45
+        },
+        {
+          "event": "creative_output",
+          "score": 45
+        },
+        {
+          "event": "education_completion",
+          "score": 45
+        },
+        {
+          "event": "preparation_delay",
+          "score": 38
+        }
+      ],
+      "quality": "문서·학습이 표현을 보호하거나 검열함"
+    }
+  ],
+  "layer_combination_rules": [
+    {
+      "id": "LAYER_DAEWOON_ONLY",
+      "layers": [
+        "daewoon"
+      ],
+      "meaning": "장기 배경",
+      "event_interpretation": "사건 확정이 아니라 10년 단위 주제 형성",
+      "score_multiplier": 0.75
+    },
+    {
+      "id": "LAYER_SEWOON_ONLY",
+      "layers": [
+        "sewoon"
+      ],
+      "meaning": "연도 사건 후보",
+      "event_interpretation": "해당 연도에 드러나는 사건 후보",
+      "score_multiplier": 1.0
+    },
+    {
+      "id": "LAYER_WOLWOON_ONLY",
+      "layers": [
+        "wolwoon"
+      ],
+      "meaning": "월 단위 체감",
+      "event_interpretation": "단독으로는 작은 사건·체감·월간 이슈",
+      "score_multiplier": 0.8
+    },
+    {
+      "id": "LAYER_ILWOON_ONLY",
+      "layers": [
+        "ilwoon"
+      ],
+      "meaning": "일 단위 트리거",
+      "event_interpretation": "택일·실행일·체감일에 사용. 단독 사건 예측 금지",
+      "score_multiplier": 0.55
+    },
+    {
+      "id": "LAYER_DAEWOON_SEWOON",
+      "layers": [
+        "daewoon",
+        "sewoon"
+      ],
+      "meaning": "장기 배경이 연도 사건으로 현실화",
+      "event_interpretation": "가장 중요한 사건 후보 조합",
+      "score_multiplier": 1.05
+    },
+    {
+      "id": "LAYER_SEWOON_WOLWOON",
+      "layers": [
+        "sewoon",
+        "wolwoon"
+      ],
+      "meaning": "연도 사건이 특정 월에 활성화",
+      "event_interpretation": "월별 예측의 핵심",
+      "score_multiplier": 1.05
+    },
+    {
+      "id": "LAYER_WOLWOON_ILWOON",
+      "layers": [
+        "wolwoon",
+        "ilwoon"
+      ],
+      "meaning": "월간 신호가 특정 날짜에 발동",
+      "event_interpretation": "택일·실행일·발생일 후보",
+      "score_multiplier": 1.0
+    },
+    {
+      "id": "LAYER_DAEWOON_SEWOON_WOLWOON",
+      "layers": [
+        "daewoon",
+        "sewoon",
+        "wolwoon"
+      ],
+      "meaning": "장기-연도-월 신호 일치",
+      "event_interpretation": "강한 사건 후보",
+      "score_multiplier": 1.1
+    },
+    {
+      "id": "LAYER_DAEWOON_SEWOON_WOLWOON_ILWOON",
+      "layers": [
+        "daewoon",
+        "sewoon",
+        "wolwoon",
+        "ilwoon"
+      ],
+      "meaning": "4층 신호 일치",
+      "event_interpretation": "사건 발생일 또는 실행일 후보로 강하게 본다.",
+      "score_multiplier": 1.15
+    }
+  ],
+  "repetition_rules": [
+    {
+      "id": "REPEAT_SAME_TEN_GOD",
+      "condition": "대운·세운·월운·일운 중 동일 십성이 2개 이상 반복",
+      "effect": "해당 십성의 단일 이벤트 점수 강화",
+      "score_bonus_per_repeat": 8,
+      "max_bonus": 24
+    },
+    {
+      "id": "REPEAT_SAME_GROUP",
+      "condition": "동일 그룹의 십성이 2개 이상 반복",
+      "effect": "그룹 조합 이벤트 강화",
+      "score_bonus_per_repeat": 6,
+      "max_bonus": 18
+    },
+    {
+      "id": "MIXED_AUTHORITY",
+      "condition": "정관과 편관이 함께 등장",
+      "effect": "공식 기회와 압박이 동시에 존재",
+      "events": [
+        {
+          "event": "career_change",
+          "score_bonus": 12
+        },
+        {
+          "event": "job_gain",
+          "score_bonus": 8
+        },
+        {
+          "event": "health_attention",
+          "score_bonus": 8
+        }
+      ]
+    },
+    {
+      "id": "MIXED_WEALTH",
+      "condition": "정재와 편재가 함께 등장",
+      "effect": "고정 수입과 유동 수입이 함께 움직임",
+      "events": [
+        {
+          "event": "wealth_change",
+          "score_bonus": 12
+        },
+        {
+          "event": "business_expansion",
+          "score_bonus": 8
+        }
+      ]
+    },
+    {
+      "id": "MIXED_OUTPUT",
+      "condition": "식신과 상관이 함께 등장",
+      "effect": "성과물 생산과 강한 표현이 동시에 발생",
+      "events": [
+        {
+          "event": "creative_output",
+          "score_bonus": 12
+        },
+        {
+          "event": "career_change",
+          "score_bonus": 8
+        },
+        {
+          "event": "public_exposure",
+          "score_bonus": 10
+        }
+      ]
+    },
+    {
+      "id": "MIXED_RESOURCE",
+      "condition": "정인과 편인이 함께 등장",
+      "effect": "문서·학습·보호가 강하지만 지연 가능성 증가",
+      "events": [
+        {
+          "event": "education_admission",
+          "score_bonus": 8
+        },
+        {
+          "event": "contract_document",
+          "score_bonus": 8
+        },
+        {
+          "event": "preparation_delay",
+          "score_bonus": 12
+        }
+      ]
+    }
+  ],
+  "event_gate_rules": {
+    "career_change": {
+      "primary_ten_gods": [
+        "SHANGGUAN",
+        "QISHA",
+        "ZHENGGUAN"
+      ],
+      "supporting_ten_gods": [
+        "JIECAI",
+        "PIANYIN",
+        "ZHENGYIN"
+      ],
+      "strong_combinations": [
+        "SHANGGUAN+ZHENGGUAN",
+        "QISHA+ZHENGYIN",
+        "WEALTH+AUTHORITY",
+        "OUTPUT+AUTHORITY"
+      ],
+      "minimum_recommended_layers": [
+        "sewoon",
+        "wolwoon"
+      ]
+    },
+    "job_gain": {
+      "primary_ten_gods": [
+        "ZHENGGUAN",
+        "QISHA",
+        "ZHENGYIN"
+      ],
+      "supporting_ten_gods": [
+        "ZHENGCAI",
+        "PIANCAI"
+      ],
+      "strong_combinations": [
+        "ZHENGGUAN+ZHENGYIN",
+        "ZHENGCAI+ZHENGGUAN",
+        "QISHA+ZHENGYIN"
+      ],
+      "minimum_recommended_layers": [
+        "daewoon",
+        "sewoon"
+      ]
+    },
+    "business_start": {
+      "primary_ten_gods": [
+        "SHISHEN",
+        "SHANGGUAN",
+        "PIANCAI"
+      ],
+      "supporting_ten_gods": [
+        "BIJIAN",
+        "JIECAI",
+        "ZHENGCAI"
+      ],
+      "strong_combinations": [
+        "OUTPUT+WEALTH",
+        "PEER+OUTPUT",
+        "SHANGGUAN+PIANCAI"
+      ],
+      "minimum_recommended_layers": [
+        "sewoon",
+        "wolwoon"
+      ]
+    },
+    "wealth_change": {
+      "primary_ten_gods": [
+        "ZHENGCAI",
+        "PIANCAI"
+      ],
+      "supporting_ten_gods": [
+        "SHISHEN",
+        "SHANGGUAN",
+        "JIECAI"
+      ],
+      "strong_combinations": [
+        "OUTPUT+WEALTH",
+        "PEER+WEALTH",
+        "SHISHEN+ZHENGCAI",
+        "JIECAI+ZHENGCAI"
+      ],
+      "minimum_recommended_layers": [
+        "sewoon",
+        "wolwoon"
+      ]
+    },
+    "windfall": {
+      "primary_ten_gods": [
+        "PIANCAI",
+        "SHANGGUAN",
+        "JIECAI"
+      ],
+      "supporting_ten_gods": [
+        "SHISHEN"
+      ],
+      "strong_combinations": [
+        "SHANGGUAN+PIANCAI",
+        "SHISHEN+PIANCAI",
+        "JIECAI+PIANCAI"
+      ],
+      "minimum_recommended_layers": [
+        "wolwoon",
+        "ilwoon"
+      ],
+      "caution": "대운·세운 흐름이 받쳐주지 않으면 단기 변동 또는 손실로 본다."
+    },
+    "contract_document": {
+      "primary_ten_gods": [
+        "ZHENGYIN",
+        "ZHENGGUAN",
+        "ZHENGCAI"
+      ],
+      "supporting_ten_gods": [
+        "PIANYIN",
+        "PIANCAI"
+      ],
+      "strong_combinations": [
+        "AUTHORITY+RESOURCE",
+        "WEALTH+AUTHORITY",
+        "WEALTH+RESOURCE"
+      ],
+      "minimum_recommended_layers": [
+        "sewoon",
+        "wolwoon",
+        "ilwoon"
+      ]
+    },
+    "education_admission": {
+      "primary_ten_gods": [
+        "ZHENGYIN",
+        "PIANYIN",
+        "ZHENGGUAN"
+      ],
+      "supporting_ten_gods": [
+        "SHISHEN"
+      ],
+      "strong_combinations": [
+        "ZHENGGUAN+ZHENGYIN",
+        "QISHA+ZHENGYIN",
+        "AUTHORITY+RESOURCE"
+      ],
+      "minimum_recommended_layers": [
+        "daewoon",
+        "sewoon"
+      ]
+    },
+    "education_completion": {
+      "primary_ten_gods": [
+        "SHISHEN",
+        "SHANGGUAN",
+        "ZHENGYIN"
+      ],
+      "supporting_ten_gods": [
+        "ZHENGGUAN"
+      ],
+      "strong_combinations": [
+        "RESOURCE+OUTPUT",
+        "SHISHEN+ZHENGGUAN",
+        "ZHENGYIN+SHANGGUAN"
+      ],
+      "minimum_recommended_layers": [
+        "sewoon",
+        "wolwoon"
+      ]
+    },
+    "relationship_change": {
+      "primary_ten_gods": [
+        "ZHENGCAI",
+        "PIANCAI",
+        "ZHENGGUAN",
+        "QISHA"
+      ],
+      "gender_modifier": {
+        "male": "재성 신호를 배우자·연애 신호로 가중",
+        "female": "관성 신호를 배우자·연애 신호로 가중"
+      },
+      "supporting_ten_gods": [
+        "ZHENGYIN",
+        "SHISHEN",
+        "BIJIAN",
+        "JIECAI"
+      ],
+      "minimum_recommended_layers": [
+        "sewoon",
+        "wolwoon"
+      ],
+      "caution": "배우자궁 활성, 합충형파해, 도화·홍염 등 별도 신호 없이는 관계 분위기 정도로 낮춘다."
+    },
+    "childbirth": {
+      "primary_ten_gods": [
+        "SHISHEN",
+        "SHANGGUAN"
+      ],
+      "supporting_ten_gods": [
+        "ZHENGYIN",
+        "ZHENGCAI",
+        "ZHENGGUAN"
+      ],
+      "strong_combinations": [
+        "OUTPUT+RESOURCE",
+        "OUTPUT+WEALTH"
+      ],
+      "minimum_recommended_layers": [
+        "daewoon",
+        "sewoon",
+        "wolwoon"
+      ],
+      "caution": "실제 출산 판단은 성별, 나이, 자녀궁, 건강 조건을 별도 게이트로 확인한다."
+    },
+    "relocation": {
+      "primary_ten_gods": [
+        "ZHENGYIN",
+        "PIANYIN",
+        "PIANCAI",
+        "SHANGGUAN"
+      ],
+      "supporting_ten_gods": [
+        "QISHA",
+        "ZHENGCAI"
+      ],
+      "strong_combinations": [
+        "WEALTH+RESOURCE",
+        "OUTPUT+AUTHORITY",
+        "PIANCAI+PIANYIN"
+      ],
+      "minimum_recommended_layers": [
+        "sewoon",
+        "wolwoon"
+      ],
+      "caution": "십성만으로는 이사 확정 금지. 지지 충, 역마, 거처궁 활성, 계약 문서 신호가 필요하다."
+    },
+    "health_attention": {
+      "primary_ten_gods": [
+        "QISHA",
+        "PIANYIN",
+        "SHANGGUAN"
+      ],
+      "supporting_ten_gods": [
+        "JIECAI"
+      ],
+      "strong_combinations": [
+        "QISHA+PIANYIN",
+        "PIANYIN+SHISHEN",
+        "SHANGGUAN+QISHA"
+      ],
+      "minimum_recommended_layers": [
+        "sewoon",
+        "wolwoon",
+        "ilwoon"
+      ]
+    }
+  },
+  "scoring_pipeline": [
+    {
+      "step": 1,
+      "name": "collect_transit_ten_gods",
+      "description": "대운·세운·월운·일운에서 들어온 십성을 수집한다."
+    },
+    {
+      "step": 2,
+      "name": "apply_single_rules",
+      "description": "각 십성의 단일 이벤트 후보 점수를 생성한다."
+    },
+    {
+      "step": 3,
+      "name": "apply_group_combinations",
+      "description": "십성 그룹 조합으로 주요 이벤트 후보를 강화한다."
+    },
+    {
+      "step": 4,
+      "name": "apply_specific_combinations",
+      "description": "정관+정인, 상관+정관처럼 강한 실전 조합을 별도 가중한다."
+    },
+    {
+      "step": 5,
+      "name": "apply_layer_pattern",
+      "description": "대운·세운·월운·일운의 조합 층위에 따라 점수 배율을 적용한다."
+    },
+    {
+      "step": 6,
+      "name": "apply_polarity",
+      "description": "용신·희신·기신 여부로 사건의 질과 점수를 보정한다."
+    },
+    {
+      "step": 7,
+      "name": "apply_external_gates",
+      "description": "합충형파해, 궁성, 공망, 십이운성, 실제 과거 이벤트 보정을 별도 모듈에서 적용한다."
+    },
+    {
+      "step": 8,
+      "name": "rank_event_candidates",
+      "description": "최종 점수에 따라 theme_only, event_candidate, strong_event_candidate, high_probability_event로 분류한다."
+    }
+  ]
+}

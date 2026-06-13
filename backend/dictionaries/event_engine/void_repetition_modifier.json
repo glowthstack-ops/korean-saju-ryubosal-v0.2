@@ -1,0 +1,33 @@
+{
+  "schema": "void_repetition_modifier.v1",
+  "reviewed": false,
+  "purpose": "공망/해공과 복음·반음·병존·간여지동을 이용해 사건의 실체화·지연·반복성·강제성을 보정한다(타입 생성 아님).",
+  "void_activation_modifier": {
+    "purpose": "공망 글자가 운에서 자극될 때 사건의 실체화, 지연, 허상, 해공 여부를 판단한다.",
+    "core_rules": {
+      "natal_void_only": "원국 공망은 기본적으로 배경성 결핍 또는 약화로 본다.",
+      "transit_hits_void": "운에서 공망 글자를 자극하면 해당 궁성·십성 이벤트가 사건화될 수 있다.",
+      "void_as_delay": "공망은 사건 자체를 없애기보다 실속 부족, 지연, 허상, 반복 확인으로 나타날 수 있다.",
+      "void_resolution": "합·충·형·세운 자극으로 공망이 해공되면 해당 시기에 사건화 가능성이 열린다.",
+      "daewoon_void_rule": "대운 공망은 그 자체로 사건화하지 않고, 세운·월운이 자극할 때 해당 시기 사건화를 허용한다."
+    },
+    "score_effect": {"void_unresolved": -10, "void_resolved_by_relation": 6, "quality_flag": "delay_or_hollow"},
+    "event_effects": {
+      "contract_document": "서류 누락, 승인 지연, 조건 불명확",
+      "relationship_change": "관계는 생기나 실체 부족, 거리감, 애매함",
+      "career_change": "제안은 있으나 확정 지연 또는 실속 부족",
+      "relocation": "이동 신호는 있으나 계약 지연, 집 문제, 조건 변경",
+      "wealth_change": "돈의 흐름은 있으나 회수 지연, 기대보다 실속 부족"
+    }
+  },
+  "repetition_identity_modifier": {
+    "purpose": "복음, 반음, 병존, 간여지동이 사건 반복성, 자기 문제화, 강제성을 만드는지 판단한다.",
+    "rules": {
+      "fueum": {"name": "복음", "meaning": "같은 간지 또는 같은 글자의 반복", "event_effect": ["과거 이슈 반복", "동일 주제 재등장", "기존 문제 재활성화", "자기 문제화"], "good_if": "용신성 글자가 반복되면 성취 반복 또는 기회 재등장", "bad_if": "기신성 글자가 반복되면 문제 반복, 정체, 자기 고집", "duration_tag": "repeating"},
+      "baneum": {"name": "반음", "meaning": "천간·지지가 반대 또는 충돌성으로 대응", "event_effect": ["방향 전환", "관계 반전", "환경 교체", "이전 흐름의 뒤집힘"]},
+      "byeongjon": {"name": "병존", "meaning": "같은 글자 또는 같은 십성의 원국 내 반복", "event_effect": ["해당 십성의 과잉성", "특정 궁성 반복 문제", "운에서 자극 시 같은 사건 반복"], "duration_tag": "repeating"},
+      "ganyeojidong": {"name": "간여지동", "meaning": "천간과 지지가 같은 오행·자기성으로 결합", "event_effect": ["자기 의지 강함", "고집", "독립성", "외부 조정 어려움", "비겁성 사건 강화"]}
+    },
+    "overread_guard": "비견·겁재·상관·편관이 강할 때 위 신호는 사건 확정이 아니라 반복성·강제성 보정으로만 쓴다(과잉 해석 방지)."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "schema": "user_profile_event_gate.v1",
+  "reviewed": false,
+  "purpose": "사용자 현재 상태(우리 서비스 ExtendedProfile)에 따라 같은 사주 신호를 다른 이벤트로 분기한다. 미입력 필드는 게이트 미적용(규칙11 — 기능 차단 금지).",
+  "service_field_mapping": {
+    "note": "우리 ExtendedProfile에서 파생. moving_intent·education_status·business_status는 별도 필드가 없어 직업/혼인/거주에서 추정하거나 unknown.",
+    "occupation_status": {
+      "source": "extended.occupation.employment_form 우선, 없으면 occupation.category_id",
+      "map": {
+        "정규직": "employee", "계약직": "employee", "무급가족종사": "employee",
+        "프리랜서": "freelancer", "자영업": "business_owner", "법인대표": "business_owner",
+        "O17": "student", "O18": "unemployed", "_default": "unknown"
+      }
+    },
+    "relationship_status": {
+      "source": "extended.marital_status",
+      "map": {"미혼": "single", "연애중": "dating", "기혼": "married", "재혼": "married", "별거": "divorced", "이혼": "divorced", "사별": "single", "_default": "unknown"}
+    },
+    "education_status": {"source": "occupation.category_id == O17 → student, else not_student", "default": "unknown"},
+    "business_status": {"source": "employment_form in (자영업, 법인대표) → operating, else none", "default": "unknown"},
+    "moving_intent": {"source": "별도 필드 없음 — 추후 온보딩 추가 전까지 unknown", "default": "unknown"}
+  },
+  "rules": {
+    "career_signal_for_student": "취업보다 입학·시험·인턴·진로 선택으로 우선 해석",
+    "career_signal_for_employee": "이직·승진·직무변경으로 우선 해석",
+    "career_signal_for_unemployed": "job_gain(취업) 우선 해석",
+    "career_signal_for_retired": "직책보다 사회활동·계약·자문으로 전환",
+    "wealth_signal_for_business_owner": "매출·거래처·계약(business_expansion)으로 우선 해석",
+    "wealth_signal_for_employee": "급여·보너스·지출·투자 변동으로 우선 해석",
+    "relationship_signal_for_single": "new_relationship 가능, marriage_signal은 낮게 시작",
+    "relationship_signal_for_dating": "relationship_change·marriage_signal 우선",
+    "relationship_signal_for_married": "새 연애보다 배우자 이슈·가정 재정·관계 조정으로 해석",
+    "childbirth_signal_without_profile": "출산 확정 금지, 결과물·프로젝트(creative_output)로 대체",
+    "childbirth_signal_with_children_only": "추가 출산은 연령·자녀 수 게이트 통과 시에만"
+  },
+  "missing_profile_behavior": "해당 상태 필드가 unknown이면 게이트를 적용하지 않고 후보를 중립적으로 유지(정밀도만 하락, docs/11 4장 영향표)."
+}

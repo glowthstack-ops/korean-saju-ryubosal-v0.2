@@ -8,7 +8,8 @@ Phase 2: Event Graph 빌더·검색 + Event Scoring.
 from __future__ import annotations
 
 from .adapter import adapt_manse_chart
-from .event_scoring import EventScorer, favorability_map, filter_year_candidates
+from .event_engine_v2 import EventEngineV2, to_legacy_candidate
+from .event_scoring import favorability_map, filter_year_candidates
 from .ganji_calendar import (
     calendar_entries_from_result,
     relation_hits,
@@ -18,7 +19,7 @@ from .graph_builder import build_event_graph, load_event_graph, save_event_graph
 from .graph_retrieval import GraphIndex
 
 __all__ = [
-    "EventScorer",
+    "EventEngineV2",
     "GraphIndex",
     "adapt_manse_chart",
     "build_event_graph",
@@ -29,4 +30,5 @@ __all__ = [
     "relation_hits",
     "save_event_graph",
     "to_calendar_entry",
+    "to_legacy_candidate",
 ]

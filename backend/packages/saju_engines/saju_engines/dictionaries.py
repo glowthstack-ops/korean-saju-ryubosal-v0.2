@@ -29,6 +29,7 @@ from saju_shared_types.constants import (
     ten_god,
 )
 from saju_shared_types.enums import Branch, Stem, YinYang
+from saju_shared_types.event_taxonomy_v2 import LEGACY_EVENT_KEY_MAP
 from saju_shared_types.events import EventKey, EventPolarity, EventType
 
 _FAVORABILITY = ("용신", "희신", "기신", "구신", "한신")
@@ -118,7 +119,7 @@ class RelationItem(_AliasModel):
     result_element: str | None = Field(alias="resultElement")
     possible_modes: list[str] = Field(alias="possibleModes", min_length=1)
     pattern: str | None = None
-    event_domains: list[EventKey] = Field(alias="eventDomains")
+    event_domains: list[str] = Field(alias="eventDomains")  # 구키 허용 — graph_builder 21키 리맵
     base_score: float = Field(alias="baseScore", ge=0.0, le=1.0)
     # 유파 차이가 큰 관계(암합 등)는 기본 비활성 — 사전 플래그로만 켠다(docs/09 2-2).
     enabled: bool = True
@@ -386,7 +387,7 @@ class RelationsTextFile(_AliasModel):
 class TaxonomyItem(_AliasModel):
     """이벤트 분류 항목 (events/taxonomy.json)."""
 
-    event_key: EventKey = Field(alias="eventKey")
+    event_key: str = Field(alias="eventKey")  # 구키 허용(레거시 taxonomy.json)
     ko: str
     event_type: EventType = Field(alias="eventType")
     reviewed: bool
@@ -464,7 +465,7 @@ class EventCandidateSpec(_AliasModel):
     왜곡을 막기 위해 neutral로 저작한다.
     """
 
-    event: EventKey
+    event: str  # 구키 허용 — graph_builder 21키 리맵
     score: float = Field(ge=-1.0, le=1.0)
     polarity: EventPolarity
 
@@ -589,7 +590,7 @@ class TenGodEventItem(_AliasModel):
     """
 
     ten_god: str = Field(alias="tenGod")
-    event: EventKey
+    event: str  # 구키 허용(레거시 ten_god_events.json)
     reviewed: bool
 
 
@@ -639,15 +640,24 @@ def schema_for(rel_path: str) -> type[BaseModel] | None:
 def validate_dictionaries(directory: Path) -> list[str]:
     """디렉토리 하위 사전을 스키마 검증하고 위반 메시지 목록을 반환한다(dict:validate)."""
     errors: list[str] = []
+    # event_key 필드는 레거시 호환을 위해 str로 완화됐으므로, 유효성은 여기서 명시 검사한다
+    # (21키 + 리맵 가능한 레거시 키 허용, 그 외 미등록은 위반).
+    valid_keys = {str(k) for k in EventKey} | set(LEGACY_EVENT_KEY_MAP)
     for path in sorted(directory.rglob("*.json")):
         rel = str(path.relative_to(directory))
         schema = schema_for(rel)
         if schema is None:
             continue  # 미등록 사전은 generic 검사(스크립트)만 적용
         try:
-            schema.model_validate(json.loads(path.read_text(encoding="utf-8")))
+            data = json.loads(path.read_text(encoding="utf-8"))
+            schema.model_validate(data)
         except (json.JSONDecodeError, ValidationError) as exc:
             errors.append(f"{rel}: 스키마 위반 — {exc}")
+            continue
+        if rel == "events/taxonomy.json":
+            for item in data.get("items", []):
+                if item.get("eventKey") not in valid_keys:
+                    errors.append(f"{rel}: 미등록 이벤트 키 — {item.get('eventKey')}")
     return errors
 
 
@@ -836,7 +846,8 @@ def _lint_stems_branches_text(file: StemsBranchesTextFile) -> list[str]:
 def _lint_templates(file: InterpretationTemplatesFile) -> list[str]:
     """templates/interpretation.json — event 키 유효성('generic' 폴백 허용)·중복 검사."""
     errors: list[str] = []
-    valid_events = {str(k) for k in EventKey} | {"generic"}
+    # 21키 + 리맵 가능한 레거시 키(그래프 빌더가 21키로 변환) + 'generic' 폴백.
+    valid_events = {str(k) for k in EventKey} | set(LEGACY_EVENT_KEY_MAP) | {"generic"}
     seen: set[tuple[str, str]] = set()
     for item in file.items:
         if item.event not in valid_events:

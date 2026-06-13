@@ -2331,3 +2331,288 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   `lib/types.ts`(ChatThreadSummary·ChatMessageDTO).
 - 검증: backend 526 pass·ruff/mypy clean(신규 test_chat_history_api 2: 401 게이트 / 기록→목록→열람
   →owner 격리→삭제) / frontend tsc 0·vitest 22·빌드. 라이브(터널): /threads 인증 200([])·미인증 401.
+
+## v2.2 이벤트 엔진 재설계 Phase 1 — 새 사전 4종 + v2 타입 시스템 ✅
+
+- 배경: 십성=종류 / 12운성=상태 / 합충형파해=발동 / 궁성=생활영역 / 용신=품질로 책임 분리하는
+  엔진 재설계(사용자 제공 사양 4종). taxonomy 전면 교체(21키) + 엔진 전면 교체. Phase 1~6 신규
+  병행(기존 엔진 무변경), Phase 7 스위치.
+- 신규 사전(`dictionaries/event_engine/`, reviewed:false, generic 검증만 — events/ 자동 스키마 비충돌):
+  `transit_ten_god_branching.json`(단일/그룹/특정/층위/반복/게이트), `_addendum.json`(지장간 강도·
+  디스앰비규·안전 게이트·의지·시차·실패모드·프로필 게이트), `twelve_stage_modifier.json`(12운성 상태
+  보정), `relation_palace_modifier.json`(합충형파해 type·9서브타입 + 궁성 map + 발동·materialization).
+  정규화: ZHISHEN→SHISHEN, 21키 외 downgrade 대상은 기존 키로 매핑.
+- 신규 타입 `shared_types/event_engine.py`: EventKeyV2(21) + TenGod/TenGodGroup/LuckLayer/TemporalMode/
+  EventQuality/ConfidenceLevel/PolarityRole/TwelveStage/RelationKind/Pillar4 enum + 한글 십성·운성→enum
+  매핑 + EventCandidateV2. 기존 EventKey/EventCandidate는 병행 유지.
+- 검증: JSON 유효 · validate_dictionaries clean(45파일) · build_event_graph 컴파일 정상(event_engine/
+  비간섭) · ruff/mypy clean · 전체 pytest 526 pass(기존 엔진 무변경 → 회귀 0).
+- 다음: Phase 2 TenGodBrancher(십성 조합→타입 후보) — 사전 로더 pydantic + 단일/그룹/특정/3중 조합.
+
+## v2.2 이벤트 엔진 재설계 Phase 1+ — 보완 모듈 6종 사전 추가 ✅
+
+- 사용자 추가 사양(후보 축소·우선순위·사건화 판정 10모듈)을 우리 서비스에 맞춰 적응·추가:
+  `void_repetition_modifier`(공망 해공·지연 + 복음/반음/병존/간여지동), `evidence_grading`(증거 7종
+  ×5등급 + no_event_suppression), `conflict_resolver_duration`(충돌 우선순위 + 즉효/진행/구조/결과/
+  반복 분류), `yonggi_quality_matrix`(이벤트별 용신/기신 품질), `user_profile_event_gate`(ExtendedProfile
+  직업·고용형태·혼인 파생 매핑, 미입력=게이트 미적용), `intent_event_filter`(Domain enum + 일운/세운/
+  리포트 컨텍스트). 10번 골든셋은 Phase 8 테스트 구조(regression_case_2025_08 연계)로 보류.
+- 서비스 적응: 직업 O01~O18+employment_form→occupation_status, marital_status→relationship_status,
+  intent_map→Domain(career/wealth/relationship/relocation/education/health/general)+컨텍스트.
+- 검증: JSON 유효 · validate_dictionaries clean(51파일). 로드맵에 우선순위·11단계 흐름 통합.
+
+## v2.2 이벤트 엔진 재설계 Phase 2 — TenGodEventBrancher(십성 조합→사건 타입) ✅
+
+- 신규 `saju_engines/ten_god_brancher.py`: event_engine/ 사전 로더(pydantic, extra=ignore) +
+  `TenGodEventBrancher`. 운 십성 신호(TransitSignal: ten_god·layer·source) → 단일(single_transit)·
+  그룹2조합(group_combination)·특정2조합(specific_combination)·3중그룹(three_god) 룰 적용 →
+  EventCandidateV2(event_key·score·source_layers·source_ten_gods·reason_codes). 룰별 점수 최댓값 채택,
+  조건부(condition) branch는 Phase 2 미방출(Phase 6 평가). collect_from_pillar로 LuckPillar 천간·지지
+  본기 십성 수집(지장간 중기·여기는 후속 강도 보정).
+- 검증: 신규 test_ten_god_brancher 6 pass(단일·관인상생 특정조합 85·식상재성 그룹·3중조합·조건부
+  미방출·차트 통합) · ruff/mypy clean · 전체 pytest 532 pass(기존 엔진 무변경 → 회귀 0).
+- 다음: Phase 3 — 12운성 상태 보정(brancher 후보의 event_phase·강도·시차 보정).
+
+## v2.2 이벤트 엔진 재설계 Phase 3 — TwelveStageModifier(12운성 상태 보정) ✅
+
+- 신규 `saju_engines/twelve_stage_modifier.py`: twelve_stage_modifier.json 로드 →
+  brancher 후보에 운 지지 12운성 적용. stage_modifier_rules(단계별 score_modifier·good_for·
+  caution_for·event_phase) + event_specific_modifiers(boost/reduce stages) + layer_stage_combination
+  (대운·세운 단계그룹 조합 보너스). 사건 성숙도 우선순위(세운>월운>대운>일운)로 대표 단계 채택,
+  총 보정 ±18 한도(과보정 방지). **타입 생성 없음**(보정 전용). EventCandidateV2에 twelve_stage·
+  event_phase 필드 가산.
+- 동작: 건록→job_gain 가점·career_change 감점("인성+건록→이직 감점" 취지), 절→job_gain 감점,
+  대운 양+세운 장생→business_start 보너스(DAEWOON_SEED_SEWOON_START).
+- 검증: 신규 6 pass(타입 불변·건록 boost+phase·절 감점·건록 career 감점·층위조합 보너스·보정 한도)
+  · ruff/mypy clean · 전체 pytest 538 pass(회귀 0).
+- 다음: Phase 4 — 층위 결합 배율·반복(repetition)·십성 흐름(생성/극).
+
+## v2.2 이벤트 엔진 재설계 Phase 4 — LayerFlowModifier(층위·반복·흐름) ✅
+
+- 신규 `saju_engines/layer_flow_modifier.py`: layer_combination_rules(대운+세운 결합 ×배율 등)·
+  repetition_rules(동일 십성 ≥2층 반복 +8, 동일 그룹 +6, MIXED 정관+편관/정재+편재/식신+상관/정인+편인
+  쌍 가점)·ten_god_flow_rules(대운→세운→월운 상생 흐름 +12, 역흐름 -10) 적용. 타입 불변(점수만).
+  MIXED 텍스트 조건은 룰 id→십성 쌍으로 기계화.
+- 검증: 신규 5 pass(층위배율+반복, MIXED 가점, 생성흐름 +, 역흐름 -, 타입 불변) · ruff/mypy clean ·
+  전체 pytest 543 pass(회귀 0).
+- 다음: Phase 5 — Addendum 게이트(지장간 강도·디스앰비규·안전 downgrade·의지·시차·실패모드·프로필) +
+  공망/반복성(void_repetition).
+
+## v2.2 이벤트 엔진 재설계 Phase 5 — AddendumGateModifier(과잉 억제 게이트) ✅
+
+- 신규 `saju_engines/addendum_gate_modifier.py`: GateContext(present 십성·층위·공망·직업/혼인상태)
+  기반으로 event_gate_safety_rules(business_start 재성 없으면 약화, windfall 월/일 트리거 없으면
+  wealth_change 강등, childbirth 관계상태 없으면 creative_output, marriage_signal single 약화, job_gain
+  보조 없으면 약화) + user_profile_event_gate(employee→job_gain→promotion, married→new_relationship→
+  relationship_change, business_owner+식상→wealth_change→business_expansion) + void(미해공 -10·delay).
+  라벨 강등 시 동일 키 최댓값 병합. 미입력 컨텍스트는 게이트 미적용(규칙11).
+- 검증: 신규 7 pass · ruff/mypy clean · 전체 pytest 550 pass(회귀 0).
+- 다음: Phase 6 — 발동(관계·궁성) + 용신 품질 + 랭커(증거 등급·충돌 해결·confidence_level).
+
+## v2.2 이벤트 엔진 재설계 Phase 6 — 발동(관계·궁성) + 용신 품질 + 랭커 ✅
+
+- 신규 `saju_engines/relation_palace_engine.py`: RelationActivation(관계종류·자극궁·층위·천간/지지)로
+  합충형파해 발동 보너스 × 궁성 활성가중(월/일주↑) × 층위가중 × 천간/지지 배율을 적용하고, 자극된 궁의
+  event_domains·relation_to_palace 규칙에 맞는 후보에 palace(생활영역)를 부여한다. 동시발생 조합
+  (합+충·형+충 등) 발동 보너스. 타입 불변(점수·궁성만).
+- 신규 `saju_engines/yongi_quality_engine.py`: polarity_rules 배율(용신 ×1.15·희신 ×1.08·기신 ×1.15
+  +quality_flip)과 yonggi_quality_matrix를 결합해 길흉 quality 확정(기신→재물형 loss·갈등형 conflict·
+  그 외 pressure / 용신→성취형 achievement·그 외 opportunity). DELAY 등 시차 신호는 보존. NEUTRAL 무보정.
+- 신규 `saju_engines/event_ranker.py`: evidence_grading 5등급으로 confidence_level 산출(십성만=theme_only
+  → 십성+12운성+관계+궁성+층위+용기신+프로필=high_probability). no_event_suppression(월/일운 단독 신호
+  강등) + conflict_resolver priority_rules(RankContext 플래그로 prefer↑/over↓) + 근접 3+ 묶음(DIFFUSE).
+- 검증: 신규 17 pass(관계·궁성 5 / 용신 품질 6 / 랭커 6) · ruff/mypy clean · 엔진 단위 전체 회귀 0.
+  (DB 미기동 세션이라 chat/report HTTP 통합 9건은 503 "저장소 미설정"으로 실패 — 환경 의존, 코드 무관.)
+- 다음: Phase 7 — EventScorer를 새 파이프라인으로 교체 + 다운스트림 21키 마이그레이션 + intent_event_filter 배선.
+
+## v2.2 이벤트 엔진 재설계 Phase 7a — EventEngineV2 통합 코어(거버닝 스택) ✅
+
+- 신규 `saju_engines/event_engine_v2.py`: 재설계 6계층(brancher→12운성→층위·흐름→게이트→관계·궁성→
+  용신→랭커)을 **거버닝 스택**으로 묶음. 세운=관할 대운+세운, 월운=+월운, 일운=+일운을 한 신호셋으로
+  결합해 십성 조합 후보 생성 후 보정. 만세 신호 추출: relation_hits→RelationActivation(타입→RelationKind·
+  natal position→Pillar4), twelve_unseong→TwelveStage, favorability_map→PolarityRole, 십성군→RankContext
+  플래그. score/score_years 시그니처 유지(+선택 occupation/relationship). 호출부 미변경(추가 전용).
+- 발견: 거버닝 스택은 다층 십성 결합으로 점수가 100에 포화→raw score 변별 소실. 사건화 강도
+  (confidence_level)를 1차 정렬축으로 채택(_rank_key), 점수는 2차. 골든차트 2025 세운에서 직업
+  (career_change·job_gain·promotion, 월주 발동)이 strong, theme/weak가 하위 — 회귀 기대(직업 변화 상위권)와
+  방향 일치. 점수 포화 절대값 보정은 가중 튜닝(전문가 감수) 과제로 분리.
+- 검증: 신규 6 pass(후보생성·confidence 1차정렬·결정론·강후보 궁성동반·score_years 과거연도·프로필 옵션)
+  · ruff/mypy clean. 추가 전용이라 기존 회귀 무영향.
+- 다음: 7c 다운스트림 하드 스위치(사용자 확정) — 호출부·다운스트림 21키 전환은 파일별 제시 후 적용.
+
+## v2.2 이벤트 엔진 재설계 Phase 7c-1 — 21키 타깃 계층(추가 전용) ✅
+
+- 신규 `shared_types/event_taxonomy_v2.py`: EventKeyV2(21) 한글라벨·시간성격(progress/instant/hybrid)·
+  검증카테고리(career/move/affection/money/health/study)·리포트도메인·구키 25→21 매핑(LEGACY_EVENT_KEY_MAP,
+  사용자 확정)·금기룰(PROHIBITIONS)·질의키워드(EVENT_WORDS)·택일대상(DATE_PURPOSES)·신 차원 한글라벨
+  (quality/confidence/temporal/궁성). 실로그 최다 유형 반영: 진급·평가→promotion, 오디션·대회·선거→
+  public_exposure, 국가고시·자격증·시험→education_admission. 금기룰 신규: prohibit_competition
+  (경쟁 승부 단정 금지)·prohibit_exam(합격·당락 단정 금지).
+- 신규 `saju_engines/llm_event_serializer.py`: EventCandidateV2 → LLM 입력 신 필드 풍부화
+  (event_ko·confidence_ko·quality_ko·temporal_ko·palace_ko·근거코드 한글분류·금기룰 부착). 구 계약
+  (polarity·signals·evidence_path) 대체.
+- 검증: 신규 12 pass(엔진 6 + taxonomy/직렬화 6) · ruff/mypy clean · 전체 570 pass(회귀 0,
+  실패 9는 DB 미기동 503 환경 의존). 추가 전용 — 호출부 미변경.
+- 다음: 7c-2 플립 — 서비스(report/chat/manse/past_validation)를 EventEngineV2로, planner·calibration·
+  query_parser·prediction·graph·context_reducer·llm_input·intent를 21키로 전환 + intent_event_filter
+  배선 + 구 EventScorer/EventKey 제거. (타입 리플 큼 — mypy 안전망으로 일괄 전환 후 회귀.)
+
+## v2.2 이벤트 엔진 재설계 Phase 7c-2 — 전면 하드 스위치(구 엔진 제거) ✅
+
+- **EventKey 일원화**: `events.EventKey`를 21키 `EventKeyV2` 별칭으로 교체. 구 25키 폐기, 타입 주석
+  15+개 파일 무변경. 구→신 매핑·한글·카테고리·금기룰은 `event_taxonomy_v2`.
+- **구 엔진 제거**: `EventScorer`(사전 기반 스코어러) 삭제. `event_scoring.py`는 헬퍼만 유지
+  (favorability_map/_from_model·filter_year_candidates·daewoon_transition_weight). `EventEngineV2`가
+  유일 스코어러. `__init__` exports 교체.
+- **레거시 어댑터**: `EventEngineV2.score_legacy/score_legacy_years`(→ `to_legacy_candidate`)로 신
+  후보를 다운스트림 DTO(EventCandidate)로 변환. quality→polarity, confidence_level→confidence,
+  reason_codes→signals. 신 차원(품질·확신도·궁성·단계)은 첫 동반 신호로 표면화(LLM 입력 풍부화).
+- **서비스 switch**: report/chat/manse/past_validation/past_validation router → EventEngineV2.
+  manse 검증 약-proxy 제외는 confidence==LOW(theme_only) 기준으로 일반화. report `_EVENT_DOMAIN`·
+  chat `_DATE_PURPOSES`·context_reducer event_ko·calibration EVENT_CATEGORY·planner graphScope·
+  query_parser 키워드·prediction 디스클레이머 전부 21키.
+- **그래프 21키**: dictionaries 레거시 event 필드 str 완화 + graph_builder가 21키 event 노드
+  (taxonomy_v2)·금기룰(PROHIBITIONS, prohibit_competition·prohibit_exam 신규)·구키 엣지 LEGACY 리맵.
+  compiled 스냅샷 재생성(21 event 노드, 6 prohibition 노드). 택일 purpose_profiles·avoid_days 21키.
+- **intent_event_filter 배선**: 신규 `intent_event_filter.py`(도메인 deprioritize + 컨텍스트 오버레이,
+  빈 결과 방지) chat 후보 선별에 연결.
+- 검증: ruff clean · mypy 0(사전 존재 manse_core 2건 제외) · pytest **573 pass** / 9 fail(전부 DB
+  미기동 503 환경 의존 — 회귀 0). 라이브 스모크: report 경로가 신 엔진 레거시 후보(polarity·confidence·
+  풍부화 신호) 정상 산출. 실로그 최다 유형(진급·평가→promotion / 오디션·대회→public_exposure /
+  국가고시·자격증→education_admission) + 경쟁·합격 단정 금지 반영.
+- 남은 과제(별도): reviewed:false 가중 전문가 감수·튜닝(점수 100 포화 보정), 레거시 events/*.json 신호
+  매핑의 21키 정식 이관(현재 graph만 리맵 사용), DB 기동 환경에서 chat/report 통합 회귀 재확인.
+
+## v2.2 Life Event Inference 2단계 — 저장소 골격 + 현실 신호 캘리브레이션(수집만) ✅
+
+- 설계: `doc/v2_2/LIFE_EVENT_INFERENCE.md` 확정(설계 원칙 최상단 — 점수 아닌 현실 사건 근사 /
+  life_fit 정렬축 / reality_gate / 3소스·3계층 personal_calibration / 코호트 활성 게이트 / 미래 outcome 루프).
+- **migrations/008_life_events.sql**: `subject_life_events` 원자행 테이블 — 코호트 지문(보정 후 4기둥
+  간지+성별), 일주+성별=coarse 인덱스 / 전체=fine 인덱스, outcome·source·weight. 수집만(랭킹 미반영).
+- **shared_types/life_event.py**: LifeEventOutcome(confirmed/not_happened/planned/pending/reality_fit_only)·
+  LifeEventSource·SignalFingerprint·LifeEventRow + 현실 신호 캘리브레이션 질문/제출 타입.
+- **saju_engines/reality_calibration.py**: `build_reality_calibration`(성년~현재에서 사건화 강도+대운
+  교운 인접+분산으로 주요 ~10개 연도 선정, 연도별 후보 이벤트+한글 라벨+신호 지문) · `fingerprint_of`
+  (십성그룹·궁성·관계·12운성) · `rows_from_submission`(선택=confirmed/미선택=not_happened, 미응답 연도 무적재).
+- **saju_engines/life_event_store.py**: LifeEventStore(append_rows 멱등 upsert, cohort_count coarse/fine —
+  활성 게이트 판정용, subject_signature) — SubjectStore와 동일 DSN·단기 커넥션.
+- **API**: `GET/POST /api/v2/reality-calibration/{subject_id}/questions|submit` (owner 검증, deps에
+  get_life_event_store 추가, main 등록). 질문은 결정론적 재생성으로 제출 시 지문 확보.
+- 검증: 신규 6 pass(질문 생성·라벨·지문·salience·제출→행·해당없음) · ruff/mypy clean · 전체 579 pass
+  (9 fail=DB 미기동 503 환경, 신규 회귀 0). 랭킹/스코어링 경로 미변경(수집 전용).
+- 다음(LEI 3~5): reality_gate 맥락 확장 + life_fit/personal_match 필드·배선(개인 시그니처 우선) →
+  score→display_score 격하 → 코호트 활성 게이트. 그 뒤 가중 튜닝 → 21키 이관 → DB 통합회귀.
+
+## v2.2 Life Event Inference 3단계 — life_fit/personal_match + 개인 시그니처 배선 ✅
+
+- EventCandidateV2에 내부 정렬 필드 추가: `life_fit`(현실 적합도)·`personal_match`(과거 유사도). 기본 0 →
+  미사용 시 기존 정렬과 동치(회귀 무영향).
+- **personal_calibration.py**: candidate_fingerprint(십성그룹·궁성·관계·12운성)·fingerprint_similarity
+  (Jaccard+궁성·관계·12운성 일치)·apply_personal_match(past_event_match + 반복테마 가중 −
+  failed_prediction 페널티)·seed_missing_events(반복 확정/예정인데 후보에 없는 사건 시드).
+- **reality_context.py**: RealityContext(직업·혼인·이사계획·계약·이직의향·시험 — 전부 optional) +
+  apply_life_fit("있으면 강하게, 없으면 0" — 규칙11). 맥락 맞는 후보 life_fit↑.
+- **life_fit_ranker.py**: LifeFitRanker.rank — 시드 → personal_match → life_fit 적용 후 LEI 정렬축
+  (life_fit > confidence > personal_match > score > 시점·키)으로 재정렬. EventEngineV2는 불변(별도 후처리).
+- **검증(핵심 페이오프)**: 골든차트 2026 세운에서 relocation은 엔진만으론 **미검출**이나, 사용자 실제
+  이사 이력(2024·2025 확정) + 이사 예정 맥락을 주면 **relocation #1**(SEED, life_fit=40·personal_match=50).
+  점수 튜닝이 아니라 개인 현실/과거로 누락 사건을 복원 — LEI 재정의의 실증.
+- 검증: 신규 6 pass(빈입력 동치·매칭 가점·실패 감점·누락 시드·life_fit 최상위축·빈맥락 무보정) ·
+  ruff/mypy clean · 전체 585 pass(9 fail=DB 503 환경, 신규 회귀 0). 코호트는 미배선(활성 게이트 5단계).
+- 다음(LEI 4): score→display_score 격하·정렬축 공식 재정의 → (5) 코호트 활성 게이트.
+
+## v2.2 Life Event Inference 4단계 — 정렬축 일원화 + score 표시용 격하 ✅
+
+- 공식 정렬축 `lei_rank_key`를 shared_types/event_engine.py에 단일 정의(현실적합 life_fit >
+  사건화증거 confidence > 과거유사 personal_match > 잠재 score > 시점·키). EventEngineV2·LifeFitRanker가
+  공용 — 엔진 단독에선 life_fit·personal_match=0이라 (confidence, score) 순서로 자연 환원(회귀 무영향).
+- score는 '표시용 내부값(display_score)'으로 격하: EventCandidateV2 필드 주석 명시 + llm_event_serializer가
+  절대 점수 대신 강/중/약 밴드(score_band) 노출, 1차 신호는 confidence·quality·personal_pattern.
+- 검증: ruff/mypy clean · 전체 585 pass(9 fail=DB 503 환경, 신규 회귀 0).
+
+## v2.2 Life Event Inference — 현실 신호 캘리브레이션 월단위 정밀화(발생 건 한정) ✅
+
+- 발생 사건에만 월을 받는 하이브리드: 연도 선택(넓게·저부담) → 선택한 사건만 선택적 월. 시기가 사건
+  발현의 핵심이라(이사 시점 등), 월 지정 시 그 달 월운을 스코어링해 **월운 지문**(월지 십성·관계 = 실제
+  trigger)으로 period='YYYY-MM' 정밀 적재. 월 미입력은 연도 지문 폴백(규칙11).
+- 타입: OccurredEvent(event_key, month?) + RealityCalibrationYearAnswer.occurred. reality_calibration에
+  month_event_fingerprints + rows_from_submission(month_fp) 확장. 라우터 submit이 발생 월 건만 월운
+  차트를 계산해 지문 생성(발생 건 한정 — 부담 최소). 저장소 period TEXT가 월 지원(스키마 무변경).
+- 검증: 신규 2 pass(월 period·월운 지문 사용 / 지문 없으면 연도 폴백) · ruff/mypy clean · 전체 587 pass
+  (9 fail=DB 503 환경, 신규 회귀 0). LIFE_EVENT_INFERENCE.md §5 갱신.
+
+## v2.2 Life Event Inference 5단계 — 코호트 활성 게이트 ✅
+
+- **cohort_calibration.py**: 동일사주 코호트(일주+성별=coarse / 전체 4기둥+성별=fine) 확인 사건 빈도를
+  personal_match에 합산. **활성 게이트**: 표본(확정 사건 보유 distinct subject 수)이 임계 미만이면
+  미반영(저장만) — 소표본 왜곡 차단. 백오프 select_tier(fine 충분→fine / coarse 충분→coarse / 둘 다
+  미달→none). 임계 COARSE=20·FINE=8(reviewed:false 초안). 익명 집계만(개인 비노출), 확률적 경향(단정 금지).
+- **life_event_store.cohort_event_counts**: (총 distinct subject, 이벤트별 distinct subject) — coarse/fine
+  GROUP BY. **life_fit_ranker.rank(cohort=...)**: 개인 personal_match → 코호트 합산(활성 시) → life_fit 순.
+- 검증: 신규 5 pass(백오프·임계미만 미반영·fine 비율 합산·coarse 폴백·랭커 활성시만 반영) · ruff/mypy
+  clean · 전체 592 pass(9 fail=DB 503 환경, 신규 회귀 0).
+- LEI 엔진 계층(설계·수집·개인·정렬축·월정밀·코호트) 완료. 다음: 서비스 배선(chat/report에 LifeFitRanker +
+  개인 시그니처·코호트 조회 — DB 게이트), 이후 가중 튜닝 → 21키 이관 → DB 통합회귀+골드셋.
+
+## v2.2 Life Event Inference — 서비스 seam(엔진→레거시→다운스트림 LEI 정렬) ✅(부분)
+
+- 레거시 EventCandidate에 life_fit·personal_match 전달 필드 추가 + to_legacy_candidate가 복사.
+  EventEngineV2.score_legacy_personalized(signature·reality_context·cohort) = score → LifeFitRanker → 레거시.
+- 다운스트림 LEI-aware 정렬(backward-compatible): report_service pool·context_reducer.reduce_candidates·
+  out_top을 (-life_fit, -personal_match, -score, …)로. 개인 시그니처 미배선 시 0이라 기존 -score와 동치.
+- 검증: 신규 4 pass(레거시 전달·LEI 순서·역호환·개인화 relocation 시드가 레거시까지) · ruff/mypy clean ·
+  전체 596 pass(9 fail=DB 503 환경, 신규 회귀 0).
+- **남은 경계(결정 필요)**: chat/report 요청이 subject_id를 안 들고 다님(chat=birth+subject_label, report=
+  SubjectRef). 라이브 개인화는 subject_id로 시그니처·코호트를 DB 조회해 score_legacy_personalized에 주입해야
+  하므로, 요청 경로에 subject_id를 넣는 API/프론트 계약 결정이 선행돼야 한다. 엔진 seam·필드·정렬·조회
+  메서드(subject_signature·cohort_event_counts·cohort_stats_from_counts·pillars_signature)는 모두 준비됨.
+
+## v2.2 Life Event Inference — chat 라이브 개인화 배선(subject_id) ✅(backend)
+
+- 사용자 확정(2026-06-13): 요청에 subject_id 추가. ChatRequest.subject_id(선택) + chat 라우터가
+  owner_id·subject_id를 chat_service.chat에 전달.
+- chat_service: _personal_inputs(owner_id, subject_id, result) — LifeEventStore에서 개인 시그니처
+  (subject_signature) + 활성 코호트(cohort_event_counts→cohort_stats_from_counts) 조회. **방어적**:
+  owner/subject 없거나 DB 미설정·조회 실패면 (None, None) 폴백(개인화 실패가 풀이를 막지 않음 — 규칙11).
+  메인 스코어링을 score_legacy_personalized(signature, cohort)로 교체 → LEI 정렬축이 출력에 반영.
+- 검증: 신규 1 pass(무DB 방어 폴백) — 총 seam 5 pass · ruff/mypy clean · app import OK · 전체 596 pass
+  (9 fail=DB 503 환경, 신규 회귀 0).
+- 남은 활성화 조건: ① 프론트가 저장된 사주 질문 시 subject_id 전송 ② DB 기동 + 현실 신호 캘리브레이션
+  수집 데이터 ③ (선택) report_service도 동일 패턴 배선. 엔진/저장/조회/정렬은 전부 준비됨.
+
+## v2.2 Life Event Inference — report 개인화 배선 + 공용화(A) ✅
+- 공용 services/personalization.py(fetch_personal_inputs) 신설 — chat·report 공유(방어적 폴백).
+- report_service._ReportData·generate_report에 owner_id·subject_id → score_legacy_personalized.
+  report 잡 흐름(ReportJobRequest.subject_id+owner 검증)이 이미 식별자 보유 → _run_report_job이 전달.
+  chat_service는 공용 helper로 리팩터. 검증: ruff/mypy clean·전체 597 pass(9 DB환경, 회귀 0).
+
+## v2.2 Life Event Inference — 프론트(subject_id 전송 + 현실 신호 캘리브레이션 UI)(B) ✅
+- B1 chat 개인화 활성: lib/api.postChat에 subjectId 인자+subject_id 페이로드, app/chat이 selected.subjectId 전송.
+- B2 수집 UI: lib/types 캘리브레이션 타입 + lib/subjects(getRealityCalibration·submitRealityCalibration) +
+  components/onboarding/StepRealityCalibration.tsx(연도별 사건 선택 + 발생 사건만 선택적 월 — '월 모름' 허용) +
+  app/reality-calibration/page.tsx(사주 선택·재진입) + settings 링크.
+- 프론트 게이트: tsc clean · vitest 22 pass · next build 성공(/reality-calibration 3.94kB).
+
+## v2.2 LEI — 가중 튜닝(포화 보정, reviewed:false 초안)(C1) ✅
+- 층위 결합 배율↓(대운+세운 1.25→1.05 등)·base_events ×0.75·흐름 +8/-8·용신 1.075·관계 보너스 ×0.55·
+  관계 delta 상한 22(_MAX_RELATION_DELTA). 골든차트 포화: 2024 6→0·2025 9→2·2026 6→0, raw 최대
+  109~127→74~87. score 변별 복원·디커플링 정상. compiled 스냅샷 재생성.
+- 회귀: 절대 점수 비고정(상대/구조)이라 무영향. 튜닝으로 깨진 단위 2건(절대 임계)을 상대 우위로 수정.
+  검증: ruff/mypy clean·전체 597 pass(9 DB환경, 신규 회귀 0). SCORE_SATURATION_REVIEW.md §7 기록.
+
+## v2.2 LEI — 레거시 사전 21키 정식 이관(C2) ✅
+- events/*.json·taxonomy.json·relations.json·common/ten_god_events.json·templates/interpretation.json·
+  event_forms.json·occupation_taxonomy.json·event_engine/relation_palace_modifier.json의 이벤트 키를
+  LEGACY_EVENT_KEY_MAP으로 21키 변환(병합·dedup·contextModifiers 합산). housing_rules "document"는
+  도메인 가중치(이벤트 키 아님)라 유지. graph_builder _norm_event 리맵은 이제 identity(데이터 네이티브 21키).
+- validate_dictionaries 0 violations · compiled 스냅샷 재생성 · ruff/mypy clean · 전체 597 pass
+  (9 DB환경, 신규 회귀 0). 이관으로 변한 단위 2건(occupation O14 travel→relocation 병합 등)을 상대 불변으로 수정.
+
+## v2.2 LEI — DB 통합회귀 + 골든셋 재현(C3) ✅
+- saju-v2-db(5433) 기동 확인. 마이그레이션 001~008 멱등 적용(subject_life_events 생성).
+- **DB 연결 전체 스위트: 608 passed, 0 failed** — 그간 "환경 실패"였던 9건(chat/report/accounts/
+  chat_history/lotto)이 DB 연결로 전부 통과 = 하드 스위치+LEI+개인화 end-to-end 검증.
+- 골든 통합 tests/integration/test_lei_db_golden.py: 2025-08 이사 확정 + 2026-08 예정(planned) 적재 →
+  subject_signature 라운드트립 → 2026 relocation 개인화 부상(personal_match>0) / 동일사주 8명 코호트 →
+  fine 활성 게이트 + relocation 비율>0. DB 미기동 시 skip 가드(테스트 owner 격리·종료 정리).
+- 게이트: ruff/mypy clean · WITH DB 608 pass / WITHOUT DB 597 pass+9 DB게이트 실패+2 skip(골든).

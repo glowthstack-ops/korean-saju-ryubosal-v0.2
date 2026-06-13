@@ -15,7 +15,7 @@
           "polarity": "negative_or_forced"
         },
         {
-          "event": "contract",
+          "event": "contract_document",
           "score": 0.62,
           "polarity": "conditional"
         }
@@ -52,13 +52,8 @@
       },
       "eventCandidates": [
         {
-          "event": "resignation",
-          "score": 0.65,
-          "polarity": "negative_or_forced"
-        },
-        {
           "event": "career_change",
-          "score": 0.6,
+          "score": 0.65,
           "polarity": "negative_or_forced"
         }
       ],
@@ -72,7 +67,7 @@
       },
       "eventCandidates": [
         {
-          "event": "resignation",
+          "event": "career_change",
           "score": 0.6,
           "polarity": "negative_or_forced"
         }
@@ -108,7 +103,7 @@
           "polarity": "conditional"
         },
         {
-          "event": "document",
+          "event": "contract_document",
           "score": 0.5,
           "polarity": "positive"
         }
@@ -142,12 +137,12 @@
           "polarity": "conditional"
         },
         {
-          "event": "document",
+          "event": "contract_document",
           "score": 0.55,
           "polarity": "conditional"
         },
         {
-          "event": "exam",
+          "event": "education_admission",
           "score": 0.5,
           "polarity": "conditional"
         }
@@ -166,18 +161,13 @@
           "polarity": "conditional"
         },
         {
-          "event": "document",
+          "event": "contract_document",
           "score": 0.4,
           "polarity": "conditional"
         },
         {
           "event": "promotion",
           "score": -0.25,
-          "polarity": "neutral"
-        },
-        {
-          "event": "contract",
-          "score": -0.2,
           "polarity": "neutral"
         }
       ],
@@ -279,13 +269,8 @@
       },
       "eventCandidates": [
         {
-          "event": "contract",
+          "event": "contract_document",
           "score": -0.2,
-          "polarity": "neutral"
-        },
-        {
-          "event": "document",
-          "score": -0.15,
           "polarity": "neutral"
         }
       ],
@@ -298,13 +283,8 @@
       },
       "eventCandidates": [
         {
-          "event": "contract",
+          "event": "contract_document",
           "score": -0.25,
-          "polarity": "neutral"
-        },
-        {
-          "event": "document",
-          "score": -0.2,
           "polarity": "neutral"
         }
       ],
@@ -317,13 +297,8 @@
       },
       "eventCandidates": [
         {
-          "event": "contract",
+          "event": "contract_document",
           "score": -0.15,
-          "polarity": "neutral"
-        },
-        {
-          "event": "document",
-          "score": -0.1,
           "polarity": "neutral"
         }
       ],

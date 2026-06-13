@@ -13,13 +13,12 @@ llm_guard로 입력 토큰을 호출 전 검증한다(초과 시 후보 수를 �
 
 from __future__ import annotations
 
-import json
 import re
 from datetime import date as date_cls
-from pathlib import Path
 
 from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
 from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.event_taxonomy_v2 import EVENT_KO as _EVENT_KO_V2
 from saju_shared_types.events import EventCandidate, EventKey
 from saju_shared_types.graph import EvidenceBundle
 from saju_shared_types.intent import IntentJson, QueryType
@@ -46,7 +45,8 @@ from saju_shared_types.manse_result import ManseV2Result
 
 from .amhap_luck import detect_luck_amhap
 from .chart_interpretation import build_chart_interpretation, incoming_ten_god_note
-from .event_scoring import EventScorer, favorability_map
+from .event_engine_v2 import EventEngineV2
+from .event_scoring import favorability_map
 from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded
 
 TOP_N_CANDIDATES = 5  # 기본 Top N (docs/03 B5 — 3~5)
@@ -238,12 +238,8 @@ _DATE_TABLE_INSTRUCTION = (
     "날짜를 임의로 만들지 말 것."
 )
 
-# 이벤트 한글 라벨(taxonomy) — 내부 키 노출 방지.
-_TAXONOMY_PATH = Path(__file__).resolve().parents[3] / "dictionaries" / "events" / "taxonomy.json"
-_EVENT_KO: dict[str, str] = {
-    i["eventKey"]: i["ko"]
-    for i in json.loads(_TAXONOMY_PATH.read_text(encoding="utf-8"))["items"]
-}
+# 이벤트 한글 라벨(21키 taxonomy_v2) — 내부 키 노출 방지(Phase 7).
+_EVENT_KO: dict[str, str] = {str(k): v for k, v in _EVENT_KO_V2.items()}
 # 근거 경로 내부 노트 제거(예: "(docs/05 회귀 기준 케이스)").
 _INTERNAL_NOTE_RE = re.compile(r"\s*\((?:docs?/|내부|회귀)[^)]*\)")
 
@@ -314,11 +310,14 @@ def reduce_candidates(
         if (not graph_scope or c.event_key in graph_scope) and c.score >= score_floor
         and in_question_range(c.period, period_start, period_end)
     ]
-    # 동점(클램프 포화) 시 raw 가중 합 우선 — 표의 '기간 내 강도 N위'와 후보 선별이
-    # 같은 달을 가리키게(강도 1위 달이 후보에서 빠져 해석 줄이 누락되던 문제, 2026-06-12).
+    # LEI 정렬축(현실적합>과거유사) 우선 → 점수 포화 시 raw 가중 합 → 시점·키. 개인 시그니처
+    # 미배선 시 life_fit·personal_match=0이라 기존 (-score, -raw_total) 정렬과 동치.
     return sorted(
         scoped,
-        key=lambda c: (-c.score, -getattr(c, "raw_total", 0.0), c.period, str(c.event_key)),
+        key=lambda c: (
+            -getattr(c, "life_fit", 0.0), -getattr(c, "personal_match", 0.0),
+            -c.score, -getattr(c, "raw_total", 0.0), c.period, str(c.event_key),
+        ),
     )[:top_n]
 
 
@@ -340,7 +339,11 @@ def reduce_with_context(
         if (not graph_scope or c.event_key in graph_scope) and c.score >= score_floor
         and not in_question_range(c.period, period_start, period_end)
     ]
-    out_top = sorted(out_scoped, key=lambda c: (-c.score, c.period))[:out_of_range_n]
+    out_top = sorted(
+        out_scoped,
+        key=lambda c: (-getattr(c, "life_fit", 0.0), -getattr(c, "personal_match", 0.0),
+                       -c.score, c.period),
+    )[:out_of_range_n]
     return selected, out_top
 
 
@@ -716,7 +719,7 @@ def build_llm_input(
     result: ManseV2Result,
     candidates: list[EventCandidate],
     bundles: list[EvidenceBundle],
-    scorer: EventScorer,
+    scorer: EventEngineV2,
     call_type: str = "chat_single",
     today: date_cls | None = None,
     monthly_overview: list[MonthOverviewRow] | None = None,

@@ -1,0 +1,32 @@
+{
+  "schema": "event_evidence_grading.v1",
+  "reviewed": false,
+  "purpose": "이벤트 후보가 단순 분위기인지 실제 사건 후보인지 증거 수준을 평가하고, 약하면 출력을 억제한다(이벤트 과잉 출력 방지 — 유료 품질 핵심).",
+  "note": "relation_palace_modifier.event_materialization_levels와 정합. 본 파일이 랭커의 권위 등급 계산 기준.",
+  "evidence_types": {
+    "ten_god_signal": "십성 조합이 이벤트 타입을 가리킴",
+    "life_stage_signal": "12운성이 사건 상태를 보조함",
+    "relation_signal": "합충형파해가 사건을 발동함",
+    "palace_signal": "관련 궁성이 자극됨",
+    "layer_signal": "대운·세운·월운·일운 층위가 연결됨",
+    "yonggi_signal": "용신·기신 품질이 일관됨",
+    "profile_signal": "사용자 현실 상태와 맞음"
+  },
+  "levels": {
+    "level_1_theme": {"confidence_level": "theme_only", "required": ["ten_god_signal"], "interpretation": "분위기 또는 주제"},
+    "level_2_weak_candidate": {"confidence_level": "weak_event_candidate", "required": ["ten_god_signal", "life_stage_signal"], "interpretation": "약한 사건 후보"},
+    "level_3_candidate": {"confidence_level": "event_candidate", "required": ["ten_god_signal", "relation_signal", "palace_signal"], "interpretation": "사건 후보"},
+    "level_4_strong_candidate": {"confidence_level": "strong_event_candidate", "required": ["ten_god_signal", "life_stage_signal", "relation_signal", "palace_signal", "layer_signal"], "interpretation": "강한 사건 후보"},
+    "level_5_high_confidence": {"confidence_level": "high_probability_event", "required": ["ten_god_signal", "life_stage_signal", "relation_signal", "palace_signal", "layer_signal", "yonggi_signal", "profile_signal"], "interpretation": "높은 확률의 사건 후보"}
+  },
+  "no_event_suppression": {
+    "purpose": "신호가 약하거나 서로 상쇄될 때 이벤트 출력을 억제한다(항상 무언가 일어난다고 하지 않음).",
+    "suppress_if": [
+      {"condition": "십성 신호만 있고 궁성·관계·층위 보조가 없음", "action": "theme_only로 낮춤"},
+      {"condition": "월운·일운 신호만 있고 대운·세운 흐름이 없음", "action": "일시적 체감으로 낮춤"},
+      {"condition": "합은 있으나 합반이고 실행 신호 없음", "action": "지연 또는 보류로 해석"},
+      {"condition": "12운성이 태·양이고 결과형 이벤트를 요구함", "action": "준비 단계로 낮춤"},
+      {"condition": "이벤트 후보가 3개 이상 비슷한 점수로 분산됨", "action": "대표 이벤트 확정하지 않고 가능성 묶음으로 출력"}
+    ]
+  }
+}

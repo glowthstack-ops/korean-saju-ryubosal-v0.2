@@ -19,6 +19,7 @@ from fastapi import Header, HTTPException
 from saju_engines.account_store import AccountSettingsStore
 from saju_engines.auth_store import AccountAuthStore
 from saju_engines.chat_history_store import ChatHistoryStore
+from saju_engines.life_event_store import LifeEventStore
 from saju_engines.profile_store import ProfileStore
 from saju_engines.report_job_store import ReportJobStore
 from saju_engines.subject_store import SubjectStore
@@ -42,6 +43,11 @@ def get_auth_store() -> AccountAuthStore:
 def get_subject_store() -> SubjectStore:
     """subjects 저장소."""
     return _store(SubjectStore)
+
+
+def get_life_event_store() -> LifeEventStore:
+    """subject_life_events 저장소 (현실 신호 캘리브레이션 수집)."""
+    return _store(LifeEventStore)
 
 
 def get_profile_store() -> ProfileStore:

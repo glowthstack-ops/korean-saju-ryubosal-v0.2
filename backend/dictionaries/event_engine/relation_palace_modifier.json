@@ -1,0 +1,1287 @@
+{
+  "schema": "relation_palace_event_modifier.v1",
+  "reviewed": false,
+  "extends": [
+    "transit_ten_god_event_branching.v1",
+    "transit_ten_god_event_branching_addendum.v1",
+    "twelve_life_stage_event_modifier.v1"
+  ],
+  "purpose": "운에서 원국 또는 운끼리 발생하는 합충형파해와 궁성 활성 정보를 이용해 십성 기반 이벤트 후보의 실제 사건화 여부와 생활 영역을 보정한다.",
+  "core_principle": {
+    "ten_god": "무슨 사건인가",
+    "twelve_life_stage": "사건이 어느 단계인가",
+    "relation": "사건이 어떻게 발동되는가",
+    "palace": "어느 생활 영역에서 발생하는가",
+    "yonggi": "좋게 발현되는가, 부담으로 발현되는가"
+  },
+  "calculation_scope": {
+    "primary_relations": [
+      "transit_to_natal",
+      "daewoon_to_natal",
+      "sewoon_to_natal",
+      "wolwoon_to_natal",
+      "ilwoon_to_natal"
+    ],
+    "secondary_relations": [
+      "daewoon_to_sewoon",
+      "sewoon_to_wolwoon",
+      "wolwoon_to_ilwoon"
+    ],
+    "background_relations": [
+      "natal_internal_relation"
+    ],
+    "rule": "원국 내부 합충형파해는 성향·구조로 보고, 운이 자극할 때 사건화한다."
+  },
+  "relation_types": {
+    "HAP": {
+      "name": "합",
+      "core_meaning": "끌림, 결합, 계약, 묶임, 타협, 관계 형성",
+      "event_action": [
+        "connect",
+        "bind",
+        "contract_document",
+        "attract",
+        "delay_if_bound"
+      ],
+      "positive_expression": [
+        "계약 성사",
+        "관계 형성",
+        "협력",
+        "공식화",
+        "새 인연"
+      ],
+      "negative_expression": [
+        "합반",
+        "묶임",
+        "결정 지연",
+        "관계에 발목 잡힘",
+        "기능 상실"
+      ],
+      "base_event_score_bonus": 7,
+      "requires_subclassification": true,
+      "subtypes": [
+        "CHEONGAN_HAP",
+        "YUKHAP",
+        "SAMHAP",
+        "BANGHAP",
+        "BANHAP",
+        "HAPHWA",
+        "HAPBAN",
+        "HAPGEO",
+        "HAPRAE"
+      ]
+    },
+    "CHUNG": {
+      "name": "충",
+      "core_meaning": "충돌, 이동, 분리, 변화, 돌발 자극, 강제 활성",
+      "event_action": [
+        "activate",
+        "move",
+        "separate",
+        "break_status_quo",
+        "force_change"
+      ],
+      "positive_expression": [
+        "막힌 일의 변화",
+        "이동",
+        "이직",
+        "새 국면",
+        "문제의 표면화"
+      ],
+      "negative_expression": [
+        "충돌",
+        "관계 단절",
+        "계약 파기",
+        "건강 충격",
+        "강제 이동"
+      ],
+      "base_event_score_bonus": 10,
+      "requires_polarity_check": true
+    },
+    "HYEONG": {
+      "name": "형",
+      "core_meaning": "압박, 처벌, 규칙 문제, 반복 스트레스, 내부 갈등",
+      "event_action": [
+        "pressure",
+        "punish",
+        "stress",
+        "repeat_problem",
+        "legalize_conflict"
+      ],
+      "positive_expression": [
+        "규율 강화",
+        "훈련",
+        "교정",
+        "문제 정리",
+        "전문성 강화"
+      ],
+      "negative_expression": [
+        "법적 문제",
+        "징계",
+        "건강 문제",
+        "관계 압박",
+        "자책·반복 실수"
+      ],
+      "base_event_score_bonus": 8,
+      "requires_health_legal_check": true
+    },
+    "PA": {
+      "name": "파",
+      "core_meaning": "깨짐, 손상, 틀어짐, 취소, 균열",
+      "event_action": [
+        "damage",
+        "crack",
+        "cancel",
+        "weaken",
+        "fragment"
+      ],
+      "positive_expression": [
+        "불필요한 구조 해체",
+        "기존 문제의 정리",
+        "낡은 관계 청산"
+      ],
+      "negative_expression": [
+        "계약 파기",
+        "관계 균열",
+        "금전 손상",
+        "일정 취소",
+        "성과 훼손"
+      ],
+      "base_event_score_bonus": 6,
+      "requires_supporting_signal": true
+    },
+    "HAE": {
+      "name": "해",
+      "core_meaning": "숨은 방해, 배신감, 오해, 불편한 얽힘, 잠복 문제",
+      "event_action": [
+        "obstruct",
+        "hide_problem",
+        "resent",
+        "delay",
+        "misalign"
+      ],
+      "positive_expression": [
+        "숨은 문제 발견",
+        "내부 리스크 점검",
+        "관계 재조정"
+      ],
+      "negative_expression": [
+        "오해",
+        "지연",
+        "은근한 손해",
+        "신뢰 훼손",
+        "뒤늦은 문제 노출"
+      ],
+      "base_event_score_bonus": 4,
+      "requires_context_check": true
+    }
+  },
+  "hap_subtype_rules": {
+    "CHEONGAN_HAP": {
+      "name": "천간합",
+      "meaning": "표면적 역할·제안·인물·직책·외부 조건의 결합",
+      "event_effect": [
+        "visible_offer",
+        "negotiation",
+        "role_binding",
+        "public_agreement"
+      ],
+      "score_multiplier": 1.0,
+      "notes": "천간합은 겉으로 드러나는 제안, 직책, 관계, 계약 협의에 가깝다."
+    },
+    "YUKHAP": {
+      "name": "육합",
+      "meaning": "개별 글자 간의 밀착 결합",
+      "event_effect": [
+        "relationship_binding",
+        "contract_document",
+        "cooperation",
+        "attachment"
+      ],
+      "score_multiplier": 1.05,
+      "notes": "관계·계약·협력 신호로 좋지만, 합화 조건이 없으면 합반으로 묶일 수 있다."
+    },
+    "SAMHAP": {
+      "name": "삼합",
+      "meaning": "특정 오행·방향성으로 사건 흐름이 크게 모임",
+      "event_effect": [
+        "domain_formation",
+        "large_flow",
+        "grouped_event"
+      ],
+      "score_multiplier": 1.2,
+      "notes": "완성 삼합은 사건 도메인을 강하게 만들고, 반합은 중간 강도로 본다."
+    },
+    "BANGHAP": {
+      "name": "방합",
+      "meaning": "계절·환경의 방향성이 모임",
+      "event_effect": [
+        "environmental_pressure",
+        "collective_flow",
+        "background_amplification"
+      ],
+      "score_multiplier": 1.15,
+      "notes": "방합은 개인 의지보다 환경 전체의 방향성이 강해지는 신호로 본다."
+    },
+    "HAPHWA": {
+      "name": "합화",
+      "meaning": "합이 실제로 다른 오행성으로 변화",
+      "event_effect": [
+        "transformation",
+        "role_conversion",
+        "new_domain_creation"
+      ],
+      "score_multiplier": 1.25,
+      "required_conditions": [
+        "월령 또는 계절의 지원",
+        "화하려는 오행의 세력 존재",
+        "합을 방해하는 충·형이 약함",
+        "천간 투출 또는 지지 기반이 있음"
+      ],
+      "notes": "합화가 성립하면 기존 십성 의미보다 변환된 오행·십성 의미를 우선한다."
+    },
+    "HAPBAN": {
+      "name": "합반",
+      "meaning": "합은 되었으나 화하지 못하고 서로 묶임",
+      "event_effect": [
+        "binding",
+        "delay",
+        "loss_of_function",
+        "stuck_relation"
+      ],
+      "score_multiplier": 1.1,
+      "notes": "계약·관계·직장·거처가 묶이지만 실제 변화가 지연될 수 있다."
+    },
+    "HAPGEO": {
+      "name": "합거",
+      "meaning": "합으로 인해 한쪽 글자의 기능이 사라지거나 약화됨",
+      "event_effect": [
+        "removal",
+        "function_loss",
+        "detachment"
+      ],
+      "score_multiplier": 1.15,
+      "notes": "용신이 합거되면 손실, 기신이 합거되면 문제 제거로 볼 수 있다."
+    },
+    "HAPRAE": {
+      "name": "합래",
+      "meaning": "운의 글자가 원국으로 끌려와 사건 자극이 됨",
+      "event_effect": [
+        "incoming_event",
+        "opportunity_arrival",
+        "external_person_or_offer"
+      ],
+      "score_multiplier": 1.15,
+      "notes": "좋은 글자가 합래하면 기회, 나쁜 글자가 합래하면 부담이나 얽힘으로 본다."
+    }
+  },
+  "branch_relation_pairs": {
+    "CHUNG": {
+      "JA_O": {
+        "pair": [
+          "子",
+          "午"
+        ],
+        "themes": [
+          "감정 충돌",
+          "생활 리듬 변화",
+          "이동",
+          "관계 긴장"
+        ]
+      },
+      "CHUK_MI": {
+        "pair": [
+          "丑",
+          "未"
+        ],
+        "themes": [
+          "부동산",
+          "가족",
+          "문서",
+          "재산",
+          "생활 기반 충돌"
+        ]
+      },
+      "IN_SHIN": {
+        "pair": [
+          "寅",
+          "申"
+        ],
+        "themes": [
+          "이동",
+          "직업 변화",
+          "외부 활동",
+          "교통",
+          "조직 변화"
+        ]
+      },
+      "MYO_YU": {
+        "pair": [
+          "卯",
+          "酉"
+        ],
+        "themes": [
+          "관계 충돌",
+          "평판",
+          "계약",
+          "대인관계",
+          "이성 문제"
+        ]
+      },
+      "JIN_SUL": {
+        "pair": [
+          "辰",
+          "戌"
+        ],
+        "themes": [
+          "부동산",
+          "문서",
+          "저장된 문제",
+          "조직 기반",
+          "가족 문제"
+        ]
+      },
+      "SA_HAE": {
+        "pair": [
+          "巳",
+          "亥"
+        ],
+        "themes": [
+          "이동",
+          "거처 변화",
+          "직업·학업 변동",
+          "관계 단절",
+          "심리적 충돌"
+        ]
+      }
+    },
+    "PA": {
+      "JA_YU": {
+        "pair": [
+          "子",
+          "酉"
+        ],
+        "themes": [
+          "관계 균열",
+          "말·평판 문제",
+          "계약 손상"
+        ]
+      },
+      "O_MYO": {
+        "pair": [
+          "午",
+          "卯"
+        ],
+        "themes": [
+          "감정적 파열",
+          "연애·관계 손상",
+          "노출 문제"
+        ]
+      },
+      "JIN_CHUK": {
+        "pair": [
+          "辰",
+          "丑"
+        ],
+        "themes": [
+          "부동산·문서 균열",
+          "재산 문제",
+          "저장된 문제 손상"
+        ]
+      },
+      "SUL_MI": {
+        "pair": [
+          "戌",
+          "未"
+        ],
+        "themes": [
+          "가족·부동산·계약 손상",
+          "조직 내 균열"
+        ]
+      },
+      "IN_HAE": {
+        "pair": [
+          "寅",
+          "亥"
+        ],
+        "themes": [
+          "이동 계획 차질",
+          "관계 어긋남",
+          "진행 중인 일의 균열"
+        ]
+      },
+      "SA_SHIN": {
+        "pair": [
+          "巳",
+          "申"
+        ],
+        "themes": [
+          "직업·기술·계약 손상",
+          "사고성 변수",
+          "이동 중 차질"
+        ]
+      }
+    },
+    "HAE": {
+      "JA_MI": {
+        "pair": [
+          "子",
+          "未"
+        ],
+        "themes": [
+          "가족·관계 내 숨은 불만",
+          "재물·생활 문제"
+        ]
+      },
+      "CHUK_O": {
+        "pair": [
+          "丑",
+          "午"
+        ],
+        "themes": [
+          "감정과 현실의 불일치",
+          "가족·재산 문제"
+        ]
+      },
+      "IN_SA": {
+        "pair": [
+          "寅",
+          "巳"
+        ],
+        "themes": [
+          "직업·이동 중 숨은 장애",
+          "사고성 변수"
+        ]
+      },
+      "MYO_JIN": {
+        "pair": [
+          "卯",
+          "辰"
+        ],
+        "themes": [
+          "관계·계약의 불편함",
+          "문서상 숨은 문제"
+        ]
+      },
+      "SHIN_HAE": {
+        "pair": [
+          "申",
+          "亥"
+        ],
+        "themes": [
+          "이동·직업·관계의 엇갈림",
+          "숨은 손해"
+        ]
+      },
+      "YU_SUL": {
+        "pair": [
+          "酉",
+          "戌"
+        ],
+        "themes": [
+          "평판·조직·계약의 숨은 갈등",
+          "인간관계 손상"
+        ]
+      }
+    },
+    "HYEONG": {
+      "IN_SA_SHIN": {
+        "pair_or_set": [
+          "寅",
+          "巳",
+          "申"
+        ],
+        "name": "무은지형",
+        "themes": [
+          "배신감",
+          "이동·직업 압박",
+          "사고성 변수",
+          "대인 갈등"
+        ]
+      },
+      "CHUK_SUL_MI": {
+        "pair_or_set": [
+          "丑",
+          "戌",
+          "未"
+        ],
+        "name": "지세지형",
+        "themes": [
+          "부동산",
+          "가족",
+          "문서",
+          "조직 압박",
+          "법적 문제"
+        ]
+      },
+      "JA_MYO": {
+        "pair_or_set": [
+          "子",
+          "卯"
+        ],
+        "name": "무례지형",
+        "themes": [
+          "관계 예의 문제",
+          "감정 충돌",
+          "연애·대인 갈등"
+        ]
+      },
+      "SELF_PUNISHMENT": {
+        "pair_or_set": [
+          "辰辰",
+          "午午",
+          "酉酉",
+          "亥亥"
+        ],
+        "name": "자형",
+        "themes": [
+          "반복 스트레스",
+          "자기 압박",
+          "건강 주의",
+          "관계 내 반복 문제"
+        ]
+      }
+    }
+  },
+  "palace_map": {
+    "year_pillar": {
+      "name": "년주",
+      "domain": [
+        "가족 뿌리",
+        "조상",
+        "초년 환경",
+        "사회적 배경",
+        "넓은 인맥",
+        "외부 평판"
+      ],
+      "event_domains": [
+        "family_issue",
+        "social_background_change",
+        "old_network",
+        "reputation",
+        "ancestral_property"
+      ],
+      "activation_weight": 0.75
+    },
+    "month_pillar": {
+      "name": "월주",
+      "domain": [
+        "직업 환경",
+        "사회 활동",
+        "부모",
+        "상사",
+        "조직",
+        "현재 사회적 기반"
+      ],
+      "event_domains": [
+        "career_change",
+        "job_gain",
+        "promotion",
+        "social_conflict",
+        "contract_document",
+        "business_environment"
+      ],
+      "activation_weight": 1.25
+    },
+    "day_pillar": {
+      "name": "일주",
+      "domain": [
+        "본인",
+        "배우자",
+        "현실 생활",
+        "거처",
+        "현재 관계",
+        "몸의 직접 체감"
+      ],
+      "event_domains": [
+        "relationship_change",
+        "marriage_signal",
+        "relocation",
+        "health_attention",
+        "wealth_change",
+        "contract_document"
+      ],
+      "activation_weight": 1.3
+    },
+    "hour_pillar": {
+      "name": "시주",
+      "domain": [
+        "자녀",
+        "결과물",
+        "미래 계획",
+        "프로젝트",
+        "노후",
+        "성과"
+      ],
+      "event_domains": [
+        "childbirth",
+        "creative_output",
+        "business_start",
+        "education_completion",
+        "future_plan_change",
+        "project_result"
+      ],
+      "activation_weight": 1.0
+    }
+  },
+  "stem_branch_palace_detail": {
+    "year_stem": {
+      "domain": [
+        "외부 평판",
+        "윗세대",
+        "사회적 명분"
+      ],
+      "visibility": "external"
+    },
+    "year_branch": {
+      "domain": [
+        "가족 뿌리",
+        "기반",
+        "오래된 관계"
+      ],
+      "visibility": "material"
+    },
+    "month_stem": {
+      "domain": [
+        "직업 역할",
+        "상사",
+        "사회적 타이틀"
+      ],
+      "visibility": "external"
+    },
+    "month_branch": {
+      "domain": [
+        "직업 환경",
+        "조직 기반",
+        "월령",
+        "사회적 현실"
+      ],
+      "visibility": "material",
+      "importance": "very_high"
+    },
+    "day_stem": {
+      "domain": [
+        "나 자신",
+        "의사결정",
+        "자기 인식"
+      ],
+      "visibility": "self"
+    },
+    "day_branch": {
+      "domain": [
+        "배우자궁",
+        "거처",
+        "생활 현실",
+        "직접 체감"
+      ],
+      "visibility": "material",
+      "importance": "very_high"
+    },
+    "hour_stem": {
+      "domain": [
+        "결과의 표면화",
+        "자녀·프로젝트의 외부 표현"
+      ],
+      "visibility": "external"
+    },
+    "hour_branch": {
+      "domain": [
+        "자녀궁",
+        "결과궁",
+        "미래 기반",
+        "프로젝트의 실제 결과"
+      ],
+      "visibility": "material"
+    }
+  },
+  "relation_to_palace_event_rules": [
+    {
+      "id": "RELATION_HAP_MONTH",
+      "relation": "HAP",
+      "target_palace": "month_pillar",
+      "likely_events": [
+        "job_gain",
+        "contract_document",
+        "promotion",
+        "business_environment"
+      ],
+      "interpretation": "직업·조직·사회 환경에서 제안, 협력, 계약, 역할 묶임이 생긴다."
+    },
+    {
+      "id": "RELATION_CHUNG_MONTH",
+      "relation": "CHUNG",
+      "target_palace": "month_pillar",
+      "likely_events": [
+        "career_change",
+        "social_conflict",
+        "job_gain",
+        "relocation"
+      ],
+      "interpretation": "직업 환경이 흔들리거나 부서 이동, 이직, 상사·조직 충돌로 발현된다."
+    },
+    {
+      "id": "RELATION_HYEONG_MONTH",
+      "relation": "HYEONG",
+      "target_palace": "month_pillar",
+      "likely_events": [
+        "career_change",
+        "legal_conflict",
+        "social_conflict",
+        "health_attention"
+      ],
+      "interpretation": "직장 내 압박, 규정 문제, 징계성 이슈, 반복 스트레스."
+    },
+    {
+      "id": "RELATION_PA_MONTH",
+      "relation": "PA",
+      "target_palace": "month_pillar",
+      "likely_events": [
+        "career_change",
+        "contract_document",
+        "business_environment"
+      ],
+      "interpretation": "계약·조직 구조·업무 계획이 깨지거나 틀어진다."
+    },
+    {
+      "id": "RELATION_HAE_MONTH",
+      "relation": "HAE",
+      "target_palace": "month_pillar",
+      "likely_events": [
+        "social_conflict",
+        "preparation_delay",
+        "contract_document"
+      ],
+      "interpretation": "직장·조직 내 숨은 불만, 오해, 지연, 내부 장애."
+    },
+    {
+      "id": "RELATION_HAP_DAY",
+      "relation": "HAP",
+      "target_palace": "day_pillar",
+      "likely_events": [
+        "relationship_change",
+        "marriage_signal",
+        "contract_document",
+        "relocation"
+      ],
+      "interpretation": "배우자궁·생활 현실이 묶인다. 관계 형성, 계약, 거처 관련 합의 가능."
+    },
+    {
+      "id": "RELATION_CHUNG_DAY",
+      "relation": "CHUNG",
+      "target_palace": "day_pillar",
+      "likely_events": [
+        "relationship_change",
+        "relocation",
+        "health_attention",
+        "career_change"
+      ],
+      "interpretation": "배우자궁·거처·생활 기반이 직접 흔들린다. 이사·이별·생활 변화 신호가 강하다."
+    },
+    {
+      "id": "RELATION_HYEONG_DAY",
+      "relation": "HYEONG",
+      "target_palace": "day_pillar",
+      "likely_events": [
+        "relationship_change",
+        "health_attention",
+        "social_conflict"
+      ],
+      "interpretation": "관계와 몸의 직접 체감에 반복 압박이 생긴다."
+    },
+    {
+      "id": "RELATION_PA_DAY",
+      "relation": "PA",
+      "target_palace": "day_pillar",
+      "likely_events": [
+        "relationship_change",
+        "contract_document",
+        "relocation"
+      ],
+      "interpretation": "생활 기반, 관계, 계약이 손상되거나 틀어진다."
+    },
+    {
+      "id": "RELATION_HAE_DAY",
+      "relation": "HAE",
+      "target_palace": "day_pillar",
+      "likely_events": [
+        "relationship_change",
+        "health_attention",
+        "preparation_delay"
+      ],
+      "interpretation": "배우자·생활 현실에서 숨은 불편함, 오해, 지연이 생긴다."
+    },
+    {
+      "id": "RELATION_HAP_HOUR",
+      "relation": "HAP",
+      "target_palace": "hour_pillar",
+      "likely_events": [
+        "childbirth",
+        "creative_output",
+        "business_start",
+        "education_completion"
+      ],
+      "interpretation": "자녀·결과물·프로젝트가 결합 또는 성과화된다."
+    },
+    {
+      "id": "RELATION_CHUNG_HOUR",
+      "relation": "CHUNG",
+      "target_palace": "hour_pillar",
+      "likely_events": [
+        "childbirth",
+        "creative_output",
+        "business_start",
+        "project_result",
+        "future_plan_change"
+      ],
+      "interpretation": "자녀·프로젝트·미래 계획에 변화, 중단, 방향 전환이 생긴다."
+    },
+    {
+      "id": "RELATION_HAP_YEAR",
+      "relation": "HAP",
+      "target_palace": "year_pillar",
+      "likely_events": [
+        "family_issue",
+        "old_network",
+        "reputation",
+        "contract_document"
+      ],
+      "interpretation": "가족·오래된 인연·사회적 배경과 연결된다."
+    },
+    {
+      "id": "RELATION_CHUNG_YEAR",
+      "relation": "CHUNG",
+      "target_palace": "year_pillar",
+      "likely_events": [
+        "family_issue",
+        "social_background_change",
+        "relocation",
+        "reputation"
+      ],
+      "interpretation": "가족 뿌리, 고향, 오래된 관계, 외부 평판이 흔들린다."
+    }
+  ],
+  "event_gate_rules_with_relation_and_palace": {
+    "career_change": {
+      "required_or_strong_signals": [
+        "월주 충",
+        "월주 형",
+        "월주 파",
+        "상관+정관",
+        "편관 활성",
+        "대운 또는 세운이 월주를 자극"
+      ],
+      "supporting_signals": [
+        "일주 충이면 생활 변화 동반",
+        "시주 충이면 프로젝트 변화 동반",
+        "정인 합이면 문서·계약 절차 동반"
+      ],
+      "downgrade_if": [
+        "월주가 자극되지 않고 일운만 충",
+        "관성 신호 없이 식상만 있음",
+        "합만 있고 충·형·파가 없음"
+      ]
+    },
+    "job_gain": {
+      "required_or_strong_signals": [
+        "월주 합",
+        "정관+정인",
+        "재성+관성",
+        "관성 또는 인성이 월주에 연결"
+      ],
+      "supporting_signals": [
+        "관대·건록·제왕",
+        "세운에서 관성 또는 인성",
+        "월운에서 합 또는 문서 신호"
+      ],
+      "downgrade_if": [
+        "충·형이 강해 안정성이 낮음",
+        "합반으로 묶였으나 확정 신호 없음",
+        "일운만 관성"
+      ]
+    },
+    "relocation": {
+      "required_or_strong_signals": [
+        "일지 충",
+        "월지 또는 일지 충",
+        "인성·재성 신호",
+        "거처궁 자극",
+        "巳亥충, 寅申충, 辰戌충, 丑未충 등 이동·기반 충"
+      ],
+      "supporting_signals": [
+        "계약 문서 신호",
+        "정인·정재",
+        "묘 또는 관대",
+        "월운·일운에서 실행 트리거"
+      ],
+      "downgrade_if": [
+        "십성상 인성만 있고 지지 충이 없음",
+        "문서 신호만 있고 거처궁 활성 없음",
+        "대운·세운 흐름 없이 일운 충만 있음"
+      ]
+    },
+    "relationship_change": {
+      "required_or_strong_signals": [
+        "일지 합",
+        "일지 충",
+        "일지 형",
+        "재성 또는 관성 활성",
+        "배우자궁 자극"
+      ],
+      "supporting_signals": [
+        "목욕",
+        "도화성 신호",
+        "재성+관성",
+        "합래",
+        "합반"
+      ],
+      "downgrade_if": [
+        "재성·관성이 지장간에만 약하게 있음",
+        "배우자궁 자극 없음",
+        "월운·일운 단기 합만 있음"
+      ]
+    },
+    "contract_document": {
+      "required_or_strong_signals": [
+        "정인",
+        "정관",
+        "정재",
+        "합",
+        "관대",
+        "건록",
+        "월주 또는 일주 문서성 자극"
+      ],
+      "supporting_signals": [
+        "묘는 보관·등기·저장성 문서",
+        "삼합은 큰 흐름의 계약",
+        "천간합은 제안·협의"
+      ],
+      "risk_signals": [
+        "파",
+        "해",
+        "상관+정관",
+        "편재+편관",
+        "병",
+        "절"
+      ]
+    },
+    "business_start": {
+      "required_or_strong_signals": [
+        "식상+재성",
+        "비겁+식상",
+        "시주 활성",
+        "월주 또는 시주 합",
+        "장생·관대·건록"
+      ],
+      "supporting_signals": [
+        "편재",
+        "상관",
+        "제왕",
+        "대운·세운 식상재성 흐름"
+      ],
+      "risk_signals": [
+        "겁재+편재",
+        "파",
+        "해",
+        "편관",
+        "병"
+      ]
+    },
+    "wealth_change": {
+      "required_or_strong_signals": [
+        "재성 활성",
+        "비겁+재성",
+        "식상+재성",
+        "재성이 월주 또는 일주와 관계"
+      ],
+      "supporting_signals": [
+        "건록",
+        "제왕",
+        "묘",
+        "계약 문서 신호"
+      ],
+      "risk_signals": [
+        "겁재",
+        "파",
+        "해",
+        "편재+편관",
+        "절"
+      ]
+    },
+    "childbirth": {
+      "required_or_strong_signals": [
+        "식상",
+        "시주 활성",
+        "시지 합 또는 생조",
+        "태·양·장생"
+      ],
+      "supporting_signals": [
+        "정인",
+        "재성",
+        "관성",
+        "관계 상태 게이트"
+      ],
+      "downgrade_if": [
+        "시주 활성 없음",
+        "현실 게이트 없음",
+        "식상만 있고 합충형파해 보조 없음"
+      ],
+      "downgrade_to": [
+        "creative_output",
+        "project_result"
+      ]
+    },
+    "health_attention": {
+      "required_or_strong_signals": [
+        "일주 형",
+        "일주 충",
+        "편관",
+        "편인",
+        "병·사·절"
+      ],
+      "supporting_signals": [
+        "자형",
+        "형충 동시",
+        "일운 트리거"
+      ],
+      "risk_signals": [
+        "편관+편인",
+        "상관+편관",
+        "형+충",
+        "공망 활성"
+      ]
+    }
+  },
+  "compound_relation_patterns": [
+    {
+      "id": "HAP_AND_CHUNG_SAME_TARGET",
+      "pattern": [
+        "HAP",
+        "CHUNG"
+      ],
+      "meaning": "묶임과 충돌이 동시에 발생",
+      "likely_expression": [
+        "계약과 파기 가능성이 공존",
+        "관계가 생기지만 흔들림",
+        "이사·이직 제안은 있으나 조건 충돌",
+        "합의 후 변경"
+      ],
+      "score_effect": {
+        "event_activation_bonus": 11,
+        "stability_penalty": -12
+      }
+    },
+    {
+      "id": "HYEONG_AND_CHUNG",
+      "pattern": [
+        "HYEONG",
+        "CHUNG"
+      ],
+      "meaning": "강한 압박과 돌발 변화",
+      "likely_expression": [
+        "법적 문제",
+        "징계",
+        "건강 주의",
+        "강제 이직",
+        "관계 단절"
+      ],
+      "score_effect": {
+        "event_activation_bonus": 14,
+        "risk_bonus": 20
+      }
+    },
+    {
+      "id": "PA_AND_HAE",
+      "pattern": [
+        "PA",
+        "HAE"
+      ],
+      "meaning": "겉으로 깨지고 안으로도 불편함",
+      "likely_expression": [
+        "계약 손상",
+        "관계 신뢰 저하",
+        "금전 손실",
+        "진행 중인 일의 지연"
+      ],
+      "score_effect": {
+        "event_activation_bonus": 7,
+        "risk_bonus": 15
+      }
+    },
+    {
+      "id": "HAP_AND_HYEONG",
+      "pattern": [
+        "HAP",
+        "HYEONG"
+      ],
+      "meaning": "관계나 계약으로 묶이지만 압박이 발생",
+      "likely_expression": [
+        "불리한 계약",
+        "관계 속 부담",
+        "조직 내 책임 증가",
+        "결혼·동업·계약의 압박"
+      ],
+      "score_effect": {
+        "event_activation_bonus": 8,
+        "pressure_bonus": 15
+      }
+    },
+    {
+      "id": "MULTI_LAYER_SAME_PALACE_ACTIVATION",
+      "pattern": [
+        "daewoon_relation",
+        "sewoon_relation",
+        "wolwoon_relation"
+      ],
+      "meaning": "같은 궁성이 여러 운층에서 반복 자극됨",
+      "likely_expression": [
+        "강한 사건화",
+        "피하기 어려운 생활 영역 변화",
+        "장기 배경이 실제 사건으로 구체화"
+      ],
+      "score_effect": {
+        "event_activation_bonus": 16
+      }
+    }
+  ],
+  "relation_layer_weights": {
+    "daewoon_to_natal": {
+      "role": "장기 구조 변화",
+      "score_multiplier": 0.9
+    },
+    "sewoon_to_natal": {
+      "role": "연도 사건화",
+      "score_multiplier": 1.15
+    },
+    "wolwoon_to_natal": {
+      "role": "월 단위 활성화",
+      "score_multiplier": 1.0
+    },
+    "ilwoon_to_natal": {
+      "role": "일 단위 트리거",
+      "score_multiplier": 0.6
+    },
+    "daewoon_to_sewoon": {
+      "role": "연도 사건의 배경 강화",
+      "score_multiplier": 0.85
+    },
+    "sewoon_to_wolwoon": {
+      "role": "월별 사건 활성",
+      "score_multiplier": 0.9
+    },
+    "wolwoon_to_ilwoon": {
+      "role": "택일·실행일 보정",
+      "score_multiplier": 0.75
+    }
+  },
+  "palace_relation_score_multipliers": {
+    "year_pillar": {
+      "stem": 0.65,
+      "branch": 0.8
+    },
+    "month_pillar": {
+      "stem": 1.0,
+      "branch": 1.25
+    },
+    "day_pillar": {
+      "stem": 0.9,
+      "branch": 1.3
+    },
+    "hour_pillar": {
+      "stem": 0.8,
+      "branch": 1.0
+    }
+  },
+  "yonggi_relation_quality_rules": {
+    "relation_hits_yong_or_hee": {
+      "HAP": "좋은 기회가 들어오지만 합반이면 지연 가능",
+      "CHUNG": "필요한 변화·막힌 일의 돌파",
+      "HYEONG": "훈련·교정·전문성 강화",
+      "PA": "낡은 구조 제거 가능",
+      "HAE": "숨은 문제를 발견하고 조정"
+    },
+    "relation_hits_gi": {
+      "HAP": "기신과 얽혀 발목 잡힘 또는 불리한 관계",
+      "CHUNG": "기신이 제거되면 길, 기신이 날뛰면 흉",
+      "HYEONG": "스트레스·징계·건강 문제",
+      "PA": "손상·파기·손재",
+      "HAE": "오해·숨은 손실·신뢰 문제"
+    },
+    "relation_removes_gi": {
+      "description": "기신이 충거·합거되어 기능을 잃으면 오히려 문제 제거로 볼 수 있다.",
+      "score_adjustment": "negative_event_score_down_positive_resolution_up"
+    },
+    "relation_damages_yong": {
+      "description": "용신이 충·파·형·합거되면 해당 사건은 실패·지연·손실로 보정한다.",
+      "score_adjustment": "event_score_up_but_quality_down"
+    }
+  },
+  "event_materialization_levels": {
+    "level_0": {
+      "name": "theme_only",
+      "condition": "십성 신호만 있고 관계·궁성 자극이 없음",
+      "interpretation": "분위기 또는 가능성"
+    },
+    "level_1": {
+      "name": "weak_event_candidate",
+      "condition": "십성 신호와 약한 궁성 또는 약한 관계 신호",
+      "interpretation": "작은 체감 사건"
+    },
+    "level_2": {
+      "name": "event_candidate",
+      "condition": "십성 신호와 관련 궁성 자극이 있음",
+      "interpretation": "사건 후보"
+    },
+    "level_3": {
+      "name": "strong_event_candidate",
+      "condition": "십성 조합, 관련 궁성, 합충형파해가 모두 연결됨",
+      "interpretation": "강한 사건 후보"
+    },
+    "level_4": {
+      "name": "high_probability_event",
+      "condition": "대운·세운·월운이 같은 이벤트를 가리키고 궁성·관계·용기신 판단까지 일치",
+      "interpretation": "실제 발생 가능성이 높은 사건"
+    }
+  },
+  "integration_pipeline": [
+    {
+      "step": 1,
+      "module": "manseoryeok_engine",
+      "output": "대운·세운·월운·일운 간지"
+    },
+    {
+      "step": 2,
+      "module": "ten_god_calculator",
+      "output": "운 십성 계산"
+    },
+    {
+      "step": 3,
+      "module": "ten_god_event_brancher",
+      "output": "이벤트 후보 생성"
+    },
+    {
+      "step": 4,
+      "module": "twelve_life_stage_modifier",
+      "output": "이벤트 상태·시차 보정"
+    },
+    {
+      "step": 5,
+      "module": "relation_palace_engine",
+      "output": "합충형파해·궁성 활성으로 사건화 여부 보정"
+    },
+    {
+      "step": 6,
+      "module": "yonggi_quality_engine",
+      "output": "길흉 품질 보정"
+    },
+    {
+      "step": 7,
+      "module": "event_ranker",
+      "output": "최종 이벤트 랭킹"
+    },
+    {
+      "step": 8,
+      "module": "llm_explainer",
+      "output": "계산 결과 기반 자연어 풀이"
+    }
+  ]
+}

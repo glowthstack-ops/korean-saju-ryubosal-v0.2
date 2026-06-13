@@ -11,8 +11,6 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
-from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
 
 import saju_api.services.chat_service as chat_service
 from saju_api.services.manse_service import calculate
@@ -21,12 +19,7 @@ from saju_engines.chart_interpretation import (
     build_chart_interpretation,
     incoming_ten_god_note,
 )
-from saju_engines.dictionaries import EventMappingItem
-from saju_engines.event_scoring import EventScorer
 from saju_shared_types.birth_input import BirthInput
-
-if TYPE_CHECKING:
-    from saju_engines.event_scoring import _PeriodContext
 
 _DICTS = Path(__file__).resolve().parents[2] / "dictionaries"
 _TODAY = date(2026, 6, 11)
@@ -88,30 +81,6 @@ def test_incoming_note_includes_branch_ten_god() -> None:
     note = incoming_ten_god_note("己", "甲申", {})
     assert "천간 甲 정관" in note
     assert "지지 申 상관" in note  # 申(庚) 상관 — 이동성 신호 누락 금지
-
-
-def test_branch_ten_god_signal_matching() -> None:
-    """branchTenGod 신호 조건 — 지지 본기 십성과 AND 매칭(동반 신호 매트릭스)."""
-    scorer = EventScorer(_DICTS)
-    item = EventMappingItem.model_validate({
-        "signal": {"branchTenGod": "상관", "shinsal": "역마살"},
-        "eventCandidates": [
-            {"event": "relocation", "score": 0.7, "polarity": "conditional"},
-        ],
-        "reviewed": False,
-    })
-    # _PeriodContext 전체를 만들 필요 없는 조건 매칭 검증 — fav_map만 쓰는 스텁.
-    ctx = cast("_PeriodContext", SimpleNamespace(fav_map={}))
-    matched = scorer._match_signal(
-        item, ctx, hit_types=set(), stem_ten_god="정관", branch_ten_god="상관",
-        stem_el="木", branch_el="金", sinsal_names={"역마살"},
-    )
-    assert matched == 1.0
-    not_matched = scorer._match_signal(
-        item, ctx, hit_types=set(), stem_ten_god="정관", branch_ten_god="정재",
-        stem_el="木", branch_el="水", sinsal_names={"역마살"},
-    )
-    assert not_matched is None
 
 
 def test_regression_case_2025_08_is_stored() -> None:
