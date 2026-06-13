@@ -1,8 +1,12 @@
 """보고서 고정 목차 (v2.2 Phase 9, docs/10 3·4장 — 전체 규격).
 
-섹션 임의 추가·삭제·병합·순서변경 금지. dependsOn 규칙: F-04(용신 확정)가
-F-10~F-20 전체의 선행, F-21은 F-13~F-20 완료 후. F-08/F-09(과거 검증)를 미래(4부)보다
-앞에 두는 것은 신뢰 형성 원칙(docs/01)에 따른 고정 순서.
+RPT_FULL(22)·RPT_FOCUS generic(8)은 섹션 임의 추가·삭제·병합·순서변경 금지. dependsOn 규칙:
+F-04(용신 확정)가 F-10~F-20 전체의 선행, F-21은 F-13~F-20 완료 후. F-08/F-09(과거 검증)를
+미래(4부)보다 앞에 두는 것은 신뢰 형성 원칙(docs/01)에 따른 고정 순서.
+
+테마 전용 목차(_THEME_TOCS): 주제별 스토리 구조가 다르다는 사용자 확정(2026-06-14)에 따라
+generic FOCUS 대신 주제 전용 목차를 쓴다. 현재 재물운(wealth=W-01~W-09)만 정의. 각 테마 목차
+자체는 고정 규격이며 임의 변형 금지(generic 규격의 주제 확장이지 폐기가 아님).
 """
 
 from __future__ import annotations
@@ -46,6 +50,23 @@ _FOCUS_TOC: list[tuple[str, str, list[str], int, int]] = [
     ("C-07", "행동 전략", ["E8"], 2_500, 3_500),
     ("C-08", "부록: 근거 경로와 점수표", ["EVIDENCE"], 1_500, 2_500),
 ]
+
+# 테마 전용 목차(2026-06-14 사용자 확정) — 주제마다 다른 스토리 구조를 갖는다.
+# 재물운: 성향→재물구조→축재형태→횡재→5년종합→주목할 달→행동전략→점수표. 그 외 주제는 generic FOCUS.
+_WEALTH_TOC: list[tuple[str, str, list[str], int, int]] = [
+    ("W-01", "핵심 요약", ["MODULE"], 1_200, 1_800),
+    ("W-02", "나의 재물 성향", ["T0", "M03"], 2_500, 3_500),
+    ("W-03", "사주의 재물 구조", ["T0", "M09"], 3_000, 4_000),
+    ("W-04", "운에서 드러난 축재 형태", ["M09", "E3"], 2_500, 3_500),
+    ("W-05", "횡재·상속 가능성", ["M09", "E6"], 2_000, 3_000),
+    ("W-06", "향후 5년 재물 종합 운세", ["T1", "M09"], 3_500, 4_500),
+    ("W-07", "주목할 달 세부 정리", ["T1", "E4"], 3_000, 4_000),
+    ("W-08", "재물 행동 전략", ["E8"], 2_000, 3_000),
+    ("W-09", "부록: 점수표와 근거", ["EVIDENCE"], 1_500, 2_500),
+]
+_THEME_TOCS: dict[str, list[tuple[str, str, list[str], int, int]]] = {
+    "wealth": _WEALTH_TOC,
+}
 
 # 주제별 변형(4장) — 제목·모듈만 교체, 섹션 추가/삭제 금지.
 _FOCUS_VARIANTS: dict[str, dict[str, tuple[str, list[str]]]] = {
@@ -100,8 +121,10 @@ def build_section_plans(spec: ReportSpec) -> list[SectionPlan]:
 
     variants = _FOCUS_VARIANTS.get(spec.topic or "", {})
     topic_module = _TOPIC_MODULE.get(spec.topic or "")
+    # 테마 전용 목차가 있으면(재물운 등) 그 스토리 구조를, 없으면 generic FOCUS를 쓴다.
+    toc = _THEME_TOCS.get(spec.topic or "", _FOCUS_TOC)
     plans = []
-    for sid, title, modules, lo, hi in _FOCUS_TOC:
+    for sid, title, modules, lo, hi in toc:
         if sid in variants:
             title, modules = variants[sid]
         # 'MODULE' 플레이스홀더 → 주제 모듈(없으면 원형 유지).

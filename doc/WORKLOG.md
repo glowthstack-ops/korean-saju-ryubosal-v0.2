@@ -2627,3 +2627,19 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
 - 검증: 신규 3 pass(per-글자 십성·관계 분해·클러스터 병합) · ruff/mypy clean · 611 pass(DB) · 프론트 tsc clean.
 - 남은(리포트): ① 테마별 구조 재편(재물운 7부 스토리: 성향→재물구조→축재형태→횡재→5년종합→주목달)
   ② 실제 점수표(부록) ③ 인사·원국 반복 제거 프롬프트 ④ 행동전략 구체화. (과잉탐지 게이트는 다음 단계 보류.)
+
+## v2.2 리포트 품질 — 재물운 테마 전용 목차(W-01~W-09) + 점수표 + 반복 억제 ✅(2차)
+- 사용자 확정(2026-06-14): 주제마다 다른 스토리 구조. 재물운은 generic FOCUS(C-01~C-08) 대신
+  테마 전용 9섹션: W-01 핵심요약 / W-02 재물성향 / W-03 재물구조 / W-04 축재형태 / W-05 횡재·상속 /
+  W-06 향후5년 종합 / W-07 주목할 달 / W-08 행동전략 / W-09 부록 점수표.
+- report_plan: _WEALTH_TOC + _THEME_TOCS(주제→목차 매핑). build_section_plans가 topic으로 분기
+  (테마 있으면 전용 목차, 없으면 generic). RPT_FULL·generic FOCUS는 불변.
+- report_service: _SECTION_GUIDES에 W-01~W-09 지침 추가. 데이터 배선 — _NATAL_SECTIONS(W-02·W-03=
+  명식 구조, 운 블록 미부착) / _SCORE_TABLE_SECTIONS(W-09=실제 마크다운 점수표) / 그 외 운 섹션은
+  precise_candidate_clusters 정밀 후보 블록. 모든 섹션 프롬프트에 "인사·원국 재설명 생략(앞 섹션 1회면
+  충분)" 지침 추가(반복 제거). W-08 행동전략은 확장/소액검증/계약보류/현금확보/레버리지금지 단위로 구체화.
+- report_event_input.score_table_lines: 시점·운간지·이벤트·점수·신뢰도·방향·십성/관계근거 마크다운 표
+  (표 밖 새 수치 생성 금지 프롬프트와 함께). 부록 W-09에 그대로 인용.
+- 검증: dry-run에서 wealth=W-01~W-09 생성·W-09 점수표 박힘·W-07 정밀 클러스터 확인. ruff/mypy clean ·
+  611 pass(DB). test_report_topic_scoping을 테마 9섹션 기준으로 갱신.
+- 남은: 과잉탐지 게이트(엔진), 다른 테마(직업·관계 등) 전용 목차는 추후 동일 패턴으로 확장.

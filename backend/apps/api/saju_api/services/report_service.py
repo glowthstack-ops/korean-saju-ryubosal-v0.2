@@ -19,7 +19,7 @@ from saju_engines.context_reducer import (
 )
 from saju_engines.event_engine_v2 import EventEngineV2
 from saju_engines.report_builder import ReportBuilder
-from saju_engines.report_event_input import precise_candidate_clusters
+from saju_engines.report_event_input import precise_candidate_clusters, score_table_lines
 from saju_engines.report_plan import build_section_plans
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as _EVENT_DOMAIN_V2
@@ -53,8 +53,22 @@ _SECTION_GUIDES: dict[str, str] = {
     "C-02": "주제와 관련된 원국 글자(십성·궁위·관계)만 골라 구조를 설명할 것.",
     "C-04": "이벤트 후보 표의 시기·점수·동반 신호를 타임라인으로 서술할 것.",
     "C-08": "근거 경로와 점수표를 그대로 정리해 부록으로 제시할 것.",
+    # ── 재물운 테마 전용(W-01~W-09) ──
+    "W-01": "핵심만 5줄 이내로 요약할 것 — 어느 시점에 무엇이, 확장/변동/주의 중 무엇인지.",
+    "W-02": "명식에서 드러나는 재물에 대한 성향·태도(정재/편재·안정/확장 지향)를 짧게 서술할 것.",
+    "W-03": "재성(정재·편재)·재성궁(일지·월지)·식상생재 경로·재고 등 재물 '구조'만 설명할 것.",
+    "W-04": "운에서 재물을 어떻게 모으고 키우는지(축재) 발현 형태를 서술할 것 — 발생≠결과.",
+    "W-05": "횡재(편재)·상속(인성·재고)은 가능성으로만. 당첨·복권 단정 금지(로또 번호 거부).",
+    "W-06": "향후 5년 재물 흐름을 시점 클러스터로 타임라인화할 것 — 같은 시점 사건은 묶어서.",
+    "W-07": "주목할 달을 정밀 십성·관계로 풀되, 같은 원국 설명을 반복하지 말 것.",
+    "W-08": "행동 전략을 시기별로 구체화 — 확장/소액 검증/계약 보류/현금 확보/레버리지 금지 단위.",
+    "W-09": "아래 점수표를 그대로 표로 제시하고, 표 밖 새 수치를 만들지 말 것.",
 }
 _DEFAULT_GUIDE = "아래 데이터 블록의 사실만 사용해 섹션 제목에 맞는 이야기로 서술할 것."
+# 명식 구조 섹션(운 데이터 블록 미부착) — 인사·원국 재설명 1회 원칙.
+_NATAL_SECTIONS = {"F-01", "F-02", "F-03", "F-04", "F-05", "F-06", "C-02", "W-02", "W-03"}
+# 부록 점수표 섹션(실제 표 부착).
+_SCORE_TABLE_SECTIONS = {"C-08", "W-09"}
 
 
 class _ReportData:
@@ -147,16 +161,22 @@ def build_section_context(
         else None
     )
     guide = _SECTION_GUIDES.get(plan.section_id, _DEFAULT_GUIDE)
-    is_natal_section = plan.section_id in ("F-01", "F-02", "F-03", "F-04", "F-05", "F-06", "C-02")
+    sid = plan.section_id
+    is_natal_section = sid in _NATAL_SECTIONS
     lines = list(data.prefix_lines)
     lines += [
         "",
-        f"[섹션 과제 — {plan.section_id}. {plan.title}]",
+        f"[섹션 과제 — {sid}. {plan.title}]",
         f"분량: {plan.target_chars.min}~{plan.target_chars.max}자(공백 포함).",
         guide,
         "입력에 없는 간지·점수·연도를 만들지 말 것. 단정 표현 금지.",
+        "인사말·원국 전체 재설명은 생략하고(앞 섹션에서 1회면 충분) 이 섹션 과제에 바로 집중할 것.",
     ]
-    if not is_natal_section:
+    if sid in _SCORE_TABLE_SECTIONS:
+        lines.append("")
+        lines.append("[점수표 — 아래 표를 그대로 인용. 표 밖 새 수치 생성 금지]")
+        lines += score_table_lines(data.result, data.candidates)
+    elif not is_natal_section:
         lines.append("")
         lines += data.luck_block()
     elif data.evidence_paths:

@@ -114,3 +114,32 @@ def precise_candidate_clusters(
                 f"{polarity_ko(str(c.polarity))}"
             )
     return lines
+
+
+def score_table_lines(
+    result: ManseV2Result, candidates: list[EventCandidate]
+) -> list[str]:
+    """부록 점수표 — 실제 마크다운 표(시점·운간지·이벤트·점수·신뢰도·방향·정밀 근거)."""
+    if result.pillars is None:
+        return []
+    lookup = _pillar_lookup(result)
+    out = [
+        "| 시점 | 운간지 | 이벤트 | 점수 | 신뢰도 | 방향 | 십성·관계 근거 |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for c in sorted(candidates, key=lambda x: (x.period, -x.score)):
+        p = lookup.get(c.period)
+        ganji = p.ganji if p else "—"
+        if p is not None:
+            tengods = (
+                f"{p.stem}={p.stem_ten_god or '?'}/{p.branch}={p.branch_ten_god or '?'}"
+            )
+            rels = ", ".join(_relation_lines(p, _level(c.period), result))
+            evidence = tengods + (" · " + rels if rels else "")
+        else:
+            evidence = "—"
+        out.append(
+            f"| {c.period} | {ganji} | {event_ko(c.event_key)} | {c.score} | "
+            f"{c.confidence} | {polarity_ko(str(c.polarity))} | {evidence} |"
+        )
+    return out

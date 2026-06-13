@@ -1,7 +1,8 @@
 """FOCUS 주제 스코핑 검증 (v2.2 프론트 확장 Phase 6 — docs/10 4장).
 
-직장운(career)·금전운(wealth)은 'MODULE' 플레이스홀더가 주제 모듈(M07/M09)로 해석되고,
-후보가 도메인 신호로 스코핑돼 본문이 차별화돼야 한다. 섹션 구성(8섹션)은 불변.
+직장운(career)은 'MODULE' 플레이스홀더가 주제 모듈(M07)로 해석되고 후보가 도메인 신호로
+스코핑돼 본문이 차별화돼야 한다. generic 주제는 8섹션(C-01~C-08) 불변. 단, 재물운(wealth)은
+테마 전용 스토리 목차(W-01~W-09, 2026-06-14 사용자 확정)를 갖는다.
 """
 
 from __future__ import annotations
@@ -29,12 +30,15 @@ def _module_ids(spec: ReportSpec, section_id: str) -> list[str]:
 
 
 def test_focus_module_placeholder_resolves_by_topic() -> None:
-    # C-01 'MODULE' → 주제 모듈(career→M07, wealth→M09).
+    # C-01 'MODULE' → 주제 모듈(career→M07). wealth는 테마 목차 W-01에서 M09로 해석.
     assert "M07" in _module_ids(_spec("career"), "C-01")
-    assert "M09" in _module_ids(_spec("wealth"), "C-01")
-    # 섹션 수는 8 불변.
+    assert "M09" in _module_ids(_spec("wealth"), "W-01")
+    # generic 주제는 8섹션 불변. 재물운은 테마 전용 9섹션(W-01~W-09).
     assert len(build_section_plans(_spec("career"))) == 8
-    assert len(build_section_plans(_spec("wealth"))) == 8
+    assert len(build_section_plans(_spec("wealth"))) == 9
+    assert [p.section_id for p in build_section_plans(_spec("wealth"))] == [
+        f"W-{n:02d}" for n in range(1, 10)
+    ]
 
 
 def test_compatibility_variant_uses_m13() -> None:
@@ -45,7 +49,8 @@ def test_compatibility_variant_uses_m13() -> None:
 
 
 def test_focus_dry_run_runs_for_career_and_wealth() -> None:
-    # 골든 픽스처로 dry-run 컨텍스트가 두 주제 모두 8섹션 생성되는지(엔진 경로) 확인.
+    # 골든 픽스처로 dry-run 컨텍스트가 생성되는지(엔진 경로) 확인.
+    # career=generic 8섹션, wealth=테마 9섹션.
     birth = report_service.BirthInput(
         calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
         birth_place_name="서울", gender="male",
@@ -53,7 +58,10 @@ def test_focus_dry_run_runs_for_career_and_wealth() -> None:
     today = date(2026, 6, 13)
     career = report_service.plan_report(birth, _spec("career"), today)
     wealth = report_service.plan_report(birth, _spec("wealth"), today)
-    assert len(career) == 8 and len(wealth) == 8
+    assert len(career) == 8 and len(wealth) == 9
+    # W-09 부록에는 실제 점수표(마크다운 표)가 박힌다.
+    w09 = next(c for c in wealth if c.section_id == "W-09")
+    assert "| 시점 | 운간지" in w09.body_prompt
     # 주제 스코핑이 작동하면 운 관련 섹션의 본문(후보 블록)이 동일하지 않을 수 있다.
     # 도메인 신호가 충분하면 차이가 나고, 없으면 전체 후보로 폴백한다(빈 리포트 방지).
     career_body = "\n".join(c.body_prompt for c in career)
