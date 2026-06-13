@@ -11,6 +11,7 @@ generic FOCUS 대신 주제 전용 목차를 쓴다. 현재 재물운(wealth=W-0
 
 from __future__ import annotations
 
+from saju_shared_types.intent import SubjectKind
 from saju_shared_types.report import ModuleCall, ReportSpec, SectionPlan, TargetChars
 
 # RPT_FULL — 22섹션(docs/10 3장 표 그대로): (id, 제목, 모듈, min, max).
@@ -87,11 +88,32 @@ _RELATIONSHIP_TOC: list[tuple[str, str, list[str], int, int]] = [
     ("R-07", "관계 행동 전략", ["E8"], 2_000, 3_000),
     ("R-08", "부록: 점수표와 근거", ["EVIDENCE"], 1_500, 2_500),
 ]
+# 관계·애정운 궁합(상대 선택) 모드: 상대 명식이 등록되면 단독 8섹션 대신 궁합 전용 10섹션을 쓴다
+# (2026-06-14 사용자 확정). 상대 해석(RP-03)·궁합 구조(RP-04·RP-05)·극복(RP-08)이 독립 섹션.
+_RELATIONSHIP_PAIR_TOC: list[tuple[str, str, list[str], int, int]] = [
+    ("RP-01", "두 사람 관계 한눈에", ["MODULE", "M13"], 1_200, 1_800),
+    ("RP-02", "나의 애정 성향", ["T0", "M03"], 2_000, 3_000),
+    ("RP-03", "상대는 어떤 사람인가", ["T0", "M03"], 2_500, 3_500),
+    ("RP-04", "두 사람의 궁합 구조", ["M13"], 3_000, 4_000),
+    ("RP-05", "관계의 강점과 마찰점", ["M13"], 2_500, 3_500),
+    ("RP-06", "운에서 함께 겪을 흐름", ["T1", "M01"], 3_000, 4_000),
+    ("RP-07", "주목할 달 세부 정리", ["T1", "E4"], 2_500, 3_500),
+    ("RP-08", "관계가 어려울 때 — 극복 마음가짐·행동", ["M13", "E8"], 2_500, 3_500),
+    ("RP-09", "관계 운영 전략", ["E8"], 2_000, 3_000),
+    ("RP-10", "부록: 점수표와 근거", ["EVIDENCE"], 1_500, 2_500),
+]
 _THEME_TOCS: dict[str, list[tuple[str, str, list[str], int, int]]] = {
     "wealth": _WEALTH_TOC,
     "career": _CAREER_TOC,
     "relationship": _RELATIONSHIP_TOC,
 }
+
+
+def is_pair_relationship(spec: ReportSpec) -> bool:
+    """관계운 + 상대(SELF 아닌 subject) 등록 → 궁합 모드(RP-01~RP-10)."""
+    if spec.topic != "relationship":
+        return False
+    return any(s.kind != SubjectKind.SELF for s in spec.subjects)
 
 # 주제별 변형(4장) — 제목·모듈만 교체, 섹션 추가/삭제 금지.
 _FOCUS_VARIANTS: dict[str, dict[str, tuple[str, list[str]]]] = {
@@ -146,8 +168,11 @@ def build_section_plans(spec: ReportSpec) -> list[SectionPlan]:
 
     variants = _FOCUS_VARIANTS.get(spec.topic or "", {})
     topic_module = _TOPIC_MODULE.get(spec.topic or "")
-    # 테마 전용 목차가 있으면(재물운 등) 그 스토리 구조를, 없으면 generic FOCUS를 쓴다.
-    toc = _THEME_TOCS.get(spec.topic or "", _FOCUS_TOC)
+    # 관계운 + 상대 등록 → 궁합 전용 10섹션. 그 외엔 테마 전용 목차(있으면) / generic FOCUS.
+    if is_pair_relationship(spec):
+        toc = _RELATIONSHIP_PAIR_TOC
+    else:
+        toc = _THEME_TOCS.get(spec.topic or "", _FOCUS_TOC)
     plans = []
     for sid, title, modules, lo, hi in toc:
         if sid in variants:

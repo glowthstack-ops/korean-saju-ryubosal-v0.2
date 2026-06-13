@@ -14,15 +14,49 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from saju_engines.report_job_store import ReportJobStore
-from saju_engines.report_plan import build_section_plans
+from saju_engines.report_plan import build_section_plans, is_pair_relationship
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.intent import SubjectKind
 from saju_shared_types.report import ReportResult, ReportSpec
 
 from ..deps import get_report_job_store, get_subject_store, require_owner
 from ..services import report_service
 
 router = APIRouter(prefix="/api/v2/report", tags=["report"])
+
+_GENDER_MAP = {"M": "male", "F": "female", "male": "male", "female": "female"}
+
+
+def _resolve_partner_birth(
+    spec: ReportSpec, subjects: SubjectStore | None, owner_id: str | None,
+) -> BirthInput | None:
+    """관계운 궁합 모드 — 상대 subject를 BirthInput으로 해석.
+
+    INLINE_TEMP(inline_birth)는 그 자리에서, COMPANION(companion_id)은 SubjectStore로 조회.
+    상대를 해석하지 못하면 None(서비스는 단독 모드로 강등 — 빈 궁합 블록 안내).
+    """
+    if not is_pair_relationship(spec):
+        return None
+    partner = next((s for s in spec.subjects if s.kind != SubjectKind.SELF), None)
+    if partner is None:
+        return None
+    if partner.inline_birth is not None:
+        ib = partner.inline_birth
+        cal = ib.calendar_type if ib.calendar_type in ("solar", "lunar") else "solar"
+        return BirthInput.model_validate({
+            "calendar_type": cal,
+            "birth_date": ib.date,
+            "birth_time": ib.time,
+            "birth_time_unknown": ib.time is None,
+            "birth_place_name": ib.birthplace or "서울",
+            "gender": _GENDER_MAP.get(ib.gender or "", "unknown"),
+        })
+    if subjects is not None and partner.companion_id:
+        rec = subjects.get(partner.companion_id)
+        if rec is not None and (owner_id is None or rec.owner_id == owner_id):
+            return rec.birth
+    return None
 
 OwnerId = Annotated[str, Depends(require_owner)]
 Subjects = Annotated[SubjectStore, Depends(get_subject_store)]
@@ -60,8 +94,11 @@ class ReportDryRunResponse(BaseModel):
 @router.post("")
 def generate(req: ReportRequest) -> ReportResult | ReportDryRunResponse:
     """보고서 생성(RPT_FULL 22섹션 / RPT_FOCUS 8섹션) 또는 dry-run 미리보기."""
+    partner_birth = _resolve_partner_birth(req.spec, None, None)
     if req.dry_run:
-        contexts = report_service.plan_report(req.birth, req.spec, req.today)
+        contexts = report_service.plan_report(
+            req.birth, req.spec, req.today, partner_birth=partner_birth,
+        )
         return ReportDryRunResponse(
             section_count=len(contexts),
             sections=[
@@ -78,6 +115,7 @@ def generate(req: ReportRequest) -> ReportResult | ReportDryRunResponse:
     try:
         return report_service.generate_report(
             req.birth, req.spec, req.today, display_name=req.display_name,
+            partner_birth=partner_birth,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -113,7 +151,7 @@ class ReportJobStatus(BaseModel):
 
 def _run_report_job(
     job_id: str, birth: BirthInput, spec: ReportSpec, today: date | None, display_name: str,
-    owner_id: str, subject_id: str,
+    owner_id: str, subject_id: str, partner_birth: BirthInput | None = None,
 ) -> None:
     """백그라운드 실행 — 생성 성공 시 complete, LLM 키 미설정 등 실패 시 fail."""
     store = ReportJobStore()
@@ -121,7 +159,7 @@ def _run_report_job(
     try:
         result = report_service.generate_report(
             birth, spec, today, display_name=display_name,
-            owner_id=owner_id, subject_id=subject_id,
+            owner_id=owner_id, subject_id=subject_id, partner_birth=partner_birth,
         )
         store.complete(job_id, result.model_dump(mode="json"), len(result.sections))
     except RuntimeError as exc:
@@ -142,12 +180,13 @@ def create_job(
     record = subjects.get(req.subject_id)
     if record is None or record.owner_id != owner_id:
         raise HTTPException(status_code=404, detail="사주를 찾을 수 없습니다.")
+    partner_birth = _resolve_partner_birth(req.spec, subjects, owner_id)
     job_id = uuid.uuid4().hex
     total = len(build_section_plans(req.spec))
     jobs.create(job_id, owner_id, req.spec.model_dump(mode="json"), total)
     background.add_task(
         _run_report_job, job_id, record.birth, req.spec, req.today, record.label,
-        owner_id, req.subject_id,
+        owner_id, req.subject_id, partner_birth,
     )
     return ReportJobCreated(job_id=job_id)
 

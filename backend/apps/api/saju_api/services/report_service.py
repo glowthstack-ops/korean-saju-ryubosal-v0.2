@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 
 from saju_engines.chart_interpretation import build_chart_interpretation
+from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     build_birth_summary,
     serialize_chart_prefix,
@@ -25,6 +26,7 @@ from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as _EVENT_DOMAIN_V2
 from saju_shared_types.events import EventCandidate
 from saju_shared_types.ganji_calendar import GanjiLevel
+from saju_shared_types.intent import SubjectKind
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.report import ReportResult, ReportSpec, SectionContext, SectionPlan
 
@@ -81,15 +83,34 @@ _SECTION_GUIDES: dict[str, str] = {
     "R-06": "주목할 달을 정밀 십성·관계로 풀되, 같은 원국 설명을 반복하지 말 것.",
     "R-07": "행동 전략을 — 다가서기/거리두기/대화/정리 준비 단위. 상대 강요·운명론 표현 금지.",
     "R-08": "아래 점수표를 그대로 표로 제시하고, 표 밖 새 수치를 만들지 말 것.",
+    # ── 관계·애정운 궁합(상대 선택) 모드 전용(RP-01~RP-10) ──
+    "RP-01": "두 사람 관계를 5줄 이내로 — 어떤 결의 조합이고 어디에 강점/마찰이 있는지.",
+    "RP-02": "본인의 애정 성향(재성/관성·도화·표현 방식)을 짧게 서술할 것.",
+    "RP-03": "아래 상대 명식 블록만 근거로 상대가 어떤 사람인지 솔직하게 서술할 것 — "
+             "좋은 점·부담스러운 점을 균형 있게. 단정·낙인·외모/소득 추측 금지.",
+    "RP-04": "아래 궁합 신호(일주·십성·용신)를 근거로 두 사람의 구조적 결합을 설명할 것. "
+             "신호의 방향(보완/마찰)을 그대로 반영하되 점수를 지어내지 말 것.",
+    "RP-05": "궁합 신호를 강점과 마찰점으로 나눠 솔직하게 정리할 것 — 좋게 포장하지 말 것. "
+             "마찰점도 '관계가 끝난다' 류 단정 금지, 관리 가능한 영역으로 제시.",
+    "RP-06": "운에서 두 사람이 함께 겪을 흐름을 시점 클러스터로 타임라인화할 것(향후 5년).",
+    "RP-07": "주목할 달을 정밀 십성·관계로 풀되, 같은 원국 설명을 반복하지 말 것.",
+    "RP-08": "마찰 신호가 있다면 그것을 극복하기 위한 마음가짐과 구체적 행동을 제시할 것 — "
+             "상대 탓·운명론·강요 금지. 본인이 바꿀 수 있는 태도와 대화법 중심.",
+    "RP-09": "관계 운영 전략을 — 다가서기/거리두기/대화/기대 조정 단위. 강요·확정 표현 금지.",
+    "RP-10": "아래 점수표를 그대로 표로 제시하고, 표 밖 새 수치를 만들지 말 것.",
 }
 _DEFAULT_GUIDE = "아래 데이터 블록의 사실만 사용해 섹션 제목에 맞는 이야기로 서술할 것."
 # 명식 구조 섹션(운 데이터 블록 미부착) — 인사·원국 재설명 1회 원칙.
 _NATAL_SECTIONS = {
     "F-01", "F-02", "F-03", "F-04", "F-05", "F-06", "C-02",
-    "W-02", "W-03", "J-02", "J-03", "R-02", "R-03",
+    "W-02", "W-03", "J-02", "J-03", "R-02", "R-03", "RP-02",
 }
 # 부록 점수표 섹션(실제 표 부착).
-_SCORE_TABLE_SECTIONS = {"C-08", "W-09", "J-08", "R-08"}
+_SCORE_TABLE_SECTIONS = {"C-08", "W-09", "J-08", "R-08", "RP-10"}
+# 궁합 모드 — 상대 명식 블록 부착 섹션(RP-03).
+_PARTNER_NATAL_SECTIONS = {"RP-03"}
+# 궁합 모드 — 궁합 신호 블록 부착 섹션(RP-04·RP-05·RP-08).
+_COMPAT_SECTIONS = {"RP-04", "RP-05", "RP-08"}
 
 
 class _ReportData:
@@ -98,6 +119,7 @@ class _ReportData:
     def __init__(
         self, birth: BirthInput, spec: ReportSpec, today: date,
         *, owner_id: str | None = None, subject_id: str | None = None,
+        partner_birth: BirthInput | None = None,
     ) -> None:
         chart_birth = birth.model_copy(update={"reference_date": today})
         self.result: ManseV2Result = calculate(chart_birth)
@@ -131,6 +153,39 @@ class _ReportData:
         self.allowed_ganji = self._collect_ganji()
         self.allowed_years = self._collect_years(spec)
         self.allowed_scores = sorted({c.score for c in self.candidates})
+
+        # 관계운 상대(궁합) 모드 — 상대 명식 + 원국A↔원국B 궁합 신호(엔진 계산).
+        self.partner_summary = None
+        self.partner_prefix_lines: list[str] = []
+        self.compatibility = None
+        if partner_birth is not None:
+            partner_chart = partner_birth.model_copy(update={"reference_date": today})
+            partner_result = calculate(partner_chart)
+            self.partner_summary = build_birth_summary(partner_result)
+            self.partner_prefix_lines = serialize_chart_prefix(
+                self.partner_summary, build_chart_interpretation(partner_result),
+            )
+            self_label = spec.subjects[0].label if spec.subjects else "본인"
+            partner_label = next(
+                (s.label for s in spec.subjects if s.kind != SubjectKind.SELF), "상대",
+            )
+            self.compatibility = analyze_compatibility(
+                self.result, partner_result,
+                self.summary.useful_gods, self.partner_summary.useful_gods,
+                self_label=self_label, partner_label=partner_label,
+            )
+
+    def partner_natal_block(self) -> list[str]:
+        """상대 명식 구조 블록(RP-03 — 상대는 어떤 사람인가)."""
+        if not self.partner_prefix_lines:
+            return ["[상대 명식 없음 — 상대 출생정보가 등록되지 않았습니다.]"]
+        return ["[상대 명식 — 엔진 확정값]", *self.partner_prefix_lines[1:]]
+
+    def compatibility_block(self) -> list[str]:
+        """궁합 신호 블록(RP-04·RP-05·RP-08 — 엔진 계산 사실)."""
+        if self.compatibility is None:
+            return ["[궁합 신호 없음 — 상대 명식이 없어 비교할 수 없습니다.]"]
+        return compatibility_lines(self.compatibility)
 
     def _collect_ganji(self) -> list[str]:
         ganji = list(self.summary.pillars.values())
@@ -193,7 +248,11 @@ def build_section_context(
         "입력에 없는 간지·점수·연도를 만들지 말 것. 단정 표현 금지.",
         "인사말·원국 전체 재설명은 생략하고(앞 섹션에서 1회면 충분) 이 섹션 과제에 바로 집중할 것.",
     ]
-    if sid in _SCORE_TABLE_SECTIONS:
+    if sid in _PARTNER_NATAL_SECTIONS:
+        lines += ["", *data.partner_natal_block()]
+    elif sid in _COMPAT_SECTIONS:
+        lines += ["", *data.compatibility_block()]
+    elif sid in _SCORE_TABLE_SECTIONS:
         lines.append("")
         lines.append("[점수표 — 아래 표를 그대로 인용. 표 밖 새 수치 생성 금지]")
         lines += score_table_lines(data.result, data.candidates)
@@ -218,10 +277,11 @@ def build_section_context(
 
 
 def plan_report(
-    birth: BirthInput, spec: ReportSpec, today: date | None = None
+    birth: BirthInput, spec: ReportSpec, today: date | None = None,
+    *, partner_birth: BirthInput | None = None,
 ) -> list[SectionContext]:
     """dry-run — 전 섹션의 실데이터 컨텍스트만 생성(LLM 미호출, 검증·개발용)."""
-    data = _ReportData(birth, spec, today or date.today())
+    data = _ReportData(birth, spec, today or date.today(), partner_birth=partner_birth)
     return [build_section_context(p, spec, data) for p in build_section_plans(spec)]
 
 
@@ -233,6 +293,7 @@ def generate_report(
     *,
     owner_id: str | None = None,
     subject_id: str | None = None,
+    partner_birth: BirthInput | None = None,
 ) -> ReportResult:
     """보고서 실생성 — ReportBuilder에 실데이터 컨텍스트 + llm_client 주입.
 
@@ -245,6 +306,7 @@ def generate_report(
         raise RuntimeError("LLM API 키 미설정 — plan_report(dry-run)로 검증하세요")
     data = _ReportData(
         birth, spec, today or date.today(), owner_id=owner_id, subject_id=subject_id,
+        partner_birth=partner_birth,
     )
     call_type = (
         "report_full_section" if spec.product_code == "RPT_FULL" else "report_focus_section"

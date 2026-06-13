@@ -72,3 +72,58 @@ def test_focus_dry_run_runs_for_career_and_wealth() -> None:
     career_body = "\n".join(c.body_prompt for c in career)
     wealth_body = "\n".join(c.body_prompt for c in wealth)
     assert isinstance(career_body, str) and isinstance(wealth_body, str)
+
+
+def _pair_spec() -> ReportSpec:
+    from saju_shared_types.intent import InlineBirth
+    return ReportSpec(
+        product_code="RPT_FOCUS",
+        subjects=[
+            SubjectRef(kind=SubjectKind.SELF, label="본인"),
+            SubjectRef(
+                kind=SubjectKind.INLINE_TEMP, label="상대",
+                inline_birth=InlineBirth(date="1985-03-15", time="14:30", gender="F"),
+            ),
+        ],
+        topic="relationship",
+        period=ReportPeriod(start="2026", end="2031"),
+    )
+
+
+def test_relationship_solo_vs_pair_toc() -> None:
+    # 상대 없으면 단독 8섹션, 상대 있으면 궁합 10섹션으로 분기.
+    solo = build_section_plans(_spec("relationship"))
+    pair = build_section_plans(_pair_spec())
+    assert [p.section_id for p in solo] == [f"R-{n:02d}" for n in range(1, 9)]
+    assert [p.section_id for p in pair] == [f"RP-{n:02d}" for n in range(1, 11)]
+
+
+def test_pair_mode_dry_run_has_compat_blocks() -> None:
+    birth = report_service.BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
+        birth_place_name="서울", gender="male",
+    )
+    partner = report_service.BirthInput(
+        calendar_type="solar", birth_date=date(1985, 3, 15), birth_time="14:30",
+        birth_place_name="부산", gender="female",
+    )
+    ctxs = report_service.plan_report(
+        birth, _pair_spec(), date(2026, 6, 13), partner_birth=partner,
+    )
+    by_id = {c.section_id: c for c in ctxs}
+    assert "[상대 명식" in by_id["RP-03"].body_prompt  # 상대 명식 블록
+    assert "[궁합 신호" in by_id["RP-04"].body_prompt  # 궁합 신호 블록
+    assert "[궁합 신호" in by_id["RP-08"].body_prompt  # 극복 섹션도 궁합 근거
+    assert "| 시점 | 운간지" in by_id["RP-10"].body_prompt  # 부록 점수표
+
+
+def test_pair_mode_without_partner_data_degrades_gracefully() -> None:
+    # 궁합 모드 목차이지만 partner_birth 미전달 → 빈 궁합 블록 안내(오류 없음).
+    birth = report_service.BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
+        birth_place_name="서울", gender="male",
+    )
+    ctxs = report_service.plan_report(birth, _pair_spec(), date(2026, 6, 13))
+    by_id = {c.section_id: c for c in ctxs}
+    assert "궁합 신호 없음" in by_id["RP-04"].body_prompt
+    assert "상대 명식 없음" in by_id["RP-03"].body_prompt

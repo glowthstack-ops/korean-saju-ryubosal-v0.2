@@ -2660,3 +2660,24 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   엔진 + "어떤 상대인가 솔직 해석"·"안 좋을 때 극복 마음가짐/행동" 섹션은 새 명리 규칙·새 아키텍처라
   사용자 확인 후 별도 구현(CLAUDE.md 6·10). 조사: M13(bond_compare) 빌더 미구현, 두번째 BirthInput
   계산·궁합 비교 부재 확인.
+
+## v2.2 리포트 품질 — 관계운 궁합(상대 선택) 모드 + 두 명식 궁합 엔진 ✅(4차)
+- 사용자 확정(2026-06-14): 궁합 전용 10섹션(RP-01~RP-10) + 신호 세트 = 일주 상호작용·십성 관계·
+  용신 상호보완(관계 신살 제외). 상대 해석은 솔직하게, 마찰 시 극복 마음가짐·행동까지.
+- 신규 궁합 엔진(reviewed:false 방향/톤): compatibility.py(타입 — CompatSignal/CompatibilityReport),
+  compatibility_engine.analyze_compatibility(원국A↔원국B). 기존 명리 프리미티브 재사용
+  (STEM_COMBINATIONS 천간합, SIX_COMBINATIONS/BRANCH_CLASHES/HARMS/BREAKS/PUNISHMENT 일지관계,
+  ten_god 십성, STEM_ELEMENT·useful_gods 용신 보완). 방향=보완/마찰/중립, 전반 톤=보완·마찰 카운트.
+- report_plan: _RELATIONSHIP_PAIR_TOC + is_pair_relationship(관계운 + SELF 아닌 subject→궁합 모드).
+  build_section_plans가 상대 등록 시 단독 R-* 대신 궁합 RP-* 분기.
+- report_service: _ReportData가 partner_birth로 상대 명식·궁합 계산. RP 지침 + 배선 —
+  _PARTNER_NATAL_SECTIONS(RP-03 상대 명식), _COMPAT_SECTIONS(RP-04·RP-05·RP-08 궁합 신호 블록),
+  RP-10 점수표. RP-08은 마찰 신호 기반 극복(상대 탓·운명론·강요 금지). plan_report/generate_report에
+  partner_birth 인자 추가. 상대 미해석 시 빈 블록 안내로 단독 강등(오류 없음 — 규칙11 정신).
+- report 라우터: _resolve_partner_birth — INLINE_TEMP(inline_birth) 즉시 / COMPANION(companion_id)
+  SubjectStore 조회. dry-run·동기 생성은 inline, 비동기 잡은 companion까지 해석.
+- 테스트: test_compatibility_engine(일지 합/충/형/복음·십성 양방향·용신 보완·카운트 일관),
+  test_report_topic_scoping(단독8 vs 궁합10 분기·궁합 블록·partner 미전달 우아한 강등). 619 pass(DB) ·
+  ruff/mypy clean(manse_service 기존 2건 제외).
+- 남은: 궁합 방향/톤 reviewed:false 전문가 감수, 프론트 상대 선택 UI(상대 추가/선택 토글), 관계 신살
+  교차는 사용자 확정대로 제외 유지.
