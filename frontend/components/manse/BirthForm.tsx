@@ -4,15 +4,32 @@ import { useMemo, useState } from "react";
 import { searchLocations } from "@/lib/locations";
 import type { Profile, SajuLocation } from "@/lib/types";
 
-export function BirthForm({ onSubmit }: { onSubmit: (p: Profile) => void }) {
-  const [gender, setGender] = useState<"male" | "female">("male");
-  const [calendarType, setCalendarType] = useState<"solar" | "lunar">("solar");
-  const [isLeapMonth, setIsLeapMonth] = useState(false);
-  const [birthDate, setBirthDate] = useState("1990-01-01");
-  const [birthTime, setBirthTime] = useState("12:00");
-  const [timeUnknown, setTimeUnknown] = useState(false);
-  const [query, setQuery] = useState("서울");
-  const [place, setPlace] = useState<SajuLocation | null>(null);
+export function BirthForm({
+  onSubmit,
+  initial,
+  heading = "사용자 정보 등록",
+  submitLabel = "만세력 보기",
+  children,
+}: {
+  onSubmit: (p: Profile) => void;
+  // 수정(edit) 모드 프리필. 미지정 시 기본값.
+  initial?: Profile;
+  // 헤더 문구(null이면 숨김 — 온보딩처럼 외부에서 제목을 제공할 때).
+  heading?: string | null;
+  submitLabel?: string;
+  // 폼 상단에 주입할 추가 입력(예: 온보딩 별명) — 같은 submit으로 함께 처리된다.
+  children?: React.ReactNode;
+}) {
+  const [gender, setGender] = useState<"male" | "female">(initial?.gender ?? "male");
+  const [calendarType, setCalendarType] = useState<"solar" | "lunar">(
+    initial?.calendarType ?? "solar",
+  );
+  const [isLeapMonth, setIsLeapMonth] = useState(initial?.isLeapMonth ?? false);
+  const [birthDate, setBirthDate] = useState(initial?.birthDate ?? "1990-01-01");
+  const [birthTime, setBirthTime] = useState(initial?.birthTime ?? "12:00");
+  const [timeUnknown, setTimeUnknown] = useState(initial?.timeUnknown ?? false);
+  const [query, setQuery] = useState(initial?.place.name ?? "서울");
+  const [place, setPlace] = useState<SajuLocation | null>(initial?.place ?? null);
 
   const results = useMemo(() => searchLocations(query).slice(0, 8), [query]);
   const chosen = place ?? results[0] ?? null;
@@ -30,7 +47,8 @@ export function BirthForm({ onSubmit }: { onSubmit: (p: Profile) => void }) {
         });
       }}
     >
-      <h1 className="text-xl font-bold">사용자 정보 등록</h1>
+      {heading && <h1 className="text-xl font-bold">{heading}</h1>}
+      {children}
 
       <div>
         <span className="mb-1 block text-sm font-medium">성별</span>
@@ -105,7 +123,7 @@ export function BirthForm({ onSubmit }: { onSubmit: (p: Profile) => void }) {
 
       <button type="submit" disabled={!chosen}
         className="w-full rounded bg-gray-900 py-2 text-white disabled:bg-gray-400">
-        만세력 보기
+        {submitLabel}
       </button>
       <p className="text-xs text-gray-400">
         입력 정보는 서버에 저장하지 않으며, 계산 요청 시에만 전송되고 브라우저에 암호화 저장됩니다.

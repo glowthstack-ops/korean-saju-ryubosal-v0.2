@@ -2164,3 +2164,122 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   - chat_service is_retro에 open_when 포함 — 후속 단답엔 과거 어미가 없어도 상속 intent로 과거 회고 식별.
 - 라이브 3턴 검증(thread_id): 1턴 재취업 성공 달 → 2턴 공백기 질문이 '2026 공백' 모순 없이 2024 甲辰(기신 정관·비자발·계약 불리→재취업 곤란)·2025 압박 이탈로 일관 서술 → 3턴 '년단위였어' answered("지난 답변에 이어 년 단위 흐름…", 2023 무신호 연도 언급).
 - mypy 변수 충돌(r 재사용) 정리(mr), 게이트: pytest 507 passed · ruff clean · mypy 0(기존 stub 2건 외).
+
+## v2.2 프론트 확장 Phase 1 — 계정(ID+PIN)·사주·프로필·페르소나 API 노출 ✅
+
+- 배경: 프론트가 단일 프로필(IndexedDB)뿐이라 다중 사주목록·테마사주·AI상담 흐름이 불가.
+  백엔드 stores(SubjectStore/ProfileStore/ConversationStore)·shared_types는 갖춰졌으나 API
+  미노출. 사용자 승인 계획(`.claude/plans/iridescent-munching-pie.md`) 기준 단계별 PR 진행.
+- 결정(사용자 승인): ①인증=ID+PIN 경량(OAuth 추후 대치, 같은 ID+PIN→같은 owner_id로 사주
+  연속성), PIN은 pbkdf2-sha256 해시. ②저장=로그인 사용자 PostgreSQL n사주 / 비로그인 무료
+  IndexedDB 1사주. ③페르소나=계정 전역 1개(궁합 충돌 방지), 물상·용신=사주별(user_profiles를
+  subject_id로 키잉). ④리포트 PDF=클라이언트 인쇄(MVP). ⑤리포트 생성=비동기 잡(후속 Phase).
+- 신규:
+  - `migrations/005_accounts_and_settings.sql`: accounts(owner_id PK, login_id UNIQUE, pin_hash),
+    account_settings(owner_id PK, persona), user_profiles.confirmed_yongsin 컬럼 가산(멱등).
+  - shared_types `account.py`: AccountRecord/Credentials(login_id·PIN 패턴)/AuthToken.
+  - saju_engines `auth_store.py`(AccountAuthStore: register/verify/get, pbkdf2 해시),
+    `account_store.py`(AccountSettingsStore: get/save_persona), `profile_store.py`에
+    set/get_yongsin 가산.
+  - apps/api `deps.py`: HMAC 서명 세션 토큰(make/parse_token)·owner_id 해석(require/optional_owner)·
+    저장소 프로바이더(DSN 미설정→503). 인증 교체가 본 모듈 한 곳에 격리.
+  - 라우터: `auth.py`(/register·/login·/me), `subjects.py`(CRUD+목록 등록여부 인디케이터,
+    owner 격리), `profile.py`(subject_id 키 GET/PUT/필드삭제, persona 스냅샷), `account.py`
+    (/persona GET·PUT). main.py 배선 + CORS에 PUT/DELETE 추가.
+- 검증: ruff clean · mypy clean(91 files) · 신규 `test_accounts_subjects_api.py` 6 pass(토큰
+  라운드트립·변조 거부·PIN 해시·401 게이트·Credentials 검증) + 1 skip(전용 DB 미기동 시 CRUD
+  전체흐름). 기존 test_api/report/profile 회귀 없음. 라우트 등록 확인(8개 신규 엔드포인트).
+- 환경 메모: 본 WSL에서 Docker 통합 미활성 → 전용 DB(5433) 기동 불가로 CRUD 통합테스트는
+  skip 처리(스토어 테스트 관행과 동일). DB 기동 환경에서 전체흐름 검증 필요.
+
+## v2.2 프론트 확장 Phase 2 — 프론트 데이터 계층 ✅
+
+- 신규: `lib/auth.ts`(토큰 localStorage 보관·login/register/fetchMe·authHeaders), `lib/types.ts`
+  확장(BirthInputDTO·AuthToken·AccountRecord·PersonaConfig+DEFAULT_PERSONA·ExtendedProfile·
+  BasicProfile·SubjectSummary/Upsert·ProfileResponse/Upsert·SubjectRef·ReportSpec·
+  ReportJobStatus — 모두 백엔드 snake_case와 1:1), `lib/subject-mapping.ts`(profileToBirthDTO/
+  summaryToProfile/profileToBasic — Profile↔BirthInput, male/female↔M/F, HH:MM:SS→HH:MM,
+  저장용은 reference_date 제외), `lib/subjects.ts`(사주 CRUD·프로필·페르소나·리포트잡 래퍼).
+- 변경: `lib/api.ts` — request() 공통화로 모든 호출에 인증 헤더 자동 첨부(토큰 없으면 비로그인),
+  getJSON/putJSON/deleteJSON 추가, 204 처리, postChat에 persona 인자.
+- 검증: tsc 0 · vitest 13 pass(신규 subject-mapping 5: 라운드트립·양음력·시각 트림·M/F 매핑) ·
+  프로덕션 빌드 성공.
+
+## v2.2 프론트 확장 Phase 3 — 앱 셸(GNB·프로바이더·ID/PIN 로그인) ✅
+
+- 신규: `components/providers/AuthProvider.tsx`(ID+PIN 인증 컨텍스트, lib/auth 위임),
+  `SelectedSubjectProvider.tsx`(선택 사주·동반자 sessionStorage 캐시), `Providers.tsx`(묶음),
+  `components/layout/Gnb.tsx`(햄버거→좌측 드로어: 선택 사주 칩·무료/유료 메뉴·사주목록·설정·계정),
+  `AuthPanel.tsx`(로그인/등록 폼, 비로그인 유료항목 '로그인 필요' 뱃지).
+- 변경: `app/layout.tsx` — Nav 제거, Providers로 감싸고 Gnb 마운트(레이아웃은 서버 컴포넌트 유지).
+- 검증: tsc 0 · vitest 17 pass(신규 auth 4: 토큰 보관·헤더 주입·에러 detail·로그아웃) · 빌드 성공.
+- 참고: /themes·/sajus·/settings 라우트는 후속 Phase에서 생성(드로어 링크 선반영). Nav.tsx는 미사용.
+
+- (DB 검증 추가) Docker 기동 후 마이그레이션 001~005 적용(컨텍스트 매니저 커밋 보장),
+  test_accounts_subjects_api 7 pass(스킵 해제 — 등록→사주생성→프로필→페르소나→owner 격리→삭제
+  전체 흐름) + 전체 백엔드 스위트 회귀 없음.
+
+## v2.2 프론트 확장 Phase 4 — 게이트웨이·사주목록·랜딩 ✅
+
+- 신규: `components/subject/SubjectCard.tsx`(별명+생년월일시+용신/물상 인디케이터+액션),
+  `SubjectGateway.tsx`(선택/추가/동반자 단계, 비로그인 안내), `app/sajus/page.tsx`(목록 관리:
+  추가→온보딩, 수정→온보딩, 삭제→스낵바 되돌리기(5s 후 확정)).
+- 변경: `app/page.tsx` 랜딩 개편 — 사주목록 진입 + 무료(만세력·간지달력)/로그인전용(테마사주·
+  AI상담) 구분, 비로그인 '로그인 필요' 뱃지.
+- 검증: tsc 0 · 빌드 성공(/sajus 추가). 게이트웨이는 만세력(P5)·테마(P7)·채팅(P8)에서 배선 예정.
+
+## v2.2 프론트 확장 Phase 5 — 온보딩 위저드 + 만세력 subject 소비 ✅
+
+- 신규: `components/onboarding/`(StepShell 진행바, StepBirth=BirthForm+별명, StepYongsin=
+  calculateManse+YongsinPanel+CalibrationPanel, StepMulsang=O01~O18·거주·혼인, StepPersona=5축
+  유효조합/호칭 제약 게이팅, Wizard 오케스트레이터), `app/onboarding/page.tsx`(?mode=add|edit|
+  oneoff&subject=&next=, Suspense), `lib/onboarding-constants.ts`(직업/고용/혼인 목록).
+- 변경: `components/manse/BirthForm.tsx`에 initial(프리필)·heading·submitLabel·children 슬롯 가산
+  (기존 호출 호환). `app/manse/page.tsx` — 로그인:게이트웨이→결과(?subject=) / 비로그인:IndexedDB
+  1회성. `app/manse/result/page.tsx` — resolveProfile()로 ?subject 우선, 없으면 IndexedDB.
+- 동작: add=createSubject+saveProfile(subject_id)+savePersona(계정), edit=프리필→update, oneoff=
+  IndexedDB 저장→결과. 용신/물상/페르소나 스킵 가능(스킵 시 유력 후보/기본값).
+- 검증: tsc 0 · vitest 17 pass · 빌드 성공(/onboarding 추가).
+
+## v2.2 프론트 확장 Phase 6 — 리포트 비동기 잡 + FOCUS topic 스코핑(백엔드) ✅
+
+- 비동기 잡: `migrations/006_report_jobs.sql`(report_jobs: status queued/running/completed/on_hold/
+  failed·진행·결과·사유), `report_job_store.py`(create/mark_running/update_progress/complete/fail/get),
+  `routers/report.py` POST /jobs(subject_id로 대상 출생·소유 검증→BackgroundTasks 생성→202)·
+  GET /jobs/{id}(소유자 한정 폴링). dry-run 동기 POST는 유지. LLM 키 미설정 시 잡 failed(사유 보존).
+- topic 스코핑: `report_plan.py` _FOCUS_TOC의 'MODULE' 플레이스홀더를 주제 모듈로 해석
+  (_TOPIC_MODULE: career→M07·wealth→M09·compatibility→M13 등). `report_service.py` _ReportData가
+  EventKey→도메인(_EVENT_DOMAIN) 매핑으로 FOCUS 후보를 주제별 필터(직장운≠금전운 본문, 도메인
+  후보 없으면 전체 폴백). 섹션 구성(22/8)은 불변.
+- 검증: ruff clean · mypy 92 clean · 신규 test_report_topic_scoping 3 pass(M07/M09/M13 해석·8섹션
+  불변·dry-run) + test_report_jobs_api 2 pass(401 게이트 / DB: 생성→폴링→failed(LLM 미설정)·owner
+  격리; LLM은 is_available 패치로 미호출). 전체 백엔드 스위트 회귀 없음.
+- 한계(보고): 궁합(compatibility)은 generate_report가 단일 차트 기반이라 두 명식 쌍방(M13) 본문은
+  후속 과제. 현재는 본인 차트 기준 리포트가 생성된다.
+
+## v2.2 프론트 확장 Phase 7 — 테마사주 UI(4종) + 리포트 뷰어/PDF ✅
+
+- 신규: `lib/themes.ts`(THEMES 4종: 총운/궁합/직장운/금전·횡재운, buildReportSpec=인생전반 기간
+  출생년~+90·동반자 ref), `app/themes/page.tsx`(서브메인), `app/themes/[topic]/page.tsx`(게이트웨이
+  +궁합 동반자→createReportJob→/reports/jobId), `app/reports/[jobId]/page.tsx`(3s 폴링·진행바·실패
+  안내·완료 시 뷰어), `components/reports/ReportPager.tsx`(섹션 페이저, @media print 전체 출력),
+  `PdfExportButton.tsx`(window.print). 변경: `lib/subjects.createReportJob(subjectId,spec)`.
+- 검증: tsc 0 · vitest 22 pass(신규 themes 5: 4종·기간 유도·동반자 ref) · 빌드 성공
+  (/themes·/themes/[topic]·/reports/[jobId]).
+
+## v2.2 프론트 확장 Phase 8 — AI채팅 재배선 + 설정 ✅
+
+- 변경: `app/chat/page.tsx` — 로그인 게이트 + SubjectGateway로 선택 사주 사용(summaryToProfile),
+  계정 페르소나(getPersona) 전달, 선택 변경 시 대화 초기화. need_subject 안내 보강.
+- 신규: `app/settings/page.tsx` — 페르소나(계정 전역) 편집·저장, 물상해석(사주별) 선택·편집·필드별
+  삭제(deleteExtendedField). 물상 저장 시 basic은 subject에서 유도(display_name=label 10자 클립),
+  confirmed_yongsin 보존. 정리: 미사용 Nav.tsx 삭제.
+- 검증: tsc 0 · vitest 22 pass · 빌드 성공(/settings 추가, 전 라우트 정상).
+
+### 전체 요약 (Phase 1~8 완료)
+- 백엔드: 계정(ID+PIN)·사주·프로필·페르소나·리포트잡 API + topic 스코핑. 마이그레이션 005·006.
+  게이트: ruff/mypy clean, 전체 pytest 통과(신규 12 — 토큰/PIN/CRUD/잡/스코핑, DB 연동 검증).
+- 프론트: GNB 드로어·ID/PIN 로그인·다중 사주목록·온보딩 4모듈 위저드·만세력 subject 소비·
+  테마사주 4종(폴링·페이저·PDF 인쇄)·AI채팅 재배선·설정. 게이트: tsc 0, vitest 22 pass, 빌드 성공.
+- 미해결(보고): 궁합 쌍방(M13) 본문은 단일 차트 기반(후속). 리포트 PDF는 클라이언트 인쇄(MVP),
+  서버 docx→pdf는 후속(docs/10 8장). 실 LLM 키 환경에서 리포트 완료 경로 라이브 검증 권장.

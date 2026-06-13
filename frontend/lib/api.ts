@@ -1,9 +1,11 @@
+import { authHeaders } from "./auth";
 import type {
   CalendarMonth,
   CalibrationResult,
   ChatApiResponse,
   LuckPillar,
   ManseResult,
+  PersonaConfig,
   Profile,
 } from "./types";
 
@@ -42,27 +44,56 @@ function todayISO(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-async function postJSON<T>(path: string, body: unknown): Promise<T> {
+async function failure(path: string, res: Response): Promise<never> {
+  // FastAPI 에러 본문의 detail 문자열을 메시지로 노출(없으면 기본 메시지). 상태코드는 유지.
+  let message = `API ${path} 실패 (${res.status})`;
+  try {
+    const data = (await res.json()) as { detail?: unknown };
+    if (typeof data?.detail === "string" && data.detail) {
+      message = `${data.detail} (${res.status})`;
+    }
+  } catch {
+    /* 본문 없음/JSON 아님 → 기본 메시지 유지 */
+  }
+  throw new Error(message);
+}
+
+// 로그인 토큰이 있으면 Authorization 헤더를 자동 첨부한다(없으면 비로그인 호출).
+async function request<T>(path: string, init: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: { ...(init.headers ?? {}), ...authHeaders() },
+  });
+  if (res.status === 204) return undefined as T;
+  if (!res.ok) return failure(path, res);
+  return res.json() as Promise<T>;
+}
+
+async function postJSON<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    // FastAPI 에러 본문의 detail 문자열을 메시지로 노출(없으면 기본 메시지). 상태코드는 유지.
-    let message = `API ${path} 실패 (${res.status})`;
-    try {
-      const data = (await res.json()) as { detail?: unknown };
-      if (typeof data?.detail === "string" && data.detail) {
-        message = `${data.detail} (${res.status})`;
-      }
-    } catch {
-      /* 본문 없음/JSON 아님 → 기본 메시지 유지 */
-    }
-    throw new Error(message);
-  }
-  return res.json() as Promise<T>;
 }
+
+async function getJSON<T>(path: string): Promise<T> {
+  return request<T>(path, { method: "GET" });
+}
+
+async function putJSON<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function deleteJSON(path: string): Promise<void> {
+  await request<void>(path, { method: "DELETE" });
+}
+
+export { getJSON, putJSON, deleteJSON, postJSON };
 
 export async function calculateManse(
   profile: Profile,
@@ -137,11 +168,15 @@ export async function postChat(
   profile: Profile,
   question: string,
   threadId?: string,
+  persona?: PersonaConfig,
 ): Promise<ChatApiResponse> {
   return postJSON<ChatApiResponse>("/api/v2/chat", {
     birth: profileToBirthInput(profile, todayISO()),
     question,
     thread_id: threadId ?? null,
+    persona: persona ?? null,
     dry_run: false,
   });
 }
+
+export { profileToBirthInput };

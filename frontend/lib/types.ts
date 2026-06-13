@@ -18,6 +18,186 @@ export interface Profile {
   place: SajuLocation;
 }
 
+// ── 백엔드 DTO (snake_case, /api/v2 응답·요청과 1:1) ─────────────
+
+// 백엔드 BirthInput 직렬화의 부분집합(사주 저장·조회에 쓰는 필드).
+export interface BirthInputDTO {
+  calendar_type: "solar" | "lunar";
+  is_leap_month?: boolean | null;
+  birth_date: string; // YYYY-MM-DD
+  birth_time?: string | null; // HH:MM[:SS]
+  birth_time_unknown?: boolean;
+  birth_place_name: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  timezone?: string | null;
+  gender?: "male" | "female" | "unknown" | null;
+}
+
+// 계정(ID+PIN) 인증
+export interface AuthToken {
+  token: string;
+  owner_id: string;
+  login_id: string;
+}
+
+export interface AccountRecord {
+  owner_id: string;
+  login_id: string;
+  created_at?: string | null;
+}
+
+// 페르소나 5축(계정 전역) — docs/11 5장. 백엔드 PersonaConfig와 동일 직렬화.
+export interface PersonaConfig {
+  counselor_gender: "female" | "male" | "neutral";
+  counselor_age_band: "20s" | "30s" | "40s" | "50s" | "60s_plus";
+  speech: { politeness: "jondae" | "banmal"; style: "haeyo" | "hapsyo" | "hagae" | "banmal_chae" };
+  difficulty: "easy" | "standard" | "expert";
+  user_honorific: {
+    type: "preset" | "custom";
+    preset_id?:
+      | "name_nim"
+      | "nim_only"
+      | "name_only"
+      | "neo"
+      | "jane"
+      | "gogaeknim"
+      | "seonsaengnim"
+      | null;
+    custom_text?: string | null;
+  };
+}
+
+export const DEFAULT_PERSONA: PersonaConfig = {
+  counselor_gender: "female",
+  counselor_age_band: "40s",
+  speech: { politeness: "jondae", style: "haeyo" },
+  difficulty: "standard",
+  user_honorific: { type: "preset", preset_id: "name_nim" },
+};
+
+// 물상해석(2단계 프로필) — docs/11 3장. 전 필드 선택.
+export interface ExtendedProfile {
+  occupation?: {
+    category_id: string; // O01~O18
+    detail?: string | null;
+    employment_form?:
+      | "정규직"
+      | "계약직"
+      | "프리랜서"
+      | "자영업"
+      | "법인대표"
+      | "무급가족종사"
+      | null;
+  } | null;
+  residence?: {
+    region: string;
+    living_room_facing?:
+      | "N"
+      | "NE"
+      | "E"
+      | "SE"
+      | "S"
+      | "SW"
+      | "W"
+      | "NW"
+      | "unknown"
+      | null;
+  } | null;
+  marital_status?: "미혼" | "연애중" | "기혼" | "재혼" | "별거" | "이혼" | "사별" | null;
+  children?: {
+    count: number;
+    items: Array<{
+      label: string;
+      gender?: "M" | "F" | null;
+      birth_date?: string | null;
+      registered_companion_id?: string | null;
+    }>;
+  } | null;
+}
+
+// 1단계 프로필(필수) — docs/11 2장.
+export interface BasicProfile {
+  birth_date: string;
+  calendar_type: "solar" | "lunar";
+  is_leap_month?: boolean;
+  birth_time?: string | null;
+  birth_time_unknown?: boolean;
+  birth_time_approx?: "새벽" | "아침" | "낮" | "저녁" | "밤" | null;
+  birth_place: { country?: string; city: string; longitude?: number | null };
+  gender: "M" | "F";
+  display_name: string;
+}
+
+// 사주(대상) 목록/단건 응답 — subjects 라우터.
+export interface SubjectSummary {
+  subject_id: string;
+  owner_id: string;
+  kind: "self" | "companion";
+  label: string;
+  aliases: string[];
+  relation_to_user: string | null;
+  birth: BirthInputDTO;
+  gender: string | null;
+  is_minor: boolean;
+  subscribed: boolean;
+  yongsin_registered: boolean;
+  mulsang_registered: boolean;
+}
+
+// 사주 생성/수정 입력 — subjects 라우터.
+export interface SubjectUpsert {
+  kind?: "self" | "companion";
+  label: string;
+  birth: BirthInputDTO;
+  gender?: string | null;
+  relation_to_user?: string | null;
+  aliases?: string[];
+  is_minor?: boolean;
+  subscribed?: boolean;
+}
+
+// 사주별 프로필(물상·용신) 응답/입력 — profile 라우터.
+export interface ProfileResponse {
+  subject_id: string;
+  basic: BasicProfile | null;
+  extended: ExtendedProfile | null;
+  extended_completed_at: string | null;
+  confirmed_yongsin: string | null;
+}
+
+export interface ProfileUpsert {
+  basic: BasicProfile;
+  extended?: ExtendedProfile | null;
+  extended_completed_at?: string | null;
+  confirmed_yongsin?: string | null;
+}
+
+// 리포트(테마사주) — report 라우터.
+export interface SubjectRef {
+  kind: "self" | "companion" | "inline_temp" | "partial_info";
+  label: string;
+  companion_id?: string | null;
+}
+
+export interface ReportSpec {
+  product_code: "RPT_FULL" | "RPT_FOCUS";
+  subjects: SubjectRef[];
+  topic?: string | null; // FOCUS: 'career' | 'wealth' | 'compatibility' | ...
+  period: { start: string; end: string };
+  persona?: PersonaConfig;
+  language?: "ko";
+}
+
+export interface ReportJobStatus {
+  job_id: string;
+  status: "queued" | "running" | "completed" | "on_hold" | "failed";
+  sections_done: number;
+  sections_total: number;
+  result?: unknown | null;
+  error?: string | null;
+}
+
 export interface HiddenStem {
   stem: string;
   element: string;

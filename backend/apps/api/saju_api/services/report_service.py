@@ -35,6 +35,20 @@ _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
 _SCORE_LEVELS = {GanjiLevel.YEAR, GanjiLevel.MONTH}
 _TOP_CANDIDATES = 8
+# 이벤트 종류 → 도메인(EventKey 기준). FOCUS 주제 스코핑에 쓴다. compatibility는 쌍방(M13)
+# 으로 다뤄 여기서 필터하지 않는다. 매핑에 없는 키(contract·lawsuit·travel 등)는 일반.
+_EVENT_DOMAIN: dict[str, str] = {
+    "career_change": "career", "promotion": "career", "resignation": "career",
+    "business_start": "career",
+    "relationship_start": "relationship", "relationship_end": "relationship",
+    "marriage": "relationship", "childbirth": "relationship", "family_change": "relationship",
+    "relocation": "relocation",
+    "wealth_change": "wealth", "income_change": "wealth", "expense_risk": "wealth",
+    "windfall": "wealth", "speculation_risk": "wealth", "asset_volatility": "wealth",
+    "education_start": "education", "education_complete": "education", "exam": "education",
+    "health_issue": "health", "surgery": "health",
+}
+_TOPIC_DOMAINS = set(_EVENT_DOMAIN.values())
 
 # 섹션별 작성 지침(docs/10 3·4장 데이터소스 요약 — 목차 규격은 report_plan이 강제).
 _SECTION_GUIDES: dict[str, str] = {
@@ -66,6 +80,11 @@ class _ReportData:
             if spec.period.start[:4] <= c.period[:4] <= spec.period.end[:4]
         ]
         pool = sorted(in_period or scored, key=lambda c: -c.score)
+        # 주제 스코핑(FOCUS): 해당 도메인 신호를 가진 후보만 남겨 직장운·금전운 본문을
+        # 차별화한다. 도메인 후보가 없으면 빈 리포트 방지를 위해 전체를 유지한다.
+        if spec.product_code == "RPT_FOCUS" and spec.topic in _TOPIC_DOMAINS:
+            domain_pool = [c for c in pool if _EVENT_DOMAIN.get(str(c.event_key)) == spec.topic]
+            pool = domain_pool or pool
         self.candidates: list[EventCandidate] = pool[:_TOP_CANDIDATES]
         self.summary = build_birth_summary(self.result)
         self.prefix_lines = serialize_chart_prefix(

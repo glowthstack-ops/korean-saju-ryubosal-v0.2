@@ -59,6 +59,18 @@ _FOCUS_VARIANTS: dict[str, dict[str, tuple[str, list[str]]]] = {
     },
 }
 
+# FOCUS 주제 → 대표 모듈(planner._DOMAIN_MODULE과 정합). _FOCUS_TOC의 'MODULE'
+# 플레이스홀더를 주제 모듈로 해석한다(섹션 추가/삭제 없음 — 모듈만 주제화). docs/02·10.
+_TOPIC_MODULE: dict[str, str] = {
+    "career": "M07",
+    "wealth": "M09",
+    "relationship": "M01",
+    "relocation": "M10",
+    "health": "M11",
+    "education": "M12",
+    "compatibility": "M13",
+}
+
 # RPT_FULL dependsOn 규칙(3장).
 _F04_DEPENDENTS = [f"F-{n:02d}" for n in range(10, 21)]  # F-10~F-20
 _F21_DEPS = [f"F-{n:02d}" for n in range(13, 21)]  # F-13~F-20
@@ -87,13 +99,16 @@ def build_section_plans(spec: ReportSpec) -> list[SectionPlan]:
         return plans
 
     variants = _FOCUS_VARIANTS.get(spec.topic or "", {})
+    topic_module = _TOPIC_MODULE.get(spec.topic or "")
     plans = []
     for sid, title, modules, lo, hi in _FOCUS_TOC:
         if sid in variants:
             title, modules = variants[sid]
+        # 'MODULE' 플레이스홀더 → 주제 모듈(없으면 원형 유지).
+        resolved = [topic_module if m == "MODULE" and topic_module else m for m in modules]
         plans.append(SectionPlan(
             section_id=sid, title=title,
-            module_calls=[ModuleCall(module_id=m) for m in modules],
+            module_calls=[ModuleCall(module_id=m) for m in resolved],
             target_chars=TargetChars(min=lo, max=hi),
         ))
     return plans

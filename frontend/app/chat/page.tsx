@@ -1,14 +1,17 @@
 "use client";
 
-// 채팅사주풀이 (v2.2 MVP UI) — 저장된 프로필로 /api/v2/chat 호출, thread_id로 멀티턴 유지.
-// 엔진이 계산한 점수·간지를 LLM이 서술한 결과를 그대로 표시한다(프론트 가공 없음).
+// AI채팅상담 (로그인 전용) — 선택된 사주로 /api/v2/chat 호출, 계정 페르소나(문체) 적용,
+// thread_id로 멀티턴 유지. 엔진이 계산한 점수·간지를 LLM이 서술한 결과를 그대로 표시한다.
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
+import { SubjectGateway } from "@/components/subject/SubjectGateway";
 import { postChat } from "@/lib/api";
-import { loadProfile } from "@/lib/storage";
-import type { ChatApiResponse, Profile } from "@/lib/types";
+import { summaryToProfile } from "@/lib/subject-mapping";
+import { getPersona, getSubject } from "@/lib/subjects";
+import type { ChatApiResponse, PersonaConfig, Profile } from "@/lib/types";
 
 interface Message {
   role: "user" | "assistant";
@@ -29,19 +32,32 @@ function newThreadId(): string {
 }
 
 export default function ChatPage() {
+  const { ready, isLoggedIn } = useAuth();
+  const { selected } = useSelectedSubject();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [profileChecked, setProfileChecked] = useState(false);
+  const [persona, setPersona] = useState<PersonaConfig | undefined>(undefined);
+  const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [threadId] = useState(newThreadId);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // 선택된 사주가 바뀌면 프로필·페르소나를 로드하고 대화를 초기화한다.
   useEffect(() => {
-    loadProfile()
-      .then(setProfile)
-      .finally(() => setProfileChecked(true));
-  }, []);
+    if (!isLoggedIn || !selected) {
+      setProfile(null);
+      return;
+    }
+    setLoading(true);
+    Promise.all([getSubject(selected.subjectId), getPersona().catch(() => undefined)])
+      .then(([subj, p]) => {
+        setProfile(summaryToProfile(subj));
+        setPersona(p);
+        setMessages([]);
+      })
+      .finally(() => setLoading(false));
+  }, [isLoggedIn, selected]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -53,7 +69,7 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, { role: "user", text: question }]);
     setBusy(true);
     try {
-      const res = await postChat(profile, question, threadId);
+      const res = await postChat(profile, question, threadId, persona);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", text: res.answer ?? "(응답 없음)", meta: res },
@@ -69,33 +85,46 @@ export default function ChatPage() {
     }
   }
 
-  if (!profileChecked) {
-    return <p className="text-sm text-gray-500">프로필 확인 중…</p>;
-  }
-  if (!profile) {
+  if (!ready) return <p className="text-sm text-gray-500">확인 중…</p>;
+
+  if (!isLoggedIn) {
     return (
       <section className="rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-bold">채팅사주풀이</h1>
+        <h1 className="text-xl font-bold">AI채팅상담</h1>
         <p className="mt-2 text-sm text-gray-600">
-          먼저 만세력에서 생년월일시·출생지를 입력하면 그 사주로 대화할 수 있어요.
+          로그인 후 이용할 수 있어요. 좌측 메뉴(☰)에서 아이디·PIN으로 로그인해 주세요.
         </p>
-        <Link
-          href="/manse"
-          className="mt-4 inline-block rounded bg-indigo-600 px-4 py-2 text-sm text-white"
-        >
-          만세력 입력하러 가기
-        </Link>
       </section>
+    );
+  }
+
+  if (!selected || !profile) {
+    return (
+      <div className="space-y-3">
+        <h1 className="text-xl font-bold">AI채팅상담</h1>
+        {loading ? (
+          <p className="text-sm text-gray-500">사주 불러오는 중…</p>
+        ) : (
+          <SubjectGateway
+            title="상담할 사주 선택"
+            returnTo="/chat"
+            onResolved={() => {
+              /* 선택은 컨텍스트로 반영되어 effect가 프로필을 로드한다. */
+            }}
+          />
+        )}
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
       <section className="rounded-lg bg-white p-4 shadow-sm">
-        <h1 className="text-xl font-bold">채팅사주풀이</h1>
+        <h1 className="text-xl font-bold">AI채팅상담</h1>
         <p className="mt-1 text-xs text-gray-500">
-          {profile.birthDate} {profile.timeUnknown ? "(시간 모름)" : profile.birthTime}{" "}
-          · {profile.place.name} 사주 기준 · 같은 창에서는 대화 맥락이 이어집니다.
+          {selected.label} · {profile.birthDate}{" "}
+          {profile.timeUnknown ? "(시간 모름)" : profile.birthTime} 기준 · 같은 창에서는 대화 맥락이
+          이어집니다.
         </p>
       </section>
 
@@ -129,7 +158,6 @@ export default function ChatPage() {
               {m.role === "user" ? (
                 m.text
               ) : (
-                // 백엔드는 평문을 보내지만, 마크다운(보고서 등)이 와도 깨지지 않게 렌더.
                 <div className="prose prose-sm max-w-none prose-p:my-1.5 prose-headings:mt-2 prose-headings:mb-1 prose-li:my-0.5">
                   <ReactMarkdown>{m.text}</ReactMarkdown>
                 </div>
@@ -138,7 +166,7 @@ export default function ChatPage() {
             {m.meta && m.meta.status !== "answered" && (
               <p className="mt-1 text-xs text-amber-600">
                 {m.meta.status === "too_broad" && "범위를 좁히면 바로 풀이해 드려요."}
-                {m.meta.status === "need_subject" && "대상 확인이 필요해요."}
+                {m.meta.status === "need_subject" && "동반자 등 대상 확인이 필요해요. 사주목록에서 상대를 등록해 주세요."}
                 {m.meta.status === "policy" && "정책 안내 응답입니다."}
               </p>
             )}

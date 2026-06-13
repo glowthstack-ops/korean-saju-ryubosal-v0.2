@@ -82,6 +82,27 @@ class ProfileStore:
             extended_completed_at=completed.isoformat() if completed else None,
         )
 
+    def set_yongsin(self, user_id: str, element: str | None) -> None:
+        """확정 용신 저장(사주별) — user_profiles.confirmed_yongsin(migration 005).
+
+        프로필 행이 없으면 갱신은 무시된다(먼저 save로 basic을 기록할 것).
+        """
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE user_profiles SET confirmed_yongsin = %s, updated_at = now() "
+                "WHERE user_id = %s",
+                (element, user_id),
+            )
+
+    def get_yongsin(self, user_id: str) -> str | None:
+        """확정 용신 조회(없으면 None)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT confirmed_yongsin FROM user_profiles WHERE user_id = %s",
+                (user_id,),
+            ).fetchone()
+        return row[0] if row and row[0] else None
+
     def delete_extended_field(self, user_id: str, field: str) -> None:
         """2단계 필드 개별 삭제(JSONB 키 제거) — 캐시 무효화는 호출 측."""
         with self._connect() as conn:

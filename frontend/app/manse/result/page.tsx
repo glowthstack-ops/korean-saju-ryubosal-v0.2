@@ -20,7 +20,25 @@ import {
   clearProfile, loadCalibration, loadEotPreference, loadProfile, profileSig,
   saveCalibration, saveEotPreference,
 } from "@/lib/storage";
+import { summaryToProfile } from "@/lib/subject-mapping";
+import { getSubject } from "@/lib/subjects";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
+
+// ?subject=<id>(로그인 사주) 우선, 없으면 IndexedDB 1회성 프로필을 로드한다.
+async function resolveProfile(): Promise<Profile | null> {
+  const subjectId =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("subject")
+      : null;
+  if (subjectId) {
+    try {
+      return summaryToProfile(await getSubject(subjectId));
+    } catch {
+      return null;
+    }
+  }
+  return loadProfile();
+}
 
 type AnswerMap = Record<string, { rating: string; events: string[] }>;
 
@@ -52,7 +70,7 @@ export default function ManseResultPage() {
   const [referenceDate] = useState(() => todayISO());
 
   useEffect(() => {
-    loadProfile().then((p) => {
+    resolveProfile().then((p) => {
       if (!p) {
         router.replace("/manse");
         return;
