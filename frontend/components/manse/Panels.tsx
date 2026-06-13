@@ -804,7 +804,7 @@ function sinsalTitle(s: LuckSinsal): string {
 
 function LuckCol({
   topLabel, stem, branch, stemEl, branchEl, stemGod, branchGod, unseong, sinsal,
-  current, selected, onClick, colRef, fit,
+  current, selected, onClick, colRef,
 }: {
   topLabel: string;
   stem: string;
@@ -819,19 +819,15 @@ function LuckCol({
   selected?: boolean;
   onClick?: () => void;
   colRef?: React.Ref<HTMLButtonElement>;
-  // fit: md↑에서 고정폭(w-16) 대신 컨테이너 폭을 나눠 채워(가로 스크롤 없이) 전체가 보이게 한다.
-  fit?: boolean;
 }) {
   const ring = selected
     ? "ring-2 ring-indigo-400 bg-indigo-50"
     : current
       ? "ring-1 ring-yellow-300 bg-yellow-50"
       : "";
-  // 기본은 고정폭+스크롤. fit이면 md↑에서 flex-1로 폭을 나눠 채운다(min-w-0로 축소 허용).
-  const widthCls = fit ? "w-16 shrink-0 md:w-auto md:flex-1 md:min-w-0 md:shrink" : "w-16 shrink-0";
   return (
     <button ref={colRef} type="button" onClick={onClick}
-      className={`flex ${widthCls} flex-col items-center gap-1 rounded p-1.5 ${ring} ${onClick ? "cursor-pointer hover:bg-gray-50" : ""}`}>
+      className={`flex w-16 shrink-0 flex-col items-center gap-1 rounded p-1.5 ${ring} ${onClick ? "cursor-pointer hover:bg-gray-50" : ""}`}>
       <div className="text-[11px] font-semibold leading-none text-gray-700">{topLabel}</div>
       <div className="text-[10px] leading-none text-gray-400">{stemGod}</div>
       <div className="w-full">
@@ -872,14 +868,11 @@ function LuckStrip({
   hint,
   note,
   children,
-  fit,
 }: {
   label: string;
   hint?: string;
   note?: ReactNode;
   children: ReactNode;
-  // fit: md↑에서 가로 스크롤을 끄고 카드들이 폭을 나눠 전체가 보이게 한다(월운 12칸 등).
-  fit?: boolean;
 }) {
   return (
     <div className="mt-4">
@@ -891,14 +884,8 @@ function LuckStrip({
       {note}
       {/* 우→좌 오름차순(작은 값이 오른쪽): 렌더 시 배열을 역순으로 넘긴다.
           py로 선택 링이 스크롤 컨테이너에 잘리지 않도록 여백 확보.
-          fit이면 md↑(데스크탑·태블릿)에서 가로 스크롤을 끄고 카드가 폭을 나눠 전체가 보인다. */}
-      <div
-        className={`flex gap-2 overflow-x-auto px-1 pt-1.5 pb-2 md:gap-1 ${
-          fit ? "md:overflow-x-visible" : ""
-        }`}
-      >
-        {children}
-      </div>
+          md↑(카드 폭 충분)에서는 gap을 좁혀 10칸이 가로 스크롤 없이 들어가게 한다. */}
+      <div className="flex gap-2 overflow-x-auto px-1 pt-1.5 pb-2 md:gap-1">{children}</div>
     </div>
   );
 }
@@ -1023,7 +1010,7 @@ export function LuckPanel({
       )}
 
       {selYear != null && (
-        <LuckStrip label="월운" hint="선택 시 간지달력으로 이동합니다" fit>
+        <LuckStrip label="월운" hint="선택 시 간지달력으로 이동합니다">
           {loadingYear === selYear && months.length === 0 ? (
             <span className="py-4 text-[11px] text-gray-400">월운 불러오는 중…</span>
           ) : (
@@ -1034,7 +1021,7 @@ export function LuckPanel({
                 sinsal={m.luck_sinsal}
                 current={m.label === curMonthLabel}
                 colRef={m.label === curMonthLabel ? moRef : undefined}
-                onClick={() => selectMonth(m.label)} fit />
+                onClick={() => selectMonth(m.label)} />
             ))
           )}
         </LuckStrip>
