@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuthPanel } from "@/components/layout/AuthPanel";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useReportNotifications } from "@/components/providers/ReportNotificationsProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 
 interface NavItem {
@@ -33,6 +34,7 @@ export function Gnb() {
   const pathname = usePathname();
   const { isLoggedIn } = useAuth();
   const { selected } = useSelectedSubject();
+  const { badgeCount } = useReportNotifications();
 
   // 라우트 이동 시 자동으로 닫고, 헤더를 다시 보이게 한다.
   useEffect(() => {
@@ -71,13 +73,16 @@ export function Gnb() {
       >
         <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3">
           <button
-            aria-label="메뉴 열기"
+            aria-label={badgeCount > 0 ? `메뉴 열기 (새 풀이 알림 ${badgeCount}건)` : "메뉴 열기"}
             onClick={() => setOpen(true)}
-            className="rounded p-1 text-gray-700 hover:bg-gray-100"
+            className="relative rounded p-1 text-gray-700 hover:bg-gray-100"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path strokeWidth="2" strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
+            {badgeCount > 0 && (
+              <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+            )}
           </button>
           <Link href="/" className="text-lg font-bold">
             류보살 <span className="text-gray-400">v2</span>
@@ -148,9 +153,14 @@ export function Gnb() {
               {isLoggedIn && (
                 <Link
                   href="/reports"
-                  className="block rounded px-2 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="flex items-center justify-between rounded px-2 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
-                  내 풀이 내역
+                  <span>내 풀이 내역</span>
+                  {badgeCount > 0 && (
+                    <span className="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                      {badgeCount}
+                    </span>
+                  )}
                 </Link>
               )}
               <Link

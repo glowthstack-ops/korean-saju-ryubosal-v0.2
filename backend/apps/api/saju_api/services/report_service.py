@@ -9,6 +9,7 @@ ReportBuilder(테스트 전용이던 골격)에 **실데이터 컨텍스트 빌�
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 
@@ -294,6 +295,7 @@ def generate_report(
     owner_id: str | None = None,
     subject_id: str | None = None,
     partner_birth: BirthInput | None = None,
+    progress_fn: Callable[[int, int], None] | None = None,
 ) -> ReportResult:
     """보고서 실생성 — ReportBuilder에 실데이터 컨텍스트 + llm_client 주입.
 
@@ -339,5 +341,6 @@ def generate_report(
         dictionaries_dir=_DICTS,
         context_builder=lambda plan, s: build_section_context(plan, s, data),
         generate_fn=generate_fn,
+        progress_fn=progress_fn,
     )
     return builder.build(spec, display_name=display_name)

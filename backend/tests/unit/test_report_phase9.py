@@ -169,14 +169,29 @@ def test_check7_subject_label_for_multi(checker) -> None:
 # ── 파이프라인(2장 — 재생성 ≤2회·보류·조립) ──────────────────────
 
 
-def _focus_builder(generate_fn) -> ReportBuilder:
+def _focus_builder(generate_fn, progress_fn=None) -> ReportBuilder:
     def ctx_builder(plan: SectionPlan, spec: ReportSpec) -> SectionContext:
         return SectionContext(
             section_id=plan.section_id,
             allowed_ganji=["丙午"], allowed_scores=[72], allowed_years=[2026],
             yongsin_element="土", evidence_paths=["丙午 세운 → 정관 활성"],
         )
-    return ReportBuilder(_DICTS, ctx_builder, generate_fn)
+    return ReportBuilder(_DICTS, ctx_builder, generate_fn, progress_fn=progress_fn)
+
+
+def test_progress_fn_called_per_section() -> None:
+    """섹션 1개 완료마다 progress_fn(done, total) 호출 — 잡 진행 증분 반영."""
+    seen: list[tuple[int, int]] = []
+
+    def gen(plan, context, attempt):
+        return _good_section_text(plan), 4_000, 3_000
+
+    _focus_builder(gen, progress_fn=lambda d, t: seen.append((d, t))).build(
+        _spec("RPT_FOCUS", topic="health")
+    )
+    # generic FOCUS 8섹션 → 1..8까지 단조 증가, total 고정.
+    assert [d for d, _ in seen] == list(range(1, 9))
+    assert all(t == 8 for _, t in seen)
 
 
 def _good_section_text(plan: SectionPlan) -> str:

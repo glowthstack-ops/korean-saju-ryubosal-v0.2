@@ -146,10 +146,18 @@ def _run_report_job(
     """백그라운드 실행 — 생성 성공 시 complete, LLM 키 미설정 등 실패 시 fail."""
     store = ReportJobStore()
     store.mark_running(job_id)
+
+    def _on_progress(done: int, _total: int) -> None:
+        try:
+            store.update_progress(job_id, done)
+        except Exception:  # noqa: BLE001 — 진행 갱신 실패가 생성을 막지 않도록
+            pass
+
     try:
         result = report_service.generate_report(
             birth, spec, today, display_name=display_name,
             owner_id=owner_id, subject_id=subject_id, partner_birth=partner_birth,
+            progress_fn=_on_progress,
         )
         store.complete(job_id, result.model_dump(mode="json"), len(result.sections))
     except RuntimeError as exc:

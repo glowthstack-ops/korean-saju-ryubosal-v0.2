@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useReportNotifications } from "@/components/providers/ReportNotificationsProvider";
 import { listReportJobs } from "@/lib/subjects";
 import { themeLabel } from "@/lib/themes";
 import type { ReportJobSummary } from "@/lib/types";
@@ -25,6 +26,7 @@ function formatDate(iso: string | null): string {
 
 export default function ReportsHistoryPage() {
   const { ready, isLoggedIn } = useAuth();
+  const { markReportsSeen } = useReportNotifications();
   const [jobs, setJobs] = useState<ReportJobSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +38,9 @@ export default function ReportsHistoryPage() {
     listReportJobs()
       .then(setJobs)
       .catch((e) => setError(e instanceof Error ? e.message : "내역을 불러오지 못했습니다."));
-  }, [isLoggedIn]);
+    // 내역을 열람하면 완료 알림 뱃지를 해제한다.
+    markReportsSeen();
+  }, [isLoggedIn, markReportsSeen]);
 
   if (!ready) return <p className="text-sm text-gray-500">확인 중…</p>;
   if (!isLoggedIn) {

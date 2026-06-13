@@ -75,7 +75,10 @@ export default function ReportJobPage() {
         <div className="mt-3 h-2 w-full overflow-hidden rounded bg-gray-100">
           <div className="h-full bg-gray-800 transition-all" style={{ width: `${pct}%` }} />
         </div>
-        <p className="mt-2 text-xs text-gray-400">완료되면 자동으로 표시됩니다(닫지 마세요).</p>
+        <p className="mt-2 text-xs text-gray-400">
+          이 페이지를 닫아도 작성은 계속돼요. 완료되면 알림으로 알려드리고, 언제든
+          <span className="font-medium"> 내 풀이 내역</span>에서 다시 볼 수 있어요.
+        </p>
       </section>
     );
   }

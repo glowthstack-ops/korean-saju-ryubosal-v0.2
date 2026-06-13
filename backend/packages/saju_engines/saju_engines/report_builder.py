@@ -30,6 +30,8 @@ from .report_plan import MAX_REGENERATIONS, build_section_plans
 GenerateFn = Callable[[SectionPlan, SectionContext, int], tuple[str, int, int]]
 # context_builder(plan, spec) → SectionContext (Topic Builder/모듈 실행 결과 직렬화).
 ContextBuilder = Callable[[SectionPlan, ReportSpec], SectionContext]
+# progress_fn(done, total) → None — 섹션 1개 완료마다 호출(잡 진행 업데이트용).
+ProgressFn = Callable[[int, int], None]
 
 _PRICES_PATH = Path(__file__).resolve().parents[3] / "config" / "model_prices.json"
 
@@ -59,12 +61,14 @@ class ReportBuilder:
         context_builder: ContextBuilder,
         generate_fn: GenerateFn,
         dict_version: str = "1.0.0",
+        progress_fn: ProgressFn | None = None,
     ) -> None:
         """LLM·컨텍스트 빌더 주입(사이드이펙트는 서비스 계층 책임)."""
         self._checker = ReportChecker(dictionaries_dir)
         self._build_context = context_builder
         self._generate = generate_fn
         self._dict_version = dict_version
+        self._progress = progress_fn
 
     def build(self, spec: ReportSpec, display_name: str = "회원") -> ReportResult:
         """보고서 생성 — dependsOn 순서 보장, 실패 섹션만 재생성(≤2회).
@@ -95,6 +99,12 @@ class ReportBuilder:
             done[plan.section_id] = result
             if plan.section_id == "F-04" and result.passed:
                 yongsin = context.yongsin_element
+            # 섹션 1개 완료 — 잡 진행 업데이트(실패해도 생성은 계속).
+            if self._progress is not None:
+                try:
+                    self._progress(len(done), len(plans))
+                except Exception:  # noqa: BLE001 — 진행 보고 실패가 생성을 막지 않도록
+                    pass
 
         sections = [done[p.section_id] for p in plans]
         failed = [s.section_id for s in sections if not s.passed]
