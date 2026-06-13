@@ -9,7 +9,7 @@ import { CalibrationPanel, YongsinPanel } from "@/components/manse/CalibrationPa
 import { calculateManse, todayISO } from "@/lib/api";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
 
-type AnswerMap = Record<string, { rating: string; events: string[] }>;
+type AnswerMap = Record<string, { rating: string; events: string[]; event_ratings?: Record<string, "positive" | "negative" | "na"> }>;
 
 interface Props {
   profile: Profile;

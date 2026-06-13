@@ -5,7 +5,9 @@ from __future__ import annotations
 import hashlib
 import threading
 from collections import OrderedDict
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from saju_manse_analysis import analyze_chart
 from saju_manse_analysis.luck import (
@@ -15,6 +17,8 @@ from saju_manse_analysis.luck import (
 )
 from saju_manse_calibration import generate_calibration, score_calibration
 
+from saju_engines.context_reducer import event_ko
+from saju_engines.event_scoring import EventScorer, favorability_map_from_model
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_manse_core.pillars import four_pillars
 from saju_manse_core.pillars.day_pillar import day_pillar
@@ -23,7 +27,12 @@ from saju_manse_core.time_correction import true_solar_time
 from saju_manse_core.time_correction.input_normalizer import normalize
 from saju_manse_core.time_correction.timezone_resolver import TZDATA_VERSION, resolve
 from saju_shared_types.birth_input import BirthInput
-from saju_shared_types.calibration import CalibrationResult, FeedbackAnswer
+from saju_shared_types.calibration import (
+    EVENT_CATEGORY,
+    CalibrationEventItem,
+    CalibrationResult,
+    FeedbackAnswer,
+)
 from saju_shared_types.constants import (
     ENGINE_VERSION,
     RULESET_VERSION,
@@ -33,8 +42,79 @@ from saju_shared_types.enums import Branch, Stem, YinYang
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import EngineMetadata, ManseV2Result
 from saju_shared_types.time_correction import SolarTermBasis, TimeCorrectionResult
+from saju_shared_types.yongsin import YongsinCandidateModel
 
 from ..location import resolve as resolve_location
+
+# 용신 검증 이벤트 검출용 — 이벤트 사전 위치 + 단일 스코어러(지연 초기화).
+_DICTS = Path(__file__).resolve().parents[4] / "dictionaries"
+_event_scorer: EventScorer | None = None
+# EventCandidate.polarity → 검증 기대 극성 라벨.
+_POLARITY_EXPECTED = {
+    "positive": "positive",
+    "negative_or_forced": "negative",
+    "conditional": "mixed",
+    "neutral": "neutral",
+}
+_EVENTS_PER_QUESTION = 4
+
+
+def _scorer() -> EventScorer:
+    """이벤트 스코어러 단일 인스턴스(사전 1회 로드)."""
+    global _event_scorer
+    if _event_scorer is None:
+        _event_scorer = EventScorer(_DICTS)
+    return _event_scorer
+
+
+def _event_items_provider(
+    result: ManseV2Result, models: list[YongsinCandidateModel]
+) -> Callable[[int], list[CalibrationEventItem]]:
+    """연도 → 그 해의 검출 이벤트 목록(모델별 기대 극성 포함) 공급 클로저.
+
+    그 해를 차트 용신으로 스코어링해 표시 이벤트(상위 N, 카테고리 보유분)를 고르고, 후보
+    모델마다 fav_override로 재계산한 극성을 이벤트별 기대값으로 싣는다. 연도별로 지연
+    계산·캐시한다(질문에 쓰이는 소수 연도만 스코어링).
+    """
+    scorer = _scorer()
+    fav_by_model = {
+        m.model_type: fav for m in models if (fav := favorability_map_from_model(m))
+    }
+    cache: dict[int, list[CalibrationEventItem]] = {}
+
+    def provider(year: int) -> list[CalibrationEventItem]:
+        if year in cache:
+            return cache[year]
+        # 차트 용신으로 그 해 표시 이벤트 선별(상위 N, 카테고리 보유분).
+        base = sorted(scorer.score_years(result, [year]), key=lambda c: -c.score)
+        # 모델별 그 해 재계산 극성: {model_type: {event_key: polarity}}.
+        per_model = {
+            mt: {str(c.event_key): str(c.polarity) for c in scorer.score_years(
+                result, [year], fav_override=fav)}
+            for mt, fav in fav_by_model.items()
+        }
+        items: list[CalibrationEventItem] = []
+        seen: set[str] = set()
+        for c in base:
+            ek = str(c.event_key)
+            category = EVENT_CATEGORY.get(ek)
+            if category is None or ek in seen:
+                continue
+            seen.add(ek)
+            expected = {
+                mt: _POLARITY_EXPECTED.get(pm.get(ek, "neutral"), "neutral")
+                for mt, pm in per_model.items()
+            }
+            items.append(CalibrationEventItem(
+                event_key=ek, category=category, label=event_ko(ek),
+                expected_by_model=expected,
+            ))
+            if len(items) >= _EVENTS_PER_QUESTION:
+                break
+        cache[year] = items
+        return items
+
+    return provider
 
 
 def _chart_id(birth: BirthInput) -> str:
@@ -303,14 +383,7 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
             timezone=loc.iana_timezone,
         )
 
-    calibration = None
-    if birth.reference_date is not None and chart_analysis.yongsin.candidate_models:
-        calibration = generate_calibration(
-            chart_analysis.yongsin, tc.civil_datetime.date().year, birth.reference_date.year,
-            pillars=pillars, gender=birth.gender,
-        )
-
-    return ManseV2Result(
+    result = ManseV2Result(
         chart_id=_chart_id(birth),
         input_summary=input_summary,
         time_correction=time_correction,
@@ -321,7 +394,7 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
         geokguk=chart_analysis.geokguk,
         yongsin_analysis=chart_analysis.yongsin,
         luck_cycles=luck_cycles,
-        calibration=calibration,
+        calibration=None,
         traditional_extras=chart_analysis.traditional,
         metadata=metadata,
         trace={
@@ -337,6 +410,21 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
             "boundary_diagnostics": boundary_trace,
         },
     )
+
+    # 검증 질문은 result(루크·용신 포함)가 있어야 이벤트 엔진으로 연도별 이벤트를 검출하므로
+    # result 구성 후 생성해 부착한다(이벤트형 질문 — 모델별 기대 극성).
+    if birth.reference_date is not None and chart_analysis.yongsin.candidate_models:
+        result.calibration = generate_calibration(
+            chart_analysis.yongsin,
+            tc.civil_datetime.date().year,
+            birth.reference_date.year,
+            pillars=pillars,
+            gender=birth.gender,
+            event_provider=_event_items_provider(
+                result, chart_analysis.yongsin.candidate_models
+            ),
+        )
+    return result
 
 
 def calibrate_feedback(birth: BirthInput, answers: list[FeedbackAnswer]) -> CalibrationResult:

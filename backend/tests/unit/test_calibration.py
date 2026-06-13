@@ -6,7 +6,11 @@ from saju_manse_calibration import score_calibration, score_feedback
 
 from saju_api.services.manse_service import calculate, calibrate_feedback
 from saju_shared_types.birth_input import BirthInput
-from saju_shared_types.calibration import CalibrationQuestion, FeedbackAnswer
+from saju_shared_types.calibration import (
+    CalibrationEventItem,
+    CalibrationQuestion,
+    FeedbackAnswer,
+)
 from saju_shared_types.yongsin import AggregatedYongsinResult, YongsinCandidateModel
 
 _BASE = dict(birth_date="1980-11-22", birth_time="09:08", birth_place_name="서울", gender="male")
@@ -29,10 +33,19 @@ def test_calibration_generated_with_reference_date() -> None:
     # 같은 연도를 중복 질문하지 않는다.
     years = [q.year for q in cal.questions]
     assert len(years) == len(set(years))
-    # 질문 유형 5종이 모두 포함된다.
-    assert {q.question_type for q in cal.questions} == {
-        "useful", "unfavorable", "contrast", "event_domain", "period_detail",
+    # 변별 연도(q1~q3)는 이벤트형(event_list)으로, q4·q5는 탐색형으로 생성된다.
+    types = {q.question_type for q in cal.questions}
+    assert "event_list" in types
+    assert types <= {
+        "event_list", "event_domain", "period_detail", "useful", "unfavorable", "contrast",
     }
+    # 이벤트형 질문은 그 해의 이벤트와 모델별 기대 극성을 싣는다.
+    event_qs = [q for q in cal.questions if q.question_type == "event_list"]
+    assert event_qs
+    for q in event_qs:
+        assert q.events
+        for e in q.events:
+            assert e.category and e.expected_by_model
 
 
 def test_calibration_absent_without_reference_date() -> None:
@@ -121,6 +134,70 @@ def test_final_selected_auxiliary_model_can_be_calibrated() -> None:
     assert res.status == "calibrated"
     assert res.selected_model == "johu"
     assert res.final_yongsin == "火"
+
+
+def test_event_ratings_select_matching_model() -> None:
+    # 이벤트별 긍/부정 응답이 모델별 기대 극성과 대조돼 일치 모델이 선택된다.
+    y = AggregatedYongsinResult(
+        status="candidate",
+        candidate_models=[
+            YongsinCandidateModel(
+                model_type="eokbu_normal", label="억부형",
+                yongsin="水", heesin="木", gisin="土", gusin="金", confidence=0.7,
+            ),
+            YongsinCandidateModel(
+                model_type="eokbu_alt", label="대안형",
+                yongsin="火", heesin="土", gisin="水", gusin="木", confidence=0.6,
+            ),
+        ],
+        final={"selected_model": "eokbu_normal", "yongsin": "水", "heesin": "木"},
+    )
+    cats = ["career", "move", "affection", "money"]
+    events = [
+        CalibrationEventItem(
+            event_key=f"e{i}", category=cats[i], label=f"이벤트{i}",
+            # eokbu_normal=positive, eokbu_alt=negative.
+            expected_by_model={"eokbu_normal": "positive", "eokbu_alt": "negative"},
+        )
+        for i in range(4)
+    ]
+    q = CalibrationQuestion(
+        id="q1", question_type="event_list", period_type="year",
+        year=2015, period_label="2015", target_models=["eokbu_normal", "eokbu_alt"],
+        question_text="…", events=events,
+    )
+    # 사용자가 모든 이벤트를 '긍정'으로 답함 → eokbu_normal(positive 기대)과 일치.
+    ans = FeedbackAnswer(question_id="q1", event_ratings={f"e{i}": "positive" for i in range(4)})
+    res = score_calibration([q], [ans], y)
+    assert res.selected_model == "eokbu_normal"
+    assert res.final_yongsin == "水"
+    assert res.evidence_count == 4
+    assert res.match_rate == 1.0
+
+
+def test_event_rating_na_is_excluded() -> None:
+    y = AggregatedYongsinResult(
+        status="candidate",
+        candidate_models=[
+            YongsinCandidateModel(
+                model_type="m", label="m", yongsin="水", gisin="土", confidence=0.7,
+            ),
+        ],
+        final={"selected_model": "m", "yongsin": "水"},
+    )
+    events = [
+        CalibrationEventItem(
+            event_key="e0", category="career", label="x",
+            expected_by_model={"m": "positive"},
+        ),
+    ]
+    q = CalibrationQuestion(
+        id="q1", question_type="event_list", period_type="year",
+        year=2015, period_label="2015", question_text="…", events=events,
+    )
+    ans = FeedbackAnswer(question_id="q1", event_ratings={"e0": "na"})
+    res = score_calibration([q], [ans], y)
+    assert res.status == "uncertain"  # 유효 근거 0
 
 
 def test_period_selection_reflects_void_clash() -> None:

@@ -2295,3 +2295,24 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   GNB 드로어에 '내 풀이 내역' 링크(로그인 시). 열람·PDF는 기존 /reports/[jobId] 재사용.
 - 검증: ruff/mypy clean · test_report_jobs_api 목록 단언 추가(생성 잡이 내역에 노출·메타 일치)
   9 pass · tsc 0 · 빌드 성공 · 터널 라이브(빈 목록 200·미인증 401) 확인.
+
+## v2.2 용신 검증 질문 개선 — 연도별 이벤트 나열 + 이벤트별 긍/부정 ✅
+
+- 배경: 한 해를 한 문장(overall_rating)으로 묻던 검증을, 그 해 검출 이벤트를 나열해 이벤트별
+  긍/부정을 받아 모델별 기대 극성과 대조하는 방식으로 개선(응답 신뢰도·변별력↑).
+- Step1 event_scoring: `score(fav_override=)`·`favorability_map_from_model(model)` 추가, 본문을
+  `_score_periods`로 추출하고 `score_years(result, years, fav_override=)` 신설 — yearly_luck
+  윈도 밖 과거 세운은 `daewoon_table[*].sewoon`에서 가져와 동일 파이프라인으로 스코어링.
+- Step2 스키마: `CalibrationEventItem`(event_key·category·label·expected_by_model), Question.events,
+  FeedbackAnswer.event_ratings, EVENT_CATEGORY(직업·이동·애정·금전·건강·학업)·MAJOR_CATEGORIES·
+  EVENT_RATING_SCORE 상수.
+- Step3 질문 생성: manse_service가 result 구성 후 EventScorer로 연도별 이벤트 검출(차트 용신=표시
+  이벤트 상위4, 모델별 fav_override 재계산=이벤트별 기대 극성) provider를 generate_calibration에
+  주입. q1~q3는 event_list, 이벤트 0건이면 텍스트형 폴백. saju_engines 의존은 manse_service에 격리.
+- Step4 채점: event_ratings(긍+1/부-1/na제외)를 이벤트 expected_by_model과 대조, 카테고리 MAJOR
+  가중 1.5. 레거시 overall_rating 경로 유지(하위호환).
+- Step5 프론트: CalibrationPanel이 events 있으면 이벤트 행별 [긍정][부정][해당없음] 토글 렌더,
+  event_ratings 제출. 타입(CalibrationEventItem·events·event_ratings)·AnswerMap·api 확장.
+- 검증: backend 524 pass·ruff/mypy clean(신규 favorability override 3 + event 채점 2 + calibration
+  갱신) / frontend tsc 0·vitest 22·빌드. 라이브(터널): 1980 픽스처 → q1~q3 event_list(연애 시작/
+  사업 개업/이사 등, 모델별 기대 극성 상이), 이벤트 긍/부정 13건 제출 → calibrated(용신 土, 일치율 0.92).

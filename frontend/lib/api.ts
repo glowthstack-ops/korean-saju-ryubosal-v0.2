@@ -110,6 +110,8 @@ export interface FeedbackAnswer {
   question_id: string;
   overall_rating: string;
   selected_events: string[];
+  // 이벤트형 질문 응답 — event_key → 'positive'|'negative'|'na'.
+  event_ratings?: Record<string, string>;
 }
 
 export async function submitCalibration(

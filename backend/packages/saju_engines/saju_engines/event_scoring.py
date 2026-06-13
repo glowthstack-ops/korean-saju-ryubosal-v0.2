@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
 
@@ -33,6 +34,7 @@ from saju_shared_types.events import (
 from saju_shared_types.ganji_calendar import GanjiLevel, RelationHit, RelationType
 from saju_shared_types.luck import DaewoonItem, LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.yongsin import YongsinCandidateModel
 
 from .dictionaries import (
     EventMappingFile,
@@ -255,13 +257,18 @@ class EventScorer:
     # ── 공개 API ─────────────────────────────────────────────────
 
     def score(
-        self, result: ManseV2Result, levels: set[GanjiLevel] | None = None
+        self,
+        result: ManseV2Result,
+        levels: set[GanjiLevel] | None = None,
+        fav_override: dict[str, str] | None = None,
     ) -> list[EventCandidate]:
         """만세 결과의 운 전체를 스코어링해 이벤트 후보를 산출한다.
 
         Args:
             result: 만세력 엔진 결과(pillars·luck_cycles·yongsin final 필요).
             levels: 평가할 운 계층(None=전부).
+            fav_override: 오행→용기신 역할 매핑 강제값(용신 검증의 모델별 재계산 등).
+                None이면 차트 final 용신(favorability_map)을 쓴다.
 
         Returns:
             (period, event)별로 합산·클램프된 EventCandidate 목록(점수 내림차순).
@@ -269,7 +276,47 @@ class EventScorer:
         if result.pillars is None or result.luck_cycles is None:
             return []
         wanted = levels or set(GanjiLevel)
-        fav_map = favorability_map(result)
+        fav_map = fav_override if fav_override is not None else favorability_map(result)
+        return self._score_periods(result, self._iter_luck(result, wanted), fav_map)
+
+    def score_years(
+        self,
+        result: ManseV2Result,
+        years: list[int],
+        fav_override: dict[str, str] | None = None,
+    ) -> list[EventCandidate]:
+        """지정 세운 연도를 직접 스코어링한다(용신 검증용).
+
+        EventScorer.score는 luck_cycles.yearly_luck(현재 ±10년 윈도)만 YEAR로 순회하므로
+        과거 검증 연도가 빠진다. 세운 LuckPillar는 daewoon_table[*].sewoon(+yearly_luck)에
+        이미 계산돼 있으므로 그중 요청 연도만 골라 동일 파이프라인으로 스코어링한다.
+        """
+        if result.pillars is None or result.luck_cycles is None:
+            return []
+        fav_map = fav_override if fav_override is not None else favorability_map(result)
+        by_year: dict[int, LuckPillar] = {}
+        for p in result.luck_cycles.yearly_luck:
+            if p.label.isdigit():
+                by_year[int(p.label)] = p
+        for d in result.luck_cycles.daewoon_table:
+            for p in d.sewoon or []:
+                if p.label.isdigit():
+                    by_year.setdefault(int(p.label), p)
+        periods = [
+            (GanjiLevel.YEAR, by_year[y].label, by_year[y].stem, by_year[y].branch, by_year[y])
+            for y in years
+            if y in by_year
+        ]
+        return self._score_periods(result, periods, fav_map)
+
+    def _score_periods(
+        self,
+        result: ManseV2Result,
+        periods: Iterable[tuple[GanjiLevel, str, str, str, LuckPillar]],
+        fav_map: dict[str, str],
+    ) -> list[EventCandidate]:
+        """주어진 (level, label, stem, branch, pillar) 순회를 스코어링한다(공용 본체)."""
+        assert result.pillars is not None and result.luck_cycles is not None
         natal_unseongs = frozenset(
             u for u in (
                 result.pillars.month.twelve_unseong, result.pillars.day.twelve_unseong,
@@ -288,7 +335,7 @@ class EventScorer:
 
         contributions: list[tuple[str, GanjiLevel, _Contribution]] = []
         luck_role_by_label: dict[str, tuple[str | None, str | None]] = {}
-        for level, label, stem, branch, pillar in self._iter_luck(result, wanted):
+        for level, label, stem, branch, pillar in periods:
             hits = relation_hits(
                 level, stem, branch,
                 pillar.relations_to_chart, pillar.gongmang_activation, result.pillars,
@@ -777,18 +824,33 @@ def _strong_ten_god_groups(result: ManseV2Result) -> frozenset[str]:
     )
 
 
+_FAV_ROLES = (
+    ("yongsin", "용신"), ("heesin", "희신"), ("gisin", "기신"),
+    ("gusin", "구신"), ("hansin", "한신"),
+)
+
+
 def favorability_map(result: ManseV2Result) -> dict[str, str]:
     """용신 분석 final → 오행(한자) → 역할(용신/희신/기신/구신/한신) 매핑."""
     if result.yongsin_analysis is None:
         return {}
     final = result.yongsin_analysis.final
-    roles = (
-        ("yongsin", "용신"), ("heesin", "희신"), ("gisin", "기신"),
-        ("gusin", "구신"), ("hansin", "한신"),
-    )
     out: dict[str, str] = {}
-    for key, ko in roles:
+    for key, ko in _FAV_ROLES:
         element = final.get(key)
+        if isinstance(element, str) and element:
+            out[element] = ko
+    return out
+
+
+def favorability_map_from_model(model: YongsinCandidateModel) -> dict[str, str]:
+    """후보 모델의 용희기구한 배정 → 오행→역할 매핑(용신 검증의 모델별 이벤트 재계산용).
+
+    favorability_map과 동일 라벨 체계. 모델이 일부 역할을 비워 두면 그 역할은 매핑에서 제외된다.
+    """
+    out: dict[str, str] = {}
+    for key, ko in _FAV_ROLES:
+        element = getattr(model, key, None)
         if isinstance(element, str) and element:
             out[element] = ko
     return out

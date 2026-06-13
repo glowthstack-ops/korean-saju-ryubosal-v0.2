@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
-from saju_shared_types.calibration import CalibrationQuestionSet
+from collections.abc import Callable
+
+from saju_shared_types.calibration import CalibrationEventItem, CalibrationQuestionSet
 from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.yongsin import AggregatedYongsinResult
 
@@ -28,7 +30,12 @@ def generate_calibration(
     reference_year: int,
     pillars: FourPillarsResult | None = None,
     gender: str | None = None,
+    event_provider: Callable[[int], list[CalibrationEventItem]] | None = None,
 ) -> CalibrationQuestionSet:
-    """검증 기간 선택 + 질문 5종 생성을 한 번에 수행."""
+    """검증 기간 선택 + 질문 생성을 한 번에 수행.
+
+    event_provider 주입 시 연도별 이벤트형 질문(이벤트 나열 + 모델별 기대 극성)을 생성한다
+    (saju_engines 의존을 calibration 패키지 밖으로 격리 — manse_service가 클로저로 공급).
+    """
     periods = select_validation_periods(yongsin, birth_year, reference_year, pillars)
-    return generate_questions(periods, yongsin, gender)
+    return generate_questions(periods, yongsin, gender, event_provider)

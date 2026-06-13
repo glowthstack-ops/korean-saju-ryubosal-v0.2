@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from saju_shared_types.calibration import (
+    EVENT_RATING_SCORE,
     FEEDBACK_SCALE,
+    MAJOR_CATEGORIES,
     MAJOR_DOMAINS,
     CalibrationQuestion,
     CalibrationResult,
@@ -43,22 +45,36 @@ def score_calibration(
     hits: dict[str, int] = {mt: 0 for mt in models}
     totals: dict[str, int] = {mt: 0 for mt in models}
 
+    def accrue(model_type: str, expected: str, user_score: int, weight: float) -> None:
+        if model_type not in scores:
+            return
+        delta = score_feedback(expected, user_score) * weight
+        scores[model_type] += delta
+        totals[model_type] += 1
+        if delta > 0:
+            hits[model_type] += 1
+
     for q in questions:
         ans = answers_by_id.get(q.id)
         if ans is None:
             continue
+        if q.events and ans.event_ratings:
+            # 이벤트형 — 이벤트별 긍/부정을 그 이벤트의 모델별 기대 극성과 대조한다.
+            for ev in q.events:
+                user_score = EVENT_RATING_SCORE.get(ans.event_ratings.get(ev.event_key, "na"))
+                if user_score is None:  # na(해당없음/모름) → 제외
+                    continue
+                weight = 1.5 if ev.category in MAJOR_CATEGORIES else 1.0
+                for model_type, expected in ev.expected_by_model.items():
+                    accrue(model_type, expected, user_score, weight)
+            continue
+        # 레거시 — 연도 전체 평점(비이벤트형 질문 호환).
         user_score = FEEDBACK_SCALE.get(ans.overall_rating)
         if user_score is None:  # 기억나지 않음 → 점수 제외
             continue
         weight = 1.5 if (set(ans.selected_events) & MAJOR_DOMAINS) else 1.0
         for model_type, expected in q.expected_effect_by_model.items():
-            if model_type not in scores:
-                continue
-            delta = score_feedback(expected, user_score) * weight
-            scores[model_type] += delta
-            totals[model_type] += 1
-            if delta > 0:
-                hits[model_type] += 1
+            accrue(model_type, expected, user_score, weight)
 
     if not models or all(t == 0 for t in totals.values()):
         return CalibrationResult(

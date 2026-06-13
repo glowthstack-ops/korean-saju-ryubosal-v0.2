@@ -17,6 +17,24 @@ const RATINGS: { value: string; label: string }[] = [
   { value: "unknown", label: "기억 안 남" },
 ];
 
+// 이벤트 카테고리 표시 라벨(백엔드 EVENT_CATEGORY_LABEL 미러). affection은 혼인상태 정보가
+// 없을 때의 기본값으로 "연애/부부"를 쓴다(이벤트 라벨 자체가 구체적이라 충분).
+const CATEGORY_KO: Record<string, string> = {
+  career: "직업",
+  move: "이동",
+  affection: "연애/부부",
+  money: "금전",
+  health: "건강",
+  study: "학업",
+};
+
+// 이벤트별 응답 — (나에게) 긍정/부정/해당없음.
+const EVENT_CHOICES: { value: "positive" | "negative" | "na"; label: string; active: string }[] = [
+  { value: "positive", label: "긍정", active: "border-emerald-600 bg-emerald-600" },
+  { value: "negative", label: "부정", active: "border-rose-600 bg-rose-600" },
+  { value: "na", label: "해당없음", active: "border-gray-500 bg-gray-500" },
+];
+
 const axisKo: Record<string, string> = {
   eokbu: "억부", johu: "조후", pattern: "격국", disease: "병약", special: "특수격",
 };
@@ -109,7 +127,7 @@ function Box({ label, v }: { label: string; v: string | null }) {
   );
 }
 
-type AnswerMap = Record<string, { rating: string; events: string[] }>;
+type AnswerMap = Record<string, { rating: string; events: string[]; event_ratings?: Record<string, "positive" | "negative" | "na"> }>;
 
 export function CalibrationPanel({
   result,
@@ -157,9 +175,16 @@ export function CalibrationPanel({
     );
   }
 
-  const answeredCount = questions.filter(
-    (q) => answers[q.id]?.rating && answers[q.id]?.rating !== "unknown",
-  ).length;
+  // 응답 수 — 이벤트형은 이벤트 하나라도 긍/부정을 고르면 응답으로 본다.
+  const isAnswered = (q: (typeof questions)[number]): boolean => {
+    if (q.events && q.events.length) {
+      const er = answers[q.id]?.event_ratings ?? {};
+      return q.events.some((e) => er[e.event_key] === "positive" || er[e.event_key] === "negative");
+    }
+    const r = answers[q.id]?.rating;
+    return !!r && r !== "unknown";
+  };
+  const answeredCount = questions.filter(isAnswered).length;
 
   const setRating = (id: string, rating: string) =>
     setAnswers((a) => ({ ...a, [id]: { rating, events: a[id]?.events ?? [] } }));
@@ -169,6 +194,15 @@ export function CalibrationPanel({
       const events = cur.includes(ev) ? cur.filter((e) => e !== ev) : [...cur, ev];
       return { ...a, [id]: { rating: a[id]?.rating ?? "neutral", events } };
     });
+  const setEventRating = (id: string, eventKey: string, rating: "positive" | "negative" | "na") =>
+    setAnswers((a) => ({
+      ...a,
+      [id]: {
+        rating: a[id]?.rating ?? "unknown",
+        events: a[id]?.events ?? [],
+        event_ratings: { ...(a[id]?.event_ratings ?? {}), [eventKey]: rating },
+      },
+    }));
 
   const submit = async () => {
     setBusy(true);
@@ -178,6 +212,7 @@ export function CalibrationPanel({
         question_id: q.id,
         overall_rating: answers[q.id]?.rating ?? "unknown",
         selected_events: answers[q.id]?.events ?? [],
+        event_ratings: answers[q.id]?.event_ratings ?? {},
       }));
       onResult(await submitCalibration(profile, payload, referenceDate, timeOptions), answers);
     } catch (e) {
@@ -200,28 +235,64 @@ export function CalibrationPanel({
             {q.period_range && (
               <p className="mt-0.5 text-[11px] text-gray-400">{q.period_range}</p>
             )}
-            <p className="mt-1 text-[10px] font-medium text-gray-400">그 해 흐름</p>
-            <div className="mt-0.5 flex flex-wrap gap-1">
-              {RATINGS.map((r) => (
-                <button key={r.value} type="button" onClick={() => setRating(q.id, r.value)}
-                  className={`rounded border px-2 py-0.5 text-[11px] ${
-                    answers[q.id]?.rating === r.value ? "border-gray-800 bg-gray-800 text-white" : ""
-                  }`}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-1.5 text-[10px] font-medium text-gray-400">영향 영역(복수)</p>
-            <div className="mt-0.5 flex flex-wrap gap-1">
-              {q.options.map((opt) => (
-                <button key={opt} type="button" onClick={() => toggleEvent(q.id, opt)}
-                  className={`rounded-full border px-2 py-0.5 text-[10px] ${
-                    answers[q.id]?.events?.includes(opt) ? "border-emerald-600 bg-emerald-50" : "text-gray-500"
-                  }`}>
-                  {opt}
-                </button>
-              ))}
-            </div>
+
+            {q.events && q.events.length ? (
+              // 이벤트형 — 그 해의 검출 이벤트별로 (나에게) 긍정/부정/해당없음을 고른다.
+              <ul className="mt-2 space-y-1.5">
+                {q.events.map((ev) => {
+                  const cur = answers[q.id]?.event_ratings?.[ev.event_key];
+                  return (
+                    <li key={ev.event_key} className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 text-[13px]">
+                        {ev.label}
+                        <span className="ml-1 rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400">
+                          {CATEGORY_KO[ev.category] ?? ev.category}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 gap-1">
+                        {EVENT_CHOICES.map((c) => (
+                          <button
+                            key={c.value}
+                            type="button"
+                            onClick={() => setEventRating(q.id, ev.event_key, c.value)}
+                            className={`rounded border px-2 py-0.5 text-[11px] ${
+                              cur === c.value ? `${c.active} text-white` : "text-gray-500"
+                            }`}
+                          >
+                            {c.label}
+                          </button>
+                        ))}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <>
+                <p className="mt-1 text-[10px] font-medium text-gray-400">그 해 흐름</p>
+                <div className="mt-0.5 flex flex-wrap gap-1">
+                  {RATINGS.map((r) => (
+                    <button key={r.value} type="button" onClick={() => setRating(q.id, r.value)}
+                      className={`rounded border px-2 py-0.5 text-[11px] ${
+                        answers[q.id]?.rating === r.value ? "border-gray-800 bg-gray-800 text-white" : ""
+                      }`}>
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[10px] font-medium text-gray-400">영향 영역(복수)</p>
+                <div className="mt-0.5 flex flex-wrap gap-1">
+                  {q.options.map((opt) => (
+                    <button key={opt} type="button" onClick={() => toggleEvent(q.id, opt)}
+                      className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                        answers[q.id]?.events?.includes(opt) ? "border-emerald-600 bg-emerald-50" : "text-gray-500"
+                      }`}>
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </li>
         ))}
       </ol>

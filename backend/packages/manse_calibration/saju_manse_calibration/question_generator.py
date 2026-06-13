@@ -6,13 +6,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from saju_shared_types.calibration import (
     DOMAIN_LABELS,
     MILITARY_DOMAIN,
+    CalibrationEventItem,
     CalibrationQuestion,
     CalibrationQuestionSet,
 )
 from saju_shared_types.yongsin import AggregatedYongsinResult
+
+EventProvider = Callable[[int], list[CalibrationEventItem]]
 
 
 def _options(gender: str | None) -> list[str]:
@@ -75,8 +80,30 @@ def _make(qid: str, qtype: str, period: dict, text: str, domains: list[str],
     )
 
 
+def _make_event(qid: str, period: dict, intro: str,
+                events: list[CalibrationEventItem]) -> CalibrationQuestion:
+    """이벤트형 질문 — 그 해의 검출 이벤트를 나열하고 이벤트별 긍/부정을 받는다."""
+    targets, exp = _targets(period)
+    return CalibrationQuestion(
+        id=qid,
+        question_type="event_list",
+        period_type="year",
+        year=period["year"],
+        period_label=f"{period['year']}년",
+        period_range=period.get("range_label", ""),
+        target_models=targets,
+        expected_effect_by_model=exp,
+        ask_domains=sorted({e.category for e in events}),
+        question_text=intro,
+        events=events,
+    )
+
+
 def generate_questions(
-    periods: list[dict], yongsin: AggregatedYongsinResult, gender: str | None = None
+    periods: list[dict],
+    yongsin: AggregatedYongsinResult,
+    gender: str | None = None,
+    event_provider: EventProvider | None = None,
 ) -> CalibrationQuestionSet:
     if not periods or not yongsin.candidate_models:
         return CalibrationQuestionSet(
@@ -93,43 +120,51 @@ def generate_questions(
                 return p
         return None
 
+    def events_for(period: dict) -> list[CalibrationEventItem]:
+        return event_provider(period["year"]) if event_provider else []
+
     questions: list[CalibrationQuestion] = []
     opts = _options(gender)
 
     # 질문 = 대표 영역(intent) 제시 + 긍정/부정 흐름 택일(항목 11, 2026-06-12 사용자 확정).
     # 흐름은 overall_rating(very_positive~very_negative)으로 받아 score_feedback이
     # 모델 예측(positive/negative)과 대조한다 — 사용자가 중요시하는 영역 기준으로 답하게.
+    # 이벤트형 우선 — 그 해의 검출 이벤트를 나열하고 이벤트별 긍/부정을 받는다(사용자 확정).
+    # 이벤트가 없으면(검출 0건) 기존 텍스트형 질문으로 폴백한다.
+    def add(qid: str, qtype: str, period: dict | None, text: str, domains: list[str]) -> None:
+        if period is None:
+            return
+        events = events_for(period)
+        if events:
+            questions.append(_make_event(
+                qid, period,
+                f"{_anchor(period)} 무렵 아래 일들이 있었다면, 각각 본인에게 어떤 영향이었는지"
+                f" 골라 주세요.{_dynamics_hint(period)}",
+                events,
+            ))
+        else:
+            questions.append(_make(qid, qtype, period, text, domains, opts))
+
     d1 = ["career", "study", "relationship"]
     p1 = pick(lambda p: "positive" in p["expected_by_model"].values())
-    if p1:
-        questions.append(_make(
-            "q1", "useful", p1,
-            f"{_anchor(p1)}는 좋은 기운이 들어올 것으로 본 해예요. 그 무렵 "
-            f"{_domains_ko(d1)} 중 본인이 가장 중요하게 여긴 영역의 흐름은 순조로웠나요, "
-            f"힘들었나요?{_dynamics_hint(p1)}",
-            d1, opts,
-        ))
+    add("q1", "useful", p1,
+        f"{_anchor(p1)}는 좋은 기운이 들어올 것으로 본 해예요. 그 무렵 "
+        f"{_domains_ko(d1)} 중 본인이 가장 중요하게 여긴 영역의 흐름은 순조로웠나요, "
+        f"힘들었나요?{_dynamics_hint(p1)}" if p1 else "", d1)
 
     d2 = ["money", "family_health", "legal_public"]
     p2 = pick(lambda p: "negative" in p["expected_by_model"].values())
-    if p2:
-        questions.append(_make(
-            "q2", "unfavorable", p2,
-            f"{_anchor(p2)}는 다소 까다로운 기운이 예상된 해예요. 그 무렵 "
-            f"{_domains_ko(d2)} 면에서 어려움이 있었나요, 오히려 순조로웠나요?"
-            f"{_dynamics_hint(p2)}",
-            d2, opts,
-        ))
+    add("q2", "unfavorable", p2,
+        f"{_anchor(p2)}는 다소 까다로운 기운이 예상된 해예요. 그 무렵 "
+        f"{_domains_ko(d2)} 면에서 어려움이 있었나요, 오히려 순조로웠나요?"
+        f"{_dynamics_hint(p2)}" if p2 else "", d2)
 
     d3 = ["career", "money", "relationship", "family_health"]
     p3 = pick(lambda p: p["disagree"])
-    if p3:
-        questions.append(_make(
-            "q3", "contrast", p3,
-            f"{_anchor(p3)}는 해석이 갈리는 해예요. {_domains_ko(d3)} 중 가장 마음 쓰인 "
-            f"영역에서 그해 흐름이 긍정적이었나요, 부정적이었나요?{_dynamics_hint(p3)}",
-            d3, opts,
-        ))
+    add("q3", "contrast", p3,
+        f"{_anchor(p3)}는 해석이 갈리는 해예요. {_domains_ko(d3)} 중 가장 마음 쓰인 "
+        f"영역에서 그해 흐름이 긍정적이었나요, 부정적이었나요?{_dynamics_hint(p3)}"
+        if p3 else "", d3)
 
     p4 = pick(lambda _p: True)
     if p4:

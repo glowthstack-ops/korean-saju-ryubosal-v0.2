@@ -376,15 +376,25 @@ export interface SinsalItem {
   interpretation_tags: string[];
 }
 
+export type CalibrationEventRating = "positive" | "negative" | "na";
+
+export interface CalibrationEventItem {
+  event_key: string;
+  category: string; // career/move/affection/money/health/study
+  label: string;
+  expected_by_model: Record<string, string>;
+}
+
 export interface CalibrationQuestion {
   id: string;
-  question_type: string;
+  question_type: string; // ... | "event_list"
   year: number;
   period_label: string;
   period_range?: string;
   question_text: string;
   ask_domains: string[];
   options: string[];
+  events?: CalibrationEventItem[];
 }
 
 export interface CalibrationResult {
