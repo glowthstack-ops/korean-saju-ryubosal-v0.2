@@ -39,6 +39,25 @@ function newThreadId(): string {
   return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// 궁합 상대 첨부 상태를 스레드별로 영속화(localStorage) — 새로고침·대화 이어가기에 유지.
+const PARTNER_KEY = (threadId: string) => `ryubosal:chatPartner:${threadId}`;
+function loadPartnerFor(threadId: string): ChatPartner | null {
+  try {
+    const raw = localStorage.getItem(PARTNER_KEY(threadId));
+    return raw ? (JSON.parse(raw) as ChatPartner) : null;
+  } catch {
+    return null;
+  }
+}
+function savePartnerFor(threadId: string, partner: ChatPartner | null): void {
+  try {
+    if (partner) localStorage.setItem(PARTNER_KEY(threadId), JSON.stringify(partner));
+    else localStorage.removeItem(PARTNER_KEY(threadId));
+  } catch {
+    /* 저장 실패는 무시(첨부는 세션 상태로도 동작) */
+  }
+}
+
 export default function ChatPage() {
   const { ready, isLoggedIn } = useAuth();
   const { selected, setSelected } = useSelectedSubject();
@@ -77,6 +96,11 @@ export default function ChatPage() {
     setShowPartner((v) => !v);
     loadSubjectsOnce();
   }
+  // 첨부 상태를 스레드별로 영속화(새로고침·대화 이어가기에도 유지). setPartner 대신 사용.
+  function attachPartner(p: ChatPartner | null) {
+    setPartner(p);
+    savePartnerFor(threadId, p);
+  }
 
   // 선택된 사주가 바뀌면 프로필·페르소나를 로드하고 새 대화를 시작한다.
   useEffect(() => {
@@ -106,6 +130,11 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
+
+  // 스레드가 바뀌면(이어가기·새 대화) 그 스레드의 궁합 상대 첨부를 복원한다.
+  useEffect(() => {
+    setPartner(loadPartnerFor(threadId));
+  }, [threadId]);
 
   function newConversation() {
     setMessages([]);
@@ -269,7 +298,7 @@ export default function ChatPage() {
               궁합 상대: <span className="font-medium">{partner.label}</span> — 이 상대와의 궁합으로 답해요
             </span>
             <button
-              onClick={() => setPartner(null)}
+              onClick={() => attachPartner(null)}
               className="ml-auto rounded border border-rose-200 px-1.5 py-0.5 text-rose-500"
             >
               해제
@@ -289,7 +318,7 @@ export default function ChatPage() {
                   <button
                     key={s.subject_id}
                     onClick={() => {
-                      setPartner({ mode: "registered", subjectId: s.subject_id, label: s.label });
+                      attachPartner({ mode: "registered", subjectId: s.subject_id, label: s.label });
                       setShowPartner(false);
                     }}
                     className="rounded border px-2.5 py-1.5 text-left text-sm hover:bg-gray-50"
@@ -311,7 +340,7 @@ export default function ChatPage() {
               <div className="mt-3">
                 <InlinePartnerForm
                   onSubmit={(label, birth) => {
-                    setPartner({ mode: "inline", label, birth });
+                    attachPartner({ mode: "inline", label, birth });
                     setShowPartner(false);
                   }}
                 />

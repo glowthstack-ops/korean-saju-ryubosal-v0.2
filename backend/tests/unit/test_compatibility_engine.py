@@ -12,13 +12,14 @@ from saju_api.services.manse_service import calculate
 from saju_engines.compatibility_engine import (
     _day_branch_signal,
     _is_punishment,
+    _sinsal_cross_signals,
     analyze_compatibility,
     compatibility_lines,
 )
 from saju_engines.context_reducer import build_birth_summary
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.compatibility import CompatDirection, CompatSignalKind
-from saju_shared_types.enums import Branch
+from saju_shared_types.enums import Branch, Stem
 
 
 def test_day_branch_six_combine_is_harmony() -> None:
@@ -54,6 +55,35 @@ def _chart(y: int, m: int, d: int, hm: str, gender: str):
         calendar_type="solar", birth_date=date(y, m, d), birth_time=hm,
         birth_place_name="서울", gender=gender,
     ))
+
+
+def test_sinsal_cross_is_auxiliary_neutral() -> None:
+    # 子酉 귀문 + 子 도화(사정지) → 보조 신호(NEUTRAL·auxiliary), 마찰/보완 방향 아님.
+    sigs = _sinsal_cross_signals(Stem.GAP, Stem.GAP, Branch.JA, Branch.YU)
+    assert sigs, "신살 교차 신호가 나와야 한다"
+    assert all(s.auxiliary and s.direction is CompatDirection.NEUTRAL for s in sigs)
+    kinds = {s.kind for s in sigs}
+    assert CompatSignalKind.SINSAL_FRICTION in kinds  # 귀문
+    assert CompatSignalKind.SINSAL_CHARM in kinds  # 도화
+
+
+def test_sinsal_cross_excluded_from_counts() -> None:
+    a = _chart(1980, 11, 22, "09:08", "male")
+    b = _chart(1988, 9, 9, "12:00", "female")
+    sa, sb = build_birth_summary(a), build_birth_summary(b)
+    rep = analyze_compatibility(a, b, sa.useful_gods, sb.useful_gods)
+    assert rep is not None
+    # 보조(신살) 신호는 보완/마찰 카운트에서 제외된다.
+    aux = [s for s in rep.signals if s.auxiliary]
+    if aux:
+        non_aux_harm = sum(
+            1 for s in rep.signals
+            if s.direction is CompatDirection.HARMONY and not s.auxiliary
+        )
+        assert rep.harmony_count == non_aux_harm
+        # 직렬화 블록에 '참고 — 보조 신살' 섹션이 분리되어 나온다.
+        block = "\n".join(compatibility_lines(rep))
+        assert "참고 — 보조 신살" in block
 
 
 def test_analyze_compatibility_full_signals() -> None:

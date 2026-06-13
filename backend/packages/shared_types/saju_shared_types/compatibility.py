@@ -26,6 +26,8 @@ class CompatSignalKind(StrEnum):
     TEN_GOD_TO_SELF = "ten_god_to_self"        # 상대 일간 기준 본인 일간의 십성
     YONGSIN_SUPPORT = "yongsin_support"        # 상대 오행이 본인 용·희신 보완
     YONGSIN_BURDEN = "yongsin_burden"          # 상대 오행이 본인 기·구신 강화
+    SINSAL_CHARM = "sinsal_charm"              # 도화·홍염 끌림(보조 — 가볍게)
+    SINSAL_FRICTION = "sinsal_friction"        # 원진·귀문 거슬림(보조 — 가볍게)
 
 
 class CompatDirection(StrEnum):
@@ -43,6 +45,8 @@ class CompatSignal(BaseModel):
     label: str  # 한글 신호명(예: '일지 육합')
     detail: str  # 글자 단위 설명(예: '본인 일지 亥 ↔ 상대 일지 寅 육합(化木)')
     direction: CompatDirection
+    # 보조 신호(신살 교차 등) — 보완/마찰 카운트·전반 톤에 반영하지 않고 가볍게만 언급.
+    auxiliary: bool = False
 
 
 class CompatibilityReport(BaseModel):

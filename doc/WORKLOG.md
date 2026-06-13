@@ -2715,3 +2715,17 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   프론트 tsc clean · vitest 23 pass(+1 inline_temp ref) · next build pass.
 - 남은: 궁합 방향/톤 reviewed:false 전문가 감수, 채팅 멀티턴에서 상대 첨부 상태 영속화(현재는 세션
   로컬 상태 — 새로고침 시 해제), 관계 신살 교차 제외 유지.
+
+## v2.2 궁합 — 채팅 첨부 영속화 + 관계 신살 교차(보조) ✅(7차)
+- 채팅 첨부 영속화(프론트): 궁합 상대 첨부를 스레드별 localStorage(ryubosal:chatPartner:<threadId>)에
+  저장 → 새로고침·대화 이어가기에도 유지. threadId 변경 시 복원, 새 대화는 미첨부로 시작.
+  백엔드 무변경(요청별 partner 처리는 이미 정확 — 갭은 프론트 상태 소실뿐). attachPartner로 통일.
+- 관계 신살 교차(보조 신호): 사용자 확정(2026-06-14) — 도화·홍염(끌림)·원진·귀문(미묘한 거슬림)을
+  보조로 가볍게만. compatibility_engine._sinsal_cross_signals — saju_manse_analysis.sinsal_catalog의
+  권위 테이블(SAJEONG·HONGYEOM·WONJIN·GWIMUN) 재사용. CompatSignal.auxiliary=True·direction=NEUTRAL
+  → 보완/마찰 카운트·전반 톤에 미반영. compatibility_lines가 '[참고 — 보조 신살(가볍게만)]' 섹션으로
+  분리 출력. CompatSignalKind에 SINSAL_CHARM/SINSAL_FRICTION 추가.
+- 검증: 백엔드 ruff/mypy clean · 623 pass(+2: 신살 보조 NEUTRAL·카운트 제외). 프론트 tsc·vitest 23·
+  build pass.
+- 남은: 궁합 방향/톤 reviewed:false 전문가 감수(신살 포함), 채팅 첨부의 서버측(크로스 디바이스) 영속화는
+  미적용(현재 브라우저 localStorage — 기기 간 이어보기 시 칩 미복원).

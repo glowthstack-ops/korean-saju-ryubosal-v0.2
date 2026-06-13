@@ -5,10 +5,13 @@
 vs 기·구신을 강화하는가). 모두 엔진이 계산한 사실이며 LLM은 서술만 한다(CLAUDE.md 1조).
 
 방향(보완/마찰/중립) 배정과 전반 톤은 reviewed:false 초안 — 전문가 감수 전 가중·판정 미보장
-(CLAUDE.md 9·10). 관계 신살 교차는 본 세트에서 제외(사용자 확정).
+(CLAUDE.md 9·10). 관계 신살 교차(도화·홍염·원진·귀문)는 **보조 신호**로만 더한다(2026-06-14
+사용자 확정 — auxiliary=True·direction=NEUTRAL, 보완/마찰 카운트·전반 톤에 미반영, 분위기 정도로만).
 """
 
 from __future__ import annotations
+
+from saju_manse_analysis.sinsal.sinsal_catalog import GWIMUN, HONGYEOM, SAJEONG, WONJIN
 
 from saju_shared_types.compatibility import (
     CompatDirection,
@@ -128,6 +131,39 @@ def _yongsin_signals(
     return out
 
 
+def _sinsal_cross_signals(
+    self_dm: Stem, partner_dm: Stem, a: Branch, b: Branch,
+) -> list[CompatSignal]:
+    """관계 신살 교차(보조 — 가볍게). 끌림(도화·홍염)·미묘한 거슬림(원진·귀문).
+
+    모두 direction=NEUTRAL·auxiliary=True — 보완/마찰 카운트와 전반 톤에는 반영하지 않는다.
+    """
+    out: list[CompatSignal] = []
+    pair = frozenset({a, b})
+    names: list[str] = []
+    if pair in WONJIN:
+        names.append("원진")
+    if pair in GWIMUN:
+        names.append("귀문")
+    if names:
+        out.append(CompatSignal(
+            kind=CompatSignalKind.SINSAL_FRICTION, label="·".join(names) + "(보조)",
+            detail=f"일지 {a.value}·{b.value} {'·'.join(names)} — 가까울수록 예민해질 수 있는 결",
+            direction=CompatDirection.NEUTRAL, auxiliary=True,
+        ))
+    charm: list[str] = []
+    if a in SAJEONG or b in SAJEONG:
+        charm.append("도화(서로 끌리는 매력)")
+    if HONGYEOM.get(self_dm) == b or HONGYEOM.get(partner_dm) == a:
+        charm.append("홍염(매력적으로 비치는 신호)")
+    if charm:
+        out.append(CompatSignal(
+            kind=CompatSignalKind.SINSAL_CHARM, label="끌림 신호(보조)",
+            detail=" · ".join(charm), direction=CompatDirection.NEUTRAL, auxiliary=True,
+        ))
+    return out
+
+
 def _summary(harmony: int, friction: int) -> str:
     """보완/마찰 카운트 기반 전반 톤(reviewed:false 휴리스틱)."""
     if harmony >= friction + 2:
@@ -198,8 +234,18 @@ def analyze_compatibility(
     # 4) 용신 상호보완.
     signals += _yongsin_signals(self_dm, partner_dm, self_useful, partner_useful)
 
-    harmony = sum(1 for s in signals if s.direction is CompatDirection.HARMONY)
-    friction = sum(1 for s in signals if s.direction is CompatDirection.FRICTION)
+    # 5) 관계 신살 교차(보조 — 카운트·톤 미반영, 가볍게만).
+    signals += _sinsal_cross_signals(self_dm, partner_dm, self_branch, partner_branch)
+
+    # 카운트·톤은 본 신호(auxiliary 아님)만 — 보조 신살이 전반 판정을 좌우하지 않게.
+    harmony = sum(
+        1 for s in signals
+        if s.direction is CompatDirection.HARMONY and not s.auxiliary
+    )
+    friction = sum(
+        1 for s in signals
+        if s.direction is CompatDirection.FRICTION and not s.auxiliary
+    )
     return CompatibilityReport(
         self_label=self_label,
         partner_label=partner_label,
@@ -213,12 +259,21 @@ def analyze_compatibility(
 
 
 def compatibility_lines(report: CompatibilityReport) -> list[str]:
-    """궁합 리포트를 LLM 입력 블록으로 직렬화(방향 태그 포함, 사실만)."""
+    """궁합 리포트를 LLM 입력 블록으로 직렬화(방향 태그 포함, 사실만).
+
+    본 신호와 보조 신호(신살 교차)를 구분해 출력 — 보조는 가볍게만 언급하도록 안내한다.
+    """
+    main = [s for s in report.signals if not s.auxiliary]
+    aux = [s for s in report.signals if s.auxiliary]
     out = [
         f"[궁합 신호 — 엔진 계산값, {report.self_label} {report.self_day} ↔ "
         f"{report.partner_label} {report.partner_day}]",
         f"보완 {report.harmony_count} · 마찰 {report.friction_count} · {report.summary}",
     ]
-    for s in report.signals:
+    for s in main:
         out.append(f"  - [{s.direction.value}] {s.label}: {s.detail}")
+    if aux:
+        out.append("[참고 — 보조 신살(분위기 정도로 가볍게만 언급, 판정 근거 아님)]")
+        for s in aux:
+            out.append(f"  - {s.label}: {s.detail}")
     return out
