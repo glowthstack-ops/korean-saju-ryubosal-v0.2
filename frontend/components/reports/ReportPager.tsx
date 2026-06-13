@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export interface ReportSection {
   section_id: string;
@@ -49,8 +50,26 @@ export function ReportPager({ sections, title }: { sections: ReportSection[]; ti
           className={`${i === page ? "block" : "hidden"} print:mb-8 print:block print:break-after-page`}
         >
           <h2 className="mb-2 text-lg font-semibold">{s.title}</h2>
-          <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-            <ReactMarkdown>{s.text}</ReactMarkdown>
+          <div
+            className="prose prose-sm max-w-none leading-relaxed
+              prose-p:my-2 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1
+              prose-table:my-3 prose-table:text-xs prose-th:bg-gray-50
+              prose-th:px-2 prose-th:py-1 prose-th:border prose-th:align-top
+              prose-td:px-2 prose-td:py-1 prose-td:border prose-td:align-top"
+          >
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // 넓은 점수표는 가로 스크롤 컨테이너로 감싸 모바일에서도 깨지지 않게.
+                table: (props) => (
+                  <div className="overflow-x-auto print:overflow-visible">
+                    <table {...props} />
+                  </div>
+                ),
+              }}
+            >
+              {s.text}
+            </ReactMarkdown>
           </div>
         </article>
       ))}

@@ -74,6 +74,22 @@ def test_focus_dry_run_runs_for_career_and_wealth() -> None:
     assert isinstance(career_body, str) and isinstance(wealth_body, str)
 
 
+def test_forecast_theme_anchors_future_not_past() -> None:
+    """향후 N년 예측 테마는 과거 고점이 아니라 오늘 이후 후보만 앵커링한다(시점 결함 방지)."""
+    birth = report_service.BirthInput(
+        calendar_type="solar", birth_date=date(1990, 3, 3), birth_time="10:00",
+        birth_place_name="서울", gender="male",
+    )
+    today = date(2026, 6, 14)
+    data = report_service._ReportData(birth, _spec("career"), today)
+    cur = f"{today.year}-{today.month:02d}"
+    assert data.candidates, "미래 후보가 있어야 한다(빈 폴백 아님)"
+    # 모든 후보의 끝 달이 오늘(2026-06) 이후 — 2022·2025 같은 과거가 섞이지 않는다.
+    for c in data.candidates:
+        assert report_service._period_end_month(c.period) >= cur, c.period
+        assert int(c.period[:4]) <= today.year + 5  # +5년 창 내
+
+
 def _pair_spec() -> ReportSpec:
     from saju_shared_types.intent import InlineBirth
     return ReportSpec(
