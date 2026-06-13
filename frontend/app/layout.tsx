@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </main>
           <footer className="border-t bg-white py-6 text-center text-xs text-gray-400">
-            류보살 v2 · 계산은 결정론적 만세력 엔진, 개인정보는 브라우저에만 암호화 저장됩니다.
+            copyright 내용은 고민중
           </footer>
         </Providers>
       </body>
