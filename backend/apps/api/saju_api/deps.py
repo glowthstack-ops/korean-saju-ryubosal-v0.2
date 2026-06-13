@@ -18,6 +18,7 @@ from fastapi import Header, HTTPException
 
 from saju_engines.account_store import AccountSettingsStore
 from saju_engines.auth_store import AccountAuthStore
+from saju_engines.chat_history_store import ChatHistoryStore
 from saju_engines.profile_store import ProfileStore
 from saju_engines.report_job_store import ReportJobStore
 from saju_engines.subject_store import SubjectStore
@@ -56,6 +57,11 @@ def get_account_store() -> AccountSettingsStore:
 def get_report_job_store() -> ReportJobStore:
     """report_jobs 저장소."""
     return _store(ReportJobStore)
+
+
+def get_chat_history_store() -> ChatHistoryStore:
+    """chat_threads/chat_messages 저장소."""
+    return _store(ChatHistoryStore)
 
 
 def _sign(owner_id: str) -> str:

@@ -2316,3 +2316,18 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
 - 검증: backend 524 pass·ruff/mypy clean(신규 favorability override 3 + event 채점 2 + calibration
   갱신) / frontend tsc 0·vitest 22·빌드. 라이브(터널): 1980 픽스처 → q1~q3 event_list(연애 시작/
   사업 개업/이사 등, 모델별 기대 극성 상이), 이벤트 긍/부정 13건 제출 → calibrated(용신 土, 일치율 0.92).
+
+## v2.2 AI채팅상담 대화 영속화 — 스레드별 저장·열람·이어가기·삭제 ✅
+
+- 배경: ConversationState(003)는 오케스트레이터 상태만 저장 → 사용자 열람용 대화 전문 부재.
+- 백엔드: `migrations/007_chat_history.sql`(chat_threads + chat_messages, ON DELETE CASCADE),
+  `chat_history_store.py`(record_turn 자동저장·list_threads·get_messages·owner_of·delete_thread),
+  `routers/chat.py` 확장 — POST에서 로그인+실답변 시 턴 자동저장(subject_label·title=첫 질문),
+  GET /threads·GET /threads/{id}·DELETE /threads/{id}(소유자 한정, 삭제 시 ConversationState도 정리).
+  비로그인 호출은 저장 안 함(optional_owner). deps에 get_chat_history_store.
+- 프론트: `app/chat/page.tsx` — threadId 가변화, '대화 목록'(열람·이어가기·삭제)·'새 대화' 버튼,
+  resumeThread(메시지 복원)·removeThread·newConversation. postChat에 subject_label 전달.
+  `lib/api.ts`(listChatThreads/getChatThread/deleteChatThread + postChat subject_label),
+  `lib/types.ts`(ChatThreadSummary·ChatMessageDTO).
+- 검증: backend 526 pass·ruff/mypy clean(신규 test_chat_history_api 2: 401 게이트 / 기록→목록→열람
+  →owner 격리→삭제) / frontend tsc 0·vitest 22·빌드. 라이브(터널): /threads 인증 200([])·미인증 401.

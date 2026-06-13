@@ -8,10 +8,10 @@ import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 import { SubjectGateway } from "@/components/subject/SubjectGateway";
-import { postChat } from "@/lib/api";
+import { deleteChatThread, getChatThread, listChatThreads, postChat } from "@/lib/api";
 import { summaryToProfile } from "@/lib/subject-mapping";
 import { getPersona, getSubject } from "@/lib/subjects";
-import type { ChatApiResponse, PersonaConfig, Profile } from "@/lib/types";
+import type { ChatApiResponse, ChatThreadSummary, PersonaConfig, Profile } from "@/lib/types";
 
 interface Message {
   role: "user" | "assistant";
@@ -40,10 +40,12 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [threadId] = useState(newThreadId);
+  const [threadId, setThreadId] = useState(newThreadId);
+  const [threads, setThreads] = useState<ChatThreadSummary[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // 선택된 사주가 바뀌면 프로필·페르소나를 로드하고 대화를 초기화한다.
+  // 선택된 사주가 바뀌면 프로필·페르소나를 로드하고 새 대화를 시작한다.
   useEffect(() => {
     if (!isLoggedIn || !selected) {
       setProfile(null);
@@ -55,25 +57,62 @@ export default function ChatPage() {
         setProfile(summaryToProfile(subj));
         setPersona(p);
         setMessages([]);
+        setThreadId(newThreadId());
       })
       .finally(() => setLoading(false));
   }, [isLoggedIn, selected]);
+
+  // 저장된 대화 목록 로드(로그인 시).
+  const loadThreads = () => {
+    listChatThreads().then(setThreads).catch(() => setThreads([]));
+  };
+  useEffect(() => {
+    if (isLoggedIn) loadThreads();
+  }, [isLoggedIn]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
 
+  function newConversation() {
+    setMessages([]);
+    setThreadId(newThreadId());
+    setShowHistory(false);
+  }
+
+  async function resumeThread(id: string) {
+    setShowHistory(false);
+    setBusy(true);
+    try {
+      const msgs = await getChatThread(id);
+      setMessages(msgs.map((m) => ({ role: m.role, text: m.text })));
+      setThreadId(id);
+    } catch {
+      /* 무시 */
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeThread(id: string) {
+    await deleteChatThread(id).catch(() => {});
+    setThreads((prev) => prev.filter((t) => t.thread_id !== id));
+    if (id === threadId) newConversation();
+  }
+
   async function send(question: string) {
     if (!profile || busy || !question.trim()) return;
+    const fresh = messages.length === 0; // 첫 메시지면 새 스레드가 목록에 생긴다.
     setInput("");
     setMessages((prev) => [...prev, { role: "user", text: question }]);
     setBusy(true);
     try {
-      const res = await postChat(profile, question, threadId, persona);
+      const res = await postChat(profile, question, threadId, persona, selected?.label);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", text: res.answer ?? "(응답 없음)", meta: res },
       ]);
+      if (fresh) loadThreads();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "호출 실패";
       setMessages((prev) => [
@@ -120,12 +159,65 @@ export default function ChatPage() {
   return (
     <div className="space-y-4">
       <section className="rounded-lg bg-white p-4 shadow-sm">
-        <h1 className="text-xl font-bold">AI채팅상담</h1>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-xl font-bold">AI채팅상담</h1>
+          <div className="flex shrink-0 gap-1.5">
+            <button
+              onClick={() => {
+                if (!showHistory) loadThreads();
+                setShowHistory((v) => !v);
+              }}
+              className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              대화 목록{threads.length ? ` (${threads.length})` : ""}
+            </button>
+            <button
+              onClick={newConversation}
+              className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              새 대화
+            </button>
+          </div>
+        </div>
         <p className="mt-1 text-xs text-gray-500">
           {selected.label} · {profile.birthDate}{" "}
           {profile.timeUnknown ? "(시간 모름)" : profile.birthTime} 기준 · 같은 창에서는 대화 맥락이
-          이어집니다.
+          이어집니다. 로그인 대화는 자동 저장돼요.
         </p>
+
+        {showHistory && (
+          <div className="mt-3 max-h-64 space-y-1.5 overflow-y-auto border-t pt-3">
+            {threads.length === 0 ? (
+              <p className="text-xs text-gray-400">저장된 대화가 없어요.</p>
+            ) : (
+              threads.map((t) => (
+                <div
+                  key={t.thread_id}
+                  className={`flex items-center justify-between gap-2 rounded border px-2 py-1.5 ${
+                    t.thread_id === threadId ? "border-indigo-300 bg-indigo-50" : ""
+                  }`}
+                >
+                  <button
+                    onClick={() => resumeThread(t.thread_id)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <span className="block truncate text-sm">{t.title ?? "(제목 없음)"}</span>
+                    <span className="block text-[11px] text-gray-400">
+                      {t.subject_label ? `${t.subject_label} · ` : ""}
+                      {(t.updated_at ?? "").slice(0, 16).replace("T", " ")}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => removeThread(t.thread_id)}
+                    className="shrink-0 rounded border border-red-200 px-1.5 py-0.5 text-[11px] text-red-500"
+                  >
+                    삭제
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </section>
 
       <section className="min-h-[300px] space-y-3 rounded-lg bg-white p-4 shadow-sm">

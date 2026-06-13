@@ -3,6 +3,8 @@ import type {
   CalendarMonth,
   CalibrationResult,
   ChatApiResponse,
+  ChatMessageDTO,
+  ChatThreadSummary,
   LuckPillar,
   ManseResult,
   PersonaConfig,
@@ -171,14 +173,29 @@ export async function postChat(
   question: string,
   threadId?: string,
   persona?: PersonaConfig,
+  subjectLabel?: string,
 ): Promise<ChatApiResponse> {
   return postJSON<ChatApiResponse>("/api/v2/chat", {
     birth: profileToBirthInput(profile, todayISO()),
     question,
     thread_id: threadId ?? null,
     persona: persona ?? null,
+    subject_label: subjectLabel ?? null,
     dry_run: false,
   });
+}
+
+// ── 대화 저장/열람/삭제 (로그인 전용) ──────────────────────────
+export function listChatThreads(): Promise<ChatThreadSummary[]> {
+  return getJSON<ChatThreadSummary[]>("/api/v2/chat/threads");
+}
+
+export function getChatThread(threadId: string): Promise<ChatMessageDTO[]> {
+  return getJSON<ChatMessageDTO[]>(`/api/v2/chat/threads/${threadId}`);
+}
+
+export function deleteChatThread(threadId: string): Promise<void> {
+  return deleteJSON(`/api/v2/chat/threads/${threadId}`);
 }
 
 export { profileToBirthInput };

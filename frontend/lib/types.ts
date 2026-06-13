@@ -508,6 +508,23 @@ export interface CalendarMonth {
   solar_terms: Array<{ date: string; name: string }>;
 }
 
+// 저장된 대화 스레드(목록)
+export interface ChatThreadSummary {
+  thread_id: string;
+  subject_label: string | null;
+  title: string | null;
+  updated_at: string | null;
+  message_count: number;
+}
+
+// 저장된 대화 메시지(열람·이어가기)
+export interface ChatMessageDTO {
+  role: "user" | "assistant";
+  text: string;
+  meta?: Record<string, unknown> | null;
+  created_at?: string | null;
+}
+
 // 대화형 통변 (v2.2 — /api/v2/chat)
 export interface ChatApiResponse {
   status: "answered" | "dry_run" | "policy" | "too_broad" | "need_subject";
