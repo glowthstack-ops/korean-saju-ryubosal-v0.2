@@ -90,10 +90,24 @@ export function Gnb() {
         </div>
       </header>
 
-      {open && (
-        <div className="fixed inset-0 z-40" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-white shadow-xl">
+      {/* 드로어는 항상 마운트하고 클래스로 전환 — 열림/닫힘 모두 슬라이드 애니메이션. */}
+      <div
+        className={`fixed inset-0 z-40 ${open ? "" : "pointer-events-none"}`}
+        role="dialog"
+        aria-modal="true"
+        aria-hidden={!open}
+      >
+        <div
+          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
+            open ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setOpen(false)}
+        />
+        <aside
+          className={`absolute left-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-white shadow-xl transition-transform duration-300 ease-out ${
+            open ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
             <div className="flex items-center justify-between border-b px-4 py-3">
               <span className="font-semibold">메뉴</span>
               <button
@@ -140,9 +154,8 @@ export function Gnb() {
             <div className="border-t px-4 py-4">
               <AuthPanel />
             </div>
-          </aside>
-        </div>
-      )}
+        </aside>
+      </div>
     </>
   );
 }
