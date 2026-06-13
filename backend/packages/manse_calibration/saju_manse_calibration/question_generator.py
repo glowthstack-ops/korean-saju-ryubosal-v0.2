@@ -167,21 +167,14 @@ def generate_questions(
         if p3 else "", d3)
 
     p4 = pick(lambda _p: True)
-    if p4:
-        questions.append(_make(
-            "q4", "event_domain", p4,
-            f"{_anchor(p4)} 무렵, 가장 크게 변한 영역은 어디였나요?",
-            list(DOMAIN_LABELS), opts,
-        ))
+    add("q4", "event_domain", p4,
+        f"{_anchor(p4)} 무렵, 가장 크게 변한 영역은 어디였나요?" if p4 else "",
+        list(DOMAIN_LABELS))
 
     p5 = pick(lambda _p: True)
-    if p5:
-        questions.append(_make(
-            "q5", "period_detail", p5,
-            f"{_anchor(p5)} 중 특히 변화가 컸던 시기(상·하반기/월)가 있었나요?",
-            ["career", "relationship", "relocation"], opts,
-            period_type="year_month",
-        ))
+    add("q5", "period_detail", p5,
+        f"{_anchor(p5)} 중 특히 변화가 컸던 시기가 있었나요?" if p5 else "",
+        ["career", "relationship", "relocation"])
 
     return CalibrationQuestionSet(
         status="required",
