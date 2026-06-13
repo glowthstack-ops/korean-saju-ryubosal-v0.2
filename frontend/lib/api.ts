@@ -202,6 +202,18 @@ export function getChatThread(threadId: string): Promise<ChatMessageDTO[]> {
   return getJSON<ChatMessageDTO[]>(`/api/v2/chat/threads/${threadId}`);
 }
 
+// 스레드에 서버 저장된 궁합 상대 첨부(크로스 디바이스 재개 복원). 없거나 권한 밖이면 null.
+export async function getChatPartner(threadId: string): Promise<ChatPartner | null> {
+  try {
+    const r = await getJSON<{ partner: ChatPartner | null }>(
+      `/api/v2/chat/threads/${threadId}/partner`,
+    );
+    return r.partner ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function deleteChatThread(threadId: string): Promise<void> {
   return deleteJSON(`/api/v2/chat/threads/${threadId}`);
 }

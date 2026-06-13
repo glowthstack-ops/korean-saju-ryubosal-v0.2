@@ -2729,3 +2729,15 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   build pass.
 - 남은: 궁합 방향/톤 reviewed:false 전문가 감수(신살 포함), 채팅 첨부의 서버측(크로스 디바이스) 영속화는
   미적용(현재 브라우저 localStorage — 기기 간 이어보기 시 칩 미복원).
+
+## v2.2 궁합 — 채팅 첨부 서버측(크로스 디바이스) 영속화 ✅(8차)
+- 첨부를 ConversationState(JSONB, 이미 영속)에 미러링 → 다른 기기에서 스레드 이어볼 때 복원.
+  궁합 계산은 기존대로 요청의 partner로 수행하고, 서버 상태는 재개 복원용(읽기).
+- 백엔드: ConversationState.partner(dict, 프론트 ChatPartner 형태). chat_service.chat에 partner_ref
+  인자 — process_turn 직후 state.partner=partner_ref로 매 턴 미러링(첨부/해제가 곧 서버 상태). chat
+  라우터 _partner_ref(req→ChatPartner dict) + GET /threads/{id}/partner(소유자 한정, 상태에서 복원).
+- 프론트: getChatPartner(threadId). /chat 복원 effect — 로컬(localStorage) 우선, 없으면 저장된
+  스레드에 한해 서버에서 복원(신규 대화는 스킵해 404 잡음 방지). 복원 시 localStorage 동기화.
+- 검증: 백엔드 624 pass(+1: 미러링·GET 복원·타계정 404·해제 시 None). ruff/mypy clean. 프론트 tsc·
+  vitest 23·build pass.
+- 남은: 궁합 방향/톤 reviewed:false 전문가 감수(신살 포함).

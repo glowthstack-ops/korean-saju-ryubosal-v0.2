@@ -9,7 +9,13 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 import { InlinePartnerForm } from "@/components/subject/InlinePartnerForm";
 import { SubjectGateway } from "@/components/subject/SubjectGateway";
-import { deleteChatThread, getChatThread, listChatThreads, postChat } from "@/lib/api";
+import {
+  deleteChatThread,
+  getChatPartner,
+  getChatThread,
+  listChatThreads,
+  postChat,
+} from "@/lib/api";
 import { summaryToProfile } from "@/lib/subject-mapping";
 import { getPersona, getSubject, listSubjects } from "@/lib/subjects";
 import type {
@@ -132,9 +138,25 @@ export default function ChatPage() {
   }, [messages, busy]);
 
   // 스레드가 바뀌면(이어가기·새 대화) 그 스레드의 궁합 상대 첨부를 복원한다.
+  // 로컬(같은 기기) 우선, 없으면 저장된 스레드에 한해 서버에서 복원(크로스 디바이스).
   useEffect(() => {
-    setPartner(loadPartnerFor(threadId));
-  }, [threadId]);
+    const local = loadPartnerFor(threadId);
+    if (local) {
+      setPartner(local);
+      return;
+    }
+    setPartner(null);
+    if (!threads.some((t) => t.thread_id === threadId)) return; // 신규 대화는 스킵
+    let cancelled = false;
+    getChatPartner(threadId).then((p) => {
+      if (cancelled || !p) return;
+      setPartner(p);
+      savePartnerFor(threadId, p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId, threads]);
 
   function newConversation() {
     setMessages([]);

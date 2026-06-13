@@ -97,3 +97,6 @@ class ConversationState(BaseModel):
     repeat_count: int = 0  # 동일 질문 반복(F7) — 2회 이상이면 다른 각도 제시
     last_question_norm: str = ""  # 반복 감지용 정규화 질문
     entities: list[TrackedEntity] = Field(default_factory=list)
+    # 궁합 상대 첨부(크로스 디바이스 재개 복원용) — 프론트 ChatPartner 형태
+    # {'mode','label', 'subjectId'|'birth'}. 매 턴 현재 첨부로 미러링(없으면 None).
+    partner: dict | None = None

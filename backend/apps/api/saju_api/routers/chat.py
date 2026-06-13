@@ -80,6 +80,21 @@ def _resolve_chat_partner(
     return None
 
 
+def _partner_ref(req: ChatRequest) -> dict | None:
+    """첨부 상대를 프론트 ChatPartner 형태 dict로 — 스레드 상태 미러링(재개 복원용)."""
+    if req.partner_inline is not None:
+        return {
+            "mode": "inline", "label": req.partner_label or "상대",
+            "birth": req.partner_inline.model_dump(mode="json"),
+        }
+    if req.partner_subject_id:
+        return {
+            "mode": "registered", "subjectId": req.partner_subject_id,
+            "label": req.partner_label or "상대",
+        }
+    return None
+
+
 @router.post("", response_model=chat_service.ChatResponse)
 def chat(
     req: ChatRequest,
@@ -98,6 +113,7 @@ def chat(
         thread_id=req.thread_id, persona=req.persona,
         owner_id=owner_id, subject_id=req.subject_id,
         partner_birth=partner_birth, partner_label=req.partner_label or "상대",
+        partner_ref=_partner_ref(req),
     )
     if owner_id and not req.dry_run and req.thread_id and res.answer:
         try:
@@ -122,6 +138,26 @@ def get_thread(thread_id: str, owner_id: OwnerId, history: History) -> list[Chat
     if history.owner_of(thread_id) != owner_id:
         raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.")
     return [ChatMessage(**m) for m in history.get_messages(thread_id)]
+
+
+class ChatPartnerResponse(BaseModel):
+    """스레드의 궁합 상대 첨부 상태(크로스 디바이스 재개 복원용)."""
+
+    partner: dict | None = None
+
+
+@router.get("/threads/{thread_id}/partner", response_model=ChatPartnerResponse)
+def get_thread_partner(
+    thread_id: str, owner_id: OwnerId, history: History,
+) -> ChatPartnerResponse:
+    """스레드에 첨부된 궁합 상대(있으면) — 다른 기기에서 이어볼 때 칩 복원용(소유자 한정)."""
+    if history.owner_of(thread_id) != owner_id:
+        raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.")
+    try:
+        state = ConversationStore().load(thread_id)
+    except Exception:  # noqa: BLE001 — DB 미가용 등은 미첨부로 강등
+        return ChatPartnerResponse(partner=None)
+    return ChatPartnerResponse(partner=state.partner if state else None)
 
 
 @router.delete("/threads/{thread_id}", status_code=204)

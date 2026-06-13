@@ -93,3 +93,59 @@ def test_thread_record_list_get_delete() -> None:
     assert _request("DELETE", f"/api/v2/chat/threads/{thread_id}", headers=auth).status_code == 204
     threads2 = _request("GET", "/api/v2/chat/threads", headers=auth).json()
     assert all(t["thread_id"] != thread_id for t in threads2)
+
+
+@pytestmark_db
+def test_thread_partner_persisted_cross_device() -> None:
+    """궁합 첨부가 스레드 상태에 미러링되어 GET /partner로 복원된다(크로스 디바이스)."""
+    import uuid
+
+    from saju_engines.chat_history_store import ChatHistoryStore
+
+    login_id = f"p{uuid.uuid4().hex[:10]}"
+    token = _request(
+        "POST", "/api/v2/auth/register", json={"login_id": login_id, "pin": "123456"}
+    ).json()["token"]
+    auth = {"Authorization": f"Bearer {token}"}
+    thread_id = f"tp-{uuid.uuid4().hex[:8]}"
+    # 소유 인식을 위해 히스토리에 1턴 시드(실사용의 비-dry_run 턴에 대응).
+    ChatHistoryStore(_TEST_DSN).record_turn(login_id, thread_id, "본인", "q", "a")
+
+    birth = {
+        "calendar_type": "solar", "birth_date": "1980-11-22",
+        "birth_time": "09:08", "birth_place_name": "서울", "gender": "male",
+    }
+    # 상대 첨부 + dry-run 턴(LLM 미호출) → 상태에 partner 미러링.
+    r = _request("POST", "/api/v2/chat", headers=auth, json={
+        "birth": birth, "question": "이 사람과 궁합 어때?", "today": "2026-06-11",
+        "dry_run": True, "thread_id": thread_id,
+        "partner_inline": {"date": "1985-03-15", "time": "14:30", "gender": "F"},
+        "partner_label": "그사람",
+    })
+    assert r.status_code == 200, r.text
+
+    got = _request("GET", f"/api/v2/chat/threads/{thread_id}/partner", headers=auth)
+    assert got.status_code == 200, got.text
+    partner = got.json()["partner"]
+    assert partner is not None
+    assert partner["mode"] == "inline" and partner["label"] == "그사람"
+    assert partner["birth"]["date"] == "1985-03-15"
+
+    # 타 계정은 접근 불가(404).
+    other = _request(
+        "POST", "/api/v2/auth/register",
+        json={"login_id": f"o{uuid.uuid4().hex[:10]}", "pin": "111111"},
+    ).json()["token"]
+    assert _request(
+        "GET", f"/api/v2/chat/threads/{thread_id}/partner",
+        headers={"Authorization": f"Bearer {other}"},
+    ).status_code == 404
+
+    # 첨부 해제(상대 없이 1턴) → partner=None으로 미러링.
+    r2 = _request("POST", "/api/v2/chat", headers=auth, json={
+        "birth": birth, "question": "올해 재물운은?", "today": "2026-06-11",
+        "dry_run": True, "thread_id": thread_id,
+    })
+    assert r2.status_code == 200, r2.text
+    got2 = _request("GET", f"/api/v2/chat/threads/{thread_id}/partner", headers=auth)
+    assert got2.json()["partner"] is None

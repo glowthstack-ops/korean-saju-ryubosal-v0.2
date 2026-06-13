@@ -391,6 +391,7 @@ def chat(
     subject_id: str | None = None,
     partner_birth: BirthInput | None = None,
     partner_label: str = "상대",
+    partner_ref: dict | None = None,
 ) -> ChatResponse:
     """질문을 풀이한다(첫 intent 기준, 다중 intent는 메타로 동반).
 
@@ -419,6 +420,9 @@ def chat(
         parsed, state, resolution, _link = engine.process_turn(
             state, question, today, birth_year=birth_year,
         )
+        # 궁합 상대 첨부를 스레드 상태에 미러링(크로스 디바이스 재개 복원용). 매 턴 현재
+        # 첨부(없으면 None)로 갱신 — 프론트 첨부/해제가 곧 서버 상태가 된다.
+        state.partner = partner_ref
         repeated = state.repeat_count >= 2
         if resolution.unresolved:
             store.save(state)
