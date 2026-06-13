@@ -1,12 +1,12 @@
 {
-  "note": "LLM 운영 설정 — 단일 관리 파일. 모델·폴백·키 env 이름·생성 옵션을 여기서만 변경한다(코드 수정 불요). thinking은 절대 원칙 9(v2.2.1)에 따라 low 이하 — 통변 호출은 LOW, Query Parser는 MINIMAL(비활성 상당) 유지. [2026-06-12: gemini-3-flash-preview 503/행 장애로 안정판 gemini-2.5-flash 전환(thinkingBudget 512=LOW 상당). 프리뷰 안정화 시 원복 검토.]",
+  "note": "LLM 운영 설정 — 단일 관리 파일. 모델·폴백·키 env 이름·생성 옵션을 여기서만 변경한다(코드 수정 불요). thinking은 절대 원칙 9(v2.2.1)에 따라 low 이하 — 통변 호출은 thinkingLevel LOW 고정, Query Parser는 MINIMAL(비활성 상당) 유지. [2026-06-14: 통변 primary를 gemini-3-flash-preview로 원복(사용자 지시 — 3 flash 고정). 폴백은 OpenAI gpt-5-mini 유지. 프리뷰 503/행 장애 재발 시 폴백 전환됨.]",
   "primary": {
     "provider": "gemini",
-    "model": "gemini-2.5-flash",
+    "model": "gemini-3-flash-preview",
     "api_key_env": "GEMINI_API_KEY",
     "generation_extras": {
       "thinkingConfig": {
-        "thinkingBudget": 512
+        "thinkingLevel": "LOW"
       }
     }
   },

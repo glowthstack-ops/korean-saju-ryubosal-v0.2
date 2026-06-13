@@ -2741,3 +2741,18 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
 - 검증: 백엔드 624 pass(+1: 미러링·GET 복원·타계정 404·해제 시 None). ruff/mypy clean. 프론트 tsc·
   vitest 23·build pass.
 - 남은: 궁합 방향/톤 reviewed:false 전문가 감수(신살 포함).
+
+## v2.2 채팅 품질 — 3 flash 원복 + thinking LOW + 요일 파싱 + 범위 프롬프트 ✅(9차)
+- 실사용 결함 보고(2026-06-14): ① 2.5-flash가 쓰임 ② thinking ③ 정황설명 과다 ④ '다음주 월요일'
+  시점 오류. 사용자 지시: 3 flash 고정, thinking LOW, 후속 3종.
+- A 모델/thinking(llm_config.json): primary를 gemini-3-flash-preview로 원복(6/12 장애로 내려둔
+  2.5-flash 임시 폴백 해제). thinkingConfig를 thinkingLevel:LOW로(2.5식 thinkingBudget 512 대체).
+  폴백은 OpenAI gpt-5-mini 유지(사용자 선택). note 갱신.
+- B 요일 파싱(time_parser.py C3.5): '다음주 월요일'·'이번주 금요일'·'월요일'을 주 전체가 아니라
+  단일 일운(DAY)으로 해석. _WEEKDAYS(월0~일6), 주 단위 규칙 앞에 배치. '다음주'(요일 없음)는 기존
+  주 전체 유지. test_time_parser_weekday 5케이스.
+- D 범위 프롬프트(chat_service): 대화형 전용 _CHAT_SCOPE_DIRECTIVE를 prompt_text에 append —
+  질문 범위에 집중, 원국 통독·정황 재설명·인사말 차단(리포트의 전체 서술은 불변). 직렬화 후 주입.
+- 검증: 629 pass(+5 요일) · ruff/mypy clean. '다음주 월요일' → 2026-06-15 단일 일운 확인.
+- 남은(C): 명시적 컨텍스트 캐시 — 별도 검토(시스템 프롬프트는 최소 캐시 토큰 미만 가능성, 차트 prefix는
+  사용자별 → implicit 캐시가 이미 적중분 집계 중. 타당성 분석 후 결정).

@@ -357,6 +357,15 @@ def _date_selection_block(
     )
 
 
+# 대화형 전용 범위 지시 — 질문에 곧장·집중해 답하고 원국 통독을 막는다(리포트는 전체 서술 유지).
+_CHAT_SCOPE_DIRECTIVE = (
+    "[답변 범위 — 대화형]\n"
+    "사용자의 이번 질문에 곧장 답한다. 질문이 특정 시점(그날·그달)이나 특정 주제이면 그 범위에"
+    " 집중하고, 원국·성향·신살은 그 답에 꼭 필요한 근거만 골라 한두 줄로 인용한다 — 원국 전체를"
+    " 처음부터 다시 설명하지 말 것. 앞 턴에서 이미 말한 내용은 반복하지 않는다. 인사말은 생략한다."
+)
+
+
 def _compat_prompt_block(
     result: ManseV2Result, partner_birth: BirthInput, today: date, partner_label: str,
 ) -> str | None:
@@ -706,6 +715,9 @@ def chat(
             ),
             intents=parsed.intents,
         )
+
+    # 대화형 답변은 질문 범위에 집중 — 원국 통독·정황 재설명을 막는다(리포트와 분리).
+    prompt_text = prompt_text + "\n" + _CHAT_SCOPE_DIRECTIVE
 
     # 궁합(pairwise) — 상대가 첨부되면 엔진 계산 궁합 신호 블록을 입력에 덧붙인다.
     if partner_birth is not None:

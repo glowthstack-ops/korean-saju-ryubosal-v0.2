@@ -22,6 +22,8 @@ from saju_shared_types.intent import (
 
 # C3 일 단위 상대어 — 글피(+3일)까지 사전 등재(docs/08 C3).
 _DAY_WORDS = {"오늘": 0, "내일": 1, "모레": 2, "글피": 3}
+# C3.5 요일 — Python weekday()(월=0 … 일=6). '다음주 월요일'은 특정 일운(주 전체 아님).
+_WEEKDAYS = {"월": 0, "화": 1, "수": 2, "목": 3, "금": 4, "토": 5, "일": 6}
 # C13 인생 단계 어휘.
 _LIFE_STAGES = {
     "초년": "초년", "중년": "중년", "말년": "말년", "노후": "말년",
@@ -165,6 +167,22 @@ def parse_time(
                 type="relative", granularity=Granularity.DAY,
                 start=target.isoformat(), end=target.isoformat(), urgency=urgency,
             ), TimeScope.DATE_LEVEL
+
+    # C3.5 요일 — '다음주 월요일'·'이번주 금요일'·'월요일'은 단일 일운(주 전체 아님).
+    wd = re.search(r"(?:(이번|다음|금)\s*주\s*)?([월화수목금토일])요일", text)
+    if wd:
+        week_word, day_ch = wd.group(1), wd.group(2)
+        monday = today - timedelta(days=today.weekday())
+        if week_word == "다음":
+            monday += timedelta(days=7)
+        target = monday + timedelta(days=_WEEKDAYS[day_ch])
+        # 주 지정어 없이 지난 요일이면 다가오는 같은 요일로(예: 오늘이 화요일인데 '월요일').
+        if week_word is None and target < today:
+            target += timedelta(days=7)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=target.isoformat(), end=target.isoformat(), urgency=urgency,
+        ), TimeScope.DATE_LEVEL
 
     # C4 주 단위.
     if re.search(r"이번\s*주|다음\s*주|금주", text):
