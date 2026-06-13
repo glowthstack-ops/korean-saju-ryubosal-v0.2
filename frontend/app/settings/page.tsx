@@ -155,6 +155,14 @@ export default function SettingsPage() {
                 >
                   {mulsangSaved ? "저장됨 ✓" : "물상 저장"}
                 </button>
+                <div className="border-t pt-3 text-sm">
+                  <a
+                    href={`/reality-calibration?subject=${activeId}`}
+                    className="underline"
+                  >
+                    현실 신호 캘리브레이션 — 과거 실제 사건 입력(풀이 정확도 향상)
+                  </a>
+                </div>
               </>
             )}
           </>

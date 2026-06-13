@@ -8,6 +8,8 @@ import type {
   ProfileUpsert,
   ReportJobStatus,
   ReportJobSummary,
+  RealityCalibrationQuestionSet,
+  RealityCalibrationYearAnswer,
   ReportSpec,
   SubjectSummary,
   SubjectUpsert,
@@ -74,4 +76,23 @@ export function getReportJob(jobId: string): Promise<ReportJobStatus> {
 
 export function listReportJobs(): Promise<ReportJobSummary[]> {
   return getJSON<ReportJobSummary[]>("/api/v2/report/jobs");
+}
+
+// ── 현실 신호 캘리브레이션(개인 현실 사건 수집 — LEI) ──────────
+export function getRealityCalibration(
+  subjectId: string,
+): Promise<RealityCalibrationQuestionSet> {
+  return getJSON<RealityCalibrationQuestionSet>(
+    `/api/v2/reality-calibration/${subjectId}/questions`,
+  );
+}
+
+export function submitRealityCalibration(
+  subjectId: string,
+  answers: RealityCalibrationYearAnswer[],
+): Promise<{ stored: number }> {
+  return postJSON<{ stored: number }>(
+    `/api/v2/reality-calibration/${subjectId}/submit`,
+    { subject_id: subjectId, answers },
+  );
 }

@@ -107,7 +107,9 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, { role: "user", text: question }]);
     setBusy(true);
     try {
-      const res = await postChat(profile, question, threadId, persona, selected?.label);
+      const res = await postChat(
+        profile, question, threadId, persona, selected?.label, selected?.subjectId,
+      );
       setMessages((prev) => [
         ...prev,
         { role: "assistant", text: res.answer ?? "(응답 없음)", meta: res },

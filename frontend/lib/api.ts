@@ -174,6 +174,7 @@ export async function postChat(
   threadId?: string,
   persona?: PersonaConfig,
   subjectLabel?: string,
+  subjectId?: string,
 ): Promise<ChatApiResponse> {
   return postJSON<ChatApiResponse>("/api/v2/chat", {
     birth: profileToBirthInput(profile, todayISO()),
@@ -181,6 +182,7 @@ export async function postChat(
     thread_id: threadId ?? null,
     persona: persona ?? null,
     subject_label: subjectLabel ?? null,
+    subject_id: subjectId ?? null, // 개인화(현실 신호 시그니처·코호트) 키
     dry_run: false,
   });
 }

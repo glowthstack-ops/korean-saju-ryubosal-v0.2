@@ -540,3 +540,30 @@ export interface ChatApiResponse {
     note: string;
   } | null;
 }
+
+// ── 현실 신호 캘리브레이션 (Life Event Inference §5) ─────────────
+export interface RealityCalibrationEvent {
+  event_key: string;
+  label: string;
+}
+export interface RealityCalibrationYear {
+  year: number;
+  ganji: string;
+  salience: number;
+  daewoon_transition: boolean;
+  events: RealityCalibrationEvent[];
+}
+export interface RealityCalibrationQuestionSet {
+  subject_id: string | null;
+  years: RealityCalibrationYear[];
+  note: string;
+}
+export interface OccurredEventInput {
+  event_key: string;
+  month?: number | null; // 발생 월(기억나는 경우만)
+}
+export interface RealityCalibrationYearAnswer {
+  year: number;
+  occurred: OccurredEventInput[];
+  none_of_them: boolean;
+}
