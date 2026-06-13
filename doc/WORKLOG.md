@@ -2759,3 +2759,16 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   차트 고정 prefix ≈2,592토큰은 사용자별이라 글로벌 캐시 불가지만 멀티턴·리포트 섹션 반복에서 implicit
   캐시로 이미 자동 할인(코드가 cachedContentTokenCount 집계). 구조도 캐시 친화적(시스템 분리 + prefix
   본문 맨 앞 + 동적 지시 끝 append). 명시적 캐시는 실익 적거나 불가 → 미구현.
+
+## v2.2 리포트 UX — 실시간 진행 + 완료 알림(토스트·뱃지) ✅(10차)
+- 결함(2026-06-14): 진행 카운트가 0/8에서 멈춤(완료 시 일괄 반영). 이탈 후 완료 확인·알림 부재.
+- 진행 실시간화: ReportBuilder에 progress_fn 추가 — 섹션 1개 완료마다 호출. report_service.generate_report
+  ·_run_report_job에 배선해 store.update_progress(이미 정의돼 있었으나 미호출)를 연결 → sections_done이
+  실제로 증가(폴링 3s에 반영). (안내문 대체 대신 '진짜 동작'으로 해결.)
+- 완료 알림: ReportNotificationsProvider(신규) — 로그인 시 잡 목록 20s 백그라운드 폴링, 새로 완료/보완/
+  실패된 풀이를 토스트(우하단)로 알림 + GNB 뱃지(햄버거 점·'내 풀이 내역' 카운트). 본 상태는
+  localStorage(notified/seen) 추적, 최초 실행분은 retro 알림 제외. 내역 진입 시 markReportsSeen로 해제.
+- 재진입 확인: 기존 잡 영속(report_job_store) + 목록(/reports)→열람(/reports/[id])으로 이미 동작 —
+  진행 페이지 문구만 '닫아도 계속·알림·내역에서 다시' 안내로 보강.
+- 검증: 630 pass(+1 progress_fn 섹션별 호출) · ruff/mypy clean · 프론트 tsc·vitest 23·build pass.
+  프로덕션(.next-prod) 재빌드·재기동 반영.
