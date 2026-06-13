@@ -12,8 +12,13 @@ import { SubjectCard } from "@/components/subject/SubjectCard";
 import { listSubjects } from "@/lib/subjects";
 import type { SubjectSummary } from "@/lib/types";
 
+// 동반자 선택 정책: none=단독 / optional=상대 추가 선택 가능(내 명식만도 가능) / required=상대 필수.
+type CompanionMode = "none" | "optional" | "required";
+
 interface Props {
-  /** 동반자(2번째 사주) 선택을 강제(궁합·관계). */
+  /** 동반자(2번째 사주) 선택 정책. 미지정 시 requireCompanion로 호환. */
+  companionMode?: CompanionMode;
+  /** (레거시) 동반자 선택 강제 — companionMode 미지정 시 사용. */
   requireCompanion?: boolean;
   /** 추가 완료 후 돌아올 경로(온보딩 next). */
   returnTo: string;
@@ -21,7 +26,10 @@ interface Props {
   onResolved: (primary: SubjectSummary, companion?: SubjectSummary) => void;
 }
 
-export function SubjectGateway({ requireCompanion, returnTo, title, onResolved }: Props) {
+export function SubjectGateway({
+  companionMode, requireCompanion, returnTo, title, onResolved,
+}: Props) {
+  const mode: CompanionMode = companionMode ?? (requireCompanion ? "required" : "none");
   const { ready, isLoggedIn } = useAuth();
   const { setSelected, setCompanion } = useSelectedSubject();
   const [subjects, setSubjects] = useState<SubjectSummary[] | null>(null);
@@ -57,15 +65,30 @@ export function SubjectGateway({ requireCompanion, returnTo, title, onResolved }
 
   const addHref = `/onboarding?mode=add&next=${encodeURIComponent(returnTo)}`;
 
-  // 동반자 선택 단계.
-  if (requireCompanion && primary) {
+  // 동반자 선택 단계(optional·required).
+  if (mode !== "none" && primary) {
     const others = subjects.filter((s) => s.subject_id !== primary.subject_id);
+    const optional = mode === "optional";
     return (
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">동반자 선택</h2>
+        <h2 className="text-lg font-semibold">
+          {optional ? "상대 선택 (선택)" : "동반자 선택"}
+        </h2>
         <p className="text-sm text-gray-600">
           <span className="font-medium">{primary.label}</span>님과 함께 볼 상대를 골라 주세요.
+          {optional && " 상대를 더하면 두 사람의 궁합·극복 전략까지 풀이합니다."}
         </p>
+        {optional && (
+          <button
+            onClick={() => {
+              setCompanion(null);
+              onResolved(primary);
+            }}
+            className="w-full rounded-lg border border-indigo-300 bg-indigo-50 px-4 py-3 text-left text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+          >
+            상대 없이 내 명식만으로 보기 →
+          </button>
+        )}
         {others.length === 0 ? (
           <p className="text-sm text-gray-500">
             등록된 다른 사주가 없어요.{" "}
@@ -120,7 +143,7 @@ export function SubjectGateway({ requireCompanion, returnTo, title, onResolved }
               subject={s}
               onSelect={(picked) => {
                 setSelected({ subjectId: picked.subject_id, label: picked.label });
-                if (requireCompanion) setPrimary(picked);
+                if (mode !== "none") setPrimary(picked);
                 else onResolved(picked);
               }}
             />

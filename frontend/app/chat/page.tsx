@@ -10,8 +10,14 @@ import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvid
 import { SubjectGateway } from "@/components/subject/SubjectGateway";
 import { deleteChatThread, getChatThread, listChatThreads, postChat } from "@/lib/api";
 import { summaryToProfile } from "@/lib/subject-mapping";
-import { getPersona, getSubject } from "@/lib/subjects";
-import type { ChatApiResponse, ChatThreadSummary, PersonaConfig, Profile } from "@/lib/types";
+import { getPersona, getSubject, listSubjects } from "@/lib/subjects";
+import type {
+  ChatApiResponse,
+  ChatThreadSummary,
+  PersonaConfig,
+  Profile,
+  SubjectSummary,
+} from "@/lib/types";
 
 interface Message {
   role: "user" | "assistant";
@@ -33,7 +39,7 @@ function newThreadId(): string {
 
 export default function ChatPage() {
   const { ready, isLoggedIn } = useAuth();
-  const { selected } = useSelectedSubject();
+  const { selected, setSelected } = useSelectedSubject();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [persona, setPersona] = useState<PersonaConfig | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -43,7 +49,22 @@ export default function ChatPage() {
   const [threadId, setThreadId] = useState(newThreadId);
   const [threads, setThreads] = useState<ChatThreadSummary[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSwitch, setShowSwitch] = useState(false);
+  const [subjects, setSubjects] = useState<SubjectSummary[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // 사주 변경(본인↔동반자) — 상담 대상을 전환한다. 선택 시 컨텍스트 반영 → effect가 프로필 재로드.
+  function openSwitch() {
+    setShowSwitch((v) => !v);
+    if (subjects.length === 0) {
+      listSubjects().then(setSubjects).catch(() => setSubjects([]));
+    }
+  }
+  function switchSubject(s: SubjectSummary) {
+    setShowSwitch(false);
+    if (s.subject_id === selected?.subjectId) return;
+    setSelected({ subjectId: s.subject_id, label: s.label });
+  }
 
   // 선택된 사주가 바뀌면 프로필·페르소나를 로드하고 새 대화를 시작한다.
   useEffect(() => {
@@ -165,6 +186,12 @@ export default function ChatPage() {
           <h1 className="text-xl font-bold">AI채팅상담</h1>
           <div className="flex shrink-0 gap-1.5">
             <button
+              onClick={openSwitch}
+              className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              사주 변경
+            </button>
+            <button
               onClick={() => {
                 if (!showHistory) loadThreads();
                 setShowHistory((v) => !v);
@@ -181,6 +208,39 @@ export default function ChatPage() {
             </button>
           </div>
         </div>
+
+        {showSwitch && (
+          <div className="mt-3 space-y-1.5 border-t pt-3">
+            <p className="text-xs text-gray-500">상담할 사주를 고르세요 (본인·동반자)</p>
+            {subjects.length === 0 ? (
+              <p className="text-xs text-gray-400">사주목록 불러오는 중…</p>
+            ) : (
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {subjects.map((s) => (
+                  <button
+                    key={s.subject_id}
+                    onClick={() => switchSubject(s)}
+                    className={`rounded border px-2.5 py-1.5 text-left text-sm ${
+                      s.subject_id === selected.subjectId
+                        ? "border-indigo-300 bg-indigo-50 font-medium"
+                        : "hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="block truncate">
+                      {s.label}
+                      <span className="ml-1 text-[11px] text-gray-400">
+                        {s.kind === "self" ? "본인" : "동반자"}
+                      </span>
+                    </span>
+                    <span className="block text-[11px] text-gray-400">
+                      {s.birth.birth_date}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <p className="mt-1 text-xs text-gray-500">
           {selected.label} · {profile.birthDate}{" "}
           {profile.timeUnknown ? "(시간 모름)" : profile.birthTime} 기준 · 같은 창에서는 대화 맥락이

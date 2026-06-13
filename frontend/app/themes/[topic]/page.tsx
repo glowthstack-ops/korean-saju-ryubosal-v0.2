@@ -47,7 +47,7 @@ export default function ThemeStartPage() {
       <SubjectGateway
         title="사주 선택"
         returnTo={`/themes/${theme.slug}`}
-        requireCompanion={theme.requireCompanion}
+        companionMode={theme.companionMode}
         onResolved={start}
       />
       {error && <p className="text-sm text-red-500">{error}</p>}

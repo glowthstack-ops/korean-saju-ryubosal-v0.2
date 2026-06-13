@@ -21,7 +21,7 @@ function subject(id: string, label: string, birth = "1988-09-09"): SubjectSummar
 
 describe("themes", () => {
   it("exposes the four initial themes", () => {
-    expect(THEMES.map((t) => t.slug)).toEqual(["full", "compatibility", "career", "wealth"]);
+    expect(THEMES.map((t) => t.slug)).toEqual(["full", "relationship", "career", "wealth"]);
     expect(themeBySlug("career")?.productCode).toBe("RPT_FOCUS");
     expect(themeBySlug("full")?.productCode).toBe("RPT_FULL");
     expect(themeBySlug("nope")).toBeUndefined();
@@ -41,19 +41,19 @@ describe("themes", () => {
     expect(spec.topic).toBe("career");
   });
 
-  it("compatibility includes companion subject ref", () => {
+  it("relationship(optional) includes companion subject ref when given", () => {
     const spec = buildReportSpec(
-      themeBySlug("compatibility")!,
+      themeBySlug("relationship")!,
       subject("a", "본인"),
       subject("b", "상대"),
     );
-    expect(spec.topic).toBe("compatibility");
+    expect(spec.topic).toBe("relationship");
     expect(spec.subjects).toHaveLength(2);
     expect(spec.subjects[1]).toMatchObject({ kind: "companion", companion_id: "b" });
   });
 
-  it("compatibility without companion omits the second ref", () => {
-    const spec = buildReportSpec(themeBySlug("compatibility")!, subject("a", "본인"));
+  it("relationship without companion omits the second ref (단독 모드)", () => {
+    const spec = buildReportSpec(themeBySlug("relationship")!, subject("a", "본인"));
     expect(spec.subjects).toHaveLength(1);
   });
 });

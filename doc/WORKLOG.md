@@ -2681,3 +2681,18 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   ruff/mypy clean(manse_service 기존 2건 제외).
 - 남은: 궁합 방향/톤 reviewed:false 전문가 감수, 프론트 상대 선택 UI(상대 추가/선택 토글), 관계 신살
   교차는 사용자 확정대로 제외 유지.
+
+## v2.2 프론트 — 관계운 상대 선택 UI + AI채팅 동반자 선택 ✅(5차)
+- 리포트(테마): "궁합(compatibility, 미구현 M13 변형)"을 "애정·관계운(relationship, optional 동반자)"로
+  교체. 상대 없이 진행 → 단독 R-*, 상대 선택 → 궁합 RP-*(백엔드 분기). themes.ts: requireCompanion
+  boolean → companionMode("none"/"optional"/"required"). buildReportSpec은 companionMode!=none + 상대
+  선택 시에만 companion ref 포함. themeLabel은 레거시 topic "compatibility"→"궁합" 매핑 유지.
+- SubjectGateway: companionMode 도입(requireCompanion 호환 유지). optional 모드는 "상대 없이 내
+  명식만으로 보기" 스킵 버튼 + 상대 카드 동시 노출. themes/[topic] 페이지·themes 목록 라벨 반영.
+- AI채팅상담(/chat): 헤더에 "사주 변경" 버튼 + 인라인 사주 전환 패널(본인·동반자 listSubjects).
+  선택 시 setSelected → effect가 해당 사주 프로필 재로드·새 스레드. 백엔드 무변경(채팅이 이미
+  birth+subject_id 수신 — 동반자의 birth/subject_id를 그대로 전송, 개인화도 그 대상 기준).
+- 검증: tsc clean · vitest 22 pass(themes 테스트 relationship 기준 갱신) · next build pass.
+- 남은(후속): 채팅 내 두 명식 동시 궁합(pairwise)은 chat_service에 궁합 계산이 없어 별도 백엔드
+  작업 필요 — 현재는 대상 전환(동반자 단독 상담)까지. 상대 선택 UI는 inline_temp(즉석 입력)는
+  미노출(등록 동반자만) — 필요 시 추가.

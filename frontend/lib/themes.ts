@@ -3,13 +3,18 @@
 
 import type { ReportSpec, SubjectRef, SubjectSummary } from "./types";
 
+// 동반자(상대) 선택 정책: none=단독 전용 / optional=상대 추가 선택 가능(내 명식만도 가능) /
+// required=상대 필수(두 사람 분석). 관계·애정운은 optional — 상대 등록 시 궁합 모드(RP-*),
+// 미선택 시 단독 모드(R-*)로 백엔드가 분기한다.
+export type CompanionMode = "none" | "optional" | "required";
+
 export interface Theme {
   slug: string; // 라우트 파라미터
   title: string;
   scope: string; // 표시용 부제
   productCode: "RPT_FULL" | "RPT_FOCUS";
   topic: string | null;
-  requireCompanion: boolean;
+  companionMode: CompanionMode;
   pages: string; // 분량 안내(docs/10)
   desc: string;
 }
@@ -21,19 +26,19 @@ export const THEMES: Theme[] = [
     scope: "인생 전반",
     productCode: "RPT_FULL",
     topic: null,
-    requireCompanion: false,
+    companionMode: "none",
     pages: "약 50쪽",
     desc: "명식·과거·현재·미래·조언까지 22개 장으로 엮은 종합 풀이.",
   },
   {
-    slug: "compatibility",
-    title: "궁합",
-    scope: "연애 · 결혼",
+    slug: "relationship",
+    title: "애정·관계운",
+    scope: "연애 · 결혼 · 궁합",
     productCode: "RPT_FOCUS",
-    topic: "compatibility",
-    requireCompanion: true,
+    topic: "relationship",
+    companionMode: "optional",
     pages: "약 15쪽",
-    desc: "두 명식의 구조 대조와 관계 운영 시나리오.",
+    desc: "내 명식만으로 보거나, 상대를 더하면 두 사람의 궁합·극복 전략까지.",
   },
   {
     slug: "career",
@@ -41,7 +46,7 @@ export const THEMES: Theme[] = [
     scope: "인생 전반",
     productCode: "RPT_FOCUS",
     topic: "career",
-    requireCompanion: false,
+    companionMode: "none",
     pages: "약 15쪽",
     desc: "직업·사업 흐름과 변화 시기, 행동 전략.",
   },
@@ -51,7 +56,7 @@ export const THEMES: Theme[] = [
     scope: "인생 전반",
     productCode: "RPT_FOCUS",
     topic: "wealth",
-    requireCompanion: false,
+    companionMode: "none",
     pages: "약 15쪽",
     desc: "재물 흐름과 기회·리스크 시기.",
   },
@@ -64,6 +69,7 @@ export function themeBySlug(slug: string): Theme | undefined {
 /** product_code+topic → 표시용 테마 이름(내역 등). 매칭 없으면 코드 그대로. */
 export function themeLabel(productCode: string, topic: string | null): string {
   if (productCode === "RPT_FULL") return "총운";
+  if (topic === "compatibility") return "궁합"; // 레거시 저장분(현 애정·관계운으로 통합)
   const t = THEMES.find((x) => x.productCode === productCode && x.topic === topic);
   return t ? t.title : (topic ?? productCode);
 }
@@ -74,14 +80,14 @@ function lifetimePeriod(birthDate: string): { start: string; end: string } {
   return { start: `${year}-01`, end: `${year + 90}-12` };
 }
 
-/** 테마 + 선택 사주(+동반자) → ReportSpec. */
+/** 테마 + 선택 사주(+동반자) → ReportSpec. 상대는 companionMode!=none이고 선택됐을 때만 포함. */
 export function buildReportSpec(
   theme: Theme,
   primary: SubjectSummary,
   companion?: SubjectSummary,
 ): ReportSpec {
   const subjects: SubjectRef[] = [{ kind: "self", label: primary.label }];
-  if (theme.requireCompanion && companion) {
+  if (theme.companionMode !== "none" && companion) {
     subjects.push({
       kind: "companion",
       label: companion.label,
