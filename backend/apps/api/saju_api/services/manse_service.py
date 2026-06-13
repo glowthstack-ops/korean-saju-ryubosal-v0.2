@@ -57,6 +57,14 @@ _POLARITY_EXPECTED = {
     "neutral": "neutral",
 }
 _EVENTS_PER_QUESTION = 4
+# 검증 질문 표시용 라벨 보수화 — 일부 이벤트는 실제 사건 판정이 아니라 십성·관계 신호에서
+# 파생된 proxy 라벨이라 사용자가 구체 사건으로 오인하지 않게 완화한다(노출 전용, 사전 불변).
+_CALIB_LABEL_OVERRIDE = {
+    "business_start": "독립·사업 기운",
+}
+# 약한 proxy 판별 — 기여 신호가 전부 십성 baseline(미발동 글자 기본 가감)뿐이면 검증 질문에
+# 노출하지 않는다(관계·룰 등 실신호가 하나라도 있어야 노출). 내부 점수에는 그대로 반영된다.
+_BASELINE_SIGNAL = "baseline_favorability"
 
 
 def _scorer() -> EventScorer:
@@ -100,13 +108,18 @@ def _event_items_provider(
             category = EVENT_CATEGORY.get(ek)
             if category is None or ek in seen:
                 continue
+            # 약한 proxy(십성 baseline 신호만)인 후보는 검증 질문에서 제외 — 사용자가 사건으로
+            # 오인하지 않도록. 관계·룰 등 baseline 외 신호가 하나라도 있으면 노출한다.
+            if all(s.type == _BASELINE_SIGNAL for s in c.signals):
+                continue
             seen.add(ek)
             expected = {
                 mt: _POLARITY_EXPECTED.get(pm.get(ek, "neutral"), "neutral")
                 for mt, pm in per_model.items()
             }
             items.append(CalibrationEventItem(
-                event_key=ek, category=category, label=event_ko(ek),
+                event_key=ek, category=category,
+                label=_CALIB_LABEL_OVERRIDE.get(ek, event_ko(ek)),
                 expected_by_model=expected,
             ))
             if len(items) >= _EVENTS_PER_QUESTION:
