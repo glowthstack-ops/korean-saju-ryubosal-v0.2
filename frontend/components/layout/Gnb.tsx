@@ -168,7 +168,7 @@ export function Gnb() {
 
           {/* 카피라이트 — 드로어 최하단 고정 */}
           <div className="shrink-0 border-t bg-white px-4 py-3 text-center text-[11px] text-gray-400">
-            copyright 내용은 고민중
+            © 류보살
           </div>
         </aside>
       </div>

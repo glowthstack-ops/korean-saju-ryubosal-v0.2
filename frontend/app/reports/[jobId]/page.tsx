@@ -98,7 +98,7 @@ export default function ReportJobPage() {
       </div>
       {result.status === "on_hold" && (
         <p className="rounded bg-amber-50 p-2 text-xs text-amber-700">
-          일부 섹션이 검수 보류되어 일부만 표시될 수 있어요.
+          현재 준비 중인 내용이 있어 일부만 표시됩니다. 곧 완성된 풀이로 업데이트돼요.
         </p>
       )}
       <ReportPager sections={sections} title="테마사주 풀이" />

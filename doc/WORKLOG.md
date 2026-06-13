@@ -2616,3 +2616,14 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   subject_signature 라운드트립 → 2026 relocation 개인화 부상(personal_match>0) / 동일사주 8명 코호트 →
   fine 활성 게이트 + relocation 비율>0. DB 미기동 시 skip 가드(테스트 owner 격리·종료 정리).
 - 게이트: ruff/mypy clean · WITH DB 608 pass / WITHOUT DB 597 pass+9 DB게이트 실패+2 skip(골든).
+
+## v2.2 리포트 품질 — 리포트 전용 정밀 LLM 입력(채팅과 분리) + 내부 문구 제거 ✅(1차)
+- 진단: 재물운 테스트 리포트의 "辛亥=정재", "재성 지지 충", "삼합 세력"은 사전·엔진 값이 아니라
+  LLM 환각(엔진은 辛=식신·亥본기 壬=정재로 정확). 리포트가 채팅과 같은 압축 입력을 써서 정밀도 부족이 원인.
+- 신규 saju_engines/report_event_input.py: 후보를 시점 클러스터로 묶고 per-글자 십성(천간 辛=식신/
+  지지 亥=정재)·관계 분해(運亥↔원국巳 충 / 亥亥 자형·복음)를 명시. report_service.luck_block 교체 +
+  프롬프트 "제공 라벨만 사용, '재성 지지 충' 류 임의 표현 금지". 사용자 확정: 명리는 LLM 입력 명시만(계산 불변).
+- 내부 문구 제거: Gnb copyright placeholder, reports on_hold 라벨·메시지를 사용자향으로 정리.
+- 검증: 신규 3 pass(per-글자 십성·관계 분해·클러스터 병합) · ruff/mypy clean · 611 pass(DB) · 프론트 tsc clean.
+- 남은(리포트): ① 테마별 구조 재편(재물운 7부 스토리: 성향→재물구조→축재형태→횡재→5년종합→주목달)
+  ② 실제 점수표(부록) ③ 인사·원국 반복 제거 프롬프트 ④ 행동전략 구체화. (과잉탐지 게이트는 다음 단계 보류.)

@@ -15,12 +15,11 @@ from pathlib import Path
 from saju_engines.chart_interpretation import build_chart_interpretation
 from saju_engines.context_reducer import (
     build_birth_summary,
-    event_ko,
-    polarity_ko,
     serialize_chart_prefix,
 )
 from saju_engines.event_engine_v2 import EventEngineV2
 from saju_engines.report_builder import ReportBuilder
+from saju_engines.report_event_input import precise_candidate_clusters
 from saju_engines.report_plan import build_section_plans
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as _EVENT_DOMAIN_V2
@@ -126,16 +125,11 @@ class _ReportData:
                     f"{d.start_age}-{d.start_age + 9}세)"
                 )
         lines.append("")
-        lines.append("[이벤트 후보 Top — 점수는 확정값, 재계산 금지]")
-        for c in self.candidates:
-            signals = " / ".join(
-                dict.fromkeys(s.effect or s.name for s in c.signals[:3])
-            )
-            lines.append(
-                f"{event_ko(c.event_key)} @ {c.period} {c.score}점 · "
-                f"{polarity_ko(str(c.polarity))}"
-                + (f" · 동반 신호: {signals}" if signals else "")
-            )
+        lines.append(
+            "[이벤트 후보 — 시점 클러스터·정밀 십성/관계. 점수는 확정값, 재계산 금지. "
+            "아래 십성·관계 라벨만 사용하고 '재성 지지 충' 같은 임의 표현을 만들지 말 것]"
+        )
+        lines += precise_candidate_clusters(self.result, self.candidates)
         if self.evidence_paths:
             lines.append("")
             lines.append("[근거 경로 — 최소 1개를 본문에 그대로 인용할 것]")

@@ -1,0 +1,116 @@
+"""리포트 전용 이벤트 LLM 입력 (채팅과 분리 — 정밀·구조화).
+
+채팅은 대화형 압축 입력이지만, 리포트는 섹션 서술의 정밀도가 중요하다. 후보를 **시점 클러스터**로
+묶고 per-글자 십성(천간 辛=식신 / 지지 亥=정재)과 관계 분해(運亥↔원국巳 충 / 亥亥 자형)를 함께
+명시한다. 엔진이 이미 계산한 값을 노출해 LLM이 '재성 지지 충' 류 임의 표현을 짓지 못하게 한다
+(명리 계산 불변 — 입력 명시만). 같은 시점의 여러 사건은 한 블록으로 병합한다(반복 방지).
+"""
+
+from __future__ import annotations
+
+from saju_shared_types.events import EventCandidate
+from saju_shared_types.ganji_calendar import GanjiLevel, RelationType
+from saju_shared_types.luck import LuckPillar
+from saju_shared_types.manse_result import ManseV2Result
+
+from .context_reducer import event_ko, polarity_ko
+from .ganji_calendar import relation_hits
+
+# RelationType → 정확한 한글 관계명(엔진 계산값을 그대로 노출).
+_REL_KO: dict[RelationType, str] = {
+    RelationType.BRANCH_CLASH: "충",
+    RelationType.SELF_PUNISHMENT: "자형",
+    RelationType.PUNISHMENT_TRIPLE: "삼형",
+    RelationType.PUNISHMENT_MUTUAL: "상형",
+    RelationType.BRANCH_BREAK: "파",
+    RelationType.HARM: "해",
+    RelationType.SIX_COMBINATION: "육합",
+    RelationType.THREE_HARMONY_CONTRIB: "삼합(세력 보조)",
+    RelationType.DIRECTIONAL_CONTRIB: "방합(세력 보조)",
+    RelationType.STEM_COMBINATION: "천간합",
+    RelationType.VOID_FILL: "공망",
+    RelationType.VOID_TRIGGER_CLASH: "공망 충발",
+    RelationType.VOID_RELEASE_COMBINE: "공망 해소",
+}
+# 한 글자가 원국 같은 글자를 만나는 복음(伏吟)은 자형과 별개로 표기.
+_DUPLICATE_NOTE = "복음(같은 글자 반복)"
+
+
+def _pillar_lookup(result: ManseV2Result) -> dict[str, LuckPillar]:
+    out: dict[str, LuckPillar] = {}
+    lc = result.luck_cycles
+    if lc is None:
+        return out
+    for p in [*lc.yearly_luck, *lc.monthly_luck, *lc.daily_luck]:
+        out[p.label] = p
+    for d in lc.daewoon_table:
+        for p in d.sewoon or []:
+            out.setdefault(p.label, p)
+    return out
+
+
+def _level(period: str) -> GanjiLevel:
+    if len(period) == 4:
+        return GanjiLevel.YEAR
+    if len(period) == 7:
+        return GanjiLevel.MONTH
+    return GanjiLevel.DAY
+
+
+def _relation_lines(pillar: LuckPillar, level: GanjiLevel, result: ManseV2Result) -> list[str]:
+    """그 시점 운 글자가 원국과 맺는 관계를 글자 단위로 분해한다."""
+    assert result.pillars is not None
+    hits = relation_hits(
+        level, pillar.stem, pillar.branch,
+        pillar.relations_to_chart, pillar.gongmang_activation, result.pillars,
+    )
+    out: list[str] = []
+    for h in hits:
+        name = _REL_KO.get(h.type)
+        if name is None:
+            continue
+        luck_c = h.luck_ref.branch or h.luck_ref.stem or ""
+        natal_chars = [r.branch or r.stem or "" for r in h.natal_refs if (r.branch or r.stem)]
+        natal = "·".join(dict.fromkeys(natal_chars))
+        if not (luck_c and natal):
+            continue
+        line = f"運 {luck_c}↔원국 {natal} {name}"
+        if luck_c in natal_chars:
+            line += f"·{_DUPLICATE_NOTE}"
+        out.append(line)
+    return list(dict.fromkeys(out))
+
+
+def precise_candidate_clusters(
+    result: ManseV2Result, candidates: list[EventCandidate]
+) -> list[str]:
+    """후보를 시점 클러스터로 묶어 운간지·per-글자 십성·관계 분해·점수를 정밀 출력한다."""
+    if result.pillars is None:
+        return []
+    lookup = _pillar_lookup(result)
+    by_period: dict[str, list[EventCandidate]] = {}
+    for c in candidates:
+        by_period.setdefault(c.period, []).append(c)
+
+    lines: list[str] = []
+    for period in sorted(by_period):
+        evs = sorted(by_period[period], key=lambda c: -c.score)
+        p = lookup.get(period)
+        if p is None:  # 간지 미상 — 사건만 나열.
+            for c in evs:
+                lines.append(f"[{period}] {event_ko(c.event_key)}: {c.score}점")
+            continue
+        head = (
+            f"[{period} {p.ganji}] 천간 {p.stem}={p.stem_ten_god or '?'}, "
+            f"지지 {p.branch}={p.branch_ten_god or '?'}"
+        )
+        rels = _relation_lines(p, _level(period), result)
+        if rels:
+            head += " · 관계: " + ", ".join(rels)
+        lines.append(head)
+        for c in evs:
+            lines.append(
+                f"  - {event_ko(c.event_key)}: {c.score}점 · 신뢰도 {c.confidence} · "
+                f"{polarity_ko(str(c.polarity))}"
+            )
+    return lines

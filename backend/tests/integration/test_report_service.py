@@ -45,7 +45,9 @@ def test_plan_report_focus_contexts() -> None:
         assert "己亥" in c.allowed_ganji  # 일주 간지 허용
         assert c.allowed_years and c.evidence_paths
     c04 = next(c for c in contexts if c.section_id == "C-04")
-    assert "[대운표]" in c04.body_prompt and "[이벤트 후보 Top" in c04.body_prompt
+    # 리포트 전용 정밀 후보 블록(시점 클러스터 + per-글자 십성/관계).
+    assert "[대운표]" in c04.body_prompt and "[이벤트 후보" in c04.body_prompt
+    assert "천간" in c04.body_prompt and "지지" in c04.body_prompt  # per-글자 십성 노출
 
 
 def test_plan_report_full_natal_sections() -> None:

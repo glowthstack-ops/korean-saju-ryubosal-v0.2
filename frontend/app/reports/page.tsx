@@ -14,7 +14,7 @@ const STATUS_KO: Record<ReportJobSummary["status"], { label: string; cls: string
   queued: { label: "대기 중", cls: "bg-gray-100 text-gray-500" },
   running: { label: "작성 중", cls: "bg-blue-50 text-blue-600" },
   completed: { label: "완료", cls: "bg-emerald-50 text-emerald-600" },
-  on_hold: { label: "검수 보류", cls: "bg-amber-50 text-amber-600" },
+  on_hold: { label: "보완 중", cls: "bg-amber-50 text-amber-600" },
   failed: { label: "실패", cls: "bg-red-50 text-red-500" },
 };
 
