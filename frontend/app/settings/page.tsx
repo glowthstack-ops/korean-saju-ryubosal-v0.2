@@ -23,6 +23,14 @@ import {
   type SubjectSummary,
 } from "@/lib/types";
 
+// 물상 필드 → 사용자 표시 라벨(변수명 노출 방지).
+const FIELD_KO: Record<string, string> = {
+  occupation: "직업",
+  residence: "거주지",
+  marital_status: "혼인상태",
+  children: "자녀",
+};
+
 export default function SettingsPage() {
   const { ready, isLoggedIn } = useAuth();
   const [persona, setPersona] = useState<PersonaConfig>(DEFAULT_PERSONA);
@@ -136,7 +144,7 @@ export default function SettingsPage() {
                         onClick={() => clearField(f)}
                         className="rounded border border-red-200 px-2 py-1 text-red-500"
                       >
-                        {f} 삭제
+                        {FIELD_KO[f]} 삭제
                       </button>
                     ) : null,
                   )}
