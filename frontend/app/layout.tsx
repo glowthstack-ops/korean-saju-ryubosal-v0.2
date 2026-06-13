@@ -18,9 +18,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {/* 광고 영역은 무료 사용 흐름 확정 후 재도입 — AdSlot 컴포넌트는 보존. */}
             {children}
           </main>
-          <footer className="border-t bg-white py-6 text-center text-xs text-gray-400">
-            copyright 내용은 고민중
-          </footer>
         </Providers>
       </body>
     </html>

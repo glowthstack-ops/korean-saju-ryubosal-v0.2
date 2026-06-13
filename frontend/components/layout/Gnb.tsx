@@ -104,10 +104,12 @@ export function Gnb() {
           onClick={() => setOpen(false)}
         />
         <aside
-          className={`absolute left-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-white shadow-xl transition-transform duration-300 ease-out ${
+          className={`absolute left-0 top-0 flex h-full w-80 max-w-[85vw] flex-col bg-white shadow-xl transition-transform duration-300 ease-out ${
             open ? "translate-x-0" : "-translate-x-full"
           }`}
         >
+          {/* 스크롤 영역(메뉴) — 카피라이트는 아래 고정 */}
+          <div className="flex-1 overflow-y-auto">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <span className="font-semibold">메뉴</span>
               <button
@@ -162,6 +164,12 @@ export function Gnb() {
             <div className="border-t px-4 py-4">
               <AuthPanel />
             </div>
+          </div>
+
+          {/* 카피라이트 — 드로어 최하단 고정 */}
+          <div className="shrink-0 border-t bg-white px-4 py-3 text-center text-[11px] text-gray-400">
+            copyright 내용은 고민중
+          </div>
         </aside>
       </div>
     </>
