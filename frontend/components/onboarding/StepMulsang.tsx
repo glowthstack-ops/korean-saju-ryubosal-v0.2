@@ -18,7 +18,7 @@ export function StepMulsang({ value, onChange }: Props) {
   return (
     <div className="space-y-5 text-sm">
       <div>
-        <span className="mb-1 block font-medium">직업</span>
+        <span className="mb-1 block font-medium">현재 직업</span>
         <select
           value={occ?.category_id ?? ""}
           onChange={(e) =>
@@ -78,7 +78,7 @@ export function StepMulsang({ value, onChange }: Props) {
       </div>
 
       <div>
-        <span className="mb-1 block font-medium">혼인 상태</span>
+        <span className="mb-1 block font-medium">현재 혼인 상태</span>
         <div className="flex flex-wrap gap-2">
           {MARITAL_STATUSES.map((m) => {
             const active = value.marital_status === m;
