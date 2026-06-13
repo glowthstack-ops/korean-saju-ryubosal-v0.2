@@ -28,18 +28,47 @@ const PAID: NavItem[] = [
 
 export function Gnb() {
   const [open, setOpen] = useState(false);
+  // 스크롤 방향에 따라 top bar 숨김/표시(아래로 스크롤=숨김, 위로 스크롤=표시).
+  const [hidden, setHidden] = useState(false);
   const pathname = usePathname();
   const { isLoggedIn } = useAuth();
   const { selected } = useSelectedSubject();
 
-  // 라우트 이동 시 자동으로 닫는다.
+  // 라우트 이동 시 자동으로 닫고, 헤더를 다시 보이게 한다.
   useEffect(() => {
     setOpen(false);
+    setHidden(false);
   }, [pathname]);
+
+  // 스크롤 방향 감지 — 일정 거리 아래로 내려가면 숨기고, 위로 올리면 즉시 표시.
+  useEffect(() => {
+    let last = window.scrollY;
+    let ticking = false;
+    const THRESHOLD = 8; // 미세 떨림 무시
+    const TOP_GUARD = 64; // 최상단 근처에서는 항상 표시
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (Math.abs(y - last) > THRESHOLD) {
+          setHidden(y > last && y > TOP_GUARD);
+          last = y;
+        }
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b bg-white">
+      <header
+        className={`sticky top-0 z-30 border-b bg-white transition-transform duration-300 ${
+          hidden && !open ? "-translate-y-full" : "translate-y-0"
+        }`}
+      >
         <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3">
           <button
             aria-label="메뉴 열기"
