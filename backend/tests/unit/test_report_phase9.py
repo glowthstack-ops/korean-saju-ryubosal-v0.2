@@ -60,13 +60,15 @@ def test_full_depends_on_rules() -> None:
 
 
 def test_focus_toc_is_8_sections() -> None:
-    plans = build_section_plans(_spec("RPT_FOCUS", topic="career"))
+    # health는 테마 전용 목차가 없어 generic FOCUS(C-01~C-08)를 쓴다.
+    # (career·wealth·relationship은 테마 전용 목차로 분기 — test_report_topic_scoping에서 검증.)
+    plans = build_section_plans(_spec("RPT_FOCUS", topic="health"))
     assert [p.section_id for p in plans] == [f"C-{n:02d}" for n in range(1, 9)]
 
 
 def test_focus_variant_swaps_title_only() -> None:
     """compatibility/relocation 변형 — 제목·모듈만 교체, 섹션 수·분량 동일(4장)."""
-    base = build_section_plans(_spec("RPT_FOCUS", topic="career"))
+    base = build_section_plans(_spec("RPT_FOCUS", topic="health"))
     compat = build_section_plans(_spec("RPT_FOCUS", topic="compatibility"))
     assert len(compat) == len(base) == 8
     by_id = {p.section_id: p for p in compat}
@@ -194,7 +196,7 @@ def test_pipeline_completes_with_mock_llm() -> None:
         calls.append(plan.section_id)
         return _good_section_text(plan), 4_000, 3_000
 
-    result = _focus_builder(gen).build(_spec("RPT_FOCUS", topic="career"))
+    result = _focus_builder(gen).build(_spec("RPT_FOCUS", topic="health"))
     assert result.status == "completed" and not result.failed_sections
     assert len(result.sections) == 8 and all(s.passed for s in result.sections)
     assert result.cost.calls == 8  # 섹션당 1회(docs/10 9장: FOCUS 8~16 호출)
@@ -214,7 +216,7 @@ def test_pipeline_regenerates_failed_section_only() -> None:
             return _good_section_text(plan) + " 반드시 이직한다.", 4_000, 3_000
         return _good_section_text(plan), 4_000, 3_000
 
-    result = _focus_builder(gen).build(_spec("RPT_FOCUS", topic="career"))
+    result = _focus_builder(gen).build(_spec("RPT_FOCUS", topic="health"))
     assert result.status == "completed"
     assert attempts_by_section["C-03"] == 2  # 재생성 1회
     assert attempts_by_section["C-01"] == 1  # 다른 섹션은 1회
@@ -228,7 +230,7 @@ def test_pipeline_on_hold_after_two_failures() -> None:
             return "반드시 된다.", 1_000, 100  # 항상 위반
         return _good_section_text(plan), 4_000, 3_000
 
-    result = _focus_builder(gen).build(_spec("RPT_FOCUS", topic="career"))
+    result = _focus_builder(gen).build(_spec("RPT_FOCUS", topic="health"))
     assert result.status == "on_hold" and result.failed_sections == ["C-05"]
     failed = next(s for s in result.sections if s.section_id == "C-05")
     assert failed.attempts == 3 and failed.violations  # 최초 1 + 재생성 2

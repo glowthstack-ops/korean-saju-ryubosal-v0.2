@@ -30,14 +30,19 @@ def _module_ids(spec: ReportSpec, section_id: str) -> list[str]:
 
 
 def test_focus_module_placeholder_resolves_by_topic() -> None:
-    # C-01 'MODULE' → 주제 모듈(career→M07). wealth는 테마 목차 W-01에서 M09로 해석.
-    assert "M07" in _module_ids(_spec("career"), "C-01")
+    # 테마 목차 첫 섹션의 'MODULE'이 주제 모듈로 해석된다(career→M07, wealth→M09, relationship→M01).
+    assert "M07" in _module_ids(_spec("career"), "J-01")
     assert "M09" in _module_ids(_spec("wealth"), "W-01")
-    # generic 주제는 8섹션 불변. 재물운은 테마 전용 9섹션(W-01~W-09).
-    assert len(build_section_plans(_spec("career"))) == 8
-    assert len(build_section_plans(_spec("wealth"))) == 9
+    assert "M01" in _module_ids(_spec("relationship"), "R-01")
+    # generic 주제(설계상)는 8섹션. 테마 전용 목차는 각자 고정 구성.
     assert [p.section_id for p in build_section_plans(_spec("wealth"))] == [
         f"W-{n:02d}" for n in range(1, 10)
+    ]
+    assert [p.section_id for p in build_section_plans(_spec("career"))] == [
+        f"J-{n:02d}" for n in range(1, 9)
+    ]
+    assert [p.section_id for p in build_section_plans(_spec("relationship"))] == [
+        f"R-{n:02d}" for n in range(1, 9)
     ]
 
 

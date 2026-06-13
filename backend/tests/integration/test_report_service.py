@@ -30,7 +30,9 @@ def _spec(product_code: str = "RPT_FOCUS") -> ReportSpec:
     return ReportSpec(
         product_code=product_code,
         subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
-        topic="career" if product_code == "RPT_FOCUS" else None,
+        # health는 테마 전용 목차가 없어 generic FOCUS(C-01~C-08) 경로를 탄다.
+        # (career·wealth·relationship 테마 목차는 test_report_topic_scoping에서 검증.)
+        topic="health" if product_code == "RPT_FOCUS" else None,
         period=ReportPeriod(start="2026-01-01", end="2026-12-31"),
     )
 

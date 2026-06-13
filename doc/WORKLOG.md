@@ -2643,3 +2643,20 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
 - 검증: dry-run에서 wealth=W-01~W-09 생성·W-09 점수표 박힘·W-07 정밀 클러스터 확인. ruff/mypy clean ·
   611 pass(DB). test_report_topic_scoping을 테마 9섹션 기준으로 갱신.
 - 남은: 과잉탐지 게이트(엔진), 다른 테마(직업·관계 등) 전용 목차는 추후 동일 패턴으로 확장.
+
+## v2.2 리포트 품질 — 직업운(J)·관계운(R, 단독 모드) 테마 목차 ✅(3차)
+- 사용자 지시(2026-06-14): 직업운·관계운도 테마 전용 목차. 재물운과 동일 8섹션 패턴.
+  - 직업운 J-01~J-08: 핵심요약/직업성향/직업구조(격국·관성·재성·식상)/직업변동(이직·승진·창업)/
+    향후5년 종합/주목할 달/행동전략/점수표. MODULE→M07.
+  - 관계운 R-01~R-08(단독 모드): 핵심요약/애정성향/배우자·인연구조(일지 배우자궁·재성/관성·도화/홍염)/
+    인연변화(만남·결혼신호·갈등)/향후5년 종합/주목할 달/행동전략/점수표. MODULE→M01.
+- report_plan: _CAREER_TOC·_RELATIONSHIP_TOC를 _THEME_TOCS에 등록. report_service:
+  _SECTION_GUIDES J/R 지침, _NATAL_SECTIONS(J-02·J-03·R-02·R-03), _SCORE_TABLE_SECTIONS(J-08·R-08).
+  J-07/R-07 행동전략은 단정·낙인·운명론 금지(승진/합격/상대 강요 표현 차단).
+- 테스트: test_report_topic_scoping 3테마(W/J/R) 검증. 파이프라인 기계 테스트(phase9)·통합 dry-run은
+  generic 경로 검증이 목적이라 topic을 health(테마 목차 없음=generic FOCUS)로 전환.
+- 검증: dry-run에서 J/R 8섹션·점수표·정밀 클러스터·natal 운블록 미부착 확인. ruff clean · 611 pass(DB).
+- **관계운 상대(궁합) 모드는 미구현(설계 확인 대기)**: 상대 명식 계산 배선 + 원국A↔원국B 궁합 신호
+  엔진 + "어떤 상대인가 솔직 해석"·"안 좋을 때 극복 마음가짐/행동" 섹션은 새 명리 규칙·새 아키텍처라
+  사용자 확인 후 별도 구현(CLAUDE.md 6·10). 조사: M13(bond_compare) 빌더 미구현, 두번째 BirthInput
+  계산·궁합 비교 부재 확인.
