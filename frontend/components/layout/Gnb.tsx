@@ -40,7 +40,7 @@ export function Gnb() {
   return (
     <>
       <header className="sticky top-0 z-30 border-b bg-white">
-        <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
           <button
             aria-label="메뉴 열기"
             onClick={() => setOpen(true)}

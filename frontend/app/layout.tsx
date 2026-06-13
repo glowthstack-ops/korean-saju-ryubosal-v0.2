@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Providers>
           <Gnb />
-          <main className="mx-auto max-w-3xl px-4 py-6">
+          <main className="mx-auto max-w-5xl px-4 py-6">
             <AdSlot label="상단 광고" />
             {children}
             <AdSlot label="하단 광고" />
