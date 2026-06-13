@@ -182,6 +182,11 @@ export interface InlineBirthDTO {
   birthplace?: string | null;
 }
 
+// 채팅 궁합 상대(첨부) — 등록 동반자 또는 즉석 입력.
+export type ChatPartner =
+  | { mode: "registered"; subjectId: string; label: string }
+  | { mode: "inline"; label: string; birth: InlineBirthDTO };
+
 // 리포트(테마사주) — report 라우터.
 export interface SubjectRef {
   kind: "self" | "companion" | "inline_temp" | "partial_info";

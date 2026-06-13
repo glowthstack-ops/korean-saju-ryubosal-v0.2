@@ -17,7 +17,9 @@ from pydantic import BaseModel, Field
 
 from saju_engines import EventEngineV2, GraphIndex, filter_year_candidates, load_event_graph
 from saju_engines.chart_interpretation import build_luck_grounding
+from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
+    build_birth_summary,
     build_llm_input,
     build_monthly_overview,
     event_ko,
@@ -46,6 +48,7 @@ from saju_shared_types.llm_input import (
     PeriodFortune,
     PeriodFortuneSlot,
 )
+from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.precompute import CompositeLevel
 from saju_shared_types.profile import PersonaConfig
 from saju_shared_types.topic_context import PeriodSpec
@@ -354,6 +357,28 @@ def _date_selection_block(
     )
 
 
+def _compat_prompt_block(
+    result: ManseV2Result, partner_birth: BirthInput, today: date, partner_label: str,
+) -> str | None:
+    """본인↔상대 궁합 신호 블록(채팅 pairwise). 엔진 계산값만 + LLM 서술 가드."""
+    partner_result = calculate(partner_birth.model_copy(update={"reference_date": today}))
+    self_sum = build_birth_summary(result)
+    partner_sum = build_birth_summary(partner_result)
+    report = analyze_compatibility(
+        result, partner_result, self_sum.useful_gods, partner_sum.useful_gods,
+        self_label="본인", partner_label=partner_label,
+    )
+    if report is None:
+        return None
+    lines = ["", "[궁합 분석 — 아래 엔진 계산값만 근거로 두 사람 궁합을 설명할 것]"]
+    lines += compatibility_lines(report)
+    lines.append(
+        "신호의 방향(보완/마찰)을 그대로 반영하되 '반드시 헤어진다/잘 된다' 류 단정·상대 탓·"
+        "운명론은 금지. 마찰은 관리 가능한 영역으로, 극복할 마음가짐·행동도 덧붙일 것."
+    )
+    return "\n".join(lines)
+
+
 def chat(
     birth: BirthInput,
     question: str,
@@ -364,6 +389,8 @@ def chat(
     persona: PersonaConfig | None = None,
     owner_id: str | None = None,
     subject_id: str | None = None,
+    partner_birth: BirthInput | None = None,
+    partner_label: str = "상대",
 ) -> ChatResponse:
     """질문을 풀이한다(첫 intent 기준, 다중 intent는 메타로 동반).
 
@@ -675,6 +702,12 @@ def chat(
             ),
             intents=parsed.intents,
         )
+
+    # 궁합(pairwise) — 상대가 첨부되면 엔진 계산 궁합 신호 블록을 입력에 덧붙인다.
+    if partner_birth is not None:
+        compat = _compat_prompt_block(result, partner_birth, today, partner_label)
+        if compat:
+            prompt_text = prompt_text + "\n" + compat
 
     if state is not None:
         # T4.5 — 시스템이 제시한 상위 이벤트를 claim/event 엔티티로 등록(이의 재검산 대비).

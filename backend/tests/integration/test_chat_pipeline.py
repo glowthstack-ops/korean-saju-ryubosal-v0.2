@@ -186,3 +186,30 @@ def test_multiturn_repeat_flag() -> None:
         )
     assert last is not None and last.repeated is True
     store.delete("t-repeat")
+
+
+# ── 궁합(pairwise) — 상대 첨부 ───────────────────────────────────
+
+
+def test_pairwise_inline_partner_injects_compat_block() -> None:
+    """즉석 상대 첨부 → LLM 입력에 엔진 계산 궁합 신호 블록이 더해진다."""
+    res = _post(
+        "이 사람과 궁합 어때?",
+        partner_inline={
+            "date": "1985-03-15", "time": "14:30",
+            "calendar_type": "solar", "gender": "F", "birthplace": "부산",
+        },
+        partner_label="상대",
+    )
+    assert res.status_code == 200, res.text
+    preview = res.json()["prompt_preview"] or ""
+    assert "[궁합 분석" in preview and "[궁합 신호" in preview
+    # 십성 양방향 신호 + 방향 태그가 박힌다.
+    assert "상대의 십성" in preview and ("[보완]" in preview or "[마찰]" in preview)
+
+
+def test_chat_without_partner_has_no_compat_block() -> None:
+    """상대 미첨부 → 궁합 블록 없음(단일 상담 유지)."""
+    res = _post("올해 재물운 어때?")
+    assert res.status_code == 200, res.text
+    assert "[궁합 분석" not in (res.json()["prompt_preview"] or "")

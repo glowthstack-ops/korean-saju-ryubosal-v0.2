@@ -14,17 +14,21 @@ from pydantic import BaseModel, Field
 
 from saju_engines.chat_history_store import ChatHistoryStore
 from saju_engines.conversation_store import ConversationStore
+from saju_engines.subject_store import SubjectStore
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.intent import InlineBirth
 from saju_shared_types.profile import PersonaConfig
 
-from ..deps import get_chat_history_store, optional_owner, require_owner
+from ..deps import get_chat_history_store, get_subject_store, optional_owner, require_owner
 from ..services import chat_service
+from ..services.partner_resolve import inline_to_birth
 
 router = APIRouter(prefix="/api/v2/chat", tags=["chat"])
 
 OwnerId = Annotated[str, Depends(require_owner)]
 OptionalOwner = Annotated[str | None, Depends(optional_owner)]
 History = Annotated[ChatHistoryStore, Depends(get_chat_history_store)]
+Subjects = Annotated[SubjectStore, Depends(get_subject_store)]
 
 
 class ChatRequest(BaseModel):
@@ -38,6 +42,10 @@ class ChatRequest(BaseModel):
     persona: PersonaConfig | None = None  # 문체 전용(docs/11 — 점수·판정 불변)
     subject_label: str | None = None  # 대화 기준 사주 별명(저장 표시용)
     subject_id: str | None = None  # 저장된 사주 id — 개인화(현실 신호 시그니처·코호트, 소유자 검증)
+    # 궁합(pairwise) — 상대 첨부. 등록 동반자(id) 또는 즉석 입력 중 하나.
+    partner_subject_id: str | None = None
+    partner_inline: InlineBirth | None = None
+    partner_label: str | None = None
 
 
 class ChatThreadSummary(BaseModel):
@@ -59,20 +67,37 @@ class ChatMessage(BaseModel):
     created_at: str | None = None
 
 
+def _resolve_chat_partner(
+    req: ChatRequest, subjects: SubjectStore, owner_id: str | None,
+) -> BirthInput | None:
+    """채팅 궁합 — 첨부 상대를 BirthInput으로 해석(즉석 입력 우선, 등록 동반자는 소유자 검증)."""
+    if req.partner_inline is not None:
+        return inline_to_birth(req.partner_inline)
+    if req.partner_subject_id and owner_id:
+        rec = subjects.get(req.partner_subject_id)
+        if rec is not None and rec.owner_id == owner_id:
+            return rec.birth
+    return None
+
+
 @router.post("", response_model=chat_service.ChatResponse)
 def chat(
     req: ChatRequest,
     owner_id: OptionalOwner,
     history: History,
+    subjects: Subjects,
 ) -> chat_service.ChatResponse:
     """단일 질문 풀이 — 파서→플래너→스코어링→그래프→축소→LLM(또는 dry-run).
 
     로그인 사용자 + 실제 답변(dry-run 아님)일 때 질문/답변을 스레드에 자동 저장한다.
+    상대(궁합)가 첨부되면 두 명식 궁합 신호를 입력에 더해 pairwise로 답한다.
     """
+    partner_birth = _resolve_chat_partner(req, subjects, owner_id)
     res = chat_service.chat(
         req.birth, req.question, req.today, req.dry_run,
         thread_id=req.thread_id, persona=req.persona,
         owner_id=owner_id, subject_id=req.subject_id,
+        partner_birth=partner_birth, partner_label=req.partner_label or "상대",
     )
     if owner_id and not req.dry_run and req.thread_id and res.answer:
         try:

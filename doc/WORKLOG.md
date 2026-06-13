@@ -2696,3 +2696,22 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
 - 남은(후속): 채팅 내 두 명식 동시 궁합(pairwise)은 chat_service에 궁합 계산이 없어 별도 백엔드
   작업 필요 — 현재는 대상 전환(동반자 단독 상담)까지. 상대 선택 UI는 inline_temp(즉석 입력)는
   미노출(등록 동반자만) — 필요 시 추가.
+
+## v2.2 관계운 — 즉석 상대 입력(inline_temp) + 채팅 pairwise 궁합 ✅(6차)
+- 즉석 상대 입력(리포트): 등록 없이 상대 출생정보를 입력해 1회 궁합. 백엔드는
+  _resolve_partner_birth가 inline_birth를 이미 해석(무변경). 프론트 — SubjectRef.inline_birth +
+  InlineBirthDTO 타입, CompanionChoice 유니온(registered|inline), InlinePartnerForm(생년월일·시간모름·
+  양음력·성별·출생지), SubjectGateway 상대 선택 단계에 '즉석 입력' details.
+- 채팅 pairwise 궁합: 상대를 첨부하면 두 명식 궁합 신호를 LLM 입력에 더해 답한다.
+  - 백엔드: services/partner_resolve.inline_to_birth 공용화(report 라우터도 사용). chat_service.chat에
+    partner_birth/partner_label 인자 + _compat_prompt_block(analyze_compatibility 재사용, 직렬화된
+    prompt_text에 궁합 블록 append, 단정·상대탓·운명론 금지 가드). chat 라우터 ChatRequest에
+    partner_subject_id/partner_inline/partner_label + _resolve_chat_partner(즉석/등록 동반자 소유검증)
+    + SubjectStore 의존성.
+  - 프론트: postChat에 partner 인자(partner_subject_id/partner_inline/partner_label 페이로드).
+    /chat 헤더 '궁합 상대' 버튼 + 첨부 칩(해제) + 상대 선택 패널(등록 동반자 + 즉석 입력). 첨부 시
+    이후 질문에 함께 적용.
+- 검증: 백엔드 ruff/mypy clean · 621 pass(+2: inline 첨부 궁합 블록 주입 / 미첨부 시 블록 없음).
+  프론트 tsc clean · vitest 23 pass(+1 inline_temp ref) · next build pass.
+- 남은: 궁합 방향/톤 reviewed:false 전문가 감수, 채팅 멀티턴에서 상대 첨부 상태 영속화(현재는 세션
+  로컬 상태 — 새로고침 시 해제), 관계 신살 교차 제외 유지.

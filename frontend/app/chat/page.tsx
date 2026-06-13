@@ -7,12 +7,14 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
+import { InlinePartnerForm } from "@/components/subject/InlinePartnerForm";
 import { SubjectGateway } from "@/components/subject/SubjectGateway";
 import { deleteChatThread, getChatThread, listChatThreads, postChat } from "@/lib/api";
 import { summaryToProfile } from "@/lib/subject-mapping";
 import { getPersona, getSubject, listSubjects } from "@/lib/subjects";
 import type {
   ChatApiResponse,
+  ChatPartner,
   ChatThreadSummary,
   PersonaConfig,
   Profile,
@@ -51,19 +53,29 @@ export default function ChatPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showSwitch, setShowSwitch] = useState(false);
   const [subjects, setSubjects] = useState<SubjectSummary[]>([]);
+  const [partner, setPartner] = useState<ChatPartner | null>(null);
+  const [showPartner, setShowPartner] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // 사주 변경(본인↔동반자) — 상담 대상을 전환한다. 선택 시 컨텍스트 반영 → effect가 프로필 재로드.
-  function openSwitch() {
-    setShowSwitch((v) => !v);
+  function loadSubjectsOnce() {
     if (subjects.length === 0) {
       listSubjects().then(setSubjects).catch(() => setSubjects([]));
     }
+  }
+  // 사주 변경(본인↔동반자) — 상담 대상을 전환한다. 선택 시 컨텍스트 반영 → effect가 프로필 재로드.
+  function openSwitch() {
+    setShowSwitch((v) => !v);
+    loadSubjectsOnce();
   }
   function switchSubject(s: SubjectSummary) {
     setShowSwitch(false);
     if (s.subject_id === selected?.subjectId) return;
     setSelected({ subjectId: s.subject_id, label: s.label });
+  }
+  // 궁합 상대 첨부 — 등록 동반자 또는 즉석 입력. 첨부 시 질문이 두 명식 궁합으로 풀린다.
+  function openPartner() {
+    setShowPartner((v) => !v);
+    loadSubjectsOnce();
   }
 
   // 선택된 사주가 바뀌면 프로필·페르소나를 로드하고 새 대화를 시작한다.
@@ -130,6 +142,7 @@ export default function ChatPage() {
     try {
       const res = await postChat(
         profile, question, threadId, persona, selected?.label, selected?.subjectId,
+        partner ?? undefined,
       );
       setMessages((prev) => [
         ...prev,
@@ -192,6 +205,14 @@ export default function ChatPage() {
               사주 변경
             </button>
             <button
+              onClick={openPartner}
+              className={`rounded border px-2 py-1 text-xs hover:bg-gray-50 ${
+                partner ? "border-rose-300 bg-rose-50 text-rose-600" : "text-gray-600"
+              }`}
+            >
+              궁합 상대
+            </button>
+            <button
               onClick={() => {
                 if (!showHistory) loadThreads();
                 setShowHistory((v) => !v);
@@ -239,6 +260,63 @@ export default function ChatPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {partner && (
+          <div className="mt-2 flex items-center gap-2 rounded border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs text-rose-700">
+            <span>
+              궁합 상대: <span className="font-medium">{partner.label}</span> — 이 상대와의 궁합으로 답해요
+            </span>
+            <button
+              onClick={() => setPartner(null)}
+              className="ml-auto rounded border border-rose-200 px-1.5 py-0.5 text-rose-500"
+            >
+              해제
+            </button>
+          </div>
+        )}
+
+        {showPartner && (
+          <div className="mt-3 space-y-2 border-t pt-3">
+            <p className="text-xs text-gray-500">
+              궁합을 볼 상대를 고르거나 즉석 입력하세요. (해제 전까지 이후 질문에 함께 적용)
+            </p>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {subjects
+                .filter((s) => s.subject_id !== selected.subjectId)
+                .map((s) => (
+                  <button
+                    key={s.subject_id}
+                    onClick={() => {
+                      setPartner({ mode: "registered", subjectId: s.subject_id, label: s.label });
+                      setShowPartner(false);
+                    }}
+                    className="rounded border px-2.5 py-1.5 text-left text-sm hover:bg-gray-50"
+                  >
+                    <span className="block truncate">
+                      {s.label}
+                      <span className="ml-1 text-[11px] text-gray-400">
+                        {s.kind === "self" ? "본인" : "동반자"}
+                      </span>
+                    </span>
+                    <span className="block text-[11px] text-gray-400">{s.birth.birth_date}</span>
+                  </button>
+                ))}
+            </div>
+            <details className="rounded-lg border bg-gray-50 p-3">
+              <summary className="cursor-pointer text-sm font-medium text-gray-700">
+                상대 정보 즉석 입력 (등록 없이)
+              </summary>
+              <div className="mt-3">
+                <InlinePartnerForm
+                  onSubmit={(label, birth) => {
+                    setPartner({ mode: "inline", label, birth });
+                    setShowPartner(false);
+                  }}
+                />
+              </div>
+            </details>
           </div>
         )}
         <p className="mt-1 text-xs text-gray-500">

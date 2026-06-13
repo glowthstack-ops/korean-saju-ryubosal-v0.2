@@ -4,6 +4,7 @@ import type {
   CalibrationResult,
   ChatApiResponse,
   ChatMessageDTO,
+  ChatPartner,
   ChatThreadSummary,
   LuckPillar,
   ManseResult,
@@ -175,6 +176,7 @@ export async function postChat(
   persona?: PersonaConfig,
   subjectLabel?: string,
   subjectId?: string,
+  partner?: ChatPartner,
 ): Promise<ChatApiResponse> {
   return postJSON<ChatApiResponse>("/api/v2/chat", {
     birth: profileToBirthInput(profile, todayISO()),
@@ -183,6 +185,10 @@ export async function postChat(
     persona: persona ?? null,
     subject_label: subjectLabel ?? null,
     subject_id: subjectId ?? null, // 개인화(현실 신호 시그니처·코호트) 키
+    // 궁합(pairwise) — 상대 첨부 시 두 명식 궁합으로 답한다.
+    partner_subject_id: partner?.mode === "registered" ? partner.subjectId : null,
+    partner_inline: partner?.mode === "inline" ? partner.birth : null,
+    partner_label: partner?.label ?? null,
     dry_run: false,
   });
 }

@@ -22,10 +22,9 @@ from saju_shared_types.report import ReportResult, ReportSpec
 
 from ..deps import get_report_job_store, get_subject_store, require_owner
 from ..services import report_service
+from ..services.partner_resolve import inline_to_birth
 
 router = APIRouter(prefix="/api/v2/report", tags=["report"])
-
-_GENDER_MAP = {"M": "male", "F": "female", "male": "male", "female": "female"}
 
 
 def _resolve_partner_birth(
@@ -42,16 +41,7 @@ def _resolve_partner_birth(
     if partner is None:
         return None
     if partner.inline_birth is not None:
-        ib = partner.inline_birth
-        cal = ib.calendar_type if ib.calendar_type in ("solar", "lunar") else "solar"
-        return BirthInput.model_validate({
-            "calendar_type": cal,
-            "birth_date": ib.date,
-            "birth_time": ib.time,
-            "birth_time_unknown": ib.time is None,
-            "birth_place_name": ib.birthplace or "서울",
-            "gender": _GENDER_MAP.get(ib.gender or "", "unknown"),
-        })
+        return inline_to_birth(partner.inline_birth)
     if subjects is not None and partner.companion_id:
         rec = subjects.get(partner.companion_id)
         if rec is not None and (owner_id is None or rec.owner_id == owner_id):
