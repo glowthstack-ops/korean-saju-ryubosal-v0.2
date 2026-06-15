@@ -16,8 +16,13 @@ from __future__ import annotations
 import re
 from datetime import date as date_cls
 
-from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
-from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.constants import (
+    BRANCH_ELEMENT,
+    CONTROLS,
+    GENERATES,
+    STEM_ELEMENT,
+)
+from saju_shared_types.enums import Branch, Element, Stem
 from saju_shared_types.event_taxonomy_v2 import EVENT_KO as _EVENT_KO_V2
 from saju_shared_types.events import EventCandidate, EventKey
 from saju_shared_types.graph import EvidenceBundle
@@ -504,6 +509,49 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
 _MAX_SIGNALS_KO = 4  # 후보별 동반 신호 표기 상한
 
 
+def _ganji_result_nuance(
+    stem_el: str, branch_el: str, stem_role: str, fav_map: dict[str, str]
+) -> tuple[str, str, str]:
+    """그 달 천간 역할 × 지지와의 생극으로 본 '결실(계약·실속)' 유불리 뉘앙스.
+
+    천간만 보는 단순 휴리스틱의 비대칭(흉=⚠불리만, 길=무경고)을 보정한다. 천간 흉신이라도
+    지지 용·희신을 생하면 통관(관인상생)으로 순화되고, 천간 길신이라도 지지로 누설·피극되면
+    실속이 약화된다 — 어느 쪽도 단정하지 않게 표시.
+
+    Returns:
+        (마커, 설명, 카테고리). 카테고리 ∈ {'unfavorable','tonggwan','leak',''}.
+    """
+    try:
+        s_el, b_el = Element(stem_el), Element(branch_el)
+    except ValueError:
+        return "", "", ""
+    branch_role = fav_map.get(branch_el, "")
+    stem_gen_branch = GENERATES.get(s_el) == b_el      # 천간 → 지지 생
+    branch_ctrl_stem = CONTROLS.get(b_el) == s_el      # 지지 → 천간 극
+    if stem_role in ("기신", "구신"):
+        if stem_gen_branch and branch_role in ("용신", "희신"):
+            return (
+                "↗통관 순화",
+                "천간이 흉신이나 그 달 지지(용·희신)를 생하는 통관(관인상생)으로 순화 — "
+                "흉이 일간을 돕는 쪽으로 흐른다(다만 천간 흉신이라 과한 낙관은 금물).",
+                "tonggwan",
+            )
+        return (
+            "⚠계약·결실 불리",
+            "천간 흉신 — 사건이 일어나도 계약·결실·실속에 불리한 시기(우호 단정 금지).",
+            "unfavorable",
+        )
+    if stem_role in ("용신", "희신"):
+        if (stem_gen_branch and branch_role in ("기신", "구신")) or branch_ctrl_stem:
+            return (
+                "⚠천간 길신 누설",
+                "천간은 길신이나 그 달 지지로 누설·피극되어 결실·실속이 약화 — "
+                "'좋은 달'로 과하게 단정하지 말 것.",
+                "leak",
+            )
+    return "", "", ""
+
+
 def _to_llm_candidate(
     c: EventCandidate,
     ganji: dict[str, str],
@@ -529,21 +577,21 @@ def _to_llm_candidate(
     if result is not None and result.pillars is not None and len(period_ganji) == 2:
         amhaps = detect_luck_amhap(period_ganji[0], period_ganji[1], result.pillars)
         amhap_notes = [a.describe() for a in amhaps[:2]]
-    # 유불리 주의(후보별 사실 데이터) — 천간이 흉신이면 사건이 발생해도 계약·결실에
-    # 불리. 표 각주만으론 지지 희신 서사에 묻혀 무시되는 사례 방지(2026-06-12).
+    # 유불리 주의(후보별 사실 데이터) — 천간 역할 × 지지 생극(통관/누설)으로 결실 유불리를
+    # 본다. 천간 흉신이라도 지지 용·희신을 생하면 순화, 천간 길신이라도 누설·피극되면 약화
+    # (천간만 보는 단순 단정의 비대칭 보정, 2026-06-12 → 2026-06-15).
     caution = ""
     if fav_map and len(period_ganji) == 2:
         try:
             stem_el = str(STEM_ELEMENT[Stem(period_ganji[0])])
-            stem_role = fav_map.get(stem_el)
-            if stem_role in ("기신", "구신"):
-                caution = (
-                    f"천간 {period_ganji[0]}({stem_el} {stem_role}) — 사건이 "
-                    "일어나도 계약·결실·실속에 불리한 시기(조건 악화·소모 주의). "
-                    "이 시기를 우호적으로만 서술하지 말 것."
-                )
+            branch_el = str(BRANCH_ELEMENT[Branch(period_ganji[1])])
         except ValueError:
-            pass
+            stem_el = branch_el = ""
+        if stem_el and branch_el:
+            _m, nuance_note, _cat = _ganji_result_nuance(
+                stem_el, branch_el, fav_map.get(stem_el, ""), fav_map
+            )
+            caution = nuance_note
     # 검토월 판정(G3 — 계사월 케이스 일반화): 불안정 신호(중복 충·공망·대운 공망)가
     # 동반되면 이동·변동 신호가 강해도 계약 유지력이 낮다 — 실행이 아니라 검토의 시기.
     unstable = any(
@@ -673,10 +721,13 @@ def build_monthly_overview(
         if fav_map.get(branch_el):
             parts.append(f"{gj[1]}{branch_el} {fav_map[branch_el]}")
         roles = "·".join(parts)
-        # 천간 흉신은 행에 경고를 직접 부착 — 각주만으론 우호 신호(지지 희신)에 묻혀
-        # 무시되는 사례 방지(2026-06-12: 1위 달을 '계약 기회'로 둔갑 서술).
-        if fav_map.get(stem_el) in ("기신", "구신"):
-            roles += " ⚠계약·결실 불리"
+        # 천간 역할 × 지지 생극(통관/누설)을 본 결실 유불리 마커 — 행에 직접 부착(각주만으론
+        # 묻힘). 흉천간 통관이면 순화(↗), 길천간 누설이면 과낙관 경계(⚠)로 대칭 표시.
+        marker, _note, _cat = _ganji_result_nuance(
+            stem_el, branch_el, fav_map.get(stem_el, ""), fav_map
+        )
+        if marker:
+            roles += f" {marker}"
         return roles
 
     def _transition_for(period: str) -> str:
@@ -1051,7 +1102,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(
             "(표 읽는 법: 사건명은 그 달 발생 가능성 순 — '>' 앞이 우세. [간지 역할]은 "
             "유불리 — 천간이 구신·기신인 달은 사건이 발생해도 계약·결실·실속에 불리할 수 "
-            "있으니 '좋은 달'로 단정하지 말 것(발생 강도와 유불리를 구분)."
+            "있으니 '좋은 달'로 단정하지 말 것(발생 강도와 유불리를 구분). 단 마커가 "
+            "'↗통관 순화'면 흉천간이 지지 용·희신을 생해 순화된 것(검토월 아님, 과낙관만 경계), "
+            "'⚠천간 길신 누설'이면 길천간이 지지로 누설·피극돼 실속이 약화된 것(좋은 달 단정 금지)."
             + (
                 " 표현 강도가 같아 보여도 '기간 내 강도 N위'가 실제 상대 순위 — "
                 "가장 유력한 달은 1위부터 지목하되 유불리를 함께 밝힐 것."
@@ -1111,10 +1164,21 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 if mr.transition:
                     bits.append(mr.transition)
                 line = f"{mr.strength_rank}위 {mr.period} {mr.ganji}: " + " · ".join(bits)
-                if "⚠" in (mr.luck_roles or ""):
+                roles_txt = mr.luck_roles or ""
+                if "계약·결실 불리" in roles_txt:
                     line += (
                         " — 발생 신호는 강하나 결실·실속이 불리한 '검토월' 성격"
                         "(이 달을 우호적으로만 서술 금지)"
+                    )
+                elif "통관 순화" in roles_txt:
+                    line += (
+                        " — 천간이 흉신이나 지지 용·희신을 생하는 통관(관인상생)으로 순화 — "
+                        "우호적이나 천간 흉신이라 과한 낙관은 금물"
+                    )
+                elif "누설" in roles_txt:
+                    line += (
+                        " — 천간은 길신이나 지지로 누설·피극되어 실속이 약화 — "
+                        "'좋은 달'로 단정하지 말 것"
                     )
                 lines.append(line)
     if payload.period_fortune is not None:
