@@ -341,14 +341,18 @@ class _ReportData:
         by_label = {p.label: p.ganji for p in [*lc.yearly_luck, *lc.monthly_luck]}
         cand_years = {int(c.period[:4]) for c in self.candidates if c.period[:4].isdigit()}
         stems: set[str] = set()
+        branches: set[str] = set()
         for c in self.candidates:
             ganji = by_label.get(c.period) or by_label.get(c.period[:4])
-            if ganji:
+            if ganji and len(ganji) >= 2:
                 stems.add(ganji[0])
-        for d in lc.daewoon_table:  # 후보 연도를 커버하는 대운 천간
+                branches.add(ganji[1])
+        for d in lc.daewoon_table:  # 후보 연도를 커버하는 대운 간지
             if any(d.approx_start_date.year <= y <= d.approx_end_date.year for y in cand_years):
-                stems.add(d.ganji[0])
-        return luck_hap_mode_lines(self.result, sorted(stems))
+                if len(d.ganji) >= 2:
+                    stems.add(d.ganji[0])
+                    branches.add(d.ganji[1])
+        return luck_hap_mode_lines(self.result, sorted(stems), sorted(branches))
 
     def luck_block(self) -> list[str]:
         """[대운표]+[이벤트 후보 Top] — 운 관련 섹션의 데이터 블록."""

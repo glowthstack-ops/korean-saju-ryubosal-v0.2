@@ -83,3 +83,28 @@ def test_luck_lines_distinguish_day_master_from_peer() -> None:
     lines = luck_hap_mode_lines(calculate(birth), ["甲"])
     assert any("본신지합" in line for line in lines)       # 일간 己
     assert any("합거" in line for line in lines)           # 시간 비견 己
+
+
+def test_format_branch_six_with_co() -> None:
+    from saju_manse_analysis.relations.hap_modes import BranchHapResolution
+
+    from saju_engines.hap_lines import _format_branch
+    r = BranchHapResolution(
+        kind="six", members=("申", "巳"), positions=("year", "hour"),
+        transform_element="水", role="기신", transform_tier="none", hap_mode="bind",
+        co_relations=["파:申巳", "형:申巳"],
+    )
+    out = _format_branch(r)
+    assert "申巳合" in out and "합반" in out and "동시 파:申巳·형:申巳" in out
+
+
+def test_format_branch_three_harmony() -> None:
+    from saju_manse_analysis.relations.hap_modes import BranchHapResolution
+
+    from saju_engines.hap_lines import _format_branch
+    r = BranchHapResolution(
+        kind="three_harmony", members=("申", "子", "辰"),
+        positions=("year", "month", "day"), transform_element="水", role="용신",
+        transform_tier="confirmed", hap_mode="transform",
+    )
+    assert "申子辰 삼합 水국(용신) 성립" in _format_branch(r)

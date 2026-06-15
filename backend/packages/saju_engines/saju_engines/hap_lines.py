@@ -9,7 +9,12 @@ manse_analysis의 `resolve_stem_hap`(판정)을 호출해, 합화/합반/합거/
 
 from __future__ import annotations
 
-from saju_manse_analysis.relations.hap_modes import StemHapResolution, resolve_stem_hap
+from saju_manse_analysis.relations.hap_modes import (
+    BranchHapResolution,
+    StemHapResolution,
+    resolve_branch_hap,
+    resolve_stem_hap,
+)
 
 from saju_shared_types.constants import STEM_INDEX
 from saju_shared_types.enums import Stem
@@ -64,22 +69,65 @@ def _format(r: StemHapResolution, fav: dict[str, str]) -> str:
     return f"{prefix}{pair} → {body}{tail}"
 
 
+def _format_branch(r: BranchHapResolution) -> str:
+    """BranchHapResolution(육합/삼합/방합) → 한 줄."""
+    prefix = "운 " if r.luck_origin else ""
+    mem = "".join(r.members)
+    tier = _TIER_KO.get(r.transform_tier, "")
+    if r.kind == "six":
+        if r.hap_mode == "transform":
+            body = f"{mem}合 → 합화 {r.transform_element}({r.role}) · 化 {tier}"
+        else:
+            body = f"{mem}合 → 합반(化 불성·묶임) · 化 {tier}"
+    elif r.kind in ("three_harmony", "half"):
+        kname = "삼합" if r.kind == "three_harmony" else "반합"
+        royal = "(왕지)" if r.kind == "half" and r.royal_included else ""
+        suffix = " 성립" if r.kind == "three_harmony" else ""
+        body = f"{mem} {kname}{royal} {r.transform_element}국({r.role}){suffix} · {tier}"
+    else:  # directional
+        comp = "방합" if len(r.members) == 3 else "방합(부분)"
+        body = f"{mem} {comp} {r.transform_element}({r.role}) 강화"
+    if r.co_relations:
+        body += " · 동시 " + "·".join(r.co_relations)
+    return f"{prefix}{body}"
+
+
 def natal_hap_mode_lines(result: ManseV2Result) -> list[str]:
-    """원국 천간합의 작용 모드 줄(운 무관 — 캐시 고정 prefix용)."""
+    """원국 천간합·지지합의 작용 모드 줄(운 무관 — 캐시 고정 prefix용)."""
     if result.pillars is None:
         return []
     fav = favorability_map(result)
+    p = result.pillars
     # 쟁합(동일 글자 다자)으로 같은 줄이 중복될 수 있어 순서 보존 dedup.
-    return list(dict.fromkeys(_format(r, fav) for r in resolve_stem_hap(result.pillars, fav)))
+    lines = [_format(r, fav) for r in resolve_stem_hap(p, fav)]
+    lines += [_format_branch(r) for r in resolve_branch_hap(p, fav) if not r.luck_origin]
+    return list(dict.fromkeys(lines))
 
 
-def luck_hap_mode_lines(result: ManseV2Result, luck_stems: list[str]) -> list[str]:
-    """운(運) 천간이 원국과 맺는 천간합의 작용 모드 줄(기간 grounding용).
+def luck_hap_mode_lines(
+    result: ManseV2Result,
+    luck_stems: list[str] | None = None,
+    luck_branches: list[str] | None = None,
+) -> list[str]:
+    """운(運) 천간·지지가 원국과 맺는 합의 작용 모드 줄(기간 grounding용).
 
     원국 합은 natal_hap_mode_lines에서 다루므로, 운 관여(luck_origin) 합만 반환한다.
     """
-    if result.pillars is None or not luck_stems:
+    if result.pillars is None:
         return []
     fav = favorability_map(result)
-    res = resolve_stem_hap(result.pillars, fav, luck_stems=luck_stems)
-    return list(dict.fromkeys(_format(r, fav) for r in res if r.luck_origin))
+    p = result.pillars
+    lines: list[str] = []
+    if luck_stems:
+        lines += [
+            _format(r, fav)
+            for r in resolve_stem_hap(p, fav, luck_stems=luck_stems)
+            if r.luck_origin
+        ]
+    if luck_branches:
+        lines += [
+            _format_branch(r)
+            for r in resolve_branch_hap(p, fav, luck_branches=luck_branches)
+            if r.luck_origin
+        ]
+    return list(dict.fromkeys(lines))

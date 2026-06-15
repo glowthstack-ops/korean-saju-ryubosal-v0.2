@@ -21,9 +21,17 @@ from dataclasses import dataclass, field
 from itertools import combinations
 
 from saju_shared_types.constants import (
+    BRANCH_BREAKS,
+    BRANCH_CLASHES,
+    BRANCH_HARMS,
     CONTROLS,
+    DIRECTIONAL_COMBINATIONS,
+    PUNISHMENT_MUTUAL,
+    PUNISHMENT_TRIPLES,
+    SIX_COMBINATIONS,
     STEM_COMBINATIONS,
     STEM_ELEMENT,
+    THREE_HARMONY,
     season_state,
     ten_god,
 )
@@ -257,5 +265,149 @@ def resolve_stem_hap(
             strength=round(strength, 4),
             affected=affected,
             notes=notes,
+        ))
+    return out
+
+
+# ─── 지지합(六合·三合·方合) Phase 3 ──────────────────────────────
+
+
+@dataclass
+class BranchHapResolution:
+    """지지합 1건의 작용 모드 판정 결과(육합/삼합/방합/반합)."""
+
+    kind: str                      # 'six' | 'three_harmony' | 'half' | 'directional'
+    members: tuple[str, ...]       # 지지(한자)
+    positions: tuple[str, ...]     # 자리(year/month/day/hour/luck)
+    transform_element: str | None  # 化神/局 오행(한자)
+    role: str                      # 化神/局 favorability 역할
+    transform_tier: str            # 'confirmed' | 'conditional' | 'none'
+    hap_mode: str                  # 'transform'|'bind'|'strengthen'|'partial'
+    luck_origin: bool = False
+    co_relations: list[str] = field(default_factory=list)  # 동시 충/형/파/해
+    royal_included: bool = False   # 삼합 반합 왕지(子午卯酉) 포함
+    strength: float = 1.0          # 합력(0~1) — CALIBRATE
+    notes: list[str] = field(default_factory=list)
+
+
+def _co_relations(members: list[Branch]) -> list[str]:
+    """결합 지지들 사이에 동시 성립하는 충/형/파/해(HAP_INTERACTION_SPEC §D-2)."""
+    uniq = list(dict.fromkeys(members))
+    out: list[str] = []
+    for a, b in combinations(uniq, 2):
+        pair = frozenset({a, b})
+        if pair in BRANCH_CLASHES:
+            out.append(f"충:{a.value}{b.value}")
+        if pair in BRANCH_BREAKS:
+            out.append(f"파:{a.value}{b.value}")
+        if pair in BRANCH_HARMS:
+            out.append(f"해:{a.value}{b.value}")
+        if pair in PUNISHMENT_MUTUAL:
+            out.append(f"형:{a.value}{b.value}")
+    for trip in PUNISHMENT_TRIPLES:  # 삼형 부분 성립(2자 이상 동석)
+        present = [m for m in uniq if m in trip]
+        if len(present) >= 2:
+            out.append("형:" + "".join(m.value for m in present))
+    return list(dict.fromkeys(out))
+
+
+def _branch_tier(target_element_value: str, month_branch: Branch,
+                 *, disturbed: bool, partial: bool) -> tuple[str, float]:
+    """化神/局 오행의 월령·방해·완전성으로 化 등급과 합력 산정(지지합은 보수적)."""
+    from saju_shared_types.enums import Element
+    season = season_state(Element(target_element_value), month_branch)
+    if season in ("wang", "xiang") and not disturbed and not partial:
+        return "confirmed", 1.0
+    if season in ("qiu", "si") or disturbed:
+        return "none", 0.4 if partial else 0.6
+    return "conditional", 0.6 if partial else 0.8
+
+
+def resolve_branch_hap(
+    pillars: FourPillarsResult,
+    favorability: dict[str, str],
+    *,
+    luck_branches: list[str] | None = None,
+) -> list[BranchHapResolution]:
+    """지지합(육합/삼합/방합/반합)의 작용 모드를 판정한다(원국 + 선택적 운 지지).
+
+    육합: 化神 월령으로 합화/합반(지지는 보수적 — 묶임 경향). 삼합/방합: 완전 局(3자) vs
+    반합(2자·왕지). 결합 지지 사이의 동시 충/형/파/해를 co_relations로 표기(§D-2).
+    """
+    if pillars.month is None:
+        return []
+    month_branch = Branch(pillars.month.branch)
+    natal = [(pos, Branch(getattr(pillars, pos).branch))
+             for pos in _ORDER if getattr(pillars, pos, None) is not None]
+    luck = [("luck", Branch(b)) for b in (luck_branches or [])]
+    all_pos = natal + luck
+
+    out: list[BranchHapResolution] = []
+
+    def _role(el: str) -> str:
+        return favorability.get(el, "역할 미상")
+
+    # ── 육합 ────────────────────────────────────────────────────
+    for (pa, ba), (pb, bb) in combinations(all_pos, 2):
+        if ba == bb:
+            continue
+        target = SIX_COMBINATIONS.get(frozenset({ba, bb}))
+        if target is None:
+            continue
+        co = _co_relations([ba, bb])
+        tier, strength = _branch_tier(
+            target.value, month_branch, disturbed=bool(co), partial=False)
+        out.append(BranchHapResolution(
+            kind="six", members=(ba.value, bb.value), positions=(pa, pb),
+            transform_element=target.value, role=_role(target.value),
+            transform_tier=tier,
+            hap_mode="transform" if tier == "confirmed" else "bind",
+            luck_origin="luck" in (pa, pb), co_relations=co,
+            strength=round(strength, 4),
+        ))
+
+    # ── 삼합 / 반합 ─────────────────────────────────────────────
+    for members, element, royal in THREE_HARMONY:
+        present = [(pos, b) for pos, b in all_pos if b in members]
+        kinds = {b for _, b in present}
+        if len(kinds) < 2:
+            continue
+        full = len(kinds) == 3
+        if not full and royal not in kinds:
+            continue  # 반합은 왕지 포함만(다수설)
+        co = _co_relations([b for _, b in present])
+        tier, strength = _branch_tier(
+            element.value, month_branch, disturbed=bool(co), partial=not full)
+        out.append(BranchHapResolution(
+            kind="three_harmony" if full else "half",
+            members=tuple(dict.fromkeys(b.value for _, b in present)),
+            positions=tuple(pos for pos, _ in present),
+            transform_element=element.value, role=_role(element.value),
+            transform_tier=tier,
+            hap_mode="transform" if full else "partial",
+            luck_origin=any(pos == "luck" for pos, _ in present),
+            co_relations=co, royal_included=royal in kinds,
+            strength=round(strength if full else strength * 0.7, 4),
+        ))
+
+    # ── 방합 ────────────────────────────────────────────────────
+    for members, element in DIRECTIONAL_COMBINATIONS:
+        present = [(pos, b) for pos, b in all_pos if b in members]
+        kinds = {b for _, b in present}
+        if len(kinds) < 2:
+            continue
+        full = len(kinds) == 3
+        co = _co_relations([b for _, b in present])
+        out.append(BranchHapResolution(
+            kind="directional",
+            members=tuple(dict.fromkeys(b.value for _, b in present)),
+            positions=tuple(pos for pos, _ in present),
+            transform_element=element.value, role=_role(element.value),
+            transform_tier="confirmed" if full else "conditional",
+            hap_mode="strengthen" if full else "partial",
+            luck_origin=any(pos == "luck" for pos, _ in present),
+            co_relations=co,
+            strength=round(1.0 if full else 0.6, 4),
+            notes=["방합 — 기존 오행 강화(변화 아님)"],
         ))
     return out

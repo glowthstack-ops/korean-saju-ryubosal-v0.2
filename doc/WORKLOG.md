@@ -3123,3 +3123,13 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   retrieve 모드 연결도 보류(hap_lines가 이미 엔진 판정 모드를 LLM에 전달 → 사실상 해소).
 - 검증: test_report_hap_lines 3건 + 전체 685 pass · ruff/mypy clean. dry-run으로 career 섹션에
   운 합 블록(합화 확정·합반·합거·본신지합·쟁합) 등장 확인.
+
+### 합 작용 모드 — Phase 3 지지합(육합·삼합·방합) (2026-06-15)
+
+- **신규**: `hap_modes.resolve_branch_hap` — 육합(化神 월령으로 합화/합반, 지지는 보수적 묶임
+  경향)·삼합(완전국/반합 왕지 포함만)·방합(완전 강화/부분) 판정 + 결합 지지 사이 동시 충/형/파/해
+  (`co_relations`, §D-2). `hap_lines._format_branch`로 직렬화해 원국·운 모드 줄에 합류.
+- **배선**: natal/luck 모드 줄에 지지합 추가 — build_luck_grounding(운 지지)·report luck_hap_lines(운
+  세운·월운·대운 지지)까지 천간+지지 동시 주입.
+- 검증: 申巳合 → 합반 + 동시 파·형(§D-2 케이스), 申子辰 삼합 水국, 방합 부분 등 dry-run 확인.
+  test_hap_modes/test_hap_lines 지지합 5건 추가 + 전체 690 pass · ruff/mypy clean.

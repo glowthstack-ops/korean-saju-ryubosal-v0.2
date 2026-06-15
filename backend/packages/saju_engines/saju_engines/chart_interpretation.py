@@ -200,8 +200,13 @@ def build_luck_grounding(result: ManseV2Result, luck_pillar: object) -> dict:
 
     # 운(運) 천간이 원국과 맺는 천간합의 작용 모드(합화/합반/합거)+신뢰도 — 엔진 판정.
     from .hap_lines import luck_hap_mode_lines  # 지역 import — 순환 의존 회피
-    luck_stem = ganji[0] if ganji else ""
-    rel_lines.extend(luck_hap_mode_lines(result, [luck_stem] if luck_stem else []))
+    luck_stem = ganji[0] if len(ganji) >= 1 else ""
+    luck_branch = ganji[1] if len(ganji) >= 2 else ""
+    rel_lines.extend(luck_hap_mode_lines(
+        result,
+        [luck_stem] if luck_stem else None,
+        [luck_branch] if luck_branch else None,
+    ))
 
     # 운 신살은 들어온 운 레벨이 곧 시기·작용력 — 대운=장기 배경, 세운=올해, 월/일=단기.
     level_ko = _LUCK_LEVEL_KO.get(getattr(luck_pillar, "period_type", ""), "운")

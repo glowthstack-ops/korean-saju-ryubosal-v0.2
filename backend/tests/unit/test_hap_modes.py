@@ -118,3 +118,37 @@ def test_real_example_chart() -> None:
     hap = next(r2 for r2 in res if set(r2.pair) == {"甲", "己"})
     assert hap.hap_mode == "combine_self"  # 일간 정관합 = 본신지합(합거 아님)
     assert any(a.stem == "甲" and a.ten_god == "정관" for a in hap.affected)
+
+
+# ─── 지지합 Phase 3 ───────────────────────────────────────────
+
+
+def test_branch_six_with_co_relations() -> None:
+    """申·巳 육합(化水) + 동시 파·형(寅巳申·申巳)."""
+    from saju_manse_analysis.relations.hap_modes import resolve_branch_hap
+    p = _pillars("庚申", "丁亥", "丙子", "癸巳", dm="丙")
+    res = resolve_branch_hap(p, favorability={"水": "기신"})
+    six = next(r for r in res if r.kind == "six" and set(r.members) == {"申", "巳"})
+    assert any("파" in c for c in six.co_relations)
+    assert any("형" in c for c in six.co_relations)
+
+
+def test_branch_three_harmony_full() -> None:
+    """申子辰 삼합 水국(왕지 子) 완전 성립."""
+    from saju_manse_analysis.relations.hap_modes import resolve_branch_hap
+    p = _pillars("庚申", "丙子", "壬辰", "丙午", dm="壬")
+    res = resolve_branch_hap(p, favorability={"水": "용신"})
+    th = next(r for r in res if r.kind == "three_harmony")
+    assert th.transform_element == "水" and set(th.members) == {"申", "子", "辰"}
+
+
+def test_branch_half_requires_royal() -> None:
+    """申辰(왕지 子 없음)만으로는 삼합 반합 미성립(다수설)."""
+    from saju_manse_analysis.relations.hap_modes import resolve_branch_hap
+    p = _pillars("庚申", "丙寅", "壬辰", "丙午", dm="壬")
+    res = resolve_branch_hap(p, favorability={})
+    assert not any(
+        r.kind in ("three_harmony", "half") and "子" not in r.members
+        and set(r.members) <= {"申", "辰"}
+        for r in res
+    )
