@@ -198,6 +198,11 @@ def build_luck_grounding(result: ManseV2Result, luck_pillar: object) -> dict:
         if len(rel_lines) >= 5:
             break
 
+    # 운(運) 천간이 원국과 맺는 천간합의 작용 모드(합화/합반/합거)+신뢰도 — 엔진 판정.
+    from .hap_lines import luck_hap_mode_lines  # 지역 import — 순환 의존 회피
+    luck_stem = ganji[0] if ganji else ""
+    rel_lines.extend(luck_hap_mode_lines(result, [luck_stem] if luck_stem else []))
+
     # 운 신살은 들어온 운 레벨이 곧 시기·작용력 — 대운=장기 배경, 세운=올해, 월/일=단기.
     level_ko = _LUCK_LEVEL_KO.get(getattr(luck_pillar, "period_type", ""), "운")
     sinsal_lines: list[str] = []
@@ -265,6 +270,7 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
     """
     if result.pillars is None:
         return None
+    from .hap_lines import natal_hap_mode_lines  # 지역 import — 순환 의존 회피
     pillars = result.pillars
     by_pillar_sinsal: dict[str, list[str]] = {}
     if result.traditional_extras is not None and result.traditional_extras.sinsal is not None:
@@ -298,6 +304,7 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
     return ChartInterpretation(
         pillar_details=details,
         natal_relations=natal_relations,
+        hap_modes=natal_hap_mode_lines(result),
         ilju_text=_serialize_ilju(ilju_entry) if ilju_entry else "",
         excerpts=excerpts,
     )

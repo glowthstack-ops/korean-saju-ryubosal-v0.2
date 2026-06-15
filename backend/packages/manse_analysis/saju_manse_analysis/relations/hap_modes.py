@@ -205,7 +205,8 @@ def resolve_stem_hap(
             tier = "conditional"
 
         # ── 모드 분기(§C) ───────────────────────────────────────
-        involves_dm = day_master in (sa, sb)
+        # 본신지합은 '일주(日) 자리' 천간일 때만 — 같은 글자라도 다른 자리(비견 등)는 합거/합반.
+        involves_dm = "day" in (pa, pb)
         direction: str | None = None
         affected: list[AffectedGod] = []
 
@@ -216,7 +217,7 @@ def resolve_stem_hap(
         elif involves_dm:
             # 일간 본신지합 — 합거·기반 아님(정책). 일간 아닌 쪽이 십성.
             hap_mode = "combine_self"
-            other = sb if sa == day_master else sa
+            other = sb if pa == "day" else sa
             affected = [_affected(other, day_master, favorability, effect="neutral")]
             notes.append("일간 본신지합 — 합거·기반 아님(십성 그대로 사용)")
             if tier == "confirmed":

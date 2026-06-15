@@ -3095,3 +3095,19 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
 - **범위 밖(Phase 2)**: context_reducer/LLM 계약·그래프 retrieve·점수 엔진 배선.
 - 검증: test_hap_modes 6건(합화 confirmed·합반/합거·본신지합·쟁투·간격극·실제 예제) +
   전체 606 pass · ruff/mypy clean.
+
+### 합 작용 모드 — Phase 2a LLM 입력 배선 (2026-06-15)
+
+- **목표**: Phase 1 판정(resolve_stem_hap)을 LLM 입력에 연결 — 대화·총운·**테마사주** 전부.
+- **신규** `saju_engines/hap_lines.py`: `natal_hap_mode_lines`(원국)·`luck_hap_mode_lines`(운) —
+  합화/합반/합거/본신지합/쟁투를 모드+영향+신뢰도(확정/조건부/불성) 한 줄로 직렬화. 단정 금지.
+- **배선**: ① `ChartInterpretation.hap_modes` 필드 신설, `build_chart_interpretation`이 원국 합 채움 →
+  `serialize_chart_prefix`(대화·리포트·테마 **공용** 고정 prefix)가 "합 작용(원국)" 렌더 →
+  3경로 동시 커버. ② `build_luck_grounding`(총운)에 운 천간합 모드 줄 추가.
+- **버그 수정(hap_modes)**: 본신지합 판정을 **일주(日) 자리** 기준으로(StrEnum 싱글톤이라 같은
+  글자 비견을 일간으로 오판하던 것 수정). 己亥+시간 비견 己+운 甲 → 일간 본신지합 + 시간 비견
+  합거(쟁합)로 정밀 분류. 표기 순서 천간 표준순 정규화 + dedup.
+- **범위 밖(Phase 2b)**: 점수 엔진 반영(합거 기신=+/희신=−·합반 감산), 그래프 retrieve, 리포트
+  per-기간 운 합.
+- 검증: test_hap_lines 6건 + test_hap_modes 6건 + 전체 618 pass · ruff/mypy clean. dry-run 확인(원국
+  prefix·총운 운 합 등장).

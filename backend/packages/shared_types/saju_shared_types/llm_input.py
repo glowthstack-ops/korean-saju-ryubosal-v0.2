@@ -68,6 +68,8 @@ class ChartInterpretation(BaseModel):
 
     pillar_details: list[PillarDetail] = Field(default_factory=list)
     natal_relations: list[str] = Field(default_factory=list)  # 원국 내 합충·병존·간여지동
+    # 원국 천간합의 작용 모드(합화/합반/합거/본신지합)+신뢰도 — 엔진 판정(HAP_INTERACTION_SPEC).
+    hap_modes: list[str] = Field(default_factory=list)
     ilju_text: str = ""  # interpretations/ilju.json 해당 엔트리 직렬화
     excerpts: list[InterpretationExcerpt] = Field(default_factory=list)
 

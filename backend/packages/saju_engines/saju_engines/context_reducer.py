@@ -893,6 +893,10 @@ def serialize_chart_prefix(
             lines.append(line)
         if ci.natal_relations:
             lines.append("원국 관계: " + " / ".join(ci.natal_relations))
+        if ci.hap_modes:
+            # 합 작용 모드·신뢰도는 엔진 판정 — 단정 말고 신뢰도(확정/조건부/불성)대로 서술하고,
+            # 합거된 십성은 그 기간 기능이 약화/전환됨을 반영(HAP_INTERACTION_SPEC).
+            lines.append("합 작용(원국): " + " / ".join(ci.hap_modes))
         if ci.ilju_text or ci.excerpts:
             lines += ["", "[명식 해석 자료 — 의미 서술의 근거(점수·판정 변경 금지)]"]
             if ci.ilju_text:
