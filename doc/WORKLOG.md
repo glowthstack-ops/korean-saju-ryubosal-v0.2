@@ -3080,3 +3080,18 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
 - **검증**: 未월(8/1)→주의/기회 모두 7/7~8/6 범위·午월 7/1~6 배제 / 午월(7/3)→7/1 포함·6/6~7/6
   범위 / 申월(다음 달)→8/8~ 8/7 이후만. 신규 test_period_fortune_solar_month 2건 포함 전체
   600 pass · ruff/mypy clean. 백엔드 재기동.
+
+### 합(合) 작용 모드 — Phase 1 천간합 판정 모듈 (2026-06-15)
+
+- **배경**: Graph RAG가 합의 종류(합화/합거/합반/합래/쟁투)를 반영 못함 → 2회 딥리서치로
+  HAP_INTERACTION_SPEC 규격 작성 후 엔진 판정 모듈 1차 구현. 정책: 化 3단계 확률화·일간
+  합거×기반×·다수설 우선(2026-06-15 사용자 확정).
+- **신규(어댑터, manse_core 무수정)**: `manse_analysis/relations/hap_modes.py` —
+  `resolve_stem_hap(pillars, favorability, luck_stems=…)` 순수 함수.
+  - B 게이트: 간격극(사이 극천간)=차단 / 隔位(비인접)=약화 / 쟁합·투합(제3 천간 경합, 위치 기준).
+  - C-1 化 3단계: 化神 season_state(월령)+통근+방해 → confirmed/conditional/none.
+  - 모드: 합화(transform)/합반·합거(bind+affected 길흉)/일간 본신지합(combine_self)/blocked.
+  - 용기신 길흉: 기·구신 묶임=boon, 용·희신 묶임=harm. 보수 가중치 `HAP_WEIGHTS`(# CALIBRATE).
+- **범위 밖(Phase 2)**: context_reducer/LLM 계약·그래프 retrieve·점수 엔진 배선.
+- 검증: test_hap_modes 6건(합화 confirmed·합반/합거·본신지합·쟁투·간격극·실제 예제) +
+  전체 606 pass · ruff/mypy clean.
