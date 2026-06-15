@@ -46,9 +46,13 @@ def _format(r: StemHapResolution, fav: dict[str, str]) -> str:
     if r.blocked:
         body = f"불성립({r.block_reason})"
     elif r.hap_mode == "combine_self":
-        body = "본신지합(합거 아님)"
-        if r.affected:
-            body += f" · {_affected_txt(r.affected[0])} 유지"
+        if r.chart_transform:
+            el = r.transform_element or ""
+            body = f"본신지합 → 化氣格 후보(일간이 化神 {el}({fav.get(el, '역할 미상')})으로 化)"
+        else:
+            body = "본신지합(합거 아님)"
+            if r.affected:
+                body += f" · {_affected_txt(r.affected[0])} 유지"
     elif r.hap_mode == "transform":
         el = r.transform_element or ""
         body = f"합화 {el}({fav.get(el, '역할 미상')})"
@@ -78,7 +82,11 @@ def _format_branch(r: BranchHapResolution) -> str:
         if r.hap_mode == "transform":
             body = f"{mem}合 → 합화 {r.transform_element}({r.role}) · 化 {tier}"
         else:
-            body = f"{mem}合 → 합반(化 불성·묶임) · 化 {tier}"
+            eff = " · ".join(_affected_txt(a) for a in r.affected)
+            body = f"{mem}合 → 합반(化 불성·묶임)" + (f" · {eff}" if eff else "")
+            if r.direction == "away":
+                body += " · 합거"
+            body += f" · 化 {tier}"
     elif r.kind in ("three_harmony", "half"):
         kname = "삼합" if r.kind == "three_harmony" else "반합"
         royal = "(왕지)" if r.kind == "half" and r.royal_included else ""

@@ -32,6 +32,7 @@ from saju_shared_types.constants import (
     STEM_COMBINATIONS,
     STEM_ELEMENT,
     THREE_HARMONY,
+    main_hidden_stem,
     season_state,
     ten_god,
 )
@@ -79,6 +80,7 @@ class StemHapResolution:
     block_reason: str | None = None  # '간격극' | None
     weakened: bool = False           # 隔位(비인접) 약화
     contend: bool = False            # 쟁합·투합
+    chart_transform: bool = False    # 일간 화기격(化氣格) 후보 — 일간이 化神으로 化
     strength: float = 1.0            # 합력(약화 반영, 0~1) — CALIBRATE
     affected: list[AffectedGod] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
@@ -216,6 +218,7 @@ def resolve_stem_hap(
         # 본신지합은 '일주(日) 자리' 천간일 때만 — 같은 글자라도 다른 자리(비견 등)는 합거/합반.
         involves_dm = "day" in (pa, pb)
         direction: str | None = None
+        chart_transform = False
         affected: list[AffectedGod] = []
 
         if blocked:
@@ -229,7 +232,14 @@ def resolve_stem_hap(
             affected = [_affected(other, day_master, favorability, effect="neutral")]
             notes.append("일간 본신지합 — 합거·기반 아님(십성 그대로 사용)")
             if tier == "confirmed":
-                notes.append("일간 합화 가능성(化氣格은 별도 과제)")
+                # 化氣格 후보: 化神 통근 + 일간 무근이면 진화(眞化), 일간 유근이면 가화(假化).
+                dm_rooted = _rooted(STEM_ELEMENT[day_master].value, pillars)
+                chart_transform = _rooted(target.value, pillars)
+                if chart_transform:
+                    notes.append(
+                        f"化氣格 후보 — 일간 {day_master.value}이 化神 {target.value}으로 化"
+                        + ("(가화: 일간 유근)" if dm_rooted else "(진화: 일간 무근)")
+                    )
         elif tier == "confirmed":
             hap_mode = "transform"
             role = favorability.get(target.value, "역할 미상")
@@ -262,6 +272,7 @@ def resolve_stem_hap(
             block_reason=block_reason,
             weakened=weakened,
             contend=contend,
+            chart_transform=chart_transform,
             strength=round(strength, 4),
             affected=affected,
             notes=notes,
@@ -284,8 +295,11 @@ class BranchHapResolution:
     transform_tier: str            # 'confirmed' | 'conditional' | 'none'
     hap_mode: str                  # 'transform'|'bind'|'strengthen'|'partial'
     luck_origin: bool = False
+    direction: str | None = None   # 'away'(합거) | None — 운이 원국 지지를 합거
     co_relations: list[str] = field(default_factory=list)  # 동시 충/형/파/해
     royal_included: bool = False   # 삼합 반합 왕지(子午卯酉) 포함
+    # 육합 합반/합거로 묶인 지지의 정기(正氣) 십성 길흉(지장간 본기 기준).
+    affected: list[AffectedGod] = field(default_factory=list)
     strength: float = 1.0          # 합력(0~1) — CALIBRATE
     notes: list[str] = field(default_factory=list)
 
@@ -336,6 +350,7 @@ def resolve_branch_hap(
     """
     if pillars.month is None:
         return []
+    day_master = Stem(pillars.day_master)
     month_branch = Branch(pillars.month.branch)
     natal = [(pos, Branch(getattr(pillars, pos).branch))
              for pos in _ORDER if getattr(pillars, pos, None) is not None]
@@ -357,13 +372,23 @@ def resolve_branch_hap(
         co = _co_relations([ba, bb])
         tier, strength = _branch_tier(
             target.value, month_branch, disturbed=bool(co), partial=False)
+        luck_origin = "luck" in (pa, pb)
+        affected: list[AffectedGod] = []
+        direction: str | None = None
+        if tier != "confirmed":  # 합반/합거 — 묶인 지지 정기 십성 길흉
+            affected = [
+                _affected(main_hidden_stem(ba), day_master, favorability),
+                _affected(main_hidden_stem(bb), day_master, favorability),
+            ]
+            if luck_origin:
+                direction = "away"  # 운 지지가 원국 지지를 합거(묶음)
         out.append(BranchHapResolution(
             kind="six", members=(ba.value, bb.value), positions=(pa, pb),
             transform_element=target.value, role=_role(target.value),
             transform_tier=tier,
             hap_mode="transform" if tier == "confirmed" else "bind",
-            luck_origin="luck" in (pa, pb), co_relations=co,
-            strength=round(strength, 4),
+            luck_origin=luck_origin, direction=direction, co_relations=co,
+            affected=affected, strength=round(strength, 4),
         ))
 
     # ── 삼합 / 반합 ─────────────────────────────────────────────

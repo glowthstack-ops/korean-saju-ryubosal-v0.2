@@ -152,3 +152,22 @@ def test_branch_half_requires_royal() -> None:
         and set(r.members) <= {"申", "辰"}
         for r in res
     )
+
+
+def test_chart_transform_hwagigyeok() -> None:
+    """일간 합 + 化神 통근 + 일간 무근 → 화기격 후보(진화)."""
+    p = _pillars("丙午", "戊午", "癸巳", "丙午", dm="癸")  # 戊癸合化火, 午월 火왕, 일간 水 무근
+    hap = next(r for r in resolve_stem_hap(p, favorability={"火": "기신"})
+               if set(r.pair) == {"戊", "癸"})
+    assert hap.hap_mode == "combine_self" and hap.chart_transform is True
+    assert any("진화" in n for n in hap.notes)
+
+
+def test_branch_six_bind_affected_jeonggi() -> None:
+    """육합 합반/합거 시 묶인 지지의 정기(正氣) 십성이 affected로 산출."""
+    from saju_manse_analysis.relations.hap_modes import resolve_branch_hap
+    p = _pillars("庚申", "甲午", "丙子", "癸巳", dm="丙")  # 申巳 육합化水, 午월→水 미성립
+    six = next(r for r in resolve_branch_hap(p, favorability={})
+               if r.kind == "six" and set(r.members) == {"申", "巳"})
+    assert six.hap_mode == "bind"
+    assert {a.stem for a in six.affected} == {"庚", "丙"}  # 申 정기 庚 · 巳 정기 丙
