@@ -265,7 +265,8 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="space-y-4">
+    // pb-24: 하단 고정 입력바에 가려지지 않도록 본문 끝에 여백 확보.
+    <div className="space-y-4 pb-24">
       <section className="rounded-lg bg-white p-4 shadow-sm">
         <div className="flex items-start justify-between gap-2">
           <h1 className="text-xl font-bold">AI채팅상담</h1>
@@ -489,27 +490,31 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </section>
 
+      {/* 질문 입력란 — 브라우저 하단 고정(본문은 위 pb-24로 가림 방지). 내부 래퍼로
+          본문과 동일한 max-w-4xl 폭에 정렬하고, iOS 안전영역(노치)을 보정한다. */}
       <form
-        className="flex gap-2"
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur"
         onSubmit={(e) => {
           e.preventDefault();
           void send(input);
         }}
       >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="질문을 입력하세요 (예: 올해 이직운 어때?)"
-          className="flex-1 rounded-lg border px-4 py-2 text-sm"
-          disabled={busy}
-        />
-        <button
-          type="submit"
-          disabled={busy || !input.trim()}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white disabled:opacity-50"
-        >
-          보내기
-        </button>
+        <div className="mx-auto flex max-w-4xl gap-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="질문을 입력하세요 (예: 올해 이직운 어때?)"
+            className="flex-1 rounded-lg border px-4 py-2 text-sm"
+            disabled={busy}
+          />
+          <button
+            type="submit"
+            disabled={busy || !input.trim()}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+          >
+            보내기
+          </button>
+        </div>
       </form>
     </div>
   );
