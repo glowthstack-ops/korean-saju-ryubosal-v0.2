@@ -24,6 +24,7 @@ from saju_engines.context_reducer import (
     serialize_chart_prefix,
 )
 from saju_engines.event_engine_v2 import EventEngineV2
+from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import precise_candidate_clusters, score_table_lines
@@ -329,6 +330,26 @@ class _ReportData:
                 out.append(f"{period}: {line}")
         return out
 
+    def luck_hap_lines(self) -> list[str]:
+        """후보 기간 운(세운·월운·대운) 천간이 원국과 맺는 천간합의 작용 모드 줄.
+
+        원국 합은 prefix(serialize_chart_prefix)에 이미 있으므로, 여기서는 운 관여 합만.
+        """
+        lc = self.result.luck_cycles
+        if lc is None:
+            return []
+        by_label = {p.label: p.ganji for p in [*lc.yearly_luck, *lc.monthly_luck]}
+        cand_years = {int(c.period[:4]) for c in self.candidates if c.period[:4].isdigit()}
+        stems: set[str] = set()
+        for c in self.candidates:
+            ganji = by_label.get(c.period) or by_label.get(c.period[:4])
+            if ganji:
+                stems.add(ganji[0])
+        for d in lc.daewoon_table:  # 후보 연도를 커버하는 대운 천간
+            if any(d.approx_start_date.year <= y <= d.approx_end_date.year for y in cand_years):
+                stems.add(d.ganji[0])
+        return luck_hap_mode_lines(self.result, sorted(stems))
+
     def luck_block(self) -> list[str]:
         """[대운표]+[이벤트 후보 Top] — 운 관련 섹션의 데이터 블록."""
         lines = ["[대운표]"]
@@ -345,6 +366,15 @@ class _ReportData:
             "아래 십성·관계 라벨만 사용하고 '재성 지지 충' 같은 임의 표현을 만들지 말 것]"
         )
         lines += precise_candidate_clusters(self.result, self.candidates)
+        hap_lines = self.luck_hap_lines()
+        if hap_lines:
+            lines.append("")
+            lines.append(
+                "[합 작용(운) — 후보 기간 운 천간이 원국과 맺는 천간합의 모드·신뢰도(엔진 판정). "
+                "단정 말고 신뢰도(확정/조건부/불성)대로, 합거된 십성은 그 시기 기능 "
+                "약화/전환으로 서술]"
+            )
+            lines += hap_lines
         branch_lines = self._branch_lines()
         if branch_lines:
             lines.append("")

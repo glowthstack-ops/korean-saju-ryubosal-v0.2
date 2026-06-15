@@ -3111,3 +3111,15 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   per-기간 운 합.
 - 검증: test_hap_lines 6건 + test_hap_modes 6건 + 전체 618 pass · ruff/mypy clean. dry-run 확인(원국
   prefix·총운 운 합 등장).
+
+### 합 작용 모드 — Phase 2b 리포트/테마 운 합 (2026-06-15)
+
+- **목표**: '테마운세에도 적용' 완성 — 리포트(테마사주)의 운 섹션에 per-기간 운 천간합 모드 주입.
+  (원국 합은 Phase 2a serialize_chart_prefix 공용으로 이미 커버.)
+- **구현**: report_service `_ReportData.luck_hap_lines()` — 후보 기간 세운·월운·대운 천간 수집 →
+  `luck_hap_mode_lines`로 모드(합화/합반/합거/본신지합/쟁투)+신뢰도 줄 산출 → `luck_block()`(운
+  섹션 데이터 블록)에 "[합 작용(운)]" 블록 추가. 명식 섹션엔 미부착(원국 합은 prefix).
+- **점수 반영은 보류**(사용자 결정) — 정량 가중치 [미검증]·캘리브레이션 데이터 필요. 그래프
+  retrieve 모드 연결도 보류(hap_lines가 이미 엔진 판정 모드를 LLM에 전달 → 사실상 해소).
+- 검증: test_report_hap_lines 3건 + 전체 685 pass · ruff/mypy clean. dry-run으로 career 섹션에
+  운 합 블록(합화 확정·합반·합거·본신지합·쟁합) 등장 확인.
