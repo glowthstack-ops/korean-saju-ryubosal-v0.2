@@ -3157,3 +3157,13 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   → `nuance_note`로 분리.
 - 검증: 사용자 사주 2026-06이 '↗통관 순화 — 관인상생으로 순화, 과낙관 금물'로 정정. 전체 692
   pass · ruff/mypy clean.
+
+### LLM 프롬프트: Trigger 한글화 + 채팅 답변 마무리(정리·질문) (2026-06-15)
+
+- **Trigger 순화**: LLM 지시문 '5. …Trigger→진행→결과'의 영문 Trigger를 '촉발'로 한글화 —
+  채팅(_SYSTEM_PROMPT)·리포트(_REPORT_SYSTEM_PROMPT)·_BASE_INSTRUCTION 3곳. (내부 개념
+  'Trigger Month ≠ Execution Month'(CLAUDE.md §4·prediction)는 표시용이 아니라 유지.)
+- **채팅 전용 마무리 지시**: _SYSTEM_PROMPT에 '8. 답변 끝에 핵심을 한두 문장으로 정리하고
+  사용자가 이어서 생각해볼 만한 질문 1개를 덧붙인다' 추가. **테마사주(리포트)에는 미추가**
+  (사용자 확정 — AI채팅상담에서만 적용). 앞서 오해로 CLAUDE.md §8에 넣었던 항목은 환원.
+- 검증: 채팅/리포트 프롬프트 분리 확인 + 전체 692 pass · ruff clean.
