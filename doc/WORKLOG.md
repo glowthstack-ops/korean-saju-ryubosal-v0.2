@@ -3066,3 +3066,17 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   (사용자 승인 2026-06-15).
 - 검증: 신규 test_luck_calendar.py 10건(경계 7/1·7/6·7/7·8/1·8/8 + shift + parse 주입/폴백) 포함
   전체 598 pass · ruff/mypy clean. 백엔드 재기동.
+
+### 월 총운(이번 달) 일 단위 산정 절기 월 보정 — 누수 후속 (2026-06-15)
+
+- **점검 발견**: 앞선 절기 월 보정 후에도 `_build_period_fortune` 월간 분기가 일운을
+  `luck_days(birth, year, mon)`(양력 월)으로 뽑아, '이번 달 총운'의 주의/기회 날짜가
+  절기 경계에서 새어나감. 예 today=2026-08-01(절기 未월): 주의시기에 2026-07-01(절기상
+  午월)이 끼고, 당월 절기 구간(8/1~6)은 누락 → 전부 과거 날짜만 제시.
+- **수정**: `_solar_month_range(label, tz)` 신설(`bounding_month_terms`로 절입~다음 절입 전일
+  산출). 월간 분기에서 걸치는 양력 두 달 일운을 합치고 PeriodSpec를 절기 범위로 지정 →
+  `build_lifestyle_context._in_period`가 절기 경계 일운만 남김. 인접 절기월 월운 composite가
+  월 비교에 섞이지 않게 MONTH 레벨은 당월(start) 라벨만 유지.
+- **검증**: 未월(8/1)→주의/기회 모두 7/7~8/6 범위·午월 7/1~6 배제 / 午월(7/3)→7/1 포함·6/6~7/6
+  범위 / 申월(다음 달)→8/8~ 8/7 이후만. 신규 test_period_fortune_solar_month 2건 포함 전체
+  600 pass · ruff/mypy clean. 백엔드 재기동.

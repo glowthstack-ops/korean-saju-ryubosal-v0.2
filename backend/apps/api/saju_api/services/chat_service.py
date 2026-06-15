@@ -10,8 +10,9 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 from saju_manse_analysis.luck.luck_calendar import luck_month_label
@@ -70,6 +71,23 @@ def _current_luck_month(today: date, timezone: str = "Asia/Seoul") -> str:
     월운 LuckPillar 라벨이 생성된 차트 타임존과 동일 기준으로 잡아야 정합한다(미상 시 KST).
     """
     return luck_month_label(today, get_table(), timezone)
+
+
+def _solar_month_range(label: str, timezone: str = "Asia/Seoul") -> tuple[date, date]:
+    """절기 월 라벨(YYYY-MM)의 절입~다음 절입 전일 양력 범위를 반환한다(양끝 포함).
+
+    월운은 절기 월이라 양력 두 달에 걸친다(예: 未월=소서 7/7~입추 8/7 직전). 당월 총운의
+    일 단위(주의/기회 시기) 산정 범위를 양력 월이 아니라 절기 월로 맞추는 데 쓴다.
+
+    Returns:
+        (절입일, 다음 절입 전일) — 양끝 포함.
+    """
+    tz = ZoneInfo(timezone)
+    y, m = int(label[:4]), int(label[5:7])
+    # 그 달 15일 정오는 항상 그 달 節 이후·다음 節 이전(절기 월 내부)이라 경계 산출 기준점.
+    mid = datetime(y, m, 15, 12, 0, tzinfo=tz)
+    prev_jeol, next_jeol = get_table().bounding_month_terms(mid)
+    return prev_jeol.astimezone(tz).date(), next_jeol.astimezone(tz).date() - timedelta(days=1)
 
 # 정책 라우트 고정 응답(T3.8 — docs/03 B4 하단). LLM 미호출 템플릿.
 _POLICY_ANSWERS = {
@@ -258,15 +276,25 @@ def _build_period_fortune(
         year, mon = int(start[:4]), int(start[5:7])
         anchor = date(year, mon, 15)
         chart = calculate(birth.model_copy(update={"reference_date": anchor}))
+        # 절기 월 범위(절입~다음 절입 전일) — 양력 월이 아니라 절기 경계로 일운을 잡는다.
+        tz = chart.time_correction.timezone if chart.time_correction else "Asia/Seoul"
+        sm_start, sm_end = _solar_month_range(start, tz)
         if chart.luck_cycles is not None:
             chart.luck_cycles.monthly_luck = luck_months(birth, year)
-            chart.luck_cycles.daily_luck = luck_days(birth, year, mon)
+            # 절기 월은 양력 두 달에 걸치므로 걸치는 달들의 일운을 합친다. PeriodSpec를
+            # 절기 범위로 둬 _in_period가 절기 경계의 일운만 남긴다(주의/기회 시기 정합).
+            days = luck_days(birth, sm_start.year, sm_start.month)
+            if (sm_end.year, sm_end.month) != (sm_start.year, sm_start.month):
+                days += luck_days(birth, sm_end.year, sm_end.month)
+            chart.luck_cycles.daily_luck = days
             pillar = next(
                 (p for p in chart.luck_cycles.monthly_luck if p.label == start), None
             )
         else:
             pillar = None
-        period = PeriodSpec(start=f"{start}-01", end=f"{start}-31", granularity="month")
+        period = PeriodSpec(
+            start=sm_start.isoformat(), end=sm_end.isoformat(), granularity="month"
+        )
         levels = _DAY_LEVELS
         label = start
     else:  # yearly
@@ -288,6 +316,13 @@ def _build_period_fortune(
         return None
 
     composites = CompositeBuilder(_DICTS).build(chart, "chat", "1.0.0", computed_at, levels=levels)
+    if fortune_type == "monthly":
+        # 절기 범위가 두 양력 월에 걸쳐 인접 절기월의 월운 composite가 _in_period(월 비교)에
+        # 섞이지 않도록, 월 단위는 당월(start) 라벨만 남긴다(일·연·원국 composite는 유지).
+        composites = [
+            c for c in composites
+            if c.level is not CompositeLevel.MONTH or c.period_key == start
+        ]
     ctx = build_lifestyle_context(
         [SubjectRef(kind=SubjectKind.SELF, label="본인")],
         period, composites, dictionaries_dir=_DICTS,
