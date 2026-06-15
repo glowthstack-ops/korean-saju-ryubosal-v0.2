@@ -16,6 +16,11 @@ import {
   listChatThreads,
   postChat,
 } from "@/lib/api";
+import {
+  CHAT_FONT_CHANGE_EVENT,
+  type ChatFontSize,
+  loadChatFontSize,
+} from "@/lib/storage";
 import { summaryToProfile } from "@/lib/subject-mapping";
 import { getPersona, getSubject, listSubjects } from "@/lib/subjects";
 import type {
@@ -80,7 +85,23 @@ export default function ChatPage() {
   const [subjects, setSubjects] = useState<SubjectSummary[]>([]);
   const [partner, setPartner] = useState<ChatPartner | null>(null);
   const [showPartner, setShowPartner] = useState(false);
+  const [chatFont, setChatFont] = useState<ChatFontSize>("base");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // 대화 글자 크기(설정 페이지 localStorage) — 마운트 시 로드 + 같은 탭 변경 즉시 반영.
+  useEffect(() => {
+    const sync = () => setChatFont(loadChatFontSize());
+    sync();
+    window.addEventListener(CHAT_FONT_CHANGE_EVENT, sync);
+    window.addEventListener("storage", sync); // 다른 탭에서 변경 시
+    return () => {
+      window.removeEventListener(CHAT_FONT_CHANGE_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+  // "base"=현재 기본, "large"=한 단계 큰 글씨. 말풍선 본문·마크다운에 함께 적용.
+  const bubbleFontCls = chatFont === "large" ? "text-base" : "text-sm";
+  const proseFontCls = chatFont === "large" ? "prose-base" : "prose-sm";
 
   function loadSubjectsOnce() {
     if (subjects.length === 0) {
@@ -434,14 +455,14 @@ export default function ChatPage() {
             <div
               className={
                 m.role === "user"
-                  ? "inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-4 py-2 text-left text-sm text-white"
-                  : "inline-block max-w-[95%] rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-800"
+                  ? `inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-4 py-2 text-left ${bubbleFontCls} text-white`
+                  : `inline-block max-w-[95%] rounded-2xl bg-gray-100 px-4 py-3 ${bubbleFontCls} text-gray-800`
               }
             >
               {m.role === "user" ? (
                 m.text
               ) : (
-                <div className="prose prose-sm max-w-none prose-p:my-1.5 prose-headings:mt-2 prose-headings:mb-1 prose-li:my-0.5">
+                <div className={`prose ${proseFontCls} max-w-none prose-p:my-1.5 prose-headings:mt-2 prose-headings:mb-1 prose-li:my-0.5`}>
                   <ReactMarkdown>{m.text}</ReactMarkdown>
                 </div>
               )}

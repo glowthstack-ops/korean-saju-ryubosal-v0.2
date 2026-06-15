@@ -167,7 +167,7 @@ export function Gnb() {
                 href="/settings"
                 className="block rounded px-2 py-2 text-sm text-gray-700 hover:bg-gray-50"
               >
-                설정(페르소나·물상해석)
+                설정
               </Link>
             </div>
 

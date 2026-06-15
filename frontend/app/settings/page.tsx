@@ -8,6 +8,11 @@ import { StepMulsang } from "@/components/onboarding/StepMulsang";
 import { StepPersona } from "@/components/onboarding/StepPersona";
 import { profileToBasic, summaryToProfile } from "@/lib/subject-mapping";
 import {
+  type ChatFontSize,
+  loadChatFontSize,
+  saveChatFontSize,
+} from "@/lib/storage";
+import {
   deleteExtendedField,
   getPersona,
   getProfile,
@@ -39,6 +44,7 @@ export default function SettingsPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [extended, setExtended] = useState<ExtendedProfile>({});
   const [mulsangSaved, setMulsangSaved] = useState(false);
+  const [chatFont, setChatFont] = useState<ChatFontSize>("base");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,6 +52,16 @@ export default function SettingsPage() {
     getPersona().then(setPersona).catch(() => {});
     listSubjects().then(setSubjects).catch(() => {});
   }, [isLoggedIn]);
+
+  // 채팅 폰트 크기는 기기별 표시 옵션(localStorage) — 마운트 시 1회 로드.
+  useEffect(() => {
+    setChatFont(loadChatFontSize());
+  }, []);
+
+  function changeChatFont(value: ChatFontSize) {
+    setChatFont(value);
+    saveChatFontSize(value); // 즉시 저장 + 채팅 화면 반영 이벤트 발행
+  }
 
   useEffect(() => {
     if (!activeId) return;
@@ -105,6 +121,36 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       {error && <p className="text-sm text-red-500">{error}</p>}
+
+      <section className="space-y-3 rounded-lg bg-white p-6 shadow-sm">
+        <h1 className="text-lg font-bold">AI 채팅 상담</h1>
+        <div className="space-y-1.5">
+          <p className="text-sm text-gray-600">메시지 글자 크기</p>
+          <div className="flex gap-2">
+            {(
+              [
+                { id: "base", label: "기본", cls: "text-sm" },
+                { id: "large", label: "크게", cls: "text-base" },
+              ] as const
+            ).map((o) => (
+              <button
+                key={o.id}
+                onClick={() => changeChatFont(o.id)}
+                className={`rounded border px-4 py-2 ${o.cls} ${
+                  chatFont === o.id
+                    ? "border-gray-900 bg-gray-900 text-white"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400">
+            AI 채팅 상담 화면의 대화 글자 크기를 조절합니다.
+          </p>
+        </div>
+      </section>
 
       <section className="space-y-3 rounded-lg bg-white p-6 shadow-sm">
         <h1 className="text-lg font-bold">페르소나 (계정 전체 공통)</h1>

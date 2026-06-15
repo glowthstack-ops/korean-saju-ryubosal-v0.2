@@ -170,3 +170,30 @@ export function loadEotPreference(): boolean {
     return true;
   }
 }
+
+// ── AI 채팅 상담 폰트 크기 ───────────────────────────────────────
+// 표시 옵션이라 암호화 없이 localStorage에 보존(기기별 가독성 설정).
+// "base"=현재 기본 크기, "large"=한 단계 키운 크기. 설정 변경 시 같은 탭의
+// 채팅 화면이 즉시 반영하도록 커스텀 이벤트를 발행한다.
+const CHAT_FONT_KEY = "ryubosal:chatFontSize";
+export const CHAT_FONT_CHANGE_EVENT = "ryubosal:chatFontChange";
+export type ChatFontSize = "base" | "large";
+
+/** 채팅 폰트 크기를 저장하고 변경 이벤트를 발행한다. */
+export function saveChatFontSize(value: ChatFontSize): void {
+  try {
+    localStorage.setItem(CHAT_FONT_KEY, value);
+    window.dispatchEvent(new Event(CHAT_FONT_CHANGE_EVENT));
+  } catch {
+    /* SSR/프라이빗 모드 등 접근 불가 시 무시 */
+  }
+}
+
+/** 저장된 채팅 폰트 크기를 읽는다. 미저장/접근 불가 시 기본값 "base". */
+export function loadChatFontSize(): ChatFontSize {
+  try {
+    return localStorage.getItem(CHAT_FONT_KEY) === "large" ? "large" : "base";
+  } catch {
+    return "base";
+  }
+}
