@@ -1087,10 +1087,11 @@ def serialize_llm_input(payload: LlmInput) -> str:
             branch_mark = f" · 분기 {row.branch_ko}" if row.branch_ko else ""
             has_branch = has_branch or bool(row.branch_ko)
             if row.score is not None:
+                # 분기(형제 사건)를 사건명 바로 뒤로 — 줄 끝에 묻혀 무시되는 것 방지(이직↔이사).
                 lines.append(
-                    f"{row.period} {row.ganji}{roles_mark}: {row.top_event_ko} "
+                    f"{row.period} {row.ganji}{roles_mark}: {row.top_event_ko}{branch_mark} "
                     f"· {polarity_ko(row.polarity)} → {tone_for_score(row.score)}"
-                    f"{rank_mark}{tr_mark}{branch_mark}{past_mark}"
+                    f"{rank_mark}{tr_mark}{past_mark}"
                 )
             elif not row.ganji:
                 lines.append(f"{row.period}: 입춘 전 — 전년 세운 구간(월운 정보 없음)")
@@ -1157,8 +1158,13 @@ def serialize_llm_input(payload: LlmInput) -> str:
                         f"질문하신 '{asked_ko}'은(는) 동반 신호로만 서술할 것"
                     )
                 if mr.branch_ko:
-                    # 안내(맥락 배제·좁히기)는 월별 요약 표 하단 1회 — 여기선 계열만.
-                    bits.append(f"발현 분기: {mr.branch_ko}")
+                    # 골자는 '누락 금지'라 형제 판별 지시를 여기에 직접 — 표 하단 범례만으론
+                    # 우세 사건명에 고정돼 형제(이사 등)가 무시되는 실로그 결함(regression_2025_08).
+                    bits.append(
+                        f"발현 분기: {mr.branch_ko} — 우세 사건명에 고정하지 말 것, 같은 계열 "
+                        "형제(이직↔이사 등)가 실제 발현일 수 있으니 사용자 맥락(직업·거주 "
+                        "변화)으로 판별해 단정하지 말 것"
+                    )
                 if mr.luck_roles:
                     bits.append(f"간지 역할 {mr.luck_roles}")
                 if mr.transition:
