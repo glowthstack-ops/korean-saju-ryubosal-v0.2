@@ -22,3 +22,16 @@ body { @apply bg-gray-50 text-gray-900; }
   .text-\[11px\],
   .text-\[12px\] { font-size: 13px; }   /* 11·12 → 13 */
 }
+
+/*
+ * iOS·iPadOS Safari는 글꼴 16px 미만 입력란에 포커스하면 화면을 자동 확대한다
+ * (이후 수동으로 다시 축소해야 하는 불편). AI 채팅 입력란·서브메뉴 폼(text-sm=14px) 등이
+ * 이에 해당한다. 폼 컨트롤만 최소 16px로 맞춰 자동 확대를 차단한다 — 본문 핀치 줌은 유지.
+ * 폭 무관(터치 기기 전반에서 발생). [class] 부착으로 .text-sm 등 유틸(0,1,0)보다 높은
+ * 특정도(0,1,1)를 확보해 !important 없이 덮어쓴다.
+ */
+input[class]:not([type="checkbox"]):not([type="radio"]),
+select[class],
+textarea[class] {
+  font-size: 16px;
+}
