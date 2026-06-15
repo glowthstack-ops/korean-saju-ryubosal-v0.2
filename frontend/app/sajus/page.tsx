@@ -17,7 +17,7 @@ const UNDO_MS = 5000;
 export default function SajusPage() {
   const router = useRouter();
   const { ready, isLoggedIn } = useAuth();
-  const { selected, setSelected } = useSelectedSubject();
+  const { selected, setSelected, reconcile } = useSelectedSubject();
   const [subjects, setSubjects] = useState<SubjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<SubjectSummary | null>(null);
@@ -25,9 +25,13 @@ export default function SajusPage() {
 
   const load = useCallback(() => {
     listSubjects()
-      .then(setSubjects)
+      .then((list) => {
+        setSubjects(list);
+        // 서버 진실과 대조 — 목록에 없는(삭제됐거나 이전 로그인의) 선택을 정리한다.
+        reconcile(list.map((s) => s.subject_id));
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "목록을 불러오지 못했습니다."));
-  }, []);
+  }, [reconcile]);
 
   useEffect(() => {
     if (isLoggedIn) load();

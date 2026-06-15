@@ -166,6 +166,9 @@ class ReferenceFrame(BaseModel):
     today: str  # '2026-06-11 (목)'
     this_year: str  # '2026'
     this_year_ganji: str = ""  # '丙午'
+    # 오늘이 속한 절기 월운 라벨(YYYY-MM) — 양력 달과 다를 수 있다(절기 경계 직전 구간).
+    # '지남' 마커 등 시제 판정의 기준 달. 미설정 시 today[:7] 양력 폴백.
+    this_luck_month: str = ""  # '2026-06'
     question_period: str = ""  # '2026-01-01 ~ 2026-12-31'
     question_period_note: str = ""  # "질문의 '올해'는 2026년을 의미한다"
 
@@ -186,6 +189,9 @@ class MonthOverviewRow(BaseModel):
     # 그 달 간지의 용기신 역할 '癸水 구신·巳火 희신' — 발생 강도와 별개로 유불리
     # (구신 천간 달=계약·결실 불리)가 표에서 변별되게(2026-06-12 사용자 도메인 지식).
     luck_roles: str = ""
+    # 발현 분기 — 그 달 우세 사건과 같은 계열(EVENT_CATEGORY)에서 같은 시점에 점수화된
+    # 형제 사건(예: 이직↔이사)을 강도순으로. 한 사건으로 단정하지 않게 한다(2026-06-14).
+    branch_ko: str = ""
 
 
 class PeriodFortuneSlot(BaseModel):

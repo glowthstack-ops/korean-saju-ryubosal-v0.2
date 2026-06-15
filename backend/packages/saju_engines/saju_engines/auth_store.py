@@ -101,3 +101,19 @@ class AccountAuthStore:
             return None
         owner, login_id, created_at = row
         return AccountRecord(owner_id=owner, login_id=login_id, created_at=created_at)
+
+    def is_admin(self, owner_id: str) -> bool:
+        """관리자 권한 여부(009 is_admin)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT is_admin FROM accounts WHERE owner_id=%s", (owner_id,),
+            ).fetchone()
+        return bool(row and row[0])
+
+    def set_admin(self, login_id: str, value: bool = True) -> bool:
+        """login_id에 관리자 권한 부여/회수(존재하는 계정만). 반영 여부 반환."""
+        with self._connect() as conn:
+            n = conn.execute(
+                "UPDATE accounts SET is_admin=%s WHERE login_id=%s", (value, login_id),
+            ).rowcount
+        return n > 0

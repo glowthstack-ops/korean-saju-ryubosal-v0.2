@@ -17,11 +17,12 @@ export interface Theme {
   slug: string; // 라우트 파라미터
   title: string;
   scope: string; // 표시용 부제
-  productCode: "RPT_FULL" | "RPT_FOCUS";
+  productCode: "RPT_FULL" | "RPT_FOCUS" | "RPT_YEAR";
   topic: string | null;
   companionMode: CompanionMode;
   pages: string; // 분량 안내(docs/10)
   desc: string;
+  needsYear?: boolean; // 진입 시 년도 선택(한해풀이) — period를 그 해 1~12월로 고정
 }
 
 export const THEMES: Theme[] = [
@@ -34,6 +35,17 @@ export const THEMES: Theme[] = [
     companionMode: "none",
     pages: "약 50쪽",
     desc: "명식·과거·현재·미래·조언까지 22개 장으로 엮은 종합 풀이.",
+  },
+  {
+    slug: "year",
+    title: "한해풀이",
+    scope: "선택한 한 해",
+    productCode: "RPT_YEAR",
+    topic: null,
+    companionMode: "none",
+    pages: "약 14~18쪽",
+    desc: "올해(또는 선택한 해) 1년의 세운·월별 흐름과 도메인별 전망을 압축한 풀이.",
+    needsYear: true,
   },
   {
     slug: "relationship",
@@ -85,12 +97,19 @@ function lifetimePeriod(birthDate: string): { start: string; end: string } {
   return { start: `${year}-01`, end: `${year + 90}-12` };
 }
 
+/** 한해풀이 기간 — 선택한 해의 달력연도 1~12월(세운 기준은 엔진 내부에서 입춘 처리). */
+function calendarYearPeriod(year: number): { start: string; end: string } {
+  return { start: `${year}-01`, end: `${year}-12` };
+}
+
 /** 테마 + 선택 사주(+상대) → ReportSpec. 상대는 companionMode!=none이고 선택됐을 때만 포함.
- *  상대는 등록 동반자(companion_id) 또는 즉석 입력(inline_birth) 둘 다 가능. */
+ *  상대는 등록 동반자(companion_id) 또는 즉석 입력(inline_birth) 둘 다 가능.
+ *  needsYear 테마(한해풀이)는 year를 받아 그 해 1~12월로 기간을 고정한다. */
 export function buildReportSpec(
   theme: Theme,
   primary: SubjectSummary,
   companion?: CompanionChoice,
+  year?: number,
 ): ReportSpec {
   const subjects: SubjectRef[] = [{ kind: "self", label: primary.label }];
   if (theme.companionMode !== "none" && companion) {
@@ -108,11 +127,15 @@ export function buildReportSpec(
       });
     }
   }
+  const period =
+    theme.needsYear && year
+      ? calendarYearPeriod(year)
+      : lifetimePeriod(primary.birth.birth_date);
   return {
     product_code: theme.productCode,
     subjects,
     topic: theme.topic,
-    period: lifetimePeriod(primary.birth.birth_date),
+    period,
     language: "ko",
   };
 }

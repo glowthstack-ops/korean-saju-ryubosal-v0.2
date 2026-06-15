@@ -16,6 +16,7 @@ from saju_engines.precompute import CompositeBuilder
 from saju_engines.precompute_scheduler import PrecomputeScheduler
 from saju_engines.precompute_store import PrecomputeStore, default_dsn
 from saju_engines.subject_store import SubjectStore
+from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.precompute import CompositeLevel
 from saju_shared_types.subject import SubjectRecord
@@ -57,7 +58,9 @@ def scheduler() -> PrecomputeScheduler:
     store = PrecomputeStore(_DSN)
     store.migrate()
     store.invalidate_subject(_SID)
-    return PrecomputeScheduler(store, CompositeBuilder(_DICTS), calculate, "1.0.0")
+    return PrecomputeScheduler(
+        store, CompositeBuilder(_DICTS), calculate, "1.0.0", table=get_table()
+    )
 
 
 def test_subject_store_roundtrip(subject) -> None:

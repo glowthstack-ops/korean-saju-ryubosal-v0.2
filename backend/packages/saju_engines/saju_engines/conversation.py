@@ -63,13 +63,21 @@ class ConversationEngine:
         text: str,
         today: date,
         birth_year: int | None = None,
+        current_month_label: str | None = None,
     ) -> tuple[ParsedMessage, ConversationState, SubjectResolution, LinkResult]:
-        """한 턴을 처리해 (파싱 결과, 갱신 상태, 대상 해소, 연속성)을 반환한다."""
+        """한 턴을 처리해 (파싱 결과, 갱신 상태, 대상 해소, 연속성)을 반환한다.
+
+        current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM) — '이번 달' 등 상대 시점을
+            절기 기준으로 파싱하도록 parse_message에 전달(미주입 시 양력 폴백).
+        """
         resolution = self.resolve_subjects(state, text)
         link = self.link_question(state, text)
 
         prev = state.last_intent if link.is_follow_up else None
-        parsed = parse_message(text, today, prev_intent=prev, birth_year=birth_year)
+        parsed = parse_message(
+            text, today, prev_intent=prev, birth_year=birth_year,
+            current_month_label=current_month_label,
+        )
 
         # 슬롯 상속 보강: 파서가 직접 상속 못 한 경우(참조어형) 도메인/대상 병합.
         for intent in parsed.intents:
@@ -103,7 +111,10 @@ class ConversationEngine:
             )
 
         # A9 — 별칭/번호: 매핑 테이블 조회(없으면 확인 질문 대상).
-        for m in re.finditer(r"(\d+\s*호|신랑|아가)", text):
+        # 앞에 한글 음절이 붙은 경우(동사 어간 등)는 제외 — "돌아가게"·"나아가다"의 '아가',
+        # "들어가"의 부분문자열을 인물 별칭으로 오인하지 않도록 단어 경계를 강제한다.
+        # '아가' 뒤 '씨'(아가씨)도 제외. 별칭 뒤 조사(아가는/아가가)는 정상 매칭.
+        for m in re.finditer(r"(?<![가-힣])(\d+\s*호|신랑|아가)(?!씨)", text):
             alias = m.group(1).replace(" ", "")
             companion_id = self._aliases.get(alias)
             if companion_id:

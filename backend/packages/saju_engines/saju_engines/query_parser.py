@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from datetime import date
 
-from saju_shared_types.event_taxonomy_v2 import EVENT_WORDS
+from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN, EVENT_WORDS
 from saju_shared_types.events import EventKey
 from saju_shared_types.intent import (
     ChainedStep,
@@ -327,6 +327,7 @@ def parse_message(
     today: date,
     prev_intent: IntentJson | None = None,
     birth_year: int | None = None,
+    current_month_label: str | None = None,
 ) -> ParsedMessage:
     """한 메시지를 ParsedMessage로 파싱한다(룰 기반 — LLM 폴백 경로).
 
@@ -336,12 +337,14 @@ def parse_message(
         prev_intent: 직전 intent — 단답 후속(B2/B3) 슬롯 상속용(Question Linking의
             룰 우선 경로; 전체 연속성 엔진은 Phase 4).
         birth_year: 나이 변환(C12)용 출생 연도.
+        current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM) — '이번 달'·'다음 달'·
+            미래/과거 롤링 창을 절기 기준으로 잡도록 parse_time에 전달(미주입 시 양력 폴백).
 
     Returns:
         intents 1개 이상을 가진 ParsedMessage(B4 다중 질문 시 복수).
     """
     # B2 단답 후속: 시점 슬롯만 교체, 나머지 직전 intent 상속.
-    time_range, time_scope = parse_time(text, today, birth_year)
+    time_range, time_scope = parse_time(text, today, birth_year, current_month_label)
     # B2b 단위 정정 단답('년단위였어') — 시점 자체가 아니라 직전 질문의 기간 단위를
     # 바꾸는 후속(2026-06-12). 직전 intent를 상속하고 granularity만 갱신한다.
     unit_m = re.search(r"([년연월주일])\s*단위", text)
@@ -361,6 +364,16 @@ def parse_message(
         })
         return ParsedMessage(intents=[inherited], raw_text=text)
     if prev_intent is not None and _is_short_followup(text) and time_range is not None:
+        # 시점만 바뀐 후속('그럼 28년은?') — 직전 intent를 상속하고 시점만 교체.
+        # 후속이 단위를 따로 명시하지 않았으면 직전 granularity를 유지한다(월별 맥락 보존,
+        # 2026-06-14): '앞으로 5년 이사운 월별로' 뒤 '그럼 28년은?'은 28년을 월단위로 본다.
+        if (
+            prev_intent.time_range is not None
+            and not re.search(r"[년연월주일]\s*단위|월별|일별|연도별|날짜별|매월", text)
+        ):
+            time_range = time_range.model_copy(
+                update={"granularity": prev_intent.time_range.granularity}
+            )
         inherited = prev_intent.model_copy(update={
             "intent_id": f"{prev_intent.intent_id}+followup",
             "time_range": time_range,
@@ -377,8 +390,19 @@ def parse_message(
 
     intents: list[IntentJson] = []
     for idx, piece in enumerate(pieces):
+        event_key = _detect_event(piece)
+        event_keys: list[EventKey] = []
+        # '직장운'은 통상 재직 상태의 이직·입지·승진 문의 — 이직(주축)+승진(동반)으로 본다.
+        # 무직·비정규일 때 '취업' 포함 여부는 프로필·맥락을 아는 상위 계층(chat_service)이 보강한다.
+        if re.search(r"직장\s*운", piece):
+            event_key = EventKey.CAREER_CHANGE
+            event_keys = [EventKey.PROMOTION]
         domains = _detect_domains(piece) or _detect_domains(text)
-        piece_time, piece_scope = parse_time(piece, today, birth_year)
+        # 도메인어가 없어도 이벤트가 잡히면 이벤트의 도메인을 따른다 — '취직 언제쯤?'처럼
+        # 도메인 단어가 없는 질문이 general로 떨어져 재물운 등 일반 흐름으로 새지 않도록.
+        if not domains and event_key is not None:
+            domains = [Domain(EVENT_DOMAIN[event_key])]
+        piece_time, piece_scope = parse_time(piece, today, birth_year, current_month_label)
         if piece_time is None:
             piece_time, piece_scope = time_range, time_scope
         intents.append(IntentJson(
@@ -391,8 +415,8 @@ def parse_message(
             ),
             domain=domains[0] if domains else Domain.GENERAL,
             domains=domains[1:],
-            event_key=_detect_event(piece),
-            event_keys=[],
+            event_key=event_key,
+            event_keys=event_keys,
             time_scope=piece_scope if piece_time else TimeScope.TIMELESS,
             time_range=piece_time,
             constraints=constraints,

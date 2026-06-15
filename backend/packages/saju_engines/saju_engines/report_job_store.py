@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import psycopg
 
 from .precompute_store import default_dsn
+
+_KST = ZoneInfo("Asia/Seoul")
 
 _MIGRATION = Path(__file__).resolve().parents[3] / "migrations" / "006_report_jobs.sql"
 
@@ -121,6 +124,35 @@ class ReportJobStore:
             }
             for r in rows
         ]
+
+    def list_recent(self, status: str | None = None, limit: int = 100) -> list[dict]:
+        """관리자용 — 전 소유자 잡 목록(최신순). status 필터 가능. 본문(result) 제외."""
+        where, params = ("WHERE status=%s", [status]) if status else ("", [])
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT job_id, owner_id, spec, status, sections_done, sections_total, "
+                f"error, created_at FROM report_jobs {where} ORDER BY created_at DESC "
+                "LIMIT %s",
+                [*params, limit],
+            ).fetchall()
+        return [
+            {
+                "job_id": r[0], "owner_id": r[1],
+                "product_code": (r[2] or {}).get("product_code"),
+                "status": r[3], "sections_done": r[4], "sections_total": r[5],
+                "error": r[6],
+                "created_at": r[7].astimezone(_KST).strftime("%Y-%m-%d %H:%M") if r[7] else None,
+            }
+            for r in rows
+        ]
+
+    def status_counts(self) -> dict[str, int]:
+        """상태별 잡 수(KPI)."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT status, COUNT(*) FROM report_jobs GROUP BY status"
+            ).fetchall()
+        return {r[0]: r[1] for r in rows}
 
     def _set_status(self, job_id: str, status: str) -> None:
         with self._connect() as conn:

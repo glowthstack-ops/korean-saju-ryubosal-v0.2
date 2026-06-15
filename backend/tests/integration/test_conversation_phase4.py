@@ -93,6 +93,25 @@ def test_unknown_alias_marked_unresolved(engine, state) -> None:
     assert "3호" in res.unresolved
 
 
+def test_verb_substring_not_misread_as_alias(engine, state) -> None:
+    """동사 부분문자열('돌아가게'의 '아가')을 인물 별칭으로 오인하지 않는다(맥락파악 회귀).
+
+    실측: "…다시 회사로 돌아가게 되는 걸까?"가 '아가'를 동반자로 추출해 대상 확인에 갇혔다.
+    """
+    _i, _s, res, _l = _turn(
+        engine, state,
+        "PM으로 일하다 쉬고 카페에서 일해. 이번에 PM 면접 봤는데 다시 회사로 돌아가게 될까?",
+    )
+    assert res.unresolved == []
+    assert res.subjects and res.subjects[0].kind is SubjectKind.SELF
+
+
+def test_baby_alias_with_particle_still_matches(engine, state) -> None:
+    """경계 가드가 정상 별칭('아가는'/'아가 사주')까지 막지 않는다."""
+    _i, _s, res, _l = _turn(engine, state, "아가는 올해 어때?")
+    assert "아가" in res.unresolved  # 미등록 별칭 → 확인 대상
+
+
 # ── F4 — 임시 인물 누적 참조 (골든 xfail 해소) ────────────────────
 
 

@@ -14,6 +14,7 @@ from datetime import date
 from pathlib import Path
 
 from pydantic import BaseModel, Field
+from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
 from saju_engines import EventEngineV2, GraphIndex, filter_year_candidates, load_event_graph
 from saju_engines.chart_interpretation import build_luck_grounding
@@ -36,12 +37,13 @@ from saju_engines.precompute import CompositeBuilder
 from saju_engines.query_parser import parse_message
 from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.topic_builder import build_lifestyle_context
+from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef
-from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES
+from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES, EVENT_TYPE
 from saju_shared_types.events import EventKey
 from saju_shared_types.ganji_calendar import GanjiLevel
-from saju_shared_types.intent import IntentJson, QueryType, SubjectKind, SubjectRef
+from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectKind, SubjectRef
 from saju_shared_types.llm_input import (
     DateChoiceRow,
     DateSelectionBlock,
@@ -60,6 +62,14 @@ from .personalization import fetch_personal_inputs
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
 _COMPILED_GRAPH = _BACKEND / "compiled" / "event_graph_v1.0.0.json"
+
+
+def _current_luck_month(today: date, timezone: str = "Asia/Seoul") -> str:
+    """오늘이 속한 절기 월운 라벨(YYYY-MM) — 양력 today.month의 절기 경계 어긋남 보정.
+
+    월운 LuckPillar 라벨이 생성된 차트 타임존과 동일 기준으로 잡아야 정합한다(미상 시 KST).
+    """
+    return luck_month_label(today, get_table(), timezone)
 
 # 정책 라우트 고정 응답(T3.8 — docs/03 B4 하단). LLM 미호출 템플릿.
 _POLICY_ANSWERS = {
@@ -365,6 +375,43 @@ _CHAT_SCOPE_DIRECTIVE = (
     " 처음부터 다시 설명하지 말 것. 앞 턴에서 이미 말한 내용은 반복하지 않는다. 인사말은 생략한다."
 )
 
+# 상황 제약 — 질문 맥락으로 형제 사건을 결정적으로 좁힌다. 묻힌 일반 안내로는 thinking LOW
+# LLM이 다단계 추론(무직→이직 불가→이사)을 못 하므로, 감지 시 우선순위 높은 명시 지시를
+# 프롬프트 말미에 주입한다(2026-06-14: '2025-08 백수인데 이직으로 단정' 오류 차단).
+_UNEMPLOYED_KEYS = (
+    "백수", "무직", "실직", "공백기", "재취업", "구직", "쉬고 있", "쉬는 중", "놀고 있",
+)
+# 사건형 intent — 내부 분석을 월단위로 하는 게 맞는 이벤트(단계 진행형 progress + 이동형
+# hybrid). 연 질문이어도 12개월 후보를 봐야 강한 달을 짚는다(P1, 2026-06-14). str 키로 비교.
+_EVENT_MONTHLY = {str(k) for k, t in EVENT_TYPE.items() if t in ("progress", "hybrid")}
+
+# 응답 형식 — '월별' 명시 없이 사건형 연 질문이면 12개월 나열 대신 연간 요약+핵심 달로.
+_KEY_MONTHS_DIRECTIVE = (
+    "[응답 형식] 이 질문은 월별 표 전체 나열이 아니라 연간 요약 + 핵심 달만 추려 답하라 — "
+    "해당 기간을 한 줄로 총평하고, 강하게 작동하는 달과 주의가 필요한 달만 골라 짚는다"
+    "(12개월을 모두 나열하지 말 것). 사용자가 '월별'을 명시하면 그때만 전체 표를 서술한다."
+)
+
+_UNEMPLOYED_DIRECTIVE = (
+    "[중요·상황 제약 — 다른 어떤 표기보다 우선 적용]\n"
+    "질문 맥락상 사용자는 현재 직장이 없다(백수·공백기). 따라서 '이직·직업 변화'는 성립할 수 "
+    "없다 — 표·종합에서 '이직'이 우세로 표기된 달이라도 그 이동·변동 에너지는 반드시 '이사'로 "
+    "해석하고, 그 달을 '재취업'의 답으로 삼지 말 것. 재취업(취업·합격)은 '취업·합격'이 실제로 "
+    "우세한 달에서만 지목하라."
+)
+
+# 비정직원(계약직·프리랜서·무급가족종사) 고용형태 — '직장운'에 '취업'도 대상이 된다.
+_NONREGULAR_FORMS = frozenset({"계약직", "프리랜서", "무급가족종사"})
+# 재직을 전제하는 사건 — 이직·승진. 무직·비정규면 '취업'으로 확장 해석한다.
+_PRESUPPOSE_EMPLOYED = frozenset({"career_change", "promotion"})
+# 직장운 맥락(재직 전제 사건)에서 대상이 비정직원일 때 — 취업을 핵심 대상에 포함.
+_CAREER_NONREGULAR_DIRECTIVE = (
+    "[중요·상황 제약 — 우선 적용]\n"
+    "대상은 현재 정직원이 아니다(무직·계약직·프리랜서 등). 따라서 '직장운'은 이직·승진뿐 아니라 "
+    "'취업·합격'(새 직장 진입)이 핵심 대상이다. 이직·승진이 우세한 달이라도 재직을 전제하지 말고, "
+    "'취업·합격'이 실제로 우세한 달을 함께 '취업 가능 시기'로 짚어라. 당락 등 단정은 금지."
+)
+
 
 def _compat_prompt_block(
     result: ManseV2Result, partner_birth: BirthInput, today: date, partner_label: str,
@@ -398,9 +445,11 @@ def chat(
     persona: PersonaConfig | None = None,
     owner_id: str | None = None,
     subject_id: str | None = None,
+    subject_label: str = "회원",
     partner_birth: BirthInput | None = None,
     partner_label: str = "상대",
     partner_ref: dict | None = None,
+    employment_form: str | None = None,
 ) -> ChatResponse:
     """질문을 풀이한다(첫 intent 기준, 다중 intent는 메타로 동반).
 
@@ -417,6 +466,9 @@ def chat(
     """
     today = today or birth.reference_date or date.today()
     birth_year = birth.birth_date.year
+    # 절기 기준 당월 라벨 — '이번 달' 등 상대 시점 파싱에 주입(차트 미산출 시점이라 KST 기준;
+    # 차트 타임존이 KST와 다른 드문 경우의 절기 경계 오차는 후속 창 재산출에서 보정된다).
+    luck_month = _current_luck_month(today)
 
     # 멀티턴: 스레드 상태 복원 → 대화 엔진 경유(대상 해소·슬롯 상속·반복 감지).
     state: ConversationState | None = None
@@ -428,6 +480,7 @@ def chat(
         engine = ConversationEngine()
         parsed, state, resolution, _link = engine.process_turn(
             state, question, today, birth_year=birth_year,
+            current_month_label=luck_month,
         )
         # 궁합 상대 첨부를 스레드 상태에 미러링(크로스 디바이스 재개 복원용). 매 턴 현재
         # 첨부(없으면 None)로 갱신 — 프론트 첨부/해제가 곧 서버 상태가 된다.
@@ -444,8 +497,24 @@ def chat(
                 intents=parsed.intents, thread_id=thread_id, turn_no=state.turn_no,
             )
     else:
-        parsed = parse_message(question, today, birth_year=birth_year)
+        parsed = parse_message(
+            question, today, birth_year=birth_year, current_month_label=luck_month,
+        )
     intent = parsed.intents[0]
+
+    # 직장운 등 재직 전제 사건(이직·승진) + 대상이 비정직원(프로필 고용형태/질문 키워드)이면
+    # '취업'도 핵심 대상에 포함한다 — event_keys에 추가하면 graph_scope(context_reducer)에 반영돼
+    # 취업 후보가 함께 산출된다. plan보다 먼저 보강해 planner scope에도 반영되게 한다.
+    nonregular = employment_form in _NONREGULAR_FORMS or any(
+        k in question for k in _UNEMPLOYED_KEYS
+    )
+    career_presupposed = str(intent.event_key) in _PRESUPPOSE_EMPLOYED or any(
+        str(k) in _PRESUPPOSE_EMPLOYED for k in intent.event_keys
+    )
+    if nonregular and career_presupposed and EventKey.JOB_GAIN not in intent.event_keys:
+        intent = intent.model_copy(
+            update={"event_keys": [*intent.event_keys, EventKey.JOB_GAIN]}
+        )
 
     # 비분석 라우트(T3.8) — 엔진/LLM 미호출.
     plan = build_execution_plan(intent)
@@ -485,6 +554,11 @@ def chat(
     # 만세 계산(캐시) + 스코어링 + 계층 필터.
     chart_birth = birth.model_copy(update={"reference_date": today})
     result = calculate(chart_birth)
+    # 차트 타임존으로 당월 라벨 재확정 — 월운 라벨이 그 타임존으로 생성되므로 정합을 맞춘다.
+    luck_month = _current_luck_month(
+        today,
+        result.time_correction.timezone if result.time_correction else "Asia/Seoul",
+    )
     # 개인화(저장된 subject 한정): 현실 신호 시그니처 + 활성 코호트 → LEI 정렬축. 미설정·실패 시
     # life_fit·personal_match=0이라 기존 정렬과 동치(무개인화 폴백, 규칙11).
     _sig, _cohort = fetch_personal_inputs(owner_id, subject_id, result)
@@ -507,7 +581,7 @@ def chat(
     # 미래를 포함하면 시작을 현재 달로 클램프 — 이미 지난 1~5월 후보(4월 트리거 등)가
     # 메인에 올라 미래처럼 서술되는 시점 오류를 엔진 차원에서 차단(지난 달은 배경 분리).
     # 과거 회고(event_explanation·과거 키워드)와 명시적 과거 창은 클램프하지 않는다.
-    current_month = f"{today.year}-{today.month:02d}"
+    current_month = luck_month  # 절기 기준 당월(양력 today.month의 절기 경계 어긋남 보정)
     is_retro = (
         intent.query_type is QueryType.EVENT_EXPLANATION
         or any(k in question for k in _PAST_KEYWORDS)
@@ -575,8 +649,14 @@ def chat(
         intent.time_range is not None
         and intent.time_range.granularity.value == "month"
     )
+    # P1(2026-06-14): 사건형 intent(이사·이직 등)는 '월별'을 명시 안 해도 내부는 월단위로 계산
+    # (연 질문도 12개월 후보를 봐야 강한 달을 짚는다). monthly_explicit이면 표 전체, 아니면
+    # 연간 요약+핵심 달로 응답하도록 아래에서 형식 지시를 준다.
+    event_monthly = intent.event_key is not None and str(intent.event_key) in _EVENT_MONTHLY
+    monthly_explicit = any(k in question for k in ("월별", "달별", "매월", "월운", "월단위"))
     wants_monthly = period_fortune is None and (
-        "월별" in question
+        monthly_explicit
+        or event_monthly
         or intent.query_type is QueryType.TIMING_SEARCH
         or gran_month
         or any(k in question for k in ("몇 월", "몇월", "언제", "어느 달"))
@@ -613,8 +693,8 @@ def chat(
             target_year = int(start_label[:4])
         elif any(k in question for k in ("앞으로", "향후", "다가오는", "1년 내", "1년내")):
             # 시점 미지정 상대-미래 — 오늘(기준 시점)의 달부터 12개월 롤링(2026-06-12 지적:
-            # 달력상 1~12월이 아니라 오늘 기준 롤링 창이어야 한다).
-            window_months = _rolling_months(today.year, today.month)
+            # 달력상 1~12월이 아니라 오늘 기준 롤링 창이어야 한다). 절기 기준 당월에서 시작.
+            window_months = _rolling_months(int(luck_month[:4]), int(luck_month[5:7]))
         elif any(k in question for k in ("최근", "지난", "작년", "올해까지")):
             target_year = today.year - 1
         else:
@@ -701,6 +781,7 @@ def chat(
         is_followup_turn=is_followup,
         default_period=default_period,
         prior_claims=prior_claims,
+        current_month_label=luck_month,
     )
     try:
         prompt_text, tokens = serialize_with_guard(
@@ -718,6 +799,15 @@ def chat(
 
     # 대화형 답변은 질문 범위에 집중 — 원국 통독·정황 재설명을 막는다(리포트와 분리).
     prompt_text = prompt_text + "\n" + _CHAT_SCOPE_DIRECTIVE
+    # 상황 제약 — 비정직원이면서 직장운(재직 전제 사건) 맥락이면 '취업'을 함께 짚게 하고,
+    # 그 외(이사 등 비career 맥락)에서 무직 키워드가 잡히면 기존 '이직→이사' 분기를 적용한다.
+    if nonregular and (career_presupposed or intent.domain is Domain.CAREER):
+        prompt_text = prompt_text + "\n" + _CAREER_NONREGULAR_DIRECTIVE
+    elif any(k in question for k in _UNEMPLOYED_KEYS):
+        prompt_text = prompt_text + "\n" + _UNEMPLOYED_DIRECTIVE
+    # P1 응답 형식 — 사건형인데 '월별' 미명시면 12개월 나열 대신 연간 요약+핵심 달로.
+    if overview is not None and event_monthly and not monthly_explicit:
+        prompt_text = prompt_text + "\n" + _KEY_MONTHS_DIRECTIVE
 
     # 궁합(pairwise) — 상대가 첨부되면 엔진 계산 궁합 신호 블록을 입력에 덧붙인다.
     if partner_birth is not None:
@@ -752,12 +842,14 @@ def chat(
 
     system = None
     if persona is not None:
-        block = _get_persona_engine().build_block(persona, "회원")
+        # 호칭 자리({resolvedHonorific})에 대화 기준 사주의 별명을 넣는다(하드코딩 '회원' 제거).
+        block = _get_persona_engine().build_block(persona, subject_label or "회원")
         system = llm_client._SYSTEM_PROMPT + "\n\n" + block
     answer = llm_client.generate_reading(
         prompt_text,
         call_type="chat_compare" if plan.per_subject else "chat_single",
         system=system,
+        owner_id=owner_id, surface="chat", ref_id=thread_id,
     )
     _save_thread(store, state)
     return ChatResponse(

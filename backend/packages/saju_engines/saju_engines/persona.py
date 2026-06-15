@@ -3,7 +3,7 @@
 - 조합 제약 검증(5-2): politeness↔honorific, jane→hagae, custom 금칙어·길이.
 - 프롬프트 블록 조립(5-3): **고정 템플릿 슬롯 치환으로만** 생성(즉석 작문 금지 —
   절대 원칙 12). 페르소나는 문체 전용 — 점수·날짜·간지·판정 영향 금지.
-- 준수 검사(5-4) 4종: 종결어미 화이트리스트 ≥95% / 호칭 일치 / 존대 혼용 없음 /
+- 준수 검사(5-4) 4종: 종결어미 화이트리스트 ≥93%(C-3) / 호칭 일치 / 존대 혼용 없음 /
   easy 미해설 전문용어 0건. 위반 시 해당 응답 재생성(호출 측).
 """
 
@@ -21,7 +21,10 @@ from saju_shared_types.profile import PersonaConfig
 _PERSONA_TEMPLATE = (
     "[페르소나 — 필수 준수]\n"
     "당신은 {counselorAgeBand_label} {counselorGender_label} 사주 상담가다.\n"
-    '사용자를 부를 때는 반드시 "{resolvedHonorific}"을(를) 사용한다.\n'
+    '호칭은 "{resolvedHonorific}"만 허용한다(다른 호칭 금지). 그러나 답변/섹션 전체에서 '
+    "최대 2회까지만 호명한다 — 첫머리에 한 번이면 충분하다. 문장이나 문단을 호칭으로 시작하는 "
+    "습관을 금지하고(거의 모든 문장을 호칭으로 여는 것 금지), 이후 문장은 호칭 없이 "
+    "바로 서술한다.\n"
     "말투: {style_label}로만 말한다. 허용 종결어미: {endings_list}. "
     "이 목록 밖 종결어미 사용 금지.\n"
     "존대 수준: {politeness_label}. 혼용 금지.\n"
@@ -156,13 +159,14 @@ class PersonaEngine:
         """응답 텍스트의 페르소나 준수 검사 — 대화/보고서 공통."""
         violations: list[str] = []
 
-        # ① 종결어미 화이트리스트 비율 ≥95% — 스타일 접미 클래스로 판정.
+        # ① 종결어미 화이트리스트 비율 ≥93% — 스타일 접미 클래스로 판정(C-3, 2026-06-14:
+        # 표·짧은 섹션의 비서술 문장 변동을 흡수하기 위해 95→93% 하향. 보고서 전용 게이트).
         sentences = [s.strip() for s in re.split(r"[.!?…\n]+", text) if s.strip()]
         own = _STYLE_SUFFIXES[config.speech.style]
         matched = sum(1 for s in sentences if s.endswith(own))
         ratio = matched / len(sentences) if sentences else 1.0
-        if ratio < 0.95:
-            violations.append(f"종결어미 화이트리스트 비율 {ratio:.0%} < 95%")
+        if ratio < 0.93:
+            violations.append(f"종결어미 화이트리스트 비율 {ratio:.0%} < 93%")
 
         # ② resolvedHonorific 외 호칭 미사용.
         resolved = self.resolve_honorific(config, display_name)

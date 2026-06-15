@@ -16,7 +16,7 @@
     "byGenderAge": {
       "female_20s": { "phrases": ["제가 보기엔요", "오 이 부분 좋네요", "살짝 아쉽긴 한데요"], "reviewed": false },
       "female_30s": { "phrases": ["제가 볼 때는", "이 흐름 꽤 괜찮아요", "조금은 조심스럽네요"], "reviewed": false },
-      "female_40s": { "phrases": ["제가 보기에는", "흐름이 참 좋네요", "다만 한 가지는요"], "reviewed": false },
+      "female_40s": { "phrases": ["제가 보기에는", "흐름이 참 좋네요", "한 가지 짚어드릴 점이 있어요"], "reviewed": false },
       "female_50s": { "phrases": ["내가 보기에는", "이런 기운은 반갑지요", "마음 쓰이는 대목이 하나 있어요"], "reviewed": false },
       "female_60s_plus": { "phrases": ["내 눈에는", "참 고운 흐름이에요", "한 가지만 일러두자면"], "reviewed": false },
       "male_20s": { "phrases": ["제 관점에서는요", "이거 흐름 좋은데요", "여긴 좀 신경 쓰이네요"], "reviewed": false },

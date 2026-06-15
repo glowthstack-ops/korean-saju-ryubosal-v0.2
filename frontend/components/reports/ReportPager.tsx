@@ -52,7 +52,7 @@ export function ReportPager({ sections, title }: { sections: ReportSection[]; ti
           <h2 className="mb-2 text-lg font-semibold">{s.title}</h2>
           <div
             className="prose prose-sm max-w-none leading-relaxed
-              prose-p:my-2 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1
+              prose-p:my-2 prose-li:my-0.5 prose-headings:mt-4 prose-headings:mb-1
               prose-table:my-3 prose-table:text-xs prose-th:bg-gray-50
               prose-th:px-2 prose-th:py-1 prose-th:border prose-th:align-top
               prose-td:px-2 prose-td:py-1 prose-td:border prose-td:align-top"

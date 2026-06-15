@@ -60,18 +60,44 @@ pytestmark_db = pytest.mark.skipif(not _db_available(), reason="전용 DB(5433) 
 
 
 @pytestmark_db
-def test_job_lifecycle_fails_without_llm(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_job_rejected_without_llm(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LLM 키 미설정이면 doomed 잡을 만들지 않고 생성 단계에서 즉시 503."""
     import uuid
 
-    # LLM 미호출 강제 → 잡은 '키 미설정' 사유로 failed.
     monkeypatch.setattr(report_service.llm_client, "is_available", lambda: False)
+    login_id = f"r{uuid.uuid4().hex[:10]}"
+    token = _request(
+        "POST", "/api/v2/auth/register", json={"login_id": login_id, "pin": "123456"}
+    ).json()["token"]
+    auth = {"Authorization": f"Bearer {token}"}
+    sid = _request(
+        "POST", "/api/v2/subjects",
+        headers=auth, json={"kind": "self", "label": "나", "birth": _BIRTH},
+    ).json()["subject_id"]
+    r = _request(
+        "POST", "/api/v2/report/jobs", headers=auth, json={"subject_id": sid, "spec": _SPEC}
+    )
+    assert r.status_code == 503, r.text
+    _request("DELETE", f"/api/v2/subjects/{sid}", headers=auth)
+
+
+def test_job_lifecycle_and_owner_isolation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """잡 생성→실패→목록→소유자 격리. 실 LLM 미호출(생성 실패를 모의)."""
+    import uuid
+
+    # 키는 있다고 보되(생성 가드 통과), 생성은 결정적으로 실패시킨다.
+    monkeypatch.setattr(report_service.llm_client, "is_available", lambda: True)
+
+    def _boom(*_a: object, **_k: object) -> None:
+        raise RuntimeError("LLM 모의 실패")
+
+    monkeypatch.setattr(report_service, "generate_report", _boom)
 
     login_id = f"r{uuid.uuid4().hex[:10]}"
     token = _request(
         "POST", "/api/v2/auth/register", json={"login_id": login_id, "pin": "123456"}
     ).json()["token"]
     auth = {"Authorization": f"Bearer {token}"}
-
     sid = _request(
         "POST", "/api/v2/subjects",
         headers=auth, json={"kind": "self", "label": "나", "birth": _BIRTH},
@@ -90,9 +116,9 @@ def test_job_lifecycle_fails_without_llm(monkeypatch: pytest.MonkeyPatch) -> Non
     assert mine is not None
     assert mine["product_code"] == "RPT_FOCUS"
     assert mine["topic"] == "career"
-    assert mine["subject_labels"] == ["본인"]  # spec.subjects의 라벨 반영
+    assert mine["subject_labels"] == ["본인"]
 
-    # 폴링 — 백그라운드 종료 후 failed(키 미설정).
+    # 폴링 — 백그라운드 종료 후 failed(모의 실패).
     status = None
     for _ in range(10):
         body = _request("GET", f"/api/v2/report/jobs/{job_id}", headers=auth).json()
@@ -101,7 +127,6 @@ def test_job_lifecycle_fails_without_llm(monkeypatch: pytest.MonkeyPatch) -> Non
             break
     assert status == "failed"
     assert body["sections_total"] == 8
-    assert body["error"] and "LLM" in body["error"]
 
     # 타 계정은 잡 조회 불가.
     other = _request(

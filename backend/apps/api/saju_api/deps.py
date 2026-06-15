@@ -19,10 +19,12 @@ from fastapi import Header, HTTPException
 from saju_engines.account_store import AccountSettingsStore
 from saju_engines.auth_store import AccountAuthStore
 from saju_engines.chat_history_store import ChatHistoryStore
+from saju_engines.error_store import ErrorStore
 from saju_engines.life_event_store import LifeEventStore
 from saju_engines.profile_store import ProfileStore
 from saju_engines.report_job_store import ReportJobStore
 from saju_engines.subject_store import SubjectStore
+from saju_engines.usage_store import PricingStore, UsageStore
 
 _SECRET = os.getenv("SAJU_V2_AUTH_SECRET", "dev-insecure-secret-change-me").encode("utf-8")
 
@@ -70,6 +72,21 @@ def get_chat_history_store() -> ChatHistoryStore:
     return _store(ChatHistoryStore)
 
 
+def get_usage_store() -> UsageStore:
+    """llm_usage(사용량·비용) 저장소 — 관리자 콘솔."""
+    return _store(UsageStore)
+
+
+def get_pricing_store() -> PricingStore:
+    """model_pricing/admin_settings(단가·환율) 저장소 — 관리자 콘솔."""
+    return _store(PricingStore)
+
+
+def get_error_store() -> ErrorStore:
+    """system_errors(시스템 에러 모니터링) 저장소 — 관리자 콘솔."""
+    return _store(ErrorStore)
+
+
 def _sign(owner_id: str) -> str:
     """owner_id에 대한 HMAC-SHA256 서명(hex)."""
     return hmac.new(_SECRET, owner_id.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -115,4 +132,12 @@ def require_owner(authorization: str | None = Header(default=None)) -> str:
     owner = optional_owner(authorization)
     if owner is None:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    return owner
+
+
+def require_admin(authorization: str | None = Header(default=None)) -> str:
+    """관리자 권한을 강제한다(비로그인 401 / 권한 없음 403) — 운영 콘솔 전용."""
+    owner = require_owner(authorization)
+    if not get_auth_store().is_admin(owner):
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다.")
     return owner

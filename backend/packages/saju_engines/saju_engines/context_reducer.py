@@ -48,6 +48,7 @@ from .chart_interpretation import build_chart_interpretation, incoming_ten_god_n
 from .event_engine_v2 import EventEngineV2
 from .event_scoring import favorability_map
 from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded
+from .manifestation_branch import branch_summary
 
 TOP_N_CANDIDATES = 5  # 기본 Top N (docs/03 B5 — 3~5)
 SCORE_FLOOR = 40  # docs/06 톤 표: <40은 언급 생략 구간 → LLM 미전달
@@ -582,9 +583,16 @@ def _prev_month(month: str) -> str:
 
 
 def build_reference_frame(
-    today: date_cls, intent: IntentJson, result: ManseV2Result
+    today: date_cls,
+    intent: IntentJson,
+    result: ManseV2Result,
+    current_month_label: str | None = None,
 ) -> ReferenceFrame:
-    """기준 시점(P1) — v1 [오늘 날짜] 원칙: LLM은 오늘이 언제인지 모른다."""
+    """기준 시점(P1) — v1 [오늘 날짜] 원칙: LLM은 오늘이 언제인지 모른다.
+
+    current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM). 시제(지남/남은 구간) 판정의
+        기준 달로 쓴다. 미주입 시 양력 ``today`` 폴백(절기 경계 직전 한 달 어긋남 감수).
+    """
     ganji = _ganji_lookup(result)
     start = intent.time_range.start if intent.time_range else None
     end = intent.time_range.end if intent.time_range else None
@@ -593,10 +601,24 @@ def build_reference_frame(
         f"질문의 시점 표현은 {period} 구간으로 해석되었다."
         if period else "질문에 시점이 명시되지 않았다 — 오늘 기준 흐름으로 안내."
     )
+    # P3(2026-06-14): 의도(event)·기간 유형을 명시해 LLM이 기간/사건을 재해석하지 않게 한다.
+    tr = intent.time_range
+    if intent.event_key is not None:
+        note += f" 의도 사건: '{event_ko(intent.event_key)}'."
+    if tr is not None and tr.granularity is not None:
+        gv = tr.granularity.value
+        if tr.type == "absolute" and gv == "year":
+            note += " 기간 유형: 달력연도(해당 연도 1~12월 전체)."
+        elif tr.type == "relative" and gv == "month" and start and end and start[:4] != end[:4]:
+            note += " 기간 유형: 현재 달부터 미래 롤링 구간."
+        elif gv == "year":
+            note += " 기간 유형: 달력연도."
+    if period:
+        note += " 제공된 후보 기간만 바탕으로 풀이하고 이 기간을 임의로 재해석하지 말 것."
     # P6(2026-06-12): 질문 창이 과거~미래에 걸치면(예: '올해') 이미 지난 구간과 남은
     # 구간을 데이터로 명시 — 지난 달(4월 등)을 다가올 트리거처럼 서술하는 오류 차단.
+    cur = current_month_label or f"{today.year}-{today.month:02d}"
     if start and end:
-        cur = f"{today.year}-{today.month:02d}"
         start_m = start[:7] if len(start) >= 7 else f"{start}-01"
         end_m = end[:7] if len(end) >= 7 else f"{end}-12"
         if start_m < cur <= end_m:
@@ -608,6 +630,7 @@ def build_reference_frame(
         today=f"{today.isoformat()} ({_WEEKDAY_KO[today.weekday()]})",
         this_year=str(today.year),
         this_year_ganji=ganji.get(str(today.year), ""),
+        this_luck_month=cur,
         question_period=period,
         question_period_note=note,
     )
@@ -693,10 +716,14 @@ def build_monthly_overview(
             # 사건명은 발생 가능성 순(앞이 우세) — '>'로 우열을 명시(나열 오해 방지).
             label = " > ".join(event_ko(c.event_key) for c in cs)
             month_raw[period] = getattr(cs[0], "raw_total", 0.0)
+            # 발현 분기 — 절단 전 그 달 후보 전체에서, 표시되는 상위 사건들(cs)의 계열을
+            # 모두 훑어 형제를 도출(1위 단일 초점이면 동점 흔들림에 이직↔이사가 누락됨).
+            branch = branch_summary([c.event_key for c in cs], by_month.get(period, []))
             rows.append(MonthOverviewRow(
                 period=period, ganji=ganji.get(period, ""),
                 top_event_ko=label, score=cs[0].score, polarity=str(cs[0].polarity),
                 transition=_transition_for(period), luck_roles=_roles_for(period),
+                branch_ko=branch or "",
             ))
         else:
             rows.append(MonthOverviewRow(
@@ -728,6 +755,7 @@ def build_llm_input(
     period_fortune: PeriodFortune | None = None,
     default_period: tuple[str, str] | None = None,
     prior_claims: list[str] | None = None,
+    current_month_label: str | None = None,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
 
@@ -737,6 +765,9 @@ def build_llm_input(
     달'로 시작을 클램프해 전달) — 질문 창보다 우선한다. 이미 지난 달 후보가 메인에 올라
     미래처럼 서술되는 시점 오류 차단(지난 기간은 out_of_range 배경 + '지남' 마커).
     기준 시점 표시(P1)는 원래 질문 창을 그대로 쓴다.
+
+    current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM) — 기준 시점(P6)의 '당월'을
+        절기 기준으로 잡도록 build_reference_frame에 전달(미주입 시 양력 폴백).
     """
     graph_scope = [k for k in [intent.event_key, *intent.event_keys] if k is not None]
     period_start: str | None
@@ -802,7 +833,10 @@ def build_llm_input(
         event_candidates=llm_candidates,
         out_of_range_candidates=out_candidates,
         no_candidates_in_period=bool(period_start or period_end) and not llm_candidates,
-        reference=build_reference_frame(today, intent, result) if today else None,
+        reference=(
+            build_reference_frame(today, intent, result, current_month_label)
+            if today else None
+        ),
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
         monthly_overview=monthly_overview or [],
@@ -950,7 +984,11 @@ def serialize_llm_input(payload: LlmInput) -> str:
     for c in payload.event_candidates:
         lines += candidate_block(c)
     # 현재 달(기준 시점) — 지난 기간 행·후보에 '지남' 마커를 붙여 미래 서술을 차단(P6).
-    cur_month = payload.reference.today[:7] if payload.reference else ""
+    # 절기 기준 당월(this_luck_month) 우선 — 양력 today[:7]은 절기 경계 직전 한 달 어긋남.
+    cur_month = (
+        (payload.reference.this_luck_month or payload.reference.today[:7])
+        if payload.reference else ""
+    )
     if payload.out_of_range_candidates:
         lines.append("")
         lines.append("[참고 — 질문 기간 외 흐름(메인 서술 금지, 배경 맥락 전용)]")
@@ -972,6 +1010,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
         )
         has_transition = False
         has_rank = False
+        has_branch = False
         for row in payload.monthly_overview:
             row_cmp = cur_month[: len(row.period)] if cur_month else ""
             past_mark = (
@@ -988,11 +1027,15 @@ def serialize_llm_input(payload: LlmInput) -> str:
                     else f" · 기간 내 강도 {row.strength_rank}위"
                 )
             roles_mark = f" [{row.luck_roles}]" if row.luck_roles else ""
+            # 발현 분기 — 같은 계열에서 함께 점수화됐으나 표(top-2)에서 잘린 형제(예: 이사)를
+            # 모든 달에서 노출(top-3 종합에만 의존하지 않게). 압축형, 안내는 표 하단에 1회.
+            branch_mark = f" · 분기 {row.branch_ko}" if row.branch_ko else ""
+            has_branch = has_branch or bool(row.branch_ko)
             if row.score is not None:
                 lines.append(
                     f"{row.period} {row.ganji}{roles_mark}: {row.top_event_ko} "
                     f"· {polarity_ko(row.polarity)} → {tone_for_score(row.score)}"
-                    f"{rank_mark}{tr_mark}{past_mark}"
+                    f"{rank_mark}{tr_mark}{branch_mark}{past_mark}"
                 )
             elif not row.ganji:
                 lines.append(f"{row.period}: 입춘 전 — 전년 세운 구간(월운 정보 없음)")
@@ -1014,6 +1057,15 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 " 교운 표기는 '정점'에 가까울수록 대운 교체의 갑작스러운·비자발적 "
                 "전환 에너지가 강함 — 동급이면 교운 근접 달을 우선."
                 if has_transition else ""
+            )
+            + (
+                " '분기'는 같은 계열(이동·재물·학업 등)에서 같은 에너지가 갈릴 수 있는 형제 "
+                "사건이다 — 무작정 둘 다 나열하지 말고, 사용자의 상황·질문 맥락에서 성립 불가능한 "
+                "형제는 배제해 가능한 쪽으로 좁혀 해석하라. 예: 현재 직장이 없으면 '이직'은 성립할 "
+                "수 없어 같은 이동 에너지는 '이사'가 된다. 질문이 특정 사건(재취업 등)을 묻는데 그 "
+                "달의 우세 신호가 다른 형제(이사)라면, 그 달을 질문 사건의 답으로 단정하지 말고 "
+                "맥락상 실제 발현됐을 형제 사건으로 풀이하라."
+                if has_branch else ""
             )
             + ")"
         )
@@ -1047,6 +1099,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
                         f"※ 이 달의 주된 신호는 '{dominant}' — "
                         f"질문하신 '{asked_ko}'은(는) 동반 신호로만 서술할 것"
                     )
+                if mr.branch_ko:
+                    # 안내(맥락 배제·좁히기)는 월별 요약 표 하단 1회 — 여기선 계열만.
+                    bits.append(f"발현 분기: {mr.branch_ko}")
                 if mr.luck_roles:
                     bits.append(f"간지 역할 {mr.luck_roles}")
                 if mr.transition:

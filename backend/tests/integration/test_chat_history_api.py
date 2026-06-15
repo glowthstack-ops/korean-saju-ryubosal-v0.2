@@ -15,9 +15,6 @@ import pytest
 from httpx import ASGITransport
 
 from saju_api.main import app
-from saju_engines.precompute_store import default_dsn
-
-_TEST_DSN = default_dsn() or "postgresql://saju_v2:saju_v2@localhost:5433/saju_v2"
 
 
 def _request(method: str, path: str, **kwargs: Any) -> httpx.Response:
@@ -33,7 +30,7 @@ def _db_available() -> bool:
     try:
         from saju_engines.chat_history_store import ChatHistoryStore
 
-        ChatHistoryStore(_TEST_DSN).migrate()
+        ChatHistoryStore().migrate()
         return True
     except Exception:
         return False
@@ -61,7 +58,7 @@ def test_thread_record_list_get_delete() -> None:
     auth = {"Authorization": f"Bearer {token}"}
 
     thread_id = f"t-{uuid.uuid4().hex[:8]}"
-    store = ChatHistoryStore(_TEST_DSN)
+    store = ChatHistoryStore()
     store.record_turn(login_id, thread_id, "본인", "올해 이직운 어때?", "변화 에너지가…",
                       meta={"status": "answered"})
     store.record_turn(login_id, thread_id, "본인", "그럼 하반기는?", "하반기에는…")
@@ -109,7 +106,7 @@ def test_thread_partner_persisted_cross_device() -> None:
     auth = {"Authorization": f"Bearer {token}"}
     thread_id = f"tp-{uuid.uuid4().hex[:8]}"
     # 소유 인식을 위해 히스토리에 1턴 시드(실사용의 비-dry_run 턴에 대응).
-    ChatHistoryStore(_TEST_DSN).record_turn(login_id, thread_id, "본인", "q", "a")
+    ChatHistoryStore().record_turn(login_id, thread_id, "본인", "q", "a")
 
     birth = {
         "calendar_type": "solar", "birth_date": "1980-11-22",

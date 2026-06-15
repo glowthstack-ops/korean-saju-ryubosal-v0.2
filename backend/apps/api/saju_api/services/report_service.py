@@ -9,9 +9,13 @@ ReportBuilder(테스트 전용이던 골격)에 **실데이터 컨텍스트 빌�
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
+from typing import Any
+
+from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
 from saju_engines.chart_interpretation import build_chart_interpretation
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
@@ -20,9 +24,11 @@ from saju_engines.context_reducer import (
     serialize_chart_prefix,
 )
 from saju_engines.event_engine_v2 import EventEngineV2
+from saju_engines.manifestation_branch import branch_summary
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import precise_candidate_clusters, score_table_lines
-from saju_engines.report_plan import build_section_plans
+from saju_engines.report_plan import YONGSIN_SECTIONS, build_section_plans
+from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as _EVENT_DOMAIN_V2
 from saju_shared_types.events import EventCandidate
@@ -44,6 +50,21 @@ _EVENT_DOMAIN: dict[str, str] = {str(k): v for k, v in _EVENT_DOMAIN_V2.items()}
 _TOPIC_DOMAINS = set(_EVENT_DOMAIN.values())
 # 예측(향후 N년) 테마 — 과거가 아닌 오늘 이후를 앵커링할 주제(총운/궁합 비교는 제외).
 _FORECAST_TOPICS = {"career", "wealth", "relationship"}
+
+
+_BLANK_LINES = re.compile(r"\n[ \t]*\n(?:[ \t]*\n)+")  # 연속 빈 줄(2줄 초과)
+_TRAIL_WS = re.compile(r"[ \t]+\n")  # 줄 끝 공백
+
+
+def _tighten(text: str) -> str:
+    """LLM 출력의 지면 낭비 정규화 — 연속 빈 줄을 1개로, 줄 끝 공백 제거(공백수정 안전망).
+
+    프롬프트 지시(지면 절약)를 LLM이 어겨도 렌더 페이지가 부풀지 않도록 후처리한다.
+    마크다운 표·문단 구분에 필요한 빈 줄 1개는 보존한다.
+    """
+    text = _TRAIL_WS.sub("\n", text)
+    text = _BLANK_LINES.sub("\n\n", text)
+    return text.strip()
 
 
 def _period_end_month(period: str) -> str:
@@ -118,12 +139,27 @@ _SECTION_GUIDES: dict[str, str] = {
     "RP-10": "아래 점수표를 마크다운 표 형식(| ... |)과 구분선(|---|)까지 그대로 본문에 포함하라"
     "(이 부록 섹션은 평문 규칙의 예외 — 표 기호 유지). 표 안 수치·간지·방향은 한 글자도 바꾸지"
     " 말고, 표 밖에서 새 수치를 만들지 말 것. 표 위아래에 짧은 안내문만 덧붙여라.",
+    # ── 한해풀이 전용(Y-01~Y-12, 단일 년도 — 짧은 기간 전제) ──
+    "Y-01": "선택한 해의 핵심을 5줄 이내로 — 무엇이(확장/변동/주의) 어느 분기에 활성인지.",
+    "Y-02": "강약·격국·용신을 짧게 짚고 용신 오행을 명시할 것 — 이 해 해석의 기준이 됨. "
+            "원국 전체 재설명은 생략하고 핵심만.",
+    "Y-03": "올해가 속한 대운의 성격과 그 안에서 이 해의 위치를 설명할 것 — 대운 전체사는 생략.",
+    "Y-04": "이 해 세운 간지와 활성 신호(원국과의 합·충·십성 작용)를 풀 것 — 발생≠결과.",
+    "Y-05": "이 해 12개월 흐름을 월별로 짚되, 한 달에 1~2문장으로 조밀하게. 주목할 달을 강조할 것.",
+    "Y-06": "이 해 직업·사업 흐름(이동·승진·확장·도전)을 발현 형태로 — 합격·승진 단정 금지.",
+    "Y-07": "이 해 재물 흐름(수입·지출·투자·계약)을 발현 형태로 — 당첨·복권 단정 금지(로또 거부).",
+    "Y-08": "이 해 관계·가정 흐름(만남·안정·갈등·정리)을 발현 형태로 — 단정·낙인 금지.",
+    "Y-09": "이 해 건강·주의 시기를 — 과로/사고/컨디션 저하 등 관리 관점으로. 질병 단정 금지.",
+    "Y-10": "이 해 행동 전략을 분기·시기 단위로 구체화 — 시도/대기/준비/보류 단위.",
+    "Y-11": "이 해 개운·보완 가이드를 용신 오행 기준으로 — 색·방위·생활 습관 등 실천 항목 중심.",
+    "Y-12": "이 해 12개월 간지 달력표를 요약하고 본문에 쓴 용어를 짧게 풀이할 것.",
 }
 _DEFAULT_GUIDE = "아래 데이터 블록의 사실만 사용해 섹션 제목에 맞는 이야기로 서술할 것."
 # 명식 구조 섹션(운 데이터 블록 미부착) — 인사·원국 재설명 1회 원칙.
 _NATAL_SECTIONS = {
     "F-01", "F-02", "F-03", "F-04", "F-05", "F-06", "C-02",
     "W-02", "W-03", "J-02", "J-03", "R-02", "R-03", "RP-02",
+    "Y-02",  # 한해풀이 — 원국+용신 기초(운 데이터 블록 미부착)
 }
 # 부록 점수표 섹션(실제 표 부착).
 _SCORE_TABLE_SECTIONS = {"C-08", "W-09", "J-08", "R-08", "RP-10"}
@@ -141,6 +177,7 @@ class _ReportData:
         *, owner_id: str | None = None, subject_id: str | None = None,
         partner_birth: BirthInput | None = None,
     ) -> None:
+        self.today = today  # 시제 앵커(프롬프트 주입) — 모델이 과거/현재/미래를 추론하지 않도록.
         chart_birth = birth.model_copy(update={"reference_date": today})
         self.result: ManseV2Result = calculate(chart_birth)
         self.scorer = EventEngineV2(_DICTS)
@@ -160,7 +197,11 @@ class _ReportData:
         # 생애 전체에서 과거 고점(예: 2022·2025)이 top을 점유해 '향후 5년'이 지난 시점에
         # 머무는 결함 차단 — 오늘이 속한 달 이후 ~ +5년 창으로 한정(2026-06-14 실로그 결함).
         if spec.product_code == "RPT_FOCUS" and spec.topic in _FORECAST_TOPICS:
-            cur = f"{today.year}-{today.month:02d}"
+            # 절기 기준 당월 — 양력 today.month는 절기 경계 직전 한 달 앞서 과거 신호를
+            # '향후'에 끌어들일 수 있다. 월운 라벨이 생성된 차트 타임존으로 정합.
+            tc = self.result.time_correction
+            tz = tc.timezone if tc else "Asia/Seoul"
+            cur = luck_month_label(today, get_table(), tz)
             forward = [
                 c for c in pool
                 if _period_end_month(c.period) >= cur and int(c.period[:4]) <= today.year + 5
@@ -172,6 +213,7 @@ class _ReportData:
             domain_pool = [c for c in pool if _EVENT_DOMAIN.get(str(c.event_key)) == spec.topic]
             pool = domain_pool or pool
         self.candidates: list[EventCandidate] = pool[:_TOP_CANDIDATES]
+        self.scored = scored  # 전체 점수화(필터 전) — 발현 분기(같은 계열 형제) 산출용.
         self.summary = build_birth_summary(self.result)
         self.prefix_lines = serialize_chart_prefix(
             self.summary, build_chart_interpretation(self.result),
@@ -234,6 +276,59 @@ class _ReportData:
                 years.update(range(d.approx_start_date.year, d.approx_end_date.year + 1))
         return sorted(years)
 
+    def tense_anchor_lines(self, spec: ReportSpec) -> list[str]:
+        """[기준 시점] — '오늘'과 과거/현재/미래 시제를 사실로 못박는다(시제 추론 불요).
+
+        thinking이 low라 모델이 오늘 날짜·시제를 스스로 못 잡는 결함을 차단한다. RPT_YEAR는
+        대상 연도의 월별 과거/현재/미래까지 명시한다(예: 2026 풀이를 6월에 보면 1~5월=과거).
+        """
+        t = self.today
+        lines = [
+            "",
+            "[기준 시점 — 시제 판단의 절대 기준. 이 사실로 시제를 정하고 추측하지 말 것]",
+            f"오늘은 {t.year}년 {t.month}월 {t.day}일이며, 이 보고서를 작성하는 시점이다.",
+            f"- {t.year}년 {t.month}월 이전(연·월)은 이미 지난 과거다 → 과거 시제로 서술한다.",
+            f"- {t.year}년 {t.month}월은 현재(이번 달)다.",
+            f"- {t.year}년 {t.month}월 이후(연·월)는 아직 오지 않은 미래다"
+            " → 미래(예측) 시제로 서술한다.",
+            "지난 시점을 다가올 일처럼, 다가올 시점을 이미 일어난 일처럼 쓰지 말 것.",
+        ]
+        # RPT_YEAR — 대상 연도의 월별 시제를 못박아 한 해 안의 과거/미래 혼동을 차단.
+        if spec.product_code == "RPT_YEAR" and spec.period.start[:4].isdigit():
+            y = int(spec.period.start[:4])
+            if y < t.year:
+                lines.append(f"이 보고서가 다루는 {y}년은 올해보다 이전이므로 전체가 과거다.")
+            elif y > t.year:
+                lines.append(f"이 보고서가 다루는 {y}년은 올해보다 이후이므로 전체가 미래다.")
+            else:
+                past = f"1~{t.month - 1}월은 이미 지난 과거" if t.month > 1 else "(지난 달 없음)"
+                if t.month < 12:
+                    future = f"{t.month + 1}~12월은 아직 오지 않은 미래"
+                else:
+                    future = "(남은 달 없음)"
+                lines.append(
+                    f"{y}년은 올해다 — {past}, {t.month}월은 이번 달, {future}다."
+                )
+        return lines
+
+    def _branch_lines(self) -> list[str]:
+        """후보 기간별 발현 분기 — 같은 계열·같은 시점에 점수화된 형제 사건(강도순).
+
+        후보(top) 사건의 같은 EVENT_CATEGORY 계열 형제를 전체 점수화(self.scored)에서
+        같은 시점으로 스코프해 도출한다(같은 시점 점수화된 형제만 — 추측 배제).
+        """
+        out: list[str] = []
+        by_period: dict[str, list[Any]] = {}
+        for c in self.candidates:
+            by_period.setdefault(c.period, []).append(c)
+        for period in sorted(by_period):
+            siblings = [s for s in self.scored if s.period == period]
+            focal_keys = [c.event_key for c in by_period[period]]
+            line = branch_summary(focal_keys, siblings)
+            if line:
+                out.append(f"{period}: {line}")
+        return out
+
     def luck_block(self) -> list[str]:
         """[대운표]+[이벤트 후보 Top] — 운 관련 섹션의 데이터 블록."""
         lines = ["[대운표]"]
@@ -250,6 +345,16 @@ class _ReportData:
             "아래 십성·관계 라벨만 사용하고 '재성 지지 충' 같은 임의 표현을 만들지 말 것]"
         )
         lines += precise_candidate_clusters(self.result, self.candidates)
+        branch_lines = self._branch_lines()
+        if branch_lines:
+            lines.append("")
+            lines.append(
+                "[발현 분기 — 같은 계열(이동·재물·학업 등)에서 같은 에너지가 갈릴 수 있는 형제 "
+                "사건. 둘 다 나열만 하지 말고, 사용자의 상황(직업 유무 등)·맥락에서 성립 불가능한 "
+                "형제는 배제해 가능한 쪽으로 좁혀 해석할 것 — 예: 직장이 없으면 '이직'은 성립하지 "
+                "않아 같은 이동 에너지는 '이사'다.]"
+            )
+            lines += branch_lines
         if self.evidence_paths:
             lines.append("")
             lines.append("[근거 경로 — 최소 1개를 본문에 그대로 인용할 것]")
@@ -263,13 +368,14 @@ def build_section_context(
     """섹션 1개의 실데이터 컨텍스트(docs/06 계약 + docs/10 검사 기준)."""
     yongsin = (
         data.summary.useful_gods.yongsin[0]
-        if plan.section_id == "F-04" and data.summary.useful_gods.yongsin
+        if plan.section_id in YONGSIN_SECTIONS and data.summary.useful_gods.yongsin
         else None
     )
     guide = _SECTION_GUIDES.get(plan.section_id, _DEFAULT_GUIDE)
     sid = plan.section_id
     is_natal_section = sid in _NATAL_SECTIONS
     lines = list(data.prefix_lines)
+    lines += data.tense_anchor_lines(spec)  # '오늘'·시제 사실 주입(시제 추론 불요)
     lines += [
         "",
         f"[섹션 과제 — {sid}. {plan.title}]",
@@ -277,6 +383,8 @@ def build_section_context(
         guide,
         "입력에 없는 간지·점수·연도를 만들지 말 것. 단정 표현 금지.",
         "인사말·원국 전체 재설명은 생략하고(앞 섹션에서 1회면 충분) 이 섹션 과제에 바로 집중할 것.",
+        "지면 절약: 문단은 빈 줄 하나로만 구분하고 연속 빈 줄을 넣지 말 것. 잔 소제목 남발과 "
+        "한 문장씩 끊은 단락을 피하고, 여러 문장을 묶은 조밀한 산문 문단으로 작성할 것.",
     ]
     if sid in _PARTNER_NATAL_SECTIONS:
         lines += ["", *data.partner_natal_block()]
@@ -351,7 +459,8 @@ def generate_report(
         persona_block = None
 
     def generate_fn(plan: SectionPlan, context: SectionContext, attempt: int):
-        system = llm_client._SYSTEM_PROMPT
+        # 보고서 전용 시스템 프롬프트(대화와 분리 — '정보 없음' 회피 문구 미포함).
+        system = llm_client._REPORT_SYSTEM_PROMPT
         if persona_block:
             system = system + "\n\n" + persona_block
         prompt = context.body_prompt
@@ -360,10 +469,20 @@ def generate_report(
                 f"\n\n[재생성 {attempt}회차] 직전 응답이 정합성 검사에 실패했다 — "
                 "분량·간지·점수·근거 인용 규칙을 다시 확인해 작성할 것."
             )
+            # C-2: 근거 경로 미인용이 잦아 재생성 시 원문 그대로 인용을 강제한다.
+            if context.evidence_paths:
+                quoted = " / ".join(context.evidence_paths)
+                prompt += (
+                    "\n[필수] 다음 근거 경로 중 최소 하나를 본문 문장 속에 글자 그대로"
+                    "(화살표 '→' 포함, 요약·수정·띄어쓰기 변경 없이) 한 번 인용하라: "
+                    f"{quoted}"
+                )
         text = llm_client.generate_reading(
             prompt, call_type=call_type, system=system,
             product_code=f"{spec.product_code}:{plan.section_id}",
+            owner_id=owner_id, surface="report", ref_id=subject_id,
         )
+        text = _tighten(text)  # 지면 낭비 정규화(공백수정)
         return text, 0, len(text)  # 토큰은 llm_client 장부가 집계(cached 포함)
 
     builder = ReportBuilder(

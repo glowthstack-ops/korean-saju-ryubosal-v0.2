@@ -6,6 +6,15 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VENV="$ROOT/.venv/bin"
 API_PORT="${API_PORT:-8000}"
 
+# .env 자동 로드 — SAJU_V2_DATABASE_URL(DB DSN)·LLM 키가 환경에 없으면
+# 백엔드가 DSN 없이 떠서 모든 DB 엔드포인트(auth/subjects/report 등)가 503이 된다.
+if [ -f "$ROOT/.env" ]; then
+  set -a; . "$ROOT/.env"; set +a
+fi
+if [ -z "${SAJU_V2_DATABASE_URL:-}" ]; then
+  echo "[warn] SAJU_V2_DATABASE_URL 미설정 — DB 엔드포인트가 503을 반환한다. .env 확인 필요." >&2
+fi
+
 if [ ! -x "$VENV/uvicorn" ]; then
   echo "[setup] backend editable install…"
   "$VENV/pip" install -e "$ROOT/backend[dev]" >/dev/null

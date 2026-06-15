@@ -15,6 +15,10 @@ export default function ThemeStartPage() {
   const theme = themeBySlug(params.topic);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 한해풀이 진입 시 년도 선택 — 기본값 올해, 선택 범위 올해~+5년.
+  const thisYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 6 }, (_, i) => thisYear + i);
+  const [year, setYear] = useState(thisYear);
 
   if (!theme) {
     return <p className="text-sm text-red-500">알 수 없는 테마입니다.</p>;
@@ -25,7 +29,7 @@ export default function ThemeStartPage() {
     setBusy(true);
     setError(null);
     try {
-      const spec = buildReportSpec(theme, primary, companion);
+      const spec = buildReportSpec(theme, primary, companion, year);
       const { job_id } = await createReportJob(primary.subject_id, spec);
       router.push(`/reports/${job_id}`);
     } catch (e) {
@@ -44,6 +48,22 @@ export default function ThemeStartPage() {
         </h1>
         <p className="mt-1 text-sm text-gray-500">{theme.desc}</p>
       </div>
+      {theme.needsYear && (
+        <label className="flex items-center gap-2 rounded-lg border bg-white p-4 shadow-sm">
+          <span className="text-sm font-medium">풀이할 해</span>
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="rounded border px-2 py-1 text-sm"
+          >
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}년{y === thisYear ? " (올해)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <SubjectGateway
         title="사주 선택"
         returnTo={`/themes/${theme.slug}`}

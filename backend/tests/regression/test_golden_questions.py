@@ -28,6 +28,23 @@ def _one(text: str, **kw):
     return msg.intents[0]
 
 
+# 취업 동의어 + 도메인 폴백 — '취직/복직/구직'이 career·job_gain으로 잡혀 재물운으로 새지 않음.
+def test_employment_synonyms_map_to_career_jobgain() -> None:
+    """실측 회귀: 취업운 질문이 월별 재물운으로 답되던 오류 — 도메인·이벤트 고정."""
+    for q in ["취직 언제쯤 될까?", "복직 가능할까?", "구직운 어때?", "올해 취업운 어때?"]:
+        intent = _one(q)
+        assert intent.domain is Domain.CAREER, q
+        assert intent.event_key is not None and intent.event_key.value == "job_gain", q
+
+
+# 직장운 — 재직 전제(이직 주축 + 승진 동반)로 분류해 재물운으로 새지 않음.
+def test_jikjang_fortune_maps_to_career_change_and_promotion() -> None:
+    intent = _one("올해 직장운 어때?")
+    assert intent.domain is Domain.CAREER
+    assert intent.event_key is not None and intent.event_key.value == "career_change"
+    assert [k.value for k in intent.event_keys] == ["promotion"]
+
+
 # A2×C1 — 동반자 단독 + 무시점(기본 기간).
 def test_a2_c1_companion_default_period() -> None:
     intent = _one("엄마의 사주는 어때?")

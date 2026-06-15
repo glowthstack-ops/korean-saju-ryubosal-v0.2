@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from datetime import date, timedelta
 
+from saju_manse_analysis.luck.luck_calendar import shift_month_label
+
 from saju_shared_types.intent import (
     AgeRange,
     AnchorDate,
@@ -33,7 +35,10 @@ _HALF = {"상반기": ("01", "06"), "하반기": ("07", "12")}
 
 
 def parse_time(
-    text: str, today: date, birth_year: int | None = None
+    text: str,
+    today: date,
+    birth_year: int | None = None,
+    current_month_label: str | None = None,
 ) -> tuple[TimeRange | None, TimeScope]:
     """텍스트에서 시점 표현을 파싱한다 (C1~C18).
 
@@ -41,11 +46,16 @@ def parse_time(
         text: 사용자 발화 원문.
         today: 기준일(상대 표현 해석용 — 호출 측 주입).
         birth_year: 나이↔연도 변환용 출생 연도(C12, 없으면 나이만 기록).
+        current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM). 주입 시 '이번 달'·
+            '다음 달'·미래/과거 롤링 창의 기준 달을 절기 기준으로 잡는다. 미주입 시
+            양력 ``today.month`` 폴백(절기 경계 직전 구간에서 한 달 어긋날 수 있음).
 
     Returns:
         (TimeRange | None, TimeScope). 무시점(C1)이면 (None, TIMELESS) —
         분야별 기본 기간 적용은 Broad Query Rewriter 몫.
     """
+    # 절기 기준 '당월' 라벨 — 주입 없으면 양력 폴백(경계 직전 한 달 어긋남 감수).
+    this_month = current_month_label or f"{today.year}-{today.month:02d}"
     # C16 즉시성 수식 — 다른 패턴과 결합 가능하므로 먼저 추출.
     urgency = "asap" if re.search(r"빠를\s*수록|최대한\s*빨리|빨리\s*좋", text) else None
 
@@ -137,14 +147,26 @@ def parse_time(
             6 if unit == "반년"
             else int(n_raw) * (12 if unit == "년" else 1)
         )
-        end_y, end_m = today.year, today.month
-        idx = (end_y * 12 + end_m - 1) - (months - 1)
-        start_y, start_m = idx // 12, idx % 12 + 1
+        end_label = this_month  # 현재(절기) 달 포함
+        start_label = shift_month_label(end_label, -(months - 1))
         return TimeRange(
             type="relative", granularity=Granularity.MONTH,
-            start=f"{start_y}-{start_m:02d}", end=f"{end_y}-{end_m:02d}",
+            start=start_label, end=end_label,
             urgency=urgency,
         ), TimeScope.PAST
+
+    # C8a 미래 상대 기간 — "향후 5년", "앞으로 N개월(간)", "다가오는 3년"(2026-06-14).
+    # 현재 달부터 N×12(년)/N(개월) 롤링 미래 창. '앞으로 5년 이사운 월별' 등에서 N을
+    # 살린다(기존 C8 offset·롤링 12개월 고정이 N을 무시해 2026만 답하던 결함 수정).
+    m = re.search(r"(향후|앞으로|다가오는)\s*(\d+)\s*(개월|달|년)", text)
+    if m:
+        n, unit = int(m.group(2)), m.group(3)
+        months = n * 12 if unit == "년" else n
+        return TimeRange(
+            type="relative", granularity=Granularity.MONTH,
+            start=this_month,
+            end=shift_month_label(this_month, months - 1), urgency=urgency,
+        ), (TimeScope.LONG_TERM if months > 24 else TimeScope.MID_TERM)
 
     # C8 상대 기간 — "6개월 안에", "3개월 이내", "1년 안으로", "향후 30년".
     m = re.search(r"(\d+)\s*(개월|달|년)\s*(안에|이내|안으로|이내에)?", text)
@@ -217,14 +239,13 @@ def parse_time(
             start=key, end=key, urgency=urgency,
         ), TimeScope.SHORT_TERM
     if re.search(r"이번\s*달|이달", text):
-        key = f"{today.year}-{today.month:02d}"
+        key = this_month  # 절기 기준 당월(주입 없으면 양력 폴백)
         return TimeRange(
             type="relative", granularity=Granularity.MONTH, start=key, end=key,
             urgency=urgency,
         ), TimeScope.SHORT_TERM
     if re.search(r"다음\s*달|내달", text):
-        nxt = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
-        key = f"{nxt.year}-{nxt.month:02d}"
+        key = shift_month_label(this_month, 1)  # 당월(절기)의 다음 달
         return TimeRange(
             type="relative", granularity=Granularity.MONTH, start=key, end=key,
             urgency=urgency,
@@ -248,6 +269,25 @@ def parse_time(
         year_key = str(today.year + 1)
         return TimeRange(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
+            urgency=urgency,
+        ), TimeScope.MID_TERM
+    if "내후년" in text:
+        year_key = str(today.year + 2)
+        return TimeRange(
+            type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
+            urgency=urgency,
+        ), TimeScope.MID_TERM
+
+    # C6b 축약 연도 — "27년", "28년의 이사운"(2026-06-14). 2자리 연도를 20NN으로 해석
+    # (사주 미래 질의 편향: 00~69→2000년대, 70~99→1900년대 생년/과거). 앞에 숫자가 없고
+    # (4자리 연도의 일부 제외) 뒤에 기간 어미(후·뒤·동안·간·내·째·차)가 없을 때만 — 'N년 후/간'
+    # 같은 기간 표현과 충돌 방지(그건 C8/C8a가 처리).
+    m = re.search(r"(?<!\d)(\d{2})\s*년(?!\s*(?:후|뒤|동안|간|내|째|차))", text)
+    if m:
+        yy = int(m.group(1))
+        year_key = str(2000 + yy if yy <= 69 else 1900 + yy)
+        return TimeRange(
+            type="absolute", granularity=Granularity.YEAR, start=year_key, end=year_key,
             urgency=urgency,
         ), TimeScope.MID_TERM
 

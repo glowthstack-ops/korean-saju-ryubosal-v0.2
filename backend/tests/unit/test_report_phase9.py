@@ -238,17 +238,18 @@ def test_pipeline_regenerates_failed_section_only() -> None:
     assert result.cost.calls == 9
 
 
-def test_pipeline_on_hold_after_two_failures() -> None:
-    """2회 재생성 실패 → on_hold(관리자 알림 대상) + 부분 산출물 보존."""
+def test_pipeline_on_hold_after_hard_violation() -> None:
+    """사실 위반(금지표현) 재생성 실패 → on_hold(관리자 알림) + 부분 산출물 보존."""
     def gen(plan, context, attempt):
         if plan.section_id == "C-05":
-            return "반드시 된다.", 1_000, 100  # 항상 위반
+            return "반드시 된다.", 1_000, 100  # 항상 금지표현(사실 위반)
         return _good_section_text(plan), 4_000, 3_000
 
     result = _focus_builder(gen).build(_spec("RPT_FOCUS", topic="health"))
     assert result.status == "on_hold" and result.failed_sections == ["C-05"]
     failed = next(s for s in result.sections if s.section_id == "C-05")
-    assert failed.attempts == 3 and failed.violations  # 최초 1 + 재생성 2
+    # MAX_REGENERATIONS=1 → 최초 1 + 재생성 1 = 2회. 사실 위반이라 재생성됨.
+    assert failed.attempts == 2 and failed.violations
     assert sum(1 for s in result.sections if s.passed) == 7  # 부분 보존
 
 
@@ -295,3 +296,32 @@ def test_too_broad_suggests_report_products() -> None:
     assert suggestion and set(suggestion["products"]) == {"RPT_FULL", "RPT_FOCUS"}
     assert "대화로도" in suggestion["note"]  # 강제 유도 금지 — 축약 답변 병행
     assert body["answer"]  # 대화 답변(범위 좁히기 제안)도 함께 제공
+
+
+def test_soft_violation_passes_without_regeneration() -> None:
+    """스타일/포맷 위반(분량 미달·종결어미 등)만 있으면 재호출 없이 통과(비용 절감)."""
+    calls = {"n": 0}
+
+    def gen(plan, context, attempt):
+        calls["n"] += 1
+        # 매우 짧은 본문 → 분량 미달(스타일 위반). 사실 위반은 없음.
+        return "짧아요.", 100, 10
+
+    result = _focus_builder(gen).build(_spec("RPT_FOCUS", topic="health"))
+    assert result.status == "completed"  # 사실 위반 없음 → on_hold 아님
+    # 섹션당 1회만 호출(재생성 없음) — 8섹션.
+    assert all(s.attempts == 1 for s in result.sections)
+
+
+def test_repair_appends_evidence_path_without_recall() -> None:
+    """근거 경로 미인용 → 경로를 결정적으로 덧붙여 통과(재호출 0)."""
+    from saju_engines.report_builder import _repair_section
+    from saju_shared_types.report import SectionContext, SectionPlan, TargetChars
+
+    plan = SectionPlan(
+        section_id="C-04", title="t",
+        target_chars=TargetChars(min=10, max=5_000),
+    )
+    ctx = SectionContext(section_id="C-04", evidence_paths=["甲申 → 정관 활성"])
+    out = _repair_section("운의 흐름이 강해요.", plan, ctx)
+    assert "甲申 → 정관 활성" in out  # 경로가 본문에 포함됨(검사 통과)

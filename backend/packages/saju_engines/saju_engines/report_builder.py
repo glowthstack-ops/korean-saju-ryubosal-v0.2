@@ -24,7 +24,7 @@ from saju_shared_types.report import (
 )
 
 from .report_checks import ReportChecker
-from .report_plan import MAX_REGENERATIONS, build_section_plans
+from .report_plan import MAX_REGENERATIONS, YONGSIN_SECTIONS, build_section_plans
 
 # generate_fn(plan, context, attempt) → (본문, 입력 토큰, 출력 토큰).
 GenerateFn = Callable[[SectionPlan, SectionContext, int], tuple[str, int, int]]
@@ -50,6 +50,35 @@ def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> floa
     return round(
         input_tokens / 1e6 * price["input"] + output_tokens / 1e6 * price["output"], 6
     )
+
+
+# 재생성(LLM 재호출)은 '사실 무결성' 위반에만 — 스타일·분량·근거 잔여 위반은 재호출 없이
+# 통과시킨다(비용 절감, 2026-06-14). 사실 위반: 미제공 간지 / 입력에 없는 점수·연도 /
+# 용신 불일치 / 금지 표현.
+_HARD_VIOLATION_PREFIXES = ("미제공 간지", "입력에 없는", "용신 불일치", "금지 표현")
+_SENT_END = (".", "!", "?")
+
+
+def _hard_violations(violations: list[str]) -> list[str]:
+    """재생성을 정당화하는 '사실 위반'만 추린다(나머지는 결정적 보정 또는 허용)."""
+    return [v for v in violations if v.startswith(_HARD_VIOLATION_PREFIXES)]
+
+
+def _repair_section(text: str, plan: SectionPlan, context: SectionContext) -> str:
+    """LLM 재호출 없이 결정적으로 고칠 수 있는 항목을 보정한다(비용 절감).
+
+    ① 분량 초과 → 문장 경계로 상한 안에 자른다(근거 덧붙일 여지 80자 확보).
+    ② 근거 경로 미인용 → 경로 1줄을 본문 끝에 결정적으로 덧붙여 검사를 통과시킨다.
+    """
+    cmax = plan.target_chars.max
+    if len(text) > cmax:
+        cut = text[: cmax - 80]
+        idx = max((cut.rfind(ch) for ch in _SENT_END), default=-1)
+        text = cut[: idx + 1] if idx > (cmax - 80) * 0.5 else cut
+    paths = context.evidence_paths
+    if paths and not any(p in text for p in paths):
+        text = text.rstrip() + "\n\n근거 경로: " + paths[0]
+    return text
 
 
 class ReportBuilder:
@@ -92,12 +121,12 @@ class ReportBuilder:
 
             context = self._build_context(plan, spec)
             if yongsin and context.yongsin_element is None:
-                # F-04 확정 용신을 이후 섹션 검사 기준으로 전파(검사 4).
+                # 용신 확정 섹션(F-04/Y-02)의 용신을 이후 섹션 검사 기준으로 전파(검사 4).
                 context = context.model_copy(update={"yongsin_element": yongsin})
 
             result = self._generate_with_retry(plan, context, spec, display_name, cost)
             done[plan.section_id] = result
-            if plan.section_id == "F-04" and result.passed:
+            if plan.section_id in YONGSIN_SECTIONS and result.passed:
                 yongsin = context.yongsin_element
             # 섹션 1개 완료 — 잡 진행 업데이트(실패해도 생성은 계속).
             if self._progress is not None:
@@ -132,7 +161,12 @@ class ReportBuilder:
         display_name: str,
         cost: ReportCost,
     ) -> SectionResult:
-        """섹션 1개 생성 — 정합성 실패 시 해당 섹션만 재생성(최대 2회)."""
+        """섹션 1개 생성 — 비용 최소화(2026-06-14): 결정적 보정 후, '사실 위반'에만 재생성.
+
+        분량·근거 등 코드로 고칠 수 있는 실패는 LLM 재호출 없이 보정(_repair_section)하고,
+        남은 위반이 스타일·포맷(분량 미달·종결어미·근거 등)뿐이면 재생성하지 않고 통과시킨다.
+        간지·점수·연도·용신·금지표현 같은 사실 무결성 위반만 재생성(MAX_REGENERATIONS)한다.
+        """
         violations: list[str] = []
         text = ""
         in_tok = out_tok = 0
@@ -143,13 +177,15 @@ class ReportBuilder:
             cost.calls += 1
             cost.input_tokens += in_tok
             cost.output_tokens += out_tok
+            text = _repair_section(text, plan, context)  # 결정적 보정(재호출 0)
             violations = self._checker.check_section(
                 plan, context, text, spec.persona, display_name,
             )
-            if not violations:
+            if not _hard_violations(violations):
+                # 사실 위반 없음 → 통과. 스타일·분량 잔여 위반은 기록만(재호출 안 함).
                 return SectionResult(
                     section_id=plan.section_id, title=plan.title, text=text,
-                    attempts=attempts, passed=True,
+                    attempts=attempts, passed=True, violations=violations,
                     input_tokens=in_tok, output_tokens=out_tok,
                 )
         return SectionResult(

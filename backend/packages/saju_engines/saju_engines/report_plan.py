@@ -108,6 +108,29 @@ _THEME_TOCS: dict[str, list[tuple[str, str, list[str], int, int]]] = {
     "relationship": _RELATIONSHIP_TOC,
 }
 
+# RPT_YEAR 한해풀이(2026-06-14 사용자 확정) — 총운(RPT_FULL)에서 단일 년도에 의미 있는
+# 항목만 발췌·중복 제거한 12섹션. 장기 항목(생애 대운 로드맵·과거 복원·고점 연도 Top·
+# 성격 종합)은 제외하고, 원국+용신은 1섹션(Y-02)으로 압축한다. 세운 기준은 달력연도
+# 1~12월(spec.period가 그 해로 스코프). 분량을 조여 공백 정상화 시 A4 약 14~18장
+# (본문 21,600~28,400자, 1p≈1,600자). 목차 자체는 고정 규격 — 임의 변형 금지.
+_YEAR_TOC: list[tuple[str, str, list[str], int, int]] = [
+    ("Y-01", "올해 한눈에", [], 1_000, 1_400),
+    ("Y-02", "내 사주와 용신 기초", ["T0"], 1_800, 2_400),
+    ("Y-03", "올해가 속한 대운 맥락", ["T1"], 1_800, 2_400),
+    ("Y-04", "세운과 활성 신호", ["T1", "M15"], 2_400, 3_000),
+    ("Y-05", "월별 흐름과 주목할 달", ["M07", "M01", "M09", "E4"], 3_000, 3_800),
+    ("Y-06", "직업·사업 흐름", ["M07", "M08"], 1_800, 2_400),
+    ("Y-07", "재물 흐름", ["M09"], 1_800, 2_400),
+    ("Y-08", "관계·가정 흐름", ["M01", "M02", "M04", "M05"], 1_800, 2_400),
+    ("Y-09", "건강·주의 시기", ["M11"], 1_500, 2_000),
+    ("Y-10", "올해의 행동 전략", ["E8"], 1_800, 2_400),
+    ("Y-11", "개운·보완 가이드", ["E8"], 1_400, 1_800),
+    ("Y-12", "간지 달력표(12개월)와 용어", ["T1"], 1_500, 2_000),
+]
+
+# 용신을 확정해 이후 섹션 검사 기준으로 전파하는 섹션(상품별). RPT_FULL=F-04, RPT_YEAR=Y-02.
+YONGSIN_SECTIONS = {"F-04", "Y-02"}
+
 
 def is_pair_relationship(spec: ReportSpec) -> bool:
     """관계운 + 상대(SELF 아닌 subject) 등록 → 궁합 모드(RP-01~RP-10)."""
@@ -142,10 +165,35 @@ _TOPIC_MODULE: dict[str, str] = {
 # RPT_FULL dependsOn 규칙(3장).
 _F04_DEPENDENTS = [f"F-{n:02d}" for n in range(10, 21)]  # F-10~F-20
 _F21_DEPS = [f"F-{n:02d}" for n in range(13, 21)]  # F-13~F-20
+# RPT_YEAR dependsOn — Y-02(용신 확정)가 Y-03~Y-11 전체의 선행(검사 4 용신 일관).
+_Y02_DEPENDENTS = [f"Y-{n:02d}" for n in range(3, 12)]  # Y-03~Y-11
 
-FULL_TOTAL_TARGET = 78_000  # 합계 목표 ±10%
+
+def calibrate_chars(lo: int, hi: int) -> tuple[int, int]:
+    """편집 의도 목표분량(목차표 값)을 LLM 실측 분량 밴드로 압축한다(분량 검사 기준, 전 상품 공통).
+
+    실측(2026-06-14, gemini-3-flash): 섹션 출력은 목표 크기와 무관하게 ~1,550~1,950자에 수렴한다
+    (예: 목표 4,500~5,500자인 F-08·F-14 → 1,953·1,718자). 목표를 일괄 길게 유지하면 분량 검사
+    (무허용오차)가 항상 실패하므로(2026-06-14 사용자 확정 'B'), 목표를 실측 밴드로 하향한다.
+    의도 분량의 상대 강조는 약하게만 반영(짧은 요약 vs 표준/긴 섹션 2단)하고, 하한은 안전하게
+    낮춰 통과시키고 상한은 출력 변동을 흡수한다.
+    """
+    mid = (lo + hi) / 2
+    if mid < 2_200:  # 요약·확인·부록 등 짧은 섹션
+        return 700, 2_200
+    return 900, 2_900  # 표준·타임라인·복원 등
+
+
+FULL_TOTAL_TARGET = 41_000  # 캘리브레이션 후 합계 목표 ±10%(A4 약 25장)
+YEAR_TOTAL_TARGET = 18_000  # 한해풀이 합계 목표 ±10%(A4 약 11~14장)
+
+
+def _tc(lo: int, hi: int) -> TargetChars:
+    """목차표 의도 분량 → 캘리브레이션된 검사 기준 TargetChars."""
+    cmin, cmax = calibrate_chars(lo, hi)
+    return TargetChars(min=cmin, max=cmax)
 MAX_PARALLEL_SECTIONS = 4  # 의존성 없는 섹션 병렬 상한(2장)
-MAX_REGENERATIONS = 2  # 정합성 실패 재생성 한도(7장)
+MAX_REGENERATIONS = 1  # 사실 위반 시에만 재생성(비용 절감, 2026-06-14: 2→1)
 
 
 def build_section_plans(spec: ReportSpec) -> list[SectionPlan]:
@@ -161,7 +209,19 @@ def build_section_plans(spec: ReportSpec) -> list[SectionPlan]:
             plans.append(SectionPlan(
                 section_id=sid, title=title,
                 module_calls=[ModuleCall(module_id=m) for m in modules],
-                target_chars=TargetChars(min=lo, max=hi),
+                target_chars=_tc(lo, hi),
+                depends_on=depends,
+            ))
+        return plans
+
+    if spec.product_code == "RPT_YEAR":
+        plans = []
+        for sid, title, modules, lo, hi in _YEAR_TOC:
+            depends = ["Y-02"] if sid in _Y02_DEPENDENTS else []
+            plans.append(SectionPlan(
+                section_id=sid, title=title,
+                module_calls=[ModuleCall(module_id=m) for m in modules],
+                target_chars=_tc(lo, hi),
                 depends_on=depends,
             ))
         return plans
@@ -182,6 +242,6 @@ def build_section_plans(spec: ReportSpec) -> list[SectionPlan]:
         plans.append(SectionPlan(
             section_id=sid, title=title,
             module_calls=[ModuleCall(module_id=m) for m in resolved],
-            target_chars=TargetChars(min=lo, max=hi),
+            target_chars=_tc(lo, hi),
         ))
     return plans

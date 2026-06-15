@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -28,8 +29,47 @@ _BACKEND = Path(__file__).resolve().parents[4]
 _CONFIG_PATH = _BACKEND / "config" / "llm_config.json"
 _ENV_PATHS = [_BACKEND.parent / ".env", _BACKEND / ".env"]
 
-# 프로세스 전역 원가 장부(운영에서는 영속 저장소로 교체 — docs/09 8장 대시보드 원천).
+# 프로세스 전역 원가 장부(요청 단위 가드용). 영속 집계는 아래 usage sink가 DB에 적재한다.
 COST_LEDGER = LLMCostLedger()
+
+# 사용량 영속 sink — 앱이 startup에서 주입(UsageStore+PricingStore). 미주입(테스트·DB 없음) 시
+# no-op. 호출 1건당 (surface, model, provider, 토큰, 컨텍스트)를 넘기면 비용 계산·DB 적재한다.
+_usage_sink: Callable[..., None] | None = None
+# LLM 호출이 메인·폴백 모두 실패했을 때 1건 통지하는 sink(에러 모니터링). 주입 전엔 no-op.
+_error_sink: Callable[..., None] | None = None
+
+
+def set_error_sink(sink: Callable[..., None] | None) -> None:
+    """LLM 호출 실패 1건을 외부(에러 모니터링)에 넘기는 sink를 주입한다(없으면 미적재)."""
+    global _error_sink
+    _error_sink = sink
+
+
+def _emit_error(exc: BaseException, **fields: object) -> None:
+    """메인·폴백 모두 실패 시 1건 통지(best-effort — 로깅 실패는 예외 전파를 막지 않음)."""
+    if _error_sink is None:
+        return
+    try:
+        _error_sink(exc, **fields)
+    except Exception:  # noqa: BLE001 — 에러 로깅 실패는 무시(예외 전파 우선)
+        pass
+
+
+def set_usage_sink(sink: Callable[..., None] | None) -> None:
+    """사용량 영속 sink 주입(앱 startup)."""
+    global _usage_sink
+    _usage_sink = sink
+
+
+def _emit_usage(**fields: object) -> None:
+    """호출 1건을 sink로 보낸다(best-effort — 로깅 실패가 LLM 응답을 막지 않게)."""
+    if _usage_sink is None:
+        return
+    try:
+        _usage_sink(**fields)
+    except Exception:  # noqa: BLE001 — 사용량 로깅 실패는 무시(응답 우선)
+        pass
+
 
 _config_cache: dict | None = None
 _env_loaded = False
@@ -182,6 +222,10 @@ def generate_reading(
     call_type: str = "chat_single",
     system: str | None = None,
     product_code: str = "CHAT",
+    *,
+    owner_id: str | None = None,
+    surface: str = "chat",
+    ref_id: str | None = None,
 ) -> str:
     """가드를 통과한 프롬프트로 통변 서술을 생성한다(메인→폴백).
 
@@ -190,6 +234,7 @@ def generate_reading(
         call_type: docs/09 8장 한도표 키(chat_single/chat_compare/sections 등).
         system: 시스템 프롬프트(미지정 시 표현 원칙 고정 블록).
         product_code: 원가 집계용 — 사용 공급자가 ':gemini'/':openai'로 덧붙는다.
+        owner_id·surface·ref_id: 사용량 영속 로그용 컨텍스트(관리자 대시보드).
 
     Raises:
         TokenBudgetExceeded: 입력 상한 초과(호출 전 차단).
@@ -220,6 +265,13 @@ def generate_reading(
                     cached_input_tokens=cached,
                     product_code=f"{product_code}:{cfg['primary']['provider']}",
                 )
+                _emit_usage(
+                    surface=surface, model=cfg["primary"]["model"],
+                    provider=cfg["primary"]["provider"], is_fallback=False,
+                    input_tokens=in_tok or input_est, output_tokens=out_tok,
+                    cached_tokens=cached, owner_id=owner_id, product_code=product_code,
+                    call_type=call_type, ref_id=ref_id,
+                )
                 return text
             except (httpx.HTTPError, RuntimeError, KeyError, IndexError) as exc:
                 last_error = exc
@@ -238,11 +290,29 @@ def generate_reading(
                 cached_input_tokens=cached,
                 product_code=f"{product_code}:{cfg['fallback']['provider']}",
             )
+            _emit_usage(
+                surface=surface, model=cfg["fallback"]["model"],
+                provider=cfg["fallback"]["provider"], is_fallback=True,
+                input_tokens=in_tok or input_est, output_tokens=out_tok,
+                cached_tokens=cached, owner_id=owner_id, product_code=product_code,
+                call_type=call_type, ref_id=ref_id,
+            )
             return text
         except (httpx.HTTPError, RuntimeError, KeyError, IndexError) as exc:
             last_error = exc
 
-    raise RuntimeError(f"LLM 호출 실패(메인·폴백 모두): {last_error}")
+    err = RuntimeError(f"LLM 호출 실패(메인·폴백 모두): {last_error}")
+    _emit_error(
+        err,
+        kind=type(last_error).__name__ if last_error else "LLMError",
+        message=str(last_error) if last_error else "LLM 호출 실패",
+        surface=surface,
+        provider=str(cfg["primary"].get("provider")),
+        model=str(cfg["primary"].get("model")),
+        owner_id=owner_id,
+        ref_id=ref_id,
+    )
+    raise err
 
 
 # 표현 원칙 고정 블록(docs/06 v2.2.1 — 시스템 프롬프트에 고정).
@@ -265,5 +335,34 @@ _SYSTEM_PROMPT = (
     "6. 점수·숫자를 답변에 노출하지 않는다 — 강도는 제공된 표현 문장으로만 전달한다.\n"
     "7. 출력은 마크다운 기호(#, *, |, ### 등) 없이 평문으로, 공백 포함 1,500자 이내로 "
     "쓴다.\n"
+    "응답은 한국어로, 제공된 근거를 인용하며 서술한다."
+)
+
+# 보고서(RPT_*) 전용 시스템 프롬프트 — 대화(_SYSTEM_PROMPT)와 분리 관리(2026-06-14 사용자 확정).
+# _SYSTEM_PROMPT 최소 변경 원칙: 문체·평문·점수 규칙은 검증된 대화 프롬프트를 그대로 유지하고
+# (오프닝 '서술가' 유지 — '보고서'로 칭하면 모델이 문어체로 흘러 페르소나 해요체가 무너짐),
+# ① 규칙1의 '입력에 없으면 해당 정보는 제공되지 않았다로 처리'(강제 답변 시 나오는 회피 문구)
+# 절만 제거하고 — 보고서는 섹션마다 필요한 사실이 모두 제공되므로 그 문구가 필요하지도 나와서도
+# 안 된다(신뢰도) — ② 규칙7의 대화용 1,500자 상한만 푼다(분량은 섹션 과제 목표를 따름).
+_REPORT_SYSTEM_PROMPT = (
+    "당신은 사주 통변 서술가다. [필수 준수]\n"
+    "1. 계산 금지: 입력의 간지·점수·합충 성립 판정을 절대 재계산·변경하지 않는다. "
+    "본문은 제공된 간지·점수·근거만으로 서술하고, 입력에 없는 간지·수치·날짜를 새로 만들지 "
+    "않는다.\n"
+    "2. 의미 서술 의무: [원국·명식 구조]와 [명식 해석 자료], 후보별 '동반 신호'·'해석' "
+    "줄을 적극 엮어 — 이 글자가 일간에게 무엇이고, 운에서 온 글자와 어떤 관계를 맺어 "
+    "이런 신호가 되는지 — 사용자가 자기 사주로 납득할 수 있는 이야기로 풀어낸다. "
+    "점수와 간지의 낭독만으로 답하지 않는다.\n"
+    "3. 사건명은 동반 신호 매트릭스로 엔진이 확정한 값이다 — 단일 합·십성만 근거로 "
+    "다른 사건으로 재해석하지 않는다.\n"
+    "4. 신살은 보조 참고 자료다 — '이런 신살의 영향일 수도 있다' 정도로만 곁들이고 "
+    "성향의 핵심 근거로 부각하거나 단독으로 길흉·사건을 단정하지 않는다.\n"
+    "5. 사건 발생이 아니라 '변화 에너지의 활성화'로 표현하고, "
+    "Trigger→진행→결과 구조로 설명한다. 합·충 등 관계는 '무엇과 합/충하여 무엇으로 "
+    "작용해 어떤 결과가 되는지'까지 인과를 끝맺는다.\n"
+    "6. 점수·숫자를 답변에 노출하지 않는다 — 강도는 제공된 표현 문장으로만 전달한다.\n"
+    "7. 출력은 마크다운 기호(#, *, |, ### 등) 없이 평문으로 쓰되, 분량은 섹션 과제의 목표를 "
+    "따른다(대화의 1,500자 제한은 적용하지 않는다). 잔 소제목·연속 빈 줄로 지면을 낭비하지 "
+    "말고 여러 문장을 묶은 조밀한 문단으로 작성한다.\n"
     "응답은 한국어로, 제공된 근거를 인용하며 서술한다."
 )

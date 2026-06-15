@@ -2772,3 +2772,297 @@ EventKey 추가 여부 결정 ④ docx/pdf 변환 파이프라인(보고서 출�
   진행 페이지 문구만 '닫아도 계속·알림·내역에서 다시' 안내로 보강.
 - 검증: 630 pass(+1 progress_fn 섹션별 호출) · ruff/mypy clean · 프론트 tsc·vitest 23·build pass.
   프로덕션(.next-prod) 재빌드·재기동 반영.
+
+## 한해풀이(RPT_YEAR) 상품 추가 + 리포트 공백 정규화 (2026-06-14) ✅
+
+- **신규 풀이 상품 `RPT_YEAR` 한해풀이**(사용자 확정). 총운(RPT_FULL 22섹션)에서 단일 년도에
+  의미 있는 항목만 발췌·중복 제거한 **12섹션(Y-01~Y-12)**. 장기 항목(생애 대운 로드맵·과거
+  복원·고점 연도 Top·성격 종합) 제외, 원국+용신은 Y-02 1섹션으로 압축. 세운 기준=달력연도
+  1~12월(`spec.period`가 그 해로 스코프). dependsOn: Y-02(용신)→Y-03~Y-11.
+  - 분량 합계 21,600~28,400자 → **A4 약 14~18장**(1p≈1,600자). 집중(15장)<한해<총운(50장).
+  - docs/10 1장 상품표 + 4-2장 목차 규격 신설.
+- **백엔드**: `report.py` product_code Literal에 RPT_YEAR. `report_plan.py` `_YEAR_TOC`·
+  `_Y02_DEPENDENTS`·`YEAR_TOTAL_TARGET`·`YONGSIN_SECTIONS`(F-04/Y-02) + build_section_plans
+  분기. 하드코딩 `"F-04"` 용신 전파를 `YONGSIN_SECTIONS` 멤버십으로 일반화
+  (report_builder.py·report_service.py). report_service에 Y-01~Y-12 작성 가이드,
+  `_NATAL_SECTIONS`에 Y-02 등록.
+- **공백 낭비 수정(전 상품 공통)**: 섹션 프롬프트에 '지면 절약'(연속 빈 줄·잔 소제목·한 문장
+  단락 금지, 조밀한 산문) 지시 추가. 생성 후 `_tighten()`으로 연속 빈 줄(3줄+)→1개 정규화.
+  렌더(ReportPager) 타이틀 간격 `prose-headings:mt-3`→`mt-4`(문단 간격의 2배).
+- **프런트**: `lib/themes.ts` THEMES index 1(총운 오른쪽)에 `year`(한해풀이) + `needsYear`.
+  `buildReportSpec(…, year)`→period=그 해 1~12월. 테마 시작 페이지에 년도 셀렉터
+  (기본 올해, 범위 올해~+5년). lib/types.ts product_code 유니온 확장.
+- **검증**: 백엔드 631 pass · ruff/mypy clean · 프론트 tsc clean · production build pass.
+  dry-run: 12섹션·deps·용신 전파(水) 정상, 분량 합계 A4 13.5~17.8장. `_tighten` 실측 잔존
+  연속 빈 줄 0.
+- **관찰(기존 파이프라인 공통, 본 작업 범위 외)**: 라이브 생성 시 Gemini가 목표보다 짧게
+  생성(예: 목표 2,500~3,500자에 ~1,900자)하고 evidence path를 그대로 인용하지 않아 분량·근거
+  정합성 검사(무허용오차)에 실패→on_hold. **총운 F-01/F-04도 동일하게 실패** 확인 — RPT_YEAR
+  고유 결함 아님. 길이 하한 완화/허용오차·근거 인용 강제는 전 상품에 걸친 별도 튜닝 결정으로
+  사용자 승인 후 진행 대상.
+
+### 분량 캘리브레이션 'B' 적용 (2026-06-14, 같은 작업 후속)
+
+- 위 '관찰'의 분량 미달 on_hold를 사용자 확정 'B'(실측 기반 하향)로 처리. 실측(gemini-3-flash):
+  섹션 출력은 목표 크기와 무관하게 ~1,400~1,950자에 수렴(목표 4,500~5,500자 F-08·F-14 →
+  1,953·1,718자). 길게 잡은 목표를 일괄 유지하는 것이 분량 검사(무허용오차) 실패의 직접 원인.
+- `report_plan.calibrate_chars(lo,hi)` 신설 — 목차표의 편집 의도 분량을 실측 밴드로 압축(전 상품
+  공통). 짧은 섹션(의도 mid<2,200)→700~2,200자, 표준·긴 섹션→900~2,900자. build_section_plans
+  세 분기(FULL/YEAR/FOCUS) 모두 `_tc()` 경유 적용. `FULL_TOTAL_TARGET` 78,000→41,000,
+  `YEAR_TOTAL_TARGET` 25,000→18,000(캘리브레이션 mid합 FULL 40,900·YEAR 18,300, 테스트 ±10% 통과).
+- 상품 분량(실측 기준) 갱신: 총운 A4 ~20~25장, 한해풀이 ~11~14장, 집중 ~8~9장. docs/10 1장 표 +
+  캘리브레이션 주석 + 4-2장 갱신.
+- 검증: 631 pass · ruff/mypy clean. 한해풀이 실생성 재측정 — **12섹션 중 10개 통과**(이전 캐스케이드
+  해소), 총 17,428자/A4 약 11장. 남은 실패 2건은 길이와 무관: Y-05·Y-12 근거 경로(evidence path)
+  미인용(간헐), Y-12 종결어미 93%(경계). 동일 검사는 총운/집중에도 간헐 적용되는 전 상품 공통 사안
+  으로, evidence 인용 강제/완화(옵션 C)·페르소나 임계는 별도 결정 대기.
+
+### 리포트 인스트럭션 분리 + 근거 인용 강화(C-2) + 종결어미 임계(C-3) (2026-06-14)
+
+- **확인**: 테마사주(리포트)와 AI채팅이 `llm_client._SYSTEM_PROMPT`를 공유 — 별도 관리 아니었음
+  (chat_service.py:756 / report_service generate_fn). 공유 프롬프트의 '입력에 없는 간지·수치·날짜가
+  필요하면 해당 정보는 제공되지 않았다로 처리한다'는 채팅 강제답변용 회피 문구로, 신뢰도상 리포트엔
+  필요해서도 본문에 나와서도 안 됨(사용자 지적).
+- **분리**: `_REPORT_SYSTEM_PROMPT` 신설(리포트 전용). `_SYSTEM_PROMPT` 최소 변경 — ① 규칙1의
+  '해당 정보는 제공되지 않았다' 절 제거, ② 규칙7의 대화용 1,500자 상한 해제(분량은 섹션 과제 목표).
+  나머지(오프닝 '서술가', 평문 기본, 점수 비노출)는 원본 유지. 주의: 오프닝을 '보고서 서술가'/
+  '보고서'로 칭하니 모델이 문어체로 흘러 페르소나 해요체가 59~68%로 붕괴 → '서술가' 유지로 복구.
+  report_service.generate_fn이 `_REPORT_SYSTEM_PROMPT` 사용. 채팅은 `_SYSTEM_PROMPT` 그대로.
+- **C-2(근거 인용 강화)**: 재생성(attempt>0) 시 context.evidence_paths가 있으면 '경로 중 하나를
+  화살표 포함 글자 그대로 1회 인용' 강제 문구를 프롬프트에 덧붙임(report_service.generate_fn).
+- **C-3(종결어미 임계)**: persona.check_compliance 종결어미 비율 임계 0.95→0.93(표·짧은 섹션의
+  비서술 문장 변동 흡수). check_compliance는 리포트 전용 게이트(채팅은 페르소나 블록만 주입).
+- **검증**: 631 pass · ruff/mypy clean. 한해풀이 실생성 = **status completed(12/12 통과)**,
+  18,897자/A4 약 11.8장, '정보 없음/제공되지 않았다' 류 문구 0건.
+
+### thinking LOW 적용 확인 + 시제 앵커 주입(시제 혼동 해소) (2026-06-14)
+
+- **thinking 조사**: '씽킹 low 미적용' 의심 확인. Gemini 호출 경로는 llm_client._call_gemini 단일,
+  운영 요청에 generationConfig.thinkingConfig.thinkingLevel="LOW"가 실제 전송됨(요청 본문 캡처로
+  확정). 무거운 리포트 프롬프트(4,704자)에서 thoughts 2,794→0으로 작동, 짧은 채팅은 LOW여도
+  ~400 thoughts(gemini-3 LOW 바닥값). 설정 우회 경로 없음. → LOW는 정상 적용.
+- **실제 문제는 시제**: 사용자 지적('생각 안 하고 답변, 특히 테마사주가 오늘 기준 시제를 못 잡음').
+  원인 — `today`가 차트 계산·후보 필터엔 쓰이나 LLM 프롬프트엔 미주입. thinking이 low라 모델이
+  오늘 날짜·시제를 스스로 추론 못 해 과거/미래를 혼동. 규칙 9상 thinking을 올릴 수 없으므로
+  '오늘'과 시제를 사실로 주입(엔진이 사실 제공 → LLM 서술).
+- **구현**: `_ReportData.today` 보관 + `tense_anchor_lines(spec)` 신설 — 모든 섹션 프롬프트 상단에
+  '[기준 시점]: 오늘은 YYYY년 M월 D일, 이전=과거/이번 달=현재/이후=미래' 주입. RPT_YEAR는 대상
+  연도의 월별 과거·현재·미래까지 명시(예: 2026 풀이를 6월에 보면 1~5월=과거, 6월=현재,
+  7~12월=미래). build_section_context가 prefix 직후 주입.
+- **검증**: 631 pass · ruff/mypy clean. 실생성 — Y-05 월별이 '1~5월 …했고(과거)', '현재인 6월
+  갑오월은 …네요(현재)', '7~12월 …예상되네요(미래)'로 시제 정확 교정. status completed(12/12).
+
+### 페르소나 말버릇 교체 (2026-06-14)
+
+- 기본 페르소나(female_40s)의 거슬리는 말버릇 "다만 한 가지는요"를 "한 가지 짚어드릴 점이 있어요"로
+  대체(dictionaries/persona_lexicon.json). 다른 연령대 톤과 중복 없는 40대 여성 해요체.
+  validate_dictionaries 통과 · 631 pass. persona_lexicon은 PersonaEngine이 요청마다 직접 로드 →
+  재시작 없이 반영.
+
+### 발현 분기(Manifestation Branch) 프로세스 신설 — 챗·리포트 공통 (2026-06-14)
+
+- **문제**: 한 사건의 에너지가 같은 계열(EVENT_CATEGORY)의 형제 사건으로도 발현될 수 있음에도
+  (예: '이직·직업 변화'↔'이사·이동' = move 계열), 그 분기 가능성을 도출·주입하는 프로세스가 부재.
+  build_monthly_overview의 `[:2]` 절단으로 형제 후보가 버려지고, 풀이는 한 사건으로 단정.
+- **신설**: `saju_engines/manifestation_branch.py` — `branch_events(focal, period_candidates)`(같은
+  EVENT_CATEGORY·같은 시점에 **실제 점수화된** 형제만 강도순, distinct·최댓값, <2면 빈값 — 추측 배제),
+  `branch_line(...)`(발현 분기 1줄, 계열 라벨+형제 강도순). 사용자 확정: EVENT_CATEGORY 그대로 /
+  같은 시점 점수화 형제만 / 챗·리포트 동시.
+- **챗**: MonthOverviewRow에 `branch_ko` 추가. build_monthly_overview가 절단 전 그 달 후보 전체로
+  분기 산출 → 유력 달 종합에 분기 줄 주입.
+- **리포트**: `_ReportData.scored`(전체 점수화) 보관 + `_branch_lines()`가 후보 기간별 형제 분기 도출
+  → luck_block에 '[발현 분기]' 블록 주입(운 데이터 부착 섹션 전체).
+- **일반화 확인(실측)**: move(이직·이사)뿐 아니라 money(재물·횡재)·career(취업·승진·사업)·
+  affection(관계·결혼)까지 같은 시점 동시 점수화된 달에서만 분기 노출(노이즈 0). 점수·판정 불변.
+- **검증**: 636 pass(+5 단위 test_manifestation_branch) · ruff/mypy clean.
+
+### 발현 분기 누락 수정 + 호칭 과다 반복 억제 (2026-06-14)
+
+- **발현 분기 누락(2025-08 이직↔이사)**: 분기 초점을 그 달 1위(cs[0]) 단일 계열로만 잡아, 100점
+  동점이 흔들리면(취업↔이직) move 계열 분기가 통째 누락. `branch_summary(focal_keys, …)` 신설 —
+  표시되는 상위 사건(cs/후보) **전부의 계열**을 훑어 형제를 계열당 cap개(기본 3)로 제시. 챗
+  build_monthly_overview·리포트 _branch_lines 모두 전환. 실측: 2025-08이 1위가 취업이어도
+  '이동·변동(이직·직업 변화/이사·이동)' 분기를 안정적으로 포함.
+- **호칭 과다 반복('회원님'/'OO님')**: 페르소나 템플릿이 '반드시 호칭 사용'을 강제 → 매 문장 호명.
+  ① 템플릿을 '최대 2회·문장 첫머리 반복 금지'로 강화. ② `persona.cap_honorific(text, honorific,
+  keep=2)` 후처리 신설 — 생략해도 자연스러운 형태(호격 쉼표/주어 은·는·이·가·께서/여격 에게·께/
+  소유격 의)만 keep 초과분에서 제거, 목적격(을·를)은 보존(문법 안전). chat_service 답변·
+  report_service 섹션 출력에 적용. 실측: 섹션당 8→2, 6→4회로 감소(가독성 유지).
+- **검증**: 642 pass(+cap_honorific·branch_summary 단위테스트) · ruff/mypy clean. 터널 재기동 반영.
+
+### 형제 분기 노출 위치 수정 + 호칭 후처리 제거 (2026-06-14)
+
+- **형제 분기 누락 근본원인**: branch_ko는 전 월 계산되나 [유력 달 종합](top-3)에만 렌더링 →
+  2025-08이 top-3 밖이면 이사 형제가 어디에도 안 보임(랭킹 run마다 변동). [월별 요약] 표는
+  top-2(`[:2]`)만 보여 이사(3위) 잘림. dry_run 전체 프롬프트로 확인.
+- **수정**: `branch_summary`를 압축형(계열·형제 목록만, 지시문 제거)으로 바꾸고 [월별 요약] 표
+  모든 달 행에 ` · 분기 …` 렌더링(top-3 의존 제거). 안내문은 표 하단 1회. [유력 달 종합]은 압축
+  분기에 지시를 wrap. 실측: 2025-08 행에 '이동·변동'(이직·직업 변화/이사·이동) 노출 확인.
+- **호칭 후처리 제거(사용자 방침)**: cap_honorific 및 _HONORIFIC_* 전부 삭제(persona/chat/report).
+  호칭은 페르소나 인트로 지시(단일 LLM 호출)로만 처리 — 후처리·재호출 0. 비용 원칙: 답변 1건당
+  LLM 호출 최소화가 우선(채팅=1회, 후처리는 추가 호출 0이지만 방침상 제거).
+- 검증: 638 pass · ruff/mypy clean. 터널 재기동 반영.
+
+### 재생성(LLM 재호출) 최소화 — 비용 절감 (2026-06-14)
+
+- **원칙**: 답변 1건당 LLM 호출 최소화. 리포트 섹션이 검사 실패 시 최대 2회 재호출하던 것을 대폭 축소.
+- **결정적 보정(재호출 0)** `report_builder._repair_section`: ① 분량 초과 → 문장 경계로 잘라 상한 내,
+  ② 근거 경로 미인용 → 경로 1줄을 본문 끝에 결정적으로 덧붙여 검사 통과.
+- **재생성은 '사실 위반'에만**: `_hard_violations`(미제공 간지/입력에 없는 점수·연도/용신 불일치/
+  금지 표현)만 재생성 유발. 분량·종결어미·근거·대상라벨 등 스타일·포맷 잔여 위반은 재호출 없이
+  통과(passed=True, 위반은 기록). on_hold도 사실 위반에만.
+- **MAX_REGENERATIONS 2→1**: 최악 재호출 절반(섹션당 3→2회 상한).
+- **실측**: 한해풀이 12섹션 = LLM **12회 호출(재생성 0)**, status completed. (이전 최악 36회·잦은 on_hold)
+- 검증: 640 pass(+regen-min 단위테스트 2) · ruff/mypy clean. 터널 재기동 반영.
+
+### 호칭 별명 주입 + 이사 형제 surfacing (실제 사주 검증) (2026-06-14)
+
+- **검증 방법론 오류 정정**: 앞선 분기 검증을 잘못된 성별(여성, 대운 壬午)로 해 무효였음. 실제
+  사주는 남성(대운 壬辰). 남성 사주로 재검증.
+- **호칭 별명 미연결 버그**: ChatRequest.subject_label(사주 별명)이 chat()에 전달조차 안 되고
+  build_block(persona,"회원") 하드코딩 → 늘 '회원님'. 수정: chat()에 subject_label 인자 추가,
+  라우터가 req.subject_label 전달, build_block(persona, subject_label). → '데글님' 등 별명 호칭.
+- **이사 형제 미노출**: 실제 남성 사주 2025-08은 relocation(이사)이 후보로 점수화되지 않아
+  'co-scored only' 규칙으론 이사 분기가 원천 불가. 이사는 이직(career_change)과 동일한 역마·이동
+  에너지이므로, 상호교환 계열(_INTERCHANGEABLE_FAMILIES={'move'})은 한 멤버만 점수화돼도 형제를
+  잠재 발현으로 포함하도록 branch_events 보강. 실측: 2025-08 월별요약에 '이동·변동'(이직·직업
+  변화/이사·이동) 노출 확인.
+- 검증: 641 pass(+이사 surfacing 단위테스트) · ruff/mypy clean. 터널 재기동 반영.
+
+### 발현 분기 상호교환 계열 일반화 (이사만 특수처리 → 동형 전반) (2026-06-14)
+
+- `_INTERCHANGEABLE_FAMILIES`를 {'move'} 하드코딩에서 **EVENT_CATEGORY 멤버가 정확히 2종인 계열
+  자동 도출**로 일반화: move(이직↔이사)·money(재물 변화↔횡재)·study(진학·자격↔수료·졸업). 한 멤버만
+  점수화돼도 나머지를 잠재 형제로 노출. career(6종)·affection(4종)은 구별 사건이라 co-scored 유지.
+- 실측(남성 사주 월별표): 2025-08~12 이직/이사, 2026-01·04·05 재물/횡재, 2026-02 진학/수료 노출.
+  career는 co-scored된 형제만(전체 나열 안 함).
+- 검증: 642 pass(+일반화 단위테스트) · ruff/mypy clean. 터널 재기동.
+
+### 맥락 기반 형제 사건 disambiguation — 무직→이직 불가→이사 (2026-06-14)
+
+- **굉장한 오류**: '백수→재취업' 질문에서 2025-08은 이동(이직/이사) 신호가 취업보다 강한데,
+  무직 상태라 '이직'은 성립 불가 → 이사가 답인데도 풀이가 2025-08을 '재취업 달'로 단정.
+- **일반 안내(분기 노트)로는 실패**: thinking LOW LLM이 다단계 추론(무직→이직불가→이사)을 못 함.
+  실측에서 LLM이 여전히 2025-08=재취업으로 답하고 이사 언급조차 안 함.
+- **수정**: 질문에서 무직 맥락(_UNEMPLOYED_KEYS) 감지 시, 우선순위 높은 명시 제약
+  (_UNEMPLOYED_DIRECTIVE)을 프롬프트 말미 주입 — "이직 성립 불가, 이직 우세 달의 이동 에너지는
+  이사로 해석, 재취업은 취업·합격 우세 달에서만 지목". 분기 안내문도 '맥락으로 갈래를 좁혀라'로 강화
+  (context_reducer 월별요약 노트 / report [발현 분기] 헤더).
+- **실측(재검증)**: LLM이 재취업을 2025-11(취업·합격 우세)로 지목, 2025-08은 '이직/이사 같은 이동
+  ·검토 과정'으로 풀이 — 핵심 오류 해소.
+- 검증: 642 pass · ruff/mypy clean. 터널 재기동.
+
+### 운영 관리자 콘솔 Phase A–E (2026-06-14)
+
+- **Phase A 사용량·비용 영속 로깅(토대)**: migration 009 — llm_usage(호출별 토큰·cost_usd 스냅샷)·
+  model_pricing(관리자 등록 단가)·admin_settings(환율)·accounts.is_admin. usage_store.py
+  (UsageStore·PricingStore·compute_cost_usd). llm_client에 usage sink 주입(set_usage_sink) —
+  호출마다 단가로 비용 계산 후 DB 적재(best-effort). chat/report가 owner·surface·ref 전달.
+  in-memory COST_LEDGER(가드용) 유지. 단가 seed=model_prices.json, 환율 기본 1350.
+- **Phase B 인증**: accounts.is_admin + AccountAuthStore.is_admin/set_admin + deps.require_admin
+  (401/403) + env SAJU_ADMIN_LOGIN_IDS 시드(startup lifespan).
+- **Phase C API** /api/v2/admin/*(require_admin): overview(오늘/7d/30d 토큰·비용 USD·KRW·월예상·
+  단위비용·잡상태) / usage/summary(group_by day·surface·product·model·owner) / usage/timeseries /
+  events(리포트 잡 목록·상태필터) / pricing GET·PUT / settings/usd_krw PUT. ReportJobStore에
+  list_recent·status_counts 추가.
+- **Phase D 프런트** app/admin/*(가드 레이아웃 + 개요·사용량·이벤트·단가/환율 탭). lib/admin.ts.
+  단가·환율은 관리자가 페이지에서 직접 등록(현재 모델 제시 + 단가·환율 입력), 비용 USD·KRW 병기.
+- **Phase E 비용 예측**: overview에 월 예상(30일 평균×30)·단위 비용(채팅 1질의/리포트 1섹션) 포함.
+- **검증**: 645 pass(+compute_cost_usd 단위) · ruff/mypy clean · tsc·build pass. 라이브 HTTP:
+  비관리자 403 / 관리자 overview·pricing 200 / 실제 채팅→사용량 적재($0.003918=5원) / 단가·환율
+  편집 반영 확인. 관리자 부여는 SAJU_ADMIN_LOGIN_IDS(env) 또는 AccountAuthStore.set_admin.
+
+### AI채팅 시점/기간 산출 개선 P0–P3 — '이사 시기 질문이 2026만 답' 수정 (2026-06-14)
+
+- **진단(실측)**: intent(relocation)·domain은 정상인데 time_range가 깨져 전부 2026 중심창으로 떨어짐
+  — ①축약연도 '27/28년'→None(4자리만 인식), ②'내후년' 미지원, ③'앞으로 N년'이 _rolling_months
+  12개월 고정으로 N 무시.
+- **P0 parse_time**: 축약연도 'NN년'→20NN(00~69→2000s, 70~99→1900s; 기간어미 후/뒤/간/안에 제외),
+  '내후년'→+2년, '향후/앞으로 N년(간)'→현재월부터 N×12개월 롤링창(C8a 신설). 실측: 27년→2027 월별표
+  2027-01~12, 앞으로5년→2026-06~2031-05.
+- **P1 chat_service**: `_EVENT_MONTHLY`(EVENT_TYPE progress+hybrid) — 사건형(이사·이직 등)은 '월별'
+  미명시 연 질문도 12개월 overview 계산. 응답형식: '월별' 명시→전체표 / 미명시→연간 요약+핵심 달
+  (`_KEY_MONTHS_DIRECTIVE`). 실측: '28년 이사운'→2028 12개월+핵심달 지시, '28년 이사운 월별로'→전체표.
+- **P2 query_parser**: 시점-only 후속('그럼 28년은?')은 기존 B2 상속이 P0 파싱으로 동작 + 단위 미명시
+  후속은 직전 granularity 상속(월별 맥락 보존). 실측: relocation·2028·month 상속.
+- **P3 context_reducer**: build_reference_frame note에 의도 사건·기간 유형(달력연도/미래 롤링)·재해석
+  금지 명시.
+- 검증: 651 pass(+test_time_parser_year 5케이스) · ruff/mypy clean. 터널 재기동.
+
+### 관리자 사용량 '상품' 묶음 표시 + 선택 사주 정체성 정리 (2026-06-14)
+
+- **관리자 사용량·비용**: '상품' 집계에서 섹션 코드(RPT_FOCUS:W-01 등)를 `:` 앞 상품 단위로
+  묶어 합산 상위 행으로 표시, 행 클릭 시 섹션 상세를 펼침(▶/▼, (N섹션) 뱃지). 데이터는 이미
+  섹션 단위로 내려오므로 프런트 그룹핑만으로 처리(백엔드·추가호출 0). app/admin/usage/page.tsx.
+- **선택 사주 stale 버그**: 이전 로그인의 선택('데굴')이 빈 사주목록 위에 남던 문제. 원인=선택을
+  로그인 정체성·실제 목록과 대조하지 않고 sessionStorage에 보존. 수정 ①선택 캐시에 owner(로그인 ID)
+  스탬프 → authReady/loginId 변동 시 owner 불일치(타 사용자·로그아웃·구버전)면 폐기, ②reconcile(validIds)
+  추가 → 사주목록 조회 직후 서버 진실과 대조해 없는 선택/동반자 정리. SelectedSubjectProvider.tsx,
+  app/sajus/page.tsx.
+- 검증: tsc clean · production build 성공(/admin/usage, /sajs).
+
+### 관리자 시스템 에러 모니터링 — 중앙 적재 + 빈도 묶음 페이지 (2026-06-14)
+
+- **목적**: 그동안 채팅 LLM 실패(삼켜짐)·미처리 5xx가 어디에도 안 남던 문제. 리포트 실패만
+  report_jobs.error에 부분 기록. → 중앙 에러 로그 신설.
+- **DB**: 마이그레이션 010 `system_errors`(source/severity/kind/message/detail/path/owner_id/ref_id/
+  fingerprint/resolved_at). fingerprint=출처+종류+정규화(숫자 '#' 치환)메시지 해시로 유사 에러 묶음.
+- **백엔드**: `error_store.ErrorStore`(record/list_recent/group_summary/resolve/counts/unresolved_total,
+  usage_store 패턴 미러), `services/error_logging`(싱글톤 sink + best-effort record + _logged WeakSet로
+  중복 적재 방지). 캡처 3지점: ①main.py 전역 `@app.exception_handler(Exception)` → 미처리 5xx를
+  source=http로 적재 후 일반화 500(HTTPException·검증오류 제외) ②llm_client 에러 sink → 메인·폴백 모두
+  실패 시 source=llm(provider/model/ref_id) ③report.py 잡 catch → source=report_job(이미 기록된 예외는
+  is_logged로 제외). admin API: `GET /errors`, `GET /errors/groups`, `POST /errors/resolve` +
+  overview에 unresolved_errors KPI.
+- **프런트**: `/admin/errors` 페이지(묶음/전체 토글, 출처·심각도·미해결·기간 필터, 묶음 행 N회 발생·
+  최종발생(KST)·펼치면 개별 발생+스택, 해결 버튼 행/묶음 단위), layout 탭 '에러 로그', 개요에 미해결
+  에러 뱃지(클릭→에러 로그).
+- 기록은 전부 best-effort(DB 미설정 시 setup no-op으로 비활성). 검증: 654 pass(+ErrorStore 3) ·
+  ruff/mypy clean · tsc/build OK · 010 적용·엔드포인트 401 가드 확인. 백엔드 재기동.
+
+### AI채팅 맥락파악 실패 2건 수정 (2026-06-14)
+
+- **① '아가' 오추출(맥락 갇힘)**: "…다시 회사로 돌아가게 될까?"의 '돌아가게'에서 부분문자열 '아가'를
+  동반자 별칭으로 오인 → 대상 확인에 갇힘. conversation.py:106 별칭 정규식에 단어 경계 가드
+  `(?<![가-힣])(\d+\s*호|신랑|아가)(?!씨)` — 앞에 한글(동사 어간)이 붙으면 제외, '아가씨'도 제외,
+  조사(아가는/아가가)는 정상. 실측: '돌아가게'·'나아가야' 오추출 0, '아가는'(직접 입력)은 그대로 확인 대상.
+- **② 취업운→재물운 오답**: '취직/복직/구직'이 도메인 단어에도 이벤트 단어에도 없어 general로 떨어지고,
+  특정 사건 앵커가 없어 일반 월별 흐름(재물 등)으로 샘. (a) EVENT_WORDS[JOB_GAIN]에 취직·구직·복직·일자리
+  추가, (b) query_parser: 도메인어 미검출이어도 event_key가 잡히면 EVENT_DOMAIN으로 도메인 유도(향후
+  갭도 방지). 실측: 취직·복직·구직·재취업 → career/job_gain.
+- 검증: 657 pass(+3 회귀) · ruff/mypy clean. 백엔드 재기동.
+
+### '직장운' 의미 매핑 — 재직 전제(이직+승진) + 비정직원 시 취업 포함 (2026-06-14)
+
+- **사용자 기준**: 직장운 문의는 통상 재직 상태의 이직·입지·승진 / 단, 정직원이 아니면 취업도 대상.
+- **파서**(query_parser): '직장운/직장 운' → event_key=이직(career_change) + event_keys=[승진(promotion)],
+  domain=career. event_keys는 graph_scope(context_reducer:760, planner:93)에 합산돼 이직·승진 후보가
+  함께 산출.
+- **상태 판정 배선**: chat 라우터가 대상 사주의 2단계 프로필 employment_form을 best-effort 조회해
+  chat_service로 전달(부재·무DB면 None — 규칙11 선택 입력). nonregular = 고용형태{계약직·프리랜서·
+  무급가족종사} ∪ 질문 키워드(_UNEMPLOYED_KEYS). 재직 전제 사건(이직·승진)+nonregular면 intent.event_keys
+  에 취업(job_gain) 추가(plan 이전 보강 → scope 반영) + _CAREER_NONREGULAR_DIRECTIVE(취업 포함, '무직'
+  단정 회피, 당락 단정 금지). 기존 무직→이사 분기는 비career 맥락에만 적용(도메인 인지).
+- 실측(dry_run): 직장운+정규직/미상→이직·승진만 / +계약직·백수→취업 디렉티브 ON / 이사+백수→기존 이사
+  분기 유지. 검증: 658 pass(+취업 동의어·직장운 회귀) · ruff/mypy clean. 백엔드 재기동.
+
+### 이벤트 엔진 월 기간 절기 경계 어긋남 수정 — 절기 기준 당월 라벨 (2026-06-15)
+
+- **증상**: 양력 달의 節 이전(보통 1~7일경) 구간에서 '당월 운세'가 한 칸 어긋난 월운으로
+  풀림. 월운 LuckPillar 라벨은 절기 시작 시각의 로컬 월(未월=2026-07 등)인데, 코드 곳곳이
+  `f"{today.year}-{today.month:02d}"`(양력)로 만든 라벨을 절기 월 라벨과 동일시했다. 예: 양력
+  7/3은 절기상 午월(2026-06)이나 양력 라벨은 2026-07.
+- **헬퍼 신설**: `manse_analysis/luck/luck_calendar.py` — `luck_month_label(day, table, tz)`
+  (절기 기준 당월 YYYY-MM; `month_branch`의 지배 節 시각 로컬 월) + `shift_month_label(label,
+  delta)`(라벨 산술). 런타임 manse_core 의존 없음(SolarTermTable은 TYPE_CHECKING, table 주입).
+- **수정 지점(5)**: ① time_parser `parse_time(current_month_label)` — '이번 달/다음 달'·미래
+  (C8a)·과거(C8b) 롤링 창 기준 달을 절기로(query_parser·conversation 통해 전달). ② context_reducer
+  `build_reference_frame`/`build_llm_input`(current_month_label) — P6 지남/남은 구간 판정 +
+  serialize cur_month을 ReferenceFrame.this_luck_month(신규 필드)로. ③ chat_service —
+  차트 타임존으로 당월 라벨 재확정 후 current_month·_rolling_months·parse_message·build_llm_input
+  에 주입(파싱 시점은 차트 전이라 KST). ④ report_service RPT_FOCUS '향후 N년' cur 필터. ⑤
+  precompute_scheduler `_missing_levels` 당월 키(table 주입 시 절기, 미주입 시 양력 폴백).
+- **타임존**: 월운 라벨이 생성된 차트 `time_correction.timezone` 우선, 미상/파싱 선행 시 KST 폴백
+  (사용자 승인 2026-06-15).
+- 검증: 신규 test_luck_calendar.py 10건(경계 7/1·7/6·7/7·8/1·8/8 + shift + parse 주입/폴백) 포함
+  전체 598 pass · ruff/mypy clean. 백엔드 재기동.

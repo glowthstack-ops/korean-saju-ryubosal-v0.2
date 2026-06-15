@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import uuid
 from datetime import date
 from typing import Annotated
@@ -21,7 +22,7 @@ from saju_shared_types.intent import SubjectKind
 from saju_shared_types.report import ReportResult, ReportSpec
 
 from ..deps import get_report_job_store, get_subject_store, require_owner
-from ..services import report_service
+from ..services import error_logging, report_service
 from ..services.partner_resolve import inline_to_birth
 
 router = APIRouter(prefix="/api/v2/report", tags=["report"])
@@ -162,8 +163,21 @@ def _run_report_job(
         store.complete(job_id, result.model_dump(mode="json"), len(result.sections))
     except RuntimeError as exc:
         store.fail(job_id, str(exc))
+        _log_job_error(exc, job_id, owner_id, str(exc))
     except Exception as exc:  # noqa: BLE001 — 잡 실패는 사유 보존이 우선
         store.fail(job_id, f"생성 오류: {exc}")
+        _log_job_error(exc, job_id, owner_id, f"생성 오류: {exc}")
+
+
+def _log_job_error(exc: BaseException, job_id: str, owner_id: str, message: str) -> None:
+    """리포트 잡 실패를 에러 모니터링에 적재 — 이미 기록된 예외(예: LLM 실패)는 중복 제외."""
+    if error_logging.is_logged(exc):
+        return
+    with contextlib.suppress(Exception):
+        error_logging.record_error(
+            source="report_job", kind=type(exc).__name__, message=message,
+            path="report.generate", owner_id=owner_id, ref_id=job_id, exc=exc,
+        )
 
 
 @router.post("/jobs", response_model=ReportJobCreated, status_code=202)
@@ -178,6 +192,11 @@ def create_job(
     record = subjects.get(req.subject_id)
     if record is None or record.owner_id != owner_id:
         raise HTTPException(status_code=404, detail="사주를 찾을 수 없습니다.")
+    # LLM 키가 없으면 잡을 만들지 않고 즉시 안내(분 단위 뒤 실패하는 doomed 잡 방지).
+    if not report_service.llm_client.is_available():
+        raise HTTPException(
+            status_code=503, detail="LLM API 키 미설정 — 생성을 일시적으로 사용할 수 없습니다.",
+        )
     partner_birth = _resolve_partner_birth(req.spec, subjects, owner_id)
     job_id = uuid.uuid4().hex
     total = len(build_section_plans(req.spec))

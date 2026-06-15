@@ -196,7 +196,7 @@ export interface SubjectRef {
 }
 
 export interface ReportSpec {
-  product_code: "RPT_FULL" | "RPT_FOCUS";
+  product_code: "RPT_FULL" | "RPT_FOCUS" | "RPT_YEAR";
   subjects: SubjectRef[];
   topic?: string | null; // FOCUS: 'career' | 'wealth' | 'compatibility' | ...
   period: { start: string; end: string };

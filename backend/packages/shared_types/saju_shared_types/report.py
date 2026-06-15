@@ -25,7 +25,7 @@ class ReportPeriod(BaseModel):
 class ReportSpec(BaseModel):
     """보고서 사양 (docs/10 2장)."""
 
-    product_code: Literal["RPT_FULL", "RPT_FOCUS"]
+    product_code: Literal["RPT_FULL", "RPT_FOCUS", "RPT_YEAR"]
     subjects: list[SubjectRef]
     topic: str | None = None  # FOCUS 전용(Domain | 'compatibility' | 'relocation')
     period: ReportPeriod

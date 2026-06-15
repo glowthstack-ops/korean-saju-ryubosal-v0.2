@@ -17,6 +17,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date
+from typing import TYPE_CHECKING
+
+from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.manse_result import ManseV2Result
@@ -25,6 +28,9 @@ from saju_shared_types.subject import SubjectRecord
 
 from .precompute import CompositeBuilder
 from .precompute_store import PrecomputeStore
+
+if TYPE_CHECKING:
+    from saju_manse_core.calendar.solar_terms import SolarTermTable
 
 ComputeFn = Callable[[BirthInput], ManseV2Result]
 
@@ -38,12 +44,21 @@ class PrecomputeScheduler:
         builder: CompositeBuilder,
         compute: ComputeFn,
         dict_version: str,
+        table: SolarTermTable | None = None,
+        timezone: str = "Asia/Seoul",
     ) -> None:
-        """compute는 만세력 서비스의 calculate(캐시 포함)를 주입한다."""
+        """compute는 만세력 서비스의 calculate(캐시 포함)를 주입한다.
+
+        table: 절기 테이블(``month_branch`` 보유). 주입 시 당월 월운 키를 절기 기준으로
+            잡는다(미주입 시 양력 ``today.month`` 폴백 — 절기 경계 직전 한 달 어긋날 수 있음).
+        timezone: 월운 라벨을 만들 타임존(차트 라벨 생성 타임존과 일치해야 정합).
+        """
         self._store = store
         self._builder = builder
         self._compute = compute
         self._dict_version = dict_version
+        self._table = table
+        self._timezone = timezone
 
     # ── T0: 등록/수정 ────────────────────────────────────────────
 
@@ -86,8 +101,12 @@ class PrecomputeScheduler:
         year_key = str(today.year)
         if self._store.get(subject_id, CompositeLevel.YEAR, year_key, v) is None:
             missing.add(CompositeLevel.YEAR)
-        # 월운 period_key는 절입 기준 라벨(YYYY-MM) — 민간력 당월 키 부재 시 보충.
-        month_key = f"{today.year}-{today.month:02d}"
+        # 월운 period_key는 절입 기준 라벨(YYYY-MM) — 양력 당월(today.month)이 아니라
+        # 오늘이 속한 절기 월운 라벨로 조회해야 한다(절기 경계 직전 구간 어긋남 보정).
+        if self._table is not None:
+            month_key = luck_month_label(today, self._table, self._timezone)
+        else:
+            month_key = f"{today.year}-{today.month:02d}"
         if self._store.get(subject_id, CompositeLevel.MONTH, month_key, v) is None:
             missing.add(CompositeLevel.MONTH)
         if self._store.get(subject_id, CompositeLevel.DAY, today.isoformat(), v) is None:
