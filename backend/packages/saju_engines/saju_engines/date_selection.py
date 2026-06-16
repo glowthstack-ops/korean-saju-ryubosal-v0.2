@@ -55,6 +55,11 @@ class DateSelectionEngine:
         self._fixed_holidays: dict[str, str] = {
             i["date"]: i["name"] for i in holidays["fixedSolar"]
         }
+        # 방위 적합도(S5) — 오행→길방(8방위) 사전. 이사 택일에서 사용자 지정 방위 평가용.
+        dirs = self._read(dictionaries_dir / "calendar" / "direction_rules.json")
+        self._dir_to_element: dict[str, str] = {
+            d: i["element"] for i in dirs["items"] for d in i["directions"]
+        }
 
     @staticmethod
     def _read(path: Path) -> dict:
@@ -74,6 +79,7 @@ class DateSelectionEngine:
         top_n: int = 5,
         wealth_element: str | None = None,
         favorability: dict[str, str] | None = None,
+        stated_direction: str | None = None,
     ) -> DateSelectionResult:
         """기간 [start, end](ISO 일자) 안에서 목적별 실행일을 랭킹한다.
 
@@ -91,7 +97,10 @@ class DateSelectionEngine:
         options = profile["options"]
         domain = profile.get("domainOverride", "relocation")
         constraints = reality_constraints or []
-        weekend_only = any("주말" in c for c in constraints)
+        weekend_only = any("주말만" in c for c in constraints)
+        # 평일 한정('평일만')은 주말 제외, 평일 선호('평일')는 주말 허용+평일 가점(2026-06-16).
+        weekday_only = any("평일만" in c for c in constraints)
+        weekday_pref = any("평일 선호" in c for c in constraints)
 
         years = {
             c.period_key: _signed_weight(c, domain)
@@ -121,6 +130,8 @@ class DateSelectionEngine:
             is_weekend = day.weekday() >= 5
             if weekend_only and not is_weekend:
                 continue
+            if weekday_only and is_weekend:
+                continue
 
             # ⑤ Calendar Rule(E10-a): 손없는 날·공휴일·요일.
             son = is_son_eomneun_nal(day)
@@ -134,13 +145,20 @@ class DateSelectionEngine:
                 calendar_score += 10
                 reasons.append(f"공휴일({holiday_name})")
 
+            # ⑥ 현실 적합도 — 주말/평일 제약·선호 반영. '평일 선호'는 주말도 허용하되
+            # 평일을 가점(70<100)해 주말 편중을 완화한다(2026-06-16 '주말만 추천' 결함 보정).
+            if weekday_pref and not (weekend_only or weekday_only):
+                reality_fit = 100 if not is_weekend else 70
+            else:
+                reality_fit = 100  # 한정 제약은 위에서 이미 후보를 걸러냄(통과한 날은 모두 적합)
+
             # ①~③ 점수.
             scores = DateScores(
                 macro_flow=_to100(years.get(c.period_key[:4], 0.0)),
                 month_fit=_to100(months.get(c.period_key[:7], 0.0)),
                 day_execution=_to100(_signed_weight(c, domain)),
                 calendar_rule=min(100, calendar_score),
-                reality_fit=100 if (not weekend_only or is_weekend) else 0,
+                reality_fit=reality_fit,
                 final=0,
             )
             # ⑦ 목적별 가중 합산.
@@ -184,13 +202,23 @@ class DateSelectionEngine:
         result_cautions = (
             [_VOLATILITY_CAUTION] if options.get("volatilityWarning") else []
         )
+        # 방위: 재물 목적이면 재성 기반(direction_fits), 이사·이동이면 용희기구한 역할 기반
+        # 8방위 적합도. 사용자가 방위를 지정했으면(예: 남동) 그 방위의 길흉을 한 줄로 안내한다.
+        if wealth_element:
+            directions = direction_fits(wealth_element, favorability)
+        elif favorability and domain == "relocation":
+            directions = self._relocation_directions(favorability)
+            verdict = self._stated_direction_caution(stated_direction, favorability)
+            if verdict:
+                result_cautions.append(verdict)
+        else:
+            directions = []
         return DateSelectionResult(
             purpose=purpose,
             candidates=picked,
             avoid_dates=avoid_dates,
             cautions=result_cautions,
-            # 방위: 재성 오행이 주어지면(횡재·재물 목적) 용희기구한 역할을 반영한 방위를 제공.
-            directions=direction_fits(wealth_element, favorability) if wealth_element else [],
+            directions=directions,
         )
 
     # ── E10-b Risk Avoidance(T7.2) ───────────────────────────────
@@ -213,6 +241,42 @@ class DateSelectionEngine:
             if fav_ok and kind_hit:
                 return rule["ko"]
         return None
+
+    def _relocation_directions(self, favorability: dict[str, str]) -> list[DirectionFit]:
+        """이사·이동 8방위 적합도 — 방위 오행의 용희기구한 역할(용신 1.0…구신 0.15)이 기준.
+
+        direction_rules.json(통설 정오행 방위, 검수 대상)을 재사용한다. 재물 가점은 없다 —
+        이사는 거처 안정이 목적이라 용·희 방위가 유리, 기·구 방위는 피한다(2026-06-16).
+        """
+        out: list[DirectionFit] = []
+        for direction, element in self._dir_to_element.items():
+            role = favorability.get(element, "한신")
+            out.append(DirectionFit(
+                direction=direction, element=element,
+                fit=round(_ROLE_FIT.get(role, 0.55), 2), note=role,
+            ))
+        out.sort(key=lambda d: -d.fit)
+        return out
+
+    def _stated_direction_caution(
+        self, stated: str | None, favorability: dict[str, str]
+    ) -> str | None:
+        """사용자가 지정한 이사 방위(예: 남동)의 길흉을 한 줄로 안내(단정 금지·참고)."""
+        if not stated:
+            return None
+        element = self._dir_to_element.get(stated)
+        if element is None:
+            return None
+        role = favorability.get(element, "한신")
+        tone = {
+            "용신": "용신 방위로 가장 유리", "희신": "희신 방위로 유리",
+            "한신": "무난(특별한 유불리 약함)", "기신": "기신 방위라 권하기 어려움",
+            "구신": "구신 방위라 권하기 어려움",
+        }.get(role, "무난")
+        favs = [d for d, e in self._dir_to_element.items()
+                if favorability.get(e) in ("용신", "희신")]
+        tail = f" 유리한 방위: {', '.join(favs)}." if favs else ""
+        return f"지정 방위 {stated}({element}·{role}) — {tone}.{tail}"
 
     @staticmethod
     def _risk_score(c: LuckComposite) -> int:

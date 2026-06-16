@@ -179,6 +179,32 @@ def test_claim_entity_registered(engine, state) -> None:
     assert link.link_kind is LinkKind.CHALLENGE
 
 
+# ── F8b — 제약 정제 후속('평일도 없어?') 연결 ───────────────────
+
+
+def test_constraint_refine_followup_inherits_intent(engine, state) -> None:
+    """'평일도 없어?'는 직전 이사 택일 질문을 잇는다(NEW 분류로 끊기던 결함 — 2026-06-16).
+
+    직전 intent(이사·7월·DATE_RECOMMENDATION)를 상속하고 '평일 선호' 제약만 병합한다.
+    """
+    i1, state, _r, _l1 = _turn(
+        engine, state, "7월에 남동쪽으로 이동하는 이사야. 추천할 날짜가 있을까?"
+    )
+    assert i1.query_type is QueryType.DATE_RECOMMENDATION
+    assert i1.constraints.direction == "남동"
+
+    i2, state, _r, link = _turn(engine, state, "평일도 없어?")
+    assert link.is_follow_up is True
+    assert link.link_kind is LinkKind.CONSTRAINT_ADD
+    # 직전 슬롯 상속 — 시점(7월)·이벤트(이사)·질의유형 유지.
+    assert i2.query_type is QueryType.DATE_RECOMMENDATION
+    assert i2.time_range is not None and i2.time_range.start == "2026-07"
+    assert str(i2.event_key) == "relocation"
+    # 새 제약 병합 + 직전 방위 보존.
+    assert "평일 선호" in i2.constraints.reality_constraints
+    assert i2.constraints.direction == "남동"
+
+
 # ── T4.1 — 상태 영속화 (전용 DB 필요 시 skip) ─────────────────────
 
 

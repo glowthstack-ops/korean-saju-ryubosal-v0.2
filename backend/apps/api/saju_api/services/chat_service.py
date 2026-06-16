@@ -58,7 +58,7 @@ from saju_shared_types.profile import PersonaConfig
 from saju_shared_types.topic_context import PeriodSpec
 
 from . import llm_client
-from .manse_service import calculate, luck_days, luck_months
+from .manse_service import calculate, daily_luck_window, luck_days, luck_months
 from .personalization import fetch_personal_inputs
 
 _BACKEND = Path(__file__).resolve().parents[4]
@@ -354,6 +354,12 @@ def _build_period_fortune(
     )
 
 
+def _next_month_label(d: date) -> str:
+    """주어진 날짜 다음 달을 'YYYY년 M월' 형태로 — 택일 한 달 윈도우 재질문 예시용."""
+    y, m = (d.year + 1, 1) if d.month == 12 else (d.year, d.month + 1)
+    return f"{y}년 {m}월"
+
+
 def _date_selection_block(
     birth: BirthInput, intent, today: date, yongsin: str | None
 ) -> DateSelectionBlock | None:
@@ -361,35 +367,82 @@ def _date_selection_block(
 
     표가 있으면 LLM의 '날짜 정보 없음' 회피 답변을 지시로 차단한다(v1 원칙).
     """
-    # 기간: 질문 해석 결과(월 단위 권장). 연 단위/무시점이면 오늘부터 30일.
-    start_label = intent.time_range.start if intent.time_range else None
-    if start_label and len(start_label) == 7:
-        anchor = date.fromisoformat(start_label + "-15")
-        start_iso = start_label + "-01"
-        end_iso = start_label + "-31"
+    # 기간: 질문 해석 결과로 탐색 시작·종료를 정한다. 택일은 한 번에 약 한 달만 탐색하고,
+    # 요청이 그보다 넓거나 개방형('이후')이면 끝을 한 달로 캡한 뒤 안내문을 덧붙인다(2026-06-16).
+    tr = intent.time_range
+    start_label = tr.start if tr else None
+    end_label = tr.end if tr else None
+
+    # 시작일: 일 단위(YYYY-MM-DD) > 월 단위(YYYY-MM, 1일) > 무시점(오늘). 과거면 오늘로 당김.
+    if start_label and len(start_label) == 10:
+        req_start = date.fromisoformat(start_label)
+    elif start_label and len(start_label) == 7:
+        req_start = date.fromisoformat(start_label + "-01")
     else:
-        anchor = today
-        start_iso = today.isoformat()
-        end_iso = (today.replace(day=1) + __import__("datetime").timedelta(days=62)
-                   ).replace(day=1).isoformat()
+        req_start = today
+    if req_start < today:
+        req_start = today
+
+    # 요청 종료(있으면): 일 단위 그대로, 월 단위면 그 달 말일. 개방형/무시점이면 None.
+    req_end: date | None = None
+    if end_label and len(end_label) == 10:
+        req_end = date.fromisoformat(end_label)
+    elif end_label and len(end_label) == 7:
+        ey, em = (int(x) for x in end_label.split("-"))
+        nxt = date(ey + (em // 12), (em % 12) + 1, 1)
+        req_end = nxt - timedelta(days=1)
+
+    # 한 달 캡: 시작일 + 30일, 단 같은 해(연말)를 넘지 않게(월운 부모 결측 방지).
+    year_end = date(req_start.year, 12, 31)
+    scan_end = min(req_start + timedelta(days=30), year_end)
+    if req_end is not None:
+        scan_end = min(scan_end, req_end)
+    if scan_end < req_start:
+        scan_end = req_start
+    # 요청이 탐색 윈도우를 넘으면(개방형 '이후' 또는 한 달 초과) 안내 대상.
+    if req_end is None:
+        truncated = start_label is not None  # 종료 미지정 + 시작 명시 = 개방형('이후')
+    else:
+        truncated = req_end > scan_end
+
+    start_iso = req_start.isoformat()
+    end_iso = scan_end.isoformat()
+    anchor = req_start
     purpose = intent.event_key if intent.event_key in _DATE_PURPOSES else EventKey.RELOCATION
 
     chart = calculate(birth.model_copy(update={"reference_date": anchor}))
+    # 일운을 탐색 윈도우([start, end])로 교체 — 기본 일운은 기준월 1개월치만 채워 월 경계를
+    # 넘는 택일이 불가능하다(2026-06-16 결함 수정). 월운·세운 부모는 anchor 연도 기준 유지.
+    # calculate()는 캐시 공유 객체를 반환하므로 in-place 변경 금지 — luck_cycles만 복제 후 교체.
+    if chart.luck_cycles is not None:
+        window_daily = daily_luck_window(chart, req_start, scan_end)
+        chart = chart.model_copy(
+            update={"luck_cycles": chart.luck_cycles.model_copy(
+                update={"daily_luck": window_daily})}
+        )
     composites = CompositeBuilder(_DICTS).build(
         chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00",
     )
     # 횡재(로또)·재물 택일은 재성 방위·시진을 함께 제공(번호 거부·당첨 단정 금지 유지).
     # 방위는 용희기구한 역할을 반영해 기신·구신·생구신 방향은 추천하지 않는다(2026-06-16).
+    # 이사·이동도 favorability를 전달해 8방위 적합도 + 지정 방위(예: 남동) 길흉을 안내한다.
     is_windfall = purpose in (EventKey.WINDFALL, EventKey.WEALTH_CHANGE)
     wealth_element = analyze_wealth_capacity(chart).wealth_element if is_windfall else None
-    if is_windfall:
+    is_relocation = purpose == EventKey.RELOCATION
+    if is_windfall or is_relocation:
         from saju_engines.event_scoring import favorability_map
         favorability = favorability_map(chart)
     else:
         favorability = None
+    # 현실 제약(주말만/평일만/평일 선호)과 지정 방위를 엔진에 전달, 표본은 8개로 확대해
+    # 평일 후보까지 충분히 노출한다('주말만 추천처럼 보임' 완화 — 2026-06-16).
+    constraints = intent.constraints
     result = _get_date_engine().select(
         purpose, composites, start_iso, end_iso, yongsin_element=yongsin,
-        include_hour_fit=is_windfall, wealth_element=wealth_element, favorability=favorability,
+        reality_constraints=constraints.reality_constraints or None,
+        include_hour_fit=is_windfall, top_n=8,
+        wealth_element=wealth_element, favorability=favorability,
+        stated_direction=constraints.direction,
     )
     if not result.candidates:
         return None
@@ -414,12 +467,20 @@ def _date_selection_block(
         [h.model_dump() for h in result.candidates[0].hour_fits]
         if result.candidates and result.candidates[0].hour_fits else []
     )
+    # 한 달 윈도우 안내 — 요청이 더 넓으면(개방형/다월) 탐색 범위와 재질문 방법을 알린다.
+    cautions = list(result.cautions)
+    if truncated:
+        cautions.append(
+            f"택일은 한 번에 약 한 달 범위만 탐색합니다 — 이번에는 {start_iso} ~ {end_iso}를"
+            f" 살폈어요. 그 이후 시기는 원하시는 달(예: '{_next_month_label(scan_end)} 이사일')을"
+            " 지정해 다시 물어봐 주세요."
+        )
     return DateSelectionBlock(
         purpose_ko=event_ko(purpose),
         period=f"{start_iso} ~ {end_iso}",
         rows=rows,
         avoid=result.avoid_dates,
-        cautions=result.cautions,
+        cautions=cautions,
         directions=[d.model_dump() for d in result.directions],
         hour_fits=hour_fits,
     )
@@ -569,6 +630,7 @@ def chat(
     # 멀티턴: 스레드 상태 복원 → 대화 엔진 경유(대상 해소·슬롯 상속·반복 감지).
     state: ConversationState | None = None
     repeated = False
+    is_followup_turn = False
     if thread_id is not None:
         store = store or ConversationStore()
         store.migrate()
@@ -578,6 +640,7 @@ def chat(
             state, question, today, birth_year=birth_year,
             current_month_label=luck_month,
         )
+        is_followup_turn = _link.is_follow_up
         # 궁합 상대 첨부를 스레드 상태에 미러링(크로스 디바이스 재개 복원용). 매 턴 현재
         # 첨부(없으면 None)로 갱신 — 프론트 첨부/해제가 곧 서버 상태가 된다.
         state.partner = partner_ref
@@ -623,9 +686,12 @@ def chat(
             turn_no=state.turn_no if state else None, repeated=repeated,
         )
 
-    # 광범위/대상 판정(T3.2) — 추측 실행 금지.
+    # 광범위/대상 판정(T3.2) — 추측 실행 금지. 단, 후속 정제 턴('평일도 없어?')은 직전
+    # 의도를 상속했으므로 broad 안내로 빠뜨리지 않는다(스레드 단절 방지 — 2026-06-16).
     assessment = assess(intent, question)
-    if assessment.status in ("too_broad", "need_subject"):
+    if assessment.status in ("too_broad", "need_subject") and not (
+        is_followup_turn and assessment.status == "too_broad"
+    ):
         suggestion_text = " / ".join(s.label for s in assessment.rewrite_suggestions)
         answer = (
             assessment.clarify_question

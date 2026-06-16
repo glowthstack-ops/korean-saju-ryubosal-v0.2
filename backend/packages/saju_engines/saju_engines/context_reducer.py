@@ -945,7 +945,14 @@ def build_llm_input(
         calendar_context=build_calendar_context(result, selected, intent),
         event_candidates=llm_candidates,
         out_of_range_candidates=out_candidates,
-        no_candidates_in_period=bool(period_start or period_end) and not llm_candidates,
+        # 택일(DATE_RECOMMENDATION)·날짜표가 있는 답에는 '신호 없음' 면책을 넣지 않는다 —
+        # 택일 표가 곧 답이라 "뚜렷한 신호가 없습니다"와 날짜 추천이 한 답에서 모순되던 결함
+        # 수정(2026-06-16). 사건 점수 공집합은 택일 질의에 무관(길흉이 아니라 실행일을 묻는다).
+        no_candidates_in_period=(
+            bool(period_start or period_end) and not llm_candidates
+            and date_selection is None
+            and intent.query_type is not QueryType.DATE_RECOMMENDATION
+        ),
         reference=(
             build_reference_frame(today, intent, result, current_month_label)
             if today else None

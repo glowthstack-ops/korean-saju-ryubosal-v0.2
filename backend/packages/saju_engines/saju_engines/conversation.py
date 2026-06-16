@@ -45,6 +45,14 @@ _TIME_UNKNOWN_RE = re.compile(r"태어난\s*시간[은는]?\s*몰라|시간\s*�
 _CUMULATIVE_RE = re.compile(r"앞서\s*물어본\s*(\d+)\s*명|이전에\s*물어본")
 # 조건 추가(F3) / 세분화(F8).
 _CONSTRAINT_RE = re.compile(r"간다면|한다면|이라면|쪽으로")
+# 제약 정제 후속(F8b, 2026-06-16) — 직전 질문을 좁히는 짧은 보완(요일·시간대·달력 선호·배제).
+# '평일도 없어?'가 새 질문(NEW)으로 분류돼 스레드가 끊기던 결함 차단.
+_REFINE_RE = re.compile(
+    r"평일|주말|주중|오전|오후|아침|저녁|새벽|낮|밤"
+    r"|손\s*없는|공휴일|연휴|휴일"
+    r"|말고|이외|외에|그\s*외|빼고"
+    r"|다른\s*(?:날|거|것|쪽)|딴\s*(?:날|거)"
+)
 _DRILL_RE = re.compile(r"세부적으로|구체적으로|시기별로|자세히")
 
 
@@ -208,6 +216,9 @@ class ConversationEngine:
 
         # 3순위 — 조건 누적(F3) / 세분화(F8).
         if _CONSTRAINT_RE.search(text) and not _detect_domains(text):
+            return self._follow(parent_id, LinkKind.CONSTRAINT_ADD, state)
+        # 제약 정제(F8b) — 새 도메인 없이 직전 질문을 좁히는 짧은 보완('평일도 없어?').
+        if _REFINE_RE.search(text) and not _detect_domains(text) and len(compact) <= 20:
             return self._follow(parent_id, LinkKind.CONSTRAINT_ADD, state)
         if _DRILL_RE.search(text) and len(compact) <= 20:
             return self._follow(parent_id, LinkKind.DRILL_DOWN, state)

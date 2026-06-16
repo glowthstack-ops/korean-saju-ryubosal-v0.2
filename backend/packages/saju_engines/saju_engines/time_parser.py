@@ -226,6 +226,35 @@ def parse_time(
                 start=f"{year}-{m1}", end=f"{year}-{m2}", urgency=urgency,
             ), TimeScope.MID_TERM
 
+    # C5b 특정 일자(+이후/부터) — "7월 4일 이후(로)", "8월 1일부터", "2026년 7월 4일 이후".
+    # 택일(E10)의 시작 앵커. '이후/부터'면 개방형(end=None — 호출 측이 탐색 윈도우 결정),
+    # 없으면 단일 일운. C5 월 규칙이 'N월 N일'을 가드로 제외해 날짜가 통째 소실되던 결함 수정
+    # (2026-06-16 사용자 지적 — "7월 4일 이후 이사일"이 6월 답으로 축소). C11(외부 일정 앵커:
+    # 투표일·면접 등)·C9(데드라인 'M월까지')는 앞서 매칭되므로 충돌하지 않는다.
+    m = re.search(r"(?:(20\d{2})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일\s*(이후로?|부터)?", text)
+    if m:
+        yr_explicit = m.group(1)
+        yr = int(yr_explicit) if yr_explicit else today.year + (1 if "내년" in text else 0)
+        mo, dy = int(m.group(2)), int(m.group(3))
+        try:
+            anchor_d: date | None = date(yr, mo, dy)
+        except ValueError:  # 2월 30일 등 비정상 날짜는 무시(다음 규칙으로 통과)
+            anchor_d = None
+        if anchor_d is not None:
+            # 연도 미지정인데 이미 지난 날짜면 내년으로(미래 택일 의도). 명시 연도는 그대로 존중.
+            if yr_explicit is None and "내년" not in text and anchor_d < today:
+                anchor_d = date(yr + 1, mo, dy)
+            # '시간대'(C17) 동반이면 시진 단위 — 단, 날짜 앵커는 유지(로또 실행 패키지 등).
+            # '이후/부터'면 개방형(end=None) — 시진 단위는 특정일 고정이라 단일 앵커.
+            open_ended = m.group(4) is not None and not hour_level
+            return TimeRange(
+                type="absolute",
+                granularity=Granularity.HOUR if hour_level else Granularity.DAY,
+                start=anchor_d.isoformat(),
+                end=None if open_ended else anchor_d.isoformat(),
+                urgency=urgency,
+            ), TimeScope.SHORT_TERM
+
     # C5 월 단위 — "5월", "이번달", "다음 달". 당해 연도 기준(실로그 B2 "5월은 어때?"가
     # 6월 발화에서도 같은 해 5월과의 비교 맥락) — "내년" 명시 시에만 +1.
     # 다중 월 비교("8월과 10월 중 언제가 나아?")는 두 달을 모두 잡아 min~max 구간으로 스팬한다

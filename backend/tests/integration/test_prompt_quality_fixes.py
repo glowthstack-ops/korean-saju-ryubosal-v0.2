@@ -74,6 +74,32 @@ def test_date_recommendation_includes_engine_table() -> None:
     assert "[avoid]" not in table  # 추천 표에 회피 등급 없음
 
 
+def test_date_recommendation_after_specific_date() -> None:
+    """'7월 4일 이후로 이사 좋은 날' → 7/4부터 한 달 윈도우의 날짜 행 + 한 달 안내(2026-06-16).
+
+    'N월 N일 이후'가 파싱되지 않아 오늘(6월) 근처 날짜만 답하던 결함 회귀 방지.
+    """
+    text = _preview("그럼 7월 4일 이후로 이사가기 좋은 날을 뽑아줘")
+    assert "[택일 결과 — 이사" in text
+    # 윈도우는 7/4부터 시작하고 6월(이전) 날짜 행은 표에 없다.
+    assert "2026-07-04 ~ 2026-08-03" in text
+    table = text.split("[택일 결과")[1].split("[근거")[0]
+    assert "2026-07-" in table
+    assert "2026-06-" not in table  # 요청 시작일(7/4) 이전 날짜 미포함
+    # 개방형('이후') 요청은 한 달만 탐색한다는 안내 + 월 지정 재질문 유도.
+    assert "한 번에 약 한 달" in text
+
+
+def test_date_recommendation_suppresses_no_signal_and_shows_direction() -> None:
+    """택일 답에는 '신호 없음' 면책을 넣지 않고, 지정 방위(남동) 길흉을 안내한다(2026-06-16)."""
+    text = _preview("7월에 남동쪽으로 이동하는 이사야. 평일도 괜찮으니 추천할 날짜가 있을까?")
+    assert "[택일 결과 — 이사" in text
+    # ③ 택일 표가 있으면 '뚜렷한 신호가 없습니다' 면책을 주입하지 않는다(자기모순 차단).
+    assert "해당 도메인 후보 없음" not in text
+    # ④ 지정 방위(남동) 길흉 + 유리한 방위 안내.
+    assert "지정 방위 남동" in text
+
+
 # ── P4 — 월별 요약(12개월) ───────────────────────────────────────
 
 

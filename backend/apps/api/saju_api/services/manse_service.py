@@ -6,13 +6,14 @@ import hashlib
 import threading
 from collections import OrderedDict
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from saju_manse_analysis import analyze_chart
 from saju_manse_analysis.luck import (
     compute_luck_cycles,
     daily_luck_for_month,
+    daily_luck_for_range,
     monthly_luck_for_year,
 )
 from saju_manse_calibration import generate_calibration, score_calibration
@@ -489,4 +490,20 @@ def luck_days(birth: BirthInput, year: int, month: int) -> list[LuckPillar]:
         unfavorable,
         year,
         month,
+    )
+
+
+def daily_luck_window(result: ManseV2Result, start: date, end: date) -> list[LuckPillar]:
+    """이미 계산된 차트의 일운을 임의 [start, end] 구간으로 생성한다(차트 재계산 없음).
+
+    택일(E10)이 월 경계를 넘는 탐색 윈도우(예: '7월 4일 이후' → 7/4~8/3)의 일운 합성을
+    만들 때 사용한다. 용희/기구 역할 집합은 차트의 용신 분석에서 추출한다(2026-06-16).
+    """
+    pillars = result.pillars
+    y = result.yongsin_analysis
+    if pillars is None or y is None:
+        raise ValueError("daily luck window unavailable: chart could not be computed")
+    useful, unfavorable = _luck_role_sets(y)
+    return daily_luck_for_range(
+        pillars, Stem(pillars.day.stem), useful, unfavorable, start, end,
     )

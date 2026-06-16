@@ -205,3 +205,41 @@ def test_windfall_select_attaches_directions(engine, composites) -> None:
     assert result.directions and result.directions[0].direction == "북"
     # 방위 note에 '당첨 보장 아님' 류 중복 강조를 넣지 않는다(변동성 경고가 별도 전달).
     assert all("보장" not in d.note for d in result.directions)
+
+
+# ── 평일/주말 제약·선호 + 이사 방위(2026-06-16) ──────────────────
+
+
+def test_weekday_only_excludes_weekends(engine, composites) -> None:
+    """'평일만 가능' → 주말 후보 전면 제외(주말만의 대칭)."""
+    result = engine.select(
+        EventKey.RELOCATION, composites, "2026-06-01", "2026-06-30",
+        reality_constraints=["평일만 가능"], top_n=30,
+    )
+    assert result.candidates
+    assert all(not c.is_weekend for c in result.candidates)
+
+
+def test_weekday_pref_penalizes_weekend_reality_fit(engine, composites) -> None:
+    """'평일 선호' → 주말도 허용하되 평일 우선(주말 reality_fit 70 vs 평일 100)."""
+    result = engine.select(
+        EventKey.RELOCATION, composites, "2026-06-01", "2026-06-30",
+        reality_constraints=["평일 선호"], top_n=40,
+    )
+    weekends = [c for c in result.candidates if c.is_weekend]
+    weekdays = [c for c in result.candidates if not c.is_weekend]
+    assert weekends and weekdays
+    assert all(c.scores.reality_fit == 70 for c in weekends)
+    assert all(c.scores.reality_fit == 100 for c in weekdays)
+
+
+def test_relocation_direction_and_stated_caution(engine, composites) -> None:
+    """이사 택일 — favorability 주면 8방위 적합도 + 지정 방위(남동) 길흉 안내."""
+    fav = {"木": "기신", "火": "희신", "土": "용신", "金": "한신", "水": "구신"}
+    result = engine.select(
+        EventKey.RELOCATION, composites, "2026-06-01", "2026-06-30",
+        favorability=fav, stated_direction="남동", top_n=5,
+    )
+    assert result.directions  # 8방위 적합도 제공(이사도 방위 산출)
+    # 남동=木=기신 → '권하기 어려움' 안내가 cautions에 포함.
+    assert any("남동" in c and "기신" in c for c in result.cautions)

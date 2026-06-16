@@ -511,17 +511,24 @@ def _monthly(
     return out
 
 
-def _daily(pillars, dm, useful, unfavorable, year: int, month: int) -> list[LuckPillar]:
+def _daily_range(pillars, dm, useful, unfavorable, start: date, end: date) -> list[LuckPillar]:
+    """[start, end] 구간(양 끝 포함)의 일운을 날짜순으로 만든다. start>end면 빈 목록."""
     out = []
-    days = _cal.monthrange(year, month)[1]
-    d = date(year, month, 1)
-    for _ in range(days):
+    d = start
+    while d <= end:
         stem, branch = day_ganzi(d)
         out.append(_luck_pillar(
             d.isoformat(), "day", stem, branch, pillars, dm, useful, unfavorable
         ))
         d = d + timedelta(days=1)
     return out
+
+
+def _daily(pillars, dm, useful, unfavorable, year: int, month: int) -> list[LuckPillar]:
+    days = _cal.monthrange(year, month)[1]
+    return _daily_range(
+        pillars, dm, useful, unfavorable, date(year, month, 1), date(year, month, days)
+    )
 
 
 def monthly_luck_for_year(
@@ -550,3 +557,19 @@ def daily_luck_for_month(
     각 LuckPillar.label은 'YYYY-MM-DD'(민간력 날짜)라 달력 셀과 날짜로 매칭한다.
     """
     return _daily(pillars, day_master, useful, unfavorable, year, month)
+
+
+def daily_luck_for_range(
+    pillars: FourPillarsResult,
+    day_master: Stem,
+    useful: set[str],
+    unfavorable: set[str],
+    start: date,
+    end: date,
+) -> list[LuckPillar]:
+    """임의 [start, end] 구간(양 끝 포함)의 일운 — 택일(E10) 등 월 경계를 넘는 구간 조회용.
+
+    기존 ``daily_luck_for_month``가 달력 월 단위로만 일운을 생성해 '7월 4일 이후' 같은
+    구간 택일이 불가능하던 결함을 해소한다(2026-06-16). 호출 측이 탐색 윈도우를 정한다.
+    """
+    return _daily_range(pillars, day_master, useful, unfavorable, start, end)

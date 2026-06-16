@@ -291,6 +291,11 @@ def _detect_constraints(text: str) -> Constraints:
         c.branch_scenario = True
     if re.search(r"주말만|주말\s*밖에", text):
         c.reality_constraints.append("주말만 가능")
+    # 평일 선호/한정(2026-06-16) — '평일만/주중만'은 주말 제외, '평일(도)'는 평일 우선(주말 허용).
+    if re.search(r"평일\s*만|주중\s*만|평일\s*로\s*만", text):
+        c.reality_constraints.append("평일만 가능")
+    elif re.search(r"평일|주중", text):
+        c.reality_constraints.append("평일 선호")
     if re.search(r"손\s*없는\s*날", text):
         c.son_eomneun_nal = True
     m = re.search(r"계약\s*후\s*(\d+)\s*[~-]?\s*(\d+)?\s*개월\s*안에\s*이사", text)
@@ -301,6 +306,39 @@ def _detect_constraints(text: str) -> Constraints:
             ChainedStep(step="이사", offset_from="계약", window=window),
         ]
     return c
+
+
+def _has_constraint_signal(c: Constraints) -> bool:
+    """제약 정제 후속('평일도 없어?')인지 — 방위/현실제약/손없는날/배제 중 하나라도 있으면 True."""
+    return bool(
+        c.reality_constraints or c.direction or c.son_eomneun_nal or c.exclude_options
+    )
+
+
+def _merge_constraints(prev: Constraints, new: Constraints) -> Constraints:
+    """직전 제약에 새 제약을 병합(정제). 주말↔평일 선호는 상호배타라 새 선호가 직전을 대체한다."""
+    merged = prev.model_copy(deep=True)
+    if new.direction:
+        merged.direction = new.direction
+    if new.location_base:
+        merged.location_base = new.location_base
+    if new.son_eomneun_nal is not None:
+        merged.son_eomneun_nal = new.son_eomneun_nal
+    if new.conditional:
+        merged.conditional = new.conditional
+    rcs = list(merged.reality_constraints)
+    if any("평일" in r for r in new.reality_constraints):
+        rcs = [r for r in rcs if "주말" not in r]  # 평일 선호 → 직전 주말 제약 해제
+    if any("주말" in r for r in new.reality_constraints):
+        rcs = [r for r in rcs if "평일" not in r]
+    for rc in new.reality_constraints:
+        if rc not in rcs:
+            rcs.append(rc)
+    merged.reality_constraints = rcs
+    for ex in new.exclude_options:
+        if ex not in merged.exclude_options:
+            merged.exclude_options.append(ex)
+    return merged
 
 
 def _split_questions(text: str) -> list[str]:
@@ -382,6 +420,25 @@ def parse_message(
         return ParsedMessage(
             intents=[inherited], is_follow_up=True, inherited_from=prev_intent.intent_id,
         )
+
+    # B2c 제약 정제 단답('평일도 없어?', '주말 말고') — 시점/도메인/이벤트 없이 직전 질문을
+    # 좁히는 후속(2026-06-16). 직전 intent(이사·7월·DATE_RECOMMENDATION 등)를 상속하고 새
+    # 제약만 병합해, 후속 택일이 새 질문으로 끊겨 broad 안내로 빠지던 결함을 막는다.
+    if (
+        prev_intent is not None and time_range is None and unit_m is None
+        and len(text.replace(" ", "")) <= 25
+        and not _detect_domains(text) and _detect_event(text) is None
+    ):
+        refine_c = _detect_constraints(text)
+        if _has_constraint_signal(refine_c):
+            inherited = prev_intent.model_copy(update={
+                "intent_id": f"{prev_intent.intent_id}+refine",
+                "constraints": _merge_constraints(prev_intent.constraints, refine_c),
+            })
+            return ParsedMessage(
+                intents=[inherited], is_follow_up=True,
+                inherited_from=prev_intent.intent_id,
+            )
 
     pieces = _split_questions(text)
     subjects, mode = _detect_subjects(text)
