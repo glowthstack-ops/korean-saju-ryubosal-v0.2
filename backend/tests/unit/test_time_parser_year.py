@@ -60,3 +60,18 @@ def test_multi_month_comparison_spans_both() -> None:
     # 단일 월은 그대로 단일 구간(회귀 없음).
     single = _tr("8월은 이직운 어때?")
     assert single.start == single.end == "2026-08"
+
+
+def test_remaining_months_of_year_spans_to_december() -> None:
+    """'올해 남은 달들' → 당월(2026-06)~연말(2026-12) 스팬.
+
+    '이번달' 단수 규칙이 먼저 잡아 6월만 답하던 결함 수정(2026-06-16 사용자 지적).
+    """
+    tr = _tr("이번달을 포함해서 올해 남은 달들의 운세를 알려줘")
+    assert tr.start == "2026-06" and tr.end == "2026-12"
+    assert tr.granularity.value == "month"
+    # '연말까지'·'남은 개월' 같은 변형도 동일 스팬.
+    assert _tr("연말까지 운세 흐름 알려줘").end == "2026-12"
+    assert _tr("올해 남은 개월 직장운").start == "2026-06"
+    # '내년'이 붙으면 연 규칙에 양보(남은 달 규칙이 가로채지 않음).
+    assert _tr("내년 남은 달은 어때?").start == "2027"

@@ -246,6 +246,17 @@ def parse_time(
             type="absolute", granularity=Granularity.MONTH,
             start=key, end=key, urgency=urgency,
         ), TimeScope.SHORT_TERM
+    # C5.0 올해 남은 달 — "올해 남은 달들", "남은 개월", "연말까지". 당월(절기)~연말 월별 스팬.
+    # '이번달' 단수 규칙(아래)이 먼저 잡아 당월만 답하던 결함 차단(2026-06-16 사용자 지적).
+    # 연말 고정 종료라 미래 롤링(C8a 향후 N개월)과 구분되며, '내년'은 연 규칙(C6)에 양보.
+    if "내년" not in text and re.search(
+        r"남은\s*(?:달|개월|기간)|올해\s*남은|연말\s*까지|올해\s*말\s*까지", text
+    ):
+        cur_year = int(this_month[:4])
+        return TimeRange(
+            type="relative", granularity=Granularity.MONTH,
+            start=this_month, end=f"{cur_year}-12", urgency=urgency,
+        ), TimeScope.MID_TERM
     if re.search(r"이번\s*달|이달", text):
         key = this_month  # 절기 기준 당월(주입 없으면 양력 폴백)
         return TimeRange(
