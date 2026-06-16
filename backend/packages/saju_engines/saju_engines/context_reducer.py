@@ -1039,18 +1039,20 @@ def serialize_llm_input(payload: LlmInput) -> str:
         )
         for cl in payload.prior_claims:
             lines.append(f"- {cl}")
-    lines.append("")
-    lines.append(
-        "[이벤트 후보 — 그 기간에 가능성이 상대적으로 높은 사건의 추측 신호. "
-        "기간 전체를 대표하지 않음, 강도는 표현 그대로 인용]"
-    )
-    if payload.no_candidates_in_period:
+    # 이벤트 후보 섹션 — 내용이 있을 때만 출력(구조 질문 등 후보 미산출 시 빈 헤더 노출 방지).
+    if payload.event_candidates or payload.no_candidates_in_period:
+        lines.append("")
         lines.append(
-            "질문 기간 내 해당 도메인 후보 없음 — '해당 기간에는 뚜렷한 신호가 "
-            "없습니다'로 정직하게 안내할 것(추측 금지)."
+            "[이벤트 후보 — 그 기간에 가능성이 상대적으로 높은 사건의 추측 신호. "
+            "기간 전체를 대표하지 않음, 강도는 표현 그대로 인용]"
         )
-    for c in payload.event_candidates:
-        lines += candidate_block(c)
+        if payload.no_candidates_in_period:
+            lines.append(
+                "질문 기간 내 해당 도메인 후보 없음 — '해당 기간에는 뚜렷한 신호가 "
+                "없습니다'로 정직하게 안내할 것(추측 금지)."
+            )
+        for c in payload.event_candidates:
+            lines += candidate_block(c)
     # 현재 달(기준 시점) — 지난 기간 행·후보에 '지남' 마커를 붙여 미래 서술을 차단(P6).
     # 절기 기준 당월(this_luck_month) 우선 — 양력 today[:7]은 절기 경계 직전 한 달 어긋남.
     cur_month = (
@@ -1250,8 +1252,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
         # 구조 해석 블록(질문 도메인 맞춤 — 이미 누출 안전 한글). 개인 풀이의 구조 근거로 활용.
         lines.append("")
         lines += payload.structural_context
-    lines.append("")
-    lines.append("[근거 경로]")
+    if payload.evidence:  # 근거 경로 — 후보·증거 있을 때만(구조 질문 등 빈 헤더 방지).
+        lines.append("")
+        lines.append("[근거 경로]")
     for e in payload.evidence:
         label = _clean_evidence_text(event_ko(e.event_key))
         for path in e.readable_paths:

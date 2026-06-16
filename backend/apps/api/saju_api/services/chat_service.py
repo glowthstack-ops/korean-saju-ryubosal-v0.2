@@ -703,7 +703,13 @@ def chat(
             if end_month >= current_month and start_month < current_month:
                 default_period = (current_month, end)
 
-    if period_fortune is not None:
+    # 구조 질문(CHART_ANALYSIS — 성격·격국·부귀·'귀한 사주?' 등 원국 자체 질문)은 시점/이벤트
+    # 데이터가 불필요하다. 월별 이벤트 후보·근거 경로·과거 흐름을 빼고 원국 구조·명식 해석·구조
+    # 블록만 남겨 답변이 엉뚱한 월별 사건으로 새지 않게 한다(2026-06-16 사용자 지적).
+    is_structural = intent.query_type is QueryType.CHART_ANALYSIS
+    if is_structural:
+        default_period = None  # 시점 창 불요 — '질문 기간 내 후보 없음' 빈 안내까지 차단
+    if period_fortune is not None or is_structural:
         candidates = []
         bundles = []
     else:

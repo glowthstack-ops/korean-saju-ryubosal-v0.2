@@ -3403,3 +3403,17 @@ Phase 1(원국 취약 구조)에 운(대운 배경·세운 사건화·중첩)을
   미사용 import(era_energy_profile·era_curated_note·health_risk_windows) 제거 — structural_context로 이관.
 - 검증: 전체 백엔드 pass·ruff·mypy clean. 리포트 F-04·F-11(+운영자 노트)·F-16·F-17·F-18 블록 동일
   렌더 확인, 챗도 동일 포맷터 사용으로 표면화 일관.
+
+### 구조 질문에서 불필요한 시점/이벤트 데이터 제거 (2026-06-16)
+
+사용자 지적: '내 사주는 귀한 사주일까?'(원국 구조 질문)인데 프롬프트에 월별 이벤트 후보·근거 경로·
+과거 흐름이 잔뜩 들어가 답변이 엉뚱한 월별 사건(6월 계약·문서)으로 샘.
+
+- **원인**: CHART_ANALYSIS(구조·성격·부귀·격국 질문)도 항상 이벤트 후보를 산출·포함. default_period가
+  시점 창을 설정해 '질문 기간 내 후보 없음' 빈 안내까지 노출. 빈 이벤트 후보/근거 경로 섹션 헤더도 출력.
+- **수정**: chat_service에서 `is_structural = query_type==CHART_ANALYSIS`이면 candidates·bundles 비우고
+  default_period=None(시점 창 제거). context_reducer 직렬화는 이벤트 후보·근거 경로 섹션을 **내용 있을
+  때만** 출력(빈 헤더 차단).
+- **결과**: 구조 질문 = 원국·명식 해석·구조 블록(부귀·그릇 등)만, 시점/이벤트 데이터 0. 시점 질문
+  (이직운 등)은 이벤트 후보·근거 경로·월별 요약 그대로 유지.
+- 검증: 전체 백엔드 pass(신규 구조질문 게이팅 테스트 포함)·ruff·mypy clean.

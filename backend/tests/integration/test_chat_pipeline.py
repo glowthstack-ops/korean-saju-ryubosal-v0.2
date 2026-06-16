@@ -51,6 +51,23 @@ def test_career_question_produces_guarded_prompt() -> None:
     assert "명리 계산을 시도하지 말 것" in preview
 
 
+def test_structural_question_drops_time_data() -> None:
+    """구조 질문(CHART_ANALYSIS — '귀한 사주?')은 시점/이벤트 데이터를 빼고 원국 구조만 남긴다."""
+    res = _post("내 사주는 귀한 사주일까?")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["status"] == "dry_run"
+    assert body["candidate_count"] == 0  # 이벤트 후보 미산출
+    lines = body["prompt_preview"].splitlines()
+    # 이벤트 후보·근거 경로·과거 흐름·월별 요약 섹션 헤더가 없다(빈 헤더도 노출 안 함).
+    assert not any(line.startswith("[이벤트 후보 —") for line in lines)
+    assert not any(line.strip() == "[근거 경로]" for line in lines)
+    assert not any("질문 기간 외 흐름" in line for line in lines)
+    # 원국 구조·명식 해석·구조 블록(부귀 등)은 유지된다.
+    assert any(line.startswith("[원국·명식 구조") for line in lines)
+    assert any(line.startswith("[부(富)") for line in lines)
+
+
 def test_intent_metadata_round_trip() -> None:
     """응답에 파싱된 intent(분류·도메인·시점)가 동반된다."""
     res = _post("올해 이직운 어때?")
