@@ -98,6 +98,8 @@ _FAV_ROLE: dict[str, PolarityRole] = {
     "용신": PolarityRole.YONG, "희신": PolarityRole.HEE,
     "기신": PolarityRole.GI, "구신": PolarityRole.GI,
 }
+# 오행 상생(생, 生): 木→火→土→金→水→木. 한신의 간접 길흉 판정에 쓴다.
+_GENERATES: dict[str, str] = {"木": "火", "火": "土", "土": "金", "金": "水", "水": "木"}
 # TenGod → 그룹 문자열(RankContext 신호 분류용).
 _GROUP_OF: dict[TenGod, str] = {g: grp.value for g, grp in TEN_GOD_GROUP.items()}
 
@@ -437,17 +439,44 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
     return out
 
 
+def _han_gen_role(element: str, fav_map: dict[str, str]) -> PolarityRole | None:
+    """한신 오행의 간접(생, 生) 길흉 — 생하는 대상의 역할로 약한 길/흉을 판정.
+
+    element가 한신일 때만 동작한다. 한신이 생하는 오행이 용신·희신이면 약한 길(HAN_GOOD),
+    기신·구신이면 약한 흉(HAN_BAD), 그 외(한신/무관)면 None(중립). 한신이 아니면 None.
+    """
+    if fav_map.get(element) != "한신":
+        return None
+    generated_role = _FAV_ROLE.get(fav_map.get(_GENERATES.get(element, ""), ""))
+    if generated_role in (PolarityRole.YONG, PolarityRole.HEE):
+        return PolarityRole.HAN_GOOD
+    if generated_role is PolarityRole.GI:
+        return PolarityRole.HAN_BAD
+    return None
+
+
 def _period_role(target: LuckPillar, fav_map: dict[str, str]) -> PolarityRole:
-    """시점 유입 글자(천간 우선, 지지 보조) 오행의 용기신 역할 → 극성."""
+    """시점 유입 글자(천간 우선, 지지 보조) 오행의 용기신 역할 → 극성.
+
+    1) 직접 역할(용·희·기·구) — 천간 우선, 지지 보조. 2) 천간·지지 모두 직접 역할이 없을 때만
+    한신의 생(生) 관계로 간접 길흉(약)을 판정한다(직접 신호를 덮지 않는 보조 계층).
+    """
     try:
         stem_el = str(STEM_ELEMENT[Stem(target.stem)])
         branch_el = str(BRANCH_ELEMENT[Branch(target.branch)])
     except (KeyError, ValueError):
         return PolarityRole.NEUTRAL
-    role = _FAV_ROLE.get(fav_map.get(stem_el, ""))
-    if role is not None:
-        return role
-    return _FAV_ROLE.get(fav_map.get(branch_el, ""), PolarityRole.NEUTRAL)
+    # 1) 직접 역할(천간 우선).
+    for el in (stem_el, branch_el):
+        direct = _FAV_ROLE.get(fav_map.get(el, ""))
+        if direct is not None:
+            return direct
+    # 2) 직접 역할 없음 → 한신 생(生) 간접 길흉(천간 우선).
+    for el in (stem_el, branch_el):
+        indirect = _han_gen_role(el, fav_map)
+        if indirect is not None:
+            return indirect
+    return PolarityRole.NEUTRAL
 
 
 def _rank_context(

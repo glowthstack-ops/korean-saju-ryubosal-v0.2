@@ -103,12 +103,18 @@ class ConfidenceLevel(StrEnum):
 
 
 class PolarityRole(StrEnum):
-    """용희기 신호 역할 (사양 polarity_rules)."""
+    """용희기 신호 역할 (사양 polarity_rules).
+
+    HAN_GOOD/HAN_BAD: 한신 오행의 간접(생, 生) 길흉 — 직접 역할(용·희·기·구)이 없을 때만,
+    한신이 생하는 오행이 용신·희신이면 약한 길(HAN_GOOD), 기신·구신이면 약한 흉(HAN_BAD).
+    """
 
     YONG = "YONG"
     HEE = "HEE"
     NEUTRAL = "NEUTRAL"
     GI = "GI"
+    HAN_GOOD = "HAN_GOOD"
+    HAN_BAD = "HAN_BAD"
 
 
 class TwelveStage(StrEnum):

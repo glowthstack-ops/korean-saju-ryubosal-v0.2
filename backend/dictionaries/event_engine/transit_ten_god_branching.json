@@ -174,6 +174,17 @@
       "effect": "사건이 압박·실패·지연·손실 쪽으로 발현되기 쉽다.",
       "score_multiplier": 1.075,
       "quality_flip": true
+    },
+    "HAN_GOOD": {
+      "name": "한신 생(生) 길 신호",
+      "effect": "한신이 용신·희신을 생하여 약한 길 방향으로 보조된다(직접 용신보다 약함).",
+      "score_multiplier": 1.015
+    },
+    "HAN_BAD": {
+      "name": "한신 생(生) 흉 신호",
+      "effect": "한신이 기신·구신을 생하여 약한 흉 방향으로 기운다(직접 기신보다 약함).",
+      "score_multiplier": 1.015,
+      "quality_flip": true
     }
   },
   "activation_thresholds": {

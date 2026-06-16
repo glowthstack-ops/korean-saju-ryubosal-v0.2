@@ -3506,3 +3506,22 @@ AI 채팅 상담뿐 아니라 **테마 사주 뷰어(ReportPager)에도 공통 �
   `del`(취소선) 렌더를 null 처리(기존 저장 리포트 대비 belt-and-suspenders).
 - 검증: 신규 `test_sanitize_*`·`test_primary_output_is_sanitized` 포함 백엔드 pytest pass·ruff·mypy
   clean, 프론트 tsc·build pass.
+
+### 길흉=용신/기신 우선 + 한신 생(生) 간접 길흉 + LLM 해석 우선순위 (2026-06-16)
+
+사용자 지적: "길흉 판단은 용신/기신 오행 우선, 사건 종류는 십성 우선"인데 실제 풀이가 그렇지 않음.
+조사 결과 사건종류=십성(TenGodEventBrancher)은 적용돼 있으나, 길흉은 용신/기신이 후행 보정에 그치고
+한신은 NEUTRAL로 무보정(생 관계 미반영)이었음. 세 가지를 사용자 확정 후 반영.
+
+- **Part 1 — 한신 생(生) 간접 길흉**: PolarityRole에 HAN_GOOD/HAN_BAD 추가. event_engine_v2._period_role
+  재구성 — 직접 역할(용·희·기·구, 천간>지지) 우선, 천간·지지 모두 직접 역할이 없을 때만 한신이
+  생(_GENERATES)하는 대상의 역할로 약한 길/흉 판정(용신·희신→HAN_GOOD, 기신·구신→HAN_BAD).
+  강도는 희신(1.04)보다 약한 1.015(약 1/2.6) — polarity_rules JSON. yongi_quality_engine은 한신 생일 때
+  quality가 None일 때만 OPPORTUNITY/PRESSURE(약한 방향)만 부여하고 정해진 품질은 보존(간접·약신호).
+- **Part 2 — LLM 해석 우선순위 지시**: 대화·리포트 시스템 프롬프트 규칙2에 "사건 도메인=십성,
+  길흉=용신·기신(한신은 생 대상), 영역=궁위; 좋은 십성도 기신이면 부담, 불편한 십성도 용신이면
+  성장 기회" 명시. 점수·판정 불변(서술 일관성만).
+- **Part 3 — 길흉 우선순위 구조 강화**: 직접 용신·희신이 들어오면 기존 흉 품질(LOSS/CONFLICT/PRESSURE)을
+  MIXED로 누그러뜨림(YONGGI_SOFTEN). DELAY(발현 타이밍)는 길흉이 아니므로 용신·기신 모두 불변.
+- **검증**: 신규 test_period_role_hansin(11)·test_yongi_quality_engine 추가분 포함 전체 백엔드 pytest pass
+  (회귀 픽스처 무파손), ruff·mypy clean, validate_dictionaries 53/53. event_graph 재빌드 불요(스코어링만).

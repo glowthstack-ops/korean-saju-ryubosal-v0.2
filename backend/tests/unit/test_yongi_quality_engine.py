@@ -69,3 +69,69 @@ def test_gi_preserves_delay_quality() -> None:
     )
     out = e.apply([c])
     assert out[0].quality is EventQuality.DELAY  # 시차 신호 보존
+
+
+# ── 한신 생(生) 간접 길흉 — 직접 용신·기신보다 약(희신의 ~1/2.6 배율) ──────────────
+
+
+def test_hansin_gen_good_weak_opportunity() -> None:
+    """한신 생(生) 길 — quality None일 때만 약한 기회, 배율 1.015(희신보다 약)."""
+    e = _eng()
+    out = e.apply([_cand("job_gain", PolarityRole.HAN_GOOD, 50)])
+    c = out[0]
+    assert c.quality is EventQuality.OPPORTUNITY
+    assert c.score == 51  # 50 × 1.015 = 50.75 → 51 (희신 1.04보다 약함)
+    assert "HANSIN_GEN_GOOD" in c.reason_codes
+
+
+def test_hansin_gen_good_preserves_existing_quality() -> None:
+    """간접·약신호이므로 십성·게이트가 정한 품질은 보존(성취/지연 등 불변)."""
+    e = _eng()
+    c = EventCandidateV2(
+        event_key="promotion", period="2026", score=50,
+        polarity_role=PolarityRole.HAN_GOOD, quality=EventQuality.DELAY,
+    )
+    assert e.apply([c])[0].quality is EventQuality.DELAY
+
+
+def test_hansin_gen_bad_weak_pressure() -> None:
+    """한신 생(生) 흉 — quality None일 때만 약한 압박(손실/충돌 아님)."""
+    e = _eng()
+    out = e.apply([_cand("wealth_change", PolarityRole.HAN_BAD, 50)])
+    c = out[0]
+    assert c.quality is EventQuality.PRESSURE  # 강한 흉(LOSS) 아님
+    assert "HANSIN_GEN_BAD" in c.reason_codes
+
+
+def test_hansin_gen_bad_preserves_existing_quality() -> None:
+    e = _eng()
+    c = EventCandidateV2(
+        event_key="job_gain", period="2026", score=50,
+        polarity_role=PolarityRole.HAN_BAD, quality=EventQuality.ACHIEVEMENT,
+    )
+    assert e.apply([c])[0].quality is EventQuality.ACHIEVEMENT
+
+
+# ── Part 3 — 직접 용신·희신이 기존 흉을 누그러뜨림(MIXED) ──────────────────────
+
+
+def test_yong_softens_existing_loss_to_mixed() -> None:
+    """불편한 십성도 용신이면 — 기존 흉(LOSS)을 MIXED로 완화."""
+    e = _eng()
+    c = EventCandidateV2(
+        event_key="wealth_change", period="2026", score=50,
+        polarity_role=PolarityRole.YONG, quality=EventQuality.LOSS,
+    )
+    out = e.apply([c])
+    assert out[0].quality is EventQuality.MIXED
+    assert "YONGGI_SOFTEN" in out[0].reason_codes
+
+
+def test_yong_does_not_soften_delay() -> None:
+    """DELAY는 길흉이 아니라 발현 타이밍 — 용신이 덮지 않는다."""
+    e = _eng()
+    c = EventCandidateV2(
+        event_key="contract_document", period="2026", score=50,
+        polarity_role=PolarityRole.YONG, quality=EventQuality.DELAY,
+    )
+    assert e.apply([c])[0].quality is EventQuality.DELAY
