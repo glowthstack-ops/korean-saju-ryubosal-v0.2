@@ -42,7 +42,8 @@ export function ReportPager({ sections, title }: { sections: ReportSection[]; ti
               prose-td:px-2 prose-td:py-1 prose-td:border prose-td:align-top`}
           >
             <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
+              // singleTilde 비활성 — '1~2개월' 같은 범위 표기가 취소선으로 잘못 렌더되지 않게.
+              remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
               components={{
                 // 넓은 점수표는 가로 스크롤 컨테이너로 감싸 모바일에서도 깨지지 않게.
                 table: (props) => (
@@ -50,6 +51,8 @@ export function ReportPager({ sections, title }: { sections: ReportSection[]; ti
                     <table {...props} />
                   </div>
                 ),
+                // 취소선(고쳐 지운 자취)은 사용자에게 의문만 준다 — 표시하지 않는다(기존 리포트 대비).
+                del: () => null,
               }}
             >
               {s.text}

@@ -91,6 +91,29 @@ def test_both_fail_raises(monkeypatch: pytest.MonkeyPatch) -> None:
         llm_client.generate_reading("질문 본문")
 
 
+def test_sanitize_removes_strikethrough_keeps_ranges() -> None:
+    """취소선(~~…~~) 구간은 통째로 제거하되, 범위 표기의 단일 물결표(1~2)는 보존한다."""
+    s = llm_client._sanitize_output
+    # 자기수정 자취 제거 + 이중 공백 정돈.
+    assert s("올해는 ~~이직~~ 이사 에너지가 강해요.") == "올해는 이사 에너지가 강해요."
+    # 구두점 앞 공백 제거.
+    assert s("변화가 ~~큽니다~~ 옵니다 ~~.~~") == "변화가 옵니다"
+    # 단일 물결표(범위)는 그대로.
+    assert s("앞으로 1~2개월 내 변동이 있어요.") == "앞으로 1~2개월 내 변동이 있어요."
+    # 취소선 없으면 원문 그대로(동일 객체 반환 경로).
+    assert s("평범한 문장입니다.") == "평범한 문장입니다."
+
+
+def test_primary_output_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> None:
+    """generate_reading 반환값에서 취소선이 제거된다(채팅·리포트 공통 경로)."""
+    def fake_gemini(profile, system, prompt, max_tokens, timeout):
+        return "결론은 ~~이직~~ 이사예요.", 100, 50, 0
+
+    monkeypatch.setitem(llm_client._PROVIDERS, "gemini", fake_gemini)
+    text = llm_client.generate_reading("질문 본문", product_code="TEST_SAN")
+    assert "~~" not in text and text == "결론은 이사예요."
+
+
 def test_guard_blocks_oversize_before_any_call(monkeypatch: pytest.MonkeyPatch) -> None:
     """입력 한도 초과는 어떤 공급자도 호출하기 전에 차단(절대 원칙 9)."""
     from saju_engines.llm_guard import TokenBudgetExceeded

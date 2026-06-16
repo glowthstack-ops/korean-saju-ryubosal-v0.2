@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -217,6 +218,26 @@ def _call_profile(
     return text, in_tok, out_tok, cached
 
 
+# 취소선(GFM ~~…~~) 제거 — 모델이 '고쳐 지운 자취'를 남기면 사용자에게 의문만 준다(정확성 저해).
+# 마커만 떼면 틀린 내용이 평문으로 남으므로 구간을 통째로 제거한다. 범위 표기(예: '1~2개월')의
+# 단일 물결표는 건드리지 않는다(이중 물결표만 대상). 줄바꿈은 보존하고 같은 줄 잔여 공백만 정돈.
+_STRIKETHROUGH_RE = re.compile(r"~~.+?~~")
+
+
+def _sanitize_output(text: str) -> str:
+    """LLM 서술 출력을 사용자 노출 전에 정리한다 — 현재는 취소선 구간 제거.
+
+    채팅·리포트 모든 표면이 거치는 단일 지점이라 여기서 제거하면 두 화면에 일괄 적용된다.
+    """
+    cleaned = _STRIKETHROUGH_RE.sub("", text)
+    if cleaned == text:
+        return text
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)  # 제거 자리의 이중 공백
+    cleaned = re.sub(r" +([,.!?…)\]」』》])", r"\1", cleaned)  # 구두점 앞 공백
+    cleaned = re.sub(r"[ \t]+(\n|$)", r"\1", cleaned)  # 줄 끝 잔여 공백
+    return cleaned
+
+
 def generate_reading(
     prompt_text: str,
     call_type: str = "chat_single",
@@ -259,6 +280,7 @@ def generate_reading(
                 text, in_tok, out_tok, cached = _call_profile(
                     cfg["primary"], sys_text, prompt_text, max_tokens, timeout,
                 )
+                text = _sanitize_output(text)
                 guard.record(
                     input_tokens=in_tok or input_est,
                     output_tokens=out_tok,
@@ -284,6 +306,7 @@ def generate_reading(
             text, in_tok, out_tok, cached = _call_profile(
                 cfg["fallback"], sys_text, prompt_text, max_tokens, timeout,
             )
+            text = _sanitize_output(text)
             guard.record(
                 input_tokens=in_tok or input_est,
                 output_tokens=out_tok,
@@ -334,7 +357,7 @@ _SYSTEM_PROMPT = (
     "작용해 어떤 결과가 되는지'까지 인과를 끝맺는다.\n"
     "6. 점수·숫자를 답변에 노출하지 않는다 — 강도는 제공된 표현 문장으로만 전달한다.\n"
     "7. 출력은 마크다운 기호(#, *, |, ### 등) 없이 평문으로, 공백 포함 1,500자 이내로 "
-    "쓴다.\n"
+    "쓴다. 취소선(~~…~~)·자기수정 표기를 쓰지 말고, 고친 흔적 없이 최종 확정 내용만 쓴다.\n"
     "8. 답변 끝에 핵심을 한두 문장으로 정리하고, 사용자가 이어서 생각해볼 만한 질문 "
     "1개를 자연스럽게 덧붙인다.\n"
     "응답은 한국어로, 제공된 근거를 인용하며 서술한다."
@@ -365,6 +388,7 @@ _REPORT_SYSTEM_PROMPT = (
     "6. 점수·숫자를 답변에 노출하지 않는다 — 강도는 제공된 표현 문장으로만 전달한다.\n"
     "7. 출력은 마크다운 기호(#, *, |, ### 등) 없이 평문으로 쓰되, 분량은 섹션 과제의 목표를 "
     "따른다(대화의 1,500자 제한은 적용하지 않는다). 잔 소제목·연속 빈 줄로 지면을 낭비하지 "
-    "말고 여러 문장을 묶은 조밀한 문단으로 작성한다.\n"
+    "말고 여러 문장을 묶은 조밀한 문단으로 작성한다. 취소선(~~…~~)·자기수정 표기를 쓰지 말고, "
+    "고친 흔적 없이 최종 확정 내용만 쓴다.\n"
     "응답은 한국어로, 제공된 근거를 인용하며 서술한다."
 )

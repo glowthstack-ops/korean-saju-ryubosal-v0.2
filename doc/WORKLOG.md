@@ -3491,3 +3491,18 @@ AI 채팅 상담뿐 아니라 **테마 사주 뷰어(ReportPager)에도 공통 �
 - `settings/page.tsx`: 3단계 버튼 + 안내문("채팅·테마 뷰어 공통").
 - `chat/page.tsx`: 로컬 effect/state 제거 → 공용 훅. `ReportPager.tsx`: 본문 prose 크기 동적 적용.
 - 검증: tsc·vitest(23)·production build pass. Tailwind content에 lib/** 포함 → 신규 클래스 생성 확인.
+
+### 답변 취소선(자기수정 자취) 제거 — 정확한 내용만 전달 (2026-06-16)
+
+모델이 간혹 취소선(GFM ~~…~~)으로 '틀린 표현을 그어 지운 자취'를 남겨 사용자에게 의문만 주는 문제.
+마커만 떼면 틀린 내용이 평문으로 남으므로 구간을 통째로 제거 + 프롬프트로 자기수정 금지.
+
+- `llm_client._sanitize_output`: generate_reading 반환 텍스트(메인·폴백 공통)에서 `~~…~~` 구간을
+  통째 제거하고 제거 자리의 이중 공백·구두점 앞 공백·줄 끝 공백을 정돈. 단일 물결표(범위 '1~2개월')는
+  보존(이중 물결표만 대상). 채팅·리포트 모든 표면이 거치는 단일 지점이라 일괄 적용.
+- 시스템 프롬프트(_SYSTEM_PROMPT·_REPORT_SYSTEM_PROMPT) 규칙7에 "취소선·자기수정 표기 금지,
+  고친 흔적 없이 최종 확정 내용만" 추가.
+- `ReportPager`(테마 뷰어, 유일하게 GFM 렌더): remarkGfm `singleTilde:false`(범위 오인 방지) +
+  `del`(취소선) 렌더를 null 처리(기존 저장 리포트 대비 belt-and-suspenders).
+- 검증: 신규 `test_sanitize_*`·`test_primary_output_is_sanitized` 포함 백엔드 pytest pass·ruff·mypy
+  clean, 프론트 tsc·build pass.
