@@ -83,11 +83,11 @@ class YongiQualityEngine:
                 if quality is None:
                     quality = EventQuality.PRESSURE
                 reasons.append("HANSIN_GEN_BAD")
-            elif role is PolarityRole.GI:  # 기신 — 흉 방향
+            elif role in (PolarityRole.GI, PolarityRole.GI_STRONG):  # 기신·강한 흉 — 흉 방향
                 if quality in _OVERRIDABLE:
                     quality = self._gi_quality(c.event_key)
                 reasons.append(f"YONGGI_{role.value}_flip")
-            else:  # 용신·희신 — 길 방향
+            else:  # 용신·희신·강한 용신 — 길 방향
                 if quality is None:
                     quality = self._yong_quality(c.event_key)
                 elif quality in _GI_QUALITIES:  # Part 3 — 용신·희신이 흉을 누그러뜨림

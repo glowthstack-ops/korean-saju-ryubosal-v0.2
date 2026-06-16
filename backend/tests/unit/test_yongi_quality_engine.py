@@ -127,6 +127,36 @@ def test_yong_softens_existing_loss_to_mixed() -> None:
     assert "YONGGI_SOFTEN" in out[0].reason_codes
 
 
+def test_yong_strong_boosts_more_than_yong() -> None:
+    """천간·지지 모두 용신 — 일반 용신(1.075)보다 강한 배율(1.12) + 길 품질."""
+    e = _eng()
+    out = e.apply([_cand("job_gain", PolarityRole.YONG_STRONG, 50)])
+    c = out[0]
+    assert c.quality is EventQuality.OPPORTUNITY
+    assert c.score == 56  # 50 × 1.12
+    assert "YONGGI_YONG_STRONG" in c.reason_codes
+
+
+def test_gi_strong_flips_and_boosts() -> None:
+    """천간·지지 모두 흉 — 강한 배율(1.12) + 흉 품질 flip."""
+    e = _eng()
+    out = e.apply([_cand("wealth_change", PolarityRole.GI_STRONG, 50)])
+    c = out[0]
+    assert c.quality is EventQuality.LOSS
+    assert c.score == 56
+    assert "YONGGI_GI_STRONG_flip" in c.reason_codes
+
+
+def test_yong_strong_softens_existing_loss() -> None:
+    """강한 용신도 기존 흉을 MIXED로 완화(Part 3 — 길 방향 동일)."""
+    e = _eng()
+    c = EventCandidateV2(
+        event_key="wealth_change", period="2026", score=50,
+        polarity_role=PolarityRole.YONG_STRONG, quality=EventQuality.LOSS,
+    )
+    assert e.apply([c])[0].quality is EventQuality.MIXED
+
+
 def test_yong_does_not_soften_delay() -> None:
     """DELAY는 길흉이 아니라 발현 타이밍 — 용신이 덮지 않는다."""
     e = _eng()

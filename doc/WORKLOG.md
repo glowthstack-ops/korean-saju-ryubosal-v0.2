@@ -3525,3 +3525,24 @@ AI 채팅 상담뿐 아니라 **테마 사주 뷰어(ReportPager)에도 공통 �
   MIXED로 누그러뜨림(YONGGI_SOFTEN). DELAY(발현 타이밍)는 길흉이 아니므로 용신·기신 모두 불변.
 - **검증**: 신규 test_period_role_hansin(11)·test_yongi_quality_engine 추가분 포함 전체 백엔드 pytest pass
   (회귀 픽스처 무파손), ruff·mypy clean, validate_dictionaries 53/53. event_graph 재빌드 불요(스코어링만).
+
+### 월별 길흉을 운 품질(용신운 강도) 1차 기준으로 + 천간·지지 더블 용신 강화 (2026-06-16)
+
+사용자 지적(실차트 1980-11-22 己土 신약, 용신 土): 천간·지지 모두 용신인 2026-10 戊戌이 가장 좋아야
+하는데 답변이 그렇지 않음. 원인 — 운 품질 엔진(luck_cycles)은 이미 10월을 "강한 용신운" 0.9(연중
+최고)로 판정하나, 월별 답변 표(build_monthly_overview)가 사건 점수로만 줄세우고(모든 달 100 포화)
+운 품질 라벨을 LLM에 전달하지 않아, 비겁운(사건 적음)인 10월이 "특이 신호 없음"으로 묻힘.
+
+- **Part 1-2 — 월별 운 품질 노출**: MonthOverviewRow.luck_grade 추가. build_monthly_overview가
+  result.luck_cycles.monthly_luck/yearly_luck의 권위 라벨(luck_label: "강한 용신운" 등)을 달별로 매핑
+  (추가 계산 없음). serialize_llm_input가 각 달 사건명 앞에 〈운 품질 등급〉으로 노출 +
+  유력 달 종합 bits에도 "운 품질 …" 추가.
+- **Part 3 — 디렉티브**: 월별 표 범례에 "좋은 달은 사건 밀도가 아니라 운 품질 등급(강한 용신운>
+  용신운(부분)>혼합>기신운)으로 판단, 사건은 그 위에 십성. '강한 용신운' 달은 사건이 적어도 기반이
+  가장 좋은 달로 짚을 것" 추가(has_grade일 때만).
+- **Part 4 — 천간·지지 더블 신호**: PolarityRole YONG_STRONG/GI_STRONG 추가. _period_role이 천간·지지
+  모두 용신이면 YONG_STRONG, 모두 기신·구신이면 GI_STRONG(단일/혼합은 기존 천간 우선). 배율 1.12
+  (용신 1.075보다 강), yongi_quality_engine은 YONG_STRONG=길(흉 완화 포함)·GI_STRONG=흉 flip 처리.
+- **검증**: 실차트 재실행 — 2026-10만 〈강한 용신운〉(유일), 전 달 사건점수 100 포화에도 운 품질로 변별.
+  신규 테스트(period_role 더블 4 + yongi STRONG 3 + serialize 1) 포함 전체 pytest 743 pass, ruff·mypy
+  clean(touched), validate_dictionaries 53/53. event_graph 재빌드 불요.

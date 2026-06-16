@@ -185,6 +185,17 @@
       "effect": "한신이 기신·구신을 생하여 약한 흉 방향으로 기운다(직접 기신보다 약함).",
       "score_multiplier": 1.015,
       "quality_flip": true
+    },
+    "YONG_STRONG": {
+      "name": "강한 용신 신호(천간·지지 모두 용신)",
+      "effect": "천간·지지가 모두 용신 — 기회와 실제 기반이 함께 좋아지는 가장 이로운 운.",
+      "score_multiplier": 1.12
+    },
+    "GI_STRONG": {
+      "name": "강한 흉 신호(천간·지지 모두 기신·구신)",
+      "effect": "천간·지지가 모두 기신·구신 — 현실 부담이 크고 사건화되기 쉬운 운.",
+      "score_multiplier": 1.12,
+      "quality_flip": true
     }
   },
   "activation_thresholds": {

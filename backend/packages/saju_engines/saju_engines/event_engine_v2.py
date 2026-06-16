@@ -466,9 +466,16 @@ def _period_role(target: LuckPillar, fav_map: dict[str, str]) -> PolarityRole:
         branch_el = str(BRANCH_ELEMENT[Branch(target.branch)])
     except (KeyError, ValueError):
         return PolarityRole.NEUTRAL
+    stem_lbl = fav_map.get(stem_el, "")
+    branch_lbl = fav_map.get(branch_el, "")
+    # 0) 천간·지지가 같은 방향으로 겹친 강한 신호 — 모두 용신(강한 용신운)/모두 흉(기·구).
+    if stem_lbl == "용신" and branch_lbl == "용신":
+        return PolarityRole.YONG_STRONG
+    if stem_lbl in ("기신", "구신") and branch_lbl in ("기신", "구신"):
+        return PolarityRole.GI_STRONG
     # 1) 직접 역할(천간 우선).
-    for el in (stem_el, branch_el):
-        direct = _FAV_ROLE.get(fav_map.get(el, ""))
+    for lbl in (stem_lbl, branch_lbl):
+        direct = _FAV_ROLE.get(lbl)
         if direct is not None:
             return direct
     # 2) 직접 역할 없음 → 한신 생(生) 간접 길흉(천간 우선).

@@ -724,6 +724,13 @@ def build_monthly_overview(
     # 표에서 변별되게(2026-06-12 지적). 엔진의 교운 가중 모델과 같은 거리 기준.
     jiao_dates = _exact_jiao_dates(result)
     fav_map = favorability_map(result)
+    # 그 달/해의 운 품질 등급(luck_label) — 엔진이 이미 계산한 권위 라벨. 길흉(좋은 달/부담 달)은
+    # 사건 밀도가 아니라 이 운 품질이 1차 기준이므로 LLM에 함께 전달한다(길흉=용신/기신 우선).
+    luck_grade_by_period: dict[str, str] = {}
+    if result.luck_cycles is not None:
+        for pl in (*result.luck_cycles.monthly_luck, *result.luck_cycles.yearly_luck):
+            if pl.luck_label:
+                luck_grade_by_period[pl.label] = pl.luck_label
 
     def _roles_for(period: str) -> str:
         """그 달 천간·지지의 용기신 역할 '癸水 구신·巳火 희신' — 유불리 변별용."""
@@ -794,6 +801,7 @@ def build_monthly_overview(
                 period=period, ganji=ganji.get(period, ""),
                 top_event_ko=label, score=cs[0].score, polarity=str(cs[0].polarity),
                 transition=_transition_for(period), luck_roles=_roles_for(period),
+                luck_grade=luck_grade_by_period.get(period, ""),
                 branch_ko=branch or "",
             ))
         else:
@@ -801,6 +809,7 @@ def build_monthly_overview(
                 period=period, ganji=ganji.get(period, ""),
                 top_event_ko="", score=None, polarity="",
                 transition=_transition_for(period), luck_roles=_roles_for(period),
+                luck_grade=luck_grade_by_period.get(period, ""),
             ))
     # 창 내 상대 강도 순위(클램프 전 raw 기준, 상위 3위까지) — 톤(점수 cap 포화)이
     # 같아 보여도 '진짜 중요한 달'이 변별되게(절대값보다 상대 순위 신뢰 — docs/07).
@@ -1096,6 +1105,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
         has_transition = False
         has_rank = False
         has_branch = False
+        has_grade = False
         for row in payload.monthly_overview:
             row_cmp = cur_month[: len(row.period)] if cur_month else ""
             past_mark = (
@@ -1112,6 +1122,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
                     else f" · 기간 내 강도 {row.strength_rank}위"
                 )
             roles_mark = f" [{row.luck_roles}]" if row.luck_roles else ""
+            # 운 품질 등급 — 길흉(좋은 달/부담 달)의 1차 기준. 사건명 앞에 둬서 묻히지 않게.
+            grade_mark = f" 〈{row.luck_grade}〉" if row.luck_grade else ""
+            has_grade = has_grade or bool(row.luck_grade)
             # 발현 분기 — 같은 계열에서 함께 점수화됐으나 표(top-2)에서 잘린 형제(예: 이사)를
             # 모든 달에서 노출(top-3 종합에만 의존하지 않게). 압축형, 안내는 표 하단에 1회.
             branch_mark = f" · 분기 {row.branch_ko}" if row.branch_ko else ""
@@ -1119,15 +1132,15 @@ def serialize_llm_input(payload: LlmInput) -> str:
             if row.score is not None:
                 # 분기(형제 사건)를 사건명 바로 뒤로 — 줄 끝에 묻혀 무시되는 것 방지(이직↔이사).
                 lines.append(
-                    f"{row.period} {row.ganji}{roles_mark}: {row.top_event_ko}{branch_mark} "
-                    f"· {polarity_ko(row.polarity)} → {tone_for_score(row.score)}"
+                    f"{row.period} {row.ganji}{grade_mark}{roles_mark}: {row.top_event_ko}"
+                    f"{branch_mark} · {polarity_ko(row.polarity)} → {tone_for_score(row.score)}"
                     f"{rank_mark}{tr_mark}{past_mark}"
                 )
             elif not row.ganji:
                 lines.append(f"{row.period}: 입춘 전 — 전년 세운 구간(월운 정보 없음)")
             else:
                 lines.append(
-                    f"{row.period} {row.ganji}{roles_mark}: 특이 신호 없음"
+                    f"{row.period} {row.ganji}{grade_mark}{roles_mark}: 특이 신호 없음"
                     f"{tr_mark}{past_mark}"
                 )
         lines.append(
@@ -1136,6 +1149,14 @@ def serialize_llm_input(payload: LlmInput) -> str:
             "있으니 '좋은 달'로 단정하지 말 것(발생 강도와 유불리를 구분). 단 마커가 "
             "'↗통관 순화'면 흉천간이 지지 용·희신을 생해 순화된 것(검토월 아님, 과낙관만 경계), "
             "'⚠천간 길신 누설'이면 길천간이 지지로 누설·피극돼 실속이 약화된 것(좋은 달 단정 금지)."
+            + (
+                " 〈…〉는 그 달의 운 품질 등급으로 길흉(좋은 달/부담스러운 달)의 1차 기준이다 — "
+                "좋은 달은 사건 밀도가 아니라 이 등급('강한 용신운'>'용신운(부분)'>'혼합'>"
+                "'기신운')으로 판단하고, 사건(이직·이사 등)은 그 위에 십성으로 얹어 "
+                "'무슨 일'을 설명한다. '강한 용신운' 달은 두드러진 사건이 없어도 "
+                "기반이 가장 좋은(가장 도움되는) 달로 짚을 것."
+                if has_grade else ""
+            )
             + (
                 " 표현 강도가 같아 보여도 '기간 내 강도 N위'가 실제 상대 순위 — "
                 "가장 유력한 달은 1위부터 지목하되 유불리를 함께 밝힐 것."
@@ -1180,6 +1201,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
                     f"우세 사건 '{dominant}'{second}",
                     f"성격 {polarity_ko(mr.polarity)}",
                 ]
+                if mr.luck_grade:  # 운 품질 등급 — 길흉 1차 기준(사건 강도와 별개)
+                    bits.append(f"운 품질 {mr.luck_grade}")
                 # 질문 사건과 그 달 우세 사건이 다르면 명시 — 사건명 단정 오류 방지
                 # (regression_2025_08: 甲申월은 이사 우세, 이직은 동반 2순위).
                 if asked_ko and dominant and dominant != asked_ko:

@@ -115,6 +115,10 @@ class PolarityRole(StrEnum):
     GI = "GI"
     HAN_GOOD = "HAN_GOOD"
     HAN_BAD = "HAN_BAD"
+    # 천간·지지가 같은 방향으로 겹친 강한 신호 — 모두 용신(강한 용신운)/모두 기신·구신(강한 흉운).
+    # 신약 사주에 용신이 천간·지지로 보강되면 가장 이로운 운이라는 판정을 점수에 반영.
+    YONG_STRONG = "YONG_STRONG"
+    GI_STRONG = "GI_STRONG"
 
 
 class TwelveStage(StrEnum):

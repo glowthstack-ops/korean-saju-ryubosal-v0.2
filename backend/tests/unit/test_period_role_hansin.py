@@ -79,3 +79,32 @@ def test_stem_priority_for_indirect() -> None:
 def test_neutral_when_no_signal() -> None:
     """직접·간접 모두 해당 없음 → 중립."""
     assert _period_role(_lp("甲", "寅"), {}) is PolarityRole.NEUTRAL
+
+
+# ── 천간·지지 모두 같은 방향(강한 신호) — 신약 사주 용신 보강 = 가장 이로움 ──────────
+
+
+def test_double_yongsin_strong() -> None:
+    """천간 戊(土)·지지 戌(土) 모두 용신 → 강한 용신운(YONG_STRONG)."""
+    assert _period_role(_lp("戊", "戌"), {"土": "용신"}) is PolarityRole.YONG_STRONG
+
+
+def test_double_bad_strong() -> None:
+    """천간·지지 모두 기신 → 강한 흉(GI_STRONG)."""
+    assert _period_role(_lp("壬", "子"), {"水": "기신"}) is PolarityRole.GI_STRONG
+
+
+def test_double_bad_strong_mixed_gisin_gusin() -> None:
+    """천간 기신(木)·지지 구신(水)도 둘 다 흉이므로 강한 흉(GI_STRONG)."""
+    assert _period_role(_lp("甲", "子"), {"木": "기신", "水": "구신"}) is PolarityRole.GI_STRONG
+
+
+def test_single_yongsin_not_strong() -> None:
+    """천간만 용신(지지 한신)이면 일반 용신운 — 강한 신호 아님."""
+    assert _period_role(_lp("戊", "申"), {"土": "용신", "金": "한신"}) is PolarityRole.YONG
+
+
+def test_yong_plus_hee_not_double_strong() -> None:
+    """용신+희신(둘 다 길이나 모두 용신은 아님)은 천간 우선 단일 역할 — 강한 용신운 아님."""
+    # 戊(土 용신)·午(火 희신) → 천간 우선 YONG(강한 용신운은 모두 용신일 때만).
+    assert _period_role(_lp("戊", "午"), {"土": "용신", "火": "희신"}) is PolarityRole.YONG

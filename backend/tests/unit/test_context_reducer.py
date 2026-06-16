@@ -116,6 +116,25 @@ def test_clean_evidence_strips_authoring_meta() -> None:
     assert _clean_evidence_text("횡재(표현 제한)") == "횡재"
 
 
+def test_monthly_overview_renders_luck_grade(chart, candidates, bundles, scorer) -> None:
+    """월별 표에 운 품질 등급〈…〉이 사건명 앞에 노출되고, 길흉 1차 기준 범례가 붙는다."""
+    from saju_shared_types.llm_input import MonthOverviewRow
+
+    overview = [
+        MonthOverviewRow(period="2026-10", ganji="戊戌", top_event_ko="재물 변화",
+                         score=80, polarity="neutral", luck_grade="강한 용신운"),
+        MonthOverviewRow(period="2026-12", ganji="庚子", luck_grade="기신운(부분)"),
+    ]
+    payload = build_llm_input(
+        "올해 월별 운 어때?", _intent(), chart, candidates, bundles, scorer,
+        monthly_overview=overview,
+    )
+    text = serialize_llm_input(payload)
+    assert "〈강한 용신운〉" in text  # 길흉 1차 기준이 표에 노출
+    assert "〈기신운(부분)〉" in text  # 사건 없는 달도 운 품질 표기
+    assert "운 품질 등급" in text  # 범례 지시(좋은 달=운 품질 기준)
+
+
 def test_tone_mapping_table() -> None:
     """docs/06 점수→표현 강도 매핑표."""
     assert tone_for_score(90) == "신호가 매우 강합니다"
