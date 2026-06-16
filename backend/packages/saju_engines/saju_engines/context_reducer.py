@@ -58,6 +58,15 @@ from .manifestation_branch import branch_summary
 TOP_N_CANDIDATES = 5  # 기본 Top N (docs/03 B5 — 3~5)
 SCORE_FLOOR = 40  # docs/06 톤 표: <40은 언급 생략 구간 → LLM 미전달
 MAX_PATHS_PER_EVENT = 3  # 근거 경로 상한(토큰 절약, 초안)
+# 도메인 → 대표 이벤트(다중 도메인 질문에서 secondary 도메인 후보를 포함시키기 위함).
+_DOMAIN_PRIMARY_EVENT: dict[str, EventKey] = {
+    "career": EventKey.CAREER_CHANGE,
+    "relocation": EventKey.RELOCATION,
+    "wealth": EventKey.WEALTH_CHANGE,
+    "relationship": EventKey.MARRIAGE_SIGNAL,
+    "health": EventKey.HEALTH_ATTENTION,
+    "education": EventKey.EDUCATION_ADMISSION,
+}
 
 # docs/06 점수→표현 강도 매핑(toneGuide 기본).
 _TONE_GUIDE = (
@@ -833,6 +842,12 @@ def build_llm_input(
         절기 기준으로 잡도록 build_reference_frame에 전달(미주입 시 양력 폴백).
     """
     graph_scope = [k for k in [intent.event_key, *intent.event_keys] if k is not None]
+    # 다중 도메인 질문(예: '이직, 이사')은 secondary 도메인의 대표 이벤트도 후보 범위에 포함한다
+    # — event_key 하나만 잡혀 다른 도메인(이사=relocation) 후보가 빠지던 비대칭 차단(2026-06-16).
+    for _d in intent.domains:
+        _ev = _DOMAIN_PRIMARY_EVENT.get(str(_d))
+        if _ev is not None and _ev not in graph_scope:
+            graph_scope.append(_ev)
     period_start: str | None
     period_end: str | None
     if default_period is not None:

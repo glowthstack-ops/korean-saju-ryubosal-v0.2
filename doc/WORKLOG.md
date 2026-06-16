@@ -3433,3 +3433,15 @@ Phase 1(원국 취약 구조)에 운(대운 배경·세운 사건화·중첩)을
   단일 domain 후보 필터엔 미반영(이 차트는 10월 relocation 신호 부재로 영향 없음 — 다중 도메인
   후보 반영은 후속 과제).
 - 검증: 전체 백엔드 pass(신규 다중월 파싱 테스트 포함)·ruff·mypy clean.
+
+### 다중 도메인 질문 후보 반영 — '이직, 이사' 양쪽 다 (2026-06-16)
+
+'이직, 이사와 관련해서…'에서 '이직'은 event_key(career_change), '이사'는 secondary domain(relocation)
+으로만 잡혀, build_llm_input의 후보 graph_scope(event_key/event_keys만)에서 relocation이 빠져
+이벤트 후보에 이사가 안 나오던 비대칭 수정.
+
+- context_reducer build_llm_input: graph_scope에 intent.domains의 secondary 도메인 대표 이벤트
+  (_DOMAIN_PRIMARY_EVENT: relocation→RELOCATION 등)를 추가. 전체 도메인 이벤트로 범람하지 않게
+  대표 1개만.
+- 확인: '이직, 이사…' 질문 이벤트 후보에 '이직·직업 변화'+'이사(relocation)' 둘 다 표시.
+- 검증: 전체 백엔드 pass·ruff·mypy clean.
