@@ -136,8 +136,9 @@ _PAST_KEYWORDS = (
 class ChatResponse(BaseModel):
     """대화형 응답 — answer가 본문, 나머지는 추적/디버그 메타."""
 
-    status: str  # 'answered' | 'dry_run' | 'policy' | 'too_broad' | 'need_subject'
+    status: str  # 'answered' | 'pending' | 'dry_run' | 'policy' | 'too_broad' | 'need_subject'
     answer: str | None = None
+    message_id: int | None = None  # 'pending' 응답 — 백그라운드 생성 중인 답변 메시지 id
     intents: list[IntentJson] = Field(default_factory=list)
     assessment: QueryAssessment | None = None
     candidate_count: int = 0
@@ -148,6 +149,10 @@ class ChatResponse(BaseModel):
     repeated: bool = False  # F7 — 동일 질문 반복(다른 각도 제시 신호)
     # docs/10 5장: 분량 큰 요청 → 상품 제안 카드(강제 유도 금지 — 축약 답변 병행).
     product_suggestion: dict | None = None
+    # 백그라운드 생성용 — dry_run 응답이 LLM 호출에 필요한 모든 것을 운반한다.
+    # (라우터가 이걸로 connection-독립 백그라운드 태스크를 띄운다.)
+    system_prompt: str | None = None
+    call_type: str | None = None
 
 
 def _get_scorer() -> EventEngineV2:
@@ -927,6 +932,13 @@ def chat(
         ]
         state = ConversationEngine.register_system_results(state, summaries)
 
+    call_type = "chat_compare" if plan.per_subject else "chat_single"
+    system = None
+    if persona is not None:
+        # 호칭 자리({resolvedHonorific})에 대화 기준 사주의 별명을 넣는다(하드코딩 '회원' 제거).
+        block = _get_persona_engine().build_block(persona, subject_label or "회원")
+        system = llm_client._SYSTEM_PROMPT + "\n\n" + block
+
     if dry_run or not llm_client.is_available():
         _save_thread(store, state)
         return ChatResponse(
@@ -939,16 +951,13 @@ def chat(
             thread_id=thread_id,
             turn_no=state.turn_no if state else None,
             repeated=repeated,
+            system_prompt=system,
+            call_type=call_type,
         )
 
-    system = None
-    if persona is not None:
-        # 호칭 자리({resolvedHonorific})에 대화 기준 사주의 별명을 넣는다(하드코딩 '회원' 제거).
-        block = _get_persona_engine().build_block(persona, subject_label or "회원")
-        system = llm_client._SYSTEM_PROMPT + "\n\n" + block
     answer = llm_client.generate_reading(
         prompt_text,
-        call_type="chat_compare" if plan.per_subject else "chat_single",
+        call_type=call_type,
         system=system,
         owner_id=owner_id, surface="chat", ref_id=thread_id,
     )

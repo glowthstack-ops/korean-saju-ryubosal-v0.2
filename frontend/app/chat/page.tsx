@@ -16,15 +16,13 @@ import {
   listChatThreads,
   postChat,
 } from "@/lib/api";
-import {
-  CHAT_FONT_CHANGE_EVENT,
-  type ChatFontSize,
-  loadChatFontSize,
-} from "@/lib/storage";
+import { readingFontClasses } from "@/lib/storage";
+import { useReadingFontSize } from "@/lib/useReadingFontSize";
 import { summaryToProfile } from "@/lib/subject-mapping";
 import { getPersona, getSubject, listSubjects } from "@/lib/subjects";
 import type {
   ChatApiResponse,
+  ChatMessageDTO,
   ChatPartner,
   ChatThreadSummary,
   PersonaConfig,
@@ -36,6 +34,8 @@ interface Message {
   role: "user" | "assistant";
   text: string;
   meta?: ChatApiResponse;
+  pending?: boolean; // 백그라운드 생성 중(폴링 대기) — 플레이스홀더 표시
+  error?: boolean; // 생성 실패(서버 안내문)
 }
 
 const SUGGESTIONS = [
@@ -48,6 +48,16 @@ const SUGGESTIONS = [
 
 function newThreadId(): string {
   return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// 서버 저장 메시지 → 말풍선. pending(생성 중)/error(실패)는 플래그로 표시한다.
+function toMessage(m: ChatMessageDTO): Message {
+  return {
+    role: m.role,
+    text: m.text || (m.status === "pending" ? "답변 생성 중…" : ""),
+    pending: m.status === "pending",
+    error: m.status === "error",
+  };
 }
 
 // 궁합 상대 첨부 상태를 스레드별로 영속화(localStorage) — 새로고침·대화 이어가기에 유지.
@@ -85,23 +95,47 @@ export default function ChatPage() {
   const [subjects, setSubjects] = useState<SubjectSummary[]>([]);
   const [partner, setPartner] = useState<ChatPartner | null>(null);
   const [showPartner, setShowPartner] = useState(false);
-  const [chatFont, setChatFont] = useState<ChatFontSize>("base");
   const bottomRef = useRef<HTMLDivElement>(null);
+  // 백그라운드 답변 폴링 세션 토큰 — 스레드 전환/언마운트 시 증가시켜 진행 중 폴링을 무효화.
+  const pollTokenRef = useRef(0);
 
-  // 대화 글자 크기(설정 페이지 localStorage) — 마운트 시 로드 + 같은 탭 변경 즉시 반영.
-  useEffect(() => {
-    const sync = () => setChatFont(loadChatFontSize());
-    sync();
-    window.addEventListener(CHAT_FONT_CHANGE_EVENT, sync);
-    window.addEventListener("storage", sync); // 다른 탭에서 변경 시
-    return () => {
-      window.removeEventListener(CHAT_FONT_CHANGE_EVENT, sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
-  // "base"=현재 기본, "large"=한 단계 큰 글씨. 말풍선 본문·마크다운에 함께 적용.
-  const bubbleFontCls = chatFont === "large" ? "text-base" : "text-sm";
-  const proseFontCls = chatFont === "large" ? "prose-base" : "prose-sm";
+  // 백그라운드 생성 답변을 완료까지 폴링한다(2초 간격, 최대 ~4분). 서버가 진리원본이므로
+  // 완료 시 스레드 전체 메시지로 교체한다. 클라이언트 이탈 후 재진입에도 동일 경로로 복구된다.
+  async function pollThread(id: string): Promise<void> {
+    const token = ++pollTokenRef.current;
+    for (let i = 0; i < 120; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      if (pollTokenRef.current !== token) return; // 다른 스레드로 이동 — 중단
+      let msgs: ChatMessageDTO[];
+      try {
+        msgs = await getChatThread(id);
+      } catch {
+        continue; // 일시 오류는 계속 재시도
+      }
+      if (pollTokenRef.current !== token) return;
+      const last = msgs[msgs.length - 1];
+      if (last && last.role === "assistant" && last.status !== "pending") {
+        setMessages(msgs.map(toMessage));
+        loadThreads();
+        return;
+      }
+    }
+    // 타임아웃 — 플레이스홀더를 안내문으로 교체(답변은 목록에서 이어 확인 가능).
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.pending
+          ? {
+              ...m,
+              text: "답변 생성이 지연되고 있어요. 잠시 후 목록에서 다시 확인해 주세요.",
+              pending: false,
+            }
+          : m,
+      ),
+    );
+  }
+
+  // 읽기 글자 크기(설정 페이지) — 채팅·테마 뷰어 공통. 말풍선 본문·마크다운에 함께 적용.
+  const { text: bubbleFontCls, prose: proseFontCls } = readingFontClasses(useReadingFontSize());
 
   function loadSubjectsOnce() {
     if (subjects.length === 0) {
@@ -140,6 +174,7 @@ export default function ChatPage() {
       .then(([subj, p]) => {
         setProfile(summaryToProfile(subj));
         setPersona(p);
+        pollTokenRef.current++; // 대상 전환 — 진행 중 폴링 무효화
         setMessages([]);
         setThreadId(newThreadId());
       })
@@ -180,6 +215,7 @@ export default function ChatPage() {
   }, [threadId, threads]);
 
   function newConversation() {
+    pollTokenRef.current++; // 진행 중 폴링 무효화(빈 대화에 결과가 끼어들지 않도록)
     setMessages([]);
     setThreadId(newThreadId());
     setShowHistory(false);
@@ -190,8 +226,13 @@ export default function ChatPage() {
     setBusy(true);
     try {
       const msgs = await getChatThread(id);
-      setMessages(msgs.map((m) => ({ role: m.role, text: m.text })));
+      setMessages(msgs.map(toMessage));
       setThreadId(id);
+      // 이어보기 중인 스레드의 답변이 아직 생성 중이면(다른 기기/이탈 중 전송) 폴링 재개.
+      const last = msgs[msgs.length - 1];
+      if (last && last.role === "assistant" && last.status === "pending") {
+        void pollThread(id);
+      }
     } catch {
       /* 무시 */
     } finally {
@@ -216,11 +257,21 @@ export default function ChatPage() {
         profile, question, threadId, persona, selected?.label, selected?.subjectId,
         partner ?? undefined,
       );
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: res.answer ?? "(응답 없음)", meta: res },
-      ]);
-      if (fresh) loadThreads();
+      if (res.status === "pending") {
+        // 백그라운드 생성 — 플레이스홀더 표시 후 완료까지 폴링(이탈해도 서버가 끝까지 생성).
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: "답변 생성 중…", pending: true },
+        ]);
+        if (fresh) loadThreads();
+        void pollThread(res.thread_id ?? threadId);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: res.answer ?? "(응답 없음)", meta: res },
+        ]);
+        if (fresh) loadThreads();
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "호출 실패";
       setMessages((prev) => [
@@ -290,9 +341,17 @@ export default function ChatPage() {
                 if (!showHistory) loadThreads();
                 setShowHistory((v) => !v);
               }}
-              className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+              className="relative rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
             >
               대화 목록{threads.length ? ` (${threads.length})` : ""}
+              {threads.some((t) => t.has_unseen) && (
+                <span
+                  className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-bold text-white"
+                  title="확인하지 않은 새 답변"
+                >
+                  {threads.filter((t) => t.has_unseen).length}
+                </span>
+              )}
             </button>
             <button
               onClick={newConversation}
@@ -414,10 +473,25 @@ export default function ChatPage() {
                     onClick={() => resumeThread(t.thread_id)}
                     className="min-w-0 flex-1 text-left"
                   >
-                    <span className="block truncate text-sm">{t.title ?? "(제목 없음)"}</span>
+                    <span className="flex items-center gap-1.5 truncate text-sm">
+                      {t.has_unseen && (
+                        <span
+                          className="inline-block h-2 w-2 shrink-0 rounded-full bg-indigo-500"
+                          title="새 답변 도착"
+                        />
+                      )}
+                      {t.pending && !t.has_unseen && (
+                        <span
+                          className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-400"
+                          title="답변 생성 중"
+                        />
+                      )}
+                      <span className="truncate">{t.title ?? "(제목 없음)"}</span>
+                    </span>
                     <span className="block text-[11px] text-gray-400">
                       {t.subject_label ? `${t.subject_label} · ` : ""}
                       {(t.updated_at ?? "").slice(0, 16).replace("T", " ")}
+                      {t.has_unseen ? " · 새 답변" : t.pending ? " · 생성 중" : ""}
                     </span>
                   </button>
                   <button
@@ -457,11 +531,18 @@ export default function ChatPage() {
               className={
                 m.role === "user"
                   ? `inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-4 py-2 text-left ${bubbleFontCls} text-white`
-                  : `inline-block max-w-[95%] rounded-2xl bg-gray-100 px-4 py-3 ${bubbleFontCls} text-gray-800`
+                  : m.error
+                    ? `inline-block max-w-[95%] rounded-2xl bg-red-50 px-4 py-3 ${bubbleFontCls} text-red-700`
+                    : `inline-block max-w-[95%] rounded-2xl bg-gray-100 px-4 py-3 ${bubbleFontCls} text-gray-800`
               }
             >
               {m.role === "user" ? (
                 m.text
+              ) : m.pending ? (
+                <span className={`flex items-center gap-2 ${bubbleFontCls} text-gray-500`}>
+                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-400" />
+                  답변 생성 중…
+                </span>
               ) : (
                 <div className={`prose ${proseFontCls} max-w-none prose-p:my-1.5 prose-headings:mt-2 prose-headings:mb-1 prose-li:my-0.5`}>
                   <ReactMarkdown>{m.text}</ReactMarkdown>

@@ -218,4 +218,14 @@ export function deleteChatThread(threadId: string): Promise<void> {
   return deleteJSON(`/api/v2/chat/threads/${threadId}`);
 }
 
+// 미열람 완료 답변이 있는 스레드 수(전역 뱃지) — 이탈 후 백그라운드 완료 알림용.
+export async function getChatUnseenCount(): Promise<number> {
+  try {
+    const r = await getJSON<{ count: number }>("/api/v2/chat/unseen");
+    return r.count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export { profileToBirthInput };

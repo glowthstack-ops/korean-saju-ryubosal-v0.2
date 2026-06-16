@@ -3445,3 +3445,49 @@ Phase 1(원국 취약 구조)에 운(대운 배경·세운 사건화·중첩)을
   대표 1개만.
 - 확인: '이직, 이사…' 질문 이벤트 후보에 '이직·직업 변화'+'이사(relocation)' 둘 다 표시.
 - 검증: 전체 백엔드 pass·ruff·mypy clean.
+
+### AI채팅 백그라운드 생성 + 폴링 복구 + 뱃지 (Bug B) / 폴백 즉시화 (Bug C) — 2026-06-16
+
+모바일웹 실사용 결함 2건. (B) 질문 직후 사용자가 페이지를 닫거나 새로고침해 상태를 이탈하면
+시스템이 답변을 끝까지 받아 전달하지 않고 폐기 → 생성된 Gemini 결과가 버려짐. (C) 메인(Gemini)에
+요청해두고 기다리지 않고 곧장 폴백(ChatGPT)을 호출 → Gemini 결과가 생성 후 버려지는 비용 낭비.
+
+- **Bug C (즉시화)**: `config/llm_config.json` `options.primary_attempts` 2→1. 불안정 프리뷰
+  모델에 2회 재시도 후 폴백하던 것을 1회 시도 후 폴백으로 축소(메인 실패 시 폴백은 그대로 동작).
+  `test_llm_client_failover`를 설정값 구동(`["gemini"]*attempts+["openai"]`)으로 변경 — 향후 튜닝에
+  깨지지 않음.
+- **Bug B (백그라운드 + 폴링 + 뱃지)**: 리포트 잡(BackgroundTasks) 패턴을 채팅에 적용. 답변을
+  요청 커넥션과 분리해 서버에서 끝까지 생성·영속.
+  - 마이그레이션 `011_chat_message_status.sql`: `chat_messages`에 `status('done'|'pending'|'error')`,
+    `seen` 컬럼 + pending 부분 인덱스. `ChatHistoryStore.migrate()`가 007+011 적용.
+  - `ChatHistoryStore`: `start_turn`(질문 저장 + 어시스턴트 pending 예약 → message_id),
+    `complete_turn`(본문·상태 채움), `mark_seen`, `unseen_count`. `get_messages`에 status·seen,
+    `list_threads`에 has_unseen·pending 노출.
+  - `chat_service`: `system`/`call_type`를 dry_run 분기 앞에서 구성해 dry_run 응답이 LLM 호출에
+    필요한 모든 것(prompt_preview·system_prompt·call_type)을 운반 → 백그라운드가 파이프라인
+    중복 실행 없이 generate_reading만 수행. `ChatResponse`에 message_id 추가.
+  - 라우터 `chat.py`: 빠른 분류(dry_run, LLM 미호출) → 로그인+스레드+LLM 경로면 `start_turn`(pending)
+    + `BackgroundTasks(_run_chat_answer)` 후 `status='pending'` 즉시 반환. 비로그인은 prep 재사용
+    동기 생성. 정책/범위 응답은 동기 영속화. GET `/threads/{id}`가 조회 시 `mark_seen`(뱃지 해제),
+    신규 GET `/unseen`(전역 뱃지 카운트).
+  - 프론트 `chat/page.tsx`: `status='pending'`이면 플레이스홀더 + 2초 간격 폴링(최대 ~4분, 토큰으로
+    스레드 전환 시 무효화), 완료 시 서버 메시지 전체로 교체. 이어보기 스레드가 pending이면 폴링 재개.
+    대화 목록에 미열람(인디고 점)·생성중(앰버 점) 표시 + '대화 목록' 버튼에 미열람 카운트 뱃지.
+    `error` 상태는 빨간 말풍선.
+- **검증**: 백엔드 전체 pytest pass(신규 `test_background_turn_pending_complete_seen` 포함)·ruff·
+  mypy clean(touched). 프론트 tsc·vitest(23)·production build pass. 라이브 스모크: POST→
+  `pending`(message_id) → 백그라운드 생성 → 폴링 3틱 후 `done`(1004자), 커넥션 독립 확인.
+
+### 읽기 글자 크기 3단계 + 테마 뷰어 공통 적용 — 2026-06-16
+
+설정의 'AI 채팅 글자 크기'(기본/크게 2단계)를 **읽기 글자 크기 3단계(기본/크게/더크게)**로 확장하고,
+AI 채팅 상담뿐 아니라 **테마 사주 뷰어(ReportPager)에도 공통 적용**.
+
+- `lib/storage.ts`: 채팅 전용 명칭을 읽기 공통으로 일반화 — `ReadingFontSize`(base/large/xlarge),
+  `load/saveReadingFontSize`, `READING_FONT_CHANGE_EVENT`, 단계→클래스 매핑 `readingFontClasses()`
+  (base=text-sm/prose-sm, large=text-base/prose-base, xlarge=text-lg/prose-lg). localStorage 키 값은
+  유지(`ryubosal:chatFontSize`)해 기존 설정 보존.
+- `lib/useReadingFontSize.ts`(신규): 설정 변경 구독 공용 훅(같은 탭 이벤트 + 다른 탭 storage). 채팅·뷰어 공유.
+- `settings/page.tsx`: 3단계 버튼 + 안내문("채팅·테마 뷰어 공통").
+- `chat/page.tsx`: 로컬 effect/state 제거 → 공용 훅. `ReportPager.tsx`: 본문 prose 크기 동적 적용.
+- 검증: tsc·vitest(23)·production build pass. Tailwind content에 lib/** 포함 → 신규 클래스 생성 확인.

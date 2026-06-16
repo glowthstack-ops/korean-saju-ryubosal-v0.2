@@ -8,9 +8,9 @@ import { StepMulsang } from "@/components/onboarding/StepMulsang";
 import { StepPersona } from "@/components/onboarding/StepPersona";
 import { profileToBasic, summaryToProfile } from "@/lib/subject-mapping";
 import {
-  type ChatFontSize,
-  loadChatFontSize,
-  saveChatFontSize,
+  type ReadingFontSize,
+  loadReadingFontSize,
+  saveReadingFontSize,
 } from "@/lib/storage";
 import {
   deleteExtendedField,
@@ -44,7 +44,7 @@ export default function SettingsPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [extended, setExtended] = useState<ExtendedProfile>({});
   const [mulsangSaved, setMulsangSaved] = useState(false);
-  const [chatFont, setChatFont] = useState<ChatFontSize>("base");
+  const [readingFont, setReadingFont] = useState<ReadingFontSize>("base");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,14 +53,14 @@ export default function SettingsPage() {
     listSubjects().then(setSubjects).catch(() => {});
   }, [isLoggedIn]);
 
-  // 채팅 폰트 크기는 기기별 표시 옵션(localStorage) — 마운트 시 1회 로드.
+  // 읽기 글자 크기는 기기별 표시 옵션(localStorage) — 마운트 시 1회 로드.
   useEffect(() => {
-    setChatFont(loadChatFontSize());
+    setReadingFont(loadReadingFontSize());
   }, []);
 
-  function changeChatFont(value: ChatFontSize) {
-    setChatFont(value);
-    saveChatFontSize(value); // 즉시 저장 + 채팅 화면 반영 이벤트 발행
+  function changeReadingFont(value: ReadingFontSize) {
+    setReadingFont(value);
+    saveReadingFontSize(value); // 즉시 저장 + 채팅·뷰어 반영 이벤트 발행
   }
 
   useEffect(() => {
@@ -123,21 +123,22 @@ export default function SettingsPage() {
       {error && <p className="text-sm text-red-500">{error}</p>}
 
       <section className="space-y-3 rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-lg font-bold">AI 채팅 상담</h1>
+        <h1 className="text-lg font-bold">글자 크기</h1>
         <div className="space-y-1.5">
-          <p className="text-sm text-gray-600">메시지 글자 크기</p>
+          <p className="text-sm text-gray-600">읽기 글자 크기</p>
           <div className="flex gap-2">
             {(
               [
                 { id: "base", label: "기본", cls: "text-sm" },
                 { id: "large", label: "크게", cls: "text-base" },
+                { id: "xlarge", label: "더크게", cls: "text-lg" },
               ] as const
             ).map((o) => (
               <button
                 key={o.id}
-                onClick={() => changeChatFont(o.id)}
+                onClick={() => changeReadingFont(o.id)}
                 className={`rounded border px-4 py-2 ${o.cls} ${
-                  chatFont === o.id
+                  readingFont === o.id
                     ? "border-gray-900 bg-gray-900 text-white"
                     : "border-gray-300 text-gray-700 hover:bg-gray-50"
                 }`}
@@ -147,7 +148,7 @@ export default function SettingsPage() {
             ))}
           </div>
           <p className="text-xs text-gray-400">
-            AI 채팅 상담 화면의 대화 글자 크기를 조절합니다.
+            AI 채팅 상담과 테마 사주 뷰어의 글자 크기를 함께 조절합니다.
           </p>
         </div>
       </section>

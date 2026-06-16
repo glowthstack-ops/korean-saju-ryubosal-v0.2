@@ -72,7 +72,9 @@ def test_failover_to_openai_on_primary_error(monkeypatch: pytest.MonkeyPatch) ->
 
     text = llm_client.generate_reading("질문 본문", product_code="TEST2")
     assert text == "비상 폴백 본문"
-    assert calls == ["gemini", "gemini", "openai"]  # primary_attempts=2 후 폴백
+    # primary_attempts 회 메인 시도 후 폴백 — 재시도 횟수는 운영 설정값(llm_config.json)에서 온다.
+    attempts = int(llm_client.load_config()["options"]["primary_attempts"])
+    assert calls == ["gemini"] * attempts + ["openai"]
     assert any(
         e.product_code == "TEST2:openai" for e in llm_client.COST_LEDGER.entries
     )

@@ -31,7 +31,7 @@
   },
   "options": {
     "timeout_seconds": 60,
-    "primary_attempts": 2,
+    "primary_attempts": 1,
     "retry_backoff_seconds": 1.5
   }
 }

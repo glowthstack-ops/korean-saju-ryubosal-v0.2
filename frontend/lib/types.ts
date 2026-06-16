@@ -530,6 +530,8 @@ export interface ChatThreadSummary {
   title: string | null;
   updated_at: string | null;
   message_count: number;
+  has_unseen?: boolean; // 미열람 완료 답변(이탈 후 복구 뱃지)
+  pending?: boolean; // 생성 중인 답변 존재
 }
 
 // 저장된 대화 메시지(열람·이어가기)
@@ -538,12 +540,16 @@ export interface ChatMessageDTO {
   text: string;
   meta?: Record<string, unknown> | null;
   created_at?: string | null;
+  status?: "done" | "pending" | "error";
+  seen?: boolean;
 }
 
 // 대화형 통변 (v2.2 — /api/v2/chat)
 export interface ChatApiResponse {
-  status: "answered" | "dry_run" | "policy" | "too_broad" | "need_subject";
+  status: "answered" | "pending" | "dry_run" | "policy" | "too_broad" | "need_subject";
   answer: string | null;
+  // 'pending' 응답 — 백그라운드 생성 중인 답변 메시지 id(폴링 키)
+  message_id?: number | null;
   candidate_count: number;
   input_tokens: number | null;
   thread_id: string | null;

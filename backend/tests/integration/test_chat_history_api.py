@@ -93,6 +93,59 @@ def test_thread_record_list_get_delete() -> None:
 
 
 @pytestmark_db
+def test_background_turn_pending_complete_seen() -> None:
+    """백그라운드 생성 수명주기: start_turn(pending·미열람) → complete_turn(done) → 열람.
+
+    클라이언트 이탈 후에도 답변이 서버에서 채워지고, 재진입(GET)으로 복구·열람되며
+    미열람 완료 답변은 unseen_count/뱃지로 노출된다.
+    """
+    import uuid
+
+    from saju_engines.chat_history_store import ChatHistoryStore
+
+    login_id = f"b{uuid.uuid4().hex[:10]}"
+    token = _request(
+        "POST", "/api/v2/auth/register", json={"login_id": login_id, "pin": "123456"}
+    ).json()["token"]
+    auth = {"Authorization": f"Bearer {token}"}
+
+    thread_id = f"tb-{uuid.uuid4().hex[:8]}"
+    store = ChatHistoryStore()
+    msg_id = store.start_turn(login_id, thread_id, "본인", "올해 이직운 어때?",
+                              meta={"candidate_count": 3})
+
+    # 생성 중 — pending·미열람. 목록/카운트에 반영.
+    pending = store.get_messages(thread_id)
+    assert [m["role"] for m in pending] == ["user", "assistant"]
+    assert pending[1]["status"] == "pending" and pending[1]["text"] == ""
+    assert store.unseen_count(login_id) == 0  # pending은 아직 미열람 뱃지 대상 아님
+
+    # 백그라운드 완료 → 본문·done.
+    store.complete_turn(msg_id, "변화 에너지가 활성화되는 흐름이에요.", status="done")
+    done = store.get_messages(thread_id)
+    assert done[1]["status"] == "done"
+    assert done[1]["text"].startswith("변화 에너지")
+    assert done[1]["seen"] is False
+
+    # 이탈 중이라 미열람 → 뱃지 카운트 1, 목록 has_unseen.
+    assert store.unseen_count(login_id) == 1
+    threads = _request("GET", "/api/v2/chat/threads", headers=auth).json()
+    mine = next(t for t in threads if t["thread_id"] == thread_id)
+    assert mine["has_unseen"] is True and mine["pending"] is False
+
+    # 전역 뱃지 엔드포인트.
+    assert _request("GET", "/api/v2/chat/unseen", headers=auth).json()["count"] == 1
+
+    # 재진입(GET 스레드) → 열람 처리 → 뱃지 해제.
+    msgs = _request("GET", f"/api/v2/chat/threads/{thread_id}", headers=auth).json()
+    assert msgs[1]["status"] == "done"
+    assert store.unseen_count(login_id) == 0
+    assert _request("GET", "/api/v2/chat/unseen", headers=auth).json()["count"] == 0
+
+    store.delete_thread(thread_id)
+
+
+@pytestmark_db
 def test_thread_partner_persisted_cross_device() -> None:
     """궁합 첨부가 스레드 상태에 미러링되어 GET /partner로 복원된다(크로스 디바이스)."""
     import uuid

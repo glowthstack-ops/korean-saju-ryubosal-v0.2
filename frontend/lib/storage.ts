@@ -173,27 +173,41 @@ export function loadEotPreference(): boolean {
 
 // ── AI 채팅 상담 폰트 크기 ───────────────────────────────────────
 // 표시 옵션이라 암호화 없이 localStorage에 보존(기기별 가독성 설정).
-// "base"=현재 기본 크기, "large"=한 단계 키운 크기. 설정 변경 시 같은 탭의
-// 채팅 화면이 즉시 반영하도록 커스텀 이벤트를 발행한다.
-const CHAT_FONT_KEY = "ryubosal:chatFontSize";
-export const CHAT_FONT_CHANGE_EVENT = "ryubosal:chatFontChange";
-export type ChatFontSize = "base" | "large";
+// 읽기 글자 크기(설정) — AI 채팅 상담과 테마 사주 뷰어에 공통 적용한다.
+// "base"=기본, "large"=크게, "xlarge"=더크게. 설정 변경 시 같은 탭의 화면이 즉시 반영하도록
+// 커스텀 이벤트를 발행한다. localStorage 키 값은 하위호환(기존 채팅 설정 보존) 위해 유지.
+const READING_FONT_KEY = "ryubosal:chatFontSize";
+export const READING_FONT_CHANGE_EVENT = "ryubosal:readingFontChange";
+export type ReadingFontSize = "base" | "large" | "xlarge";
 
-/** 채팅 폰트 크기를 저장하고 변경 이벤트를 발행한다. */
-export function saveChatFontSize(value: ChatFontSize): void {
+/** 읽기 글자 크기를 저장하고 변경 이벤트를 발행한다. */
+export function saveReadingFontSize(value: ReadingFontSize): void {
   try {
-    localStorage.setItem(CHAT_FONT_KEY, value);
-    window.dispatchEvent(new Event(CHAT_FONT_CHANGE_EVENT));
+    localStorage.setItem(READING_FONT_KEY, value);
+    window.dispatchEvent(new Event(READING_FONT_CHANGE_EVENT));
   } catch {
     /* SSR/프라이빗 모드 등 접근 불가 시 무시 */
   }
 }
 
-/** 저장된 채팅 폰트 크기를 읽는다. 미저장/접근 불가 시 기본값 "base". */
-export function loadChatFontSize(): ChatFontSize {
+/** 저장된 읽기 글자 크기를 읽는다. 미저장/접근 불가/미지원 값이면 기본값 "base". */
+export function loadReadingFontSize(): ReadingFontSize {
   try {
-    return localStorage.getItem(CHAT_FONT_KEY) === "large" ? "large" : "base";
+    const v = localStorage.getItem(READING_FONT_KEY);
+    return v === "large" || v === "xlarge" ? v : "base";
   } catch {
     return "base";
+  }
+}
+
+/** 읽기 글자 크기 → 본문(text)·마크다운(prose) Tailwind 클래스. 채팅·뷰어가 공유한다. */
+export function readingFontClasses(size: ReadingFontSize): { text: string; prose: string } {
+  switch (size) {
+    case "large":
+      return { text: "text-base", prose: "prose-base" };
+    case "xlarge":
+      return { text: "text-lg", prose: "prose-lg" };
+    default:
+      return { text: "text-sm", prose: "prose-sm" };
   }
 }
