@@ -228,12 +228,20 @@ def parse_time(
 
     # C5 월 단위 — "5월", "이번달", "다음 달". 당해 연도 기준(실로그 B2 "5월은 어때?"가
     # 6월 발화에서도 같은 해 5월과의 비교 맥락) — "내년" 명시 시에만 +1.
-    m = re.search(r"(\d{1,2})\s*월", text)
-    if m and not re.search(r"\d{1,2}\s*월\s*\d{1,2}\s*일", text):
-        month = int(m.group(1))
+    # 다중 월 비교("8월과 10월 중 언제가 나아?")는 두 달을 모두 잡아 min~max 구간으로 스팬한다
+    # — 첫 달만 잡혀 한쪽만 후보·근거가 붙던 비대칭 비교 결함을 차단(2026-06-16 사용자 지적).
+    months_found = re.findall(r"(\d{1,2})\s*월", text)
+    if months_found and not re.search(r"\d{1,2}\s*월\s*\d{1,2}\s*일", text):
         ym = re.search(r"(20\d{2})\s*년", text)
         year = int(ym.group(1)) if ym else today.year + (1 if "내년" in text else 0)
-        key = f"{year}-{month:02d}"
+        month_nums = sorted({int(x) for x in months_found if 1 <= int(x) <= 12})
+        if len(month_nums) >= 2:  # 다중 시점 비교 — 양 끝 달 포함 구간(둘 다 후보·근거 확보)
+            return TimeRange(
+                type="absolute", granularity=Granularity.MONTH,
+                start=f"{year}-{month_nums[0]:02d}", end=f"{year}-{month_nums[-1]:02d}",
+                urgency=urgency,
+            ), TimeScope.MID_TERM
+        key = f"{year}-{month_nums[0]:02d}"
         return TimeRange(
             type="absolute", granularity=Granularity.MONTH,
             start=key, end=key, urgency=urgency,

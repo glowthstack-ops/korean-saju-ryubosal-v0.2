@@ -51,3 +51,12 @@ def test_duration_not_misparsed_as_year() -> None:
     """'10년 후' 같은 기간 어미는 축약 연도로 잡지 않는다(2010 오인 방지)."""
     tr = _tr("10년 후 이사운")
     assert tr is None or tr.start != "2010"
+
+
+def test_multi_month_comparison_spans_both() -> None:
+    """'8월과 10월 중 언제가 나아?' → 두 달을 모두 잡아 min~max 구간으로 스팬(2026-06-16)."""
+    tr = _tr("이직, 이사와 관련해서 8월과 10월 중 언제가 나아?")
+    assert tr.start == "2026-08" and tr.end == "2026-10"
+    # 단일 월은 그대로 단일 구간(회귀 없음).
+    single = _tr("8월은 이직운 어때?")
+    assert single.start == single.end == "2026-08"
