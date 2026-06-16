@@ -135,6 +135,41 @@ def test_monthly_overview_renders_luck_grade(chart, candidates, bundles, scorer)
     assert "운 품질 등급" in text  # 범례 지시(좋은 달=운 품질 기준)
 
 
+def test_best_quality_months_named_callout() -> None:
+    """기반 최고 달 지목 — 강한 용신운 우선, 없으면 용신운(부분), 흉·혼합은 제외."""
+    from saju_engines.context_reducer import _best_quality_months
+    from saju_shared_types.llm_input import MonthOverviewRow
+
+    rows = [
+        MonthOverviewRow(period="2026-10", ganji="戊戌", luck_grade="강한 용신운"),
+        MonthOverviewRow(period="2026-08", ganji="丙申", luck_grade="용신운(부분)"),
+        MonthOverviewRow(period="2026-12", ganji="庚子", luck_grade="기신운(부분)"),
+    ]
+    assert _best_quality_months(rows) == "2026-10(강한 용신운)"  # 최상위만
+    # 강한 용신운이 없으면 용신운(부분)로 폴백.
+    rows2 = [r for r in rows if r.luck_grade != "강한 용신운"]
+    assert _best_quality_months(rows2) == "2026-08(용신운(부분))"
+    # 길 등급이 전혀 없으면 빈 문자열(흉·혼합은 '좋은 달'로 지목 안 함).
+    assert _best_quality_months([rows[2]]) == ""
+
+
+def test_monthly_overview_emits_best_month_callout(chart, candidates, bundles, scorer) -> None:
+    """월별 블록에 '기반 최고 달' 콜아웃이 이름 박혀 노출된다(intent 질문 누락 방지)."""
+    from saju_shared_types.llm_input import MonthOverviewRow
+
+    overview = [
+        MonthOverviewRow(period="2026-10", ganji="戊戌", luck_grade="강한 용신운"),
+        MonthOverviewRow(period="2026-11", ganji="己亥", top_event_ko="재물 변화",
+                         score=70, luck_grade="혼합"),
+    ]
+    payload = build_llm_input(
+        "올해 이직운", _intent(), chart, candidates, bundles, scorer,
+        monthly_overview=overview,
+    )
+    text = serialize_llm_input(payload)
+    assert "기반 최고 달" in text and "2026-10(강한 용신운)" in text
+
+
 def test_tone_mapping_table() -> None:
     """docs/06 점수→표현 강도 매핑표."""
     assert tone_for_score(90) == "신호가 매우 강합니다"

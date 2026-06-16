@@ -406,6 +406,14 @@ class _ReportData:
         overview = month_overview_lines(self.result, self.scored)
         if not overview:
             return []
+        # 기반 최고 달을 이름 박아 지목 — 그 달에 두드러진 사건이 없어도 누락되지 않게(채팅과 동일).
+        lc = self.result.luck_cycles
+        best = [p.label for p in (lc.monthly_luck if lc else []) if p.luck_label == "강한 용신운"]
+        callout = (
+            f" 특히 {', '.join(best[:3])}은(는) '강한 용신운'이라 두드러진 사건이 없어도 "
+            "기반이 가장 좋은 달이니 반드시 그렇게 짚을 것."
+            if best else ""
+        )
         return [
             "[12개월 흐름 — 이 해 12개월 전체. 한두 강신호만 반복하지 말고 각 달을 한두 문장으로 "
             "고르게 짚을 것. ★주목 표시된 달은 더 자세히. 좋은 달과 주의할 달의 1차 기준은 사건 "
@@ -413,7 +421,7 @@ class _ReportData:
             "'기신운')이며, 사건(이직·이사 등)은 그 위에 십성으로 얹어 '무슨 일'을 설명한다. "
             "'강한 용신운' 달은 "
             "두드러진 사건이 없어도 기반이 가장 좋은(가장 도움되는) 달로 짚고, 각 달 기운의 "
-            "활용·대비 방향도 곁들일 것]",
+            "활용·대비 방향도 곁들일 것." + callout + "]",
             *overview,
         ]
 

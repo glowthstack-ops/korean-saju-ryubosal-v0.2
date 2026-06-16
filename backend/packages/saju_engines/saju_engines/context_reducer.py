@@ -288,6 +288,23 @@ def _direction_for(c: EventCandidate) -> str:
     return lbl or polarity_ko(str(c.polarity))
 
 
+# 기반 최고 달 지목용 — 운 품질 등급 우선순위(길 방향만). 그 기간에 이 등급의 달이 있으면
+# 질문 사건과 무관하게 '가장 도움되는 시기'로 명시 노출(intent 질문에서 누락 방지).
+_BEST_GRADE_PRIORITY = ("강한 용신운", "용신운(부분)")
+
+
+def _best_quality_months(rows: list[MonthOverviewRow]) -> str:
+    """그 기간 운 품질 최고 달(강한 용신운 우선, 없으면 용신운 부분) — 'YYYY-MM(등급)' 목록.
+
+    길 방향 등급만 대상(기신·혼합은 '좋은 달'로 지목하지 않는다). 너무 길지 않게 최대 3개.
+    """
+    for grade in _BEST_GRADE_PRIORITY:
+        hits = [r.period for r in rows if r.luck_grade == grade]
+        if hits:
+            return ", ".join(f"{p}({grade})" for p in hits[:3])
+    return ""
+
+
 def event_ko(key: EventKey | str) -> str:
     """EventKey → 한글 라벨(미등록 시 키 그대로)."""
     return _EVENT_KO.get(str(key), str(key))
@@ -1111,6 +1128,14 @@ def serialize_llm_input(payload: LlmInput) -> str:
             if _is_yearly else
             f"[월별 요약 — {_span} {len(_ov)}개월(값 그대로 사용, 추측 금지)]"
         )
+        # 기반 최고 달을 이름 박아 별도 지목 — intent 질문(이직 등)에서 그 달에 해당 사건이
+        # 없으면 표 범례 지시가 묻혀 누락되던 문제(2026-06-16). 사건과 무관하게 반드시 한 번 짚게.
+        _best = _best_quality_months(_ov)
+        if _best:
+            lines.append(
+                f"※ [기반 최고 달] {_best} — 질문하신 사건이 이 달에 약하거나 없더라도, "
+                "'기반(전반 운)이 가장 좋은·가장 도움되는 시기'로 반드시 한 번 짚을 것."
+            )
         has_transition = False
         has_rank = False
         has_branch = False
