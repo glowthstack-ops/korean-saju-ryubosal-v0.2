@@ -13,6 +13,8 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
+from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
+
 from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_engine import (
@@ -272,6 +274,7 @@ class EventEngineV2:
         ]
         if not signals:
             return []
+        # 사건 '종류'는 십성(세운·월운)이 결정한다 — 합화는 여기(라벨 생성기)에 넣지 않는다.
         cands = self._brancher.branch(signals, label)
         if not cands:
             return []
@@ -296,10 +299,19 @@ class EventEngineV2:
         # 발동·궁성 — 해당 시점 관계 적중.
         activations = _activations(hits, _LEVEL_TO_LAYER[level])
         cands = self._relpalace.apply(cands, activations)
-        # 용신 품질 — 시점 유입 글자 오행의 용기신 역할.
-        role = _period_role(target, fav_map)
+        # 용신 품질 — 시점 유입 글자 오행의 용기신 역할. 본 천간이 합화(化)면 化神 오행으로 길흉
+        # 판단(生剋制化 우선 — 사건 종류는 불변, 길흉만 化神 기준). 대운 배경 합화는 제외(국소).
+        hwa_el = _target_hwa_element(target, result, fav_map)
+        role = _period_role(target, fav_map, stem_element=hwa_el)
         if role is not PolarityRole.NEUTRAL:
-            cands = [c.model_copy(update={"polarity_role": role}) for c in cands]
+            update: dict[str, object] = {"polarity_role": role}
+            cands = [
+                c.model_copy(update={
+                    **update,
+                    "reason_codes": [*c.reason_codes, f"HWA_길흉_{hwa_el}"],
+                }) if hwa_el else c.model_copy(update=update)
+                for c in cands
+            ]
             cands = self._yongi.apply(cands)
         # 횡재 발동 — 원국 그릇 × 운 완성(재성국/충개고/투간/식상생재)을 재물 후보에 보수 가산.
         cands = self._wealth_act.apply(
@@ -462,6 +474,37 @@ def _apply_soft_cap(c: EventCandidateV2) -> EventCandidateV2:
     return c.model_copy(update={"score": round(_soft_cap(raw)), "raw_score": round(raw, 2)})
 
 
+def _target_hwa_element(
+    target: LuckPillar, result: ManseV2Result, fav_map: dict[str, str]
+) -> str | None:
+    """그 시점 본 천간(세운·월운 등)이 confirmed 합화면 化神 오행(한자)을 반환(아니면 None).
+
+    生剋制化 우선(化): 합화로 오행이 바뀌면 그 化神 오행으로 '용신/기신=길흉'을 본다. 사건 '종류'
+    (십성→이벤트)는 바꾸지 않는다(세운·월운이 결정) — 化는 길흉 계층에만 반영(사용자 확정
+    2026-06-16). 일간 자합(본신지합)은 hap_mode!='transform'이라 제외된다. 대운 등 배경 천간의
+    합화는 여기서 다루지 않는다(체용/용신 계층 별도 — per-월 길흉 블랭킷 지양).
+    """
+    if result.pillars is None or not target.stem:
+        return None
+    try:
+        resolutions = resolve_stem_hap(result.pillars, fav_map, luck_stems=[target.stem])
+    except (ValueError, KeyError):
+        return None
+    for res in resolutions:
+        if not (
+            res.luck_origin and res.transform_tier == "confirmed"
+            and res.hap_mode == "transform" and res.transform_element
+        ):
+            continue
+        # 그 합에 본 천간(target.stem)이 운 자리로 참여했는지 확인.
+        if any(
+            pos == "luck" and st == target.stem
+            for pos, st in zip(res.positions, res.pair, strict=False)
+        ):
+            return res.transform_element
+    return None
+
+
 def _han_gen_role(element: str, fav_map: dict[str, str]) -> PolarityRole | None:
     """한신 오행의 간접(생, 生) 길흉 — 생하는 대상의 역할로 약한 길/흉을 판정.
 
@@ -478,14 +521,17 @@ def _han_gen_role(element: str, fav_map: dict[str, str]) -> PolarityRole | None:
     return None
 
 
-def _period_role(target: LuckPillar, fav_map: dict[str, str]) -> PolarityRole:
+def _period_role(
+    target: LuckPillar, fav_map: dict[str, str], stem_element: str | None = None
+) -> PolarityRole:
     """시점 유입 글자(천간 우선, 지지 보조) 오행의 용기신 역할 → 극성.
 
     1) 직접 역할(용·희·기·구) — 천간 우선, 지지 보조. 2) 천간·지지 모두 직접 역할이 없을 때만
     한신의 생(生) 관계로 간접 길흉(약)을 판정한다(직접 신호를 덮지 않는 보조 계층).
+    stem_element: 본 천간이 합화(化)했을 때의 化神 오행 — 길흉을 化神 기준으로 본다(生剋制化 우선).
     """
     try:
-        stem_el = str(STEM_ELEMENT[Stem(target.stem)])
+        stem_el = stem_element or str(STEM_ELEMENT[Stem(target.stem)])
         branch_el = str(BRANCH_ELEMENT[Branch(target.branch)])
     except (KeyError, ValueError):
         return PolarityRole.NEUTRAL

@@ -81,6 +81,19 @@ def test_neutral_when_no_signal() -> None:
     assert _period_role(_lp("甲", "寅"), {}) is PolarityRole.NEUTRAL
 
 
+def test_hwa_element_override_changes_polarity() -> None:
+    """生剋制化 우선(化) — 본 천간이 합화하면 化神 오행으로 길흉(용기신) 판단(사건 종류 불변).
+
+    壬(水)이 합화 木이면, 길흉을 壬水(구신)이 아니라 化神 木 기준으로 본다.
+    """
+    fav = {"水": "구신", "木": "용신", "土": "한신"}
+    lp = _lp("壬", "戌")  # 壬=水(구신), 戌=土(한신) — 지지가 흉이 아니라 단일 역할 경로
+    # 화신 미적용: 천간 水=구신 → 흉(GI)
+    assert _period_role(lp, fav) is PolarityRole.GI
+    # 화신 木(용신) 적용: 길흉이 용신 방향으로 뒤집힘
+    assert _period_role(lp, fav, stem_element="木") is PolarityRole.YONG
+
+
 # ── 천간·지지 모두 같은 방향(강한 신호) — 신약 사주 용신 보강 = 가장 이로움 ──────────
 
 
