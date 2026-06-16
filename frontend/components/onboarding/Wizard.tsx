@@ -155,6 +155,8 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
       >
         <StepYongsin
           profile={draft.profile}
+          initialYongsin={draft.yongsin}
+          initialConfirmed={draft.yongsinConfirmed}
           onYongsin={(element, confirmed) =>
             setDraft((d) => ({ ...d, yongsin: element, yongsinConfirmed: confirmed }))
           }

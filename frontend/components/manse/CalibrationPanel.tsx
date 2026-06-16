@@ -84,7 +84,8 @@ export function YongsinPanel({
         <InfoTooltip text="사주의 균형을 잡아 주는, 가장 필요한 핵심 기운입니다. 먼저 후보로 제시하고 과거 경험과 맞춰 본 뒤 확정합니다. 부족한 오행이 곧 용신은 아닙니다." />
       </h2>
       <p className="text-sm">
-        상태: <b>{statusKo[calibration?.status ?? y.status] ?? y.status}</b>
+        상태:{" "}
+        <b>{registered ? "확정(등록됨)" : (statusKo[calibration?.status ?? y.status] ?? y.status)}</b>
         {registered && (
           <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800">
             등록된 용신 반영됨

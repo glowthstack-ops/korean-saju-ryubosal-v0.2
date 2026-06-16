@@ -15,9 +15,17 @@ interface Props {
   profile: Profile;
   // 확정/유력 용신을 상위(위저드)로 전달. confirmed=true면 검증 확정.
   onYongsin: (element: string | null, confirmed: boolean) => void;
+  // 편집 진입 시 이미 등록된(DB 확정) 용신 — 있으면 등록 상태를 보존하고 표시한다.
+  initialYongsin?: string | null;
+  initialConfirmed?: boolean;
 }
 
-export function StepYongsin({ profile, onYongsin }: Props) {
+export function StepYongsin({
+  profile,
+  onYongsin,
+  initialYongsin = null,
+  initialConfirmed = false,
+}: Props) {
   const [result, setResult] = useState<ManseResult | null>(null);
   const [calibration, setCalibration] = useState<CalibrationResult | null>(null);
   const [answers, setAnswers] = useState<AnswerMap>({});
@@ -28,9 +36,12 @@ export function StepYongsin({ profile, onYongsin }: Props) {
     calculateManse(profile, referenceDate)
       .then((r) => {
         setResult(r);
-        // 유력 후보를 기본값으로 미리 상위에 전달(미확정).
-        const lead = (r.yongsin_analysis.final.yongsin ?? null) as string | null;
-        onYongsin(lead, false);
+        // 이미 등록(확정)된 경우엔 그 상태를 보존한다 — 마운트가 false로 덮어쓰면 저장 시
+        // confirmed_yongsin이 지워지는 데이터 손실이 생긴다. 미등록일 때만 유력 후보를 기본값으로.
+        if (!initialConfirmed) {
+          const lead = (r.yongsin_analysis.final.yongsin ?? null) as string | null;
+          onYongsin(lead, false);
+        }
       })
       .catch((e) => setError(e instanceof Error ? e.message : "계산 실패"));
     // onYongsin/profile은 마운트 1회 계산 의도라 의존성에서 제외.
@@ -42,7 +53,11 @@ export function StepYongsin({ profile, onYongsin }: Props) {
 
   return (
     <div className="space-y-3">
-      <YongsinPanel result={result} calibration={calibration} />
+      <YongsinPanel
+        result={result}
+        calibration={calibration}
+        confirmedYongsin={initialConfirmed ? initialYongsin : null}
+      />
       <CalibrationPanel
         result={result}
         profile={profile}

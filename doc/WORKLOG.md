@@ -3717,3 +3717,15 @@ NOT NULL이라 프로필 행 없이는 저장 불가.
   '등록된 용신 반영됨' 배지). 표시 우선순위: 이 기기 검증 > DB 등록 > 계산 후보.
 - **검증**: 신규 통합 테스트(프로필 행 없이 등록·해제·타계정 404) 포함 전체 pytest 760 pass,
   ruff·mypy clean. 프론트 tsc·vitest(23)·build pass. 실DB 스모크(행 없이 set/get) 확인.
+
+### 수정 화면 용신 등록 상태 미표시 + 편집 시 등록 소실 버그 (2026-06-16)
+
+사주 수정(Wizard edit)의 용신 단계가 이미 등록된 용신을 "후보(검증 필요)"로 표시하는 문제 +
+잠복 데이터 손실: StepYongsin 마운트가 항상 onYongsin(lead, false)로 yongsinConfirmed를 false로
+리셋 → 편집 후 저장 시 confirmed_yongsin이 null로 지워짐.
+
+- Wizard가 StepYongsin에 draft.yongsin/yongsinConfirmed(initialYongsin/initialConfirmed) 전달.
+- StepYongsin: initialConfirmed면 마운트에서 onYongsin(false) 호출 안 함(등록 상태 보존) +
+  YongsinPanel에 confirmedYongsin 전달.
+- YongsinPanel: 등록된 경우 상태를 '확정(등록됨)'으로 + '등록된 용신 반영됨' 배지.
+- 검증: 프론트 tsc·vitest(23)·build pass. (확정 용신 동기화 후속 — 21ef333과 연결.)
