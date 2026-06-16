@@ -29,15 +29,30 @@ const PAID: NavItem[] = [
   { href: "/chat", label: "AI채팅상담", desc: "대화형 통변" },
 ];
 
+// 경로 → 페이지 타이틀(메인 외 모든 페이지). 헤더의 '류보살 v2'를 대체 표시. 긴 접두사 우선.
+const PAGE_TITLES: [string, string][] = [
+  ["/manse", "만세력"],
+  ["/calendar", "간지달력"],
+  ["/themes", "테마사주"],
+  ["/chat", "AI채팅상담"],
+  ["/sajus", "사주목록"],
+  ["/onboarding", "사주 등록"],
+  ["/settings", "설정"],
+  ["/reports", "내 풀이"],
+  ["/reality-calibration", "용신 검증"],
+  ["/admin", "관리자"],
+];
+
 export function Gnb() {
   const [open, setOpen] = useState(false);
   // 스크롤 방향에 따라 top bar 숨김/표시(아래로 스크롤=숨김, 위로 스크롤=표시).
   const [hidden, setHidden] = useState(false);
   const pathname = usePathname();
-  // 현재 페이지 타이틀 — 헤더의 '류보살 v2' 자리를 대체 표시(없으면 브랜드).
-  const pageTitle = [...FREE, ...PAID].find(
-    (n) => pathname === n.href || pathname.startsWith(`${n.href}/`),
-  )?.label;
+  // 현재 페이지 타이틀 — 메인('/') 외에는 '류보살 v2' 자리를 페이지 타이틀로 대체.
+  const pageTitle =
+    pathname === "/"
+      ? undefined
+      : PAGE_TITLES.find(([href]) => pathname === href || pathname.startsWith(`${href}/`))?.[1];
   const { isLoggedIn } = useAuth();
   const { selected } = useSelectedSubject();
   const { badgeCount } = useReportNotifications();

@@ -3,6 +3,7 @@
 // AI채팅상담 (로그인 전용) — 선택된 사주로 /api/v2/chat 호출, 계정 페르소나(문체) 적용,
 // thread_id로 멀티턴 유지. 엔진이 계산한 점수·간지를 LLM이 서술한 결과를 그대로 표시한다.
 
+import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -174,6 +175,8 @@ export default function ChatPage() {
   const { text: bubbleFontCls, prose: proseFontCls } = readingFontClasses(useReadingFontSize());
   // 미열람 완료 답변이 있는 대화 수 — '+' 버튼·대화목록 항목 뱃지.
   const unseenCount = threads.filter((t) => t.has_unseen).length;
+  // 동반자로 고를 수 있는 등록 사주(현재 상담 대상 제외) — 없으면 등록 안내.
+  const partnerCandidates = subjects.filter((s) => s.subject_id !== selected?.subjectId);
 
   function loadSubjectsOnce() {
     if (subjects.length === 0) {
@@ -405,13 +408,23 @@ export default function ChatPage() {
         <Modal title="동반자 추가" onClose={() => setShowPartner(false)}>
           <div className="space-y-2">
             <p className="text-xs text-gray-500">
-              함께 볼 동반자를 고르거나 즉석 입력하세요(1회용). 궁합 확정이 아니라 질문에 따라
-              관계·궁합 등으로 함께 풀이됩니다. (해제 전까지 이후 질문에 적용)
+              함께 볼 동반자(해제 전까지)를 고르거나 즉석 입력(1회용)하세요. 질문에 따라
+              관계·궁합 등으로 함께 풀이됩니다.
             </p>
-            <div className="grid gap-1.5 sm:grid-cols-2">
-              {subjects
-                .filter((s) => s.subject_id !== selected.subjectId)
-                .map((s) => (
+            {partnerCandidates.length === 0 ? (
+              <div className="rounded-lg border bg-gray-50 p-4 text-center">
+                <p className="mb-2 text-xs text-gray-500">등록된 동반자가 없어요.</p>
+                <Link
+                  href="/sajus"
+                  onClick={() => setShowPartner(false)}
+                  className="inline-block rounded bg-indigo-600 px-3 py-1.5 text-xs text-white hover:bg-indigo-700"
+                >
+                  동반자 등록하러 가기
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {partnerCandidates.map((s) => (
                   <button
                     key={s.subject_id}
                     onClick={() => {
@@ -429,7 +442,8 @@ export default function ChatPage() {
                     <span className="block text-[11px] text-gray-400">{s.birth.birth_date}</span>
                   </button>
                 ))}
-            </div>
+              </div>
+            )}
             <details className="rounded-lg border bg-gray-50 p-3">
               <summary className="cursor-pointer text-sm font-medium text-gray-700">
                 상대 정보 즉석 입력 (등록 없이)
