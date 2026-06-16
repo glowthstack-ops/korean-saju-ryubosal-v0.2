@@ -101,10 +101,12 @@ class LayerFlowModifier:
             if flow_delta:
                 score += flow_delta
                 reasons.append("FLOW_GEN" if flow_delta > 0 else "FLOW_REVERSE")
+            new_score = max(0, round(score))  # 중간 100 클램프 제거 — raw 누적 보존
             out.append(c.model_copy(update={
-                "score": max(0, min(100, round(score))),
+                "score": new_score,
                 "reason_codes": reasons,
                 "raw_score": float(round(score, 2)),
+                "contributions": {**c.contributions, "flow": float(new_score - c.score)},
             }))
         return sorted(out, key=lambda x: -x.score)
 

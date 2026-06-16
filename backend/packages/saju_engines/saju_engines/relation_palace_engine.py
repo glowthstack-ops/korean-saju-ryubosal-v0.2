@@ -93,10 +93,12 @@ class RelationPalaceEngine:
             # 발동 보너스 총량 상한 — 다중 적중·복합이 점수를 100으로 포화시키는 것을 방지
             # (포화 보정, reviewed:false 초안). 발동 '여부'는 palace·confidence가 별도로 표현한다.
             delta = min(delta, _MAX_RELATION_DELTA)
+            new_score = max(0, round(c.score + delta))  # 중간 100 클램프 제거 — raw 보존
             out.append(c.model_copy(update={
-                "score": max(0, min(100, round(c.score + delta))),
+                "score": new_score,
                 "palace": best_palace,
                 "reason_codes": reasons,
+                "contributions": {**c.contributions, "relation": float(new_score - c.score)},
             }))
         return sorted(out, key=lambda x: -x.score)
 

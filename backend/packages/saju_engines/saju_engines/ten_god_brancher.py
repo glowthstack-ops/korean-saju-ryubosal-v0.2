@@ -184,13 +184,15 @@ class TenGodEventBrancher:
         layers = sorted({s.layer for s in signals}, key=lambda x: list(LuckLayer).index(x))
         out: list[EventCandidateV2] = []
         for event_key, a in acc.items():
+            base = max(0, a.score)
             out.append(EventCandidateV2(
                 event_key=event_key,
                 period=period,
-                score=max(0, min(100, a.score)),
+                score=base,  # 십성 base(MAX) — 이후 모디파이어가 누적, 최종 단계서 soft_cap
                 source_layers=layers,
                 source_ten_gods=sorted(a.ten_gods, key=lambda g: list(TenGod).index(g)),
                 reason_codes=a.reasons,
-                raw_score=float(a.score),
+                raw_score=float(base),
+                contributions={"base": float(base)},
             ))
         return sorted(out, key=lambda c: -c.score)

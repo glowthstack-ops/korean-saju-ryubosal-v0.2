@@ -93,9 +93,11 @@ class EventRanker:
                 out.append(c)
                 continue
             reasons = [*c.reason_codes, reason_add[k]]
+            new_score = max(0, c.score + boost[k])  # 중간 100 클램프 제거 — raw 누적 보존
             out.append(c.model_copy(update={
-                "score": max(0, min(100, c.score + boost[k])),
+                "score": new_score,
                 "reason_codes": reasons,
+                "contributions": {**c.contributions, "rank": float(new_score - c.score)},
             }))
         return out
 

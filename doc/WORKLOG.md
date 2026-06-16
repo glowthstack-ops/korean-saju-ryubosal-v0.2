@@ -3583,3 +3583,25 @@ AI 채팅 상담뿐 아니라 **테마 사주 뷰어(ReportPager)에도 공통 �
 - **범위 밖(2차 별도)**: reason_code 계열화·점수 포화(매달 100점) 제어 — 미착수.
 - **검증**: 신규 test_direction_label + 게이트 timing 테스트 갱신 포함 전체 pytest 745 pass, ruff·mypy
   clean(touched). 실차트 채팅·리포트 양쪽에서 10월 "기회·유입 · 지연·보류"·12월 "손실·지출" 확인.
+
+### 점수 포화 제어 2차-1단계 — soft_cap + 단계 클램프 제거 + 기여 계측 (2026-06-16)
+
+사용자 리뷰(C안): B(소프트캡)를 먼저 하되 A(계열 인지 감쇠) 전환용 계측을 1차에 포함.
+원인: base(MAX≈64)에 12운성(±18)+관계(+22) 등 모디파이어가 누적되며 단계마다 100 하드 클램프 →
+서로 다른 달·사건이 모두 100에 붙어 변별 소실. (식상생재가 base+wealth_act, 재성국이 relation+
+wealth_act 양쪽에 잡히는 계열 중복도 확인.)
+
+- **단계별 하드 클램프(min(100)) 제거**: ten_god_brancher·twelve_stage·layer_flow·addendum_gate·
+  relation_palace·yongi_quality·wealth_activation·event_ranker — 누적 raw를 끝까지 보존(max(0)만 유지).
+  EventCandidateV2.score 필드의 le=100 제약 해제(내부 표시값).
+- **최종 soft_cap만 적용**: event_engine_v2._score_target가 랭커 뒤에서 `soft_cap(raw, knee=85, tau=25)`
+  = 100 - 15·exp(-(raw-85)/25). raw 85→85·100→91.8·120→96.3·150→98.9. 단조 증가라 순위 보존.
+  raw_score에 cap 전 누적 보존.
+- **단계별 기여 로그(계측)**: EventCandidateV2.contributions{base/stage/flow/gate/relation/yongi/
+  wealth_act/rank} — 각 모디파이어가 적용한 delta. 2차 계열 인지 감쇠·fingerprint 중복 제거의 근거.
+- **효과(실차트)**: 2026 월별 재물/계약 후보가 전부 100 → 94~98로 분산(raw 106~141 보존). 12월
+  contributions가 relation +12 + wealth_act +21(재성 계열 중복)을 그대로 노출 → 2차 타깃 확인.
+- **검증**: 신규 test_score_saturation(soft_cap 곡선·포화 분산·기여 합≈raw) 포함 전체 pytest 747 pass,
+  ruff·mypy clean(touched). 기존 픽스처 무파손.
+- **2차-2단계(후속 PR)**: family/fingerprint 정규화 → 같은 현상(식상생재=COMBO+WEALTHACT, 재성국=
+  REL+WEALTHACT) 중복 가산 1회화, 같은 계열 추가 감쇠·다른 계열 강화. 미착수.

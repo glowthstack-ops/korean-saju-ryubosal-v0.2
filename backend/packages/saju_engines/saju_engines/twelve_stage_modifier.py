@@ -115,11 +115,13 @@ class TwelveStageModifier:
             reasons = [*c.reason_codes]
             if chosen_stage is not None:
                 reasons.append(f"stage:{chosen_stage.value}")
+            new_score = max(0, c.score + delta)  # 중간 100 클램프 제거 — raw 누적 보존
             new = c.model_copy(update={
-                "score": max(0, min(100, c.score + delta)),
+                "score": new_score,
                 "twelve_stage": chosen_stage,
                 "event_phase": phase,
                 "reason_codes": reasons,
+                "contributions": {**c.contributions, "stage": float(new_score - c.score)},
             })
             out.append(new)
         return sorted(out, key=lambda x: -x.score)

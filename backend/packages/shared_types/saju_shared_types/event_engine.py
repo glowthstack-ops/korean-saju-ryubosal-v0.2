@@ -205,7 +205,9 @@ class EventCandidateV2(BaseModel):
 
     event_key: EventKeyV2
     period: str  # '2026' / '2026-06' 등 운 기간 라벨
-    score: int = Field(ge=0, le=100)
+    # 모디파이어 누적 중에는 상한 없이 raw를 보존하고(중간 하드 클램프 제거), 최종 단계에서만
+    # soft_cap을 걸어 표시용 점수(≤100)로 만든다. 그래서 le=100 제약을 두지 않는다.
+    score: int = Field(ge=0)
     confidence_level: ConfidenceLevel = ConfidenceLevel.THEME_ONLY
     temporal_mode: TemporalMode | None = None
     quality: EventQuality | None = None  # 방향(길흉)만 — 타이밍은 timing으로 분리
@@ -217,7 +219,10 @@ class EventCandidateV2(BaseModel):
     twelve_stage: TwelveStage | None = None  # 사건 상태를 정한 12운성
     event_phase: str | None = None  # 12운성이 부여한 발현 단계(formalization/peak/cut 등)
     reason_codes: list[str] = Field(default_factory=list)  # 적용 룰 id 추적
-    raw_score: float = 0.0  # 클램프 전 원점수(정렬·디버그)
+    raw_score: float = 0.0  # soft_cap 전 누적 raw(정렬·디버그) — 최종 단계에서 채움
+    # 단계별 점수 기여(base/stage/flow/gate/relation/yongi/wealth_act) — 포화 진단·2차
+    # 계열 인지 감쇠 전환용 계측. 표시·판정엔 쓰지 않는다(내부 로그).
+    contributions: dict[str, float] = Field(default_factory=dict)
     # ── Life Event Inference 정렬축 (LIFE_EVENT_INFERENCE.md §1) ──
     life_fit: float = 0.0       # 현실 적합도(reality_gate) — 최상위 정렬축
     personal_match: float = 0.0  # 과거 검증 유사도(개인 시그니처 + 코호트, 음수=실패예측 페널티)

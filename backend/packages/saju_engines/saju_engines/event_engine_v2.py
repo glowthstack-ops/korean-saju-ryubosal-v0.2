@@ -10,6 +10,7 @@ reviewed:false 사전 초안 기반이므로 점수 절대값보다 상대 순�
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
@@ -304,11 +305,14 @@ class EventEngineV2:
         cands = self._wealth_act.apply(
             cands, capacity, self._wealth_activations(result, stack, capacity),
         )
-        # 증거 등급·충돌 해결.
+        # 증거 등급·충돌 해결(랭커의 등급 보너스도 raw 누적의 일부).
         rank_ctx = _rank_context(
             activations, present_gods, cands, occupation_status, relationship_status,
         )
-        return self._ranker.rank(cands, rank_ctx)
+        ranked = self._ranker.rank(cands, rank_ctx)
+        # 포화 제어 — 단계별 하드 클램프를 없앤 누적 raw에 최종 soft_cap만 적용(매달 100 포화 해소,
+        # 순위 보존). raw_score에 cap 전 누적을 남겨 2차 계열 인지 감쇠의 계측으로 쓴다.
+        return [_apply_soft_cap(c) for c in ranked]
 
     def _relation_hits(
         self, result: ManseV2Result, level: GanjiLevel, target: LuckPillar
@@ -437,6 +441,25 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
                     RelationKind(kind), palace, layer, position=position,
                 ))
     return out
+
+
+# 포화 제어 soft_cap — knee 이하는 그대로, 이상은 100에 완만히 접근(거의 정확히 100 안 됨).
+# raw 85→85, 100→약 91.8, 120→약 96.3, 150→약 98.9. 순위 보존(단조 증가).
+_SOFT_KNEE = 85.0
+_SOFT_TAU = 25.0
+
+
+def _soft_cap(raw: float) -> float:
+    """누적 raw 점수를 표시용(≤100)으로 압축. knee 이하 항등, 이상은 지수 포화."""
+    if raw <= _SOFT_KNEE:
+        return raw
+    return 100.0 - (100.0 - _SOFT_KNEE) * math.exp(-(raw - _SOFT_KNEE) / _SOFT_TAU)
+
+
+def _apply_soft_cap(c: EventCandidateV2) -> EventCandidateV2:
+    """누적 raw를 raw_score에 보존하고, score는 soft_cap한 표시값으로 교체."""
+    raw = float(c.score)
+    return c.model_copy(update={"score": round(_soft_cap(raw)), "raw_score": round(raw, 2)})
 
 
 def _han_gen_role(element: str, fav_map: dict[str, str]) -> PolarityRole | None:

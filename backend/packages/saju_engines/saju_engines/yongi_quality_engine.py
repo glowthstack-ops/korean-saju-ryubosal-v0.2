@@ -94,10 +94,12 @@ class YongiQualityEngine:
                     quality = EventQuality.MIXED
                     reasons.append("YONGGI_SOFTEN")
                 reasons.append(f"YONGGI_{role.value}")
+            new_score = max(0, round(score))  # 중간 100 클램프 제거 — raw 누적 보존
             out.append(c.model_copy(update={
-                "score": max(0, min(100, round(score))),
+                "score": new_score,
                 "quality": quality,
                 "reason_codes": reasons,
+                "contributions": {**c.contributions, "yongi": float(new_score - c.score)},
             }))
         return sorted(out, key=lambda x: -x.score)
 

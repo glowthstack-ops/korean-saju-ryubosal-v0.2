@@ -88,12 +88,14 @@ class AddendumGateModifier:
                 timing = EventTiming.DELAY  # 공망 — 방향은 유지하고 발현만 지연
                 reasons.append("VOID_delay")
 
+            new_score = max(0, score)  # 중간 100 클램프 제거 — raw 누적 보존(게이트는 감점만)
             out.append(c.model_copy(update={
                 "event_key": new_key,
-                "score": max(0, min(100, score)),
+                "score": new_score,
                 "quality": quality,
                 "timing": timing,
                 "reason_codes": reasons,
+                "contributions": {**c.contributions, "gate": float(new_score - c.score)},
             }))
         return self._merge_and_sort(out)
 

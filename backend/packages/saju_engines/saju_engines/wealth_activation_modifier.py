@@ -46,9 +46,11 @@ class WealthActivationModifier:
         out: list[EventCandidateV2] = []
         for c in candidates:
             if c.event_key in _TARGET_KEYS:
+                new_score = max(0, round(c.score * (1 + boost)))  # 중간 100 클램프 제거
                 out.append(c.model_copy(update={
-                    "score": max(0, min(100, round(c.score * (1 + boost)))),
+                    "score": new_score,
                     "reason_codes": [*c.reason_codes, tag],
+                    "contributions": {**c.contributions, "wealth_act": float(new_score - c.score)},
                 }))
             else:
                 out.append(c)
