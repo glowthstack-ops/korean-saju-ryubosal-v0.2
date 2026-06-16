@@ -14,6 +14,7 @@ from .event_engine import (
     ConfidenceLevel,
     EventKeyV2,
     EventQuality,
+    EventTiming,
     Pillar4,
     TemporalMode,
 )
@@ -194,17 +195,46 @@ DATE_PURPOSES: set[EventKeyV2] = {
     EventKeyV2.HEALTH_ATTENTION,
 }
 
-# ── 새 출력 차원 한글 라벨 (LLM 입력 톤 힌트) ──────────────────────
+# ── 새 출력 차원 한글 라벨 (사용자 노출 — 사건 '방향'을 또렷이) ──────────────────
+# 사건명은 중립으로 두고 이 라벨로 길흉 방향을 명시한다("좋은지 나쁜지" 모호함 해소).
 QUALITY_KO: dict[EventQuality, str] = {
-    EventQuality.OPPORTUNITY: "기회",
+    EventQuality.OPPORTUNITY: "기회·유입",
+    EventQuality.ACHIEVEMENT: "성취·결실",
+    EventQuality.RESOLUTION: "해소·정리",
     EventQuality.PRESSURE: "압박·부담",
     EventQuality.LOSS: "손실·지출",
-    EventQuality.DELAY: "지연·보류",
-    EventQuality.CONFLICT: "갈등",
-    EventQuality.ACHIEVEMENT: "성취·인정",
-    EventQuality.RESOLUTION: "해소·정리",
-    EventQuality.MIXED: "혼재·변동",
+    EventQuality.CONFLICT: "갈등·마찰",
+    EventQuality.MIXED: "혼합(좋은 면·주의할 면 공존)",
+    EventQuality.DELAY: "지연·보류",  # deprecated(미생산) — 하위호환 표기만
 }
+# 시간 작동 방식 — 방향(quality)과 독립. delay는 방향 라벨 뒤에 덧붙인다("기회·유입 · 지연").
+TIMING_KO: dict[EventTiming, str] = {
+    EventTiming.ACTIVE: "",
+    EventTiming.DELAY: "지연·보류",
+}
+
+
+def direction_label(quality: str | None, timing: str = "active") -> str:
+    """사건 방향(길흉) + 타이밍 → 사용자 표시 라벨. 예: '기회·유입 · 지연', '손실·지출'.
+
+    방향(quality)도 타이밍(delay)도 없으면 빈 문자열(중립). polarity 4값("조건부") 축소를
+    대체해 "좋은지 나쁜지"를 또렷이 전달한다. 입력은 enum value 문자열(legacy 후보 호환).
+    """
+    q = ""
+    if quality:
+        try:
+            q = QUALITY_KO.get(EventQuality(quality), "")
+        except ValueError:
+            q = ""
+    t = ""
+    if timing:
+        try:
+            t = TIMING_KO.get(EventTiming(timing), "")
+        except ValueError:
+            t = ""
+    if q and t:
+        return f"{q} · {t}"
+    return q or t
 CONFIDENCE_KO: dict[ConfidenceLevel, str] = {
     ConfidenceLevel.THEME_ONLY: "주제·분위기",
     ConfidenceLevel.WEAK_EVENT_CANDIDATE: "약한 사건 후보",

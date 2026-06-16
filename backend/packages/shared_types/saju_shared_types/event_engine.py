@@ -80,16 +80,31 @@ class TemporalMode(StrEnum):
 
 
 class EventQuality(StrEnum):
-    """사건 품질 (사양 output_contract.quality)."""
+    """사건 '방향'(길흉) 품질 (사양 output_contract.quality).
+
+    방향 전용이다 — 시간 작동 방식(지연·보류)은 길흉이 아니므로 EventTiming으로 분리한다.
+    DELAY는 더 이상 생산하지 않는다(deprecated, 하위호환 위해 멤버만 유지).
+    """
 
     OPPORTUNITY = "opportunity"
     PRESSURE = "pressure"
     LOSS = "loss"
-    DELAY = "delay"
+    DELAY = "delay"  # deprecated — EventTiming.DELAY로 이관(방향이 아니라 타이밍)
     CONFLICT = "conflict"
     ACHIEVEMENT = "achievement"
     RESOLUTION = "resolution"
     MIXED = "mixed"
+
+
+class EventTiming(StrEnum):
+    """사건의 시간 작동 방식 (길흉과 독립 축). 방향(quality)은 그대로 두고 발현 시점만 수식한다.
+
+    ACTIVE: 해당 기간에 바로 발현. DELAY: 공망·게이트로 지연·보류(좋고 나쁨과 무관하게 늦어짐).
+    반복·재점화 등은 후속 작업에서 확장한다.
+    """
+
+    ACTIVE = "active"
+    DELAY = "delay"
 
 
 class ConfidenceLevel(StrEnum):
@@ -193,7 +208,8 @@ class EventCandidateV2(BaseModel):
     score: int = Field(ge=0, le=100)
     confidence_level: ConfidenceLevel = ConfidenceLevel.THEME_ONLY
     temporal_mode: TemporalMode | None = None
-    quality: EventQuality | None = None
+    quality: EventQuality | None = None  # 방향(길흉)만 — 타이밍은 timing으로 분리
+    timing: EventTiming = EventTiming.ACTIVE  # 시간 작동 방식(공망·게이트 지연·보류)
     source_layers: list[LuckLayer] = Field(default_factory=list)
     source_ten_gods: list[TenGod] = Field(default_factory=list)
     polarity_role: PolarityRole = PolarityRole.NEUTRAL

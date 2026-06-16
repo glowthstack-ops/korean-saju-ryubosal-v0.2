@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from saju_shared_types.event_engine import (
     EventCandidateV2,
     EventKeyV2,
-    EventQuality,
+    EventTiming,
     LuckLayer,
     TenGod,
 )
@@ -46,13 +46,14 @@ class AddendumGateModifier:
             ek = c.event_key
             score = c.score
             quality = c.quality
+            timing = c.timing
             new_key = ek
             reasons = [*c.reason_codes]
 
             # ── event_gate_safety_rules ──────────────────────────
             if ek is EventKeyV2.BUSINESS_START and not (ctx.present_gods & _WEALTH):
                 score -= 12
-                quality = quality or EventQuality.DELAY
+                timing = EventTiming.DELAY  # 방향(quality)은 그대로, 발현만 보류
                 reasons.append("GATE_business_start_no_wealth")
             day_trigger = bool({LuckLayer.WOLWOON, LuckLayer.ILWOON} & ctx.layers)
             if ek is EventKeyV2.WINDFALL and not day_trigger:
@@ -84,13 +85,14 @@ class AddendumGateModifier:
             # ── void_activation_modifier ─────────────────────────
             if ctx.void_active:
                 score -= 10
-                quality = quality or EventQuality.DELAY
+                timing = EventTiming.DELAY  # 공망 — 방향은 유지하고 발현만 지연
                 reasons.append("VOID_delay")
 
             out.append(c.model_copy(update={
                 "event_key": new_key,
                 "score": max(0, min(100, score)),
                 "quality": quality,
+                "timing": timing,
                 "reason_codes": reasons,
             }))
         return self._merge_and_sort(out)

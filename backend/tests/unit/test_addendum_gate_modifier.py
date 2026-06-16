@@ -6,7 +6,12 @@
 from __future__ import annotations
 
 from saju_engines.addendum_gate_modifier import AddendumGateModifier, GateContext
-from saju_shared_types.event_engine import EventCandidateV2, EventQuality, LuckLayer, TenGod
+from saju_shared_types.event_engine import (
+    EventCandidateV2,
+    EventTiming,
+    LuckLayer,
+    TenGod,
+)
 
 
 def _cand(event: str, score: int = 70) -> EventCandidateV2:
@@ -19,7 +24,9 @@ def test_business_start_without_wealth_weakened() -> None:
     out = m.apply([_cand("business_start", 70)], ctx)
     c = out[0]
     assert c.score < 70
-    assert c.quality is EventQuality.DELAY
+    # 보류는 '타이밍'(지연)이지 길흉(quality)이 아니다 — quality는 방향 전용으로 보존.
+    assert c.timing is EventTiming.DELAY
+    assert c.quality is None
     assert "GATE_business_start_no_wealth" in c.reason_codes
 
 
@@ -59,7 +66,9 @@ def test_void_adds_delay() -> None:
     out = m.apply([_cand("contract_document", 60)], GateContext(void_active=True))
     c = out[0]
     assert c.score < 60
-    assert c.quality is EventQuality.DELAY
+    # 공망은 발현을 늦출 뿐 — 타이밍(지연)으로, 방향(quality)은 별도(여기선 미정).
+    assert c.timing is EventTiming.DELAY
+    assert c.quality is None
     assert "VOID_delay" in c.reason_codes
 
 

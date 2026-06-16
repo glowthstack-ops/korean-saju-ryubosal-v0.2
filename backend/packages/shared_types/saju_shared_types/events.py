@@ -78,6 +78,11 @@ class EventCandidate(BaseModel):
     score: int = Field(ge=0, le=100)
     confidence: Confidence
     polarity: EventPolarity
+    # 사건 '방향'(길흉) + '타이밍'(즉시/지연) — polarity 4값 축소로 묻히는 길흉을 또렷이 전달.
+    # quality: opportunity/achievement/resolution(길)·loss/pressure/conflict(흉)·mixed(혼합).
+    # timing: active/delay(공망·게이트 보류). 표시 계층이 한글 방향 라벨로 노출한다.
+    quality: str | None = None
+    timing: str = "active"
     signals: list[Signal] = Field(default_factory=list)
     evidence_path: list[str] = Field(default_factory=list)
     # 클램프(0~100) 전 raw 가중 합 — 동점 후보의 우위 변별용(내부 정렬).

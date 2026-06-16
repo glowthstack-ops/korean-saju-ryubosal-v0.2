@@ -128,6 +128,8 @@ class LlmEventCandidate(BaseModel):
     signal_count: int = 0  # 동점 변별용(점수 포화 완화)
     confidence: str
     polarity: str
+    # 사건 방향(길흉)+타이밍 라벨('기회·유입 · 지연' 등) — 모호한 polarity 4값 대신 또렷한 방향.
+    direction: str = ""
     # v2.2.1 — 동반 신호 매트릭스: 사건명은 단일 합·십성이 아니라 신호 구성이 결정
     # (regression_2025_08: 갑기합만 보고 취업 단정 금지 — 역마+식상이면 이동 우세).
     signals_ko: list[str] = Field(default_factory=list)
@@ -183,6 +185,8 @@ class MonthOverviewRow(BaseModel):
     top_event_ko: str = ""  # 그 달 최고 신호(없으면 빈 값)
     score: int | None = None
     polarity: str = ""
+    # 사건 방향(길흉)+타이밍 사용자 라벨('기회·유입 · 지연' 등) — 모호한 polarity 4값 대체.
+    direction: str = ""
     # 교운(대운 교체) 근접 라벨 — 점수 cap 포화로 사라지는 교운일 가중 차이를 표면화.
     transition: str = ""
     # 창 내 상대 강도 순위(1=최강, 클램프 전 raw 가중 합 기준) — 톤이 포화돼도

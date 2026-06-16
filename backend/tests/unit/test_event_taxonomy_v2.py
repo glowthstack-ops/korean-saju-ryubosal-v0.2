@@ -23,7 +23,21 @@ from saju_shared_types.event_taxonomy_v2 import (
     EVENT_TYPE,
     EVENT_WORDS,
     LEGACY_EVENT_KEY_MAP,
+    direction_label,
 )
+
+
+def test_direction_label_separates_quality_and_timing() -> None:
+    """방향(길흉)+타이밍을 또렷이 — 공망 지연이어도 방향(기회)이 사라지지 않는다."""
+    # 핵심: 기회 + 지연 → "기회는 있으나 늦어짐"이 한눈에(이전 '조건부' 모호함 해소).
+    assert direction_label("opportunity", "delay") == "기회·유입 · 지연·보류"
+    assert direction_label("loss", "active") == "손실·지출"
+    assert direction_label("achievement", "active") == "성취·결실"
+    assert direction_label("mixed", "active").startswith("혼합")
+    # 방향 미정 + 지연 → 타이밍만.
+    assert direction_label(None, "delay") == "지연·보류"
+    # 방향·타이밍 모두 없으면 중립(빈 문자열) — coarse polarity 폴백 대상.
+    assert direction_label(None, "active") == ""
 
 
 def test_all_21_keys_labelled() -> None:
@@ -80,7 +94,7 @@ def test_serialize_enriched_fields() -> None:
     d = serialize_candidate_v2(c)
     assert d["event_ko"] == "합격·진학·자격"
     assert d["confidence_ko"] == "강한 사건 후보"
-    assert d["quality_ko"] == "성취·인정"
+    assert d["quality_ko"] == "성취·결실"
     assert d["palace_ko"].startswith("시주")
     assert "관계 발동" in d["signals_ko"]
     assert d["prohibitions"]  # 당락 단정 금지 부착

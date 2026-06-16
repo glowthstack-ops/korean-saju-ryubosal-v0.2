@@ -24,6 +24,7 @@ from saju_shared_types.constants import (
 )
 from saju_shared_types.enums import Branch, Element, Stem
 from saju_shared_types.event_taxonomy_v2 import EVENT_KO as _EVENT_KO_V2
+from saju_shared_types.event_taxonomy_v2 import direction_label
 from saju_shared_types.events import EventCandidate, EventKey
 from saju_shared_types.graph import EvidenceBundle
 from saju_shared_types.intent import IntentJson, QueryType
@@ -279,6 +280,12 @@ _POLARITY_KO = {
 def polarity_ko(value: str) -> str:
     """극성 → 한글(내부 어휘 노출 방지)."""
     return _POLARITY_KO.get(value, value)
+
+
+def _direction_for(c: EventCandidate) -> str:
+    """후보의 방향(길흉)+타이밍 라벨 — '조건부' 4값 축소 대신 또렷한 방향. 없으면 polarity 폴백."""
+    lbl = direction_label(c.quality, c.timing)
+    return lbl or polarity_ko(str(c.polarity))
 
 
 def event_ko(key: EventKey | str) -> str:
@@ -634,6 +641,7 @@ def _to_llm_candidate(
         signal_count=len(c.signals),
         confidence=str(c.confidence),
         polarity=str(c.polarity),
+        direction=_direction_for(c),
         signals_ko=signals_ko,
         incoming_note=note,
         amhap_notes=amhap_notes,
@@ -800,6 +808,7 @@ def build_monthly_overview(
             rows.append(MonthOverviewRow(
                 period=period, ganji=ganji.get(period, ""),
                 top_event_ko=label, score=cs[0].score, polarity=str(cs[0].polarity),
+                direction=_direction_for(cs[0]),
                 transition=_transition_for(period), luck_roles=_roles_for(period),
                 luck_grade=luck_grade_by_period.get(period, ""),
                 branch_ko=branch or "",
@@ -1037,7 +1046,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
         label = c.event_ko or event_ko(c.event_key)
         return (
             f"{label} @ {c.period}({c.ganji}, 대운 {c.daewoon_context}) "
-            f"— {tone_for_score(c.score)} · {polarity_ko(c.polarity)}"
+            f"— {tone_for_score(c.score)} · {c.direction or polarity_ko(c.polarity)}"
         )
 
     def candidate_block(c: LlmEventCandidate, with_notes: bool = True) -> list[str]:
@@ -1133,7 +1142,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 # 분기(형제 사건)를 사건명 바로 뒤로 — 줄 끝에 묻혀 무시되는 것 방지(이직↔이사).
                 lines.append(
                     f"{row.period} {row.ganji}{grade_mark}{roles_mark}: {row.top_event_ko}"
-                    f"{branch_mark} · {polarity_ko(row.polarity)} → {tone_for_score(row.score)}"
+                    f"{branch_mark} · {row.direction or polarity_ko(row.polarity)} "
+                    f"→ {tone_for_score(row.score)}"
                     f"{rank_mark}{tr_mark}{past_mark}"
                 )
             elif not row.ganji:
@@ -1199,7 +1209,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 second = f"(2순위 {events[1]})" if len(events) > 1 else ""
                 bits = [
                     f"우세 사건 '{dominant}'{second}",
-                    f"성격 {polarity_ko(mr.polarity)}",
+                    f"성격 {mr.direction or polarity_ko(mr.polarity)}",
                 ]
                 if mr.luck_grade:  # 운 품질 등급 — 길흉 1차 기준(사건 강도와 별개)
                     bits.append(f"운 품질 {mr.luck_grade}")

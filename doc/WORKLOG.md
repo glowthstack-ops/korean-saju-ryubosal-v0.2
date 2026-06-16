@@ -3563,3 +3563,23 @@ AI 채팅 상담뿐 아니라 **테마 사주 뷰어(ReportPager)에도 공통 �
 - **검증**: 실차트(己土 신약) 2026 리포트 월별 — 2026-10 戊戌이 〈강한 용신운〉 ★주목으로 노출,
   전 달 운 품질 등급 부착 확인. 신규 test_month_overview_surfaces_luck_grade 포함 전체 pytest 744
   pass, ruff·mypy clean(touched).
+
+### 사건 방향성 표시 1차 — quality(길흉) 보존 + timing(지연) 분리 + 사용자 방향 라벨 (2026-06-16)
+
+사용자 지적: "재물 변화 100점 · 조건부"만 보여선 좋아지는지 나빠지는지 알 수 없어 혼란(다른 사건도 동일).
+근원: 엔진은 풍부한 quality로 길흉을 판정하나, 출력 직전 polarity 4값(긍정/부정/조건부/중립)으로
+뭉개지며 특히 'delay(공망 지연)'와 'mixed'가 모두 "조건부"로 합쳐져 방향이 사라짐. 사용자 리뷰 반영
+(작업명: EventCandidate quality 보존 및 방향 라벨 개선 — 점수 산식·사건명 불변).
+
+- **타이밍을 방향과 분리(리뷰 핵심)**: EventTiming(active/delay) 신설, EventCandidateV2.timing 추가.
+  addendum_gate_modifier의 공망·게이트 보류를 `quality=DELAY` → `timing=DELAY`로 변경 → 공망이어도
+  yongi가 방향(용신/기신)을 quality에 남긴다. EventQuality.DELAY는 미생산(deprecated).
+  · 효과: 2026-10 wealth_change = quality=opportunity + timing=delay → "기회·유입 · 지연·보류"
+    (이전엔 quality=delay로 방향 소실 → "조건부"). 12월 = quality=loss → "손실·지출".
+- **방향 라벨 노출**: QUALITY_KO 문구 정비(기회·유입/성취·결실/손실·지출/압박·부담/갈등·마찰/해소·정리/
+  혼합), TIMING_KO 신설, `direction_label(quality, timing)` 헬퍼. legacy EventCandidate에 quality·timing
+  실어 전달. 채팅(context_reducer: LlmEventCandidate.direction·월별 row.direction·유력달 bits)과
+  리포트(report_event_input: 월별·정밀클러스터·점수표) 모두 모호한 polarity 대신 방향 라벨 표시.
+- **범위 밖(2차 별도)**: reason_code 계열화·점수 포화(매달 100점) 제어 — 미착수.
+- **검증**: 신규 test_direction_label + 게이트 timing 테스트 갱신 포함 전체 pytest 745 pass, ruff·mypy
+  clean(touched). 실차트 채팅·리포트 양쪽에서 10월 "기회·유입 · 지연·보류"·12월 "손실·지출" 확인.

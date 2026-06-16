@@ -588,6 +588,8 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
         score=c.score,
         confidence=_CONF_TO_LEGACY.get(c.confidence_level, Confidence.LOW),
         polarity=polarity,
+        quality=c.quality.value if c.quality else None,  # 방향(길흉) 보존
+        timing=c.timing.value,  # 타이밍(즉시/지연) 보존
         signals=signals,
         evidence_path=list(c.reason_codes),
         raw_total=c.raw_score,

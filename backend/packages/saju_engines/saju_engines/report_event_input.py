@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN
+from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN, direction_label
 from saju_shared_types.events import EventCandidate
 from saju_shared_types.ganji_calendar import GanjiLevel, RelationType
 from saju_shared_types.luck import LuckPillar
@@ -17,6 +17,11 @@ from saju_shared_types.manse_result import ManseV2Result
 from .context_reducer import event_ko, polarity_ko
 from .ganji_calendar import relation_hits
 from .llm_event_serializer import score_band
+
+
+def _dir(c: EventCandidate) -> str:
+    """후보 방향(길흉)+타이밍 라벨 — 모호한 polarity 대신. 없으면 polarity 폴백."""
+    return direction_label(c.quality, c.timing) or polarity_ko(str(c.polarity))
 
 # 도메인 코드 → 한글(12개월 흐름 표기용).
 _DOMAIN_KO: dict[str, str] = {
@@ -120,7 +125,7 @@ def precise_candidate_clusters(
         for c in evs:
             lines.append(
                 f"  - {event_ko(c.event_key)}: {c.score}점 · 신뢰도 {c.confidence} · "
-                f"{polarity_ko(str(c.polarity))}"
+                f"{_dir(c)}"
             )
     return lines
 
@@ -149,7 +154,7 @@ def score_table_lines(
             evidence = "—"
         out.append(
             f"| {c.period} | {ganji} | {event_ko(c.event_key)} | {c.score} | "
-            f"{c.confidence} | {polarity_ko(str(c.polarity))} | {evidence} |"
+            f"{c.confidence} | {_dir(c)} | {evidence} |"
         )
     return out
 
@@ -200,6 +205,6 @@ def month_overview_lines(
             dom = _DOMAIN_KO.get(_DOMAIN_BY_KEY.get(str(cand.event_key), ""), "일반")
             lines.append(
                 f"{p.label} {p.ganji}({tg}){grade}: {dom} {score_band(cand.score)} · "
-                f"{polarity_ko(str(cand.polarity))} · {event_ko(cand.event_key)}{star}"
+                f"{_dir(cand)} · {event_ko(cand.event_key)}{star}"
             )
     return lines
