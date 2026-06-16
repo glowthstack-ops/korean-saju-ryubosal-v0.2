@@ -77,9 +77,14 @@
           "event": "wealth_change",
           "score": 0.6,
           "polarity": "conditional"
+        },
+        {
+          "event": "windfall",
+          "score": 0.35,
+          "polarity": "conditional"
         }
       ],
-      "note": "편재+삼합 세력 — 판이 커지는 재물 흐름(과욕 경계 동반)",
+      "note": "편재+삼합 세력(운에서 재성국 완성) — 판이 커지는 재물 흐름. 원국 그릇이 약해도 운에서 재성국이 완성되면 횡재 잠재(운 완성 경로, 그릇 없으면 강도 낮음 · 과욕 경계 · 당첨 단정 금지)",
       "reviewed": false
     },
     {
@@ -133,6 +138,73 @@
         }
       ],
       "note": "감점 — 천덕귀인: 음덕이 손재·투기 리스크를 완화(흉사 완충 통설)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "편재",
+        "relation": "three_harmony",
+        "natalWealthCapacity": "strong"
+      },
+      "eventCandidates": [
+        {
+          "event": "windfall",
+          "score": 0.45,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "편재+삼합(재성국 완성)+원국 그릇 강 — 큰 재물이 한 번에 드러날 잠재(windfall은 표현 제한 — 당첨 단정 금지, 변동성·과몰입 경고)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "편재",
+        "relation": "branch_clash",
+        "natalWealthCapacity": "strong"
+      },
+      "eventCandidates": [
+        {
+          "event": "windfall",
+          "score": 0.4,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "편재+지지 충(묘고 충개고)+원국 그릇 강 — 닫혀 있던 재물이 충으로 열리는 갑작스러운 발동 잠재(windfall은 표현 제한 — 당첨 단정 금지)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "편재",
+        "natalWealthCapacity": "strong"
+      },
+      "eventCandidates": [
+        {
+          "event": "wealth_change",
+          "score": 0.5,
+          "polarity": "positive"
+        },
+        {
+          "event": "windfall",
+          "score": 0.3,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "편재 유입+원국 그릇 강 — 큰돈을 쥘 그릇에 외부 재물 활성(횡재는 잠재로만, 단정 금지)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "branchTenGod": "편재",
+        "relation": "branch_clash"
+      },
+      "eventCandidates": [
+        {
+          "event": "windfall",
+          "score": 0.3,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "재성 지지 충(운에서 묘고 충개고) — 닫힌 재물이 운의 충으로 열리는 운 완성 경로(원국 묘고 없어도 운끼리 충 가능 · 당첨 단정 금지)",
       "reviewed": false
     }
   ]

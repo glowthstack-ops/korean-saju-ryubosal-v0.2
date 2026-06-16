@@ -12,6 +12,7 @@ from pathlib import Path
 from saju_shared_types.profile import PersonaConfig
 from saju_shared_types.report import SectionContext, SectionPlan
 
+from .llm_event_serializer import INTERNAL_JARGON_LABELS
 from .persona import PersonaEngine
 
 # 본문 간지 추출(천간+지지 2자) — 검사 2.
@@ -91,10 +92,13 @@ class ReportChecker:
         if context.multi_subject and context.subject_label not in text[:200]:
             violations.append(f"섹션 서두 대상 라벨 누락: {context.subject_label}")
 
-        # 8. 근거 포함 — 섹션당 evidence path 1개 이상 인용.
-        if context.evidence_paths and not any(
-            path in text for path in context.evidence_paths
-        ):
-            violations.append("근거 경로(evidence path) 미인용")
+        # 8. 내부용어 노출 — 근거 경로/스코어링 분류 라벨을 본문에 그대로 쓰면 순화 위반(soft).
+        # 근거 경로는 '내부 근거'로만 활용하고 사용자 본문엔 일상어로 풀어 녹여야 한다(2026-06-16).
+        # 사실 위반이 아니므로 재생성을 유발하지 않고 기록만 한다(_HARD_VIOLATION_PREFIXES 제외).
+        leaked = [label for label in INTERNAL_JARGON_LABELS if label in text]
+        if "근거 경로" in text:
+            leaked.append("근거 경로")
+        if leaked:
+            violations.append("내부용어 노출(순화 필요): " + ", ".join(leaked))
 
         return violations

@@ -52,6 +52,22 @@ def test_plan_report_focus_contexts() -> None:
     assert "천간" in c04.body_prompt and "지지" in c04.body_prompt  # per-글자 십성 노출
 
 
+def test_wealth_section_surfaces_wealth_capacity() -> None:
+    """재물 테마 — W-05(횡재·상속)에 원국 횡재 그릇 블록 표면화 + 당첨/번호 금지 가드(Phase 1)."""
+    spec = ReportSpec(
+        product_code="RPT_FOCUS",
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        topic="wealth",
+        period=ReportPeriod(start="2026-01", end="2031-12"),
+    )
+    contexts = report_service.plan_report(_BIRTH, spec, _TODAY)
+    w05 = next(c for c in contexts if c.section_id == "W-05")
+    assert "[원국 횡재 그릇" in w05.body_prompt
+    assert "재성 오행:" in w05.body_prompt and "종합 그릇:" in w05.body_prompt
+    assert "당첨" in w05.body_prompt and "번호 추천은 절대 금지" in w05.body_prompt
+    assert "발동 조건" in w05.body_prompt  # 재성국 완성·충개고·식상생재(운 발동) 안내
+
+
 def test_plan_report_full_natal_sections() -> None:
     """RPT_FULL — F-02 일주 서사, F-04 용신 확정(이후 섹션 일관 검사 기준)."""
     contexts = report_service.plan_report(_BIRTH, _spec("RPT_FULL"), _TODAY)
@@ -70,9 +86,9 @@ def test_focus_report_passes_checks_with_real_contexts() -> None:
     data = report_service._ReportData(_BIRTH, spec, _TODAY)
 
     def mock_generate(plan, context, attempt):
-        path = context.evidence_paths[0]
-        body = f"근거는 '{path}' 흐름이에요. "
-        filler = "이 시기의 기운을 차분히 살펴보면 좋아요. "
+        # 근거 경로는 내부 근거일 뿐 — 본문엔 분류 용어를 노출하지 않고 일상어로 서술(2026-06-16).
+        body = "이 시기에는 변화의 기운이 차분히 흐르고 있어요. "
+        filler = "기운을 살펴보면 좋아요. "
         while len(body) < plan.target_chars.min:
             body += filler
         return body[: plan.target_chars.max], 100, 200

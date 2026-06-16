@@ -26,7 +26,7 @@ EVENT_KO: dict[EventKeyV2, str] = {
     EventKeyV2.BUSINESS_START: "사업 시작·개업",
     EventKeyV2.BUSINESS_EXPANSION: "사업 확장",
     EventKeyV2.WEALTH_CHANGE: "재물 변화",
-    EventKeyV2.WINDFALL: "횡재(표현 제한)",
+    EventKeyV2.WINDFALL: "횡재",  # '표현 제한'은 prohibit_windfall 금기룰이 강제(라벨 비주입)
     EventKeyV2.CONTRACT_DOCUMENT: "계약·문서",
     EventKeyV2.EDUCATION_ADMISSION: "합격·진학·자격",
     EventKeyV2.EDUCATION_COMPLETION: "수료·졸업",

@@ -24,15 +24,31 @@ from saju_engines.context_reducer import (
     serialize_chart_prefix,
 )
 from saju_engines.event_engine_v2 import EventEngineV2
+from saju_engines.event_scoring import favorability_map
 from saju_engines.hap_lines import luck_hap_mode_lines
+from saju_engines.health_vulnerability import analyze_health_vulnerability
 from saju_engines.manifestation_branch import branch_summary
+from saju_engines.marriage_resource import analyze_marriage_resource
 from saju_engines.report_builder import ReportBuilder
-from saju_engines.report_event_input import precise_candidate_clusters, score_table_lines
+from saju_engines.report_event_input import (
+    month_overview_lines,
+    precise_candidate_clusters,
+    score_table_lines,
+)
 from saju_engines.report_plan import YONGSIN_SECTIONS, build_section_plans
+from saju_engines.structural_context import (
+    era_energy_lines,
+    health_lines,
+    marriage_resource_lines,
+    wealth_capacity_lines,
+    wealth_status_lines,
+)
+from saju_engines.wealth_capacity import analyze_wealth_capacity
+from saju_engines.wealth_status_lean import analyze_wealth_status_lean
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as _EVENT_DOMAIN_V2
-from saju_shared_types.events import EventCandidate
+from saju_shared_types.events import EventCandidate, EventPolarity
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import SubjectKind
 from saju_shared_types.manse_result import ManseV2Result
@@ -55,14 +71,18 @@ _FORECAST_TOPICS = {"career", "wealth", "relationship"}
 
 _BLANK_LINES = re.compile(r"\n[ \t]*\n(?:[ \t]*\n)+")  # 연속 빈 줄(2줄 초과)
 _TRAIL_WS = re.compile(r"[ \t]+\n")  # 줄 끝 공백
+# 본문 끝에 누출된 '근거 경로: …' 줄(내부 근거) — 결정적 제거(2026-06-16, 순화).
+_EVIDENCE_LINE = re.compile(r"(?m)^[ \t]*근거 경로\s*[:：].*$")
 
 
 def _tighten(text: str) -> str:
     """LLM 출력의 지면 낭비 정규화 — 연속 빈 줄을 1개로, 줄 끝 공백 제거(공백수정 안전망).
 
     프롬프트 지시(지면 절약)를 LLM이 어겨도 렌더 페이지가 부풀지 않도록 후처리한다.
-    마크다운 표·문단 구분에 필요한 빈 줄 1개는 보존한다.
+    마크다운 표·문단 구분에 필요한 빈 줄 1개는 보존한다. 아울러 내부 근거인 '근거 경로:'
+    줄이 본문에 그대로 노출된 경우(전문용어 누출) 결정적으로 제거한다.
     """
+    text = _EVIDENCE_LINE.sub("", text)
     text = _TRAIL_WS.sub("\n", text)
     text = _BLANK_LINES.sub("\n\n", text)
     return text.strip()
@@ -88,7 +108,7 @@ _SECTION_GUIDES: dict[str, str] = {
     "C-01": "주제와 기간의 핵심 신호를 3~5줄로 요약할 것.",
     "C-02": "주제와 관련된 원국 글자(십성·궁위·관계)만 골라 구조를 설명할 것.",
     "C-04": "이벤트 후보 표의 시기·점수·동반 신호를 타임라인으로 서술할 것.",
-    "C-08": "근거 경로와 점수표를 그대로 정리해 부록으로 제시할 것.",
+    "C-08": "점수표를 그대로 정리하고, 근거는 분류 용어 없이 일상어로 풀어 부록으로 제시할 것.",
     # ── 재물운 테마 전용(W-01~W-09) ──
     "W-01": "핵심만 5줄 이내로 요약할 것 — 어느 시점에 무엇이, 확장/변동/주의 중 무엇인지.",
     "W-02": "명식에서 드러나는 재물에 대한 성향·태도(정재/편재·안정/확장 지향)를 짧게 서술할 것.",
@@ -146,7 +166,9 @@ _SECTION_GUIDES: dict[str, str] = {
             "원국 전체 재설명은 생략하고 핵심만.",
     "Y-03": "올해가 속한 대운의 성격과 그 안에서 이 해의 위치를 설명할 것 — 대운 전체사는 생략.",
     "Y-04": "이 해 세운 간지와 활성 신호(원국과의 합·충·십성 작용)를 풀 것 — 발생≠결과.",
-    "Y-05": "이 해 12개월 흐름을 월별로 짚되, 한 달에 1~2문장으로 조밀하게. 주목할 달을 강조할 것.",
+    "Y-05": "아래 [12개월 흐름]의 12개 달을 하나도 빠뜨리지 말고 각 달을 1~2문장으로 조밀하게 "
+            "짚을 것 — 한두 강신호만 반복 금지. ★주목 달은 더 자세히, 좋은 달과 주의할 달을 함께, "
+            "각 달 기운의 활용·대비 방향도 곁들일 것.",
     "Y-06": "이 해 직업·사업 흐름(이동·승진·확장·도전)을 발현 형태로 — 합격·승진 단정 금지.",
     "Y-07": "이 해 재물 흐름(수입·지출·투자·계약)을 발현 형태로 — 당첨·복권 단정 금지(로또 거부).",
     "Y-08": "이 해 관계·가정 흐름(만남·안정·갈등·정리)을 발현 형태로 — 단정·낙인 금지.",
@@ -168,6 +190,27 @@ _SCORE_TABLE_SECTIONS = {"C-08", "W-09", "J-08", "R-08", "RP-10"}
 _PARTNER_NATAL_SECTIONS = {"RP-03"}
 # 궁합 모드 — 궁합 신호 블록 부착 섹션(RP-04·RP-05·RP-08).
 _COMPAT_SECTIONS = {"RP-04", "RP-05", "RP-08"}
+# 섹션 → 도메인(섹션별 도메인 스코프 후보 사용 — 강신호 반복·intent 편향 차단, 2026-06-16).
+# 한해풀이 Y-06~Y-09 + 총운 F-15~F-18에 적용(RPT_YEAR·RPT_FULL 동일 강화 — 사용자 확정).
+_SECTION_DOMAIN: dict[str, str] = {
+    "Y-06": "career", "Y-07": "wealth", "Y-08": "relationship", "Y-09": "health",
+    "F-15": "career", "F-16": "wealth", "F-17": "relationship", "F-18": "health",
+}
+# 12개월 전체 흐름 표를 부착하는 섹션(한해풀이 월별 흐름 — 모든 달 누락 없이).
+_MONTH_OVERVIEW_SECTIONS = {"Y-05"}
+# 원국 횡재 그릇 블록을 부착하는 재물 섹션(Phase 1 — 횡재 잠재구조 표면화).
+_WEALTH_CAPACITY_SECTIONS = {"W-04", "W-05", "Y-07", "F-16"}
+# 결혼·자산 자원 구조 블록을 부착하는 관계·재물구조 섹션(중립 구조 신호 — 신규 키 없음).
+# 직업 테마(J-*)에는 부적합이라 미부착(개별 intent는 주제 적합 섹션만 — 선택적).
+_MARRIAGE_RESOURCE_SECTIONS = {
+    "R-03", "R-05", "RP-03", "RP-04", "F-17", "Y-08", "W-03",
+}
+# 건강 취약 구조 블록을 부착하는 건강 섹션(Y-09·F-18은 건강 전용, C-02·C-06은 health 주제만).
+_HEALTH_VULN_SECTIONS = {"Y-09", "F-18"}
+_HEALTH_TOPIC_SECTIONS = {"C-02", "C-06"}
+# 부/귀 지향 블록을 부착하는 명식 구조·직업 섹션.
+_WEALTH_STATUS_SECTIONS = {"F-04", "J-02", "J-03", "W-02"}
+# (블록 한글화 매핑은 structural_context 단일 소스로 이관됨 — 누출 방지 포맷 일원화.)
 
 
 class _ReportData:
@@ -214,18 +257,26 @@ class _ReportData:
             domain_pool = [c for c in pool if _EVENT_DOMAIN.get(str(c.event_key)) == spec.topic]
             pool = domain_pool or pool
         self.candidates: list[EventCandidate] = pool[:_TOP_CANDIDATES]
-        self.scored = scored  # 전체 점수화(필터 전) — 발현 분기(같은 계열 형제) 산출용.
+        self.scored = scored  # 전체 점수화(필터 전) — 발현 분기·섹션별 도메인 후보 산출용.
+        # 기간 연도 경계(섹션별 도메인 후보 스코핑용) — 후보 필터와 동일 기준.
+        self._yr_lo = spec.period.start[:4]
+        self._yr_hi = spec.period.end[:4]
         self.summary = build_birth_summary(self.result)
+        self.wealth_capacity = analyze_wealth_capacity(self.result)  # 원국 횡재 그릇(운 분리)
+        self.marriage_resource = analyze_marriage_resource(self.result)  # 결혼·자산 자원(성별 인지)
+        self.health_vulnerability = analyze_health_vulnerability(
+            self.result, favorability_map(self.result),
+        )  # 원국 건강 취약 구조(운 미반영 — 의료 진단·수명 예측 아님)
+        self.wealth_status_lean = analyze_wealth_status_lean(self.result)  # 부/귀 지향(원국 구조)
         self.prefix_lines = serialize_chart_prefix(
             self.summary, build_chart_interpretation(self.result),
         )
-        self.evidence_paths = [
-            " → ".join(self.scorer.readable_path(c)) for c in self.candidates[:3]
-            if self.scorer.readable_path(c)
-        ]
+        self.evidence_paths = self._evidence_paths_for(self.candidates)
         self.allowed_ganji = self._collect_ganji()
         self.allowed_years = self._collect_years(spec)
-        self.allowed_scores = sorted({c.score for c in self.candidates})
+        # 섹션별 도메인 후보·12개월 표가 surface하는 점수를 모두 허용(검사3 — 미제공 점수 차단은
+        # '엔진이 산출하지 않은' 점수만 막으면 됨). 전 scored 점수는 모두 실제 엔진 산출값이다.
+        self.allowed_scores = sorted({c.score for c in scored})
 
         # 관계운 상대(궁합) 모드 — 상대 명식 + 원국A↔원국B 궁합 신호(엔진 계산).
         self.partner_summary = None
@@ -312,7 +363,83 @@ class _ReportData:
                 )
         return lines
 
-    def _branch_lines(self) -> list[str]:
+    def _evidence_paths_for(self, candidates: list[EventCandidate]) -> list[str]:
+        """후보 상위 3건의 사람용 근거 경로(내부 근거 — 본문엔 일상어로 풀어 녹임)."""
+        return [
+            " → ".join(self.scorer.readable_path(c))
+            for c in candidates[:3]
+            if self.scorer.readable_path(c)
+        ]
+
+    def domain_candidates(self, domain: str, n: int = 6) -> list[EventCandidate]:
+        """섹션 도메인 후보 — 기간 내 같은 도메인 신호를 길·흉 모두 담아 시점순 top-n.
+
+        전 섹션이 같은 전역 top-8을 공유해 한두 강신호가 모든 섹션에 반복되는 문제(2026-06-16
+        사용자 확정)를 막는다. self.scored(필터 전 전체)에서 도메인·기간으로 좁히고, 같은 시점은
+        최고 점수 1건으로 병합한다. 좋은 운에 편중되지 않도록 주의(흉)운을 최대 2건까지 보장한다.
+        """
+        merged: dict[str, EventCandidate] = {}
+        for c in self.scored:
+            if _EVENT_DOMAIN.get(str(c.event_key)) != domain:
+                continue
+            if not (self._yr_lo <= c.period[:4] <= self._yr_hi):
+                continue
+            cur = merged.get(c.period)
+            if cur is None or c.score > cur.score:
+                merged[c.period] = c
+        pool = list(merged.values())
+        salience = lambda c: (-c.life_fit, -c.personal_match, -c.score)  # noqa: E731
+        cautions = sorted(
+            (c for c in pool if str(c.polarity) == EventPolarity.NEGATIVE_OR_FORCED),
+            key=salience,
+        )
+        others = sorted(
+            (c for c in pool if str(c.polarity) != EventPolarity.NEGATIVE_OR_FORCED),
+            key=salience,
+        )
+        reserve = min(2, len(cautions))
+        picked = others[: max(0, n - reserve)] + cautions[:reserve]
+        return sorted(picked, key=lambda c: c.period)
+
+    def month_overview_block(self) -> list[str]:
+        """[12개월 흐름] — 이 해 12개월 전체를 빠짐없이(한해풀이 Y-05 전용, 반복 방지)."""
+        overview = month_overview_lines(self.result, self.scored)
+        if not overview:
+            return []
+        return [
+            "[12개월 흐름 — 이 해 12개월 전체. 한두 강신호만 반복하지 말고 각 달을 한두 문장으로 "
+            "고르게 짚을 것. ★주목 표시된 달은 더 자세히. 좋은 달과 주의할 달을 함께, 각 달 기운의 "
+            "활용·대비 방향도 곁들일 것]",
+            *overview,
+        ]
+
+    # ── 구조 해석 블록(누출 안전) — 포맷은 structural_context 단일 소스에 위임. ──
+    def wealth_capacity_block(self) -> list[str]:
+        """[원국 횡재 그릇] — structural_context.wealth_capacity_lines 위임(재물 섹션 전용)."""
+        return wealth_capacity_lines(self.wealth_capacity)
+
+    def marriage_resource_block(self) -> list[str]:
+        """[결혼·자산 자원 구조] — structural_context 위임(성별 인지·중립)."""
+        return marriage_resource_lines(self.marriage_resource)
+
+    def health_vulnerability_block(self) -> list[str]:
+        """[원국 건강 취약 구조 + 관리 권장 시기] — structural_context 위임(의료 면책)."""
+        return health_lines(self.result, self.health_vulnerability, self.today.year)
+
+    def wealth_status_block(self) -> list[str]:
+        """[부/귀 지향] — structural_context 위임(영문·점수 비노출)."""
+        return wealth_status_lines(self.wealth_status_lean)
+
+    def era_energy_block(self, year: int) -> list[str]:
+        """[올해 시대 기운] — structural_context 위임 + 리포트 전용 연결 지시."""
+        lines = era_energy_lines(self.result, year)
+        if lines:
+            lines.append(
+                "이 시대 기운을 배경으로 깔고, 개인 사주가 그 안에서 어떻게 작동하는지 이어 풀 것."
+            )
+        return lines
+
+    def _branch_lines(self, candidates: list[EventCandidate]) -> list[str]:
         """후보 기간별 발현 분기 — 같은 계열·같은 시점에 점수화된 형제 사건(강도순).
 
         후보(top) 사건의 같은 EVENT_CATEGORY 계열 형제를 전체 점수화(self.scored)에서
@@ -320,7 +447,7 @@ class _ReportData:
         """
         out: list[str] = []
         by_period: dict[str, list[Any]] = {}
-        for c in self.candidates:
+        for c in candidates:
             by_period.setdefault(c.period, []).append(c)
         for period in sorted(by_period):
             siblings = [s for s in self.scored if s.period == period]
@@ -330,7 +457,7 @@ class _ReportData:
                 out.append(f"{period}: {line}")
         return out
 
-    def luck_hap_lines(self) -> list[str]:
+    def luck_hap_lines(self, candidates: list[EventCandidate]) -> list[str]:
         """후보 기간 운(세운·월운·대운) 천간이 원국과 맺는 천간합의 작용 모드 줄.
 
         원국 합은 prefix(serialize_chart_prefix)에 이미 있으므로, 여기서는 운 관여 합만.
@@ -339,10 +466,10 @@ class _ReportData:
         if lc is None:
             return []
         by_label = {p.label: p.ganji for p in [*lc.yearly_luck, *lc.monthly_luck]}
-        cand_years = {int(c.period[:4]) for c in self.candidates if c.period[:4].isdigit()}
+        cand_years = {int(c.period[:4]) for c in candidates if c.period[:4].isdigit()}
         stems: set[str] = set()
         branches: set[str] = set()
-        for c in self.candidates:
+        for c in candidates:
             ganji = by_label.get(c.period) or by_label.get(c.period[:4])
             if ganji and len(ganji) >= 2:
                 stems.add(ganji[0])
@@ -354,8 +481,12 @@ class _ReportData:
                     branches.add(d.ganji[1])
         return luck_hap_mode_lines(self.result, sorted(stems), sorted(branches))
 
-    def luck_block(self) -> list[str]:
-        """[대운표]+[이벤트 후보 Top] — 운 관련 섹션의 데이터 블록."""
+    def luck_block(self, candidates: list[EventCandidate] | None = None) -> list[str]:
+        """[대운표]+[이벤트 후보] — 운 관련 섹션의 데이터 블록.
+
+        candidates를 주면 그 후보만(섹션별 도메인 스코프), 없으면 전역 top 후보를 쓴다.
+        """
+        cands = self.candidates if candidates is None else candidates
         lines = ["[대운표]"]
         lc = self.result.luck_cycles
         if lc is not None:
@@ -369,8 +500,12 @@ class _ReportData:
             "[이벤트 후보 — 시점 클러스터·정밀 십성/관계. 점수는 확정값, 재계산 금지. "
             "아래 십성·관계 라벨만 사용하고 '재성 지지 충' 같은 임의 표현을 만들지 말 것]"
         )
-        lines += precise_candidate_clusters(self.result, self.candidates)
-        hap_lines = self.luck_hap_lines()
+        clusters = precise_candidate_clusters(self.result, cands)
+        if clusters:
+            lines += clusters
+        else:
+            lines.append("이 도메인의 두드러진 후보 신호는 약함 — 원국 구조 중심으로 서술.")
+        hap_lines = self.luck_hap_lines(cands)
         if hap_lines:
             lines.append("")
             lines.append(
@@ -379,7 +514,7 @@ class _ReportData:
                 "약화/전환으로 서술]"
             )
             lines += hap_lines
-        branch_lines = self._branch_lines()
+        branch_lines = self._branch_lines(cands)
         if branch_lines:
             lines.append("")
             lines.append(
@@ -389,11 +524,52 @@ class _ReportData:
                 "않아 같은 이동 에너지는 '이사'다.]"
             )
             lines += branch_lines
-        if self.evidence_paths:
+        paths = self._evidence_paths_for(cands)
+        if paths:
             lines.append("")
-            lines.append("[근거 경로 — 최소 1개를 본문에 그대로 인용할 것]")
-            lines += self.evidence_paths
+            lines.append(
+                "[내부 근거 — 신호가 왜 그렇게 판정됐는지의 인과(참고용). '관계 발동·용기신 품질·"
+                "복수 가능성' 같은 분류 용어나 '근거 경로:' 표기를 본문에 그대로 쓰지 말 것. "
+                "이 인과를 일상어로 풀어 설명에 자연스럽게 녹일 것]"
+            )
+            lines += paths
         return lines
+
+
+# 주제 코드 → 한글 라벨(프레이밍 표기용). frontend themeLabel과 의미 정합.
+_TOPIC_KO: dict[str, str] = {
+    "career": "직업·사업운", "wealth": "재물운", "relationship": "애정·관계운",
+    "health": "건강운", "education": "학업·시험운", "relocation": "이사·이동운",
+    "compatibility": "궁합",
+}
+
+
+def _product_framing(spec: ReportSpec) -> str:
+    """상품·기간 유형별 프롬프트 프레이밍 — 케이스마다 서술 태도를 명시(반복·편향 방지).
+
+    인생총운(RPT_FULL)/지정년총운(RPT_YEAR)/지정기간 intent운(RPT_FOCUS)을 구분해, 강신호
+    반복·단일 intent 편향을 프롬프트 차원에서 차단한다(2026-06-16 사용자 확정 이슈2·3).
+    """
+    if spec.product_code == "RPT_FULL":
+        return (
+            "[풀이 유형 — 인생총운] 생애 전체를 조망하는 풀이다. 대운 단위의 큰 흐름과 전환점을 "
+            "우선하고, 특정 한 달·한 신호를 여러 섹션에 반복하지 말 것. 각 섹션은 자기 주제(원국·"
+            "성격·대운·직업·재물·관계·건강 등)에 고유한 내용으로 채운다."
+        )
+    if spec.product_code == "RPT_YEAR":
+        y = spec.period.start[:4]
+        return (
+            f"[풀이 유형 — {y}년 한해풀이] 단일 연도 풀이다. 한두 개의 강한 신호(예: 특정 달의 큰 "
+            "이동수)를 모든 섹션에 반복하지 말 것. 12개월 전체를 고르게 다루고, 도메인(직업·재물·"
+            "관계·건강)별로 내용을 분산한다. 좋은 운만이 아니라 주의(흉)운도 함께 짚고, 각 운을 "
+            "어떻게 활용·대비할지 실천 방향을 곁들인다."
+        )
+    topic_ko = _TOPIC_KO.get(spec.topic or "", spec.topic or "주제")
+    return (
+        f"[풀이 유형 — {topic_ko} 집중({spec.period.start}~{spec.period.end})] 이 주제에 집중하는 "
+        "풀이다. 주제와 무관한 일반론으로 분량을 채우지 말고, 이 도메인의 신호를 시점 클러스터로 "
+        "묶어 해당 기간의 흐름 중심으로 서술한다. 좋은 시기와 주의 시기를 함께 짚는다."
+    )
 
 
 def build_section_context(
@@ -410,6 +586,7 @@ def build_section_context(
     is_natal_section = sid in _NATAL_SECTIONS
     lines = list(data.prefix_lines)
     lines += data.tense_anchor_lines(spec)  # '오늘'·시제 사실 주입(시제 추론 불요)
+    lines += ["", _product_framing(spec)]  # 케이스별 프레이밍(반복·편향 방지)
     lines += [
         "",
         f"[섹션 과제 — {sid}. {plan.title}]",
@@ -430,10 +607,43 @@ def build_section_context(
         lines += score_table_lines(data.result, data.candidates)
     elif not is_natal_section:
         lines.append("")
-        lines += data.luck_block()
+        if sid in _MONTH_OVERVIEW_SECTIONS:
+            # 월별 흐름 — 12개월 전체 표 + (주목할 달 상세용) 전역 후보 블록.
+            lines += data.month_overview_block()
+            lines.append("")
+            lines += data.luck_block()
+        elif sid in _SECTION_DOMAIN:
+            # 도메인 섹션 — 자기 도메인 후보만(길·흉 포함) 사용해 반복·편향 차단.
+            lines += data.luck_block(data.domain_candidates(_SECTION_DOMAIN[sid]))
+        else:
+            lines += data.luck_block()
+        # 재물 섹션 — 원국 횡재 그릇(운 분리 잠재구조) 표면화(Phase 1).
+        if sid in _WEALTH_CAPACITY_SECTIONS:
+            lines += ["", *data.wealth_capacity_block()]
     elif data.evidence_paths:
-        # 명식 섹션도 근거 인용 의무(docs/10 — 섹션당 evidence path ≥1).
-        lines += ["", "[근거 경로 — 최소 1개를 본문에 그대로 인용할 것]", *data.evidence_paths]
+        # 명식 섹션도 내부 근거를 활용하되, 분류 용어를 그대로 노출하지 말고 일상어로 풀어 녹인다.
+        lines += [
+            "",
+            "[내부 근거 — '관계 발동·용기신 품질' 등 분류 용어나 '근거 경로:' 표기를 본문에 "
+            "그대로 쓰지 말고, 이 인과를 일상어로 풀어 설명에 녹일 것]",
+            *data.evidence_paths,
+        ]
+    # 관계·재물구조 섹션 — 결혼·자산 자원 구조(성별 인지, 중립) 표면화. 명식/운 분기와 무관.
+    if sid in _MARRIAGE_RESOURCE_SECTIONS:
+        lines += ["", *data.marriage_resource_block()]
+    # 건강 섹션 — 원국 취약 구조(의료 면책 동반). C-02/C-06은 health 주제일 때만.
+    if sid in _HEALTH_VULN_SECTIONS or (
+        sid in _HEALTH_TOPIC_SECTIONS and spec.topic == "health"
+    ):
+        lines += ["", *data.health_vulnerability_block()]
+    # 부/귀 지향 — 명식 구조·직업 섹션.
+    if sid in _WEALTH_STATUS_SECTIONS:
+        lines += ["", *data.wealth_status_block()]
+    # 시대 기운(연운) — 개인 풀이 앞 맥락. Y-01(한해풀이 그 해)·F-11(총운 올해).
+    if sid == "Y-01":
+        lines += ["", *data.era_energy_block(int(spec.period.start[:4]))]
+    elif sid == "F-11":
+        lines += ["", *data.era_energy_block(data.today.year)]
     subject_label = spec.subjects[0].label if spec.subjects else "본인"
     return SectionContext(
         section_id=plan.section_id,
@@ -501,16 +711,9 @@ def generate_report(
         if attempt > 0:
             prompt += (
                 f"\n\n[재생성 {attempt}회차] 직전 응답이 정합성 검사에 실패했다 — "
-                "분량·간지·점수·근거 인용 규칙을 다시 확인해 작성할 것."
+                "분량·간지·점수 규칙을 다시 확인하고, 내부 분류 용어(관계 발동/용기신 품질/"
+                "복수 가능성 등)와 '근거 경로:' 표기를 본문에 노출하지 말 것(일상어로 풀어 서술)."
             )
-            # C-2: 근거 경로 미인용이 잦아 재생성 시 원문 그대로 인용을 강제한다.
-            if context.evidence_paths:
-                quoted = " / ".join(context.evidence_paths)
-                prompt += (
-                    "\n[필수] 다음 근거 경로 중 최소 하나를 본문 문장 속에 글자 그대로"
-                    "(화살표 '→' 포함, 요약·수정·띄어쓰기 변경 없이) 한 번 인용하라: "
-                    f"{quoted}"
-                )
         text = llm_client.generate_reading(
             prompt, call_type=call_type, system=system,
             product_code=f"{spec.product_code}:{plan.section_id}",

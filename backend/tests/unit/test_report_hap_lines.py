@@ -29,7 +29,8 @@ def _data() -> _ReportData:
 
 
 def test_luck_hap_lines_present_and_mode_aware() -> None:
-    lines = _data().luck_hap_lines()
+    data = _data()
+    lines = data.luck_hap_lines(data.candidates)
     assert lines  # 후보 기간 운 천간합 존재
     joined = " ".join(lines)
     assert any(k in joined for k in ("합화", "합반", "본신지합"))

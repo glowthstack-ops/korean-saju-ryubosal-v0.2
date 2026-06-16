@@ -421,6 +421,10 @@ class SignalSpec(_AliasModel):
     natal_unseong: str | None = Field(default=None, alias="natalUnseong")  # 원국 월·일주 운성
     # 십성군 세력 강(groups percent >= 30) 조건 — '인성'/'비겁'/'식상'/'재성'/'관성'.
     ten_god_group_strong: str | None = Field(default=None, alias="tenGodGroupStrong")
+    # 원국 횡재 그릇 조건(v2.2 Phase 1) — wealth_capacity.capacity_band(strong/moderate)
+    # 이상일 때만 성립. 운 발동 신호(삼합·충 등)와 결합해 횡재(windfall) 신호를 게이트한다
+    # (재성 그릇이 받쳐줄 때만 가산 — 2026-06-16 사용자 확정 Phase 1).
+    natal_wealth_capacity: str | None = Field(default=None, alias="natalWealthCapacity")
     # does_not_apply_when: 같은 기간에 이 관계들이 성립하면 룰 미적용(외부 강트리거 우선).
     absent_relations: list[str] | None = Field(default=None, alias="absentRelations")
 
@@ -432,10 +436,17 @@ class SignalSpec(_AliasModel):
                 self.ten_god, self.branch_ten_god, self.relation, self.favorability,
                 self.stem_favorability, self.shinsal, self.daewoon_transition,
                 self.unseong, self.natal_unseong, self.ten_god_group_strong,
-                self.daewoon_branch_void,
+                self.daewoon_branch_void, self.natal_wealth_capacity,
             )
         ):
             raise ValueError("signal은 최소 1개 조건을 가져야 함")
+        if (
+            self.natal_wealth_capacity is not None
+            and self.natal_wealth_capacity not in ("strong", "moderate")
+        ):
+            raise ValueError(
+                f"natalWealthCapacity 값 오류: {self.natal_wealth_capacity} (strong/moderate)"
+            )
         if self.relation_also is not None and self.relation is None:
             raise ValueError("relationAlso는 relation과 함께 지정해야 함")
         if (

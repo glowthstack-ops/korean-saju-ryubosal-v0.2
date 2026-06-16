@@ -50,32 +50,32 @@ export const THEMES: Theme[] = [
   {
     slug: "relationship",
     title: "애정·관계운",
-    scope: "연애 · 결혼 · 궁합",
+    scope: "향후 5년 · 연애 · 결혼 · 궁합",
     productCode: "RPT_FOCUS",
     topic: "relationship",
     companionMode: "optional",
     pages: "약 15쪽",
-    desc: "내 명식만으로 보거나, 상대를 더하면 두 사람의 궁합·극복 전략까지.",
+    desc: "향후 5년 애정 흐름을 내 명식만으로 보거나, 상대를 더하면 두 사람의 궁합·극복 전략까지.",
   },
   {
     slug: "career",
     title: "직장운",
-    scope: "인생 전반",
+    scope: "향후 5년",
     productCode: "RPT_FOCUS",
     topic: "career",
     companionMode: "none",
     pages: "약 15쪽",
-    desc: "직업·사업 흐름과 변화 시기, 행동 전략.",
+    desc: "향후 5년 직업·사업 흐름과 변화 시기, 행동 전략.",
   },
   {
     slug: "wealth",
     title: "금전·횡재운",
-    scope: "인생 전반",
+    scope: "향후 5년",
     productCode: "RPT_FOCUS",
     topic: "wealth",
     companionMode: "none",
     pages: "약 15쪽",
-    desc: "재물 흐름과 기회·리스크 시기.",
+    desc: "향후 5년 재물 흐름과 기회·리스크 시기.",
   },
 ];
 
@@ -100,6 +100,15 @@ function lifetimePeriod(birthDate: string): { start: string; end: string } {
 /** 한해풀이 기간 — 선택한 해의 달력연도 1~12월(세운 기준은 엔진 내부에서 입춘 처리). */
 function calendarYearPeriod(year: number): { start: string; end: string } {
   return { start: `${year}-01`, end: `${year}-12` };
+}
+
+/** intent(집중) 풀이 기간 — 현재 달부터 향후 5년(현재월 ~ +5년 12월). 인생 전반이 아니라
+ *  '지정기간 intent운'으로 운영(2026-06-16 사용자 확정). 백엔드 예측창 필터와 정합. */
+function currentForwardPeriod(): { start: string; end: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  return { start: `${y}-${m}`, end: `${y + 5}-12` };
 }
 
 /** 테마 + 선택 사주(+상대) → ReportSpec. 상대는 companionMode!=none이고 선택됐을 때만 포함.
@@ -127,10 +136,13 @@ export function buildReportSpec(
       });
     }
   }
+  // 기간: 한해풀이=선택 연도 / 집중(intent)=현재~+5년 / 총운=인생 전반.
   const period =
     theme.needsYear && year
       ? calendarYearPeriod(year)
-      : lifetimePeriod(primary.birth.birth_date);
+      : theme.productCode === "RPT_FOCUS"
+        ? currentForwardPeriod()
+        : lifetimePeriod(primary.birth.birth_date);
   return {
     product_code: theme.productCode,
     subjects,

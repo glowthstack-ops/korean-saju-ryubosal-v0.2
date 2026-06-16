@@ -20,8 +20,14 @@ function subject(id: string, label: string, birth = "1988-09-09"): SubjectSummar
 }
 
 describe("themes", () => {
-  it("exposes the four initial themes", () => {
-    expect(THEMES.map((t) => t.slug)).toEqual(["full", "relationship", "career", "wealth"]);
+  it("exposes the five themes", () => {
+    expect(THEMES.map((t) => t.slug)).toEqual([
+      "full",
+      "year",
+      "relationship",
+      "career",
+      "wealth",
+    ]);
     expect(themeBySlug("career")?.productCode).toBe("RPT_FOCUS");
     expect(themeBySlug("full")?.productCode).toBe("RPT_FULL");
     expect(themeBySlug("nope")).toBeUndefined();
@@ -35,10 +41,17 @@ describe("themes", () => {
     expect(spec.subjects).toHaveLength(1);
   });
 
-  it("career → RPT_FOCUS topic career", () => {
+  it("career → RPT_FOCUS topic career, period = 현재월~+5년(인생 전반 아님)", () => {
     const spec = buildReportSpec(themeBySlug("career")!, subject("a", "본인"));
     expect(spec.product_code).toBe("RPT_FOCUS");
     expect(spec.topic).toBe("career");
+    // 집중(intent) 풀이는 현재 달부터 향후 5년 — 출생년 기반 인생 전반과 무관.
+    const now = new Date();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    expect(spec.period).toEqual({
+      start: `${now.getFullYear()}-${m}`,
+      end: `${now.getFullYear() + 5}-12`,
+    });
   });
 
   it("relationship(optional) includes registered companion ref when given", () => {

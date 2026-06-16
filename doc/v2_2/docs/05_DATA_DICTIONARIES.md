@@ -150,7 +150,24 @@ compiled/
 ```
 
 signal 키(v2.2.1): `tenGod`(운 천간 십성) / **`branchTenGod`(운 지지 본기 십성 — 신설)** /
-`relation` / `favorability` / `shinsal` / `daewoonTransition`. 모든 키는 AND 조건이다.
+`relation` / `favorability` / `shinsal` / `daewoonTransition` / `tenGodGroupStrong` /
+**`natalWealthCapacity`(원국 횡재 그릇 strong/moderate — Phase 1 신설)**. 모든 키는 AND 조건이다.
+
+> **원국 횡재 그릇(natalWealthCapacity, Phase 1, 2026-06-16)**: `wealth_capacity` 분석(身強임재·
+> 재성 투간·재성 뿌리·암장 식상·재성국 삼합 씨앗·묘고 반복)이 산출하는 원국 그릇 강도. windfall(횡재)
+> 해석 규칙은 이 그릇이 받쳐줄 때만 가산한다(그릇 + 운 발동 = 현실화). 그래프 컴파일 시 `wealth_capacity_*`
+> 노드 → 규칙 `supports` 엣지로 표현된다(event_graph **v1.1.0**). **로또 1등 당첨 사주 1건에서 도출한
+> 가설**이므로 reviewed:false로 두고, 같은 구조가 비당첨자에게도 흔함(확증편향)을 전제로 점수는
+> 캘리브레이션 후 확정한다(절대원칙 5). **당첨 단정·로또 번호 생성은 어떤 형태로도 금지**(prohibit_windfall).
+
+> **횡재 발동(Phase 2, 2026-06-16)**: 그릇은 '담을 잠재'일 뿐, **운에서 발동해야 현실화**한다.
+> `detect_wealth_activations`가 거버닝 스택(원국+대운+세운+월)에서 ① 재성국 완성(삼합) ② 묘고 충개고
+> (辰戌·丑未충) ③ 식상생재(운 천간 식상+재성 동시 투간)를 판정하고, `WealthActivationModifier`가
+> windfall/wealth_change 후보 점수를 **그릇 배율(strong 1.0 / moderate 0.7 / weak 0.5) × 발동 가중**으로
+> 보수 가산한다. **원국에 씨앗이 없어도 운에서 완성되는 경로**를 포함한다(그릇은 하드 게이트가 아니라
+> 배율 — 사용자 보완). 단순 '재성 투간(운)'은 평범한 재물 운(base가 이미 wealth_change 생성)이라 횡재
+> 발동에서 제외한다. 가중치는 잠정(Phase 4 캘리브레이션). events/wealth.json에는 그릇 게이트 없는
+> '운 완성' windfall 후보(편재+삼합, 재성 지지 충)도 추가돼 그래프가 두 경로를 모두 표현한다.
 
 > **동반 신호 매트릭스 원칙 (regression_2025_08)**: 합·정관 신호는 "사건 후보"만 만든다.
 > 최종 사건명은 동반 신호 매트릭스(일치 신호의 구성·개수 합산)가 결정한다.

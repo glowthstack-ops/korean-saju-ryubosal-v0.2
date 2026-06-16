@@ -148,13 +148,22 @@ def test_check5_prohibited_styles(checker) -> None:
     assert any("금지 표현" in v for v in violations)
 
 
-def test_check1_length_and_check8_evidence(checker) -> None:
+def test_check1_length(checker) -> None:
     short = "짧아요."
     violations = checker.check_section(
         _plan(lo=1_000, hi=2_000), _ctx(), short, PersonaConfig(), "길동",
     )
     assert any("분량 위반" in v for v in violations)
-    assert any("근거 경로" in v for v in violations)
+
+
+def test_check8_internal_jargon_leak(checker) -> None:
+    """내부 분류 용어/'근거 경로:' 표기가 본문에 노출되면 순화 위반(soft, 재생성 미유발)."""
+    text = _GOOD_TEXT + " 이는 관계 발동이 용기신 품질에 작용한 결과예요."
+    violations = checker.check_section(_plan(), _ctx(), text, PersonaConfig(), "길동")
+    assert any("내부용어 노출" in v for v in violations)
+    # 깨끗한 본문(분류 용어 없음)은 위반 없음.
+    clean = checker.check_section(_plan(), _ctx(), _GOOD_TEXT, PersonaConfig(), "길동")
+    assert not any("내부용어 노출" in v for v in clean)
 
 
 def test_check7_subject_label_for_multi(checker) -> None:
@@ -313,15 +322,17 @@ def test_soft_violation_passes_without_regeneration() -> None:
     assert all(s.attempts == 1 for s in result.sections)
 
 
-def test_repair_appends_evidence_path_without_recall() -> None:
-    """근거 경로 미인용 → 경로를 결정적으로 덧붙여 통과(재호출 0)."""
+def test_repair_trims_length_and_does_not_append_evidence() -> None:
+    """분량 초과 → 문장 경계로 상한 안에 자른다. 근거 경로 자동 덧붙임은 제거됨(2026-06-16)."""
     from saju_engines.report_builder import _repair_section
     from saju_shared_types.report import SectionContext, SectionPlan, TargetChars
 
     plan = SectionPlan(
         section_id="C-04", title="t",
-        target_chars=TargetChars(min=10, max=5_000),
+        target_chars=TargetChars(min=10, max=120),
     )
     ctx = SectionContext(section_id="C-04", evidence_paths=["甲申 → 정관 활성"])
-    out = _repair_section("운의 흐름이 강해요.", plan, ctx)
-    assert "甲申 → 정관 활성" in out  # 경로가 본문에 포함됨(검사 통과)
+    long_text = "운의 흐름이 강하게 들어와요. " * 12  # 120자 초과
+    out = _repair_section(long_text, plan, ctx)
+    assert len(out) <= 120  # 상한 안으로 잘림
+    assert "甲申" not in out  # 근거 경로를 더 이상 본문에 덧붙이지 않음

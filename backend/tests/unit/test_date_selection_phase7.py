@@ -165,3 +165,43 @@ def test_windfall_advice_disclaimer_fixed() -> None:
     engines = PredictionEngines(_DICTS)
     advice = engines.advice(EventKey.WINDFALL, None)
     assert any("투자" in d for d in advice.disclaimers)
+
+
+# ── Phase 3 — 재물(횡재) 방위 ──────────────────────────────────
+
+
+def test_direction_fits_role_based() -> None:
+    """역할 기반 — 재성(水)이 용신이면 북이 top, 재성이 기신이면 추천 어려움(가점 없음)."""
+    from saju_engines.date_selection import direction_fits
+
+    # 재성 水=용신, 식상 金=희신 → 북(재성·용신) > 서(식상·희신).
+    good = direction_fits("水", {"水": "용신", "金": "희신", "木": "기신", "火": "구신"})
+    assert good[0].direction == "북" and good[0].fit >= 0.9
+    assert "재성" in good[0].note and "용신" in good[0].note
+
+    # 재성 水가 기신이면 재물 방위라도 가점 없이 낮다 — 추천 어려움.
+    bad = direction_fits("水", {"水": "기신", "土": "용신"})
+    north = next(d for d in bad if d.direction == "북")
+    assert north.fit <= 0.35 and "기신" in north.note
+    assert bad[0].element == "土"  # 용신(土) 방위가 더 우선
+
+
+def test_direction_penalizes_gusin_generating() -> None:
+    """구신을 생하는 방위는 감점된다(흉신 강화) — 2026-06-16 사용자 지적."""
+    from saju_engines.date_selection import direction_fits
+
+    # 구신=火 → 火를 생하는 木(동) 방위 감점.
+    fits = direction_fits("水", {"水": "용신", "火": "구신"})
+    east = next(d for d in fits if d.direction == "동")  # 木 — 火(구신)를 생
+    assert "구신 생" in east.note and east.fit < 0.55
+
+
+def test_windfall_select_attaches_directions(engine, composites) -> None:
+    """횡재 택일 — wealth_element 주면 역할 반영 방위가 fit 순으로 붙는다(Phase 3)."""
+    result = engine.select(
+        EventKey.WINDFALL, composites, "2026-06-01", "2026-06-30",
+        wealth_element="水", favorability={"水": "용신", "金": "희신"},
+    )
+    assert result.directions and result.directions[0].direction == "북"
+    # 방위 note에 '당첨 보장 아님' 류 중복 강조를 넣지 않는다(변동성 경고가 별도 전달).
+    assert all("보장" not in d.note for d in result.directions)

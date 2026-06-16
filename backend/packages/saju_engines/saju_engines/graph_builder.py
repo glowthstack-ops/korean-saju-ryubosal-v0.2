@@ -28,7 +28,7 @@ from .dictionaries import (
     TenGodsFile,
 )
 
-GRAPH_VERSION = "1.0.0"
+GRAPH_VERSION = "1.1.0"
 
 # 관계 type → 참여 글자 엣지 종류 (docs/04 EdgeType).
 _PARTICIPANT_EDGE: dict[str, str] = {
@@ -75,6 +75,12 @@ _FAVORABILITY_NODES = {
     "희신": ("huisin", "희신"),
     "기신": ("gisin", "기신"),
     "구신": ("gusin", "구신"),
+}
+
+# 원국 횡재 그릇(natalWealthCapacity) 노드 — windfall 해석 규칙이 그릇 강도에 걸린다(Phase 1).
+_WEALTH_CAPACITY_NODES = {
+    "strong": ("wealth_capacity_strong", "원국 횡재 그릇(강)"),
+    "moderate": ("wealth_capacity_moderate", "원국 횡재 그릇(중)"),
 }
 
 # 금기 표현 규칙은 event_taxonomy_v2.PROHIBITIONS(21키, 경쟁·고시 보호 포함)를 정적 부착한다.
@@ -234,6 +240,9 @@ def _rule_nodes(directory: Path) -> tuple[list[GraphNode], list[GraphEdge]]:
             if signal.favorability in _FAVORABILITY_NODES:
                 node_type, _label = _FAVORABILITY_NODES[signal.favorability]
                 edges.append(GraphEdge(from_=node_type, to=rule_id, type="supports"))
+            if signal.natal_wealth_capacity in _WEALTH_CAPACITY_NODES:
+                cap_node, _cap_label = _WEALTH_CAPACITY_NODES[signal.natal_wealth_capacity]
+                edges.append(GraphEdge(from_=cap_node, to=rule_id, type="supports"))
             for cand in item.event_candidates:
                 norm = _norm_event(cand.event)
                 if norm is None:
@@ -264,6 +273,9 @@ def build_event_graph(directory: Path, updated_at: str | None = None) -> EventGr
 
     for _fav, (node_type, label) in _FAVORABILITY_NODES.items():
         nodes.append(GraphNode(id=node_type, type=node_type, label=label))
+
+    for _band, (cap_id, cap_label) in _WEALTH_CAPACITY_NODES.items():
+        nodes.append(GraphNode(id=cap_id, type="wealth_capacity", label=cap_label))
 
     nodes += _event_nodes(directory)
 

@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN
 from saju_shared_types.events import EventCandidate
 from saju_shared_types.ganji_calendar import GanjiLevel, RelationType
 from saju_shared_types.luck import LuckPillar
@@ -15,6 +16,14 @@ from saju_shared_types.manse_result import ManseV2Result
 
 from .context_reducer import event_ko, polarity_ko
 from .ganji_calendar import relation_hits
+from .llm_event_serializer import score_band
+
+# 도메인 코드 → 한글(12개월 흐름 표기용).
+_DOMAIN_KO: dict[str, str] = {
+    "career": "직업", "wealth": "재물", "relationship": "관계",
+    "health": "건강", "relocation": "이동", "education": "학업",
+}
+_DOMAIN_BY_KEY: dict[str, str] = {str(k): v for k, v in EVENT_DOMAIN.items()}
 
 # RelationType → 정확한 한글 관계명(엔진 계산값을 그대로 노출).
 _REL_KO: dict[RelationType, str] = {
@@ -143,3 +152,44 @@ def score_table_lines(
             f"{c.confidence} | {polarity_ko(str(c.polarity))} | {evidence} |"
         )
     return out
+
+
+def month_overview_lines(
+    result: ManseV2Result, scored: list[EventCandidate]
+) -> list[str]:
+    """이 해 12개월 전체를 한 줄씩 — 월 간지·우세 도메인·강도밴드·길흉·대표 신호(★=주목 3달).
+
+    한해풀이에서 한두 강신호가 전 섹션에 반복되는 문제(2026-06-16)를 막기 위해, 월별 흐름
+    섹션이 12개월을 빠짐없이 고르게 다루도록 모든 달을 데이터로 제공한다. 점수는 절대값 대신
+    강/중/약 밴드로 노출한다(표시용 격하). 신호 없는 달도 누락하지 않는다(빠짐없이 12줄).
+    """
+    lc = result.luck_cycles
+    if lc is None or not lc.monthly_luck:
+        return []
+    by_period: dict[str, list[EventCandidate]] = {}
+    for c in scored:
+        by_period.setdefault(c.period, []).append(c)
+    rep: dict[str, EventCandidate | None] = {}
+    month_score: dict[str, int] = {}
+    for p in lc.monthly_luck:
+        cs = sorted(by_period.get(p.label, []), key=lambda c: -c.score)
+        top = cs[0] if cs else None
+        rep[p.label] = top
+        month_score[p.label] = top.score if top is not None else 0
+    # 주목할 달 Top3 — 대표 후보 점수 기준(신호 없는 달은 0점 취급).
+    ranked = sorted((p.label for p in lc.monthly_luck), key=lambda lb: -month_score[lb])
+    top3 = {lb for lb in ranked[:3] if rep[lb] is not None}
+    lines: list[str] = []
+    for p in lc.monthly_luck:
+        cand = rep[p.label]
+        tg = f"천간 {p.stem_ten_god or '?'}·지지 {p.branch_ten_god or '?'}"
+        star = " ★주목" if p.label in top3 else ""
+        if cand is None:
+            lines.append(f"{p.label} {p.ganji}({tg}): 두드러진 신호 약함{star}")
+        else:
+            dom = _DOMAIN_KO.get(_DOMAIN_BY_KEY.get(str(cand.event_key), ""), "일반")
+            lines.append(
+                f"{p.label} {p.ganji}({tg}): {dom} {score_band(cand.score)} · "
+                f"{polarity_ko(str(cand.polarity))} · {event_ko(cand.event_key)}{star}"
+            )
+    return lines

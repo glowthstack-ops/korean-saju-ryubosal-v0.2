@@ -67,17 +67,15 @@ def _hard_violations(violations: list[str]) -> list[str]:
 def _repair_section(text: str, plan: SectionPlan, context: SectionContext) -> str:
     """LLM 재호출 없이 결정적으로 고칠 수 있는 항목을 보정한다(비용 절감).
 
-    ① 분량 초과 → 문장 경계로 상한 안에 자른다(근거 덧붙일 여지 80자 확보).
-    ② 근거 경로 미인용 → 경로 1줄을 본문 끝에 결정적으로 덧붙여 검사를 통과시킨다.
+    분량 초과 → 문장 경계로 상한 안에 자른다. (근거 경로 자동 덧붙임은 2026-06-16 제거 —
+    근거 경로는 내부 근거로만 쓰고 사용자 본문엔 노출하지 않는다. 누출 잔여 줄은
+    report_service._tighten이 결정적으로 제거한다.)
     """
     cmax = plan.target_chars.max
     if len(text) > cmax:
         cut = text[: cmax - 80]
         idx = max((cut.rfind(ch) for ch in _SENT_END), default=-1)
         text = cut[: idx + 1] if idx > (cmax - 80) * 0.5 else cut
-    paths = context.evidence_paths
-    if paths and not any(p in text for p in paths):
-        text = text.rstrip() + "\n\n근거 경로: " + paths[0]
     return text
 
 

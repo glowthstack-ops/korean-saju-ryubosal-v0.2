@@ -32,6 +32,14 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "DIFFUSE_": "복수 가능성",
 }
 
+# 사용자 본문에 그대로 노출되면 안 되는 내부 분류 라벨(순화 대상 — 근거 경로 누출 방지).
+# '상생/역행 흐름'은 자연어로도 흔히 쓰여 오탐이 커 제외한다(나머지는 명백한 내부 용어).
+INTERNAL_JARGON_LABELS: tuple[str, ...] = tuple(
+    ko
+    for ko in dict.fromkeys(_REASON_PREFIX_KO.values())
+    if ko not in ("상생 흐름", "역행 흐름")
+)
+
 # event_key → 금기룰 설명(있으면 LLM 입력에 톤 제한으로 부착).
 _PROHIBITION_BY_KEY: dict[str, list[str]] = {}
 for _rid, _desc, _keys in PROHIBITIONS:

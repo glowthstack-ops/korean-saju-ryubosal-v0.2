@@ -46,6 +46,7 @@ from saju_shared_types.ganji_calendar import GanjiLevel, RelationHit, RelationTy
 from saju_shared_types.life_event import LifeEventRow
 from saju_shared_types.luck import DaewoonItem, LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.wealth_capacity import WealthCapacity
 
 from .addendum_gate_modifier import AddendumGateModifier, GateContext
 from .cohort_calibration import CohortStats
@@ -59,6 +60,8 @@ from .reality_context import RealityContext
 from .relation_palace_engine import RelationActivation, RelationPalaceEngine
 from .ten_god_brancher import TenGodEventBrancher
 from .twelve_stage_modifier import TwelveStageModifier
+from .wealth_activation_modifier import WealthActivationModifier
+from .wealth_capacity import analyze_wealth_capacity, detect_wealth_activations
 from .yongi_quality_engine import YongiQualityEngine
 
 # 만세 운 계층 → 새 엔진 LuckLayer.
@@ -114,6 +117,7 @@ class EventEngineV2:
         self._gate = AddendumGateModifier()
         self._relpalace = RelationPalaceEngine(dictionaries_dir)
         self._yongi = YongiQualityEngine(dictionaries_dir)
+        self._wealth_act = WealthActivationModifier()
         self._ranker = EventRanker(dictionaries_dir)
 
     # ── 공개 API ─────────────────────────────────────────────────
@@ -132,6 +136,7 @@ class EventEngineV2:
             return []
         wanted = levels or set(GanjiLevel)
         fav_map = fav_override if fav_override is not None else favorability_map(result)
+        capacity = analyze_wealth_capacity(result)  # 원국 횡재 그릇(1회 — 발동 가산 배율)
         idx = _StackIndex(result)
         out: list[EventCandidateV2] = []
         if GanjiLevel.DAEWOON in wanted:
@@ -139,7 +144,7 @@ class EventEngineV2:
                 label = f"{dwi.approx_start_date.year}~{dwi.approx_end_date.year}"
                 out += self._score_target(
                     result, GanjiLevel.DAEWOON, label, _daewoon_pillar(dwi), idx, fav_map,
-                    occupation_status, relationship_status,
+                    occupation_status, relationship_status, capacity,
                 )
         for level, pillars in (
             (GanjiLevel.YEAR, result.luck_cycles.yearly_luck),
@@ -150,7 +155,7 @@ class EventEngineV2:
                 for p in pillars:
                     out += self._score_target(
                         result, level, p.label, p, idx, fav_map,
-                        occupation_status, relationship_status,
+                        occupation_status, relationship_status, capacity,
                     )
         return sorted(out, key=_rank_key)
 
@@ -167,6 +172,7 @@ class EventEngineV2:
         if result.pillars is None or result.luck_cycles is None:
             return []
         fav_map = fav_override if fav_override is not None else favorability_map(result)
+        capacity = analyze_wealth_capacity(result)
         idx = _StackIndex(result)
         out: list[EventCandidateV2] = []
         for y in years:
@@ -175,7 +181,7 @@ class EventEngineV2:
                 continue
             out += self._score_target(
                 result, GanjiLevel.YEAR, p.label, p, idx, fav_map,
-                occupation_status, relationship_status,
+                occupation_status, relationship_status, capacity,
             )
         return sorted(out, key=_rank_key)
 
@@ -250,6 +256,7 @@ class EventEngineV2:
         fav_map: dict[str, str],
         occupation_status: str | None,
         relationship_status: str | None,
+        capacity: WealthCapacity,
     ) -> list[EventCandidateV2]:
         """거버닝 스택으로 한 시점의 후보를 만들고 6계층 보정을 적용한다."""
         stack = idx.stack_for(level, label, target)
@@ -291,6 +298,10 @@ class EventEngineV2:
         if role is not PolarityRole.NEUTRAL:
             cands = [c.model_copy(update={"polarity_role": role}) for c in cands]
             cands = self._yongi.apply(cands)
+        # 횡재 발동 — 원국 그릇 × 운 완성(재성국/충개고/투간/식상생재)을 재물 후보에 보수 가산.
+        cands = self._wealth_act.apply(
+            cands, capacity, self._wealth_activations(result, stack, capacity),
+        )
         # 증거 등급·충돌 해결.
         rank_ctx = _rank_context(
             activations, present_gods, cands, occupation_status, relationship_status,
@@ -305,6 +316,33 @@ class EventEngineV2:
         return relation_hits(
             level, target.stem, target.branch,
             target.relations_to_chart, target.gongmang_activation, result.pillars,
+        )
+
+    def _wealth_activations(
+        self,
+        result: ManseV2Result,
+        stack: list[tuple[LuckLayer, LuckPillar]],
+        capacity: WealthCapacity,
+    ) -> list[str]:
+        """거버닝 스택(운)+원국으로 그 시점 재물 발동을 판정한다(운 완성 경로 포함, Phase 2)."""
+        assert result.pillars is not None
+        p = result.pillars
+        day_pillar = p.day
+        if day_pillar is None:
+            return []
+        natal_branches = {
+            pil.branch for pil in (p.year, p.month, p.day, p.hour) if pil is not None
+        }
+        luck_branches = {pillar.branch for _layer, pillar in stack}
+        luck_stem_elements = {
+            str(STEM_ELEMENT[Stem(pillar.stem)]) for _layer, pillar in stack
+        }
+        return detect_wealth_activations(
+            day_element=str(STEM_ELEMENT[Stem(day_pillar.stem)]),
+            wealth_element=capacity.wealth_element,
+            natal_branches=natal_branches,
+            luck_branches=luck_branches,
+            luck_stem_elements=luck_stem_elements,
         )
 
 

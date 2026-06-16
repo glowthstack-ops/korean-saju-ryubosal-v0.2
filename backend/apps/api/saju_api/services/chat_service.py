@@ -38,6 +38,7 @@ from saju_engines.precompute import CompositeBuilder
 from saju_engines.query_parser import parse_message
 from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.topic_builder import build_lifestyle_context
+from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef
@@ -62,7 +63,7 @@ from .personalization import fetch_personal_inputs
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
-_COMPILED_GRAPH = _BACKEND / "compiled" / "event_graph_v1.0.0.json"
+_COMPILED_GRAPH = _BACKEND / "compiled" / "event_graph_v1.1.0.json"
 
 
 def _current_luck_month(today: date, timezone: str = "Asia/Seoul") -> str:
@@ -372,8 +373,18 @@ def _date_selection_block(
     composites = CompositeBuilder(_DICTS).build(
         chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00",
     )
+    # 횡재(로또)·재물 택일은 재성 방위·시진을 함께 제공(번호 거부·당첨 단정 금지 유지).
+    # 방위는 용희기구한 역할을 반영해 기신·구신·생구신 방향은 추천하지 않는다(2026-06-16).
+    is_windfall = purpose in (EventKey.WINDFALL, EventKey.WEALTH_CHANGE)
+    wealth_element = analyze_wealth_capacity(chart).wealth_element if is_windfall else None
+    if is_windfall:
+        from saju_engines.event_scoring import favorability_map
+        favorability = favorability_map(chart)
+    else:
+        favorability = None
     result = _get_date_engine().select(
         purpose, composites, start_iso, end_iso, yongsin_element=yongsin,
+        include_hour_fit=is_windfall, wealth_element=wealth_element, favorability=favorability,
     )
     if not result.candidates:
         return None
@@ -393,12 +404,19 @@ def _date_selection_block(
         for c in result.candidates
         if c.recommendation != "avoid"  # 추천 표에는 회피 등급 제외(회피일은 별도 목록)
     ]
+    # 시진은 원소 기반(날짜 무관 동일)이라 상위 후보 1건의 hour_fits를 블록 레벨로 노출.
+    hour_fits = (
+        [h.model_dump() for h in result.candidates[0].hour_fits]
+        if result.candidates and result.candidates[0].hour_fits else []
+    )
     return DateSelectionBlock(
         purpose_ko=event_ko(purpose),
         period=f"{start_iso} ~ {end_iso}",
         rows=rows,
         avoid=result.avoid_dates,
         cautions=result.cautions,
+        directions=[d.model_dump() for d in result.directions],
+        hour_fits=hour_fits,
     )
 
 
@@ -468,6 +486,44 @@ def _compat_prompt_block(
         "운명론은 금지. 마찰은 관리 가능한 영역으로, 극복할 마음가짐·행동도 덧붙일 것."
     )
     return "\n".join(lines)
+
+
+def _structural_context(result: ManseV2Result, intent: IntentJson, today: date) -> list[str]:
+    """질문 도메인에 맞는 구조 해석 블록(누출 안전 한글). intent 미확정(general)=총운으로 간주해
+    모든 블록을, 확정 도메인은 해당 블록만 표면화한다(2026-06-16 사용자 확정).
+
+    리포트와 동일한 structural_context 포맷터를 재사용해 표면화 일관성·누출 방지를 유지한다.
+    """
+    if result.pillars is None or result.force_analysis is None:
+        return []
+    from saju_engines.event_scoring import favorability_map
+    from saju_engines.health_vulnerability import analyze_health_vulnerability
+    from saju_engines.marriage_resource import analyze_marriage_resource
+    from saju_engines.structural_context import (
+        era_energy_lines,
+        health_lines,
+        marriage_resource_lines,
+        wealth_capacity_lines,
+        wealth_status_lines,
+    )
+    from saju_engines.wealth_capacity import analyze_wealth_capacity
+    from saju_engines.wealth_status_lean import analyze_wealth_status_lean
+
+    domain = intent.domain
+    general = domain is Domain.GENERAL  # 확정 intent 아님 → 총운(모든 구조 블록)
+    out: list[str] = []
+    if general:
+        out += era_energy_lines(result, today.year)  # 시대 기운 먼저(개인 앞 사회 맥락)
+    if general or domain is Domain.WEALTH:
+        out += wealth_capacity_lines(analyze_wealth_capacity(result))
+    if general or domain in (Domain.WEALTH, Domain.CAREER):
+        out += wealth_status_lines(analyze_wealth_status_lean(result))
+    if general or domain is Domain.RELATIONSHIP:
+        out += marriage_resource_lines(analyze_marriage_resource(result))
+    if general or domain is Domain.HEALTH:
+        hv = analyze_health_vulnerability(result, favorability_map(result))
+        out += health_lines(result, hv, today.year)
+    return out
 
 
 def chat(
@@ -817,6 +873,10 @@ def chat(
         default_period=default_period,
         prior_claims=prior_claims,
         current_month_label=luck_month,
+        # 구조 해석 블록 — 단일 대상일 때만(궁합 비교는 대상 혼동 방지로 생략).
+        structural_context=(
+            _structural_context(result, intent, today) if not plan.per_subject else None
+        ),
     )
     try:
         prompt_text, tokens = serialize_with_guard(

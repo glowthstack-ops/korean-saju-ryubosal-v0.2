@@ -12,6 +12,7 @@ from saju_engines import EventEngineV2, GraphIndex, load_event_graph
 from saju_engines.context_reducer import (
     SCORE_FLOOR,
     TOP_N_CANDIDATES,
+    _clean_evidence_text,
     build_llm_input,
     reduce_candidates,
     serialize_llm_input,
@@ -50,7 +51,7 @@ def candidates(chart, scorer):
 @pytest.fixture(scope="module")
 def bundles():
     """career graphScope의 EvidenceBundle."""
-    graph = load_event_graph(_BACKEND / "compiled" / "event_graph_v1.0.0.json")
+    graph = load_event_graph(_BACKEND / "compiled" / "event_graph_v1.1.0.json")
     return GraphIndex(graph).retrieve([EventKey.CAREER_CHANGE, EventKey.CONTRACT_DOCUMENT])
 
 
@@ -101,6 +102,18 @@ def test_serialized_prompt_within_guard(chart, candidates, bundles, scorer) -> N
         assert section in text
     # 이벤트 후보는 점수 확정값이 아니라 '추측 신호'로 고지(항목 10).
     assert "추측 신호" in text
+
+
+def test_clean_evidence_strips_authoring_meta() -> None:
+    """근거 경로 정리 — 저작 메타 괄호(표현 제한·당첨 단정 금지 등)는 제거, 의미 괄호는 보존."""
+    note = (
+        "편재+삼합(재성국 완성)+원국 그릇 강 — 큰 재물이 한 번에 드러날 잠재"
+        "(windfall은 표현 제한 — 당첨 단정 금지, 변동성·과몰입 경고)"
+    )
+    cleaned = _clean_evidence_text(note)
+    assert "표현 제한" not in cleaned and "단정 금지" not in cleaned and "과몰입" not in cleaned
+    assert "(재성국 완성)" in cleaned  # 의미 있는 괄호는 보존
+    assert _clean_evidence_text("횡재(표현 제한)") == "횡재"
 
 
 def test_tone_mapping_table() -> None:

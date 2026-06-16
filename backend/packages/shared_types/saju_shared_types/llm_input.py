@@ -243,6 +243,9 @@ class DateSelectionBlock(BaseModel):
     rows: list[DateChoiceRow] = Field(default_factory=list)
     avoid: list[dict] = Field(default_factory=list)  # {'date','reason'}
     cautions: list[str] = Field(default_factory=list)
+    # 방위·시진(횡재·재물 택일 — 참고용, 당첨 보장 아님). {'direction','element','fit','note'} 등.
+    directions: list[dict] = Field(default_factory=list)
+    hour_fits: list[dict] = Field(default_factory=list)  # {'branch','time_range','fit','note'}
 
 
 class PersonaBlock(BaseModel):
@@ -306,6 +309,9 @@ class LlmInput(BaseModel):
     monthly_overview: list[MonthOverviewRow] = Field(default_factory=list)
     period_fortune: PeriodFortune | None = None  # 기간 총운(E9) — 일/월/연 경로
     date_selection: DateSelectionBlock | None = None
+    # 구조 해석 블록(질문 도메인에 맞는 원국 횡재 그릇·결혼/자산·건강 취약·부귀·시대 기운 등).
+    # 이미 누출 안전 한글로 직렬화된 줄들(영문 변수·점수 비노출). 도메인 관련 시에만 채운다.
+    structural_context: list[str] = Field(default_factory=list)
     evidence: list[LlmEvidence] = Field(default_factory=list)
     past_validation: PastValidationSummary | None = None
     style_rules: LlmStyleRules = Field(default_factory=LlmStyleRules)

@@ -31,6 +31,19 @@ class HourFit(BaseModel):
     note: str = ""
 
 
+class DirectionFit(BaseModel):
+    """방위(方位) 적합도 1칸 (Phase 3 — docs/08 D2-5 '어느 방향으로 가서 사야').
+
+    정오행 방위(木동·火남·土중앙·金서·水북) 기준의 **참고용** 방향이다. 횡재(로또)에서는
+    재성/식상(생재)/용신 방위를 우선한다. 당첨을 보장하지 않으며 번호 생성은 거부한다.
+    """
+
+    direction: str  # 동/서/남/북/중앙
+    element: str  # 그 방위의 오행
+    fit: float = Field(ge=0.0, le=1.0)
+    note: str = ""
+
+
 class DateCandidate(BaseModel):
     """택일 후보 1건 (docs/02 E10)."""
 
@@ -55,3 +68,4 @@ class DateSelectionResult(BaseModel):
     candidates: list[DateCandidate] = Field(default_factory=list)
     avoid_dates: list[dict] = Field(default_factory=list)  # {'date','reason'}
     cautions: list[str] = Field(default_factory=list)  # 목적 공통 경고(변동성 등)
+    directions: list[DirectionFit] = Field(default_factory=list)  # 방위 적합도(요청·재물 목적 시)

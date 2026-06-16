@@ -19,6 +19,7 @@ from saju_shared_types.date_selection import (
     DateCandidate,
     DateScores,
     DateSelectionResult,
+    DirectionFit,
     HourFit,
 )
 from saju_shared_types.enums import Branch, Element
@@ -71,6 +72,8 @@ class DateSelectionEngine:
         reality_constraints: list[str] | None = None,
         include_hour_fit: bool = False,
         top_n: int = 5,
+        wealth_element: str | None = None,
+        favorability: dict[str, str] | None = None,
     ) -> DateSelectionResult:
         """기간 [start, end](ISO 일자) 안에서 목적별 실행일을 랭킹한다.
 
@@ -186,6 +189,8 @@ class DateSelectionEngine:
             candidates=picked,
             avoid_dates=avoid_dates,
             cautions=result_cautions,
+            # 방위: 재성 오행이 주어지면(횡재·재물 목적) 용희기구한 역할을 반영한 방위를 제공.
+            directions=direction_fits(wealth_element, favorability) if wealth_element else [],
         )
 
     # ── E10-b Risk Avoidance(T7.2) ───────────────────────────────
@@ -242,6 +247,55 @@ def hour_fits(yongsin_element: str) -> list[HourFit]:
         out.append(HourFit(
             branch=branch_str, time_range=time_range, fit=fit, note=note,
         ))
+    return out
+
+
+# 정오행 방위(方位) — 표준 명리(木동·火남·土중앙·金서·水북).
+_ELEMENT_DIRECTION: dict[Element, str] = {
+    Element.WOOD: "동", Element.FIRE: "남", Element.EARTH: "중앙",
+    Element.METAL: "서", Element.WATER: "북",
+}
+# 용희기구한 역할별 기본 방위 적합도 — 흉신(기신·구신) 방위는 재물 관련이어도 추천하지 않는다.
+_ROLE_FIT: dict[str, float] = {
+    "용신": 1.0, "희신": 0.85, "한신": 0.55, "기신": 0.3, "구신": 0.15,
+}
+
+
+def direction_fits(
+    wealth_element: str, favorability_by_element: dict[str, str] | None = None
+) -> list[DirectionFit]:
+    """재물(횡재) 방위 적합도 — **용희기구한 역할**이 기본, 재성/식상(생재)은 유리할 때만 가점.
+
+    정오행 방위(docs/08 D2-5)이되, 방위 오행이 **기신·구신이거나 구신을 생하는** 방향이면 재물
+    관련이어도 추천하기 어렵다(2026-06-16 사용자 지적). 따라서 역할(용신 1.0…구신 0.15)을 기준으로
+    하고, 재성(+0.1)·식상생재(+0.05) 가점은 역할이 용신/희신/한신일 때만 적용한다. 구신을 생하는
+    방위는 0.6배로 감점한다. 당첨 보장이 아니며 번호 생성은 거부한다.
+    """
+    fav = favorability_by_element or {}
+    wealth = Element(wealth_element)
+    output = next((e for e in Element if GENERATES[e] is wealth), None)  # 재성을 생하는 식상
+    gusin = next((Element(k) for k, v in fav.items() if v == "구신"), None)
+    out: list[DirectionFit] = []
+    for el, direction in _ELEMENT_DIRECTION.items():
+        role = fav.get(el.value, "한신")  # 용신 분석 부재 시 중립 처리
+        fit = _ROLE_FIT.get(role, 0.55)
+        parts: list[str] = []
+        if el is wealth:
+            parts.append("재성 방위")
+            if role in ("용신", "희신", "한신"):
+                fit = min(1.0, fit + 0.1)
+        elif output is not None and el is output:
+            parts.append("식상(생재) 방위")
+            if role in ("용신", "희신", "한신"):
+                fit = min(1.0, fit + 0.05)
+        parts.append(role)
+        if gusin is not None and GENERATES[el] is gusin:  # 구신을 생하는 방위 — 흉신 강화
+            fit *= 0.6
+            parts.append("구신 생(주의)")
+        out.append(DirectionFit(
+            direction=direction, element=el.value, fit=round(fit, 2), note=" · ".join(parts),
+        ))
+    out.sort(key=lambda d: -d.fit)
     return out
 
 

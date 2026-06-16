@@ -248,6 +248,17 @@ _DATE_TABLE_INSTRUCTION = (
 _EVENT_KO: dict[str, str] = {str(k): v for k, v in _EVENT_KO_V2.items()}
 # 근거 경로 내부 노트 제거(예: "(docs/05 회귀 기준 케이스)").
 _INTERNAL_NOTE_RE = re.compile(r"\s*\((?:docs?/|내부|회귀)[^)]*\)")
+# 저작 메타 괄호 — LLM 지시·금기·표현 제한 안내 등(예: "(windfall은 표현 제한 — 당첨 단정
+# 금지, 변동성·과몰입 경고)", "(표현 제한)"). 근거 경로 등 사용자 노출 출력에서 제거한다.
+# '(재성국 완성)'처럼 의미 있는 괄호는 키워드 미포함이라 보존된다(2026-06-16 챗 누출 정리).
+_AUTHORING_PAREN_RE = re.compile(
+    r"\s*\([^)]*(?:표현\s*제한|당첨|단정|번호\s*거부|로또|과몰입|투자\s*조언|고지|경계 동반)[^)]*\)"
+)
+
+
+def _clean_evidence_text(text: str) -> str:
+    """근거 경로/보조 근거에서 내부·저작 메타 괄호를 제거한다(사용자 노출 정리)."""
+    return _AUTHORING_PAREN_RE.sub("", _INTERNAL_NOTE_RE.sub("", text)).strip()
 
 
 _POLARITY_KO = {
@@ -807,6 +818,7 @@ def build_llm_input(
     default_period: tuple[str, str] | None = None,
     prior_claims: list[str] | None = None,
     current_month_label: str | None = None,
+    structural_context: list[str] | None = None,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
 
@@ -888,6 +900,7 @@ def build_llm_input(
             build_reference_frame(today, intent, result, current_month_label)
             if today else None
         ),
+        structural_context=structural_context or [],
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
         monthly_overview=monthly_overview or [],
@@ -1220,24 +1233,46 @@ def serialize_llm_input(payload: LlmInput) -> str:
             )
         for avoid in ds.avoid[:5]:
             lines.append(f"회피일 {avoid.get('date')} — {avoid.get('reason')}")
+        if ds.directions:
+            top = [d for d in ds.directions if d.get("fit", 0) >= 0.7] or ds.directions[:2]
+            label = ", ".join(
+                f"{d.get('direction')}({d.get('note') or d.get('element')})" for d in top
+            )
+            lines.append(f"방위: {label}")
+        if ds.hour_fits:
+            best = [h for h in ds.hour_fits if h.get("fit", 0) >= 0.8]
+            if best:
+                slots = ", ".join(f"{h.get('branch')}시({h.get('time_range')})" for h in best)
+                lines.append(f"시간대: {slots}")
         for caution in ds.cautions:
             lines.append(f"주의: {caution}")
+    if payload.structural_context:
+        # 구조 해석 블록(질문 도메인 맞춤 — 이미 누출 안전 한글). 개인 풀이의 구조 근거로 활용.
+        lines.append("")
+        lines += payload.structural_context
     lines.append("")
     lines.append("[근거 경로]")
     for e in payload.evidence:
-        label = event_ko(e.event_key)
+        label = _clean_evidence_text(event_ko(e.event_key))
         for path in e.readable_paths:
-            cleaned = [_INTERNAL_NOTE_RE.sub("", step) for step in path]
-            lines.append(f"{label}: " + " → ".join(cleaned))
+            steps = [s for step in path if (s := _clean_evidence_text(step))]
+            # 경로 끝 단계가 이벤트 라벨과 같으면 'label:' 표기와 중복이라 제거.
+            if steps and steps[-1] == label:
+                steps = steps[:-1]
+            if steps:
+                lines.append(f"{label}: " + " → ".join(steps))
         if e.supports:
-            cleaned_sup = [_INTERNAL_NOTE_RE.sub("", x) for x in e.supports]
-            lines.append(f"{label} 보조 근거: {', '.join(cleaned_sup)}")
+            cleaned_sup = [s for x in e.supports if (s := _clean_evidence_text(x))]
+            if cleaned_sup:
+                lines.append(f"{label} 보조 근거: {', '.join(cleaned_sup)}")
         if e.contradicts:
-            cleaned_contra = [_INTERNAL_NOTE_RE.sub("", x) for x in e.contradicts]
-            lines.append(f"{label} 반대 근거: {', '.join(cleaned_contra)}")
+            cleaned_contra = [s for x in e.contradicts if (s := _clean_evidence_text(x))]
+            if cleaned_contra:
+                lines.append(f"{label} 반대 근거: {', '.join(cleaned_contra)}")
         if e.interpretation_hints:
-            cleaned_hints = [_INTERNAL_NOTE_RE.sub("", x) for x in e.interpretation_hints]
-            lines.append(f"{label} 해석 힌트: {', '.join(cleaned_hints)}")
+            cleaned_hints = [s for x in e.interpretation_hints if (s := _clean_evidence_text(x))]
+            if cleaned_hints:
+                lines.append(f"{label} 해석 힌트: {', '.join(cleaned_hints)}")
     lines.append("")
     lines.append("[지시]")
     lines.append(payload.style_rules.llm_instruction)
