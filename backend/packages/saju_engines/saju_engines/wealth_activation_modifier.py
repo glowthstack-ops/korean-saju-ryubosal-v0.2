@@ -23,7 +23,38 @@ _ACT_WEIGHT: dict[str, float] = {
     "묘고 충개고": 0.12,
     "식상생재": 0.10,
 }
+# 계열 인지 감쇠(2차-2단계) — 발동은 모두 '재성 작동' 한 계열이라, 대표 1개만 full로 두고
+# 추가는 감쇠한다(중복 집계 방지). 같은 현상을 여러 이름으로 더해 100에 붙던 문제(2026-06-16).
+_DIMINISH_TIERS: tuple[float, ...] = (1.0, 0.45, 0.25)  # 대표·2번째·3번째
+# 교차 중복 — 그 발동이 이미 base 십성 조합으로 점수화됐으면(같은 fingerprint) 추가 가산 최소화.
+_ACT_BASE_OVERLAP: dict[str, set[str]] = {
+    "식상생재": {
+        "COMBO_OUTPUT_WEALTH", "SPEC_SHISHEN_ZHENGCAI",
+        "SPEC_SHISHEN_PIANCAI", "SPEC_SHANGGUAN_ZHENGCAI",
+    },
+}
+_DUP_FACTOR = 0.35  # base에 이미 잡힌 발동 — 추가 가산 35%만
 _TARGET_KEYS = (EventKeyV2.WINDFALL, EventKeyV2.WEALTH_CHANGE)
+
+
+def _family_boost(activations: list[str], reason_codes: list[str], mult: float) -> float:
+    """발동들을 '재성 작동' 한 계열로 보고 대표 강·추가 감쇠·교차중복 제거로 boost 산출.
+
+    가중 큰 순으로 대표(1.0)·2번째(0.45)·3번째(0.25)…, 그 발동이 이미 base 조합에 잡혔으면
+    추가로 ×0.35(이중 집계 방지). 단순 sum이 아니라 감쇠 합 → 같은 현상 반복 누적을 막는다.
+    """
+    rc = set(reason_codes)
+    items = sorted(
+        ((_ACT_WEIGHT.get(a, 0.0), a) for a in activations if _ACT_WEIGHT.get(a, 0.0) > 0),
+        key=lambda x: -x[0],
+    )
+    total = 0.0
+    for i, (w, a) in enumerate(items):
+        factor = _DIMINISH_TIERS[i] if i < len(_DIMINISH_TIERS) else 0.1
+        if _ACT_BASE_OVERLAP.get(a, set()) & rc:  # base에 이미 같은 fingerprint
+            factor *= _DUP_FACTOR
+        total += w * factor
+    return total * mult
 
 
 class WealthActivationModifier:
@@ -39,17 +70,20 @@ class WealthActivationModifier:
         if not activations:
             return candidates
         mult = _CAP_MULT.get(capacity.capacity_band, 0.5)
-        boost = sum(_ACT_WEIGHT.get(a, 0.0) for a in activations) * mult
-        if boost <= 0:
-            return candidates
         tag = "WEALTHACT_" + "+".join(activations)
+        diminished = len(activations) > 1  # 같은 계열 복수 발동 → 감쇠 적용 표식
         out: list[EventCandidateV2] = []
         for c in candidates:
-            if c.event_key in _TARGET_KEYS:
+            # boost는 후보별로(교차 중복은 그 후보의 base 조합 유무에 따라 달라진다).
+            boost = _family_boost(activations, c.reason_codes, mult)
+            if c.event_key in _TARGET_KEYS and boost > 0:
+                reasons = [*c.reason_codes, tag]
+                if diminished or (_ACT_BASE_OVERLAP.keys() & set(activations)):
+                    reasons.append("WEALTHACT_FAMILY_DIMINISH")
                 new_score = max(0, round(c.score * (1 + boost)))  # 중간 100 클램프 제거
                 out.append(c.model_copy(update={
                     "score": new_score,
-                    "reason_codes": [*c.reason_codes, tag],
+                    "reason_codes": reasons,
                     "contributions": {**c.contributions, "wealth_act": float(new_score - c.score)},
                 }))
             else:

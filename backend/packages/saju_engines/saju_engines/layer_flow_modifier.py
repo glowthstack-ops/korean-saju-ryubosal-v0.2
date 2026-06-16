@@ -87,13 +87,20 @@ class LayerFlowModifier:
             mult = self._layer_mult.get(frozenset(c.source_layers), 1.0)
             score = c.score * mult
             reasons = [*c.reason_codes]
-            if set(c.source_ten_gods) & repeated_gods:
+            ten_god_repeat = bool(set(c.source_ten_gods) & repeated_gods)
+            if ten_god_repeat:
                 score += 8
                 reasons.append("REPEAT_SAME_TEN_GOD")
             cand_groups = {layer_group.get(lyr) for lyr in c.source_layers}
             if cand_groups & repeated_groups:
-                score += 6
-                reasons.append("REPEAT_SAME_GROUP")
+                # 같은 '반복' 계열 — 십성 반복(구체)이 이미 잡혔으면 그룹 반복(거친 단위)은 감쇠
+                # (중복 집계 방지). 그룹만 반복(십성은 다름)이면 온전히 가산.
+                if ten_god_repeat:
+                    score += 2
+                    reasons.append("REPEAT_SAME_GROUP_DIMINISH")
+                else:
+                    score += 6
+                    reasons.append("REPEAT_SAME_GROUP")
             bonus = mixed_bonus.get(str(c.event_key), 0)
             if bonus:
                 score += bonus

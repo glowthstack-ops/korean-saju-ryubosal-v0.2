@@ -3605,3 +3605,22 @@ wealth_act 양쪽에 잡히는 계열 중복도 확인.)
   ruff·mypy clean(touched). 기존 픽스처 무파손.
 - **2차-2단계(후속 PR)**: family/fingerprint 정규화 → 같은 현상(식상생재=COMBO+WEALTHACT, 재성국=
   REL+WEALTHACT) 중복 가산 1회화, 같은 계열 추가 감쇠·다른 계열 강화. 미착수.
+
+### 점수 포화 제어 2차-2단계 — 계열 인지 감쇠(중복 가산 제거) (2026-06-16)
+
+1차(soft_cap+계측)로 드러난 같은-계열 중복 가산 2곳을 제거. 사용자 설계(대표 강·추가 감쇠·교차
+중복 1회화)를 검증된 지점에 적용. 채팅·테마 공통(동일 EventEngineV2).
+
+- **wealth_activation 계열 감쇠**: 재성국·충개고·식상생재는 한 '재성 작동' 계열인데 boost가 단순
+  sum이라 중복 누적 → `_family_boost`로 가중 큰 순 대표(1.0)·2번째(0.45)·3번째(0.25)… 감쇠 합.
+  교차 중복(식상생재가 base COMBO_OUTPUT_WEALTH/SPEC_*에 이미 잡힘)은 ×0.35로 추가 최소화.
+  후보별 reason_codes 기준이라 base 유무에 따라 달라짐. WEALTHACT_FAMILY_DIMINISH 표식.
+- **layer_flow 반복 계열 감쇠**: REPEAT_SAME_TEN_GOD(+8) + REPEAT_SAME_GROUP(+6)이 같은 '반복'
+  계열인데(같은 십성이면 같은 그룹이라 항상 중복) 둘 다 가산 → 십성 반복이 잡히면 그룹 반복은
+  +2로 감쇠(REPEAT_SAME_GROUP_DIMINISH). 그룹만 반복이면 온전히 +6.
+- **효과(실차트)**: 2026-12 재물 wealth_act +21→+15(식상생재 교차중복 감쇠), raw 135→129. 8월은
+  과대평가됐던 wealth_change가 줄며 실제 더 타당한 creative_output(상관) 표면화(디바이어싱).
+- **검증**: 신규 test_family_diminishing(대표·추가감쇠·교차중복·순서무관·그릇배율) 포함 전체 pytest
+  752 pass, ruff·mypy clean(touched), 기존 픽스처 무파손. 채팅·리포트 라이브 반영 확인.
+- **남은 확장(선택)**: 다른 도메인은 현재 단계별 단일 신호(다른 계열)라 가산이 타당해 추가 감쇠
+  불요. 새 계열 중복이 발견되면 같은 패턴(fingerprint 맵 + 감쇠)으로 확장.
