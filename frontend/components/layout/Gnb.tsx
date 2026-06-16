@@ -10,6 +10,8 @@ import { AuthPanel } from "@/components/layout/AuthPanel";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useReportNotifications } from "@/components/providers/ReportNotificationsProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
+import { getSubject } from "@/lib/subjects";
+import type { SubjectSummary } from "@/lib/types";
 
 interface NavItem {
   href: string;
@@ -35,12 +37,27 @@ export function Gnb() {
   const { isLoggedIn } = useAuth();
   const { selected } = useSelectedSubject();
   const { badgeCount } = useReportNotifications();
+  // 선택 사주의 출생정보 — '데굴 기준' 칩 클릭 시 확인용 툴팁으로 표시.
+  const [info, setInfo] = useState<SubjectSummary["birth"] | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
 
   // 라우트 이동 시 자동으로 닫고, 헤더를 다시 보이게 한다.
   useEffect(() => {
     setOpen(false);
     setHidden(false);
+    setShowInfo(false);
   }, [pathname]);
+
+  // 선택 사주의 출생정보 로드(로그인 + 선택 시). 실패는 조용히 무시(툴팁 미표시).
+  useEffect(() => {
+    if (!isLoggedIn || !selected) {
+      setInfo(null);
+      return;
+    }
+    getSubject(selected.subjectId)
+      .then((s) => setInfo(s.birth))
+      .catch(() => setInfo(null));
+  }, [isLoggedIn, selected]);
 
   // 스크롤 방향 감지 — 일정 거리 아래로 내려가면 숨기고, 위로 올리면 즉시 표시.
   useEffect(() => {
@@ -88,9 +105,46 @@ export function Gnb() {
             류보살 <span className="text-gray-400">v2</span>
           </Link>
           {selected && (
-            <span className="ml-auto truncate rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
-              {selected.label} 기준
-            </span>
+            <div className="relative ml-auto">
+              <button
+                type="button"
+                onClick={() => setShowInfo((v) => !v)}
+                className="flex items-center gap-1 truncate rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600 hover:bg-gray-200"
+                aria-label="선택 사주 정보"
+              >
+                <span className="truncate">{selected.label} 기준</span>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  className="shrink-0 text-gray-400">
+                  <circle cx="12" cy="12" r="9" strokeWidth="2" />
+                  <path strokeWidth="2" strokeLinecap="round" d="M12 11v5M12 8h.01" />
+                </svg>
+              </button>
+              {showInfo && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="닫기"
+                    className="fixed inset-0 z-30 cursor-default"
+                    onClick={() => setShowInfo(false)}
+                  />
+                  <div className="absolute right-0 top-full z-40 mt-1 w-56 rounded-lg border bg-white p-3 text-xs text-gray-700 shadow-lg">
+                    <p className="mb-1 font-semibold text-gray-800">{selected.label}</p>
+                    {info ? (
+                      <ul className="space-y-0.5 text-gray-600">
+                        <li>
+                          생년월일: {info.birth_date}
+                          {info.calendar_type === "lunar" ? " (음력)" : ""}
+                        </li>
+                        <li>출생시각: {info.birth_time ?? "시간 모름"}</li>
+                        {info.birth_place_name && <li>출생지: {info.birth_place_name}</li>}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-400">출생정보를 불러올 수 없어요.</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
       </header>
