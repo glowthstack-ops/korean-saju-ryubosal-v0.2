@@ -81,6 +81,16 @@ def test_neutral_when_no_signal() -> None:
     assert _period_role(_lp("甲", "寅"), {}) is PolarityRole.NEUTRAL
 
 
+def test_stem_bound_neutralizes_gisin() -> None:
+    """制/합거(탐합망극) — 기신 천간이 묶이면 흉 무력화, 지지 용신이 길흉을 본다(사건 종류 불변)."""
+    fav = {"木": "기신", "土": "용신"}
+    lp = _lp("甲", "戌")  # 甲=木(기신), 戌=土(용신)
+    # 평소: 천간 기신 우선 → 흉(GI)
+    assert _period_role(lp, fav) is PolarityRole.GI
+    # 합거 무력화: 묶인 천간 건너뛰고 지지 용신 → 길(YONG)
+    assert _period_role(lp, fav, stem_bound=True) is PolarityRole.YONG
+
+
 def test_hwa_element_override_changes_polarity() -> None:
     """生剋制化 우선(化) — 본 천간이 합화하면 化神 오행으로 길흉(용기신) 판단(사건 종류 불변).
 

@@ -301,15 +301,20 @@ class EventEngineV2:
         cands = self._relpalace.apply(cands, activations)
         # 용신 품질 — 시점 유입 글자 오행의 용기신 역할. 본 천간이 합화(化)면 化神 오행으로 길흉
         # 판단(生剋制化 우선 — 사건 종류는 불변, 길흉만 化神 기준). 대운 배경 합화는 제외(국소).
+        # 生剋制化 우선순위(化 > 制): 합화면 化神 길흉, 아니면 합거(기신 무력화) 여부를 본다.
         hwa_el = _target_hwa_element(target, result, fav_map)
-        role = _period_role(target, fav_map, stem_element=hwa_el)
+        stem_bound = _target_stem_bound(target, result, fav_map) if hwa_el is None else False
+        role = _period_role(target, fav_map, stem_element=hwa_el, stem_bound=stem_bound)
         if role is not PolarityRole.NEUTRAL:
-            update: dict[str, object] = {"polarity_role": role}
+            note = (
+                f"HWA_길흉_{hwa_el}" if hwa_el
+                else ("制_합거_흉무력화" if stem_bound else "")
+            )
             cands = [
                 c.model_copy(update={
-                    **update,
-                    "reason_codes": [*c.reason_codes, f"HWA_길흉_{hwa_el}"],
-                }) if hwa_el else c.model_copy(update=update)
+                    "polarity_role": role,
+                    **({"reason_codes": [*c.reason_codes, note]} if note else {}),
+                })
                 for c in cands
             ]
             cands = self._yongi.apply(cands)
@@ -578,6 +583,34 @@ def _apply_daewoon_hwa_background(
     return out
 
 
+def _target_stem_bound(
+    target: LuckPillar, result: ManseV2Result, fav_map: dict[str, str]
+) -> bool:
+    """본 천간이 기·구신(흉)인데 합거(合去)로 묶여 흉이 제거되면 True — 制/탐합망극 흉 무력화.
+
+    生剋制化의 制: 기신이 합으로 묶이면 극(흉) 작용을 못 한다(탐합망극). 이때 그 천간의 흉 역할을
+    길흉 판정에서 건너뛴다(사건 종류·개수 불변). 길신 묶임(harm)은 무력화 대상이 아니다(별도).
+    합거(direction 'away')만 대상 — 합반(부분 묶임)은 제외(보수적).
+    """
+    if result.pillars is None or not target.stem:
+        return False
+    try:
+        stem_el = str(STEM_ELEMENT[Stem(target.stem)])
+    except (KeyError, ValueError):
+        return False
+    if fav_map.get(stem_el, "") not in ("기신", "구신"):
+        return False
+    try:
+        resolutions = resolve_stem_hap(result.pillars, fav_map, luck_stems=[target.stem])
+    except (ValueError, KeyError):
+        return False
+    return any(
+        res.luck_origin and res.hap_mode == "bind" and res.direction == "away"
+        and any(a.stem == target.stem and a.effect == "boon" for a in res.affected)
+        for res in resolutions
+    )
+
+
 def _han_gen_role(element: str, fav_map: dict[str, str]) -> PolarityRole | None:
     """한신 오행의 간접(생, 生) 길흉 — 생하는 대상의 역할로 약한 길/흉을 판정.
 
@@ -595,20 +628,25 @@ def _han_gen_role(element: str, fav_map: dict[str, str]) -> PolarityRole | None:
 
 
 def _period_role(
-    target: LuckPillar, fav_map: dict[str, str], stem_element: str | None = None
+    target: LuckPillar,
+    fav_map: dict[str, str],
+    stem_element: str | None = None,
+    stem_bound: bool = False,
 ) -> PolarityRole:
     """시점 유입 글자(천간 우선, 지지 보조) 오행의 용기신 역할 → 극성.
 
     1) 직접 역할(용·희·기·구) — 천간 우선, 지지 보조. 2) 천간·지지 모두 직접 역할이 없을 때만
     한신의 생(生) 관계로 간접 길흉(약)을 판정한다(직접 신호를 덮지 않는 보조 계층).
     stem_element: 본 천간이 합화(化)했을 때의 化神 오행 — 길흉을 化神 기준으로 본다(生剋制化 우선).
+    stem_bound: 본 천간이 합거(制)로 묶여 흉이 무력화되면 True — 천간을 길흉 판정에서 건너뛴다.
     """
     try:
         stem_el = stem_element or str(STEM_ELEMENT[Stem(target.stem)])
         branch_el = str(BRANCH_ELEMENT[Branch(target.branch)])
     except (KeyError, ValueError):
         return PolarityRole.NEUTRAL
-    stem_lbl = fav_map.get(stem_el, "")
+    # 制/합거 무력화 — 묶인 천간은 역할 없음(빈 라벨)으로 처리해 흉을 끌지 않게 한다.
+    stem_lbl = "" if stem_bound else fav_map.get(stem_el, "")
     branch_lbl = fav_map.get(branch_el, "")
     # 0) 천간·지지가 같은 방향으로 겹친 강한 신호 — 모두 용신(강한 용신운)/모두 흉(기·구).
     if stem_lbl == "용신" and branch_lbl == "용신":
@@ -620,8 +658,9 @@ def _period_role(
         direct = _FAV_ROLE.get(lbl)
         if direct is not None:
             return direct
-    # 2) 직접 역할 없음 → 한신 생(生) 간접 길흉(천간 우선).
-    for el in (stem_el, branch_el):
+    # 2) 직접 역할 없음 → 한신 생(生) 간접 길흉(천간 우선 — 묶인 천간은 제외).
+    elems = (branch_el,) if stem_bound else (stem_el, branch_el)
+    for el in elems:
         indirect = _han_gen_role(el, fav_map)
         if indirect is not None:
             return indirect

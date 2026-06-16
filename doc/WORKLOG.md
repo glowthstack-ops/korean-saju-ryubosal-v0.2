@@ -3673,3 +3673,15 @@ wealth_act 양쪽에 잡히는 계열 중복도 확인.)
 - **검증**: 신규 test_daewoon_hwa_background(보강/압력/중립/무방향) 포함 전체 pytest 759 pass,
   ruff·mypy clean(touched). 보정폭 0.03은 잠정(Phase 4 캘리브레이션).
 - **남은 슬라이스 3**: 制/합거(탐합망극) 흉 무력화, 체용 적합도 점수 초반 가중.
+
+### 슬라이스 3a — 制/합거(탐합망극) 흉 무력화 (2026-06-16)
+
+生剋制化의 制: 기신이 합으로 묶이면 극(흉) 작용을 못 한다(탐합망극). 본 천간이 기·구신인데
+합거(direction 'away', affected effect 'boon')되면 그 천간의 흉 역할을 길흉 판정에서 건너뛴다.
+
+- `_target_stem_bound`(본 천간 기·구신 + 합거 'away' + boon) + `_period_role(stem_bound=…)`이 묶인
+  천간을 빈 라벨로 처리 → 지지·한신생으로 길흉 판단. 사건 종류·개수 불변. 化 > 制 우선(합화면 制
+  미적용). 합반(부분)은 제외(보수적, 합거 'away'만).
+- **효과(실차트)**: 데모 2026-07(乙未) 기신 천간 乙이 원국 庚과 합거 → 흉 무력화, 지지 未(용신)이
+  살아 opportunity로(25건). 여러 차트에서 23~71건 발동.
+- **검증**: 신규 test_stem_bound_neutralizes_gisin 포함 전체 pytest 760 pass, ruff·mypy clean(touched).
