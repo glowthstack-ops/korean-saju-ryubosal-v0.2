@@ -55,15 +55,22 @@ const STATUS_KO: Record<string, string> = {
 export function YongsinPanel({
   result,
   calibration,
+  confirmedYongsin = null,
   onRedo,
 }: {
   result: ManseResult;
   calibration: CalibrationResult | null;
+  confirmedYongsin?: string | null;
   onRedo?: () => void;
 }) {
   const y = result.yongsin_analysis;
   const statusKo = STATUS_KO;
-  const yongsin = (calibration?.final_yongsin ?? y.final.yongsin) as string | null;
+  // 표시 용신: 이 기기의 검증(calibration) > DB 등록 확정 용신 > 계산 후보.
+  // confirmedYongsin은 다른 기기/Wizard로 등록한 경우 교차 복원(검증 없어도 등록값 노출).
+  const registered = !calibration && !!confirmedYongsin;
+  const yongsin = (calibration?.final_yongsin ?? confirmedYongsin ?? y.final.yongsin) as
+    | string
+    | null;
   const heesin = (calibration?.final_heesin ?? y.final.heesin) as string | null;
   const gisin = (calibration?.final_gisin ?? y.final.gisin) as string | null;
   const gusin = (calibration?.final_gusin ?? y.final.gusin) as string | null;
@@ -78,6 +85,11 @@ export function YongsinPanel({
       </h2>
       <p className="text-sm">
         상태: <b>{statusKo[calibration?.status ?? y.status] ?? y.status}</b>
+        {registered && (
+          <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+            등록된 용신 반영됨
+          </span>
+        )}
       </p>
       <div className="mt-2 grid grid-cols-5 gap-1.5 text-xs">
         <Box label="용신" v={yongsin} />

@@ -160,6 +160,36 @@ def test_full_flow_register_subject_profile_persona() -> None:
     assert r.json()["yongsin_registered"] is True
     assert r.json()["mulsang_registered"] is True
 
+    # 확정 용신 전용 엔드포인트 — 프로필 행 없는 사주에서도 등록·목록 반영(만세력 검증 확정).
+    sid2 = _request(
+        "POST", "/api/v2/subjects", headers=auth,
+        json={"kind": "self", "label": "용신만",
+              "birth": {"calendar_type": "solar", "birth_date": "1988-08-08",
+                        "birth_time": "08:08", "birth_place_name": "서울", "gender": "male"}},
+    ).json()["subject_id"]
+    # 프로필 저장 전인데 — yongsin 엔드포인트만으로 등록.
+    r = _request("PUT", f"/api/v2/profile/{sid2}/yongsin", headers=auth,
+                 json={"confirmed_yongsin": "木"})
+    assert r.status_code == 200, r.text
+    assert r.json()["confirmed_yongsin"] == "木"
+    sub2 = _request("GET", f"/api/v2/subjects/{sid2}", headers=auth).json()
+    assert sub2["yongsin_registered"] is True
+    prof2 = _request("GET", f"/api/v2/profile/{sid2}", headers=auth).json()
+    assert prof2["confirmed_yongsin"] == "木"
+    # 해제(None)도 동작.
+    _request("PUT", f"/api/v2/profile/{sid2}/yongsin", headers=auth,
+             json={"confirmed_yongsin": None})
+    sub2b = _request("GET", f"/api/v2/subjects/{sid2}", headers=auth).json()
+    assert sub2b["yongsin_registered"] is False
+    # 타 계정은 접근 불가(404).
+    other_login = f"oy{uuid.uuid4().hex[:8]}"
+    other = _request("POST", "/api/v2/auth/register",
+                     json={"login_id": other_login, "pin": "111111"}).json()["token"]
+    forbidden = _request("PUT", f"/api/v2/profile/{sid2}/yongsin",
+                         headers={"Authorization": f"Bearer {other}"},
+                         json={"confirmed_yongsin": "金"})
+    assert forbidden.status_code == 404
+
     # 페르소나(계정 전역) 저장/조회
     r = _request(
         "PUT", "/api/v2/account/persona",

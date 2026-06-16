@@ -21,7 +21,7 @@ import {
   saveCalibration, saveEotPreference,
 } from "@/lib/storage";
 import { summaryToProfile } from "@/lib/subject-mapping";
-import { getSubject } from "@/lib/subjects";
+import { getProfile, getSubject, setSubjectYongsin } from "@/lib/subjects";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
 
 // ?subject=<id>(로그인 사주) 우선, 없으면 IndexedDB 1회성 프로필을 로드한다.
@@ -61,6 +61,9 @@ export default function ManseResultPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [result, setResult] = useState<ManseResult | null>(null);
   const [calibration, setCalibration] = useState<CalibrationResult | null>(null);
+  // 로그인 사주 id + DB에 등록된 확정 용신 — 만세력 페이지·사주목록·수정 폼이 같은 값을 공유.
+  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [confirmedYongsin, setConfirmedYongsin] = useState<string | null>(null);
   const [savedAnswers, setSavedAnswers] = useState<AnswerMap>({});
   const [error, setError] = useState<string | null>(null);
   // 균시차 사용 토글(풀이 스타일에 따라 선택). 기본 사용. 끄면 진태양시에서 균시차를 제외해 재계산.
@@ -70,6 +73,17 @@ export default function ManseResultPage() {
   const [referenceDate] = useState(() => todayISO());
 
   useEffect(() => {
+    const sid =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("subject")
+        : null;
+    setSubjectId(sid);
+    // 로그인 사주면 DB에 등록된 확정 용신을 불러와 만세력 표시에 반영(Wizard 등록·교차기기 복원).
+    if (sid) {
+      getProfile(sid)
+        .then((pr) => setConfirmedYongsin(pr.confirmed_yongsin))
+        .catch(() => {});
+    }
     resolveProfile().then((p) => {
       if (!p) {
         router.replace("/manse");
@@ -114,6 +128,11 @@ export default function ManseResultPage() {
       void saveCalibration({
         sig: profileSig(profile), chartId: result.chart_id, answers, result: res,
       });
+    }
+    // 검증 확정 용신을 DB에도 영속 — 사주목록 카드·수정 폼이 같은 값을 읽도록(localStorage만 두지 않음).
+    if (subjectId && res.final_yongsin) {
+      setConfirmedYongsin(res.final_yongsin);
+      void setSubjectYongsin(subjectId, res.final_yongsin).catch(() => {});
     }
   };
 
@@ -167,6 +186,7 @@ export default function ManseResultPage() {
         <YongsinPanel
           result={result}
           calibration={calibration}
+          confirmedYongsin={confirmedYongsin}
           onRedo={() => setCalibration(null)}
         />
       </div>

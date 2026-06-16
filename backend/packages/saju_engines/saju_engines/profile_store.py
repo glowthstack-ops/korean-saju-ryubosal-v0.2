@@ -16,7 +16,8 @@ from saju_shared_types.profile import (
 
 from .precompute_store import default_dsn
 
-_MIGRATION = Path(__file__).resolve().parents[3] / "migrations" / "004_user_profiles.sql"
+_MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "migrations"
+_MIGRATION_FILES = ("004_user_profiles.sql", "012_subject_yongsin.sql")
 
 
 class ProfileStore:
@@ -33,9 +34,10 @@ class ProfileStore:
         return psycopg.connect(self._dsn)
 
     def migrate(self) -> None:
-        """마이그레이션 적용(멱등)."""
+        """마이그레이션 적용(멱등) — user_profiles(004) + 확정 용신 전용 테이블(012)."""
         with self._connect() as conn:
-            conn.execute(_MIGRATION.read_text(encoding="utf-8"))
+            for name in _MIGRATION_FILES:
+                conn.execute((_MIGRATIONS_DIR / name).read_text(encoding="utf-8"))
 
     def save(self, profile: UserProfile) -> None:
         """프로필 저장/갱신 — basic 변경 시 T0~T2 무효화는 호출 측(docs/09)."""
@@ -83,22 +85,24 @@ class ProfileStore:
         )
 
     def set_yongsin(self, user_id: str, element: str | None) -> None:
-        """확정 용신 저장(사주별) — user_profiles.confirmed_yongsin(migration 005).
+        """확정 용신 저장(사주별, 전용 테이블 UPSERT) — migration 012.
 
-        프로필 행이 없으면 갱신은 무시된다(먼저 save로 basic을 기록할 것).
+        프로필 행(basic/persona NOT NULL) 유무와 무관하게 동작한다 — 만세력 페이지의 용신 검증
+        확정을 프로필 없이도 영속하기 위해 전용 테이블(subject_yongsin)을 쓴다.
         """
         with self._connect() as conn:
             conn.execute(
-                "UPDATE user_profiles SET confirmed_yongsin = %s, updated_at = now() "
-                "WHERE user_id = %s",
-                (element, user_id),
+                "INSERT INTO subject_yongsin (subject_id, confirmed_yongsin) VALUES (%s, %s) "
+                "ON CONFLICT (subject_id) DO UPDATE SET "
+                "  confirmed_yongsin = EXCLUDED.confirmed_yongsin, updated_at = now()",
+                (user_id, element),
             )
 
     def get_yongsin(self, user_id: str) -> str | None:
-        """확정 용신 조회(없으면 None)."""
+        """확정 용신 조회(없으면 None) — 전용 테이블(subject_yongsin)."""
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT confirmed_yongsin FROM user_profiles WHERE user_id = %s",
+                "SELECT confirmed_yongsin FROM subject_yongsin WHERE subject_id = %s",
                 (user_id,),
             ).fetchone()
         return row[0] if row and row[0] else None

@@ -102,6 +102,37 @@ def put_profile(
     )
 
 
+class YongsinUpsert(BaseModel):
+    """확정 용신만 저장 — 만세력 페이지 용신 검증 확정용(프로필 행 없어도 동작)."""
+
+    confirmed_yongsin: str | None = None
+
+
+class YongsinResponse(BaseModel):
+    """확정 용신 응답."""
+
+    subject_id: str
+    confirmed_yongsin: str | None
+
+
+@router.put("/{subject_id}/yongsin", response_model=YongsinResponse)
+def put_yongsin(
+    subject_id: str,
+    body: YongsinUpsert,
+    owner_id: OwnerId,
+    subjects: Subjects,
+    profiles: Profiles,
+) -> YongsinResponse:
+    """확정 용신만 저장(사주별) — 만세력 페이지 용신 검증 확정을 DB에 영속.
+
+    basic/persona가 필요한 전체 프로필 저장과 달리, 용신 검증만 마친 단계(프로필 행 없음)에서도
+    동작하도록 전용 테이블에 UPSERT한다. 사주목록 카드·수정 폼이 같은 값을 읽는다.
+    """
+    _assert_owned(subjects, subject_id, owner_id)
+    profiles.set_yongsin(subject_id, body.confirmed_yongsin)
+    return YongsinResponse(subject_id=subject_id, confirmed_yongsin=body.confirmed_yongsin)
+
+
 @router.delete("/{subject_id}/extended/{field}", status_code=204)
 def delete_extended_field(
     subject_id: str, field: str, owner_id: OwnerId, subjects: Subjects, profiles: Profiles

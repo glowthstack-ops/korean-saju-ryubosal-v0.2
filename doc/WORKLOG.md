@@ -3699,3 +3699,21 @@ wealth_act 양쪽에 잡히는 계열 중복도 확인.)
 - 원칙: **체용 반영 부족이 아니라 중복 반영이 위험** — 새 항목 추가보다 중복 제거가 우선.
 
 생극제화/체용 반영 작업(化 길흉 / 대운 배경 / 制 무력화) 완료. 체용은 더 넣지 않는다.
+
+### 확정 용신 동기화 버그 수정 — 검증 확정이 DB·사주목록에 반영 (2026-06-16)
+
+증상: 만세력 페이지에서 용신을 등록(검증 확정)해도 ①만세력 페이지에서 미입력으로 노출(교차기기),
+②사주목록 수정·카드에서 미등록으로 노출. 근본 원인: 확정 용신이 두 저장소로 갈라져 desync —
+만세력 검증 확정은 localStorage(calibration)만 저장하고 DB(confirmed_yongsin, 사주목록·수정 폼·
+백엔드가 읽는 값)엔 절대 쓰지 않았다. 게다가 user_profiles.confirmed_yongsin은 basic/persona
+NOT NULL이라 프로필 행 없이는 저장 불가.
+
+- **DB 분리**: migration 012 `subject_yongsin`(subject_id PK) 전용 테이블 + 기존 user_profiles.
+  confirmed_yongsin 이관(컬럼 있을 때만). ProfileStore.get/set_yongsin을 이 테이블 UPSERT로 변경 —
+  프로필 행 유무와 무관하게 동작(호출부는 메서드만 쓰므로 불변). migrate에 012 추가.
+- **신규 엔드포인트** `PUT /api/v2/profile/{id}/yongsin` — 확정 용신만 저장(소유 검증). basic 불요.
+- **프론트**: lib.setSubjectYongsin. 만세력 페이지 onCalibrationResult가 검증 확정 용신을 DB에 영속
+  + 로드 시 getProfile로 DB 확정값을 불러와 YongsinPanel에 반영(교차기기·Wizard 등록 복원,
+  '등록된 용신 반영됨' 배지). 표시 우선순위: 이 기기 검증 > DB 등록 > 계산 후보.
+- **검증**: 신규 통합 테스트(프로필 행 없이 등록·해제·타계정 404) 포함 전체 pytest 760 pass,
+  ruff·mypy clean. 프론트 tsc·vitest(23)·build pass. 실DB 스모크(행 없이 set/get) 확인.

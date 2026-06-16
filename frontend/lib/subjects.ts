@@ -47,6 +47,14 @@ export function saveProfile(subjectId: string, body: ProfileUpsert): Promise<Pro
   return putJSON<ProfileResponse>(`/api/v2/profile/${subjectId}`, body);
 }
 
+// 확정 용신만 저장(만세력 페이지 용신 검증 확정) — 프로필 행 없어도 DB에 영속.
+export function setSubjectYongsin(
+  subjectId: string,
+  element: string | null,
+): Promise<{ subject_id: string; confirmed_yongsin: string | null }> {
+  return putJSON(`/api/v2/profile/${subjectId}/yongsin`, { confirmed_yongsin: element });
+}
+
 export function deleteExtendedField(subjectId: string, field: string): Promise<void> {
   return deleteJSON(`/api/v2/profile/${subjectId}/extended/${field}`);
 }
