@@ -34,6 +34,10 @@ export function Gnb() {
   // 스크롤 방향에 따라 top bar 숨김/표시(아래로 스크롤=숨김, 위로 스크롤=표시).
   const [hidden, setHidden] = useState(false);
   const pathname = usePathname();
+  // 현재 페이지 타이틀 — 헤더의 '류보살 v2' 자리를 대체 표시(없으면 브랜드).
+  const pageTitle = [...FREE, ...PAID].find(
+    (n) => pathname === n.href || pathname.startsWith(`${n.href}/`),
+  )?.label;
   const { isLoggedIn } = useAuth();
   const { selected } = useSelectedSubject();
   const { badgeCount } = useReportNotifications();
@@ -101,8 +105,12 @@ export function Gnb() {
               <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
             )}
           </button>
-          <Link href="/" className="text-lg font-bold">
-            류보살 <span className="text-gray-400">v2</span>
+          <Link href="/" className="text-lg font-bold" aria-label="홈">
+            {pageTitle ?? (
+              <>
+                류보살 <span className="text-gray-400">v2</span>
+              </>
+            )}
           </Link>
           {selected && (
             <div className="relative ml-auto">

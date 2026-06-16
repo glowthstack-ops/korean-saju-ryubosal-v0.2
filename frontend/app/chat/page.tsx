@@ -3,7 +3,7 @@
 // AI채팅상담 (로그인 전용) — 선택된 사주로 /api/v2/chat 호출, 계정 페르소나(문체) 적용,
 // thread_id로 멀티턴 유지. 엔진이 계산한 점수·간지를 LLM이 서술한 결과를 그대로 표시한다.
 
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
@@ -38,16 +38,50 @@ interface Message {
   error?: boolean; // 생성 실패(서버 안내문)
 }
 
-const SUGGESTIONS = [
-  "올해 이직운 어때?",
-  "내년 연애운은 어때?",
-  "올해 재물운 좀 봐줘",
-  "다음 달 이사하기 좋은 날짜 알려줘",
-  "내 용신이 뭐야?",
-];
-
 function newThreadId(): string {
   return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// '+' 메뉴 액션 → 레이어 팝업 모달. 모바일은 바텀시트, 데스크톱은 가운데 정렬.
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      role="dialog"
+      aria-modal="true"
+    >
+      <button
+        type="button"
+        aria-label="닫기"
+        className="absolute inset-0 bg-black/30"
+        onClick={onClose}
+      />
+      <div className="relative z-10 max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="rounded p-1 text-gray-400 hover:bg-gray-100"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeWidth="2" strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 // 서버 저장 메시지 → 말풍선. pending(생성 중)/error(실패)는 플래그로 표시한다.
@@ -161,19 +195,14 @@ export default function ChatPage() {
     setShowPartner((v) => !v);
     loadSubjectsOnce();
   }
-  // '+' 팝업에서 패널 열기 — 다른 패널은 닫고 대상만 열며, 패널이 상단에 있으므로 상단으로 스크롤.
+  // '+' 팝업에서 레이어 모달 열기 — 다른 모달은 닫고 대상만 연다(오버레이라 스크롤 불필요).
   function closeMenuAndOpen(panel: "switch" | "partner" | "history") {
     setShowMenu(false);
-    setShowSwitch(false);
-    setShowPartner(false);
-    setShowHistory(false);
-    if (panel === "switch") openSwitch();
-    else if (panel === "partner") openPartner();
-    else {
-      loadThreads();
-      setShowHistory(true);
-    }
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    setShowSwitch(panel === "switch");
+    setShowPartner(panel === "partner");
+    setShowHistory(panel === "history");
+    if (panel !== "history") loadSubjectsOnce();
+    else loadThreads();
   }
 
   // 첨부 상태를 스레드별로 영속화(새로고침·대화 이어가기에도 유지). setPartner 대신 사용.
@@ -336,12 +365,10 @@ export default function ChatPage() {
 
   return (
     // pb-24: 하단 고정 입력바에 가려지지 않도록 본문 끝에 여백 확보.
-    <div className="space-y-4 pb-24">
-      <section className="rounded-lg bg-white p-4 shadow-sm">
-        <h1 className="text-base font-bold text-gray-800">AI채팅상담</h1>
-
-        {showSwitch && (
-          <div className="mt-3 space-y-1.5 border-t pt-3">
+    <div className="pb-28">
+      {showSwitch && (
+        <Modal title="사주 변경" onClose={() => setShowSwitch(false)}>
+          <div className="space-y-1.5">
             <p className="text-xs text-gray-500">상담할 사주를 고르세요 (본인·동반자)</p>
             {subjects.length === 0 ? (
               <p className="text-xs text-gray-400">사주목록 불러오는 중…</p>
@@ -371,25 +398,12 @@ export default function ChatPage() {
               </div>
             )}
           </div>
-        )}
+        </Modal>
+      )}
 
-        {partner && (
-          <div className="mt-2 flex items-center gap-2 rounded border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs text-rose-700">
-            <span>
-              동반자: <span className="font-medium">{partner.label}</span> — 질문에 따라 이 상대와
-              함께(관계·궁합 등) 풀이해요
-            </span>
-            <button
-              onClick={() => attachPartner(null)}
-              className="ml-auto rounded border border-rose-200 px-1.5 py-0.5 text-rose-500"
-            >
-              해제
-            </button>
-          </div>
-        )}
-
-        {showPartner && (
-          <div className="mt-3 space-y-2 border-t pt-3">
+      {showPartner && (
+        <Modal title="동반자 추가" onClose={() => setShowPartner(false)}>
+          <div className="space-y-2">
             <p className="text-xs text-gray-500">
               함께 볼 동반자를 고르거나 즉석 입력하세요(1회용). 궁합 확정이 아니라 질문에 따라
               관계·궁합 등으로 함께 풀이됩니다. (해제 전까지 이후 질문에 적용)
@@ -409,7 +423,7 @@ export default function ChatPage() {
                     <span className="block truncate">
                       {s.label}
                       <span className="ml-1 text-[11px] text-gray-400">
-                        {s.kind === "self" ? "본인" : "동반자"}
+                        {s.relation_to_user ?? (s.kind === "self" ? "본인" : "동반자")}
                       </span>
                     </span>
                     <span className="block text-[11px] text-gray-400">{s.birth.birth_date}</span>
@@ -430,9 +444,12 @@ export default function ChatPage() {
               </div>
             </details>
           </div>
-        )}
-        {showHistory && (
-          <div className="mt-3 max-h-64 space-y-1.5 overflow-y-auto border-t pt-3">
+        </Modal>
+      )}
+
+      {showHistory && (
+        <Modal title="대화 목록" onClose={() => setShowHistory(false)}>
+          <div className="max-h-[60vh] space-y-1.5 overflow-y-auto">
             {threads.length === 0 ? (
               <p className="text-xs text-gray-400">저장된 대화가 없어요.</p>
             ) : (
@@ -478,25 +495,12 @@ export default function ChatPage() {
               ))
             )}
           </div>
-        )}
-      </section>
+        </Modal>
+      )}
 
-      <section className="min-h-[300px] space-y-3 rounded-lg bg-white p-4 shadow-sm">
+      <section className="min-h-[70vh] space-y-3 pt-3">
         {messages.length === 0 && (
-          <div className="space-y-2">
-            <p className="text-sm text-gray-500">이렇게 물어보세요:</p>
-            <div className="flex flex-wrap gap-2">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => void send(s)}
-                  className="rounded-full border px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
+          <p className="pt-20 text-center text-sm text-gray-400">무엇이든 물어보세요.</p>
         )}
 
         {messages.map((m, i) => (
@@ -547,14 +551,32 @@ export default function ChatPage() {
 
       {/* 질문 입력란 — 브라우저 하단 고정(본문은 위 pb-24로 가림 방지). '+' 레이어 팝업으로
           새 대화·사주변경·동반자추가·대화목록을 연다. iOS 안전영역(노치) 보정. */}
+      {/* 메신저 스타일 입력 — 하단 고정. '+'로 레이어 팝업(새 대화·사주변경·동반자추가·대화목록). */}
       <form
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur"
+        className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-white via-white/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2"
         onSubmit={(e) => {
           e.preventDefault();
           void send(input);
         }}
       >
-        <div className="relative mx-auto flex max-w-4xl items-center gap-2">
+        <div className="relative mx-auto max-w-4xl">
+          {/* 동반자 첨부 칩 */}
+          {partner && (
+            <div className="mb-2 flex w-fit items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs text-rose-700">
+              <span>
+                동반자 <span className="font-medium">{partner.label}</span> — 질문에 따라 함께 풀이
+              </span>
+              <button
+                type="button"
+                onClick={() => attachPartner(null)}
+                className="rounded-full px-1 text-rose-500 hover:bg-rose-100"
+                aria-label="동반자 해제"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* '+' 레이어 팝업 */}
           {showMenu && (
             <>
@@ -564,7 +586,7 @@ export default function ChatPage() {
                 className="fixed inset-0 z-10 cursor-default"
                 onClick={() => setShowMenu(false)}
               />
-              <div className="absolute bottom-12 left-0 z-20 w-44 overflow-hidden rounded-lg border bg-white text-sm shadow-lg">
+              <div className="absolute bottom-16 left-1 z-20 w-44 overflow-hidden rounded-lg border bg-white text-sm shadow-lg">
                 <button
                   type="button"
                   onClick={() => { setShowMenu(false); newConversation(); }}
@@ -574,21 +596,21 @@ export default function ChatPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { closeMenuAndOpen("switch"); }}
+                  onClick={() => closeMenuAndOpen("switch")}
                   className="block w-full border-t px-3 py-2 text-left hover:bg-gray-50"
                 >
                   사주 변경
                 </button>
                 <button
                   type="button"
-                  onClick={() => { closeMenuAndOpen("partner"); }}
+                  onClick={() => closeMenuAndOpen("partner")}
                   className="block w-full border-t px-3 py-2 text-left hover:bg-gray-50"
                 >
                   동반자 추가
                 </button>
                 <button
                   type="button"
-                  onClick={() => { closeMenuAndOpen("history"); }}
+                  onClick={() => closeMenuAndOpen("history")}
                   className="flex w-full items-center justify-between border-t px-3 py-2 text-left hover:bg-gray-50"
                 >
                   <span>대화 목록</span>
@@ -601,40 +623,51 @@ export default function ChatPage() {
               </div>
             </>
           )}
-          <button
-            type="button"
-            aria-label="메뉴"
-            onClick={() => setShowMenu((v) => !v)}
-            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xl leading-none text-gray-600 hover:bg-gray-50"
-          >
-            +
-            {unseenCount > 0 && !showMenu && (
-              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-indigo-500 ring-2 ring-white" />
-            )}
-          </button>
-          <div className="relative flex-1">
-            <input
+
+          {/* 메신저 입력 박스 — 메시지란 위, 액션행(+·글자수·보내기) 아래 */}
+          <div className="rounded-2xl border border-gray-300 bg-white shadow-sm focus-within:border-gray-400">
+            <textarea
               value={input}
               onChange={(e) => setInput(e.target.value.slice(0, MAX_INPUT))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void send(input);
+                }
+              }}
               maxLength={MAX_INPUT}
-              placeholder="질문을 입력하세요 (예: 올해 이직운 어때?)"
-              className="w-full rounded-lg border py-2 pl-4 pr-14 text-sm"
+              rows={1}
+              placeholder="메시지…"
               disabled={busy}
+              className="block max-h-32 w-full resize-none bg-transparent px-4 pt-3 text-sm outline-none"
             />
-            <span className="pointer-events-none absolute bottom-1 right-2 text-[10px] text-gray-400">
-              {input.length} / {MAX_INPUT}
-            </span>
+            <div className="flex items-center gap-1 px-2 pb-2">
+              <button
+                type="button"
+                aria-label="메뉴"
+                onClick={() => setShowMenu((v) => !v)}
+                className="relative flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none text-gray-500 hover:bg-gray-100"
+              >
+                +
+                {unseenCount > 0 && !showMenu && (
+                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-indigo-500" />
+                )}
+              </button>
+              <span className="ml-auto text-[10px] text-gray-400">
+                {input.length} / {MAX_INPUT}
+              </span>
+              <button
+                type="submit"
+                aria-label="보내기"
+                disabled={busy || !input.trim()}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white disabled:bg-gray-200 disabled:text-gray-400"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 19V5M5 12l7-7 7 7" />
+                </svg>
+              </button>
+            </div>
           </div>
-          <button
-            type="submit"
-            aria-label="보내기"
-            disabled={busy || !input.trim()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white disabled:opacity-40"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 19V5M5 12l7-7 7 7" />
-            </svg>
-          </button>
         </div>
       </form>
     </div>
