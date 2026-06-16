@@ -157,11 +157,15 @@ def score_table_lines(
 def month_overview_lines(
     result: ManseV2Result, scored: list[EventCandidate]
 ) -> list[str]:
-    """이 해 12개월 전체를 한 줄씩 — 월 간지·우세 도메인·강도밴드·길흉·대표 신호(★=주목 3달).
+    """이 해 12개월 전체를 한 줄씩 — 월 간지·운 품질 등급·우세 도메인·강도밴드·길흉·대표 신호.
 
     한해풀이에서 한두 강신호가 전 섹션에 반복되는 문제(2026-06-16)를 막기 위해, 월별 흐름
     섹션이 12개월을 빠짐없이 고르게 다루도록 모든 달을 데이터로 제공한다. 점수는 절대값 대신
     강/중/약 밴드로 노출한다(표시용 격하). 신호 없는 달도 누락하지 않는다(빠짐없이 12줄).
+
+    각 달에 운 품질 등급(luck_label '강한 용신운' 등)을 〈…〉로 함께 노출한다 — 좋은 달/주의할
+    달은 사건 밀도가 아니라 이 운 품질이 1차 기준이다(길흉=용신/기신). 신약 사주에 천간·지지가
+    모두 용신인 '강한 용신운' 달은 사건이 적어도 기반이 가장 좋은 달이라, ★주목에도 포함한다.
     """
     lc = result.luck_cycles
     if lc is None or not lc.monthly_luck:
@@ -179,17 +183,23 @@ def month_overview_lines(
     # 주목할 달 Top3 — 대표 후보 점수 기준(신호 없는 달은 0점 취급).
     ranked = sorted((p.label for p in lc.monthly_luck), key=lambda lb: -month_score[lb])
     top3 = {lb for lb in ranked[:3] if rep[lb] is not None}
+    # 운 품질이 뚜렷한 달(천간·지지 모두 용신/기신)도 주목 — 사건이 적어도 길흉 변별의 핵심.
+    strong_quality = {
+        p.label for p in lc.monthly_luck if p.luck_label in ("강한 용신운", "강한 기신운")
+    }
+    notable = top3 | strong_quality
     lines: list[str] = []
     for p in lc.monthly_luck:
         cand = rep[p.label]
         tg = f"천간 {p.stem_ten_god or '?'}·지지 {p.branch_ten_god or '?'}"
-        star = " ★주목" if p.label in top3 else ""
+        grade = f" 〈{p.luck_label}〉" if p.luck_label else ""  # 운 품질 등급 — 길흉 1차 기준
+        star = " ★주목" if p.label in notable else ""
         if cand is None:
-            lines.append(f"{p.label} {p.ganji}({tg}): 두드러진 신호 약함{star}")
+            lines.append(f"{p.label} {p.ganji}({tg}){grade}: 두드러진 신호 약함{star}")
         else:
             dom = _DOMAIN_KO.get(_DOMAIN_BY_KEY.get(str(cand.event_key), ""), "일반")
             lines.append(
-                f"{p.label} {p.ganji}({tg}): {dom} {score_band(cand.score)} · "
+                f"{p.label} {p.ganji}({tg}){grade}: {dom} {score_band(cand.score)} · "
                 f"{polarity_ko(str(cand.polarity))} · {event_ko(cand.event_key)}{star}"
             )
     return lines

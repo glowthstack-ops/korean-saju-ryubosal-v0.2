@@ -3546,3 +3546,20 @@ AI 채팅 상담뿐 아니라 **테마 사주 뷰어(ReportPager)에도 공통 �
 - **검증**: 실차트 재실행 — 2026-10만 〈강한 용신운〉(유일), 전 달 사건점수 100 포화에도 운 품질로 변별.
   신규 테스트(period_role 더블 4 + yongi STRONG 3 + serialize 1) 포함 전체 pytest 743 pass, ruff·mypy
   clean(touched), validate_dictionaries 53/53. event_graph 재빌드 불요.
+
+### 테마(리포트) 경로에도 월별 운 품질 등급 적용 (2026-06-16)
+
+사용자 확인 질문: 앞선 변경이 테마 사주(리포트)에도 모두 적용되는가. 점검 결과:
+- 스코어링(길흉=용신/기신·한신 생·더블 용신 YONG_STRONG/GI_STRONG): 리포트도 동일 EventEngineV2
+  (report_service.scorer)를 써서 **이미 적용**.
+- LLM 해석 우선순위·취소선 제거: _REPORT_SYSTEM_PROMPT·llm_client 공유라 **이미 적용**.
+- **월별 운 품질 등급: 미적용이었음** — 리포트는 build_monthly_overview가 아니라
+  report_event_input.month_overview_lines를 쓰기 때문. 이번에 동일하게 보강:
+  - 각 달 라인에 〈운 품질 등급〉(p.luck_label) 노출(LuckPillar 직접 보유).
+  - ★주목 선정에 '강한 용신운'/'강한 기신운' 달 포함(사건 점수 Top3 ∪ 강품질) — 사건 적은
+    강한 용신운 달이 누락되지 않게.
+  - report_service.month_overview_block 지시문을 "좋은 달/주의할 달의 1차 기준은 사건 밀도가
+    아니라 운 품질 등급, 강한 용신운 달은 사건 적어도 기반이 가장 좋은 달"로 보강.
+- **검증**: 실차트(己土 신약) 2026 리포트 월별 — 2026-10 戊戌이 〈강한 용신운〉 ★주목으로 노출,
+  전 달 운 품질 등급 부착 확인. 신규 test_month_overview_surfaces_luck_grade 포함 전체 pytest 744
+  pass, ruff·mypy clean(touched).
