@@ -628,11 +628,18 @@ export default function ChatPage() {
                   className="flex w-full items-center justify-between border-t px-3 py-2 text-left hover:bg-gray-50"
                 >
                   <span>대화 목록</span>
-                  {unseenCount > 0 && (
-                    <span className="ml-2 inline-flex h-4 min-w-[1.25rem] items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-bold text-white">
-                      {unseenCount > 99 ? "99+" : unseenCount}
-                    </span>
-                  )}
+                  <span className="ml-2 flex items-center gap-1">
+                    {threads.length > 0 && (
+                      <span className="inline-flex h-4 min-w-[1.25rem] items-center justify-center rounded bg-gray-200 px-1 text-[10px] font-semibold text-gray-600">
+                        {threads.length}
+                      </span>
+                    )}
+                    {unseenCount > 0 && (
+                      <span className="inline-flex h-4 min-w-[1.25rem] items-center justify-center rounded bg-indigo-500 px-1 text-[10px] font-bold text-white">
+                        {unseenCount > 99 ? "99+" : unseenCount}
+                      </span>
+                    )}
+                  </span>
                 </button>
               </div>
             </>
@@ -659,7 +666,10 @@ export default function ChatPage() {
               <button
                 type="button"
                 aria-label="메뉴"
-                onClick={() => setShowMenu((v) => !v)}
+                onClick={() => {
+                  if (!showMenu) loadThreads(); // 열 때 목록·개수 최신화
+                  setShowMenu((v) => !v);
+                }}
                 className="relative flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none text-gray-500 hover:bg-gray-100"
               >
                 +
