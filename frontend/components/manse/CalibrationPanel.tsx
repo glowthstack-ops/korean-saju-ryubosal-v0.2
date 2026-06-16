@@ -86,11 +86,6 @@ export function YongsinPanel({
       <p className="text-sm">
         상태:{" "}
         <b>{registered ? "확정(등록됨)" : (statusKo[calibration?.status ?? y.status] ?? y.status)}</b>
-        {registered && (
-          <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800">
-            등록된 용신 반영됨
-          </span>
-        )}
       </p>
       <div className="mt-2 grid grid-cols-5 gap-1.5 text-xs">
         <Box label="용신" v={yongsin} />
