@@ -317,6 +317,10 @@ class EventEngineV2:
         cands = self._wealth_act.apply(
             cands, capacity, self._wealth_activations(result, stack, capacity),
         )
+        # 대운 합화 체용 배경 — 대운 化神의 용기신 역할로 성패율에 약한 배경 보정(직접 치환 아님).
+        cands = _apply_daewoon_hwa_background(
+            cands, _daewoon_hwa_role(stack, result, fav_map)
+        )
         # 증거 등급·충돌 해결(랭커의 등급 보너스도 raw 누적의 일부).
         rank_ctx = _rank_context(
             activations, present_gods, cands, occupation_status, relationship_status,
@@ -479,10 +483,11 @@ def _target_hwa_element(
 ) -> str | None:
     """그 시점 본 천간(세운·월운 등)이 confirmed 합화면 化神 오행(한자)을 반환(아니면 None).
 
-    生剋制化 우선(化): 합화로 오행이 바뀌면 그 化神 오행으로 '용신/기신=길흉'을 본다. 사건 '종류'
-    (십성→이벤트)는 바꾸지 않는다(세운·월운이 결정) — 化는 길흉 계층에만 반영(사용자 확정
-    2026-06-16). 일간 자합(본신지합)은 hap_mode!='transform'이라 제외된다. 대운 등 배경 천간의
-    합화는 여기서 다루지 않는다(체용/용신 계층 별도 — per-월 길흉 블랭킷 지양).
+    生剋制化 우선(化): 사건 라벨은 본 운의 원래 십성·궁위·관계작용(합충형파해)이 결정하고, 합화는
+    그 사건의 길흉·강약·성패 판단에만 반영한다(사용자 확정 2026-06-16). 본 천간이 합화하면 化神
+    오행으로 '용신/기신=길흉'을 본다 — 사건 종류·개수는 불변. 일간 자합(본신지합)은
+    hap_mode!='transform'이라 제외. 대운 합화는 per-월 길흉/본신 십성을 직접 치환하지 않으며,
+    대운 기간의 체용·용신 적합도·성패율에 배경값으로만 반영한다(_apply_daewoon_hwa_background).
     """
     if result.pillars is None or not target.stem:
         return None
@@ -503,6 +508,74 @@ def _target_hwa_element(
         ):
             return res.transform_element
     return None
+
+
+# 대운 합화 체용 배경 보정(슬라이스 2) — 길/흉 품질 집합 + 보정폭(잠정, Phase 4 캘리브레이션).
+_GOOD_Q = {EventQuality.OPPORTUNITY, EventQuality.ACHIEVEMENT, EventQuality.RESOLUTION}
+_BAD_Q = {EventQuality.LOSS, EventQuality.PRESSURE, EventQuality.CONFLICT}
+_DAEWOON_HWA_BG = 0.03
+
+
+def _daewoon_hwa_role(
+    stack: list[tuple[LuckLayer, LuckPillar]],
+    result: ManseV2Result,
+    fav_map: dict[str, str],
+) -> PolarityRole | None:
+    """현재 대운 천간이 confirmed 합화면 化神 오행의 용기신 역할(체용 배경값). 아니면 None.
+
+    대운 합화는 사건 라벨·본신 십성을 치환하지 않고, 대운 기간의 성패율(길흉)에만 약한 배경으로
+    반영한다(10년 배경 체질 변화). 본신지합(일간 자합)은 hap_mode!='transform'이라 제외.
+    """
+    if result.pillars is None:
+        return None
+    dw_stem = next((p.stem for layer, p in stack if layer is LuckLayer.DAEWOON), None)
+    if not dw_stem:
+        return None
+    try:
+        resolutions = resolve_stem_hap(result.pillars, fav_map, luck_stems=[dw_stem])
+    except (ValueError, KeyError):
+        return None
+    for res in resolutions:
+        if (
+            res.luck_origin and res.transform_tier == "confirmed"
+            and res.hap_mode == "transform" and res.transform_element
+            and any(
+                pos == "luck" and st == dw_stem
+                for pos, st in zip(res.positions, res.pair, strict=False)
+            )
+        ):
+            return _FAV_ROLE.get(fav_map.get(res.transform_element, ""))
+    return None
+
+
+def _apply_daewoon_hwa_background(
+    cands: list[EventCandidateV2], dw_role: PolarityRole | None
+) -> list[EventCandidateV2]:
+    """대운 합화 化神의 용기신 역할로 사건 성패율에 약한 배경 보정(직접 치환 아님).
+
+    보강 대운(化神 용·희): 길 사건↑·흉 사건 완화. 압력 대운(化神 기·구): 흉 사건↑·길 사건↓.
+    폭은 작고 잠정(체용 배경) — 사건 종류·개수는 불변. 같은 대운 내 길/흉 상대 성패만 미세 조정.
+    """
+    if dw_role is None or dw_role is PolarityRole.NEUTRAL:
+        return cands
+    boon = dw_role in (PolarityRole.YONG, PolarityRole.HEE)
+    tag = f"DAEWOON_HWA_BG_{'보강' if boon else '압력'}"
+    out: list[EventCandidateV2] = []
+    for c in cands:
+        if c.quality in _GOOD_Q:
+            factor = 1 + _DAEWOON_HWA_BG if boon else 1 - _DAEWOON_HWA_BG
+        elif c.quality in _BAD_Q:
+            factor = 1 - _DAEWOON_HWA_BG if boon else 1 + _DAEWOON_HWA_BG
+        else:
+            out.append(c)
+            continue
+        new_score = max(0, round(c.score * factor))
+        out.append(c.model_copy(update={
+            "score": new_score,
+            "reason_codes": [*c.reason_codes, tag],
+            "contributions": {**c.contributions, "daewoon_hwa": float(new_score - c.score)},
+        }))
+    return out
 
 
 def _han_gen_role(element: str, fav_map: dict[str, str]) -> PolarityRole | None:
