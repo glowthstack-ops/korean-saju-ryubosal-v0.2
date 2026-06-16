@@ -199,6 +199,7 @@ export default function ManseResultPage() {
           onResult={onCalibrationResult}
           initialAnswers={savedAnswers}
           submitted={calibration !== null}
+          registered={!!confirmedYongsin && calibration === null}
         />
       </div>
 

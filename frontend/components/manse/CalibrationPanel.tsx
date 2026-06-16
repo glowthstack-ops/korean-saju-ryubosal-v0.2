@@ -145,6 +145,7 @@ export function CalibrationPanel({
   onResult,
   initialAnswers,
   submitted = false,
+  registered = false,
 }: {
   result: ManseResult;
   profile: Profile;
@@ -154,11 +155,14 @@ export function CalibrationPanel({
   onResult: (r: CalibrationResult, answers: AnswerMap) => void;
   initialAnswers?: AnswerMap;
   submitted?: boolean;
+  // DB에 이미 확정 용신이 등록된 상태(이 기기 검증 기록은 없음) — 질문 대신 '등록 완료'를 표시한다.
+  registered?: boolean;
 }) {
   const questions = result.calibration?.questions ?? [];
   const [answers, setAnswers] = useState<AnswerMap>(initialAnswers ?? {});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reverify, setReverify] = useState(false);
 
   // 저장된 답변이 비동기로 도착하면 1회 복원(사용자 입력 전 복원되므로 안전).
   useEffect(() => {
@@ -169,6 +173,22 @@ export function CalibrationPanel({
 
   // 제출 완료 시 문항을 접는다(완료 표시·재시도는 위 '용신 후보' 패널에서 처리).
   if (submitted) return null;
+
+  // 이미 DB에 등록된 용신이 있으면 질문 대신 '등록 완료'를 보여준다 — 원하면 다시 검증 가능.
+  if (registered && !reverify) {
+    return (
+      <section className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 p-4">
+        <span className="text-sm font-semibold text-emerald-800">용신 등록 완료</span>
+        <button
+          type="button"
+          onClick={() => setReverify(true)}
+          className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50"
+        >
+          다시 검증
+        </button>
+      </section>
+    );
+  }
 
   // 문항이 없으면(예: 어린 나이로 과거 운 이력이 부족) 빈 화면 대신 사유를 안내한다.
   if (questions.length === 0) {

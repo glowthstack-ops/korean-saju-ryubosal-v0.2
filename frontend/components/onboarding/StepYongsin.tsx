@@ -64,6 +64,7 @@ export function StepYongsin({
         referenceDate={referenceDate}
         initialAnswers={answers}
         submitted={calibration !== null}
+        registered={initialConfirmed && calibration === null}
         onResult={(r, a) => {
           setCalibration(r);
           setAnswers(a);

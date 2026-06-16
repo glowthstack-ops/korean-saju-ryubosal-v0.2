@@ -3729,3 +3729,13 @@ NOT NULL이라 프로필 행 없이는 저장 불가.
   YongsinPanel에 confirmedYongsin 전달.
 - YongsinPanel: 등록된 경우 상태를 '확정(등록됨)'으로 + '등록된 용신 반영됨' 배지.
 - 검증: 프론트 tsc·vitest(23)·build pass. (확정 용신 동기화 후속 — 21ef333과 연결.)
+
+### 등록 후 검증 질문 노출 → '등록 완료' 표시 (2026-06-16)
+
+등록(DB 확정)했는데도 용신 검증 질문이 계속 노출되는 문제. CalibrationPanel은 submitted(이 기기
+검증 기록)일 때만 질문을 접었는데, DB로 등록한 경우 calibration=null이라 질문이 그대로 보였다.
+
+- CalibrationPanel에 registered prop + 내부 reverify 상태 추가 — registered && !reverify면 질문 대신
+  '용신 등록 완료'(+ '다시 검증' 버튼). 만세력 페이지(confirmedYongsin)·StepYongsin(initialConfirmed)
+  양쪽에서 전달.
+- 검증: 프론트 tsc·vitest(23)·build pass.
