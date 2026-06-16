@@ -56,8 +56,51 @@ _SUGGESTIONS = [
     ),
 ]
 
+# 분야 한글 라벨 — 활성 스레드 맥락 기반 제안(아래) 생성용.
+_DOMAIN_KO: dict[Domain, str] = {
+    Domain.RELATIONSHIP: "연애운", Domain.CAREER: "직업운", Domain.WEALTH: "금전운",
+    Domain.RELOCATION: "이사운", Domain.HEALTH: "건강운", Domain.EDUCATION: "학업운",
+}
 
-def assess(intent: IntentJson, original_query: str = "") -> QueryAssessment:
+
+def _context_suggestions(last: IntentJson | None) -> list[RewriteSuggestion]:
+    """직전(활성 스레드) intent의 분야를 이어가는 좁히기 제안(2026-06-16).
+
+    too_broad 단답이 활성 스레드 안에서 나오면, 하드코딩 일반 목록 대신 직전 분야를
+    잇는 제안을 준다(예: 이사 스레드 → '향후 6개월 이사운'/'특정 달 이사 좋은 날').
+    직전 분야를 알 수 없으면(GENERAL/없음) 빈 목록 → 호출 측이 일반 목록으로 폴백.
+    """
+    if last is None:
+        return []
+    dom = last.domain if last.domain is not Domain.GENERAL else (
+        last.domains[0] if last.domains else Domain.GENERAL
+    )
+    label = _DOMAIN_KO.get(dom)
+    if label is None:
+        return []
+    months = DEFAULT_PERIOD_MONTHS.get(dom, 3)
+    out = [
+        RewriteSuggestion(
+            label=f"향후 {months}개월 {label}",
+            query_type=QueryType.DOMAIN_ANALYSIS, domain=dom, time_scope="mid_term",
+        ),
+        RewriteSuggestion(
+            label=f"올해 {label}",
+            query_type=QueryType.DOMAIN_ANALYSIS, domain=dom, time_scope="mid_term",
+        ),
+    ]
+    # 이사 택일 스레드면 '다른 달 택일'도 제안(직전이 날짜 추천이었던 맥락 보존).
+    if dom is Domain.RELOCATION:
+        out.append(RewriteSuggestion(
+            label="특정 달 이사 좋은 날(예: 8월)",
+            query_type=QueryType.DATE_RECOMMENDATION, domain=dom,
+        ))
+    return out
+
+
+def assess(
+    intent: IntentJson, original_query: str = "", last_intent: IntentJson | None = None,
+) -> QueryAssessment:
     """B3 판정표 적용.
 
     | 시점 | 분야 | 대상 | 처리 |
@@ -92,10 +135,11 @@ def assess(intent: IntentJson, original_query: str = "") -> QueryAssessment:
         return QueryAssessment(status="ok")
 
     if not has_time and not has_domain:
+        # 활성 스레드가 있으면 직전 분야를 잇는 제안, 없으면 일반 목록으로 폴백.
         return QueryAssessment(
             status="too_broad",
             original_query=original_query,
-            rewrite_suggestions=_SUGGESTIONS,
+            rewrite_suggestions=_context_suggestions(last_intent) or _SUGGESTIONS,
         )
     if not has_time and has_domain:
         return QueryAssessment(

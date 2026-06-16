@@ -281,6 +281,17 @@ def test_rewriter_too_broad() -> None:
     assert len(result.rewrite_suggestions) == 3  # 실행 가능한 형태로 제안
 
 
+# 활성 스레드 맥락 기반 제안 — 직전이 이사 스레드면 일반 목록 대신 이사 좁히기 제안(2026-06-16).
+def test_rewriter_too_broad_uses_thread_context() -> None:
+    prior = _one("7월에 남동쪽으로 이동하는 이사야. 추천할 날짜가 있을까?")
+    vague = _one("그냥 추천 좀 해줘")
+    result = assess(vague, "그냥 추천 좀 해줘", last_intent=prior)
+    assert result.status == "too_broad"
+    labels = [s.label for s in result.rewrite_suggestions]
+    assert any("이사운" in lb for lb in labels)  # 직전 분야(이사)를 이어가는 제안
+    assert all("직업운" not in lb and "연애운" not in lb for lb in labels)  # 일반 목록 아님
+
+
 # 분야만 있으면 기본 기간 적용.
 def test_rewriter_default_period() -> None:
     intent = _one("재물운 풀이해줘")

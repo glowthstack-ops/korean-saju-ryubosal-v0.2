@@ -631,10 +631,12 @@ def chat(
     state: ConversationState | None = None
     repeated = False
     is_followup_turn = False
+    prior_intent = None  # 직전 턴 intent — 활성 스레드 맥락 기반 broad 제안용.
     if thread_id is not None:
         store = store or ConversationStore()
         store.migrate()
         state = store.load(thread_id) or ConversationState(thread_id=thread_id)
+        prior_intent = state.last_intent  # process_turn이 갱신하기 전 직전 intent 보존.
         engine = ConversationEngine()
         parsed, state, resolution, _link = engine.process_turn(
             state, question, today, birth_year=birth_year,
@@ -688,7 +690,7 @@ def chat(
 
     # 광범위/대상 판정(T3.2) — 추측 실행 금지. 단, 후속 정제 턴('평일도 없어?')은 직전
     # 의도를 상속했으므로 broad 안내로 빠뜨리지 않는다(스레드 단절 방지 — 2026-06-16).
-    assessment = assess(intent, question)
+    assessment = assess(intent, question, last_intent=prior_intent)
     if assessment.status in ("too_broad", "need_subject") and not (
         is_followup_turn and assessment.status == "too_broad"
     ):
