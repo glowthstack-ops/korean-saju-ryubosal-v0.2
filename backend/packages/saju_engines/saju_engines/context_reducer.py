@@ -310,23 +310,70 @@ def event_ko(key: EventKey | str) -> str:
     return _EVENT_KO.get(str(key), str(key))
 
 
-def _period_bounds(period: str) -> tuple[str, str]:
-    """후보 기간 라벨('2026'/'2026-05'/'2026-05-03') → ISO 구간."""
+def _period_bounds(
+    period: str, month_bounds: dict[str, tuple[str, str]] | None = None
+) -> tuple[str, str]:
+    """후보 기간 라벨('2026'/'2026-05'/'2026-05-03') → ISO 구간.
+
+    월 라벨은 절기 월이라 캘린더 월 경계로 잡으면 절입 직전 날을 다음 달로 오인한다
+    (2026-07-04는 절기상 甲午인데 캘린더 2026-07로 잡힘). month_bounds가 주어지면 그
+    절기 양력 경계를 우선 사용한다(월운 절기 경계 맵 — _month_seolgi_bounds).
+    """
     if len(period) == 4:
         return f"{period}-01-01", f"{period}-12-31"
     if len(period) == 7:
+        if month_bounds and period in month_bounds:
+            return month_bounds[period]
         return f"{period}-01", f"{period}-31"
     return period, period
 
 
-def in_question_range(period: str, start: str | None, end: str | None) -> bool:
-    """후보 기간이 질문 기간과 겹치는가(ISO 문자열 비교)."""
+def in_question_range(
+    period: str, start: str | None, end: str | None,
+    month_bounds: dict[str, tuple[str, str]] | None = None,
+) -> bool:
+    """후보 기간이 질문 기간과 겹치는가(ISO 문자열 비교, 월은 절기 경계 우선)."""
     if not start and not end:
         return True
-    p_start, p_end = _period_bounds(period)
-    q_start, _ = _period_bounds(start) if start else ("0000-01-01", "")
-    _, q_end = _period_bounds(end or start or "9999")
+    p_start, p_end = _period_bounds(period, month_bounds)
+    q_start, _ = _period_bounds(start, month_bounds) if start else ("0000-01-01", "")
+    _, q_end = _period_bounds(end or start or "9999", month_bounds)
     return p_start <= q_end and p_end >= q_start
+
+
+def _month_seolgi_bounds(result: ManseV2Result) -> dict[str, tuple[str, str]]:
+    """월운 라벨(YYYY-MM) → 절기 월 양력 경계(절입~다음 절입 전일) ISO 매핑.
+
+    월 후보 기간 비교를 절기 기준으로 맞춘다 — 캘린더 월 경계는 절입 직전 초순일을 다음
+    절기월로 오인하기 때문(질문일이 속한 절기월이 '지난 달'로 밀려나던 결함 보정).
+    """
+    lc = result.luck_cycles
+    if lc is None:
+        return {}
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
+    from saju_manse_core.calendar.solar_terms import get_table
+
+    tz_name = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
+    try:
+        tz = ZoneInfo(tz_name)
+        table = get_table()
+    except Exception:  # noqa: BLE001 — 절기 테이블 부재 시 캘린더 경계로 폴백
+        return {}
+    out: dict[str, tuple[str, str]] = {}
+    for p in lc.monthly_luck:
+        try:
+            y, m = int(p.label[:4]), int(p.label[5:7])
+            mid = datetime(y, m, 15, 12, 0, tzinfo=tz)
+            prev_jeol, next_jeol = table.bounding_month_terms(mid)
+            out[p.label] = (
+                prev_jeol.astimezone(tz).date().isoformat(),
+                (next_jeol.astimezone(tz).date() - timedelta(days=1)).isoformat(),
+            )
+        except (ValueError, TypeError, AttributeError):
+            continue
+    return out
 
 
 def tone_for_score(score: int) -> str:
@@ -349,6 +396,7 @@ def reduce_candidates(
     score_floor: int = SCORE_FLOOR,
     period_start: str | None = None,
     period_end: str | None = None,
+    month_bounds: dict[str, tuple[str, str]] | None = None,
 ) -> list[EventCandidate]:
     """이벤트 후보 축소 — graphScope + 임계값 + **질문 기간 필터** + Top N.
 
@@ -358,7 +406,7 @@ def reduce_candidates(
     scoped = [
         c for c in candidates
         if (not graph_scope or c.event_key in graph_scope) and c.score >= score_floor
-        and in_question_range(c.period, period_start, period_end)
+        and in_question_range(c.period, period_start, period_end, month_bounds)
     ]
     # LEI 정렬축(현실적합>과거유사) 우선 → 점수 포화 시 raw 가중 합 → 시점·키. 개인 시그니처
     # 미배선 시 life_fit·personal_match=0이라 기존 (-score, -raw_total) 정렬과 동치.
@@ -379,15 +427,17 @@ def reduce_with_context(
     top_n: int = TOP_N_CANDIDATES,
     score_floor: int = SCORE_FLOOR,
     out_of_range_n: int = 2,
+    month_bounds: dict[str, tuple[str, str]] | None = None,
 ) -> tuple[list[EventCandidate], list[EventCandidate]]:
     """(질문 기간 내 선별, 기간 외 참고 상위) — 참고는 배경 맥락 전용."""
     selected = reduce_candidates(
         candidates, graph_scope, top_n, score_floor, period_start, period_end,
+        month_bounds,
     )
     out_scoped = [
         c for c in candidates
         if (not graph_scope or c.event_key in graph_scope) and c.score >= score_floor
-        and not in_question_range(c.period, period_start, period_end)
+        and not in_question_range(c.period, period_start, period_end, month_bounds)
     ]
     out_top = sorted(
         out_scoped,
@@ -892,9 +942,11 @@ def build_llm_input(
         period_end = intent.time_range.end
     else:
         period_start = period_end = None
+    # 월 후보 기간 비교를 절기 경계로 — 질문일이 속한 절기월이 '지난 달'로 밀려나는 결함 보정.
+    month_bounds = _month_seolgi_bounds(result)
     selected, out_of_range = reduce_with_context(
         candidates, graph_scope or [b.event_key for b in bundles],
-        period_start, period_end,
+        period_start, period_end, month_bounds=month_bounds,
     )
     dw_by_year = _daewoon_lookup(result)
     ganji = _ganji_lookup(result)

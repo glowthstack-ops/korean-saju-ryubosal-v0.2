@@ -92,3 +92,22 @@ def test_date_correction_followup_inherits_prior_intent() -> None:
     assert i2.query_type is QueryType.DATE_RECOMMENDATION  # 일반 운세로 리셋되지 않음
     assert str(i2.event_key) == "contract_document"
     assert i2.time_range is not None and i2.time_range.start == "2026-07-04"
+
+
+# ── D. 월 후보 버킷팅 (절기 경계) ────────────────────────────────
+
+
+def test_month_candidate_bucketing_uses_solar_term_bounds() -> None:
+    """질문일(7/4)의 절기월(甲午=2026-06)이 '기간 내', 다음 절기월(乙未=2026-07)은 '기간 외'."""
+    from saju_engines.context_reducer import _month_seolgi_bounds, in_question_range
+
+    result = calculate(_BIRTH.model_copy(update={"reference_date": date(2026, 7, 4)}))
+    mb = _month_seolgi_bounds(result)
+    # 甲午(망종~소서 전일)는 7/4를 포함, 乙未(소서~)는 7/7부터.
+    assert mb["2026-06"][0] <= "2026-07-04" <= mb["2026-06"][1]
+    assert mb["2026-07"][0] > "2026-07-04"
+    # 단일일 질문 버킷팅: 甲午 in / 乙未 out.
+    assert in_question_range("2026-06", "2026-07-04", "2026-07-04", mb) is True
+    assert in_question_range("2026-07", "2026-07-04", "2026-07-04", mb) is False
+    # month_bounds 미제공(캘린더 경계)이면 옛 동작(7월=2026-07 in) — 하위호환.
+    assert in_question_range("2026-07", "2026-07-04", "2026-07-04") is True
