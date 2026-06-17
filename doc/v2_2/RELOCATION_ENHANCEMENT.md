@@ -101,6 +101,23 @@
 - RL-04/RL-06은 relocation 도메인으로 스코프된 기존 운 흐름 블록을 사용. 일자 택일(DAY)은
   리포트 미포함 — 택일은 채팅 라우트 담당. 신호 약함·실패 시 빈 폴백(규칙 11).
 
+## 6. M10 그룹 리졸버 오케스트레이션 (채팅 + 리포트)
+
+M10 RelocationResolver(다인 집계·방위·택일 랭킹)를 production에 연결한다. 범위: 본인+첨부
+상대 2인(기존 partner 메커니즘 재사용 — 요청 스키마 변경 없음). n인은 후속.
+
+- **채팅 (`chat_service._relocation_group_block`)**: 이사 택일 질문 + 동반자 첨부 시 단일
+  `DateSelectionEngine` 대신 M10 그룹 집계로 분기. [self, partner] 각각 윈도우 LuckComposite·
+  용신 산출 → `RelocationQuery`(group_subjects·period·current_location·relocation_kind) →
+  `resolve()`. 결과를 `DateSelectionBlock`으로 렌더(함께 무난한 이사일 랭킹 + 구성원 충돌
+  경고 `group_warnings` + 방위 적합). 게이트: `_is_relocation_intent`(domain/event=relocation).
+  current_location은 `constraints.location_base`(이미 파싱) 또는 "미지정"(resolver 미사용 메타).
+- **리포트 (`_ReportData._relocation_ctx`)**: 이사 테마에서 YEAR/MONTH 컴포짓으로 `resolve()`
+  1회(캐시) → RL-03/RL-05(이유·리스크) + **RL-04 방위 적합**(`resolver.direction_fit`) +
+  **RL-06 월별 이동운 흐름·충돌**(`group_summary`). 일자 택일(DAY)은 리포트 미포함(채팅 담당).
+- `DateSelectionBlock.group_warnings` 신설 + context_reducer 렌더("구성원 주의: …").
+- `RelocationResolver.direction_fit`·`classify_reasons` 공개 API(day 후보 없이 방위·이유 산출).
+
 ## 구현 파일 맵
 
 | 파일 | 변경 |
@@ -115,6 +132,7 @@
 | `apps/api/.../deps.py`·`routers/chat.py` | R3 chat DB-optional |
 | `apps/api/.../services/chat_service.py`·`query_parser.py`·`intent.py` | R4 사무실 이전 택일 라우트 배선 |
 | `packages/saju_engines/.../report_plan.py`·`apps/.../report_service.py` | 리포트 이사 테마(RL-*) + reason 분류 surface |
+| `apps/.../chat_service.py`·`relocation.py`·`context_reducer.py`·`llm_input.py` | M10 그룹 택일 채팅 연결(2인) + 방위/월흐름 리포트 surface |
 
 ## 검수 대상 (reviewed:false 초안 — 실측 튜닝 전 운영 반영 금지)
 

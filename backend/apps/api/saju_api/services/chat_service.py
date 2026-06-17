@@ -487,6 +487,118 @@ def _date_selection_block(
     )
 
 
+def _is_relocation_intent(intent: IntentJson) -> bool:
+    """이사 도메인/이벤트 질문인가 — 그룹(다인) M10 분기 게이트."""
+    return intent.domain is Domain.RELOCATION or intent.event_key is EventKey.RELOCATION
+
+
+def _subject_composites_yongsin(
+    b: BirthInput, req_start: date, scan_end: date, today: date, label: str
+) -> tuple[list, str]:
+    """한 대상의 [req_start, scan_end] 윈도우 LuckComposite + 용신 오행을 산출한다."""
+    from saju_engines.event_scoring import favorability_map
+
+    chart = calculate(b.model_copy(update={"reference_date": req_start}))
+    if chart.luck_cycles is not None:
+        window_daily = daily_luck_window(chart, req_start, scan_end)
+        chart = chart.model_copy(update={"luck_cycles": chart.luck_cycles.model_copy(
+            update={"daily_luck": window_daily})})
+    comps = CompositeBuilder(_DICTS).build(
+        chart, label, "1.0.0", f"{today.isoformat()}T00:00:00+00:00",
+    )
+    fav = favorability_map(chart)
+    yongsin = next((el for el, role in fav.items() if role == "용신"), None)
+    return comps, yongsin or "土"
+
+
+def _relocation_group_block(
+    birth: BirthInput, partner_birth: BirthInput, intent: IntentJson, today: date,
+    self_label: str, partner_label: str,
+) -> DateSelectionBlock | None:
+    """다인(본인+첨부 상대) 이사 택일 — M10 RelocationResolver 그룹 집계.
+
+    구성원별 이동운을 집계(호주 우선)해 공통으로 무난한 이사일을 랭킹하고, 구성원 충돌
+    경고·방위 적합을 동반한다(docs/09 7장). 단일 대상 택일과 달리 '함께 움직이는' 날을 본다.
+    """
+    from saju_engines.relocation import RelocationResolver
+    from saju_shared_types.relocation import RelocationPeriod, RelocationQuery
+
+    tr = intent.time_range
+    start_label = tr.start if tr else None
+    if start_label and len(start_label) == 10:
+        req_start = date.fromisoformat(start_label)
+    elif start_label and len(start_label) == 7:
+        req_start = date.fromisoformat(start_label + "-01")
+    else:
+        req_start = today
+    if req_start < today:
+        req_start = today
+    scan_end = min(req_start + timedelta(days=30), date(req_start.year, 12, 31))
+
+    self_comps, self_y = _subject_composites_yongsin(
+        birth, req_start, scan_end, today, self_label)
+    partner_comps, partner_y = _subject_composites_yongsin(
+        partner_birth, req_start, scan_end, today, partner_label)
+
+    constraints = intent.constraints
+    query = RelocationQuery(
+        group_subjects=[
+            SubjectRef(kind=SubjectKind.SELF, label=self_label),
+            SubjectRef(kind=SubjectKind.COMPANION, label=partner_label),
+        ],
+        period=RelocationPeriod(
+            start=req_start.strftime("%Y-%m"), end=scan_end.strftime("%Y-%m")),
+        current_location=constraints.location_base or "미지정",
+        candidate_directions=[constraints.direction] if constraints.direction else None,
+        relocation_kind=getattr(intent, "relocation_kind", "home"),
+        reality_constraints=constraints.reality_constraints,
+    )
+    result = RelocationResolver(_DICTS).resolve(
+        query,
+        {self_label: self_comps, partner_label: partner_comps},
+        {self_label: self_y, partner_label: partner_y},
+    )
+    if not result.move_dates:
+        return None
+
+    rows = [
+        DateChoiceRow(
+            date=c.date,
+            weekday=_WEEKDAY_KO[date.fromisoformat(c.date).weekday()],
+            ganji=c.ganji,
+            score=c.final_score,
+            recommendation="recommended" if c.final_score >= 70 else "acceptable",
+            notes=([*c.reasons, "손없는 날"] if c.son_eomneun_nal else list(c.reasons)),
+        )
+        for c in result.move_dates
+    ]
+    # 구성원 경고(중복 제거) + 그룹 충돌 월.
+    seen: set[tuple[str, str]] = set()
+    group_warnings: list[str] = []
+    for c in result.move_dates:
+        for w in c.member_warnings:
+            key = (w.subject_label, w.signal)
+            if key not in seen:
+                seen.add(key)
+                group_warnings.append(f"{w.subject_label} — {w.signal}")
+    if result.group_summary.conflicts:
+        group_warnings.append(
+            "구성원 이동운이 엇갈리는 달: " + ", ".join(result.group_summary.conflicts))
+    # 방위 적합(상위) — move_dates[0]의 분리 산출값.
+    directions = [
+        {"direction": d, "fit": f}
+        for d, f in sorted(result.move_dates[0].direction_fit.items(), key=lambda x: -x[1])
+    ]
+    return DateSelectionBlock(
+        purpose_ko=f"이사(그룹: {self_label}·{partner_label})",
+        period=f"{req_start.isoformat()} ~ {scan_end.isoformat()}",
+        rows=rows,
+        avoid=[{"date": a.date, "reason": a.reason} for a in result.avoid_dates],
+        directions=directions,
+        group_warnings=group_warnings,
+    )
+
+
 # 대화형 전용 범위 지시 — 질문에 곧장·집중해 답하고 원국 통독을 막는다(리포트는 전체 서술 유지).
 _CHAT_SCOPE_DIRECTIVE = (
     "[답변 범위 — 대화형]\n"
@@ -923,7 +1035,14 @@ def chat(
         fav = favorability_map(result)
         yongsin = next((el for el, role in fav.items() if role == "용신"), None)
         try:
-            date_block = _date_selection_block(birth, intent, today, yongsin)
+            # 이사 택일 + 동반자 첨부 → M10 그룹 집계(함께 무난한 날). 그 외엔 단일 택일.
+            if partner_birth is not None and _is_relocation_intent(intent):
+                date_block = _relocation_group_block(
+                    birth, partner_birth, intent, today,
+                    subject_label or "본인", partner_label or "상대",
+                ) or _date_selection_block(birth, intent, today, yongsin)
+            else:
+                date_block = _date_selection_block(birth, intent, today, yongsin)
         except Exception:  # 택일 실패는 일반 풀이로 폴백(차단 금지)
             date_block = None
 

@@ -190,6 +190,9 @@ _SCORE_TABLE_SECTIONS = {"C-08", "W-09", "J-08", "R-08", "RP-10", "RL-08"}
 # 이사 테마 — 십성 이유분류(reason_profiles) surface 섹션(이사 고도화 R2).
 _RELOCATION_REASON_SECTIONS = {"RL-03"}
 _RELOCATION_RISK_SECTIONS = {"RL-05"}
+# 이사 테마 — M10 방위 적합(RL-04) / 월별 이동운 흐름·충돌(RL-06) surface.
+_RELOCATION_DIRECTION_SECTIONS = {"RL-04"}
+_RELOCATION_FLOW_SECTIONS = {"RL-06"}
 # 궁합 모드 — 상대 명식 블록 부착 섹션(RP-03).
 _PARTNER_NATAL_SECTIONS = {"RP-03"}
 # 궁합 모드 — 궁합 신호 블록 부착 섹션(RP-04·RP-05·RP-08).
@@ -447,21 +450,25 @@ class _ReportData:
         """[부/귀 지향] — structural_context 위임(영문·점수 비노출)."""
         return wealth_status_lines(self.wealth_status_lean)
 
-    def _relocation_profiles(self, spec: ReportSpec) -> list[Any]:
-        """세운 십성 기반 이사 이유분류(reason_profiles) — 리포트 1회 캐시.
+    def _relocation_ctx(self, spec: ReportSpec) -> dict[str, Any]:
+        """이사 M10 컨텍스트(이유분류 + 방위 적합 + 월별 이동운/충돌) — 리포트 1회 캐시.
 
-        리포트는 EventEngineV2를 쓰지만 이유분류는 LuckComposite(천간/지지 십성)가 필요하므로
-        대상의 YEAR/MONTH 컴포짓을 별도 산출해 R2 분류기(classify_reasons)를 재사용한다.
-        실패·신호 약함이면 빈 리스트(이사 테마라도 리포트가 깨지지 않게 — 규칙11 폴백).
+        리포트는 EventEngineV2를 쓰지만 M10은 LuckComposite가 필요하므로 대상의 YEAR/MONTH
+        컴포짓을 별도 산출해 RelocationResolver를 재사용한다(spec에 동반자 있으면 그룹 집계).
+        일자 택일(DAY)은 리포트 미포함 — move_dates 대신 방위·월별 흐름을 surface한다.
+        실패·신호 약함이면 빈 컨텍스트(이사 테마라도 리포트가 깨지지 않게 — 규칙11 폴백).
         """
         cache = getattr(self, "_reloc_cache", None)
         if cache is not None:
             return cache
-        profiles: list[Any] = []
+        ctx: dict[str, Any] = {
+            "profiles": [], "directions": {}, "monthly": {}, "conflicts": [],
+        }
         try:
             from saju_engines.precompute import CompositeBuilder
             from saju_engines.relocation import RelocationResolver
             from saju_shared_types.precompute import CompositeLevel
+            from saju_shared_types.relocation import RelocationPeriod, RelocationQuery
 
             comps = CompositeBuilder(_DICTS).build(
                 self.result, "report", "1.0.0",
@@ -469,20 +476,33 @@ class _ReportData:
                 levels={CompositeLevel.YEAR, CompositeLevel.MONTH},
             )
             anchor = spec.period.start[:4]
-            month_key = next(
-                (c.period_key for c in comps
-                 if c.level is CompositeLevel.MONTH and c.period_key[:4] == anchor),
-                None,
+            subject = spec.subjects[0]
+            yongsin = (
+                self.summary.useful_gods.yongsin[0]
+                if self.summary.useful_gods.yongsin else "土"
             )
-            profiles = RelocationResolver(_DICTS).classify_reasons(comps, anchor, month_key)
-        except Exception:  # noqa: BLE001 — 이유분류 실패가 리포트를 막지 않도록
-            profiles = []
-        self._reloc_cache = profiles
-        return profiles
+            resolver = RelocationResolver(_DICTS)
+            result = resolver.resolve(
+                RelocationQuery(
+                    group_subjects=[subject],
+                    period=RelocationPeriod(start=f"{anchor}-01", end=f"{anchor}-12"),
+                    current_location="미지정",
+                ),
+                {subject.label: comps},
+                {subject.label: yongsin},
+            )
+            ctx["profiles"] = result.reason_profiles
+            ctx["monthly"] = result.group_summary.monthly_scores
+            ctx["conflicts"] = result.group_summary.conflicts
+            ctx["directions"] = resolver.direction_fit({subject.label: yongsin})
+        except Exception:  # noqa: BLE001 — 이사 분석 실패가 리포트를 막지 않도록
+            pass
+        self._reloc_cache = ctx
+        return ctx
 
     def relocation_reason_block(self, spec: ReportSpec) -> list[str]:
         """[이사의 이유·집 성격] — 십성 분류(천간=명분/지지=현장). 라벨을 일상어로 풀어 서술."""
-        profiles = self._relocation_profiles(spec)
+        profiles = self._relocation_ctx(spec)["profiles"]
         if not profiles:
             return ["[이사 이유·집 성격 — 이번 기간 뚜렷한 이동 십성 신호가 약함. "
                     "일반적 이동·정착 성향으로 서술하고 단정하지 말 것]"]
@@ -497,7 +517,7 @@ class _ReportData:
 
     def relocation_risk_block(self, spec: ReportSpec) -> list[str]:
         """[리스크·계약 전 체크리스트] — 십성별 리스크와 점검 항목. 공포 조장 없이 점검 안내."""
-        profiles = self._relocation_profiles(spec)
+        profiles = self._relocation_ctx(spec)["profiles"]
         if not profiles:
             return ["[리스크·체크리스트 — 일반 이사 점검(등기부·계약 조건·실거주·하자 확인)으로 "
                     "안내하고 공포를 조장하지 말 것]"]
@@ -508,6 +528,34 @@ class _ReportData:
                 f"- {p.ten_god}({p.type}, 리스크 {p.risk_level}): 주의 {'·'.join(p.risk)} / "
                 f"확인 {'·'.join(p.required_checks)} / 핵심 질문 {p.main_question}"
             )
+        return lines
+
+    def relocation_direction_block(self, spec: ReportSpec) -> list[str]:
+        """[방위 적합] — 용신 기준 8방위 적합도(M10). 단정 말고 '유리/무난' 참고로 안내."""
+        directions = self._relocation_ctx(spec)["directions"]
+        if not directions:
+            return []
+        top = sorted(directions.items(), key=lambda x: -x[1])
+        favorable = [d for d, f in top if f >= 1.0] or [d for d, _ in top[:2]]
+        return [
+            "[방위 적합 — 용신 기준(참고). 당위적 단정 금지, '유리한 방위' 참고로 녹일 것]",
+            f"유리한 방위: {', '.join(favorable)}",
+        ]
+
+    def relocation_flow_block(self, spec: ReportSpec) -> list[str]:
+        """[그룹 월별 이동운 흐름] — 월별 이동운 점수와 구성원 충돌 월(M10 group_summary)."""
+        ctx = self._relocation_ctx(spec)
+        monthly, conflicts = ctx["monthly"], ctx["conflicts"]
+        if not monthly:
+            return []
+        ranked = sorted(monthly.items(), key=lambda x: -x[1])[:4]
+        flow = ", ".join(f"{m}({'+' if s >= 0 else ''}{round(s, 2)})" for m, s in ranked)
+        lines = [
+            "[월별 이동운 흐름 — 점수 높을수록 이동 에너지가 강한 달(참고). 발생≠결과]",
+            f"이동운이 두드러지는 달: {flow}",
+        ]
+        if conflicts:
+            lines.append(f"구성원 이동운이 엇갈리는 달: {', '.join(conflicts)}")
         return lines
 
     def era_energy_block(self, year: int) -> list[str]:
@@ -724,6 +772,11 @@ def build_section_context(
         lines += ["", *data.relocation_reason_block(spec)]
     if sid in _RELOCATION_RISK_SECTIONS:
         lines += ["", *data.relocation_risk_block(spec)]
+    # 이사 테마 — M10 방위 적합(RL-04) / 월별 이동운 흐름·충돌(RL-06) surface.
+    if sid in _RELOCATION_DIRECTION_SECTIONS:
+        lines += ["", *data.relocation_direction_block(spec)]
+    if sid in _RELOCATION_FLOW_SECTIONS:
+        lines += ["", *data.relocation_flow_block(spec)]
     # 시대 기운(연운) — 개인 풀이 앞 맥락. Y-01(한해풀이 그 해)·F-11(총운 올해).
     if sid == "Y-01":
         lines += ["", *data.era_energy_block(int(spec.period.start[:4]))]

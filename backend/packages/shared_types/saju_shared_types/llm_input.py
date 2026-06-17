@@ -254,6 +254,8 @@ class DateSelectionBlock(BaseModel):
     # 방위·시진(횡재·재물 택일 — 참고용, 당첨 보장 아님). {'direction','element','fit','note'} 등.
     directions: list[dict] = Field(default_factory=list)
     hour_fits: list[dict] = Field(default_factory=list)  # {'branch','time_range','fit','note'}
+    # 그룹(다인) 이사 — 구성원 이동운 충돌·경고(M10 group_summary·member_warnings). 빈 = 단일.
+    group_warnings: list[str] = Field(default_factory=list)
 
 
 class PersonaBlock(BaseModel):

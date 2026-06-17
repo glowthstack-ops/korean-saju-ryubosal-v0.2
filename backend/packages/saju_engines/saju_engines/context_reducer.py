@@ -1326,6 +1326,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
             if best:
                 slots = ", ".join(f"{h.get('branch')}시({h.get('time_range')})" for h in best)
                 lines.append(f"시간대: {slots}")
+        for warning in ds.group_warnings:  # 그룹(다인) 이사 — 구성원 충돌·경고
+            lines.append(f"구성원 주의: {warning}")
         for caution in ds.cautions:
             lines.append(f"주의: {caution}")
     if payload.structural_context:

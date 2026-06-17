@@ -591,6 +591,25 @@ class RelocationResolver:
             fit[d] = round(sum(scores) / len(scores), 3) if scores else 0.5
         return fit
 
+    def direction_fit(
+        self,
+        yongsin_by_subject: dict[str, str],
+        directions: list[str] | None = None,
+    ) -> dict[str, float]:
+        """구성원 용신 기준 8방위 적합도(공개 API — 리포트가 day 후보 없이 방위만 surface).
+
+        방위 오행이 구성원 용신과 같으면 1.0, 아니면 0.5(그룹은 평균). 미지정이면 8방위 전부.
+        """
+        dirs = directions or self._all_directions
+        fit: dict[str, float] = {}
+        for d in dirs:
+            scores = [
+                1.0 if d in self._dir_by_element.get(y or "", []) else 0.5
+                for y in yongsin_by_subject.values()
+            ]
+            fit[d] = round(sum(scores) / len(scores), 3) if scores else 0.5
+        return fit
+
     def region_fit(
         self, regions: list[str], yongsin_by_subject: dict[str, str]
     ) -> dict[str, float]:
