@@ -288,12 +288,13 @@ S10 최종 랭킹 — 산출 형식:
 ```typescript
 interface RelocationResult {
   recommendedPlan: {
-    contractWindow?: RankedItem[];        // 체인 모드 시
+    contractWindow?: RankedItem[];        // 체인 모드 시 — 계약일은 정관·정인 점수표로 배치(R3)
     moveDates: RankedItem[];              // 날짜별: date, ganji, finalScore,
                                           //   부분점수 5종(macro/month/day/calendar/reality),
                                           //   directionFit: Record<Direction, number>,
                                           //   memberWarnings: { subjectLabel, signal }[]
   };
+  reasonProfiles: RelocationReasonProfile[];  // R2 — 십성 이유분류(해석 라벨 전용, 점수 미개입)
   groupSummary: { monthlyScores: ...; conflicts: ... };
   avoidDates: { date: string; reason: string }[];
   evidence: EvidenceBundle[];
@@ -301,6 +302,10 @@ interface RelocationResult {
 ```
 
 LLM에는 `RelocationResult` + 압축 간지만 전달한다. **LLM이 받는 것은 "계산할 문제"가 아니라 "설명할 결론"이다.** 예상 입력: 2,500~4,500 토큰 (그룹 4인 기준) — 전체 간지달력 투입 대비 1/20 이하.
+
+**이사운 고도화(R1~R4)**: 십성 이유분류(reasonProfiles — 천간=명분/지지=현장), 계약일/이삿날 분리
+택일 점수표, 집/사무실 궁 분기는 `doc/v2_2/RELOCATION_ENHANCEMENT.md` 전체 사양 참조. S9 계약창은
+계약일 십성 점수표(정관·정인 우대, 충 회피)로 배치한다.
 
 ---
 

@@ -47,6 +47,14 @@ def get_subject_store() -> SubjectStore:
     return _store(SubjectStore)
 
 
+def get_subject_store_optional() -> SubjectStore | None:
+    """subjects 저장소 — DSN 미설정이면 None(익명·dry-run 채팅이 503에 막히지 않도록)."""
+    try:
+        return SubjectStore()
+    except ValueError:
+        return None
+
+
 def get_life_event_store() -> LifeEventStore:
     """subject_life_events 저장소 (현실 신호 캘리브레이션 수집)."""
     return _store(LifeEventStore)
@@ -70,6 +78,14 @@ def get_report_job_store() -> ReportJobStore:
 def get_chat_history_store() -> ChatHistoryStore:
     """chat_threads/chat_messages 저장소."""
     return _store(ChatHistoryStore)
+
+
+def get_chat_history_store_optional() -> ChatHistoryStore | None:
+    """chat 저장소 — DSN 미설정이면 None(익명·dry-run·정책 채팅이 503에 막히지 않도록)."""
+    try:
+        return ChatHistoryStore()
+    except ValueError:
+        return None
 
 
 def get_usage_store() -> UsageStore:

@@ -14,6 +14,7 @@ camelCase를 그대로 따르고(절대 원칙 10), Python 모델은 snake_case 
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Literal
 
@@ -612,6 +613,97 @@ class TenGodEventsFile(_AliasModel):
     items: list[TenGodEventItem]
 
 
+# ── 이사 고도화(Phase R1, docs/02·09) ────────────────────────────
+
+_RISK_LEVELS = ("low", "medium_low", "medium", "high")
+
+
+class RelocationTenGodItem(_AliasModel):
+    """십성별 이사 분류 항목 (interpretations/relocation_ten_gods.json).
+
+    이사 발생은 합·충·역마·재관 자극이 보고(events/relocation.json), 십성은 이사의
+    이유·집 성격·리스크를 분류한다(절대원칙 1·12 — 점수·날짜 미개입, 해석 라벨 전용).
+    """
+
+    ten_god: str = Field(alias="tenGod")
+    group: str
+    type: str
+    move_reason: list[str] = Field(alias="moveReason", min_length=1)
+    property_tendency: list[str] = Field(alias="propertyTendency", min_length=1)
+    risk: list[str] = Field(min_length=1)
+    required_checks: list[str] = Field(alias="requiredChecks", min_length=1)
+    risk_level: str = Field(alias="riskLevel")
+    main_question: str = Field(alias="mainQuestion")
+    basis: str
+    reviewed: bool
+
+    @model_validator(mode="after")
+    def _check_enums(self) -> RelocationTenGodItem:
+        if self.risk_level not in _RISK_LEVELS:
+            raise ValueError(f"riskLevel 값 오류: {self.risk_level} ({_RISK_LEVELS})")
+        if self.group not in _TEN_GOD_GROUPS:
+            raise ValueError(f"group 값 오류: {self.group} ({_TEN_GOD_GROUPS})")
+        return self
+
+
+class RelocationTenGodsFile(_AliasModel):
+    version: str
+    note: str | None = None
+    items: list[RelocationTenGodItem] = Field(min_length=10, max_length=10)
+
+
+class ContractDaySpec(_AliasModel):
+    """계약일 점수표 (사용자 스펙 9·11장) — 천간 십성 비중 우세."""
+
+    ko: str
+    preferred_ten_gods: dict[str, int] = Field(alias="preferredTenGods")
+    preferred_elements: dict[str, int] = Field(alias="preferredElements")
+    avoid_ten_gods: dict[str, int] = Field(alias="avoidTenGods")
+    branch_relations: dict[str, int] = Field(alias="branchRelations")
+    weights: dict[str, float]
+
+
+class MoveDaySpec(_AliasModel):
+    """이삿날 점수표 (사용자 스펙 10·11장) — 지지 관계 비중 우세."""
+
+    ko: str
+    preferred_ten_gods: dict[str, int] = Field(alias="preferredTenGods")
+    preferred_combinations: dict[str, int] = Field(alias="preferredCombinations")
+    avoid_ten_gods: dict[str, int] = Field(alias="avoidTenGods")
+    branch_relations: dict[str, int] = Field(alias="branchRelations")
+    weights: dict[str, float]
+
+
+class OfficeMoveSpec(_AliasModel):
+    """사무실 이전 궁(월주 중심) 규격 (사용자 스펙 12장) — 데이터만, 엔진 배선 R4."""
+
+    ko: str
+    primary_palace: list[str] = Field(alias="primaryPalace", min_length=1)
+    preferred_relations: list[str] = Field(alias="preferredRelations")
+    avoid_relations: list[str] = Field(alias="avoidRelations")
+    preferred_ten_gods: list[str] = Field(alias="preferredTenGods")
+    avoid_ten_gods: list[str] = Field(alias="avoidTenGods")
+
+
+class ChungPolicySpec(_AliasModel):
+    """충 이중성 정책 (사용자 스펙 10장) — 탐지 긍정 / 택일 감점."""
+
+    event_detection: str = Field(alias="eventDetection")
+    date_selection: str = Field(alias="dateSelection")
+
+
+class DateSelectionTenGodsFile(_AliasModel):
+    """계약일·이삿날 분리 택일 점수표 (calendar/date_selection_ten_gods.json)."""
+
+    version: str
+    note: str | None = None
+    contract_day: ContractDaySpec = Field(alias="contractDay")
+    move_day: MoveDaySpec = Field(alias="moveDay")
+    office_move: OfficeMoveSpec = Field(alias="officeMove")
+    chung_policy: ChungPolicySpec = Field(alias="chungPolicy")
+    reviewed: bool
+
+
 # 상대 경로 → 스키마. 새 사전 추가 시 여기 등록해야 검증된다(미등록은 generic 검사만).
 SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "common/stems.json": StemsFile,
@@ -630,6 +722,8 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/sinsal_text.json": SinsalTextFile,
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
+    "interpretations/relocation_ten_gods.json": RelocationTenGodsFile,
+    "calendar/date_selection_ten_gods.json": DateSelectionTenGodsFile,
     "terminology.json": TerminologyFile,
     "templates/interpretation.json": InterpretationTemplatesFile,
     "templates/prohibited_styles.json": ProhibitedStylesFile,
@@ -893,6 +987,52 @@ def _lint_relations_text(directory: Path, file: RelationsTextFile) -> list[str]:
     return errors
 
 
+def _lint_relocation_ten_gods(file: RelocationTenGodsFile) -> list[str]:
+    """relocation_ten_gods.json — 십성 10종 정확 커버리지."""
+    got = {item.ten_god for item in file.items}
+    if got != set(_TEN_GOD_NAMES):
+        return [f"interpretations/relocation_ten_gods.json: 십성 커버리지 불일치 — {sorted(got)}"]
+    return []
+
+
+def _lint_date_selection_ten_gods(file: DateSelectionTenGodsFile) -> list[str]:
+    """date_selection_ten_gods.json — 십성/오행 유효성 + 작업별 가중 합 ≈ 1.0.
+
+    충 이중성 보존 검사: 충은 탐지엔 긍정이나 택일엔 감점이어야 한다(사용자 스펙 10장).
+    """
+    errors: list[str] = []
+    valid_tg = set(_TEN_GOD_NAMES)
+    valid_elem = {"木", "火", "土", "金", "水"}
+
+    def _check_tg(label: str, keys: Iterable[str]) -> None:
+        for k in keys:
+            if k not in valid_tg:
+                errors.append(f"date_selection_ten_gods.json: {label} 십성 오류 — {k}")
+
+    for label, spec in (("contractDay", file.contract_day), ("moveDay", file.move_day)):
+        _check_tg(label, spec.preferred_ten_gods)
+        _check_tg(label, spec.avoid_ten_gods)
+        total = round(sum(spec.weights.values()), 6)
+        if total != 1.0:
+            errors.append(f"date_selection_ten_gods.json: {label} weights 합 {total} ≠ 1.0")
+    for elem in file.contract_day.preferred_elements:
+        if elem not in valid_elem:
+            errors.append(f"date_selection_ten_gods.json: contractDay 오행 오류 — {elem}")
+    _check_tg("officeMove", file.office_move.preferred_ten_gods)
+    _check_tg("officeMove", file.office_move.avoid_ten_gods)
+    # 충 이중성: 이삿날 점수표는 충을 감점으로 다뤄야 한다(탐지 긍정과 분리).
+    for rel, val in file.move_day.branch_relations.items():
+        if "충" in rel and val >= 0:
+            errors.append(
+                f"date_selection_ten_gods.json: moveDay 충 관계는 감점이어야 함 — {rel}={val}"
+            )
+    if file.chung_policy.date_selection != "negative_for_move_day":
+        errors.append(
+            "date_selection_ten_gods.json: chungPolicy.dateSelection은 감점 정책이어야 함"
+        )
+    return errors
+
+
 def lint_dictionaries(directory: Path) -> list[str]:
     """충돌 검사(dict:lint). 스키마 위반 파일은 여기서 건너뛴다(validate가 보고)."""
     errors: list[str] = []
@@ -923,4 +1063,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_stems_branches_text(parsed))
         elif isinstance(parsed, InterpretationTemplatesFile):
             errors.extend(_lint_templates(parsed))
+        elif isinstance(parsed, RelocationTenGodsFile):
+            errors.extend(_lint_relocation_ten_gods(parsed))
+        elif isinstance(parsed, DateSelectionTenGodsFile):
+            errors.extend(_lint_date_selection_ten_gods(parsed))
     return errors

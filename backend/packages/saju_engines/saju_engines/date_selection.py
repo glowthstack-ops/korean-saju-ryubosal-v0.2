@@ -26,7 +26,21 @@ from saju_shared_types.enums import Branch, Element
 from saju_shared_types.events import EventKey
 from saju_shared_types.precompute import CompositeLevel, LuckComposite
 
-from .relocation import _signed_weight, is_son_eomneun_nal
+from .relocation import (
+    _signed_weight,
+    is_son_eomneun_nal,
+    load_date_selection_table,
+    office_day_fit,
+    ten_god_day_fit,
+)
+
+# 목적 → 계약일/이삿날 점수표 키(사용자 스펙 9~11장). 표가 있는 목적만 십성 블렌드.
+_TEN_GOD_TABLE_BY_PURPOSE: dict[str, str] = {
+    "relocation": "moveDay",
+    "contract_document": "contractDay",
+}
+# 일운 실행 점수 = 도메인 신호 ½ + 십성 적합 ½ (초안 블렌드 — reviewed:false).
+_TEN_GOD_BLEND = 0.5
 
 # 12시진 — 지지별 시간대(子시는 23~01시).
 _HOUR_RANGES: list[tuple[str, str]] = [
@@ -51,6 +65,8 @@ class DateSelectionEngine:
         self._profiles: dict[str, dict] = {i["purpose"]: i for i in profiles["items"]}
         avoid = self._read(dictionaries_dir / "calendar" / "avoid_days.json")
         self._avoid_rules: list[dict] = avoid["rules"]
+        # R3 — 계약일/이삿날 십성 점수표(목적별 day_execution 블렌드용).
+        self._date_table = load_date_selection_table(dictionaries_dir)
         holidays = self._read(dictionaries_dir / "calendar" / "holidays.json")
         self._fixed_holidays: dict[str, str] = {
             i["date"]: i["name"] for i in holidays["fixedSolar"]
@@ -80,6 +96,7 @@ class DateSelectionEngine:
         wealth_element: str | None = None,
         favorability: dict[str, str] | None = None,
         stated_direction: str | None = None,
+        relocation_kind: str = "home",
     ) -> DateSelectionResult:
         """기간 [start, end](ISO 일자) 안에서 목적별 실행일을 랭킹한다.
 
@@ -96,6 +113,13 @@ class DateSelectionEngine:
         weights = profile["weights"]
         options = profile["options"]
         domain = profile.get("domainOverride", "relocation")
+        # R3·R4 — 계약일/이삿날이면 십성 점수표를 일운 실행 점수에 블렌드.
+        # 이사 목적 + 사무실 이전(office)이면 월주 중심 officeMove 규격을 적용한다.
+        table_key = _TEN_GOD_TABLE_BY_PURPOSE.get(str(purpose))
+        office_move = (
+            str(purpose) == "relocation" and relocation_kind == "office"
+        )
+        ten_god_table = self._date_table[table_key] if table_key else None
         constraints = reality_constraints or []
         weekend_only = any("주말만" in c for c in constraints)
         # 평일 한정('평일만')은 주말 제외, 평일 선호('평일')는 주말 허용+평일 가점(2026-06-16).
@@ -152,11 +176,24 @@ class DateSelectionEngine:
             else:
                 reality_fit = 100  # 한정 제약은 위에서 이미 후보를 걸러냄(통과한 날은 모두 적합)
 
-            # ①~③ 점수.
+            # ①~③ 점수. 계약일/이삿날은 일운 실행 점수에 십성 적합을 블렌드.
+            day_execution = _to100(_signed_weight(c, domain))
+            if office_move:
+                fit = office_day_fit(c, self._date_table["officeMove"])
+                day_execution = round(
+                    (1 - _TEN_GOD_BLEND) * day_execution + _TEN_GOD_BLEND * fit
+                )
+                reasons.append(f"사무실(월주) 적합 {fit}")
+            elif ten_god_table is not None:
+                fit = ten_god_day_fit(c, ten_god_table)
+                day_execution = round(
+                    (1 - _TEN_GOD_BLEND) * day_execution + _TEN_GOD_BLEND * fit
+                )
+                reasons.append(f"{c.ten_god.stem}/{c.ten_god.branch_main} 십성 적합 {fit}")
             scores = DateScores(
                 macro_flow=_to100(years.get(c.period_key[:4], 0.0)),
                 month_fit=_to100(months.get(c.period_key[:7], 0.0)),
-                day_execution=_to100(_signed_weight(c, domain)),
+                day_execution=day_execution,
                 calendar_rule=min(100, calendar_score),
                 reality_fit=reality_fit,
                 final=0,

@@ -24,8 +24,8 @@ from pathlib import Path
 
 from korean_lunar_calendar import KoreanLunarCalendar
 
-from saju_shared_types.constants import GENERATES
-from saju_shared_types.enums import Element
+from saju_shared_types.constants import GENERATES, STEM_ELEMENT
+from saju_shared_types.enums import Element, Stem
 from saju_shared_types.precompute import CompositeLevel, LuckComposite
 from saju_shared_types.relocation import (
     AvoidDate,
@@ -34,6 +34,7 @@ from saju_shared_types.relocation import (
     MoveDateCandidate,
     MoveDateScores,
     RelocationQuery,
+    RelocationReasonProfile,
     RelocationResult,
 )
 
@@ -45,6 +46,153 @@ _UNFAVORABLE = ("기신", "구신")
 # 기본 구성원 가중(docs/09 7장): 호주 0.5 / 배우자 0.3 / 기타 균등.
 _DEFAULT_W_HEAD = 0.5
 _DEFAULT_W_SPOUSE = 0.3
+
+# ── R3 계약일/이삿날 십성 점수표 결합 (date_selection_ten_gods.json) ──
+
+# 십성 → 군(재관 조합 판정용).
+_TEN_GOD_GROUP = {
+    "비견": "비겁", "겁재": "비겁", "식신": "식상", "상관": "식상",
+    "정재": "재성", "편재": "재성", "정관": "관성", "편관": "관성",
+    "정인": "인성", "편인": "인성",
+}
+# 점수→0~100 변환 스케일(초안 — reviewed:false). 정재+30→100, 상관−30→0.
+_FIT_SCALE = 30.0
+# 사무실 이전(officeMove) 리스트 기반 가감 — 정량 점수 미제공이라 고정 티어(초안, region_fit 선례).
+_OFFICE_TIER = 15.0
+
+
+def load_date_selection_table(dictionaries_dir: Path) -> dict:
+    """계약일/이삿날 십성 점수표 로드 (calendar/date_selection_ten_gods.json)."""
+    return json.loads(
+        (dictionaries_dir / "calendar" / "date_selection_ten_gods.json")
+        .read_text("utf-8")
+    )
+
+
+def branch_relations(c: LuckComposite) -> set[str]:
+    """일운 지지와 원국 일지·월지의 합·충을 라벨로 판정(택일 점수표 키와 일치).
+
+    합 계열(육합·삼합·방합)은 '일지합/월지합', 충은 '일지충/월지충'으로 매핑한다.
+    참여자 소스에 natal_day/natal_month가 있는 상호작용만 본다(원국 자리 자극).
+    """
+    rels: set[str] = set()
+    combine = {"branch_six_combine", "branch_three_combine", "branch_directional"}
+    for h in c.interactions:
+        sources = {p.source.value for p in h.participants}
+        kind = h.kind.value
+        if kind == "branch_clash":
+            if "natal_day" in sources:
+                rels.add("일지충")
+            if "natal_month" in sources:
+                rels.add("월지충")
+        elif kind in combine:
+            if "natal_day" in sources:
+                rels.add("일지합")
+            if "natal_month" in sources:
+                rels.add("월지합")
+    return rels
+
+
+def stem_relations(c: LuckComposite) -> set[str]:
+    """일운 천간과 원국 일간·월간의 합·극을 라벨로 판정(사무실 이전 월주 평가용).
+
+    합은 '일간합/월간합', 충(천간충=극)은 '일간극/월간극'으로 매핑한다. 월주 생/극(오행)은
+    상호작용에 직접 표현되지 않아 현 단계 미반영(검수 대상 — RELOCATION_ENHANCEMENT.md).
+    """
+    rels: set[str] = set()
+    for h in c.interactions:
+        sources = {p.source.value for p in h.participants}
+        kind = h.kind.value
+        if kind == "stem_combine":
+            if "natal_day" in sources:
+                rels.add("일간합")
+            if "natal_month" in sources:
+                rels.add("월간합")
+        elif kind == "stem_clash":
+            if "natal_day" in sources:
+                rels.add("일간극")
+            if "natal_month" in sources:
+                rels.add("월간극")
+    return rels
+
+
+def office_day_fit(c: LuckComposite, office_spec: dict) -> int:
+    """사무실 이전 일운 적합도(0~100) — 월주 중심 선호/회피 십성·관계(사용자 스펙 12장).
+
+    officeMove는 정량 점수가 없는 리스트 규격이라 고정 티어(±_OFFICE_TIER)로 가감한다
+    (region_fit의 1.0/0.8/0.5 선례). 정재·정관 우대, 상관·겁재·편관 회피, 월지합·월간합
+    우대, 월지충·월간극 회피.
+    """
+    pref_tg = set(office_spec["preferredTenGods"])
+    avoid_tg = set(office_spec["avoidTenGods"])
+    pref_rel = set(office_spec["preferredRelations"])
+    avoid_rel = set(office_spec["avoidRelations"])
+    score = 50.0
+    for tg in (c.ten_god.stem, c.ten_god.branch_main):
+        if tg in pref_tg:
+            score += _OFFICE_TIER
+        elif tg in avoid_tg:
+            score -= _OFFICE_TIER
+    for rel in branch_relations(c) | stem_relations(c):
+        if rel in pref_rel:
+            score += _OFFICE_TIER
+        elif rel in avoid_rel:
+            score -= _OFFICE_TIER
+    return max(0, min(100, round(score)))
+
+
+def _to_component(points: float) -> float:
+    """점수(±) → 0~100(50 중립) 부분 점수."""
+    return max(0.0, min(100.0, 50.0 + points * (50.0 / _FIT_SCALE)))
+
+
+def _combo_points(stem_tg: str, branch_tg: str, combos: dict[str, int]) -> int:
+    """이삿날 조합 보너스 — 정재+정관, 재관(재성+관성) 동시 성립 시 가산."""
+    pts = 0
+    pair = {stem_tg, branch_tg}
+    if "정재" in pair and "정관" in pair:
+        pts += combos.get("정재+정관", 0)
+    groups = {_TEN_GOD_GROUP.get(stem_tg), _TEN_GOD_GROUP.get(branch_tg)}
+    if "재성" in groups and "관성" in groups:
+        pts += combos.get("재관", 0)
+    return pts
+
+
+def ten_god_day_fit(c: LuckComposite, table: dict) -> int:
+    """일운의 천간/지지 십성·관계로 계약일/이삿날 적합도(0~100)를 산출한다.
+
+    작업별 가중(사용자 스펙 11장)으로 축을 결합한다: 계약일은 천간 십성, 이삿날은
+    지지 관계에 비중을 둔다. 점수는 코드가 계산한다(절대원칙 1).
+    """
+    stem_tg = c.ten_god.stem
+    branch_tg = c.ten_god.branch_main
+    pref = table["preferredTenGods"]
+    avoid = table["avoidTenGods"]
+    weights = table["weights"]
+    rels = branch_relations(c)
+    rel_pts = sum(table["branchRelations"].get(r, 0) for r in rels)
+
+    stem_pts = pref.get(stem_tg, 0) + avoid.get(stem_tg, 0)
+    rel_component = _to_component(rel_pts)
+    stem_component = _to_component(stem_pts)
+
+    if "elementSupport" in weights:  # 계약일 — 천간 오행 가점 + 충돌 회피.
+        elem = STEM_ELEMENT[Stem(c.ganji.stem)].value
+        elem_pts = table.get("preferredElements", {}).get(elem, 0)
+        fit = (
+            weights["dayStemTenGod"] * stem_component
+            + weights["dayBranchRelation"] * rel_component
+            + weights["elementSupport"] * _to_component(elem_pts)
+        )
+    else:  # 이삿날 — 지지 관계 우세 + 천간/지지 십성 + 재관 조합.
+        combo = _combo_points(stem_tg, branch_tg, table.get("preferredCombinations", {}))
+        branch_pts = pref.get(branch_tg, 0) + avoid.get(branch_tg, 0) + combo
+        fit = (
+            weights["dayBranchRelation"] * rel_component
+            + weights["dayStemTenGod"] * _to_component(stem_pts + combo)
+            + weights["dayBranchTenGod"] * _to_component(branch_pts)
+        )
+    return max(0, min(100, round(fit)))
 
 
 def _signed_weight(c: LuckComposite, domain: str) -> float:
@@ -106,6 +254,16 @@ class RelocationResolver:
         self._housing: dict[str, dict[str, float]] = {
             i["housingType"]: i["domainWeights"] for i in housing["items"]
         }
+        # R2 — 십성별 이사 이유·집성격·리스크 분류(해석 라벨 전용, 점수 미개입).
+        reason = json.loads(
+            (dictionaries_dir / "interpretations" / "relocation_ten_gods.json")
+            .read_text("utf-8")
+        )
+        self._reason_by_ten_god: dict[str, dict] = {
+            i["tenGod"]: i for i in reason["items"]
+        }
+        # R3 — 계약일/이삿날 십성 점수표(S9 계약창 + 택일 엔진 공용).
+        self._date_table = load_date_selection_table(dictionaries_dir)
 
     # ── 공개 API ─────────────────────────────────────────────────
 
@@ -153,9 +311,12 @@ class RelocationResolver:
             if query.chained_schedule
             else []
         )
+        # R2 — 십성 이유분류(해석 라벨 전용 — 위 점수 계산에 미개입).
+        reason_profiles = self._reason_profiles(months, composites_by_subject, query)
         return RelocationResult(
             contract_window=contract,
             move_dates=move_dates,
+            reason_profiles=reason_profiles,
             group_summary=GroupSummary(monthly_scores=group_scores, conflicts=conflicts),
             avoid_dates=avoid,
         )
@@ -241,6 +402,77 @@ class RelocationResolver:
                         return False
         return True
 
+    # ── R3·R4 일운 십성 적합 (집=이삿날 점수표 / 사무실=officeMove) ──
+
+    def _day_fit(self, c: LuckComposite, kind: str) -> int:
+        """일운의 십성·관계 적합도(0~100) — relocation_kind로 점수표를 가른다.
+
+        집 이사(home)는 일지 중심 이삿날 점수표, 사무실 이전(office)은 월주 중심
+        officeMove 규격을 적용한다(사용자 스펙 11·12장).
+        """
+        if kind == "office":
+            return office_day_fit(c, self._date_table["officeMove"])
+        return ten_god_day_fit(c, self._date_table["moveDay"])
+
+    # ── R2 이유분류 (해석 라벨 전용 — 점수 미개입) ──────────────────
+
+    def _reason_profiles(
+        self,
+        months: list[str],
+        composites_by_subject: dict[str, list[LuckComposite]],
+        query: RelocationQuery,
+    ) -> list[RelocationReasonProfile]:
+        """최상위 후보월의 세운·월운 십성으로 이사 이유·집성격·리스크를 분류한다.
+
+        천간=명분(이유) / 지지본기=현장(집 성격)으로 본다(사용자 스펙 5장). 의사결정
+        주체(첫 대상 — 대상 우선 원칙 7)의 운만 본다. 후보월이 없으면(이사운 미약) 빈
+        리스트. 점수·날짜에 개입하지 않는 해석 라벨 전용(절대원칙 1·12).
+        """
+        if not months or not query.group_subjects:
+            return []
+        primary = query.group_subjects[0].label
+        comps = composites_by_subject.get(primary, [])
+        top_month = months[0]
+        year_key = top_month[:4]
+        month_comp = next(
+            (c for c in comps
+             if c.level is CompositeLevel.MONTH and c.period_key == top_month),
+            None,
+        )
+        year_comp = next(
+            (c for c in comps
+             if c.level is CompositeLevel.YEAR and c.period_key == year_key),
+            None,
+        )
+        # 천간(명분) 먼저, 지지(현장) 다음 — 세운 → 월운 순.
+        ordered: list[tuple[str, str | None]] = [
+            ("세운 천간(명분)", year_comp.ten_god.stem if year_comp else None),
+            ("월운 천간(명분)", month_comp.ten_god.stem if month_comp else None),
+            ("세운 지지(현장)", year_comp.ten_god.branch_main if year_comp else None),
+            ("월운 지지(현장)", month_comp.ten_god.branch_main if month_comp else None),
+        ]
+        profiles: list[RelocationReasonProfile] = []
+        seen: set[str] = set()
+        for source, ten_god in ordered:
+            if ten_god is None or ten_god in seen:
+                continue
+            entry = self._reason_by_ten_god.get(ten_god)
+            if entry is None:
+                continue
+            seen.add(ten_god)
+            profiles.append(RelocationReasonProfile(
+                ten_god=ten_god,
+                source=source,
+                type=entry["type"],
+                move_reason=entry["moveReason"],
+                property_tendency=entry["propertyTendency"],
+                risk=entry["risk"],
+                required_checks=entry["requiredChecks"],
+                risk_level=entry["riskLevel"],
+                main_question=entry["mainQuestion"],
+            ))
+        return profiles
+
     # ── S4~S8 ────────────────────────────────────────────────────
 
     def _day_candidates(
@@ -289,6 +521,9 @@ class RelocationResolver:
                 day_exec = _signed_weight(c, "relocation")  # S4
                 for domain, w in housing.items():  # S6
                     day_exec += _signed_weight(c, domain) * w
+                # R3·R4 — 일운 실행 점수에 십성 적합(집=이삿날 점수표 / 사무실=officeMove) 블렌드.
+                day_fit = self._day_fit(c, query.relocation_kind)
+                day_execution = round(0.5 * _to100(day_exec) + 0.5 * day_fit)
 
                 son = is_son_eomneun_nal(day)  # S7
                 calendar_score = 0.1 if son else 0.0
@@ -297,7 +532,7 @@ class RelocationResolver:
                 scores = MoveDateScores(
                     macro_flow=70,  # S3 통과 월만 진입(통과=허용 흐름) — 초안 고정값
                     month_fit=_to100(month_fit),
-                    day_execution=_to100(day_exec),
+                    day_execution=day_execution,
                     calendar_rule=_to100(calendar_score),
                     reality_fit=100 if (not weekend_only or is_weekend) else 0,
                     final=0,
@@ -375,11 +610,16 @@ class RelocationResolver:
         composites_by_subject: dict[str, list[LuckComposite]],
         query: RelocationQuery,
     ) -> list[MoveDateCandidate]:
-        """체인 기본형: 최상위 이사일에서 역산해 30~90일 전 문서운 좋은 날 배치."""
+        """체인: 최상위 이사일에서 역산해 30~90일 전 계약일을 계약일 점수표로 배치.
+
+        계약일은 정관·정인(서류·약속)을 우대하고 편인·겁재·상관·편관·충을 회피한다
+        (사용자 스펙 9장). 충은 탐지엔 긍정이나 택일엔 감점 — 점수표로 자연 반영.
+        """
         if not move_dates:
             return []
         anchor = date.fromisoformat(move_dates[0].date)
         lo, hi = anchor - timedelta(days=90), anchor - timedelta(days=30)
+        contract_table = self._date_table["contractDay"]
         out: list[MoveDateCandidate] = []
         seen: set[str] = set()
         for comps in composites_by_subject.values():
@@ -390,8 +630,7 @@ class RelocationResolver:
                 day = date.fromisoformat(c.period_key)
                 if not lo <= day <= hi:
                     continue
-                doc = _signed_weight(c, "wealth")  # 문서운(document→wealth 도메인)
-                score = _to100(doc)
+                score = ten_god_day_fit(c, contract_table)  # 계약일 십성 적합
                 out.append(MoveDateCandidate(
                     date=c.period_key,
                     ganji=f"{c.ganji.stem}{c.ganji.branch}",
@@ -400,7 +639,10 @@ class RelocationResolver:
                         macro_flow=70, month_fit=50, day_execution=score,
                         calendar_rule=50, reality_fit=100, final=score,
                     ),
-                    reasons=[f"이사일({move_dates[0].date}) 역산 계약 창"],
+                    reasons=[
+                        f"이사일({move_dates[0].date}) 역산 계약 창 — "
+                        f"{c.ten_god.stem}(천간) 계약일 적합 {score}"
+                    ],
                 ))
         out.sort(key=lambda c: (-c.final_score, c.date))
         return out[:_TOP_DATES]

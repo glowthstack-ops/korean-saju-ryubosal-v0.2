@@ -323,7 +323,22 @@ def build_relocation_context(
         )
         for c in result.move_dates
     ]
-    findings = [
+    # R2 — 이유분류 findings(해석 라벨, score=0)를 이사일 findings 앞에 배치
+    # (사용자 14장 출력 순서: 요약→이유→집성격→리스크→체크리스트→택일).
+    reason_findings = [
+        Finding(
+            key=f"reason@{p.ten_god}",
+            summary=(
+                f"{p.source} {p.ten_god} → {p.type}: "
+                f"이유 {'·'.join(p.move_reason[:3])} / 집 {'·'.join(p.property_tendency[:2])} / "
+                f"리스크({p.risk_level}) {'·'.join(p.risk[:2])}"
+            ),
+            score=0,  # 분류 라벨 — 점수 미개입(절대원칙 1·12)
+            signals=p.required_checks,  # 계약 전 확인 체크리스트
+        )
+        for p in result.reason_profiles
+    ]
+    move_findings = [
         Finding(
             key=f"move@{c.date}",
             summary=(
@@ -336,6 +351,7 @@ def build_relocation_context(
         )
         for c in result.move_dates
     ]
+    findings = reason_findings + move_findings
     return TopicContext(
         module_id="M10",
         subjects=subjects,
@@ -350,7 +366,13 @@ def build_relocation_context(
             member_scores={},  # 월별 상세는 result.group_summary — LLM 입력 시 별도 직렬화
             conflicts=result.group_summary.conflicts,
         ),
-        style_rules=_BASE_STYLE,
+        style_rules=StyleRules(
+            prohibited_expressions=[*_BASE_STYLE.prohibited_expressions, "반드시 이직한다"],
+            tone_notes=[
+                *_BASE_STYLE.tone_notes,
+                "이사 발생 단정 금지 — 가능성·단계 표현, 십성 리스크 체크리스트 동반",
+            ],
+        ),
         budget=TokenBudget(
             max_input_tokens=CALL_LIMITS["chat_compare"].max_input_tokens,
             max_output_chars=2_400,

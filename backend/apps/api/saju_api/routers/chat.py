@@ -21,7 +21,14 @@ from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import InlineBirth
 from saju_shared_types.profile import PersonaConfig
 
-from ..deps import get_chat_history_store, get_subject_store, optional_owner, require_owner
+from ..deps import (
+    get_chat_history_store,
+    get_chat_history_store_optional,
+    get_subject_store,
+    get_subject_store_optional,
+    optional_owner,
+    require_owner,
+)
 from ..services import chat_service
 from ..services.partner_resolve import inline_to_birth
 
@@ -31,6 +38,10 @@ OwnerId = Annotated[str, Depends(require_owner)]
 OptionalOwner = Annotated[str | None, Depends(optional_owner)]
 History = Annotated[ChatHistoryStore, Depends(get_chat_history_store)]
 Subjects = Annotated[SubjectStore, Depends(get_subject_store)]
+# POST /chat 전용 — DSN 미설정 배포에서도 dry-run·정책·익명 채팅이 동작하도록 optional.
+# (로그인 데이터 경로 /threads 등은 위 엄격 버전을 그대로 사용해 DB 없으면 503.)
+OptionalHistory = Annotated[ChatHistoryStore | None, Depends(get_chat_history_store_optional)]
+OptionalSubjects = Annotated[SubjectStore | None, Depends(get_subject_store_optional)]
 
 
 class ChatRequest(BaseModel):
@@ -80,12 +91,16 @@ class UnseenCount(BaseModel):
 
 
 def _resolve_chat_partner(
-    req: ChatRequest, subjects: SubjectStore, owner_id: str | None,
+    req: ChatRequest, subjects: SubjectStore | None, owner_id: str | None,
 ) -> BirthInput | None:
-    """채팅 궁합 — 첨부 상대를 BirthInput으로 해석(즉석 입력 우선, 등록 동반자는 소유자 검증)."""
+    """채팅 궁합 — 첨부 상대를 BirthInput으로 해석(즉석 입력 우선, 등록 동반자는 소유자 검증).
+
+    subjects가 None(무DB 배포)이면 등록 동반자 조회는 조용히 생략한다 — 즉석 입력(inline)은
+    DB 없이도 동작하며, 전체 요청을 503으로 막지 않는다.
+    """
     if req.partner_inline is not None:
         return inline_to_birth(req.partner_inline)
-    if req.partner_subject_id and owner_id:
+    if req.partner_subject_id and owner_id and subjects is not None:
         rec = subjects.get(req.partner_subject_id)
         if rec is not None and rec.owner_id == owner_id:
             return rec.birth
@@ -154,8 +169,8 @@ def _run_chat_answer(
 def chat(
     req: ChatRequest,
     owner_id: OptionalOwner,
-    history: History,
-    subjects: Subjects,
+    history: OptionalHistory,
+    subjects: OptionalSubjects,
     background: BackgroundTasks,
 ) -> chat_service.ChatResponse:
     """단일 질문 풀이 — 파서→플래너→스코어링→그래프→축소→LLM(또는 dry-run).
@@ -187,8 +202,8 @@ def chat(
     llm_ready = chat_service.llm_client.is_available()
     is_llm_path = prep.status == "dry_run"  # 정책/범위/need_subject는 이미 answer 보유
 
-    # 로그인 + 스레드 + LLM 경로 → 백그라운드 생성 + 폴링 복구.
-    if owner_id and req.thread_id and is_llm_path and llm_ready:
+    # 로그인 + 스레드 + LLM 경로 → 백그라운드 생성 + 폴링 복구(영속화엔 history 필수).
+    if owner_id and req.thread_id and is_llm_path and llm_ready and history is not None:
         message_id = history.start_turn(
             owner_id, req.thread_id, req.subject_label, req.question,
             meta={"candidate_count": prep.candidate_count},
@@ -212,8 +227,8 @@ def chat(
         )
         prep = prep.model_copy(update={"status": "answered", "answer": answer})
 
-    # 정책/범위/need_subject(즉시 응답) — 로그인+스레드면 동기 영속화.
-    if owner_id and req.thread_id and prep.answer:
+    # 정책/범위/need_subject(즉시 응답) — 로그인+스레드+DB면 동기 영속화.
+    if owner_id and req.thread_id and prep.answer and history is not None:
         try:
             history.record_turn(
                 owner_id, req.thread_id, req.subject_label, req.question, prep.answer,

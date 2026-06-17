@@ -30,6 +30,8 @@ class RelocationQuery(BaseModel):
     candidate_directions: list[str] | None = None  # 미지정 시 8방위 전부
     candidate_regions: list[str] | None = None
     housing_type: str | None = None  # buy|jeonse|monthly|new_build|old_build
+    # R4 — 집 이사(일지 중심) vs 사무실 이전(월주 중심). 기본 home, 선택 입력(원칙 11).
+    relocation_kind: str = "home"  # home|office
     reality_constraints: list[str] = Field(default_factory=list)
     chained_schedule: list[ChainedStep] = Field(default_factory=list)
 
@@ -66,6 +68,25 @@ class MoveDateCandidate(BaseModel):
     cautions: list[str] = Field(default_factory=list)
 
 
+class RelocationReasonProfile(BaseModel):
+    """십성 기반 이사 이유·집성격·리스크 분류 (R2, docs/02·09 — relocation_ten_gods.json).
+
+    이사 '발생'은 합·충·역마·재관 자극이 보고(events/relocation.json), 십성은 '왜 이사하고
+    어떤 집으로 가는가'를 분류한다. 점수·날짜·랭킹에 일절 개입하지 않는 해석 라벨 전용
+    (절대원칙 1·12). source는 신호 출처(천간=명분 / 지지=현장, 사용자 스펙 5장).
+    """
+
+    ten_god: str
+    source: str  # '세운 천간(명분)' | '월운 지지(현장)' 등
+    type: str
+    move_reason: list[str]
+    property_tendency: list[str]
+    risk: list[str]
+    required_checks: list[str]
+    risk_level: str
+    main_question: str
+
+
 class GroupSummary(BaseModel):
     """그룹 월별 집계 + 충돌 (docs/09 7장 groupSummary)."""
 
@@ -85,6 +106,7 @@ class RelocationResult(BaseModel):
 
     contract_window: list[MoveDateCandidate] = Field(default_factory=list)  # 체인 모드
     move_dates: list[MoveDateCandidate] = Field(default_factory=list)
+    reason_profiles: list[RelocationReasonProfile] = Field(default_factory=list)  # R2
     group_summary: GroupSummary = Field(default_factory=GroupSummary)
     avoid_dates: list[AvoidDate] = Field(default_factory=list)
     evidence: list[EvidenceBundle] = Field(default_factory=list)

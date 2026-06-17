@@ -1,0 +1,33 @@
+{
+  "version": "1.0.0",
+  "note": "계약일·이삿날 분리 택일 점수표(사용자 스펙 2026-06-17, 9~11장). 계약일=정관·정인(서류·약속), 이삿날=정재·정관(물건·실행). 충은 이벤트 탐지엔 긍정이나 택일엔 감점(10장). 천간=표면 명분, 지지=실제 현장. officeMove는 데이터만(엔진 배선 R4). 절대값은 사용자 스펙 보존 — 0~100 스코어 결합은 R3 엔진 단계 설계. 초안 — 검수 대상.",
+  "contractDay": {
+    "ko": "계약일",
+    "preferredTenGods": { "정관": 25, "정인": 20 },
+    "preferredElements": { "水": 15, "金": 8 },
+    "avoidTenGods": { "편인": -25, "겁재": -25, "상관": -15, "편관": -15 },
+    "branchRelations": { "일지합": 12, "월지합": 10, "일지충": -20, "월지충": -15 },
+    "weights": { "dayStemTenGod": 0.45, "dayBranchRelation": 0.35, "elementSupport": 0.20 }
+  },
+  "moveDay": {
+    "ko": "이삿날",
+    "preferredTenGods": { "정재": 30, "정관": 25 },
+    "preferredCombinations": { "정재+정관": 20, "재관": 18 },
+    "avoidTenGods": { "상관": -30, "겁재": -30, "편관": -25, "식신": -20, "비견": -20, "편재": -15, "편인": -10, "정인": -5 },
+    "branchRelations": { "일지합": 20, "일지충": -20, "월지충": -15 },
+    "weights": { "dayBranchRelation": 0.45, "dayStemTenGod": 0.30, "dayBranchTenGod": 0.25 }
+  },
+  "officeMove": {
+    "ko": "사무실 이전",
+    "primaryPalace": ["월간", "월지", "월주"],
+    "preferredRelations": ["월간합", "월지합", "월주생"],
+    "avoidRelations": ["월간극", "월지충", "월주극"],
+    "preferredTenGods": ["정재", "정관"],
+    "avoidTenGods": ["상관", "겁재", "편관"]
+  },
+  "chungPolicy": {
+    "eventDetection": "positive_for_relocation_trigger",
+    "dateSelection": "negative_for_move_day"
+  },
+  "reviewed": false
+}
