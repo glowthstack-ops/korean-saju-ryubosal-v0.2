@@ -276,6 +276,19 @@ def build_lifestyle_context(
         and _in_period(c.period_key, period)
     ]
     day_comps = [c for c in selected if c.level is CompositeLevel.DAY]
+    # 일 단위 운세의 활성 월은 일운의 절기 부모월을 따른다 — 캘린더 월 prefix로 잡으면 절입
+    # 이전 초순일이 다음 절기월로 오인된다(예: 2026-07-04는 甲午인데 乙未로 표시되던 결함).
+    if day_comps and day_comps[0].parent_context.month:
+        parent_month = day_comps[0].parent_context.month
+        seolgi_month = next(
+            (c for c in composites
+             if c.level is CompositeLevel.MONTH
+             and f"{c.ganji.stem}{c.ganji.branch}" == parent_month),
+            None,
+        )
+        if seolgi_month is not None:
+            selected = [c for c in selected if c.level is not CompositeLevel.MONTH]
+            selected.append(seolgi_month)
     scores = _lifestyle_scores(selected)
 
     findings = [

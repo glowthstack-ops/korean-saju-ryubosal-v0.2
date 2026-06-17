@@ -157,6 +157,9 @@ class CompositeBuilder:
 
         year_ganji = {p.label: p.ganji for p in lc.yearly_luck}
         month_ganji = {p.label: p.ganji for p in lc.monthly_luck}
+        # 일운의 부모 월은 절기 월을 따른다 — 캘린더 월(label[:7])로 잡으면 절입(예: 소서)
+        # 이전 초순의 날이 다음 절기월로 오인된다(2026-07-04는 절기상 甲午인데 乙未로 잡힘).
+        seolgi_month = self._seolgi_month_labels(result, lc) if CompositeLevel.DAY in wanted else {}
 
         for level, pillars in (
             (CompositeLevel.YEAR, lc.yearly_luck),
@@ -168,6 +171,7 @@ class CompositeBuilder:
             for p in pillars:
                 parent, upper = self._parents_for(
                     level, p.label, daewoon_by_year, year_ganji, month_ganji,
+                    seolgi_month,
                 )
                 out.append(self._luck_composite(
                     level, p.label, p, natal_entries, natal_ganji_pairs,
@@ -261,6 +265,7 @@ class CompositeBuilder:
     def _parents_for(
         self, level: CompositeLevel, label: str, daewoon_by_year: dict[int, str],
         year_ganji: dict[str, str], month_ganji: dict[str, str],
+        seolgi_month: dict[str, str],
     ) -> tuple[ParentContext, list[tuple[InteractionSource, str]]]:
         """상위 레벨 간지(parentContext)와 풀에 넣을 상위 운 글자들."""
         year_label = label[:4]
@@ -275,11 +280,42 @@ class CompositeBuilder:
             if yg:
                 upper.append((InteractionSource.YEAR, yg))
         if level is CompositeLevel.DAY:
-            mg = month_ganji.get(label[:7])
+            # 절기 월 키 우선(절입 경계 보정) — 미산출/미등록이면 캘린더 월로 폴백.
+            month_key = seolgi_month.get(label, label[:7])
+            if month_key not in month_ganji:
+                month_key = label[:7]
+            mg = month_ganji.get(month_key)
             parent.month = mg
             if mg:
                 upper.append((InteractionSource.MONTH, mg))
         return parent, upper
+
+    @staticmethod
+    def _seolgi_month_labels(
+        result: ManseV2Result, lc: object
+    ) -> dict[str, str]:
+        """일운 날짜 → 절기 월 라벨('YYYY-MM') 매핑. 절입 이전 초순일의 월주 오인 방지.
+
+        만세 코어의 luck_month_label(절기 경계 기준)을 SSOT로 쓴다. 실패는 빈 맵으로 폴백해
+        캘린더 월 동작을 유지한다(데이터 부재가 산출을 막지 않게).
+        """
+        from datetime import date as _date
+
+        try:
+            from saju_manse_analysis.luck.luck_calendar import luck_month_label
+
+            from saju_manse_core.calendar.solar_terms import get_table
+        except ImportError:
+            return {}
+        tz = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
+        table = get_table()
+        mapping: dict[str, str] = {}
+        for p in getattr(lc, "daily_luck", []):
+            try:
+                mapping[p.label] = luck_month_label(_date.fromisoformat(p.label), table, tz)
+            except (ValueError, TypeError):
+                continue
+        return mapping
 
     def _domain_signals(
         self, hits: list[InteractionHit], fav_map: dict[str, str]

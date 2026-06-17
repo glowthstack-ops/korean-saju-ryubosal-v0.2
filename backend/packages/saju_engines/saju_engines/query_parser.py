@@ -232,6 +232,15 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
         r"이사|계약|결혼|수술|개업|로또|매매|사무실|사업장|점포|상가|오피스", text
     ):
         return QueryType.DATE_RECOMMENDATION
+    # 특정 시점에 계약/이사 등을 '해도 될지' 평가하는 질문도 택일로 본다
+    # ('7월 4일에 계약·이사… 잘한 결정일까?'). 막연한 '이사 어때'는 제외(시점 표지 필요).
+    eval_words = re.search(
+        r"잘한\s*결정|잘\s*한\s*건가|괜찮을까|괜찮나|괜찮아|괜찮은가"
+        r"|해도\s*(?:될까|되나|좋을까|괜찮)|날\s*잡아도|어떨까", text)
+    date_act = re.search(r"이사|계약|결혼|수술|개업|매매|입주|등기|잔금|이전", text)
+    date_marker = re.search(r"\d{1,2}\s*[월일]|오늘|내일|모레", text)
+    if eval_words and date_act and date_marker:
+        return QueryType.DATE_RECOMMENDATION
     # Q10 — 개운/보완 (D-3).
     if re.search(r"조심해야|보완|개운|비방|피해야|주의해야", text):
         return QueryType.REMEDY

@@ -91,6 +91,23 @@ class ConversationEngine:
         for intent in parsed.intents:
             if link.is_follow_up and intent.domain is Domain.GENERAL and link.inherited_domain:
                 intent.domain = link.inherited_domain
+            # 의도 연속성: 후속 턴이 새 사건·도메인을 들고 오지 않은 '시점·사실 보완'(예:
+            # '7월 4일은 갑오월이야')이면 직전 질문의 query_type·event_key를 이어받아 같은
+            # 주제(계약·이사 평가 등)를 계속 다룬다 — 막연한 하루 운세로 리셋되지 않게.
+            if link.is_follow_up and prev is not None:
+                introduces_new = intent.event_key is not None or bool(_detect_domains(text))
+                weak = intent.query_type in (
+                    QueryType.FORTUNE_OVERVIEW, QueryType.DOMAIN_ANALYSIS,
+                )
+                if (
+                    not introduces_new and weak
+                    and prev.query_type is not QueryType.FORTUNE_OVERVIEW
+                ):
+                    intent.query_type = prev.query_type
+                    if intent.event_key is None:
+                        intent.event_key = prev.event_key
+                        intent.event_keys = intent.event_keys or list(prev.event_keys)
+                    intent.relocation_kind = prev.relocation_kind
             if resolution.subjects:
                 intent.subjects = resolution.subjects
                 intent.subject_mode = resolution.subject_mode
