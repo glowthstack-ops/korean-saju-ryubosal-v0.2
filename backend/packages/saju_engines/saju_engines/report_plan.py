@@ -102,10 +102,24 @@ _RELATIONSHIP_PAIR_TOC: list[tuple[str, str, list[str], int, int]] = [
     ("RP-09", "관계 운영 전략", ["E8"], 2_000, 3_000),
     ("RP-10", "부록: 점수표와 근거", ["EVIDENCE"], 1_500, 2_500),
 ]
+# 이사·이동운(relocation): 성향→이유·집성격(십성)→이동 신호→리스크·체크리스트→
+# 향후 흐름→행동전략→점수표. 이유·집성격(RL-03)·리스크(RL-05)는 relocation_ten_gods
+# 십성 분류를 surface한다(이사 고도화 R2 — RELOCATION_ENHANCEMENT.md).
+_RELOCATION_TOC: list[tuple[str, str, list[str], int, int]] = [
+    ("RL-01", "핵심 요약", ["MODULE"], 1_200, 1_800),
+    ("RL-02", "나의 이동·정착 성향", ["T0", "M03"], 2_500, 3_500),
+    ("RL-03", "이사의 이유와 집의 성격", ["T0", "M10"], 3_000, 4_000),
+    ("RL-04", "운에서 드러난 이동 신호", ["M10", "E3"], 2_500, 3_500),
+    ("RL-05", "리스크와 계약 전 체크리스트", ["M10"], 2_500, 3_500),
+    ("RL-06", "향후 5년 이동 흐름과 주목할 달", ["T1", "E4"], 3_500, 4_500),
+    ("RL-07", "이사 행동 전략", ["E8"], 2_000, 3_000),
+    ("RL-08", "부록: 점수표와 근거", ["EVIDENCE"], 1_500, 2_500),
+]
 _THEME_TOCS: dict[str, list[tuple[str, str, list[str], int, int]]] = {
     "wealth": _WEALTH_TOC,
     "career": _CAREER_TOC,
     "relationship": _RELATIONSHIP_TOC,
+    "relocation": _RELOCATION_TOC,
 }
 
 # RPT_YEAR 한해풀이(2026-06-14 사용자 확정) — 총운(RPT_FULL)에서 단일 년도에 의미 있는
@@ -145,9 +159,7 @@ _FOCUS_VARIANTS: dict[str, dict[str, tuple[str, list[str]]]] = {
         "C-04": ("관계 이벤트 타임라인", ["M13", "E4"]),
         "C-05": ("관계 운영 시나리오", ["M13"]),
     },
-    "relocation": {
-        "C-04": ("추천 시기·날짜 랭킹", ["M10"]),
-    },
+    # relocation은 전용 테마 목차(_RELOCATION_TOC)로 승격 — generic FOCUS 변형 미사용.
 }
 
 # FOCUS 주제 → 대표 모듈(planner._DOMAIN_MODULE과 정합). _FOCUS_TOC의 'MODULE'

@@ -89,6 +89,18 @@
 - `RelocationQuery.relocation_kind: 'home' | 'office'`(기본 home) 추가 — 미입력 시 기존 동작(원칙 11 optional).
 - 궁 분기로 충·합 판정과 점수표 적용 자리를 전환.
 
+## 5. 리포트/테마 반영 (총운류 — RPT_FOCUS relocation)
+
+이사 고도화의 십성 이유분류를 리포트에도 활용한다. 단, 리포트는 EventEngineV2/EventCandidate
+시스템을 쓰고 M10은 LuckComposite 기반이라, 리포트에서 대상의 YEAR/MONTH 컴포짓을 별도
+산출해 R2 분류기(`RelocationResolver.classify_reasons`)를 **재사용**한다(로직 중복 없음).
+
+- 이사 전용 테마 목차 `_RELOCATION_TOC`(RL-01~RL-08, 재물 W-* 패턴) — generic FOCUS 변형 승격.
+- `_ReportData.relocation_reason_block`(RL-03 이유·집성격)·`relocation_risk_block`(RL-05 리스크·
+  체크리스트)이 세운 천간(명분)/지지(현장)·월운 십성 분류를 본문 데이터로 주입.
+- RL-04/RL-06은 relocation 도메인으로 스코프된 기존 운 흐름 블록을 사용. 일자 택일(DAY)은
+  리포트 미포함 — 택일은 채팅 라우트 담당. 신호 약함·실패 시 빈 폴백(규칙 11).
+
 ## 구현 파일 맵
 
 | 파일 | 변경 |
@@ -101,6 +113,8 @@
 | `packages/saju_engines/.../date_selection.py` | R3 십성 블렌드 |
 | `packages/saju_engines/.../topic_builder.py` | R2 reason findings·style |
 | `apps/api/.../deps.py`·`routers/chat.py` | R3 chat DB-optional |
+| `apps/api/.../services/chat_service.py`·`query_parser.py`·`intent.py` | R4 사무실 이전 택일 라우트 배선 |
+| `packages/saju_engines/.../report_plan.py`·`apps/.../report_service.py` | 리포트 이사 테마(RL-*) + reason 분류 surface |
 
 ## 검수 대상 (reviewed:false 초안 — 실측 튜닝 전 운영 반영 금지)
 

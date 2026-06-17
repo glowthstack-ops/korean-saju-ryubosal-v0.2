@@ -433,17 +433,30 @@ class RelocationResolver:
         primary = query.group_subjects[0].label
         comps = composites_by_subject.get(primary, [])
         top_month = months[0]
-        year_key = top_month[:4]
-        month_comp = next(
-            (c for c in comps
-             if c.level is CompositeLevel.MONTH and c.period_key == top_month),
-            None,
-        )
+        return self.classify_reasons(comps, top_month[:4], top_month)
+
+    def classify_reasons(
+        self,
+        composites: list[LuckComposite],
+        year_key: str,
+        month_key: str | None = None,
+    ) -> list[RelocationReasonProfile]:
+        """세운(연)·월운 십성으로 이사 이유·집성격·리스크를 분류한다(R2 공개 API).
+
+        천간=명분(이유) / 지지본기=현장(집 성격)으로 본다(사용자 스펙 5장). 점수·날짜에
+        개입하지 않는 해석 라벨 전용(절대원칙 1·12). 리포트(테마 이사운)·M10이 공용한다.
+        month_key가 없으면 세운(연)만으로 분류한다.
+        """
         year_comp = next(
-            (c for c in comps
+            (c for c in composites
              if c.level is CompositeLevel.YEAR and c.period_key == year_key),
             None,
         )
+        month_comp = next(
+            (c for c in composites
+             if c.level is CompositeLevel.MONTH and c.period_key == month_key),
+            None,
+        ) if month_key else None
         # 천간(명분) 먼저, 지지(현장) 다음 — 세운 → 월운 순.
         ordered: list[tuple[str, str | None]] = [
             ("세운 천간(명분)", year_comp.ten_god.stem if year_comp else None),

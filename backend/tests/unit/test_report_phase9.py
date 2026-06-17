@@ -67,7 +67,7 @@ def test_focus_toc_is_8_sections() -> None:
 
 
 def test_focus_variant_swaps_title_only() -> None:
-    """compatibility/relocation 변형 — 제목·모듈만 교체, 섹션 수·분량 동일(4장)."""
+    """compatibility 변형 — 제목·모듈만 교체, 섹션 수·분량 동일(4장 generic FOCUS)."""
     base = build_section_plans(_spec("RPT_FOCUS", topic="health"))
     compat = build_section_plans(_spec("RPT_FOCUS", topic="compatibility"))
     assert len(compat) == len(base) == 8
@@ -79,9 +79,14 @@ def test_focus_variant_swaps_title_only() -> None:
     base_by_id = {p.section_id: p for p in base}
     assert by_id["C-02"].target_chars == base_by_id["C-02"].target_chars
 
-    reloc = {p.section_id: p for p in build_section_plans(_spec("RPT_FOCUS", topic="relocation"))}
-    assert reloc["C-04"].title == "추천 시기·날짜 랭킹"
-    assert {m.module_id for m in reloc["C-04"].module_calls} == {"M10"}
+
+def test_relocation_uses_dedicated_theme_toc() -> None:
+    """이사 테마는 generic FOCUS 변형이 아니라 전용 8섹션(RL-*, 이사 고도화)을 쓴다."""
+    reloc = build_section_plans(_spec("RPT_FOCUS", topic="relocation"))
+    assert [p.section_id for p in reloc] == [f"RL-0{n}" for n in range(1, 9)]
+    by_id = {p.section_id: p for p in reloc}
+    assert by_id["RL-03"].title == "이사의 이유와 집의 성격"
+    assert by_id["RL-05"].title == "리스크와 계약 전 체크리스트"
 
 
 # ── 정합성 검사 8종(7장) ─────────────────────────────────────────
