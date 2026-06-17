@@ -235,6 +235,9 @@ class IntentJson(BaseModel):
     time_scope: TimeScope = TimeScope.TIMELESS
     time_range: TimeRange | None = None
 
+    # R4 — 이사 종류(집=일지 중심 / 사무실=월주 중심). 기본 home(선택, 원칙 11).
+    relocation_kind: str = "home"  # home|office
+
     constraints: Constraints = Field(default_factory=Constraints)
     output: OutputStyle = Field(default_factory=OutputStyle)
 

@@ -45,7 +45,11 @@ from .time_parser import parse_time
 _DOMAIN_WORDS: dict[Domain, list[str]] = {
     Domain.CAREER: ["이직", "취업", "직장", "승진", "퇴사", "직업", "사업", "창업", "회사"],
     Domain.WEALTH: ["재물", "돈", "투자", "유산", "로또", "횡재", "주식", "문서운", "분양"],
-    Domain.RELOCATION: ["이사", "이동수", "이주"],
+    Domain.RELOCATION: [
+        "이사", "이동수", "이주",
+        "사무실 이전", "사업장 이전", "사무실 이사", "사업장 이사",
+        "오피스 이전", "점포 이전", "상가 이전",
+    ],
     Domain.RELATIONSHIP: ["연애", "결혼", "재혼", "이별", "궁합", "재회", "배우자", "인연"],
     Domain.HEALTH: ["건강", "수술", "몸"],
     Domain.EDUCATION: ["학업", "시험", "합격", "공부", "입시", "자격증", "선행"],
@@ -71,6 +75,18 @@ _DIRECTIONS = ["남동", "남서", "북동", "북서", "동", "서", "남", "북
 # 용어 교육(Q11) 어휘 — "X가 무슨 뜻"과 결합.
 _TERM_WORDS = ["공망", "용신", "희신", "기신", "구신", "한신", "격", "십성", "대운",
                "신살", "지장간", "식신격", "편인격"]
+
+
+# 사무실/사업장 이전 신호 — relocation_kind=office 판정용(R4). 집 이사(일지)와 달리 월주 중심.
+_OFFICE_RELOCATION_WORDS = (
+    "사무실 이전", "사업장 이전", "사무실 이사", "사업장 이사",
+    "오피스 이전", "점포 이전", "상가 이전",
+)
+
+
+def _detect_relocation_kind(text: str) -> str:
+    """이사 종류 — 사무실/사업장 이전 신호가 있으면 office, 아니면 home(R4)."""
+    return "office" if any(w in text for w in _OFFICE_RELOCATION_WORDS) else "home"
 
 
 def _detect_domains(text: str) -> list[Domain]:
@@ -213,7 +229,7 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
         return QueryType.DATE_RECOMMENDATION
     date_words = re.search(r"좋은\s*날|어떤\s*날|날짜|길일|좋을지|적당한\s*달|좋은.*시간대", text)
     if date_words and re.search(
-        r"이사|계약|결혼|수술|개업|로또|매매", text
+        r"이사|계약|결혼|수술|개업|로또|매매|사무실|사업장|점포|상가|오피스", text
     ):
         return QueryType.DATE_RECOMMENDATION
     # Q10 — 개운/보완 (D-3).
@@ -476,6 +492,7 @@ def parse_message(
             event_keys=event_keys,
             time_scope=piece_scope if piece_time else TimeScope.TIMELESS,
             time_range=piece_time,
+            relocation_kind=_detect_relocation_kind(piece),
             constraints=constraints,
             output=style,
         ))

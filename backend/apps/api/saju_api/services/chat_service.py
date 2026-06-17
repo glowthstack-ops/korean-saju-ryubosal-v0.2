@@ -443,6 +443,7 @@ def _date_selection_block(
         include_hour_fit=is_windfall, top_n=8,
         wealth_element=wealth_element, favorability=favorability,
         stated_direction=constraints.direction,
+        relocation_kind=getattr(intent, "relocation_kind", "home"),  # R4 집/사무실 분기
     )
     if not result.candidates:
         return None
