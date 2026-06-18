@@ -1,16 +1,2811 @@
 {
-  "version": "1.0.0",
-  "note": "지역오행 — 명리학 표준 규격 없음(docs/09 9장 리스크 1). 지명 한자 오행/지형/방위 기반 자체 기준 초안으로, 전 항목 사용자 검수 전 출시 금지. 미등재 지역은 보정 없음(0).",
+  "version": "2.0.0",
+  "note": "지역오행 — 명리학 표준 규격 없음. 지명 한자 오행 기반 자체 기준 초안으로 전 항목 사용자/전문가 검수 전 출시 금지(reviewed:false, 절대원칙 5). 시군구 단위 230개, 키='{시도} {시군구}'(동명 disambiguation). 복합 오행은 elements 전체 보존, element는 대표(첫 글자)로 region_fit 단일 입력용. 출처: _src/sigungu_ohaeng.csv (scripts/build_region_elements.py로 재생성). 미등재 지역은 보정 없음(중립 0.5).",
   "items": [
-    { "region": "서울", "element": "金", "basis": "한양(漢陽)·서북 기준 관습 분류 초안", "reviewed": false },
-    { "region": "인천", "element": "水", "basis": "해안 도시(仁川 — 내 천川)", "reviewed": false },
-    { "region": "부산", "element": "水", "basis": "해안 도시(釜山 — 항만)", "reviewed": false },
-    { "region": "대구", "element": "火", "basis": "분지 고온(大邱) 관습 분류 초안", "reviewed": false },
-    { "region": "대전", "element": "土", "basis": "내륙 중앙(大田 — 밭 전田)", "reviewed": false },
-    { "region": "광주", "element": "木", "basis": "光州 — 남서 내륙 평야 초안", "reviewed": false },
-    { "region": "수원", "element": "水", "basis": "水原 — 지명 한자 수(水)", "reviewed": false },
-    { "region": "고양", "element": "土", "basis": "高陽 — 내륙 구릉 초안", "reviewed": false },
-    { "region": "성남", "element": "火", "basis": "城南 — 남향 지명 초안", "reviewed": false },
-    { "region": "춘천", "element": "水", "basis": "春川 — 내 천川, 호반 도시", "reviewed": false }
+    {
+      "region": "서울 종로구",
+      "sido": "서울",
+      "district": "종로구",
+      "hanja": "鍾路區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 중구",
+      "sido": "서울",
+      "district": "중구",
+      "hanja": "中區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 용산구",
+      "sido": "서울",
+      "district": "용산구",
+      "hanja": "龍山區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 성동구",
+      "sido": "서울",
+      "district": "성동구",
+      "hanja": "城東區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 광진구",
+      "sido": "서울",
+      "district": "광진구",
+      "hanja": "廣津區",
+      "element": "土",
+      "elements": [
+        "土",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 동대문구",
+      "sido": "서울",
+      "district": "동대문구",
+      "hanja": "東大門區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 중랑구",
+      "sido": "서울",
+      "district": "중랑구",
+      "hanja": "中浪區",
+      "element": "土",
+      "elements": [
+        "土",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 성북구",
+      "sido": "서울",
+      "district": "성북구",
+      "hanja": "城北區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 강동구",
+      "sido": "서울",
+      "district": "강동구",
+      "hanja": "江東區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 강북구",
+      "sido": "서울",
+      "district": "강북구",
+      "hanja": "江北區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 도봉구",
+      "sido": "서울",
+      "district": "도봉구",
+      "hanja": "道峰區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 노원구",
+      "sido": "서울",
+      "district": "노원구",
+      "hanja": "蘆原區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 은평구",
+      "sido": "서울",
+      "district": "은평구",
+      "hanja": "恩平區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 서대문구",
+      "sido": "서울",
+      "district": "서대문구",
+      "hanja": "西大門區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 마포구",
+      "sido": "서울",
+      "district": "마포구",
+      "hanja": "麻浦區",
+      "element": "水",
+      "elements": [
+        "水",
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 양천구",
+      "sido": "서울",
+      "district": "양천구",
+      "hanja": "陽川區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 강서구",
+      "sido": "서울",
+      "district": "강서구",
+      "hanja": "江西區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 구로구",
+      "sido": "서울",
+      "district": "구로구",
+      "hanja": "九老區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 금천구",
+      "sido": "서울",
+      "district": "금천구",
+      "hanja": "衿川區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 영등포구",
+      "sido": "서울",
+      "district": "영등포구",
+      "hanja": "永登浦區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 동작구",
+      "sido": "서울",
+      "district": "동작구",
+      "hanja": "銅雀區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 관악구",
+      "sido": "서울",
+      "district": "관악구",
+      "hanja": "冠岳區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 서초구",
+      "sido": "서울",
+      "district": "서초구",
+      "hanja": "瑞草區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 강남구",
+      "sido": "서울",
+      "district": "강남구",
+      "hanja": "江南區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 송파구",
+      "sido": "서울",
+      "district": "송파구",
+      "hanja": "松坡區",
+      "element": "木",
+      "elements": [
+        "木",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "서울 여의도",
+      "sido": "서울",
+      "district": "여의도",
+      "hanja": "汝矣島",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가",
+      "reviewed": false,
+      "note": "자치구/시군 단위가 아닌 지명으로 보여 검수 필요"
+    },
+    {
+      "region": "경기도 수원시",
+      "sido": "경기도",
+      "district": "수원시",
+      "hanja": "水原市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 고양시",
+      "sido": "경기도",
+      "district": "고양시",
+      "hanja": "高陽市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 용인시",
+      "sido": "경기도",
+      "district": "용인시",
+      "hanja": "龍仁市",
+      "element": "土",
+      "elements": [
+        "土",
+        "金"
+      ],
+      "status": "보정",
+      "reviewed": false,
+      "note": "텍스트 기준 보정: 기존 토목(土木) → 토금(土金)"
+    },
+    {
+      "region": "경기도 성남시",
+      "sido": "경기도",
+      "district": "성남시",
+      "hanja": "城南市",
+      "element": "火",
+      "elements": [
+        "火",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 부천시",
+      "sido": "경기도",
+      "district": "부천시",
+      "hanja": "富川市",
+      "element": "土",
+      "elements": [
+        "土",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 안산시",
+      "sido": "경기도",
+      "district": "안산시",
+      "hanja": "安山市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 화성시",
+      "sido": "경기도",
+      "district": "화성시",
+      "hanja": "華城市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 남양주시",
+      "sido": "경기도",
+      "district": "남양주시",
+      "hanja": "南楊州市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 평택시",
+      "sido": "경기도",
+      "district": "평택시",
+      "hanja": "平澤市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 가평군",
+      "sido": "경기도",
+      "district": "가평군",
+      "hanja": "加平郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 파주시",
+      "sido": "경기도",
+      "district": "파주시",
+      "hanja": "坡州市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 의정부시",
+      "sido": "경기도",
+      "district": "의정부시",
+      "hanja": "議政府市",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 시흥시",
+      "sido": "경기도",
+      "district": "시흥시",
+      "hanja": "始興市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 김포시",
+      "sido": "경기도",
+      "district": "김포시",
+      "hanja": "金浦市",
+      "element": "金",
+      "elements": [
+        "金",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 광주시",
+      "sido": "경기도",
+      "district": "광주시",
+      "hanja": "廣州市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 광명시",
+      "sido": "경기도",
+      "district": "광명시",
+      "hanja": "光明市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 군포시",
+      "sido": "경기도",
+      "district": "군포시",
+      "hanja": "軍浦市",
+      "element": "金",
+      "elements": [
+        "金",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 하남시",
+      "sido": "경기도",
+      "district": "하남시",
+      "hanja": "河南市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 이천시",
+      "sido": "경기도",
+      "district": "이천시",
+      "hanja": "利川市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 과천시",
+      "sido": "경기도",
+      "district": "과천시",
+      "hanja": "果川市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 오산시",
+      "sido": "경기도",
+      "district": "오산시",
+      "hanja": "烏山市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 양주시",
+      "sido": "경기도",
+      "district": "양주시",
+      "hanja": "楊州市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 구리시",
+      "sido": "경기도",
+      "district": "구리시",
+      "hanja": "九里市",
+      "element": "土",
+      "elements": [
+        "土",
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 안성시",
+      "sido": "경기도",
+      "district": "안성시",
+      "hanja": "安城市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 의왕시",
+      "sido": "경기도",
+      "district": "의왕시",
+      "hanja": "義王市",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false,
+      "note": "이미지에는 '(金)' 형태로 표시되어 금(金)으로 정리"
+    },
+    {
+      "region": "경기도 포천시",
+      "sido": "경기도",
+      "district": "포천시",
+      "hanja": "抱川市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 양평군",
+      "sido": "경기도",
+      "district": "양평군",
+      "hanja": "楊平郡",
+      "element": "水",
+      "elements": [
+        "水",
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 여주시",
+      "sido": "경기도",
+      "district": "여주시",
+      "hanja": "驪州市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 동두천시",
+      "sido": "경기도",
+      "district": "동두천시",
+      "hanja": "東豆川市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 연천군",
+      "sido": "경기도",
+      "district": "연천군",
+      "hanja": "漣川郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경기도 안양시",
+      "sido": "경기도",
+      "district": "안양시",
+      "hanja": "安養市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "추가",
+      "reviewed": false,
+      "note": "기존 이미지 기반 시트에서 누락된 항목"
+    },
+    {
+      "region": "부산 중구",
+      "sido": "부산",
+      "district": "중구",
+      "hanja": "中區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 서구",
+      "sido": "부산",
+      "district": "서구",
+      "hanja": "西區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 동구",
+      "sido": "부산",
+      "district": "동구",
+      "hanja": "東區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 영도구",
+      "sido": "부산",
+      "district": "영도구",
+      "hanja": "影島區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 동래구",
+      "sido": "부산",
+      "district": "동래구",
+      "hanja": "東萊區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 기장군",
+      "sido": "부산",
+      "district": "기장군",
+      "hanja": "機張郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 남구",
+      "sido": "부산",
+      "district": "남구",
+      "hanja": "南區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 북구",
+      "sido": "부산",
+      "district": "북구",
+      "hanja": "北區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 강서구",
+      "sido": "부산",
+      "district": "강서구",
+      "hanja": "江西區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 해운대구",
+      "sido": "부산",
+      "district": "해운대구",
+      "hanja": "海雲臺區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 사하구",
+      "sido": "부산",
+      "district": "사하구",
+      "hanja": "沙下區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false,
+      "note": "이미지의 괄호 안 표기가 '수'처럼 보이나 수(水)로 정리"
+    },
+    {
+      "region": "부산 연제구",
+      "sido": "부산",
+      "district": "연제구",
+      "hanja": "蓮堤區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 수영구",
+      "sido": "부산",
+      "district": "수영구",
+      "hanja": "水營區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 사상구",
+      "sido": "부산",
+      "district": "사상구",
+      "hanja": "沙上區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 부산진구",
+      "sido": "부산",
+      "district": "부산진구",
+      "hanja": "釜山鎭區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "부산 금정구",
+      "sido": "부산",
+      "district": "금정구",
+      "hanja": "金井區",
+      "element": "金",
+      "elements": [
+        "金",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대구 중구",
+      "sido": "대구",
+      "district": "중구",
+      "hanja": "中區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대구 남구",
+      "sido": "대구",
+      "district": "남구",
+      "hanja": "南區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대구 달서구",
+      "sido": "대구",
+      "district": "달서구",
+      "hanja": "達西區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대구 동구",
+      "sido": "대구",
+      "district": "동구",
+      "hanja": "東區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대구 북구",
+      "sido": "대구",
+      "district": "북구",
+      "hanja": "北區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대구 달성군",
+      "sido": "대구",
+      "district": "달성군",
+      "hanja": "達城郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대구 서구",
+      "sido": "대구",
+      "district": "서구",
+      "hanja": "西區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대구 수성구",
+      "sido": "대구",
+      "district": "수성구",
+      "hanja": "壽城區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "인천 중구",
+      "sido": "인천",
+      "district": "중구",
+      "hanja": "中區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "인천 연수구",
+      "sido": "인천",
+      "district": "연수구",
+      "hanja": "延壽區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "인천 계양구",
+      "sido": "인천",
+      "district": "계양구",
+      "hanja": "桂陽區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "인천 옹진군",
+      "sido": "인천",
+      "district": "옹진군",
+      "hanja": "甕津郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "인천 동구",
+      "sido": "인천",
+      "district": "동구",
+      "hanja": "東區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "인천 남동구",
+      "sido": "인천",
+      "district": "남동구",
+      "hanja": "南洞區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "인천 서구",
+      "sido": "인천",
+      "district": "서구",
+      "hanja": "西區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "인천 미추홀구",
+      "sido": "인천",
+      "district": "미추홀구",
+      "hanja": "彌鄒忽區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "인천 부평구",
+      "sido": "인천",
+      "district": "부평구",
+      "hanja": "富平區",
+      "element": "土",
+      "elements": [
+        "土",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "인천 강화군",
+      "sido": "인천",
+      "district": "강화군",
+      "hanja": "江華郡",
+      "element": "水",
+      "elements": [
+        "水",
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "울산 중구",
+      "sido": "울산",
+      "district": "중구",
+      "hanja": "中區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "울산 북구",
+      "sido": "울산",
+      "district": "북구",
+      "hanja": "北區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "울산 남구",
+      "sido": "울산",
+      "district": "남구",
+      "hanja": "南區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "울산 울주군",
+      "sido": "울산",
+      "district": "울주군",
+      "hanja": "蔚州郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "울산 동구",
+      "sido": "울산",
+      "district": "동구",
+      "hanja": "東區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "광주 동구",
+      "sido": "광주",
+      "district": "동구",
+      "hanja": "東區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "광주 북구",
+      "sido": "광주",
+      "district": "북구",
+      "hanja": "北區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "광주 서구",
+      "sido": "광주",
+      "district": "서구",
+      "hanja": "西區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "광주 광산구",
+      "sido": "광주",
+      "district": "광산구",
+      "hanja": "光山區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "광주 남구",
+      "sido": "광주",
+      "district": "남구",
+      "hanja": "南區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대전 동구",
+      "sido": "대전",
+      "district": "동구",
+      "hanja": "東區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대전 유성구",
+      "sido": "대전",
+      "district": "유성구",
+      "hanja": "儒城區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대전 서구",
+      "sido": "대전",
+      "district": "서구",
+      "hanja": "西區",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대전 대덕구",
+      "sido": "대전",
+      "district": "대덕구",
+      "hanja": "大德區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "대전 중구",
+      "sido": "대전",
+      "district": "중구",
+      "hanja": "中區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 춘천시",
+      "sido": "강원도",
+      "district": "춘천시",
+      "hanja": "春川市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 동해시",
+      "sido": "강원도",
+      "district": "동해시",
+      "hanja": "東海市",
+      "element": "木",
+      "elements": [
+        "木",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 삼척시",
+      "sido": "강원도",
+      "district": "삼척시",
+      "hanja": "三陟市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 영월군",
+      "sido": "강원도",
+      "district": "영월군",
+      "hanja": "寧越郡",
+      "element": "火",
+      "elements": [
+        "火",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 철원군",
+      "sido": "강원도",
+      "district": "철원군",
+      "hanja": "鐵原郡",
+      "element": "金",
+      "elements": [
+        "金",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 인제군",
+      "sido": "강원도",
+      "district": "인제군",
+      "hanja": "麟蹄郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 원주시",
+      "sido": "강원도",
+      "district": "원주시",
+      "hanja": "原州市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 태백시",
+      "sido": "강원도",
+      "district": "태백시",
+      "hanja": "太白市",
+      "element": "火",
+      "elements": [
+        "火",
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 홍천군",
+      "sido": "강원도",
+      "district": "홍천군",
+      "hanja": "洪川郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 평창군",
+      "sido": "강원도",
+      "district": "평창군",
+      "hanja": "平昌郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 화천군",
+      "sido": "강원도",
+      "district": "화천군",
+      "hanja": "華川郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 고성군",
+      "sido": "강원도",
+      "district": "고성군",
+      "hanja": "高城郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 강릉시",
+      "sido": "강원도",
+      "district": "강릉시",
+      "hanja": "江陵市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 속초시",
+      "sido": "강원도",
+      "district": "속초시",
+      "hanja": "束草市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 횡성군",
+      "sido": "강원도",
+      "district": "횡성군",
+      "hanja": "橫城郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 정선군",
+      "sido": "강원도",
+      "district": "정선군",
+      "hanja": "旌善郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 양구군",
+      "sido": "강원도",
+      "district": "양구군",
+      "hanja": "楊口郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 양양군",
+      "sido": "강원도",
+      "district": "양양군",
+      "hanja": "襄陽郡",
+      "element": "木",
+      "elements": [
+        "木",
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "강원도 묵호",
+      "sido": "강원도",
+      "district": "묵호",
+      "hanja": "墨湖",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가",
+      "reviewed": false,
+      "note": "시군 단위가 아닌 지명으로 보여 검수 필요"
+    },
+    {
+      "region": "충청남도 천안시",
+      "sido": "충청남도",
+      "district": "천안시",
+      "hanja": "天安市",
+      "element": "火",
+      "elements": [
+        "火",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 아산시",
+      "sido": "충청남도",
+      "district": "아산시",
+      "hanja": "牙山市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 당진시",
+      "sido": "충청남도",
+      "district": "당진시",
+      "hanja": "唐津市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 서천군",
+      "sido": "충청남도",
+      "district": "서천군",
+      "hanja": "舒川郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 예산군",
+      "sido": "충청남도",
+      "district": "예산군",
+      "hanja": "禮山郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 공주시",
+      "sido": "충청남도",
+      "district": "공주시",
+      "hanja": "公州市",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 서산시",
+      "sido": "충청남도",
+      "district": "서산시",
+      "hanja": "瑞山市",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 금산군",
+      "sido": "충청남도",
+      "district": "금산군",
+      "hanja": "錦山郡",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 청양군",
+      "sido": "충청남도",
+      "district": "청양군",
+      "hanja": "靑陽郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 태안군",
+      "sido": "충청남도",
+      "district": "태안군",
+      "hanja": "泰安郡",
+      "element": "火",
+      "elements": [
+        "火",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 보령시",
+      "sido": "충청남도",
+      "district": "보령시",
+      "hanja": "保寧市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 논산시",
+      "sido": "충청남도",
+      "district": "논산시",
+      "hanja": "論山市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 부여군",
+      "sido": "충청남도",
+      "district": "부여군",
+      "hanja": "扶餘郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청남도 홍성군",
+      "sido": "충청남도",
+      "district": "홍성군",
+      "hanja": "洪城郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 청주시",
+      "sido": "충청북도",
+      "district": "청주시",
+      "hanja": "淸州市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 보은군",
+      "sido": "충청북도",
+      "district": "보은군",
+      "hanja": "報恩郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 증평군",
+      "sido": "충청북도",
+      "district": "증평군",
+      "hanja": "曾坪郡",
+      "element": "火",
+      "elements": [
+        "火",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 음성군",
+      "sido": "충청북도",
+      "district": "음성군",
+      "hanja": "陰城郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 충주시",
+      "sido": "충청북도",
+      "district": "충주시",
+      "hanja": "忠州市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 옥천군",
+      "sido": "충청북도",
+      "district": "옥천군",
+      "hanja": "沃川郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 진천군",
+      "sido": "충청북도",
+      "district": "진천군",
+      "hanja": "鎭川郡",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 단양군",
+      "sido": "충청북도",
+      "district": "단양군",
+      "hanja": "丹陽郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 제천시",
+      "sido": "충청북도",
+      "district": "제천시",
+      "hanja": "堤川市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 영동군",
+      "sido": "충청북도",
+      "district": "영동군",
+      "hanja": "永同郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "충청북도 괴산군",
+      "sido": "충청북도",
+      "district": "괴산군",
+      "hanja": "槐山郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 목포시",
+      "sido": "전라남도",
+      "district": "목포시",
+      "hanja": "木浦市",
+      "element": "水",
+      "elements": [
+        "水",
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 나주시",
+      "sido": "전라남도",
+      "district": "나주시",
+      "hanja": "羅州市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 곡성군",
+      "sido": "전라남도",
+      "district": "곡성군",
+      "hanja": "谷城郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 보성군",
+      "sido": "전라남도",
+      "district": "보성군",
+      "hanja": "寶城郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 강진군",
+      "sido": "전라남도",
+      "district": "강진군",
+      "hanja": "康津郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 무안군",
+      "sido": "전라남도",
+      "district": "무안군",
+      "hanja": "務安郡",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 장성군",
+      "sido": "전라남도",
+      "district": "장성군",
+      "hanja": "長城郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 신안군",
+      "sido": "전라남도",
+      "district": "신안군",
+      "hanja": "新安郡",
+      "element": "金",
+      "elements": [
+        "金",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 여수시",
+      "sido": "전라남도",
+      "district": "여수시",
+      "hanja": "麗水市",
+      "element": "木",
+      "elements": [
+        "木",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 광양시",
+      "sido": "전라남도",
+      "district": "광양시",
+      "hanja": "光陽市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 구례군",
+      "sido": "전라남도",
+      "district": "구례군",
+      "hanja": "求禮郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 화순군",
+      "sido": "전라남도",
+      "district": "화순군",
+      "hanja": "和順郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 해남군",
+      "sido": "전라남도",
+      "district": "해남군",
+      "hanja": "海南郡",
+      "element": "水",
+      "elements": [
+        "水",
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 함평군",
+      "sido": "전라남도",
+      "district": "함평군",
+      "hanja": "咸平郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 완도군",
+      "sido": "전라남도",
+      "district": "완도군",
+      "hanja": "莞島郡",
+      "element": "木",
+      "elements": [
+        "木",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 순천시",
+      "sido": "전라남도",
+      "district": "순천시",
+      "hanja": "順天市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 담양군",
+      "sido": "전라남도",
+      "district": "담양군",
+      "hanja": "潭陽郡",
+      "element": "水",
+      "elements": [
+        "水",
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 고흥군",
+      "sido": "전라남도",
+      "district": "고흥군",
+      "hanja": "高興郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 장흥군",
+      "sido": "전라남도",
+      "district": "장흥군",
+      "hanja": "長興郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 영암군",
+      "sido": "전라남도",
+      "district": "영암군",
+      "hanja": "靈岩郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 영광군",
+      "sido": "전라남도",
+      "district": "영광군",
+      "hanja": "靈光郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라남도 진도군",
+      "sido": "전라남도",
+      "district": "진도군",
+      "hanja": "珍島郡",
+      "element": "土",
+      "elements": [
+        "土",
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 전주시",
+      "sido": "전라북도",
+      "district": "전주시",
+      "hanja": "全州市",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 정읍시",
+      "sido": "전라북도",
+      "district": "정읍시",
+      "hanja": "井邑市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 완주군",
+      "sido": "전라북도",
+      "district": "완주군",
+      "hanja": "完州郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 임실군",
+      "sido": "전라북도",
+      "district": "임실군",
+      "hanja": "任實郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 무주군",
+      "sido": "전라북도",
+      "district": "무주군",
+      "hanja": "茂朱郡",
+      "element": "木",
+      "elements": [
+        "木",
+        "火"
+      ],
+      "status": "검수필요",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 익산시",
+      "sido": "전라북도",
+      "district": "익산시",
+      "hanja": "益山市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 김제시",
+      "sido": "전라북도",
+      "district": "김제시",
+      "hanja": "金堤市",
+      "element": "金",
+      "elements": [
+        "金",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 고창군",
+      "sido": "전라북도",
+      "district": "고창군",
+      "hanja": "高敞郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 순창군",
+      "sido": "전라북도",
+      "district": "순창군",
+      "hanja": "淳昌郡",
+      "element": "水",
+      "elements": [
+        "水",
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 장수군",
+      "sido": "전라북도",
+      "district": "장수군",
+      "hanja": "長水郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 군산시",
+      "sido": "전라북도",
+      "district": "군산시",
+      "hanja": "群山市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 남원시",
+      "sido": "전라북도",
+      "district": "남원시",
+      "hanja": "南原市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 부안군",
+      "sido": "전라북도",
+      "district": "부안군",
+      "hanja": "扶安郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "전라북도 진안군",
+      "sido": "전라북도",
+      "district": "진안군",
+      "hanja": "鎭安郡",
+      "element": "金",
+      "elements": [
+        "金",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 창원시",
+      "sido": "경상남도",
+      "district": "창원시",
+      "hanja": "昌原市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 양산시",
+      "sido": "경상남도",
+      "district": "양산시",
+      "hanja": "梁山市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 사천시",
+      "sido": "경상남도",
+      "district": "사천시",
+      "hanja": "泗川市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 거창군",
+      "sido": "경상남도",
+      "district": "거창군",
+      "hanja": "居昌郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 하동군",
+      "sido": "경상남도",
+      "district": "하동군",
+      "hanja": "河東郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 함양군",
+      "sido": "경상남도",
+      "district": "함양군",
+      "hanja": "咸陽郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 김해시",
+      "sido": "경상남도",
+      "district": "김해시",
+      "hanja": "金海市",
+      "element": "金",
+      "elements": [
+        "金",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 거제시",
+      "sido": "경상남도",
+      "district": "거제시",
+      "hanja": "巨濟市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 밀양시",
+      "sido": "경상남도",
+      "district": "밀양시",
+      "hanja": "密陽市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 창녕군",
+      "sido": "경상남도",
+      "district": "창녕군",
+      "hanja": "昌寧郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 합천군",
+      "sido": "경상남도",
+      "district": "합천군",
+      "hanja": "陜川郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 산청군",
+      "sido": "경상남도",
+      "district": "산청군",
+      "hanja": "山淸郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 진주시",
+      "sido": "경상남도",
+      "district": "진주시",
+      "hanja": "晉州市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 통영시",
+      "sido": "경상남도",
+      "district": "통영시",
+      "hanja": "統營市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 함안군",
+      "sido": "경상남도",
+      "district": "함안군",
+      "hanja": "咸安郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 고성군",
+      "sido": "경상남도",
+      "district": "고성군",
+      "hanja": "固城郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 남해군",
+      "sido": "경상남도",
+      "district": "남해군",
+      "hanja": "南海郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상남도 의령군",
+      "sido": "경상남도",
+      "district": "의령군",
+      "hanja": "宜寧郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 포항시",
+      "sido": "경상북도",
+      "district": "포항시",
+      "hanja": "浦項市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 안동시",
+      "sido": "경상북도",
+      "district": "안동시",
+      "hanja": "安東市",
+      "element": "土",
+      "elements": [
+        "土",
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 영천시",
+      "sido": "경상북도",
+      "district": "영천시",
+      "hanja": "永川市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 경산시",
+      "sido": "경상북도",
+      "district": "경산시",
+      "hanja": "慶山市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 청송군",
+      "sido": "경상북도",
+      "district": "청송군",
+      "hanja": "靑松郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 청도군",
+      "sido": "경상북도",
+      "district": "청도군",
+      "hanja": "淸道郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 칠곡군",
+      "sido": "경상북도",
+      "district": "칠곡군",
+      "hanja": "漆谷郡",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 울진군",
+      "sido": "경상북도",
+      "district": "울진군",
+      "hanja": "蔚珍郡",
+      "element": "木",
+      "elements": [
+        "木",
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 경주시",
+      "sido": "경상북도",
+      "district": "경주시",
+      "hanja": "慶州市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 구미시",
+      "sido": "경상북도",
+      "district": "구미시",
+      "hanja": "龜尾市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 상주시",
+      "sido": "경상북도",
+      "district": "상주시",
+      "hanja": "尙州市",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 군위군",
+      "sido": "경상북도",
+      "district": "군위군",
+      "hanja": "軍威郡",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 영양군",
+      "sido": "경상북도",
+      "district": "영양군",
+      "hanja": "英陽郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 고령군",
+      "sido": "경상북도",
+      "district": "고령군",
+      "hanja": "高靈郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 예천군",
+      "sido": "경상북도",
+      "district": "예천군",
+      "hanja": "醴泉郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 울릉군",
+      "sido": "경상북도",
+      "district": "울릉군",
+      "hanja": "鬱陵郡",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 김천시",
+      "sido": "경상북도",
+      "district": "김천시",
+      "hanja": "金泉市",
+      "element": "金",
+      "elements": [
+        "金",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 영주시",
+      "sido": "경상북도",
+      "district": "영주시",
+      "hanja": "榮州市",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 문경시",
+      "sido": "경상북도",
+      "district": "문경시",
+      "hanja": "聞慶市",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 의성군",
+      "sido": "경상북도",
+      "district": "의성군",
+      "hanja": "義城郡",
+      "element": "金",
+      "elements": [
+        "金",
+        "土"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 영덕군",
+      "sido": "경상북도",
+      "district": "영덕군",
+      "hanja": "盈德郡",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 성주군",
+      "sido": "경상북도",
+      "district": "성주군",
+      "hanja": "星州郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "경상북도 봉화군",
+      "sido": "경상북도",
+      "district": "봉화군",
+      "hanja": "奉化郡",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "제주 제주시",
+      "sido": "제주",
+      "district": "제주시",
+      "hanja": "濟州市",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "제주 서귀포시",
+      "sido": "제주",
+      "district": "서귀포시",
+      "hanja": "西歸浦市",
+      "element": "金",
+      "elements": [
+        "金",
+        "水"
+      ],
+      "status": "유지",
+      "reviewed": false
+    },
+    {
+      "region": "세종 세종특별자치시",
+      "sido": "세종",
+      "district": "세종특별자치시",
+      "hanja": "世宗特別自治市",
+      "element": "金",
+      "elements": [
+        "金"
+      ],
+      "status": "검수필요",
+      "reviewed": false
+    }
   ]
 }
