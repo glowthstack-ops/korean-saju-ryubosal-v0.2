@@ -94,6 +94,53 @@ def test_date_correction_followup_inherits_prior_intent() -> None:
     assert i2.time_range is not None and i2.time_range.start == "2026-07-04"
 
 
+def test_bare_affirmation_continues_prior_intent() -> None:
+    """직전 답변의 제안에 대한 단순 수락('그래')이 직전 의도·시점 창을 그대로 잇는다(broad 차단)."""
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t1")
+    _, state, _, _ = eng.process_turn(
+        state, "다음 이사는 언제 어떤 이유로 할까? 1년 이후부터 확인해줘",
+        date(2026, 6, 18), birth_year=1990,
+    )
+    prior = state.last_intent
+    assert prior.domain.value == "relocation" and prior.time_range.start == "2027-06-01"
+    p2, state, _, link = eng.process_turn(
+        state, "그래", date(2026, 6, 18), birth_year=1990)
+    assert link.is_follow_up  # is_followup_turn=True → broad 폴백 스킵
+    i2 = p2.intents[0]
+    assert i2.domain.value == "relocation"  # 직전 주제 유지
+    assert i2.time_range is not None and i2.time_range.start == "2027-06-01"  # 2027 창 유지
+
+
+def test_questioning_or_possessive_not_affirmation() -> None:
+    """'그래?'(반문)·'네 사주 봐줘'(소유격 네)는 수락이 아니므로 직전 의도를 잇지 않는다."""
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t1")
+    _, state, _, _ = eng.process_turn(
+        state, "1년 이후부터 이사 언제 할까", date(2026, 6, 18), birth_year=1990)
+    assert eng.link_question(state, "그래?").is_follow_up is False
+    assert eng.link_question(state, "네 사주 봐줘").is_follow_up is False
+
+
+def test_weekly_question_surfaces_daily_overview() -> None:
+    """주간(일 범위) 질문은 7일 일별 일운(간지·길흉) surface(월운 뭉뚱그림 방지, 2026-06-18)."""
+    from saju_api.services.chat_service import _is_day_range, _weekly_overview_lines
+    from saju_shared_types.birth_input import BirthInput
+
+    intent = parse_message("다음주 운세는 어때?", date(2026, 6, 18)).intents[0]
+    assert _is_day_range(intent)  # gran=day, 7일 범위
+    b = BirthInput(
+        calendar_type="solar", birth_date=date(1988, 3, 5), birth_time="10:30",
+        birth_place_name="서울", gender="male", reference_date=date(2026, 6, 18))
+    lines = _weekly_overview_lines(b, intent, date(2026, 6, 18))
+    assert lines and "일별 흐름" in lines[0]
+    day_lines = [x for x in lines if x.startswith("- 2026-06-")]
+    assert len(day_lines) == 7  # 7일 모두 일별 라인
+    # 단일일 질문은 일 범위가 아니므로 주간 블록 미발생.
+    single = parse_message("오늘 운세 어때?", date(2026, 6, 18)).intents[0]
+    assert not _is_day_range(single)
+
+
 # ── D. 월 후보 버킷팅 (절기 경계) ────────────────────────────────
 
 

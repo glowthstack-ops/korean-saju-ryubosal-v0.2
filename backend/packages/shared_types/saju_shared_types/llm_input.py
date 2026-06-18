@@ -256,6 +256,8 @@ class DateSelectionBlock(BaseModel):
     hour_fits: list[dict] = Field(default_factory=list)  # {'branch','time_range','fit','note'}
     # 그룹(다인) 이사 — 구성원 이동운 충돌·경고(M10 group_summary·member_warnings). 빈 = 단일.
     group_warnings: list[str] = Field(default_factory=list)
+    # 이사 — 십성 이유분류 라벨 줄(천간=명분/지지=현장, 대운=장기 배경·세운=대표·월운=발동). R2.
+    relocation_reasons: list[str] = Field(default_factory=list)
 
 
 class PersonaBlock(BaseModel):

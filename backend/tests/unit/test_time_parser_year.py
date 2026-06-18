@@ -53,6 +53,18 @@ def test_duration_not_misparsed_as_year() -> None:
     assert tr is None or tr.start != "2010"
 
 
+def test_future_offset_after_n_anchors_start() -> None:
+    """'1년 이후부터' → 현재월+N을 미래 시작 앵커로(open_when 과거 오분류 차단, 2026-06-18)."""
+    tr = _tr("다음 이사는 1년 이후부터 확인해줘")
+    assert tr.type == "relative" and tr.start == "2027-06-01"
+    assert tr.granularity.value == "month"
+    # 개월 단위 + '후'/'뒤'도 동일하게 미래 앵커.
+    assert _tr("6개월 후 이사운").start == "2026-12-01"
+    assert _tr("2년 뒤 이사 어때").start == "2028-06-01"
+    # '안에/이내'(현재~N 구간)는 기존 의미 유지 — 미래 앵커로 바뀌지 않는다.
+    assert _tr("1년 안에 이사").start == _T.isoformat()
+
+
 def test_multi_month_comparison_spans_both() -> None:
     """'8월과 10월 중 언제가 나아?' → 두 달을 모두 잡아 min~max 구간으로 스팬(2026-06-16)."""
     tr = _tr("이직, 이사와 관련해서 8월과 10월 중 언제가 나아?")

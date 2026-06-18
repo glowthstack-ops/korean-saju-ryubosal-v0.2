@@ -19,6 +19,7 @@ from saju_engines.context_reducer import (
     serialize_with_guard,
     tone_for_score,
 )
+from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.events import EventKey
 from saju_shared_types.ganji_calendar import GanjiLevel
@@ -102,6 +103,41 @@ def test_serialized_prompt_within_guard(chart, candidates, bundles, scorer) -> N
         assert section in text
     # 이벤트 후보는 점수 확정값이 아니라 '추측 신호'로 고지(항목 10).
     assert "추측 신호" in text
+
+
+def test_serialize_with_guard_reserve_accounts_overhead(
+    chart, candidates, bundles, scorer,
+) -> None:
+    """reserve_tokens가 후행 오버헤드(시스템·지시문)를 합산 입력으로 반영한다.
+
+    serialize 통과 후 시스템·지시문이 더해져 generate_reading 재검사에서 터지던 회계
+    불일치(2026-06-18, 10년 이사 질문 12,098tok)를 막는다.
+    """
+    payload = build_llm_input("올해 이직운 어때?", _intent(), chart, candidates, bundles, scorer)
+    _, base = serialize_with_guard(payload, "chat_single")  # 예약분 없는 기준 토큰
+    # 작은 예약분은 합산이 여전히 한도 이내 → payload 변화 없이 통과.
+    _, ok = serialize_with_guard(payload, "chat_single", reserve_tokens=100)
+    assert ok == base
+    # 예약분이 상한 전체를 먹으면 어떤 payload도 못 들어가 축소 후에도 초과 → 전파(차단).
+    with pytest.raises(TokenBudgetExceeded, match="Context Reduction"):
+        serialize_with_guard(payload, "chat_single", reserve_tokens=12_000)
+
+
+def test_relocation_reasons_render_in_date_block(
+    chart, candidates, bundles, scorer,
+) -> None:
+    """이사 십성 이유분류가 택일 블록 직렬화에 헤더+라벨 줄로 실린다(R2 surface)."""
+    from saju_shared_types.llm_input import DateSelectionBlock
+
+    payload = build_llm_input("이사 좋은 날", _intent(), chart, candidates, bundles, scorer)
+    payload.date_selection = DateSelectionBlock(
+        purpose_ko="이사", period="2026-07-01 ~ 2026-07-31",
+        relocation_reasons=["세운 천간(명분) 편관 → 긴축형_임시거처: 이유 압박 / 집·지역 저가"],
+    )
+    text = serialize_llm_input(payload)
+    assert "이사 이유·집 성격 — 십성 분류" in text
+    assert "단정 표현 금지" in text  # 발생 단정 차단 가드 동반
+    assert "세운 천간(명분) 편관 → 긴축형_임시거처" in text
 
 
 def test_clean_evidence_strips_authoring_meta() -> None:

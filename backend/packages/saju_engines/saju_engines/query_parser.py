@@ -309,6 +309,15 @@ def _detect_constraints(text: str) -> Constraints:
     )
     if m:
         c.location_base = m.group(1).strip()
+    # 이사 목적지 지역 — "서울 중구로 이사", "수원시로 가려고"(현재 거주지 location_base와 구분).
+    # 지명 구(句)만 포착하고, 등재 시군구 정규화는 사용처(채팅)에서 한다(파서는 순수 유지).
+    tr_m = re.search(
+        r"((?:[가-힣]{2,}\s+)?[가-힣]{1,}(?:특별자치시|시|군|구))\s*(?:으로|로|에)\s*"
+        r"(?:이사|이전|옮|가)",
+        text,
+    )
+    if tr_m:
+        c.target_region = tr_m.group(1).strip()
     if re.search(r"한다면|간다면|만난다면|된다면", text):
         cond = re.search(r"([가-힣\d\s.]+?(?:한다면|간다면|만난다면|된다면))", text)
         c.conditional = cond.group(1).strip() if cond else "조건부"
@@ -347,6 +356,8 @@ def _merge_constraints(prev: Constraints, new: Constraints) -> Constraints:
         merged.direction = new.direction
     if new.location_base:
         merged.location_base = new.location_base
+    if new.target_region:
+        merged.target_region = new.target_region
     if new.son_eomneun_nal is not None:
         merged.son_eomneun_nal = new.son_eomneun_nal
     if new.conditional:
@@ -383,6 +394,18 @@ def _split_questions(text: str) -> list[str]:
 def _is_short_followup(text: str) -> bool:
     """단답 후속(B2) — 10자 이하 + 시점/비교 슬롯만."""
     return len(text.replace(" ", "")) <= 10
+
+
+# 단순 수락 후속 — 직전 답변의 제안·질문에 대한 짧은 동의('그래','응','네','부탁해','정해줘').
+# 시점·도메인·이벤트·제약 없이 직전 의도를 그대로 잇는다(직전 제안 수락이 스레드 단절→broad
+# 안내로 빠지던 결함 차단, 2026-06-18). 전체가 수락어일 때만(fullmatch) — '네 사주'·'그래?'(반문)
+# 같은 비수락은 제외. conversation.link_question(연속성 판별)과 parse_message(상속)가 공용한다.
+AFFIRMATION_RE = re.compile(
+    r"(?:그래(요|줘)?|그러(자|지|렴)|그렇게(\s*해\s*줘?)?|응+|네+|넵|예+|어+|"
+    r"좋아(요)?|좋지|콜|부탁(해|해요|드려요?)?|해\s*줘|정해\s*줘|알려\s*줘|보여\s*줘|"
+    r"ㅇㅇ+|ㅇㅋ|오케이?|오키|ok|okay)[!.~ㅎㅋ\s]*",
+    re.IGNORECASE,
+)
 
 
 def parse_message(
@@ -426,6 +449,18 @@ def parse_message(
             "time_range": new_tr,
         })
         return ParsedMessage(intents=[inherited], raw_text=text)
+    if (
+        prev_intent is not None and time_range is None and unit_m is None
+        and AFFIRMATION_RE.fullmatch(text.strip())
+    ):
+        # B2d 단순 수락 후속('그래','응','부탁해') — 직전 답변의 제안·질문을 수락. 직전 intent를
+        # 통째로 이어받아 같은 주제·시점 창을 계속 다룬다(끊겨서 broad 안내로 빠지지 않게).
+        inherited = prev_intent.model_copy(update={
+            "intent_id": f"{prev_intent.intent_id}+accept",
+        })
+        return ParsedMessage(
+            intents=[inherited], is_follow_up=True, inherited_from=prev_intent.intent_id,
+        )
     if prev_intent is not None and _is_short_followup(text) and time_range is not None:
         # 시점만 바뀐 후속('그럼 28년은?') — 직전 intent를 상속하고 시점만 교체.
         # 후속이 단위를 따로 명시하지 않았으면 직전 granularity를 유지한다(월별 맥락 보존,

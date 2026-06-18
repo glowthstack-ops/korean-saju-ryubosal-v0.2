@@ -193,8 +193,10 @@ def test_m10_topic_context_wrapper(composites_with_feb_days, relocation_query) -
 
 
 def test_m10_region_fit_uses_dictionary() -> None:
-    """S5 보조: 지역오행 적합(동일=1.0/생=0.8/미등재=0.5 중립)."""
+    """S5 보조: 지역오행 적합(동일=1.0/생=0.8/미등재=0.5 중립). 시군구 단위 키 사용."""
     resolver = RelocationResolver(_DICTS)
-    fit = resolver.region_fit(["대전", "서울", "미등재시"], {"본인": "土"})
-    assert fit["대전"] == 1.0  # 大田=土, 용신 土
-    assert fit["미등재시"] == 0.5
+    fit = resolver.region_fit(
+        ["대전 중구", "서울 양천구", "미등재 시군구"], {"본인": "土"})
+    assert fit["대전 중구"] == 1.0  # 中區=土, 용신 土 동일
+    assert fit["서울 양천구"] == 0.8  # 陽川=火, 火生土
+    assert fit["미등재 시군구"] == 0.5

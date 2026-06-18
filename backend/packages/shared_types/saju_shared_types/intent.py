@@ -197,7 +197,8 @@ class Constraints(BaseModel):
     """조건/제약 (docs/03 B2 constraints). 방위 기준점은 거주지 또는 발화 명시."""
 
     direction: str | None = None  # 8방위 또는 'unknown'
-    location_base: str | None = None
+    location_base: str | None = None  # 현재 거주지(방위 기준점)
+    target_region: str | None = None  # 이사 목적지 지역 — region_fit(지역 오행×용신)용
     son_eomneun_nal: bool | None = None
     conditional: str | None = None  # 가정형 원문
     branch_scenario: bool = False  # 결과 조건부('당선되면 이후 운까지')

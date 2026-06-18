@@ -25,7 +25,7 @@ def test_config_single_file_drives_models() -> None:
     # 전환) — 테스트는 '단일 파일이 모델을 결정'하는 계약만 고정한다.
     assert cfg["primary"]["model"].startswith("gemini-")
     assert cfg["fallback"]["provider"] == "openai"
-    assert cfg["fallback"]["model"] == "gpt-5-mini"
+    assert cfg["fallback"]["model"] == "gpt-5.4-mini"
     assert llm_client.reading_model() == cfg["primary"]["model"]
     assert llm_client.is_available() is True
 
@@ -102,6 +102,20 @@ def test_sanitize_removes_strikethrough_keeps_ranges() -> None:
     assert s("앞으로 1~2개월 내 변동이 있어요.") == "앞으로 1~2개월 내 변동이 있어요."
     # 취소선 없으면 원문 그대로(동일 객체 반환 경로).
     assert s("평범한 문장입니다.") == "평범한 문장입니다."
+
+
+def test_sanitize_normalizes_mixed_ganji() -> None:
+    """간지 한자/한글 혼용·부분 음역을 '한자(한글)' 병기로 통일한다(2026-06-18 결함)."""
+    s = llm_client._sanitize_output
+    # 혼용(한글천간+한자지지) → 병기.
+    assert "丁卯(정묘)일" in s("6월 22일 정卯일이 좋아요")
+    assert "辛未(신미)일" in s("신未일과") and "乙丑(을축)일" in s("을丑일이")
+    # 순수 한자 + 표식 → 병기.
+    assert s("올해 丙午년은") == "올해 丙午(병오)년은"
+    # 이미 병기된 간지는 중복 변환하지 않는다.
+    assert s("丁卯(정묘)일") == "丁卯(정묘)일"
+    # 간지 표식 없는 일반어(기사=글)는 건드리지 않는다(오탐 방지).
+    assert s("그는 기사를 읽었다") == "그는 기사를 읽었다"
 
 
 def test_primary_output_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> None:

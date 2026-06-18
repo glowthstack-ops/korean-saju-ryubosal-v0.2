@@ -168,6 +168,20 @@ def parse_time(
             end=shift_month_label(this_month, months - 1), urgency=urgency,
         ), (TimeScope.LONG_TERM if months > 24 else TimeScope.MID_TERM)
 
+    # C8c 미래 상대 시작 앵커 — "1년 이후(부터)", "6개월 후", "2년 뒤"(2026-06-18 추가).
+    # '현재 계약 1년 뒤부터 다음 이사 언제'처럼 미래의 특정 시점'부터' 탐색을 시작한다. C8의
+    # '~안에/이내'(현재~N 구간)와 달리 '~이후/후/뒤'는 그 시점부터 미래 개방이므로 start를
+    # 미래로 앵커한다(미앵커 시 open_when=과거 회고로 오분류돼 과거 달이 답으로 나오던 결함 수정).
+    m = re.search(r"(\d+)\s*(개월|달|년)\s*(?:이후|후|뒤)(?:\s*부터)?", text)
+    if m:
+        n, unit = int(m.group(1)), m.group(2)
+        months = n * 12 if unit == "년" else n
+        start_label = shift_month_label(this_month, months)
+        return TimeRange(
+            type="relative", granularity=Granularity.MONTH,
+            start=f"{start_label}-01", urgency=urgency,
+        ), (TimeScope.LONG_TERM if months > 24 else TimeScope.MID_TERM)
+
     # C8 상대 기간 — "6개월 안에", "3개월 이내", "1년 안으로", "향후 30년".
     m = re.search(r"(\d+)\s*(개월|달|년)\s*(안에|이내|안으로|이내에)?", text)
     if m and (m.group(3) or re.search(r"향후|앞으로", text)):

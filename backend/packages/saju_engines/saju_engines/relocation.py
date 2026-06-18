@@ -441,11 +441,12 @@ class RelocationResolver:
         year_key: str,
         month_key: str | None = None,
     ) -> list[RelocationReasonProfile]:
-        """세운(연)·월운 십성으로 이사 이유·집성격·리스크를 분류한다(R2 공개 API).
+        """세운(연)·월운·대운 십성으로 이사 이유·집성격·리스크를 분류한다(R2 공개 API).
 
-        천간=명분(이유) / 지지본기=현장(집 성격)으로 본다(사용자 스펙 5장). 점수·날짜에
-        개입하지 않는 해석 라벨 전용(절대원칙 1·12). 리포트(테마 이사운)·M10이 공용한다.
-        month_key가 없으면 세운(연)만으로 분류한다.
+        천간=명분(이유) / 지지본기=현장(집 성격)으로 본다(사용자 스펙 5장). 층위는 세운 천간
+        =올해 대표 성격, 월운 천간=그 달 발동 성격, 대운 천간=장기 배경이다(스펙 3장). 점수·
+        날짜에 개입하지 않는 해석 라벨 전용(절대원칙 1·12). 리포트(테마/연간)·M10이 공용한다.
+        month_key가 없으면 세운(연)+대운만으로 분류한다(연간 리포트 — 월 발동 불필요).
         """
         year_comp = next(
             (c for c in composites
@@ -457,10 +458,20 @@ class RelocationResolver:
              if c.level is CompositeLevel.MONTH and c.period_key == month_key),
             None,
         ) if month_key else None
-        # 천간(명분) 먼저, 지지(현장) 다음 — 세운 → 월운 순.
+        # 대운(장기 배경) — 세운 컴포짓의 부모 대운 간지로 활성 대운 천간을 찾는다.
+        daewoon_ganji = year_comp.parent_context.daewoon if year_comp else None
+        daewoon_comp = next(
+            (c for c in composites
+             if c.level is CompositeLevel.DAEWOON
+             and c.period_key == f"DW:{daewoon_ganji}"),
+            None,
+        ) if daewoon_ganji else None
+        # 천간(명분) 먼저, 지지(현장) 다음. 천간은 세운(대표) → 월운(발동) → 대운(배경) 순으로
+        # 중복 제거가 세운을 우선 남기고, 대운은 십성이 다를 때만 '장기 배경' 줄로 추가된다.
         ordered: list[tuple[str, str | None]] = [
             ("세운 천간(명분)", year_comp.ten_god.stem if year_comp else None),
             ("월운 천간(명분)", month_comp.ten_god.stem if month_comp else None),
+            ("대운 천간(장기 배경)", daewoon_comp.ten_god.stem if daewoon_comp else None),
             ("세운 지지(현장)", year_comp.ten_god.branch_main if year_comp else None),
             ("월운 지지(현장)", month_comp.ten_god.branch_main if month_comp else None),
         ]
@@ -609,6 +620,14 @@ class RelocationResolver:
             ]
             fit[d] = round(sum(scores) / len(scores), 3) if scores else 0.5
         return fit
+
+    def known_regions(self) -> list[str]:
+        """등재된 지역 키 목록('{시도} {시군구}') — 사용자 입력 지명 정규화용(채팅)."""
+        return list(self._region_element)
+
+    def region_element(self, region: str) -> str | None:
+        """등재 지역의 대표 오행(한자, 미등재 None) — surface 라벨용."""
+        return self._region_element.get(region)
 
     def region_fit(
         self, regions: list[str], yongsin_by_subject: dict[str, str]

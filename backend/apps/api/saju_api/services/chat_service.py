@@ -31,7 +31,7 @@ from saju_engines.conversation import ConversationEngine
 from saju_engines.conversation_store import ConversationStore
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.intent_event_filter import IntentEventFilter
-from saju_engines.llm_guard import TokenBudgetExceeded
+from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
 from saju_engines.persona import PersonaEngine
 from saju_engines.planner import build_execution_plan
 from saju_engines.precompute import CompositeBuilder
@@ -476,6 +476,12 @@ def _date_selection_block(
             f" 살폈어요. 그 이후 시기는 원하시는 달(예: '{_next_month_label(scan_end)} 이사일')을"
             " 지정해 다시 물어봐 주세요."
         )
+    # 이사 — 십성 이유분류(천간=명분/지지=현장) surface. 택일 점수와 별개의 해석 라벨로,
+    # 질의 시작 시점의 세운(연)·월운(월)·대운으로 '왜·어떤 집' 유형을 함께 제공한다(R2).
+    relocation_reasons = (
+        _relocation_reason_lines(composites, start_iso[:4], start_iso[:7])
+        if is_relocation else []
+    )
     return DateSelectionBlock(
         purpose_ko=event_ko(purpose),
         period=f"{start_iso} ~ {end_iso}",
@@ -484,12 +490,117 @@ def _date_selection_block(
         cautions=cautions,
         directions=[d.model_dump() for d in result.directions],
         hour_fits=hour_fits,
+        relocation_reasons=relocation_reasons,
     )
 
 
 def _is_relocation_intent(intent: IntentJson) -> bool:
     """이사 도메인/이벤트 질문인가 — 그룹(다인) M10 분기 게이트."""
     return intent.domain is Domain.RELOCATION or intent.event_key is EventKey.RELOCATION
+
+
+def _relocation_reason_lines(
+    composites: list, year_key: str, month_key: str | None,
+) -> list[str]:
+    """이사 십성 이유분류 라벨 줄 — 천간=명분(이유)/지지=현장(집·지역) (R2, 단정 금지).
+
+    질의 기간의 세운(대표)·월운(발동)·대운(장기 배경) 천간 십성으로 '왜·어떤 집' 유형을
+    분류한다(RelocationResolver.classify_reasons 위임). 점수·날짜 미개입(절대원칙 1·12).
+    """
+    from saju_engines.relocation import RelocationResolver
+
+    profiles = RelocationResolver(_DICTS).classify_reasons(
+        composites, year_key, month_key)
+    return [
+        f"{p.source} {p.ten_god} → {p.type}: 이유 {'·'.join(p.move_reason)} / "
+        f"집·지역 {'·'.join(p.property_tendency)} / "
+        f"리스크({p.risk_level}) {'·'.join(p.risk)}"
+        for p in profiles
+    ]
+
+
+def _relocation_reason_context(
+    birth: BirthInput, intent: IntentJson, today: date,
+) -> list[str]:
+    """'이사하면 어때?'(기간 평가) 질문용 십성 이사 이유분류 블록 — structural_context 주입.
+
+    택일(DATE_RECOMMENDATION)이 아닌 이사 domain_analysis 질문은 date_block을 만들지 않으므로,
+    질의 기간의 세운·월운·대운 천간 십성 유형 분류를 구조 해석 블록에 실어 '무슨 십성이라 이런
+    이사'를 설명하게 한다. 질의 기간 간지의 십성이 필요해 그 기간 기준으로 차트를 재계산한다
+    (세운/월운/대운은 시점에 따라 달라짐). 실패·신호 약함이면 빈 리스트(차단 금지, 규칙 11).
+    """
+    tr = intent.time_range
+    start = tr.start if tr else None
+    if start and len(start) >= 7:  # YYYY-MM 또는 YYYY-MM-DD
+        year_key, month_key = start[:4], start[:7]
+        anchor = date(int(year_key), int(start[5:7]), 1)
+    elif start and len(start) == 4:  # YYYY — 연 단위(월 발동축 생략)
+        year_key, month_key, anchor = start, None, date(int(start), 1, 1)
+    else:  # 기간 미지정 — 올해 세운+대운으로 분류
+        year_key, month_key, anchor = str(today.year), None, today
+    try:
+        chart = calculate(birth.model_copy(update={"reference_date": anchor}))
+        composites = CompositeBuilder(_DICTS).build(
+            chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00")
+        lines = _relocation_reason_lines(composites, year_key, month_key)
+    except Exception:  # noqa: BLE001 — 이사 분류 실패가 일반 풀이를 막지 않도록
+        return []
+    if not lines:
+        return []
+    header = (
+        "[이사 이유·집 성격 — 십성 분류. 천간=명분(이유)/지지=현장(집·지역), "
+        "대운=장기 배경·세운=올해 대표·월운=그 달 발동. '이 시기에 이사한다면 무슨 십성이라 "
+        "어떤 결의 이사인지' 유형 분류일 뿐, 실제 이사 발생 여부는 별개이며 단정 표현 금지]"
+    )
+    return [header, *(f"- {line}" for line in lines)]
+
+
+def _normalize_region(phrase: str, known: list[str]) -> str | None:
+    """사용자 지명 구를 등재 키('{시도} {시군구}')로 정규화한다.
+
+    완전일치 → 그 키. 아니면 시군구명 접미 일치(예: '수원시'→'경기도 수원시')가 유일할 때만 채택.
+    '중구'처럼 여러 시도에 걸쳐 모호하면 None(추측 금지 — 대상 우선 원칙 7과 동일 취지).
+    """
+    if phrase in known:
+        return phrase
+    suffix = [k for k in known if k.endswith(" " + phrase)]
+    return suffix[0] if len(suffix) == 1 else None
+
+
+def _relocation_region_context(
+    birth: BirthInput, intent: IntentJson, today: date,
+) -> list[str]:
+    """이사 목적지 지역 오행 × 용신 적합(region_fit)을 surface한다(지역 궁합 — 2026-06-18 보완).
+
+    '서울 중구로 이사 — 나랑 맞을까'류에서 빠지던 지역 오행 궁합을 채운다. 점수·판정 미개입,
+    참고용 라벨(절대원칙 1·5: 지역오행 사전은 검수 전 초안 — 단정 금지). 미등재·모호 지명이면 빈 줄.
+    """
+    phrase = intent.constraints.target_region
+    if not phrase:
+        return []
+    try:
+        from saju_engines.event_scoring import favorability_map
+        from saju_engines.relocation import RelocationResolver
+
+        resolver = RelocationResolver(_DICTS)
+        region = _normalize_region(phrase, resolver.known_regions())
+        if region is None:
+            return []
+        chart = calculate(birth.model_copy(update={"reference_date": today}))
+        fav = favorability_map(chart)
+        yongsin = next((el for el, role in fav.items() if role == "용신"), None)
+        if yongsin is None:
+            return []
+        element = resolver.region_element(region)
+        fit = resolver.region_fit([region], {"본인": yongsin})[region]
+    except Exception:  # noqa: BLE001 — 지역 적합 실패가 일반 풀이를 막지 않도록
+        return []
+    label = {1.0: "매우 유리", 0.8: "유리(지역이 용신을 생)"}.get(fit, "중립")
+    return [
+        "[지역 오행 적합(참고) — 목적지 지역 오행 × 내 용신. 시군구 단위 검수 전 초안이라 "
+        "'유리/중립' 참고로만 녹이고 단정 금지(실제 거주 만족은 생활 여건이 좌우)]",
+        f"{region}(오행 {element}) × 용신({yongsin}) → 적합도 {fit} ({label})",
+    ]
 
 
 def _subject_composites_yongsin(
@@ -589,6 +700,9 @@ def _relocation_group_block(
         {"direction": d, "fit": f}
         for d, f in sorted(result.move_dates[0].direction_fit.items(), key=lambda x: -x[1])
     ]
+    # 이사 십성 이유분류 — 의사결정 주체(첫 대상=호주, 대상 우선 원칙 7)의 운으로 분류한다.
+    relocation_reasons = _relocation_reason_lines(
+        self_comps, req_start.strftime("%Y"), req_start.strftime("%Y-%m"))
     return DateSelectionBlock(
         purpose_ko=f"이사(그룹: {self_label}·{partner_label})",
         period=f"{req_start.isoformat()} ~ {scan_end.isoformat()}",
@@ -596,6 +710,7 @@ def _relocation_group_block(
         avoid=[{"date": a.date, "reason": a.reason} for a in result.avoid_dates],
         directions=directions,
         group_warnings=group_warnings,
+        relocation_reasons=relocation_reasons,
     )
 
 
@@ -622,6 +737,22 @@ _KEY_MONTHS_DIRECTIVE = (
     "[응답 형식] 이 질문은 월별 표 전체 나열이 아니라 연간 요약 + 핵심 달만 추려 답하라 — "
     "해당 기간을 한 줄로 총평하고, 강하게 작동하는 달과 주의가 필요한 달만 골라 짚는다"
     "(12개월을 모두 나열하지 말 것). 사용자가 '월별'을 명시하면 그때만 전체 표를 서술한다."
+)
+
+# 이사 해석 — 십성(이사 유형·이유)과 용신/기신(이사 길흉)을 분리시킨다. LLM이 천간의 기신
+# 역할로 이사 '유형'을 설명하던 오류(2026-06-18 데굴님 지적: 甲을 정관이 아닌 기신으로만 서술)를
+# 차단. 판정 우선순위 메모리(길흉=용신/기신, 사건종류=십성)를 프롬프트로 강제한다.
+_RELOCATION_REASON_DIRECTIVE = (
+    "[중요·이사 해석 규칙 — 다른 표기보다 우선 적용]\n"
+    "이사의 '유형·이유·집 성격'은 [이사 이유·집 성격 — 십성 분류] 블록을 1차 근거로 삼아라. "
+    "들어온 운의 '천간 십성'이 어떤 결의 이사인지를 정한다(예: 정관=직장·검증된 집·사회적 기준, "
+    "편재=교통·상권·생활권, 정인=권리안정·임시거처) — 그 블록의 십성 라벨을 그대로 풀어 서술하라. "
+    "천간의 용신·희신·기신·구신 역할은 그 이사의 '길흉(유리/불리)'만 가르는 축이다. "
+    "같은 천간이라도 '무슨 이사인가'는 십성으로, '좋은가/나쁜가'는 용신·기신으로 답하라 — "
+    "둘을 섞어 기신/희신으로 "
+    "이사 '유형·이유'를 설명하지 말 것. 해당 기간에 이사 신호가 약하거나 없으면, 먼저 '이 시기엔 "
+    "뚜렷한 이사 신호가 없다'고 밝힌 뒤 '다만 만약 이사를 한다면, 들어온 천간이 OO(십성)이라 △△한 "
+    "이유의 이사가 될 가능성이 있다'처럼 조건부 유형으로 짧고 분명하게 서술하라. 발생 단정은 금지."
 )
 
 _UNEMPLOYED_DIRECTIVE = (
@@ -705,6 +836,98 @@ def _structural_context(result: ManseV2Result, intent: IntentJson, today: date) 
     return out
 
 
+def _is_day_range(intent: IntentJson) -> bool:
+    """일 단위 다중일 범위(주간 등) 질문인가 — 일별 일운 surface 게이트."""
+    tr = intent.time_range
+    return bool(
+        tr is not None and tr.start and tr.end and tr.end != tr.start
+        and tr.granularity.value == "day"
+    )
+
+
+def _weekly_overview_lines(
+    birth: BirthInput, intent: IntentJson, today: date,
+) -> list[str]:
+    """주간(일 범위) 질문에 7일 일별 일운(간지·길흉·십성)을 surface한다(2026-06-18 보완).
+
+    주간 질문이 일별 데이터 없이 월운으로 뭉뚱그려지던 결함 보완 — 날짜별 간지·길흉(용/희/한/기/
+    구)·십성을 제공해 LLM이 하루씩 짚게 한다. 점수·간지는 엔진 계산값(절대원칙 1). 14일 이내만.
+    """
+    tr = intent.time_range
+    if tr is None or not tr.start or not tr.end:
+        return []
+    try:
+        start = date.fromisoformat(tr.start[:10])
+        end = date.fromisoformat(tr.end[:10])
+    except ValueError:
+        return []
+    if not (start < end and (end - start).days <= 14):
+        return []
+    try:
+        chart = calculate(birth.model_copy(update={"reference_date": start}))
+        if chart.luck_cycles is not None:
+            window = daily_luck_window(chart, start, end)
+            chart = chart.model_copy(update={"luck_cycles": chart.luck_cycles.model_copy(
+                update={"daily_luck": window})})
+        comps = CompositeBuilder(_DICTS).build(
+            chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00")
+        days = sorted(
+            (c for c in comps if c.level is CompositeLevel.DAY
+             and start.isoformat() <= c.period_key <= end.isoformat()),
+            key=lambda c: c.period_key,
+        )
+    except Exception:  # noqa: BLE001 — 일별 산출 실패가 일반 풀이를 막지 않도록
+        return []
+    if not days:
+        return []
+    header = (
+        f"[해당 기간({start.isoformat()}~{end.isoformat()}) 일별 흐름 — 일운 간지·길흉(용신/희신/"
+        "한신/기신/구신)·십성. 날짜별로 하루씩 짚어 서술하고 월 단위로 뭉뚱그리지 말 것]"
+    )
+    lines = [header]
+    for c in days:
+        d = date.fromisoformat(c.period_key)
+        lines.append(
+            f"- {c.period_key}({_WEEKDAY_KO[d.weekday()]}) {c.ganji.stem}{c.ganji.branch} · "
+            f"{c.favorability} · 십성 {c.ten_god.stem}/{c.ten_god.branch_main}"
+        )
+    return lines
+
+
+# Intent 임베딩 보조 게이트 — 규칙이 domain을 못 정한(general) 경우에만 보강(rules-first).
+# 보수적 임계·마진(2026-06-18 A안): 토이 평가셋 기준 초안 — 실제 로그 평가셋으로 재튜닝 대상.
+_INTENT_SIM_MIN_SCORE = 0.55
+_INTENT_SIM_MIN_MARGIN = 0.05
+
+
+def _augment_domain_by_similarity(intent: IntentJson, question: str) -> IntentJson:
+    """규칙이 domain=GENERAL로만 잡은 질문을 임베딩 분류기로 보강한다(보조 신호, rules-first).
+
+    domain(general→구체)과 event(미지정 시)만 채운다 — query_type·점수·간지·판정엔 미개입
+    (절대원칙 1·9). 분류기 비활성(의존성·모델 부재)·저신뢰·general 제안이면 원본 그대로 반환한다.
+    """
+    if intent.domain is not Domain.GENERAL:
+        return intent
+    from saju_engines.intent_embedding import get_intent_classifier
+
+    sug = get_intent_classifier().classify(question)
+    if (
+        sug is None
+        or sug.domain == "general"
+        or sug.score < _INTENT_SIM_MIN_SCORE
+        or sug.margin < _INTENT_SIM_MIN_MARGIN
+    ):
+        return intent
+    event = intent.event_key
+    if event is None and sug.event is not None:
+        event = EventKey(sug.event)
+    return intent.model_copy(update={
+        "domain": Domain(sug.domain),
+        "event_key": event,
+        "event_keys": intent.event_keys or ([event] if event else []),
+    })
+
+
 def chat(
     birth: BirthInput,
     question: str,
@@ -775,6 +998,8 @@ def chat(
             question, today, birth_year=birth_year, current_month_label=luck_month,
         )
     intent = parsed.intents[0]
+    # 규칙이 domain을 못 정한(general) 질문만 임베딩 분류기로 보강(rules-first 보조 — 절대원칙 1·9).
+    intent = _augment_domain_by_similarity(intent, question)
 
     # 직장운 등 재직 전제 사건(이직·승진) + 대상이 비정직원(프로필 고용형태/질문 키워드)이면
     # '취업'도 핵심 대상에 포함한다 — event_keys에 추가하면 graph_scope(context_reducer)에 반영돼
@@ -1061,6 +1286,19 @@ def chat(
                 except ValueError:
                     pass
             prior_claims.append(f"{label}" + (f" — {ref.detail}" if ref.detail else ""))
+    # 구조 해석 블록 — 단일 대상일 때만(궁합 비교는 대상 혼동 방지로 생략).
+    structural = (
+        _structural_context(result, intent, today) if not plan.per_subject else None
+    )
+    # 이사 평가 질문('이사하면 어때?' — 택일 아님)은 date_block이 없으므로, 십성 이사 이유분류를
+    # 구조 블록에 실어 '무슨 십성이라 이런 이사' 서술을 가능케 한다(2026-06-18 결함 보완).
+    if structural is not None and _is_relocation_intent(intent):
+        structural = structural + _relocation_reason_context(birth, intent, today)
+        # 목적지 지역이 명시되면 지역 오행 × 용신 궁합도 함께 surface(2026-06-18 보완).
+        structural = structural + _relocation_region_context(birth, intent, today)
+    # 주간(일 범위) 질문은 7일 일별 일운을 surface — 월운으로 뭉뚱그려지던 결함 보완(2026-06-18).
+    if structural is not None and _is_day_range(intent):
+        structural = structural + _weekly_overview_lines(birth, intent, today)
     payload = build_llm_input(
         question, intent, result_for_llm, candidates, bundles, _get_scorer(),
         call_type="chat_compare" if plan.per_subject else "chat_single",
@@ -1072,14 +1310,45 @@ def chat(
         default_period=default_period,
         prior_claims=prior_claims,
         current_month_label=luck_month,
-        # 구조 해석 블록 — 단일 대상일 때만(궁합 비교는 대상 혼동 방지로 생략).
-        structural_context=(
-            _structural_context(result, intent, today) if not plan.per_subject else None
-        ),
+        structural_context=structural,
     )
+    call_type = "chat_compare" if plan.per_subject else "chat_single"
+
+    # 직렬화 본문 뒤에 덧붙는 후행 지시문·시스템 프롬프트를 먼저 모은다 — 이 고정 오버헤드를
+    # 토큰 가드 예약분으로 넘겨야 컨텍스트 축소기가 '실제 총 입력(payload+오버헤드)' 기준으로
+    # 줄인다. 안 그러면 serialize 통과 후 지시문·시스템이 더해져 generate_reading 재검사에서
+    # 한도 초과 → 일반 오류로 마감되던 결함(2026-06-18, 10년 이사 질문 12,098tok 초과).
+    trailing: list[str] = [_CHAT_SCOPE_DIRECTIVE]
+    # 상황 제약 — 비정직원이면서 직장운(재직 전제 사건) 맥락이면 '취업'을 함께 짚게 하고,
+    # 그 외(이사 등 비career 맥락)에서 무직 키워드가 잡히면 기존 '이직→이사' 분기를 적용한다.
+    if nonregular and (career_presupposed or intent.domain is Domain.CAREER):
+        trailing.append(_CAREER_NONREGULAR_DIRECTIVE)
+    elif any(k in question for k in _UNEMPLOYED_KEYS):
+        trailing.append(_UNEMPLOYED_DIRECTIVE)
+    # P1 응답 형식 — 사건형인데 '월별' 미명시면 12개월 나열 대신 연간 요약+핵심 달로.
+    if overview is not None and event_monthly and not monthly_explicit:
+        trailing.append(_KEY_MONTHS_DIRECTIVE)
+    # 이사 질문 — 십성(유형)과 용신/기신(길흉)을 분리해 답하도록 강제(2026-06-18).
+    if _is_relocation_intent(intent):
+        trailing.append(_RELOCATION_REASON_DIRECTIVE)
+    # 궁합(pairwise) — 상대가 첨부되면 엔진 계산 궁합 신호 블록을 입력에 덧붙인다.
+    if partner_birth is not None:
+        compat = _compat_prompt_block(result, partner_birth, today, partner_label)
+        if compat:
+            trailing.append(compat)
+
+    system = None
+    if persona is not None:
+        # 호칭 자리({resolvedHonorific})에 대화 기준 사주의 별명을 넣는다(하드코딩 '회원' 제거).
+        block = _get_persona_engine().build_block(persona, subject_label or "회원")
+        system = llm_client._SYSTEM_PROMPT + "\n\n" + block
+    # generate_reading은 system 미지정 시 _SYSTEM_PROMPT를 쓰므로 예약분도 실제 전송 시스템 기준.
+    sys_for_budget = system or llm_client._SYSTEM_PROMPT
+    reserve = estimate_tokens(sys_for_budget) + estimate_tokens("\n".join(trailing))
+
     try:
         prompt_text, tokens = serialize_with_guard(
-            payload, "chat_compare" if plan.per_subject else "chat_single"
+            payload, call_type, reserve_tokens=reserve
         )
     except TokenBudgetExceeded as exc:
         return ChatResponse(
@@ -1091,23 +1360,7 @@ def chat(
             intents=parsed.intents,
         )
 
-    # 대화형 답변은 질문 범위에 집중 — 원국 통독·정황 재설명을 막는다(리포트와 분리).
-    prompt_text = prompt_text + "\n" + _CHAT_SCOPE_DIRECTIVE
-    # 상황 제약 — 비정직원이면서 직장운(재직 전제 사건) 맥락이면 '취업'을 함께 짚게 하고,
-    # 그 외(이사 등 비career 맥락)에서 무직 키워드가 잡히면 기존 '이직→이사' 분기를 적용한다.
-    if nonregular and (career_presupposed or intent.domain is Domain.CAREER):
-        prompt_text = prompt_text + "\n" + _CAREER_NONREGULAR_DIRECTIVE
-    elif any(k in question for k in _UNEMPLOYED_KEYS):
-        prompt_text = prompt_text + "\n" + _UNEMPLOYED_DIRECTIVE
-    # P1 응답 형식 — 사건형인데 '월별' 미명시면 12개월 나열 대신 연간 요약+핵심 달로.
-    if overview is not None and event_monthly and not monthly_explicit:
-        prompt_text = prompt_text + "\n" + _KEY_MONTHS_DIRECTIVE
-
-    # 궁합(pairwise) — 상대가 첨부되면 엔진 계산 궁합 신호 블록을 입력에 덧붙인다.
-    if partner_birth is not None:
-        compat = _compat_prompt_block(result, partner_birth, today, partner_label)
-        if compat:
-            prompt_text = prompt_text + "\n" + compat
+    prompt_text = prompt_text + "".join("\n" + part for part in trailing)
 
     if state is not None:
         # T4.5 — 시스템이 제시한 상위 이벤트를 claim/event 엔티티로 등록(이의 재검산 대비).
@@ -1119,13 +1372,6 @@ def chat(
             for c in payload.event_candidates[:3]
         ]
         state = ConversationEngine.register_system_results(state, summaries)
-
-    call_type = "chat_compare" if plan.per_subject else "chat_single"
-    system = None
-    if persona is not None:
-        # 호칭 자리({resolvedHonorific})에 대화 기준 사주의 별명을 넣는다(하드코딩 '회원' 제거).
-        block = _get_persona_engine().build_block(persona, subject_label or "회원")
-        system = llm_client._SYSTEM_PROMPT + "\n\n" + block
 
     if dry_run or not llm_client.is_available():
         _save_thread(store, state)

@@ -33,7 +33,12 @@ from saju_shared_types.intent import (
     SubjectRef,
 )
 
-from .query_parser import _detect_domains, _parse_inline_births, parse_message
+from .query_parser import (
+    AFFIRMATION_RE,
+    _detect_domains,
+    _parse_inline_births,
+    parse_message,
+)
 
 # 대상 정정(A10) — subject 교체 + 동일 intent 재실행.
 _CORRECTION_RE = re.compile(r"헷갈려|헷갈렸|잘못\s*봤|다시\s*체크|아니\s.*사주")
@@ -243,6 +248,12 @@ class ConversationEngine:
         # 정정/이의(B9·A10) — challenge.
         if _CORRECTION_RE.search(text):
             return self._follow(parent_id, LinkKind.CHALLENGE, state)
+
+        # 단순 수락 — 직전 답변이 제안·질문으로 끝났고('…정해드릴까요?') '그래/응/부탁해'로 수락한
+        # 경우. 직전 의도를 그대로 이어 같은 주제·창을 계속 다룬다(수락이 새 질문으로 끊겨 broad
+        # 안내로 빠지던 결함 차단 — 2026-06-18 데굴님 지적).
+        if AFFIRMATION_RE.fullmatch(text.strip()):
+            return self._follow(parent_id, LinkKind.DRILL_DOWN, state)
 
         # 4순위 — 새로운 도메인+완결 질문 → 새 스레드 문맥.
         return LinkResult(is_follow_up=False, link_kind=LinkKind.NEW)

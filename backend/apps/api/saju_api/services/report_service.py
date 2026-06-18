@@ -190,6 +190,9 @@ _SCORE_TABLE_SECTIONS = {"C-08", "W-09", "J-08", "R-08", "RP-10", "RL-08"}
 # 이사 테마 — 십성 이유분류(reason_profiles) surface 섹션(이사 고도화 R2).
 _RELOCATION_REASON_SECTIONS = {"RL-03"}
 _RELOCATION_RISK_SECTIONS = {"RL-05"}
+# 연간 총운(RPT_YEAR) — 세운 천간 십성 이사 유형을 '세운과 활성 신호'(Y-04)에 간결 부착
+# (2026-06-18 사용자 확정: 인생 총운 RPT_FULL 미부착, 연간 총운에만 노출).
+_RELOCATION_YEAR_SECTIONS = {"Y-04"}
 # 이사 테마 — M10 방위 적합(RL-04) / 월별 이동운 흐름·충돌(RL-06) surface.
 _RELOCATION_DIRECTION_SECTIONS = {"RL-04"}
 _RELOCATION_FLOW_SECTIONS = {"RL-06"}
@@ -491,7 +494,10 @@ class _ReportData:
                 {subject.label: comps},
                 {subject.label: yongsin},
             )
-            ctx["profiles"] = result.reason_profiles
+            # 유형 분류(세운·대운 천간 십성)는 후보월 게이팅과 무관하게 항상 산출한다 —
+            # 천간 십성은 '이사 유형'을, 지지 합충은 '실제 발생'을 판단(사용자 스펙 2·4장).
+            # 연간/테마 리포트는 월 발동축 없이 세운+대운만으로 분류(month_key=None).
+            ctx["profiles"] = resolver.classify_reasons(comps, anchor, None)
             ctx["monthly"] = result.group_summary.monthly_scores
             ctx["conflicts"] = result.group_summary.conflicts
             ctx["directions"] = resolver.direction_fit({subject.label: yongsin})
@@ -527,6 +533,28 @@ class _ReportData:
             lines.append(
                 f"- {p.ten_god}({p.type}, 리스크 {p.risk_level}): 주의 {'·'.join(p.risk)} / "
                 f"확인 {'·'.join(p.required_checks)} / 핵심 질문 {p.main_question}"
+            )
+        return lines
+
+    def relocation_year_block(self, spec: ReportSpec) -> list[str]:
+        """[올해 이사·이동의 성격] — 연간 총운(Y-04)용 세운·대운 천간 십성 이사 유형 간결 surface.
+
+        '올해 이사를 한다면 어떤 결의 이사인가'를 세운 천간(대표)·대운 천간(장기 배경) 십성으로
+        분류한다(사용자 스펙 1·3장). 실제 이사 발생 여부는 별개이며 단정 표현 금지(절대원칙 3).
+        신호 약하면 빈 줄(연간 리포트라 폴백 강제 안 함 — 이사 주제가 아닐 수 있음).
+        """
+        profiles = [
+            p for p in self._relocation_ctx(spec)["profiles"]
+            if p.source.startswith(("세운", "대운"))
+        ]
+        if not profiles:
+            return []
+        lines = ["[올해 이사·이동의 성격 — 세운 천간(올해 대표)·대운 천간(장기 배경) 십성. "
+                 "이사를 한다면 이런 결이라는 유형 분류일 뿐, 실제 이사 여부 단정은 금지]"]
+        for p in profiles:
+            lines.append(
+                f"- {p.source} {p.ten_god} → {p.type}: 이유 {'·'.join(p.move_reason[:3])} / "
+                f"집·지역 {'·'.join(p.property_tendency[:2])}"
             )
         return lines
 
@@ -777,6 +805,9 @@ def build_section_context(
         lines += ["", *data.relocation_direction_block(spec)]
     if sid in _RELOCATION_FLOW_SECTIONS:
         lines += ["", *data.relocation_flow_block(spec)]
+    # 연간 총운(Y-04) — 세운·대운 천간 십성 이사 유형 간결 surface(인생 총운엔 미부착).
+    if sid in _RELOCATION_YEAR_SECTIONS:
+        lines += ["", *data.relocation_year_block(spec)]
     # 시대 기운(연운) — 개인 풀이 앞 맥락. Y-01(한해풀이 그 해)·F-11(총운 올해).
     if sid == "Y-01":
         lines += ["", *data.era_energy_block(int(spec.period.start[:4]))]

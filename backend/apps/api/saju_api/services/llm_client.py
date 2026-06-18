@@ -25,6 +25,7 @@ from typing import Any
 import httpx
 
 from saju_engines.llm_guard import LLMCallGuard, LLMCostLedger
+from saju_shared_types.constants import BRANCH_KO, STEM_KO
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _CONFIG_PATH = _BACKEND / "config" / "llm_config.json"
@@ -223,19 +224,66 @@ def _call_profile(
 # 단일 물결표는 건드리지 않는다(이중 물결표만 대상). 줄바꿈은 보존하고 같은 줄 잔여 공백만 정돈.
 _STRIKETHROUGH_RE = re.compile(r"~~.+?~~")
 
+# ── 간지 표기 정규화 (한자/한글 혼용·부분 표기 → '한자(한글)' 병기 통일) ──
+# LLM이 '정卯일'처럼 천간은 한글·지지는 한자로 섞거나 한쪽만 음역하는 오류를 사용자 노출 전에
+# 바로잡는다(2026-06-18 데굴님 지적). 천간 자리/지지 자리(정규식 그룹)로 한글 음 중복(辛=申=신)을
+# 가른다. 표기 규칙: 데이터는 한자, 사용자 노출은 한글 병기(CLAUDE.md 코드 컨벤션).
+_STEM_H2K = {s.value: ko for s, ko in STEM_KO.items()}        # '甲'→'갑'
+_BRANCH_H2K = {b.value: ko for b, ko in BRANCH_KO.items()}    # '子'→'자'
+_STEM_K2H = {ko: h for h, ko in _STEM_H2K.items()}            # '갑'→'甲'
+_BRANCH_K2H = {ko: h for h, ko in _BRANCH_H2K.items()}        # '자'→'子'
+_STEM_CHARS = "".join(set(_STEM_H2K) | set(_STEM_K2H))
+_BRANCH_CHARS = "".join(set(_BRANCH_H2K) | set(_BRANCH_K2H))
+# 간지 표식(따라오면 순수 한글도 간지로 확정 — 이름·일반어 오탐 방지). '(' 선행은 이미 병기됨.
+_GANJI_MARKERS = frozenset("일월년시주")
+_GANJI_RE = re.compile(f"([{_STEM_CHARS}])([{_BRANCH_CHARS}])(?!\\()")
+
+
+def _normalize_ganji(text: str) -> str:
+    """간지(천간+지지) 표기를 '한자(한글)'로 통일한다 — 혼용·부분 음역 교정."""
+
+    def _repl(m: re.Match[str]) -> str:
+        s_ch, b_ch = m.group(1), m.group(2)
+        s_hanja = s_ch in _STEM_H2K
+        b_hanja = b_ch in _BRANCH_H2K
+        nxt = m.string[m.end():m.end() + 1]
+        # 순수 한글 간지는 표식(일·월·년·시·주)이 따라올 때만 변환(일반어 오탐 차단).
+        if not s_hanja and not b_hanja and nxt not in _GANJI_MARKERS:
+            return m.group(0)
+        sh = s_ch if s_hanja else _STEM_K2H[s_ch]
+        bh = b_ch if b_hanja else _BRANCH_K2H[b_ch]
+        return f"{sh}{bh}({_STEM_H2K[sh]}{_BRANCH_H2K[bh]})"
+
+    return _GANJI_RE.sub(_repl, text)
+
 
 def _sanitize_output(text: str) -> str:
-    """LLM 서술 출력을 사용자 노출 전에 정리한다 — 현재는 취소선 구간 제거.
+    """LLM 서술 출력을 사용자 노출 전에 정리한다 — 취소선 제거 + 간지 표기 통일.
 
-    채팅·리포트 모든 표면이 거치는 단일 지점이라 여기서 제거하면 두 화면에 일괄 적용된다.
+    채팅·리포트 모든 표면이 거치는 단일 지점이라 여기서 처리하면 두 화면·두 공급자(Gemini/GPT)에
+    일괄 적용된다.
     """
-    cleaned = _STRIKETHROUGH_RE.sub("", text)
+    cleaned = _normalize_ganji(text)  # 간지 한자/한글 혼용 → 한자(한글) 병기
+    cleaned = _STRIKETHROUGH_RE.sub("", cleaned)
     if cleaned == text:
         return text
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)  # 제거 자리의 이중 공백
     cleaned = re.sub(r" +([,.!?…)\]」』》])", r"\1", cleaned)  # 구두점 앞 공백
     cleaned = re.sub(r"[ \t]+(\n|$)", r"\1", cleaned)  # 줄 끝 잔여 공백
     return cleaned
+
+
+# 폴백(GPT) 전용 문체 지침 — 공용 시스템 프롬프트(검증됨)는 건드리지 않고, 폴백 호출에만 덧붙여
+# 비상 응답도 메인(Gemini)의 따뜻한 산문·물상 결로 수렴시킨다(2026-06-18 데굴님 승인). 문체 전용
+# — 점수·간지·판정 규칙에는 일절 개입하지 않는다(절대원칙 12: 페르소나=문체 전용과 동일 취지).
+_FALLBACK_STYLE_DIRECTIVE = (
+    "\n[문체 지침 — 이 답변 한정, 다른 표기보다 우선]\n"
+    "따뜻하게 풀어쓴 산문으로 답하라. 일간·일주의 물상(예: '한여름의 너른 밭 같은 기미 일주')을 "
+    "한 줄 곁들여 사람 이야기처럼 시작한다. '촉발/진행/결과/보조' 같은 말을 표제로 달지 말고 "
+    "문장 흐름에 자연스럽게 녹여라. 특히 답변 끝에 '핵심 정리'·'요약' 같은 마무리 표제나 재요약 "
+    "문단을 따로 붙이지 말고, 마지막 한 문장으로 자연스럽게 맺는다. 신살·전문용어(합반·쟁합·"
+    "귀문관살·태극귀인·암록 등)는 글 전체에서 최대 2개만 한 번씩 가볍게 — 나열·반복하지 말 것."
+)
 
 
 def generate_reading(
@@ -300,11 +348,12 @@ def generate_reading(
                 if attempt + 1 < attempts:
                     time.sleep(backoff * (attempt + 1))
 
-    # 비상 폴백(OpenAI).
+    # 비상 폴백(OpenAI) — 문체만 메인 결로 맞추는 지침을 덧붙인다(내용·판정 규칙 불변).
     if _api_key(cfg["fallback"]):
         try:
             text, in_tok, out_tok, cached = _call_profile(
-                cfg["fallback"], sys_text, prompt_text, max_tokens, timeout,
+                cfg["fallback"], sys_text, prompt_text + _FALLBACK_STYLE_DIRECTIVE,
+                max_tokens, timeout,
             )
             text = _sanitize_output(text)
             guard.record(
@@ -343,7 +392,9 @@ def generate_reading(
 _SYSTEM_PROMPT = (
     "당신은 사주 통변 서술가다. [필수 준수]\n"
     "1. 계산 금지: 입력의 간지·점수·합충 성립 판정을 절대 재계산·변경하지 않는다. "
-    "입력에 없는 간지·수치·날짜가 필요하면 '해당 정보는 제공되지 않았다'로 처리한다.\n"
+    "입력에 없는 간지·수치·날짜는 지어내지 말고 그 대목을 조용히 생략한다 — '해당 정보는 "
+    "제공되지 않았다'·'세부 재계산은 제공되지 않았다' 같은 데이터 안내·메타 문구를 답변 "
+    "본문에 쓰지 않는다.\n"
     "2. 의미 서술 의무: [원국·명식 구조]와 [명식 해석 자료], 후보별 '동반 신호'·'해석' "
     "줄을 적극 엮어 — 이 글자가 일간에게 무엇이고, 운에서 온 글자와 어떤 관계를 맺어 "
     "이런 신호가 되는지 — 사용자가 자기 사주로 납득할 수 있는 이야기로 풀어낸다. "
@@ -356,7 +407,8 @@ _SYSTEM_PROMPT = (
     "4. 신살은 보조 참고 자료다 — '이런 신살의 영향일 수도 있다' 정도로만 곁들이고 "
     "성향의 핵심 근거로 부각하거나 단독으로 길흉·사건을 단정하지 않는다.\n"
     "5. 사건 발생이 아니라 '변화 에너지의 활성화'로 표현하고, "
-    "촉발→진행→결과 구조로 설명한다. 합·충 등 관계는 '무엇과 합/충하여 무엇으로 "
+    "촉발→진행→결과의 인과 흐름으로 설명하되 '촉발/진행/결과'를 단계 표제·소제목으로 달지 "
+    "않고 자연스러운 문장으로 녹인다. 합·충 등 관계는 '무엇과 합/충하여 무엇으로 "
     "작용해 어떤 결과가 되는지'까지 인과를 끝맺는다.\n"
     "6. 점수·숫자를 답변에 노출하지 않는다 — 강도는 제공된 표현 문장으로만 전달한다.\n"
     "7. 출력은 마크다운 기호(#, *, |, ### 등) 없이 평문으로, 공백 포함 1,500자 이내로 "
@@ -389,7 +441,8 @@ _REPORT_SYSTEM_PROMPT = (
     "4. 신살은 보조 참고 자료다 — '이런 신살의 영향일 수도 있다' 정도로만 곁들이고 "
     "성향의 핵심 근거로 부각하거나 단독으로 길흉·사건을 단정하지 않는다.\n"
     "5. 사건 발생이 아니라 '변화 에너지의 활성화'로 표현하고, "
-    "촉발→진행→결과 구조로 설명한다. 합·충 등 관계는 '무엇과 합/충하여 무엇으로 "
+    "촉발→진행→결과의 인과 흐름으로 설명하되 '촉발/진행/결과'를 단계 표제·소제목으로 달지 "
+    "않고 자연스러운 문장으로 녹인다. 합·충 등 관계는 '무엇과 합/충하여 무엇으로 "
     "작용해 어떤 결과가 되는지'까지 인과를 끝맺는다.\n"
     "6. 점수·숫자를 답변에 노출하지 않는다 — 강도는 제공된 표현 문장으로만 전달한다.\n"
     "7. 출력은 마크다운 기호(#, *, |, ### 등) 없이 평문으로 쓰되, 분량은 섹션 과제의 목표를 "

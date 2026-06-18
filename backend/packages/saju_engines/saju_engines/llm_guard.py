@@ -112,16 +112,23 @@ class LLMCallGuard:
         """이 호출 유형의 한도."""
         return self._limit
 
-    def check_input(self, prompt_text: str) -> int:
+    def check_input(self, prompt_text: str, reserve_tokens: int = 0) -> int:
         """입력 토큰 측정 — 상한 초과 시 호출 전 예외(docs/09 가드 규칙).
 
+        Args:
+            prompt_text: 측정 대상 본문(직렬화된 payload).
+            reserve_tokens: 직렬화 후 별도로 덧붙는 고정 오버헤드(시스템 프롬프트·후행
+                지시문 등)를 위해 미리 떼어두는 예약분. 유효 한도 = 상한 − reserve로
+                보아, 총 입력(payload+오버헤드)이 상한을 넘으면 차단한다. 한도 상수 자체는
+                바꾸지 않는다(절대 원칙 9).
+
         Returns:
-            측정된 입력 토큰 수(로깅용).
+            측정된 payload 토큰 수(로깅용 — 예약분 미포함).
         """
         tokens = self._count(prompt_text)
-        if tokens > self._limit.max_input_tokens:
+        if tokens + reserve_tokens > self._limit.max_input_tokens:
             raise TokenBudgetExceeded(
-                f"{self._call_type}: 입력 {tokens}tok > 상한 "
+                f"{self._call_type}: 입력 {tokens + reserve_tokens}tok > 상한 "
                 f"{self._limit.max_input_tokens}tok — Context Reduction 재실행 필요"
             )
         return tokens

@@ -77,9 +77,11 @@ _TONE_GUIDE = (
 )
 _BASE_PROHIBITED = ["반드시 이직한다", "무조건 헤어진다", "확정적으로 발생한다"]
 _BASE_INSTRUCTION = (
-    "사건 발생이 아니라 '변화 에너지의 활성화'로 표현하고, 촉발→진행→결과 구조로 "
-    "설명할 것. 제공된 간지·점수·근거 외의 명리 계산을 시도하지 말 것 — 데이터에 없으면 "
-    "'해당 정보는 제공되지 않았다'로 처리."
+    "사건 발생이 아니라 '변화 에너지의 활성화'로 표현하고, 촉발→진행→결과의 인과 흐름으로 "
+    "설명하되 '촉발/진행/결과'를 단계 표제·소제목으로 달지 말고 자연스러운 문장으로 녹일 것. "
+    "제공된 간지·점수·근거 외의 명리 계산을 시도하지 말 것 — 데이터에 없으면 지어내지 말고 "
+    "해당 대목을 조용히 생략하고, '제공되지 않았다'·'재계산은 제공되지 않았다' 같은 안내·메타 "
+    "문구는 답변에 쓰지 말 것."
 )
 # 기간 총운(E9) framing — 같은 위계·사건화 철학, 출력은 해당 기간 단위로 한정.
 # 하루 운세(E9 daily) — 하루 안에 가능한 범위로 한정(사용자 확정 2026-06-12).
@@ -1380,6 +1382,14 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 lines.append(f"시간대: {slots}")
         for warning in ds.group_warnings:  # 그룹(다인) 이사 — 구성원 충돌·경고
             lines.append(f"구성원 주의: {warning}")
+        if ds.relocation_reasons:  # 이사 십성 이유분류(유형 라벨 — 실제 발생 단정 금지)
+            lines.append(
+                "[이사 이유·집 성격 — 십성 분류. 천간=명분(이유)/지지=현장(집·지역), "
+                "대운=장기 배경·세운=올해 대표·월운=그 달 발동. 유형 분류일 뿐 실제 이사 "
+                "발생 여부는 별개이며 단정 표현 금지]"
+            )
+            for reason in ds.relocation_reasons:
+                lines.append(f"- {reason}")
         for caution in ds.cautions:
             lines.append(f"주의: {caution}")
     if payload.structural_context:
@@ -1446,9 +1456,16 @@ def serialize_llm_input(payload: LlmInput) -> str:
 
 
 def serialize_with_guard(
-    payload: LlmInput, call_type: str = "chat_single"
+    payload: LlmInput, call_type: str = "chat_single", reserve_tokens: int = 0
 ) -> tuple[str, int]:
     """직렬화 + 토큰 가드(docs/09 8장) — 초과 시 후보·근거를 줄여 1회 재축소.
+
+    Args:
+        payload: 직렬화 대상 입력.
+        call_type: 한도표 키.
+        reserve_tokens: 직렬화 본문 뒤에 호출부가 덧붙이는 고정 오버헤드(시스템 프롬프트·
+            후행 지시문)를 위한 예약분. payload+예약분이 상한을 넘으면 재축소가 발동하므로,
+            후행 텍스트까지 더한 실제 총 입력이 한도에 맞게 줄어든다.
 
     Returns:
         (프롬프트 본문, 측정 토큰). 재축소 후에도 초과면 TokenBudgetExceeded 전파.
@@ -1456,7 +1473,7 @@ def serialize_with_guard(
     guard = LLMCallGuard(call_type)
     text = serialize_llm_input(payload)
     try:
-        return text, guard.check_input(text)
+        return text, guard.check_input(text, reserve_tokens=reserve_tokens)
     except TokenBudgetExceeded:
         ci = payload.chart_interpretation
         shrunk = payload.model_copy(update={
@@ -1471,4 +1488,4 @@ def serialize_with_guard(
             ),
         })
         text = serialize_llm_input(shrunk)
-        return text, guard.check_input(text)
+        return text, guard.check_input(text, reserve_tokens=reserve_tokens)

@@ -42,6 +42,19 @@ def test_check_input_blocks_before_call() -> None:
         guard.check_input("가" * 2_001)
 
 
+def test_check_input_reserve_counts_overhead() -> None:
+    """reserve_tokens는 직렬화 후 덧붙는 시스템·지시문 오버헤드 몫 — 총 입력으로 본다.
+
+    payload 단독은 상한 이내라도 payload+reserve가 상한을 넘으면 차단해야,
+    serialize 통과 후 generate_reading 재검사에서 터지던 회계 불일치를 막는다.
+    """
+    guard = LLMCallGuard("query_parser")  # 상한 2,000tok
+    payload = "가" * 1_800  # 1,800tok — 단독으로는 통과
+    assert guard.check_input(payload, reserve_tokens=0) == 1_800
+    with pytest.raises(TokenBudgetExceeded, match="2000tok"):
+        guard.check_input(payload, reserve_tokens=300)  # 1,800+300 > 2,000
+
+
 def test_request_params_no_thinking_key() -> None:
     """thinking 수준은 llm_config.json에서만 관리(절대 원칙 9 v2.2.1 — low 이하).
 
