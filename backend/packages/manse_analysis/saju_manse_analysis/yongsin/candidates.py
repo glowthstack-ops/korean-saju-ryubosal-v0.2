@@ -184,78 +184,26 @@ def _climate_harmful(month_branch: Branch, force: ForceAnalysis) -> str | None:
     return None
 
 
-def _classify_roles(
-    g: dict[str, Element],
-    groups: dict[str, float],
-    band: str,
-    useful: dict[str, tuple[float, str, str]],
-    unfavorable: dict[str, tuple[float, str, str]],
-    yongsin_el: str | None,
-) -> dict[str, str | None]:
-    """용신을 중심으로 기신·구신·희신·한신을 강약·생극으로 1개씩 배정(5오행 분할).
+def _classify_roles(yongsin_el: str | None) -> dict[str, str | None]:
+    """용신 기준 생극 순환으로 희·기·구·한을 1개씩 배정(用喜忌仇閑 5오행 분할).
 
-    억부에서 용신과 '병(기신)'은 항상 극 관계이므로 기신 후보는 {극용신, 용신극} 둘뿐이다.
-      - 신약: 생조(인성·비겁)가 용신 → 기신은 그 용신을 직접 극하는 쪽(극용신, 예: 재극인·관극비).
-      - 신강: 설기·소모·극(식상·재성·관성)이 용신 → 기신은 과다한 생조(인성·비겁) 쪽.
-    기신 확정 후: 구신=생기신, 남은 둘 중 강약상 길한 쪽=희신(단 그 길신이 스스로 과다·포화면
-    설기 쪽으로 교체), 나머지=한신. (희신은 생용신뿐 아니라 기신 제어·설기 오행도 포함.)
+    canonical 정의를 따른다 — 용신을 중심으로 오행 상생·상극이 한 바퀴 돌며 5역할이 결정된다.
+      - 희신: 용신을 생하는 오행(生용신).
+      - 기신: 용신을 극하는 오행(克용신) — 항상. 용신을 직접 깨는 오행이므로 강약과 무관.
+      - 구신: 기신을 생하는 오행(生기신). 기신을 돕고 희신을 극한다.
+      - 한신: 용신이 생하는 오행(나머지).
+    신강·신약은 어느 십성을 용신으로 뽑느냐에서 이미 반영되므로, 역할 배정 단계에서는
+    생극 순환만으로 정합성을 유지한다(용신을 극하는 오행이 한신으로 새는 모순 방지 — 예:
+    신강 戊土 재격 용신 水에서 土克水의 土는 한신이 아니라 기신, 과다 인성 火는 구신).
+    통관(bridge)·종격/직접보강은 순환을 따르지 않으므로 호출부에서 별도 배정한다.
     """
     if not yongsin_el:
         return {k: None for k in ("yongsin", "heesin", "gisin", "gusin", "hansin")}
-    roles_of = {_e(v): k for k, v in g.items()}  # 오행 → 십성 역할
-    total = sum(groups.values()) or 1.0
-    drain_grps = {"output", "wealth", "officer"}  # 설·소모·극 (신강 길/신약 병)
-    boost_grps = {"resource", "peer"}             # 생·조 (신약 길/신강 병)
-    strong = band in ("신강", "태신강", "극신강", "중화신강")
-    weak = band in _WEAK  # 신약군(중화신약 포함)
-
-    def _ratio(el: str) -> float:
-        return groups.get(roles_of[el], 0.0) / total
-
-    def _gen_of(el: str) -> str:  # el 을 생하는 오행(생el)
-        return next(_e(x) for x in Element if GENERATES[x] == Element(el))
-
-    def _ctrl_of(el: str) -> str:  # el 을 극하는 오행(극el)
-        return next(_e(x) for x in Element if CONTROLS[x] == Element(el))
-
-    geuk_yong = _ctrl_of(yongsin_el)                # 극용신
-    yong_geuk = _e(CONTROLS[Element(yongsin_el)])   # 용신극
-    cands = [geuk_yong, yong_geuk]
-
-    def _badness(el: str) -> float:
-        grp = roles_of[el]
-        if weak:  # 신약: 설기/극 십성이 병, 용신을 직접 극하는 쪽(극용신)에 가중.
-            base = 1.0 if grp in drain_grps else 0.0
-            return base + (0.5 if el == geuk_yong else 0.0) + 0.3 * _ratio(el)
-        if strong:  # 신강: 생조(인성·비겁) 과다가 병.
-            return (1.0 if grp in boost_grps else 0.0) + _ratio(el)
-        # 중화: 분포·투표 기반.
-        return _ratio(el) + unfavorable.get(el, (0.0, "", ""))[0] - useful.get(el, (0.0, "", ""))[0]
-
-    gisin = max(cands, key=_badness)
-    gusin = _gen_of(gisin)  # 생기신
-    remaining = [e for e in sorted(roles_of) if e not in (yongsin_el, gisin, gusin)]
-
-    def _favorable(el: str) -> bool:
-        grp = roles_of[el]
-        if weak:
-            return grp in boost_grps   # 신약: 생조가 길
-        if strong:
-            return grp in drain_grps   # 신강: 설기가 길
-        return False
-
-    fav = [e for e in remaining if _favorable(e)]
-    if fav:
-        heesin = min(fav, key=_ratio)  # 덜 과다한 길신 우선
-        if _ratio(heesin) >= 0.33:     # 길신이 스스로 과다·포화 → 설기 쪽(남은 오행)으로 교체
-            alt = [e for e in remaining if e != heesin]
-            if alt:
-                heesin = alt[0]
-    elif remaining:
-        heesin = min(remaining, key=_ratio)  # 둘 다 흉이면 덜 과다한 쪽
-    else:
-        heesin = None
-    hansin = next((e for e in remaining if e != heesin), None)
+    y = Element(yongsin_el)
+    gisin = next(_e(x) for x in Element if CONTROLS[x] == y)            # 극용신
+    heesin = next(_e(x) for x in Element if GENERATES[x] == y)          # 생용신
+    gusin = next(_e(x) for x in Element if GENERATES[x] == Element(gisin))  # 생기신
+    hansin = _e(GENERATES[y])                                          # 용신생 (나머지)
     return {
         "yongsin": yongsin_el,
         "heesin": heesin,
@@ -826,7 +774,7 @@ def build_yongsin(
         (e for e, (_s, _mdl, role) in useful_sorted if role == "yongsin"),
         useful_candidates[0].element if useful_candidates else None,
     )
-    roles = _classify_roles(g, groups, band, useful, unfavorable, yongsin_el)
+    roles = _classify_roles(yongsin_el)
     if top_model == "bridge_tonggwan" and yongsin_el:
         roles = _classify_bridge_roles(
             g, groups, checks["bridge_required"].detail, useful, yongsin_el

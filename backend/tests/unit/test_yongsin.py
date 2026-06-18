@@ -65,6 +65,23 @@ def test_2015_excess_resource_is_gisin(make_pillars) -> None:
     assert f["hansin"] == "水"
 
 
+def test_1980_strong_earth_wealth_yongsin_canonical_roles(make_pillars) -> None:
+    # 1980-02-15 10:30(庚申 戊寅 戊午 丁巳, 戊·신강): 편인도식 병약 → 재성 용신 水.
+    # 申 지장간 壬水로 재성이 통근해 용광로(炎上)가 아니므로 水를 용신으로 쓴다.
+    # 역할은 용신 기준 생극 순환을 따른다: 土克水의 土가 기신, 과다 인성 火는 구신(생기신),
+    # 水生木의 木이 한신 — 용신을 극하는 土가 한신으로 새던 모순을 바로잡는다.
+    pillars = make_pillars(
+        (Stem.GYEONG, Branch.SIN), (Stem.MU, Branch.IN),
+        (Stem.MU, Branch.O), (Stem.JEONG, Branch.SA), Stem.MU,
+    )
+    f = analyze_chart(pillars).yongsin.final
+    assert f["yongsin"] == "水"
+    assert f["heesin"] == "金"   # 生용신
+    assert f["gisin"] == "土"    # 克용신 (土克水)
+    assert f["gusin"] == "火"    # 生기신 (火生土)
+    assert f["hansin"] == "木"   # 용신생 (水生木)
+
+
 def test_1985_weak_resource_yongsin(make_pillars) -> None:
     # 1985-04-18 16:00 (乙丑 庚辰 丁亥 戊申, 丁·태신약): 비겁이 전무해 직접 보강 火 우선.
     # 희신=인성 木, 한신=관성 水.
