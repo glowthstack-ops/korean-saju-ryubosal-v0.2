@@ -5,6 +5,7 @@ from .luck_cycles import (
     daily_luck_for_month,
     daily_luck_for_range,
     monthly_luck_for_year,
+    yearly_luck_for_range,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "daily_luck_for_month",
     "daily_luck_for_range",
     "monthly_luck_for_year",
+    "yearly_luck_for_range",
 ]

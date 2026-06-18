@@ -58,7 +58,13 @@ from saju_shared_types.profile import PersonaConfig
 from saju_shared_types.topic_context import PeriodSpec
 
 from . import llm_client
-from .manse_service import calculate, daily_luck_window, luck_days, luck_months
+from .manse_service import (
+    calculate,
+    daily_luck_window,
+    luck_days,
+    luck_months,
+    luck_years,
+)
 from .personalization import fetch_personal_inputs
 
 _BACKEND = Path(__file__).resolve().parents[4]
@@ -739,6 +745,19 @@ _KEY_MONTHS_DIRECTIVE = (
     "(12개월을 모두 나열하지 말 것). 사용자가 '월별'을 명시하면 그때만 전체 표를 서술한다."
 )
 
+# 막연한 시점 질문 — 올해부터 10년 연(세운) 단위 흐름 + 대운 교운기 반영 + 연도 지정 유도.
+# 특정 연/월 미지정('결혼 때를 알고 싶어' 등)에서 현재 연도 12개월로 좁혀 월을 단정하던 결함
+# 보완(2026-06-18 데굴님 지적: 막연한 기간은 년운 중심, 이후 연도 지정으로 상세 유도).
+_YEAR_DIGEST_DIRECTIVE = (
+    "[응답 형식] 이 질문은 시점이 막연하다(특정 연·월 미지정) — 올해부터 약 10년의 흐름을 "
+    "'연(세운) 단위'로 큰 줄기만 짚어라. 12개월 월별 나열·특정 달 단정은 하지 말 것(아직 "
+    "범위가 넓다). 각 해가 어느 대운에 속하는지 배경을 깔고, 그 10년 안에서 대운이 바뀌는 "
+    "교운기(전환기)가 있으면 그 시기의 갑작스럽고 비자발적인 전환 에너지를 반드시 함께 "
+    "반영하라(교운 근접 해일수록 변동 폭이 크다). 강하게 작동하는 해와 주의가 필요한 해를 "
+    "골라 총평하고, 답변 끝에 '어느 해를 더 자세히 보고 싶은지' 한 가지를 자연스럽게 물어 — "
+    "사용자가 특정 연도를 지정하면 그때 그 해의 월별 상세를 풀어주겠다고 안내하라."
+)
+
 # 이사 해석 — 십성(이사 유형·이유)과 용신/기신(이사 길흉)을 분리시킨다. LLM이 천간의 기신
 # 역할로 이사 '유형'을 설명하던 오류(2026-06-18 데굴님 지적: 甲을 정관이 아닌 기신으로만 서술)를
 # 차단. 판정 우선순위 메모리(길흉=용신/기신, 사건종류=십성)를 프롬프트로 강제한다.
@@ -834,6 +853,37 @@ def _structural_context(result: ManseV2Result, intent: IntentJson, today: date) 
         hv = analyze_health_vulnerability(result, favorability_map(result))
         out += health_lines(result, hv, today.year)
     return out
+
+
+def _daewoon_span_context(result: ManseV2Result, start_year: int, end_year: int) -> str:
+    """[start_year, end_year] 구간과 겹치는 대운들을 배경으로 한 줄 요약(교운기 표시).
+
+    막연한 시점의 10년 연 단위 흐름에서, 각 해가 어느 대운에 속하는지와 구간 안에서 대운이
+    바뀌는 교운기(전환기)를 LLM에 전달한다(교운 가중은 이미 스코어에 반영 — 텍스트는 배경용).
+    """
+    lc = result.luck_cycles
+    if lc is None or not lc.daewoon_table:
+        return ""
+    segs: list[str] = []
+    transitions: list[int] = []
+    for dw in lc.daewoon_table:
+        s = dw.approx_start_date.year if dw.approx_start_date else None
+        e = dw.approx_end_date.year if dw.approx_end_date else None
+        if s is None or (e or 9999) < start_year or s > end_year:
+            continue
+        span = f"{s}~{e}" if e else f"{s}~"
+        tg = dw.stem_ten_god or ""
+        label = f", {dw.luck_label}" if dw.luck_label else ""
+        segs.append(f"{dw.ganji}({span}, {tg}{label})")
+        if start_year < s <= end_year:  # 구간 안에서 새 대운이 시작 = 교운기
+            transitions.append(s)
+    if not segs:
+        return ""
+    line = "대운 흐름(배경): " + " → ".join(segs)
+    if transitions:
+        years = ", ".join(f"{t}년 무렵" for t in transitions)
+        line += f" · 이 10년 안에 대운 교운기({years}) — 전환 에너지가 강하게 작동"
+    return "\n[대운 배경 — 10년 흐름]\n" + line
 
 
 def _is_day_range(intent: IntentJson) -> bool:
@@ -1120,9 +1170,48 @@ def chat(
     is_structural = intent.query_type is QueryType.CHART_ANALYSIS
     if is_structural:
         default_period = None  # 시점 창 불요 — '질문 기간 내 후보 없음' 빈 안내까지 차단
+
+    # 막연한 시점(특정 연·월 미지정, 미래) → 올해부터 10년 연(세운) 단위 흐름으로 답하고 연도
+    # 지정을 유도한다. 현재 연도 12개월로 좁혀 특정 달을 단정하던 결함 보완(2026-06-18 데굴님).
+    # 과거 회고·구조 질문·기간총운, 명시 시점(올해/내년/특정연월/향후 N년=start 있음)은 제외.
+    vague_future = (
+        period_fortune is None and not is_structural and not is_retro
+        and (intent.time_range is None or not intent.time_range.start)
+    )
+    year_digest_years: list[int] = []
+    year_result = result        # 세운 10년 확장본(기본 창 밖 연도 온디맨드 보강)
+    year_scored = all_scored
+    if vague_future:
+        year_digest_years = list(range(today.year, today.year + 10))
+        default_period = (str(today.year), str(today.year + 9))
+        if result.luck_cycles is not None:
+            have = {pl.label for pl in result.luck_cycles.yearly_luck}
+            missing = [y for y in year_digest_years if str(y) not in have]
+            if missing:
+                # 기본 yearly_luck 창(올해±5)을 넘는 연도(올해+6~+9)를 채워 10년을 완성.
+                extra = luck_years(chart_birth, missing)
+                year_result = result.model_copy(deep=True)
+                assert year_result.luck_cycles is not None
+                year_result.luck_cycles.yearly_luck = (
+                    list(year_result.luck_cycles.yearly_luck) + extra
+                )
+                year_scored = _get_scorer().score_legacy_personalized(
+                    year_result, levels={GanjiLevel.YEAR},
+                    signature=_sig, cohort=_cohort,
+                )
+
     if period_fortune is not None or is_structural:
         candidates = []
         bundles = []
+    elif vague_future:
+        # 세운(연) 중심 — 월 후보는 빼서 LLM이 10년 연 단위 흐름에 집중하게 한다.
+        lo, hi = str(today.year), str(today.year + 9)
+        candidates = [
+            c for c in year_scored if len(c.period) == 4 and lo <= c.period <= hi
+        ]
+        candidates = _get_intent_filter().filter(candidates, str(intent.domain))
+        scope_v: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
+        bundles = _get_graph().retrieve(scope_v)
     else:
         candidates = filter_year_candidates(all_scored)
         # P2 보강: 계층 필터(Top5)가 과거 고점에 점유돼도 유효 창(클램프 반영) 후보는 보존.
@@ -1162,7 +1251,7 @@ def chat(
     # 연간 요약+핵심 달로 응답하도록 아래에서 형식 지시를 준다.
     event_monthly = intent.event_key is not None and str(intent.event_key) in _EVENT_MONTHLY
     monthly_explicit = any(k in question for k in ("월별", "달별", "매월", "월운", "월단위"))
-    wants_monthly = period_fortune is None and (
+    wants_monthly = period_fortune is None and not vague_future and (
         monthly_explicit
         or event_monthly
         or intent.query_type is QueryType.TIMING_SEARCH
@@ -1171,7 +1260,14 @@ def chat(
         or any(k in question for k in ("앞으로", "향후", "다가오는", "1년 내", "1년내"))
     )
     result_for_llm = result  # on-demand 월운 주입 시 교체(간지·해석 lookup 커버용)
-    if wants_monthly and result.luck_cycles is not None:
+    if vague_future and year_result.luck_cycles is not None:
+        # 막연한 시점 → 올해부터 10년 세운 흐름 digest(연별 운 품질·우세 사건). 월별 표 미생성.
+        avail = {pl.label for pl in year_result.luck_cycles.yearly_luck}
+        labels = [str(y) for y in year_digest_years if str(y) in avail]
+        if labels:
+            overview = build_monthly_overview(year_result, year_scored, months=labels)
+            result_for_llm = year_result
+    elif wants_monthly and result.luck_cycles is not None:
         start_label = intent.time_range.start if intent.time_range else None
         window_months: list[str] | None = None
         target_year: int | None = None
@@ -1299,6 +1395,11 @@ def chat(
     # 주간(일 범위) 질문은 7일 일별 일운을 surface — 월운으로 뭉뚱그려지던 결함 보완(2026-06-18).
     if structural is not None and _is_day_range(intent):
         structural = structural + _weekly_overview_lines(birth, intent, today)
+    # 막연한 시점 → 10년 연 단위 흐름의 대운 배경·교운기를 구조 블록에 실어 LLM이 반영하게 한다.
+    if structural is not None and vague_future and year_digest_years:
+        span = _daewoon_span_context(year_result, year_digest_years[0], year_digest_years[-1])
+        if span:
+            structural = structural + [span]
     payload = build_llm_input(
         question, intent, result_for_llm, candidates, bundles, _get_scorer(),
         call_type="chat_compare" if plan.per_subject else "chat_single",
@@ -1325,8 +1426,11 @@ def chat(
         trailing.append(_CAREER_NONREGULAR_DIRECTIVE)
     elif any(k in question for k in _UNEMPLOYED_KEYS):
         trailing.append(_UNEMPLOYED_DIRECTIVE)
-    # P1 응답 형식 — 사건형인데 '월별' 미명시면 12개월 나열 대신 연간 요약+핵심 달로.
-    if overview is not None and event_monthly and not monthly_explicit:
+    # 응답 형식 — 막연한 시점이면 10년 연(세운) digest+연도 지정 유도, 그 외 사건형 연 질문은
+    # 12개월 나열 대신 연간 요약+핵심 달로.
+    if vague_future:
+        trailing.append(_YEAR_DIGEST_DIRECTIVE)
+    elif overview is not None and event_monthly and not monthly_explicit:
         trailing.append(_KEY_MONTHS_DIRECTIVE)
     # 이사 질문 — 십성(유형)과 용신/기신(길흉)을 분리해 답하도록 강제(2026-06-18).
     if _is_relocation_intent(intent):

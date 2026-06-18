@@ -15,6 +15,7 @@ from saju_manse_analysis.luck import (
     daily_luck_for_month,
     daily_luck_for_range,
     monthly_luck_for_year,
+    yearly_luck_for_range,
 )
 from saju_manse_calibration import generate_calibration, score_calibration
 
@@ -472,6 +473,23 @@ def luck_months(birth: BirthInput, year: int) -> list[LuckPillar]:
         year,
         get_table(),
         timezone=result.time_correction.timezone if result.time_correction else "Asia/Seoul",
+    )
+
+
+def luck_years(birth: BirthInput, years: list[int]) -> list[LuckPillar]:
+    """주어진 연도 목록의 세운 — 기본 yearly_luck 창(올해±5) 밖 연도를 온디맨드로 채운다.
+
+    막연한 시점 질문의 '올해부터 10년' 연 단위 흐름에서 기본 창을 넘는 연도(예: 올해+6~+9)를
+    조회하는 용도. 차트를 결정론적으로 재계산한다.
+    """
+    result = calculate(birth)
+    pillars = result.pillars
+    y = result.yongsin_analysis
+    if pillars is None or y is None:
+        raise ValueError("luck years unavailable: chart could not be computed")
+    useful, unfavorable = _luck_role_sets(y)
+    return yearly_luck_for_range(
+        pillars, Stem(pillars.day.stem), useful, unfavorable, years
     )
 
 

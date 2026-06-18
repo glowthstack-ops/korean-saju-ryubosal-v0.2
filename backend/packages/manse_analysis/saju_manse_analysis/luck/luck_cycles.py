@@ -544,6 +544,21 @@ def monthly_luck_for_year(
     return _monthly(pillars, day_master, useful, unfavorable, year, table, timezone)
 
 
+def yearly_luck_for_range(
+    pillars: FourPillarsResult,
+    day_master: Stem,
+    useful: set[str],
+    unfavorable: set[str],
+    years: list[int],
+) -> list[LuckPillar]:
+    """주어진 연도 목록의 세운 — 기본 창(올해±5) 밖 연도를 온디맨드로 채울 때 쓴다.
+
+    막연한 시점 질문의 '올해부터 10년' 연 단위 흐름처럼 기본 yearly_luck 창을 넘는
+    구간을 조회하는 용도. 결정론적이라 차트 재계산 없이 세운 간지·점수만 만든다.
+    """
+    return _yearly(pillars, day_master, useful, unfavorable, years)
+
+
 def daily_luck_for_month(
     pillars: FourPillarsResult,
     day_master: Stem,

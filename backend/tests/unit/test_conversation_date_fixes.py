@@ -122,6 +122,31 @@ def test_questioning_or_possessive_not_affirmation() -> None:
     assert eng.link_question(state, "네 사주 봐줘").is_follow_up is False
 
 
+def test_vague_period_uses_ten_year_year_digest() -> None:
+    """막연한 시점 질문은 올해부터 10년 연(세운) digest + 대운 교운기 + 연도 지정 유도로 답한다.
+
+    특정 연·월 미지정('결혼 때를 알고 싶어')에서 현재 연도 12개월로 좁혀 특정 달을 단정하던
+    결함 보완(2026-06-18). 명시 연도 질문은 기존 월 단위 상세를 유지한다.
+    """
+    from saju_api.services.chat_service import chat
+    from saju_shared_types.birth_input import BirthInput
+
+    b = BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:40",
+        birth_place_name="서울", gender="male", reference_date=date(2026, 6, 18))
+    # 막연한 시점 → 연 digest 경로.
+    vague = chat(b, "결혼을 둘러싼 계약과 거처 정리가 같이 움직이는 때를 알고 싶어",
+                 dry_run=True, today=date(2026, 6, 18))
+    p = vague.prompt_preview or ""
+    assert "[월별 요약" not in p                  # 12개월 표 미생성
+    assert "어느 해를 더 자세히" in p             # 연도 지정 유도 지시문
+    assert "대운 흐름(배경)" in p                 # 대운 배경 + 교운기
+    assert "교운기" in p
+    # 명시 연도 질문은 기존 월 단위 상세(연 digest 지시문 미적용).
+    specific = chat(b, "2027년 결혼운 어때?", dry_run=True, today=date(2026, 6, 18))
+    assert "어느 해를 더 자세히" not in (specific.prompt_preview or "")
+
+
 def test_weekly_question_surfaces_daily_overview() -> None:
     """주간(일 범위) 질문은 7일 일별 일운(간지·길흉) surface(월운 뭉뚱그림 방지, 2026-06-18)."""
     from saju_api.services.chat_service import _is_day_range, _weekly_overview_lines
