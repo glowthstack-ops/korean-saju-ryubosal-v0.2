@@ -31,6 +31,18 @@ dev = [
 astro = [
     "skyfield>=1.49",
 ]
+# Intent 유사도 보조 분류기(런타임) — ONNX contextual 임베딩 추론. torch 불요(CPU·무API).
+# 미설치 시 intent_embedding가 비활성(규칙 파서만 동작) — 베이스 런타임은 영향 없음.
+intent = [
+    "onnxruntime>=1.17",
+    "tokenizers>=0.15",
+]
+# Intent 분류기 모델 (재)생성용 빌드타임 전용 — ONNX export·int8 양자화·distill. 배포 런타임 미포함.
+intent-build = [
+    "torch>=2.2",
+    "transformers>=4.40",
+    "optimum[onnxruntime]>=1.19",
+]
 
 # ---------------------------------------------------------------------------
 # Monorepo workspace: each domain lives in its own importable package but is

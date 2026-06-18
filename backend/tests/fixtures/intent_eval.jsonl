@@ -1,0 +1,40 @@
+{"q": "지금 회사 때려치우고 옮길까 고민이야", "domain": "career", "event": "career_change"}
+{"q": "다른 직장으로 넘어가기 괜찮은 때야?", "domain": "career", "event": "career_change"}
+{"q": "백수 탈출 언제쯤 하려나", "domain": "career", "event": "job_gain"}
+{"q": "면접 보러 다니는데 붙을 수 있을까?", "domain": "career", "event": "job_gain"}
+{"q": "부장 달 수 있을까?", "domain": "career", "event": "promotion"}
+{"q": "통장에 돈이 좀 쌓일까?", "domain": "wealth", "event": null}
+{"q": "주머니 사정 나아질 기미가 있어?", "domain": "wealth", "event": null}
+{"q": "대박 한번 터질 수 있을까?", "domain": "wealth", "event": "windfall"}
+{"q": "보금자리 옮기는 거 어떨까?", "domain": "relocation", "event": "relocation"}
+{"q": "전세 빼서 다른 동네로 갈까 하는데", "domain": "relocation", "event": "relocation"}
+{"q": "이 집에서 계속 살아도 될까 다른 데로 갈까?", "domain": "relocation", "event": "relocation"}
+{"q": "장가갈 수 있으려나", "domain": "relationship", "event": "marriage_signal"}
+{"q": "백년가약 맺을 때가 언제일까", "domain": "relationship", "event": "marriage_signal"}
+{"q": "썸 타는 사람과 잘 이어질까?", "domain": "relationship", "event": null}
+{"q": "내 짝은 언제 나타나려나", "domain": "relationship", "event": null}
+{"q": "옛 연인과 다시 이어질 수 있을까?", "domain": "relationship", "event": null}
+{"q": "2세 계획 중인데 시기가 어때?", "domain": "relationship", "event": "childbirth"}
+{"q": "몸이 예전 같지 않은데 괜찮아질까?", "domain": "health", "event": null}
+{"q": "병원 갈 일이 생길까 걱정이야", "domain": "health", "event": null}
+{"q": "내가 어떤 부류의 사람인지 알려줘", "domain": "general", "event": null}
+{"q": "타고난 됨됨이가 궁금해", "domain": "general", "event": null}
+{"q": "뭘 해먹고 살아야 잘 맞을까?", "domain": "career", "event": null}
+{"q": "이 사람이랑 천생연분일까?", "domain": "relationship", "event": null}
+{"q": "우리 둘이 잘 어울리는 한 쌍이야?", "domain": "relationship", "event": null}
+{"q": "이번 시험 붙을 수 있을까?", "domain": "education", "event": null}
+{"q": "고시 패스 가능성이 있어?", "domain": "education", "event": null}
+{"q": "가게 하나 차려볼까 하는데 어떨까?", "domain": "career", "event": "business_start"}
+{"q": "운 트이게 하는 방법 없을까?", "domain": "general", "event": null}
+{"q": "내년 한 해는 어떻게 흘러가?", "domain": "general", "event": null}
+{"q": "이번 달 전반적으로 어때?", "domain": "general", "event": null}
+{"q": "오늘 하루 어떤 날이 될까?", "domain": "general", "event": null}
+{"q": "도화살이 뭔지 알려줘", "domain": "general", "event": null}
+{"q": "선거에서 누가 이길 것 같아?", "domain": "general", "event": null}
+{"q": "돈복은 타고났을까?", "domain": "wealth", "event": null}
+{"q": "애 갖기 좋은 해가 언제야?", "domain": "relationship", "event": "childbirth"}
+{"q": "직장 생활이 나한테 맞긴 해?", "domain": "career", "event": null}
+{"q": "혼삿길이 언제 열릴까", "domain": "relationship", "event": "marriage_signal"}
+{"q": "수술 날짜 잡아도 되는 시기야?", "domain": "health", "event": null}
+{"q": "재산이 불어날 운이 있어?", "domain": "wealth", "event": null}
+{"q": "집 사는 거랑 이사 타이밍 봐줘", "domain": "relocation", "event": "relocation"}

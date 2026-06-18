@@ -52,6 +52,23 @@ pytest                                      # 단위·회귀·통합 테스트
 uvicorn saju_api.main:app --reload         # API 기동
 ```
 
+### (선택) Intent 유사도 보조 분류기
+
+규칙 파서가 모호할 때 의도(domain/event)를 보조 추정하는 contextual 임베딩 분류기(CPU·무API,
+torch-free 런타임). **미설치/모델 부재여도 서버는 정상 기동**하며 분류기만 비활성된다(규칙 파서만 동작).
+fresh clone에는 모델(110MB, git 미추적)이 없으므로 활성화하려면 아래 1회 빌드가 필요하다.
+
+```bash
+# 런타임 의존성(추론 전용 — onnxruntime + tokenizers)
+pip install -e ".[intent]"
+# 모델 (재)생성: 빌드타임 전용 의존성(torch/optimum) 설치 후 ONNX export·int8 양자화 (1회, 인터넷 필요)
+pip install -e ".[intent-build]"
+python scripts/build_intent_onnx.py        # → compiled/intent_onnx/model_quantized.onnx (110MB)
+```
+
+생성물 무결성은 `compiled/intent_onnx/model_quantized.onnx.sha256` 로 검증한다. 배포 시 이 모델
+아티팩트를 함께 배치(또는 빌드 단계에서 생성)하면 분류기가 자동 활성화된다.
+
 ## 핵심 원칙
 
 1. LLM은 사주를 계산하지 않는다 — 모든 계산은 결정론적 엔진에서.

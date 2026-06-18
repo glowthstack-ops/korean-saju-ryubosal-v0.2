@@ -1,0 +1,289 @@
+{
+  "note": "Intent 유사도 분류기(intent_similarity.py) 시드 코퍼스 — docs/08 D-1 실측 intent 분류가 출처. 보조 신호 전용(규칙 파서 폴백). domain/event/query_type은 saju_shared_types enum 값. examples는 의도별 canonical 표현(실로그 스타일). reviewed:false 초안 — 측정 후 확장.",
+  "reviewed": false,
+  "version": "0.1.0",
+  "intents": [
+    {
+      "label": "job_change",
+      "domain": "career",
+      "event": "career_change",
+      "query_type": "domain_analysis",
+      "examples": [
+        "이직 언제쯤 하게 될까?",
+        "회사 옮기고 싶은데 시기가 어때?",
+        "이직운 봐줘",
+        "지금 직장 그만두고 다른 데로 갈까?",
+        "전직 생각 중인데 올해 괜찮을까?",
+        "직장 옮길 운이 들어와?"
+      ]
+    },
+    {
+      "label": "employment",
+      "domain": "career",
+      "event": "job_gain",
+      "query_type": "domain_analysis",
+      "examples": [
+        "취업 언제 될까?",
+        "취직운 어때?",
+        "복직 가능할까?",
+        "구직 중인데 합격할 수 있을까?",
+        "올해 취업운 알려줘",
+        "일자리 언제 구해질까?"
+      ]
+    },
+    {
+      "label": "promotion",
+      "domain": "career",
+      "event": "promotion",
+      "query_type": "domain_analysis",
+      "examples": [
+        "승진할 수 있을까?",
+        "올해 진급운 어때?",
+        "승진 시기가 언제야?",
+        "이번에 진급 가능성 있어?"
+      ]
+    },
+    {
+      "label": "career_aptitude",
+      "domain": "career",
+      "event": null,
+      "query_type": "chart_analysis",
+      "examples": [
+        "나한테 맞는 직업이 뭐야?",
+        "내 적성이 어떻게 돼?",
+        "어떤 일을 하면 좋을까?",
+        "진로 방향을 알려줘",
+        "무슨 분야가 잘 맞아?"
+      ]
+    },
+    {
+      "label": "business_start",
+      "domain": "career",
+      "event": "business_start",
+      "query_type": "domain_analysis",
+      "examples": [
+        "창업해도 될까?",
+        "사업 시작하기 좋은 시기야?",
+        "자영업 차릴까 하는데 어때?",
+        "장사 시작하면 잘 될까?",
+        "내 사업운 봐줘"
+      ]
+    },
+    {
+      "label": "wealth",
+      "domain": "wealth",
+      "event": "wealth_change",
+      "query_type": "domain_analysis",
+      "examples": [
+        "재물운 어때?",
+        "돈은 언제쯤 모이려나",
+        "올해 금전운 봐줘",
+        "재정 상황이 나아질까?",
+        "재물 흐름이 궁금해"
+      ]
+    },
+    {
+      "label": "windfall",
+      "domain": "wealth",
+      "event": "windfall",
+      "query_type": "timing_search",
+      "examples": [
+        "복권 당첨될 수 있을까?",
+        "횡재수 있어?",
+        "뜻밖의 큰돈이 들어올까?",
+        "로또 사도 되는 날이야?",
+        "한 방에 돈 들어올 운 있어?"
+      ]
+    },
+    {
+      "label": "relocation",
+      "domain": "relocation",
+      "event": "relocation",
+      "query_type": "domain_analysis",
+      "examples": [
+        "이사 언제 가면 좋아?",
+        "이사운 봐줘",
+        "집 옮기려는데 시기가 어때?",
+        "이번에 이사하면 어떨까?",
+        "거처를 옮기고 싶은데 괜찮아?",
+        "이사하기 좋은 날 알려줘"
+      ]
+    },
+    {
+      "label": "marriage",
+      "domain": "relationship",
+      "event": "marriage_signal",
+      "query_type": "domain_analysis",
+      "examples": [
+        "결혼 언제 할까?",
+        "올해 결혼운 어때?",
+        "혼인 시기가 궁금해",
+        "결혼할 수 있을까?",
+        "내 결혼 시기를 봐줘"
+      ]
+    },
+    {
+      "label": "love",
+      "domain": "relationship",
+      "event": "new_relationship",
+      "query_type": "domain_analysis",
+      "examples": [
+        "연애운 어때?",
+        "애인 언제 생길까?",
+        "올해 누구 만날 수 있을까?",
+        "솔로 탈출 가능해?",
+        "새로운 인연이 들어올까?"
+      ]
+    },
+    {
+      "label": "breakup",
+      "domain": "relationship",
+      "event": "relationship_change",
+      "query_type": "domain_analysis",
+      "examples": [
+        "헤어질 것 같은데 어때?",
+        "이별 수가 있어?",
+        "지금 사람과 계속 갈 수 있을까?",
+        "관계가 끝날 것 같아"
+      ]
+    },
+    {
+      "label": "reunion",
+      "domain": "relationship",
+      "event": "relationship_change",
+      "query_type": "timing_search",
+      "examples": [
+        "헤어진 사람과 재회할 수 있을까?",
+        "전 애인과 다시 만날 수 있어?",
+        "재결합 가능성이 있을까?"
+      ]
+    },
+    {
+      "label": "children",
+      "domain": "relationship",
+      "event": "childbirth",
+      "query_type": "domain_analysis",
+      "examples": [
+        "아이 언제 생길까?",
+        "임신 가능한 시기야?",
+        "둘째 가져도 될까?",
+        "출산운 어때?",
+        "자녀운을 봐줘"
+      ]
+    },
+    {
+      "label": "health",
+      "domain": "health",
+      "event": "health_attention",
+      "query_type": "domain_analysis",
+      "examples": [
+        "건강운 어때?",
+        "올해 몸 조심해야 해?",
+        "수술해도 괜찮은 시기야?",
+        "건강은 언제 신경 써야 해?",
+        "아픈 데가 생길까 걱정돼"
+      ]
+    },
+    {
+      "label": "personality",
+      "domain": "general",
+      "event": null,
+      "query_type": "chart_analysis",
+      "examples": [
+        "내 성격이 어때?",
+        "나는 어떤 사람이야?",
+        "내 기질을 알려줘",
+        "성향을 분석해줘",
+        "내가 어떤 성향인지 궁금해"
+      ]
+    },
+    {
+      "label": "compatibility",
+      "domain": "relationship",
+      "event": null,
+      "query_type": "comparison",
+      "examples": [
+        "궁합 봐줘",
+        "우리 잘 맞아?",
+        "이 사람과 궁합이 어때?",
+        "나랑 맞는 사람이야?",
+        "둘이 잘 어울려?"
+      ]
+    },
+    {
+      "label": "period_fortune",
+      "domain": "general",
+      "event": null,
+      "query_type": "fortune_overview",
+      "examples": [
+        "올해 운세 어때?",
+        "요즘 전반적인 운이 궁금해",
+        "내 평생 운세를 알려줘",
+        "전체적으로 어떻게 흘러가?",
+        "한 해 총운 봐줘"
+      ]
+    },
+    {
+      "label": "day_fortune",
+      "domain": "general",
+      "event": null,
+      "query_type": "fortune_overview",
+      "examples": [
+        "오늘 운세 어때?",
+        "내일 운세 봐줘",
+        "이번 주 운세 알려줘",
+        "오늘 하루 어떨까?"
+      ]
+    },
+    {
+      "label": "education",
+      "domain": "education",
+      "event": null,
+      "query_type": "domain_analysis",
+      "examples": [
+        "시험 합격할 수 있을까?",
+        "공부운 어때?",
+        "자격증 딸 수 있을까?",
+        "학업운 봐줘",
+        "수능 잘 볼 수 있을까?"
+      ]
+    },
+    {
+      "label": "fortune_remedy",
+      "domain": "general",
+      "event": null,
+      "query_type": "remedy",
+      "examples": [
+        "개운법 알려줘",
+        "운을 좋게 하려면 어떻게 해?",
+        "조심해야 할 게 뭐야?",
+        "보완할 방법이 있을까?",
+        "어떻게 하면 액을 피해?"
+      ]
+    },
+    {
+      "label": "terminology",
+      "domain": "general",
+      "event": null,
+      "query_type": "terminology_education",
+      "examples": [
+        "공망이 무슨 뜻이야?",
+        "용신이 뭐야?",
+        "십성이 뭔지 설명해줘",
+        "백호살이 무슨 의미야?"
+      ]
+    },
+    {
+      "label": "winner_prediction",
+      "domain": "general",
+      "event": null,
+      "query_type": "comparison",
+      "examples": [
+        "누가 당선될까?",
+        "둘 중 누가 합격할까?",
+        "이 경쟁에서 누가 이길까?",
+        "셋 중 누가 가장 유리해?"
+      ]
+    }
+  ]
+}
