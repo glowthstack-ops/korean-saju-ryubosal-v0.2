@@ -139,6 +139,9 @@ class LlmEventCandidate(BaseModel):
     amhap_notes: list[str] = Field(default_factory=list)
     # 유불리 주의(후보별 사실) — 천간 흉신 시기: 발생해도 계약·결실 불리(우호 단정 방지).
     caution_note: str = ""
+    # 결과 유불리 밴드(유리/불리, 중립이면 빈 문자열) — 발생 가능성(score)과 분리된 길흉 채널.
+    # 시험 합·불, 특수직군 길화, 퇴직 리스크, 이직 압박/기회 등이 합산된 net 유불리.
+    favorability_ko: str = ""
     timeline: dict | None = None  # EventTimeline (Phase 5 E4)
     realization_score: int | None = None  # Manifestation (Phase 5 E6)
     likely_forms: list[str] = Field(default_factory=list)

@@ -5,10 +5,11 @@
   "service_field_mapping": {
     "note": "우리 ExtendedProfile에서 파생. moving_intent·education_status·business_status는 별도 필드가 없어 직업/혼인/거주에서 추정하거나 unknown.",
     "occupation_status": {
-      "source": "extended.occupation.employment_form 우선, 없으면 occupation.category_id",
+      "source": "구조적 분류(O02 공직/O17 학생/O18 무직)는 category_id 우선, 그 외는 employment_form으로 employee/freelancer/business_owner 결정",
       "map": {
         "정규직": "employee", "계약직": "employee", "무급가족종사": "employee",
         "프리랜서": "freelancer", "자영업": "business_owner", "법인대표": "business_owner",
+        "O02": "public_official",
         "O17": "student", "O18": "unemployed", "_default": "unknown"
       }
     },
@@ -23,6 +24,7 @@
   "rules": {
     "career_signal_for_student": "취업보다 입학·시험·인턴·진로 선택으로 우선 해석",
     "career_signal_for_employee": "이직·승진·직무변경으로 우선 해석",
+    "career_signal_for_public_official": "재직 공직자는 취업 신호를 승진으로 해석하고, 승진·인사는 승진시험·발령·근무지 전보(이동)를 동반 가능성으로 함께 본다(자료 7-3·12-4)",
     "career_signal_for_unemployed": "job_gain(취업) 우선 해석",
     "career_signal_for_retired": "직책보다 사회활동·계약·자문으로 전환",
     "wealth_signal_for_business_owner": "매출·거래처·계약(business_expansion)으로 우선 해석",

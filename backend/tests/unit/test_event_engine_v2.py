@@ -88,3 +88,51 @@ def test_profile_gate_optional(chart, engine: EventEngineV2) -> None:
         occupation_status="employee", relationship_status="married",
     )
     assert base and gated  # 둘 다 정상 산출
+
+
+def test_dual_channel_activation_and_favorability() -> None:
+    # 활성/길흉 이중 채널 — _apply_soft_cap이 contributions·극성에서 파생값을 확정.
+    from saju_engines.event_engine_v2 import _apply_soft_cap
+    from saju_shared_types.event_engine import EventCandidateV2, PolarityRole
+
+    # 용신(YONG) + yongi 기여 → favorability>0, activation은 길흉(yongi) 제외.
+    yong = _apply_soft_cap(EventCandidateV2(
+        event_key="job_gain", period="2026", score=70,
+        polarity_role=PolarityRole.YONG, contributions={"base": 64.0, "yongi": 6.0},
+    ))
+    assert yong.favorability > 0
+    assert yong.activation == 64.0  # 70(raw) - 6(yongi)
+
+    # 기신(GI) → favorability<0.
+    gi = _apply_soft_cap(EventCandidateV2(
+        event_key="career_change", period="2026", score=60,
+        polarity_role=PolarityRole.GI, contributions={"base": 60.0},
+    ))
+    assert gi.favorability < 0
+
+    # fav_adj(시험 불합격 패턴 보정)가 극성 기준값에 합산되고 [-1,1]로 클램프.
+    adj = _apply_soft_cap(EventCandidateV2(
+        event_key="education_admission", period="2026", score=60,
+        polarity_role=PolarityRole.NEUTRAL, contributions={"fav_adj": -0.3},
+    ))
+    assert adj.favorability == -0.3
+
+
+def test_jobchange_classification_label() -> None:
+    # 이직 분류(자료 12) — career_change 최종 favorability로 압박성/기회성 라벨.
+    from saju_engines.event_engine_v2 import _apply_soft_cap
+    from saju_shared_types.event_engine import EventCandidateV2, PolarityRole
+
+    pressure = _apply_soft_cap(EventCandidateV2(
+        event_key="career_change", period="2026", score=60,
+        polarity_role=PolarityRole.GI, contributions={"base": 60.0},
+    ))
+    assert pressure.favorability < 0
+    assert "JOBCHANGE_PRESSURE_DRIVEN" in pressure.reason_codes
+
+    opportunity = _apply_soft_cap(EventCandidateV2(
+        event_key="career_change", period="2026", score=60,
+        polarity_role=PolarityRole.YONG, contributions={"base": 60.0},
+    ))
+    assert opportunity.favorability > 0
+    assert "JOBCHANGE_OPPORTUNITY" in opportunity.reason_codes

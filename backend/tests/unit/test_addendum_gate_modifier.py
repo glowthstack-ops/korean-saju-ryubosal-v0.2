@@ -52,6 +52,32 @@ def test_job_gain_for_employee_to_promotion() -> None:
     assert {str(c.event_key) for c in out} == {"promotion"}
 
 
+def test_public_official_job_gain_to_promotion_with_transfer() -> None:
+    # 재직 공직자(O02): 취업 신호 → 승진, 발령·전보 동반 태그.
+    m = AddendumGateModifier()
+    ctx = GateContext(
+        present_gods={TenGod.ZHENGGUAN, TenGod.ZHENGYIN},
+        occupation_status="public_official",
+    )
+    out = m.apply([_cand("job_gain", 70)], ctx)
+    c = next(c for c in out if str(c.event_key) == "promotion")
+    assert "PROFILE_public_official_promotion" in c.reason_codes
+    assert "PROFILE_public_official_transfer" in c.reason_codes
+
+
+def test_public_official_promotion_keeps_label_adds_transfer() -> None:
+    # 공직자 승진은 라벨 유지 + 발령·전보 동반 태그(점수 불변).
+    m = AddendumGateModifier()
+    ctx = GateContext(
+        present_gods={TenGod.ZHENGGUAN}, occupation_status="public_official",
+    )
+    out = m.apply([_cand("promotion", 70)], ctx)
+    c = out[0]
+    assert str(c.event_key) == "promotion"
+    assert c.score == 70
+    assert "PROFILE_public_official_transfer" in c.reason_codes
+
+
 def test_business_owner_wealth_to_expansion() -> None:
     m = AddendumGateModifier()
     ctx = GateContext(

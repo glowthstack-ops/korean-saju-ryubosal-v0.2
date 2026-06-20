@@ -290,6 +290,20 @@ def _direction_for(c: EventCandidate) -> str:
     return lbl or polarity_ko(str(c.polarity))
 
 
+# 결과 유불리(favorability) 밴드 — 발생 가능성(score)과 분리된 길흉 채널. 중립대(±0.2)는 빈
+# 문자열(노출 안 함). 시험 합·불·특수직군·퇴직 리스크·이직 압박/기회가 합산된 net 유불리.
+_FAVORABILITY_BAND_TH = 0.2
+
+
+def _favorability_ko(favorability: float) -> str:
+    """favorability(−1~1) → 유불리 밴드 라벨(중립은 빈 문자열)."""
+    if favorability >= _FAVORABILITY_BAND_TH:
+        return "유리(결과 우호)"
+    if favorability <= -_FAVORABILITY_BAND_TH:
+        return "불리(결과 주의)"
+    return ""
+
+
 # 기반 최고 달 지목용 — 운 품질 등급 우선순위(길 방향만). 그 기간에 이 등급의 달이 있으면
 # 질문 사건과 무관하게 '가장 도움되는 시기'로 명시 노출(intent 질문에서 누락 방지).
 _BEST_GRADE_PRIORITY = ("강한 용신운", "용신운(부분)")
@@ -715,6 +729,7 @@ def _to_llm_candidate(
         incoming_note=note,
         amhap_notes=amhap_notes,
         caution_note=caution,
+        favorability_ko=_favorability_ko(c.favorability),
     )
 
 
@@ -1129,6 +1144,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
 
     def candidate_block(c: LlmEventCandidate, with_notes: bool = True) -> list[str]:
         block = [candidate_line(c)]
+        if with_notes and c.favorability_ko:
+            # 결과 유불리 — 발생 가능성(강도)과 분리된 길흉('강한 달=좋은 달'이 아님).
+            block.append(f"  결과 유불리: {c.favorability_ko}(발생 가능성과 별개)")
         if with_notes and c.signals_ko:
             block.append("  동반 신호: " + " / ".join(c.signals_ko))
         if with_notes and c.incoming_note:

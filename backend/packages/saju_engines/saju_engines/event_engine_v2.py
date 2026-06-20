@@ -22,6 +22,7 @@ from saju_shared_types.event_engine import (
     TWELVE_STAGE_KO_TO_KEY,
     ConfidenceLevel,
     EventCandidateV2,
+    EventKeyV2,
     EventQuality,
     LuckLayer,
     Pillar4,
@@ -52,9 +53,11 @@ from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.wealth_capacity import WealthCapacity
 
 from .addendum_gate_modifier import AddendumGateModifier, GateContext
+from .career_mobility_modifier import CareerMobilityContext, CareerMobilityModifier
 from .cohort_calibration import CohortStats
 from .event_ranker import EventRanker, RankContext
 from .event_scoring import favorability_map
+from .exam_outcome_modifier import ExamOutcomeModifier
 from .ganji_calendar import relation_hits
 from .layer_flow_modifier import LayerFlowModifier
 from .life_fit_ranker import LifeFitRanker
@@ -103,6 +106,15 @@ _FAV_ROLE: dict[str, PolarityRole] = {
 }
 # 오행 상생(생, 生): 木→火→土→金→水→木. 한신의 간접 길흉 판정에 쓴다.
 _GENERATES: dict[str, str] = {"木": "火", "火": "土", "土": "金", "金": "水", "水": "木"}
+# 천간충 4쌍(甲庚·乙辛·丙壬·丁癸) — 만세 calendar 관계 경로엔 없어 어댑터로 직접 계산한다
+# (manse_core 불변, CLAUDE.md "어댑터만 추가"). 천충지충 동시 퇴직 리스크 판정용(자료 13-1).
+_STEM_CLASH_PAIRS: frozenset[frozenset[str]] = frozenset({
+    frozenset({"甲", "庚"}), frozenset({"乙", "辛"}),
+    frozenset({"丙", "壬"}), frozenset({"丁", "癸"}),
+})
+# 이직 분류(자료 12) — 최종 favorability 임계. 이하=압박성, 이상=기회성, 사이=중립.
+_JOBCHANGE_PRESSURE_TH = -0.2
+_JOBCHANGE_OPPORTUNITY_TH = 0.2
 # TenGod → 그룹 문자열(RankContext 신호 분류용).
 _GROUP_OF: dict[TenGod, str] = {g: grp.value for g, grp in TEN_GOD_GROUP.items()}
 
@@ -122,6 +134,8 @@ class EventEngineV2:
         self._gate = AddendumGateModifier()
         self._relpalace = RelationPalaceEngine(dictionaries_dir)
         self._yongi = YongiQualityEngine(dictionaries_dir)
+        self._exam = ExamOutcomeModifier(dictionaries_dir)
+        self._career_mobility = CareerMobilityModifier(dictionaries_dir)
         self._wealth_act = WealthActivationModifier()
         self._ranker = EventRanker(dictionaries_dir)
 
@@ -135,6 +149,7 @@ class EventEngineV2:
         *,
         occupation_status: str | None = None,
         relationship_status: str | None = None,
+        occupation_category: str | None = None,
     ) -> list[EventCandidateV2]:
         """만세 결과의 운을 거버닝 스택으로 스코어링해 EventCandidateV2 목록을 산출한다."""
         if result.pillars is None or result.luck_cycles is None:
@@ -149,7 +164,7 @@ class EventEngineV2:
                 label = f"{dwi.approx_start_date.year}~{dwi.approx_end_date.year}"
                 out += self._score_target(
                     result, GanjiLevel.DAEWOON, label, _daewoon_pillar(dwi), idx, fav_map,
-                    occupation_status, relationship_status, capacity,
+                    occupation_status, relationship_status, capacity, occupation_category,
                 )
         for level, pillars in (
             (GanjiLevel.YEAR, result.luck_cycles.yearly_luck),
@@ -161,6 +176,7 @@ class EventEngineV2:
                     out += self._score_target(
                         result, level, p.label, p, idx, fav_map,
                         occupation_status, relationship_status, capacity,
+                        occupation_category,
                     )
         return sorted(out, key=_rank_key)
 
@@ -172,6 +188,7 @@ class EventEngineV2:
         *,
         occupation_status: str | None = None,
         relationship_status: str | None = None,
+        occupation_category: str | None = None,
     ) -> list[EventCandidateV2]:
         """지정 세운 연도를 직접 스코어링한다(용신 검증용 — 과거 연도 포함)."""
         if result.pillars is None or result.luck_cycles is None:
@@ -186,7 +203,7 @@ class EventEngineV2:
                 continue
             out += self._score_target(
                 result, GanjiLevel.YEAR, p.label, p, idx, fav_map,
-                occupation_status, relationship_status, capacity,
+                occupation_status, relationship_status, capacity, occupation_category,
             )
         return sorted(out, key=_rank_key)
 
@@ -231,14 +248,24 @@ class EventEngineV2:
         signature: list[LifeEventRow] | None = None,
         reality_context: RealityContext | None = None,
         cohort: CohortStats | None = None,
+        occupation_status: str | None = None,
+        relationship_status: str | None = None,
+        occupation_category: str | None = None,
     ) -> list[EventCandidate]:
         """score() → LifeFitRanker(개인 시그니처·코호트·현실 맥락) → 레거시 후보.
 
         시그니처·맥락·코호트가 전부 없으면 score_legacy()와 동치(LEI 필드 0). subject_id로 조회한
         개인 시그니처·코호트가 있으면 LEI 정렬축(life_fit>confidence>personal_match>score)이 출력에
         반영된다(다운스트림 정렬도 LEI-aware). DB 게이트는 호출 서비스가 담당.
+
+        occupation_status·relationship_status는 user_profile_event_gate 분기에, occupation_category
+        (O0x)는 특수직군 충형 길화(자료 9-6)에 쓰인다(미입력이면 보정 없음 — 규칙11).
         """
-        v2 = self.score(result, levels, fav_override)
+        v2 = self.score(
+            result, levels, fav_override,
+            occupation_status=occupation_status, relationship_status=relationship_status,
+            occupation_category=occupation_category,
+        )
         v2 = LifeFitRanker().rank(
             v2, signature=signature, reality_context=reality_context, cohort=cohort,
         )
@@ -262,6 +289,7 @@ class EventEngineV2:
         occupation_status: str | None,
         relationship_status: str | None,
         capacity: WealthCapacity,
+        occupation_category: str | None = None,
     ) -> list[EventCandidateV2]:
         """거버닝 스택으로 한 시점의 후보를 만들고 6계층 보정을 적용한다."""
         stack = idx.stack_for(level, label, target)
@@ -318,6 +346,17 @@ class EventEngineV2:
                 for c in cands
             ]
             cands = self._yongi.apply(cands)
+        # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
+        # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
+        cands = self._exam.apply(cands, present_gods)
+        # 직업운 결과 길흉 — 특수직군 충형 길화(9-6) + 천충지충 퇴직 리스크(13-1). favorability만.
+        cands = self._career_mobility.apply(cands, CareerMobilityContext(
+            present_gods=present_gods,
+            activation_kinds={a.kind.value for a in activations},
+            stem_clash=_has_stem_clash(target.stem, result),
+            branch_clash=any(h.type is RelationType.BRANCH_CLASH for h in hits),
+            occupation_category=occupation_category,
+        ))
         # 횡재 발동 — 원국 그릇 × 운 완성(재성국/충개고/투간/식상생재)을 재물 후보에 보수 가산.
         cands = self._wealth_act.apply(
             cands, capacity, self._wealth_activations(result, stack, capacity),
@@ -469,6 +508,19 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
 _SOFT_KNEE = 85.0
 _SOFT_TAU = 25.0
 
+# 극성 역할 → 결과 길흉 기준값(−1.0~+1.0). 용기신 오행 신호 세기에 비례한 유불리.
+# 직접 역할(용·희·기) > 한신 간접(생, 生). NEUTRAL은 길흉 미정(0.0).
+_ROLE_FAV: dict[PolarityRole, float] = {
+    PolarityRole.YONG_STRONG: 1.0,
+    PolarityRole.YONG: 0.7,
+    PolarityRole.HEE: 0.5,
+    PolarityRole.HAN_GOOD: 0.3,
+    PolarityRole.NEUTRAL: 0.0,
+    PolarityRole.HAN_BAD: -0.3,
+    PolarityRole.GI: -0.7,
+    PolarityRole.GI_STRONG: -1.0,
+}
+
 
 def _soft_cap(raw: float) -> float:
     """누적 raw 점수를 표시용(≤100)으로 압축. knee 이하 항등, 이상은 지수 포화."""
@@ -478,9 +530,41 @@ def _soft_cap(raw: float) -> float:
 
 
 def _apply_soft_cap(c: EventCandidateV2) -> EventCandidateV2:
-    """누적 raw를 raw_score에 보존하고, score는 soft_cap한 표시값으로 교체."""
+    """누적 raw를 raw_score에 보존하고 score를 soft_cap 표시값으로 교체한다.
+
+    동시에 활성/길흉 이중 채널을 확정한다(자료 0·15장). activation은 길흉(yongi) 기여를 뺀
+    사건 형성도, favorability는 극성 기준값에 모디파이어 보정(fav_adj — 예: 시험 합·불 패턴)을
+    더해 [−1, 1]로 클램프한 결과 유불리. 사건 종류·점수는 바꾸지 않는 파생 출력이다.
+    """
     raw = float(c.score)
-    return c.model_copy(update={"score": round(_soft_cap(raw)), "raw_score": round(raw, 2)})
+    yongi = c.contributions.get("yongi", 0.0)
+    activation = round(_soft_cap(max(0.0, raw - yongi)), 2)
+    fav = _ROLE_FAV.get(c.polarity_role, 0.0) + c.contributions.get("fav_adj", 0.0)
+    favorability = round(max(-1.0, min(1.0, fav)), 3)
+    update: dict = {
+        "score": round(_soft_cap(raw)),
+        "raw_score": round(raw, 2),
+        "activation": activation,
+        "favorability": favorability,
+    }
+    # 이직 분류(자료 12) — 최종 길흉으로 압박성/기회성 라벨(reason_code, 점수 불변).
+    if c.event_key is EventKeyV2.CAREER_CHANGE:
+        if favorability <= _JOBCHANGE_PRESSURE_TH:
+            update["reason_codes"] = [*c.reason_codes, "JOBCHANGE_PRESSURE_DRIVEN"]
+        elif favorability >= _JOBCHANGE_OPPORTUNITY_TH:
+            update["reason_codes"] = [*c.reason_codes, "JOBCHANGE_OPPORTUNITY"]
+    return c.model_copy(update=update)
+
+
+def _has_stem_clash(target_stem: str, result: ManseV2Result) -> bool:
+    """그 시점 운 천간이 원국 천간(년·월·일·시)과 천간충을 이루는지(어댑터 — 4쌍 고정)."""
+    if not target_stem or result.pillars is None:
+        return False
+    p = result.pillars
+    return any(
+        pil is not None and frozenset({target_stem, pil.stem}) in _STEM_CLASH_PAIRS
+        for pil in (p.year, p.month, p.day, p.hour)
+    )
 
 
 def _target_hwa_element(
@@ -776,4 +860,5 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
         raw_total=c.raw_score,
         life_fit=c.life_fit,
         personal_match=c.personal_match,
+        favorability=c.favorability,  # 결과 길흉 채널 — 다운스트림 LLM 입력까지 전달
     )

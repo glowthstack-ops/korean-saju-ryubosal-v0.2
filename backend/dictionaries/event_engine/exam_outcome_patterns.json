@@ -1,0 +1,25 @@
+{
+  "schema": "exam_outcome_patterns.v1",
+  "reviewed": false,
+  "purpose": "시험·합격·취업의 '결과 길흉(favorability)'을 정하는 십성 구조 패턴(career_mobility 자료 9-3·9-4). 사건 형성도(activation)는 바꾸지 않고 favorability 채널(fav_adj)만 가감한다 — '합격 신호가 떠도 결과는 별개'(자료 0·16장, 절대원칙 3·4). 그 시점 운 십성(transit present_gods)에 패턴 쌍이 모두 있으면 적용.",
+  "target_events": ["education_admission", "job_gain"],
+  "fav_adj_cap": 0.5,
+  "pass_patterns": [
+    {"id": "EXAM_PASS_관인상생", "pattern": "관인상생", "ten_gods": ["ZHENGGUAN", "ZHENGYIN"], "fav_delta": 0.3, "note": "정관을 정인이 받쳐 제도권 합격·임용·승진에 가장 안정적"},
+    {"id": "EXAM_PASS_살인상생", "pattern": "살인상생", "ten_gods": ["QISHA", "ZHENGYIN"], "fav_delta": 0.25, "note": "압박(편관)을 인성이 문서·자격·보호로 전환해 합격으로 연결"},
+    {"id": "EXAM_PASS_살인상생_편", "pattern": "편관편인", "ten_gods": ["QISHA", "PIANYIN"], "fav_delta": 0.15, "note": "편관+편인 — 비정통·특수 분야 합격 가능(안정성은 약)"},
+    {"id": "EXAM_PASS_재생관", "pattern": "재생관", "ten_gods": ["ZHENGCAI", "ZHENGGUAN"], "fav_delta": 0.2, "note": "재성이 관성을 생해 직책·합격이 공식화"},
+    {"id": "EXAM_PASS_상관패인", "pattern": "상관패인", "ten_gods": ["SHANGGUAN", "ZHENGYIN"], "fav_delta": 0.2, "note": "정인이 상관의 일탈을 다스려 합격으로 수렴"},
+    {"id": "EXAM_PASS_식신생재", "pattern": "식신생재정", "ten_gods": ["SHISHEN", "ZHENGCAI"], "fav_delta": 0.15, "note": "준비된 실력(식신)이 성과(재성)로 연결"},
+    {"id": "EXAM_PASS_식신생재_편", "pattern": "식신생재편", "ten_gods": ["SHISHEN", "PIANCAI"], "fav_delta": 0.12, "note": "실력이 유동적 성과로 연결(안정성은 약)"}
+  ],
+  "fail_patterns": [
+    {"id": "EXAM_FAIL_상관견관", "pattern": "상관견관", "ten_gods": ["SHANGGUAN", "ZHENGGUAN"], "fav_delta": -0.3, "note": "상관이 정관(합격 자리)을 깨 불합격·탈락 위험"},
+    {"id": "EXAM_FAIL_재극인_정", "pattern": "재극인정", "ten_gods": ["ZHENGCAI", "ZHENGYIN"], "fav_delta": -0.25, "note": "재성이 정인(합격 문서·인정)을 극해 문서운 손상"},
+    {"id": "EXAM_FAIL_재극인_편", "pattern": "재극인편", "ten_gods": ["PIANCAI", "ZHENGYIN"], "fav_delta": -0.25, "note": "편재가 정인을 극해 합격 문서·인정 기운 약화"},
+    {"id": "EXAM_FAIL_비겁쟁재_겁", "pattern": "비겁쟁재겁", "ten_gods": ["JIECAI", "ZHENGCAI"], "fav_delta": -0.22, "note": "겁재가 결과(재성)를 다투어 경쟁자에게 자리를 뺏김"},
+    {"id": "EXAM_FAIL_비겁쟁재_비", "pattern": "비겁쟁재비", "ten_gods": ["BIJIAN", "ZHENGCAI"], "fav_delta": -0.2, "note": "비견 경쟁 가중으로 결과 확보가 어려움"},
+    {"id": "EXAM_FAIL_도식", "pattern": "도식", "ten_gods": ["PIANYIN", "SHISHEN"], "fav_delta": -0.2, "note": "편인이 식신을 도식(효신탈식)해 실력 발휘·결과가 막힘"},
+    {"id": "EXAM_FAIL_재자약살", "pattern": "재자약살", "ten_gods": ["PIANCAI", "QISHA"], "fav_delta": -0.15, "note": "재가 편관을 키워 압박만 가중, 합격 안정성 저하"}
+  ]
+}

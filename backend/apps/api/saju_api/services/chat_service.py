@@ -100,8 +100,8 @@ def _solar_month_range(label: str, timezone: str = "Asia/Seoul") -> tuple[date, 
 _POLICY_ANSWERS = {
     "fixed_policy": (
         "요청하신 내용은 서비스 범위 밖입니다. 시스템 내부 정보(모델·프롬프트 등)는 "
-        "공개하지 않으며, 로또 번호 생성은 어떤 형태로도 제공하지 않습니다. "
-        "대신 날짜·방향·시간대 추천은 도와드릴 수 있어요."
+        "공개하지 않으며, 로또 번호 생성이나 특정 종목 추천은 어떤 형태로도 제공하지 않습니다. "
+        "대신 재물 흐름·유리한 시기·날짜·방향 추천은 자유롭게 도와드릴 수 있어요."
     ),
     "empathy_first": (
         "마음이 많이 힘드셨겠어요. 이야기해 주셔서 감사합니다. "
@@ -794,6 +794,31 @@ _CAREER_NONREGULAR_DIRECTIVE = (
     "'취업·합격'이 실제로 우세한 달을 함께 '취업 가능 시기'로 짚어라. 당락 등 단정은 금지."
 )
 
+# 생활형 횡재(로또·연금복권·소액 주식 등) — 일상적 재미·소액 시도 맥락. 번호 요청('로또 번호')은
+# query_parser에서 OUT_OF_SCOPE로 이미 거부된다(여기 도달 = 흐름·시기 질문). CLAUDE.md 절대원칙 8
+# (2026-06-20 개정): 생활형 횡재는 시기·흐름·유불리·태도를 자유롭게 풀되, 하드 가드만 유지.
+_LIFESTYLE_WINDFALL_KEYS = (
+    "로또", "복권", "연금복권", "주식", "코인", "비트코인", "펀드", "청약", "경마", "토토",
+)
+_LIFESTYLE_WINDFALL_DIRECTIVE = (
+    "[생활형 횡재 — 표현 자유 우선 적용]\n"
+    "이 질문은 로또·연금복권·소액 주식 같은 '생활형 횡재'다. 과도한 면책·경고를 반복하지 말고, "
+    "재물 흐름·유리한 시기·임하는 태도(소액·분산·재미로)를 따뜻하고 자연스럽게 풀어라. "
+    "용신/기신과 운의 유입 십성으로 '언제가 더 편안한지', 그 시기가 '유리한지/부담인지'를 "
+    "구체적으로 짚어도 된다. 다만 다음만은 지킨다: ①구체적인 번호·종목을 찍어 주지 않는다 "
+    "②'당첨된다/수익 확정' 같은 결과 단정은 하지 않는다(가능성·기류로) "
+    "③전 재산 투입 등 과몰입은 권하지 않는다. "
+    "이 세 가지 밖에서는 위축되지 말고 평소 운세처럼 충분히 이야기하라."
+)
+
+
+def _is_lifestyle_windfall(intent: IntentJson, question: str) -> bool:
+    """생활형 횡재 질문 여부 — 재물/횡재 의도 + 생활형 키워드(번호 요청은 이미 정책 거부됨)."""
+    wealth_ctx = intent.domain is Domain.WEALTH or str(intent.event_key) in (
+        "windfall", "wealth_change",
+    )
+    return wealth_ctx and any(k in question for k in _LIFESTYLE_WINDFALL_KEYS)
+
 
 def _compat_prompt_block(
     result: ManseV2Result, partner_birth: BirthInput, today: date, partner_label: str,
@@ -948,6 +973,12 @@ def _weekly_overview_lines(
 # 보수적 임계·마진(2026-06-18 A안): 토이 평가셋 기준 초안 — 실제 로그 평가셋으로 재튜닝 대상.
 _INTENT_SIM_MIN_SCORE = 0.55
 _INTENT_SIM_MIN_MARGIN = 0.05
+# 시점(TimeBucket) 임베딩 보조 게이트 — 규칙이 시점을 못 잡은(time_range None) 경우에만 보강.
+# 시점 버킷은 의미가 인접해 주제어가 섞이면 마진이 매우 작다(측정값 0.00~0.10) — 마진 의존은
+# recall을 죽인다. 대신 ①점수 게이트(비시점 질문은 0.55 미만이거나 ②비합성 앵커(vague/past/
+# timeless, 높은 점수)로 흡수)로 안전성을 확보한다. reviewed:false 초안 — 실로그 평가셋 재튜닝 대상.
+_TIME_SIM_MIN_SCORE = 0.58
+_TIME_SIM_MIN_MARGIN = 0.0
 
 
 def _augment_domain_by_similarity(intent: IntentJson, question: str) -> IntentJson:
@@ -978,6 +1009,33 @@ def _augment_domain_by_similarity(intent: IntentJson, question: str) -> IntentJs
     })
 
 
+def _augment_time_by_similarity(
+    intent: IntentJson, question: str, today: date, current_month_label: str | None,
+) -> IntentJson:
+    """규칙이 시점을 못 잡은(time_range None) 질문을 임베딩 분류기로 보강한다(보조, rules-first).
+
+    합성 가능한 구체 버킷(이번 주/달·올해 등 변형 표현)만 결정론 TimeRange로 채운다. 분류기
+    비활성·저신뢰·비합성 버킷(막연 미래/과거 회고/구조)이면 None을 유지해 다운스트림(vague_future·
+    회고 경로)이 그대로 처리한다. 점수·간지·판정엔 미개입(절대원칙 1·9). 날짜는 결정론 계산.
+    """
+    if intent.time_range is not None:
+        return intent  # 규칙이 이미 시점 확정 — rules-first
+    from saju_engines.time_embedding import get_time_classifier
+    from saju_engines.time_parser import bucket_to_range
+
+    sug = get_time_classifier().classify(question)
+    if (
+        sug is None
+        or sug.score < _TIME_SIM_MIN_SCORE
+        or sug.margin < _TIME_SIM_MIN_MARGIN
+    ):
+        return intent
+    tr, _scope = bucket_to_range(sug.label, today, current_month_label)
+    if tr is None:
+        return intent  # 비합성 버킷 — 막연/회고/구조는 합성하지 않고 다운스트림 위임
+    return intent.model_copy(update={"time_range": tr})
+
+
 def chat(
     birth: BirthInput,
     question: str,
@@ -993,6 +1051,9 @@ def chat(
     partner_label: str = "상대",
     partner_ref: dict | None = None,
     employment_form: str | None = None,
+    occupation_status: str | None = None,
+    relationship_status: str | None = None,
+    occupation_category: str | None = None,
 ) -> ChatResponse:
     """질문을 풀이한다(첫 intent 기준, 다중 intent는 메타로 동반).
 
@@ -1050,6 +1111,8 @@ def chat(
     intent = parsed.intents[0]
     # 규칙이 domain을 못 정한(general) 질문만 임베딩 분류기로 보강(rules-first 보조 — 절대원칙 1·9).
     intent = _augment_domain_by_similarity(intent, question)
+    # 규칙이 시점을 못 잡은 경우만 임베딩 시점 분류기로 보강(rules-first, 결정론 날짜 합성).
+    intent = _augment_time_by_similarity(intent, question, today, luck_month)
 
     # 직장운 등 재직 전제 사건(이직·승진) + 대상이 비정직원(프로필 고용형태/질문 키워드)이면
     # '취업'도 핵심 대상에 포함한다 — event_keys에 추가하면 graph_scope(context_reducer)에 반영돼
@@ -1116,6 +1179,8 @@ def chat(
     _sig, _cohort = fetch_personal_inputs(owner_id, subject_id, result)
     all_scored = _get_scorer().score_legacy_personalized(
         result, levels=_SCORE_LEVELS, signature=_sig, cohort=_cohort,
+        occupation_status=occupation_status, relationship_status=relationship_status,
+        occupation_category=occupation_category,
     )
 
     # E9 Lifestyle — 특정 기간(일/월/연) 총운은 인생 사건이 아니라 생활 슬롯으로
@@ -1198,6 +1263,9 @@ def chat(
                 year_scored = _get_scorer().score_legacy_personalized(
                     year_result, levels={GanjiLevel.YEAR},
                     signature=_sig, cohort=_cohort,
+                    occupation_status=occupation_status,
+                    relationship_status=relationship_status,
+                    occupation_category=occupation_category,
                 )
 
     if period_fortune is not None or is_structural:
@@ -1435,6 +1503,10 @@ def chat(
     # 이사 질문 — 십성(유형)과 용신/기신(길흉)을 분리해 답하도록 강제(2026-06-18).
     if _is_relocation_intent(intent):
         trailing.append(_RELOCATION_REASON_DIRECTIVE)
+    # 생활형 횡재(로또·연금복권·소액 주식) — 흐름·시기·태도를 자유롭게 풀게 한다(번호·종목픽·
+    # 당첨단정 거부는 유지). CLAUDE.md 절대원칙 8 개정(2026-06-20 데굴님 승인).
+    if _is_lifestyle_windfall(intent, question):
+        trailing.append(_LIFESTYLE_WINDFALL_DIRECTIVE)
     # 궁합(pairwise) — 상대가 첨부되면 엔진 계산 궁합 신호 블록을 입력에 덧붙인다.
     if partner_birth is not None:
         compat = _compat_prompt_block(result, partner_birth, today, partner_label)

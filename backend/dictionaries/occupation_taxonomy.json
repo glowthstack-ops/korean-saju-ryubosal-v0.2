@@ -23,7 +23,9 @@
         "편관"
       ],
       "formBias": {
-        "career_change": "역할·직무 변경"
+        "career_change": "역할·직무 변경",
+        "promotion": "승진 발령·전보",
+        "relocation": "근무지 전보·파견"
       },
       "contextModifiers": {
         "career_change": -5

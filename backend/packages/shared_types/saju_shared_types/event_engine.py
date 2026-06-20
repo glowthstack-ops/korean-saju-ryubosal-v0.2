@@ -223,6 +223,11 @@ class EventCandidateV2(BaseModel):
     # 단계별 점수 기여(base/stage/flow/gate/relation/yongi/wealth_act) — 포화 진단·2차
     # 계열 인지 감쇠 전환용 계측. 표시·판정엔 쓰지 않는다(내부 로그).
     contributions: dict[str, float] = Field(default_factory=dict)
+    # ── 활성/길흉 이중 채널 (career_mobility 자료 0·15장: "사건 형성도 ≠ 길흉") ──
+    # 사건이 일어나는가(activation)와 결과가 유리한가(favorability)를 독립 출력한다. 절대원칙
+    # 3·4(이벤트≠결과, 단정 금지)의 코드 표현 — 점수 재계산이 아니라 contributions/극성 집계.
+    activation: float = 0.0      # 사건 형성도(길흉 제외 누적, display 스케일) — "일어나는가"
+    favorability: float = 0.0    # 결과 길흉 −1.0~+1.0 (양수=유리·음수=불리·0=중립) — "유리한가"
     # ── Life Event Inference 정렬축 (LIFE_EVENT_INFERENCE.md §1) ──
     life_fit: float = 0.0       # 현실 적합도(reality_gate) — 최상위 정렬축
     personal_match: float = 0.0  # 과거 검증 유사도(개인 시그니처 + 코호트, 음수=실패예측 페널티)

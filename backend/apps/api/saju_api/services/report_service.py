@@ -29,6 +29,7 @@ from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
+from saju_engines.profile_engine import profile_event_signals
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
     month_overview_lines,
@@ -239,8 +240,13 @@ class _ReportData:
         # 개인화(저장된 subject 한정): 현실 신호 시그니처 + 활성 코호트 → LEI 정렬축.
         # 미설정·실패 시 무개인화 폴백(규칙11).
         sig, cohort = fetch_personal_inputs(owner_id, subject_id, self.result)
+        # 직업/관계 상태 분기(공직자 등)·특수직군 충형 길화(자료 9-6) — 채팅과 동일 신호를
+        # 테마사주(리포트)에도 반영. 프로필 미설정·무DB면 None(게이트 미적용 — 규칙11).
+        _form, occ_status, rel_status, occ_category = profile_event_signals(subject_id)
         scored = self.scorer.score_legacy_personalized(
             self.result, levels=_SCORE_LEVELS, signature=sig, cohort=cohort,
+            occupation_status=occ_status, relationship_status=rel_status,
+            occupation_category=occ_category,
         )
         in_period = [
             c for c in scored

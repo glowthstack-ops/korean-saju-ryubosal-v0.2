@@ -90,3 +90,6 @@ class EventCandidate(BaseModel):
     # Life Event Inference 정렬축 전달(EventCandidateV2→어댑터) — 0이면 기존 score 정렬과 동치.
     life_fit: float = 0.0
     personal_match: float = 0.0
+    # 결과 길흉(−1.0~+1.0) — "사건 형성도(score) ≠ 유불리(favorability)"의 길흉 채널을
+    # 다운스트림(LLM 입력)까지 전달. 양수=유리·음수=불리·0=중립/미정(EventCandidateV2에서 옮김).
+    favorability: float = 0.0

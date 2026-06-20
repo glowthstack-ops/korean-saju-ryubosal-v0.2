@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from saju_engines.chat_history_store import ChatHistoryStore
 from saju_engines.conversation_store import ConversationStore
-from saju_engines.profile_store import ProfileStore
+from saju_engines.profile_engine import profile_event_signals
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import InlineBirth
@@ -122,20 +122,6 @@ def _partner_ref(req: ChatRequest) -> dict | None:
     return None
 
 
-def _employment_form(subject_id: str | None) -> str | None:
-    """대상 사주의 고용형태(2단계 프로필, 선택) — '직장운' 취업 포함 판정용. 부재·무DB면 None.
-
-    프로필은 선택 입력이므로(규칙11) 조회 실패는 조용히 None으로 강등한다.
-    """
-    if not subject_id:
-        return None
-    with contextlib.suppress(Exception):
-        profile = ProfileStore().load(subject_id)
-        if profile and profile.extended and profile.extended.occupation:
-            return profile.extended.occupation.employment_form
-    return None
-
-
 def _run_chat_answer(
     history: ChatHistoryStore,
     message_id: int,
@@ -182,6 +168,8 @@ def chat(
     """
     partner_birth = _resolve_chat_partner(req, subjects, owner_id)
 
+    form, occ_status, rel_status, occ_category = profile_event_signals(req.subject_id)
+
     def _classify(dry: bool) -> chat_service.ChatResponse:
         return chat_service.chat(
             req.birth, req.question, req.today, dry,
@@ -190,7 +178,10 @@ def chat(
             subject_label=req.subject_label or "회원",
             partner_birth=partner_birth, partner_label=req.partner_label or "상대",
             partner_ref=_partner_ref(req),
-            employment_form=_employment_form(req.subject_id),
+            employment_form=form,
+            occupation_status=occ_status,
+            relationship_status=rel_status,
+            occupation_category=occ_category,
         )
 
     # 미리보기 요청은 예전처럼 동기 dry-run(LLM 미호출).

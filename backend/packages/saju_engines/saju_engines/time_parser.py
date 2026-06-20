@@ -220,6 +220,19 @@ def parse_time(
             start=target.isoformat(), end=target.isoformat(), urgency=urgency,
         ), TimeScope.DATE_LEVEL
 
+    # C4b 한 주(롤링 7일) — '한주간/일주일/앞으로·다음·향후·이번 한 주'는 오늘부터 7일 창.
+    #     ('이번 주/다음 주/금주'는 아래 C4가 월~일 캘린더 주로 처리한다.) 과거형(지난/저번/
+    #     최근)은 제외 — 그 경우는 과거 롤링/회고 규칙이 잡는다. '다음 한주간'이 '다음\s*주'에
+    #     안 걸려 '시점 미지정'으로 새던 결함 수정(2026-06-20 데굴님 — 월운이 지난달로 노출).
+    if re.search(r"한\s*주\s*간|한\s*주|일\s*주\s*일", text) and not re.search(
+        r"지난|저번|최근|지지난", text
+    ):
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=today.isoformat(), end=(today + timedelta(days=6)).isoformat(),
+            urgency=urgency,
+        ), TimeScope.SHORT_TERM
+
     # C4 주 단위.
     if re.search(r"이번\s*주|다음\s*주|금주", text):
         offset = 7 if re.search(r"다음\s*주", text) else 0
@@ -375,4 +388,48 @@ def parse_time(
         ), TimeScope.MID_TERM
 
     # C1 무시점 — 분야 기본 기간은 Rewriter가 적용.
+    return None, TimeScope.TIMELESS
+
+
+def bucket_to_range(
+    label: str, today: date, current_month_label: str | None = None
+) -> tuple[TimeRange | None, TimeScope]:
+    """시점 버킷(TimeBucketClassifier 출력) → 결정론 TimeRange. today 기준 계산.
+
+    합성 버킷(rolling_week·rolling_month·this_month·next_month·this_year·next_year)만
+    범위를 만들고, vague_future·past_retro·timeless·미등록은 (None, TIMELESS)로 둔다(합성하지
+    않고 다운스트림이 처리 — 막연 미래/과거 회고/구조 질문 경로 보존). 규칙 파서가 시점을 못
+    잡았을 때만 호출되는 보조 경로다(rules-first).
+    """
+    this_month = current_month_label or f"{today.year}-{today.month:02d}"
+    if label == "rolling_week":
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=today.isoformat(), end=(today + timedelta(days=6)).isoformat(),
+        ), TimeScope.SHORT_TERM
+    if label == "rolling_month":
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=today.isoformat(), end=(today + timedelta(days=30)).isoformat(),
+        ), TimeScope.MID_TERM
+    if label == "this_month":
+        return TimeRange(
+            type="relative", granularity=Granularity.MONTH,
+            start=this_month, end=this_month,
+        ), TimeScope.SHORT_TERM
+    if label == "next_month":
+        key = shift_month_label(this_month, 1)
+        return TimeRange(
+            type="relative", granularity=Granularity.MONTH, start=key, end=key,
+        ), TimeScope.SHORT_TERM
+    if label == "this_year":
+        year_key = str(today.year)
+        return TimeRange(
+            type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
+        ), TimeScope.MID_TERM
+    if label == "next_year":
+        year_key = str(today.year + 1)
+        return TimeRange(
+            type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
+        ), TimeScope.MID_TERM
     return None, TimeScope.TIMELESS

@@ -148,6 +148,74 @@ def render_twin_notice(
 
 # ── T8.5.3 occupation → E3/E6 연동 ──────────────────────────────
 
+# 고용형태 → user_profile_event_gate occupation_status(구조적 분류는 category_id가 우선).
+_EMPLOYMENT_FORM_STATUS: dict[str, str] = {
+    "정규직": "employee", "계약직": "employee", "무급가족종사": "employee",
+    "프리랜서": "freelancer", "자영업": "business_owner", "법인대표": "business_owner",
+}
+# 고용형태로 표현되지 않는 구조적 분류(공직·학생·무직)는 category_id가 employment_form보다 우선.
+_CATEGORY_STATUS: dict[str, str] = {
+    "O02": "public_official", "O17": "student", "O18": "unemployed",
+}
+
+
+def derive_occupation_status(
+    employment_form: str | None, category_id: str | None
+) -> str | None:
+    """프로필 → user_profile_event_gate occupation_status 문자열을 파생한다.
+
+    공직(O02)·학생(O17)·무직(O18)은 고용형태로 표현되지 않는 구조적 분류라 category_id가
+    employment_form보다 우선한다(예: 공무원 정규직 → public_official). 그 외에는 고용형태로
+    employee/freelancer/business_owner를 정한다. 어디에도 안 걸리면 None(게이트 미적용 — 규칙11).
+    """
+    if category_id in _CATEGORY_STATUS:
+        return _CATEGORY_STATUS[category_id]
+    if employment_form in _EMPLOYMENT_FORM_STATUS:
+        return _EMPLOYMENT_FORM_STATUS[employment_form]
+    return None
+
+
+# 혼인 상태 → user_profile_event_gate relationship_status(사별은 새 인연 가능 → single).
+_MARITAL_STATUS: dict[str, str] = {
+    "미혼": "single", "연애중": "dating", "기혼": "married", "재혼": "married",
+    "별거": "divorced", "이혼": "divorced", "사별": "single",
+}
+
+
+def derive_relationship_status(marital_status: str | None) -> str | None:
+    """프로필 marital_status → user_profile_event_gate relationship_status. 미입력이면 None."""
+    return _MARITAL_STATUS.get(marital_status) if marital_status else None
+
+
+def profile_event_signals(
+    subject_id: str | None,
+) -> tuple[str | None, str | None, str | None, str | None]:
+    """저장된 subject 프로필 → (employment_form, occupation_status, relationship_status, 직업분류).
+
+    user_profile_event_gate 분기·특수직군 충형 길화(자료 9-6)의 입력 — 채팅·테마사주가 공유한다.
+    프로필은 선택 입력이므로(규칙11) 조회 실패·부재·무DB는 조용히 (None×4)로 강등한다.
+    """
+    if not subject_id:
+        return None, None, None, None
+    import contextlib
+
+    from .profile_store import ProfileStore  # 지연 임포트 — DB 의존을 모듈 로드와 분리
+
+    with contextlib.suppress(Exception):
+        profile = ProfileStore().load(subject_id)
+        if profile and profile.extended:
+            ext = profile.extended
+            occ = ext.occupation
+            form = occ.employment_form if occ else None
+            category = occ.category_id if occ else None
+            return (
+                form,
+                derive_occupation_status(form, category),
+                derive_relationship_status(ext.marital_status),
+                category,
+            )
+    return None, None, None, None
+
 
 class OccupationTaxonomy:
     """occupation_taxonomy.json — 물상 매핑·발현 보정·context modifier(±10 한도)."""

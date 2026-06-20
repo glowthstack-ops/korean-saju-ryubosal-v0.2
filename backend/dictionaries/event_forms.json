@@ -28,6 +28,66 @@
         {
           "name": "휴직·일시 중단",
           "prob": 0.15
+        },
+        {
+          "name": "스카우트·이직 제의",
+          "prob": 0.2
+        },
+        {
+          "name": "업종·산업 변경",
+          "prob": 0.2
+        },
+        {
+          "name": "권고사직·구조조정성 이탈",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "promotion",
+      "forms": [
+        {
+          "name": "승진·직급 상승",
+          "prob": 0.4
+        },
+        {
+          "name": "발령·전보(근무지·부서 이동)",
+          "prob": 0.3
+        },
+        {
+          "name": "직책·역할 확대",
+          "prob": 0.3
+        },
+        {
+          "name": "승진시험·승급 합격",
+          "prob": 0.2
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "job_gain",
+      "forms": [
+        {
+          "name": "취업·입사",
+          "prob": 0.4
+        },
+        {
+          "name": "시험·채용 합격",
+          "prob": 0.35
+        },
+        {
+          "name": "공직·공공기관 입사",
+          "prob": 0.15
+        },
+        {
+          "name": "자격증·서류 합격",
+          "prob": 0.2
+        },
+        {
+          "name": "인턴·계약직 진입",
+          "prob": 0.15
         }
       ],
       "reviewed": false

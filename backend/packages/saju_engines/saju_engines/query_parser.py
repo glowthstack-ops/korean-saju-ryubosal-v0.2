@@ -191,7 +191,13 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     # Q14 — 메타/탐침·로또 번호·악의 (B11/G4/G5/G6).
     if re.search(r"모델|프롬프트|시스템\s*룰|rag에|cot", text, re.IGNORECASE):
         return QueryType.OUT_OF_SCOPE
-    if re.search(r"로또\s*번호|번호.*찍어", text):
+    # 로또 번호·특정 종목 픽은 거부(절대원칙 8). 단 '주식운/로또운/투자 시기' 등 흐름·시기
+    # 질문은 통과시켜 생활형 횡재로 자유롭게 풀이한다(2026-06-20 개정 — 픽만 거부).
+    if re.search(
+        r"로또\s*번호|번호.*찍어|종목\s*(?:추천|찍|골라)|매수\s*종목|"
+        r"(?:어떤|무슨)\s*(?:주식|코인|종목)\s*(?:살|사|매수|골라|추천|좋)",
+        text,
+    ):
         return QueryType.OUT_OF_SCOPE
     # Q12 — 이의/정정 (B9/B10/A10): 직전 답변 참조 신호가 있어야 한다("vs ... 맞아?"는 Q7).
     if re.search(r"아니야\s*\?|틀렸|헷갈려|다시\s*체크|라던데\s*맞아|했잖아", text):

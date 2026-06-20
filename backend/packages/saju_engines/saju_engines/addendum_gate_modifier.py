@@ -30,7 +30,7 @@ class GateContext:
     present_gods: set[TenGod] = field(default_factory=set)
     layers: set[LuckLayer] = field(default_factory=set)
     void_active: bool = False  # 그 기간 운 지지가 원국 공망(미해공)
-    # student/employee/business_owner/freelancer/unemployed/retired
+    # student/employee/public_official/business_owner/freelancer/unemployed/retired
     occupation_status: str | None = None
     relationship_status: str | None = None  # single/dating/married/divorced
 
@@ -74,6 +74,16 @@ class AddendumGateModifier:
             if ek is EventKeyV2.JOB_GAIN and ctx.occupation_status == "employee":
                 new_key = EventKeyV2.PROMOTION  # 재직자 → 취업보다 승진·직무변경
                 reasons.append("PROFILE_job_gain_to_promotion")
+            # 공직자(O02): 재직 공직자의 취업 신호는 승진으로, 승진·인사는 발령·근무지 전보를
+            # 동반한다(자료 7-3·12-4 — 공직 승진 = 승진시험 + 발령 + 이동). 사건 종류는 유지하고
+            # 동반 가능성만 reason_code로 부여(LLM이 발령·이동을 함께 서술, 점수 불변).
+            if ctx.occupation_status == "public_official" and ek in (
+                EventKeyV2.JOB_GAIN, EventKeyV2.PROMOTION
+            ):
+                if ek is EventKeyV2.JOB_GAIN:
+                    new_key = EventKeyV2.PROMOTION
+                    reasons.append("PROFILE_public_official_promotion")
+                reasons.append("PROFILE_public_official_transfer")
             if ek is EventKeyV2.NEW_RELATIONSHIP and ctx.relationship_status == "married":
                 new_key = EventKeyV2.RELATIONSHIP_CHANGE  # 기혼 → 배우자 이슈
                 reasons.append("PROFILE_new_relationship_to_change")

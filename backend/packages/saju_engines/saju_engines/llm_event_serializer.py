@@ -18,7 +18,17 @@ from saju_shared_types.event_taxonomy_v2 import (
 )
 
 # 사람에게 의미 있는 근거코드 접두어만 노출(내부 룰 id는 LLM 입력에서 변별만).
+# specific-before-general: 더 좁은 접두어를 먼저 둬야 reason_codes_ko가 정확히 매칭한다
+# (예: PROFILE_public_official_* 는 일반 PROFILE_ 보다 앞).
 _REASON_PREFIX_KO: dict[str, str] = {
+    # 직업운 결과 길흉(자료 9-3·9-4·9-6·12·13-1) — LLM이 자연어로 풀어 설명해야 할 '내용' 신호.
+    "EXAM_PASS": "합격 기류",
+    "EXAM_FAIL": "불합격 위험",
+    "CAREER_EXIT": "퇴직·이탈 리스크",
+    "CAREER_SPECIAL": "특수직군 길화",
+    "JOBCHANGE_PRESSURE": "압박성 이직",
+    "JOBCHANGE_OPPORTUNITY": "기회성 이직",
+    "PROFILE_public_official": "공직 발령·전보",
     "REL_": "관계 발동",
     "FLOW_GEN": "상생 흐름",
     "FLOW_REVERSE": "역행 흐름",
@@ -33,11 +43,17 @@ _REASON_PREFIX_KO: dict[str, str] = {
 }
 
 # 사용자 본문에 그대로 노출되면 안 되는 내부 분류 라벨(순화 대상 — 근거 경로 누출 방지).
-# '상생/역행 흐름'은 자연어로도 흔히 쓰여 오탐이 커 제외한다(나머지는 명백한 내부 용어).
+# '상생/역행 흐름'과 직업운 결과 길흉 라벨은 LLM이 그대로 풀어 써야 할 '내용'이라 제외한다
+# (나머지는 명백한 내부 용어 — 본문 노출 시 순화 대상).
+_CONTENT_LABELS = frozenset({
+    "상생 흐름", "역행 흐름",
+    "합격 기류", "불합격 위험", "퇴직·이탈 리스크", "특수직군 길화",
+    "압박성 이직", "기회성 이직", "공직 발령·전보",
+})
 INTERNAL_JARGON_LABELS: tuple[str, ...] = tuple(
     ko
     for ko in dict.fromkeys(_REASON_PREFIX_KO.values())
-    if ko not in ("상생 흐름", "역행 흐름")
+    if ko not in _CONTENT_LABELS
 )
 
 # event_key → 금기룰 설명(있으면 LLM 입력에 톤 제한으로 부착).

@@ -1,0 +1,24 @@
+{
+  "schema": "career_mobility_outcome.v1",
+  "reviewed": false,
+  "purpose": "직업운 결과 길흉(favorability)의 구조·맥락 보정 — 특수직군 충형 길화(자료 9-6), 천충지충 퇴직 리스크(자료 13-1), 이직 압박성/기회성 분류(자료 12). 사건 형성도(activation)는 바꾸지 않고 favorability 채널(fav_adj)·reason_code만 부여.",
+  "special_occupation_clash": {
+    "occupation_categories": ["O02", "O07", "O08"],
+    "occupation_note": "O02 공무원/군인/경찰/소방, O07 의료/보건/약무, O08 법률/특허/감사 — 긴장·통제·규율 직군",
+    "target_events": ["education_admission", "promotion", "job_gain"],
+    "trigger_kinds": ["CHUNG", "HYEONG"],
+    "fav_delta": 0.25,
+    "note": "충형은 일반 맥락에선 사고·갈등이지만, 의료·군경·법무·공직 등 긴장·통제성 직군에선 시험·승진·승급으로 길화한다(자료 9-6)."
+  },
+  "career_exit_double_clash": {
+    "target_event": "career_change",
+    "fav_delta": -0.3,
+    "note": "천간충+지지충이 동시에 오고 관성(직업 축)이 활성되면 단순 이직이 아니라 퇴직·강제 이동·직위 상실 리스크로 분기한다(자료 13-1). 단정 금지 — 압박·이탈 가능성으로만 표현."
+  },
+  "job_change_classification": {
+    "target_event": "career_change",
+    "pressure_threshold": -0.2,
+    "opportunity_threshold": 0.2,
+    "note": "최종 favorability로 이직을 분류 — pressure_threshold 이하면 압박성(pressure_driven), opportunity_threshold 이상이면 기회성(opportunity), 그 사이는 중립(자료 12)."
+  }
+}
