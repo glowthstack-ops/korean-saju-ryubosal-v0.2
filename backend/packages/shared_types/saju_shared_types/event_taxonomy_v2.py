@@ -173,7 +173,7 @@ EVENT_WORDS: dict[EventKeyV2, list[str]] = {
     EventKeyV2.CONTRACT_DOCUMENT: ["계약", "문서"],
     EventKeyV2.EDUCATION_ADMISSION: ["국가고시", "자격증", "시험", "합격", "입시", "입학", "진학"],
     EventKeyV2.EDUCATION_COMPLETION: ["졸업", "수료"],
-    EventKeyV2.RELATIONSHIP_CHANGE: ["이별", "헤어", "권태"],
+    EventKeyV2.RELATIONSHIP_CHANGE: ["이별", "헤어", "권태", "이혼", "별거", "파혼"],
     EventKeyV2.NEW_RELATIONSHIP: ["연애", "소개팅", "인연"],
     EventKeyV2.MARRIAGE_SIGNAL: ["결혼", "재혼"],
     EventKeyV2.CHILDBIRTH: ["출산", "임신", "자녀가 있을지"],

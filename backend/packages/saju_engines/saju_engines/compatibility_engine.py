@@ -173,6 +173,42 @@ def _summary(harmony: int, friction: int) -> str:
     return "보완과 마찰이 함께 있는 조합 — 강점은 살리고 마찰점은 대화로 관리할 영역입니다."
 
 
+# 끌림(자극) 가중 — 충·형·도화·홍염·천간합은 '스파크/매력'을 키운다. 안정(보완/마찰)과 별개 축.
+# 궁합 자료: "충·살이 많아도 확 끌릴 수 있다"(끌림 ≠ 좋은 궁합). reviewed:false 초안.
+_ATTRACTION_WEIGHT: dict[CompatSignalKind, int] = {
+    CompatSignalKind.DAY_STEM_COMBINE: 2,   # 천간합 — 강하게 끌어당김(안정도 동반)
+    CompatSignalKind.DAY_BRANCH_CLASH: 2,   # 충 — 강한 스파크(불안정)
+    CompatSignalKind.DAY_BRANCH_PUNISH: 1,  # 형 — 자극
+    CompatSignalKind.DAY_BRANCH_SIX: 1,     # 육합 — 잔잔한 끌림(안정형)
+    CompatSignalKind.SINSAL_CHARM: 2,       # 도화·홍염 — 매력·끌림
+    CompatSignalKind.SINSAL_FRICTION: 1,    # 원진·귀문 — 애증(끌리며 거슬림)
+}
+
+
+def _attraction_band(score: int) -> str:
+    """끌림 점수 → 강/중/약 밴드."""
+    if score >= 4:
+        return "강"
+    if score >= 2:
+        return "중"
+    return "약"
+
+
+def _attraction_line(band: str, harmony: int, friction: int) -> str:
+    """끌림(자극) vs 안정(보완)을 분리해 LLM에 전달하는 한 줄(끌림≠좋은 궁합)."""
+    stable = harmony >= friction + 1
+    if band == "강" and not stable:
+        return (
+            "끌림(스파크)은 강하지만 안정은 약한 조합 — '확 끌림'을 좋은 궁합으로 단정하지 말 것. "
+            "강한 끌림은 충·살의 자극일 수 있고, 오래 편안한지는 별개다."
+        )
+    if band == "강" and stable:
+        return "끌림과 안정이 함께 있는 조합 — 자극도 있고 곁에 있을 때 편안함도 있다."
+    if band == "약" and stable:
+        return "요란한 끌림보다 잔잔한 안정이 우세한 조합 — 오래 함께해도 거슬리지 않는 결."
+    return "끌림·안정 모두 중간 — 자극과 편안함이 함께 작용한다."
+
+
 def analyze_compatibility(
     self_result: ManseV2Result,
     partner_result: ManseV2Result,
@@ -246,6 +282,8 @@ def analyze_compatibility(
         1 for s in signals
         if s.direction is CompatDirection.FRICTION and not s.auxiliary
     )
+    # 끌림(자극) — 보조 신살 포함 전체 신호에서 집계(안정 카운트와 별개 축).
+    attraction = sum(_ATTRACTION_WEIGHT.get(s.kind, 0) for s in signals)
     return CompatibilityReport(
         self_label=self_label,
         partner_label=partner_label,
@@ -255,6 +293,8 @@ def analyze_compatibility(
         harmony_count=harmony,
         friction_count=friction,
         summary=_summary(harmony, friction),
+        attraction_score=attraction,
+        attraction_band=_attraction_band(attraction),
     )
 
 
@@ -268,7 +308,9 @@ def compatibility_lines(report: CompatibilityReport) -> list[str]:
     out = [
         f"[궁합 신호 — 엔진 계산값, {report.self_label} {report.self_day} ↔ "
         f"{report.partner_label} {report.partner_day}]",
-        f"보완 {report.harmony_count} · 마찰 {report.friction_count} · {report.summary}",
+        f"안정: 보완 {report.harmony_count} · 마찰 {report.friction_count} · {report.summary}",
+        f"끌림(자극) {report.attraction_band} · "
+        f"{_attraction_line(report.attraction_band, report.harmony_count, report.friction_count)}",
     ]
     for s in main:
         out.append(f"  - [{s.direction.value}] {s.label}: {s.detail}")

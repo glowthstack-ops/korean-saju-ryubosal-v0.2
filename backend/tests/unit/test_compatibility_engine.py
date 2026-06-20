@@ -108,3 +108,32 @@ def test_analyze_compatibility_full_signals() -> None:
     # 직렬화 블록에 방향 태그가 박힌다.
     block = "\n".join(compatibility_lines(rep))
     assert "[궁합 신호" in block and "보완" in block
+
+
+# E1 끌림(자극) 채널 — 안정(보완/마찰)과 분리(궁합 자료 ②: 충·살이 많아도 확 끌림).
+def test_attraction_band_thresholds() -> None:
+    from saju_engines.compatibility_engine import _attraction_band
+    assert _attraction_band(4) == "강"
+    assert _attraction_band(2) == "중"
+    assert _attraction_band(1) == "약"
+
+
+def test_attraction_line_separates_spark_from_stability() -> None:
+    from saju_engines.compatibility_engine import _attraction_line
+    # 끌림 강 + 안정 약 → '확 끌림'을 좋은 궁합으로 단정하지 말라는 분리 프레이밍.
+    msg = _attraction_line("강", harmony=0, friction=2)
+    assert "단정" in msg
+
+
+def test_report_populates_attraction() -> None:
+    self_c = _chart(1990, 3, 3, "08:00", "male")
+    partner_c = _chart(1992, 7, 7, "20:00", "female")
+    rep = analyze_compatibility(
+        self_c, partner_c,
+        build_birth_summary(self_c).useful_gods,
+        build_birth_summary(partner_c).useful_gods,
+    )
+    assert rep is not None
+    assert rep.attraction_band in ("강", "중", "약")
+    # 직렬화 라인에 '끌림(자극)' 채널이 노출된다(LLM이 안정과 분리해 서술).
+    assert any("끌림(자극)" in ln for ln in compatibility_lines(rep))

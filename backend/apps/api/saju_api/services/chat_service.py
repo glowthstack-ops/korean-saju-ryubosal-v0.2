@@ -820,6 +820,46 @@ def _is_lifestyle_windfall(intent: IntentJson, question: str) -> bool:
     return wealth_ctx and any(k in question for k in _LIFESTYLE_WINDFALL_KEYS)
 
 
+# 큰 결정(결혼·이혼) 타이밍 — 운 저점이면 보류 권고(궁합 자료: 운이 안 좋을 땐 인생을 바꿀 결정을
+# 미루라, 조급함이 신호). 결정 어미가 동반된 결혼·이혼 질문에만 적용한다.
+_BIG_DECISION_KEYS = ("결혼", "이혼", "재혼", "파혼", "헤어")
+_DECISION_MARKERS = ("할까", "말까", "해도", "좋을까", "결정", "하는 게", "하는게", "해야")
+_BIG_DECISION_DIRECTIVE = (
+    "[큰 결정 타이밍 — 결혼·이혼 등 인생을 바꾸는 결정]\n"
+    "결혼·이혼 같은 큰 결정은 '시기'를 함께 보라. 제공된 운 품질(연·월 등급·후보 유불리)에서 "
+    "이 시기가 기신운·저점이거나 돈·건강·관계가 함께 흔들리는 신호면, 결정을 서두르지 말고 "
+    "'시간을 견디며 뒤로 미루는 것'을 권하라(운 저점엔 큰 결정 보류 — 조급함 자체가 신호). "
+    "운이 받쳐주면 차분히 검토해도 좋다고 안내하라. '반드시 하라/하지 마라'식 단정·운명론은 "
+    "금지 — 가능성·권유로만. 결정의 책임은 본인에게 있음을 존중하라."
+)
+
+
+def _is_big_decision(intent: IntentJson, question: str) -> bool:
+    """결혼·이혼 등 인생 결정 질문 여부 — 결혼/이혼 키워드 + 결정 어미."""
+    rel_ctx = intent.domain is Domain.RELATIONSHIP or any(
+        k in question for k in _BIG_DECISION_KEYS
+    )
+    has_decision = any(m in question for m in _DECISION_MARKERS)
+    return rel_ctx and any(k in question for k in _BIG_DECISION_KEYS) and has_decision
+
+
+# 이혼 상담 — 사유 severity 분기(궁합 자료: 외도·폭력=회복 어려움 / 성격·건강=극복 가능).
+_DIVORCE_KEYS = ("이혼", "별거", "파혼")
+_DIVORCE_SEVERITY_DIRECTIVE = (
+    "[이혼 상담 — 사유별 결]\n"
+    "이혼 고민이면 사유의 결을 구분해 설명하라: 외도·폭력처럼 신뢰·안전이 깨지는 문제는 "
+    "궁합·노력으로 회복하기 어려운 영역으로, 자신을 보호하는 선택을 존중하라. 반면 성격 차이·"
+    "잦은 부딪힘·건강 같은 문제는 시간·성숙·대화·상담으로 달라질 수 있는 영역으로, 충분히 "
+    "노력해 본 뒤 선택하도록 안내하라. 어느 쪽이든 '반드시 이혼/유지하라'는 단정·상대 탓·"
+    "운명론은 금지. 사주는 참고이며 결정은 본인 몫임을 분명히 하라."
+)
+
+
+def _is_divorce_question(question: str) -> bool:
+    """이혼·별거·파혼 상담 질문 여부."""
+    return any(k in question for k in _DIVORCE_KEYS)
+
+
 def _compat_prompt_block(
     result: ManseV2Result, partner_birth: BirthInput, today: date, partner_label: str,
 ) -> str | None:
@@ -1507,6 +1547,11 @@ def chat(
     # 당첨단정 거부는 유지). CLAUDE.md 절대원칙 8 개정(2026-06-20 데굴님 승인).
     if _is_lifestyle_windfall(intent, question):
         trailing.append(_LIFESTYLE_WINDFALL_DIRECTIVE)
+    # 큰 결정(결혼·이혼) 타이밍 — 운 저점이면 보류 권고(궁합 자료). 이혼이면 사유 severity 분기도.
+    if _is_big_decision(intent, question):
+        trailing.append(_BIG_DECISION_DIRECTIVE)
+    if _is_divorce_question(question):
+        trailing.append(_DIVORCE_SEVERITY_DIRECTIVE)
     # 궁합(pairwise) — 상대가 첨부되면 엔진 계산 궁합 신호 블록을 입력에 덧붙인다.
     if partner_birth is not None:
         compat = _compat_prompt_block(result, partner_birth, today, partner_label)

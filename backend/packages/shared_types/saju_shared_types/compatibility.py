@@ -60,3 +60,7 @@ class CompatibilityReport(BaseModel):
     harmony_count: int = 0
     friction_count: int = 0
     summary: str = ""  # 전반 톤(보완/마찰 카운트 기반 — reviewed:false 휴리스틱)
+    # 끌림(자극) 채널 — 안정(보완/마찰)과 분리. 충·형·도화·홍염·천간합 등 '스파크/매력'의 세기.
+    # 궁합 자료: "충·살이 많아도 확 끌릴 수 있다" — 끌림(activation) ≠ 좋은 궁합(안정). 강/중/약.
+    attraction_score: int = 0
+    attraction_band: str = ""  # 강/중/약 — 빈 문자열이면 미산정

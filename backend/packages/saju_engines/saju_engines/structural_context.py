@@ -69,6 +69,23 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
     ]
     if mr.hour_resource_role:
         lines.append(f"시주 자원 역할: {mr.hour_resource_role}")
+    # 배우자 인연 결(중립·비낙인 — 궁합 자료 ⑤⑥): '바람둥이/과부상' 류 낙인 금지, 경향으로만.
+    bond: list[str] = []
+    if mr.spouse_star_excess:
+        if mr.gender == "male":
+            bond.append("재성(이성·물질)이 강해 새 자극·인연에 끌리는 경향(호기심 큰 결)")
+        elif mr.gender == "female":
+            bond.append("관성(이성·인연)이 많아 인연 신호가 복잡할 수 있는 결(관살혼잡 경향)")
+        else:
+            bond.append("배우자 별 세력이 강해 이성·인연 신호가 두드러지는 결")
+    if mr.spouse_star_absent:
+        bond.append("배우자 별 미투출 — 인연을 스스로 만들어가는 능동형 구조(부재 단정 아님)")
+    if mr.charm_present:
+        bond.append("도화·홍염 — 이성에게 매력적으로 비치고 끌림이 잦은 경향")
+    if bond:
+        lines.append(
+            "배우자 인연 결(가능성·경향으로만, 단정·낙인 금지): " + " / ".join(bond)
+        )
     lines.append(
         f"자산 출처 경향(가능성): {leans}. 돈의 '출처'(부모/배우자 집안/자수성가)를 구분해 "
         "서술하되 단정하지 말 것."

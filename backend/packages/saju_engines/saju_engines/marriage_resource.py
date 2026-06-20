@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from saju_manse_analysis.sinsal.sinsal_catalog import HONGYEOM, SAJEONG
+
 from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.manse_result import ManseV2Result
@@ -119,6 +121,27 @@ def analyze_marriage_resource(result: ManseV2Result) -> MarriageResourceProfile:
         for pair in _CLASH_PAIRS
     )
 
+    # ── 배우자 인연 결(중립·비낙인 — 궁합 자료 ⑤⑥) ──
+    # 배우자 별 과다: 남성 재성 / 여성 관성의 세력(분포≥30% 또는 본기·투간 3곳↑). '바람둥이/
+    # 관살혼잡'을 단정하지 않고 '인연 신호가 많아 끌림이 잦은 경향'으로만 본다.
+    spouse_group = "officer" if gender == "female" else "wealth"
+    spouse_pct = float(groups.get(spouse_group, 0.0))
+    spouse_visible_count = sum(
+        1
+        for pil in all_pillars
+        for tg in (pil.stem_ten_god, pil.branch_main_ten_god)
+        if tg in spouse_gods
+    )
+    spouse_star_excess = spouse_pct >= 30.0 or spouse_visible_count >= 3
+    spouse_star_absent = not spouse_star_present
+    # 도화(사정지 子午卯酉)·홍염(일간→지지) — 이성에게 매력적으로 비치는 끌림 경향.
+    day_master = Stem(day_pillar.stem)
+    branch_objs = [Branch(pil.branch) for pil in all_pillars]
+    charm_present = (
+        any(b in SAJEONG for b in branch_objs)
+        or HONGYEOM.get(day_master) in branch_objs
+    )
+
     hour_role = ""
     if hour is not None and hour.stem_ten_god:
         hour_role = _HOUR_ROLE.get(hour.stem_ten_god, "")
@@ -134,8 +157,19 @@ def analyze_marriage_resource(result: ManseV2Result) -> MarriageResourceProfile:
     ):
         leans.append("self")  # 식상생재 — 자수성가 경향
 
+    # 배우자 별 과다 라벨 — 성별 인지·비낙인(경향·가능성으로만, 단정 금지).
+    if gender == "male":
+        excess_label = "재성(이성·물질) 강 — 새 자극·인연에 끌리는 경향(호기심 큰 결, 단정 아님)"
+    elif gender == "female":
+        excess_label = "관성(이성·인연) 많음 — 인연 신호가 복잡한 결(관살혼잡 경향·단정 아님)"
+    else:
+        excess_label = "배우자 별 세력 강 — 이성·인연 신호가 두드러지는 결"
+    absent_label = f"{spouse_star} 미투출 — 인연을 스스로 만들어가는 능동형(부재 단정 아님)"
     labels = [
         (spouse_star_present, f"{spouse_star} 존재(배우자 신호)"),
+        (spouse_star_absent, absent_label),
+        (spouse_star_excess, excess_label),
+        (charm_present, "도화·홍염 — 이성에게 매력적으로 비치고 끌림이 잦은 경향"),
         (wealth_in_family_palace, "재성 년월(집안·초년 기반)"),
         (wealth_in_result_palace, "재성 시주(결혼 후·결과 자원)"),
         (wealth_strong, "재성 세력 강"),
@@ -154,6 +188,9 @@ def analyze_marriage_resource(result: ManseV2Result) -> MarriageResourceProfile:
         wealth_strong=wealth_strong,
         resource_support=resource_support,
         wealth_palace_clash=wealth_palace_clash,
+        spouse_star_excess=spouse_star_excess,
+        spouse_star_absent=spouse_star_absent,
+        charm_present=charm_present,
         hour_resource_role=hour_role,
         wealth_source_leans=leans,
         flags=flags,

@@ -26,6 +26,12 @@ class MarriageResourceProfile(BaseModel):
     wealth_strong: bool  # 재성 세력 강(반복·세력 비중)
     resource_support: bool  # 인성 + 일간 뿌리(보호받는 구조)
     wealth_palace_clash: bool  # 재성 지지가 원국 충에 관여(발동·변화 잠재)
+    # ── 배우자 인연 결(중립·비단정·비낙인 — 궁합 자료 ⑤⑥, 2026-06-20) ──
+    # '바람둥이/과부상' 류 낙인 금지 — 경향·가능성으로만. 남성 재성 과다/여성 관성 과다 = 인연
+    # 신호가 많아 한 곳에 매이기보다 끌림이 잦은 결, 미투출 = 인연을 스스로 만들어가는 능동형.
+    spouse_star_excess: bool = False  # 배우자 별 과다(남:재다 / 여:관살혼잡 경향)
+    spouse_star_absent: bool = False  # 배우자 별 미투출(천간·본기 부재 — 능동형 구조)
+    charm_present: bool = False  # 도화·홍염(이성에게 매력적으로 비치는 끌림 경향)
     hour_resource_role: str  # 시주 천간 십성 → 자원 역할(중립 라벨)
     # 자산 출처 경향(중립·가능성) — 'parental'/'spouse_family'/'self' 중복 가능.
     wealth_source_leans: list[str] = Field(default_factory=list)
