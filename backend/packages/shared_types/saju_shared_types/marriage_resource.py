@@ -32,6 +32,27 @@ class MarriageResourceProfile(BaseModel):
     spouse_star_excess: bool = False  # 배우자 별 과다(남:재다 / 여:관살혼잡 경향)
     spouse_star_absent: bool = False  # 배우자 별 미투출(천간·본기 부재 — 능동형 구조)
     charm_present: bool = False  # 도화·홍염(이성에게 매력적으로 비치는 끌림 경향)
+    # ── 배우자궁(일지) 기질 — 왕지/생지/고지 3분류(도화·역마·화개, 경향·비단정) ──
+    # 왕지(子午卯酉)=인연 잦고 끌림 빠르나 익숙해지면 식기 쉬움, 생지(寅申巳亥)=먼저 다가가나
+    # 마무리 약함, 고지(辰戌丑未)=신중·수동·익숙함 선호. 점수·단정 없이 관계 기질 경향으로만.
+    day_branch_group: str = ""  # wangji(왕지)/saengji(생지)/goji(고지) — 빈 문자열이면 미분류
+    day_branch_tendency: str = ""  # 한글 경향 라벨(서술용)
+    # ── 일지 십성 이상형(끌리는 타입, 경향·비단정) — 영상 자료 A ──
+    # 비겁=대등·독립 / 식상=표현·꾸밈 / 재성=현실 매력 / 관성=조건·태도 / 인성=보살핌.
+    day_branch_ten_god_group: str = ""  # peer/output/wealth/officer/resource(빈 문자열=미상)
+    ideal_type_tendency: str = ""  # 끌리는 이상형 타입 한글 라벨(서술용)
+    # ── 생애 단계별 연애 대상(영상 자료 B — 경향·비단정) ──
+    # 연지=어릴 때 또래·유행 타입 / 월지=사회·원숙기 결혼상대 타입 / 시지=말년(약). 시기 단정 아님.
+    life_stage_ideals: list[str] = Field(default_factory=list)  # 단계별 끌리는 타입 라벨(서술용)
+    # ── 관계 친화·돌봄 성향(영상 자료 — 십성 구조×신강약, 경향·비단정·성별 중립) ──
+    # 식신=케어·표현 / 식상생재=적극 / 인성 적정=정·안정 / 비겁=당당 / 신약+비겁약=회피 주의.
+    relationship_affinity: list[str] = Field(default_factory=list)  # 관계에 임하는 성향 라벨
+    # ── 배우자복 품질(영상 자료 E·F·G — 결정론, 경향·비단정) ──
+    spouse_star_clean: bool = False  # 배우자별 정확히 하나·깔끔(선택 분명·안정)
+    spouse_star_rooted: bool = False  # 배우자별이 지지 본기에 뿌리(튼튼 — 현실적 도움 경향)
+    spouse_palace_stable: bool = True  # 일지에 충/형/원진/파/해 없음(관계 내구성 좋음)
+    spouse_palace_afflictions: list[str] = Field(default_factory=list)  # 일지를 흔드는 살(충/형 등)
+    spouse_is_yongsin: bool = False  # 배우자성 오행이 용신/희신(배우자 덕 큰 결)
     hour_resource_role: str  # 시주 천간 십성 → 자원 역할(중립 라벨)
     # 자산 출처 경향(중립·가능성) — 'parental'/'spouse_family'/'self' 중복 가능.
     wealth_source_leans: list[str] = Field(default_factory=list)

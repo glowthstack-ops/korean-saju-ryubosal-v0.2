@@ -1363,6 +1363,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(
             f"[{header} — {pf.period_label} {pf.ganji} · {pillar_label}·슬롯(엔진 확정값)]"
         )
+        if pf.solar_month_note:
+            lines.append(f"절기월 안내: {pf.solar_month_note}")
         lines.append(f"{pillar_label}: {pf.pillar_line}")
         if pf.luck_label or pf.luck_summary:
             lines.append(f"운 요약: {pf.luck_label} — {pf.luck_summary}")

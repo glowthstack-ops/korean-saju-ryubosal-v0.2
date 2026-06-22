@@ -137,3 +137,37 @@ def test_report_populates_attraction() -> None:
     assert rep.attraction_band in ("강", "중", "약")
     # 직렬화 라인에 '끌림(자극)' 채널이 노출된다(LLM이 안정과 분리해 서술).
     assert any("끌림(자극)" in ln for ln in compatibility_lines(rep))
+
+
+# Task 3 — 십성 보완 끌림(없는 십성을 상대가 채움). 영상: "없는 것 가진 사람에게 끌린다."
+def test_ten_god_complement_signal_and_marriage_nuance() -> None:
+    # 1985-03-15 여성(재성 약) ↔ 1992-07-07 여성(재성 강) → 재성 부재 보완 + 식재 결혼 뉘앙스.
+    a = _chart(1985, 3, 15, "14:30", "female")
+    b = _chart(1992, 7, 7, "20:00", "female")
+    rep = analyze_compatibility(
+        a, b, build_birth_summary(a).useful_gods, build_birth_summary(b).useful_gods,
+    )
+    assert rep is not None
+    comp = [s for s in rep.signals if s.kind is CompatSignalKind.TEN_GOD_COMPLEMENT]
+    assert comp, "재성 격차가 큰 쌍에서 보완 끌림 신호가 나와야 한다"
+    # 보완 끌림은 HARMONY(안정 보완) 방향이며 비단정 '경향' 어휘를 쓴다.
+    assert all(s.direction is CompatDirection.HARMONY for s in comp)
+    assert all("경향" in s.detail and "반드시" not in s.detail for s in comp)
+    # 식재(재성) 부재 + 여성 taker → 결혼·생활 기반 보탬 뉘앙스.
+    assert any("결혼·생활 기반" in s.detail for s in comp)
+
+
+def test_ten_god_complement_counts_and_attracts() -> None:
+    from saju_engines.compatibility_engine import _ATTRACTION_WEIGHT
+    a = _chart(1990, 5, 5, "10:00", "male")     # 식상·재성 약
+    b = _chart(1985, 3, 15, "14:30", "female")
+    rep = analyze_compatibility(
+        a, b, build_birth_summary(a).useful_gods, build_birth_summary(b).useful_gods,
+    )
+    assert rep is not None
+    comp = [s for s in rep.signals if s.kind is CompatSignalKind.TEN_GOD_COMPLEMENT]
+    assert comp
+    # 보완 끌림은 끌림(자극) 채널에 가중 1로 기여한다(잔잔한 보완형).
+    assert _ATTRACTION_WEIGHT[CompatSignalKind.TEN_GOD_COMPLEMENT] == 1
+    # HARMONY 신호이므로 보완 카운트에 포함된다.
+    assert rep.harmony_count >= len(comp)

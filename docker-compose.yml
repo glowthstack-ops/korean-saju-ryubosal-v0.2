@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: saju_v2
       POSTGRES_DB: saju_v2
     ports:
-      - "5433:5432" # v1이 5432를 점유하므로 호스트 포트 5433
+      - "15432:5432" # v1이 5432를 점유 + 호스트 5433은 Windows 예약 포트 범위라 바인딩 실패 → 15432 사용
     volumes:
       - saju-v2-pgdata:/var/lib/postgresql/data
     healthcheck:

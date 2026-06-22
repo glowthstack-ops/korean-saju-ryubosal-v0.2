@@ -19,6 +19,13 @@ from .health_vulnerability import health_risk_windows
 
 _CAPACITY_BAND_KO = {"strong": "강", "moderate": "중", "weak": "약"}
 _GENDER_KO = {"female": "여성", "male": "남성"}
+# 배우자성 프레이밍 — 성별 기준(남=재성=배우자, 여=관성=배우자). 헤더가 '관성=배우자'(여성 고정)로
+# 하드코딩돼 남성 명식에 여성 기준이 들어가던 오역 교정(2026-06-22 데굴님 지적).
+_SPOUSE_FRAME_KO = {
+    "female": "관성=배우자(남편)·재성=시댁·물질 환경",
+    "male": "재성=배우자(처)·물질 환경, 관성=직위·자식(배우자 아님)",
+    "unknown": "배우자성은 성별 기준(남=재성·여=관성)",
+}
 _LEAN_KO = {
     "parental": "집안·부모 기반",
     "spouse_family": "결혼 후 물질 환경(여성 명식은 시댁 재력 잠재)",
@@ -28,6 +35,68 @@ _GEOKSIN_GROUP_KO = {
     "wealth": "재성", "officer": "관성", "output": "식상",
     "resource": "인성", "peer": "비겁",
 }
+
+
+def spouse_star_directive(gender: str | None) -> str:
+    """배우자성 성별 가드 — 남=재성·여=관성. 반대 성별 기준 해석을 막는다(chat·report 공용).
+
+    헤더 외에도 결혼·관계 풀이에 명시 가드를 덧대 '남성에게 관성=배우자' 같은 여성 기준 오역을
+    차단한다(2026-06-22 데굴님 지적). 미상이면 특정 배우자성을 단정하지 않도록 안내한다.
+
+    Args:
+        gender: 'male'/'female'/'unknown'/None.
+
+    Returns:
+        성별별 배우자성 가드 지시문(LLM 입력용).
+    """
+    if gender == "male":
+        return (
+            "[배우자성 — 성별 기준]\n주인공은 남성이다. 남성의 배우자(아내)는 재성(정재·편재)이며 "
+            "결혼·배우자운은 재성을 중심으로 본다. 정관·편관은 남성에게 직위·명예·자식(자녀)이지 "
+            "배우자가 아니다 — '관성=배우자', '여성에게는…' 같은 여성 기준 해석을 남성 사주에 "
+            "적용하지 말 것. 결혼 시기는 재성의 등장·합, 비식재 흐름, 일지(배우자궁) 자극으로 보라."
+        )
+    if gender == "female":
+        return (
+            "[배우자성 — 성별 기준]\n주인공은 여성이다. 여성의 배우자(남편)는 관성(정관·편관)이며 "
+            "결혼·배우자운은 관성을 중심으로 본다. 재성은 시댁·물질 환경이다 — '재성=배우자(아내)' "
+            "같은 남성 기준 해석을 여성 사주에 적용하지 말 것. 결혼 시기는 관성의 등장·합, 재생관, "
+            "일지(배우자궁) 자극으로 설명하라."
+        )
+    return (
+        "[배우자성 — 성별 기준]\n배우자성은 성별에 따라 다르다(남=재성, 여=관성). 주인공 성별이 "
+        "확정되지 않았으니 특정 배우자성을 단정하지 말고 성별 기준을 일반론으로만 언급하라."
+    )
+
+
+# 인연 출처(기존 vs 새 인연) — '주변 사람이야 새로운 사람이야?' 류 질문 근거(공용).
+PARTNER_SOURCE_DIRECTIVE = (
+    "[인연 출처 — 기존 지인 vs 새 인연]\n"
+    "'주변·아는 사람이냐 새로운 사람이냐'를 물으면: 배우자운이 합(合)·도화로 들면 가깝고 익숙한 "
+    "인연(주변·소개·재회) 경향, 충(沖)·역마로 들면 외부·먼 곳·이동 중의 새로운 인연 경향으로 "
+    "설명하라. 다만 사주로 둘 중 하나를 확정할 수는 없으니 단정하지 말고 가능성·경향으로만 안내하라"
+    "(어느 쪽이든 열어두고, 본인의 활동 반경을 넓히는 실천을 함께 권할 것)."
+)
+
+
+# 운에 따른 일시 취향 변동(D) — 운 십성이 평소 일지 취향과 다르면 일시 끌림, 운 빠지면 흔들림(공용).
+TENDENCY_SHIFT_DIRECTIVE = (
+    "[운에 따른 일시 취향 변동 — 주의]\n"
+    "운(대운·세운)에서 평소 일지 취향과 다른 십성, 특히 인성(기대고 존경할 사람)·식상(자극·표현이 "
+    "강한 사람)이 강하게 들면 평소와 다른 타입에 일시적으로 끌릴 수 있다. 이는 운의 일시 작용이라 "
+    "그 기운이 빠지면 관계가 흔들리기 쉽다 — '운에 취해' 급히 정하지 말고 평소 취향과의 차이를 "
+    "인지하도록 안내하라(불안 조장·단정 금지, 경향으로만)."
+)
+
+
+# 연애 자기인식(C) — 사주에 드러난 이상형 취향을 본인이 인정 않으면 연애가 어긋난다는 앵글(공용).
+RELATIONSHIP_SELF_AWARENESS_DIRECTIVE = (
+    "[연애 자기인식 — 너 자신을 알라]\n"
+    "사주에 드러난 '배우자 취향(이상형)'은 본인이 평소 인정하지 않을 수 있다(예: '성향·마음을 "
+    "본다'면서 실제로는 외모·조건에 끌리는 결). 제공된 이상형 경향을 부정·미화하지 말고, 본인이 "
+    "실제로 끌리는 타입을 담백하게 받아들이도록 안내하라 — 연애가 어긋나는 흔한 이유가 자기 취향을 "
+    "모르거나 인정 않는 데 있다. 낙인·단정 금지, '경향'으로만 따뜻하게 풀 것."
+)
 
 
 def wealth_capacity_lines(wc: WealthCapacity) -> list[str]:
@@ -60,10 +129,10 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
     if mr.wealth_palace_clash:
         wealth_line += " · 재성궁 충(발동·변화 잠재)"
     leans = "、".join(_LEAN_KO.get(x, x) for x in mr.wealth_source_leans) or "뚜렷하지 않음"
+    spouse_frame = _SPOUSE_FRAME_KO.get(mr.gender, _SPOUSE_FRAME_KO["unknown"])
     lines = [
         "[결혼·자산 자원 구조 — 원국 구조(운 미반영). 가능성·잠재로만 서술하고 '신분 상승·신데렐라·"
-        f"반드시' 류 단정 금지. {_GENDER_KO.get(mr.gender, mr.gender)} 명식 — 관성=배우자, "
-        "재성=시댁·물질 환경]",
+        f"반드시' 류 단정 금지. {_GENDER_KO.get(mr.gender, mr.gender)} 명식 — {spouse_frame}]",
         f"배우자 별({mr.spouse_star}): {spouse}",
         wealth_line,
     ]
@@ -82,10 +151,54 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
         bond.append("배우자 별 미투출 — 인연을 스스로 만들어가는 능동형 구조(부재 단정 아님)")
     if mr.charm_present:
         bond.append("도화·홍염 — 이성에게 매력적으로 비치고 끌림이 잦은 경향")
+    if mr.day_branch_tendency:
+        bond.append(f"배우자궁(일지) 기질 {mr.day_branch_tendency}")
     if bond:
         lines.append(
             "배우자 인연 결(가능성·경향으로만, 단정·낙인 금지): " + " / ".join(bond)
         )
+    # A) 배우자 취향(이상형) — 일지 십성 기준 끌리는 타입(경향).
+    if mr.ideal_type_tendency:
+        lines.append(
+            f"배우자 취향(이상형 — 일지 십성, 경향·단정 아님): {mr.ideal_type_tendency}"
+        )
+    # B) 생애 단계별 연애 대상 — 연·월·시지 십성(경향·시기 단정 아님).
+    if mr.life_stage_ideals:
+        lines.append(
+            "생애 단계 연애 대상(연·월·시지, 경향·시기 단정 아님): "
+            + " / ".join(mr.life_stage_ideals)
+        )
+    # 관계 친화·돌봄 성향 — 십성 구조×신강약(관계에 어떻게 임하는가, 경향·비단정).
+    if mr.relationship_affinity:
+        lines.append(
+            "관계 친화·돌봄 성향(경향·단정 아님): " + " / ".join(mr.relationship_affinity)
+        )
+    # E·F·G) 배우자복 품질 — 배우자별 청탁·뿌리 / 배우자궁 안정 / 배우자성=용신 덕(경향·비단정).
+    quality: list[str] = []
+    if mr.spouse_star_clean:
+        q = "배우자별이 하나로 깔끔(선택 분명·관계 안정)"
+        if mr.spouse_star_rooted:
+            q += " + 뿌리 튼튼(능력·집안 등 현실적 도움 받기 쉬운 결)"
+        quality.append(q)
+    elif mr.spouse_star_rooted:
+        quality.append("배우자별 뿌리 있음(영향력 오래가는 결)")
+    if mr.spouse_palace_stable:
+        quality.append(
+            "배우자궁(일지) 충·형·원진 없이 안정 — 관계 내구성이 좋아 갈등도 제자리로 돌아오는 결"
+        )
+    else:
+        quality.append(
+            "배우자궁(일지) " + "·".join(mr.spouse_palace_afflictions)
+            + " — 관계가 흔들리기 쉬운 결이나 개운·궁합·노력으로 보완 가능(이혼 단정 아님, "
+            "남·환경 탓보다 본인 대응이 관건)"
+        )
+    if mr.spouse_is_yongsin:
+        quality.append(
+            f"배우자성({mr.spouse_star})이 용신/희신 — 배우자가 부족한 기운을 채워주는 "
+            "'에어컨/보일러' 역할로, 결혼하며 더 풀리는 배우자 덕(경향)"
+        )
+    if quality:
+        lines.append("배우자복 품질(경향·단정 아님): " + " / ".join(quality))
     lines.append(
         f"자산 출처 경향(가능성): {leans}. 돈의 '출처'(부모/배우자 집안/자수성가)를 구분해 "
         "서술하되 단정하지 말 것."

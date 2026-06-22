@@ -50,6 +50,19 @@ _TEN_GOD_DIRECTION: dict[str, CompatDirection] = {
     "편인": CompatDirection.NEUTRAL,
 }
 
+# 십성군(force_analysis.ten_gods.groups 키) → 한글 의미. 보완 끌림 서술용.
+_GROUP_KO: dict[str, str] = {
+    "peer": "비겁(경쟁·자립력)",
+    "output": "식상(표현·활동력)",
+    "wealth": "재성(재물·현실 기반)",
+    "officer": "관성(절제·울타리)",
+    "resource": "인성(지원·안정)",
+}
+_OUTPUT_WEALTH = {"output", "wealth"}  # 식재 — 부재 시 상대 보완이 결혼·생활 기반에 보탬(영상 자료)
+# 십성군 보완 끌림 임계 — 한쪽이 '약/부재'(<10%)인데 상대가 '뚜렷이 보유'(>=20%)일 때.
+_TG_DEFICIT_PCT = 10.0
+_TG_STRONG_PCT = 20.0
+
 
 def _is_punishment(a: Branch, b: Branch) -> bool:
     """두 지지가 형(刑) 관계인지 — 삼형 부분쌍 또는 무례지형(子卯)."""
@@ -131,6 +144,65 @@ def _yongsin_signals(
     return out
 
 
+def _ten_god_complement_signals(
+    self_result: ManseV2Result, partner_result: ManseV2Result,
+    *, self_label: str, partner_label: str,
+) -> list[CompatSignal]:
+    """한쪽에 약한(부재) 십성군을 상대가 뚜렷이 보유하면 '보완 끌림'(양방향, 각 최대 1건).
+
+    영상 자료: "나한테 없는 것·필요한 것을 가진 사람에게 끌린다." 십성군 분포(force_analysis)
+    기준으로 taker가 약/부재(<10%)인 군을 giver가 뚜렷이 보유(>=20%)할 때, 격차가 가장 큰 군
+    1개만 보완 끌림으로 잡는다(노이즈 억제). 식재(식상·재성) 부재 보완은 결혼·생활 기반 보탬의
+    결로 덧붙인다(비단정·경향). direction=HARMONY(보완 카운트 반영).
+
+    Args:
+        self_result / partner_result: 두 명식 만세 결과(force_analysis·input_summary 사용).
+        self_label / partner_label: 표시용 라벨.
+
+    Returns:
+        보완 끌림 CompatSignal 목록(force_analysis 부재 시 빈 목록).
+    """
+    out: list[CompatSignal] = []
+    self_fa = self_result.force_analysis
+    partner_fa = partner_result.force_analysis
+    if self_fa is None or partner_fa is None:
+        return out
+    self_g = self_fa.ten_gods.groups
+    partner_g = partner_fa.ten_gods.groups
+    self_gender = str(self_result.input_summary.get("gender", "unknown"))
+    partner_gender = str(partner_result.input_summary.get("gender", "unknown"))
+    # (taker_groups, giver_groups, taker_label, giver_label, taker_gender)
+    pairs = [
+        (self_g, partner_g, self_label, partner_label, self_gender),
+        (partner_g, self_g, partner_label, self_label, partner_gender),
+    ]
+    for taker_g, giver_g, taker, giver, taker_gender in pairs:
+        best_key = ""
+        best_gap = 0.0
+        for key in _GROUP_KO:
+            t = float(taker_g.get(key, 0.0))
+            v = float(giver_g.get(key, 0.0))
+            if t < _TG_DEFICIT_PCT and v >= _TG_STRONG_PCT and (v - t) > best_gap:
+                best_gap, best_key = v - t, key
+        if not best_key:
+            continue
+        detail = (
+            f"{taker}에게 약한 {_GROUP_KO[best_key]}을(를) {giver}이(가) 뚜렷이 갖춤 "
+            "— 없는 것을 채워주는 보완 끌림(경향)"
+        )
+        if best_key in _OUTPUT_WEALTH:
+            nuance = (
+                "결혼·생활 기반에 보탬이 되는 결" if taker_gender == "female"
+                else "활동·재물에 보탬이 되는 결"
+            )
+            detail += f" · {nuance}"
+        out.append(CompatSignal(
+            kind=CompatSignalKind.TEN_GOD_COMPLEMENT, label="보완 끌림",
+            detail=detail, direction=CompatDirection.HARMONY,
+        ))
+    return out
+
+
 def _sinsal_cross_signals(
     self_dm: Stem, partner_dm: Stem, a: Branch, b: Branch,
 ) -> list[CompatSignal]:
@@ -180,6 +252,7 @@ _ATTRACTION_WEIGHT: dict[CompatSignalKind, int] = {
     CompatSignalKind.DAY_BRANCH_CLASH: 2,   # 충 — 강한 스파크(불안정)
     CompatSignalKind.DAY_BRANCH_PUNISH: 1,  # 형 — 자극
     CompatSignalKind.DAY_BRANCH_SIX: 1,     # 육합 — 잔잔한 끌림(안정형)
+    CompatSignalKind.TEN_GOD_COMPLEMENT: 1,  # 없는 십성 채움 — 보완형 끌림(잔잔)
     CompatSignalKind.SINSAL_CHARM: 2,       # 도화·홍염 — 매력·끌림
     CompatSignalKind.SINSAL_FRICTION: 1,    # 원진·귀문 — 애증(끌리며 거슬림)
 }
@@ -269,6 +342,12 @@ def analyze_compatibility(
 
     # 4) 용신 상호보완.
     signals += _yongsin_signals(self_dm, partner_dm, self_useful, partner_useful)
+
+    # 4b) 십성군 상호보완(없는 십성을 상대가 채움 — 보완 끌림).
+    signals += _ten_god_complement_signals(
+        self_result, partner_result,
+        self_label=self_label, partner_label=partner_label,
+    )
 
     # 5) 관계 신살 교차(보조 — 카운트·톤 미반영, 가볍게만).
     signals += _sinsal_cross_signals(self_dm, partner_dm, self_branch, partner_branch)

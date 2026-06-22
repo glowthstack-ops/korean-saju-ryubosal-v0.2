@@ -226,6 +226,9 @@ class PeriodFortune(BaseModel):
     fortune_type: str  # 'daily' | 'monthly' | 'yearly'
     period_label: str  # '2026-06-12 (금)' | '2026-07' | '2026'
     ganji: str  # 해당 기간 간지(일진/월운/세운) '丁巳'
+    # 절기월 안내 — 월운은 절기 경계라 양력 달과 어긋난다(예: 未월=7/7~8/6). '7월=을미월' 혼동을
+    # 막으려 절기월 간지와 양력 날짜 범위를 함께 준다(2026-06-22 데굴님 제안). 비어 있으면 미표기.
+    solar_month_note: str = ""
     pillar_line: str  # 십성·십이운성·용신정렬 요약 1줄(grounding)
     luck_label: str = ""  # '강한 용신운'
     luck_summary: str = ""  # 엔진 운 요약 그대로

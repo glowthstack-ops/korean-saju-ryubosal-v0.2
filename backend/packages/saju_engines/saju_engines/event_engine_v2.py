@@ -62,6 +62,13 @@ from .ganji_calendar import relation_hits
 from .layer_flow_modifier import LayerFlowModifier
 from .life_fit_ranker import LifeFitRanker
 from .llm_event_serializer import reason_codes_ko
+from .marriage_flow_modifier import (
+    MarriageFlowModifier,
+    MarriageFlowNatal,
+    analyze_marriage_flow_natal,
+    apply_marriage_gender_weight,
+    detect_marriage_flow_activations,
+)
 from .reality_context import RealityContext
 from .relation_palace_engine import RelationActivation, RelationPalaceEngine
 from .ten_god_brancher import TenGodEventBrancher
@@ -137,6 +144,7 @@ class EventEngineV2:
         self._exam = ExamOutcomeModifier(dictionaries_dir)
         self._career_mobility = CareerMobilityModifier(dictionaries_dir)
         self._wealth_act = WealthActivationModifier()
+        self._marriage_flow = MarriageFlowModifier()
         self._ranker = EventRanker(dictionaries_dir)
 
     # ── 공개 API ─────────────────────────────────────────────────
@@ -157,6 +165,7 @@ class EventEngineV2:
         wanted = levels or set(GanjiLevel)
         fav_map = fav_override if fav_override is not None else favorability_map(result)
         capacity = analyze_wealth_capacity(result)  # 원국 횡재 그릇(1회 — 발동 가산 배율)
+        marriage_flow = analyze_marriage_flow_natal(result)  # 원국 비식재 결혼 그릇(1회)
         idx = _StackIndex(result)
         out: list[EventCandidateV2] = []
         if GanjiLevel.DAEWOON in wanted:
@@ -164,7 +173,8 @@ class EventEngineV2:
                 label = f"{dwi.approx_start_date.year}~{dwi.approx_end_date.year}"
                 out += self._score_target(
                     result, GanjiLevel.DAEWOON, label, _daewoon_pillar(dwi), idx, fav_map,
-                    occupation_status, relationship_status, capacity, occupation_category,
+                    occupation_status, relationship_status, capacity, marriage_flow,
+                    occupation_category,
                 )
         for level, pillars in (
             (GanjiLevel.YEAR, result.luck_cycles.yearly_luck),
@@ -175,7 +185,7 @@ class EventEngineV2:
                 for p in pillars:
                     out += self._score_target(
                         result, level, p.label, p, idx, fav_map,
-                        occupation_status, relationship_status, capacity,
+                        occupation_status, relationship_status, capacity, marriage_flow,
                         occupation_category,
                     )
         return sorted(out, key=_rank_key)
@@ -195,6 +205,7 @@ class EventEngineV2:
             return []
         fav_map = fav_override if fav_override is not None else favorability_map(result)
         capacity = analyze_wealth_capacity(result)
+        marriage_flow = analyze_marriage_flow_natal(result)
         idx = _StackIndex(result)
         out: list[EventCandidateV2] = []
         for y in years:
@@ -203,7 +214,8 @@ class EventEngineV2:
                 continue
             out += self._score_target(
                 result, GanjiLevel.YEAR, p.label, p, idx, fav_map,
-                occupation_status, relationship_status, capacity, occupation_category,
+                occupation_status, relationship_status, capacity, marriage_flow,
+                occupation_category,
             )
         return sorted(out, key=_rank_key)
 
@@ -289,6 +301,7 @@ class EventEngineV2:
         occupation_status: str | None,
         relationship_status: str | None,
         capacity: WealthCapacity,
+        marriage_flow: MarriageFlowNatal,
         occupation_category: str | None = None,
     ) -> list[EventCandidateV2]:
         """거버닝 스택으로 한 시점의 후보를 만들고 6계층 보정을 적용한다."""
@@ -306,6 +319,9 @@ class EventEngineV2:
         cands = self._brancher.branch(signals, label)
         if not cands:
             return []
+        # 배우자성 성별 가중(③) — 남=재성·여=관성. 반대 성별 별만으로 뜬 결혼신호를 amplifier 전에
+        # 약화(남:정관 단독=직위·자식 / 여:재성 단독=시댁). base 교정이라 브랜칭 직후 적용.
+        cands = apply_marriage_gender_weight(cands, marriage_flow.gender)
         # 12운성 상태 — 스택 각 층 지지 운성.
         stage_by_layer = {
             layer: st
@@ -324,8 +340,9 @@ class EventEngineV2:
             occupation_status=occupation_status, relationship_status=relationship_status,
         )
         cands = self._gate.apply(cands, gate_ctx)
-        # 발동·궁성 — 해당 시점 관계 적중.
-        activations = _activations(hits, _LEVEL_TO_LAYER[level])
+        # 발동·궁성 — 해당 시점 관계 적중(+ 일지 복음 발동: 운 지지=원국 일지).
+        layer = _LEVEL_TO_LAYER[level]
+        activations = _activations(hits, layer) + _bokeum_activations(result, target, layer)
         cands = self._relpalace.apply(cands, activations)
         # 용신 품질 — 시점 유입 글자 오행의 용기신 역할. 본 천간이 합화(化)면 化神 오행으로 길흉
         # 판단(生剋制化 우선 — 사건 종류는 불변, 길흉만 化神 기준). 대운 배경 합화는 제외(국소).
@@ -360,6 +377,13 @@ class EventEngineV2:
         # 횡재 발동 — 원국 그릇 × 운 완성(재성국/충개고/투간/식상생재)을 재물 후보에 보수 가산.
         cands = self._wealth_act.apply(
             cands, capacity, self._wealth_activations(result, stack, capacity),
+        )
+        # 비식재 흐름 결혼 발동 — 원국 비식재 그릇 × 운 식재/재생관 보강을 결혼·관계 후보에 보수
+        # 가산(증폭만). 시점 십성군을 그룹값으로 환원해 발동 판정.
+        present_groups = {_GROUP_OF[g] for g in present_gods if g in _GROUP_OF}
+        cands = self._marriage_flow.apply(
+            cands, marriage_flow,
+            detect_marriage_flow_activations(present_groups, marriage_flow.gender),
         )
         # 대운 합화 체용 배경 — 대운 化神의 용기신 역할로 성패율에 약한 배경 보정(직접 치환 아님).
         cands = _apply_daewoon_hwa_background(
@@ -501,6 +525,31 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
                     RelationKind(kind), palace, layer, position=position,
                 ))
     return out
+
+
+def _bokeum_activations(
+    result: ManseV2Result, target: LuckPillar, layer: LuckLayer
+) -> list[RelationActivation]:
+    """복음(伏吟) 발동 — 운 지지가 원국 일지(배우자궁)와 같은 글자일 때 일지궁 자극 1건.
+
+    복음은 합충형파해 RelationType에 없어 _activations가 잡지 못한다(자료: 일지 복음 해는
+    결혼·관계 형성의 보조 트리거). 일지(배우자궁)에 한정해 BOKEUM 발동을 합성하며, 단독으로
+    사건을 만들지 않고 relation_palace_modifier가 기존 marriage_signal 후보를 강화한다(자극궁
+    event_domains 교집합일 때만). 층위 가중(sewoon>wolwoon>ilwoon)은 사전이 처리한다.
+
+    Args:
+        result: 만세 결과(pillars.day 필요).
+        target: 점수 대상 운 기둥.
+        layer: 대상 층위(세운/월운/일운/대운).
+
+    Returns:
+        일지 복음이면 BOKEUM 발동 1건, 아니면 빈 목록.
+    """
+    if result.pillars is None or result.pillars.day is None:
+        return []
+    if target.branch and target.branch == result.pillars.day.branch:
+        return [RelationActivation(RelationKind.BOKEUM, Pillar4.DAY, layer, position="branch")]
+    return []
 
 
 # 포화 제어 soft_cap — knee 이하는 그대로, 이상은 100에 완만히 접근(거의 정확히 100 안 됨).

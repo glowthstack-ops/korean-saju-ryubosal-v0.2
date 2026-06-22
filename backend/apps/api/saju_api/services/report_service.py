@@ -38,9 +38,12 @@ from saju_engines.report_event_input import (
 )
 from saju_engines.report_plan import YONGSIN_SECTIONS, build_section_plans
 from saju_engines.structural_context import (
+    RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
+    TENDENCY_SHIFT_DIRECTIVE,
     era_energy_lines,
     health_lines,
     marriage_resource_lines,
+    spouse_star_directive,
     wealth_capacity_lines,
     wealth_status_lines,
 )
@@ -287,7 +290,10 @@ class _ReportData:
         self._yr_hi = spec.period.end[:4]
         self.summary = build_birth_summary(self.result)
         self.wealth_capacity = analyze_wealth_capacity(self.result)  # 원국 횡재 그릇(운 분리)
-        self.marriage_resource = analyze_marriage_resource(self.result)  # 결혼·자산 자원(성별 인지)
+        # 결혼·자산 자원(성별 인지) — 용희신을 넘겨 '배우자성=용신(배우자 덕)'까지 판정(G).
+        self.marriage_resource = analyze_marriage_resource(
+            self.result, self.summary.useful_gods,
+        )
         self.health_vulnerability = analyze_health_vulnerability(
             self.result, favorability_map(self.result),
         )  # 원국 건강 취약 구조(운 미반영 — 의료 진단·수명 예측 아님)
@@ -798,8 +804,15 @@ def build_section_context(
             *data.evidence_paths,
         ]
     # 관계·재물구조 섹션 — 결혼·자산 자원 구조(성별 인지, 중립) 표면화. 명식/운 분기와 무관.
+    # 배우자성 성별 가드(남=재성·여=관성) + 연애 자기인식(이상형 인정) 가드를 함께 실어 반대 성별
+    # 기준 오역·취향 부정을 차단(2026-06-22).
     if sid in _MARRIAGE_RESOURCE_SECTIONS:
-        lines += ["", *data.marriage_resource_block()]
+        lines += [
+            "", spouse_star_directive(data.marriage_resource.gender),
+            *data.marriage_resource_block(),
+            RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
+            TENDENCY_SHIFT_DIRECTIVE,
+        ]
     # 건강 섹션 — 원국 취약 구조(의료 면책 동반). C-02/C-06은 health 주제일 때만.
     if sid in _HEALTH_VULN_SECTIONS or (
         sid in _HEALTH_TOPIC_SECTIONS and spec.topic == "health"

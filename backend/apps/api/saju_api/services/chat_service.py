@@ -37,6 +37,12 @@ from saju_engines.planner import build_execution_plan
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.query_parser import parse_message
 from saju_engines.rewriter import QueryAssessment, assess
+from saju_engines.structural_context import (
+    PARTNER_SOURCE_DIRECTIVE,
+    RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
+    TENDENCY_SHIFT_DIRECTIVE,
+    spouse_star_directive,
+)
 from saju_engines.topic_builder import build_lifestyle_context
 from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_manse_core.calendar.solar_terms import get_table
@@ -95,6 +101,35 @@ def _solar_month_range(label: str, timezone: str = "Asia/Seoul") -> tuple[date, 
     mid = datetime(y, m, 15, 12, 0, tzinfo=tz)
     prev_jeol, next_jeol = get_table().bounding_month_terms(mid)
     return prev_jeol.astimezone(tz).date(), next_jeol.astimezone(tz).date() - timedelta(days=1)
+
+
+def _date_solar_month_note(birth: BirthInput, target: date, timezone: str) -> str:
+    """특정 날짜의 절기 월간지 + 양력 범위를 '엔진 확정 사실'로 명시하는 디렉티브.
+
+    LLM이 monthly_luck 라벨('2026-07=乙未')을 보고 '7월 4일→7월→乙未'로 양력 달에 끌려 월간지를
+    오답하는 것을 차단한다(2026-06-22 데굴님 지적 — 7/4는 소서 전이라 甲午월). 월운은 절입 기준이라
+    양력 달과 어긋나므로 그 날이 실제로 속한 절기월 간지를 못박는다.
+
+    Args:
+        birth: 대상 출생 정보(절기월 라벨→간지 조회용).
+        target: 질문 날짜.
+        timezone: 차트 타임존(절기 경계 산정 기준).
+
+    Returns:
+        디렉티브 문자열(간지 조회 실패 시 빈 문자열).
+    """
+    label = _current_luck_month(target, timezone)
+    ml = luck_months(birth, int(label[:4]))
+    mp = next((p for p in ml if p.label == label), None)
+    if mp is None:
+        return ""
+    sm_s, sm_e = _solar_month_range(label, timezone)
+    return (
+        f"[날짜 절기월 — 엔진 확정 사실] 질문 날짜 {target.isoformat()}의 월운(절기월)은 "
+        f"{mp.ganji}이며 양력 {sm_s.isoformat()}~{sm_e.isoformat()}에 해당한다. 월운은 절입 "
+        f"기준이라 양력 달과 다르다 — 이 날짜의 월간지를 양력 {target.month}월의 다음 절기월로 "
+        f"답하지 말고 반드시 {mp.ganji}로 본다."
+    )
 
 # 정책 라우트 고정 응답(T3.8 — docs/03 B4 하단). LLM 미호출 템플릿.
 _POLICY_ANSWERS = {
@@ -270,6 +305,7 @@ def _build_period_fortune(
         CompositeLevel.DAY, CompositeLevel.MONTH, CompositeLevel.YEAR, CompositeLevel.NATAL,
     }
     _YEAR_LEVELS = {CompositeLevel.MONTH, CompositeLevel.YEAR, CompositeLevel.NATAL}
+    day_solar_month: str | None = None  # 일 질문 — 그 날이 속한 절기월 라벨(MONTH 컨텍스트 한정용)
 
     if fortune_type == "daily":
         try:
@@ -281,6 +317,9 @@ def _build_period_fortune(
         if chart.luck_cycles is not None:
             chart.luck_cycles.daily_luck = days
         pillar = next((p for p in days if p.label == start), None)
+        # 그 날의 절기월(양력 달이 아니라 절입 기준) — MONTH 컨텍스트를 이 한 달로 한정한다.
+        tz_d = chart.time_correction.timezone if chart.time_correction else "Asia/Seoul"
+        day_solar_month = _current_luck_month(target, tz_d)
         period = PeriodSpec(start=start, end=start, granularity="day")
         levels = _DAY_LEVELS
         label = f"{start} ({_WEEKDAY_KO[target.weekday()]})"
@@ -335,6 +374,30 @@ def _build_period_fortune(
             c for c in composites
             if c.level is not CompositeLevel.MONTH or c.period_key == start
         ]
+    elif fortune_type == "daily" and day_solar_month is not None:
+        # 일 질문 — MONTH 컨텍스트를 그 날이 속한 절기월 하나로 한정한다(양력 달이 아니라 절기월).
+        # 안 그러면 모든 월 composite가 노출돼 LLM이 7/4를 양력 7월(乙未월)로 오인한다(2026-06-22).
+        composites = [
+            c for c in composites
+            if c.level is not CompositeLevel.MONTH or c.period_key == day_solar_month
+        ]
+    # 절기월 안내(데굴님 제안) — 해당 월운(절기월)의 간지 + 양력 절기 범위를 함께 준다.
+    # 월운은 절입 기준이라 양력 달과 어긋난다(예: 未월=7/7~8/6). '7월=을미월' 혼동 방지.
+    solar_month_note = ""
+    if fortune_type in ("daily", "monthly"):
+        m_label = day_solar_month if fortune_type == "daily" else start
+        m_comp = next(
+            (c for c in composites
+             if c.level is CompositeLevel.MONTH and c.period_key == m_label), None
+        )
+        if m_comp is not None and m_label is not None:
+            tz_m = chart.time_correction.timezone if chart.time_correction else "Asia/Seoul"
+            sm_s, sm_e = _solar_month_range(m_label, tz_m)
+            solar_month_note = (
+                f"이 기간이 속한 절기월은 {m_comp.ganji.stem}{m_comp.ganji.branch}월"
+                f"(양력 {sm_s.isoformat()}~{sm_e.isoformat()})이다 — 월운은 절기 경계라 양력 달과 "
+                "다르니 '○월=○○월운'으로 혼동하지 말 것."
+            )
     ctx = build_lifestyle_context(
         [SubjectRef(kind=SubjectKind.SELF, label="본인")],
         period, composites, dictionaries_dir=_DICTS,
@@ -350,6 +413,7 @@ def _build_period_fortune(
         fortune_type=fortune_type,
         period_label=label,
         ganji=pillar.ganji,
+        solar_month_note=solar_month_note,
         pillar_line=grounding["pillar_line"],
         luck_label=pillar.luck_label,
         luck_summary=pillar.luck_summary,
@@ -537,7 +601,11 @@ def _relocation_reason_context(
     """
     tr = intent.time_range
     start = tr.start if tr else None
-    if start and len(start) >= 7:  # YYYY-MM 또는 YYYY-MM-DD
+    date_mode = False  # YYYY-MM-DD — 월 발동축을 절기월(양력 달 아님)로 잡는다(2026-06-22)
+    if start and len(start) == 10:  # YYYY-MM-DD
+        anchor = date.fromisoformat(start)
+        year_key, month_key, date_mode = start[:4], None, True
+    elif start and len(start) >= 7:  # YYYY-MM — 월 라벨은 절기월(monthly_luck 라벨과 동일)
         year_key, month_key = start[:4], start[:7]
         anchor = date(int(year_key), int(start[5:7]), 1)
     elif start and len(start) == 4:  # YYYY — 연 단위(월 발동축 생략)
@@ -546,6 +614,10 @@ def _relocation_reason_context(
         year_key, month_key, anchor = str(today.year), None, today
     try:
         chart = calculate(birth.model_copy(update={"reference_date": anchor}))
+        if date_mode:
+            # 그 날이 속한 절기월 라벨(양력 달 아님 — 예: 7/4는 소서 전이라 甲午월=2026-06).
+            tz_r = chart.time_correction.timezone if chart.time_correction else "Asia/Seoul"
+            month_key = _current_luck_month(anchor, tz_r)
         composites = CompositeBuilder(_DICTS).build(
             chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00")
         lines = _relocation_reason_lines(composites, year_key, month_key)
@@ -843,6 +915,42 @@ def _is_big_decision(intent: IntentJson, question: str) -> bool:
     return rel_ctx and any(k in question for k in _BIG_DECISION_KEYS) and has_decision
 
 
+# 인연·만남 시기 질문 — 도메인 관계 또는 연애·배우자 키워드(GENERAL로 분류돼도 키워드로 보강).
+_RELATIONSHIP_KEYS = (
+    "연애", "연인", "인연", "애인", "짝", "배우자", "결혼", "재혼", "소개팅",
+    "이상형", "남친", "여친", "남자친구", "여자친구", "솔로", "썸",
+)
+
+
+def _is_relationship_context(intent: IntentJson, question: str) -> bool:
+    """관계(연애·결혼·인연) 맥락 질문 여부 — GENERAL로 분류돼도 키워드로 보강한다."""
+    return intent.domain is Domain.RELATIONSHIP or any(
+        k in question for k in _RELATIONSHIP_KEYS
+    )
+
+
+# 인연 출처 질문 — '주변 사람 vs 새로운 사람' 류(기존 지인이냐 새 인연이냐).
+_PARTNER_SOURCE_KEYS = (
+    "주변", "지인", "아는 사람", "아는사람", "소개", "새로운 사람", "새 사람", "새사람",
+    "처음 보는", "처음보는", "기존", "원래 알", "어디서 만나",
+)
+
+
+def _is_partner_source_question(question: str) -> bool:
+    """'기존 지인 vs 새 인연' 출처를 묻는 질문 여부."""
+    return any(k in question for k in _PARTNER_SOURCE_KEYS)
+
+
+_MEETING_TIMING_DIRECTIVE = (
+    "[인연·만남 시기 — 만남은 택일이 아니다]\n"
+    "연인·배우자를 '언제' 만나는지는 일정처럼 고르는 택일이 아니다. 특정 달을 선택지로 나열하거나 "
+    "약한 달·기신 달을 끌어와 '○월에도 신호가 있지만…'처럼 곧장 무르지 말 것. 제공된 운에서 가장 "
+    "유리한 시기 하나만 골라 연·반기·계절 단위로 제시하라(불리한 시기는 굳이 언급하지 않는다). "
+    "또 '어디서·어떤 경로로' 만나는지는 사주로 단정할 수 없다 — 출장지·교육현장 같은 구체적 장소를 "
+    "지어내지 말고 활동 성향 정도의 경향으로만(단정 금지) 가볍게 언급하라."
+)
+
+
 # 이혼 상담 — 사유 severity 분기(궁합 자료: 외도·폭력=회복 어려움 / 성격·건강=극복 가능).
 _DIVORCE_KEYS = ("이혼", "별거", "파혼")
 _DIVORCE_SEVERITY_DIRECTIVE = (
@@ -913,7 +1021,14 @@ def _structural_context(result: ManseV2Result, intent: IntentJson, today: date) 
     if general or domain in (Domain.WEALTH, Domain.CAREER):
         out += wealth_status_lines(analyze_wealth_status_lean(result))
     if general or domain is Domain.RELATIONSHIP:
-        out += marriage_resource_lines(analyze_marriage_resource(result))
+        # 배우자성 성별 가드를 결혼 블록과 항상 동반 — general로 분류된 관계 질문('언제 만나' 등)도
+        # 남=재성·여=관성 기준을 받게 한다(2026-06-22 데굴님 지적: GENERAL은 가드 누락이던 결함).
+        out.append(spouse_star_directive(str(result.input_summary.get("gender", "unknown"))))
+        # 배우자성=용신(배우자 덕) 판정에 용희신을 넘긴다(G). 자기인식 가드도 함께(C).
+        _useful = build_birth_summary(result).useful_gods
+        out += marriage_resource_lines(analyze_marriage_resource(result, _useful))
+        out.append(RELATIONSHIP_SELF_AWARENESS_DIRECTIVE)
+        out.append(TENDENCY_SHIFT_DIRECTIVE)
     if general or domain is Domain.HEALTH:
         hv = analyze_health_vulnerability(result, favorability_map(result))
         out += health_lines(result, hv, today.year)
@@ -1334,11 +1449,26 @@ def chat(
         if win_start or win_end:
             from saju_engines.context_reducer import in_question_range
 
+            # 날짜(YYYY-MM-DD) 단일일 질문이면 월 후보를 '양력 달'이 아니라 '그 날의 절기월'로
+            # 잡는다 — 7/4는 소서(7/7) 전이라 甲午월(2026-06)이지 乙未월(2026-07)이 아니다.
+            # (2026-06-22 데굴님 지적: 7/4 이사 질문이 계속 乙未월로 풀리던 결함).
+            solar_m: str | None = None
+            if win_start and win_start == win_end and len(win_start) == 10:
+                tz_w = (
+                    result.time_correction.timezone
+                    if result.time_correction else "Asia/Seoul"
+                )
+                solar_m = _current_luck_month(date.fromisoformat(win_start), tz_w)
+
+            def _in_win(period: str) -> bool:
+                if solar_m is not None and len(period) == 7:  # 월 후보 — 절기월만
+                    return period == solar_m
+                return in_question_range(period, win_start, win_end)
+
             seen = {(c.event_key, c.period) for c in candidates}
             candidates += [
                 c for c in all_scored
-                if (c.event_key, c.period) not in seen
-                and in_question_range(c.period, win_start, win_end)
+                if (c.event_key, c.period) not in seen and _in_win(c.period)
             ]
         # 의도 필터(intent_event_filter) — 질문 도메인과 무관한 후보를 억제한다.
         # 빈 결과를 만들지 않으며(fallback 원본 유지), general 도메인은 전부 통과.
@@ -1528,6 +1658,20 @@ def chat(
     # 줄인다. 안 그러면 serialize 통과 후 지시문·시스템이 더해져 generate_reading 재검사에서
     # 한도 초과 → 일반 오류로 마감되던 결함(2026-06-18, 10년 이사 질문 12,098tok 초과).
     trailing: list[str] = [_CHAT_SCOPE_DIRECTIVE]
+    # 날짜 질문 — 그 날의 절기 월간지를 사실로 못박는다(LLM의 양력 달 월간지 오답 방지, 2026-06-22).
+    if (
+        intent.time_range is not None
+        and intent.time_range.start
+        and len(intent.time_range.start) == 10
+    ):
+        try:
+            _tgt = date.fromisoformat(intent.time_range.start)
+            _tz = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
+            _sm_note = _date_solar_month_note(birth, _tgt, _tz)
+            if _sm_note:
+                trailing.append(_sm_note)
+        except ValueError:
+            pass
     # 상황 제약 — 비정직원이면서 직장운(재직 전제 사건) 맥락이면 '취업'을 함께 짚게 하고,
     # 그 외(이사 등 비career 맥락)에서 무직 키워드가 잡히면 기존 '이직→이사' 분기를 적용한다.
     if nonregular and (career_presupposed or intent.domain is Domain.CAREER):
@@ -1547,6 +1691,13 @@ def chat(
     # 당첨단정 거부는 유지). CLAUDE.md 절대원칙 8 개정(2026-06-20 데굴님 승인).
     if _is_lifestyle_windfall(intent, question):
         trailing.append(_LIFESTYLE_WINDFALL_DIRECTIVE)
+    # 인연·만남 시기 — 만남은 '택일'이 아니므로 약한/기신 달을 선택지로 끌어와 무르지 말고,
+    # 가장 유리한 시기 하나(연·반기·계절)로. 만날 장소·경로는 사주로 단정 불가(과도한 구체화 금지).
+    if _is_relationship_context(intent, question):
+        trailing.append(_MEETING_TIMING_DIRECTIVE)
+    # 인연 출처 — '주변 사람 vs 새로운 사람' 질문이면 합·도화=가까운 / 충·역마=새 인연 근거(비단정).
+    if _is_partner_source_question(question):
+        trailing.append(PARTNER_SOURCE_DIRECTIVE)
     # 큰 결정(결혼·이혼) 타이밍 — 운 저점이면 보류 권고(궁합 자료). 이혼이면 사유 severity 분기도.
     if _is_big_decision(intent, question):
         trailing.append(_BIG_DECISION_DIRECTIVE)

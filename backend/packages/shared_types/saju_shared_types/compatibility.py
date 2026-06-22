@@ -24,6 +24,7 @@ class CompatSignalKind(StrEnum):
     DAY_BRANCH_DUPLICATE = "day_branch_dup"    # 일지 복음(같은 글자)
     TEN_GOD_TO_PARTNER = "ten_god_to_partner"  # 본인 일간 기준 상대 일간의 십성
     TEN_GOD_TO_SELF = "ten_god_to_self"        # 상대 일간 기준 본인 일간의 십성
+    TEN_GOD_COMPLEMENT = "ten_god_complement"  # 내게 약한 십성군을 상대가 채워줌(보완 끌림)
     YONGSIN_SUPPORT = "yongsin_support"        # 상대 오행이 본인 용·희신 보완
     YONGSIN_BURDEN = "yongsin_burden"          # 상대 오행이 본인 기·구신 강화
     SINSAL_CHARM = "sinsal_charm"              # 도화·홍염 끌림(보조 — 가볍게)

@@ -183,3 +183,74 @@ def test_month_candidate_bucketing_uses_solar_term_bounds() -> None:
     assert in_question_range("2026-07", "2026-07-04", "2026-07-04", mb) is False
     # month_bounds 미제공(캘린더 경계)이면 옛 동작(7월=2026-07 in) — 하위호환.
     assert in_question_range("2026-07", "2026-07-04", "2026-07-04") is True
+
+
+# 절기월 경계(2026-06-22) — 7월 4일은 소서(7/7) 전이라 甲午월(절기월), 乙未월 아님.
+def test_daily_question_uses_solar_month_not_calendar() -> None:
+    from saju_api.services.chat_service import _build_period_fortune
+    from saju_shared_types.birth_input import BirthInput
+    from saju_shared_types.intent import (
+        Domain,
+        Granularity,
+        IntentJson,
+        QueryType,
+        TimeRange,
+    )
+
+    b = BirthInput(
+        calendar_type="solar", birth_date="1980-11-22", birth_time="09:08",
+        birth_place_name="서울", gender="male",
+    )
+    tr = TimeRange(type="on_date", granularity=Granularity.DAY, start="2026-07-04")
+    intent = IntentJson(
+        intent_id="x", query_type=QueryType.TIMING_SEARCH, domain=Domain.GENERAL, time_range=tr,
+    )
+    pf = _build_period_fortune(b, intent, date(2026, 6, 22), "daily")
+    assert pf is not None
+    # 절기월 안내가 甲午월 + 양력 범위로 주입되고, 乙未월(양력 7월 오인)은 노출되지 않는다.
+    assert "甲午월" in pf.solar_month_note
+    assert "2026-06-06" in pf.solar_month_note and "2026-07-06" in pf.solar_month_note
+    import json
+    assert "乙未" not in json.dumps(pf.model_dump(), ensure_ascii=False, default=str)
+
+
+def test_date_question_selects_solar_month_candidate() -> None:
+    """날짜(7/4) 질문은 월 후보를 양력 달(乙未/2026-07)이 아니라 절기월(甲午/2026-06)로 잡는다."""
+    from saju_api.services.chat_service import _current_luck_month, _get_scorer
+    from saju_api.services.manse_service import calculate
+    from saju_engines.context_reducer import in_question_range
+    from saju_shared_types.birth_input import BirthInput
+
+    r = calculate(BirthInput(
+        calendar_type="solar", birth_date="1980-11-22", birth_time="09:08",
+        birth_place_name="서울", gender="male", reference_date=date(2026, 6, 22),
+    ))
+    all_scored = _get_scorer().score_legacy(r)
+    win = "2026-07-04"
+    solar_m = _current_luck_month(date.fromisoformat(win), "Asia/Seoul")
+    assert solar_m == "2026-06"  # 7/4는 소서 전 → 甲午월(2026-06)
+
+    def _in_win(p: str) -> bool:
+        if len(p) == 7:
+            return p == solar_m
+        return in_question_range(p, win, win)
+
+    months = {c.period for c in all_scored if len(c.period) == 7 and _in_win(c.period)}
+    assert months == {"2026-06"}  # 절기월만 (乙未/2026-07 제외)
+
+
+def test_date_solar_month_directive_fact() -> None:
+    """날짜 질문에 그 날의 절기 월간지를 '엔진 확정 사실'로 주입(LLM 양력 달 오답 차단)."""
+    from saju_api.services.chat_service import _date_solar_month_note
+    from saju_shared_types.birth_input import BirthInput
+
+    b = BirthInput(
+        calendar_type="solar", birth_date="1980-11-22", birth_time="09:08",
+        birth_place_name="서울", gender="male",
+    )
+    # 7/4 = 소서(7/7) 전 → 甲午월(乙未 아님).
+    note = _date_solar_month_note(b, date(2026, 7, 4), "Asia/Seoul")
+    assert "甲午" in note and "乙未" not in note
+    assert "2026-06-06" in note  # 절입 범위
+    # 7/10 = 소서 후 → 乙未월.
+    assert "乙未" in _date_solar_month_note(b, date(2026, 7, 10), "Asia/Seoul")

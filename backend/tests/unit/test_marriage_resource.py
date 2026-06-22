@@ -15,15 +15,37 @@ from saju_engines.marriage_resource import analyze_marriage_resource
 from saju_shared_types.birth_input import BirthInput
 
 
-def _profile(time_: str):
+def _profile(time_: str, gender: str = "female"):
     return analyze_marriage_resource(
         calculate(
             BirthInput(
                 calendar_type="solar", birth_date="1961-09-30", birth_time=time_,
-                birth_place_name="서울", gender="female",
+                birth_place_name="서울", gender=gender,
             )
         )
     )
+
+
+# 배우자성 성별 인지 — 헤더가 성별 기준(남=재성·여=관성)으로 분기(2026-06-22 데굴님 지적 교정).
+def test_marriage_lines_header_gender_aware() -> None:
+    from saju_engines.structural_context import marriage_resource_lines
+    male = " ".join(marriage_resource_lines(_profile("12:00", "male")))
+    female = " ".join(marriage_resource_lines(_profile("12:00", "female")))
+    # 남성: 재성=배우자(처), '관성=배우자' 여성 기준 문구 없음.
+    assert "재성=배우자(처)" in male
+    assert "관성=배우자," not in male and "관성=배우자(남편)" not in male
+    # 여성: 관성=배우자(남편).
+    assert "관성=배우자(남편)" in female
+
+
+def test_spouse_star_directive_gender() -> None:
+    from saju_engines.structural_context import spouse_star_directive
+    male = spouse_star_directive("male")
+    female = spouse_star_directive("female")
+    assert "남성의 배우자(아내)는 재성" in male and "배우자가 아니다" in male
+    assert "여성의 배우자(남편)는 관성" in female
+    # 미상은 단정 금지 안내.
+    assert "단정하지" in spouse_star_directive(None)
 
 
 def test_hour_pillar_splits_wealth_source() -> None:
@@ -81,3 +103,187 @@ def test_lines_render_bond_signals() -> None:
     # 낙인 표현 절대 금지(중립 가드).
     for banned in ("바람둥이", "과부"):
         assert banned not in text
+
+
+# Task 1 — 일지 3분류 배우자궁 기질(왕지/생지/고지, 도화·역마·화개).
+def test_day_branch_temperament_classification() -> None:
+    """일지 지지가 왕지/생지/고지 중 하나로 일관되게 분류된다(비단정 라벨)."""
+    from saju_manse_analysis.sinsal.sinsal_catalog import SAGO, SAJEONG, SASAENG
+
+    from saju_engines.marriage_resource import _day_branch_temperament
+    from saju_shared_types.enums import Branch
+
+    expected = {"wangji": SAJEONG, "saengji": SASAENG, "goji": SAGO}
+    seen: set[str] = set()
+    for branch in Branch:
+        group, tendency = _day_branch_temperament(branch)
+        assert group in expected and tendency  # 12지지 전부 분류·라벨 존재
+        assert branch in expected[group]  # 분류가 사정/사생/사고 집합과 일치
+        seen.add(group)
+    assert seen == {"wangji", "saengji", "goji"}  # 세 그룹 모두 커버
+
+
+def test_day_branch_temperament_on_profile() -> None:
+    """실사례 1961-09-30(일지 寅) → 생지(역마형)로 분류·라벨 노출."""
+    mr = _profile("12:00")  # 丙寅 일주
+    assert mr.day_branch_group == "saengji"
+    assert "생지" in mr.day_branch_tendency and "역마" in mr.day_branch_tendency
+
+
+def test_day_branch_temperament_rendered_neutral() -> None:
+    """배우자궁 기질이 marriage_resource_lines에 렌더되며 기질 라벨에 단정·낙인이 없다."""
+    from saju_engines.structural_context import marriage_resource_lines
+    mr = _profile("12:00")
+    text = " ".join(marriage_resource_lines(mr))
+    assert "배우자궁(일지) 기질" in text
+    # 기질 라벨 자체는 단정·낙인 어휘를 쓰지 않는다(헤더의 '금지' 안내문은 검사 대상 아님).
+    for banned in ("반드시", "바람둥이", "과부", "이혼한다"):
+        assert banned not in mr.day_branch_tendency
+
+
+# ── 영상 1+2 보강: A 일지 십성 이상형 ──
+def test_ideal_type_mapping_all_groups() -> None:
+    from saju_engines.marriage_resource import _ideal_type
+    cases = {
+        "비견": "peer", "겁재": "peer", "식신": "output", "상관": "output",
+        "정재": "wealth", "편재": "wealth", "정관": "officer", "편관": "officer",
+        "정인": "resource", "편인": "resource",
+    }
+    for god, grp in cases.items():
+        group, label = _ideal_type(god)
+        assert group == grp and label
+    assert _ideal_type(None) == ("", "")
+    assert _ideal_type("없음") == ("", "")
+
+
+def test_ideal_type_on_profile() -> None:
+    # 일지 본기 십성 기준 이상형 그룹이 채워진다(성별 무관 — 일지 십성은 동일).
+    mr = _profile("12:00")
+    assert mr.day_branch_ten_god_group in ("peer", "output", "wealth", "officer", "resource")
+    assert mr.ideal_type_tendency
+
+
+# ── E 배우자별 하나·튼튼 ──
+def test_spouse_quality_fields_present() -> None:
+    mr = _profile("06:00")
+    assert isinstance(mr.spouse_star_clean, bool)
+    assert isinstance(mr.spouse_star_rooted, bool)
+    # clean이면 반드시 배우자성 존재·과다 아님.
+    if mr.spouse_star_clean:
+        assert mr.spouse_star_present and not mr.spouse_star_excess
+
+
+# ── F 배우자궁(일지) 안정도: 충/형/원진/파/해 ──
+def test_spouse_palace_afflictions_detection() -> None:
+    from saju_engines.marriage_resource import _spouse_palace_afflictions
+    from saju_shared_types.enums import Branch
+    assert "충" in _spouse_palace_afflictions(Branch.JA, [Branch.O])  # 子午충
+    assert "원진" in _spouse_palace_afflictions(Branch.JA, [Branch.MI])  # 子未 원진
+    assert _spouse_palace_afflictions(Branch.JA, [Branch.CHUK]) == []  # 子丑 육합(살 아님)
+
+
+def test_spouse_palace_stable_consistency() -> None:
+    mr = _profile("12:00")
+    # stable은 afflictions 비어있음과 정확히 일치.
+    assert mr.spouse_palace_stable == (not mr.spouse_palace_afflictions)
+
+
+# ── G 배우자성=용신 → 배우자 덕 ──
+def test_spouse_is_yongsin_cross() -> None:
+    from saju_shared_types.llm_input import UsefulGods
+    r = calculate(BirthInput(
+        calendar_type="solar", birth_date="1980-11-22", birth_time="09:08",
+        birth_place_name="서울", gender="male",
+    ))
+    mr0 = analyze_marriage_resource(r)  # useful 미입력 → graceful False
+    assert mr0.spouse_is_yongsin is False
+    # 남성 배우자성=재성. 재성 오행을 용신으로 주면 True.
+    useful = UsefulGods(yongsin=[mr0.wealth_element])
+    mr1 = analyze_marriage_resource(r, useful)
+    assert mr1.spouse_is_yongsin is True
+    # 재성 오행이 기신이면 False.
+    useful2 = UsefulGods(gisin=[mr0.wealth_element])
+    assert analyze_marriage_resource(r, useful2).spouse_is_yongsin is False
+
+
+# ── 직렬화: 새 축(이상형·배우자복 품질)이 렌더된다(chat·report 공용) ──
+def test_lines_render_new_axes() -> None:
+    from saju_engines.structural_context import marriage_resource_lines
+    text = " ".join(marriage_resource_lines(_profile("12:00")))
+    assert "배우자 취향(이상형" in text
+    assert "배우자복 품질" in text
+    # 이혼 단정 금지 가드(F 손상 케이스 라벨에 포함될 때).
+    assert "이혼한다" not in text
+
+
+# ── B 생애 단계별 연애 대상(연/월/시지 십성) ──
+def test_life_stage_ideals_helper() -> None:
+    from saju_engines.marriage_resource import _life_stage_ideals
+    out = _life_stage_ideals("정재", "정관", "정인")  # wealth/officer/resource
+    assert any("어릴 때" in x and "현실 매력형" in x for x in out)
+    assert any("원숙기" in x and "조건·태도형" in x for x in out)
+    assert any("말년" in x and "보살핌형" in x for x in out)
+    # 미상 십성은 스킵.
+    assert _life_stage_ideals(None, "없음", None) == []
+
+
+def test_life_stage_ideals_on_profile_and_render() -> None:
+    from saju_engines.structural_context import marriage_resource_lines
+    mr = _profile("12:00")
+    assert mr.life_stage_ideals  # 연/월/시지 본기 십성 → 단계 라벨
+    text = " ".join(marriage_resource_lines(mr))
+    assert "생애 단계 연애 대상" in text
+    assert "시기 단정 아님" in text  # 단정 가드 동반
+
+
+# ── 관계 친화·돌봄 성향(식신 케어/식상생재/인성/비겁/신약+비겁약) ──
+def _pil(stem_tg: str | None, branch_tg: str):
+    from types import SimpleNamespace
+    return SimpleNamespace(stem_ten_god=stem_tg, branch_main_ten_god=branch_tg)
+
+
+def _fa_stub(groups: dict, band: str):
+    from types import SimpleNamespace
+    return SimpleNamespace(
+        ten_gods=SimpleNamespace(groups=groups), strength=SimpleNamespace(band=band),
+    )
+
+
+def test_relationship_affinity_signals() -> None:
+    from types import SimpleNamespace
+
+    from saju_engines.marriage_resource import _relationship_affinity
+
+    # 식신(월·일지) + 비겁 → 케어 + 당당.
+    p = SimpleNamespace(
+        year=_pil("비견", "비견"), month=_pil("식신", "식신"),
+        day=_pil("정재", "식신"), hour=None,
+    )
+    aff = _relationship_affinity(p, _fa_stub({"output": 20, "wealth": 5, "peer": 25}, "신강"))
+    assert any("식신" in x and "케어" in x for x in aff)
+    assert any("비겁" in x and "당당" in x for x in aff)
+
+    # 신약 + 비겁 약 + 식상·재성 → 회피 주의.
+    p2 = SimpleNamespace(
+        year=None, month=_pil("정재", "정재"), day=_pil("정재", "정재"), hour=None,
+    )
+    aff2 = _relationship_affinity(p2, _fa_stub({"output": 15, "wealth": 30, "peer": 5}, "신약"))
+    assert any("회피" in x or "물러" in x for x in aff2)
+
+    # 인성 과다 → 단점 경향.
+    p3 = SimpleNamespace(
+        year=_pil("정인", "정인"), month=_pil("편인", "정인"),
+        day=_pil("정인", "편인"), hour=None,
+    )
+    aff3 = _relationship_affinity(p3, _fa_stub({"resource": 40, "peer": 10}, "신강"))
+    assert any("인성 과다" in x for x in aff3)
+
+
+def test_relationship_affinity_rendered_neutral() -> None:
+    from saju_engines.structural_context import marriage_resource_lines
+    mr = _profile("12:00")
+    text = " ".join(marriage_resource_lines(mr))
+    if mr.relationship_affinity:
+        assert "관계 친화·돌봄 성향" in text
+    for banned in ("반드시", "확실히", "최악"):
+        assert all(banned not in x for x in mr.relationship_affinity)

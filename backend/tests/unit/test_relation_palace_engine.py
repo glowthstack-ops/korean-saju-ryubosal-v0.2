@@ -71,3 +71,53 @@ def test_no_activation_unchanged() -> None:
     out = e.apply([_cand("wealth_change", 50)], [])
     assert out[0].score == 50
     assert out[0].palace is None
+
+
+# Task 2 — 복음(伏吟) 결혼 보조 트리거: 운 지지=원국 일지 → 일지궁 marriage_signal 강화.
+def test_bokeum_day_boosts_marriage_signal() -> None:
+    e = _eng()
+    act = [
+        RelationActivation(RelationKind.BOKEUM, Pillar4.DAY, LuckLayer.SEWOON, position="branch"),
+    ]
+    out = e.apply([_cand("marriage_signal", 50)], act)
+    c = out[0]
+    assert c.score > 50  # 복음이 결혼 신호를 강화(단독 생성 아님, 기존 후보 가점)
+    assert c.palace is Pillar4.DAY
+    assert any(r.startswith("REL_BOKEUM_day_pillar") for r in c.reason_codes)
+
+
+def test_bokeum_weaker_than_clash() -> None:
+    e = _eng()
+    bok = e.apply(
+        [_cand("marriage_signal", 50)],
+        [RelationActivation(RelationKind.BOKEUM, Pillar4.DAY, LuckLayer.SEWOON, position="branch")],
+    )[0]
+    chung = e.apply(
+        [_cand("marriage_signal", 50)],
+        [RelationActivation(RelationKind.CHUNG, Pillar4.DAY, LuckLayer.SEWOON, position="branch")],
+    )[0]
+    # 복음(보조 트리거, bonus 5)은 충(bonus 10)보다 약하게 가점된다.
+    assert 50 < bok.score <= chung.score
+
+
+def test_bokeum_activation_detection() -> None:
+    """_bokeum_activations — 운 지지가 원국 일지와 같을 때만 BOKEUM/일지 발동(타 지지는 미발동)."""
+    from types import SimpleNamespace
+
+    from saju_api.services.manse_service import calculate
+    from saju_engines.event_engine_v2 import _bokeum_activations
+    from saju_shared_types.birth_input import BirthInput
+
+    r = calculate(BirthInput(
+        calendar_type="solar", birth_date="1985-03-15", birth_time="14:30",
+        birth_place_name="서울", gender="female",
+    ))
+    day_branch = r.pillars.day.branch  # 癸丑 → 丑
+    # 일지와 같은 지지 → 복음 발동(일지궁).
+    acts = _bokeum_activations(r, SimpleNamespace(branch=day_branch), LuckLayer.SEWOON)
+    assert len(acts) == 1
+    assert acts[0].kind is RelationKind.BOKEUM and acts[0].palace is Pillar4.DAY
+    assert acts[0].position == "branch" and acts[0].layer is LuckLayer.SEWOON
+    # 다른 지지 → 미발동.
+    other = "寅" if day_branch != "寅" else "卯"
+    assert _bokeum_activations(r, SimpleNamespace(branch=other), LuckLayer.SEWOON) == []

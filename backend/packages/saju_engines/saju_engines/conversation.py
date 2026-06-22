@@ -59,6 +59,9 @@ _REFINE_RE = re.compile(
     r"|다른\s*(?:날|거|것|쪽)|딴\s*(?:날|거)"
 )
 _DRILL_RE = re.compile(r"세부적으로|구체적으로|시기별로|자세히")
+# 새 스레드를 여는 '처음부터 다시'·새 풀이 요청 신호 — 토픽 연속 후속에서 제외(직전 분야 미상속).
+_FRESH_OVERVIEW_RE = re.compile(r"총운|전체\s*운|평생|사주\s*전체|명식|처음부터|새로\s*봐")
+_READING_REQUEST_RE = re.compile(r"사주\s*(봐|풀)|봐\s*줘|봐주|풀어\s*줘")
 
 
 class ConversationEngine:
@@ -253,6 +256,20 @@ class ConversationEngine:
         # 경우. 직전 의도를 그대로 이어 같은 주제·창을 계속 다룬다(수락이 새 질문으로 끊겨 broad
         # 안내로 빠지던 결함 차단 — 2026-06-18 데굴님 지적).
         if AFFIRMATION_RE.fullmatch(text.strip()):
+            return self._follow(parent_id, LinkKind.DRILL_DOWN, state)
+
+        # 토픽 연속(2026-06-22) — 활성 스레드(직전 분야 확정)에서 '새 도메인을 안 들고 온' 충분히
+        # 구체적인 후속은 직전 분야를 잇는 drill-down으로 본다(예: 관계 풀이 뒤 '주변 사람이야
+        # 새로운 사람이야?'). 지시어·도메인 키워드가 없어 NEW로 떨어진 뒤 시점·분야 부재로
+        # too_broad 바운스되던 결함 차단 — 기존 intent 분류(_detect_domains) 재사용. 가드: 짧은
+        # 반응어('그래?')·새 풀이·리셋 요청('네 사주 봐줘'·'총운 처음부터')은 제외(새 스레드 보존).
+        if (
+            state.last_intent.domain is not Domain.GENERAL
+            and len(compact) >= 12
+            and not _detect_domains(text)
+            and not _FRESH_OVERVIEW_RE.search(text)
+            and not _READING_REQUEST_RE.search(text)
+        ):
             return self._follow(parent_id, LinkKind.DRILL_DOWN, state)
 
         # 4순위 — 새로운 도메인+완결 질문 → 새 스레드 문맥.

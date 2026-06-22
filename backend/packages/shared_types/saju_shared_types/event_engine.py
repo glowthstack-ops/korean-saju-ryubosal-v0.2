@@ -161,6 +161,7 @@ class RelationKind(StrEnum):
     HYEONG = "HYEONG"
     PA = "PA"
     HAE = "HAE"
+    BOKEUM = "BOKEUM"  # 복음(伏吟) — 운 지지=원국 일지(배우자궁) 복음, 결혼 보조 트리거
 
 
 class Pillar4(StrEnum):

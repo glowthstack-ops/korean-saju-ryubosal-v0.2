@@ -3791,3 +3791,211 @@ NOT NULL이라 프로필 행 없이는 저장 불가.
 - 검증: 실 사주(1980-11-22) 라이브 — 2027/2033~2034 핵심·2035 교운기 반영·"어느 해를 더 자세히
   보고 싶으신가요?"로 마감. ruff·mypy clean, 회귀 테스트 추가(test_conversation_date_fixes.py),
   전체 스위트 통과(DB 미설정 통합 3건 제외).
+
+### 결혼·궁합 보강 — 일지 3분류 배우자궁 기질·십성 보완 끌림·복음 결혼 트리거 (2026-06-22)
+
+데굴님 요청: 결혼·연애·궁합 영상 스크립트의 명리 요소가 미반영됐는지 점검·반영. 조사 결과
+끌림/안정 이중채널·용신 보완·12운성 관대건록·재성(남)/관성(여) 십성·일지 육합(RELATION_HAP_DAY)은
+이미 반영, 아래 3가지가 미반영이라 사용자 승인 후 정석 구현(규칙 5·6·10 준수). 전부 비단정·경향
+서술(규칙 3·8). chat(AI채팅상담)·report(테마사주) **공용 직렬화/엔진**을 거치므로 양쪽 자동 반영.
+
+- **Task 1 — 일지 3분류 배우자궁 기질**(원국, 순수 엔진): 일지를 왕지(子午卯酉·도화)/생지
+  (寅申巳亥·역마)/고지(辰戌丑未·화개)로 분류해 관계 기질 경향을 중립 라벨로 표면화.
+  `MarriageResourceProfile`에 `day_branch_group`·`day_branch_tendency` 추가, `marriage_resource.py`
+  `_day_branch_temperament()`, `structural_context.marriage_resource_lines`에 "배우자궁(일지) 기질"
+  줄 추가. chat `_structural_context`(RELATIONSHIP/총운)·report `marriage_resource_block` 노출 검증.
+- **Task 2 — 복음(伏吟) 결혼 보조 트리거**(이벤트 엔진+사전, 정석): 운 지지=원국 일지(배우자궁)
+  복음을 결혼 트리거로 추가. `RelationKind.BOKEUM` enum, `relation_palace_modifier.json`에
+  `BOKEUM` relation_type(bonus 5, 보조)·`RELATION_BOKEUM_DAY`(→marriage_signal·relationship_change)
+  규칙, `event_engine_v2._bokeum_activations()`로 일지 복음 발동 합성(단독 생성 아님·기존 후보만
+  강화). 라이브 검증: 1985-03-15(일지 丑) → 2021·2009(丑년) marriage_signal에 `REL_BOKEUM_day_pillar`
+  가점(91/93), 비복음년 미발동. 골든/회귀 스냅샷 영향 없음.
+- **Task 3 — 십성 보완 끌림**(궁합, 순수 엔진): force_analysis 십성군 분포에서 한쪽이 약/부재(<10%)인
+  군을 상대가 뚜렷이 보유(>=20%)하면 보완 끌림 신호(격차 최대 1건/방향). 식재(식상·재성) 부재
+  보완은 여성 taker=결혼·생활 기반 보탬 뉘앙스. `CompatSignalKind.TEN_GOD_COMPLEMENT` enum,
+  `compatibility_engine._ten_god_complement_signals()`, 끌림 가중 1(잔잔한 보완형). chat
+  `_compat_prompt_block`·report `compatibility_block` 노출 검증.
+- 검증: ruff·mypy clean, 단위 테스트 추가(test_marriage_resource·test_compatibility_engine·
+  test_relation_palace_engine), 전체 스위트 통과(기존 DB/환경 의존 통합 2건 제외 — stash 확인상
+  본 변경과 무관). 사전 검증 `validate_dictionaries.py` 통과.
+
+### 결혼 보강 후속 — 비식재(比食財) 흐름 결혼 타겟팅 (2026-06-22)
+
+위 Task 2의 확장. 정통 배우자성 경로(여=관성합·남=재성합)가 약/부재인 사주가 **비겁→식상→재성**
+생성 흐름으로 결혼하는 메커니즘(영상 자료) 반영. 원국 비식재 구조 × 운의 식재/재생관 보강을 결합한
+**원국×운 모델**로, 횡재 발동(WealthActivationModifier)과 동일한 순수 엔진·잠정 가중·reviewed:false
+패턴. **증폭만**(기존 marriage_signal·relationship_change 후보 가산, 후보 신규 생성 안 함 — 2026-06-22
+사용자 확정). EventEngineV2 공용이라 chat(AI채팅상담)·report(테마사주) 자동 반영.
+
+- 신규 `marriage_flow_modifier.py`: `analyze_marriage_flow_natal()`(원국 그릇 band — strong=비식재
+  라인+배우자성 약 / moderate=라인만 / none), `detect_marriage_flow_activations()`(시점 십성군→발동:
+  식상 보강 0.08·재성 보강 0.12·완성 0.16, 성별 인지 — 여=재생관 완성 / 남=식상생재 완성),
+  `MarriageFlowModifier.apply()`(band 배율 1.0/0.5/0 × 계열 감쇠 1.0/0.45/0.25 → (1+boost)배).
+- `event_engine_v2`: `marriage_flow`를 capacity처럼 1회 계산해 `_score_target`에 스레딩, `_wealth_act`
+  다음에 `present_gods`→그룹 환원 후 `_marriage_flow.apply` 적용.
+- 라이브 검증: 1990-05-05 남(band strong) → 2027 marriage_signal·relationship_change에
+  `MARRIAGEFLOW_재성 보강`, 2032 `식상생재 완성`; 1988-09-09 여(strong) → `재생관 완성` 가점.
+  band=none 명식은 무가산.
+- 검증: ruff·mypy clean, 단위 테스트 `test_marriage_flow_modifier.py`(7건), 전체 스위트 통과
+  (기존 환경 의존 통합 2건 제외 — 본 변경과 무관). 골든/회귀 스냅샷 영향 없음.
+
+### 배우자성 성별 오역 교정 — 남=재성·여=관성 (2026-06-22)
+
+데굴님 지적: 남성 사주인데 "정관=여성에게는 배우자" 식 **여성 기준 풀이**가 나옴. 원인 =
+`marriage_resource_lines` 헤더가 성별 무관하게 `관성=배우자, 재성=시댁`(여성 고정)으로 하드코딩돼
+남성 명식에 자기모순 입력이 들어가 LLM이 여성 프레이밍을 따름. + 프롬프트에 배우자성 가드 부재.
++ 엔진이 정관→marriage_signal을 성별 무관하게 생성(남성도 정관 해에 결혼신호 정점).
+
+- **① 헤더 성별 인지**(`structural_context._SPOUSE_FRAME_KO`): 여=관성=배우자(남편)·재성=시댁 /
+  남=재성=배우자(처)·관성=직위·자식(배우자 아님) / 미상=성별 기준 안내.
+- **② 배우자성 가드 디렉티브**(`structural_context.spouse_star_directive`, chat·report 공용):
+  결혼·관계 질문(Domain.RELATIONSHIP 또는 결혼 키워드)·테마사주 결혼 섹션에 성별 명시 + 반대 성별
+  기준 해석 금지. chat_service trailing·report_service _MARRIAGE_RESOURCE_SECTIONS에 주입.
+- **③ 엔진 배우자성 성별 가중**(`marriage_flow_modifier.apply_marriage_gender_weight`, 브랜칭 직후):
+  구동 십성(reason_code SINGLE_/SPEC_/TRI_)으로 남성 정관 단독=×0.6·여성 재성 단독=×0.7 약화,
+  재관 동반(재생관 등)은 불변. 잠정·reviewed:false. 결과 — 남성은 정재(재성=처) 연도가 상위로,
+  여성은 정관·재관인이 상위로 정렬(라이브 1980-11-22 확인). 골든/회귀 영향 없음.
+- 검증: ruff·mypy clean, 단위 테스트 추가(gender weight 4건·헤더/가드 2건), 전체 스위트 통과
+  (기존 환경 의존 통합 2건 제외). EventEngineV2·공용 직렬화라 chat·report 양쪽 자동 반영.
+
+### 결혼 후속 — GENERAL 관계질문 가드 누락·만남시기 택일오해 교정 (2026-06-22)
+
+데굴님 지적(연속): 남성에게 ①6월 정관을 '결혼 만남'으로 풀고 ②막연한 '언제 만나' 질문에 2월을
+선택지처럼 콕 집어 잘못 안내. 원인 = '그럼 그 연인은 언제쯤 만나?'가 `domain=GENERAL`로 파싱돼
+(ⓐ)배우자성 가드 트리거(RELATIONSHIP/결혼키워드)를 빗나가 누락, (ⓑ)직전 '2년 안에 결혼?'
+(relationship·2026-06~2028-05·월)의 시점 범위를 상속해 월 후보가 유입→LLM이 기신 달(2월)을
+선택지로 나열.
+
+- **Fix A**: 배우자성 가드를 `_structural_context`의 결혼 블록 바로 뒤로 이동 — 트리거를
+  도메인/키워드가 아니라 '결혼 블록 표면화 시(general 포함)'로 바꿔 GENERAL 관계질문에도 항상 동반.
+  chat trailing 중복 제거(report는 기존대로 결혼 섹션에 동반).
+- **Fix B**: `_MEETING_TIMING_DIRECTIVE`(+`_is_relationship_context`/`_RELATIONSHIP_KEYS`) 신설 —
+  관계 맥락(도메인 또는 연애·연인·인연·배우자·결혼·솔로 등 키워드)에서 "만남은 택일이 아니다:
+  약한/기신 달을 선택지로 끌어와 무르지 말고 가장 유리한 시기 하나(연·반기·계절)로, 만날 장소·경로는
+  사주로 단정 불가(출장지·교육현장 창작 금지)"를 주입.
+- 검증: ruff·mypy clean, 단위 테스트 6건(test_relationship_decision_directives.py 보강), 전체
+  스위트 통과(기존 환경 의존 통합 2건 제외). 런타임 — GENERAL 관계질문에 가드 포함·만남 디렉티브 동반 확인.
+
+### 결혼·연애 보강 2차 — 일지 십성 이상형·배우자복 3조건·자기인식 (2026-06-22)
+
+데굴님 제공 영상 2건(① 십성별 운명의 짝 ② 배우자복 결정 3요소) 기반 추가 보완. 전부 원국·결정론·
+비단정, `marriage_resource` + 공용 직렬화라 chat·report 자동 반영. (B 생애단계·D 운 일시취향은 후순위.)
+
+- **A 일지 십성 이상형**: 일지 본기 십성 → 끌리는 타입(비겁=대등/식상=표현·꾸밈/재성=현실 매력·외모/
+  관성=조건·태도/인성=보살핌). `_ideal_type`·`day_branch_ten_god_group`·`ideal_type_tendency`.
+  기존 일지 글자그룹(도화/역마/화개 기질)과 상호보완(HOW vs WHAT). 검증: 己亥(일지 정재)→'외모 중시'.
+- **C 자기인식 어드바이스**: `RELATIONSHIP_SELF_AWARENESS_DIRECTIVE`(공용) — '사주에 드러난 취향을
+  본인이 인정 않으면 연애가 어긋난다, 실제 끌리는 타입 받아들이도록' 안내. 관계 맥락 chat·report 주입.
+- **E 배우자별 하나·튼튼**(`spouse_star_clean`·`spouse_star_rooted`): 정확히 1개 드러남(깔끔) + 지지
+  본기 뿌리(튼튼=현실적 도움 경향).
+- **F 배우자궁(일지) 안정도**(`spouse_palace_stable`·`spouse_palace_afflictions`): 일지 충/형/원진/파/해
+  관여 여부 → 관계 내구성. 손상 시 '개운·궁합·노력으로 보완 가능(이혼 단정 아님, 남 탓보다 본인 대응)'
+  가드 동반.
+- **G 배우자성=용신 덕**(`spouse_is_yongsin`): 배우자성 오행(남=재성·여=관성)이 용·희신이면 '배우자가
+  부족한 기운 채워주는 에어컨/보일러 — 결혼하며 더 풀리는 배우자 덕'. `analyze_marriage_resource(result,
+  useful)` 인자 추가(chat=build_birth_summary·report=summary.useful_gods 전달, 미입력 graceful).
+- 검증: ruff·mypy clean, 단위 테스트 보강(test_marriage_resource.py — A/E/F/G 8건), 전체 스위트 통과
+  (기존 환경 의존 통합 2건 제외). 런타임 — GENERAL 관계질문에 이상형·배우자복 품질·자기인식·성별 가드 4축 동반 확인.
+
+### 결혼·연애 보강 3차 — 생애단계 연애대상(B)·운 일시 취향변동(D) (2026-06-22)
+
+영상1 후순위 2종 마저 반영. 원국·결정론(B)·디렉티브(D), chat·report 공용 자동 반영.
+
+- **B 생애 단계별 연애 대상**(`life_stage_ideals`, `_life_stage_ideals`/`_TYPE_SHORT`): 연지=어릴 때
+  또래·유행 / 월지=사회·원숙기 결혼상대 / 시지=말년(약) — 각 지지 본기 십성 → 짧은 타입어. 직렬화에
+  "생애 단계 연애 대상(…경향·시기 단정 아님)" 줄 추가. 검증 1980-11-22 男: 어릴때 표현·꾸밈형/원숙기
+  현실 매력형/말년 대등·독립형.
+- **D 운 일시 취향 변동**(`TENDENCY_SHIFT_DIRECTIVE`, 공용): 운에서 평소 일지 취향과 다른 십성(특히
+  인성·식상)이 강하면 일시적으로 다른 타입에 끌리고 운 빠지면 흔들림 — '운에 취해' 급히 정하지 말라는
+  주의(불안 조장·단정 금지). chat `_structural_context`·report 결혼 섹션 주입.
+- 검증: ruff·mypy clean, 단위 테스트 보강(B 2건), 전체 스위트 통과(기존 환경 의존 통합 2건 제외).
+  런타임 — chat·report 양쪽에 B 직렬화·D 디렉티브 동반 확인(데굴님 요구 — 양쪽 반영 검증 완료).
+
+### 관계 후속 토픽 연속 — '주변 vs 새 인연' too_broad 바운스 차단 (2026-06-22)
+
+데굴님 지적: 관계 풀이 직후 '주변에 있는 사람이야 아니면 완전히 새로운 사람이야?'가 시점(6개월/올해)
+좁히기로 바운스됨. 원인 = 지시어·도메인 키워드가 없어 `link_question`이 NEW로 떨어짐 → 관계 도메인
+상속 실패 → GENERAL+무시점 → `assess` too_broad. 데굴님 방향대로 **기존 intent 분류 재사용**으로 해결.
+
+- **Fix 1 토픽 연속 팔로업**(`conversation.link_question`): 활성 스레드(직전 분야 확정)에서 새 도메인을
+  안 들고 온(`_detect_domains==[]`) 충분히 구체적인(compact≥12) 후속은 직전 분야를 잇는 DRILL_DOWN
+  으로 본다. 가드 — 짧은 반응어('그래?')·새 풀이/리셋 요청(`_READING_REQUEST_RE`·`_FRESH_OVERVIEW_RE`:
+  '네 사주 봐줘'/'총운 처음부터')은 제외. 결과 — 도메인 상속(relationship)으로 has_domain=True +
+  is_followup_turn=True 이중으로 too_broad 차단 → 관계 맥락 답변.
+- **Fix 2 인연 출처 디렉티브**(`PARTNER_SOURCE_DIRECTIVE`, 공용): '기존 지인 vs 새 인연' 질문에 합·도화
+  =가깝고 익숙한 인연 / 충·역마=외부·새 인연 근거로 설명하되 사주로 확정 불가(경향·비단정). 출처 키워드
+  (`_is_partner_source_question`)일 때 chat trailing 주입.
+- 검증: ruff·mypy clean, 단위 테스트 추가(토픽 연속·출처 디렉티브 2건) + 회귀(affirmation 오인 1건 좁힌
+  가드로 해결), 전체 스위트 통과(기존 환경 의존 통합 2건 제외 — 본 변경과 무관). Fix는 chat 라우팅 특성상
+  채팅 경로 적용(구조 컨텍스트 자체는 기존대로 chat·report 공용).
+
+### 통변 충실성 — 사용자 전제 존중·명식 간지 환각 차단 (2026-06-22)
+
+데굴님 지적: ① '6월은 신호 없으니 그 다음부터 봐'라 했는데 LLM이 '사실은 6월에 강한 신호가 있다'며
+전제를 반박, ② 己亥 일주를 己未로 환각 서술. 진단 — 6월(甲午)은 정관 단독이 아니라 재성(남 배우자성)
+동반 재생관이라 엔진상 정당한 상위 신호(버그 아님)이나, 시스템 프롬프트에 사용자 전제 존중 규칙 부재 +
+간지 변경 금지가 약했음. 시스템 프롬프트(llm_client) 보강.
+
+- **Fix B 사용자 전제·시기 존중**(_SYSTEM_PROMPT 규칙 9 신설, 대화 전용): 사용자가 특정 시기를 빼달라거나
+  본인 판단을 제시하면 부정·반박('아무 신호 없다고 생각하셨겠지만 사실은…' 류 금지) 말고 사용자가 원하는
+  범위 중심으로 답하고, 그 시기에 신호가 있어도 사용자 의사를 우선.
+- **Fix C 명식 간지 충실성**(_SYSTEM_PROMPT·_REPORT_SYSTEM_PROMPT 규칙 1 보강): [원국·명식 구조] 제공
+  일주 등 간지를 그대로 인용, 다른 글자로 바꾸거나(己亥→己未) 물상·비유를 간지와 다르게 창작 금지.
+- 검증: ruff·mypy clean, 프롬프트 반영 확인(양쪽 간지 가드 + 대화 규칙9), 전체 스위트 통과(기존 환경
+  의존 통합 2건 제외). B는 대화 전용, C는 chat·report 양쪽.
+
+### 절기월 경계 — 날짜 질문 월운 오매핑·절기월 날짜범위 주입 (2026-06-22)
+
+데굴님 지적: '7월 4일 이사' 질문에 절기상 甲午월(소서 7/7 전)인데 乙未월(양력 7월)로 답함. 진단 —
+날짜(daily) 질문이 MONTH composite를 절기월로 한정하지 않아(월 경로엔 필터 있음) 모든 월이 노출,
+LLM이 양력 7월=乙未로 오인. + 데굴님 제안: 절기월을 '을미월' 대신 '7월 n일~8월 n일' 날짜범위로 주입.
+
+- **Fix 1 절기월 필터**(`_build_period_fortune` daily): `_current_luck_month(target)`로 그 날의 절기월
+  라벨을 구해 MONTH composite를 그 하나로 한정. 검증 — 7/4 컨텍스트에서 乙未 제거, 甲午만 노출.
+- **Fix 2 절기월 날짜범위 주입**(데굴님 제안, `PeriodFortune.solar_month_note`): daily·monthly에 해당
+  절기월 간지 + 양력 절입~다음절입 범위를 함께 준다(예: '甲午월(양력 2026-06-06~2026-07-06)').
+  context_reducer가 '절기월 안내:' 줄로 렌더. '○월=○○월운' 혼동 금지 문구 동반.
+- 검증: ruff·mypy clean, 단위 테스트 추가(절기월 경계 1건), 전체 스위트 통과(기존 환경 의존 통합 2건
+  제외). 날짜·기간 질문은 대화(chat) 기능이라 채팅 경로 적용.
+
+### 절기월 경계 후속 — 이사 날짜 질문 월 후보·이유블록 절기월 보정 (2026-06-22)
+
+데굴님 재지적('안 바뀐 것 같은데'): 7/4 이사 질문이 여전히 乙未월(양력 7월)로 풀림. 진단 — 이 질문은
+relocation 도메인이라 _build_period_fortune(daily, 앞서 수정)을 **타지 않고**(period_fortune_type=None)
+일반 후보 경로를 탐. 두 곳이 양력 달로 乙未를 끌어옴: ① 후보 선택(win=2026-07-04 → in_question_range가
+월 후보 '2026-07'=乙未 매칭), ② 이사 이유 블록(month_key=start[:7]='2026-07'). build_luck_grounding이
+선택된 乙未 후보를 '乙未 유입=천간 乙…' grounding으로 노출 → LLM이 乙木 기신/未土 용신 서술.
+
+- **Fix 1 후보 선택 절기월화**(chat_service 후보 윈도우): 날짜(YYYY-MM-DD) 단일일 질문이면 월 후보를
+  `_current_luck_month(target)` 절기월 라벨로만 매칭(`_in_win`) — 7/4 → 2026-06(甲午)만, 2026-07(乙未)
+  제외. 검증: 선택 월 후보 {2026-06}(기존 {2026-07}).
+- **Fix 2 이사 이유 블록 절기월화**(`_relocation_reason_context`): YYYY-MM-DD면 month_key를 양력 달이
+  아니라 절기월(`_current_luck_month`)로. 검증: 월운 천간 甲(정관)으로 교정(기존 乙 편관).
+- 검증: ruff·mypy clean, 단위 테스트 추가(후보 절기월 선택 1건), 전체 스위트 통과(기존 환경 의존 통합
+  2건 제외). 7/4 질문 grounding에서 乙未 제거·甲午로 일원화.
+
+### 절기월 경계 3차 — 날짜 월간지 사실 명시 주입(LLM 양력 달 오답 차단) (2026-06-22)
+
+데굴님 재지적('안 고쳐졌어, gpt쪽도 봐야지') + 직접 질문 '7월 4일의 월 간지는?'에 LLM이 '乙未(2026년
+7월)'로 오답. 근본 원인 — 후보·블록을 절기월로 고쳐도 LLM이 monthly_luck 라벨('2026-07=乙未')을 보고
+'7/4→7월→乙未'로 양력 달에 끌려 매핑. 후보 필터로는 LLM의 자체 매핑을 못 막음.
+
+- **Fix(공통·provider 무관)**: `_date_solar_month_note` — 날짜(YYYY-MM-DD) 질문이면 그 날의 절기 월간지
+  + 양력 절입 범위를 '[날짜 절기월 — 엔진 확정 사실]'로 trailing에 주입. '양력 N월 다음 절기월로 답하지
+  말고 반드시 {간지}로 본다' 못박음. 검증: 7/4→甲午(2026-06-06~07-06)·7/10→乙未. Gemini·GPT 폴백 공통
+  컨텍스트라 양쪽 적용.
+- 검증: ruff·mypy clean, 단위 테스트 추가(날짜 월간지 사실 1건), 전체 스위트 통과(기존 환경 의존 통합
+  2건 제외).
+
+### 관계 친화·돌봄 성향 — '여자에게 잘하는 남자 사주' 일반화 (2026-06-22)
+
+데굴님 제공 영상(여자에게 잘하는 남자 3유형) 기반. 성별 한정을 **성별 중립 '관계 친화도'**로 일반화 —
+한 명식이 관계에 어떻게 임하는가(본인 자기인식·상대 평가 양용)를 십성 구조×신강약으로 산출(positive·
+경향·비단정). marriage_resource + 공용 직렬화라 chat·report 자동 반영.
+
+- `_relationship_affinity`(`marriage_resource`)·`relationship_affinity` 필드: 식신(월·일지)=케어·표현·
+  재미 / 상관=표현 좋으나 돌발 / 식상생재=적극·타이밍 케어(단 장기 안정감 약) / 인성 적정=정·안정,
+  과다=답답·의존 / 비겁=당당·회피 적음 / 신약+비겁 약+식상·재성 중심=회피·맞춰짐 주의 / 신강약 균형=
+  누구에게나 맞춤 안정적 배우자감. 직렬화에 "관계 친화·돌봄 성향(경향·단정 아님)" 줄.
+- 검증: ruff·mypy clean, 단위 테스트 2건(신호 분기·중립 렌더), 전체 스위트 통과(기존 환경 의존 2건
+  제외). chat(RELATIONSHIP/총운)·report 결혼 섹션 양쪽 노출 확인.

@@ -174,6 +174,15 @@
       ],
       "base_event_score_bonus": 4,
       "requires_context_check": true
+    },
+    "BOKEUM": {
+      "name": "복음",
+      "core_meaning": "같은 글자 반복(운 지지=원국 지지) — 자기 글자가 눌려 잠재가 자극되거나 같은 일이 되풀이됨",
+      "event_action": ["repeat", "reactivate", "press_self"],
+      "positive_expression": ["인연·관계의 재점화", "묵은 일의 매듭", "배우자궁(일지) 자극 — 결혼·관계 형성"],
+      "negative_expression": ["같은 문제 반복", "권태·정체감"],
+      "base_event_score_bonus": 5,
+      "requires_supporting_signal": true
     }
   },
   "hap_subtype_rules": {
@@ -809,6 +818,16 @@
         "preparation_delay"
       ],
       "interpretation": "배우자·생활 현실에서 숨은 불편함, 오해, 지연이 생긴다."
+    },
+    {
+      "id": "RELATION_BOKEUM_DAY",
+      "relation": "BOKEUM",
+      "target_palace": "day_pillar",
+      "likely_events": [
+        "marriage_signal",
+        "relationship_change"
+      ],
+      "interpretation": "운 지지가 일지(배우자궁)와 같은 글자로 눌린다(복음). 배우자성·합 등 동반 신호가 있을 때 결혼·관계 형성이 자극되는 보조 트리거다. 단독으로 사건을 만들지 않고 기존 후보를 강화한다."
     },
     {
       "id": "RELATION_HAP_HOUR",

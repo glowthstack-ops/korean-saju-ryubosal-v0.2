@@ -662,7 +662,7 @@ export default function ChatPage() {
               disabled={busy}
               className="block max-h-32 w-full resize-none bg-transparent px-4 pt-3 text-sm outline-none"
             />
-            <div className="flex items-center gap-1 px-2 pb-2">
+            <div className="flex items-center gap-2 px-3 pb-3 pt-2">
               <button
                 type="button"
                 aria-label="메뉴"
