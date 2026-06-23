@@ -16,7 +16,7 @@ from pathlib import Path
 import saju_api.services.chat_service as chat_service
 from saju_engines.persona import PersonaEngine
 from saju_shared_types.birth_input import BirthInput
-from saju_shared_types.profile import PersonaConfig
+from saju_shared_types.profile import PersonaConfig, SpeechConfig, UserHonorific
 
 _DICTS = Path(__file__).resolve().parents[2] / "dictionaries"
 _FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "golden_style_ilju_example.md"
@@ -70,3 +70,26 @@ def test_persona_easy_jondae_block_is_template_only() -> None:
         "이 일주는 들판 아래 강물이 흐르는 형상이에요. 다정한 분이시네요.", config, "회원",
     )
     assert report.passed, report.violations
+
+
+def test_persona_banmal_converts_lexicon_phrases() -> None:
+    """반말 페르소나는 해요체 말버릇('이 흐름 좋네요')을 그대로 박지 말고 말투로 변환하게 지시한다.
+
+    실로그 결함(2026-06-23): 반말 답변에 lexicon의 '이 흐름 좋네요'(해요체)가 그대로 끼어듦.
+    """
+    engine = PersonaEngine(_DICTS)
+    config = PersonaConfig(
+        counselor_gender="neutral", counselor_age_band="20s",
+        speech=SpeechConfig(politeness="banmal", style="banmal_chae"),
+        user_honorific=UserHonorific(type="custom", custom_text="너"),
+    )
+    block = engine.build_block(config, "데굴")
+    # 말버릇을 현재 말투로 '변환'하라는 지시가 명시돼야 한다(verbatim 주입 금지).
+    assert "현재 말투로 변환" in block
+    assert "그대로 박지" in block
+    # 반말 답변에 해요체 '이 흐름 좋네요'가 섞이면 존대 혼용 위반으로 잡힌다(보고서 게이트).
+    report = engine.check_compliance(
+        "이 흐름 좋네. 좋은 자리가 들어와. 이 흐름 좋네요.", config, "데굴",
+    )
+    assert not report.passed
+    assert any("혼용" in v for v in report.violations)

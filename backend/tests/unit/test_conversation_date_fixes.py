@@ -135,6 +135,52 @@ def test_followup_inherits_time_scope_even_on_domain_shift() -> None:
     assert i2.time_range.start.startswith("2026")  # 막연한 미래(10년)로 리셋되지 않음
 
 
+def test_time_seeking_followup_does_not_inherit_prior_date() -> None:
+    """날짜 지정 뒤 '언제/할 수 있을까' 시점-탐색 후속은 직전 날짜를 승계하지 않는다(스스로 탐색).
+
+    실로그 결함(2026-06-23): 7/4 이사 지정 뒤 '연애 언제 시작?'까지 2026-07-04에 고정돼 풀이됨.
+    """
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t1")
+    _, state, _, _ = eng.process_turn(
+        state, "이번 7월 4일에 이사해", date(2026, 6, 23), birth_year=1990,
+    )
+    assert state.last_intent.time_range.start == "2026-07-04"
+    # '언제쯤 ~ 할 수 있어?' = 시점-탐색 → 7/4 미승계(open_when으로 스스로 탐색).
+    p2, state, _, _ = eng.process_turn(
+        state, "연애는 언제쯤 시작할 수 있어?", date(2026, 6, 23), birth_year=1990,
+    )
+    tr2 = p2.intents[0].time_range
+    assert tr2 is None or tr2.start is None  # 7/4로 고정되지 않음
+    # 이어진 '그 사람과 결혼할까?'(start 없는 직전 시점)도 7/4를 끌어오지 않는다.
+    p3, _s, _, _ = eng.process_turn(
+        state, "그 사람과 결혼하게 될까?", date(2026, 6, 23), birth_year=1990,
+    )
+    tr3 = p3.intents[0].time_range
+    assert tr3 is None or tr3.start != "2026-07-04"
+
+
+def test_new_explicit_time_resets_inheritance_baseline() -> None:
+    """후속이 다른 시점을 새로 지정하면 그 시점이 이후 승계 기준이 된다(옛 시점 미승계)."""
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t1")
+    _, state, _, _ = eng.process_turn(
+        state, "8월 31일은 운이 어떤지 봐줄래?", date(2026, 6, 23), birth_year=1990,
+    )
+    # 다른 시점(2028) 지정 → 승계 기준 초기화.
+    p2, state, _, _ = eng.process_turn(
+        state, "그럼 2028년은 어때?", date(2026, 6, 23), birth_year=1990,
+    )
+    assert p2.intents[0].time_range is not None
+    assert p2.intents[0].time_range.start.startswith("2028")
+    # 이후 시점 없는 평가 후속은 옛 8/31이 아니라 새 기준(2028)을 승계.
+    p3, _s, _, _ = eng.process_turn(
+        state, "그럼 돈은 어때?", date(2026, 6, 23), birth_year=1990,
+    )
+    tr3 = p3.intents[0].time_range
+    assert tr3 is not None and tr3.start.startswith("2028")
+
+
 def test_followup_explicit_time_and_fresh_reading_skip_inheritance() -> None:
     """명시 시점을 새로 주거나 총운·새 풀이를 요청하면 직전 시점 창을 승계하지 않는다."""
     eng = ConversationEngine()

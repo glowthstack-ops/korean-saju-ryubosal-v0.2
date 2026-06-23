@@ -62,6 +62,12 @@ _DRILL_RE = re.compile(r"세부적으로|구체적으로|시기별로|자세히"
 # 새 스레드를 여는 '처음부터 다시'·새 풀이 요청 신호 — 토픽 연속 후속에서 제외(직전 분야 미상속).
 _FRESH_OVERVIEW_RE = re.compile(r"총운|전체\s*운|평생|사주\s*전체|명식|처음부터|새로\s*봐")
 _READING_REQUEST_RE = re.compile(r"사주\s*(봐|풀)|봐\s*줘|봐주|풀어\s*줘")
+# 시점-탐색 질문(스스로 시점을 찾는 질문) — 직전 시점 창을 승계하면 안 된다(2026-06-23: 7/4 이사
+# 지정 뒤 '연애 언제 시작?'까지 7/4에 고정되던 과잉승계 부작용). '언제'는 파서가 open_when으로
+# 잡지만, '할 수 있을까/가능할까/몇 년 후'처럼 open_when이 안 붙는 표현도 함께 차단한다.
+_TIME_SEEKING_RE = re.compile(
+    r"언제|할\s*수\s*있을[까지]|가능할[까지]|몇\s*살|몇\s*년\s*(뒤|후)|언제부터"
+)
 
 
 class ConversationEngine:
@@ -131,10 +137,17 @@ class ConversationEngine:
             last is not None and last.time_range is not None and last.time_range.start
             and not _FRESH_OVERVIEW_RE.search(text)
             and not _READING_REQUEST_RE.search(text)
+            and not _TIME_SEEKING_RE.search(text)
         ):
             for intent in parsed.intents:
-                if intent.time_range is None or not intent.time_range.start:
-                    intent.time_range = last.time_range
+                # 자체 시점이 있거나(다른 시점을 새로 지정 → 그 시점이 이후 승계 기준이 됨) '언제'
+                # 개방형 시점-탐색이면 승계하지 않는다(2026-06-23 과잉승계 부작용 수정: 7/4 이사 뒤
+                # '연애 언제 시작?'까지 7/4에 고정되던 결함).
+                if intent.time_range is not None and (
+                    intent.time_range.start or intent.time_range.type == "open_when"
+                ):
+                    continue
+                intent.time_range = last.time_range
 
         new_state = self._advance_state(state, text, parsed, resolution)
         return parsed, new_state, resolution, link
