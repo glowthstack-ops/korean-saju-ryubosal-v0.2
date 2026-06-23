@@ -122,6 +122,20 @@ class ConversationEngine:
             if resolution.correction:
                 intent.query_type = QueryType.FEEDBACK_CORRECTION
 
+        # 시점 슬롯은 스레드 레벨로 유지 — 후속이든 도메인 전환(link=NEW 포함)이든, 이번 턴이 자체
+        # 시점을 안 들고 오고 '새 풀이/리셋' 신호도 아니면 직전 턴의 시점 창을 이어받는다(2026-06-23
+        # 데굴님 지적: 8/31·9/30=2026 맥락의 후속 '대출 안 나오나?'가 link=NEW로 떨어져 막연한 미래
+        # 10년 흐름으로 빠짐). 사용자가 명시 시점을 새로 주거나 총운·새 풀이를 요청하면 미승계.
+        last = state.last_intent
+        if (
+            last is not None and last.time_range is not None and last.time_range.start
+            and not _FRESH_OVERVIEW_RE.search(text)
+            and not _READING_REQUEST_RE.search(text)
+        ):
+            for intent in parsed.intents:
+                if intent.time_range is None or not intent.time_range.start:
+                    intent.time_range = last.time_range
+
         new_state = self._advance_state(state, text, parsed, resolution)
         return parsed, new_state, resolution, link
 

@@ -24,7 +24,7 @@ from saju_engines.context_reducer import (
     serialize_chart_prefix,
 )
 from saju_engines.event_engine_v2 import EventEngineV2
-from saju_engines.event_scoring import favorability_map
+from saju_engines.event_scoring import confirmed_yongsin_note, favorability_map
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
 from saju_engines.manifestation_branch import branch_summary
@@ -35,8 +35,15 @@ from saju_engines.report_event_input import (
     month_overview_lines,
     precise_candidate_clusters,
     score_table_lines,
+    year_spectrum_lines,
 )
 from saju_engines.report_plan import YONGSIN_SECTIONS, build_section_plans
+from saju_engines.structural_context import (
+    DAEWOON_FRAMING_DIRECTIVE as _DAEWOON_FRAMING_DIRECTIVE,
+)
+from saju_engines.structural_context import (
+    DAEWOON_TRANSITION_SIGNALS_DIRECTIVE as _DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
+)
 from saju_engines.structural_context import (
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
@@ -59,8 +66,8 @@ from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.report import ReportResult, ReportSpec, SectionContext, SectionPlan
 
 from . import llm_client
-from .manse_service import calculate
-from .personalization import fetch_personal_inputs
+from .manse_service import calculate, luck_months
+from .personalization import fetch_confirmed_yongsin_override, fetch_personal_inputs
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
@@ -99,6 +106,28 @@ def _period_end_month(period: str) -> str:
     if len(period) == 7:
         return period
     return period[:7]
+
+
+# 다년 월운·세운 스펙트럼이 다룰 예측 연도 폭(향후 N년). 월운은 비용·토큰을 감안해 +5년까지만
+# 생성한다(그 이상은 세운 단위로 충분 — docs/10 FOCUS 스코프 '현재월~+5년'과 정합).
+_FORECAST_FORWARD_YEARS = 5
+
+
+def _forecast_years(spec: ReportSpec, today: date) -> list[int]:
+    """월운 생성·세운 스펙트럼이 다룰 연도 목록(오늘 연도 ~ min(기간 끝, 오늘+5년)).
+
+    RPT_YEAR는 단일 대상 연도(미래 연도 가능)만 생성한다. 그 외(FOCUS·FULL)는 향후 창으로
+    한정해 과거 달까지 대량 생성하지 않는다(과거 월 디테일은 세운/검증 섹션이 담당).
+    """
+    start_raw, end_raw = spec.period.start[:4], spec.period.end[:4]
+    if spec.product_code == "RPT_YEAR" and start_raw.isdigit():
+        return [int(start_raw)]
+    lo = today.year
+    hi = lo + _FORECAST_FORWARD_YEARS
+    if end_raw.isdigit():
+        hi = min(hi, max(int(end_raw), lo))
+    return list(range(lo, hi + 1))
+
 
 # 섹션별 작성 지침(docs/10 3·4장 데이터소스 요약 — 목차 규격은 report_plan이 강제).
 _SECTION_GUIDES: dict[str, str] = {
@@ -217,9 +246,33 @@ _SECTION_DOMAIN: dict[str, str] = {
     "Y-06": "career", "Y-07": "wealth", "Y-08": "relationship", "Y-09": "health",
     "F-15": "career", "F-16": "wealth", "F-17": "relationship", "F-18": "health",
     "RL-04": "relocation", "RL-06": "relocation",  # 이사 테마 — 이동 신호·향후 흐름
+    # 테마 FOCUS 종합·주목달 섹션 — 자기 도메인 후보(길·흉 포함)로 반복·편향 차단(2026-06-23).
+    "W-06": "wealth", "W-07": "wealth",
+    "J-05": "career", "J-06": "career",
+    "R-05": "relationship", "R-06": "relationship",
+    "RP-06": "relationship", "RP-07": "relationship",
 }
-# 12개월 전체 흐름 표를 부착하는 섹션(한해풀이 월별 흐름 — 모든 달 누락 없이).
-_MONTH_OVERVIEW_SECTIONS = {"Y-05"}
+# 월별 흐름 표(예측 창 각 해 12개월 전체, 연도별 그룹)를 부착하는 섹션 — 좋은·주의·평범 달
+# 누락 없이. 한해풀이 Y-05 + 테마 FOCUS '주목할 달' + generic FOCUS 타임라인(2026-06-23 보강).
+_MONTH_OVERVIEW_SECTIONS = {"Y-05", "W-07", "J-06", "R-06", "RP-07", "RL-06", "C-04"}
+# 세운 연도별 전체 흐름 표(예측 창 전 연도)를 부착하는 섹션 — '향후 N년 종합'·고점 연도 스캔.
+# 테마 FOCUS 5년 종합 + generic FOCUS 기간 흐름 + 총운 고점 연도(F-14)(2026-06-23 보강).
+_YEAR_SPECTRUM_SECTIONS = {"W-06", "J-05", "R-05", "RP-06", "RL-06", "C-03", "F-14"}
+
+# 대운 풀이 framing·교체기 신호 디렉티브는 채팅과 공용(structural_context) — 위에서 import.
+# 평운/기신 대운 조언(2026-06-23, 강의 참고) — 안 맞는 구간은 포기가 아니라 유지·내실.
+_OFF_PEAK_DAEWOON_ADVICE_DIRECTIVE = (
+    "[안 맞는 대운 구간 조언] 대운이 용신에 맞지 않는(평운·기신) 구간이라면 '포기'가 아니라, "
+    "새 확장보다 지금 하던 것을 지키며 내실을 다지고 다음 맞는 대운을 준비하는 전략으로 안내할 것."
+)
+# 대운 framing 관점을 붙일 섹션(대운 개관·정밀·로드맵·한해 대운 맥락).
+_DAEWOON_FRAMING_SECTIONS = {"F-07", "F-10", "F-13", "Y-03"}
+# 교체기 체감 신호를 붙일 섹션(대운 흐름 개관 + 과거 검증 체크리스트).
+_DAEWOON_TRANSITION_SIGNAL_SECTIONS = {"F-07", "F-09"}
+# 안 맞는 대운 조언을 붙일 섹션(도메인·연·테마 행동 전략).
+_OFF_PEAK_ADVICE_SECTIONS = {
+    "F-19", "Y-10", "W-08", "J-07", "R-07", "RP-09", "RL-07", "C-07",
+}
 # 원국 횡재 그릇 블록을 부착하는 재물 섹션(Phase 1 — 횡재 잠재구조 표면화).
 _WEALTH_CAPACITY_SECTIONS = {"W-04", "W-05", "Y-07", "F-16"}
 # 결혼·자산 자원 구조 블록을 부착하는 관계·재물구조 섹션(중립 구조 신호 — 신규 키 없음).
@@ -244,17 +297,43 @@ class _ReportData:
         partner_birth: BirthInput | None = None,
     ) -> None:
         self.today = today  # 시제 앵커(프롬프트 주입) — 모델이 과거/현재/미래를 추론하지 않도록.
+        self._spec = spec  # 연도 스펙트럼 창 계산용(예측 연도 폭).
         chart_birth = birth.model_copy(update={"reference_date": today})
         self.result: ManseV2Result = calculate(chart_birth)
+        # 월운 다년 주입 — calculate()는 기준일 근방 12개월만 채운다. 예측 창(현재~+5년)의 각 해
+        # 월운을 생성해 월 단위 후보·12개월 전체 표가 다년에 걸쳐 나오도록 한다(종전: 1년치만 존재해
+        # '특정 달 반복'·다년 디테일 부재 — 2026-06-23 사용자 지적). 빈 결과는 무시(graceful).
+        lc = self.result.luck_cycles
+        if lc is not None:
+            months: list = []
+            for y in _forecast_years(spec, today):
+                try:
+                    months += luck_months(chart_birth, y)
+                except (ValueError, RuntimeError):
+                    continue
+            if months:
+                seen: set[str] = set()
+                deduped = []
+                for p in months:
+                    if p.label not in seen:
+                        seen.add(p.label)
+                        deduped.append(p)
+                lc.monthly_luck = deduped
         self.scorer = EventEngineV2(_DICTS)
         # 개인화(저장된 subject 한정): 현실 신호 시그니처 + 활성 코호트 → LEI 정렬축.
         # 미설정·실패 시 무개인화 폴백(규칙11).
         sig, cohort = fetch_personal_inputs(owner_id, subject_id, self.result)
+        # 사용자 확정 용신 — 있으면 용희기구한 5역할을 그 용신으로 재도출해 fav_override로 점수에
+        # 반영(엔진 최초 도출값=확정 전 후보는 yongsin_analysis.final로 비파괴 보존, 되돌림 기준).
+        fav_override, self._confirmed_yongsin = fetch_confirmed_yongsin_override(
+            owner_id, subject_id,
+        )
         # 직업/관계 상태 분기(공직자 등)·특수직군 충형 길화(자료 9-6) — 채팅과 동일 신호를
         # 테마사주(리포트)에도 반영. 프로필 미설정·무DB면 None(게이트 미적용 — 규칙11).
         _form, occ_status, rel_status, occ_category = profile_event_signals(subject_id)
         scored = self.scorer.score_legacy_personalized(
-            self.result, levels=_SCORE_LEVELS, signature=sig, cohort=cohort,
+            self.result, levels=_SCORE_LEVELS, fav_override=fav_override,
+            signature=sig, cohort=cohort,
             occupation_status=occ_status, relationship_status=rel_status,
             occupation_category=occ_category,
         )
@@ -301,6 +380,12 @@ class _ReportData:
         self.prefix_lines = serialize_chart_prefix(
             self.summary, build_chart_interpretation(self.result),
         )
+        # 확정 용신 적용 안내를 원국 prefix 뒤에 부착(전 섹션 공통) — 확정 5역할을 길흉 기준으로,
+        # 엔진 최초 도출(확정 전 후보)은 기본값으로 병기. 확정=도출 일치 시 빈 문자열(미부착).
+        if self._confirmed_yongsin is not None:
+            note = confirmed_yongsin_note(self.result, self._confirmed_yongsin)
+            if note:
+                self.prefix_lines = [*self.prefix_lines, note]
         self.evidence_paths = self._evidence_paths_for(self.candidates)
         self.allowed_ganji = self._collect_ganji()
         self.allowed_years = self._collect_years(spec)
@@ -431,28 +516,50 @@ class _ReportData:
         picked = others[: max(0, n - reserve)] + cautions[:reserve]
         return sorted(picked, key=lambda c: c.period)
 
-    def month_overview_block(self) -> list[str]:
-        """[12개월 흐름] — 이 해 12개월 전체를 빠짐없이(한해풀이 Y-05 전용, 반복 방지)."""
-        overview = month_overview_lines(self.result, self.scored)
+    def month_overview_block(self, domain: str | None = None) -> list[str]:
+        """[월별 흐름] — 예측 창 각 해의 12개월 전체를 빠짐없이(반복 방지 — 연도별 그룹).
+
+        domain 지정(테마 섹션) 시 대표 사건을 그 주제로 한정한다(운 품질 등급은 항상 표기).
+        """
+        overview = month_overview_lines(self.result, self.scored, domain)
         if not overview:
             return []
         # 기반 최고 달을 이름 박아 지목 — 그 달에 두드러진 사건이 없어도 누락되지 않게(채팅과 동일).
         lc = self.result.luck_cycles
         best = [p.label for p in (lc.monthly_luck if lc else []) if p.luck_label == "강한 용신운"]
+        n_years = len({p.label[:4] for p in (lc.monthly_luck if lc else [])})
+        scope = f"향후 {n_years}개 해의 각 12개월" if n_years > 1 else "이 해 12개월"
         callout = (
             f" 특히 {', '.join(best[:3])}은(는) '강한 용신운'이라 두드러진 사건이 없어도 "
             "기반이 가장 좋은 달이니 반드시 그렇게 짚을 것."
             if best else ""
         )
         return [
-            "[12개월 흐름 — 이 해 12개월 전체. 한두 강신호만 반복하지 말고 각 달을 한두 문장으로 "
-            "고르게 짚을 것. ★주목 표시된 달은 더 자세히. 좋은 달과 주의할 달의 1차 기준은 사건 "
-            "밀도가 아니라 각 달의 운 품질 등급〈…〉('강한 용신운'>'용신운(부분)'>'혼합'>"
-            "'기신운')이며, 사건(이직·이사 등)은 그 위에 십성으로 얹어 '무슨 일'을 설명한다. "
-            "'강한 용신운' 달은 "
-            "두드러진 사건이 없어도 기반이 가장 좋은(가장 도움되는) 달로 짚고, 각 달 기운의 "
-            "활용·대비 방향도 곁들일 것." + callout + "]",
+            f"[월별 흐름 — {scope} 전체(〈연도〉별로 묶음). 한두 강신호만 반복하지 말고 각 달을 "
+            "한두 문장으로 고르게 짚되, 좋은 달·주의할 달·평범한 달을 모두 다룰 것. ★주목 표시된 "
+            "달은 더 자세히. 좋은 달과 주의할 달의 1차 기준은 사건 밀도가 아니라 각 달의 운 품질 "
+            "등급〈…〉('강한 용신운'>'용신운(부분)'>'혼합'>'기신운')이며, 사건(이직·이사 등)은 그 "
+            "위에 십성으로 얹어 '무슨 일'을 설명한다. '강한 용신운' 달은 두드러진 사건이 없어도 "
+            "기반이 가장 좋은(가장 도움되는) 달로 짚고, 각 달 기운의 활용·대비 방향도 곁들일 것."
+            + callout + "]",
             *overview,
+        ]
+
+    def year_spectrum_block(self, domain: str | None = None) -> list[str]:
+        """[연도별 흐름] — 예측 창 세운 전 연도를 빠짐없이('향후 N년 종합' 섹션 반복·편향 방지).
+
+        domain 지정(테마 섹션) 시 대표 사건을 그 주제로 한정한다(운 품질 등급은 항상 표기).
+        """
+        years = _forecast_years(self._spec, self.today)
+        spectrum = year_spectrum_lines(self.result, self.scored, years, domain)
+        if not spectrum:
+            return []
+        return [
+            "[연도별 흐름 — 예측 창의 세운을 해마다 빠짐없이. 상위 몇 해만 반복하지 말고 "
+            "좋은 해·주의할 해·평범한 해를 모두 짚을 것. ★주목 표시된 해는 더 자세히. "
+            "좋은 해·주의할 해의 1차 기준은 사건 밀도가 아니라 세운 운 품질 등급〈…〉"
+            "(길흉=용신/기신)이며, 각 해 기운의 활용·대비 방향을 곁들일 것.]",
+            *spectrum,
         ]
 
     # ── 구조 해석 블록(누출 안전) — 포맷은 structural_context 단일 소스에 위임. ──
@@ -662,13 +769,19 @@ class _ReportData:
         candidates를 주면 그 후보만(섹션별 도메인 스코프), 없으면 전역 top 후보를 쓴다.
         """
         cands = self.candidates if candidates is None else candidates
-        lines = ["[대운표]"]
+        lines = [
+            "[대운표]",
+            "(각 대운은 전반 0-4년 천간(드러남) 주도, 후반 5-9년 지지(기반·환경) 주도로 체감이 "
+            "갈린다 — 대운 풀이 시 이 전/후반 시기 분할을 반영할 것)",
+        ]
         lc = self.result.luck_cycles
         if lc is not None:
             for d in lc.daewoon_table:
                 lines.append(
-                    f"대운 {d.ganji} ({d.approx_start_date.year}-{d.approx_end_date.year}, "
-                    f"{d.start_age}-{d.start_age + 9}세)"
+                    f"대운 {d.ganji}(천간 {d.stem}={d.stem_ten_god}/지지 {d.branch}="
+                    f"{d.branch_ten_god}) {d.approx_start_date.year}-{d.approx_end_date.year}, "
+                    f"{d.start_age}-{d.start_age + 9}세: 전반 0-4년 {d.stem} 주도 · "
+                    f"후반 5-9년 {d.branch} 주도"
                 )
         lines.append("")
         lines.append(
@@ -782,14 +895,18 @@ def build_section_context(
         lines += score_table_lines(data.result, data.candidates)
     elif not is_natal_section:
         lines.append("")
-        if sid in _MONTH_OVERVIEW_SECTIONS:
-            # 월별 흐름 — 12개월 전체 표 + (주목할 달 상세용) 전역 후보 블록.
-            lines += data.month_overview_block()
+        section_domain = _SECTION_DOMAIN.get(sid)
+        # 전 구간 스펙트럼(반복·편향 차단) — 연도 표 → 월 표 순. 테마 섹션은 대표 사건을 주제로
+        # 한정(운 품질 등급은 도메인 무관 표기). Y-05 등 도메인 없는 섹션은 교차도메인 그대로.
+        if sid in _YEAR_SPECTRUM_SECTIONS:
+            lines += data.year_spectrum_block(section_domain)
             lines.append("")
-            lines += data.luck_block()
-        elif sid in _SECTION_DOMAIN:
-            # 도메인 섹션 — 자기 도메인 후보만(길·흉 포함) 사용해 반복·편향 차단.
-            lines += data.luck_block(data.domain_candidates(_SECTION_DOMAIN[sid]))
+        if sid in _MONTH_OVERVIEW_SECTIONS:
+            lines += data.month_overview_block(section_domain)
+            lines.append("")
+        # 후보 상세 — 도메인 스코프면 자기 도메인 후보(길·흉 포함), 아니면 전역 top 후보.
+        if section_domain is not None:
+            lines += data.luck_block(data.domain_candidates(section_domain))
         else:
             lines += data.luck_block()
         # 재물 섹션 — 원국 횡재 그릇(운 분리 잠재구조) 표면화(Phase 1).
@@ -839,6 +956,13 @@ def build_section_context(
         lines += ["", *data.era_energy_block(int(spec.period.start[:4]))]
     elif sid == "F-11":
         lines += ["", *data.era_energy_block(data.today.year)]
+    # 대운 풀이 관점·교체기 신호·안 맞는 구간 조언(2026-06-23, 전문가 강의 참고 — 서술 가이드).
+    if sid in _DAEWOON_FRAMING_SECTIONS:
+        lines += ["", _DAEWOON_FRAMING_DIRECTIVE]
+    if sid in _DAEWOON_TRANSITION_SIGNAL_SECTIONS:
+        lines += ["", _DAEWOON_TRANSITION_SIGNALS_DIRECTIVE]
+    if sid in _OFF_PEAK_ADVICE_SECTIONS:
+        lines += ["", _OFF_PEAK_DAEWOON_ADVICE_DIRECTIVE]
     subject_label = spec.subjects[0].label if spec.subjects else "본인"
     return SectionContext(
         section_id=plan.section_id,

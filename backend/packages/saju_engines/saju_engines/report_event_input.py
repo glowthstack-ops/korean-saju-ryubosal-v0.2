@@ -160,7 +160,7 @@ def score_table_lines(
 
 
 def month_overview_lines(
-    result: ManseV2Result, scored: list[EventCandidate]
+    result: ManseV2Result, scored: list[EventCandidate], domain: str | None = None
 ) -> list[str]:
     """이 해 12개월 전체를 한 줄씩 — 월 간지·운 품질 등급·우세 도메인·강도밴드·길흉·대표 신호.
 
@@ -177,34 +177,96 @@ def month_overview_lines(
         return []
     by_period: dict[str, list[EventCandidate]] = {}
     for c in scored:
+        if domain is not None and _DOMAIN_BY_KEY.get(str(c.event_key)) != domain:
+            continue  # 테마 섹션 — 대표 사건을 주제 도메인으로 한정(운 품질 등급은 항상 표기).
         by_period.setdefault(c.period, []).append(c)
-    rep: dict[str, EventCandidate | None] = {}
-    month_score: dict[str, int] = {}
-    for p in lc.monthly_luck:
-        cs = sorted(by_period.get(p.label, []), key=lambda c: -c.score)
-        top = cs[0] if cs else None
-        rep[p.label] = top
-        month_score[p.label] = top.score if top is not None else 0
-    # 주목할 달 Top3 — 대표 후보 점수 기준(신호 없는 달은 0점 취급).
-    ranked = sorted((p.label for p in lc.monthly_luck), key=lambda lb: -month_score[lb])
-    top3 = {lb for lb in ranked[:3] if rep[lb] is not None}
-    # 운 품질이 뚜렷한 달(천간·지지 모두 용신/기신)도 주목 — 사건이 적어도 길흉 변별의 핵심.
-    strong_quality = {
-        p.label for p in lc.monthly_luck if p.luck_label in ("강한 용신운", "강한 기신운")
-    }
-    notable = top3 | strong_quality
+    # 연도별로 묶어 각 해의 12개월을 빠짐없이 출력한다(다년 예측 — ★주목은 연도 내 상대 기준).
+    years = sorted({p.label[:4] for p in lc.monthly_luck})
+    multi = len(years) > 1
     lines: list[str] = []
-    for p in lc.monthly_luck:
-        cand = rep[p.label]
+    for yr in years:
+        months = [p for p in lc.monthly_luck if p.label[:4] == yr]
+        rep: dict[str, EventCandidate | None] = {}
+        month_score: dict[str, int] = {}
+        for p in months:
+            cs = sorted(by_period.get(p.label, []), key=lambda c: -c.score)
+            top = cs[0] if cs else None
+            rep[p.label] = top
+            month_score[p.label] = top.score if top is not None else 0
+        # 주목할 달 Top3 — 그 해 안에서 대표 후보 점수 기준(신호 없는 달은 0점 취급).
+        ranked = sorted((p.label for p in months), key=lambda lb: -month_score[lb])
+        top3 = {lb for lb in ranked[:3] if rep[lb] is not None}
+        # 운 품질이 뚜렷한 달(천간·지지 모두 용신/기신)도 주목 — 사건이 적어도 길흉 변별의 핵심.
+        strong_quality = {
+            p.label for p in months if p.luck_label in ("강한 용신운", "강한 기신운")
+        }
+        notable = top3 | strong_quality
+        if multi:
+            lines.append(f"〈{yr}년〉")
+        for p in months:
+            cand = rep[p.label]
+            tg = f"천간 {p.stem_ten_god or '?'}·지지 {p.branch_ten_god or '?'}"
+            grade = f" 〈{p.luck_label}〉" if p.luck_label else ""  # 운 품질 등급 — 길흉 1차 기준
+            star = " ★주목" if p.label in notable else ""
+            if cand is None:
+                lines.append(f"{p.label} {p.ganji}({tg}){grade}: 두드러진 신호 약함{star}")
+            else:
+                dom = _DOMAIN_KO.get(_DOMAIN_BY_KEY.get(str(cand.event_key), ""), "일반")
+                lines.append(
+                    f"{p.label} {p.ganji}({tg}){grade}: {dom} {score_band(cand.score)} · "
+                    f"{_dir(cand)} · {event_ko(cand.event_key)}{star}"
+                )
+    return lines
+
+
+def year_spectrum_lines(
+    result: ManseV2Result, scored: list[EventCandidate], years: list[int],
+    domain: str | None = None,
+) -> list[str]:
+    """지정 연도들의 세운을 빠짐없이 한 줄씩 — 연 간지·운 품질 등급·우세 도메인·강도밴드·길흉·★주목.
+
+    '향후 5년 종합' 류 섹션이 상위 몇 건만 반복하지 않고 전 연도를 고르게(좋은·주의·평범 해 모두)
+    다루도록 모든 해를 데이터로 제공한다. month_overview_lines의 연(年) 버전 — 좋은 해/주의할 해의
+    1차 기준은 사건 밀도가 아니라 세운 운 품질 등급〈…〉(길흉=용신/기신)이다.
+    """
+    lc = result.luck_cycles
+    if lc is None or not lc.yearly_luck:
+        return []
+    by_label = {p.label: p for p in lc.yearly_luck}
+    by_period: dict[str, list[EventCandidate]] = {}
+    for c in scored:
+        if len(c.period) != 4:
+            continue
+        if domain is not None and _DOMAIN_BY_KEY.get(str(c.event_key)) != domain:
+            continue  # 테마 섹션 — 대표 사건을 주제 도메인으로 한정(운 품질 등급은 항상 표기).
+        by_period.setdefault(c.period, []).append(c)
+    yr_strs = [str(y) for y in years if str(y) in by_label]
+    rep: dict[str, EventCandidate | None] = {}
+    yscore: dict[str, int] = {}
+    for y in yr_strs:
+        cs = sorted(by_period.get(y, []), key=lambda c: -c.score)
+        rep[y] = cs[0] if cs else None
+        yscore[y] = cs[0].score if cs else 0
+    ranked = sorted(yr_strs, key=lambda y: -yscore[y])
+    top3 = {y for y in ranked[:3] if rep[y] is not None}
+    strong = {
+        y for y in yr_strs
+        if by_label[y].luck_label in ("강한 용신운", "강한 기신운")
+    }
+    notable = top3 | strong
+    lines: list[str] = []
+    for y in yr_strs:
+        p = by_label[y]
         tg = f"천간 {p.stem_ten_god or '?'}·지지 {p.branch_ten_god or '?'}"
-        grade = f" 〈{p.luck_label}〉" if p.luck_label else ""  # 운 품질 등급 — 길흉 1차 기준
-        star = " ★주목" if p.label in notable else ""
+        grade = f" 〈{p.luck_label}〉" if p.luck_label else ""
+        star = " ★주목" if y in notable else ""
+        cand = rep[y]
         if cand is None:
-            lines.append(f"{p.label} {p.ganji}({tg}){grade}: 두드러진 신호 약함{star}")
+            lines.append(f"{y}년 {p.ganji}({tg}){grade}: 두드러진 신호 약함{star}")
         else:
             dom = _DOMAIN_KO.get(_DOMAIN_BY_KEY.get(str(cand.event_key), ""), "일반")
             lines.append(
-                f"{p.label} {p.ganji}({tg}){grade}: {dom} {score_band(cand.score)} · "
+                f"{y}년 {p.ganji}({tg}){grade}: {dom} {score_band(cand.score)} · "
                 f"{_dir(cand)} · {event_ko(cand.event_key)}{star}"
             )
     return lines

@@ -3999,3 +3999,143 @@ relocation 도메인이라 _build_period_fortune(daily, 앞서 수정)을 **타�
   누구에게나 맞춤 안정적 배우자감. 직렬화에 "관계 친화·돌봄 성향(경향·단정 아님)" 줄.
 - 검증: ruff·mypy clean, 단위 테스트 2건(신호 분기·중립 렌더), 전체 스위트 통과(기존 환경 의존 2건
   제외). chat(RELATIONSHIP/총운)·report 결혼 섹션 양쪽 노출 확인.
+
+### 교운(대운 교체) 가중 복원 — 전환성 이벤트 raw_score 곱셈 배율 (2026-06-23)
+
+데굴님 지적('재취업 달이 11/12월이었는데 6월로 어긋남, 교운일 영향력이 낮게 평가된 듯'). 진단 결과
+**낮아진 게 아니라 통째로 누락(0)**. 구 EventScorer는 `daewoonTransition` 신호를 `daewoon_transition_weight`
+로 점수에 배율 적용했으나, 21키 재설계 하드스위치(645659b)에서 `EventEngineV2`+십성 brancher로 교체되며
+교운 항이 전부 빠짐. `daewoon_transition_weight()`는 실사용 0건(테스트만 참조), `daewoonTransition` 신호는
+career_change/relocation.json에 남았으나 새 엔진이 안 읽는 죽은 신호. 결과: 6월 강한 정관(甲午)이 교운일
+(데굴 차트 2025-11-15) 근접한 11/12월을 누름.
+
+- **복원(2026-06-23 사용자 승인 — 곱셈 배율×전환성 전반)**:
+  - `event_scoring.py`: `DAEWOON_TRANSITION_BOOST_ALPHA=1.0` + `TRANSITIONAL_EVENT_KEYS`(career_change·
+    job_gain·business_start·relocation·new_relationship·marriage_signal·relationship_change·childbirth·
+    education_admission) + 순수함수 `daewoon_transition_boost(raw, target, jiao_dates, event_key)` →
+    전환성 이벤트이고 weight≥MIN_WEIGHT면 `raw×(1+α·weight)`.
+  - `event_engine_v2.py`: `_StackIndex.jiao_dates`(trace.exact_jiao_un_dates) + `_period_midpoint` +
+    `_score_target` soft_cap **이후** raw_score에만 배율 적용(가산 기여 `daewoon_transition` + reason_code).
+    display score·activation(포화 채널)은 base raw 기준 불변 — 유력 달은 strength_rank(raw_total)로 가므로
+    랭킹만 정확히 뒤집히고 display 포화/변별·desaturation 불변(test_score_saturation 정당 통과).
+- 검증: 데굴 실차트(교운일 2025-11-15) job_gain raw_score 11월=240 1위(기존 7월125·2월122에 밀려 3위였음),
+  strength_rank rank1=11월「취업·합격」·rank3=12월(둘 다 '대운 교체 정점'). ruff·mypy clean, 회귀 2건 추가
+  (부스트 게이팅 + 사용자 보고 케이스 재현, 죽은 신호 재발 방지), 전체 스위트 통과(기존 환경 의존 통합 2건 제외).
+
+### 테마운세(테마 FOCUS)·총운 전 구간 스펙트럼 보강 — 다년 월운 + 연도/월 전수 표 (2026-06-23)
+
+데굴님 지적('테마운세가 3년+특정 달만 반복, 좋은/나쁜/평범 달 전체를 세부적으로 못 풀어줌'). 진단(실측):
+① `calculate(reference_date)`가 **월운을 1년(12개월)만** 생성 → 5년 예측인데 월 디테일 1년뿐.
+② 거의 모든 섹션이 쓰는 `self.candidates`(top-8)가 **전부 2026년 달**로 채워져 동일 강신호 반복.
+③ 전체 12개월 표(`month_overview`)·도메인 후보 분리(`domain_candidates`)가 **RPT_YEAR·RPT_FULL에만**
+적용, 테마 FOCUS(W/J/R/RL) 목차엔 미연결. ④ 2027~2031 세운은 계산돼 있으나 top-8에 밀려 미노출.
+
+- **보강(2026-06-23 사용자 승인 — 전체 1~5, 테마+총운 / 목차 섹션 가감 없이 데이터·풀이 프로세스만)**:
+  1. **월운 다년 생성**: `_ReportData.__init__`이 예측 창(오늘~+5년) 각 해 `luck_months`를 주입 →
+     월 후보·12개월 표가 다년에 걸침(데굴 케이스 12→72개월). `_forecast_years` 헬퍼.
+  2. **월 표 다년 그룹화**: `month_overview_lines`를 연도별(〈YYYY년〉) 그룹 출력으로 확장, ★주목은 연도
+     내 상대. 테마 '주목할 달' 섹션(W-07/J-06/R-06/RP-07/RL-06/C-04)에 `_MONTH_OVERVIEW_SECTIONS`로 연결.
+  3. **연도 스펙트럼 표 신설**: `year_spectrum_lines` — 예측 창 세운 전 연도를 운품질 등급·우세도메인·
+     길흉·★주목으로 빠짐없이. '향후 N년 종합' 섹션(W-06/J-05/R-05/RP-06/RL-06/C-03) + 총운 F-14에 연결.
+  4. **도메인 후보 분리 확대**: 테마 FOCUS 종합·주목달 섹션을 `_SECTION_DOMAIN`에 추가(길·흉 포함 후보).
+     스펙트럼 표·후보 모두 **도메인 인지**(테마 섹션은 대표 사건을 주제로 한정, 운 품질 등급은 도메인 무관 표기).
+  5. **분량 상한 확대**: 스펙트럼 섹션(`_WIDE_SECTIONS`)은 검사 상한을 4,200자로(하한은 캘리브레이션값 유지 —
+     미달 오탐 방지). `report_plan._tc_for`.
+- 검증: 데굴 직업운 FOCUS — 월운 72개월(2026~2032), 연도 스펙트럼 6년 전수(강한 용신운/기신운 등급·★),
+  월 표 연도별 그룹 80줄, 도메인 후보 2026~2031 분포(종전 전부 2026). ruff·mypy clean, 전체 스위트 통과
+  (기존 환경 의존 통합 2건 제외). Y-05(한해풀이)는 도메인 None으로 교차도메인 기존 동작 보존.
+
+### 대운 풀이 보강 — 전문가 강의(대운=환경/공간감) 참고 반영 (2026-06-23)
+
+데굴님 제공 대운 강의 스크립트 검토. 강의 핵심 중 조후(겨울생→여름대운=조후용신 火→火대운 용신운)·
+대운 천간-일간 오행관계·대운 품질 등급(luck_label/stem_effect)·천간/지지 시기분할(first/second_half_focus)·
+구간(activation window)은 **이미 정식 구현**돼 있어 참고 불필요(강의의 '일간별 유리 오행' 휴리스틱은
+우리 용신의 단순화 — 정확도상 미채택). 풀이(서술) 품질만 4건 보강(계산 불변, 사용자 승인):
+
+- **A. 대운 framing**: 대운을 '환경·공간감(플랫폼)이 닥쳐오는 흐름', 핵심은 '이 대운이 나에게(용신·조후)
+  맞느냐'로 서술하는 `_DAEWOON_FRAMING_DIRECTIVE` → F-07/F-10/F-13/Y-03(`_DAEWOON_FRAMING_SECTIONS`).
+- **B. 천간/지지 시기 분할 노출**: 계산만 되고 미노출이던 first/second_half_focus를 `luck_block`[대운표]에
+  '전반 0-4년 천간 주도 · 후반 5-9년 지지 주도'로 surface(+ 대운별 천간/지지 십성).
+- **C. 교체기 체감 신호(비단정)**: 주변 사람 교체·새 일 도모·막연한 기대·지인 반대·거주/물건 정리·외모
+  변화를 '겪을 수 있다' 가능 형태로만(`_DAEWOON_TRANSITION_SIGNALS_DIRECTIVE`) → F-07·F-09(과거 검증
+  체크리스트). 단정·예언 금지 가드 포함(원칙8).
+- **D. 안 맞는 대운 조언**: 평운·기신 구간은 '포기 아니라 유지·내실·다음 대운 준비'(`_OFF_PEAK_DAEWOON_
+  ADVICE_DIRECTIVE`) → 행동전략 섹션(F-19/Y-10/W-08/J-07/R-07/RP-09/RL-07/C-07).
+- 미채택: 일간별 유리 오행 휴리스틱(우리 용신이 더 정확·원칙1), '목 대운 보편 성장' 단정(용신-relative
+  충돌·단정 위험). 검증: ruff·mypy clean, 디렉티브 부착 시뮬 확인, 전체 스위트 통과(기존 환경 2건 제외).
+
+### 대운 framing — AI 채팅 확장 적용 (2026-06-23)
+
+리포트 대운 섹션에만 있던 대운 풀이 관점을 채팅 응답에도 확장(사용자 승인). 공용화:
+- 디렉티브를 `structural_context`로 이관(`DAEWOON_FRAMING_DIRECTIVE`·`DAEWOON_TRANSITION_SIGNALS_
+  DIRECTIVE`) → 채팅·리포트 공용. report_service는 import로 전환(off-peak 조언은 리포트 전용 유지).
+- framing을 product-agnostic으로 정리: A(환경/공간감·'나에게 맞느냐')+B(전반 천간/후반 지지 시기차)+
+  D(안 맞는 구간=유지·내실) 한 디렉티브에 통합('위 대운표' 참조 제거).
+- 채팅: `_is_daewoon_question`(키워드 대운/교운/평생/10년 등) 추가 → trailing에 framing+교체기 신호 append.
+  막연한 장기 질문(vague_future, 이미 10년 digest)도 OR로 묶어 함께 적용.
+- 검증: ruff·mypy clean, 술어 키워드 판정 확인(대운/교운/10년→적용, '올해 재물운'→미적용), 전체 스위트
+  통과(기존 환경 2건 제외). 계산 불변(점수·날짜·간지·판정 무관 — 서술 관점만, 원칙1·8).
+
+### 사용자 확정 용신 → 용희기구한 5역할 일관 재도출 + 스코어링 반영 (2026-06-23)
+
+데굴님 지적: 용신 확정질문으로 용신이 바뀌면 희/기/구/한도 그 용신 기준으로 함께 바뀌어야 오행
+중복이 안 생긴다. 기존엔 `subject_yongsin.confirmed_yongsin`(단일 오행)이 **저장·표시만** 되고 스코어링
+파이프라인이 전혀 소비하지 않아, 확정해도 풀이가 안 바뀜(역할 재도출도 미발생). 연결 추가:
+
+- **event_scoring.py**: `classify_yongsin_roles(용신)` — 생극 순환으로 기신=극용신·희신=생용신·구신=
+  생기신·한신=용신생을 1:1 배정(candidates._classify_roles와 동일 규칙, 5오행 중복 0). `confirmed_
+  favorability_override`(→{오행:역할} fav_override), `normalize_element`(한자/한글/영문), `confirmed_
+  yongsin_note`(확정 적용 + 엔진 최초 도출 병기 — 같으면 빈 문자열).
+- **personalization.py**: `fetch_confirmed_yongsin_override(owner,subject)` — ProfileStore.get_yongsin →
+  정규화 → override. 미설정·무DB·미상=무override(규칙11).
+- **chat_service.py**: 스코어링 4곳(all_scored·year_scored·window·target_year)에 `fav_override` 주입 +
+  trailing에 확정 안내 주석.
+- **report_service.py**: `score_legacy_personalized(fav_override=…)` + prefix에 확정 안내 주석 부착.
+- **핵심 — 비파괴 보존(사용자 추가 요건)**: 엔진 최초 도출값(yongsin_analysis.final = 확정 전 후보
+  상태)은 **절대 덮어쓰지 않음**. 확정은 fav_override로만 적용하고, 최초 도출은 기본값·되돌림 기준으로
+  주석에 병기. calculate()가 결정론적이라 기본값은 항상 재현 가능.
+- 검증: 5오행 전수 — 각 용신마다 용희기구한 5역할이 서로 다른 오행(중복 0). 데굴 차트 木 확정 →
+  용木·희水·기金·구土·한火, final(土) 비파괴 보존(==before). ruff·mypy clean, 전체 스위트 통과(기존 2건 제외).
+
+### 후속 턴 일주 오답 수정 — 멀티턴 원국 사실 일관성 가드 (2026-06-23)
+
+데굴님 지적: 첫 질문은 일주(己亥)를 맞게 답하는데 이어진 후속 질문에서 일주를 틀리게 답함(예:
+'기미'). 진단 — 데이터는 정상(후속 턴 prefix에도 일주 己亥가 명식줄·궁성줄·일주사전 3중으로 존재).
+원인은 `_FOLLOWUP_INSTRUCTION`이 후속 턴마다 "앞서 설명한 **일주**·격국·용신 등 배경을 길게
+재인용하지 말 것"이라 지시 → LLM이 일주를 '재인용 말아야 할 배경'으로 취급, 그래도 습관적으로 일주
+물상 문장을 열며 사실 블록을 안 읽고 기억으로 생성→환각. (첫 턴엔 이 지시 없어 정확)
+
+- **수정(지시문 2곳, 계산·점수 불변)**: ① `_FOLLOWUP_INSTRUCTION` — '일주 재인용 금지' 문구 제거,
+  대신 "일주·일간·용신·격국 등 원국 사실 언급 시 [원국·명식 구조] 값을 글자 그대로, 기억으로 지어내거나
+  다른 간지로 바꾸지 말 것" 일관성 가드로 교체. ② `_SELF_CHECK_INSTRUCTION` — "일주(日柱)·일간·용신
+  표기가 [원국·명식 구조]와 글자까지 일치하는지 대조, 틀리면 정정" 1줄 추가.
+- 채팅·리포트 공용 직렬화(serialize_llm_input) 경로라 후속 턴 전반 적용. 검증: ruff·mypy clean, 지시문
+  반영 확인, 전체 스위트 통과(기존 환경 2건 제외).
+
+### 멀티턴 시점 승계 — 후속 턴이 직전 시점 창을 잇도록 (2026-06-23)
+
+데굴님 지적: 8/31·9/30(=2026 매매·이사) 질문 뒤 후속 '대출 안 나오나?'에 2027~2035 연 흐름으로
+오답(사용자 '2026인데 왜 그 이후?'). 진단 — 후속 턴 '대출/비용/계약'이 새 도메인을 들고 와 link이
+**NEW로 분류**(follow-up 아님)→`prev=None`→시점 미상속→intent.time_range None→`vague_future`(올해부터
+10년 digest) 발동. 파서(B2/B2d)·대화엔진 슬롯상속 모두 **긴 후속의 time_range를 승계하지 않았음**.
+
+- **수정(conversation.py)**: 시점을 **스레드 레벨 슬롯**으로 격상 — link 종류(NEW·도메인전환 포함) 무관,
+  이번 턴이 자체 시점을 안 들고 오고(`time_range` None/무 start) '새 풀이·리셋' 신호(`_FRESH_OVERVIEW_RE`
+  총운/평생/처음부터 · `_READING_REQUEST_RE` 사주 봐줘)도 아니면 `state.last_intent.time_range`를 승계.
+  명시 시점을 새로 주면 자체 시점 우선(미승계).
+- 검증: 시뮬 — 턴1 2026-08-31 → 턴2(link=NEW) 2026-08-31 승계(10년 digest 차단), 턴3 '2026' 명시 우선,
+  턴4 '총운 처음부터' 미승계. 회귀 2건 추가(도메인전환 승계 / 새풀이·명시 미승계). ruff·mypy clean,
+  전체 스위트 통과(기존 환경 2건 제외).
+
+### 특정 날짜 질문 — 일운(日運) 중심 서술 보강 (2026-06-23)
+
+데굴님 지적(같은 로그): '중도금 8/31·이사 9/30 운' 질문에 월운(丙申월·丁酉월)만 답하고 그 날의
+일운(日運)이 빠짐. 원인 — 두 날짜(다중)라 단일 daily 총운·택일 경로에서 빠지고, 트레일링의
+`_date_solar_month_note`는 **절기월 간지만** 주입해 LLM이 월 단위로만 답함.
+
+- **수정(chat_service.py)**: `_explicit_dates`(질문서 'N월 N일' 다중 추출, 연도 생략 시 기준연도) +
+  `_date_day_fortune_note`(각 날의 일운 간지·천간/지지 십성·길흉 + 절기월 + '그 날의 일운을 중심으로,
+  월운·세운은 배경' 디렉티브, 최대 4일). 트레일링에서 단일 월간지 노트 대신 이 일운 노트를 주입
+  (명시 날짜 우선, 없으면 단일 날짜 시점 폴백). `_date_solar_month_note`는 기존 테스트용 보존.
+- 검증: '8/31·9/30' → 일운 두 개 모두 사실 주입(8/31 丁丑·9/30 丁未 등)·일운 중심 지시 확인, 연도 생략
+  보정. 회귀 1건 추가. ruff·mypy clean, 전체 스위트 통과(기존 환경 2건 제외).

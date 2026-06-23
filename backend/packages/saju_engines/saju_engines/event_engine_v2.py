@@ -11,6 +11,7 @@ reviewed:false 사전 초안 기반이므로 점수 절대값보다 상대 순�
 from __future__ import annotations
 
 import math
+from datetime import date
 from pathlib import Path
 
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
@@ -56,7 +57,7 @@ from .addendum_gate_modifier import AddendumGateModifier, GateContext
 from .career_mobility_modifier import CareerMobilityContext, CareerMobilityModifier
 from .cohort_calibration import CohortStats
 from .event_ranker import EventRanker, RankContext
-from .event_scoring import favorability_map
+from .event_scoring import daewoon_transition_boost, favorability_map
 from .exam_outcome_modifier import ExamOutcomeModifier
 from .ganji_calendar import relation_hits
 from .layer_flow_modifier import LayerFlowModifier
@@ -396,7 +397,30 @@ class EventEngineV2:
         ranked = self._ranker.rank(cands, rank_ctx)
         # 포화 제어 — 단계별 하드 클램프를 없앤 누적 raw에 최종 soft_cap만 적용(매달 100 포화 해소,
         # 순위 보존). raw_score에 cap 전 누적을 남겨 2차 계열 인지 감쇠의 계측으로 쓴다.
-        return [_apply_soft_cap(c) for c in ranked]
+        capped = [_apply_soft_cap(c) for c in ranked]
+        # 교운 가중 복원(2026-06-23) — 전환성 이벤트는 교운일 근접도로 raw_score(랭킹축, 비포화)에
+        # 곱셈 배율을 가산 기여로 반영한다. 구 EventScorer의 daewoonTransition 신호 가중이 21키
+        # 재설계에서 누락된 회귀 복원. 유력 달 판정은 strength_rank(raw_total=raw_score)로 가므로
+        # 이 보정이 직접 반영된다. display score·activation(포화 채널)은 base raw 기준 그대로 둬
+        # 변별·포화 특성을 보존한다(사건 종류·극성 불변). 대운 후보는 midpoint=None으로 제외.
+        midpoint = _period_midpoint(level, label)
+        if midpoint is None or not idx.jiao_dates:
+            return capped
+        boosted: list[EventCandidateV2] = []
+        for c in capped:
+            new_raw, w = daewoon_transition_boost(
+                c.raw_score, midpoint, idx.jiao_dates, c.event_key,
+            )
+            if w <= 0.0:
+                boosted.append(c)
+                continue
+            delta = round(new_raw - c.raw_score, 2)
+            boosted.append(c.model_copy(update={
+                "raw_score": round(new_raw, 2),
+                "contributions": {**c.contributions, "daewoon_transition": delta},
+                "reason_codes": [*c.reason_codes, f"DAEWOON_TRANSITION_BOOST_{w:.2f}"],
+            }))
+        return boosted
 
     def _relation_hits(
         self, result: ManseV2Result, level: GanjiLevel, target: LuckPillar
@@ -448,6 +472,14 @@ class _StackIndex:
         self.dw_by_year: dict[int, DaewoonItem] = {}
         self.sewoon_by_year: dict[int, LuckPillar] = {}
         self.wolwoon_by_ym: dict[str, LuckPillar] = {}
+        # 정확 교운일(대운 시작) — 교운 가중(전환성 이벤트 곱셈 배율)의 거리 기준. 만세 엔진
+        # trace에 ISO 문자열로 들어온다(approx_start_date는 대략값이라 쓰지 않음).
+        self.jiao_dates: list[date] = []
+        for x in (lc.trace.get("exact_jiao_un_dates", []) if lc.trace else []):
+            try:
+                self.jiao_dates.append(date.fromisoformat(x) if isinstance(x, str) else x)
+            except (ValueError, TypeError):
+                continue
         for dwi in lc.daewoon_table:
             for y in range(dwi.approx_start_date.year, dwi.approx_end_date.year + 1):
                 self.dw_by_year.setdefault(y, dwi)
@@ -490,6 +522,23 @@ class _StackIndex:
 
 
 # ── 보조 함수 ──────────────────────────────────────────────────────
+
+
+def _period_midpoint(level: GanjiLevel, label: str) -> date | None:
+    """기간 라벨의 대표 날짜(교운 거리 계산용). 연=7/1, 월=15일, 일=당일.
+
+    대운 후보(label='YYYY~YYYY')는 교운 가중 대상이 아니므로 None을 반환한다.
+    """
+    try:
+        if level is GanjiLevel.YEAR:
+            return date(int(label[:4]), 7, 1)
+        if level is GanjiLevel.MONTH:
+            return date(int(label[:4]), int(label[5:7]), 15)
+        if level is GanjiLevel.DAY:
+            return date.fromisoformat(label[:10])
+    except (ValueError, TypeError):
+        return None
+    return None
 
 
 def _daewoon_pillar(d: DaewoonItem) -> LuckPillar:

@@ -204,6 +204,23 @@ def _tc(lo: int, hi: int) -> TargetChars:
     """목차표 의도 분량 → 캘리브레이션된 검사 기준 TargetChars."""
     cmin, cmax = calibrate_chars(lo, hi)
     return TargetChars(min=cmin, max=cmax)
+
+
+# 전 구간 스펙트럼(연도·월 전체 표)을 부착하는 섹션 — 좋은·주의·평범 시기를 빠짐없이 서술할
+# 공간이 필요해 상한만 넓힌다(하한은 캘리브레이션값 유지 — 분량 미달 오탐 방지, 2026-06-23).
+_WIDE_SECTIONS = {
+    "Y-05", "F-14", "C-03", "C-04",
+    "W-06", "W-07", "J-05", "J-06", "R-05", "R-06", "RP-06", "RP-07", "RL-06",
+}
+_WIDE_MAX = 4_200
+
+
+def _tc_for(sid: str, lo: int, hi: int) -> TargetChars:
+    """섹션별 검사 기준 — 스펙트럼 섹션은 상한을 넓혀 전 구간 서술을 허용한다."""
+    cmin, cmax = calibrate_chars(lo, hi)
+    if sid in _WIDE_SECTIONS:
+        cmax = max(cmax, _WIDE_MAX)
+    return TargetChars(min=cmin, max=cmax)
 MAX_PARALLEL_SECTIONS = 4  # 의존성 없는 섹션 병렬 상한(2장)
 MAX_REGENERATIONS = 1  # 사실 위반 시에만 재생성(비용 절감, 2026-06-14: 2→1)
 
@@ -221,7 +238,7 @@ def build_section_plans(spec: ReportSpec) -> list[SectionPlan]:
             plans.append(SectionPlan(
                 section_id=sid, title=title,
                 module_calls=[ModuleCall(module_id=m) for m in modules],
-                target_chars=_tc(lo, hi),
+                target_chars=_tc_for(sid, lo, hi),
                 depends_on=depends,
             ))
         return plans
@@ -233,7 +250,7 @@ def build_section_plans(spec: ReportSpec) -> list[SectionPlan]:
             plans.append(SectionPlan(
                 section_id=sid, title=title,
                 module_calls=[ModuleCall(module_id=m) for m in modules],
-                target_chars=_tc(lo, hi),
+                target_chars=_tc_for(sid, lo, hi),
                 depends_on=depends,
             ))
         return plans
@@ -254,6 +271,6 @@ def build_section_plans(spec: ReportSpec) -> list[SectionPlan]:
         plans.append(SectionPlan(
             section_id=sid, title=title,
             module_calls=[ModuleCall(module_id=m) for m in resolved],
-            target_chars=_tc(lo, hi),
+            target_chars=_tc_for(sid, lo, hi),
         ))
     return plans

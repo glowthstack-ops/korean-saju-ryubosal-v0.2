@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from saju_api.services.manse_service import calculate
+from saju_api.services.manse_service import calculate, luck_months
 from saju_engines import EventEngineV2, GraphIndex, build_event_graph, filter_year_candidates
-from saju_engines.event_scoring import daewoon_transition_weight
+from saju_engines.event_scoring import daewoon_transition_boost, daewoon_transition_weight
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.event_engine import ConfidenceLevel, EventCandidateV2, EventKeyV2
 from saju_shared_types.events import EventKey
@@ -146,3 +146,56 @@ def test_case10_daewoon_transition_weight_shape() -> None:
     assert at_zero > near > far
     gauss_near = daewoon_transition_weight(date(2026, 2, 22), jiao, beta=2.0)
     assert near < gauss_near
+
+
+# 케이스 11 — 교운 가중 부스트: 전환성 이벤트만 교운일 근접도로 곱셈 배율, 비전환성은 불변.
+def test_case11_daewoon_transition_boost_gating() -> None:
+    jiao = [date(2025, 11, 15)]
+    # 전환성 이벤트(job_gain)는 교운일 근접 시 (1 + α·weight)로 증폭.
+    near_raw, near_w = daewoon_transition_boost(
+        100.0, date(2025, 11, 15), jiao, EventKeyV2.JOB_GAIN
+    )
+    assert near_w == pytest.approx(1.0) and near_raw == pytest.approx(200.0)
+    # 멀어지면 배율이 작아진다(단조).
+    far_raw, far_w = daewoon_transition_boost(100.0, date(2026, 6, 15), jiao, EventKeyV2.JOB_GAIN)
+    assert far_w < near_w and far_raw < near_raw and far_raw > 100.0
+    # 비전환성 이벤트(wealth_change)는 교운일 바로 위여도 불변.
+    nb_raw, nb_w = daewoon_transition_boost(
+        100.0, date(2025, 11, 15), jiao, EventKeyV2.WEALTH_CHANGE
+    )
+    assert nb_w == 0.0 and nb_raw == 100.0
+    # 교운일이 없으면 불변.
+    no_raw, no_w = daewoon_transition_boost(100.0, date(2025, 11, 15), [], EventKeyV2.JOB_GAIN)
+    assert no_w == 0.0 and no_raw == 100.0
+
+
+# 케이스 12 — 회귀(사용자 보고 2026-06-23): 교운일 근접 달이 강한 먼 달을 재취업 랭킹에서 앞선다.
+# 21키 재설계에서 누락됐던 교운 가중을 복원해, 데굴 차트(교운일 2025-11-15)의 job_gain
+# raw_score 1위가 6월이 아니라 11월이 되도록 보장한다(죽은 daewoonTransition 신호 재발 방지).
+def test_case12_daewoon_transition_reemployment_ranking() -> None:
+    birth = BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:40",
+        birth_place_name="서울 구로구", latitude=37.4944, longitude=126.8563,
+        timezone="Asia/Seoul", gender="male",
+    )
+    result = calculate(birth)
+    # 교운일이 11월 중순인지 전제 확인(부스트 거리 기준).
+    assert "2025-11-15" in result.luck_cycles.trace.get("exact_jiao_un_dates", [])
+    result.luck_cycles.monthly_luck = luck_months(birth, 2025) + luck_months(birth, 2026)
+    cands = EventEngineV2(_DICTS).score(result, levels={GanjiLevel.MONTH})
+
+    def best_job_gain(period: str) -> EventCandidateV2 | None:
+        rows = [c for c in cands if c.period == period and c.event_key is EventKeyV2.JOB_GAIN]
+        return max(rows, key=lambda c: c.raw_score) if rows else None
+
+    nov = best_job_gain("2025-11")
+    jun = best_job_gain("2026-06")
+    assert nov is not None and jun is not None
+    # 교운일 근접 11월이 정관 강한 6월을 raw_score(유력 달 랭킹축)에서 앞선다.
+    assert nov.raw_score > jun.raw_score
+    # 11월은 전 구간 job_gain raw_score 최댓값(1위).
+    all_jg = [c for c in cands if c.event_key is EventKeyV2.JOB_GAIN]
+    assert nov.raw_score == max(c.raw_score for c in all_jg)
+    # 부스트 추적: 교운 기여 항과 reason_code가 남는다.
+    assert "daewoon_transition" in nov.contributions
+    assert any(rc.startswith("DAEWOON_TRANSITION_BOOST_") for rc in nov.reason_codes)

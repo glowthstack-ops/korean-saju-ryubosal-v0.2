@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -38,6 +39,8 @@ from saju_engines.precompute import CompositeBuilder
 from saju_engines.query_parser import parse_message
 from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.structural_context import (
+    DAEWOON_FRAMING_DIRECTIVE,
+    DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
     PARTNER_SOURCE_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
@@ -71,7 +74,7 @@ from .manse_service import (
     luck_months,
     luck_years,
 )
-from .personalization import fetch_personal_inputs
+from .personalization import fetch_confirmed_yongsin_override, fetch_personal_inputs
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
@@ -129,6 +132,62 @@ def _date_solar_month_note(birth: BirthInput, target: date, timezone: str) -> st
         f"{mp.ganji}이며 양력 {sm_s.isoformat()}~{sm_e.isoformat()}에 해당한다. 월운은 절입 "
         f"기준이라 양력 달과 다르다 — 이 날짜의 월간지를 양력 {target.month}월의 다음 절기월로 "
         f"답하지 말고 반드시 {mp.ganji}로 본다."
+    )
+
+
+# 'YYYY년 N월 N일' / 'N월 N일' 추출(연도 생략 시 기준 연도). 특정 날짜 운세 질문의 일운 grounding용.
+_DATE_RE = re.compile(r"(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일")
+
+
+def _explicit_dates(question: str, default_year: int) -> list[date]:
+    """질문 본문의 명시 날짜('8월 31일' 등)를 추출(연도 생략 시 default_year). 중복·무효 제거."""
+    out: list[date] = []
+    seen: set[date] = set()
+    for m in _DATE_RE.finditer(question):
+        year = int(m.group(1)) if m.group(1) else default_year
+        try:
+            dt = date(year, int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            continue
+        if dt not in seen:
+            seen.add(dt)
+            out.append(dt)
+    return out
+
+
+def _date_day_fortune_note(birth: BirthInput, dates: list[date], timezone: str) -> str:
+    """특정 날짜 질문 — 그 날(들)의 일운(日運) 간지·십성·길흉 + 절기월을 '엔진 확정 사실'로 주입.
+
+    날짜를 물으면 월운(절기월)으로 뭉뚱그리지 말고 그 날의 일운을 중심으로 답하게 한다(2026-06-23
+    데굴님 지적: '8/31·9/30 운' 질문에 丙申월·丁酉월만 답함). 월운은 절입 기준이라 양력 달과
+    다르므로 함께 못박는다. 최대 4개 날짜.
+    """
+    segs: list[str] = []
+    for tgt in dates[:4]:
+        try:
+            days = luck_days(birth, tgt.year, tgt.month)
+        except (ValueError, RuntimeError):
+            days = []
+        dp = next((p for p in days if p.label == tgt.isoformat()), None)
+        label = _current_luck_month(tgt, timezone)
+        ml = luck_months(birth, int(label[:4]))
+        mp = next((p for p in ml if p.label == label), None)
+        if dp is None:
+            continue
+        grade = f"·{dp.luck_label}" if dp.luck_label else ""
+        seg = (
+            f"{tgt.isoformat()}: 일운(日運) {dp.ganji}"
+            f"(천간 {dp.stem_ten_god or '?'}·지지 {dp.branch_ten_god or '?'}{grade})"
+        )
+        if mp is not None:
+            seg += f" / 그 날의 절기월 {mp.ganji}"
+        segs.append(seg)
+    if not segs:
+        return ""
+    return (
+        "[질문한 날짜의 일운 — 엔진 확정 사실] " + " ; ".join(segs) + ". 특정 날짜를 물었으므로 "
+        "그 날의 일운(日干支)을 중심으로 그 날의 길흉·기운·행동을 풀고, 월운·세운·대운은 배경 "
+        "맥락으로만 짚을 것. 월간지로 그 날의 운을 대신하지 말고, 절기월은 위 값을 그대로 쓸 것."
     )
 
 # 정책 라우트 고정 응답(T3.8 — docs/03 B4 하단). LLM 미호출 템플릿.
@@ -968,6 +1027,17 @@ def _is_divorce_question(question: str) -> bool:
     return any(k in question for k in _DIVORCE_KEYS)
 
 
+# 대운(10년 단위)·장기 인생 흐름 질문 — 대운 framing(환경/공간감)·교체기 신호를 붙일 트리거.
+_DAEWOON_KEYS = (
+    "대운", "교운", "평생", "인생 전체", "인생 흐름", "큰 흐름", "큰 운", "10년", "십년",
+)
+
+
+def _is_daewoon_question(intent: IntentJson, question: str) -> bool:
+    """대운·장기 인생 흐름 질문 여부 — 명시 키워드 기반(막연한 장기 질문은 호출부에서 OR 보강)."""
+    return any(k in question for k in _DAEWOON_KEYS)
+
+
 def _compat_prompt_block(
     result: ManseV2Result, partner_birth: BirthInput, today: date, partner_label: str,
 ) -> str | None:
@@ -1332,8 +1402,12 @@ def chat(
     # 개인화(저장된 subject 한정): 현실 신호 시그니처 + 활성 코호트 → LEI 정렬축. 미설정·실패 시
     # life_fit·personal_match=0이라 기존 정렬과 동치(무개인화 폴백, 규칙11).
     _sig, _cohort = fetch_personal_inputs(owner_id, subject_id, result)
+    # 사용자 확정 용신 — 있으면 용희기구한 5역할을 그 용신으로 재도출해 fav_override로 점수에 반영.
+    # 엔진 최초 도출값(result.yongsin_analysis.final = 확정 전 후보)은 비파괴 보존(되돌림 기준).
+    _fav_override, _confirmed_yongsin = fetch_confirmed_yongsin_override(owner_id, subject_id)
     all_scored = _get_scorer().score_legacy_personalized(
-        result, levels=_SCORE_LEVELS, signature=_sig, cohort=_cohort,
+        result, levels=_SCORE_LEVELS, fav_override=_fav_override,
+        signature=_sig, cohort=_cohort,
         occupation_status=occupation_status, relationship_status=relationship_status,
         occupation_category=occupation_category,
     )
@@ -1416,7 +1490,7 @@ def chat(
                     list(year_result.luck_cycles.yearly_luck) + extra
                 )
                 year_scored = _get_scorer().score_legacy_personalized(
-                    year_result, levels={GanjiLevel.YEAR},
+                    year_result, levels={GanjiLevel.YEAR}, fav_override=_fav_override,
                     signature=_sig, cohort=_cohort,
                     occupation_status=occupation_status,
                     relationship_status=relationship_status,
@@ -1554,7 +1628,9 @@ def chat(
             result_win = result.model_copy(deep=True)
             assert result_win.luck_cycles is not None
             result_win.luck_cycles.monthly_luck = monthly_all
-            scored_win = _get_scorer().score_legacy(result_win, levels={GanjiLevel.MONTH})
+            scored_win = _get_scorer().score_legacy(
+                result_win, levels={GanjiLevel.MONTH}, fav_override=_fav_override,
+            )
             overview = build_monthly_overview(result_win, scored_win, months=window_months)
             # 창 내 월 후보(기본 월운 범위 밖 과거 달 포함)를 메인 후보에도 보존 —
             # '재취업한 달은 언제' 류에서 표와 근거 경로가 같은 달을 가리키게(2026-06-12).
@@ -1579,7 +1655,9 @@ def chat(
                 result_year = result.model_copy(deep=True)
                 assert result_year.luck_cycles is not None
                 result_year.luck_cycles.monthly_luck = year_months
-                scored_year = _get_scorer().score_legacy(result_year, levels={GanjiLevel.MONTH})
+                scored_year = _get_scorer().score_legacy(
+                    result_year, levels={GanjiLevel.MONTH}, fav_override=_fav_override,
+                )
                 overview = build_monthly_overview(result_year, scored_year, year=target_year)
                 result_for_llm = result_year
         # 신호가 하나도 없는 빈 표는 넣지 않는다(빈 표가 회피를 유발).
@@ -1658,20 +1736,37 @@ def chat(
     # 줄인다. 안 그러면 serialize 통과 후 지시문·시스템이 더해져 generate_reading 재검사에서
     # 한도 초과 → 일반 오류로 마감되던 결함(2026-06-18, 10년 이사 질문 12,098tok 초과).
     trailing: list[str] = [_CHAT_SCOPE_DIRECTIVE]
-    # 날짜 질문 — 그 날의 절기 월간지를 사실로 못박는다(LLM의 양력 달 월간지 오답 방지, 2026-06-22).
+    # 사용자 확정 용신 적용 안내 — 확정 5역할을 길흉 기준으로, 엔진 최초 도출은 기본값으로 병기.
+    if _confirmed_yongsin is not None:
+        from saju_engines.event_scoring import confirmed_yongsin_note
+        _yongsin_note = confirmed_yongsin_note(result, _confirmed_yongsin)
+        if _yongsin_note:
+            trailing.append(_yongsin_note)
+    # 특정 날짜 질문 — 그 날(들)의 일운(중심) + 절기월(양력 달 오답 방지)을 사실로 주입한다.
+    # 질문의 명시 날짜(다중 포함)를 모두 잡고, 없으면 시점이 단일 날짜일 때 그 날을 쓴다.
+    _tz = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
+    _ref_year = (
+        int(intent.time_range.start[:4])
+        if intent.time_range is not None
+        and intent.time_range.start
+        and intent.time_range.start[:4].isdigit()
+        else today.year
+    )
+    _date_targets = _explicit_dates(question, _ref_year)
     if (
-        intent.time_range is not None
+        not _date_targets
+        and intent.time_range is not None
         and intent.time_range.start
         and len(intent.time_range.start) == 10
     ):
         try:
-            _tgt = date.fromisoformat(intent.time_range.start)
-            _tz = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
-            _sm_note = _date_solar_month_note(birth, _tgt, _tz)
-            if _sm_note:
-                trailing.append(_sm_note)
+            _date_targets = [date.fromisoformat(intent.time_range.start)]
         except ValueError:
-            pass
+            _date_targets = []
+    if _date_targets:
+        _df_note = _date_day_fortune_note(birth, _date_targets, _tz)
+        if _df_note:
+            trailing.append(_df_note)
     # 상황 제약 — 비정직원이면서 직장운(재직 전제 사건) 맥락이면 '취업'을 함께 짚게 하고,
     # 그 외(이사 등 비career 맥락)에서 무직 키워드가 잡히면 기존 '이직→이사' 분기를 적용한다.
     if nonregular and (career_presupposed or intent.domain is Domain.CAREER):
@@ -1684,6 +1779,11 @@ def chat(
         trailing.append(_YEAR_DIGEST_DIRECTIVE)
     elif overview is not None and event_monthly and not monthly_explicit:
         trailing.append(_KEY_MONTHS_DIRECTIVE)
+    # 대운·장기 인생 흐름 질문 — 대운을 '환경/공간감(플랫폼)이 닥쳐오는 흐름·이 대운이 나에게
+    # 맞느냐'로 서술하고 교체기 체감 신호도 함께(리포트 대운 섹션과 공용 관점, 2026-06-23 확장).
+    if _is_daewoon_question(intent, question) or vague_future:
+        trailing.append(DAEWOON_FRAMING_DIRECTIVE)
+        trailing.append(DAEWOON_TRANSITION_SIGNALS_DIRECTIVE)
     # 이사 질문 — 십성(유형)과 용신/기신(길흉)을 분리해 답하도록 강제(2026-06-18).
     if _is_relocation_intent(intent):
         trailing.append(_RELOCATION_REASON_DIRECTIVE)

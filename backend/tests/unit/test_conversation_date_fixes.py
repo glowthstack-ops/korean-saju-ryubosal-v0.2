@@ -112,6 +112,44 @@ def test_bare_affirmation_continues_prior_intent() -> None:
     assert i2.time_range is not None and i2.time_range.start == "2027-06-01"  # 2027 창 유지
 
 
+def test_followup_inherits_time_scope_even_on_domain_shift() -> None:
+    """후속 턴이 자체 시점을 안 들고 오면(도메인 전환·link=NEW 포함) 직전 시점 창을 이어받는다.
+
+    실로그 결함(2026-06-23): 8/31·9/30=2026 매매 맥락의 후속 '대출 안 나오나?'가 link=NEW로
+    떨어져 막연한 미래(올해부터 10년) 흐름으로 빠짐. 시점은 스레드 레벨 슬롯으로 유지해야 한다.
+    """
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t1")
+    p1, state, _, _ = eng.process_turn(
+        state, "8월 31일은 운이 어떤지, 9월 30일은 운이 어떤지 봐줄래?",
+        date(2026, 6, 23), birth_year=1990,
+    )
+    assert p1.intents[0].time_range is not None and p1.intents[0].time_range.start
+    # 후속(대출/계약 = 새 도메인, 자체 시점 없음) — link=NEW여도 직전 2026 시점 창 승계.
+    p2, _state2, _, _ = eng.process_turn(
+        state, "이미 집계약을 마친 후인데 대출이 안나온다거나 할까?",
+        date(2026, 6, 23), birth_year=1990,
+    )
+    i2 = p2.intents[0]
+    assert i2.time_range is not None and i2.time_range.start is not None
+    assert i2.time_range.start.startswith("2026")  # 막연한 미래(10년)로 리셋되지 않음
+
+
+def test_followup_explicit_time_and_fresh_reading_skip_inheritance() -> None:
+    """명시 시점을 새로 주거나 총운·새 풀이를 요청하면 직전 시점 창을 승계하지 않는다."""
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t1")
+    _, state, _, _ = eng.process_turn(
+        state, "8월 31일은 운이 어떤지 봐줄래?", date(2026, 6, 23), birth_year=1990,
+    )
+    # 새 풀이(총운·처음부터) — 미승계.
+    p_fresh, _s, _, _ = eng.process_turn(
+        state, "그럼 내 총운 처음부터 봐줘", date(2026, 6, 23), birth_year=1990,
+    )
+    tr = p_fresh.intents[0].time_range
+    assert tr is None or not tr.start  # 직전 8/31 창을 끌고 오지 않음
+
+
 def test_questioning_or_possessive_not_affirmation() -> None:
     """'그래?'(반문)·'네 사주 봐줘'(소유격 네)는 수락이 아니므로 직전 의도를 잇지 않는다."""
     eng = ConversationEngine()
@@ -254,3 +292,26 @@ def test_date_solar_month_directive_fact() -> None:
     assert "2026-06-06" in note  # 절입 범위
     # 7/10 = 소서 후 → 乙未월.
     assert "乙未" in _date_solar_month_note(b, date(2026, 7, 10), "Asia/Seoul")
+
+
+def test_specific_date_question_surfaces_day_fortune() -> None:
+    """특정 날짜(다중 포함) 질문은 그 날의 일운(日運)을 사실로 주입하고 일운 중심 서술을 지시한다.
+
+    실로그 결함(2026-06-23): '8/31·9/30 운' 질문에 월운(丙申월·丁酉월)만 답하고 일운이 빠짐.
+    """
+    from saju_api.services.chat_service import _date_day_fortune_note, _explicit_dates
+    from saju_shared_types.birth_input import BirthInput
+
+    b = BirthInput(
+        calendar_type="solar", birth_date="1980-11-22", birth_time="09:08",
+        birth_place_name="서울", gender="male",
+    )
+    q = "중도금을 치르는 8월 31일은 운이 어떤지, 이사를 하는 9월 30일은 운이 어떤지 봐줄래?"
+    dates = _explicit_dates(q, 2026)
+    assert dates == [date(2026, 8, 31), date(2026, 9, 30)]  # 다중 날짜 추출
+    note = _date_day_fortune_note(b, dates, "Asia/Seoul")
+    # 두 날짜의 일운이 모두 사실로 들어가고, 일운 중심 서술 지시가 포함된다.
+    assert "2026-08-31" in note and "2026-09-30" in note
+    assert "일운(日運)" in note and "일운(日干支)을 중심으로" in note
+    # 연도 생략 표기도 기준 연도로 보정.
+    assert _explicit_dates("그럼 10월 5일은?", 2027) == [date(2027, 10, 5)]
