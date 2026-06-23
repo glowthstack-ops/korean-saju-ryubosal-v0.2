@@ -13,8 +13,13 @@ import pytest
 
 from saju_api.services.manse_service import calculate
 from saju_engines.event_engine_v2 import EventEngineV2
-from saju_engines.report_event_input import month_overview_lines, precise_candidate_clusters
+from saju_engines.report_event_input import (
+    month_overview_lines,
+    precise_candidate_clusters,
+    score_table_lines,
+)
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.events import confidence_ko
 from saju_shared_types.ganji_calendar import GanjiLevel
 
 _DICTS = Path(__file__).resolve().parents[2] / "dictionaries"
@@ -79,3 +84,16 @@ def test_month_overview_surfaces_luck_grade_and_stars_strong_quality() -> None:
     assert "★주목" in oct_line  # 사건이 적어도 운 품질로 주목
     # 모든 달이 운 품질 등급을 달고 나온다(빠짐없이).
     assert all("〈" in ln for ln in lines if ln.startswith("2026-"))
+
+
+def test_confidence_rendered_in_korean(chart_2031) -> None:
+    """신뢰도는 내부 키(medium_high/high)가 아니라 한글 라벨로 노출된다(2026-06-23 데굴님 지적)."""
+    assert confidence_ko("medium_high") == "다소 높음"
+    assert confidence_ko("high") == "높음"
+    cands = _cands_2031(chart_2031)
+    block = "\n".join(precise_candidate_clusters(chart_2031, cands))
+    table = "\n".join(score_table_lines(chart_2031, cands))
+    for raw in ("medium_high", "medium_low", "high", "low", "medium"):
+        assert raw not in block, f"후보 블록에 내부 신뢰도 키 노출: {raw}"
+        assert raw not in table, f"점수표에 내부 신뢰도 키 노출: {raw}"
+    assert "신뢰도" in block  # 신뢰도 항목 자체는 존재

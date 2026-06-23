@@ -4169,3 +4169,17 @@ career_change/relocation.json에 남았으나 새 엔진이 안 읽는 죽은 �
   혼용 위반으로 검출. 회귀 1건 추가. ruff·mypy clean, 전체 스위트 통과(기존 환경 2건 제외).
 - (참고) 채팅은 페르소나 준수 검사·재생성이 없어 LLM이 지시를 어기면 폴백 없음 — 필요 시 채팅측
   경량 검사 추가는 별도 작업.
+
+### 신뢰도 한글 순화 + 페르소나 변경 시 호칭 유지 (2026-06-23)
+
+데굴님 지적 2건:
+1) 신뢰도가 'medium_high'/'high' 내부 키 그대로 노출(리포트 후보 블록·점수표). →
+   `events.py`에 `CONFIDENCE_KO`/`confidence_ko()`(낮음/다소 낮음/보통/다소 높음/높음) 추가,
+   `report_event_input`의 후보 블록·점수표 렌더를 한글 라벨로 교체. (채팅 후보는 tone으로 대체돼
+   confidence 미노출 — 영향 없음.) 회귀 1건.
+2) 페르소나(말투) 변경 시 사용자 지정 호칭이 기본값으로 리셋됨. → 프론트 `StepPersona.setPoliteness`가
+   politeness 변경 때 호칭을 무조건 preset 기본값으로 덮어쓰던 것을 수정 — custom 호칭은 그대로 유지,
+   preset 호칭은 새 politeness와 정말 충돌할 때만 보정(호환 프리셋은 유지). 백엔드 resolve_honorific은
+   원래 config 값을 그대로 사용(정상). 성별·나이·난이도 변경은 호칭 미변경(기존 정상).
+- 검증: confidence_ko 매핑·리포트 렌더에 내부 키 0건 확인. backend ruff·mypy·pytest 통과(기존 환경 2건
+  제외), frontend tsc·production build 통과.

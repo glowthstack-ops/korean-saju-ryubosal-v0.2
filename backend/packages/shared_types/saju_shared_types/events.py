@@ -52,6 +52,24 @@ class Confidence(StrEnum):
     HIGH = "high"
 
 
+# 신뢰도 한글 라벨 — 사용자 노출 시 내부 키(medium_high 등)를 그대로 쓰지 않는다(2026-06-23).
+CONFIDENCE_KO: dict[Confidence, str] = {
+    Confidence.LOW: "낮음",
+    Confidence.MEDIUM_LOW: "다소 낮음",
+    Confidence.MEDIUM: "보통",
+    Confidence.MEDIUM_HIGH: "다소 높음",
+    Confidence.HIGH: "높음",
+}
+
+
+def confidence_ko(value: object) -> str:
+    """신뢰도 값(enum/문자열)을 한글 라벨로 순화. 미상이면 '보통'."""
+    try:
+        return CONFIDENCE_KO[Confidence(str(value))]
+    except (ValueError, KeyError):
+        return "보통"
+
+
 class Signal(BaseModel):
     """이벤트 점수에 기여하는 단일 신호 (docs/02 E2).
 

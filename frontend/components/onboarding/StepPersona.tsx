@@ -58,15 +58,17 @@ export function StepPersona({ value, onChange }: Props) {
 
   function setPoliteness(p: "jondae" | "banmal") {
     const style = STYLE_BY_POLITENESS[p][0].id;
-    // 호칭이 새 politeness와 충돌하면 기본값으로 보정.
-    const cur = value.user_honorific.preset_id;
-    const ok = HONORIFICS.find((h) => h.id === cur)?.allow.includes(p);
-    const preset: Preset = ok ? (cur as Preset) : p === "jondae" ? "name_nim" : "name_only";
-    onChange({
-      ...value,
-      speech: { politeness: p, style },
-      user_honorific: { type: "preset", preset_id: preset },
-    });
+    // 사용자가 지정한 호칭은 말투를 바꿔도 유지한다. custom 호칭은 그대로 두고(자유 입력엔 프리셋
+    // politeness 제약이 없음), preset 호칭은 새 politeness와 정말로 충돌할 때만 기본값으로 보정한다.
+    const h = value.user_honorific;
+    let honorific = h;
+    if (h.type !== "custom") {
+      const ok = HONORIFICS.find((x) => x.id === h.preset_id)?.allow.includes(p);
+      if (!ok) {
+        honorific = { type: "preset", preset_id: p === "jondae" ? "name_nim" : "name_only" };
+      }
+    }
+    onChange({ ...value, speech: { politeness: p, style }, user_honorific: honorific });
   }
 
   return (

@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN, direction_label
-from saju_shared_types.events import EventCandidate
+from saju_shared_types.events import EventCandidate, confidence_ko
 from saju_shared_types.ganji_calendar import GanjiLevel, RelationType
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
@@ -124,8 +124,8 @@ def precise_candidate_clusters(
         lines.append(head)
         for c in evs:
             lines.append(
-                f"  - {event_ko(c.event_key)}: {c.score}점 · 신뢰도 {c.confidence} · "
-                f"{_dir(c)}"
+                f"  - {event_ko(c.event_key)}: {c.score}점 · "
+                f"신뢰도 {confidence_ko(c.confidence)} · {_dir(c)}"
             )
     return lines
 
@@ -154,7 +154,7 @@ def score_table_lines(
             evidence = "—"
         out.append(
             f"| {c.period} | {ganji} | {event_ko(c.event_key)} | {c.score} | "
-            f"{c.confidence} | {_dir(c)} | {evidence} |"
+            f"{confidence_ko(c.confidence)} | {_dir(c)} | {evidence} |"
         )
     return out
 
