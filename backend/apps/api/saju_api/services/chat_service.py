@@ -38,6 +38,7 @@ from saju_engines.planner import build_execution_plan
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.query_parser import parse_message
 from saju_engines.rewriter import QueryAssessment, assess
+from saju_engines.shadow_scoring import domain_to_expression_key
 from saju_engines.structural_context import (
     DAEWOON_FRAMING_DIRECTIVE,
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
@@ -175,12 +176,23 @@ def _date_day_fortune_note(birth: BirthInput, dates: list[date], timezone: str) 
         if dp is None:
             continue
         grade = f"·{dp.luck_label}" if dp.luck_label else ""
-        seg = (
-            f"{tgt.isoformat()}: 일운(日運) {dp.ganji}"
+        body = (
+            f"일운(日運) {dp.ganji}"
             f"(천간 {dp.stem_ten_god or '?'}·지지 {dp.branch_ten_god or '?'}{grade})"
         )
         if mp is not None:
-            seg += f" / 그 날의 절기월 {mp.ganji}"
+            sm_month = int(mp.label[5:7])  # 절기월 절입 양력 월(예: 甲午=2026-06→6)
+            if tgt.month != sm_month:
+                # 양력 달 ≠ 절입 달 = 절기 경계 직전 — 절기월 기운이 이 날까지 이어짐을 명시
+                # (LLM이 양력 달로 월운을 오인하던 결함 보정, 2026-06-24 데굴님 지적).
+                seg = (
+                    f"{tgt.isoformat()}: 절기월 {mp.ganji}({sm_month}월 절입)의 기운이 "
+                    f"아직 이어지는 날, {body}"
+                )
+            else:
+                seg = f"{tgt.isoformat()}: {body} / 그 날의 절기월 {mp.ganji}"
+        else:
+            seg = f"{tgt.isoformat()}: {body}"
         segs.append(seg)
     if not segs:
         return ""
@@ -461,7 +473,9 @@ def _build_period_fortune(
         [SubjectRef(kind=SubjectKind.SELF, label="본인")],
         period, composites, dictionaries_dir=_DICTS,
     )
-    grounding = build_luck_grounding(chart, pillar)
+    # 표현 제한 도메인(Phase 5b-2b) — parser Domain.value(str)만 전달(enum 비종속).
+    domain_key = domain_to_expression_key(intent.domain.value)
+    grounding = build_luck_grounding(chart, pillar, domain_key=domain_key)
     slots = [
         PeriodFortuneSlot(
             name=f.key.removeprefix("slot:"), score=f.score, summary=f.summary,

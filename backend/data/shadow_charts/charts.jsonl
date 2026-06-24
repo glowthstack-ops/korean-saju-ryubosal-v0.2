@@ -1,0 +1,33 @@
+{"chart_id": "operational_std", "input": {"calendar_type": "solar", "birth_date": "1977-12-16", "birth_time": "05:30", "birth_place_name": "Seoul", "gender": "male"}}
+{"chart_id": "australia_dst", "input": {"calendar_type": "solar", "birth_date": "1990-01-15", "birth_time": "12:00", "birth_place_name": "Sydney", "latitude": -33.8688, "longitude": 151.2093, "timezone": "Australia/Sydney", "gender": "male"}}
+{"chart_id": "india_half_offset", "input": {"calendar_type": "solar", "birth_date": "1990-01-01", "birth_time": "10:00", "birth_place_name": "Kolkata", "latitude": 22.5726, "longitude": 88.3639, "timezone": "Asia/Kolkata", "gender": "male"}}
+{"chart_id": "japan_tokyo_standard", "input": {"calendar_type": "solar", "birth_date": "1985-03-15", "birth_time": "14:30", "birth_place_name": "Tokyo", "gender": "male"}}
+{"chart_id": "korea_seoul_1980_11_22", "input": {"calendar_type": "solar", "birth_date": "1980-11-22", "birth_time": "09:08", "birth_place_name": "서울", "gender": "male"}}
+{"chart_id": "lunar_leap_month", "input": {"calendar_type": "lunar", "is_leap_month": true, "birth_date": "2020-04-15", "birth_time": "10:00", "birth_place_name": "서울", "gender": "male"}}
+{"chart_id": "uk_london_bst", "input": {"calendar_type": "solar", "birth_date": "1990-07-01", "birth_time": "12:00", "birth_place_name": "London", "latitude": 51.5074, "longitude": -0.1278, "timezone": "Europe/London", "gender": "male"}}
+{"chart_id": "us_newyork_dst", "input": {"calendar_type": "solar", "birth_date": "1990-07-01", "birth_time": "12:00", "birth_place_name": "New York", "gender": "male"}}
+{"chart_id": "zi_hour_boundary", "input": {"calendar_type": "solar", "birth_date": "1980-11-22", "birth_time": "23:30", "birth_place_name": "서울", "gender": "male"}}
+{"chart_id": "kansal_taewang_01", "input": {"calendar_type": "solar", "birth_date": "1963-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "sarin_sangsaeng_01", "input": {"calendar_type": "solar", "birth_date": "1965-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "conditional_byeong_water_01", "input": {"calendar_type": "solar", "birth_date": "1967-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "johu_cold_01", "input": {"calendar_type": "solar", "birth_date": "1950-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "johu_hot_01", "input": {"calendar_type": "solar", "birth_date": "1950-06-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "yongsin_no_transmit_01", "input": {"calendar_type": "solar", "birth_date": "1958-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "yongsin_no_root_01", "input": {"calendar_type": "solar", "birth_date": "1976-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "yongsin_gongmang_01", "input": {"calendar_type": "solar", "birth_date": "1963-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "female"}, "match_quality": "FOUND"}
+{"chart_id": "yongsin_clash_01", "input": {"calendar_type": "solar", "birth_date": "1969-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "yongsin_gyeokgak_zimao_01", "input": {"calendar_type": "solar", "birth_date": "1988-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "yongsin_isolation_01", "input": {"calendar_type": "solar", "birth_date": "1991-01-03", "birth_time": "16:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "yongsin_bound_01", "input": {"calendar_type": "solar", "birth_date": "1951-01-03", "birth_time": "02:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "jesal_assist_earth_01", "input": {"calendar_type": "solar", "birth_date": "1986-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "jaeda_sinyak_01", "input": {"calendar_type": "solar", "birth_date": "1952-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "inseong_gwada_01", "input": {"calendar_type": "solar", "birth_date": "1953-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "siksang_gwada_01", "input": {"calendar_type": "solar", "birth_date": "1960-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "bigyeop_gwada_01", "input": {"calendar_type": "solar", "birth_date": "1951-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "hap_confirmed_01", "input": {"calendar_type": "solar", "birth_date": "1977-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "hap_bind_01", "input": {"calendar_type": "solar", "birth_date": "1998-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "hap_contend_01", "input": {"calendar_type": "solar", "birth_date": "1954-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "hap_away_01", "input": {"calendar_type": "solar", "birth_date": "1978-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "special_gyeok_01", "input": {"calendar_type": "solar", "birth_date": "1966-01-03", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "jonggyeok_01", "input": {"calendar_type": "solar", "birth_date": "1950-01-01", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}
+{"chart_id": "jeonwang_01", "input": {"calendar_type": "solar", "birth_date": "1953-01-01", "birth_time": "00:30", "birth_place_name": "Seoul", "gender": "male"}, "match_quality": "FOUND"}

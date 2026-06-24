@@ -15,6 +15,17 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+# TODO(Phase 5a): operational 라벨 class·밴드 mapper를 manse_analysis 에서 직접 import.
+#   순환참조 없음(manse_analysis 는 saju_engines 미참조), config 상수만 사용.
+#   shadow scoring/API 공용화 전 shared_types(또는 shared_config)로 이전할 것.
+import saju_manse_analysis.yongsin.operational_role_config as _op_config
+from saju_manse_analysis.yongsin.operational_role_config import (
+    LUCK_OPERATIONAL_GUARD,
+    OPERABILITY_FACTOR_SHORT,
+    OPERABILITY_LEVEL_BANDS,
+    OPERATIONAL_ROLE_CLASS,
+)
+
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
     STEM_ELEMENT,
@@ -26,6 +37,7 @@ from saju_shared_types.llm_input import (
     ChartInterpretation,
     InterpretationExcerpt,
     PillarDetail,
+    YongsinOperationalSummary,
 )
 from saju_shared_types.manse_result import ManseV2Result
 
@@ -143,7 +155,9 @@ _LUCK_REL_TYPE: dict[str, tuple[str, ...]] = {
 }
 
 
-def build_luck_grounding(result: ManseV2Result, luck_pillar: object) -> dict:
+def build_luck_grounding(
+    result: ManseV2Result, luck_pillar: object, domain_key: str | None = None
+) -> dict:
     """기간 운(일운/월운/세운) grounding — 그 간지의 십성·십이운성·형충회합(운 의미)·신살·공망.
 
     기간 총운의 사실 근거(LLM은 간지를 계산할 수 없으므로 반드시 동반). 운에서
@@ -153,6 +167,8 @@ def build_luck_grounding(result: ManseV2Result, luck_pillar: object) -> dict:
     Args:
         result: 일간 십성·용기신 판정을 위한 만세 결과.
         luck_pillar: 해당 기간 LuckPillar(ganji·십성·운성·relations_to_chart 등).
+        domain_key: 표현 제한 도메인 키(career/wealth/...). None/미매핑은 base guidance
+            (Phase 5b-2b — parser Domain enum 비종속·str만 받음). 후보 경로는 미전달.
 
     Returns:
         pillar_line / relation_lines / sinsal_lines / gongmang 키를 가진 dict.
@@ -162,7 +178,7 @@ def build_luck_grounding(result: ManseV2Result, luck_pillar: object) -> dict:
     fav = favorability_map(result)
     day_master = result.pillars.day_master if result.pillars else ""
     ganji = getattr(luck_pillar, "ganji", "")
-    note = incoming_ten_god_note(day_master, ganji, fav)
+    note = incoming_ten_god_note(day_master, ganji, fav, natal_operational_role_map(result))
     stage_name = getattr(luck_pillar, "twelve_unseong", "")
     stage = _stage_by_name().get(stage_name)
     stage_txt = _first_sentence(stage["natal"], 110) if stage else ""
@@ -224,6 +240,26 @@ def build_luck_grounding(result: ManseV2Result, luck_pillar: object) -> dict:
             f"양면 {_first_sentence(item['flipSide'], 80)}"
         )
 
+    # 길흉 표현 제한(Phase 5b-2a) — 점수·순위 불변, 문장 강도만 clamp(단일 기간 블록만).
+    # rollback: EXPRESSION_CLAMP_ENABLED=False 면 라인 미노출(즉시 off — 계산·shadow 무관).
+    # 5b-2b: domain_key 있으면 등급을 도메인 언어로 번역(미상/미매핑은 base guidance).
+    from .shadow_scoring import (  # 지역 import — 순환 의존 회피
+        domain_expression_phrase,
+        luck_expression_clamp,
+    )
+    clamp = (
+        luck_expression_clamp(result, ganji)
+        if _op_config.EXPRESSION_CLAMP_ENABLED else None
+    )
+    if clamp is not None:
+        phrase = domain_expression_phrase(
+            domain_key, clamp["expression_class"], clamp["guidance"]
+        )
+        limit = f"[표현 제한] {clamp['expression_class']} — {phrase}"
+        if clamp["low_operability"] is not None:
+            limit += f"; 용신운이나 작동성 낮아({clamp['low_operability']}) 강한 길운 단정 금지"
+        pillar_line += f" · {limit}(점수·순위 불변)"
+
     gongmang = list(getattr(luck_pillar, "gongmang_activation", []) or [])
     return {
         "pillar_line": pillar_line,
@@ -262,6 +298,93 @@ def _serialize_ilju(entry: dict) -> str:
         "그림자: " + " / ".join(traits["shadow"]),
         f"배우자궁: {entry['spouse_palace_note']}",
     ])
+
+
+# 작동 역할 요약 token 절제(Phase 5a). warnings 최대 개수 + 누적 char 예산(토큰 proxy):
+# 우선순위 순으로 예산 내까지만 채택(초과 시 하위 warning부터 드롭).
+_MAX_WARNINGS = 3
+_WARNINGS_CHAR_BUDGET = 120
+
+
+def _trim_warnings(warnings: list[str]) -> list[str]:
+    """우선순위 보존하며 개수·char 예산 내로 자른다(초과 시 하위 warning 드롭)."""
+    out: list[str] = []
+    used = 0
+    for w in warnings[:_MAX_WARNINGS]:
+        if used + len(w) > _WARNINGS_CHAR_BUDGET:
+            break
+        out.append(w)
+        used += len(w)
+    return out
+
+
+def _operability_level(operability: float | None) -> str:
+    """operability 수치 → 표시용 밴드(높음/보통/낮음). None 이면 빈 문자열."""
+    if operability is None:
+        return ""
+    if operability < OPERABILITY_LEVEL_BANDS["low"]:
+        return "낮음"
+    if operability < OPERABILITY_LEVEL_BANDS["mid"]:
+        return "보통"
+    return "높음"
+
+
+def build_yongsin_operational_summary(
+    result: ManseV2Result,
+) -> YongsinOperationalSummary | None:
+    """원국 기준 작동 역할 compact 요약(Phase 5a). 구형/부분 결과면 None(안전 fallback).
+
+    operational_role 해석은 OPERATIONAL_ROLE_CLASS mapper 만 사용(문자열 substring 파싱 금지).
+    warnings 는 deterministic 우선순위로 ≤3: ①조건부 희신/병 ②용신 operability 저하 ③조후/합/혼잡.
+    점수·이벤트 판정 불변 — 이 요약은 작동성·조건부 해석 참고 자료일 뿐이다.
+    """
+    ya = result.yongsin_analysis
+    if ya is None or not ya.operational_roles:
+        return None
+    primary = ya.final.get("yongsin") or ""
+    yong_role = next((r for r in ya.operational_roles if r.element == primary), None)
+    operability = yong_role.operability if yong_role else None
+
+    main_support = [
+        f"{r.element}: {r.operational_role}"
+        for r in ya.operational_roles if r.operational_role == "조후보조신"
+    ]
+    conditional = [
+        f"{r.element}: {r.operational_role}"
+        for r in ya.operational_roles
+        if OPERATIONAL_ROLE_CLASS.get(r.operational_role) == "conditional"
+    ]
+
+    # warnings — deterministic 우선순위(①조건부 희신/병 ②용신 작동성 ③구조), 간결 명령형.
+    # 상세 수치·factor 는 위 블록 라인에 이미 있으므로 warning 은 imperative 만(토큰 절약).
+    level = _operability_level(operability)
+    warnings: list[str] = []
+    cond_byung = [
+        r.element for r in ya.operational_roles
+        if r.operational_role == "조건부 희신/병"
+    ]
+    if cond_byung:
+        warnings.append(f"{'·'.join(cond_byung)}: 자동 길신 처리 금지(정적 희신이나 과다·병)")
+    if level == "낮음":
+        warnings.append(f"{primary}: 용신이나 작동성 약함")
+    has_structure = any(
+        r.note and ("officer_hap" in r.note or "관살혼잡" in r.note)
+        for r in ya.operational_roles
+    ) or bool(main_support)
+    if has_structure:
+        warnings.append("관살혼잡·합·조후 맥락 — 작용 단순치 않음")
+
+    factors = list(yong_role.operability_factors) if yong_role else []
+    return YongsinOperationalSummary(
+        primary_yongsin=primary,
+        operability=operability,
+        operability_level=level,
+        operability_factors=factors,
+        operability_factors_ko=[OPERABILITY_FACTOR_SHORT.get(f, f) for f in factors],
+        main_support=main_support,
+        conditional=conditional,
+        warnings=_trim_warnings(warnings),
+    )
 
 
 def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | None:
@@ -312,6 +435,7 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
         hap_modes=natal_hap_mode_lines(result),
         ilju_text=_serialize_ilju(ilju_entry) if ilju_entry else "",
         excerpts=excerpts,
+        yongsin_operational_summary=build_yongsin_operational_summary(result),
     )
 
 
@@ -486,13 +610,49 @@ def _favorability_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]
     return excerpts
 
 
+def natal_operational_role_map(result: ManseV2Result) -> dict[str, str]:
+    """원국(natal) 기준 {오행: operational_role}. operational_roles 없으면 빈 dict(구형 fallback).
+
+    운 입자 해석 guard 용 — 운에서 들어온 오행이 원국에서 어떤 작동 역할인지(조건부 희신/병 등).
+    """
+    ya = result.yongsin_analysis
+    if ya is None or not getattr(ya, "operational_roles", None):
+        return {}
+    return {r.element: r.operational_role for r in ya.operational_roles}
+
+
+def _operational_tag(element: str, canonical_role: str | None, oper_role: str | None) -> str:
+    """운 입자 오행 인라인 태그 — operational 이 guard 대상이면 '원국 작동' 표기(Phase 5b-1)."""
+    base = f"{element} {canonical_role}" if canonical_role else element
+    if oper_role and oper_role in LUCK_OPERATIONAL_GUARD:
+        return f"({base} → 원국 작동: {oper_role})"
+    return f"({base})"
+
+
+def _operational_guard_suffix(elements: list[str], operational_map: dict[str, str]) -> str:
+    """운 입자 오행별 guard suffix(오행별 1회 dedupe). 라벨별 문구는 config."""
+    lines: list[str] = []
+    seen: set[str] = set()
+    for el in elements:
+        role = operational_map.get(el)
+        if role in LUCK_OPERATIONAL_GUARD and el not in seen:
+            seen.add(el)
+            lines.append(f"※ 운 {el}: {LUCK_OPERATIONAL_GUARD[role]}")
+    return " ".join(lines)
+
+
 def incoming_ten_god_note(
-    day_master: str, ganji: str, fav_map: dict[str, str]
+    day_master: str,
+    ganji: str,
+    fav_map: dict[str, str],
+    operational_map: dict[str, str] | None = None,
 ) -> str:
     """운 유입 간지의 일간 기준 십성 해석 1줄(동적 suffix — 후보별 동반).
 
     천간·지지 십성을 함께 표기한다 — 단일 천간 십성만 보고 사건을 단정하는
-    오류 방지(regression_2025_08: 甲申월 = 정관(甲)+상관(申) 복합).
+    오류 방지(regression_2025_08: 甲申월 = 정관(甲)+상관(申) 복합). operational_map(원국 기준)이
+    주어지면 운 오행의 원국 작동 역할(조건부 희신/병 등)을 함께 표기 + guard suffix(Phase 5b-1).
+    operational_map=None/빈 dict 이면 기존 canonical 동작과 완전히 동일하다(explanation only).
     """
     if not day_master or len(ganji) < 2:
         return ""
@@ -502,26 +662,28 @@ def incoming_ten_god_note(
         branch = Branch(ganji[1])
     except ValueError:
         return ""
+    op = operational_map or {}
     stem_tg = str(ten_god(dm, stem))
     branch_tg = str(ten_god(dm, Stem(main_hidden_stem(branch).value)))
     # 운 천간/지지 오행의 용기신 역할도 명시 — '계수=구신' 같은 길흉을 LLM이 인지하게.
     stem_el = str(STEM_ELEMENT[stem])
     branch_el = str(BRANCH_ELEMENT[branch])
-    stem_role = fav_map.get(stem_el)
-    branch_role = fav_map.get(branch_el)
-    stem_tag = f"({stem_el} {stem_role})" if stem_role else f"({stem_el})"
-    branch_tag = f"({branch_el} {branch_role})" if branch_role else f"({branch_el})"
+    stem_tag = _operational_tag(stem_el, fav_map.get(stem_el), op.get(stem_el))
+    branch_tag = _operational_tag(branch_el, fav_map.get(branch_el), op.get(branch_el))
     head = (
         f"{ganji} 유입 = 천간 {ganji[0]} {stem_tg}{stem_tag} · "
         f"지지 {ganji[1]} {branch_tg}{branch_tag}"
     )
     item = _ten_god_by_name().get(stem_tg)
     if item is None:
-        return head
-    parts = [head, "—", _first_sentence(item["incoming"])]
-    fav = fav_map.get(str(STEM_ELEMENT[stem]))
-    if fav == "용신":
-        parts.append(_first_sentence(item["asYongsin"]))
-    elif fav == "기신":
-        parts.append(_first_sentence(item["asGisin"]))
-    return " ".join(parts)
+        body = head
+    else:
+        parts = [head, "—", _first_sentence(item["incoming"])]
+        fav = fav_map.get(stem_el)
+        if fav == "용신":
+            parts.append(_first_sentence(item["asYongsin"]))
+        elif fav == "기신":
+            parts.append(_first_sentence(item["asGisin"]))
+        body = " ".join(parts)
+    guard = _operational_guard_suffix([stem_el, branch_el], op)
+    return f"{body} {guard}".strip() if guard else body

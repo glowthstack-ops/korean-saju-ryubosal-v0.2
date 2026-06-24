@@ -46,6 +46,7 @@ from saju_shared_types.llm_input import (
     SelectedMonth,
     SelectedYear,
     UsefulGods,
+    YongsinOperationalSummary,
 )
 from saju_shared_types.manse_result import ManseV2Result
 
@@ -53,7 +54,7 @@ from .amhap_luck import detect_luck_amhap
 from .chart_interpretation import build_chart_interpretation, incoming_ten_god_note
 from .event_engine_v2 import EventEngineV2
 from .event_scoring import favorability_map
-from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded
+from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded, estimate_tokens
 from .manifestation_branch import branch_summary
 
 TOP_N_CANDIDATES = 5  # 기본 Top N (docs/03 B5 — 3~5)
@@ -199,6 +200,16 @@ _STRUCTURE_INSTRUCTION = (
     "역할)을 풀이에 활용할 것 — 용신/기신만이 아니라 희신·구신·한신의 작용도, 관계·"
     "가족 풀이에서는 궁성 자리(연-조상, 월-부모, 일-나·배우자, 시-자녀)도 함께 본다. "
     "이 정보가 있으므로 '모른다'고 답하지 말 것."
+)
+# 작동 역할 우선 참고 — 정적 용희기구한과 실제 작동성이 다를 수 있다(Phase 5a, 원국 기준).
+_OPERATIONAL_INSTRUCTION = (
+    "[작동 역할]은 원국(타고난 명식) 기준 실제 작동성·조건부 해석 자료다. canonical(용희기구한)은 "
+    "전통적 정적 역할로 설명하고, 원국의 실제 작동성·조건부 해석은 [작동 역할]을 우선 참고한다. "
+    "단 점수·이벤트 판정은 엔진 산출값을 그대로 따른다(바꾸지 말 것). '조건부 희신/병'은 단순 "
+    "희신으로 해석하지 말고(생용신이나 과다·병 동반), '조후보조신'은 주용신은 아니나 실제 "
+    "보조약으로 설명하며, 용신 작동성(operability)이 낮으면 '용신은 맞으나 작동성이 약하다'로 "
+    "설명한다. 운에서 들어오는 오행도 정적 희신/기신만으로 단정하지 말고 원국 [작동 역할]을 "
+    "함께 본다(점수·판정은 엔진값 그대로)."
 )
 # 길흉 반전 — 구신·기신도 조건부로 돕는다(사용자 확정 2026-06-12).
 _REVERSAL_INSTRUCTION = (
@@ -686,6 +697,8 @@ def _to_llm_candidate(
             break
     note = ""
     if day_master and period_ganji:
+        # 후보별 note 는 operational guard 미적용(후보 다수 → 토큰 과증, Phase 5b-1 조건 5/7).
+        # 운세 해석 operational guard 는 단일 기간 build_luck_grounding 에서만 붙인다.
         note = incoming_ten_god_note(day_master, period_ganji, fav_map or {})
     # 운 암합(보조) — 점수 미반영, 물밑·비공식 뉘앙스 참고(2026-06-12 자료).
     amhap_notes: list[str] = []
@@ -935,6 +948,7 @@ def build_llm_input(
     prior_claims: list[str] | None = None,
     current_month_label: str | None = None,
     structural_context: list[str] | None = None,
+    reserved_tokens: int | None = None,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
 
@@ -979,6 +993,8 @@ def build_llm_input(
         _to_llm_candidate(c, ganji, dw_by_year, day_master, fav_map, result)
         for c in selected
     ]
+    # Scoring 1c-α rank guard 는 payload 조립 후(_apply_rank_guards)에서 토큰 헤드룸 가드와 함께
+    # 적용한다 — 본문을 절단하지 않도록(spec §14-9). 여기서는 본문만 만든다.
     out_candidates = [
         _to_llm_candidate(c, ganji, dw_by_year, day_master, fav_map, result)
         for c in out_of_range
@@ -1011,7 +1027,7 @@ def build_llm_input(
             prohibited += [p for p in b.prohibitions if p not in prohibited]
 
     limit = CALL_LIMITS[call_type]
-    return LlmInput(
+    payload = LlmInput(
         user_question=user_question,
         resolved_intent=intent,
         birth_chart_summary=build_birth_summary(result),
@@ -1053,6 +1069,51 @@ def build_llm_input(
             max_output_chars=limit.max_output_chars or limit.max_output_tokens,
         ),
     )
+    _apply_rank_guards(payload, result, selected, ganji, intent, call_type,
+                       reserved_tokens)
+    return payload
+
+
+def _apply_rank_guards(
+    payload: LlmInput,
+    result: ManseV2Result,
+    selected: list[EventCandidate],
+    ganji: dict[str, str],
+    intent: IntentJson,
+    call_type: str,
+    reserved_tokens: int | None,
+) -> None:
+    """Scoring 1c-α rank guard 태그 — **본문 우선·토큰 헤드룸 가드**(spec §14-9).
+
+    payload 조립 후 적용. 태그가 토큰예산을 넘겨 본문(event_candidates/evidence/excerpts) 재축소를
+    유발하지 않도록, 본문 토큰을 측정해 헤드룸 내에서 phrase 실토큰을 순차 차감하며 부착한다
+    (부족 시 미부착·max_guards 동적 3→1→0). **순위·.score·reduce 불변·career 한정·APPLY off →
+    무동작(byte-identical).**
+    """
+    import saju_manse_analysis.yongsin.operational_role_config as _sc
+
+    from .scoring_operational import guard_caution_phrase, operational_rank_guards
+    guards = operational_rank_guards(result, selected, ganji,
+                                     domain=str(intent.domain.value))
+    if not guards:
+        return
+    reserve = (reserved_tokens if reserved_tokens is not None
+               else _sc.SCORING_OPERATIONAL_HEADROOM_RESERVE)
+    base = estimate_tokens(serialize_llm_input(payload))  # 태그 없는 본문 토큰
+    remaining = CALL_LIMITS[call_type].max_input_tokens - base - reserve
+    max_guards = _sc.SCORING_OPERATIONAL_APPLY_COEF["max_guards"]
+    attached = 0
+    for idx, reason_key in guards:           # 감점 큰 순(정렬됨)
+        if attached >= max_guards:
+            break
+        cn = payload.event_candidates[idx].caution_note
+        phrase = guard_caution_phrase(reason_key, cn)
+        cost = estimate_tokens(phrase) + 2   # 구분 공백 여유
+        if remaining >= cost:                # 본문 우선 — 헤드룸 부족 시 skip(미부착)
+            payload.event_candidates[idx].caution_note = (
+                f"{cn} {phrase}".strip() if cn else phrase)
+            remaining -= cost
+            attached += 1
 
 
 def serialize_chart_prefix(
@@ -1098,7 +1159,29 @@ def serialize_chart_prefix(
                 lines.append(ci.ilju_text)
             for ex in ci.excerpts:
                 lines.append(f"{ex.key}: {ex.text}")
+        _append_operational_summary(lines, ci.yongsin_operational_summary)
     return lines
+
+
+def _append_operational_summary(
+    lines: list[str], s: YongsinOperationalSummary | None
+) -> None:
+    """작동 역할 요약 compact 블록(원국 기준). None/구형이면 생략 — 깨지지 않음(Phase 5a)."""
+    if s is None:
+        return
+    lines += ["", "[작동 역할 — 원국 기준, 정적 역할과 다를 수 있음(점수·판정 변경 금지)]"]
+    yong = f"용신 {s.primary_yongsin}"
+    if s.operability is not None:
+        # 프리픽스에는 내부 key(no_transmit 등)가 아니라 한국어 압축 표현을 노출(토큰·가독성).
+        why = "·".join(s.operability_factors_ko)
+        yong += f" (작동성 {s.operability_level} {s.operability}{': ' + why if why else ''})"
+    lines.append(yong)
+    if s.main_support:
+        lines.append("조후보조: " + " · ".join(s.main_support))
+    if s.conditional:
+        lines.append("조건부: " + " · ".join(s.conditional))
+    if s.warnings:
+        lines.append("주의: " + " / ".join(s.warnings))
 
 
 def serialize_llm_input(payload: LlmInput) -> str:
@@ -1454,6 +1537,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(_SINSAL_POSITION_INSTRUCTION)
         lines.append(_ORIGIN_INSTRUCTION)
         lines.append(_STRUCTURE_INSTRUCTION)
+        if payload.chart_interpretation.yongsin_operational_summary is not None:
+            lines.append(_OPERATIONAL_INSTRUCTION)
         lines.append(_REVERSAL_INSTRUCTION)
         lines.append(_HARMONY_INSTRUCTION)
         lines.append(_BANGHAP_INSTRUCTION)

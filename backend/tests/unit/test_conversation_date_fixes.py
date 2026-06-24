@@ -361,3 +361,28 @@ def test_specific_date_question_surfaces_day_fortune() -> None:
     assert "일운(日運)" in note and "일운(日干支)을 중심으로" in note
     # 연도 생략 표기도 기준 연도로 보정.
     assert _explicit_dates("그럼 10월 5일은?", 2027) == [date(2027, 10, 5)]
+
+
+def test_solar_term_boundary_day_emphasizes_continuation() -> None:
+    """절기 경계 직전 날짜(양력 달 ≠ 절입 달)는 '절기월 X(N월 절입)의 기운이 아직 이어지는 날'로
+    명시 — LLM 이 양력 달로 월운을 오인하던 결함 보정(2026-06-24 데굴님 지적).
+
+    2026-07-04: 양력 7월이나 절기월은 6월 절입 甲午(소서 7/7 이전). 같은 달 날짜는 기존 형식 유지.
+    """
+    from datetime import date
+
+    from saju_api.services.chat_service import _date_day_fortune_note
+    from saju_shared_types.birth_input import BirthInput
+
+    b = BirthInput(
+        calendar_type="solar", birth_date="1977-12-16", birth_time="05:30",
+        birth_place_name="Seoul", gender="male",
+    )
+    # 경계 직전(7/4, 절기월 6월 절입) → 이어짐 강조.
+    boundary = _date_day_fortune_note(b, [date(2026, 7, 4)], "Asia/Seoul")
+    assert "절기월 甲午(6월 절입)의 기운이 아직 이어지는 날" in boundary
+    assert "일운(日運) 己卯" in boundary
+    # 같은 달(6/20, 절기월도 6월 절입) → 기존 형식(오문구 방지).
+    same = _date_day_fortune_note(b, [date(2026, 6, 20)], "Asia/Seoul")
+    assert "기운이 아직 이어지는 날" not in same
+    assert "그 날의 절기월 甲午" in same

@@ -60,6 +60,24 @@ class InterpretationExcerpt(BaseModel):
     text: str
 
 
+class YongsinOperationalSummary(BaseModel):
+    """원국(natal) 기준 작동 역할 요약 — 정적 用喜忌仇閑과 다를 수 있는 실제 작동성/조건부 해석.
+
+    YONGSIN_OPERATIONAL_ROLE_SPEC §10. **원국 전용**(운·세운·월운 무관 → 캐시 고정 prefix 적격).
+    LLM 입력용 compact 요약(operational_roles 전체 dump 아님). 점수·이벤트 판정은 불변 — 이 요약은
+    '실제 작동성·조건부 해석 우선 참고' 자료일 뿐 길흉 점수를 바꾸지 않는다.
+    """
+
+    primary_yongsin: str  # 용신 오행(한자)
+    operability: float | None = None  # 용신 작동성 0~1
+    operability_level: str = ""  # 표시용 작동성 밴드(높음/보통/낮음) — 확정 등급 아님
+    operability_factors: list[str] = Field(default_factory=list)  # stable key(내부)
+    operability_factors_ko: list[str] = Field(default_factory=list)  # 프리픽스용 한국어 압축
+    main_support: list[str] = Field(default_factory=list)  # 조후보조신 등 보조약
+    conditional: list[str] = Field(default_factory=list)  # 조건부 라벨(mapper=conditional)
+    warnings: list[str] = Field(default_factory=list)  # 핵심 경고(≤3, deterministic 우선순위)
+
+
 class ChartInterpretation(BaseModel):
     """⑤ 명식 구조 + 해석 자료 (docs/06 v2.2.1 — 캐시되는 고정 prefix에 직렬화).
 
@@ -72,6 +90,8 @@ class ChartInterpretation(BaseModel):
     hap_modes: list[str] = Field(default_factory=list)
     ilju_text: str = ""  # interpretations/ilju.json 해당 엔트리 직렬화
     excerpts: list[InterpretationExcerpt] = Field(default_factory=list)
+    # 원국 기준 작동 역할 요약(Phase 5a) — 없으면 None(구형/부분 결과 안전 fallback).
+    yongsin_operational_summary: YongsinOperationalSummary | None = None
 
 
 class DaewoonEntry(BaseModel):

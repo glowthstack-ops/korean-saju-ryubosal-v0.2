@@ -30,3 +30,10 @@ htmlcov/
 
 # Intent 분류기 ONNX 모델(110MB) — git 미추적. scripts/build_intent_onnx.py로 재생성, .sha256으로 무결성 검증.
 backend/compiled/intent_onnx/*.onnx
+
+# Shadow Validation Harness 산출물(재생성 가능 — 커밋 금지)
+backend/data/shadow_reports/*.csv
+backend/data/shadow_reports/*.json
+
+# Shadow 차트 탐색 로그(대용량·재생성) — coverage_report.json·charts.jsonl 은 추적
+backend/data/shadow_charts/search_logs/

@@ -4183,3 +4183,778 @@ career_change/relocation.json에 남았으나 새 엔진이 안 읽는 죽은 �
    원래 config 값을 그대로 사용(정상). 성별·나이·난이도 변경은 호칭 미변경(기존 정상).
 - 검증: confidence_ko 매핑·리포트 렌더에 내부 키 0건 확인. backend ruff·mypy·pytest 통과(기존 환경 2건
   제외), frontend tsc·production build 통과.
+
+### 용신 작동역할 2계층 모델 설계 스펙 작성 (2026-06-24)
+
+데굴님 지적(丁巳/壬子/丁未/癸卯, 일간 丁火 신약·水 60.3% 사례): 살인상생형인데 水가 희신으로
+고정되는 게 위험. 검증 결과 — 진짜 결함은 "엔진이 조후·합·관살혼잡을 안 봐서"가 아니라,
+후보 모델(`resource_as_yongsin`)이 火=희신·水=한신을 **이미 계산**했는데 최종
+`candidates.py::_classify_roles`가 용신 오행 하나만으로 정적 생극 순환(희신=生용신)을 다시 돌려
+水=희신으로 **평탄화·덮어쓰기** 하는 점. `_climate_harmful`이 水를 한습역행으로 잡고도 최종 희신
+슬롯을 우회하는 모순도 확인.
+
+- **조사(코드 수정 없음)**: 후보 모델 역할맵 vs final 불일치 지점([candidates.py:777]) 확정. 7개
+  명리 요소 코드 커버리지 — 官 합반 세력차감(미구현·분포단계 relation deferred), 子卯刑(격각 비인접
+  의도적 제외), 형/해 통관 미반영(건강레이어 전용), 용신 원소별 투간/통근(일간만), 정/편인(분류만,
+  용신단계 오행 합산으로 소실), 조후 축(신약 eokbu0.45>johu0.25), 조건부역할 스키마(없음). 테스트
+  정합성 — 회귀 골든은 용신 역할 미고정, resource_as_yongsin selected 단언 0건 → 모델맵 존중 전환
+  시 직접 파손 0건(부분맵 폴백 보존 조건).
+- **산출물**: `doc/v2_2/YONGSIN_OPERATIONAL_ROLE_SPEC.md` 신규. canonical(정적)/operational(작동)
+  2계층 역할 모델, ElementRole 스키마, Phase 0~4 계획+회귀 게이트, 결정사항 D1~D4(子卯刑 격각=
+  operability penalty 0.3·이벤트 비신호 / 합반=HAP_SPEC 위임 / 조후 火=조후보조신 격상 / 정·편인=
+  confidence modifier·용신 불변), 수치 계수는 config/experimental 분리(§6).
+- 정책(데굴님 확정): 전체 갭을 정식 범위로 인정하되 단계별 승인 — docs/spec→테스트→Phase0부터 순차.
+- (다음) 데굴님 스펙 승인 후 Phase 0 착수(계층 분리 + 5역할완비 모델 역할맵 존중, 표준사례 픽스처).
+
+### 용신 2계층 역할 Phase 0 — canonical/operational 분리 (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC Phase 0 구현(데굴님 3개 보완조건 반영). 정적 역할(final/canonical)
+불변·additive only·scoring 미연결 원칙 준수.
+
+- **수정(yongsin.py)**: `ElementRole`(element/canonical_role/operational_role + Phase1용 positive_when/
+  negative_when/note) 신규. `AggregatedYongsinResult`에 `canonical_roles: dict[str,str|None]`(=final
+  5역할 미러) + `operational_roles: list[ElementRole]` additive 추가. `final` 불변.
+- **수정(candidates.py::build_yongsin)**: 헬퍼 3종(`_role_by_element`/`_operational_role_map`/
+  `_build_operational_roles`) + final 조립 직후 operational 산출. **selected_model 객체 직접 탐색**
+  (동일 model_type·yongsin 중 최고 confidence — 보완①). **게이트**: final 이 정적 `_classify_roles`를
+  그대로 쓴 경우에만 5역할완비 모델의 자체맵 채택, bridge_tonggwan·부일간(무비겁) 특수분기는 canonical
+  폴백(특수분기 교정을 되돌리지 않음). canonical_roles 타입 `str|None` 방어(보완②), 생성은 중첩 컴프
+  대신 `_role_by_element` 명시 helper(보완③).
+- **효과**: 표준사례 丁巳/壬子/丁未/癸卯 — final/canonical 은 정적대로 희신=水·한신=火 유지, operational
+  만 火=희신·水=한신 정상화. event_scoring `favorability_map`은 final 만 소비 → 다운스트림 점수 불변.
+- **신규 테스트**(test_yongsin_operational.py 6종): 표준사례 정상화·5오행 무None·bridge/disease/
+  support특수분기 canonical 폴백·final&favorability 불변.
+- 검증: unit 699 pass·1 skip, ruff·mypy clean(65). 잔여 2건(chat_pipeline too_broad·report_jobs)은
+  clean HEAD에서도 동일 실패하는 기존 DB 통합 환경 실패 — 본 변경과 무관(스태시 대조 확인).
+- (다음) Phase 1(ElementRole 조건부 필드 positive_when/negative_when 채움) — 데굴님 승인 후 착수.
+
+### 용신 2계층 역할 Phase 1 — 과다·병 기반 조건부 라벨 (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC Phase 1(데굴님 조건부 승인 — G1~G4 + 추가조건 반영). 조후는 Phase 2로
+유지, operational 미소비(생성·노출만, scoring 영향 0).
+
+- **신규(operational_role_config.py, experimental)**: `OPERATIONAL_ROLE_CLASS`(라벨→길흉클래스 mapper —
+  "조건부 희신/병"=conditional 로 고정, 향후 scoring 은 문자열 부분파싱 금지·이 mapper만 경유) +
+  `CONDITION_TEMPLATES`(ConditionTemplate TypedDict, 조건부 희신/병·조건부 제살보조 2종 positive/
+  negative_when·note). 문구는 candidates.py 에 직접 박지 않고 이 모듈에서만 관리.
+- **수정(yongsin.py)**: `operational_role: str` → `OperationalRole` Literal enum(정적 5 + 조건부 희신/병·
+  조후보조신·조건부 제살보조). 잘못된 라벨 ValidationError.
+- **수정(candidates.py)**: `_overloaded_element`(기존 과다 판정 _officer_heavy/_output_heavy/
+  _resource_overload/_bigyeob_overload 만 사용)·`_with_condition`·`_annotate_overload_conditions`.
+  과다 십성이며 canonical 희신(生용신)→"조건부 희신/병", 과다 오행을 극하는 canonical 구신/기신→
+  "조건부 제살보조". note 에 합성출처(base_model_role=한신·canonical_role=희신·synthesized_by=
+  overload_condition) 기록. **model_map 채택 케이스(model_map_adopted)에만 적용** → fallback/부분맵·
+  특수분기(bridge·disease·support)에 조건부 라벨 미누출.
+- **효과**: 표준사례 — 水=조건부 희신/병(과다·병), 土=조건부 제살보조, 火=희신(조후보조신 격상은 Phase 2),
+  木=용신·金=기신. final/canonical/favorability 불변.
+- **테스트**: test_yongsin_operational_conditions.py 신규(과다 조건부 라벨·비과다 plain 유지·fallback
+  미누출·enum reject·roundtrip·final/canonical 불변). Phase 0 표준사례 단언은 누적 진화 반영해 phase-안정
+  단언으로 갱신(水·土 조건부 검증은 Phase 1 파일이 소유).
+- 검증: unit 710 pass·1 skip, ruff·mypy clean(168). 잔여 2건은 기존 DB 통합 환경 실패(무관).
+- (다음) Phase 2(조후 가드 _climate_harmful 연결 → 火=조후보조신, 한습 水 강등) — 승인 후 착수.
+
+### 용신 2계층 역할 Phase 2 — 조후 가드 operational 연결 (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC Phase 2(데굴님 조건부 승인 F1~F4 + 추가조건 3). 기존 _climate_harmful
+(子월 한습 火<22%→水 역행 등)을 operational 역할에 연결 — 계산만 하고 최종역할 미반영이던 모순 해소.
+
+- **수정(operational_role_config.py)**: CONDITION_TEMPLATES["조후보조신"] + CLIMATE_HARMFUL_REASON
+  (cold/hot). OPERATIONAL_ROLE_CLASS 주석에 "조후보조신=favorable 보조약, primary yongsin 동일가중 금지".
+- **수정(candidates.py)**: _with_condition 시그니처 확장(synthesized_by: list[str] 고정순서·extra_negative,
+  _dedupe 순서보존 중복제거) → Phase 1 호출 synthesized_by=["overload_condition"]. 신규
+  _annotate_climate_conditions: harmful is None(중립월/조후정상)이면 no-op; climate_need(한습→火/조열→水)이
+  operational 희신/한신→"조후보조신"(synthesized_by=climate_need); climate_harmful이 희신→"조건부 희신/병",
+  이미 조건부면 한습 negative 추가+출처 병합(overload_condition+climate_harmful, 순서 고정).
+  build_yongsin Phase 1 직후 동일 model_map_adopted 게이트로 호출.
+- **효과**: 표준사례 §4-2 목표 완성 — 火=조후보조신, 水=조건부 희신/병(과다+한습 병합), 土=조건부 제살보조,
+  木=용신, 金=기신. 중립월(辰戌) 차트는 조후 no-op(과다 라벨만). final/canonical/favorability 불변·미소비.
+- **테스트**: test_yongsin_operational_climate.py 신규(火 조후격상·水 병합 출처·중립월 no-op·final 불변).
+  Phase 1 obsolete(火 not_yet_johu) 제거, no_overload 테스트는 "과다 합성 출처 없음"으로 정정(亥월 조후보조신은
+  정상 허용). Phase 0 표준 단언도 누적반영 갱신.
+- 검증: unit 713 pass·1 skip, ruff·mypy clean(168). 잔여 2건은 기존 DB 통합 환경 실패(무관).
+- **요약: 최초 문제(水 희신 고정·火 한신 밀림)는 operational 레이어에서 정상화 완료.** (다음) Phase 3
+  (합반/합화/관살혼잡 → 官殺 세력 재산정, HAP_INTERACTION_SPEC 위임) 승인 후 착수.
+
+### 용신 2계층 역할 Phase 3 — 官殺 합 맥락 주석 (Option B) (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC Phase 3(데굴님 Option B 승인 DP1~4 + 추가조건 6). **범위 결정**: Option A
+(distribution 차감→groups→신강약→모델선택→final 연쇄 변경, scoring SSOT 변경, HAP_SPEC §H '보류' 영역)는
+별도 이니셔티브로 분리. Phase 3는 operational 주석/조건 enrichment로 한정(라벨·세력·final 불변, scoring-0).
+
+- **재사용**: resolve_stem_hap(pillars, fav)[완성 — transform_tier·hap_mode(bind/transform)·direction(away)·
+  contend(쟁합)] + geokguk.evaluation.damage_types(mixed_officer_killing 관살혼잡). 둘 다 build_yongsin에서
+  접근 가능(분포 미변경).
+- **수정(operational_role_config.py)**: OFFICER_HAP_REASON(bind/contend/away/transform_confirmed/
+  mixed_officer_killing 텍스트만; 배치는 함수 규칙).
+- **수정(candidates.py)**: note 합성 단일화 _compose_note/_parse_note, _enrich_element(라벨 불변·기존
+  positive/negative/note 누적·synthesized_by 끝에 출처 추가). 신규 _annotate_officer_hap_context:
+  resolve_stem_hap에 canonical 기준 fav 전달(DP3), 官殺 원소(g["officer"])를 묶은 resolution 추출 →
+  배치 규칙(추가조건 1~3): bind/합반→positive, transform confirmed→positive, contend/쟁합→negative,
+  관살혼잡→negative, away/합거→note(官이 병이면 positive). build_yongsin Phase 2 직후 model_map_adopted
+  게이트로 호출.
+- **효과**: 표준사례 水(官殺) — operational_role=조건부 희신/병 **불변**, positive_when에 "합반 官 압박 완화",
+  negative_when에 "쟁합 불안정"·"관살혼잡 탁", note synthesized_by=overload_condition+climate_harmful+
+  officer_hap(고정순서). final/groups(officer 45 불변)/strength/canonical/favorability **불변**·미소비.
+- **테스트**: test_yongsin_operational_officer_hap.py 6종(라벨불변 enrich·중복없음·합없으면 미부착·fallback
+  미누출·final/groups/strength/favorability 불변·roundtrip).
+- 검증: unit 719 pass·1 skip, ruff·mypy clean(168). 잔여 2건 기존 DB 통합 환경 실패(무관).
+- (다음) Phase 4(용신 작동성 — 투간/통근·정/편인·子卯刑 격각 통관손상 operability) 승인 후 착수. Option A
+  (관계 보정 기반 분포 재산정)는 별도 이니셔티브로 보류.
+
+### 용신 2계층 역할 Phase 4a — 용신 작동성(operability) 투간/통근·정편인 (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC Phase 4 분할(데굴님 4a/4b 분할 승인). 4a=투간/통근+정편인, 4b=子卯刑 격각
+(별도). DP1~5 + 추가조건 8 반영. final.confidence 불변(=모델 선택 신뢰도) / operability=실제 작동성 분리.
+
+- **수정(yongsin.py)**: ElementRole에 `operability: float|None = Field(default=None, ge=0, le=1)` +
+  `operability_factors: list[str]`(stable key) 추가. 용신만 채움·나머지 None.
+- **수정(operational_role_config.py)**: OPERABILITY_PENALTY(no_transmit 0.15·no_root 0.20·
+  pyeonin_only 0.10, experimental) + OPERABILITY_REASON(표시 문구 — factors는 key, 문구는 분리).
+- **수정(candidates.py)**: _compute_yongsin_operability(투간=Pillar.stem_element, 통근=hidden_stems
+  element, 정/편인=Pillar.stem_ten_god 기준; 印 용신 투출+정인無+편인만→pyeonin_only, 印 투간無면
+  no_transmit만 중복없음; 순서 no_transmit→no_root→pyeonin_only; round 1회). _with_operability(용신
+  ElementRole에 수치·factor key·표시 사유 negative_when 부착). build_yongsin Phase 3 직후 model_map_
+  adopted 게이트로 용신만 set. **격각 로직 없음**(4b).
+- **효과**: 표준사례 용신 木 — 투간無(통근 卯·未 O) → operability 0.85, factors=["no_transmit"],
+  negative_when에 표시 사유. 정인(甲) 투출 차트=1.0, 편인(乙)만=0.9(차등). 비용신·fallback=None.
+  데굴님 최초 지적("木 투간 안 됨 → confidence 0.88 과하다")이 operability 0.85로 표면화(final.confidence
+  는 불변 — 별도 지표). final/groups/strength/favorability **불변**·미소비.
+- **테스트**: test_yongsin_operability.py 7종(no_transmit·정상 1.0·편인<정인·비용신 None·fallback None·
+  final 등 불변·roundtrip). 계수는 config에서 읽어 단언(하드코딩 없음).
+- 검증: unit 726 pass·1 skip, ruff·mypy clean(168). 잔여 2건 기존 DB 통합 환경 실패(무관).
+- (다음) Phase 4b(子卯刑 격각 통관손상 allowlist, operability penalty 전용·이벤트/관계 판정 불변) 승인 후.
+
+### 용신 2계층 역할 Phase 4b — 子卯刑 격각 통관손상 operability (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC Phase 4b(데굴님 승인 DP-b1~3 + 추가조건 8). 비인접 子卯 격각만 operability
+penalty(allowlist 1건, 용신 木만). **이벤트/관계 판정 불변** — relations.py·이벤트 산출 미수정.
+
+- **수정(operational_role_config.py)**: GYEOKGAK_ALLOWLIST(experimental — 子卯刑 1건: branches(子卯)·
+  yongsin_elements(木)·weight 0.30·reason). 확장은 후속 승인.
+- **수정(candidates.py)**: _ADJ_POSITION_PAIRS(年月·月日·日時=인접) + _gyeokgak_operability_factors
+  (allowlist 순회, 두 지지가 비인접 위치에 모두 존재 AND 용신∈yongsin_elements → factor·weight·reason;
+  인접쌍 제외·동일 factor 1회). _compute_yongsin_operability에 4a 뒤 격각 penalty 추가(순서 no_transmit
+  →no_root→pyeonin_only→gyeokgak_zimao, round 최종 1회), reasons 스레딩(allowlist reason→negative_when).
+- **효과**: 표준사례 용신 木 — 4a no_transmit(×0.85) + 4b 子卯 격각(子 월지·卯 시지 비인접, ×0.70) →
+  **operability 0.595**, factors=["no_transmit","gyeokgak_zimao"], negative_when에 격각 사유. 인접 子卯
+  (이벤트 형으로 검출되는 차트)는 operability 미반영(op 1.0). final.confidence 0.8822·groups·strength·
+  favorability **불변**, relations에 子卯 격각 비검출(이벤트 불변).
+- **테스트**: test_yongsin_operability_gyeokgak.py 7종(표준 0.595·이벤트 비격각화·인접은 이벤트 operability
+  미반영·용신 오행 게이팅·子卯 없으면 미적용·중복1회·final 등 불변). 4a 테스트는 누적 진화로 격각 무관
+  차트(no_transmit 단독 壬子/丙子/丁丑/癸未, 편인 단독 癸亥/乙亥/丁丑/乙未)로 교체.
+- 검증: unit 733 pass·1 skip, ruff·mypy clean(168). 잔여 2건 기존 DB 통합 환경 실패(무관).
+
+**🎉 용신 작동역할 2계층 워크스트림(Phase 0~4b) 완료.** 최초 지적(丁巳/壬子/丁未/癸卯 사례 "木 용신은
+맞으나 水가 과다해 희신 고정은 위험·火는 조후약·투간無·子卯 격각 통관손상·confidence 과대")이 operational
+레이어로 전부 표면화: operational 火=조후보조신·水=조건부 희신/병(과다+한습+관살혼잡 합반/쟁합)·土=조건부
+제살보조, 용신 木 operability 0.595. final/canonical/scoring은 전 구간 불변(operational 미소비 — 향후
+scoring 연결은 별도, OPERATIONAL_ROLE_CLASS mapper 경유). **보류: Option A(관계 보정 기반 분포 재산정 —
+distribution 차감→신강약/모델선택/final 변경)는 별도 이니셔티브(자체 스펙·전면 리베이스라인·승인) 대기.**
+
+### 용신 작동역할 Phase 5a — operational → LLM 안전 노출 (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC §10 Phase 5a(데굴님 승인 DP-5a1~3 + 추가조건 8). operational 레이어를
+실서비스 응답에 처음 연결 — compact summary adapter + chart_interpretation surface + mapper 강제 + LLM 지침.
+**점수·이벤트·final 불변(scoring-0)**.
+
+- **수정(llm_input.py)**: YongsinOperationalSummary(원국 기준, primary_yongsin·operability·operability_level·
+  factors·main_support·conditional·warnings) + ChartInterpretation.yongsin_operational_summary(None=fallback).
+- **수정(operational_role_config.py)**: OPERABILITY_LEVEL_BANDS(low0.7/mid0.9, 표시용 밴드 — 확정등급 아님).
+- **수정(chart_interpretation.py)**: build_yongsin_operational_summary(operational_roles→compact 요약,
+  **OPERATIONAL_ROLE_CLASS mapper로 conditional 선별**·문자열 substring 파싱 금지; warnings deterministic
+  우선순위 ①조건부 희신/병 ②용신 operability ③구조, _MAX_WARNINGS=3·_WARNINGS_CHAR_BUDGET=120 트림;
+  구형/부분 결과 None fallback). manse_analysis config 직접 import(TODO: shared 이전 — 순환참조 없음).
+- **수정(context_reducer.py)**: serialize_chart_prefix에 [작동 역할 — 원국 기준] compact 블록 추가(None 안전),
+  _OPERATIONAL_INSTRUCTION 지침(canonical=정적 설명·실제 작동성은 작동역할 우선 참고·점수/이벤트는 엔진값
+  그대로·조건부 희신/병≠단순 희신·조후보조신=보조약·operability 낮으면 작동성 약함) — summary 있을 때만.
+- **효과**: 표준사례(1977-12-16 05:30 서울 = 丁巳/壬子/丁未/癸卯) chat dry-run 프리뷰에 작동역할 블록(용신 木
+  작동성 낮음 0.595·火 조후보조신·水 조건부 희신/병·土 조건부 제살보조) + 지침 노출. canonical(水=희신·火=한신)도
+  병기 — LLM이 정적/작동 둘 다 보고 정적만 낭독하지 않게. favorability_map/final/event score 불변 확인.
+- **테스트**: test_yongsin_operational_summary.py 6종(요약 필드·mapper guard·fallback None·warnings 우선순위/
+  예산·직렬화 블록+토큰 proxy·e2e 프롬프트+불변). 추가 char 217(≈130tok).
+- 검증: unit 739 pass(+6)·1 skip, ruff·mypy clean(168). 잔여 2건 기존 DB 통합 환경 실패(무관).
+- (다음) Phase 5b(운세 해석 operational 우선 규칙) 또는 #6 operability 확장(공망·충·합반·고립) — 승인 후.
+  Option A는 spec §10-4 진입조건 충족 + 별도 승인까지 보류.
+
+### 용신 작동역할 Phase 5b-1 — 운세 해석 operational guard + 5a token 압축 (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC §10 Phase 5b-1(데굴님 승인 DP-5b1~4 + 추가조건 7). 운 입자 오행이 원국
+operational role(조건부 희신/병·조후보조신·조건부 제살보조)이면 "단순 희신/기신운" 단정 방지. **explanation
+only** — favorability/event score/랭킹/final 불변.
+
+- **선행(5a token 압축)**: config OPERABILITY_FACTOR_SHORT(no_transmit→투간無·gyeokgak_zimao→子卯 격각),
+  YongsinOperationalSummary.operability_factors_ko(프리픽스용 한국어), serialize_chart_prefix가 키 대신
+  한국어 노출 → 추가 200자(≈115tok, 목표 ≤120 내). 키는 내부 summary에만.
+- **수정(operational_role_config.py)**: LUCK_OPERATIONAL_GUARD(라벨별 guard 문구 — 조건부 희신/병=단순
+  길운 금지·조후보조신=보조 긍정·조건부 제살보조=조건부 제어, experimental).
+- **수정(chart_interpretation.py)**: natal_operational_role_map(원국 기준 {오행:operational_role}, 구형
+  fallback {}). incoming_ten_god_note에 operational_map 인자(None=기존 canonical 동작 동일) — 인라인 태그
+  "(水 희신 → 원국 작동: 조건부 희신/병)" + guard suffix "※ 운 水: …"(오행별 1회 dedupe). build_luck_grounding
+  이 map 전달(단일 기간 운세 해석 블록).
+- **수정(context_reducer.py)**: _OPERATIONAL_INSTRUCTION에 운 입자 1문장 추가(점수·판정 엔진값 유지).
+  **후보별 note(_to_llm_candidate)는 operational guard 미적용** — 월별 overview 다수 후보 토큰 과증(12092>
+  12000) 방지(조건 5/7), guard는 단일 기간 build_luck_grounding에만.
+- **효과**: 표준 원국에서 水운(壬子) 유입 → 인라인 "원국 작동: 조건부 희신/병" + suffix "단순 길운 단정 금지";
+  火운(丙午)→"조후보조신 … 기후·균형 보조"(긍정, 라벨별 문구 구분). favorability_map 불변, 월별 overview
+  토큰 한도 내 통과.
+- **테스트**: test_yongsin_luck_operational_guard.py 7종(map·水 조건부·None 동등·火 보조 긍정·build_luck_
+  grounding·favorability 불변·운세 지침) + 5a 압축 단언 보강.
+- 검증: unit 746 pass(+7)·1 skip, ruff·mypy clean(168). 잔여 2건 기존 DB 통합 환경 실패(무관).
+- (다음) #6a operability 공망·충 확장 / #6b 합반·고립 / #7 官 외 합 → Phase 5b-2(운세 길흉 우선)·#9 shadow는
+  후속. Option A는 spec §10-4 진입조건 + 별도 승인.
+
+### 용신 작동성 #6a — 공망·충 operability (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC §10 #6a(데굴님 승인 DP-6a1~4 + 추가조건 7). 용신 통근 지지의 공망·충만
+**보수적**으로 operability penalty. operability 전용 — final/groups/strength/distribution/favorability/
+event score/랭킹/relations 전부 불변.
+
+- **수정(operational_role_config.py)**: OPERABILITY_PENALTY에 yongsin_void 0.20·yongsin_clash 0.15
+  (experimental) + OPERABILITY_REASON·OPERABILITY_FACTOR_SHORT(공망/충) 추가.
+- **수정(candidates.py)**: BRANCH_CLASHES 상수 재사용(relations 미수정). _yongsin_void_clash_factors —
+  용신 통근 지지 수집 → **전부 공망일 때만** yongsin_void(solid root 1개라도 있으면 미적용·과발동 방지) /
+  **용신 통근 지지가 六沖**일 때 yongsin_clash(원국 아무 곳 충 아님). 통근 없으면 둘 다 미적용(no_root만).
+  _compute_yongsin_operability 4b(gyeokgak) 뒤 추가 — 순서 …→yongsin_void→yongsin_clash, round 1회.
+- **효과**: 표준사례(卯 공망+未 solid) → solid 있어 void 미적용, 충無 → **operability 0.595 유지**(과발동
+  방지·테스트 안정). void fixture(통근 전부 공망)→0.8, clash fixture(통근 충)→0.85.
+- **테스트**: test_yongsin_operability_void_clash.py 7종(표준 미적용·void·clash·no_root 배타·helper 표적·
+  순서·불변). 4a isolated fixture는 #6a 충에 걸려 충/공망 없는 차트로 교체(no_transmit·pyeonin 단독).
+- 검증: unit 753 pass(+7)·1 skip, ruff·mypy clean(168). 잔여 2건 기존 DB 통합 환경 실패(무관).
+- **교훈**: operability factor 추가 시 기존 'isolated' fixture가 신규 factor에 걸릴 수 있음 → 단독 factor
+  fixture는 전 factor clean 조건으로 재탐색.
+- (다음) #6b(합반·고립) → #7(官 외 합) → Phase 5b-2(운세 길흉 우선)·#9 shadow. Option A는 §10-4 진입조건.
+
+### 용신 작동성 #6b-1 — 고립 operability (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC §10 #6b-1(데굴님 승인 — 고립 정의 4조건 AND로 강화). 보수적 복합 고립만
+operability penalty. operability 전용 — final/groups/strength/distribution/favorability/event score/랭킹/
+relations 불변. (#6b-2 합반은 별도 단계.)
+
+- **수정(operational_role_config.py)**: yongsin_isolation 0.15(experimental) + REASON·FACTOR_SHORT(고립).
+- **수정(candidates.py)**: _yongsin_isolation_applies — **4조건 AND**(과발동 방지): ①present(투간 or 통근)
+  ②생조부재(生용신 오행이 천간·지장간 어디에도 없음) ③단일출처(용신 출처 정확히 1 — 투간+통근 동시/통근
+  2개+면 미적용) ④손상동반(yongsin_clash/yongsin_void/gyeokgak_zimao 중 ≥1). _compute_yongsin_operability
+  6a 뒤 적용 — 순서 …→void→clash→isolation, round 1회. (factors 누적값으로 ④ 손상 판정.)
+- **효과**: 표준사례(木 통근 2개·생조 水 충분) → ②③ 불충족 → 고립 미적용·**0.595 유지**. isolation fixture
+  (金 용신·통근1·생조無·卯酉충) → no_transmit·clash·isolation 0.6141.
+- **테스트**: test_yongsin_operability_isolation.py 5종(표준 미적용·복합적용·손상필수·다중출처/생조 시
+  미적용·불변). helper 직접 단언으로 4조건 검증.
+- 검증: unit 758 pass(+5)·1 skip, ruff·mypy clean(168). 잔여 2건 기존 DB 통합 환경 실패(무관).
+- (다음) #6b-2(용신 합반 — resolve_stem_hap bind/contend, operability-only) → #7(官 외 합) → Phase 5b-2·
+  #9 shadow. Option A는 §10-4 진입조건.
+
+### 용신 작동성 #6b-2 — 합반 operability + operability 1차 체계 완성 (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC §10 #6b-2(데굴님 승인 DP-6b2a~c + 추가조건 7). 용신 투출 천간이 bind/
+contend로 묶일 때만 operability penalty. operability 전용 — final/groups/strength/distribution/
+favorability/event score/랭킹/relations 불변.
+
+- **수정(operational_role_config.py)**: yongsin_bound 0.15(experimental) + REASON·FACTOR_SHORT(합반).
+- **수정(candidates.py)**: _yongsin_bound_factor(yongsin_el, pillars, canonical_roles) — ①용신 투출일 때만
+  ②resolve_stem_hap(fav=canonical) 에서 bind 또는 contend AND affected element==용신 → True. **transform
+  (合化 confirmed)·direction==away(합거) 제외**. _compute_yongsin_operability에 **canonical_roles 인자
+  추가**(build_yongsin 호출부 전달) — isolation 뒤 적용. relations.py 미수정.
+- **효과**: 표준사례 木 미투출 → bound 미적용·**0.595 유지**. bound fixture(金 투출·乙庚合 bind)→0.85.
+- **테스트**: test_yongsin_operability_bound.py 5종(표준 미적용·bind 적용·**monkeypatch로 transform/away
+  제외·bind/contend 적용 검증**·미투출 제외·불변). transform/away 실차트는 희귀→monkeypatch로 exclusion
+  로직 직접 검증. #6a clash fixture가 #6b-2 bound와 겹쳐 clash-단독(합반無) 차트로 교체.
+- 검증: unit 763 pass(+5)·1 skip, ruff·mypy clean(168). 잔여 2건 기존 DB 통합 환경 실패(무관).
+
+**🎉 용신 operability 1차 체계 완성.** 작동성 손상 factor 8종: no_transmit·no_root·pyeonin_only(4a)·
+gyeokgak_zimao(4b)·yongsin_void·yongsin_clash(6a)·yongsin_isolation(6b-1)·yongsin_bound(6b-2). 전부
+operability 전용(감점형·≤1.0·순서 고정)·config experimental·LLM 압축 라벨(투간無/통근無/편인만/子卯 격각/
+공망/충/고립/합반). 표준사례 0.595 일관 유지. **다음**: #7(官 외 합 맥락 확장 — 財/印/食傷/比劫)·Phase 5b-2
+(운세 길흉 우선)·#9 shadow. Option A는 §10-4 진입조건+별도 승인.
+
+### #7 官 외 합 맥락 확장 — 財/印/食傷/比劫 operational 주석 (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC §10 #7(데굴님 승인 DP-7a~d, DP-7b 수정 — conditional은 unfavorable과
+분리·note 중심). Phase 3 官殺 합 맥락을 나머지 십성으로 일반화. operational 주석 only — 라벨·세력·final
+·scoring·랭킹·relations 불변.
+
+- **수정(operational_role_config.py)**: TEN_GOD_HAP_REASON(財/印/食傷/比劫 도메인 라벨) + TEN_GOD_HAP_
+  MODE_PHRASE(bind/contend/away/transform 공통 문구). OFFICER_HAP_REASON(官殺·Phase 3) 유지.
+- **수정(candidates.py)**: _ten_god_hap_placement(role class별 배치 — **favorable=negative·unfavorable=
+  positive(bind/away)·contend negative·conditional=note 중심(쟁합만 negative 병기)·neutral=note·transform
+  =note only**) + _annotate_ten_god_hap_context(el2role 역인덱스로 affected element→십성, **官殺 제외**,
+  _enrich_element 재사용 synthesized_by="ten_god_hap", dedupe). build_yongsin Phase 3 officer_hap 직후
+  호출(model_map_adopted 게이트).
+- **효과**: 표준사례 火(比劫·조후보조신=favorable) — 丁壬合 bind+contend → negative_when에 比劫 합반/쟁합,
+  note synthesized_by += ten_god_hap. **水(官殺)는 officer_hap만**(ten_god_hap 미적용·중복 방지). 라벨
+  (조후보조신·조건부 희신/병)·operability(木 0.595)·final **전부 불변**.
+- **핵심 안전장치**: conditional role(조건부 희신/병·조건부 제살보조)은 unfavorable로 단정하지 않고 note
+  중심(완화·지연 양면). DP-7b 수정 반영.
+- **테스트**: test_yongsin_ten_god_hap.py 7종(배치 favorable/unfavorable/**conditional note중심**/neutral
+  직접 단언·표준 比劫 enrich+官殺 미중복·불변·fallback 미누출). 배치는 helper 직접 단언으로 fixture 헌팅 회피.
+- 검증: unit 770 pass(+7)·1 skip, ruff·mypy clean(168). 잔여 2건 기존 DB 통합 환경 실패(무관).
+- **합 맥락이 전 십성(官殺 Phase3 + 財印食傷比劫 #7)으로 확장 완료.** 다음: Phase 5b-2(운세 길흉 판단
+  operational 우선)·#9 shadow scoring. Option A는 §10-4 진입조건+별도 승인.
+
+### #9a operational shadow scoring — 계산·검증 전용 (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC §10 #9a(데굴님 승인 DP-9a1~5 + 추가조건 7). operational 기반 shadow 가중을
+legacy와 병행 산출·diff 기록. **실제 scoring 미소비** — favorability_map/event score/운세 랭킹/final/
+canonical 전부 불변. Phase 5b-2 전 완충 검증 단계(9b 후보 rank 관찰은 9a 검증 후).
+
+- **수정(operational_role_config.py)**: SHADOW_ROLE_WEIGHT(experimental, legacy/shadow 공용 스케일) —
+  용신 1.0 > 희신 0.6 > 조후보조신 0.35 > 조건부 제살보조 0.1 > **조건부 희신/병 0.0(★mixed·positive 금지)**
+  ·한신 0.0 > 구신 -0.6 > 기신 -1.0. 모든 OperationalRole enum 매핑.
+- **신규(saju_engines/shadow_scoring.py)**: operational_shadow_weights(operational_role→SHADOW_ROLE_WEIGHT
+  exact lookup·fail-fast; **용신 element만 × operability**) + shadow_vs_legacy_diff(오행별 legacy_role/
+  legacy_weight/operational_role/shadow_weight/delta). on-demand 함수만 — AggregatedYongsinResult 미저장·
+  파이프라인 미연결.
+- **효과**: 표준사례 diff — 木(용신 1.0 → ×0.595 작동성 → 0.595), **水(희신 0.6 → 조건부 희신/병 0.0,
+  delta -0.6 — 단순 길신 처리 교정)**, 火(한신 0.0 → 조후보조신 0.35), 土(구신 -0.6 → 조건부 제살보조 0.1),
+  金(기신 -1.0 유지). legacy favorability_map·event score 불변.
+- **테스트**: test_shadow_scoring.py 7종(enum 전체 매핑·표준 golden 고정·조건부 희신/병=0 mixed·operability
+  용신만·diff 전 필드+delta·**fail-fast KeyError**·legacy 불변).
+- 검증: unit 777 pass(+7)·1 skip, ruff·mypy clean(169). 잔여 2건 기존 DB 통합 환경 실패(무관).
+- (다음) **#9b**(이벤트/운세 후보에 shadow 적용→순위 변화 관찰, legacy 랭킹 불변) — 9a 검증 후. 그 뒤
+  Phase 5b-2(운세 길흉 제한 적용, §9a 골든 검증 만족 시). Option A는 §10-4 진입조건+별도 승인.
+
+### #9b 후보 단위 shadow 관찰 — 순위 변화 (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC §10 #9b(데굴님 승인 DP-9b1~5 + 추가조건 7, 명칭 수정). 이벤트/운세 후보에
+operational shadow 유불리를 적용해 legacy와의 차이·가상 순위 변화를 **관찰만**. 실제 score/event score/
+운세 랭킹/favorability_map/final/polarity 전부 불변(미소비).
+
+- **수정(operational_role_config.py)**: SHADOW_PERIOD_ELEMENT_WEIGHT(stem 0.5/branch 0.5, 지장간 미포함) +
+  SHADOW_SCORE_SPAN 30.0(experimental). **둘 다 config·하드코딩 금지.**
+- **수정(shadow_scoring.py)**: candidate_shadow_diff(result, candidates, ganji_by_period) — 후보 period→
+  간지(caller 제공)의 천간·지지 표면 오행 평균으로 legacy_fav vs shadow_fav, fav_delta, **shadow_observation
+  _score**(=clamp(score+fav_delta×SPAN) — **실제 score 아님·관찰 명칭**), reason(라벨 변경 또는 용신
+  operability, ≤3). shadow_rank_diff(legacy_rank/shadow_rank/rank_delta/rank_changed — 가상 관찰만).
+  #9a operational_shadow_weights 재사용. 파이프라인 미연결·미저장.
+- **효과**(표준사례 운별 golden): 水運 fav_delta −0.6(조건부 희신/병 하향), 火運 +0.35(조후보조신 상향),
+  木運 −0.405(용신 operability 0.595 하향·reason "木: 용신이나 작동성 0.595"), 土運 +0.7(조건부 제살보조
+  완화), 金運 0.0(유지). 동일 legacy score에서 shadow 순위 재배열 관찰. legacy_score·favorability_map 불변.
+- **핵심 명칭**: shadow_observation_score(≠score) — 발생 가능성/유불리 분리 보존(데굴님 수정).
+- **테스트**: test_shadow_scoring_candidate.py 7종(운별 fav_delta golden·결합값·reason 라벨/operability·
+  조건부 희신/병 하향·rank 관찰·간지없음 skip·legacy 불변).
+- 검증: unit 784 pass(+7)·1 skip, ruff·mypy clean(169). 잔여 2건 기존 DB 통합 환경 실패(무관).
+- **#9(a+b) 완료 — operational shadow scoring 체계.** 다음: Phase 5b-2(운세 길흉 operational 제한 적용 —
+  §9 골든 검증 만족 시: 조건부 희신/병 단순 길신화 안 됨·조후보조신 과대 안 됨·낮은 operability 용신운 과대
+  안 됨·랭킹 변화 과도하지 않음). Option A는 §10-4 진입조건+별도 승인.
+
+### Phase 5b-2a 운세 길흉 표현 제한 (clamp, 점수 불변) (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC §10 Phase 5b-2a(데굴님 승인 DP-5b2a1~5 + 보완조건 3). operational
+워크스트림 중 **처음으로 실제 답변 출력에 영향** — 단 점수 교체가 아니라 **길흉 표현 강도만 clamp**.
+score/rank/favorability_map/final/canonical/polarity 전부 불변.
+
+- **수정(operational_role_config.py)**: EXPRESSION_BAND 0.3·EXPRESSION_OPERABILITY_THRESHOLD 0.9·
+  EXPRESSION_GUIDANCE(등급별 1줄, experimental).
+- **수정(shadow_scoring.py)**: _element_expression_class(legacy 밴드×shadow 가중 — **조건부 희신/병 등은
+  '길' 승격 금지**)·_merge_expression(천간·지지 다르면 보수 병합)·luck_expression_clamp(운 간지 표현 등급 +
+  용신 operability<0.9 부기). 등급: 길/조건부·유보/조건부·유보+주의/보조 긍정/주의 속 일부 완화/주의/주의·흉/
+  중립. #9 weights 재사용.
+- **수정(chart_interpretation.py build_luck_grounding)**: pillar_line에 [표현 제한] 1줄 append(단일 기간
+  블록만 — 후보 다수 경로 미영향). "(점수·순위 불변)" 자체 표기.
+- **효과**(표준 운별): 水運 조건부·유보(단순 길운 금지), 火運 보조 긍정(주용신급 아님), 木運 길+작동성 낮음
+  부기(0.595), 土運 주의 속 일부 완화, 金運 주의/흉. 혼합 간지(壬午)는 보수 병합→조건부·유보.
+- **토큰**: _OPERATIONAL_INSTRUCTION에 directive 추가는 월별 overview(12000 한도 임박)를 초과시켜 제거 —
+  [표현 제한] 라인 자체가 자기설명적이라 directive 불요(period fortune에만 노출).
+- **테스트**: test_luck_expression_clamp.py 7종(운별 등급·**조건부 희신/병 길 승격 금지**·보수 병합·operability
+  부기·build_luck_grounding 노출·favorability 불변·프롬프트 [표현 제한]).
+- 검증: unit 791 pass(+7)·1 skip, ruff·mypy clean(169). 잔여 2건 기존 DB 통합 환경 실패(무관). 월별 overview
+  토큰 통과 재확인.
+- **원칙**: operational shadow는 점수를 바꾸지 않고 과한 길흉 단정을 막는 문장 안전장치로만(데굴님). 다음:
+  Phase 5b-2b(일부 도메인 제한 반영)·shadow 누적 후 scoring 반영 판단. Option A는 §10-4 진입조건.
+
+### operational 워크스트림 안정화·정리 (Phase 0~5b-2a) (2026-06-24)
+
+데굴님 지시 — 5b-2b 확장 전, 첫 출력 영향 단계(5b-2a)의 회귀 기준 고정. **새 기능 구현 없음·문서 갱신만.**
+
+- **산출물**: YONGSIN_OPERATIONAL_ROLE_SPEC.md §11 "통합 정리" 신규 — ①Phase별 변경 요약(출력 영향
+  표기) ②전 구간 불변 원칙(final·canonical_roles·favorability_map·score·rank·polarity·groups·신강약·
+  모델선택) ③레이어 역할 구분(canonical/operational/operability/hap context/shadow/expression clamp)
+  ④표준사례 golden 표(canonical·operational·shadow weight·운별 expression) ⑤token budget 회귀 기준
+  (월별 overview 12000 임박·_OPERATIONAL_INSTRUCTION 추가 금지·단일 기간 블록만·데이터 라인 자기설명)
+  ⑥Phase 5b-2b 진입 조건(golden 안정+도메인 문구 매핑 선설계+토큰 검증) ⑦rollback/disable 검토.
+- **rollback 검토 결과(미구현)**: 첫 출력 영향(5b-2a)은 config 플래그 EXPRESSION_CLAMP_ENABLED(default
+  True)를 build_luck_grounding [표현 제한] append 게이트로 두면 즉시 off 가능(코드 1곳·테스트 1건 저비용).
+  shadow/operational 산출은 미소비라 별도 토글 불요. 필요 시 다음 작업으로 추가 가능.
+- **operational 레이어 1차 MVP 완료**(Phase 0~5b-2a). 회귀 픽스처: test_yongsin_operational*·operability*·
+  ten_god_hap·shadow_scoring*·luck_expression_clamp(현행 unit 791 pass 기준). 코드 무변경.
+- (다음 후보) Phase 5b-2b(도메인별 표현 제한 — §11-6 조건 충족 후)·shadow 누적 기반 scoring 반영 판단·
+  EXPRESSION_CLAMP_ENABLED rollback 플래그. Option A는 §10-4 진입조건+별도 승인.
+
+### EXPRESSION_CLAMP_ENABLED rollback 플래그 (Phase 5b-2a 안전장치) (2026-06-24)
+
+데굴님 지시 — 5b-2b 도메인 확장 전, 첫 출력 영향 기능(5b-2a 표현 제한)을 즉시 off 할 안전장치. 새 해석
+기능 없음.
+
+- **수정(operational_role_config.py)**: EXPRESSION_CLAMP_ENABLED = True(experimental). False면 [표현 제한]
+  라인 미노출(즉시 off).
+- **수정(chart_interpretation.py build_luck_grounding)**: [표현 제한] 라인 생성을 _op_config.EXPRESSION_
+  CLAMP_ENABLED로 게이트(config 모듈 참조 — 런타임 토글 가능). False면 luck_expression_clamp 미호출.
+- **불변**: shadow_scoring(luck_expression_clamp 등) 계산 자체는 플래그 무관 유지. score/rank/
+  favorability/final/polarity/event score 전부 불변(소비처 1곳만 게이트).
+- **테스트**: test_expression_clamp_rollback.py 4종(default True·on 노출·off 미노출·플래그 무관 shadow
+  계산 동일). monkeypatch ci._op_config로 토글.
+- 검증: unit 795 pass(+4)·1 skip, ruff·mypy clean(169). 잔여 2건 기존 DB 통합 환경 실패(무관). spec §11-7
+  rollback 검토를 구현으로 전환(미구현→구현).
+- (다음) Phase 5b-2b(도메인별 표현 제한 — §11-6 진입 조건: 직업/재물/연애/이동/학업 문구 매핑 선설계 후)·
+  shadow 누적 후 scoring 반영 판단. Option A는 §10-4 진입조건+별도 승인.
+
+### Phase 5b-2b 도메인별 표현 제한 (번역 레이어, 점수 불변) (2026-06-24)
+
+YONGSIN_OPERATIONAL_ROLE_SPEC §12(데굴님 승인 DP-5b2b1~5 + impl1~3 + 보완 7조건). 5b-2a
+expression_class를 **도메인 언어로 번역만** — 해석·점수 변경 아님.
+
+- **수정(operational_role_config.py)**: EXPRESSION_CLASSES(6 정규 등급)·DOMAIN_EXPRESSION_PHRASE
+  (career/wealth/relationship/relocation/study_document × 6, §12-2 순화 확정 — "관재"·"이별"·"투자 유리"
+  강한 표현 배제). 도메인×등급만(십성 하드코딩 금지 — 십성은 5b-1 운 line 담당).
+- **수정(shadow_scoring.py)**: domain_to_expression_key(Domain.value str→key, lowercase normalize,
+  education→study_document, GENERAL/미상/health→None)·domain_expression_phrase(미상/미매핑→base
+  fallback, 등록 domain+등급 누락→KeyError fail-fast, 변형 등급 +주의/주의→정규 재사용). 파서 enum 비종속.
+- **수정(chart_interpretation.py build_luck_grounding)**: domain_key: str|None=None 인자 추가(기존 호출부
+  무영향). [표현 제한] guidance를 domain_expression_phrase로 치환(1줄·base→domain, 길이 유사·토큰 중립).
+- **수정(chat_service.py)**: period fortune에서 domain_to_expression_key(intent.domain.value) 전달.
+  후보 다수 경로(_to_llm_candidate) 미전달 — 미노출 유지.
+- **효과**(표준 水運 조건부·유보): career=책임·압박·조직 이슈 동반 / wealth=계약·현실 부담 동반 /
+  relationship=감정 과다·관계 압박 가능 / GENERAL·미상=base guidance. 운 입자 십성(水=官殺 등)은 5b-1
+  line이 그대로 노출 — domain phrase 십성 무관.
+- **안전장치**: EXPRESSION_CLAMP_ENABLED=False면 도메인 문구 포함 [표현 제한] 라인 전체 미노출(5b-2a
+  게이트 그대로). domain 미상→graceful fallback.
+- **불변**: score/rank/event score/favorability_map/final/canonical_roles/polarity 전부 불변(테스트 강제).
+- **테스트**: test_domain_expression_phrase.py 8종(완전성·키 매핑·fallback·번역·fail-fast·도메인별 노출·
+  rollback off·favorability 불변). build_luck_grounding 인자 확장.
+- 검증: unit 1017 pass(+8)·18 skip, ruff·mypy clean(packages 169·chat_service). manse_service.py mypy 2건은
+  HEAD 동일 기존 이슈(무관). 토큰 ≤12000(context_reducer) 유지. 잔여 2건 기존 DB 통합 환경 실패(무관).
+- (다음) shadow 누적 후 scoring 반영 판단. Option A는 §10-4 진입조건+별도 승인.
+
+### Shadow Validation Harness — scoring 반영 전 검증 도구 (2026-06-24)
+
+데굴님 지시 — operational을 실제 점수에 반영할지 **감이 아니라 데이터로** 판단하기 위한 일괄 리포트
+도구. spec §13. 새 해석 기능 없음·운영 미연결.
+
+- **신규(data/shadow_charts/charts.jsonl)**: 골든 차트 9개(operational_std 익명 + golden manse 8). 20~30
+  누적은 행 추가. **chart_id 익명·BirthInput 원본 리포트 미노출.**
+- **신규(saju_engines/shadow_report.py, 순수)**: build_shadow_report(result, candidates, ganji_by_period,
+  chart_id, period_level)→(rows 19컬럼, summary) + invariance_snapshot(Guard #6). candidate_shadow_diff
+  /shadow_rank_diff/luck_expression_clamp 조합. **rank는 diffs 순서로 index 정렬(period 키 충돌 버그 수정 —
+  동일 기간 복수 후보 rank 보존).**
+- **신규(scripts/shadow_validation_harness.py, CLI)**: charts→calculate→score_legacy(YEAR+DAEWOON)→리포트
+  →CSV/JSON + top-N. 옵션 --charts/--out-dir/--top-n/--dry-run. 월운 1차 제외(후속 optional).
+- **수정(operational_role_config.py)**: SHADOW_WARN_SCORE_DELTA=18·SHADOW_WARN_RANK_DELTA=3(WARN 임계).
+- **gitignore**: data/shadow_reports/*.csv|json(재생성). charts.jsonl은 추적.
+- **Guard**: #1~5 PASS/WARN(리포트·top-N 리뷰용), #5=abs(score/rank_delta) 임계 WARN. #6 불변(favorability
+  ·final·후보 score/polarity)·schema/config = hard fail. missing ganji(exact match 실패)=skip+집계, 전부
+  skip=errors.
+- **실행 결과**(9차트 633행): 불변 매 차트 통과(위반 0). WARN 분포 — india/japan/us 0건(shadow≈legacy),
+  uk_london score 57·rank 58(대운 큰 shift), operational_std rank 60. score_delta는 운 간지 단위(동일 기간
+  복수 event 동일). **주의: rank는 YEAR+DAEWOON 혼합 전역 풀 — 대운 shift가 전역 순위 크게 흔듦. 레벨별
+  랭킹은 후속 옵션.**
+- **테스트**: test_shadow_report.py 8종(행 스키마·level·operational 요약·guard #1/#3/#5·불변 #6·missing
+  skip·전부 skip errors). CLI는 --dry-run smoke.
+- 검증: unit pass(+8·총 1033), ruff·mypy clean(packages+harness 171). 잔여 2건 기존 DB 통합 환경 실패(무관).
+- **결론 도구**: 누적 리포트(20~30 차트)로 scoring 반영 여부 판단. 본 harness는 검증 전용·운영 미연결.
+
+### Shadow Harness 레벨별 랭킹 보정 + YEAR 후보 materialize (2026-06-24)
+
+데굴님 지시 — YEAR+DAEWOON 혼합 전역 랭킹 착시 제거. spec §13-2b.
+
+- **수정(shadow_scoring.shadow_rank_diff)**: level_by_period 옵션 추가 → 전역(_global)+레벨별(_level)
+  순위 동시. _rank_maps 헬퍼로 풀별 순위. **하위호환**: level 미지정 시 기존 키만 반환(기존 테스트 불변).
+- **수정(shadow_report.py)**: REPORT_COLUMNS 에 legacy/shadow/rank_delta _global·_level 6필드(기존 단일
+  rank 3필드 대체). **rank WARN 은 rank_delta_level 기준**(착시 제거). score_delta WARN 유지.
+- **수정(scripts/harness)**: 버그 발견 — 기본 calculate 는 yearly_luck=0(대운만). YEAR 후보가 0이라
+  레벨 비교 불능이었음. **score_legacy_years + daewoon_table[].sewoon(장년기 20~60세, --year-window
+  기본 20)로 YEAR materialize.** dw_cands(score_legacy DAEWOON) + yr_cands 결합. top-N/표시 _level 기준.
+- **실측(9차트 2778행)**: level year 2145·daewoon 633. **level≠global delta 1439행, 전역 WARN→레벨
+  非WARN 180행(착시 제거 입증).** 불변 매 차트 통과. 신호 편차 큼 — india/japan/us 무변 vs uk_london
+  score106·rank287.
+- **관찰(후속)**: YEAR 풀이 커(≈240/차트) abs rank_delta≥3 임계 과민·WARN 범람(290/319). **rank WARN
+  임계 상대화(비율·percentile) 필요 — 후속 튜닝.** score_delta WARN 이 더 안정.
+- **테스트**: test_shadow_report.py +1(test_level_aware_ranking — 합성 YEAR5+DAEWOON5, 레벨 내 1~5·전역
+  1~10·대운 level<global 착시 보정). 기존 test_shadow_scoring_candidate(no-level 경로) 불변.
+- 검증: unit pass, ruff·mypy clean(171). 잔여 2건 기존 DB 환경 실패(무관).
+- (다음) rank WARN 임계 상대화(후속 튜닝 옵션) → 차트 20~30 누적 → scoring 반영 판단.
+
+### Shadow Harness rank WARN 임계 상대화 (2026-06-24)
+
+데굴님 지시 — 큰 YEAR 풀(≈240) 과민 WARN 제거. spec §13-3b.
+
+- **수정(operational_role_config.py)**: SHADOW_WARN_RANK_DELTA → SHADOW_WARN_RANK_DELTA_ABS(3)·
+  SHADOW_WARN_RANK_DELTA_RATIO(0.05).
+- **수정(shadow_report.py)**: level_pool(레벨별 후보 수) 산출 → threshold = max(ABS, ceil(pool×RATIO)),
+  abs(rank_delta_level) ≥ threshold 면 WARN. REPORT_COLUMNS +3(level_pool_size·rank_delta_pct·
+  rank_warn_threshold). score_delta WARN·global rank 참고용·불변 전부 유지.
+- **효과(9차트 2778행)**: 대운 풀(≈70)→임계 4, 세운 풀(≈240)→12~13. **rank WARN 91%→33%(929행)** —
+  korea 229→26·lunar 237→51(잔흔 제거)·zi_hour 260→182, uk_london 268·operational_std 190 유지(실 영향).
+- **테스트**: test_shadow_report.py +1(test_rank_warn_threshold_scales_with_pool — 작은 풀 5→임계 3·큰 풀
+  100→임계 5·잔흔 비-WARN·rank_delta_pct 존재). 총 10종.
+- 검증: unit pass, ruff·mypy clean(171). 잔여 2건 기존 DB 환경 실패(무관).
+- **Shadow Validation Harness 최종 안정화 완료.** (다음) 차트 20~30 누적 → scoring 반영 판단.
+
+### Shadow 차트 구조 coverage — 합성 명식 탐색 24 구조 (2026-06-24)
+
+데굴님 지시 — scoring 반영 전, operational shadow 가 다양한 구조에서 과발동/미발동 안 하는지 coverage
+확보. 1차=합성/검증 명식(실데이터는 2단계 golden_events 분리). spec §13-5.
+
+- **신규(saju_engines/shadow_chart_predicates.py)**: 엔진 산출 바인딩 predicate primitive(strength band·
+  five_elements%·ten_gods groups·operational_roles 라벨·operability_factors·transform·geokguk +
+  expected_shadow·invariant_additive). Pred(name,fn) — coverage_report satisfied/missing 표기.
+- **신규(saju_engines/shadow_chart_specs.py)**: 24 ChartSpec(그룹 1~7). required/critical/preferred/
+  expected_shadow/invariants/best_match_allowed. hap_confirmed_01=transform note only·final/groups/분포/
+  scoring 불변(invariant). yongsin_bound_01(operability factor)·hap_bind_01(일반 합 맥락) 분리. 특수격은
+  best_match_allowed.
+- **신규(scripts/find_shadow_charts.py)**: deterministic stratified sweep(1950–2009×월×일{3,13,23}×12시지×
+  성별, 연도 innermost). **distinct-birth 우선**(폴백으로 커버리지 보장). FOUND(required 전부)/BEST_MATCH
+  (critical+2/3)/NOT_FOUND. charts.jsonl 추가 + coverage_report.json manifest(timestamp·경로·로그 제외).
+- **수정(operational_role_config.py)**: SHADOW_WARN 주석.
+- **결과**: FOUND 22(distinct birth 22)·NOT_FOUND 2(종격/전왕 — 그리드 미확보, 2차 확장 후속). charts.jsonl
+  9→31. harness 31차트 9475행 **불변 매 차트 통과**. **coverage 가드 G1/G3/G4 위반 0**(조건부 희신/병 미승격·
+  저operability 용신 미과대·제살보조 미과승격) — score 편차는 구신/기신 de-penalize·조건부 희신/병 downgrade
+  의 의도된 보정.
+- **산출물**: charts.jsonl·coverage_report.json 커밋(manifest). shadow_reports/·search_logs/ gitignore.
+- **테스트**: test_shadow_chart_specs.py 5종(spec 수·critical⊆required·hap_confirmed note-only·bound/bind
+  분리·predicate 표준차트 평가). unit 818 pass.
+- 검증: ruff·mypy clean(174). 잔여 2건 기존 DB 환경 실패(무관).
+- (다음) 2차 확장(종격/전왕 그리드 확대)·도메인 snapshot 분리·shadow 누적 후 scoring 반영 판단.
+
+### Phase 5b-2b 도메인 출력 snapshot 분리 (2026-06-24)
+
+데굴님 지시 — scoring 반영 전, 5b-2b domain_key×expression_class 번역이 chat/period fortune 경로에서
+안정 노출되는지 고정. 명식 구조 coverage(shadow_charts)와 분리. scoring 무관·불변.
+
+- **신규(tests/unit/test_domain_snapshot.py)** 9종: ①adapter wiring(Domain.value→key, GENERAL→None)
+  ②도메인×水運 정확 문구 5종(chat_service:466-467 동일 체인 — career=책임·압박·조직 이슈 동반 등)
+  ③5 운별 base 등급(水 조건부·유보·火 보조 긍정·木 길+작동성·土 주의 속 일부 완화·金 주의/흉)
+  ④GENERAL/None→base fallback ⑤flag off 라인 미노출 ⑥chat 경로 [표현 제한] 노출 ⑦chat flag off
+  ⑧후보 다수 경로 미노출(라인 ≤1회) ⑨domain 무관 favorability/final 불변.
+- **구조 근거**: build_luck_grounding(domain_key=) 호출처는 chat_service:467 **단일**(period fortune)
+  — 후보 다수 경로 구조적 미노출 확인.
+- 검증: unit 827 pass(+9), ruff·mypy clean(172). 잔여 2건 기존 DB 환경 실패(무관).
+- **operational 출력 레이어 고정 완료**(설명→작동성→합→shadow→표현제한→rollback→도메인번역→snapshot).
+- (다음) 종격/전왕 2차 확장 best-effort → scoring 반영 설계안(SCORING_OPERATIONAL_SHADOW_ENABLED=False
+  기본·제한 도메인부터).
+
+### 종격/전왕 2차 확장 — coverage 24/24 완료 (2026-06-24)
+
+데굴님 지시 — 1차 NOT_FOUND 2건(jonggyeok/jeonwang) best-effort 확보. 억지 주입 금지. spec §13-5-4.
+
+- **원인 규명**: 종격/전왕은 엔진이 산출함(geokguk.special_pattern). 1차가 못 찾은 건 days {3,13,23}
+  한정 탓 — 확장 days {1,6,11,16,21,26} 2160샘플에 전왕 75·종격 52 다수.
+- **수정(shadow_chart_predicates.py)**: special_pattern_type(t) 신규 — special_pattern.type 'follow'(종격)/
+  'dominant'(전왕·일행득기)로 판정(종혁격을 '종'으로 오분류하던 키워드 매칭 폐기). geokguk_special 은 dict
+  name 안전 접근.
+- **수정(shadow_chart_specs.py)**: jonggyeok_01=special_pattern_type('follow'), jeonwang_01=('dominant').
+- **수정(find_shadow_charts.py)**: 2차 확장 CLI(--days/--year-start/--year-end/--only). --only 시 비대상
+  spec 은 기존 coverage_report 병합 보존. prior 레코드 birth 없음 → 표시·write .get 가드.
+- **결과**: jonggyeok_01(1950-01-01 follow)·jeonwang_01(1953-01-01 dominant) **FOUND**. coverage **24/24
+  FOUND·NOT_FOUND 0**. charts.jsonl 31→33(distinct 24 구조 + 기존 9).
+- **harness 33차트 10066행**: 불변 매 차트 통과. 종격/전왕 WARN(0,0)(극단 단일오행 shadow≈legacy·과발동
+  없음). **coverage 가드 G1/G3/G4 위반 0**(33차트).
+- **테스트**: test_shadow_chart_specs.py +1(special_pattern_type — charts.jsonl jonggyeok/jeonwang birth
+  regression + 표준차트 정격). 총 6종.
+- 검증: unit pass, ruff·mypy clean(174). 잔여 2건 기존 DB 환경 실패(무관).
+- (다음) **scoring 반영 설계안** — SCORING_OPERATIONAL_SHADOW_ENABLED=False 기본·제한 component(조건부
+  희신/병 downgrade·저operability 용신 보정)부터.
+
+### Scoring Phase 1a — operational adjusted score (감점·산출만) (2026-06-24)
+
+데굴님 지시 — operational shadow 를 scoring 에 최소 위험 반영(감점 2 component). spec §14. **flag off
+byte-identical·랭킹/LLM 미반영·1a 산출만.**
+
+- **수정(operational_role_config.py)**: SCORING_OPERATIONAL_SHADOW_ENABLED=False(마스터)·
+  SCORING_OPERATIONAL_COMPONENTS{conditional_byeong_downgrade·low_operability_yongsin}=False·
+  SCORING_OPERATIONAL_COEF(byeong12·low_op10·op_threshold0.9·floor0.5, experimental).
+- **신규(saju_engines/scoring_operational.py)**: apply_operational_scoring(순수 — component flag·계수만,
+  마스터 미참조) + operational_scoring_sidecar(마스터 게이트 wrapper, off→None). **sidecar=candidate
+  index 기반 list**(데굴님 지시 — (period,event_key) 키 폐기·충돌 방지). A=조건부 희신/병 downgrade
+  (legacy_fav>0만), B=낮은 operability 용신(용신 오행만). #9b 표면 오행(stem0.5/branch0.5). adjusted=
+  clamp(legacy−A−B, ceil(legacy×0.5), legacy)·delta≤0·penalties 양수. missing ganji→skip 명시(임의 계산
+  금지).
+- **chat_service·EventCandidate 미변경**(byte-identical 구조 보장) — 라이브 service 삽입·랭킹 교체는 1b.
+- **검증**: test_scoring_operational.py 11종(flag off None·index 정렬·단조성·바닥·A/B 게이트·둘 off 0·
+  missing·불변·**EventCandidate 스키마 미변경**·후보 비변형). 33차트 flag-on 2271 rows 단조성·바닥 위반 0·
+  coverage 가드 G1/G3/G4 위반 0. unit 839 pass, ruff·mypy clean(173). 잔여 2건 기존 DB 환경 실패(무관).
+- (다음·후속 분리) 1b: 제한 조건 adjusted_score 랭킹 실험(별도 sub-flag)·service 삽입. 1c: 도메인/intent
+  실제 적용. 계수 33차트 튜닝. Option A 보류(§10-4).
+
+### Scoring 1a 계수 튜닝 리포트 (2026-06-24)
+
+데굴님 지시 — Phase 1b 전, 계수(byeong12·low_op10·floor0.5) 체감 강도 33차트 분포 확인. **실제 .score·
+랭킹 불변·리포트용.**
+
+- **신규(scripts/scoring_tuning_report.py)**: 33차트 flag-on sidecar(YEAR+DAEWOON) 집계 — component별
+  감점 분포·total delta·floor hit·차트별·level별·가상 rank shift·top-N·A+B 중복. 재실행 가능.
+- **결과(채점 10066)**: A 감점 n=783 mean6.2 p50/p90=6 max12(단일 0.5→6, 양면→12). B 감점 n=1850 mean1.3
+  p90=2 max4(매우 완만). total |delta| mean3.0 p90=6 max12. **floor hit 13/10066=0.1%(무난<3%)** — 계수
+  과하지 않음(소멸 없음). 가상 rank(level) year p90=10 max50·daewoon p90=3 max16, rank WARN 760. A+B
+  중복 158(6%). top 감점은 yongsin_gyeokgak_zimao_01 2032(양면 조건부 희신/병 −12).
+- **계수 제안(1a 유지 권장)**: floor hit 0.1%·delta 완만 → **byeong12·low_op10·floor0.5 유지**. 단 B(low_op)
+  매우 완만(mean1.3) — 1b 랭킹 실험에서 B가 거의 안 물리면 low_op_max_penalty 14~15 상향 검토. A는 적정
+  (90% ≤6, 양면 신호만 12). floor 0.5 backstop 미발동(0.1%)이라 distortion 없음.
+- 검증: ruff clean. 산출 console only(파일 미저장).
+- (다음) 계수 확정(유지) → Phase 1b adjusted rank 실험 설계(별도 sub-flag).
+
+### Scoring Phase 1b — adjusted rank 실험 (랭킹 미교체·관찰) (2026-06-24)
+
+데굴님 지시 — 1a sidecar(adjusted_score)로 가상 랭킹 흔들림 관찰·low_op 10 약함 판단. spec §14-8.
+**실제 .score·rank·reduce_candidates·LLM 불변.**
+
+- **수정(config)**: SCORING_OPERATIONAL_RANK_EXPERIMENT_ENABLED=False(독립 sub-flag)·RANK_TOPN=10.
+- **수정(scoring_operational.py)**: apply_operational_scoring(*, components, coef_override) 키워드 추가
+  (config 불변·주입만). adjusted_rank_experiment(legacy=입력순서·재계산 금지, adjusted=adjusted_score
+  stable 재정렬·tie=legacy order, level 분리·global 참고) + rank_experiment_sidecar(sub-flag 게이트).
+  missing ganji 후보 유지(adjusted=legacy·풀 보존).
+- **confound 발견·해결**: legacy_rank(=score_legacy 입력순서=lei_rank_key) ≠ score순서 → penalty 0에서도
+  rank 50/72 이동(검증). rank_delta_level(vs 엔진순서)는 confound 포함 → **op_rank_delta_level(score
+  베이스라인 대비) + op_left_topn 신설**로 순수 operational penalty 효과 격리.
+- **신규(scripts/scoring_rank_experiment.py)**: 33차트 A-only/B-only/A+B + low_op 10/14/15(B-only·A+B)
+  op_rank_delta 분포·top-N 이탈·차트별 max. console.
+- **결론(op_rank_delta)**: A-only year mean2.38 p90=11·B-only 0.99 p90=3·A+B 2.70(**A 지배·B 약함**, p50=0
+  =대부분 무영향). low_op 10→14→15 B-only mean 0.82→1.03→1.06(미미·topN 이탈 10→12). **B는 14 상향해도
+  랭킹 영향 경미 → low_op=10 유지 타당**(B 의도적 보조 효과). 차트별 max: jesal 50·gyeokgak 45(양면 조건부
+  희신/병 집중).
+- **검증**: test_scoring_rank_experiment.py 10종(sub-flag off None·legacy=입력순서·tie-break·level 분리·
+  component 분기·coef_override+config 불변·top-N 이탈·missing 유지·불변). unit 849 pass, ruff·mypy clean.
+  잔여 2건 기존 DB 환경 실패(무관).
+- (다음) low_op 계수 결정(10 유지 권장) → Phase 1c(제한 도메인/intent 실제 적용) 설계. Option A 보류.
+
+### Scoring Phase 1c-α — rank guard 태그 (순위·score 불변·career 한정) (2026-06-24)
+
+데굴님 지시 — operational scoring 첫 실제 적용. lei_rank_key 보존·후보 단위 과대해석 방지 태그만(순위
+변경 금지). spec §14-9. **첫 LLM 출력 영향 scoring 적용.**
+
+- **수정(config)**: SCORING_OPERATIONAL_APPLY_ENABLED=False(마스터)·APPLY_MODE{rank_guard,near_tie_
+  demotion}·APPLY_INTENTS=["career"]·APPLY_COEF(penalty_threshold6·max_guards3·near_tie 1c-β용 미사용)·
+  GUARD_PHRASE(penalty 유래 2종·짧게).
+- **신규(scoring_operational.py)**: operational_rank_guards — 게이트 조합 전부(APPLY_ENABLED ∧ rank_guard
+  ∧ domain∈career(normalize) ∧ component≥1) 만족 시만. reduce 후 selected 에 apply_operational_scoring
+  재산출(index 1:1) → delta≤−6 후보, 감점 큰 순 max3, 우세 penalty 1줄. missing ganji 미부착(임의 계산 X).
+- **수정(context_reducer.py)**: build_llm_input llm_candidates 매핑 직후 caution_note append(기존 필드·
+  스키마 불변). flag off→루프 0회→byte-identical.
+- **검증**: byte-identical — master off·非career(general) 출력 동일 확인. career+on → [해석 주의] 태그 2개
+  (≤3)·+56자. token: 올해 직업운 8412·이번달 직업운 10385 ≤12000. 33차트 가드 G1/G3/G4 위반 0(산출 flag
+  무관). test_scoring_apply.py 9종(master/mode/domain/component 게이트·max3·reason 출처·조후보조신/제살보조
+  무태그·missing 미부착). unit 858 pass, ruff·mypy clean. 잔여 2건 기존 DB 환경 실패(무관).
+- **불변**: .score·실제 rank·reduce 순서·final·favorability_map·canonical_roles·polarity 전부 불변.
+- (다음·후속) career 운영 관찰 → wealth 등 intent 확대 / Phase 1c-β near-tie demotion(별도 승인). 계수
+  유지(1b 결론). Option A 보류(§10-4).
+
+### Scoring 1c-α career 운영 관찰 리포트 (2026-06-24)
+
+데굴님 지시 — wealth 확대·near-tie 전, career rank guard 작동 양상 관찰. **기능 변경 없음·관찰 전용.**
+
+- **신규(scripts/scoring_guard_observe.py)**: 33차트 career guard 부착 샘플·reason 분포·caution_note
+  append 자연성·과발동/미발동·과장단어 점검. console only.
+- **관찰 결과(총 guard 21, 7/33 차트)**:
+  ① **reason 분포 = conditional_byeong_downgrade 21 / low_operability_yongsin 0** — **B는 1c-α에서 한 번도
+     발동 안 함**(B max penalty ≈4 < threshold 6). 즉 현 임계에서 1c-α는 사실상 "조건부 희신/병 과대평가
+     방지 태그"(A 전용). 1b 결론(B 약함)과 일치.
+  ② **과발동 0**(차트당 ≤3·max_guards 준수)·**미발동 26/33 차트**(조건부 희신/병 운 없는 차트는 무태그) —
+     적절히 선택적.
+  ③ **과장 단어(흉/나쁨/위험) 0** — "과한 긍정 금지"로만 작동(흉 단정 아님).
+  ④ **기존 caution_note 존재 17/21** — 대부분 기존 주의문("좋은 달로 과하게 단정 말 것" 등) 뒤에 append.
+     메시지 방향 일치(둘 다 과대긍정 차단)이나 **경미한 의미 중복** 존재(관찰 메모 — 차단 아님).
+  ⑤ token: 직업운 off 8372 → on 8412(+40·2태그)·≤12000. non-career(general) on==off(미적용)·APPLY off
+     byte-identical 재확인.
+- **판단**: 1c-α career 작동 안정. **임계 −6에서 B 미발동은 의도된 보수성**(B는 표현 레이어로 충분). 경미한
+  중복은 운영 리뷰 후 필요 시 조정. 검증: ruff·mypy clean, unit 858(기능 무변). 잔여 2건 기존 DB(무관).
+- (다음·후속·별도 승인) career 실사용 관찰 누적 → wealth/relationship 확대 설계 / 1c-β near-tie demotion.
+
+### Scoring 1c-α caution 중복 정리 + intent 확대 검증 (2026-06-24)
+
+데굴님 지시(정확도 마무리) — ① guard 문구 중복 정리 ② intent 확대 검증 리포트. **score/rank/reduce 불변.**
+
+**① caution 중복 정리(구현)**
+- 수정(config): SCORING_OPERATIONAL_GUARD_PHRASE_COMPACT(reason만)·SCORING_OPERATIONAL_REDUNDANCY_
+  MARKERS(과하게 단정·과한 긍정·단정하지 말·단정 말·좋은 달로·좋은 흐름으로 단정 — "좋은" 단독 금지).
+- 수정(scoring_operational.py): operational_rank_guards 반환 (idx, reason_key)로 변경 +
+  guard_caution_phrase(기존 caution 마커 有→compact·지시문 중복 제거, 無→full). **engine 텍스트 재작성
+  안 함.**
+- 수정(context_reducer.py): caution_note append 시 guard_caution_phrase 경유.
+- 효과: "…좋은 달로 과하게 단정 말 것" + "[해석 주의] 조건부 희신/병"(compact·지시문 1회). "검토월"류
+  (마커 無)는 full 유지(방향 다름).
+- 테스트: test_scoring_apply.py +1(compact/full)·기존 reason_key 전환. unit 859.
+
+**② intent 확대 검증 리포트(scripts/scoring_guard_intent_report.py)**
+- 대표 3차트 × 5 intent in-process 일시 적용(config default 불변)·실 chat 경로. **guard 문구 자체 과장단어
+  0(config 보장).**
+- 결과: **career tags6 max2 +40 절단0(안전)** · **wealth tags3 max1 +19~20 절단0(안전)** ·
+  **relationship tags1 tokΔ−1384 절단1(★토큰예산 초과→본문 1384토큰 절단 위험)** · relocation/study tags0
+  (질문이 후보 경로/도메인 라우팅 안 됨). reason 전 intent conditional_byeong_downgrade(B 미발동).
+- **★핵심 발견**: career(배포 파일럿)는 33차트 전부 +태그만(절단 0·안전). 그러나 **relationship 등 근접-
+  ceiling 프롬프트에서 +태그가 토큰예산을 넘겨 본문이 절단됨**. → **intent 확대 전 토큰 헤드룸 처리 필요**
+  (태그용 예산 예약 또는 ceiling 근접 시 미부착). career/wealth는 헤드룸 충분으로 안전.
+- 검증: ruff·mypy clean(173)·unit 859. chat 결정적(off 2회 동일) 확인. 잔여 2건 기존 DB(무관).
+- (다음) **토큰 헤드룸 가드 설계**(절단 방지) → wealth 운영 적용 검토(절단0) → relationship 은 헤드룸 가드
+  후. near-tie demotion·Option A 보류.
+
+### Scoring 토큰 헤드룸 가드 — guard 태그 본문 절단 방지 (2026-06-24)
+
+데굴님 지시(정확도 마무리) — rank guard 태그가 토큰예산을 넘겨 본문 재축소(절단)를 유발하던 문제 해결.
+**본문 우선·태그 후순위.** spec §14-9. score/rank/reduce/final/favorability 불변.
+
+- **원인**: serialize_with_guard 가 over-budget 시 event_candidates[:3]·evidence[:3]·excerpts[:4]로
+  재축소 → relationship+kansal 에서 +태그 1개가 본문 −1384토큰 절단.
+- **수정(config)**: SCORING_OPERATIONAL_GUARD_TOKEN_EST=25(폴백)·HEADROOM_RESERVE=1500(reserved_tokens
+  미전달 시 system+trailing 보수 예약).
+- **수정(context_reducer.build_llm_input)**: rank guard 적용을 llm_candidates 매핑 직후 →
+  **payload 조립 후 _apply_rank_guards** 로 이동(전체 본문 토큰 측정 가능). reserved_tokens 인자 추가
+  (chat_service 의 reserve 는 trailing 이 build_llm_input 뒤에 만들어져 전달 불가 → HEADROOM_RESERVE
+  폴백). headroom = max_input_tokens − base(태그없는 본문) − reserve. **phrase 실토큰 순차 차감**(full/
+  compact 반영)·헤드룸 부족 시 미부착·max_guards 동적 3→1→0. APPLY off → 무동작(byte-identical).
+- **효과(33차트)**: **career 절단0·태그 6차트 13개(정상)** · wealth 절단0 2개 · **relationship 절단0**
+  (kansal 태그 억제·본문 보존 — 이전 −1384 → tokΔ 0). 전 intent 절단 0.
+- **테스트**: test_scoring_headroom.py 4종(relationship+kansal 절단 재발 금지·career 부착·헤드룸 부족 억제·
+  APPLY off byte-identical). unit 863 pass, ruff·mypy clean(173). 잔여 2건 기존 DB(무관).
+- (다음·건별) wealth 운영 적용 검토(절단0) → relationship 은 헤드룸 통과 케이스만. near-tie·Option A 보류.
+
+### Scoring 1c-final — 핵심 intent 전체 rank guard 안전 적용 (2026-06-24)
+
+데굴님 지시(정확도 마무리) — operational rank guard 를 핵심 intent 5종에 안전 적용 가능 상태로 닫음.
+**score/rank/reduce 불변·near-tie/Option A 제외.** spec §14-9.
+
+- **★버그 수정(domain normalize)**: APPLY_INTENTS 가 "study_document" key 인데 intent.domain.value 는
+  "education" 이라 미매칭(study 0 tags 원인). operational_rank_guards 가 domain_to_expression_key 로
+  정규화(education→study_document·5b-2b 동일) 후 매칭. enum value/string 일관.
+- **수정(config)**: SCORING_OPERATIONAL_APPLY_INTENTS 기본을 5종 확장 — career/wealth/relationship/
+  relocation/study_document(표현 key 기준). **master off 라 inert(byte-identical 유지).**
+- **라우팅 진단**: parse_message 로 5 질문 모두 정확 라우팅 확인(직업운→career·재물운→wealth·연애운→
+  relationship·이사운→relocation·시험운/학업운/자격증→education). 즉 study/relocation 0 tags 는 신호
+  부재가 아니라 **naming 버그**였음(수정됨).
+- **최종 회귀(scripts/scoring_guard_final_report.py, 33차트×5 intent)**: **전 intent 절단 0·max/resp≤3·
+  과장단어(흉/위험/손실/투자주의/이별/파탄) 0.** career 13태그(6차트)·wealth 2·relationship 1·relocation
+  1·study_document 2. tokΔ 0~60. 헤드룸 가드로 relationship 근접-ceiling 절단 방지 유지.
+- **유지**: caution 중복 정리(compact)·토큰 헤드룸 가드(본문 우선). 강한 금전/관계 문구 미추가(문구는
+  penalty 유래 2종 고정).
+- **테스트**: test_scoring_apply +1(education→study_document 정규화). unit 864 pass, ruff·mypy clean(173).
+  default(APPLY off·INTENTS5) byte-identical 확인. 잔여 2건 기존 DB(무관).
+- **오픈 기본값 권장(검증 통과)**: SHADOW_ENABLED=False·RANK_EXPERIMENT=False·**APPLY_ENABLED=True**·
+  rank_guard=True·near_tie_demotion=False·APPLY_INTENTS=5종. (master True 전환은 데굴님 최종 확정 후.)
+- (보류) near-tie demotion(1c-β)·Option A.
+
+### Scoring 1c 오픈 활성화 (APPLY_ENABLED=True) (2026-06-24)
+
+데굴님 최종 확정 — operational rank guard 운영 활성화.
+
+- **수정(config 운영 기본값)**: SCORING_OPERATIONAL_APPLY_ENABLED=True·APPLY_MODE.rank_guard=True·
+  **SCORING_OPERATIONAL_COMPONENTS 둘 다 True**(1c guard penalty 산정에 필요 — 누락 시 가드 게이트
+  `if not any(components)` 에 막혀 태그 0). APPLY_INTENTS 5종. SHADOW_ENABLED·RANK_EXPERIMENT 는 False.
+- **불변 확인**: component on 은 **score/rank 미변경** — penalty 는 1c 태그 결정에만 소비, 1a sidecar 는
+  SHADOW_ENABLED off 라 미실행. SHADOW/RANK_EXPERIMENT off 유지.
+- **활성 동작**: 운영 default 로 career '올해 직업운' → [해석 주의] 2태그 노출 확인. off-switch(False 한 줄)
+  즉시 복귀 확인.
+- **테스트**: default 변경에 맞춰 test_master_off_empty·test_apply_off_byte_identical 을 monkeypatch off
+  로 전환. full suite 1078 pass(잔여 2건 기존 DB 무관)·unit 864·ruff·mypy clean(173).
+- **최종 상태**: operational scoring = rank guard 태그(5 intent·순위/score/reduce 불변·본문 우선 헤드룸
+  가드·과한 긍정만 차단). 되돌리려면 APPLY_ENABLED=False 한 줄.
+
+### 절기 경계 직전 날짜 일운 프롬프트 보정 (2026-06-24)
+
+데굴님 지적 — 절기 직전 날짜(양력 달 ≠ 절입 달)에 월을 정확히 주입해도 LLM 이 양력 달로 월운을 오인
+(7/4 질문에 "7월 전반…" 식으로 절기월 甲午 대신 양력 7월 기준 서술·천간/지지 역할 혼동).
+
+- **수정(chat_service._date_day_fortune_note)**: 일운 사실 주입 시, `tgt.month != 절기월 절입 양력 월
+  (mp.label[5:7])` 이면(=절기 경계 직전) 문장을 **"절기월 {간지}({N}월 절입)의 기운이 아직 이어지는 날,
+  일운(日運) …"** 로 재구성해 절기월 기운 연속을 명시. 같은 달이면 기존 "일운 … / 그 날의 절기월 …" 유지
+  (절기월 막 시작한 날에 '아직 이어지는' 오문구 방지). 후행 지시문("월간지로 그 날의 운 대신 금지…") 유지.
+- **효과**: 2026-07-04 → "절기월 甲午(6월 절입)의 기운이 아직 이어지는 날, 일운(日運) 己卯(…)". 2026-06-20
+  (같은 달) → 기존 형식.
+- **검증**: test_conversation_date_fixes +1(경계 직전 강조·같은 달 기존형식). full suite 1078 pass, ruff·mypy
+  clean. 잔여 2건 기존 DB(무관).

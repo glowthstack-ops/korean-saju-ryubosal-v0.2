@@ -162,7 +162,7 @@ export default function SettingsPage() {
       </section>
 
       <section className="space-y-3 rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-lg font-bold">물상 해석 (사주별)</h1>
+        <h1 className="text-lg font-bold">사주별 물상 해석 추가 입력</h1>
         {subjects.length === 0 ? (
           <p className="text-sm text-gray-500">등록된 사주가 없어요.</p>
         ) : (
@@ -202,12 +202,18 @@ export default function SettingsPage() {
                 >
                   {mulsangSaved ? "저장됨 ✓" : "물상 저장"}
                 </button>
-                <div className="border-t pt-3 text-sm">
+                <div className="border-t pt-3">
                   <a
                     href={`/reality-calibration?subject=${activeId}`}
-                    className="underline"
+                    className="flex items-center justify-between rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 hover:bg-gray-100"
                   >
-                    현실 신호 캘리브레이션 — 과거 실제 사건 입력(풀이 정확도 향상)
+                    <span>
+                      <span className="block text-sm font-semibold">현실 신호 캘리브레이션 추가 입력</span>
+                      <span className="mt-0.5 block text-xs text-gray-500">
+                        과거 실제 사건을 입력하면 풀이 정확도가 올라가요.
+                      </span>
+                    </span>
+                    <span className="text-gray-400">›</span>
                   </a>
                 </div>
               </>

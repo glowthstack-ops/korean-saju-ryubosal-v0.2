@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from saju_shared_types.analysis import ForceAnalysis
 from saju_shared_types.constants import (
+    BRANCH_CLASHES,
     CONTROLS,
     GENERATES,
     STEM_ELEMENT,
@@ -19,10 +20,37 @@ from saju_shared_types.structure import GeokgukResult, StructureAnalysis
 from saju_shared_types.yongsin import (
     AggregatedYongsinResult,
     ElementCandidate,
+    ElementRole,
     YongsinCandidateModel,
 )
 
+from ..relations.hap_modes import resolve_stem_hap
+from .operational_role_config import (
+    CLIMATE_HARMFUL_REASON,
+    CONDITION_TEMPLATES,
+    GYEOKGAK_ALLOWLIST,
+    OFFICER_HAP_REASON,
+    OPERABILITY_PENALTY,
+    OPERABILITY_REASON,
+    OPERATIONAL_ROLE_CLASS,
+    TEN_GOD_HAP_MODE_PHRASE,
+    TEN_GOD_HAP_REASON,
+)
 from .special_cases import detect_special_cases
+
+# 격각(隔位, 비인접) 판정용 인접 자리쌍 — 年月·月日·日時 만 인접. 나머지(年日·年時·月時)=격각.
+_ADJ_POSITION_PAIRS = frozenset({
+    frozenset({"year", "month"}),
+    frozenset({"month", "day"}),
+    frozenset({"day", "hour"}),
+})
+
+# 2계층 역할(YONGSIN_OPERATIONAL_ROLE_SPEC) — 역할 키 순서와 한글 라벨.
+_ROLE_KEYS = ("yongsin", "heesin", "gisin", "gusin", "hansin")
+_ROLE_KO = {
+    "yongsin": "용신", "heesin": "희신", "gisin": "기신",
+    "gusin": "구신", "hansin": "한신",
+}
 
 _WEAK = {"극신약", "태신약", "신약", "중화신약"}
 _NEUTRAL = {"중화", "중화신강"}
@@ -211,6 +239,577 @@ def _classify_roles(yongsin_el: str | None) -> dict[str, str | None]:
         "gusin": gusin,
         "hansin": hansin,
     }
+
+
+def _role_by_element(role_map: dict[str, str | None]) -> dict[str, str]:
+    """{역할키: 오행} → {오행: 역할키} 역인덱스(None 오행은 제외)."""
+    return {element: role_key for role_key, element in role_map.items() if element}
+
+
+def _operational_role_map(
+    selected_model: YongsinCandidateModel | None,
+    canonical_roles: dict[str, str | None],
+    *,
+    adopt_model_map: bool,
+) -> dict[str, str | None]:
+    """작동 역할맵: 선택 모델이 5역할 완비면 그 자체맵, 아니면 canonical 폴백.
+
+    Phase 0 — 모델 자체 역할맵 존중만 한다(조후 강등·합·작동성 보정은 Phase 2~4).
+    부분맵 모델(johu/pattern/disease/bridge/dominant/follow 등 일부 역할 None)은
+    canonical(= 현행 final 5역할)을 그대로 써 None 역할이 새지 않도록 한다.
+
+    adopt_model_map=False 이면(=final 이 통관/부일간 특수분기로 정적 순환을 의도적으로
+    교정한 경우) 모델 자체맵 대신 canonical 을 쓴다 — 특수분기의 교정을 되돌리지 않기 위함.
+    """
+    if (
+        adopt_model_map
+        and selected_model is not None
+        and all(getattr(selected_model, k) for k in _ROLE_KEYS)
+    ):
+        return {k: getattr(selected_model, k) for k in _ROLE_KEYS}
+    return dict(canonical_roles)
+
+
+def _build_operational_roles(
+    canonical_roles: dict[str, str | None],
+    operational_map: dict[str, str | None],
+) -> list[ElementRole]:
+    """canonical/operational 역할맵을 오행별 ElementRole 목록으로 직렬화."""
+    canonical_by_element = _role_by_element(canonical_roles)
+    operational_by_element = _role_by_element(operational_map)
+    roles: list[ElementRole] = []
+    for element, canonical_key in canonical_by_element.items():
+        operational_key = operational_by_element.get(element, canonical_key)
+        roles.append(
+            ElementRole(
+                element=element,
+                canonical_role=_ROLE_KO[canonical_key],
+                operational_role=_ROLE_KO[operational_key],
+            )
+        )
+    return roles
+
+
+def _overloaded_element(groups: dict[str, float], g: dict[str, Element]) -> str | None:
+    """원국에서 과다(병)로 작동하는 십성의 오행(없으면 None). 기존 과다 판정 함수만 사용."""
+    if _officer_heavy(groups):
+        return _e(g["officer"])
+    if _output_heavy(groups):
+        return _e(g["output"])
+    if _resource_overload(groups):
+        return _e(g["resource"])
+    if _bigyeob_overload(groups):
+        return _e(g["peer"])
+    return None
+
+
+def _dedupe(items: list[str]) -> list[str]:
+    """기존 순서를 보존하며 중복 제거."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for x in items:
+        if x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+
+_NOTE_PROVENANCE = " (base_model_role="
+
+
+def _compose_note(
+    body_sentences: list[str], base_role: str, canon_role: str, sources: list[str]
+) -> str:
+    """서술 본문 + 합성 출처(base/canonical 역할·synthesized_by)를 고정 포맷으로 결합."""
+    body = " ".join(s for s in body_sentences if s).strip()
+    suffix = (
+        f"(base_model_role={base_role}; canonical_role={canon_role}; "
+        f"synthesized_by={'+'.join(sources)})"
+    )
+    return f"{body} {suffix}".strip() if body else suffix
+
+
+def _parse_note(note: str | None) -> tuple[list[str], list[str]]:
+    """기존 note 를 (서술 본문 문장, synthesized_by 출처)로 분해. 출처 미상이면 ([note], [])."""
+    if not note or _NOTE_PROVENANCE not in note:
+        return ([note] if note else []), []
+    head, _, tail = note.partition(_NOTE_PROVENANCE)
+    sources = (
+        tail.split("synthesized_by=")[1].rstrip(")").split("+")
+        if "synthesized_by=" in tail else []
+    )
+    return ([head] if head else []), sources
+
+
+def _with_condition(
+    er: ElementRole,
+    label: str,
+    canonical_by_element: dict[str, str],
+    operational_by_element: dict[str, str],
+    synthesized_by: list[str],
+    extra_negative: list[str] | None = None,
+) -> ElementRole:
+    """ElementRole 을 조건부/합성 라벨로 재구성 + 템플릿 조건문 + 합성 출처를 note 에 기록.
+
+    synthesized_by 는 호출부에서 고정 순서로 전달한다(note 안정성 — 예: overload_condition+
+    climate_harmful). negative_when 은 템플릿 + extra 를 순서 보존하며 dedupe 한다.
+    """
+    tmpl = CONDITION_TEMPLATES[label]
+    base_role = _ROLE_KO.get(operational_by_element.get(er.element, ""), "?")
+    canon_role = _ROLE_KO.get(canonical_by_element.get(er.element, ""), "?")
+    return ElementRole(
+        element=er.element,
+        canonical_role=er.canonical_role,
+        operational_role=label,
+        positive_when=list(tmpl["positive_when"]),
+        negative_when=_dedupe(list(tmpl["negative_when"]) + list(extra_negative or [])),
+        note=_compose_note([str(tmpl["note"])], base_role, canon_role, synthesized_by),
+    )
+
+
+def _enrich_element(
+    er: ElementRole,
+    canonical_by_element: dict[str, str],
+    operational_by_element: dict[str, str],
+    *,
+    add_positive: list[str],
+    add_negative: list[str],
+    add_note: list[str],
+    add_source: str,
+) -> ElementRole:
+    """기존 ElementRole 의 operational_role(라벨)은 유지하고 조건문·note 출처만 보강한다.
+
+    조건부 라벨이 이미 있으면 그 본문/출처에 누적(synthesized_by 끝에 add_source 추가 — 고정 순서),
+    plain 라벨이면 note 를 새로 만든다. positive/negative_when 은 순서 보존 dedupe.
+    """
+    body, sources = _parse_note(er.note)
+    body = body + add_note
+    sources = _dedupe(sources + [add_source])
+    base_role = _ROLE_KO.get(operational_by_element.get(er.element, ""), "?")
+    canon_role = _ROLE_KO.get(canonical_by_element.get(er.element, ""), "?")
+    return ElementRole(
+        element=er.element,
+        canonical_role=er.canonical_role,
+        operational_role=er.operational_role,  # ★ 라벨 불변(Phase 3 DP2)
+        positive_when=_dedupe(list(er.positive_when) + add_positive),
+        negative_when=_dedupe(list(er.negative_when) + add_negative),
+        note=_compose_note(body, base_role, canon_role, sources),
+    )
+
+
+def _annotate_overload_conditions(
+    roles: list[ElementRole],
+    canonical_roles: dict[str, str | None],
+    operational_map: dict[str, str | None],
+    groups: dict[str, float],
+    g: dict[str, Element],
+) -> list[ElementRole]:
+    """과다(병) 기반 조건부 라벨 부여(Phase 1).
+
+    - 과다 십성이면서 canonical 희신(生용신)인 오행 → "조건부 희신/병"(이론상 희신 + 실제 병).
+    - 과다 오행을 극하는 canonical 구신/기신 오행 → "조건부 제살보조".
+    조후(_climate_harmful)는 쓰지 않는다(Phase 2). 호출부에서 model_map 채택 케이스에만 적용한다.
+    """
+    over_el = _overloaded_element(groups, g)
+    if over_el is None:
+        return roles
+    canonical_by_element = _role_by_element(canonical_roles)
+    operational_by_element = _role_by_element(operational_map)
+    out: list[ElementRole] = []
+    for er in roles:
+        el = er.element
+        if el == over_el and canonical_by_element.get(el) == "heesin":
+            out.append(_with_condition(
+                er, "조건부 희신/병", canonical_by_element, operational_by_element,
+                synthesized_by=["overload_condition"],
+            ))
+        elif (
+            CONTROLS[Element(el)] == Element(over_el)
+            and canonical_by_element.get(el) in ("gusin", "gisin")
+        ):
+            out.append(_with_condition(
+                er, "조건부 제살보조", canonical_by_element, operational_by_element,
+                synthesized_by=["overload_condition"],
+            ))
+        else:
+            out.append(er)
+    return out
+
+
+def _annotate_climate_conditions(
+    roles: list[ElementRole],
+    month_branch: Branch,
+    force: ForceAnalysis,
+    canonical_roles: dict[str, str | None],
+    operational_map: dict[str, str | None],
+) -> list[ElementRole]:
+    """조후 가드(_climate_harmful)를 operational 역할에 연결(Phase 2).
+
+    - climate_harmful(한습 水 / 조열 火)이 operational 희신 → "조건부 희신/병"(한습/조열 사유).
+      이미 "조건부 희신/병"(Phase 1 과다)이면 한습 negative_when 추가 + 출처 병합.
+    - climate_need(한습→火 / 조열→水)이 operational 희신/한신 → "조후보조신" 격상.
+    harmful is None(조후 병 미감지)이면 격상·강등 모두 no-op. model_map 채택 케이스에서만 호출.
+    """
+    harmful = _climate_harmful(month_branch, force)
+    if harmful is None:
+        return roles
+    if month_branch in _COLD_MONTHS:
+        need, direction = _e(Element.FIRE), "cold"
+    else:  # _HOT_MONTHS (harmful is not None 이므로 둘 중 하나)
+        need, direction = _e(Element.WATER), "hot"
+    canonical_by_element = _role_by_element(canonical_roles)
+    operational_by_element = _role_by_element(operational_map)
+    climate_neg = [CLIMATE_HARMFUL_REASON[direction]]
+    out: list[ElementRole] = []
+    for er in roles:
+        el = er.element
+        if el == need and er.operational_role in ("희신", "한신"):
+            out.append(_with_condition(
+                er, "조후보조신", canonical_by_element, operational_by_element,
+                synthesized_by=["climate_need"],
+            ))
+        elif el == harmful and er.operational_role == "조건부 희신/병":
+            out.append(_with_condition(
+                er, "조건부 희신/병", canonical_by_element, operational_by_element,
+                synthesized_by=["overload_condition", "climate_harmful"],
+                extra_negative=climate_neg,
+            ))
+        elif el == harmful and er.operational_role == "희신":
+            out.append(_with_condition(
+                er, "조건부 희신/병", canonical_by_element, operational_by_element,
+                synthesized_by=["climate_harmful"], extra_negative=climate_neg,
+            ))
+        else:
+            out.append(er)
+    return out
+
+
+def _ten_god_hap_placement(
+    acc: dict[str, list[str]], domain: str, mode: str, role_class: str
+) -> None:
+    """官 외 십성 합 맥락을 role class 별로 positive/negative/note 에 배치(#7).
+
+    favorable=유익 작용 묶임/지연(negative), unfavorable=병/부담 완화(positive·contend negative),
+    conditional=단순 길흉화 금지·note 중심(쟁합만 negative), neutral=note. transform=note only.
+    """
+    phrase = f"{domain} {TEN_GOD_HAP_MODE_PHRASE[mode]}"
+    if mode == "transform":
+        acc["note"].append(phrase)
+        return
+    if role_class == "favorable":
+        acc["neg"].append(f"{phrase} — 유익 작용 지연·불안정")
+    elif role_class == "unfavorable":
+        if mode == "contend":
+            acc["neg"].append(f"{phrase} — 불안정")
+        else:  # bind/away
+            acc["pos"].append(f"{phrase} — 부담/병 묶여 완화 가능")
+    elif role_class == "conditional":
+        acc["note"].append(f"{phrase} — 조건부 역할: 단순 길흉화 금지(완화·지연 양면)")
+        if mode == "contend":
+            acc["neg"].append(f"{phrase} — 불안정")
+    else:  # neutral
+        acc["note"].append(phrase)
+
+
+def _annotate_ten_god_hap_context(
+    roles: list[ElementRole],
+    pillars: FourPillarsResult,
+    g: dict[str, Element],
+    canonical_roles: dict[str, str | None],
+    operational_map: dict[str, str | None],
+) -> list[ElementRole]:
+    """官 외 십성(財/印/食傷/比劫) 합 맥락 주석(#7). 라벨 불변 — note·조건만 enrich.
+
+    官殺은 Phase 3 officer_hap 가 처리하므로 제외(중복 방지). 합화 confirmed 라도 role 전환·세력
+    재산정 없이 note 만(transform). favorability 는 canonical 기준. 배치는 element 의 operational
+    role class 로 결정(conditional 은 단순 길흉화 금지·note 중심).
+    """
+    el2role = {_e(v): k for k, v in g.items()}
+    canonical_by = _role_by_element(canonical_roles)
+    operational_by = _role_by_element(operational_map)
+    fav = {el: _ROLE_KO[k] for el, k in canonical_by.items()}
+    role_label = {er.element: er.operational_role for er in roles}
+
+    acc: dict[str, dict[str, list[str]]] = {}
+    for r in resolve_stem_hap(pillars, fav):
+        modes: set[str] = set()
+        if r.hap_mode == "transform":
+            modes.add("transform")
+        elif r.hap_mode == "bind":
+            modes.add("bind")
+        if r.contend:
+            modes.add("contend")
+        if r.direction == "away":
+            modes.add("away")
+        if not modes:
+            continue
+        for a in r.affected:
+            grp = el2role.get(a.element)
+            if grp is None or grp == "officer":  # 官殺은 Phase 3
+                continue
+            domain = TEN_GOD_HAP_REASON.get(grp)
+            if domain is None:
+                continue
+            role_class = OPERATIONAL_ROLE_CLASS.get(
+                role_label.get(a.element, ""), "neutral"
+            )
+            bucket = acc.setdefault(a.element, {"pos": [], "neg": [], "note": []})
+            for mode in modes:
+                _ten_god_hap_placement(bucket, domain, mode, role_class)
+
+    if not acc:
+        return roles
+    return [
+        _enrich_element(
+            er, canonical_by, operational_by,
+            add_positive=_dedupe(acc[er.element]["pos"]),
+            add_negative=_dedupe(acc[er.element]["neg"]),
+            add_note=_dedupe(acc[er.element]["note"]),
+            add_source="ten_god_hap",
+        ) if er.element in acc else er
+        for er in roles
+    ]
+
+
+def _pillar_list(pillars: FourPillarsResult) -> list:
+    """원국 주(년월일+시). 시주 없으면 3주."""
+    out = [pillars.year, pillars.month, pillars.day]
+    if pillars.hour is not None:
+        out.append(pillars.hour)
+    return out
+
+
+def _gyeokgak_operability_factors(
+    yongsin_el: str, pillars: FourPillarsResult
+) -> list[tuple[str, float, str]]:
+    """격각(비인접) 형/해 통관손상 allowlist 적용(Phase 4b). (factor, weight, reason) 목록.
+
+    이벤트/관계 판정은 미수정 — operability 전용. 인접쌍(年月·月日·日時)은 이벤트 레이어 영역이라
+    제외하고 비인접(격각)만 본다. 동일 factor 는 1회만(중복 子/卯 무관).
+    """
+    pos_of: dict[str, list[str]] = {}
+    for pos, p in (
+        ("year", pillars.year), ("month", pillars.month),
+        ("day", pillars.day), ("hour", pillars.hour),
+    ):
+        if p is not None:
+            pos_of.setdefault(p.branch, []).append(pos)
+    out: list[tuple[str, float, str]] = []
+    for entry in GYEOKGAK_ALLOWLIST:
+        if yongsin_el not in entry["yongsin_elements"]:
+            continue
+        b1, b2 = entry["branches"]
+        gyeokgak = any(
+            pa != pb and frozenset({pa, pb}) not in _ADJ_POSITION_PAIRS
+            for pa in pos_of.get(b1, []) for pb in pos_of.get(b2, [])
+        )
+        if gyeokgak:
+            out.append((entry["factor"], float(entry["weight"]), str(entry["reason"])))
+    return out
+
+
+def _yongsin_void_clash_factors(
+    yongsin_el: str, pillars: FourPillarsResult
+) -> list[tuple[str, float]]:
+    """용신 통근 지지의 공망·충(#6a). 통근(지지)만 대상 — 투출 천간 자리는 후속.
+
+    yongsin_void: 통근 지지가 **전부 공망**일 때만(solid root 1개라도 있으면 미적용 — 과발동 방지).
+    yongsin_clash: 용신 통근 지지가 원국 다른 지지와 六沖일 때(원국 아무 곳 충이 아님). 통근이
+    없으면 둘 다 미적용(no_root 만). relations·이벤트 미수정 — operability 전용.
+    """
+    ps = _pillar_list(pillars)
+    roots = [p for p in ps if any(hs.element == yongsin_el for hs in p.hidden_stems)]
+    out: list[tuple[str, float]] = []
+    if not roots:
+        return out
+    if all(p.gongmang_hit for p in roots):
+        out.append(("yongsin_void", OPERABILITY_PENALTY["yongsin_void"]))
+    chart_branches = [Branch(p.branch) for p in ps]
+    root_branches = {Branch(p.branch) for p in roots}
+    if any(
+        rb != ob and frozenset({rb, ob}) in BRANCH_CLASHES
+        for rb in root_branches for ob in chart_branches
+    ):
+        out.append(("yongsin_clash", OPERABILITY_PENALTY["yongsin_clash"]))
+    return out
+
+
+_ISOLATION_DAMAGE = {"yongsin_clash", "yongsin_void", "gyeokgak_zimao"}
+
+
+def _yongsin_isolation_applies(
+    yongsin_el: str, pillars: FourPillarsResult, existing_factors: list[str]
+) -> bool:
+    """용신 고립(#6b-1) — 보수적 4조건 AND. 과발동 방지를 위해 전부 충족할 때만 True.
+
+    ①present(투간 or 통근) ②생조부재(生용신 오행이 천간·지장간 어디에도 없음) ③단일출처(용신
+    오행 출처가 정확히 1개 — 천간+지지 동시 또는 통근 2개+면 고립 아님) ④손상동반(yongsin_clash/
+    yongsin_void/gyeokgak_zimao 중 ≥1). distribution·세력 미변경 — operability 전용.
+    """
+    if not (_ISOLATION_DAMAGE & set(existing_factors)):  # ④ 손상 동반
+        return False
+    ps = _pillar_list(pillars)
+    transmit_count = sum(1 for p in ps if p.stem_element == yongsin_el)
+    root_count = sum(
+        1 for p in ps if any(hs.element == yongsin_el for hs in p.hidden_stems)
+    )
+    if transmit_count + root_count != 1:  # ① present(≥1) + ③ 단일출처(정확히 1)
+        return False
+    heesin = _e(next(x for x in Element if GENERATES[x] == Element(yongsin_el)))
+    saengjo = any(p.stem_element == heesin for p in ps) or any(
+        hs.element == heesin for p in ps for hs in p.hidden_stems
+    )
+    return not saengjo  # ② 생조 부재
+
+
+def _yongsin_bound_factor(
+    yongsin_el: str,
+    pillars: FourPillarsResult,
+    canonical_roles: dict[str, str | None],
+) -> bool:
+    """용신 합반(#6b-2) — 용신 투출 천간이 bind(합반)/contend(쟁합)로 묶임.
+
+    용신 미투출이면 False(no_transmit 영역). 合化 confirmed(transform)·합거(away)는 제외 —
+    묶임/불안정만 본다. favorability 는 canonical 기준(Phase 3 일관·순환참조 방지). distribution·
+    세력 미변경 — operability factor 만.
+    """
+    ps = _pillar_list(pillars)
+    if not any(p.stem_element == yongsin_el for p in ps):  # ① 용신 투출 아님
+        return False
+    fav = {el: _ROLE_KO[k] for el, k in _role_by_element(canonical_roles).items()}
+    for r in resolve_stem_hap(pillars, fav):
+        if r.hap_mode == "transform" or r.direction == "away":  # 合化·합거 제외
+            continue
+        if (r.hap_mode == "bind" or r.contend) and any(
+            a.element == yongsin_el for a in r.affected
+        ):
+            return True
+    return False
+
+
+def _compute_yongsin_operability(
+    yongsin_el: str,
+    pillars: FourPillarsResult,
+    resource_el: str,
+    canonical_roles: dict[str, str | None],
+) -> tuple[float, list[str], list[str]]:
+    """용신 작동성: 투간/통근·정편인(4a) + 격각 통관손상(4b) penalty(감점형, ≤1.0).
+
+    정/편인은 ten_god(=Pillar.stem_ten_god) 기준. 印 용신이 투출했고 정인 없이 편인만일 때만
+    pyeonin_only(印 투간無면 no_transmit 만, 중복 없음). 적용 순서 고정:
+    no_transmit→no_root→pyeonin_only→격각(allowlist). round 는 최종 1회.
+    반환: (operability, factor keys, 표시 사유 list).
+    """
+    ps = _pillar_list(pillars)
+    transmitted = any(p.stem_element == yongsin_el for p in ps)
+    rooted = any(hs.element == yongsin_el for p in ps for hs in p.hidden_stems)
+    op = 1.0
+    factors: list[str] = []
+    reasons: list[str] = []
+    if not transmitted:
+        op *= 1.0 - OPERABILITY_PENALTY["no_transmit"]
+        factors.append("no_transmit")
+        reasons.append(OPERABILITY_REASON["no_transmit"])
+    if not rooted:
+        op *= 1.0 - OPERABILITY_PENALTY["no_root"]
+        factors.append("no_root")
+        reasons.append(OPERABILITY_REASON["no_root"])
+    if yongsin_el == resource_el and transmitted:
+        yong_gods = [p.stem_ten_god for p in ps if p.stem_element == yongsin_el]
+        if "편인" in yong_gods and "정인" not in yong_gods:
+            op *= 1.0 - OPERABILITY_PENALTY["pyeonin_only"]
+            factors.append("pyeonin_only")
+            reasons.append(OPERABILITY_REASON["pyeonin_only"])
+    for factor, weight, reason in _gyeokgak_operability_factors(yongsin_el, pillars):
+        op *= 1.0 - weight
+        factors.append(factor)
+        reasons.append(reason)
+    for factor, weight in _yongsin_void_clash_factors(yongsin_el, pillars):  # #6a
+        op *= 1.0 - weight
+        factors.append(factor)
+        reasons.append(OPERABILITY_REASON[factor])
+    if _yongsin_isolation_applies(yongsin_el, pillars, factors):  # #6b-1
+        op *= 1.0 - OPERABILITY_PENALTY["yongsin_isolation"]
+        factors.append("yongsin_isolation")
+        reasons.append(OPERABILITY_REASON["yongsin_isolation"])
+    if _yongsin_bound_factor(yongsin_el, pillars, canonical_roles):  # #6b-2
+        op *= 1.0 - OPERABILITY_PENALTY["yongsin_bound"]
+        factors.append("yongsin_bound")
+        reasons.append(OPERABILITY_REASON["yongsin_bound"])
+    return round(op, 4), factors, reasons
+
+
+def _with_operability(
+    er: ElementRole, operability: float, factors: list[str], reasons: list[str]
+) -> ElementRole:
+    """용신 ElementRole 에 operability 수치·factor key·표시 사유(negative_when)를 부착."""
+    return ElementRole(
+        element=er.element,
+        canonical_role=er.canonical_role,
+        operational_role=er.operational_role,
+        positive_when=list(er.positive_when),
+        negative_when=_dedupe(list(er.negative_when) + reasons),
+        note=er.note,
+        operability=operability,
+        operability_factors=list(factors),
+    )
+
+
+def _annotate_officer_hap_context(
+    roles: list[ElementRole],
+    pillars: FourPillarsResult,
+    g: dict[str, Element],
+    geokguk: GeokgukResult,
+    canonical_roles: dict[str, str | None],
+    operational_map: dict[str, str | None],
+) -> list[ElementRole]:
+    """官殺 합 맥락(합반/쟁합/합거/합화 + 관살혼잡)을 官殺 ElementRole 에 주석으로 보강(Phase 3).
+
+    operational_role 라벨은 바꾸지 않고(DP2) note·positive/negative_when 만 enrich. 세력 재산정·
+    분포 차감은 하지 않는다(Option A 영역). favorability 는 canonical/final 기준으로 넘긴다(DP3).
+    배치 규칙(데굴님 추가조건 1~3): 합반/합화=positive·note, 쟁합/관살혼잡=negative,
+    합거=note(官이 병이면 positive).
+    """
+    officer_el = _e(g["officer"])
+    canonical_by_element = _role_by_element(canonical_roles)
+    operational_by_element = _role_by_element(operational_map)
+    fav = {el: _ROLE_KO[k] for el, k in canonical_by_element.items()}
+    officer_role = next(
+        (r.operational_role for r in roles if r.element == officer_el), None
+    )
+    officer_is_disease = officer_role == "조건부 희신/병"
+
+    add_pos: list[str] = []
+    add_neg: list[str] = []
+    add_note: list[str] = []
+    for r in resolve_stem_hap(pillars, fav):
+        if not any(a.element == officer_el for a in r.affected):
+            continue
+        if r.hap_mode == "bind":
+            add_pos.append(OFFICER_HAP_REASON["bind"])
+        if r.hap_mode == "transform" and r.transform_tier == "confirmed":
+            add_pos.append(OFFICER_HAP_REASON["transform_confirmed"])
+        if r.contend:
+            add_neg.append(OFFICER_HAP_REASON["contend"])
+        if r.direction == "away":
+            (add_pos if officer_is_disease else add_note).append(
+                OFFICER_HAP_REASON["away"]
+            )
+
+    ev = geokguk.evaluation
+    if ev is not None and "mixed_officer_killing" in ev.damage_types:
+        add_neg.append(OFFICER_HAP_REASON["mixed_officer_killing"])
+
+    if not (add_pos or add_neg or add_note):
+        return roles  # 官 합·혼잡 없음 → no-op
+    return [
+        _enrich_element(
+            r, canonical_by_element, operational_by_element,
+            add_positive=_dedupe(add_pos), add_negative=_dedupe(add_neg),
+            add_note=_dedupe(add_note), add_source="officer_hap",
+        ) if r.element == officer_el else r
+        for r in roles
+    ]
 
 
 def _classify_bridge_roles(
@@ -798,6 +1397,62 @@ def build_yongsin(
         "selected_model": top_model,
     }
 
+    # 2계층 역할(YONGSIN_OPERATIONAL_ROLE_SPEC Phase 0): canonical=현행 final 5역할 미러,
+    # operational=실제 선택 모델(동일 model_type·yongsin 중 최고 confidence)의 자체 역할맵을
+    # 5역할 완비 시 채택, 부분맵이면 canonical 폴백. final 은 불변 — 점수화는 final 만 소비.
+    canonical_roles: dict[str, str | None] = {k: roles.get(k) for k in _ROLE_KEYS}
+    selected_model = next(
+        (
+            m
+            for m in sorted(models, key=lambda x: -x.confidence)
+            if m.model_type == top_model and m.yongsin == yongsin_el
+        ),
+        None,
+    )
+    # final 이 정적 생극 순환(_classify_roles)을 그대로 썼을 때만 모델 자체맵을 채택한다.
+    # bridge_tonggwan·부일간(무비겁) 특수분기는 canonical 이 이미 맥락 교정값이므로 폴백.
+    static_roles = _classify_roles(yongsin_el)
+    final_is_static = all(
+        canonical_roles[k] == static_roles.get(k) for k in _ROLE_KEYS
+    )
+    model_complete = selected_model is not None and all(
+        getattr(selected_model, k) for k in _ROLE_KEYS
+    )
+    model_map_adopted = final_is_static and model_complete
+    operational_map = _operational_role_map(
+        selected_model, canonical_roles, adopt_model_map=model_map_adopted
+    )
+    operational_roles = _build_operational_roles(canonical_roles, operational_map)
+    # Phase 1: 과다(병) 기반 조건부 라벨. model_map 을 채택한 케이스에만 적용해
+    # fallback/부분맵(bridge·disease·support 특수분기)에 조건부 라벨이 새지 않게 한다.
+    # Phase 2: 조후 가드(_climate_harmful) 연결 — climate_need 격상·climate_harmful 강등.
+    if model_map_adopted:
+        operational_roles = _annotate_overload_conditions(
+            operational_roles, canonical_roles, operational_map, groups, g
+        )
+        operational_roles = _annotate_climate_conditions(
+            operational_roles, month_branch, force, canonical_roles, operational_map
+        )
+        # Phase 3: 官殺 합 맥락(합반/쟁합/합거/합화 + 관살혼잡) 주석 보강(라벨 불변, 세력 불변).
+        operational_roles = _annotate_officer_hap_context(
+            operational_roles, pillars, g, geokguk, canonical_roles, operational_map
+        )
+        # #7: 官 외 십성(財/印/食傷/比劫) 합 맥락 주석(라벨·세력 불변, conditional=note 중심).
+        operational_roles = _annotate_ten_god_hap_context(
+            operational_roles, pillars, g, canonical_roles, operational_map
+        )
+        # Phase 4a/4b: 용신 작동성(operability) — 투간/통근·정편인(4a) + 子卯 격각 통관손상(4b)
+        # penalty(용신 원소만, final 불변·이벤트 불변).
+        if yongsin_el:
+            op_value, op_factors, op_reasons = _compute_yongsin_operability(
+                yongsin_el, pillars, _e(g["resource"]), canonical_roles
+            )
+            operational_roles = [
+                _with_operability(r, op_value, op_factors, op_reasons)
+                if r.element == yongsin_el else r
+                for r in operational_roles
+            ]
+
     # 가종(pseudo) 종격 모델은 집계에 넣지 않고 후보 목록에만 병기(억부 1차 결과는 유지).
     if pseudo_model is not None:
         models.append(pseudo_model)
@@ -819,6 +1474,8 @@ def build_yongsin(
         axis_weights=axis_weights,
         axes=axes_summary,
         final=final,
+        canonical_roles=canonical_roles,
+        operational_roles=operational_roles,
         flow_circulation=flow,
         requires_validation=True,
         warnings=warnings,

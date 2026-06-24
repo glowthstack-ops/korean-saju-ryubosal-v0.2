@@ -1,0 +1,283 @@
+{
+  "schema_version": "shadow_charts_v1",
+  "summary": {
+    "found": 24,
+    "best_match": 0,
+    "not_found": 0
+  },
+  "charts": [
+    {
+      "chart_id": "kansal_taewang_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "strength∈극신약/태신약/신약/중화신약",
+        "최다십성=officer",
+        "작동역할:조건부 희신/병"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": true,
+      "notes": "官殺 과발동 방지 핵심"
+    },
+    {
+      "chart_id": "sarin_sangsaeng_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "최다십성=officer",
+        "작동역할:조건부 희신/병"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": true,
+      "notes": "살인상생형 일반화"
+    },
+    {
+      "chart_id": "conditional_byeong_water_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "水≥40%",
+        "작동역할:조건부 희신/병"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": true,
+      "notes": "표준 丁巳/壬子류 재현"
+    },
+    {
+      "chart_id": "johu_cold_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "월지∈子/丑/亥",
+        "작동역할:조후보조신"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "한신→조후 격상 검증"
+    },
+    {
+      "chart_id": "johu_hot_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "월지∈午/未/巳",
+        "작동역할:조후보조신"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "반대 방향 조후"
+    },
+    {
+      "chart_id": "yongsin_no_transmit_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "용신factor:no_transmit"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": true,
+      "notes": "작동성 미발동"
+    },
+    {
+      "chart_id": "yongsin_no_root_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "용신factor:no_root"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": true,
+      "notes": ""
+    },
+    {
+      "chart_id": "yongsin_gongmang_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "용신factor:yongsin_void"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": true,
+      "notes": ""
+    },
+    {
+      "chart_id": "yongsin_clash_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "용신factor:yongsin_clash"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": true,
+      "notes": ""
+    },
+    {
+      "chart_id": "yongsin_gyeokgak_zimao_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "용신factor:gyeokgak_zimao"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": true,
+      "notes": ""
+    },
+    {
+      "chart_id": "yongsin_isolation_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "용신factor:yongsin_isolation"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": true,
+      "notes": ""
+    },
+    {
+      "chart_id": "yongsin_bound_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "용신factor:yongsin_bound"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": true,
+      "notes": "용신 천간 bind/contend → operability 하향(일반 합맥락과 분리)"
+    },
+    {
+      "chart_id": "jesal_assist_earth_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "水≥40%",
+        "작동역할:조건부 제살보조"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": false,
+      "notes": "구신→완화, 과한 길신 승격 금지"
+    },
+    {
+      "chart_id": "jaeda_sinyak_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "strength∈극신약/태신약/신약/중화신약",
+        "최다십성=wealth"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "신약 재성 위험"
+    },
+    {
+      "chart_id": "inseong_gwada_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "최다십성=resource"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "인성 과다 병"
+    },
+    {
+      "chart_id": "siksang_gwada_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "최다십성=output"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "설기 과다"
+    },
+    {
+      "chart_id": "bigyeop_gwada_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "최다십성=peer"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "군겁쟁재"
+    },
+    {
+      "chart_id": "hap_confirmed_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "합화confirmed"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "role 전환·세력 재산정 아님 — transform note only, final/groups/분포/scoring 불변"
+    },
+    {
+      "chart_id": "hap_bind_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "합반bind",
+        "합맥락enrich"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "일반 십성 element bind(용신 operability factor 와 분리)"
+    },
+    {
+      "chart_id": "hap_contend_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "쟁합contend"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "동일 천간 2개 같은 합 파트너 다툼"
+    },
+    {
+      "chart_id": "hap_away_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "합거away"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "제외 처리 오작동 방지(희귀·미확보 가능)"
+    },
+    {
+      "chart_id": "jonggyeok_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "특수격type=follow"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "극신약+무근 순응(종격)"
+    },
+    {
+      "chart_id": "jeonwang_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "특수격type=dominant"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "단일 오행 60%+ 지배"
+    },
+    {
+      "chart_id": "special_gyeok_01",
+      "status": "FOUND",
+      "match_quality": "FOUND",
+      "satisfied_predicates": [
+        "격국∋양인/건록/월겁/록"
+      ],
+      "missing_predicates": [],
+      "expected_shadow_ok": null,
+      "notes": "격국 다양성"
+    }
+  ]
+}
