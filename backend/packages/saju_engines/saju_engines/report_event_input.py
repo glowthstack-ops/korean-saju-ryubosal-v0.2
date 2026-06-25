@@ -14,9 +14,11 @@ from saju_shared_types.ganji_calendar import GanjiLevel, RelationType
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 
+from . import sinsal_modifier_config as _sinsal_cfg
 from .context_reducer import event_ko, polarity_ko
 from .ganji_calendar import relation_hits
 from .llm_event_serializer import score_band
+from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
 
 
 def _dir(c: EventCandidate) -> str:
@@ -95,6 +97,25 @@ def _relation_lines(pillar: LuckPillar, level: GanjiLevel, result: ManseV2Result
     return list(dict.fromkeys(out))
 
 
+def _sinsal_channel_note(
+    result: ManseV2Result, period: str, ganji: str, evs: list[EventCandidate],
+) -> str:
+    """그 기간 재활성 신살의 채널 색채 노트(B-2 운영 반영) — 숫자 없는 한글, 발생 가능성 불변.
+
+    채널은 기간 단위(간지 기반)라 대표 1건만 계산해 부착한다. 게이트 off면 빈 문자열.
+    """
+    if not _sinsal_cfg.SINSAL_CHANNEL_APPLY_ENABLED or not evs:
+        return ""
+    rows = apply_sinsal_channel_shadow(result, evs[:1], {period: ganji}, domain="general")
+    if not rows:
+        return ""
+    r = rows[0]
+    return channel_note_ko(
+        r["favorability_delta"], r["risk_delta"], r["mitigation_delta"],
+        r.get("texture_tags", []),
+    )
+
+
 def precise_candidate_clusters(
     result: ManseV2Result, candidates: list[EventCandidate]
 ) -> list[str]:
@@ -122,6 +143,9 @@ def precise_candidate_clusters(
         if rels:
             head += " · 관계: " + ", ".join(rels)
         lines.append(head)
+        note = _sinsal_channel_note(result, period, p.ganji, evs)
+        if note:
+            lines.append(f"  {note}")
         for c in evs:
             lines.append(
                 f"  - {event_ko(c.event_key)}: {c.score}점 · "

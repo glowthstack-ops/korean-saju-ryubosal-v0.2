@@ -32,6 +32,17 @@ _LIFE_STAGES = {
     "평생": "평생", "일생": "평생",
 }
 _HALF = {"상반기": ("01", "06"), "하반기": ("07", "12")}
+# C5b 슬래시/대시 날짜 — "6/17", "6-17", "2026-06-17"(선택 연도). 뒤에 숫자·구분자가
+# 이어지거나(긴 수열) 기간·범위 단위(월/년/주/개월/시간/살/분/초/%)가 붙으면 제외해
+# "8-10월"(월 범위)·"3-4년" 등 오인을 막는다. 일(日)·'에'·'이후/부터'는 허용.
+_SLASH_DATE_RE = re.compile(
+    r"(?:(20\d{2})\s*[/\-.]\s*)?(\d{1,2})\s*[/\-]\s*(\d{1,2})"
+    r"(?![\d/\-.])(?!\s*(?:월|년|주|개월|시간|살|분|초|%))"
+    r"\s*(이후로?|부터)?"
+)
+# 과거시제 표지 — 있으면 연도 미지정 과거 날짜를 '내년 택일'로 밀지 않고 그 해(과거)로 둔다
+# ("6/17에 계약했는데" → 2026-06-17). 미래 택일("7월 4일 이사하려고")은 표지가 없어 영향 없음.
+_PAST_TENSE_RE = re.compile(r"했|찍었|샀|봤|갔|왔|였|었[어은는을다나]|지났|끝났|난\s*뒤")
 
 
 def parse_time(
@@ -258,22 +269,29 @@ def parse_time(
     # 없으면 단일 일운. C5 월 규칙이 'N월 N일'을 가드로 제외해 날짜가 통째 소실되던 결함 수정
     # (2026-06-16 사용자 지적 — "7월 4일 이후 이사일"이 6월 답으로 축소). C11(외부 일정 앵커:
     # 투표일·면접 등)·C9(데드라인 'M월까지')는 앞서 매칭되므로 충돌하지 않는다.
+    # "N월 N일" 우선, 없으면 "6/17"·"6-17"·"2026-06-17" 슬래시/대시 형식(C5b 동일 처리).
     m = re.search(r"(?:(20\d{2})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일\s*(이후로?|부터)?", text)
-    if m:
-        yr_explicit = m.group(1)
+    slash = None if m else _SLASH_DATE_RE.search(text)
+    if m or slash:
+        g = m or slash
+        assert g is not None
+        yr_explicit = g.group(1)
         yr = int(yr_explicit) if yr_explicit else today.year + (1 if "내년" in text else 0)
-        mo, dy = int(m.group(2)), int(m.group(3))
+        mo, dy = int(g.group(2)), int(g.group(3))
+        open_kw = g.group(4)
         try:
             anchor_d: date | None = date(yr, mo, dy)
         except ValueError:  # 2월 30일 등 비정상 날짜는 무시(다음 규칙으로 통과)
             anchor_d = None
         if anchor_d is not None:
-            # 연도 미지정인데 이미 지난 날짜면 내년으로(미래 택일 의도). 명시 연도는 그대로 존중.
-            if yr_explicit is None and "내년" not in text and anchor_d < today:
+            # 연도 미지정인데 이미 지난 날짜면 내년으로(미래 택일 의도). 단 과거시제 표지가
+            # 있으면('계약했는데') 그 해 과거 그대로 둔다. 명시 연도는 항상 존중.
+            if (yr_explicit is None and "내년" not in text and anchor_d < today
+                    and not _PAST_TENSE_RE.search(text)):
                 anchor_d = date(yr + 1, mo, dy)
             # '시간대'(C17) 동반이면 시진 단위 — 단, 날짜 앵커는 유지(로또 실행 패키지 등).
             # '이후/부터'면 개방형(end=None) — 시진 단위는 특정일 고정이라 단일 앵커.
-            open_ended = m.group(4) is not None and not hour_level
+            open_ended = open_kw is not None and not hour_level
             return TimeRange(
                 type="absolute",
                 granularity=Granularity.HOUR if hour_level else Granularity.DAY,

@@ -73,6 +73,8 @@ _RELATION_WORDS: dict[str, CompanionRelationType] = {
 }
 
 _DIRECTIONS = ["남동", "남서", "북동", "북서", "동", "서", "남", "북"]
+# 시군구 지명 구(句) — 선택적 시도 접두 + 시/군/구('서울 중구', '고양시 일산동구').
+_REGION_PHRASE = r"(?:[가-힣]{2,}\s+)?[가-힣]{1,}(?:특별자치시|시|군|구)"
 
 # 용어 교육(Q11) 어휘 — "X가 무슨 뜻"과 결합.
 _TERM_WORDS = ["공망", "용신", "희신", "기신", "구신", "한신", "격", "십성", "대운",
@@ -312,18 +314,29 @@ def _detect_constraints(text: str) -> Constraints:
         if f"{d}쪽" in text or f"{d}으로" in text or f"{d}향" in text:
             c.direction = d
             break
+    # 현재 거주지(방위 기준점) — "지금 사는 곳은 X", "현재 거주지는 X", "현재는 X에 있는데/사는데".
     m = re.search(
         r"(?:지금\s*사는\s*곳은|현재\s*거주지는?)\s*([가-힣\s]{2,12}?)(?:인데|이야|야|입니다)", text
     )
+    if m is None:  # "현재는 고양시 일산동구에 있는데/사는데" 어순(지명이 동사 앞).
+        m = re.search(
+            r"(?:현재|지금)(?:는|은)?\s*(" + _REGION_PHRASE
+            + r")\s*(?:에|에서)\s*(?:있|살|거주|지내)",
+            text,
+        )
+    if m is None:  # "고양시 일산동구에 살고/사는데/거주" — 접두 없이.
+        m = re.search(r"(" + _REGION_PHRASE + r")\s*(?:에|에서)\s*(?:살고|사는|거주)", text)
     if m:
         c.location_base = m.group(1).strip()
     # 이사 목적지 지역 — "서울 중구로 이사", "수원시로 가려고"(현재 거주지 location_base와 구분).
     # 지명 구(句)만 포착하고, 등재 시군구 정규화는 사용처(채팅)에서 한다(파서는 순수 유지).
-    tr_m = re.search(
-        r"((?:[가-힣]{2,}\s+)?[가-힣]{1,}(?:특별자치시|시|군|구))\s*(?:으로|로|에)\s*"
-        r"(?:이사|이전|옮|가)",
-        text,
-    )
+    tr_m = re.search(r"(" + _REGION_PHRASE + r")\s*(?:으로|로|에)\s*(?:이사|이전|옮|가)", text)
+    if tr_m is None:  # "이사할집은 서울 중구야" 어순(지명이 '이사' 뒤) — 진술형 포함.
+        tr_m = re.search(
+            r"(?:이사\s*할\s*(?:집|곳)은?|이사\s*갈\s*(?:집|곳)은?|이사하려는\s*곳은?|"
+            r"새\s*집은?|이사는)\s*(" + _REGION_PHRASE + r")",
+            text,
+        )
     if tr_m:
         c.target_region = tr_m.group(1).strip()
     if re.search(r"한다면|간다면|만난다면|된다면", text):

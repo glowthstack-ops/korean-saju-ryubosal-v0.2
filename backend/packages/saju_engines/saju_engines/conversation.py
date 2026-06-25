@@ -68,6 +68,26 @@ _READING_REQUEST_RE = re.compile(r"사주\s*(봐|풀)|봐\s*줘|봐주|풀어\s*
 _TIME_SEEKING_RE = re.compile(
     r"언제|할\s*수\s*있을[까지]|가능할[까지]|몇\s*살|몇\s*년\s*(뒤|후)|언제부터"
 )
+# 동의+이어보기('그래 봐줘'·'응 보여줘'·'좋아 계속') — 직전 답변의 제안 수락. AFFIRMATION_RE에
+# '봐줘'가 없어 fullmatch 실패하고, '봐줘'가 _READING_REQUEST_RE에 걸려 '새 풀이 요청'으로
+# 끊기던 결함 차단(2026-06-25 데굴님 지적: '그래 봐줘'가 직전 이직 맥락을 잃고 일반 총운으로 빠짐).
+# 동의어로 시작 + (선택)이어보기/풀이 동사로 끝나고 새 도메인이 없을 때만 직전 의도를 승계한다.
+_AFFIRM_CONTINUE_RE = re.compile(
+    r"^(?:그래(?:요)?|그러[자지]|응+|네+|넵|예+|어+|좋아(?:요)?|좋지|콜|오케이?|오키|ok|okay"
+    r"|ㅇㅇ+|ㅇㅋ)"
+    r"\s*[,.!~ㅎㅋ]*\s*"
+    r"(?:봐\s*줘|봐주|보여\s*줘|풀어\s*줘|해\s*줘|계속(?:해)?|이어(?:서)?|마저|더)?"
+    r"[!.~ㅎㅋ\s]*$",
+    re.IGNORECASE,
+)
+
+
+def is_affirm_continue(text: str) -> bool:
+    """'그래 봐줘'·'응 보여줘' 류 동의+이어보기인가(새 도메인 없음).
+
+    직전 답변의 제안을 그대로 수락·이어보는 발화 판정 — 링크 승계 및 '제안 이어보기' 지시문에 공용.
+    """
+    return bool(_AFFIRM_CONTINUE_RE.match(text.strip())) and not _detect_domains(text)
 
 
 class ConversationEngine:
@@ -283,6 +303,10 @@ class ConversationEngine:
         # 경우. 직전 의도를 그대로 이어 같은 주제·창을 계속 다룬다(수락이 새 질문으로 끊겨 broad
         # 안내로 빠지던 결함 차단 — 2026-06-18 데굴님 지적).
         if AFFIRMATION_RE.fullmatch(text.strip()):
+            return self._follow(parent_id, LinkKind.DRILL_DOWN, state)
+        # 동의+이어보기('그래 봐줘') — 새 도메인 없으면 직전 의도 승계(위 _READING_REQUEST_RE
+        # 가드보다 먼저 잡아 '새 풀이'로 끊기지 않게).
+        if is_affirm_continue(text):
             return self._follow(parent_id, LinkKind.DRILL_DOWN, state)
 
         # 토픽 연속(2026-06-22) — 활성 스레드(직전 분야 확정)에서 '새 도메인을 안 들고 온' 충분히

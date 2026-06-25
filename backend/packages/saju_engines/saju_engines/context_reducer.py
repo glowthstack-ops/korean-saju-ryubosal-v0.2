@@ -49,13 +49,17 @@ from saju_shared_types.llm_input import (
     YongsinOperationalSummary,
 )
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.sinsal import LlmSinsalModifier
 
+from . import sinsal_modifier_config as _sinsal_cfg
 from .amhap_luck import detect_luck_amhap
 from .chart_interpretation import build_chart_interpretation, incoming_ten_god_note
 from .event_engine_v2 import EventEngineV2
 from .event_scoring import favorability_map
 from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded, estimate_tokens
 from .manifestation_branch import branch_summary
+from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
+from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
 
 TOP_N_CANDIDATES = 5  # 기본 Top N (docs/03 B5 — 3~5)
 SCORE_FLOOR = 40  # docs/06 톤 표: <40은 언급 생략 구간 → LLM 미전달
@@ -161,6 +165,12 @@ _SINSAL_POSITION_INSTRUCTION = (
     "부작용이 커지거나(공망이면) 무력화되며, 일간 기준 용·희신이면 길작용이 강해지고 "
     "기·구신이면 길신도 힘이 줄거나 흉신이 카리스마·전문성으로 승화될 수 있다 — 이 보정을 "
     "[원국 관계]·공망·용희기구한 정보와 연결하되 여전히 보조 자료로만 쓴다."
+)
+# 신살 보조 태그(SINSAL_MODIFIER_SPEC Phase A-1) — 구조화 태그 우선 해석.
+_SINSAL_MODIFIER_INSTRUCTION = (
+    "후보의 '신살 보조' 태그가 있으면 단독 사건 근거로 쓰지 말고, 강도(약함/보조/강함/"
+    "매우 강함)·일치 여부·효과 태그에 따라 기존 사건 후보의 질감·리스크·완충·이동성 보조 "
+    "신호로만 해석한다 — 길성은 완충·도움·회복, 흉살은 리스크·긴장·주의로 표현하고 단정은 금지."
 )
 # 답변 길이 — 사용자 확정(2026-06-12): 최대 1,500자.
 _LENGTH_INSTRUCTION = (
@@ -685,6 +695,8 @@ def _to_llm_candidate(
     day_master: str = "",
     fav_map: dict[str, str] | None = None,
     result: ManseV2Result | None = None,
+    sinsal_modifiers: list[LlmSinsalModifier] | None = None,
+    sinsal_channel_note: str = "",
 ) -> LlmEventCandidate:
     period_ganji = ganji.get(c.period, "")
     # 동반 신호 매트릭스(v2.2.1) — 사건명을 결정한 신호 구성을 LLM에 명시.
@@ -748,7 +760,17 @@ def _to_llm_candidate(
         amhap_notes=amhap_notes,
         caution_note=caution,
         favorability_ko=_favorability_ko(c.favorability),
+        sinsal_modifiers=list(sinsal_modifiers or []),
+        sinsal_channel_note=sinsal_channel_note,
     )
+
+
+def _sinsal_modifier_str(s: LlmSinsalModifier) -> str:
+    """신살 보조 태그 1건 직렬화(숫자 없는 한글, 강도어·궁성·효과 태그)."""
+    palace = _sinsal_cfg.PALACE_SHORT_LABEL.get(s.position, s.position)
+    match = "·일치" if s.domain_match else ""
+    effect = ", ".join(s.effect_tags)
+    return f"{s.star}({palace}·{s.llm_strength}{match}): {effect}"
 
 
 _WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
@@ -989,9 +1011,40 @@ def build_llm_input(
     day_master = result.pillars.day_master if result.pillars else ""
     fav_map = favorability_map(result)
 
+    # 신살 보조 태그(Phase A-1) — 질문 도메인 기준으로 1회 derive·prune(후보당 ≤3).
+    # 점수·랭킹·favorability 불변(순수 enrichment). domain 은 파서 확정 도메인의 대표값.
+    # 궁성 정렬이 의미 있는 도메인·이벤트 질문에만 부착한다 — 광역 총운(FORTUNE_OVERVIEW)은
+    # 12달 요약으로 이미 토큰이 빽빽해 per-후보 신살이 토큰만 늘리고 변별력은 낮다(토큰 가드).
+    _sinsal_eligible = intent.query_type in (
+        QueryType.DOMAIN_ANALYSIS, QueryType.EVENT_EXPLANATION,
+        QueryType.TIMING_SEARCH, QueryType.DECISION_SUPPORT,
+    )
+    sinsal_mods: list[LlmSinsalModifier] = []
+    # 신살 기간 채널 색채(Phase B-2, §10-2) — 후보 period 별 한글 노트(발생 가능성 미반영).
+    # 토큰 초과 시 serialize_with_guard Tier0 가 캐시 prefix보다 먼저 제거(보조 우선 트림).
+    _channel_notes: dict[int, str] = {}
+    if _sinsal_eligible:
+        _domain = str(intent.domains[0]) if intent.domains else "general"
+        _natal_mods = derive_natal_sinsal_modifiers(result, _domain, reference_date=today)
+        sinsal_mods = select_llm_sinsal_modifiers(_natal_mods)
+        if _sinsal_cfg.SINSAL_CHANNEL_APPLY_ENABLED:
+            _rows = apply_sinsal_channel_shadow(result, selected, ganji, domain=_domain)
+            for idx, r in enumerate(_rows):
+                _note = channel_note_ko(
+                    r["favorability_delta"], r["risk_delta"], r["mitigation_delta"],
+                    r.get("texture_tags", []))
+                if _note:
+                    _channel_notes[idx] = _note
+    # natal 신살은 도메인 레벨(후보 무관 동일) → 상위 N개 후보에만 부착해 토큰 중복을 막는다.
+    _max_cand = _sinsal_cfg.SINSAL_PAYLOAD_MAX_CANDIDATES
+
     llm_candidates = [
-        _to_llm_candidate(c, ganji, dw_by_year, day_master, fav_map, result)
-        for c in selected
+        _to_llm_candidate(
+            c, ganji, dw_by_year, day_master, fav_map, result,
+            sinsal_mods if i < _max_cand else None,
+            _channel_notes.get(i, "") if i < _max_cand else "",
+        )
+        for i, c in enumerate(selected)
     ]
     # Scoring 1c-α rank guard 는 payload 조립 후(_apply_rank_guards)에서 토큰 헤드룸 가드와 함께
     # 적용한다 — 본문을 절단하지 않도록(spec §14-9). 여기서는 본문만 만든다.
@@ -1245,6 +1298,13 @@ def serialize_llm_input(payload: LlmInput) -> str:
         if with_notes and c.caution_note:
             # 유불리 주의 — 천간 흉신 시기는 발생해도 결실 불리(우호 단정 방지).
             block.append(f"  ⚠유불리: {c.caution_note}")
+        if with_notes and c.sinsal_modifiers:
+            # 신살 보조 태그(Phase A-1) — 숫자 없는 한글 강도어·효과 태그만. 단독 근거 금지.
+            tags = " / ".join(_sinsal_modifier_str(s) for s in c.sinsal_modifiers)
+            block.append(f"  신살 보조: {tags}")
+        if with_notes and c.sinsal_channel_note:
+            # 신살 기간 채널 색채(Phase B-2) — 발생 가능성 아님, 완충/리스크/질감 보조.
+            block.append(f"  {c.sinsal_channel_note}")
         return block
 
     if payload.prior_claims:
@@ -1289,18 +1349,23 @@ def serialize_llm_input(payload: LlmInput) -> str:
         _ov = payload.monthly_overview
         _span = f"{_ov[0].period}~{_ov[-1].period}" if _ov else ""
         _is_yearly = bool(_ov) and len(_ov[0].period) == 4
+        # 기간 단위어 — 연 단위 블록은 '해', 월 단위 블록은 '달'(년월 혼동 방지).
+        # 조사: '해'(모음)=는/를, '달'(ㄹ받침)=은/을. '로'·'의'는 양쪽 공통.
+        _unit = "해" if _is_yearly else "달"
+        _n = "는" if _is_yearly else "은"  # 주격/보조사
+        _l = "를" if _is_yearly else "을"  # 목적격
         lines.append(
             f"[연도별 흐름 — {_span} {len(_ov)}년(값 그대로 사용, 추측 금지; "
             "점수 낮은 해 = 그 사건의 신호가 거의 없던 해)]"
             if _is_yearly else
             f"[월별 요약 — {_span} {len(_ov)}개월(값 그대로 사용, 추측 금지)]"
         )
-        # 기반 최고 달을 이름 박아 별도 지목 — intent 질문(이직 등)에서 그 달에 해당 사건이
+        # 기반 최고 시기를 이름 박아 별도 지목 — intent 질문(이직 등)에서 그 시기에 해당 사건이
         # 없으면 표 범례 지시가 묻혀 누락되던 문제(2026-06-16). 사건과 무관하게 반드시 한 번 짚게.
         _best = _best_quality_months(_ov)
         if _best:
             lines.append(
-                f"※ [기반 최고 달] {_best} — 질문하신 사건이 이 달에 약하거나 없더라도, "
+                f"※ [기반 최고 {_unit}] {_best} — 질문하신 사건이 이 {_unit}에 약하거나 없더라도, "
                 "'기반(전반 운)이 가장 좋은·가장 도움되는 시기'로 반드시 한 번 짚을 것."
             )
         has_transition = False
@@ -1346,36 +1411,37 @@ def serialize_llm_input(payload: LlmInput) -> str:
                     f"{tr_mark}{past_mark}"
                 )
         lines.append(
-            "(표 읽는 법: 사건명은 그 달 발생 가능성 순 — '>' 앞이 우세. [간지 역할]은 "
-            "유불리 — 천간이 구신·기신인 달은 사건이 발생해도 계약·결실·실속에 불리할 수 "
-            "있으니 '좋은 달'로 단정하지 말 것(발생 강도와 유불리를 구분). 단 마커가 "
-            "'↗통관 순화'면 흉천간이 지지 용·희신을 생해 순화된 것(검토월 아님, 과낙관만 경계), "
-            "'⚠천간 길신 누설'이면 길천간이 지지로 누설·피극돼 실속이 약화된 것(좋은 달 단정 금지)."
+            f"(표 읽는 법: 사건명은 그 {_unit} 발생 가능성 순 — '>' 앞이 우세. [간지 역할]은 "
+            f"유불리 — 천간이 구신·기신인 {_unit}{_n} 사건이 발생해도 계약·결실·실속에 불리할 수 "
+            f"있으니 '좋은 {_unit}'로 단정하지 말 것(발생 강도와 유불리를 구분). 단 마커가 "
+            "'↗통관 순화'면 흉천간이 지지 용·희신을 생해 순화된 것(검토 시기 아님, 과낙관만 경계), "
+            f"'⚠천간 길신 누설'이면 길천간이 지지로 누설·피극돼 실속이 약화된 것"
+            f"(좋은 {_unit} 단정 금지)."
             + (
-                " 〈…〉는 그 달의 운 품질 등급으로 길흉(좋은 달/부담스러운 달)의 1차 기준이다 — "
-                "좋은 달은 사건 밀도가 아니라 이 등급('강한 용신운'>'용신운(부분)'>'혼합'>"
-                "'기신운')으로 판단하고, 사건(이직·이사 등)은 그 위에 십성으로 얹어 "
-                "'무슨 일'을 설명한다. '강한 용신운' 달은 두드러진 사건이 없어도 "
-                "기반이 가장 좋은(가장 도움되는) 달로 짚을 것."
+                f" 〈…〉는 그 {_unit}의 운 품질 등급으로 길흉(좋은 {_unit}/부담스러운 {_unit})의 "
+                f"1차 기준이다 — 좋은 {_unit}{_n} 사건 밀도가 아니라 이 등급('강한 용신운'>"
+                "'용신운(부분)'>'혼합'>'기신운')으로 판단하고, 사건(이직·이사 등)은 그 위에 "
+                f"십성으로 얹어 '무슨 일'을 설명한다. '강한 용신운' {_unit}{_n} 두드러진 사건이 "
+                f"없어도 기반이 가장 좋은(가장 도움되는) {_unit}로 짚을 것."
                 if has_grade else ""
             )
             + (
                 " 표현 강도가 같아 보여도 '기간 내 강도 N위'가 실제 상대 순위 — "
-                "가장 유력한 달은 1위부터 지목하되 유불리를 함께 밝힐 것."
+                f"가장 유력한 {_unit}{_n} 1위부터 지목하되 유불리를 함께 밝힐 것."
                 if has_rank else ""
             )
             + (
                 " 교운 표기는 '정점'에 가까울수록 대운 교체의 갑작스러운·비자발적 "
-                "전환 에너지가 강함 — 동급이면 교운 근접 달을 우선."
+                f"전환 에너지가 강함 — 동급이면 교운 근접 {_unit}{_l} 우선."
                 if has_transition else ""
             )
             + (
                 " '분기'는 같은 계열(이동·재물·학업 등)에서 같은 에너지가 갈릴 수 있는 형제 "
                 "사건이다 — 무작정 둘 다 나열하지 말고, 사용자의 상황·질문 맥락에서 성립 불가능한 "
                 "형제는 배제해 가능한 쪽으로 좁혀 해석하라. 예: 현재 직장이 없으면 '이직'은 성립할 "
-                "수 없어 같은 이동 에너지는 '이사'가 된다. 질문이 특정 사건(재취업 등)을 묻는데 그 "
-                "달의 우세 신호가 다른 형제(이사)라면, 그 달을 질문 사건의 답으로 단정하지 말고 "
-                "맥락상 실제 발현됐을 형제 사건으로 풀이하라."
+                f"수 없어 같은 이동 에너지는 '이사'가 된다. 질문이 특정 사건(재취업 등)을 묻는데 "
+                f"그 {_unit}의 우세 신호가 다른 형제(이사)라면, 그 {_unit}{_l} 질문 사건의 답으로 "
+                "단정하지 말고 맥락상 실제 발현됐을 형제 사건으로 풀이하라."
                 if has_branch else ""
             )
             + ")"
@@ -1546,6 +1612,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(_MATRIX_INSTRUCTION)
         lines.append(_SCOPE_INSTRUCTION)
         lines.append(_HIERARCHY_INSTRUCTION)
+        if any(c.sinsal_modifiers for c in payload.event_candidates):
+            lines.append(_SINSAL_MODIFIER_INSTRUCTION)
     if payload.reference is not None:
         lines.append(_REFERENCE_INSTRUCTION)
     lines.append(_LABEL_INSTRUCTION)
@@ -1563,6 +1631,21 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(payload.persona.prompt_block)
     lines.append(f"[질문] {payload.user_question}")
     return "\n".join(lines)
+
+
+def _drop_sinsal_aux(payload: LlmInput) -> LlmInput:
+    """신살 보조 텍스트(modifier·채널 색채)를 후보에서 제거한 payload 사본(트림 Tier0).
+
+    신살이 없으면 동일 객체를 그대로 반환(불필요한 복사 회피 → 캐시·byte-identical 보존).
+    """
+    if not any(c.sinsal_modifiers or c.sinsal_channel_note for c in payload.event_candidates):
+        return payload
+    return payload.model_copy(update={
+        "event_candidates": [
+            c.model_copy(update={"sinsal_modifiers": [], "sinsal_channel_note": ""})
+            for c in payload.event_candidates
+        ],
+    })
 
 
 def serialize_with_guard(
@@ -1585,17 +1668,28 @@ def serialize_with_guard(
     try:
         return text, guard.check_input(text, reserve_tokens=reserve_tokens)
     except TokenBudgetExceeded:
-        ci = payload.chart_interpretation
-        shrunk = payload.model_copy(update={
-            "event_candidates": payload.event_candidates[:3],
-            "evidence": [
-                e.model_copy(update={"readable_paths": e.readable_paths[:1]})
-                for e in payload.evidence[:3]
-            ],
-            # 해석 발췌도 절반으로 — 일주 본문·명식 구조는 보존(풀이 품질 우선).
-            "chart_interpretation": (
-                ci.model_copy(update={"excerpts": ci.excerpts[:4]}) if ci else None
-            ),
-        })
-        text = serialize_llm_input(shrunk)
+        pass
+    # Tier 0(트림 우선순위) — 신살 보조 텍스트(modifier·채널 색채)를 캐시 prefix보다 **먼저** 제거.
+    # 신살은 보조 레이어라 토큰 압박 시 가장 먼저 버린다 → 무거운 질문에서도 고정 prefix(excerpt)·
+    # 후보 본문은 보존돼 캐시 불변(test_fixed_prefix)·풀이 품질을 지킨다(§10-2).
+    no_sinsal = _drop_sinsal_aux(payload)
+    text = serialize_llm_input(no_sinsal)
+    try:
         return text, guard.check_input(text, reserve_tokens=reserve_tokens)
+    except TokenBudgetExceeded:
+        pass
+    # Tier 1 — 그래도 초과면 본문 축소(후보·근거·해석 발췌). 신살은 이미 제거된 상태.
+    ci = no_sinsal.chart_interpretation
+    shrunk = no_sinsal.model_copy(update={
+        "event_candidates": no_sinsal.event_candidates[:3],
+        "evidence": [
+            e.model_copy(update={"readable_paths": e.readable_paths[:1]})
+            for e in no_sinsal.evidence[:3]
+        ],
+        # 해석 발췌도 절반으로 — 일주 본문·명식 구조는 보존(풀이 품질 우선).
+        "chart_interpretation": (
+            ci.model_copy(update={"excerpts": ci.excerpts[:4]}) if ci else None
+        ),
+    })
+    text = serialize_llm_input(shrunk)
+    return text, guard.check_input(text, reserve_tokens=reserve_tokens)

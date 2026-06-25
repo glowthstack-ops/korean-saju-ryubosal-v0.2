@@ -4958,3 +4958,241 @@ byte-identical·랭킹/LLM 미반영·1a 산출만.**
   (같은 달) → 기존 형식.
 - **검증**: test_conversation_date_fixes +1(경계 직전 강조·같은 달 기존형식). full suite 1078 pass, ruff·mypy
   clean. 잔여 2건 기존 DB(무관).
+
+### 신살 보정 레이어 — 스펙 확정 + Phase A-1 LLM payload 배선 (2026-06-25)
+- **배경**: 신살/길성을 사건 라벨 단독 생성기가 아니라 **위치(궁성)·운층·길흉·intent·생애단계에
+  따라 기존 후보 해석을 조정하는 보조 레이어**로 구조화(사용자 제안 3건). 철학·분류·위치·운층은
+  이미 존재 → 신규는 수치 구조화 + intent 정렬 + 생애단계/재활성화 + LLM 구조화 태그.
+- **스펙**: `doc/v2_2/SINSAL_MODIFIER_SPEC.md` 확정. 4결정 — ①Domain enum 불변(GENERAL+palace_tags)
+  ②`SinsalItem` 불변·별도 `SinsalModifier` derive ③LLM엔 숫자 미노출(한글 강도어) ④생애단계=대운 경계
+  우선→나이 fallback. 생애단계 곡선·재활성화는 **4주 × 길성·흉살 전체**(근묘화실).
+- **핵심 엔진(순수 추가)**: `sinsal_modifier_config.py`(전 수치 initial_default 상수)·`SinsalModifier`/
+  `LlmSinsalModifier`(shared_types)·`sinsal_modifier.py`(`derive_natal_sinsal_modifiers`,
+  `select_llm_sinsal_modifiers` pruning). 위치 scope/가중·domain_override 임계(0.85)·생애단계 곡선·
+  운 재활성화(relations_to_chart/복음/동일신살)·강도밴드.
+- **A-1 배선**: `LlmEventCandidate.sinsal_modifiers` 추가 → `build_llm_input`에서 도메인 기준 1회
+  derive·prune → 상위 N(기본 2) 후보에만 부착(토큰 중복 차단) → `candidate_block` 직렬화 + 지시문 1줄.
+  **광역 총운(FORTUNE_OVERVIEW) 제외**(토큰 가드 — 도메인/이벤트/타이밍/결정 질문만).
+- **불변 보장**: event_score·favorability·ranking·용신 final·operational guard **무변경**(순수
+  enrichment, monkeypatch 회귀 테스트로 검증). 숫자 weight LLM 미노출 테스트.
+- **검증**: 신규 단위 15 + payload 통합 4 + 회귀. full suite **1098 pass**(실패 2 = 사전 존재 환경
+  이슈: dry_run·auth 토큰 시드, stash로 베이스라인 동일 실패 확인). ruff·mypy clean.
+- **후속**: A-2 = `chart_interpretation._sinsal_excerpts` 생애단계/재활성화 문장 enrich(분리). Phase B =
+  신살 numeric 스코어링 편입(shadow sidecar 먼저, 별도 승인).
+
+### 신살 보정 — Phase A-2 생애단계/재활성화 안내 (리포트 경로, 2026-06-25)
+- **A-2 목표**: 근묘화실(년=초년/월=청년·사회/일=중년/시=말년) 정점 시기 + 평생 작동(정점 전 잠재·
+  정점 후 배경·누적) + 운 자극 시 재활성화 원리를 LLM에 안내.
+- **챗 경로 불가(측정 근거)**: career '올해 이직운'은 ≈10,856 tok로 trim 임계 아래 여유 ~140 tok뿐.
+  안내 텍스트 추가 시 `serialize_with_guard` excerpt 트리머(`excerpts[:4]`)가 그 질문에서만 발동 →
+  캐시 고정 prefix의 신살 excerpt 차등 삭제 → `test_fixed_prefix_identical_across_questions` 위반.
+  → 챗은 A-1만 유지(고정 prefix·토큰 불변).
+- **리포트 경로 채택(사용자 확정)**: `report_service._SECTION_GUIDES["F-05"]`(신살 섹션 지침)에
+  근묘화실 정점·평생 작동·재활성 원리를 추가(보조 전제·단정 금지 유지). 리포트는 토큰 예산이 커
+  안전, 챗 무영향.
+- **검증**: full suite **1098 pass**(실패 2 = 사전 존재: dry_run·auth 토큰 시드). ruff·mypy clean.
+  F-05 가이드에 '정점 시기'·'재활성' 반영 + '보조 자료임을 전제' 유지 확인.
+- **보류**: 챗에도 넣으려면 trim 우선순위 리팩터(신살 텍스트를 캐시 excerpt보다 먼저 트림) 필요 — 별도.
+
+### 신살 보정 — Phase B-1 numeric 스코어링 shadow sidecar (관측, 2026-06-25)
+- **목표**: 신살 numeric 보정을 용신 operational sidecar와 **동일 패턴**으로 — shadow 관측 먼저,
+  운영 score/rank/favorability/polarity **불변**.
+- **구현**:
+  - `sinsal_modifier_config.py`: 게이트 `SINSAL_NUMERIC_SHADOW_ENABLED=False` + 계수(극성/명명 점수·
+    재활성 boost·클램프 caps·WARN 임계).
+  - `sinsal_numeric_scoring.py`: `apply_sinsal_numeric_adjustment`(순수, index 기반 dict list,
+    EventCandidate 미변경) + `sinsal_numeric_sidecar`(게이트 wrapper→off면 None) +
+    `sinsal_invariance_snapshot`. 기간 numeric은 **그 기간 재활성(복음 동일글자 재출현)된 신살만**
+    반영(전체 합산 시 길성·흉살이 캡에서 상쇄돼 변별력 소실 → 재활성만 셈). 길성+/흉살−/중립0, 클램프 ±10.
+  - `sinsal_shadow_report.py` + `scripts/sinsal_shadow_harness.py`: 골든 차트 일괄 관측 → CSV/JSON.
+    용신 operational shadow와 **분리**(독립 모듈·산출 파일).
+- **관측(33차트·domain=career)**: 10,066행, **불변 위반 0**, 비0 delta 34%, 범위 −8~+8, WARN(|Δ|≥6)
+  859행. 예: 년지 巳 재출현 기간(乙巳 대운·辛巳 세운)에 천덕귀인+협록@year 재활성 → Δ+7.
+- **불변 보장**: 게이트 off 기본(라이브 무영향)·EventCandidate 스키마 무변경·invariance 스냅샷
+  before==after(하네스 hard-fail 가드). 신규 단위 9건.
+- **검증**: full suite **1107 pass**(실패 2 = 사전 존재: dry_run·auth 토큰 시드). ruff·mypy clean.
+  shadow 산출물은 gitignore(미커밋).
+- **후속**: B-2(운영 반영) = 분포 검증(과반영·WARN 비율) 후 `_score_target` 편입, 별도 승인.
+
+### 신살 보정 — Phase B-1 v2 채널 shadow (방향 역행 수정, 2026-06-25)
+- **검토 결과(B-1 score 모델 폐기)**: 33차트 관측에서 ①같은 기간 내 모든 사건 동일 delta(96%) ②길흉
+  방향 역행 ≈981행(길성이 흉사건 발생가능성↑·흉살이 길사건↓) 확인. 신살은 발생 가능성 장치가
+  아니므로(스펙 §2-1·§6) score 채널이 잘못 — 폐기(사용자 확정).
+- **재설계(채널 모델)**: 신살을 **발생 가능성에 미반영(occurrence_score_delta=0 고정)**, 사건의
+  favorability/risk/mitigation/texture **채널만** 관측. 길성=mitigation·favorability(+), 흉살=risk·
+  favorability(−), 중립(역마·도화·화개·문창)=texture 태그(숫자 0). 채널 계수는 0~1 분수(§6),
+  위치/intent·재활성 boost 곱, 캡(fav ±0.12·risk/mit ≤0.20).
+- **구현**: `sinsal_modifier_config.py`(채널 계수 dict), `sinsal_numeric_scoring.py`
+  (`apply_sinsal_channel_shadow`/`sinsal_channel_sidecar`), `sinsal_shadow_report.py`(채널 컬럼),
+  `scripts/sinsal_shadow_harness.py`(채널 출력).
+- **관측(33차트·career)**: 10,066행, **occurrence_score_delta!=0 행 0**(발생 가능성 불변), 채널 활성
+  49%, fav −0.12~0.12·risk 0~0.20·mit 0~0.20(캡 정상), 불변 위반 0. 길성·흉살이 별도 채널이라
+  같은 기간 동시 재활성해도 상쇄 없음. 방향 역행 소멸.
+- **검증**: full suite **1107 pass**(실패 2 = 사전 존재). ruff·mypy clean. 게이트 OFF 기본·산출물 gitignore.
+- **후속**: B-2 = favorability/risk/mitigation 채널에만 반영(occurrence·ranking 불변), LLM엔 한글 태그만.
+  별도 승인.
+
+### 신살 보정 — Phase B-2 채널 운영 반영 (리포트 경로, 2026-06-25)
+- **목표**: B-1 v2 채널(완충/리스크/색채/질감)을 운영 출력에 반영 — occurrence_score·ranking 불변,
+  LLM엔 숫자 없는 한글 태그만(사용자 재진입 조건).
+- **챗 경로 불가(측정)**: career≈10,856tok·wealth≈10,796tok 등 무거운 질문이 trim 임계 여유 ~140tok뿐
+  (A-2와 동일 벽). per-후보 채널 노트 추가 시 excerpt 트리머가 캐시 prefix를 깨므로 챗 제외.
+- **리포트 경로 채택**: `report_event_input.precise_candidate_clusters` 기간 클러스터 head 뒤에 채널
+  색채 노트 1줄 부착. `sinsal_numeric_scoring.channel_note_ko()` 로 채널값→한글 밴드 변환
+  (예: '신살 시기색채: 완충 큼·리스크 주의·유리한 색채 (이동·변동성)'). 게이트
+  `SINSAL_CHANNEL_APPLY_ENABLED`(config·롤백 1줄).
+- **불변**: occurrence_score·ranking·favorability_ko 수치 무변경(텍스트 노트만 추가). 채널은 기간
+  단위(재활성)라 클러스터당 1줄. **챗 토큰 무영향**(context_reducer 미접촉 — career 10,856 동일 확인).
+- **검증**: full suite **1107 pass**(실패 2 = 사전 존재). ruff·mypy clean. 신규 테스트 3건(밴드 변환·
+  리포트 노트 숫자 미노출·게이트 off).
+
+### 신살 보정 — 챗 트림 우선순위 리팩터 + 챗 채널 노트 (2026-06-25)
+- **목표**: 챗에도 B-2 채널 색채를 넣되, A-1/A-2에서 막혔던 토큰 천장 문제(무거운 질문이 신살 추가
+  시 excerpt 트리머를 건드려 캐시 prefix 붕괴)를 트림 우선순위로 해소.
+- **트림 우선순위(serialize_with_guard 다단계화)**:
+  - Tier0(신규): 토큰 초과 시 신살 보조(sinsal_modifiers·sinsal_channel_note)를 **캐시 prefix
+    (excerpt)보다 먼저** 제거(`_drop_sinsal_aux`). 신살 의존 지시문도 조건부 emit이라 자동 제거.
+  - Tier1(기존): 그래도 초과면 excerpts[:4]·event_candidates[:3]·evidence trim(신살 이미 제거).
+  - 효과: 무거운 질문(career)도 신살부터 빠져 고정 prefix·후보 본문 보존 → 캐시 불변 유지.
+- **챗 채널 노트**: `LlmEventCandidate.sinsal_channel_note` 추가, `build_llm_input`이 상위 N후보에
+  period 채널 노트(`channel_note_ko`) 부착. 신살 총비용 ≈169tok(career full 7,882→no_sinsal 7,713).
+- **검증**: career·연애운 둘 다 채널 노트 부착 + 고정 prefix 동일(캐시 불변). Tier0 강제 초과 테스트
+  (신살 먼저 제거·excerpt 보존)·_drop_sinsal_aux noop·숫자 미노출. full suite **1113 pass**
+  (실패 2 = 사전 존재). ruff·mypy clean.
+- **결과**: 신살 채널 색채가 챗·리포트 양쪽에 반영되며, 토큰 압박 시 신살이 보조 레이어로서 가장
+  먼저 양보해 핵심(명식·후보) 품질과 캐시 안정성을 지킨다.
+
+### 시점 파싱 — 슬래시/대시 날짜 + 과거시제 (멀티턴 승계 오류 수정, 2026-06-25)
+- **버그(실로그)**: "집 계약은 6/17에 했는데…" 질문이 6월 17일을 인지하지 못하고 이전 턴 시점
+  (2026-07-05)을 그대로 승계. 원인 ①`time_parser` C5b가 "N월 N일"만 인식하고 "6/17"·"6-17"
+  슬래시/대시 M/D 형식 미파싱 → time_range=None → `conversation` 멀티턴 승계가 이전 턴 시점으로
+  덮어씀. ②과거시제인데 연도 미지정 과거 날짜를 '내년 택일'로 밀어버림.
+- **수정(time_parser.py)**:
+  - `_SLASH_DATE_RE`: "6/17"·"6-17"·"2026-06-17"(선택 연도) 인식. 뒤에 숫자·구분자/기간단위
+    (월/년/주/개월/시간/살/분/초/%)가 붙으면 제외 → "8-10월"(월 범위)·"3-4년" 오인 차단.
+  - C5b를 "N월 N일" 우선·없으면 슬래시/대시로 통합 처리(동일 앵커·이후/부터 로직).
+  - `_PAST_TENSE_RE`(했/찍었/샀/봤/였/었…): 과거시제면 연도 미지정 과거 날짜를 그 해(과거) 유지
+    ('6/17 계약했는데'→2026-06-17). 미래 택일('7월 4일 이사하려고')은 표지 없어 영향 없음.
+  - 파싱되면 intent.time_range.start가 채워져 conversation 멀티턴 승계가 자동 skip(추가 변경 불필요).
+- **검증**: 6/17·6-17·ISO·과거→올해, 미래→내년, 기존 'N월 N일' 불변, 범위('8-10월'/'3-4년') 오인
+  없음. end-to-end: 이전 턴 7/5 있어도 현재 '6/17' → 2026-06-17(승계 아님). 신규 테스트 11건.
+  full suite **1124 pass**(실패 2 = 사전 존재). ruff·mypy clean.
+
+### 이사 지역오행(터전) 적합 누락 수정 — 지명 추출 어순 보강 (2026-06-25)
+- **버그(실로그)**: "현재는 고양시 일산동구에 있는데 이사할집은 서울 중구야" 질문이 목적지 지역
+  오행 적합(터전)이 아니라 연도별 이사 타이밍으로 응답. 사용자는 "서울 중구가 내 용신과 맞는
+  터전인지"를 물었음.
+- **원인**: relocation intent·structural 블록·region_fit 엔진은 모두 정상인데, `query_parser`의
+  지명 추출 정규식이 이 어순을 못 잡음 → target_region=None → `_relocation_region_context`가
+  `if not phrase: return []`로 조용히 빠짐:
+  - 목적지: "[지명](으로|로|에) 이사"만 인식 → "이사할집은 [지명]야"(지명이 '이사' 뒤) 미매치.
+  - 현재지: "지금 사는 곳은/현재 거주지는"만 인식 → "현재는 [지명]에 있는데" 미매치.
+- **수정(query_parser._detect_constraints)**: 재사용 `_REGION_PHRASE` 추가 +
+  - target_region: "이사할/이사갈 (집|곳)은 [지명]", "새 집은 [지명]", "이사는 [지명]" 진술형 추가.
+  - location_base: "현재는 [지명]에 있는데/사는데", "[지명]에 살고/거주" 어순 추가.
+- **검증**: 추출 — "이사할집은 서울 중구야"→target 서울 중구·base 고양시 일산동구; 기존 "서울 중구로
+  이사" 어순 불변. end-to-end: 프롬프트에 "서울 중구(오행 土) × 용신(土) → 적합도 1.0 (매우 유리)"
+  지역 오행 적합 블록 주입 확인. 신규 테스트 8건. full suite **1132 pass**(실패 2 = 사전 존재).
+  ruff·mypy clean.
+- **남은 한계(방향)**: region_elements.json은 region/element만 보유(좌표·방위 없음) → 두 지역 간
+  실제 지리 방향 계산은 불가. 8방위 용신 적합은 택일(date_recommendation) 경로에만 존재. 방위까지
+  비-택일 이사 질문에 넣으려면 별도 데이터·작업 필요.
+
+### 이사 이동 '방위' 분석 추가 — 지역 좌표 + 후천팔괘 방위 길흉 (2026-06-25)
+- **목적**: 비-택일 이사 질문에서 '터전(지역오행)'에 더해 '방향(이동 방위)'까지 답. 사용자가 함께
+  물었으나 좌표 데이터 부재로 미지원이던 부분.
+- **데이터**: `dictionaries/region_coords.json` 신규 — 수도권(서울 25구·경기 주요시·인천 구)+
+  6광역시+시도 폴백 65개 근사 중심좌표(8방위 분류용 ±0.05°, reviewed:false·검수 전 초안,
+  절대원칙 5). 키=region_elements 형식('{시도} {시군구}').
+- **엔진**: `region_direction.py` — 좌표 해석(완전→접미→토큰; '고양시 일산동구'→'경기도 고양시'
+  흡수), `_bearing_to_compass`(경도 cos 보정 8방위), 후천팔괘 방위-오행(북水·동木·남火·서金·
+  간방 土/木/金), `direction_fit`(이동 방위 오행 × 용희기구한 → 매우유리/유리/주의/중립, 生용신 포함).
+- **연결**: `chat_service._relocation_region_context`에 location_base 있을 때 '이동 방위 적합' 줄 추가.
+  지역오행 적합과 **별개 축**(목적지가 용신이어도 가는 방향은 기신일 수 있음).
+- **검증**: 고양 일산동구→서울 중구=남동(木=기신)→주의; 강남→고양=북서; 서울→부산=남동. end-to-end
+  프롬프트에 '지역 오행 적합(서울중구 土=용신 매우유리)' + '이동 방위 적합(남동 木 기신 주의)' 둘 다
+  주입 확인. 신규 테스트 6건. full suite **1138 pass**(실패 2 = 사전 존재). ruff·mypy clean.
+- **한계**: 좌표 65개 커버(미등재 지역은 방위 산출 graceful 생략). 정밀 검수·확장은 후속.
+
+### 연/월 흐름 블록 기간 단위어 정합 — '해' vs '달' (2026-06-25)
+- **버그(실로그)**: 연 단위 블록('[연도별 흐름 — 2026~2035 10년]')의 하위 줄·표 범례가 '달'(월)을
+  써서 년/월 혼동. 예: '[기반 최고 달]', '이 달에 약하거나', '그 달 발생 가능성', '구신·기신인 달은'.
+- **원인**: context_reducer monthly_overview 블록은 헤더만 _is_yearly로 분기('연도별 흐름/월별 요약')
+  하고, 기반-최고 지목·표 범례의 '달'은 하드코딩. 연 단위에서도 '달'로 출력.
+- **수정(context_reducer)**: 단위어 `_unit`('해'/'달')+조사 `_n`('는'/'은')·`_l`('를'/'을') 도입
+  ('달'은 ㄹ받침이라 은/을, '해'는 모음이라 는/를). 기반-최고 줄·표 범례의 기간-단위 '달'을
+  전부 `{_unit}`+조사로 치환. 마커 용어 '검토월'은 '검토 시기'로 중립화.
+- **검증**: 연 블록 → '[기반 최고 해]·이 해에·그 해·해는·좋은 해'(달 미노출); 월 블록 → '[기반 최고
+  달]·달은'(조사 정상, '달는/달를' 없음). 신규 테스트 2건(연/월 단위·조사). full suite **1140 pass**
+  (실패 2 = 사전 존재). ruff·mypy clean.
+
+### 이사 목적지 질문 — 지역오행·방위 중심 라우팅 (10년 타임라인 묻힘 수정, 2026-06-25)
+- **버그(실로그 후속)**: 지역오행·방위 적합 블록은 프롬프트에 들어가는데, '시점 막연' 판정으로
+  `_YEAR_DIGEST_DIRECTIVE`(올해부터 10년 연 단위 흐름으로 답하라)·대운 framing이 붙어 답이 10년
+  타임라인으로 채워지고 지역/방위 의도가 묻힘.
+- **원인**: 목적지(target_region)를 명시한 적합성 질문도 '시점 막연 미래'로 분류돼 타임라인 강제
+  지시가 적용됨.
+- **수정(chat_service)**: `_relo_dest = relocation ∧ target_region` 감지. 참이면
+  ①`_YEAR_DIGEST_DIRECTIVE`·대운 framing(vague) **억제** ②신규 `_RELOCATION_DESTINATION_DIRECTIVE`
+  (답 중심을 [지역 오행 적합]·[이동 방위 적합]에 두고, 목적지 오행이 용신이어도 방위는 기신일 수
+  있으니 구분; 연도별 흐름은 보조 한두 줄) 추가.
+- **검증**: 목적지 질문 → 목적지 지시 ON·year digest/대운 framing OFF·지역/방위 블록 유지; 목적지
+  없는 막연 이사질문 → 기존 10년 digest 유지(회귀 안전); 비이사 질문 무영향. 신규 테스트 3건.
+  full suite **1143 pass**(실패 2 = 사전 존재). ruff·mypy clean.
+
+### 이동 방위 오행 — 명리형 간방 혼합 모델로 전환 (2026-06-25)
+- **지적(데굴님)**: '남동은 화랑 목이 함께 있는 방위 아니야?' — 기존 region_direction은 후천팔괘
+  단일 배정(남동=巽=木)이라 간방을 한 오행으로만 봄.
+- **확정**: 풍수 팔괘(좌향·공간 배치)는 단일 배정이 맞지만, 개인 사주 방향 적합엔 **간방 혼합
+  모델**이 기본값. 사정(동木·남火·서金·북水)=단일, 간방=인접 두 사정 혼합 45:45 + 土 전환 10
+  (남동=木0.45·火0.45·土0.10, 남서=火金土, 북서=金水土, 북동=水木土).
+- **수정(region_direction.py)**: `_DIRECTION_ELEMENT`(단일)→`_DIRECTION_ELEMENTS`(가중 dict).
+  `direction_fit`을 역할 가중합(용신+2.0/희신+1.2/한신0/기신−2.0/구신−1.2)×방위 비중 합 →
+  밴드(≥1.2 매우유리/0.4 유리/−0.4 중립/−1.2 다소주의/그 이하 주의)로 판정. 간방은 한쪽이 기신
+  이어도 다른쪽 길신이면 '혼합' 완화. 라벨은 사정/간방 공통 중립표기, '혼합·전환' 뉘앙스는 근거
+  문구가 담당. chat_service 헤더도 '(후천팔괘)'→'명리 방향 적합(간방 혼합)'으로 갱신.
+- **검증**: 용신 土·희신 火·기신 木 → 남동=木(기신)·火(희신)·土(용신) score −0.16 '중립(도움·부담
+  공존)'(기존 '주의' 대비 정교화); 남=매우유리·동=주의·북=다소주의(사정 단일 정상). 고양 일산→
+  서울 중구 남동='중립'. 신규/갱신 테스트 7건. full suite **1144 pass**(실패 2=사전 존재). ruff·mypy clean.
+- **메모(후속)**: 풍수 팔괘 단일 배정 모드(fengshui_bagua)는 좌향·공간 배치 기능 도입 시 분리 추가.
+
+### 결정형 이사 질문 — 타임라인 데이터 차단 (이미 정해진 이사에 '가능시기' 나열 제거, 2026-06-25)
+- **지적(데굴님)**: '이사할집은 서울 중구야'(이미 집이 정해진/계약한 상태)인데 시스템이 여전히
+  2026~2035 '언제 이사하면 좋은지' 타임라인을 그려 비논리적. 앞서 추가한 목적지 중심 지시는 들어갔으나
+  [연도별 흐름] 데이터 블록 자체가 남아 LLM이 그것을 풀이함.
+- **수정(chat_service)**: `relo_decided = (relocation ∧ target_region) ∧ 시점 미질문(언제/몇 월/시기
+  등 없음)` 산출. 참이면 `vague_future`·`wants_monthly`를 모두 False로 막아 **연/월 흐름 overview
+  데이터 자체를 생성하지 않음**. 평가형 질문이므로 지역오행·이동방위·이사이유(십성) 블록과 목적지 중심
+  지시만 남긴다. 타이밍 질문('언제 이사')·목적지 없는 막연 질문은 기존 타임라인 유지.
+- **검증**: 결정형 → [연도별 흐름]·[월별 요약]·연도 나열 제거, 지역/방위/이사이유 유지; 타이밍 이사·
+  목적지 없는 막연 이사·비이사 질문 → 타임라인 유지(회귀 안전). 신규 테스트 3건. full suite **1147
+  pass**(실패 2 = 사전 존재). ruff·mypy clean.
+
+### 멀티턴 — '그래 봐줘' 동의+이어보기 후속 의도 승계 (대화 단절 수정, 2026-06-25)
+- **버그(실로그)**: 턴1 '이직 언제 할 수 있을까'(career/timing_search) 뒤 턴2 '그래 봐줘'가
+  새 풀이 요청으로 끊겨 일반 10년 인생 흐름(general/fortune_overview)으로 빠짐 — 직전 이직 맥락 단절.
+- **원인(conversation.link_question)**: `AFFIRMATION_RE`에 '봐줘'가 없어 '그래 봐줘'가 fullmatch
+  실패, '봐줘'가 `_READING_REQUEST_RE`(새 풀이)에 걸려 토픽연속 경로에서도 제외 → NEW로 떨어짐.
+- **수정**: `_AFFIRM_CONTINUE_RE`(동의어 시작 + 선택 이어보기/풀이 동사: 봐줘·보여줘·계속·이어·더)
+  추가. 새 도메인이 없으면 follow-up(DRILL_DOWN)으로 직전 의도 승계(기존 승계 로직이 domain·
+  query_type·event_key를 직전에서 잇는다). 새 도메인 후속('연애운 봐줘')은 도메인 전환, 새 풀이
+  요청('총운 봐줘')은 NEW 유지.
+- **검증**: '그래 봐줘'·'응 보여줘'·'좋아 계속'·'그래' → follow_up·career·timing_search·career_change
+  승계; '연애운 봐줘' → relationship 전환; '총운 봐줘' → NEW. end-to-end 턴2 프롬프트가 이직·직업
+  후보 중심. 신규 테스트 8건. full suite **1155 pass**(실패 2=사전 존재). ruff·mypy clean.
+- **운영**: 백엔드 --reload로 재기동돼 자동 반영(이전 stale 프로세스 이슈 해소).
+
+### 멀티턴 — LLM 즉석 제안 이어보기('그래 봐줘'로 그 제안 계속, 2026-06-25)
+- **지적(데굴님)**: '그래 봐줘'가 직전 이직 맥락은 잇게 됐으나, LLM이 답변 끝에 제시한 구체 제안
+  ('제안받는 쪽 vs 내가 움직이는 쪽')은 상태에 없어 그대로 이어가지 못함 → 사용자는 여전히 단절로
+  오인. 개선 필요.
+- **구현(상태 스키마 변경 없이 history 재사용)**:
+  - 라우터(chat.py): `_last_assistant_answer`로 스레드의 가장 최근 완료 assistant 답변을 읽어
+    `chat_service.chat(prior_answer=...)`로 전달.
+  - chat_service: `_extract_offer`(답변 끝 1~2문장에서 제안 표지 '봐드릴게요/이어서/어느 쪽/원하시면'
+    등이 있는 부분 추출, 300자 가드) + `_OFFER_CONTINUE_DIRECTIVE`. `is_affirm_continue(question)`
+    (conversation 공개 판정)이고 제안이 추출되면, '직전에 네가 제안한 「offer」를 이번 답 중심으로
+    이어 풀라'는 우선 지시문을 주입.
+- **검증**: '그래 봐줘'+직전 제안 → 제안 텍스트('제안이 들어오는 쪽')가 프롬프트에 실리고 이어보기
+  지시 주입; 새 질문('재물운')·제안 없는 답변·prior 없음 → 미주입. 신규 테스트 5건. full suite
+  **1160 pass**(실패 2=사전 존재). ruff·mypy clean. 백엔드 --reload로 자동 반영.

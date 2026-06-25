@@ -28,7 +28,7 @@ from saju_engines.context_reducer import (
     event_ko,
     serialize_with_guard,
 )
-from saju_engines.conversation import ConversationEngine
+from saju_engines.conversation import ConversationEngine, is_affirm_continue
 from saju_engines.conversation_store import ConversationStore
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.intent_event_filter import IntentEventFilter
@@ -747,11 +747,33 @@ def _relocation_region_context(
     except Exception:  # noqa: BLE001 — 지역 적합 실패가 일반 풀이를 막지 않도록
         return []
     label = {1.0: "매우 유리", 0.8: "유리(지역이 용신을 생)"}.get(fit, "중립")
-    return [
+    out = [
         "[지역 오행 적합(참고) — 목적지 지역 오행 × 내 용신. 시군구 단위 검수 전 초안이라 "
         "'유리/중립' 참고로만 녹이고 단정 금지(실제 거주 만족은 생활 여건이 좌우)]",
         f"{region}(오행 {element}) × 용신({yongsin}) → 적합도 {fit} ({label})",
     ]
+    # 이동 방위(현재지→목적지) 길흉 — 현재지(location_base)·목적지 좌표가 둘 다 있을 때만(참고).
+    # 지역 오행 적합과 별개 축이다(목적지가 용신이어도 가는 방향은 기신일 수 있음).
+    base = intent.constraints.location_base
+    if base:
+        try:
+            from saju_engines.region_direction import RegionDirection
+
+            move_dir = RegionDirection(_DICTS).move_direction(base, region)
+            if move_dir:
+                dir_el, dlabel, reason = RegionDirection(_DICTS).direction_fit(move_dir, fav)
+                out.append(
+                    "[이동 방위 적합(참고) — 현재지→목적지 방위 × 내 용희기구한. 간방(남동 등)은 "
+                    "인접 두 사정의 혼합 전환 방위로 본다(명리 방향 적합). 근사 좌표 8방위 "
+                    "초안이라 참고로만 녹이고 단정 금지 — 혼합 방위는 섞인 오행의 길흉을 함께 설명]"
+                )
+                out.append(
+                    f"{base} → {region} 이동 방위 {move_dir}(방위 오행 {dir_el}) → "
+                    f"{dlabel} ({reason})"
+                )
+        except Exception:  # noqa: BLE001 — 방위 산출 실패가 일반 풀이를 막지 않도록
+            pass
+    return out
 
 
 def _subject_composites_yongsin(
@@ -873,6 +895,34 @@ _CHAT_SCOPE_DIRECTIVE = (
     " 처음부터 다시 설명하지 말 것. 앞 턴에서 이미 말한 내용은 반복하지 않는다. 인사말은 생략한다."
 )
 
+# 직전 답변의 '제안' 표지 — '그래 봐줘' 수락 시 그 제안을 이어가도록 추출하는 단서.
+_OFFER_MARKERS = (
+    "봐드릴게요", "봐드려요", "봐 드릴", "풀어드릴", "짚어드릴", "알려드릴", "정리해드릴",
+    "보고 싶으세요", "보고 싶은", "말씀해 주시면", "말씀해주시면", "말씀 주시면",
+    "원하시면", "이어서", "더 자세히", "어느 쪽", "어느 흐름", "중 어느",
+)
+# 동의+이어보기('그래 봐줘')일 때, 직전 답변 끝에 제시한 제안을 이어 답하라는 우선 지시.
+_OFFER_CONTINUE_DIRECTIVE = (
+    "[중요·이어보기 — 다른 표기보다 우선 적용]\n"
+    "사용자가 짧은 수락('그래/봐줘')으로 직전 답변의 제안을 받아들였다. 직전 답변 끝에서 네가 먼저 "
+    "제안한 바로 그 갈래를 이번 답의 중심으로 곧장 이어서 풀어라 — 같은 분야·맥락을 유지하고, 일반 "
+    "총운이나 다른 주제로 새로 시작하지 말 것. 네가 직전에 제안한 내용은 다음과 같다: 「{offer}」"
+)
+
+
+def _extract_offer(answer: str) -> str:
+    """직전 답변 끝의 '이어서 봐드릴게요/어느 쪽 보고 싶으세요' 류 제안 문장을 뽑는다(없으면 '').
+
+    페르소나 규칙상 답변 끝에 후속 제안/질문을 붙이므로 마지막 1~2문장에서 제안 표지가 있는
+    부분만 취한다(토큰 가드 300자). 제안이 없으면 빈 문자열 → 이어보기 지시 미적용.
+    """
+    if not answer:
+        return ""
+    sents = [s.strip() for s in re.split(r"(?<=[.!?。])\s+|\n+", answer.strip()) if s.strip()]
+    tail = sents[-2:] if len(sents) >= 2 else sents
+    picked = [s for s in tail if any(m in s for m in _OFFER_MARKERS)]
+    return " ".join(picked)[:300].strip()
+
 # 상황 제약 — 질문 맥락으로 형제 사건을 결정적으로 좁힌다. 묻힌 일반 안내로는 thinking LOW
 # LLM이 다단계 추론(무직→이직 불가→이사)을 못 하므로, 감지 시 우선순위 높은 명시 지시를
 # 프롬프트 말미에 주입한다(2026-06-14: '2025-08 백수인데 이직으로 단정' 오류 차단).
@@ -917,6 +967,21 @@ _RELOCATION_REASON_DIRECTIVE = (
     "이사 '유형·이유'를 설명하지 말 것. 해당 기간에 이사 신호가 약하거나 없으면, 먼저 '이 시기엔 "
     "뚜렷한 이사 신호가 없다'고 밝힌 뒤 '다만 만약 이사를 한다면, 들어온 천간이 OO(십성)이라 △△한 "
     "이유의 이사가 될 가능성이 있다'처럼 조건부 유형으로 짧고 분명하게 서술하라. 발생 단정은 금지."
+)
+
+# 이사 목적지 명시 질문 — '언제 옮기나(타임라인)'가 아니라 '이 지역·이 방향이 나에게 맞는 이동인가'.
+# 특정 목적지(target_region)를 대고 적합성을 물으면 10년 연 단위 나열로 답이 채워지던 결함 차단
+# (2026-06-25 데굴님 지적: 지역오행·방위 의도가 묻히고 10년 풀이만 반복).
+_RELOCATION_DESTINATION_DIRECTIVE = (
+    "[중요·이사 목적지 질문 — 다른 표기보다 우선 적용]\n"
+    "사용자가 특정 목적지를 명시하고 '그곳으로 옮기는 게 나에게 맞는·이로운 이동인지'를 물었다. "
+    "답의 중심을 두 가지에 둘 것: ①[지역 오행 적합] — 그 지역 오행이 내 용신과 맞는 터전인지 "
+    "②[이동 방위 적합] — 현재지→목적지 이동 방위가 길한 방위(용신·희신)인지 부담 방위(기신·구신)"
+    "인지. 이 둘로 '이 지역·이 방향으로의 이동이 내 운을 살리는 이로운 이동인지'를 먼저 분명히 "
+    "답하라 — 두 블록이 '참고' 표기여도 답의 핵심으로 다루되 단정은 피해 '유리/주의/중립'으로 "
+    "풀고, 목적지 오행이 용신이어도 이동 방위는 기신일 수 있으니 둘을 구분해 설명하라. 연도별 "
+    "흐름은 '굳이 옮긴다면 어느 해가 무난한지'의 보조 배경으로만 한두 줄 곁들이고, 10년 연 단위 "
+    "나열로 답을 채우지 말 것."
 )
 
 _UNEMPLOYED_DIRECTIVE = (
@@ -1293,6 +1358,7 @@ def chat(
     occupation_status: str | None = None,
     relationship_status: str | None = None,
     occupation_category: str | None = None,
+    prior_answer: str | None = None,
 ) -> ChatResponse:
     """질문을 풀이한다(첫 intent 기준, 다중 intent는 메타로 동반).
 
@@ -1479,11 +1545,21 @@ def chat(
     if is_structural:
         default_period = None  # 시점 창 불요 — '질문 기간 내 후보 없음' 빈 안내까지 차단
 
+    # 목적지가 정해진 이사 질문('이사할집은 서울 중구야')은 '언제 옮기나(타임라인)'가 아니라
+    # '이 곳·이 이동이 나에게 맞는가(지역오행·방위·이사 결)'를 보는 평가형이다 — 시점을 묻지
+    # 않았으면(언제/몇 월/시기 등 없음) 연·월 흐름 타임라인을 만들지 않는다(2026-06-25 데굴님:
+    # 이미 집이 정해진 상태에서 이사 가능시기 나열은 비논리).
+    _relo_dest = _is_relocation_intent(intent) and bool(intent.constraints.target_region)
+    _asks_move_timing = bool(
+        re.search(r"언제|몇\s*월|몇\s*년|어느\s*(해|달|연도|월|시기)|타이밍|이사\s*시기", question)
+    )
+    relo_decided = _relo_dest and not _asks_move_timing
     # 막연한 시점(특정 연·월 미지정, 미래) → 올해부터 10년 연(세운) 단위 흐름으로 답하고 연도
     # 지정을 유도한다. 현재 연도 12개월로 좁혀 특정 달을 단정하던 결함 보완(2026-06-18 데굴님).
     # 과거 회고·구조 질문·기간총운, 명시 시점(올해/내년/특정연월/향후 N년=start 있음)은 제외.
     vague_future = (
         period_fortune is None and not is_structural and not is_retro
+        and not relo_decided
         and (intent.time_range is None or not intent.time_range.start)
     )
     year_digest_years: list[int] = []
@@ -1577,7 +1653,7 @@ def chat(
     # 연간 요약+핵심 달로 응답하도록 아래에서 형식 지시를 준다.
     event_monthly = intent.event_key is not None and str(intent.event_key) in _EVENT_MONTHLY
     monthly_explicit = any(k in question for k in ("월별", "달별", "매월", "월운", "월단위"))
-    wants_monthly = period_fortune is None and not vague_future and (
+    wants_monthly = period_fortune is None and not vague_future and not relo_decided and (
         monthly_explicit
         or event_monthly
         or intent.query_type is QueryType.TIMING_SEARCH
@@ -1750,6 +1826,12 @@ def chat(
     # 줄인다. 안 그러면 serialize 통과 후 지시문·시스템이 더해져 generate_reading 재검사에서
     # 한도 초과 → 일반 오류로 마감되던 결함(2026-06-18, 10년 이사 질문 12,098tok 초과).
     trailing: list[str] = [_CHAT_SCOPE_DIRECTIVE]
+    # 제안 이어보기 — '그래 봐줘' 류 수락이면 직전 답변에서 LLM이 제시한 제안을 그대로 이어 답하게
+    # 한다(LLM 즉석 제안이 상태에 없어 일반 흐름으로 끊기던 결함 — 2026-06-25 데굴님 지적).
+    if prior_answer and is_affirm_continue(question):
+        _offer = _extract_offer(prior_answer)
+        if _offer:
+            trailing.append(_OFFER_CONTINUE_DIRECTIVE.format(offer=_offer))
     # 사용자 확정 용신 적용 안내 — 확정 5역할을 길흉 기준으로, 엔진 최초 도출은 기본값으로 병기.
     if _confirmed_yongsin is not None:
         from saju_engines.event_scoring import confirmed_yongsin_note
@@ -1787,20 +1869,26 @@ def chat(
         trailing.append(_CAREER_NONREGULAR_DIRECTIVE)
     elif any(k in question for k in _UNEMPLOYED_KEYS):
         trailing.append(_UNEMPLOYED_DIRECTIVE)
+    # 이사 목적지 명시 질문(_relo_dest, 위에서 산출)은 10년 타임라인 강제(year digest)를 적용하지
+    # 않고 지역오행·방위 중심 우선 지시로 대체한다(2026-06-25). vague_future는 relo_decided면 이미
+    # False라 아래 분기는 자연히 스킵된다.
     # 응답 형식 — 막연한 시점이면 10년 연(세운) digest+연도 지정 유도, 그 외 사건형 연 질문은
     # 12개월 나열 대신 연간 요약+핵심 달로.
-    if vague_future:
+    if vague_future and not _relo_dest:
         trailing.append(_YEAR_DIGEST_DIRECTIVE)
     elif overview is not None and event_monthly and not monthly_explicit:
         trailing.append(_KEY_MONTHS_DIRECTIVE)
     # 대운·장기 인생 흐름 질문 — 대운을 '환경/공간감(플랫폼)이 닥쳐오는 흐름·이 대운이 나에게
     # 맞느냐'로 서술하고 교체기 체감 신호도 함께(리포트 대운 섹션과 공용 관점, 2026-06-23 확장).
-    if _is_daewoon_question(intent, question) or vague_future:
+    if (_is_daewoon_question(intent, question) or vague_future) and not _relo_dest:
         trailing.append(DAEWOON_FRAMING_DIRECTIVE)
         trailing.append(DAEWOON_TRANSITION_SIGNALS_DIRECTIVE)
     # 이사 질문 — 십성(유형)과 용신/기신(길흉)을 분리해 답하도록 강제(2026-06-18).
     if _is_relocation_intent(intent):
         trailing.append(_RELOCATION_REASON_DIRECTIVE)
+    # 목적지 명시 이사 — 답의 중심을 지역오행·이동 방위 적합에 두게 한다(2026-06-25).
+    if _relo_dest:
+        trailing.append(_RELOCATION_DESTINATION_DIRECTIVE)
     # 생활형 횡재(로또·연금복권·소액 주식) — 흐름·시기·태도를 자유롭게 풀게 한다(번호·종목픽·
     # 당첨단정 거부는 유지). CLAUDE.md 절대원칙 8 개정(2026-06-20 데굴님 승인).
     if _is_lifestyle_windfall(intent, question):

@@ -122,6 +122,21 @@ def _partner_ref(req: ChatRequest) -> dict | None:
     return None
 
 
+def _last_assistant_answer(history: ChatHistoryStore | None, thread_id: str) -> str | None:
+    """스레드의 가장 최근 완료된 assistant 답변 본문(없으면 None) — '그래 봐줘' 제안 이어보기용."""
+    if history is None:
+        return None
+    try:
+        msgs = history.get_messages(thread_id)
+    except Exception:  # noqa: BLE001 — 이력 조회 실패가 답변을 막지 않도록
+        return None
+    for m in reversed(msgs):
+        if (m.get("role") == "assistant" and m.get("status") == "done"
+                and (m.get("text") or "").strip()):
+            return m["text"]
+    return None
+
+
 def _run_chat_answer(
     history: ChatHistoryStore,
     message_id: int,
@@ -170,6 +185,9 @@ def chat(
 
     form, occ_status, rel_status, occ_category = profile_event_signals(req.subject_id)
 
+    # 직전 답변 — '그래 봐줘' 류 수락 시 LLM이 제시했던 제안을 이어 답하도록 전달(스레드 한정).
+    prior_answer = _last_assistant_answer(history, req.thread_id) if req.thread_id else None
+
     def _classify(dry: bool) -> chat_service.ChatResponse:
         return chat_service.chat(
             req.birth, req.question, req.today, dry,
@@ -182,6 +200,7 @@ def chat(
             occupation_status=occ_status,
             relationship_status=rel_status,
             occupation_category=occ_category,
+            prior_answer=prior_answer,
         )
 
     # 미리보기 요청은 예전처럼 동기 dry-run(LLM 미호출).

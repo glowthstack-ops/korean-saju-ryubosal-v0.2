@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from .events import EventKey
 from .intent import IntentJson
+from .sinsal import LlmSinsalModifier
 
 
 class UsefulGods(BaseModel):
@@ -165,6 +166,12 @@ class LlmEventCandidate(BaseModel):
     timeline: dict | None = None  # EventTimeline (Phase 5 E4)
     realization_score: int | None = None  # Manifestation (Phase 5 E6)
     likely_forms: list[str] = Field(default_factory=list)
+    # 신살 보조 태그(SINSAL_MODIFIER_SPEC §9-2, Phase A-1) — 점수 미반영, 보조 해석 전용.
+    # 후보당 ≤3(pruning). 숫자 weight 미노출(한글 강도어만). 단독 사건 근거 금지.
+    sinsal_modifiers: list[LlmSinsalModifier] = Field(default_factory=list)
+    # 신살 기간 채널 색채(§10-2, Phase B-2) — 숫자 없는 한글(완충/리스크/색채/질감). 발생 가능성
+    # 미반영. 토큰 초과 시 캐시 prefix보다 먼저 트림되는 보조 텍스트(serialize_with_guard Tier0).
+    sinsal_channel_note: str = ""
 
 
 class LlmEvidence(BaseModel):

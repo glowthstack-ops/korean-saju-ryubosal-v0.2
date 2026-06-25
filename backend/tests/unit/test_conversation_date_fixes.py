@@ -386,3 +386,20 @@ def test_solar_term_boundary_day_emphasizes_continuation() -> None:
     same = _date_day_fortune_note(b, [date(2026, 6, 20)], "Asia/Seoul")
     assert "기운이 아직 이어지는 날" not in same
     assert "그 날의 절기월 甲午" in same
+
+
+# ── D. 현재 질문의 명시 날짜가 이전 턴 시점 승계를 덮어쓴다 ──
+
+def test_explicit_slash_date_overrides_prior_turn_time() -> None:
+    """'6/17' 명시 질문은 이전 턴 시점(7/5)을 승계하지 않고 6/17로 해석된다(실로그)."""
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t1")
+    _, state, _, _ = eng.process_turn(
+        state, "7/5 이사일 어때?", date(2026, 6, 25), birth_year=1990,
+    )
+    p2, state, _, _ = eng.process_turn(
+        state, "집 계약은 6/17에 했는데 뭔가 사주적인 의미가 있었을까?",
+        date(2026, 6, 25), birth_year=1990,
+    )
+    tr = p2.intents[0].time_range
+    assert tr is not None and tr.start == "2026-06-17"  # 07-05 승계 아님
