@@ -78,3 +78,28 @@ def test_form_quality_bonus_cannot_dominate() -> None:
     p = compute_form_quality_open(rows, "t")
     assert abs(form_quality_bonus(p, cap=5)) <= 5
     assert abs(form_quality_bonus(p, cap=8)) <= 8
+
+
+def test_road_rush_signal_proximity_tiers() -> None:
+    """P5-3D: 전방 도로·철도 근접 티어(§14-12). 미공급(None)→0, 철도가 도로보다 강함."""
+    from saju_engines.fengshui_form import compute_form_quality_facing, road_rush_signal
+    assert road_rush_signal(None, None) == 0.0  # 미공급/좌향없음 → 직충 없음
+    assert road_rush_signal(80, None) == 0.7  # 도로 100m 이내
+    assert road_rush_signal(250, None) == 0.4  # 도로 300m 이내
+    assert road_rush_signal(500, None) == 0.0  # 300m 초과
+    assert road_rush_signal(None, 80) == 1.0  # 철도 100m 이내(살기 강)
+    # facing form_quality에 결합(전방 도로 직충 → road_rush_penalty 반영, 점수 하락).
+    rows = [_dir("N", earth=0.6, mnt=1800), _dir("S", water=0.3)]
+    clean = compute_form_quality_facing(rows, "t", 180.0).form_quality_score
+    rushed = compute_form_quality_facing(
+        rows, "t", 180.0, front_road_m=80).form_quality_score
+    assert rushed < clean  # 직충이 형국 점수를 낮춘다
+
+
+def test_paltaek_stub_off_by_default() -> None:
+    """P5-3E: 팔택 stub 기본 OFF(빈 결과·confidence 0) — 추천 점수에 미결합."""
+    from saju_engines.fengshui_form import compute_paltaek
+    off = compute_paltaek(1980, "male")
+    assert off.enabled is False and off.confidence == 0.0 and not off.auspicious_directions
+    on = compute_paltaek(1980, "male", enabled=True)
+    assert on.confidence == 0.0  # 산식 감수 대기 — 켜도 빈 결과

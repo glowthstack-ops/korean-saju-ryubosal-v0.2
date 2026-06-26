@@ -13,6 +13,7 @@ from __future__ import annotations
 from saju_shared_types.region_element import (
     DirectionalSectorProfile,
     FengshuiFormProfile,
+    PaltaekResult,
     RegionDirectionalElementSummary,
 )
 
@@ -120,13 +121,28 @@ def compute_form_quality_open(
     )
 
 
+def road_rush_signal(front_road_m: float | None, front_rail_m: float | None) -> float:
+    """전방(주작) 도로·철도 직충 신호 0~1(P5-3D, §14-5·§14-12 근접 티어). transport 공급 시만.
+
+    좌향이 있어 전방 sector에 major road/railway가 근접·정면일 때만 충(직충)으로 본다 — 미공급(None)
+    이면 0(좌향 없는 지역 추천에서는 항상 0, 직충 강판정 금지). 철도가 도로보다 살기 강함.
+    """
+    sig = 0.0
+    if front_road_m is not None:
+        sig = max(sig, 0.7 if front_road_m <= 100 else 0.4 if front_road_m <= 300 else 0.0)
+    if front_rail_m is not None:
+        sig = max(sig, 1.0 if front_rail_m <= 100 else 0.6 if front_rail_m <= 300 else 0.0)
+    return sig
+
+
 def compute_form_quality_facing(
-    rows: list[RegionDirectionalElementSummary], region_code: str, facing_bearing: float
+    rows: list[RegionDirectionalElementSummary], region_code: str, facing_bearing: float,
+    *, front_road_m: float | None = None, front_rail_m: float | None = None,
 ) -> FengshuiFormProfile:
     """좌향 있음 사신사 형국(§14-12 산식). facing_bearing 입력 시만 전후좌우 판정.
 
-    road_rush는 도로 feature(transport OFF 기본)라 0 — P5-3 transport 활성 시 결합. front_blocked는
-    앞산 과근접(전방 土 강 + 근접) 추정.
+    front_road_m/front_rail_m(전방 도로·철도 최근접 m, transport 공급 시)로 road_rush 직충 penalty를
+    결합한다(P5-3D, 미공급 시 0). front_blocked는 앞산 과근접(전방 土 강 + 근접) 추정.
     """
     sec = sasinsa_sectors(facing_bearing)
     by = _by_code(rows)
@@ -145,14 +161,16 @@ def compute_form_quality_facing(
     front_blocked = 1.0 if (front and front.earth_score > 0.5
                             and (front.nearest_mountain_m or 9e9) < 1500) else 0.0
     overwater = _clamp01(front_w - max(back_m, left_d) - 0.2) if front_w > 0.5 else 0.0
+    road_rush = road_rush_signal(front_road_m, front_rail_m)
     raw = (0.30 * back_m + 0.20 * front_w + 0.15 * left_d + 0.10 * tiger_balance
-           - 0.20 * front_blocked - 0.20 * 0.0 - 0.15 * overwater)  # road_rush=0(transport OFF)
+           - 0.20 * front_blocked - 0.20 * road_rush - 0.15 * overwater)
     conf = _avg_conf(rows)
     return FengshuiFormProfile(
         region_code=region_code,
         back_mountain_score=back_m, front_water_score=front_w,
         left_dragon_score=left_d, right_tiger_score=right_e,
         excessive_pressure_penalty=front_blocked, water_escape_penalty=overwater,
+        road_rush_penalty=road_rush,
         form_quality_score=max(-1.0, min(1.0, raw)) * conf,
         confidence=conf, available=bool(rows),
         evidence=[f"현무 {sec.back_sector}", f"주작 {sec.front_sector}",
@@ -163,3 +181,13 @@ def compute_form_quality_facing(
 def form_quality_bonus(profile: FengshuiFormProfile, cap: int = _FORM_BONUS_CAP_OPEN) -> int:
     """form_quality_score(이미 ×confidence) → 추천 점수 보정(±cap, §14-12). base를 뒤집지 못함."""
     return int(round(max(-cap, min(cap, profile.form_quality_score * 8.0))))
+
+
+def compute_paltaek(birth_year: int, gender: str, *, enabled: bool = False) -> PaltaekResult:
+    """팔택/본명궁 개인 길방위 stub(docs/12 §14-6·§14-11, P5-3E). 기본 OFF → 빈 결과.
+
+    사주 용희신과 별개 체계라 추천 점수에 자동 결합하지 않는다(용희신 우선). 본명궁 생기복덕 8방위
+    산식은 reviewed:false 감수 대기 — enabled=True여도 산식 미구현 단계에서는 confidence 0의 빈
+    결과를 돌려준다(활성은 감수 후). 사용자가 '길방위/집 방향'을 명시적으로 물을 때만 켠다.
+    """
+    return PaltaekResult(enabled=enabled, confidence=0.0, system="paltaek")

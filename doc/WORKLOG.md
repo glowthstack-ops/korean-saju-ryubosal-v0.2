@@ -5680,3 +5680,21 @@ P5-3D road_rush(좌향) / P5-3E 팔택 stub. ※ B와 C는 동시 적용 금지(
   노출. cap이 명확한 우위를 못 뒤집음(§14-12 금지 7).
 - 검증: 월계동 78→82(+4) 등 ±5 내 보정, base 보존, 내림차순 유지. golden 불변(directional 미주입
   orchestrator라 base 그대로). unit 1068 pass, ruff·mypy clean.
+
+---
+
+## P5-3D/E — road_rush penalty + 팔택 stub(OFF) ✅ (2026-06-26)
+
+§14-12 마지막 슬라이스. 둘 다 현 추천 흐름(좌향 입력 없음·transport OFF·팔택 OFF)에서 비활성 —
+역량 스캐폴딩(점수 무영향).
+
+- D road_rush(§14-5·§14-12): road_rush_signal(front_road_m/front_rail_m 근접 티어 — 도로 100m 0.7/
+  300m 0.4, 철도 100m 1.0/300m 0.6, 미공급 0)을 compute_form_quality_facing에 결합(좌향 있을 때만
+  直충 penalty). 좌향 없는 지역 추천에선 항상 0(직충 강판정 금지). transport feature는 extract의
+  --with-transport opt-in.
+- E 팔택(§14-6): PaltaekDirection·PaltaekResult 타입 + compute_paltaek stub(기본 OFF→빈 결과,
+  enabled여도 본명궁 산식 감수 대기로 confidence 0). 용희신과 별개 체계 — 추천 점수 자동 결합 금지.
+- 검증: 신규 테스트 2(근접 티어·직충 점수 하락 / 팔택 OFF), unit 1070 pass, ruff·mypy clean.
+
+→ P5-3 전 슬라이스(A shadow·B 0.18블렌드·C form bonus±5·D road_rush·E 팔택OFF) 완료. 추가 활성
+(directional_terrain_bonus ±3, form ±8/road −6 확장, 팔택 본명궁 산식)은 감수 후 §14-12 확장표 적용.

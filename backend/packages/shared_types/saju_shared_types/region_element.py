@@ -564,6 +564,29 @@ class RemedySuggestion(BaseModel):
     element_to_reduce: list[str] = Field(default_factory=list)
 
 
+class PaltaekDirection(BaseModel):
+    """팔택 방위 1건(생기/천의/… 또는 절명/…)."""
+
+    direction: str  # 한국 8방위
+    grade: str  # high/medium/avoid
+    label: str  # 생기·천의·연년·복위 / 화해·육살·오귀·절명
+
+
+class PaltaekResult(BaseModel):
+    """팔택/본명궁 개인 길방위(docs/12 §14-6, optional·기본 OFF). 사주 용희신과 '별개 체계'다 —
+
+    추천 점수에 기본 미반영(enabled=False), 사용자가 '길방위·잘 방향·집 방향'을 물을 때만 보조로
+    켠다. 절대 용희신 우선 판정을 덮지 않는다(판정 우선순위 원칙). 본명궁 산식은 reviewed:false
+    감수 대기 — enabled여도 산식 미구현 단계에서는 confidence 0.
+    """
+
+    enabled: bool = False
+    auspicious_directions: list[PaltaekDirection] = Field(default_factory=list)
+    inauspicious_directions: list[PaltaekDirection] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    system: str = "paltaek"
+
+
 class RegionProfilesMeta(BaseModel):
     """프로필 스냅샷 메타(compiled/region_element_profiles_vX.meta.json, docs/12 §8).
 
@@ -626,6 +649,8 @@ __all__ = [
     "DirectionalSectorProfile",
     "FengshuiFormProfile",
     "RemedySuggestion",
+    "PaltaekDirection",
+    "PaltaekResult",
     "RegionProfilesMeta",
     "RegionProfilesSnapshot",
 ]
