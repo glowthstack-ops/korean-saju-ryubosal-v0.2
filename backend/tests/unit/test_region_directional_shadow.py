@@ -79,8 +79,8 @@ def test_directive_has_open_facing_and_separation_guard() -> None:
 
 
 @pytest.mark.skipif(not _SNAP.exists(), reason="directional 스냅샷 미빌드(gitignore — 재생성 필요)")
-def test_shadow_score_unchanged_and_evidence() -> None:
-    """실스냅샷: directional 유무로 match_score·랭킹 불변 + 청운효자동 N방위 산/수계 evidence."""
+def test_form_quality_bonus_bounded_and_base_preserved() -> None:
+    """P5-3C 실스냅샷: form_quality_bonus는 base_match_score 보존 + ±5 cap 내 보정(미반전)."""
     from saju_engines.region_element_engine import RegionElementEngine
     from saju_engines.region_recommendation_orchestrator import RegionRecommendationOrchestrator
     from saju_shared_types.region_element import (
@@ -97,10 +97,15 @@ def test_shadow_score_unchanged_and_evidence() -> None:
     q = RegionRecommendationQuery(
         target_elements=TargetElements(yongsin=["土"], huisin=["火"], gisin=["木"], gusin=["水"]),
         candidate_scope="서울", resolution=RegionResolution.EUP_MYEON_DONG,
-        intent_mode=IntentMode.RELOCATION, top_n=5)
-    plain = RegionRecommendationOrchestrator(eng).recommend_payload(q)
-    shadow = RegionRecommendationOrchestrator(
-        eng, DirectionalFeatureAdapter(_SNAP)).recommend_payload(q)
-    assert [(r["region_code"], r["match_score"]) for r in plain["regions"]] == \
-           [(r["region_code"], r["match_score"]) for r in shadow["regions"]]  # 점수·랭킹 불변
-    assert all(r["form_quality"]["applied_to_score"] is False for r in shadow["regions"])
+        intent_mode=IntentMode.RELOCATION, top_n=8)
+    plain = {r["region_code"]: r["match_score"]
+             for r in RegionRecommendationOrchestrator(eng).recommend_payload(q)["regions"]}
+    adj = RegionRecommendationOrchestrator(
+        eng, DirectionalFeatureAdapter(_SNAP)).recommend_payload(q)["regions"]
+    for r in adj:
+        assert r["form_quality"]["applied_to_score"] is True
+        assert r["base_match_score"] == plain[r["region_code"]]  # base 보존
+        assert abs(r["match_score"] - r["base_match_score"]) <= 5  # ±5 cap(미반전)
+    # 보정 점수로 재랭킹돼도 내림차순 유지.
+    scores = [r["match_score"] for r in adj]
+    assert scores == sorted(scores, reverse=True)

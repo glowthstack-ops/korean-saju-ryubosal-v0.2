@@ -122,17 +122,29 @@ class RegionRecommendationOrchestrator:
         """
         result = self._engine.recommend(query)
         terrain_available = self._directional is not None and self._directional_has_data()
-        regions: list[dict] = []
+        # P5-3C: form_quality_bonus(cap ±5 첫 릴리즈)를 base_match_score에 가산·재랭킹. base는 보존
+        # (base_match_score), bonus는 cap 내라 명확한 우위를 뒤집지 못한다(§14-12 금지 7).
+        adjusted_by_code: dict[str, int] = {}
+        scored: list[tuple[int, float, dict]] = []
         for ex in result.explanations:
             payload = _explanation_payload(ex)
+            adjusted = ex.match_score
             if self._directional is not None:
                 payload["directional_terrain"] = _directional_payload(
                     self._directional, ex.region_code
                 )
-                payload["form_quality"] = _form_quality_payload(
-                    self._directional, ex.region_code
-                )
-            regions.append(payload)
+                fq = _form_quality_payload(self._directional, ex.region_code)
+                bonus = _applied_form_bonus(fq)
+                adjusted = max(0, min(100, ex.match_score + bonus))
+                fq["applied_to_score"] = bool(bonus) or fq.get("available", False)
+                fq["bonus_applied"] = bonus
+                payload["form_quality"] = fq
+                payload["base_match_score"] = ex.match_score
+                payload["match_score"] = adjusted
+            adjusted_by_code[ex.region_code] = adjusted
+            scored.append((adjusted, ex.confidence, payload))
+        scored.sort(key=lambda t: (-t[0], -t[1]))  # 보정 점수 재랭킹
+        regions = [p for _, _, p in scored]
         computed_level = query.resolution.value
         out = {
             "intent": query.intent_mode.value,
@@ -145,7 +157,7 @@ class RegionRecommendationOrchestrator:
             "notes": result.notes,
         }
         if query.resolution in (RegionResolution.EUP_MYEON_DONG, RegionResolution.RI):
-            out["surface"] = _group_by_sigungu(result.explanations)
+            out["surface"] = _group_by_sigungu(result.explanations, adjusted_by_code)
         return out
 
     def _directional_has_data(self) -> bool:
@@ -183,23 +195,26 @@ def _explanation_payload(ex: RegionRecommendationExplanation) -> dict:
 
 def _group_by_sigungu(
     explanations: list[RegionRecommendationExplanation],
+    adjusted_by_code: dict[str, int] | None = None,
 ) -> list[dict]:
     """읍면동 추천을 시군구로 grouping(표시용). 계산 단위는 emd 유지, surface만 시군구.
 
     각 시군구 그룹: 대표 match_score(소속 emd 최고) + top_emd_candidates(코드·full_name·점수).
-    그룹 순서는 대표 점수 내림차순.
+    그룹 순서는 대표 점수 내림차순. adjusted_by_code(P5-3C form_quality 보정)가 있으면 그 값을 쓴다.
     """
+    adj = adjusted_by_code or {}
     groups: dict[str, dict] = {}
     for ex in explanations:
+        score = adj.get(ex.region_code, ex.match_score)
         sigungu = " ".join(ex.full_name_ko.split()[:-1]) or ex.full_name_ko
         g = groups.setdefault(sigungu, {
             "sigungu_full_name": sigungu, "match_score": 0, "top_emd_candidates": [],
         })
-        g["match_score"] = max(g["match_score"], ex.match_score)
+        g["match_score"] = max(g["match_score"], score)
         g["top_emd_candidates"].append({
             "region_code": ex.region_code,
             "full_name_ko": ex.full_name_ko,
-            "match_score": ex.match_score,
+            "match_score": score,
             "dominant_elements": ex.dominant_elements,
         })
     out = sorted(groups.values(), key=lambda g: -g["match_score"])
@@ -234,6 +249,18 @@ def _directional_payload(adapter: DirectionalFeatureAdapter, region_code: str) -
         "confidence": round(sum(confs) / len(confs), 3) if confs else 0.0,
         "directions": directions,
     }
+
+
+# P5-3C 첫 릴리즈 cap(§14-12, 검수 후 ±8 확장). form_quality는 base_match_score를 못 뒤집는다.
+_FORM_BONUS_CAP_FIRST = 5
+
+
+def _applied_form_bonus(fq: dict) -> int:
+    """form_quality preview → 실제 적용 보정(정수, ±5 cap). 미공급/미가용이면 0."""
+    if not fq.get("available"):
+        return 0
+    return int(round(max(-_FORM_BONUS_CAP_FIRST,
+                         min(_FORM_BONUS_CAP_FIRST, fq.get("bonus_preview", 0.0)))))
 
 
 def _form_quality_payload(

@@ -5667,3 +5667,16 @@ P5-3D road_rush(좌향) / P5-3E 팔택 stub. ※ B와 C는 동시 적용 금지(
   hanja+discrete 동일).
 - 검증: golden/p4/engine 49 + 전체 unit 1068 pass, ruff·mypy·dict validate clean. 추천 랭킹 불변
   (discrete가 EMD 미세 보강이라 golden SIG 케이스 무영향).
+
+---
+
+## P5-3C — form_quality_bonus 추천 점수 반영(cap ±5, 재랭킹) ✅ (2026-06-26)
+
+데굴님 §14-12: form_quality(좌향 없음 산수분포/수계접근/균형)를 추천 점수에 cap ±5로 가산. B와
+별도 슬라이스(추적성). directional adapter 있을 때만 적용(graceful).
+
+- recommend_payload: base_match_score 보존 + form_quality_bonus(±5 cap, _applied_form_bonus)
+  가산 → 보정 점수로 재랭킹. surface grouping도 보정 점수 사용. applied_to_score=true·bonus_applied
+  노출. cap이 명확한 우위를 못 뒤집음(§14-12 금지 7).
+- 검증: 월계동 78→82(+4) 등 ±5 내 보정, base 보존, 내림차순 유지. golden 불변(directional 미주입
+  orchestrator라 base 그대로). unit 1068 pass, ruff·mypy clean.
