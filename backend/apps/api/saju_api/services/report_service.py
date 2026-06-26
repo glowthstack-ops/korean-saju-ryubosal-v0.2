@@ -54,6 +54,8 @@ from saju_engines.structural_context import (
     wealth_capacity_lines,
     wealth_status_lines,
 )
+from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
+from saju_engines.topic_builder import build_topic_context
 from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_engines.wealth_status_lean import analyze_wealth_status_lean
 from saju_manse_core.calendar.solar_terms import get_table
@@ -64,6 +66,7 @@ from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import SubjectKind
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.report import ReportResult, ReportSpec, SectionContext, SectionPlan
+from saju_shared_types.topic_context import PeriodSpec as _TopicPeriodSpec
 
 from . import llm_client
 from .manse_service import calculate, luck_months
@@ -397,13 +400,25 @@ class _ReportData:
         # '엔진이 산출하지 않은' 점수만 막으면 됨). 전 scored 점수는 모두 실제 엔진 산출값이다.
         self.allowed_scores = sorted({c.score for c in scored})
 
+        # Topic Builder(M01~M15) extras — 섹션 module_calls 실행용(옵션1 배선, 지연 빌드).
+        self.owner_id = owner_id
+        self.subject_id = subject_id
+        self.birth = chart_birth  # M14 과거검증 extras
+        self._composites: list | None = None
+        _tg = getattr(self.result.force_analysis, "ten_gods", None)
+        self.natal_ten_god_dist: dict[str, float] = (
+            dict(_tg.distribution) if _tg and _tg.distribution else {}
+        )
+
         # 관계운 상대(궁합) 모드 — 상대 명식 + 원국A↔원국B 궁합 신호(엔진 계산).
         self.partner_summary = None
+        self.partner_result: ManseV2Result | None = None
         self.partner_prefix_lines: list[str] = []
         self.compatibility = None
         if partner_birth is not None:
             partner_chart = partner_birth.model_copy(update={"reference_date": today})
             partner_result = calculate(partner_chart)
+            self.partner_result = partner_result
             self.partner_summary = build_birth_summary(partner_result)
             self.partner_prefix_lines = serialize_chart_prefix(
                 self.partner_summary, build_chart_interpretation(partner_result),
@@ -429,6 +444,30 @@ class _ReportData:
         if self.compatibility is None:
             return ["[궁합 신호 없음 — 상대 명식이 없어 비교할 수 없습니다.]"]
         return compatibility_lines(self.compatibility)
+
+    @property
+    def composites(self) -> list:
+        """Topic Builder용 LuckComposite(연·월, 지연 빌드·캐시)."""
+        if self._composites is None:
+            from saju_engines.precompute import CompositeBuilder
+            from saju_shared_types.precompute import CompositeLevel
+            try:
+                self._composites = CompositeBuilder(_DICTS).build(
+                    self.result, "report", "1.0.0",
+                    f"{self.today.isoformat()}T00:00:00+00:00",
+                    levels={CompositeLevel.YEAR, CompositeLevel.MONTH},
+                )
+            except (ValueError, RuntimeError):
+                self._composites = []
+        return self._composites
+
+    def topic_module_block(self, module_id: str, spec: ReportSpec) -> list[str]:
+        """섹션이 의존하는 Topic Builder 모듈(M01~M15) 실행 → 확정 신호·정책 톤 줄(옵션1).
+
+        T0/T1/E* 등 비-토픽 ref는 무시. 모듈별 extras를 공급하고, 실패는 graceful(빈 줄).
+        findings는 점수 확정값, style은 절대원칙 8 정책 톤(LLM 입력 일관 적용).
+        """
+        return _topic_module_block(module_id, self, spec)
 
     def _collect_ganji(self) -> list[str]:
         ganji = list(self.summary.pillars.values())
@@ -864,6 +903,64 @@ def _product_framing(spec: ReportSpec) -> str:
     )
 
 
+def _topic_period(spec: ReportSpec) -> _TopicPeriodSpec:
+    """ReportSpec 기간 → Topic Builder PeriodSpec(연 단위 — 모듈은 연·월 신호 사용)."""
+    return _TopicPeriodSpec(
+        start=spec.period.start, end=spec.period.end, granularity="year",
+    )
+
+
+def _topic_module_block(module_id: str, data: _ReportData, spec: ReportSpec) -> list[str]:
+    """섹션 의존 Topic Builder 모듈(M01~M15) 실행 → 확정 신호·정책 톤(옵션1 배선).
+
+    T0/T1/E* 등 비-토픽 ref는 무시. 모듈별 extras 공급, 실패는 graceful(빈 줄). findings는 점수
+    확정값(새 수치 금지), tone_notes의 모듈 특화분만 정책 지침으로 싣는다(절대원칙 8 일관 적용).
+    """
+    if module_id not in _TOPIC_MODULES:
+        return []
+    period = _topic_period(spec)
+    try:
+        if module_id in ("M01", "M02", "M07", "M08", "M09", "M11", "M12", "M15"):
+            ctx = build_topic_context(module_id, spec.subjects, period, data.composites)
+        elif module_id in ("M03", "M04", "M05", "M06"):
+            if not data.natal_ten_god_dist:
+                return []
+            ctx = build_topic_context(
+                module_id, spec.subjects, period, data.composites,
+                natal_ten_god_dist=data.natal_ten_god_dist,
+            )
+        elif module_id == "M14":
+            ctx = build_topic_context(
+                module_id, spec.subjects, period, [],
+                birth=data.birth, scorer=data.scorer, compute=calculate,
+            )
+        elif module_id == "M13":
+            if data.partner_result is None or data.partner_summary is None:
+                return []
+            ctx = build_topic_context(
+                module_id, spec.subjects, period, [],
+                self_result=data.result, partner_result=data.partner_result,
+                self_useful=data.summary.useful_gods,
+                partner_useful=data.partner_summary.useful_gods,
+            )
+        else:  # M10 이사 복합은 별도 relocation_* 경로가 담당
+            return []
+    except Exception:  # noqa: BLE001 — 모듈 실패가 섹션·리포트를 막지 않도록(규칙11)
+        return []
+    if not ctx.findings:
+        return []
+    lines = [
+        f"[{module_id}·{_TOPIC_MODULES[module_id]} 토픽 신호 — 엔진 확정(점수·근거 고정, "
+        "표 밖 새 수치 생성 금지)]"
+    ]
+    lines += [f"- {f.summary} (점수 {f.score})" for f in ctx.findings[:4]]
+    # 모듈 특화 정책 톤(base 톤 1줄 제외)만 표현 지침으로 — 절대원칙 8 가드 일관 적용.
+    module_notes = ctx.style_rules.tone_notes[1:]
+    if module_notes:
+        lines.append("표현 지침(정책): " + " / ".join(module_notes))
+    return lines
+
+
 def build_section_context(
     plan: SectionPlan, spec: ReportSpec, data: _ReportData
 ) -> SectionContext:
@@ -967,6 +1064,15 @@ def build_section_context(
         lines += ["", _DAEWOON_TRANSITION_SIGNALS_DIRECTIVE]
     if sid in _OFF_PEAK_ADVICE_SECTIONS:
         lines += ["", _OFF_PEAK_DAEWOON_ADVICE_DIRECTIVE]
+    # Topic Builder(M01~M15) 배선(옵션1) — 섹션이 선언한 모듈을 실행해 확정 신호·정책 톤 주입.
+    seen_modules: set[str] = set()
+    for mc in plan.module_calls:
+        if mc.module_id in seen_modules:
+            continue
+        seen_modules.add(mc.module_id)
+        block = data.topic_module_block(mc.module_id, spec)
+        if block:
+            lines += ["", *block]
     subject_label = spec.subjects[0].label if spec.subjects else "본인"
     return SectionContext(
         section_id=plan.section_id,

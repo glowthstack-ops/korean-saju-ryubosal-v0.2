@@ -143,3 +143,21 @@ def test_pair_mode_without_partner_data_degrades_gracefully() -> None:
     by_id = {c.section_id: c for c in ctxs}
     assert "궁합 신호 없음" in by_id["RP-04"].body_prompt
     assert "상대 명식 없음" in by_id["RP-03"].body_prompt
+
+
+def test_topic_module_block_wired_into_report() -> None:
+    """옵션1: 섹션이 선언한 Topic Builder 모듈이 리포트 본문에 확정 신호+정책 톤으로 주입된다."""
+    from saju_shared_types.birth_input import BirthInput
+
+    birth = BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
+        birth_place_name="서울", gender="male", reference_date=date(2026, 6, 18))
+    spec = ReportSpec(
+        product_code="RPT_FOCUS", topic="wealth",
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        period=ReportPeriod(start="2026", end="2031"))
+    secs = report_service.plan_report(birth, spec, date(2026, 6, 18))
+    hits = [s for s in secs if "M09·wealth 토픽 신호" in s.body_prompt]
+    assert hits, "재물 섹션에 M09 토픽 모듈 블록이 주입돼야 함"
+    # 정책 톤(절대원칙 8 — 생활형 횡재 가드)이 동반된다.
+    assert any("번호·종목 픽 금지" in s.body_prompt for s in hits)
