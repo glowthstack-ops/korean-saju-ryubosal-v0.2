@@ -56,3 +56,6 @@ doc/gis/search_seed/
 # 산출물(재생성 가능, geo 가중 보정·전문가 감수 전이라 미활성). 빌드 스크립트(scripts/)는 추적.
 doc/gis/_geo_src/
 doc/gis/region_geo_features.jsonl
+# 방향성 지형 요약(31MB, 재생성: extract_osm_geo_features→build_region_directional_summary).
+# 런타임 graceful(부재 시 directional_terrain.available=false). 소형 compiled(profiles/admin)은 추적.
+backend/compiled/region_directional_summary_v1.json

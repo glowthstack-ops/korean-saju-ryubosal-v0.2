@@ -5627,3 +5627,25 @@ docs/12 §14-10 P5-2 — 방향성 지형(점·선 feature)을 OSM/NE에서 추�
 
 남은 슬라이스: P5-3A 배선(directional 스냅샷 build·shadow evidence)·P5-3 통합(form_quality_bonus를
 recommend에 cap 결합)·road/rail form penalty(transport)·팔택 stub OFF·golden 20+.
+
+---
+
+## P5-3A — directional_terrain·form_quality shadow 배선(점수 미반영) ✅ (2026-06-26)
+
+데굴님 지시: 점수 결합 전, 관측 가능성부터. directional_terrain/form_quality를 추천 payload에 노출하되
+match_score·랭킹·element_vector 불변.
+
+- 방향성 스냅샷 build(extract_osm_geo_features→build_region_directional_summary, 40,369행/5,065 emd,
+  31MB → gitignore·재생성, 런타임 graceful). 소형 compiled(profiles/admin)만 추적.
+- region_recommendation_orchestrator: _directional_payload를 방위별(N/E/S/W/간방) earth/wood/water +
+  top_features(≤5) + confidence로 enrich. _form_quality_payload 추가(score_raw·bonus_preview·
+  **applied_to_score=false**·evidence). 둘 다 directional adapter 있을 때만(opt-in shadow).
+- REGION_REASONING_DIRECTIVE: 좌향 없으면 사신사·배산임수 확정 금지('북쪽 산지 신호' 식만) +
+  directional_terrain≠relative_direction 분리 명시 + form_quality 점수 미반영 인용 금지.
+- 검증: directional 유무로 match_score·랭킹 **불변**(shadow), form_quality.applied_to_score=false,
+  relative_direction(direction)·directional_terrain 별도 필드, 사신사 라벨 미생성, top_features ≤5.
+- 신규 테스트 6(합성 adapter 결정론 + 실스냅샷 skipif), unit 1068 pass, ruff·mypy·dict validate clean.
+  기존 golden 불변(orchestrator가 directional 미주입 → terrain_data_available=false 유지).
+
+다음(각각 별도 게이트): P5-3B nearby_discrete_geo_layer(cap 0.18) / P5-3C form_quality_bonus(±5) /
+P5-3D road_rush(좌향) / P5-3E 팔택 stub. ※ B와 C는 동시 적용 금지(신호 추적성).

@@ -19,6 +19,7 @@ from saju_shared_types.region_element import (
     TargetElements,
 )
 
+from .fengshui_form import compute_form_quality_open
 from .region_element_engine import RegionElementEngine
 from .region_geo_stubs import DirectionalFeatureAdapter
 
@@ -31,7 +32,14 @@ REGION_REASONING_DIRECTIVE = (
     "terrain_data_available=false면(directional_terrain.available=false 포함) "
     "'이 지역 북쪽에 산'·'남쪽에 하천'·'배산임수'·'풍수적으로 완성' 같은 실제 지형/방향 "
     "주장을 절대 하지 말 것 — 지명·한자·음운·방위·기초 스키마 기반 1차 추정임을 밝힌다. "
-    "산·하천·해안·DEM 원천이 연결되면 지역별 지형 오행 정확도가 올라간다고 안내할 수 있다."
+    "산·하천·해안·DEM 원천이 연결되면 지역별 지형 오행 정확도가 올라간다고 안내할 수 있다. "
+    # directional_terrain은 '후보 지역 내부' 기준 산·물·숲의 방위 분포다(relative_direction=사용자
+    # 기준 후보 방향과 다름 — 섞지 말 것). 좌향(facing) 정보가 없으므로 사신사·배산임수 강판정 금지.
+    "directional_terrain.available=true라도 좌향(facing) 정보가 없으면 사신사(현무·주작·청룡·"
+    "백호)나 '배산임수'를 확정하지 말고 '북쪽에 산지 신호·남쪽에 수계 신호·산/물/숲 분포가 함께 "
+    "관측' 식으로만 서술한다. directional_terrain은 사용자 기준 방향(relative_direction)과 다른 "
+    "'지역 내부 지형 방위'다 — 둘을 섞지 말 것. form_quality는 참고 보정값이며 이 단계에서는 추천 "
+    "점수에 반영하지 않는다(applied_to_score=false) — 점수 근거로 인용하지 말 것."
 )
 # 내부 계산 단위(emd)와 사용자 표시 단위(sig grouping) 분리(요구사항 1: 동·읍 단위 판별 유지).
 _RESOLUTION_SURFACE = {
@@ -121,6 +129,9 @@ class RegionRecommendationOrchestrator:
                 payload["directional_terrain"] = _directional_payload(
                     self._directional, ex.region_code
                 )
+                payload["form_quality"] = _form_quality_payload(
+                    self._directional, ex.region_code
+                )
             regions.append(payload)
         computed_level = query.resolution.value
         out = {
@@ -199,18 +210,50 @@ def _group_by_sigungu(
 
 
 def _directional_payload(adapter: DirectionalFeatureAdapter, region_code: str) -> dict:
-    """주변 방향성 지형 → payload(available/벡터/하이라이트). 데이터 없으면 available=False."""
-    result = adapter.evaluate(region_code)
-    if not result.available:
+    """후보 지역 '내부' 기준 방위별(N/E/S/W/간방) 산·물·숲 분포(P5-3A shadow, 점수 미반영).
+
+    relative_direction(사용자 기준 후보 방향)과 다른 directional_terrain이다(§14-12). 방위별
+    earth/wood/water 신호 + top_features(방위당 ≤5). 데이터 없으면 available=False.
+    """
+    rows = adapter.by_direction(region_code)
+    if not rows:
         return {"available": False}
-    highlights = [
-        f"{f.direction_code} {f.feature_name or f.feature_type} {round(f.distance_m)}m"
-        for f in result.features[:5]
-    ]
+    directions: dict[str, dict] = {}
+    for r in rows:
+        feats = [t.name or t.type for t in r.top_features[:5]]
+        if r.earth_score or r.wood_score or r.water_score or feats:
+            directions[r.direction_code] = {
+                "earth": round(r.earth_score, 3),
+                "wood": round(r.wood_score, 3),
+                "water": round(r.water_score, 3),
+                "top_features": feats,
+            }
+    confs = [r.confidence for r in rows if r.confidence > 0]
     return {
         "available": True,
-        "vector": result.directional_element_vector.as_map(),
-        "highlights": highlights,
+        "confidence": round(sum(confs) / len(confs), 3) if confs else 0.0,
+        "directions": directions,
+    }
+
+
+def _form_quality_payload(
+    adapter: DirectionalFeatureAdapter, region_code: str
+) -> dict:
+    """풍수 형국 품질 preview(P5-3A shadow). 좌향 없으므로 지역 단위(산수분포/균형)만 — 점수 미반영.
+
+    applied_to_score=false: 이 단계에서는 추천 점수·랭킹에 절대 반영하지 않는다(§14-12 활성화 순서).
+    """
+    rows = adapter.by_direction(region_code)
+    if not rows:
+        return {"available": False, "applied_to_score": False}
+    prof = compute_form_quality_open(rows, region_code)
+    bonus_preview = round(max(-5.0, min(5.0, prof.form_quality_score * 8.0)), 2)
+    return {
+        "available": prof.available,
+        "score_raw": round(prof.form_quality_score, 3),
+        "bonus_preview": bonus_preview,  # 적용 시 예상치(현재 미적용)
+        "applied_to_score": False,
+        "evidence": prof.evidence,
     }
 
 
