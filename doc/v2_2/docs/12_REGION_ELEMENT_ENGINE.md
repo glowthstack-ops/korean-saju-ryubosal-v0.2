@@ -575,3 +575,91 @@ P5-3 채점·가중(전문가 감수 후 활성): form_quality·penalty·도로/
 6. 방위 역할(현무 등)은 좌향(facing) 입력에서 계산 — region_profile에 고정 저장 금지.
 7. 형국·도로·팔택 가중은 reviewed:false — 전문가 감수 전 활성/출시 금지(절대원칙 5).
 ```
+
+### 14-12. P5-3 활성화 보정 기준 (데굴님 감수 확정 2026-06-26)
+
+> reviewed:false 가중을 푸는 **권위 결정**. 핵심: 정확한 지형 데이터를 *어디에* 반영하느냐 —
+> 방향성 지형을 region profile에 직접 합산하지 말고, 형국 레이어로 분리하고, 추천 점수엔 작은
+> 보정값으로만. 팔택 기본 OFF.
+
+**명칭 분리(혼동 금지)**
+```
+relative_direction   = 사용자 현재 위치 기준 후보 지역의 방향(기존, region_element_engine 그대로)
+directional_terrain  = 후보 지역 '내부' 기준 산·물·숲·해안의 8방위 분포(P5-2 산출 — NEW)
+fengshui_form        = directional_terrain을 풍수 형국으로 해석한 결과(FengshuiFormProfile)
+```
+P5-2 directional 요약을 relative_direction이라 부르지 않는다(§14-11 가드 보강).
+
+**활성화 순서(고정)**
+```
+1) directional_terrain evidence 노출(shadow — recommendation score 영향 0, LLM 설명 근거만)
+2) nearby_discrete_geo_layer 보수 반영(지역 오행 보강, max 가중 0.18)
+3) form_quality 별도 계산(FengshuiFormProfile, region_element_vector와 분리)
+4) road_rush는 좌향(facing_bearing) 있을 때만
+5) 팔택 기본 OFF
+```
+
+**지역 오행 레이어 우선순위**
+```
+면적비 GIS(region_geo_features forest/water/mountain) > 이산 방향성(P5-2) > 한자 > 음운
+nearby_discrete_geo_layer 가중 cap 0.18 (P3 집계형 있으면 그쪽 우선)
+```
+
+**추천 점수 결합 + cap(첫 릴리즈 보수 → 검수 후 확장)**
+```
+final = base_match_score(용희기구신×지역오행, 주판정)
+        + directional_terrain_bonus   첫 cap ±3  (확장 ±4)
+        + form_quality_bonus          첫 cap ±5  (확장 ±8)
+        − road_rail_penalty           첫 cap −4  (확장 −6)
+        + paltaek_bonus               기본 0(OFF) (옵션 ON 시 ±5)
+form_quality·directional은 base_match_score를 뒤집지 못한다(보정만).
+```
+
+**form_quality 산식(좌향 없음 — 지역 단위, 사신사 단정 금지)**
+```
+raw = 0.25*mountain_support + 0.20*water_access + 0.20*forest_support
+      + 0.15*terrain_balance − 0.20*overwater_penalty − 0.15*isolation_penalty
+adjusted = raw * confidence ; score_bonus = clamp(adjusted*8, −8, +8)  # 첫 릴리즈 ±5 cap
+```
+**form_quality 산식(좌향 있음 — 사신사 전후좌우, facing_bearing 입력 시만)**
+```
+raw = 0.30*back_mountain + 0.20*front_water_or_open + 0.15*left_dragon
+      + 0.10*right_tiger_balance − 0.20*front_blocked − 0.20*road_rush − 0.15*overwater
+form_quality_bonus cap ±10(확장)
+```
+
+**도로·철도(§14-5 확정)** — region element에 넣지 않음(use_as_region_element=false). 선형은 form
+penalty(road_rush)로만 소비. node(역·교차로)만 modern_activity 보조(station_poi는 element 가능).
+```
+좌향 없음: 도로/철도 100m 이내 pressure_candidate, 300m 이내 minor — 기록만(판정 강제 금지)
+좌향 있음: front sector ±22.5° 안 + 300m 이내 + bearing 일치 → road_rush_penalty
+  major front 300m −0.04 / 100m −0.07 ; rail front 300m −0.06 / 100m −0.10 ; total cap −6
+```
+
+**팔택** — 타입·옵션만, 기본 OFF. 사용자 질문이 '길방위/잘 방향/집 방향'일 때만 ON. 설명은 사주
+오행 기준과 분리("방위론 기준으로는 보조적으로…"), '동쪽=무조건 길방' 류 단정 금지. cap ±5.
+
+**거리 감쇠 버킷 + feature별 영향 반경**
+```
+0~1km 1.00 / 1~3km 0.70 / 3~5km 0.45 / 5~10km 0.20 / 10km 초과 제외
+mountain_peak 10km · coast_anchor 10km · lake_centroid 7km · river_anchor 5km · forest_patch 5km
+```
+
+**OSM/NE confidence(공식 GIS보다 낮게)**
+```
+mountain_peak 0.70 · coast_anchor 0.75 · river_anchor 0.65 · lake_centroid 0.65 · forest_patch 0.60
+manual_verified +0.15 · official_gis +0.15~0.25
+```
+
+**golden 20+ 카테고리**: 산지형(청운효자·정릉·장전·대관령)·수변형(망원·잠실·미사·우동)·산수혼합
+(청운효자·조안·신북·단양)·평야도시(역삼·동성로·반곡·요촌)·해안(우동·연안·주문진·애월). 기대:
+산=木 단정 금지 / 수변·해안 무조건 길 금지 / 복합 단일오행 금지 / 도시형 火金은 modern layer.
+
+**P5-3 금지사항(고정)**
+```
+1 directional_terrain을 relative_direction이라 부르지 말 것
+2 산을 木으로 단정하지 말 것       3 하천/해안 있으면 무조건 길 금지
+4 좌향 없이 사신사 길흉 강판정 금지  5 도로/철도를 무조건 오행 점수에 넣지 말 것
+6 팔택을 기본 추천 점수에 섞지 말 것  7 form_quality가 base_match_score를 뒤집지 못하게
+8 OSM/NE confidence를 공식 GIS보다 높게 두지 말 것
+```
