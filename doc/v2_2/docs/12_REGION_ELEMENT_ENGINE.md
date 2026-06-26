@@ -149,6 +149,7 @@ base_location → 후보 centroid → bearing → 방위 오행. **`region_eleme
 배산임수·산지 포위성·수구 방향·분지성·개활성·해안성·교통 관문성을 DEM/경계로 자동 판정.
 오행을 직접 확정하기보다 "지역 품질 보정"에 가깝다: `배산임수→土+水 안정 가산`,
 `분지→土 강·水 정체 보정`, `강변 개활→水+火`, `산림 계곡→木+水+土`.
+**상세 설계는 §14**(풍수 형국·방위 역할 — 사신사·좌향·팔택·비보, 감수 대기).
 
 ## 5. 최종 오행 산식
 
@@ -244,6 +245,10 @@ dominance + evidence. 요청 시점엔 스냅샷 로드 후 사용자 매칭·�
 | P4-A | 의도별 가중 치환·evidence 구조화·chat 오케스트레이션·택일 bridge | 무 | ✅ 2026-06-26 |
 | P4-B | 방향성 지형(산/하천/해안) — feature index→방위 요약 파이프라인+어댑터(데이터 공급 시 활성) | 유 | ✅ 2026-06-26 |
 | P4-B(풍수) | 배산임수·분지 등 형국(DEM) — FengshuiFormAdapter 스텁(DEM 미공급) | 유 | 스텁 |
+| P4-Data(Tier B) | 무로그인 지형 연결(OSM 실폴리곤+토지피복/수계 + NE 해/육 + Copernicus DEM), 면적비·고도·경사 산출 파이프라인(scripts/build_geo_features.py) | 유 | 연결완료·활성대기(가중 감수) |
+| P5-1 | 풍수 형국·방위 역할 스캐폴딩(§14) — TerrainRole/FormEffect/FengshuiFormProfile/사신사 sector 함수 + 결과 블록 graceful, 무보정 | 무 | 설계 §14 |
+| P5-2 | 이산 feature 추출(OSM peak/waterway/road/rail→external_feature→region_feature_direction) | 유 | 설계 §14 |
+| P5-3 | 형국 채점·도로/팔택 가중 활성(전문가 감수 후) + golden 재생성 | 유 | 감수 대기 |
 
 각 Phase = 타입 + 구현 + 단위 테스트 + 회귀 픽스처(완료 기준, docs/07).
 
@@ -416,3 +421,157 @@ README 한계) → P3는 §10 정의대로 **"스키마+어댑터+스텁, 공급
 [graph_builder.py](../../../backend/packages/saju_engines/saju_engines/graph_builder.py)에 노드
 `region`·`region_layer_signal`, 엣지 `region→signal→element→{yongsin/huisin/gisin/gusin}`를 추가.
 **점수 계산엔 미관여**, 근거 경로(evidence path) 직렬화 전용(P4).
+
+---
+
+## 14. 풍수 형국·방위 역할 레이어 (V2 확장 — 2026-06-26 설계검토 반영)
+
+> 데굴님 외부 자료(산·물·도로·좌향·양택 길흉 결합 체계) 검토를 본 엔진과 정합하게 정리한 **설계
+> 초안**이다. 채점 가중은 **명리 표준 규격 없는 자체 기준(reviewed:false)** 이므로 전문가 감수
+> 전 활성화 금지(절대원칙 5). 데이터 연결만으로는 부족함을 P4-Data에서 확인했다 — 가중 보정이
+> 별도 감수 단계다. 본 절은 §4-5(풍수 형국 V2)·§4-4(방위)의 상세 확장이다.
+
+### 14-0. 분리 계약 (핵심 — 점수 미혼합)
+
+판정을 4계층으로 분리하고 **점수를 섞지 않는다**. 각 계층은 독립 evidence로 산출·저장·게이트한다.
+
+```
+A. Region Element Profile  → 이 지역이 木火土金水 중 무엇이 강한가 (고정, §4·§5)
+B. Fengshui Form Profile   → 산·물·도로·개활의 배치 품질이 좋은가/나쁜가 (14-4)
+C. Personal Direction Match→ 사용자 기준 이 방향/좌향이 맞는가 (용신 혼합=14, 팔택 optional=14-6)
+D. Recommendation Result   → A+B+C 결합 + 비보 제안 (가중 결합, 14-9)
+```
+
+근거: 水가 강한 지역이라도 사용자에게 水가 기신이면 A는 감점, 그러나 물이 감싸 흐르면 B는 가산
+일 수 있다 — A(오행 길흉)와 B(형국 품질)는 **다른 축**이라 한 점수로 합치면 정보가 소실된다.
+기존 `RegionRecommendationExplanation`(element_vector·fit_summary·evidence·missing_layers)에
+`fengshui_form`·`personal_direction`·`remedy` 블록을 **추가**해 분리 유지한다(14-9).
+
+### 14-1. terrain_role / form_effect enum (feature 의미 세분)
+
+기존 `external_feature.feature_type`(mountain|river|lake|coast|forest…)에 **역할(role)** 을
+덧붙인다. feature_type=무엇인가, terrain_role=어떻게 작용하는가.
+
+```
+TerrainRole = mountain_support | forest_support | river_flow | lake_water | coast_water
+            | valley_water | road_rush | rail_metal | open_field | urban_heat | industrial_metal
+FormEffect  = back_support | front_open | left_dragon | right_tiger | water_embrace
+            | road_rush | water_escape | excessive_pressure | isolated_flat | neutral
+```
+
+오행 매핑은 §4-1·`region_geo_signal_rules`를 재사용(이미 구현됨): **산=土 기본, 산림 확인 시 木
+보조**(山 context_rule default 土 / alt 木), 浦=水(harbor면 金 보조). 도로·철도는 14-5.
+
+### 14-2. 방향성 feature 모델 + 좌향 두 모드
+
+기존 sqlite `region_feature_direction`(region_code·feature_id·direction_code·bearing_deg·
+distance_m·within_region_yn·element_signal·signal_weight)이 이 모델의 저장소다 — **채우기만
+대기**. anchor 기준 8방위 feature를 읽어 `top_features`(name·type·distance·element_signal·
+terrain_role)로 집계한다([region_directional.py](../../../backend/packages/saju_engines/saju_engines/region_directional.py) 확장).
+
+- **모드 A(좌향 없음)** — 지역 자체 판단: 북/동/남/서/간방별 산·물·도로 분포만. *현행 8방위 집계.*
+- **모드 B(좌향 있음)** — 집·아파트·이사지: `facing_bearing`로 전후좌우 sector 변환. **신규.**
+  ```
+  front = facing_bearing ; back = +180° ; left = −90° ; right = +90°
+  ```
+  → "북쪽 산이 항상 현무" 오류 방지(남향=북산 현무, 동향=서산 현무). DirectionalSectorProfile.
+
+### 14-3. 사신사 구조 (모드 B 위)
+
+```
+현무(back)  = 뒤 산·구릉 → 안정·보호 → back_mountain_score
+주작(front) = 앞 개활·물·도로·시야 → front_water_score + open_front_score
+청룡(left)  = 좌 산세·녹지 흐름 → left_dragon_score
+백호(right) = 우 산세(과하지 않게) → right_tiger_score
+```
+
+### 14-4. FengshuiFormProfile 스키마 + 채점 (B 계층)
+
+```sql
+CREATE TABLE region_fengshui_form_profile (
+  region_code TEXT PRIMARY KEY,
+  back_mountain_score REAL, front_water_score REAL, left_dragon_score REAL,
+  right_tiger_score REAL, open_front_score REAL,
+  road_rush_penalty REAL, water_escape_penalty REAL,
+  excessive_pressure_penalty REAL, isolated_flat_penalty REAL,
+  form_quality_score REAL,            -- 가산 − 페널티 종합(B 단일 품질)
+  confidence REAL DEFAULT 0.5, evidence_json TEXT
+);
+```
+
+`form_quality_score`는 **B 계층 단독** 품질이며 A(오행 벡터)에 더하지 않는다. 가중·임계는 감수 대상.
+
+### 14-5. 물길·도로/철도 특수 처리
+
+- **하천**: 가까운 물=水. 유향 미상이면 `flow_known=false`·`form_effect=water_signal_only`로
+  水 신호만. P5에서 line geometry 확보 시 곡류(감싸=가산)/직류(直沖=충)/수구(빠짐=불안정) 판정.
+- **도로·철도(현대 물길, 성질 다름)**: 곡선·접근성→火/金 보조, 직선 정면=`road_rush_penalty`,
+  고속·철도 인접=金 강+소음 살기. feature_subtype: major_road_anchor·road_intersection·
+  railway_anchor·station_poi·bridge_poi·tunnel_poi. 매핑 예(감수 전 초안):
+  ```
+  major_road_anchor {火0.45 金0.35 土0.20} | road_intersection {火0.60 金0.30 土0.10}
+  railway_anchor    {金0.70 火0.20 土0.10} | station_poi       {金0.45 火0.35 土0.20}
+  ```
+  → `transport_access`/`modern_activity` 레이어(region_layer_weights에 이미 계획됨)로 귀속.
+
+### 14-6. 팔택/본명궁 — optional 개인 방위 (C 계층, 보조)
+
+`personal_direction_engine.py`(신규, optional). 입력 birth_year·gender·direction_model=
+"paltaek_optional" → 생기/천의/… 길방·절명/… 흉방. **가드레일**: 사주 용희신 기반 추천과 **다른
+체계**라 절대 섞지 않고 **항상 보조**(판정 우선순위 원칙: 길흉=용신/기신이 1차). 기본 비활성,
+사용자 선택 시만. [region_direction.py](../../../backend/packages/saju_engines/saju_engines/region_direction.py)가
+이미 "후천팔괘=좌향용 별개 체계"로 분리 명시 — 그 경계를 따른다.
+
+### 14-7. 비보/보완 제안 (D 계층 부가)
+
+지역이 완벽하지 않아도 "어떻게 보완하나"를 안내(서비스 가치 큼). 단정 금지(절대원칙 3).
+
+```
+RemedySuggestion = { issue, recommendation, element_to_add[], element_to_reduce[] }
+```
+
+오행 보완(생활권 선택)·기신 회피 표:
+```
+필요 木→숲·공원·산록 / 火→남향·채광·상권 / 土→구릉·평지·학교관공서 주변
+     金→역세권·도로망·계획도시 / 水→강·호수·바다·유동인구
+기신 木→숲과다·습목 / 火→과상권·열섬 / 土→답답한 분지·산압 / 金→공업·철도대로변 / 水→강변저지·습지
+```
+
+### 14-8. SearchSeed CSV 컬럼 확장
+
+기존 컬럼(feature_id…element_water,confidence,review_status,raw_json)에 추가:
+`feature_subtype, terrain_role, form_effect, is_supportive, is_penalty`.
+(P4-SearchSeed 산출물은 reviewed:false — §10 SearchSeed 절차 동일.)
+
+### 14-9. 추천 결과 출력 구조 (분리 유지)
+
+`RegionRecommendationExplanation`에 블록 추가(계산은 엔진, LLM엔 결과만 — 절대원칙 1·9):
+```
+region_element  : {dominant_elements, summary}            # A
+fengshui_form   : {summary, positive[], caution[]}        # B (미공급 시 caution=["미확인"])
+personal_match  : {summary}                               # C (팔택 활성 시만)
+remedy          : RemedySuggestion[]                      # D
+```
+미공급 레이어는 감점 아닌 표시(missing_layers, 절대원칙 11).
+
+### 14-10. 구현 순서 (P5) + 감수 게이트
+
+```
+P5-1 스캐폴딩(무보정·회귀 무영향): TerrainRole·FormEffect·FengshuiFormProfile·
+     DirectionalSectorProfile·RemedySuggestion 타입 + 사신사 sector 변환 함수 +
+     추천 결과 fengshui_form 블록(빈 값 graceful, 점수 0).
+P5-2 이산 feature 추출: OSM natural=peak / waterway(line) / road(line) / railway →
+     external_feature → region_feature_direction(bearing·distance·within·terrain_role).
+     ※ P4-Data의 '면적 비율'과 별개 추출(점·선 feature·방위).
+P5-3 채점·가중(전문가 감수 후 활성): form_quality·penalty·도로/철도 매핑·팔택 →
+     region_layer_weights/region_geo_signal_rules 보정 → golden 픽스처 재생성.
+```
+
+### 14-11. 설계 가드레일 (피해야 할 것 — §11 보강)
+
+```
+4. A(오행)·B(형국)·C(방위)·팔택 점수를 한 숫자로 합치지 말 것 — 분리 evidence 유지.
+5. 팔택/본명궁이 용희신 길흉을 덮지 말 것 — 항상 보조·optional.
+6. 방위 역할(현무 등)은 좌향(facing) 입력에서 계산 — region_profile에 고정 저장 금지.
+7. 형국·도로·팔택 가중은 reviewed:false — 전문가 감수 전 활성/출시 금지(절대원칙 5).
+```
