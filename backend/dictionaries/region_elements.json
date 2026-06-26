@@ -2806,6 +2806,432 @@
       ],
       "status": "검수필요",
       "reviewed": false
+    },
+    {
+      "region": "경기도 수원시 장안구",
+      "sido": "경기도",
+      "district": "수원시 장안구",
+      "hanja": "長安區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:수원시 상속"
+    },
+    {
+      "region": "경기도 수원시 권선구",
+      "sido": "경기도",
+      "district": "수원시 권선구",
+      "hanja": "勸善區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:수원시 상속"
+    },
+    {
+      "region": "경기도 수원시 팔달구",
+      "sido": "경기도",
+      "district": "수원시 팔달구",
+      "hanja": "八達區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:수원시 상속"
+    },
+    {
+      "region": "경기도 수원시 영통구",
+      "sido": "경기도",
+      "district": "수원시 영통구",
+      "hanja": "靈通區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:수원시 상속"
+    },
+    {
+      "region": "경기도 성남시 수정구",
+      "sido": "경기도",
+      "district": "성남시 수정구",
+      "hanja": "壽井區",
+      "element": "火",
+      "elements": [
+        "火",
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:성남시 상속"
+    },
+    {
+      "region": "경기도 성남시 중원구",
+      "sido": "경기도",
+      "district": "성남시 중원구",
+      "hanja": "中院區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경기도 성남시 분당구",
+      "sido": "경기도",
+      "district": "성남시 분당구",
+      "hanja": "盆唐區",
+      "element": "火",
+      "elements": [
+        "火",
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:성남시 상속"
+    },
+    {
+      "region": "경기도 안양시 만안구",
+      "sido": "경기도",
+      "district": "안양시 만안구",
+      "hanja": "萬安區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:안양시 상속"
+    },
+    {
+      "region": "경기도 안양시 동안구",
+      "sido": "경기도",
+      "district": "안양시 동안구",
+      "hanja": "東安區",
+      "element": "木",
+      "elements": [
+        "木"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경기도 안산시 상록구",
+      "sido": "경기도",
+      "district": "안산시 상록구",
+      "hanja": "常綠區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:안산시 상속"
+    },
+    {
+      "region": "경기도 안산시 단원구",
+      "sido": "경기도",
+      "district": "안산시 단원구",
+      "hanja": "檀園區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:안산시 상속"
+    },
+    {
+      "region": "경기도 고양시 덕양구",
+      "sido": "경기도",
+      "district": "고양시 덕양구",
+      "hanja": "德陽區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경기도 고양시 일산동구",
+      "sido": "경기도",
+      "district": "고양시 일산동구",
+      "hanja": "一山東區",
+      "element": "土",
+      "elements": [
+        "土",
+        "木"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경기도 고양시 일산서구",
+      "sido": "경기도",
+      "district": "고양시 일산서구",
+      "hanja": "一山西區",
+      "element": "土",
+      "elements": [
+        "土",
+        "金"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경기도 용인시 처인구",
+      "sido": "경기도",
+      "district": "용인시 처인구",
+      "hanja": "處仁區",
+      "element": "土",
+      "elements": [
+        "土",
+        "金"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:용인시 상속"
+    },
+    {
+      "region": "경기도 용인시 기흥구",
+      "sido": "경기도",
+      "district": "용인시 기흥구",
+      "hanja": "器興區",
+      "element": "土",
+      "elements": [
+        "土",
+        "金"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:용인시 상속"
+    },
+    {
+      "region": "경기도 용인시 수지구",
+      "sido": "경기도",
+      "district": "용인시 수지구",
+      "hanja": "水枝區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "충청북도 청주시 상당구",
+      "sido": "충청북도",
+      "district": "청주시 상당구",
+      "hanja": "上黨區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:청주시 상속"
+    },
+    {
+      "region": "충청북도 청주시 서원구",
+      "sido": "충청북도",
+      "district": "청주시 서원구",
+      "hanja": "西原區",
+      "element": "土",
+      "elements": [
+        "土",
+        "金"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "충청북도 청주시 흥덕구",
+      "sido": "충청북도",
+      "district": "청주시 흥덕구",
+      "hanja": "興德區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:청주시 상속"
+    },
+    {
+      "region": "충청북도 청주시 청원구",
+      "sido": "충청북도",
+      "district": "청주시 청원구",
+      "hanja": "淸原區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "충청남도 천안시 동남구",
+      "sido": "충청남도",
+      "district": "천안시 동남구",
+      "hanja": "東南區",
+      "element": "木",
+      "elements": [
+        "木",
+        "火"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "충청남도 천안시 서북구",
+      "sido": "충청남도",
+      "district": "천안시 서북구",
+      "hanja": "西北區",
+      "element": "金",
+      "elements": [
+        "金",
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "전라북도 전주시 완산구",
+      "sido": "전라북도",
+      "district": "전주시 완산구",
+      "hanja": "完山區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "전라북도 전주시 덕진구",
+      "sido": "전라북도",
+      "district": "전주시 덕진구",
+      "hanja": "德津區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경상북도 포항시 남구",
+      "sido": "경상북도",
+      "district": "포항시 남구",
+      "hanja": "南區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경상북도 포항시 북구",
+      "sido": "경상북도",
+      "district": "포항시 북구",
+      "hanja": "北區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경상남도 창원시 의창구",
+      "sido": "경상남도",
+      "district": "창원시 의창구",
+      "hanja": "義昌區",
+      "element": "火",
+      "elements": [
+        "火"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:창원시 상속"
+    },
+    {
+      "region": "경상남도 창원시 성산구",
+      "sido": "경상남도",
+      "district": "창원시 성산구",
+      "hanja": "城山區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경상남도 창원시 마산합포구",
+      "sido": "경상남도",
+      "district": "창원시 마산합포구",
+      "hanja": "馬山合浦區",
+      "element": "水",
+      "elements": [
+        "水",
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경상남도 창원시 마산회원구",
+      "sido": "경상남도",
+      "district": "창원시 마산회원구",
+      "hanja": "馬山會原區",
+      "element": "土",
+      "elements": [
+        "土"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
+    },
+    {
+      "region": "경상남도 창원시 진해구",
+      "sido": "경상남도",
+      "district": "창원시 진해구",
+      "hanja": "鎭海區",
+      "element": "水",
+      "elements": [
+        "水"
+      ],
+      "status": "추가(통합시 자치구)",
+      "reviewed": false,
+      "note": "통합시 자치구 자체 한자 등재(폴백 오류 수정) — 산출:구 한자"
     }
   ]
 }

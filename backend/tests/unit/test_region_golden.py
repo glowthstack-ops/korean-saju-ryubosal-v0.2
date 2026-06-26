@@ -141,3 +141,25 @@ def test_golden_case_count_and_terrain_guard() -> None:
     orch = RegionRecommendationOrchestrator(eng)
     sampled = orch.recommend_payload(_query(cases[0]))
     assert sampled["terrain_data_available"] is False  # 외부 데이터 미연결 상태 고정
+
+
+def test_consolidated_city_districts_use_own_hanja() -> None:
+    """통합시 자치구는 도시 한자 폴백이 아니라 자체 한자로 산출된다(2026-06-26 데굴님 지적).
+
+    마산합포구(馬山合浦)는 浦=水라 水 우세여야 하고, 성산구(城山)는 土라야 한다 — 둘이 같은
+    창원시(昌原=原 土)로 뭉뚱그려져 동일 土로 나오던 폴백 결함의 회귀 가드.
+    """
+    eng = _engine()
+
+    def dom(name: str) -> str:
+        code, _ = eng.resolve_region(name)
+        assert code is not None, f"{name} 미해소"
+        p = eng.get_profile(code)
+        assert p is not None and p.dominant_elements
+        return p.dominant_elements[0]
+
+    assert dom("마산합포구") == "水"  # 浦(물가·항구) 반영
+    assert dom("창원 성산구") == "土"  # 城山
+    assert dom("마산합포구") != dom("창원 성산구")  # 도시 폴백 collapse 아님
+    assert dom("용인 수지구") == "水"  # 水枝
+    assert dom("고양 덕양구") == "火"  # 德陽
