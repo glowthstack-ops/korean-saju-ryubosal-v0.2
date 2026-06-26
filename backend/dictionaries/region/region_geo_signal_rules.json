@@ -1,0 +1,30 @@
+{
+  "version": "0.1.0",
+  "reviewed": false,
+  "note": "지형·수계·토지피복 feature → 오행 신호 매핑(docs/12 §3-C·§4-1). P3 지형 어댑터가 RegionGeoFeature의 각 필드를 layer(physical_geography 지형형상·고도·향 / landcover_hydro_forest 피복·수계·산림)별 오행 벡터로 변환한다. 핵심: 산 지형성(mountain_score)은 土, 산림 피복(forest_area_ratio)은 木으로 분리(§4-1 '山을 무조건 木으로 보지 않는다'). value 정규화: ratio/score/bool은 0~1, density·고도는 norm으로 나눠 0~1 클램프. scale=주 오행 가중, alt_element/alt_scale=혼합 보조 오행. 명리 표준 규격 없는 자체 기준 초안으로 전문가 검수 전 출시 금지(reviewed:false, 절대원칙 5). 외부 지형 데이터 공급 전까지 미활성(스텁).",
+  "layer_confidence": { "base": 0.58, "per_active_signal": 0.09, "max": 0.92, "active_min_value": 0.1 },
+  "signals": [
+    { "field": "forest_area_ratio", "layer": "landcover_hydro_forest", "element": "木", "scale": 1.0 },
+    { "field": "water_area_ratio", "layer": "landcover_hydro_forest", "element": "水", "scale": 1.0 },
+    { "field": "river_length_density", "layer": "landcover_hydro_forest", "element": "水", "scale": 0.8, "norm": 5.0 },
+    { "field": "wetland_ratio", "layer": "landcover_hydro_forest", "element": "水", "scale": 0.7 },
+    { "field": "agricultural_ratio", "layer": "landcover_hydro_forest", "element": "土", "scale": 0.7, "alt_element": "木", "alt_scale": 0.3 },
+    { "field": "urban_built_ratio", "layer": "landcover_hydro_forest", "element": "火", "scale": 0.6 },
+    { "field": "industrial_ratio", "layer": "landcover_hydro_forest", "element": "金", "scale": 0.9 },
+    { "field": "road_density", "layer": "landcover_hydro_forest", "element": "金", "scale": 0.5, "norm": 10.0 },
+    { "field": "rail_density", "layer": "landcover_hydro_forest", "element": "金", "scale": 0.5, "norm": 5.0 },
+    { "field": "mountain_score", "layer": "physical_geography", "element": "土", "scale": 1.0, "alt_element": "木", "alt_scale": 0.4 },
+    { "field": "plain_score", "layer": "physical_geography", "element": "土", "scale": 0.9 },
+    { "field": "basin_score", "layer": "physical_geography", "element": "土", "scale": 0.6, "alt_element": "水", "alt_scale": 0.4 },
+    { "field": "south_facing_slope_ratio", "layer": "physical_geography", "element": "火", "scale": 0.8 },
+    { "field": "mean_elevation", "layer": "physical_geography", "element": "火", "scale": 0.5, "norm": 800.0, "alt_element": "土", "alt_scale": 0.4 },
+    { "field": "coast_touch_yn", "layer": "physical_geography", "element": "水", "scale": 1.0, "is_bool": true }
+  ],
+  "context_when": {
+    "forest_area_ratio_high": { "field": "forest_area_ratio", "min": 0.5 },
+    "agricultural_ratio_high": { "field": "agricultural_ratio", "min": 0.3 },
+    "mineral_or_industrial": { "field": "industrial_ratio", "min": 0.2 },
+    "mountainous": { "field": "mountain_score", "min": 0.5 },
+    "harbor_industrial": { "field": "industrial_ratio", "min": 0.1, "require_coast": true }
+  }
+}

@@ -27,6 +27,7 @@ from pathlib import Path
 
 from saju_engines.region_element_engine import RegionElementEngine
 from saju_shared_types.region_element import (
+    RegionGeoFeature,
     RegionLevel,
     RegionProfilesMeta,
     RegionProfilesSnapshot,
@@ -36,6 +37,8 @@ from saju_shared_types.region_element import (
 _BACKEND = Path(__file__).resolve().parent.parent
 _REPO = _BACKEND.parent
 _DEFAULT_UNITS = _REPO / "doc" / "gis" / "region_units_compact_20230729.jsonl"
+# 지형 feature(P3) — GIS 공급 시 배치. 부재 시 지형 레이어 미활성(P1 동작 유지).
+_DEFAULT_GEO = _REPO / "doc" / "gis" / "region_geo_features.jsonl"
 _DEFAULT_COMPILED = _BACKEND / "compiled"
 _MODEL_VERSION = "region-element-p1.0"
 _SOURCE_VERSION = "20230729"
@@ -61,6 +64,14 @@ def _load_units(path: Path) -> list[dict]:
         text = csv_path.read_text("utf-8-sig")
         return list(csv.DictReader(text.splitlines()))
     raise FileNotFoundError(path)
+
+
+def _load_geo(path: Path) -> dict[str, RegionGeoFeature]:
+    """지형 feature 로드(region_code → RegionGeoFeature). 부재 시 빈 dict(graceful, P3 스텁)."""
+    if not path.exists():
+        return {}
+    rows = [json.loads(line) for line in path.read_text("utf-8").splitlines() if line.strip()]
+    return {str(r["region_id"]): RegionGeoFeature.model_validate(r) for r in rows}
 
 
 def _build_hanja_index(region_elements_path: Path) -> dict[tuple[str, str], dict]:
@@ -134,18 +145,22 @@ def main(argv: list[str]) -> int:
     sig_joined = sum(
         1 for u in units if u.region_level is RegionLevel.SIG and u.hanja is not None
     )
+    geo_by_code = _load_geo(Path(argv[3]) if len(argv) > 3 else _DEFAULT_GEO)
 
     engine = RegionElementEngine(dicts_dir)
-    profiles = engine.build_profiles(units, _MODEL_VERSION)
+    profiles = engine.build_profiles(units, _MODEL_VERSION, geo_by_code)
 
     counts = {lvl.value: sum(1 for p in profiles if p.region_level is lvl) for lvl in RegionLevel}
+    layers = ["hanja_token", "hanja_fallback_legacy", "phonetic_layer", "parent_inheritance"]
+    if geo_by_code:
+        layers = ["physical_geography", "landcover_hydro_forest", *layers]
     meta = RegionProfilesMeta(
         model_version=_MODEL_VERSION,
         source_gis_version=_SOURCE_VERSION,
         direction_included=False,
-        layers=["hanja_token", "hanja_fallback_legacy", "phonetic_layer", "parent_inheritance"],
+        layers=layers,
         profile_counts=counts,
-        hanja_join={"matched": sig_joined, "total": sig_total},
+        hanja_join={"matched": sig_joined, "total": sig_total, "geo_features": len(geo_by_code)},
         calculated_at=datetime.now(UTC).isoformat(),
     )
     snapshot = RegionProfilesSnapshot(

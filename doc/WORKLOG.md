@@ -5253,3 +5253,29 @@ docs/12 §10 P2. 원래 정의(별도 admin_unit 적재)는 P1에서 읍면동 �
   ruff·mypy clean(146 files). 수도권 시군구 77=서울25+경기42+인천10 검증. 전 항목 reviewed:false.
 - **다음**: P3 = GIS feature 어댑터(doc/gis sqlite의 external_feature·region_feature_direction·
   emd_direction_probe 16만 행 활용, 외부 지형 데이터 공급 시 physical_geography 레이어 활성).
+
+---
+
+## 지역 오행 엔진 P3 — GIS 지형 feature 어댑터(스키마+어댑터+스텁) ✅ (2026-06-26)
+
+docs/12 §10 P3. doc/gis sqlite의 external_feature·region_feature_direction가 0행(외부 지형
+데이터 미공급, README 한계) → §10 정의대로 "스키마+어댑터+스텁, 공급 시 활성화". 외부 데이터
+부재 시 빌드 산출은 P1/P2와 **완전 동일**(재빌드 검증 — items identical).
+
+- **스키마**: `RegionGeoFeature`(§3-C 집계 필드) + `RegionGeoFeatureFile` export.
+  `region/region_geo_signal_rules.json`(§4-1 매핑 데이터화): forest→木, water/river/wetland/
+  coast→水, mountain_score→土(+木 alt), plain/basin→土, south_facing/elevation→火,
+  industrial/road/rail→金. dictionaries 등록+lint(layer/오행/필드 유효성), geo 샘플도 스키마 검증.
+- **어댑터**(region_element_engine.py): `_geo_layers`가 feature→physical_geography(0.45)·
+  landcover_hydro_forest(0.20) 레이어 벡터로 변환(정규화: ratio 0~1·density/고도 norm·bool).
+  build_profile이 §5 결합에 지형 레이어 추가→재정규화로 지형 우세(절대원칙 11), **자체 지형
+  신호 있으면 부모 상속 차단**(own_signal 게이트). 한자 문맥규칙 alt.when(D2 보류분)도 지형
+  신호 충족 시 활성(山+산림→土+木). 산 지형성=土, 산림 피복=木 분리(§4-1 핵심).
+- **빌더**: `build_region_profiles.py [units] [compiled] [geo]` — 지형 파일(기본
+  doc/gis/region_geo_features.jsonl) 공급 시 활성, 부재 시 graceful.
+- **검증**: 신규 테스트 8(활성·벡터이동·신뢰도상승·상속차단·mountain_score=土·정규화·
+  alt.when·build_profiles geo). unit 971 pass·1 skip, 무지형 재빌드 산출 동일, dict validate 66,
+  ruff·mypy clean. 전 항목 reviewed:false.
+- **다음 P4**: 풍수 형국(DEM)+의도별 가중+evidence Graph RAG 경로+택일 결합+chat 연동.
+  sqlite의 external_feature 포인트 모델·region_feature_direction·emd_direction_probe(16만)는
+  방향성 풍수(§4-5)용으로 P4에서 활용(외부 지형 데이터 공급 전제).

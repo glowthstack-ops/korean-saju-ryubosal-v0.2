@@ -32,6 +32,7 @@ from saju_shared_types.constants import (
 from saju_shared_types.enums import Branch, Stem, YinYang
 from saju_shared_types.event_taxonomy_v2 import LEGACY_EVENT_KEY_MAP
 from saju_shared_types.events import EventKey, EventPolarity, EventType
+from saju_shared_types.region_element import RegionGeoFeature
 
 _FAVORABILITY = ("용신", "희신", "기신", "구신", "한신")
 _POSITIVE_FAVORABILITY = ("용신", "희신")
@@ -825,6 +826,55 @@ class RegionDominanceRulesFile(_AliasModel):
     user_match: RegionUserMatch
 
 
+# ── 지형 신호 규칙·feature(Phase P3, docs/12 §3-C·§4-1) ───────────
+
+_GEO_LAYER_KEYS = {"physical_geography", "landcover_hydro_forest"}
+
+
+class RegionGeoSignal(_AliasModel):
+    """지형 feature 필드 → 오행 신호 1건 (region_geo_signal_rules.json signals)."""
+
+    field: str
+    layer: str
+    element: str
+    scale: float = Field(ge=0.0)
+    alt_element: str | None = None
+    alt_scale: float | None = Field(default=None, ge=0.0)
+    norm: float | None = Field(default=None, gt=0.0)  # density·고도 정규화 제수
+    is_bool: bool = False
+
+
+class RegionGeoContextWhen(_AliasModel):
+    """한자 문맥규칙 alt.when 조건 평가 기준(docs/12 §4-2)."""
+
+    field: str
+    min: float
+    require_coast: bool = False
+
+
+class RegionGeoLayerConfidence(_AliasModel):
+    base: float = Field(ge=0.0, le=1.0)
+    per_active_signal: float = Field(ge=0.0, le=1.0)
+    max: float = Field(ge=0.0, le=1.0)
+    active_min_value: float = Field(ge=0.0, le=1.0)
+
+
+class RegionGeoSignalRulesFile(_AliasModel):
+    version: str
+    reviewed: bool
+    note: str | None = None
+    layer_confidence: RegionGeoLayerConfidence
+    signals: list[RegionGeoSignal] = Field(min_length=1)
+    context_when: dict[str, RegionGeoContextWhen] = Field(default_factory=dict)
+
+
+class RegionGeoFeatureFile(_AliasModel):
+    version: str
+    reviewed: bool
+    note: str | None = None
+    items: list[RegionGeoFeature] = Field(default_factory=list)
+
+
 # 상대 경로 → 스키마. 새 사전 추가 시 여기 등록해야 검증된다(미등록은 generic 검사만).
 SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "common/stems.json": StemsFile,
@@ -852,6 +902,8 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "region/region_phonetic.json": RegionPhoneticFile,
     "region/region_layer_weights.json": RegionLayerWeightsFile,
     "region/region_dominance_rules.json": RegionDominanceRulesFile,
+    "region/region_geo_signal_rules.json": RegionGeoSignalRulesFile,
+    "region/geo/region_geo_feature.sample.json": RegionGeoFeatureFile,
 }
 # events/<domain>.json (taxonomy 제외)은 신호→이벤트 매핑 스키마.
 _EVENT_MAPPING_DIR = "events"
@@ -1239,6 +1291,29 @@ def _lint_region_dominance_rules(file: RegionDominanceRulesFile) -> list[str]:
     return errors
 
 
+def _lint_region_geo_signal_rules(file: RegionGeoSignalRulesFile) -> list[str]:
+    """region_geo_signal_rules.json — layer/오행 유효성 + context_when 신뢰도 단조성."""
+    errors: list[str] = []
+    valid_fields = set(RegionGeoFeature.model_fields)
+    rel = "region/region_geo_signal_rules.json"
+    for sig in file.signals:
+        if sig.layer not in _GEO_LAYER_KEYS:
+            errors.append(f"{rel}: 미지원 layer — {sig.layer}")
+        if sig.element not in _REGION_ELEMENTS_SET:
+            errors.append(f"{rel}: 오행 오류 — {sig.field}={sig.element}")
+        if sig.alt_element is not None and sig.alt_element not in _REGION_ELEMENTS_SET:
+            errors.append(f"{rel}: alt 오행 오류 — {sig.field}")
+        if sig.field not in valid_fields:
+            errors.append(f"{rel}: 미정의 feature 필드 — {sig.field}")
+    lc = file.layer_confidence
+    if not lc.base <= lc.max:
+        errors.append(f"{rel}: layer_confidence base>max")
+    for name, cond in file.context_when.items():
+        if cond.field not in valid_fields:
+            errors.append(f"{rel}: context_when[{name}] 미정의 필드 — {cond.field}")
+    return errors
+
+
 def lint_dictionaries(directory: Path) -> list[str]:
     """충돌 검사(dict:lint). 스키마 위반 파일은 여기서 건너뛴다(validate가 보고)."""
     errors: list[str] = []
@@ -1281,4 +1356,6 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_region_layer_weights(parsed))
         elif isinstance(parsed, RegionDominanceRulesFile):
             errors.extend(_lint_region_dominance_rules(parsed))
+        elif isinstance(parsed, RegionGeoSignalRulesFile):
+            errors.extend(_lint_region_geo_signal_rules(parsed))
     return errors

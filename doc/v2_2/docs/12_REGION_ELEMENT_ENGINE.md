@@ -240,7 +240,7 @@ dominance + evidence. 요청 시점엔 스냅샷 로드 후 사용자 매칭·�
 | P0 | 본 설계 문서 + pydantic I/O 스키마 + 사전 스켈레톤(동작 변화 0) | 무 | ✅ |
 | P1 | 한자(기존 흡수)+음운+방위(재사용)+상속 → 벡터·dominance·매칭, region_fit 승격, **읍면동 5,065** 프로필 스냅샷 | 무 | ✅ 2026-06-26 |
 | P2 | 행정구역 registry(경량 admin) + 지명 해소기(RegionNameResolver) + scope 후보 열거 | 무 | ✅ 2026-06-26 |
-| P3 | GIS feature 어댑터(지형/수계/토지피복/임상도/DEM) 스키마+어댑터+스텁, 공급 시 지형 레이어 활성화 | 유 | |
+| P3 | GIS feature 어댑터(지형/수계/토지피복/임상도/DEM) 스키마+어댑터+스텁, 공급 시 지형 레이어 활성화 | 유 | ✅ 2026-06-26 |
 | P4 | 풍수 형국(DEM)+의도별 가중+evidence Graph RAG 경로+택일 결합+chat 연동 | 유 | |
 
 각 Phase = 타입 + 구현 + 단위 테스트 + 회귀 픽스처(완료 기준, docs/07).
@@ -275,6 +275,26 @@ dominance + evidence. 요청 시점엔 스냅샷 로드 후 사용자 매칭·�
   scope: 수도권(서울·경기·인천)·시도(약식 포함)·상위지역 하위 트리(BFS) → 후보 region_code 열거.
 - recommend() 배선: candidate_regions/base_location은 해소기로 코드 확정(모호 시 노트), candidate_scope는
   resolve_scope로 후보군 확정. 해소기 미로딩(admin_path None) 시 legacy full_name 매칭으로 graceful 폴백.
+
+### P3 구현 메모(2026-06-26)
+
+doc/gis sqlite의 `external_feature`·`region_feature_direction`는 0행(외부 지형 데이터 미공급,
+README 한계) → P3는 §10 정의대로 **"스키마+어댑터+스텁, 공급 시 활성화"**. 외부 데이터 부재 시
+빌드 산출은 P1/P2와 동일(지형 레이어 제외).
+
+- 스키마: `RegionGeoFeature`(§3-C 집계 필드 — forest/water/mountain_score/slope/elevation 등),
+  `region/region_geo_signal_rules.json`(§4-1 매핑: forest→木, water/river/wetland/coast→水,
+  mountain_score→土(+木 alt), plain/basin→土, south_facing/elevation→火, industrial/road/rail→金).
+  dictionaries 등록+lint, geo 샘플도 스키마 검증.
+- 어댑터([region_element_engine.py](../../../backend/packages/saju_engines/saju_engines/region_element_engine.py)):
+  `_geo_layers`가 feature를 physical_geography(0.45)·landcover_hydro_forest(0.20) 레이어 벡터로
+  변환(정규화: ratio 0~1·density/고도 norm·bool). build_profile이 지형 레이어를 §5 결합에 추가→
+  재정규화로 지형이 우세(절대원칙 11), **자체 지형 신호 있으면 부모 상속 차단**(own_signal 게이트).
+  한자 문맥규칙 `alt.when`(D2 보류분)도 지형 신호 충족 시 활성(山+산림→土+木).
+- 빌더: `build_region_profiles.py [units] [compiled] [geo]` — 지형 파일(기본
+  doc/gis/region_geo_features.jsonl) 공급 시 활성, 부재 시 graceful(산출 동일).
+- sqlite의 external_feature 포인트 모델 + region_feature_direction + emd_direction_probe(16만)는
+  방향성 풍수(§4-5)용 → **P4**에서 활용.
 
 ## 11. 설계 원칙(피해야 할 것)
 

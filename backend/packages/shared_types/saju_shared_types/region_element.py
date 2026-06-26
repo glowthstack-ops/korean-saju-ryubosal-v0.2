@@ -128,6 +128,39 @@ class RegionElementEvidence(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
+class RegionGeoFeature(BaseModel):
+    """지형·수계·토지피복 feature 1건(docs/12 §3-C·§4-1). P3 어댑터 입력.
+
+    GIS 공급 시 채운다(환경공간정보 토지피복·산림청 임상도·실폭하천·WAMIS·DEM). 미상 필드는
+    None — 어댑터는 None을 건너뛰고 공급된 신호만 physical_geography/landcover_hydro_forest
+    레이어로 변환한다(절대원칙 11). ratio/score는 0~1, density·고도는 region_geo_signal_rules의
+    norm으로 정규화한다.
+    """
+
+    region_id: str
+    legal_dong_code: str = ""
+    mean_elevation: float | None = None
+    elevation_p70: float | None = None
+    slope_mean: float | None = None
+    slope_p70: float | None = None
+    forest_area_ratio: float | None = None
+    water_area_ratio: float | None = None
+    river_length_density: float | None = None
+    coast_distance_m: float | None = None
+    coast_touch_yn: bool | None = None
+    wetland_ratio: float | None = None
+    agricultural_ratio: float | None = None
+    urban_built_ratio: float | None = None
+    industrial_ratio: float | None = None
+    road_density: float | None = None
+    rail_density: float | None = None
+    south_facing_slope_ratio: float | None = None
+    basin_score: float | None = None
+    mountain_score: float | None = None
+    plain_score: float | None = None
+    source_version: str = ""
+
+
 class RegionAdminUnit(BaseModel):
     """행정구역 레이어 1건(docs/12 §3-A). 법정동(법정구역) 코드가 연산 기본 키다.
 
@@ -298,6 +331,7 @@ __all__ = [
     "IntentMode",
     "ElementVector",
     "RegionElementEvidence",
+    "RegionGeoFeature",
     "RegionAdminUnit",
     "RegionAdminSnapshot",
     "RegionUnitInput",

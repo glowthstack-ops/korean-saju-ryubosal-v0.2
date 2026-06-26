@@ -37,6 +37,7 @@ from saju_shared_types.region_element import (
     RegionAdminUnit,
     RegionElementProfile,
     RegionFitItem,
+    RegionGeoFeature,
     RegionLevel,
     RegionProfilesSnapshot,
     RegionRecommendationQuery,
@@ -224,10 +225,9 @@ class RegionElementEngine:
         self._token_element: dict[str, tuple[str, float]] = {
             t["char"]: (t["element"], float(t["weight"])) for t in tokens_raw["tokens"]
         }
-        # 문맥 규칙은 P1에선 default_element만 사용(alt.when은 P3 GIS 신호).
-        self._context_element: dict[str, tuple[str, float]] = {
-            r["char"]: (r["default_element"], float(r["default_weight"]))
-            for r in tokens_raw.get("context_rules", [])
+        # 문맥 규칙 전체 보관(default + alt.when) — alt는 P3 지형 신호 충족 시 활성(§4-2).
+        self._context_rules: dict[str, dict] = {
+            r["char"]: r for r in tokens_raw.get("context_rules", [])
         }
 
         phon_raw = json.loads((region_dir / "region_phonetic.json").read_text("utf-8"))
@@ -250,6 +250,14 @@ class RegionElementEngine:
         self._single = rules_raw["single"]
         self._composite = rules_raw["composite"]
         self._user_match = rules_raw["user_match"]
+
+        # 지형 신호 규칙(P3, §3-C·§4-1) — 지형 feature 공급 시 physical/landcover 레이어로 변환.
+        geo_raw = json.loads(
+            (region_dir / "region_geo_signal_rules.json").read_text("utf-8")
+        )
+        self._geo_signals: list[dict] = geo_raw["signals"]
+        self._geo_layer_conf: dict[str, float] = geo_raw["layer_confidence"]
+        self._geo_context_when: dict[str, dict] = geo_raw.get("context_when", {})
 
         # 한자 소스(흡수, §12): region_elements.json — '{시도} {시군구}' → hanja·elements·대표.
         regions_raw = json.loads(
@@ -282,16 +290,26 @@ class RegionElementEngine:
     # ── 고정 프로필 빌드 ─────────────────────────────────────────
 
     def build_profiles(
-        self, units: list[RegionUnitInput], model_version: str
+        self,
+        units: list[RegionUnitInput],
+        model_version: str,
+        geo_by_code: dict[str, RegionGeoFeature] | None = None,
     ) -> list[RegionElementProfile]:
-        """단위 목록 → 프로필 목록(상위→하위 순으로 빌드해 부모 상속을 가능케 함)."""
+        """단위 목록 → 프로필 목록(상위→하위 순으로 빌드해 부모 상속을 가능케 함).
+
+        geo_by_code 공급 시 해당 region_code의 지형 feature로 physical/landcover 레이어를 활성화한다
+        (P3). 미공급(None/누락)이면 P1 동작(지형 레이어 제외).
+        """
+        geo_by_code = geo_by_code or {}
         order = {RegionLevel.CTPRVN: 0, RegionLevel.SIG: 1, RegionLevel.EMD: 2}
         ordered = sorted(units, key=lambda u: order[u.region_level])
         built: dict[str, RegionElementProfile] = {}
         out: list[RegionElementProfile] = []
         for unit in ordered:
             parent = built.get(unit.parent_code) if unit.parent_code else None
-            profile = self.build_profile(unit, parent, model_version)
+            profile = self.build_profile(
+                unit, parent, model_version, geo_by_code.get(unit.region_code)
+            )
             built[profile.region_code] = profile
             out.append(profile)
         return out
@@ -301,18 +319,23 @@ class RegionElementEngine:
         unit: RegionUnitInput,
         parent: RegionElementProfile | None,
         model_version: str,
+        geo: RegionGeoFeature | None = None,
     ) -> RegionElementProfile:
-        """단위 1건 + (선택) 부모 프로필 → 고정 오행 프로필(방위 미포함, §4-4)."""
+        """단위 1건 + (선택) 부모·지형 feature → 고정 오행 프로필(방위 미포함, §4-4)."""
         contribs: list[_LayerContribution] = []
 
-        hanja = self._hanja_layer(unit.hanja, unit.fallback_elements)
+        active_when = self._context_alt_active(geo) if geo is not None else set()
+        geo_layers = self._geo_layers(geo) if geo is not None else []
+        hanja = self._hanja_layer(unit.hanja, unit.fallback_elements, active_when)
         if hanja is not None:
             contribs.append(hanja)
+        contribs.extend(geo_layers)
         phonetic = self._phonetic_layer(unit.region_name_ko or unit.full_name_ko)
         if phonetic is not None:
             contribs.append(phonetic)
-        # 자체 한자가 없으면 부모 프로필을 상속 레이어로 추가(신뢰도 감쇠).
-        if hanja is None and parent is not None:
+        # 자체 신호(한자·지형)가 전혀 없을 때만 부모 프로필을 상속(신뢰도 감쇠).
+        own_signal = hanja is not None or bool(geo_layers)
+        if not own_signal and parent is not None:
             contribs.append(
                 _LayerContribution(
                     vector=parent.element_vector.normalized().as_map(),
@@ -344,20 +367,39 @@ class RegionElementEngine:
         )
 
     def _hanja_layer(
-        self, hanja: str | None, fallback_elements: list[str]
+        self,
+        hanja: str | None,
+        fallback_elements: list[str],
+        active_when: set[str] | None = None,
     ) -> _LayerContribution | None:
-        """한자명 토큰화(§4-2). 미매칭은 region_elements 큐레이션 오행으로 폴백(D2)."""
+        """한자명 토큰화(§4-2). 미매칭은 region_elements 큐레이션 오행으로 폴백(D2).
+
+        문맥규칙(山/石/谷/田/浦/津)은 default_element를 쓰되, 지형 신호가 alt.when을 충족하면
+        (active_when, P3) 보조 오행도 가산한다 — 예: 산림 강한 山 → 土 + 木.
+        """
+        active_when = active_when or set()
         weight = self._base_weights.get("hanja_place_name", 0.0)
         if hanja:
             acc: dict[str, float] = {}
             matched = 0
             for ch in hanja:
-                hit = self._token_element.get(ch) or self._context_element.get(ch)
-                if hit is None:
+                token = self._token_element.get(ch)
+                if token is not None:
+                    acc[token[0]] = acc.get(token[0], 0.0) + token[1]
+                    matched += 1
                     continue
-                el, w = hit
-                acc[el] = acc.get(el, 0.0) + w
+                rule = self._context_rules.get(ch)
+                if rule is None:
+                    continue
+                acc[rule["default_element"]] = (
+                    acc.get(rule["default_element"], 0.0) + float(rule["default_weight"])
+                )
                 matched += 1
+                for alt in rule.get("alt", []):
+                    if alt.get("when") in active_when:
+                        acc[alt["element"]] = (
+                            acc.get(alt["element"], 0.0) + float(alt["weight"])
+                        )
             if matched > 0:
                 conf = min(
                     _HANJA_TOKEN_MAX_CONF,
@@ -376,6 +418,63 @@ class RegionElementEngine:
                     "hanja_fallback_legacy",
                 )
         return None
+
+    def _geo_signal_value(self, sig: dict, raw: float | bool) -> float:
+        """지형 feature 원값 → 0~1 신호값(bool/density·고도 norm/ratio 클램프)."""
+        if sig.get("is_bool"):
+            return 1.0 if raw else 0.0
+        norm = sig.get("norm")
+        val = float(raw) / float(norm) if norm else float(raw)
+        return max(0.0, min(1.0, val))
+
+    def _geo_layers(self, geo: RegionGeoFeature) -> list[_LayerContribution]:
+        """지형 feature → physical_geography·landcover_hydro_forest 레이어(§4-1)."""
+        acc: dict[str, dict[str, float]] = {}
+        active: dict[str, int] = {}
+        for sig in self._geo_signals:
+            raw = getattr(geo, sig["field"], None)
+            if raw is None:
+                continue
+            val = self._geo_signal_value(sig, raw)
+            if val <= 0.0:
+                continue
+            layer = sig["layer"]
+            vec = acc.setdefault(layer, {})
+            vec[sig["element"]] = vec.get(sig["element"], 0.0) + val * sig["scale"]
+            alt_el = sig.get("alt_element")
+            if alt_el is not None:
+                vec[alt_el] = vec.get(alt_el, 0.0) + val * sig.get("alt_scale", 0.0)
+            if val >= self._geo_layer_conf["active_min_value"]:
+                active[layer] = active.get(layer, 0) + 1
+        out: list[_LayerContribution] = []
+        for layer, vec in acc.items():
+            if not vec:
+                continue
+            conf = min(
+                self._geo_layer_conf["max"],
+                self._geo_layer_conf["base"]
+                + self._geo_layer_conf["per_active_signal"] * active.get(layer, 0),
+            )
+            out.append(
+                _LayerContribution(
+                    _normalize_map(vec), self._base_weights.get(layer, 0.0), conf, layer
+                )
+            )
+        return out
+
+    def _context_alt_active(self, geo: RegionGeoFeature) -> set[str]:
+        """지형 feature 기준으로 충족된 한자 alt.when 조건명 집합(§4-2)."""
+        active: set[str] = set()
+        for name, cond in self._geo_context_when.items():
+            raw = getattr(geo, cond["field"], None)
+            if raw is None:
+                continue
+            if float(raw) < cond["min"]:
+                continue
+            if cond.get("require_coast") and not getattr(geo, "coast_touch_yn", None):
+                continue
+            active.add(name)
+        return active
 
     def _phonetic_layer(self, name: str) -> _LayerContribution | None:
         """한글명 초성 오행 평균(§4-3). 행정 접미 1자는 노이즈로 제거."""
