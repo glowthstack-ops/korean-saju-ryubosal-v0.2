@@ -5,8 +5,9 @@
 
 구현: M01(love_timing)·M02(marriage)·M07(career)·M08(business)·M09(wealth)·M11(health)·
 M12(education_exam) — 도메인 신호형(공용 _domain_topic), M03(personality_traits — trait_mapping),
-M10(relocation_composite — relocation.py S1~S10 위임), M15(lifestyle — format_slots.json).
-미구현(계획): M04 부모·M05 자녀·M06 직장관계·M13 비교·M14 과거검증(호출 시 NotImplementedError).
+M10(relocation_composite — relocation.py S1~S10 위임), M14(past_validation — past_validation.py
+역방향, extras=birth/scorer/compute), M15(lifestyle — format_slots.json).
+미구현(계획): M04 부모·M05 자녀·M06 직장관계·M13 비교(호출 시 NotImplementedError).
 
 T0 데이터(원국 십성 분포·용신 오행)가 필요한 모듈(M03/M10)은 extras 키워드로 받는다 —
 LuckComposite 스키마(규격)에 없는 정적 차트 정보는 Static Chart Layer(T0, docs/09 1장)
@@ -19,6 +20,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import SubjectRef
 from saju_shared_types.precompute import CompositeLevel, LuckComposite
 from saju_shared_types.relocation import RelocationQuery
@@ -33,7 +35,9 @@ from saju_shared_types.topic_context import (
     TraitShift,
 )
 
+from .event_engine_v2 import EventEngineV2
 from .llm_guard import CALL_LIMITS
+from .past_validation import ComputeFn, generate_past_candidates
 from .relocation import RelocationResolver
 
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
@@ -739,6 +743,58 @@ def build_business_context(
     )
 
 
+_PAST_STYLE = StyleRules(
+    prohibited_expressions=[*_BASE_STYLE.prohibited_expressions, "분명히 ~였다"],
+    tone_notes=[
+        *_BASE_STYLE.tone_notes,
+        "과거 검증은 맞춘 항목으로 신뢰도를 보정하는 용도 — 콜드리딩 금지(연 ≤2건·근거 필수·"
+        "이미 일어난 일은 사실 확인형으로만)",
+    ],
+)
+
+
+def build_past_validation_context(
+    subjects: list[SubjectRef],
+    period: PeriodSpec,
+    composites: list[LuckComposite],
+    *,
+    birth: BirthInput,
+    scorer: EventEngineV2,
+    compute: ComputeFn,
+) -> TopicContext:
+    """M14 past_validation — 과거 이벤트 복원·검증 (docs/09 4장, E7 역방향 재사용).
+
+    composites(미래/현재 사전계산)가 아니라 past_validation 엔진으로 과거창을 역산한다 — birth/
+    scorer/compute를 extras로 받는다(M03/M10처럼 정적·서비스 의존을 호출 측이 공급). 후보의 점수·
+    근거는 엔진이 확정하고 LLM은 사실 확인형으로만 서술(콜드리딩 금지).
+    """
+    start_year = int(period.start[:4])
+    end_year = int(period.end[:4])
+    result = generate_past_candidates(birth, scorer, compute, start_year, end_year)
+    findings = [
+        Finding(
+            key=f"{c.event_key}@{c.year_range}",
+            summary=(
+                f"{c.year_range} {c.event_key} — {' · '.join(c.readable)}"
+                if c.readable else f"{c.year_range} {c.event_key} (검증 후보)"
+            ),
+            score=c.score,
+            event_key=c.event_key,
+            period_key=c.year_range,
+        )
+        for c in result.candidates
+    ]
+    findings.sort(key=lambda f: -f.score)
+    return TopicContext(
+        module_id="M14",
+        subjects=subjects,
+        period=period,
+        findings=findings[:8],  # 과거 후보는 다소 넉넉히(연 ≤2 콜드리딩 가드는 엔진에서)
+        style_rules=_PAST_STYLE,
+        budget=_DEFAULT_BUDGET,
+    )
+
+
 # 모듈 레지스트리 — 구현된 모듈만 빌더 연결, 나머지는 계획 상태.
 BUILDERS: dict[str, BuilderFn | None] = {mid: None for mid in MODULES}
 BUILDERS["M01"] = build_love_context
@@ -750,6 +806,7 @@ BUILDERS["M09"] = build_wealth_context
 BUILDERS["M10"] = build_relocation_context  # extras: relocation_query 외 2종
 BUILDERS["M11"] = build_health_context
 BUILDERS["M12"] = build_education_context
+BUILDERS["M14"] = build_past_validation_context  # extras: birth/scorer/compute
 BUILDERS["M15"] = build_lifestyle_context  # extras 선택
 
 

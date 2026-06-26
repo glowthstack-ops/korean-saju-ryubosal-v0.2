@@ -5445,3 +5445,13 @@ docs/09 4·5장. 미구현 11개 중 도메인 신호 매핑형 5개를 M07 패�
   test_planned_module을 M04로 갱신(M01 구현됨). unit 1042 pass·1 skip, ruff·mypy clean.
 - 남은 미구현 6개(M04 부모·M05 자녀·M06 직장관계·M08 사업·M13 비교·M14 과거검증)는 subject/관계
   엔진·past_validation 역방향 등 추가 배선 필요 — 후속 배치.
+
+---
+
+## Topic Builder — M14 past_validation 모듈(역방향 엔진 어댑터) ✅ (2026-06-26)
+
+docs/09 4장, E7. M14는 composites가 아니라 past_validation.py 엔진을 역방향으로 재사용 —
+birth/scorer/compute를 extras로 받아(M03/M10처럼) 과거창 후보를 findings로 확정. 점수·근거는
+엔진이 확정(콜드리딩 가드: 연 ≤2·근거 필수), LLM은 사실 확인형으로만. 리포트 F-08/F-09 의존 해소.
+정책 톤: 콜드리딩 금지·이미 일어난 일은 사실 확인형. **Topic Builder 11/15 완료**(미구현 M04/M05/
+M06/M13 — natal 십성 구조·subject·compatibility extras 필요). 신규 테스트 1, unit 1042 pass·ruff·mypy clean.

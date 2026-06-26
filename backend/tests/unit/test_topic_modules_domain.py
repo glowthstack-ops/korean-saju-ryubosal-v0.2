@@ -127,8 +127,30 @@ def test_m08_business_combines_business_and_contract() -> None:
     assert any("동업" in t for t in ctx.style_rules.tone_notes)
 
 
-@pytest.mark.parametrize("mid", ["M04", "M05", "M06", "M13", "M14"])
+def test_m14_past_validation_reverse_engine() -> None:
+    """M14: past_validation 역방향 — 과거 후보 findings 확정(extras=birth/scorer/compute)."""
+    from datetime import date
+
+    from saju_api.services.manse_service import calculate
+    from saju_engines.event_engine_v2 import EventEngineV2
+    from saju_shared_types.birth_input import BirthInput
+
+    dicts = __import__("pathlib").Path(__file__).resolve().parents[2] / "dictionaries"
+    birth = BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
+        birth_place_name="서울", gender="male", reference_date=date(2026, 6, 11),
+    )
+    ctx = build_topic_context(
+        "M14", [], PeriodSpec(start="2019", end="2021", granularity="year"), [],
+        birth=birth, scorer=EventEngineV2(dicts), compute=calculate,
+    )
+    assert ctx.module_id == "M14" and ctx.findings
+    assert all(2019 <= int(f.period_key[:4]) <= 2021 for f in ctx.findings)
+    assert any("콜드리딩" in t for t in ctx.style_rules.tone_notes)
+
+
+@pytest.mark.parametrize("mid", ["M04", "M05", "M06", "M13"])
 def test_still_planned_modules_raise(mid: str) -> None:
-    """아직 미구현 모듈은 NotImplementedError(후속 배치 — subject/관계/역방향 배선 필요)."""
+    """아직 미구현 모듈은 NotImplementedError(후속 배치 — subject/관계 엔진 배선 필요)."""
     with pytest.raises(NotImplementedError):
         build_topic_context(mid, [], _PERIOD, [])
