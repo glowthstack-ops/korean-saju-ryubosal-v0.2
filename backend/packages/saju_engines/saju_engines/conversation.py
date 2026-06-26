@@ -68,6 +68,13 @@ _READING_REQUEST_RE = re.compile(r"사주\s*(봐|풀)|봐\s*줘|봐주|풀어\s*
 _TIME_SEEKING_RE = re.compile(
     r"언제|할\s*수\s*있을[까지]|가능할[까지]|몇\s*살|몇\s*년\s*(뒤|후)|언제부터"
 )
+# 장소-탐색 질문(어디서 살까·지역 추천) — '언제'가 아니라 '어디'를 묻는 공간 질문이라 직전 시점
+# 창을 승계하면 안 된다(2026-06-26 데굴님 지적: 7/4 이사 지정 뒤 '서울 살 곳 추천'까지 7/4
+# 일운·질문기간·이사 타이밍 장치가 통째로 승계되던 과잉승계). 추천형 거주·지역 표현을 차단한다.
+_PLACE_SEEKING_RE = re.compile(
+    r"살면\s*좋은|살기\s*좋은|살\s*곳|살\s*만한|거주지|어디\s*살|어디서\s*살"
+    r"|어느\s*지역|어느\s*동네|지역\s*추천|동네\s*추천"
+)
 # 동의+이어보기('그래 봐줘'·'응 보여줘'·'좋아 계속') — 직전 답변의 제안 수락. AFFIRMATION_RE에
 # '봐줘'가 없어 fullmatch 실패하고, '봐줘'가 _READING_REQUEST_RE에 걸려 '새 풀이 요청'으로
 # 끊기던 결함 차단(2026-06-25 데굴님 지적: '그래 봐줘'가 직전 이직 맥락을 잃고 일반 총운으로 빠짐).
@@ -158,6 +165,7 @@ class ConversationEngine:
             and not _FRESH_OVERVIEW_RE.search(text)
             and not _READING_REQUEST_RE.search(text)
             and not _TIME_SEEKING_RE.search(text)
+            and not _PLACE_SEEKING_RE.search(text)
         ):
             for intent in parsed.intents:
                 # 자체 시점이 있거나(다른 시점을 새로 지정 → 그 시점이 이후 승계 기준이 됨) '언제'

@@ -258,3 +258,51 @@ def test_report_region_block_with_residence(monkeypatch) -> None:
     assert "거주 지역 평가·추천" in block[0]
     assert any("현 거주지 서울특별시 강남구" in ln for ln in block)
     assert any("살면 좋은 지역" in ln for ln in block)
+
+
+# ── 2026-06-26 데굴님 지적: 공간(지역 추천) 질문의 시점·이사의도 과잉 승계 + 스코프·이중병기 ──
+
+
+def test_place_seeking_followup_drops_prior_date_and_scopes_region() -> None:
+    """'7/4 이사' 뒤 '서울 살 곳 추천'은 7/4 일운/질문기간을 승계하지 않고 서울 스코프로 잡힌다."""
+    from saju_engines.conversation import ConversationEngine
+    from saju_shared_types.conversation import ConversationState
+
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t")
+    today = date(2026, 6, 26)
+    p1, state, _r1, _l1 = eng.process_turn(
+        state, "7월 4일에 서울 중구로 이사가게 되었어", today)
+    assert p1.intents[0].time_range is not None
+    assert p1.intents[0].time_range.start == "2026-07-04"  # 1턴은 날짜 보유
+    p2, state, _r2, _l2 = eng.process_turn(
+        state, "서울 내에 내가 살면 좋은 지역을 추천해줘", today)
+    it2 = p2.intents[0]
+    # 7/4 미승계 + relocation 도메인 + 서울 스코프.
+    assert not (it2.time_range and it2.time_range.start == "2026-07-04")
+    assert it2.domain.value == "relocation"
+    assert it2.constraints.target_region == "서울"
+
+
+def test_sido_scope_extracted_only_in_residence_context() -> None:
+    """시도 스코프는 거주·추천 맥락에서만 채택('서울에 재물운'은 스코프 아님)."""
+    from saju_engines.query_parser import parse_message
+
+    a = parse_message("서울 내에 내가 살면 좋은 지역을 추천해줘", date(2026, 6, 26)).intents[0]
+    assert a.constraints.target_region == "서울"
+    b = parse_message("경기도에서 살 곳 추천해줘", date(2026, 6, 26)).intents[0]
+    assert b.constraints.target_region == "경기"
+    c = parse_message("서울에 재물운 어때?", date(2026, 6, 26)).intents[0]
+    assert c.constraints.target_region is None  # 타 도메인 오염 방지
+    d = parse_message("서울 중구로 이사가려 해", date(2026, 6, 26)).intents[0]
+    assert d.constraints.target_region == "서울 중구"  # 시군구 경로 회귀
+
+
+def test_ganji_gloss_double_annotation_collapsed() -> None:
+    """간지 이중 병기(LLM 과글로싱)를 한 번으로 정규화하되 올바른 단일 병기는 보존한다."""
+    from saju_api.services.chat_service import _normalize_ganji_gloss as g
+
+    assert g("이날은 기묘(己卯(기묘))일로") == "이날은 기묘(己卯)일로"
+    assert g("7월은 갑오(甲午(갑오))월로") == "7월은 갑오(甲午)월로"
+    assert g("己卯(기묘)(기묘)일") == "己卯(기묘)일"
+    assert g("정상: 갑오(甲午)월 / 己卯일") == "정상: 갑오(甲午)월 / 己卯일"  # 보존

@@ -713,6 +713,33 @@ def _relocation_reason_context(
     return [header, *(f"- {line}" for line in lines)]
 
 
+_GANJI_CH = "甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥"
+# 중첩 병기: '갑오(甲午(갑오))'(한글 외곽) / '甲午(갑오(甲午))'(한자 외곽).
+_GLOSS_NEST_KO = re.compile(r"([가-힣]{2})\(([" + _GANJI_CH + r"]{2})\(\1\)\)")
+_GLOSS_NEST_CH = re.compile(r"([" + _GANJI_CH + r"]{2})\(([가-힣]{2})\(\1\)\)")
+# 중복 괄호: '己卯(기묘)(기묘)' / '기묘(己卯)(己卯)'.
+_GLOSS_DUP_KO = re.compile(r"([" + _GANJI_CH + r"]{2})\(([가-힣]{2})\)\(\2\)")
+_GLOSS_DUP_CH = re.compile(r"([가-힣]{2})\(([" + _GANJI_CH + r"]{2})\)\(\2\)")
+
+
+def _normalize_ganji_gloss(text: str) -> str:
+    """간지 한글 병기의 중첩·중복을 한 번으로 정규화한다(LLM 과글로싱 보정).
+
+    엔진 입력은 순수 한자 간지(甲午·己卯)라 '갑오(甲午(갑오))'·'己卯(기묘)(기묘)' 같은 이중 병기는
+    LLM 출력 아티팩트다(2026-06-26 데굴님 지적). 외곽이 한글이면 '갑오(甲午)', 한자면 '甲午(기묘)'로
+    collapse하고, 중첩이 여러 겹이어도 수렴할 때까지 반복 적용한다. 점수·간지 값은 바꾸지 않는다.
+    """
+    prev: str | None = None
+    out = text
+    while prev != out:
+        prev = out
+        out = _GLOSS_NEST_KO.sub(r"\1(\2)", out)
+        out = _GLOSS_NEST_CH.sub(r"\1(\2)", out)
+        out = _GLOSS_DUP_KO.sub(r"\1(\2)", out)
+        out = _GLOSS_DUP_CH.sub(r"\1(\2)", out)
+    return out
+
+
 def _normalize_region(phrase: str, known: list[str]) -> str | None:
     """사용자 지명 구를 등재 키('{시도} {시군구}')로 정규화한다.
 
@@ -2144,6 +2171,7 @@ def chat(
         system=system,
         owner_id=owner_id, surface="chat", ref_id=thread_id,
     )
+    answer = _normalize_ganji_gloss(answer)  # 간지 이중 병기(과글로싱) 보정.
     _save_thread(store, state)
     return ChatResponse(
         status="answered",
