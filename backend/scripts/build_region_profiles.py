@@ -145,10 +145,17 @@ def main(argv: list[str]) -> int:
     sig_joined = sum(
         1 for u in units if u.region_level is RegionLevel.SIG and u.hanja is not None
     )
-    geo_by_code = _load_geo(Path(argv[3]) if len(argv) > 3 else _DEFAULT_GEO)
+    # 면적비 geo(Tier B)는 감수 전이라 기본 미적용(footgun 방지) — argv[3] 명시 시만 활성화한다
+    # (데이터 활성화 runbook). 미지정이면 hanja+음운(+discrete) 기준.
+    geo_by_code = _load_geo(Path(argv[3])) if len(argv) > 3 else {}
+    # P5-3B: nearby_discrete_geo 소형 산출물(compiled/region_nearby_discrete_v1.json, 재현용·추적).
+    discrete_path = compiled_dir / "region_nearby_discrete_v1.json"
+    discrete_by_code: dict[str, dict[str, float]] = {}
+    if discrete_path.exists():
+        discrete_by_code = json.loads(discrete_path.read_text("utf-8")).get("vectors", {})
 
     engine = RegionElementEngine(dicts_dir)
-    profiles = engine.build_profiles(units, _MODEL_VERSION, geo_by_code)
+    profiles = engine.build_profiles(units, _MODEL_VERSION, geo_by_code, discrete_by_code)
 
     counts = {lvl.value: sum(1 for p in profiles if p.region_level is lvl) for lvl in RegionLevel}
     layers = ["hanja_token", "hanja_fallback_legacy", "phonetic_layer", "parent_inheritance"]

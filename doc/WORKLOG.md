@@ -5649,3 +5649,21 @@ match_score·랭킹·element_vector 불변.
 
 다음(각각 별도 게이트): P5-3B nearby_discrete_geo_layer(cap 0.18) / P5-3C form_quality_bonus(±5) /
 P5-3D road_rush(좌향) / P5-3E 팔택 stub. ※ B와 C는 동시 적용 금지(신호 추적성).
+
+---
+
+## P5-3B — nearby_discrete_geo 0.18 블렌드(지역 오행 보강) ✅ (2026-06-26)
+
+데굴님 §14-12: P5-2 이산 방향성 지형을 지역 오행 벡터에 cap 0.18로 일부 반영. directional_terrain
+(shadow)·form_quality와 별도 신호로, 단독 적용(추적성 — B/C 동시 금지).
+
+- 핵심: 레이어 재정규화(절대원칙 11) 때문에 면적비 GIS 부재 시 raw 0.18이 ~0.5로 과대 → **유효
+  블렌드 비율**로 캡(normalize(0.82·base + 0.18·discrete)). 0 dominant flip(마산합포 水·성산 土·
+  종로 金 불변), EMD 단위 미세 보강(부모 상속 EMD에도 적용 — 그 지역 주변 지형 자체 신호).
+- 재현용 소형 산출물 compiled/region_nearby_discrete_v1.json(315KB, region→5벡터, 추적). 31MB
+  directional 요약(gitignore)에서 추출. build_region_profiles가 로드해 블렌드.
+- **footgun 수정**: 면적비 geo(Tier B, 감수 전)를 기본 로드하던 _DEFAULT_GEO 제거 → argv[3] 명시
+  시만 활성(미적용 시 재빌드가 Tier B 土/木 과잉으로 오염되던 문제 차단). 재현성 확보(fresh clone =
+  hanja+discrete 동일).
+- 검증: golden/p4/engine 49 + 전체 unit 1068 pass, ruff·mypy·dict validate clean. 추천 랭킹 불변
+  (discrete가 EMD 미세 보강이라 golden SIG 케이스 무영향).

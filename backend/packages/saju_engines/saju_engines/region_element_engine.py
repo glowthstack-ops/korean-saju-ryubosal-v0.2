@@ -64,6 +64,9 @@ _HANJA_TOKEN_BASE_CONF = 0.50  # 한자 토큰 매칭 1자 기준
 _HANJA_TOKEN_PER_MATCH = 0.08  # 매칭 1자당 가산
 _HANJA_TOKEN_MAX_CONF = 0.80
 _INHERIT_DECAY = 0.70  # 부모 프로필 상속 시 신뢰도 감쇠
+# P5-3B: nearby_discrete_geo(이산 방향성 지형) '유효' 기여 상한(docs/12 §14-12). 레이어 재정규화로
+# 면적비 GIS 부재 시 과대되지 않도록 raw weight가 아니라 최종 블렌드 비율로 캡한다.
+_DISCRETE_BLEND_W = 0.18
 
 # 음운 입력에서 떼어내는 행정 접미(초성 노이즈 완화). 1글자만 제거한다.
 _ADMIN_SUFFIX = set("동리읍면가구시군도")
@@ -324,13 +327,16 @@ class RegionElementEngine:
         units: list[RegionUnitInput],
         model_version: str,
         geo_by_code: dict[str, RegionGeoFeature] | None = None,
+        discrete_by_code: dict[str, dict[str, float]] | None = None,
     ) -> list[RegionElementProfile]:
         """단위 목록 → 프로필 목록(상위→하위 순으로 빌드해 부모 상속을 가능케 함).
 
         geo_by_code 공급 시 해당 region_code의 지형 feature로 physical/landcover 레이어를 활성화한다
-        (P3). 미공급(None/누락)이면 P1 동작(지형 레이어 제외).
+        (P3). 미공급(None/누락)이면 P1 동작(지형 레이어 제외). discrete_by_code 공급 시 이산 방향성
+        지형 벡터를 nearby_discrete_geo로 유효 0.18 블렌드한다(P5-3B, §14-12).
         """
         geo_by_code = geo_by_code or {}
+        discrete_by_code = discrete_by_code or {}
         order = {RegionLevel.CTPRVN: 0, RegionLevel.SIG: 1, RegionLevel.EMD: 2}
         ordered = sorted(units, key=lambda u: order[u.region_level])
         built: dict[str, RegionElementProfile] = {}
@@ -338,7 +344,8 @@ class RegionElementEngine:
         for unit in ordered:
             parent = built.get(unit.parent_code) if unit.parent_code else None
             profile = self.build_profile(
-                unit, parent, model_version, geo_by_code.get(unit.region_code)
+                unit, parent, model_version, geo_by_code.get(unit.region_code),
+                discrete_by_code.get(unit.region_code),
             )
             built[profile.region_code] = profile
             out.append(profile)
@@ -350,6 +357,7 @@ class RegionElementEngine:
         parent: RegionElementProfile | None,
         model_version: str,
         geo: RegionGeoFeature | None = None,
+        nearby_discrete: dict[str, float] | None = None,
     ) -> RegionElementProfile:
         """단위 1건 + (선택) 부모·지형 feature → 고정 오행 프로필(방위 미포함, §4-4)."""
         contribs: list[_LayerContribution] = []
@@ -376,6 +384,19 @@ class RegionElementEngine:
             )
 
         vector_map, confidence, source_layers = self._combine(contribs)
+        # P5-3B: 이산 방향성 지형을 유효 0.18로 블렌드. discrete는 그 지역 '주변 지형' 자체 신호라
+        # 한자 없는 EMD(부모 상속)에도 적용 — 단 기반 벡터가 있을 때만(빈 벡터 단독 지배 방지).
+        if nearby_discrete and vector_map:
+            add = _normalize_map({
+                el: float(nearby_discrete.get(el, 0.0)) for el in _ELEMENT_KEYS
+            })
+            if add:
+                vector_map = _normalize_map({
+                    el: (1.0 - _DISCRETE_BLEND_W) * vector_map.get(el, 0.0)
+                    + _DISCRETE_BLEND_W * add.get(el, 0.0)
+                    for el in _ELEMENT_KEYS
+                })
+                source_layers = [*source_layers, "nearby_discrete_geo"]
         dom_type, dom_elements = self._dominance(vector_map, confidence)
         return RegionElementProfile(
             region_id=unit.region_code,
