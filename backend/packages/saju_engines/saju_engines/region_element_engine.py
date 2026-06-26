@@ -36,10 +36,15 @@ from saju_shared_types.region_element import (
     RegionAdminSnapshot,
     RegionAdminUnit,
     RegionElementProfile,
+    RegionFitFactor,
     RegionFitItem,
+    RegionFitSummary,
     RegionGeoFeature,
     RegionLevel,
+    RegionMissingLayer,
     RegionProfilesSnapshot,
+    RegionRecommendationEvidence,
+    RegionRecommendationExplanation,
     RegionRecommendationQuery,
     RegionRecommendationResult,
     RegionResolution,
@@ -73,6 +78,24 @@ _RESOLUTION_TO_LEVEL: dict[RegionResolution, RegionLevel] = {
 
 # 역할(한글) — region_direction.direction_fit favorability 입력용.
 _ROLE_KO = {"yongsin": "용신", "huisin": "희신", "gisin": "기신", "gusin": "구신"}
+
+# 프로필 레이어 라벨 → intent preset 레이어 키(가중 치환·missing 계산용, P4-1).
+_LAYER_CANONICAL: dict[str, str] = {
+    "hanja_token": "hanja_place_name",
+    "hanja_fallback_legacy": "hanja_place_name",
+    "phonetic_layer": "phonetic_reading",
+    "physical_geography": "physical_geography",
+    "landcover_hydro_forest": "landcover_hydro_forest",
+}
+# 역할별 근거 문구(단정 금지 — 유리/보완성/부담 가능, 절대원칙 3).
+_FACTOR_REASON = {
+    "용신": "용신 {el} 기운이 지역에 깔려 보완성이 높음",
+    "희신": "희신 {el} 보조 기운 — 도움이 되는 기류",
+    "보완": "보완이 필요한 {el} 기운을 채워줌",
+    "구신": "구신 {el} 기운이 있어 다소 주의",
+    "기신": "기신 {el}가 우세해 장기 거주엔 부담 가능",
+    "한신": "{el} 기운은 중립적",
+}
 
 # 약식/별칭 시도명 → 정식 시도명(지명 해소·scope용). doc/gis 정식명 기준.
 _SIDO_ALIASES: dict[str, str] = {
@@ -258,6 +281,13 @@ class RegionElementEngine:
         self._geo_signals: list[dict] = geo_raw["signals"]
         self._geo_layer_conf: dict[str, float] = geo_raw["layer_confidence"]
         self._geo_context_when: dict[str, dict] = geo_raw.get("context_when", {})
+
+        # 의도별 가중 preset(P4-1) — recommend 시점 레이어 가중 치환·missing 계산.
+        intent_raw = json.loads(
+            (region_dir / "region_intent_weights.json").read_text("utf-8")
+        )
+        self._intent_presets: dict[str, dict[str, float]] = intent_raw["intents"]
+        self._intent_phon_cap: float = float(intent_raw["phonetic_cap"])
 
         # 한자 소스(흡수, §12): region_elements.json — '{시도} {시군구}' → hanja·elements·대표.
         regions_raw = json.loads(
@@ -593,17 +623,123 @@ class RegionElementEngine:
         if query.base_location and base_anchor is None:
             notes.append("현재 거주지를 좌표로 확인하지 못해 방위는 산출하지 않음")
 
-        items: list[RegionFitItem] = []
-        for profile in candidates:
-            item = self._score_profile(profile, query.target_elements, base_anchor)
-            items.append(item)
-        items.sort(key=lambda it: (-it.match_score, -it.confidence))
-        if any(it.confidence < self._bands["weak_below"] for it in items[: query.top_n]):
+        scored = [
+            (self._score_profile(p, query.target_elements, base_anchor), p)
+            for p in candidates
+        ]
+        scored.sort(key=lambda ip: (-ip[0].match_score, -ip[0].confidence))
+        top = scored[: query.top_n]
+        items = [item for item, _ in top]
+        explanations = [
+            self.explain_fit(p, item, query.target_elements, query.intent_mode, base_anchor)
+            for item, p in top
+        ]
+        if any(it.confidence < self._bands["weak_below"] for it in items):
             notes.append("지형 GIS 레이어 반영 전 1차 추정 — 확정도가 낮은 지역이 있음")
         return RegionRecommendationResult(
-            recommended_regions=items[: query.top_n],
+            recommended_regions=items,
             intent_mode=query.intent_mode,
             notes=notes,
+            explanations=explanations,
+        )
+
+    def resolve_intent_weights(
+        self, intent_mode: IntentMode, available_layers: set[str]
+    ) -> tuple[dict[str, float], list[str]]:
+        """의도 preset → 공급 레이어로 재정규화한 유효 가중 + 미공급 레이어 목록(P4-1).
+
+        미공급 레이어는 0점 감점이 아니라 제외 후 재정규화(절대원칙 11). phonetic은 cap(0.03)
+        절대 상한 유지(D1). 반환: ({레이어: 가중(합 1)}, [미공급 레이어]).
+        """
+        preset = self._intent_presets.get(
+            intent_mode.value, self._intent_presets["general"]
+        )
+        present = {lyr: w for lyr, w in preset.items() if lyr in available_layers}
+        missing = [lyr for lyr in preset if lyr not in available_layers]
+        phon = present.pop("phonetic_reading", None)
+        if not present:
+            return ({"phonetic_reading": 1.0} if phon is not None else {}), missing
+        phon_eff = min(phon, self._intent_phon_cap) if phon is not None else 0.0
+        remaining = 1.0 - phon_eff
+        total = sum(present.values())
+        out = {lyr: round(remaining * w / total, 4) for lyr, w in present.items()}
+        if phon is not None:
+            out["phonetic_reading"] = round(phon_eff, 4)
+        return out, missing
+
+    def explain_fit(
+        self,
+        profile: RegionElementProfile,
+        item: RegionFitItem,
+        target: TargetElements,
+        intent_mode: IntentMode,
+        base_anchor: tuple[float, float] | None,
+    ) -> RegionRecommendationExplanation:
+        """추천 1건의 구조화 설명(fit_summary·evidence·missing_layers, P4-2). LLM 설명 입력."""
+        vector = profile.element_vector.normalized().as_map()
+        role_of = self._role_lookup(target)
+        summary = RegionFitSummary()
+        for el, val in sorted(vector.items(), key=lambda kv: kv[1], reverse=True):
+            if val <= 0.005:
+                continue
+            role = role_of.get(el, "한신")
+            factor = RegionFitFactor(
+                element=el, role=role, weight=round(val, 4),
+                reason=_FACTOR_REASON[role].format(el=el),
+            )
+            if role in ("용신", "희신", "보완"):
+                summary.positive.append(factor)
+            elif role in ("기신", "구신"):
+                summary.negative.append(factor)
+            else:
+                summary.neutral.append(factor)
+
+        top_el = (
+            profile.dominant_elements[0]
+            if profile.dominant_elements
+            else (max(vector, key=lambda k: vector[k]) if vector else "")
+        )
+        evidence: list[RegionRecommendationEvidence] = []
+        available: set[str] = set()
+        for label in profile.source_layers:
+            canon = _LAYER_CANONICAL.get(label, label)
+            if canon in self._base_weights:
+                available.add(canon)
+            evidence.append(
+                RegionRecommendationEvidence(
+                    layer=canon, signal=label, element=top_el,
+                    strength=round(vector.get(top_el, 0.0), 4),
+                    confidence=round(profile.confidence, 4),
+                )
+            )
+        if base_anchor is not None and item.direction:
+            available.add("relative_direction")
+            evidence.append(
+                RegionRecommendationEvidence(
+                    layer="relative_direction", signal=f"bearing:{item.direction}",
+                    element="", strength=0.0, confidence=round(profile.confidence, 4),
+                )
+            )
+
+        weights, missing = self.resolve_intent_weights(intent_mode, available)
+        missing_layers = [
+            RegionMissingLayer(layer=lyr, reason="GIS/외부 데이터 미공급") for lyr in missing
+        ]
+        return RegionRecommendationExplanation(
+            region_code=profile.region_code,
+            full_name_ko=profile.full_name,
+            match_score=item.match_score,
+            avoid_score=item.avoid_score,
+            confidence=round(profile.confidence, 4),
+            dominant_elements=profile.dominant_elements,
+            element_vector=profile.element_vector,
+            fit_summary=summary,
+            evidence=evidence,
+            missing_layers=missing_layers,
+            direction=item.direction,
+            direction_fit=item.direction_fit,
+            intent_mode=intent_mode,
+            intent_weights=weights,
         )
 
     def _select_candidates(

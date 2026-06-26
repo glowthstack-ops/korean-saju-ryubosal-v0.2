@@ -241,7 +241,8 @@ dominance + evidence. 요청 시점엔 스냅샷 로드 후 사용자 매칭·�
 | P1 | 한자(기존 흡수)+음운+방위(재사용)+상속 → 벡터·dominance·매칭, region_fit 승격, **읍면동 5,065** 프로필 스냅샷 | 무 | ✅ 2026-06-26 |
 | P2 | 행정구역 registry(경량 admin) + 지명 해소기(RegionNameResolver) + scope 후보 열거 | 무 | ✅ 2026-06-26 |
 | P3 | GIS feature 어댑터(지형/수계/토지피복/임상도/DEM) 스키마+어댑터+스텁, 공급 시 지형 레이어 활성화 | 유 | ✅ 2026-06-26 |
-| P4 | 풍수 형국(DEM)+의도별 가중+evidence Graph RAG 경로+택일 결합+chat 연동 | 유 | |
+| P4-A | 의도별 가중 치환·evidence 구조화·chat 오케스트레이션·택일 bridge | 무 | ✅ 2026-06-26 |
+| P4-B | 풍수 형국(DEM)·방향성 지형 — 어댑터 스텁+계약(외부 데이터 공급 시 활성) | 유 | 스텁 2026-06-26 |
 
 각 Phase = 타입 + 구현 + 단위 테스트 + 회귀 픽스처(완료 기준, docs/07).
 
@@ -294,7 +295,29 @@ README 한계) → P3는 §10 정의대로 **"스키마+어댑터+스텁, 공급
 - 빌더: `build_region_profiles.py [units] [compiled] [geo]` — 지형 파일(기본
   doc/gis/region_geo_features.jsonl) 공급 시 활성, 부재 시 graceful(산출 동일).
 - sqlite의 external_feature 포인트 모델 + region_feature_direction + emd_direction_probe(16만)는
-  방향성 풍수(§4-5)용 → **P4**에서 활용.
+  방향성 풍수(§4-5)용 → **P4-B**에서 활용(외부 데이터 공급 전제).
+
+### P4 구현 메모(사용자 확정 2026-06-26 — A/B 분리)
+
+외부 데이터 의존 여부로 분리: **P4-A는 구현, P4-B는 스텁+계약**. P4-A가 지역 엔진을 실사용
+오케스트레이션에 연결한다.
+
+- **P4-1 의도별 가중 치환**: `region/region_intent_weights.json`(IntentMode별 preset, career=직장·사업,
+  healing=휴식·치유) + `RegionElementEngine.resolve_intent_weights(intent, available)` — 미공급 레이어
+  제외 후 재정규화(절대원칙 11), phonetic 0.03 cap 유지, 미공급은 missing_layers로 보고(0점 감점 금지).
+  아키텍처: 고정 프로필은 단일 벡터로 저장되므로 intent 전면 재가중은 지형 데이터+per-layer 저장이
+  필요 → P4-A는 가중 해소 메커니즘 + explanation/missing 노출, match_score(고정 벡터)는 불변.
+- **P4-2 evidence 구조화**: `RegionFitSummary`(positive/negative/neutral)·`RegionRecommendationEvidence`
+  (layer/signal/element/strength/confidence)·`RegionMissingLayer`·`RegionRecommendationExplanation`.
+  `explain_fit()`이 역할별 적합 근거 + 레이어 근거 + 미공급 레이어를 산출, recommend가 top_n에 부착.
+- **P4-3 chat 오케스트레이션**: [region_recommendation_orchestrator.py](../../../backend/packages/saju_engines/saju_engines/region_recommendation_orchestrator.py)
+  — 의도 라벨→IntentMode, 용희기구신→RegionRecommendationQuery, recommend→LLM payload(계산 금지
+  지침 REGION_REASONING_DIRECTIVE 포함). LLM은 fit_summary·evidence로 설명만.
+- **P4-4 택일 bridge**: `RelocationRegionCandidate`·`RegionTaekilContext` + `to_taekil_context()` —
+  '어디(지역)'를 '언제(택일)' 엔진으로 넘기는 페이로드. 실제 택일 점수는 date_selection 책임(역할 분리).
+- **P4-5 풍수/방향성 스텁**: [region_geo_stubs.py](../../../backend/packages/saju_engines/saju_engines/region_geo_stubs.py)
+  — `FengshuiFormAdapter`(DEM 미공급→available=False), `DirectionalFeatureAdapter`(sqlite
+  region_feature_direction 0행→available=False). available=False는 감점하지 않고 missing 표시만.
 
 ## 11. 설계 원칙(피해야 할 것)
 

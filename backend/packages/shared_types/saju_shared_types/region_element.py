@@ -294,7 +294,112 @@ class RegionRecommendationResult(BaseModel):
     recommended_regions: list[RegionFitItem] = Field(default_factory=list)
     intent_mode: IntentMode = IntentMode.RELOCATION
     notes: list[str] = Field(default_factory=list)  # 보류·주의(예: confidence 부족 지역 다수)
+    explanations: list[RegionRecommendationExplanation] = Field(default_factory=list)  # P4-2
     evidence: list[EvidenceBundle] = Field(default_factory=list)  # Graph RAG 경로(P4)
+
+
+class RegionFitFactor(BaseModel):
+    """추천 적합 근거 1건(오행 단위, docs/12 §6·§9, P4-2). 역할별 긍정/부정 분리용."""
+
+    element: str  # 한자 오행
+    role: str  # 용신/희신/보완/한신/구신/기신
+    weight: float = Field(ge=0.0)  # 지역 벡터 내 비중
+    reason: str  # 단정 금지 자연어(유리/보완성/부담 가능)
+
+
+class RegionFitSummary(BaseModel):
+    """적합 요약 — 사용자 역할 기준 긍정/부정/중립 분리(P4-2)."""
+
+    positive: list[RegionFitFactor] = Field(default_factory=list)
+    negative: list[RegionFitFactor] = Field(default_factory=list)
+    neutral: list[RegionFitFactor] = Field(default_factory=list)
+
+
+class RegionRecommendationEvidence(BaseModel):
+    """레이어 단위 근거 신호(P4-2). 외부 지형 데이터 공급 시 signal이 세분화된다."""
+
+    layer: str  # geo/hanja/phonetic/inheritance/direction
+    signal: str  # 신호명(예: mountain_score·山·full_name)
+    element: str = ""  # 가리키는 오행(한자, 미특정 빈 문자열)
+    strength: float = Field(default=0.0, ge=0.0)  # 0~1 신호 강도
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class RegionMissingLayer(BaseModel):
+    """미공급 레이어(P4). 점수를 감점하지 않고 표시만 한다(절대원칙 11)."""
+
+    layer: str
+    reason: str = ""
+
+
+class RegionRecommendationExplanation(BaseModel):
+    """추천 1건의 구조화 설명 payload(P4-2·P4-3). LLM에는 이 결과만 전달(계산 금지)."""
+
+    region_code: str
+    full_name_ko: str
+    match_score: int = Field(ge=0, le=100)
+    avoid_score: int = Field(ge=0, le=100)
+    confidence: float = Field(ge=0.0, le=1.0)
+    dominant_elements: list[str] = Field(default_factory=list)
+    element_vector: ElementVector
+    fit_summary: RegionFitSummary
+    evidence: list[RegionRecommendationEvidence] = Field(default_factory=list)
+    missing_layers: list[RegionMissingLayer] = Field(default_factory=list)
+    direction: str = ""  # base_location 있을 때만
+    direction_fit: str = ""
+    intent_mode: IntentMode = IntentMode.RELOCATION
+    intent_weights: dict[str, float] = Field(default_factory=dict)  # 재정규화된 유효 가중
+
+
+class RelocationRegionCandidate(BaseModel):
+    """택일 엔진 결합용 지역 후보(P4-4). '어디'를 '언제'로 넘기는 bridge 페이로드."""
+
+    region_code: str
+    full_name_ko: str
+    region_elements: list[str] = Field(default_factory=list)  # 우세 오행(한자)
+    element_vector: ElementVector
+    direction_from_base: str = ""  # 8방위 코드/라벨(base 있을 때)
+    direction_elements: list[str] = Field(default_factory=list)
+    match_score: int = Field(ge=0, le=100)
+
+
+class RegionTaekilContext(BaseModel):
+    """지역→택일 결합 컨텍스트(P4-4). 실제 택일 점수는 date_selection 엔진이 산출(역할 분리)."""
+
+    event_type: str  # relocation 등
+    target_region: RelocationRegionCandidate
+    date_range: dict[str, str] = Field(default_factory=dict)  # {start, end}
+    user_chart_context: dict = Field(default_factory=dict)  # 오케스트레이터 패스스루
+
+
+class DirectionalFeature(BaseModel):
+    """방향성 외부 지형 feature 1건(P4-5 계약). 외부 데이터 공급 전까지 비어 있음."""
+
+    feature_type: str  # mountain/river/lake/coast/...
+    feature_name: str = ""
+    distance_m: float = Field(default=0.0, ge=0.0)
+    bearing_deg: float = 0.0
+    element_signal: dict[str, float] = Field(default_factory=dict)
+
+
+class DirectionalFeatureResult(BaseModel):
+    """방향성 지형 판정 결과(P4-5 스텁). available=False면 점수 미개입·missing 표시만."""
+
+    region_code: str
+    available: bool = False
+    reason: str = ""
+    features: list[DirectionalFeature] = Field(default_factory=list)
+    directional_element_vector: ElementVector = Field(default_factory=ElementVector)
+
+
+class FengshuiFormResult(BaseModel):
+    """풍수 형국 판정 결과(P4-5 스텁). DEM 미공급 → available=False."""
+
+    region_code: str
+    available: bool = False
+    reason: str = ""
+    signals: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class RegionProfilesMeta(BaseModel):
@@ -340,6 +445,16 @@ __all__ = [
     "RegionRecommendationQuery",
     "RegionFitItem",
     "RegionRecommendationResult",
+    "RegionFitFactor",
+    "RegionFitSummary",
+    "RegionRecommendationEvidence",
+    "RegionMissingLayer",
+    "RegionRecommendationExplanation",
+    "RelocationRegionCandidate",
+    "RegionTaekilContext",
+    "DirectionalFeature",
+    "DirectionalFeatureResult",
+    "FengshuiFormResult",
     "RegionProfilesMeta",
     "RegionProfilesSnapshot",
 ]

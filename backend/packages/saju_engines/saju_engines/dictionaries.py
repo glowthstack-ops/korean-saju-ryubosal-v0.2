@@ -875,6 +875,19 @@ class RegionGeoFeatureFile(_AliasModel):
     items: list[RegionGeoFeature] = Field(default_factory=list)
 
 
+_REGION_INTENT_KEYS = {"relocation", "career", "healing", "general"}
+
+
+class RegionIntentWeightsFile(_AliasModel):
+    """질문 의도별 레이어 가중 preset (region_intent_weights.json, P4-1)."""
+
+    version: str
+    reviewed: bool
+    note: str | None = None
+    phonetic_cap: float = Field(gt=0.0, le=1.0)
+    intents: dict[str, dict[str, float]]
+
+
 # 상대 경로 → 스키마. 새 사전 추가 시 여기 등록해야 검증된다(미등록은 generic 검사만).
 SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "common/stems.json": StemsFile,
@@ -903,6 +916,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "region/region_layer_weights.json": RegionLayerWeightsFile,
     "region/region_dominance_rules.json": RegionDominanceRulesFile,
     "region/region_geo_signal_rules.json": RegionGeoSignalRulesFile,
+    "region/region_intent_weights.json": RegionIntentWeightsFile,
     "region/geo/region_geo_feature.sample.json": RegionGeoFeatureFile,
 }
 # events/<domain>.json (taxonomy 제외)은 신호→이벤트 매핑 스키마.
@@ -1314,6 +1328,22 @@ def _lint_region_geo_signal_rules(file: RegionGeoSignalRulesFile) -> list[str]:
     return errors
 
 
+def _lint_region_intent_weights(file: RegionIntentWeightsFile) -> list[str]:
+    """region_intent_weights.json — intent 키·레이어 키 유효성 + preset 합 ≈ 1.0."""
+    errors: list[str] = []
+    rel = "region/region_intent_weights.json"
+    for intent, weights in file.intents.items():
+        if intent not in _REGION_INTENT_KEYS:
+            errors.append(f"{rel}: 미지원 intent — {intent}")
+        total = round(sum(weights.values()), 6)
+        if total != 1.0:
+            errors.append(f"{rel}: intents.{intent} 가중 합 {total} ≠ 1.0")
+        for layer in weights:
+            if layer not in _INTENT_LAYER_KEYS:
+                errors.append(f"{rel}: intents.{intent} 미지원 레이어 — {layer}")
+    return errors
+
+
 def lint_dictionaries(directory: Path) -> list[str]:
     """충돌 검사(dict:lint). 스키마 위반 파일은 여기서 건너뛴다(validate가 보고)."""
     errors: list[str] = []
@@ -1358,4 +1388,6 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_region_dominance_rules(parsed))
         elif isinstance(parsed, RegionGeoSignalRulesFile):
             errors.extend(_lint_region_geo_signal_rules(parsed))
+        elif isinstance(parsed, RegionIntentWeightsFile):
+            errors.extend(_lint_region_intent_weights(parsed))
     return errors

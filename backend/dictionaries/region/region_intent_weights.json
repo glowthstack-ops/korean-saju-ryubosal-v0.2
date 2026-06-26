@@ -1,0 +1,41 @@
+{
+  "version": "0.1.0",
+  "reviewed": false,
+  "note": "질문 의도별 레이어 가중 preset(docs/12 §7, P4-1). recommend 시점에 intent로 레이어 가중을 치환한다. 키는 IntentMode 값(relocation/career/healing/general) — career=직장·사업(work_business), healing=휴식·치유(rest_healing). 미공급 레이어(modern_activity·transport_access·fengshui_form·physical_geography·landcover_hydro_forest 등 GIS/외부데이터 의존)는 resolve 시 제외 후 공급 레이어끼리 재정규화하고 missing_layers로 보고한다 — 0점 감점 금지(절대원칙 11). phonetic은 항상 0.03 cap 유지. 각 preset 합=1.0. 명리 표준 규격 없는 자체 기준 초안(reviewed:false, 절대원칙 5).",
+  "phonetic_cap": 0.03,
+  "intents": {
+    "relocation": {
+      "physical_geography": 0.45,
+      "landcover_hydro_forest": 0.2,
+      "relative_direction": 0.15,
+      "fengshui_form": 0.1,
+      "hanja_place_name": 0.07,
+      "phonetic_reading": 0.03
+    },
+    "career": {
+      "physical_geography": 0.25,
+      "landcover_hydro_forest": 0.1,
+      "relative_direction": 0.15,
+      "modern_activity": 0.25,
+      "transport_access": 0.15,
+      "hanja_place_name": 0.07,
+      "phonetic_reading": 0.03
+    },
+    "healing": {
+      "physical_geography": 0.35,
+      "landcover_hydro_forest": 0.3,
+      "fengshui_form": 0.15,
+      "relative_direction": 0.07,
+      "hanja_place_name": 0.1,
+      "phonetic_reading": 0.03
+    },
+    "general": {
+      "physical_geography": 0.45,
+      "landcover_hydro_forest": 0.2,
+      "hanja_place_name": 0.15,
+      "relative_direction": 0.1,
+      "fengshui_form": 0.07,
+      "phonetic_reading": 0.03
+    }
+  }
+}

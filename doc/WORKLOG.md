@@ -5279,3 +5279,30 @@ docs/12 §10 P3. doc/gis sqlite의 external_feature·region_feature_direction가
 - **다음 P4**: 풍수 형국(DEM)+의도별 가중+evidence Graph RAG 경로+택일 결합+chat 연동.
   sqlite의 external_feature 포인트 모델·region_feature_direction·emd_direction_probe(16만)는
   방향성 풍수(§4-5)용으로 P4에서 활용(외부 지형 데이터 공급 전제).
+
+---
+
+## 지역 오행 엔진 P4-A — 의도가중·evidence·chat 오케스트레이션·택일 bridge + P4-B 스텁 ✅ (2026-06-26)
+
+docs/12 §10 P4. 외부 데이터 의존 여부로 분리(사용자 확정): **P4-A 구현 + P4-B 스텁+계약**.
+지역 엔진을 실사용 오케스트레이션에 연결.
+
+- **P4-1 의도별 가중 치환**: region/region_intent_weights.json(IntentMode별 preset) +
+  `resolve_intent_weights(intent, available)` — 미공급 레이어 제외 후 재정규화(절대원칙 11),
+  phonetic 0.03 cap 유지, 미공급은 missing_layers 보고(0점 감점 금지). dict 등록+lint(합 1·키 유효).
+  아키텍처: 고정 프로필 단일 벡터라 intent 전면 재가중은 지형데이터+per-layer 저장 필요 → P4-A는
+  가중 해소 메커니즘 + explanation 노출, match_score(고정 벡터)는 불변(criteria 1 보존).
+- **P4-2 evidence 구조화**: RegionFitSummary(positive/negative/neutral)·RegionRecommendationEvidence·
+  RegionMissingLayer·RegionRecommendationExplanation + `explain_fit()`(역할별 적합 근거+레이어 근거+
+  미공급). recommend가 top_n에 explanations 부착(RegionRecommendationResult.explanations).
+- **P4-3 chat 오케스트레이션**: region_recommendation_orchestrator.py — 의도 라벨→IntentMode,
+  용희기구신→Query, recommend→LLM payload(계산 금지 지침 포함). LLM은 fit_summary·evidence로 설명만.
+- **P4-4 택일 bridge**: RelocationRegionCandidate·RegionTaekilContext + to_taekil_context() —
+  '어디(지역)'를 '언제(택일)' 엔진으로 넘기는 페이로드. 택일 점수는 date_selection 책임(역할 분리).
+- **P4-5 풍수/방향성 스텁**: region_geo_stubs.py — FengshuiFormAdapter(DEM 미공급→available=False),
+  DirectionalFeatureAdapter(sqlite region_feature_direction 0행→available=False). 감점 금지·missing 표시.
+- **검증**: 신규 테스트 9, unit 980 pass·1 skip, P1/P2/P3 프로필 재빌드 items 불변, recommend
+  match_score 불변(마포구 92·중구 0), dict validate 67, ruff·mypy clean. 전 항목 reviewed:false.
+- **남은 외부 데이터 의존(P4-Data/P5)**: 산/하천/DEM/토지피복 공급 시 ①physical/landcover 레이어
+  실활성(P3 어댑터) ②풍수·방향성(P4-B) 실판정 ③intent 전면 per-layer 재가중. 그 전까지 지역 추천은
+  한자·음운·기존자산 기반 1차 추정(확정도 낮음 명시).
