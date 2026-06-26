@@ -5471,3 +5471,23 @@ docs/09 4장. 남은 4종 구현으로 **M01~M15 전 15종 완성**.
   최악 단정 금지.
 - 테스트 갱신: planned-module raise 테스트를 '전 15종 빌더 연결' 검증으로 교체, M04/M05/M06/M13 신규.
   unit 1042 pass·1 skip, ruff·mypy clean. **Topic Builder M01~M15 전 15종 구현 완료.**
+
+---
+
+## 출시 점검 — Topic Builder 제품 배선(옵션1) + 거주지 지역 평가·추천 ✅ (2026-06-26)
+
+점검 결과 Topic Builder M01~M15는 정의·테스트만 됐고 build_topic_context가 프로덕션 미호출이었음
+(리포트/채팅은 자체 조립). 옵션1로 실제 배선 + 거주지 기반 지역 블록 추가(사용자 확정).
+
+- **리포트 배선**(commit 3fbba96): _ReportData에 topic extras(지연 composites·natal 분포·birth·
+  partner) 추가, build_section_context가 섹션 module_calls를 build_topic_context로 실행해 확정
+  findings + 모듈 특화 정책 톤(절대원칙 8) 주입. 재물(F-16/W-*)→M09 횡재 가드 등 검증.
+- **채팅 배선**: _topic_module_context — 질문 도메인(직업/재물/건강/시험/연애)→모듈 실행→구조 블록에
+  확정 신호+정책 톤. relocation은 기존 지역/이사 경로 담당, general 등 비토픽은 빈 줄.
+- **리포트 거주지 지역 블록**: 거주 정보(ExtendedProfile.residence.region)가 있으면 현 지역 평가
+  (용희기구신×지역오행) + 살면 좋은 지역 추천(읍면동 계산→시군구 surface)을 F-20(개운·보완)·
+  RL-04(이사 방위)에 주입. compiled 미빌드·무거주지·무DB graceful. 채팅 지역은 권장(P4-A) 유지.
+- **프론트**(commit 07345e8): 테마사주 화면 페이지 분량 callout 전부 삭제(themes.ts pages 필드·
+  "22개 장"·{t.pages}). tsc·테스트·build 통과.
+- 검증: 신규 테스트 4(리포트 토픽·채팅 토픽·거주지 블록 + 페이지분량 회귀), unit 1045 pass·1 skip,
+  ruff·mypy clean. 기존 리포트/채팅 회귀 불변.

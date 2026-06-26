@@ -76,6 +76,52 @@ _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
 _SCORE_LEVELS = {GanjiLevel.YEAR, GanjiLevel.MONTH}
 _TOP_CANDIDATES = 8
+# 지역 추천(거주지 평가 + 추천) — compiled 미빌드 시 None(graceful).
+_COMPILED = _BACKEND / "compiled"
+_region_orch: object | None = None
+_region_orch_init = False
+
+
+def _get_region_orchestrator() -> object | None:
+    """지역 추천 오케스트레이터 lazy 싱글턴. compiled 프로필·행정 registry 필요(미빌드면 None)."""
+    global _region_orch, _region_orch_init
+    if _region_orch_init:
+        return _region_orch
+    _region_orch_init = True
+    profiles = _COMPILED / "region_element_profiles_v1.json"
+    admin = _COMPILED / "region_admin_units_v1.json"
+    if not (profiles.exists() and admin.exists()):
+        return None
+    from saju_engines.region_element_engine import RegionElementEngine
+    from saju_engines.region_geo_stubs import DirectionalFeatureAdapter
+    from saju_engines.region_recommendation_orchestrator import (
+        RegionRecommendationOrchestrator,
+    )
+
+    directional = _COMPILED / "region_directional_summary_v1.json"
+    engine = RegionElementEngine(_DICTS, profiles, admin)
+    _region_orch = RegionRecommendationOrchestrator(
+        engine, DirectionalFeatureAdapter(directional if directional.exists() else None),
+    )
+    return _region_orch
+
+
+def _residence_region(owner_id: str | None) -> str | None:
+    """소유자 프로필의 거주 지역(없으면 None, 무DB/미설정 graceful)."""
+    if owner_id is None:
+        return None
+    try:
+        from .personalization import _get_profile_store
+
+        store = _get_profile_store()
+        if store is None:
+            return None
+        profile = store.load(owner_id)
+        if profile is None or profile.extended is None or profile.extended.residence is None:
+            return None
+        return profile.extended.residence.region or None
+    except Exception:  # noqa: BLE001 — 프로필 조회 실패가 리포트를 막지 않도록
+        return None
 # 이벤트 종류 → 도메인(21키 EventKeyV2 기준, Phase 7). FOCUS 주제 스코핑에 쓴다.
 _EVENT_DOMAIN: dict[str, str] = {str(k): v for k, v in _EVENT_DOMAIN_V2.items()}
 _TOPIC_DOMAINS = set(_EVENT_DOMAIN.values())
@@ -961,6 +1007,69 @@ def _topic_module_block(module_id: str, data: _ReportData, spec: ReportSpec) -> 
     return lines
 
 
+def _region_report_block(data: _ReportData, spec: ReportSpec) -> list[str]:
+    """거주지 정보가 있으면 현 지역 평가 + 살면 좋은 지역 추천(사용자 확정). 없으면 빈 줄.
+
+    내 용희기구신 × 지역 오행으로 현 거주지 적합을 평가하고, 읍면동 계산→시군구 surface로 추천한다.
+    검수 전 초안·지형 GIS 미반영 1차 추정(단정 금지). compiled 미빌드·거주지 미설정 시 graceful.
+    """
+    residence = _residence_region(data.owner_id)
+    if not residence:
+        return []
+    orch = _get_region_orchestrator()
+    if orch is None:
+        return []
+    try:
+        from saju_engines.region_recommendation_orchestrator import resolve_intent_mode
+        from saju_shared_types.region_element import RegionResolution
+
+        ug = data.summary.useful_gods
+        roles = {
+            "yongsin": ug.yongsin, "huisin": ug.heesin,
+            "gisin": ug.gisin, "gusin": ug.gusin,
+        }
+        if not roles["yongsin"]:
+            return []
+        intent_mode = resolve_intent_mode("이사")
+        eval_payload = orch.recommend_payload(orch.build_query(  # type: ignore[attr-defined]
+            intent_mode=intent_mode, roles=roles, base_location=residence,
+            candidate_regions=[residence], resolution=RegionResolution.SIGUNGU, top_n=1,
+        ))
+        sido = residence.split()[0] if residence.split() else None
+        rec_payload = orch.recommend_payload(orch.build_query(  # type: ignore[attr-defined]
+            intent_mode=intent_mode, roles=roles, base_location=residence,
+            candidate_scope=sido, resolution=RegionResolution.EUP_MYEON_DONG, top_n=20,
+        ))
+    except Exception:  # noqa: BLE001 — 지역 평가 실패가 리포트를 막지 않도록
+        return []
+    lines = [
+        "[거주 지역 평가·추천(참고) — 내 용희기구신 × 지역 오행. 검수 전 초안·지형 GIS 미반영 "
+        "1차 추정, 단정 금지(실거주 만족은 생활 여건이 좌우)]"
+    ]
+    er = eval_payload.get("regions", [])
+    if er:
+        e = er[0]
+        pos = "·".join(f"{f['element']}({f['role']})" for f in e["fit_summary"]["positive"])
+        neg = "·".join(f"{f['element']}({f['role']})" for f in e["fit_summary"]["negative"])
+        line = f"현 거주지 {residence}: 적합 {e['match_score']}"
+        if pos:
+            line += f" / 유리 {pos}"
+        if neg:
+            line += f" / 주의 {neg}"
+        lines.append(line)
+    surface = rec_payload.get("surface", [])
+    if surface:
+        recs = ", ".join(
+            f"{g['sigungu_full_name']}(적합 {g['match_score']})" for g in surface[:5]
+        )
+        lines.append(f"살면 좋은 지역(시군구 단위): {recs}")
+    return lines if len(lines) > 1 else []
+
+
+# 거주지 평가·추천을 싣는 섹션 — 개운·보완(F-20)·이사 방위(RL-04).
+_REGION_REPORT_SECTIONS = {"F-20", "RL-04"}
+
+
 def build_section_context(
     plan: SectionPlan, spec: ReportSpec, data: _ReportData
 ) -> SectionContext:
@@ -1064,6 +1173,11 @@ def build_section_context(
         lines += ["", _DAEWOON_TRANSITION_SIGNALS_DIRECTIVE]
     if sid in _OFF_PEAK_ADVICE_SECTIONS:
         lines += ["", _OFF_PEAK_DAEWOON_ADVICE_DIRECTIVE]
+    # 거주지 평가·추천(옵션1) — 거주 정보가 있으면 현 지역 평가 + 살면 좋은 지역(F-20·RL-04).
+    if sid in _REGION_REPORT_SECTIONS:
+        region_block = _region_report_block(data, spec)
+        if region_block:
+            lines += ["", *region_block]
     # Topic Builder(M01~M15) 배선(옵션1) — 섹션이 선언한 모듈을 실행해 확정 신호·정책 톤 주입.
     seen_modules: set[str] = set()
     for mc in plan.module_calls:

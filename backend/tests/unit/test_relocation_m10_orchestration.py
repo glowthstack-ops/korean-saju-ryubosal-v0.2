@@ -214,3 +214,47 @@ def test_year_report_surfaces_relocation_type() -> None:
     body = secs["Y-04"].body_prompt
     assert "올해 이사·이동의 성격" in body
     assert "세운 천간" in body and "→" in body
+
+
+def test_chat_topic_module_context_wired() -> None:
+    """옵션1: 토픽 질문(재물)은 해당 Topic Builder 모듈을 실행해 확정 신호+정책 톤을 싣는다."""
+    from saju_shared_types.intent import Constraints, Domain, IntentJson, QueryType
+
+    b = BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
+        birth_place_name="서울", gender="male", reference_date=date(2026, 6, 18))
+    wealth = IntentJson(
+        intent_id="t", query_type=QueryType.DOMAIN_ANALYSIS, domain=Domain.WEALTH,
+        constraints=Constraints())
+    lines = chat_service._topic_module_context(b, wealth, date(2026, 6, 18))
+    assert lines and "M09" in lines[0]
+    assert any("번호·종목 픽 금지" in ln for ln in lines)  # 절대원칙 8 정책 톤
+    # 비토픽(general)은 빈 줄.
+    general = IntentJson(
+        intent_id="t", query_type=QueryType.FORTUNE_OVERVIEW, domain=Domain.GENERAL,
+        constraints=Constraints())
+    assert chat_service._topic_module_context(b, general, date(2026, 6, 18)) == []
+
+
+def test_report_region_block_with_residence(monkeypatch) -> None:
+    """옵션1: 거주지 정보가 있으면 리포트가 현 지역 평가 + 살면 좋은 지역 추천을 싣는다."""
+    from saju_api.services import report_service
+    from saju_shared_types.report import ReportPeriod
+
+    monkeypatch.setattr(report_service, "_residence_region", lambda _o: "서울특별시 강남구")
+    b = BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
+        birth_place_name="서울", gender="male", reference_date=date(2026, 6, 18))
+    spec = ReportSpec(
+        product_code="RPT_FULL",
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        period=ReportPeriod(start="1980-01", end="2070-12"))
+    data = report_service._ReportData(b, spec, date(2026, 6, 18))
+    block = report_service._region_report_block(data, spec)
+    # compiled 스냅샷이 있으면 평가+추천이 나온다(없으면 graceful 빈 줄 — skip).
+    if not block:
+        import pytest
+        pytest.skip("지역 compiled 스냅샷 미빌드")
+    assert "거주 지역 평가·추천" in block[0]
+    assert any("현 거주지 서울특별시 강남구" in ln for ln in block)
+    assert any("살면 좋은 지역" in ln for ln in block)

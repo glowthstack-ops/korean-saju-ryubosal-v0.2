@@ -47,7 +47,8 @@ from saju_engines.structural_context import (
     TENDENCY_SHIFT_DIRECTIVE,
     spouse_star_directive,
 )
-from saju_engines.topic_builder import build_lifestyle_context
+from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
+from saju_engines.topic_builder import build_lifestyle_context, build_topic_context
 from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
@@ -891,6 +892,56 @@ def _region_recommendation_context(
         out.append(" / ".join(parts))
     if not payload.get("terrain_data_available", False):
         out.append("(지형·풍수 원천 미연결 — 확정도 낮음, 방위·생활 여건과 함께 보세요)")
+    return out
+
+
+# 질문 도메인 → Topic Builder 모듈(채팅 배선, 옵션1). relocation은 별도 지역/이사 경로가 담당.
+_DOMAIN_TOPIC_MODULE = {
+    Domain.CAREER: "M07", Domain.WEALTH: "M09", Domain.HEALTH: "M11",
+    Domain.EDUCATION: "M12", Domain.RELATIONSHIP: "M01",
+}
+
+
+def _topic_module_context(
+    birth: BirthInput, intent: IntentJson, today: date,
+) -> list[str]:
+    """질문 도메인에 해당하는 Topic Builder 모듈을 실행해 확정 신호+정책 톤을 구조 블록에 싣는다.
+
+    채팅 토픽 질문(직업·재물·건강·시험·연애)에서 topic_builder를 실제로 소비한다(옵션1). findings는
+    점수 확정값, 모듈 특화 정책 톤(절대원칙 8 가드)을 함께 주입. 비토픽·실패는 graceful(빈 줄).
+    """
+    module_id = _DOMAIN_TOPIC_MODULE.get(intent.domain)
+    if module_id is None:
+        return []
+    try:
+        tr = intent.time_range
+        start = (tr.start[:4] if tr and tr.start else str(today.year))
+        end = (tr.end[:4] if tr and tr.end else str(today.year + 5))
+        chart = calculate(birth.model_copy(update={"reference_date": today}))
+        composites = CompositeBuilder(_DICTS).build(
+            chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00",
+            levels={CompositeLevel.YEAR, CompositeLevel.MONTH},
+        )
+        period = PeriodSpec(start=start, end=end, granularity="year")
+        extras: dict = {}
+        if module_id in ("M03", "M04", "M05", "M06"):
+            tg = getattr(chart.force_analysis, "ten_gods", None)
+            if not (tg and tg.distribution):
+                return []
+            extras["natal_ten_god_dist"] = dict(tg.distribution)
+        ctx = build_topic_context(module_id, intent.subjects, period, composites, **extras)
+    except Exception:  # noqa: BLE001 — 토픽 모듈 실패가 풀이를 막지 않도록(규칙11)
+        return []
+    if not ctx.findings:
+        return []
+    out = [
+        f"[{module_id}·{_TOPIC_MODULES[module_id]} 토픽 신호(참고) — 엔진 확정 점수·근거. "
+        "새 수치 생성 금지, 단정 금지]"
+    ]
+    out += [f"- {f.summary} (점수 {f.score})" for f in ctx.findings[:3]]
+    module_notes = ctx.style_rules.tone_notes[1:]
+    if module_notes:
+        out.append("표현 지침(정책): " + " / ".join(module_notes))
     return out
 
 
@@ -1918,6 +1969,10 @@ def chat(
         structural = structural + _relocation_region_context(birth, intent, today)
         # 목적지 미지정/시도·수도권 범위면 시군구 후보를 매칭·랭킹해 추천(P4-A 배선, 2026-06-26).
         structural = structural + _region_recommendation_context(birth, intent, today)
+    # 토픽 질문(직업·재물·건강·시험·연애)은 해당 Topic Builder 모듈을 실행해 확정 신호·정책 톤
+    # 주입(옵션1 채팅 배선, 2026-06-26). relocation은 위 지역/이사 경로가 담당.
+    if structural is not None and not _is_relocation_intent(intent):
+        structural = structural + _topic_module_context(birth, intent, today)
     # 주간(일 범위) 질문은 7일 일별 일운을 surface — 월운으로 뭉뚱그려지던 결함 보완(2026-06-18).
     if structural is not None and _is_day_range(intent):
         structural = structural + _weekly_overview_lines(birth, intent, today)
