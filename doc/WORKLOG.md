@@ -5404,3 +5404,26 @@ P4-A 오케스트레이터를 실제 chat 파이프라인에 연결. 이제 사�
 - 검증: 신규 테스트 23(golden 21 + report 2), unit 1020 pass·1 skip, ruff·mypy clean. 엔진 결과 불변.
 - **지역 오행 엔진 데이터-전 작업 전부 완료.** 남은 것은 외부 지형 데이터 수급(수동·로그인) → 빌드
   실행으로 방향성/physical/landcover 활성, DEM 풍수(별도 알고리즘), 전문가 가중 감수.
+
+---
+
+## 지역 오행 엔진 — P4-SearchSeed(검색 기반 부트스트랩) ✅ (2026-06-26)
+
+공식 GIS 원천 수급(수동·로그인) 전, 시군구명 + 지형 키워드 검색 → 좌표 API로 external_geo_feature를
+빠르게 생성하는 부트스트랩(사용자 확정). 읍면동 전수 검색 금지(시군구 250×키워드 9=2,250건만,
+읍면동은 on-demand). 검색 데이터 오탐 대비: 카테고리 거름 + 낮은 confidence + review_status.
+
+- 공유 코어 추출: region_directional.py(build_directional_summaries — GIS·검색 공용 방위 집계).
+  build_region_directional_summary.py를 이 함수로 리팩터(출력·테스트 불변 확인).
+- search_seed.py 코어: QUERY_KEYWORDS(9), classify_feature_type(카테고리>이름>검색어, 비지형 reject),
+  element_vector_for, base_confidence, project_equirect(pyproj 불필요), dedupe(300m·같은 이름·같은 type
+  병합, source_count·지역·confidence 보정), SearchSeedFeature 모델.
+- 스크립트 5종: build_search_seed_queries → fetch_search_seed_features(Kakao Local provider, 키
+  KAKAO_REST_API_KEY 환경변수·없으면 graceful·provider 주입 테스트·재시도·rate limit) → classify →
+  dedupe → build_search_seed_direction_summary(lon/lat 등거리 투영→방위 요약 json/csv).
+- 산출 doc/gis/search_seed/(gitignore). provisional이라 compiled 운영본 자동 덮어쓰기 금지 —
+  검수 후 수동 승격(공식 GIS 확보 시 교체). 하천/해안은 대표 feature로만.
+- 검증: 신규 테스트 10(분류·오탐 거름·중복 병합·쿼리 생성·fake provider fetch·키 없음 graceful·
+  방위 요약 e2e·투영 정합), unit 1030 pass·1 skip, ruff·mypy clean. 쿼리 생성 실측 2,250건.
+- **활성**: KAKAO 키 설정 → 5스크립트 순차 → region_directional_summary_search_seed.json →
+  (검수 후) compiled 승격 → DirectionalFeatureAdapter 활성. 실제 API 호출은 키/네트워크 필요(환경 블로커).

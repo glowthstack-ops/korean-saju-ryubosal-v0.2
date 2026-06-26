@@ -50,3 +50,5 @@ doc/gis/external_geo_features*.sqlite
 # 지역 엔진 감사 산출물(재생성 가능 — 커밋 금지). 운영 스냅샷(profiles/admin/directional)은 추적.
 backend/compiled/region_weights_review.*
 backend/compiled/external_geo_acceptance_report.*
+# P4-SearchSeed 생성 산출물(검색 기반 부트스트랩 — 재생성 가능·검수 전). 스크립트/코어는 추적.
+doc/gis/search_seed/

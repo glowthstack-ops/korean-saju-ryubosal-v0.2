@@ -361,6 +361,25 @@ README 한계) → P3는 §10 정의대로 **"스키마+어댑터+스텁, 공급
 (FengshuiFormAdapter, 별도 알고리즘 — 미구현). 소비 경로는 합성 데이터로 회귀 테스트 고정
 (test_region_geo_layer·test_region_directional). 핸드오프 미공급 시 전 빌드 graceful(P0~P4-A 산출 불변).
 
+### P4-SearchSeed — 검색 기반 부트스트랩(2026-06-26, 공식 GIS 전 빠른 경로)
+
+공식 GIS 원천 수급(수동·로그인) 전, 시군구명 + 지형 키워드 검색 → 좌표 API로 external_geo_feature를
+빠르게 생성하는 부트스트랩. **읍면동 전수 검색 금지** — 시군구 250 × 키워드 9 = 2,250건만, 읍면동은
+추천 후보/사용자 질의 시 on-demand 확장. 검색 데이터는 오탐이 있어 카테고리 거름 + 낮은 confidence
+(카테고리 0.70/이름 0.55/검색어 0.45, 중복+0.10) + review_status로 검수 전 신호임을 강제(절대원칙 5).
+
+- 코어 [search_seed.py](../../../backend/packages/saju_engines/saju_engines/search_seed.py): 키워드,
+  classify_feature_type(카테고리>이름>검색어, 비지형 reject), 오행 매핑, 등거리 투영(pyproj 불필요),
+  300m 중복 병합. 방위 집계는 공유 코어 [region_directional.py](../../../backend/packages/saju_engines/saju_engines/region_directional.py)
+  (build_directional_summaries — GIS·검색 공용)로 추출.
+- 스크립트 5종: build_search_seed_queries(쿼리) → fetch_search_seed_features(Kakao Local provider,
+  키 환경변수 KAKAO_REST_API_KEY·없으면 graceful·provider 주입 테스트) → classify → dedupe →
+  build_search_seed_direction_summary(lon/lat 등거리 투영 → 방위 요약 json/csv, provisional).
+- 산출은 doc/gis/search_seed/(gitignore). 검색 기반은 provisional이라 compiled 운영본 자동 덮어쓰기
+  금지 — 검수 후 수동 승격(공식 GIS 확보 시 교체). 하천/해안은 대표 feature로만(공식 anchor로 교체).
+- 활성: KAKAO 키 설정 → 5스크립트 순차 실행 → region_directional_summary_search_seed.json →
+  (검수 후) compiled로 승격 → DirectionalFeatureAdapter 활성.
+
 ### P4-Data Acceptance Layer + emd 계산/sig surface + 무데이터 가드(2026-06-26)
 
 데이터 받기 전 디버깅 비용을 줄이는 마무리 작업(사용자 확정).

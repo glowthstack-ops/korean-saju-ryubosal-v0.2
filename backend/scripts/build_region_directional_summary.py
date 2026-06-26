@@ -21,16 +21,13 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 import sys
-from collections import defaultdict
 from pathlib import Path
 
+from saju_engines.region_directional import build_directional_summaries
 from saju_shared_types.region_element import (
     ExternalGeoFeature,
-    RegionDirectionalElementSummary,
     RegionDirectionalSummarySnapshot,
-    RegionDirectionalTopFeature,
 )
 
 _BACKEND = Path(__file__).resolve().parent.parent
@@ -40,23 +37,6 @@ _DEFAULT_UNITS = _REPO / "doc" / "gis" / "region_units_compact_20230729.jsonl"
 _DEFAULT_COMPILED = _BACKEND / "compiled"
 _MODEL_VERSION = "region-directional-p4.0"
 
-_DIR_CODES = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-_MAX_RADIUS_M = 10000.0
-_GRID_M = 10000.0  # prefilter 셀 크기(=최대 반경) — 인접 ±1셀만 검사.
-_TOP_N = 5
-_ELEMENT_COLS = (("木", "wood"), ("火", "fire"), ("土", "earth"), ("金", "metal"), ("水", "water"))
-_NEAREST = {
-    "mountain": lambda t: t.startswith("mountain") or t == "ridge_anchor",
-    "river": lambda t: t in ("river_anchor", "stream_anchor"),
-    "water": lambda t: t in (
-        "river_anchor", "stream_anchor", "lake_centroid",
-        "lake_boundary_anchor", "wetland_centroid", "coast_anchor",
-    ),
-    "coast": lambda t: t == "coast_anchor",
-    "forest": lambda t: t in ("forest_patch", "park_green"),
-}
-
-
 def _load_buckets() -> list[tuple[float, float]]:
     """거리 버킷 (max_m, influence) 오름차순 로드."""
     rules = json.loads(
@@ -64,14 +44,6 @@ def _load_buckets() -> list[tuple[float, float]]:
         .read_text("utf-8")
     )
     return [(float(b["max_m"]), float(b["influence"])) for b in rules["distance_buckets"]]
-
-
-def _influence(distance_m: float, buckets: list[tuple[float, float]]) -> float | None:
-    """거리 → 버킷 influence(최대 반경 초과면 None)."""
-    for max_m, inf in buckets:
-        if distance_m <= max_m:
-            return inf
-    return None
 
 
 def _load_features(path: Path) -> list[ExternalGeoFeature]:
@@ -84,12 +56,6 @@ def _load_features(path: Path) -> list[ExternalGeoFeature]:
         clean = {k: v for k, v in r.items() if v not in (None, "")}
         out.append(ExternalGeoFeature.model_validate(clean))
     return out
-
-
-def _direction(dx: float, dy: float) -> str:
-    """평면 변위 → 8방위 코드(N=0/E=90, atan2(dx,dy))."""
-    bearing = (math.degrees(math.atan2(dx, dy)) + 360.0) % 360.0
-    return _DIR_CODES[int((bearing + 22.5) % 360.0 // 45.0)]
 
 
 def _emd_anchors(units_path: Path) -> list[tuple[str, float, float]]:
@@ -109,80 +75,6 @@ def _emd_anchors(units_path: Path) -> list[tuple[str, float, float]]:
     return out
 
 
-def _build_summaries(
-    anchors: list[tuple[str, float, float]],
-    features: list[ExternalGeoFeature],
-    buckets: list[tuple[float, float]],
-) -> list[RegionDirectionalElementSummary]:
-    """anchor × feature → 읍면동 × 방위 요약(그리드 prefilter로 가속)."""
-    grid: dict[tuple[int, int], list[ExternalGeoFeature]] = defaultdict(list)
-    for f in features:
-        grid[(int(f.x_5179 // _GRID_M), int(f.y_5179 // _GRID_M))].append(f)
-
-    out: list[RegionDirectionalElementSummary] = []
-    for region_code, ax, ay in anchors:
-        gx, gy = int(ax // _GRID_M), int(ay // _GRID_M)
-        # 방위별 누적기.
-        acc: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-        nearest: dict[str, dict[str, float]] = defaultdict(dict)
-        ranked: dict[str, list[tuple[float, ExternalGeoFeature, float]]] = defaultdict(list)
-        conf_num: dict[str, float] = defaultdict(float)
-        conf_den: dict[str, float] = defaultdict(float)
-        for cx in (gx - 1, gx, gx + 1):
-            for cy in (gy - 1, gy, gy + 1):
-                for f in grid.get((cx, cy), ()):
-                    dx, dy = f.x_5179 - ax, f.y_5179 - ay
-                    dist = math.hypot(dx, dy)
-                    if dist > _MAX_RADIUS_M:
-                        continue
-                    inf = _influence(dist, buckets)
-                    if inf is None:
-                        continue
-                    code = _direction(dx, dy)
-                    score = inf * f.importance
-                    for _hanja, key in _ELEMENT_COLS:
-                        val = getattr(f, f"element_{key}")
-                        if val:
-                            acc[code][key] += val * score
-                    for cat, pred in _NEAREST.items():
-                        if pred(f.feature_type):
-                            cur = nearest[code].get(cat)
-                            if cur is None or dist < cur:
-                                nearest[code][cat] = dist
-                    ranked[code].append((score, f, dist))
-                    conf_num[code] += f.confidence * score
-                    conf_den[code] += score
-        for code, sums in acc.items():
-            top = sorted(ranked[code], key=lambda t: (-t[0], t[2]))[:_TOP_N]
-            out.append(RegionDirectionalElementSummary(
-                region_code=region_code, direction_code=code,
-                wood_score=round(sums.get("wood", 0.0), 4),
-                fire_score=round(sums.get("fire", 0.0), 4),
-                earth_score=round(sums.get("earth", 0.0), 4),
-                metal_score=round(sums.get("metal", 0.0), 4),
-                water_score=round(sums.get("water", 0.0), 4),
-                nearest_mountain_m=_round_opt(nearest[code].get("mountain")),
-                nearest_river_m=_round_opt(nearest[code].get("river")),
-                nearest_water_m=_round_opt(nearest[code].get("water")),
-                nearest_coast_m=_round_opt(nearest[code].get("coast")),
-                nearest_forest_m=_round_opt(nearest[code].get("forest")),
-                top_features=[
-                    RegionDirectionalTopFeature(
-                        feature_id=f.feature_id, name=f.feature_name, type=f.feature_type,
-                        distance_m=round(dist, 1), influence=round(score, 3),
-                    )
-                    for score, f, dist in top
-                ],
-                confidence=round(conf_num[code] / conf_den[code], 4) if conf_den[code] else 0.0,
-            ))
-    out.sort(key=lambda s: (s.region_code, s.direction_code))
-    return out
-
-
-def _round_opt(value: float | None) -> float | None:
-    return round(value, 1) if value is not None else None
-
-
 def main(argv: list[str]) -> int:
     """엔트리포인트. external_geo_feature 없으면 스텁(요약 미생성)으로 정상 종료."""
     features_path = Path(argv[1]) if len(argv) > 1 else _DEFAULT_FEATURES
@@ -198,7 +90,7 @@ def main(argv: list[str]) -> int:
         return 1
 
     anchors = _emd_anchors(units_path)
-    summaries = _build_summaries(anchors, features, _load_buckets())
+    summaries = build_directional_summaries(anchors, features, _load_buckets())
     snapshot = RegionDirectionalSummarySnapshot(
         model_version=_MODEL_VERSION,
         source_version=features_path.stem,
