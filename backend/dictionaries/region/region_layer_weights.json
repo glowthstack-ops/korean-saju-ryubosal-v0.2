@@ -1,14 +1,14 @@
 {
   "version": "0.1.0",
   "reviewed": false,
-  "note": "오행 판정 레이어 가중(docs/12 §5 기본 + §7 의도별). base=전체 레이어 기본 가중(합 1.0). intents=질문 의도별 치환 가중. 미공급 레이어(confidence=0)는 제외 후 부분집합으로 재정규화한다(절대원칙 11) — P1에선 지형·토지·풍수 미공급이므로 한자/음운/방위만 남는다. relative_direction은 base_location 없으면 제외. 명리 표준 규격 없는 자체 기준 초안(reviewed:false, 절대원칙 5). intents의 modern_activity/transport_access/forest_water는 P3(GIS) 활성 전까지 미사용 레이어다.",
+  "note": "오행 판정 레이어 가중(docs/12 §5·§14-13). base=전체 레이어 기본 가중(합 1.0). 미공급 레이어(confidence=0)는 제외 후 부분집합 재정규화(절대원칙 11). base는 전문가 감수 시군구 오행(217)을 ground truth로 역보정했다(docs/12 §14-13, 2026-06-26): 초안의 지형 우위(physical_geography 0.45)는 전문가 일치율을 36%로 떨어뜨려, 명리 한자(전문가와 72.6% 일치)를 1차로, 지형은 보조로 재배치(geo-ON 72.8% 회복). intents는 recommend 시점 치환용이며 별도 보정 대상.",
   "base": {
-    "physical_geography": 0.45,
-    "landcover_hydro_forest": 0.2,
-    "hanja_place_name": 0.15,
-    "relative_direction": 0.1,
-    "fengshui_form": 0.07,
-    "phonetic_reading": 0.03
+    "hanja_place_name": 0.45,
+    "landcover_hydro_forest": 0.15,
+    "relative_direction": 0.15,
+    "physical_geography": 0.1,
+    "fengshui_form": 0.1,
+    "phonetic_reading": 0.05
   },
   "intents": {
     "relocation": {

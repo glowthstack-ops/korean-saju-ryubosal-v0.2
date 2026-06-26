@@ -663,3 +663,27 @@ manual_verified +0.15 · official_gis +0.15~0.25
 6 팔택을 기본 추천 점수에 섞지 말 것  7 form_quality가 base_match_score를 뒤집지 못하게
 8 OSM/NE confidence를 공식 GIS보다 높게 두지 말 것
 ```
+
+### 14-13. 전문가 ground truth 기반 레이어 가중 역보정 (2026-06-26)
+
+전문가 감수 시군구 오행 217개를 ground truth로 삼아 base 레이어 가중을 측정·역보정했다(데굴님 지시 #3).
+전문가 override를 끈 상태에서 각 레이어의 1순위 일치율:
+
+```
+한자 단독                         72.6% (156/215) — 최고. 명리 한자 의미가 전문가와 가장 부합
+draft geo-ON(physical 0.45)       35.9%           — 지형 우위가 일치율을 절반 이하로 붕괴
+per-signal: forest 66.4 / water 63.6 / urban 65.4 — 단일 지형 신호도 한자 baseline 미달
+calibrated geo-ON(아래 base)      72.8%           — 한자 1차 + 지형 보조로 회복(neutral~소폭↑)
+```
+
+**해석**: 전문가 오행은 **지명 한자(명리) 기반**이라 지형 면적비(forest/water/mountain)와는 다른 축이다.
+지형을 가중 1차로 두면(초안 physical_geography 0.45) 명리와 어긋나 일치율이 붕괴한다. 따라서:
+
+- **base 재보정**: hanja_place_name 0.15→**0.45**(1차), physical_geography 0.45→**0.10**, landcover
+  0.20→**0.15**, relative_direction 0.10→0.15, fengshui 0.07→0.10, phonetic 0.03→0.05. 지형은 명리
+  한자를 보조하는 minor 레이어로 재배치 — geo 활성 시 일치율 36%→72.8% 회복.
+- geo-OFF 프로필(현 운영)은 한자가 음운(cap 0.03) 위로 이미 지배해 변화 없음(golden 불변).
+- discrete(P5-3B, EMD 0.18)는 EMD 단위라 SIG 전문가로 직접 검증 불가하나 0 dominant flip(neutral) 유지.
+- **결론**: 전문가 수록 시군구는 권위 override(§14-12 통합)로 100% 정합. 미수록(통합시 자치구·EMD)은
+  한자 1차+지형 보조의 보정 가중으로 전문가 경향에 최대한 근접. 지형 면적비를 명리 오행의 1차 근거로
+  쓰지 않는다(검증된 원칙).
