@@ -5588,3 +5588,22 @@ unit 1049 pass·1 skip, ruff·mypy clean.
   fengshui_form.py sasinsa_sectors(좌향→전후좌우 sector, region_direction 8방위 컨벤션 동일) —
   남향=현무 북·동향=현무 서로 '북산 고정' 오류 방지. 채점·도로/팔택 가중은 감수 후 P5-3.
 - 검증: 신규 테스트 8, unit 1059 pass, ruff·mypy clean(133 files). 추천 경로 미개입(스캐폴딩만).
+
+---
+
+## P5-2 이산 지형 feature 추출 ✅ (2026-06-26)
+
+docs/12 §14-10 P5-2 — 방향성 지형(점·선 feature)을 OSM/NE에서 추출해 ExternalGeoFeature 계약으로
+직렬화(면적 비율 Tier B와 별개 경로).
+
+- scripts/extract_osm_geo_features.py: OSM natural=peak(16,553)·waterway river/canal anchor(11,180)·
+  water_a 호수 centroid(2,141)·landuse forest 대형 patch(4,561) + NE 해안선 anchor(14,410) =
+  **48,845 feature** → doc/gis/external_geo_features.csv(gitignore). element_*는
+  region_geo_feature_elements.json 규칙(산봉우리 土0.75/木0.25 등).
+- 도로·철도는 기본 제외(--with-transport opt-in): 오행 매핑 감수 대기 + 실제 쓰임은 8방위 element가
+  아니라 road_rush 直충 penalty(P5-3 형국 — 최근접 도로 bearing)라 다른 소비자. inert 점 수십만개
+  미포함(48,845 vs 248,145).
+- 검증: ExternalGeoFeature 계약 파싱 OK, 남산·관악산·무학산·북악산 봉우리 土0.75/木0.25. 기존
+  build_region_directional_summary.py로 end-to-end 증명(40,369행/5,065 읍면동, TEMP 출력) —
+  청운효자동 N방위 top=홍제천(하천)·형제봉(봉우리). **directional 스냅샷은 미커밋(활성=P5-3 감수)**.
+- unit 1059 pass(런타임 미개입), 추출 스크립트만 추가. CSV·원천 gitignore.
