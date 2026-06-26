@@ -1,0 +1,31 @@
+{
+  "version": "feature-element-rules-v1",
+  "elements": ["木", "火", "土", "金", "水"],
+  "feature_type_rules": {
+    "mountain_peak": {"土": 0.75, "木": 0.25},
+    "mountain_pass": {"土": 0.65, "木": 0.25, "金": 0.10},
+    "ridge_anchor": {"土": 0.70, "木": 0.20, "金": 0.10},
+    "valley_anchor": {"水": 0.55, "土": 0.30, "木": 0.15},
+    "river_anchor": {"水": 1.00},
+    "stream_anchor": {"水": 0.85, "木": 0.15},
+    "lake_centroid": {"水": 0.95, "土": 0.05},
+    "lake_boundary_anchor": {"水": 0.95, "土": 0.05},
+    "wetland_centroid": {"水": 0.80, "木": 0.20},
+    "coast_anchor": {"水": 0.90, "金": 0.10},
+    "port": {"水": 0.65, "金": 0.35},
+    "forest_patch": {"木": 0.90, "土": 0.10},
+    "park_green": {"木": 0.75, "土": 0.15, "火": 0.10}
+  },
+  "distance_buckets": [
+    {"bucket": "near_1km", "max_m": 1000, "influence": 1.00},
+    {"bucket": "mid_3km", "max_m": 3000, "influence": 0.70},
+    {"bucket": "wide_5km", "max_m": 5000, "influence": 0.45},
+    {"bucket": "outer_10km", "max_m": 10000, "influence": 0.20}
+  ],
+  "line_anchor_interval_m": {
+    "major_river": 500,
+    "river_anchor": 1000,
+    "stream_anchor": 500,
+    "coast_anchor": 1000
+  }
+}

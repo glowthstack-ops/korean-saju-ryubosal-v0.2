@@ -372,11 +372,95 @@ class RegionTaekilContext(BaseModel):
     user_chart_context: dict = Field(default_factory=dict)  # 오케스트레이터 패스스루
 
 
+class ExternalGeoFeature(BaseModel):
+    """외부 지형 feature 대표 좌표 1건(P4-Data, doc/gis_region external_geo_feature 계약).
+
+    원본 SHP를 엔진에 넣지 않고 대표 좌표 index만 적재한다(사용자 확정 2026-06-26). point는 그대로,
+    line(하천·해안)은 500m~1km anchor로, polygon(호수·산림)은 centroid/대표점으로 압축한다.
+    element_*는 feature_type별 오행 매핑(region_geo_feature_elements.json) 결과를 보존한다.
+    """
+
+    feature_id: str
+    feature_type: str  # mountain_peak/river_anchor/coast_anchor/forest_patch/... (13종 enum)
+    feature_subtype: str = ""
+    feature_name: str = ""
+    source_name: str = ""
+    source_feature_id: str = ""
+    x_5179: float
+    y_5179: float
+    lon: float | None = None
+    lat: float | None = None
+    elevation_m: float | None = None
+    area_m2: float | None = None
+    length_m: float | None = None
+    element_wood: float = 0.0
+    element_fire: float = 0.0
+    element_earth: float = 0.0
+    element_metal: float = 0.0
+    element_water: float = 0.0
+    importance: float = 1.0
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    anchor_role: str = ""
+    anchor_index: int | None = None
+    parent_feature_id: str = ""
+
+    def element_map(self) -> dict[str, float]:
+        """오행 한자 dict({木,火,土,金,水})로 변환."""
+        return {
+            "木": self.element_wood, "火": self.element_fire, "土": self.element_earth,
+            "金": self.element_metal, "水": self.element_water,
+        }
+
+
+class RegionDirectionalTopFeature(BaseModel):
+    """방위별 대표 기여 feature(설명·evidence용)."""
+
+    feature_id: str = ""
+    name: str = ""
+    type: str = ""
+    distance_m: float = Field(default=0.0, ge=0.0)
+    influence: float = Field(default=0.0, ge=0.0)
+
+
+class RegionDirectionalElementSummary(BaseModel):
+    """읍면동 × 8방위 주변 지형 오행 요약(P4-Data, 지역 고정·사전계산).
+
+    '지역 주변 어느 방향에 산/물'은 사용자 무관 고정 사실이므로 사전계산한다 — §4-4가 금지하는
+    '사용자 기준 이동 방위 적합 저장'과 다르다(별도 summary). direction_code: N/NE/E/SE/S/SW/W/NW.
+    """
+
+    region_code: str
+    direction_code: str
+    wood_score: float = 0.0
+    fire_score: float = 0.0
+    earth_score: float = 0.0
+    metal_score: float = 0.0
+    water_score: float = 0.0
+    nearest_mountain_m: float | None = None
+    nearest_river_m: float | None = None
+    nearest_water_m: float | None = None
+    nearest_coast_m: float | None = None
+    nearest_forest_m: float | None = None
+    top_features: list[RegionDirectionalTopFeature] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class RegionDirectionalSummarySnapshot(BaseModel):
+    """방위별 지형 요약 스냅샷(compiled/region_directional_summary_vX.json, P4-Data)."""
+
+    model_version: str
+    source_version: str = ""
+    reviewed: bool = False
+    region_count: int = 0
+    items: list[RegionDirectionalElementSummary] = Field(default_factory=list)
+
+
 class DirectionalFeature(BaseModel):
     """방향성 외부 지형 feature 1건(P4-5 계약). 외부 데이터 공급 전까지 비어 있음."""
 
     feature_type: str  # mountain/river/lake/coast/...
     feature_name: str = ""
+    direction_code: str = ""
     distance_m: float = Field(default=0.0, ge=0.0)
     bearing_deg: float = 0.0
     element_signal: dict[str, float] = Field(default_factory=dict)
@@ -452,6 +536,10 @@ __all__ = [
     "RegionRecommendationExplanation",
     "RelocationRegionCandidate",
     "RegionTaekilContext",
+    "ExternalGeoFeature",
+    "RegionDirectionalTopFeature",
+    "RegionDirectionalElementSummary",
+    "RegionDirectionalSummarySnapshot",
     "DirectionalFeature",
     "DirectionalFeatureResult",
     "FengshuiFormResult",

@@ -1,0 +1,5 @@
+feature_id,feature_type,feature_name,source_name,x_5179,y_5179,lon,lat,element_wood,element_fire,element_earth,element_metal,element_water,importance,confidence,anchor_role,anchor_index,parent_feature_id
+MNT_SAMPLE_001,mountain_peak,북악산,manual_sample,953210.12,1954210.43,126.9671,37.5926,0.25,0,0.75,0,0,1,0.75,centroid,0,
+RIV_SAMPLE_001,river_anchor,한강,manual_sample,946120.32,1943210.22,126.9142,37.5281,0,0,0,0,1,1,0.85,line_anchor,123,RIV_HANGANG
+COAST_SAMPLE_001,coast_anchor,인천해안,manual_sample,925000.23,1945000.11,126.617,37.4563,0,0,0,0.1,0.9,1,0.8,line_anchor,31,COAST_INCHEON
+FOR_SAMPLE_001,forest_patch,산림패치,manual_sample,956200.44,1951200.72,126.9991,37.5652,0.9,0,0.1,0,0,0.8,0.7,polygon_centroid,0,

@@ -242,7 +242,8 @@ dominance + evidence. 요청 시점엔 스냅샷 로드 후 사용자 매칭·�
 | P2 | 행정구역 registry(경량 admin) + 지명 해소기(RegionNameResolver) + scope 후보 열거 | 무 | ✅ 2026-06-26 |
 | P3 | GIS feature 어댑터(지형/수계/토지피복/임상도/DEM) 스키마+어댑터+스텁, 공급 시 지형 레이어 활성화 | 유 | ✅ 2026-06-26 |
 | P4-A | 의도별 가중 치환·evidence 구조화·chat 오케스트레이션·택일 bridge | 무 | ✅ 2026-06-26 |
-| P4-B | 풍수 형국(DEM)·방향성 지형 — 어댑터 스텁+계약(외부 데이터 공급 시 활성) | 유 | 스텁 2026-06-26 |
+| P4-B | 방향성 지형(산/하천/해안) — feature index→방위 요약 파이프라인+어댑터(데이터 공급 시 활성) | 유 | ✅ 2026-06-26 |
+| P4-B(풍수) | 배산임수·분지 등 형국(DEM) — FengshuiFormAdapter 스텁(DEM 미공급) | 유 | 스텁 |
 
 각 Phase = 타입 + 구현 + 단위 테스트 + 회귀 픽스처(완료 기준, docs/07).
 
@@ -316,8 +317,29 @@ README 한계) → P3는 §10 정의대로 **"스키마+어댑터+스텁, 공급
 - **P4-4 택일 bridge**: `RelocationRegionCandidate`·`RegionTaekilContext` + `to_taekil_context()` —
   '어디(지역)'를 '언제(택일)' 엔진으로 넘기는 페이로드. 실제 택일 점수는 date_selection 책임(역할 분리).
 - **P4-5 풍수/방향성 스텁**: [region_geo_stubs.py](../../../backend/packages/saju_engines/saju_engines/region_geo_stubs.py)
-  — `FengshuiFormAdapter`(DEM 미공급→available=False), `DirectionalFeatureAdapter`(sqlite
-  region_feature_direction 0행→available=False). available=False는 감점하지 않고 missing 표시만.
+  — `FengshuiFormAdapter`(DEM 미공급→available=False), `DirectionalFeatureAdapter`. available=False는
+  감점하지 않고 missing 표시만.
+
+### P4-Data 구현 메모(외부 지형 feature index, 사용자 확정 2026-06-26)
+
+"원본 SHP가 아니라 **feature coordinate index**"(사용자 §). 외부 지형은 대표 좌표로 압축해
+**읍면동×8방위 주변 지형 오행 요약**을 사전계산한다. 데이터 수급/변환(SHP→좌표)은 상류 툴킷
+[doc/gis_region](../../../doc/gis_region/)이 담당(geopandas/pyproj), 백엔드는 핸드오프 CSV를 받는다.
+
+- **수급 우선순위(사용자 확정)**: ①국가관심지점 POI(산/고개/계곡/항구) ②하천중심선/실폭하천
+  ③해안선 → ④임상도(산림) ⑤토지피복 → ⑥DEM(풍수) ⑦WAMIS. P4-B는 ①②③로 시작 가능.
+- **계약 정렬**(doc/gis_region SQL과 1:1): `ExternalGeoFeature`(대표 좌표+오행벡터),
+  `RegionDirectionalElementSummary`(읍면동×8방위 오행 점수+nearest_*+top_features). 오행 매핑은
+  `region/region_geo_feature_elements.json`(툴킷 rules 미러, 13 feature_type, 거리 버킷 1/3/5/10km).
+- **백엔드 빌더**: [build_region_directional_summary.py](../../../backend/scripts/build_region_directional_summary.py)
+  — external_geo_feature.csv + 읍면동 anchor → 거리/bearing(atan2(dx,dy))/8방위/버킷 influence 감쇠/
+  signal=오행벡터×influence×importance/방위별 합산 → compiled 요약. **순수 파이썬(EPSG:5179 평면,
+  pyproj 불필요), 그리드 prefilter**로 5,065×N 가속. 외부 feature 부재 시 graceful(요약 미생성·스텁).
+- **소비**: `DirectionalFeatureAdapter`가 요약 조회(없으면 available=False), 오케스트레이터 payload에
+  주변 지형 하이라이트("북 1.8km 산")를 덧붙인다. 방위 요약은 지역 고정(주변 지형)이라 사전계산
+  대상 — §4-4가 금지하는 '사용자 기준 이동 방위 저장'과 다르다(별도 summary).
+- **준수**: 산=土(산림 시 木 보조)·하천/해안 다중 anchor(대표점 1개 축약 금지)·feature 없으면 추정
+  금지(available=False, 감점 없음)·원본 SHP runtime 미의존(좌표 index만).
 
 ## 11. 설계 원칙(피해야 할 것)
 

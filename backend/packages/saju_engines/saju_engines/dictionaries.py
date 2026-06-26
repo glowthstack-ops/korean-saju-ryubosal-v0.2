@@ -888,6 +888,31 @@ class RegionIntentWeightsFile(_AliasModel):
     intents: dict[str, dict[str, float]]
 
 
+_GEO_FEATURE_TYPES = {
+    "mountain_peak", "mountain_pass", "ridge_anchor", "valley_anchor", "river_anchor",
+    "stream_anchor", "lake_centroid", "lake_boundary_anchor", "wetland_centroid",
+    "coast_anchor", "port", "forest_patch", "park_green",
+}
+
+
+class RegionGeoDistanceBucket(_AliasModel):
+    bucket: str
+    max_m: float = Field(gt=0.0)
+    influence: float = Field(ge=0.0, le=1.0)
+
+
+class RegionGeoFeatureElementsFile(_AliasModel):
+    """외부 지형 feature_type → 오행 + 거리 버킷 (region_geo_feature_elements.json, P4-Data)."""
+
+    version: str
+    reviewed: bool
+    note: str | None = None
+    elements: list[str]
+    feature_type_rules: dict[str, dict[str, float]]
+    distance_buckets: list[RegionGeoDistanceBucket] = Field(min_length=1)
+    line_anchor_interval_m: dict[str, float] = Field(default_factory=dict)
+
+
 # 상대 경로 → 스키마. 새 사전 추가 시 여기 등록해야 검증된다(미등록은 generic 검사만).
 SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "common/stems.json": StemsFile,
@@ -917,6 +942,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "region/region_dominance_rules.json": RegionDominanceRulesFile,
     "region/region_geo_signal_rules.json": RegionGeoSignalRulesFile,
     "region/region_intent_weights.json": RegionIntentWeightsFile,
+    "region/region_geo_feature_elements.json": RegionGeoFeatureElementsFile,
     "region/geo/region_geo_feature.sample.json": RegionGeoFeatureFile,
 }
 # events/<domain>.json (taxonomy 제외)은 신호→이벤트 매핑 스키마.
@@ -1328,6 +1354,24 @@ def _lint_region_geo_signal_rules(file: RegionGeoSignalRulesFile) -> list[str]:
     return errors
 
 
+def _lint_region_geo_feature_elements(file: RegionGeoFeatureElementsFile) -> list[str]:
+    """region_geo_feature_elements.json — feature_type/오행 유효성 + 버킷 단조성."""
+    errors: list[str] = []
+    rel = "region/region_geo_feature_elements.json"
+    for ftype, weights in file.feature_type_rules.items():
+        if ftype not in _GEO_FEATURE_TYPES:
+            errors.append(f"{rel}: 미지원 feature_type — {ftype}")
+        for el in weights:
+            if el not in _REGION_ELEMENTS_SET:
+                errors.append(f"{rel}: 오행 오류 — {ftype}.{el}")
+    buckets = file.distance_buckets
+    for lower, higher in zip(buckets, buckets[1:], strict=False):
+        if lower.max_m > higher.max_m:
+            errors.append(f"{rel}: distance_buckets는 max_m 오름차순이어야 함")
+            break
+    return errors
+
+
 def _lint_region_intent_weights(file: RegionIntentWeightsFile) -> list[str]:
     """region_intent_weights.json — intent 키·레이어 키 유효성 + preset 합 ≈ 1.0."""
     errors: list[str] = []
@@ -1390,4 +1434,6 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_region_geo_signal_rules(parsed))
         elif isinstance(parsed, RegionIntentWeightsFile):
             errors.extend(_lint_region_intent_weights(parsed))
+        elif isinstance(parsed, RegionGeoFeatureElementsFile):
+            errors.extend(_lint_region_geo_feature_elements(parsed))
     return errors

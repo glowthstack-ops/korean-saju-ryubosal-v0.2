@@ -20,6 +20,7 @@ from saju_shared_types.region_element import (
 )
 
 from .region_element_engine import RegionElementEngine
+from .region_geo_stubs import DirectionalFeatureAdapter
 
 # LLM 설명 지침(계산 금지·단정 금지). chat 계층이 프롬프트에 주입한다.
 REGION_REASONING_DIRECTIVE = (
@@ -57,8 +58,13 @@ def resolve_intent_mode(label: str | None) -> IntentMode:
 class RegionRecommendationOrchestrator:
     """파싱된 의도 → 지역 추천 질의 → 엔진 호출 → LLM payload 직렬화(순수 조립)."""
 
-    def __init__(self, engine: RegionElementEngine) -> None:
+    def __init__(
+        self,
+        engine: RegionElementEngine,
+        directional: DirectionalFeatureAdapter | None = None,
+    ) -> None:
         self._engine = engine
+        self._directional = directional
 
     def build_query(
         self,
@@ -89,13 +95,24 @@ class RegionRecommendationOrchestrator:
         )
 
     def recommend_payload(self, query: RegionRecommendationQuery) -> dict:
-        """엔진 추천 → LLM 입력 payload(설명 대상 사실 + 지침). 계산은 전부 엔진이 끝냈다."""
+        """엔진 추천 → LLM 입력 payload(설명 대상 사실 + 지침). 계산은 전부 엔진이 끝냈다.
+
+        방향성 어댑터가 있으면 각 지역의 주변 지형('북 산·남 강')을 terrain으로 덧붙인다(P4-Data).
+        """
         result = self._engine.recommend(query)
+        regions: list[dict] = []
+        for ex in result.explanations:
+            payload = _explanation_payload(ex)
+            if self._directional is not None:
+                payload["directional_terrain"] = _directional_payload(
+                    self._directional, ex.region_code
+                )
+            regions.append(payload)
         return {
             "intent": query.intent_mode.value,
             "base_location": query.base_location,
             "directive": REGION_REASONING_DIRECTIVE,
-            "regions": [_explanation_payload(ex) for ex in result.explanations],
+            "regions": regions,
             "notes": result.notes,
         }
 
@@ -123,6 +140,22 @@ def _explanation_payload(ex: RegionRecommendationExplanation) -> dict:
         "direction": ex.direction,
         "direction_fit": ex.direction_fit,
         "missing_layers": [m.layer for m in ex.missing_layers],
+    }
+
+
+def _directional_payload(adapter: DirectionalFeatureAdapter, region_code: str) -> dict:
+    """주변 방향성 지형 → payload(available/벡터/하이라이트). 데이터 없으면 available=False."""
+    result = adapter.evaluate(region_code)
+    if not result.available:
+        return {"available": False}
+    highlights = [
+        f"{f.direction_code} {f.feature_name or f.feature_type} {round(f.distance_m)}m"
+        for f in result.features[:5]
+    ]
+    return {
+        "available": True,
+        "vector": result.directional_element_vector.as_map(),
+        "highlights": highlights,
     }
 
 

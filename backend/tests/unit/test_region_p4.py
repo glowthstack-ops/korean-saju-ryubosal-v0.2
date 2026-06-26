@@ -172,12 +172,8 @@ def test_fengshui_stub_unavailable_not_penalized() -> None:
 
 
 def test_directional_stub_unavailable_when_no_data() -> None:
-    """external_feature/region_feature_direction 부재·0행 → available=False(graceful)."""
-    # sqlite 경로 미지정 → 비활성.
+    """방향성 요약 미빌드(경로 미지정·부재) → available=False(graceful, 감점 금지)."""
     res = DirectionalFeatureAdapter().evaluate("11110101")
     assert res.available is False and res.features == []
-    # 실제 sqlite(0행) 지정해도 available=False여야 한다.
-    sqlite_path = _BACKEND.parent / "doc" / "gis" / "region_spatial_engine_p0_20230729.sqlite"
-    if sqlite_path.exists():
-        res2 = DirectionalFeatureAdapter(sqlite_path).evaluate("11110101")
-        assert res2.available is False  # region_feature_direction 0행
+    res2 = DirectionalFeatureAdapter(_BACKEND / "compiled" / "does_not_exist.json").evaluate("x")
+    assert res2.available is False

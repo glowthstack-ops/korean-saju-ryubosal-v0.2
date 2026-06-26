@@ -1,0 +1,33 @@
+{
+  "version": "0.1.0",
+  "reviewed": false,
+  "note": "외부 지형 feature_type → 오행 매핑 + 거리 버킷(P4-Data, docs/12 §6). doc/gis_region 툴킷의 config/feature_element_rules.json을 백엔드 운영 사전으로 미러(검증 대상). 산=土 중심(산림 확인 시 木 보조)·하천/호수/해안=水·항만=水+金·산림=木. 거리 버킷 influence는 감쇠 가중. line_anchor_interval_m는 상류 변환(하천/해안 anchor 간격) 참고값으로 엔진 미사용. 명리 표준 규격 없는 자체 기준 초안(reviewed:false, 절대원칙 5).",
+  "elements": ["木", "火", "土", "金", "水"],
+  "feature_type_rules": {
+    "mountain_peak": { "土": 0.75, "木": 0.25 },
+    "mountain_pass": { "土": 0.65, "木": 0.25, "金": 0.1 },
+    "ridge_anchor": { "土": 0.7, "木": 0.2, "金": 0.1 },
+    "valley_anchor": { "水": 0.55, "土": 0.3, "木": 0.15 },
+    "river_anchor": { "水": 1.0 },
+    "stream_anchor": { "水": 0.85, "木": 0.15 },
+    "lake_centroid": { "水": 0.95, "土": 0.05 },
+    "lake_boundary_anchor": { "水": 0.95, "土": 0.05 },
+    "wetland_centroid": { "水": 0.8, "木": 0.2 },
+    "coast_anchor": { "水": 0.9, "金": 0.1 },
+    "port": { "水": 0.65, "金": 0.35 },
+    "forest_patch": { "木": 0.9, "土": 0.1 },
+    "park_green": { "木": 0.75, "土": 0.15, "火": 0.1 }
+  },
+  "distance_buckets": [
+    { "bucket": "near_1km", "max_m": 1000, "influence": 1.0 },
+    { "bucket": "mid_3km", "max_m": 3000, "influence": 0.7 },
+    { "bucket": "wide_5km", "max_m": 5000, "influence": 0.45 },
+    { "bucket": "outer_10km", "max_m": 10000, "influence": 0.2 }
+  ],
+  "line_anchor_interval_m": {
+    "major_river": 500,
+    "river_anchor": 1000,
+    "stream_anchor": 500,
+    "coast_anchor": 1000
+  }
+}

@@ -44,3 +44,6 @@ doc/gis/*.sqlite
 doc/gis/*.csv.gz
 doc/gis/region_units_compact_*.jsonl
 doc/gis/region_units_compact_*.csv
+# 외부 지형 feature 대표좌표(P4-Data, doc/gis_region 툴킷 산출) — 대용량. 엔진은 compiled 요약 사용.
+doc/gis/external_geo_features*.csv
+doc/gis/external_geo_features*.sqlite

@@ -1,0 +1,41 @@
+# 다운로드한 원본 파일의 실제 컬럼명에 맞춰 수정해서 사용합니다.
+# 모든 좌표는 최종적으로 EPSG:5179 x/y와 WGS84 lon/lat를 함께 저장합니다.
+
+ngii_poi:
+  file: data/raw/poi/ngii_poi.xlsx
+  sheet: 0
+  encoding: utf-8
+  x_field_candidates: [x, X, xpos, pos_x, 경도, lon, longitude]
+  y_field_candidates: [y, Y, ypos, pos_y, 위도, lat, latitude]
+  name_field_candidates: [name, NAME, 명칭, poi_nm, POI_NM]
+  category_field_candidates: [category, CATEGORY, 분류, 대분류, 중분류, 소분류]
+  crs: auto
+  category_to_feature_type:
+    산: mountain_peak
+    봉우리: mountain_peak
+    고개: mountain_pass
+    계곡: valley_anchor
+    항구: port
+    포구: port
+    공원: park_green
+
+river_line:
+  file: data/raw/river/river_centerline.shp
+  name_field_candidates: [RIV_NAM, RIVER_NM, NAME, 명칭, 하천명]
+  crs: auto
+  feature_type: river_anchor
+  interval_m: 1000
+
+coast_line:
+  file: data/raw/coast/coastline.shp
+  name_field_candidates: [NAME, 명칭]
+  crs: auto
+  feature_type: coast_anchor
+  interval_m: 1000
+
+forest_polygon:
+  file: data/raw/forest/forest_stand.shp
+  name_field_candidates: [NAME, 명칭, 임상명]
+  crs: auto
+  feature_type: forest_patch
+  min_area_m2: 50000

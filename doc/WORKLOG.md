@@ -5306,3 +5306,27 @@ docs/12 §10 P4. 외부 데이터 의존 여부로 분리(사용자 확정): **P
 - **남은 외부 데이터 의존(P4-Data/P5)**: 산/하천/DEM/토지피복 공급 시 ①physical/landcover 레이어
   실활성(P3 어댑터) ②풍수·방향성(P4-B) 실판정 ③intent 전면 per-layer 재가중. 그 전까지 지역 추천은
   한자·음운·기존자산 기반 1차 추정(확정도 낮음 명시).
+
+---
+
+## 지역 오행 엔진 P4-Data — 외부 지형 feature index → 읍면동×방위 요약 파이프라인 ✅ (2026-06-26)
+
+docs/12 §4-1·§4-4·§6, 사용자 확정("원본 SHP 아닌 feature coordinate index"). 외부 지형을 대표
+좌표로 압축해 읍면동×8방위 주변 지형 오행을 사전계산. 데이터 수급/변환(SHP→좌표)은 상류 툴킷
+doc/gis_region(geopandas/pyproj) 담당, 백엔드는 핸드오프 CSV 소비. 외부 데이터 부재 → 산출 0(스텁).
+
+- **계약 정렬**(doc/gis_region SQL과 1:1): ExternalGeoFeature(대표좌표+오행벡터)·
+  RegionDirectionalElementSummary(읍면동×8방위 오행+nearest_*+top_features)·Snapshot. shared_types export.
+- **오행 사전 미러**: region/region_geo_feature_elements.json(툴킷 feature_element_rules + reviewed:false,
+  13 feature_type, 거리버킷 1/3/5/10km) + dictionaries 등록·lint(feature_type/오행/버킷 단조성).
+- **빌더**: build_region_directional_summary.py — external_geo_feature.csv + 읍면동 anchor →
+  거리/bearing(atan2(dx,dy) N=0/E=90)/8방위/버킷 influence/signal=오행×influence×importance/방위 합산
+  → compiled 요약. 순수 파이썬(EPSG:5179 평면, pyproj 불필요), 그리드 prefilter(5,065×N). graceful 부재.
+- **소비**: DirectionalFeatureAdapter가 요약 조회(없으면 available=False·감점 금지), orchestrator
+  payload에 주변 지형 하이라이트("북 1.8km 산") 덧붙임. FengshuiFormAdapter는 DEM 필요라 스텁 유지.
+- **정정**: doc/gis_region/samples 의 손제작 sample은 x_5179/y_5179가 lon/lat과 불일치(북악산 방위
+  오류) — 코드 정상, 실툴킷(pyproj) 출력은 정합. 테스트는 실 읍면동 anchor 기준 합성 feature 사용.
+- **검증**: 신규 테스트 14(방위·산=土≠木·하천 다중 anchor·adapter 소비·부재 graceful 등), unit 985 pass,
+  P1~P4-A 재빌드 불변, dict validate 68, ruff·mypy clean. 전 항목 reviewed:false.
+- **활성 경로**: doc/gis_region 툴킷으로 POI+하천+해안 → external_geo_feature.csv 드롭 →
+  build_region_directional_summary.py 실행 → 방향성 풍수 자동 활성. 외부 데이터는 gitignore.
