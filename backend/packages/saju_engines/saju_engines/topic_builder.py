@@ -3,10 +3,10 @@
 각 모듈은 `(subjects, period, LuckComposite[], dictionaries) => TopicContext` 순수 함수다.
 **M01~M15가 전체이며 새 주제는 모듈 추가로만 대응한다(기존 모듈에 분기 추가 금지).**
 
-구현: M01(love_timing)·M02(marriage)·M07(career)·M09(wealth)·M11(health)·M12(education_exam)
-— 도메인 신호형(공용 _domain_topic), M03(personality_traits — trait_mapping.json),
+구현: M01(love_timing)·M02(marriage)·M07(career)·M08(business)·M09(wealth)·M11(health)·
+M12(education_exam) — 도메인 신호형(공용 _domain_topic), M03(personality_traits — trait_mapping),
 M10(relocation_composite — relocation.py S1~S10 위임), M15(lifestyle — format_slots.json).
-미구현(계획): M04 부모·M05 자녀·M06 직장관계·M08 사업·M13 비교·M14 과거검증(호출 시 NotImplementedError).
+미구현(계획): M04 부모·M05 자녀·M06 직장관계·M13 비교·M14 과거검증(호출 시 NotImplementedError).
 
 T0 데이터(원국 십성 분포·용신 오행)가 필요한 모듈(M03/M10)은 extras 키워드로 받는다 —
 LuckComposite 스키마(규격)에 없는 정적 차트 정보는 Static Chart Layer(T0, docs/09 1장)
@@ -717,12 +717,35 @@ def build_education_context(
     )
 
 
+_BUSINESS_STYLE = StyleRules(
+    prohibited_expressions=[
+        *_BASE_STYLE.prohibited_expressions, "반드시 성공한다", "대박난다",
+    ],
+    tone_notes=[
+        *_BASE_STYLE.tone_notes,
+        "창업·동업은 적합 구조·시기·리스크로(성공 단정 금지). 동업은 관계·지분 점검 권고",
+    ],
+)
+
+
+def build_business_context(
+    subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
+) -> TopicContext:
+    """M08 business — 창업/사업/동업 (docs/09 4장: 창업 신호 + 사업 계약·재물 흐름)."""
+    return _domain_topic(
+        "M08", subjects, period, composites,
+        domains={"career", "wealth"}, label="사업",
+        event_keys={"business_start", "contract", "document"}, style=_BUSINESS_STYLE,
+    )
+
+
 # 모듈 레지스트리 — 구현된 모듈만 빌더 연결, 나머지는 계획 상태.
 BUILDERS: dict[str, BuilderFn | None] = {mid: None for mid in MODULES}
 BUILDERS["M01"] = build_love_context
 BUILDERS["M02"] = build_marriage_context
 BUILDERS["M03"] = build_personality_context  # extras: natal_ten_god_dist
 BUILDERS["M07"] = build_career_context
+BUILDERS["M08"] = build_business_context
 BUILDERS["M09"] = build_wealth_context
 BUILDERS["M10"] = build_relocation_context  # extras: relocation_query 외 2종
 BUILDERS["M11"] = build_health_context

@@ -112,8 +112,23 @@ def test_findings_deterministic_and_calendar_attached() -> None:
     assert all(p.ganji for p in a.time_series)
 
 
-@pytest.mark.parametrize("mid", ["M04", "M05", "M06", "M08", "M13", "M14"])
+def test_m08_business_combines_business_and_contract() -> None:
+    """M08은 창업(business_start)+사업 계약(contract/document)만, 일반 재물흐름은 제외."""
+    comps = [
+        _comp("2025", "career", "business_start", weight=0.7),
+        _comp("2026", "wealth", "contract"),
+        _comp("2025", "wealth", "windfall"),  # 사업 아님 → 제외
+        _comp("2025", "career", "promotion"),  # 사업 아님 → 제외
+    ]
+    ctx = build_topic_context("M08", [], _PERIOD, comps)
+    assert ctx.findings and all(
+        f.event_key in ("business_start", "contract", "document") for f in ctx.findings
+    )
+    assert any("동업" in t for t in ctx.style_rules.tone_notes)
+
+
+@pytest.mark.parametrize("mid", ["M04", "M05", "M06", "M13", "M14"])
 def test_still_planned_modules_raise(mid: str) -> None:
-    """아직 미구현 모듈은 NotImplementedError(이번 배치 범위 밖)."""
+    """아직 미구현 모듈은 NotImplementedError(후속 배치 — subject/관계/역방향 배선 필요)."""
     with pytest.raises(NotImplementedError):
         build_topic_context(mid, [], _PERIOD, [])
