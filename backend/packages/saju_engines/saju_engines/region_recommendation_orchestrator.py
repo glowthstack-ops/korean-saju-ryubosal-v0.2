@@ -22,13 +22,24 @@ from saju_shared_types.region_element import (
 from .region_element_engine import RegionElementEngine
 from .region_geo_stubs import DirectionalFeatureAdapter
 
-# LLM 설명 지침(계산 금지·단정 금지). chat 계층이 프롬프트에 주입한다.
+# LLM 설명 지침(계산 금지·단정 금지·무데이터 지형 주장 금지). chat 계층이 프롬프트에 주입한다.
 REGION_REASONING_DIRECTIVE = (
     "지역 오행·매칭 점수·방위는 엔진이 계산한 사실이다. 오행이나 점수를 새로 계산하지 말고, "
     "제공된 fit_summary(positive/negative)·evidence·방위로 '왜 유리하거나 부담일 수 있는지'를 "
     "단정 없이(유리·보완성·기류·부담 가능) 설명하라. missing_layers는 '지형 데이터 반영 전 1차 "
-    "추정'이라고만 밝히고, 확정도가 낮으면 그 점을 함께 전한다."
+    "추정'이라고만 밝히고, 확정도가 낮으면 그 점을 함께 전한다. "
+    "terrain_data_available=false면(directional_terrain.available=false 포함) "
+    "'이 지역 북쪽에 산'·'남쪽에 하천'·'배산임수'·'풍수적으로 완성' 같은 실제 지형/방향 "
+    "주장을 절대 하지 말 것 — 지명·한자·음운·방위·기초 스키마 기반 1차 추정임을 밝힌다. "
+    "산·하천·해안·DEM 원천이 연결되면 지역별 지형 오행 정확도가 올라간다고 안내할 수 있다."
 )
+# 내부 계산 단위(emd)와 사용자 표시 단위(sig grouping) 분리(요구사항 1: 동·읍 단위 판별 유지).
+_RESOLUTION_SURFACE = {
+    RegionResolution.EUP_MYEON_DONG: "sig",
+    RegionResolution.RI: "sig",
+    RegionResolution.SIGUNGU: "sigungu",
+    RegionResolution.SIDO: "sido",
+}
 
 # 의도 라벨(파서 토큰) → IntentMode. work_business=career, rest_healing=healing(docs/12 §7).
 _INTENT_ALIASES: dict[str, IntentMode] = {
@@ -97,9 +108,12 @@ class RegionRecommendationOrchestrator:
     def recommend_payload(self, query: RegionRecommendationQuery) -> dict:
         """엔진 추천 → LLM 입력 payload(설명 대상 사실 + 지침). 계산은 전부 엔진이 끝냈다.
 
-        방향성 어댑터가 있으면 각 지역의 주변 지형('북 산·남 강')을 terrain으로 덧붙인다(P4-Data).
+        내부 계산 단위(query.resolution, 보통 emd)는 그대로 두고, 표시용으로 시군구 grouping을
+        함께 제공한다(요구사항 1: 동·읍 단위 계산 유지·시군구 surface). 방향성 어댑터가 있으면 각
+        지역의 주변 지형('북 산·남 강')을 terrain으로 덧붙인다(P4-Data, 없으면 available=false).
         """
         result = self._engine.recommend(query)
+        terrain_available = self._directional is not None and self._directional_has_data()
         regions: list[dict] = []
         for ex in result.explanations:
             payload = _explanation_payload(ex)
@@ -108,13 +122,26 @@ class RegionRecommendationOrchestrator:
                     self._directional, ex.region_code
                 )
             regions.append(payload)
-        return {
+        computed_level = query.resolution.value
+        out = {
             "intent": query.intent_mode.value,
             "base_location": query.base_location,
             "directive": REGION_REASONING_DIRECTIVE,
+            "terrain_data_available": terrain_available,
+            "computed_level": computed_level,
+            "surface_level": _RESOLUTION_SURFACE.get(query.resolution, computed_level),
             "regions": regions,
             "notes": result.notes,
         }
+        if query.resolution in (RegionResolution.EUP_MYEON_DONG, RegionResolution.RI):
+            out["surface"] = _group_by_sigungu(result.explanations)
+        return out
+
+    def _directional_has_data(self) -> bool:
+        """방향성 요약이 실제로 적재됐는지(어떤 region이라도 available)."""
+        if self._directional is None:
+            return False
+        return bool(getattr(self._directional, "_by_region", {}))
 
 
 def _explanation_payload(ex: RegionRecommendationExplanation) -> dict:
@@ -141,6 +168,34 @@ def _explanation_payload(ex: RegionRecommendationExplanation) -> dict:
         "direction_fit": ex.direction_fit,
         "missing_layers": [m.layer for m in ex.missing_layers],
     }
+
+
+def _group_by_sigungu(
+    explanations: list[RegionRecommendationExplanation],
+) -> list[dict]:
+    """읍면동 추천을 시군구로 grouping(표시용). 계산 단위는 emd 유지, surface만 시군구.
+
+    각 시군구 그룹: 대표 match_score(소속 emd 최고) + top_emd_candidates(코드·full_name·점수).
+    그룹 순서는 대표 점수 내림차순.
+    """
+    groups: dict[str, dict] = {}
+    for ex in explanations:
+        sigungu = " ".join(ex.full_name_ko.split()[:-1]) or ex.full_name_ko
+        g = groups.setdefault(sigungu, {
+            "sigungu_full_name": sigungu, "match_score": 0, "top_emd_candidates": [],
+        })
+        g["match_score"] = max(g["match_score"], ex.match_score)
+        g["top_emd_candidates"].append({
+            "region_code": ex.region_code,
+            "full_name_ko": ex.full_name_ko,
+            "match_score": ex.match_score,
+            "dominant_elements": ex.dominant_elements,
+        })
+    out = sorted(groups.values(), key=lambda g: -g["match_score"])
+    for g in out:
+        g["top_emd_candidates"].sort(key=lambda c: -c["match_score"])
+        g["top_emd_candidates"] = g["top_emd_candidates"][:3]
+    return out
 
 
 def _directional_payload(adapter: DirectionalFeatureAdapter, region_code: str) -> dict:

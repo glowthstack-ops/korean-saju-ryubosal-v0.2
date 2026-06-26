@@ -779,9 +779,9 @@ class RegionElementEngine:
             ]
             if legacy:
                 return legacy
-            notes.append(f"후보 범위 미확인 — {query.candidate_scope}, 전국 시군구로 대체")
-        # 폴백: 전국 시군구(과대 후보 방지).
-        return [p for p in self._profiles.values() if p.region_level is RegionLevel.SIG]
+            notes.append(f"후보 범위 미확인 — {query.candidate_scope}, 전국 후보로 대체")
+        # 폴백: 요청 해상도의 전국 후보(emd 요청 시 읍면동 단위 유지 — 동·읍 판별 요구사항).
+        return [p for p in self._profiles.values() if p.region_level is level]
 
     def _lookup_profile(
         self, name: str, notes: list[str], level: RegionLevel | None = None

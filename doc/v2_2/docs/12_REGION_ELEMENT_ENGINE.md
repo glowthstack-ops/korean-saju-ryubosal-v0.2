@@ -361,6 +361,23 @@ README 한계) → P3는 §10 정의대로 **"스키마+어댑터+스텁, 공급
 (FengshuiFormAdapter, 별도 알고리즘 — 미구현). 소비 경로는 합성 데이터로 회귀 테스트 고정
 (test_region_geo_layer·test_region_directional). 핸드오프 미공급 시 전 빌드 graceful(P0~P4-A 산출 불변).
 
+### P4-Data Acceptance Layer + emd 계산/sig surface + 무데이터 가드(2026-06-26)
+
+데이터 받기 전 디버깅 비용을 줄이는 마무리 작업(사용자 확정).
+
+- **수용 계층**(입구 검증): [geo_acceptance.py](../../../backend/packages/saju_engines/saju_engines/geo_acceptance.py)
+  + CLI 3종(inspect_geo_source·validate_external_geo_sources·build_external_geo_acceptance_report) +
+  [doc/gis_external_data_acceptance.md](../../gis_external_data_acceptance.md). 다운로드 원본이 변환
+  가능 상태인지 13항목 판정(좌표·CRS·인코딩·feature_type·한반도 범위·geometry 등). csv/jsonl/geojson은
+  순수 파이썬 전수, shp/gpkg는 geopandas 있으면 전수·없으면 메타 안내. fail이면 변환 금지(게이트).
+- **emd 계산 / sig surface**(요구사항 1): 추천 계산 단위는 읍면동(emd) 유지, 표시만 시군구 grouping.
+  recommend_payload가 computed_level=eup_myeon_dong / surface_level=sig / surface[].top_emd_candidates
+  제공. _select_candidates 전국 폴백을 '요청 해상도' 기준으로 수정(emd 요청 시 읍면동 후보 유지).
+  chat은 emd 계산→시군구로 묶어 '세부 동' 동반 표시.
+- **무데이터 문구 가드**(요구사항 2): payload.terrain_data_available + REGION_REASONING_DIRECTIVE가
+  외부 지형 미연결 시 '북쪽에 산/남쪽에 하천/배산임수/풍수 완성' 류 실제 지형 주장을 금지. 권장
+  문구는 '지명·한자·음운·방위·기초 스키마 기반 1차 추정'.
+
 ## 11. 설계 원칙(피해야 할 것)
 
 1. 지명 한자만으로 오행 단정 금지 — 실제 지형과 다를 수 있다.

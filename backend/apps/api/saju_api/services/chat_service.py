@@ -844,37 +844,53 @@ def _region_recommendation_context(
                 roles[key].append(element)
         if not roles["yongsin"]:
             return []
+        # 계산은 읍면동(emd) 단위, 표시는 시군구 grouping(요구사항 1: 동·읍 판별 유지).
         query = orch.build_query(  # type: ignore[attr-defined]
             intent_mode=resolve_intent_mode("이사"),
             roles=roles,
             base_location=base,
             candidate_scope=scope,
-            resolution=RegionResolution.SIGUNGU,
-            top_n=5,
+            resolution=RegionResolution.EUP_MYEON_DONG,
+            top_n=20,
         )
         payload = orch.recommend_payload(query)  # type: ignore[attr-defined]
     except Exception:  # noqa: BLE001 — 지역 추천 실패가 일반 풀이를 막지 않도록
         return []
+    surface = payload.get("surface", [])
     regions = payload.get("regions", [])
-    if not regions:
+    if not surface:
         return []
+    by_code = {r["region_code"]: r for r in regions}
     out = [
-        "[지역 오행 추천(참고) — 내 용희기구신 × 지역 오행 매칭. 시군구 단위·지형 GIS 미반영 "
-        "1차 추정이라 '유리/보완성/기류'로만 녹이고 단정 금지(실거주 만족은 생활 여건이 좌우)]"
+        "[지역 오행 추천(참고) — 내 용희기구신 × 지역 오행 매칭. 읍면동 단위로 계산하고 시군구로 "
+        "묶어 표시. 산·하천·해안·DEM 원천 미연결 1차 추정이라 '유리/보완성/기류'로만 녹이고 단정 "
+        "금지(실거주 만족은 생활 여건이 좌우). 데이터 미연결 상태에선 '북쪽에 산/배산임수' 류 실제 "
+        "지형 주장 금지]"
     ]
-    for i, r in enumerate(regions[:5], 1):
-        pos = "·".join(f"{f['element']}({f['role']})" for f in r["fit_summary"]["positive"])
-        neg = "·".join(f"{f['element']}({f['role']})" for f in r["fit_summary"]["negative"])
-        parts = [f"{i}. {r['full_name_ko']} 적합 {r['match_score']}"]
+    for i, g in enumerate(surface[:5], 1):
+        emds = g["top_emd_candidates"]
+        rep = by_code.get(emds[0]["region_code"], {}) if emds else {}
+        parts = [f"{i}. {g['sigungu_full_name']} 적합 {g['match_score']}"]
+        pos = "·".join(
+            f"{f['element']}({f['role']})"
+            for f in rep.get("fit_summary", {}).get("positive", [])
+        )
+        neg = "·".join(
+            f"{f['element']}({f['role']})"
+            for f in rep.get("fit_summary", {}).get("negative", [])
+        )
         if pos:
             parts.append(f"유리 {pos}")
         if neg:
             parts.append(f"주의 {neg}")
-        if r.get("direction"):
-            parts.append(f"방위 {r['direction']} {r['direction_fit']}")
+        if rep.get("direction"):
+            parts.append(f"방위 {rep['direction']} {rep['direction_fit']}")
+        emd_names = ", ".join(c["full_name_ko"].split()[-1] for c in emds[:3])
+        if emd_names:
+            parts.append(f"세부 {emd_names}")
         out.append(" / ".join(parts))
-    if any(r.get("missing_layers") for r in regions):
-        out.append("(지형·풍수 데이터 반영 전이라 확정도는 낮음 — 방향·생활 여건과 함께 보세요)")
+    if not payload.get("terrain_data_available", False):
+        out.append("(지형·풍수 원천 미연결 — 확정도 낮음, 방위·생활 여건과 함께 보세요)")
     return out
 
 

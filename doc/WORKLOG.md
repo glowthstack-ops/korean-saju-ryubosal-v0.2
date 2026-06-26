@@ -5363,3 +5363,24 @@ P4-A 오케스트레이터를 실제 chat 파이프라인에 연결. 이제 사�
   원본 SHP 취득·변환 불가. 변환 툴킷(doc/gis_region)은 사용자 제작 완비. 데이터 드롭 시 빌드만 실행.
 - **DEM/풍수(FengshuiForm)**: 별도 알고리즘 + DEM 필요 → 미구현(3차 고도화).
 - 검증: 신규 테스트 1, unit 987 pass·1 skip, ruff·mypy clean.
+
+---
+
+## 지역 오행 엔진 — P4-Data Acceptance Layer + emd 계산/sig surface + 무데이터 문구 가드 ✅ (2026-06-26)
+
+데이터 수급 전 마무리(사용자 확정): 입구 검증·동읍 계산 유지·LLM 과장 차단.
+
+- **Acceptance Layer**(입구 검증): geo_acceptance.py(inspect/validate 13항목 — 좌표/CRS/인코딩/
+  feature_type/한반도 범위/geometry/row count 등) + CLI 3종(inspect_geo_source·
+  validate_external_geo_sources(게이트)·build_external_geo_acceptance_report(리포트 json/md)) +
+  doc/gis_external_data_acceptance.md. csv/jsonl/geojson 순수 파이썬 전수, shp/gpkg는 geopandas
+  있으면 전수·없으면 .prj 메타+안내(graceful). fail이면 변환 금지, warning은 보정 후 진행.
+- **emd 계산/sig surface**(요구사항1): recommend_payload에 computed_level=eup_myeon_dong/
+  surface_level=sig/surface[].top_emd_candidates. _select_candidates 전국 폴백을 요청 해상도 기준으로
+  수정(emd 요청 시 읍면동 후보 유지 — 시군구 추천기 퇴행 방지). chat은 emd 계산→시군구 묶음+세부 동.
+- **무데이터 문구 가드**(요구사항2): payload.terrain_data_available + directive가 외부 지형 미연결 시
+  '북쪽에 산·배산임수·풍수 완성' 류 실제 지형 주장 금지, '1차 추정' 문구 권장.
+- 검증: 신규 테스트 11(acceptance 9 + emd/sig payload 1 + 기존 chat 회귀 보강), unit 997 pass·1 skip,
+  ruff·mypy clean. 엔진 결과 불변(입구 검증은 변환·점수 미개입).
+- 남은 순서(데이터 전): 지역 추천 golden case 20개·가중치 튜닝 준비. 데이터 후: POI→하천→해안→
+  임상도/토지피복→DEM 순 활성. DEM 풍수(FengshuiForm)는 별도 알고리즘 필요로 미구현.

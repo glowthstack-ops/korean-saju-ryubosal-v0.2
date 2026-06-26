@@ -140,6 +140,26 @@ def test_orchestrator_payload_has_evidence_and_missing() -> None:
 
 
 @_needs_snapshot
+def test_payload_emd_compute_sig_surface() -> None:
+    """요구사항1: 계산 단위 emd 유지 + 시군구 surface grouping + top_emd_candidates."""
+    orch = RegionRecommendationOrchestrator(_engine())
+    q = orch.build_query(
+        intent_mode=resolve_intent_mode("이사"),
+        roles={"yongsin": ["水"]}, candidate_scope="제주",
+        resolution=RegionResolution.EUP_MYEON_DONG, top_n=20,
+    )
+    payload = orch.recommend_payload(q)
+    assert payload["computed_level"] == "eup_myeon_dong"  # 계산은 읍면동
+    assert payload["surface_level"] == "sig"  # 표시는 시군구
+    assert payload["terrain_data_available"] is False  # 외부 지형 미연결
+    assert payload["surface"], "시군구 grouping 존재"
+    grp = payload["surface"][0]
+    assert "sigungu_full_name" in grp and grp["top_emd_candidates"]
+    # 세부 후보는 읍면동(시도 시군구 읍면동 = 3토큰 이상).
+    assert len(grp["top_emd_candidates"][0]["full_name_ko"].split()) >= 3
+
+
+@_needs_snapshot
 def test_taekil_bridge_serializes_candidate() -> None:
     """추천 1건 → RegionTaekilContext(지역=어디, 택일=언제 역할 분리). 방위 오행 채움."""
     eng = _engine()
