@@ -5427,3 +5427,21 @@ P4-A 오케스트레이터를 실제 chat 파이프라인에 연결. 이제 사�
   방위 요약 e2e·투영 정합), unit 1030 pass·1 skip, ruff·mypy clean. 쿼리 생성 실측 2,250건.
 - **활성**: KAKAO 키 설정 → 5스크립트 순차 → region_directional_summary_search_seed.json →
   (검수 후) compiled 승격 → DirectionalFeatureAdapter 활성. 실제 API 호출은 키/네트워크 필요(환경 블로커).
+
+---
+
+## Topic Builder 모듈 확장 — 도메인 신호형 5종(M01·M02·M09·M11·M12) ✅ (2026-06-26)
+
+docs/09 4·5장. 미구현 11개 중 도메인 신호 매핑형 5개를 M07 패턴으로 구현(기존 엔진 조립 어댑터,
+외부 데이터 불필요). 50장 총운 리포트 섹션(F-14→M09 등) 품질 직결.
+
+- 공용 헬퍼 `_domain_series_findings`/`_domain_topic`: 기간 내 composite의 domain(+event_key)
+  신호를 시계열·findings로 확정(점수 최종, LLM은 서술만). 모듈은 domain/event_keys/label/style만 지정.
+- M01 love_timing(relationship: relationship_start/end) · M02 marriage(relationship: marriage/
+  childbirth/family_change) · M09 wealth(wealth 전체) · M11 health(health) · M12 education_exam(education).
+- 정책 톤(절대원칙 3·8): M09=생활형 횡재 가드(번호·종목 픽 금지·당첨 단정 금지·과몰입 금지),
+  M12=당락 확정 금지, M11=의료 단정 금지·전문의 상담, M02=운 저점 큰 결정 보류, M01=만남 단정 금지.
+- 검증: 신규 테스트 12(도메인 격리·이벤트 필터·정책 톤·결정성·간지 동반·미구현 모듈 raise), 기존
+  test_planned_module을 M04로 갱신(M01 구현됨). unit 1042 pass·1 skip, ruff·mypy clean.
+- 남은 미구현 6개(M04 부모·M05 자녀·M06 직장관계·M08 사업·M13 비교·M14 과거검증)는 subject/관계
+  엔진·past_validation 역방향 등 추가 배선 필요 — 후속 배치.

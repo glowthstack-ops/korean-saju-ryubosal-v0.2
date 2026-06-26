@@ -3,9 +3,10 @@
 각 모듈은 `(subjects, period, LuckComposite[], dictionaries) => TopicContext` 순수 함수다.
 **M01~M15가 전체이며 새 주제는 모듈 추가로만 대응한다(기존 모듈에 분기 추가 금지).**
 
-구현: M03(personality_traits — trait_mapping.json), M07(career),
+구현: M01(love_timing)·M02(marriage)·M07(career)·M09(wealth)·M11(health)·M12(education_exam)
+— 도메인 신호형(공용 _domain_topic), M03(personality_traits — trait_mapping.json),
 M10(relocation_composite — relocation.py S1~S10 위임), M15(lifestyle — format_slots.json).
-나머지는 등록만 된 계획 상태(호출 시 NotImplementedError).
+미구현(계획): M04 부모·M05 자녀·M06 직장관계·M08 사업·M13 비교·M14 과거검증(호출 시 NotImplementedError).
 
 T0 데이터(원국 십성 분포·용신 오행)가 필요한 모듈(M03/M10)은 extras 키워드로 받는다 —
 LuckComposite 스키마(규격)에 없는 정적 차트 정보는 Static Chart Layer(T0, docs/09 1장)
@@ -542,11 +543,190 @@ def _top_keys(dist: dict[str, float], n: int) -> list[str]:
     return [k for k, _v in sorted(dist.items(), key=lambda kv: (-kv[1], kv[0]))[:n]]
 
 
+# ── 도메인 신호형 모듈 공용 헬퍼(M07 패턴) ───────────────────────────
+_LEVELS_YM = {CompositeLevel.YEAR, CompositeLevel.MONTH}
+
+
+def _domain_series_findings(
+    composites: list[LuckComposite],
+    period: PeriodSpec,
+    *,
+    domains: set[str],
+    label: str,
+    event_keys: set[str] | None = None,
+    levels: set[CompositeLevel] | None = None,
+) -> tuple[list[LuckComposite], list[TimeSeriesPoint], list[Finding]]:
+    """기간 내 composite에서 도메인(+event_key) 신호를 시계열·findings로 확정(점수 최종).
+
+    M07 패턴 공용 — 모듈별로 domain/event_keys/label만 바꿔 호출한다. 모든 수치는 여기서
+    확정되며 LLM은 서술만 한다(docs/09 5장).
+    """
+    active_levels = levels if levels is not None else _LEVELS_YM
+    selected = [
+        c for c in composites
+        if c.level in active_levels and _in_period(c.period_key, period)
+    ]
+    series: list[TimeSeriesPoint] = []
+    findings: list[Finding] = []
+    for c in sorted(selected, key=lambda x: x.period_key):
+        sigs = [
+            s for s in c.domain_signals
+            if s.domain in domains and (event_keys is None or s.event_key in event_keys)
+        ]
+        if not sigs:
+            continue
+        score = max(0, min(100, round(sum(s.weight for s in sigs) * 100)))
+        names = [s.source_interaction for s in sigs]
+        gz = f"{c.ganji.stem}{c.ganji.branch}"
+        series.append(TimeSeriesPoint(
+            period_key=c.period_key, ganji=gz, score=score, signals=names,
+        ))
+        top = max(sigs, key=lambda s: s.weight)
+        findings.append(Finding(
+            key=f"{top.event_key or label}@{c.period_key}",
+            summary=(
+                f"{c.period_key} {gz} — {label} 신호 {len(sigs)}건"
+                f"({top.event_key or label} 중심), {c.favorability} 기조"
+            ),
+            score=score, event_key=top.event_key, period_key=c.period_key, signals=names,
+        ))
+    findings.sort(key=lambda f: -f.score)
+    return selected, series, findings
+
+
+def _domain_topic(
+    module_id: str,
+    subjects: list[SubjectRef],
+    period: PeriodSpec,
+    composites: list[LuckComposite],
+    *,
+    domains: set[str],
+    label: str,
+    style: StyleRules,
+    event_keys: set[str] | None = None,
+) -> TopicContext:
+    """도메인 신호형 모듈의 TopicContext 조립(M01/M02/M09/M11/M12 공용)."""
+    selected, series, findings = _domain_series_findings(
+        composites, period, domains=domains, label=label, event_keys=event_keys,
+    )
+    return TopicContext(
+        module_id=module_id,
+        subjects=subjects,
+        period=period,
+        calendar_context=_calendar_context(selected),
+        findings=findings[:5],
+        time_series=series,
+        style_rules=style,
+        budget=_DEFAULT_BUDGET,
+    )
+
+
+# 모듈별 표현 제한(정책 — 절대원칙 3·8). _BASE_STYLE 위에 모듈 특화 톤을 얹는다.
+_LOVE_STYLE = StyleRules(
+    prohibited_expressions=[*_BASE_STYLE.prohibited_expressions, "반드시 만난다", "꼭 사귄다"],
+    tone_notes=[*_BASE_STYLE.tone_notes, "연애는 가능성·시기·임하는 태도로(만남 단정 금지)"],
+)
+_MARRIAGE_STYLE = StyleRules(
+    prohibited_expressions=[
+        *_BASE_STYLE.prohibited_expressions, "반드시 결혼한다", "반드시 이혼한다",
+    ],
+    tone_notes=[
+        *_BASE_STYLE.tone_notes,
+        "결혼·이혼은 흐름·적합 시기로. 운 저점의 큰 결정은 보류 권고(조급함=신호)",
+    ],
+)
+_WEALTH_STYLE = StyleRules(
+    prohibited_expressions=[
+        *_BASE_STYLE.prohibited_expressions, "당첨된다", "반드시 번다", "수익 보장",
+    ],
+    tone_notes=[
+        *_BASE_STYLE.tone_notes,
+        "재물은 흐름·유리 시기·태도로. 생활형 횡재는 소액·분산·재미 범위(번호·종목 픽 금지·"
+        "당첨/수익 단정 금지·과몰입 권유 금지 — 절대원칙 8)",
+    ],
+)
+_HEALTH_STYLE = StyleRules(
+    prohibited_expressions=[
+        *_BASE_STYLE.prohibited_expressions, "반드시 아프다", "완치된다", "이 병이다",
+    ],
+    tone_notes=[
+        *_BASE_STYLE.tone_notes,
+        "건강은 리스크 시기·관리 포인트로(진단·완치 단정 금지, 증상은 전문의 상담 안내)",
+    ],
+)
+_EXAM_STYLE = StyleRules(
+    prohibited_expressions=[
+        *_BASE_STYLE.prohibited_expressions, "반드시 합격", "반드시 불합격", "당락 확정",
+    ],
+    tone_notes=[
+        *_BASE_STYLE.tone_notes,
+        "시험은 상대 우열·준비 시기·집중 구간까지만. 당락 확정 표현 금지(절대원칙 8)",
+    ],
+)
+
+
+def build_love_context(
+    subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
+) -> TopicContext:
+    """M01 love_timing — 연애 시기·재회 (docs/09 4장: relationship 도메인 연애 이벤트)."""
+    return _domain_topic(
+        "M01", subjects, period, composites,
+        domains={"relationship"}, label="연애",
+        event_keys={"relationship_start", "relationship_end"}, style=_LOVE_STYLE,
+    )
+
+
+def build_marriage_context(
+    subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
+) -> TopicContext:
+    """M02 marriage — 결혼/이혼/재혼 (docs/09 4장: relationship 도메인 결혼·가정 이벤트)."""
+    return _domain_topic(
+        "M02", subjects, period, composites,
+        domains={"relationship"}, label="결혼·가정",
+        event_keys={"marriage", "childbirth", "family_change"}, style=_MARRIAGE_STYLE,
+    )
+
+
+def build_wealth_context(
+    subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
+) -> TopicContext:
+    """M09 wealth — 재물/유산/횡재/투기 (docs/09 4장: wealth 도메인 전체)."""
+    return _domain_topic(
+        "M09", subjects, period, composites,
+        domains={"wealth"}, label="재물", style=_WEALTH_STYLE,
+    )
+
+
+def build_health_context(
+    subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
+) -> TopicContext:
+    """M11 health — 건강/수술 시기 (docs/09 4장: health 도메인)."""
+    return _domain_topic(
+        "M11", subjects, period, composites,
+        domains={"health"}, label="건강", style=_HEALTH_STYLE,
+    )
+
+
+def build_education_context(
+    subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
+) -> TopicContext:
+    """M12 education_exam — 시험/입시/자격 (docs/09 4장: education 도메인)."""
+    return _domain_topic(
+        "M12", subjects, period, composites,
+        domains={"education"}, label="시험·학업", style=_EXAM_STYLE,
+    )
+
+
 # 모듈 레지스트리 — 구현된 모듈만 빌더 연결, 나머지는 계획 상태.
 BUILDERS: dict[str, BuilderFn | None] = {mid: None for mid in MODULES}
+BUILDERS["M01"] = build_love_context
+BUILDERS["M02"] = build_marriage_context
 BUILDERS["M03"] = build_personality_context  # extras: natal_ten_god_dist
 BUILDERS["M07"] = build_career_context
+BUILDERS["M09"] = build_wealth_context
 BUILDERS["M10"] = build_relocation_context  # extras: relocation_query 외 2종
+BUILDERS["M11"] = build_health_context
+BUILDERS["M12"] = build_education_context
 BUILDERS["M15"] = build_lifestyle_context  # extras 선택
 
 

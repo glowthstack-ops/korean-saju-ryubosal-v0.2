@@ -42,10 +42,10 @@ def test_unknown_module_rejected(composites) -> None:
 
 
 def test_planned_module_raises_not_implemented(composites) -> None:
-    """등록만 된 모듈은 NotImplementedError로 미구현을 드러낸다."""
+    """아직 등록만 된 모듈(M04 등)은 NotImplementedError로 미구현을 드러낸다."""
     period = PeriodSpec(start="2024-01", end="2026-12", granularity="month")
-    with pytest.raises(NotImplementedError, match="M01"):
-        build_topic_context("M01", [], period, composites)
+    with pytest.raises(NotImplementedError, match="M04"):
+        build_topic_context("M04", [], period, composites)
 
 
 def test_m07_career_context(composites) -> None:
