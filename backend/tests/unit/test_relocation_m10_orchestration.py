@@ -306,3 +306,19 @@ def test_ganji_gloss_double_annotation_collapsed() -> None:
     assert g("7월은 갑오(甲午(갑오))월로") == "7월은 갑오(甲午)월로"
     assert g("己卯(기묘)(기묘)일") == "己卯(기묘)일"
     assert g("정상: 갑오(甲午)월 / 己卯일") == "정상: 갑오(甲午)월 / 己卯일"  # 보존
+
+
+def test_region_element_fact_direct_answer() -> None:
+    """'창원 성산구의 오행은?' 사실 질문은 too_broad가 아니라 지역 엔진 프로파일로 직접 답한다."""
+    b = BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
+        birth_place_name="서울", gender="male", reference_date=date(2026, 6, 18))
+    r = chat_service.chat(b, "창원 성산구의 오행은 뭐야?", today=date(2026, 6, 18), dry_run=True)
+    if r.status != "answered":  # compiled 미빌드 환경
+        import pytest
+        pytest.skip("지역 compiled 스냅샷 미빌드")
+    assert "지역 오행" in (r.answer or "") and "창원시 성산구" in (r.answer or "")
+    assert any(e in (r.answer or "") for e in ("목(木)", "화(火)", "토(土)", "금(金)", "수(水)"))
+    # '내 사주 오행'은 지역 사실 라우트로 빠지지 않는다(개인 사주 분석 경로 유지).
+    r2 = chat_service.chat(b, "내 사주 오행 분포 어때?", today=date(2026, 6, 18), dry_run=True)
+    assert "지역 오행은" not in (r2.answer or "")

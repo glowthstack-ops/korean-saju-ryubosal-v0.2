@@ -922,6 +922,49 @@ def _region_recommendation_context(
     return out
 
 
+# 지역 오행 사실 질문('창원 성산구의 오행은?') — 시군구/지명 + '오행'. 사주·시점 무관 단순 조회.
+_REGION_ELEMENT_Q_RE = re.compile(
+    r"([가-힣]{2,}\s+[가-힣]{1,}(?:특별자치시|시|군|구)|[가-힣]{2,}(?:특별자치시|시|군|구))"
+    r"\s*(?:의|은|는|이|가)?\s*오행"
+)
+_ELEMENT_KO = {"木": "목(木)", "火": "화(火)", "土": "토(土)", "金": "금(金)", "水": "수(水)"}
+
+
+def _region_element_fact(question: str) -> str | None:
+    """'X 지역의 오행은?' 사실 질문에 지역 엔진 프로파일로 직접 답한다(LLM 미호출).
+
+    지역 오행은 고정 사전계산값이라 사주·시점과 무관한 단순 조회다 — too_broad 안내로 빠지지 않게
+    별도 사실 라우트로 처리한다. compiled 미빌드·미등재면 None(일반 흐름), 모호 지명이면 확인 질문.
+    """
+    m = _REGION_ELEMENT_Q_RE.search(question)
+    if m is None:
+        return None
+    orch = _get_region_orchestrator()
+    if orch is None:
+        return None
+    name = m.group(1).strip()
+    engine = orch._engine  # type: ignore[attr-defined]
+    code, ambiguous = engine.resolve_region(name)
+    if code is None:
+        if ambiguous:
+            opts = ", ".join(ambiguous[:4])
+            return f"'{name}'이 어느 지역인지 모호해요 — 혹시 {opts} 중 어디일까요?"
+        return None  # 미등재 → 일반 흐름으로 폴백
+    profile = engine.get_profile(code)
+    if profile is None or not profile.dominant_elements:
+        return None
+    doms = [_ELEMENT_KO.get(e, e) for e in profile.dominant_elements[:2]]
+    full = profile.full_name or name
+    body = f"{full}의 지역 오행은 {doms[0]} 기운이 가장 강해요"
+    if len(doms) > 1:
+        body += f". 그다음으로 {doms[1]} 기운이 받쳐 주고요"
+    body += (
+        ". 다만 산·하천·해안 등 지형 GIS 원천이 아직 연결되지 않은 1차 추정값이라 참고로만 봐 "
+        "주세요 — 실제 거주 만족은 생활 여건이 더 크게 좌우해요."
+    )
+    return body
+
+
 # 질문 도메인 → Topic Builder 모듈(채팅 배선, 옵션1). relocation은 별도 지역/이사 경로가 담당.
 _DOMAIN_TOPIC_MODULE = {
     Domain.CAREER: "M07", Domain.WEALTH: "M09", Domain.HEALTH: "M11",
@@ -1636,6 +1679,17 @@ def chat(
         return ChatResponse(
             status="policy",
             answer=_POLICY_ANSWERS.get(plan.policy_route, _POLICY_ANSWERS["fixed_policy"]),
+            intents=parsed.intents, thread_id=thread_id,
+            turn_no=state.turn_no if state else None, repeated=repeated,
+        )
+
+    # 지역 오행 사실 질문('창원 성산구의 오행은?') — 사주·시점 무관 단순 조회라 too_broad로
+    # 빠지지 않게 엔진 프로파일로 직접 답한다(LLM 미호출, 2026-06-26 데굴님 지적).
+    region_fact = _region_element_fact(question)
+    if region_fact is not None:
+        _save_thread(store, state)
+        return ChatResponse(
+            status="answered", answer=region_fact,
             intents=parsed.intents, thread_id=thread_id,
             turn_no=state.turn_no if state else None, repeated=repeated,
         )
