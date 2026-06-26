@@ -5607,3 +5607,23 @@ docs/12 §14-10 P5-2 — 방향성 지형(점·선 feature)을 OSM/NE에서 추�
   build_region_directional_summary.py로 end-to-end 증명(40,369행/5,065 읍면동, TEMP 출력) —
   청운효자동 N방위 top=홍제천(하천)·형제봉(봉우리). **directional 스냅샷은 미커밋(활성=P5-3 감수)**.
 - unit 1059 pass(런타임 미개입), 추출 스크립트만 추가. CSV·원천 gitignore.
+
+---
+
+## P5-3 슬라이스 1 — form_quality 채점 코어(좌향 유무 2모드) ✅ (2026-06-26)
+
+데굴님 §14-12 감수 기준으로 P5-3 착수. 핵심 분리 원칙(형국 점수 ≠ 지역 오행 벡터)을 순수 함수로
+먼저 구현 — 추천 경로 미개입(무회귀), 가중 cap은 감수값 그대로.
+
+- docs/12 §14-12: P5-3 활성화 보정 기준 권위 기록(명칭 분리 directional_terrain≠relative_direction,
+  활성화 순서, 점수 cap 첫릴리즈/확장, form_quality 산식 2모드, 도로/철도 form penalty 전용,
+  거리버킷·반경, OSM<공식GIS confidence, golden 20+ 카테고리, 금지 8).
+- fengshui_form.py: compute_form_quality_open(좌향 없음 — 산수분포/수계접근/지형균형, 사신사
+  강판정 금지)·compute_form_quality_facing(좌향 있음 — 현무/주작/청룡/백호 §14-3)·form_quality_bonus
+  (±cap, base_match_score 미반전). 신호는 directional_terrain(RegionDirectionalElementSummary 8방위)
+  에서 도출. road_rush=0(transport OFF). 확정 가중은 §14-12 산식 그대로.
+- 검증: 신규 테스트 3(산수혼합 가산·수변과다 감점·남향 현무=북·cap 불반전), unit 1062 pass,
+  ruff·mypy clean. 추천 경로·기존 golden 불변(미배선).
+
+남은 슬라이스: P5-3A 배선(directional 스냅샷 build·shadow evidence)·P5-3 통합(form_quality_bonus를
+recommend에 cap 결합)·road/rail form penalty(transport)·팔택 stub OFF·golden 20+.

@@ -33,3 +33,48 @@ def test_sasinsa_facing_relative() -> None:
 
 def test_facing_bearing_modulo() -> None:
     assert sasinsa_sectors(540).facing_bearing == 180.0  # 360 밖 보정
+
+
+def _dir(code: str, *, earth=0.0, wood=0.0, water=0.0, mnt=None, riv=None) -> object:
+    from saju_shared_types.region_element import RegionDirectionalElementSummary
+    return RegionDirectionalElementSummary(
+        region_code="t", direction_code=code, earth_score=earth, wood_score=wood,
+        water_score=water, nearest_mountain_m=mnt, nearest_river_m=riv, confidence=0.65)
+
+
+def test_form_quality_open_mountain_vs_water() -> None:
+    """좌향 없음: 산지형은 mountain_support 가산, 수변과다는 overwater 감점(§14-12)."""
+    from saju_engines.fengshui_form import (
+        compute_form_quality_open,
+        derive_open_signals,
+        form_quality_bonus,
+    )
+    # 산수혼합(土·水·木 공존) → balance 가산, 양(+) bonus.
+    mixed = [_dir("N", earth=0.6, mnt=1500), _dir("E", water=0.45, riv=1200),
+             _dir("W", wood=0.4), _dir("S")]
+    pm = compute_form_quality_open(mixed, "t")
+    assert pm.available and pm.form_quality_score > 0
+    assert -5 <= form_quality_bonus(pm) <= 5  # 첫 릴리즈 cap
+    # 수변과다(水만 강, 土/木 약) → overwater 페널티.
+    over = [_dir("S", water=0.9, riv=300), _dir("N"), _dir("E"), _dir("W")]
+    so = derive_open_signals(over)
+    assert so["overwater_penalty"] > 0 and so["mountain_support"] < 0.2
+
+
+def test_form_quality_facing_sasinsa() -> None:
+    """좌향 있음: 남향(현무=북)에 북산이 있으면 back_mountain 반영(§14-3)."""
+    from saju_engines.fengshui_form import compute_form_quality_facing
+    rows = [_dir("N", earth=0.7, mnt=1800), _dir("S", water=0.4, riv=1500),
+            _dir("E", earth=0.3, wood=0.3), _dir("W", earth=0.25)]
+    p = compute_form_quality_facing(rows, "t", 180.0)  # 남향
+    assert p.back_mountain_score > 0.5  # 북(현무)의 土
+    assert any("현무 북" in e for e in p.evidence)
+
+
+def test_form_quality_bonus_cannot_dominate() -> None:
+    """form_quality_bonus는 cap 내(base_match_score 미반전 보장 — §14-12 금지 7)."""
+    from saju_engines.fengshui_form import compute_form_quality_open, form_quality_bonus
+    rows = [_dir("N", earth=1.0, mnt=100), _dir("E", wood=1.0), _dir("S", water=1.0, riv=100)]
+    p = compute_form_quality_open(rows, "t")
+    assert abs(form_quality_bonus(p, cap=5)) <= 5
+    assert abs(form_quality_bonus(p, cap=8)) <= 8
