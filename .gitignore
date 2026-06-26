@@ -52,3 +52,7 @@ backend/compiled/region_weights_review.*
 backend/compiled/external_geo_acceptance_report.*
 # P4-SearchSeed 생성 산출물(검색 기반 부트스트랩 — 재생성 가능·검수 전). 스크립트/코어는 추적.
 doc/gis/search_seed/
+# Tier B 지형 원천(무로그인 재다운로드 가능 — OSM 544MB·Copernicus DEM·Natural Earth) + geo 신호
+# 산출물(재생성 가능, geo 가중 보정·전문가 감수 전이라 미활성). 빌드 스크립트(scripts/)는 추적.
+doc/gis/_geo_src/
+doc/gis/region_geo_features.jsonl

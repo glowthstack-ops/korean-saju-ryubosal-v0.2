@@ -43,6 +43,14 @@ intent-build = [
     "transformers>=4.40",
     "optimum[onnxruntime]>=1.19",
 ]
+# Tier B 지역 지형 feature (재)생성용 빌드타임 전용(scripts/build_geo_features.py). OSM 행정경계·
+# 토지피복·수계 + Copernicus DEM 공간조인. 런타임 엔진은 compiled 스냅샷만 쓰므로 미포함.
+geo-build = [
+    "geopandas>=1.0",
+    "shapely>=2.0",
+    "rasterio>=1.3",
+    "pyproj>=3.6",
+]
 
 # ---------------------------------------------------------------------------
 # Monorepo workspace: each domain lives in its own importable package but is

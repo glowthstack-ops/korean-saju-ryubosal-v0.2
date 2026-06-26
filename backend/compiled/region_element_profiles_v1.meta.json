@@ -3,6 +3,8 @@
   "source_gis_version": "20230729",
   "direction_included": false,
   "layers": [
+    "physical_geography",
+    "landcover_hydro_forest",
     "hanja_token",
     "hanja_fallback_legacy",
     "phonetic_layer",
@@ -16,7 +18,7 @@
   "hanja_join": {
     "matched": 248,
     "total": 250,
-    "geo_features": 0
+    "geo_features": 5236
   },
-  "calculated_at": "2026-06-26T05:51:30.752187+00:00"
+  "calculated_at": "2026-06-26T06:58:35.243181+00:00"
 }

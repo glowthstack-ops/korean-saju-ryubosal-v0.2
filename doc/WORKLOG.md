@@ -5546,3 +5546,27 @@ unit 1049 pass·1 skip, ruff·mypy clean.
   창원 4구가 더는 동일 土 아님.
 - 회귀 가드: test_region_golden 통합시 자치구 테스트(마산합포≠성산·水/土/火 검증). 사전검증 68파일
   통과, unit 1050 pass, ruff clean. compiled 스냅샷 git 추적분 갱신.
+
+---
+
+## 지역 지형(GIS) 데이터 무로그인 연결 — Tier B 파이프라인 구축 ✅ / geo 가중 보정은 감수 대기 (2026-06-26)
+
+데굴님 요청: 지형 데이터를 로그인·API 없이 연결. 무로그인 루트 확인·구축 완료, 단 활성화는 보류.
+
+- **무로그인 소스(이 환경 접근 확인)**: OSM south-korea(Geofabrik shp, 544MB) — 행정경계·토지피복·
+  수계 / Natural Earth 10m land(GitHub raw) — 해/육 / Copernicus DEM GLO-90(익명 AWS S3, 44타일
+  114MB) — 고도·경사. 전부 무로그인/무API.
+- **GIS 스택**: geopandas·shapely·rasterio·pyproj·fiona pip 설치(GDAL 번들 휠, apt 불요).
+  pyproject [geo-build] extra로 기록(빌드타임 전용 — 런타임 엔진은 compiled만 사용).
+- **빌드 파이프라인**: scripts/build_geo_features.py — 지역 경계는 bbox가 아니라 **OSM 행정경계
+  실폴리곤(centroid-containment 매칭, 마산합포구 338km²·강릉 1968km² 정확)**. 실폴리곤×지형 레이어
+  면적 비율(water=바다+내륙, forest/agri/urban/industrial) + DEM(mean_elevation·slope·
+  mountain_score) 산출. 5236/5332 지역 신호. region_geo_features.jsonl(gitignore — 재생성 가능).
+- **핵심 발견(활성화 보류 사유)**: 데이터는 정확히 연결되나, geo 신호 가중(region_layer_weights·
+  region_geo_signal_rules, **reviewed:false 초안**)이 산악국가 특성상 ubiquitous 지형을 과대반영 →
+  physical_geography 0.45(mountain_score)로 전 지역 土 지배, 또는 forest 木 지배. 한자 명칭(0.15)이
+  묻힘. 이름-주도 보정(한자 0.40)을 시험해도 마산합포(浦 水 vs 무학산 木/土)처럼 항·만+산악 혼재
+  지역은 단일 오행이 안 정해짐 — **명리 가중 보정/per-region 큐레이션은 전문가 감수 영역(절대원칙 5)**.
+- 따라서 커밋 상태(한자 기반: 마산합포 水, 성산 土)를 유지하고, Tier B는 **연결 완료·활성 대기**로
+  둔다. 감수 후 build_geo_features→build_region_profiles 재실행으로 활성화. golden 픽스처 7개는
+  활성화 시 함께 재생성 필요(geo가 추천 랭킹·신뢰도 변경 — 회귀 게이트 정상 작동 확인).
