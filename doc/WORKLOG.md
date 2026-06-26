@@ -5698,3 +5698,21 @@ P5-3D road_rush(좌향) / P5-3E 팔택 stub. ※ B와 C는 동시 적용 금지(
 
 → P5-3 전 슬라이스(A shadow·B 0.18블렌드·C form bonus±5·D road_rush·E 팔택OFF) 완료. 추가 활성
 (directional_terrain_bonus ±3, form ±8/road −6 확장, 팔택 본명궁 산식)은 감수 후 §14-12 확장표 적용.
+
+---
+
+## 전문가 감수 시군구 오행 통합 — reviewed:true 권위 레이어 ✅ (2026-06-26)
+
+데굴님 제공 CSV(전문가 감수 230 시군구 오행, CP949). 세션 내내 막혔던 'reviewed:false 가중 보정'의
+ground truth — 한자 토큰화로 틀렸던 28%(61/219)를 전문가값으로 바로잡는다.
+
+- dictionaries/_src/sigungu_ohaeng_expert.csv(UTF-8 디코딩 소스) + scripts/build_sigungu_expert_dict.py
+  → dictionaries/region/region_sigungu_expert_ohaeng.json(217 entry, region_code 매핑).
+- 엔진 _expert_layer: 시군구에 전문가 entry 있으면 한자 토큰화를 덮는 권위 레이어(_combine 단독
+  non-phonetic이라 ~0.97 지배). 복합오행은 primary 우세 벡터(2원소 0.55/0.45), reviewed 신뢰도
+  0.85(검수필요 0.60). EMD는 전문가 SIG 상속 + P5-3B discrete 블렌드.
+- 경계: 통합시(수원·창원 등 시 단위)는 자치구 코드 미해소라 제외 → 자치구 자체 한자 유지(마산합포
+  浦=水·성산 城山=土 그대로, 창원 火에 안 묻힘). 지명(여의도·묵호) 제외. 검수필요(무주·세종) reviewed:false.
+- 검증: 강남 火(江南→水 아님)·노원 木·강서 金·종로 金 전문가 적용, 마산합포 水 유지. golden 6건
+  재생성(전문가로 高신뢰화된 종로·제주·마포가 cap-weak 예시 부적격 → 수원장안·세종 약신뢰로 repoint,
+  마포 水木 92→76). 신규 테스트 1, unit 1071 pass, ruff·mypy·dict validate(69파일) clean.

@@ -1,0 +1,1996 @@
+{
+ "version": "1.0.0",
+ "reviewed": true,
+ "note": "전문가 감수 시군구 오행(권위 레이어). 한자 토큰화를 override한다. 검수필요는 entry별 reviewed:false. 통합시 자치구(마산합포구 등)는 미수록 — 자체 한자 유지.",
+ "entries": {
+  "11110": {
+   "name": "서울특별시 종로구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11140": {
+   "name": "서울특별시 중구",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11170": {
+   "name": "서울특별시 용산구",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11200": {
+   "name": "서울특별시 성동구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11215": {
+   "name": "서울특별시 광진구",
+   "elements": [
+    "土",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11230": {
+   "name": "서울특별시 동대문구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11260": {
+   "name": "서울특별시 중랑구",
+   "elements": [
+    "土",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11290": {
+   "name": "서울특별시 성북구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11740": {
+   "name": "서울특별시 강동구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11305": {
+   "name": "서울특별시 강북구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11320": {
+   "name": "서울특별시 도봉구",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11350": {
+   "name": "서울특별시 노원구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11380": {
+   "name": "서울특별시 은평구",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11410": {
+   "name": "서울특별시 서대문구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11440": {
+   "name": "서울특별시 마포구",
+   "elements": [
+    "水",
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11470": {
+   "name": "서울특별시 양천구",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11500": {
+   "name": "서울특별시 강서구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11530": {
+   "name": "서울특별시 구로구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11545": {
+   "name": "서울특별시 금천구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11560": {
+   "name": "서울특별시 영등포구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11590": {
+   "name": "서울특별시 동작구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11620": {
+   "name": "서울특별시 관악구",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11650": {
+   "name": "서울특별시 서초구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11680": {
+   "name": "서울특별시 강남구",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "11710": {
+   "name": "서울특별시 송파구",
+   "elements": [
+    "木",
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41190": {
+   "name": "경기도 부천시",
+   "elements": [
+    "土",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41590": {
+   "name": "경기도 화성시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41360": {
+   "name": "경기도 남양주시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41220": {
+   "name": "경기도 평택시",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41820": {
+   "name": "경기도 가평군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41480": {
+   "name": "경기도 파주시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41150": {
+   "name": "경기도 의정부시",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41390": {
+   "name": "경기도 시흥시",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41570": {
+   "name": "경기도 김포시",
+   "elements": [
+    "金",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41610": {
+   "name": "경기도 광주시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41210": {
+   "name": "경기도 광명시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41410": {
+   "name": "경기도 군포시",
+   "elements": [
+    "金",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41450": {
+   "name": "경기도 하남시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41500": {
+   "name": "경기도 이천시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41290": {
+   "name": "경기도 과천시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41370": {
+   "name": "경기도 오산시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41630": {
+   "name": "경기도 양주시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41310": {
+   "name": "경기도 구리시",
+   "elements": [
+    "土",
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41550": {
+   "name": "경기도 안성시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41430": {
+   "name": "경기도 의왕시",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": "이미지에는 '(金)' 형태로 표시되어 금(金)으로 정리"
+  },
+  "41650": {
+   "name": "경기도 포천시",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41830": {
+   "name": "경기도 양평군",
+   "elements": [
+    "水",
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41670": {
+   "name": "경기도 여주시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41250": {
+   "name": "경기도 동두천시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "41800": {
+   "name": "경기도 연천군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26110": {
+   "name": "부산광역시 중구",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26140": {
+   "name": "부산광역시 서구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26170": {
+   "name": "부산광역시 동구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26200": {
+   "name": "부산광역시 영도구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26260": {
+   "name": "부산광역시 동래구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26710": {
+   "name": "부산광역시 기장군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26290": {
+   "name": "부산광역시 남구",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26320": {
+   "name": "부산광역시 북구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26440": {
+   "name": "부산광역시 강서구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26350": {
+   "name": "부산광역시 해운대구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26380": {
+   "name": "부산광역시 사하구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": "이미지의 괄호 안 표기가 '수'처럼 보이나 수(水)로 정리"
+  },
+  "26470": {
+   "name": "부산광역시 연제구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26500": {
+   "name": "부산광역시 수영구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26530": {
+   "name": "부산광역시 사상구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26230": {
+   "name": "부산광역시 부산진구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "26410": {
+   "name": "부산광역시 금정구",
+   "elements": [
+    "金",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "27110": {
+   "name": "대구광역시 중구",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "27200": {
+   "name": "대구광역시 남구",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "27290": {
+   "name": "대구광역시 달서구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "27140": {
+   "name": "대구광역시 동구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "27230": {
+   "name": "대구광역시 북구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "27710": {
+   "name": "대구광역시 달성군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "27170": {
+   "name": "대구광역시 서구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "27260": {
+   "name": "대구광역시 수성구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "28110": {
+   "name": "인천광역시 중구",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "28185": {
+   "name": "인천광역시 연수구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "28245": {
+   "name": "인천광역시 계양구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "28720": {
+   "name": "인천광역시 옹진군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "28140": {
+   "name": "인천광역시 동구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "28200": {
+   "name": "인천광역시 남동구",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "28260": {
+   "name": "인천광역시 서구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "28177": {
+   "name": "인천광역시 미추홀구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "28237": {
+   "name": "인천광역시 부평구",
+   "elements": [
+    "土",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "28710": {
+   "name": "인천광역시 강화군",
+   "elements": [
+    "水",
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "31110": {
+   "name": "울산광역시 중구",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "31200": {
+   "name": "울산광역시 북구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "31140": {
+   "name": "울산광역시 남구",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "31710": {
+   "name": "울산광역시 울주군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "31170": {
+   "name": "울산광역시 동구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "29110": {
+   "name": "광주광역시 동구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "29170": {
+   "name": "광주광역시 북구",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "29140": {
+   "name": "광주광역시 서구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "29200": {
+   "name": "광주광역시 광산구",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "29155": {
+   "name": "광주광역시 남구",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "30110": {
+   "name": "대전광역시 동구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "30200": {
+   "name": "대전광역시 유성구",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "30170": {
+   "name": "대전광역시 서구",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "30230": {
+   "name": "대전광역시 대덕구",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "30140": {
+   "name": "대전광역시 중구",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51110": {
+   "name": "강원특별자치도 춘천시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51170": {
+   "name": "강원특별자치도 동해시",
+   "elements": [
+    "木",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51230": {
+   "name": "강원특별자치도 삼척시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51750": {
+   "name": "강원특별자치도 영월군",
+   "elements": [
+    "火",
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51780": {
+   "name": "강원특별자치도 철원군",
+   "elements": [
+    "金",
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51810": {
+   "name": "강원특별자치도 인제군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51130": {
+   "name": "강원특별자치도 원주시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51190": {
+   "name": "강원특별자치도 태백시",
+   "elements": [
+    "火",
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51720": {
+   "name": "강원특별자치도 홍천군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51760": {
+   "name": "강원특별자치도 평창군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51790": {
+   "name": "강원특별자치도 화천군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51820": {
+   "name": "강원특별자치도 고성군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51150": {
+   "name": "강원특별자치도 강릉시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51210": {
+   "name": "강원특별자치도 속초시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51730": {
+   "name": "강원특별자치도 횡성군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51770": {
+   "name": "강원특별자치도 정선군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51800": {
+   "name": "강원특별자치도 양구군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "51830": {
+   "name": "강원특별자치도 양양군",
+   "elements": [
+    "木",
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44200": {
+   "name": "충청남도 아산시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44270": {
+   "name": "충청남도 당진시",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44770": {
+   "name": "충청남도 서천군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44810": {
+   "name": "충청남도 예산군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44150": {
+   "name": "충청남도 공주시",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44210": {
+   "name": "충청남도 서산시",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44710": {
+   "name": "충청남도 금산군",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44790": {
+   "name": "충청남도 청양군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44825": {
+   "name": "충청남도 태안군",
+   "elements": [
+    "火",
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44180": {
+   "name": "충청남도 보령시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44230": {
+   "name": "충청남도 논산시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44760": {
+   "name": "충청남도 부여군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "44800": {
+   "name": "충청남도 홍성군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "43720": {
+   "name": "충청북도 보은군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "43745": {
+   "name": "충청북도 증평군",
+   "elements": [
+    "火",
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "43770": {
+   "name": "충청북도 음성군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "43130": {
+   "name": "충청북도 충주시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "43730": {
+   "name": "충청북도 옥천군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "43750": {
+   "name": "충청북도 진천군",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "43800": {
+   "name": "충청북도 단양군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "43150": {
+   "name": "충청북도 제천시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "43740": {
+   "name": "충청북도 영동군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "43760": {
+   "name": "충청북도 괴산군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46110": {
+   "name": "전라남도 목포시",
+   "elements": [
+    "水",
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46170": {
+   "name": "전라남도 나주시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46720": {
+   "name": "전라남도 곡성군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46780": {
+   "name": "전라남도 보성군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46810": {
+   "name": "전라남도 강진군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46840": {
+   "name": "전라남도 무안군",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46880": {
+   "name": "전라남도 장성군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46910": {
+   "name": "전라남도 신안군",
+   "elements": [
+    "金",
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46130": {
+   "name": "전라남도 여수시",
+   "elements": [
+    "木",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46230": {
+   "name": "전라남도 광양시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46730": {
+   "name": "전라남도 구례군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46790": {
+   "name": "전라남도 화순군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46820": {
+   "name": "전라남도 해남군",
+   "elements": [
+    "水",
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46860": {
+   "name": "전라남도 함평군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46890": {
+   "name": "전라남도 완도군",
+   "elements": [
+    "木",
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46150": {
+   "name": "전라남도 순천시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46710": {
+   "name": "전라남도 담양군",
+   "elements": [
+    "水",
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46770": {
+   "name": "전라남도 고흥군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46800": {
+   "name": "전라남도 장흥군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46830": {
+   "name": "전라남도 영암군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46870": {
+   "name": "전라남도 영광군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "46900": {
+   "name": "전라남도 진도군",
+   "elements": [
+    "土",
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45180": {
+   "name": "전라북도 정읍시",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45710": {
+   "name": "전라북도 완주군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45750": {
+   "name": "전라북도 임실군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45730": {
+   "name": "전라북도 무주군",
+   "elements": [
+    "木",
+    "火"
+   ],
+   "status": "검수필요",
+   "reviewed": false,
+   "note": ""
+  },
+  "45140": {
+   "name": "전라북도 익산시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45210": {
+   "name": "전라북도 김제시",
+   "elements": [
+    "金",
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45790": {
+   "name": "전라북도 고창군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45770": {
+   "name": "전라북도 순창군",
+   "elements": [
+    "水",
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45740": {
+   "name": "전라북도 장수군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45130": {
+   "name": "전라북도 군산시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45190": {
+   "name": "전라북도 남원시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45800": {
+   "name": "전라북도 부안군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "45720": {
+   "name": "전라북도 진안군",
+   "elements": [
+    "金",
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48330": {
+   "name": "경상남도 양산시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48240": {
+   "name": "경상남도 사천시",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48880": {
+   "name": "경상남도 거창군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48850": {
+   "name": "경상남도 하동군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48870": {
+   "name": "경상남도 함양군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48250": {
+   "name": "경상남도 김해시",
+   "elements": [
+    "金",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48310": {
+   "name": "경상남도 거제시",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48270": {
+   "name": "경상남도 밀양시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48740": {
+   "name": "경상남도 창녕군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48890": {
+   "name": "경상남도 합천군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48860": {
+   "name": "경상남도 산청군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48170": {
+   "name": "경상남도 진주시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48220": {
+   "name": "경상남도 통영시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48730": {
+   "name": "경상남도 함안군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48820": {
+   "name": "경상남도 고성군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48840": {
+   "name": "경상남도 남해군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "48720": {
+   "name": "경상남도 의령군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47170": {
+   "name": "경상북도 안동시",
+   "elements": [
+    "土",
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47230": {
+   "name": "경상북도 영천시",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47290": {
+   "name": "경상북도 경산시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47750": {
+   "name": "경상북도 청송군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47820": {
+   "name": "경상북도 청도군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47850": {
+   "name": "경상북도 칠곡군",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47930": {
+   "name": "경상북도 울진군",
+   "elements": [
+    "木",
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47130": {
+   "name": "경상북도 경주시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47190": {
+   "name": "경상북도 구미시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47250": {
+   "name": "경상북도 상주시",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "27720": {
+   "name": "대구광역시 군위군",
+   "elements": [
+    "金"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47760": {
+   "name": "경상북도 영양군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47830": {
+   "name": "경상북도 고령군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47900": {
+   "name": "경상북도 예천군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47940": {
+   "name": "경상북도 울릉군",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47150": {
+   "name": "경상북도 김천시",
+   "elements": [
+    "金",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47210": {
+   "name": "경상북도 영주시",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47280": {
+   "name": "경상북도 문경시",
+   "elements": [
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47730": {
+   "name": "경상북도 의성군",
+   "elements": [
+    "金",
+    "土"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47770": {
+   "name": "경상북도 영덕군",
+   "elements": [
+    "木"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47840": {
+   "name": "경상북도 성주군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "47920": {
+   "name": "경상북도 봉화군",
+   "elements": [
+    "火"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "50110": {
+   "name": "제주특별자치도 제주시",
+   "elements": [
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "50130": {
+   "name": "제주특별자치도 서귀포시",
+   "elements": [
+    "金",
+    "水"
+   ],
+   "status": "유지",
+   "reviewed": true,
+   "note": ""
+  },
+  "36": {
+   "name": "세종특별자치시",
+   "elements": [
+    "金"
+   ],
+   "status": "검수필요",
+   "reviewed": false,
+   "note": ""
+  }
+ }
+}

@@ -90,10 +90,10 @@ def test_explanation_fit_summary_and_missing() -> None:
     by_name = {ex.full_name_ko: ex for ex in res.explanations}
     mapo = by_name["서울특별시 마포구"]
     junggu = by_name["서울특별시 중구"]
-    assert any(f.role == "용신" for f in mapo.fit_summary.positive)  # 水 용신
-    assert any(f.role == "기신" for f in junggu.fit_summary.negative)  # 土 기신
-    # 미공급 레이어가 표시되지만 match_score는 P2와 동일(감점 아님).
-    assert mapo.match_score == 92 and junggu.match_score == 0
+    assert any(f.role == "용신" for f in mapo.fit_summary.positive)  # 水 용신(전문가 水木)
+    assert any(f.role == "기신" for f in junggu.fit_summary.negative)  # 土 기신(전문가 土)
+    # 미공급 레이어가 표시되지만 match_score는 감점 아님. 마포 전문가=水木(水 0.56)이라 76.
+    assert mapo.match_score == 76 and junggu.match_score == 0
     assert any(m.layer == "physical_geography" for m in mapo.missing_layers)
     assert mapo.evidence  # 레이어 근거 존재
 

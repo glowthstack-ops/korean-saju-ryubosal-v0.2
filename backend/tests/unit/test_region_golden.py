@@ -163,3 +163,24 @@ def test_consolidated_city_districts_use_own_hanja() -> None:
     assert dom("마산합포구") != dom("창원 성산구")  # 도시 폴백 collapse 아님
     assert dom("용인 수지구") == "水"  # 水枝
     assert dom("고양 덕양구") == "火"  # 德陽
+
+
+def test_expert_curated_overrides_hanja() -> None:
+    """전문가 감수 시군구 오행이 한자 토큰화를 override. 통합시 자치구는 미수록→한자 유지."""
+    eng = _engine()
+
+    def dom(name: str) -> tuple[str, list[str]]:
+        code, _ = eng.resolve_region(name)
+        assert code is not None
+        p = eng.get_profile(code)
+        assert p is not None
+        return p.dominant_elements[0], p.source_layers
+
+    # 전문가 override(한자 토큰화로는 다른 값이 나오던 28% 보정).
+    el, layers = dom("서울 강남구")
+    assert el == "火" and "expert_curated" in layers  # 江南→水가 아니라 전문가 火
+    assert dom("서울 노원구")[0] == "木" and dom("서울 강서구")[0] == "金"
+    # 통합시 자치구(전문가 미수록)는 자체 한자 유지 — 창원 火에 묻히지 않음.
+    mh, mh_layers = dom("마산합포구")
+    assert mh == "水" and "expert_curated" not in mh_layers  # 浦 한자 유지
+    assert dom("창원 성산구")[0] == "土"

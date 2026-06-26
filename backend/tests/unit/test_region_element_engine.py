@@ -61,7 +61,8 @@ def test_phonetic_cap_not_exceeded() -> None:
 def test_unmatched_hanja_not_overasserted() -> None:
     """케이스2 — 한자 토큰 미매칭(鍾路)은 폴백(weak)까지만, 음운만으로 single 단정 금지."""
     eng = _engine()
-    p = eng.build_profile(_sig("11110", "서울특별시 종로구", "鍾路區", ["金"]), None, "v1")
+    # 전문가 미수록 코드(자치구 41111)로 — 미매칭 한자(鍾路) 폴백 경로 검증(전문가 override 회피).
+    p = eng.build_profile(_sig("41111", "경기도 수원시 장안구", "鍾路區", ["金"]), None, "v1")
     assert p.dominant_type is DominanceType.WEAK  # 폴백 신뢰도 0.35 → weak(단정 아님)
     assert p.confidence < 0.55
     # 한자·폴백·부모 모두 없는 단위는 음운만 남아 unknown(과확정 금지).
@@ -163,12 +164,12 @@ def test_score_capped_for_low_confidence() -> None:
     if not _SNAPSHOT.exists():
         pytest.skip("스냅샷 미빌드")
     eng = _engine(with_snapshot=True)
-    p = eng.get_profile("11110")  # 종로구(weak, conf≈0.35)
+    # 종로구는 전문가 감수(高신뢰)라 cap 대상 아님 — 전문가 미수록 약신뢰 수원 장안구(水)로 검증.
+    p = eng.get_profile("41111")  # 수원 장안구(weak, conf≈0.35)
     assert p is not None and p.confidence < 0.40
-    # 종로구 우세 金을 용신으로 둬도 conf<0.40 → 최대 65.
     q = RegionRecommendationQuery(
-        target_elements=TargetElements(yongsin=["金"]),
-        candidate_regions=["서울특별시 종로구"], resolution=RegionResolution.SIGUNGU,
+        target_elements=TargetElements(yongsin=["水"]),
+        candidate_regions=["경기도 수원시 장안구"], resolution=RegionResolution.SIGUNGU,
     )
     assert eng.recommend(q).recommended_regions[0].match_score <= 65
 

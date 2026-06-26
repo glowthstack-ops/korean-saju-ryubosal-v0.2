@@ -64,6 +64,10 @@ _HANJA_TOKEN_BASE_CONF = 0.50  # 한자 토큰 매칭 1자 기준
 _HANJA_TOKEN_PER_MATCH = 0.08  # 매칭 1자당 가산
 _HANJA_TOKEN_MAX_CONF = 0.80
 _INHERIT_DECAY = 0.70  # 부모 프로필 상속 시 신뢰도 감쇠
+# 전문가 감수 시군구 오행(권위) — reviewed:true 高신뢰, 검수필요는 낮춤. 복합 오행은 primary 우세.
+_EXPERT_CONF_REVIEWED = 0.85
+_EXPERT_CONF_UNREVIEWED = 0.60
+_EXPERT_WEIGHTS = {1: [1.0], 2: [0.55, 0.45], 3: [0.40, 0.32, 0.28]}
 # P5-3B: nearby_discrete_geo(이산 방향성 지형) '유효' 기여 상한(docs/12 §14-12). 레이어 재정규화로
 # 면적비 GIS 부재 시 과대되지 않도록 raw weight가 아니라 최종 블렌드 비율로 캡한다.
 _DISCRETE_BLEND_W = 0.18
@@ -300,6 +304,13 @@ class RegionElementEngine:
             i["region"]: i["element"] for i in regions_raw["items"]
         }
 
+        # 전문가 감수 시군구 오행(권위 레이어, reviewed:true) — 있으면 한자 토큰화를 override한다.
+        # entry: {code: {name, elements[한자], status, reviewed, note}}. 통합시 자치구 미수록.
+        self._expert: dict[str, dict] = {}
+        expert_path = region_dir / "region_sigungu_expert_ohaeng.json"
+        if expert_path.exists():
+            self._expert = json.loads(expert_path.read_text("utf-8")).get("entries", {})
+
         # 방위 레이어 재사용(§4-4·§12) — direction_fit(혼합 모델)만 호출.
         self._region_dir = RegionDirection(dictionaries_dir)
 
@@ -364,15 +375,21 @@ class RegionElementEngine:
 
         active_when = self._context_alt_active(geo) if geo is not None else set()
         geo_layers = self._geo_layers(geo) if geo is not None else []
-        hanja = self._hanja_layer(unit.hanja, unit.fallback_elements, active_when)
-        if hanja is not None:
-            contribs.append(hanja)
+        # 전문가 감수가 있으면 한자 토큰화를 덮는다(권위 레이어, §14 ground truth). 없으면 한자.
+        expert = self._expert_layer(unit.region_code)
+        hanja = None
+        if expert is not None:
+            contribs.append(expert)
+        else:
+            hanja = self._hanja_layer(unit.hanja, unit.fallback_elements, active_when)
+            if hanja is not None:
+                contribs.append(hanja)
         contribs.extend(geo_layers)
         phonetic = self._phonetic_layer(unit.region_name_ko or unit.full_name_ko)
         if phonetic is not None:
             contribs.append(phonetic)
-        # 자체 신호(한자·지형)가 전혀 없을 때만 부모 프로필을 상속(신뢰도 감쇠).
-        own_signal = hanja is not None or bool(geo_layers)
+        # 자체 신호(전문가·한자·지형)가 전혀 없을 때만 부모 프로필을 상속(신뢰도 감쇠).
+        own_signal = expert is not None or hanja is not None or bool(geo_layers)
         if not own_signal and parent is not None:
             contribs.append(
                 _LayerContribution(
@@ -416,6 +433,19 @@ class RegionElementEngine:
             anchor_lat=unit.anchor_lat,
             anchor_lon=unit.anchor_lon,
         )
+
+    def _expert_layer(self, region_code: str) -> _LayerContribution | None:
+        """전문가 감수 시군구 오행 → 권위 레이어(§14). 복합은 primary 우세 벡터, reviewed 신뢰도."""
+        entry = self._expert.get(region_code)
+        if not entry:
+            return None
+        elements = [e for e in entry.get("elements", []) if e in _ELEMENT_KEYS]
+        if not elements:
+            return None
+        weights = _EXPERT_WEIGHTS.get(len(elements), [1.0 / len(elements)] * len(elements))
+        vec = {el: w for el, w in zip(elements, weights, strict=False)}
+        conf = _EXPERT_CONF_REVIEWED if entry.get("reviewed", True) else _EXPERT_CONF_UNREVIEWED
+        return _LayerContribution(_normalize_map(vec), 1.0, conf, "expert_curated")
 
     def _hanja_layer(
         self,
