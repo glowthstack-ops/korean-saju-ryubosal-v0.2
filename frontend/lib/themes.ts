@@ -20,7 +20,6 @@ export interface Theme {
   productCode: "RPT_FULL" | "RPT_FOCUS" | "RPT_YEAR";
   topic: string | null;
   companionMode: CompanionMode;
-  pages: string; // 분량 안내(docs/10)
   desc: string;
   needsYear?: boolean; // 진입 시 년도 선택(한해풀이) — period를 그 해 1~12월로 고정
 }
@@ -33,8 +32,7 @@ export const THEMES: Theme[] = [
     productCode: "RPT_FULL",
     topic: null,
     companionMode: "none",
-    pages: "약 50쪽",
-    desc: "명식·과거·현재·미래·조언까지 22개 장으로 엮은 종합 풀이.",
+    desc: "명식·과거·현재·미래·조언까지 아우른 종합 풀이.",
   },
   {
     slug: "year",
@@ -43,7 +41,6 @@ export const THEMES: Theme[] = [
     productCode: "RPT_YEAR",
     topic: null,
     companionMode: "none",
-    pages: "약 14~18쪽",
     desc: "올해(또는 선택한 해) 1년의 세운·월별 흐름과 도메인별 전망을 압축한 풀이.",
     needsYear: true,
   },
@@ -54,7 +51,6 @@ export const THEMES: Theme[] = [
     productCode: "RPT_FOCUS",
     topic: "relationship",
     companionMode: "optional",
-    pages: "약 15쪽",
     desc: "향후 5년 애정 흐름을 내 명식만으로 보거나, 상대를 더하면 두 사람의 궁합·극복 전략까지.",
   },
   {
@@ -64,7 +60,6 @@ export const THEMES: Theme[] = [
     productCode: "RPT_FOCUS",
     topic: "career",
     companionMode: "none",
-    pages: "약 15쪽",
     desc: "향후 5년 직업·사업 흐름과 변화 시기, 행동 전략.",
   },
   {
@@ -74,7 +69,6 @@ export const THEMES: Theme[] = [
     productCode: "RPT_FOCUS",
     topic: "wealth",
     companionMode: "none",
-    pages: "약 15쪽",
     desc: "향후 5년 재물 흐름과 기회·리스크 시기.",
   },
 ];

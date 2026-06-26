@@ -42,11 +42,11 @@ export default function ThemesPage() {
               <span className="text-xs text-gray-400">{t.scope}</span>
             </div>
             <p className="mt-1 text-sm text-gray-500">{t.desc}</p>
-            <p className="mt-2 text-xs text-gray-400">
-              {t.pages}
-              {t.companionMode === "required" && " · 동반자 필요"}
-              {t.companionMode === "optional" && " · 상대 추가 선택 가능"}
-            </p>
+            {t.companionMode !== "none" && (
+              <p className="mt-2 text-xs text-gray-400">
+                {t.companionMode === "required" ? "동반자 필요" : "상대 추가 선택 가능"}
+              </p>
+            )}
           </Link>
         ))}
       </div>
