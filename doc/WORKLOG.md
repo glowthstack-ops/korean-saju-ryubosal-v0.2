@@ -5348,3 +5348,18 @@ P4-A 오케스트레이터를 실제 chat 파이프라인에 연결. 이제 사�
   미반영 1차 추정·단정 금지 라벨 동반.
 - 검증: 신규 테스트 1(개방형 전국 추천·시도 scope·특정 시군구 제외), unit 986 pass·1 skip,
   ruff·mypy clean, 기존 chat/relocation 회귀 불변.
+
+---
+
+## 지역 오행 엔진 #3 소비 경로 검증 + 활성화 runbook ✅ / #1 수급은 데이터 블로커 (2026-06-26)
+
+- **#3 코드 완성·검증**: 토지피복/임상도 집계(region_geo_features.jsonl) 드롭 시 build_region_profiles가
+  physical_geography·landcover_hydro_forest 레이어를 활성화함을 스크립트 레벨 회귀로 고정
+  (test_build_profiles_script_consumes_geo_handoff — 산림→木·수계→水 검증). 방향성(external_geo_features.csv)
+  소비도 P4-Data에서 검증됨. 즉 #3의 엔진 소비 코드는 전부 완성.
+- **활성화 runbook**(docs/12): 두 핸드오프(집계 jsonl·점좌표 csv)→빌드 명령→활성 레이어 매핑 정리.
+- **#1 데이터 수급은 블로커**: 정부 GIS(NGII POI·VWorld 하천·해양조사원 해안·산림청 임상도·환경
+  토지피복·국토정보플랫폼 DEM)는 로그인/신청 수동 다운로드 + geopandas/pyproj 미설치 → 본 환경에서
+  원본 SHP 취득·변환 불가. 변환 툴킷(doc/gis_region)은 사용자 제작 완비. 데이터 드롭 시 빌드만 실행.
+- **DEM/풍수(FengshuiForm)**: 별도 알고리즘 + DEM 필요 → 미구현(3차 고도화).
+- 검증: 신규 테스트 1, unit 987 pass·1 skip, ruff·mypy clean.

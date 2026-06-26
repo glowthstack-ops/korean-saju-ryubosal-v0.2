@@ -7,6 +7,8 @@ P1 동작(지형 제외)이 그대로 유지되는지 확인한다. 핵심: 산 
 
 from __future__ import annotations
 
+import importlib.util
+import json
 from pathlib import Path
 
 from saju_engines.region_element_engine import RegionElementEngine
@@ -14,10 +16,12 @@ from saju_shared_types.region_element import (
     DominanceType,
     RegionGeoFeature,
     RegionLevel,
+    RegionProfilesSnapshot,
     RegionUnitInput,
 )
 
-_DICTS = Path(__file__).resolve().parents[2] / "dictionaries"
+_BACKEND = Path(__file__).resolve().parents[2]
+_DICTS = _BACKEND / "dictionaries"
 
 
 def _engine() -> RegionElementEngine:
@@ -139,3 +143,41 @@ def test_build_profiles_with_geo_by_code() -> None:
     emd = profiles["4011010100"]
     assert "landcover_hydro_forest" in emd.source_layers
     assert emd.element_vector.normalized().as_map()["水"] > 0.8
+
+
+def test_build_profiles_script_consumes_geo_handoff(tmp_path: Path) -> None:
+    """build_region_profiles.py가 region_geo_features 핸드오프(jsonl)를 소비해 지형 레이어 활성화.
+
+    토지피복/임상도 → 집계(forest/water/mountain ratio) 핸드오프가 드롭되면 physical/landcover가
+    자동 활성화되는 #3 경로를 스크립트 레벨에서 검증(데이터 공급 시 그대로 작동)."""
+    units = tmp_path / "units.jsonl"
+    units.write_text(
+        json.dumps({"region_code": "50", "region_level": "ctprvn",
+                    "full_name_ko": "테스트도", "region_name_ko": "테스트도"}) + "\n"
+        + json.dumps({"region_code": "50110", "region_level": "sig", "parent_code": "50",
+                      "full_name_ko": "테스트도 테스트시", "region_name_ko": "테스트시"}) + "\n"
+        + json.dumps({"region_code": "5011010100", "region_level": "emd", "parent_code": "50110",
+                      "full_name_ko": "테스트도 테스트시 산수동", "region_name_ko": "산수동",
+                      "anchor_x_5179": 950000.0, "anchor_y_5179": 1950000.0}) + "\n",
+        "utf-8",
+    )
+    geo = tmp_path / "region_geo_features.jsonl"
+    geo.write_text(
+        json.dumps({"region_id": "5011010100", "forest_area_ratio": 0.7,
+                    "water_area_ratio": 0.3, "source_version": "syn"}) + "\n", "utf-8")
+    out_dir = tmp_path / "compiled"
+
+    spec = importlib.util.spec_from_file_location(
+        "build_profiles_t", _BACKEND / "scripts" / "build_region_profiles.py")
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(mod)
+    rc = mod.main(["x", str(units), str(out_dir), str(geo)])
+    assert rc == 0
+
+    snap = RegionProfilesSnapshot.model_validate_json(
+        (out_dir / "region_element_profiles_v1.json").read_text("utf-8"))
+    emd = next(p for p in snap.items if p.region_code == "5011010100")
+    assert "landcover_hydro_forest" in emd.source_layers  # 지형 레이어 활성
+    vec = emd.element_vector.as_map()
+    assert vec["木"] > 0.2 and vec["水"] > 0.1  # 산림→木, 수계→水

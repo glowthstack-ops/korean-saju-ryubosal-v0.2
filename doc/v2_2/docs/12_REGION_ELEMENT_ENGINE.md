@@ -346,6 +346,21 @@ README 한계) → P3는 §10 정의대로 **"스키마+어댑터+스텁, 공급
 - **준수**: 산=土(산림 시 木 보조)·하천/해안 다중 anchor(대표점 1개 축약 금지)·feature 없으면 추정
   금지(available=False, 감점 없음)·원본 SHP runtime 미의존(좌표 index만).
 
+### 데이터 활성화 runbook(#1 수급 → #3 실활성, 2026-06-26)
+
+엔진 **소비 코드는 전부 완성·검증**됐다(아래 핸드오프 파일만 드롭하면 즉시 활성). 원본 SHP→핸드오프
+변환은 상류 데이터 prep(geopandas/pyproj 필요)이며, 정부 데이터는 로그인/신청 수동 다운로드다(자동화 불가).
+
+| 핸드오프 파일(gitignore) | 산출 주체 | 소비 빌드 → 활성 레이어 |
+|---|---|---|
+| `doc/gis/region_geo_features.jsonl` (읍면동 집계: forest/water/mountain ratio 등 §3-C) | 토지피복·임상도 overlay(상류) | `build_region_profiles.py [units] [compiled] [geo]` → **physical_geography·landcover_hydro_forest**(프로필 벡터) |
+| `doc/gis/external_geo_features.csv` (대표 좌표 점: 산/하천 anchor/해안/항만/산림 §6) | doc/gis_region 툴킷 01~03(POI/하천/해안 SHP) | `build_region_directional_summary.py` → **region_directional_summary**(방위별 주변 지형) |
+
+활성 순서(사용자 수급 우선순위): ①POI+하천+해안 → external_geo_features.csv → 방향성 풍수.
+②토지피복+임상도 overlay → region_geo_features.jsonl → physical/landcover. ③DEM → 풍수 형국
+(FengshuiFormAdapter, 별도 알고리즘 — 미구현). 소비 경로는 합성 데이터로 회귀 테스트 고정
+(test_region_geo_layer·test_region_directional). 핸드오프 미공급 시 전 빌드 graceful(P0~P4-A 산출 불변).
+
 ## 11. 설계 원칙(피해야 할 것)
 
 1. 지명 한자만으로 오행 단정 금지 — 실제 지형과 다를 수 있다.
