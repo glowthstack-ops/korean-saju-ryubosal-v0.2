@@ -175,6 +175,34 @@ def test_region_fit_context_surfaces_for_registered_region() -> None:
     assert chat_service._relocation_region_context(b, it2, date(2026, 6, 18)) == []
 
 
+def test_region_recommendation_context_open_and_specific() -> None:
+    """P4-A 배선: 미지정/시도 범위는 시군구 후보 추천, 특정 시군구는 제외(단건 경로 담당)."""
+    from saju_shared_types.intent import Constraints, Domain, IntentJson, QueryType
+
+    b = BirthInput(
+        calendar_type="solar", birth_date=date(1988, 3, 5), birth_time="10:30",
+        birth_place_name="서울", gender="male", reference_date=date(2026, 6, 26))
+
+    def _intent(**c: object) -> IntentJson:
+        return IntentJson(
+            intent_id="t", query_type=QueryType.DECISION_SUPPORT, domain=Domain.RELOCATION,
+            constraints=Constraints(**c),  # type: ignore[arg-type]
+        )
+
+    # 개방형(목적지 미지정) → 전국 시군구 후보 랭킹.
+    open_lines = chat_service._region_recommendation_context(
+        b, _intent(location_base="서울특별시 강남구"), date(2026, 6, 26))
+    assert open_lines and "지역 오행 추천" in open_lines[0]
+    assert any("적합" in ln for ln in open_lines[1:])
+    # 시도 범위(제주) → 제주 시군구만.
+    jeju = chat_service._region_recommendation_context(
+        b, _intent(target_region="제주"), date(2026, 6, 26))
+    assert jeju and all("제주" in ln for ln in jeju[1:] if ln[0].isdigit())
+    # 특정 시군구 → 단건 궁합 경로가 담당하므로 여기선 빈 줄.
+    assert chat_service._region_recommendation_context(
+        b, _intent(target_region="서울 중구"), date(2026, 6, 26)) == []
+
+
 def test_year_report_surfaces_relocation_type() -> None:
     """연간 총운(RPT_YEAR) Y-04에 세운·대운 천간 이사 유형이 간결 surface된다."""
     spec = ReportSpec(

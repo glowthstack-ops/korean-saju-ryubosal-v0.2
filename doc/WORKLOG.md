@@ -5330,3 +5330,21 @@ doc/gis_region(geopandas/pyproj) 담당, 백엔드는 핸드오프 CSV 소비. �
   P1~P4-A 재빌드 불변, dict validate 68, ruff·mypy clean. 전 항목 reviewed:false.
 - **활성 경로**: doc/gis_region 툴킷으로 POI+하천+해안 → external_geo_feature.csv 드롭 →
   build_region_directional_summary.py 실행 → 방향성 풍수 자동 활성. 외부 데이터는 gitignore.
+
+---
+
+## 지역 오행 엔진 — chat 라우터 실배선(#2) ✅ (2026-06-26)
+
+P4-A 오케스트레이터를 실제 chat 파이프라인에 연결. 이제 사용자가 "나에게 맞는 이사 지역 추천"·
+"제주 쪽 어때?"류를 물으면 시군구 후보가 surface된다.
+
+- chat_service `_region_recommendation_context`: 이사 의도 + 목적지 미지정/시도·수도권 범위일 때
+  favorability_map→용희기구신으로 RegionRecommendationOrchestrator 호출 → 시군구 top5(적합·유리/
+  주의 오행·방위) 구조 블록 surface. 특정 시군구 목적지는 기존 `_relocation_region_context` 단건
+  궁합이 담당(중복 방지 게이트 — resolve_region SIG 일치 시 빈 줄).
+- lazy 싱글턴 `_get_region_orchestrator`(compiled 프로필+행정 registry+방향성 요약). 미빌드 시
+  graceful None(일반 풀이 무영향). 엔진에 공개 `resolve_region` 추가.
+- LLM은 계산 없이 fit_summary·evidence로 '유리/보완성/기류' 설명(payload directive). 지형 GIS
+  미반영 1차 추정·단정 금지 라벨 동반.
+- 검증: 신규 테스트 1(개방형 전국 추천·시도 scope·특정 시군구 제외), unit 986 pass·1 skip,
+  ruff·mypy clean, 기존 chat/relocation 회귀 불변.

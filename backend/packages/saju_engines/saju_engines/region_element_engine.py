@@ -613,6 +613,14 @@ class RegionElementEngine:
         """region_code로 프로필 조회(스냅샷 로드 필요)."""
         return self._profiles.get(region_code)
 
+    def resolve_region(
+        self, name: str, level: RegionLevel | None = None
+    ) -> tuple[str | None, list[str]]:
+        """지명 → (region_code, 모호 후보) 공개 해소(해소기 미로딩이면 (None, []))."""
+        if self._resolver is None:
+            return None, []
+        return self._resolver.resolve(name, level)
+
     def recommend(self, query: RegionRecommendationQuery) -> RegionRecommendationResult:
         """사용자 용/희/기/구신·의도·거주지로 후보 지역을 매칭·랭킹(docs/12 §6·§7)."""
         notes: list[str] = []

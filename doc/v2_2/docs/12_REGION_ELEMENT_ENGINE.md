@@ -314,6 +314,11 @@ README 한계) → P3는 §10 정의대로 **"스키마+어댑터+스텁, 공급
 - **P4-3 chat 오케스트레이션**: [region_recommendation_orchestrator.py](../../../backend/packages/saju_engines/saju_engines/region_recommendation_orchestrator.py)
   — 의도 라벨→IntentMode, 용희기구신→RegionRecommendationQuery, recommend→LLM payload(계산 금지
   지침 REGION_REASONING_DIRECTIVE 포함). LLM은 fit_summary·evidence로 설명만.
+  - **chat 라우터 실배선(2026-06-26)**: chat_service `_region_recommendation_context`가 이사 의도
+    + 목적지 미지정/시도·수도권 범위일 때 favorability_map→용희기구신으로 orchestrator를 호출해
+    시군구 후보를 구조 블록에 surface(특정 시군구는 기존 `_relocation_region_context` 단건 궁합이
+    담당). 거주지 있으면 방위도 산출. compiled 미빌드 시 graceful(None). 방향성 요약 있으면 주변
+    지형 하이라이트 동반.
 - **P4-4 택일 bridge**: `RelocationRegionCandidate`·`RegionTaekilContext` + `to_taekil_context()` —
   '어디(지역)'를 '언제(택일)' 엔진으로 넘기는 페이로드. 실제 택일 점수는 date_selection 책임(역할 분리).
 - **P4-5 풍수/방향성 스텁**: [region_geo_stubs.py](../../../backend/packages/saju_engines/saju_engines/region_geo_stubs.py)

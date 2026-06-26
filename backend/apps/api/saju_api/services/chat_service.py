@@ -231,6 +231,12 @@ _graph_index: GraphIndex | None = None
 _date_engine: DateSelectionEngine | None = None
 _persona_engine: PersonaEngine | None = None
 _intent_filter: IntentEventFilter | None = None
+# 지역 추천 오케스트레이터(P4-A 배선) — compiled 프로필·행정 registry 필요. 미빌드면 None.
+_region_orchestrator: object | None = None
+_region_orchestrator_init: bool = False
+_COMPILED_REGION_PROFILES = _BACKEND / "compiled" / "region_element_profiles_v1.json"
+_COMPILED_REGION_ADMIN = _BACKEND / "compiled" / "region_admin_units_v1.json"
+_COMPILED_REGION_DIRECTIONAL = _BACKEND / "compiled" / "region_directional_summary_v1.json"
 
 # 택일 목적으로 인정되는 이벤트(purpose_profiles 키) — 그 외는 이사로 폴백. 21키 기준(Phase 7).
 _DATE_PURPOSES = DATE_PURPOSES
@@ -773,6 +779,102 @@ def _relocation_region_context(
                 )
         except Exception:  # noqa: BLE001 — 방위 산출 실패가 일반 풀이를 막지 않도록
             pass
+    return out
+
+
+def _get_region_orchestrator() -> object | None:
+    """지역 추천 오케스트레이터 lazy 싱글턴(P4-A). compiled 미빌드 시 None(graceful)."""
+    global _region_orchestrator, _region_orchestrator_init
+    if _region_orchestrator_init:
+        return _region_orchestrator
+    _region_orchestrator_init = True
+    if not (_COMPILED_REGION_PROFILES.exists() and _COMPILED_REGION_ADMIN.exists()):
+        return None
+    from saju_engines.region_element_engine import RegionElementEngine
+    from saju_engines.region_geo_stubs import DirectionalFeatureAdapter
+    from saju_engines.region_recommendation_orchestrator import (
+        RegionRecommendationOrchestrator,
+    )
+
+    engine = RegionElementEngine(
+        _DICTS, _COMPILED_REGION_PROFILES, _COMPILED_REGION_ADMIN
+    )
+    directional = DirectionalFeatureAdapter(
+        _COMPILED_REGION_DIRECTIONAL if _COMPILED_REGION_DIRECTIONAL.exists() else None
+    )
+    _region_orchestrator = RegionRecommendationOrchestrator(engine, directional)
+    return _region_orchestrator
+
+
+def _region_recommendation_context(
+    birth: BirthInput, intent: IntentJson, today: date,
+) -> list[str]:
+    """이사 '지역 추천'(목적지 미지정/시도·수도권 scope)을 시군구 후보로 surface(P4-A 배선).
+
+    특정 시군구 목적지는 _relocation_region_context가 단건 궁합으로 다루므로 여기선 제외한다.
+    엔진이 용희기구신×지역오행으로 매칭한 결과(점수·근거·방위)만 LLM에 싣고, LLM은 계산 없이
+    '유리/보완성/기류'로 설명한다(절대원칙 1·2·3). 지형 GIS 미반영 1차 추정 — 단정 금지.
+    """
+    from saju_engines.region_recommendation_orchestrator import resolve_intent_mode
+    from saju_shared_types.region_element import RegionLevel, RegionResolution
+
+    orch = _get_region_orchestrator()
+    if orch is None:
+        return []
+    try:
+        phrase = intent.constraints.target_region
+        base = intent.constraints.location_base
+        scope: str | None = None
+        if phrase:
+            code, _amb = orch._engine.resolve_region(phrase, RegionLevel.SIG)  # type: ignore[attr-defined]
+            if code is not None:
+                return []  # 특정 시군구 → 단건 궁합 경로가 담당
+            scope = phrase  # 시도·수도권 등 범위로 해석(미해소 시 엔진이 전국 폴백+노트)
+        from saju_engines.event_scoring import favorability_map
+
+        chart = calculate(birth.model_copy(update={"reference_date": today}))
+        fav = favorability_map(chart)
+        if not fav:
+            return []
+        role_key = {"용신": "yongsin", "희신": "huisin", "기신": "gisin", "구신": "gusin"}
+        roles: dict[str, list[str]] = {"yongsin": [], "huisin": [], "gisin": [], "gusin": []}
+        for element, ro in fav.items():
+            key = role_key.get(ro)
+            if key:
+                roles[key].append(element)
+        if not roles["yongsin"]:
+            return []
+        query = orch.build_query(  # type: ignore[attr-defined]
+            intent_mode=resolve_intent_mode("이사"),
+            roles=roles,
+            base_location=base,
+            candidate_scope=scope,
+            resolution=RegionResolution.SIGUNGU,
+            top_n=5,
+        )
+        payload = orch.recommend_payload(query)  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001 — 지역 추천 실패가 일반 풀이를 막지 않도록
+        return []
+    regions = payload.get("regions", [])
+    if not regions:
+        return []
+    out = [
+        "[지역 오행 추천(참고) — 내 용희기구신 × 지역 오행 매칭. 시군구 단위·지형 GIS 미반영 "
+        "1차 추정이라 '유리/보완성/기류'로만 녹이고 단정 금지(실거주 만족은 생활 여건이 좌우)]"
+    ]
+    for i, r in enumerate(regions[:5], 1):
+        pos = "·".join(f"{f['element']}({f['role']})" for f in r["fit_summary"]["positive"])
+        neg = "·".join(f"{f['element']}({f['role']})" for f in r["fit_summary"]["negative"])
+        parts = [f"{i}. {r['full_name_ko']} 적합 {r['match_score']}"]
+        if pos:
+            parts.append(f"유리 {pos}")
+        if neg:
+            parts.append(f"주의 {neg}")
+        if r.get("direction"):
+            parts.append(f"방위 {r['direction']} {r['direction_fit']}")
+        out.append(" / ".join(parts))
+    if any(r.get("missing_layers") for r in regions):
+        out.append("(지형·풍수 데이터 반영 전이라 확정도는 낮음 — 방향·생활 여건과 함께 보세요)")
     return out
 
 
@@ -1798,6 +1900,8 @@ def chat(
         structural = structural + _relocation_reason_context(birth, intent, today)
         # 목적지 지역이 명시되면 지역 오행 × 용신 궁합도 함께 surface(2026-06-18 보완).
         structural = structural + _relocation_region_context(birth, intent, today)
+        # 목적지 미지정/시도·수도권 범위면 시군구 후보를 매칭·랭킹해 추천(P4-A 배선, 2026-06-26).
+        structural = structural + _region_recommendation_context(birth, intent, today)
     # 주간(일 범위) 질문은 7일 일별 일운을 surface — 월운으로 뭉뚱그려지던 결함 보완(2026-06-18).
     if structural is not None and _is_day_range(intent):
         structural = structural + _weekly_overview_lines(birth, intent, today)
