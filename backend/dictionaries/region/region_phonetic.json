@@ -1,0 +1,13 @@
+{
+  "version": "0.1.0",
+  "reviewed": false,
+  "note": "한글 독음 초성 → 오행(docs/12 §4-3). 성명학식 발음오행은 학파 차가 크고 실제 지형보다 신뢰도가 낮아 보조 신호로만 쓴다 — 기본 가중 3%(weight_cap 이하 강제). 명리 표준 규격 없는 자체 기준 초안(reviewed:false, 절대원칙 5). 읍면동명 각 음절 초성을 매핑해 평균 벡터를 만든다.",
+  "weight_cap": 0.03,
+  "initials": [
+    { "initials": ["ㄱ", "ㅋ"], "element": "木" },
+    { "initials": ["ㄴ", "ㄷ", "ㄹ", "ㅌ"], "element": "火" },
+    { "initials": ["ㅇ", "ㅎ"], "element": "土" },
+    { "initials": ["ㅅ", "ㅈ", "ㅊ"], "element": "金" },
+    { "initials": ["ㅁ", "ㅂ", "ㅍ"], "element": "水" }
+  ]
+}

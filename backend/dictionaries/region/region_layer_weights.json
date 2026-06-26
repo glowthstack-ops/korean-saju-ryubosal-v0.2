@@ -1,0 +1,36 @@
+{
+  "version": "0.1.0",
+  "reviewed": false,
+  "note": "오행 판정 레이어 가중(docs/12 §5 기본 + §7 의도별). base=전체 레이어 기본 가중(합 1.0). intents=질문 의도별 치환 가중. 미공급 레이어(confidence=0)는 제외 후 부분집합으로 재정규화한다(절대원칙 11) — P1에선 지형·토지·풍수 미공급이므로 한자/음운/방위만 남는다. relative_direction은 base_location 없으면 제외. 명리 표준 규격 없는 자체 기준 초안(reviewed:false, 절대원칙 5). intents의 modern_activity/transport_access/forest_water는 P3(GIS) 활성 전까지 미사용 레이어다.",
+  "base": {
+    "physical_geography": 0.45,
+    "landcover_hydro_forest": 0.2,
+    "hanja_place_name": 0.15,
+    "relative_direction": 0.1,
+    "fengshui_form": 0.07,
+    "phonetic_reading": 0.03
+  },
+  "intents": {
+    "relocation": {
+      "physical_geography": 0.5,
+      "fengshui_form": 0.15,
+      "relative_direction": 0.13,
+      "hanja_place_name": 0.12,
+      "modern_activity": 0.1
+    },
+    "career": {
+      "physical_geography": 0.3,
+      "modern_activity": 0.3,
+      "relative_direction": 0.15,
+      "transport_access": 0.15,
+      "hanja_place_name": 0.1
+    },
+    "healing": {
+      "physical_geography": 0.45,
+      "forest_water": 0.3,
+      "fengshui_form": 0.15,
+      "hanja_place_name": 0.05,
+      "relative_direction": 0.05
+    }
+  }
+}

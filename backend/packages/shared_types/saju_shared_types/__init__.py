@@ -31,6 +31,24 @@ from .enums import (
 from .luck import DaewoonItem, LuckCycles, LuckPillar
 from .manse_result import EngineMetadata, ManseV2Result
 from .pillars import FourPillarsResult, HiddenStem, Pillar
+from .region_element import (
+    DominanceType,
+    ElementVector,
+    IntentMode,
+    LayerType,
+    RegionAdminUnit,
+    RegionElementEvidence,
+    RegionElementProfile,
+    RegionFitItem,
+    RegionLevel,
+    RegionProfilesMeta,
+    RegionProfilesSnapshot,
+    RegionRecommendationQuery,
+    RegionRecommendationResult,
+    RegionResolution,
+    RegionUnitInput,
+    TargetElements,
+)
 from .sinsal import SinsalAnalysis, SinsalItem, TraditionalExtras
 from .structure import (
     GeokgukResult,
@@ -93,4 +111,20 @@ __all__ = [
     "SinsalAnalysis",
     "SinsalItem",
     "TraditionalExtras",
+    "RegionResolution",
+    "RegionLevel",
+    "LayerType",
+    "DominanceType",
+    "IntentMode",
+    "ElementVector",
+    "RegionElementEvidence",
+    "RegionAdminUnit",
+    "RegionUnitInput",
+    "RegionElementProfile",
+    "TargetElements",
+    "RegionRecommendationQuery",
+    "RegionFitItem",
+    "RegionRecommendationResult",
+    "RegionProfilesMeta",
+    "RegionProfilesSnapshot",
 ]

@@ -37,3 +37,10 @@ backend/data/shadow_reports/*.json
 
 # Shadow 차트 탐색 로그(대용량·재생성) — coverage_report.json·charts.jsonl 은 추적
 backend/data/shadow_charts/search_logs/
+
+# Region GIS P0 패키지(doc/gis) — 계산용 대용량 원천. 런타임은 compiled 스냅샷을 쓰고,
+# 재빌드는 scripts/build_region_profiles.py(원천 재배치 시 graceful). 소형 메타·검증·스키마는 추적.
+doc/gis/*.sqlite
+doc/gis/*.csv.gz
+doc/gis/region_units_compact_*.jsonl
+doc/gis/region_units_compact_*.csv

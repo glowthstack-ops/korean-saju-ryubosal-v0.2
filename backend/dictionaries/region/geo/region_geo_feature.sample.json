@@ -1,0 +1,31 @@
+{
+  "version": "0.1.0",
+  "reviewed": false,
+  "note": "지형·수계·토지피복 feature 스키마/스텁 자리(docs/12 §3-C). P3에서 GIS 어댑터(환경공간정보 토지피복, 산림청 임상도, VWorld 실폭하천, WAMIS, DEM)가 채운다. 미공급 시 엔진은 physical_geography/landcover_hydro_forest/fengshui_form 레이어를 confidence=0으로 제외한다(절대원칙 11). 아래 items는 필드 규격을 보이는 예시 1건(값은 placeholder null) — 실제 데이터 아님.",
+  "items": [
+    {
+      "region_id": "SAMPLE",
+      "legal_dong_code": "",
+      "mean_elevation": null,
+      "elevation_p70": null,
+      "slope_mean": null,
+      "slope_p70": null,
+      "forest_area_ratio": null,
+      "water_area_ratio": null,
+      "river_length_density": null,
+      "coast_distance_m": null,
+      "coast_touch_yn": null,
+      "wetland_ratio": null,
+      "agricultural_ratio": null,
+      "urban_built_ratio": null,
+      "industrial_ratio": null,
+      "road_density": null,
+      "rail_density": null,
+      "south_facing_slope_ratio": null,
+      "basin_score": null,
+      "mountain_score": null,
+      "plain_score": null,
+      "source_version": ""
+    }
+  ]
+}

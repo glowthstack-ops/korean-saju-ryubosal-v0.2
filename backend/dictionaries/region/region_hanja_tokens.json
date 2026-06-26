@@ -1,0 +1,97 @@
+{
+  "version": "0.1.0",
+  "reviewed": false,
+  "note": "지명 한자 → 오행 매핑 + 문맥 규칙(docs/12 §4-2). 한자만으로 지역 오행 단정 금지(§11 원칙 1) — 본 사전은 한자 레이어(기본 가중 15%) 입력일 뿐이다. 명리 표준 규격 없는 자체 기준 초안으로 전문가 검수 전 출시 금지(reviewed:false, 절대원칙 5). tokens=글자별 단순 매핑, context_rules=문맥 의존 글자(山/石/谷/田/浦/津)의 기본 오행 + GIS 신호 충족 시 보조 오행.",
+  "tokens": [
+    { "char": "木", "element": "木", "weight": 1.0 },
+    { "char": "林", "element": "木", "weight": 1.0 },
+    { "char": "森", "element": "木", "weight": 1.0 },
+    { "char": "松", "element": "木", "weight": 0.9 },
+    { "char": "竹", "element": "木", "weight": 0.8 },
+    { "char": "梅", "element": "木", "weight": 0.7 },
+    { "char": "柳", "element": "木", "weight": 0.8 },
+    { "char": "桂", "element": "木", "weight": 0.7 },
+    { "char": "東", "element": "木", "weight": 0.6 },
+    { "char": "靑", "element": "木", "weight": 0.6 },
+    { "char": "火", "element": "火", "weight": 1.0 },
+    { "char": "炎", "element": "火", "weight": 1.0 },
+    { "char": "日", "element": "火", "weight": 0.7 },
+    { "char": "陽", "element": "火", "weight": 0.8 },
+    { "char": "光", "element": "火", "weight": 0.7 },
+    { "char": "明", "element": "火", "weight": 0.7 },
+    { "char": "南", "element": "火", "weight": 0.6 },
+    { "char": "赤", "element": "火", "weight": 0.7 },
+    { "char": "土", "element": "土", "weight": 1.0 },
+    { "char": "岳", "element": "土", "weight": 0.9 },
+    { "char": "峰", "element": "土", "weight": 0.9 },
+    { "char": "原", "element": "土", "weight": 0.8 },
+    { "char": "坪", "element": "土", "weight": 0.8 },
+    { "char": "城", "element": "土", "weight": 0.7 },
+    { "char": "基", "element": "土", "weight": 0.7 },
+    { "char": "垈", "element": "土", "weight": 0.8 },
+    { "char": "中", "element": "土", "weight": 0.6 },
+    { "char": "黃", "element": "土", "weight": 0.7 },
+    { "char": "金", "element": "金", "weight": 1.0 },
+    { "char": "鐵", "element": "金", "weight": 1.0 },
+    { "char": "銀", "element": "金", "weight": 0.9 },
+    { "char": "銅", "element": "金", "weight": 0.9 },
+    { "char": "鑛", "element": "金", "weight": 1.0 },
+    { "char": "錫", "element": "金", "weight": 0.9 },
+    { "char": "西", "element": "金", "weight": 0.6 },
+    { "char": "白", "element": "金", "weight": 0.6 },
+    { "char": "水", "element": "水", "weight": 1.0 },
+    { "char": "江", "element": "水", "weight": 1.0 },
+    { "char": "河", "element": "水", "weight": 1.0 },
+    { "char": "川", "element": "水", "weight": 0.9 },
+    { "char": "海", "element": "水", "weight": 1.0 },
+    { "char": "湖", "element": "水", "weight": 1.0 },
+    { "char": "泉", "element": "水", "weight": 0.9 },
+    { "char": "溪", "element": "水", "weight": 0.9 },
+    { "char": "北", "element": "水", "weight": 0.6 },
+    { "char": "黑", "element": "水", "weight": 0.7 }
+  ],
+  "context_rules": [
+    {
+      "char": "山",
+      "default_element": "土",
+      "default_weight": 0.8,
+      "alt": [{ "element": "木", "weight": 0.6, "when": "forest_area_ratio_high" }],
+      "note": "산 지형성은 土, 산림 피복이 강하면 木 보조(docs/12 §4-1)"
+    },
+    {
+      "char": "石",
+      "default_element": "土",
+      "default_weight": 0.7,
+      "alt": [{ "element": "金", "weight": 0.7, "when": "mineral_or_industrial" }],
+      "note": "바위·암반이면 土, 광물·채굴·금속성과 연결되면 金"
+    },
+    {
+      "char": "谷",
+      "default_element": "水",
+      "default_weight": 0.7,
+      "alt": [{ "element": "土", "weight": 0.5, "when": "mountainous" }],
+      "note": "계곡 지형이면 水, 산지 지형이면 土 보조"
+    },
+    {
+      "char": "田",
+      "default_element": "土",
+      "default_weight": 0.8,
+      "alt": [{ "element": "木", "weight": 0.4, "when": "agricultural_ratio_high" }],
+      "note": "농지·대지이므로 土, 생장성은 木 보조"
+    },
+    {
+      "char": "浦",
+      "default_element": "水",
+      "default_weight": 0.9,
+      "alt": [{ "element": "金", "weight": 0.5, "when": "harbor_industrial" }],
+      "note": "물가·나루·항구이므로 水, 항만 산업은 金 보조"
+    },
+    {
+      "char": "津",
+      "default_element": "水",
+      "default_weight": 0.9,
+      "alt": [{ "element": "金", "weight": 0.5, "when": "harbor_industrial" }],
+      "note": "나루이므로 水, 항만 산업은 金 보조"
+    }
+  ]
+}

@@ -704,6 +704,127 @@ class DateSelectionTenGodsFile(_AliasModel):
     reviewed: bool
 
 
+# ── 지역 오행 엔진 사전(Phase P1, docs/12) ───────────────────────
+
+_REGION_ELEMENTS_SET = {"木", "火", "土", "金", "水"}
+_REGION_ROLE_KEYS = {"용신", "희신", "보완", "한신", "구신", "기신"}
+# §5 기본 레이어. 의도별 가중(§7)은 P3 GIS 활성 레이어를 추가로 가질 수 있다.
+_BASE_LAYER_KEYS = {
+    "physical_geography", "landcover_hydro_forest", "hanja_place_name",
+    "relative_direction", "fengshui_form", "phonetic_reading",
+}
+_INTENT_LAYER_KEYS = _BASE_LAYER_KEYS | {"modern_activity", "transport_access", "forest_water"}
+
+
+class RegionHanjaToken(_AliasModel):
+    """지명 한자 1자 → 오행 매핑 (region/region_hanja_tokens.json tokens)."""
+
+    char: str = Field(min_length=1, max_length=1)
+    element: str
+    weight: float = Field(ge=0.0, le=1.0)
+
+
+class RegionHanjaAlt(_AliasModel):
+    """문맥 의존 글자의 보조 오행 — when 조건은 P3 GIS 신호로만 활성(docs/12 §4-2)."""
+
+    element: str
+    weight: float = Field(ge=0.0, le=1.0)
+    when: str = Field(min_length=1)
+
+
+class RegionHanjaContextRule(_AliasModel):
+    """문맥 의존 글자(山/石/谷/田/浦/津) 규칙 — default_element만 P1 사용."""
+
+    char: str = Field(min_length=1, max_length=1)
+    default_element: str
+    default_weight: float = Field(ge=0.0, le=1.0)
+    alt: list[RegionHanjaAlt] = Field(default_factory=list)
+    note: str = ""
+
+
+class RegionHanjaTokensFile(_AliasModel):
+    version: str
+    reviewed: bool
+    note: str | None = None
+    tokens: list[RegionHanjaToken] = Field(min_length=1)
+    context_rules: list[RegionHanjaContextRule] = Field(default_factory=list)
+
+
+class RegionPhoneticInitial(_AliasModel):
+    """초성 그룹 → 오행 (region/region_phonetic.json initials)."""
+
+    initials: list[str] = Field(min_length=1)
+    element: str
+
+
+class RegionPhoneticFile(_AliasModel):
+    version: str
+    reviewed: bool
+    note: str | None = None
+    weight_cap: float = Field(gt=0.0, le=1.0)  # 음운 레이어 유효가중 절대 상한(D1)
+    initials: list[RegionPhoneticInitial] = Field(min_length=1)
+
+
+class RegionLayerWeightsFile(_AliasModel):
+    version: str
+    reviewed: bool
+    note: str | None = None
+    base: dict[str, float]
+    intents: dict[str, dict[str, float]]
+
+
+class RegionConfidenceBands(_AliasModel):
+    unknown_below: float = Field(ge=0.0, le=1.0)
+    weak_below: float = Field(ge=0.0, le=1.0)
+
+
+class RegionDominanceSingle(_AliasModel):
+    max_element_min: float = Field(ge=0.0, le=1.0)
+    gap_min: float = Field(ge=0.0, le=1.0)
+    confidence_min: float = Field(ge=0.0, le=1.0)
+
+
+class RegionDominanceComposite(_AliasModel):
+    top2_sum_min: float = Field(ge=0.0, le=1.0)
+    gap_max: float = Field(ge=0.0, le=1.0)
+    confidence_min: float = Field(ge=0.0, le=1.0)
+
+
+class RegionMatchPenalty(_AliasModel):
+    gisin_factor: float
+    gusin_factor: float
+    score_penalty_scale: float
+    gisin_strong_threshold: float = Field(ge=0.0, le=1.0)
+    gusin_strong_threshold: float = Field(ge=0.0, le=1.0)
+
+
+class RegionConfidenceAdjust(_AliasModel):
+    base: float = Field(ge=0.0, le=1.0)
+    scale: float = Field(ge=0.0, le=1.0)
+
+
+class RegionScoreCap(_AliasModel):
+    confidence_below: float = Field(ge=0.0, le=1.0)
+    max_score: int = Field(ge=0, le=100)
+
+
+class RegionUserMatch(_AliasModel):
+    role_scores: dict[str, float]
+    penalty: RegionMatchPenalty
+    confidence_adjust: RegionConfidenceAdjust
+    score_caps: list[RegionScoreCap] = Field(min_length=1)
+
+
+class RegionDominanceRulesFile(_AliasModel):
+    version: str
+    reviewed: bool
+    note: str | None = None
+    confidence_bands: RegionConfidenceBands
+    single: RegionDominanceSingle
+    composite: RegionDominanceComposite
+    user_match: RegionUserMatch
+
+
 # 상대 경로 → 스키마. 새 사전 추가 시 여기 등록해야 검증된다(미등록은 generic 검사만).
 SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "common/stems.json": StemsFile,
@@ -727,6 +848,10 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "terminology.json": TerminologyFile,
     "templates/interpretation.json": InterpretationTemplatesFile,
     "templates/prohibited_styles.json": ProhibitedStylesFile,
+    "region/region_hanja_tokens.json": RegionHanjaTokensFile,
+    "region/region_phonetic.json": RegionPhoneticFile,
+    "region/region_layer_weights.json": RegionLayerWeightsFile,
+    "region/region_dominance_rules.json": RegionDominanceRulesFile,
 }
 # events/<domain>.json (taxonomy 제외)은 신호→이벤트 매핑 스키마.
 _EVENT_MAPPING_DIR = "events"
@@ -1033,6 +1158,87 @@ def _lint_date_selection_ten_gods(file: DateSelectionTenGodsFile) -> list[str]:
     return errors
 
 
+def _lint_region_hanja_tokens(file: RegionHanjaTokensFile) -> list[str]:
+    """region_hanja_tokens.json — 오행 유효성 + char 중복 검사."""
+    errors: list[str] = []
+    seen: set[str] = set()
+    for t in file.tokens:
+        if t.element not in _REGION_ELEMENTS_SET:
+            errors.append(f"region/region_hanja_tokens.json: 오행 오류 — {t.char}={t.element}")
+        if t.char in seen:
+            errors.append(f"region/region_hanja_tokens.json: token char 중복 — {t.char}")
+        seen.add(t.char)
+    for r in file.context_rules:
+        if r.default_element not in _REGION_ELEMENTS_SET:
+            errors.append(
+                f"region/region_hanja_tokens.json: context default 오행 오류 — {r.char}"
+            )
+        for a in r.alt:
+            if a.element not in _REGION_ELEMENTS_SET:
+                errors.append(
+                    f"region/region_hanja_tokens.json: context alt 오행 오류 — {r.char}"
+                )
+    return errors
+
+
+def _lint_region_phonetic(file: RegionPhoneticFile) -> list[str]:
+    """region_phonetic.json — 오행 유효성 + cap 보조 신호 범위(≤0.1) 강제(D1)."""
+    errors: list[str] = []
+    for it in file.initials:
+        if it.element not in _REGION_ELEMENTS_SET:
+            errors.append(f"region/region_phonetic.json: 오행 오류 — {it.initials}={it.element}")
+    if file.weight_cap > 0.1:
+        errors.append(
+            f"region/region_phonetic.json: weight_cap {file.weight_cap} 과대 — 음운은 보조(≤0.1)"
+        )
+    return errors
+
+
+def _lint_region_layer_weights(file: RegionLayerWeightsFile) -> list[str]:
+    """region_layer_weights.json — base/intents 가중 합 ≈ 1.0 + 레이어 키 유효성."""
+    errors: list[str] = []
+    base_total = round(sum(file.base.values()), 6)
+    if base_total != 1.0:
+        errors.append(f"region/region_layer_weights.json: base 가중 합 {base_total} ≠ 1.0")
+    for k in file.base:
+        if k not in _BASE_LAYER_KEYS:
+            errors.append(f"region/region_layer_weights.json: base 미지원 레이어 — {k}")
+    for intent, weights in file.intents.items():
+        total = round(sum(weights.values()), 6)
+        if total != 1.0:
+            errors.append(
+                f"region/region_layer_weights.json: intents.{intent} 가중 합 {total} ≠ 1.0"
+            )
+        for k in weights:
+            if k not in _INTENT_LAYER_KEYS:
+                errors.append(
+                    f"region/region_layer_weights.json: intents.{intent} 미지원 레이어 — {k}"
+                )
+    return errors
+
+
+def _lint_region_dominance_rules(file: RegionDominanceRulesFile) -> list[str]:
+    """region_dominance_rules.json — confidence 밴드 단조성 + 역할 키 유효성 + cap 정렬."""
+    errors: list[str] = []
+    cb = file.confidence_bands
+    if not 0.0 <= cb.unknown_below < cb.weak_below <= 1.0:
+        errors.append(
+            f"region/region_dominance_rules.json: confidence_bands 단조성 위반 — "
+            f"unknown<{cb.unknown_below} weak<{cb.weak_below}"
+        )
+    for role in file.user_match.role_scores:
+        if role not in _REGION_ROLE_KEYS:
+            errors.append(f"region/region_dominance_rules.json: 미등록 역할 — {role}")
+    caps = file.user_match.score_caps
+    for lower, higher in zip(caps, caps[1:], strict=False):
+        if lower.confidence_below > higher.confidence_below:
+            errors.append(
+                "region/region_dominance_rules.json: score_caps는 confidence 오름차순이어야 함"
+            )
+            break
+    return errors
+
+
 def lint_dictionaries(directory: Path) -> list[str]:
     """충돌 검사(dict:lint). 스키마 위반 파일은 여기서 건너뛴다(validate가 보고)."""
     errors: list[str] = []
@@ -1067,4 +1273,12 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_relocation_ten_gods(parsed))
         elif isinstance(parsed, DateSelectionTenGodsFile):
             errors.extend(_lint_date_selection_ten_gods(parsed))
+        elif isinstance(parsed, RegionHanjaTokensFile):
+            errors.extend(_lint_region_hanja_tokens(parsed))
+        elif isinstance(parsed, RegionPhoneticFile):
+            errors.extend(_lint_region_phonetic(parsed))
+        elif isinstance(parsed, RegionLayerWeightsFile):
+            errors.extend(_lint_region_layer_weights(parsed))
+        elif isinstance(parsed, RegionDominanceRulesFile):
+            errors.extend(_lint_region_dominance_rules(parsed))
     return errors

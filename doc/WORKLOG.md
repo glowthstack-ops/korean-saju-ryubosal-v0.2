@@ -5196,3 +5196,35 @@ byte-identical·랭킹/LLM 미반영·1a 산출만.**
 - **검증**: '그래 봐줘'+직전 제안 → 제안 텍스트('제안이 들어오는 쪽')가 프롬프트에 실리고 이어보기
   지시 주입; 새 질문('재물운')·제안 없는 답변·prior 없음 → 미주입. 신규 테스트 5건. full suite
   **1160 pass**(실패 2=사전 존재). ruff·mypy clean. 백엔드 --reload로 자동 반영.
+
+---
+
+## 지역 오행 엔진 P1 — 한자+음운+방위+상속 → 읍면동 프로필·매칭 ✅ (2026-06-26)
+
+docs/12 §10 P1. 시군구 230 퇴행을 막고 **읍면동 5,065**까지 고유 오행 프로필을 사전계산.
+
+- **스키마**(`region_element.py`): `DominanceType` 신뢰도 밴드형 재정의(unknown<0.35≤weak<0.55,
+  그 이상 single/composite/contested), `RegionLevel`(ctprvn/sig/emd), `RegionElementProfile`에
+  region_level·parent_code·anchor 좌표·source_layers 추가, `RegionUnitInput`/`RegionProfilesMeta`/
+  `RegionProfilesSnapshot` 신설. shared_types `__init__` export.
+- **사전**(`region/region_dominance_rules.json` v0.2.0): confidence 밴드 + match_score 산식
+  파라미터(role_scores·penalty·confidence_adjust·score_caps). `dictionaries.py`에 region/ 4종
+  pydantic 스키마+lint 등록(가중합≈1·오행 유효성·음운 cap·밴드 단조성).
+- **엔진**(`region_element_engine.py`): ①한자 토큰화(region_hanja_tokens) → 미매칭 시
+  region_elements 큐레이션 폴백(D2) ②한글 초성 음운(유효가중 cap 0.03 **절대 상한**, 신뢰도
+  비-기여 — D1) ③한자 없는 단위는 부모 프로필 상속(신뢰도 감쇠) ④미공급 GIS 레이어 제외 후
+  재정규화(절대원칙 11). 추천: 용/희/기/구신×벡터 match/avoid(0~100, 저신뢰 cap 78/65),
+  방위는 프로필 미저장·추천 시점 anchor bearing으로 region_direction 혼합모델 재사용(§4-4·§12).
+  `region_fit_scores` 모듈 함수로 승격(D3).
+- **빌드**(`build_region_profiles.py`): doc/gis `region_units_compact`(5,332) + region_elements
+  한자 조인(248/250, 도시명 접두 폴백) → `compiled/region_element_profiles_v1.json`(+meta).
+  스냅샷 2.4M(컴팩트·centroid 생략·라운딩). dominance 분포: unknown 1780/weak 3397/
+  single 138/composite 17(P1은 우세 단정 보수적).
+- **호환**: `relocation.region_fit()`은 엔진 승격본 위임 래퍼로 출력 동일.
+- **데이터 처리**: doc/gis 대용량 원천(sqlite/jsonl/csv/csv.gz) gitignore + graceful 재빌드,
+  소형 메타·검증·스키마는 추적, 운영 스냅샷은 커밋(절대원칙 9).
+- **검증**: 신규 테스트 11(cap·과확정 금지·emd≥5000·부모상속·방위 분리·기신 감점·승격 호환).
+  unit 전체 pass, dict validate 65 pass, ruff·mypy clean(127 files). 기존 relocation/region
+  회귀 불변. (사전 검수 전이므로 reviewed:false — 절대원칙 5.)
+- **P1 미수행(설계상)**: GIS 지형 오행 확정, `alt.when` 지형조건 발동(P3), 방위 프로필 저장,
+  음운 단정 추천. 다음(P2)=ingest_legal_dong/admin_unit, (P3)=GIS feature 어댑터.

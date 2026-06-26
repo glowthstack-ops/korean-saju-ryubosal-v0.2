@@ -1,0 +1,21 @@
+{
+  "model_version": "region-element-p1.0",
+  "source_gis_version": "20230729",
+  "direction_included": false,
+  "layers": [
+    "hanja_token",
+    "hanja_fallback_legacy",
+    "phonetic_layer",
+    "parent_inheritance"
+  ],
+  "profile_counts": {
+    "ctprvn": 17,
+    "sig": 250,
+    "emd": 5065
+  },
+  "hanja_join": {
+    "matched": 248,
+    "total": 250
+  },
+  "calculated_at": "2026-06-26T00:49:32.940985+00:00"
+}

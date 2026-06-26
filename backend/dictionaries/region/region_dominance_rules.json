@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "reviewed": false,
+  "note": "오행 우세 등급 임계값 + 사용자 매칭 산식 파라미터(docs/12 §5·§6, P1 사용자 확정 2026-06-26). 정규화된 5차원 벡터(합=1)에 적용. dominance 평가: confidence<unknown_below→unknown / <weak_below→weak / 그 이상에서 single→composite→contested. P1은 한자·음운·기존자산·상속 중심이라 confidence가 낮아 0.55 미만은 우세 단정을 하지 않는다. user_match는 region_element_engine match_score 산식 파라미터(role_scores·penalty·confidence_adjust·score_caps)를 보유한다. 명리 표준 규격 없는 자체 기준 초안(reviewed:false, 절대원칙 5).",
+  "confidence_bands": { "unknown_below": 0.35, "weak_below": 0.55 },
+  "single": { "max_element_min": 0.42, "gap_min": 0.12, "confidence_min": 0.55 },
+  "composite": { "top2_sum_min": 0.62, "gap_max": 0.15, "confidence_min": 0.55 },
+  "user_match": {
+    "role_scores": {
+      "용신": 1.0,
+      "희신": 0.65,
+      "보완": 0.45,
+      "한신": 0.0,
+      "구신": -0.6,
+      "기신": -1.0
+    },
+    "penalty": {
+      "gisin_factor": 1.0,
+      "gusin_factor": 0.6,
+      "score_penalty_scale": 30,
+      "gisin_strong_threshold": 0.3,
+      "gusin_strong_threshold": 0.35
+    },
+    "confidence_adjust": { "base": 0.6, "scale": 0.4 },
+    "score_caps": [
+      { "confidence_below": 0.4, "max_score": 65 },
+      { "confidence_below": 0.55, "max_score": 78 }
+    ]
+  }
+}

@@ -24,8 +24,8 @@ from pathlib import Path
 
 from korean_lunar_calendar import KoreanLunarCalendar
 
-from saju_shared_types.constants import GENERATES, STEM_ELEMENT
-from saju_shared_types.enums import Element, Stem
+from saju_shared_types.constants import STEM_ELEMENT
+from saju_shared_types.enums import Stem
 from saju_shared_types.precompute import CompositeLevel, LuckComposite
 from saju_shared_types.relocation import (
     AvoidDate,
@@ -634,24 +634,12 @@ class RelocationResolver:
     ) -> dict[str, float]:
         """후보 지역 오행 × 구성원 용신 적합(동일 1.0 / 용신을 생 0.8 / 그 외 0.5).
 
-        미등재 지역은 보정 없음(0.5 중립) — region_elements는 전 항목 검수 전 출시 금지.
+        지역 오행 엔진으로 승격된 region_fit_scores에 위임하는 호환 래퍼다(docs/12 §12, D3).
+        입출력 계약은 동일 — 미등재 지역은 보정 없음(0.5 중립). region_elements는 검수 전 출시 금지.
         """
-        out: dict[str, float] = {}
-        for region in regions:
-            element = self._region_element.get(region)
-            if element is None:
-                out[region] = 0.5
-                continue
-            scores: list[float] = []
-            for yongsin in yongsin_by_subject.values():
-                if element == yongsin:
-                    scores.append(1.0)
-                elif yongsin and GENERATES[Element(element)] == Element(yongsin):
-                    scores.append(0.8)
-                else:
-                    scores.append(0.5)
-            out[region] = round(sum(scores) / len(scores), 3) if scores else 0.5
-        return out
+        from .region_element_engine import region_fit_scores
+
+        return region_fit_scores(self._region_element, regions, yongsin_by_subject)
 
     # ── S9 ──────────────────────────────────────────────────────
 
