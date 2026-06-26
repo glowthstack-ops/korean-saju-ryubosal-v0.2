@@ -47,3 +47,6 @@ doc/gis/region_units_compact_*.csv
 # 외부 지형 feature 대표좌표(P4-Data, doc/gis_region 툴킷 산출) — 대용량. 엔진은 compiled 요약 사용.
 doc/gis/external_geo_features*.csv
 doc/gis/external_geo_features*.sqlite
+# 지역 엔진 감사 산출물(재생성 가능 — 커밋 금지). 운영 스냅샷(profiles/admin/directional)은 추적.
+backend/compiled/region_weights_review.*
+backend/compiled/external_geo_acceptance_report.*

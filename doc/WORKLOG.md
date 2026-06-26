@@ -5384,3 +5384,23 @@ P4-A 오케스트레이터를 실제 chat 파이프라인에 연결. 이제 사�
   ruff·mypy clean. 엔진 결과 불변(입구 검증은 변환·점수 미개입).
 - 남은 순서(데이터 전): 지역 추천 golden case 20개·가중치 튜닝 준비. 데이터 후: POI→하천→해안→
   임상도/토지피복→DEM 순 활성. DEM 풍수(FengshuiForm)는 별도 알고리즘 필요로 미구현.
+
+---
+
+## 지역 오행 엔진 — 추천 golden 20케이스(#4) + 가중치 튜닝 준비(#5) ✅ (2026-06-26)
+
+데이터 수급 전 마지막 마무리. reviewed:false 가중이라 절대값이 아닌 **상대 순위·역할·구조 불변식**을
+고정해 향후 튜닝 시 의미 퇴행을 회귀로 잡는다.
+
+- **#4 golden 20케이스**: tests/fixtures/region_recommendation_cases.jsonl + test_region_golden.py.
+  결정론 candidate_regions 기반(검증된 시군구 우세오행: 중구土·마포구水·동대문구木·부산남구火·
+  서대문구金·종로구金weak·제주시水weak). 불변식: 5오행 용신 최상위·용>희>한 순위·기신 risk_flag·
+  구신 avoid·약신뢰(conf<0.40) score_cap 65·강신뢰>약신뢰·거주지 방위 산출/미산출·동명(중구) 모호
+  노트·미등재 노트·scope(제주/수도권) 한정·읍면동 계산+시군구 surface·전 케이스 terrain_data 미연결.
+- **#5 가중치 튜닝 준비**: scripts/region_weights_report.py — 튜닝 knob(사전 5종 + 엔진 상수 7개)을
+  한곳에 모으고 현재 스냅샷 행동 베이스라인(dominance·우세오행·레이어·신뢰도 분포) 출력 →
+  region_weights_review.{json,md}(감사 산출물, gitignore). 실제 값 변경은 전문가/코호트 데이터 필요라
+  surface만. 베이스라인: dominance unknown1780/weak3397/single138/composite17, 우세 土1477·水1079.
+- 검증: 신규 테스트 23(golden 21 + report 2), unit 1020 pass·1 skip, ruff·mypy clean. 엔진 결과 불변.
+- **지역 오행 엔진 데이터-전 작업 전부 완료.** 남은 것은 외부 지형 데이터 수급(수동·로그인) → 빌드
+  실행으로 방향성/physical/landcover 활성, DEM 풍수(별도 알고리즘), 전문가 가중 감수.
