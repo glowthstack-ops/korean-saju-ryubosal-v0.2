@@ -44,6 +44,37 @@ class LayerType(StrEnum):
     PHONETIC_READING = "phonetic_reading"  # §4-3 독음 음운(≤3%)
 
 
+class TerrainRole(StrEnum):
+    """방향성 지형 feature의 작용 역할(docs/12 §14-1). feature_type=무엇 / terrain_role=어떻게."""
+
+    MOUNTAIN_SUPPORT = "mountain_support"  # 산·구릉 받침(土, 산림 시 木 보조)
+    FOREST_SUPPORT = "forest_support"  # 산림 피복(木)
+    RIVER_FLOW = "river_flow"  # 하천 흐름(水)
+    LAKE_WATER = "lake_water"  # 호수·저수지(水)
+    COAST_WATER = "coast_water"  # 해안·바다(水)
+    VALLEY_WATER = "valley_water"  # 계곡 수(水, 산지면 土 보조)
+    ROAD_RUSH = "road_rush"  # 도로 직충(火/金 + 페널티)
+    RAIL_METAL = "rail_metal"  # 철도(金)
+    OPEN_FIELD = "open_field"  # 개활·평지(土)
+    URBAN_HEAT = "urban_heat"  # 도심 열섬(火)
+    INDUSTRIAL_METAL = "industrial_metal"  # 산업지(金)
+
+
+class FormEffect(StrEnum):
+    """풍수 형국 작용(docs/12 §14-1). 가산(support)·페널티(penalty)·중립으로 분류."""
+
+    BACK_SUPPORT = "back_support"  # 현무 받침(가산)
+    FRONT_OPEN = "front_open"  # 주작 개활(가산)
+    LEFT_DRAGON = "left_dragon"  # 청룡(가산)
+    RIGHT_TIGER = "right_tiger"  # 백호(가산)
+    WATER_EMBRACE = "water_embrace"  # 감싸 흐르는 물(가산)
+    ROAD_RUSH = "road_rush"  # 도로 직충(페널티)
+    WATER_ESCAPE = "water_escape"  # 수구 빠짐(페널티)
+    EXCESSIVE_PRESSURE = "excessive_pressure"  # 과도한 압박(페널티)
+    ISOLATED_FLAT = "isolated_flat"  # 고립 평지(페널티)
+    NEUTRAL = "neutral"
+
+
 class RegionLevel(StrEnum):
     """행정구역 레벨(doc/gis region_unit.region_level). 프로필·상속 계층의 키."""
 
@@ -486,6 +517,53 @@ class FengshuiFormResult(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
+class DirectionalSectorProfile(BaseModel):
+    """좌향(facing) → 전후좌우 sector(docs/12 §14-2·§14-3, 모드 B). 사신사 판정 기준.
+
+    facing_bearing 입력 시에만 산출(없으면 모드 A=8방위 분포만). region_profile에 고정 저장 금지
+    (방위는 사용자 좌향 기준값 — 절대원칙: §4-4·§14-11). sector는 한국 8방위 라벨(region_direction
+    컨벤션과 동일: 북/북동/동/남동/남/남서/서/북서).
+    """
+
+    facing_bearing: float = Field(ge=0.0, lt=360.0)
+    front_sector: str  # 주작
+    back_sector: str  # 현무
+    left_sector: str  # 청룡
+    right_sector: str  # 백호
+
+
+class FengshuiFormProfile(BaseModel):
+    """풍수 형국 점수(docs/12 §14-4, B 계층). 오행 벡터(A)와 섞지 않는 별도 품질 축.
+
+    채점 가중·임계는 reviewed:false 자체 기준 — 전문가 감수 전 활성 금지(§14-11·절대원칙 5).
+    모든 점수 0 기본 → 미공급/스캐폴딩 단계에서 graceful(추천 점수 미개입).
+    """
+
+    region_code: str
+    back_mountain_score: float = 0.0  # 현무
+    front_water_score: float = 0.0  # 주작 물
+    left_dragon_score: float = 0.0  # 청룡
+    right_tiger_score: float = 0.0  # 백호
+    open_front_score: float = 0.0  # 주작 개활
+    road_rush_penalty: float = 0.0
+    water_escape_penalty: float = 0.0
+    excessive_pressure_penalty: float = 0.0
+    isolated_flat_penalty: float = 0.0
+    form_quality_score: float = 0.0  # 가산 − 페널티 종합(B 단독)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    available: bool = False  # 데이터·감수 전 False
+    evidence: list[str] = Field(default_factory=list)
+
+
+class RemedySuggestion(BaseModel):
+    """비보/보완 제안(docs/12 §14-7, D 부가). 부족·과한 기운을 생활권 선택으로 보완. 단정 금지."""
+
+    issue: str  # 예: water_overload·metal_excess
+    recommendation: str  # 단정 금지 자연어
+    element_to_add: list[str] = Field(default_factory=list)  # 한자 오행
+    element_to_reduce: list[str] = Field(default_factory=list)
+
+
 class RegionProfilesMeta(BaseModel):
     """프로필 스냅샷 메타(compiled/region_element_profiles_vX.meta.json, docs/12 §8).
 
@@ -543,6 +621,11 @@ __all__ = [
     "DirectionalFeature",
     "DirectionalFeatureResult",
     "FengshuiFormResult",
+    "TerrainRole",
+    "FormEffect",
+    "DirectionalSectorProfile",
+    "FengshuiFormProfile",
+    "RemedySuggestion",
     "RegionProfilesMeta",
     "RegionProfilesSnapshot",
 ]

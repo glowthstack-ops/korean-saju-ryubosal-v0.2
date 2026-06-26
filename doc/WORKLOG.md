@@ -5570,3 +5570,21 @@ unit 1049 pass·1 skip, ruff·mypy clean.
 - 따라서 커밋 상태(한자 기반: 마산합포 水, 성산 土)를 유지하고, Tier B는 **연결 완료·활성 대기**로
   둔다. 감수 후 build_geo_features→build_region_profiles 재실행으로 활성화. golden 픽스처 7개는
   활성화 시 함께 재생성 필요(geo가 추천 랭킹·신뢰도 변경 — 회귀 게이트 정상 작동 확인).
+
+---
+
+## 풍수 형국·방위 역할 레이어 — 설계검토 + P5-1 스캐폴딩 ✅ (2026-06-26)
+
+데굴님 외부 자료(산·물·도로·좌향·양택 길흉 결합) 검토 → docs/12 §14 스펙 + 무보정 스캐폴딩.
+
+- **검토 결론**: 방향성 정합. 제안의 절반 이상이 이미 설계됨(region_feature_direction 스키마·
+  region_directional·region_direction의 팔괘 분리·山=土 context_rule). 핵심 신규는 사신사 좌향·
+  형국 채점·팔택·비보. 직전 'Tier B 가중 보정 벽'이 형국에서 더 커지므로 분리 계약 + 감수 우선.
+- **§14 스펙(코드 0)**: 분리 계약(A 오행/B 형국/C 방위/D 추천·비보, 점수 미혼합), TerrainRole/
+  FormEffect enum, 좌향 모드 A(8방위)/B(facing→전후좌우), 사신사, FengshuiFormProfile 채점+페널티,
+  물길·도로/철도 특수처리, 팔택 optional 가드, 비보, SearchSeed 컬럼, 결과 분리 블록, P5-1~3 순서.
+- **P5-1 스캐폴딩(무보정·회귀 무영향)**: shared_types에 TerrainRole·FormEffect·
+  DirectionalSectorProfile·FengshuiFormProfile·RemedySuggestion 추가(점수 0 기본·available=False).
+  fengshui_form.py sasinsa_sectors(좌향→전후좌우 sector, region_direction 8방위 컨벤션 동일) —
+  남향=현무 북·동향=현무 서로 '북산 고정' 오류 방지. 채점·도로/팔택 가중은 감수 후 P5-3.
+- 검증: 신규 테스트 8, unit 1059 pass, ruff·mypy clean(133 files). 추천 경로 미개입(스캐폴딩만).
