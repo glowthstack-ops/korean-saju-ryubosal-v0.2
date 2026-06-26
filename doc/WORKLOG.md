@@ -5228,3 +5228,28 @@ docs/12 §10 P1. 시군구 230 퇴행을 막고 **읍면동 5,065**까지 고유
   회귀 불변. (사전 검수 전이므로 reviewed:false — 절대원칙 5.)
 - **P1 미수행(설계상)**: GIS 지형 오행 확정, `alt.when` 지형조건 발동(P3), 방위 프로필 저장,
   음운 단정 추천. 다음(P2)=ingest_legal_dong/admin_unit, (P3)=GIS feature 어댑터.
+
+---
+
+## 지역 오행 엔진 P2 — 행정 registry + 지명 해소기 + scope ✅ (2026-06-26)
+
+docs/12 §10 P2. 원래 정의(별도 admin_unit 적재)는 P1에서 읍면동 프로필을 이미 적재해 대부분
+중복 → **이름 해소 계층 + 경량 admin registry**로 재정의(사용자 승인 옵션 A).
+
+- **경량 registry**(`build_region_admin.py` → `compiled/region_admin_units_v1.json`, 1.4M):
+  doc/gis 5,332단위를 구조화 이름(시도/시군구/읍면동)·area_m2·parent 트리만으로 적재. 좌표는
+  프로필이 보유하므로 생략(중복·용량 방지). `RegionAdminUnit`에 region_level 추가 +
+  `RegionAdminSnapshot` 신설(shared_types export).
+- **해소기**(`RegionNameResolver` in region_element_engine.py): 읍면동명 전국 590종 중복
+  (효자동×4·사직동×5)이라 단순명 해소 불가 → full_name 완전일치(유일) → 시도 별칭 확장 토큰
+  포함 → leaf 명 동률 시 leaf 정확일치로 좁힘. **끝까지 모호하면 추측 않고 후보 목록 반환**
+  (절대원칙 7 — 지역 혼동 방지). scope: 수도권(서울·경기·인천)·시도(약식 포함)·상위지역 하위
+  트리(BFS) → region_code 열거.
+- **recommend() 배선**: candidate_regions·base_location은 해소기로 코드 확정(모호 시 노트로
+  surface), candidate_scope는 resolve_scope로 후보군 확정. admin_path 미로딩 시 legacy full_name
+  매칭으로 graceful 폴백(기존 P1 테스트 불변).
+- **검증**: 신규 테스트 6(완전/약식/유일 해소·동명 모호 후보 반환·미등재·scope 시도/수도권/하위·
+  recommend 배선·registry 카운트). unit 963 pass·1 skip, admin 빌드 결정론, dict validate 65,
+  ruff·mypy clean(146 files). 수도권 시군구 77=서울25+경기42+인천10 검증. 전 항목 reviewed:false.
+- **다음**: P3 = GIS feature 어댑터(doc/gis sqlite의 external_feature·region_feature_direction·
+  emd_direction_probe 16만 행 활용, 외부 지형 데이터 공급 시 physical_geography 레이어 활성).

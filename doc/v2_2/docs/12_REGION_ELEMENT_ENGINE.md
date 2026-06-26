@@ -239,7 +239,7 @@ dominance + evidence. 요청 시점엔 스냅샷 로드 후 사용자 매칭·�
 |---|---|---|---|
 | P0 | 본 설계 문서 + pydantic I/O 스키마 + 사전 스켈레톤(동작 변화 0) | 무 | ✅ |
 | P1 | 한자(기존 흡수)+음운+방위(재사용)+상속 → 벡터·dominance·매칭, region_fit 승격, **읍면동 5,065** 프로필 스냅샷 | 무 | ✅ 2026-06-26 |
-| P2 | ingest_legal_dong.py로 전국 법정동 admin_unit 적재(파일 사용자 공급) | 무 | |
+| P2 | 행정구역 registry(경량 admin) + 지명 해소기(RegionNameResolver) + scope 후보 열거 | 무 | ✅ 2026-06-26 |
 | P3 | GIS feature 어댑터(지형/수계/토지피복/임상도/DEM) 스키마+어댑터+스텁, 공급 시 지형 레이어 활성화 | 유 | |
 | P4 | 풍수 형국(DEM)+의도별 가중+evidence Graph RAG 경로+택일 결합+chat 연동 | 유 | |
 
@@ -259,6 +259,22 @@ dominance + evidence. 요청 시점엔 스냅샷 로드 후 사용자 매칭·�
 - **dominance 밴드**: confidence<0.35 unknown / <0.55 weak / 그 이상에서 single→composite→contested.
 - **match_score**: raw_fit(Σ벡터×역할점수) − penalty(기신·구신 비중) , confidence 보정 + 저신뢰
   상한(conf<0.55→78, <0.40→65). 방위는 프로필 미저장·추천 시점 계산(§4-4).
+
+### P2 구현 메모(사용자 확정 2026-06-26)
+
+원래 P2(별도 admin_unit 적재)는 "데이터 미보유" 전제였으나 P1에서 이미 읍면동 5,065를
+프로필에 적재(region_code·level·parent_code·full_name·anchor 보유)했으므로, 별도 admin 적재는
+대부분 중복 → **이름 해소 계층 + 경량 admin registry**로 재정의(사용자 승인 옵션 A).
+
+- 경량 registry: [build_region_admin.py](../../../backend/scripts/build_region_admin.py) →
+  `compiled/region_admin_units_v1.json`(구조화 이름·area_m2·parent 트리만, 좌표는 프로필 재사용으로
+  생략 — 5,332단위 1.4M). `RegionAdminUnit`에 region_level 추가, `RegionAdminSnapshot` 신설.
+- 해소기 [RegionNameResolver](../../../backend/packages/saju_engines/saju_engines/region_element_engine.py):
+  읍면동명 전국 590종 중복(효자동·사직동) 대응 — full_name 완전일치 → 시도 별칭 확장 토큰 포함
+  → leaf 명 동률 시 leaf 정확일치로 좁힘. **끝까지 모호하면 추측 않고 후보 목록 반환**(절대원칙 7).
+  scope: 수도권(서울·경기·인천)·시도(약식 포함)·상위지역 하위 트리(BFS) → 후보 region_code 열거.
+- recommend() 배선: candidate_regions/base_location은 해소기로 코드 확정(모호 시 노트), candidate_scope는
+  resolve_scope로 후보군 확정. 해소기 미로딩(admin_path None) 시 legacy full_name 매칭으로 graceful 폴백.
 
 ## 11. 설계 원칙(피해야 할 것)
 

@@ -33,6 +33,8 @@ from saju_shared_types.region_element import (
     DominanceType,
     ElementVector,
     IntentMode,
+    RegionAdminSnapshot,
+    RegionAdminUnit,
     RegionElementProfile,
     RegionFitItem,
     RegionLevel,
@@ -70,6 +72,98 @@ _RESOLUTION_TO_LEVEL: dict[RegionResolution, RegionLevel] = {
 
 # 역할(한글) — region_direction.direction_fit favorability 입력용.
 _ROLE_KO = {"yongsin": "용신", "huisin": "희신", "gisin": "기신", "gusin": "구신"}
+
+# 약식/별칭 시도명 → 정식 시도명(지명 해소·scope용). doc/gis 정식명 기준.
+_SIDO_ALIASES: dict[str, str] = {
+    "서울": "서울특별시", "부산": "부산광역시", "대구": "대구광역시", "인천": "인천광역시",
+    "광주": "광주광역시", "대전": "대전광역시", "울산": "울산광역시", "세종": "세종특별자치시",
+    "세종시": "세종특별자치시", "경기": "경기도", "강원": "강원특별자치도",
+    "강원도": "강원특별자치도", "제주": "제주특별자치도", "제주도": "제주특별자치도",
+    "충북": "충청북도", "충남": "충청남도",
+    "전북": "전라북도", "전남": "전라남도", "경북": "경상북도", "경남": "경상남도",
+}
+# 수도권 = 서울·경기·인천(scope 별칭).
+_CAPITAL_AREA_SIDO = ("서울특별시", "경기도", "인천광역시")
+_CAPITAL_AREA_ALIASES = {"수도권", "수도권지역"}
+
+
+class RegionNameResolver:
+    """지명 → region_code 해소 + scope(시도/수도권/하위) 후보 열거(P2, docs/12 §2).
+
+    읍면동명은 전국 590종이 중복(효자동·사직동 등)이라 단순명 해소는 모호하다. full_name 완전
+    일치(유일) → 토큰 포함(시도 별칭 확장) → leaf 명 동률 시 leaf 정확일치로 좁힌다. 끝까지 모호하면
+    추측하지 않고 후보 목록을 반환한다(절대원칙 7 — 대상/지역 혼동 방지).
+    """
+
+    def __init__(self, units: list[RegionAdminUnit]) -> None:
+        self._units = units
+        self._by_code: dict[str, RegionAdminUnit] = {u.region_id: u for u in units}
+        self._by_full_name: dict[str, RegionAdminUnit] = {u.full_name: u for u in units}
+        self._sido_names: set[str] = {u.sido_name for u in units if u.sido_name}
+        self._children: dict[str, list[str]] = {}
+        for u in units:
+            if u.parent_code:
+                self._children.setdefault(u.parent_code, []).append(u.region_id)
+
+    def resolve(
+        self, name: str, level: RegionLevel | None = None
+    ) -> tuple[str | None, list[str]]:
+        """지명 → (region_code, 모호 시 후보 full_name 목록). 해소 실패=(None, [])."""
+        name = name.strip()
+        if not name:
+            return None, []
+        if name in self._by_full_name:
+            return self._by_full_name[name].region_id, []
+        tokens = name.split()
+        norm = [_SIDO_ALIASES.get(t, t) for t in tokens]
+        cands = [u for u in self._units if all(t in u.full_name for t in norm)]
+        if level is not None:
+            leveled = [u for u in cands if u.region_level is level]
+            if leveled:
+                cands = leveled
+        if len(cands) > 1:
+            leaf_exact = [u for u in cands if u.full_name.split()[-1] == tokens[-1]]
+            if leaf_exact:
+                cands = leaf_exact
+        if len(cands) == 1:
+            return cands[0].region_id, []
+        if not cands:
+            return None, []
+        return None, sorted(u.full_name for u in cands)[:10]
+
+    def resolve_scope(self, scope: str, level: RegionLevel) -> list[str]:
+        """scope(수도권/시도명/상위지역) → 해당 레벨 하위 region_code 목록."""
+        scope = scope.strip()
+        if scope in _CAPITAL_AREA_ALIASES:
+            sidos: tuple[str, ...] = _CAPITAL_AREA_SIDO
+        else:
+            full = _SIDO_ALIASES.get(scope, scope)
+            if full in self._sido_names:
+                sidos = (full,)
+            else:
+                code, _ = self.resolve(scope)
+                if code is not None:
+                    return self._descendants(code, level)
+                return []
+        return [
+            u.region_id
+            for u in self._units
+            if u.region_level is level and u.sido_name in sidos
+        ]
+
+    def _descendants(self, code: str, level: RegionLevel) -> list[str]:
+        """code 하위에서 target level에 해당하는 region_code(BFS)."""
+        out: list[str] = []
+        queue = list(self._children.get(code, []))
+        while queue:
+            cur = queue.pop()
+            unit = self._by_code.get(cur)
+            if unit is None:
+                continue
+            if unit.region_level is level:
+                out.append(cur)
+            queue.extend(self._children.get(cur, []))
+        return out
 
 
 def _normalize_map(vec: dict[str, float]) -> dict[str, float]:
@@ -110,12 +204,18 @@ class _LayerContribution:
 class RegionElementEngine:
     """지역 오행 프로필 빌드(고정) + 사용자 매칭 추천(가변). 순수·결정론."""
 
-    def __init__(self, dictionaries_dir: Path, profiles_path: Path | None = None) -> None:
-        """사전 로드. profiles_path 지정 시 compiled 스냅샷도 로드(추천·조회용).
+    def __init__(
+        self,
+        dictionaries_dir: Path,
+        profiles_path: Path | None = None,
+        admin_path: Path | None = None,
+    ) -> None:
+        """사전 로드. profiles_path/admin_path 지정 시 compiled 스냅샷도 로드(추천·조회용).
 
         Args:
             dictionaries_dir: backend/dictionaries 경로.
             profiles_path: compiled/region_element_profiles_vX.json(추천 시 필요).
+            admin_path: compiled/region_admin_units_vX.json(지명 해소·scope, 선택 — P2).
         """
         region_dir = dictionaries_dir / "region"
         tokens_raw = json.loads(
@@ -172,6 +272,12 @@ class RegionElementEngine:
             for p in snap.items:
                 self._profiles[p.region_code] = p
                 self._by_full_name[p.full_name] = p
+
+        # 지명 해소기(선택, P2). 없으면 legacy full_name 매칭으로 폴백.
+        self._resolver: RegionNameResolver | None = None
+        if admin_path is not None:
+            admin = RegionAdminSnapshot.model_validate_json(admin_path.read_text("utf-8"))
+            self._resolver = RegionNameResolver(admin.items)
 
     # ── 고정 프로필 빌드 ─────────────────────────────────────────
 
@@ -404,29 +510,53 @@ class RegionElementEngine:
     def _select_candidates(
         self, query: RegionRecommendationQuery, notes: list[str]
     ) -> list[RegionElementProfile]:
-        """후보 프로필 선별: 명시 후보 > scope(시도) > 전국 시군구 폴백."""
+        """후보 프로필 선별: 명시 후보 > scope(시도/수도권) > 전국 시군구 폴백(P2 해소기 사용)."""
         level = _RESOLUTION_TO_LEVEL[query.resolution]
         if query.candidate_regions:
             out: list[RegionElementProfile] = []
             for name in query.candidate_regions:
-                p = self._resolve_profile(name)
+                p = self._lookup_profile(name, notes)
                 if p is not None:
                     out.append(p)
-                else:
-                    notes.append(f"후보 지역 미확인 — {name}")
             return out
         if query.candidate_scope:
-            scope = query.candidate_scope
-            matched = [
-                p
-                for p in self._profiles.values()
-                if p.region_level is level and scope in p.full_name
-            ]
+            codes = (
+                self._resolver.resolve_scope(query.candidate_scope, level)
+                if self._resolver is not None
+                else []
+            )
+            matched = [self._profiles[c] for c in codes if c in self._profiles]
             if matched:
                 return matched
-            notes.append(f"후보 범위 미확인 — {scope}, 전국 시군구로 대체")
+            # 폴백: 해소기 없거나 scope 미확인 → full_name 부분일치.
+            legacy = [
+                p
+                for p in self._profiles.values()
+                if p.region_level is level and query.candidate_scope in p.full_name
+            ]
+            if legacy:
+                return legacy
+            notes.append(f"후보 범위 미확인 — {query.candidate_scope}, 전국 시군구로 대체")
         # 폴백: 전국 시군구(과대 후보 방지).
         return [p for p in self._profiles.values() if p.region_level is RegionLevel.SIG]
+
+    def _lookup_profile(
+        self, name: str, notes: list[str], level: RegionLevel | None = None
+    ) -> RegionElementProfile | None:
+        """지명 → 프로필(해소기 우선, 모호 시 후보 노트). 폴백=legacy full_name 매칭."""
+        if self._resolver is not None:
+            code, ambiguous = self._resolver.resolve(name, level)
+            if code is not None:
+                return self._profiles.get(code)
+            if ambiguous:
+                notes.append(f"지역이 모호함 — {name} (후보: {', '.join(ambiguous)})")
+                return None
+            notes.append(f"후보 지역 미확인 — {name}")
+            return None
+        p = self._resolve_profile(name)
+        if p is None:
+            notes.append(f"후보 지역 미확인 — {name}")
+        return p
 
     def _score_profile(
         self,
@@ -533,8 +663,14 @@ class RegionElementEngine:
         return None
 
     def _resolve_anchor(self, base_location: str) -> tuple[float, float] | None:
-        """거주지 지명 → 대표 anchor 좌표(프로필 우선, 없으면 region_coords 폴백)."""
-        p = self._resolve_profile(base_location)
+        """거주지 지명 → 대표 anchor 좌표(해소기→프로필, 없으면 region_coords 폴백)."""
+        p: RegionElementProfile | None = None
+        if self._resolver is not None:
+            code, _ = self._resolver.resolve(base_location)
+            if code is not None:
+                p = self._profiles.get(code)
+        if p is None:
+            p = self._resolve_profile(base_location)
         if p is not None and p.anchor_lat is not None and p.anchor_lon is not None:
             return (p.anchor_lat, p.anchor_lon)
         return self._region_dir.coords(base_location)

@@ -129,13 +129,15 @@ class RegionElementEvidence(BaseModel):
 
 
 class RegionAdminUnit(BaseModel):
-    """행정구역 레이어 1건(docs/12 §3-A). 법정동 코드가 연산 기본 키다.
+    """행정구역 레이어 1건(docs/12 §3-A). 법정동(법정구역) 코드가 연산 기본 키다.
 
-    P2(ingest_legal_dong.py)에서 채운다. centroid/area는 방위·면적 정규화에 쓰며 미상이면 None.
+    P2 경량 registry(build_region_admin.py) — 지명 해소·표시·면적 정규화용. 좌표는 프로필이
+    보유하므로(중복 방지) 기본 미수록(None). centroid/area는 미상이면 None.
     """
 
     region_id: str
     legal_dong_code: str
+    region_level: RegionLevel = RegionLevel.EMD
     sido_name: str
     sigungu_name: str = ""
     eup_myeon_dong_name: str = ""
@@ -146,6 +148,19 @@ class RegionAdminUnit(BaseModel):
     centroid_lat: float | None = None
     centroid_lon: float | None = None
     area_m2: float | None = None
+
+
+class RegionAdminSnapshot(BaseModel):
+    """행정구역 registry 스냅샷(compiled/region_admin_units_vX.json, docs/12 §2·§3-A).
+
+    지명 → region_code 해소(RegionNameResolver)와 scope(시도/수도권) 후보 열거의 원천.
+    """
+
+    model_version: str
+    source_gis_version: str = ""
+    reviewed: bool = False  # GIS 행정데이터 기반 — 오행 판정과 무관하나 운영 일관성상 플래그
+    profile_counts: dict[str, int] = Field(default_factory=dict)  # ctprvn/sig/emd
+    items: list[RegionAdminUnit] = Field(default_factory=list)
 
 
 class RegionUnitInput(BaseModel):
@@ -284,6 +299,7 @@ __all__ = [
     "ElementVector",
     "RegionElementEvidence",
     "RegionAdminUnit",
+    "RegionAdminSnapshot",
     "RegionUnitInput",
     "RegionElementProfile",
     "TargetElements",
