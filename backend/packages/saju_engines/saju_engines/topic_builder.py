@@ -3,11 +3,14 @@
 각 모듈은 `(subjects, period, LuckComposite[], dictionaries) => TopicContext` 순수 함수다.
 **M01~M15가 전체이며 새 주제는 모듈 추가로만 대응한다(기존 모듈에 분기 추가 금지).**
 
-구현: M01(love_timing)·M02(marriage)·M07(career)·M08(business)·M09(wealth)·M11(health)·
-M12(education_exam) — 도메인 신호형(공용 _domain_topic), M03(personality_traits — trait_mapping),
-M10(relocation_composite — relocation.py S1~S10 위임), M14(past_validation — past_validation.py
-역방향, extras=birth/scorer/compute), M15(lifestyle — format_slots.json).
-미구현(계획): M04 부모·M05 자녀·M06 직장관계·M13 비교(호출 시 NotImplementedError).
+**M01~M15 전 15종 구현 완료(2026-06-26).** 유형별:
+- 도메인 신호형(공용 _domain_topic): M01 love·M02 marriage·M07 career·M08 business·M09 wealth·
+  M11 health·M12 education_exam.
+- 육친 구조형(natal 십성 축 + relation_profiles + 기간 신호, 공용 _relation_axis_context):
+  M04 parents·M05 children·M06 workplace_relations.
+- 엔진 위임형(extras 공급): M03 personality(trait_mapping, natal_ten_god_dist), M10 relocation
+  (relocation.py S1~S10), M13 bond_compare(compatibility_engine, self/partner result·useful),
+  M14 past_validation(past_validation.py 역방향, birth/scorer/compute), M15 lifestyle(format_slots).
 
 T0 데이터(원국 십성 분포·용신 오행)가 필요한 모듈(M03/M10)은 extras 키워드로 받는다 —
 LuckComposite 스키마(규격)에 없는 정적 차트 정보는 Static Chart Layer(T0, docs/09 1장)
@@ -22,6 +25,8 @@ from pathlib import Path
 
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import SubjectRef
+from saju_shared_types.llm_input import UsefulGods
+from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.precompute import CompositeLevel, LuckComposite
 from saju_shared_types.relocation import RelocationQuery
 from saju_shared_types.topic_context import (
@@ -35,6 +40,7 @@ from saju_shared_types.topic_context import (
     TraitShift,
 )
 
+from .compatibility_engine import analyze_compatibility
 from .event_engine_v2 import EventEngineV2
 from .llm_guard import CALL_LIMITS
 from .past_validation import ComputeFn, generate_past_candidates
@@ -795,17 +801,195 @@ def build_past_validation_context(
     )
 
 
+_COMPAT_STYLE = StyleRules(
+    prohibited_expressions=[*_BASE_STYLE.prohibited_expressions, "천생연분", "최악의 궁합"],
+    tone_notes=[
+        *_BASE_STYLE.tone_notes,
+        "궁합은 안정(보완/마찰)·끌림(자극) 두 축으로 분리 — 끌림이 강해도 좋은 궁합은 아님. "
+        "당락·우열 단정 금지(승부형은 상대 우열+근거까지만, 절대원칙 8)",
+    ],
+)
+
+
+def build_bond_compare_context(
+    subjects: list[SubjectRef],
+    period: PeriodSpec,
+    composites: list[LuckComposite],
+    *,
+    self_result: ManseV2Result,
+    partner_result: ManseV2Result,
+    self_useful: UsefulGods,
+    partner_useful: UsefulGods,
+    self_label: str = "본인",
+    partner_label: str = "상대",
+) -> TopicContext:
+    """M13 bond_compare — 궁합/비교 (docs/09 4장: 대상별 natal → E13 입력 생성).
+
+    compatibility_engine(E13)을 재사용해 안정(보완/마찰)·끌림(자극) 두 축을 findings로 확정한다.
+    대상 원국·용희기구한은 extras로 호출 측이 공급한다(다중 subject — composites 미사용).
+    """
+    report = analyze_compatibility(
+        self_result, partner_result, self_useful, partner_useful,
+        self_label=self_label, partner_label=partner_label,
+    )
+    findings: list[Finding] = []
+    if report is not None:
+        stability = max(0, min(100, 50 + (report.harmony_count - report.friction_count) * 10))
+        findings.append(Finding(
+            key="bond_stability",
+            summary=(
+                f"안정 축 — 보완 {report.harmony_count}·마찰 {report.friction_count}: "
+                f"{report.summary}"
+            ),
+            score=stability, period_key="natal",
+            signals=[s.kind for s in report.signals][:6],
+        ))
+        if report.attraction_band:
+            findings.append(Finding(
+                key="bond_attraction",
+                summary=(
+                    f"끌림(자극) {report.attraction_band} — 끌림은 자극 축이라 안정과 별개"
+                ),
+                score=max(0, min(100, report.attraction_score)), period_key="natal",
+            ))
+    return TopicContext(
+        module_id="M13",
+        subjects=subjects,
+        period=period,
+        findings=findings,
+        style_rules=_COMPAT_STYLE,
+        budget=_DEFAULT_BUDGET,
+    )
+
+
+# 육친 구조형 모듈(M04/M05/M06) — natal 십성 축 + relation_profiles + 기간 도메인 신호.
+_AXIS_TEN_GODS: dict[str, tuple[str, ...]] = {
+    "M04": ("편인", "정인"),  # 인성 — 부모·윗사람 자원
+    "M05": ("식신", "상관"),  # 식상 — 자녀·표현
+    "M06": ("편관", "정관", "비견", "겁재"),  # 관성+비겁 — 직장 위계·경쟁
+}
+_AXIS_RELATION_TYPE = {"M04": "parent_child", "M05": "parent_child", "M06": "colleague"}
+_AXIS_DOMAINS: dict[str, set[str]] = {
+    "M04": {"relationship"}, "M05": {"relationship", "education"},
+    "M06": {"career", "relationship"},
+}
+_AXIS_LABEL = {"M04": "부모·윗사람", "M05": "자녀·표현", "M06": "직장 관계"}
+_AXIS_STYLE = {
+    "M04": StyleRules(
+        prohibited_expressions=_BASE_STYLE.prohibited_expressions,
+        tone_notes=[*_BASE_STYLE.tone_notes, "부모운은 관계 경향·시기로(수명·질병 단정 금지)"],
+    ),
+    "M05": StyleRules(
+        prohibited_expressions=_BASE_STYLE.prohibited_expressions,
+        tone_notes=[*_BASE_STYLE.tone_notes, "자녀운은 인연·관계 축으로(출산 여부 단정 금지)"],
+    ),
+    "M06": StyleRules(
+        prohibited_expressions=_BASE_STYLE.prohibited_expressions,
+        tone_notes=[*_BASE_STYLE.tone_notes, "직장 관계는 갈등/협력 경향으로(인사 결과 단정 금지)"],
+    ),
+}
+
+
+def _relation_profile_axes(relation_type: str, dictionaries_dir: Path) -> list[str]:
+    """relation_profiles.json에서 relationType의 축(ko) 라벨 목록."""
+    data = json.loads((dictionaries_dir / "relation_profiles.json").read_text("utf-8"))
+    for item in data["items"]:
+        if item["relationType"] == relation_type:
+            return [a["ko"] for a in item["axes"]]
+    return []
+
+
+def _relation_axis_context(
+    module_id: str,
+    subjects: list[SubjectRef],
+    period: PeriodSpec,
+    composites: list[LuckComposite],
+    *,
+    natal_ten_god_dist: dict[str, float],
+    dictionaries_dir: Path = _DICTS_DEFAULT,
+) -> TopicContext:
+    """육친 구조형(M04/M05/M06) 공용 — natal 십성 축 세력 + relation_profiles + 기간 신호."""
+    tgs = _AXIS_TEN_GODS[module_id]
+    label = _AXIS_LABEL[module_id]
+    total = sum(natal_ten_god_dist.values())
+    axis_sum = sum(natal_ten_god_dist.get(tg, 0.0) for tg in tgs)
+    axis_score = max(0, min(100, round(axis_sum / total * 100))) if total > 0 else 0
+    axes_ko = _relation_profile_axes(_AXIS_RELATION_TYPE[module_id], dictionaries_dir)
+
+    findings = [Finding(
+        key=f"natal_axis@{module_id}",
+        summary=(
+            f"원국 {label} 축({'·'.join(tgs)}) 세력 {axis_score}% — "
+            f"구조 축: {', '.join(axes_ko)}"
+        ),
+        score=axis_score, period_key="natal",
+        signals=list(tgs),
+    )]
+    selected, series, sig_findings = _domain_series_findings(
+        composites, period, domains=_AXIS_DOMAINS[module_id], label=label,
+    )
+    findings.extend(sig_findings)
+    findings.sort(key=lambda f: -f.score)
+    return TopicContext(
+        module_id=module_id,
+        subjects=subjects,
+        period=period,
+        calendar_context=_calendar_context(selected),
+        findings=findings[:6],
+        time_series=series,
+        style_rules=_AXIS_STYLE[module_id],
+        budget=_DEFAULT_BUDGET,
+    )
+
+
+def build_parents_context(
+    subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
+    *, natal_ten_god_dist: dict[str, float], dictionaries_dir: Path = _DICTS_DEFAULT,
+) -> TopicContext:
+    """M04 parents_fortune — 부모운 (docs/09 4장: natal 인성·년월주 + relation_profiles)."""
+    return _relation_axis_context(
+        "M04", subjects, period, composites,
+        natal_ten_god_dist=natal_ten_god_dist, dictionaries_dir=dictionaries_dir,
+    )
+
+
+def build_children_context(
+    subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
+    *, natal_ten_god_dist: dict[str, float], dictionaries_dir: Path = _DICTS_DEFAULT,
+) -> TopicContext:
+    """M05 children — 자녀운·자녀 관계 (docs/09 4장: natal 식상·시주 + relation_profiles)."""
+    return _relation_axis_context(
+        "M05", subjects, period, composites,
+        natal_ten_god_dist=natal_ten_god_dist, dictionaries_dir=dictionaries_dir,
+    )
+
+
+def build_workplace_context(
+    subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
+    *, natal_ten_god_dist: dict[str, float], dictionaries_dir: Path = _DICTS_DEFAULT,
+) -> TopicContext:
+    """M06 workplace_relations — 직장 내 관계 (docs/09 4장: natal 관성·비겁 + month)."""
+    return _relation_axis_context(
+        "M06", subjects, period, composites,
+        natal_ten_god_dist=natal_ten_god_dist, dictionaries_dir=dictionaries_dir,
+    )
+
+
 # 모듈 레지스트리 — 구현된 모듈만 빌더 연결, 나머지는 계획 상태.
 BUILDERS: dict[str, BuilderFn | None] = {mid: None for mid in MODULES}
 BUILDERS["M01"] = build_love_context
 BUILDERS["M02"] = build_marriage_context
 BUILDERS["M03"] = build_personality_context  # extras: natal_ten_god_dist
+BUILDERS["M04"] = build_parents_context  # extras: natal_ten_god_dist
+BUILDERS["M05"] = build_children_context  # extras: natal_ten_god_dist
+BUILDERS["M06"] = build_workplace_context  # extras: natal_ten_god_dist
 BUILDERS["M07"] = build_career_context
 BUILDERS["M08"] = build_business_context
 BUILDERS["M09"] = build_wealth_context
 BUILDERS["M10"] = build_relocation_context  # extras: relocation_query 외 2종
 BUILDERS["M11"] = build_health_context
 BUILDERS["M12"] = build_education_context
+BUILDERS["M13"] = build_bond_compare_context  # extras: self/partner result·useful
 BUILDERS["M14"] = build_past_validation_context  # extras: birth/scorer/compute
 BUILDERS["M15"] = build_lifestyle_context  # extras 선택
 

@@ -149,8 +149,42 @@ def test_m14_past_validation_reverse_engine() -> None:
     assert any("콜드리딩" in t for t in ctx.style_rules.tone_notes)
 
 
-@pytest.mark.parametrize("mid", ["M04", "M05", "M06", "M13"])
-def test_still_planned_modules_raise(mid: str) -> None:
-    """아직 미구현 모듈은 NotImplementedError(후속 배치 — subject/관계 엔진 배선 필요)."""
-    with pytest.raises(NotImplementedError):
-        build_topic_context(mid, [], _PERIOD, [])
+@pytest.mark.parametrize(
+    ("mid", "axis_tgs", "label"),
+    [("M04", ("편인", "정인"), "부모"), ("M05", ("식신", "상관"), "자녀"),
+     ("M06", ("편관", "정관", "비견", "겁재"), "직장")],
+)
+def test_relation_axis_modules(mid: str, axis_tgs: tuple, label: str) -> None:
+    """M04/M05/M06: natal 십성 축 세력 + relation_profiles 구조축 finding(육친 구조형)."""
+    dist = {tg: 0.2 for tg in axis_tgs}
+    dist.update({"편재": 0.1, "정재": 0.1})  # 축 외 십성(상대 세력 분모)
+    ctx = build_topic_context(mid, [], _PERIOD, [], natal_ten_god_dist=dist)
+    assert ctx.module_id == mid and ctx.findings
+    natal = next(f for f in ctx.findings if f.period_key == "natal")
+    assert set(axis_tgs) == set(natal.signals)  # 축 십성이 신호로
+    assert natal.score > 0  # 세력 비율 산출
+
+
+def test_m13_bond_compare_two_subjects() -> None:
+    """M13: compatibility_engine 재사용 — 안정(보완/마찰)·끌림 두 축 findings + 정책 톤."""
+    from datetime import date
+
+    from saju_api.services.manse_service import calculate
+    from saju_engines.context_reducer import build_birth_summary
+    from saju_shared_types.birth_input import BirthInput
+
+    a = calculate(BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
+        birth_place_name="서울", gender="male", reference_date=date(2026, 6, 11)))
+    b = calculate(BirthInput(
+        calendar_type="solar", birth_date=date(1985, 5, 5), birth_time="14:00",
+        birth_place_name="서울", gender="female", reference_date=date(2026, 6, 11)))
+    ctx = build_topic_context(
+        "M13", [], PeriodSpec(start="2026", end="2026", granularity="year"), [],
+        self_result=a, partner_result=b,
+        self_useful=build_birth_summary(a).useful_gods,
+        partner_useful=build_birth_summary(b).useful_gods,
+    )
+    assert ctx.module_id == "M13" and ctx.findings
+    assert any(f.key == "bond_stability" for f in ctx.findings)
+    assert any("끌림" in t for t in ctx.style_rules.tone_notes)

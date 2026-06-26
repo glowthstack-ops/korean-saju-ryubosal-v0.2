@@ -5455,3 +5455,19 @@ birth/scorer/compute를 extras로 받아(M03/M10처럼) 과거창 후보를 find
 엔진이 확정(콜드리딩 가드: 연 ≤2·근거 필수), LLM은 사실 확인형으로만. 리포트 F-08/F-09 의존 해소.
 정책 톤: 콜드리딩 금지·이미 일어난 일은 사실 확인형. **Topic Builder 11/15 완료**(미구현 M04/M05/
 M06/M13 — natal 십성 구조·subject·compatibility extras 필요). 신규 테스트 1, unit 1042 pass·ruff·mypy clean.
+
+---
+
+## Topic Builder 완성 — M04·M05·M06·M13 (육친 구조형 + 궁합) 🎉 (2026-06-26)
+
+docs/09 4장. 남은 4종 구현으로 **M01~M15 전 15종 완성**.
+
+- 육친 구조형(공용 _relation_axis_context, extras=natal_ten_god_dist): M04 parents(인성 편인·정인)·
+  M05 children(식상 식신·상관)·M06 workplace_relations(관성·비겁). natal 십성 축 세력(상대 비율) +
+  relation_profiles 구조축(parent_child/colleague) + 기간 도메인 신호를 findings로 확정.
+- M13 bond_compare(엔진 위임): compatibility_engine(E13) 재사용 — self/partner result·useful_gods를
+  extras로 받아 안정(보완/마찰)·끌림(자극) 2축 findings. 끌림≠좋은 궁합·당락 단정 금지(절대원칙 8).
+- 정책 톤: M04 수명·질병 단정 금지, M05 출산 여부 단정 금지, M06 인사 결과 단정 금지, M13 천생연분/
+  최악 단정 금지.
+- 테스트 갱신: planned-module raise 테스트를 '전 15종 빌더 연결' 검증으로 교체, M04/M05/M06/M13 신규.
+  unit 1042 pass·1 skip, ruff·mypy clean. **Topic Builder M01~M15 전 15종 구현 완료.**

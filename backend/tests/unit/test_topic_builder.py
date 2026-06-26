@@ -41,11 +41,11 @@ def test_unknown_module_rejected(composites) -> None:
         build_topic_context("M16", [], period, composites)
 
 
-def test_planned_module_raises_not_implemented(composites) -> None:
-    """아직 등록만 된 모듈(M04 등)은 NotImplementedError로 미구현을 드러낸다."""
-    period = PeriodSpec(start="2024-01", end="2026-12", granularity="month")
-    with pytest.raises(NotImplementedError, match="M04"):
-        build_topic_context("M04", [], period, composites)
+def test_all_fifteen_modules_implemented() -> None:
+    """M01~M15 전 모듈이 빌더에 연결됐다(미구현 None 없음 — 2026-06-26 완성)."""
+    from saju_engines.topic_builder import BUILDERS
+
+    assert all(BUILDERS[f"M{i:02d}"] is not None for i in range(1, 16))
 
 
 def test_m07_career_context(composites) -> None:
