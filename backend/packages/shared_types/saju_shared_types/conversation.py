@@ -100,3 +100,6 @@ class ConversationState(BaseModel):
     # 궁합 상대 첨부(크로스 디바이스 재개 복원용) — 프론트 ChatPartner 형태
     # {'mode','label', 'subjectId'|'birth'}. 매 턴 현재 첨부로 미러링(없으면 None).
     partner: dict | None = None
+    # 직전 턴의 시간 방향(과거 회고면 True). open_when 후속('월단위로')처럼 자체 신호가 없는
+    # 턴이 직전 방향을 상속해 미래/과거 창을 일관 유지하게 한다(2026-06-30 시점 정합).
+    last_retro: bool = False

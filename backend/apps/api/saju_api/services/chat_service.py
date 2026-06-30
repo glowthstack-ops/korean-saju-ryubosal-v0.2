@@ -1839,18 +1839,25 @@ def chat(
     # 메인에 올라 미래처럼 서술되는 시점 오류를 엔진 차원에서 차단(지난 달은 배경 분리).
     # 과거 회고(event_explanation·과거 키워드)와 명시적 과거 창은 클램프하지 않는다.
     current_month = luck_month  # 절기 기준 당월(양력 today.month의 절기 경계 어긋남 보정)
-    is_retro = (
+    # 시간 방향 판정 — 과거 신호 우선, 그다음 미래 신호, 둘 다 없는 open_when 후속('월단위로')은
+    # 직전 턴 방향(state.last_retro)을 상속해 미래/과거 창을 일관 유지(2026-06-30 시점 정합).
+    _is_open_when = intent.time_range is not None and intent.time_range.type == "open_when"
+    _past_signal = (
         intent.query_type is QueryType.EVENT_EXPLANATION
         or any(k in question for k in _PAST_KEYWORDS)
-        # open_when = '언제였는지' 과거 개방 탐색(C15) — 후속 단답('년단위였어')처럼
-        # 질문 텍스트에 과거 어미가 없어도 상속된 intent로 과거 회고를 식별(2026-06-12).
-        # 단 '언제 들어올까/언제쯤' 류 미래지향 open_when은 과거 회고가 아니다(2026-06-30 수정).
-        or (
-            intent.time_range is not None
-            and intent.time_range.type == "open_when"
-            and not _FUTURE_WHEN_RE.search(question)
-        )
     )
+    _future_signal = bool(_FUTURE_WHEN_RE.search(question))
+    if _past_signal:
+        is_retro = True
+    elif _future_signal:
+        is_retro = False
+    elif _is_open_when:
+        # 자체 방향 신호 없는 open_when(상속/단답) → 직전 방향 승계(기본 미래).
+        is_retro = bool(state is not None and state.last_retro)
+    else:
+        is_retro = False
+    if state is not None:
+        state = state.model_copy(update={"last_retro": is_retro})
     default_period: tuple[str, str] | None = None
     if period_fortune is None and is_retro:
         # 과거 회고인데 시점 미정(open_when 포함 — '오래 쉬었던 기간 언제였을까') →

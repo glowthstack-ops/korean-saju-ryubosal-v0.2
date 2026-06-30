@@ -214,6 +214,35 @@ def test_recheck_followup_and_affirm_escape_canned() -> None:
 
 
 @pytest.mark.skipif(not _db_available(), reason="saju-v2-db(5433) 미기동")
+def test_open_when_followup_inherits_direction() -> None:
+    """'월단위로' 같은 open_when 후속이 직전 턴의 시간 방향(미래/과거)을 상속한다(시점 정합).
+
+    미래질문('언제 들어올까') 뒤 '월단위로' → 미래(last_retro=False) / 과거질문('작년 무슨 일')
+    뒤 '월단위로' → 과거(last_retro=True). open_when을 일괄 과거로 보던 결함 회귀 방지.
+    """
+    from saju_engines.conversation_store import ConversationStore
+    from saju_engines.precompute_store import default_dsn
+
+    store = ConversationStore(
+        default_dsn() or "postgresql://saju_v2:saju_v2@localhost:5433/saju_v2"
+    )
+    birth = BirthInput(reference_date="2026-06-30", **_BIRTH)
+
+    def _flow(tid: str, first: str) -> bool:
+        store.delete(tid)
+        chat_service.chat(birth, first, date(2026, 6, 30), dry_run=True,
+                          thread_id=tid, subject_id="s1", subject_label="회원", store=store)
+        chat_service.chat(birth, "월단위로 알려줘", date(2026, 6, 30), dry_run=True,
+                          thread_id=tid, subject_id="s1", subject_label="회원", store=store)
+        retro = bool(store.load(tid).last_retro)
+        store.delete(tid)
+        return retro
+
+    assert _flow("t-dir-future", "이직 제안은 언제쯤 들어올까?") is False  # 미래 상속
+    assert _flow("t-dir-past", "작년에 직업적으로 무슨 일 있었어?") is True  # 과거 상속
+
+
+@pytest.mark.skipif(not _db_available(), reason="saju-v2-db(5433) 미기동")
 def test_multiturn_repeat_flag() -> None:
     """동일 질문 3연속 → repeated=True(다른 각도 제시 신호, F7)."""
     from saju_engines.conversation_store import ConversationStore

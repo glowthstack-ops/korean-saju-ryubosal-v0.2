@@ -6138,3 +6138,12 @@ FEEDBACK_CORRECTION → B는 prior가 분석 아님으로 보고 전환 안 함 
 ('YYYY-MM') 추가 — 미래지향(비회고) 질문이면 현재 달 이전 월 findings 제외. 검증: '이직 제안 언제
 들어올까?' 토픽 신호가 2026-05 제거→2026-06부터, 과거회고('작년 무슨 일?')는 2025 보존(floor 미적용).
 전체 1393 pass.
+
+### 시점 오류 근본 수정 — open_when 후속 방향 상속 (2026-06-30)
+
+'이직 제안 언제?'(미래) 다음 '월단위로 알려줘'가 다시 2~4월(과거)을 답하던 문제. 원인: '월단위로'는
+미래 동사가 없어 _FUTURE_WHEN_RE 미스 → 상속된 open_when이 일괄 과거 분류 → 과거 창. 근본 수정:
+ConversationState.last_retro(직전 턴 시간 방향) 추가, is_retro 판정을 과거신호>미래신호>open_when은
+직전 방향 상속(기본 미래) 순으로 재구성. '월단위로'가 미래질문 뒤면 미래·과거질문 뒤면 과거 승계.
+검증: 미래→월단위 후보 2026-06~(과거 제거), 과거→월단위 과거 유지. test_open_when_followup_inherits_
+direction(last_retro 미래False/과거True). 전체 1393 pass.
