@@ -32,6 +32,7 @@ from saju_shared_types.constants import (
 from saju_shared_types.enums import Branch, Stem, YinYang
 from saju_shared_types.event_taxonomy_v2 import LEGACY_EVENT_KEY_MAP
 from saju_shared_types.events import EventKey, EventPolarity, EventType
+from saju_shared_types.marriage_timing import MarriageStage
 from saju_shared_types.region_element import RegionGeoFeature
 
 _FAVORABILITY = ("용신", "희신", "기신", "구신", "한신")
@@ -39,6 +40,11 @@ _POSITIVE_FAVORABILITY = ("용신", "희신")
 _NEGATIVE_FAVORABILITY = ("기신", "구신")
 # 십성군 — SignalSpec.tenGodGroupStrong 유효값(엔진 groups 키와 매핑은 스코어러 담당).
 _TEN_GOD_GROUPS = ("인성", "비겁", "식상", "재성", "관성")
+# 배우자성/자녀성 추상화 십성군 — SignalSpec.tenGodGroup·branchHiddenTenGods 유효값
+# (MARRIAGE_TIMING_ENHANCEMENT §2). partner_star/child_star는 성별로 환원(resolve_partner_star).
+_PARTNER_STAR_GROUPS = ("partner_star", "child_star", "wealth", "officer_killing", "output")
+# stageHint 유효값 — MarriageStage enum(임의 stage 문자열 거부, §1 base 미확장 보장).
+_MARRIAGE_STAGES = frozenset(s.value for s in MarriageStage)
 # '상반 이벤트 동시 강유발' 판정 임계값 — 같은 신호에서 양/부정 후보가 모두 이 점수
 # 이상이면 충돌로 본다(초안 기준, 사전 검수와 함께 조정).
 _STRONG_CONFLICT_SCORE = 0.7
@@ -429,6 +435,17 @@ class SignalSpec(_AliasModel):
     natal_wealth_capacity: str | None = Field(default=None, alias="natalWealthCapacity")
     # does_not_apply_when: 같은 기간에 이 관계들이 성립하면 룰 미적용(외부 강트리거 우선).
     absent_relations: list[str] | None = Field(default=None, alias="absentRelations")
+    # ── 연애·결혼 도메인 신규 게이트(MARRIAGE_TIMING_ENHANCEMENT §6·§8·§10) ──
+    # tenGodGroup(MT1): 운 천간 십성을 배우자성/자녀성 추상화군으로 게이트(성별 환원은 매칭기 담당).
+    ten_god_group: str | None = Field(default=None, alias="tenGodGroup")
+    # spousePalace(MT3): 관계(합/회귀)가 일지(배우자궁)를 포함할 때만 성립. 게이트 미구현 동안은
+    # 매칭기가 일지 포함을 강제해야 하며, 강제 전에는 directional 엔트리를 활성화하지 않는다.
+    spouse_palace: bool | None = Field(default=None, alias="spousePalace")
+    # branchHiddenTenGods(MT5): 운 지지 지장간 십성군이 나열값을 모두 포함
+    # (예: partner_star+child_star = 배우자성·자녀성 동시 운반).
+    branch_hidden_ten_gods: list[str] | None = Field(
+        default=None, alias="branchHiddenTenGods"
+    )
 
     @model_validator(mode="after")
     def _non_empty(self) -> SignalSpec:
@@ -439,6 +456,7 @@ class SignalSpec(_AliasModel):
                 self.stem_favorability, self.shinsal, self.daewoon_transition,
                 self.unseong, self.natal_unseong, self.ten_god_group_strong,
                 self.daewoon_branch_void, self.natal_wealth_capacity,
+                self.ten_god_group, self.spouse_palace, self.branch_hidden_ten_gods,
             )
         ):
             raise ValueError("signal은 최소 1개 조건을 가져야 함")
@@ -463,6 +481,16 @@ class SignalSpec(_AliasModel):
             and self.stem_favorability not in _FAVORABILITY
         ):
             raise ValueError(f"stemFavorability 값 오류: {self.stem_favorability}")
+        if self.ten_god_group is not None and self.ten_god_group not in _PARTNER_STAR_GROUPS:
+            raise ValueError(
+                f"tenGodGroup 값 오류: {self.ten_god_group} ({_PARTNER_STAR_GROUPS})"
+            )
+        if self.branch_hidden_ten_gods is not None:
+            bad = [g for g in self.branch_hidden_ten_gods if g not in _PARTNER_STAR_GROUPS]
+            if bad:
+                raise ValueError(
+                    f"branchHiddenTenGods 값 오류: {bad} ({_PARTNER_STAR_GROUPS})"
+                )
         return self
 
     def key(self) -> str:
@@ -481,6 +509,21 @@ class EventCandidateSpec(_AliasModel):
     event: str  # 구키 허용 — graph_builder 21키 리맵
     score: float = Field(ge=-1.0, le=1.0)
     polarity: EventPolarity
+    # ── 연애·결혼 도메인 신규(MARRIAGE_TIMING_ENHANCEMENT §6·§8·§10) ──
+    # stageHint: 단독 발동 시 marriage_stage(MarriageStage enum 값만 허용 — 임의 stage 거부).
+    stage_hint: str | None = Field(default=None, alias="stageHint")
+    # partnerStarBonus(MT1): 배우자성 동반 시 가산폭(상한 게이트, 매칭기가 적용).
+    partner_star_bonus: float | None = Field(default=None, alias="partnerStarBonus")
+    # topicHint(MT5): 가정 형성 등 토픽 라우팅 힌트(stage 아님 — family_formation 등).
+    topic_hint: str | None = Field(default=None, alias="topicHint")
+
+    @model_validator(mode="after")
+    def _validate_stage_hint(self) -> EventCandidateSpec:
+        if self.stage_hint is not None and self.stage_hint not in _MARRIAGE_STAGES:
+            raise ValueError(
+                f"stageHint 값 오류: {self.stage_hint} (MarriageStage: {sorted(_MARRIAGE_STAGES)})"
+            )
+        return self
 
 
 class EventMappingItem(_AliasModel):

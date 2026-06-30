@@ -98,7 +98,7 @@ def test_serialized_prompt_within_guard(chart, candidates, bundles, scorer) -> N
     """직렬화 본문이 한도(chat_single 6k) 안에서 통과하고 4요소를 포함한다."""
     payload = build_llm_input("올해 이직운 어때?", _intent(), chart, candidates, bundles, scorer)
     text, tokens = serialize_with_guard(payload, "chat_single")
-    assert 0 < tokens <= 12_000
+    assert 0 < tokens <= 20_000
     for section in ("[원국·명식 구조", "[간지달력(압축)]", "[이벤트 후보", "[근거 경로]", "[지시]"):
         assert section in text
     # 이벤트 후보는 점수 확정값이 아니라 '추측 신호'로 고지(항목 10).
@@ -120,7 +120,7 @@ def test_serialize_with_guard_reserve_accounts_overhead(
     assert ok == base
     # 예약분이 상한 전체를 먹으면 어떤 payload도 못 들어가 축소 후에도 초과 → 전파(차단).
     with pytest.raises(TokenBudgetExceeded, match="Context Reduction"):
-        serialize_with_guard(payload, "chat_single", reserve_tokens=12_000)
+        serialize_with_guard(payload, "chat_single", reserve_tokens=20_000)
 
 
 def test_relocation_reasons_render_in_date_block(
@@ -228,4 +228,4 @@ def test_budget_from_call_limits(chart, candidates, bundles, scorer) -> None:
     payload = build_llm_input(
         "이직운", _intent(), chart, candidates, bundles, scorer, call_type="chat_compare",
     )
-    assert payload.budget.max_input_tokens == 14_000
+    assert payload.budget.max_input_tokens == 20_000

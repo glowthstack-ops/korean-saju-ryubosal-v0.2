@@ -33,6 +33,7 @@ from saju_engines.conversation_store import ConversationStore
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
+from saju_engines.marriage_timing_profile import marriage_engine_flags
 from saju_engines.persona import PersonaEngine
 from saju_engines.planner import build_execution_plan
 from saju_engines.precompute import CompositeBuilder
@@ -277,7 +278,7 @@ class ChatResponse(BaseModel):
 def _get_scorer() -> EventEngineV2:
     global _scorer
     if _scorer is None:
-        _scorer = EventEngineV2(_DICTS)
+        _scorer = EventEngineV2(_DICTS, **marriage_engine_flags())
     return _scorer
 
 
@@ -1392,6 +1393,7 @@ def _structural_context(result: ManseV2Result, intent: IntentJson, today: date) 
     from saju_engines.structural_context import (
         era_energy_lines,
         health_lines,
+        marriage_age_prior_lines,
         marriage_resource_lines,
         wealth_capacity_lines,
         wealth_status_lines,
@@ -1415,6 +1417,7 @@ def _structural_context(result: ManseV2Result, intent: IntentJson, today: date) 
         # 배우자성=용신(배우자 덕) 판정에 용희신을 넘긴다(G). 자기인식 가드도 함께(C).
         _useful = build_birth_summary(result).useful_gods
         out += marriage_resource_lines(analyze_marriage_resource(result, _useful))
+        out += marriage_age_prior_lines(result)  # MT6 혼기 static prior(프로파일 off면 빈 줄)
         out.append(RELATIONSHIP_SELF_AWARENESS_DIRECTIVE)
         out.append(TENDENCY_SHIFT_DIRECTIVE)
     if general or domain is Domain.HEALTH:

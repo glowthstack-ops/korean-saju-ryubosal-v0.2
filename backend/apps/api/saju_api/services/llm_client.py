@@ -238,6 +238,16 @@ _BRANCH_CHARS = "".join(set(_BRANCH_H2K) | set(_BRANCH_K2H))
 _GANJI_MARKERS = frozenset("일월년시주")
 _GANJI_RE = re.compile(f"([{_STEM_CHARS}])([{_BRANCH_CHARS}])(?!\\()")
 
+# ── 병기 중복 정리 (2026-06-27 데굴님 지적) ──
+# (1) 중첩: LLM이 '기해(己亥)'(역순 병기)로 쓰면 _normalize_ganji가 괄호 안 한자 '己亥'만
+#     다시 병기해 '기해(己亥(기해))'가 된다 → 표준형 '己亥(기해)'로 접는다. 바깥 한글은 버리고
+#     한자 자리를 신뢰한다(_normalize_ganji와 동일 정책 — '임인(壬辰(임진))'처럼 한글·한자가
+#     어긋나게 쓰인 경우도 한자 기준 '壬辰(임진)'으로 일관 정리).
+# (2) 자기중복: LLM이 ganji '한자(한글)' 병기를 십성·신살(정재·상관·천문성 등)에까지 과잉
+#     일반화해 '정재(정재)'처럼 같은 한글을 괄호로 되풀이한다 → 괄호 군더더기만 제거.
+_NESTED_GLOSS_RE = re.compile(r"[가-힣]{2}\(([一-鿿]{2})\(([가-힣]{2})\)\)")
+_SELF_GLOSS_RE = re.compile(r"([가-힣]{2,})\(\1\)")
+
 
 def _normalize_ganji(text: str) -> str:
     """간지(천간+지지) 표기를 '한자(한글)'로 통일한다 — 혼용·부분 음역 교정."""
@@ -264,6 +274,8 @@ def _sanitize_output(text: str) -> str:
     일괄 적용된다.
     """
     cleaned = _normalize_ganji(text)  # 간지 한자/한글 혼용 → 한자(한글) 병기
+    cleaned = _NESTED_GLOSS_RE.sub(r"\1(\2)", cleaned)  # 한글(한자(한글)) → 한자(한글)
+    cleaned = _SELF_GLOSS_RE.sub(r"\1", cleaned)        # 정재(정재) → 정재
     cleaned = _STRIKETHROUGH_RE.sub("", cleaned)
     if cleaned == text:
         return text

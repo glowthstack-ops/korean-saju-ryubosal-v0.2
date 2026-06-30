@@ -5716,3 +5716,377 @@ ground truth — 한자 토큰화로 틀렸던 28%(61/219)를 전문가값으로
 - 검증: 강남 火(江南→水 아님)·노원 木·강서 金·종로 金 전문가 적용, 마산합포 水 유지. golden 6건
   재생성(전문가로 高신뢰화된 종로·제주·마포가 cap-weak 예시 부적격 → 수원장안·세종 약신뢰로 repoint,
   마포 水木 92→76). 신규 테스트 1, unit 1071 pass, ruff·mypy·dict validate(69파일) clean.
+
+---
+
+## Report Context Reduction — 다년 테마풀이 섹션 토큰 상한 초과 수정 ✅ (2026-06-27)
+
+라이브 테스트 중 RPT_FOCUS(직업운, 2026-06~2031-12, 5.5년) 생성이 `report_focus_section:
+입력 10212tok > 상한 10000tok`로 6/8 섹션(J-06)에서 실패. DB의 실패 job(spec·subject)을
+그대로 재현해 원인 규명.
+
+- 근본 원인: `month_overview_lines`가 예측 창의 **모든 달을 빠짐없이** 출력(2026-06-16 단년
+  반복방지 의도). 다년 창에선 ~84줄(3,651tok)로 폭증해 J-06만 상한 초과(다른 7섹션은 5~7k 여유).
+- 구조적 결함: docs/09 L333이 규정한 "상한 초과 → Context Reduction 재실행"이 **chat 경로엔
+  있으나(serialize_with_guard→too_broad) report 경로엔 부재** → 가드 예외가 job 전체를 실패시킴.
+- 수정(사용자 승인 Option 1 — 초과 시에만 축소): report 경로에 Context Reduction 추가.
+  `generate_fn`이 `TokenBudgetExceeded`를 잡아 `reduction_level`을 올려 컨텍스트 재구성·재호출
+  (`_MAX_REPORT_REDUCTION=2`). level1=다년 월별 흐름 ★주목 달만(연도별 top3+강한 용/기신운),
+  level2=연도별 흐름도 ★주목 해만. `month_overview_lines`/`year_spectrum_lines`에 `notable_only`
+  파라미터(기본 False=전체 유지) 추가 — **상한 내 섹션·단년 풀이는 0단계로 12개월 그대로**.
+- 검증: 실패 job 재현 측정 J-06 10,123→8,343tok(level1 자동 선택), 나머지 7섹션 level0 유지.
+  report 테스트 82 pass, ruff·mypy clean, 전체 스위트 실패셋 클린트리와 동일(회귀 0 — 유일 실패
+  test_too_broad_returns_suggestions는 사전 존재·LLM 가용성 env 의존, 본 변경 무관).
+- 후속(2026-06-27 사용자 승인): `report_focus_section`·`report_full_section` 입력 상한 10,000→15,000
+  (llm_guard CALL_LIMITS + docs/09 8장 표 동기화). 다년 풀이도 월별 흐름을 **축소 없이** 보존 —
+  재현상 8섹션 전부 level0 통과(J-06 10,123<15,000). Context Reduction은 15,000 초과 극단 안전망으로
+  잔존. guard 테스트 7 pass, ruff·mypy clean.
+
+---
+
+## 병기 중복 정리 — '정해(丁亥(정해))'·'정재(정재)' 제거 ✅ (2026-06-27)
+
+데굴님 지적: 총운(RPT_FULL) 본문에 `정해(丁亥(정해))`·`기해(己亥(기해))`·`정재(정재)`처럼
+한글 병기가 이중 중첩. 저장된 완료 job(22섹션) 스캔 결과 27건(F-02·04·06·07·10…).
+
+- 원인: ① **중첩** — LLM이 '기해(己亥)'(역순 병기)로 쓰면 `_sanitize_output`의 `_normalize_ganji`가
+  괄호 안 한자 '己亥'만 다시 병기(`(?!\()`가 바깥 한글만 건너뜀) → '기해(己亥(기해))'. ② **자기중복**
+  — LLM이 ganji '한자(한글)' 병기를 십성·신살(정재·상관·천문성 등)에까지 과잉 일반화해 '정재(정재)'.
+  입력 프롬프트는 순수 한글로만 제공(유도 아님) — ②는 LLM 출력 습성.
+- 수정: `_sanitize_output`(채팅·리포트 공통 단일 지점)에 `_normalize_ganji` 뒤로 결정적 2패스 추가.
+  `_NESTED_GLOSS_RE` 한글(한자(한글))→한자(한글)(바깥 한글 버리고 한자 신뢰 — '임인(壬辰(임진))'
+  불일치도 '壬辰(임진)'으로 일관), `_SELF_GLOSS_RE` X(X)→X. 정상 '己亥(기해)'·'해수(亥水)'는 불변.
+- 검증: 저장 22섹션 재적용 중복 27→0, 정상 병기 보존. 신규 단위 테스트 1(중첩·불일치·자기중복·보존),
+  llm_client 9 pass, 전체 스위트 회귀 0(클린트리 동일 — 유일 실패 too_broad는 무관). ruff·mypy clean.
+  ※ 기 저장 보고서는 미소급(재생성 시 정리). 필요 시 report_jobs.result 일괄 재정리 가능.
+
+---
+
+## 총운 데이터-목적 시간범위 불일치 교정 — 과거 섹션에 미래 후보 혼입 제거 ✅ (2026-06-27)
+
+데굴님 지적: 총운 'F-07 대운 흐름 개관'이 이후 5년만 자세히 풀림 → 전수 감사. 원인은
+`build_section_context`의 `elif not is_natal_section:`이 비-원국·비-도메인 섹션 **전부**에
+`luck_block()`(=[대운표]+미래 +5년 이벤트 후보 4블록[이벤트후보·합작용·발현분기·내부근거])을
+무조건 주입한 것. docs/10 시간범위와 대조 시 **2부 과거 섹션이 미래 후보를 받는** 명백한 불일치.
+
+- 감사 결과(22섹션): F-07(출생~현재 대운개관)·F-08(과거 이벤트 복원)·F-09(과거 검증)이 미래
+  2026~2031 월별 후보 7건 수신(F-08/09는 올바른 M14 과거 데이터와 **공존**). 메타 F-21(요약카드)·
+  F-22(부록=달력·용어)도 원시 미래 클러스터 부적절. F-10~F-18(현재·미래·도메인 전망)은 정합.
+- 수정(2026-06-27 사용자 승인 Option2): `luck_block(daewoon_only=True)` 추가 — [대운표](생애
+  backbone, 과거 포함)만 남기고 미래 후보 4블록 생략. `_DAEWOON_ONLY_SECTIONS={F-07,F-08,F-09,
+  F-21,F-22}` 적용. F-07·08·09 전용 가이드 추가(시간범위 '출생~현재' 한정, 미래 연·월 디테일은
+  3·4부 몫임을 명시). 현재·미래·도메인 섹션은 불변.
+- 검증: 재감사 — F-07/08/09/21/22 미래월 7→0(대운표·M14 보존), F-10/13 미래 후보 유지. body
+  3.8~5.6k tok(starved 아님). report 테스트 140 pass, 전체 1304 pass(회귀 0), ruff·mypy clean.
+  ※ 기 저장 보고서 미소급 — 재생성 시 정합.
+
+---
+
+## F-22 부록 간지 달력표 — 결정론적 표 자동 첨부 + 분량 캡 면제 ✅ (2026-06-27)
+
+데굴님 지적: 총운 F-22 '간지 달력표 + 용어 해설'에 **실제 표가 안 나오고 산문 요약만** 나옴.
+원인 — ① F-22에 간지 달력표 데이터 자체가 없고(대운표만), ② LLM은 간지를 못 지어내(절대원칙 1)
+재료 없이 "요약"만, ③ `_repair_section`이 `target_chars.max`로 절단(데굴님 '정형적 분량 제한').
+
+- 해법(2026-06-27 사용자 승인 — 범위: 대운 생애·세운 10년·월운 10년, "제일 비싼 상품"):
+  간지 달력표를 **엔진이 결정론적으로 렌더링**(LLM 미생성)해 섹션 끝에 첨부, **분량 캡 면제**.
+  - `_ReportData.ganji_calendar_md()` — 대운(생애 `daewoon_table`)·세운(`daewoon.sewoon` 향후
+    10년)·월운(`luck_months` 연도별 10년=120개월). 간지 한자(한글)+천간/지지 십성. RPT_FULL=10년,
+    그 외=1년 스코프. `_ganji_ko`로 병기(표는 `_sanitize_output` 미경유라 직접 병기).
+  - `generate_report`: `builder.build()` 후(=_repair_section 절단·정합성 검사 뒤) F-22(_GANJI_
+    CALENDAR_SECTIONS={F-22,Y-12})에 표를 append → 절단·검사·간지변형 대상 제외. total_chars 재계산.
+  - F-22/Y-12 가이드 변경(표 직접 생성 금지·읽는 법+용어 집중) + terminology.json(53항목) [용어 사전]
+    주입(용어 해설을 검수 사전 기준으로).
+- 검증: 표 생성 — 대운 10행·세운 10행(2026~2035)·월운 120행(10연도그룹), 2026=丙午(병오) 정확.
+  F-22 본문 [용어 사전] 주입·미래 후보 무·총 7.7k tok(<15000). 신규 테스트 1, report 6 pass,
+  전체 1304 pass(회귀 0), ruff·mypy clean. ※ 기 저장본 미소급 — 재생성 시 표 첨부.
+
+---
+
+## 연애·결혼 시기 고도화 (Marriage Timing Enhancement) — 설계 + Phase 1·2 적용 🚧 (2026-06-30)
+
+전문가 영상(연애·결혼 시기 판정법) 대조 분석. 기존 로직(배우자성 투출·무관/다관·배우자궁
+형충·생애단계·일지복음·비식재흐름결혼·성별가중)은 영상보다 정교하나, **영상의 두 기둥**(일간
+干合 awareness 신호 / 일지 투출 글자 운 회귀 트리거)과 방합·관식동반이 갭으로 확인됨.
+
+- **SSOT 설계 문서 신설**: `doc/v2_2/MARRIAGE_TIMING_ENHANCEMENT.md`(v2, 사용자 2차 리뷰 반영).
+  핵심 재설계 = 결혼 시기를 단일 activation이 아니라 **`발동도 × 단계 × 안정성 × 현재 관계상태`**
+  + **2축 산출**(activation_score × stability_score)로 본다. "마음 동함 ≠ 결혼" 과판단 차단이 1순위.
+  - MT1 일간 干合 배우자성(awareness, 단독 action 금지) / MT2 일지 투출 글자 회귀(글자/십성/오행
+    3종 차등, 배우자성만 action) / MT3 방합 action(spousePalace 게이트) / MT4 육합>삼합>방합 subtype
+    차등(HAP 붕괴 금지) / MT5 partner+child 동반(family_formation_awareness, 출산 직승 금지) /
+    MT6 배우자성 위치별 혼기 = static prior(event 아님).
+  - marriage_stage 6단계(awareness/contact/relationship/commitment/formalization/family_expansion),
+    commitment/formalization_marker 게이트, relationship_context_gate(점수 무개입·라벨/문구/confidence만),
+    layer confluence, 단계별 cap, risk_flags 재분기(충+기신 배우자궁=marriage 아닌 relationship_change).
+  - "거의 100%" 표현 제거 → strong_confluence(marker 대체 불가, 단계 승급만).
+- **§14 1·2단계 적용(비파괴)**:
+  - docs/02 E4 — marriage_stage refinement 표(base 5단계 미확장, completion 매핑).
+  - docs/05 — partner_star 추상화 규칙(여=관살 officer_killing, 남=재성 wealth, gender 미상 양 기준 병기).
+  - `shared_types/marriage_timing.py` 신설 — `MarriageStage`/`MARRIAGE_TO_BASE_STAGE`/`TenGodGroup`
+    enum + `PartnerStarRule`·`resolve_partner_star/child_star`(스텁, 로직·점수 무변경).
+  - `prediction.py` TimelinePhase docstring 주석(필드 무변경).
+- 검증: ruff·mypy clean, TimelinePhase 직렬화 불변, resolver/매핑 스모크 OK, 기존 결혼·관계 테스트
+  40건 불변. 전부 `reviewed:false` — 가중치는 전문가 감수 전 미보장(원칙 5).
+- **다음**: §14 3단계(MT1~5 signal 정의) → 4 subtype 보존 → 5 negative matrix → 6 static prior → 회귀.
+
+### §14 3단계 — A(스키마) 적용 + 구조 발견 (2026-06-30)
+
+연애·결혼 signal 정의(MT1~5) 변경안에 사용자 2차 리뷰(7개 수정) 반영 후 **A 스키마만 적용**:
+- `dictionaries.py` SignalSpec 신규 게이트: `tenGodGroup`(MT1 partner_star 추상화)·`spousePalace`(MT3)·
+  `branchHiddenTenGods`(MT5) + 검증(값 화이트리스트 `_PARTNER_STAR_GROUPS`). EventCandidateSpec 신규:
+  `stageHint`(MarriageStage enum 검증 — 임의 stage 거부)·`partnerStarBonus`·`topicHint`.
+- 전부 default None·비파괴. validate 69사전 불변, 스키마 스모크(검증/거부/직렬화) OK, 결혼·관계 +
+  사전/이벤트 테스트 136건 불변. ruff·mypy clean.
+- **구조 발견 2건(SSOT 반영)**: ① 방합 relation 값은 기존 `directional`(InteractionKind.BRANCH_
+  DIRECTIONAL)이지 `branch_directional` 아님. ② `directional`은 이미 탐지·매칭되는 어휘라, MT3
+  엔트리를 `spousePalace` 게이트 엔진 구현 전에 넣으면 **모든 방합 오발동** → MT3은 엔진과 한 단위로.
+  MT1(day_master_stem_combine)·MT5(branchHiddenTenGods)는 신규 어휘라 inert(단독 안전).
+- **미결**: `family_formation_signal`(MT5)은 21키 하드셋 확장(다운스트림 8곳) — 적용 범위 사용자 확정 필요.
+- 전체 회귀: 2건 실패(test_chat_pipeline::too_broad, test_report_jobs_api::job_lifecycle)는 **pristine
+  HEAD에서도 실패**하는 기존 결함 — 본 작업과 무관(stash 격리로 확정).
+
+### §14 3단계 — MT1 단위 구현 완료 (생성형 Seed Producer, 2026-06-30)
+
+MT1(일간 干合 배우자성 awareness)을 **MT별 단위(엔트리+탐지 함께)**로 구현. 사용자 확정 = 생성형이되
+modifier가 아닌 **Seed Producer**로 분리(marriage_flow의 '증폭만' 원칙 유지), 생성 범위는
+new_relationship + awareness로 하드 제한.
+
+- **명리 근거**: 일간의 干合 대상은 음간이면 官(여=배우자성)·양간이면 財(남=배우자성) — MT1은
+  음일간 여명·양일간 남명에서 자연 발동(영상 丁일간=음간 예시와 일치). hap_mode='combine_self'(본신지합).
+- **1) relationship.json**: MT1 엔트리(relation=day_master_stem_combine, tenGodGroup=partner_star,
+  stageHint=awareness, partnerStarBonus, score 0.3, reviewed:false).
+- **2) graph_builder**: signal.relation==day_master_stem_combine / ten_god_group → supports 엣지
+  + aux 노드(relation_day_master_stem_combine·ten_god_group_partner_star) 즉석 생성·dedup(dangling 방지).
+- **3) marriage_awareness_seed.py(신설)**: `produce_mt1_awareness_seeds` 순수 함수. 조건=운천간이
+  일간과 干合(combine_self·luck_origin) + 그 십성군=partner_star(성별 인지). 점수=base30 +성별확정10
+  +합화용희신5, awareness cap60 / unknown cap35. 합거·쟁합·기신=불안정 분기(MT1_GISIN_RISK·
+  MT1_COMPETITION_RISK, 미발동 아님). gender 미상=양 기준 검사+THEME_ONLY 하향(차단 안 함).
+- **4) event_engine_v2**: `enable_mt1_awareness` 생성자 flag(기본 OFF). branch 직후 seed 합류 →
+  6계층 보정·랭킹·soft_cap 동일 통과. OFF=기존 결과 byte 불변.
+- **5) 테스트(test_marriage_awareness_seed.py 10건)**: 음일간여명/양일간남명 발동, 비배우자성·비干合
+  미발동, gender unknown 하향, 기신 risk_flag, new_relationship+awareness 한정, pillars graceful,
+  flag OFF inert(개수 불변)/ON 발동(壬년 2022·2032 confidence theme_only). LRU 캐시 오염 회피(model_copy).
+- 검증: validate 69사전 OK, graph build(MT1 aux 2노드·supports 2엣지), ruff·mypy clean, 전체 1296 pass
+  (2 fail=pristine HEAD 기존 결함 무관, 18 skip). 전부 reviewed:false·feature OFF — 운영 영향 0.
+- **다음 단위**: MT2(일지 투출 글자 회귀, EMERGENCE_RETURN) 또는 MT3(방합 spousePalace 게이트, 엔진과 한 단위).
+
+### §14 3단계 — MT2 단위 구현 완료 (전용 증폭 modifier, 2026-06-30)
+
+MT2(일지 투출 글자 운 회귀)를 사용자 확정 = **A 전용 `MarriageEmergenceModifier`(증폭형)**로 구현
+(RelationKind.EMERGENCE_RETURN/relation_palace 경로 미사용 — 3종 강도·게이트·충 분기가 flat bonus와
+안 맞음). 5개 보정 + 3 테스트 반영.
+
+- **명리 발견(SSOT 정정)**: 일간 기준 천간↔십성은 **1:1 전단사**라 'same_ten_god'(글자 다름+십성 동일)
+  티어는 실현 불가(같은 십성 ⟺ 같은 글자) → **2티어로 축소**(same_stem / same_element=음양 짝).
+- **marriage_emergence_modifier.py(신설)**: `analyze_marriage_emergence_natal`(일지 지장간 ∩ 원국
+  천간4, 각 stem/element/ten_god/source_pillars/is_day_master_exposure/is_partner_star) + `MarriageEmergenceModifier`.
+  증폭만(생성 금지) — new_relationship/marriage_signal/relationship_change에만. **절대 delta 상한**
+  (partner same_stem+10/same_element+4, 비partner +5/+1 — 과증폭 방지, 점수 곱 안 함). 일간 투출=weak
+  flag(action 금지). **spouse_palace_clashed**면 긍정 증폭 0 + MT2_EMERGENCE_CLASHED·SPOUSE_PALACE_CLASHED
+  태그(marriage_signal 증폭 금지).
+- **event_engine_v2**: `enable_mt2_emergence` flag(기본 OFF). marriage_flow 직후 적용, hits에서 일지 충
+  판정. OFF=결과 불변(개수도 동일 — 증폭형).
+- **테스트(test_marriage_emergence_modifier.py 11건)**: same_stem/same_element 차등, 비partner·일간투출
+  weak, 회귀 없음 불변, 신규 생성 금지(개수 불변), same_element 승급 없음, 충 분기(marriage_signal 증폭
+  금지·new_relationship 근거만), 원국 분석(己 편관 투출·癸 일간투출 검출), flag OFF inert/ON 증폭.
+- 검증: validate 69 OK, ruff·mypy clean, 전체 1307 pass(+11 MT2, 2 fail=pristine HEAD 기존 결함 무관, 18 skip).
+  전부 reviewed:false·feature OFF — 운영 영향 0.
+- **다음 단위**: MT3(방합 spousePalace 게이트 — directional이 이미 매칭되므로 엔진 게이트와 한 단위).
+
+### §14 3단계 — MT3 단위 구현 완료 (방합 배우자궁 게이트, 얇은 태깅, 2026-06-30)
+
+MT3(방합 spousePalace 게이트)를 사용자 확정 = **A안 얇은 태깅 레이어**(점수 무가산)로 구현.
+
+- **핵심 근거**: 방합(DIRECTIONAL_CONTRIB)은 이미 `_REL_KIND`에서 HAP→일지(DAY)궁 활성으로 관계
+  후보를 보강 중(activation_weight 1.3). MT3가 점수를 또 더하면 중복 점수화(포화) → **점수 0,
+  의미만 태깅**. spousePalace 게이트 = DAY궁 활성과 동치(방합 hit natal_refs에 day 포함).
+- **marriage_directional_tag.py(신설)**: `apply_mt3_directional_tags` — 방합이 일지 포함 시 관계 후보
+  (new_relationship/marriage_signal/relationship_change)에 태그. `MT3_DIRECTIONAL_DAY_BRANCH` +
+  `MT3_DIRECTIONAL_PARTNER_ELEMENT`(방합 완성 오행=배우자성 오행, 여=관살·남=재성) + 일지 관여
+  충형파해 분기 태그(`MT3_DIRECTIONAL_CLASHED/PUNISHMENT/HARM/BREAK`). **점수·event_key 무변경**.
+  full/partial(반합)은 hit 미노출 → 2차 보류(사용자 허용).
+- **relationship.json**: MT3 graph evidence 엔트리(relation=directional, spousePalace, note에
+  "graph evidence only·라이브는 relation_palace 재사용·MT3 무가산" 명시). graph_builder에
+  relation_directional·spouse_palace supports 엣지 + 노드.
+- **event_engine_v2**: `enable_mt3_directional` flag(기본 OFF). MT2 직후 태깅. OFF=점수·개수 byte 불변.
+- **테스트(test_marriage_directional_tag.py 9건)**: 일지 포함 태그·점수 불변, 일지 미포함 미발동,
+  partnerElement 유/무, 충 분기, 비관계 후보 무영향, 방합 없음 불변, flag OFF inert(점수 리스트 동일)/
+  ON 태그(2019 己亥→亥子丑·일지 丑).
+- 검증: validate 69 OK, graph(MT3 aux 2노드), ruff·mypy clean, 전체 1316 pass(+9, 2 fail=기존 결함, 18 skip).
+  전부 reviewed:false·feature OFF — 운영 영향 0.
+- **다음 단위**: MT4(육합>삼합>방합 subtype 차등 — relation_palace HAP 붕괴 해소, hap_subtype 보존).
+
+### §14 3단계 — MT4 단위(shadow까지) 구현 완료 (HAP subtype 재가중, 2026-06-30)
+
+MT4(육합>삼합>방합 차등)를 사용자 확정 = **shadow-first 3-state + 관계 도메인 한정 재분배(상향 없음)**로 구현.
+shadow까지 승인, apply 운영 반영은 비교 후 별도 승인 보류.
+
+- **marriage_hap_subtype.py(신설)**: 순수 함수 `mt4_subtype_multiplier`(육합1.0/삼합0.85/방합0.70·
+  일지0.75·partnerElement0.80, unknown·stem=1.0) + `partner_elements`(여=관살·남=재성, **미상=빈 집합**
+  → partnerElement 완화 0.80 미적용). 모든 multiplier ≤1.0(포화 방지).
+- **RelationActivation**: hap_subtype·element 필드 추가(HAP 붕괴 유지하되 원 종류 곁들임). `_activations`가
+  hit.type→subtype·hit.element 보존.
+- **relation_palace.apply**: `mt4_mode`(off/shadow/apply)·gender·day_element·shadow_sink 인자.
+  관계 도메인(new_relationship/marriage_signal/relationship_change) HAP 활성에만 적용. off=불변,
+  shadow=점수·reason·contributions 불변 + **diagnostics 사이드채널(mt4_shadow)에만** 기록(LLM 입력 무영향),
+  apply=합산 전 보너스에 곱 + MT4 reason.
+- **event_engine_v2**: `enable_mt4_subtype` 3-state(기본 off), `self.mt4_shadow` debug 채널(score()마다 초기화).
+- **테스트(test_marriage_hap_subtype.py 9건)**: multiplier 테이블·상향없음·unknown 1.0·partner_elements
+  성별(미상 빈집합)·off==shadow byte 동일(점수·reason·contributions)·shadow 진단 diff≤0·apply 상향 위반0·
+  관계 외 도메인 불변.
+- **shadow 영향(4차트×25년 42건)**: six_harmony 0(불변)·stem 0(불변)·three_harmony −12.2·directional −65.3
+  누적 감쇠. 방합 중복 점수화가 가장 크게 완화됨.
+- 검증: validate 69 OK, ruff·mypy clean, 전체 1325 pass(+9, 2 fail=기존 결함, 18 skip). off/shadow 운영 영향 0.
+- **다음**: MT4 apply 승인(shadow 비교 후) → MT5(family_formation 21키 보류) → MT6.
+
+### MT4 상태 종결 — shadow 검증 완료·apply 운영 보류 (2026-06-30 사용자 결정)
+
+MT4 subtype reweighting은 **shadow 검증까지 완료**(모든 multiplier ≤1.0, 관계 도메인 한정, unknown/
+stem fallback 1.0, 관계 외 도메인 불변, off==shadow byte 동일 확인). 다만 apply는 기존 HAP 점수
+**재분배로 순위 변화**가 생기고 방합 누적 감쇠(−65.3, 4차트×25년)가 커서, **golden marriage/relationship
+사례 비교 전까지 운영 기본값 적용 보류**(사용자 결정). flag 상태 유지: off=운영 기본 / shadow=검증용 /
+apply=개발·실험 전용. **apply 켜기 전 통과 기준**: ①golden 결혼·연애 20건+ 비교 ②top3 라벨 과변동 없음
+③실제 결혼 후보가 relationship_change로 과분기 안 됨 ④방합 감쇠 후에도 spousePalace+partnerElement는
+근거 유지 ⑤평균 점수↓이되 적중 recall 유지(방합 성혼 케이스 + 방합 갈등종결 케이스 동시 포함).
+
+### §14 6단계 — MT6 구현 완료 (배우자성 위치별 혼기 static prior, 2026-06-30)
+
+MT6(배우자성 위치별 혼기)를 **event 아닌 static prior · 완전 inert 독립 분석기**로 구현(사용자 확정).
+
+- **marriage_age_prior.py(신설)**: `analyze_marriage_age_prior(result) → MarriageAgePrior`. 배우자성
+  (여=관살·남=재성)이 드러난 자리(천간 투간+지지 본기, 지장간 제외) → band(년 early/월 normal/일
+  spouse_palace_direct/시 late/없음 unknown). **headline=가장 이른 자리**, 일지 배우자궁 직접성은
+  `structural_flags=["spouse_palace_direct"]`로 **별도 보존**(보강①). `triggers_event=False`·
+  `role="static_prior"` 고정 — 특정 연·월 발동 금지.
+- **gender 미상**(보강②): 관살·재성 양 기준 병기 + `confidence="low"` + `usable_for_threshold=False`
+  (threshold 보정 미사용·설명 참고만). gender 확정+배우자성 드러남이면 normal·usable.
+- **완전 inert**: event_engine·MarriageResourceProfile **미수정** → 기존 출력 byte 불변. topic builder
+  (M01/M02 광역 혼기) 배선은 별도 단계.
+- **테스트(test_marriage_age_prior.py 8건)**: band 매핑·가장 이른 자리 headline·일지 structural flag·
+  static_prior(event 아님)·gender 미상 low/미사용·확정 usable·pillars graceful·드러난 것만(positions⊆4기둥).
+- 검증: validate 69 OK, ruff·mypy clean, 전체 1333 pass(+8, 2 fail=기존 결함, 18 skip). 운영 영향 0(inert).
+- **MT 시리즈 현황**: MT1(awareness seed)·MT2(emergence 증폭)·MT3(방합 태깅)·MT6(혼기 prior) 구현·검증 완료
+  (전부 reviewed:false·feature OFF/inert). MT4(subtype) shadow까지·apply 보류. MT5(family_formation)
+  21키 보류. **다음**: MT5 21키 결정 또는 golden 사례 확보 후 MT4 apply.
+
+### Marriage Production Readiness v1 — Step 1: MT feature 프로파일 + 비파괴 플러밍 (2026-06-30)
+
+연애·결혼 답변 파이프라인 전수 조사 결과 **아키텍처 정정**: 주 답변 후보는 EventEngineV2의
+`score_legacy_personalized`/`score_legacy`(report·chat)에서 나오고(MT가 사는 곳), topic_builder
+(CompositeBuilder)는 보조 "참고 신호"(MT 없음). MT reason_codes는 to_legacy_candidate→evidence_path로
+보존됨. → **플래그만 켜면 MT가 주 후보에 흐름**(precompute 경유 아님 — 조사 에이전트 전제 정정).
+
+- **marriage_timing_profile.py(신설)**: `MARRIAGE_TIMING_PROFILES`(default=전부 OFF / production_candidate=
+  MT1·2·3 ON·MT4 shadow) + `marriage_engine_flags(profile)` + `ACTIVE_MARRIAGE_PROFILE="default"`
+  (가드·단계 payload 완비 전까지 default → 출력 byte 불변). MT5/MT6은 엔진 플래그 아님(별도 배선).
+- **배선**: report_service.py:428·chat_service.py:280의 `EventEngineV2(_DICTS)` → `EventEngineV2(_DICTS,
+  **marriage_engine_flags())`. ACTIVE=default라 무인자와 동일(비파괴). past_validation은 미배선(default 유지).
+- **테스트(test_marriage_timing_profile.py 6건)**: default OFF·production_candidate 값·활성=default·미지
+  fallback·반환 사본·**default 프로파일 엔진==무인자 엔진(점수·reason 동일)**.
+- 검증: 신규 파일 ruff·mypy clean(서비스 **kwargs 언팩 타입 OK), 전체 1339 pass(+6, 2 fail=기존 결함, 18 skip).
+  ※ report_service:218/220 E501은 세션 선행 작업의 기존 긴 문자열(내 변경 아님).
+- **다음(Step2~7, 각 출력변화 → 단계별 검토)**: marriage_stage payload → output guard → context/risk 분기
+  → MT6 광역혼기 연결 → MT4 shadow telemetry → 결혼확정 금지 directive + 활성 프로파일 전환.
+
+### Marriage Production Readiness v1 — Step 2: marriage_stage LLM payload 연결 (2026-06-30)
+
+MT 신호(evidence_path=reason_codes)에서 관계 단계를 도출해 **chat·report 양쪽 LLM 직렬화**에 연결.
+- **derive_marriage_stage(reason_codes)** (marriage_timing.py 신설): MT3_DIRECTIONAL_DAY_BRANCH·
+  MT2_EMERGENCE_SAME_STEM→relationship / 그 외 MT→awareness / 비-MT→"". **stage_limit=
+  commitment_marker_absent**로 상한 명시(marker 미구현 → relationship 초과 불가 = 결혼 확정 단계 차단).
+- **LlmEventCandidate +4 필드**(llm_input.py): marriage_stage·marriage_base_stage·marriage_stage_reason·
+  marriage_stage_limit(기본 빈값).
+- **chat 경로**: context_reducer._to_llm_candidate가 c.evidence_path로 도출·주입 + candidate_block
+  렌더러가 stage 있을 때만 "관계 단계: …(근거…; 상한…)" 라인 추가.
+- **report 경로**(총운·년운·애정운): report_event_input `_marriage_stage_note(c)` 헬퍼 + precise_candidate_
+  clusters 후보 라인에 접미사(MT 있을 때만).
+- **적용 범위 확인**(사용자 질문): report 테마사주(총운/년운/애정운)·AI 채팅상담 **둘 다** — Step1
+  프로파일이 양쪽 엔진에 걸려 MT 생성, Step2가 양쪽 직렬화에 연결. (chat topic_builder 참고 신호는
+  CompositeBuilder라 MT 없음 — 주 후보엔 있음.) 실제 노출은 Step7 프로파일 전환 후.
+- **byte 불변**: default 프로파일(MT OFF)→MT 코드 없음→stage 빈값→렌더 미추가. 전체 1347 pass(+8,
+  report·chat 스냅샷 포함 불변, 2 fail=기존 결함). ruff·mypy clean.
+- **다음 Step3**: marriage_output_guard — commitment/formalization marker 게이트 + 결혼 확정 표현
+  코드 레벨 차단.
+
+### Marriage Production Readiness v1 — Step 3: 결혼 출력 가드(코드 레벨) (2026-06-30)
+
+LLM 프롬프트에만 맡기지 않고 **코드가 허용 수위를 결정**해 payload에 주입. 과판단(결혼 확정·올해
+결혼·거의 100%) 차단이 핵심.
+- **marriage_output_guard.py(신설)**: `compute_marriage_output_guard(stage, has_commitment_marker,
+  has_formalization_marker)` 순수 함수 — marker 미구현(기본 False)이라 **결혼 확정·논의 차단·
+  relationship 진전까지만 허용**(commitment/formalization은 marker 채우면 자동 해제). `marriage_guard_
+  directive()` LLM 지시문 렌더. `detect_marriage_overclaim(text)` 출력 과claim 탐지(테스트·텔레메트리·
+  후속 재생성용). 하드 금지(반드시 결혼·거의 100%·혼인 확정 등)는 단계 무관 **항상** 차단.
+- **연결**: context_reducer serialize_llm_input — 이벤트 후보 중 marriage_stage가 있을 때만 강한 단계
+  (relationship>awareness)로 guard directive 1회 주입. MT 없으면 미주입(default 불변).
+- **테스트(test_marriage_output_guard.py 9건)**: relationship→진전만·확정 차단 / awareness→진전X /
+  비-MT 보수 / commitment·formalization marker 해제 / 하드 금지 상존 / directive 반영 / overclaim 탐지.
+- 검증: ruff·mypy clean, 전체 1356 pass(+9, 2 fail=기존 결함). default 프로파일 출력 byte 불변.
+- **다음 Step4**: relationship_context(미혼/기혼 등)·risk_flags(충·쟁합·기신) 답변 분기 directive.
+
+### Marriage Production Readiness v1 — Step 4: risk_flags 분기 directive (2026-06-30)
+
+- marriage_output_guard에 `has_stability_risk(reason_codes)`(CLASHED/RISK 코드 탐지) + 가드 필드
+  `stability_risk` 추가. risk면 `can_say_marriage_confirmed/discussion`을 강제 False로 덮고, directive에
+  "marriage 긍정 단정 금지·관계 변화·갈등 가능성 병기"(§12 재분기) 추가.
+- context_reducer 가드 주입부가 관계 MT 후보의 marriage_stage_reason에서 risk를 집계해 전달.
+- relationship_context: unknown→분기 서술은 Step3 가드 directive가 이미 강제. known-status 맞춤 서술은
+  LlmInput 필드 필요해 소규모 후속으로 분리(보수 기본 = unknown 분기로 안전).
+- 테스트 +2(risk 탐지·risk가 marker 허용 덮음·관계변화 병기). 전체 1358 pass(+2), default 불변.
+
+### Marriage Production Readiness v1 — Step 5: MT6 혼기 prior 답변 연결 (2026-06-30)
+
+- structural_context.`marriage_age_prior_lines(result)` 신설 — MT6 analyze_marriage_age_prior 호출,
+  band 한글(early=이른/normal=적령/spouse_palace_direct=배우자궁 직접/late=만혼) + "특정 시기 아님·
+  운이 결정" 명시. spouse_palace_direct는 별도 줄, gender 미상은 약한 참고 표기.
+- 프로파일 aux로 self-gate: marriage_timing_profile.`active_marriage_aux()`(호출 시점 ACTIVE 반영 —
+  런타임 전환 전파). default(mt6_age_prior=False)→빈 목록(출력 불변), production_candidate→prior 노출.
+- 연결: report_service.marriage_resource_block + chat_service 결혼 컨텍스트에 append.
+- 테스트 +3(default 빈/production prior·특정연월 미언급/graceful). 전체 1361 pass(+3), default 불변.
+
+### Marriage Production Readiness v1 — Step 6: 익명 결혼 텔레메트리 (2026-06-30)
+
+- marriage_telemetry.py(신설): `build_marriage_telemetry`(관계 MT 후보·stage·점수·reason·mt4_shadow_diff
+  익명 집계 — **PII 없음**: 생년월일·식별자·gender 미포함) + `emit_marriage_telemetry`(logging
+  "saju.marriage_telemetry" debug 채널, 직렬화 실패해도 답변 무영향). marriage_timing_profile.
+  `active_mt_features()`(프로파일별 켜진 MT 라벨).
+- 연결: context_reducer serialize_llm_input 가드 블록에서 MT 후보 있을 때만 emit(_mtp.ACTIVE_*·
+  active_mt_features 동적 읽기 → Step7 전환 전파). default(MT off)→MT 후보 없음→무방출.
+- 테스트 +5(관계 MT만 집계·PII 키 부재·mt4 diff 합·프로파일별 features·emit 예외 무해). 전체 1366 pass.
+
+### Marriage Production Readiness v1 — Step 7: directive + 전환 대기 + 종합 검증 (2026-06-30)
+
+- **answer directive**: 사용자 요구 금지(반드시 결혼·거의 100%·혼인 확정·올해 결혼한다)·허용(관계
+  공식화 가능성·만나는 사람 있으면 결혼 논의·싱글이면 진지한 만남·충/쟁합이면 관계 변화 병기)은
+  Step3·4 marriage_guard_directive가 **MT 활성 시** 전부 방출(코드 결정). 별도 style 추가 불요.
+- **타입 정정**: marriage_engine_flags 반환 dict[str,object]→dict[str,Any](**unpack mypy 해소).
+- **엔드투엔드 검증**: production_candidate 엔진→MT 태그 4건→marriage_stage='relationship'(상한
+  commitment_marker_absent)→LlmEventCandidate→stage 라인+guard directive+telemetry. shadow 2건.
+- 종합: 신규 MT/상용 모듈 ruff·mypy clean, validate 69 OK, 전체 1366 pass(2 fail=기존 결함). **default
+  프로파일에서 report·chat 출력 byte 불변**(전 스냅샷 통과).
+- **남은 단일 액션 = 활성 프로파일 전환**(ACTIVE_MARRIAGE_PROFILE 'default'→'production_candidate', 1줄):
+  사용자 노출 출력 변경이라 임의 전환하지 않고 사용자 승인 대기. 전환 시 report(총운·년운·애정운)·
+  chat에 MT1~3 awareness/relationship 단계·MT6 혼기 prior·결혼확정 차단 가드·MT4 shadow 텔레메트리가
+  일괄 활성. rollback=1줄 복귀. MT5(family_formation 21키)·MT4 apply는 계속 보류.
+
+## Marriage Production Readiness v1 — 완료 요약
+Step1 프로파일·Step2 stage payload·Step3 출력가드·Step4 risk분기·Step5 MT6 prior·Step6 텔레메트리 전부
+구현·검증(전부 default에서 byte 불변, feature OFF/inert). 상용 활성은 ACTIVE_MARRIAGE_PROFILE 전환 1줄로
+on, 즉시 rollback 가능. 검증은 오픈 후 텔레메트리·사용자 피드백으로(golden 사례 축적).
+
+### Marriage Production Readiness v1 — 상용 활성 전환 완료 (2026-06-30 사용자 승인)
+
+`ACTIVE_MARRIAGE_PROFILE` 'default'→'production_candidate' 전환(1줄). MT1·2·3·6 + 출력 가드 + 텔레메트리
+상용 활성. MT4 apply·MT5는 계속 보류.
+- **토큰 영향 해소**: 전환으로 MT 단계 라인·가드 directive가 입력에 더해져 chat 단건이 12,000 초과
+  (12,096). ① MT 답변 콘텐츠(단계 라인·가드 directive)를 **관계 도메인 질문에만** 렌더하도록 게이트
+  (`_rel_focus` — 일반 월간운엔 결혼 가드 불필요·의미 정합·토큰 절약), 가드 directive·단계 라인 간결화.
+  ② **대화형 입력 상한 12,000/14,000→20,000 상향**(2026-06-30 사용자 승인, llm_guard.CALL_LIMITS +
+  docs/09 8장 표). 텔레메트리는 토큰 무관(logging)이라 도메인 무관 유지.
+- 전환·상한 변경으로 한도 단언 테스트 6건 갱신(test_llm_guard·context_reducer·topic_builder·
+  topic_modules·sinsal_payload — 12,000/14,000→20,000), 프로파일/혼기 테스트 2건 갱신(active=production·
+  monkeypatch off).
+- 엔드투엔드: 관계 질문 → MT 태그→marriage_stage='relationship'(상한 commitment_marker_absent)→
+  단계 라인+가드 directive 노출, 일반 질문은 미노출. 전체 1366 pass(2 fail=pristine HEAD 기존 결함 무관).
+- **rollback**: ACTIVE_MARRIAGE_PROFILE='default' 1줄. **검증**: 오픈 후 marriage_telemetry 집계로.

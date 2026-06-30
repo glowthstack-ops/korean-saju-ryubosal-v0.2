@@ -4,6 +4,39 @@
   "items": [
     {
       "signal": {
+        "relation": "day_master_stem_combine",
+        "tenGodGroup": "partner_star"
+      },
+      "eventCandidates": [
+        {
+          "event": "new_relationship",
+          "score": 0.3,
+          "polarity": "conditional",
+          "stageHint": "awareness",
+          "partnerStarBonus": 0.1
+        }
+      ],
+      "note": "MT1 일간 干合 + partner_star — 인연 '생각'이 동하는 awareness seed. new_relationship/awareness까지만 생성, 단독 action·결혼 승급 금지. 합거·쟁합·기신=불안정 분기. (MARRIAGE_TIMING_ENHANCEMENT §6)",
+      "reviewed": false
+    },
+    {
+      "signal": {
+        "relation": "directional",
+        "spousePalace": true
+      },
+      "eventCandidates": [
+        {
+          "event": "new_relationship",
+          "score": 0.45,
+          "polarity": "conditional",
+          "stageHint": "relationship"
+        }
+      ],
+      "note": "MT3 graph evidence only. 방합이 일지(배우자궁)를 포함할 때 관계 행동 후보 근거로 기록한다. 라이브 점수는 relation_palace 기존 HAP/DAY 보강을 재사용하며 MT3는 추가 가산하지 않는다(태그만). 단독 commitment/formalization 승급 금지. (MARRIAGE_TIMING_ENHANCEMENT §8)",
+      "reviewed": false
+    },
+    {
+      "signal": {
         "shinsal": "도화",
         "relation": "six_combination"
       },

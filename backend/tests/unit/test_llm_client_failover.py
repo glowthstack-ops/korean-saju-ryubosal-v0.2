@@ -118,6 +118,22 @@ def test_sanitize_normalizes_mixed_ganji() -> None:
     assert s("그는 기사를 읽었다") == "그는 기사를 읽었다"
 
 
+def test_sanitize_collapses_duplicate_gloss() -> None:
+    """병기 중복 정리(2026-06-27) — 중첩 '한글(한자(한글))'과 자기중복 'X(X)' 제거."""
+    s = llm_client._sanitize_output
+    # 중첩: LLM '기해(己亥)' → _normalize_ganji가 이중 병기 → 표준형 '己亥(기해)'로 접는다.
+    assert s("일주 기해(己亥)는") == "일주 己亥(기해)는"
+    assert "丁亥(정해)" in s("월주 정해(丁亥)와") and "(丁亥(" not in s("월주 정해(丁亥)와")
+    # 한글·한자가 어긋나게 쓰인 중첩도 한자 기준으로 일관 정리('임인'은 버리고 한자 신뢰).
+    assert s("임인(壬辰) 대운") == "壬辰(임진) 대운"
+    # 자기중복: 십성·신살까지 과잉 병기한 '정재(정재)' 류는 괄호 군더더기만 제거.
+    assert s("지지 정재(정재)의 성분") == "지지 정재의 성분"
+    assert s("상관(상관)과 천을귀인(천을귀인)") == "상관과 천을귀인"
+    # 정상 병기·서로 다른 병기는 보존('해수(亥水)'는 지지+오행, 중복 아님).
+    assert s("해수(亥水)는 정재") == "해수(亥水)는 정재"
+    assert s("이미 표준형 己亥(기해)는") == "이미 표준형 己亥(기해)는"
+
+
 def test_primary_output_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> None:
     """generate_reading 반환값에서 취소선이 제거된다(채팅·리포트 공통 경로)."""
     def fake_gemini(profile, system, prompt, max_tokens, timeout):

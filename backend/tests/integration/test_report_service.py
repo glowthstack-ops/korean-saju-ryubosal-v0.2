@@ -80,6 +80,31 @@ def test_plan_report_full_natal_sections() -> None:
     assert f10.yongsin_element is None  # 빌더가 F-04 통과 후 전파
 
 
+def test_f22_ganji_calendar_table_and_terminology() -> None:
+    """F-22 부록 — 간지 달력표(엔진 결정론적 표)와 용어 사전(terminology.json) 정합.
+
+    표는 LLM이 만들지 않고 엔진 계산값을 본문 끝에 첨부한다(절대원칙 1) — 대운(생애)·세운 10년·
+    월운 10년(120개월). 본문 데이터엔 [용어 사전]만 주입하고 미래 이벤트 후보는 배제(시간범위).
+    """
+    spec = _spec("RPT_FULL")
+    data = report_service._ReportData(_BIRTH, spec, _TODAY)
+    # 본문 컨텍스트: 용어 사전 주입, 미래 이벤트 후보 미주입(2부·메타 정합).
+    f22 = next(
+        c for c in report_service.plan_report(_BIRTH, spec, _TODAY) if c.section_id == "F-22"
+    )
+    assert "[용어 사전" in f22.body_prompt
+    assert "[이벤트 후보" not in f22.body_prompt
+
+    # 결정론적 달력표 — 대운(생애)·세운 10년·월운 120개월, 간지 한자(한글) 병기.
+    md = data.ganji_calendar_md()
+    assert "## 간지 달력표" in md
+    assert "### 대운" in md and "### 세운 (향후 10년)" in md and "### 월운 (향후 10년" in md
+    # 월운 10년 = 120행(YYYY 그룹 10개), 세운 10행(2026~2035).
+    assert md.count("월 |") == 120 + 10  # 120 월행 + 10 연도그룹 헤더("| 월 | 간지…")
+    assert "| 2026 |" in md and "| 2035 |" in md  # 세운 향후 10년
+    assert "(병오)" in md  # 2026 丙午 한글 병기(간지는 엔진값)
+
+
 def test_focus_report_passes_checks_with_real_contexts() -> None:
     """실컨텍스트 + 모의 LLM — 8섹션 전체 정합성 검사 통과(완성 보고서)."""
     spec = _spec()

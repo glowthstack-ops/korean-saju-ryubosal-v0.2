@@ -9,6 +9,8 @@ ReportBuilder(테스트 전용이던 골격)에 **실데이터 컨텍스트 빌�
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 from collections.abc import Callable
 from datetime import date
@@ -27,8 +29,10 @@ from saju_engines.event_engine_v2 import EventEngineV2
 from saju_engines.event_scoring import confirmed_yongsin_note, favorability_map
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
+from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
+from saju_engines.marriage_timing_profile import marriage_engine_flags
 from saju_engines.profile_engine import profile_event_signals
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
@@ -49,6 +53,7 @@ from saju_engines.structural_context import (
     TENDENCY_SHIFT_DIRECTIVE,
     era_energy_lines,
     health_lines,
+    marriage_age_prior_lines,
     marriage_resource_lines,
     spouse_star_directive,
     wealth_capacity_lines,
@@ -60,6 +65,7 @@ from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_engines.wealth_status_lean import analyze_wealth_status_lean
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.constants import BRANCH_KO, STEM_KO
 from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as _EVENT_DOMAIN_V2
 from saju_shared_types.events import EventCandidate, EventPolarity
 from saju_shared_types.ganji_calendar import GanjiLevel
@@ -72,10 +78,23 @@ from . import llm_client
 from .manse_service import calculate, luck_months
 from .personalization import fetch_confirmed_yongsin_override, fetch_personal_inputs
 
+_logger = logging.getLogger(__name__)
+
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
 _SCORE_LEVELS = {GanjiLevel.YEAR, GanjiLevel.MONTH}
 _TOP_CANDIDATES = 8
+# Context Reduction(report 경로, docs/09 L333) 최대 단계 — 1=다년 월별 흐름 ★주목 축소,
+# 2=연도별 흐름도 ★주목 축소. 섹션 입력이 토큰 상한을 넘을 때만 단계가 올라간다(상한 내=0단계).
+_MAX_REPORT_REDUCTION = 2
+
+# [월별 흐름] 헤더 공통 꼬리 — 전체/축소(★주목) 양쪽 동일 서술 가이드(길흉=운 품질 1차 기준).
+_MONTH_FLOW_GUIDE_TAIL = (
+    "좋은 달과 주의할 달의 1차 기준은 사건 밀도가 아니라 각 달의 운 품질 등급〈…〉"
+    "('강한 용신운'>'용신운(부분)'>'혼합'>'기신운')이며, 사건(이직·이사 등)은 그 위에 십성으로 "
+    "얹어 '무슨 일'을 설명한다. '강한 용신운' 달은 두드러진 사건이 없어도 기반이 가장 좋은"
+    "(가장 도움되는) 달로 짚고, 각 달 기운의 활용·대비 방향도 곁들일 것."
+)
 # 지역 추천(거주지 평가 + 추천) — compiled 미빌드 시 None(graceful).
 _COMPILED = _BACKEND / "compiled"
 _region_orch: object | None = None
@@ -190,7 +209,20 @@ _SECTION_GUIDES: dict[str, str] = {
     "평생 이어진다(초년 길성이 중년에 사라진다고 보지 말 것). 운이 그 자리를 합·충·형으로 "
     "건드리면 재활성되며, 그래도 단독 사건 단정은 금지(길성=완충·도움, 흉살=리스크·주의).",
     "F-06": "앞 섹션들의 재료를 종합해 성격·취향·행동 패턴의 이야기로 묶을 것.",
-    "F-22": "간지 달력표를 요약하고 본문에 쓴 용어를 짧게 풀이할 것.",
+    # 2부 과거(F-07~F-09) — 시간범위를 '출생~현재'로 한정. 미래 연·월 사건 디테일은 3·4부
+    # (현재 대운 정밀·향후 로드맵·고점 연도)의 몫이므로 여기서 끌어오지 말 것(데이터-목적 정합).
+    "F-07": "출생부터 현재까지 거쳐 온 각 대운(10년)의 색깔과 전환점을 순서대로 짚어 인생 궤적을 "
+            "그릴 것. 대운표의 전/후반(천간·지지) 분할로 시기감을 주되, 특정 미래 연도·월의 사건 "
+            "디테일(예: 몇 년 몇 월 이직)은 다루지 말 것 — 그건 뒤의 '현재 대운 정밀'·'향후 대운 "
+            "로드맵' 섹션 몫이다. 여기서는 대운 단위의 큰 흐름만.",
+    "F-08": "과거 검증 신호(M14)를 토대로 지나온 시기의 주요 사건 가능성을 연도대별로 복원해 "
+            "서술할 것. 대운표는 그 사건이 어느 대운기였는지 맥락으로만 쓰고, 미래 시점은 다루지 말 것.",
+    "F-09": "사용자가 스스로 대조할 수 있도록 과거 검증 신호(M14)를 확인 포인트 체크리스트로 "
+            "정리할 것 — 단정 말고 '이 무렵 이런 일이 있었는지' 묻는 형태. 미래 시점은 다루지 말 것.",
+    "F-22": "이 섹션 끝에는 대운(생애)·세운·월운 간지 달력표가 엔진 계산값으로 자동 첨부된다. "
+            "본문에서 간지 표를 직접 만들지 말 것(간지를 지어내면 안 됨) — 그 표를 어떻게 읽는지 "
+            "(대운 전/후반, 세운·월운의 의미) 안내하고, 본문에 등장한 용어를 아래 [용어 사전] "
+            "기준으로 짧게 풀이하는 데 집중할 것.",
     "C-01": "주제와 기간의 핵심 신호를 3~5줄로 요약할 것.",
     "C-02": "주제와 관련된 원국 글자(십성·궁위·관계)만 골라 구조를 설명할 것.",
     "C-04": "이벤트 후보 표의 시기·점수·동반 신호를 타임라인으로 서술할 것.",
@@ -268,7 +300,9 @@ _SECTION_GUIDES: dict[str, str] = {
     "Y-09": "이 해 건강·주의 시기를 — 과로/사고/컨디션 저하 등 관리 관점으로. 질병 단정 금지.",
     "Y-10": "이 해 행동 전략을 분기·시기 단위로 구체화 — 시도/대기/준비/보류 단위.",
     "Y-11": "이 해 개운·보완 가이드를 용신 오행 기준으로 — 색·방위·생활 습관 등 실천 항목 중심.",
-    "Y-12": "이 해 12개월 간지 달력표를 요약하고 본문에 쓴 용어를 짧게 풀이할 것.",
+    "Y-12": "이 섹션 끝에는 이 해 12개월 간지 달력표가 엔진 계산값으로 자동 첨부된다. 본문에서 "
+            "간지 표를 직접 만들지 말 것(간지를 지어내면 안 됨) — 표 읽는 법을 안내하고, 본문에 "
+            "등장한 용어를 아래 [용어 사전] 기준으로 짧게 풀이하는 데 집중할 것.",
 }
 _DEFAULT_GUIDE = "아래 데이터 블록의 사실만 사용해 섹션 제목에 맞는 이야기로 서술할 것."
 # 명식 구조 섹션(운 데이터 블록 미부착) — 인사·원국 재설명 1회 원칙.
@@ -318,6 +352,26 @@ _OFF_PEAK_DAEWOON_ADVICE_DIRECTIVE = (
     "[안 맞는 대운 구간 조언] 대운이 용신에 맞지 않는(평운·기신) 구간이라면 '포기'가 아니라, "
     "새 확장보다 지금 하던 것을 지키며 내실을 다지고 다음 맞는 대운을 준비하는 전략으로 안내할 것."
 )
+# 운 블록에서 [대운표]만 받고 미래(+5년) 이벤트 후보 4블록(이벤트 후보·합작용·발현분기·내부근거)은
+# 빼는 섹션(2026-06-27 데굴님 지적 — 데이터-목적 시간범위 불일치 교정). 2부 과거(F-07 출생~현재
+# 대운별 테마 / F-08 과거 이벤트 복원 / F-09 과거 검증)는 미래 후보가 섞이면 안 되고, 메타 섹션
+# (F-21 요약카드 / F-22 부록=간지달력·용어)도 원시 미래 클러스터가 부적절하다. 과거 데이터는 각
+# 섹션의 M14(과거 검증) 모듈이, 시간 backbone은 [대운표](과거 포함)가 담당한다. docs/10 2부·5부.
+_DAEWOON_ONLY_SECTIONS = {"F-07", "F-08", "F-09", "F-21", "F-22"}
+# 간지 달력표(엔진 결정론적 표)를 본문 끝에 자동 첨부하고 terminology.json을 주입하는 섹션
+# (docs/10 F-22 부록 / Y-12 간지 달력표). 표는 LLM이 만들지 않고(절대원칙 1) 분량 캡도 면제한다.
+_GANJI_CALENDAR_SECTIONS = {"F-22", "Y-12"}
+# 간지 한자→한글 음(병기용) — '庚寅'→'경인'. 표는 _sanitize_output을 거치지 않으므로 직접 병기한다.
+_STEM_KO_BY_HANJA = {s.value: ko for s, ko in STEM_KO.items()}
+_BRANCH_KO_BY_HANJA = {b.value: ko for b, ko in BRANCH_KO.items()}
+
+
+def _ganji_ko(ganji: str) -> str:
+    """간지 한자 2글자를 '한자(한글)'로 — 예 '庚寅'→'庚寅(경인)'. 매핑 실패 시 원문."""
+    if len(ganji) != 2:
+        return ganji
+    ko = _STEM_KO_BY_HANJA.get(ganji[0], "") + _BRANCH_KO_BY_HANJA.get(ganji[1], "")
+    return f"{ganji}({ko})" if len(ko) == 2 else ganji
 # 대운 framing 관점을 붙일 섹션(대운 개관·정밀·로드맵·한해 대운 맥락).
 _DAEWOON_FRAMING_SECTIONS = {"F-07", "F-10", "F-13", "Y-03"}
 # 교체기 체감 신호를 붙일 섹션(대운 흐름 개관 + 과거 검증 체크리스트).
@@ -352,6 +406,7 @@ class _ReportData:
         self.today = today  # 시제 앵커(프롬프트 주입) — 모델이 과거/현재/미래를 추론하지 않도록.
         self._spec = spec  # 연도 스펙트럼 창 계산용(예측 연도 폭).
         chart_birth = birth.model_copy(update={"reference_date": today})
+        self._chart_birth = chart_birth  # 월운 10년 온디맨드 생성용(간지 달력표)
         self.result: ManseV2Result = calculate(chart_birth)
         # 월운 다년 주입 — calculate()는 기준일 근방 12개월만 채운다. 예측 창(현재~+5년)의 각 해
         # 월운을 생성해 월 단위 후보·12개월 전체 표가 다년에 걸쳐 나오도록 한다(종전: 1년치만 존재해
@@ -372,7 +427,7 @@ class _ReportData:
                         seen.add(p.label)
                         deduped.append(p)
                 lc.monthly_luck = deduped
-        self.scorer = EventEngineV2(_DICTS)
+        self.scorer = EventEngineV2(_DICTS, **marriage_engine_flags())
         # 개인화(저장된 subject 한정): 현실 신호 시그니처 + 활성 코호트 → LEI 정렬축.
         # 미설정·실패 시 무개인화 폴백(규칙11).
         sig, cohort = fetch_personal_inputs(owner_id, subject_id, self.result)
@@ -605,12 +660,18 @@ class _ReportData:
         picked = others[: max(0, n - reserve)] + cautions[:reserve]
         return sorted(picked, key=lambda c: c.period)
 
-    def month_overview_block(self, domain: str | None = None) -> list[str]:
+    def month_overview_block(
+        self, domain: str | None = None, *, notable_only: bool = False
+    ) -> list[str]:
         """[월별 흐름] — 예측 창 각 해의 12개월 전체를 빠짐없이(반복 방지 — 연도별 그룹).
 
         domain 지정(테마 섹션) 시 대표 사건을 그 주제로 한정한다(운 품질 등급은 항상 표기).
+        notable_only=True(Context Reduction 1단계 — 섹션 토큰 상한 초과 시): 다년 창에서 ★주목
+        달만 남기고 헤더도 그에 맞춰 바꾼다(단년은 전체 유지).
         """
-        overview = month_overview_lines(self.result, self.scored, domain)
+        overview = month_overview_lines(
+            self.result, self.scored, domain, notable_only=notable_only
+        )
         if not overview:
             return []
         # 기반 최고 달을 이름 박아 지목 — 그 달에 두드러진 사건이 없어도 누락되지 않게(채팅과 동일).
@@ -623,24 +684,33 @@ class _ReportData:
             "기반이 가장 좋은 달이니 반드시 그렇게 짚을 것."
             if best else ""
         )
-        return [
-            f"[월별 흐름 — {scope} 전체(〈연도〉별로 묶음). 한두 강신호만 반복하지 말고 각 달을 "
-            "한두 문장으로 고르게 짚되, 좋은 달·주의할 달·평범한 달을 모두 다룰 것. ★주목 표시된 "
-            "달은 더 자세히. 좋은 달과 주의할 달의 1차 기준은 사건 밀도가 아니라 각 달의 운 품질 "
-            "등급〈…〉('강한 용신운'>'용신운(부분)'>'혼합'>'기신운')이며, 사건(이직·이사 등)은 그 "
-            "위에 십성으로 얹어 '무슨 일'을 설명한다. '강한 용신운' 달은 두드러진 사건이 없어도 "
-            "기반이 가장 좋은(가장 도움되는) 달로 짚고, 각 달 기운의 활용·대비 방향도 곁들일 것."
-            + callout + "]",
-            *overview,
-        ]
+        if notable_only and n_years > 1:
+            # 축소 단계 — 데이터에 ★주목 달만 담기므로 '모든 달' 지시를 '주목 달 중심'으로 바꾼다.
+            intro = (
+                f"[월별 흐름 — 예측 창이 길어({scope}) 지면 관계상 각 해의 ★주목 달(가장 "
+                "좋은 달·주의할 달)만 추렸다(〈연도〉별로 묶음). 추려진 달을 한두 문장으로 짚되, "
+            )
+        else:
+            intro = (
+                f"[월별 흐름 — {scope} 전체(〈연도〉별로 묶음). 한두 강신호만 반복하지 말고 "
+                "각 달을 한두 문장으로 고르게 짚되, 좋은 달·주의할 달·평범한 달을 모두 다룰 것. "
+                "★주목 표시된 달은 더 자세히. "
+            )
+        header = intro + _MONTH_FLOW_GUIDE_TAIL + callout + "]"
+        return [header, *overview]
 
-    def year_spectrum_block(self, domain: str | None = None) -> list[str]:
+    def year_spectrum_block(
+        self, domain: str | None = None, *, notable_only: bool = False
+    ) -> list[str]:
         """[연도별 흐름] — 예측 창 세운 전 연도를 빠짐없이('향후 N년 종합' 섹션 반복·편향 방지).
 
         domain 지정(테마 섹션) 시 대표 사건을 그 주제로 한정한다(운 품질 등급은 항상 표기).
+        notable_only=True(Context Reduction 2단계): ★주목 해로만 좁힌다(월별 축소로도 부족할 때).
         """
         years = _forecast_years(self._spec, self.today)
-        spectrum = year_spectrum_lines(self.result, self.scored, years, domain)
+        spectrum = year_spectrum_lines(
+            self.result, self.scored, years, domain, notable_only=notable_only
+        )
         if not spectrum:
             return []
         return [
@@ -657,8 +727,14 @@ class _ReportData:
         return wealth_capacity_lines(self.wealth_capacity)
 
     def marriage_resource_block(self) -> list[str]:
-        """[결혼·자산 자원 구조] — structural_context 위임(성별 인지·중립)."""
-        return marriage_resource_lines(self.marriage_resource)
+        """[결혼·자산 자원 구조] — structural_context 위임(성별 인지·중립).
+
+        MT6 혼기 static prior를 함께 첨부(활성 프로파일 off면 빈 줄 — 출력 불변).
+        """
+        return (
+            marriage_resource_lines(self.marriage_resource)
+            + marriage_age_prior_lines(self.result)
+        )
 
     def health_vulnerability_block(self) -> list[str]:
         """[원국 건강 취약 구조 + 관리 권장 시기] — structural_context 위임(의료 면책)."""
@@ -852,10 +928,15 @@ class _ReportData:
                     branches.add(d.ganji[1])
         return luck_hap_mode_lines(self.result, sorted(stems), sorted(branches))
 
-    def luck_block(self, candidates: list[EventCandidate] | None = None) -> list[str]:
+    def luck_block(
+        self, candidates: list[EventCandidate] | None = None, *, daewoon_only: bool = False
+    ) -> list[str]:
         """[대운표]+[이벤트 후보] — 운 관련 섹션의 데이터 블록.
 
         candidates를 주면 그 후보만(섹션별 도메인 스코프), 없으면 전역 top 후보를 쓴다.
+        daewoon_only=True면 [대운표](생애 전체 — 과거 포함 backbone)만 반환하고 미래(+5년)
+        이벤트 후보·합작용·발현분기·내부근거는 생략한다 — 2부 과거·메타 섹션의 시간범위 정합용
+        (_DAEWOON_ONLY_SECTIONS, 2026-06-27). 과거 사건은 해당 섹션의 M14 모듈이 담당한다.
         """
         cands = self.candidates if candidates is None else candidates
         lines = [
@@ -872,6 +953,8 @@ class _ReportData:
                     f"{d.start_age}-{d.start_age + 9}세: 전반 0-4년 {d.stem} 주도 · "
                     f"후반 5-9년 {d.branch} 주도"
                 )
+        if daewoon_only:
+            return lines  # 미래 이벤트 후보 4블록 생략(과거·메타 섹션 — 시간범위 정합)
         lines.append("")
         lines.append(
             "[이벤트 후보 — 시점 클러스터·정밀 십성/관계. 점수는 확정값, 재계산 금지. "
@@ -911,6 +994,100 @@ class _ReportData:
             )
             lines += paths
         return lines
+
+    def terminology_block(self) -> list[str]:
+        """[용어 사전] — terminology.json 정의를 주입(용어 해설을 사전 기준으로, 임의 정의 금지).
+
+        간지 달력표 섹션(F-22·Y-12)의 '용어 해설'이 LLM 임의 설명이 아니라 검수 사전을 따르도록.
+        파일 부재·파싱 실패는 graceful(빈 블록 — 섹션은 정상 생성).
+        """
+        try:
+            items = json.loads(
+                (_DICTS / "terminology.json").read_text(encoding="utf-8")
+            ).get("items", [])
+        except (OSError, ValueError):
+            return []
+        rows = [
+            f"- {it['term']}({it['hanja']}): {it['definition']}"
+            if it.get("hanja") else f"- {it['term']}: {it['definition']}"
+            for it in items
+            if it.get("term") and it.get("definition")
+        ]
+        if not rows:
+            return []
+        return [
+            "[용어 사전 — 본문에 등장한 용어만 골라 아래 정의를 기준으로 짧게 풀이할 것(임의 정의 "
+            "생성 금지). 전부 나열하지 말 것]",
+            *rows,
+        ]
+
+    def ganji_calendar_md(self) -> str:
+        """[간지 달력표] — 엔진 결정론적 간지를 마크다운 표로(대운 생애·세운·월운).
+
+        절대원칙 1(간지는 LLM이 계산·변형 금지)에 따라 이 표는 LLM이 만들지 않고 엔진 계산값을
+        그대로 렌더링해 섹션 끝에 첨부한다(분량 캡 면제 — 참조 자료). 범위는 상품별: 인생총운
+        (RPT_FULL)=세운·월운 향후 10년, 그 외(지정년 등)=해당 연도 1년. 대운은 항상 생애 전체.
+        간지 데이터 부재 시 빈 문자열(graceful).
+        """
+        lc = self.result.luck_cycles
+        if lc is None or not lc.daewoon_table:
+            return ""
+        is_full = self._spec.product_code == "RPT_FULL"
+        base_year = self.today.year if is_full else int(self._spec.period.start[:4])
+        span = 10 if is_full else 1
+        out: list[str] = ["## 간지 달력표 (엔진 계산값 — 참고용)"]
+        # 대운(생애) — 전/후반 주도 간지까지.
+        out += [
+            "", "### 대운 (10년 주기 · 생애)",
+            "| 나이 | 연도 | 간지 | 천간(십성) | 지지(십성) |",
+            "|---|---|---|---|---|",
+        ]
+        for d in lc.daewoon_table:
+            out.append(
+                f"| {d.start_age}~{d.start_age + 9}세 | "
+                f"{d.approx_start_date.year}~{d.approx_end_date.year} | {_ganji_ko(d.ganji)} | "
+                f"{d.stem} {d.stem_ten_god} | {d.branch} {d.branch_ten_god} |"
+            )
+        # 세운(향후 span년) — 생애 세운(daewoon.sewoon)에서 창에 드는 해만.
+        sew: dict[int, Any] = {}
+        for d in lc.daewoon_table:
+            for p in d.sewoon:
+                try:
+                    yr = int(p.label)
+                except ValueError:
+                    continue
+                if base_year <= yr < base_year + span:
+                    sew[yr] = p
+        if sew:
+            title = f"### 세운 (향후 {span}년)" if span > 1 else f"### 세운 ({base_year}년)"
+            out += [
+                "", title, "| 연도 | 간지 | 천간(십성) | 지지(십성) |", "|---|---|---|---|",
+            ]
+            for yr in sorted(sew):
+                p = sew[yr]
+                out.append(
+                    f"| {yr} | {_ganji_ko(p.ganji)} | {p.stem} {p.stem_ten_god} | "
+                    f"{p.branch} {p.branch_ten_god} |"
+                )
+        # 월운(향후 span년 · 절기 기준) — 연도별 그룹. luck_months는 결정론적 온디맨드 생성.
+        out += ["", f"### 월운 (향후 {span}년 · 절기 기준)" if span > 1 else "### 월운 (절기 기준)"]
+        for yr in range(base_year, base_year + span):
+            try:
+                months = luck_months(self._chart_birth, yr)
+            except (ValueError, RuntimeError):
+                continue
+            if not months:
+                continue
+            out += [
+                "", f"**{yr}년**", "| 월 | 간지 | 천간(십성) | 지지(십성) |", "|---|---|---|---|",
+            ]
+            for p in months:
+                mm = int(p.label[5:7]) if len(p.label) >= 7 else 0
+                out.append(
+                    f"| {mm}월 | {_ganji_ko(p.ganji)} | {p.stem} {p.stem_ten_god} | "
+                    f"{p.branch} {p.branch_ten_god} |"
+                )
+        return "\n".join(out)
 
 
 # 주제 코드 → 한글 라벨(프레이밍 표기용). frontend themeLabel과 의미 정합.
@@ -1071,9 +1248,14 @@ _REGION_REPORT_SECTIONS = {"F-20", "RL-04"}
 
 
 def build_section_context(
-    plan: SectionPlan, spec: ReportSpec, data: _ReportData
+    plan: SectionPlan, spec: ReportSpec, data: _ReportData, *, reduction_level: int = 0
 ) -> SectionContext:
-    """섹션 1개의 실데이터 컨텍스트(docs/06 계약 + docs/10 검사 기준)."""
+    """섹션 1개의 실데이터 컨텍스트(docs/06 계약 + docs/10 검사 기준).
+
+    reduction_level>0 — Context Reduction(report 경로, docs/09 L333). 섹션 입력이 토큰 상한을
+    넘을 때만 generate_fn이 단계를 올려 재호출한다. 1단계=다년 월별 흐름을 ★주목 달로 축소,
+    2단계=연도별 흐름도 ★주목 해로 축소. 상한 내 섹션은 reduction_level=0(전체 유지).
+    """
     yongsin = (
         data.summary.useful_gods.yongsin[0]
         if plan.section_id in YONGSIN_SECTIONS and data.summary.useful_gods.yongsin
@@ -1109,16 +1291,21 @@ def build_section_context(
         # 전 구간 스펙트럼(반복·편향 차단) — 연도 표 → 월 표 순. 테마 섹션은 대표 사건을 주제로
         # 한정(운 품질 등급은 도메인 무관 표기). Y-05 등 도메인 없는 섹션은 교차도메인 그대로.
         if sid in _YEAR_SPECTRUM_SECTIONS:
-            lines += data.year_spectrum_block(section_domain)
+            lines += data.year_spectrum_block(
+                section_domain, notable_only=reduction_level >= 2
+            )
             lines.append("")
         if sid in _MONTH_OVERVIEW_SECTIONS:
-            lines += data.month_overview_block(section_domain)
+            lines += data.month_overview_block(
+                section_domain, notable_only=reduction_level >= 1
+            )
             lines.append("")
         # 후보 상세 — 도메인 스코프면 자기 도메인 후보(길·흉 포함), 아니면 전역 top 후보.
         if section_domain is not None:
             lines += data.luck_block(data.domain_candidates(section_domain))
         else:
-            lines += data.luck_block()
+            # 2부 과거·메타 섹션은 [대운표]만 — 미래 이벤트 후보가 섞이는 시간범위 불일치 차단.
+            lines += data.luck_block(daewoon_only=sid in _DAEWOON_ONLY_SECTIONS)
         # 재물 섹션 — 원국 횡재 그릇(운 분리 잠재구조) 표면화(Phase 1).
         if sid in _WEALTH_CAPACITY_SECTIONS:
             lines += ["", *data.wealth_capacity_block()]
@@ -1187,6 +1374,12 @@ def build_section_context(
         block = data.topic_module_block(mc.module_id, spec)
         if block:
             lines += ["", *block]
+    # 간지 달력표 섹션(F-22·Y-12) — 용어 해설을 검수 사전 기준으로(간지 달력표 자체는 생성 후
+    # 엔진이 결정론적으로 첨부하므로 여기 본문 데이터엔 넣지 않는다 — 절대원칙 1).
+    if sid in _GANJI_CALENDAR_SECTIONS:
+        term_block = data.terminology_block()
+        if term_block:
+            lines += ["", *term_block]
     subject_label = spec.subjects[0].label if spec.subjects else "본인"
     return SectionContext(
         section_id=plan.section_id,
@@ -1245,25 +1438,50 @@ def generate_report(
     except ValueError:
         persona_block = None
 
+    def _regen_note(prompt: str, attempt: int) -> str:
+        """정합성 재생성(attempt>0) 시 본문에 덧붙는 교정 지시 — 토큰 축소와 무관."""
+        if attempt <= 0:
+            return prompt
+        return prompt + (
+            f"\n\n[재생성 {attempt}회차] 직전 응답이 정합성 검사에 실패했다 — "
+            "분량·간지·점수 규칙을 다시 확인하고, 내부 분류 용어(관계 발동/용기신 품질/"
+            "복수 가능성 등)와 '근거 경로:' 표기를 본문에 노출하지 말 것(일상어로 풀어 서술)."
+        )
+
     def generate_fn(plan: SectionPlan, context: SectionContext, attempt: int):
         # 보고서 전용 시스템 프롬프트(대화와 분리 — '정보 없음' 회피 문구 미포함).
         system = llm_client._REPORT_SYSTEM_PROMPT
         if persona_block:
             system = system + "\n\n" + persona_block
-        prompt = context.body_prompt
-        if attempt > 0:
-            prompt += (
-                f"\n\n[재생성 {attempt}회차] 직전 응답이 정합성 검사에 실패했다 — "
-                "분량·간지·점수 규칙을 다시 확인하고, 내부 분류 용어(관계 발동/용기신 품질/"
-                "복수 가능성 등)와 '근거 경로:' 표기를 본문에 노출하지 말 것(일상어로 풀어 서술)."
+        # Context Reduction(docs/09 L333) — 섹션 입력(본문+시스템)이 토큰 상한을 넘으면(가드
+        # 예외) 단계를 올려 가변 블록(다년 월별·연도별 흐름)을 ★주목 위주로 축소하고 재호출한다.
+        # 상한 내 섹션은 0단계로 한 번에 통과(전체 12개월 유지) — 초과한 섹션만 축소된다.
+        last_exc: TokenBudgetExceeded | None = None
+        for reduction_level in range(_MAX_REPORT_REDUCTION + 1):
+            ctx = (
+                context if reduction_level == 0
+                else build_section_context(
+                    plan, spec, data, reduction_level=reduction_level
+                )
             )
-        text = llm_client.generate_reading(
-            prompt, call_type=call_type, system=system,
-            product_code=f"{spec.product_code}:{plan.section_id}",
-            owner_id=owner_id, surface="report", ref_id=subject_id,
-        )
-        text = _tighten(text)  # 지면 낭비 정규화(공백수정)
-        return text, 0, len(text)  # 토큰은 llm_client 장부가 집계(cached 포함)
+            try:
+                text = llm_client.generate_reading(
+                    _regen_note(ctx.body_prompt, attempt),
+                    call_type=call_type, system=system,
+                    product_code=f"{spec.product_code}:{plan.section_id}",
+                    owner_id=owner_id, surface="report", ref_id=subject_id,
+                )
+                if reduction_level > 0:
+                    _logger.info(
+                        "report Context Reduction 적용: section=%s level=%d (입력 상한 초과 회피)",
+                        plan.section_id, reduction_level,
+                    )
+                text = _tighten(text)  # 지면 낭비 정규화(공백수정)
+                return text, 0, len(text)  # 토큰은 llm_client 장부가 집계(cached 포함)
+            except TokenBudgetExceeded as exc:
+                last_exc = exc  # 다음 단계로 더 축소해 재시도
+        # 최대 축소(연도별까지)로도 상한을 못 맞춘 경우만 마감 — 현실 입력에선 미발생.
+        raise last_exc  # type: ignore[misc]
 
     builder = ReportBuilder(
         dictionaries_dir=_DICTS,
@@ -1271,4 +1489,16 @@ def generate_report(
         generate_fn=generate_fn,
         progress_fn=progress_fn,
     )
-    return builder.build(spec, display_name=display_name)
+    result = builder.build(spec, display_name=display_name)
+    # 간지 달력표 결정론적 첨부 — LLM 생성·분량 캡(_repair_section) 모두 거친 뒤 본문 끝에 붙인다.
+    # 표는 엔진 계산값이므로 절단·정합성 검사·간지 변형 대상에서 제외한다(절대원칙 1).
+    cal_md = ""
+    for sec in result.sections:
+        if sec.section_id in _GANJI_CALENDAR_SECTIONS and sec.passed:
+            if not cal_md:
+                cal_md = data.ganji_calendar_md()
+            if cal_md:
+                sec.text = f"{sec.text}\n\n{cal_md}".strip()
+    if cal_md:
+        result.total_chars = sum(len(s.text) for s in result.sections if s.passed)
+    return result

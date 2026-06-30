@@ -153,6 +153,13 @@ signal 키(v2.2.1): `tenGod`(운 천간 십성) / **`branchTenGod`(운 지지 �
 `relation` / `favorability` / `shinsal` / `daewoonTransition` / `tenGodGroupStrong` /
 **`natalWealthCapacity`(원국 횡재 그릇 strong/moderate — Phase 1 신설)**. 모든 키는 AND 조건이다.
 
+> **partner_star 추상화 (관계/결혼 도메인, MARRIAGE_TIMING_ENHANCEMENT §2)**: 전통 기준
+> 여=관살(officer_killing)·남=재성(wealth)은 **내부 규칙으로 유지**하되, relationship/marriage
+> 도메인의 signal·reason_code·LLM 입력은 `partner_star`(배우자성)·`child_star`(자녀성)로 추상화
+> 표기한다. 매핑은 `partnerStarRule`(traditional) 설정으로 관리하며, gender 미상 시 차단하지
+> 않고 양 기준 병기 + confidence 하향(원칙 11). 안정성 평가에서 정관/편관을 분기한다(정관=공식·안정,
+> 편관=강한 끌림·불안정, 관살혼잡=`mixed_partner_star` risk_flag).
+
 > **원국 횡재 그릇(natalWealthCapacity, Phase 1, 2026-06-16)**: `wealth_capacity` 분석(身強임재·
 > 재성 투간·재성 뿌리·암장 식상·재성국 삼합 씨앗·묘고 반복)이 산출하는 원국 그릇 강도. windfall(횡재)
 > 해석 규칙은 이 그릇이 받쳐줄 때만 가산한다(그릇 + 운 발동 = 현실화). 그래프 컴파일 시 `wealth_capacity_*`

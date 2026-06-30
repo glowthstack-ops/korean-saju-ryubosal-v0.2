@@ -172,6 +172,12 @@ class LlmEventCandidate(BaseModel):
     # 신살 기간 채널 색채(§10-2, Phase B-2) — 숫자 없는 한글(완충/리스크/색채/질감). 발생 가능성
     # 미반영. 토큰 초과 시 캐시 prefix보다 먼저 트림되는 보조 텍스트(serialize_with_guard Tier0).
     sinsal_channel_note: str = ""
+    # 관계 단계(MARRIAGE_TIMING_ENHANCEMENT — Production Readiness v1 Step 2). MT 신호 기반.
+    # 빈값이면 MT 미발동(비-관계 후보·default 프로파일) — 렌더 시 미노출(출력 불변).
+    marriage_stage: str = ""           # awareness | relationship | ""
+    marriage_base_stage: str = ""      # base E4 환원
+    marriage_stage_reason: list[str] = Field(default_factory=list)  # 단계 유발 MT 코드
+    marriage_stage_limit: str = ""     # 승급 상한 사유(commitment_marker_absent 등)
 
 
 class LlmEvidence(BaseModel):

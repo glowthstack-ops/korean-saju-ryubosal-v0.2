@@ -16,6 +16,14 @@ from saju_shared_types.wealth_status_lean import WealthStatusLean
 
 from .era_energy import era_curated_note, era_energy_profile
 from .health_vulnerability import health_risk_windows
+from .marriage_age_prior import analyze_marriage_age_prior
+from .marriage_timing_profile import active_marriage_aux
+
+# MT6 혼기 band → 한글 경향(static prior·특정 시기 아님).
+_MARRIAGE_AGE_BAND_KO = {
+    "early": "이른 인연 경향", "normal": "사회 초·중반(적령) 경향",
+    "spouse_palace_direct": "배우자궁 직접(본인 주도) 구조", "late": "만혼 경향",
+}
 
 _CAPACITY_BAND_KO = {"strong": "강", "moderate": "중", "weak": "약"}
 _GENDER_KO = {"female": "여성", "male": "남성"}
@@ -317,3 +325,35 @@ DAEWOON_TRANSITION_SIGNALS_DIRECTIVE = (
     "정리하고 싶어짐 · 외모·분위기 변화. '겪으셨을 수 있다/겪을 수 있다'로 가능 형태로만 짚고, "
     "확정·예언으로 말하지 말 것."
 )
+
+
+def marriage_age_prior_lines(result: ManseV2Result) -> list[str]:
+    """[혼기 경향 — static prior] MT6 배우자성 위치 기반 광역 혼기 경향(특정 시기 아님).
+
+    활성 프로파일 aux(mt6_age_prior)가 켜졌을 때만 산출한다 — default 프로파일은 빈 목록(출력 불변).
+    event trigger가 아니므로 특정 연·월을 말하지 않고, 실제 시점은 운이 결정함을 명시한다.
+
+    Args:
+        result: 만세 결과(pillars·gender).
+
+    Returns:
+        혼기 경향 1~2줄(미상·미산출·프로파일 off면 빈 목록).
+    """
+    if not active_marriage_aux().get("mt6_age_prior"):
+        return []
+    prior = analyze_marriage_age_prior(result)
+    if prior.band == "unknown" or not prior.positions:
+        return []
+    band_ko = _MARRIAGE_AGE_BAND_KO.get(prior.band, prior.band)
+    note = (
+        f"[혼기 경향(static prior·특정 시기 아님)] 배우자성이 {'·'.join(prior.positions)}에 "
+        f"드러나 {band_ko}. 실제 결혼 시점은 운(대운·세운)이 결정하며, 넓은 경향으로만 참고."
+    )
+    lines = [note]
+    if "spouse_palace_direct" in prior.structural_flags and prior.band != "spouse_palace_direct":
+        lines.append(
+            "  (일지=배우자궁에 배우자성 직접 — 결혼이 본인 현실·배우자궁 문제로 직접 들어오는 결)"
+        )
+    if prior.confidence == "low":
+        lines.append("  ※ 성별 미상 — 약한 참고(혼기 보정 미사용)")
+    return lines

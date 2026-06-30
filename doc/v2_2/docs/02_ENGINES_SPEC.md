@@ -158,6 +158,17 @@ interface EventTimeline {
 
 stage 매핑 룰: 트리거 신호(합) 발생 월 = awareness, 충/이동 신호 강화 월 = action 등 신호 유형 → 단계 매핑 사전을 사용.
 
+**관계 도메인 stage refinement (marriage_stage)**: 결혼은 공식화·정착 사건이라 base 5단계로는 부족하다. 관계/결혼 도메인은 `marriage_stage` 6종을 emit하며 각각 **base stage에 환원 매핑**된다(base 5단계는 늘리지 않는다 — `MarriageStage`/`MARRIAGE_TO_BASE_STAGE`). 단계 승급은 신호 누적이 아니라 commitment_marker / formalization_marker 게이트로만 가능하다. 전체 사양 SSOT는 `doc/v2_2/MARRIAGE_TIMING_ENHANCEMENT.md` §1.
+
+| marriage_stage | base stage | 대표 신호 |
+|---|---|---|
+| awareness | awareness | 일간 干合 단독(MT1) |
+| contact | exploration | MT1 + 약한 지지 자극 |
+| relationship | action | 일지 지지합(MT3)·배우자성 회귀(MT2) |
+| commitment | decision | relationship + commitment_marker |
+| formalization | completion | commitment + formalization_marker |
+| family_expansion | completion | MT5 + childbirth 신호 (base 신규 없음) |
+
 ---
 
 ## E5. Self Profile Engine (self-profile)

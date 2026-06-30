@@ -19,7 +19,11 @@ class ActivationWindow(BaseModel):
 
 
 class TimelinePhase(BaseModel):
-    """단계 한 칸 — awareness→exploration→action→decision→completion."""
+    """단계 한 칸 — awareness→exploration→action→decision→completion.
+
+    관계/결혼 도메인은 marriage_stage refinement(6단계)를 base stage로 환원해 채운다
+    (marriage_timing.MARRIAGE_TO_BASE_STAGE) — base 5단계는 늘리지 않는다.
+    """
 
     period: str
     stage: str

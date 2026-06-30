@@ -77,4 +77,4 @@ def test_m07_style_and_budget(composites) -> None:
     period = PeriodSpec(start="2024", end="2024", granularity="year")
     ctx = build_topic_context("M07", [], period, composites)
     assert "반드시" in ctx.style_rules.prohibited_expressions
-    assert ctx.budget.max_input_tokens == 12_000
+    assert ctx.budget.max_input_tokens == 20_000

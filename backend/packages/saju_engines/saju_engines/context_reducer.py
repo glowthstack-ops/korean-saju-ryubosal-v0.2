@@ -49,8 +49,10 @@ from saju_shared_types.llm_input import (
     YongsinOperationalSummary,
 )
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.marriage_timing import derive_marriage_stage
 from saju_shared_types.sinsal import LlmSinsalModifier
 
+from . import marriage_timing_profile as _mtp
 from . import sinsal_modifier_config as _sinsal_cfg
 from .amhap_luck import detect_luck_amhap
 from .chart_interpretation import build_chart_interpretation, incoming_ten_god_note
@@ -58,6 +60,12 @@ from .event_engine_v2 import EventEngineV2
 from .event_scoring import favorability_map
 from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded, estimate_tokens
 from .manifestation_branch import branch_summary
+from .marriage_output_guard import (
+    compute_marriage_output_guard,
+    has_stability_risk,
+    marriage_guard_directive,
+)
+from .marriage_telemetry import build_marriage_telemetry, emit_marriage_telemetry
 from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
 
@@ -699,6 +707,8 @@ def _to_llm_candidate(
     sinsal_channel_note: str = "",
 ) -> LlmEventCandidate:
     period_ganji = ganji.get(c.period, "")
+    # 관계 단계(Step 2) — MT reason_codes(evidence_path)에서 도출. 비-MT 후보는 빈값(무영향).
+    _stage = derive_marriage_stage(c.evidence_path)
     # 동반 신호 매트릭스(v2.2.1) — 사건명을 결정한 신호 구성을 LLM에 명시.
     signals_ko: list[str] = []
     for sig in c.signals:
@@ -762,6 +772,10 @@ def _to_llm_candidate(
         favorability_ko=_favorability_ko(c.favorability),
         sinsal_modifiers=list(sinsal_modifiers or []),
         sinsal_channel_note=sinsal_channel_note,
+        marriage_stage=_stage.stage,
+        marriage_base_stage=_stage.base_stage,
+        marriage_stage_reason=_stage.stage_reason,
+        marriage_stage_limit=_stage.stage_limit,
     )
 
 
@@ -1248,6 +1262,12 @@ def serialize_llm_input(payload: LlmInput) -> str:
     lines: list[str] = serialize_chart_prefix(
         payload.birth_chart_summary, payload.chart_interpretation,
     )
+    # MT 결혼 답변 콘텐츠(단계 라인·출력 가드)는 관계 도메인 질문에만 렌더(일반 질문 토큰 절약·
+    # 의미 정합 — 일반 월간운에 결혼 가드 불필요). 점수·텔레메트리는 도메인 무관 그대로 동작.
+    _intent = payload.resolved_intent
+    _rel_focus = _intent.domain.value == "relationship" or "relationship" in {
+        str(d) for d in _intent.domains
+    }
     lines.append("")
     # ── 동적 suffix (질문마다 변경) ──────────────────────────────
     if payload.reference is not None:
@@ -1290,6 +1310,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
             block.append(f"  결과 유불리: {c.favorability_ko}(발생 가능성과 별개)")
         if with_notes and c.signals_ko:
             block.append("  동반 신호: " + " / ".join(c.signals_ko))
+        if with_notes and _rel_focus and c.marriage_stage:
+            # 관계 단계(MT) — 결혼 확정이 아니라 단계로 표현. 관계 도메인 질문에만(토큰 절약).
+            block.append(f"  관계 단계: {c.marriage_stage}(결혼 확정 아님)")
         if with_notes and c.incoming_note:
             block.append(f"  해석: {c.incoming_note}")
         if with_notes and c.amhap_notes:
@@ -1330,6 +1353,23 @@ def serialize_llm_input(payload: LlmInput) -> str:
             )
         for c in payload.event_candidates:
             lines += candidate_block(c)
+        # 결혼 출력 가드(Step 3·4) — 관계 도메인 질문 + MT 단계가 있을 때만 코드 결정 지시문 주입.
+        # risk 코드(충·쟁합·기신)면 관계 변화·갈등 가능성 병기 강제(Step 4 분기).
+        _mt_cands = [c for c in payload.event_candidates if c.marriage_stage]
+        if _mt_cands:
+            # 텔레메트리(debug-only·PII 없음·토큰 무관)는 도메인 무관 집계(오픈 후 calibration용).
+            emit_marriage_telemetry(build_marriage_telemetry(
+                profile=_mtp.ACTIVE_MARRIAGE_PROFILE,
+                enabled_features=_mtp.active_mt_features(),
+                candidates=payload.event_candidates,
+            ))
+            if _rel_focus:
+                _stages = {c.marriage_stage for c in _mt_cands}
+                _top = "relationship" if "relationship" in _stages else "awareness"
+                _risk = any(has_stability_risk(c.marriage_stage_reason) for c in _mt_cands)
+                lines.append(marriage_guard_directive(
+                    compute_marriage_output_guard(_top, stability_risk=_risk)
+                ))
     # 현재 달(기준 시점) — 지난 기간 행·후보에 '지남' 마커를 붙여 미래 서술을 차단(P6).
     # 절기 기준 당월(this_luck_month) 우선 — 양력 today[:7]은 절기 경계 직전 한 달 어긋남.
     cur_month = (

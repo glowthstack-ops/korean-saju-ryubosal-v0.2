@@ -63,6 +63,12 @@ from .ganji_calendar import relation_hits
 from .layer_flow_modifier import LayerFlowModifier
 from .life_fit_ranker import LifeFitRanker
 from .llm_event_serializer import reason_codes_ko
+from .marriage_awareness_seed import produce_mt1_awareness_seeds
+from .marriage_directional_tag import apply_mt3_directional_tags
+from .marriage_emergence_modifier import (
+    MarriageEmergenceModifier,
+    analyze_marriage_emergence_natal,
+)
 from .marriage_flow_modifier import (
     MarriageFlowModifier,
     MarriageFlowNatal,
@@ -134,8 +140,35 @@ _rank_key = lei_rank_key
 class EventEngineV2:
     """6계층 통합 — score/score_years는 EventCandidateV2 목록을 반환한다."""
 
-    def __init__(self, dictionaries_dir: Path) -> None:
-        """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다."""
+    def __init__(
+        self,
+        dictionaries_dir: Path,
+        *,
+        enable_mt1_awareness: bool = False,
+        enable_mt2_emergence: bool = False,
+        enable_mt3_directional: bool = False,
+        enable_mt4_subtype: str = "off",
+    ) -> None:
+        """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
+
+        Args:
+            dictionaries_dir: 사전 원본 루트.
+            enable_mt1_awareness: MT1 일간 干合 awareness seed 생성 활성화(기본 OFF — feature
+                flag). OFF면 seed producer를 완전히 비활성화해 기존 결과가 불변이다
+                (MARRIAGE_TIMING_ENHANCEMENT §6, reviewed:false).
+            enable_mt2_emergence: MT2 일지 투출 글자 운 회귀 증폭 활성화(기본 OFF — feature flag).
+                OFF면 modifier를 완전히 비활성화해 기존 결과가 불변이다(§7, reviewed:false).
+            enable_mt3_directional: MT3 방합 배우자궁 게이트 태깅 활성화(기본 OFF — feature flag).
+                점수는 안 바꾸고 reason_code 태그만 부여한다(§8, A안). OFF면 결과 불변.
+            enable_mt4_subtype: MT4 관계 도메인 HAP 합 종류 재가중(§9). 'off'(기본)=불변 /
+                'shadow'=점수·reason 불변 + diagnostics(mt4_shadow)만 기록 / 'apply'=실제 재분배.
+        """
+        self._enable_mt1_awareness = enable_mt1_awareness
+        self._enable_mt2_emergence = enable_mt2_emergence
+        self._enable_mt3_directional = enable_mt3_directional
+        self._mt4_mode = enable_mt4_subtype
+        # MT4 shadow 진단 사이드채널(결과 payload·LLM 입력 미포함 — debug-only). score()마다 초기화.
+        self.mt4_shadow: list[dict] = []
         self._brancher = TenGodEventBrancher(dictionaries_dir)
         self._stage = TwelveStageModifier(dictionaries_dir)
         self._flow = LayerFlowModifier(dictionaries_dir)
@@ -161,6 +194,7 @@ class EventEngineV2:
         occupation_category: str | None = None,
     ) -> list[EventCandidateV2]:
         """만세 결과의 운을 거버닝 스택으로 스코어링해 EventCandidateV2 목록을 산출한다."""
+        self.mt4_shadow = []  # MT4 shadow 진단 사이드채널 초기화(이번 호출분만)
         if result.pillars is None or result.luck_cycles is None:
             return []
         wanted = levels or set(GanjiLevel)
@@ -202,6 +236,7 @@ class EventEngineV2:
         occupation_category: str | None = None,
     ) -> list[EventCandidateV2]:
         """지정 세운 연도를 직접 스코어링한다(용신 검증용 — 과거 연도 포함)."""
+        self.mt4_shadow = []  # MT4 shadow 진단 사이드채널 초기화(이번 호출분만)
         if result.pillars is None or result.luck_cycles is None:
             return []
         fav_map = fav_override if fav_override is not None else favorability_map(result)
@@ -318,6 +353,13 @@ class EventEngineV2:
             return []
         # 사건 '종류'는 십성(세운·월운)이 결정한다 — 합화는 여기(라벨 생성기)에 넣지 않는다.
         cands = self._brancher.branch(signals, label)
+        # MT1 — 일간 干合 배우자성 awareness seed '생성'(modifier 아님, feature flag·기본 OFF).
+        # branch 직후 합류시켜 이후 6계층 보정·랭킹·soft_cap을 동일하게 거친다.
+        if self._enable_mt1_awareness:
+            cands = [
+                *cands,
+                *produce_mt1_awareness_seeds(target, result, fav_map, marriage_flow.gender, label),
+            ]
         if not cands:
             return []
         # 배우자성 성별 가중(③) — 남=재성·여=관성. 반대 성별 별만으로 뜬 결혼신호를 amplifier 전에
@@ -344,7 +386,16 @@ class EventEngineV2:
         # 발동·궁성 — 해당 시점 관계 적중(+ 일지 복음 발동: 운 지지=원국 일지).
         layer = _LEVEL_TO_LAYER[level]
         activations = _activations(hits, layer) + _bokeum_activations(result, target, layer)
-        cands = self._relpalace.apply(cands, activations)
+        day_el = (
+            str(STEM_ELEMENT[Stem(result.pillars.day.stem)])
+            if self._mt4_mode != "off" and result.pillars and result.pillars.day
+            else ""
+        )
+        cands = self._relpalace.apply(
+            cands, activations,
+            mt4_mode=self._mt4_mode, gender=marriage_flow.gender,
+            day_element=day_el, shadow_sink=self.mt4_shadow,
+        )
         # 용신 품질 — 시점 유입 글자 오행의 용기신 역할. 본 천간이 합화(化)면 化神 오행으로 길흉
         # 판단(生剋制化 우선 — 사건 종류는 불변, 길흉만 化神 기준). 대운 배경 합화는 제외(국소).
         # 生剋制化 우선순위(化 > 制): 합화면 化神 길흉, 아니면 합거(기신 무력화) 여부를 본다.
@@ -386,6 +437,22 @@ class EventEngineV2:
             cands, marriage_flow,
             detect_marriage_flow_activations(present_groups, marriage_flow.gender),
         )
+        # MT2 — 일지 투출 글자 운 회귀 증폭(증폭만·feature flag·기본 OFF). 회귀 글자가 일지 충에
+        # 관여하면 긍정 증폭하지 않고 stability 하향 태그만 남긴다(spouse_palace_clashed).
+        if self._enable_mt2_emergence:
+            spouse_palace_clashed = any(
+                h.type is RelationType.BRANCH_CLASH
+                and any(r.position == "day" for r in h.natal_refs)
+                for h in hits
+            )
+            cands = MarriageEmergenceModifier.apply(
+                cands, analyze_marriage_emergence_natal(result),
+                target.stem, spouse_palace_clashed,
+            )
+        # MT3 — 방합이 일지(배우자궁)를 물면 관계 후보에 태그만 부여(점수 무변경·증폭 아님,
+        # feature flag·기본 OFF). 런타임 점수 보강은 relation_palace(HAP/DAY)가 이미 처리한다.
+        if self._enable_mt3_directional:
+            cands = apply_mt3_directional_tags(cands, hits, result, marriage_flow.gender)
         # 대운 합화 체용 배경 — 대운 化神의 용기신 역할로 성패율에 약한 배경 보정(직접 치환 아님).
         cands = _apply_daewoon_hwa_background(
             cands, _daewoon_hwa_role(stack, result, fav_map)
@@ -559,6 +626,15 @@ def _stage_of(pillar: LuckPillar) -> TwelveStage | None:
     return TWELVE_STAGE_KO_TO_KEY.get(pillar.twelve_unseong or "")
 
 
+# MT4(§9): HAP으로 붕괴되는 합의 원 종류(subtype) 보존 — RelationType → subtype 라벨.
+_HAP_SUBTYPE: dict[RelationType, str] = {
+    RelationType.SIX_COMBINATION: "six_harmony",
+    RelationType.THREE_HARMONY_CONTRIB: "three_harmony",
+    RelationType.DIRECTIONAL_CONTRIB: "directional",
+    RelationType.STEM_COMBINATION: "stem",
+}
+
+
 def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActivation]:
     """합충형파해 적중 → (관계종류, 자극궁, 층위) 발동 목록(공망류 제외)."""
     out: list[RelationActivation] = []
@@ -567,11 +643,13 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
         if kind is None:
             continue
         position = "stem" if hit.type is RelationType.STEM_COMBINATION else "branch"
+        subtype = _HAP_SUBTYPE.get(hit.type)  # HAP일 때만 채워짐(MT4용)
         for ref in hit.natal_refs:
             palace = _POS_PILLAR.get(ref.position)
             if palace is not None:
                 out.append(RelationActivation(
                     RelationKind(kind), palace, layer, position=position,
+                    hap_subtype=subtype, element=hit.element,
                 ))
     return out
 

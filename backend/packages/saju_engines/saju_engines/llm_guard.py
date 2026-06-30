@@ -36,12 +36,16 @@ class CallLimit:
 # 출력 토큰 상한 = thinking 토큰 + 가시 출력 합산(Gemini maxOutputTokens 동작) — thinking
 # (LOW도 ~1.2k 소모)이 가시 답변을 잠식해 잘리지 않도록 여유 확보(2026-06-12 사용자 확정).
 # 실제 가시 답변 길이는 max_output_chars + 프롬프트 지시(_LENGTH_INSTRUCTION)가 강제한다.
+# report_*_section 입력 상한 10,000→15,000 상향(2026-06-27 사용자 승인): 다년 테마풀이에서
+# 월별 흐름(예측 창 전체 12개월)을 축소 없이 보존하기 위함. 초과분은 Context Reduction이 흡수.
+# chat_single 12,000→20,000 · chat_compare 14,000→20,000 상향(2026-06-30 사용자 승인): MT 결혼 단계·
+# 출력 가드 콘텐츠(Marriage Production Readiness v1)가 관계 질문 입력에 더해지는 분을 흡수.
 CALL_LIMITS: dict[str, CallLimit] = {
-    "chat_single": CallLimit(12_000, 5_000, max_output_chars=1_500),
-    "chat_compare": CallLimit(14_000, 5_500, max_output_chars=2_400),
+    "chat_single": CallLimit(20_000, 5_000, max_output_chars=1_500),
+    "chat_compare": CallLimit(20_000, 5_500, max_output_chars=2_400),
     "query_parser": CallLimit(2_000, 300),
-    "report_focus_section": CallLimit(10_000, 8_000, max_output_chars=4_500),
-    "report_full_section": CallLimit(10_000, 8_000, max_output_chars=4_500),
+    "report_focus_section": CallLimit(15_000, 8_000, max_output_chars=4_500),
+    "report_full_section": CallLimit(15_000, 8_000, max_output_chars=4_500),
     "consistency_check": CallLimit(8_000, 500),
 }
 

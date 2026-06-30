@@ -215,6 +215,7 @@ def _rule_nodes(directory: Path) -> tuple[list[GraphNode], list[GraphEdge]]:
     """해석 규칙 노드 (events/<domain>.json 신호 매핑) + supports/triggers 엣지."""
     nodes: list[GraphNode] = []
     edges: list[GraphEdge] = []
+    seen_aux: set[str] = set()  # MT1 등 즉석 생성 보조 노드(relation/ten_god_group) dedup
     for path in sorted((directory / "events").glob("*.json")):
         if path.name == "taxonomy.json":
             continue
@@ -237,6 +238,35 @@ def _rule_nodes(directory: Path) -> tuple[list[GraphNode], list[GraphEdge]]:
                 edges.append(GraphEdge(
                     from_=f"tengod_{signal.ten_god}", to=rule_id, type="supports",
                 ))
+            # MT1(MARRIAGE_TIMING_ENHANCEMENT §6): 일간 干合·배우자성군 → 규칙 supports.
+            # from-노드는 dangling 방지를 위해 즉석 생성·dedup(seen)한다.
+            if signal.relation == "day_master_stem_combine":
+                rel_node = "relation_day_master_stem_combine"
+                if rel_node not in seen_aux:
+                    seen_aux.add(rel_node)
+                    nodes.append(GraphNode(id=rel_node, type="relation", label="일간 干合"))
+                edges.append(GraphEdge(from_=rel_node, to=rule_id, type="supports"))
+            if signal.ten_god_group:
+                grp_node = f"ten_god_group_{signal.ten_god_group}"
+                if grp_node not in seen_aux:
+                    seen_aux.add(grp_node)
+                    nodes.append(GraphNode(
+                        id=grp_node, type="ten_god_group", label=signal.ten_god_group,
+                    ))
+                edges.append(GraphEdge(from_=grp_node, to=rule_id, type="supports"))
+            # MT3(§8): 방합(directional) + 일지(spousePalace) → 규칙 supports(graph evidence).
+            if signal.relation == "directional":
+                rel_node = "relation_directional"
+                if rel_node not in seen_aux:
+                    seen_aux.add(rel_node)
+                    nodes.append(GraphNode(id=rel_node, type="relation", label="방합"))
+                edges.append(GraphEdge(from_=rel_node, to=rule_id, type="supports"))
+            if signal.spouse_palace:
+                sp_node = "spouse_palace"
+                if sp_node not in seen_aux:
+                    seen_aux.add(sp_node)
+                    nodes.append(GraphNode(id=sp_node, type="palace", label="배우자궁(일지)"))
+                edges.append(GraphEdge(from_=sp_node, to=rule_id, type="supports"))
             if signal.favorability in _FAVORABILITY_NODES:
                 node_type, _label = _FAVORABILITY_NODES[signal.favorability]
                 edges.append(GraphEdge(from_=node_type, to=rule_id, type="supports"))

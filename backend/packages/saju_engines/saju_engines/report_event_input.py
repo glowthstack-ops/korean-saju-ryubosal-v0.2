@@ -13,6 +13,7 @@ from saju_shared_types.events import EventCandidate, confidence_ko
 from saju_shared_types.ganji_calendar import GanjiLevel, RelationType
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.marriage_timing import derive_marriage_stage
 
 from . import sinsal_modifier_config as _sinsal_cfg
 from .context_reducer import event_ko, polarity_ko
@@ -24,6 +25,18 @@ from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
 def _dir(c: EventCandidate) -> str:
     """후보 방향(길흉)+타이밍 라벨 — 모호한 polarity 대신. 없으면 polarity 폴백."""
     return direction_label(c.quality, c.timing) or polarity_ko(str(c.polarity))
+
+
+def _marriage_stage_note(c: EventCandidate) -> str:
+    """관계 단계(MT) 접미사 — MT 신호가 있을 때만(비-MT·default 프로파일은 빈 문자열, 출력 불변).
+
+    리포트(총운·년운·애정운)의 후보 라인에 결혼 '확정'이 아니라 '단계'로 표기한다(Step 2).
+    """
+    st = derive_marriage_stage(c.evidence_path)
+    if not st.stage:
+        return ""
+    lim = f"; 상한 {st.stage_limit}" if st.stage_limit else ""
+    return f" · 관계단계 {st.stage}(근거 {' / '.join(st.stage_reason)}{lim})"
 
 # 도메인 코드 → 한글(12개월 흐름 표기용).
 _DOMAIN_KO: dict[str, str] = {
@@ -149,7 +162,7 @@ def precise_candidate_clusters(
         for c in evs:
             lines.append(
                 f"  - {event_ko(c.event_key)}: {c.score}점 · "
-                f"신뢰도 {confidence_ko(c.confidence)} · {_dir(c)}"
+                f"신뢰도 {confidence_ko(c.confidence)} · {_dir(c)}{_marriage_stage_note(c)}"
             )
     return lines
 
@@ -184,7 +197,8 @@ def score_table_lines(
 
 
 def month_overview_lines(
-    result: ManseV2Result, scored: list[EventCandidate], domain: str | None = None
+    result: ManseV2Result, scored: list[EventCandidate], domain: str | None = None,
+    *, notable_only: bool = False,
 ) -> list[str]:
     """이 해 12개월 전체를 한 줄씩 — 월 간지·운 품질 등급·우세 도메인·강도밴드·길흉·대표 신호.
 
@@ -195,6 +209,10 @@ def month_overview_lines(
     각 달에 운 품질 등급(luck_label '강한 용신운' 등)을 〈…〉로 함께 노출한다 — 좋은 달/주의할
     달은 사건 밀도가 아니라 이 운 품질이 1차 기준이다(길흉=용신/기신). 신약 사주에 천간·지지가
     모두 용신인 '강한 용신운' 달은 사건이 적어도 기반이 가장 좋은 달이라, ★주목에도 포함한다.
+
+    notable_only=True(Context Reduction 축소 단계 — report 경로에서 섹션이 토큰 상한 초과 시에만
+    호출): 다년 예측 창에서 모든 달을 나열하면 토큰이 폭증하므로, 연도 헤더는 유지하되 각 해의
+    ★주목 달(연내 top3 + 강한 용신운/기신운)만 남긴다. 단년(12개월)은 원래도 작아 전체 유지한다.
     """
     lc = result.luck_cycles
     if lc is None or not lc.monthly_luck:
@@ -227,7 +245,9 @@ def month_overview_lines(
         notable = top3 | strong_quality
         if multi:
             lines.append(f"〈{yr}년〉")
-        for p in months:
+        # 축소 단계 — 다년 창에서 ★주목 달만 남긴다(단년이면 12개월 전체 유지: 원래도 작음).
+        shown = [p for p in months if not (notable_only and multi and p.label not in notable)]
+        for p in shown:
             cand = rep[p.label]
             tg = f"천간 {p.stem_ten_god or '?'}·지지 {p.branch_ten_god or '?'}"
             grade = f" 〈{p.luck_label}〉" if p.luck_label else ""  # 운 품질 등급 — 길흉 1차 기준
@@ -245,13 +265,16 @@ def month_overview_lines(
 
 def year_spectrum_lines(
     result: ManseV2Result, scored: list[EventCandidate], years: list[int],
-    domain: str | None = None,
+    domain: str | None = None, *, notable_only: bool = False,
 ) -> list[str]:
     """지정 연도들의 세운을 빠짐없이 한 줄씩 — 연 간지·운 품질 등급·우세 도메인·강도밴드·길흉·★주목.
 
     '향후 5년 종합' 류 섹션이 상위 몇 건만 반복하지 않고 전 연도를 고르게(좋은·주의·평범 해 모두)
     다루도록 모든 해를 데이터로 제공한다. month_overview_lines의 연(年) 버전 — 좋은 해/주의할 해의
     1차 기준은 사건 밀도가 아니라 세운 운 품질 등급〈…〉(길흉=용신/기신)이다.
+
+    notable_only=True(Context Reduction 2단계): 토큰 상한을 1단계(월별 흐름 축소)로도 못 맞춘
+    긴 예측 창에서만, ★주목 해(top3 + 강한 용신운/기신운)로 좁힌다(연 단위라 원래도 작아 후순위).
     """
     lc = result.luck_cycles
     if lc is None or not lc.yearly_luck:
@@ -279,7 +302,8 @@ def year_spectrum_lines(
     }
     notable = top3 | strong
     lines: list[str] = []
-    for y in yr_strs:
+    shown_years = [y for y in yr_strs if not (notable_only and y not in notable)]
+    for y in shown_years:
         p = by_label[y]
         tg = f"천간 {p.stem_ten_god or '?'}·지지 {p.branch_ten_god or '?'}"
         grade = f" 〈{p.luck_label}〉" if p.luck_label else ""
