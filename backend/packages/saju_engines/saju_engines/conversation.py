@@ -42,6 +42,11 @@ from .query_parser import (
 
 # 대상 정정(A10) — subject 교체 + 동일 intent 재실행.
 _CORRECTION_RE = re.compile(r"헷갈려|헷갈렸|잘못\s*봤|다시\s*체크|아니\s.*사주")
+# 정책 라우트 query_type — 약한 후속 상속 대상에서 제외(주제가 아니라 정책이므로).
+_POLICY_QTYPES = frozenset({
+    QueryType.FEEDBACK_CORRECTION, QueryType.TERMINOLOGY_EDUCATION,
+    QueryType.EMOTIONAL_SUPPORT, QueryType.OUT_OF_SCOPE,
+})
 # 본인 복귀(A8).
 _SELF_RETURN_RE = re.compile(r"본인\s*사주로|내\s*사주로\s*봐")
 # 생시 미상(A13).
@@ -143,6 +148,7 @@ class ConversationEngine:
                 if (
                     not introduces_new and weak
                     and prev.query_type is not QueryType.FORTUNE_OVERVIEW
+                    and prev.query_type not in _POLICY_QTYPES  # 정책류(정정·용어·공감·범위밖)
                 ):
                     intent.query_type = prev.query_type
                     if intent.event_key is None:

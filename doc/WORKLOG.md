@@ -6090,3 +6090,51 @@ on, 즉시 rollback 가능. 검증은 오픈 후 텔레메트리·사용자 피�
 - 엔드투엔드: 관계 질문 → MT 태그→marriage_stage='relationship'(상한 commitment_marker_absent)→
   단계 라인+가드 directive 노출, 일반 질문은 미노출. 전체 1366 pass(2 fail=pristine HEAD 기존 결함 무관).
 - **rollback**: ACTIVE_MARRIAGE_PROFILE='default' 1줄. **검증**: 오픈 후 marriage_telemetry 집계로.
+
+### claim recheck(B) — 멀티턴 직전 풀이 재검토 (2026-06-30)
+
+라이브 채팅에서 "...아니야?" 류 후속 반문이 FEEDBACK_CORRECTION으로 분류돼 canned 폴백("재검산하려면
+대화 이력 연동 필요·준비 중·출생정보 다시")으로 빠지던 문제(query_parser.py:214 `아니야\s*\?` 규칙 →
+planner claim_recheck policy_route → chat_service.py:1680 단락).
+- **B(제대로 처리)**: chat_service `_recheck_continuation(intent, prior_intent)` — FEEDBACK_CORRECTION +
+  subject 확정 + 직전이 분석 질문(_RECHECK_ANALYSIS_QTYPES)이면 직전 도메인·이벤트·시점을 상속해 분석
+  query_type으로 전환 → policy 단락 회피, 정상 분석 경로. `_RECHECK_DIRECTIVE`를 trailing에 주입해
+  "출생정보 재요청 금지·prior_claims와 엔진 근거로 재검토·트리거≠실행·단계(awareness→진전) 구분" 지시.
+- 맥락 없음(새 스레드)·직전 비분석이면 전환 안 함(진짜 정정·새 질문 보호). prior_claims 인프라 재사용.
+- 검증: 단위 5건(상속·미전환 조건) + 엔드투엔드(1턴 연애시기 dry_run → 2턴 "...아니야?"가 policy 아닌
+  **dry_run**으로 전환). 전체 1371 pass(+5, 2 fail=기존 결함). ruff·mypy clean.
+
+### claim recheck 연쇄 결함 수정 — '그래' 수락이 canned로 빠지던 문제 (2026-06-30)
+
+라이브 검증 중 발견: '...아니야?'(B 재검토) 다음 '그래'(수락)가 다시 canned claim_recheck로 빠짐.
+원인 연쇄 — ① B는 답변을 분석으로 처리하나 스레드 저장 last_intent는 FEEDBACK_CORRECTION ②
+다음 약한 발화('그래')가 conversation.py에서 직전 query_type(FEEDBACK_CORRECTION)을 상속 → 다시
+FEEDBACK_CORRECTION → B는 prior가 분석 아님으로 보고 전환 안 함 → canned.
+- **Fix 1(conversation.py)**: 약한 후속의 query_type 상속에서 **정책류(_POLICY_QTYPES: FEEDBACK_
+  CORRECTION·TERMINOLOGY·EMOTIONAL·OUT_OF_SCOPE) 제외**(주제가 아니라 정책이므로 상속 부적합).
+- **Fix 2(chat_service)**: B 재검토 전환 시 `state.last_intent`도 전환된 분석 intent로 갱신 →
+  다음 턴이 분석 주제를 상속(연쇄 차단).
+- 검증: 엔드투엔드 연쇄(연애시기→아니야?→이직 아니야?→그래) 4턴 모두 분석(dry_run, canned 탈출).
+  회귀 테스트 추가(test_recheck_followup_and_affirm_escape_canned). 전체 1391 pass(DB 로드 시,
+  1 fail=기존 too_broad 결함), ruff·mypy clean.
+
+### 시점 오류 수정 — 미래 '언제 들어올까'가 과거 달을 답하던 문제 (2026-06-30)
+
+라이브 검증: "이직 제안은 언제쯤 들어올까?"(미래·오늘 2026-06-30)에 2026-02·04(이미 지난 달)를 메인으로
+답하던 시점 오류. 원인 — chat_service의 미래 클램프 로직이 **모든 open_when을 과거 회고로 간주**
+(주석 "open_when='언제였는지' 과거 개방 탐색"). '언제 들어올까?'도 open_when으로 파싱돼 과거 10년
+창으로 앵커링 → 지난 달이 메인에 오름.
+- **수정**: `_FUTURE_WHEN_RE`(언제쯤·들어올까·올까·될까·만날까·풀릴까 등) 추가 → open_when이어도
+  미래지향이면 is_retro에서 제외. 미래 클램프(current_month ~ +2년)가 적용돼 지난 달이 배경으로 분리.
+- 검증: "이직 제안 언제 들어올까?" 후보가 2026-02/03/04 → **전부 사라지고** 2026-06~ 미래로 이동
+  (2026-05 한 달 경계 잔존은 절기/overview 엣지·경미). 과거 회고("작년 무슨 일"·"언제였을까"·단답
+  "년단위였어")는 retro 유지(보존). 단위 테스트 test_future_when_clamp(미래 매치/과거 비매치).
+- 전체 1393 pass(+2, 1 fail=기존 too_broad), ruff·mypy clean. 백엔드 재기동(21:28).
+
+### 시점 오류 추가 조임 — 토픽 참고 신호 현재 달 floor (2026-06-30)
+
+미래 클램프 후에도 [M07 토픽 신호(참고)] 블록이 올해 전체 월(2026-05 등 지난 달)을 노출하던 잔존
+(CompositeBuilder가 연 단위 period로 올해 findings 생성). `_topic_module_context`에 future_floor
+('YYYY-MM') 추가 — 미래지향(비회고) 질문이면 현재 달 이전 월 findings 제외. 검증: '이직 제안 언제
+들어올까?' 토픽 신호가 2026-05 제거→2026-06부터, 과거회고('작년 무슨 일?')는 2025 보존(floor 미적용).
+전체 1393 pass.

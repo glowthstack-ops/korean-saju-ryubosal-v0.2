@@ -185,6 +185,35 @@ def test_multiturn_thread_inherits_domain() -> None:
 
 
 @pytest.mark.skipif(not _db_available(), reason="saju-v2-db(5433) 미기동")
+def test_recheck_followup_and_affirm_escape_canned() -> None:
+    """직전 풀이 반문·수락이 canned 폴백 대신 분석 경로로 이어진다(claim recheck B).
+
+    연쇄: 연애시기 → '26년 만나야 하는거 아니야?'(B 재검토) → '이직부터 아니야?'(B) → '그래'(상속).
+    마지막 '그래'가 직전 FEEDBACK_CORRECTION을 상속해 다시 canned로 빠지지 않아야 한다.
+    """
+    from saju_engines.conversation_store import ConversationStore
+    from saju_engines.precompute_store import default_dsn
+
+    store = ConversationStore(
+        default_dsn() or "postgresql://saju_v2:saju_v2@localhost:5433/saju_v2"
+    )
+    store.delete("t-recheck")
+    birth = BirthInput(reference_date="2026-06-30", **_BIRTH)
+
+    def _turn(q: str):
+        return chat_service.chat(
+            birth, q, date(2026, 6, 30), dry_run=True,
+            thread_id="t-recheck", subject_id="s1", subject_label="회원", store=store,
+        )
+
+    _turn("몇월부터 연애 시작이 가능해?")
+    assert _turn("그럼 기간상 26년에 어디선가 만나야 하는거 아니야?").status != "policy"
+    assert _turn("그럼 이직부터 해야 하는거 아니야?").status != "policy"
+    assert _turn("그래").status != "policy"  # 연쇄 상속이 canned로 빠지지 않음
+    store.delete("t-recheck")
+
+
+@pytest.mark.skipif(not _db_available(), reason="saju-v2-db(5433) 미기동")
 def test_multiturn_repeat_flag() -> None:
     """동일 질문 3연속 → repeated=True(다른 각도 제시 신호, F7)."""
     from saju_engines.conversation_store import ConversationStore

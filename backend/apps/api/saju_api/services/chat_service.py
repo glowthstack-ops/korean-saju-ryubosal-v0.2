@@ -251,6 +251,13 @@ _PAST_KEYWORDS = (
     "무슨 일", "뭐였", "어땠", "있었",
     "였을까", "었을까", "았을까", "였던", "었던", "았던", "였지", "었지",
 )
+# 미래지향 '언제 ~ㄹ까/들어올까/언제쯤' — open_when이어도 과거 회고가 아니라 미래 탐색이다.
+# (open_when을 일괄 과거로 보던 결함: '이직 제안 언제 들어올까?'가 과거 10년 창으로 앵커링돼
+#  이미 지난 달이 메인에 오르던 시점 오류 차단 — 2026-06-30 데굴님 지적.)
+_FUTURE_WHEN_RE = re.compile(
+    r"언제쯤|앞으로|향후|들어올까|들어오나|들어와|올까|올까요|올지|"
+    r"될까|될지|할까|생길까|생길지|만날까|나올까|이뤄질까|가능할까|풀릴까|열릴까"
+)
 
 
 class ChatResponse(BaseModel):
@@ -975,11 +982,15 @@ _DOMAIN_TOPIC_MODULE = {
 
 def _topic_module_context(
     birth: BirthInput, intent: IntentJson, today: date,
+    future_floor: str | None = None,
 ) -> list[str]:
     """질문 도메인에 해당하는 Topic Builder 모듈을 실행해 확정 신호+정책 톤을 구조 블록에 싣는다.
 
     채팅 토픽 질문(직업·재물·건강·시험·연애)에서 topic_builder를 실제로 소비한다(옵션1). findings는
     점수 확정값, 모듈 특화 정책 톤(절대원칙 8 가드)을 함께 주입. 비토픽·실패는 graceful(빈 줄).
+
+    future_floor('YYYY-MM')가 주어지면 그 달 이전의 월 findings를 버린다 — 미래지향 질문('언제
+    들어올까')에서 토픽 참고 신호가 이미 지난 달을 메인처럼 노출하던 시점 오류 차단(2026-06-30).
     """
     module_id = _DOMAIN_TOPIC_MODULE.get(intent.domain)
     if module_id is None:
@@ -1003,13 +1014,23 @@ def _topic_module_context(
         ctx = build_topic_context(module_id, intent.subjects, period, composites, **extras)
     except Exception:  # noqa: BLE001 — 토픽 모듈 실패가 풀이를 막지 않도록(규칙11)
         return []
-    if not ctx.findings:
+    findings = ctx.findings
+    if future_floor:
+        # 월 단위(YYYY-MM) findings 중 현재 달 이전은 제외(연 단위 키는 유지). 미래 질문 시점 정합.
+        findings = [
+            f for f in findings
+            if not (
+                f.period_key and re.fullmatch(r"\d{4}-\d{2}", f.period_key)
+                and f.period_key < future_floor
+            )
+        ]
+    if not findings:
         return []
     out = [
         f"[{module_id}·{_TOPIC_MODULES[module_id]} 토픽 신호(참고) — 엔진 확정 점수·근거. "
         "새 수치 생성 금지, 단정 금지]"
     ]
-    out += [f"- {f.summary} (점수 {f.score})" for f in ctx.findings[:3]]
+    out += [f"- {f.summary} (점수 {f.score})" for f in findings[:3]]
     module_notes = ctx.style_rules.tone_notes[1:]
     if module_notes:
         out.append("표현 지침(정책): " + " / ".join(module_notes))
@@ -1582,6 +1603,53 @@ def _augment_time_by_similarity(
     return intent.model_copy(update={"time_range": tr})
 
 
+# 직전 풀이 재검토(claim recheck) 시 LLM에 주입하는 지시문 — 출생정보 재요청 금지·엔진 근거 재검토.
+_RECHECK_DIRECTIVE = (
+    "[직전 풀이 재검토 — 사용자가 직전 답변에 이의·반문을 제기함] 사주·출생정보는 이미 확정돼 "
+    "있으니 절대 다시 묻지 말 것. 위 '이전 판정(prior_claims)'과 아래 엔진 후보·근거로 직전 "
+    "풀이를 재검토하라. 사용자의 반문이 타당하면 솔직히 인정·정정하고, 직전 판정이 맞으면 "
+    "간지·신호 근거를 들어 차분히 재확인하라. 특히 '관계가 시작되는 시기'와 '신호가 발생하는 "
+    "시기'의 차이(트리거≠실행), 가능성 단계(관심·인연 의식 → 관계 진전)를 구분해 설명하라. "
+    "단정·예언은 금지."
+)
+# claim recheck 상속 대상이 되는 '분석' query_type(정책·구조 라우트 제외).
+_RECHECK_ANALYSIS_QTYPES = frozenset({
+    QueryType.FORTUNE_OVERVIEW, QueryType.DOMAIN_ANALYSIS, QueryType.TIMING_SEARCH,
+    QueryType.EVENT_EXPLANATION, QueryType.RELATIONSHIP_ANALYSIS, QueryType.REMEDY,
+    QueryType.DECISION_SUPPORT, QueryType.DATE_RECOMMENDATION,
+})
+
+
+def _recheck_continuation(
+    intent: IntentJson, prior_intent: IntentJson | None,
+) -> tuple[IntentJson, bool]:
+    """FEEDBACK_CORRECTION(이의/반문) + 직전 분석 맥락이면 직전 주제 상속해 분석 intent로 전환한다.
+
+    canned 'claim_recheck' 폴백(출생정보 재요청) 대신 직전 도메인·이벤트·시점을 이어받아 정상
+    분석 경로로 흘려, recheck 지시문으로 엔진 근거 재검토를 시킨다(B — 멀티턴 재검산). 직전 맥락이
+    없거나 직전이 분석 질문이 아니면 전환하지 않는다(기존 canned 유지 — 새 스레드·진짜 정정 보호).
+
+    Args:
+        intent: 현재 턴 intent(query_type=FEEDBACK_CORRECTION일 수 있음).
+        prior_intent: 직전 턴 intent(스레드 상태). None이면 맥락 없음.
+
+    Returns:
+        (전환된 intent, is_recheck). is_recheck=True면 recheck 지시문을 주입해야 한다.
+    """
+    if intent.query_type is not QueryType.FEEDBACK_CORRECTION or prior_intent is None:
+        return intent, False
+    if prior_intent.query_type not in _RECHECK_ANALYSIS_QTYPES:
+        return intent, False  # 직전이 분석 질문이 아니면 재검토 대상 아님
+    new = intent.model_copy(update={
+        "query_type": prior_intent.query_type,
+        "domain": intent.domain if intent.domain is not Domain.GENERAL else prior_intent.domain,
+        "event_key": intent.event_key or prior_intent.event_key,
+        "event_keys": intent.event_keys or prior_intent.event_keys,
+        "time_range": intent.time_range or prior_intent.time_range,
+    })
+    return new, True
+
+
 def chat(
     birth: BirthInput,
     question: str,
@@ -1660,6 +1728,16 @@ def chat(
     intent = _augment_domain_by_similarity(intent, question)
     # 규칙이 시점을 못 잡은 경우만 임베딩 시점 분류기로 보강(rules-first, 결정론 날짜 합성).
     intent = _augment_time_by_similarity(intent, question, today, luck_month)
+
+    # 직전 풀이 재검토(B) — 이의/반문 + 활성 스레드 분석 맥락이면 canned 폴백 대신 직전 주제를
+    # 상속해 정상 분석 경로로 흘리고, recheck 지시문으로 엔진 근거 재검토를 시킨다(subject 확정 시).
+    is_recheck = False
+    if subject_id is not None:
+        intent, is_recheck = _recheck_continuation(intent, prior_intent)
+        # 재검토로 분석 전환되면 스레드 맥락(last_intent)도 분석으로 갱신한다 — 다음 턴('그래' 등
+        # 약한 후속)이 FEEDBACK_CORRECTION을 상속해 다시 canned로 빠지는 연쇄를 끊는다.
+        if is_recheck and state is not None:
+            state = state.model_copy(update={"last_intent": intent})
 
     # 직장운 등 재직 전제 사건(이직·승진) + 대상이 비정직원(프로필 고용형태/질문 키워드)이면
     # '취업'도 핵심 대상에 포함한다 — event_keys에 추가하면 graph_scope(context_reducer)에 반영돼
@@ -1766,9 +1844,11 @@ def chat(
         or any(k in question for k in _PAST_KEYWORDS)
         # open_when = '언제였는지' 과거 개방 탐색(C15) — 후속 단답('년단위였어')처럼
         # 질문 텍스트에 과거 어미가 없어도 상속된 intent로 과거 회고를 식별(2026-06-12).
+        # 단 '언제 들어올까/언제쯤' 류 미래지향 open_when은 과거 회고가 아니다(2026-06-30 수정).
         or (
             intent.time_range is not None
             and intent.time_range.type == "open_when"
+            and not _FUTURE_WHEN_RE.search(question)
         )
     )
     default_period: tuple[str, str] | None = None
@@ -2056,7 +2136,9 @@ def chat(
     # 토픽 질문(직업·재물·건강·시험·연애)은 해당 Topic Builder 모듈을 실행해 확정 신호·정책 톤
     # 주입(옵션1 채팅 배선, 2026-06-26). relocation은 위 지역/이사 경로가 담당.
     if structural is not None and not _is_relocation_intent(intent):
-        structural = structural + _topic_module_context(birth, intent, today)
+        # 미래지향 질문(비회고)은 토픽 참고 신호도 현재 달부터 — 지난 달 노출 차단(시점 정합).
+        _floor = current_month if (not is_retro and current_month) else None
+        structural = structural + _topic_module_context(birth, intent, today, _floor)
     # 주간(일 범위) 질문은 7일 일별 일운을 surface — 월운으로 뭉뚱그려지던 결함 보완(2026-06-18).
     if structural is not None and _is_day_range(intent):
         structural = structural + _weekly_overview_lines(birth, intent, today)
@@ -2085,6 +2167,9 @@ def chat(
     # 줄인다. 안 그러면 serialize 통과 후 지시문·시스템이 더해져 generate_reading 재검사에서
     # 한도 초과 → 일반 오류로 마감되던 결함(2026-06-18, 10년 이사 질문 12,098tok 초과).
     trailing: list[str] = [_CHAT_SCOPE_DIRECTIVE]
+    # 직전 풀이 재검토(B) — 이의/반문 후속이면 엔진 근거로 재검토하도록 지시(출생정보 재요청 금지).
+    if is_recheck:
+        trailing.append(_RECHECK_DIRECTIVE)
     # 제안 이어보기 — '그래 봐줘' 류 수락이면 직전 답변에서 LLM이 제시한 제안을 그대로 이어 답하게
     # 한다(LLM 즉석 제안이 상태에 없어 일반 흐름으로 끊기던 결함 — 2026-06-25 데굴님 지적).
     if prior_answer and is_affirm_continue(question):

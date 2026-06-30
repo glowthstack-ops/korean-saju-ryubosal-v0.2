@@ -31,4 +31,6 @@ trap 'kill $BACK 2>/dev/null || true' EXIT INT TERM
 
 echo "[run] frontend → http://localhost:3000"
 cd "$ROOT/frontend"
-NEXT_PUBLIC_API_BASE="http://localhost:$API_PORT" npm run dev
+# 기본 연결 = 상대경로 /api (next.config rewrite가 백엔드로 프록시 → same-origin·CORS 불필요).
+# NEXT_PUBLIC_API_BASE는 비워 상대 /api를 쓰고, 프록시 목적지만 SAJU_BACKEND_URL로 지정한다.
+SAJU_BACKEND_URL="http://localhost:$API_PORT" npm run dev
