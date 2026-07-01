@@ -105,7 +105,8 @@ def test_full_pipeline(question: str, expected_type: str, route: str) -> None:
         assert res.prompt_preview is not None
         for section in ("[원국·명식 구조", "[이벤트 후보", "[지시]"):
             assert section in res.prompt_preview, f"{question}: {section} 누락"
-        assert res.input_tokens is not None and res.input_tokens <= 14_000
+        # 대화형 단건 입력 상한 = 20,000 (docs/09 8장, 2026-06-30 상향 · llm_guard CALL_LIMITS).
+        assert res.input_tokens is not None and res.input_tokens <= 20_000
 
 
 def test_all_nine_types_covered() -> None:
