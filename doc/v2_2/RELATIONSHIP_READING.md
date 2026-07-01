@@ -65,6 +65,12 @@
 - 연주 삼합 완성: 공적·사회 영역 인연 → 질문이 공공사업·입찰이면 조건부 언급.
 - "항상 그렇다"로 일반화 금지 — intent allowlist로 게이트.
 
+**구현 상태(v1, 2026-07-01)**: `palace_relationship_network.py`(engine `analyze_palace_network` +
+renderer `palace_network_lines`) + `shared_types/palace_network.py`. chat·report의 **관계·자산
+섹션(relationship/general)** 에 배선. 궁위 쌍 관계(육합·반합·충·형·파·해·원진)와 궁위 공망을
+P4 라벨로 렌더하며 점수 미개입. cross-palace 발현은 **가족(월-시/연-시 합)만 relationship/general
+조건부**로 v1에 포함. **연주 공공·입찰 발현(career/wealth)은 v2로 지연**(과노출 방지).
+
 ## 4. P2 — 12신살 상대위치법 (3순위, 신규 계산기, explanation-first)
 
 나의 지지 기준 상대 지지가 어느 12신살에 놓이는지 계산한다. **점수화 전에 설명 태그부터**.

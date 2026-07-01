@@ -1415,6 +1415,10 @@ def _structural_context(
     from saju_engines.external_impression import analyze_external_impression
     from saju_engines.health_vulnerability import analyze_health_vulnerability
     from saju_engines.marriage_resource import analyze_marriage_resource
+    from saju_engines.palace_relationship_network import (
+        analyze_palace_network,
+        palace_network_lines,
+    )
     from saju_engines.structural_context import (
         era_energy_lines,
         external_impression_lines,
@@ -1444,6 +1448,8 @@ def _structural_context(
         _useful = build_birth_summary(result).useful_gods
         out += marriage_resource_lines(analyze_marriage_resource(result, _useful))
         out += marriage_age_prior_lines(result)  # MT6 혼기 static prior(프로파일 off면 빈 줄)
+        # 궁위 관계망(P3) — 연·월·일·시 궁위 간 관계질(설명 레이어, 점수 미개입).
+        out += palace_network_lines(analyze_palace_network(result), domain)
         out.append(RELATIONSHIP_SELF_AWARENESS_DIRECTIVE)
         out.append(TENDENCY_SHIFT_DIRECTIVE)
     if general or domain is Domain.HEALTH:

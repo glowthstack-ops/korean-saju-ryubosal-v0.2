@@ -33,6 +33,10 @@ from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
 from saju_engines.marriage_timing_profile import marriage_engine_flags
+from saju_engines.palace_relationship_network import (
+    analyze_palace_network,
+    palace_network_lines,
+)
 from saju_engines.profile_engine import profile_event_signals
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
@@ -1346,6 +1350,12 @@ def build_section_context(
         impression = data.external_impression_block()
         if impression:
             lines += ["", *impression]
+        # 궁위 관계망(P3) — 연·월·일·시 궁위 간 관계질(설명 레이어, 점수 미개입).
+        network = palace_network_lines(
+            analyze_palace_network(data.result), Domain.RELATIONSHIP
+        )
+        if network:
+            lines += ["", *network]
     # 건강 섹션 — 원국 취약 구조(의료 면책 동반). C-02/C-06은 health 주제일 때만.
     if sid in _HEALTH_VULN_SECTIONS or (
         sid in _HEALTH_TOPIC_SECTIONS and spec.topic == "health"
