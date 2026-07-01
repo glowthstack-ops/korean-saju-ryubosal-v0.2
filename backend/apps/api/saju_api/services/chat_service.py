@@ -2095,11 +2095,21 @@ def chat(
             # 과거/범위 밖 연도면 그 해 월운을 on-demand로 계산·스코어해서
             # 빈 표('정보 없음' 회피)를 막는다(2026-06-12 지적).
             assert target_year is not None
-            years_in_result = {p.label[:4] for p in result.luck_cycles.monthly_luck}
-            if str(target_year) in years_in_result:
+            # 대상 연도의 12개월이 '전부' monthly_luck에 있어야 result를 그대로 쓴다 — 기존엔
+            # 그 해 한 달(예: 2027-01)만 있어도 커버로 오판해 나머지 달이 빈 간지→'입춘 전'
+            # 오라벨로 새던 결함(2026-07-01 데굴님 지적). 부분 커버면 그 해 월운을 온디맨드 계산.
+            have_months = {p.label for p in result.luck_cycles.monthly_luck}
+            if all(f"{target_year}-{m:02d}" in have_months for m in range(1, 13)):
                 overview = build_monthly_overview(result, all_scored, year=target_year)
             else:
-                year_months = luck_months(chart_birth, target_year)
+                # 그 해 세운의 월운(입춘~ 절기월, 예: 2027-02~2028-01)을 온디맨드 계산하되,
+                # 기존 창에 있던 그 해 달력월(예: 2027-01 = 전년 세운 끝자락)도 보존해 1~12월을
+                # 빠짐없이 채운다(2026-07-01 데굴님 지적: 2027-01만 있고 02~12가 '입춘 전'으로 샘).
+                by_label = {p.label: p for p in luck_months(chart_birth, target_year)}
+                for p in result.luck_cycles.monthly_luck:
+                    if p.label.startswith(f"{target_year}-"):
+                        by_label.setdefault(p.label, p)
+                year_months = [by_label[k] for k in sorted(by_label)]
                 result_year = result.model_copy(deep=True)
                 assert result_year.luck_cycles is not None
                 result_year.luck_cycles.monthly_luck = year_months
