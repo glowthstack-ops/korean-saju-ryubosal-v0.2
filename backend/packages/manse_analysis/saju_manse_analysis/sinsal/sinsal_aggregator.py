@@ -159,13 +159,13 @@ def _detect(pillars: FourPillarsResult) -> list[_Detection]:
         if Branch(p.branch) in cat.CHEONMUN_BRANCHES:
             out.append(("천문성", "spiritual_intuition", pos, f"{p.branch} 천문(글자)"))
 
-    # 천라지망살: 戌亥(천라)·辰巳(지망)가 모두 명식에 있을 때.
+    # 천라지망: 戌亥(천라)·辰巳(지망)가 모두 명식에 있을 때.
     chart_branches = {Branch(p.branch) for _pos, p in positions}
     for pair_b, kind in [(cat.CHEONRA, "천라(戌亥)"), (cat.JIMANG, "지망(辰巳)")]:
         if set(pair_b) <= chart_branches:
             for pos, p in positions:
                 if Branch(p.branch) in pair_b:
-                    out.append(("천라지망살", "isolation_conflict", pos, kind))
+                    out.append(("천라지망", "isolation_conflict", pos, kind))
 
     # 협록(夾祿): 일간 정록(L)을 두 지지가 L-1·L+1로 끼면(夾) 성립.
     rok = cat.CHEONROK[day_stem]
@@ -327,12 +327,12 @@ def sinsal_for_luck(
     elif branch == next_b and prev_b in natal_branches:
         add("협록")
 
-    # 천라지망살: 천라(戌亥)·지망(辰巳) 짝 중 운이 한쪽, 원국이 나머지 한쪽이면 완성.
+    # 천라지망: 천라(戌亥)·지망(辰巳) 짝 중 운이 한쪽, 원국이 나머지 한쪽이면 완성.
     for pair_b in (cat.CHEONRA, cat.JIMANG):
         if branch in pair_b:
             other = pair_b[0] if branch == pair_b[1] else pair_b[1]
             if other in natal_branches:
-                add("천라지망살")
+                add("천라지망")
 
     items = [
         LuckSinsal(

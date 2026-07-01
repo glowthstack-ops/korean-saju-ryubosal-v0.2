@@ -55,7 +55,7 @@ CATALOG_META: dict[str, dict] = {
     "낙정관살": {"category": "health_risk", "polarity": "caution", "tags": ["함정", "수액"]},
     "비인살": {"category": "health_risk", "polarity": "caution", "tags": ["충동", "칼날"]},
     "격각살": {"category": "isolation_conflict", "polarity": "caution", "tags": ["단절", "이별"]},
-    "천라지망살": {"category": "isolation_conflict", "polarity": "caution", "tags": ["속박"]},
+    "천라지망": {"category": "isolation_conflict", "polarity": "caution", "tags": ["속박"]},
     "고신살": {"category": "isolation_conflict", "polarity": "caution", "tags": ["고독", "고립"]},
     "과숙살": {"category": "isolation_conflict", "polarity": "caution", "tags": ["고독", "이별"]},
     "단교관살": {"category": "health_risk", "polarity": "caution", "tags": ["낙상", "수족"]},
