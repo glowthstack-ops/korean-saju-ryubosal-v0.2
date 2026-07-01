@@ -119,3 +119,10 @@ def test_general_fortune_resets_prior_topic() -> None:
     assert _run(reloc, "운세 알려줘").domain is Domain.GENERAL
     # 단, 도메인이 명시되면(내일 재물운) 그 도메인은 유지(무조건 리셋 아님).
     assert _run(reloc, "내일 재물운").domain is Domain.WEALTH
+
+
+# ── 9. '관계/사이' 질문은 직전 이사 스레드를 승계하지 않고 관계 도메인으로 전환 ──
+def test_relationship_question_switches_from_relocation() -> None:
+    reloc = _state(Domain.RELOCATION, QueryType.DOMAIN_ANALYSIS, start="2026-07-04")
+    assert _run(reloc, "ㄱㄱ과 나는 어떤 관계일까?").domain is Domain.RELATIONSHIP
+    assert _run(reloc, "우리 사이는 어때?").domain is Domain.RELATIONSHIP
