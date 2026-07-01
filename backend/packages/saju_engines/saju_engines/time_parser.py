@@ -300,6 +300,25 @@ def parse_time(
                 urgency=urgency,
             ), TimeScope.SHORT_TERM
 
+    # C8b 상대 일수 범위 — "이후/앞으로/향후 N일", "N일 내에/안에/이내" → 오늘부터 N일 롤링 창.
+    #     N월 N일(C5b)은 위에서 이미 처리·반환되므로 여기 도달하지 않는다(날짜 오인 방지). 미래
+    #     상대 일수만 잡는다(2026-07-01 데굴님 지적: '이후 10일 내에 로또 좋은 날'이 시점 미파싱으로
+    #     직전 하루를 과승계해 택일이 하루만 잡히던 결함). '열흘'(10) 한글수도 허용.
+    md = re.search(r"(?:이후|앞으로|향후|다가오는)\s*(\d{1,3})\s*일", text) or re.search(
+        r"(\d{1,3})\s*일\s*(?:내에|안에|이내|이내에|안으로)", text
+    )
+    n_days = int(md.group(1)) if md else 0
+    if not n_days and re.search(
+        r"열흘\s*(?:내에|안에|이내|안으로)|(?:이후|앞으로|향후)\s*열흘", text
+    ):
+        n_days = 10
+    if 1 <= n_days <= 366:
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=today.isoformat(), end=(today + timedelta(days=n_days)).isoformat(),
+            urgency=urgency,
+        ), TimeScope.DATE_LEVEL if n_days <= 31 else TimeScope.SHORT_TERM
+
     # C5 월 단위 — "5월", "이번달", "다음 달". 당해 연도 기준(실로그 B2 "5월은 어때?"가
     # 6월 발화에서도 같은 해 5월과의 비교 맥락) — "내년" 명시 시에만 +1.
     # 다중 월 비교("8월과 10월 중 언제가 나아?")는 두 달을 모두 잡아 min~max 구간으로 스팬한다
