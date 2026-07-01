@@ -318,6 +318,16 @@ def polarity_ko(value: str) -> str:
     return _POLARITY_KO.get(value, value)
 
 
+# 택일 추천 등급 → 한글 라벨(내부 enum 노출 방지 — LLM이 'recommended'를 그대로 인용하던 결함
+# 차단, 2026-07-01 데굴님 지적). recommended|acceptable|avoid.
+_RECOMMENDATION_KO = {"recommended": "추천", "acceptable": "무난", "avoid": "회피"}
+
+
+def recommendation_ko(value: str) -> str:
+    """택일 추천 등급 → 한글(내부 어휘 노출 방지)."""
+    return _RECOMMENDATION_KO.get(value, value)
+
+
 def _direction_for(c: EventCandidate) -> str:
     """후보의 방향(길흉)+타이밍 라벨 — '조건부' 4값 축소 대신 또렷한 방향. 없으면 polarity 폴백."""
     lbl = direction_label(c.quality, c.timing)
@@ -1576,10 +1586,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(f"[택일 결과 — {ds.purpose_ko} · {ds.period} · 엔진 확정값]")
         for drow in ds.rows:
             notes = " · ".join(drow.notes) if drow.notes else ""
-            # 택일 점수도 내부값 — 추천 등급(라벨)만 노출(항목 5).
+            # 택일 점수·내부 enum은 노출 금지 — 추천 등급을 한글 라벨로만 노출(항목 5).
             lines.append(
                 f"{drow.date}({drow.weekday}) {drow.ganji} "
-                f"[{drow.recommendation}]" + (f" — {notes}" if notes else "")
+                f"[{recommendation_ko(drow.recommendation)}]" + (f" — {notes}" if notes else "")
             )
         for avoid in ds.avoid[:5]:
             lines.append(f"회피일 {avoid.get('date')} — {avoid.get('reason')}")

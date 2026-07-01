@@ -54,6 +54,11 @@ _VOLATILITY_CAUTION = (
     "당첨·수익 단정 불가 — 단기 재물 변동성과 투기 충동이 함께 커지는 시기일 수 있어 "
     "과몰입을 주의하세요. 본 추천은 투자 조언이 아닙니다."
 )
+# 도메인 영문 enum → 한글(택일 사유에 'wealth 신호' 같은 내부값이 노출되던 결함 차단, 2026-07-01).
+_DOMAIN_KO: dict[str, str] = {
+    "relocation": "이사", "wealth": "재물", "career": "직업", "relationship": "관계",
+    "health": "건강", "education": "학업", "general": "전반",
+}
 
 
 class DateSelectionEngine:
@@ -218,7 +223,7 @@ class DateSelectionEngine:
                 ganji=f"{c.ganji.stem}{c.ganji.branch}",
                 scores=scores,
                 risk_score=risk,
-                reasons=reasons or [f"{domain} 신호 기반"],
+                reasons=reasons or [f"{_DOMAIN_KO.get(domain, domain)} 신호 기반"],
                 cautions=cautions,
                 recommendation=(
                     "recommended" if scores.final >= 70 and risk < 40
