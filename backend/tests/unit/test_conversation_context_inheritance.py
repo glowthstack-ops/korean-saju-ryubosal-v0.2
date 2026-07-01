@@ -106,3 +106,16 @@ def test_bare_year_without_offer_follows_active_thread() -> None:
     # 활성 스레드가 general(약함)이면 상속해도 general 유지(무해).
     it_g = _run(_state(Domain.GENERAL, QueryType.FORTUNE_OVERVIEW, offer=""), "2026년")
     assert it_g.domain is Domain.GENERAL
+
+
+# ── 8. 일반 운세 요청은 직전 특정 주제를 승계하지 않는다(과승계 차단, 2026-07-01) ──
+def test_general_fortune_resets_prior_topic() -> None:
+    # 이사(relocation) 스레드 뒤 '내일 운세를 알려줘' → 일반 운세로 리셋(이사 승계 금지).
+    reloc = _state(Domain.RELOCATION, QueryType.DOMAIN_ANALYSIS, start="2026-07-04")
+    it = _run(reloc, "내일 운세를 알려줘")
+    assert it.domain is Domain.GENERAL and it.event_key is None
+    assert it.query_type is QueryType.FORTUNE_OVERVIEW
+    # '운세 알려줘'(시점 없음)도 리셋.
+    assert _run(reloc, "운세 알려줘").domain is Domain.GENERAL
+    # 단, 도메인이 명시되면(내일 재물운) 그 도메인은 유지(무조건 리셋 아님).
+    assert _run(reloc, "내일 재물운").domain is Domain.WEALTH

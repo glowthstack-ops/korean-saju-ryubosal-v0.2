@@ -68,6 +68,10 @@ _DRILL_RE = re.compile(r"세부적으로|구체적으로|시기별로|자세히"
 # 새 스레드를 여는 '처음부터 다시'·새 풀이 요청 신호 — 토픽 연속 후속에서 제외(직전 분야 미상속).
 _FRESH_OVERVIEW_RE = re.compile(r"총운|전체\s*운|평생|사주\s*전체|명식|처음부터|새로\s*봐")
 _READING_REQUEST_RE = re.compile(r"사주\s*(봐|풀)|봐\s*줘|봐주|풀어\s*줘")
+# 일반 운세 요청('내일 운세를 알려줘'·'오늘 운세'·'하루 운세') — 도메인 키워드가 없을 때 직전 특정
+# 주제(이사·재물 등)를 물려받지 않고 새 일반 운세로 리셋한다. '내일' 같은 시점 슬롯이 붙어도
+# 직전 스레드를 통째 승계하던 과승계 차단(2026-07-01 데굴님 지적: '내일 운세'가 이사 답으로 샘).
+_GENERAL_FORTUNE_RE = re.compile(r"운세|하루\s*운|오늘\s*하루")
 # bare 절대 시점('2026년'·'2026'·'상반기') — 상대시점 정규식(올해/내년/5월)이 못 잡는 절대 연도·
 # 반기 슬롯. 도메인/총운/새풀이 신호가 없을 때만 직전 스레드 시점 교체 후속으로 본다(2026-07-01
 # 데굴님 지적: '난 언제쯤 돈이 생길까?' 뒤 '2026년'이 NEW로 떨어져 재물 맥락을 잃던 결함).
@@ -302,6 +306,12 @@ class ConversationEngine:
                 else LinkKind.TIME_SHIFT
             )
             return self._follow(parent_id, kind, state)
+
+        # 일반 운세 요청('내일 운세를 알려줘'·'운세 알려줘') — 도메인 키워드가 없으면 직전 특정
+        # 주제(이사·재물 등)를 승계하지 않고 새 일반 운세로 리셋한다(과승계 차단, 2026-07-01).
+        # 시점(내일 등)은 파서가 자체 파싱하므로 NEW로 끊어도 시점은 유지된다.
+        if _GENERAL_FORTUNE_RE.search(text) and not _detect_domains(text):
+            return LinkResult(is_follow_up=False, link_kind=LinkKind.NEW)
 
         # 2순위 — 단답(10자 이하) + 슬롯 1개만 → 교체상속(B2/B3).
         compact = text.replace(" ", "")
