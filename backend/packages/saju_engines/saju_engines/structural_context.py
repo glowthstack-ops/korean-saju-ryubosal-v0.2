@@ -20,6 +20,7 @@ from .era_energy import era_curated_note, era_energy_profile
 from .health_vulnerability import health_risk_windows
 from .marriage_age_prior import analyze_marriage_age_prior
 from .marriage_timing_profile import active_marriage_aux
+from .relationship_relation_labels import relation_summary_ko
 
 # MT6 혼기 band → 한글 경향(static prior·특정 시기 아님).
 _MARRIAGE_AGE_BAND_KO = {
@@ -202,6 +203,13 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
             + " — 관계가 흔들리기 쉬운 결이나 개운·궁합·노력으로 보완 가능(이혼 단정 아님, "
             "남·환경 탓보다 본인 대응이 관건)"
         )
+        # 관계질 라벨(P4 — 중립 설명, 판정·점수 미개입): 각 살의 관계 결을 낙인 없이 병기.
+        rel_notes = [
+            f"{a}({relation_summary_ko(a)})"
+            for a in mr.spouse_palace_afflictions if relation_summary_ko(a)
+        ]
+        if rel_notes:
+            quality.append("  · 관계질 참고: " + " / ".join(rel_notes))
     if mr.spouse_is_yongsin:
         quality.append(
             f"배우자성({mr.spouse_star})이 용신/희신 — 배우자가 부족한 기운을 채워주는 "

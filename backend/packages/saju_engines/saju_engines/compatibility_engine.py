@@ -35,6 +35,25 @@ from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.llm_input import UsefulGods
 from saju_shared_types.manse_result import ManseV2Result
 
+from .relationship_relation_labels import relation_summary_ko
+
+# 궁합 신호 종류 → 관계질 라벨 키(P4 설명 문구용, 점수 미개입). 합충형파해·원진만 매핑한다.
+_KIND_TO_RELATION: dict[CompatSignalKind, str] = {
+    CompatSignalKind.DAY_BRANCH_SIX: "hap",
+    CompatSignalKind.DAY_BRANCH_CLASH: "chung",
+    CompatSignalKind.DAY_BRANCH_PUNISH: "hyeong",
+    CompatSignalKind.DAY_BRANCH_BREAK: "pa",
+    CompatSignalKind.DAY_BRANCH_HARM: "hae",
+    CompatSignalKind.SINSAL_FRICTION: "wonjin",
+}
+
+
+def _relation_note(kind: CompatSignalKind) -> str:
+    """신호 종류에 대응하는 관계질 중립 요약(없으면 빈 문자열) — P4 설명 태그."""
+    key = _KIND_TO_RELATION.get(kind)
+    return relation_summary_ko(key) if key else ""
+
+
 # 십성별 관계 작용 방향(reviewed:false). 정관·정재·정인·식신=안정/생조 → 보완,
 # 편관·상관·겁재=긴장/소모 → 마찰, 비견·편재·편인=중립.
 _TEN_GOD_DIRECTION: dict[str, CompatDirection] = {
@@ -392,9 +411,13 @@ def compatibility_lines(report: CompatibilityReport) -> list[str]:
         f"{_attraction_line(report.attraction_band, report.harmony_count, report.friction_count)}",
     ]
     for s in main:
-        out.append(f"  - [{s.direction.value}] {s.label}: {s.detail}")
+        note = _relation_note(s.kind)
+        tail = f" — {note}" if note else ""
+        out.append(f"  - [{s.direction.value}] {s.label}: {s.detail}{tail}")
     if aux:
         out.append("[참고 — 보조 신살(분위기 정도로 가볍게만 언급, 판정 근거 아님)]")
         for s in aux:
-            out.append(f"  - {s.label}: {s.detail}")
+            note = _relation_note(s.kind)
+            tail = f" — {note}" if note else ""
+            out.append(f"  - {s.label}: {s.detail}{tail}")
     return out
