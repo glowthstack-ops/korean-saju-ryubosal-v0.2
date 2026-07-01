@@ -1400,19 +1400,24 @@ def _compat_prompt_block(
     return "\n".join(lines)
 
 
-def _structural_context(result: ManseV2Result, intent: IntentJson, today: date) -> list[str]:
+def _structural_context(
+    result: ManseV2Result, intent: IntentJson, today: date, question: str = "",
+) -> list[str]:
     """질문 도메인에 맞는 구조 해석 블록(누출 안전 한글). intent 미확정(general)=총운으로 간주해
     모든 블록을, 확정 도메인은 해당 블록만 표면화한다(2026-06-16 사용자 확정).
 
     리포트와 동일한 structural_context 포맷터를 재사용해 표면화 일관성·누출 방지를 유지한다.
+    외적 인상·매력 신호는 자체 allowlist(관계·총운·명식분석·외모 직접질문)로 별도 게이트한다.
     """
     if result.pillars is None or result.force_analysis is None:
         return []
     from saju_engines.event_scoring import favorability_map
+    from saju_engines.external_impression import analyze_external_impression
     from saju_engines.health_vulnerability import analyze_health_vulnerability
     from saju_engines.marriage_resource import analyze_marriage_resource
     from saju_engines.structural_context import (
         era_energy_lines,
+        external_impression_lines,
         health_lines,
         marriage_age_prior_lines,
         marriage_resource_lines,
@@ -1444,6 +1449,9 @@ def _structural_context(result: ManseV2Result, intent: IntentJson, today: date) 
     if general or domain is Domain.HEALTH:
         hv = analyze_health_vulnerability(result, favorability_map(result))
         out += health_lines(result, hv, today.year)
+    # 외적 인상·매력 신호 — 자체 allowlist·gender·band 게이트(미해당 시 무언급). 외모 직접질문은
+    # suppress 도메인에서도 예외 노출하므로 도메인 분기 밖에서 항상 호출한다.
+    out += external_impression_lines(analyze_external_impression(result), intent, question)
     return out
 
 
@@ -2130,7 +2138,7 @@ def chat(
             prior_claims.append(f"{label}" + (f" — {ref.detail}" if ref.detail else ""))
     # 구조 해석 블록 — 단일 대상일 때만(궁합 비교는 대상 혼동 방지로 생략).
     structural = (
-        _structural_context(result, intent, today) if not plan.per_subject else None
+        _structural_context(result, intent, today, question) if not plan.per_subject else None
     )
     # 이사 평가 질문('이사하면 어때?' — 택일 아님)은 date_block이 없으므로, 십성 이사 이유분류를
     # 구조 블록에 실어 '무슨 십성이라 이런 이사' 서술을 가능케 한다(2026-06-18 결함 보완).

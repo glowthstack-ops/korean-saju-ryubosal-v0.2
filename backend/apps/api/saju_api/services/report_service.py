@@ -52,6 +52,7 @@ from saju_engines.structural_context import (
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
     era_energy_lines,
+    external_impression_lines,
     health_lines,
     marriage_age_prior_lines,
     marriage_resource_lines,
@@ -69,7 +70,7 @@ from saju_shared_types.constants import BRANCH_KO, STEM_KO
 from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as _EVENT_DOMAIN_V2
 from saju_shared_types.events import EventCandidate, EventPolarity
 from saju_shared_types.ganji_calendar import GanjiLevel
-from saju_shared_types.intent import SubjectKind
+from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectKind
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.report import ReportResult, ReportSpec, SectionContext, SectionPlan
 from saju_shared_types.topic_context import PeriodSpec as _TopicPeriodSpec
@@ -736,6 +737,20 @@ class _ReportData:
             + marriage_age_prior_lines(self.result)
         )
 
+    def external_impression_block(self) -> list[str]:
+        """[외적 인상·분위기 구조] — 인상·표현매력·관계적 끌림 보조(미모 단정 아님).
+
+        리포트는 질문 intent가 없으므로 관계 챕터 배치 자체를 노출 근거로 보고 합성 RELATIONSHIP
+        intent로 동일 게이트 함수를 호출한다(정책 단일 소스). band=none(미해당)이면 빈 목록 —
+        '예쁜 경우에만 언급, 아니면 무언급' 보장. 성별 미상(confidence=low)은 strong일 때만 노출.
+        """
+        from saju_engines.external_impression import analyze_external_impression
+        intent = IntentJson(
+            intent_id="report_impression", query_type=QueryType.DOMAIN_ANALYSIS,
+            domain=Domain.RELATIONSHIP,
+        )
+        return external_impression_lines(analyze_external_impression(self.result), intent)
+
     def health_vulnerability_block(self) -> list[str]:
         """[원국 건강 취약 구조 + 관리 권장 시기] — structural_context 위임(의료 면책)."""
         return health_lines(self.result, self.health_vulnerability, self.today.year)
@@ -1327,6 +1342,10 @@ def build_section_context(
             RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
             TENDENCY_SHIFT_DIRECTIVE,
         ]
+        # 외적 인상·매력 신호 — notable 이상일 때만 표면화(미해당이면 빈 목록 → 무언급).
+        impression = data.external_impression_block()
+        if impression:
+            lines += ["", *impression]
     # 건강 섹션 — 원국 취약 구조(의료 면책 동반). C-02/C-06은 health 주제일 때만.
     if sid in _HEALTH_VULN_SECTIONS or (
         sid in _HEALTH_TOPIC_SECTIONS and spec.topic == "health"

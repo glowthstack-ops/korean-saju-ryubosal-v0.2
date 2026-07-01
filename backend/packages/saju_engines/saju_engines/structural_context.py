@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
+from saju_shared_types.external_impression import ExternalImpressionProfile
 from saju_shared_types.health_vulnerability import HealthVulnerabilityProfile
+from saju_shared_types.intent import Domain, IntentJson, QueryType
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_resource import MarriageResourceProfile
 from saju_shared_types.wealth_capacity import WealthCapacity
@@ -356,4 +358,82 @@ def marriage_age_prior_lines(result: ManseV2Result) -> list[str]:
         )
     if prior.confidence == "low":
         lines.append("  ※ 성별 미상 — 약한 참고(혼기 보정 미사용)")
+    return lines
+
+
+# ── 외적 인상·매력 신호 표면화 (SSOT: doc/v2_2/EXTERNAL_IMPRESSION_SIGNAL.md) ──
+# 노출은 intent allowlist·gender·band로 게이트한다. '이직운/건강운'에 매력 신호가 튀어나오지 않게
+# 관계·총운·명식분석·외모 직접질문에서만 표면화한다. 미해당 시 완전 무언급(빈 목록).
+_IMPRESSION_ALLOW_DOMAINS = frozenset({Domain.RELATIONSHIP, Domain.GENERAL})
+_IMPRESSION_SUPPRESS_DOMAINS = frozenset(
+    {Domain.CAREER, Domain.WEALTH, Domain.HEALTH, Domain.EDUCATION, Domain.RELOCATION}
+)
+# 사용자가 직접 외모·매력·인상을 물으면 suppress를 무시하고 노출한다.
+_IMPRESSION_DIRECT_KEYWORDS = (
+    "외모", "매력", "첫인상", "생김새", "인상이", "이성에게", "끌림", "끌리는", "호감형",
+    "도화", "분위기 있", "예쁘", "잘생", "이쁘", "얼굴",
+)
+
+
+def _is_appearance_question(question: str) -> bool:
+    """질문이 외모·매력·인상을 직접 묻는가 — suppress 도메인에서도 노출 허용하는 예외 판정."""
+    q = question or ""
+    return any(kw in q for kw in _IMPRESSION_DIRECT_KEYWORDS)
+
+
+def external_impression_lines(
+    profile: ExternalImpressionProfile, intent: IntentJson, question: str = "",
+) -> list[str]:
+    """[외적 인상·분위기 구조] — 인상·표현매력·관계적 끌림 보조 신호(미모 단정 아님).
+
+    노출 게이트: ①band(none이면 무언급, weak는 직접질문에만) ②intent allowlist(관계·총운·명식분석·
+    외모 직접질문만, 커리어·재물·건강 등은 억제) ③성별 미상(confidence=low)이면 직접질문·strong일
+    때만. 하드 가드(용모 우열·성적 매력·성별 고정 표현 금지)를 지시문에 명시하되, 재미 위주 정보라
+    과잉 면책 없이 가벼운 톤으로 서술하도록 안내한다.
+
+    Args:
+        profile: analyze_external_impression 결과.
+        intent: 확정 intent(도메인·질문유형).
+        question: 원문 질문(외모 직접질문 예외 판정용).
+
+    Returns:
+        LLM 입력 지시문 목록. 노출 조건 미충족 시 빈 목록(완전 무언급).
+    """
+    if profile.band == "none":
+        return []
+    direct = _is_appearance_question(question)
+    domain = intent.domain
+    allow = (
+        direct
+        or domain in _IMPRESSION_ALLOW_DOMAINS
+        or intent.query_type is QueryType.CHART_ANALYSIS
+    )
+    suppressed = domain in _IMPRESSION_SUPPRESS_DOMAINS and not direct
+
+    if profile.band in ("notable", "strong"):
+        if suppressed or not allow:
+            return []
+        if profile.confidence == "low" and not (direct or profile.band == "strong"):
+            return []
+    elif profile.band == "weak":
+        if not direct:  # 약한 신호는 사용자가 직접 물을 때만, 매우 조심스럽게.
+            return []
+    else:
+        return []
+
+    scored = [s for s in profile.signals if s.tier != "note"]
+    notes = [s for s in profile.signals if s.tier == "note"]
+    lines = [
+        "[외적 인상·분위기 구조 — 원국 구조(운 미반영). 외모를 '단정'하지 말고 첫인상·분위기·"
+        "표현 매력·관계적 끌림의 방향으로만 서술하라. 용모의 우열이나 선정적·성별 고정 표현은 쓰지 "
+        "말 것. 재미 위주의 가벼운 정보이니 과한 면책·경고 반복 없이 긍정적으로 녹여 풀되, 강도는 "
+        "단정하지 말 것]",
+    ]
+    for s in scored:
+        line = f"- {s.modern_ko}"
+        if s.note:
+            line += f" (참고: {s.note})"
+        lines.append(line)
+    for s in notes:
+        lines.append(f"- (참고) {s.modern_ko}")
     return lines
