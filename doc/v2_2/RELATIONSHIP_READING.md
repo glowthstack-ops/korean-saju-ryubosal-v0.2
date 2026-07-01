@@ -191,3 +191,24 @@ controlled_by_target`. `exposure="shadow"`(v1 전부).
 2. 12신살 상대위치는 **신규 계산기**(현황 과대평가 정정). 년지=사회·일지=친밀 분리, 양방향 비대칭.
 3. 원진≠속궁합, 연살≠소비(단독), 해(害) 추가.
 4. 성별·정신건강은 초기 제외.
+
+## 9. 구현 현황 (2026-07-01 — P4~P1 완료)
+
+| # | 모듈 | 타입 | 배선 | 커밋 |
+|---|---|---|---|---|
+| P4 | `relationship_relation_labels.py` | — | compatibility·배우자궁(structural_context) | `7ce7145` |
+| P3 | `palace_relationship_network.py` | `palace_network.py` | chat `_structural_context`·report 관계 섹션 | `a7bf957` |
+| P2 | `relationship_relative_sinsal.py` | `relative_sinsal.py` | chat `_compat_prompt_block`·report `compatibility_block` | `fd02671` |
+| P1 | `relationship_trine_dynamics.py` | `trine_dynamics.py` | **미연결(shadow-only)** | `21ca870` |
+
+**공통 정책(4개 모듈 불변식)**:
+- **explanation-first / inert**: 기존 궁합·사건 `score·confidence·favorability·후보`를 변경하지 않는다
+  (각 모듈의 `*Result.confidence`는 자체 설명 신뢰도로 엔진 confidence와 무관).
+- **단정 금지**: 성별 위계·정신질환·승패·서열·우열을 단정하지 않는다. 관계 역학 경향으로만.
+- **노출 게이트**: cross-palace 발현(P3)·12신살(P2)·삼합국 역학(P1)은 intent·tier·shadow로 게이트.
+
+## 10. 후속 우선순위 (다음 단계)
+1. **P1 shadow 샘플 로그 수집·검수** — 삼합국 역학 실제 표본 관찰 후 렌더 승급 판단.
+2. **P2 확장** — 부모자식·상하관계 intent로 상대위치 적용(현재 궁합만).
+3. **P3 cross-palace 공공·입찰 발현** — career/wealth intent에서만 제한적으로 추가(현재 가족만).
+4. **P1 렌더 승급 여부 판단** — 1의 검수 결과에 따라 chat/report 연결.
