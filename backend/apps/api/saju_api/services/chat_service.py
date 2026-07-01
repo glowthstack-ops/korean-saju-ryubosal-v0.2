@@ -43,6 +43,7 @@ from saju_engines.shadow_scoring import domain_to_expression_key
 from saju_engines.structural_context import (
     DAEWOON_FRAMING_DIRECTIVE,
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
+    GONGMANG_ACTIVATION_DIRECTIVE,
     PARTNER_SOURCE_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
@@ -2190,7 +2191,7 @@ def chat(
     # 토큰 가드 예약분으로 넘겨야 컨텍스트 축소기가 '실제 총 입력(payload+오버헤드)' 기준으로
     # 줄인다. 안 그러면 serialize 통과 후 지시문·시스템이 더해져 generate_reading 재검사에서
     # 한도 초과 → 일반 오류로 마감되던 결함(2026-06-18, 10년 이사 질문 12,098tok 초과).
-    trailing: list[str] = [_CHAT_SCOPE_DIRECTIVE]
+    trailing: list[str] = [_CHAT_SCOPE_DIRECTIVE, GONGMANG_ACTIVATION_DIRECTIVE]
     # 직전 풀이 재검토(B) — 이의/반문 후속이면 엔진 근거로 재검토하도록 지시(출생정보 재요청 금지).
     if is_recheck:
         trailing.append(_RECHECK_DIRECTIVE)

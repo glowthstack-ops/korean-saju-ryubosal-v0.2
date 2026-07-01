@@ -143,7 +143,11 @@ def palace_network_lines(network: PalaceNetwork, domain: Domain) -> list[str]:
         summ = relation_summary_ko(pr.relation)
         lines.append(f"- {pr.role_a} ↔ {pr.role_b} {pr.relation_ko}({pr.branches}): {summ}")
     for code in network.gongmang_palaces:
-        lines.append(f"- {_PALACE_ROLES[code]} 공망: {relation_summary_ko('gongmang')}")
+        # 공망은 배경 구조 — 운이 충/합으로 자극할 때만 발동(특정 시점 임의 영향 서술 금지).
+        lines.append(
+            f"- {_PALACE_ROLES[code]} 공망(배경 구조 — 운이 충/합으로 자극할 때만 발동): "
+            f"{relation_summary_ko('gongmang')}"
+        )
 
     # cross-palace 구체 발현(조건부) — 월·시(가족↔자식/결과) 합이 있고 관계·총운 맥락일 때만.
     family_link = any(

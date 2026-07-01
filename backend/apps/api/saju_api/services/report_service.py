@@ -53,6 +53,7 @@ from saju_engines.structural_context import (
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE as _DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
 )
 from saju_engines.structural_context import (
+    GONGMANG_ACTIVATION_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
     era_energy_lines,
@@ -495,6 +496,8 @@ class _ReportData:
         self.prefix_lines = serialize_chart_prefix(
             self.summary, build_chart_interpretation(self.result),
         )
+        # 공망 해석 규칙(전 섹션 공통) — 원국 공망은 배경값·운 자극 시만 발동(미발동 시 언급 금지).
+        self.prefix_lines = [*self.prefix_lines, GONGMANG_ACTIVATION_DIRECTIVE]
         # 확정 용신 적용 안내를 원국 prefix 뒤에 부착(전 섹션 공통) — 확정 5역할을 길흉 기준으로,
         # 엔진 최초 도출(확정 전 후보)은 기본값으로 병기. 확정=도출 일치 시 빈 문자열(미부착).
         if self._confirmed_yongsin is not None:
