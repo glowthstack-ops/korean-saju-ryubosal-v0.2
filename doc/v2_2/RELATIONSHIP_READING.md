@@ -5,6 +5,15 @@
 > 본 문서는 **초안(reviewed:false)**. 승패·서열·성별 위계·정신질환 단정은 금지하며, 리스크가 큰
 > 항목(삼합국 역학)은 **shadow/설명 보조 레이어 우선**으로 도입한다.
 
+> **🏁 Milestone: Relationship Reading v1 — 완료(운영 후보 안정화, 2026-07-01)**
+> 기준 커밋 `origin 123febc` · 회귀 1418 passed/20 skipped · ruff·mypy clean · 정책
+> explanation-first/inert/gate 준수.
+> **Included**: 관계질 라벨(합충형파해원진공망) · 궁위 관계망 · 12신살 상대위치 · 삼합국 역학
+> shadow · 골든 샘플 가드셋 · 토큰 임계 정정(14k→20k).
+> **Deferred**: 성별 위계 해석 · 정신건강/탕화살 해석 · P1 렌더 승급 · P2 부모자식/상하 확장 ·
+> P3 공공·입찰(career/wealth) 발현.
+> **Known-existing(비차단·환경 의존)**: `too_broad`(분류기 모델 의존) · `report_jobs`(라이브 DB 의존).
+
 ## 0. 핵심 원칙
 
 - **관계는 서열·승패가 아니다.** "이긴다/못 이긴다/우열"로 표현하지 않고 **주도·수용·보완·부담·
