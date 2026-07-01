@@ -551,7 +551,13 @@ class _ReportData:
         """궁합 신호 블록(RP-04·RP-05·RP-08 — 엔진 계산 사실)."""
         if self.compatibility is None:
             return ["[궁합 신호 없음 — 상대 명식이 없어 비교할 수 없습니다.]"]
-        return compatibility_lines(self.compatibility)
+        lines = compatibility_lines(self.compatibility)
+        # 12신살 상대위치(P2) — 년지(사회)·일지(친밀) 상대 12신살 양방향(설명 레이어, 점수 미개입).
+        partner = getattr(self, "partner_result", None)
+        if partner is not None:
+            from saju_engines.relationship_relative_sinsal import relative_sinsal_lines
+            lines += relative_sinsal_lines(self.result, partner)
+        return lines
 
     @property
     def composites(self) -> list:
