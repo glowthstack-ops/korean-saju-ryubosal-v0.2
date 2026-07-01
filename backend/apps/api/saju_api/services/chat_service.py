@@ -2185,9 +2185,10 @@ def chat(
     # 직전 풀이 재검토(B) — 이의/반문 후속이면 엔진 근거로 재검토하도록 지시(출생정보 재요청 금지).
     if is_recheck:
         trailing.append(_RECHECK_DIRECTIVE)
-    # 제안 이어보기 — '그래 봐줘' 류 수락이면 직전 답변에서 LLM이 제시한 제안을 그대로 이어 답하게
-    # 한다(LLM 즉석 제안이 상태에 없어 일반 흐름으로 끊기던 결함 — 2026-06-25 데굴님 지적).
-    if prior_answer and is_affirm_continue(question):
+    # 제안 이어보기 — '그래 봐줘' 류 수락, 또는 슬롯 답변('2026년')처럼 후속으로 판정된 턴이면
+    # 직전 답변의 제안을 그대로 이어 답하게 한다(수락어 없는 슬롯 답변도 제안과 연결 — 2026-07-01
+    # 데굴님 지적: '어느 해의 월별 흐름?' 뒤 '2026년'이 제안 맥락을 잃던 결함).
+    if prior_answer and (is_affirm_continue(question) or is_followup_turn):
         _offer = _extract_offer(prior_answer)
         if _offer:
             trailing.append(_OFFER_CONTINUE_DIRECTIVE.format(offer=_offer))
@@ -2329,6 +2330,10 @@ def chat(
         owner_id=owner_id, surface="chat", ref_id=thread_id,
     )
     answer = _normalize_ganji_gloss(answer)  # 간지 이중 병기(과글로싱) 보정.
+    if state is not None:
+        # 이번 답변 끝의 제안(offer)을 저장 — 다음 턴의 슬롯 답변('2026년')을 제안 수락으로 연결한다
+        # (비offer면 '' → 자동 만료). offer-slot 링킹·월별 승격의 근거(2026-07-01).
+        state.last_offer = _extract_offer(answer)
     _save_thread(store, state)
     return ChatResponse(
         status="answered",

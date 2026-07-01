@@ -501,7 +501,10 @@ def parse_message(
         return ParsedMessage(
             intents=[inherited], is_follow_up=True, inherited_from=prev_intent.intent_id,
         )
-    if prev_intent is not None and _is_short_followup(text) and time_range is not None:
+    if (
+        prev_intent is not None and _is_short_followup(text) and time_range is not None
+        and not _detect_domains(text)  # '2026년 연애운'처럼 새 도메인이 명시되면 prev 복제 금지
+    ):
         # 시점만 바뀐 후속('그럼 28년은?') — 직전 intent를 상속하고 시점만 교체.
         # 후속이 단위를 따로 명시하지 않았으면 직전 granularity를 유지한다(월별 맥락 보존,
         # 2026-06-14): '앞으로 5년 이사운 월별로' 뒤 '그럼 28년은?'은 28년을 월단위로 본다.

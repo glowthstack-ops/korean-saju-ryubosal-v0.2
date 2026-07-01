@@ -26,6 +26,7 @@ from saju_shared_types.conversation import (
 )
 from saju_shared_types.intent import (
     Domain,
+    Granularity,
     ParsedMessage,
     QueryType,
     SubjectKind,
@@ -67,6 +68,12 @@ _DRILL_RE = re.compile(r"세부적으로|구체적으로|시기별로|자세히"
 # 새 스레드를 여는 '처음부터 다시'·새 풀이 요청 신호 — 토픽 연속 후속에서 제외(직전 분야 미상속).
 _FRESH_OVERVIEW_RE = re.compile(r"총운|전체\s*운|평생|사주\s*전체|명식|처음부터|새로\s*봐")
 _READING_REQUEST_RE = re.compile(r"사주\s*(봐|풀)|봐\s*줘|봐주|풀어\s*줘")
+# bare 절대 시점('2026년'·'2026'·'상반기') — 상대시점 정규식(올해/내년/5월)이 못 잡는 절대 연도·
+# 반기 슬롯. 도메인/총운/새풀이 신호가 없을 때만 직전 스레드 시점 교체 후속으로 본다(2026-07-01
+# 데굴님 지적: '난 언제쯤 돈이 생길까?' 뒤 '2026년'이 NEW로 떨어져 재물 맥락을 잃던 결함).
+_BARE_ABS_TIME_RE = re.compile(r"\d{3,4}\s*년|\b\d{4}\b|상반기|하반기|연초|연말")
+# 직전 제안이 '월별 흐름'을 제시했는지 — 슬롯 답변('2026년') 시 granularity를 월로 승격한다.
+_OFFER_MONTHLY_RE = re.compile(r"월별|달별|월\s*단위|매월|달마다")
 # 시점-탐색 질문(스스로 시점을 찾는 질문) — 직전 시점 창을 승계하면 안 된다(2026-06-23: 7/4 이사
 # 지정 뒤 '연애 언제 시작?'까지 7/4에 고정되던 과잉승계 부작용). '언제'는 파서가 open_when으로
 # 잡지만, '할 수 있을까/가능할까/몇 년 후'처럼 open_when이 안 붙는 표현도 함께 차단한다.
@@ -183,6 +190,16 @@ class ConversationEngine:
                     continue
                 intent.time_range = last.time_range
 
+        # offer-slot: 직전 제안이 '월별 흐름'이었고 이번이 후속이면 연 단위 시점을 월별로 승격한다
+        # ('어느 해의 월별 흐름?' → '2026년' = 2026년 월별). 사용자가 명시 월을 준 경우는 유지.
+        if link.is_follow_up and state.last_offer and _OFFER_MONTHLY_RE.search(state.last_offer):
+            for intent in parsed.intents:
+                tr = intent.time_range
+                if tr is not None and tr.granularity is Granularity.YEAR:
+                    intent.time_range = tr.model_copy(
+                        update={"granularity": Granularity.MONTH, "granularity_override": True}
+                    )
+
         new_state = self._advance_state(state, text, parsed, resolution)
         return parsed, new_state, resolution, link
 
@@ -297,6 +314,14 @@ class ConversationEngine:
                 return self._follow(parent_id, LinkKind.TIME_SHIFT, state)
             if _detect_domains(text):
                 return self._follow(parent_id, LinkKind.DOMAIN_SHIFT, state)
+            # bare 절대 시점('2026년'·'상반기') — 새 도메인/총운/새풀이 신호가 없을 때만 직전 스레드
+            # 시점 교체 후속. parse_message(prev)의 시점 클론이 domain·query_type·event를 승계한다.
+            if (
+                _BARE_ABS_TIME_RE.search(text)
+                and not _FRESH_OVERVIEW_RE.search(text)
+                and not _READING_REQUEST_RE.search(text)
+            ):
+                return self._follow(parent_id, LinkKind.TIME_SHIFT, state)
             if re.search(r"남편|아내|엄마|아빠|아들|딸|\d+호", text):
                 return self._follow(parent_id, LinkKind.SUBJECT_SHIFT, state)
 
@@ -322,6 +347,17 @@ class ConversationEngine:
         # 가드보다 먼저 잡아 '새 풀이'로 끊기지 않게).
         if is_affirm_continue(text):
             return self._follow(parent_id, LinkKind.DRILL_DOWN, state)
+        # offer-slot — 직전 답변이 제안(offer)으로 끝났고('어느 해의 월별 흐름?') 짧게 슬롯값으로
+        # 답하면('2026년'·'A안') '그래' 없이도 제안 수락으로 본다. 새 도메인/총운/새풀이는 제외
+        # (우선순위 #1: 명시 새 도메인 최우선). 시점 슬롯은 위 2순위가 이미 처리한다.
+        if (
+            state.last_offer
+            and len(compact) <= 12
+            and not _detect_domains(text)
+            and not _FRESH_OVERVIEW_RE.search(text)
+            and not _READING_REQUEST_RE.search(text)
+        ):
+            return self._follow(parent_id, LinkKind.TIME_SHIFT, state)
 
         # 토픽 연속(2026-06-22) — 활성 스레드(직전 분야 확정)에서 '새 도메인을 안 들고 온' 충분히
         # 구체적인 후속은 직전 분야를 잇는 drill-down으로 본다(예: 관계 풀이 뒤 '주변 사람이야

@@ -103,3 +103,7 @@ class ConversationState(BaseModel):
     # 직전 턴의 시간 방향(과거 회고면 True). open_when 후속('월단위로')처럼 자체 신호가 없는
     # 턴이 직전 방향을 상속해 미래/과거 창을 일관 유지하게 한다(2026-06-30 시점 정합).
     last_retro: bool = False
+    # 직전 답변 끝의 제안(offer) 문장 — '어느 해의 월별 흐름을 볼까요?'. 다음 턴의 슬롯 답변
+    # ('2026년')을 제안 수락(offer-slot)으로 연결하고, '월별' 함의면 granularity를 월로 승격한다
+    # (2026-07-01). 답변 확정 시 _extract_offer로 채우고 비offer면 ''로 만료.
+    last_offer: str = ""
