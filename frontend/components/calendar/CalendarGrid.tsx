@@ -4,10 +4,37 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchLuckDays } from "@/lib/api";
+import { isLoggedIn } from "@/lib/auth";
 import { loadEotPreference, loadProfile } from "@/lib/storage";
-import type { CalendarDay, CalendarMonth, LuckPillar, LuckSinsal } from "@/lib/types";
+import { summaryToProfile } from "@/lib/subject-mapping";
+import { getSelectedSubjectId, getSubject } from "@/lib/subjects";
+import type { CalendarDay, CalendarMonth, LuckPillar, LuckSinsal, Profile } from "@/lib/types";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 일운 오버레이(십성·신살·길흉) 기준 사주:
+// - 로그인: 현재 "선택된 사주"만 사용(선택 안 했으면 오버레이 없음 — 데굴님 확정 2026-07-01).
+// - 게스트: IndexedDB의 로컬 프로필(만세력 화면에서 저장한 1회성).
+async function resolveOverlayProfile(): Promise<Profile | null> {
+  if (isLoggedIn()) {
+    const id = getSelectedSubjectId();
+    if (!id) return null;
+    try {
+      return summaryToProfile(await getSubject(id));
+    } catch {
+      return null;
+    }
+  }
+  return loadProfile().catch(() => null);
+}
+
+// 손없는 날 — 음력 끝수가 9·0인 날(손[方位神]이 어느 방위에도 없어 이사·개업 등에 길). 로그인·사주와
+// 무관한 상시 정보로, 음력일만으로 결정된다(음력 9·10·19·20·29·30일).
+function isSonEomneunDay(lunarIso: string | undefined): boolean {
+  if (!lunarIso) return false;
+  const day = Number(lunarIso.split("-")[2]);
+  return Number.isFinite(day) && (day % 10 === 9 || day % 10 === 0);
+}
 
 // 신살 polarity → 한글 분류(툴팁용).
 const SINSAL_POLARITY_KO: Record<string, string> = {
@@ -99,45 +126,55 @@ function SinsalChips({ items }: { items: LuckSinsal[] }) {
 }
 
 function DayDetail({ d, luck, onClose }: { d: CalendarDay; luck?: LuckPillar; onClose: () => void }) {
+  // 라벨/값을 grid 셀로 방출 — 부모 grid(max-content)가 라벨 열을 최장 항목명 기준으로 고정한다.
   const row = (label: string, value: string) => (
-    <div className="flex justify-between gap-4 py-0.5">
+    <>
       <span className="text-gray-400">{label}</span>
-      <span className="font-medium">{value}</span>
-    </div>
+      <span className="min-w-0 font-medium">{value}</span>
+    </>
   );
   return (
     <div className="mt-3 rounded-lg border-2 border-gray-300 bg-white p-4 text-sm">
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="font-bold">{d.date} ({WEEKDAYS[(d.weekday + 1) % 7]})</h3>
-        <button onClick={onClose} className="text-xs text-gray-400 hover:text-gray-700">닫기 ✕</button>
-      </div>
-      {row("음력", `${d.lunar_date}${d.is_leap_month ? " (윤달)" : ""}`)}
-      {row("년주", `${d.year_ganji} (${d.year_ganji_ko}) · ${d.year_zodiac}띠`)}
-      {row("월주", `${d.month_ganji} (${d.month_ganji_ko})`)}
-      {row("일주", `${d.day_ganji} (${d.day_ganji_ko})`)}
-      {d.naeum && row("납음(일주)", d.naeum)}
-      {d.solar_term && row("절기", d.solar_term)}
-      {luck && (
-        <div className="mt-2 border-t pt-2">
-          {row("십성(천간/지지)", `${luck.stem_ten_god} / ${luck.branch_ten_god}`)}
-          {luck.twelve_unseong && row("십이운성", luck.twelve_unseong)}
-          {luck.luck_sinsal && luck.luck_sinsal.length > 0 && (
-            <div className="flex justify-between gap-4 py-0.5">
-              <span className="text-gray-400">신살/길흉</span>
-              <span className="flex flex-wrap justify-end gap-1">
-                {luck.luck_sinsal.map((s, i) => (
-                  <span key={i} title={sinsalTitle(s)}
-                    className={s.name === "복음"
-                      ? "rounded border border-amber-300 px-1 text-xs font-medium text-amber-600"
-                      : "rounded border px-1 text-xs text-gray-600"}>
-                    {s.name}
-                  </span>
-                ))}
-              </span>
-            </div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 font-bold">
+          <span>{d.date} ({WEEKDAYS[(d.weekday + 1) % 7]})</span>
+          {isSonEomneunDay(d.lunar_date) && (
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-700">손없는 날</span>
           )}
-        </div>
-      )}
+        </h3>
+        <button onClick={onClose} className="shrink-0 text-xs text-gray-400 hover:text-gray-700">닫기 ✕</button>
+      </div>
+      {/* 단일 grid: 라벨 열 = 최장 항목명(max-content) 기준 고정, 값 열 = 나머지(1fr). */}
+      <div className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-0.5">
+        {row("음력", `${d.lunar_date}${d.is_leap_month ? " (윤달)" : ""}`)}
+        {row("년주", `${d.year_ganji} (${d.year_ganji_ko}) · ${d.year_zodiac}띠`)}
+        {row("월주", `${d.month_ganji} (${d.month_ganji_ko})`)}
+        {row("일주", `${d.day_ganji} (${d.day_ganji_ko})`)}
+        {d.naeum && row("납음(일주)", d.naeum)}
+        {d.solar_term && row("절기", d.solar_term)}
+        {luck && (
+          <>
+            <div className="col-span-2 mt-1 border-t border-dashed border-gray-300 pt-1" />
+            {row("십성(천간/지지)", `${luck.stem_ten_god} / ${luck.branch_ten_god}`)}
+            {luck.twelve_unseong && row("십이운성", luck.twelve_unseong)}
+            {luck.luck_sinsal && luck.luck_sinsal.length > 0 && (
+              <>
+                <span className="text-gray-400">신살/길흉</span>
+                <span className="flex min-w-0 flex-wrap gap-1">
+                  {luck.luck_sinsal.map((s, i) => (
+                    <span key={i} title={sinsalTitle(s)}
+                      className={s.name === "복음"
+                        ? "rounded border border-amber-300 px-1 text-xs font-medium text-amber-600"
+                        : "rounded border px-1 text-xs text-gray-600"}>
+                      {s.name}
+                    </span>
+                  ))}
+                </span>
+              </>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -145,13 +182,13 @@ function DayDetail({ d, luck, onClose }: { d: CalendarDay; luck?: LuckPillar; on
 export function CalendarGrid({ data }: { data: CalendarMonth }) {
   const today = localTodayISO();
   const [selected, setSelected] = useState<CalendarDay | null>(null);
-  // 사용자 원국 기준 일운(십성·십이운성·신살) 오버레이 — 프로필이 있을 때만 로드.
+  // 사용자 원국 기준 일운(십성·십이운성·신살) 오버레이 — 선택된 사주(로그인)/로컬 프로필(게스트)만 로드.
   const [luckByDate, setLuckByDate] = useState<Record<string, LuckPillar>>({});
 
   useEffect(() => {
     let alive = true;
     setLuckByDate({});
-    loadProfile()
+    resolveOverlayProfile()
       .then((p) => {
         if (!p) return;
         // 만세력 결과 화면에서 저장한 균시차 토글 상태와 같은 기준으로 일운을 계산.
@@ -201,28 +238,44 @@ export function CalendarGrid({ data }: { data: CalendarMonth }) {
                 isToday ? "border-gray-800 bg-yellow-50" : "border-gray-200 bg-white"
               } ${selected?.date === d.date ? "ring-2 ring-gray-400" : ""}`}
             >
-              <div className="text-sm font-semibold">{Number(d.date.slice(8, 10))}</div>
-              <div className="text-[11px] leading-tight">
-                {d.day_ganji}
-                <span className="block text-gray-500">{d.day_ganji_ko}</span>
+              {/* 상단 고정 영역: 날짜/간지(한자)/간지(한글)/음력/손없는날/절기 —
+                  손없는날·절기를 고정 높이 슬롯으로 두어 모든 셀의 상단 영역 크기를 최대치로 고정
+                  (셀마다 구분선·오버레이가 같은 줄에 정렬). */}
+              <div className="flex w-full flex-col items-center">
+                <div className="text-sm font-semibold">{Number(d.date.slice(8, 10))}</div>
+                <div className="text-[11px] leading-tight">
+                  {d.day_ganji}
+                  <span className="block text-gray-500">{d.day_ganji_ko}</span>
+                </div>
+                <div className="text-[10px] text-gray-400">{lunarShort(d.lunar_date, d.is_leap_month)}</div>
+                {/* 손없는 날 슬롯(절기와 동일 크기 박스·상시정보·로그인 무관): 음력 끝수 9·0. */}
+                <div className="h-[15px] w-full">
+                  {isSonEomneunDay(d.lunar_date) && (
+                    <div className="rounded bg-amber-100 text-[10px] leading-[15px] text-amber-700">손없는날</div>
+                  )}
+                </div>
+                {/* 절기 슬롯(손없는날과 동일 크기·사이 여백). */}
+                <div className="mt-0.5 h-[15px] w-full">
+                  {d.solar_term && (
+                    <div className="rounded bg-emerald-100 text-[10px] leading-[15px] text-emerald-700">{d.solar_term}</div>
+                  )}
+                </div>
               </div>
-              <div className="text-[10px] text-gray-400">{lunarShort(d.lunar_date, d.is_leap_month)}</div>
-              {/* 절기 슬롯: 고정 높이로 아래 구분선이 셀마다 같은 줄에 오도록 정렬. */}
-              <div className="h-[15px] w-full">
-                {d.solar_term && (
-                  <div className="rounded bg-emerald-100 text-[10px] leading-[15px] text-emerald-700">{d.solar_term}</div>
-                )}
-              </div>
-              {/* 절기 아래 구분선 + 천간/지지 십성 · 십이운성 · 신살/길신/흉성. */}
+              {/* 절기 아래 구분선: 천간/지지 십성 · 십이운성. */}
               {luck && (
-                <div className="w-full border-t border-gray-200 pt-0.5">
-                  <div className="text-[9px] leading-tight text-gray-500">
+                <div className="w-full border-t border-dashed border-gray-300 mt-1 pt-1">
+                  <div className="whitespace-nowrap text-[9px] leading-tight tracking-tighter text-gray-500">
                     {luck.stem_ten_god}·{luck.branch_ten_god}
                   </div>
                   {luck.twelve_unseong && (
                     <div className="text-[9px] leading-tight text-gray-400">{luck.twelve_unseong}</div>
                   )}
-                  {luck.luck_sinsal && <SinsalChips items={luck.luck_sinsal} />}
+                </div>
+              )}
+              {/* 십이운성 아래 구분선: 길신 · 신살. */}
+              {luck?.luck_sinsal && luck.luck_sinsal.length > 0 && (
+                <div className="w-full border-t border-dashed border-gray-300 mt-1 pt-1">
+                  <SinsalChips items={luck.luck_sinsal} />
                 </div>
               )}
             </button>

@@ -45,6 +45,9 @@ export function clearSession(): void {
   try {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(LOGIN_KEY);
+    // 선택된 사주(lib/subjects의 SELECTED_SUBJECT_KEY)도 해제 — 다른 계정 로그인 시 이월 방지.
+    // import 순환을 피하려고 키 문자열을 직접 제거한다.
+    localStorage.removeItem("ryubosal.selectedSubject");
   } catch {
     /* 무시 */
   }

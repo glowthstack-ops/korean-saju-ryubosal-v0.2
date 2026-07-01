@@ -21,7 +21,7 @@ import {
   saveCalibration, saveEotPreference,
 } from "@/lib/storage";
 import { summaryToProfile } from "@/lib/subject-mapping";
-import { getProfile, getSubject, setSubjectYongsin } from "@/lib/subjects";
+import { getProfile, getSubject, setSelectedSubjectId, setSubjectYongsin } from "@/lib/subjects";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
 
 // ?subject=<id>(로그인 사주) 우선, 없으면 IndexedDB 1회성 프로필을 로드한다.
@@ -32,7 +32,9 @@ async function resolveProfile(): Promise<Profile | null> {
       : null;
   if (subjectId) {
     try {
-      return summaryToProfile(await getSubject(subjectId));
+      const profile = summaryToProfile(await getSubject(subjectId));
+      setSelectedSubjectId(subjectId);  // 간지달력 등 subject 비지정 화면의 오버레이 기준으로 기억
+      return profile;
     } catch {
       return null;
     }

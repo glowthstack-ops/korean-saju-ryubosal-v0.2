@@ -15,6 +15,32 @@ import type {
   SubjectUpsert,
 } from "./types";
 
+// ── 선택된 사주(subject 비지정 화면의 오버레이 기준) ───────────
+// 간지달력처럼 URL에 ?subject가 없는 화면이 "현재 선택한 사주"를 알 수 있도록 로컬에 보관한다.
+// 사주를 실제로 조회한 시점(manse/result의 ?subject 해석)에 갱신한다. 로그아웃 시 clearSession이 지운다.
+export const SELECTED_SUBJECT_KEY = "ryubosal.selectedSubject";
+
+/** 현재 선택된 사주 id 저장(null이면 선택 해제). */
+export function setSelectedSubjectId(id: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (id) localStorage.setItem(SELECTED_SUBJECT_KEY, id);
+    else localStorage.removeItem(SELECTED_SUBJECT_KEY);
+  } catch {
+    /* 접근 불가 무시 */
+  }
+}
+
+/** 현재 선택된 사주 id(없으면 null). */
+export function getSelectedSubjectId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(SELECTED_SUBJECT_KEY);
+  } catch {
+    return null;
+  }
+}
+
 // ── 사주(대상) ───────────────────────────────────────────────
 
 export function listSubjects(): Promise<SubjectSummary[]> {
