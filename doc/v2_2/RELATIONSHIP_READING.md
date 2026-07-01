@@ -79,6 +79,9 @@ P4 라벨로 렌더하며 점수 미개입. cross-palace 발현은 **가족(월-
 ```
 { base_branch, target_branch, sinsal, category, relationship_reading, confidence }
 ```
+> **confidence 혼동 방지**: 기존 궁합/사건 `score·confidence·favorability·후보`는 불변.
+> `RelativeSinsalResult.confidence`는 **상대위치 해석 자체의 설명 신뢰도**이며, 기존 엔진 confidence를
+> 변경하지 않는다.
 
 ### 4-1. 12신살 상대위치 매핑 표 (SSOT — 착수 전 고정)
 
@@ -150,8 +153,18 @@ P4 라벨로 렌더하며 점수 미개입. cross-palace 발현은 **가족(월-
 예: 내 국=木, 상대=金 → 金克木 → 상대가 압박·긴장으로 느껴질 수 있음(단정 아님). 내 국=木,
 상대=火 → 木生火 → 내가 상대를 돕는 결.
 
-**도입 방식**: **shadow 계산 + LLM 보조 설명**으로 먼저 둔다(안정/끌림축 점수에 미반영). 검증 후
-승급. 승패·서열 표현은 어떤 형태로도 금지, 소송 우열은 원칙 8 준수.
+**모듈**: `relationship_trine_dynamics.py` (trine=삼합). 기준 지지는 **년지(띠) 삼합국**(사회 에너지 결).
+**결과 구조**:
+```
+{ base_group, base_element, target_group, target_element,
+  relation, dynamics_label, reading, exposure }
+```
+`relation` ∈ `same_group | generates_target | generated_by_target | controls_target |
+controlled_by_target`. `exposure="shadow"`(v1 전부).
+
+**도입 방식(v1 = shadow-only)**: 우선 **shadow 결과 생성 + 테스트까지만** 한다 — chat/report 렌더
+연결은 하지 않는다(안정/끌림축 점수 미반영). 충분히 안정되면 v2에서 LLM 보조 설명으로 렌더 연결
+검토. 승패·서열·"위/아래·못 이김" 표현은 어떤 형태로도 금지, 소송 우열은 원칙 8 준수.
 
 ## 6. 보류 (초기 릴리즈 제외)
 
