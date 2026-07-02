@@ -22,6 +22,8 @@ from saju_manse_analysis.luck.luck_calendar import luck_month_label
 from saju_engines.chart_interpretation import build_chart_interpretation
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
+    _DOMAIN_EVENT_KEYS,
+    _STRUCTURE_PATTERN_INSTRUCTION,
     build_birth_summary,
     serialize_chart_prefix,
 )
@@ -64,6 +66,10 @@ from saju_engines.structural_context import (
     spouse_star_directive,
     wealth_capacity_lines,
     wealth_status_lines,
+)
+from saju_engines.structure_patterns import (
+    detect_structure_patterns,
+    select_llm_patterns,
 )
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_topic_context
@@ -484,6 +490,7 @@ class _ReportData:
         self._yr_lo = spec.period.start[:4]
         self._yr_hi = spec.period.end[:4]
         self.summary = build_birth_summary(self.result)
+        self.detected_patterns = detect_structure_patterns(self.result)  # 구조 패턴(섹션별 선별)
         self.wealth_capacity = analyze_wealth_capacity(self.result)  # 원국 횡재 그릇(운 분리)
         # 결혼·자산 자원(성별 인지) — 용희신을 넘겨 '배우자성=용신(배우자 덕)'까지 판정(G).
         self.marriage_resource = analyze_marriage_resource(
@@ -1307,6 +1314,18 @@ def build_section_context(
         "지면 절약: 문단은 빈 줄 하나로만 구분하고 연속 빈 줄을 넣지 말 것. 잔 소제목 남발과 "
         "한 문장씩 끊은 단락을 피하고, 여러 문장을 묶은 조밀한 산문 문단으로 작성할 것.",
     ]
+    # 구조 패턴 태그(구조 라벨 — 사건·길흉 확정 아님). 원국 섹션=도메인 무관 상위 N,
+    # 도메인 섹션=해당 도메인 우선 선별. 과거·메타 등 도메인 없는 섹션은 생략(반복 방지).
+    _sp_domains = None if is_natal_section else _DOMAIN_EVENT_KEYS.get(_SECTION_DOMAIN.get(sid, ""))
+    if is_natal_section or _sp_domains:
+        _patterns = select_llm_patterns(data.detected_patterns, domains=_sp_domains)
+        if _patterns:
+            lines += [
+                "",
+                "[구조 패턴 — 의미 설명 태그(구조 라벨일 뿐, 사건·길흉 확정 아님·도메인은 후보)]",
+                *[p.llm_tag for p in _patterns],
+                _STRUCTURE_PATTERN_INSTRUCTION,
+            ]
     if sid in _PARTNER_NATAL_SECTIONS:
         lines += ["", *data.partner_natal_block()]
     elif sid in _COMPAT_SECTIONS:

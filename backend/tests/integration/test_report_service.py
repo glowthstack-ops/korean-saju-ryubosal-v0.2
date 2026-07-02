@@ -52,6 +52,28 @@ def test_plan_report_focus_contexts() -> None:
     assert "천간" in c04.body_prompt and "지지" in c04.body_prompt  # per-글자 십성 노출
 
 
+def test_structure_patterns_injected_into_report_sections() -> None:
+    """구조 패턴 태그가 리포트 섹션에도 주입된다(도메인 섹션=필터, 원국 섹션=도메인 무관)."""
+    wealth_spec = ReportSpec(
+        product_code="RPT_FOCUS",
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        topic="wealth",
+        period=ReportPeriod(start="2026-01", end="2026-12"),
+    )
+    ctxs = report_service.plan_report(_BIRTH, wealth_spec, _TODAY)
+    wsec = next(
+        (c for c in ctxs if report_service._SECTION_DOMAIN.get(c.section_id) == "wealth"), None
+    )
+    assert wsec is not None
+    assert "[구조 패턴" in wsec.body_prompt
+    assert "구조 라벨일 뿐" in wsec.body_prompt  # 비단정 지시 동반
+
+    full = report_service.plan_report(_BIRTH, _spec("RPT_FULL"), _TODAY)
+    nsec = next((c for c in full if c.section_id in report_service._NATAL_SECTIONS), None)
+    assert nsec is not None
+    assert "[구조 패턴" in nsec.body_prompt  # 원국 섹션도 도메인 무관 주입
+
+
 def test_wealth_section_surfaces_wealth_capacity() -> None:
     """재물 테마 — W-05(횡재·상속)에 원국 횡재 그릇 블록 표면화 + 당첨/번호 금지 가드(Phase 1)."""
     spec = ReportSpec(

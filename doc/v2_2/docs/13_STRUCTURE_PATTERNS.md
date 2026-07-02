@@ -152,6 +152,10 @@ class DetectedPattern(BaseModel):
 - 직렬화: `_append_structure_patterns`가 suffix에 `[구조 패턴 — 설명 태그]` 블록(토큰 가드 후순위). llm_tag만 노출.
 - 지시: `_STRUCTURE_PATTERN_INSTRUCTION`(감지분 있을 때만) — "구조 라벨일 뿐 사건·길흉 확정 아님".
 
+**소비 경로(2곳 모두 배선)**:
+- **AI 채팅 상담**(`chat_service`→`build_llm_input`): 질문 도메인으로 필터한 상위 6개를 suffix에.
+- **테마 사주/리포트 상품**(`report_service.build_section_context`): 섹션별 주입 — 원국 섹션은 도메인 무관 상위 N, 도메인 섹션(`_SECTION_DOMAIN`)은 해당 도메인 우선 선별. 과거·메타 섹션은 생략(반복 방지). `_ReportData.detected_patterns`에 1회 감지 후 섹션마다 `select_llm_patterns`. (주의: F1에서 프리픽스→suffix 이전 시 리포트가 `serialize_chart_prefix`만 써 누락됐던 것을 이때 배선.)
+
 ## 7. 파이프라인·검증 (CLAUDE.md 원칙 5)
 
 1. `structure_patterns.json` 작성 → `scripts/validate_dictionaries` 스키마·중복 pattern_id·enum 검증.
