@@ -272,13 +272,32 @@ def detect_structure_patterns(
         if r.contend:  # 쟁합·투합 — P1, F3
             emit("JAENGHAP", 0.55, scope, (pair,))
 
-    # ── E. 충동 (adapter: StructureAnalysis.interactions) ──
+    # ── E. 충동 / 합충병견 / 충중봉합 (adapter: StructureAnalysis.interactions) ──
+    # relation_type 은 영문 enum 값(clash / six_combination / three_harmony / stem_combination /
+    # directional / half_harmony / ...). 한글이 아님에 주의.
     sa = result.structure_analysis
     if sa is not None:
+        has_hap = False
+        hap_members: set[str] = set()
+        chung_member_sets: list[set[str]] = []
         for it in sa.interactions:
-            if "충" in it.relation_type:
-                emit("CHUNGDONG", 0.6, "natal", ("".join(it.members),))
-                break
+            rt = it.relation_type
+            if "combination" in rt or "harmony" in rt or rt == "directional":  # 합류(천간합~방합)
+                has_hap = True
+                hap_members |= set(it.members)
+            if rt == "clash":  # 지지충
+                if not chung_member_sets:
+                    emit("CHUNGDONG", 0.6, "natal", ("".join(it.members),))
+                chung_member_sets.append(set(it.members))
+        if has_hap and chung_member_sets:  # 합충병견 — P1(F4)
+            emit("HAPCHUNG_BYEONGGYEON", 0.55, "natal", ("합·충 공존",))
+            if any(cm & hap_members for cm in chung_member_sets):  # 충중봉합
+                emit("CHUNGJUNG_BONGHAP", 0.5, "natal", ("충-합 지지 공유",))
+        # 제살태과(new, P1): 편관 존재 + 식상이 편관을 과도 제어.
+        if counts.get("편관", 0) >= 1 and groups["output"] >= 2 * groups["officer"] and (
+            groups["output"] >= 2
+        ):
+            emit("JESAL_TAEGWA", 0.5, "natal", ("식상 과다·편관 과제어",))
 
     # ── F. 묘고(墓庫) 구조 (adapter: health_vulnerability 입묘 / wealth_capacity 개고) ──
     # 원국 구조 존재만 감지한다(운 activation 은 EventEngine 소관). 셋 다 natal 판정 가능.
@@ -326,10 +345,24 @@ def detect_structure_patterns(
                 emit("SINWANG_JAEWANG", 0.55, "natal", (f"{band}·재({wealth_el}) 왕",))
             elif wealth_el in defi or vis.get(wealth_el, 0.0) < 8:
                 emit("SINWANG_JAEYAK", 0.5, "natal", (f"{band}·재({wealth_el}) 약",))
+        su, hwa = vis.get("水", 0.0), vis.get("火", 0.0)  # 수화기제/미제 — P1(F4)
+        if su > 0 and hwa > 0:
+            both_healthy = "水" not in defi and "火" not in defi
+            if su >= 15 and hwa >= 15 and both_healthy and abs(su - hwa) <= 15:
+                emit("SUHWA_GIJE", 0.5, "natal", ("水火 균형",))
+            elif "水" in defi or "火" in defi or abs(su - hwa) >= 30:
+                emit("SUHWA_MIJE", 0.5, "natal", ("水火 불균형",))
 
     # 양인합살(adapter, P1): 양인격 + 편관.
     if geok is not None and geok.main_structure == "양인격" and counts.get("편관", 0) >= 1:
         emit("YANGIN_HAPSAL", 0.6, "natal", ("양인격+편관",))
+
+    # 상관용인/상관상진(adapter, P1/F4): 상관격 기반.
+    if geok is not None and geok.main_structure == "상관격":
+        if groups["resource"] >= 1:
+            emit("SANGGWAN_YONGIN", 0.55, "natal", ("상관격+인성",))
+        if groups["officer"] == 0:
+            emit("SANGGWAN_SANGJIN", 0.55, "natal", ("상관격·관성 부재",))
 
     out.sort(key=lambda d: d.strength, reverse=True)
     return out

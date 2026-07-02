@@ -2107,8 +2107,243 @@
       "detector_source": "adapter:special_pattern(follow/종세격)",
       "llm_usage": "explanation_tag_only",
       "llm_tag": "종세격: 식재관 등 가장 강한 대세를 일간이 따르는 종격 — 강한 세력에 순응하는 구조(성립 강도 별도)"
+    },
+    {
+      "pattern_id": "SANGGWAN_YONGIN",
+      "name_ko": "상관용인",
+      "name_hanja": "傷官用印",
+      "family": [
+        "control",
+        "mediation"
+      ],
+      "structure": "SHANGGUAN-geok uses resource",
+      "ten_god_chain": [
+        "SHANGGUAN",
+        "ZHENGYIN"
+      ],
+      "evidence": [
+        "상관격 성립",
+        "인성 존재(상관 제어)"
+      ],
+      "domain_hints": [
+        "creative_output",
+        "education_admission",
+        "career_change"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:상관격 + 인성",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "상관용인: 상관격에서 인성을 써 상관의 과격함을 학문·원칙으로 다듬는 구조 — 제도권 안의 창의성"
+    },
+    {
+      "pattern_id": "SANGGWAN_SANGJIN",
+      "name_ko": "상관상진",
+      "name_hanja": "傷官傷盡",
+      "family": [
+        "generation_flow"
+      ],
+      "structure": "SHANGGUAN-geok without officer",
+      "ten_god_chain": [
+        "SHANGGUAN"
+      ],
+      "evidence": [
+        "상관격 성립",
+        "관성 부재(순수 상관)"
+      ],
+      "domain_hints": [
+        "creative_output",
+        "public_exposure"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:상관격 + officer 부재",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "상관상진: 상관이 관성을 보지 않아 재능이 깨지지 않고 순수하게 발휘되는 구조 — 창조성·전문성"
+    },
+    {
+      "pattern_id": "JESAL_TAEGWA",
+      "name_ko": "제살태과",
+      "name_hanja": "制殺太過",
+      "family": [
+        "control"
+      ],
+      "structure": "output over-controls QISHA",
+      "ten_god_chain": [
+        "SHISHEN",
+        "SHANGGUAN",
+        "QISHA"
+      ],
+      "evidence": [
+        "편관 존재",
+        "식상이 편관을 지나치게 제어(제살 과도)"
+      ],
+      "domain_hints": [
+        "career_change",
+        "health_attention",
+        "preparation_delay"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:output>>officer + 편관",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "제살태과: 식상이 편관을 지나치게 제어해 추진력·권한이 약해지는 구조 — 좋은 기회도 스스로 꺾을 수 있음"
+    },
+    {
+      "pattern_id": "HAPCHUNG_BYEONGGYEON",
+      "name_ko": "합충병견",
+      "name_hanja": "合沖竝見",
+      "family": [
+        "combination_clash"
+      ],
+      "structure": "combination + clash coexist",
+      "ten_god_chain": [],
+      "evidence": [
+        "원국/운에 합과 충이 동시 존재"
+      ],
+      "domain_hints": [
+        "relationship_change",
+        "career_change",
+        "relocation"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:interactions(합+충 공존)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "합충병견: 합과 충이 동시에 있는 구조 — 끌림과 갈등이 함께 작용(길흉은 별도 판정)"
+    },
+    {
+      "pattern_id": "CHUNGJUNG_BONGHAP",
+      "name_ko": "충중봉합",
+      "name_hanja": "沖中逢合",
+      "family": [
+        "combination_clash"
+      ],
+      "structure": "clash resolved by shared combination",
+      "ten_god_chain": [],
+      "evidence": [
+        "충과 합이 같은 지지를 공유(충 완화)"
+      ],
+      "domain_hints": [
+        "relationship_change",
+        "social_conflict"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:interactions(충-합 지지 공유)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "충중봉합: 충 속에 합이 있어 갈등 중 타협점이 생기는 작용 — 충의 사건성이 다소 완화(길흉 별도)"
+    },
+    {
+      "pattern_id": "SUHWA_GIJE",
+      "name_ko": "수화기제",
+      "name_hanja": "水火旣濟",
+      "family": [
+        "element_image"
+      ],
+      "structure": "水/火 balanced",
+      "ten_god_chain": [],
+      "evidence": [
+        "水·火 모두 존재",
+        "균형(어느 쪽도 결핍/과다 아님)"
+      ],
+      "domain_hints": [
+        "health_attention",
+        "relationship_change",
+        "creative_output"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:five_elements(水火 균형)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "수화기제: 수(水)와 화(火)가 균형을 이루는 구조 — 감정·이성·활동성의 조화(조건 따라 달라짐)"
+    },
+    {
+      "pattern_id": "SUHWA_MIJE",
+      "name_ko": "수화미제",
+      "name_hanja": "水火未濟",
+      "family": [
+        "element_image"
+      ],
+      "structure": "水/火 imbalanced",
+      "ten_god_chain": [],
+      "evidence": [
+        "水·火 존재하나 불균형(한쪽 결핍 또는 큰 격차)"
+      ],
+      "domain_hints": [
+        "health_attention",
+        "preparation_delay"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:five_elements(水火 불균형)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "수화미제: 수(水)와 화(火)가 불균형한 구조 — 감정·활동·건강 리듬이 불안정할 수 있음"
     }
   ],
-  "compiled_at": "2026-07-02T00:37:48.569580+00:00",
+  "compiled_at": "2026-07-02T00:46:01.472485+00:00",
   "snapshot_version": "1.0.0"
 }

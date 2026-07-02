@@ -45,7 +45,7 @@ def test_dictionary_loads_and_no_dup() -> None:
     dic = load_structure_patterns()
     ids = [p.pattern_id for p in dic.patterns]
     assert len(ids) == len(set(ids)), "중복 pattern_id"
-    assert len(ids) == 60, "P0 35종 + P1/P2 25종(F3)"
+    assert len(ids) == 67, "P0 35종 + P1/P2 25종(F3) + 7종(F4)"
 
 
 def test_dictionary_fields_valid() -> None:
