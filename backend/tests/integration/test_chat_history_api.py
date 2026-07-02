@@ -93,6 +93,35 @@ def test_thread_record_list_get_delete() -> None:
 
 
 @pytestmark_db
+def test_user_message_records_companion() -> None:
+    """동반자 포함 질문은 user 메시지 meta에 companions가 남고, 미포함 질문은 비어 있다."""
+    import uuid
+
+    from saju_engines.chat_history_store import ChatHistoryStore
+
+    login_id = f"c{uuid.uuid4().hex[:10]}"
+    token = _request(
+        "POST", "/api/v2/auth/register", json={"login_id": login_id, "pin": "123456"}
+    ).json()["token"]
+    auth = {"Authorization": f"Bearer {token}"}
+    thread_id = f"t-{uuid.uuid4().hex[:8]}"
+
+    store = ChatHistoryStore()
+    store.record_turn(
+        login_id, thread_id, "본인", "우리 올해 궁합 어때?", "…궁합…",
+        meta={"status": "answered"},
+        user_meta={"partner": {"mode": "registered", "label": "김서준"}, "companions": ["김서준"]},
+    )
+    store.record_turn(login_id, thread_id, "본인", "내 직업운은?", "…직업…")
+
+    msgs = _request("GET", f"/api/v2/chat/threads/{thread_id}", headers=auth).json()
+    users = [m for m in msgs if m["role"] == "user"]
+    assert users[0]["meta"]["companions"] == ["김서준"]  # 동반자 포함 질문
+    assert not (users[1].get("meta") or {}).get("companions")  # 본인만
+    ChatHistoryStore().delete_thread(thread_id)
+
+
+@pytestmark_db
 def test_background_turn_pending_complete_seen() -> None:
     """백그라운드 생성 수명주기: start_turn(pending·미열람) → complete_turn(done) → 열람.
 

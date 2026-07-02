@@ -45,8 +45,12 @@ class ChatHistoryStore:
         user_text: str,
         assistant_text: str,
         meta: dict | None = None,
+        user_meta: dict | None = None,
     ) -> None:
-        """한 턴(질문+답변)을 저장한다. 스레드가 없으면 생성(title=첫 질문)."""
+        """한 턴(질문+답변)을 저장한다. 스레드가 없으면 생성(title=첫 질문).
+
+        user_meta: 질문(user) 메시지에 붙일 메타(예: 첨부 동반자 {"partner": {...}}).
+        """
         title = user_text.strip().replace("\n", " ")[:_TITLE_MAX]
         with self._connect() as conn:
             conn.execute(
@@ -58,8 +62,9 @@ class ChatHistoryStore:
                 (thread_id, owner_id, subject_label, title),
             )
             conn.execute(
-                "INSERT INTO chat_messages (thread_id, role, text) VALUES (%s, 'user', %s)",
-                (thread_id, user_text),
+                "INSERT INTO chat_messages (thread_id, role, text, meta) "
+                "VALUES (%s, 'user', %s, %s::jsonb)",
+                (thread_id, user_text, json.dumps(user_meta or {}, ensure_ascii=False)),
             )
             conn.execute(
                 "INSERT INTO chat_messages (thread_id, role, text, meta) "
@@ -74,12 +79,14 @@ class ChatHistoryStore:
         subject_label: str | None,
         user_text: str,
         meta: dict | None = None,
+        user_meta: dict | None = None,
     ) -> int:
         """질문을 저장하고 어시스턴트 답변을 pending(미열람)으로 예약한다.
 
         백그라운드 생성 직전에 호출. 반환된 message_id를 백그라운드 태스크가 받아
         생성 완료 시 :meth:`complete_turn`으로 본문을 채운다. 클라이언트가 이탈해도
         답변은 서버에서 끝까지 생성·영속되며, 재진입 시 폴링으로 복구된다.
+        user_meta: 질문(user) 메시지에 붙일 메타(예: 첨부 동반자 {"partner": {...}}).
         """
         title = user_text.strip().replace("\n", " ")[:_TITLE_MAX]
         with self._connect() as conn:
@@ -92,8 +99,9 @@ class ChatHistoryStore:
                 (thread_id, owner_id, subject_label, title),
             )
             conn.execute(
-                "INSERT INTO chat_messages (thread_id, role, text) VALUES (%s, 'user', %s)",
-                (thread_id, user_text),
+                "INSERT INTO chat_messages (thread_id, role, text, meta) "
+                "VALUES (%s, 'user', %s, %s::jsonb)",
+                (thread_id, user_text, json.dumps(user_meta or {}, ensure_ascii=False)),
             )
             row = conn.execute(
                 "INSERT INTO chat_messages (thread_id, role, text, meta, status, seen) "

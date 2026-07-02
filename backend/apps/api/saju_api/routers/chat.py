@@ -122,6 +122,17 @@ def _partner_ref(req: ChatRequest) -> dict | None:
     return None
 
 
+def _user_meta(req: ChatRequest) -> dict | None:
+    """질문(user) 메시지에 저장할 메타 — 첨부 동반자를 기록해 UI에서 질문별 표시.
+
+    현재는 단일 동반자(partner)이나, n명 확장을 위해 companions 리스트도 함께 둔다.
+    """
+    ref = _partner_ref(req)
+    if ref is None:
+        return None
+    return {"partner": ref, "companions": [ref.get("label", "상대")]}
+
+
 def _last_assistant_answer(history: ChatHistoryStore | None, thread_id: str) -> str | None:
     """스레드의 가장 최근 완료된 assistant 답변 본문(없으면 None) — '그래 봐줘' 제안 이어보기용."""
     if history is None:
@@ -217,6 +228,7 @@ def chat(
         message_id = history.start_turn(
             owner_id, req.thread_id, req.subject_label, req.question,
             meta={"candidate_count": prep.candidate_count},
+            user_meta=_user_meta(req),
         )
         background.add_task(
             _run_chat_answer, history, message_id, owner_id, req.thread_id,
@@ -243,6 +255,7 @@ def chat(
             history.record_turn(
                 owner_id, req.thread_id, req.subject_label, req.question, prep.answer,
                 meta={"status": prep.status, "candidate_count": prep.candidate_count},
+                user_meta=_user_meta(req),
             )
         except Exception:  # noqa: BLE001 — 저장 실패가 응답을 막지 않도록
             pass

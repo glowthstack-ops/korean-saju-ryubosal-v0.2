@@ -37,6 +37,23 @@ interface Message {
   meta?: ChatApiResponse;
   pending?: boolean; // 백그라운드 생성 중(폴링 대기) — 플레이스홀더 표시
   error?: boolean; // 생성 실패(서버 안내문)
+  companions?: string[]; // 이 질문에 함께 포함한 동반자 라벨(0=본인만). n명 대비 리스트.
+}
+
+/** user 메시지 meta에서 동반자 라벨 목록을 복원한다(새로고침·이어보기 유지). n명 대비. */
+function companionsFromMeta(meta: Record<string, unknown> | null | undefined): string[] {
+  if (!meta) return [];
+  const list = meta.companions;
+  if (Array.isArray(list)) return list.filter((x): x is string => typeof x === "string");
+  const partner = meta.partner as { label?: string } | null | undefined;
+  return partner?.label ? [partner.label] : [];
+}
+
+/** 동반자 칩 문구 — "나 × A" / "나 × A, B" / "나 × A 외 N명"(3+). */
+function companionChipLabel(companions: string[]): string {
+  if (companions.length === 0) return "";
+  if (companions.length <= 2) return `나 × ${companions.join(", ")}`;
+  return `나 × ${companions[0]} 외 ${companions.length - 1}명`;
 }
 
 function newThreadId(): string {
@@ -92,6 +109,7 @@ function toMessage(m: ChatMessageDTO): Message {
     text: m.text || (m.status === "pending" ? "답변 생성 중…" : ""),
     pending: m.status === "pending",
     error: m.status === "error",
+    companions: m.role === "user" ? companionsFromMeta(m.meta) : undefined,
   };
 }
 
@@ -301,7 +319,8 @@ export default function ChatPage() {
     if (!profile || busy || !question.trim()) return;
     const fresh = messages.length === 0; // 첫 메시지면 새 스레드가 목록에 생긴다.
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", text: question }]);
+    const companions = partner ? [partner.label] : undefined; // 첨부 동반자(현재 1명, n명 대비)
+    setMessages((prev) => [...prev, { role: "user", text: question, companions }]);
     setBusy(true);
     try {
       const res = await postChat(
@@ -519,6 +538,13 @@ export default function ChatPage() {
 
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "text-right" : "text-left"}>
+            {m.role === "user" && m.companions && m.companions.length > 0 && (
+              <div className="mb-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200">
+                  👥 {companionChipLabel(m.companions)}
+                </span>
+              </div>
+            )}
             <div
               className={
                 m.role === "user"
