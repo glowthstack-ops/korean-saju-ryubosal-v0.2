@@ -179,3 +179,30 @@ def test_domain_filter_active_in_full_input() -> None:
     # 최소 한쪽에 패턴이 노출되고, 도메인에 따라 순서/구성이 달라진다(필터 동작 증거).
     assert career or wealth
     assert career != wealth
+
+
+# ── F2: 묘고(입묘/충개/개고) 어댑터 감지 ─────────────────────────────────
+
+def test_tomb_patterns_natal_detection(result) -> None:
+    """묘고 구조는 natal 신호(입묘 지지/충 지지쌍/병존)로 감지된다(운 activation 별개)."""
+    from saju_engines.health_vulnerability import analyze_health_vulnerability
+    from saju_engines.wealth_capacity import analyze_wealth_capacity
+
+    detected = {d.pattern_id for d in detect_structure_patterns(result)}
+    pillars = result.pillars
+    assert pillars is not None
+    natal_branches = {
+        p.branch for pos in ("year", "month", "day", "hour")
+        if (p := getattr(pillars, pos)) is not None
+    }
+    hv = analyze_health_vulnerability(result)
+    tomb_present = (
+        hv.day_master_tomb_branch in natal_branches
+        or hv.food_god_tomb_branch in natal_branches
+    )
+    assert ("IPMYO" in detected) == tomb_present
+    clash_present = any(
+        a in natal_branches and b in natal_branches for a, b in (("辰", "戌"), ("丑", "未"))
+    )
+    assert ("CHUNGGAE" in detected) == clash_present
+    assert ("GAEGO" in detected) == analyze_wealth_capacity(result).storage_repeat

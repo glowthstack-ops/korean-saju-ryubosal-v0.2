@@ -183,5 +183,5 @@ class DetectedPattern(BaseModel):
 - [x] **F1(도메인 필터 실동작)**: `LlmInput.detected_patterns`(질문 가변)로 이전 + suffix 직렬화 + `_DOMAIN_EVENT_KEYS` 도메인 우선 선별. 프리픽스 캐시 보존, 재물↔직업 질문에서 노출/순서 상이(통합 테스트 검증). inert — 전체 green.
 
 ### 후속
-- [ ] **F2**: 충개(沖開)·입묘(入墓)·개고(開庫) 감지 — 묘고 신호(wealth_capacity·health_vulnerability) natal 구조 어댑터.
+- [x] **F2**: 충개(沖開)·입묘(入墓)·개고(開庫) 감지 — natal 구조 어댑터. 입묘=일간/식신 묘지 지지 존재(health_vulnerability), 충개=묘고 충 지지쌍(辰戌/丑未), 개고=동일 묘고 병존(wealth_capacity.storage_repeat). 운 activation 은 EventEngine 소관.
 - [ ] **F3**: P1/P2 패턴 확장(상관패인·득비이재·목화통명·전왕/종격 등, 자료 §13).

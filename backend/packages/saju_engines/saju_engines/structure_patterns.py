@@ -29,7 +29,11 @@ from saju_shared_types.structure_patterns import (
     StructurePatternEntry,
 )
 
+from .health_vulnerability import analyze_health_vulnerability
+from .wealth_capacity import analyze_wealth_capacity
+
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
+_STORAGE_CLASH_PAIRS = (("辰", "戌"), ("丑", "未"))  # 묘고 충 지지쌍(충개고)
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
 STRUCTURE_PATTERNS_VERSION = "1.0.0"
 
@@ -248,9 +252,20 @@ def detect_structure_patterns(
                 emit("CHUNGDONG", 0.6, "natal", ("".join(it.members),))
                 break
 
-    # NOTE(설계 §5): 충개(沖開)·입묘(入墓)·개고(開庫)는 묘고 신호가 다른 엔진
-    # (wealth_capacity·structural_context)에 있어 결과 컨텍스트 배선이 필요하다.
-    # 사전에는 정의되어 있으며(Step ①) 감지는 Step ④ LLM 배선에서 연결한다.
+    # ── F. 묘고(墓庫) 구조 (adapter: health_vulnerability 입묘 / wealth_capacity 개고) ──
+    # 원국 구조 존재만 감지한다(운 activation 은 EventEngine 소관). 셋 다 natal 판정 가능.
+    natal_branches = {
+        p.branch
+        for pos in ("year", "month", "day", "hour")
+        if (p := getattr(pillars, pos)) is not None
+    }
+    hv = analyze_health_vulnerability(result)
+    if hv.day_master_tomb_branch in natal_branches or hv.food_god_tomb_branch in natal_branches:
+        emit("IPMYO", 0.55, "natal", ("일간/식신 묘지 지지 존재",))
+    if any(a in natal_branches and b in natal_branches for a, b in _STORAGE_CLASH_PAIRS):
+        emit("CHUNGGAE", 0.6, "natal", ("묘고 충 지지쌍 존재",))
+    if analyze_wealth_capacity(result).storage_repeat:
+        emit("GAEGO", 0.5, "natal", ("동일 묘고 병존(충개고 잠재)",))
 
     out.sort(key=lambda d: d.strength, reverse=True)
     return out
