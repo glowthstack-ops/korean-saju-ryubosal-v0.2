@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CalibrationPanel, YongsinPanel } from "@/components/manse/CalibrationPanel";
+import type { AnswerMap } from "@/lib/calibration";
 import { FloatingToc, type TocItem } from "@/components/manse/FloatingToc";
 import {
   BirthSummaryBar,
@@ -47,7 +48,6 @@ async function resolveProfile(): Promise<Profile | null> {
   return loadProfile();
 }
 
-type AnswerMap = Record<string, { rating: string; events: string[]; event_ratings?: Record<string, "positive" | "negative" | "na"> }>;
 
 // 우측 플로팅 목차 항목(섹션 id ↔ 표시 라벨). 렌더 순서와 일치시킨다.
 const TOC_ITEMS: TocItem[] = [

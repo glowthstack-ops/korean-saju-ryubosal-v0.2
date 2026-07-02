@@ -3,19 +3,19 @@
 import { useEffect, useState } from "react";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { submitCalibration, type FeedbackAnswer } from "@/lib/api";
+import {
+  CALIB_DOMAINS,
+  DOMAIN_OPTIONS,
+  EVENT_OPTIONS,
+  INTENSITY_OPTIONS,
+  OVERALL_OPTIONS,
+  normalizeEventRating,
+  type AnswerMap,
+} from "@/lib/calibration";
 import { elementLabel, elementStyle } from "@/lib/elements";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
 
 const ALL_ELEMENTS = ["木", "火", "土", "金", "水"];
-
-const RATINGS: { value: string; label: string }[] = [
-  { value: "very_positive", label: "크게 좋아짐" },
-  { value: "positive", label: "좋아짐" },
-  { value: "neutral", label: "비슷·잔잔" },
-  { value: "negative", label: "힘들어짐" },
-  { value: "very_negative", label: "크게 힘들어짐" },
-  { value: "unknown", label: "기억 안 남" },
-];
 
 // 이벤트 카테고리 표시 라벨(백엔드 EVENT_CATEGORY_LABEL 미러). affection은 혼인상태 정보가
 // 없을 때의 기본값으로 "연애/부부"를 쓴다(이벤트 라벨 자체가 구체적이라 충분).
@@ -27,13 +27,6 @@ const CATEGORY_KO: Record<string, string> = {
   health: "건강",
   study: "학업",
 };
-
-// 이벤트별 응답 — (나에게) 긍정/부정/해당없음.
-const EVENT_CHOICES: { value: "positive" | "negative" | "na"; label: string; active: string }[] = [
-  { value: "positive", label: "긍정", active: "border-emerald-600 bg-emerald-600" },
-  { value: "negative", label: "부정", active: "border-rose-600 bg-rose-600" },
-  { value: "na", label: "해당없음", active: "border-gray-500 bg-gray-500" },
-];
 
 const axisKo: Record<string, string> = {
   eokbu: "억부", johu: "조후", pattern: "격국", disease: "병약", special: "특수격",
@@ -135,8 +128,6 @@ function Box({ label, v }: { label: string; v: string | null }) {
   );
 }
 
-type AnswerMap = Record<string, { rating: string; events: string[]; event_ratings?: Record<string, "positive" | "negative" | "na"> }>;
-
 export function CalibrationPanel({
   result,
   profile,
@@ -203,34 +194,34 @@ export function CalibrationPanel({
     );
   }
 
-  // 응답 수 — 이벤트형은 이벤트 하나라도 긍/부정을 고르면 응답으로 본다.
+  // 응답 수 — 전체 체감·영역·사건 중 하나라도 유의미하게 고르면 응답으로 본다.
   const isAnswered = (q: (typeof questions)[number]): boolean => {
-    if (q.events && q.events.length) {
-      const er = answers[q.id]?.event_ratings ?? {};
-      return q.events.some((e) => er[e.event_key] === "positive" || er[e.event_key] === "negative");
-    }
-    const r = answers[q.id]?.rating;
-    return !!r && r !== "unknown";
+    const a = answers[q.id];
+    if (!a) return false;
+    if (a.rating && a.rating !== "unknown") return true;
+    if (Object.values(a.domain_ratings ?? {}).some((v) => v && v !== "unknown")) return true;
+    return Object.values(a.event_ratings ?? {}).some(
+      (v) => normalizeEventRating(v) && normalizeEventRating(v) !== "unknown",
+    );
   };
   const answeredCount = questions.filter(isAnswered).length;
 
-  const setRating = (id: string, rating: string) =>
-    setAnswers((a) => ({ ...a, [id]: { rating, events: a[id]?.events ?? [] } }));
-  const toggleEvent = (id: string, ev: string) =>
+  const patch = (id: string, next: Partial<AnswerMap[string]>) =>
     setAnswers((a) => {
-      const cur = a[id]?.events ?? [];
-      const events = cur.includes(ev) ? cur.filter((e) => e !== ev) : [...cur, ev];
-      return { ...a, [id]: { rating: a[id]?.rating ?? "neutral", events } };
+      const base = a[id] ?? { rating: "unknown", events: [] };
+      return { ...a, [id]: { ...base, ...next } };
     });
-  const setEventRating = (id: string, eventKey: string, rating: "positive" | "negative" | "na") =>
-    setAnswers((a) => ({
-      ...a,
-      [id]: {
-        rating: a[id]?.rating ?? "unknown",
-        events: a[id]?.events ?? [],
-        event_ratings: { ...(a[id]?.event_ratings ?? {}), [eventKey]: rating },
-      },
-    }));
+  const setRating = (id: string, rating: string) => patch(id, { rating });
+  const toggleEvent = (id: string, ev: string) => {
+    const cur = answers[id]?.events ?? [];
+    patch(id, { events: cur.includes(ev) ? cur.filter((e) => e !== ev) : [...cur, ev] });
+  };
+  const setDomainRating = (id: string, domain: string, rating: string) =>
+    patch(id, { domain_ratings: { ...(answers[id]?.domain_ratings ?? {}), [domain]: rating } });
+  const setEventRating = (id: string, eventKey: string, rating: string) =>
+    patch(id, { event_ratings: { ...(answers[id]?.event_ratings ?? {}), [eventKey]: rating } });
+  const setIntensity = (id: string, eventKey: string, intensity: number) =>
+    patch(id, { event_intensity: { ...(answers[id]?.event_intensity ?? {}), [eventKey]: intensity } });
 
   const submit = async () => {
     setBusy(true);
@@ -241,6 +232,8 @@ export function CalibrationPanel({
         overall_rating: answers[q.id]?.rating ?? "unknown",
         selected_events: answers[q.id]?.events ?? [],
         event_ratings: answers[q.id]?.event_ratings ?? {},
+        domain_ratings: answers[q.id]?.domain_ratings ?? {},
+        event_intensity: answers[q.id]?.event_intensity ?? {},
       }));
       onResult(await submitCalibration(profile, payload, referenceDate, timeOptions), answers);
     } catch (e) {
@@ -256,73 +249,119 @@ export function CalibrationPanel({
       <p className="mb-3 text-xs text-gray-500">
         과거 사건을 답하면 용신 후보를 검증해 확정합니다. 기억나지 않으면 점수에서 제외됩니다.
       </p>
-      <ol className="space-y-3">
-        {questions.map((q) => (
-          <li key={q.id} className="rounded border p-2">
-            <p className="text-sm">{q.question_text}</p>
-            {q.period_range && (
-              <p className="mt-0.5 text-[11px] text-gray-400">{q.period_range}</p>
-            )}
+      <ol className="space-y-4">
+        {questions.map((q) => {
+          const a = answers[q.id];
+          return (
+            <li key={q.id} className="rounded border p-2.5">
+              <p className="text-sm font-medium">{q.question_text}</p>
+              {q.period_range && (
+                <p className="mt-0.5 text-[11px] text-gray-400">{q.period_range}</p>
+              )}
 
-            {q.events && q.events.length ? (
-              // 이벤트형 — 그 해의 검출 이벤트별로 (나에게) 긍정/부정/해당없음을 고른다.
-              <ul className="mt-2 space-y-1.5">
-                {q.events.map((ev) => {
-                  const cur = answers[q.id]?.event_ratings?.[ev.event_key];
+              {/* ① 그 해 전체 체감(7상태) */}
+              <p className="mt-2 text-[10px] font-medium text-gray-400">그 해 전체 체감</p>
+              <div className="mt-0.5 flex flex-wrap gap-1">
+                {OVERALL_OPTIONS.map((r) => (
+                  <button key={r.value} type="button" onClick={() => setRating(q.id, r.value)}
+                    className={`rounded border px-2 py-0.5 text-[11px] ${
+                      a?.rating === r.value ? "border-gray-800 bg-gray-800 text-white" : "text-gray-600"
+                    }`}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ② 영역별 체감(5상태) */}
+              <p className="mt-2 text-[10px] font-medium text-gray-400">영역별 체감</p>
+              <div className="mt-0.5 space-y-1">
+                {CALIB_DOMAINS.map((dom) => {
+                  const cur = a?.domain_ratings?.[dom.key];
                   return (
-                    <li key={ev.event_key} className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 text-[13px]">
-                        {ev.label}
-                        <span className="ml-1 rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400">
-                          {CATEGORY_KO[ev.category] ?? ev.category}
-                        </span>
-                      </span>
+                    <div key={dom.key} className="flex items-center justify-between gap-2">
+                      <span className="text-[12px] text-gray-600">{dom.label}</span>
                       <span className="flex shrink-0 gap-1">
-                        {EVENT_CHOICES.map((c) => (
-                          <button
-                            key={c.value}
-                            type="button"
-                            onClick={() => setEventRating(q.id, ev.event_key, c.value)}
-                            className={`rounded border px-2 py-0.5 text-[11px] ${
-                              cur === c.value ? `${c.active} text-white` : "text-gray-500"
-                            }`}
-                          >
-                            {c.label}
+                        {DOMAIN_OPTIONS.map((o) => (
+                          <button key={o.value} type="button"
+                            onClick={() => setDomainRating(q.id, dom.key, o.value)}
+                            className={`rounded border px-1.5 py-0.5 text-[11px] ${
+                              cur === o.value ? "border-indigo-600 bg-indigo-600 text-white" : "text-gray-500"
+                            }`}>
+                            {o.label}
                           </button>
                         ))}
                       </span>
-                    </li>
+                    </div>
                   );
                 })}
-              </ul>
-            ) : (
-              <>
-                <p className="mt-1 text-[10px] font-medium text-gray-400">그 해 흐름</p>
-                <div className="mt-0.5 flex flex-wrap gap-1">
-                  {RATINGS.map((r) => (
-                    <button key={r.value} type="button" onClick={() => setRating(q.id, r.value)}
-                      className={`rounded border px-2 py-0.5 text-[11px] ${
-                        answers[q.id]?.rating === r.value ? "border-gray-800 bg-gray-800 text-white" : ""
-                      }`}>
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-1.5 text-[10px] font-medium text-gray-400">영향 영역(복수)</p>
-                <div className="mt-0.5 flex flex-wrap gap-1">
-                  {q.options.map((opt) => (
-                    <button key={opt} type="button" onClick={() => toggleEvent(q.id, opt)}
-                      className={`rounded-full border px-2 py-0.5 text-[10px] ${
-                        answers[q.id]?.events?.includes(opt) ? "border-emerald-600 bg-emerald-50" : "text-gray-500"
-                      }`}>
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </li>
-        ))}
+              </div>
+
+              {/* ③ 사건별 결과 + 강도 */}
+              {q.events && q.events.length ? (
+                <>
+                  <p className="mt-2 text-[10px] font-medium text-gray-400">그 해 실제 사건 · 결과</p>
+                  <ul className="mt-0.5 space-y-1.5">
+                    {q.events.map((ev) => {
+                      const cur = normalizeEventRating(a?.event_ratings?.[ev.event_key]);
+                      const inten = a?.event_intensity?.[ev.event_key];
+                      return (
+                        <li key={ev.event_key} className="space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 text-[13px]">
+                              {ev.label}
+                              <span className="ml-1 rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400">
+                                {CATEGORY_KO[ev.category] ?? ev.category}
+                              </span>
+                            </span>
+                            <span className="flex shrink-0 flex-wrap justify-end gap-1">
+                              {EVENT_OPTIONS.map((o) => (
+                                <button key={o.value} type="button"
+                                  onClick={() => setEventRating(q.id, ev.event_key, o.value)}
+                                  className={`rounded border px-1.5 py-0.5 text-[11px] ${
+                                    cur === o.value ? "border-gray-800 bg-gray-800 text-white" : "text-gray-500"
+                                  }`}>
+                                  {o.label}
+                                </button>
+                              ))}
+                            </span>
+                          </div>
+                          {cur && cur !== "unknown" && (
+                            <div className="flex items-center gap-1 pl-1">
+                              <span className="text-[10px] text-gray-400">강도</span>
+                              {INTENSITY_OPTIONS.map((o) => (
+                                <button key={o.value} type="button"
+                                  onClick={() => setIntensity(q.id, ev.event_key, o.value)}
+                                  className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                                    inten === o.value ? "border-amber-600 bg-amber-50 text-amber-700" : "text-gray-400"
+                                  }`}>
+                                  {o.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 text-[10px] font-medium text-gray-400">영향 영역(복수)</p>
+                  <div className="mt-0.5 flex flex-wrap gap-1">
+                    {q.options.map((opt) => (
+                      <button key={opt} type="button" onClick={() => toggleEvent(q.id, opt)}
+                        className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                          a?.events?.includes(opt) ? "border-emerald-600 bg-emerald-50" : "text-gray-500"
+                        }`}>
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </li>
+          );
+        })}
       </ol>
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
       <button type="button" onClick={submit} disabled={busy}

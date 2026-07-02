@@ -111,10 +111,14 @@ export async function calculateManse(
 
 export interface FeedbackAnswer {
   question_id: string;
-  overall_rating: string;
+  overall_rating: string; // 전체 체감 7상태(ExperienceRating). 레거시 unknown 호환.
   selected_events: string[];
-  // 이벤트형 질문 응답 — event_key → 'positive'|'negative'|'na'.
+  // 이벤트형 질문 응답 — event_key → ExperienceRating(레거시 'positive'|'negative'|'na' 호환).
   event_ratings?: Record<string, string>;
+  // 영역별 체감(docs/14) — domain → ExperienceRating.
+  domain_ratings?: Record<string, string>;
+  // 사건별 강도(선택, 1~3).
+  event_intensity?: Record<string, number>;
 }
 
 export async function submitCalibration(
