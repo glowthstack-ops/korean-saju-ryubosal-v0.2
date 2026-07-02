@@ -49,10 +49,34 @@ def fingerprint_similarity(a: SignalFingerprint, b: SignalFingerprint) -> float:
     return 0.4 * jac + 0.3 * palace + 0.2 * relation + 0.1 * stage
 
 
+# 개인 시그니처가 점수에 주는 최대 가감(상한) — 기저 명리 계산을 뒤집지 않는 보정폭.
+_PERSONAL_SCORE_CAP = 8
+# 확신도 티어 순서(강한 매칭/불일치 시 ±1티어만 이동).
+_CONF_ORDER = [
+    ConfidenceLevel.THEME_ONLY,
+    ConfidenceLevel.WEAK_EVENT_CANDIDATE,
+    ConfidenceLevel.EVENT_CANDIDATE,
+    ConfidenceLevel.STRONG_EVENT_CANDIDATE,
+    ConfidenceLevel.HIGH_PROBABILITY_EVENT,
+]
+
+
+def _shift_confidence(level: ConfidenceLevel, steps: int) -> ConfidenceLevel:
+    """확신도 티어를 steps(±)만큼 이동(범위 클램프)."""
+    i = _CONF_ORDER.index(level)
+    return _CONF_ORDER[max(0, min(len(_CONF_ORDER) - 1, i + steps))]
+
+
 def apply_personal_match(
     candidates: list[EventCandidateV2], signature: list[LifeEventRow]
 ) -> list[EventCandidateV2]:
-    """후보별 personal_match를 개인 시그니처로 산출한다(타입·점수 불변, 필드만 채움)."""
+    """후보별 personal_match를 개인 시그니처로 산출하고, 그 강도를 점수·확신도에 상한 내 반영한다.
+
+    현실 신호 캘리브레이션(사용자 확인 과거 사건)이 정렬만 바꾸지 않고 **계산(점수·확신도)** 을
+    보정해 풀이 정확도를 높인다(사용자 확정 2026-07-02, 풀이 프롬프트 낭독이 아님). 점수 보정폭은
+    ±``_PERSONAL_SCORE_CAP``(기저 명리 계산을 뒤집지 않음), 확신도는 강한 매칭/불일치 시 ±1티어만
+    이동한다. 사건 타입·정렬축(lei_rank_key)은 불변.
+    """
     if not signature:
         return candidates
     occurred: dict[str, list[LifeEventRow]] = {}
@@ -74,8 +98,19 @@ def apply_personal_match(
         if pm == 0.0:
             out.append(c)
             continue
+        # 점수 보정(상한 클램프) + 강한 매칭·불일치 시 확신도 ±1티어.
+        boost = round(max(-100.0, min(100.0, pm)) / 100 * _PERSONAL_SCORE_CAP)
+        new_score = max(0, min(100, c.score + boost))
+        conf = c.confidence_level
+        if pm >= 50:
+            conf = _shift_confidence(conf, 1)
+        elif pm <= -50:
+            conf = _shift_confidence(conf, -1)
         reasons = [*c.reason_codes, "PERSONAL_MATCH" if pm > 0 else "PERSONAL_FAIL"]
-        out.append(c.model_copy(update={"personal_match": pm, "reason_codes": reasons}))
+        out.append(c.model_copy(update={
+            "personal_match": pm, "reason_codes": reasons,
+            "score": new_score, "confidence_level": conf,
+        }))
     return out
 
 

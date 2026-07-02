@@ -364,6 +364,9 @@ class LlmInput(BaseModel):
     # 구조 해석 블록(질문 도메인에 맞는 원국 횡재 그릇·결혼/자산·건강 취약·부귀·시대 기운 등).
     # 이미 누출 안전 한글로 직렬화된 줄들(영문 변수·점수 비노출). 도메인 관련 시에만 채운다.
     structural_context: list[str] = Field(default_factory=list)
+    # 물상(2단계 프로필) 사실 맥락 — 직업·혼인·거주·자녀 중 질문 도메인 관련 항목만(사실 서술).
+    # 점수·판정 불변, 페르소나 아님. LLM이 상황에 맞게 구체화하는 근거.
+    profile_facts: list[str] = Field(default_factory=list)
     # 구조 패턴 압축 태그(Step ④) — 질문 가변 suffix에 직렬화, 질문 도메인 우선 선별(top-6).
     # 길흉 미확정(polarity_mode·domain_hints만). 전체 감지는 내부 보존(비직렬화).
     detected_patterns: list[DetectedPattern] = Field(default_factory=list)

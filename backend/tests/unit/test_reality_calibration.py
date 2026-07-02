@@ -145,3 +145,29 @@ def test_none_of_them_marks_all_not_happened(chart, question) -> None:
     rows = [r for r in rows_from_submission(sub, question, pillars_signature(chart))
             if r.period == str(y0.year)]
     assert rows and all(r.outcome is LifeEventOutcome.NOT_HAPPENED for r in rows)
+
+
+def test_prior_answers_round_trip(chart, question) -> None:
+    """제출 → 저장 행 → prior 복원이 원래 선택을 되살린다(수정 모드 프리필). 발생 월 8월 포함."""
+    from saju_engines.reality_calibration import prior_answers_from_rows
+
+    years = [y for y in question.years if y.events]
+    y_occ, y_none = years[0], years[1]
+    chosen = y_occ.events[0].event_key
+    sub = RealityCalibrationSubmission(
+        subject_id="s1",
+        answers=[
+            RealityCalibrationYearAnswer(
+                year=y_occ.year, occurred=[OccurredEvent(event_key=chosen, month=8)],
+            ),
+            RealityCalibrationYearAnswer(year=y_none.year, none_of_them=True),
+        ],
+    )
+    month_fp = {(y_occ.year, 8, chosen): SignalFingerprint(relation="CHUNG")}
+    rows = rows_from_submission(sub, question, pillars_signature(chart), month_fp)
+
+    prior = {a.year: a for a in prior_answers_from_rows(rows)}
+    occ = prior[y_occ.year]
+    assert [(o.event_key, o.month) for o in occ.occurred] == [(chosen, 8)]  # 월까지 복원
+    assert occ.none_of_them is False
+    assert prior[y_none.year].occurred == [] and prior[y_none.year].none_of_them is True

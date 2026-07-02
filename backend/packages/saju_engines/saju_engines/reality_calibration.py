@@ -13,10 +13,12 @@ from saju_shared_types.life_event import (
     LifeEventOutcome,
     LifeEventRow,
     LifeEventSource,
+    OccurredEvent,
     RealityCalibrationEvent,
     RealityCalibrationQuestionSet,
     RealityCalibrationSubmission,
     RealityCalibrationYear,
+    RealityCalibrationYearAnswer,
     SignalFingerprint,
 )
 from saju_shared_types.manse_result import ManseV2Result
@@ -142,6 +144,36 @@ def month_event_fingerprints(
         str(c.event_key): fingerprint_of(c)
         for c in month_candidates if c.period == ym
     }
+
+
+def prior_answers_from_rows(
+    rows: list[LifeEventRow],
+) -> list[RealityCalibrationYearAnswer]:
+    """저장된 확인 사건(LifeEventRow) → 이전 답변으로 복원(수정 모드 프리필).
+
+    period('YYYY'/'YYYY-MM')에서 연도·월을, outcome에서 발생 여부를 되살린다. 그 해에 행은
+    있으나 confirmed가 하나도 없으면 '해당 없음'으로 재구성(제출 당시 전부 not_happened).
+    """
+    by_year: dict[int, list[LifeEventRow]] = {}
+    for r in rows:
+        try:
+            year = int(r.period[:4])
+        except (ValueError, IndexError):
+            continue
+        by_year.setdefault(year, []).append(r)
+
+    answers: list[RealityCalibrationYearAnswer] = []
+    for year, yr_rows in sorted(by_year.items()):
+        occurred: list[OccurredEvent] = []
+        for r in yr_rows:
+            if r.outcome != LifeEventOutcome.CONFIRMED:
+                continue
+            month = int(r.period[5:7]) if len(r.period) >= 7 and "-" in r.period else None
+            occurred.append(OccurredEvent(event_key=r.event_key, month=month))
+        answers.append(RealityCalibrationYearAnswer(
+            year=year, occurred=occurred, none_of_them=not occurred,
+        ))
+    return answers
 
 
 def rows_from_submission(

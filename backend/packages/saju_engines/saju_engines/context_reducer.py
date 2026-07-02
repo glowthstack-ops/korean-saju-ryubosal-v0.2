@@ -264,6 +264,12 @@ _BANGHAP_INSTRUCTION = (
     "기운이 매우 강해진 '준방합' 상태로만 설명하고, 운에서 마지막 글자(예: 未)가 채워질 "
     "때 비로소 방합이 촉발돼 사건이 크게 현실화된다고 풀이한다."
 )
+# 물상(2단계 프로필) 사실 맥락 — 상황 구체화용. 점수·판정·간지 불변, 사실 확대해석 금지.
+_PROFILE_FACTS_INSTRUCTION = (
+    "[사용자 정보]는 사용자가 입력한 사실 맥락(직업·혼인·거주 등)이다. 풀이를 그 상황에 맞게 "
+    "구체화하되(예: 직업 형태에 맞는 사건 표현), 점수·간지·판정은 바꾸지 말고 입력된 사실을 "
+    "단정적으로 확대 해석하거나 없는 정보를 지어내지 말 것."
+)
 # 구조 패턴 태그 — 구조 라벨일 뿐 사건·길흉 확정 아님(원칙 3·4, 설계 §14).
 _STRUCTURE_PATTERN_INSTRUCTION = (
     "[구조 패턴]은 십성 관계 구조를 압축한 설명 라벨이다 — 사건이나 길흉의 확정이 아니다. "
@@ -1014,6 +1020,7 @@ def build_llm_input(
     prior_claims: list[str] | None = None,
     current_month_label: str | None = None,
     structural_context: list[str] | None = None,
+    profile_facts: list[str] | None = None,
     reserved_tokens: int | None = None,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
@@ -1153,6 +1160,7 @@ def build_llm_input(
             if today else None
         ),
         structural_context=structural_context or [],
+        profile_facts=profile_facts or [],
         detected_patterns=selected_patterns,
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
@@ -1662,6 +1670,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
         # 구조 해석 블록(질문 도메인 맞춤 — 이미 누출 안전 한글). 개인 풀이의 구조 근거로 활용.
         lines.append("")
         lines += payload.structural_context
+    if payload.profile_facts:
+        # 물상 사실 맥락(직업·혼인·거주 등) — 상황 구체화 근거. 점수·판정 불변.
+        lines += ["", "[사용자 정보 — 입력한 사실 맥락(상황 구체화용, 판정 불변)]"]
+        lines += payload.profile_facts
     _append_structure_patterns(lines, payload.detected_patterns)
     if payload.evidence:  # 근거 경로 — 후보·증거 있을 때만(구조 질문 등 빈 헤더 방지).
         lines.append("")
@@ -1703,6 +1715,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(_BANGHAP_INSTRUCTION)
     if payload.detected_patterns:
         lines.append(_STRUCTURE_PATTERN_INSTRUCTION)
+    if payload.profile_facts:
+        lines.append(_PROFILE_FACTS_INSTRUCTION)
     if payload.event_candidates:
         lines.append(_MATRIX_INSTRUCTION)
         lines.append(_SCOPE_INSTRUCTION)

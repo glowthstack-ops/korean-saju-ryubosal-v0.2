@@ -23,6 +23,7 @@ from saju_engines.chart_interpretation import build_chart_interpretation
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     _DOMAIN_EVENT_KEYS,
+    _PROFILE_FACTS_INSTRUCTION,
     _STRUCTURE_PATTERN_INSTRUCTION,
     build_birth_summary,
     serialize_chart_prefix,
@@ -39,7 +40,7 @@ from saju_engines.palace_relationship_network import (
     analyze_palace_network,
     palace_network_lines,
 )
-from saju_engines.profile_engine import profile_event_signals
+from saju_engines.profile_engine import profile_event_signals, profile_facts_lines
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
     month_overview_lines,
@@ -153,6 +154,24 @@ def _residence_region(owner_id: str | None) -> str | None:
         return profile.extended.residence.region or None
     except Exception:  # noqa: BLE001 — 프로필 조회 실패가 리포트를 막지 않도록
         return None
+
+
+def _load_extended_profile(subject_id: str | None):
+    """subject 확장 프로필(물상 사실 맥락 주입용). 무DB/미설정/부재는 graceful None."""
+    if subject_id is None:
+        return None
+    try:
+        from .personalization import _get_profile_store
+
+        store = _get_profile_store()
+        if store is None:
+            return None
+        profile = store.load(subject_id)
+        return profile.extended if profile is not None else None
+    except Exception:  # noqa: BLE001 — 프로필 조회 실패가 리포트를 막지 않도록
+        return None
+
+
 # 이벤트 종류 → 도메인(21키 EventKeyV2 기준, Phase 7). FOCUS 주제 스코핑에 쓴다.
 _EVENT_DOMAIN: dict[str, str] = {str(k): v for k, v in _EVENT_DOMAIN_V2.items()}
 _TOPIC_DOMAINS = set(_EVENT_DOMAIN.values())
@@ -521,6 +540,7 @@ class _ReportData:
         # Topic Builder(M01~M15) extras — 섹션 module_calls 실행용(옵션1 배선, 지연 빌드).
         self.owner_id = owner_id
         self.subject_id = subject_id
+        self.extended_profile = _load_extended_profile(subject_id)  # 물상(사실 맥락) 주입용
         self.birth = chart_birth  # M14 과거검증 extras
         self._composites: list | None = None
         _tg = getattr(self.result.force_analysis, "ten_gods", None)
@@ -1325,6 +1345,17 @@ def build_section_context(
                 "[구조 패턴 — 의미 설명 태그(구조 라벨일 뿐, 사건·길흉 확정 아님·도메인은 후보)]",
                 *[p.llm_tag for p in _patterns],
                 _STRUCTURE_PATTERN_INSTRUCTION,
+            ]
+    # 물상(2단계 프로필) 사실 맥락 — 도메인 섹션에만 해당 항목 주입(상황 구체화, 판정 불변).
+    _sd = _SECTION_DOMAIN.get(sid)
+    if _sd:
+        _facts = profile_facts_lines(data.extended_profile, _sd)
+        if _facts:
+            lines += [
+                "",
+                "[사용자 정보 — 입력한 사실 맥락(상황 구체화용, 판정 불변)]",
+                *_facts,
+                _PROFILE_FACTS_INSTRUCTION,
             ]
     if sid in _PARTNER_NATAL_SECTIONS:
         lines += ["", *data.partner_natal_block()]

@@ -37,6 +37,7 @@ from saju_engines.marriage_timing_profile import marriage_engine_flags
 from saju_engines.persona import PersonaEngine
 from saju_engines.planner import build_execution_plan
 from saju_engines.precompute import CompositeBuilder
+from saju_engines.profile_engine import profile_facts_for
 from saju_engines.query_parser import parse_message
 from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.shadow_scoring import domain_to_expression_key
@@ -2194,6 +2195,10 @@ def chat(
         prior_claims=prior_claims,
         current_month_label=luck_month,
         structural_context=structural,
+        # 물상(2단계 프로필) 사실 맥락 — 질문 도메인 관련 항목만 풀이에 사실로 주입.
+        profile_facts=profile_facts_for(
+            subject_id, str(intent.domains[0]) if intent.domains else "general"
+        ),
     )
     call_type = "chat_compare" if plan.per_subject else "chat_single"
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 from datetime import date as date_cls
+from functools import lru_cache
 from pathlib import Path
 
 from saju_shared_types.birth_input import BirthInput
@@ -355,3 +356,68 @@ def apply_extracted_updates(
     updated = base.model_copy(update=valid)
     invalidations = [key for f in valid for key in delete_extended_field(base, f)[1]]
     return updated, [], invalidations
+
+
+# ── 물상(2단계 프로필) 사실 맥락 → 풀이 프롬프트 주입용 (사용자 확정 2026-07-02) ──────────
+# 계산 보정이 아니라 LLM이 상황에 맞게 구체화할 '사실 맥락'이다. 점수·간지·판정 불변, 페르소나 아님.
+_DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
+
+# 질문 도메인(Domain enum 값) → 노출할 프로필 필드(개인정보 최소화·관련성 기준).
+_PROFILE_DOMAIN_FIELDS: dict[str, tuple[str, ...]] = {
+    "career": ("occupation",),
+    "wealth": ("occupation",),
+    "education": ("occupation",),
+    "relocation": ("residence", "occupation"),
+    "relationship": ("marital_status", "children"),
+    "health": (),
+    "general": ("occupation", "marital_status"),
+}
+
+
+@lru_cache(maxsize=1)
+def _occupation_taxonomy() -> OccupationTaxonomy:
+    return OccupationTaxonomy(_DICTS_DEFAULT)
+
+
+def _occupation_label(category_id: str) -> str:
+    """직업 분류 id → 한글 라벨(없으면 id 그대로)."""
+    item = _occupation_taxonomy().category(category_id)
+    return str(item.get("ko", category_id)) if item else category_id
+
+
+def profile_facts_lines(extended: ExtendedProfile | None, domain: str | None) -> list[str]:
+    """물상(2단계 프로필) 사실 맥락 줄 — 도메인에 맞는 항목만. 사실 서술(판정·페르소나 아님)."""
+    if extended is None:
+        return []
+    fields = _PROFILE_DOMAIN_FIELDS.get(domain or "general", ("occupation", "marital_status"))
+    lines: list[str] = []
+    if "occupation" in fields and extended.occupation:
+        occ = extended.occupation
+        parts = [_occupation_label(occ.category_id)]
+        if occ.detail:
+            parts.append(occ.detail)
+        if occ.employment_form:
+            parts.append(occ.employment_form)
+        lines.append("직업: " + " · ".join(p for p in parts if p))
+    if "marital_status" in fields and extended.marital_status:
+        lines.append(f"혼인 상태: {extended.marital_status}")
+    if "children" in fields and extended.children and extended.children.count:
+        lines.append(f"자녀: {extended.children.count}명")
+    if "residence" in fields and extended.residence and extended.residence.region:
+        lines.append(f"거주지: {extended.residence.region}")
+    return lines
+
+
+def profile_facts_for(subject_id: str | None, domain: str | None) -> list[str]:
+    """저장된 subject 프로필 → 도메인 맞춤 사실 맥락 줄. 실패·부재·무DB는 조용히 [](규칙11)."""
+    if not subject_id:
+        return []
+    import contextlib
+
+    from .profile_store import ProfileStore  # 지연 임포트 — DB 의존을 모듈 로드와 분리
+
+    with contextlib.suppress(Exception):
+        profile = ProfileStore().load(subject_id)
+        if profile is not None:
+            return profile_facts_lines(profile.extended, domain)
+    return []
