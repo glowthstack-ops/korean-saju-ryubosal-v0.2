@@ -10,6 +10,7 @@ import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvid
 import { StepBirth } from "@/components/onboarding/StepBirth";
 import { StepMulsang } from "@/components/onboarding/StepMulsang";
 import { StepPersona } from "@/components/onboarding/StepPersona";
+import { StepRealityCalibration } from "@/components/onboarding/StepRealityCalibration";
 import { StepShell } from "@/components/onboarding/StepShell";
 import { StepYongsin } from "@/components/onboarding/StepYongsin";
 import { profileToBasic, profileToBirthDTO, summaryToProfile } from "@/lib/subject-mapping";
@@ -53,6 +54,8 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
   const [loaded, setLoaded] = useState(mode === "add" || mode === "oneoff");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 신규 등록 완료 후 현실 캘리브레이션(스킵 가능) 단계에서 쓸 새 subject id.
+  const [createdSubjectId, setCreatedSubjectId] = useState<string | null>(null);
 
   // add(로그인): 계정 페르소나를 불러와 편집 기본값으로. edit: 사주·프로필·페르소나 프리필.
   useEffect(() => {
@@ -82,7 +85,8 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
     }
   }, [mode, subjectId]);
 
-  const total = mode === "oneoff" ? 1 : 4;
+  // 신규(add)는 마지막에 현실 캘리브레이션 단계(step 4)를 더 둔다. edit/oneoff는 기존 그대로.
+  const total = mode === "oneoff" ? 1 : mode === "add" ? 5 : 4;
 
   async function finish(d: Draft) {
     if (!d.profile) return;
@@ -112,6 +116,13 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
       });
       await savePersona(d.persona);
       setSelected({ subjectId: subj.subject_id, label: subj.label });
+      // 신규 등록: 마지막에 현실 캘리브레이션(스킵 가능) 단계를 제시. edit는 바로 이동.
+      if (mode === "add") {
+        setCreatedSubjectId(subj.subject_id);
+        setSaving(false);
+        setStep(4);
+        return;
+      }
       router.push(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "저장 실패");
@@ -190,6 +201,22 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
         >
           다음
         </button>
+      </StepShell>
+    );
+  }
+
+  // 4 — 현실 신호 캘리브레이션(신규 등록 완료 후, 스킵 가능) — 저장된 새 subject 기준.
+  if (step === 4 && createdSubjectId) {
+    return (
+      <StepShell
+        step={4}
+        total={total}
+        title="현실 신호 캘리브레이션"
+        desc="과거에 실제 있었던 일을 알려주면 이 사주에 맞춰 풀이 정확도가 올라갑니다. 건너뛰어도 됩니다."
+        canSkip
+        onSkip={() => router.push(next)}
+      >
+        <StepRealityCalibration subjectId={createdSubjectId} onDone={() => router.push(next)} />
       </StepShell>
     );
   }
