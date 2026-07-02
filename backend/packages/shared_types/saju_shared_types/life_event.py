@@ -7,8 +7,11 @@ doc/v2_2/LIFE_EVENT_INFERENCE.md. 사용자 확인 사건(원자 행)과 코호�
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+from .calibration import ExperienceRating
 
 
 class LifeEventOutcome(StrEnum):
@@ -81,6 +84,39 @@ class RealityCalibrationYear(BaseModel):
     events: list[RealityCalibrationEvent] = Field(default_factory=list)
 
 
+class OccurredEvent(BaseModel):
+    """실제 일어난 사건 1건 + 선택적 발생 월/경험(기억나는 경우만).
+
+    발생(occurred)은 이벤트 엔진/personal_match 학습용, 경험(experience)은 용신 후보 검증용으로
+    분리한다(docs/14 결정②). experience/intensity는 선택 — 없으면 발생만 반영.
+    """
+
+    event_key: str
+    month: int | None = None  # 1~12. 없으면 연도 지문으로 폴백(미입력 무해 — 규칙11)
+    experience: ExperienceRating | None = None  # 그 일이 어땠나(좋음/힘듦/반반) — 선택
+    intensity: int | None = None  # 1~3 강도 — 선택
+
+
+class PeriodNuance(BaseModel):
+    """층위(대운/세운/월운) 뉘앙스 — 보류(docs/14 §5). 스키마만, 강한 신호 해에만 후속 노출."""
+
+    has_peak_period: bool = False
+    peak_granularity: Literal["half", "season", "month"] | None = None
+    peak_value: str | None = None
+    peak_experience: ExperienceRating | None = None
+
+
+class RealityCalibrationYearAnswer(BaseModel):
+    """한 연도에 대한 사용자 선택. 발생·경험·영역을 분리해 받는다(docs/14)."""
+
+    year: int
+    occurred: list[OccurredEvent] = Field(default_factory=list)  # 실제 일어난 사건(+선택 월·경험)
+    none_of_them: bool = False  # 해당 없음(그 해 후보 전부 not_happened)
+    overall_rating: ExperienceRating = "unknown"  # 그 해 전체 체감(7상태, 약보조)
+    domain_ratings: dict[str, str] = Field(default_factory=dict)  # 영역별 체감(ExperienceRating)
+    period_nuance: PeriodNuance | None = None  # 보류(비활성)
+
+
 class RealityCalibrationQuestionSet(BaseModel):
     """현실 신호 캘리브레이션 질문 세트 — 주요 ~10개 연도."""
 
@@ -90,21 +126,8 @@ class RealityCalibrationQuestionSet(BaseModel):
         "각 연도에 실제로 있었던 일을 모두 선택하세요. 없었으면 '해당 없음'을 선택하면 됩니다. "
         "선택은 풀이 정확도를 높이는 데만 쓰이며 언제든 비워둘 수 있습니다."
     )
-
-
-class OccurredEvent(BaseModel):
-    """실제 일어난 사건 1건 + 선택적 발생 월(기억나는 경우만 — 월운 지문으로 정밀화)."""
-
-    event_key: str
-    month: int | None = None  # 1~12. 없으면 연도 지문으로 폴백(미입력 무해 — 규칙11)
-
-
-class RealityCalibrationYearAnswer(BaseModel):
-    """한 연도에 대한 사용자 선택. 발생한 사건만 월을 선택적으로 받는다."""
-
-    year: int
-    occurred: list[OccurredEvent] = Field(default_factory=list)  # 실제 일어난 사건(+선택적 월)
-    none_of_them: bool = False  # 해당 없음(그 해 후보 전부 not_happened)
+    # 이전 제출 답변(수정 모드 프리필) — 없으면 빈 목록(신규 입력). subject_signature로 복원.
+    prior: list[RealityCalibrationYearAnswer] = Field(default_factory=list)
 
 
 class RealityCalibrationSubmission(BaseModel):

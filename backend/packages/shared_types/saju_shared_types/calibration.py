@@ -90,6 +90,51 @@ EventRating = Literal["positive", "negative", "na"]
 # 이벤트형 응답(긍/부정) → 점수. na/None은 제외.
 EVENT_RATING_SCORE: dict[str, int | None] = {"positive": 1, "negative": -1, "na": None}
 
+# ── 해상도 개선(docs/14) — 정도+반반 2축 분해 ────────────────────────────
+# ExperienceRating: 좋고 나쁨의 정도 + '반반(혼재)'. neutral(무던)≠mixed(혼재)를 분리한다.
+ExperienceRating = Literal[
+    "very_positive", "positive", "neutral", "mixed", "negative", "very_negative", "unknown"
+]
+# 극성 축(정도) — mixed는 0(좋고 나쁨 상쇄), unknown/na는 None(채점 제외).
+EXPERIENCE_POLARITY: dict[str, float | None] = {
+    "very_positive": 2.0, "positive": 1.0, "neutral": 0.0, "mixed": 0.0,
+    "negative": -1.0, "very_negative": -2.0, "unknown": None,
+}
+# 변동성 축 — mixed만 1(충·형·합·교운·대운전환 신호). 그 외 0.
+EXPERIENCE_VOLATILITY: dict[str, float] = {
+    "very_positive": 0.0, "positive": 0.0, "neutral": 0.0, "mixed": 1.0,
+    "negative": 0.0, "very_negative": 0.0, "unknown": 0.0,
+}
+# FE 영역별 5상태 → 내부 ExperienceRating(연도 전체/사건 강도는 7상태 그대로 사용).
+DOMAIN_RATING_FROM_UI: dict[str, str] = {
+    "좋음": "positive", "보통": "neutral", "반반": "mixed", "힘듦": "negative", "모름": "unknown",
+}
+
+
+def experience_polarity(rating: str | None) -> float | None:
+    """ExperienceRating(또는 레거시 EventRating 'na') → 극성 점수. 모름/해당없음은 None(제외)."""
+    if rating is None or rating in ("na", "unknown"):
+        return None
+    return EXPERIENCE_POLARITY.get(rating)
+
+
+def experience_volatility(rating: str | None) -> float:
+    """ExperienceRating → 변동성(mixed=1). 레거시/미상은 0."""
+    return EXPERIENCE_VOLATILITY.get(rating or "", 0.0)
+
+
+class DomainExpectation(BaseModel):
+    """한 도메인에 대한 모델의 기대(도메인 이벤트들의 기대극성 집계, docs/14 결정③).
+
+    status='no_signal'은 '모델이 그 영역을 판단할 근거 없음'으로 neutral(평온 예상)과 구분한다
+    (채점 분모에서 제외). scored일 때만 expected_polarity/volatility가 유효하다.
+    """
+
+    expected_polarity: float | None = None
+    expected_volatility: float | None = None
+    signal_strength: float = 0.0
+    status: Literal["scored", "no_signal"] = "no_signal"
+
 
 class CalibrationEventItem(BaseModel):
     """검증 질문에 나열되는 그 해의 이벤트 1건.
@@ -119,6 +164,8 @@ class CalibrationQuestion(BaseModel):
     options: list[str] = Field(default_factory=list)
     # 이벤트형 질문에만 채워진다(연도별 검출 이벤트 + 모델별 기대 극성).
     events: list[CalibrationEventItem] = Field(default_factory=list)
+    # 모델별 도메인 기대(docs/14 P1) — model_type → domain → DomainExpectation. 질문 생성 시 산출.
+    domain_expectations: dict[str, dict[str, DomainExpectation]] = Field(default_factory=dict)
 
 
 class CalibrationQuestionSet(BaseModel):
@@ -133,9 +180,13 @@ class FeedbackAnswer(BaseModel):
     # 비이벤트형(레거시) 질문의 전체 평점. 이벤트형 질문이면 'unknown'(미사용)일 수 있다.
     overall_rating: Rating = "unknown"
     selected_events: list[str] = Field(default_factory=list)
-    domain_ratings: dict[str, int | None] = Field(default_factory=dict)
-    # 이벤트형 응답 — event_key → 'positive'|'negative'|'na'.
-    event_ratings: dict[str, EventRating] = Field(default_factory=dict)
+    # 영역별 체감(docs/14 B) — domain → ExperienceRating(좋음/보통/반반/힘듦/모름 매핑). 채점 주축.
+    # (레거시 dict[str,int|None]에서 승격 — 죽어있던 필드 활성.)
+    domain_ratings: dict[str, str] = Field(default_factory=dict)
+    # 이벤트형 응답 — event_key → ExperienceRating(레거시 'positive'|'negative'|'na' 호환).
+    event_ratings: dict[str, str] = Field(default_factory=dict)
+    # 사건별 강도(선택, 1~3) — 미세 가중. 없으면 채점에서 강도 항 생략.
+    event_intensity: dict[str, int] = Field(default_factory=dict)
     memo: str | None = None
 
 
