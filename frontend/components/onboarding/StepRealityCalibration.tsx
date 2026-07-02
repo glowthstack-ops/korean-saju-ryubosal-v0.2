@@ -10,7 +10,6 @@ import {
   CALIB_DOMAINS,
   DOMAIN_OPTIONS,
   EVENT_OPTIONS,
-  INTENSITY_OPTIONS,
   OVERALL_OPTIONS,
   normalizeEventRating,
 } from "@/lib/calibration";
@@ -164,22 +163,22 @@ export function StepRealityCalibration({ subjectId, onDone }: Props) {
               ))}
             </div>
 
-            {/* ② 영역별 체감 */}
+            {/* ② 영역별 체감 — 라벨 아래에 버튼을 줄바꿈 배치(모바일 대응) */}
             <p className="text-[10px] font-medium text-zinc-400">영역별 체감</p>
-            <div className="space-y-1">
+            <div className="space-y-2">
               {CALIB_DOMAINS.map((dom) => (
-                <div key={dom.key} className="flex items-center justify-between gap-2">
+                <div key={dom.key}>
                   <span className="text-[12px] text-zinc-600">{dom.label}</span>
-                  <span className="flex shrink-0 gap-1">
+                  <div className="mt-0.5 flex flex-wrap gap-1">
                     {DOMAIN_OPTIONS.map((o) => (
                       <button key={o.value} type="button" onClick={() => setDomain(y.year, dom.key, o.value)}
-                        className={`rounded border px-1.5 py-0.5 text-[11px] ${
+                        className={`rounded border px-2 py-1 text-[11px] ${
                           ys.domains[dom.key] === o.value ? "border-indigo-600 bg-indigo-600 text-white" : "text-zinc-500"
                         }`}>
                         {o.label}
                       </button>
                     ))}
-                  </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -212,31 +211,19 @@ export function StepRealityCalibration({ subjectId, onDone }: Props) {
                       )}
                     </div>
                     {checked && (
-                      <div className="flex flex-wrap items-center gap-1 pl-6">
+                      <div className="pl-6">
                         <span className="text-[10px] text-zinc-400">결과</span>
-                        {EVENT_OPTIONS.map((o) => (
-                          <button key={o.value} type="button"
-                            onClick={() => patchOcc(y.year, ev.event_key, { experience: o.value })}
-                            className={`rounded border px-1.5 py-0.5 text-[11px] ${
-                              occ.experience === o.value ? "border-zinc-800 bg-zinc-800 text-white" : "text-zinc-500"
-                            }`}>
-                            {o.label}
-                          </button>
-                        ))}
-                        {occ.experience && occ.experience !== "unknown" && (
-                          <>
-                            <span className="ml-1 text-[10px] text-zinc-400">강도</span>
-                            {INTENSITY_OPTIONS.map((o) => (
-                              <button key={o.value} type="button"
-                                onClick={() => patchOcc(y.year, ev.event_key, { intensity: o.value })}
-                                className={`rounded border px-1.5 py-0.5 text-[10px] ${
-                                  occ.intensity === o.value ? "border-amber-600 bg-amber-50 text-amber-700" : "text-zinc-400"
-                                }`}>
-                                {o.label}
-                              </button>
-                            ))}
-                          </>
-                        )}
+                        <div className="mt-0.5 flex flex-wrap gap-1">
+                          {EVENT_OPTIONS.map((o) => (
+                            <button key={o.value} type="button"
+                              onClick={() => patchOcc(y.year, ev.event_key, { experience: o.value })}
+                              className={`rounded border px-2 py-1 text-[11px] ${
+                                occ.experience === o.value ? "border-zinc-800 bg-zinc-800 text-white" : "text-zinc-500"
+                              }`}>
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

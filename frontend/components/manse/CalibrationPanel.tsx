@@ -7,7 +7,6 @@ import {
   CALIB_DOMAINS,
   DOMAIN_OPTIONS,
   EVENT_OPTIONS,
-  INTENSITY_OPTIONS,
   OVERALL_OPTIONS,
   normalizeEventRating,
   type AnswerMap,
@@ -220,8 +219,6 @@ export function CalibrationPanel({
     patch(id, { domain_ratings: { ...(answers[id]?.domain_ratings ?? {}), [domain]: rating } });
   const setEventRating = (id: string, eventKey: string, rating: string) =>
     patch(id, { event_ratings: { ...(answers[id]?.event_ratings ?? {}), [eventKey]: rating } });
-  const setIntensity = (id: string, eventKey: string, intensity: number) =>
-    patch(id, { event_intensity: { ...(answers[id]?.event_intensity ?? {}), [eventKey]: intensity } });
 
   const submit = async () => {
     setBusy(true);
@@ -274,71 +271,54 @@ export function CalibrationPanel({
 
               {/* ② 영역별 체감(5상태) */}
               <p className="mt-2 text-[10px] font-medium text-gray-400">영역별 체감</p>
-              <div className="mt-0.5 space-y-1">
+              <div className="mt-0.5 space-y-2">
                 {CALIB_DOMAINS.map((dom) => {
                   const cur = a?.domain_ratings?.[dom.key];
                   return (
-                    <div key={dom.key} className="flex items-center justify-between gap-2">
+                    <div key={dom.key}>
                       <span className="text-[12px] text-gray-600">{dom.label}</span>
-                      <span className="flex shrink-0 gap-1">
+                      <div className="mt-0.5 flex flex-wrap gap-1">
                         {DOMAIN_OPTIONS.map((o) => (
                           <button key={o.value} type="button"
                             onClick={() => setDomainRating(q.id, dom.key, o.value)}
-                            className={`rounded border px-1.5 py-0.5 text-[11px] ${
+                            className={`rounded border px-2 py-1 text-[11px] ${
                               cur === o.value ? "border-indigo-600 bg-indigo-600 text-white" : "text-gray-500"
                             }`}>
                             {o.label}
                           </button>
                         ))}
-                      </span>
+                      </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* ③ 사건별 결과 + 강도 */}
+              {/* ③ 사건별 결과 — 라벨은 한 줄, 버튼은 아래에서 줄바꿈(모바일 대응) */}
               {q.events && q.events.length ? (
                 <>
                   <p className="mt-2 text-[10px] font-medium text-gray-400">그 해 실제 사건 · 결과</p>
-                  <ul className="mt-0.5 space-y-1.5">
+                  <ul className="mt-0.5 space-y-2">
                     {q.events.map((ev) => {
                       const cur = normalizeEventRating(a?.event_ratings?.[ev.event_key]);
-                      const inten = a?.event_intensity?.[ev.event_key];
                       return (
-                        <li key={ev.event_key} className="space-y-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="min-w-0 text-[13px]">
-                              {ev.label}
-                              <span className="ml-1 rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400">
-                                {CATEGORY_KO[ev.category] ?? ev.category}
-                              </span>
-                            </span>
-                            <span className="flex shrink-0 flex-wrap justify-end gap-1">
-                              {EVENT_OPTIONS.map((o) => (
-                                <button key={o.value} type="button"
-                                  onClick={() => setEventRating(q.id, ev.event_key, o.value)}
-                                  className={`rounded border px-1.5 py-0.5 text-[11px] ${
-                                    cur === o.value ? "border-gray-800 bg-gray-800 text-white" : "text-gray-500"
-                                  }`}>
-                                  {o.label}
-                                </button>
-                              ))}
+                        <li key={ev.event_key}>
+                          <div className="text-[13px]">
+                            {ev.label}
+                            <span className="ml-1 rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400">
+                              {CATEGORY_KO[ev.category] ?? ev.category}
                             </span>
                           </div>
-                          {cur && cur !== "unknown" && (
-                            <div className="flex items-center gap-1 pl-1">
-                              <span className="text-[10px] text-gray-400">강도</span>
-                              {INTENSITY_OPTIONS.map((o) => (
-                                <button key={o.value} type="button"
-                                  onClick={() => setIntensity(q.id, ev.event_key, o.value)}
-                                  className={`rounded border px-1.5 py-0.5 text-[10px] ${
-                                    inten === o.value ? "border-amber-600 bg-amber-50 text-amber-700" : "text-gray-400"
-                                  }`}>
-                                  {o.label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                          <div className="mt-0.5 flex flex-wrap gap-1">
+                            {EVENT_OPTIONS.map((o) => (
+                              <button key={o.value} type="button"
+                                onClick={() => setEventRating(q.id, ev.event_key, o.value)}
+                                className={`rounded border px-2 py-1 text-[11px] ${
+                                  cur === o.value ? "border-gray-800 bg-gray-800 text-white" : "text-gray-500"
+                                }`}>
+                                {o.label}
+                              </button>
+                            ))}
+                          </div>
                         </li>
                       );
                     })}
