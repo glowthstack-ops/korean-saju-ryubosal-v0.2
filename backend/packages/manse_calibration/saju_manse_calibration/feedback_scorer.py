@@ -41,9 +41,13 @@ def _score_domains(
                 sign = 1.0 if ep > 0 else -1.0 if ep < 0 else 0.0
                 delta = sign * upol * exp.signal_strength * _DOMAIN_POLARITY_W
                 scores[model_type] += delta
-                totals[model_type] += 1
-                if delta > 0:
-                    hits[model_type] += 1
+                # 일치율 분모에는 '극성 신호가 있는' 대조만 센다. 사용자가 보통/반반(upol 0)이거나
+                # 모델이 그 영역에 중립(ep 0)이면 방향 일치를 논할 수 없어 unknown처럼 제외한다.
+                # (delta 0이라 scores에는 영향 없음 — evidence/match_rate만 왜곡되던 것을 바로잡음.)
+                if upol != 0 and ep != 0:
+                    totals[model_type] += 1
+                    if delta > 0:
+                        hits[model_type] += 1
             ev_vol = exp.expected_volatility
             if ev_vol is not None:
                 uvol = experience_volatility(rating)
@@ -89,9 +93,12 @@ def score_calibration(
             return
         delta = score_feedback(expected, user_score) * weight
         scores[model_type] += delta
-        totals[model_type] += 1
-        if delta > 0:
-            hits[model_type] += 1
+        # 방향성 없는 응답(보통/반반 → user_score 0)은 일치율 분모에서 제외(unknown과 동일 취급).
+        # '신호 없음'을 '반대'로 세어 match_rate가 부당하게 낮아지던 문제를 바로잡는다.
+        if user_score != 0:
+            totals[model_type] += 1
+            if delta > 0:
+                hits[model_type] += 1
 
     for q in questions:
         ans = answers_by_id.get(q.id)
