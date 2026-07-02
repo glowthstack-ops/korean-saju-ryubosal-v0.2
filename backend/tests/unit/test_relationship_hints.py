@@ -88,3 +88,27 @@ def test_competition_guards_forbid_verdicts() -> None:
     assert "확정하지" in joined
     assert "승률" in joined or "확률" in joined
     assert "순위" in joined
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("누가 제일 잘돼?", True),
+        ("셋 중 누가 가장 나아?", True),
+        ("지민 민수 영희 비교해줘", True),
+        ("순위 매겨줘", True),
+        ("내 올해 운 봐줘", False),
+        ("지민이랑 궁합", False),
+    ],
+)
+def test_is_ranking_query(question: str, expected: bool) -> None:
+    from saju_engines.relationship_hints import is_ranking_query
+    assert is_ranking_query(question) is expected
+
+
+def test_ranking_guards_forbid_rank_and_scores() -> None:
+    """다자 가드는 절대 순위·점수·확률·승률 산출 금지를 명시한다."""
+    from saju_engines.relationship_hints import RANKING_SAFETY_GUARDS
+    joined = " ".join(RANKING_SAFETY_GUARDS)
+    assert "순위" in joined and "1등" in joined
+    assert "점수" in joined and ("확률" in joined or "승률" in joined)

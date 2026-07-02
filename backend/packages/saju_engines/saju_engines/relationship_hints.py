@@ -84,6 +84,28 @@ def is_competition(question: str) -> bool:
     return bool(_COMPETITION_RE.search(question))
 
 
+# 다자 비교(P3c-2, 3명 이상) 전용 가드 — '순위 산출'이 아니라 '항목별 조건부 상대 경향'.
+RANKING_SAFETY_GUARDS: list[str] = [
+    "절대 순위나 1등/2등/꼴찌를 단정하지 말 것.",
+    "점수·확률·승률을 만들지 말 것.",
+    "항목별 상대 경향만 설명할 것.",
+    "추진력, 안정성, 관계 조율력, 재물 관리, 리스크 감수 성향처럼 영역별로 나누어 설명할 것.",
+    "'누가 제일 낫다'가 아니라 '이 조건에서는 A의 신호가 강하고, B는 안정성, C는 조율력이 "
+    "두드러진다'처럼 조건부로 설명할 것.",
+]
+
+# 다자 순위/비교 키워드(3명 이상 대상 + 이 신호면 ranking). '누가 제일/가장', 순위, 비교 등.
+_RANKING_RE = re.compile(
+    r"순위|랭킹|누가\s*(?:제일|가장|더)|제일\s*(?:잘|나은|유리)|가장\s*(?:잘|나은|유리)|"
+    r"1등|비교(?:해|하)|중에?\s*누가"
+)
+
+
+def is_ranking_query(question: str) -> bool:
+    """다자(순위/비교) 질문 신호인가. 3명 이상 대상 판정은 호출 측이 한다."""
+    return bool(_RANKING_RE.search(question))
+
+
 def infer_relation_type(
     question: str,
     companion_relation_to_user: str | None,

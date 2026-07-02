@@ -80,6 +80,19 @@ def test_multi_with_self() -> None:
     assert mode == "multi_with_self"
 
 
+def test_ranking_three_companions() -> None:
+    """동반자 3명(본인 미포함) → ranking. target/companions에 self 미포함, primary=첫 동반자."""
+    _eff, mode, inj = build_effective_subjects(
+        [_comp("c1", "A"), _comp("c2", "B"), _comp("c3", "C")],
+        SubjectMode.RANKING, base_subject_id="s1",
+    )
+    assert mode == "ranking"
+    assert inj.primary_subject_id == "c1"
+    assert set(inj.companion_subject_ids) == {"c1", "c2", "c3"}
+    assert "s1" not in inj.target_subject_ids
+    assert inj.execution_enabled is False
+
+
 def test_chip_partner_merged_without_text() -> None:
     """텍스트에 동반자 없어도 FE 칩 partner가 병합돼 pairwise."""
     eff, mode, inj = build_effective_subjects(

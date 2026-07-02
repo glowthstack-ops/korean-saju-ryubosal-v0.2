@@ -20,7 +20,9 @@ CompanionReadMode = Literal[
     "self_only",            # 본인만
     "companion_only",       # 동반자 1명만("엄마 사주만")
     "pairwise",             # 본인 + 동반자 1명(궁합·함께)
-    "compare_exclude_self",  # 동반자끼리(본인 제외)
+    "compare_exclude_self",  # 동반자끼리 2명(본인 제외)
+    "ranking",              # 동반자 3명 이상 다자 비교(본인 제외, P3c-2)
+    "competition",          # 경쟁 비교 오버레이(relationship_context.mode 전용, P3c-1)
     "multi_with_self",      # 본인 + 동반자 2명 이상
     "unknown",
 ]

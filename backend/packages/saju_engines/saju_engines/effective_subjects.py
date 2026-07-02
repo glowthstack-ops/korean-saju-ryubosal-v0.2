@@ -31,35 +31,22 @@ class AttachedCompanion:
     relation_to_user: str | None = None
 
 
-def _read_mode(
-    subject_mode: SubjectMode, self_present: bool, companion_count: int
-) -> CompanionReadMode:
-    """공동 풀이 모드 결정 — 기존 실행 enum(subject_mode)을 우선 신호로, 대상 구성으로 보정.
+def _read_mode(self_present: bool, companion_count: int) -> CompanionReadMode:
+    """공동 풀이 모드 결정 — 대상 구성(본인 포함 여부·동반자 수)으로 판정한다.
 
-    resolve_subjects는 '궁합'에 PAIRWISE를 주면서도 self를 subjects에 넣지 않을 수 있어(암묵),
-    구성만 보면 companion_only로 오판한다. 따라서 PAIRWISE/COMPARE_EXCLUDE_SELF는 enum을 신뢰한다.
+    PAIRWISE 암묵 self(궁합)는 build_effective_subjects의 self-삽입에서 이미 처리되므로, 여기서는
+    구성만 본다. 본인 미포함: 1명=companion_only, 2명=compare_exclude_self, 3명 이상=ranking.
+    본인 포함: 1명=pairwise, 2명 이상=multi_with_self(P3c-2 범위 밖).
     """
     if companion_count == 0:
         return "self_only"
-    if subject_mode is SubjectMode.PAIRWISE:
-        # 궁합이라도 동반자 2명 이상이면 본인↔상대가 아니라 '동반자끼리' 비교다.
-        if companion_count == 1:
-            return "pairwise"
-        return "multi_with_self" if self_present else "compare_exclude_self"
-    if subject_mode is SubjectMode.COMPARE_EXCLUDE_SELF:
-        return "compare_exclude_self"
-    if subject_mode is SubjectMode.GROUP_AGGREGATE:
-        return "multi_with_self" if self_present else "compare_exclude_self"
-    if subject_mode is SubjectMode.RANKING:
-        return "unknown"  # ranking은 P2 범위 밖 — 실행 전환 금지
-    # SINGLE(기본) — 구성 기반.
-    if self_present and companion_count == 1:
-        return "pairwise"
-    if not self_present and companion_count == 1:
+    if self_present:
+        return "pairwise" if companion_count == 1 else "multi_with_self"
+    if companion_count == 1:
         return "companion_only"
-    if not self_present and companion_count >= 2:
+    if companion_count == 2:
         return "compare_exclude_self"
-    return "multi_with_self"
+    return "ranking"  # 동반자 3명 이상(본인 미포함) — 다자 비교
 
 
 def build_effective_subjects(
@@ -128,11 +115,11 @@ def build_effective_subjects(
             subject_id=self_id, role="self", label=base_label or "본인", source="base",
         ))
         self_present = True
-    mode = _read_mode(subject_mode, self_present, len(companions))
+    mode = _read_mode(self_present, len(companions))
 
     primary = self_id if self_present else (companions[0].subject_id if companions else None)
     targets = (
-        [e.subject_id for e in companions] if mode == "compare_exclude_self"
+        [e.subject_id for e in companions] if mode in ("compare_exclude_self", "ranking")
         else [e.subject_id for e in eff]
     )
     injection = SubjectInjectionPolicy(
@@ -142,7 +129,7 @@ def build_effective_subjects(
         companion_subject_ids=[e.subject_id for e in companions],
         requires_companion_chart=len(companions) >= 1,
         requires_relationship_context=mode in (
-            "pairwise", "compare_exclude_self", "multi_with_self",
+            "pairwise", "compare_exclude_self", "ranking", "multi_with_self",
         ),
         execution_enabled=False,  # P1 shadow — P2에서 True 전환
         reason=_INJECTION_REASON,

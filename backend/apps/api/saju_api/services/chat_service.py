@@ -43,6 +43,7 @@ from saju_engines.profile_engine import profile_facts_for
 from saju_engines.query_parser import parse_message
 from saju_engines.relationship_hints import (
     COMPETITION_SAFETY_GUARDS,
+    RANKING_SAFETY_GUARDS,
     SAFETY_GUARDS,
     infer_relation_type,
     is_competition,
@@ -1543,6 +1544,42 @@ def _compare_subject_blocks(
     return [primary_block, other_block], rc
 
 
+def _ranking_subject_blocks(
+    injection: SubjectInjectionPolicy,
+    primary_result: ManseV2Result,
+    primary_label: str,
+    others: list[tuple[str, str, ManseV2Result]],
+    year: int,
+) -> tuple[list[SubjectBlock], RelationshipContext]:
+    """P3c-2 ranking — 동반자 3~4명 다자 비교. A(primary=base)=참조, 나머지는 compact 명식.
+
+    본인 미포함. '순위 산출'이 아니라 항목별 조건부 상대 경향 비교(RANKING_SAFETY_GUARDS).
+    others: (subject_id, label, result) 목록(cap 적용 후). 순위·점수·확률은 만들지 않는다.
+    """
+    blocks: list[SubjectBlock] = [
+        SubjectBlock(
+            subject_id=injection.primary_subject_id or "companion_a",
+            role="companion", label=primary_label, is_primary=True,
+            chart=build_birth_summary(primary_result),
+            current_period=_current_period_line(primary_result, year),
+        )
+    ]
+    for sid, label, res in others:
+        blocks.append(SubjectBlock(
+            subject_id=sid, role="companion", label=label, is_primary=False,
+            chart=build_birth_summary(res),
+            current_period=_current_period_line(res, year),
+        ))
+    rc = RelationshipContext(
+        mode=injection.mode, relation_type=None, relation_basis="unknown",
+        perspective_hints=[], safety_guards=list(RANKING_SAFETY_GUARDS),
+        primary_subject_id=blocks[0].subject_id,
+        companion_subject_ids=[b.subject_id for b in blocks],
+        compatibility_overlay_available=False,
+    )
+    return blocks, rc
+
+
 def _structural_context(
     result: ManseV2Result, intent: IntentJson, today: date, question: str = "",
 ) -> list[str]:
@@ -2015,6 +2052,8 @@ def chat(
     _mode = _inj.mode if _inj is not None else "self_only"
     companion_only = _mode == "companion_only"
     compare_mode = _mode == "compare_exclude_self"
+    ranking_mode = _mode == "ranking"
+    _RANKING_CAP = 4  # 다자 비교는 앞 4명까지만(초과는 디렉티브에 명시)
 
     def _companion_birth(cid: str) -> BirthInput | None:
         b = (companion_births or {}).get(cid)
@@ -2022,10 +2061,16 @@ def chat(
             return partner_birth
         return b
 
-    if (companion_only or compare_mode) and _inj is not None and _inj.companion_subject_ids:
+    if (companion_only or compare_mode or ranking_mode) and _inj is not None \
+            and _inj.companion_subject_ids:
         _primary = _inj.primary_subject_id or _inj.companion_subject_ids[0]
-        # compare는 비교 대상 2명 모두, companion_only는 primary 1명의 birth가 있어야 한다.
-        _needed = _inj.companion_subject_ids if compare_mode else [_primary]
+        # compare/ranking은 비교 대상 모두(ranking은 cap까지), companion_only는 primary 1명.
+        if ranking_mode:
+            _needed = _inj.companion_subject_ids[:_RANKING_CAP]
+        elif compare_mode:
+            _needed = _inj.companion_subject_ids
+        else:
+            _needed = [_primary]
         if any(_companion_birth(c) is None for c in _needed):
             _save_thread(store, state)
             return ChatResponse(
@@ -2413,6 +2458,7 @@ def chat(
     # 명식으로 대체하지 않음 — 기존 pairwise 경로 그대로). companion_only 등은 P2b 이후.
     subject_blocks: list[SubjectBlock] = []
     relationship_context: RelationshipContext | None = None
+    ranking_truncated = False
     _inj = plan.subject_injection
     if _inj is not None and _inj.mode == "pairwise" and len(_inj.companion_subject_ids) == 1:
         _cid = _inj.companion_subject_ids[0]
@@ -2461,6 +2507,34 @@ def chat(
             plan = plan.model_copy(update={
                 "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
             })
+    elif ranking_mode and _inj is not None and len(_inj.companion_subject_ids) >= 3:
+        # P3c-2 — 다자 비교(동반자 3~4명, 본인 미포함). A=primary(base 교체), 나머지는 블록.
+        _capped = _inj.companion_subject_ids[:_RANKING_CAP]
+        _truncated = len(_inj.companion_subject_ids) > _RANKING_CAP
+        _pa = _inj.primary_subject_id or _capped[0]
+
+        def _label_of(cid: str) -> str:
+            e = next((x for x in plan.effective_subjects if x.subject_id == cid), None)
+            return e.label if e else "대상"
+
+        _others: list[tuple[str, str, ManseV2Result]] = []
+        for _cid in _capped:
+            if _cid == _pa:
+                continue
+            _cb = _companion_birth(_cid)
+            if _cb is None:
+                continue
+            _others.append((
+                _cid, _label_of(_cid),
+                calculate(_cb.model_copy(update={"reference_date": today})),
+            ))
+        subject_blocks, relationship_context = _ranking_subject_blocks(
+            _inj, result, _label_of(_pa), _others, year=today.year,
+        )
+        ranking_truncated = _truncated
+        plan = plan.model_copy(update={
+            "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
+        })
     # P3c-1 — 경쟁 비교: pairwise/compare 실행 경로는 그대로 두고 관계맥락을 competition으로,
     # 안전 가드를 승부 단정 금지로 교체(승률·순위·당락 산출 금지). 대상 2명일 때만.
     competition_active = False
@@ -2522,6 +2596,17 @@ def chat(
             "비교가 필요하면 '이 조건에서는 A 쪽 신호가 강하고 B는 이런 보완이 필요하다'처럼 "
             "조건부로만 말하세요. 결론은 결과 보장이 아니라 준비 전략·조율 포인트로 정리하세요."
         )
+    # P3c-2 — 다자 비교: 순위 산출이 아니라 항목별 조건부 상대 경향(절대원칙 8).
+    if ranking_mode:
+        _rank_dir = (
+            "[다자 비교 지침] 이 요청은 여러 사람을 조건별로 비교하는 요청이지, 절대 순위를 "
+            "확정하는 요청이 아니다. 1등/2등/꼴찌 같은 순위 단정, 점수화, 확률화, 승률 산출을 하지 "
+            "말 것. 추진력, 안정성, 관계 조율력, 재물 관리, 리스크 감수 성향 등 항목별 상대 경향만 "
+            "설명할 것."
+        )
+        if ranking_truncated:
+            _rank_dir += " (대상이 많아 등록 순 최대 4명까지만 반영했다.)"
+        trailing.append(_rank_dir)
     # 직전 풀이 재검토(B) — 이의/반문 후속이면 엔진 근거로 재검토하도록 지시(출생정보 재요청 금지).
     if is_recheck:
         trailing.append(_RECHECK_DIRECTIVE)
