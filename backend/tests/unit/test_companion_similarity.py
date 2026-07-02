@@ -116,3 +116,37 @@ def test_distractor_excluded_by_composition_even_if_scored() -> None:
             SubjectMode.SINGLE, q, non_self_count=0, has_self=True,
         )
         assert got is SubjectMode.SINGLE, q
+
+
+# ── chat_service 배선(P3d-2) — DB 불요(0 동반자·rules-first는 분류기 미호출) ─────
+
+def test_wiring_no_op_on_self_only() -> None:
+    """본인 단독(동반자 0명) 질문은 구성 게이트에서 탈락 — mode/query_type 불변."""
+    from saju_api.services.chat_service import _augment_companion_mode_by_similarity
+    from saju_shared_types.intent import IntentJson, QueryType, SubjectKind, SubjectRef
+
+    intent = IntentJson(
+        intent_id="x", query_type=QueryType.DOMAIN_ANALYSIS,
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        subject_mode=SubjectMode.SINGLE,
+    )
+    out = _augment_companion_mode_by_similarity(intent, "내 올해 운 봐줘")
+    assert out.subject_mode is SubjectMode.SINGLE
+    assert out.query_type is QueryType.DOMAIN_ANALYSIS
+
+
+def test_wiring_rules_first_pairwise_untouched() -> None:
+    """규칙이 pairwise를 확정했으면 배선이 건드리지 않는다(분류기 미호출)."""
+    from saju_api.services.chat_service import _augment_companion_mode_by_similarity
+    from saju_shared_types.intent import IntentJson, QueryType, SubjectKind, SubjectRef
+
+    intent = IntentJson(
+        intent_id="x", query_type=QueryType.COMPARISON,
+        subjects=[
+            SubjectRef(kind=SubjectKind.SELF, label="본인"),
+            SubjectRef(kind=SubjectKind.COMPANION, label="지민", companion_id="c1"),
+        ],
+        subject_mode=SubjectMode.PAIRWISE,
+    )
+    out = _augment_companion_mode_by_similarity(intent, "지민이랑 궁합")
+    assert out.subject_mode is SubjectMode.PAIRWISE

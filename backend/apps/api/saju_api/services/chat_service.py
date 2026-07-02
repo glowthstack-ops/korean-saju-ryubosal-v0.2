@@ -21,6 +21,7 @@ from saju_manse_analysis.luck.luck_calendar import luck_month_label
 from saju_engines import EventEngineV2, GraphIndex, filter_year_candidates, load_event_graph
 from saju_engines.chart_interpretation import build_luck_grounding
 from saju_engines.companion_alias import AliasEntry
+from saju_engines.companion_similarity import augment_subject_mode
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     build_birth_summary,
@@ -1797,6 +1798,31 @@ def _augment_time_by_similarity(
     return intent.model_copy(update={"time_range": tr})
 
 
+def _augment_companion_mode_by_similarity(intent: IntentJson, question: str) -> IntentJson:
+    """규칙이 비교 mode를 못 잡은 완곡·변형 표현을 유사도로 보강한다(P3d-2, rules-first, gated).
+
+    augment_subject_mode가 안전장치 조합(rules-first + 2명 이상 대상 구성 + companion_only 제외 +
+    score≥0.60/margin≥0.05)을 모두 만족할 때만 subject_mode를 승격한다. 승격되면 query_type도
+    COMPARISON으로 올려 assess의 '2명+single=모호' need_subject를 피한다. 점수·간지·판정 미개입.
+    현 ONNX 이득은 modest(전용 튜닝은 후속) — 규칙이 못 잡은 좁은 잔여만 보강.
+    """
+    subs = intent.subjects
+    non_self = [s for s in subs if s.kind is not SubjectKind.SELF]
+    has_self = any(s.kind is SubjectKind.SELF for s in subs)
+    new_mode = augment_subject_mode(
+        intent.subject_mode, question, len(non_self), has_self,
+    )
+    if new_mode is intent.subject_mode:
+        return intent
+    updates: dict[str, object] = {"subject_mode": new_mode}
+    if intent.query_type not in (
+        QueryType.FEEDBACK_CORRECTION, QueryType.TERMINOLOGY_EDUCATION,
+        QueryType.EMOTIONAL_SUPPORT, QueryType.OUT_OF_SCOPE,
+    ):
+        updates["query_type"] = QueryType.COMPARISON
+    return intent.model_copy(update=updates)
+
+
 # 직전 풀이 재검토(claim recheck) 시 LLM에 주입하는 지시문 — 출생정보 재요청 금지·엔진 근거 재검토.
 _RECHECK_DIRECTIVE = (
     "[직전 풀이 재검토 — 사용자가 직전 답변에 이의·반문을 제기함] 사주·출생정보는 이미 확정돼 "
@@ -1964,6 +1990,8 @@ def chat(
     intent = _augment_domain_by_similarity(intent, question)
     # 규칙이 시점을 못 잡은 경우만 임베딩 시점 분류기로 보강(rules-first, 결정론 날짜 합성).
     intent = _augment_time_by_similarity(intent, question, today, luck_month)
+    # 규칙이 비교 mode를 못 잡은 완곡·변형 표현만 유사도로 보강(P3d-2, strict gated·rules-first).
+    intent = _augment_companion_mode_by_similarity(intent, question)
 
     # 직전 풀이 재검토(B) — 이의/반문 + 활성 스레드 분석 맥락이면 canned 폴백 대신 직전 주제를
     # 상속해 정상 분석 경로로 흘리고, recheck 지시문으로 엔진 근거 재검토를 시킨다(subject 확정 시).
