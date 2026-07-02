@@ -7,10 +7,51 @@ LLM이 "어떻게 계산할까"를 생각하지 않도록 queryType별 **고정 
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from .events import EventKey
 from .intent import IntentJson
+
+# 동반자 공동 풀이 모드(P1 계산/실행 분리 — 실행 전환은 P2). docs/03 SubjectMode를 '누구 사주를
+# 넣을지' 관점으로 재정리한 shadow 축. 기존 intent.SubjectMode(실행용 enum)와 별개다.
+CompanionReadMode = Literal[
+    "self_only",            # 본인만
+    "companion_only",       # 동반자 1명만("엄마 사주만")
+    "pairwise",             # 본인 + 동반자 1명(궁합·함께)
+    "compare_exclude_self",  # 동반자끼리(본인 제외)
+    "multi_with_self",      # 본인 + 동반자 2명 이상
+    "unknown",
+]
+
+
+class EffectiveSubject(BaseModel):
+    """P1 — 대상 조합 계산 결과 한 명(shadow, 실행 미전환). role/source로 P2 주입을 결정한다."""
+
+    subject_id: str
+    role: str  # 'self' | 'companion' | 'inline_temp'
+    label: str
+    relation_to_user: str | None = None
+    matched_alias: str | None = None  # 발화에서 매칭된 별칭('와이프' 등, 있으면)
+    source: str  # 'base' | 'text_alias' | 'text_inline' | 'chip'
+
+
+class SubjectInjectionPolicy(BaseModel):
+    """P1 — 케이스별 어느 대상 사주를 LLM 입력에 넣을지 자동 산출(실행은 P2에서 켠다).
+
+    execution_enabled=False가 핵심 — P1은 계산·노출만 하고, P2가 대상별 ChartAnalysis를
+    준비한 뒤 이 정책을 소비해 subject_blocks 주입/실행 분기를 켠다.
+    """
+
+    mode: CompanionReadMode = "self_only"
+    primary_subject_id: str | None = None  # 서술 기준(보통 본인, companion_only면 그 동반자)
+    target_subject_ids: list[str] = Field(default_factory=list)  # 실제 명식 주입 대상
+    companion_subject_ids: list[str] = Field(default_factory=list)
+    requires_companion_chart: bool = False
+    requires_relationship_context: bool = False
+    execution_enabled: bool = False  # P1 shadow — P2에서 True 전환
+    reason: str = ""
 
 
 class EngineCall(BaseModel):
@@ -31,3 +72,8 @@ class ExecutionPlan(BaseModel):
     per_subject: bool = False  # 다중 대상이면 대상별 호출 후 집계
     # Q11~Q14 비분석 라우트: 엔진 미호출 사유/정책 (docs/03 B4 하단 4종).
     policy_route: str | None = None
+    # P1(계산/실행 분리) — 대상 조합 shadow 메타. per_subject 실행 분기와 독립이며 P1에서는
+    # 계산·노출만 한다(subject_injection.execution_enabled=False). P2가 소비해 실행을 켠다.
+    effective_subjects: list[EffectiveSubject] = Field(default_factory=list)
+    companion_read_mode: CompanionReadMode = "self_only"
+    subject_injection: SubjectInjectionPolicy | None = None

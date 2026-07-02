@@ -268,12 +268,12 @@ class ConversationEngine:
         # A9 — 별칭/관계어/번호: 등록 동반자 인덱스 기반 최장 매칭(SSOT=레지스트리).
         # 단일 후보만 자동 해소하고, 복수 후보(ambiguous)는 추측 없이 확인 질문으로 넘긴다.
         for token, entries in self._match_aliases(text):
-            uniq_ids = {e.subject_id for e in entries}
+            uniq_ids = {ae.subject_id for ae in entries}
             if len(uniq_ids) == 1:
-                e = entries[0]
+                ae = entries[0]
                 subjects.append(SubjectRef(
-                    kind=SubjectKind.COMPANION, label=e.label or token,
-                    companion_id=e.subject_id,
+                    kind=SubjectKind.COMPANION, label=ae.label or token,
+                    companion_id=ae.subject_id,
                 ))
             else:  # 복수 등록 대상이 같은 별칭 → 어느 분인지 확인(자동 첫 후보 선택 금지)
                 unresolved.append(token)
@@ -284,7 +284,7 @@ class ConversationEngine:
         for tok in ref_tokens:
             key = normalize_token(tok)
             already = key in self._index and any(
-                e.subject_id in resolved_ids for e in self._index[key]
+                ae.subject_id in resolved_ids for ae in self._index[key]
             )
             if not already and tok not in unresolved:
                 unresolved.append(tok)

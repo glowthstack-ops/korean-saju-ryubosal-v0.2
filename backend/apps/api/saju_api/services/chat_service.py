@@ -32,6 +32,7 @@ from saju_engines.context_reducer import (
 from saju_engines.conversation import ConversationEngine, is_affirm_continue
 from saju_engines.conversation_store import ConversationStore
 from saju_engines.date_selection import DateSelectionEngine
+from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
 from saju_engines.marriage_timing_profile import marriage_engine_flags
@@ -59,6 +60,7 @@ from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef
 from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES, EVENT_TYPE
 from saju_shared_types.events import EventKey
+from saju_shared_types.execution_plan import ExecutionPlan
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectKind, SubjectRef
 from saju_shared_types.llm_input import (
@@ -1704,6 +1706,45 @@ def _recheck_continuation(
     return new, True
 
 
+def _attach_subject_plan(
+    plan: ExecutionPlan,
+    intent: IntentJson,
+    base_subject_id: str | None,
+    base_label: str,
+    partner_ref: dict | None,
+    alias_index: dict[str, list[AliasEntry]] | None,
+) -> ExecutionPlan:
+    """P1 — 대상 조합(effective_subjects/mode/injection)을 계산해 plan에 shadow로 싣는다.
+
+    per_subject 등 실행 분기는 바꾸지 않는다(계산/실행 분리). P0 해소 대상(intent.subjects)과
+    FE 칩 첨부 동반자(partner_ref)를 병합하며, alias_index로 관계·매칭 별칭을 보강한다.
+    """
+    companion_meta: dict[str, AliasEntry] = {}
+    for entries in (alias_index or {}).values():
+        for e in entries:
+            companion_meta.setdefault(e.subject_id, e)
+
+    attached: list[AttachedCompanion] = []
+    if partner_ref:
+        label = partner_ref.get("label") or "상대"
+        sid = partner_ref.get("subjectId") if partner_ref.get("mode") == "registered" else None
+        if sid:
+            rel = companion_meta[sid].relation_to_user if sid in companion_meta else None
+            attached.append(AttachedCompanion(subject_id=sid, label=label, relation_to_user=rel))
+        elif partner_ref.get("mode") == "inline":
+            attached.append(AttachedCompanion(subject_id="inline:partner", label=label))
+
+    eff, mode, injection = build_effective_subjects(
+        intent.subjects, base_subject_id=base_subject_id, base_label=base_label,
+        attached=attached, companion_meta=companion_meta,
+    )
+    return plan.model_copy(update={
+        "effective_subjects": eff,
+        "companion_read_mode": mode,
+        "subject_injection": injection,
+    })
+
+
 def chat(
     birth: BirthInput,
     question: str,
@@ -1818,6 +1859,13 @@ def chat(
             intents=parsed.intents, thread_id=thread_id,
             turn_no=state.turn_no if state else None, repeated=repeated,
         )
+
+    # P1(계산/실행 분리) — 해소 대상 + 칩 동반자를 병합해 effective_subjects/mode/injection을
+    # 계산해 plan에 shadow로 싣는다. 실행 분기(per_subject)는 절대 건드리지 않는다 — 라이브
+    # 회귀 0. P2가 subject_injection(execution_enabled)을 소비해 대상별 명식 주입을 켠다.
+    plan = _attach_subject_plan(
+        plan, intent, subject_id, subject_label, partner_ref, companion_alias_index,
+    )
 
     # 지역 오행 사실 질문('창원 성산구의 오행은?') — 사주·시점 무관 단순 조회라 too_broad로
     # 빠지지 않게 엔진 프로파일로 직접 답한다(LLM 미호출, 2026-06-26 데굴님 지적).
