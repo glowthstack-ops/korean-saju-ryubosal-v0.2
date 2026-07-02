@@ -111,7 +111,7 @@ def test_geguk_main_structure_detected(result) -> None:
         assert pid in detected_ids
 
 
-# ── Step ④: LLM 입력 배선(캐시 프리픽스, 상한, inert) ─────────────────────
+# ── Step ④/F1: LLM 입력 배선(질문 가변 suffix, 도메인 필터, 상한, inert) ────
 
 def test_select_llm_patterns_capped_and_ranked(result) -> None:
     detected = detect_structure_patterns(result)
@@ -121,8 +121,7 @@ def test_select_llm_patterns_capped_and_ranked(result) -> None:
 
 
 def test_select_llm_patterns_domain_priority() -> None:
-    """domain 지정 시 domain_hints 매칭이 앞으로(비캐시 경로용). strength 내부순서 안정."""
-    dic = load_structure_patterns()
+    """domains 지정 시 domain_hints 매칭이 앞으로(soft filter). 미지정은 strength desc."""
     from saju_shared_types.structure_patterns import DetectedPattern
 
     def mk(pid: str, strength: float, hints: list[str]) -> DetectedPattern:
@@ -132,33 +131,51 @@ def test_select_llm_patterns_domain_priority() -> None:
         )
 
     pats = [mk("A", 0.9, ["wealth_change"]), mk("B", 0.8, ["career_change"])]
-    assert dic is not None
-    # domain=None: strength desc
+    # domains=None: strength desc
     assert [d.pattern_id for d in select_llm_patterns(pats)] == ["A", "B"]
-    # domain=career_change: B(매칭) 우선
-    ordered = select_llm_patterns(pats, domain="career_change")
+    # domains={career_change,...}: B(매칭) 우선 — strength 낮아도 앞으로
+    ordered = select_llm_patterns(pats, domains={"career_change", "job_gain"})
     assert ordered[0].pattern_id == "B"
 
 
-def test_chart_interpretation_carries_patterns(result) -> None:
-    ci = build_chart_interpretation(result)
-    assert ci is not None
-    assert len(ci.detected_patterns) <= _MAX_LLM_PATTERNS
-    # 결정적: 두 번 빌드해도 동일(캐시 프리픽스 계약).
-    ci2 = build_chart_interpretation(result)
-    assert ci2 is not None
-    assert [p.pattern_id for p in ci.detected_patterns] == [
-        p.pattern_id for p in ci2.detected_patterns
-    ]
-
-
-def test_prefix_serialization_deterministic_and_present(result) -> None:
+def test_prefix_no_longer_carries_patterns(result) -> None:
+    """구조 패턴은 캐시 프리픽스에서 제거됨(질문 가변 suffix로 이전). 프리픽스는 결정적."""
     from saju_engines.context_reducer import build_birth_summary
 
     ci = build_chart_interpretation(result)
+    assert ci is not None and not hasattr(ci, "detected_patterns")
     summary = build_birth_summary(result)
     a = serialize_chart_prefix(summary, ci)
-    b = serialize_chart_prefix(summary, ci)
-    assert a == b, "고정 프리픽스는 결정적이어야 한다(캐시)"
-    if ci is not None and ci.detected_patterns:
-        assert any("구조 패턴" in line for line in a), "구조 패턴 블록 누락"
+    assert a == serialize_chart_prefix(summary, ci), "프리픽스는 결정적(캐시)"
+    assert not any("구조 패턴" in line for line in a), "구조 패턴은 프리픽스에 없어야 함"
+
+
+def test_domain_filter_active_in_full_input() -> None:
+    """도메인 필터 실동작 — 재물 질문과 직업 질문에서 구조 패턴 노출/순서가 달라진다."""
+    from datetime import date
+
+    import saju_api.services.chat_service as chat_service
+
+    birth = BirthInput(
+        calendar_type="solar", birth_date="1990-03-15", birth_time="14:30",
+        birth_place_name="서울", gender="female", reference_date="2026-06-11",
+    )
+    today = date(2026, 6, 11)
+
+    def _pattern_block(question: str) -> list[str]:
+        res = chat_service.chat(birth, question, today, dry_run=True)
+        assert res.prompt_preview is not None
+        text = res.prompt_preview
+        # 구조 패턴 블록은 [기준 시점] 이후(질문 가변 suffix)에 있어야 한다.
+        assert "[기준 시점]" in text
+        suffix = text.split("[기준 시점]", 1)[1]
+        if "[구조 패턴" not in suffix:
+            return []
+        after = suffix.split("[구조 패턴", 1)[1]
+        return [ln for ln in after.splitlines()[1:] if ln and not ln.startswith("[")]
+
+    career = _pattern_block("올해 이직운 어때?")
+    wealth = _pattern_block("올해 재물운은 어떤가요?")
+    # 최소 한쪽에 패턴이 노출되고, 도메인에 따라 순서/구성이 달라진다(필터 동작 증거).
+    assert career or wealth
+    assert career != wealth

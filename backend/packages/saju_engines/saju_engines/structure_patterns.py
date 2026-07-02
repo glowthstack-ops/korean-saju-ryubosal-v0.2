@@ -104,18 +104,19 @@ _MAX_LLM_PATTERNS = 6  # LLM 노출 상한(설계 §8, 토큰 가드).
 def select_llm_patterns(
     patterns: list[DetectedPattern],
     *,
-    domain: str | None = None,
+    domains: set[str] | None = None,
     max_count: int = _MAX_LLM_PATTERNS,
 ) -> list[DetectedPattern]:
     """LLM 노출용 상위 N 선별. 전체 감지는 호출측이 별도 보존한다(내부/LLM 분리, 설계 §8).
 
-    캐시되는 고정 프리픽스에 쓰일 때는 `domain=None`(결정적: strength desc)으로 호출한다
-    — 질문마다 값이 바뀌면 프리픽스 캐시가 무효화된다(ChartInterpretation 계약). `domain`
-    지정은 비캐시(질문 가변) 경로 전용으로, domain_hints 매칭을 우선 정렬한다.
+    `domains`(질문 도메인의 EventKeyV2 집합)가 주어지면 domain_hints 가 겹치는 패턴을 앞으로
+    정렬(도메인 우선)한 뒤 상위 N 을 취한다 — 매칭이 6개 미만이면 나머지는 strength 순으로
+    채워 빈 목록을 만들지 않는다(soft filter). `domains=None`(일반 질문)이면 strength desc 결정적.
+    질문 가변 경로 전용이며, 캐시 프리픽스에는 넣지 않는다(질문마다 값이 달라짐).
     """
     ranked = sorted(patterns, key=lambda d: d.strength, reverse=True)
-    if domain:
-        ranked = sorted(ranked, key=lambda d: domain in d.domain_hints, reverse=True)
+    if domains:
+        ranked = sorted(ranked, key=lambda d: bool(set(d.domain_hints) & domains), reverse=True)
     return ranked[:max_count]
 
 

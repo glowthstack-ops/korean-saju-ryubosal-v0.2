@@ -41,8 +41,6 @@ from saju_shared_types.llm_input import (
 )
 from saju_shared_types.manse_result import ManseV2Result
 
-from .structure_patterns import detect_structure_patterns, select_llm_patterns
-
 _DICT_DIR = Path(__file__).resolve().parents[3] / "dictionaries"
 _PALACE_KO = {"year": "연주", "month": "월주", "day": "일주", "hour": "시주"}
 # 궁성 자리역할(항목 14) — 천간/지지 가족 궁. 자녀 유무·성별은 통설 기준 일반 배치.
@@ -431,8 +429,6 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
     excerpts += _sinsal_excerpts(result)
     excerpts += _favorability_excerpts(result)
     ilju_entry = _ilju_by_ganji().get(pillars.day.ganji)
-    # 구조 패턴: 도메인 무관 결정적 상위 N(캐시 프리픽스 계약 — 질문 가변 금지).
-    detected = detect_structure_patterns(result)
     return ChartInterpretation(
         pillar_details=details,
         natal_relations=natal_relations,
@@ -440,7 +436,6 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
         ilju_text=_serialize_ilju(ilju_entry) if ilju_entry else "",
         excerpts=excerpts,
         yongsin_operational_summary=build_yongsin_operational_summary(result),
-        detected_patterns=select_llm_patterns(detected),
     )
 
 

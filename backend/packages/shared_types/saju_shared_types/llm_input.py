@@ -94,9 +94,6 @@ class ChartInterpretation(BaseModel):
     excerpts: list[InterpretationExcerpt] = Field(default_factory=list)
     # 원국 기준 작동 역할 요약(Phase 5a) — 없으면 None(구형/부분 결과 안전 fallback).
     yongsin_operational_summary: YongsinOperationalSummary | None = None
-    # 구조 패턴 압축 태그(Step ④) — 캐시 프리픽스이므로 도메인 무관 결정적 상위 N(strength desc).
-    # 길흉 미확정(polarity_mode·domain_hints만). 전체 감지는 내부 보존(비직렬화).
-    detected_patterns: list[DetectedPattern] = Field(default_factory=list)
 
 
 class DaewoonEntry(BaseModel):
@@ -367,6 +364,9 @@ class LlmInput(BaseModel):
     # 구조 해석 블록(질문 도메인에 맞는 원국 횡재 그릇·결혼/자산·건강 취약·부귀·시대 기운 등).
     # 이미 누출 안전 한글로 직렬화된 줄들(영문 변수·점수 비노출). 도메인 관련 시에만 채운다.
     structural_context: list[str] = Field(default_factory=list)
+    # 구조 패턴 압축 태그(Step ④) — 질문 가변 suffix에 직렬화, 질문 도메인 우선 선별(top-6).
+    # 길흉 미확정(polarity_mode·domain_hints만). 전체 감지는 내부 보존(비직렬화).
+    detected_patterns: list[DetectedPattern] = Field(default_factory=list)
     evidence: list[LlmEvidence] = Field(default_factory=list)
     past_validation: PastValidationSummary | None = None
     style_rules: LlmStyleRules = Field(default_factory=LlmStyleRules)

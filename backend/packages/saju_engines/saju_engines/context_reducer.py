@@ -69,6 +69,7 @@ from .marriage_output_guard import (
 from .marriage_telemetry import build_marriage_telemetry, emit_marriage_telemetry
 from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
+from .structure_patterns import detect_structure_patterns, select_llm_patterns
 
 TOP_N_CANDIDATES = 5  # 기본 Top N (docs/03 B5 — 3~5)
 SCORE_FLOOR = 40  # docs/06 톤 표: <40은 언급 생략 구간 → LLM 미전달
@@ -81,6 +82,17 @@ _DOMAIN_PRIMARY_EVENT: dict[str, EventKey] = {
     "relationship": EventKey.MARRIAGE_SIGNAL,
     "health": EventKey.HEALTH_ATTENTION,
     "education": EventKey.EDUCATION_ADMISSION,
+}
+
+# 질문 도메인(intent.domains) → 구조 패턴 domain_hints(EventKeyV2 값) 집합. 도메인 우선 선별용.
+# general/미지원 도메인은 매핑 없음 → domains=None(strength desc)로 폴백.
+_DOMAIN_EVENT_KEYS: dict[str, set[str]] = {
+    "career": {"career_change", "job_gain", "promotion", "business_start", "business_expansion"},
+    "wealth": {"wealth_change", "windfall"},
+    "relationship": {"relationship_change", "new_relationship", "marriage_signal", "childbirth"},
+    "education": {"education_admission", "education_completion"},
+    "health": {"health_attention"},
+    "relocation": {"relocation"},
 }
 
 # docs/06 점수→표현 강도 매핑(toneGuide 기본).
@@ -1112,6 +1124,14 @@ def build_llm_input(
             prohibited += [p for p in b.prohibitions if p not in prohibited]
 
     limit = CALL_LIMITS[call_type]
+    # 구조 패턴(질문 가변 suffix) — 전체 감지 후 질문 도메인 우선 상위 N 선별(내부/노출 분리).
+    _domain_keys: set[str] = set()
+    for _d in intent.domains:
+        _domain_keys |= _DOMAIN_EVENT_KEYS.get(str(_d), set())
+    selected_patterns = select_llm_patterns(
+        detect_structure_patterns(result), domains=_domain_keys or None
+    )
+
     payload = LlmInput(
         user_question=user_question,
         resolved_intent=intent,
@@ -1133,6 +1153,7 @@ def build_llm_input(
             if today else None
         ),
         structural_context=structural_context or [],
+        detected_patterns=selected_patterns,
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
         monthly_overview=monthly_overview or [],
@@ -1245,15 +1266,14 @@ def serialize_chart_prefix(
             for ex in ci.excerpts:
                 lines.append(f"{ex.key}: {ex.text}")
         _append_operational_summary(lines, ci.yongsin_operational_summary)
-        _append_structure_patterns(lines, ci.detected_patterns)
     return lines
 
 
 def _append_structure_patterns(lines: list[str], patterns: list[DetectedPattern]) -> None:
-    """구조 패턴 설명 태그 블록(프리픽스 최하단 = 토큰 가드 후순위 절삭 대상).
+    """구조 패턴 설명 태그 블록(질문 가변 suffix = 토큰 가드 후순위 절삭 대상).
 
-    도메인 무관 결정적 상위 N(select_llm_patterns) — 질문 가변 아님(캐시 안전). llm_tag 는
-    구조 라벨 설명일 뿐 사건·길흉 확정이 아니다(domain_hints 는 후보). 빈 목록이면 생략.
+    질문 도메인 우선 선별(select_llm_patterns(domains=...))된 상위 N. llm_tag 는 구조 라벨
+    설명일 뿐 사건·길흉 확정이 아니다(domain_hints 는 후보). 빈 목록이면 생략.
     """
     if not patterns:
         return
@@ -1642,6 +1662,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
         # 구조 해석 블록(질문 도메인 맞춤 — 이미 누출 안전 한글). 개인 풀이의 구조 근거로 활용.
         lines.append("")
         lines += payload.structural_context
+    _append_structure_patterns(lines, payload.detected_patterns)
     if payload.evidence:  # 근거 경로 — 후보·증거 있을 때만(구조 질문 등 빈 헤더 방지).
         lines.append("")
         lines.append("[근거 경로]")
@@ -1680,8 +1701,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(_REVERSAL_INSTRUCTION)
         lines.append(_HARMONY_INSTRUCTION)
         lines.append(_BANGHAP_INSTRUCTION)
-        if payload.chart_interpretation.detected_patterns:
-            lines.append(_STRUCTURE_PATTERN_INSTRUCTION)
+    if payload.detected_patterns:
+        lines.append(_STRUCTURE_PATTERN_INSTRUCTION)
     if payload.event_candidates:
         lines.append(_MATRIX_INSTRUCTION)
         lines.append(_SCOPE_INSTRUCTION)

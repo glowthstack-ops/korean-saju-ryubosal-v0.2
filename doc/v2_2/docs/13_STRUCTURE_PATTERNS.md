@@ -144,14 +144,13 @@ class DetectedPattern(BaseModel):
 
 `ChartInterpretation.detected_patterns: list[DetectedPattern]` 추가(전체 사전 금지, 감지분만).
 
-**중요(고정 프리픽스 캐시 제약)**: `ChartInterpretation`은 사용자별 멀티턴·전 섹션에서 바이트 단위 동일해야 하는 **캐시 프리픽스**다(가변 값 금지 — 타입 docstring 계약). 따라서 이 필드는 **도메인 무관·결정적 상위 N(strength desc)** 으로 채운다. 질문 도메인 필터를 여기 적용하면 프리픽스가 질문마다 달라져 캐시가 무효화된다.
+**배치(F1 개정)**: `ChartInterpretation`은 바이트 단위 동일해야 하는 **캐시 프리픽스**라 질문 도메인 필터를 넣을 수 없다. 따라서 detected_patterns는 `LlmInput.detected_patterns`(**질문 가변 필드**)로 두고 `serialize_llm_input`의 **suffix**([기준 시점] 이하, [근거 경로] 직전)에 직렬화한다. 이로써 도메인 필터가 실제로 동작하며 프리픽스 캐시는 그대로 보존된다.
 
-- `select_llm_patterns(all, domain=None, max_count=6)`: 캐시 프리픽스는 `domain=None`(결정적)으로 호출. `domain` 인자는 domain_hints 매칭 우선 정렬을 지원하나 **비캐시(질문 가변) 경로 전용**이다.
-- 내부 전체 감지(`detect_structure_patterns`)는 보존하고, LLM 노출은 상위 6개만(내부/노출 분리).
-- 직렬화: `serialize_chart_prefix` 최하단 `[구조 패턴 — 설명 태그]` 블록(토큰 가드 후순위 절삭 대상). llm_tag만 노출.
+- `select_llm_patterns(all, domains=None, max_count=6)`: `domains`(질문 도메인의 EventKeyV2 집합)가 겹치는 패턴을 앞으로 정렬(soft filter — 매칭이 6개 미만이면 strength 순으로 채워 빈 목록 방지). `domains=None`(일반 질문)이면 strength desc.
+- 도메인 매핑: `context_reducer._DOMAIN_EVENT_KEYS` (Domain enum career/wealth/… → EventKeyV2 집합). `build_llm_input`이 `intent.domains`에서 집합을 만들어 선별.
+- 내부 전체 감지(`detect_structure_patterns`)는 보존, LLM 노출은 상위 6개만(내부/노출 분리).
+- 직렬화: `_append_structure_patterns`가 suffix에 `[구조 패턴 — 설명 태그]` 블록(토큰 가드 후순위). llm_tag만 노출.
 - 지시: `_STRUCTURE_PATTERN_INSTRUCTION`(감지분 있을 때만) — "구조 라벨일 뿐 사건·길흉 확정 아님".
-
-> **후속(선택)**: 질문 도메인 필터를 실제 적용하려면 detected_patterns를 캐시 프리픽스가 아닌 질문 가변 섹션([기준 시점] 이하)에 배치해야 한다. 현재는 캐시 비용 보호를 위해 프리픽스 도메인 무관으로 두었다.
 
 ## 7. 파이프라인·검증 (CLAUDE.md 원칙 5)
 
@@ -180,9 +179,9 @@ class DetectedPattern(BaseModel):
 - [x] ① `structure_patterns.json` P0 35종 + 설계 문서.
 - [x] ② `DetectedPattern` 타입 + `detect_structure_patterns()` 어댑터(+`select_llm_patterns`). 충개/입묘/개고는 묘고 신호 배선 필요 → 후속.
 - [x] ③ validate(SCHEMA_BY_PATH+lint)/compile(compiled/structure_patterns_v1.0.0.json, 스냅샷 우선 로드) + 회귀 픽스처(3차트 감지 집합 고정).
-- [x] ④ LLM 입력 배선: `ChartInterpretation.detected_patterns`(도메인 무관 top-6, 캐시 안전) + prefix 직렬화 + 금지 단정 지시. inert — 기존 score/confidence/favorability/event_count 불변, 전체 unit+regression green.
+- [x] ④ LLM 입력 배선: 최초 `ChartInterpretation.detected_patterns`(캐시 프리픽스)로 구현.
+- [x] **F1(도메인 필터 실동작)**: `LlmInput.detected_patterns`(질문 가변)로 이전 + suffix 직렬화 + `_DOMAIN_EVENT_KEYS` 도메인 우선 선별. 프리픽스 캐시 보존, 재물↔직업 질문에서 노출/순서 상이(통합 테스트 검증). inert — 전체 green.
 
-### 후속(P0 밖)
-- 충개(沖開)·입묘(入墓)·개고(開庫) 감지 — 묘고 신호(wealth_capacity·structural_context) 결과 컨텍스트 배선.
-- 질문 도메인 필터를 실제 적용하려면 detected_patterns를 비캐시 질문 섹션으로 이전(§6 후속).
-- P1/P2 패턴 확장(상관패인·득비이재·목화통명·종왕격 등, 자료 §13).
+### 후속
+- [ ] **F2**: 충개(沖開)·입묘(入墓)·개고(開庫) 감지 — 묘고 신호(wealth_capacity·health_vulnerability) natal 구조 어댑터.
+- [ ] **F3**: P1/P2 패턴 확장(상관패인·득비이재·목화통명·전왕/종격 등, 자료 §13).
