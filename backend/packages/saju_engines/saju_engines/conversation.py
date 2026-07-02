@@ -347,13 +347,19 @@ class ConversationEngine:
             return SubjectMode.COMPARE_EXCLUDE_SELF
         if re.search(r"누구야|순위|합이\s*좋은", text) and len(subjects) >= 2:
             return SubjectMode.RANKING
-        # 동반자 2명 이상(본인 미포함) + 관계/비교 질의 → 동반자끼리(본인 제외). '궁합'만 있어도
-        # 대상이 동반자 2명이면 본인↔상대(pairwise)가 아니라 동반자끼리 비교다.
+        # 관계/비교·경쟁 질의 신호.
         _companions = [s for s in subjects if s.kind is SubjectKind.COMPANION]
         _has_self = any(s.kind is SubjectKind.SELF for s in subjects)
-        if len(_companions) >= 2 and not _has_self and re.search(
-            r"궁합|잘\s*맞|안\s*맞|비교|어울리|사이|관계", text
-        ):
+        _self_ref = bool(re.search(r"나랑|나하고|내가|나\s*vs|나\s*대\b|우리\s*둘|나는", text))
+        _compare_kw = re.search(r"궁합|잘\s*맞|안\s*맞|비교|어울리|사이|관계", text)
+        _compet_kw = re.search(
+            r"누가|이길|이겨|합격|승부|당선|우승|선발|오디션|대회|붙|더\s*잘", text
+        )
+        # 본인 vs 동반자 1명 경쟁/비교 — self-ref면 pairwise(build_effective_subjects가 self 삽입).
+        if _self_ref and len(_companions) == 1 and (_compet_kw or _compare_kw):
+            return SubjectMode.PAIRWISE
+        # 동반자 2명(본인 미포함) 비교/경쟁 → 동반자끼리(본인 제외). '궁합/누가 이길' 등.
+        if len(_companions) >= 2 and not _has_self and (_compare_kw or _compet_kw):
             return SubjectMode.COMPARE_EXCLUDE_SELF
         if re.search(r"궁합|나랑\s*맞", text):
             return SubjectMode.PAIRWISE

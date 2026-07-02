@@ -9,10 +9,12 @@ from __future__ import annotations
 import pytest
 
 from saju_engines.relationship_hints import (
+    COMPETITION_SAFETY_GUARDS,
     PERSPECTIVE_HINTS,
     RELATION_TYPES,
     SAFETY_GUARDS,
     infer_relation_type,
+    is_competition,
     perspective_hints_for,
 )
 
@@ -61,3 +63,28 @@ def test_safety_guards_present() -> None:
     """안전 가드(우열·승패 단정 금지)가 비어 있지 않다 — competition 미구현이어도 유지."""
     assert SAFETY_GUARDS
     assert any("우열" in g or "승패" in g for g in SAFETY_GUARDS)
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("누가 합격 가능성이 더 있어?", True),
+        ("둘 중 누가 이길까?", True),
+        ("누가 더 잘돼?", True),
+        ("우승은 누구?", True),
+        ("당선될 사람은?", True),
+        ("엄마랑 아빠 잘 맞아?", False),  # 관계 비교(경쟁 아님)
+        ("지민이랑 궁합 봐줘", False),
+        ("내 올해 운 봐줘", False),
+    ],
+)
+def test_is_competition(question: str, expected: bool) -> None:
+    assert is_competition(question) is expected
+
+
+def test_competition_guards_forbid_verdicts() -> None:
+    """경쟁 가드는 승패·당락 확정·확률·순위 산출 금지를 명시한다(절대원칙 8)."""
+    joined = " ".join(COMPETITION_SAFETY_GUARDS)
+    assert "확정하지" in joined
+    assert "승률" in joined or "확률" in joined
+    assert "순위" in joined

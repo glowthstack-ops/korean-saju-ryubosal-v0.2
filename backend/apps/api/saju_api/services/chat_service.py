@@ -42,8 +42,10 @@ from saju_engines.precompute import CompositeBuilder
 from saju_engines.profile_engine import profile_facts_for
 from saju_engines.query_parser import parse_message
 from saju_engines.relationship_hints import (
+    COMPETITION_SAFETY_GUARDS,
     SAFETY_GUARDS,
     infer_relation_type,
+    is_competition,
     perspective_hints_for,
 )
 from saju_engines.rewriter import QueryAssessment, assess
@@ -2459,6 +2461,15 @@ def chat(
             plan = plan.model_copy(update={
                 "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
             })
+    # P3c-1 — 경쟁 비교: pairwise/compare 실행 경로는 그대로 두고 관계맥락을 competition으로,
+    # 안전 가드를 승부 단정 금지로 교체(승률·순위·당락 산출 금지). 대상 2명일 때만.
+    competition_active = False
+    if relationship_context is not None and is_competition(question):
+        relationship_context = relationship_context.model_copy(update={
+            "mode": "competition",
+            "safety_guards": list(COMPETITION_SAFETY_GUARDS),
+        })
+        competition_active = True
     payload = build_llm_input(
         question, intent, result_for_llm, candidates, bundles, _get_scorer(),
         call_type="chat_compare" if plan.per_subject else "chat_single",
@@ -2502,6 +2513,14 @@ def chat(
             "[분석 대상] 이 풀이는 질문자 본인이 아니라 두 동반자의 관계 비교입니다. "
             "본인 명식을 끌어들이지 말고 [함께 보기]의 두 대상만으로 협력·충돌·보완을 "
             "설명하세요. 누가 더 낫다는 우열·승패로 단정하지 마세요."
+        )
+    # P3c-1 — 경쟁 비교: 승패·당락 확정 금지, 조건부 유리 요인·부담·보완 중심(절대원칙 8).
+    if competition_active:
+        trailing.append(
+            "[경쟁 비교 지침] 승패·우승·합격·당락을 확정하지 말고, 승률·확률·점수·순위도 "
+            "만들지 마세요. 두 대상 각각의 강점·부담 요인·리스크·준비 포인트를 나누어 설명하고, "
+            "비교가 필요하면 '이 조건에서는 A 쪽 신호가 강하고 B는 이런 보완이 필요하다'처럼 "
+            "조건부로만 말하세요. 결론은 결과 보장이 아니라 준비 전략·조율 포인트로 정리하세요."
         )
     # 직전 풀이 재검토(B) — 이의/반문 후속이면 엔진 근거로 재검토하도록 지시(출생정보 재요청 금지).
     if is_recheck:

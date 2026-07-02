@@ -131,6 +131,9 @@ def assess(
         QueryType.TERMINOLOGY_EDUCATION, QueryType.FEEDBACK_CORRECTION,
         QueryType.EMOTIONAL_SUPPORT, QueryType.OUT_OF_SCOPE,
         QueryType.CHART_ANALYSIS,
+        # 비교/궁합/경쟁은 '무엇을 비교할지(대상)'가 곧 분석 대상이라 시점·분야 없이도 실행한다.
+        # (대상 모호는 위 ambiguous 가드가 이미 need_subject로 처리.)
+        QueryType.COMPARISON,
     ):
         return QueryAssessment(status="ok")
 
