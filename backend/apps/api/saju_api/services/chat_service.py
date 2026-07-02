@@ -21,7 +21,7 @@ from saju_manse_analysis.luck.luck_calendar import luck_month_label
 from saju_engines import EventEngineV2, GraphIndex, filter_year_candidates, load_event_graph
 from saju_engines.chart_interpretation import build_luck_grounding
 from saju_engines.companion_alias import AliasEntry
-from saju_engines.companion_similarity import augment_subject_mode
+from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     build_birth_summary,
@@ -2503,6 +2503,8 @@ def chat(
                 question, _eff.relation_to_user if _eff else None,
                 [str(d) for d in intent.domains],
             )
+            # P3d-3 — unknown이면 유사도로 관점 힌트만 보강(실행 경로 불변, rules-first).
+            _rtype, _rbasis = augment_relation_type(_rtype, _rbasis, question, has_companion=True)
             subject_blocks, relationship_context = _pairwise_subject_blocks(
                 _inj, result, _comp_result,
                 self_label=subject_label,
@@ -2525,6 +2527,8 @@ def chat(
             _rtype, _rbasis = infer_relation_type(
                 question, None, [str(d) for d in intent.domains]
             )
+            # P3d-3 — 두 동반자 관계는 relation_to_user 없음 → unknown이면 유사도로 힌트 보강.
+            _rtype, _rbasis = augment_relation_type(_rtype, _rbasis, question, has_companion=True)
             subject_blocks, relationship_context = _compare_subject_blocks(
                 _inj, result, _b_result,
                 primary_label=(_effa.label if _effa else "대상1"),

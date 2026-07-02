@@ -35,6 +35,7 @@ _MAXLEN = 64
 _BACKEND = Path(__file__).resolve().parents[3]
 _DEFAULT_MODEL_DIR = _BACKEND / "compiled" / "intent_onnx"
 _DEFAULT_CORPUS = _BACKEND / "dictionaries" / "companion_mode_seed_corpus.json"
+_RELATION_CORPUS = _BACKEND / "dictionaries" / "companion_relation_seed_corpus.json"
 
 # 실측 기반 보조 게이트(P3d — 2026-07-02). 기존 제안 0.78은 이 ONNX 분류기엔 과보수적이라
 # 롱테일 참 양성을 놓쳤다(측정: 참=0.61~0.92, distractor=0.42~0.63). 1차 안전은 embedding이
@@ -42,6 +43,11 @@ _DEFAULT_CORPUS = _BACKEND / "dictionaries" / "companion_mode_seed_corpus.json"
 # distractor(내 운·취업운 등)는 그 구성 자체가 안 되어 걸러진다. score/margin은 2차 정제.
 _MODE_SIM_MIN_SCORE = 0.60
 _MODE_SIM_MIN_MARGIN = 0.05
+
+# 관계유형 보강(P3d-3) 게이트 — 실측상 mode보다 분리도가 좋다(참=0.67~0.88, distractor=0.39).
+# 실행 경로를 바꾸지 않고 relationship_context.perspective_hints만 보강하므로 소폭 완화한다.
+_RELATION_SIM_MIN_SCORE = 0.62
+_RELATION_SIM_MIN_MARGIN = 0.03
 
 
 @dataclass(frozen=True)
@@ -142,6 +148,91 @@ def get_companion_mode_classifier() -> CompanionModeClassifier:
     if _singleton is None:
         _singleton = CompanionModeClassifier()
     return _singleton
+
+
+@dataclass(frozen=True)
+class RelationSuggestion:
+    """관계유형 보조 분류 결과 — relationship_context 관점 힌트 보강용."""
+
+    relation_type: str  # spouse/romance/parent_child/family/friend/coworker/business_partner
+    score: float
+    margin: float
+
+
+class CompanionRelationClassifier:
+    """관계유형 centroid 분류기 — mode 분류기의 ONNX 세션을 재사용한다(모델 1회 로드)."""
+
+    def __init__(self, corpus_path: Path = _RELATION_CORPUS) -> None:
+        """관계유형 시드 centroid를 mode 분류기의 embed로 구성한다(세션 공유·비활성 시 무동작)."""
+        self._enabled = False
+        base = get_companion_mode_classifier()
+        if not base.available():
+            return
+        self._base = base
+        data = json.loads(Path(corpus_path).read_text("utf-8"))
+        examples: list[str] = []
+        labels: list[str] = []
+        for entry in data["intents"]:
+            for ex in entry["examples"]:
+                examples.append(ex)
+                labels.append(entry["label"])
+        seed = base._embed(examples)
+        groups: dict[str, list[int]] = defaultdict(list)
+        for i, lab in enumerate(labels):
+            groups[lab].append(i)
+        self._labels = list(groups)
+        centroid = np.vstack([seed[idx].mean(axis=0) for idx in groups.values()])
+        self._centroid = centroid / (np.linalg.norm(centroid, axis=1, keepdims=True) + 1e-9)
+        self._enabled = True
+
+    def available(self) -> bool:
+        return self._enabled
+
+    def classify(self, text: str) -> RelationSuggestion | None:
+        """질의를 관계유형 centroid와 코사인 비교해 최상위 제안을 반환(게이트는 호출 측)."""
+        if not self._enabled or not text.strip():
+            return None
+        q = self._base._embed([text])[0]
+        sims = self._centroid @ q
+        order = np.argsort(-sims)
+        best = int(order[0])
+        top1 = float(sims[best])
+        top2 = float(sims[int(order[1])]) if len(order) > 1 else 0.0
+        return RelationSuggestion(
+            relation_type=self._labels[best],
+            score=round(top1, 4),
+            margin=round(top1 - top2, 4),
+        )
+
+
+_relation_singleton: CompanionRelationClassifier | None = None
+
+
+def get_companion_relation_classifier() -> CompanionRelationClassifier:
+    """프로세스 1회 로드 싱글턴(mode 분류기 세션 재사용)."""
+    global _relation_singleton
+    if _relation_singleton is None:
+        _relation_singleton = CompanionRelationClassifier()
+    return _relation_singleton
+
+
+def augment_relation_type(
+    rule_relation: str, rule_basis: str, text: str, has_companion: bool,
+) -> tuple[str, str]:
+    """infer_relation_type이 unknown일 때만 관계유형을 유사도로 보강한다(rules-first, 힌트 전용).
+
+    실행 mode/subject_blocks/base는 바꾸지 않는다 — relationship_context 관점 힌트만. 규칙/키워드/
+    relation_to_user로 확정된 관계유형(rule_basis != 'unknown')은 절대 덮지 않는다.
+
+    Returns:
+        (relation_type, relation_basis). 보강 시 basis='similarity', 아니면 입력 그대로.
+    """
+    if rule_relation != "unknown" or rule_basis != "unknown" or not has_companion:
+        return rule_relation, rule_basis
+    sug = get_companion_relation_classifier().classify(text)
+    if sug is None or sug.score < _RELATION_SIM_MIN_SCORE or sug.margin < _RELATION_SIM_MIN_MARGIN:
+        return rule_relation, rule_basis
+    return sug.relation_type, "similarity"
 
 
 def suggest_companion_mode(text: str) -> CompanionModeSuggestion | None:

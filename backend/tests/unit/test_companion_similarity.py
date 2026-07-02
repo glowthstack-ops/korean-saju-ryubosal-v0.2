@@ -11,8 +11,10 @@ from saju_engines.companion_similarity import (
     _MODE_SIM_MIN_MARGIN,
     _MODE_SIM_MIN_SCORE,
     CompanionModeSuggestion,
+    augment_relation_type,
     augment_subject_mode,
     get_companion_mode_classifier,
+    get_companion_relation_classifier,
     suggest_companion_mode,
 )
 from saju_shared_types.intent import SubjectMode
@@ -150,3 +152,39 @@ def test_wiring_rules_first_pairwise_untouched() -> None:
     )
     out = _augment_companion_mode_by_similarity(intent, "지민이랑 궁합")
     assert out.subject_mode is SubjectMode.PAIRWISE
+
+
+# ── 관계유형 보강(P3d-3) ───────────────────────────────────────────────
+
+def test_relation_rules_first_not_overridden() -> None:
+    """규칙/relation_to_user로 확정된 관계유형은 유사도가 달라도 덮지 않는다."""
+    assert augment_relation_type("spouse", "relation_to_user", "동업하면 어때", True) == (
+        "spouse", "relation_to_user"
+    )
+    assert augment_relation_type("coworker", "explicit_keyword", "연애하면", True) == (
+        "coworker", "explicit_keyword"
+    )
+
+
+def test_relation_requires_companion() -> None:
+    """동반자가 없으면 관계유형 보강을 하지 않는다."""
+    assert augment_relation_type("unknown", "unknown", "동업하면 어때", False) == (
+        "unknown", "unknown"
+    )
+
+
+def test_relation_augments_clear_business_partner() -> None:
+    """unknown + 명확한 동업 표현 → business_partner로 보강(모델 있을 때)."""
+    if not get_companion_relation_classifier().available():
+        return
+    rtype, basis = augment_relation_type("unknown", "unknown", "이 사람이랑 동업하면 어때", True)
+    assert rtype == "business_partner"
+    assert basis == "similarity"
+
+
+def test_relation_distractor_stays_unknown() -> None:
+    """관계와 무관한 질문은 저 score로 unknown 유지(모델 있을 때)."""
+    if not get_companion_relation_classifier().available():
+        return
+    rtype, basis = augment_relation_type("unknown", "unknown", "내 올해 재물운", True)
+    assert (rtype, basis) == ("unknown", "unknown")
