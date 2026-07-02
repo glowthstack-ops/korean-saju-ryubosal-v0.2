@@ -198,10 +198,16 @@ def chat(
     # 등록 동반자 별칭 인덱스 — 발화 속 별명/관계어를 companion subject_id로 해소(P0).
     # owner isolation: owner_id 한정 조회 결과만 인덱스에 들어간다. 무DB 배포/비로그인은 빈 인덱스.
     alias_index: dict[str, list[AliasEntry]] = {}
+    companion_births: dict[str, BirthInput] = {}
     if subjects is not None and owner_id:
-        alias_index = build_companion_alias_index(
-            subjects.list_all(owner_id), base_subject_id=req.subject_id
-        )
+        _records = subjects.list_all(owner_id)
+        alias_index = build_companion_alias_index(_records, base_subject_id=req.subject_id)
+        # P2a — 동반자 공동 풀이용 birth 맵(owner 한정). base/self 제외, 해소된 companion_id로 조회.
+        companion_births = {
+            r.subject_id: r.birth
+            for r in _records
+            if r.kind != "self" and r.subject_id != req.subject_id
+        }
 
     form, occ_status, rel_status, occ_category = profile_event_signals(req.subject_id)
 
@@ -222,6 +228,7 @@ def chat(
             occupation_category=occ_category,
             prior_answer=prior_answer,
             companion_alias_index=alias_index,
+            companion_births=companion_births,
         )
 
     # 미리보기 요청은 예전처럼 동기 dry-run(LLM 미호출).

@@ -343,6 +343,33 @@ class LlmBudget(BaseModel):
     max_output_chars: int
 
 
+class SubjectBlock(BaseModel):
+    """동반자 공동 풀이(P2a)의 대상 1명 명식 블록 — 본인/동반자 각각 compact 요약.
+
+    본인 기준 birth_chart_summary(단일 대상 계약)와 별개로, 여러 대상을 분리 주입할 때 쓴다.
+    P2a는 pairwise만(본인+동반자 1명) — 원국 구조 요약(BirthChartSummary 재사용) + 현재 운
+    한 줄. 대상별 event 후보 등 정밀 산출은 후속(companion_only/P2b)로 확장한다.
+    """
+
+    subject_id: str
+    role: str  # 'self' | 'companion'
+    label: str
+    is_primary: bool = False
+    relation_to_user: str | None = None
+    chart: BirthChartSummary
+    current_period: str = ""  # '대운 壬辰 · 세운 丙午(2026)' 등 compact
+
+
+class RelationshipContext(BaseModel):
+    """공동 풀이 관계 맥락(P2a) — 어떤 조합·관계로 함께 보는지. 실행은 pairwise 한정."""
+
+    mode: str  # CompanionReadMode 값
+    relation_type: str | None = None
+    primary_subject_id: str | None = None
+    companion_subject_ids: list[str] = Field(default_factory=list)
+    compatibility_overlay_available: bool = False  # _compat_prompt_block 보조 존재 여부
+
+
 class LlmInput(BaseModel):
     """LLM 입력 계약 전체 (docs/06 LlmInput)."""
 
@@ -381,4 +408,7 @@ class LlmInput(BaseModel):
     persona: PersonaBlock = Field(default_factory=PersonaBlock)
     user_profile_context: dict | None = None  # 해당 질문에 필요한 필드만(전체 주입 금지)
     section_mode: SectionMode | None = None
+    # 동반자 공동 풀이(P2a) — 본인+동반자 대상별 명식 블록 분리 주입. 비면 단일 대상(기존).
+    subject_blocks: list[SubjectBlock] = Field(default_factory=list)
+    relationship_context: RelationshipContext | None = None
     budget: LlmBudget

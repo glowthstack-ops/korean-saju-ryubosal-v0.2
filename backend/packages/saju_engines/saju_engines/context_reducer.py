@@ -42,9 +42,11 @@ from saju_shared_types.llm_input import (
     MonthOverviewRow,
     PeriodFortune,
     ReferenceFrame,
+    RelationshipContext,
     SelectedDay,
     SelectedMonth,
     SelectedYear,
+    SubjectBlock,
     UsefulGods,
     YongsinOperationalSummary,
 )
@@ -1026,6 +1028,8 @@ def build_llm_input(
     current_month_detail: str | None = None,
     structural_context: list[str] | None = None,
     profile_facts: list[str] | None = None,
+    subject_blocks: list[SubjectBlock] | None = None,
+    relationship_context: RelationshipContext | None = None,
     reserved_tokens: int | None = None,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
@@ -1168,6 +1172,8 @@ def build_llm_input(
         ),
         structural_context=structural_context or [],
         profile_facts=profile_facts or [],
+        subject_blocks=subject_blocks or [],
+        relationship_context=relationship_context,
         detected_patterns=selected_patterns,
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
@@ -1357,6 +1363,45 @@ def serialize_llm_input(payload: LlmInput) -> str:
              if r.question_period else r.question_period_note),
             "",
         ]
+    # 함께 보기(P2a pairwise) — 본인+동반자 대상별 명식을 분리 노출. 상대 명식을 본인과 섞지
+    # 않도록 각 대상을 명시한다. 궁합 신호는 아래 [궁합 분석] 보조로 유지.
+    if payload.subject_blocks:
+        rc = payload.relationship_context
+        lines.append("[함께 보기 — 대상별 명식(엔진 확정값)]")
+        if rc is not None:
+            rel = f" · 관계 {rc.relation_type}" if rc.relation_type else ""
+            lines.append(f"조합: {rc.mode}{rel}")
+        for sb in payload.subject_blocks:
+            who = f"{sb.label}({'본인' if sb.role == 'self' else (sb.relation_to_user or '동반자')})"
+            if sb.role == "self":
+                cp = f" · 현재 {sb.current_period}" if sb.current_period else ""
+                lines.append(f"· {who}: 위 [원국·명식 구조] 참조{cp}")
+                continue
+            cs = sb.chart
+            pil = "/".join(
+                cs.pillars[k] for k in ("year", "month", "day", "hour") if cs.pillars.get(k)
+            )
+            ug = cs.useful_gods
+            roles = [
+                f"{name} {''.join(vals)}"
+                for name, vals in (("용신", ug.yongsin), ("희신", ug.heesin), ("기신", ug.gisin))
+                if vals
+            ]
+            seg = [f"일간 {cs.day_master}", f"원국 {pil}"]
+            if cs.strength:
+                seg.append(f"신강약 {cs.strength}")
+            if roles:
+                seg.append(" · ".join(roles))
+            if cs.geokguk:
+                seg.append(f"격국 {cs.geokguk}")
+            if sb.current_period:
+                seg.append(f"현재 {sb.current_period}")
+            lines.append(f"· {who}: " + " · ".join(seg))
+        lines.append(
+            "※ 두 사람 각각의 명식으로 함께 풀되, 상대의 간지·용신을 본인 것과 섞지 말 것. "
+            "궁합 신호는 아래 [궁합 분석](있으면) 보조로만 참조."
+        )
+        lines.append("")
     # 현재 달(기준 시점) — 절기 기준 당월(this_luck_month) 우선(양력 today[:7]은 절기 경계
     # 직전 한 달 어긋남). 진행 중 절기월 표시(#3)와 '지남' 마커(P6)에 공용으로 쓴다.
     cur_month = (

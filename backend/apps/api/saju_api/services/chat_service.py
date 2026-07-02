@@ -60,7 +60,7 @@ from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef
 from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES, EVENT_TYPE
 from saju_shared_types.events import EventKey
-from saju_shared_types.execution_plan import ExecutionPlan
+from saju_shared_types.execution_plan import ExecutionPlan, SubjectInjectionPolicy
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectKind, SubjectRef
 from saju_shared_types.llm_input import (
@@ -68,6 +68,8 @@ from saju_shared_types.llm_input import (
     DateSelectionBlock,
     PeriodFortune,
     PeriodFortuneSlot,
+    RelationshipContext,
+    SubjectBlock,
 )
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.precompute import CompositeLevel
@@ -1442,6 +1444,56 @@ def _compat_prompt_block(
     return "\n".join(lines)
 
 
+def _current_period_line(result: ManseV2Result, year: int) -> str:
+    """대상의 현재 대운 + 지정 연 세운 간지를 compact 한 줄로(없으면 빈 문자열)."""
+    lc = result.luck_cycles
+    if lc is None:
+        return ""
+    parts: list[str] = []
+    idx = lc.current_daewoon_index
+    if idx is not None and 0 <= idx < len(lc.daewoon_table):
+        parts.append(f"대운 {lc.daewoon_table[idx].ganji}")
+    se = next((p for p in lc.yearly_luck if p.label == str(year)), None)
+    if se is not None:
+        parts.append(f"세운 {se.ganji}({year})")
+    return " · ".join(parts)
+
+
+def _pairwise_subject_blocks(
+    injection: SubjectInjectionPolicy,
+    self_result: ManseV2Result,
+    companion_result: ManseV2Result,
+    self_label: str,
+    companion_label: str,
+    relation_type: str | None,
+    year: int,
+) -> tuple[list[SubjectBlock], RelationshipContext]:
+    """P2a pairwise — 본인+동반자 대상별 명식 블록(compact) + 관계 맥락을 만든다.
+
+    각 대상의 원국 구조(build_birth_summary 재사용)와 현재 운 한 줄만 담는다(토큰 절약 —
+    원국 전체 dump 금지). 본인 base 분석은 별개로 유지되며 이 블록은 가산 정보다.
+    """
+    cid = injection.companion_subject_ids[0]
+    self_block = SubjectBlock(
+        subject_id=injection.primary_subject_id or "self",
+        role="self", label=self_label or "본인", is_primary=True,
+        relation_to_user="self", chart=build_birth_summary(self_result),
+        current_period=_current_period_line(self_result, year),
+    )
+    companion_block = SubjectBlock(
+        subject_id=cid, role="companion", label=companion_label or "상대",
+        is_primary=False, relation_to_user=relation_type,
+        chart=build_birth_summary(companion_result),
+        current_period=_current_period_line(companion_result, year),
+    )
+    rc = RelationshipContext(
+        mode=injection.mode, relation_type=relation_type,
+        primary_subject_id=self_block.subject_id,
+        companion_subject_ids=[cid], compatibility_overlay_available=True,
+    )
+    return [self_block, companion_block], rc
+
+
 def _structural_context(
     result: ManseV2Result, intent: IntentJson, today: date, question: str = "",
 ) -> list[str]:
@@ -1765,6 +1817,7 @@ def chat(
     occupation_category: str | None = None,
     prior_answer: str | None = None,
     companion_alias_index: dict[str, list[AliasEntry]] | None = None,
+    companion_births: dict[str, BirthInput] | None = None,
 ) -> ChatResponse:
     """질문을 풀이한다(첫 intent 기준, 다중 intent는 메타로 동반).
 
@@ -2267,6 +2320,32 @@ def chat(
         span = _daewoon_span_context(year_result, year_digest_years[0], year_digest_years[-1])
         if span:
             structural = structural + [span]
+    # P2a — pairwise(본인+동반자 1명)이고 동반자 birth가 확보되면 대상별 명식 블록을 가산 주입.
+    # per_subject/chat_compare는 건드리지 않는다(본인 base 유지). birth 없으면 블록 생략(본인
+    # 명식으로 대체하지 않음 — 기존 pairwise 경로 그대로). companion_only 등은 P2b 이후.
+    subject_blocks: list[SubjectBlock] = []
+    relationship_context: RelationshipContext | None = None
+    _inj = plan.subject_injection
+    if _inj is not None and _inj.mode == "pairwise" and len(_inj.companion_subject_ids) == 1:
+        _cid = _inj.companion_subject_ids[0]
+        _comp_birth = (companion_births or {}).get(_cid)
+        if _comp_birth is None and _cid == "inline:partner":
+            _comp_birth = partner_birth
+        if _comp_birth is not None:
+            _comp_result = calculate(_comp_birth.model_copy(update={"reference_date": today}))
+            _eff = next(
+                (e for e in plan.effective_subjects if e.subject_id == _cid), None
+            )
+            subject_blocks, relationship_context = _pairwise_subject_blocks(
+                _inj, result, _comp_result,
+                self_label=subject_label,
+                companion_label=(_eff.label if _eff else partner_label),
+                relation_type=(_eff.relation_to_user if _eff else None),
+                year=today.year,
+            )
+            plan = plan.model_copy(update={
+                "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
+            })
     payload = build_llm_input(
         question, intent, result_for_llm, candidates, bundles, _get_scorer(),
         call_type="chat_compare" if plan.per_subject else "chat_single",
@@ -2283,6 +2362,8 @@ def chat(
             result.time_correction.timezone if result.time_correction else "Asia/Seoul",
         ),
         structural_context=structural,
+        subject_blocks=subject_blocks,
+        relationship_context=relationship_context,
         # 물상(2단계 프로필) 사실 맥락 — 질문 도메인 관련 항목만 풀이에 사실로 주입.
         profile_facts=profile_facts_for(
             subject_id, str(intent.domains[0]) if intent.domains else "general"
