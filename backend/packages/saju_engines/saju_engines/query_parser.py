@@ -202,8 +202,16 @@ def _detect_subjects(text: str) -> tuple[list[SubjectRef], SubjectMode]:
 
 def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     """질문 유형 분류(docs/03 B1 — 우선순위 고정 룰)."""
-    # Q14 — 메타/탐침·로또 번호·악의 (B11/G4/G5/G6).
-    if re.search(r"모델|프롬프트|시스템\s*룰|rag에|cot", text, re.IGNORECASE):
+    # Q14 — 메타/탐침·로또 번호·악의 (B11/G4/G5/G6). '모델'은 AI/시스템 맥락일 때만 거부 —
+    # '유료화 모델'·'롤모델'·직업이 '모델'인 사용자 등 일반 '모델' 언급 오분류 방지(2026-07-02).
+    if re.search(
+        r"프롬프트|시스템\s*(?:룰|프롬프트|지시문?)|rag에|\bcot\b|"
+        r"\bgpt\b|\bllm\b|claude|gemini|지피티|"
+        r"(?:어떤|무슨|어느)\s*(?:ai|모델)|"
+        r"(?:ai|언어|기반|생성형?)\s*모델|모델\s*(?:명|이름)|"
+        r"모델(?:은|는|이|가)?\s*(?:뭐|무엇|무슨|어떤|알려|공개|밝|써|쓰|사용|이야|인가|니)",
+        text, re.IGNORECASE,
+    ):
         return QueryType.OUT_OF_SCOPE
     # 로또 번호·특정 종목 픽은 거부(절대원칙 8). 단 '주식운/로또운/투자 시기' 등 흐름·시기
     # 질문은 통과시켜 생활형 횡재로 자유롭게 풀이한다(2026-06-20 개정 — 픽만 거부).
