@@ -30,11 +30,18 @@ from saju_shared_types.structure_patterns import (
 )
 
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
+_COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
+STRUCTURE_PATTERNS_VERSION = "1.0.0"
 
 
 @lru_cache(maxsize=8)
-def load_structure_patterns(dictionaries_dir: Path = _DICTS_DEFAULT) -> StructurePatternDict:
-    """`structure_patterns.json` 로드(캐시)."""
+def load_structure_patterns(
+    dictionaries_dir: Path = _DICTS_DEFAULT, compiled_dir: Path = _COMPILED_DEFAULT
+) -> StructurePatternDict:
+    """구조 패턴 사전 로드(캐시). 컴파일 스냅샷 우선, 없으면 원본 폴백(CLAUDE.md 원칙 5)."""
+    snapshot = compiled_dir / f"structure_patterns_v{STRUCTURE_PATTERNS_VERSION}.json"
+    if snapshot.exists():
+        return StructurePatternDict.model_validate(json.loads(snapshot.read_text("utf-8")))
     raw = json.loads((dictionaries_dir / "structure_patterns.json").read_text("utf-8"))
     return StructurePatternDict.model_validate(raw)
 
@@ -88,7 +95,6 @@ _PRESENCE_RULES: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
     ("JAE_SAENGSAL", ("편관",), ("wealth",)),
     ("SIKSIN_JESAL", ("식신", "편관"), ()),
     ("SANGGWAN_JESAL", ("상관", "편관"), ()),
-    ("BIGEOP_TALJAE", (), ("peer", "wealth")),
 ]
 
 
@@ -181,6 +187,15 @@ def detect_structure_patterns(
                 groups.get(grp, 0) for grp in need_groups
             )
             emit(pid, _clamp(0.4 + 0.1 * members_total, 0.4, 0.85), "natal")
+
+    # 비겁탈재(new): 비겁 2+ & 재성 존재 & 군겁쟁재(강)까지는 아닌 경증(과발화 방지).
+    if (
+        "BIGEOP_TALJAE" not in seen
+        and "GUNGEOP_JAENGJAE" not in seen
+        and groups["peer"] >= 2
+        and groups["wealth"] >= 1
+    ):
+        emit("BIGEOP_TALJAE", _clamp(0.35 + 0.1 * groups["peer"], 0.35, 0.7), "natal")
 
     # 인다신약 병존 폴백(new): 인성 과다(≥40%) + 실행 축(식상+재) 미약.
     if "INDA_SINYAK" not in seen and groups["resource"] / total >= 0.40 and (

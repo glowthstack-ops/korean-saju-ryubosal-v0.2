@@ -30,10 +30,13 @@ from saju_shared_types.constants import (
     ten_god,
 )
 from saju_shared_types.enums import Branch, Stem, YinYang
+from saju_shared_types.event_engine import EventKeyV2
+from saju_shared_types.event_engine import TenGod as _TenGodRoman
 from saju_shared_types.event_taxonomy_v2 import LEGACY_EVENT_KEY_MAP
 from saju_shared_types.events import EventKey, EventPolarity, EventType
 from saju_shared_types.marriage_timing import MarriageStage
 from saju_shared_types.region_element import RegionGeoFeature
+from saju_shared_types.structure_patterns import StructurePatternDict
 
 _FAVORABILITY = ("용신", "희신", "기신", "구신", "한신")
 _POSITIVE_FAVORABILITY = ("용신", "희신")
@@ -965,6 +968,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "common/twelve_unseong_groups.json": TwelveUnseongGroupsFile,
     "common/ten_god_events.json": TenGodEventsFile,
     "relations.json": RelationsFile,
+    "structure_patterns.json": StructurePatternDict,
     "events/taxonomy.json": TaxonomyFile,
     "favorability_rules.json": FavorabilityRulesFile,
     "interpretations/ilju.json": IljuFile,
@@ -1431,6 +1435,28 @@ def _lint_region_intent_weights(file: RegionIntentWeightsFile) -> list[str]:
     return errors
 
 
+def _lint_structure_patterns(file: StructurePatternDict) -> list[str]:
+    """structure_patterns.json — 중복 id·domain_hints·ten_god_chain·llm_tag 길이 검사."""
+    errors: list[str] = []
+    rel = "structure_patterns.json"
+    event_keys = {e.value for e in EventKeyV2}
+    ten_gods = {t.value for t in _TenGodRoman}
+    seen: set[str] = set()
+    for p in file.patterns:
+        if p.pattern_id in seen:
+            errors.append(f"{rel}: 중복 pattern_id — {p.pattern_id}")
+        seen.add(p.pattern_id)
+        for h in p.domain_hints:
+            if h not in event_keys:
+                errors.append(f"{rel}: {p.pattern_id} domain_hints 미정렬(EventKeyV2 아님) — {h}")
+        for t in p.ten_god_chain:
+            if t not in ten_gods:
+                errors.append(f"{rel}: {p.pattern_id} ten_god_chain 미지원 십성 — {t}")
+        if len(p.llm_tag) > 120:
+            errors.append(f"{rel}: {p.pattern_id} llm_tag {len(p.llm_tag)}자(>120)")
+    return errors
+
+
 def lint_dictionaries(directory: Path) -> list[str]:
     """충돌 검사(dict:lint). 스키마 위반 파일은 여기서 건너뛴다(validate가 보고)."""
     errors: list[str] = []
@@ -1445,6 +1471,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             continue
         if isinstance(parsed, RelationsFile):
             errors.extend(_lint_relations(parsed))
+        elif isinstance(parsed, StructurePatternDict):
+            errors.extend(_lint_structure_patterns(parsed))
         elif isinstance(parsed, EventMappingFile):
             errors.extend(_lint_event_mapping(rel, parsed))
         elif isinstance(parsed, FavorabilityRulesFile):
