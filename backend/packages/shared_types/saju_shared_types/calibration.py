@@ -123,6 +123,14 @@ def experience_volatility(rating: str | None) -> float:
     return EXPERIENCE_VOLATILITY.get(rating or "", 0.0)
 
 
+CALIB_DOMAINS: tuple[str, ...] = ("career", "money", "relationship", "health")
+# 이벤트 카테고리(EVENT_CATEGORY 값) → 캘리브레이션 4도메인. move/study는 career로 접음(확장 후속).
+CATEGORY_TO_CALIB_DOMAIN: dict[str, str] = {
+    "career": "career", "move": "career", "study": "career",
+    "money": "money", "affection": "relationship", "health": "health",
+}
+
+
 class DomainExpectation(BaseModel):
     """한 도메인에 대한 모델의 기대(도메인 이벤트들의 기대극성 집계, docs/14 결정③).
 

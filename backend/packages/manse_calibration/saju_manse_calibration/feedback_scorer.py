@@ -3,18 +3,58 @@
 from __future__ import annotations
 
 from saju_shared_types.calibration import (
-    EVENT_RATING_SCORE,
     FEEDBACK_SCALE,
     MAJOR_CATEGORIES,
     MAJOR_DOMAINS,
     CalibrationQuestion,
     CalibrationResult,
     FeedbackAnswer,
+    experience_polarity,
+    experience_volatility,
 )
 from saju_shared_types.yongsin import AggregatedYongsinResult, YongsinCandidateModel
 
+# 채점 축 가중(docs/14 P1): 영역 극성 = 주축(이벤트 1건보다 크게), 변동성 = 보조.
+_DOMAIN_POLARITY_W = 3.0
+_DOMAIN_VOLATILITY_W = 1.0
 
-def score_feedback(expected: str, user_score: int | None) -> float:
+
+def _score_domains(
+    q: CalibrationQuestion,
+    ans: FeedbackAnswer,
+    scores: dict[str, float],
+    hits: dict[str, int],
+    totals: dict[str, int],
+) -> None:
+    """영역별 극성(주축) + 변동성을 모델 도메인 기대와 대조해 누적한다(no_signal 제외)."""
+    for model_type, dom_exp in q.domain_expectations.items():
+        if model_type not in scores:
+            continue
+        for domain, exp in dom_exp.items():
+            if exp.status != "scored":
+                continue  # no_signal — 모델이 그 영역 판단 근거 없음(neutral과 구분)
+            rating = ans.domain_ratings.get(domain)
+            if rating is None:
+                continue
+            upol = experience_polarity(rating)
+            ep = exp.expected_polarity
+            if upol is not None and ep is not None:
+                sign = 1.0 if ep > 0 else -1.0 if ep < 0 else 0.0
+                delta = sign * upol * exp.signal_strength * _DOMAIN_POLARITY_W
+                scores[model_type] += delta
+                totals[model_type] += 1
+                if delta > 0:
+                    hits[model_type] += 1
+            ev_vol = exp.expected_volatility
+            if ev_vol is not None:
+                uvol = experience_volatility(rating)
+                if uvol > 0 or ev_vol > 0:
+                    vmatch = 1.0 - abs(uvol - ev_vol)  # 0..1(근접도)
+                    bonus = (vmatch - 0.5) * 2 * exp.signal_strength * _DOMAIN_VOLATILITY_W
+                    scores[model_type] += bonus
+
+
+def score_feedback(expected: str, user_score: float | None) -> float:
     """예측 vs 사용자 응답 매칭 점수(명세 §15.7). unknown(None)은 0."""
     if user_score is None:
         return 0.0
@@ -45,7 +85,7 @@ def score_calibration(
     hits: dict[str, int] = {mt: 0 for mt in models}
     totals: dict[str, int] = {mt: 0 for mt in models}
 
-    def accrue(model_type: str, expected: str, user_score: int, weight: float) -> None:
+    def accrue(model_type: str, expected: str, user_score: float, weight: float) -> None:
         if model_type not in scores:
             return
         delta = score_feedback(expected, user_score) * weight
@@ -58,13 +98,20 @@ def score_calibration(
         ans = answers_by_id.get(q.id)
         if ans is None:
             continue
+        # ── 영역별 극성(주축) + 변동성 — docs/14 P1. domain_ratings가 있을 때만 가법 추가한다.
+        # no_signal 도메인은 채점 제외(neutral과 구분). 발생 여부는 여기서 채점하지 않는다(결정②).
+        if ans.domain_ratings and q.domain_expectations:
+            _score_domains(q, ans, scores, hits, totals)
         if q.events and ans.event_ratings:
-            # 이벤트형 — 이벤트별 긍/부정을 그 이벤트의 모델별 기대 극성과 대조한다.
+            # 이벤트형 — 이벤트별 경험(그래이드) × 강도를 모델별 기대 극성과 대조(보조).
             for ev in q.events:
-                user_score = EVENT_RATING_SCORE.get(ans.event_ratings.get(ev.event_key, "na"))
-                if user_score is None:  # na(해당없음/모름) → 제외
+                user_score = experience_polarity(ans.event_ratings.get(ev.event_key))
+                if user_score is None:  # na/모름 → 제외
                     continue
                 weight = 1.5 if ev.category in MAJOR_CATEGORIES else 1.0
+                intensity = ans.event_intensity.get(ev.event_key)
+                if intensity:  # 1~3 강도 — 미세 가중(없으면 1.0로 불변)
+                    weight *= 1.0 + 0.1 * (max(1, min(3, intensity)) - 1)
                 for model_type, expected in ev.expected_by_model.items():
                     accrue(model_type, expected, user_score, weight)
             continue

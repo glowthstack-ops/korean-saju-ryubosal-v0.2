@@ -175,6 +175,65 @@ def test_event_ratings_select_matching_model() -> None:
     assert res.match_rate == 1.0
 
 
+def test_domain_ratings_drive_model_selection_and_no_signal_excluded() -> None:
+    # docs/14 P1 — 영역별 체감이 모델 도메인 기대와 대조돼 일치 모델 선택. 신호 없는 도메인 제외.
+    from saju_manse_calibration.question_generator import build_domain_expectations
+
+    y = AggregatedYongsinResult(
+        status="candidate",
+        candidate_models=[
+            YongsinCandidateModel(
+                model_type="eokbu_normal", label="억부형",
+                yongsin="水", heesin="木", gisin="土", gusin="金", confidence=0.7,
+            ),
+            YongsinCandidateModel(
+                model_type="eokbu_alt", label="대안형",
+                yongsin="火", heesin="土", gisin="水", gusin="木", confidence=0.6,
+            ),
+        ],
+        final={"selected_model": "eokbu_normal", "yongsin": "水", "heesin": "木"},
+    )
+    # 4개 캘리 도메인(career/money/relationship/health) 각각 1개 이벤트.
+    cat_by_domain = {"career": "career", "money": "money", "relationship": "affection",
+                     "health": "health"}
+    events = [
+        CalibrationEventItem(
+            event_key=f"e_{dom}", category=cat, label=dom,
+            expected_by_model={"eokbu_normal": "positive", "eokbu_alt": "negative"},
+        )
+        for dom, cat in cat_by_domain.items()
+    ]
+    de = build_domain_expectations(events)
+    assert de["eokbu_normal"]["career"].status == "scored"
+    assert de["eokbu_normal"]["career"].expected_polarity > 0
+
+    q = CalibrationQuestion(
+        id="q1", question_type="event_list", period_type="year", year=2015,
+        period_label="2015", target_models=["eokbu_normal", "eokbu_alt"],
+        question_text="…", events=events, domain_expectations=de,
+    )
+    # 사용자가 4영역 모두 '좋음' + 신호 없는 도메인(study)은 무시돼야 한다.
+    ans = FeedbackAnswer(
+        question_id="q1",
+        domain_ratings={"career": "positive", "money": "positive",
+                        "relationship": "positive", "health": "positive"},
+    )
+    res = score_calibration([q], [ans], y)
+    assert res.selected_model == "eokbu_normal"  # positive 기대 모델과 일치
+    assert res.evidence_count == 4  # 4도메인만(no_signal/부재 도메인 제외)
+    assert res.final_yongsin == "水"
+
+
+def test_mixed_domain_rating_counts_as_volatility_not_polarity() -> None:
+    # 'mixed'(반반)은 극성 0이지만 변동성 신호 — neutral(무던)과 구분.
+    from saju_shared_types.calibration import experience_polarity, experience_volatility
+
+    assert experience_polarity("mixed") == 0.0 and experience_volatility("mixed") == 1.0
+    assert experience_polarity("neutral") == 0.0 and experience_volatility("neutral") == 0.0
+    assert experience_polarity("very_positive") == 2.0
+    assert experience_polarity("모름" and "unknown") is None
+
+
 def test_event_rating_na_is_excluded() -> None:
     y = AggregatedYongsinResult(
         status="candidate",

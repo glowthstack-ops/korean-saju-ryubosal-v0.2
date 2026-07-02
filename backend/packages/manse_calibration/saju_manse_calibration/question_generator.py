@@ -9,15 +9,66 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from saju_shared_types.calibration import (
+    CATEGORY_TO_CALIB_DOMAIN,
     DOMAIN_LABELS,
     MILITARY_DOMAIN,
     CalibrationEventItem,
     CalibrationQuestion,
     CalibrationQuestionSet,
+    DomainExpectation,
 )
 from saju_shared_types.yongsin import AggregatedYongsinResult
 
 EventProvider = Callable[[int], list[CalibrationEventItem]]
+
+# 모델 기대극성 문자열 → 극성 수치(도메인 집계용). mixed/neutral은 0(mixed는 변동성으로 별도).
+_EXPECTED_POLARITY_NUM: dict[str, float] = {"positive": 1.0, "negative": -1.0}
+
+
+def build_domain_expectations(
+    events: list[CalibrationEventItem],
+) -> dict[str, dict[str, DomainExpectation]]:
+    """이벤트들의 expected_by_model을 4도메인으로 집계(docs/14 P1 결정③).
+
+    도메인 기대극성 = 그 도메인 이벤트들의 모델별 기대극성 평균(동일 category는 family cap으로
+    1회만 반영). 후보 부족(비중립 0건) 도메인은 no_signal(neutral과 구분, 채점 제외).
+    """
+    model_types: set[str] = set()
+    for e in events:
+        model_types.update(e.expected_by_model.keys())
+    out: dict[str, dict[str, DomainExpectation]] = {}
+    for mt in model_types:
+        acc: dict[str, dict] = {}
+        for e in events:
+            domain = CATEGORY_TO_CALIB_DOMAIN.get(e.category)
+            exp = e.expected_by_model.get(mt)
+            if domain is None or exp is None:
+                continue
+            a = acc.setdefault(domain, {"pol": [], "vol": 0, "nonneutral": 0, "cats": set()})
+            if e.category in a["cats"]:  # family cap — 동일 계열 중복 과대반영 방지
+                continue
+            a["cats"].add(e.category)
+            if exp in _EXPECTED_POLARITY_NUM:
+                a["pol"].append(_EXPECTED_POLARITY_NUM[exp])
+                a["nonneutral"] += 1
+            elif exp == "mixed":
+                a["vol"] += 1
+                a["nonneutral"] += 1
+        dom_out: dict[str, DomainExpectation] = {}
+        for domain, a in acc.items():
+            if a["nonneutral"] == 0:
+                dom_out[domain] = DomainExpectation(status="no_signal")
+                continue
+            mean_pol = round(sum(a["pol"]) / len(a["pol"]), 3) if a["pol"] else 0.0
+            cats = max(1, len(a["cats"]))
+            dom_out[domain] = DomainExpectation(
+                expected_polarity=mean_pol,
+                expected_volatility=round(a["vol"] / cats, 3),
+                signal_strength=round(min(1.0, a["nonneutral"] / 2), 3),
+                status="scored",
+            )
+        out[mt] = dom_out
+    return out
 
 
 def _options(gender: str | None) -> list[str]:
@@ -96,6 +147,7 @@ def _make_event(qid: str, period: dict, intro: str,
         ask_domains=sorted({e.category for e in events}),
         question_text=intro,
         events=events,
+        domain_expectations=build_domain_expectations(events),
     )
 
 
