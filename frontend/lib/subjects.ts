@@ -3,6 +3,7 @@
 
 import { deleteJSON, getJSON, postJSON, putJSON } from "./api";
 import type {
+  CalibrationResult,
   PersonaConfig,
   ProfileResponse,
   ProfileUpsert,
@@ -73,12 +74,33 @@ export function saveProfile(subjectId: string, body: ProfileUpsert): Promise<Pro
   return putJSON<ProfileResponse>(`/api/v2/profile/${subjectId}`, body);
 }
 
-// 확정 용신만 저장(만세력 페이지 용신 검증 확정) — 프로필 행 없어도 DB에 영속.
+// 용신 검증 답변(서버 저장) — 어느 기기에서든 재검증 시 수정 프리필용. answers는 CalibrationPanel
+// AnswerMap 구조이나 여기서는 느슨하게 둔다(직렬화 그대로 왕복).
+export interface YongsinCalibration {
+  answers?: Record<string, unknown>;
+  result?: CalibrationResult | null;
+}
+export interface SubjectYongsinDetail {
+  subject_id: string;
+  confirmed_yongsin: string | null;
+  calibration?: YongsinCalibration | null;
+}
+
+// 확정 용신(+선택적 검증 답변) 저장 — 프로필 행 없어도 DB에 영속. calibration이 있으면 함께 저장.
 export function setSubjectYongsin(
   subjectId: string,
   element: string | null,
-): Promise<{ subject_id: string; confirmed_yongsin: string | null }> {
-  return putJSON(`/api/v2/profile/${subjectId}/yongsin`, { confirmed_yongsin: element });
+  calibration?: YongsinCalibration | null,
+): Promise<SubjectYongsinDetail> {
+  return putJSON(`/api/v2/profile/${subjectId}/yongsin`, {
+    confirmed_yongsin: element,
+    calibration: calibration ?? null,
+  });
+}
+
+// 확정 용신 + 저장된 검증 답변 조회 — 재검증 시 수정 모드 프리필(교차 기기).
+export function getSubjectYongsin(subjectId: string): Promise<SubjectYongsinDetail> {
+  return getJSON(`/api/v2/profile/${subjectId}/yongsin`);
 }
 
 export function deleteExtendedField(subjectId: string, field: string): Promise<void> {

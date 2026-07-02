@@ -103,16 +103,34 @@ def put_profile(
 
 
 class YongsinUpsert(BaseModel):
-    """확정 용신만 저장 — 만세력 페이지 용신 검증 확정용(프로필 행 없어도 동작)."""
+    """확정 용신 저장 — 만세력 페이지 용신 검증 확정용(프로필 행 없어도 동작).
+
+    calibration: 검증 Q&A(답변·결과) — 주어지면 함께 저장해 다른 기기에서도 수정 프리필한다.
+    """
 
     confirmed_yongsin: str | None = None
+    calibration: dict | None = None
 
 
 class YongsinResponse(BaseModel):
-    """확정 용신 응답."""
+    """확정 용신 + 검증 답변 응답."""
 
     subject_id: str
     confirmed_yongsin: str | None
+    calibration: dict | None = None
+
+
+@router.get("/{subject_id}/yongsin", response_model=YongsinResponse)
+def get_yongsin(
+    subject_id: str, owner_id: OwnerId, subjects: Subjects, profiles: Profiles
+) -> YongsinResponse:
+    """확정 용신 + 저장된 검증 답변 조회 — 재검증 시 수정 모드 프리필용(교차 기기)."""
+    _assert_owned(subjects, subject_id, owner_id)
+    return YongsinResponse(
+        subject_id=subject_id,
+        confirmed_yongsin=profiles.get_yongsin(subject_id),
+        calibration=profiles.get_yongsin_calibration(subject_id),
+    )
 
 
 @router.put("/{subject_id}/yongsin", response_model=YongsinResponse)
@@ -123,14 +141,21 @@ def put_yongsin(
     subjects: Subjects,
     profiles: Profiles,
 ) -> YongsinResponse:
-    """확정 용신만 저장(사주별) — 만세력 페이지 용신 검증 확정을 DB에 영속.
+    """확정 용신 저장(사주별) — 만세력 페이지 용신 검증 확정을 DB에 영속.
 
     basic/persona가 필요한 전체 프로필 저장과 달리, 용신 검증만 마친 단계(프로필 행 없음)에서도
-    동작하도록 전용 테이블에 UPSERT한다. 사주목록 카드·수정 폼이 같은 값을 읽는다.
+    동작하도록 전용 테이블에 UPSERT한다. calibration이 오면 검증 답변까지 함께 저장한다.
     """
     _assert_owned(subjects, subject_id, owner_id)
-    profiles.set_yongsin(subject_id, body.confirmed_yongsin)
-    return YongsinResponse(subject_id=subject_id, confirmed_yongsin=body.confirmed_yongsin)
+    if body.calibration is not None:
+        profiles.set_yongsin_calibration(subject_id, body.confirmed_yongsin, body.calibration)
+    else:
+        profiles.set_yongsin(subject_id, body.confirmed_yongsin)
+    return YongsinResponse(
+        subject_id=subject_id,
+        confirmed_yongsin=body.confirmed_yongsin,
+        calibration=body.calibration,
+    )
 
 
 @router.delete("/{subject_id}/extended/{field}", status_code=204)

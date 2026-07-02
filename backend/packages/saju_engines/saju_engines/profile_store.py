@@ -17,7 +17,11 @@ from saju_shared_types.profile import (
 from .precompute_store import default_dsn
 
 _MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "migrations"
-_MIGRATION_FILES = ("004_user_profiles.sql", "012_subject_yongsin.sql")
+_MIGRATION_FILES = (
+    "004_user_profiles.sql",
+    "012_subject_yongsin.sql",
+    "013_subject_yongsin_calibration.sql",
+)
 
 
 class ProfileStore:
@@ -103,6 +107,33 @@ class ProfileStore:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT confirmed_yongsin FROM subject_yongsin WHERE subject_id = %s",
+                (user_id,),
+            ).fetchone()
+        return row[0] if row and row[0] else None
+
+    def set_yongsin_calibration(
+        self, user_id: str, element: str | None, calibration: dict | None
+    ) -> None:
+        """확정 용신 + 검증 Q&A(답변·결과) 동시 저장(사주별 UPSERT) — migration 013.
+
+        어느 기기에서든 재검증 시 과거 답변을 프리필하기 위해 검증 답변을 서버에 영속한다.
+        확정 용신만 저장하는 :meth:`set_yongsin`과 달리 calibration(jsonb)까지 갱신한다.
+        """
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO subject_yongsin (subject_id, confirmed_yongsin, calibration) "
+                "VALUES (%s, %s, %s::jsonb) "
+                "ON CONFLICT (subject_id) DO UPDATE SET "
+                "  confirmed_yongsin = EXCLUDED.confirmed_yongsin, "
+                "  calibration = EXCLUDED.calibration, updated_at = now()",
+                (user_id, element, json.dumps(calibration) if calibration is not None else None),
+            )
+
+    def get_yongsin_calibration(self, user_id: str) -> dict | None:
+        """검증 Q&A(답변·결과) 조회(없으면 None) — 전용 테이블(subject_yongsin)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT calibration FROM subject_yongsin WHERE subject_id = %s",
                 (user_id,),
             ).fetchone()
         return row[0] if row and row[0] else None
