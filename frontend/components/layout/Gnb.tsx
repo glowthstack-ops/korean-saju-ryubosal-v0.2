@@ -39,7 +39,7 @@ const PAGE_TITLES: [string, string][] = [
   ["/onboarding", "사주 등록"],
   ["/settings", "설정"],
   ["/reports", "내 풀이"],
-  ["/reality-calibration", "용신 검증"],
+  ["/reality-calibration", "현실 캘리브레이션"],
   ["/admin", "관리자"],
 ];
 
