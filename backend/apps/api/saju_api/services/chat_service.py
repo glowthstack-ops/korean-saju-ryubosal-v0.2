@@ -1503,6 +1503,44 @@ def _pairwise_subject_blocks(
     return [self_block, companion_block], rc
 
 
+def _compare_subject_blocks(
+    injection: SubjectInjectionPolicy,
+    primary_result: ManseV2Result,
+    other_result: ManseV2Result,
+    primary_label: str,
+    other_label: str,
+    other_subject_id: str,
+    relation_type: str,
+    relation_basis: str,
+    year: int,
+) -> tuple[list[SubjectBlock], RelationshipContext]:
+    """P3b compare_exclude_self — 동반자 A(primary=base) vs 동반자 B. 본인 미포함.
+
+    primary(A)는 이미 본문 base로 교체돼 있어 '위 [원국·명식 구조] 참조'로, B는 compact 명식으로
+    노출한다. 궁합 오버레이는 본인↔상대용이라 비활성. 우열·승패 단정 금지 가드 포함.
+    """
+    primary_block = SubjectBlock(
+        subject_id=injection.primary_subject_id or "companion_a",
+        role="companion", label=primary_label, is_primary=True,
+        chart=build_birth_summary(primary_result),
+        current_period=_current_period_line(primary_result, year),
+    )
+    other_block = SubjectBlock(
+        subject_id=other_subject_id, role="companion", label=other_label, is_primary=False,
+        chart=build_birth_summary(other_result),
+        current_period=_current_period_line(other_result, year),
+    )
+    rc = RelationshipContext(
+        mode=injection.mode, relation_type=relation_type, relation_basis=relation_basis,
+        perspective_hints=perspective_hints_for(relation_type),
+        safety_guards=list(SAFETY_GUARDS),
+        primary_subject_id=primary_block.subject_id,
+        companion_subject_ids=injection.companion_subject_ids,
+        compatibility_overlay_available=False,
+    )
+    return [primary_block, other_block], rc
+
+
 def _structural_context(
     result: ManseV2Result, intent: IntentJson, today: date, question: str = "",
 ) -> list[str]:
@@ -1968,33 +2006,43 @@ def chat(
             product_suggestion=suggestion,
         )
 
-    # P2b — companion_only('엄마 사주만'): 본문 분석 base를 동반자 birth로 교체한다(본인 명식
-    # 미사용). self_only/pairwise/per_subject 경로는 불변. 동반자 birth 없음/모호는 self로
-    # 대체하지 않고 '등록 정보 확인' 요청. 교체 후 personalization·궁합 오버레이도 동반자 기준.
+    # P2b/P3b — companion_only('엄마 사주만')·compare_exclude_self('엄마랑 아빠 궁합'):
+    # 본문 분석 base를 동반자(primary)로 교체한다(본인 명식 미사용). self_only/pairwise·
+    # per_subject 경로는 불변. 필요한 동반자 birth가 없으면 self로 대체하지 않고 '등록 정보 확인'.
     _inj = plan.subject_injection
-    companion_only = _inj is not None and _inj.mode == "companion_only"
-    if companion_only and _inj is not None and _inj.companion_subject_ids:
-        _cid = _inj.companion_subject_ids[0]
-        _comp_birth = (companion_births or {}).get(_cid)
-        if _comp_birth is None and _cid == "inline:partner":
-            _comp_birth = partner_birth
-        if _comp_birth is None:
+    _mode = _inj.mode if _inj is not None else "self_only"
+    companion_only = _mode == "companion_only"
+    compare_mode = _mode == "compare_exclude_self"
+
+    def _companion_birth(cid: str) -> BirthInput | None:
+        b = (companion_births or {}).get(cid)
+        if b is None and cid == "inline:partner":
+            return partner_birth
+        return b
+
+    if (companion_only or compare_mode) and _inj is not None and _inj.companion_subject_ids:
+        _primary = _inj.primary_subject_id or _inj.companion_subject_ids[0]
+        # compare는 비교 대상 2명 모두, companion_only는 primary 1명의 birth가 있어야 한다.
+        _needed = _inj.companion_subject_ids if compare_mode else [_primary]
+        if any(_companion_birth(c) is None for c in _needed):
             _save_thread(store, state)
             return ChatResponse(
                 status="need_subject",
                 answer=(
-                    "말씀하신 동반자의 출생 정보를 확인할 수 없어요. 등록된 동반자인지 "
-                    "확인하시거나 생년월일시를 알려주시면 그 분 기준으로 봐드릴게요."
+                    "비교할 대상의 출생 정보를 확인할 수 없어요. 등록된 동반자인지 "
+                    "확인하시거나 생년월일시를 알려주시면 그 분들 기준으로 봐드릴게요."
                 ),
                 intents=parsed.intents, thread_id=thread_id,
                 turn_no=state.turn_no if state else None, repeated=repeated,
             )
-        _eff = next((e for e in plan.effective_subjects if e.subject_id == _cid), None)
-        birth = _comp_birth
+        _eff = next((e for e in plan.effective_subjects if e.subject_id == _primary), None)
+        _pb_birth = _companion_birth(_primary)
+        assert _pb_birth is not None  # 위 _needed 검증에서 보장
+        birth = _pb_birth
         subject_label = (_eff.label if _eff else partner_label) or "동반자"
         # personalization은 등록 동반자일 때만 그 subject_id로(즉석/미등록은 무개인화).
-        subject_id = _cid if (companion_births and _cid in companion_births) else None
-        partner_birth = None  # 동반자가 primary — 궁합 오버레이·상대 그룹핑 비활성
+        subject_id = _primary if (companion_births and _primary in companion_births) else None
+        partner_birth = None  # 동반자가 primary — 본인 기준 궁합 오버레이·상대 그룹핑 비활성
 
     # 만세 계산(캐시) + 스코어링 + 계층 필터.
     chart_birth = birth.model_copy(update={"reference_date": today})
@@ -2389,6 +2437,28 @@ def chat(
             plan = plan.model_copy(update={
                 "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
             })
+    elif compare_mode and _inj is not None and len(_inj.companion_subject_ids) == 2:
+        # P3b — 동반자끼리(A=base 이미 교체, B는 블록). 본인 미포함. birth는 base-swap에서 검증됨.
+        _pa = _inj.primary_subject_id or _inj.companion_subject_ids[0]
+        _pb = next(c for c in _inj.companion_subject_ids if c != _pa)
+        _b_birth = _companion_birth(_pb)
+        if _b_birth is not None:
+            _b_result = calculate(_b_birth.model_copy(update={"reference_date": today}))
+            _effa = next((e for e in plan.effective_subjects if e.subject_id == _pa), None)
+            _effb = next((e for e in plan.effective_subjects if e.subject_id == _pb), None)
+            _rtype, _rbasis = infer_relation_type(
+                question, None, [str(d) for d in intent.domains]
+            )
+            subject_blocks, relationship_context = _compare_subject_blocks(
+                _inj, result, _b_result,
+                primary_label=(_effa.label if _effa else "대상1"),
+                other_label=(_effb.label if _effb else "대상2"),
+                other_subject_id=_pb,
+                relation_type=_rtype, relation_basis=_rbasis, year=today.year,
+            )
+            plan = plan.model_copy(update={
+                "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
+            })
     payload = build_llm_input(
         question, intent, result_for_llm, candidates, bundles, _get_scorer(),
         call_type="chat_compare" if plan.per_subject else "chat_single",
@@ -2425,6 +2495,13 @@ def chat(
             f"[분석 대상] 이 풀이의 대상은 '{subject_label}'(동반자) 한 사람입니다. "
             "본인(질문자)이 아니라 이 분의 명식·운을 기준으로 답하고, 호칭도 이 분 기준으로 "
             "서술하세요. 본인 명식과 섞지 마세요."
+        )
+    # P3b — compare_exclude_self: 본인이 아니라 두 동반자의 관계 비교임을 못박는다(본인 배제).
+    elif compare_mode:
+        trailing.append(
+            "[분석 대상] 이 풀이는 질문자 본인이 아니라 두 동반자의 관계 비교입니다. "
+            "본인 명식을 끌어들이지 말고 [함께 보기]의 두 대상만으로 협력·충돌·보완을 "
+            "설명하세요. 누가 더 낫다는 우열·승패로 단정하지 마세요."
         )
     # 직전 풀이 재검토(B) — 이의/반문 후속이면 엔진 근거로 재검토하도록 지시(출생정보 재요청 금지).
     if is_recheck:

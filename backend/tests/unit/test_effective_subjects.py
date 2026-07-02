@@ -115,6 +115,19 @@ def test_pairwise_mode_implies_self_even_if_not_listed() -> None:
     assert inj.primary_subject_id == "s1"
 
 
+def test_pairwise_enum_with_two_companions_is_compare_not_pairwise() -> None:
+    """PAIRWISE(궁합)라도 동반자 2명·본인 미포함이면 pairwise가 아니라 compare_exclude_self.
+
+    '엄마랑 아빠 궁합'이 self를 잘못 삽입해 pairwise로 오판하던 결함 방지(P3b 전제).
+    """
+    eff, mode, inj = build_effective_subjects(
+        [_comp("c1", "엄마"), _comp("c2", "아빠")], SubjectMode.PAIRWISE, base_subject_id="s1",
+    )
+    assert mode == "compare_exclude_self"
+    assert not any(e.role == "self" for e in eff)
+    assert set(inj.companion_subject_ids) == {"c1", "c2"}
+
+
 def test_injection_never_enabled_in_p1() -> None:
     """P1 불변식 — 어떤 조합에서도 execution_enabled=False(실행 전환은 P2)."""
     for subs in (

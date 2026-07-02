@@ -1374,7 +1374,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         for sb in payload.subject_blocks:
             _rel = "본인" if sb.role == "self" else (sb.relation_to_user or "동반자")
             who = f"{sb.label}({_rel})"
-            if sb.role == "self":
+            # primary(=본문 base)는 원국을 위 [원국·명식 구조]에서 이미 노출 → 참조로만.
+            if sb.is_primary:
                 cp = f" · 현재 {sb.current_period}" if sb.current_period else ""
                 lines.append(f"· {who}: 위 [원국·명식 구조] 참조{cp}")
                 continue

@@ -42,7 +42,10 @@ def _read_mode(
     if companion_count == 0:
         return "self_only"
     if subject_mode is SubjectMode.PAIRWISE:
-        return "pairwise"
+        # 궁합이라도 동반자 2명 이상이면 본인↔상대가 아니라 '동반자끼리' 비교다.
+        if companion_count == 1:
+            return "pairwise"
+        return "multi_with_self" if self_present else "compare_exclude_self"
     if subject_mode is SubjectMode.COMPARE_EXCLUDE_SELF:
         return "compare_exclude_self"
     if subject_mode is SubjectMode.GROUP_AGGREGATE:
@@ -119,8 +122,8 @@ def build_effective_subjects(
 
     companions = [e for e in eff if e.role != "self"]
     self_present = any(e.role == "self" for e in eff)
-    # PAIRWISE는 본인↔동반자 — resolve_subjects가 self를 명시 안 했어도 암묵 포함(궁합).
-    if subject_mode is SubjectMode.PAIRWISE and not self_present and companions:
+    # PAIRWISE + 동반자 1명은 본인↔동반자 — self를 암묵 포함(궁합). 2명 이상은 동반자끼리라 제외.
+    if subject_mode is SubjectMode.PAIRWISE and not self_present and len(companions) == 1:
         eff.insert(0, EffectiveSubject(
             subject_id=self_id, role="self", label=base_label or "본인", source="base",
         ))
