@@ -7,6 +7,7 @@ granularity별로 집계한다(코호트 활성 게이트 §4.4의 판정 근거
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import psycopg
@@ -15,7 +16,10 @@ from saju_shared_types.life_event import LifeEventRow
 
 from .precompute_store import default_dsn
 
-_MIGRATION = Path(__file__).resolve().parents[3] / "migrations" / "008_life_events.sql"
+_MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "migrations"
+_MIGRATION = _MIGRATIONS_DIR / "008_life_events.sql"
+# 현실 캘리브레이션 해상도 값(연 단위 체감·영역·경험) blob(docs/14 결정①).
+_MIGRATION_CALIB = _MIGRATIONS_DIR / "014_subject_reality_calibration.sql"
 
 
 class LifeEventStore:
@@ -31,9 +35,33 @@ class LifeEventStore:
         return psycopg.connect(self._dsn)
 
     def migrate(self) -> None:
-        """마이그레이션 적용(멱등)."""
+        """마이그레이션 적용(멱등) — subject_life_events + 현실 캘리브레이션 blob."""
         with self._connect() as conn:
             conn.execute(_MIGRATION.read_text(encoding="utf-8"))
+            conn.execute(_MIGRATION_CALIB.read_text(encoding="utf-8"))
+
+    def save_reality_payload(self, owner_id: str, subject_id: str, payload: dict) -> None:
+        """현실 캘리브레이션 해상도 payload(연 단위 체감·영역·사건 경험) 저장(UPSERT).
+
+        subject_life_events(발생/personal_match)와 분리 — 재제출 시 최신 payload로 치환.
+        """
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO subject_reality_calibration (subject_id, owner_id, payload) "
+                "VALUES (%s, %s, %s::jsonb) ON CONFLICT (subject_id) DO UPDATE SET "
+                "owner_id = EXCLUDED.owner_id, payload = EXCLUDED.payload, updated_at = now()",
+                (subject_id, owner_id, json.dumps(payload, ensure_ascii=False)),
+            )
+
+    def get_reality_payload(self, owner_id: str, subject_id: str) -> dict | None:
+        """저장된 현실 캘리브레이션 payload 조회(수정 프리필용). 소유자 일치 강제. 없으면 None."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload FROM subject_reality_calibration "
+                "WHERE owner_id = %s AND subject_id = %s",
+                (owner_id, subject_id),
+            ).fetchone()
+        return row[0] if row and row[0] else None
 
     def append_rows(self, rows: list[LifeEventRow]) -> int:
         """확인 사건 적재(동일 event_row_id는 갱신 — 재제출 멱등). 적재 행 수 반환."""
@@ -62,6 +90,15 @@ class LifeEventStore:
                     ),
                 )
         return len(rows)
+
+    def delete_subject_rows(self, owner_id: str, subject_id: str) -> int:
+        """그 subject의 확인 사건 전체 삭제(재제출 치환용). 삭제 행 수 반환."""
+        with self._connect() as conn:
+            cur = conn.execute(
+                "DELETE FROM subject_life_events WHERE owner_id=%s AND subject_id=%s",
+                (owner_id, subject_id),
+            )
+            return cur.rowcount
 
     def cohort_count(
         self, *, pillar_day: str, gender: str | None, event_key: str | None = None,

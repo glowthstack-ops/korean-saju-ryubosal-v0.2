@@ -1,8 +1,10 @@
-"""현실 신호 캘리브레이션 endpoints (Life Event Inference — 수집 단계).
+"""현실 신호 캘리브레이션 endpoints (Life Event Inference — 수집 + 계산 보정).
 
 doc/v2_2/LIFE_EVENT_INFERENCE.md §5. 주요 ~10개 연도의 연도별 발생 이벤트를 사용자가 선택하면
-LifeEventRow로 적재한다. **수집만** — 랭킹 미반영(코호트 활성 게이트는 별도 단계). 모든 접근은
-소유자(owner_id) 일치를 강제한다.
+LifeEventRow로 적재한다(재제출은 치환 — 수정 모드). 적재 후에는 개인 시그니처(personal_match)로
+**계산에 반영**된다 — 본인 확인 신호와 닮은 후보의 점수·확신도를 상한 내 보정하고 정렬을 재정의
+(personal_calibration.apply_personal_match). 코호트 보정은 활성 게이트 통과 시 추가.
+풀이 프롬프트에 과거 사건을 낭독하지는 않는다(계산 보정이 목적). 접근은 소유자 일치 강제.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from saju_engines.reality_calibration import (
     build_reality_calibration,
     month_event_fingerprints,
     pillars_signature,
+    prior_answers_from_rows,
     rows_from_submission,
 )
 from saju_engines.subject_store import SubjectStore
@@ -26,6 +29,7 @@ from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.life_event import (
     RealityCalibrationQuestionSet,
     RealityCalibrationSubmission,
+    RealityCalibrationYearAnswer,
     SignalFingerprint,
 )
 
@@ -40,6 +44,7 @@ LifeEvents = Annotated[LifeEventStore, Depends(get_life_event_store)]
 
 _DICTS = Path(__file__).resolve().parents[4] / "dictionaries"
 _engine: EventEngineV2 | None = None
+_CALIB_PAYLOAD_VERSION = "calibration_resolution_v1"  # 현실 캘리브레이션 payload 스키마 버전
 
 
 def _get_engine() -> EventEngineV2:
@@ -60,13 +65,23 @@ def _owned_chart(store: SubjectStore, subject_id: str, owner_id: str):
 
 @router.get("/{subject_id}/questions", response_model=RealityCalibrationQuestionSet)
 def questions(
-    subject_id: str, owner_id: OwnerId, subjects: Subjects,
+    subject_id: str, owner_id: OwnerId, subjects: Subjects, life_events: LifeEvents,
 ) -> RealityCalibrationQuestionSet:
-    """주요 ~10개 연도의 연도별 발생 이벤트 선택 질문을 생성한다."""
+    """주요 ~10개 연도의 연도별 발생 이벤트 선택 질문을 생성한다.
+
+    이전 제출이 있으면 prior에 복원해 수정 모드(기존 선택 프리필)로 재진입할 수 있게 한다.
+    """
     chart = _owned_chart(subjects, subject_id, owner_id)
-    return build_reality_calibration(
+    qset = build_reality_calibration(
         chart, _get_engine(), date.today().year, subject_id=subject_id,
     )
+    # 이전 답변 복원 — 해상도 blob(연 체감·영역·경험) 우선, 없으면 발생 행에서 재구성(구버전 호환).
+    blob = life_events.get_reality_payload(owner_id, subject_id)
+    if blob and blob.get("answers"):
+        prior = [RealityCalibrationYearAnswer.model_validate(a) for a in blob["answers"]]
+    else:
+        prior = prior_answers_from_rows(life_events.subject_signature(owner_id, subject_id))
+    return qset.model_copy(update={"prior": prior})
 
 
 @router.post("/{subject_id}/submit")
@@ -91,7 +106,15 @@ def submit(
     submission = submission.model_copy(update={"owner_id": owner_id})
     month_fp = _month_fingerprints(record.birth, submission)
     rows = rows_from_submission(submission, question, pillars_signature(chart), month_fp)
-    return {"stored": life_events.append_rows(rows)}
+    # 재제출은 치환(수정) — 기존 행을 지우고 새로 적재해 선택 해제·중복을 반영한다.
+    life_events.delete_subject_rows(owner_id, subject_id)
+    stored = life_events.append_rows(rows)
+    # 해상도 값(연 체감·영역·사건 경험)은 별도 blob에 답변 원본 그대로 저장(수정 프리필용).
+    life_events.save_reality_payload(owner_id, subject_id, {
+        "version": _CALIB_PAYLOAD_VERSION,
+        "answers": [a.model_dump(mode="json") for a in submission.answers],
+    })
+    return {"stored": stored}
 
 
 def _month_fingerprints(
