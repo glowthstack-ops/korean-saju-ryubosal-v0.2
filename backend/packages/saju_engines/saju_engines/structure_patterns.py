@@ -22,6 +22,8 @@ from pathlib import Path
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
 from saju_manse_analysis.structure.geokguk_eval import _group_counts, _tg_counts
 
+from saju_shared_types.constants import STEM_ELEMENT, group_elements
+from saju_shared_types.enums import Stem
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.structure_patterns import (
     DetectedPattern,
@@ -68,8 +70,25 @@ _FAILURE_TO_PID: dict[str, str] = {
 # 파격이 '구제(rescued)'되면 파생되는 제어/통관 패턴 (rescue_evidence 부분일치, ""=무조건).
 _RESCUE_DERIVED: dict[str, list[tuple[str, str]]] = {
     "mixed_officer_killing": [("SIKSIN_JESAL", "식신"), ("GWANSAL_YUJE", "")],
-    "killing_overwhelms_weak": [("SAL_IN_SANGSAENG", "인성"), ("SIKSIN_JESAL", "식신")],
+    "killing_overwhelms_weak": [
+        ("SAL_IN_SANGSAENG", "인성"), ("SIKSIN_JESAL", "식신"),
+        ("SALJUNG_YONGIN", "인성"), ("SALJUNG_YONGSIK", "식신"),  # P1 살중용인/용식(F3)
+    ],
 }
+
+# 전왕(일행득기) special_pattern.name(dominant) → pattern_id (P2, F3).
+_DOMINANT_NAME_TO_PID: dict[str, str] = {
+    "곡직격": "GOKJIK_GYEOK", "염상격": "YEOMSANG_GYEOK", "가색격": "GASAEK_GYEOK",
+    "종혁격": "JONGHYEOK_GYEOK", "윤하격": "YUNHA_GYEOK",
+}
+
+# 오행 극제 물상(A多B): (과다 원소, 극/설 당하는 원소, pattern_id) (P1, F3).
+_ELEMENT_OVERWHELM: list[tuple[str, str, str]] = [
+    ("土", "金", "TODA_GEUMMAE"), ("水", "木", "SUDA_MOKBU"), ("木", "土", "MOKDA_TOBUNG"),
+    ("火", "金", "HWADA_GEUMSAK"), ("金", "木", "GEUMDA_MOKJEOL"), ("土", "水", "TODA_SUTAK"),
+    ("水", "火", "SUDA_HWAMYEOL"),
+]
+_STRONG_BANDS = {"신강", "태신강", "극신강"}
 
 # 격국 주격명 → pattern_id (P0 미보유 격은 매핑 생략).
 _GEOK_NAME_TO_PID: dict[str, str] = {
@@ -85,6 +104,8 @@ _GEOK_NAME_TO_PID: dict[str, str] = {
 _FOLLOW_NAME_TO_PID: dict[str, str] = {
     "종재격": "JONGJAE_GYEOK",
     "종살격": "JONGSAL_GYEOK",
+    "종아격": "JONGA_GYEOK",  # P2, F3
+    "종세격": "JONGSE_GYEOK",  # P2, F3
 }
 
 # 생·순환/제어 병존 규칙: pattern_id → (필수 개별 십성, 필수 그룹). 둘 다 충족 시 감지.
@@ -99,6 +120,7 @@ _PRESENCE_RULES: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
     ("JAE_SAENGSAL", ("편관",), ("wealth",)),
     ("SIKSIN_JESAL", ("식신", "편관"), ()),
     ("SANGGWAN_JESAL", ("상관", "편관"), ()),
+    ("SANGGWAN_PAEIN", ("상관", "정인"), ()),  # P1, F3 — 상관패인
 ]
 
 
@@ -189,6 +211,10 @@ def detect_structure_patterns(
             fpid = _FOLLOW_NAME_TO_PID.get(str(sp.get("name", "")))
             if fpid:
                 emit(fpid, float(sp.get("confidence", 0.5)), "natal", (str(sp.get("name", "")),))
+        if sp is not None and sp.get("type") == "dominant":  # 전왕(일행득기) — P2, F3
+            dpid = _DOMINANT_NAME_TO_PID.get(str(sp.get("name", "")))
+            if dpid:
+                emit(dpid, float(sp.get("confidence", 0.5)), "natal", (str(sp.get("name", "")),))
 
         # ── B. 파격 어댑터 (conflict/overload/control) ──
         if geok.evaluation is not None:
@@ -243,6 +269,8 @@ def detect_structure_patterns(
             emit("HAPRAE", 0.6, scope, (pair,))
         if r.hap_mode == "bind":
             emit("HAPBAN", 0.55, scope, (pair,))
+        if r.contend:  # 쟁합·투합 — P1, F3
+            emit("JAENGHAP", 0.55, scope, (pair,))
 
     # ── E. 충동 (adapter: StructureAnalysis.interactions) ──
     sa = result.structure_analysis
@@ -266,6 +294,42 @@ def detect_structure_patterns(
         emit("CHUNGGAE", 0.6, "natal", ("묘고 충 지지쌍 존재",))
     if analyze_wealth_capacity(result).storage_repeat:
         emit("GAEGO", 0.5, "natal", ("동일 묘고 병존(충개고 잠재)",))
+
+    # 득비이재(new, P1): 재다신약을 비겁으로 운용.
+    if "DEUKBI_IJAE" not in seen and "JAEDA_SINYAK" in seen and groups["peer"] >= 1:
+        emit("DEUKBI_IJAE", 0.5, "natal", ("재다신약+비겁 운용",))
+
+    # ── G. 오행 물상 · 신강약×재성 (F3, adapter: force_analysis) ──
+    force = result.force_analysis
+    if force is not None:
+        fe = force.five_elements
+        exc = set(fe.excessive_elements)
+        defi = set(fe.deficient_elements)
+        vis = fe.visible_percent
+        band = force.strength.band
+        ge = group_elements(STEM_ELEMENT[Stem(pillars.day.stem)])
+        dm_el, wealth_el, resource_el = str(ge["peer"]), str(ge["wealth"]), str(ge["resource"])
+
+        for strong_el, weak_el, pid in _ELEMENT_OVERWHELM:  # 오행 극제 물상
+            if strong_el in exc and vis.get(weak_el, 0.0) > 0 and weak_el not in exc:
+                emit(pid, 0.55, "natal", (f"{strong_el}과다·{weak_el} 존재",))
+        if dm_el == "木" and vis.get("火", 0.0) > 0 and "火" not in defi:
+            emit("MOKHWA_TONGMYEONG", 0.55, "natal", ("木일간·火 통명",))
+        if dm_el == "金" and vis.get("水", 0.0) > 0 and "水" not in defi:
+            emit("GEUMSU_SANGGWAN", 0.55, "natal", ("金일간·水 식상",))
+        if wealth_el in exc and vis.get(resource_el, 0.0) > 0:  # 재극인/탐재괴인(재 과다)
+            emit("JAE_GEUGIN", 0.6, "natal", (f"재({wealth_el})과다·인({resource_el})",))
+            if resource_el in defi:
+                emit("TAMJAE_GOEIN", 0.6, "natal", (f"재과다·인({resource_el}) 훼손",))
+        if band in _STRONG_BANDS:  # 신왕재왕/재약
+            if wealth_el in exc or vis.get(wealth_el, 0.0) >= 20:
+                emit("SINWANG_JAEWANG", 0.55, "natal", (f"{band}·재({wealth_el}) 왕",))
+            elif wealth_el in defi or vis.get(wealth_el, 0.0) < 8:
+                emit("SINWANG_JAEYAK", 0.5, "natal", (f"{band}·재({wealth_el}) 약",))
+
+    # 양인합살(adapter, P1): 양인격 + 편관.
+    if geok is not None and geok.main_structure == "양인격" and counts.get("편관", 0) >= 1:
+        emit("YANGIN_HAPSAL", 0.6, "natal", ("양인격+편관",))
 
     out.sort(key=lambda d: d.strength, reverse=True)
     return out

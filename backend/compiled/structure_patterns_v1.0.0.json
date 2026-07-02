@@ -1252,8 +1252,863 @@
       "detector_source": "adapter:GeokgukResult.special_pattern(follow/officer)",
       "llm_usage": "explanation_tag_only",
       "llm_tag": "종살격: 관살이 극왕해 일간이 그 세력을 따르는 종격 — 강한 조직·권력·압박에 순응(성립 강도 별도)"
+    },
+    {
+      "pattern_id": "SANGGWAN_PAEIN",
+      "name_ko": "상관패인",
+      "name_hanja": "傷官佩印",
+      "family": [
+        "mediation",
+        "control"
+      ],
+      "structure": "SHANGGUAN + resource",
+      "ten_god_chain": [
+        "SHANGGUAN",
+        "ZHENGYIN"
+      ],
+      "evidence": [
+        "상관 존재",
+        "정인 존재",
+        "인성이 상관을 제어"
+      ],
+      "domain_hints": [
+        "education_admission",
+        "contract_document",
+        "job_gain"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:presence(상관+정인)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "상관패인: 날카로운 표현력(상관)을 학문·자격·원칙(인성)으로 다듬는 구조 — 자격·학위·전문직·기획직"
+    },
+    {
+      "pattern_id": "DEUKBI_IJAE",
+      "name_ko": "득비이재",
+      "name_hanja": "得比理財",
+      "family": [
+        "control"
+      ],
+      "structure": "peer manages wealth (재다신약)",
+      "ten_god_chain": [
+        "BIJIAN",
+        "JIECAI",
+        "ZHENGCAI",
+        "PIANCAI"
+      ],
+      "evidence": [
+        "재다신약 성립",
+        "비겁 존재로 재성 운용"
+      ],
+      "domain_hints": [
+        "wealth_change",
+        "business_start",
+        "business_expansion"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:JAEDA_SINYAK + peer",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "득비이재: 재다신약에서 비겁(동료·협업)의 힘을 얻어 큰 재물을 다루는 구조 — 공동사업·조직 운영"
+    },
+    {
+      "pattern_id": "SALJUNG_YONGIN",
+      "name_ko": "살중용인",
+      "name_hanja": "殺重用印",
+      "family": [
+        "mediation",
+        "control"
+      ],
+      "structure": "strong QISHA -> resource",
+      "ten_god_chain": [
+        "QISHA",
+        "ZHENGYIN"
+      ],
+      "evidence": [
+        "편관(칠살) 과중",
+        "인성으로 화살(통관)"
+      ],
+      "domain_hints": [
+        "education_admission",
+        "promotion",
+        "health_attention"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:killing_overwhelms_weak(인성 구제)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "살중용인: 압박(편관)이 클수록 문서·학습·후견(인성)으로 화살하는 구조 — 자격·공부·보호장치가 관건"
+    },
+    {
+      "pattern_id": "SALJUNG_YONGSIK",
+      "name_ko": "살중용식",
+      "name_hanja": "殺重用食",
+      "family": [
+        "control"
+      ],
+      "structure": "strong QISHA X SHISHEN",
+      "ten_god_chain": [
+        "QISHA",
+        "SHISHEN"
+      ],
+      "evidence": [
+        "편관(칠살) 과중",
+        "식신으로 제살"
+      ],
+      "domain_hints": [
+        "education_admission",
+        "career_change",
+        "legal_conflict"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:killing_overwhelms_weak(식신 구제)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "살중용식: 압박(편관)이 클수록 실력·기술(식신)로 제살하는 구조 — 전문성·실무 능력으로 돌파"
+    },
+    {
+      "pattern_id": "TAMJAE_GOEIN",
+      "name_ko": "탐재괴인",
+      "name_hanja": "貪財壞印",
+      "family": [
+        "conflict"
+      ],
+      "structure": "excessive wealth X resource",
+      "ten_god_chain": [
+        "ZHENGCAI",
+        "PIANCAI",
+        "ZHENGYIN",
+        "PIANYIN"
+      ],
+      "evidence": [
+        "재성 과다(탐재)",
+        "인성 존재",
+        "재성이 인성을 극해 훼손"
+      ],
+      "domain_hints": [
+        "contract_document",
+        "wealth_change",
+        "preparation_delay"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:JAE_GEUGIN + 재성 excessive",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "탐재괴인: 돈 욕심(재성 과다)이 명예·자격·보호(인성)를 무너뜨리는 구조 — 무리한 투자·문서 손실 유의"
+    },
+    {
+      "pattern_id": "SINWANG_JAEWANG",
+      "name_ko": "신왕재왕",
+      "name_hanja": "身旺財旺",
+      "family": [
+        "mixed_structure"
+      ],
+      "structure": "strong day_master + strong wealth",
+      "ten_god_chain": [
+        "ZHENGCAI",
+        "PIANCAI"
+      ],
+      "evidence": [
+        "일간 신강계",
+        "재성 왕(강)"
+      ],
+      "domain_hints": [
+        "wealth_change",
+        "business_start",
+        "business_expansion"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:band(신강)+wealth 강",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "신왕재왕: 일간도 강하고 재성도 강해 돈을 다룰 힘과 대상이 모두 있는 구조 — 사업·재물 운용에 유리"
+    },
+    {
+      "pattern_id": "SINWANG_JAEYAK",
+      "name_ko": "신왕재약",
+      "name_hanja": "身旺財弱",
+      "family": [
+        "mixed_structure"
+      ],
+      "structure": "strong day_master + weak wealth",
+      "ten_god_chain": [
+        "ZHENGCAI",
+        "PIANCAI"
+      ],
+      "evidence": [
+        "일간 신강계",
+        "재성 약(미약)"
+      ],
+      "domain_hints": [
+        "wealth_change",
+        "business_start"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:band(신강)+wealth 약",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "신왕재약: 일간은 강한데 재성이 약해 능력은 있으나 돈 될 대상이 부족한 구조 — 기회 발굴이 관건"
+    },
+    {
+      "pattern_id": "YANGIN_HAPSAL",
+      "name_ko": "양인합살",
+      "name_hanja": "羊刃合殺",
+      "family": [
+        "control"
+      ],
+      "structure": "yangin + QISHA (combine/control)",
+      "ten_god_chain": [
+        "JIECAI",
+        "QISHA"
+      ],
+      "evidence": [
+        "양인격 또는 강한 겁재",
+        "편관 존재",
+        "양인이 살과 결합·제어"
+      ],
+      "domain_hints": [
+        "career_change",
+        "legal_conflict",
+        "promotion"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:양인격 + 편관",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "양인합살: 강한 자아(양인)가 위험·권력(편관)과 결합해 다루는 구조 — 군경·경쟁·위기 돌파형"
+    },
+    {
+      "pattern_id": "MOKHWA_TONGMYEONG",
+      "name_ko": "목화통명",
+      "name_hanja": "木火通明",
+      "family": [
+        "element_image"
+      ],
+      "structure": "木 -> 火 (clear)",
+      "ten_god_chain": [],
+      "evidence": [
+        "木 일간/강",
+        "火 식상 존재",
+        "木生火 통명"
+      ],
+      "domain_hints": [
+        "creative_output",
+        "education_admission",
+        "public_exposure"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:element(木일간+火 존재)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "목화통명: 목(木)이 화(火)로 맑게 통하는 구조 — 지성·표현·문화·교육·명료함이 빛나는 기운"
+    },
+    {
+      "pattern_id": "GEUMSU_SANGGWAN",
+      "name_ko": "금수상관",
+      "name_hanja": "金水傷官",
+      "family": [
+        "element_image"
+      ],
+      "structure": "金 day_master + 水 output",
+      "ten_god_chain": [],
+      "evidence": [
+        "金 일간",
+        "水 식상 존재"
+      ],
+      "domain_hints": [
+        "creative_output",
+        "public_exposure",
+        "new_relationship"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:element(金일간+水 식상)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "금수상관: 금(金) 일간이 수(水) 식상으로 흐르는 구조 — 세련된 표현·말·글·기술·매력의 기운"
+    },
+    {
+      "pattern_id": "TODA_GEUMMAE",
+      "name_ko": "토다금매",
+      "name_hanja": "土多金埋",
+      "family": [
+        "element_image",
+        "overload"
+      ],
+      "structure": "土 excessive -> 金 buried",
+      "ten_god_chain": [],
+      "evidence": [
+        "土 과다",
+        "金 존재(묻힘)"
+      ],
+      "domain_hints": [
+        "creative_output",
+        "preparation_delay",
+        "career_change"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:five_elements(土 과다+金 존재)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "토다금매: 토(土)가 많아 금(金)이 묻히는 구조 — 인성·현실 과다로 재능·판단·결단이 가려질 수 있음"
+    },
+    {
+      "pattern_id": "SUDA_MOKBU",
+      "name_ko": "수다목부",
+      "name_hanja": "水多木浮",
+      "family": [
+        "element_image",
+        "overload"
+      ],
+      "structure": "水 excessive -> 木 floating",
+      "ten_god_chain": [],
+      "evidence": [
+        "水 과다",
+        "木 존재(부유)"
+      ],
+      "domain_hints": [
+        "preparation_delay",
+        "health_attention"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:five_elements(水 과다+木 존재)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "수다목부: 물(水)이 많아 나무(木)가 뜨는 구조 — 인성·생각 과다로 기반이 흔들리고 실행이 부유할 수 있음"
+    },
+    {
+      "pattern_id": "MOKDA_TOBUNG",
+      "name_ko": "목다토붕",
+      "name_hanja": "木多土崩",
+      "family": [
+        "element_image",
+        "overload"
+      ],
+      "structure": "木 excessive -> 土 collapse",
+      "ten_god_chain": [],
+      "evidence": [
+        "木 과다",
+        "土 존재(붕괴)"
+      ],
+      "domain_hints": [
+        "health_attention",
+        "social_conflict"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:five_elements(木 과다+土 존재)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "목다토붕: 나무(木)가 많아 흙(土)이 무너지는 구조 — 관성·압박 과다로 일간 기반이 눌릴 수 있음"
+    },
+    {
+      "pattern_id": "HWADA_GEUMSAK",
+      "name_ko": "화다금삭",
+      "name_hanja": "火多金鑠",
+      "family": [
+        "element_image",
+        "overload"
+      ],
+      "structure": "火 excessive -> 金 melted",
+      "ten_god_chain": [],
+      "evidence": [
+        "火 과다",
+        "金 존재(녹음)"
+      ],
+      "domain_hints": [
+        "health_attention",
+        "preparation_delay"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:five_elements(火 과다+金 존재)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "화다금삭: 불(火)이 많아 금(金)이 녹는 구조 — 관살·열기 과다로 금 기운(결단·수렴)이 약해질 수 있음"
+    },
+    {
+      "pattern_id": "GEUMDA_MOKJEOL",
+      "name_ko": "금다목절",
+      "name_hanja": "金多木折",
+      "family": [
+        "element_image",
+        "overload"
+      ],
+      "structure": "金 excessive -> 木 broken",
+      "ten_god_chain": [],
+      "evidence": [
+        "金 과다",
+        "木 존재(꺾임)"
+      ],
+      "domain_hints": [
+        "health_attention",
+        "career_change"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:five_elements(金 과다+木 존재)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "금다목절: 금(金)이 많아 나무(木)가 꺾이는 구조 — 관살·금기 과다로 목 기운(성장·추진)이 눌릴 수 있음"
+    },
+    {
+      "pattern_id": "TODA_SUTAK",
+      "name_ko": "토다수탁",
+      "name_hanja": "土多水濁",
+      "family": [
+        "element_image",
+        "overload"
+      ],
+      "structure": "土 excessive -> 水 turbid",
+      "ten_god_chain": [],
+      "evidence": [
+        "土 과다",
+        "水 존재(탁함)"
+      ],
+      "domain_hints": [
+        "health_attention",
+        "preparation_delay"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:five_elements(土 과다+水 존재)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "토다수탁: 흙(土)이 많아 물(水)이 탁해지는 구조 — 관성·토기 과다로 수 기운(지혜·유연)이 흐려질 수 있음"
+    },
+    {
+      "pattern_id": "SUDA_HWAMYEOL",
+      "name_ko": "수다화멸",
+      "name_hanja": "水多火滅",
+      "family": [
+        "element_image",
+        "overload"
+      ],
+      "structure": "水 excessive -> 火 extinguished",
+      "ten_god_chain": [],
+      "evidence": [
+        "水 과다",
+        "火 존재(꺼짐)"
+      ],
+      "domain_hints": [
+        "health_attention",
+        "preparation_delay"
+      ],
+      "polarity_mode": "depends_on_yonggi_and_control",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:five_elements(水 과다+火 존재)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "수다화멸: 물(水)이 많아 불(火)이 꺼지는 구조 — 관살·수기 과다로 화 기운(열정·표현)이 약해질 수 있음"
+    },
+    {
+      "pattern_id": "JAENGHAP",
+      "name_ko": "쟁합·투합",
+      "name_hanja": "爭合·妒合",
+      "family": [
+        "combination_clash"
+      ],
+      "structure": "contended combination",
+      "ten_god_chain": [],
+      "evidence": [
+        "하나를 두고 둘 이상이 합을 다툼(쟁합/투합)"
+      ],
+      "domain_hints": [
+        "relationship_change",
+        "social_conflict",
+        "new_relationship"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:resolve_stem_hap(contend)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "쟁합·투합: 한 글자를 두고 둘 이상이 합을 다투는 작용 — 경쟁 관계·삼각 구도·선택 압박(길흉 별도)"
+    },
+    {
+      "pattern_id": "GOKJIK_GYEOK",
+      "name_ko": "곡직격",
+      "name_hanja": "曲直格",
+      "family": [
+        "geguk"
+      ],
+      "structure": "dominant: 木",
+      "ten_god_chain": [],
+      "evidence": [
+        "木 극왕(전왕)",
+        "신강계"
+      ],
+      "domain_hints": [
+        "creative_output",
+        "education_admission"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:special_pattern(dominant/木)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "곡직격: 목(木) 기운이 압도적으로 전왕한 격국 — 성장·인정·표현을 한 방향으로 밀고 가는 구조(성립 강도 별도)"
+    },
+    {
+      "pattern_id": "YEOMSANG_GYEOK",
+      "name_ko": "염상격",
+      "name_hanja": "炎上格",
+      "family": [
+        "geguk"
+      ],
+      "structure": "dominant: 火",
+      "ten_god_chain": [],
+      "evidence": [
+        "火 극왕(전왕)",
+        "신강계"
+      ],
+      "domain_hints": [
+        "creative_output",
+        "public_exposure"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:special_pattern(dominant/火)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "염상격: 화(火) 기운이 압도적으로 전왕한 격국 — 표현·열정·확산을 한 방향으로 밀고 가는 구조(성립 강도 별도)"
+    },
+    {
+      "pattern_id": "GASAEK_GYEOK",
+      "name_ko": "가색격",
+      "name_hanja": "稼穡格",
+      "family": [
+        "geguk"
+      ],
+      "structure": "dominant: 土",
+      "ten_god_chain": [],
+      "evidence": [
+        "土 극왕(전왕)",
+        "신강계"
+      ],
+      "domain_hints": [
+        "wealth_change",
+        "contract_document"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:special_pattern(dominant/土)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "가색격: 토(土) 기운이 압도적으로 전왕한 격국 — 축적·중심·현실성을 한 방향으로 밀고 가는 구조(성립 강도 별도)"
+    },
+    {
+      "pattern_id": "JONGHYEOK_GYEOK",
+      "name_ko": "종혁격",
+      "name_hanja": "從革格",
+      "family": [
+        "geguk"
+      ],
+      "structure": "dominant: 金",
+      "ten_god_chain": [],
+      "evidence": [
+        "金 극왕(전왕)",
+        "신강계"
+      ],
+      "domain_hints": [
+        "career_change",
+        "legal_conflict"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:special_pattern(dominant/金)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "종혁격: 금(金) 기운이 압도적으로 전왕한 격국 — 결단·혁신·수렴을 한 방향으로 밀고 가는 구조(성립 강도 별도)"
+    },
+    {
+      "pattern_id": "YUNHA_GYEOK",
+      "name_ko": "윤하격",
+      "name_hanja": "潤下格",
+      "family": [
+        "geguk"
+      ],
+      "structure": "dominant: 水",
+      "ten_god_chain": [],
+      "evidence": [
+        "水 극왕(전왕)",
+        "신강계"
+      ],
+      "domain_hints": [
+        "creative_output",
+        "education_admission"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:special_pattern(dominant/水)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "윤하격: 수(水) 기운이 압도적으로 전왕한 격국 — 지혜·유연·확장을 한 방향으로 밀고 가는 구조(성립 강도 별도)"
+    },
+    {
+      "pattern_id": "JONGA_GYEOK",
+      "name_ko": "종아격",
+      "name_hanja": "從兒格",
+      "family": [
+        "geguk"
+      ],
+      "structure": "follow: output dominant",
+      "ten_god_chain": [
+        "SHISHEN",
+        "SHANGGUAN"
+      ],
+      "evidence": [
+        "식상 극왕",
+        "일간 극신약(종격 성립)"
+      ],
+      "domain_hints": [
+        "creative_output",
+        "wealth_change",
+        "business_start"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:special_pattern(follow/output)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "종아격: 식상이 극왕해 일간이 그 세력을 따르는 종격 — 재능·생산·표현 중심(성립 강도 별도)"
+    },
+    {
+      "pattern_id": "JONGSE_GYEOK",
+      "name_ko": "종세격",
+      "name_hanja": "從勢格",
+      "family": [
+        "geguk"
+      ],
+      "structure": "follow: overall force",
+      "ten_god_chain": [],
+      "evidence": [
+        "식재관 대세 극왕",
+        "일간 극신약(종격 성립)"
+      ],
+      "domain_hints": [
+        "career_change",
+        "wealth_change"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:special_pattern(follow/종세격)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "종세격: 식재관 등 가장 강한 대세를 일간이 따르는 종격 — 강한 세력에 순응하는 구조(성립 강도 별도)"
     }
   ],
-  "compiled_at": "2026-07-01T23:58:14.138591+00:00",
+  "compiled_at": "2026-07-02T00:37:48.569580+00:00",
   "snapshot_version": "1.0.0"
 }
