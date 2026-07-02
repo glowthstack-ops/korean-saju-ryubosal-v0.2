@@ -1402,6 +1402,17 @@ def serialize_llm_input(payload: LlmInput) -> str:
             "※ 두 사람 각각의 명식으로 함께 풀되, 상대의 간지·용신을 본인 것과 섞지 말 것. "
             "궁합 신호는 아래 [궁합 분석](있으면) 보조로만 참조."
         )
+        # P3a — 관계 관점(관계유형별 볼 영역 힌트 + 안전 가드). 점수·우열 아님(관점 제어 전용).
+        if rc is not None and (rc.perspective_hints or rc.safety_guards):
+            lines.append("[함께 보기 — 관계 관점]")
+            if rc.relation_type:
+                lines.append(f"관계 유형: {rc.relation_type}(추론 근거 {rc.relation_basis})")
+            if rc.perspective_hints:
+                lines.append(
+                    "주로 살필 영역(관점 힌트 — 점수 아님): " + " · ".join(rc.perspective_hints)
+                )
+            for g in rc.safety_guards:
+                lines.append(f"※ {g}")
         lines.append("")
     # 현재 달(기준 시점) — 절기 기준 당월(this_luck_month) 우선(양력 today[:7]은 절기 경계
     # 직전 한 달 어긋남). 진행 중 절기월 표시(#3)와 '지남' 마커(P6)에 공용으로 쓴다.

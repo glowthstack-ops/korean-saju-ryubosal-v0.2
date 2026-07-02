@@ -361,10 +361,17 @@ class SubjectBlock(BaseModel):
 
 
 class RelationshipContext(BaseModel):
-    """공동 풀이 관계 맥락(P2a) — 어떤 조합·관계로 함께 보는지. 실행은 pairwise 한정."""
+    """공동 풀이 관계 맥락(P2a/P3a) — 어떤 조합·관계로 함께 보는지 + 관계유형별 관점 힌트.
+
+    perspective_hints/safety_guards는 LLM '관점 제어'용이며 엔진 판단값이 아니다 —
+    관계의 좋음/나쁨·우열·승패를 여기서 만들지 않는다(점수·날짜·간지 불변).
+    """
 
     mode: str  # CompanionReadMode 값
-    relation_type: str | None = None
+    relation_type: str | None = None  # spouse/romance/parent_child/family/friend/coworker/…
+    relation_basis: str = "unknown"  # explicit_keyword | relation_to_user | intent_domain | unknown
+    perspective_hints: list[str] = Field(default_factory=list)  # 관계유형별 관점(점수 아님)
+    safety_guards: list[str] = Field(default_factory=list)  # 우열·승패 단정 금지 등
     primary_subject_id: str | None = None
     companion_subject_ids: list[str] = Field(default_factory=list)
     compatibility_overlay_available: bool = False  # _compat_prompt_block 보조 존재 여부

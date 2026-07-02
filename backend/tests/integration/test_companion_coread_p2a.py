@@ -61,6 +61,21 @@ def test_pairwise_does_not_flip_per_subject() -> None:
     assert r.call_type == "chat_single"
 
 
+def test_relationship_perspective_injected() -> None:
+    """P3a — '연애 궁합'이면 relation_type=romance + 관점 힌트 + 안전 가드가 입력에 실린다."""
+    r = _dry(
+        "지민이랑 연애 궁합 어때?",
+        partner_birth=_COMP, partner_label="지민",
+        partner_ref={"mode": "registered", "subjectId": "c1", "label": "지민"},
+        companion_births={"c1": _COMP},
+    )
+    txt = r.prompt_preview or ""
+    assert "함께 보기 — 관계 관점" in txt
+    assert "romance" in txt
+    assert "연애 지속성" in txt  # romance 관점 힌트
+    assert "우열·승패로 단정하지 말 것" in txt  # 안전 가드
+
+
 def test_missing_companion_birth_no_self_fallback() -> None:
     """동반자 birth 없음 → 블록 생략(본인 명식으로 대체 금지), 크래시 없음."""
     r = _dry(

@@ -41,6 +41,11 @@ from saju_engines.planner import build_execution_plan
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.profile_engine import profile_facts_for
 from saju_engines.query_parser import parse_message
+from saju_engines.relationship_hints import (
+    SAFETY_GUARDS,
+    infer_relation_type,
+    perspective_hints_for,
+)
 from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.shadow_scoring import domain_to_expression_key
 from saju_engines.structural_context import (
@@ -1465,13 +1470,15 @@ def _pairwise_subject_blocks(
     companion_result: ManseV2Result,
     self_label: str,
     companion_label: str,
-    relation_type: str | None,
+    relation_type: str,
+    relation_basis: str,
     year: int,
 ) -> tuple[list[SubjectBlock], RelationshipContext]:
-    """P2a pairwise — 본인+동반자 대상별 명식 블록(compact) + 관계 맥락을 만든다.
+    """P2a/P3a pairwise — 본인+동반자 대상별 명식 블록(compact) + 관계 맥락(관점 힌트).
 
     각 대상의 원국 구조(build_birth_summary 재사용)와 현재 운 한 줄만 담는다(토큰 절약 —
     원국 전체 dump 금지). 본인 base 분석은 별개로 유지되며 이 블록은 가산 정보다.
+    perspective_hints/safety_guards는 관점 제어용(점수·우열 아님).
     """
     cid = injection.companion_subject_ids[0]
     self_block = SubjectBlock(
@@ -1487,7 +1494,9 @@ def _pairwise_subject_blocks(
         current_period=_current_period_line(companion_result, year),
     )
     rc = RelationshipContext(
-        mode=injection.mode, relation_type=relation_type,
+        mode=injection.mode, relation_type=relation_type, relation_basis=relation_basis,
+        perspective_hints=perspective_hints_for(relation_type),
+        safety_guards=list(SAFETY_GUARDS),
         primary_subject_id=self_block.subject_id,
         companion_subject_ids=[cid], compatibility_overlay_available=True,
     )
@@ -2365,11 +2374,16 @@ def chat(
             _eff = next(
                 (e for e in plan.effective_subjects if e.subject_id == _cid), None
             )
+            # P3a — 관계유형 추론(질문 키워드 > relation_to_user > 도메인 > unknown).
+            _rtype, _rbasis = infer_relation_type(
+                question, _eff.relation_to_user if _eff else None,
+                [str(d) for d in intent.domains],
+            )
             subject_blocks, relationship_context = _pairwise_subject_blocks(
                 _inj, result, _comp_result,
                 self_label=subject_label,
                 companion_label=(_eff.label if _eff else partner_label),
-                relation_type=(_eff.relation_to_user if _eff else None),
+                relation_type=_rtype, relation_basis=_rbasis,
                 year=today.year,
             )
             plan = plan.model_copy(update={
