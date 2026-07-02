@@ -21,7 +21,12 @@ import {
   saveCalibration, saveEotPreference,
 } from "@/lib/storage";
 import { summaryToProfile } from "@/lib/subject-mapping";
-import { getProfile, getSubject, setSelectedSubjectId, setSubjectYongsin } from "@/lib/subjects";
+import {
+  getSubject,
+  getSubjectYongsin,
+  setSelectedSubjectId,
+  setSubjectYongsin,
+} from "@/lib/subjects";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
 
 // ?subject=<id>(로그인 사주) 우선, 없으면 IndexedDB 1회성 프로필을 로드한다.
@@ -80,10 +85,15 @@ export default function ManseResultPage() {
         ? new URLSearchParams(window.location.search).get("subject")
         : null;
     setSubjectId(sid);
-    // 로그인 사주면 DB에 등록된 확정 용신을 불러와 만세력 표시에 반영(Wizard 등록·교차기기 복원).
+    // 로그인 사주면 DB에서 확정 용신 + 검증 답변을 불러와 반영(교차 기기 수정 프리필).
     if (sid) {
-      getProfile(sid)
-        .then((pr) => setConfirmedYongsin(pr.confirmed_yongsin))
+      getSubjectYongsin(sid)
+        .then((yd) => {
+          setConfirmedYongsin(yd.confirmed_yongsin);
+          const cal = yd.calibration;
+          if (cal?.result) setCalibration(cal.result); // 확정 결과(패널 접힘·요약)
+          if (cal?.answers) setSavedAnswers(cal.answers as AnswerMap); // 재검증 시 프리필
+        })
         .catch(() => {});
     }
     resolveProfile().then((p) => {
@@ -97,11 +107,14 @@ export default function ManseResultPage() {
       calculateManse(p, referenceDate, { apply_equation_of_time: eot })
         .then(async (r) => {
           setResult(r);
-          // 저장된 검증 상태 복원: 명식(sig) 같으면 확정 결과 유지, 질문셋(chartId) 같으면 답변도 복원.
+          // 로컬(IndexedDB) 복원은 폴백이다 — 서버(getSubjectYongsin)가 값을 넣었으면 덮지 않고,
+          // 서버에 없거나(pre-blob·비로그인·미저장) 사주 미지정일 때만 채운다(빈 값일 때만 채움).
           const saved = await loadCalibration().catch(() => null);
           if (saved && saved.sig === profileSig(p)) {
-            setCalibration(saved.result);
-            if (saved.chartId === r.chart_id) setSavedAnswers(saved.answers ?? {});
+            setCalibration((prev) => prev ?? saved.result);
+            if (saved.chartId === r.chart_id) {
+              setSavedAnswers((prev) => (Object.keys(prev).length ? prev : (saved.answers ?? {})));
+            }
           }
         })
         .catch((e) => setError(e instanceof Error ? e.message : "계산 실패"));
@@ -126,15 +139,18 @@ export default function ManseResultPage() {
   // 검증 제출 시: 화면 반영 + localStorage 저장(reload 후에도 유지).
   const onCalibrationResult = (res: CalibrationResult, answers: AnswerMap) => {
     setCalibration(res);
+    setSavedAnswers(answers); // 재검증(다시 진행) 시 방금 제출한 답변이 프리필되도록 유지
     if (profile && result) {
       void saveCalibration({
         sig: profileSig(profile), chartId: result.chart_id, answers, result: res,
       });
     }
-    // 검증 확정 용신을 DB에도 영속 — 사주목록 카드·수정 폼이 같은 값을 읽도록(localStorage만 두지 않음).
+    // 검증 확정 용신 + 답변을 DB에도 영속 — 사주목록·수정 폼 공유 + 교차 기기 재검증 프리필.
     if (subjectId && res.final_yongsin) {
       setConfirmedYongsin(res.final_yongsin);
-      void setSubjectYongsin(subjectId, res.final_yongsin).catch(() => {});
+      void setSubjectYongsin(subjectId, res.final_yongsin, { answers, result: res }).catch(
+        () => {},
+      );
     }
   };
 

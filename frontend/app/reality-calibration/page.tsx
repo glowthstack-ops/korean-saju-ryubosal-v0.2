@@ -58,9 +58,19 @@ export default function RealityCalibrationPage() {
       {done ? (
         <div className="space-y-3 text-sm">
           <p className="text-green-700">저장됐습니다. 풀이에 반영됩니다.</p>
-          <Link href="/chat" className="underline">
-            채팅으로 가기
-          </Link>
+          <div className="flex items-center gap-3">
+            {/* 재편집 — 다시 열면 이전 입력이 그대로 채워진 상태로 수정할 수 있다(prior 프리필). */}
+            <button
+              type="button"
+              onClick={() => setDone(false)}
+              className="rounded border border-zinc-300 px-3 py-1.5 text-zinc-700 hover:bg-zinc-50"
+            >
+              수정하기
+            </button>
+            <Link href="/chat" className="underline">
+              채팅으로 가기
+            </Link>
+          </div>
         </div>
       ) : activeId ? (
         <StepRealityCalibration
