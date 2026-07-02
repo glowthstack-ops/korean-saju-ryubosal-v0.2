@@ -1787,7 +1787,8 @@ def _attach_subject_plan(
             attached.append(AttachedCompanion(subject_id="inline:partner", label=label))
 
     eff, mode, injection = build_effective_subjects(
-        intent.subjects, base_subject_id=base_subject_id, base_label=base_label,
+        intent.subjects, intent.subject_mode,
+        base_subject_id=base_subject_id, base_label=base_label,
         attached=attached, companion_meta=companion_meta,
     )
     return plan.model_copy(update={
@@ -1957,6 +1958,34 @@ def chat(
             turn_no=state.turn_no if state else None, repeated=repeated,
             product_suggestion=suggestion,
         )
+
+    # P2b — companion_only('엄마 사주만'): 본문 분석 base를 동반자 birth로 교체한다(본인 명식
+    # 미사용). self_only/pairwise/per_subject 경로는 불변. 동반자 birth 없음/모호는 self로
+    # 대체하지 않고 '등록 정보 확인' 요청. 교체 후 personalization·궁합 오버레이도 동반자 기준.
+    _inj = plan.subject_injection
+    companion_only = _inj is not None and _inj.mode == "companion_only"
+    if companion_only and _inj is not None and _inj.companion_subject_ids:
+        _cid = _inj.companion_subject_ids[0]
+        _comp_birth = (companion_births or {}).get(_cid)
+        if _comp_birth is None and _cid == "inline:partner":
+            _comp_birth = partner_birth
+        if _comp_birth is None:
+            _save_thread(store, state)
+            return ChatResponse(
+                status="need_subject",
+                answer=(
+                    "말씀하신 동반자의 출생 정보를 확인할 수 없어요. 등록된 동반자인지 "
+                    "확인하시거나 생년월일시를 알려주시면 그 분 기준으로 봐드릴게요."
+                ),
+                intents=parsed.intents, thread_id=thread_id,
+                turn_no=state.turn_no if state else None, repeated=repeated,
+            )
+        _eff = next((e for e in plan.effective_subjects if e.subject_id == _cid), None)
+        birth = _comp_birth
+        subject_label = (_eff.label if _eff else partner_label) or "동반자"
+        # personalization은 등록 동반자일 때만 그 subject_id로(즉석/미등록은 무개인화).
+        subject_id = _cid if (companion_births and _cid in companion_births) else None
+        partner_birth = None  # 동반자가 primary — 궁합 오버레이·상대 그룹핑 비활성
 
     # 만세 계산(캐시) + 스코어링 + 계층 필터.
     chart_birth = birth.model_copy(update={"reference_date": today})
@@ -2376,6 +2405,13 @@ def chat(
     # 줄인다. 안 그러면 serialize 통과 후 지시문·시스템이 더해져 generate_reading 재검사에서
     # 한도 초과 → 일반 오류로 마감되던 결함(2026-06-18, 10년 이사 질문 12,098tok 초과).
     trailing: list[str] = [_CHAT_SCOPE_DIRECTIVE, GONGMANG_ACTIVATION_DIRECTIVE]
+    # P2b — companion_only: 이 풀이의 대상이 본인이 아니라 동반자임을 못박는다(본인 명식 혼동 차단).
+    if companion_only:
+        trailing.append(
+            f"[분석 대상] 이 풀이의 대상은 '{subject_label}'(동반자) 한 사람입니다. "
+            "본인(질문자)이 아니라 이 분의 명식·운을 기준으로 답하고, 호칭도 이 분 기준으로 "
+            "서술하세요. 본인 명식과 섞지 마세요."
+        )
     # 직전 풀이 재검토(B) — 이의/반문 후속이면 엔진 근거로 재검토하도록 지시(출생정보 재요청 금지).
     if is_recheck:
         trailing.append(_RECHECK_DIRECTIVE)

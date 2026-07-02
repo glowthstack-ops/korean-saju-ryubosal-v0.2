@@ -1372,7 +1372,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
             rel = f" · 관계 {rc.relation_type}" if rc.relation_type else ""
             lines.append(f"조합: {rc.mode}{rel}")
         for sb in payload.subject_blocks:
-            who = f"{sb.label}({'본인' if sb.role == 'self' else (sb.relation_to_user or '동반자')})"
+            _rel = "본인" if sb.role == "self" else (sb.relation_to_user or "동반자")
+            who = f"{sb.label}({_rel})"
             if sb.role == "self":
                 cp = f" · 현재 {sb.current_period}" if sb.current_period else ""
                 lines.append(f"· {who}: 위 [원국·명식 구조] 참조{cp}")

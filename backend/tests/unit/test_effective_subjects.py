@@ -29,7 +29,7 @@ def _comp(cid: str, label: str) -> SubjectRef:
 
 def test_self_only() -> None:
     """동반자 없음 → self_only, 동반자 명식 불요."""
-    eff, mode, inj = build_effective_subjects([_self()], base_subject_id="s1")
+    eff, mode, inj = build_effective_subjects([_self()], SubjectMode.SINGLE, base_subject_id="s1")
     assert mode == "self_only"
     assert [e.role for e in eff] == ["self"]
     assert inj.requires_companion_chart is False
@@ -39,7 +39,7 @@ def test_self_only() -> None:
 def test_pairwise_self_plus_one() -> None:
     """본인 + 동반자 1명 → pairwise, 관계 맥락 필요, 실행 미전환."""
     eff, mode, inj = build_effective_subjects(
-        [_self(), _comp("c1", "지민")], base_subject_id="s1",
+        [_self(), _comp("c1", "지민")], SubjectMode.SINGLE, base_subject_id="s1",
         companion_meta={"c1": AliasEntry("c1", "지민", "spouse", "relation_synonym")},
     )
     assert mode == "pairwise"
@@ -54,7 +54,9 @@ def test_pairwise_self_plus_one() -> None:
 
 def test_companion_only() -> None:
     """동반자 1명만(본인 없음) → companion_only, primary=그 동반자."""
-    eff, mode, inj = build_effective_subjects([_comp("c2", "김여사")], base_subject_id="s1")
+    eff, mode, inj = build_effective_subjects(
+        [_comp("c2", "김여사")], SubjectMode.SINGLE, base_subject_id="s1",
+    )
     assert mode == "companion_only"
     assert inj.primary_subject_id == "c2"
     assert [e.role for e in eff] == ["companion"]
@@ -63,7 +65,7 @@ def test_companion_only() -> None:
 def test_compare_exclude_self() -> None:
     """동반자 2명(본인 없음) → compare_exclude_self, target에 self 미포함."""
     _eff, mode, inj = build_effective_subjects(
-        [_comp("c1", "형"), _comp("c2", "동생")], base_subject_id="s1",
+        [_comp("c1", "형"), _comp("c2", "동생")], SubjectMode.SINGLE, base_subject_id="s1",
     )
     assert mode == "compare_exclude_self"
     assert set(inj.target_subject_ids) == {"c1", "c2"}
@@ -73,7 +75,7 @@ def test_compare_exclude_self() -> None:
 def test_multi_with_self() -> None:
     """본인 + 동반자 2명 → multi_with_self."""
     _eff, mode, _inj = build_effective_subjects(
-        [_self(), _comp("c1", "형"), _comp("c2", "동생")], base_subject_id="s1",
+        [_self(), _comp("c1", "형"), _comp("c2", "동생")], SubjectMode.SINGLE, base_subject_id="s1",
     )
     assert mode == "multi_with_self"
 
@@ -81,7 +83,7 @@ def test_multi_with_self() -> None:
 def test_chip_partner_merged_without_text() -> None:
     """텍스트에 동반자 없어도 FE 칩 partner가 병합돼 pairwise."""
     eff, mode, inj = build_effective_subjects(
-        [_self()], base_subject_id="s1",
+        [_self()], SubjectMode.SINGLE, base_subject_id="s1",
         attached=[AttachedCompanion(subject_id="c9", label="상대", relation_to_user="spouse")],
     )
     assert mode == "pairwise"
@@ -92,11 +94,25 @@ def test_chip_partner_merged_without_text() -> None:
 def test_dedup_text_and_chip_same_subject() -> None:
     """같은 동반자를 텍스트+칩으로 모두 지칭해도 중복 제거(1명)."""
     eff, mode, _inj = build_effective_subjects(
-        [_self(), _comp("c1", "지민")], base_subject_id="s1",
+        [_self(), _comp("c1", "지민")], SubjectMode.SINGLE, base_subject_id="s1",
         attached=[AttachedCompanion(subject_id="c1", label="지민")],
     )
     assert mode == "pairwise"
     assert [e.subject_id for e in eff] == ["s1", "c1"]
+
+
+def test_pairwise_mode_implies_self_even_if_not_listed() -> None:
+    """'궁합'(PAIRWISE)은 self를 subjects에 안 넣어도 pairwise로 판정하고 self를 삽입한다.
+
+    resolve_subjects가 '엄마랑 궁합'을 subjects=[동반자]+mode=PAIRWISE로 주는 케이스 —
+    구성만 보면 companion_only로 오판해 base가 동반자로 잘못 교체되던 결함 방지.
+    """
+    eff, mode, inj = build_effective_subjects(
+        [_comp("c1", "엄마")], SubjectMode.PAIRWISE, base_subject_id="s1",
+    )
+    assert mode == "pairwise"
+    assert any(e.role == "self" for e in eff)
+    assert inj.primary_subject_id == "s1"
 
 
 def test_injection_never_enabled_in_p1() -> None:
@@ -107,7 +123,7 @@ def test_injection_never_enabled_in_p1() -> None:
         [_comp("c2", "엄마")],
         [_comp("c1", "형"), _comp("c2", "동생")],
     ):
-        _e, _m, inj = build_effective_subjects(subs, base_subject_id="s1")
+        _e, _m, inj = build_effective_subjects(subs, SubjectMode.SINGLE, base_subject_id="s1")
         assert inj.execution_enabled is False
 
 

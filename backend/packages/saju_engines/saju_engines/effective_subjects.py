@@ -15,7 +15,7 @@ from saju_shared_types.execution_plan import (
     EffectiveSubject,
     SubjectInjectionPolicy,
 )
-from saju_shared_types.intent import SubjectKind, SubjectRef
+from saju_shared_types.intent import SubjectKind, SubjectMode, SubjectRef
 
 from .companion_alias import AliasEntry
 
@@ -31,23 +31,37 @@ class AttachedCompanion:
     relation_to_user: str | None = None
 
 
-def _read_mode(self_present: bool, companion_count: int) -> CompanionReadMode:
-    """대상 구성(본인 포함 여부 · 동반자 수)에서 공동 풀이 모드를 결정한다."""
+def _read_mode(
+    subject_mode: SubjectMode, self_present: bool, companion_count: int
+) -> CompanionReadMode:
+    """공동 풀이 모드 결정 — 기존 실행 enum(subject_mode)을 우선 신호로, 대상 구성으로 보정.
+
+    resolve_subjects는 '궁합'에 PAIRWISE를 주면서도 self를 subjects에 넣지 않을 수 있어(암묵),
+    구성만 보면 companion_only로 오판한다. 따라서 PAIRWISE/COMPARE_EXCLUDE_SELF는 enum을 신뢰한다.
+    """
     if companion_count == 0:
         return "self_only"
+    if subject_mode is SubjectMode.PAIRWISE:
+        return "pairwise"
+    if subject_mode is SubjectMode.COMPARE_EXCLUDE_SELF:
+        return "compare_exclude_self"
+    if subject_mode is SubjectMode.GROUP_AGGREGATE:
+        return "multi_with_self" if self_present else "compare_exclude_self"
+    if subject_mode is SubjectMode.RANKING:
+        return "unknown"  # ranking은 P2 범위 밖 — 실행 전환 금지
+    # SINGLE(기본) — 구성 기반.
     if self_present and companion_count == 1:
         return "pairwise"
     if not self_present and companion_count == 1:
         return "companion_only"
     if not self_present and companion_count >= 2:
         return "compare_exclude_self"
-    if self_present and companion_count >= 2:
-        return "multi_with_self"
-    return "unknown"
+    return "multi_with_self"
 
 
 def build_effective_subjects(
     subjects: list[SubjectRef],
+    subject_mode: SubjectMode,
     base_subject_id: str | None,
     base_label: str = "본인",
     attached: list[AttachedCompanion] | None = None,
@@ -57,6 +71,7 @@ def build_effective_subjects(
 
     Args:
         subjects: intent.subjects(P0 해소 결과 — self/companion/inline_temp).
+        subject_mode: intent.subject_mode(기존 실행 enum) — 모드 판정의 우선 신호.
         base_subject_id: 대화 기준(본인) 사주 id. self 대상의 subject_id로 쓴다.
         base_label: 본인 표시명.
         attached: FE 칩으로 첨부된 동반자(텍스트에 없어도 병합).
@@ -102,9 +117,15 @@ def build_effective_subjects(
             relation_to_user=a.relation_to_user, source="chip",
         ))
 
-    self_present = any(e.role == "self" for e in eff)
     companions = [e for e in eff if e.role != "self"]
-    mode = _read_mode(self_present, len(companions))
+    self_present = any(e.role == "self" for e in eff)
+    # PAIRWISE는 본인↔동반자 — resolve_subjects가 self를 명시 안 했어도 암묵 포함(궁합).
+    if subject_mode is SubjectMode.PAIRWISE and not self_present and companions:
+        eff.insert(0, EffectiveSubject(
+            subject_id=self_id, role="self", label=base_label or "본인", source="base",
+        ))
+        self_present = True
+    mode = _read_mode(subject_mode, self_present, len(companions))
 
     primary = self_id if self_present else (companions[0].subject_id if companions else None)
     targets = (
