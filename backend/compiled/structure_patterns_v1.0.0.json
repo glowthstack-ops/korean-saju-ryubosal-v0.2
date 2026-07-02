@@ -2342,8 +2342,43 @@
       "detector_source": "new:five_elements(水火 불균형)",
       "llm_usage": "explanation_tag_only",
       "llm_tag": "수화미제: 수(水)와 화(火)가 불균형한 구조 — 감정·활동·건강 리듬이 불안정할 수 있음"
+    },
+    {
+      "pattern_id": "JAPGI_JAEGWAN_GYEOK",
+      "name_ko": "잡기재관격",
+      "name_hanja": "雜氣財官格",
+      "family": [
+        "geguk"
+      ],
+      "structure": "month storage branch hides 재/관",
+      "ten_god_chain": [],
+      "evidence": [
+        "월지 사고(辰戌丑未)",
+        "지장간에 재성 또는 관성",
+        "투간 시 성립 뚜렷(미투간=개고 대기)"
+      ],
+      "domain_hints": [
+        "wealth_change",
+        "career_change",
+        "promotion",
+        "contract_document"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "adapter:월지 잡기 지장간 재/관 + 투간",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "잡기재관격: 월지 사고(辰戌丑未)의 지장간에 든 재성·관성을 격으로 삼는 구조 — 투간·개고 시 재물·직책이 뚜렷"
     }
   ],
-  "compiled_at": "2026-07-02T00:46:01.472485+00:00",
+  "compiled_at": "2026-07-02T00:54:08.638557+00:00",
   "snapshot_version": "1.0.0"
 }

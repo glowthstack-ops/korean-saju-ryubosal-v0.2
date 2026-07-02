@@ -22,8 +22,13 @@ from pathlib import Path
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
 from saju_manse_analysis.structure.geokguk_eval import _group_counts, _tg_counts
 
-from saju_shared_types.constants import STEM_ELEMENT, group_elements
-from saju_shared_types.enums import Stem
+from saju_shared_types.constants import (
+    STEM_ELEMENT,
+    group_elements,
+    hidden_stems_for,
+    ten_god,
+)
+from saju_shared_types.enums import Branch, Stem, TenGod
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.structure_patterns import (
     DetectedPattern,
@@ -89,6 +94,8 @@ _ELEMENT_OVERWHELM: list[tuple[str, str, str]] = [
     ("水", "火", "SUDA_HWAMYEOL"),
 ]
 _STRONG_BANDS = {"신강", "태신강", "극신강"}
+_STORAGE_BRANCHES = {"辰", "戌", "丑", "未"}  # 사고(잡기) 지지
+_WEALTH_OFFICER_TG = {TenGod.JEONGJAE, TenGod.PYEONJAE, TenGod.JEONGGWAN, TenGod.PYEONGWAN}
 
 # 격국 주격명 → pattern_id (P0 미보유 격은 매핑 생략).
 _GEOK_NAME_TO_PID: dict[str, str] = {
@@ -363,6 +370,25 @@ def detect_structure_patterns(
             emit("SANGGWAN_YONGIN", 0.55, "natal", ("상관격+인성",))
         if groups["officer"] == 0:
             emit("SANGGWAN_SANGJIN", 0.55, "natal", ("상관격·관성 부재",))
+
+    # 잡기재관격(P2, F5): 월지 사고(辰戌丑未) 지장간에 재/관 → 투간 여부로 강도.
+    month = pillars.month
+    if month is not None and month.branch in _STORAGE_BRANCHES:
+        dm = Stem(pillars.day.stem)
+        natal_stems = {
+            p.stem for pos in ("year", "month", "day", "hour")
+            if (p := getattr(pillars, pos)) is not None
+        }
+        found: TenGod | None = None
+        revealed = False
+        for hs, _kind, _w in hidden_stems_for(Branch(month.branch)):
+            if ten_god(dm, hs) in _WEALTH_OFFICER_TG:
+                found = ten_god(dm, hs)
+                if str(hs) in natal_stems:  # 투간
+                    revealed = True
+        if found is not None:
+            note = f"월지 잡기 {found.value}" + ("(투간)" if revealed else "(미투간·개고 대기)")
+            emit("JAPGI_JAEGWAN_GYEOK", 0.6 if revealed else 0.45, "natal", (note,))
 
     out.sort(key=lambda d: d.strength, reverse=True)
     return out

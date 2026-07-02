@@ -197,6 +197,8 @@ class DetectedPattern(BaseModel):
   - 합충병견(합+충 공존)·충중봉합(충·합 지지 공유) — `interactions.relation_type`
   - **버그 수정**: `relation_type`이 한글이 아니라 영문 enum(`clash`/`six_combination`/`three_harmony`/`stem_combination`/`directional`/…)임을 반영. 기존 P0 CHUNGDONG이 `"충" in rt`로 매칭 실패해 미발동하던 결함까지 해소.
 
-### 미배선(향후, 자료 §13)
-- 잡기재관격·암충격·도충격: 지장간 잡기·허충 로직이 필요하고 geokguk 미산출 → 신규 규칙 필요 시 사용자 확인.
+- [x] **F5**: 잡기재관격(雜氣財官格) 추가(사전 68종). 월지 사고(辰戌丑未) 지장간에 재/관이 있으면 감지, 투간 시 강도 상향(미투간=개고 대기). `hidden_stems_for`+`ten_god`+투간 검사로 결정적 감지. context_only.
+
+### 미배선(deferred, 자료 §13)
+- **암충격·도충격(비천록마 계열)**: 지지 허충으로 재/관을 불러오는 특수격. 학파차가 크고 적용 일주 제한이 강하며 geokguk 미산출 → 근거 없는 추정 구현 회피(원칙 9·10). 재개 조건: ①doc/v2_2 정식 규칙 ②적용 일주 whitelist ③동일 지지 3+·허자 충출·실제 관성 부재·신강 조건 확정 ④golden sample 10건+ ⑤shadow-only 회귀 관측 후 오탐 검수. 설명 태그로도 노출하지 않는다(해석 확장 리스크).
 - 고전 성별 단정어(여명상관다극부 등): 자료 §13 주의 — 서비스 미노출(비단정 표현 변환 대상).
