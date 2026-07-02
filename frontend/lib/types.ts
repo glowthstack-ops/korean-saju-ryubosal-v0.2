@@ -578,13 +578,18 @@ export interface RealityCalibrationQuestionSet {
   subject_id: string | null;
   years: RealityCalibrationYear[];
   note: string;
+  prior?: RealityCalibrationYearAnswer[]; // 이전 제출 답변(수정 모드 프리필) — 없으면 신규
 }
 export interface OccurredEventInput {
   event_key: string;
   month?: number | null; // 발생 월(기억나는 경우만)
+  experience?: string | null; // 그 일이 어땠나(ExperienceRating) — 선택(docs/14)
+  intensity?: number | null; // 강도 1~3 — 선택
 }
 export interface RealityCalibrationYearAnswer {
   year: number;
   occurred: OccurredEventInput[];
   none_of_them: boolean;
+  overall_rating?: string; // 그 해 전체 체감(ExperienceRating 7상태) — 선택
+  domain_ratings?: Record<string, string>; // 영역별 체감(domain → ExperienceRating) — 선택
 }
