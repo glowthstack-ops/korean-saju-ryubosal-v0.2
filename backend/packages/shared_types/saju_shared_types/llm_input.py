@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from .events import EventKey
 from .intent import IntentJson
 from .sinsal import LlmSinsalModifier
+from .structure_patterns import DetectedPattern
 
 
 class UsefulGods(BaseModel):
@@ -93,6 +94,9 @@ class ChartInterpretation(BaseModel):
     excerpts: list[InterpretationExcerpt] = Field(default_factory=list)
     # 원국 기준 작동 역할 요약(Phase 5a) — 없으면 None(구형/부분 결과 안전 fallback).
     yongsin_operational_summary: YongsinOperationalSummary | None = None
+    # 구조 패턴 압축 태그(Step ④) — 캐시 프리픽스이므로 도메인 무관 결정적 상위 N(strength desc).
+    # 길흉 미확정(polarity_mode·domain_hints만). 전체 감지는 내부 보존(비직렬화).
+    detected_patterns: list[DetectedPattern] = Field(default_factory=list)
 
 
 class DaewoonEntry(BaseModel):

@@ -8,10 +8,14 @@ from __future__ import annotations
 import pytest
 
 from saju_api.services.manse_service import calculate
+from saju_engines.chart_interpretation import build_chart_interpretation
+from saju_engines.context_reducer import serialize_chart_prefix
 from saju_engines.structure_patterns import (
     _FAILURE_TO_PID,
+    _MAX_LLM_PATTERNS,
     detect_structure_patterns,
     load_structure_patterns,
+    select_llm_patterns,
 )
 from saju_shared_types.birth_input import BirthInput
 
@@ -105,3 +109,56 @@ def test_geguk_main_structure_detected(result) -> None:
     pid = _GEOK_NAME_TO_PID.get(result.geokguk.main_structure or "")
     if pid is not None:
         assert pid in detected_ids
+
+
+# ── Step ④: LLM 입력 배선(캐시 프리픽스, 상한, inert) ─────────────────────
+
+def test_select_llm_patterns_capped_and_ranked(result) -> None:
+    detected = detect_structure_patterns(result)
+    top = select_llm_patterns(detected)
+    assert len(top) <= _MAX_LLM_PATTERNS
+    assert [d.pattern_id for d in top] == [d.pattern_id for d in detected[:_MAX_LLM_PATTERNS]]
+
+
+def test_select_llm_patterns_domain_priority() -> None:
+    """domain 지정 시 domain_hints 매칭이 앞으로(비캐시 경로용). strength 내부순서 안정."""
+    dic = load_structure_patterns()
+    from saju_shared_types.structure_patterns import DetectedPattern
+
+    def mk(pid: str, strength: float, hints: list[str]) -> DetectedPattern:
+        return DetectedPattern(
+            pattern_id=pid, name_ko=pid, strength=strength,
+            polarity_mode="context_only", domain_hints=hints,
+        )
+
+    pats = [mk("A", 0.9, ["wealth_change"]), mk("B", 0.8, ["career_change"])]
+    assert dic is not None
+    # domain=None: strength desc
+    assert [d.pattern_id for d in select_llm_patterns(pats)] == ["A", "B"]
+    # domain=career_change: B(매칭) 우선
+    ordered = select_llm_patterns(pats, domain="career_change")
+    assert ordered[0].pattern_id == "B"
+
+
+def test_chart_interpretation_carries_patterns(result) -> None:
+    ci = build_chart_interpretation(result)
+    assert ci is not None
+    assert len(ci.detected_patterns) <= _MAX_LLM_PATTERNS
+    # 결정적: 두 번 빌드해도 동일(캐시 프리픽스 계약).
+    ci2 = build_chart_interpretation(result)
+    assert ci2 is not None
+    assert [p.pattern_id for p in ci.detected_patterns] == [
+        p.pattern_id for p in ci2.detected_patterns
+    ]
+
+
+def test_prefix_serialization_deterministic_and_present(result) -> None:
+    from saju_engines.context_reducer import build_birth_summary
+
+    ci = build_chart_interpretation(result)
+    summary = build_birth_summary(result)
+    a = serialize_chart_prefix(summary, ci)
+    b = serialize_chart_prefix(summary, ci)
+    assert a == b, "고정 프리픽스는 결정적이어야 한다(캐시)"
+    if ci is not None and ci.detected_patterns:
+        assert any("구조 패턴" in line for line in a), "구조 패턴 블록 누락"

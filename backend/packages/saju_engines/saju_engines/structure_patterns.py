@@ -98,6 +98,27 @@ _PRESENCE_RULES: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
 ]
 
 
+_MAX_LLM_PATTERNS = 6  # LLM 노출 상한(설계 §8, 토큰 가드).
+
+
+def select_llm_patterns(
+    patterns: list[DetectedPattern],
+    *,
+    domain: str | None = None,
+    max_count: int = _MAX_LLM_PATTERNS,
+) -> list[DetectedPattern]:
+    """LLM 노출용 상위 N 선별. 전체 감지는 호출측이 별도 보존한다(내부/LLM 분리, 설계 §8).
+
+    캐시되는 고정 프리픽스에 쓰일 때는 `domain=None`(결정적: strength desc)으로 호출한다
+    — 질문마다 값이 바뀌면 프리픽스 캐시가 무효화된다(ChartInterpretation 계약). `domain`
+    지정은 비캐시(질문 가변) 경로 전용으로, domain_hints 매칭을 우선 정렬한다.
+    """
+    ranked = sorted(patterns, key=lambda d: d.strength, reverse=True)
+    if domain:
+        ranked = sorted(ranked, key=lambda d: domain in d.domain_hints, reverse=True)
+    return ranked[:max_count]
+
+
 def _clamp(x: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, x))
 

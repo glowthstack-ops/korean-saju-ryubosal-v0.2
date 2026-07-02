@@ -140,20 +140,18 @@ class DetectedPattern(BaseModel):
 
 > 재생살은 자료 §4에서 흉 계열이나 "돈 때문에 망한다"가 아니라 **목표·금전 부담을 감당할 보조성 부족**으로 안전 표현(자료 §4 주). polarity_mode=`depends_on_yonggi_and_control`.
 
-## 6. LLM 입력 계약 확장 (docs/06 §12)
+## 6. LLM 입력 계약 확장 (docs/06 §12) — 구현 반영
 
-`chartInterpretation`에 추가(전체 사전 금지, 감지분만):
+`ChartInterpretation.detected_patterns: list[DetectedPattern]` 추가(전체 사전 금지, 감지분만).
 
-```jsonc
-"detected_patterns": [
-  { "pattern_id": "GWAN_IN_SANGSAENG", "name_ko": "관인상생",
-    "strength": 0.72, "polarity": "positive", "scope": "natal_luck",
-    "llm_tag": "관인상생: 직장·제도·직책이 자격·문서·후견을 통해 나를 돕는 통관 구조",
-    "evidence_refs": ["rel_...","..."] }
-]
-```
+**중요(고정 프리픽스 캐시 제약)**: `ChartInterpretation`은 사용자별 멀티턴·전 섹션에서 바이트 단위 동일해야 하는 **캐시 프리픽스**다(가변 값 금지 — 타입 docstring 계약). 따라서 이 필드는 **도메인 무관·결정적 상위 N(strength desc)** 으로 채운다. 질문 도메인 필터를 여기 적용하면 프리픽스가 질문마다 달라져 캐시가 무효화된다.
 
-토큰 가드(docs/09 §8): 감지 패턴 상위 N개만(질문 도메인 필터 통과분). Query Parser 비활성 원칙 유지.
+- `select_llm_patterns(all, domain=None, max_count=6)`: 캐시 프리픽스는 `domain=None`(결정적)으로 호출. `domain` 인자는 domain_hints 매칭 우선 정렬을 지원하나 **비캐시(질문 가변) 경로 전용**이다.
+- 내부 전체 감지(`detect_structure_patterns`)는 보존하고, LLM 노출은 상위 6개만(내부/노출 분리).
+- 직렬화: `serialize_chart_prefix` 최하단 `[구조 패턴 — 설명 태그]` 블록(토큰 가드 후순위 절삭 대상). llm_tag만 노출.
+- 지시: `_STRUCTURE_PATTERN_INSTRUCTION`(감지분 있을 때만) — "구조 라벨일 뿐 사건·길흉 확정 아님".
+
+> **후속(선택)**: 질문 도메인 필터를 실제 적용하려면 detected_patterns를 캐시 프리픽스가 아닌 질문 가변 섹션([기준 시점] 이하)에 배치해야 한다. 현재는 캐시 비용 보호를 위해 프리픽스 도메인 무관으로 두었다.
 
 ## 7. 파이프라인·검증 (CLAUDE.md 원칙 5)
 
@@ -177,6 +175,14 @@ class DetectedPattern(BaseModel):
 - `llm_tag`는 **120자 내외**. 토큰 가드에서 본문을 밀어내지 않도록 **후순위**로 처리(초과 시 우선 절삭 대상).
 - **회귀 우선순위**: 기존 score/confidence/favorability/event_count **불변** 확인이 1순위. 본 작업은 새 설명 필드 추가일 뿐 기존 수치 파이프라인을 건드리지 않는다.
 
-## 10. 진행 순서 (각 단계 독립 커밋)
+## 10. 진행 상태 (각 단계 독립 커밋) — 2026-07-02 완료
 
-① `structure_patterns.json` P0 엔트리 작성 → ② `DetectedPattern` 타입 + 감지기 어댑터 구현 → ③ validate/compile + 회귀 픽스처 → ④ LLM 입력 계약 배선.
+- [x] ① `structure_patterns.json` P0 35종 + 설계 문서.
+- [x] ② `DetectedPattern` 타입 + `detect_structure_patterns()` 어댑터(+`select_llm_patterns`). 충개/입묘/개고는 묘고 신호 배선 필요 → 후속.
+- [x] ③ validate(SCHEMA_BY_PATH+lint)/compile(compiled/structure_patterns_v1.0.0.json, 스냅샷 우선 로드) + 회귀 픽스처(3차트 감지 집합 고정).
+- [x] ④ LLM 입력 배선: `ChartInterpretation.detected_patterns`(도메인 무관 top-6, 캐시 안전) + prefix 직렬화 + 금지 단정 지시. inert — 기존 score/confidence/favorability/event_count 불변, 전체 unit+regression green.
+
+### 후속(P0 밖)
+- 충개(沖開)·입묘(入墓)·개고(開庫) 감지 — 묘고 신호(wealth_capacity·structural_context) 결과 컨텍스트 배선.
+- 질문 도메인 필터를 실제 적용하려면 detected_patterns를 비캐시 질문 섹션으로 이전(§6 후속).
+- P1/P2 패턴 확장(상관패인·득비이재·목화통명·종왕격 등, 자료 §13).

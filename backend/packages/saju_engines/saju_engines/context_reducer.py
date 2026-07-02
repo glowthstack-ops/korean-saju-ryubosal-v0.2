@@ -51,6 +51,7 @@ from saju_shared_types.llm_input import (
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_timing import derive_marriage_stage
 from saju_shared_types.sinsal import LlmSinsalModifier
+from saju_shared_types.structure_patterns import DetectedPattern
 
 from . import marriage_timing_profile as _mtp
 from . import sinsal_modifier_config as _sinsal_cfg
@@ -250,6 +251,13 @@ _BANGHAP_INSTRUCTION = (
     "두 글자(예: 巳午)만 있으면 '사오미 방합이 형성됐다'고 단정하지 말 것 — 그 오행 "
     "기운이 매우 강해진 '준방합' 상태로만 설명하고, 운에서 마지막 글자(예: 未)가 채워질 "
     "때 비로소 방합이 촉발돼 사건이 크게 현실화된다고 풀이한다."
+)
+# 구조 패턴 태그 — 구조 라벨일 뿐 사건·길흉 확정 아님(원칙 3·4, 설계 §14).
+_STRUCTURE_PATTERN_INSTRUCTION = (
+    "[구조 패턴]은 십성 관계 구조를 압축한 설명 라벨이다 — 사건이나 길흉의 확정이 아니다. "
+    "'관인상생이라 취업 확정' 같은 단정 금지. 각 태그의 도메인은 후보(가능성)일 뿐이며, "
+    "길흉 방향은 용희기구한·작동 역할로, 사건 여부·시점은 이벤트 후보·근거 경로로 판단한다. "
+    "구조 패턴은 그 판단을 자연스럽게 설명하는 어휘로만 활용할 것."
 )
 # v1 [오늘 날짜]·자체 검증 체크리스트 계승 — LLM은 어떤 계산도 할 수 없다는 전제.
 _REFERENCE_INSTRUCTION = (
@@ -1237,7 +1245,21 @@ def serialize_chart_prefix(
             for ex in ci.excerpts:
                 lines.append(f"{ex.key}: {ex.text}")
         _append_operational_summary(lines, ci.yongsin_operational_summary)
+        _append_structure_patterns(lines, ci.detected_patterns)
     return lines
+
+
+def _append_structure_patterns(lines: list[str], patterns: list[DetectedPattern]) -> None:
+    """구조 패턴 설명 태그 블록(프리픽스 최하단 = 토큰 가드 후순위 절삭 대상).
+
+    도메인 무관 결정적 상위 N(select_llm_patterns) — 질문 가변 아님(캐시 안전). llm_tag 는
+    구조 라벨 설명일 뿐 사건·길흉 확정이 아니다(domain_hints 는 후보). 빈 목록이면 생략.
+    """
+    if not patterns:
+        return
+    lines += ["", "[구조 패턴 — 의미 설명 태그(구조 라벨일 뿐, 사건·길흉 확정 아님·도메인은 후보)]"]
+    for p in patterns:
+        lines.append(p.llm_tag)
 
 
 def _append_operational_summary(
@@ -1658,6 +1680,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(_REVERSAL_INSTRUCTION)
         lines.append(_HARMONY_INSTRUCTION)
         lines.append(_BANGHAP_INSTRUCTION)
+        if payload.chart_interpretation.detected_patterns:
+            lines.append(_STRUCTURE_PATTERN_INSTRUCTION)
     if payload.event_candidates:
         lines.append(_MATRIX_INSTRUCTION)
         lines.append(_SCOPE_INSTRUCTION)
