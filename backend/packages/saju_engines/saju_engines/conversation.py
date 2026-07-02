@@ -34,6 +34,11 @@ from saju_shared_types.intent import (
     SubjectRef,
 )
 
+from .companion_alias import (
+    RELATION_SYNONYMS,
+    AliasEntry,
+    normalize_token,
+)
 from .query_parser import (
     AFFIRMATION_RE,
     _detect_domains,
@@ -54,6 +59,19 @@ _SELF_RETURN_RE = re.compile(r"본인\s*사주로|내\s*사주로\s*봐")
 _TIME_UNKNOWN_RE = re.compile(r"태어난\s*시간[은는]?\s*몰라|시간\s*모름")
 # 누적 참조(F4) — "앞서 물어본 2명까지 포함".
 _CUMULATIVE_RE = re.compile(r"앞서\s*물어본\s*(\d+)\s*명|이전에\s*물어본")
+# 명시적 대상 지칭(A9 fallback) — 등록에서 못 찾으면 임의 추정 대신 확인 질문으로 넘긴다.
+# 강한 별칭(신랑/아가/N호)은 인물 지칭이 명확해 조사와 무관하게 감지('아가는'도 대상).
+# '아가'는 '나아가/들어가' 부분문자열 오인 방지로 앞 한글 음절·뒤 '씨' 제외.
+_STRONG_REF_RE = re.compile(r"(?<![가-힣])(\d+\s*호|신랑|아가)(?!씨)")
+# 관계어(엄마/와이프/아들…)는 소유격·동반격·사주/궁합/운 인접일 때만 — 일반 주격('엄마가 …')
+# 오탐 방지. '신랑'은 강한 별칭으로 이미 처리하므로 제외.
+_REL_SYN_ALL = sorted(
+    {w for ws in RELATION_SYNONYMS.values() for w in ws} - {"신랑"}, key=len, reverse=True
+)
+_REL_REF_RE = re.compile(
+    r"(?<![가-힣])(" + "|".join(_REL_SYN_ALL) + r")(?!씨)"
+    r"(?=의|이랑|랑|이라도|과|와|\s*사주|\s*궁합|\s*운세|\s*운[^동전영행]|$)"
+)
 # 조건 추가(F3) / 세분화(F8).
 _CONSTRAINT_RE = re.compile(r"간다면|한다면|이라면|쪽으로")
 # 제약 정제 후속(F8b, 2026-06-16) — 직전 질문을 좁히는 짧은 보완(요일·시간대·달력 선호·배제).
@@ -116,9 +134,31 @@ def is_affirm_continue(text: str) -> bool:
 class ConversationEngine:
     """스레드 1개의 턴 처리기 — 상태는 호출 측이 보존/주입(저장소 분리)."""
 
-    def __init__(self, aliases: dict[str, str] | None = None) -> None:
-        """aliases: 별칭('1호'/'신랑') → companion_id 매핑(E14 — 학습분 포함)."""
-        self._aliases = dict(aliases or {})
+    def __init__(
+        self,
+        aliases: dict[str, str] | None = None,
+        alias_index: dict[str, list[AliasEntry]] | None = None,
+    ) -> None:
+        """대상 해소용 별칭 인덱스를 구성한다.
+
+        Args:
+            aliases: 레거시 별칭('1호'/'신랑') → companion_id(E14 학습분·테스트 호환).
+            alias_index: 등록 동반자 레지스트리 기반 인덱스(별칭→AliasEntry 목록, 모호성 표현).
+
+        둘을 단일 인덱스 ``self._index``로 병합한다 — alias_index가 SSOT, aliases는 보조.
+        """
+        self._index: dict[str, list[AliasEntry]] = {
+            normalize_token(k): list(v) for k, v in (alias_index or {}).items()
+        }
+        for alias, cid in (aliases or {}).items():
+            key = normalize_token(alias)
+            if len(key) < 2:
+                continue
+            bucket = self._index.setdefault(key, [])
+            if not any(e.subject_id == cid for e in bucket):
+                bucket.append(AliasEntry(
+                    subject_id=cid, label=alias, relation_to_user=None, source="legacy",
+                ))
 
     # ── 공개 API ─────────────────────────────────────────────────
 
@@ -225,19 +265,29 @@ class ConversationEngine:
                 correction=correction,
             )
 
-        # A9 — 별칭/번호: 매핑 테이블 조회(없으면 확인 질문 대상).
-        # 앞에 한글 음절이 붙은 경우(동사 어간 등)는 제외 — "돌아가게"·"나아가다"의 '아가',
-        # "들어가"의 부분문자열을 인물 별칭으로 오인하지 않도록 단어 경계를 강제한다.
-        # '아가' 뒤 '씨'(아가씨)도 제외. 별칭 뒤 조사(아가는/아가가)는 정상 매칭.
-        for m in re.finditer(r"(?<![가-힣])(\d+\s*호|신랑|아가)(?!씨)", text):
-            alias = m.group(1).replace(" ", "")
-            companion_id = self._aliases.get(alias)
-            if companion_id:
+        # A9 — 별칭/관계어/번호: 등록 동반자 인덱스 기반 최장 매칭(SSOT=레지스트리).
+        # 단일 후보만 자동 해소하고, 복수 후보(ambiguous)는 추측 없이 확인 질문으로 넘긴다.
+        for token, entries in self._match_aliases(text):
+            uniq_ids = {e.subject_id for e in entries}
+            if len(uniq_ids) == 1:
+                e = entries[0]
                 subjects.append(SubjectRef(
-                    kind=SubjectKind.COMPANION, label=alias, companion_id=companion_id,
+                    kind=SubjectKind.COMPANION, label=e.label or token,
+                    companion_id=e.subject_id,
                 ))
-            else:
-                unresolved.append(alias)
+            else:  # 복수 등록 대상이 같은 별칭 → 어느 분인지 확인(자동 첫 후보 선택 금지)
+                unresolved.append(token)
+        # 미등록 관계어/별칭 지칭(예: 배우자 미등록인데 "와이프랑 봐줘") — 임의 추정 대신 확인.
+        resolved_ids = {s.companion_id for s in subjects if s.companion_id}
+        ref_tokens = [m.group(1).replace(" ", "") for m in _STRONG_REF_RE.finditer(text)]
+        ref_tokens += [m.group(1).replace(" ", "") for m in _REL_REF_RE.finditer(text)]
+        for tok in ref_tokens:
+            key = normalize_token(tok)
+            already = key in self._index and any(
+                e.subject_id in resolved_ids for e in self._index[key]
+            )
+            if not already and tok not in unresolved:
+                unresolved.append(tok)
 
         # A6/A7 — 인라인 생년월일 → 임시 인물(Entity Tracking 등록은 상태 갱신에서).
         inline = _parse_inline_births(text)
@@ -272,6 +322,22 @@ class ConversationEngine:
             correction=correction,
             time_unknown=time_unknown,
         )
+
+    def _match_aliases(self, text: str) -> list[tuple[str, list[AliasEntry]]]:
+        """발화에서 인덱스 별칭을 최장 우선으로 찾는다(공백 정규화·짧은 키 임베딩 제외).
+
+        정규화 텍스트에 별칭 키가 부분문자열로 존재하면 후보. 더 긴 별칭에 포함되는 짧은
+        별칭은 건너뛴다(예: '큰아들' 매칭 시 '아들'은 스킵 — 잘못된 모호 판정 방지). 반환은
+        (매칭 별칭, 그 별칭의 AliasEntry 목록) 목록으로, 복수 대상 판정은 호출 측이 한다.
+        """
+        norm = normalize_token(text)
+        out: list[tuple[str, list[AliasEntry]]] = []
+        accepted: list[str] = []
+        for key in sorted(self._index, key=len, reverse=True):
+            if key in norm and not any(key in ak for ak in accepted):
+                out.append((key, self._index[key]))
+                accepted.append(key)
+        return out
 
     @staticmethod
     def _subject_mode(

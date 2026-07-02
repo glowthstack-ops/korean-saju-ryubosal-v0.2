@@ -20,6 +20,7 @@ from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
 from saju_engines import EventEngineV2, GraphIndex, filter_year_candidates, load_event_graph
 from saju_engines.chart_interpretation import build_luck_grounding
+from saju_engines.companion_alias import AliasEntry
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     build_birth_summary,
@@ -1722,6 +1723,7 @@ def chat(
     relationship_status: str | None = None,
     occupation_category: str | None = None,
     prior_answer: str | None = None,
+    companion_alias_index: dict[str, list[AliasEntry]] | None = None,
 ) -> ChatResponse:
     """질문을 풀이한다(첫 intent 기준, 다중 intent는 메타로 동반).
 
@@ -1752,7 +1754,7 @@ def chat(
         store.migrate()
         state = store.load(thread_id) or ConversationState(thread_id=thread_id)
         prior_intent = state.last_intent  # process_turn이 갱신하기 전 직전 intent 보존.
-        engine = ConversationEngine()
+        engine = ConversationEngine(alias_index=companion_alias_index)
         parsed, state, resolution, _link = engine.process_turn(
             state, question, today, birth_year=birth_year,
             current_month_label=luck_month,

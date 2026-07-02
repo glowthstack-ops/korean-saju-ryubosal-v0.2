@@ -14,6 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from saju_engines.chat_history_store import ChatHistoryStore
+from saju_engines.companion_alias import AliasEntry, build_companion_alias_index
 from saju_engines.conversation_store import ConversationStore
 from saju_engines.profile_engine import profile_event_signals
 from saju_engines.subject_store import SubjectStore
@@ -194,6 +195,14 @@ def chat(
     """
     partner_birth = _resolve_chat_partner(req, subjects, owner_id)
 
+    # 등록 동반자 별칭 인덱스 — 발화 속 별명/관계어를 companion subject_id로 해소(P0).
+    # owner isolation: owner_id 한정 조회 결과만 인덱스에 들어간다. 무DB 배포/비로그인은 빈 인덱스.
+    alias_index: dict[str, list[AliasEntry]] = {}
+    if subjects is not None and owner_id:
+        alias_index = build_companion_alias_index(
+            subjects.list_all(owner_id), base_subject_id=req.subject_id
+        )
+
     form, occ_status, rel_status, occ_category = profile_event_signals(req.subject_id)
 
     # 직전 답변 — '그래 봐줘' 류 수락 시 LLM이 제시했던 제안을 이어 답하도록 전달(스레드 한정).
@@ -212,6 +221,7 @@ def chat(
             relationship_status=rel_status,
             occupation_category=occ_category,
             prior_answer=prior_answer,
+            companion_alias_index=alias_index,
         )
 
     # 미리보기 요청은 예전처럼 동기 dry-run(LLM 미호출).
