@@ -185,8 +185,8 @@ class CalibrationQuestionSet(BaseModel):
 
 class FeedbackAnswer(BaseModel):
     question_id: str
-    # 비이벤트형(레거시) 질문의 전체 평점. 이벤트형 질문이면 'unknown'(미사용)일 수 있다.
-    overall_rating: Rating = "unknown"
+    # 그 해 전체 체감(ExperienceRating 7상태 — 'mixed' 포함). 이벤트형 질문이면 'unknown'일 수 있다.
+    overall_rating: ExperienceRating = "unknown"
     selected_events: list[str] = Field(default_factory=list)
     # 영역별 체감(docs/14 B) — domain → ExperienceRating(좋음/보통/반반/힘듦/모름 매핑). 채점 주축.
     # (레거시 dict[str,int|None]에서 승격 — 죽어있던 필드 활성.)

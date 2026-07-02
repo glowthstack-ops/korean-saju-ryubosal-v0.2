@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from saju_shared_types.calibration import (
-    FEEDBACK_SCALE,
     MAJOR_CATEGORIES,
     MAJOR_DOMAINS,
     CalibrationQuestion,
@@ -115,8 +114,8 @@ def score_calibration(
                 for model_type, expected in ev.expected_by_model.items():
                     accrue(model_type, expected, user_score, weight)
             continue
-        # 레거시 — 연도 전체 평점(비이벤트형 질문 호환).
-        user_score = FEEDBACK_SCALE.get(ans.overall_rating)
+        # 레거시 — 연도 전체 평점(비이벤트형 질문 호환). 7상태(mixed 포함) 극성으로 채점.
+        user_score = experience_polarity(ans.overall_rating)
         if user_score is None:  # 기억나지 않음 → 점수 제외
             continue
         weight = 1.5 if (set(ans.selected_events) & MAJOR_DOMAINS) else 1.0
