@@ -208,8 +208,12 @@ class ReferenceFrame(BaseModel):
     this_year: str  # '2026'
     this_year_ganji: str = ""  # '丙午'
     # 오늘이 속한 절기 월운 라벨(YYYY-MM) — 양력 달과 다를 수 있다(절기 경계 직전 구간).
-    # '지남' 마커 등 시제 판정의 기준 달. 미설정 시 today[:7] 양력 폴백.
+    # '지남' 마커 등 시제 판정의 기준 달(기계 비교용 — 반드시 bare 'YYYY-MM' 유지).
+    # 미설정 시 today[:7] 양력 폴백.
     this_luck_month: str = ""  # '2026-06'
+    # 현재 절기월의 사람이 읽는 상세 — 간지·양력 절기 span·진행 상태. LLM이 절기월 라벨(YYYY-MM)을
+    # 캘린더월로 오인해 진행 중인 달을 '다가오는 미래'로 서술하는 것을 차단(2026-07-02 데굴님 지적).
+    this_luck_month_detail: str = ""  # '2026-06 甲午월(양력 6/6~7/6 진행 중, 오늘 7/2·남은 5일)'
     question_period: str = ""  # '2026-01-01 ~ 2026-12-31'
     question_period_note: str = ""  # "질문의 '올해'는 2026년을 의미한다"
 

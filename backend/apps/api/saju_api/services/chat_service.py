@@ -111,6 +111,40 @@ def _solar_month_range(label: str, timezone: str = "Asia/Seoul") -> tuple[date, 
     return prev_jeol.astimezone(tz).date(), next_jeol.astimezone(tz).date() - timedelta(days=1)
 
 
+def _current_luck_month_detail(
+    birth: BirthInput, today: date, timezone: str = "Asia/Seoul"
+) -> str:
+    """현재 절기월의 사람이 읽는 상세 — 간지·양력 절기 span·진행 상태(경과/남은 일수).
+
+    LLM이 절기월 라벨(YYYY-MM)을 캘린더월로 오인해 '진행 중인 달'을 '다가오는 미래'로
+    서술하는 것을 차단한다(2026-07-02 데굴님 지적: 소서 전 7/2는 여전히 甲午월='2026-06'인데
+    풀이가 '다가오는 6월'로 서술). ReferenceFrame.this_luck_month_detail로 전달.
+
+    Args:
+        birth: 대상 출생 정보(절기월 라벨→간지 조회용).
+        today: 기준일.
+        timezone: 차트 타임존(절기 경계 산정 기준).
+
+    Returns:
+        상세 문자열(간지 조회 실패 시 빈 문자열 — 상세 없이 bare 라벨만 쓰이는 폴백).
+    """
+    label = _current_luck_month(today, timezone)
+    ml = luck_months(birth, int(label[:4]))
+    mp = next((p for p in ml if p.label == label), None)
+    if mp is None:
+        return ""
+    sm_s, sm_e = _solar_month_range(label, timezone)
+    total = (sm_e - sm_s).days + 1
+    elapsed = (today - sm_s).days + 1
+    remaining = (sm_e - today).days + 1  # 오늘 포함, 다음 절입 전일까지 남은 일수
+    return (
+        f"{label} = {mp.ganji}월(절기월). 양력 {sm_s.isoformat()}~{sm_e.isoformat()} 진행 중 — "
+        f"오늘 {today.isoformat()}은 이 절기월 {elapsed}/{total}일차(남은 약 {remaining}일). "
+        f"라벨의 '{label[5:7]}'월은 절입 시작 캘린더월이라 오늘 캘린더월({today.month}월)과 "
+        f"다를 수 있다."
+    )
+
+
 def _date_solar_month_note(birth: BirthInput, target: date, timezone: str) -> str:
     """특정 날짜의 절기 월간지 + 양력 범위를 '엔진 확정 사실'로 명시하는 디렉티브.
 
@@ -2194,6 +2228,10 @@ def chat(
         default_period=default_period,
         prior_claims=prior_claims,
         current_month_label=luck_month,
+        current_month_detail=_current_luck_month_detail(
+            chart_birth, today,
+            result.time_correction.timezone if result.time_correction else "Asia/Seoul",
+        ),
         structural_context=structural,
         # 물상(2단계 프로필) 사실 맥락 — 질문 도메인 관련 항목만 풀이에 사실로 주입.
         profile_facts=profile_facts_for(

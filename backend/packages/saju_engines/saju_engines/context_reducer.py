@@ -837,11 +837,14 @@ def build_reference_frame(
     intent: IntentJson,
     result: ManseV2Result,
     current_month_label: str | None = None,
+    current_month_detail: str | None = None,
 ) -> ReferenceFrame:
     """기준 시점(P1) — v1 [오늘 날짜] 원칙: LLM은 오늘이 언제인지 모른다.
 
     current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM). 시제(지남/남은 구간) 판정의
         기준 달로 쓴다. 미주입 시 양력 ``today`` 폴백(절기 경계 직전 한 달 어긋남 감수).
+    current_month_detail: 현재 절기월의 사람이 읽는 상세(간지·양력 절기 span·진행 상태). LLM이
+        라벨(YYYY-MM)을 캘린더월로 오인하지 않도록 [기준 시점]에 병기(호출 측이 절기표로 산출).
     """
     ganji = _ganji_lookup(result)
     start = intent.time_range.start if intent.time_range else None
@@ -881,6 +884,7 @@ def build_reference_frame(
         this_year=str(today.year),
         this_year_ganji=ganji.get(str(today.year), ""),
         this_luck_month=cur,
+        this_luck_month_detail=current_month_detail or "",
         question_period=period,
         question_period_note=note,
     )
@@ -1019,6 +1023,7 @@ def build_llm_input(
     default_period: tuple[str, str] | None = None,
     prior_claims: list[str] | None = None,
     current_month_label: str | None = None,
+    current_month_detail: str | None = None,
     structural_context: list[str] | None = None,
     profile_facts: list[str] | None = None,
     reserved_tokens: int | None = None,
@@ -1156,7 +1161,9 @@ def build_llm_input(
             and intent.query_type is not QueryType.DATE_RECOMMENDATION
         ),
         reference=(
-            build_reference_frame(today, intent, result, current_month_label)
+            build_reference_frame(
+                today, intent, result, current_month_label, current_month_detail
+            )
             if today else None
         ),
         structural_context=structural_context or [],
@@ -1336,10 +1343,27 @@ def serialize_llm_input(payload: LlmInput) -> str:
             "[기준 시점]",
             f"오늘: {r.today} · 올해: {r.this_year}년"
             + (f"({r.this_year_ganji})" if r.this_year_ganji else ""),
+        ]
+        if r.this_luck_month_detail:
+            lines += [
+                f"현재 절기월(진행 중): {r.this_luck_month_detail}",
+                "※ 월운·후보의 'YYYY-MM'은 절기월 라벨(절입 시작 캘린더월 기준)이라 오늘 "
+                "캘린더월과 다를 수 있다. 위 '현재 절기월'이 지금 진행 중인 달이며, 라벨 "
+                "숫자만으로 과거/미래를 판단하지 말 것 — 진행 중인 달을 '다가오는' 미래로 "
+                "서술하지 말 것.",
+            ]
+        lines += [
             (f"질문 기간: {r.question_period} — {r.question_period_note}"
              if r.question_period else r.question_period_note),
             "",
         ]
+    # 현재 달(기준 시점) — 절기 기준 당월(this_luck_month) 우선(양력 today[:7]은 절기 경계
+    # 직전 한 달 어긋남). 진행 중 절기월 표시(#3)와 '지남' 마커(P6)에 공용으로 쓴다.
+    cur_month = (
+        (payload.reference.this_luck_month or payload.reference.today[:7])
+        if payload.reference else ""
+    )
+    _cur_tag = " ← 현재 진행 중인 절기월(오늘 포함)"
     lines += [
         "[간지달력(압축)]",
     ]
@@ -1351,15 +1375,19 @@ def serialize_llm_input(payload: LlmInput) -> str:
     for y in payload.calendar_context.selected_years:
         lines.append(f"세운 {y.year} {y.ganji} (대운 {y.daewoon} 내) — 선별: {y.reason_selected}")
     for m in payload.calendar_context.selected_months:
-        lines.append(f"월운 {m.period} {m.ganji}")
+        _mtag = _cur_tag if cur_month and m.period == cur_month else ""
+        lines.append(f"월운 {m.period} {m.ganji}{_mtag}")
     for day in payload.calendar_context.selected_days:
         lines.append(f"일운 {day.date} {day.ganji}")
     def candidate_line(c: LlmEventCandidate) -> str:
         # 점수 숫자·신호 건수는 내부 변수라 노출하지 않는다(항목 5) — 강도는 치환
         # 문장(tone_for_score)으로만 전달해 '100점=확정' 오인을 막는다.
         label = c.event_ko or event_ko(c.event_key)
+        # 후보 기간이 현재 진행 중인 절기월이면 표시(#3) — 라벨(YYYY-MM)이 캘린더월과 어긋나
+        # 진행 중인 달을 '다가오는' 미래로 오인하지 않게 한다.
+        cur_tag = _cur_tag if cur_month and c.period == cur_month else ""
         return (
-            f"{label} @ {c.period}({c.ganji}, 대운 {c.daewoon_context}) "
+            f"{label} @ {c.period}({c.ganji}, 대운 {c.daewoon_context}){cur_tag} "
             f"— {tone_for_score(c.score)} · {c.direction or polarity_ko(c.polarity)}"
         )
 
@@ -1430,12 +1458,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 lines.append(marriage_guard_directive(
                     compute_marriage_output_guard(_top, stability_risk=_risk)
                 ))
-    # 현재 달(기준 시점) — 지난 기간 행·후보에 '지남' 마커를 붙여 미래 서술을 차단(P6).
-    # 절기 기준 당월(this_luck_month) 우선 — 양력 today[:7]은 절기 경계 직전 한 달 어긋남.
-    cur_month = (
-        (payload.reference.this_luck_month or payload.reference.today[:7])
-        if payload.reference else ""
-    )
+    # cur_month(현재 절기월)는 위에서 1회 산출 — 지난 기간 행·후보에 '지남' 마커(P6)에 재사용.
     if payload.out_of_range_candidates:
         lines.append("")
         lines.append("[참고 — 질문 기간 외 흐름(메인 서술 금지, 배경 맥락 전용)]")
@@ -1478,6 +1501,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 " · 지남(과거형으로만)"
                 if row_cmp and row.period < row_cmp else ""
             )
+            # 현재 진행 중인 절기월 표시(#3) — 월 단위 행에서 라벨이 오늘과 같은 절기월이면.
+            if cur_month and len(row.period) == 7 and row.period == cur_month:
+                past_mark += _cur_tag
             tr_mark = f" · {row.transition}" if row.transition else ""
             has_transition = has_transition or bool(row.transition)
             rank_mark = ""
