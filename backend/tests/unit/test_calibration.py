@@ -29,15 +29,25 @@ def test_calibration_generated_with_reference_date() -> None:
     cal = r.calibration
     assert cal is not None
     assert cal.status == "required"
-    assert len(cal.questions) == 5
-    # 같은 연도를 중복 질문하지 않는다.
-    years = [q.year for q in cal.questions]
+    # 기본 5종(q1~q5) + probe(CAL-P0 교운/성향 + CAL-P1 pair — 추가 문항 총합 ≤3).
+    base_qs = [
+        q for q in cal.questions
+        if not q.id.startswith(("q_transition", "q_trait", "q_pair"))
+    ]
+    assert len(base_qs) == 5
+    # 같은 연도를 중복 질문하지 않는다(성향 질문은 비시간형, pair B는 중복 penalty 허용).
+    years = [
+        q.year for q in cal.questions
+        if q.period_type == "year" and not q.id.startswith("q_pair")
+    ]
     assert len(years) == len(set(years))
     # 변별 연도(q1~q3)는 이벤트형(event_list)으로, q4·q5는 탐색형으로 생성된다.
     types = {q.question_type for q in cal.questions}
     assert "event_list" in types
     assert types <= {
         "event_list", "event_domain", "period_detail", "useful", "unfavorable", "contrast",
+        "transition_probe", "trait_probe",
+        "static_deficiency_probe", "transit_activation_probe",
     }
     # 이벤트형 질문은 그 해의 이벤트와 모델별 기대 극성을 싣는다.
     event_qs = [q for q in cal.questions if q.question_type == "event_list"]

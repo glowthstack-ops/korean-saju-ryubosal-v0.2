@@ -26,8 +26,8 @@ export default function ThemesPage() {
       <div>
         <h1 className="text-xl font-bold">테마사주</h1>
         <p className="mt-1 text-sm text-gray-500">
-          원하는 주제를 고르면 사주를 선택해 풀이를 생성합니다. 페이지 단위로 열람하고 PDF로 저장할
-          수 있어요.
+          궁금한 주제를 고르면 내 사주로 깊이 있는 풀이를 만들어 드려요. 완성된 풀이는 목차별로
+          차근차근 읽고, PDF로 저장해 두고두고 볼 수 있어요.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

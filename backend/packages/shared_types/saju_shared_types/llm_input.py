@@ -39,6 +39,11 @@ class BirthChartSummary(BaseModel):
     strength: str = ""  # '중화신강'
     useful_gods: UsefulGods = Field(default_factory=UsefulGods)
     geokguk: str = ""  # '정재격 · 중성 · 반성반패'(항목 9 — 격국 정보)
+    # 표면(천간·지지) 부재 오행의 지장간 잠복(2026-07-03 — '완전 부재'와 '숨은 존재' 구분).
+    # 예: '木: 표면에 없음 — 亥 중기 甲(정관) 잠복'. 없으면 빈 목록(라인 미부착).
+    hidden_latents: list[str] = Field(default_factory=list)
+    # 오행 유통 완화 메모(신약 + 상생 순환 원활일 때만) — 예: '유통 양호(상생 고리 5/5)'.
+    flow_note: str = ""
 
 
 class PillarDetail(BaseModel):

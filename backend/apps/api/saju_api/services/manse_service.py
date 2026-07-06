@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import threading
 from collections import OrderedDict
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 
 from saju_manse_analysis import analyze_chart
@@ -33,12 +35,16 @@ from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.calibration import (
     CalibrationEventItem,
     CalibrationResult,
+    DeficiencyPairCandidate,
     FeedbackAnswer,
+    TraitProbeCandidate,
 )
 from saju_shared_types.constants import (
     ENGINE_VERSION,
     RULESET_VERSION,
+    STEM_ELEMENT,
     STEM_YINYANG,
+    group_elements,
 )
 from saju_shared_types.enums import Branch, Stem, YinYang
 from saju_shared_types.event_taxonomy_v2 import EVENT_CATEGORY
@@ -77,6 +83,162 @@ def _scorer() -> EventEngineV2:
     if _event_scorer is None:
         _event_scorer = EventEngineV2(_DICTS)
     return _event_scorer
+
+
+# 십성 그룹 → 구성 십성/한글 라벨(축 predicate·병합 라벨용 — CAL-P1-b).
+_GROUP_TEN_GODS: dict[str, tuple[str, str]] = {
+    "officer": ("정관", "편관"), "wealth": ("정재", "편재"),
+    "output": ("식신", "상관"), "resource": ("정인", "편인"),
+    "peer": ("비견", "겁재"),
+}
+_ELEMENT_EN: dict[str, str] = {
+    "木": "wood", "火": "fire", "土": "earth", "金": "metal", "水": "water",
+}
+
+
+@lru_cache(maxsize=1)
+def _pair_question_entries() -> dict[tuple[str, str], dict]:
+    """deficiency_pair_questions.json 로드 — (axis_type, axis_id) 인덱스(프로세스 캐시)."""
+    data = json.loads(
+        (_DICTS / "interpretations" / "deficiency_pair_questions.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    return {(e["axis_type"], e["axis_id"]): e for e in data["entries"]}
+
+
+def _disputed_elements(result: ManseV2Result) -> set[str]:
+    """후보 모델 간 역할이 갈리는 오행 — 어느 모델에선 용·희, 다른 모델에선 기·구.
+
+    CAL-P1 축 우선순위 1·2의 런타임 proxy(감수 플래그 축은 테스트 fixture 측 데이터라
+    런타임 미접근 — 논쟁 축이 그 상위 개념을 덮는다).
+    """
+    ya = result.yongsin_analysis
+    if ya is None:
+        return set()
+    fav: set[str] = set()
+    unfav: set[str] = set()
+    for m in ya.candidate_models:
+        fav |= {x for x in (m.yongsin, m.heesin) if x}
+        unfav |= {x for x in (m.gisin, m.gusin) if x}
+    return fav & unfav
+
+
+def _deficiency_pair_candidates(result: ManseV2Result) -> list[DeficiencyPairCandidate]:
+    """CAL-P1-b axis predicate — 이원 질문 쌍 후보를 우선순위 순으로 만든다(결정론).
+
+    predicate(기존 엔진 값 재사용, 새 임계값 없음):
+    - element 축: 표면 부재(raw_visible == 0 — 지장간에 있어도 표면에 없으면 해당.
+      이 사례의 '木 지장간 有·표면 無'를 잡는 핵심).
+    - ten_god_group 축: 그룹 구성 십성이 모두 visible_absent.
+    - 그룹 축의 대상 오행이 동시에 표면 부재면 하나로 병합(구체 문구인 그룹 축 채택,
+      engine_basis에 양쪽 기재 — 설계 §6-1 예시와 동일).
+
+    우선순위(§P1-b 확정): 논쟁 축(모델 간 역할 갈림 — 감수 플래그 축의 런타임 proxy)
+    > 병합 축(결핍 신호 2중) > 결핍 강도(그룹 세력/분포 오름차순). intent 축은 온보딩
+    캘리브레이션에 intent가 없어 미적용. 질문 문구는 사전(reviewed:false 초안)에서만.
+    """
+    fa = result.force_analysis
+    pillars = result.pillars
+    if fa is None or pillars is None:
+        return []
+    entries = _pair_question_entries()
+    day_element = STEM_ELEMENT[Stem(pillars.day.stem)]
+    group_element = {g: str(el) for g, el in group_elements(day_element).items()}
+    visible_absent = set(fa.ten_gods.visible_absent)
+    raw_visible = fa.five_elements.raw_visible
+    absent_elements = {
+        el for el in _ELEMENT_EN if raw_visible.get(el, 0.0) == 0.0
+    }
+    disputed = _disputed_elements(result)
+
+    candidates: list[tuple[tuple, DeficiencyPairCandidate]] = []
+    merged_elements: set[str] = set()
+    for group, ten_gods in _GROUP_TEN_GODS.items():
+        if not set(ten_gods) <= visible_absent:
+            continue
+        el = group_element[group]
+        entry = entries[("ten_god_group", group)]
+        basis = [entry["basis_label"]]
+        suppress = [group]
+        merged = el in absent_elements
+        if merged:
+            basis = [entries[("element", _ELEMENT_EN[el])]["basis_label"], *basis]
+            suppress.append(_ELEMENT_EN[el])
+            merged_elements.add(el)
+        severity = fa.ten_gods.groups.get(group, 0.0)
+        rank = (0 if el in disputed else 1, 0 if merged else 1, severity, group)
+        candidates.append((rank, DeficiencyPairCandidate(
+            axis_type="ten_god_group", axis_id=group, axis_element=el,
+            engine_basis=basis,
+            static_question_text=entry["static_question"],
+            transit_question_text=entry["transit_question"],
+            suppress_axis_keys=suppress,
+        )))
+    for el in absent_elements - merged_elements:
+        en = _ELEMENT_EN[el]
+        entry = entries[("element", en)]
+        severity = fa.five_elements.distribution_total.get(el, 0.0)
+        rank = (0 if el in disputed else 1, 1, severity, en)
+        candidates.append((rank, DeficiencyPairCandidate(
+            axis_type="element", axis_id=en, axis_element=el,
+            engine_basis=[entry["basis_label"]],
+            static_question_text=entry["static_question"],
+            transit_question_text=entry["transit_question"],
+            suppress_axis_keys=[en],
+        )))
+    candidates.sort(key=lambda x: x[0])
+    return [c for _, c in candidates]
+
+
+def _daewoon_element_years(result: ManseV2Result) -> dict[str, set[int]]:
+    """오행 → 그 오행이 대운에서 활성인 연도 집합(B 앵커 boost용 — CAL-P1-b)."""
+    out: dict[str, set[int]] = {}
+    if result.luck_cycles is None:
+        return out
+    for d in result.luck_cycles.daewoon_table:
+        years = range(d.approx_start_date.year, d.approx_end_date.year + 1)
+        for el in d.raw_elements:
+            out.setdefault(el, set()).update(years)
+    return out
+
+
+def _trait_probe_candidates(result: ManseV2Result) -> list[TraitProbeCandidate]:
+    """명식 사실 → trait_probe 후보(결정론 predicate) — CAL-P0-b.
+
+    성향 해석 '표현'의 적중도 검수 재료만 만들며 판정·점수와 무관하다(채점 비반영은
+    scorer가 보장). 후보 순서 고정(재현성) — cap(기본 1)은 질문 생성기가 적용한다.
+    """
+    candidates: list[TraitProbeCandidate] = []
+    sinsal_names: set[str] = set()
+    extras = result.traditional_extras
+    if extras is not None and extras.sinsal is not None:
+        for names in extras.sinsal.summary.model_dump().values():
+            if isinstance(names, list):
+                sinsal_names.update(str(n) for n in names)
+    if "현침" in sinsal_names:
+        candidates.append(TraitProbeCandidate(
+            target="communication_style",
+            engine_basis=["현침"],
+            question_text=(
+                "사주에 말·글로 콕 집어 표현하는 정밀한 전달력 신호(현침)가 보여요. "
+                "실제로도 생각을 말이나 글로 전하는 일이 편한 편인가요? 즉흥적인 대면 "
+                "대화보다 글이나 정리된 설명이 편하다면 '상황에 따라 다르다'를 골라 주세요."
+            ),
+        ))
+    fa = result.force_analysis
+    if fa is not None and {"정관", "편관"} <= set(fa.ten_gods.visible_absent):
+        candidates.append(TraitProbeCandidate(
+            target="decision_style",
+            engine_basis=["관성 표면 부재"],
+            question_text=(
+                "정해진 규칙이나 소속으로 자신을 묶기보다 흘러가는 대로 움직이는 편이라는 "
+                "신호(관성이 겉으로 드러나지 않음)가 보여요. 실제 본인도 그런 편인가요?"
+            ),
+            # CAL-P1 §1-C — 같은 officer 축의 P1 pair가 생성되면 이 후보는 suppress.
+            axis_key="officer",
+        ))
+    return candidates
 
 
 def _event_items_provider(
@@ -430,7 +592,13 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
 
     # 검증 질문은 result(루크·용신 포함)가 있어야 이벤트 엔진으로 연도별 이벤트를 검출하므로
     # result 구성 후 생성해 부착한다(이벤트형 질문 — 모델별 기대 극성).
+    # CAL-P0: 교운기 연도(질문 후보 ranking 전용)와 trait_probe 후보(채점 비반영)를 주입.
     if birth.reference_date is not None and chart_analysis.yongsin.candidate_models:
+        transition_years = (
+            [d.approx_start_date.year for d in luck_cycles.daewoon_table]
+            if luck_cycles is not None
+            else None
+        )
         result.calibration = generate_calibration(
             chart_analysis.yongsin,
             tc.civil_datetime.date().year,
@@ -440,6 +608,11 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
             event_provider=_event_items_provider(
                 result, chart_analysis.yongsin.candidate_models
             ),
+            transition_years=transition_years,
+            trait_candidates=_trait_probe_candidates(result),
+            # CAL-P1-b — 이원 질문 쌍 축 후보 + 대운 오행 활성 연도(B 앵커 boost).
+            pair_candidates=_deficiency_pair_candidates(result),
+            daewoon_element_years=_daewoon_element_years(result),
         )
     return result
 

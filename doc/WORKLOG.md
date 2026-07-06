@@ -6147,3 +6147,439 @@ ConversationState.last_retro(직전 턴 시간 방향) 추가, is_retro 판정�
 직전 방향 상속(기본 미래) 순으로 재구성. '월단위로'가 미래질문 뒤면 미래·과거질문 뒤면 과거 승계.
 검증: 미래→월단위 후보 2026-06~(과거 제거), 과거→월단위 과거 유지. test_open_when_followup_inherits_
 direction(last_retro 미래False/과거True). 전체 1393 pass.
+
+### 실상담 사례 역공학 — 명식 정합성 fixture + 답변 방식(P0~P2) 보강 (2026-07-03)
+
+데굴님 제공 실상담 케이스(1980-11-22 09:40 서울 남, 메타인지보고서 PDF+전화 요약)를 3가치
+(엔진 정합성 검증·상담 UX 역공학·테마운세 답변 방식 보강)로 반영(사용자 승인 플랜 1~8).
+사례 분석: `doc/v2_2/cases/1980_1122_job_report_case.md`. 명식(庚申 丁亥 己亥 己巳)·신약·
+정재격(반성반패)·용신土/희신火/구신水가 상담사 판정과 일치, 金(한신vs BAD)·木(기신vs혼재)은
+expert_review_required로 fixture `review_flags`에만 등록(단일 사례로 role 변경 금지 — 木은
+정적 결핍 vs 운 작동 분리 원리의 감수 사례). **목차 개편 없음** — 기존 J 목차가 커버, 부족한
+건 생활 언어 번역층으로 확정.
+
+- **fixture 회귀**: `tests/fixtures/cases/1980_1122_job_report_case.json` +
+  `test_case_1980_1122_job_report.py`(6건 — 사주·진태양시 시주 유지·신강약·격국·용신 부분단언·
+  현침·감수 플래그). 金/木은 테스트 실패 기준으로 단언하지 않음(데굴님 확정).
+- **P0 서술 디렉티브 7종**(`structural_context.py`, 채팅·리포트 공용, 계산 불변 원칙 1·12):
+  결론 선제시 / 활동 키워드 번역 / 탈규범 안심 / 극복 아니라 관리 / 운 품질→의사결정 태도 /
+  시기 단정 금지 / 성향 반박 수용(풀이 인용+부정 감지 — 상담사가 회피하던 지점의 명시 규칙화).
+- **P1 활동 키워드 사전**: `dictionaries/interpretations/activity_keyword_map.json`(오행 5종+
+  현침살, reviewed:false). 직업 추천이 아니라 활동축·환경·방식 번역 전용. **P2 개운 행동 사전**:
+  `remedy_action_map.json`(not_magic/behavior_first/avoid_certainty 원칙+5오행 행동,
+  reviewed:false — 기존 remedy.json D-3 상황 6분기와 별개 축). 둘 다 SCHEMA_BY_PATH 등록
+  (pydantic 검증, remedy는 5오행·3원칙 고정 validator).
+- **배선**: 리포트 — J-07에 활동 키워드+개운 행동 블록(용신·희신=살릴 기운/기신·구신=기준,
+  원국 신살 매칭, 결정론 선별)+번역 지시, 행동 전략 섹션군(F-19/Y-10/W-08/J-07/R-07/RP-09/
+  RL-07/C-07)에 관리·태도 디렉티브, R-07·RP-09에 탈규범, J-06에 시기 단정 금지(가이드 문구+
+  디렉티브 — 우선 J-06만, 감수 후 타 테마 주목달 확장 검토). 채팅 — 비교/의사결정→결론 선제시,
+  REMEDY→관리 프레임, 대운·장기→태도 번역, 성향 반박(인용+부정)→수용·재해석, 강한 당위
+  ('꼭 해야')→탈규범(일반 의사결정 질문 오탐 방지 키워드 게이트).
+- 검증: 신규 테스트 19건(fixture 6+사전/배선 8+트리거 5... 실측 6+6+2 파일) 포함 전체
+  1439 passed·1 skipped, ruff·mypy clean, validate_dictionaries 74개 통과.
+- 남은 감수 대기: 金/木 role, 두 사전 전 항목 reviewed:false(감수 통과 후 W-08 등 확장),
+  산업 조합(실버×온라인) 세분화는 occupation_taxonomy 연계 여부 별도 논의.
+
+### CAL-P0 — 캘리브레이션 질문 품질 개선: 교운기 우선 배치 + trait_probe 수집 (2026-07-03)
+
+실상담 사례 분석(doc/v2_2/cases/1980_1122_job_report_case.md)에서 도출한 캘리브레이션 개선
+6안 중 데굴님이 P0로 확정한 2건 구현. **불변식: 점수·용신 role·favorability·세운/월운 산출
+불변** — probe는 질문 후보 순서·질문 문구·축적 레코드에만 관여(원칙 준수 테스트로 고정).
+
+- **P0-a transition_probe(교운기 우선 배치)**: `period_selector`에 교체 연도 거리 가중
+  {0:1.0, ±1:0.368, ±2:0.135, ±3:0.05}을 후보 ranking에만 boost 가산(`transition_weight`
+  필드). `question_generator`가 교운 근접 최상위 해로 회상형 질문(q_transition) 생성 —
+  교체기 체감 신호(주변 사람 교체·정리·거주/리듬 변화·싱숭생숭)를 회상 단서로, 사건 단정
+  금지 문구 고정. cap 기본 1(쏠림 방지, `max_transition_probes`). manse_service가
+  `luck_cycles.daewoon_table`의 approx_start_date.year를 주입.
+- **P0-b trait_probe(성향 동의/반박 수집)**: 새 질문 유형 — 채점 절대 비반영(scorer가
+  `_PROBE_TYPES` 명시 제외 + expected/target 공란 이중 차단). 후보는 manse_service의
+  결정론 predicate(`_trait_probe_candidates`): 현침→communication_style, 관성 표면
+  부재(visible_absent ⊇ {정관,편관})→decision_style. cap 1. 응답(agreed/mixed/denied/
+  unclear, 자유 진술)은 `CalibrationResult.trait_probe_feedback`(scoring_effect=none,
+  review_status=accumulate_only)로 축적, denied/mixed면 `trait_llm_hints`에 '단정 회피·
+  발현 조건 재해석' 표현 조정 힌트만 생성(役 confidence 조정·override는 이번 스코프에서
+  의도적으로 제외 — 데굴님 확정).
+- 스키마: CalibrationQuestion(trait_target·engine_basis, 유형 주석), FeedbackAnswer
+  (trait_response·trait_statement), TraitProbeCandidate/TraitProbeFeedback,
+  TRAIT_PROBE_TARGETS 6축·옵션 4지 상수.
+- 검증: 신규 test_calibration_probes.py 9건(교운기 4 — 창 앵커·±3년 밖 boost 0·cap 1·
+  q1~q5 유지+expected_by_model 불변 / trait 5 — 생성·agreed/denied 축적·unclear 처리·
+  용신 결정 불변·힌트 전용). 기존 test_calibration 질문 수 단언을 새 규격(기본 5+probe)
+  으로 갱신. 전체 1448 passed·1 skipped, ruff·mypy clean.
+- 보류(데굴님 확정): 갈리는 오행 조준 샘플링(②)·정적 결핍 vs 작동 이원 질문(③)·대화 중
+  실측 승격(⑤)·role confidence 미세 조정(⑥). FE는 신규 question_type 2종 렌더링 미배선.
+
+### FE-P0 — 캘리브레이션 probe 2종 프론트 렌더링 배선 (2026-07-03)
+
+CAL-P0 신규 question_type(transition_probe/trait_probe)의 FE 대응(데굴님 확정 지시).
+CalibrationPanel(만세력 결과·온보딩 StepYongsin 공용)에 명시 분기 추가 — 기존 q1~q5
+렌더링 불변, 기존 응답 구조 불변.
+
+- **trait_probe**: 선택형 고정(대체로 그렇다/상황에 따라 다르다/그렇지 않다/잘 모르겠다,
+  `TRAIT_OPTIONS` — 백엔드 TRAIT_RESPONSES 미러) + 보조문 "답변 스타일을 더 잘 맞추기 위한
+  확인 질문이에요. 용신이나 운세 점수는 바뀌지 않아요."(용신 수정 UI로 오인 차단) + 자유
+  한 줄 입력(선택, 80자). 응답은 payload `trait_response`/`trait_statement`로 전달.
+- **transition_probe**: 회상형 — 질문 본문 + 보조문 "이 시기는 대운(10년 흐름)이 바뀌는
+  전환 전후예요. 실제 사건이 아니더라도 생활 리듬이나 주변 환경 변화가 체감됐는지
+  확인해요."(사건 단정 문구 금지) + 변화 영역 칩(복수, 기존 selected_events 재사용).
+  전체 체감·영역별 체감 그리드는 미노출(채점 비반영 문항에 과입력 방지).
+- 타입: lib/types CalibrationQuestion(trait_target·engine_basis), lib/api FeedbackAnswer
+  (trait_response·trait_statement), lib/calibration AnswerMap 확장. isAnswered가 probe
+  유형별 응답 판정(trait=선택지, transition=칩).
+- QA 7항 실측(FE payload 형태 그대로 백엔드 E2E 시뮬): q1~q5 유지 / probe 각 ≤1 /
+  payload 역직렬화 OK / trait denied·agreed 간 용신·희신·기신·selected_model 동일 /
+  denied만 표현 힌트 1건·agreed 힌트 0건 / transition 문구 단정어(반드시·무조건 등) 없음.
+- 검증: tsc clean, next production build 통과, vitest 23 passed.
+
+### QA-P0 — probe pre-live 수동 QA(synthetic 20건) + 기본 질문 굶김 결함 수정 (2026-07-03)
+
+CAL-P0/FE-P0 probe의 오픈 전 검수(데굴님 지시). 재실행 가능한 QA 하네스
+`scripts/qa_calibration_probes.py` — 명식 풀(~160개 조합)을 스캔해 버킷별 20건 선별:
+A 교운기 명확(±1년) 5 / B 교운기 원거리(≥4년) 3 / C 현침→communication_style 4 /
+D 관성 표면 부재→decision_style 4 / E probe 미노출(성별 미상=대운 없음+trait 없음) 2 /
+F trait 반박 시나리오 2. 각 건에서 노출 조건·cap·기본 질문 불변·FE 동형 payload→백엔드→
+LLM 힌트·판정 불변식(trait denied/mixed/agreed/미응답 4종 대조)·80자 진술 경계·단정어를 검사.
+
+- **QA 중 실결함 1건 발견·수정(F2)**: q_transition이 연도를 **먼저** 선점해, 교운 해가
+  기본 질문의 유일 후보인 차트에서 q1~q5를 굶길 수 있는 구조. 수정 — 기본 q1~q5 생성
+  **후** 남은 연도에서 probe 선택(표시 순서는 insert로 맨 앞 유지). 회귀:
+  test_transition_probe_does_not_starve_base_questions(1975-03-08 04:30 男 — 갈림 해
+  2020 하나뿐인 실측 케이스).
+- **QA 판정 기준 교정**: 'q1~q5 5개 존재'가 아니라 'probe 미주입(cap 0) 기준선과 (id,
+  year) 동일'이 정확한 불변식 — q3(갈림 해)은 갈림 해가 없으면 CAL-P0 이전부터 원래
+  미생성(F2 최초 실패는 probe 원인이 아니라 기준 과엄격이었음을 기준선 대조로 확인).
+- **결과: 20/20 통과** — payload 정상 20/20, cap 위반 0, 기본 질문 구성 변형 0,
+  trait 반박으로 인한 role·model_scores 변경 0, denied/mixed만 힌트 생성(agreed·미응답
+  0건), transition 문구 단정어(반드시/무조건/됩니다 등) 0, 80자 진술 저장 일치.
+- FE 계약 고정: tests/luck-calibration.test.ts에 TRAIT_OPTIONS↔백엔드 TRAIT_RESPONSES/
+  TRAIT_PROBE_OPTIONS 값·라벨·순서 미러 테스트 추가(어긋나면 unclear 강등되는 계약).
+- 검증: 전체 1449 passed·1 skipped, ruff·mypy clean / FE vitest 25 passed·tsc clean.
+- UI 시각 확인(모바일 과밀)은 컴포넌트 구조 검토(기존 칩/버튼 flex-wrap 패턴 재사용,
+  probe 카드가 기본 문항보다 가벼움)까지 — 실기기 확인은 데굴님 오픈 전 체크 항목으로 남김.
+- **CAL-P1 입력용 관찰**: trait 반박의 3결(성향 자체 부정 / 특정 상황 한정 / 시기 변화)
+  구분은 synthetic으로 만들 수 없는 실사용 데이터 — trait_statement 자유 진술이 그 원천.
+  CAL-P1(정적 결핍 vs 운 작동 이원 질문) 설계 시 trait_probe_feedback에 반박 결 태깅
+  스킴(trait_denial_kind: absolute/situational/temporal)을 함께 정의할 것.
+
+### CAL-P1 설계안 — 정적 결핍 vs 운 작동 이원 질문 + 반박 결 태깅 (2026-07-03, 문서만)
+
+데굴님 착수 지시(구현 금지 — 문서 설계부터). 신규 SSOT:
+`doc/v2_2/CALIBRATION_STATIC_TRANSIT_PROBES.md`. 핵심: 같은 오행/십성이라도 "원국에
+없어서 부족한 것"(정적 결핍)과 "운에서 들어와 압박·사건으로 작동하는 것"(운 작동)을
+분리해 묻는다 — 木 사례처럼 '없어서 허전 + 들어오면 부담'이 동시 성립 가능(모순 아님).
+
+- **질문 축 2종**: `static_deficiency_probe`(비시간형, 결핍 체감 — agreed/mixed/denied/
+  unclear) + `transit_activation_probe`(해당 오행 강세 해 앵커 — strong/partial/none/
+  unknown). 트리거는 결정론 predicate(부재 오행·십성 그룹 표면 부재), 길흉 어휘 배제.
+- **쌍 생성 원칙**: 반드시 pair(단독 금지 — B 앵커 해 없으면 쌍 전체 미생성), 단일
+  좋다/나쁘다 질문으로 합치기 금지, 쌍 cap 1(CAL-P0 포함 추가 문항 ≤3), 축 선정은
+  용신 논쟁 축(감수 플래그 축) 최우선, 표시는 A→B(응답 오염 방지), 기본 q1~q5 연도
+  보호(QA-P0 불변식 승계). CAL-P0의 관성부재 decision_style trait_probe는 A축으로
+  승격·대체 예정(중복 방지).
+- **질문 쌍 예시 규격 초안**: 오행 5축 + 십성 그룹 5축 표(전 항목 감수 대상,
+  reviewed:false — 구현 시 JSON 사전으로, 원칙 5·12).
+- **trait_denial_kind 태깅**: absolute/situational/temporal/mixed/unclear 5종, 룰
+  기반만(키워드 표지 + situational·temporal 동시=mixed, 빈 진술=null≠unclear).
+  situational/temporal은 오류가 아니라 '발현 조건 정보'로 LLM 힌트에 승계, absolute
+  반복 축적은 expert_review 우선순위 상향(자동 조정은 CAL-P2 전 금지).
+- **해석 매트릭스(2×2)**: A×B 응답 조합 → LLM 표현 힌트 방향(agreed+strong='양면 서사,
+  모순으로 쓰지 말 것' 등) — 판정 비개입, 감수 자료 겸용.
+- 불변식(§5): role/confidence/event score/favorability 불변, 응답으로 용신·기신 확정
+  금지. 테스트 기준 9항 초안(§7), 구현 단계 P1-a(스키마·태깅 함수)/P1-b(사전+생성기+
+  scorer 축적)/P1-c(FE+QA-P1) 제안. 미결 3건(§8 — B 연도의 대운 중첩 우선 여부, 노출
+  위치, decision_style 승격 시점)은 구현 승인 시 확정 요청.
+- 교차 참조: docs/14 §7 후속 포인터 신설, 사례 문서 §7 갱신. 코드 변경 없음.
+
+### CAL-P1 확정 + P1-a 구현 — 이원 probe 스키마·반박 결 태깅 (2026-07-03)
+
+설계안 승인 + 미결 3건 확정(데굴님) → 설계 문서(`CALIBRATION_STATIC_TRANSIT_PROBES.md`)
+확정 상태로 갱신: ① B 앵커 = 세운 활성 해 기본 + 대운 중첩 boost + q_transition
+동일/±1년 penalty(유일 후보면 교운 중첩 회피 힌트 문구), ② 노출 = 현행 CalibrationPanel
+합류(추가 문항 cap ≤3, 표시 transition→A→B→q1~q5→trait fallback, 생성은 기본 질문
+먼저), ③ P1 pair 생성 axis의 CAL-P0 trait_probe suppress(fallback 유지, 현침 축은
+다르면 유지, cap 초과 시 pair 우선). 테스트 기준 10~13 추가(suppress·앵커 회피·중첩
+예외 문구·총량 cap).
+
+**P1-a 구현(승인 스코프 — 스키마+태깅만, 질문 생성은 P1-b)**:
+- 스키마: question_type 2종 주석 등록(static_deficiency_probe/transit_activation_probe),
+  응답 enum(STATIC_DEFICIENCY_RESPONSES=trait 4지 재사용 / TRANSIT_ACTIVATION_RESPONSES
+  strong·partial·none·unknown + 옵션 라벨), TRAIT_DENIAL_KINDS 5종,
+  CalibrationQuestion pair 필드(pair_id·axis_type·axis_id), FeedbackAnswer
+  transit_response/statement, DeficiencyPairFeedback(§6-1, scoring_effect=none·
+  accumulate_only 기본), CalibrationResult.deficiency_pair_feedback. 전부 기본값
+  None/[] — 하위호환.
+- 태깅 순수 함수: `manse_calibration/trait_tagging.classify_trait_denial_kind` —
+  룰 기반만(situational·temporal 동시=mixed 우선, 강부정=absolute, 빈 진술=None≠unclear).
+  feedback_scorer가 trait 축적 레코드에 denial_kind 부착(채점 비반영 — 진술 유무와
+  무관하게 용신 확정·model_scores 동일함을 테스트로 고정).
+- 검증: 신규 test_trait_denial_tagging.py 9건(결별 룰·mixed 우선·빈 진술 None·E2E
+  denial_kind 흐름·판정 불변·pair 스키마 기본값·transit 필드 하위호환). 전체
+  1458 passed·1 skipped, ruff·mypy clean.
+- 다음: P1-b(axis predicate·pair 생성·B 앵커 랭킹·suppress·cap 통합) — 착수 지시 대기.
+
+### CAL-P1-b — 이원 질문 쌍 생성·B 앵커 랭킹·suppress·cap 통합 (2026-07-03)
+
+데굴님 착수 지시대로 질문 생성·응답 왕복·축적까지(LLM 힌트는 P1-c 보류). 전체
+1467 passed·1 skipped, ruff·mypy clean, QA 하네스 20/20 유지.
+
+- **질문 쌍 사전**: `dictionaries/interpretations/deficiency_pair_questions.json`
+  (오행 5축 + 십성그룹 5축, reviewed:false — 축 전수 validator 포함 SCHEMA_BY_PATH 등록).
+- **axis predicate**(manse_service, 기존 엔진 값 재사용·새 임계값 없음): element 축 =
+  raw_visible==0(표면 부재 — '木 지장간 有·표면 無'를 잡는 사례 핵심), ten_god_group 축 =
+  그룹 십성 모두 visible_absent. 그룹 축 오행이 동시 표면 부재면 병합(그룹 문구 채택,
+  engine_basis 양쪽 기재). 우선순위: 논쟁 축(모델 간 용희↔기구 갈림 — 감수 플래그 축의
+  런타임 proxy) > 병합 축 > 결핍 강도. intent 축은 온보딩에 intent 없어 미적용.
+- **B 앵커 랭킹**(question_generator): 세운 축 활성(천간/지지 각 +1) + 대운 중첩 boost(+1,
+  manse_service가 오행별 대운 활성 연도 주입) + 깨끗한 해 보너스(+0.5) − 교운 동일 해(−3)/
+  ±1년(−1) − 기본 질문 중복(−1.5). 후보 0이면 쌍 전체 미생성(A 단독 금지). 유일 후보가
+  교운과 겹치면 생성하되 '대운 전환감 중첩' 안내 문구 부착(단정 금지).
+- **생성/표시 분리**: 생성 q1~q5 → transition → pair → trait fallback → cap, 표시
+  transition → A → B → q1~q5 → trait. cap: 추가 probe 총합 ≤3(우선순위 transition >
+  pair(2문항 통째) > trait). pair 생성 axis의 trait_probe suppress(axis_key 매칭 —
+  관성 decision_style은 officer pair 시 미노출, 현침은 axis 무관 유지).
+- **응답 축적**(scorer): `_PROBE_TYPES`에 P1 2유형 추가(채점 명시 제외).
+  `deficiency_pair_feedback`(pair_id·axis·static/transit 응답·denial_kind 태깅·
+  transit_year, scoring_effect=none·accumulate_only) — 미응답 쌍은 기록 안 함.
+- **사례 실측**: 1980-11-22 명식에서 officer 축(木·관성 병합) pair 생성, **B 앵커
+  2023년(癸卯)** — 실제 사용자의 2023-10 퇴사 해와 일치. transition 2025 + pair 2 =
+  cap 3 도달 → trait drop(의도된 우선순위).
+- 테스트: 신규 test_deficiency_pair_probes.py 8건(무앵커 미생성·A단독 0·쌍 cap 1·총량
+  cap 3·suppress·현침 유지·교운 회피/유일 후보 예외 문구·기준선 동일·응답 4조합 판정
+  불변+축적). 기존 trait E2E는 cap 우선순위 변화(의도)에 맞춰 generator+score_calibration
+  직접 경로로 재작성, 기본 질문 필터에 q_pair 반영. QA 하네스에 pair(0 또는 2)·총량 cap
+  검사 추가.
+- FE: P1 pair 렌더링은 P1-c(현재 FE는 default 폼으로 표시 — 응답 필드 미전송 시 축적
+  레코드 미생성이라 무해).
+
+### CAL-P1-c — A×B 매트릭스 LLM 표현 힌트 + 주입 + FE pair 렌더링 (2026-07-03, CAL-P1 core 완료)
+
+데굴님 지시대로 표현 힌트·주입·FE만(엔진 판정·점수·role·confidence 불변 — 회귀로 고정).
+BE 전체 1475 passed·1 skipped, ruff·mypy clean, QA 하네스 20/20 / FE vitest 27 passed·
+tsc clean·production build 통과.
+
+- **A×B 매트릭스**(feedback_scorer): agreed+strong=dual(양면 서사, 모순 금지) /
+  agreed+partial·mixed/partial 계열=conditional(조건부 발현) / agreed+none=felt_lack
+  (사건 예측 근거 금지, 생활감 중심) / denied+strong=external_period_pressure(성향 축소,
+  시기·환경 중심) / denied+none=deemphasize(비중 축소·단정 회피, '원국상 부족=반드시 문제'
+  금지) / 유보(unclear·unknown·미응답)=hedge. 전 instruction에 불변 조항('판정 변경 금지·
+  처방 금지') 내장. `CalibrationResult.pair_expression_hints`(PairExpressionHint —
+  axis·element·응답·transit_year·narrative_mode·instruction).
+- **payload 확정**: FeedbackAnswer.static_response 전용 필드 신설(P1-b의 trait_response
+  재사용은 폴백으로 하위호환). question에 axis_element 추가(힌트 직렬화용).
+- **LLM 주입**: personalization.calibration_hint_lines(순수 함수 — subject_yongsin.
+  calibration blob의 pair instruction+trait 힌트를 '[캘리브레이션 표현 조정 — 근거·확인 해]'
+  라인으로, cap 3) + fetch_calibration_expression_hints(무DB·실패=빈 목록, 규칙11).
+  chat trailing(확정 용신 안내 옆) + report prefix(전 섹션 공통, 확정 용신 note 옆) 주입.
+- **FE**: static_deficiency_probe='평소 체감' 칩+4지(trait 4지 재사용)+참고용 보조문,
+  transit_activation_probe='해당 시기 체감' 칩+4지(강하게/일부/거의 없음/모름)+'점수를
+  바꾸지 않아요' 보조문 — default fallback 제거. payload에 static/transit_response(null
+  기본). enum 계약 vitest 미러 테스트 추가.
+- 테스트: 신규 test_pair_expression_hints.py 8건(전용 필드 왕복·pair_id 묶임·dual/
+  deemphasize/conditional/hedge 매트릭스·전 조합 판정 불변·blob 직렬화(cap·방어)·미응답
+  무힌트). 설계 문서 상태 'CAL-P1 core 완료'로 갱신.
+- 남은 감수 대기: deficiency_pair_questions.json 전 항목 reviewed:false(전문가 감수),
+  denial_kind 키워드 룰은 실사용 진술 축적 후 보정. FE 모바일 실기기 확인은 release
+  checklist 유지.
+
+### CAL-P1 core close + release checklist 정리 (2026-07-03, 데굴님 최종 판정)
+
+**CAL-P1 Static Deficiency vs Transit Activation Probes: core 완료.**
+
+완료 범위:
+- 정적 결핍 vs 운 작동 pair 질문 설계·생성 / B 앵커 랭킹 / trait_probe suppress·cap 통합
+- 응답 축적(deficiency_pair_feedback) / trait_denial_kind 태깅
+- A×B 응답 매트릭스 기반 LLM 표현 힌트(chat trailing·report prefix 주입)
+- FE 전용 렌더링('평소 체감/해당 시기 체감') 및 payload 연결
+- scoring/role/favorability/event 산출 불변 회귀 고정
+
+남은 항목(release/review 트랙 — `doc/v2_2/RELEASE_CHECKLIST_CALIBRATION.md` 신설):
+- R-1 deficiency_pair_questions(+activity/remedy map) 문구 전문가 감수 — 감수 시트
+  export_review_sheet.py §5~7 확장(신규 3사전 포함, 기준 5항 시트에 명시. 현황 0/162).
+- R-2 denial_kind 룰 실사용 로그 기반 보정(지금 정교화 금지 — 과적합 위험. 관찰 지표
+  6종 명시).
+- R-3 모바일 실기기 화면 확인 5항.
+
+다음 순서 고정: release checklist 3건 → 오픈/베타 → 실사용 로그 2차 검수 → CAL-P2 범위
+결정(②갈리는 오행 조준 / ⑤대화 실측 승격 / ⑥role confidence — 판단 데이터 5종 checklist에
+기재). 기능 확장 착수 금지 — probe 체계의 실사용 작동 관찰이 먼저.
+
+### CAL-QA — 무신호 응답 상태 추가(pre-release data hygiene) (2026-07-03)
+
+데굴님 지적('직장인에게 학업 질문 — 시도 자체가 없었음을 표현 불가 / 취업은 발생+경험
+2단인데 결과만 받음') → 진행 A+B·보류 C·비권장 D 확정. 기능 확장이 아니라 **데이터 계약
+수정** — 오픈 후 쌓일 응답에서 무응답·기억 안 남·실제 없음을 분리하기 위한 오픈 전 패치.
+docs/14 §8 신설.
+
+- **A. 영역별 체감 +`no_domain_activity`**("특별한 일 없었음") — unknown(기억 안 남)과
+  구분되는 비활성 신호. 채점 제외+분모 제외, raw 응답 blob에 값 그대로 축적.
+- **B. 용신 검증 이벤트 결과 +`not_occurred`**("그런 일 없었다") — 발생 반증 신호.
+  용신 채점 미사용(결정②), accumulate_only, personal_match 승격은 CAL-P2 판단.
+  '기신 아님'으로 즉시 해석 금지(용신 검증≠이벤트 개인 적합도 검증 — 계층 분리 명문화).
+- **구현 중 잡은 간접 개입 2건**: ①`_score_domains` 변동성 보너스가 극성 제외와 무관하게
+  실행 — 무신호 가드 추가(unknown의 기존 동작은 스코프 밖 유지). ②이벤트 브랜치 선택 —
+  무신호만 고른 응답이 이벤트 브랜치를 열어 연도 전체 평점 폴백을 건너뛰며 점수가 달라지던
+  문제 → 무신호(+레거시 na, 의미 동일 '해당없음'이라 무신호로 매핑 — 데굴님 허용 옵션)를
+  브랜치 판정 전에 필터. **브랜치 불변식**(무신호만 응답=무응답과 채점 동일)을 docs/14
+  §8에 명문화.
+- FE: DOMAIN_OPTIONS +1(특별한 일 없었음). 이벤트는 `YONGSIN_EVENT_OPTIONS` 분리 신설
+  (+그런 일 없었다) — 현실 캘리브레이션(발생 체크 후 결과)은 기존 EVENT_OPTIONS 유지
+  (모순 옵션 방지). normalizeEventRating이 무신호 값 보존(na→unknown 표시 정규화 유지).
+- 검증: 신규 test_no_signal_ratings.py 6건(delta 0·분모 제외·unknown과 구분 저장·용신
+  비반영·raw 보존·legacy na 하위호환). 전체 1481 passed·1 skipped, ruff·mypy clean,
+  QA 하네스 20/20, FE vitest 30·tsc·build 통과. 실서버(:4000 프록시) 무신호 payload
+  왕복 200 확인, 백엔드 재기동 완료(터널 체인 정상).
+
+### 기간 없는 '달/날짜' 입도 질문 라우팅 교정 (2026-07-03)
+
+실사례(데굴님 제보): '연애를 시작하는 달은 언제야?' → 10년 연 단위 나열로 오답. 원인 3축:
+① 기간 미지정이면 vague_future(10년 연 digest)가 무조건 선점 — 월 경로(wants_monthly)는
+`not vague_future` 게이트에 막힘. ② 연애 문맥 _MEETING_TIMING_DIRECTIVE의 '연·반기·계절
+단위 제시' 지시가 명시적 달 요청과 정면 충돌. ③ _augment_time_by_similarity(시점 유사도
+보강)가 '좋은 달 추천해줘'를 '이번 달'(relative 당월) 시점으로 오주입 — 12개월 창이 한
+달로 좁혀지고 입도 라우팅이 막힘(디버깅 중 실측).
+
+수정(chat_service):
+- **입도 감지** `_timing_granularity(question)` → month/day/None. 표지: 몇 월/어느·무슨·
+  좋은 달/'~하는(할·될) 달'/'달은 언제' 등 + 날짜 계열(며칠·길일·날짜·좋은 날(?!씨) 등).
+  '한 달(기간)'·'다음 달(시점)'·'날씨'·'달라지다' 오탐 방지 테스트 고정.
+- **gran_no_period**(입도 명시 + 기간 없음 + 비회고·비구조·비택일) → vague_future 제외,
+  wants_monthly 편입, **오늘 절기 당월부터 12개월 롤링 창**(2026-06-18 '올해 달력 연도로
+  좁힘' 결함 회귀 방지 — 기존 '앞으로/향후' 분기와 동일 창).
+- **응답 형식 디렉티브 2종**: _MONTH_PICK(유리한 달 1~3개, 활성화 창 표현, 12개월 밖 강한
+  해는 참고로만, 연 나열 금지) / _DAY_PICK(날짜 즉석 단정 불가 → 달로 좁혀 답하고 '달을
+  정하면 날짜 단위로 좁혀 볼 수 있다' 안내). 택일 분류(DATE_RECOMMENDATION)는 기존 라우트
+  불변.
+- **만남 디렉티브 달 변형** _MEETING_TIMING_MONTH_DIRECTIVE: 달 명시 시 '연·계절로 뭉개기'
+  대신 유리한 달 1~2개로 — 비택일·장소 단정 금지 원칙은 유지.
+- **시점 유사도 보강 가드**: 입도 명시 질문은 augment 스킵(멀티턴 '언제·추천형 시점 미승계'
+  가드와 동일 원리).
+- 보존: 입도 미지정 '언제쯤~' 질문은 기존 10년 digest 유지(2026-06-18 결정), 연도 명시
+  '2027년 몇 월' 질문은 기존 창 로직.
+- 검증: 신규 test_timing_granularity_routing.py 10건(감지 4·오탐 방지 6문형·dry_run E2E —
+  실사례 질문 월별 창 2026-06~2027-05 확인·digest 부재·만남 달 변형·택일 불변·digest 보존).
+  전체 1491 passed·1 skipped, ruff·mypy clean. 백엔드 재기동, 터널 체인 정상.
+
+### 메인·테마사주 노출 문구 — 사용자 베네핏 중심 재작성 (2026-07-03)
+
+데굴님 지적: 서비스 카드·페이지 설명이 개발자 구분용('결정론적 엔진이 계산', '페이지 단위
+풀이 제공' 등)으로 쓰여 있음. '우리가 어떻게 하는지'가 아니라 '사용자가 무엇을 얻는지'로 전면
+교체(문구만 — 기능·라우팅 불변).
+
+- 랜딩 히어로: 'LLM이 계산하지 않습니다…' → '생년월일시만 입력하면 명식부터 지금 흐르는 운,
+  주제별 깊은 풀이까지 한곳에서' + 정확성 신뢰 한 줄(명리 규칙대로 계산, AI는 풀이만)을
+  사용자 언어로 유지.
+- 서비스 카드 4종(만세력/간지달력/테마사주/AI채팅상담): 입력→얻는 것 구조로. 예) 만세력
+  '생년월일시·출생지로 원국과 대운/세운/월운을 확인하고 용신을 검증합니다' → '생년월일시만
+  입력하면 … 한눈에 볼 수 있어요. 간단한 과거 확인으로 나에게 필요한 기운(용신)까지'.
+- 테마사주 서브메인 인트로 + THEMES desc 5종(총운/한해풀이/애정·관계운/직장운/금전·횡재운)
+  전부 베네핏 서술로(질문형 훅 포함, 단정 표현 없음 — 원칙 3 톤 준수). 테마 진입([topic])
+  페이지는 theme.desc 재사용이라 자동 반영.
+- 기타 페이지(만세력/달력/채팅/사주목록/풀이내역) 노출 문구는 이미 사용자향 — 변경 없음
+  (엔진 언급은 코드 주석뿐).
+- 검증: tsc clean·vitest 30 passed·production build 통과, 라이브(:4000) 반영 확인.
+
+### 입력 폼 버그 2종 + 용신 재검증 이중 단계 제거 (2026-07-03, 데굴님 제보)
+
+**① 즉석입력(상대정보) 출생지 미동작** — 원인: InlinePartnerForm이 출생지를 자유 텍스트로만
+전송하는데 백엔드 지명 시드는 4개(서울/부산/도쿄/뉴욕)뿐이라 그 외 지명은 location.resolve
+ValueError로 풀이 실패. 정상 경로(BirthForm — 만세력·신규 등록·동반자 추가)는 FE 큐레이션
+목록(전국 시군구)에서 선택해 좌표·tz를 함께 보내므로 무사(신규 등록도 좌표 저장 확인 — 이상
+없음). 수정: InlineBirth 스키마에 latitude/longitude/timezone 옵션 추가 + inline_to_birth가
+좌표 전달(request-source resolve, 시드 무관) + 좌표 없는 시드 미등록 지명은 서울 폴백(풀이
+중단 방지 — 미입력 폴백과 동일 정책). FE는 즉석입력 출생지를 BirthForm과 동일한 지역 검색
+피커로 교체(선택 시 좌표 동반, 미선택 시 '서울 기준 계산' 안내). 변환 지점이 단일
+(partner_resolve.inline_to_birth)이라 테마사주·채팅 즉석 상대 모두 수정 적용.
+테스트 6건(test_inline_birth_location — 좌표 통과·미등록 폴백·시드 지명 유지·미입력 폴백·
+부분 좌표 방어·버그 재현 전제).
+
+**② 생년월일 연도 6자리** — InlinePartnerForm의 type=date에 min/max가 없어 브라우저가
+6자리 연도를 허용 → 4자 입력 후 월 칸 자동 이동 안 됨. min=1900-01-01/max=오늘 추가
+(BirthForm은 기존에 동일 처리 완료 — type=date 전수 2곳 확인, 그 외 날짜 입력 없음).
+
+**③ 용신 재검증 이중 단계** — '답변 반영 완료→[검증 다시 진행]' 클릭 시 질문 폼이 아니라
+'용신 등록 완료→[다시 검증]' 게이트가 한 번 더 나오던 문제. registered 게이트는 교차 기기
+확정 사용자의 초기 진입 전용인데 redo 경로가 같은 게이트를 탐. 수정: 결과 페이지에
+redoRequested 상태 추가 — '검증 다시 진행' 한 번으로 곧장 질문 폼, 제출 완료 시 리셋.
+게이트 본연의 용도(초기 진입 시 질문 강요 방지)는 유지. 온보딩(StepYongsin)은 redo 경로
+자체가 없어 무관.
+
+검증: BE 1497 passed·1 skipped, ruff·mypy clean / FE tsc·vitest 30·production build 통과.
+백엔드 재기동, 터널 체인 정상.
+
+### 테마 애정·관계운 — 상대와의 관계 명시 수집·풀이 반영 (2026-07-03, 데굴님 지시)
+
+문제: 궁합(RP) 풀이가 상대와의 관계(상사/부하/친구/연인/결혼예정/기혼/이혼예정/외도 등)를
+모른 채 중립 연애 톤으로 생성됨 — 수집 입구도, 리포트 전달 경로도 없음(채팅만 관계 추론 소비).
+
+- **관계 체계 확장**(relationship_hints — 채팅·리포트 공용): RELATION_TYPES에 crush(썸)/
+  fiance(결혼예정)/divorcing(이혼예정)/affair(외도)/boss/subordinate 6종 추가(14종).
+  RELATION_KO 라벨 + RELATION_FRAMING(관계별 풀이 방향 — 애정 단계별 톤 분리, 사회 관계는
+  연애 프레임 금지, divorcing=정리/회복 결 분리, affair=훈계·미화 금지+현실 리스크 병기)
+  + PERSPECTIVE_HINTS 신규 6종 + relation_context_lines([상대와의 관계] 블록 — 단정 금지
+  꼬리 고정). **키워드 추론 규칙은 불변**(신규 값은 명시 선택으로만 유입 — 추론 확장은
+  실사용 후, 회귀 리스크 차단). _RELATION_TO_USER에 identity 매핑 추가(채팅 폴백 호환).
+- **스키마**: SubjectRef.relation_type(str|None — docs/03 B2 확장, 데굴님 지시로 확정).
+- **리포트**: _ReportData.partner_relation_type(비SELF subject에서 추출) → RP-* 전 섹션에
+  관계 블록 부착. 미지정=미부착(기존 중립 톤 하위호환, 판정·점수 불변).
+- **FE**: 테마 상대 선택 단계(SubjectGateway)에 '나와의 관계' 셀렉트(13종+선택 안 함) —
+  등록 카드·즉석 입력 모두 적용. 우선순위: 명시 선택 > 등록 동반자 저장값(relation_to_user)
+  > null. RELATION_OPTIONS(BE 미러) 신설, buildReportSpec이 subjects[1].relation_type 전달.
+- 검증: BE 신규 6건(라벨·프레이밍 전수/미지정 빈 목록/boss 위계·affair 균형 문구/RP-01·
+  08·09 공통 부착/미지정 미부착) 포함 1503 passed·1 skipped, ruff·mypy clean. FE 신규 4건
+  (명시>저장값>null 전달·옵션 미러) 포함 vitest 34·tsc·build 통과. 백엔드 재기동.
+- 후속(미구현 명시): 등록 폼(온보딩)에서 relation_to_user 영구 저장 입력, 테마에서 선택한
+  관계의 프로필 저장(현재 1회성), 채팅 즉석 상대 관계 선택, 신규 관계값 키워드 추론 확장.
+
+### 사용자 노출 문구에서 '통변' 제거 (2026-07-03, 데굴님 지시)
+
+'통변'은 일반 사용자가 모르는 명리 전문 용어 — 노출 텍스트에서 교체(전수 스캔 후 분류).
+- FE: 채팅 로딩 '통변 작성 중…'→'풀이 작성 중…', GNB 메뉴 desc '대화형 통변'→'대화형
+  사주 풀이'.
+- LLM 누출 차단: 시스템 프롬프트 2곳 '사주 통변 서술가'→'사주 풀이 서술가'(LLM이 답변에
+  용어를 따라 쓰는 경로 차단 — 고정 프롬프트 캐시 1회 무효화 수용). 신살 사전
+  flipSide(백호) '현대 통변에서는'→'현대 해석에서는'(LLM 재료로 사용자 노출).
+- 유지(내부 전용): 코드 주석·docstring·테스트 모의 문자열, 사전 basis 필드(전문가 감수용
+  근거 — 감수자 대상 전문 용어 적합).
+- 검증: 사전 validate 통과, llm failover 테스트·ruff clean, FE tsc·vitest 34·build 통과.
+  백엔드 재기동.
+
+### 지장간 잠재·유통 완화 — LLM 명식 prefix 배선 (2026-07-03, 데굴님 원리 확정)
+
+감사 결과: 엔진 계산 계층은 데굴님 정리 원리와 일치(표면 부재≠완전 부재 분리 — raw_visible
+기준 신약·오행결핍 유지 + hidden_support 별도 / 유통 _circulation이 지장간 포함 분포로
+상생 고리 판정·'신약 완화 해석' 정보성 메모 / 강도 계층 정기0.6·중기0.2·여기0.2 + 통근
+본기1.0·동기0.85·인성0.65 + 공망0.60·충0.75 감쇠 / 운 활성: 투출·MT2 회귀·충개고·암합·
+공망 발동·SEASON_FACTOR·삼합국). **갭 = LLM 전달 누락** — 계산은 있는데 prefix에 지장간
+잠복·유통 정보가 없어 풀이 문구 재료 부재.
+
+수정(채팅·리포트 공용 serialize_chart_prefix — 명식별 고정값이라 프롬프트 캐시 안전):
+- BirthChartSummary에 hidden_latents·flow_note 추가. build_birth_summary가 계산:
+  표면 부재(raw_visible=0) 오행의 지장간 출처('亥중甲' 파싱 → '亥 중기 甲(정관)' — 단계·
+  일간 기준 십성 병기) / 신약+유통 smooth일 때만 flow_note.
+- prefix 라인 2종: ①[표면 부족 오행의 잠재 신호 — 지장간] 잠복 표기 + 과대평가 가드
+  ('존재≠작동', 투출과 동급 서술 금지, 잠재·조건부, 운 유입·지지 합충 자극 시 활성,
+  충 자극=사건화·변동 동반) ②[오행 유통] 완화 프레임(신강 뒤집기 금지, 운·환경 자극 시
+  적응력·회복력 구조 — 데굴님 제안 문구 채택).
+- 검증: 신규 test_hidden_latent_prefix.py 4건(사례 명식 잠복 라인·십성/유통 완화+신약
+  유지/오행 구족 명식 미부착/prefix 결정성=캐시 조건). 전체 1507 passed·1 skipped,
+  ruff·mypy clean. 백엔드 재기동.
+- 후속 후보(감수 대상): 지장간 작동 강도 단일 스칼라화(현재 분포·통근·modifier 분산),
+  범용 이벤트 스코어링에 '지장간+같은 오행 운 활성' 일반화(현재 결혼 MT2·묘고·암합·공망
+  도메인별로만).
+
+### 테마사주 목차 친화 표시 + 뷰어 목차 점프 (2026-07-03, 데굴님 지적)
+
+문제: 목차 제목이 개발자 규격 용어('명식 속 주제 구조', '운에서 드러난 축재 형태' 등)라
+사용자가 '이게 왜?'로 느낌 + 뷰어에 목차 단위 이동 수단 없음(이전/다음만).
+
+- **친화 표시(규격 불변)**: 백엔드 report_plan.py 규격 제목(docs/10 — 원칙 10, 임의 변형
+  금지)은 그대로 두고, FE `lib/section-display.ts`에 표시용 별칭(label)+한 줄 설명(blurb)
+  매핑. 전 85섹션(F/C/W/J/R/RP/RL/Y) 전수 매핑(폴백 불필요 — 자동 검증). 예: '명식 속
+  주제 구조'→'내 사주 속 이 주제'('사주에서 이 주제가 어떻게 드러나는지 봐요'), '운에서
+  드러난 축재 형태'→'돈이 모이는 방식'. 매핑 없는 id는 원본 title 폴백(안전).
+- **뷰어(ReportPager)**: 섹션 제목을 친화 라벨로 렌더 + 제목 아래 한 줄 설명(화면 전용,
+  인쇄 시 숨김). 하단 페이저 가운데 'N/M · 제목' 표시를 **목차 열기 버튼**으로 전환 →
+  목차 드로어(모바일 하단시트/데스크톱 우측 패널) — 장별 라벨·설명·현재 위치 하이라이트,
+  클릭 시 해당 장 이동+상단 스크롤. 인쇄(PDF)는 전체 섹션 출력 유지(기능 불변).
+- 검증: 섹션 ID 커버리지 85/85, FE tsc·vitest 34·build 통과. 백엔드 변경 없음(FE 전용).

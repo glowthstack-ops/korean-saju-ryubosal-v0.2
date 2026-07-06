@@ -1,0 +1,52 @@
+{
+  "case_id": "case_1980_1122_job_report",
+  "source": "외부 상담 리포트(메타인지보고서)+전화 상담 — doc/v2_2/cases/1980_1122_job_report_case.md (2026-07-03 데굴님 제공)",
+  "input": {
+    "calendar_type": "solar",
+    "birth_date": "1980-11-22",
+    "birth_time": "09:40",
+    "birth_place_name": "서울",
+    "gender": "male"
+  },
+  "expected": {
+    "pillars": {
+      "year": "庚申",
+      "month": "丁亥",
+      "day": "己亥",
+      "hour": "己巳"
+    },
+    "hour_pillar_stable_under_true_solar_time": true,
+    "strength_band": "신약",
+    "geokguk": {
+      "main_structure": "정재격",
+      "success_failure_label": "반성반패"
+    },
+    "canonical_roles": {
+      "yongsin": "土",
+      "heesin": "火",
+      "gusin": "水"
+    },
+    "natal_sinsal_includes": ["현침"]
+  },
+  "consultant_reference": {
+    "good": ["火", "土"],
+    "bad": ["金", "水"],
+    "wood": "mixed_absent_wood_as_problem_and_wood_as_pressure"
+  },
+  "review_flags": [
+    {
+      "id": "metal_role_mismatch",
+      "our_engine": "hansin",
+      "consultant": "bad",
+      "status": "expert_review_required",
+      "note": "상담사는 金을 '다재다능→목표 분산·커리어 관리 부담'(BAD)으로 해석, 엔진은 한신. 단일 사례로 역할 분류를 바꾸지 않는다 — 감수 목록 등록만."
+    },
+    {
+      "id": "wood_role_ambiguity",
+      "our_engine": "gisin",
+      "consultant": "mixed_absent_wood_as_problem_and_wood_as_pressure",
+      "status": "expert_review_required",
+      "note": "원국에 木 부재(정적 결핍=문제)와 운에서 木 유입 시 관성 압박(작동=부담)이 동시에 성립 — 용희기구한 단일 축이 아니라 정적 vs 작동 분리(operational 2계층)로 다뤄야 하는 감수 사례."
+    }
+  ]
+}

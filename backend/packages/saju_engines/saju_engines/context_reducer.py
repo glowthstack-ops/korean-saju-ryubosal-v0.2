@@ -21,6 +21,7 @@ from saju_shared_types.constants import (
     CONTROLS,
     GENERATES,
     STEM_ELEMENT,
+    ten_god,
 )
 from saju_shared_types.enums import Branch, Element, Stem
 from saju_shared_types.event_taxonomy_v2 import EVENT_KO as _EVENT_KO_V2
@@ -675,6 +676,38 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
         if g.evaluation is not None:
             parts.append(g.evaluation.success_failure_label)
         geokguk = " · ".join(part for part in parts if part)
+    # 표면 부재 오행의 지장간 잠복(2026-07-03 데굴님 확정) — '완전 부재'≠'숨은 존재'.
+    # 출처 포맷 '亥중甲' = [지지][단계(정/중/여)][천간]. 십성은 일간 기준 엔진 계산.
+    hidden_latents: list[str] = []
+    flow_note = ""
+    if result.force_analysis is not None:
+        fe = result.force_analysis.five_elements
+        _stage_ko = {"정": "정기", "중": "중기", "여": "여기"}
+        dm_stem = Stem(p.day.stem)
+        for el in ("木", "火", "土", "金", "水"):
+            sources = fe.hidden_support.get(el) or []
+            if fe.raw_visible.get(el, 0.0) > 0 or not sources:
+                continue
+            latent_parts: list[str] = []
+            for src_token in dict.fromkeys(sources):  # dedupe(순서 유지)
+                if len(src_token) != 3:
+                    continue
+                b_ch, stage_ch, s_ch = src_token[0], src_token[1], src_token[2]
+                tg = str(ten_god(dm_stem, Stem(s_ch)))
+                latent_parts.append(
+                    f"{b_ch} {_stage_ko.get(stage_ch, stage_ch)} {s_ch}({tg})"
+                )
+            if latent_parts:
+                hidden_latents.append(
+                    f"{el}: 표면에 없음 — {' · '.join(latent_parts)} 잠복"
+                )
+    ya = result.yongsin_analysis
+    if (
+        ya is not None and ya.flow_circulation
+        and ya.flow_circulation.get("smooth") and "신약" in strength
+    ):
+        links = ya.flow_circulation.get("sheng_links", 0)
+        flow_note = f"유통 양호(상생 고리 {links}/5)"
     return BirthChartSummary(
         day_master=p.day_master,
         pillars=pillars,
@@ -685,6 +718,8 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
             gusin=roles("구신"), hansin=roles("한신"),
         ),
         geokguk=geokguk,
+        hidden_latents=hidden_latents,
+        flow_note=flow_note,
     )
 
 
@@ -1263,6 +1298,24 @@ def serialize_chart_prefix(
     ]
     if summary.geokguk:
         lines.append(f"격국: {summary.geokguk}")  # 항목 9
+    # 표면 부족 오행의 지장간 잠복 — '존재'와 '작동'을 구분해 잠재·조건부로만 서술
+    # (2026-07-03 데굴님 확정 원리: 천간 투출=실제 작동선 / 지장간=숨은 연결선).
+    if summary.hidden_latents:
+        lines.append(
+            "[표면 부족 오행의 잠재 신호 — 지장간] "
+            + " / ".join(summary.hidden_latents)
+            + " — '완전 부재'가 아니라 숨은 형태로 존재한다. 지장간에만 있는 오행은 "
+            "'존재'와 '작동'이 다르다: 천간에 드러난 오행과 동급으로 서술하지 말고 "
+            "잠재·조건부로만 다루며, 운에서 같은 오행·천간이 오거나 그 지지가 합·충으로 "
+            "자극될 때 살아나는 결로 설명할 것(충 자극 활성은 안정보다 사건화·변동 동반)."
+        )
+    if summary.flow_note:
+        lines.append(
+            f"[오행 유통] {summary.flow_note} — 표면에 부족한 오행이 있어도 지장간 통로로 "
+            "상생 순환이 이어져 완전히 끊긴 구조는 아니다. 신강약 판정은 그대로 두고"
+            "(신강으로 뒤집지 말 것), 스스로 강하게 밀어붙이는 결이라기보다 운·환경 자극을 "
+            "받으면 숨은 오행이 작동해 적응력·회복력이 살아나는 구조로 풀 것."
+        )
     if ci is not None:
         for pd in ci.pillar_details:
             line = (

@@ -14,6 +14,7 @@ import logging
 import re
 from collections.abc import Callable
 from datetime import date
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +42,7 @@ from saju_engines.palace_relationship_network import (
     palace_network_lines,
 )
 from saju_engines.profile_engine import profile_event_signals, profile_facts_lines
+from saju_engines.relationship_hints import relation_context_lines
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
     month_overview_lines,
@@ -50,23 +52,30 @@ from saju_engines.report_event_input import (
 )
 from saju_engines.report_plan import YONGSIN_SECTIONS, build_section_plans
 from saju_engines.structural_context import (
-    DAEWOON_FRAMING_DIRECTIVE as _DAEWOON_FRAMING_DIRECTIVE,
-)
-from saju_engines.structural_context import (
-    DAEWOON_TRANSITION_SIGNALS_DIRECTIVE as _DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
-)
-from saju_engines.structural_context import (
+    AVOID_DATE_CERTAINTY_DIRECTIVE,
+    DECISION_ATTITUDE_DIRECTIVE,
     GONGMANG_ACTIVATION_DIRECTIVE,
+    KEYWORD_COMBO_TRANSLATION_DIRECTIVE,
+    MANAGE_NOT_OVERCOME_DIRECTIVE,
+    NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
+    activity_keyword_lines,
     era_energy_lines,
     external_impression_lines,
     health_lines,
     marriage_age_prior_lines,
     marriage_resource_lines,
+    remedy_action_lines,
     spouse_star_directive,
     wealth_capacity_lines,
     wealth_status_lines,
+)
+from saju_engines.structural_context import (
+    DAEWOON_FRAMING_DIRECTIVE as _DAEWOON_FRAMING_DIRECTIVE,
+)
+from saju_engines.structural_context import (
+    DAEWOON_TRANSITION_SIGNALS_DIRECTIVE as _DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
 )
 from saju_engines.structure_patterns import (
     detect_structure_patterns,
@@ -89,7 +98,11 @@ from saju_shared_types.topic_context import PeriodSpec as _TopicPeriodSpec
 
 from . import llm_client
 from .manse_service import calculate, luck_months
-from .personalization import fetch_confirmed_yongsin_override, fetch_personal_inputs
+from .personalization import (
+    fetch_calibration_expression_hints,
+    fetch_confirmed_yongsin_override,
+    fetch_personal_inputs,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -278,7 +291,8 @@ _SECTION_GUIDES: dict[str, str] = {
     "J-03": "격국·관성(직장)·재성(사업·보상)·식상(표현·기술) 등 직업 '구조'만 설명할 것.",
     "J-04": "운에서 직업이 어떻게 움직이는지(이직·승진·창업·확장) 발현 형태만 — 발생≠결과.",
     "J-05": "향후 5년 직업 흐름을 시점 클러스터로 타임라인화할 것 — 같은 시점 사건은 묶어서.",
-    "J-06": "주목할 달을 정밀 십성·관계로 풀되, 같은 원국 설명을 반복하지 말 것.",
+    "J-06": "주목할 달을 정밀 십성·관계로 풀되, 같은 원국 설명을 반복하지 말 것. 특정 달을 "
+            "취업·합격 등 결과와 묶어 단정하지 말고 '움직임이 강해지는 창'으로 표현할 것.",
     "J-07": "행동 전략을 시기별로 — 이동/유지/준비/네트워킹/도전 보류 단위. 승진·합격 단정 금지.",
     "J-08": "아래 점수표를 마크다운 표 형식(| ... |)과 구분선(|---|)까지 그대로 본문에 포함하라"
     "(이 부록 섹션은 평문 규칙의 예외 — 표 기호 유지). 표 안 수치·간지·방향은 한 글자도 바꾸지"
@@ -413,6 +427,34 @@ _DAEWOON_TRANSITION_SIGNAL_SECTIONS = {"F-07", "F-09"}
 _OFF_PEAK_ADVICE_SECTIONS = {
     "F-19", "Y-10", "W-08", "J-07", "R-07", "RP-09", "RL-07", "C-07",
 }
+# 상담 사례 파생(P1·P2) — 활동 키워드·개운 행동 블록을 붙일 행동 전략 섹션. 감수 전 초안이라
+# 직업 테마 J-07만 배선하고, 감수 통과 후 타 테마 확장을 검토한다(2026-07-03 데굴님 확정).
+_ACTIVITY_REMEDY_SECTIONS = {"J-07"}
+# 탈규범 안심 디렉티브를 붙일 관계 행동 전략 섹션(결혼 필수 강요 차단 — 사례 §5 P0-3).
+_NON_NORMATIVE_SECTIONS = {"R-07", "RP-09"}
+# 시기 단정 금지 디렉티브를 붙일 주목할 달 섹션 — 우선 직업 테마 J-06만(사례 §6 모방 금지,
+# 감수·실측 후 타 테마 '주목할 달' 확장 검토).
+_DATE_CERTAINTY_SECTIONS = {"J-06"}
+
+
+@lru_cache(maxsize=1)
+def _activity_keyword_map() -> dict:
+    """activity_keyword_map.json 로드(프로세스 캐시) — reviewed:false 초안, 서술 재료 전용."""
+    return json.loads(
+        (_DICTS / "interpretations" / "activity_keyword_map.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+@lru_cache(maxsize=1)
+def _remedy_action_map() -> dict:
+    """remedy_action_map.json 로드(프로세스 캐시) — reviewed:false 초안, 서술 재료 전용."""
+    return json.loads(
+        (_DICTS / "interpretations" / "remedy_action_map.json").read_text(
+            encoding="utf-8"
+        )
+    )
 # 원국 횡재 그릇 블록을 부착하는 재물 섹션(Phase 1 — 횡재 잠재구조 표면화).
 _WEALTH_CAPACITY_SECTIONS = {"W-04", "W-05", "Y-07", "F-16"}
 # 결혼·자산 자원 구조 블록을 부착하는 관계·재물구조 섹션(중립 구조 신호 — 신규 키 없음).
@@ -530,6 +572,11 @@ class _ReportData:
             note = confirmed_yongsin_note(self.result, self._confirmed_yongsin)
             if note:
                 self.prefix_lines = [*self.prefix_lines, note]
+        # 캘리브레이션 표현 조정 힌트(CAL-P0 trait 반박 + CAL-P1 pair 매트릭스, 전 섹션 공통)
+        # — 저장된 검증 응답 기반 서술 조정 전용(판정·점수 불변, 처방 금지 조항 내장).
+        _calib_hints = fetch_calibration_expression_hints(subject_id)
+        if _calib_hints:
+            self.prefix_lines = [*self.prefix_lines, *_calib_hints]
         self.evidence_paths = self._evidence_paths_for(self.candidates)
         self.allowed_ganji = self._collect_ganji()
         self.allowed_years = self._collect_years(spec)
@@ -553,6 +600,14 @@ class _ReportData:
         self.partner_result: ManseV2Result | None = None
         self.partner_prefix_lines: list[str] = []
         self.compatibility = None
+        # 사용자가 지정한 '상대와의 관계'(RP 풀이 방향 — 2026-07-03). 미지정 None.
+        self.partner_relation_type: str | None = next(
+            (
+                s.relation_type for s in spec.subjects
+                if s.kind != SubjectKind.SELF and s.relation_type
+            ),
+            None,
+        )
         if partner_birth is not None:
             partner_chart = partner_birth.model_copy(update={"reference_date": today})
             partner_result = calculate(partner_chart)
@@ -768,6 +823,41 @@ class _ReportData:
     def wealth_capacity_block(self) -> list[str]:
         """[원국 횡재 그릇] — structural_context.wealth_capacity_lines 위임(재물 섹션 전용)."""
         return wealth_capacity_lines(self.wealth_capacity)
+
+    def activity_remedy_block(self) -> list[str]:
+        """[활동 키워드]+[개운 행동] — 용신·희신/기신·구신·원국 신살 기준 결정론 선별.
+
+        상담 사례 파생 P1·P2(doc/v2_2/cases/1980_1122_job_report_case.md §5). 사전은
+        reviewed:false 초안이라 서술 재료로만 쓰며 점수·판정에 개입하지 않는다(원칙 5).
+        확정 용신 오버라이드는 self.summary에 이미 반영돼 있어 그대로 따른다.
+        """
+        ug = self.summary.useful_gods
+        favorable = [(el, "용신") for el in ug.yongsin] + [
+            (el, "희신") for el in ug.heesin
+        ]
+        cautious = [(el, "기신") for el in ug.gisin] + [
+            (el, "구신") for el in ug.gusin
+        ]
+        natal_sinsal: set[str] = set()
+        extras = self.result.traditional_extras
+        if extras is not None and extras.sinsal is not None:
+            for names in extras.sinsal.summary.model_dump().values():
+                if isinstance(names, list):
+                    natal_sinsal.update(str(n) for n in names)
+        keyword_block = activity_keyword_lines(
+            favorable, cautious, natal_sinsal, _activity_keyword_map()
+        )
+        remedy_block = remedy_action_lines(
+            [el for el, _ in favorable], _remedy_action_map()
+        )
+        if not keyword_block and not remedy_block:
+            return []
+        out = [*keyword_block]
+        if remedy_block:
+            if out:
+                out.append("")
+            out += remedy_block
+        return out
 
     def marriage_resource_block(self) -> list[str]:
         """[결혼·자산 자원 구조] — structural_context 위임(성별 인지·중립).
@@ -1357,6 +1447,13 @@ def build_section_context(
                 *_facts,
                 _PROFILE_FACTS_INSTRUCTION,
             ]
+    # 궁합(RP-*) 전 섹션 — 사용자가 지정한 '상대와의 관계'를 풀이 방향으로 주입
+    # (2026-07-03 데굴님 지시: 상사/연인/결혼예정/이혼예정 등 관계에 맞는 풀이).
+    # 미지정이면 빈 목록 — 기존 중립 궁합 톤 그대로(하위호환·판정 불변).
+    if sid.startswith("RP-"):
+        _rel_lines = relation_context_lines(data.partner_relation_type)
+        if _rel_lines:
+            lines += ["", *_rel_lines]
     if sid in _PARTNER_NATAL_SECTIONS:
         lines += ["", *data.partner_natal_block()]
     elif sid in _COMPAT_SECTIONS:
@@ -1379,6 +1476,10 @@ def build_section_context(
             lines += data.month_overview_block(
                 section_domain, notable_only=reduction_level >= 1
             )
+            # 상담 사례 파생(P0) — 주목할 달의 시기 단정 차단('8월에 됩니다' 금지,
+            # activation window 표현). 사례 모방 금지 포인트 §6 — 우선 J-06만(데굴님 확정 스코프).
+            if sid in _DATE_CERTAINTY_SECTIONS:
+                lines.append(AVOID_DATE_CERTAINTY_DIRECTIVE)
             lines.append("")
         # 후보 상세 — 도메인 스코프면 자기 도메인 후보(길·흉 포함), 아니면 전역 top 후보.
         if section_domain is not None:
@@ -1450,6 +1551,16 @@ def build_section_context(
         lines += ["", _DAEWOON_TRANSITION_SIGNALS_DIRECTIVE]
     if sid in _OFF_PEAK_ADVICE_SECTIONS:
         lines += ["", _OFF_PEAK_DAEWOON_ADVICE_DIRECTIVE]
+        # 상담 사례 파생(P0) — 행동 전략은 '극복 아니라 관리' + 운 품질→의사결정 태도 번역.
+        lines += [MANAGE_NOT_OVERCOME_DIRECTIVE, DECISION_ATTITUDE_DIRECTIVE]
+    # 상담 사례 파생(P1·P2) — 활동 키워드·개운 행동 블록 + 키워드 조합 번역 지시(J-07).
+    if sid in _ACTIVITY_REMEDY_SECTIONS:
+        _ar = data.activity_remedy_block()
+        if _ar:
+            lines += ["", *_ar, KEYWORD_COMBO_TRANSLATION_DIRECTIVE]
+    # 상담 사례 파생(P0) — 관계 행동 전략의 탈규범 안심(결혼 필수 강요 차단).
+    if sid in _NON_NORMATIVE_SECTIONS:
+        lines += ["", NON_NORMATIVE_REASSURANCE_DIRECTIVE]
     # 거주지 평가·추천(옵션1) — 거주 정보가 있으면 현 지역 평가 + 살면 좋은 지역(F-20·RL-04).
     if sid in _REGION_REPORT_SECTIONS:
         region_block = _region_report_block(data, spec)

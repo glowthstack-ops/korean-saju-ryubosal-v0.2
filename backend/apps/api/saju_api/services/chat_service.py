@@ -53,12 +53,17 @@ from saju_engines.relationship_hints import (
 from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.shadow_scoring import domain_to_expression_key
 from saju_engines.structural_context import (
+    CONCLUSION_FIRST_DIRECTIVE,
     DAEWOON_FRAMING_DIRECTIVE,
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
+    DECISION_ATTITUDE_DIRECTIVE,
     GONGMANG_ACTIVATION_DIRECTIVE,
+    MANAGE_NOT_OVERCOME_DIRECTIVE,
+    NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     PARTNER_SOURCE_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
+    TRAIT_FEEDBACK_DIRECTIVE,
     spouse_star_directive,
 )
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
@@ -93,7 +98,11 @@ from .manse_service import (
     luck_months,
     luck_years,
 )
-from .personalization import fetch_confirmed_yongsin_override, fetch_personal_inputs
+from .personalization import (
+    fetch_calibration_expression_hints,
+    fetch_confirmed_yongsin_override,
+    fetch_personal_inputs,
+)
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
@@ -1428,6 +1437,88 @@ def _is_daewoon_question(intent: IntentJson, question: str) -> bool:
     return any(k in question for k in _DAEWOON_KEYS)
 
 
+# ── 기간 미지정 + '달/날짜' 입도 명시 질문(2026-07-03 데굴님 지적) ────────────────
+# 실사례: '연애를 시작하는 달은 언제야?' → 기간이 없어 vague_future(10년 연 단위 digest)로
+# 빠지며 연 나열로 오답. 질문이 입도(월/일)를 명시하면 연 단위가 아니라 그 입도로 답해야
+# 한다. '한 달(기간)'·'다음 달(시점)'은 여기 표지와 다르고, 시점 표지는 time_parser가
+# time_range로 잡아 이 판정과 무관해진다(gran_no_period 게이트).
+_MONTH_GRAN_RE = re.compile(
+    r"몇\s*월|몇\s*달|어느\s*달|무슨\s*달|어떤\s*달|좋은\s*달|유리한\s*달"
+    r"|[가-힣]{1,6}[는할될]\s*달|달\s*(?:은|이)\s*언제|월\s*(?:은|이)\s*언제"
+)
+_DAY_GRAN_RE = re.compile(
+    r"며칠|몇\s*일에|길일|날짜|(?:어느|무슨|어떤|좋은|유리한)\s*날(?!씨)"
+    r"|[가-힣]{1,6}[는할될]\s*날(?!씨)|날\s*(?:은|이)\s*언제"
+)
+
+
+def _timing_granularity(question: str) -> str | None:
+    """질문이 명시적으로 요구한 시점 입도 — 'month' / 'day' / None(입도 미지정)."""
+    if _MONTH_GRAN_RE.search(question):
+        return "month"
+    if _DAY_GRAN_RE.search(question):
+        return "day"
+    return None
+
+
+_MONTH_PICK_DIRECTIVE = (
+    "[응답 형식 — '어느 달' 질문] 사용자가 특정 기간 없이 '달(월)'을 물었다. 연 단위 "
+    "나열로 답하지 말고, 아래 월별 흐름(오늘부터 12개월)에서 유리한 달 1~3개를 골라 월 "
+    "단위로 답하라. 각 달은 '이 달에 된다' 단정이 아니라 기운이 열리는 창으로 표현하고, "
+    "12개월 너머에 더 강한 해가 있으면 '길게 보면 ○○○○년이 더 크다' 정도로만 짧게 "
+    "덧붙여라. 끝에 특정 달의 상세나 다른 해의 달을 이어 볼지 자연스럽게 물어라."
+)
+_DAY_PICK_DIRECTIVE = (
+    "[응답 형식 — '어느 날(날짜)' 질문] 사용자가 특정 기간 없이 날짜를 물었다. 대화 "
+    "풀이로 특정 날짜를 즉석 단정할 수 없으니, 먼저 아래 월별 흐름(오늘부터 12개월)에서 "
+    "유리한 달로 좁혀 월 단위로 답하고, '달을 정해 주시면 그 달 안에서 날짜 단위로 더 "
+    "좁혀 볼 수 있다'고 안내하라. 연 단위 나열 금지, 특정 일자 즉석 단정 금지."
+)
+# 만남 시기 디렉티브의 달 단위 변형 — 사용자가 '달'을 명시하면 '연·반기·계절로 제시' 지시가
+# 질문 입도와 충돌하므로(실사례 오답의 한 축), 비택일·장소 단정 금지 원칙만 유지한 채
+# 월 단위로 좁혀 답하게 한다.
+_MEETING_TIMING_MONTH_DIRECTIVE = (
+    "[인연·만남 시기 — 달 단위 요청]\n"
+    "연인·배우자를 만나는 시기는 일정처럼 고르는 택일이 아니지만, 사용자가 '달'을 명시해 "
+    "물었으므로 연·계절 단위로 뭉개지 말고 제공된 월별 흐름에서 가장 유리한 달 1~2개로 "
+    "좁혀 답하라. 약한 달·기신 달을 선택지로 끌어와 곧장 무르지 말고, '어디서·어떤 "
+    "경로로' 만나는지는 장소를 지어내지 말 것(활동 성향 경향까지만, 단정 금지)."
+)
+
+
+# 성향 반박(풀이 인용 + 부정) 감지 — 인용 표지와 부정 표지가 함께 있을 때만(과잉 트리거 방지).
+# 상담 사례 파생 P0-7(doc/v2_2/cases/1980_1122_job_report_case.md §5): '풀이에는 말이 매력적이라는데
+# 실제 나는 면접에서 말을 못한다' 류 피드백에 수용·재해석 지시를 싣는다.
+_TRAIT_QUOTE_KEYS = (
+    "라는데", "라던데", "라면서", "라고 하던데", "라고 나왔", "나왔는데",
+    "풀이에는", "풀이에서는", "리포트에", "보고서에", "사주에는", "사주에서는",
+)
+_TRAIT_NEGATE_KEYS = (
+    "아닌데", "아니에요", "아닌 것 같", "안 그래", "안 그런", "안 그렇",
+    "잘 못", "못하는", "못해요", "다른데", "다릅니다", "안 맞", "반대",
+    "지 않", "없는데", "없어요",
+)
+
+
+def _is_trait_mismatch(question: str) -> bool:
+    """'풀이에는 그렇다는데 실제 나는 아니다' 성향 반박 여부 — 인용+부정 동시 감지."""
+    return any(k in question for k in _TRAIT_QUOTE_KEYS) and any(
+        k in question for k in _TRAIT_NEGATE_KEYS
+    )
+
+
+# 규범 질문('결혼 꼭 해야 하나요') 감지 — 강한 당위 표지만(일반 의사결정 질문 오탐 방지).
+_NORMATIVE_KEYS = (
+    "꼭 해야", "꼭 가야", "해야만", "필수인가", "필수예요", "필수인지",
+    "안 하면 안 되", "안하면 안되", "무조건 해야", "다들 하니까",
+)
+
+
+def _is_normative_question(question: str) -> bool:
+    """사회 규범 당위형 질문 여부('꼭 해야 하나' 류) — 탈규범 안심 디렉티브 트리거."""
+    return any(k in question for k in _NORMATIVE_KEYS)
+
+
 def _compat_prompt_block(
     result: ManseV2Result, partner_birth: BirthInput, today: date, partner_label: str,
 ) -> str | None:
@@ -1782,6 +1873,12 @@ def _augment_time_by_similarity(
     """
     if intent.time_range is not None:
         return intent  # 규칙이 이미 시점 확정 — rules-first
+    # 기간 없이 '달/날짜' 입도만 명시한 질문('이직하기 좋은 달 추천해줘')은 시점 표현이
+    # 아니라 입도 요청이다 — 유사도 분류기가 '이번 달' 같은 구체 시점으로 오주입하면
+    # 12개월 창이 한 달로 좁혀지고 입도 라우팅이 막힌다(2026-07-03 실사례 결함). 보강 스킵
+    # (멀티턴 '언제·추천형 질문 시점 미승계' 가드와 동일 원리).
+    if _timing_granularity(question) is not None:
+        return intent
     from saju_engines.time_embedding import get_time_classifier
     from saju_engines.time_parser import bucket_to_range
 
@@ -2211,12 +2308,22 @@ def chat(
         re.search(r"언제|몇\s*월|몇\s*년|어느\s*(해|달|연도|월|시기)|타이밍|이사\s*시기", question)
     )
     relo_decided = _relo_dest and not _asks_move_timing
+    # 기간 없이 '달/날짜' 입도만 명시한 질문(2026-07-03) — vague_future(연 단위 digest)보다
+    # 먼저 판정한다. 택일로 분류된 질문(DATE_RECOMMENDATION)은 기존 택일 라우트가 담당.
+    timing_gran = _timing_granularity(question)
+    gran_no_period = (
+        timing_gran is not None and not is_retro and not is_structural
+        and period_fortune is None and not relo_decided
+        and (intent.time_range is None or not intent.time_range.start)
+        and intent.query_type is not QueryType.DATE_RECOMMENDATION
+    )
     # 막연한 시점(특정 연·월 미지정, 미래) → 올해부터 10년 연(세운) 단위 흐름으로 답하고 연도
     # 지정을 유도한다. 현재 연도 12개월로 좁혀 특정 달을 단정하던 결함 보완(2026-06-18 데굴님).
     # 과거 회고·구조 질문·기간총운, 명시 시점(올해/내년/특정연월/향후 N년=start 있음)은 제외.
+    # 입도(달/날짜) 명시 질문도 제외(gran_no_period) — 연 나열은 질문 입도와 어긋난다.
     vague_future = (
         period_fortune is None and not is_structural and not is_retro
-        and not relo_decided
+        and not relo_decided and not gran_no_period
         and (intent.time_range is None or not intent.time_range.start)
     )
     year_digest_years: list[int] = []
@@ -2313,6 +2420,7 @@ def chat(
     wants_monthly = period_fortune is None and not vague_future and not relo_decided and (
         monthly_explicit
         or event_monthly
+        or gran_no_period  # 기간 미지정 '달/날짜' 입도 질문 — 월별 흐름이 답의 재료
         or intent.query_type is QueryType.TIMING_SEARCH
         or gran_month
         or any(k in question for k in ("몇 월", "몇월", "언제", "어느 달"))
@@ -2354,9 +2462,13 @@ def chat(
         elif start_label and len(start_label) >= 4:
             # 명시 연·월('2025년 8월', '2025') — 해당 달력 연도.
             target_year = int(start_label[:4])
-        elif any(k in question for k in ("앞으로", "향후", "다가오는", "1년 내", "1년내")):
-            # 시점 미지정 상대-미래 — 오늘(기준 시점)의 달부터 12개월 롤링(2026-06-12 지적:
-            # 달력상 1~12월이 아니라 오늘 기준 롤링 창이어야 한다). 절기 기준 당월에서 시작.
+        elif gran_no_period or any(
+            k in question for k in ("앞으로", "향후", "다가오는", "1년 내", "1년내")
+        ):
+            # 시점 미지정 상대-미래(+기간 없는 '달/날짜' 입도 질문) — 오늘(기준 시점)의
+            # 달부터 12개월 롤링(2026-06-12 지적: 달력상 1~12월이 아니라 오늘 기준 롤링
+            # 창이어야 한다). 절기 기준 당월에서 시작. '달은 언제' 질문이 올해 달력 연도로
+            # 좁혀지던 회귀 방지(2026-06-18 결정과 동일 취지).
             window_months = _rolling_months(int(luck_month[:4]), int(luck_month[5:7]))
         elif any(k in question for k in ("최근", "지난", "작년", "올해까지")):
             target_year = today.year - 1
@@ -2642,6 +2754,19 @@ def chat(
     # 직전 풀이 재검토(B) — 이의/반문 후속이면 엔진 근거로 재검토하도록 지시(출생정보 재요청 금지).
     if is_recheck:
         trailing.append(_RECHECK_DIRECTIVE)
+    # 성향 반박('풀이에는 그렇다는데 나는 아니다') — 수용·정적 vs 작동 재해석·확인 질문
+    # (상담 사례 파생 P0-7 — 상담사가 회피하던 지점을 명시 규칙화).
+    if _is_trait_mismatch(question):
+        trailing.append(TRAIT_FEEDBACK_DIRECTIVE)
+    # 선택형(비교·의사결정) 질문 — 결론(권고 방향) 선제시 후 근거(상담 사례 파생 P0-1).
+    if intent.query_type in (QueryType.COMPARISON, QueryType.DECISION_SUPPORT):
+        trailing.append(CONCLUSION_FIRST_DIRECTIVE)
+    # 개운/보완 질문 — 결핍·기신은 극복 아니라 관리 프레임(상담 사례 파생 P0-4).
+    if intent.query_type is QueryType.REMEDY:
+        trailing.append(MANAGE_NOT_OVERCOME_DIRECTIVE)
+    # 규범 당위형 질문('결혼 꼭 해야 하나') — 사회적 정답 강요 차단(상담 사례 파생 P0-3).
+    if _is_normative_question(question):
+        trailing.append(NON_NORMATIVE_REASSURANCE_DIRECTIVE)
     # 제안 이어보기 — '그래 봐줘' 류 수락, 또는 슬롯 답변('2026년')처럼 후속으로 판정된 턴이면
     # 직전 답변의 제안을 그대로 이어 답하게 한다(수락어 없는 슬롯 답변도 제안과 연결 — 2026-07-01
     # 데굴님 지적: '어느 해의 월별 흐름?' 뒤 '2026년'이 제안 맥락을 잃던 결함).
@@ -2655,6 +2780,9 @@ def chat(
         _yongsin_note = confirmed_yongsin_note(result, _confirmed_yongsin)
         if _yongsin_note:
             trailing.append(_yongsin_note)
+    # 캘리브레이션 표현 조정 힌트(CAL-P0 trait 반박 + CAL-P1 pair 매트릭스) — 저장된 검증
+    # 응답이 있으면 서술 방식만 조정(판정·점수 불변, 처방 금지 조항 내장). 실패=무주입.
+    trailing.extend(fetch_calibration_expression_hints(subject_id))
     # 특정 날짜 질문 — 그 날(들)의 일운(중심) + 절기월(양력 달 오답 방지)을 사실로 주입한다.
     # 질문의 명시 날짜(다중 포함)를 모두 잡고, 없으면 시점이 단일 날짜일 때 그 날을 쓴다.
     _tz = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
@@ -2689,10 +2817,15 @@ def chat(
     # 이사 목적지 명시 질문(_relo_dest, 위에서 산출)은 10년 타임라인 강제(year digest)를 적용하지
     # 않고 지역오행·방위 중심 우선 지시로 대체한다(2026-06-25). vague_future는 relo_decided면 이미
     # False라 아래 분기는 자연히 스킵된다.
-    # 응답 형식 — 막연한 시점이면 10년 연(세운) digest+연도 지정 유도, 그 외 사건형 연 질문은
-    # 12개월 나열 대신 연간 요약+핵심 달로.
+    # 응답 형식 — 막연한 시점이면 10년 연(세운) digest+연도 지정 유도, 기간 없는 '달/날짜'
+    # 입도 질문이면 12개월 월별 흐름에서 달 단위로(연 나열 금지 — 2026-07-03), 그 외 사건형
+    # 연 질문은 12개월 나열 대신 연간 요약+핵심 달로.
     if vague_future and not _relo_dest:
         trailing.append(_YEAR_DIGEST_DIRECTIVE)
+    elif gran_no_period and not _relo_dest:
+        trailing.append(
+            _MONTH_PICK_DIRECTIVE if timing_gran == "month" else _DAY_PICK_DIRECTIVE
+        )
     elif overview is not None and event_monthly and not monthly_explicit:
         trailing.append(_KEY_MONTHS_DIRECTIVE)
     # 대운·장기 인생 흐름 질문 — 대운을 '환경/공간감(플랫폼)이 닥쳐오는 흐름·이 대운이 나에게
@@ -2700,6 +2833,8 @@ def chat(
     if (_is_daewoon_question(intent, question) or vague_future) and not _relo_dest:
         trailing.append(DAEWOON_FRAMING_DIRECTIVE)
         trailing.append(DAEWOON_TRANSITION_SIGNALS_DIRECTIVE)
+        # 운 품질 → 의사결정 태도 번역(좋은 시기=직감 실행, 불안정=점검·내실 — 사례 P0-5).
+        trailing.append(DECISION_ATTITUDE_DIRECTIVE)
     # 이사 질문 — 십성(유형)과 용신/기신(길흉)을 분리해 답하도록 강제(2026-06-18).
     if _is_relocation_intent(intent):
         trailing.append(_RELOCATION_REASON_DIRECTIVE)
@@ -2712,8 +2847,14 @@ def chat(
         trailing.append(_LIFESTYLE_WINDFALL_DIRECTIVE)
     # 인연·만남 시기 — 만남은 '택일'이 아니므로 약한/기신 달을 선택지로 끌어와 무르지 말고,
     # 가장 유리한 시기 하나(연·반기·계절)로. 만날 장소·경로는 사주로 단정 불가(과도한 구체화 금지).
+    # 단 사용자가 '달'을 명시하면 '연·계절로 제시' 지시가 질문 입도와 충돌하므로(실사례 오답의
+    # 한 축, 2026-07-03) 월 단위 변형을 쓴다 — 비택일·장소 단정 금지 원칙은 유지.
     if _is_relationship_context(intent, question):
-        trailing.append(_MEETING_TIMING_DIRECTIVE)
+        trailing.append(
+            _MEETING_TIMING_MONTH_DIRECTIVE
+            if timing_gran == "month"
+            else _MEETING_TIMING_DIRECTIVE
+        )
     # 인연 출처 — '주변 사람 vs 새로운 사람' 질문이면 합·도화=가까운 / 충·역마=새 인연 근거(비단정).
     if _is_partner_source_question(question):
         trailing.append(PARTNER_SOURCE_DIRECTIVE)

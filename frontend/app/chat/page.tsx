@@ -585,7 +585,7 @@ export default function ChatPage() {
           </div>
         ))}
 
-        {busy && <p className="text-sm text-gray-400">통변 작성 중…</p>}
+        {busy && <p className="text-sm text-gray-400">풀이 작성 중…</p>}
         <div ref={bottomRef} />
       </section>
 

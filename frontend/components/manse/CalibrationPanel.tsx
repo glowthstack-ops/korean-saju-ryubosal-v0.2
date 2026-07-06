@@ -6,8 +6,11 @@ import { submitCalibration, type FeedbackAnswer } from "@/lib/api";
 import {
   CALIB_DOMAINS,
   DOMAIN_OPTIONS,
-  EVENT_OPTIONS,
   OVERALL_OPTIONS,
+  STATIC_DEFICIENCY_OPTIONS,
+  TRAIT_OPTIONS,
+  TRANSIT_OPTIONS,
+  YONGSIN_EVENT_OPTIONS,
   normalizeEventRating,
   type AnswerMap,
 } from "@/lib/calibration";
@@ -194,9 +197,14 @@ export function CalibrationPanel({
   }
 
   // 응답 수 — 전체 체감·영역·사건 중 하나라도 유의미하게 고르면 응답으로 본다.
+  // probe 유형(CAL-P0): trait는 선택지 응답, transition은 영역 칩 선택을 응답으로 본다.
   const isAnswered = (q: (typeof questions)[number]): boolean => {
     const a = answers[q.id];
     if (!a) return false;
+    if (q.question_type === "trait_probe") return !!a.trait_response;
+    if (q.question_type === "static_deficiency_probe") return !!a.static_response;
+    if (q.question_type === "transit_activation_probe") return !!a.transit_response;
+    if (q.question_type === "transition_probe") return (a.events ?? []).length > 0;
     if (a.rating && a.rating !== "unknown") return true;
     if (Object.values(a.domain_ratings ?? {}).some((v) => v && v !== "unknown")) return true;
     return Object.values(a.event_ratings ?? {}).some(
@@ -219,6 +227,10 @@ export function CalibrationPanel({
     patch(id, { domain_ratings: { ...(answers[id]?.domain_ratings ?? {}), [domain]: rating } });
   const setEventRating = (id: string, eventKey: string, rating: string) =>
     patch(id, { event_ratings: { ...(answers[id]?.event_ratings ?? {}), [eventKey]: rating } });
+  const setTraitResponse = (id: string, v: string) => patch(id, { trait_response: v });
+  const setTraitStatement = (id: string, v: string) => patch(id, { trait_statement: v });
+  const setStaticResponse = (id: string, v: string) => patch(id, { static_response: v });
+  const setTransitResponse = (id: string, v: string) => patch(id, { transit_response: v });
 
   const submit = async () => {
     setBusy(true);
@@ -231,6 +243,11 @@ export function CalibrationPanel({
         event_ratings: answers[q.id]?.event_ratings ?? {},
         domain_ratings: answers[q.id]?.domain_ratings ?? {},
         event_intensity: answers[q.id]?.event_intensity ?? {},
+        // trait_probe(CAL-P0)·pair(CAL-P1) — 채점 비반영, 표현 보정용으로만 서버에 전달.
+        trait_response: answers[q.id]?.trait_response ?? null,
+        trait_statement: answers[q.id]?.trait_statement?.trim() || null,
+        static_response: answers[q.id]?.static_response ?? null,
+        transit_response: answers[q.id]?.transit_response ?? null,
       }));
       onResult(await submitCalibration(profile, payload, referenceDate, timeOptions), answers);
     } catch (e) {
@@ -249,6 +266,133 @@ export function CalibrationPanel({
       <ol className="space-y-4">
         {questions.map((q) => {
           const a = answers[q.id];
+
+          // trait_probe(CAL-P0) — 성향 확인: 선택형 고정. 정답 확인이 아니라 표현 보정용이며
+          // 용신·점수를 바꾸지 않는다(백엔드 채점 비반영 고정).
+          if (q.question_type === "trait_probe") {
+            return (
+              <li key={q.id} className="rounded border p-2.5">
+                <p className="text-sm font-medium">{q.question_text}</p>
+                <p className="mt-0.5 text-[11px] text-gray-400">
+                  답변 스타일을 더 잘 맞추기 위한 확인 질문이에요. 용신이나 운세 점수는
+                  바뀌지 않아요.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {TRAIT_OPTIONS.map((o) => (
+                    <button key={o.value} type="button"
+                      onClick={() => setTraitResponse(q.id, o.value)}
+                      className={`rounded border px-2 py-1 text-[11px] ${
+                        a?.trait_response === o.value
+                          ? "border-gray-800 bg-gray-800 text-white"
+                          : "text-gray-600"
+                      }`}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+                <input type="text" maxLength={80}
+                  value={a?.trait_statement ?? ""}
+                  onChange={(e) => setTraitStatement(q.id, e.target.value)}
+                  placeholder="실제로는 어떤지 한 줄로 남겨 주셔도 좋아요 (선택)"
+                  className="mt-2 w-full rounded border px-2 py-1 text-[11px] placeholder:text-gray-300"
+                />
+              </li>
+            );
+          }
+
+          // static_deficiency_probe(CAL-P1 A) — 평소 체감: 선택형 고정, 채점 비반영.
+          if (q.question_type === "static_deficiency_probe") {
+            return (
+              <li key={q.id} className="rounded border p-2.5">
+                <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                  평소 체감
+                </span>
+                <p className="mt-1 text-sm font-medium">{q.question_text}</p>
+                <p className="mt-0.5 text-[11px] text-gray-400">
+                  평소 체감에 가까운 답을 골라주세요. 이 답변은 해석 표현을 더 정확히
+                  맞추기 위한 참고용이에요.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {STATIC_DEFICIENCY_OPTIONS.map((o) => (
+                    <button key={o.value} type="button"
+                      onClick={() => setStaticResponse(q.id, o.value)}
+                      className={`rounded border px-2 py-1 text-[11px] ${
+                        a?.static_response === o.value
+                          ? "border-gray-800 bg-gray-800 text-white"
+                          : "text-gray-600"
+                      }`}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </li>
+            );
+          }
+
+          // transit_activation_probe(CAL-P1 B) — 해당 시기 체감: 연도 앵커형, 채점 비반영.
+          if (q.question_type === "transit_activation_probe") {
+            return (
+              <li key={q.id} className="rounded border p-2.5">
+                <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                  해당 시기 체감
+                </span>
+                <p className="mt-1 text-sm font-medium">{q.question_text}</p>
+                {q.period_range && (
+                  <p className="mt-0.5 text-[11px] text-gray-400">{q.period_range}</p>
+                )}
+                <p className="mt-0.5 text-[11px] text-gray-400">
+                  해당 해에 실제로 체감된 변화가 있었는지 확인하는 질문이에요. 답변이
+                  용신이나 운세 점수를 바꾸지는 않아요.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {TRANSIT_OPTIONS.map((o) => (
+                    <button key={o.value} type="button"
+                      onClick={() => setTransitResponse(q.id, o.value)}
+                      className={`rounded border px-2 py-1 text-[11px] ${
+                        a?.transit_response === o.value
+                          ? "border-gray-800 bg-gray-800 text-white"
+                          : "text-gray-600"
+                      }`}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </li>
+            );
+          }
+
+          // transition_probe(CAL-P0) — 교운기 회상: 사건 단정 없이 변화 체감만 확인.
+          // 응답은 영향 영역 칩(복수)으로 받는다(채점 비반영 — 질문 품질·회상 보조용).
+          if (q.question_type === "transition_probe") {
+            return (
+              <li key={q.id} className="rounded border p-2.5">
+                <p className="text-sm font-medium">{q.question_text}</p>
+                {q.period_range && (
+                  <p className="mt-0.5 text-[11px] text-gray-400">{q.period_range}</p>
+                )}
+                <p className="mt-0.5 text-[11px] text-gray-400">
+                  이 시기는 대운(10년 흐름)이 바뀌는 전환 전후예요. 실제 사건이 아니더라도
+                  생활 리듬이나 주변 환경 변화가 체감됐는지 확인해요.
+                </p>
+                <p className="mt-2 text-[10px] font-medium text-gray-400">
+                  변화가 있었던 영역(복수)
+                </p>
+                <div className="mt-0.5 flex flex-wrap gap-1">
+                  {q.options.map((opt) => (
+                    <button key={opt} type="button" onClick={() => toggleEvent(q.id, opt)}
+                      className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                        a?.events?.includes(opt)
+                          ? "border-emerald-600 bg-emerald-50"
+                          : "text-gray-500"
+                      }`}>
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </li>
+            );
+          }
+
           return (
             <li key={q.id} className="rounded border p-2.5">
               <p className="text-sm font-medium">{q.question_text}</p>
@@ -309,7 +453,7 @@ export function CalibrationPanel({
                             </span>
                           </div>
                           <div className="mt-0.5 flex flex-wrap gap-1">
-                            {EVENT_OPTIONS.map((o) => (
+                            {YONGSIN_EVENT_OPTIONS.map((o) => (
                               <button key={o.value} type="button"
                                 onClick={() => setEventRating(q.id, ev.event_key, o.value)}
                                 className={`rounded border px-2 py-1 text-[11px] ${

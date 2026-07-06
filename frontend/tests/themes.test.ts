@@ -83,3 +83,36 @@ describe("themes", () => {
     expect(spec.subjects).toHaveLength(1);
   });
 });
+
+// 상대와의 관계 → ReportSpec 전달(2026-07-03) — 명시 선택 > 등록 저장값 > 미지정(null).
+import { RELATION_OPTIONS } from "@/lib/themes";
+
+describe("relation type in report spec", () => {
+  const theme = themeBySlug("relationship")!;
+  const primary = subject("s1", "본인");
+  it("explicit relation flows into companion subject", () => {
+    const spec = buildReportSpec(theme, primary, {
+      mode: "inline", label: "상대",
+      birth: { date: "1985-03-08" }, relationType: "boss",
+    });
+    expect(spec.subjects[1].relation_type).toBe("boss");
+  });
+  it("falls back to registered relation_to_user when not chosen", () => {
+    const comp = { ...subject("s2", "짝꿍"), relation_to_user: "spouse" };
+    const spec = buildReportSpec(theme, primary, { mode: "registered", subject: comp });
+    expect(spec.subjects[1].relation_type).toBe("spouse");
+  });
+  it("stays null when nothing provided (neutral tone)", () => {
+    const spec = buildReportSpec(theme, primary, {
+      mode: "inline", label: "상대", birth: { date: "1985-03-08" },
+    });
+    expect(spec.subjects[1].relation_type ?? null).toBeNull();
+  });
+  it("relation options mirror backend relation types", () => {
+    expect(RELATION_OPTIONS.map((r) => r.value)).toEqual([
+      "crush", "romance", "fiance", "spouse", "divorcing", "affair",
+      "friend", "parent_child", "family", "coworker", "boss",
+      "subordinate", "business_partner",
+    ]);
+  });
+});

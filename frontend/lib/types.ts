@@ -174,12 +174,16 @@ export interface ProfileUpsert {
 }
 
 // 미등록 즉석 상대 출생정보(intent.InlineBirth). 등록 없이 궁합 1회 분석에 쓴다.
+// 좌표·timezone: 지역 피커 선택 시 함께 전송 — 백엔드 지명 시드와 무관하게 경도 보정 정확.
 export interface InlineBirthDTO {
   date: string; // YYYY-MM-DD
   time?: string | null; // HH:MM, 없으면 시주 제외
   calendar_type?: "solar" | "lunar";
   gender?: "M" | "F" | null;
   birthplace?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  timezone?: string | null; // IANA tz
 }
 
 // 채팅 궁합 상대(첨부) — 등록 동반자 또는 즉석 입력.
@@ -193,6 +197,8 @@ export interface SubjectRef {
   label: string;
   companion_id?: string | null;
   inline_birth?: InlineBirthDTO | null;
+  // 기준(self)과의 관계 — RELATION_OPTIONS 값. 궁합(RP) 풀이 방향에 반영(미지정=중립 톤).
+  relation_type?: string | null;
 }
 
 export interface ReportSpec {
@@ -402,7 +408,8 @@ export interface CalibrationEventItem {
 
 export interface CalibrationQuestion {
   id: string;
-  question_type: string; // ... | "event_list"
+  // ... | "event_list" | "transition_probe"(교운기 회상, CAL-P0) | "trait_probe"(성향 확인)
+  question_type: string;
   year: number;
   period_label: string;
   period_range?: string;
@@ -410,6 +417,14 @@ export interface CalibrationQuestion {
   ask_domains: string[];
   options: string[];
   events?: CalibrationEventItem[];
+  // trait_probe 전용(CAL-P0) — 성향 대상 축·엔진 근거. 그 외 유형은 비어 있음.
+  trait_target?: string | null;
+  engine_basis?: string[];
+  // CAL-P1 pair 전용 — A/B 두 질문이 pair_id·축을 공유한다.
+  pair_id?: string | null;
+  axis_type?: string | null;
+  axis_id?: string | null;
+  axis_element?: string | null;
 }
 
 export interface CalibrationResult {

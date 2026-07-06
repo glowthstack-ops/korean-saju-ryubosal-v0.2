@@ -4,9 +4,28 @@
 import type { InlineBirthDTO, ReportSpec, SubjectRef, SubjectSummary } from "./types";
 
 // 상대 선택 결과: 등록 동반자 / 즉석 입력(미등록). 관계운 optional·required에서 사용.
+// relationType: 기준 사주와 상대의 관계(사용자 명시 선택) — 궁합(RP) 풀이 방향에 반영.
 export type CompanionChoice =
-  | { mode: "registered"; subject: SubjectSummary }
-  | { mode: "inline"; label: string; birth: InlineBirthDTO };
+  | { mode: "registered"; subject: SubjectSummary; relationType?: string | null }
+  | { mode: "inline"; label: string; birth: InlineBirthDTO; relationType?: string | null };
+
+// 상대와의 관계 선택지 — 백엔드 relationship_hints.RELATION_TYPES/RELATION_KO 미러.
+// 관계에 따라 풀이 방향이 달라진다(연인/배우자/결혼예정/이혼예정/외도/상사·부하 등).
+export const RELATION_OPTIONS: { value: string; label: string }[] = [
+  { value: "crush", label: "썸·호감 단계" },
+  { value: "romance", label: "연인" },
+  { value: "fiance", label: "결혼 예정(약혼)" },
+  { value: "spouse", label: "배우자(기혼)" },
+  { value: "divorcing", label: "이혼 예정·진행 중" },
+  { value: "affair", label: "외도 관계" },
+  { value: "friend", label: "친구" },
+  { value: "parent_child", label: "부모·자녀" },
+  { value: "family", label: "가족·친척" },
+  { value: "coworker", label: "직장 동료" },
+  { value: "boss", label: "상사" },
+  { value: "subordinate", label: "부하 직원" },
+  { value: "business_partner", label: "사업 파트너" },
+];
 
 // 동반자(상대) 선택 정책: none=단독 전용 / optional=상대 추가 선택 가능(내 명식만도 가능) /
 // required=상대 필수(두 사람 분석). 관계·애정운은 optional — 상대 등록 시 궁합 모드(RP-*),
@@ -32,7 +51,7 @@ export const THEMES: Theme[] = [
     productCode: "RPT_FULL",
     topic: null,
     companionMode: "none",
-    desc: "명식·과거·현재·미래·조언까지 아우른 종합 풀이.",
+    desc: "타고난 기질부터 지나온 흐름, 앞으로의 큰 그림과 실천 조언까지 — 내 인생 전체를 한 권으로 읽어보세요.",
   },
   {
     slug: "year",
@@ -41,7 +60,7 @@ export const THEMES: Theme[] = [
     productCode: "RPT_YEAR",
     topic: null,
     companionMode: "none",
-    desc: "올해(또는 선택한 해) 1년의 세운·월별 흐름과 도메인별 전망을 압축한 풀이.",
+    desc: "선택한 해의 전체 흐름과 달별 좋은 시기·주의할 시기, 직업·재물·관계·건강 전망을 한 번에 확인해 보세요.",
     needsYear: true,
   },
   {
@@ -51,7 +70,7 @@ export const THEMES: Theme[] = [
     productCode: "RPT_FOCUS",
     topic: "relationship",
     companionMode: "optional",
-    desc: "향후 5년 애정 흐름을 내 명식만으로 보거나, 상대를 더하면 두 사람의 궁합·극복 전략까지.",
+    desc: "앞으로 5년, 인연이 열리는 시기와 관계의 흐름을 알려드려요. 마음에 둔 상대를 더하면 두 사람의 궁합과 잘 지내는 법까지 볼 수 있어요.",
   },
   {
     slug: "career",
@@ -60,7 +79,7 @@ export const THEMES: Theme[] = [
     productCode: "RPT_FOCUS",
     topic: "career",
     companionMode: "none",
-    desc: "향후 5년 직업·사업 흐름과 변화 시기, 행동 전략.",
+    desc: "이직·승진·사업, 언제 움직이면 좋을까? 앞으로 5년의 직업 흐름과 변화가 열리는 시기, 시기별 행동 전략을 담아드려요.",
   },
   {
     slug: "wealth",
@@ -69,7 +88,7 @@ export const THEMES: Theme[] = [
     productCode: "RPT_FOCUS",
     topic: "wealth",
     companionMode: "none",
-    desc: "향후 5년 재물 흐름과 기회·리스크 시기.",
+    desc: "돈이 들어오고 나가는 앞으로 5년의 흐름과 기회의 시기, 조심할 시기를 미리 짚어드려요.",
   },
 ];
 
@@ -116,17 +135,24 @@ export function buildReportSpec(
 ): ReportSpec {
   const subjects: SubjectRef[] = [{ kind: "self", label: primary.label }];
   if (theme.companionMode !== "none" && companion) {
+    // 관계(사용자 명시 > 등록 동반자 저장값) — 궁합(RP) 풀이 방향에 반영.
+    const relation =
+      companion.relationType ??
+      (companion.mode === "registered" ? companion.subject.relation_to_user : null) ??
+      null;
     if (companion.mode === "registered") {
       subjects.push({
         kind: "companion",
         label: companion.subject.label,
         companion_id: companion.subject.subject_id,
+        relation_type: relation,
       });
     } else {
       subjects.push({
         kind: "inline_temp",
         label: companion.label,
         inline_birth: companion.birth,
+        relation_type: relation,
       });
     }
   }

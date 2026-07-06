@@ -9,11 +9,25 @@ from __future__ import annotations
 
 import re
 
-# 관계 유형(초기 enum). competition/ranking은 P3c 이후.
+# 관계 유형. competition/ranking은 P3c 이후.
+# 2026-07-03 확장(데굴님 지시 — 테마 애정·관계운 관계 명시 선택): 애정 단계 세분
+# (crush 썸/fiance 결혼예정/divorcing 이혼예정/affair 외도)과 위계 사회관계(boss/subordinate).
+# 키워드 추론(_KEYWORD_RULES)은 기존 그대로 — 신규 값은 사용자의 '명시 선택'(테마 상대
+# 선택·등록 관계)으로만 들어온다(추론 확장은 실사용 후 후속).
 RELATION_TYPES: tuple[str, ...] = (
-    "spouse", "romance", "parent_child", "family",
-    "friend", "coworker", "business_partner", "unknown",
+    "spouse", "romance", "crush", "fiance", "divorcing", "affair",
+    "parent_child", "family", "friend",
+    "coworker", "boss", "subordinate", "business_partner", "unknown",
 )
+
+# 표시 라벨(FE 선택지·리포트 블록 공용).
+RELATION_KO: dict[str, str] = {
+    "spouse": "배우자(기혼)", "romance": "연인", "crush": "썸·호감 단계",
+    "fiance": "결혼 예정(약혼)", "divorcing": "이혼 예정·진행 중", "affair": "외도 관계",
+    "parent_child": "부모·자녀", "family": "가족·친척", "friend": "친구",
+    "coworker": "직장 동료", "boss": "상사", "subordinate": "부하 직원",
+    "business_partner": "사업 파트너", "unknown": "미지정",
+}
 
 # ① 사용자 명시 키워드 → 관계유형(우선순위 순 — 더 구체적인 것 먼저).
 _KEYWORD_RULES: list[tuple[re.Pattern[str], str]] = [
@@ -37,6 +51,11 @@ _RELATION_TO_USER: dict[str, str] = {
     "son": "parent_child", "daughter": "parent_child", "child": "parent_child",
     "sibling": "family", "brother": "family", "sister": "family",
     "friend": "friend", "coworker": "coworker", "business_partner": "business_partner",
+    # 2026-07-03 확장 — 테마 관계 선택 값 그대로 저장·전달되는 경우(identity).
+    "romance": "romance", "crush": "crush", "fiance": "fiance",
+    "divorcing": "divorcing", "affair": "affair",
+    "boss": "boss", "subordinate": "subordinate",
+    "parent_child": "parent_child", "family": "family",
 }
 
 # 관계유형별 관점 힌트(LLM 관점 제어 — 점수 아님).
@@ -50,8 +69,67 @@ PERSPECTIVE_HINTS: dict[str, list[str]] = {
     "friend": ["편안함", "신뢰감", "거리 조절", "소통 방식", "오래 가는 관계성"],
     "coworker": ["업무 역할", "협업 방식", "책임 분배", "성과 압박", "커뮤니케이션"],
     "business_partner": ["금전 흐름", "역할 분담", "책임 소재", "리스크 감수", "의사결정 충돌"],
+    "crush": ["끌림의 신호", "다가서는 속도", "표현 방식", "상대의 온도", "시작 타이밍"],
+    "fiance": ["결혼 준비 흐름", "가치관·생활 조율", "양가·현실 문제", "결혼 시기", "재물 합류"],
+    "divorcing": ["정리 vs 회복의 결", "감정 소모", "재산·생활 분리", "결정 시기", "회복 탄력"],
+    "affair": ["감정의 실체", "신뢰·현실 리스크", "관계의 지속 가능성", "생활 파장", "선택의 갈림"],
+    "boss": ["위계 속 소통", "인정과 평가", "업무 지시 결", "갈등 완충", "성장 기회"],
+    "subordinate": ["위임과 신뢰", "지도 방식", "책임 분배", "동기 부여", "관계 거리"],
     "unknown": ["상호 성향", "소통 방식", "갈등 요인", "도움이 되는 지점", "조율 포인트"],
 }
+
+# 관계별 풀이 방향(리포트 궁합 RP-* 프레이밍 — 서술 방식 전용, 점수·판정 불변).
+# 애정 단계별 톤 분리 + 사회 관계는 연애 전제 제거. affair는 조장·비난 없이 현실 리스크 동반.
+RELATION_FRAMING: dict[str, str] = {
+    "spouse": "이미 결혼한 부부다 — '새 인연·시작' 프레임이 아니라 결혼 생활의 운영"
+              "(권태 회복·역할 분담·재물과 거주 결정)을 중심으로 풀 것.",
+    "romance": "교제 중인 연인이다 — 관계의 진전·안정·갈등 조절을 중심으로 풀고, 결혼"
+               " 이야기는 단정 없이 흐름으로만 다룰 것.",
+    "crush": "아직 시작 전(썸·호감) 단계다 — 다가설 타이밍과 표현 방식, 시작 가능성의"
+             " 창을 중심으로 풀되 '반드시 이어진다' 단정은 금지.",
+    "fiance": "결혼을 앞둔 사이다 — 준비 과정의 마찰·가치관 조율·현실 문제(양가·재정)와"
+              " 유리한 결혼 시기 창을 중심으로 풀 것.",
+    "divorcing": "이혼을 고민·진행 중인 관계다 — 밝은 궁합 톤을 강요하지 말고, 정리와"
+                 " 회복의 결을 분리해(신뢰·안전이 깨진 사유=회복 어려움 / 성격·상황"
+                 " 사유=노력 여지) 큰 결정은 운 저점에서 서두르지 않게 안내할 것.",
+    "affair": "혼외 관계다 — 도덕적 훈계도 관계 미화도 하지 말 것. 감정의 실체와 함께"
+              " 신뢰·가정·현실에 미치는 리스크를 냉정하게 병기하고, 지속·정리 어느 쪽도"
+              " 단정하지 말며 선택의 갈림과 그 대가를 균형 있게 짚을 것.",
+    "parent_child": "부모·자녀 관계다 — 연애 궁합 프레임 금지. 보호와 독립, 기대 충돌,"
+                    " 정서적 부담의 조율을 중심으로 풀 것.",
+    "family": "가족·친척 관계다 — 연애 프레임 금지. 역할·거리 조절·도움과 부담의 균형"
+              " 중심으로 풀 것.",
+    "friend": "친구 관계다 — 연애 프레임을 끌어오지 말고 신뢰·거리 조절·오래 가는 관계"
+              " 운영을 중심으로 풀 것.",
+    "coworker": "직장 동료다 — 연애 궁합이 아니라 협업 방식·역할·소통의 합을 중심으로 풀 것.",
+    "boss": "상대가 나의 상사다 — 위계를 전제로 인정받는 방식·보고와 소통의 결·갈등 완충을"
+            " 중심으로 풀고, 대등한 관계처럼 서술하지 말 것.",
+    "subordinate": "상대가 나의 부하 직원이다 — 위임과 신뢰, 지도 방식, 동기 부여를 중심으로"
+                   " 풀고 연애 프레임을 쓰지 말 것.",
+    "business_partner": "사업 파트너다 — 금전 흐름·책임 소재·의사결정 충돌의 조율을 중심으로"
+                        " 풀고 연애 프레임을 쓰지 말 것.",
+}
+
+
+def relation_context_lines(relation_type: str | None) -> list[str]:
+    """[상대와의 관계] 블록 — 사용자가 명시한 관계를 풀이 방향으로 번역한다(리포트 RP-* 공용).
+
+    관계 미지정(None/unknown)은 빈 목록 — 기존 중립 궁합 톤 유지(하위호환).
+    점수·간지·판정에는 개입하지 않는다(서술 방향 전용).
+    """
+    if not relation_type or relation_type == "unknown":
+        return []
+    ko = RELATION_KO.get(relation_type)
+    framing = RELATION_FRAMING.get(relation_type)
+    if ko is None or framing is None:
+        return []
+    hints = PERSPECTIVE_HINTS.get(relation_type, PERSPECTIVE_HINTS["unknown"])
+    return [
+        f"[상대와의 관계 — 사용자가 지정: {ko}]",
+        f"풀이 방향: {framing}",
+        f"주로 볼 영역: {' · '.join(hints)}",
+        "관계 유형은 서술 관점일 뿐이다 — 궁합 점수·우열·결과를 단정하지 말 것.",
+    ]
 
 # 안전 가드 — competition/ranking 미구현이어도 미리 둔다(승부·우열 단정 금지, 절대원칙 8).
 SAFETY_GUARDS: list[str] = [

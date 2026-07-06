@@ -68,6 +68,8 @@ export default function ManseResultPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [result, setResult] = useState<ManseResult | null>(null);
   const [calibration, setCalibration] = useState<CalibrationResult | null>(null);
+  // '검증 다시 진행' 클릭 상태 — registered(등록 완료) 게이트를 건너뛰고 질문 폼을 바로 연다.
+  const [redoRequested, setRedoRequested] = useState(false);
   // 로그인 사주 id + DB에 등록된 확정 용신 — 만세력 페이지·사주목록·수정 폼이 같은 값을 공유.
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [confirmedYongsin, setConfirmedYongsin] = useState<string | null>(null);
@@ -138,6 +140,7 @@ export default function ManseResultPage() {
 
   // 검증 제출 시: 화면 반영 + localStorage 저장(reload 후에도 유지).
   const onCalibrationResult = (res: CalibrationResult, answers: AnswerMap) => {
+    setRedoRequested(false); // 재검증 완료 — 다음 진입은 다시 요약(등록 완료) 뷰부터
     setCalibration(res);
     setSavedAnswers(answers); // 재검증(다시 진행) 시 방금 제출한 답변이 프리필되도록 유지
     if (profile && result) {
@@ -205,7 +208,13 @@ export default function ManseResultPage() {
           result={result}
           calibration={calibration}
           confirmedYongsin={confirmedYongsin}
-          onRedo={() => setCalibration(null)}
+          onRedo={() => {
+            // '검증 다시 진행' 한 번으로 곧장 질문 폼까지 — '용신 등록 완료 → 다시 검증'
+            // 중간 게이트를 건너뛴다(이중 단계 제거, 2026-07-03 데굴님 지적). registered
+            // 게이트는 다른 기기에서 확정한 사용자의 '초기 진입' 전용으로만 남는다.
+            setCalibration(null);
+            setRedoRequested(true);
+          }}
         />
       </div>
       <div id="sec-calibration" className="scroll-mt-4">
@@ -217,7 +226,7 @@ export default function ManseResultPage() {
           onResult={onCalibrationResult}
           initialAnswers={savedAnswers}
           submitted={calibration !== null}
-          registered={!!confirmedYongsin && calibration === null}
+          registered={!!confirmedYongsin && calibration === null && !redoRequested}
         />
       </div>
 

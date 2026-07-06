@@ -26,7 +26,7 @@ const FREE: NavItem[] = [
 ];
 const PAID: NavItem[] = [
   { href: "/themes", label: "테마사주", desc: "총운·궁합·직장·금전 풀이" },
-  { href: "/chat", label: "AI채팅상담", desc: "대화형 통변" },
+  { href: "/chat", label: "AI채팅상담", desc: "대화형 사주 풀이" },
 ];
 
 // 경로 → 페이지 타이틀(메인 외 모든 페이지). 헤더의 '류보살 v2'를 대체 표시. 긴 접두사 우선.

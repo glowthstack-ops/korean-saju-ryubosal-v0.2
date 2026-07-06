@@ -122,13 +122,20 @@ class OutputFormat(StrEnum):
 
 
 class InlineBirth(BaseModel):
-    """미등록 제3자 출생정보 (docs/03 B2). 시각 없으면 3주(시주 제외) 모드."""
+    """미등록 제3자 출생정보 (docs/03 B2). 시각 없으면 3주(시주 제외) 모드.
+
+    좌표·timezone(선택): FE 지역 피커가 선택 지명의 좌표를 함께 보내면 백엔드 지명
+    시드(소수)와 무관하게 경도 보정이 정확해진다(2026-07-03 즉석입력 지역 미동작 수정).
+    """
 
     date: str
     time: str | None = None
     calendar_type: str = "solar"  # 'solar' / 'lunar'
     gender: str | None = None  # 'M' / 'F'
     birthplace: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    timezone: str | None = None  # IANA tz, 예: 'Asia/Seoul'
 
 
 class SubjectRef(BaseModel):
@@ -143,6 +150,9 @@ class SubjectRef(BaseModel):
     companion_id: str | None = None
     inline_birth: InlineBirth | None = None
     entity_id: str | None = None
+    # 기준(SELF) 대상과의 관계 — relationship_hints.RELATION_TYPES 값(사용자 명시 선택).
+    # 테마 애정·관계운 궁합(RP)의 풀이 방향에 쓰인다(2026-07-03). 미지정=중립 궁합 톤.
+    relation_type: str | None = None
 
 
 class AnchorDate(BaseModel):

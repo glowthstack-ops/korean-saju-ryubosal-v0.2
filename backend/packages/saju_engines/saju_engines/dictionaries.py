@@ -356,6 +356,96 @@ class FavorabilityTextFile(_AliasModel):
     items: list[FavorabilityTextItem] = Field(min_length=5, max_length=5)
 
 
+class ActivityKeywordEntry(_AliasModel):
+    """활동 키워드 번역 항목 (interpretations/activity_keyword_map.json).
+
+    오행·신살 등 엔진 신호를 조언용 활동 키워드로 번역한다 — 직업 추천이 아니라
+    활동축·환경·방식 제안 전용(상담 사례 파생 P1, doc/v2_2/cases/1980_1122_job_report_case.md).
+    """
+
+    source_type: Literal["element", "ten_god", "star", "structure"]
+    source_id: str
+    korean: str
+    domains: list[str] = Field(min_length=1)
+    activity_keywords: list[str] = Field(min_length=1)
+    caution: str | None = None
+    safe_rule: str | None = None
+    reviewed: bool
+
+
+class ActivityKeywordMapFile(_AliasModel):
+    version: str
+    purpose: str
+    note: str | None = None
+    entries: list[ActivityKeywordEntry] = Field(min_length=6)
+
+
+class RemedyElementActions(_AliasModel):
+    """오행 하나의 개운 행동 제안 (interpretations/remedy_action_map.json)."""
+
+    core_need: str
+    recommended_actions: list[str] = Field(min_length=1)
+    avoid: list[str] = Field(default_factory=list)
+    reviewed: bool
+
+
+class RemedyActionMapFile(_AliasModel):
+    """개운 행동 사전 — 오행 보완 행동 전용(remedy.json D-3 상황 6분기와 별개 축).
+
+    principles(not_magic/behavior_first/avoid_certainty)는 주술적 확언 차단 원칙으로
+    5오행 행동과 함께 고정 필수(상담 사례 파생 P2).
+    """
+
+    version: str
+    purpose: str
+    note: str | None = None
+    principles: dict[str, str]
+    element_actions: dict[str, RemedyElementActions]
+
+    @model_validator(mode="after")
+    def _check_required_keys(self) -> RemedyActionMapFile:
+        required_principles = {"not_magic", "behavior_first", "avoid_certainty"}
+        if not required_principles <= set(self.principles):
+            raise ValueError(f"principles에 {required_principles} 필수")
+        required_elements = {"wood", "fire", "earth", "metal", "water"}
+        if set(self.element_actions) != required_elements:
+            raise ValueError(f"element_actions는 {required_elements} 5오행 고정")
+        return self
+
+
+class DeficiencyPairQuestionEntry(_AliasModel):
+    """CAL-P1 이원 질문 쌍 항목 (interpretations/deficiency_pair_questions.json).
+
+    A(static_question)=평소 결핍 체감, B(transit_question)=운 작동 확인 본문(앵커 연도
+    프리픽스는 질문 생성기가 부착). 길흉 단정 어휘 금지·채점 비반영(§5).
+    """
+
+    axis_type: Literal["element", "ten_god_group"]
+    axis_id: str
+    korean: str
+    static_question: str = Field(min_length=10)
+    transit_question: str = Field(min_length=10)
+    basis_label: str
+    reviewed: bool
+
+
+class DeficiencyPairQuestionsFile(_AliasModel):
+    version: str
+    purpose: str
+    note: str | None = None
+    entries: list[DeficiencyPairQuestionEntry] = Field(min_length=10)
+
+    @model_validator(mode="after")
+    def _check_axis_coverage(self) -> DeficiencyPairQuestionsFile:
+        elements = {e.axis_id for e in self.entries if e.axis_type == "element"}
+        groups = {e.axis_id for e in self.entries if e.axis_type == "ten_god_group"}
+        if elements != {"wood", "fire", "earth", "metal", "water"}:
+            raise ValueError("element 축은 5오행 전체 필수")
+        if groups != {"officer", "wealth", "output", "resource", "peer"}:
+            raise ValueError("ten_god_group 축은 5그룹 전체 필수")
+        return self
+
+
 class TerminologyFile(_AliasModel):
     version: str
     note: str | None = None
@@ -979,6 +1069,9 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
     "interpretations/relocation_ten_gods.json": RelocationTenGodsFile,
+    "interpretations/activity_keyword_map.json": ActivityKeywordMapFile,
+    "interpretations/remedy_action_map.json": RemedyActionMapFile,
+    "interpretations/deficiency_pair_questions.json": DeficiencyPairQuestionsFile,
     "calendar/date_selection_ten_gods.json": DateSelectionTenGodsFile,
     "terminology.json": TerminologyFile,
     "templates/interpretation.json": InterpretationTemplatesFile,

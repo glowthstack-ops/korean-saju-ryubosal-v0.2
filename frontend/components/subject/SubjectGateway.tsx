@@ -10,7 +10,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 import { InlinePartnerForm } from "@/components/subject/InlinePartnerForm";
 import { SubjectCard } from "@/components/subject/SubjectCard";
-import type { CompanionChoice } from "@/lib/themes";
+import { RELATION_OPTIONS, type CompanionChoice } from "@/lib/themes";
 import { listSubjects } from "@/lib/subjects";
 import type { SubjectSummary } from "@/lib/types";
 
@@ -37,6 +37,8 @@ export function SubjectGateway({
   const [subjects, setSubjects] = useState<SubjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [primary, setPrimary] = useState<SubjectSummary | null>(null);
+  // 상대와의 관계(사용자 명시 선택) — 궁합(RP) 풀이 방향에 반영. null=미지정.
+  const [relationType, setRelationType] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -80,6 +82,28 @@ export function SubjectGateway({
           <span className="font-medium">{primary.label}</span>님과 함께 볼 상대를 골라 주세요.
           {optional && " 상대를 더하면 두 사람의 궁합·극복 전략까지 풀이합니다."}
         </p>
+        {/* 상대와의 관계 — 관계에 따라 풀이 방향이 달라진다(연인/배우자/상사 등, 2026-07-03).
+            미선택 시 등록 동반자의 저장 관계 → 그것도 없으면 중립 궁합 톤. */}
+        <label className="block rounded-lg border bg-white p-3">
+          <span className="text-sm font-medium">
+            {primary.label}님과 상대는 어떤 관계인가요?
+          </span>
+          <select
+            value={relationType ?? ""}
+            onChange={(e) => setRelationType(e.target.value || null)}
+            className="mt-1.5 w-full rounded border px-2 py-1.5 text-sm"
+          >
+            <option value="">선택 안 함 (일반 궁합으로 풀이)</option>
+            {RELATION_OPTIONS.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11px] text-gray-400">
+            관계를 알려주시면 그 관계에 맞는 방향으로 풀이해 드려요.
+          </p>
+        </label>
         {optional && (
           <button
             onClick={() => {
@@ -106,7 +130,11 @@ export function SubjectGateway({
                 subject={s}
                 onSelect={(comp) => {
                   setCompanion({ subjectId: comp.subject_id, label: comp.label });
-                  onResolved(primary, { mode: "registered", subject: comp });
+                  onResolved(primary, {
+                    mode: "registered",
+                    subject: comp,
+                    relationType,
+                  });
                 }}
               />
             ))}
@@ -122,7 +150,7 @@ export function SubjectGateway({
             <InlinePartnerForm
               onSubmit={(label, birth) => {
                 setCompanion(null);
-                onResolved(primary, { mode: "inline", label, birth });
+                onResolved(primary, { mode: "inline", label, birth, relationType });
               }}
             />
           </div>

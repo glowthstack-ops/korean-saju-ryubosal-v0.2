@@ -119,6 +119,12 @@ export interface FeedbackAnswer {
   domain_ratings?: Record<string, string>;
   // 사건별 강도(선택, 1~3).
   event_intensity?: Record<string, number>;
+  // trait_probe 응답(CAL-P0) — agreed/mixed/denied/unclear. 채점 비반영(표현 보정용).
+  trait_response?: string | null;
+  trait_statement?: string | null;
+  // CAL-P1 pair 응답 — A(평소 체감)/B(해당 시기 체감). 채점 비반영.
+  static_response?: string | null;
+  transit_response?: string | null;
 }
 
 export async function submitCalibration(

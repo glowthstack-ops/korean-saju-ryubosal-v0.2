@@ -123,6 +123,167 @@ RELATIONSHIP_SELF_AWARENESS_DIRECTIVE = (
 )
 
 
+# ── 상담 사례 파생 서술 디렉티브(P0) — doc/v2_2/cases/1980_1122_job_report_case.md §5
+# (2026-07-03 데굴님 승인). 전부 '서술 방식' 지시이며 점수·날짜·간지·판정에 영향을 주지 않는다
+# (원칙 1·12). 채팅·리포트 공용.
+CONCLUSION_FIRST_DIRECTIVE = (
+    "[결론 선제시] 직업·사업·이직·자금·결혼 등 선택형 질문에는 권하는 방향(결론)을 먼저 한두 "
+    "문장으로 제시한 뒤 근거를 설명하라. 예: '지금은 사업을 크게 벌리기보다, 직장 기반을 "
+    "유지하면서 부업형 수익화를 병행하는 쪽이 더 안전합니다.' 결론도 단정이 아니라 권고·방향 "
+    "표현으로 말할 것."
+)
+
+KEYWORD_COMBO_TRANSLATION_DIRECTIVE = (
+    "[활동 키워드 번역] 용신·십성·신살·격국 신호를 '화 기운이 좋다' 같은 추상어로 끝내지 말고, "
+    "위 [활동 키워드] 블록의 키워드를 2~4개 조합해 생활 언어로 제안하라(예: '온라인, 글쓰기, "
+    "정리·기획을 조합하는 방식이 잘 맞습니다'). 직업명 단정이 아니라 적합한 활동축·환경·방식의 "
+    "조합으로 제안하고, 블록에 없는 키워드를 새로 만들지 말 것."
+)
+
+NON_NORMATIVE_REASSURANCE_DIRECTIVE = (
+    "[탈규범 안심] 결혼·직장·사업·인간관계 질문에서 '다들 하니까 해야 한다' 식의 사회적 정답을 "
+    "강요하지 마라. 엔진 신호가 특정 선택을 요구하지 않으면 '반드시 결혼해야 풀리는 사주는 "
+    "아니다'처럼 선택의 자유를 열어 주고, 어떤 선택을 하든 지킬 본인 기준(독립성·생활 리듬)을 "
+    "함께 제시하라."
+)
+
+MANAGE_NOT_OVERCOME_DIRECTIVE = (
+    "[극복 아니라 관리] 부족한 오행·과다·기신 기질을 '고쳐야 할 문제·극복 대상'으로만 말하지 "
+    "마라. 없애는 것이 아니라 상황이 겹칠 때 기준을 세워 관리하는 부분으로 설명하고, 관리 "
+    "노하우(루틴·기록·기준선)를 함께 제안하라(예: '이 기질은 없애야 할 문제가 아니라, 돈과 "
+    "관계가 섞일 때 기준을 세워 관리해야 하는 부분입니다')."
+)
+
+DECISION_ATTITUDE_DIRECTIVE = (
+    "[운 품질 → 의사결정 태도] 연도·대운의 운 품질 등급을 의사결정 태도로 번역해 조언하라 — "
+    "흐름이 좋은 시기는 직감·기회를 실행으로 옮겨 볼 만하고, 불안정·기신 시기는 확장보다 점검과 "
+    "내실이 우선. 등급은 위 데이터 블록의 엔진 판정만 근거로 하고 임의로 매기지 말 것."
+)
+
+AVOID_DATE_CERTAINTY_DIRECTIVE = (
+    "[시기 단정 금지] 특정 달·날짜를 결과와 묶어 단정하지 마라('반드시 8월에 됩니다'·'10월에 "
+    "취업합니다' 금지). 주목할 달은 '움직임이 강해지는 달'·'제안·면접·자금 흐름을 점검할 만한 "
+    "창'처럼 활성화 창으로 표현하고, 신호가 뜨는 달과 결과가 실현되는 달이 다를 수 있음을 "
+    "전제로 서술하라."
+)
+
+TRAIT_FEEDBACK_DIRECTIVE = (
+    "[성향 반박 수용 — 풀이와 실제가 다르다는 피드백] 사용자가 '풀이에는 그렇다는데 실제 나는 "
+    "아니다'라고 하면 회피하거나 원래 설명을 반복하지 마라. ① 사용자의 실제 경험을 우선 사실로 "
+    "인정하고, ② 그 성향이 원국의 정적 잠재와 운·환경에서의 작동이 다를 수 있음을 구분해 어떤 "
+    "조건에서 드러나고 어떤 조건에서 잠복하는지로 재해석하며, ③ 필요하면 언제·어떤 상황에서 "
+    "달랐는지 확인 질문을 하라. 사용자의 자기 보고를 부정하는 단정 금지."
+)
+
+
+# 오행 한자 → 사전 source_id(영문 키). 활동 키워드·개운 행동 사전 공용.
+_ELEMENT_EN = {"木": "wood", "火": "fire", "土": "earth", "金": "metal", "水": "water"}
+
+
+def activity_keyword_lines(
+    favorable: list[tuple[str, str]],
+    cautious: list[tuple[str, str]],
+    natal_sinsal: set[str],
+    keyword_map: dict,
+) -> list[str]:
+    """[활동 키워드] 블록 — 용신·신살 신호를 생활 활동 키워드로 번역할 재료를 직렬화한다.
+
+    activity_keyword_map.json(reviewed:false 초안)의 항목만 사용하며, 엔진이 확정한
+    용희기구한 역할·원국 신살로 항목을 **결정론적으로 선별**한다(LLM 임의 선택 금지 —
+    원칙 1). 직업 추천이 아니라 활동축·환경·방식 제안 전용(직업명 단정 금지).
+
+    Args:
+        favorable: 살리면 좋은 오행 [(한자, 역할 한글)] — 용신·희신.
+        cautious: 기준이 필요한 오행 [(한자, 역할 한글)] — 기신·구신.
+        natal_sinsal: 원국 신살 이름 집합(엔진 판정 — 예 '현침').
+        keyword_map: activity_keyword_map.json 파싱 결과.
+
+    Returns:
+        직렬화 라인 목록. 매칭 항목이 없으면 빈 목록(블록 미부착).
+    """
+    entries = keyword_map.get("entries", [])
+    by_element = {
+        e["source_id"]: e for e in entries if e.get("source_type") == "element"
+    }
+    lines: list[str] = []
+    for hanja, role_ko in favorable:
+        entry = by_element.get(_ELEMENT_EN.get(hanja, ""))
+        if not entry:
+            continue
+        kws = ", ".join(entry["activity_keywords"])
+        line = f"살리면 좋은 기운 {hanja}({role_ko}): {kws}"
+        if entry.get("caution"):
+            line += f" — 주의: {entry['caution']}"
+        lines.append(line)
+    for hanja, role_ko in cautious:
+        entry = by_element.get(_ELEMENT_EN.get(hanja, ""))
+        if not entry:
+            continue
+        area = ", ".join(entry["activity_keywords"][:4])
+        caution = entry.get("caution") or "기준을 세워 관리한다."
+        lines.append(
+            f"기준을 세울 기운 {hanja}({role_ko}): 관련 영역({area})에서는 {caution}"
+        )
+    for entry in entries:
+        if entry.get("source_type") != "star":
+            continue
+        korean = entry.get("korean", "")
+        if korean in natal_sinsal or korean.removesuffix("살") in natal_sinsal:
+            kws = ", ".join(entry["activity_keywords"])
+            line = f"원국 신살 {korean}: {kws}"
+            if entry.get("safe_rule"):
+                line += f" ({entry['safe_rule']})"
+            lines.append(line)
+    if not lines:
+        return []
+    return [
+        "[활동 키워드 — 엔진 용신·신살 기준 번역 재료(직업 단정 금지, 조합 제안 전용)]",
+        *lines,
+    ]
+
+
+def remedy_action_lines(
+    favorable_elements: list[str], action_map: dict,
+) -> list[str]:
+    """[개운 행동] 블록 — 보완할 오행(용신·희신)의 생활 행동 제안을 직렬화한다.
+
+    remedy_action_map.json(reviewed:false 초안)의 element_actions만 사용한다.
+    개운 행동은 주술적 처방·결과 보장이 아니라 생활 리듬·선택 습관 보완 조언이며,
+    행동·환경·루틴을 색상·물건보다 우선한다(사전 principles — 원칙 3).
+
+    Args:
+        favorable_elements: 보완할 오행 한자 목록(용신·희신 — 엔진 확정값).
+        action_map: remedy_action_map.json 파싱 결과.
+
+    Returns:
+        직렬화 라인 목록. 매칭 항목이 없으면 빈 목록(블록 미부착).
+    """
+    actions = action_map.get("element_actions", {})
+    lines: list[str] = []
+    for hanja in favorable_elements:
+        entry = actions.get(_ELEMENT_EN.get(hanja, ""))
+        if not entry:
+            continue
+        rec = ", ".join(entry["recommended_actions"])
+        avoid = ", ".join(entry.get("avoid", []))
+        line = f"{hanja} 보완 행동({entry['core_need']}): {rec}"
+        if avoid:
+            line += f" / 피할 것: {avoid}"
+        lines.append(line)
+    if not lines:
+        return []
+    principles = action_map.get("principles", {})
+    note = principles.get(
+        "not_magic",
+        "개운 행동은 결과를 보장하는 처방이 아니라 생활 리듬 보완 조언이다.",
+    )
+    return [
+        "[개운 행동 — 생활 행동 제안(주술적 처방·결과 보장 표현 금지)]",
+        *lines,
+        f"원칙: {note} '이 행동을 하면 반드시 된다' 표현 금지.",
+    ]
+
+
 def wealth_capacity_lines(wc: WealthCapacity) -> list[str]:
     """[원국 횡재 그릇] — 운 분리 잠재구조(점수·영문 코드 비노출)."""
     band = _CAPACITY_BAND_KO.get(wc.capacity_band, wc.capacity_band)

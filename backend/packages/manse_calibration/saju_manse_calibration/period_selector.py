@@ -57,17 +57,38 @@ def expected_effect(m: YongsinCandidateModel, year_elements: set[str]) -> str:
     return "neutral"
 
 
+# 교운기(대운 교체) 거리별 질문 후보 boost(CAL-P0-a — 상담 사례 파생, 2026-07-03 확정).
+# 교체 연도와의 거리 |Δ|년 → 가중. ranking(질문 후보 순서)에만 관여하며 event score·
+# favorability·용신 role·세운/월운 산출에는 절대 개입하지 않는다.
+_TRANSITION_WEIGHTS: dict[int, float] = {0: 1.0, 1: 0.368, 2: 0.135, 3: 0.05}
+
+
+def transition_weight(year: int, transition_years: list[int] | None) -> float:
+    """해당 연도의 교운기 근접 가중(0~1.0) — 가장 가까운 교체 연도 기준."""
+    if not transition_years:
+        return 0.0
+    return max(
+        (_TRANSITION_WEIGHTS.get(abs(year - t), 0.0) for t in transition_years),
+        default=0.0,
+    )
+
+
 def select_validation_periods(
     yongsin: AggregatedYongsinResult,
     birth_year: int,
     reference_year: int,
     pillars: FourPillarsResult | None = None,
     min_age: int = 12,
+    transition_years: list[int] | None = None,
 ) -> list[dict]:
     """기억 가능 연령대(min_age~현재)의 해를 정보량 순으로 정렬해 반환.
 
     세운 지지가 원국 공망이거나 충을 맺으면 발현이 변형되므로(공망=실속 약화, 충=사건성),
     expected_effect를 보정하고 '깨끗한'(공망·충 없는) 해를 검증 우선순위로 올린다.
+
+    transition_years(대운 교체 연도)가 주어지면 교운기 전후 해(±3년 감쇠)에 boost를 더해
+    질문 후보 순위를 올린다(CAL-P0-a) — 변화 체감이 크고 기억이 선명한 구간을 먼저 묻기
+    위함이며, expected_by_model 등 엔진 판정값은 불변(후보 순서·score 필드만 변화).
     """
     models = yongsin.candidate_models
     void_set = set(pillars.gongmang_branches) if pillars else set()
@@ -90,7 +111,11 @@ def select_validation_periods(
         distinct = {v for v in nonneutral}
         disagree = len(distinct) > 1
         # 깨끗한 해(공망·충 없음)는 방향 신호가 또렷 → 검증 우선순위 상향.
-        score = len(nonneutral) + (3 if disagree else 0) + (2 if clean else 0)
+        # 교운기 근접 boost(최대 +1.0)는 ranking에만 가산(CAL-P0-a).
+        t_weight = transition_weight(year, transition_years)
+        score = (
+            len(nonneutral) + (3 if disagree else 0) + (2 if clean else 0) + t_weight
+        )
         periods.append({
             "year": year,
             "is_void": is_void,
@@ -100,9 +125,13 @@ def select_validation_periods(
             "ganji": f"{stem}{branch}",
             "range_label": _sewoon_range(year),
             "activated_elements": sorted(year_elements),
+            # CAL-P1-b — B 앵커 강도(천간·지지 동시 활성 판별)용 분리 필드.
+            "stem_element": str(STEM_ELEMENT[stem]),
+            "branch_element": str(BRANCH_ELEMENT[branch]),
             "expected_by_model": exp_by_model,
             "disagree": disagree,
             "score": score,
+            "transition_weight": t_weight,
         })
     periods.sort(key=lambda p: (p["score"], p["year"]), reverse=True)
     return periods

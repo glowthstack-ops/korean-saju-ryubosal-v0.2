@@ -1,0 +1,97 @@
+{
+  "version": "0.1.0",
+  "purpose": "CAL-P1 정적 결핍(A) vs 운 작동(B) 이원 질문 쌍 문구. A는 평소 결핍 체감, B는 해당 오행/십성이 운에서 강했던 해의 실제 작동을 묻는다 — 길흉 단정·사건 단정 어휘 금지, 회상형 존대.",
+  "note": "CAL-P1 §3 초안(doc/v2_2/CALIBRATION_STATIC_TRANSIT_PROBES.md, 2026-07-03 데굴님 승인). 전 항목 reviewed:false — 전문가 감수 전 문구 초안. 채점 비반영(§5 불변식).",
+  "entries": [
+    {
+      "axis_type": "element",
+      "axis_id": "wood",
+      "korean": "木",
+      "static_question": "평소에 방향·규칙·소속의 기준이 분명하면 좋겠다고 느낀 적이 있나요?",
+      "transit_question": "책임·평가·조직의 압박이나 직장·소속의 변동이 실제로 강해졌나요?",
+      "basis_label": "木 표면 부재",
+      "reviewed": false
+    },
+    {
+      "axis_type": "element",
+      "axis_id": "fire",
+      "korean": "火",
+      "static_question": "평소에 활력·표현·드러남이 부족하다고 느낀 적이 있나요?",
+      "transit_question": "주목받거나 발표·경쟁처럼 드러나는 일이 실제로 몰려 벅찼나요?",
+      "basis_label": "火 표면 부재",
+      "reviewed": false
+    },
+    {
+      "axis_type": "element",
+      "axis_id": "earth",
+      "korean": "土",
+      "static_question": "평소에 생활 기반이나 안정된 루틴이 약하다고 느낀 적이 있나요?",
+      "transit_question": "거주·기반의 이동이나 책임져야 할 일이 실제로 늘었나요?",
+      "basis_label": "土 표면 부재",
+      "reviewed": false
+    },
+    {
+      "axis_type": "element",
+      "axis_id": "metal",
+      "korean": "金",
+      "static_question": "평소에 마무리·결단·기준 세우기가 어렵다고 느낀 적이 있나요?",
+      "transit_question": "정리·단절·평가처럼 끊어내는 일이 실제로 몰렸나요?",
+      "basis_label": "金 표면 부재",
+      "reviewed": false
+    },
+    {
+      "axis_type": "element",
+      "axis_id": "water",
+      "korean": "水",
+      "static_question": "평소에 여유·회복·유연함이 부족하다고 느낀 적이 있나요?",
+      "transit_question": "자금 흐름·정보·이동 변수가 실제로 출렁였나요?",
+      "basis_label": "水 표면 부재",
+      "reviewed": false
+    },
+    {
+      "axis_type": "ten_god_group",
+      "axis_id": "officer",
+      "korean": "관성",
+      "static_question": "평소에 일이나 진로에서 기준, 규칙, 소속감, 책임의 방향을 스스로 잡기 어렵다고 느낀 적이 있나요?",
+      "transit_question": "직장, 책임, 규칙, 소속, 평가 압박이 실제로 강해졌나요?",
+      "basis_label": "관성 표면 부재",
+      "reviewed": false
+    },
+    {
+      "axis_type": "ten_god_group",
+      "axis_id": "wealth",
+      "korean": "재성",
+      "static_question": "평소에 실리·성과·현실 감각을 잡기 어렵다고 느낀 적이 있나요?",
+      "transit_question": "돈·성과·현실 과제가 실제로 몰려 부담이 됐나요?",
+      "basis_label": "재성 표면 부재",
+      "reviewed": false
+    },
+    {
+      "axis_type": "ten_god_group",
+      "axis_id": "output",
+      "korean": "식상",
+      "static_question": "평소에 표현·시도·배출구가 부족하다고 느낀 적이 있나요?",
+      "transit_question": "일을 벌이거나 표현·활동할 일이 실제로 과해져 지쳤나요?",
+      "basis_label": "식상 표면 부재",
+      "reviewed": false
+    },
+    {
+      "axis_type": "ten_god_group",
+      "axis_id": "resource",
+      "korean": "인성",
+      "static_question": "평소에 배움·지지·기댈 언덕이 부족하다고 느낀 적이 있나요?",
+      "transit_question": "공부·문서·의지해야 할 일이 실제로 늘어 무거웠나요?",
+      "basis_label": "인성 표면 부재",
+      "reviewed": false
+    },
+    {
+      "axis_type": "ten_god_group",
+      "axis_id": "peer",
+      "korean": "비겁",
+      "static_question": "평소에 내 편이나 밀어붙일 동력이 부족하다고 느낀 적이 있나요?",
+      "transit_question": "경쟁·분배나 주변 사람 문제가 실제로 불거졌나요?",
+      "basis_label": "비겁 표면 부재",
+      "reviewed": false
+    }
+  ]
+}

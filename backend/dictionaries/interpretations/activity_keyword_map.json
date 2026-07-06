@@ -1,0 +1,61 @@
+{
+  "version": "0.1.0",
+  "purpose": "오행·십성·신살·격국 신호를 사용자 조언용 활동 키워드로 번역한다. 직업 추천 사전이 아니라 활동 키워드 번역 사전 — 직업명 단정 없이 활동축·환경·방식 조합을 제안한다.",
+  "note": "상담 사례 파생 초안(doc/v2_2/cases/1980_1122_job_report_case.md §5 P1, 2026-07-03 데굴님 승인). 전 항목 reviewed:false — 전문가 감수 전 점수·판정에 사용 금지, 서술 재료로만 사용(절대원칙 5).",
+  "entries": [
+    {
+      "source_type": "element",
+      "source_id": "wood",
+      "korean": "木",
+      "domains": ["growth", "planning", "belonging", "routine_discipline", "education"],
+      "activity_keywords": ["학습", "기획", "새 시작", "소속·조직", "규칙 만들기", "성장 기록"],
+      "caution": "시작만 벌리고 마무리가 없는 확장은 피한다.",
+      "reviewed": false
+    },
+    {
+      "source_type": "element",
+      "source_id": "fire",
+      "korean": "火",
+      "domains": ["visibility", "expression", "warmth", "education", "branding"],
+      "activity_keywords": ["햇빛", "운동", "발표", "콘텐츠", "교육", "브랜딩", "감사일기"],
+      "caution": "과열·성급함·감정적 표현은 피한다.",
+      "reviewed": false
+    },
+    {
+      "source_type": "element",
+      "source_id": "earth",
+      "korean": "土",
+      "domains": ["stability", "routine", "trust", "practicality", "asset_management"],
+      "activity_keywords": ["루틴", "기록", "관리", "정리", "부동산", "생활 기반", "신뢰 구축"],
+      "caution": "고집·정체·미루기는 피한다.",
+      "reviewed": false
+    },
+    {
+      "source_type": "element",
+      "source_id": "metal",
+      "korean": "金",
+      "domains": ["precision", "structure", "finish", "tools", "evaluation"],
+      "activity_keywords": ["정리·마감", "데이터", "도구·장비", "품질 점검", "자격·평가", "조립·만들기"],
+      "caution": "다재다능이 목표 분산으로 흐르지 않게 우선순위를 좁힌다.",
+      "reviewed": false
+    },
+    {
+      "source_type": "element",
+      "source_id": "water",
+      "korean": "水",
+      "domains": ["money_flow", "mobility", "information", "network", "desire"],
+      "activity_keywords": ["유통", "정보", "이동", "자금 흐름", "네트워크", "온라인"],
+      "caution": "돈과 목표가 분산되지 않도록 기준을 세운다.",
+      "reviewed": false
+    },
+    {
+      "source_type": "star",
+      "source_id": "hyeonchimsal",
+      "korean": "현침살",
+      "domains": ["precision", "language", "tools", "needle_pen_blade"],
+      "activity_keywords": ["글쓰기", "편집", "리뷰", "텍스트 SNS", "분석", "정밀 작업"],
+      "safe_rule": "상해·위험 암시가 아니라 정밀성·언어성·도구성으로 번역한다.",
+      "reviewed": false
+    }
+  ]
+}

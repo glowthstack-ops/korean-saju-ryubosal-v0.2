@@ -1,8 +1,12 @@
 """해석 사전 감수 시트 export 스크립트 (v2.2.1, docs/05 interpretations/).
 
-전문가 감수를 위해 interpretations/ 사전 4종의 핵심 내용과 명리 근거(basis)를
+전문가 감수를 위해 interpretations/ 사전의 핵심 내용과 명리 근거(basis)를
 Markdown 표로 추출한다. 감수자는 basis 열을 기준으로 정통 명리(자평) 관점의
 정오를 표시하고, 통과 항목은 사전의 `reviewed: true`로 반영한다.
+
+§5~7은 상담 사례 트랙(CAL-P0/P1) 파생 사전 — 명리 규칙이 아니라 **사용자 노출 문구**
+감수다(R-1 기준: 결핍≠결함, 오행/십성 길흉 단정 금지, 자기비난 유발 금지, 전문용어
+과다 금지, A/B 쌍이 정적 체감과 운 작동을 실제로 분리해서 묻는가).
 
 사용법:
     python scripts/export_review_sheet.py [dictionaries_dir] [output.md]
@@ -93,6 +97,56 @@ def build_sheet(directory: Path) -> str:
             f"{_cell(it['basis'])} | {'✔' if it['reviewed'] else '☐'} |"
         )
 
+    # ── §5~7 상담 사례 트랙(CAL-P0/P1) 파생 사전 — 사용자 노출 문구 감수(R-1). ──
+    pairs = _load(directory, "deficiency_pair_questions.json")
+    lines += [
+        "",
+        f"## 5. 이원 질문 쌍 10축 (deficiency_pair_questions.json v{pairs['version']})",
+        "",
+        "감수 기준(R-1): ①결핍을 결함처럼 표현 금지 ②오행/십성 길흉 단정 금지 "
+        "③자기비난 유발 금지 ④전문용어 과다 금지 ⑤A/B가 정적 체감·운 작동을 분리해서 묻는가.",
+        "",
+        "| 축 | A. 평소 체감(static) | B. 해당 시기 체감(transit) | 검수 |",
+        "|---|---|---|---|",
+    ]
+    for it in pairs["entries"]:
+        lines.append(
+            f"| {it['korean']}({it['axis_type']}) | {_cell(it['static_question'], 90)} | "
+            f"{_cell(it['transit_question'], 90)} | {'✔' if it['reviewed'] else '☐'} |"
+        )
+
+    keywords = _load(directory, "activity_keyword_map.json")
+    lines += [
+        "",
+        f"## 6. 활동 키워드 번역 (activity_keyword_map.json v{keywords['version']})",
+        "",
+        "| 축 | 활동 키워드 | 주의(caution)/안전규칙 | 검수 |",
+        "|---|---|---|---|",
+    ]
+    for it in keywords["entries"]:
+        caution = it.get("caution") or it.get("safe_rule") or ""
+        lines.append(
+            f"| {it['korean']} | {_cell(', '.join(it['activity_keywords']), 80)} | "
+            f"{_cell(caution, 70)} | {'✔' if it['reviewed'] else '☐'} |"
+        )
+
+    remedy = _load(directory, "remedy_action_map.json")
+    lines += [
+        "",
+        f"## 7. 개운 행동(오행 보완) (remedy_action_map.json v{remedy['version']})",
+        "",
+        "| 오행 | 보완 필요(core_need) | 권장 행동 | 피할 것 | 검수 |",
+        "|---|---|---|---|---|",
+    ]
+    remedy_actions = remedy["element_actions"]
+    for key, it in remedy_actions.items():
+        lines.append(
+            f"| {key} | {_cell(it['core_need'], 40)} | "
+            f"{_cell(', '.join(it['recommended_actions']), 70)} | "
+            f"{_cell(', '.join(it.get('avoid', [])), 50)} | "
+            f"{'✔' if it['reviewed'] else '☐'} |"
+        )
+
     names = (
         "ilju.json", "ten_gods_text.json", "twelve_stages_text.json", "relations_text.json",
     )
@@ -100,6 +154,9 @@ def build_sheet(directory: Path) -> str:
     reviewed = sum(
         1 for name in names for it in _load(directory, name)["items"] if it["reviewed"]
     )
+    case_items = [*pairs["entries"], *keywords["entries"], *remedy_actions.values()]
+    total += len(case_items)
+    reviewed += sum(1 for it in case_items if it["reviewed"])
     lines += ["", f"**검수 현황: {reviewed}/{total} 항목 완료**", ""]
     return "\n".join(lines)
 

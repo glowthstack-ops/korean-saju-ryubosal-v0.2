@@ -83,3 +83,50 @@ def fetch_personal_inputs(
         return sig, cohort_stats_from_counts(coarse, fine)
     except Exception:  # noqa: BLE001 — 개인화 조회 실패가 풀이를 막지 않도록
         return None, None
+
+
+# ── CAL-P1-c — 저장된 캘리브레이션 blob → LLM 표현 조정 힌트(판정 비개입) ──────
+# subject_yongsin.calibration(jsonb, FE가 {answers, result} 저장)에서 trait/pair 힌트만
+# 추출해 LLM 입력에 싣는다. 최대 개수 cap으로 토큰을 묶는다(pair 1 + trait 소수).
+_CALIB_HINT_CAP = 3
+
+
+def calibration_hint_lines(blob: dict | None) -> list[str]:
+    """캘리브레이션 blob에서 표현 조정 힌트 라인을 추출한다(순수 함수 — DB 무관).
+
+    trait_llm_hints(문자열)와 pair_expression_hints(instruction)를 합쳐 cap까지만.
+    어떤 라인도 판정·점수를 바꾸라는 지시가 아니다(scorer가 불변 조항을 내장).
+    """
+    if not blob:
+        return []
+    result = blob.get("result") or {}
+    if not isinstance(result, dict):
+        return []
+    lines: list[str] = []
+    for hint in result.get("pair_expression_hints") or []:
+        if not isinstance(hint, dict):
+            continue
+        instruction = hint.get("instruction")
+        if not instruction:
+            continue
+        basis = hint.get("basis_label") or hint.get("axis_id") or ""
+        year = hint.get("transit_year")
+        anchor = f"·확인 해 {year}" if year else ""
+        lines.append(f"[캘리브레이션 표현 조정 — {basis}{anchor}] {instruction}")
+    for hint in result.get("trait_llm_hints") or []:
+        if isinstance(hint, str) and hint:
+            lines.append(hint)
+    return lines[:_CALIB_HINT_CAP]
+
+
+def fetch_calibration_expression_hints(subject_id: str | None) -> list[str]:
+    """저장된 검증 응답의 표현 조정 힌트를 조회한다(미설정·무DB·실패=빈 목록, 규칙11)."""
+    if not subject_id:
+        return []
+    store = _get_profile_store()
+    if store is None:
+        return []
+    try:
+        return calibration_hint_lines(store.get_yongsin_calibration(subject_id))
+    except Exception:  # noqa: BLE001 — 조회 실패가 풀이를 막지 않도록
+        return []

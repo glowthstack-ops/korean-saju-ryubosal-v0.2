@@ -78,3 +78,46 @@ FE 노출 해상도:
 - **현실 blob 저장소**: 연 단위 체감/영역/경험 jsonb(용신과 동형). subject_life_events는 occurrence 유지.
 
 불변 가드: 기존 `outcome`·`overall_rating`·`event_ratings`·`personal_match` 하위호환. 명리 규칙 신규 추가 없음(기존 기대극성·용신 모델 재사용).
+
+## 7. 후속 설계 포인터 (본 문서 범위 밖)
+
+- **CAL-P0(2026-07-03 구현 완료)**: 교운기 우선 질문 배치(`transition_probe` — ranking
+  boost 전용) + 성향 동의/반박 수집(`trait_probe` — 채점 절대 비반영, accumulate_only).
+  출처: `../cases/1980_1122_job_report_case.md` §7.
+- **CAL-P1(설계안)**: 정적 결핍 vs 운 작동 이원 질문 쌍(`static_deficiency_probe` +
+  `transit_activation_probe`) + `trait_denial_kind` 태깅 —
+  `../CALIBRATION_STATIC_TRANSIT_PROBES.md`. 두 probe 계열 모두 본 문서의 용신 판별
+  채점(§3)에 개입하지 않는다(불변식은 해당 문서 §5).
+
+## 8. CAL-QA — 무신호 응답 상태 추가 (2026-07-03 확정, pre-release data hygiene)
+
+배경: 기존 응답 체계는 경험 극성(좋음~힘듦)은 받지만 **가장 중요한 반증값인 "그 일이
+없었다 / 그 영역이 비활성이다"를 받지 못한다**(직장인이 학업 질문을 받으면 고를 답이
+없음). 오픈 후 이 상태로 쌓이면 무응답·기억 안 남·실제 없음을 분리할 수 없어 R-2·CAL-P2
+개인화 보정 데이터가 오염된다 — 기능 확장이 아니라 **데이터 계약 수정**.
+
+1. **영역별 체감에 `no_domain_activity` 추가** ("특별한 일 없었음")
+   - 의미: 해당 기간 해당 영역에서 특별히 평가할 활동·사건이 없었음.
+   - `unknown`(기억 안 남)과 **구분**한다(혼합 금지). 채점 제외 + 분모 제외.
+   - raw calibration record(answers blob)에는 값 그대로 저장한다.
+   - 명명: `not_applicable`은 '영역 자체가 무관'으로 읽힐 수 있어 배제.
+2. **이벤트별 결과에 `not_occurred` 추가** ("그런 일 없었다")
+   - 의미: 엔진이 제시한 이벤트 후보가 실제로 발생하지 않았음.
+   - **용신/기신 검증 채점에는 사용하지 않는다**(결정② — 발생은 용신 판별 축이 아님).
+     `not_occurred`를 '기신 아님·신호 약함'으로 즉시 해석하는 구현 금지 — 그건 용신
+     검증이 아니라 이벤트 엔진 개인 적합도 검증이다.
+   - subject_life_events/personal_match 승격은 **CAL-P2에서 판단**. 현재는
+     accumulate_only(응답 blob 저장)만.
+   - 레거시 `na`("해당없음")는 의미가 같으므로 **무신호로 매핑**해 동일 처리(채점 제외 +
+     브랜치 판정 제외). 저장 값은 변형하지 않는다(FE 표시 정규화만 unknown).
+   - **브랜치 불변식**: 무신호만 고른 이벤트 응답은 '아무것도 고르지 않은' 응답과 채점
+     결과가 완전히 동일해야 한다 — 무신호가 이벤트 브랜치를 열어 연도 전체 평점 폴백을
+     건너뛰게 만들면 간접 개입(위반)이다.
+3. **불변식**: final role 불변 / score·confidence·favorability 불변 / 용신 채점 분모
+   오염 금지 / unknown과 무신호(no-signal) 상태 혼합 금지.
+
+계층 분리(원칙):
+```text
+용신 캘리브레이션: 경험 극성만 사용 — not_occurred/no_domain_activity/unknown 채점 제외
+이벤트 개인화: not_occurred 누적 → 반복 패턴 충분 시 personal_match 보정 후보(CAL-P2)
+```
