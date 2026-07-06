@@ -1879,6 +1879,12 @@ def _augment_time_by_similarity(
     # (멀티턴 '언제·추천형 질문 시점 미승계' 가드와 동일 원리).
     if _timing_granularity(question) is not None:
         return intent
+    # 무시점·무분야 질문(B3 판정표 too_broad — '앞으로 내 운세 알려줘' 류)은 시점을 합성하지
+    # 않는다. 완곡 표현에 시점이 주입되면 too_broad '좁혀볼까요' 관문을 우회해 종합운으로
+    # 흘러가는 회귀 방지(2026-07-06). 도메인 유사도 보강 이후에 호출되므로, 여기서 too_broad면
+    # 유사도로도 분야를 못 잡은 질문이다.
+    if assess(intent, question).status == "too_broad":
+        return intent
     from saju_engines.time_embedding import get_time_classifier
     from saju_engines.time_parser import bucket_to_range
 

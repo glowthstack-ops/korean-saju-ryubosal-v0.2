@@ -84,10 +84,13 @@ def test_calibration_feedback_endpoint() -> None:
     }
     calc = _request("POST", "/api/v2/manse/calculate", json=birth).json()
     questions = calc["calibration"]["questions"]
-    assert len(questions) == 5
+    # CAL-P0/P1 규격: 채점 반영 기본 5문항(event_list) + 채점 비반영 probe 추가 문항 총합 ≤ 3.
+    base = [q for q in questions if q["question_type"] == "event_list"]
+    assert len(base) == 5
+    assert len(questions) - len(base) <= 3
     answers = [
         {"question_id": q["id"], "overall_rating": "positive", "selected_events": ["직업"]}
-        for q in questions
+        for q in base
     ]
     r = _request(
         "POST", "/api/v2/manse/calibration/feedback", json={"birth": birth, "answers": answers}
