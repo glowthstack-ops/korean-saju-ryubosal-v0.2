@@ -27,6 +27,7 @@ from saju_engines.context_reducer import (
     _PROFILE_FACTS_INSTRUCTION,
     _STRUCTURE_PATTERN_INSTRUCTION,
     build_birth_summary,
+    first_sentence,
     serialize_chart_prefix,
 )
 from saju_engines.event_engine_v2 import EventEngineV2
@@ -213,14 +214,6 @@ def _tighten(text: str) -> str:
 
 # 서두 반복 금지 재료로 보관하는 직전 섹션 첫 문장 개수 — 너무 많으면 프롬프트만 길어진다.
 _MAX_RECENT_OPENINGS = 3
-
-
-def _first_sentence(text: str, limit: int = 120) -> str:
-    """섹션 본문의 첫 문장('다.' 기준, 상한 길이 보호) — 서두 반복 금지 블록 재료."""
-    stripped = text.strip()
-    idx = stripped.find("다.")
-    snippet = stripped[: idx + 2] if idx != -1 else stripped.split("\n", 1)[0]
-    return snippet[:limit].strip()
 
 
 def _period_end_month(period: str) -> str:
@@ -648,7 +641,7 @@ class _ReportData:
         섹션은 순차 생성되므로, 여기 쌓인 최근 문장들이 곧 '직전 페이지들의 서두'다.
         최근 _MAX_RECENT_OPENINGS개만 유지한다(프롬프트 비대 방지).
         """
-        first = _first_sentence(text)
+        first = first_sentence(text)
         if first:
             self.recent_openings.append(first)
             del self.recent_openings[:-_MAX_RECENT_OPENINGS]

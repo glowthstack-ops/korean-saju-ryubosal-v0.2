@@ -6623,3 +6623,20 @@ redoRequested 상태 추가 — '검증 다시 진행' 한 번으로 곧장 질�
 - 검증: 신규 test_opening_repetition_guard.py 6건(정적 지시/동적 블록 부착·미부착/기록
   cap/첫 문장 추출/채팅 문구). 전체 1648 passed, ruff clean, 변경 파일 mypy clean. 라이브
   채팅 확인 — 답변이 "이번 달 재물운은…"으로 본론 직행(명식 캡슐 서두 소멸).
+
+### 서두 반복 방지 확장 — 테마사주 커버 확인 + 채팅 스레드 내 반복 차단 (2026-07-06, 데굴님 후속)
+
+데굴님 확인 질문 2건에 대한 답 + 보강.
+
+- **테마사주(집중/한해) 커버**: 직전 수정이 이미 전 상품 공통 경로(build_section_context·
+  generate_report의 generate_fn)에 있어 RPT_FULL/RPT_YEAR/RPT_FOCUS 모두 적용됨 — 회귀
+  테스트로 명시 고정(test_ban_block_covers_theme_products: FOCUS·YEAR 동적 블록+정적 지시
+  부착 검증).
+- **채팅 스레드 내 반복(신규 갭)**: 스레드 후속 턴에 직전 답변(prior_answer — 라우터가
+  history에서 전달)의 실제 첫 문장을 "[서두 반복 금지 — 직전 답변의 첫 문장]" 지시로 주입
+  (_THREAD_OPENING_BAN). 리포트 섹션 동적 차단과 동일 원리. 전개 구성 판박이 금지 문구 포함.
+- **first_sentence 헬퍼 단일화**: report_service 로컬 → saju_engines.context_reducer 공개
+  함수로 이동(채팅·리포트 공용). 채팅 답변이 해요체인 점 반영 — 종결어미를 '다.'→
+  '다./요./죠.'로 확장(해요체 첫 문장이 안 끊기던 결함 예방).
+- 검증: test_opening_repetition_guard.py 10건으로 확장(테마 상품 커버/스레드 주입/첫 턴
+  미부착/해요체 추출). 전체 1651 passed, ruff clean, 변경 4개 파일 mypy clean.

@@ -336,6 +336,22 @@ def _clean_evidence_text(text: str) -> str:
     return _AUTHORING_PAREN_RE.sub("", _INTERNAL_NOTE_RE.sub("", text)).strip()
 
 
+_FIRST_SENT_END_RE = re.compile(r"[다요죠]\.")
+
+
+def first_sentence(text: str, limit: int = 120) -> str:
+    """서술 텍스트의 첫 문장(종결어미 '다./요./죠.' 기준, 상한 길이 보호).
+
+    리포트 섹션·채팅 답변의 '서두 반복 금지' 블록 재료(2026-07-06) — 직전 출력의 실제
+    첫 문장을 다음 프롬프트에 제시해 같은 패턴 서두를 막는다. 해요체(…예요.) 답변도
+    첫 문장에서 끊기도록 종결어미를 폭넓게 본다. 종결어미가 없으면 첫 줄.
+    """
+    stripped = text.strip()
+    m = _FIRST_SENT_END_RE.search(stripped)
+    snippet = stripped[: m.end()] if m else stripped.split("\n", 1)[0]
+    return snippet[:limit].strip()
+
+
 _POLARITY_KO = {
     "positive": "우호적", "negative_or_forced": "부담·비자발 계열",
     "conditional": "조건부", "neutral": "중립",

@@ -28,6 +28,7 @@ from saju_engines.context_reducer import (
     build_llm_input,
     build_monthly_overview,
     event_ko,
+    first_sentence,
     serialize_with_guard,
 )
 from saju_engines.conversation import ConversationEngine, is_affirm_continue
@@ -1216,6 +1217,14 @@ _CHAT_SCOPE_DIRECTIVE = (
     " 첫 문장은 이번 질문에 대한 답(결론·방향)으로 바로 시작한다 — '회원님은 ~한 사주/일간/성향'"
     " 류 명식 공통 묘사로 답변을 열지 말 것(답변마다 같은 자기소개가 반복되는 인상 방지). 명식"
     " 언급이 필요하면 답의 근거로 본문 중간에 짧게 녹인다."
+)
+
+# 스레드 내 서두 반복 금지(2026-07-06 테스터 지적) — 직전 답변의 실제 첫 문장을 제시해 같은
+# 패턴 서두·판박이 전개 반복을 막는다(리포트 섹션의 동적 서두 차단과 동일 원리, 서술 전용).
+_THREAD_OPENING_BAN = (
+    "[서두 반복 금지 — 직전 답변의 첫 문장] “{opening}” — 이번 답변을 이 문장과 같은 "
+    "패턴·유사 표현으로 시작하지 말 것. 전개 구성도 직전 답변을 그대로 본뜨지 말고, 이번 질문 "
+    "고유의 내용으로 서두를 열 것."
 )
 
 # 직전 답변의 '제안' 표지 — '그래 봐줘' 수락 시 그 제안을 이어가도록 추출하는 단서.
@@ -2783,6 +2792,12 @@ def chat(
         _offer = _extract_offer(prior_answer)
         if _offer:
             trailing.append(_OFFER_CONTINUE_DIRECTIVE.format(offer=_offer))
+    # 스레드 내 서두 반복 금지 — 직전 답변이 있으면 그 첫 문장을 제시해 같은 패턴 서두를
+    # 차단한다(2026-07-06 테스터: 한 스레드 안에서도 비슷한 형태의 답변 반복).
+    if prior_answer:
+        _prev_opening = first_sentence(prior_answer)
+        if _prev_opening:
+            trailing.append(_THREAD_OPENING_BAN.format(opening=_prev_opening))
     # 사용자 확정 용신 적용 안내 — 확정 5역할을 길흉 기준으로, 엔진 최초 도출은 기본값으로 병기.
     if _confirmed_yongsin is not None:
         from saju_engines.event_scoring import confirmed_yongsin_note
