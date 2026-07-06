@@ -211,6 +211,18 @@ def _tighten(text: str) -> str:
     return text.strip()
 
 
+# 서두 반복 금지 재료로 보관하는 직전 섹션 첫 문장 개수 — 너무 많으면 프롬프트만 길어진다.
+_MAX_RECENT_OPENINGS = 3
+
+
+def _first_sentence(text: str, limit: int = 120) -> str:
+    """섹션 본문의 첫 문장('다.' 기준, 상한 길이 보호) — 서두 반복 금지 블록 재료."""
+    stripped = text.strip()
+    idx = stripped.find("다.")
+    snippet = stripped[: idx + 2] if idx != -1 else stripped.split("\n", 1)[0]
+    return snippet[:limit].strip()
+
+
 def _period_end_month(period: str) -> str:
     """기간의 끝 달(YYYY-MM) — 연('2026')=그 해 12월, 월('2026-02')=그대로, 일=그 달."""
     if len(period) == 4:
@@ -583,6 +595,10 @@ class _ReportData:
         # 섹션별 도메인 후보·12개월 표가 surface하는 점수를 모두 허용(검사3 — 미제공 점수 차단은
         # '엔진이 산출하지 않은' 점수만 막으면 됨). 전 scored 점수는 모두 실제 엔진 산출값이다.
         self.allowed_scores = sorted({c.score for c in scored})
+        # 직전 생성 섹션들의 첫 문장(최근 _MAX_RECENT_OPENINGS개) — 섹션은 순차 생성되므로
+        # 다음 섹션 프롬프트에 '서두 반복 금지' 재료로 주입한다(2026-07-06 테스터 지적:
+        # 매 페이지가 비슷한 '나' 공통 묘사로 시작). 서술 전용 — 점수·판정 불변.
+        self.recent_openings: list[str] = []
 
         # Topic Builder(M01~M15) extras — 섹션 module_calls 실행용(옵션1 배선, 지연 빌드).
         self.owner_id = owner_id
@@ -625,6 +641,17 @@ class _ReportData:
                 self.summary.useful_gods, self.partner_summary.useful_gods,
                 self_label=self_label, partner_label=partner_label,
             )
+
+    def record_opening(self, text: str) -> None:
+        """생성된 섹션의 첫 문장을 기록 — 다음 섹션의 '서두 반복 금지' 프롬프트 재료.
+
+        섹션은 순차 생성되므로, 여기 쌓인 최근 문장들이 곧 '직전 페이지들의 서두'다.
+        최근 _MAX_RECENT_OPENINGS개만 유지한다(프롬프트 비대 방지).
+        """
+        first = _first_sentence(text)
+        if first:
+            self.recent_openings.append(first)
+            del self.recent_openings[:-_MAX_RECENT_OPENINGS]
 
     def partner_natal_block(self) -> list[str]:
         """상대 명식 구조 블록(RP-03 — 상대는 어떤 사람인가)."""
@@ -1421,9 +1448,24 @@ def build_section_context(
         guide,
         "입력에 없는 간지·점수·연도를 만들지 말 것. 단정 표현 금지.",
         "인사말·원국 전체 재설명은 생략하고(앞 섹션에서 1회면 충분) 이 섹션 과제에 바로 집중할 것.",
+        "첫 문장을 '○○님은 ~한 사주/일간/성향' 류 명식 공통 묘사로 시작하지 말 것 — 독자는 "
+        "앞 페이지에서 같은 소개를 이미 읽었다. 이 섹션 주제의 구체 내용으로 바로 시작하고, "
+        "명식 근거는 본문 중간에 필요한 만큼만 인용한다.",
         "지면 절약: 문단은 빈 줄 하나로만 구분하고 연속 빈 줄을 넣지 말 것. 잔 소제목 남발과 "
         "한 문장씩 끊은 단락을 피하고, 여러 문장을 묶은 조밀한 산문 문단으로 작성할 것.",
     ]
+    # 서두 반복 금지(동적) — 직전에 생성된 섹션들의 실제 첫 문장을 보여주고 같은 패턴의 서두를
+    # 막는다(2026-07-06 테스터 지적: 매 페이지 첫 문장이 비슷해 페이지를 안 넘긴 느낌).
+    # plan_report(dry-run)·첫 섹션은 기록이 없어 미부착(하위호환).
+    if data.recent_openings:
+        lines += [
+            "",
+            "[서두 반복 금지 — 직전 섹션들이 이미 사용한 첫 문장]",
+            *[f"- {s}" for s in data.recent_openings],
+            "위 문장들과 같은 패턴·유사 표현으로 이 섹션을 시작하지 말 것. 독자가 페이지를 "
+            "넘길 때마다 새 내용이 시작된다고 느끼도록, 이 섹션 주제 고유의 내용으로 서두를 "
+            "열 것.",
+        ]
     # 구조 패턴 태그(구조 라벨 — 사건·길흉 확정 아님). 원국 섹션=도메인 무관 상위 N,
     # 도메인 섹션=해당 도메인 우선 선별. 과거·메타 등 도메인 없는 섹션은 생략(반복 방지).
     _sp_domains = None if is_natal_section else _DOMAIN_EVENT_KEYS.get(_SECTION_DOMAIN.get(sid, ""))
@@ -1678,6 +1720,7 @@ def generate_report(
                         plan.section_id, reduction_level,
                     )
                 text = _tighten(text)  # 지면 낭비 정규화(공백수정)
+                data.record_opening(text)  # 다음 섹션의 '서두 반복 금지' 재료(순차 생성)
                 return text, 0, len(text)  # 토큰은 llm_client 장부가 집계(cached 포함)
             except TokenBudgetExceeded as exc:
                 last_exc = exc  # 다음 단계로 더 축소해 재시도
