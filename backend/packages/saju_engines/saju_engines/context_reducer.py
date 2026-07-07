@@ -16,6 +16,11 @@ from __future__ import annotations
 import re
 from datetime import date as date_cls
 
+from saju_manse_analysis.yongsin.operational_role_config import (
+    is_favorable_role,
+    is_unfavorable_role,
+)
+
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
     CONTROLS,
@@ -761,8 +766,8 @@ def _ganji_result_nuance(
     branch_role = fav_map.get(branch_el, "")
     stem_gen_branch = GENERATES.get(s_el) == b_el      # 천간 → 지지 생
     branch_ctrl_stem = CONTROLS.get(b_el) == s_el      # 지지 → 천간 극
-    if stem_role in ("기신", "구신"):
-        if stem_gen_branch and branch_role in ("용신", "희신"):
+    if is_unfavorable_role(stem_role):
+        if stem_gen_branch and is_favorable_role(branch_role):
             return (
                 "↗통관 순화",
                 "천간이 흉신이나 그 달 지지(용·희신)를 생하는 통관(관인상생)으로 순화 — "
@@ -774,8 +779,8 @@ def _ganji_result_nuance(
             "천간 흉신 — 사건이 일어나도 계약·결실·실속에 불리한 시기(우호 단정 금지).",
             "unfavorable",
         )
-    if stem_role in ("용신", "희신"):
-        if (stem_gen_branch and branch_role in ("기신", "구신")) or branch_ctrl_stem:
+    if is_favorable_role(stem_role):
+        if (stem_gen_branch and is_unfavorable_role(branch_role)) or branch_ctrl_stem:
             return (
                 "⚠천간 길신 누설",
                 "천간은 길신이나 그 달 지지로 누설·피극되어 결실·실속이 약화 — "
@@ -1121,6 +1126,15 @@ def build_llm_input(
     ganji = _ganji_lookup(result)
     day_master = result.pillars.day_master if result.pillars else ""
     fav_map = favorability_map(result)
+
+    # Scoring 1c-β near-tie demotion — 게이트 충족 시 LLM 노출 순서만 제한적 재배열.
+    # sub-flag(near_tie_demotion) 기본 off → None → byte-identical. 이후의 인덱스 기반
+    # 후처리(신살 채널·rank guard)가 재배열된 selected 와 1:1 정렬되도록 여기서 적용한다.
+    from .scoring_operational import near_tie_demotion_order
+    _nt_order = near_tie_demotion_order(result, selected, ganji,
+                                        domain=str(intent.domain.value))
+    if _nt_order is not None:
+        selected = [selected[i] for i in _nt_order]
 
     # 신살 보조 태그(Phase A-1) — 질문 도메인 기준으로 1회 derive·prune(후보당 ≤3).
     # 점수·랭킹·favorability 불변(순수 enrichment). domain 은 파서 확정 도메인의 대표값.

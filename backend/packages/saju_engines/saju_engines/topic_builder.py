@@ -23,6 +23,11 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+from saju_manse_analysis.yongsin.operational_role_config import (
+    is_favorable_role,
+    is_unfavorable_role,
+)
+
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import SubjectRef
 from saju_shared_types.llm_input import UsefulGods
@@ -215,8 +220,8 @@ def build_personality_context(
         rising = [tg for tg in dominant if tg not in natal_top]
         fading = [tg for tg in natal_top if tg not in dominant]
         quality = (
-            "pressured" if c.favorability in ("기신", "구신")
-            else "favorable" if c.favorability in ("용신", "희신")
+            "pressured" if is_unfavorable_role(c.favorability)
+            else "favorable" if is_favorable_role(c.favorability)
             else "mixed"
         )
         shifts.append(TraitShift(
@@ -462,8 +467,8 @@ def _lifestyle_scores(selected: list[LuckComposite]) -> dict[str, int]:
         level_acc: dict[str, float] = dict.fromkeys(cats, 0.0)
         for c in comps:
             sign = (
-                1.0 if c.favorability in ("용신", "희신")
-                else -1.0 if c.favorability in ("기신", "구신")
+                1.0 if is_favorable_role(c.favorability)
+                else -1.0 if is_unfavorable_role(c.favorability)
                 else 0.5
             )
             for s in c.domain_signals:
@@ -515,10 +520,10 @@ def _slot_summary(
 
 
 def _fav_sign(favorability: str) -> float:
-    """기간 favorability → 부호(용·희 +1 / 기·구 −1 / 그 외 0.5)."""
-    if favorability in ("용신", "희신"):
+    """기간 favorability → 부호(용·희 +1 / 기·구 −1 / 그 외 0.5) — mapper 경유."""
+    if is_favorable_role(favorability):
         return 1.0
-    if favorability in ("기신", "구신"):
+    if is_unfavorable_role(favorability):
         return -1.0
     return 0.5
 

@@ -28,6 +28,7 @@ import json
 import math
 import sys
 from pathlib import Path
+from typing import Any
 
 import geopandas as gpd
 import numpy as np
@@ -64,14 +65,14 @@ def _load_5179(path: Path) -> gpd.GeoDataFrame:
     return g.to_crs(_EPSG)
 
 
-def _resolve_polygons(units: list[dict], adm: gpd.GeoDataFrame) -> dict[str, object]:
+def _resolve_polygons(units: list[dict], adm: gpd.GeoDataFrame) -> dict[str, Any]:
     """region_code → 실폴리곤(5179). centroid를 포함하는 최소 행정경계 폴리곤(레벨셋별)."""
     groups = {
         lvl: (adm[adm["fclass"].isin(fcs)].reset_index(drop=True))
         for lvl, fcs in _LEVEL_FCLASS.items()
     }
     sidx = {lvl: g.sindex for lvl, g in groups.items()}
-    out: dict[str, object] = {}
+    out: dict[str, Any] = {}
     from shapely.geometry import Point
     for u in units:
         lvl = str(u.get("region_level", "")).lower()

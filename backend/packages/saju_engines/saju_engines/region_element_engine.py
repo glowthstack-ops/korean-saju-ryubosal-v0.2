@@ -27,6 +27,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from saju_manse_analysis.yongsin.operational_role_config import (
+    is_favorable_role,
+    is_unfavorable_role,
+)
+
 from saju_shared_types.constants import GENERATES
 from saju_shared_types.enums import Element
 from saju_shared_types.region_element import (
@@ -746,9 +751,9 @@ class RegionElementEngine:
                 element=el, role=role, weight=round(val, 4),
                 reason=_FACTOR_REASON[role].format(el=el),
             )
-            if role in ("용신", "희신", "보완"):
+            if is_favorable_role(role) or role == "보완":
                 summary.positive.append(factor)
-            elif role in ("기신", "구신"):
+            elif is_unfavorable_role(role):
                 summary.negative.append(factor)
             else:
                 summary.neutral.append(factor)

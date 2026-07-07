@@ -124,9 +124,10 @@ def _fe_payload(cal: CalibrationQuestionSet, trait_response: str | None,
     """FE 제출 payload와 동일 형태(전 문항 trait_response 키 포함)."""
     out = []
     for q in cal.questions:
-        d = {"question_id": q.id, "overall_rating": "unknown", "selected_events": [],
-             "event_ratings": {}, "domain_ratings": {}, "event_intensity": {},
-             "trait_response": None, "trait_statement": None}
+        d: dict[str, object] = {
+            "question_id": q.id, "overall_rating": "unknown", "selected_events": [],
+            "event_ratings": {}, "domain_ratings": {}, "event_intensity": {},
+            "trait_response": None, "trait_statement": None}
         if q.question_type == "trait_probe":
             d["trait_response"] = trait_response
             d["trait_statement"] = statement

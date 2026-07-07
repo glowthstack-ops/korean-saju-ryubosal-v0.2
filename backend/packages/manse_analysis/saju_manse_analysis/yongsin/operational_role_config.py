@@ -34,6 +34,25 @@ OPERATIONAL_ROLE_CLASS: dict[str, str] = {
     "조후보조신": "favorable",  # 보조약 — 용신급 가중 금지(위 주석)
 }
 
+
+def role_class(label: str | None) -> str:
+    """역할 라벨 → 길흉 해석 클래스 — mapper 경유 단일 진입점(spec §10-2 #4).
+
+    OPERATIONAL_ROLE_CLASS 미등록 라벨(None·빈 문자열 포함)은 "unknown"을 반환한다.
+    호출부는 부분문자열 파싱·임시 튜플 묶음 대신 이 함수(또는 exact enum 비교)만 쓴다.
+    """
+    return OPERATIONAL_ROLE_CLASS.get(label or "", "unknown")
+
+
+def is_favorable_role(label: str | None) -> bool:
+    """역할 라벨이 favorable 클래스(용신·희신·조후보조신)인지 — mapper 경유."""
+    return role_class(label) == "favorable"
+
+
+def is_unfavorable_role(label: str | None) -> bool:
+    """역할 라벨이 unfavorable 클래스(기신·구신)인지 — mapper 경유."""
+    return role_class(label) == "unfavorable"
+
 # 조후 역행(병) 방향별 negative_when 사유(Phase 2, _climate_harmful 연결).
 CLIMATE_HARMFUL_REASON: dict[str, str] = {
     "cold": "한습 심화(조후 역행)",
@@ -291,7 +310,9 @@ SCORING_OPERATIONAL_RANK_TOPN: int = 10            # top-N 이탈 기준(level�
 # 순위·.score·reduce 불변·본문 우선 헤드룸 가드·과한 긍정만 차단(흉 과장 X).
 SCORING_OPERATIONAL_APPLY_ENABLED: bool = True
 SCORING_OPERATIONAL_APPLY_MODE: dict[str, bool] = {
-    "rank_guard": True, "near_tie_demotion": False,  # near_tie 는 1c-β 후속(미구현)
+    # near_tie(1c-β)는 구현 완료(scoring_operational.near_tie_demotion_order) —
+    # 활성화는 누적 관찰 후 별도 승인(스펙 §14 1c-β). off = byte-identical.
+    "rank_guard": True, "near_tie_demotion": False,
 }
 # 표현 key 기준 allowlist(domain_to_expression_key 정규화). master off 면 inert.
 # study_document = Domain.EDUCATION.value("education") 정규화 후 key.
@@ -300,7 +321,7 @@ SCORING_OPERATIONAL_APPLY_INTENTS: list[str] = [
 ]
 SCORING_OPERATIONAL_APPLY_COEF: dict[str, int] = {
     "penalty_threshold": 6, "max_guards": 3,
-    "near_tie_rank_window": 3, "near_tie_score_window": 5,   # 1c-β 후속(미사용)
+    "near_tie_rank_window": 3, "near_tie_score_window": 5,   # 1c-β(near_tie_demotion_order)
     "max_demotion_cap": 2, "topn_change_limit": 1,
 }
 # 태그 문구(penalty 유래 2종) — "흉" 단정이 아니라 **과한 긍정만 차단**.

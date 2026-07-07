@@ -21,10 +21,15 @@ from saju_manse_analysis.yongsin.operational_role_config import (
 
 from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
 from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.event_taxonomy_v2 import EVENT_CATEGORY
 from saju_shared_types.events import EventCandidate
 from saju_shared_types.manse_result import ManseV2Result
 
 from .event_scoring import favorability_map
+
+# event_key 문자열 값 → 카테고리(1c-β 동일 event group 판정용). EVENT_CATEGORY 는 EventKeyV2
+# enum 키라 레거시 EventCandidate.event_key 와 enum 클래스가 달라도 값으로 매칭한다.
+_EVENT_GROUP: dict[str, str] = {k.value: v for k, v in EVENT_CATEGORY.items()}
 
 
 def apply_operational_scoring(
@@ -253,6 +258,94 @@ def operational_rank_guards(
             cand.append((s["candidate_index"], -s["operational_score_delta"], key))
     cand.sort(key=lambda x: -x[1])  # 감점 큰 순
     return [(idx, reason_key) for idx, _d, reason_key in cand[:coef["max_guards"]]]
+
+
+def _period_level(period: str) -> str:
+    """기간 라벨 → level 키. 연 'YYYY'/월 'YYYY-MM'/일 'YYYY-MM-DD'/대운 'YYYY~YYYY'."""
+    if "~" in period:
+        return "daewoon"
+    return {0: "year", 1: "month"}.get(period.count("-"), "day")
+
+
+def _event_group(candidate: EventCandidate) -> str:
+    """후보의 event group — 미등재 키는 자기 자신(동일 event_key 끼리만 같은 그룹)."""
+    key = getattr(candidate.event_key, "value", None) or str(candidate.event_key)
+    return _EVENT_GROUP.get(key, key)
+
+
+def near_tie_demotion_order(
+    result: ManseV2Result,
+    selected: list[EventCandidate],
+    ganji_by_period: dict[str, str],
+    *,
+    domain: str | None,
+) -> list[int] | None:
+    """near-tie demotion(1c-β) — LLM 노출 후보의 제한적 후순위화 순서 산출. spec §14 1c-β.
+
+    동일 level·event group이고 legacy 순위차 ≤ near_tie_rank_window·score 차 ≤
+    near_tie_score_window 인 **인접 쌍**에서, 위 후보가 operational 감점(delta ≤
+    −penalty_threshold)이며 adjusted score 가 아래 후보보다 낮을 때만 자리를 바꾼다
+    (후보당 최대 max_demotion_cap 칸). top-N(RANK_TOPN) 구성 변화가 topn_change_limit 를
+    넘으면 legacy fallback(None). 게이트(APPLY_ENABLED ∧ near_tie_demotion ∧
+    domain∈APPLY_INTENTS ∧ component≥1) 미충족·변화 없음도 None — 호출부는 None 이면
+    순서를 건드리지 않는다(sub-flag off → byte-identical). 엔진 `.score`·rank·
+    reduce_candidates 는 불변, **LLM 노출 순서만** 조정한다(1b 결론: 전체 재정렬 금지).
+    """
+    if not (_cfg.SCORING_OPERATIONAL_APPLY_ENABLED
+            and _cfg.SCORING_OPERATIONAL_APPLY_MODE.get("near_tie_demotion")):
+        return None
+    from .shadow_scoring import domain_to_expression_key
+    key = domain_to_expression_key(domain)
+    if key is None or key not in _cfg.SCORING_OPERATIONAL_APPLY_INTENTS:
+        return None
+    if not any(_cfg.SCORING_OPERATIONAL_COMPONENTS.values()):  # 감점 근거 없음
+        return None
+    if len(selected) < 2:
+        return None
+    side = apply_operational_scoring(result, selected, ganji_by_period)
+    if not side:
+        return None
+    by_idx = {s["candidate_index"]: s for s in side}
+    coef = _cfg.SCORING_OPERATIONAL_APPLY_COEF
+    threshold = coef["penalty_threshold"]
+    rank_window = coef["near_tie_rank_window"]
+    score_window = coef["near_tie_score_window"]
+    cap = coef["max_demotion_cap"]
+
+    order = list(range(len(selected)))
+    demoted: dict[int, int] = {}
+    for _sweep in range(cap):  # 후보당 최대 cap 칸 → 인접 스캔 cap 회로 충분
+        swapped = False
+        for pos in range(len(order) - 1):
+            a, b = order[pos], order[pos + 1]
+            sa, sb = by_idx[a], by_idx[b]
+            if sa.get("missing_ganji") or sb.get("missing_ganji"):  # 임의 계산 금지
+                continue
+            if demoted.get(a, 0) >= cap:
+                continue
+            if (_period_level(selected[a].period) != _period_level(selected[b].period)
+                    or _event_group(selected[a]) != _event_group(selected[b])):
+                continue
+            if abs(a - b) > rank_window:  # legacy 순위(입력 순서) 거리 창
+                continue
+            if abs(sa["legacy_score"] - sb["legacy_score"]) > score_window:  # near-tie
+                continue
+            if sa["operational_score_delta"] > -threshold:  # 위 후보 감점 미달
+                continue
+            if sa["operational_adjusted_score"] >= sb["operational_adjusted_score"]:
+                continue  # adjusted 역전일 때만
+            order[pos], order[pos + 1] = b, a
+            demoted[a] = demoted.get(a, 0) + 1
+            swapped = True
+        if not swapped:
+            break
+    if order == list(range(len(selected))):
+        return None
+    top_n = min(_cfg.SCORING_OPERATIONAL_RANK_TOPN, len(order))
+    changed = len(set(order[:top_n]) ^ set(range(top_n))) // 2
+    if changed > coef["topn_change_limit"]:
+        return None  # top-N 왜곡 초과 — legacy fallback
+    return order
 
 
 def guard_caution_phrase(reason_key: str, existing_caution: str) -> str:

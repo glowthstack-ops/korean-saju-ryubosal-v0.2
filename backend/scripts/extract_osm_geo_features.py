@@ -53,7 +53,7 @@ def _row(fid: str, ftype: str, x: float, y: float, *, name: str = "",
          elem: dict[str, float] | None = None, subtype: str = "",
          elevation: float | None = None, conf: float = 0.5,
          anchor_idx: int | None = None) -> dict:
-    r = {c: "" for c in _COLS}
+    r: dict[str, object] = {c: "" for c in _COLS}
     r.update(feature_id=fid, feature_type=ftype, feature_subtype=subtype,
              feature_name=name, source_name="osm", x_5179=round(x, 1), y_5179=round(y, 1),
              importance=1.0, confidence=conf)

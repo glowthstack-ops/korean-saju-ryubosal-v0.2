@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
+from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_role
 
 from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
 from saju_shared_types.enums import Branch, Stem
@@ -858,7 +859,7 @@ def _target_stem_bound(
         stem_el = str(STEM_ELEMENT[Stem(target.stem)])
     except (KeyError, ValueError):
         return False
-    if fav_map.get(stem_el, "") not in ("기신", "구신"):
+    if not is_unfavorable_role(fav_map.get(stem_el)):
         return False
     try:
         resolutions = resolve_stem_hap(result.pillars, fav_map, luck_stems=[target.stem])
@@ -911,7 +912,7 @@ def _period_role(
     # 0) 천간·지지가 같은 방향으로 겹친 강한 신호 — 모두 용신(강한 용신운)/모두 흉(기·구).
     if stem_lbl == "용신" and branch_lbl == "용신":
         return PolarityRole.YONG_STRONG
-    if stem_lbl in ("기신", "구신") and branch_lbl in ("기신", "구신"):
+    if is_unfavorable_role(stem_lbl) and is_unfavorable_role(branch_lbl):
         return PolarityRole.GI_STRONG
     # 1) 직접 역할(천간 우선).
     for lbl in (stem_lbl, branch_lbl):

@@ -23,6 +23,10 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from korean_lunar_calendar import KoreanLunarCalendar
+from saju_manse_analysis.yongsin.operational_role_config import (
+    is_favorable_role,
+    is_unfavorable_role,
+)
 
 from saju_shared_types.constants import STEM_ELEMENT
 from saju_shared_types.enums import Stem
@@ -40,8 +44,6 @@ from saju_shared_types.relocation import (
 
 _TOP_MONTHS = 3
 _TOP_DATES = 5
-_FAVORABLE = ("용신", "희신")
-_UNFAVORABLE = ("기신", "구신")
 
 # 기본 구성원 가중(docs/09 7장): 호주 0.5 / 배우자 0.3 / 기타 균등.
 _DEFAULT_W_HEAD = 0.5
@@ -198,9 +200,9 @@ def ten_god_day_fit(c: LuckComposite, table: dict) -> int:
 def _signed_weight(c: LuckComposite, domain: str) -> float:
     """도메인 신호 합 — 기간 favorability로 부호화(용·희 +, 기·구 −, 한신 절반)."""
     total = sum(s.weight for s in c.domain_signals if s.domain == domain)
-    if c.favorability in _FAVORABLE:
+    if is_favorable_role(c.favorability):
         return total
-    if c.favorability in _UNFAVORABLE:
+    if is_unfavorable_role(c.favorability):
         return -total
     return total * 0.5
 
@@ -530,7 +532,7 @@ class RelocationResolver:
                     h.relation_id for h in c.interactions
                     if h.kind.value in ("branch_clash", "stem_clash")
                 ]
-                if c.favorability in _UNFAVORABLE and clashes:
+                if is_unfavorable_role(c.favorability) and clashes:
                     avoid.append(AvoidDate(
                         date=c.period_key,
                         reason=f"기신 기조 + 충({', '.join(clashes)})",

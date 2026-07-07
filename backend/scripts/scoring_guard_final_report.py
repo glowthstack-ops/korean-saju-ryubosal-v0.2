@@ -30,7 +30,7 @@ _TAG = "[해석 주의]"
 
 
 def main() -> None:
-    from saju_api.services import chat_service
+    import saju_api.services.chat_service as chat_service
     from saju_engines.llm_guard import estimate_tokens
     from saju_shared_types.birth_input import BirthInput
 

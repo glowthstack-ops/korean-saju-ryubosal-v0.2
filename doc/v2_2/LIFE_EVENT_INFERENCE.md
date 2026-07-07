@@ -40,8 +40,8 @@ weak인 사례가 생긴다(`doc/v2_2/SCORE_SATURATION_REVIEW.md`). 더 근본�
 | candidate_generator | 운 십성·12운성으로 사건 후보 넓게 생성 | `ten_god_brancher` | ✅ (누락 보강 필요 — §3) |
 | reality_gate | 현실 상태와 안 맞는 후보 억제·맥락 후보 시드 | `addendum_gate_modifier`+`GateContext` | ⚠️ 부분 (맥락 필드 확장) |
 | event_materialization_checker | 궁성·관계·층위로 사건화 여부 판단 | `relation_palace_engine`+`event_ranker(confidence_level)` | ✅ |
-| **personal_calibration** | 과거 실제 사건과 유사 패턴 우선 | (신규 — §4) | ❌ |
-| **life_fit_ranker** | 삶의 맥락에 가장 맞는 후보 우선 정렬 | (신규 — §1 정렬축) | ❌ |
+| **personal_calibration** | 과거 실제 사건과 유사 패턴 우선 | `personal_calibration`(apply_personal_match·seed_missing_events)+`life_event_store`(migrations/008) | ✅ (가중 reviewed:false — §7-6 감수 대기) |
+| **life_fit_ranker** | 삶의 맥락에 가장 맞는 후보 우선 정렬 | `life_fit_ranker`(LifeFitRanker.rank — event_engine_v2 배선)+`cohort_calibration`(§4.4 활성 게이트) | ✅ (코호트는 임계 미충전 — 수집만, 설계대로) |
 | llm_narrative_controller | 확실/가능성 구분, 서사 단위 1~3개 풀이 | `context_reducer`+프롬프트 | ⚠️ 서사 그룹핑 추가 |
 
 ## 3. reality_gate — "있으면 강하게, 없으면 폴백" (규칙11 준수)
@@ -168,3 +168,9 @@ cohort_sample_n ≥ ACTIVATION_THRESHOLD  →  해당 계층 코호트 신호 �
 
 기존 순서(score 튜닝 → 이관 → 회귀)를 **목표 재정의 → 저장소·수집 → life_fit 배선 → score 격하
 → (그 다음) 튜닝 → 이관 → 회귀**로 교체한다.
+
+**구현 현황(2026-07-07 문서 싱크)**: 1~5 완료 — ①본 문서 ②`migrations/008_life_events.sql`+
+`life_event_store.py` ③`life_fit_ranker.py`(개인 시그니처·코호트 배선, `event_engine_v2.rank`)
+④`EventCandidateV2.life_fit/personal_match` + score의 display 격하(`event_engine.py` 정렬축)
+⑤코호트 활성 게이트(`cohort_calibration.py` — 임계 미충전으로 수집만, §4.4 설계대로).
+남은 단계 = 6(가중 튜닝 — 전문가 감수+실데이터 필요) · 7(레거시 21키 이관) · 8(DB 통합회귀+골드셋).

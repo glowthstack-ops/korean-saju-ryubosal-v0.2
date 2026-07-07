@@ -16,6 +16,11 @@ import json
 import math
 from pathlib import Path
 
+from saju_manse_analysis.yongsin.operational_role_config import (
+    is_favorable_role,
+    is_unfavorable_role,
+)
+
 # 명리형 방위 오행 가중 — 사정=단일, 간방=인접 사정 혼합(45:45)+土 전환(10).
 _DIRECTION_ELEMENTS: dict[str, dict[str, float]] = {
     "동": {"木": 1.0},
@@ -100,8 +105,8 @@ class RegionDirection:
         label = _fit_band(score)
         el_desc = "·".join(parts)
         # 근거 — 섞인 역할 구성 + 부담(기·구신) 동반 여부를 짚는다.
-        has_bad = any(favorability.get(el) in ("기신", "구신") for el in weights)
-        has_good = any(favorability.get(el) in ("용신", "희신") for el in weights)
+        has_bad = any(is_unfavorable_role(favorability.get(el)) for el in weights)
+        has_good = any(is_favorable_role(favorability.get(el)) for el in weights)
         if len(weights) == 1:
             reason = f"이동 방위가 {parts[0]} 방위 — {label}"
         elif has_bad and has_good:

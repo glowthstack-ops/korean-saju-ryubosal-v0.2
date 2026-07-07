@@ -14,6 +14,8 @@ import json
 from datetime import date
 from pathlib import Path
 
+from saju_manse_analysis.yongsin.operational_role_config import is_favorable_role
+
 from saju_shared_types.constants import BRANCH_ELEMENT, GENERATES
 from saju_shared_types.date_selection import (
     DateCandidate,
@@ -316,7 +318,7 @@ class DateSelectionEngine:
             "구신": "구신 방위라 권하기 어려움",
         }.get(role, "무난")
         favs = [d for d, e in self._dir_to_element.items()
-                if favorability.get(e) in ("용신", "희신")]
+                if is_favorable_role(favorability.get(e))]
         tail = f" 유리한 방위: {', '.join(favs)}." if favs else ""
         return f"지정 방위 {stated}({element}·{role}) — {tone}.{tail}"
 

@@ -285,7 +285,9 @@ Phase별 회귀·실측으로 조정한다. (정확한 파일 위치는 Phase 0 
 1. Phase 4b 완료 ✅
 2. operational_roles를 LLM 입력에 연결        ← 다음 (가장 중요)
 3. 운세 해석에서 operational role 우선 규칙 적용
-4. 희신/기신 문자열 파싱 금지, OPERATIONAL_ROLE_CLASS mapper 강제
+4. 희신/기신 문자열 파싱 금지, OPERATIONAL_ROLE_CLASS mapper 강제 ✅(2026-07-07 —
+   role_class/is_favorable_role/is_unfavorable_role 헬퍼 신설, 클래스 판정 전 사이트
+   9개 파일 이관·세분 exact enum 비교는 정책대로 유지. 전체 회귀 불변)
 5. 조후 충돌 케이스 확장
 6. 용신 operability에 공망·충·합반·고립 추가
 7. 官 외 합 맥락 확장: 財/印/食傷/比劫
@@ -659,7 +661,12 @@ byte-identical.** `.score`·rank·reduce·final/favorability/canonical/groups/�
   후보에만**·후보별 1줄·**전체 max 3개**. reason은 1a penalties(조건부 희신/병 downgrade·낮은 operability
   용신)에서만. 파일럿 intent=**career(Domain.CAREER)만**.
 - **1c-β near-tie demotion(후속·별도 sub-flag)**: 동일 level·event group·legacy rank≤3·score≤5 인접 쌍만
-  max 2칸 후순위화·top-N 변화 ≤1(초과 시 legacy fallback). **이번 미구현**(near_tie_demotion=False).
+  max 2칸 후순위화·top-N 변화 ≤1(초과 시 legacy fallback).
+  **구현 완료(2026-07-07)** — `scoring_operational.near_tie_demotion_order` + `context_reducer`
+  배선(LLM 노출 순서만·엔진 .score/rank/reduce 불변). 게이트 = APPLY_ENABLED ∧ near_tie_demotion
+  ∧ domain∈APPLY_INTENTS ∧ component≥1. 검증 15건(test_scoring_near_tie.py — 게이트 5·조건
+  미충족 5·cap/top-N 3·배선 2). **운영 기본 off(near_tie_demotion=False → byte-identical) —
+  활성화는 누적 관찰 후 별도 승인(기존 결정 유지).**
 - **1c-γ prominence**: 5b 중복 — 제외.
 - **검증**: flag off byte-identical·intent 미매칭 미적용·token budget 회귀·33차트 가드 G1/G3/G4 위반 0·
   순서/score/rank/final/favorability 불변.

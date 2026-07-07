@@ -15,7 +15,7 @@ from pathlib import Path
 _BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_BACKEND / "apps" / "api"))
 
-from saju_api.services import chat_service  # noqa: E402
+import saju_api.services.chat_service as chat_service  # noqa: E402
 from saju_engines.context_reducer import build_llm_input, serialize_llm_input  # noqa: E402
 from saju_engines.llm_guard import estimate_tokens  # noqa: E402
 from saju_engines.planner import build_execution_plan  # noqa: E402
@@ -47,7 +47,7 @@ def measure(question: str) -> tuple[int, int]:
     chart_birth = _BIRTH.model_copy(update={"reference_date": _TODAY})
     result = chat_service.calculate(chart_birth)
     scorer = chat_service._get_scorer()
-    all_candidates = scorer.score(result, levels={GanjiLevel.YEAR, GanjiLevel.MONTH})
+    all_candidates = scorer.score_legacy(result, levels={GanjiLevel.YEAR, GanjiLevel.MONTH})
     bundles = chat_service._get_graph().retrieve(
         plan.graph_scope or [c.event_key for c in all_candidates[:5]]
     )

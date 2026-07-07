@@ -24,6 +24,7 @@ from saju_manse_analysis.yongsin.operational_role_config import (
     OPERABILITY_FACTOR_SHORT,
     OPERABILITY_LEVEL_BANDS,
     OPERATIONAL_ROLE_CLASS,
+    is_unfavorable_role,
 )
 
 from saju_shared_types.constants import (
@@ -598,7 +599,7 @@ def _favorability_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]
     texts = _favorability_by_role()
     excerpts: list[InterpretationExcerpt] = []
     for element, role in fav.items():
-        if role not in ("구신", "기신"):
+        if not is_unfavorable_role(role):
             continue
         item = texts.get(role)
         if item is None:

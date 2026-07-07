@@ -6654,3 +6654,33 @@ redoRequested 상태 추가 — '검증 다시 진행' 한 번으로 곧장 질�
   회귀 아님, 후속 정리 대상 유지.
 - 검증: 해당 파일 1 passed·2 skipped(DB 미기동), ruff·mypy clean. FE tsc·production
   build·vitest 34 passed 모두 통과.
+
+### 독립 개발 가능 항목 일괄 — mypy 백로그 해소·mapper 강제(#4)·1c-β 구현·문서 싱크 (2026-07-07, 데굴님 승인)
+
+정확도 점검에서 나온 항목 중 외부 감수·사용자 참여 불필요한 4건 진행. 화기격 재평가·용신
+투출 천간 손상·합거/합반 점수는 스펙 미정의(#규칙10)·캘리브레이션 필요로 제외.
+
+- **mypy 백로그 13건 전량 해소**: 서브모듈 from-import → `import ... as ...` 전환
+  (manse_service·measure_tokens·scoring_guard 2종), dict 값 타입 주석(extract_osm·
+  build_geo·qa_calibration_probes). measure_tokens 는 `scorer.score()`(V2 반환)→
+  `score_legacy()`로 교정 — build_llm_input 계약(EventCandidate)과 일치·실서비스 경로와
+  동일 측정. 전체 `mypy packages apps scripts` 273파일 clean.
+- **역할 문자열 파싱 금지 — mapper 강제(용신 spec §10-2 #4)**: operational_role_config 에
+  `role_class`/`is_favorable_role`/`is_unfavorable_role` 헬퍼 신설, 클래스 판정(용·희/기·구
+  묶음) 전 사이트를 mapper 경유로 이관 — event_engine_v2(2)·relations_engines(1)·
+  topic_builder(3)·relocation(3)·chart_interpretation(1)·region_direction(2)·
+  region_element_engine(2)·date_selection(1)·context_reducer(4). 세분 exact enum 비교
+  (용신 단독·한신·PolarityRole 매핑·희신+한신 도메인 집합)는 정책 허용대로 유지.
+  출력 불변 — 전체 회귀 통과로 확인.
+- **1c-β near-tie demotion 구현(스펙 §14 규격·계수 그대로)**:
+  `scoring_operational.near_tie_demotion_order` — 동일 level·event group·legacy 순위차
+  ≤3·score 차 ≤5 인접 쌍만, 감점(delta≤−6)·adjusted 역전 시 후보당 max 2칸 후순위화,
+  top-N(10) 변화 >1 이면 legacy fallback. context_reducer 배선(LLM 노출 순서만·엔진
+  .score/rank/reduce 불변). **sub-flag 기본 off → byte-identical, 활성화는 누적 관찰 후
+  별도 승인(기존 결정 유지).** 신규 test_scoring_near_tie.py 15건(게이트 5·조건 미충족
+  5·cap/top-N 3·배선 2).
+- **문서 싱크**: LIFE_EVENT_INFERENCE.md 모듈 표(personal_calibration·life_fit_ranker
+  ❌→✅ 실코드 매핑)+§7 구현 현황(1~5 완료·6~8 남음). 용신 spec §10-2 #4 완료 표기·
+  §14 1c-β 구현 완료 표기.
+- 검증: BE 1628 passed(신규 15 포함)·38 skipped(DB 미기동), ruff clean, mypy 273파일
+  clean. FE 변경 없음(금일 tsc·build·vitest 34 통과 유지).

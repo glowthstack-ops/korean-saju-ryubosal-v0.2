@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_role
+
 from saju_shared_types.constants import GENERATES, STEM_ELEMENT
 from saju_shared_types.enums import Element, Stem
 from saju_shared_types.events import EventCandidate, EventKey
@@ -128,7 +130,7 @@ class CompatibilityEngine:
             elif role == "희신":
                 score += 10
                 notes.append(f"{who}의 일간 오행({other_el})이 희신")
-            elif role in ("기신", "구신"):
+            elif is_unfavorable_role(role):
                 score -= 15
                 notes.append(f"{who}의 일간 오행({other_el})이 {role} — 소모 주의")
         return max(0, min(100, score)), notes or ["용신 상호작용 중립"]
