@@ -101,6 +101,11 @@ def _favorability_by_role() -> dict[str, dict]:
 
 
 @lru_cache(maxsize=1)
+def _spouse_palace_tendency() -> dict:
+    return _load("spouse_palace_tendency.json")
+
+
+@lru_cache(maxsize=1)
 def _relation_items_by_members() -> dict[frozenset[str], list[dict]]:
     """relations.json participants → 항목 역색인(이름·id 매칭용)."""
     data = json.loads((_DICT_DIR / "relations.json").read_text(encoding="utf-8"))
@@ -429,6 +434,7 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
     excerpts = _build_excerpts(pillars.day, ten_god_names, relation_ids)
     excerpts += _sinsal_excerpts(result)
     excerpts += _favorability_excerpts(result)
+    excerpts += _spouse_palace_excerpts(pillars.day.branch)
     ilju_entry = _ilju_by_ganji().get(pillars.day.ganji)
     return ChartInterpretation(
         pillar_details=details,
@@ -608,6 +614,35 @@ def _favorability_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]
             kind="favorability", key=f"{element} {role}",
             text=f"{item['core']} 반전: {_first_sentence(item['reversal'], 260)}",
         ))
+    return excerpts
+
+
+# 배우자궁 성향 발췌 말미 공통 마킹 — 경험칙 사전(reviewed:false)임을 LLM에 명시.
+_SPOUSE_PALACE_MARKER = " (경험칙·감수 전 — 성향 묘사에만 보조 인용, 판정·시기 인용 금지)"
+
+
+def _spouse_palace_excerpts(day_branch: str) -> list[InterpretationExcerpt]:
+    """배우자궁(일지) 성향 보조 발췌 — 경험칙 사전(spouse_palace_tendency, reviewed:false).
+
+    4인자(子亥巳午)와 계절(봄여름/가을겨울) 두 레이어가 함께 걸릴 수 있다(상보적 —
+    최대 2건). 점수·판정·시기 산출에 개입하지 않는 순수 텍스트이며, excerpts 말미에
+    붙어 토큰 압박 시 우선 절삭된다(보조 자료 우선순위). 출처는 상담가 강의 경험칙
+    (고전 무근)이라 마킹으로 성향 묘사 보조 인용임을 강제한다(2026-07-07 데굴님 승인).
+    """
+    data = _spouse_palace_tendency()
+    excerpts: list[InterpretationExcerpt] = []
+    four = data["four_factor"]
+    if day_branch in four["branches"]:
+        excerpts.append(InterpretationExcerpt(
+            kind="spouse_palace_tendency", key=four["label"],
+            text=four["text"] + _SPOUSE_PALACE_MARKER,
+        ))
+    for season in data["season"]:
+        if day_branch in season["branches"]:
+            excerpts.append(InterpretationExcerpt(
+                kind="spouse_palace_tendency", key=season["label"],
+                text=season["text"] + _SPOUSE_PALACE_MARKER,
+            ))
     return excerpts
 
 

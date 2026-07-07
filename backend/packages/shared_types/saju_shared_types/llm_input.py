@@ -62,7 +62,8 @@ class PillarDetail(BaseModel):
 class InterpretationExcerpt(BaseModel):
     """해석 사전 발췌 1건 — Planner dictionaryScope 선별 결과만(전체 투입 금지)."""
 
-    kind: str  # 'ten_god' | 'relation' | 'sinsal' | 'twelve_stage' | 'ilju'
+    # 'ten_god' | 'relation' | 'sinsal' | 'twelve_stage' | 'ilju' | 'spouse_palace_tendency'
+    kind: str
     key: str  # '정관' | '갑기합' | ...
     text: str
 
