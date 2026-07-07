@@ -81,6 +81,7 @@ def test_create_job_rejected_without_llm(monkeypatch: pytest.MonkeyPatch) -> Non
     _request("DELETE", f"/api/v2/subjects/{sid}", headers=auth)
 
 
+@pytestmark_db
 def test_job_lifecycle_and_owner_isolation(monkeypatch: pytest.MonkeyPatch) -> None:
     """잡 생성→실패→목록→소유자 격리. 실 LLM 미호출(생성 실패를 모의)."""
     import uuid

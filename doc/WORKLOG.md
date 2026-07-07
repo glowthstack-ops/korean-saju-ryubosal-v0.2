@@ -6640,3 +6640,17 @@ redoRequested 상태 추가 — '검증 다시 진행' 한 번으로 곧장 질�
   '다./요./죠.'로 확장(해요체 첫 문장이 안 끊기던 결함 예방).
 - 검증: test_opening_repetition_guard.py 10건으로 확장(테마 상품 커버/스레드 주입/첫 턴
   미부착/해요체 추출). 전체 1651 passed, ruff clean, 변경 4개 파일 mypy clean.
+
+### 전체 검증 게이트 점검 + 잡 통합 테스트 skip 가드 누락 수정 (2026-07-07, 데굴님 요청)
+
+전 게이트 일제 점검(pytest·ruff·mypy / tsc·build·vitest) 결과 pytest 1건 실패 발견·수정.
+
+- **원인**: `test_report_jobs_api.py::test_job_lifecycle_and_owner_isolation`에만
+  `@pytestmark_db`(전용 DB 5433 미기동 시 skip) 데코레이터가 누락 — DB 꺼진 환경에서
+  skip되지 않고 실행되다 register 503(`저장소(DB) 미설정`)→`KeyError: 'token'`으로 실패.
+  형제 테스트와 동일하게 데코레이터 부착(한 줄).
+- **mypy 잔여 백로그**: 리포 전체 13건/7파일(기존 110건에서 감소, mypy 2.1.0 드리프트
+  건 — scripts/ 11건 + manse_service.py 서브모듈 import attr-defined 오탐 2건). 신규
+  회귀 아님, 후속 정리 대상 유지.
+- 검증: 해당 파일 1 passed·2 skipped(DB 미기동), ruff·mypy clean. FE tsc·production
+  build·vitest 34 passed 모두 통과.
