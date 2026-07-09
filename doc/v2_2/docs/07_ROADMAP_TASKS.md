@@ -74,7 +74,7 @@
 - [ ] T5.2 Event Form Engine
 - [ ] T5.3 Self Profile Engine (성격검사화 금지 — manifestation 보정 목적으로 한정)
 - [ ] T5.4 Manifestation Engine (Reality Context 입력 UI는 별도)
-- [ ] T5.5 Advice Engine (+remedy 6분기 — docs/08 D-3)
+- [ ] T5.5 Advice Engine (+remedy 6분기 — docs/08 D-3) — 능동 제안 계층으로 진행 중: Phase A(타입·사전·파이프라인) 완료, 설계 docs/15
 - [ ] T5.6 Compatibility Engine (E13, relation_profiles 사전 포함)
 - [ ] T5.7 Competition Engine (E12) + 당락 단정 금지 템플릿 + no_hour 모드
 

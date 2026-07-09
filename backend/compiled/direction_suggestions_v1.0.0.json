@@ -1,0 +1,1943 @@
+{
+  "schema": "direction_suggestions.v1",
+  "reviewed": false,
+  "purpose": "십성군 과다·부족 상태(원국+운 합산)에서 작동 십성·용신·구조패턴·충파·신강약을 조합해 '이런 방향도 고려해볼 만하다' 수준의 능동 제안을 판정하는 룰 사전. E8 Advice Engine(T5.5) 실구현. LLM은 판정하지 않고 direction/caution 재료를 '고려' 톤으로 재서술만 한다(절대원칙 1·3). guard 매칭은 차단이 아니라 caution 모드로의 서술 반전이다.",
+  "notes": {
+    "group_states": "합산 판정: 원국 십성군 분포에 대운·세운 간지(지지=본기)를 추가 글자로 합산 재계산. 과다 >=35%, 부족 <9% 또는 본기 무존재. natal_excess/luck_excess_onset/excess_intensified/natal_deficient/deficient_persistent/luck_replenished(부족+운 유입=기회 창)/luck_inflow(임계 무관 유입, 보조 조건 전용).",
+    "ten_god_keys": "십성 로마자 enum(event_engine.TenGod): BIJIAN JIECAI SHISHEN SHANGGUAN ZHENGCAI PIANCAI ZHENGGUAN QISHA ZHENGYIN PIANYIN",
+    "groups": "peer(비겁) output(식상) wealth(재성) authority(관살) resource(인성)",
+    "ten_god_status": "present/absent=원국+운 존재 여부, active/inactive=작동(operational) 계층 판정, not_active=inactive 또는 absent",
+    "mode_policy": "guard 1개 이상 매칭 시 mode=caution — 제안을 삭제하지 않고 caution_headline+guard note가 권장 서술보다 앞선다. support 매칭은 strength만 올린다.",
+    "tone": "모든 direction 문구는 '~해보는 것도 고려해볼 만하다' 수준. 확장보다 검증 우선. 단정·확정·픽 제공은 forbidden_framings 및 prohibited_style로 차단.",
+    "multi_axis": "십성 단독 판정 금지 — 룰의 trigger+channel 조건 축(kind)이 2종 이상이어야 함(lint 강제)."
+  },
+  "rules": [
+    {
+      "suggestion_id": "WEALTH_EXCESS",
+      "name_ko": "재성 과다 — 본업 유지 + 작은 수익화 검증",
+      "group": "wealth",
+      "reality_note": "재성 과다는 '돈이 많다'보다 '돈이 묶이고 책임질 일이 많다'에 가깝다 — 고정 지출·계약·관리 부담이 함께 커진다.",
+      "trigger": [
+        {
+          "kind": "group_state",
+          "group": "wealth",
+          "states": [
+            "natal_excess",
+            "luck_excess_onset",
+            "excess_intensified"
+          ],
+          "ten_gods": [],
+          "status": null,
+          "match": "any",
+          "target": null,
+          "roles": [],
+          "bands": [],
+          "pattern_ids": [],
+          "conflict_kinds": []
+        }
+      ],
+      "channels": [
+        {
+          "channel_id": "sanggwan_side_income",
+          "name_ko": "상관 작동 — 부업형 수익화 검증",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "SHANGGUAN"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            },
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "SHISHEN"
+              ],
+              "status": "not_active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "본업을 안전판으로 두고, 기술·기획·표현을 부업·프로젝트형 수익 통로로 작게 검증해보는 방향",
+            "actions": [
+              "본업(안정 수입) 유지",
+              "부업·사이드 프로젝트 소규모 테스트",
+              "기술·콘텐츠·기획의 수익화 (외주·강의·컨설팅·템플릿 등)",
+              "기존 역량·네트워크의 재포장·상품화",
+              "현금흐름 확인 후에만 단계적 확장"
+            ],
+            "avoid": [
+              "성급한 퇴사·본업 정리",
+              "대출·선투자 기반 확장",
+              "재고·임대료 등 고정비 큰 사업",
+              "장기 고정비 계약",
+              "전혀 모르는 분야 진입"
+            ]
+          }
+        },
+        {
+          "channel_id": "siksin_steady",
+          "name_ko": "식신 작동 — 기존 생산의 점진 확장",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "SHISHEN"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "이미 하던 생산·실력 기반을 꾸준히 넓혀 수익으로 잇는 방향",
+            "actions": [
+              "기존 역량의 점진적 확장",
+              "반복 가능한 생산·납품 구조 다지기",
+              "검증된 수요 범위 안에서의 확장"
+            ],
+            "avoid": [
+              "급격한 업종 전환",
+              "고정비 총량 확대"
+            ]
+          }
+        },
+        {
+          "channel_id": "peer_support",
+          "name_ko": "신약 + 비겁 운 유입 — 조력 확보(득비이재)",
+          "conditions": [
+            {
+              "kind": "strength_band",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [
+                "극신약",
+                "태신약",
+                "신약",
+                "중화신약"
+              ],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            },
+            {
+              "kind": "group_state",
+              "group": "peer",
+              "states": [
+                "luck_inflow"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "혼자 다 감당하기보다 신뢰할 수 있는 조력·협력 구조를 확보해 부담을 나누는 방향",
+            "actions": [
+              "업무·재무 부담의 분산",
+              "신뢰 기반 협력자·파트너 확보"
+            ],
+            "avoid": [
+              "불투명한 동업 계약",
+              "지인 금전 거래 확대"
+            ]
+          }
+        }
+      ],
+      "supports": [
+        {
+          "condition": {
+            "kind": "pattern",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": null,
+            "roles": [],
+            "bands": [],
+            "pattern_ids": [
+              "SANGGWAN_SAENGJAE",
+              "SIKSIN_SAENGJAE",
+              "SIKSANG_SAENGJAE"
+            ],
+            "conflict_kinds": []
+          },
+          "note": "식상→재성 흐름(생재 구조)이 연결돼 있어 수익화 통로가 실제로 작동하기 좋다"
+        },
+        {
+          "condition": {
+            "kind": "strength_band",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": null,
+            "roles": [],
+            "bands": [
+              "중화신강",
+              "신강",
+              "태신강"
+            ],
+            "pattern_ids": [],
+            "conflict_kinds": []
+          },
+          "note": "일간이 재성 부담을 감당할 힘이 있다"
+        },
+        {
+          "condition": {
+            "kind": "yongsin_role",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": "wealth",
+            "roles": [
+              "용신",
+              "희신"
+            ],
+            "bands": [],
+            "pattern_ids": [],
+            "conflict_kinds": []
+          },
+          "note": "재성이 용희신이라 재물 활동 자체가 순방향"
+        }
+      ],
+      "guards": [
+        {
+          "guard_id": "weak_self",
+          "conditions": [
+            {
+              "kind": "strength_band",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [
+                "극신약",
+                "태신약",
+                "신약",
+                "중화신약"
+              ],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "신약한데 재성 부담이 크면 돈의 책임을 감당하기 어렵다 — 벌인 일이 오히려 짐이 될 수 있다"
+        },
+        {
+          "guard_id": "sanggwan_gisin",
+          "conditions": [
+            {
+              "kind": "yongsin_role",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": "SHANGGUAN",
+              "roles": [
+                "기신",
+                "구신"
+              ],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "상관이 기신 방향으로 작동하면 판단 과속·말실수·충동적 확장이 나오기 쉽다"
+        },
+        {
+          "guard_id": "sanggwan_gyeongwan",
+          "conditions": [
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "SANGGWAN_GYEONGWAN"
+              ],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "본업·상사·계약과의 충돌 신호(상관견관) — 부업이 본업을 흔들지 않도록 경계 설정이 필요하다"
+        },
+        {
+          "guard_id": "geopjae_strong",
+          "conditions": [
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "GUNGEOP_JAENGJAE",
+                "BIGEOP_TALJAE"
+              ],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "동업·지인·경쟁 관계로 돈이 새는 구조 — 공동 자금·대여·보증을 특히 조심"
+        },
+        {
+          "guard_id": "pyeonjae_accompany",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "PIANCAI"
+              ],
+              "status": "present",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "편재가 함께 움직이면 투자·투기·큰돈 욕심으로 판이 커지기 쉽다 — 소액·분산 원칙 유지"
+        },
+        {
+          "guard_id": "wealth_conflict",
+          "conditions": [
+            {
+              "kind": "conflict",
+              "group": "wealth",
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": [
+                "충",
+                "파"
+              ]
+            }
+          ],
+          "note": "돈은 움직이지만 안정적으로 쌓이기 어려운 구간 — 축적보다 흐름 관리가 먼저"
+        },
+        {
+          "guard_id": "gwansal_pressure",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "authority",
+              "states": [
+                "natal_excess",
+                "luck_excess_onset",
+                "excess_intensified"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "대출·세금·법적 책임·계약 부담이 함께 커질 수 있는 구조 — 의무를 늘리는 선택은 신중히"
+        },
+        {
+          "guard_id": "jae_saengsal",
+          "conditions": [
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "JAE_SAENGSAL"
+              ],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "돈이 압박을 키우는 구조(재생살) — 레버리지·보증·명의 대여는 피하는 게 좋다"
+        }
+      ],
+      "caution_headline": "지금은 수익 확장보다 지출·부채·계약 구조를 먼저 정리하는 쪽이 안전해 보인다",
+      "forbidden_framings": [
+        "퇴사·폐업 권유 단정",
+        "수익·당첨 확정 표현",
+        "특정 종목·번호 픽 제공",
+        "전 재산 투입 등 과몰입 권유"
+      ],
+      "llm_tag": "재성 과다: 돈보다 책임·고정부담이 커진 상태. 본업 유지+작은 수익화 검증이 기본, 가드 신호 시 확장 대신 부채·계약 관리 우선"
+    },
+    {
+      "suggestion_id": "WEALTH_DEFICIT",
+      "name_ko": "재성 부족 — 현금화 회로 만들기",
+      "group": "wealth",
+      "reality_note": "재성 부족은 재물 감각·현금화 통로가 약하다는 뜻 — 능력이 있어도 돈으로 연결되는 회로가 가늘다.",
+      "trigger": [
+        {
+          "kind": "group_state",
+          "group": "wealth",
+          "states": [
+            "natal_deficient",
+            "deficient_persistent",
+            "luck_replenished"
+          ],
+          "ten_gods": [],
+          "status": null,
+          "match": "any",
+          "target": null,
+          "roles": [],
+          "bands": [],
+          "pattern_ids": [],
+          "conflict_kinds": []
+        }
+      ],
+      "channels": [
+        {
+          "channel_id": "replenish_window",
+          "name_ko": "운 보충 — 수익화 시도 창",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "wealth",
+              "states": [
+                "luck_replenished"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            },
+            {
+              "kind": "yongsin_role",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": "wealth",
+              "roles": [
+                "용신",
+                "희신",
+                "한신"
+              ],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "운에서 재성이 보충되는 구간 — 미뤄둔 수익화·가격 책정·거래 구조 정비를 시도해볼 만한 창",
+            "actions": [
+              "소규모 수익화 실험",
+              "보수·단가·조건 재협상",
+              "수입·지출 관리 루틴 정비"
+            ],
+            "avoid": [
+              "큰 자금의 일괄 투입",
+              "일확천금형 시도"
+            ]
+          }
+        },
+        {
+          "channel_id": "output_to_wealth",
+          "name_ko": "식상생재 — 역량의 상품화",
+          "conditions": [
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "SIKSANG_SAENGJAE",
+                "SIKSIN_SAENGJAE",
+                "SANGGWAN_SAENGJAE"
+              ],
+              "conflict_kinds": []
+            },
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "SHISHEN",
+                "SHANGGUAN"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "가진 기술·산출물을 '팔리는 형태'로 바꿔보는 방향(식상생재)",
+            "actions": [
+              "역량의 상품화·포트폴리오화",
+              "소액 과금·유료 전환 구조 테스트"
+            ],
+            "avoid": [
+              "무료 노동의 확대",
+              "막연한 준비 기간 연장"
+            ]
+          }
+        }
+      ],
+      "supports": [
+        {
+          "condition": {
+            "kind": "strength_band",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": null,
+            "roles": [],
+            "bands": [
+              "중화",
+              "중화신강",
+              "신강"
+            ],
+            "pattern_ids": [],
+            "conflict_kinds": []
+          },
+          "note": "재성을 감당할 힘이 받쳐줘 보충 운의 활용도가 높다"
+        }
+      ],
+      "guards": [
+        {
+          "guard_id": "peer_excess",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "peer",
+              "states": [
+                "natal_excess",
+                "luck_excess_onset",
+                "excess_intensified"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "비겁이 강하면 들어온 돈이 나뉘거나 새기 쉽다(군겁쟁재 위험) — 돈 관리 구조부터 만드는 게 순서"
+        },
+        {
+          "guard_id": "tamjae_goein",
+          "conditions": [
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "TAMJAE_GOEIN"
+              ],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "명분·공부와 실리가 충돌하는 구조(탐재괴인) — 돈을 좇다 본분·평판이 흔들리지 않게"
+        }
+      ],
+      "caution_headline": "수익 시도 자체보다 돈이 새는 구멍과 관리 구조를 먼저 만드는 게 순서로 보인다",
+      "forbidden_framings": [
+        "수익 확정 표현",
+        "투자 권유 단정",
+        "특정 종목·번호 픽 제공"
+      ],
+      "llm_tag": "재성 부족: 현금화 회로가 가는 상태. 운 보충기엔 수익화·단가 정비 시도 창, 식상생재면 역량 상품화. 비겁 강하면 관리 구조 먼저"
+    },
+    {
+      "suggestion_id": "AUTHORITY_EXCESS",
+      "name_ko": "관성 과다 — 압박의 전환·완충",
+      "group": "authority",
+      "reality_note": "관성 과다는 책임·압박·규율·평가가 과중해진 상태 — 성실함이 과부하로 바뀌기 쉽다.",
+      "trigger": [
+        {
+          "kind": "group_state",
+          "group": "authority",
+          "states": [
+            "natal_excess",
+            "luck_excess_onset",
+            "excess_intensified"
+          ],
+          "ten_gods": [],
+          "status": null,
+          "match": "any",
+          "target": null,
+          "roles": [],
+          "bands": [],
+          "pattern_ids": [],
+          "conflict_kinds": []
+        }
+      ],
+      "channels": [
+        {
+          "channel_id": "resource_buffer",
+          "name_ko": "인성 작동 — 자격·전문성 전환(살인상생)",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "ZHENGYIN",
+                "PIANYIN"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "압박을 그대로 받기보다 자격·전문성·학습으로 전환해 완충하는 방향(살인상생)",
+            "actions": [
+              "자격·전문성 취득으로 입지 보강",
+              "업무의 문서화·체계화로 책임 범위 명확화",
+              "멘토·보호자·우군 확보"
+            ],
+            "avoid": [
+              "압박 상황에서의 즉흥 결정",
+              "책임·직책의 추가 수임"
+            ]
+          }
+        },
+        {
+          "channel_id": "output_negotiate",
+          "name_ko": "식상 작동 — 기획·협상으로 조건 조정(제살)",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "SHISHEN",
+                "SHANGGUAN"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "요구를 그대로 삼키기보다 기획·제안·협상으로 조건을 다듬어보는 방향(제살)",
+            "actions": [
+              "업무 범위·기한의 재협상",
+              "산출물 중심의 커뮤니케이션",
+              "대안 제시형 문제 제기"
+            ],
+            "avoid": [
+              "정면 충돌·감정적 대응",
+              "무단 이탈성 결정"
+            ]
+          }
+        }
+      ],
+      "supports": [
+        {
+          "condition": {
+            "kind": "pattern",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": null,
+            "roles": [],
+            "bands": [],
+            "pattern_ids": [
+              "SAL_IN_SANGSAENG",
+              "GWANSAL_YUJE",
+              "SIKSIN_JESAL",
+              "SANGGWAN_JESAL"
+            ],
+            "conflict_kinds": []
+          },
+          "note": "압박을 다루는 구조(살인상생·제살·유제)가 이미 갖춰져 있어 전환 전략이 잘 먹힌다"
+        }
+      ],
+      "guards": [
+        {
+          "guard_id": "weak_self",
+          "conditions": [
+            {
+              "kind": "strength_band",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [
+                "극신약",
+                "태신약",
+                "신약",
+                "중화신약"
+              ],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "감당 범위를 넘는 책임은 건강·번아웃으로 이어지기 쉽다 — 업무량 총량 관리가 먼저"
+        },
+        {
+          "guard_id": "jae_saengsal",
+          "conditions": [
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "JAE_SAENGSAL"
+              ],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "돈이 압박을 키우는 구조(재생살) — 대출·보증·레버리지 확대는 피하는 게 좋다"
+        },
+        {
+          "guard_id": "resource_absent",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "ZHENGYIN",
+                "PIANYIN"
+              ],
+              "status": "absent",
+              "match": "all",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "완충 장치(인성)가 없어 압박이 직격된다 — 회복 루틴·보호 장치 확보가 최우선"
+        }
+      ],
+      "caution_headline": "지금은 성과 확장보다 책임 총량과 압박 구조를 줄이는 쪽이 먼저로 보인다",
+      "forbidden_framings": [
+        "퇴사·이직 단정 권유",
+        "법적 분쟁 승패 단정",
+        "건강 이상 단정"
+      ],
+      "llm_tag": "관성 과다: 책임·압박 과중. 인성 작동 시 자격·전문성 전환, 식상 작동 시 협상·기획으로 완충. 신약·재생살이면 총량 축소 우선"
+    },
+    {
+      "suggestion_id": "AUTHORITY_DEFICIT",
+      "name_ko": "관성 부족 — 구조 만들기의 창",
+      "group": "authority",
+      "reality_note": "관성 부족은 소속·직책·안정 구조가 약하다는 뜻 — 자유롭지만 지지대도 얇다.",
+      "trigger": [
+        {
+          "kind": "group_state",
+          "group": "authority",
+          "states": [
+            "natal_deficient",
+            "deficient_persistent",
+            "luck_replenished"
+          ],
+          "ten_gods": [],
+          "status": null,
+          "match": "any",
+          "target": null,
+          "roles": [],
+          "bands": [],
+          "pattern_ids": [],
+          "conflict_kinds": []
+        }
+      ],
+      "channels": [
+        {
+          "channel_id": "replenish_window",
+          "name_ko": "운 보충 — 취업·계약·직책 기회 창",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "authority",
+              "states": [
+                "luck_replenished"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            },
+            {
+              "kind": "yongsin_role",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": "authority",
+              "roles": [
+                "용신",
+                "희신",
+                "한신"
+              ],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "운에서 관성이 보충되는 구간 — 취업·계약·직책·자격 등 '구조 만들기'를 시도해볼 만한 창",
+            "actions": [
+              "지원·응시·계약의 정례화",
+              "직책·역할 제안의 적극 검토",
+              "느슨한 관계의 공식화(계약서·직함)"
+            ],
+            "avoid": [
+              "문어발식 소속 늘리기",
+              "명함만 쌓는 활동"
+            ]
+          }
+        },
+        {
+          "channel_id": "wealth_to_authority",
+          "name_ko": "재생관 — 성과의 직책 연결",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "ZHENGCAI",
+                "PIANCAI"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            },
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "JAE_SAENGGWAN"
+              ],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "쌓아온 성과·실적을 직책·지위로 연결해보는 방향(재생관)",
+            "actions": [
+              "성과의 가시화·정례 보고",
+              "실적 기반의 승진·직책 협상"
+            ],
+            "avoid": [
+              "성과 없이 자리만 요구",
+              "실적 부풀리기"
+            ]
+          }
+        }
+      ],
+      "supports": [
+        {
+          "condition": {
+            "kind": "yongsin_role",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": "authority",
+            "roles": [
+              "용신",
+              "희신"
+            ],
+            "bands": [],
+            "pattern_ids": [],
+            "conflict_kinds": []
+          },
+          "note": "관성이 용희신이라 구조 진입 자체가 순방향"
+        }
+      ],
+      "guards": [
+        {
+          "guard_id": "sanggwan_gyeongwan",
+          "conditions": [
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "SANGGWAN_GYEONGWAN"
+              ],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "조직·규율과 마찰이 나기 쉬운 구조(상관견관) — 진입하더라도 갈등 관리 전략을 함께"
+        },
+        {
+          "guard_id": "sanggwan_active",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "SHANGGUAN"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "상관 기질이 강하게 작동 중 — 규율 강한 조직보다 재량이 있는 역할·거리 설계가 맞을 수 있다"
+        }
+      ],
+      "caution_headline": "구조에 들어가는 것 자체보다, 들어가서 부딪히지 않을 역할·거리를 먼저 설계할 때로 보인다",
+      "forbidden_framings": [
+        "합격·취업 확정 표현",
+        "당락·승패 단정"
+      ],
+      "llm_tag": "관성 부족: 소속·직책 지지대가 얇음. 운 보충기엔 취업·계약·직책 시도 창, 재생관이면 성과의 지위 연결. 상관 강하면 마찰 관리 병행"
+    },
+    {
+      "suggestion_id": "RESOURCE_EXCESS",
+      "name_ko": "인성 과다 — 축적을 출력으로",
+      "group": "resource",
+      "reality_note": "인성 과다는 생각·검토·명분이 과다해 실행이 늦어지고, 받는 것에 익숙해져 의존이 생기기 쉬운 상태다.",
+      "trigger": [
+        {
+          "kind": "group_state",
+          "group": "resource",
+          "states": [
+            "natal_excess",
+            "luck_excess_onset",
+            "excess_intensified"
+          ],
+          "ten_gods": [],
+          "status": null,
+          "match": "any",
+          "target": null,
+          "roles": [],
+          "bands": [],
+          "pattern_ids": [],
+          "conflict_kinds": []
+        }
+      ],
+      "channels": [
+        {
+          "channel_id": "output_express",
+          "name_ko": "식상 작동 — 배운 것의 출력",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "SHISHEN",
+                "SHANGGUAN"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "더 쌓기보다 이미 쌓은 지식·자격을 밖으로 내보내는 방향 — 가르치고 쓰고 기획해서 출력",
+            "actions": [
+              "강의·글·콘텐츠·기획으로 출력",
+              "마감이 있는 작은 산출물 만들기",
+              "배운 것의 공유·정리 공개"
+            ],
+            "avoid": [
+              "자격증·강의 추가 수집",
+              "무기한 준비·재수강 반복"
+            ]
+          }
+        },
+        {
+          "channel_id": "wealth_reality",
+          "name_ko": "재성 작동 — 실리 기준 도입",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "ZHENGCAI",
+                "PIANCAI"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "명분·완성도 기준에 실리·숫자 기준을 더해 균형을 잡아보는 방향(재극인의 순기능)",
+            "actions": [
+              "기한·예산을 정해두고 결정",
+              "작은 실전 투입으로 검증"
+            ],
+            "avoid": [
+              "검토만 반복하는 회의",
+              "명분 없는 일 전부 거절"
+            ]
+          }
+        }
+      ],
+      "supports": [
+        {
+          "condition": {
+            "kind": "pattern",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": null,
+            "roles": [],
+            "bands": [],
+            "pattern_ids": [
+              "SANGGWAN_PAEIN",
+              "SANGGWAN_YONGIN"
+            ],
+            "conflict_kinds": []
+          },
+          "note": "인성이 출력(상관)을 다듬는 구조라 출력 전략의 완성도가 높다"
+        }
+      ],
+      "guards": [
+        {
+          "guard_id": "output_absent",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "SHISHEN",
+                "SHANGGUAN"
+              ],
+              "status": "absent",
+              "match": "all",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "출력 통로(식상)가 없어 계획·검토만 반복되기 쉽다 — 가장 작은 실행 단위부터 만드는 게 우선"
+        },
+        {
+          "guard_id": "doshik",
+          "conditions": [
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "PYEONIN_DOSIK"
+              ],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "생각이 새 시도의 밥그릇을 누르는 구조(편인도식) — 과잉 검토·의심으로 기회를 밀어내지 않게"
+        }
+      ],
+      "caution_headline": "더 배우고 검토하는 것보다, 이미 가진 것을 내보내는 실행이 먼저로 보인다",
+      "forbidden_framings": [
+        "학업·시험 결과 단정",
+        "게으름 등 인격 규정"
+      ],
+      "llm_tag": "인성 과다: 검토·축적 과잉으로 실행 지연. 식상 작동 시 강의·글·기획 출력, 재성 작동 시 기한·숫자 기준 도입. 식상 부재면 최소 실행부터"
+    },
+    {
+      "suggestion_id": "RESOURCE_DEFICIT",
+      "name_ko": "인성 부족 — 지지대 정비의 창",
+      "group": "resource",
+      "reality_note": "인성 부족은 축적·자격·완충(보호막)이 얇다는 뜻 — 실행은 빠르지만 뒷배가 약하다.",
+      "trigger": [
+        {
+          "kind": "group_state",
+          "group": "resource",
+          "states": [
+            "natal_deficient",
+            "deficient_persistent",
+            "luck_replenished"
+          ],
+          "ten_gods": [],
+          "status": null,
+          "match": "any",
+          "target": null,
+          "roles": [],
+          "bands": [],
+          "pattern_ids": [],
+          "conflict_kinds": []
+        }
+      ],
+      "channels": [
+        {
+          "channel_id": "replenish_window",
+          "name_ko": "운 보충 — 기반 정비 창",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "resource",
+              "states": [
+                "luck_replenished"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            },
+            {
+              "kind": "yongsin_role",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": "resource",
+              "roles": [
+                "용신",
+                "희신",
+                "한신"
+              ],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "운에서 인성이 보충되는 구간 — 학습·자격·문서·계약 등 '기반 정비'를 해볼 만한 창",
+            "actions": [
+              "자격·교육 과정 이수",
+              "계약서·증빙·문서의 정비",
+              "조력자·멘토 관계 확보",
+              "건강·회복 루틴 점검"
+            ],
+            "avoid": [
+              "기반 없이 판부터 키우기",
+              "구두 약속 의존"
+            ]
+          }
+        }
+      ],
+      "supports": [
+        {
+          "condition": {
+            "kind": "yongsin_role",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": "resource",
+            "roles": [
+              "용신",
+              "희신"
+            ],
+            "bands": [],
+            "pattern_ids": [],
+            "conflict_kinds": []
+          },
+          "note": "인성이 용희신이라 기반 정비의 효과가 크다"
+        }
+      ],
+      "guards": [
+        {
+          "guard_id": "authority_excess",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "authority",
+              "states": [
+                "natal_excess",
+                "luck_excess_onset",
+                "excess_intensified"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "관살 압박은 큰데 완충이 없는 상태 — 새 일보다 보호 장치(휴식·문서·조력) 확보가 최우선"
+        }
+      ],
+      "caution_headline": "새로운 일보다 지지대(문서·자격·회복 루틴)를 먼저 세울 때로 보인다",
+      "forbidden_framings": [
+        "학업·자격 취득 확정 표현",
+        "건강 이상 단정"
+      ],
+      "llm_tag": "인성 부족: 축적·완충이 얇음. 운 보충기엔 자격·문서·조력 등 기반 정비 창. 관살 압박 동반 시 보호 장치 확보가 최우선"
+    },
+    {
+      "suggestion_id": "PEER_EXCESS",
+      "name_ko": "비겁 과다 — 힘의 배출과 경계 설정",
+      "group": "peer",
+      "reality_note": "비겁 과다는 경쟁·비교·분배 이슈와 독립 욕구가 함께 커진 상태 — 내 몫을 지키는 문제가 전면에 나온다.",
+      "trigger": [
+        {
+          "kind": "group_state",
+          "group": "peer",
+          "states": [
+            "natal_excess",
+            "luck_excess_onset",
+            "excess_intensified"
+          ],
+          "ten_gods": [],
+          "status": null,
+          "match": "any",
+          "target": null,
+          "roles": [],
+          "bands": [],
+          "pattern_ids": [],
+          "conflict_kinds": []
+        }
+      ],
+      "channels": [
+        {
+          "channel_id": "output_drain",
+          "name_ko": "식상 작동 — 기술·산출로 설기",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "SHISHEN",
+                "SHANGGUAN"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "넘치는 힘을 경쟁 소모전이 아니라 자기 기술·산출로 흘려보내는 방향(설기)",
+            "actions": [
+              "개인 기량·포트폴리오에 집중",
+              "경쟁 대신 차별화 포인트 개발",
+              "운동·활동 등 에너지 배출 루틴"
+            ],
+            "avoid": [
+              "자존심 소모전",
+              "공동 지갑·공동 명의"
+            ]
+          }
+        },
+        {
+          "channel_id": "authority_discipline",
+          "name_ko": "관성 작동 — 규칙·시스템으로 제어",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "ZHENGGUAN",
+                "QISHA"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "규칙·조직·시스템 안에서 힘을 통제해 쓰는 방향",
+            "actions": [
+              "규율 있는 환경·팀 선택",
+              "역할·권한·지분의 명문화"
+            ],
+            "avoid": [
+              "규칙 없는 동업",
+              "구두 합의 확장"
+            ]
+          }
+        }
+      ],
+      "supports": [
+        {
+          "condition": {
+            "kind": "group_state",
+            "group": "wealth",
+            "states": [
+              "natal_excess",
+              "luck_excess_onset"
+            ],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": null,
+            "roles": [],
+            "bands": [],
+            "pattern_ids": [],
+            "conflict_kinds": []
+          },
+          "note": "재성이 넉넉하면 경쟁자가 많아도 나눌 판이 커서 협력의 실익이 있다(신왕재왕 방향)"
+        }
+      ],
+      "guards": [
+        {
+          "guard_id": "wealth_weak",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "wealth",
+              "states": [
+                "natal_deficient",
+                "deficient_persistent"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "나눌 돈은 적은데 가져갈 사람은 많은 구조(군겁쟁재 위험) — 동업·대여·보증을 경계"
+        },
+        {
+          "guard_id": "jaengjae_pattern",
+          "conditions": [
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "GUNGEOP_JAENGJAE",
+                "BIGEOP_TALJAE"
+              ],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "쟁재·탈재 구조가 실제로 감지됨 — 금전 경계(계약·지분·정산 규칙)를 문서로"
+        },
+        {
+          "guard_id": "authority_absent",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "ZHENGGUAN",
+                "QISHA"
+              ],
+              "status": "absent",
+              "match": "all",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "제어 장치(관성)가 없어 밀어붙이기 쉽다 — 제3자 검증·규칙 셋업을 먼저"
+        }
+      ],
+      "caution_headline": "확장·경쟁보다 내 몫과 경계(계약·지분·규칙)를 명확히 하는 게 먼저로 보인다",
+      "forbidden_framings": [
+        "동업 파탄 단정",
+        "특정 인물 배척 지시"
+      ],
+      "llm_tag": "비겁 과다: 경쟁·분배 이슈 전면화. 식상 작동 시 기술·산출로 설기, 관성 작동 시 규칙으로 제어. 재성 약하면 동업·대여 경계 우선"
+    },
+    {
+      "suggestion_id": "PEER_DEFICIT",
+      "name_ko": "비겁 부족 — 주도력·조력 확보의 창",
+      "group": "peer",
+      "reality_note": "비겁 부족은 추진 주체력과 조력이 얇다는 뜻 — 혼자 끌고 가는 힘이 부치기 쉽다.",
+      "trigger": [
+        {
+          "kind": "group_state",
+          "group": "peer",
+          "states": [
+            "natal_deficient",
+            "deficient_persistent",
+            "luck_replenished"
+          ],
+          "ten_gods": [],
+          "status": null,
+          "match": "any",
+          "target": null,
+          "roles": [],
+          "bands": [],
+          "pattern_ids": [],
+          "conflict_kinds": []
+        }
+      ],
+      "channels": [
+        {
+          "channel_id": "replenish_window",
+          "name_ko": "운 보충 — 주도·협력 확보 창",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "peer",
+              "states": [
+                "luck_replenished"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            },
+            {
+              "kind": "yongsin_role",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": "peer",
+              "roles": [
+                "용신",
+                "희신",
+                "한신"
+              ],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "운에서 비겁이 보충되는 구간 — 주도적 시도와 동료·협력 확보를 해볼 만한 창",
+            "actions": [
+              "주도권 있는 역할·프로젝트 시도",
+              "신뢰 기반의 동료·커뮤니티 확보",
+              "체력·자기 관리로 기초 체급 올리기"
+            ],
+            "avoid": [
+              "무리한 단독 강행",
+              "검증 없는 위임 전면 확대"
+            ]
+          }
+        }
+      ],
+      "supports": [
+        {
+          "condition": {
+            "kind": "pattern",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": null,
+            "roles": [],
+            "bands": [],
+            "pattern_ids": [
+              "JAEDA_SINYAK",
+              "DEUKBI_IJAE"
+            ],
+            "conflict_kinds": []
+          },
+          "note": "재다신약 구조에서는 비겁 보충이 특히 호기 — 짐을 나눌 사람을 얻는 운(득비이재)"
+        }
+      ],
+      "guards": [],
+      "caution_headline": "",
+      "forbidden_framings": [
+        "대인관계 단절 권유",
+        "무조건적 독립 선언 권유"
+      ],
+      "llm_tag": "비겁 부족: 주도력·조력이 얇음. 운 보충기엔 주도적 시도·협력 확보 창. 재다신약이면 부담을 나눌 조력을 얻는 호기(득비이재)"
+    },
+    {
+      "suggestion_id": "OUTPUT_EXCESS",
+      "name_ko": "식상 과다 — 벌인 것의 수렴",
+      "group": "output",
+      "reality_note": "식상 과다는 표현·아이디어·일 벌임이 넘치는 상태 — 시작은 많은데 수렴·마무리가 약해지기 쉽다.",
+      "trigger": [
+        {
+          "kind": "group_state",
+          "group": "output",
+          "states": [
+            "natal_excess",
+            "luck_excess_onset",
+            "excess_intensified"
+          ],
+          "ten_gods": [],
+          "status": null,
+          "match": "any",
+          "target": null,
+          "roles": [],
+          "bands": [],
+          "pattern_ids": [],
+          "conflict_kinds": []
+        }
+      ],
+      "channels": [
+        {
+          "channel_id": "wealth_converge",
+          "name_ko": "재성 작동 — 수익 기준 수렴(식상생재)",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "ZHENGCAI",
+                "PIANCAI"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "벌여둔 것들을 수익 기준으로 수렴해보는 방향(식상생재) — 되는 것에 집중",
+            "actions": [
+              "수익 나는 라인의 선별·집중",
+              "마무리와 과금·전환 구조 만들기",
+              "산출물의 재사용·패키지화"
+            ],
+            "avoid": [
+              "신규 프로젝트 추가",
+              "동시 다발 확장"
+            ]
+          }
+        },
+        {
+          "channel_id": "resource_finish",
+          "name_ko": "인성 작동 — 선별·마무리 제어",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "ZHENGYIN",
+                "PIANYIN"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "속도를 줄이고 선별·정리·마무리로 산출의 완성도를 높이는 방향",
+            "actions": [
+              "벌인 일의 백로그 정리",
+              "마감·완결 우선의 운영"
+            ],
+            "avoid": [
+              "미완 상태의 신규 착수",
+              "충동적 발언·발표"
+            ]
+          }
+        }
+      ],
+      "supports": [
+        {
+          "condition": {
+            "kind": "pattern",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": null,
+            "roles": [],
+            "bands": [],
+            "pattern_ids": [
+              "SIKSANG_SAENGJAE",
+              "SIKSIN_SAENGJAE",
+              "SANGGWAN_SAENGJAE"
+            ],
+            "conflict_kinds": []
+          },
+          "note": "식상→재성 회로가 이미 연결돼 있어 수렴 전략이 수익으로 이어지기 좋다"
+        }
+      ],
+      "guards": [
+        {
+          "guard_id": "wealth_absent",
+          "conditions": [
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "ZHENGCAI",
+                "PIANCAI"
+              ],
+              "status": "absent",
+              "match": "all",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "산출이 수익으로 이어지는 회로가 없다 — 벌이기 전에 '누가 사는가'부터 확인"
+        },
+        {
+          "guard_id": "sanggwan_gyeongwan",
+          "conditions": [
+            {
+              "kind": "pattern",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [
+                "SANGGWAN_GYEONGWAN"
+              ],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "표현이 날카로워져 조직·상사와 마찰이 나기 쉬운 구조 — 발언·발표의 수위 조절"
+        },
+        {
+          "guard_id": "authority_weak_sanggwan",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "authority",
+              "states": [
+                "natal_deficient",
+                "deficient_persistent"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            },
+            {
+              "kind": "ten_god_status",
+              "group": null,
+              "states": [],
+              "ten_gods": [
+                "SHANGGUAN"
+              ],
+              "status": "active",
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "제어(관성)는 약한데 상관이 강하게 작동 — 규범·계약을 건너뛰는 결정이 나오기 쉽다"
+        }
+      ],
+      "caution_headline": "새로 벌이기보다 수렴·마무리·관계(조직) 관리가 먼저로 보인다",
+      "forbidden_framings": [
+        "퇴사·독립 단정 권유",
+        "발언 사고 단정"
+      ],
+      "llm_tag": "식상 과다: 벌임 과잉·수렴 부족. 재성 작동 시 수익 기준 선별 집중(식상생재), 인성 작동 시 마무리 제어. 재성 부재면 판로 확인 먼저"
+    },
+    {
+      "suggestion_id": "OUTPUT_DEFICIT",
+      "name_ko": "식상 부족 — 내보내는 루틴 만들기",
+      "group": "output",
+      "reality_note": "식상 부족은 표현·전달·현금화 통로가 얇다는 뜻 — 실력이 있어도 밖으로 드러나는 양이 적다.",
+      "trigger": [
+        {
+          "kind": "group_state",
+          "group": "output",
+          "states": [
+            "natal_deficient",
+            "deficient_persistent",
+            "luck_replenished"
+          ],
+          "ten_gods": [],
+          "status": null,
+          "match": "any",
+          "target": null,
+          "roles": [],
+          "bands": [],
+          "pattern_ids": [],
+          "conflict_kinds": []
+        }
+      ],
+      "channels": [
+        {
+          "channel_id": "replenish_window",
+          "name_ko": "운 보충 — 발신 시도 창",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "output",
+              "states": [
+                "luck_replenished"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            },
+            {
+              "kind": "yongsin_role",
+              "group": null,
+              "states": [],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": "output",
+              "roles": [
+                "용신",
+                "희신",
+                "한신"
+              ],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "direction": {
+            "headline": "운에서 식상이 보충되는 구간 — 표현·기획·발표·글 등 '내보내기'를 시도해볼 만한 창",
+            "actions": [
+              "작은 발신(글·발표·포트폴리오 공개)",
+              "기획서·제안서의 실제 제출",
+              "말·글로 정리하는 루틴 만들기"
+            ],
+            "avoid": [
+              "완벽해질 때까지 대기",
+              "발신 없는 준비 연장"
+            ]
+          }
+        }
+      ],
+      "supports": [
+        {
+          "condition": {
+            "kind": "yongsin_role",
+            "group": null,
+            "states": [],
+            "ten_gods": [],
+            "status": null,
+            "match": "any",
+            "target": "output",
+            "roles": [
+              "용신",
+              "희신"
+            ],
+            "bands": [],
+            "pattern_ids": [],
+            "conflict_kinds": []
+          },
+          "note": "식상이 용희신이라 발신·표현 활동 자체가 순방향"
+        }
+      ],
+      "guards": [
+        {
+          "guard_id": "resource_excess",
+          "conditions": [
+            {
+              "kind": "group_state",
+              "group": "resource",
+              "states": [
+                "natal_excess",
+                "luck_excess_onset",
+                "excess_intensified"
+              ],
+              "ten_gods": [],
+              "status": null,
+              "match": "any",
+              "target": null,
+              "roles": [],
+              "bands": [],
+              "pattern_ids": [],
+              "conflict_kinds": []
+            }
+          ],
+          "note": "인성 과다가 출력을 누르는 구조(도식 위험) — 검토 총량을 줄이고 발신 루틴부터 만드는 게 우선"
+        }
+      ],
+      "caution_headline": "잘하려는 준비보다 일단 내보내는 루틴을 만드는 게 먼저로 보인다",
+      "forbidden_framings": [
+        "재능 없음 단정",
+        "발신 성과 확정 표현"
+      ],
+      "llm_tag": "식상 부족: 표현·현금화 통로가 얇음. 운 보충기엔 글·발표·기획 등 발신 시도 창. 인성 과다 동반 시 검토 줄이고 발신 루틴 먼저"
+    }
+  ],
+  "compiled_at": "2026-07-09T01:13:31.000818+00:00",
+  "snapshot_version": "1.0.0"
+}

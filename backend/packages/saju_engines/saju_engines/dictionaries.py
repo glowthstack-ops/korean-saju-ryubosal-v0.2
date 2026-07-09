@@ -29,8 +29,13 @@ from saju_shared_types.constants import (
     hidden_stems_for,
     ten_god,
 )
-from saju_shared_types.enums import Branch, Stem, YinYang
-from saju_shared_types.event_engine import EventKeyV2
+from saju_shared_types.direction_suggestions import (
+    DirectionRule,
+    DirectionSuggestionDict,
+    SuggestionCondition,
+)
+from saju_shared_types.enums import Branch, Stem, StrengthBand, YinYang
+from saju_shared_types.event_engine import EventKeyV2, TenGodGroup
 from saju_shared_types.event_engine import TenGod as _TenGodRoman
 from saju_shared_types.event_taxonomy_v2 import LEGACY_EVENT_KEY_MAP
 from saju_shared_types.events import EventKey, EventPolarity, EventType
@@ -1059,6 +1064,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "common/ten_god_events.json": TenGodEventsFile,
     "relations.json": RelationsFile,
     "structure_patterns.json": StructurePatternDict,
+    "direction_suggestions.json": DirectionSuggestionDict,
     "events/taxonomy.json": TaxonomyFile,
     "favorability_rules.json": FavorabilityRulesFile,
     "interpretations/ilju.json": IljuFile,
@@ -1550,6 +1556,104 @@ def _lint_structure_patterns(file: StructurePatternDict) -> list[str]:
     return errors
 
 
+_CONFLICT_KINDS = ("충", "형", "파", "해")
+
+
+def _lint_suggestion_condition(
+    where: str, cond: SuggestionCondition, valid_patterns: set[str] | None
+) -> list[str]:
+    """direction_suggestions 조건 1건의 enum·교차참조 유효성 검사."""
+    errors: list[str] = []
+    rel = "direction_suggestions.json"
+    groups = {g.value for g in TenGodGroup}
+    ten_gods = {t.value for t in _TenGodRoman}
+    bands = {b.value for b in StrengthBand}
+    if cond.group is not None and cond.group not in groups:
+        errors.append(f"{rel}: {where} 미지원 십성군 — {cond.group}")
+    for t in cond.ten_gods:
+        if t not in ten_gods:
+            errors.append(f"{rel}: {where} 미지원 십성 — {t}")
+    if cond.target is not None and cond.target not in ten_gods | groups:
+        errors.append(f"{rel}: {where} yongsin_role target 미지원 — {cond.target}")
+    for r in cond.roles:
+        if r not in _FAVORABILITY:
+            errors.append(f"{rel}: {where} 미지원 용신 역할 — {r}")
+    for b in cond.bands:
+        if b not in bands:
+            errors.append(f"{rel}: {where} 미지원 신강약 밴드 — {b}")
+    for c in cond.conflict_kinds:
+        if c not in _CONFLICT_KINDS:
+            errors.append(f"{rel}: {where} 미지원 충파 종류 — {c}")
+    if valid_patterns is not None:
+        for pid in cond.pattern_ids:
+            if pid not in valid_patterns:
+                errors.append(f"{rel}: {where} 미등록 구조패턴 — {pid}")
+    return errors
+
+
+def _lint_direction_rule(
+    rule: DirectionRule, valid_patterns: set[str] | None
+) -> list[str]:
+    """direction_suggestions 룰 1건 — 내부 id 중복·다요소 축·guard/caution 짝 검사."""
+    errors: list[str] = []
+    rel = "direction_suggestions.json"
+    rid = rule.suggestion_id
+    if rule.group not in {g.value for g in TenGodGroup}:
+        errors.append(f"{rel}: {rid} 미지원 십성군 — {rule.group}")
+    conditions: list[tuple[str, SuggestionCondition]] = [
+        (f"{rid}.trigger", c) for c in rule.trigger
+    ]
+    seen_channels: set[str] = set()
+    trigger_kinds = {c.kind for c in rule.trigger}
+    for ch in rule.channels:
+        if ch.channel_id in seen_channels:
+            errors.append(f"{rel}: {rid} 중복 channel_id — {ch.channel_id}")
+        seen_channels.add(ch.channel_id)
+        conditions.extend((f"{rid}.{ch.channel_id}", c) for c in ch.conditions)
+        # 다요소 원칙(설계 §4): trigger+channel 조건 축(kind) 2종 이상 — 십성 단독 판정 금지.
+        if len(trigger_kinds | {c.kind for c in ch.conditions}) < 2:
+            errors.append(f"{rel}: {rid}.{ch.channel_id} 조건 축 1종 — 다요소 원칙 위반")
+    seen_guards: set[str] = set()
+    for g in rule.guards:
+        if g.guard_id in seen_guards:
+            errors.append(f"{rel}: {rid} 중복 guard_id — {g.guard_id}")
+        seen_guards.add(g.guard_id)
+        conditions.extend((f"{rid}.guard.{g.guard_id}", c) for c in g.conditions)
+    conditions.extend((f"{rid}.support", s.condition) for s in rule.supports)
+    if rule.guards and not rule.caution_headline:
+        errors.append(f"{rel}: {rid} guards 존재하나 caution_headline 비어 있음")
+    if len(rule.llm_tag) > 120:
+        errors.append(f"{rel}: {rid} llm_tag {len(rule.llm_tag)}자(>120)")
+    for where, cond in conditions:
+        errors.extend(_lint_suggestion_condition(where, cond, valid_patterns))
+    return errors
+
+
+def _lint_direction_suggestions(
+    directory: Path, file: DirectionSuggestionDict
+) -> list[str]:
+    """direction_suggestions.json — 중복 id·enum 유효성·구조패턴 교차참조 검사."""
+    errors: list[str] = []
+    rel = "direction_suggestions.json"
+    valid_patterns: set[str] | None = None
+    sp_path = directory / "structure_patterns.json"
+    if sp_path.exists():
+        try:
+            sp = StructurePatternDict.model_validate(
+                json.loads(sp_path.read_text(encoding="utf-8"))
+            )
+            valid_patterns = {p.pattern_id for p in sp.patterns}
+        except (json.JSONDecodeError, ValidationError):
+            valid_patterns = None  # structure_patterns 자체 위반은 별도 보고
+    seen: set[str] = set()
+    for rule in file.rules:
+        if rule.suggestion_id in seen:
+            errors.append(f"{rel}: 중복 suggestion_id — {rule.suggestion_id}")
+        seen.add(rule.suggestion_id)
+        errors.extend(_lint_direction_rule(rule, valid_patterns))
+    return errors
+
+
 def lint_dictionaries(directory: Path) -> list[str]:
     """충돌 검사(dict:lint). 스키마 위반 파일은 여기서 건너뛴다(validate가 보고)."""
     errors: list[str] = []
@@ -1566,6 +1670,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_relations(parsed))
         elif isinstance(parsed, StructurePatternDict):
             errors.extend(_lint_structure_patterns(parsed))
+        elif isinstance(parsed, DirectionSuggestionDict):
+            errors.extend(_lint_direction_suggestions(directory, parsed))
         elif isinstance(parsed, EventMappingFile):
             errors.extend(_lint_event_mapping(rel, parsed))
         elif isinstance(parsed, FavorabilityRulesFile):
