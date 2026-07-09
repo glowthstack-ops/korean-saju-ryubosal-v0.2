@@ -78,6 +78,11 @@ export function AuthPanel() {
         className="w-full rounded border px-2 py-1"
         autoComplete={mode === "login" ? "current-password" : "new-password"}
       />
+      {mode === "register" && (
+        <p className="text-[11px] leading-snug text-gray-400">
+          PIN은 숫자만 입력할 수 있어요 (4~12자).
+        </p>
+      )}
       {error && <p className="text-xs text-red-500">{error}</p>}
       <button
         type="submit"
