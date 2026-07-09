@@ -65,6 +65,12 @@ from . import marriage_timing_profile as _mtp
 from . import sinsal_modifier_config as _sinsal_cfg
 from .amhap_luck import detect_luck_amhap
 from .chart_interpretation import build_chart_interpretation, incoming_ten_god_note
+from .direction_suggestion import (
+    DIRECTION_SUGGESTION_INSTRUCTION,
+    detect_direction_suggestions,
+    format_direction_suggestion_lines,
+    select_direction_suggestions,
+)
 from .event_engine_v2 import EventEngineV2
 from .event_scoring import favorability_map
 from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded, estimate_tokens
@@ -102,6 +108,14 @@ _DOMAIN_EVENT_KEYS: dict[str, set[str]] = {
     "health": {"health_attention"},
     "relocation": {"relocation"},
 }
+
+# 능동 제안(docs/15) 미노출 질문 유형 — 방향 제안이 소음·부적절이 되는 유형.
+_NO_SUGGESTION_QUERY_TYPES = (
+    QueryType.TERMINOLOGY_EDUCATION,
+    QueryType.FEEDBACK_CORRECTION,
+    QueryType.EMOTIONAL_SUPPORT,
+    QueryType.OUT_OF_SCOPE,
+)
 
 # docs/06 점수→표현 강도 매핑(toneGuide 기본).
 _TONE_GUIDE = (
@@ -358,8 +372,10 @@ def first_sentence(text: str, limit: int = 120) -> str:
 
 
 _POLARITY_KO = {
-    "positive": "우호적", "negative_or_forced": "부담·비자발 계열",
-    "conditional": "조건부", "neutral": "중립",
+    "positive": "우호적",
+    "negative_or_forced": "부담·비자발 계열",
+    "conditional": "조건부",
+    "neutral": "중립",
 }
 
 
@@ -439,7 +455,9 @@ def _period_bounds(
 
 
 def in_question_range(
-    period: str, start: str | None, end: str | None,
+    period: str,
+    start: str | None,
+    end: str | None,
     month_bounds: dict[str, tuple[str, str]] | None = None,
 ) -> bool:
     """후보 기간이 질문 기간과 겹치는가(ISO 문자열 비교, 월은 절기 경계 우선)."""
@@ -514,8 +532,10 @@ def reduce_candidates(
     기간 외 상위 후보는 reduce_with_context()로 별도 분리 제공.
     """
     scoped = [
-        c for c in candidates
-        if (not graph_scope or c.event_key in graph_scope) and c.score >= score_floor
+        c
+        for c in candidates
+        if (not graph_scope or c.event_key in graph_scope)
+        and c.score >= score_floor
         and in_question_range(c.period, period_start, period_end, month_bounds)
     ]
     # LEI 정렬축(현실적합>과거유사) 우선 → 점수 포화 시 raw 가중 합 → 시점·키. 개인 시그니처
@@ -523,8 +543,12 @@ def reduce_candidates(
     return sorted(
         scoped,
         key=lambda c: (
-            -getattr(c, "life_fit", 0.0), -getattr(c, "personal_match", 0.0),
-            -c.score, -getattr(c, "raw_total", 0.0), c.period, str(c.event_key),
+            -getattr(c, "life_fit", 0.0),
+            -getattr(c, "personal_match", 0.0),
+            -c.score,
+            -getattr(c, "raw_total", 0.0),
+            c.period,
+            str(c.event_key),
         ),
     )[:top_n]
 
@@ -541,18 +565,29 @@ def reduce_with_context(
 ) -> tuple[list[EventCandidate], list[EventCandidate]]:
     """(질문 기간 내 선별, 기간 외 참고 상위) — 참고는 배경 맥락 전용."""
     selected = reduce_candidates(
-        candidates, graph_scope, top_n, score_floor, period_start, period_end,
+        candidates,
+        graph_scope,
+        top_n,
+        score_floor,
+        period_start,
+        period_end,
         month_bounds,
     )
     out_scoped = [
-        c for c in candidates
-        if (not graph_scope or c.event_key in graph_scope) and c.score >= score_floor
+        c
+        for c in candidates
+        if (not graph_scope or c.event_key in graph_scope)
+        and c.score >= score_floor
         and not in_question_range(c.period, period_start, period_end, month_bounds)
     ]
     out_top = sorted(
         out_scoped,
-        key=lambda c: (-getattr(c, "life_fit", 0.0), -getattr(c, "personal_match", 0.0),
-                       -c.score, c.period),
+        key=lambda c: (
+            -getattr(c, "life_fit", 0.0),
+            -getattr(c, "personal_match", 0.0),
+            -c.score,
+            c.period,
+        ),
     )[:out_of_range_n]
     return selected, out_top
 
@@ -627,9 +662,13 @@ def build_calendar_context(
         selected_years_set.add(year_label)
         if len(c.period) == 7 and c.period not in seen_months:  # 월운 — 중복 제거
             seen_months.add(c.period)
-            months.append(SelectedMonth(
-                period=c.period, ganji=ganji.get(c.period, ""), year=year_label,
-            ))
+            months.append(
+                SelectedMonth(
+                    period=c.period,
+                    ganji=ganji.get(c.period, ""),
+                    year=year_label,
+                )
+            )
         elif len(c.period) == 10:  # 일운 — 택일 질의에서만
             if intent.query_type is QueryType.DATE_RECOMMENDATION:
                 days.append(SelectedDay(date=c.period, ganji=ganji.get(c.period, "")))
@@ -665,7 +704,10 @@ def build_calendar_context(
         if long_term or d.ganji in wanted_dw
     ]
     return LlmCalendarContext(
-        daewoon=daewoon, selected_years=years, selected_months=months, selected_days=days,
+        daewoon=daewoon,
+        selected_years=years,
+        selected_months=months,
+        selected_days=days,
     )
 
 
@@ -715,17 +757,15 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
                     continue
                 b_ch, stage_ch, s_ch = src_token[0], src_token[1], src_token[2]
                 tg = str(ten_god(dm_stem, Stem(s_ch)))
-                latent_parts.append(
-                    f"{b_ch} {_stage_ko.get(stage_ch, stage_ch)} {s_ch}({tg})"
-                )
+                latent_parts.append(f"{b_ch} {_stage_ko.get(stage_ch, stage_ch)} {s_ch}({tg})")
             if latent_parts:
-                hidden_latents.append(
-                    f"{el}: 표면에 없음 — {' · '.join(latent_parts)} 잠복"
-                )
+                hidden_latents.append(f"{el}: 표면에 없음 — {' · '.join(latent_parts)} 잠복")
     ya = result.yongsin_analysis
     if (
-        ya is not None and ya.flow_circulation
-        and ya.flow_circulation.get("smooth") and "신약" in strength
+        ya is not None
+        and ya.flow_circulation
+        and ya.flow_circulation.get("smooth")
+        and "신약" in strength
     ):
         links = ya.flow_circulation.get("sheng_links", 0)
         flow_note = f"유통 양호(상생 고리 {links}/5)"
@@ -735,8 +775,11 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
         void_branches=list(p.gongmang_branches),
         strength=strength,
         useful_gods=UsefulGods(
-            yongsin=roles("용신"), heesin=roles("희신"), gisin=roles("기신"),
-            gusin=roles("구신"), hansin=roles("한신"),
+            yongsin=roles("용신"),
+            heesin=roles("희신"),
+            gisin=roles("기신"),
+            gusin=roles("구신"),
+            hansin=roles("한신"),
         ),
         geokguk=geokguk,
         hidden_latents=hidden_latents,
@@ -764,8 +807,8 @@ def _ganji_result_nuance(
     except ValueError:
         return "", "", ""
     branch_role = fav_map.get(branch_el, "")
-    stem_gen_branch = GENERATES.get(s_el) == b_el      # 천간 → 지지 생
-    branch_ctrl_stem = CONTROLS.get(b_el) == s_el      # 지지 → 천간 극
+    stem_gen_branch = GENERATES.get(s_el) == b_el  # 천간 → 지지 생
+    branch_ctrl_stem = CONTROLS.get(b_el) == s_el  # 지지 → 천간 극
     if is_unfavorable_role(stem_role):
         if stem_gen_branch and is_favorable_role(branch_role):
             return (
@@ -839,8 +882,7 @@ def _to_llm_candidate(
     # 검토월 판정(G3 — 계사월 케이스 일반화): 불안정 신호(중복 충·공망·대운 공망)가
     # 동반되면 이동·변동 신호가 강해도 계약 유지력이 낮다 — 실행이 아니라 검토의 시기.
     unstable = any(
-        ("중복 충" in (s.effect or "")) or ("공망" in (s.effect or ""))
-        for s in c.signals
+        ("중복 충" in (s.effect or "")) or ("공망" in (s.effect or "")) for s in c.signals
     )
     if unstable:
         review_note = (
@@ -910,7 +952,8 @@ def build_reference_frame(
     period = f"{start} ~ {end}" if start and end and start != end else (start or "")
     note = (
         f"질문의 시점 표현은 {period} 구간으로 해석되었다."
-        if period else "질문에 시점이 명시되지 않았다 — 오늘 기준 흐름으로 안내."
+        if period
+        else "질문에 시점이 명시되지 않았다 — 오늘 기준 흐름으로 안내."
     )
     # P3(2026-06-14): 의도(event)·기간 유형을 명시해 LLM이 기간/사건을 재해석하지 않게 한다.
     tr = intent.time_range
@@ -1006,7 +1049,8 @@ def build_monthly_overview(
             return ""
         try:
             mid = (
-                date_cls(int(period[:4]), 7, 1) if len(period) == 4
+                date_cls(int(period[:4]), 7, 1)
+                if len(period) == 4
                 else date_cls(int(period[:4]), int(period[5:7]), 15)
             )
         except ValueError:
@@ -1019,6 +1063,7 @@ def build_monthly_overview(
         if d <= 365:
             return "대운 교체 영향권"
         return ""
+
     period_set = set(months)
     # 월당 후보를 모아 상위 2개를 표기 — 한 달에 직업·이사처럼 성격이 다른 신호가 함께
     # 강할 때 1개만 보여주면 다른 신호가 누락된다(2026-06-12: 2025-08 이사 누락 지적).
@@ -1041,21 +1086,33 @@ def build_monthly_overview(
             # 발현 분기 — 절단 전 그 달 후보 전체에서, 표시되는 상위 사건들(cs)의 계열을
             # 모두 훑어 형제를 도출(1위 단일 초점이면 동점 흔들림에 이직↔이사가 누락됨).
             branch = branch_summary([c.event_key for c in cs], by_month.get(period, []))
-            rows.append(MonthOverviewRow(
-                period=period, ganji=ganji.get(period, ""),
-                top_event_ko=label, score=cs[0].score, polarity=str(cs[0].polarity),
-                direction=_direction_for(cs[0]),
-                transition=_transition_for(period), luck_roles=_roles_for(period),
-                luck_grade=luck_grade_by_period.get(period, ""),
-                branch_ko=branch or "",
-            ))
+            rows.append(
+                MonthOverviewRow(
+                    period=period,
+                    ganji=ganji.get(period, ""),
+                    top_event_ko=label,
+                    score=cs[0].score,
+                    polarity=str(cs[0].polarity),
+                    direction=_direction_for(cs[0]),
+                    transition=_transition_for(period),
+                    luck_roles=_roles_for(period),
+                    luck_grade=luck_grade_by_period.get(period, ""),
+                    branch_ko=branch or "",
+                )
+            )
         else:
-            rows.append(MonthOverviewRow(
-                period=period, ganji=ganji.get(period, ""),
-                top_event_ko="", score=None, polarity="",
-                transition=_transition_for(period), luck_roles=_roles_for(period),
-                luck_grade=luck_grade_by_period.get(period, ""),
-            ))
+            rows.append(
+                MonthOverviewRow(
+                    period=period,
+                    ganji=ganji.get(period, ""),
+                    top_event_ko="",
+                    score=None,
+                    polarity="",
+                    transition=_transition_for(period),
+                    luck_roles=_roles_for(period),
+                    luck_grade=luck_grade_by_period.get(period, ""),
+                )
+            )
     # 창 내 상대 강도 순위(클램프 전 raw 기준, 상위 3위까지) — 톤(점수 cap 포화)이
     # 같아 보여도 '진짜 중요한 달'이 변별되게(절대값보다 상대 순위 신뢰 — docs/07).
     ranked = sorted(month_raw.items(), key=lambda kv: (-kv[1], kv[0]))
@@ -1119,8 +1176,11 @@ def build_llm_input(
     # 월 후보 기간 비교를 절기 경계로 — 질문일이 속한 절기월이 '지난 달'로 밀려나는 결함 보정.
     month_bounds = _month_seolgi_bounds(result)
     selected, out_of_range = reduce_with_context(
-        candidates, graph_scope or [b.event_key for b in bundles],
-        period_start, period_end, month_bounds=month_bounds,
+        candidates,
+        graph_scope or [b.event_key for b in bundles],
+        period_start,
+        period_end,
+        month_bounds=month_bounds,
     )
     dw_by_year = _daewoon_lookup(result)
     ganji = _ganji_lookup(result)
@@ -1131,8 +1191,8 @@ def build_llm_input(
     # sub-flag(near_tie_demotion) 기본 off → None → byte-identical. 이후의 인덱스 기반
     # 후처리(신살 채널·rank guard)가 재배열된 selected 와 1:1 정렬되도록 여기서 적용한다.
     from .scoring_operational import near_tie_demotion_order
-    _nt_order = near_tie_demotion_order(result, selected, ganji,
-                                        domain=str(intent.domain.value))
+
+    _nt_order = near_tie_demotion_order(result, selected, ganji, domain=str(intent.domain.value))
     if _nt_order is not None:
         selected = [selected[i] for i in _nt_order]
 
@@ -1141,8 +1201,10 @@ def build_llm_input(
     # 궁성 정렬이 의미 있는 도메인·이벤트 질문에만 부착한다 — 광역 총운(FORTUNE_OVERVIEW)은
     # 12달 요약으로 이미 토큰이 빽빽해 per-후보 신살이 토큰만 늘리고 변별력은 낮다(토큰 가드).
     _sinsal_eligible = intent.query_type in (
-        QueryType.DOMAIN_ANALYSIS, QueryType.EVENT_EXPLANATION,
-        QueryType.TIMING_SEARCH, QueryType.DECISION_SUPPORT,
+        QueryType.DOMAIN_ANALYSIS,
+        QueryType.EVENT_EXPLANATION,
+        QueryType.TIMING_SEARCH,
+        QueryType.DECISION_SUPPORT,
     )
     sinsal_mods: list[LlmSinsalModifier] = []
     # 신살 기간 채널 색채(Phase B-2, §10-2) — 후보 period 별 한글 노트(발생 가능성 미반영).
@@ -1156,8 +1218,11 @@ def build_llm_input(
             _rows = apply_sinsal_channel_shadow(result, selected, ganji, domain=_domain)
             for idx, r in enumerate(_rows):
                 _note = channel_note_ko(
-                    r["favorability_delta"], r["risk_delta"], r["mitigation_delta"],
-                    r.get("texture_tags", []))
+                    r["favorability_delta"],
+                    r["risk_delta"],
+                    r["mitigation_delta"],
+                    r.get("texture_tags", []),
+                )
                 if _note:
                     _channel_notes[idx] = _note
     # natal 신살은 도메인 레벨(후보 무관 동일) → 상위 N개 후보에만 부착해 토큰 중복을 막는다.
@@ -1165,7 +1230,12 @@ def build_llm_input(
 
     llm_candidates = [
         _to_llm_candidate(
-            c, ganji, dw_by_year, day_master, fav_map, result,
+            c,
+            ganji,
+            dw_by_year,
+            day_master,
+            fav_map,
+            result,
             sinsal_mods if i < _max_cand else None,
             _channel_notes.get(i, "") if i < _max_cand else "",
         )
@@ -1174,8 +1244,7 @@ def build_llm_input(
     # Scoring 1c-α rank guard 는 payload 조립 후(_apply_rank_guards)에서 토큰 헤드룸 가드와 함께
     # 적용한다 — 본문을 절단하지 않도록(spec §14-9). 여기서는 본문만 만든다.
     out_candidates = [
-        _to_llm_candidate(c, ganji, dw_by_year, day_master, fav_map, result)
-        for c in out_of_range
+        _to_llm_candidate(c, ganji, dw_by_year, day_master, fav_map, result) for c in out_of_range
     ]
     selected_keys = {c.event_key for c in [*selected, *out_of_range]}
     # 근거 경로(v2.2.1) — 이 사용자·이 시점의 **인스턴스 경로**(스코어러 산출)를 우선하고,
@@ -1192,13 +1261,15 @@ def build_llm_input(
         paths = instance_paths.get(b.event_key) or [
             p.readable for p in b.paths[:MAX_PATHS_PER_EVENT]
         ]
-        evidence.append(LlmEvidence(
-            event_key=b.event_key,
-            readable_paths=paths[:MAX_PATHS_PER_EVENT],
-            contradicts=b.contradicts,
-            supports=b.supports,
-            interpretation_hints=b.interpretation_hints,
-        ))
+        evidence.append(
+            LlmEvidence(
+                event_key=b.event_key,
+                readable_paths=paths[:MAX_PATHS_PER_EVENT],
+                contradicts=b.contradicts,
+                supports=b.supports,
+                interpretation_hints=b.interpretation_hints,
+            )
+        )
     prohibited = list(_BASE_PROHIBITED)
     for b in bundles:
         if b.event_key in selected_keys:
@@ -1211,6 +1282,17 @@ def build_llm_input(
         _domain_keys |= _DOMAIN_EVENT_KEYS.get(str(_d), set())
     selected_patterns = select_llm_patterns(
         detect_structure_patterns(result), domains=_domain_keys or None
+    )
+    # 능동 제안(docs/15 Phase C) — 실질 풀이 질문에서만 도메인 우선 top-2 노출.
+    # 용어교육·피드백·감정지원·범위외에는 미노출(제안이 소음이 되는 유형).
+    # domains(복수)가 비고 domain(단수)만 채워지는 파서 경로가 있어 둘을 합친다.
+    _suggestion_domains = sorted({str(d) for d in intent.domains} | {str(intent.domain)})
+    selected_suggestions = (
+        select_direction_suggestions(
+            detect_direction_suggestions(result), domains=_suggestion_domains
+        )
+        if intent.query_type not in _NO_SUGGESTION_QUERY_TYPES
+        else []
     )
 
     payload = LlmInput(
@@ -1225,21 +1307,22 @@ def build_llm_input(
         # 택일 표가 곧 답이라 "뚜렷한 신호가 없습니다"와 날짜 추천이 한 답에서 모순되던 결함
         # 수정(2026-06-16). 사건 점수 공집합은 택일 질의에 무관(길흉이 아니라 실행일을 묻는다).
         no_candidates_in_period=(
-            bool(period_start or period_end) and not llm_candidates
+            bool(period_start or period_end)
+            and not llm_candidates
             and date_selection is None
             and intent.query_type is not QueryType.DATE_RECOMMENDATION
         ),
         reference=(
-            build_reference_frame(
-                today, intent, result, current_month_label, current_month_detail
-            )
-            if today else None
+            build_reference_frame(today, intent, result, current_month_label, current_month_detail)
+            if today
+            else None
         ),
         structural_context=structural_context or [],
         profile_facts=profile_facts or [],
         subject_blocks=subject_blocks or [],
         relationship_context=relationship_context,
         detected_patterns=selected_patterns,
+        direction_suggestions=selected_suggestions,
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
         monthly_overview=monthly_overview or [],
@@ -1253,7 +1336,8 @@ def build_llm_input(
                 _BASE_INSTRUCTION
                 + _PERIOD_FORTUNE_INSTRUCTION.get(period_fortune.fortune_type, "")
                 + (_LUCK_SINSAL_INSTRUCTION if period_fortune.sinsal_lines else "")
-                if period_fortune is not None else _BASE_INSTRUCTION
+                if period_fortune is not None
+                else _BASE_INSTRUCTION
             ),
         ),
         budget=LlmBudget(
@@ -1261,8 +1345,7 @@ def build_llm_input(
             max_output_chars=limit.max_output_chars or limit.max_output_tokens,
         ),
     )
-    _apply_rank_guards(payload, result, selected, ganji, intent, call_type,
-                       reserved_tokens)
+    _apply_rank_guards(payload, result, selected, ganji, intent, call_type, reserved_tokens)
     return payload
 
 
@@ -1285,32 +1368,30 @@ def _apply_rank_guards(
     import saju_manse_analysis.yongsin.operational_role_config as _sc
 
     from .scoring_operational import guard_caution_phrase, operational_rank_guards
-    guards = operational_rank_guards(result, selected, ganji,
-                                     domain=str(intent.domain.value))
+
+    guards = operational_rank_guards(result, selected, ganji, domain=str(intent.domain.value))
     if not guards:
         return
-    reserve = (reserved_tokens if reserved_tokens is not None
-               else _sc.SCORING_OPERATIONAL_HEADROOM_RESERVE)
+    reserve = (
+        reserved_tokens if reserved_tokens is not None else _sc.SCORING_OPERATIONAL_HEADROOM_RESERVE
+    )
     base = estimate_tokens(serialize_llm_input(payload))  # 태그 없는 본문 토큰
     remaining = CALL_LIMITS[call_type].max_input_tokens - base - reserve
     max_guards = _sc.SCORING_OPERATIONAL_APPLY_COEF["max_guards"]
     attached = 0
-    for idx, reason_key in guards:           # 감점 큰 순(정렬됨)
+    for idx, reason_key in guards:  # 감점 큰 순(정렬됨)
         if attached >= max_guards:
             break
         cn = payload.event_candidates[idx].caution_note
         phrase = guard_caution_phrase(reason_key, cn)
-        cost = estimate_tokens(phrase) + 2   # 구분 공백 여유
-        if remaining >= cost:                # 본문 우선 — 헤드룸 부족 시 skip(미부착)
-            payload.event_candidates[idx].caution_note = (
-                f"{cn} {phrase}".strip() if cn else phrase)
+        cost = estimate_tokens(phrase) + 2  # 구분 공백 여유
+        if remaining >= cost:  # 본문 우선 — 헤드룸 부족 시 skip(미부착)
+            payload.event_candidates[idx].caution_note = f"{cn} {phrase}".strip() if cn else phrase
             remaining -= cost
             attached += 1
 
 
-def serialize_chart_prefix(
-    summary: BirthChartSummary, ci: ChartInterpretation | None
-) -> list[str]:
+def serialize_chart_prefix(summary: BirthChartSummary, ci: ChartInterpretation | None) -> list[str]:
     """고정 prefix([원국·명식 구조]+[명식 해석 자료]) 직렬화 — 대화·보고서 공용.
 
     사용자별로 바이트 단위 동일해야 한다(provider 캐시 조건) — 가변 값 삽입 금지.
@@ -1386,9 +1467,7 @@ def _append_structure_patterns(lines: list[str], patterns: list[DetectedPattern]
         lines.append(p.llm_tag)
 
 
-def _append_operational_summary(
-    lines: list[str], s: YongsinOperationalSummary | None
-) -> None:
+def _append_operational_summary(lines: list[str], s: YongsinOperationalSummary | None) -> None:
     """작동 역할 요약 compact 블록(원국 기준). None/구형이면 생략 — 깨지지 않음(Phase 5a)."""
     if s is None:
         return
@@ -1416,7 +1495,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
     지시는 명령형으로, 데이터와 분리한다(표현 원칙 5).
     """
     lines: list[str] = serialize_chart_prefix(
-        payload.birth_chart_summary, payload.chart_interpretation,
+        payload.birth_chart_summary,
+        payload.chart_interpretation,
     )
     # MT 결혼 답변 콘텐츠(단계 라인·출력 가드)는 관계 도메인 질문에만 렌더(일반 질문 토큰 절약·
     # 의미 정합 — 일반 월간운에 결혼 가드 불필요). 점수·텔레메트리는 도메인 무관 그대로 동작.
@@ -1442,8 +1522,11 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 "서술하지 말 것.",
             ]
         lines += [
-            (f"질문 기간: {r.question_period} — {r.question_period_note}"
-             if r.question_period else r.question_period_note),
+            (
+                f"질문 기간: {r.question_period} — {r.question_period_note}"
+                if r.question_period
+                else r.question_period_note
+            ),
             "",
         ]
     # 함께 보기(P2a pairwise) — 본인+동반자 대상별 명식을 분리 노출. 상대 명식을 본인과 섞지
@@ -1502,7 +1585,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
     # 직전 한 달 어긋남). 진행 중 절기월 표시(#3)와 '지남' 마커(P6)에 공용으로 쓴다.
     cur_month = (
         (payload.reference.this_luck_month or payload.reference.today[:7])
-        if payload.reference else ""
+        if payload.reference
+        else ""
     )
     _cur_tag = " ← 현재 진행 중인 절기월(오늘 포함)"
     lines += [
@@ -1520,6 +1604,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(f"월운 {m.period} {m.ganji}{_mtag}")
     for day in payload.calendar_context.selected_days:
         lines.append(f"일운 {day.date} {day.ganji}")
+
     def candidate_line(c: LlmEventCandidate) -> str:
         # 점수 숫자·신호 건수는 내부 변수라 노출하지 않는다(항목 5) — 강도는 치환
         # 문장(tone_for_score)으로만 전달해 '100점=확정' 오인을 막는다.
@@ -1587,18 +1672,22 @@ def serialize_llm_input(payload: LlmInput) -> str:
         _mt_cands = [c for c in payload.event_candidates if c.marriage_stage]
         if _mt_cands:
             # 텔레메트리(debug-only·PII 없음·토큰 무관)는 도메인 무관 집계(오픈 후 calibration용).
-            emit_marriage_telemetry(build_marriage_telemetry(
-                profile=_mtp.ACTIVE_MARRIAGE_PROFILE,
-                enabled_features=_mtp.active_mt_features(),
-                candidates=payload.event_candidates,
-            ))
+            emit_marriage_telemetry(
+                build_marriage_telemetry(
+                    profile=_mtp.ACTIVE_MARRIAGE_PROFILE,
+                    enabled_features=_mtp.active_mt_features(),
+                    candidates=payload.event_candidates,
+                )
+            )
             if _rel_focus:
                 _stages = {c.marriage_stage for c in _mt_cands}
                 _top = "relationship" if "relationship" in _stages else "awareness"
                 _risk = any(has_stability_risk(c.marriage_stage_reason) for c in _mt_cands)
-                lines.append(marriage_guard_directive(
-                    compute_marriage_output_guard(_top, stability_risk=_risk)
-                ))
+                lines.append(
+                    marriage_guard_directive(
+                        compute_marriage_output_guard(_top, stability_risk=_risk)
+                    )
+                )
     # cur_month(현재 절기월)는 위에서 1회 산출 — 지난 기간 행·후보에 '지남' 마커(P6)에 재사용.
     if payload.out_of_range_candidates:
         lines.append("")
@@ -1621,8 +1710,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(
             f"[연도별 흐름 — {_span} {len(_ov)}년(값 그대로 사용, 추측 금지; "
             "점수 낮은 해 = 그 사건의 신호가 거의 없던 해)]"
-            if _is_yearly else
-            f"[월별 요약 — {_span} {len(_ov)}개월(값 그대로 사용, 추측 금지)]"
+            if _is_yearly
+            else f"[월별 요약 — {_span} {len(_ov)}개월(값 그대로 사용, 추측 금지)]"
         )
         # 기반 최고 시기를 이름 박아 별도 지목 — intent 질문(이직 등)에서 그 시기에 해당 사건이
         # 없으면 표 범례 지시가 묻혀 누락되던 문제(2026-06-16). 사건과 무관하게 반드시 한 번 짚게.
@@ -1638,10 +1727,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
         has_grade = False
         for row in payload.monthly_overview:
             row_cmp = cur_month[: len(row.period)] if cur_month else ""
-            past_mark = (
-                " · 지남(과거형으로만)"
-                if row_cmp and row.period < row_cmp else ""
-            )
+            past_mark = " · 지남(과거형으로만)" if row_cmp and row.period < row_cmp else ""
             # 현재 진행 중인 절기월 표시(#3) — 월 단위 행에서 라벨이 오늘과 같은 절기월이면.
             if cur_month and len(row.period) == 7 and row.period == cur_month:
                 past_mark += _cur_tag
@@ -1651,7 +1737,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
             if row.strength_rank is not None:
                 has_rank = True
                 rank_mark = (
-                    " · ★기간 내 강도 1위" if row.strength_rank == 1
+                    " · ★기간 내 강도 1위"
+                    if row.strength_rank == 1
                     else f" · 기간 내 강도 {row.strength_rank}위"
                 )
             roles_mark = f" [{row.luck_roles}]" if row.luck_roles else ""
@@ -1690,17 +1777,20 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 "'용신운(부분)'>'혼합'>'기신운')으로 판단하고, 사건(이직·이사 등)은 그 위에 "
                 f"십성으로 얹어 '무슨 일'을 설명한다. '강한 용신운' {_unit}{_n} 두드러진 사건이 "
                 f"없어도 기반이 가장 좋은(가장 도움되는) {_unit}로 짚을 것."
-                if has_grade else ""
+                if has_grade
+                else ""
             )
             + (
                 " 표현 강도가 같아 보여도 '기간 내 강도 N위'가 실제 상대 순위 — "
                 f"가장 유력한 {_unit}{_n} 1위부터 지목하되 유불리를 함께 밝힐 것."
-                if has_rank else ""
+                if has_rank
+                else ""
             )
             + (
                 " 교운 표기는 '정점'에 가까울수록 대운 교체의 갑작스러운·비자발적 "
                 f"전환 에너지가 강함 — 동급이면 교운 근접 {_unit}{_l} 우선."
-                if has_transition else ""
+                if has_transition
+                else ""
             )
             + (
                 " '분기'는 같은 계열(이동·재물·학업 등)에서 같은 에너지가 갈릴 수 있는 형제 "
@@ -1709,7 +1799,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 f"수 없어 같은 이동 에너지는 '이사'가 된다. 질문이 특정 사건(재취업 등)을 묻는데 "
                 f"그 {_unit}의 우세 신호가 다른 형제(이사)라면, 그 {_unit}{_l} 질문 사건의 답으로 "
                 "단정하지 말고 맥락상 실제 발현됐을 형제 사건으로 풀이하라."
-                if has_branch else ""
+                if has_branch
+                else ""
             )
             + ")"
         )
@@ -1722,7 +1813,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         if ranked_rows:
             asked_ko = (
                 event_ko(payload.resolved_intent.event_key)
-                if payload.resolved_intent.event_key is not None else ""
+                if payload.resolved_intent.event_key is not None
+                else ""
             )
             lines.append(
                 "[유력 달 종합 — 엔진 확정 골자. 각 달을 서술할 때 아래의 우세 사건·"
@@ -1777,9 +1869,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 lines.append(line)
     if payload.period_fortune is not None:
         pf = payload.period_fortune
-        header, pillar_label = _PERIOD_FORTUNE_HEADER.get(
-            pf.fortune_type, ("기간 총운", "운")
-        )
+        header, pillar_label = _PERIOD_FORTUNE_HEADER.get(pf.fortune_type, ("기간 총운", "운"))
         lines.append("")
         lines.append(
             f"[{header} — {pf.period_label} {pf.ganji} · {pillar_label}·슬롯(엔진 확정값)]"
@@ -1842,6 +1932,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines += ["", "[사용자 정보 — 입력한 사실 맥락(상황 구체화용, 판정 불변)]"]
         lines += payload.profile_facts
     _append_structure_patterns(lines, payload.detected_patterns)
+    # 능동 제안 — 세운 의존이라 동적 suffix 전용(프리픽스 캐시 불변). 비었으면 무헤더.
+    lines += format_direction_suggestion_lines(payload.direction_suggestions)
     if payload.evidence:  # 근거 경로 — 후보·증거 있을 때만(구조 질문 등 빈 헤더 방지).
         lines.append("")
         lines.append("[근거 경로]")
@@ -1882,6 +1974,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(_BANGHAP_INSTRUCTION)
     if payload.detected_patterns:
         lines.append(_STRUCTURE_PATTERN_INSTRUCTION)
+    if payload.direction_suggestions:
+        lines.append(DIRECTION_SUGGESTION_INSTRUCTION)
     if payload.profile_facts:
         lines.append(_PROFILE_FACTS_INSTRUCTION)
     if payload.event_candidates:
@@ -1916,12 +2010,14 @@ def _drop_sinsal_aux(payload: LlmInput) -> LlmInput:
     """
     if not any(c.sinsal_modifiers or c.sinsal_channel_note for c in payload.event_candidates):
         return payload
-    return payload.model_copy(update={
-        "event_candidates": [
-            c.model_copy(update={"sinsal_modifiers": [], "sinsal_channel_note": ""})
-            for c in payload.event_candidates
-        ],
-    })
+    return payload.model_copy(
+        update={
+            "event_candidates": [
+                c.model_copy(update={"sinsal_modifiers": [], "sinsal_channel_note": ""})
+                for c in payload.event_candidates
+            ],
+        }
+    )
 
 
 def serialize_with_guard(
@@ -1956,16 +2052,18 @@ def serialize_with_guard(
         pass
     # Tier 1 — 그래도 초과면 본문 축소(후보·근거·해석 발췌). 신살은 이미 제거된 상태.
     ci = no_sinsal.chart_interpretation
-    shrunk = no_sinsal.model_copy(update={
-        "event_candidates": no_sinsal.event_candidates[:3],
-        "evidence": [
-            e.model_copy(update={"readable_paths": e.readable_paths[:1]})
-            for e in no_sinsal.evidence[:3]
-        ],
-        # 해석 발췌도 절반으로 — 일주 본문·명식 구조는 보존(풀이 품질 우선).
-        "chart_interpretation": (
-            ci.model_copy(update={"excerpts": ci.excerpts[:4]}) if ci else None
-        ),
-    })
+    shrunk = no_sinsal.model_copy(
+        update={
+            "event_candidates": no_sinsal.event_candidates[:3],
+            "evidence": [
+                e.model_copy(update={"readable_paths": e.readable_paths[:1]})
+                for e in no_sinsal.evidence[:3]
+            ],
+            # 해석 발췌도 절반으로 — 일주 본문·명식 구조는 보존(풀이 품질 우선).
+            "chart_interpretation": (
+                ci.model_copy(update={"excerpts": ci.excerpts[:4]}) if ci else None
+            ),
+        }
+    )
     text = serialize_llm_input(shrunk)
     return text, guard.check_input(text, reserve_tokens=reserve_tokens)

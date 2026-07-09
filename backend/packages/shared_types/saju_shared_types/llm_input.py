@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from .direction_suggestions import DirectionSuggestion
 from .events import EventKey
 from .intent import IntentJson
 from .sinsal import LlmSinsalModifier
@@ -181,10 +182,10 @@ class LlmEventCandidate(BaseModel):
     sinsal_channel_note: str = ""
     # 관계 단계(MARRIAGE_TIMING_ENHANCEMENT — Production Readiness v1 Step 2). MT 신호 기반.
     # 빈값이면 MT 미발동(비-관계 후보·default 프로파일) — 렌더 시 미노출(출력 불변).
-    marriage_stage: str = ""           # awareness | relationship | ""
-    marriage_base_stage: str = ""      # base E4 환원
+    marriage_stage: str = ""  # awareness | relationship | ""
+    marriage_base_stage: str = ""  # base E4 환원
     marriage_stage_reason: list[str] = Field(default_factory=list)  # 단계 유발 MT 코드
-    marriage_stage_limit: str = ""     # 승급 상한 사유(commitment_marker_absent 등)
+    marriage_stage_limit: str = ""  # 승급 상한 사유(commitment_marker_absent 등)
 
 
 class LlmEvidence(BaseModel):
@@ -414,6 +415,9 @@ class LlmInput(BaseModel):
     # 구조 패턴 압축 태그(Step ④) — 질문 가변 suffix에 직렬화, 질문 도메인 우선 선별(top-6).
     # 길흉 미확정(polarity_mode·domain_hints만). 전체 감지는 내부 보존(비직렬화).
     detected_patterns: list[DetectedPattern] = Field(default_factory=list)
+    # 능동 제안(docs/15) — 세운 의존이라 질문 가변 suffix 전용(캐시 프리픽스 금지),
+    # 도메인 우선 top-2. LLM은 '고려' 수준 재서술만(판정·점수 불변).
+    direction_suggestions: list[DirectionSuggestion] = Field(default_factory=list)
     evidence: list[LlmEvidence] = Field(default_factory=list)
     past_validation: PastValidationSummary | None = None
     style_rules: LlmStyleRules = Field(default_factory=LlmStyleRules)
