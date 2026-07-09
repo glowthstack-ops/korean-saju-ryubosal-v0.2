@@ -35,6 +35,7 @@ from saju_engines.conversation import ConversationEngine, is_affirm_continue
 from saju_engines.conversation_store import ConversationStore
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
+from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
 from saju_engines.marriage_timing_profile import marriage_engine_flags
@@ -135,9 +136,7 @@ def _solar_month_range(label: str, timezone: str = "Asia/Seoul") -> tuple[date, 
     return prev_jeol.astimezone(tz).date(), next_jeol.astimezone(tz).date() - timedelta(days=1)
 
 
-def _current_luck_month_detail(
-    birth: BirthInput, today: date, timezone: str = "Asia/Seoul"
-) -> str:
+def _current_luck_month_detail(birth: BirthInput, today: date, timezone: str = "Asia/Seoul") -> str:
     """현재 절기월의 사람이 읽는 상세 — 간지·양력 절기 span·진행 상태(경과/남은 일수).
 
     LLM이 절기월 라벨(YYYY-MM)을 캘린더월로 오인해 '진행 중인 달'을 '다가오는 미래'로
@@ -264,6 +263,7 @@ def _date_day_fortune_note(birth: BirthInput, dates: list[date], timezone: str) 
         "맥락으로만 짚을 것. 월간지로 그 날의 운을 대신하지 말고, 절기월은 위 값을 그대로 쓸 것."
     )
 
+
 # 정책 라우트 고정 응답(T3.8 — docs/03 B4 하단). LLM 미호출 템플릿.
 _POLICY_ANSWERS = {
     "fixed_policy": (
@@ -307,9 +307,26 @@ _WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
 # 과거형 어미('쉬었던/언제였을까' 등) 포함 — 미감지 시 과거 질문이 미래 창으로
 # 클램프돼 '이전 데이터 미제공' 회피가 발생(2026-06-12 지적).
 _PAST_KEYWORDS = (
-    "작년", "재작년", "지난", "과거", "예전", "그때", "했었", "였었",
-    "무슨 일", "뭐였", "어땠", "있었",
-    "였을까", "었을까", "았을까", "였던", "었던", "았던", "였지", "었지",
+    "작년",
+    "재작년",
+    "지난",
+    "과거",
+    "예전",
+    "그때",
+    "했었",
+    "였었",
+    "무슨 일",
+    "뭐였",
+    "어땠",
+    "있었",
+    "였을까",
+    "었을까",
+    "았을까",
+    "였던",
+    "었던",
+    "았던",
+    "였지",
+    "었지",
 )
 # 미래지향 '언제 ~ㄹ까/들어올까/언제쯤' — open_when이어도 과거 회고가 아니라 미래 탐색이다.
 # (open_when을 일괄 과거로 보던 결함: '이직 제안 언제 들어올까?'가 과거 10년 창으로 앵커링돼
@@ -448,7 +465,10 @@ def _build_period_fortune(
     start = intent.time_range.start
     computed_at = f"{today.isoformat()}T00:00:00+00:00"
     _DAY_LEVELS = {
-        CompositeLevel.DAY, CompositeLevel.MONTH, CompositeLevel.YEAR, CompositeLevel.NATAL,
+        CompositeLevel.DAY,
+        CompositeLevel.MONTH,
+        CompositeLevel.YEAR,
+        CompositeLevel.NATAL,
     }
     _YEAR_LEVELS = {CompositeLevel.MONTH, CompositeLevel.YEAR, CompositeLevel.NATAL}
     day_solar_month: str | None = None  # 일 질문 — 그 날이 속한 절기월 라벨(MONTH 컨텍스트 한정용)
@@ -484,14 +504,10 @@ def _build_period_fortune(
             if (sm_end.year, sm_end.month) != (sm_start.year, sm_start.month):
                 days += luck_days(birth, sm_end.year, sm_end.month)
             chart.luck_cycles.daily_luck = days
-            pillar = next(
-                (p for p in chart.luck_cycles.monthly_luck if p.label == start), None
-            )
+            pillar = next((p for p in chart.luck_cycles.monthly_luck if p.label == start), None)
         else:
             pillar = None
-        period = PeriodSpec(
-            start=sm_start.isoformat(), end=sm_end.isoformat(), granularity="month"
-        )
+        period = PeriodSpec(start=sm_start.isoformat(), end=sm_end.isoformat(), granularity="month")
         levels = _DAY_LEVELS
         label = start
     else:  # yearly
@@ -500,9 +516,7 @@ def _build_period_fortune(
         chart = calculate(birth.model_copy(update={"reference_date": anchor}))
         if chart.luck_cycles is not None:
             chart.luck_cycles.monthly_luck = luck_months(birth, year)
-            pillar = next(
-                (p for p in chart.luck_cycles.yearly_luck if p.label == start), None
-            )
+            pillar = next((p for p in chart.luck_cycles.yearly_luck if p.label == start), None)
         else:
             pillar = None
         period = PeriodSpec(start=f"{start}-01-01", end=f"{start}-12-31", granularity="year")
@@ -517,14 +531,14 @@ def _build_period_fortune(
         # 절기 범위가 두 양력 월에 걸쳐 인접 절기월의 월운 composite가 _in_period(월 비교)에
         # 섞이지 않도록, 월 단위는 당월(start) 라벨만 남긴다(일·연·원국 composite는 유지).
         composites = [
-            c for c in composites
-            if c.level is not CompositeLevel.MONTH or c.period_key == start
+            c for c in composites if c.level is not CompositeLevel.MONTH or c.period_key == start
         ]
     elif fortune_type == "daily" and day_solar_month is not None:
         # 일 질문 — MONTH 컨텍스트를 그 날이 속한 절기월 하나로 한정한다(양력 달이 아니라 절기월).
         # 안 그러면 모든 월 composite가 노출돼 LLM이 7/4를 양력 7월(乙未월)로 오인한다(2026-06-22).
         composites = [
-            c for c in composites
+            c
+            for c in composites
             if c.level is not CompositeLevel.MONTH or c.period_key == day_solar_month
         ]
     # 절기월 안내(데굴님 제안) — 해당 월운(절기월)의 간지 + 양력 절기 범위를 함께 준다.
@@ -533,8 +547,8 @@ def _build_period_fortune(
     if fortune_type in ("daily", "monthly"):
         m_label = day_solar_month if fortune_type == "daily" else start
         m_comp = next(
-            (c for c in composites
-             if c.level is CompositeLevel.MONTH and c.period_key == m_label), None
+            (c for c in composites if c.level is CompositeLevel.MONTH and c.period_key == m_label),
+            None,
         )
         if m_comp is not None and m_label is not None:
             tz_m = chart.time_correction.timezone if chart.time_correction else "Asia/Seoul"
@@ -546,14 +560,18 @@ def _build_period_fortune(
             )
     ctx = build_lifestyle_context(
         [SubjectRef(kind=SubjectKind.SELF, label="본인")],
-        period, composites, dictionaries_dir=_DICTS,
+        period,
+        composites,
+        dictionaries_dir=_DICTS,
     )
     # 표현 제한 도메인(Phase 5b-2b) — parser Domain.value(str)만 전달(enum 비종속).
     domain_key = domain_to_expression_key(intent.domain.value)
     grounding = build_luck_grounding(chart, pillar, domain_key=domain_key)
     slots = [
         PeriodFortuneSlot(
-            name=f.key.removeprefix("slot:"), score=f.score, summary=f.summary,
+            name=f.key.removeprefix("slot:"),
+            score=f.score,
+            summary=f.summary,
         )
         for f in ctx.findings
     ]
@@ -635,11 +653,15 @@ def _date_selection_block(
     if chart.luck_cycles is not None:
         window_daily = daily_luck_window(chart, req_start, scan_end)
         chart = chart.model_copy(
-            update={"luck_cycles": chart.luck_cycles.model_copy(
-                update={"daily_luck": window_daily})}
+            update={
+                "luck_cycles": chart.luck_cycles.model_copy(update={"daily_luck": window_daily})
+            }
         )
     composites = CompositeBuilder(_DICTS).build(
-        chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00",
+        chart,
+        "chat",
+        "1.0.0",
+        f"{today.isoformat()}T00:00:00+00:00",
     )
     # 횡재(로또)·재물 택일은 재성 방위·시진을 함께 제공(번호 거부·당첨 단정 금지 유지).
     # 방위는 용희기구한 역할을 반영해 기신·구신·생구신 방향은 추천하지 않는다(2026-06-16).
@@ -649,6 +671,7 @@ def _date_selection_block(
     is_relocation = purpose == EventKey.RELOCATION
     if is_windfall or is_relocation:
         from saju_engines.event_scoring import favorability_map
+
         favorability = favorability_map(chart)
     else:
         favorability = None
@@ -656,10 +679,16 @@ def _date_selection_block(
     # 평일 후보까지 충분히 노출한다('주말만 추천처럼 보임' 완화 — 2026-06-16).
     constraints = intent.constraints
     result = _get_date_engine().select(
-        purpose, composites, start_iso, end_iso, yongsin_element=yongsin,
+        purpose,
+        composites,
+        start_iso,
+        end_iso,
+        yongsin_element=yongsin,
         reality_constraints=constraints.reality_constraints or None,
-        include_hour_fit=is_windfall, top_n=8,
-        wealth_element=wealth_element, favorability=favorability,
+        include_hour_fit=is_windfall,
+        top_n=8,
+        wealth_element=wealth_element,
+        favorability=favorability,
         stated_direction=constraints.direction,
         relocation_kind=getattr(intent, "relocation_kind", "home"),  # R4 집/사무실 분기
     )
@@ -684,7 +713,8 @@ def _date_selection_block(
     # 시진은 원소 기반(날짜 무관 동일)이라 상위 후보 1건의 hour_fits를 블록 레벨로 노출.
     hour_fits = (
         [h.model_dump() for h in result.candidates[0].hour_fits]
-        if result.candidates and result.candidates[0].hour_fits else []
+        if result.candidates and result.candidates[0].hour_fits
+        else []
     )
     # 한 달 윈도우 안내 — 요청이 더 넓으면(개방형/다월) 탐색 범위와 재질문 방법을 알린다.
     cautions = list(result.cautions)
@@ -697,8 +727,7 @@ def _date_selection_block(
     # 이사 — 십성 이유분류(천간=명분/지지=현장) surface. 택일 점수와 별개의 해석 라벨로,
     # 질의 시작 시점의 세운(연)·월운(월)·대운으로 '왜·어떤 집' 유형을 함께 제공한다(R2).
     relocation_reasons = (
-        _relocation_reason_lines(composites, start_iso[:4], start_iso[:7])
-        if is_relocation else []
+        _relocation_reason_lines(composites, start_iso[:4], start_iso[:7]) if is_relocation else []
     )
     return DateSelectionBlock(
         purpose_ko=event_ko(purpose),
@@ -718,7 +747,9 @@ def _is_relocation_intent(intent: IntentJson) -> bool:
 
 
 def _relocation_reason_lines(
-    composites: list, year_key: str, month_key: str | None,
+    composites: list,
+    year_key: str,
+    month_key: str | None,
 ) -> list[str]:
     """이사 십성 이유분류 라벨 줄 — 천간=명분(이유)/지지=현장(집·지역) (R2, 단정 금지).
 
@@ -727,8 +758,7 @@ def _relocation_reason_lines(
     """
     from saju_engines.relocation import RelocationResolver
 
-    profiles = RelocationResolver(_DICTS).classify_reasons(
-        composites, year_key, month_key)
+    profiles = RelocationResolver(_DICTS).classify_reasons(composites, year_key, month_key)
     return [
         f"{p.source} {p.ten_god} → {p.type}: 이유 {'·'.join(p.move_reason)} / "
         f"집·지역 {'·'.join(p.property_tendency)} / "
@@ -738,7 +768,9 @@ def _relocation_reason_lines(
 
 
 def _relocation_reason_context(
-    birth: BirthInput, intent: IntentJson, today: date,
+    birth: BirthInput,
+    intent: IntentJson,
+    today: date,
 ) -> list[str]:
     """'이사하면 어때?'(기간 평가) 질문용 십성 이사 이유분류 블록 — structural_context 주입.
 
@@ -767,7 +799,8 @@ def _relocation_reason_context(
             tz_r = chart.time_correction.timezone if chart.time_correction else "Asia/Seoul"
             month_key = _current_luck_month(anchor, tz_r)
         composites = CompositeBuilder(_DICTS).build(
-            chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00")
+            chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00"
+        )
         lines = _relocation_reason_lines(composites, year_key, month_key)
     except Exception:  # noqa: BLE001 — 이사 분류 실패가 일반 풀이를 막지 않도록
         return []
@@ -821,7 +854,9 @@ def _normalize_region(phrase: str, known: list[str]) -> str | None:
 
 
 def _relocation_region_context(
-    birth: BirthInput, intent: IntentJson, today: date,
+    birth: BirthInput,
+    intent: IntentJson,
+    today: date,
 ) -> list[str]:
     """이사 목적지 지역 오행 × 용신 적합(region_fit)을 surface한다(지역 궁합 — 2026-06-18 보완).
 
@@ -892,9 +927,7 @@ def _get_region_orchestrator() -> object | None:
         RegionRecommendationOrchestrator,
     )
 
-    engine = RegionElementEngine(
-        _DICTS, _COMPILED_REGION_PROFILES, _COMPILED_REGION_ADMIN
-    )
+    engine = RegionElementEngine(_DICTS, _COMPILED_REGION_PROFILES, _COMPILED_REGION_ADMIN)
     directional = DirectionalFeatureAdapter(
         _COMPILED_REGION_DIRECTIONAL if _COMPILED_REGION_DIRECTIONAL.exists() else None
     )
@@ -903,7 +936,9 @@ def _get_region_orchestrator() -> object | None:
 
 
 def _region_recommendation_context(
-    birth: BirthInput, intent: IntentJson, today: date,
+    birth: BirthInput,
+    intent: IntentJson,
+    today: date,
 ) -> list[str]:
     """이사 '지역 추천'(목적지 미지정/시도·수도권 scope)을 시군구 후보로 surface(P4-A 배선).
 
@@ -968,12 +1003,10 @@ def _region_recommendation_context(
         rep = by_code.get(emds[0]["region_code"], {}) if emds else {}
         parts = [f"{i}. {g['sigungu_full_name']} 적합 {g['match_score']}"]
         pos = "·".join(
-            f"{f['element']}({f['role']})"
-            for f in rep.get("fit_summary", {}).get("positive", [])
+            f"{f['element']}({f['role']})" for f in rep.get("fit_summary", {}).get("positive", [])
         )
         neg = "·".join(
-            f"{f['element']}({f['role']})"
-            for f in rep.get("fit_summary", {}).get("negative", [])
+            f"{f['element']}({f['role']})" for f in rep.get("fit_summary", {}).get("negative", [])
         )
         if pos:
             parts.append(f"유리 {pos}")
@@ -1035,13 +1068,18 @@ def _region_element_fact(question: str) -> str | None:
 
 # 질문 도메인 → Topic Builder 모듈(채팅 배선, 옵션1). relocation은 별도 지역/이사 경로가 담당.
 _DOMAIN_TOPIC_MODULE = {
-    Domain.CAREER: "M07", Domain.WEALTH: "M09", Domain.HEALTH: "M11",
-    Domain.EDUCATION: "M12", Domain.RELATIONSHIP: "M01",
+    Domain.CAREER: "M07",
+    Domain.WEALTH: "M09",
+    Domain.HEALTH: "M11",
+    Domain.EDUCATION: "M12",
+    Domain.RELATIONSHIP: "M01",
 }
 
 
 def _topic_module_context(
-    birth: BirthInput, intent: IntentJson, today: date,
+    birth: BirthInput,
+    intent: IntentJson,
+    today: date,
     future_floor: str | None = None,
 ) -> list[str]:
     """질문 도메인에 해당하는 Topic Builder 모듈을 실행해 확정 신호+정책 톤을 구조 블록에 싣는다.
@@ -1057,11 +1095,14 @@ def _topic_module_context(
         return []
     try:
         tr = intent.time_range
-        start = (tr.start[:4] if tr and tr.start else str(today.year))
-        end = (tr.end[:4] if tr and tr.end else str(today.year + 5))
+        start = tr.start[:4] if tr and tr.start else str(today.year)
+        end = tr.end[:4] if tr and tr.end else str(today.year + 5)
         chart = calculate(birth.model_copy(update={"reference_date": today}))
         composites = CompositeBuilder(_DICTS).build(
-            chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00",
+            chart,
+            "chat",
+            "1.0.0",
+            f"{today.isoformat()}T00:00:00+00:00",
             levels={CompositeLevel.YEAR, CompositeLevel.MONTH},
         )
         period = PeriodSpec(start=start, end=end, granularity="year")
@@ -1078,9 +1119,11 @@ def _topic_module_context(
     if future_floor:
         # 월 단위(YYYY-MM) findings 중 현재 달 이전은 제외(연 단위 키는 유지). 미래 질문 시점 정합.
         findings = [
-            f for f in findings
+            f
+            for f in findings
             if not (
-                f.period_key and re.fullmatch(r"\d{4}-\d{2}", f.period_key)
+                f.period_key
+                and re.fullmatch(r"\d{4}-\d{2}", f.period_key)
                 and f.period_key < future_floor
             )
         ]
@@ -1106,10 +1149,16 @@ def _subject_composites_yongsin(
     chart = calculate(b.model_copy(update={"reference_date": req_start}))
     if chart.luck_cycles is not None:
         window_daily = daily_luck_window(chart, req_start, scan_end)
-        chart = chart.model_copy(update={"luck_cycles": chart.luck_cycles.model_copy(
-            update={"daily_luck": window_daily})})
+        chart = chart.model_copy(
+            update={
+                "luck_cycles": chart.luck_cycles.model_copy(update={"daily_luck": window_daily})
+            }
+        )
     comps = CompositeBuilder(_DICTS).build(
-        chart, label, "1.0.0", f"{today.isoformat()}T00:00:00+00:00",
+        chart,
+        label,
+        "1.0.0",
+        f"{today.isoformat()}T00:00:00+00:00",
     )
     fav = favorability_map(chart)
     yongsin = next((el for el, role in fav.items() if role == "용신"), None)
@@ -1117,8 +1166,12 @@ def _subject_composites_yongsin(
 
 
 def _relocation_group_block(
-    birth: BirthInput, partner_birth: BirthInput, intent: IntentJson, today: date,
-    self_label: str, partner_label: str,
+    birth: BirthInput,
+    partner_birth: BirthInput,
+    intent: IntentJson,
+    today: date,
+    self_label: str,
+    partner_label: str,
 ) -> DateSelectionBlock | None:
     """다인(본인+첨부 상대) 이사 택일 — M10 RelocationResolver 그룹 집계.
 
@@ -1140,10 +1193,10 @@ def _relocation_group_block(
         req_start = today
     scan_end = min(req_start + timedelta(days=30), date(req_start.year, 12, 31))
 
-    self_comps, self_y = _subject_composites_yongsin(
-        birth, req_start, scan_end, today, self_label)
+    self_comps, self_y = _subject_composites_yongsin(birth, req_start, scan_end, today, self_label)
     partner_comps, partner_y = _subject_composites_yongsin(
-        partner_birth, req_start, scan_end, today, partner_label)
+        partner_birth, req_start, scan_end, today, partner_label
+    )
 
     constraints = intent.constraints
     query = RelocationQuery(
@@ -1151,8 +1204,7 @@ def _relocation_group_block(
             SubjectRef(kind=SubjectKind.SELF, label=self_label),
             SubjectRef(kind=SubjectKind.COMPANION, label=partner_label),
         ],
-        period=RelocationPeriod(
-            start=req_start.strftime("%Y-%m"), end=scan_end.strftime("%Y-%m")),
+        period=RelocationPeriod(start=req_start.strftime("%Y-%m"), end=scan_end.strftime("%Y-%m")),
         current_location=constraints.location_base or "미지정",
         candidate_directions=[constraints.direction] if constraints.direction else None,
         relocation_kind=getattr(intent, "relocation_kind", "home"),
@@ -1188,7 +1240,8 @@ def _relocation_group_block(
                 group_warnings.append(f"{w.subject_label} — {w.signal}")
     if result.group_summary.conflicts:
         group_warnings.append(
-            "구성원 이동운이 엇갈리는 달: " + ", ".join(result.group_summary.conflicts))
+            "구성원 이동운이 엇갈리는 달: " + ", ".join(result.group_summary.conflicts)
+        )
     # 방위 적합(상위) — move_dates[0]의 분리 산출값.
     directions = [
         {"direction": d, "fit": f}
@@ -1196,7 +1249,8 @@ def _relocation_group_block(
     ]
     # 이사 십성 이유분류 — 의사결정 주체(첫 대상=호주, 대상 우선 원칙 7)의 운으로 분류한다.
     relocation_reasons = _relocation_reason_lines(
-        self_comps, req_start.strftime("%Y"), req_start.strftime("%Y-%m"))
+        self_comps, req_start.strftime("%Y"), req_start.strftime("%Y-%m")
+    )
     return DateSelectionBlock(
         purpose_ko=f"이사(그룹: {self_label}·{partner_label})",
         period=f"{req_start.isoformat()} ~ {scan_end.isoformat()}",
@@ -1229,9 +1283,24 @@ _THREAD_OPENING_BAN = (
 
 # 직전 답변의 '제안' 표지 — '그래 봐줘' 수락 시 그 제안을 이어가도록 추출하는 단서.
 _OFFER_MARKERS = (
-    "봐드릴게요", "봐드려요", "봐 드릴", "풀어드릴", "짚어드릴", "알려드릴", "정리해드릴",
-    "보고 싶으세요", "보고 싶은", "말씀해 주시면", "말씀해주시면", "말씀 주시면",
-    "원하시면", "이어서", "더 자세히", "어느 쪽", "어느 흐름", "중 어느",
+    "봐드릴게요",
+    "봐드려요",
+    "봐 드릴",
+    "풀어드릴",
+    "짚어드릴",
+    "알려드릴",
+    "정리해드릴",
+    "보고 싶으세요",
+    "보고 싶은",
+    "말씀해 주시면",
+    "말씀해주시면",
+    "말씀 주시면",
+    "원하시면",
+    "이어서",
+    "더 자세히",
+    "어느 쪽",
+    "어느 흐름",
+    "중 어느",
 )
 # 동의+이어보기('그래 봐줘')일 때, 직전 답변 끝에 제시한 제안을 이어 답하라는 우선 지시.
 _OFFER_CONTINUE_DIRECTIVE = (
@@ -1255,11 +1324,20 @@ def _extract_offer(answer: str) -> str:
     picked = [s for s in tail if any(m in s for m in _OFFER_MARKERS)]
     return " ".join(picked)[:300].strip()
 
+
 # 상황 제약 — 질문 맥락으로 형제 사건을 결정적으로 좁힌다. 묻힌 일반 안내로는 thinking LOW
 # LLM이 다단계 추론(무직→이직 불가→이사)을 못 하므로, 감지 시 우선순위 높은 명시 지시를
 # 프롬프트 말미에 주입한다(2026-06-14: '2025-08 백수인데 이직으로 단정' 오류 차단).
 _UNEMPLOYED_KEYS = (
-    "백수", "무직", "실직", "공백기", "재취업", "구직", "쉬고 있", "쉬는 중", "놀고 있",
+    "백수",
+    "무직",
+    "실직",
+    "공백기",
+    "재취업",
+    "구직",
+    "쉬고 있",
+    "쉬는 중",
+    "놀고 있",
 )
 # 사건형 intent — 내부 분석을 월단위로 하는 게 맞는 이벤트(단계 진행형 progress + 이동형
 # hybrid). 연 질문이어도 12개월 후보를 봐야 강한 달을 짚는다(P1, 2026-06-14). str 키로 비교.
@@ -1340,7 +1418,16 @@ _CAREER_NONREGULAR_DIRECTIVE = (
 # query_parser에서 OUT_OF_SCOPE로 이미 거부된다(여기 도달 = 흐름·시기 질문). CLAUDE.md 절대원칙 8
 # (2026-06-20 개정): 생활형 횡재는 시기·흐름·유불리·태도를 자유롭게 풀되, 하드 가드만 유지.
 _LIFESTYLE_WINDFALL_KEYS = (
-    "로또", "복권", "연금복권", "주식", "코인", "비트코인", "펀드", "청약", "경마", "토토",
+    "로또",
+    "복권",
+    "연금복권",
+    "주식",
+    "코인",
+    "비트코인",
+    "펀드",
+    "청약",
+    "경마",
+    "토토",
 )
 _LIFESTYLE_WINDFALL_DIRECTIVE = (
     "[생활형 횡재 — 표현 자유 우선 적용]\n"
@@ -1357,7 +1444,8 @@ _LIFESTYLE_WINDFALL_DIRECTIVE = (
 def _is_lifestyle_windfall(intent: IntentJson, question: str) -> bool:
     """생활형 횡재 질문 여부 — 재물/횡재 의도 + 생활형 키워드(번호 요청은 이미 정책 거부됨)."""
     wealth_ctx = intent.domain is Domain.WEALTH or str(intent.event_key) in (
-        "windfall", "wealth_change",
+        "windfall",
+        "wealth_change",
     )
     return wealth_ctx and any(k in question for k in _LIFESTYLE_WINDFALL_KEYS)
 
@@ -1378,31 +1466,52 @@ _BIG_DECISION_DIRECTIVE = (
 
 def _is_big_decision(intent: IntentJson, question: str) -> bool:
     """결혼·이혼 등 인생 결정 질문 여부 — 결혼/이혼 키워드 + 결정 어미."""
-    rel_ctx = intent.domain is Domain.RELATIONSHIP or any(
-        k in question for k in _BIG_DECISION_KEYS
-    )
+    rel_ctx = intent.domain is Domain.RELATIONSHIP or any(k in question for k in _BIG_DECISION_KEYS)
     has_decision = any(m in question for m in _DECISION_MARKERS)
     return rel_ctx and any(k in question for k in _BIG_DECISION_KEYS) and has_decision
 
 
 # 인연·만남 시기 질문 — 도메인 관계 또는 연애·배우자 키워드(GENERAL로 분류돼도 키워드로 보강).
 _RELATIONSHIP_KEYS = (
-    "연애", "연인", "인연", "애인", "짝", "배우자", "결혼", "재혼", "소개팅",
-    "이상형", "남친", "여친", "남자친구", "여자친구", "솔로", "썸",
+    "연애",
+    "연인",
+    "인연",
+    "애인",
+    "짝",
+    "배우자",
+    "결혼",
+    "재혼",
+    "소개팅",
+    "이상형",
+    "남친",
+    "여친",
+    "남자친구",
+    "여자친구",
+    "솔로",
+    "썸",
 )
 
 
 def _is_relationship_context(intent: IntentJson, question: str) -> bool:
     """관계(연애·결혼·인연) 맥락 질문 여부 — GENERAL로 분류돼도 키워드로 보강한다."""
-    return intent.domain is Domain.RELATIONSHIP or any(
-        k in question for k in _RELATIONSHIP_KEYS
-    )
+    return intent.domain is Domain.RELATIONSHIP or any(k in question for k in _RELATIONSHIP_KEYS)
 
 
 # 인연 출처 질문 — '주변 사람 vs 새로운 사람' 류(기존 지인이냐 새 인연이냐).
 _PARTNER_SOURCE_KEYS = (
-    "주변", "지인", "아는 사람", "아는사람", "소개", "새로운 사람", "새 사람", "새사람",
-    "처음 보는", "처음보는", "기존", "원래 알", "어디서 만나",
+    "주변",
+    "지인",
+    "아는 사람",
+    "아는사람",
+    "소개",
+    "새로운 사람",
+    "새 사람",
+    "새사람",
+    "처음 보는",
+    "처음보는",
+    "기존",
+    "원래 알",
+    "어디서 만나",
 )
 
 
@@ -1440,7 +1549,15 @@ def _is_divorce_question(question: str) -> bool:
 
 # 대운(10년 단위)·장기 인생 흐름 질문 — 대운 framing(환경/공간감)·교체기 신호를 붙일 트리거.
 _DAEWOON_KEYS = (
-    "대운", "교운", "평생", "인생 전체", "인생 흐름", "큰 흐름", "큰 운", "10년", "십년",
+    "대운",
+    "교운",
+    "평생",
+    "인생 전체",
+    "인생 흐름",
+    "큰 흐름",
+    "큰 운",
+    "10년",
+    "십년",
 )
 
 
@@ -1502,13 +1619,36 @@ _MEETING_TIMING_MONTH_DIRECTIVE = (
 # 상담 사례 파생 P0-7(doc/v2_2/cases/1980_1122_job_report_case.md §5): '풀이에는 말이 매력적이라는데
 # 실제 나는 면접에서 말을 못한다' 류 피드백에 수용·재해석 지시를 싣는다.
 _TRAIT_QUOTE_KEYS = (
-    "라는데", "라던데", "라면서", "라고 하던데", "라고 나왔", "나왔는데",
-    "풀이에는", "풀이에서는", "리포트에", "보고서에", "사주에는", "사주에서는",
+    "라는데",
+    "라던데",
+    "라면서",
+    "라고 하던데",
+    "라고 나왔",
+    "나왔는데",
+    "풀이에는",
+    "풀이에서는",
+    "리포트에",
+    "보고서에",
+    "사주에는",
+    "사주에서는",
 )
 _TRAIT_NEGATE_KEYS = (
-    "아닌데", "아니에요", "아닌 것 같", "안 그래", "안 그런", "안 그렇",
-    "잘 못", "못하는", "못해요", "다른데", "다릅니다", "안 맞", "반대",
-    "지 않", "없는데", "없어요",
+    "아닌데",
+    "아니에요",
+    "아닌 것 같",
+    "안 그래",
+    "안 그런",
+    "안 그렇",
+    "잘 못",
+    "못하는",
+    "못해요",
+    "다른데",
+    "다릅니다",
+    "안 맞",
+    "반대",
+    "지 않",
+    "없는데",
+    "없어요",
 )
 
 
@@ -1521,8 +1661,16 @@ def _is_trait_mismatch(question: str) -> bool:
 
 # 규범 질문('결혼 꼭 해야 하나요') 감지 — 강한 당위 표지만(일반 의사결정 질문 오탐 방지).
 _NORMATIVE_KEYS = (
-    "꼭 해야", "꼭 가야", "해야만", "필수인가", "필수예요", "필수인지",
-    "안 하면 안 되", "안하면 안되", "무조건 해야", "다들 하니까",
+    "꼭 해야",
+    "꼭 가야",
+    "해야만",
+    "필수인가",
+    "필수예요",
+    "필수인지",
+    "안 하면 안 되",
+    "안하면 안되",
+    "무조건 해야",
+    "다들 하니까",
 )
 
 
@@ -1532,15 +1680,22 @@ def _is_normative_question(question: str) -> bool:
 
 
 def _compat_prompt_block(
-    result: ManseV2Result, partner_birth: BirthInput, today: date, partner_label: str,
+    result: ManseV2Result,
+    partner_birth: BirthInput,
+    today: date,
+    partner_label: str,
 ) -> str | None:
     """본인↔상대 궁합 신호 블록(채팅 pairwise). 엔진 계산값만 + LLM 서술 가드."""
     partner_result = calculate(partner_birth.model_copy(update={"reference_date": today}))
     self_sum = build_birth_summary(result)
     partner_sum = build_birth_summary(partner_result)
     report = analyze_compatibility(
-        result, partner_result, self_sum.useful_gods, partner_sum.useful_gods,
-        self_label="본인", partner_label=partner_label,
+        result,
+        partner_result,
+        self_sum.useful_gods,
+        partner_sum.useful_gods,
+        self_label="본인",
+        partner_label=partner_label,
     )
     if report is None:
         return None
@@ -1548,6 +1703,7 @@ def _compat_prompt_block(
     lines += compatibility_lines(report)
     # 12신살 상대위치(P2) — 년지(사회)·일지(친밀) 기준 상대 12신살 양방향 체감(설명, 점수 미개입).
     from saju_engines.relationship_relative_sinsal import relative_sinsal_lines
+
     lines += relative_sinsal_lines(result, partner_result, "본인", partner_label)
     lines.append(
         "신호의 방향(보완/마찰)을 그대로 반영하되 '반드시 헤어진다/잘 된다' 류 단정·상대 탓·"
@@ -1590,22 +1746,31 @@ def _pairwise_subject_blocks(
     cid = injection.companion_subject_ids[0]
     self_block = SubjectBlock(
         subject_id=injection.primary_subject_id or "self",
-        role="self", label=self_label or "본인", is_primary=True,
-        relation_to_user="self", chart=build_birth_summary(self_result),
+        role="self",
+        label=self_label or "본인",
+        is_primary=True,
+        relation_to_user="self",
+        chart=build_birth_summary(self_result),
         current_period=_current_period_line(self_result, year),
     )
     companion_block = SubjectBlock(
-        subject_id=cid, role="companion", label=companion_label or "상대",
-        is_primary=False, relation_to_user=relation_type,
+        subject_id=cid,
+        role="companion",
+        label=companion_label or "상대",
+        is_primary=False,
+        relation_to_user=relation_type,
         chart=build_birth_summary(companion_result),
         current_period=_current_period_line(companion_result, year),
     )
     rc = RelationshipContext(
-        mode=injection.mode, relation_type=relation_type, relation_basis=relation_basis,
+        mode=injection.mode,
+        relation_type=relation_type,
+        relation_basis=relation_basis,
         perspective_hints=perspective_hints_for(relation_type),
         safety_guards=list(SAFETY_GUARDS),
         primary_subject_id=self_block.subject_id,
-        companion_subject_ids=[cid], compatibility_overlay_available=True,
+        companion_subject_ids=[cid],
+        compatibility_overlay_available=True,
     )
     return [self_block, companion_block], rc
 
@@ -1628,17 +1793,24 @@ def _compare_subject_blocks(
     """
     primary_block = SubjectBlock(
         subject_id=injection.primary_subject_id or "companion_a",
-        role="companion", label=primary_label, is_primary=True,
+        role="companion",
+        label=primary_label,
+        is_primary=True,
         chart=build_birth_summary(primary_result),
         current_period=_current_period_line(primary_result, year),
     )
     other_block = SubjectBlock(
-        subject_id=other_subject_id, role="companion", label=other_label, is_primary=False,
+        subject_id=other_subject_id,
+        role="companion",
+        label=other_label,
+        is_primary=False,
         chart=build_birth_summary(other_result),
         current_period=_current_period_line(other_result, year),
     )
     rc = RelationshipContext(
-        mode=injection.mode, relation_type=relation_type, relation_basis=relation_basis,
+        mode=injection.mode,
+        relation_type=relation_type,
+        relation_basis=relation_basis,
         perspective_hints=perspective_hints_for(relation_type),
         safety_guards=list(SAFETY_GUARDS),
         primary_subject_id=primary_block.subject_id,
@@ -1663,20 +1835,30 @@ def _ranking_subject_blocks(
     blocks: list[SubjectBlock] = [
         SubjectBlock(
             subject_id=injection.primary_subject_id or "companion_a",
-            role="companion", label=primary_label, is_primary=True,
+            role="companion",
+            label=primary_label,
+            is_primary=True,
             chart=build_birth_summary(primary_result),
             current_period=_current_period_line(primary_result, year),
         )
     ]
     for sid, label, res in others:
-        blocks.append(SubjectBlock(
-            subject_id=sid, role="companion", label=label, is_primary=False,
-            chart=build_birth_summary(res),
-            current_period=_current_period_line(res, year),
-        ))
+        blocks.append(
+            SubjectBlock(
+                subject_id=sid,
+                role="companion",
+                label=label,
+                is_primary=False,
+                chart=build_birth_summary(res),
+                current_period=_current_period_line(res, year),
+            )
+        )
     rc = RelationshipContext(
-        mode=injection.mode, relation_type=None, relation_basis="unknown",
-        perspective_hints=[], safety_guards=list(RANKING_SAFETY_GUARDS),
+        mode=injection.mode,
+        relation_type=None,
+        relation_basis="unknown",
+        perspective_hints=[],
+        safety_guards=list(RANKING_SAFETY_GUARDS),
         primary_subject_id=blocks[0].subject_id,
         companion_subject_ids=[b.subject_id for b in blocks],
         compatibility_overlay_available=False,
@@ -1685,7 +1867,10 @@ def _ranking_subject_blocks(
 
 
 def _structural_context(
-    result: ManseV2Result, intent: IntentJson, today: date, question: str = "",
+    result: ManseV2Result,
+    intent: IntentJson,
+    today: date,
+    question: str = "",
 ) -> list[str]:
     """질문 도메인에 맞는 구조 해석 블록(누출 안전 한글). intent 미확정(general)=총운으로 간주해
     모든 블록을, 확정 도메인은 해당 블록만 표면화한다(2026-06-16 사용자 확정).
@@ -1772,21 +1957,26 @@ def _daewoon_span_context(result: ManseV2Result, start_year: int, end_year: int)
     line = "대운 흐름(배경): " + " → ".join(segs)
     if transitions:
         years = ", ".join(f"{t}년 무렵" for t in transitions)
-        line += f" · 이 10년 안에 대운 교운기({years}) — 전환 에너지가 강하게 작동"
-    return "\n[대운 배경 — 10년 흐름]\n" + line
+        line += f" · 이 구간 안에 대운 교운기({years}) — 전환 에너지가 강하게 작동"
+    return f"\n[대운 배경 — {end_year - start_year + 1}년 흐름]\n" + line
 
 
 def _is_day_range(intent: IntentJson) -> bool:
     """일 단위 다중일 범위(주간 등) 질문인가 — 일별 일운 surface 게이트."""
     tr = intent.time_range
     return bool(
-        tr is not None and tr.start and tr.end and tr.end != tr.start
+        tr is not None
+        and tr.start
+        and tr.end
+        and tr.end != tr.start
         and tr.granularity.value == "day"
     )
 
 
 def _weekly_overview_lines(
-    birth: BirthInput, intent: IntentJson, today: date,
+    birth: BirthInput,
+    intent: IntentJson,
+    today: date,
 ) -> list[str]:
     """주간(일 범위) 질문에 7일 일별 일운(간지·길흉·십성)을 surface한다(2026-06-18 보완).
 
@@ -1807,13 +1997,19 @@ def _weekly_overview_lines(
         chart = calculate(birth.model_copy(update={"reference_date": start}))
         if chart.luck_cycles is not None:
             window = daily_luck_window(chart, start, end)
-            chart = chart.model_copy(update={"luck_cycles": chart.luck_cycles.model_copy(
-                update={"daily_luck": window})})
+            chart = chart.model_copy(
+                update={"luck_cycles": chart.luck_cycles.model_copy(update={"daily_luck": window})}
+            )
         comps = CompositeBuilder(_DICTS).build(
-            chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00")
+            chart, "chat", "1.0.0", f"{today.isoformat()}T00:00:00+00:00"
+        )
         days = sorted(
-            (c for c in comps if c.level is CompositeLevel.DAY
-             and start.isoformat() <= c.period_key <= end.isoformat()),
+            (
+                c
+                for c in comps
+                if c.level is CompositeLevel.DAY
+                and start.isoformat() <= c.period_key <= end.isoformat()
+            ),
             key=lambda c: c.period_key,
         )
     except Exception:  # noqa: BLE001 — 일별 산출 실패가 일반 풀이를 막지 않도록
@@ -1867,15 +2063,20 @@ def _augment_domain_by_similarity(intent: IntentJson, question: str) -> IntentJs
     event = intent.event_key
     if event is None and sug.event is not None:
         event = EventKey(sug.event)
-    return intent.model_copy(update={
-        "domain": Domain(sug.domain),
-        "event_key": event,
-        "event_keys": intent.event_keys or ([event] if event else []),
-    })
+    return intent.model_copy(
+        update={
+            "domain": Domain(sug.domain),
+            "event_key": event,
+            "event_keys": intent.event_keys or ([event] if event else []),
+        }
+    )
 
 
 def _augment_time_by_similarity(
-    intent: IntentJson, question: str, today: date, current_month_label: str | None,
+    intent: IntentJson,
+    question: str,
+    today: date,
+    current_month_label: str | None,
 ) -> IntentJson:
     """규칙이 시점을 못 잡은(time_range None) 질문을 임베딩 분류기로 보강한다(보조, rules-first).
 
@@ -1901,11 +2102,7 @@ def _augment_time_by_similarity(
     from saju_engines.time_parser import bucket_to_range
 
     sug = get_time_classifier().classify(question)
-    if (
-        sug is None
-        or sug.score < _TIME_SIM_MIN_SCORE
-        or sug.margin < _TIME_SIM_MIN_MARGIN
-    ):
+    if sug is None or sug.score < _TIME_SIM_MIN_SCORE or sug.margin < _TIME_SIM_MIN_MARGIN:
         return intent
     tr, _scope = bucket_to_range(sug.label, today, current_month_label)
     if tr is None:
@@ -1925,14 +2122,19 @@ def _augment_companion_mode_by_similarity(intent: IntentJson, question: str) -> 
     non_self = [s for s in subs if s.kind is not SubjectKind.SELF]
     has_self = any(s.kind is SubjectKind.SELF for s in subs)
     new_mode = augment_subject_mode(
-        intent.subject_mode, question, len(non_self), has_self,
+        intent.subject_mode,
+        question,
+        len(non_self),
+        has_self,
     )
     if new_mode is intent.subject_mode:
         return intent
     updates: dict[str, object] = {"subject_mode": new_mode}
     if intent.query_type not in (
-        QueryType.FEEDBACK_CORRECTION, QueryType.TERMINOLOGY_EDUCATION,
-        QueryType.EMOTIONAL_SUPPORT, QueryType.OUT_OF_SCOPE,
+        QueryType.FEEDBACK_CORRECTION,
+        QueryType.TERMINOLOGY_EDUCATION,
+        QueryType.EMOTIONAL_SUPPORT,
+        QueryType.OUT_OF_SCOPE,
     ):
         updates["query_type"] = QueryType.COMPARISON
     return intent.model_copy(update=updates)
@@ -1948,15 +2150,23 @@ _RECHECK_DIRECTIVE = (
     "단정·예언은 금지."
 )
 # claim recheck 상속 대상이 되는 '분석' query_type(정책·구조 라우트 제외).
-_RECHECK_ANALYSIS_QTYPES = frozenset({
-    QueryType.FORTUNE_OVERVIEW, QueryType.DOMAIN_ANALYSIS, QueryType.TIMING_SEARCH,
-    QueryType.EVENT_EXPLANATION, QueryType.RELATIONSHIP_ANALYSIS, QueryType.REMEDY,
-    QueryType.DECISION_SUPPORT, QueryType.DATE_RECOMMENDATION,
-})
+_RECHECK_ANALYSIS_QTYPES = frozenset(
+    {
+        QueryType.FORTUNE_OVERVIEW,
+        QueryType.DOMAIN_ANALYSIS,
+        QueryType.TIMING_SEARCH,
+        QueryType.EVENT_EXPLANATION,
+        QueryType.RELATIONSHIP_ANALYSIS,
+        QueryType.REMEDY,
+        QueryType.DECISION_SUPPORT,
+        QueryType.DATE_RECOMMENDATION,
+    }
+)
 
 
 def _recheck_continuation(
-    intent: IntentJson, prior_intent: IntentJson | None,
+    intent: IntentJson,
+    prior_intent: IntentJson | None,
 ) -> tuple[IntentJson, bool]:
     """FEEDBACK_CORRECTION(이의/반문) + 직전 분석 맥락이면 직전 주제 상속해 분석 intent로 전환한다.
 
@@ -1975,13 +2185,15 @@ def _recheck_continuation(
         return intent, False
     if prior_intent.query_type not in _RECHECK_ANALYSIS_QTYPES:
         return intent, False  # 직전이 분석 질문이 아니면 재검토 대상 아님
-    new = intent.model_copy(update={
-        "query_type": prior_intent.query_type,
-        "domain": intent.domain if intent.domain is not Domain.GENERAL else prior_intent.domain,
-        "event_key": intent.event_key or prior_intent.event_key,
-        "event_keys": intent.event_keys or prior_intent.event_keys,
-        "time_range": intent.time_range or prior_intent.time_range,
-    })
+    new = intent.model_copy(
+        update={
+            "query_type": prior_intent.query_type,
+            "domain": intent.domain if intent.domain is not Domain.GENERAL else prior_intent.domain,
+            "event_key": intent.event_key or prior_intent.event_key,
+            "event_keys": intent.event_keys or prior_intent.event_keys,
+            "time_range": intent.time_range or prior_intent.time_range,
+        }
+    )
     return new, True
 
 
@@ -2014,15 +2226,20 @@ def _attach_subject_plan(
             attached.append(AttachedCompanion(subject_id="inline:partner", label=label))
 
     eff, mode, injection = build_effective_subjects(
-        intent.subjects, intent.subject_mode,
-        base_subject_id=base_subject_id, base_label=base_label,
-        attached=attached, companion_meta=companion_meta,
+        intent.subjects,
+        intent.subject_mode,
+        base_subject_id=base_subject_id,
+        base_label=base_label,
+        attached=attached,
+        companion_meta=companion_meta,
     )
-    return plan.model_copy(update={
-        "effective_subjects": eff,
-        "companion_read_mode": mode,
-        "subject_injection": injection,
-    })
+    return plan.model_copy(
+        update={
+            "effective_subjects": eff,
+            "companion_read_mode": mode,
+            "subject_injection": injection,
+        }
+    )
 
 
 def chat(
@@ -2078,7 +2295,10 @@ def chat(
         prior_intent = state.last_intent  # process_turn이 갱신하기 전 직전 intent 보존.
         engine = ConversationEngine(alias_index=companion_alias_index)
         parsed, state, resolution, _link = engine.process_turn(
-            state, question, today, birth_year=birth_year,
+            state,
+            question,
+            today,
+            birth_year=birth_year,
             current_month_label=luck_month,
         )
         is_followup_turn = _link.is_follow_up
@@ -2094,11 +2314,16 @@ def chat(
                     f"'{', '.join(resolution.unresolved)}'가 어느 분인지 확인이 필요해요. "
                     "등록된 동반자 별칭을 알려주시거나 출생 정보를 입력해 주세요."
                 ),
-                intents=parsed.intents, thread_id=thread_id, turn_no=state.turn_no,
+                intents=parsed.intents,
+                thread_id=thread_id,
+                turn_no=state.turn_no,
             )
     else:
         parsed = parse_message(
-            question, today, birth_year=birth_year, current_month_label=luck_month,
+            question,
+            today,
+            birth_year=birth_year,
+            current_month_label=luck_month,
         )
     intent = parsed.intents[0]
     # 규칙이 domain을 못 정한(general) 질문만 임베딩 분류기로 보강(rules-first 보조 — 절대원칙 1·9).
@@ -2128,9 +2353,7 @@ def chat(
         str(k) in _PRESUPPOSE_EMPLOYED for k in intent.event_keys
     )
     if nonregular and career_presupposed and EventKey.JOB_GAIN not in intent.event_keys:
-        intent = intent.model_copy(
-            update={"event_keys": [*intent.event_keys, EventKey.JOB_GAIN]}
-        )
+        intent = intent.model_copy(update={"event_keys": [*intent.event_keys, EventKey.JOB_GAIN]})
 
     # 비분석 라우트(T3.8) — 엔진/LLM 미호출.
     plan = build_execution_plan(intent)
@@ -2139,15 +2362,22 @@ def chat(
         return ChatResponse(
             status="policy",
             answer=_POLICY_ANSWERS.get(plan.policy_route, _POLICY_ANSWERS["fixed_policy"]),
-            intents=parsed.intents, thread_id=thread_id,
-            turn_no=state.turn_no if state else None, repeated=repeated,
+            intents=parsed.intents,
+            thread_id=thread_id,
+            turn_no=state.turn_no if state else None,
+            repeated=repeated,
         )
 
     # P1(계산/실행 분리) — 해소 대상 + 칩 동반자를 병합해 effective_subjects/mode/injection을
     # 계산해 plan에 shadow로 싣는다. 실행 분기(per_subject)는 절대 건드리지 않는다 — 라이브
     # 회귀 0. P2가 subject_injection(execution_enabled)을 소비해 대상별 명식 주입을 켠다.
     plan = _attach_subject_plan(
-        plan, intent, subject_id, subject_label, partner_ref, companion_alias_index,
+        plan,
+        intent,
+        subject_id,
+        subject_label,
+        partner_ref,
+        companion_alias_index,
     )
 
     # 지역 오행 사실 질문('창원 성산구의 오행은?') — 사주·시점 무관 단순 조회라 too_broad로
@@ -2156,9 +2386,12 @@ def chat(
     if region_fact is not None:
         _save_thread(store, state)
         return ChatResponse(
-            status="answered", answer=region_fact,
-            intents=parsed.intents, thread_id=thread_id,
-            turn_no=state.turn_no if state else None, repeated=repeated,
+            status="answered",
+            answer=region_fact,
+            intents=parsed.intents,
+            thread_id=thread_id,
+            turn_no=state.turn_no if state else None,
+            repeated=repeated,
         )
 
     # 광범위/대상 판정(T3.2) — 추측 실행 금지. 단, 후속 정제 턴('평일도 없어?')은 직전
@@ -2182,9 +2415,13 @@ def chat(
                 "note": "대화로도 범위를 좁혀 바로 답해드릴 수 있어요",
             }
         return ChatResponse(
-            status=assessment.status, answer=answer,
-            intents=parsed.intents, assessment=assessment, thread_id=thread_id,
-            turn_no=state.turn_no if state else None, repeated=repeated,
+            status=assessment.status,
+            answer=answer,
+            intents=parsed.intents,
+            assessment=assessment,
+            thread_id=thread_id,
+            turn_no=state.turn_no if state else None,
+            repeated=repeated,
             product_suggestion=suggestion,
         )
 
@@ -2204,8 +2441,11 @@ def chat(
             return partner_birth
         return b
 
-    if (companion_only or compare_mode or ranking_mode) and _inj is not None \
-            and _inj.companion_subject_ids:
+    if (
+        (companion_only or compare_mode or ranking_mode)
+        and _inj is not None
+        and _inj.companion_subject_ids
+    ):
         _primary = _inj.primary_subject_id or _inj.companion_subject_ids[0]
         # compare/ranking은 비교 대상 모두(ranking은 cap까지), companion_only는 primary 1명.
         if ranking_mode:
@@ -2222,8 +2462,10 @@ def chat(
                     "비교할 대상의 출생 정보를 확인할 수 없어요. 등록된 동반자인지 "
                     "확인하시거나 생년월일시를 알려주시면 그 분들 기준으로 봐드릴게요."
                 ),
-                intents=parsed.intents, thread_id=thread_id,
-                turn_no=state.turn_no if state else None, repeated=repeated,
+                intents=parsed.intents,
+                thread_id=thread_id,
+                turn_no=state.turn_no if state else None,
+                repeated=repeated,
             )
         _eff = next((e for e in plan.effective_subjects if e.subject_id == _primary), None)
         _pb_birth = _companion_birth(_primary)
@@ -2249,9 +2491,13 @@ def chat(
     # 엔진 최초 도출값(result.yongsin_analysis.final = 확정 전 후보)은 비파괴 보존(되돌림 기준).
     _fav_override, _confirmed_yongsin = fetch_confirmed_yongsin_override(owner_id, subject_id)
     all_scored = _get_scorer().score_legacy_personalized(
-        result, levels=_SCORE_LEVELS, fav_override=_fav_override,
-        signature=_sig, cohort=_cohort,
-        occupation_status=occupation_status, relationship_status=relationship_status,
+        result,
+        levels=_SCORE_LEVELS,
+        fav_override=_fav_override,
+        signature=_sig,
+        cohort=_cohort,
+        occupation_status=occupation_status,
+        relationship_status=relationship_status,
         occupation_category=occupation_category,
     )
 
@@ -2261,8 +2507,7 @@ def chat(
     # 월별 요약을 메인에서 배제해 이직·이사 단정이 새지 않게 한다. 주간은 제외(날 종합).
     period_type = _period_fortune_type(intent, question)
     period_fortune = (
-        _build_period_fortune(birth, intent, today, period_type)
-        if period_type else None
+        _build_period_fortune(birth, intent, today, period_type) if period_type else None
     )
 
     # P5·P6(2026-06-12): 미래지향 질문의 유효 창은 '오늘이 속한 달'에서 시작한다.
@@ -2274,9 +2519,8 @@ def chat(
     # 시간 방향 판정 — 과거 신호 우선, 그다음 미래 신호, 둘 다 없는 open_when 후속('월단위로')은
     # 직전 턴 방향(state.last_retro)을 상속해 미래/과거 창을 일관 유지(2026-06-30 시점 정합).
     _is_open_when = intent.time_range is not None and intent.time_range.type == "open_when"
-    _past_signal = (
-        intent.query_type is QueryType.EVENT_EXPLANATION
-        or any(k in question for k in _PAST_KEYWORDS)
+    _past_signal = intent.query_type is QueryType.EVENT_EXPLANATION or any(
+        k in question for k in _PAST_KEYWORDS
     )
     _future_signal = bool(_FUTURE_WHEN_RE.search(question))
     if _past_signal:
@@ -2330,8 +2574,11 @@ def chat(
     # 먼저 판정한다. 택일로 분류된 질문(DATE_RECOMMENDATION)은 기존 택일 라우트가 담당.
     timing_gran = _timing_granularity(question)
     gran_no_period = (
-        timing_gran is not None and not is_retro and not is_structural
-        and period_fortune is None and not relo_decided
+        timing_gran is not None
+        and not is_retro
+        and not is_structural
+        and period_fortune is None
+        and not relo_decided
         and (intent.time_range is None or not intent.time_range.start)
         and intent.query_type is not QueryType.DATE_RECOMMENDATION
     )
@@ -2340,14 +2587,27 @@ def chat(
     # 과거 회고·구조 질문·기간총운, 명시 시점(올해/내년/특정연월/향후 N년=start 있음)은 제외.
     # 입도(달/날짜) 명시 질문도 제외(gran_no_period) — 연 나열은 질문 입도와 어긋난다.
     vague_future = (
-        period_fortune is None and not is_structural and not is_retro
-        and not relo_decided and not gran_no_period
+        period_fortune is None
+        and not is_structural
+        and not is_retro
+        and not relo_decided
+        and not gran_no_period
         and (intent.time_range is None or not intent.time_range.start)
     )
+    # 답변 지평 정책(2026-07-09 데굴님) — 무시점 미래 질문의 서술 범위를 질문 유형별로
+    # 제한한다(즉시형 3개월/전망형 6개월+5년/구조 결정형 원국+대운+5년+3개월/분야 기본).
+    # None = 명시적 장기 질문(대운·인생 흐름)만 — 그 경우에만 기존 10년 digest 유지.
+    horizon = resolve_horizon(question, intent) if vague_future else None
     year_digest_years: list[int] = []
-    year_result = result        # 세운 10년 확장본(기본 창 밖 연도 온디맨드 보강)
+    year_result = result  # 세운 10년 확장본(기본 창 밖 연도 온디맨드 보강)
     year_scored = all_scored
-    if vague_future:
+    if horizon is not None:
+        if horizon.years_span:
+            year_digest_years = list(range(today.year, today.year + horizon.years_span))
+            default_period = (current_month, str(today.year + horizon.years_span - 1))
+        else:
+            default_period = (current_month, month_add(current_month, horizon.months_detail))
+    elif vague_future:
         year_digest_years = list(range(today.year, today.year + 10))
         default_period = (str(today.year), str(today.year + 9))
         if result.luck_cycles is not None:
@@ -2362,8 +2622,11 @@ def chat(
                     list(year_result.luck_cycles.yearly_luck) + extra
                 )
                 year_scored = _get_scorer().score_legacy_personalized(
-                    year_result, levels={GanjiLevel.YEAR}, fav_override=_fav_override,
-                    signature=_sig, cohort=_cohort,
+                    year_result,
+                    levels={GanjiLevel.YEAR},
+                    fav_override=_fav_override,
+                    signature=_sig,
+                    cohort=_cohort,
                     occupation_status=occupation_status,
                     relationship_status=relationship_status,
                     occupation_category=occupation_category,
@@ -2372,12 +2635,27 @@ def chat(
     if period_fortune is not None or is_structural:
         candidates = []
         bundles = []
+    elif horizon is not None:
+        # 지평 창 내 후보만 — 월 후보는 상세 창(N개월), 연 후보는 연 span 내.
+        # 즉시형·분야기본(years_span=0)은 연 후보를 빼서 장기 서술 재료 자체를 차단.
+        _m_end = month_add(current_month, horizon.months_detail)
+        _y_hi = today.year + horizon.years_span - 1 if horizon.years_span else None
+
+        def _in_horizon(period: str) -> bool:
+            if len(period) == 7:
+                return current_month <= period < _m_end
+            if len(period) == 4 and _y_hi is not None:
+                return today.year <= int(period) <= _y_hi
+            return False
+
+        candidates = [c for c in all_scored if _in_horizon(c.period)]
+        candidates = _get_intent_filter().filter(candidates, str(intent.domain))
+        scope_h: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
+        bundles = _get_graph().retrieve(scope_h)
     elif vague_future:
         # 세운(연) 중심 — 월 후보는 빼서 LLM이 10년 연 단위 흐름에 집중하게 한다.
         lo, hi = str(today.year), str(today.year + 9)
-        candidates = [
-            c for c in year_scored if len(c.period) == 4 and lo <= c.period <= hi
-        ]
+        candidates = [c for c in year_scored if len(c.period) == 4 and lo <= c.period <= hi]
         candidates = _get_intent_filter().filter(candidates, str(intent.domain))
         scope_v: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
         bundles = _get_graph().retrieve(scope_v)
@@ -2400,10 +2678,7 @@ def chat(
             # (2026-06-22 데굴님 지적: 7/4 이사 질문이 계속 乙未월로 풀리던 결함).
             solar_m: str | None = None
             if win_start and win_start == win_end and len(win_start) == 10:
-                tz_w = (
-                    result.time_correction.timezone
-                    if result.time_correction else "Asia/Seoul"
-                )
+                tz_w = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
                 solar_m = _current_luck_month(date.fromisoformat(win_start), tz_w)
 
             def _in_win(period: str) -> bool:
@@ -2413,8 +2688,7 @@ def chat(
 
             seen = {(c.event_key, c.period) for c in candidates}
             candidates += [
-                c for c in all_scored
-                if (c.event_key, c.period) not in seen and _in_win(c.period)
+                c for c in all_scored if (c.event_key, c.period) not in seen and _in_win(c.period)
             ]
         # 의도 필터(intent_event_filter) — 질문 도메인과 무관한 후보를 억제한다.
         # 빈 결과를 만들지 않으며(fallback 원본 유지), general 도메인은 전부 통과.
@@ -2426,26 +2700,60 @@ def chat(
     # P4: 월 단위·시기 특정 요청이면 12개월 요약 동반 — '몇 월/언제' 질문엔 월운이 답이라
     # 세운만으로 답을 회피('달 특정 불가')하지 않도록 월별 표를 보장한다(2026-06-12 지적).
     overview = None
-    gran_month = (
-        intent.time_range is not None
-        and intent.time_range.granularity.value == "month"
-    )
+    gran_month = intent.time_range is not None and intent.time_range.granularity.value == "month"
     # P1(2026-06-14): 사건형 intent(이사·이직 등)는 '월별'을 명시 안 해도 내부는 월단위로 계산
     # (연 질문도 12개월 후보를 봐야 강한 달을 짚는다). monthly_explicit이면 표 전체, 아니면
     # 연간 요약+핵심 달로 응답하도록 아래에서 형식 지시를 준다.
     event_monthly = intent.event_key is not None and str(intent.event_key) in _EVENT_MONTHLY
     monthly_explicit = any(k in question for k in ("월별", "달별", "매월", "월운", "월단위"))
-    wants_monthly = period_fortune is None and not vague_future and not relo_decided and (
-        monthly_explicit
-        or event_monthly
-        or gran_no_period  # 기간 미지정 '달/날짜' 입도 질문 — 월별 흐름이 답의 재료
-        or intent.query_type is QueryType.TIMING_SEARCH
-        or gran_month
-        or any(k in question for k in ("몇 월", "몇월", "언제", "어느 달"))
-        or any(k in question for k in ("앞으로", "향후", "다가오는", "1년 내", "1년내"))
+    wants_monthly = (
+        period_fortune is None
+        and not vague_future
+        and not relo_decided
+        and (
+            monthly_explicit
+            or event_monthly
+            or gran_no_period  # 기간 미지정 '달/날짜' 입도 질문 — 월별 흐름이 답의 재료
+            or intent.query_type is QueryType.TIMING_SEARCH
+            or gran_month
+            or any(k in question for k in ("몇 월", "몇월", "언제", "어느 달"))
+            or any(k in question for k in ("앞으로", "향후", "다가오는", "1년 내", "1년내"))
+        )
     )
     result_for_llm = result  # on-demand 월운 주입 시 교체(간지·해석 lookup 커버용)
-    if vague_future and year_result.luck_cycles is not None:
+    if horizon is not None and result.luck_cycles is not None:
+        # 지평 결합 표 — 앞 N개월 월 단위 흐름 + (span 있으면) 5년 연 단위 요약.
+        # 월운은 롤링 창이 연 경계를 넘을 수 있어 닿는 연도별로 on-demand 계산.
+        horizon_months = _rolling_months(
+            int(luck_month[:4]), int(luck_month[5:7]), horizon.months_detail
+        )
+        monthly_all = []
+        for yr in sorted({int(mm[:4]) for mm in horizon_months}):
+            monthly_all += luck_months(chart_birth, yr)
+        result_win = result.model_copy(deep=True)
+        assert result_win.luck_cycles is not None
+        result_win.luck_cycles.monthly_luck = monthly_all
+        scored_win = _get_scorer().score_legacy(
+            result_win,
+            levels={GanjiLevel.MONTH},
+            fav_override=_fav_override,
+        )
+        labels = list(horizon_months)
+        if year_digest_years:
+            avail_y = {pl.label for pl in result_win.luck_cycles.yearly_luck}
+            labels += [str(y) for y in year_digest_years if str(y) in avail_y]
+        year_cands = [c for c in all_scored if len(c.period) == 4]
+        overview = build_monthly_overview(result_win, scored_win + year_cands, months=labels)
+        if not any(r.score is not None for r in overview):
+            overview = None  # 신호 전무한 빈 표는 회피 유발 — 미부착
+        # 창 내 월 후보를 메인 후보에도 보존(표와 근거 경로가 같은 달을 가리키게).
+        win_set = set(horizon_months)
+        seen_h = {(c.event_key, c.period) for c in candidates}
+        candidates += [
+            c for c in scored_win if c.period in win_set and (c.event_key, c.period) not in seen_h
+        ]
+        result_for_llm = result_win
+    elif vague_future and year_result.luck_cycles is not None:
         # 막연한 시점 → 올해부터 10년 세운 흐름 digest(연별 운 품질·우세 사건). 월별 표 미생성.
         avail = {pl.label for pl in year_result.luck_cycles.yearly_luck}
         labels = [str(y) for y in year_digest_years if str(y) in avail]
@@ -2463,7 +2771,8 @@ def chat(
             # 저점(신호 없던 해)이 드러나게 한다(2026-06-12 지적).
             have = {pl.label for pl in result.luck_cycles.yearly_luck}
             years = [
-                str(y) for y in range(today.year - 10, today.year + 1)
+                str(y)
+                for y in range(today.year - 10, today.year + 1)
                 if str(y) in have  # 세운 데이터 있는 연도만(거짓 '정보 없음' 행 방지)
             ]
             overview = build_monthly_overview(result, all_scored, months=years)
@@ -2471,8 +2780,10 @@ def chat(
             # 상대 기준 앵커(YYYY-MM-DD = '앞으로/향후 1년' 등) — 그 달부터 12개월 롤링.
             window_months = _rolling_months(int(start_label[:4]), int(start_label[5:7]))
         elif (
-            start_label and end_label
-            and len(start_label) == 7 and len(end_label) == 7
+            start_label
+            and end_label
+            and len(start_label) == 7
+            and len(end_label) == 7
             and start_label != end_label
         ):
             # 다중 월 창('지난 1년'=직전 12개월 등, 2026-06-12) — 질문 창 그대로 월별 표.
@@ -2506,7 +2817,9 @@ def chat(
             assert result_win.luck_cycles is not None
             result_win.luck_cycles.monthly_luck = monthly_all
             scored_win = _get_scorer().score_legacy(
-                result_win, levels={GanjiLevel.MONTH}, fav_override=_fav_override,
+                result_win,
+                levels={GanjiLevel.MONTH},
+                fav_override=_fav_override,
             )
             overview = build_monthly_overview(result_win, scored_win, months=window_months)
             # 창 내 월 후보(기본 월운 범위 밖 과거 달 포함)를 메인 후보에도 보존 —
@@ -2514,7 +2827,8 @@ def chat(
             win_set = set(window_months)
             seen_c = {(c.event_key, c.period) for c in candidates}
             candidates += [
-                c for c in scored_win
+                c
+                for c in scored_win
                 if c.period in win_set and (c.event_key, c.period) not in seen_c
             ]
             # 간지 lookup·incoming_note(천간 용기신 역할)가 창 월을 커버하게 —
@@ -2543,7 +2857,9 @@ def chat(
                 assert result_year.luck_cycles is not None
                 result_year.luck_cycles.monthly_luck = year_months
                 scored_year = _get_scorer().score_legacy(
-                    result_year, levels={GanjiLevel.MONTH}, fav_override=_fav_override,
+                    result_year,
+                    levels={GanjiLevel.MONTH},
+                    fav_override=_fav_override,
                 )
                 overview = build_monthly_overview(result_year, scored_year, year=target_year)
                 result_for_llm = result_year
@@ -2562,8 +2878,12 @@ def chat(
             # 이사 택일 + 동반자 첨부 → M10 그룹 집계(함께 무난한 날). 그 외엔 단일 택일.
             if partner_birth is not None and _is_relocation_intent(intent):
                 date_block = _relocation_group_block(
-                    birth, partner_birth, intent, today,
-                    subject_label or "본인", partner_label or "상대",
+                    birth,
+                    partner_birth,
+                    intent,
+                    today,
+                    subject_label or "본인",
+                    partner_label or "상대",
                 ) or _date_selection_block(birth, intent, today, yongsin)
             else:
                 date_block = _date_selection_block(birth, intent, today, yongsin)
@@ -2625,26 +2945,30 @@ def chat(
             _comp_birth = partner_birth
         if _comp_birth is not None:
             _comp_result = calculate(_comp_birth.model_copy(update={"reference_date": today}))
-            _eff = next(
-                (e for e in plan.effective_subjects if e.subject_id == _cid), None
-            )
+            _eff = next((e for e in plan.effective_subjects if e.subject_id == _cid), None)
             # P3a — 관계유형 추론(질문 키워드 > relation_to_user > 도메인 > unknown).
             _rtype, _rbasis = infer_relation_type(
-                question, _eff.relation_to_user if _eff else None,
+                question,
+                _eff.relation_to_user if _eff else None,
                 [str(d) for d in intent.domains],
             )
             # P3d-3 — unknown이면 유사도로 관점 힌트만 보강(실행 경로 불변, rules-first).
             _rtype, _rbasis = augment_relation_type(_rtype, _rbasis, question, has_companion=True)
             subject_blocks, relationship_context = _pairwise_subject_blocks(
-                _inj, result, _comp_result,
+                _inj,
+                result,
+                _comp_result,
                 self_label=subject_label,
                 companion_label=(_eff.label if _eff else partner_label),
-                relation_type=_rtype, relation_basis=_rbasis,
+                relation_type=_rtype,
+                relation_basis=_rbasis,
                 year=today.year,
             )
-            plan = plan.model_copy(update={
-                "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
-            })
+            plan = plan.model_copy(
+                update={
+                    "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
+                }
+            )
     elif compare_mode and _inj is not None and len(_inj.companion_subject_ids) == 2:
         # P3b — 동반자끼리(A=base 이미 교체, B는 블록). 본인 미포함. birth는 base-swap에서 검증됨.
         _pa = _inj.primary_subject_id or _inj.companion_subject_ids[0]
@@ -2654,21 +2978,25 @@ def chat(
             _b_result = calculate(_b_birth.model_copy(update={"reference_date": today}))
             _effa = next((e for e in plan.effective_subjects if e.subject_id == _pa), None)
             _effb = next((e for e in plan.effective_subjects if e.subject_id == _pb), None)
-            _rtype, _rbasis = infer_relation_type(
-                question, None, [str(d) for d in intent.domains]
-            )
+            _rtype, _rbasis = infer_relation_type(question, None, [str(d) for d in intent.domains])
             # P3d-3 — 두 동반자 관계는 relation_to_user 없음 → unknown이면 유사도로 힌트 보강.
             _rtype, _rbasis = augment_relation_type(_rtype, _rbasis, question, has_companion=True)
             subject_blocks, relationship_context = _compare_subject_blocks(
-                _inj, result, _b_result,
+                _inj,
+                result,
+                _b_result,
                 primary_label=(_effa.label if _effa else "대상1"),
                 other_label=(_effb.label if _effb else "대상2"),
                 other_subject_id=_pb,
-                relation_type=_rtype, relation_basis=_rbasis, year=today.year,
+                relation_type=_rtype,
+                relation_basis=_rbasis,
+                year=today.year,
             )
-            plan = plan.model_copy(update={
-                "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
-            })
+            plan = plan.model_copy(
+                update={
+                    "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
+                }
+            )
     elif ranking_mode and _inj is not None and len(_inj.companion_subject_ids) >= 3:
         # P3c-2 — 다자 비교(동반자 3~4명, 본인 미포함). A=primary(base 교체), 나머지는 블록.
         _capped = _inj.companion_subject_ids[:_RANKING_CAP]
@@ -2686,28 +3014,44 @@ def chat(
             _cb = _companion_birth(_cid)
             if _cb is None:
                 continue
-            _others.append((
-                _cid, _label_of(_cid),
-                calculate(_cb.model_copy(update={"reference_date": today})),
-            ))
+            _others.append(
+                (
+                    _cid,
+                    _label_of(_cid),
+                    calculate(_cb.model_copy(update={"reference_date": today})),
+                )
+            )
         subject_blocks, relationship_context = _ranking_subject_blocks(
-            _inj, result, _label_of(_pa), _others, year=today.year,
+            _inj,
+            result,
+            _label_of(_pa),
+            _others,
+            year=today.year,
         )
         ranking_truncated = _truncated
-        plan = plan.model_copy(update={
-            "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
-        })
+        plan = plan.model_copy(
+            update={
+                "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
+            }
+        )
     # P3c-1 — 경쟁 비교: pairwise/compare 실행 경로는 그대로 두고 관계맥락을 competition으로,
     # 안전 가드를 승부 단정 금지로 교체(승률·순위·당락 산출 금지). 대상 2명일 때만.
     competition_active = False
     if relationship_context is not None and is_competition(question):
-        relationship_context = relationship_context.model_copy(update={
-            "mode": "competition",
-            "safety_guards": list(COMPETITION_SAFETY_GUARDS),
-        })
+        relationship_context = relationship_context.model_copy(
+            update={
+                "mode": "competition",
+                "safety_guards": list(COMPETITION_SAFETY_GUARDS),
+            }
+        )
         competition_active = True
     payload = build_llm_input(
-        question, intent, result_for_llm, candidates, bundles, _get_scorer(),
+        question,
+        intent,
+        result_for_llm,
+        candidates,
+        bundles,
+        _get_scorer(),
         call_type="chat_compare" if plan.per_subject else "chat_single",
         today=today,
         monthly_overview=overview,
@@ -2718,7 +3062,8 @@ def chat(
         prior_claims=prior_claims,
         current_month_label=luck_month,
         current_month_detail=_current_luck_month_detail(
-            chart_birth, today,
+            chart_birth,
+            today,
             result.time_correction.timezone if result.time_correction else "Asia/Seoul",
         ),
         structural_context=structural,
@@ -2801,6 +3146,7 @@ def chat(
     # 사용자 확정 용신 적용 안내 — 확정 5역할을 길흉 기준으로, 엔진 최초 도출은 기본값으로 병기.
     if _confirmed_yongsin is not None:
         from saju_engines.event_scoring import confirmed_yongsin_note
+
         _yongsin_note = confirmed_yongsin_note(result, _confirmed_yongsin)
         if _yongsin_note:
             trailing.append(_yongsin_note)
@@ -2845,16 +3191,22 @@ def chat(
     # 입도 질문이면 12개월 월별 흐름에서 달 단위로(연 나열 금지 — 2026-07-03), 그 외 사건형
     # 연 질문은 12개월 나열 대신 연간 요약+핵심 달로.
     if vague_future and not _relo_dest:
-        trailing.append(_YEAR_DIGEST_DIRECTIVE)
-    elif gran_no_period and not _relo_dest:
+        # 지평 정책이 잡힌 질문은 10년 digest 대신 지평 강제 지시(밖 서술 금지 + 한 줄 안내).
         trailing.append(
-            _MONTH_PICK_DIRECTIVE if timing_gran == "month" else _DAY_PICK_DIRECTIVE
+            horizon_directive(horizon) if horizon is not None else _YEAR_DIGEST_DIRECTIVE
         )
+    elif gran_no_period and not _relo_dest:
+        trailing.append(_MONTH_PICK_DIRECTIVE if timing_gran == "month" else _DAY_PICK_DIRECTIVE)
     elif overview is not None and event_monthly and not monthly_explicit:
         trailing.append(_KEY_MONTHS_DIRECTIVE)
     # 대운·장기 인생 흐름 질문 — 대운을 '환경/공간감(플랫폼)이 닥쳐오는 흐름·이 대운이 나에게
     # 맞느냐'로 서술하고 교체기 체감 신호도 함께(리포트 대운 섹션과 공용 관점, 2026-06-23 확장).
-    if (_is_daewoon_question(intent, question) or vague_future) and not _relo_dest:
+    # 지평 정책 질문 중 대운 배경이 필요한 건 구조 결정형(natal_fit)뿐 — 즉시형·전망형에
+    # 대운 프레이밍을 붙이면 다시 장기 서술로 흐른다(2026-07-09 지평 정책).
+    _wants_daewoon_frame = _is_daewoon_question(intent, question) or (
+        vague_future and (horizon is None or horizon.natal_fit)
+    )
+    if _wants_daewoon_frame and not _relo_dest:
         trailing.append(DAEWOON_FRAMING_DIRECTIVE)
         trailing.append(DAEWOON_TRANSITION_SIGNALS_DIRECTIVE)
         # 운 품질 → 의사결정 태도 번역(좋은 시기=직감 실행, 불안정=점검·내실 — 사례 P0-5).
@@ -2875,9 +3227,7 @@ def chat(
     # 한 축, 2026-07-03) 월 단위 변형을 쓴다 — 비택일·장소 단정 금지 원칙은 유지.
     if _is_relationship_context(intent, question):
         trailing.append(
-            _MEETING_TIMING_MONTH_DIRECTIVE
-            if timing_gran == "month"
-            else _MEETING_TIMING_DIRECTIVE
+            _MEETING_TIMING_MONTH_DIRECTIVE if timing_gran == "month" else _MEETING_TIMING_DIRECTIVE
         )
     # 인연 출처 — '주변 사람 vs 새로운 사람' 질문이면 합·도화=가까운 / 충·역마=새 인연 근거(비단정).
     if _is_partner_source_question(question):
@@ -2903,15 +3253,12 @@ def chat(
     reserve = estimate_tokens(sys_for_budget) + estimate_tokens("\n".join(trailing))
 
     try:
-        prompt_text, tokens = serialize_with_guard(
-            payload, call_type, reserve_tokens=reserve
-        )
+        prompt_text, tokens = serialize_with_guard(payload, call_type, reserve_tokens=reserve)
     except TokenBudgetExceeded as exc:
         return ChatResponse(
             status="too_broad",
             answer=(
-                "질문 범위가 넓어 분석량이 한도를 초과했어요. "
-                f"기간이나 분야를 좁혀주세요. ({exc})"
+                f"질문 범위가 넓어 분석량이 한도를 초과했어요. 기간이나 분야를 좁혀주세요. ({exc})"
             ),
             intents=parsed.intents,
         )
@@ -2922,7 +3269,8 @@ def chat(
         # T4.5 — 시스템이 제시한 상위 이벤트를 claim/event 엔티티로 등록(이의 재검산 대비).
         summaries = [
             ResultSummaryRef(
-                kind="event", label=f"{c.event_key}@{c.period}",
+                kind="event",
+                label=f"{c.event_key}@{c.period}",
                 detail=f"score {c.score} · {c.polarity}",
             )
             for c in payload.event_candidates[:3]
@@ -2949,7 +3297,9 @@ def chat(
         prompt_text,
         call_type=call_type,
         system=system,
-        owner_id=owner_id, surface="chat", ref_id=thread_id,
+        owner_id=owner_id,
+        surface="chat",
+        ref_id=thread_id,
     )
     answer = _normalize_ganji_gloss(answer)  # 간지 이중 병기(과글로싱) 보정.
     if state is not None:

@@ -1702,17 +1702,26 @@ def serialize_llm_input(payload: LlmInput) -> str:
         _ov = payload.monthly_overview
         _span = f"{_ov[0].period}~{_ov[-1].period}" if _ov else ""
         _is_yearly = bool(_ov) and len(_ov[0].period) == 4
+        _n_months = sum(1 for r in _ov if len(r.period) == 7)
+        _n_years = sum(1 for r in _ov if len(r.period) == 4)
+        _is_mixed = bool(_n_months and _n_years)  # 지평 결합 표(앞 N개월 + 연 단위)
         # 기간 단위어 — 연 단위 블록은 '해', 월 단위 블록은 '달'(년월 혼동 방지).
         # 조사: '해'(모음)=는/를, '달'(ㄹ받침)=은/을. '로'·'의'는 양쪽 공통.
         _unit = "해" if _is_yearly else "달"
         _n = "는" if _is_yearly else "은"  # 주격/보조사
         _l = "를" if _is_yearly else "을"  # 목적격
-        lines.append(
-            f"[연도별 흐름 — {_span} {len(_ov)}년(값 그대로 사용, 추측 금지; "
-            "점수 낮은 해 = 그 사건의 신호가 거의 없던 해)]"
-            if _is_yearly
-            else f"[월별 요약 — {_span} {len(_ov)}개월(값 그대로 사용, 추측 금지)]"
-        )
+        if _is_mixed:
+            lines.append(
+                f"[운 흐름 요약 — 앞 {_n_months}개월은 월 단위, 이후 {_n_years}개년은 "
+                "연(세운) 단위(값 그대로 사용, 추측 금지)]"
+            )
+        elif _is_yearly:
+            lines.append(
+                f"[연도별 흐름 — {_span} {len(_ov)}년(값 그대로 사용, 추측 금지; "
+                "점수 낮은 해 = 그 사건의 신호가 거의 없던 해)]"
+            )
+        else:
+            lines.append(f"[월별 요약 — {_span} {len(_ov)}개월(값 그대로 사용, 추측 금지)]")
         # 기반 최고 시기를 이름 박아 별도 지목 — intent 질문(이직 등)에서 그 시기에 해당 사건이
         # 없으면 표 범례 지시가 묻혀 누락되던 문제(2026-06-16). 사건과 무관하게 반드시 한 번 짚게.
         _best = _best_quality_months(_ov)

@@ -37,9 +37,12 @@ def test_destination_question_centers_on_region_and_direction() -> None:
 
 
 def test_vague_relocation_without_destination_keeps_timeline() -> None:
-    # 목적지 미명시 막연 이사 질문은 기존 10년 digest 유지(회귀 안전).
+    # 목적지 미명시 막연 이사 질문 — 지평 정책(2026-07-09)에 따라 분야 기본 6개월 월 단위
+    # 타임라인로 답한다(과거 10년 digest → 축소). 목적지 지시는 여전히 미적용.
     t = _prompt("앞으로 이사운 어때?")
-    assert _YEAR_DIGEST_MARK in t
+    assert _YEAR_DIGEST_MARK not in t
+    assert "[답변 지평]" in t and "향후 6개월" in t
+    assert "[월별 요약" in t  # 월 단위 타임라인은 유지
     assert _DEST_MARK not in t
 
 
