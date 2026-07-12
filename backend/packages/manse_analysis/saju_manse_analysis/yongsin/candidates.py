@@ -1416,22 +1416,14 @@ def build_yongsin(
     model_complete = selected_model is not None and all(
         getattr(selected_model, k) for k in _ROLE_KEYS
     )
-    # 희신=과다(병) 교정(2026-07-12 데굴님 확정) — 정적 생극 순환이 배정한 희신 오행이
-    # 원국 과다 병(_overloaded_element)과 일치하면 그 오행의 추가 유입은 병을 키우므로
-    # 희신 부적격(예: 丁일간 子월 살중용인 — '水生木이니 水=희신'이 관살 압박을 길로 판정).
-    # 선택 모델이 5역할 완비 자체맵으로 이를 교정하고 있으면(살인상생형: 희=비겁·한=관살,
-    # 군겁쟁재 억부형: 희=재성 등) final 도 모델맵을 채택한다. 과다 판정은 기존
-    # _overloaded_element(관살/식상/인성/비겁 임계)만 재사용 — 새 명리 상수 없음.
-    over_el = _overloaded_element(groups, g)
-    overload_heesin_fixed = (
-        not special_roles
-        and over_el is not None
-        and roles.get("heesin") == over_el
-        and selected_model is not None
-        and model_complete
-        and selected_model.heesin != over_el
-    )
-    if overload_heesin_fixed:
+    # 모델맵 채택(2026-07-12 데굴님 확정 — 전면): 정적 생극 순환은 원국 과다·강약·구조를
+    # 무시하고 배정한다(실사용 오류: 살중용인에서 '水生木이니 水=희신'이 관살 압박을 길로
+    # 판정 / 신강 억부 희=비겁 / 군겁쟁재 희=재성 / 식상과다 희=관성 / 인성과다 병을 한신·
+    # 구신으로 방치). 각 모델의 자체 역할맵이 구조 교정값이므로 **5역할 완비 선택 모델은
+    # final 도 자체맵을 채택**한다. 정적 순환은 부분맵 모델(johu/pattern/disease 등)과
+    # bridge/무비겁 특수분기(이미 맥락 교정된 맵)의 폴백 전용.
+    model_map_promoted = not special_roles and model_complete
+    if model_map_promoted:
         roles = {k: getattr(selected_model, k) for k in _ROLE_KEYS}
 
     final = {
@@ -1450,7 +1442,7 @@ def build_yongsin(
     final_is_static = all(
         canonical_roles[k] == static_roles.get(k) for k in _ROLE_KEYS
     )
-    model_map_adopted = (final_is_static or overload_heesin_fixed) and model_complete
+    model_map_adopted = (final_is_static or model_map_promoted) and model_complete
     operational_map = _operational_role_map(
         selected_model, canonical_roles, adopt_model_map=model_map_adopted
     )
