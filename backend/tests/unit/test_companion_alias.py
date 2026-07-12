@@ -6,7 +6,11 @@ docs/03 A0/A9. 별명·관계어·별칭을 등록 동반자로 안정 해소하
 
 from __future__ import annotations
 
-from saju_engines.companion_alias import AliasEntry, build_companion_alias_index
+from saju_engines.companion_alias import (
+    AliasEntry,
+    build_companion_alias_index,
+    merge_attached_partner,
+)
 from saju_engines.conversation import ConversationEngine
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.conversation import ConversationState
@@ -109,6 +113,53 @@ def test_legacy_aliases_still_supported() -> None:
     eng = ConversationEngine(aliases={"1호": "c-son"})
     res = eng.resolve_subjects(ConversationState(thread_id="t"), "1호 사주 봐줘")
     assert res.subjects[0].companion_id == "c-son"
+
+
+def test_attached_partner_resolves_without_registry() -> None:
+    """FE 칩 첨부(inline)만 있고 서버 등록이 없어도 첨부 라벨 지칭이 해소된다.
+
+    실사용 결함(2026-07-12): 게스트가 '남편' 첨부 후 '남편 사주로 …' 질문 시
+    need_subject 확인 질문이 무한 반복되던 문제의 회귀 방지.
+    """
+    idx = merge_attached_partner({}, {"mode": "inline", "label": "남편"})
+    res = ConversationEngine(alias_index=idx).resolve_subjects(
+        ConversationState(thread_id="t"), "아니 남편 사주로 대출 시 어떤 흐름일지 봐달라고."
+    )
+    assert [(s.kind, s.companion_id) for s in res.subjects] == [
+        (SubjectKind.COMPANION, "inline:partner")
+    ]
+    assert not res.unresolved
+
+
+def test_attached_partner_overrides_same_label_registration() -> None:
+    """동일 라벨 등록 대상이 있어도 첨부(명시 선택)가 우선 — ambiguous 확인 질문 금지."""
+    base = build_companion_alias_index(
+        [_SELF, _rec("c9", "남편", rel="husband")], base_subject_id="self1"
+    )
+    idx = merge_attached_partner(base, {"mode": "inline", "label": "남편"})
+    res = ConversationEngine(alias_index=idx).resolve_subjects(
+        ConversationState(thread_id="t"), "남편 올해 재물운 봐줘"
+    )
+    assert res.subjects[0].companion_id == "inline:partner"
+    assert not res.unresolved
+
+
+def test_attached_partner_registered_mode_uses_subject_id() -> None:
+    """등록 첨부(registered)는 그 subject_id로 해소 — birth 맵 조회와 정합."""
+    idx = merge_attached_partner(
+        {}, {"mode": "registered", "subjectId": "c1", "label": "지민"}
+    )
+    res = ConversationEngine(alias_index=idx).resolve_subjects(
+        ConversationState(thread_id="t"), "지민 사주 봐줘"
+    )
+    assert res.subjects[0].companion_id == "c1"
+
+
+def test_merge_attached_partner_noop_cases() -> None:
+    """첨부 없음·1글자 라벨은 원본 인덱스 그대로(과매칭 방지 기준 동일)."""
+    base = {"남편": [AliasEntry("c1", "남편", None, "label")]}
+    assert merge_attached_partner(base, None) is base
+    assert merge_attached_partner(base, {"mode": "inline", "label": "김"}) is base
 
 
 def test_alias_entry_metadata_preserved() -> None:

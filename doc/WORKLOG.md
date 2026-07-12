@@ -6763,3 +6763,24 @@ Phase D 서술 시드).
   (회귀 전체 통과).
 - **후속**: P4(오행-산업 매핑) 보류 유지. 준비기 신호의 리포트 목차 확장·개인 캘리브레이션
   연동은 골든 사례 축적 후 재논의.
+
+### 동반자 첨부 대상 해소 결함 수정 — need_subject 무한 반복 (2026-07-12, 실사용 리포트)
+
+라이브 테스트(스크린샷): FE 칩으로 '남편' 첨부 후 "남편 사주로 대출 시 어떤 흐름일지
+봐달라고" 질문 → "'남편'가 어느 분인지 확인이 필요해요" need_subject 무한 반복.
+
+원인 2건: ①대상 해소(A9)가 서버 등록 별칭 인덱스만 조회 — 게스트·인라인 첨부는 서버
+레지스트리에 없어 '남편' 지칭이 unresolved로 빠짐(첨부 폴백 `inline:partner`→partner_birth
+는 다운스트림에 이미 있었으나 그 앞 조기 반환에 막힘). ②'대출'이 재물 도메인 키워드에
+없어 해소를 통과해도 general→too_broad로 이탈.
+
+- **수정 1**: `companion_alias.merge_attached_partner` 신설 — 첨부 라벨(정규화)을 첨부
+  대상 단일 항목으로 인덱스에 덮어씀(명시 선택 > 텍스트 해소, 원칙 7. 동일 라벨 등록
+  대상과 ambiguous 처리하지 않음). chat_service의 ConversationEngine 생성 시 병합.
+  등록 첨부=그 subject_id, 인라인 첨부=`inline:partner`(기존 birth 폴백 키와 정합).
+- **수정 2**: `query_parser` WEALTH 키워드에 대출·융자·빚·부채 추가.
+- **부수**: need_subject 안내문 조사 교정("'남편'가"→"'남편'이(가)").
+- 검증: 신규 테스트 4건(미등록 첨부 해소·동일 라벨 우선·registered id·noop). 실서버
+  재현 — 첨부 시 chat_single·domain wealth·base=남편 명식·재물/준비기 블록 주입 확인,
+  미첨부 시 need_subject 확인 질문 유지(회귀 없음). 전체 1699 passed·38 skipped,
+  ruff·mypy clean.

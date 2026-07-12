@@ -20,7 +20,7 @@ from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
 from saju_engines import EventEngineV2, GraphIndex, filter_year_candidates, load_event_graph
 from saju_engines.chart_interpretation import build_luck_grounding
-from saju_engines.companion_alias import AliasEntry
+from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
@@ -2301,7 +2301,12 @@ def chat(
         store.migrate()
         state = store.load(thread_id) or ConversationState(thread_id=thread_id)
         prior_intent = state.last_intent  # process_turn이 갱신하기 전 직전 intent 보존.
-        engine = ConversationEngine(alias_index=companion_alias_index)
+        # FE 칩 첨부 동반자를 별칭 인덱스에 병합 — 서버 미등록(게스트·인라인 첨부)이어도
+        # 발화 속 첨부 라벨 지칭("남편 사주로")이 need_subject 반복으로 빠지지 않게 한다.
+        # 명시 선택(칩)이 텍스트 별칭 해소보다 우선(원칙 7 — 대상 혼동 방지).
+        engine = ConversationEngine(
+            alias_index=merge_attached_partner(companion_alias_index or {}, partner_ref)
+        )
         parsed, state, resolution, _link = engine.process_turn(
             state,
             question,
@@ -2319,7 +2324,7 @@ def chat(
             return ChatResponse(
                 status="need_subject",
                 answer=(
-                    f"'{', '.join(resolution.unresolved)}'가 어느 분인지 확인이 필요해요. "
+                    f"'{', '.join(resolution.unresolved)}'이(가) 어느 분인지 확인이 필요해요. "
                     "등록된 동반자 별칭을 알려주시거나 출생 정보를 입력해 주세요."
                 ),
                 intents=parsed.intents,

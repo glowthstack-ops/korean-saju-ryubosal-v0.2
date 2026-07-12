@@ -51,6 +51,40 @@ def normalize_token(token: str) -> str:
     return token.replace(" ", "").strip().lower()
 
 
+def merge_attached_partner(
+    index: dict[str, list[AliasEntry]], partner_ref: dict | None,
+) -> dict[str, list[AliasEntry]]:
+    """FE 칩 첨부 동반자를 별칭 인덱스에 병합 — 명시 선택은 텍스트 해소보다 우선(원칙 7).
+
+    첨부 라벨(정규화)을 첨부 대상 '단일 항목'으로 덮어쓴다: 사용자가 방금 UI에서 고른
+    대상이 정답이므로, 동일 라벨의 다른 등록 대상과 모호(ambiguous) 처리하지 않는다.
+    서버 미등록 첨부(inline)·게스트에서도 발화 속 첨부 라벨 지칭("남편 사주로 봐줘")이
+    need_subject 확인 질문으로 빠지지 않게 한다. subject_id는 등록 첨부면 그 id,
+    인라인 첨부면 'inline:partner'(다운스트림 birth 폴백 키와 일치).
+
+    Args:
+        index: 등록 레지스트리 기반 별칭 인덱스(원본은 변경하지 않음).
+        partner_ref: 프론트 ChatPartner dict(mode/label/subjectId) 또는 None.
+
+    Returns:
+        병합된 새 인덱스(첨부 없음·라벨 1글자면 원본 그대로).
+    """
+    if not partner_ref or not partner_ref.get("label"):
+        return index
+    label = str(partner_ref["label"])
+    key = normalize_token(label)
+    if len(key) < 2:  # 1글자 라벨 과매칭 방지 — 자동 인덱스와 동일 기준
+        return index
+    sid = (
+        str(partner_ref["subjectId"])
+        if partner_ref.get("mode") == "registered" and partner_ref.get("subjectId")
+        else "inline:partner"
+    )
+    out = dict(index)
+    out[key] = [AliasEntry(sid, label, None, "attached")]
+    return out
+
+
 def build_companion_alias_index(
     records: list[SubjectRecord], base_subject_id: str | None = None
 ) -> dict[str, list[AliasEntry]]:
