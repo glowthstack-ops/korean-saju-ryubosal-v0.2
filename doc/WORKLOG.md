@@ -6705,3 +6705,34 @@ note 에 제외 사유 기록).
 - 검증: 신규 test_spouse_palace_tendency.py 7건(사전 규격·단정 금지·4인자/계절 분기·
   마킹·통합·chat 노출). 전체 1635 passed·38 skipped, ruff·mypy clean,
   validate_dictionaries 76파일 통과.
+
+### 운 십성 출처 강도 배선 + 비견·편재 규칙 — 재물운 영상 대조 P1·P2 (2026-07-12, 데굴님 승인)
+
+유튜브 재물운 강의(운 간지 상하 슬롯 십성 조합 7종) 전수 대조 결과, 사전에 스펙만 있던
+`transit_source_strength` 배율이 미배선임을 확인 → 배선 + 커버리지 보강. 결정 4건
+(데굴님): ①조합 배율=기여 십성 강도 산술평균(개수 보너스 금지) ②동일계열 1.25 판정=
+십성군 기준·지지 본기만(丙午 정인+편인 성립 — 운 간여지동) ③SPEC_BIJIAN_PIANCAI 신규
+④식신+편인은 이벤트 불변, 문구만 도식 단정→조건부 양면 구조로 수정(긍정 경로는 추후
+Phase D 서술 시드).
+
+- **엔진**: `ten_god_brancher.py` — TransitSignal에 strength/same_group/same_god,
+  collect_from_pillar가 천간 1.0·지지 본기 0.9·동일 십성군 기둥 1.25(사전 로드,
+  하드코딩 없음) 부여. branch()는 규칙 점수 × 기여 십성 강도 평균(round). 설명 태그
+  SRC_SAME_GOD(甲寅류)/SRC_SAME_GROUP(丙午류) reason_codes 부착, contributions에
+  src_strength 기록. 지장간 중기·여기(0.55/0.35)는 신호 미수집이라 범위 밖.
+- **배경층 제외 설계**: 동일계열 1.25는 채점 대상 층(is_target)에만 — 세운 간여지동이
+  그 해 전체 월운을 일괄 증폭해 교운 가중 실측 랭킹(case12, 2025-11 재취업 1위)을
+  깨는 것을 확인하고 차단(`event_engine_v2._score_target` 배선, addendum notes 명문화).
+- **사전**: SPEC_BIJIAN_PIANCAI(비견+편재 — business_start/expansion 52·wealth_change
+  52·windfall 41, 확장·개업 국면, 감수 대상) 추가. SPEC_PIANYIN_SHISHEN quality 양면
+  구조 문구 수정(동작 무영향 — 규칙 레벨 quality는 문서용). stem_branch_same_god
+  notes에 십성군·본기·배경층 제외 기준 명문화.
+- **부수 효과(의도된 변별)**: 지지 본기 단독 유래 약신호가 0.9 감쇠로 SCORE_FLOOR(40)
+  아래로 이동 가능 — test_in_period_candidates_are_main 을 경계선 후보(연애 40점)에
+  의존하지 않는 직업 도메인 질문으로 교체(기간 필터 검증 의도 보존).
+- 검증: 신규 브랜처 테스트 7건(출처 배율·간여지동 증폭/태그·배경층 제외·평균 배율·신규
+  규칙). 전체 1689 passed·38 skipped, ruff·mypy(111파일) clean, validate_dictionaries
+  77파일 통과, case12 실측 랭킹 복원 확인(2025-11 raw 230 > 2026-02 209.7).
+- **후속(P2 잔여)**: 정인+재성 세분 SPEC은 그룹 규칙(COMBO_WEALTH_RESOURCE)이 커버해
+  보류. "운 도래 전 준비기(lead-up)" 모델(P3)·오행-산업 매핑(P4)은 미착수 — 착수 전
+  데굴님 규칙 확정 필요.

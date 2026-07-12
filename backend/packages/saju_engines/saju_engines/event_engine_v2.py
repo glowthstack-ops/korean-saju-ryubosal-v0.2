@@ -345,10 +345,14 @@ class EventEngineV2:
         stack = idx.stack_for(level, label, target)
         if not stack:
             return []
+        # 동일계열 집중(운 간여지동) 배율은 채점 대상 층에만 — 배경층 일괄 증폭 방지.
+        target_layer = _LEVEL_TO_LAYER[level]
         signals = [
             s
             for layer, pillar in stack
-            for s in self._brancher.collect_from_pillar(pillar, layer)
+            for s in self._brancher.collect_from_pillar(
+                pillar, layer, is_target=layer is target_layer,
+            )
         ]
         if not signals:
             return []
@@ -385,7 +389,7 @@ class EventEngineV2:
         )
         cands = self._gate.apply(cands, gate_ctx)
         # 발동·궁성 — 해당 시점 관계 적중(+ 일지 복음 발동: 운 지지=원국 일지).
-        layer = _LEVEL_TO_LAYER[level]
+        layer = target_layer
         activations = _activations(hits, layer) + _bokeum_activations(result, target, layer)
         day_el = (
             str(STEM_ELEMENT[Stem(result.pillars.day.stem)])

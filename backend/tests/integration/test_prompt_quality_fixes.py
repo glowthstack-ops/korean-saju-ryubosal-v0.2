@@ -44,8 +44,12 @@ def test_reference_frame_always_present() -> None:
 
 
 def test_in_period_candidates_are_main() -> None:
-    """'올해' 질문: 메인 후보는 전부 2026, 과거(2022 등)는 참고 블록으로."""
-    text = _preview("올해 연애운은 어때?")
+    """'올해' 질문: 메인 후보는 전부 2026, 과거(2022 등)는 참고 블록으로.
+
+    질문은 후보가 SCORE_FLOOR를 넉넉히 넘는 직업 도메인 사용 — 연애 도메인은 이 명식에서
+    40점 경계 약신호뿐이라 출처 강도 배율(지지 본기 0.9) 도입 후 정직 생략 구간으로 이동.
+    """
+    text = _preview("올해 직업운은 어때?")
     main = text.split("[이벤트 후보")[1].split("[참고")[0]
     assert "@ 2026" in main
     assert "@ 2022" not in main and "@ 2024" not in main  # 과거가 메인 점유 금지

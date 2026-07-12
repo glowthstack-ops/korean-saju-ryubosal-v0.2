@@ -1130,6 +1130,33 @@
       "quality": "고정 재물·관계에 경쟁자 또는 동급자 개입"
     },
     {
+      "id": "SPEC_BIJIAN_PIANCAI",
+      "combination": [
+        "BIJIAN",
+        "PIANCAI"
+      ],
+      "name": "비견+편재",
+      "events": [
+        {
+          "event": "business_start",
+          "score": 52
+        },
+        {
+          "event": "business_expansion",
+          "score": 52
+        },
+        {
+          "event": "wealth_change",
+          "score": 52
+        },
+        {
+          "event": "windfall",
+          "score": 41
+        }
+      ],
+      "quality": "보유 자원을 투입해 판을 키우는 확장·개업·투자 국면. 겁재 조합보다 손실 변동성 낮음"
+    },
+    {
       "id": "SPEC_JIECAI_ZHENGCAI",
       "combination": [
         "JIECAI",
@@ -1206,7 +1233,7 @@
           "score": 34
         }
       ],
-      "quality": "결과물·생산이 막히거나 지연됨. 용신이면 깊은 연구로 전환"
+      "quality": "편인도식과 전문성 산출의 양면 구조 — 산출이 막히거나 지연될 수 있으나, 식신이 살아 있고(통근·투간) 재성·시장 연결이 함께하면 전문지식의 결과물화·수익화로 전환. 고정 부정으로 단정하지 않고 서술 계층에서 조건부 반영"
     },
     {
       "id": "SPEC_ZHENGYIN_SHANGGUAN",
