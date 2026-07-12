@@ -33,9 +33,10 @@ def _by_period(diffs):
 
 
 def test_golden_fav_delta_directions(make_pillars) -> None:
+    # 희신 과다 교정(2026-07-12) 후 legacy(final)=모델맵 — delta 방향도 그에 맞춰 갱신.
     d = _by_period(_diffs(make_pillars))
-    assert d["W"]["fav_delta"] == -0.6     # 水 희신 → 조건부 희신/병 (하향)
-    assert d["F"]["fav_delta"] == 0.35     # 火 한신 → 조후보조신 (상향)
+    assert d["W"]["fav_delta"] == 0.0      # 水 한신 → 조건부 한신/병 (가중 동일 0)
+    assert d["F"]["fav_delta"] == -0.25    # 火 희신 → 조후보조신 (보조약 하향)
     assert d["M"]["fav_delta"] == -0.405   # 木 용신 operability 0.595 (하향)
     assert d["E"]["fav_delta"] == 0.7      # 土 구신 → 조건부 제살보조 (완화)
     assert d["G"]["fav_delta"] == 0.0      # 金 기신 유지 (불변)
@@ -44,25 +45,28 @@ def test_golden_fav_delta_directions(make_pillars) -> None:
 def test_observation_score_combination(make_pillars) -> None:
     d = _by_period(_diffs(make_pillars, score=70))
     # 관찰용 결합 = clamp(score + fav_delta × SPAN). 실제 score 아님.
-    expected = max(0, min(100, round(70 - 0.6 * SHADOW_SCORE_SPAN)))
-    assert d["W"]["shadow_observation_score"] == expected
+    expected = max(0, min(100, round(70 - 0.25 * SHADOW_SCORE_SPAN)))
+    assert d["F"]["shadow_observation_score"] == expected
     assert d["W"]["legacy_score"] == 70                  # legacy 불변
-    assert d["W"]["shadow_observation_score"] < 70       # 水 하향
-    assert d["F"]["shadow_observation_score"] > 70       # 火 상향
+    assert d["W"]["shadow_observation_score"] == 70      # 水 가중 동일(0) — 불변
+    assert d["E"]["shadow_observation_score"] > 70       # 土 완화 상향
     assert d["G"]["shadow_observation_score"] == 70      # 金 불변
 
 
 def test_reason_role_change_and_operability(make_pillars) -> None:
     d = _by_period(_diffs(make_pillars))
-    assert any("조건부 희신/병" in r for r in d["W"]["reason"])   # 라벨 변경
+    # reason 은 '가중이 바뀐 것'만 기록 — 水(한신→조건부 한신/병)는 가중 동일(0)이라 미기록,
+    # 火(희신→조후보조신)가 라벨 변경 reason 을 담는다.
+    assert d["W"]["reason"] == []
+    assert any("조후보조신" in r for r in d["F"]["reason"])       # 라벨 변경
     assert any("작동성 0.595" in r for r in d["M"]["reason"])     # 용신 operability
     assert d["G"]["reason"] == []                                # 변화 없음
     assert all(len(x["reason"]) <= 3 for x in d.values())        # reason ≤3
 
 
 def test_conditional_heesin_lowers_not_positive(make_pillars) -> None:
-    # 조건부 희신/병(水)은 positive 처리되지 않고 fav_delta 하향.
-    assert _by_period(_diffs(make_pillars))["W"]["fav_delta"] < 0
+    # 조건부 한신/병(水)은 어떤 경우에도 positive 로 승격되지 않는다(0 이하).
+    assert _by_period(_diffs(make_pillars))["W"]["fav_delta"] <= 0
 
 
 def test_rank_observation_only(make_pillars) -> None:
@@ -84,4 +88,4 @@ def test_missing_ganji_skipped(make_pillars) -> None:
 def test_legacy_favorability_unchanged(make_pillars) -> None:
     ya = analyze_chart(make_pillars(*_STD)).yongsin
     fav = favorability_map(SimpleNamespace(yongsin_analysis=ya))  # type: ignore[arg-type]
-    assert fav.get("水") == "희신" and fav.get("火") == "한신"  # canonical 그대로
+    assert fav.get("水") == "한신" and fav.get("火") == "희신"  # canonical(교정 후) 그대로

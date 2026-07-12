@@ -34,15 +34,17 @@ def _standard(make_pillars):
 
 
 def test_overloaded_officer_water_becomes_conditional(make_pillars) -> None:
+    # 희신 과다 교정(2026-07-12) 후 canonical 은 모델맵(한신=水) — 과다 병 水는
+    # 중립 한신이 아니라 '조건부 한신/병'(중첩 유입 시 기신성)으로 강등 표기.
     er = _by_element(_standard(make_pillars))["水"]
-    assert er.canonical_role == "희신"          # 정적은 그대로 희신
-    assert er.operational_role == "조건부 희신/병"  # 과다·병 합성 라벨
+    assert er.canonical_role == "한신"
+    assert er.operational_role == "조건부 한신/병"  # 과다·병 합성 라벨
     assert er.negative_when and any("과다" in s for s in er.negative_when)
     assert er.positive_when  # 비어있지 않음
     # note 에 합성 출처(원래 역할들)를 남긴다.
     assert er.note is not None
     assert "base_model_role=한신" in er.note
-    assert "canonical_role=희신" in er.note
+    assert "canonical_role=한신" in er.note
     assert "synthesized_by=overload_condition" in er.note
 
 
@@ -110,8 +112,9 @@ def test_element_role_roundtrip_serialization(make_pillars) -> None:
 
 def test_final_and_canonical_unchanged_by_conditions(make_pillars) -> None:
     # 조건부 라벨 부여가 final(점수화 SSOT)·canonical_roles 를 바꾸지 않음을 재확인.
+    # (희신 과다 교정으로 final 자체는 모델맵: 희신=火·한신=水 — 2026-07-12 확정.)
     y = _standard(make_pillars)
-    assert y.final["heesin"] == "水" and y.final["hansin"] == "火"  # 정적 불변
+    assert y.final["heesin"] == "火" and y.final["hansin"] == "水"
     assert y.canonical_roles == {
         k: y.final[k]
         for k in ("yongsin", "heesin", "gisin", "gusin", "hansin")

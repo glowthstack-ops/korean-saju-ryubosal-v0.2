@@ -25,7 +25,8 @@ from saju_engines.shadow_scoring import (
 from saju_shared_types.birth_input import BirthInput
 
 _STD_BIRTH = BirthInput(
-    calendar_type="solar", birth_date="1977-12-16", birth_time="05:30",
+    # 조건부 희신/병 유지 차트(희신 과다 교정 후 — 비겁 희신의 한습 강등, 癸巳 일주).
+    calendar_type="solar", birth_date="1970-01-13", birth_time="04:30",
     birth_place_name="서울", gender="male", reference_date="2026-06-11",
 )
 

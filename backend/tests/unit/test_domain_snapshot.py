@@ -21,7 +21,8 @@ from saju_engines.shadow_scoring import domain_to_expression_key
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import Domain
 
-_STD = BirthInput(calendar_type="solar", birth_date="1977-12-16", birth_time="05:30",
+# 희신 과다 교정(2026-07-12) — 조건부·유보(壬子) 스냅샷은 조건부 희신/병이 남는 차트로.
+_STD = BirthInput(calendar_type="solar", birth_date="1970-01-13", birth_time="04:30",
                   birth_place_name="Seoul", gender="male", reference_date="2026-06-11")
 
 
@@ -65,12 +66,13 @@ def test_domain_water_phrase_snapshot() -> None:
 
 # ── C. 5 운별 base 등급(domain=None) 고정 ──
 def test_base_expression_classes_per_element() -> None:
+    # 차트(1970-01-13 癸巳): 水=조건부 희신/병·金=용신(op0.85)·木=구신(제살보조)·火=기신·土=한신/병.
     assert "[표현 제한] 조건부·유보" in _line("壬子", None)            # 水
-    assert "[표현 제한] 보조 긍정" in _line("丙午", None)              # 火
-    mok = _line("甲寅", None)                                          # 木 용신·작동성 낮음
-    assert "[표현 제한] 길" in mok and "작동성 낮아" in mok
-    assert "[표현 제한] 주의 속 일부 완화" in _line("戊辰", None)      # 土
-    assert "[표현 제한] 주의/흉" in _line("庚申", None)               # 金
+    assert "[표현 제한] 주의/흉" in _line("丙午", None)               # 火 기신
+    geum = _line("庚申", None)                                         # 金 용신·작동성 0.85<0.9
+    assert "[표현 제한] 길" in geum and "작동성 낮아" in geum
+    assert "[표현 제한] 주의 속 일부 완화" in _line("甲寅", None)      # 木 구신→제살보조 완화
+    assert "[표현 제한] 중립" in _line("戊辰", None)                   # 土 한신(0)·한신/병(0)
 
 
 # ── D. GENERAL/None → base 5b-2a guidance fallback(도메인 문구 아님) ──

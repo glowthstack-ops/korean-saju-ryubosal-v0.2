@@ -31,26 +31,27 @@ class ChartSpec:
 
 
 SPECS: list[ChartSpec] = [
-    # ── 그룹 1: 관살/살인상생/조건부 희신·병 ──
+    # ── 그룹 1: 관살/살인상생/조건부 병 ──
+    # 희신 과다 교정(2026-07-12) 후 관살태왕의 官殺은 final 한신 강등 → '조건부 한신/병'.
     ChartSpec(
-        "kansal_taewang_01", "관살태왕 신약 — 官殺 조건부 희신/병",
+        "kansal_taewang_01", "관살태왕 신약 — 官殺 조건부 한신/병",
         required=[P.strength_in(_WEAK), P.dominant_group("officer"),
-                  P.has_operational_role("조건부 희신/병")],
-        expected_shadow=P.expect_role_shadow_down("조건부 희신/병"),
+                  P.has_operational_role("조건부 한신/병")],
+        expected_shadow=P.expect_role_shadow_down("조건부 한신/병"),
         notes="官殺 과발동 방지 핵심",
     ),
     ChartSpec(
         "sarin_sangsaeng_01", "살인상생 — 印 용신·官殺 조건부",
-        required=[P.dominant_group("officer"), P.has_operational_role("조건부 희신/병")],
+        required=[P.dominant_group("officer"), P.has_operational_role("조건부 한신/병")],
         preferred=[P.strength_in(_WEAK)],
-        expected_shadow=P.expect_role_shadow_down("조건부 희신/병"),
+        expected_shadow=P.expect_role_shadow_down("조건부 한신/병"),
         notes="살인상생형 일반화",
     ),
     ChartSpec(
         "conditional_byeong_water_01", "水 과다 조건부 희신/병",
         required=[P.element_pct_ge("水", 40), P.has_operational_role("조건부 희신/병")],
         expected_shadow=P.expect_role_shadow_down("조건부 희신/병"),
-        notes="표준 丁巳/壬子류 재현",
+        notes="비겁 희신이 한습 조후 역행으로 강등되는 류(예: 己酉/丁丑/癸巳) 재현",
     ),
     # ── 그룹 2: 조후보조신 ──
     ChartSpec(

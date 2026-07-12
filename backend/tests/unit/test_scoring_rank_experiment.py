@@ -18,12 +18,14 @@ from saju_engines.scoring_operational import (
 )
 from saju_shared_types.birth_input import BirthInput
 
-_STD = BirthInput(calendar_type="solar", birth_date="1977-12-16", birth_time="05:30",
+# 희신 과다 교정(2026-07-12) 후 구 표준차트는 A 감점 대상이 아님(水=조건부 한신/병·legacy
+# 한신 0) — 교정 후에도 조건부 희신/병이 남는 차트(비겁 희신의 한습 강등, 癸巳 일주)를 쓴다.
+_STD = BirthInput(calendar_type="solar", birth_date="1970-01-13", birth_time="04:30",
                   birth_place_name="Seoul", gender="male")
 _A = {"conditional_byeong_downgrade": True, "low_operability_yongsin": False}
 _B = {"conditional_byeong_downgrade": False, "low_operability_yongsin": True}
 _AB = {"conditional_byeong_downgrade": True, "low_operability_yongsin": True}
-# 水(조건부 희신/병)·木(용신 op0.595)·金(기신) — year 풀.
+# 水(조건부 희신/병)·金(용신 op0.85)·火(기신) — year 풀.
 _GBP = {"y1": "壬子", "y2": "甲寅", "y3": "庚申", "y4": "丙午", "y5": "戊辰"}
 _LEVEL = dict.fromkeys(_GBP, "year")
 
@@ -92,17 +94,17 @@ def test_component_branches_differ() -> None:
     a = {r["period"]: r["operational_adjusted_score"] for r in _exp(_A)}
     b = {r["period"]: r["operational_adjusted_score"] for r in _exp(_B)}
     assert a["y1"] < 90 and b["y1"] == 90   # A는 水(y1) 감점, B는 무관
-    assert b["y2"] < 80 and a["y2"] == 80   # B는 木 용신(y2) 감점, A는 무관
+    assert b["y3"] < 70 and a["y3"] == 70   # B는 金 용신(y3, op0.85) 감점, A는 무관
 
 
 # ── coef_override: low_op 14 > 10 감점 · config 불변 ──
 def test_coef_override_and_config_immutable() -> None:
     before = cfg.SCORING_OPERATIONAL_COEF["low_op_max_penalty"]
     r10 = {r["period"]: r["operational_adjusted_score"]
-           for r in _exp(_B, coef={"low_op_max_penalty": 10.0})}
+           for r in _exp(_B, coef={"low_op_max_penalty": 20.0})}
     r14 = {r["period"]: r["operational_adjusted_score"]
-           for r in _exp(_B, coef={"low_op_max_penalty": 14.0})}
-    assert r14["y2"] < r10["y2"]   # 木 용신 더 큰 감점
+           for r in _exp(_B, coef={"low_op_max_penalty": 34.0})}
+    assert r14["y3"] < r10["y3"]   # 金 용신 더 큰 감점(op0.85 — 계수 확대로 정수 차 확보)
     assert cfg.SCORING_OPERATIONAL_COEF["low_op_max_penalty"] == before  # config 불변
 
 

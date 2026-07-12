@@ -423,6 +423,13 @@ def _annotate_overload_conditions(
                 er, "조건부 희신/병", canonical_by_element, operational_by_element,
                 synthesized_by=["overload_condition"],
             ))
+        elif el == over_el and canonical_by_element.get(el) == "hansin":
+            # 희신=과다(병) 교정으로 병 오행이 한신으로 강등된 케이스(살중용인의 관살 등) —
+            # 중립 한신이 아니라 '중첩 유입 시 기신성'인 조건부 한신으로 표기(점수 불변).
+            out.append(_with_condition(
+                er, "조건부 한신/병", canonical_by_element, operational_by_element,
+                synthesized_by=["overload_condition"],
+            ))
         elif (
             CONTROLS[Element(el)] == Element(over_el)
             and canonical_by_element.get(el) in ("gusin", "gisin")
@@ -468,9 +475,10 @@ def _annotate_climate_conditions(
                 er, "조후보조신", canonical_by_element, operational_by_element,
                 synthesized_by=["climate_need"],
             ))
-        elif el == harmful and er.operational_role == "조건부 희신/병":
+        elif el == harmful and er.operational_role in ("조건부 희신/병", "조건부 한신/병"):
+            # 과다(병) 라벨에 조후 역행 사유를 병합(라벨 유지) — 희신/한신 강등형 공통.
             out.append(_with_condition(
-                er, "조건부 희신/병", canonical_by_element, operational_by_element,
+                er, er.operational_role, canonical_by_element, operational_by_element,
                 synthesized_by=["overload_condition", "climate_harmful"],
                 extra_negative=climate_neg,
             ))
@@ -1374,10 +1382,12 @@ def build_yongsin(
         useful_candidates[0].element if useful_candidates else None,
     )
     roles = _classify_roles(yongsin_el)
+    special_roles = False  # bridge/무비겁 특수분기 — 이미 맥락 교정된 맵(아래 교정 제외)
     if top_model == "bridge_tonggwan" and yongsin_el:
         roles = _classify_bridge_roles(
             g, groups, checks["bridge_required"].detail, useful, yongsin_el
         )
+        special_roles = True
     elif (
         top_model == "support_day_master"
         and band in _WEAK
@@ -1391,16 +1401,10 @@ def build_yongsin(
             "gusin": _e(g["wealth"]),
             "hansin": _e(g["officer"]),
         }
-    final = {
-        **roles,
-        "confidence": round(model_conf.get(top_model or "", 0.0), 4),
-        "selected_model": top_model,
-    }
+        special_roles = True
 
-    # 2계층 역할(YONGSIN_OPERATIONAL_ROLE_SPEC Phase 0): canonical=현행 final 5역할 미러,
-    # operational=실제 선택 모델(동일 model_type·yongsin 중 최고 confidence)의 자체 역할맵을
-    # 5역할 완비 시 채택, 부분맵이면 canonical 폴백. final 은 불변 — 점수화는 final 만 소비.
-    canonical_roles: dict[str, str | None] = {k: roles.get(k) for k in _ROLE_KEYS}
+    # 선택 모델(동일 model_type·yongsin 중 최고 confidence) — 희신 과다 교정과
+    # operational 계층이 함께 소비한다.
     selected_model = next(
         (
             m
@@ -1409,16 +1413,44 @@ def build_yongsin(
         ),
         None,
     )
-    # final 이 정적 생극 순환(_classify_roles)을 그대로 썼을 때만 모델 자체맵을 채택한다.
-    # bridge_tonggwan·부일간(무비겁) 특수분기는 canonical 이 이미 맥락 교정값이므로 폴백.
+    model_complete = selected_model is not None and all(
+        getattr(selected_model, k) for k in _ROLE_KEYS
+    )
+    # 희신=과다(병) 교정(2026-07-12 데굴님 확정) — 정적 생극 순환이 배정한 희신 오행이
+    # 원국 과다 병(_overloaded_element)과 일치하면 그 오행의 추가 유입은 병을 키우므로
+    # 희신 부적격(예: 丁일간 子월 살중용인 — '水生木이니 水=희신'이 관살 압박을 길로 판정).
+    # 선택 모델이 5역할 완비 자체맵으로 이를 교정하고 있으면(살인상생형: 희=비겁·한=관살,
+    # 군겁쟁재 억부형: 희=재성 등) final 도 모델맵을 채택한다. 과다 판정은 기존
+    # _overloaded_element(관살/식상/인성/비겁 임계)만 재사용 — 새 명리 상수 없음.
+    over_el = _overloaded_element(groups, g)
+    overload_heesin_fixed = (
+        not special_roles
+        and over_el is not None
+        and roles.get("heesin") == over_el
+        and selected_model is not None
+        and model_complete
+        and selected_model.heesin != over_el
+    )
+    if overload_heesin_fixed:
+        roles = {k: getattr(selected_model, k) for k in _ROLE_KEYS}
+
+    final = {
+        **roles,
+        "confidence": round(model_conf.get(top_model or "", 0.0), 4),
+        "selected_model": top_model,
+    }
+
+    # 2계층 역할(YONGSIN_OPERATIONAL_ROLE_SPEC Phase 0): canonical=현행 final 5역할 미러,
+    # operational=실제 선택 모델의 자체 역할맵을 5역할 완비 시 채택, 부분맵이면 canonical 폴백.
+    canonical_roles: dict[str, str | None] = {k: roles.get(k) for k in _ROLE_KEYS}
+    # final 이 정적 생극 순환(_classify_roles) 그대로이거나 위 희신 과다 교정으로 이미
+    # 모델맵을 채택했을 때만 모델 자체맵 채택. bridge_tonggwan·부일간(무비겁) 특수분기는
+    # canonical 이 이미 맥락 교정값이므로 폴백.
     static_roles = _classify_roles(yongsin_el)
     final_is_static = all(
         canonical_roles[k] == static_roles.get(k) for k in _ROLE_KEYS
     )
-    model_complete = selected_model is not None and all(
-        getattr(selected_model, k) for k in _ROLE_KEYS
-    )
-    model_map_adopted = final_is_static and model_complete
+    model_map_adopted = (final_is_static or overload_heesin_fixed) and model_complete
     operational_map = _operational_role_map(
         selected_model, canonical_roles, adopt_model_map=model_map_adopted
     )

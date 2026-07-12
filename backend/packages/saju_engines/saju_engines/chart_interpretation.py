@@ -367,10 +367,12 @@ def build_yongsin_operational_summary(
     warnings: list[str] = []
     cond_byung = [
         r.element for r in ya.operational_roles
-        if r.operational_role == "조건부 희신/병"
+        if r.operational_role in ("조건부 희신/병", "조건부 한신/병")
     ]
     if cond_byung:
-        warnings.append(f"{'·'.join(cond_byung)}: 자동 길신 처리 금지(정적 희신이나 과다·병)")
+        warnings.append(
+            f"{'·'.join(cond_byung)}: 자동 길신 처리 금지(원국 과다·병 — 중첩 유입 시 기신성)"
+        )
     if level == "낮음":
         warnings.append(f"{primary}: 용신이나 작동성 약함")
     has_structure = any(

@@ -99,7 +99,7 @@ def test_final_groups_strength_favorability_unchanged(make_pillars) -> None:
     y, force = chart.yongsin, chart.force
     assert force.strength.band == "신약"
     assert round(force.ten_gods.groups["officer"]) == 45
-    assert y.final["heesin"] == "水" and y.final["hansin"] == "火"
+    assert y.final["heesin"] == "火" and y.final["hansin"] == "水"
     assert y.canonical_roles == {k: y.final[k] for k in _ROLE_KEYS}
     fav = favorability_map(SimpleNamespace(yongsin_analysis=y))  # type: ignore[arg-type]
     for key, ko in (("yongsin", "용신"), ("heesin", "희신"), ("gisin", "기신"),

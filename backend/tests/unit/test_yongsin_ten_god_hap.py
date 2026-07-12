@@ -83,7 +83,7 @@ def test_standard_bigeop_enriched_officer_unchanged(make_pillars) -> None:
 
 def test_invariance_final_operability(make_pillars) -> None:
     y, by = _by_el(make_pillars, _STD)
-    assert y.final["yongsin"] == "木" and y.final["heesin"] == "水"  # final 불변
+    assert y.final["yongsin"] == "木" and y.final["heesin"] == "火"  # final 불변
     assert by["木"].operability == 0.595  # operability 불변
     assert y.canonical_roles == {
         k: y.final[k] for k in ("yongsin", "heesin", "gisin", "gusin", "hansin")

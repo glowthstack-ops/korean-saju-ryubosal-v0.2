@@ -87,15 +87,16 @@ def test_operational_summary_present(make_pillars) -> None:
     rows, _ = _build(make_pillars)
     r = rows[0]
     assert "火:조후보조신" in r["operational_roles"]      # 조후보조신 라벨
-    assert "조건부 희신/병" in r["operational_roles"]      # 水 조건부
+    assert "조건부 한신/병" in r["operational_roles"]      # 水 조건부(희신 과다 교정 후)
     assert "op=0.595" in r["operability_factors"]         # 용신 木 작동성
 
 
-# ── Guard #1: 조건부 희신/병(水) positive 작동 금지 → fav_delta ≤ 0 ──
+# ── Guard #1: 조건부 한신/병(水) positive 작동 금지 → fav_delta ≤ 0 ──
+# (희신 과다 교정 후 legacy=한신 0.0 — 승격 없이 중립 유지, 서술 가드는 5b-1이 담당)
 def test_guard1_conditional_heesin_not_positive(make_pillars) -> None:
     rows = _by_period(_build(make_pillars)[0])
     assert rows["W"]["fav_delta"] <= 0
-    assert rows["W"]["expression_class"] == "조건부·유보"
+    assert rows["W"]["expression_class"] == "중립"
 
 
 # ── Guard #3: operability 낮은 용신운(木 0.595) 과대평가 금지 → shadow_fav ≤ legacy_fav ──
@@ -127,10 +128,11 @@ def test_rank_warn_threshold_scales_with_pool(make_pillars) -> None:
 
 
 # ── Guard #5: abs(score_delta) ≥ 18 → score WARN 플래그 ──
+# (희신 과다 교정 후 水 delta=0 — 큰 delta 는 土 완화 상향 +0.7×30=+21 이 담당)
 def test_guard5_warn_flagging(make_pillars) -> None:
     rows, summary = _build(make_pillars, score=70)
-    w = _by_period(rows)["W"]
-    assert w["score_delta"] == -18 and "score_delta" in w["warns"]  # 水: -0.6×30
+    e = _by_period(rows)["E"]
+    assert e["score_delta"] == 21 and "score_delta" in e["warns"]  # 土: +0.7×30
     assert summary["warn_score_delta"] >= 1
 
 

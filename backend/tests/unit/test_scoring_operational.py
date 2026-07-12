@@ -19,9 +19,11 @@ from saju_engines.scoring_operational import (
 )
 from saju_shared_types.birth_input import BirthInput
 
-_STD = BirthInput(calendar_type="solar", birth_date="1977-12-16", birth_time="05:30",
+# 희신 과다 교정(2026-07-12) 후 구 표준차트는 A 감점 대상이 아님(水=조건부 한신/병·legacy
+# 한신 0) — 교정 후에도 조건부 희신/병이 남는 차트(비겁 희신의 한습 강등, 癸巳 일주)를 쓴다.
+_STD = BirthInput(calendar_type="solar", birth_date="1970-01-13", birth_time="04:30",
                   birth_place_name="Seoul", gender="male")
-# 표준차트: 水=조건부 희신/병(legacy 희신)·木=용신 op0.595·火 조후보조신·土 제살보조·金 기신.
+# 차트: 水=조건부 희신/병(legacy 희신)·金=용신 op0.85·木 구신(제살보조)·火 기신·土 조건부 한신/병.
 _GBP = {"W": "壬子", "M": "甲寅", "F": "丙午", "E": "戊辰", "G": "庚申"}
 
 
@@ -81,15 +83,15 @@ def test_component_A_only(monkeypatch) -> None:
     rows = _by_period(_apply(monkeypatch, a=True, b=False))
     assert rows["W"]["operational_score_delta"] < 0          # 水 조건부 희신/병 감점
     assert "conditional_byeong_downgrade" in rows["W"]["penalties"]
-    assert rows["G"]["operational_score_delta"] == 0         # 金 기신(legacy_fav<0) 무감점
-    assert rows["F"]["operational_score_delta"] == 0         # 火 조후보조신 무감점(A 대상 아님)
+    assert rows["F"]["operational_score_delta"] == 0         # 火 기신(legacy_fav<0) 무감점
+    assert rows["E"]["operational_score_delta"] == 0         # 土 조건부 한신/병(legacy 0) 무감점
 
 
-# ── B: 낮은 operability 용신(木)만, 용신 오행 한정 ──
+# ── B: 낮은 operability 용신(金 op0.85)만, 용신 오행 한정 ──
 def test_component_B_only(monkeypatch) -> None:
     rows = _by_period(_apply(monkeypatch, a=False, b=True))
-    assert rows["M"]["operational_score_delta"] < 0          # 木 용신 op0.595 감점
-    assert "low_operability_yongsin" in rows["M"]["penalties"]
+    assert rows["G"]["operational_score_delta"] < 0          # 金 용신 op0.85 감점
+    assert "low_operability_yongsin" in rows["G"]["penalties"]
     assert rows["W"]["operational_score_delta"] == 0         # 水(비용신) B 무관
     assert rows["F"]["operational_score_delta"] == 0
 

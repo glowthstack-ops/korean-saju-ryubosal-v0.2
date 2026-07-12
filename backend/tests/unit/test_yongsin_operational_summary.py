@@ -52,7 +52,7 @@ def test_summary_fields(make_pillars) -> None:
     assert s.operability_factors == ["no_transmit", "gyeokgak_zimao"]  # 내부 stable key
     assert s.operability_factors_ko == ["투간無", "子卯 격각"]  # 프리픽스용 한국어 압축
     assert s.main_support == ["火: 조후보조신"]
-    assert any("水: 조건부 희신/병" in c for c in s.conditional)
+    assert any("水: 조건부 한신/병" in c for c in s.conditional)
     assert any("土: 조건부 제살보조" in c for c in s.conditional)
 
 
@@ -75,7 +75,7 @@ def test_warnings_priority_and_budget(make_pillars) -> None:
     s = _std_summary(make_pillars)
     assert len(s.warnings) <= _MAX_WARNINGS
     assert sum(len(w) for w in s.warnings) <= _WARNINGS_CHAR_BUDGET
-    # 우선순위 1번(조건부 희신/병 경고)이 맨 앞.
+    # 우선순위 1번(조건부 병 경고 — 희신/한신 강등형 공통)이 맨 앞.
     assert "자동 길신 처리 금지" in s.warnings[0]
 
 
@@ -84,14 +84,14 @@ def test_serialize_block_and_token_budget(make_pillars) -> None:
     summary = BirthChartSummary(
         day_master="丁", pillars={"year": "丁巳", "month": "壬子", "day": "丁未", "hour": "癸卯"},
         useful_gods=UsefulGods(
-            yongsin=["木"], heesin=["水"], gisin=["金"], gusin=["土"], hansin=["火"]),
+            yongsin=["木"], heesin=["火"], gisin=["金"], gusin=["土"], hansin=["水"]),
         strength="신약",
     )
     base = serialize_chart_prefix(summary, ChartInterpretation())
     withop = serialize_chart_prefix(summary, ChartInterpretation(yongsin_operational_summary=s))
     text = "\n".join(withop)
     assert "[작동 역할" in text
-    assert "水: 조건부 희신/병" in text and "火: 조후보조신" in text
+    assert "水: 조건부 한신/병" in text and "火: 조후보조신" in text
     assert "작동성 낮음 0.595" in text
     # 프리픽스엔 한국어 압축 표현만, 내부 key(no_transmit 등)는 노출 안 됨.
     assert "투간無" in text and "子卯 격각" in text
@@ -108,10 +108,10 @@ def test_end_to_end_prompt_and_invariance() -> None:
     result = calculate(_STD_BIRTH)
     # 불변: final/canonical/favorability 그대로(operational 은 additive·미소비).
     fav = favorability_map(result)
-    assert fav.get("水") == "희신" and fav.get("火") == "한신"  # 정적 final 불변
+    assert fav.get("水") == "한신" and fav.get("火") == "희신"  # 희신 과다 교정 반영(final=모델맵)
     # 프롬프트에 작동 역할 블록 + 지침 노출.
     res = chat_service.chat(_STD_BIRTH, "내 사주 성향 알려줘", date(2026, 6, 11), dry_run=True)
     pv = res.prompt_preview or ""
     assert "[작동 역할" in pv
-    assert "조건부 희신/병" in pv and "조후보조신" in pv
+    assert "조건부 한신/병" in pv and "조후보조신" in pv
     assert "작동성(operability)이 낮으면" in pv  # _OPERATIONAL_INSTRUCTION 지침

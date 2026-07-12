@@ -38,8 +38,9 @@ def _clamp(make_pillars, ganji):
 
 def test_standard_luck_expression_classes(make_pillars) -> None:
     cls = lambda gj: _clamp(make_pillars, gj)["expression_class"]  # noqa: E731
-    assert cls("壬子") == "조건부·유보"     # 水 희신 → 조건부 희신/병
-    assert cls("丙午") == "보조 긍정"       # 火 한신 → 조후보조신
+    # 희신 과다 교정(2026-07-12) 후 legacy(final)=모델맵: 水=한신·火=희신.
+    assert cls("壬子") == "중립"            # 水 한신(0)·조건부 한신/병(0) — 승격 없음
+    assert cls("丙午") == "길"              # 火 희신 → 조후보조신(0.35, 밴드 이상)
     assert cls("甲寅") == "길"              # 木 용신
     assert cls("戊辰") == "주의 속 일부 완화"  # 土 구신 → 조건부 제살보조
     assert cls("庚申") == "주의/흉"         # 金 기신
@@ -52,8 +53,8 @@ def test_conditional_heesin_never_promoted_to_gil() -> None:
 
 
 def test_mixed_ganji_conservative_merge(make_pillars) -> None:
-    # 천간 水(조건부·유보)·지지 火(보조 긍정) → 보수 병합으로 조건부·유보.
-    assert _clamp(make_pillars, "壬午")["expression_class"] == "조건부·유보"
+    # 천간 水(중립)·지지 火(길) → 우선순위 병합으로 길. 병합 규칙 자체는 순수 함수로 검증.
+    assert _clamp(make_pillars, "壬午")["expression_class"] == "길"
     assert _merge_expression(["보조 긍정", "조건부·유보"]) == "조건부·유보"
     assert _merge_expression(["길", "주의/흉"]) == "주의/흉"
 
@@ -71,7 +72,7 @@ def test_build_luck_grounding_surfaces_expression_limit() -> None:
         gongmang_activation=[],
     )
     g = build_luck_grounding(result, luck)
-    assert "[표현 제한] 조건부·유보" in g["pillar_line"]
+    assert "[표현 제한] 중립" in g["pillar_line"]
     assert "점수·순위 불변" in g["pillar_line"]
 
 
@@ -79,7 +80,7 @@ def test_score_favorability_unchanged(make_pillars) -> None:
     # 표현 제한은 문장 가드 — favorability_map(final/canonical) 불변.
     ya = analyze_chart(make_pillars(*_STD)).yongsin
     fav = favorability_map(SimpleNamespace(yongsin_analysis=ya))  # type: ignore[arg-type]
-    assert fav.get("水") == "희신" and fav.get("火") == "한신"
+    assert fav.get("水") == "한신" and fav.get("火") == "희신"
 
 
 def test_period_prompt_has_expression_limit() -> None:

@@ -17,9 +17,11 @@ from saju_api.services.manse_service import calculate
 from saju_engines.scoring_operational import near_tie_demotion_order
 from saju_shared_types.birth_input import BirthInput
 
-_STD = BirthInput(calendar_type="solar", birth_date="1977-12-16", birth_time="05:30",
+# 희신 과다 교정(2026-07-12) 후 구 표준차트는 A 감점 대상이 아님(水=조건부 한신/병·legacy
+# 한신 0) — 교정 후에도 조건부 희신/병이 남는 차트(비겁 희신의 한습 강등, 癸巳 일주)를 쓴다.
+_STD = BirthInput(calendar_type="solar", birth_date="1970-01-13", birth_time="04:30",
                   birth_place_name="Seoul", gender="male")
-# 壬子=水 조건부 희신/병(A 감점 −6) / 甲寅=용신 木(감점 0) — test_scoring_apply 와 동일 차트.
+# 壬子=水 조건부 희신/병(A 감점 −12) / 甲寅=木 구신(감점 0) — test_scoring_apply 와 동일 차트.
 _PEN, _CLEAN = "壬子", "甲寅"
 
 

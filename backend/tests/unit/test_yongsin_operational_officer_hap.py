@@ -31,7 +31,7 @@ def _std(make_pillars):
 
 def test_officer_hap_enriches_water_without_changing_label(make_pillars) -> None:
     er = _by_element(_std(make_pillars))["水"]
-    assert er.operational_role == "조건부 희신/병"          # ★ 라벨 불변
+    assert er.operational_role == "조건부 한신/병"          # ★ 라벨 불변(희신 과다 교정 후)
     # 합반 → positive_when, 쟁합·관살혼잡 → negative_when
     assert any("합반" in s for s in er.positive_when)
     assert any("쟁합" in s for s in er.negative_when)
@@ -82,7 +82,7 @@ def test_final_groups_strength_favorability_unchanged(make_pillars) -> None:
     y, force = chart.yongsin, chart.force
     assert force.strength.band == "신약"
     assert round(force.ten_gods.groups["officer"]) == 45      # 官殺 세력 불변(차감 없음)
-    assert y.final["heesin"] == "水" and y.final["hansin"] == "火"
+    assert y.final["heesin"] == "火" and y.final["hansin"] == "水"
     assert y.canonical_roles == {k: y.final[k] for k in _ROLE_KEYS}
     fav = favorability_map(SimpleNamespace(yongsin_analysis=y))  # type: ignore[arg-type]
     for key, ko in (("yongsin", "용신"), ("heesin", "희신"), ("gisin", "기신"),

@@ -6784,3 +6784,33 @@ Phase D 서술 시드).
   재현 — 첨부 시 chat_single·domain wealth·base=남편 명식·재물/준비기 블록 주입 확인,
   미첨부 시 need_subject 확인 질문 유지(회귀 없음). 전체 1699 passed·38 skipped,
   ruff·mypy clean.
+
+### 용신 역할 배정 — 희신=과다(병) 교정 (2026-07-12, 데굴님 확정)
+
+실사용 리포트: 丁巳/壬子/丁未/癸卯(丁火 신약·子월 관살 태왕)에서 희신 水·한신 火로 표기 —
+"水生木이므로 水=희신"의 기계적 생극 순환이 원국 과다(관살 병)를 무시. 올바른 역할맵
+(살인상생형: 희=비겁 火·한=관살 水)은 operational 계층에만 있고 final(사용자 노출+점수화
+SSOT)에 미반영이던 구 설계(Phase 0 'final 불변')를 폐기하고 교정 승격.
+
+**보편 조건**: 정적 생극 순환이 배정한 희신 오행이 원국 과다 병(_overloaded_element —
+관살/식상/인성/비겁 기존 임계 재사용)과 일치하면 희신 부적격 → 선택 모델이 5역할 완비
+자체맵으로 교정 중이면(모델 희신≠병) final 도 모델맵 채택. bridge/무비겁 특수분기 제외.
+새 명리 상수 없음(기존 과다 판정·기존 모델맵만 재사용).
+
+- **candidates.py**: overload_heesin_fixed 분기 + model_map_adopted 확장(교정 케이스 포함
+  — Phase 1~4 주석·조건부 라벨 계속 작동). 신규 operational 라벨 **'조건부 한신/병'**
+  (병 오행이 한신 강등된 케이스 — 중첩 유입 시 기신성, 중립 한신 처리 금지):
+  OperationalRole enum·ROLE_CLASS(conditional)·SHADOW_ROLE_WEIGHT(0.0, 점수 계열 불변)·
+  CONDITION_TEMPLATES·LUCK_OPERATIONAL_GUARD 추가. climate_harmful 병합·warnings ①을
+  희신/한신 강등형 공통으로 확장. shadow_chart_specs 관살태왕 스펙 라벨 갱신.
+- **결과(신고 차트)**: 용 木·희 火·기 金·구 土·한 水 + operational 火=조후보조신·
+  土=조건부 제살보조·水=조건부 한신/병 — ChatGPT 감수 제안과 완전 일치(조건부 뉘앙스 포함).
+- **파급**: 동일 살중용인 구조(예: 丑월 壬/癸 관살 토왕)도 동일 교정 — 의도된 일반화.
+  구 '정적 순환 불변'을 고정하던 operational/shadow/scoring 계열 테스트 49건을 새 정답으로
+  갱신. 가드·shadow '기계' 검증(조건부 희신/병 감점 −12·조건부·유보 클램프)은 교정 후에도
+  해당 라벨이 남는 차트(1970-01-13 癸巳 — 비겁 희신이 한습 조후 역행으로 강등)로 차량 교체
+  (의미 보존). **회귀·통합·캘리브레이션 스위트는 무수정 통과 — 그 외 명식 부수 피해 없음.**
+- 검증: 전체 1699 passed·38 skipped, ruff clean, mypy 243파일 clean.
+- **주의**: data/shadow_charts/charts.jsonl 의 kansal_taewang/sarin_sangsaeng/
+  conditional_byeong 계열은 교정으로 라벨이 바뀌어 spec 재탐색(find_shadow_charts) 대상 —
+  하네스 재실행 시 재생성 권장(운영 미연결이라 서비스 영향 없음).

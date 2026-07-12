@@ -31,19 +31,21 @@ def _standard(make_pillars):
 
 
 def test_climate_need_fire_elevated_to_johu(make_pillars) -> None:
+    # 희신 과다 교정(2026-07-12) 후 canonical 도 모델맵(火=희신) — 조후 격상은 동일 작동.
     er = _by_element(_standard(make_pillars))["火"]
-    assert er.canonical_role == "한신"
-    assert er.operational_role == "조후보조신"      # 한신 → 조후보조신 격상
+    assert er.canonical_role == "희신"
+    assert er.operational_role == "조후보조신"      # 희신 → 조후보조신 격상
     assert er.positive_when                        # 조후 조건문 채워짐
     assert er.note is not None
     assert "synthesized_by=climate_need" in er.note
     assert "base_model_role=희신" in er.note        # Phase 0 모델맵 역할
-    assert "canonical_role=한신" in er.note
+    assert "canonical_role=희신" in er.note
 
 
 def test_climate_harmful_water_merges_with_overload(make_pillars) -> None:
+    # 희신 과다 교정 후 水=조건부 한신/병 — 과다+한습 출처 병합은 동일하게 작동.
     er = _by_element(_standard(make_pillars))["水"]
-    assert er.operational_role == "조건부 희신/병"
+    assert er.operational_role == "조건부 한신/병"
     # 과다 + 한습 두 출처가 고정 순서로 병합된다.
     assert er.note is not None
     assert "synthesized_by=overload_condition+climate_harmful" in er.note
@@ -65,8 +67,9 @@ def test_neutral_month_no_johu_label(make_pillars) -> None:
 
 
 def test_final_canonical_favorability_unchanged(make_pillars) -> None:
+    # 희신 과다 교정으로 final = 모델맵(희신=火·한신=水) — favorability 는 final 미러 유지.
     y = _standard(make_pillars)
-    assert y.final["heesin"] == "水" and y.final["hansin"] == "火"   # 정적 불변
+    assert y.final["heesin"] == "火" and y.final["hansin"] == "水"
     assert y.canonical_roles == {k: y.final[k] for k in _ROLE_KEYS}
     fav = favorability_map(SimpleNamespace(yongsin_analysis=y))  # type: ignore[arg-type]
     for key, ko in (("yongsin", "용신"), ("heesin", "희신"), ("gisin", "기신"),

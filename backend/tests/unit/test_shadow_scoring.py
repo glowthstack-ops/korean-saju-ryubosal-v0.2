@@ -58,15 +58,16 @@ def test_operability_only_on_yongsin(make_pillars) -> None:
 
 
 def test_diff_has_all_fields_and_delta(make_pillars) -> None:
+    # 희신 과다 교정(2026-07-12) 후 legacy(final)=모델맵: 水=한신·火=희신.
     diff = shadow_vs_legacy_diff(SimpleNamespace(yongsin_analysis=_ya(make_pillars)))
     water = diff["水"]
     assert water == {
-        "legacy_role": "희신", "legacy_weight": 0.6,
-        "operational_role": "조건부 희신/병", "shadow_weight": 0.0, "delta": -0.6,
+        "legacy_role": "한신", "legacy_weight": 0.0,
+        "operational_role": "조건부 한신/병", "shadow_weight": 0.0, "delta": 0.0,
     }
     fire = diff["火"]
-    assert fire["legacy_weight"] == 0.0 and fire["shadow_weight"] == 0.35
-    assert fire["delta"] == 0.35
+    assert fire["legacy_weight"] == 0.6 and fire["shadow_weight"] == 0.35
+    assert fire["delta"] == pytest.approx(-0.25)
 
 
 def test_fail_fast_on_unknown_label() -> None:
@@ -82,4 +83,4 @@ def test_legacy_unchanged(make_pillars) -> None:
     # shadow 산출이 legacy favorability_map(final/canonical)을 바꾸지 않는다.
     ya = _ya(make_pillars)
     fav = favorability_map(SimpleNamespace(yongsin_analysis=ya))  # type: ignore[arg-type]
-    assert fav.get("水") == "희신" and fav.get("火") == "한신"  # canonical 그대로
+    assert fav.get("水") == "한신" and fav.get("火") == "희신"  # canonical(교정 후) 그대로

@@ -53,7 +53,13 @@ def test_relationship_kansal_no_truncation(monkeypatch) -> None:
 # ── career: 헤드룸 충분 → 태그 정상 부착 ──
 def test_career_tags_attached(monkeypatch) -> None:
     _on(monkeypatch, "career")
-    on = _preview(_birth("operational_std"), "올해 직업운 어때?")
+    # 희신 과다 교정(2026-07-12) 후 operational_std 는 A 감점 대상이 아님(水=조건부 한신/병)
+    # — 조건부 희신/병이 남는 차트(비겁 희신의 한습 강등, 癸巳 일주)로 태그 부착을 검증.
+    byeong = BirthInput(
+        calendar_type="solar", birth_date="1970-01-13", birth_time="04:30",
+        birth_place_name="서울", gender="male", reference_date="2026-06-11",
+    )
+    on = _preview(byeong, "올해 직업운 어때?")
     assert _TAG in on
 
 

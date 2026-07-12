@@ -68,7 +68,7 @@ def test_special_pattern_type_predicate() -> None:
 def test_predicates_evaluate_on_standard_chart() -> None:
     r = calculate(_STD)
     # 표준 차트가 만족해야 하는 대표 predicate(엔진 산출 바인딩 정상 동작 확인).
-    assert P.has_operational_role("조건부 희신/병").fn(r)
+    assert P.has_operational_role("조건부 한신/병").fn(r)  # 희신 과다 교정 후 라벨
     assert P.has_operational_role("조후보조신").fn(r)
     assert P.has_operational_role("조건부 제살보조").fn(r)
     assert P.yongsin_factor("no_transmit").fn(r)

@@ -17,9 +17,12 @@ from saju_engines.scoring_operational import (
 )
 from saju_shared_types.birth_input import BirthInput
 
-_STD = BirthInput(calendar_type="solar", birth_date="1977-12-16", birth_time="05:30",
+# 희신 과다 교정(2026-07-12) 후 구 표준차트(1977-12-16)는 水=조건부 한신/병(legacy 한신
+# 0)이라 A 감점이 사라짐 — 가드 '기계' 검증은 교정 후에도 조건부 희신/병이 남는 차트
+# (비겁 희신이 한습 조후 역행으로 강등되는 癸巳 일주)로 수행한다.
+_STD = BirthInput(calendar_type="solar", birth_date="1970-01-13", birth_time="04:30",
                   birth_place_name="Seoul", gender="male")
-# 水(조건부 희신/병·A 감점 −6)·甲寅(용신 木)·庚申(기신)…
+# 水(조건부 희신/병·A 감점 −12)·庚申(용신 金)…
 _GBP = {"p1": "壬子", "p2": "甲寅", "p3": "庚申", "p4": "丙午", "p5": "戊辰"}
 
 
@@ -77,7 +80,7 @@ def test_no_component_no_guard(monkeypatch) -> None:
 # ── career+on → 태그(조건부 희신/병 水) ──
 def test_career_guards(monkeypatch) -> None:
     g = _guards(monkeypatch)
-    assert g  # 최소 1개(水 조건부 희신/병 −6)
+    assert g  # 최소 1개(水 조건부 희신/병 −12)
     # 반환은 (index, reason_key).
     assert all(k in cfg.SCORING_OPERATIONAL_GUARD_PHRASE for _i, k in g)
     assert all(0 <= i < 5 for i, _k in g)
@@ -103,7 +106,7 @@ def test_guard_caution_phrase_compact_vs_full() -> None:
 def test_max_guards(monkeypatch) -> None:
     monkeypatch.setattr(cfg, "SCORING_OPERATIONAL_APPLY_COEF",
                         {**cfg.SCORING_OPERATIONAL_APPLY_COEF, "max_guards": 3})
-    # 모든 기간 壬子(조건부 희신/병 −6) → 5후보 전부 대상이나 3개로 컷.
+    # 모든 기간 壬子(조건부 희신/병 −12) → 5후보 전부 대상이나 3개로 컷.
     g = _guards(monkeypatch, gbp=dict.fromkeys(_GBP, "壬子"))
     assert len(g) == 3
 
@@ -117,7 +120,7 @@ def test_reason_source(monkeypatch) -> None:
 
 # ── 조후보조신(火)·제살보조(土)는 무태그(penalty 없음) ──
 def test_no_guard_for_johu_jesal(monkeypatch) -> None:
-    # 丙午(火 조후보조신)·戊辰(土 제살보조)만 → A/B penalty 없음 → 무태그.
+    # 丙午(火 기신)·戊辰(土 한신) — 조건부병 라벨·용신 아님 → A/B penalty 없음 → 무태그.
     g = _guards(monkeypatch, gbp={"p1": "丙午", "p2": "戊辰"})
     assert g == []
 
