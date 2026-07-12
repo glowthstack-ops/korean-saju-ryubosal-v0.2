@@ -1888,12 +1888,14 @@ def _structural_context(
         analyze_palace_network,
         palace_network_lines,
     )
+    from saju_engines.preparation_context import build_preparation_context
     from saju_engines.structural_context import (
         era_energy_lines,
         external_impression_lines,
         health_lines,
         marriage_age_prior_lines,
         marriage_resource_lines,
+        preparation_context_lines,
         wealth_capacity_lines,
         wealth_status_lines,
     )
@@ -1907,6 +1909,12 @@ def _structural_context(
         out += era_energy_lines(result, today.year)  # 시대 기운 먼저(개인 앞 사회 맥락)
     if general or domain is Domain.WEALTH:
         out += wealth_capacity_lines(analyze_wealth_capacity(result))
+        # 재물 준비기(P3, 데굴님 확정 2026-07-12) — 발현 후보년·선행 준비년 서술 전용 맥락.
+        # 점수·순위·시기·확신도 불변(inert). 세운 미보유 시 빈 목록(무언급).
+        if result.luck_cycles is not None:
+            out += preparation_context_lines(build_preparation_context(
+                result.luck_cycles.yearly_luck, today.year,
+            ))
     if general or domain in (Domain.WEALTH, Domain.CAREER):
         out += wealth_status_lines(analyze_wealth_status_lean(result))
     if general or domain is Domain.RELATIONSHIP:

@@ -13,6 +13,7 @@ from saju_shared_types.health_vulnerability import HealthVulnerabilityProfile
 from saju_shared_types.intent import Domain, IntentJson, QueryType
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_resource import MarriageResourceProfile
+from saju_shared_types.preparation_context import PreparationContext
 from saju_shared_types.wealth_capacity import WealthCapacity
 from saju_shared_types.wealth_status_lean import WealthStatusLean
 
@@ -296,6 +297,58 @@ def wealth_capacity_lines(wc: WealthCapacity) -> list[str]:
         "발동 조건(운에서 일어나야 현실화): 재성국 완성(삼합)·묘고 충개고·식상생재. 원국에 "
         "그릇이 없어도 운에서 이 완성이 일어나면 일부 발동하나, 그릇이 받쳐줄수록 크게 난다.",
     ]
+
+
+_PREP_GRADE_KO = {"strong": "강", "moderate": "중", "weak": "약"}
+_PREP_SIGNAL_KO = {"output": "식상(생산·기술·결과물)", "peer": "비겁(독립·자기 기반, 조건부)"}
+_PREP_ROLE_KO = {
+    "manifestation": (
+        "올해는 재성 유입 '발현 후보'년 — 앞선 준비가 있었는지에 따라 회수 폭이 갈린다"
+    ),
+    "preparation": "올해는 '준비기' — 다가올 재성 유입년을 향해 기반을 정리하는 흐름",
+    "none": "",
+}
+
+
+def preparation_context_lines(ctx: PreparationContext) -> list[str]:
+    """[재물 준비기 신호] — 발현 후보년·선행 준비년(서술 전용, 데굴님 확정 2026-07-12).
+
+    미검출이면 빈 목록(무언급). 불변식: 점수·후보 순위·발현 시점·confidence·favorability
+    불변, 사건 생성 금지 — 헤더와 말미 디렉티브로 LLM에도 강제한다.
+    """
+    if not ctx.is_detected:
+        return []
+    out = [
+        "[재물 준비기 신호 — 서술 전용 맥락(점수·순위·시기·확신도 변경 금지). 발현 후보는 "
+        "'확정'이 아니라 등급이며, 준비년은 사건이 아니라 흐름이다]",
+    ]
+    for c in ctx.manifestation_candidates:
+        pos = "천간·지지 모두 재성" if len(c.wealth_positions) == 2 else (
+            "천간 재성" if c.wealth_positions == ["stem"] else "지지 본기 재성"
+        )
+        out.append(f"발현 후보 {c.year}({c.ganji}) · 등급 {_PREP_GRADE_KO[c.grade]} — {pos}"
+                   + (" + 식상 동반(식상생재 유입)" if c.grade == "moderate" else ""))
+    for p in ctx.preparation_years:
+        sig = "、".join(_PREP_SIGNAL_KO[s] for s in p.signals)
+        tier = "주 준비기(직전 해)" if p.weight >= 1.0 else "약한 선행 준비기(2년 전)"
+        line = (
+            f"준비년 {p.year}({p.ganji}) → {p.target_year} 대비 {tier}"
+            f" · 신호 {sig} · 강도 {_PREP_GRADE_KO[p.strength]}"
+        )
+        if p.resource_support:
+            line += " · 인성 동반(배운 것을 결과물로 전환하는 준비 — 보조)"
+        out.append(line)
+    role = _PREP_ROLE_KO[ctx.current_year_role]
+    if role:
+        out.append(f"현재 위치: {role}.")
+    out += [
+        "서술 규칙: ①과거 준비년은 회상·확인형으로만('~한 흐름이 있었다면') — 실제 준비 여부는 "
+        "사용자의 몫, 준비 사건을 지어내지 말 것 ②'준비했으니 반드시 수익' 류 인과 확정 금지 — "
+        "'앞선 시기의 기반 정리가 발현년의 재물 활동과 연결될 수 있다' 수준까지만 ③질문의 시간 "
+        "지평을 넘는 발현 후보년은 서술하지 말 것 ④비겁 단독 준비 신호는 경쟁·지출 분산으로도 "
+        "작동하므로 조건부로만 언급.",
+    ]
+    return out
 
 
 def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:

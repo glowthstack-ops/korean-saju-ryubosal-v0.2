@@ -48,6 +48,7 @@ from saju_engines.palace_relationship_network import (
     analyze_palace_network,
     palace_network_lines,
 )
+from saju_engines.preparation_context import build_preparation_context
 from saju_engines.profile_engine import profile_event_signals, profile_facts_lines
 from saju_engines.relationship_hints import relation_context_lines
 from saju_engines.report_builder import ReportBuilder
@@ -73,6 +74,7 @@ from saju_engines.structural_context import (
     health_lines,
     marriage_age_prior_lines,
     marriage_resource_lines,
+    preparation_context_lines,
     remedy_action_lines,
     spouse_star_directive,
     wealth_capacity_lines,
@@ -613,6 +615,11 @@ class _ReportData:
         # 능동 제안(docs/15) — 재물·직업 도메인 섹션에 도메인 우선 top-2 주입.
         self.direction_suggestions = detect_direction_suggestions(self.result)
         self.wealth_capacity = analyze_wealth_capacity(self.result)  # 원국 횡재 그릇(운 분리)
+        # 재물 준비기(P3) — 발현 후보년·선행 준비년 서술 전용 맥락(W-06/W-08 주입, inert).
+        self.preparation_context = build_preparation_context(
+            self.result.luck_cycles.yearly_luck if self.result.luck_cycles else [],
+            today.year,
+        )
         # 결혼·자산 자원(성별 인지) — 용희신을 넘겨 '배우자성=용신(배우자 덕)'까지 판정(G).
         self.marriage_resource = analyze_marriage_resource(
             self.result,
@@ -1593,6 +1600,11 @@ def build_section_context(
         )
         if _suggestion_lines:
             lines += [*_suggestion_lines, DIRECTION_SUGGESTION_INSTRUCTION]
+    # 재물 준비기(P3) — 5년 종합(W-06)·행동 전략(W-08)에만 서술 전용 맥락 주입(판정 불변).
+    if sid in ("W-06", "W-08"):
+        _prep_lines = preparation_context_lines(data.preparation_context)
+        if _prep_lines:
+            lines += ["", *_prep_lines]
     # 물상(2단계 프로필) 사실 맥락 — 도메인 섹션에만 해당 항목 주입(상황 구체화, 판정 불변).
     _sd = _SECTION_DOMAIN.get(sid)
     if _sd:

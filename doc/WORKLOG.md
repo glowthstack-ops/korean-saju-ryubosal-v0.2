@@ -6736,3 +6736,30 @@ Phase D 서술 시드).
 - **후속(P2 잔여)**: 정인+재성 세분 SPEC은 그룹 규칙(COMBO_WEALTH_RESOURCE)이 커버해
   보류. "운 도래 전 준비기(lead-up)" 모델(P3)·오행-산업 매핑(P4)은 미착수 — 착수 전
   데굴님 규칙 확정 필요.
+
+### 재물 준비기(lead-up) 서술 레이어 — 재물운 영상 대조 P3 (2026-07-12, 데굴님 승인)
+
+"재성 운 도래 전 준비해야 발현" 프레임을 서술 전용 inert 레이어로 신설. 규칙 4건
+데굴님 확정: ①준비 창=발현 후보년 직전 2년(Y-1 가중 1.0·Y-2 0.55, Y-3·대운 확장 금지)
+②준비 십성=식상 1차·비겁 2차 조건부(식상+비겁 또는 두 자리 모두=강/식상=중/비겁 단독=약),
+인성은 준비년 단독 생성 금지(식상 동반 시 resource_support 보조 태그만) ③발현년=확정이
+아닌 '후보 등급제'(천간·지지 모두 재성=strong/한쪽+식상 동반=moderate/한쪽 단독=weak,
+지장간 전용 배제) — 이벤트 엔진은 발현년 결정 불관여(순환 참조 방지) ④서술 전용 inert:
+점수·후보 순위·발현 시점·confidence·favorability 불변, 사건 생성 금지.
+
+- **타입**: `shared_types/preparation_context.py` — ManifestationCandidate/
+  PreparationYear/PreparationContext(usage=narrative_only 고정).
+- **엔진**: `saju_engines/preparation_context.py` — 세운 십성 라벨만 조회하는 순수 함수
+  `build_preparation_context(yearly_luck, 기준년, horizon=5)`. 후보 상위 3(등급·근접 우선),
+  현재년 역할(preparation/manifestation/none) 판정. 과거 준비년은 세운 창(올해±5) 내에서만.
+- **직렬화**: `structural_context.preparation_context_lines` — [재물 준비기 신호] 한글
+  블록 + 서술 규칙 4항(과거 준비년 회상·확인형 한정, 인과 확정 금지, 질문 시간 지평 초과
+  후보 서술 금지(docs/16), 비겁 단독 조건부). 미검출=빈 목록(무언급).
+- **배선**: chat `_structural_blocks`(general 또는 WEALTH 도메인, 기존 wealth_capacity
+  블록과 동일 조건) / report W-06(5년 종합)·W-08(재물 행동 전략) 섹션 주입.
+- 검증: 신규 test_preparation_context.py 6건(등급·창·강도·인성 단독 금지·무언급·지평 경계·
+  디렉티브). 전체 1695 passed·38 skipped, ruff·mypy(164파일) clean. 실배선 확인 —
+  1980-11-22 명식에서 2031 辛亥(식상생재 moderate)·준비년 2030/2029 판정, 점수 불변
+  (회귀 전체 통과).
+- **후속**: P4(오행-산업 매핑) 보류 유지. 준비기 신호의 리포트 목차 확장·개인 캘리브레이션
+  연동은 골든 사례 축적 후 재논의.
