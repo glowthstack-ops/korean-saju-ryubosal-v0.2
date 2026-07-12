@@ -65,13 +65,33 @@ _CUMULATIVE_RE = re.compile(r"앞서\s*물어본\s*(\d+)\s*명|이전에\s*물�
 _STRONG_REF_RE = re.compile(r"(?<![가-힣])(\d+\s*호|신랑|아가)(?!씨)")
 # 관계어(엄마/와이프/아들…)는 소유격·동반격·사주/궁합/운 인접일 때만 — 일반 주격('엄마가 …')
 # 오탐 방지. '신랑'은 강한 별칭으로 이미 처리하므로 제외.
+# 소유격('아들의 …')은 뒤에 풀이성 명사(사주/궁합/운 등)가 이어질 때만 대상 지칭으로 본다 —
+# "이사는 아들의 교육을 위해 가는거야" 같은 문맥 언급이 확인 질문을 유발하던 결함(2026-07-12).
 _REL_SYN_ALL = sorted(
     {w for ws in RELATION_SYNONYMS.values() for w in ws} - {"신랑"}, key=len, reverse=True
 )
 _REL_REF_RE = re.compile(
     r"(?<![가-힣])(" + "|".join(_REL_SYN_ALL) + r")(?!씨)"
-    r"(?=의|이랑|랑|이라도|과|와|\s*사주|\s*궁합|\s*운세|\s*운[^동전영행]|$)"
+    r"(?=의\s*[가-힣\s]{0,8}?(?:사주|팔자|궁합|운세|신수|운(?![동전영행]))"
+    r"|이랑|랑|이라도|과|와|\s*사주|\s*궁합|\s*운세|\s*운[^동전영행]|$)"
 )
+# 명시적 제외 지칭(2026-07-12 실사용 결함) — "아들 사주는 빼고 봐줘 / 안 봐도 된다니까 /
+# 보지 마 / 필요 없어 / 말고". 지칭 토큰 직후(정규화·공백 제거 창)에서 제외 의사가 확인되면
+# 그 토큰은 대상 지정도, 미등록 확인 질문 대상도 아니다(반복 need_subject 차단).
+_EXCLUDE_TAIL_RE = re.compile(
+    r"^(?:이|가)?(?:사주|명식|팔자|것|거)?[은는도만]?"
+    r"(?:빼|제외|안봐|안보|보지마|보지않|필요없|말고|없이)"
+)
+
+
+def _mention_excluded(norm_text: str, token_norm: str) -> bool:
+    """정규화 텍스트에서 토큰의 모든 출현 뒤 창(12자)에 제외 표현이 있는지 검사."""
+    i = norm_text.find(token_norm)
+    while i != -1:
+        if _EXCLUDE_TAIL_RE.search(norm_text[i + len(token_norm): i + len(token_norm) + 12]):
+            return True
+        i = norm_text.find(token_norm, i + 1)
+    return False
 # 조건 추가(F3) / 세분화(F8).
 _CONSTRAINT_RE = re.compile(r"간다면|한다면|이라면|쪽으로")
 # 제약 정제 후속(F8b, 2026-06-16) — 직전 질문을 좁히는 짧은 보완(요일·시간대·달력 선호·배제).
@@ -278,7 +298,10 @@ class ConversationEngine:
 
         # A9 — 별칭/관계어/번호: 등록 동반자 인덱스 기반 최장 매칭(SSOT=레지스트리).
         # 단일 후보만 자동 해소하고, 복수 후보(ambiguous)는 추측 없이 확인 질문으로 넘긴다.
+        norm_text = normalize_token(text)
         for token, entries in self._match_aliases(text):
+            if _mention_excluded(norm_text, token):  # "아들 사주는 빼고" — 등록돼 있어도 제외
+                continue
             uniq_ids = {ae.subject_id for ae in entries}
             if len(uniq_ids) == 1:
                 ae = entries[0]
@@ -294,6 +317,8 @@ class ConversationEngine:
         ref_tokens += [m.group(1).replace(" ", "") for m in _REL_REF_RE.finditer(text)]
         for tok in ref_tokens:
             key = normalize_token(tok)
+            if _mention_excluded(norm_text, key):  # 미등록 + 제외 의사 — 확인 질문 대상 아님
+                continue
             already = key in self._index and any(
                 ae.subject_id in resolved_ids for ae in self._index[key]
             )

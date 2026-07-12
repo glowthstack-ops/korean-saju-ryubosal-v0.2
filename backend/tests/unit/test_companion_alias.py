@@ -162,6 +162,52 @@ def test_merge_attached_partner_noop_cases() -> None:
     assert merge_attached_partner(base, {"mode": "inline", "label": "김"}) is base
 
 
+def test_possessive_context_mention_not_a_subject() -> None:
+    """소유격 문맥 언급("아들의 교육을 위해")은 대상 지칭 아님 — 확인 질문 금지.
+
+    실사용 결함(2026-07-12): 이사 질문 속 "이사는 아들의 교육을 위해 가는거야"가
+    need_subject 확인 질문을 무한 유발.
+    """
+    res = _resolve(
+        [_SELF], "뭐라는거야 9월 30일에 이사간다니까. 이사는 아들의 교육을 위해 가는거야"
+    )
+    assert not res.unresolved
+    assert not any(s.kind is SubjectKind.COMPANION for s in res.subjects)
+
+
+def test_possessive_reading_noun_still_triggers() -> None:
+    """소유격이라도 풀이성 명사가 이어지면("아들의 취업운") 대상 지칭 유지."""
+    res = _resolve([_SELF], "아들의 취업운 봐줘")
+    assert res.unresolved == ["아들"]  # 미등록 → 확인 질문(기존 동작 보존)
+    res2 = _resolve([_SELF, _rec("c1", "첫째", rel="son")], "아들의 사주 봐줘")
+    assert res2.subjects and res2.subjects[0].companion_id == "c1"
+
+
+def test_excluded_mention_not_unresolved() -> None:
+    """명시적 제외("아들사주는 빼고 봐줘"·"안봐도 된다니까")는 확인 질문 대상 아님."""
+    for q in ("아들사주는 빼고 봐줘", "아들사주는 안봐도 된다니까", "아들 사주는 보지 마"):
+        res = _resolve([_SELF], q)
+        assert not res.unresolved, q
+        assert not any(s.kind is SubjectKind.COMPANION for s in res.subjects), q
+
+
+def test_excluded_mention_skips_registered_companion() -> None:
+    """등록 동반자도 제외 표현이면 동반자로 해소하지 않는다("아들 빼고" ≠ 아들 풀이)."""
+    res = _resolve([_SELF, _rec("c1", "첫째", rel="son")], "아들 사주는 빼고 내 재물운 봐줘")
+    assert not any(s.companion_id == "c1" for s in res.subjects)
+    assert not res.unresolved
+
+
+def test_exclusion_is_per_token() -> None:
+    """제외는 토큰 단위 — "아들 사주는 빼고 남편이랑 봐줘"는 남편만 해소."""
+    res = _resolve(
+        [_SELF, _rec("c1", "첫째", rel="son"), _rec("c2", "남편님", rel="husband")],
+        "아들 사주는 빼고 남편이랑 봐줘",
+    )
+    ids = {s.companion_id for s in res.subjects}
+    assert ids == {"c2"} and not res.unresolved
+
+
 def test_alias_entry_metadata_preserved() -> None:
     """alias index는 subject_id뿐 아니라 label·relation·source 메타를 보존(모호성 설명용)."""
     idx = build_companion_alias_index(
