@@ -35,9 +35,11 @@ def _std(make_pillars):
 
 def test_no_transmit_penalty_isolated(make_pillars) -> None:
     # 용신 투간無·통근O(solid·충無·공망無·子卯無) → no_transmit 단독.
+    # 시간 丁: 子월 甲의 조후 천간(丁) 충족 — P4 조후 결핍 가산으로 johu(火)가
+    # 주모델을 뺏지 않게 해 인수격 관성용신 金(丑中辛 통근·투간無)을 유지한다.
     er = _yongsin_role(analyze_chart(make_pillars(
         (Stem.EUL, Branch.CHUK), (Stem.GAP, Branch.JA),
-        (Stem.GAP, Branch.JA), (Stem.EUL, Branch.CHUK), Stem.GAP,
+        (Stem.GAP, Branch.JA), (Stem.JEONG, Branch.CHUK), Stem.GAP,
     )).yongsin)
     assert er.operability == round(1.0 * (1 - OPERABILITY_PENALTY["no_transmit"]), 4)
     assert er.operability_factors == ["no_transmit"]

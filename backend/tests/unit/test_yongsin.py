@@ -65,6 +65,164 @@ def test_2015_excess_resource_is_gisin(make_pillars) -> None:
     assert f["hansin"] == "水"
 
 
+# ── 2015-03-01 03:34 균시차 미적용판(乙未 戊寅 丙子 庚寅) — 감수 케이스 ─────────
+# 감수(2026-07-13, 데굴님 확정): 병=월주 偏印奪食(월간 戊식신 vs 월지 본기 甲편인),
+# 치료=火통관(化印·扶身·通關·生食)으로 木→火→土→金 식신생재 경로 복원, 金은 制印·成財의
+# 희신(필요성 높음·원국 작동성 낮음 — 무근·봄철 실령·피극). 최종 기대 판정 = 용신 火·희신 金.
+# required_diagnostics: ①壬/癸 조후 기능 구분 ②寅中丙(잠재 火)≠노출 火 ③偏印奪食 감지
+# ④식신생재 천간 경로 감지 ⑤乙庚합 이원 평가(병 완화 vs 작동력 감소).
+
+_GYEONGIN_SPEC = (
+    (Stem.EUL, Branch.MI), (Stem.MU, Branch.IN),
+    (Stem.BYEONG, Branch.JA), (Stem.GYEONG, Branch.IN), Stem.BYEONG,
+)
+_GICHUK_SPEC = (
+    (Stem.EUL, Branch.MI), (Stem.MU, Branch.IN),
+    (Stem.BYEONG, Branch.JA), (Stem.GI, Branch.CHUK), Stem.BYEONG,
+)
+
+
+def test_2015_gyeongin_raw_structure_signals(make_pillars) -> None:
+    # 영구 원시 신호 — 판정 로직과 무관하게 항상 참이어야 하는 구조 사실.
+    pillars = make_pillars(*_GYEONGIN_SPEC)
+    # 월주 내 偏印奪食 접촉: 월간 식신 투간 + 월지 본기 편인.
+    assert pillars.month.stem_ten_god == "식신"        # 월간 戊
+    assert pillars.month.branch_main_ten_god == "편인"  # 월지 寅 본기 甲
+    # 식신생재 천간 경로(食透+財透): 월간 戊 → 시간 庚.
+    assert pillars.hour is not None
+    assert pillars.hour.stem_ten_god == "편재"          # 시간 庚
+    # 庚 투간 무근: 지지 지장간 어디에도 金이 없다.
+    all_hidden = [
+        h for p in (pillars.year, pillars.month, pillars.day, pillars.hour)
+        for h in p.hidden_stems
+    ]
+    assert all(h.element != "金" for h in all_hidden)
+    # 지지 火는 잠재 상태로만 존재: 본기 火 지지(巳·午) 없음, 寅中丙은 중기.
+    fire_hidden = [h for h in all_hidden if h.element == "火"]
+    assert fire_hidden and all(h.type != "main" for h in fire_hidden)
+    # 子中癸(본기)가 인성 木을 재생하는 관인상생 경로 존재.
+    assert any(
+        h.stem == "癸" and h.type == "main" for h in pillars.day.hidden_stems
+    )
+
+
+def test_2015_gyeongin_engine_raw_signals(make_pillars) -> None:
+    # 엔진 산출 원시 신호 — 밴드 라벨(태신강 등)은 지장간 통근 평가 개선 시 변할 수 있어
+    # 고정하지 않고, 己丑판 대비 '상대 증가'만 고정한다.
+    r_in = analyze_chart(make_pillars(*_GYEONGIN_SPEC))
+    r_chuk = analyze_chart(make_pillars(*_GICHUK_SPEC))
+    groups_in = r_in.force.ten_gods.groups
+    groups_chuk = r_chuk.force.ten_gods.groups
+    assert groups_in["resource"] > groups_chuk["resource"]  # 인성 기여 증가
+    assert r_in.force.strength.score > r_chuk.force.strength.score  # 신강 이동
+    # 庚 무근: rooting 에 金 계열 근이 없다.
+    assert all(it.hidden_stem not in ("庚", "辛") for it in r_in.force.rooting.roots)
+    # 乙庚 원거리 합이 상호작용으로 감지된다(이원 평가 P3의 입력 신호).
+    assert any(
+        i.relation_type == "stem_combination" and set(i.members) == {"乙", "庚"}
+        for i in r_in.structure.interactions
+    )
+
+
+def test_2015_gyeongin_final_fire_metal(make_pillars) -> None:
+    # 감수 확정 기대값(火/金) — P1(재성 단독 완성도 게이트)+P2(偏印奪食 감지·화인통관
+    # 치료 중재)로 도달. 선택 모델은 특수형(pyeonin_talsik)이어야 한다.
+    y = analyze_chart(make_pillars(*_GYEONGIN_SPEC)).yongsin
+    f = y.final
+    assert f["selected_model"] == "food_rescue:pyeonin_talsik"
+    assert f["yongsin"] == "火"   # 化印·扶身·通關·生食
+    assert f["heesin"] == "金"   # 制印·成財 (필요성 높음·원국 작동성 낮음)
+    assert f["gisin"] == "木"    # 인성 과다 = 구조적 병
+    assert f["gusin"] == "水"    # 官印相生으로 병 재생
+    assert f["hansin"] == "土"   # 보호 대상 식신 — operational 주석으로 보존
+    # 財損印은 삭제되지 않고 감점 경쟁 후보로 존속(金 필요성 보존).
+    types = {m.model_type for m in y.candidate_models}
+    assert "wealth_breaks_resource" in types
+    # 土(한신)는 중립이 아니라 protected_output 주석을 가진다.
+    op_by_el = {r.element: r for r in (y.operational_roles or [])}
+    assert "protected_output" in (op_by_el.get("土").note or "")
+    assert "필요성 높음" in (op_by_el.get("金").note or "")
+    # P3: 乙庚합 이원 평가 — 설명 전용(점수·역할 불변)으로 구속 이득/자기 묶임 병기.
+    gold = op_by_el["金"]
+    assert any("beneficial_binding" in s for s in gold.positive_when)
+    assert any("remedy_operability" in s for s in gold.negative_when)
+
+
+def test_1965_climate_emergency_water_yongsin_preserved(make_pillars) -> None:
+    # 1965-05-15 (乙巳 辛巳 己巳 庚午, 극신강 己土·조열 巳월·水 전무) — 감수 확정(2026-07-13):
+    # ①mediator veto: 극신강 비겁(土) mediator 승격 금지(신강 악화·건토 심화·金 매몰)
+    # ②climate_need_preservation: 조후 필요신(水) 부재는 결핍의 증거 — canonical 필요도
+    #   감점 금지, 무근 감점은 작동성(operability) 계층에만.
+    # ③P4(궁통보감 사전): 巳월 己 → 최우선 癸 부재+오행 전무 → 조후가 주모델
+    #   (감수 이상형 climate_dryness_correction) → 용=水·희=金(생용신).
+    pillars = make_pillars(
+        (Stem.EUL, Branch.SA), (Stem.SIN, Branch.SA),
+        (Stem.GI, Branch.SA), (Stem.GYEONG, Branch.O), Stem.GI,
+    )
+    y = analyze_chart(pillars).yongsin
+    f = y.final
+    assert f["selected_model"] == "johu"
+    assert f["yongsin"] == "水"   # 조후 윤조 — 부재가 필요도를 낮추지 못한다
+    assert f["heesin"] == "金"   # 설기·생수(감수 이상형)
+    assert not any(
+        m.model_type.startswith("food_rescue") for m in y.candidate_models
+    )  # 비겁 土 mediator 승격 차단
+    assert any("mediator 승격 차단" in w for w in (y.warnings or []))
+    # 財損印(水)은 감점-존속 경쟁 후보로 남아 조후 결론을 보강한다.
+    assert any(m.model_type == "wealth_breaks_resource" for m in y.candidate_models)
+    # 무근·부재 감점은 작동성 계층에 남는다(canonical 순위는 불변).
+    water = next(r for r in (y.operational_roles or []) if r.element == "水")
+    assert water.operability is not None and water.operability < 1.0
+    assert "no_root" in water.operability_factors
+
+
+def test_1959_non_climate_primary_no_emergency_boost(make_pillars) -> None:
+    # 1959-11-15 (己亥 乙亥 辛丑 甲午, 亥월 辛): 궁통보감 1순위 壬은 한(寒) 축의 직접
+    # 교정 오행(火)이 아니다 — 감수 ②: 억부·구조 목적 천간은 조후 emergency 가산 금지.
+    # johu 후보는 base 신뢰도로만 제시되고 최종은 억부가 결정한다.
+    y = analyze_chart(make_pillars(
+        (Stem.GI, Branch.HAE), (Stem.EUL, Branch.HAE),
+        (Stem.SIN, Branch.CHUK), (Stem.GAP, Branch.O), Stem.SIN,
+    )).yongsin
+    johu = next(m for m in y.candidate_models if m.model_type == "johu")
+    assert johu.yongsin == "水"          # 궁통보감 canonical need(壬)
+    assert johu.confidence == 0.4        # 극단월 base — emergency 가산 없음
+    assert y.final["selected_model"] != "johu"
+
+
+def test_1953_tied_heesin_semantic_tiebreak(make_pillars) -> None:
+    # 1953-01-15 (壬辰 癸丑 丙寅 甲午, bridge 용신 金·희신 폴백 동점 火/木) — 감수 ③:
+    # 동점만 의미론 정렬(한월 丑 → 火가 기후 축 직접 교정 → 火 우선), 사유 기록.
+    # 점수·confidence·역할 구조는 불변(독립 정렬 레이어).
+    y = analyze_chart(make_pillars(
+        (Stem.IM, Branch.JIN), (Stem.GYE, Branch.CHUK),
+        (Stem.BYEONG, Branch.IN), (Stem.GAP, Branch.O), Stem.BYEONG,
+    )).yongsin
+    f = y.final
+    assert f["selected_model"] == "bridge_tonggwan"
+    assert f["heesin"] == "火" and f["hansin"] == "木"
+    assert any("타이브레이크" in w and "dominant_need" in w for w in (y.warnings or []))
+
+
+def test_food_rescue_not_generated_guards(make_pillars) -> None:
+    # 화인통관(food_rescue) 미생성 가드 — 감수 골든 유형(2026-07-13):
+    # ①노출 통관 화력 충분(시간 丙 비견): 승격 억제 ②식신 미투간 인성과다: 미발동
+    # ③상관 투간(식신 아님): 동일 규칙 자동 적용 금지.
+    guards = [
+        ((Stem.EUL, Branch.MI), (Stem.MU, Branch.IN),
+         (Stem.BYEONG, Branch.JA), (Stem.BYEONG, Branch.IN), Stem.BYEONG),
+        ((Stem.EUL, Branch.MI), (Stem.GAP, Branch.IN),
+         (Stem.BYEONG, Branch.JA), (Stem.GYEONG, Branch.IN), Stem.BYEONG),
+        ((Stem.EUL, Branch.MI), (Stem.GI, Branch.MYO),
+         (Stem.BYEONG, Branch.JA), (Stem.GYEONG, Branch.IN), Stem.BYEONG),
+    ]
+    for spec in guards:
+        y = analyze_chart(make_pillars(*spec)).yongsin
+        assert not any(
+            m.model_type.startswith("food_rescue") for m in y.candidate_models
+        )
+
+
 def test_1980_strong_earth_wealth_yongsin_canonical_roles(make_pillars) -> None:
     # 1980-02-15 10:30(庚申 戊寅 戊午 丁巳, 戊·신강): 편인도식 병약 → 재성 용신 水.
     # 申 지장간 壬水로 재성이 통근해 용광로(炎上)가 아니므로 水를 용신으로 쓴다.

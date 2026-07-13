@@ -1,0 +1,1306 @@
+{
+ "version": "0.2.0",
+ "source": "궁통보감(난강망) 조후용신표 — 서락오 정리본 기준 감수 확정 2026-07-13",
+ "note": "일간×월지의 canonical climate need(본질 조후 필요 '천간', primary[0]=최우선). reviewed:true 의 의미는 'canonical 필요기운의 전문가 검토 완료'로 한정한다 — 최종 용신 자동 확정/원국 작동 가능/억부·격국·통관 대비 상시 우선/시지·원국 반영을 의미하지 않는다(데굴님 감수). 시지 보정·조습 엄중도·operability 는 계산 레이어 담당. 무근·무투간·원국 전무 → operability 하락이지 canonical_need 삭제·대체가 아니다.",
+ "reviewed": true,
+ "entries": {
+  "甲": {
+   "寅": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "卯": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丙",
+     "丁",
+     "戊",
+     "己"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "辰": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丁",
+     "壬"
+    ],
+    "avoid": [],
+    "climate_axis": "damp"
+   },
+   "巳": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丁",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "午": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丁",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "未": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丁",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "申": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丁",
+     "壬"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "酉": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丙",
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "戌": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "甲",
+     "丁",
+     "壬",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "dry"
+   },
+   "亥": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丁",
+     "丙",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "子": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "庚",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "丑": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "庚",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   }
+  },
+  "乙": {
+   "寅": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "卯": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "辰": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "damp"
+   },
+   "巳": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "午": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "未": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "申": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸",
+     "己"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "酉": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙",
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "戌": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "辛"
+    ],
+    "avoid": [],
+    "climate_axis": "dry"
+   },
+   "亥": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "子": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [],
+    "avoid": [],
+    "climate_axis": "cold"
+   }
+  },
+  "丙": {
+   "寅": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [
+     "癸"
+    ],
+    "climate_axis": "cold"
+   },
+   "卯": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "己"
+    ],
+    "avoid": [
+     "癸"
+    ],
+    "climate_axis": "neutral"
+   },
+   "辰": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [
+     "癸"
+    ],
+    "climate_axis": "damp"
+   },
+   "巳": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "午": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "未": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "申": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "酉": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "壬"
+    ],
+    "avoid": [],
+    "climate_axis": "dry"
+   },
+   "亥": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "戊",
+     "庚",
+     "壬"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "子": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "戊",
+     "己"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "丑": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   }
+  },
+  "丁": {
+   "寅": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "卯": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "辰": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "damp"
+   },
+   "巳": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "午": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "未": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "壬",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "申": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚",
+     "丙",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "酉": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚",
+     "丙",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "dry"
+   },
+   "亥": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "子": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "丑": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   }
+  },
+  "戊": {
+   "寅": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "卯": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "辰": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "damp"
+   },
+   "巳": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "午": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "未": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "申": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "酉": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "dry"
+   },
+   "亥": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "子": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   }
+  },
+  "己": {
+   "寅": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "庚",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "卯": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "癸",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "辰": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "damp"
+   },
+   "巳": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "午": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "未": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "申": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "酉": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "dry"
+   },
+   "亥": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "子": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   }
+  },
+  "庚": {
+   "寅": {
+    "primary": [
+     "戊"
+    ],
+    "secondary": [
+     "甲",
+     "壬",
+     "丙",
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "卯": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "甲",
+     "庚",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "辰": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丁",
+     "壬",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "damp"
+   },
+   "巳": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "戊",
+     "丙",
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "午": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "未": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "申": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "酉": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "甲",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "壬"
+    ],
+    "avoid": [],
+    "climate_axis": "dry"
+   },
+   "亥": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "子": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "甲",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "丁",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   }
+  },
+  "辛": {
+   "寅": {
+    "primary": [
+     "己"
+    ],
+    "secondary": [
+     "壬",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "卯": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "辰": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "damp"
+   },
+   "巳": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "午": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "己",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "未": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "申": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "酉": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "戌": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "dry"
+   },
+   "亥": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "子": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "戊",
+     "壬",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "壬",
+     "戊",
+     "己"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   }
+  },
+  "壬": {
+   "寅": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丙",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "卯": {
+    "primary": [
+     "戊"
+    ],
+    "secondary": [
+     "辛",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "辰": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "damp"
+   },
+   "巳": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "辛",
+     "庚",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "午": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "庚",
+     "辛"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "未": {
+    "primary": [
+     "辛"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "申": {
+    "primary": [
+     "戊"
+    ],
+    "secondary": [
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "酉": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "dry"
+   },
+   "亥": {
+    "primary": [
+     "戊"
+    ],
+    "secondary": [
+     "丙",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "子": {
+    "primary": [
+     "戊"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "丁",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   }
+  },
+  "癸": {
+   "寅": {
+    "primary": [
+     "辛"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "卯": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "辛"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "辰": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "辛",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "damp"
+   },
+   "巳": {
+    "primary": [
+     "辛"
+    ],
+    "secondary": [],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "午": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "辛",
+     "壬",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "未": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "辛",
+     "壬",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat"
+   },
+   "申": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "酉": {
+    "primary": [
+     "辛"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral"
+   },
+   "戌": {
+    "primary": [
+     "辛"
+    ],
+    "secondary": [
+     "甲",
+     "壬",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "dry"
+   },
+   "亥": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "辛",
+     "戊",
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "子": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "辛"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "cold"
+   }
+  }
+ }
+}
