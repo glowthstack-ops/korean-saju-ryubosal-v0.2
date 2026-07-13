@@ -128,6 +128,13 @@ export function TrueSolarTimeCard({
             ⚠ 진태양시 적용으로 시주 변경: {String(tc.standard_time_hour_pillar)}(일반시) → {String(tc.true_solar_time_hour_pillar)}(진태양시)
           </li>
         )}
+        {Boolean(tc.boundary_sensitive) && tc.alternative_hour_pillar != null && (
+          // 시두 경계 ±180초 이내 — 출생기록 2~3분 오차로 시주가 반대편 기둥으로 바뀔 수 있다.
+          <li className="rounded bg-orange-100 p-1 text-orange-800">
+            ⚠ 시(時) 경계 민감: 경계에서 {Math.abs(Number(tc.hour_boundary_distance_seconds))}초 —
+            출생시각이 2~3분만 달라도 시주가 {String(tc.alternative_hour_pillar)}(으)로 바뀔 수 있습니다
+          </li>
+        )}
       </ul>
     </Card>
   );

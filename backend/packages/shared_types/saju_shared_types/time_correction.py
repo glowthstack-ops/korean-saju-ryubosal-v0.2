@@ -33,6 +33,13 @@ class TimeCorrectionResult(BaseModel):
     hour_pillar_changed_by_true_solar_time: bool = False
     date_changed_by_true_solar_time: bool = False
 
+    # 시두 경계 민감도(2026-07-13 데굴님 감수): 차트 확정 시각이 시지 경계에서 몇 초
+    # 떨어져 있는가(음수=경계 직전). ±180초 이내면 출생기록 2~3분 오차로 시주가 바뀔 수
+    # 있어 boundary_sensitive + 반대편 시주(alternative_hour_pillar)를 제공한다.
+    hour_boundary_distance_seconds: float | None = None
+    boundary_sensitive: bool = False
+    alternative_hour_pillar: str | None = None
+
     day_boundary_rule: str
     ja_hour_rule: str
     warnings: list[str] = []

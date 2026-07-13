@@ -30,6 +30,7 @@ from saju_manse_core.calendar.solar_terms import get_table
 from saju_manse_core.pillars.day_pillar import day_pillar
 from saju_manse_core.pillars.hour_pillar import hour_pillar_for_branch
 from saju_manse_core.time_correction.input_normalizer import normalize
+from saju_manse_core.time_correction.time_boundary import hour_branch
 from saju_manse_core.time_correction.timezone_resolver import TZDATA_VERSION, resolve
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.calibration import (
@@ -371,12 +372,25 @@ def _luck_role_sets(y) -> tuple[set[str], set[str]]:
     return useful, unfavorable
 
 
-def _hour_boundary_diagnostics(tc, time_known: bool) -> tuple[list[str], dict]:
-    """Flag minute-sensitive hour/day-boundary cases without changing pillars."""
+# 시두 경계 민감 임계(초) — 출생기록 ±2~3분 오차로 시주가 바뀔 수 있는 범위(데굴님 감수).
+_BOUNDARY_SENSITIVE_SECONDS = 180.0
+
+
+def _hour_boundary_diagnostics(tc, time_known: bool, opts) -> tuple[list[str], dict, dict]:
+    """Flag minute-sensitive hour/day-boundary cases without changing pillars.
+
+    Returns:
+        (warnings, trace, fields) — fields 는 TimeCorrectionResult 의 구조화 경계
+        필드(hour_boundary_distance_seconds / boundary_sensitive /
+        alternative_hour_pillar). 민감 구간이면 경계 반대편 시각으로 시주를 재산출해
+        '기록 오차 시 바뀔 수 있는 시주'를 제공한다(2026-07-13 데굴님 감수 P5).
+    """
     if not time_known:
-        return ["time_unknown: 시주·시지 기반 관계/신살은 확정할 수 없습니다."], {
-            "time_unknown": True
-        }
+        return (
+            ["time_unknown: 시주·시지 기반 관계/신살은 확정할 수 없습니다."],
+            {"time_unknown": True},
+            {},
+        )
     dt = tc.final_chart_datetime
     minutes = dt.hour * 60 + dt.minute + dt.second / 60
     # Hour branches turn every odd hour: 23, 01, 03 ... 21. Include 23:00 of the
@@ -385,6 +399,21 @@ def _hour_boundary_diagnostics(tc, time_known: bool) -> tuple[list[str], dict]:
     closest = min(boundaries, key=lambda b: abs(minutes - b))
     delta = round(minutes - closest, 2)
     abs_delta = abs(delta)
+    delta_seconds = round(delta * 60, 1)
+    sensitive = abs(delta_seconds) <= _BOUNDARY_SENSITIVE_SECONDS
+    fields: dict = {
+        "hour_boundary_distance_seconds": delta_seconds,
+        "boundary_sensitive": sensitive,
+    }
+    if sensitive:
+        # 경계 반대편(±1초 여유) 시각의 시주 — 자시/일경계 규칙까지 동일하게 재산출.
+        if delta >= 0:
+            alt_dt = dt - timedelta(seconds=delta_seconds + 1)
+        else:
+            alt_dt = dt + timedelta(seconds=-delta_seconds + 1)
+        alt_day_stem, _ = day_pillar(alt_dt, opts.day_boundary_rule, opts.ja_hour_rule)
+        alt_s, alt_b = hour_pillar_for_branch(alt_day_stem, hour_branch(alt_dt))
+        fields["alternative_hour_pillar"] = f"{alt_s}{alt_b}"
     warnings: list[str] = []
     if abs_delta <= 10:
         warnings.append(f"hour_boundary_sensitive: 시주 경계 {abs_delta:.1f}분 이내")
@@ -395,7 +424,7 @@ def _hour_boundary_diagnostics(tc, time_known: bool) -> tuple[list[str], dict]:
         "time_unknown": False,
         "minutes_from_nearest_hour_boundary": delta,
         "within_10_minutes": abs_delta <= 10,
-    }
+    }, fields
 
 
 # In-process memoization of calculate(). calibrate_feedback / luck_months /
@@ -484,6 +513,9 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
                 f"true_solar_time_changes_hour: {std_hp}(일반시) → {ts_hp}(진태양시)"
             )
 
+    boundary_warnings, boundary_trace, boundary_fields = _hour_boundary_diagnostics(
+        tc, norm.time_known, opts
+    )
     time_correction = TimeCorrectionResult(
         input_datetime_local=norm.naive_local_datetime,
         calendar_type=birth.calendar_type,
@@ -508,8 +540,8 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
         day_boundary_rule=opts.day_boundary_rule,
         ja_hour_rule=opts.ja_hour_rule,
         warnings=tc.warnings,
+        **boundary_fields,
     )
-    boundary_warnings, boundary_trace = _hour_boundary_diagnostics(tc, norm.time_known)
     time_correction.warnings.extend(boundary_warnings)
 
     prev_term, next_term = term_info.prev_term, term_info.next_term
