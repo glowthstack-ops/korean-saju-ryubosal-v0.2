@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { profileToBasic, profileToBirthDTO, summaryToProfile } from "@/lib/subject-mapping";
+import {
+  profileToBasic, profileToBirthDTO, subjectEotPreference, summaryToProfile,
+} from "@/lib/subject-mapping";
 import type { Profile, SubjectSummary } from "@/lib/types";
 
 const PROFILE: Profile = {
@@ -25,6 +27,15 @@ describe("subject-mapping", () => {
   it("lunar profile carries is_leap_month", () => {
     const dto = profileToBirthDTO({ ...PROFILE, calendarType: "lunar", isLeapMonth: true });
     expect(dto.is_leap_month).toBe(true);
+  });
+
+  it("timeOptions가 주어지면 time_options로 영속, 없으면 필드 자체를 생략한다", () => {
+    // 미전달 시 백엔드가 기본값(모든 보정 적용)으로 저장하므로, 균시차 미사용 사주는
+    // 반드시 time_options를 실어야 챗·리포트 풀이가 같은 시주를 쓴다.
+    const withOpts = profileToBirthDTO(PROFILE, { apply_equation_of_time: false });
+    expect(withOpts.time_options).toEqual({ apply_equation_of_time: false });
+    const without = profileToBirthDTO(PROFILE);
+    expect(without).not.toHaveProperty("time_options");
   });
 
   it("summary → profile round-trips the birth essentials", () => {
@@ -68,6 +79,25 @@ describe("subject-mapping", () => {
       mulsang_registered: false,
     });
     expect(summary.birthTime).toBe("23:59");
+  });
+
+  it("사주별 균시차: 저장값 false만 false, 미저장·true·부분 옵션은 true", () => {
+    const base: SubjectSummary = {
+      subject_id: "s", owner_id: "u", kind: "self", label: "x", aliases: [],
+      relation_to_user: null, gender: "male", is_minor: false, subscribed: false,
+      yongsin_registered: false, mulsang_registered: false,
+      birth: { calendar_type: "solar", birth_date: "2015-03-01", birth_place_name: "서울" },
+    };
+    expect(subjectEotPreference(base)).toBe(true); // 구 레코드(time_options 없음) = 백엔드 기본값
+    expect(subjectEotPreference({
+      ...base, birth: { ...base.birth, time_options: { apply_equation_of_time: false } },
+    })).toBe(false);
+    expect(subjectEotPreference({
+      ...base, birth: { ...base.birth, time_options: { apply_equation_of_time: true } },
+    })).toBe(true);
+    expect(subjectEotPreference({
+      ...base, birth: { ...base.birth, time_options: { day_boundary_rule: "23:00" } },
+    })).toBe(true); // 부분 옵션 — eot 미지정이면 기본 적용
   });
 
   it("profile → basic maps gender to M/F and city/display_name", () => {

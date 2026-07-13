@@ -21,31 +21,39 @@ import {
   clearProfile, loadCalibration, loadEotPreference, loadProfile, profileSig,
   saveCalibration, saveEotPreference,
 } from "@/lib/storage";
-import { summaryToProfile } from "@/lib/subject-mapping";
+import { subjectEotPreference, summaryToProfile } from "@/lib/subject-mapping";
 import {
   getSubject,
   getSubjectYongsin,
   setSelectedSubjectId,
   setSubjectYongsin,
+  updateSubject,
 } from "@/lib/subjects";
-import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
+import type {
+  CalibrationResult, ManseResult, Profile, SubjectSummary,
+} from "@/lib/types";
 
 // ?subject=<id>(로그인 사주) 우선, 없으면 IndexedDB 1회성 프로필을 로드한다.
-async function resolveProfile(): Promise<Profile | null> {
+// 로그인 사주는 SubjectSummary 도 함께 반환한다 — 균시차가 사주별 속성(birth.time_options)이라
+// 초기 토글 상태와 토글 변경 영속(updateSubject)에 원본 레코드가 필요하다.
+async function resolveProfile(): Promise<
+  { profile: Profile; summary: SubjectSummary | null } | null
+> {
   const subjectId =
     typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("subject")
       : null;
   if (subjectId) {
     try {
-      const profile = summaryToProfile(await getSubject(subjectId));
+      const summary = await getSubject(subjectId);
       setSelectedSubjectId(subjectId);  // 간지달력 등 subject 비지정 화면의 오버레이 기준으로 기억
-      return profile;
+      return { profile: summaryToProfile(summary), summary };
     } catch {
       return null;
     }
   }
-  return loadProfile();
+  const profile = await loadProfile();
+  return profile ? { profile, summary: null } : null;
 }
 
 
@@ -76,8 +84,11 @@ export default function ManseResultPage() {
   const [savedAnswers, setSavedAnswers] = useState<AnswerMap>({});
   const [error, setError] = useState<string | null>(null);
   // 균시차 사용 토글(풀이 스타일에 따라 선택). 기본 사용. 끄면 진태양시에서 균시차를 제외해 재계산.
-  // 저장된 선호는 마운트 시 복원하고, 변경 시 저장해 간지달력(일운) 등 다른 라우트와 기준을 공유.
+  // 로그인 사주 = 사주별 속성(birth.time_options, DB 영속 — 챗·리포트·간지달력 동일 기준),
+  // 비로그인 = 기기 로컬 속성(localStorage). 데굴님 확정 2026-07-13.
   const [applyEoT, setApplyEoT] = useState(true);
+  // 로그인 사주의 원본 레코드 — 토글 영속(updateSubject) 시 나머지 필드를 보존해 재전송.
+  const [subjectSummary, setSubjectSummary] = useState<SubjectSummary | null>(null);
   // 질문 생성/피드백 채점에 동일 기준일을 쓰도록 마운트 시 한 번 고정(자정·연 경계 안전).
   const [referenceDate] = useState(() => todayISO());
 
@@ -98,13 +109,18 @@ export default function ManseResultPage() {
         })
         .catch(() => {});
     }
-    resolveProfile().then((p) => {
-      if (!p) {
+    resolveProfile().then((resolved) => {
+      if (!resolved) {
         router.replace("/manse");
         return;
       }
+      const p = resolved.profile;
       setProfile(p);
-      const eot = loadEotPreference();
+      setSubjectSummary(resolved.summary);
+      // 초기 균시차: 로그인 사주는 저장된 사주별 속성, 비로그인은 기기 토글.
+      const eot = resolved.summary
+        ? subjectEotPreference(resolved.summary)
+        : loadEotPreference();
       setApplyEoT(eot);
       calculateManse(p, referenceDate, { apply_equation_of_time: eot })
         .then(async (r) => {
@@ -129,9 +145,33 @@ export default function ManseResultPage() {
   };
 
   // 균시차 토글: 즉시 재계산(진태양시·시주가 바뀔 수 있음). 미지정 옵션은 백엔드 기본값 유지.
+  // 로그인 사주는 DB(birth.time_options)에 영속 — 챗·리포트가 같은 시주 기준을 쓴다.
   const toggleEoT = (value: boolean) => {
     setApplyEoT(value);
-    saveEotPreference(value);
+    if (subjectSummary && subjectId) {
+      const birth = {
+        ...subjectSummary.birth,
+        time_options: {
+          ...(subjectSummary.birth.time_options ?? {}),
+          apply_equation_of_time: value,
+        },
+      };
+      setSubjectSummary({ ...subjectSummary, birth });
+      void updateSubject(subjectId, {
+        kind: subjectSummary.kind,
+        label: subjectSummary.label,
+        birth,
+        gender: subjectSummary.gender,
+        relation_to_user: subjectSummary.relation_to_user,
+        aliases: subjectSummary.aliases,
+        is_minor: subjectSummary.is_minor,
+        subscribed: subjectSummary.subscribed,
+      }).catch(() => {
+        /* 영속 실패해도 화면 재계산은 유지 — 다음 토글/저장에서 재시도 */
+      });
+    } else {
+      saveEotPreference(value); // 비로그인: 기기 로컬 속성
+    }
     if (!profile) return;
     calculateManse(profile, referenceDate, { apply_equation_of_time: value })
       .then(setResult)

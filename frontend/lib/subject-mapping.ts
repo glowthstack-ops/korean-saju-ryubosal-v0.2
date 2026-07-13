@@ -5,9 +5,16 @@
 
 import type { BasicProfile, BirthInputDTO, Profile, SajuLocation, SubjectSummary } from "./types";
 
-/** Profile → 저장용 BirthInput(reference_date 제외). */
-export function profileToBirthDTO(profile: Profile): BirthInputDTO {
-  return {
+/** Profile → 저장용 BirthInput(reference_date 제외).
+
+  timeOptions를 주면 time_options로 함께 저장한다 — 챗·리포트 풀이는 저장된 birth를
+  그대로 쓰므로, 만세력 화면의 균시차 토글과 같은 기준을 영속화하려면 반드시 전달해야 한다.
+  (미전달 시 백엔드 기본값 = 모든 보정 적용으로 저장된다.) */
+export function profileToBirthDTO(
+  profile: Profile,
+  timeOptions?: Record<string, unknown>,
+): BirthInputDTO {
+  const dto: BirthInputDTO = {
     calendar_type: profile.calendarType,
     is_leap_month: profile.calendarType === "lunar" ? profile.isLeapMonth : null,
     birth_date: profile.birthDate,
@@ -19,12 +26,20 @@ export function profileToBirthDTO(profile: Profile): BirthInputDTO {
     timezone: profile.place.tz,
     gender: profile.gender,
   };
+  if (timeOptions) dto.time_options = timeOptions;
+  return dto;
 }
 
 /** 백엔드 birth_time('HH:MM[:SS]') → 'HH:MM'. */
 function trimTime(t: string | null | undefined): string | null {
   if (!t) return null;
   return t.slice(0, 5);
+}
+
+/** 저장된 사주의 균시차 사용 여부 — 로그인 사주는 사주별 속성(birth.time_options)이
+  진실 소스다(기기 로컬 토글은 비로그인 전용). 미저장(구 레코드)은 백엔드 기본값 true. */
+export function subjectEotPreference(s: SubjectSummary): boolean {
+  return s.birth.time_options?.["apply_equation_of_time"] !== false;
 }
 
 /** SubjectSummary.birth → Profile(화면·만세력 호출용). region은 저장되지 않아 빈 값. */

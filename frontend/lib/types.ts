@@ -32,6 +32,9 @@ export interface BirthInputDTO {
   longitude?: number | null;
   timezone?: string | null;
   gender?: "male" | "female" | "unknown" | null;
+  // 시간 보정 옵션(부분 지정) — 미지정 필드는 백엔드 기본값(모두 적용)을 따른다.
+  // 저장된 사주는 챗·리포트 풀이가 이 값을 그대로 쓰므로, 등록 시점의 균시차 기준이 영속된다.
+  time_options?: Record<string, unknown> | null;
 }
 
 // 계정(ID+PIN) 인증

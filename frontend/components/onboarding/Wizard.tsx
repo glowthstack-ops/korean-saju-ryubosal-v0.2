@@ -13,7 +13,9 @@ import { StepPersona } from "@/components/onboarding/StepPersona";
 import { StepRealityCalibration } from "@/components/onboarding/StepRealityCalibration";
 import { StepShell } from "@/components/onboarding/StepShell";
 import { StepYongsin } from "@/components/onboarding/StepYongsin";
-import { profileToBasic, profileToBirthDTO, summaryToProfile } from "@/lib/subject-mapping";
+import {
+  profileToBasic, profileToBirthDTO, subjectEotPreference, summaryToProfile,
+} from "@/lib/subject-mapping";
 import {
   createSubject,
   getPersona,
@@ -23,7 +25,7 @@ import {
   savePersona,
   updateSubject,
 } from "@/lib/subjects";
-import { saveProfile as saveLocalProfile } from "@/lib/storage";
+import { loadEotPreference, saveProfile as saveLocalProfile } from "@/lib/storage";
 import { DEFAULT_PERSONA, type ExtendedProfile, type PersonaConfig, type Profile } from "@/lib/types";
 
 type Mode = "add" | "edit" | "oneoff";
@@ -56,6 +58,9 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
   const [error, setError] = useState<string | null>(null);
   // 신규 등록 완료 후 현실 캘리브레이션(스킵 가능) 단계에서 쓸 새 subject id.
   const [createdSubjectId, setCreatedSubjectId] = useState<string | null>(null);
+  // 균시차는 사주별 속성(데굴님 확정 2026-07-13) — edit 는 저장값 보존, add 는 기기 토글 시드.
+  // null 이면 미로드(add/oneoff) → 저장 시 loadEotPreference() 사용.
+  const [storedEot, setStoredEot] = useState<boolean | null>(null);
 
   // add(로그인): 계정 페르소나를 불러와 편집 기본값으로. edit: 사주·프로필·페르소나 프리필.
   useEffect(() => {
@@ -76,6 +81,7 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
             extended: prof.extended ?? {},
             persona,
           });
+          setStoredEot(subjectEotPreference(subj)); // 수정 저장 시 사주별 균시차 보존
           setLoaded(true);
         })
         .catch((e) => {
@@ -98,7 +104,11 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
         router.push(next);
         return;
       }
-      const birth = profileToBirthDTO(d.profile);
+      // 균시차를 birth에 영속화(사주별 속성) — 챗·리포트·간지달력이 같은 시주 기준을 쓴다.
+      // edit 는 저장된 사주별 값을 보존(기기 토글로 덮지 않음), add 는 기기 토글을 시드로.
+      const birth = profileToBirthDTO(d.profile, {
+        apply_equation_of_time: storedEot ?? loadEotPreference(),
+      });
       const payload = {
         kind: "self" as const,
         label: d.nickname,

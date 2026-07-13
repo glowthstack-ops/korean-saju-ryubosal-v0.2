@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { fetchLuckDays } from "@/lib/api";
 import { isLoggedIn } from "@/lib/auth";
 import { loadEotPreference, loadProfile } from "@/lib/storage";
-import { summaryToProfile } from "@/lib/subject-mapping";
+import { subjectEotPreference, summaryToProfile } from "@/lib/subject-mapping";
 import { getSelectedSubjectId, getSubject } from "@/lib/subjects";
 import type { CalendarDay, CalendarMonth, LuckPillar, LuckSinsal, Profile } from "@/lib/types";
 
@@ -14,18 +14,23 @@ const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 // 일운 오버레이(십성·신살·길흉) 기준 사주:
 // - 로그인: 현재 "선택된 사주"만 사용(선택 안 했으면 오버레이 없음 — 데굴님 확정 2026-07-01).
-// - 게스트: IndexedDB의 로컬 프로필(만세력 화면에서 저장한 1회성).
-async function resolveOverlayProfile(): Promise<Profile | null> {
+//   균시차는 사주별 속성(birth.time_options)을 그대로 쓴다(데굴님 확정 2026-07-13).
+// - 게스트: IndexedDB의 로컬 프로필 + 기기 로컬 균시차 토글.
+async function resolveOverlayProfile(): Promise<
+  { profile: Profile; eot: boolean } | null
+> {
   if (isLoggedIn()) {
     const id = getSelectedSubjectId();
     if (!id) return null;
     try {
-      return summaryToProfile(await getSubject(id));
+      const summary = await getSubject(id);
+      return { profile: summaryToProfile(summary), eot: subjectEotPreference(summary) };
     } catch {
       return null;
     }
   }
-  return loadProfile().catch(() => null);
+  const profile = await loadProfile().catch(() => null);
+  return profile ? { profile, eot: loadEotPreference() } : null;
 }
 
 // 손없는 날 — 음력 끝수가 9·0인 날(손[方位神]이 어느 방위에도 없어 이사·개업 등에 길). 로그인·사주와
@@ -189,10 +194,11 @@ export function CalendarGrid({ data }: { data: CalendarMonth }) {
     let alive = true;
     setLuckByDate({});
     resolveOverlayProfile()
-      .then((p) => {
-        if (!p) return;
-        // 만세력 결과 화면에서 저장한 균시차 토글 상태와 같은 기준으로 일운을 계산.
-        const timeOptions = { apply_equation_of_time: loadEotPreference() };
+      .then((resolved) => {
+        if (!resolved) return;
+        // 로그인 사주 = 사주별 저장값, 게스트 = 기기 토글 — 만세력·챗·리포트와 동일 기준.
+        const { profile: p, eot } = resolved;
+        const timeOptions = { apply_equation_of_time: eot };
         return fetchLuckDays(p, data.year, data.month, undefined, timeOptions).then((days) => {
           if (!alive) return;
           const map: Record<string, LuckPillar> = {};
