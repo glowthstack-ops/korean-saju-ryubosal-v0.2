@@ -6858,3 +6858,182 @@ need_subject 가 무한 반복.
 - 검증: 신규 테스트 5건(문맥 소유격 미트리거·풀이명사 소유격 유지·제외 3표현·등록
   동반자 제외·토큰 단위 제외). 실서버 재현 — 스크린샷 3개 발화 모두 need_subject 없이
   진행. 전체 1704 passed·38 skipped, ruff·mypy clean.
+
+### 균시차 설정 미영속 — 만세력 화면과 풀이(챗/리포트)가 다른 시주를 쓰던 문제 (2026-07-13)
+
+라이브 테스트(2015-03-01 03:34 남·서울 "아들"): 만세력 화면(균시차 토글 OFF)은
+庚寅시·용신 金/희신 水, 챗·리포트 풀이는 己丑시·火/金 — 같은 사주가 경로마다 다른
+명식으로 계산. "화/금이어야 하는데 금/수 회귀" 리포트의 실체는 회귀가 아니라 변형
+혼동: 庚寅판은 최소 6/11 이래 항상 용신 金(財損印)이었고, 희신 水만 7/12 모델맵
+전면화(36e0666)로 土→水.
+
+- **원인**: 균시차 토글은 만세력 페이지 localStorage 전용. 대상 등록의
+  profileToBirthDTO(frontend/lib/subject-mapping.ts)가 time_options를 싣지 않아
+  서버는 항상 pydantic 기본값(모든 보정 적용=균시차 ON)으로 저장 → 챗·리포트는
+  저장된 birth를 그대로 사용(routers/chat.py·report.py).
+- **수정(FE)**: profileToBirthDTO에 timeOptions 선택 인자 추가, 온보딩 Wizard가
+  저장 시 loadEotPreference()를 apply_equation_of_time으로 영속화. BirthInputDTO에
+  time_options 필드 추가. 등록·수정 모두 커버(등록 경로는 Wizard 단일).
+- **데이터 교정**: "아들" subject의 birth.time_options.apply_equation_of_time을
+  false로 UPDATE(1건) — 저장본 재계산으로 庚寅시 확인.
+- **회귀 테스트**: test_yongsin.py에 균시차 미적용판(乙未 戊寅 丙子 庚寅) 특성화
+  테스트 추가 — 財損印 선택·金/水/木/火/土 고정. ※ 庚寅판에서 통관(bridge) 후보가
+  아예 생성되지 않는 것이 명리적으로 타당한지는 감수 쟁점으로 보류(적용판 己丑은
+  기존 test_2015_excess_resource_is_gisin이 火/金 유지).
+- 검증: backend pytest 전체 통과(실패 0)·ruff clean·mypy 243파일 clean, FE vitest
+  35 passed(신규 time_options 케이스 포함)·tsc·production build 통과. 저장본 E2E:
+  DB birth → calculate = 庚寅·金/水로 만세력 화면과 일치.
+- **후속(미해결)**: 균시차 설정이 사주별 속성이 아니라 기기 로컬 토글이라 두 진실
+  소스가 여전히 공존 — 만세력 화면이 저장 subject의 time_options를 초기값으로 쓰는
+  동기화, 등록 화면 내 명시 옵션 노출은 별도 결정 필요.
+
+### 偏印奪食 감지 + 화인통관 치료 중재 — 용신 P0~P2.5 (2026-07-13, 데굴님 감수 확정)
+
+2015-03-01 03:34 균시차 미적용판(乙未 戊寅 丙子 庚寅) 감수: 병=월주 偏印奪食(월간
+戊식신 vs 월지 본기 甲편인), 치료=火통관(化印·扶身·通關·生食)으로 木→火→土→金 식신생재
+복원 → **기대 판정 火/金**. 기존 엔진은 庚 투간만 보고 게이트 없이 財損印(金/水)을
+고신뢰(0.89) 선택 — 재성 무근·실령·피극, 통관 후보 미생성(양강 25% 게이트), 조후 축
+부재(寅월)가 원인.
+
+- **P0(테스트)**: 특성화 金/水 삭제 → 영구 원시 신호(월간 식신·월지 본기 편인·시간
+  편재·庚 무근·잠재 火(본기 火 지지 없음)·子中癸 관인상생 경로·乙庚 원거리 합 감지·
+  己丑판 대비 인성/신강 증가) + strict xfail 火/金(구현 후 정상 승격).
+- **P1(candidates.py)**: `_wealth_standalone_operability` — 재성 무근(지지 지장간 金
+  전무)이면 財損印 confidence ×0.55(실령·피극 시 ×0.9 추가), **필요성은 유지**(후보
+  존속·희신 경로 보존, 데굴님 #2). 통근 재성은 무감점(진짜 財損印 보존).
+- **P2**: `_output_disease` 2계층 — 특수형 偏印奪食(식신 투간 + 같은 주 본기 편인
+  대립/인접 천간 편인 접촉) ⊃ 일반형 印旺克食(접촉 없음·낮은 강도), 중복 가산 금지.
+  상관 투간은 미발동(별도 규칙 확정 전). `_additional_mediator_operability` — **일간
+  자신 제외**(데굴님 #4) 추가 통관 가용량: 천간 비겁 0.4/왕지 본기 0.35/지장간 중·여기
+  (잠재, 데굴님 #2) 0.1/득령 0.2, 임계 0.45 미만일 때만 `food_rescue:pyeonin_talsik|
+  inwang_geuksik` 모델 승격(용=비겁 희=재성 기=인성 구=관성 한=식상, eokbu 축 경쟁).
+  채택 시 operational 주석: 土=protected_output(보호 대상 식신), 金=필요성/작동성 분리,
+  水=官印相生 병 재생, 火=과다 시 무근 재성 극 상한.
+- **P2.5(재스캔)**: 672명식(1950~2005) diff — **교체 1건**(1965-05-15 乙巳 辛巳 己巳
+  庚午, 극신강 己·火인성 45%·재성 水 전무 → 財損印(水)→food_rescue 일반형(용=土 희=水)).
+  財損印 감점-유지 0건(그리드 내 무근 재성 財損印이 이 1건뿐). 골든 가드: 庚寅판 火/金
+  도달·己丑판 불변·노출 화력 충분(시간 丙) 억제·식신 미투간 미발동·상관 미발동·신약
+  미발동(분기 밖) — 가드 3종 영구 테스트 고정.
+- 검증: 전체 pytest 통과(실패 0)·ruff clean·mypy 243파일 clean.
+- **감수 대기**: 1965-05-15 판정(극조열 巳월·재성 水 전무 명식에서 용=土 비겁 통관 vs
+  조후 水 우선 — 희신으로 水 보존됨). **후속**: P3 乙庚합 이원화(설명 중심·점수 상한·
+  동일 신호 소비 가드), P5 시두 경계 민감도 플래그, P4 궁통보감 조후 사전(壬癸 구분).
+
+### 1965-05-15 감수 반영 — mediator veto + 조후 필요도 보존 (2026-07-13 데굴님 확정)
+
+감수 결론: 1965-05-15(乙巳 辛巳 己巳 庚午, 극신강 己·조열 巳월·水 전무)는 **용신 水
+복귀**. 화인통관 土 승격은 오판(일간 오행 보강=신강 악화·건토 심화·金 매몰). 복귀
+방식은 "조후 필요신 무근 감점 완전 면제"가 아니라 **필요도 계층 보존 + 감점은 작동성
+계층 유지**(climate_need_preservation).
+
+- **mediator veto**(`_mediator_promotion_veto`): 비겁 mediator 주용신 승격 금지 3사유 —
+  ①극신강(strength_aggravation, 태신강은 허용 → 庚寅판 보존) ②mediator 오행 자체
+  포화(계절보정 ≥25%) ③조후 악화(조열월 土 / 한습월 水 mediator). 차단 시 경고 명시,
+  병 감지는 유효(財損印 등이 경쟁 승계).
+- **climate_need_preservation**(`_wealth_standalone_operability`): 극단 한열월의 조후
+  필요신(조열 水/한습 火)이 무근·부재(<22%)면 결핍의 증거 — canonical 감점 미적용,
+  무근 감점은 기존 Phase 4a operability(no_root)에만 남음(1965 실측: 水 operability
+  0.68·no_root — canonical 용신 순위는 불변).
+- **부수 발견·수정(비결정성)**: `_classify_bridge_roles` 폴백 3곳이 set 순회+max 동점으로
+  **프로세스 해시 시드에 따라 희신이 플립**(실측 1953-01-15 壬辰 癸丑 丙寅 甲午 —
+  PYTHONHASHSEED 0/1=火, 2/3=木). sorted 순회로 결정화 — 오늘 변경과 무관한 선재 버그.
+- 재스캔: 672 그리드 diff = **1건**(1953-01-15 희/한 스왑 — 비결정성 동점이 canonical
+  순서로 고정된 것, 판정 로직 변경 아님). 1965 복귀·庚寅판(火/金) 보존 확인.
+  1965 회귀 테스트 추가(모델·용신·차단 경고·operability 감점 잔존).
+- 검증: 전체 pytest 통과(실패 0)·ruff clean·mypy 243파일 clean.
+- **참고(P4 연계)**: 감수 이상형은 조후 모델(climate_dryness_correction)이 1965의
+  주모델이 되고 희신=金(설기·생수) 지정 — 현재는 財損印 복귀(희=木 모델맵)로 잠정,
+  조후 사전(P4) 설계 시 재방문. 1953 동점 희신의 의미론적 타이브레이크(생용신 우선 등)도
+  후보 과제.
+
+### 균시차 = 사주별 속성 승격 (로그인 한정, 2026-07-13 데굴님 확정)
+
+직전 "두 진실 소스 공존" 후속 해소. 로그인 사주는 균시차가 **사주별 속성**
+(birth.time_options, DB 영속)이고, 비로그인은 종전대로 기기 로컬(localStorage) 속성.
+
+- **subject-mapping.ts**: `subjectEotPreference(summary)` — 저장값 false만 false,
+  미저장(구 레코드)·부분 옵션은 백엔드 기본값 true.
+- **만세력 결과 페이지**: `resolveProfile`이 SubjectSummary 동반 반환 → 초기 토글 =
+  로그인 사주는 저장값·비로그인은 기기 토글. 토글 변경 시 로그인 사주는
+  `updateSubject`로 birth.time_options 영속(챗·리포트 동일 기준), 비로그인만
+  `saveEotPreference`. 영속 실패해도 화면 재계산은 유지.
+- **간지달력 CalendarGrid**: 오버레이 일운 계산이 선택 사주의 저장값 사용(게스트는
+  기기 토글) — 만세력 화면 토글과의 간접 공유 제거.
+- **온보딩 Wizard**: edit 는 저장된 사주별 값 보존(기기 토글로 덮지 않음), add 는
+  기기 토글 시드. `storedEot` 상태로 관리.
+- 검증: vitest 36 passed(사주별 균시차 판정 4케이스 신규)·tsc·production build 통과.
+  백엔드 무변경(BirthInput 왕복 저장은 기존 구조 그대로).
+
+### 잔여 안건 P3·P5·P4 일괄 구현 (2026-07-13, 데굴님 착수 지시)
+
+**P3 — 乙庚합 이원 평가(설명 전용)**: `_disease_remedy_binding` — 희신(치료) 천간과
+기신(병) 천간의 천간합을 감지해 화인통관 채택 시 희신 ElementRole 에
+①beneficial_binding(과다 병 천간 구속 이득) ②remedy_operability(자기 묶임 감소)를
+병기. **점수·역할·confidence 불변**(score_delta 0). 간격극 차단·격위 약화도 강도
+한정어와 함께 방향성 참고로 기록(庚寅판: "간격극 차단 — 실질 작용 제한"). 동일 신호
+소비 가드 = 합은 이 주석에서만 소비, 모델 점수화 없음.
+
+**P5 — 시두 경계 민감도**: TimeCorrectionResult 에 `hour_boundary_distance_seconds`/
+`boundary_sensitive`(±180초)/`alternative_hour_pillar` 신설 — 경계 반대편 시각으로
+시주 재산출(자시·일경계 규칙 동일 적용). 기준 사례 실측: 庚寅판 +114초·대체 己丑.
+FE TrueSolarTimeCard 에 경고 표시. 테스트 3종(민감/비민감/시간미상).
+
+**P4 — 궁통보감 조후 사전(천간 단위·壬癸 구분)**:
+- `dictionaries/johu_yongsin.json` — 조후용신표 10일간×12월지(120셀), 서락오 정리본
+  기준 **초안(reviewed:false, 전 항목 도메인 감수 필요)**. `scripts/build_johu_snapshot.py`
+  validate(120셀 완전성·천간 유효성)→`compiled/johu_yongsin_v0.1.0.json` 스냅샷.
+- `yongsin/johu_dict.py` 로더(스냅샷 우선→원본 폴백→부재 시 None·graceful) +
+  `_johu_model` v2: 일간×월지 조후 천간 조회, 투간/지장간 존재 검사, 동일 오행 대체는
+  "완전한 대체 아님(壬≠癸)" 주석. 극단 한열월(亥子丑·巳午未) 한정 결핍 가산
+  (+0.15 최우선 천간 부재, +0.10 필요 오행 <5%). 비극단월도 후보 제공(conf 0.35).
+  사전 부재 시 레거시(한습→火/조열→水) 폴백. 용신 operability 산정을 johu 선택
+  케이스로 확장(조후 필요신 무근 감점의 작동성 계층 보존).
+- **1965-05-15 이상형 도달**: selected=johu(궁통보감), 용=水·희=金(생용신 순환) —
+  감수 yaml(climate_dryness_correction·水/金)과 일치. 회귀 테스트 갱신.
+- **재스캔 파급: 24/672(3.6%)** — 대부분 극단월(5·6·7·11·12월) 조후 결핍 명식의 johu
+  전환(水/金 방향). 주의 케이스: 사전 1순위가 한난 오행이 아닌 셀(亥월 辛→壬, 亥월
+  戊→甲 등)은 레거시 조후(火)와 다른 용신 산출 — **사전 감수 시 함께 검토 필요**.
+  픽스처 1건 교정(test_yongsin_operability no_transmit 격리 — 子월 甲 명식에 丁 투간
+  추가로 조후 가산 개입 제거, 목적 보존).
+- 검증: 전체 pytest 통과(실패 0)·ruff clean·mypy 244파일 clean·validate_dictionaries
+  78파일 통과·FE vitest 36+tsc+build 통과.
+- **후속(감수 대기)**: ①조후 사전 120셀 도메인 감수(reviewed:false→true) ②재스캔 24건
+  중 비한난 1순위 셀 유형 확인 ③동점 희신 의미론적 타이브레이크.
+
+### 조후 감수 확정 반영 — 사전 v0.2.0 + 기후 축 + 의미론 타이브레이크 (2026-07-13, 데굴님 최종 승인안)
+
+감수 순서 ①사전 확정 → ②재스캔 예외 검증 → ③동점 타이브레이크 적용.
+
+- **① 사전 v0.2.0 (reviewed:true, canonical need 한정)**: 셀 구조를
+  `primary/secondary/avoid/climate_axis`로 분리(120셀). reviewed:true 의미는
+  "canonical climate need 검토 완료"로 top-level note 에 명문화 — 최종 용신 확정·
+  작동성·타 축 우선·시지 반영을 뜻하지 않음. avoid 는 고전 명시분만(삼춘 丙火 癸,
+  3셀) — 증분 감수. climate_axis enum = cold/heat/dry/damp/mixed/neutral.
+  build_johu_snapshot v2 검증(필드·enum·120셀) → compiled v0.2.0(v0.1.0 초안 삭제).
+- **② 기후 축 판정 + 가산 정밀화**: `_climate_axes` — temperature/moisture 2축
+  severity(±40=severe, ±20=축 성립, 분포+열한지지·조습토 가중). emergency 가산은
+  **severe 축을 직접 교정하는 천간(cold→火·heat→水·dry→水·damp→火, 셀 내 탐색)이
+  부재할 때만**(+0.15/+0.10) — 억부·매개·구조 목적 천간(亥월 辛→壬 등)은 가산 금지,
+  base conf 의 climate_helper 로만 제시. 교정 오행이 반대 severe 축을 악화하면 승격
+  억제(5단계). avoid 천간 투간 시 주석. 불변식 유지: 무근·전무 → operability 하락
+  ≠ canonical_need 삭제(1965 회귀 고정).
+- **③ 동점 희신 의미론 타이브레이크**: `_semantic_tiebreak_key` — dominant_need(기후
+  축 직접 교정) > 주 병 직접 극 > 生용신 > 조후 악화 없음 > 용신 설기 흐름 > 통근 >
+  결정적 오행 순서. **동점 후보만** 정렬(비동점 byte 불변), 점수·confidence·역할
+  불변, `tiebreak_reason` warning 기록. 전역 고정 역할 순위 없음(극조열=climate_helper
+  우선, 통관=mediator 우선은 ①번 키가 자연 결정). 1953-01-15 실측: 火/木 동점 →
+  火 선택("dominant_need 일치 — 丑월 한축 교정") 기록.
+- **골든 회귀 3종 고정**: 1965 johu 주모델 水/金 유지(emergency), 1959-11 비조후
+  1순위(亥월 辛→壬) 무가산 + 억부 최종, 1953 타이브레이크 火 + 사유 기록.
+- **재스캔(672)**: P4 초안 대비 9건 정밀화(억부성 승격 4건 취소 — 1961-12·1969-07·
+  1972-07·2003-05 억부/관성 복귀 ✓). 원 베이스 대비 최종 잔여 **25건** — trace 전수
+  생성(scratchpad p4_trace_report.json): climate_emergency_promoted 16(전원 severe:
+  heat 15·dry 1 — dry_first 유형 실존), canonical_helper_won 5(비 severe johu-선택
+  명식의 원소가 궁통보감 정론으로 교체: 亥월 戊→甲, 亥월 壬→戊, 未월 庚→丁),
+  dictionary_reinforced 4(사전이 타 축 후보를 보강 — 1994-07 未월 壬→辛이 동률
+  disease 승자 교체 포함). 극신약 4건은 역할 동일(水/金)·모델 라벨만 교체.
+- 검증: 전체 pytest 통과(실패 0)·ruff clean·mypy 244파일 clean·validate_dictionaries
+  통과. FE 무변경.
+- **후속**: canonical_helper_won 5건의 원소 교체(궁통보감 정론이나 레거시 조후 火와
+  상이)는 실사용 리포트에서 재확인 권장. avoid 천간 증분 감수. 조습 우선형
+  (dry_first/damp_first) 라벨의 LLM 입력 노출은 별도 결정.
