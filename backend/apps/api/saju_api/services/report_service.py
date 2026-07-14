@@ -389,6 +389,12 @@ _NATAL_SECTIONS = {
 _SCORE_TABLE_SECTIONS = {"C-08", "W-09", "J-08", "R-08", "RP-10", "RL-08"}
 # 이사 테마 — 십성 이유분류(reason_profiles) surface 섹션(이사 고도화 R2).
 _RELOCATION_REASON_SECTIONS = {"RL-03"}
+# 선발·배치 보조 부착 섹션(2026-07-14 방안 2, 데굴님 확정 — 목차 불변): 운 신호 섹션에
+# 조건부(notable) 부착. education topic의 C-04는 build_section_context에서 동적 판정.
+_SELECTION_AUX_SECTIONS: dict[str, str] = {
+    "RL-04": "housing_subscription",  # 이사 테마 — 청약·공공주택
+    "J-04": "workplace_assignment",  # 직업 테마 — 근무지·부서 배치
+}
 _RELOCATION_RISK_SECTIONS = {"RL-05"}
 # 연간 총운(RPT_YEAR) — 세운 천간 십성 이사 유형을 '세운과 활성 신호'(Y-04)에 간결 부착
 # (2026-06-18 사용자 확정: 인생 총운 RPT_FULL 미부착, 연간 총운에만 노출).
@@ -953,6 +959,17 @@ class _ReportData:
         return marriage_resource_lines(self.marriage_resource) + marriage_age_prior_lines(
             self.result
         )
+
+    def selection_block(self, domain: str) -> list[str]:
+        """[선발·배치 보조] — 추첨·선발형(청약·발령·학교 배정) 조건부 블록(방안 2).
+
+        목차 불변(원칙 10) — 신규 섹션이 아니라 기존 운 신호 섹션에 부착한다.
+        기관·자격 신호가 작동 수준(notable)일 때만 표면화하고, 미해당이면 빈 목록 —
+        '해당될 때만 언급, 아니면 무언급'(외적 인상 신호 관행, 2026-07-14 데굴님 확정).
+        """
+        from saju_engines.selection_allocation import selection_report_lines
+
+        return selection_report_lines(self.result, domain)
 
     def external_impression_block(self) -> list[str]:
         """[외적 인상·분위기 구조] — 인상·표현매력·관계적 끌림 보조(미모 단정 아님).
@@ -1698,6 +1715,16 @@ def build_section_context(
         lines += ["", *data.relocation_direction_block(spec)]
     if sid in _RELOCATION_FLOW_SECTIONS:
         lines += ["", *data.relocation_flow_block(spec)]
+    # 선발·배치 보조(2026-07-14 방안 2 — 목차 불변): 운 신호 섹션에 조건부 부착.
+    # 이사→청약(RL-04), 직업→근무지 배치(J-04), 학업 FOCUS→학교·기숙사 배정(C-04).
+    # notable 미달이면 빈 목록 → 무언급.
+    _sel_domain = _SELECTION_AUX_SECTIONS.get(sid) or (
+        "school_assignment" if sid == "C-04" and spec.topic == "education" else None
+    )
+    if _sel_domain is not None:
+        _sel_aux = data.selection_block(_sel_domain)
+        if _sel_aux:
+            lines += ["", *_sel_aux]
     # 연간 총운(Y-04) — 세운·대운 천간 십성 이사 유형 간결 surface(인생 총운엔 미부착).
     if sid in _RELOCATION_YEAR_SECTIONS:
         lines += ["", *data.relocation_year_block(spec)]

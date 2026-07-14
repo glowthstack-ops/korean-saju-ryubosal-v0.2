@@ -34,11 +34,12 @@ from saju_shared_types.intent import (
     SubjectKind,
     SubjectMode,
     SubjectRef,
+    TimeConstraintRole,
     TimeRange,
     TimeScope,
 )
 
-from .time_parser import parse_time
+from .time_parser import parse_time_with_constraints
 
 # ── 어휘 사전 (실로그 기반 — docs/08 D) ──────────────────────────
 
@@ -489,7 +490,14 @@ def parse_message(
         intents 1개 이상을 가진 ParsedMessage(B4 다중 질문 시 복수).
     """
     # B2 단답 후속: 시점 슬롯만 교체, 나머지 직전 intent 상속.
-    time_range, time_scope = parse_time(text, today, birth_year, current_month_label)
+    # 연 단위 다중·부정·정정 표현은 제약 해소를 거친다(2026-07-14 P1 — "2026년 27년은
+    # 의미없고 2033년이 중요해"에서 첫 연도가 시점으로 저장되던 결함 교정).
+    time_range, time_scope, time_items = parse_time_with_constraints(
+        text, today, birth_year, current_month_label
+    )
+    time_exclusions = [
+        it for it in time_items if it.role is TimeConstraintRole.EXCLUDED
+    ]
     # B2b 단위 정정 단답('년단위였어') — 시점 자체가 아니라 직전 질문의 기간 단위를
     # 바꾸는 후속(2026-06-12). 직전 intent를 상속하고 granularity만 갱신한다.
     unit_m = re.search(r"([년연월주일])\s*단위", text)
@@ -538,6 +546,7 @@ def parse_message(
             "intent_id": f"{prev_intent.intent_id}+followup",
             "time_range": time_range,
             "time_scope": time_scope,
+            "time_exclusions": time_exclusions,
         })
         return ParsedMessage(
             intents=[inherited], is_follow_up=True, inherited_from=prev_intent.intent_id,
@@ -581,7 +590,9 @@ def parse_message(
         # 도메인 단어가 없는 질문이 general로 떨어져 재물운 등 일반 흐름으로 새지 않도록.
         if not domains and event_key is not None:
             domains = [Domain(EVENT_DOMAIN[event_key])]
-        piece_time, piece_scope = parse_time(piece, today, birth_year, current_month_label)
+        piece_time, piece_scope, _ = parse_time_with_constraints(
+            piece, today, birth_year, current_month_label
+        )
         if piece_time is None:
             piece_time, piece_scope = time_range, time_scope
         intents.append(IntentJson(
@@ -598,8 +609,17 @@ def parse_message(
             event_keys=event_keys,
             time_scope=piece_scope if piece_time else TimeScope.TIMELESS,
             time_range=piece_time,
+            time_exclusions=time_exclusions,
             relocation_kind=_detect_relocation_kind(piece),
             constraints=constraints,
             output=style,
         ))
-    return ParsedMessage(intents=intents, output_style=style)
+    return ParsedMessage(
+        intents=intents, output_style=style,
+        trace={  # P0 — 시점 해소 추적(파싱 계층)
+            "extracted_times": [it.model_dump() for it in time_items],
+            "resolved_target": (
+                (time_range.start, time_range.end) if time_range is not None else None
+            ),
+        },
+    )

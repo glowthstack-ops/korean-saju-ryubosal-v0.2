@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import traceback
 from collections.abc import AsyncIterator
@@ -28,6 +29,18 @@ from .routers import (
     subjects,
 )
 from .services import error_logging, usage_logging
+
+# 앱 로거 콘솔 노출(2026-07-14 관측성) — uvicorn 기본 로깅은 자체(uvicorn.*) 로거만
+# 핸들링해 엔진·서비스의 INFO 진단 로그(overview_selection 등)가 침묵한다. 루트가 아니라
+# 앱 네임스페이스에만 핸들러를 달아 서드파티 INFO 소음 없이 관측성을 확보한다.
+for _log_ns in ("saju_api", "saju_engines"):
+    _app_logger = logging.getLogger(_log_ns)
+    if not _app_logger.handlers:  # 중복 부착 방지(리로드·다중 임포트)
+        _handler = logging.StreamHandler()
+        _handler.setFormatter(logging.Formatter("%(levelname)s %(name)s — %(message)s"))
+        _app_logger.addHandler(_handler)
+        _app_logger.setLevel(logging.INFO)
+        _app_logger.propagate = False
 
 
 def _seed_admins() -> None:

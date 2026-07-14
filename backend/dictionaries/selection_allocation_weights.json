@@ -1,0 +1,31 @@
+{
+  "version": "0.1.0",
+  "reviewed": false,
+  "note": "선발·배치(selection_allocation) 엔진 가중 초안 — 2026-07-14 설계 상수의 외부화. reviewed:false = 골든 사례(지원/선발/희망일치/실입영) 캘리브레이션 전. 각 stage_weights 단계의 가중 합은 1.0이어야 하며 build_selection_allocation_snapshot.py가 검증한다.",
+  "base_strengths": { "active": 0.65, "present": 0.4, "absent": 0.2 },
+  "role_adjust": { "yongsin": 0.15, "heesin": 0.1, "gisin": -0.15, "gusin": -0.1 },
+  "state_adjust": { "inflow": 0.1, "deficient": -0.15, "excess_nonpeer": -0.05, "excess_peer": 0.1 },
+  "transition": { "base": 0.3, "clash": 0.25, "inflow": 0.15 },
+  "stability": { "base": 0.65, "friction_step": 0.1, "qualification_coupling": 0.3 },
+  "competition_inversion": { "default": 0.7, "peer_favorable": 0.4 },
+  "stage_weights": {
+    "opportunity": { "institution_signal": 0.5, "transition_signal": 0.3, "application_signal": 0.2 },
+    "application": { "application_signal": 0.5, "qualification_signal": 0.25, "institution_signal": 0.25 },
+    "eligibility": { "qualification_signal": 0.55, "institution_signal": 0.3, "application_signal": 0.15 },
+    "selection_support": { "institution_signal": 0.4, "application_signal": 0.2, "qualification_signal": 0.2, "competition_signal": 0.2 },
+    "allocation": { "institution_signal": 0.4, "matching_signal": 0.3, "transition_signal": 0.3 },
+    "preference_match": { "matching_signal": 0.5, "application_signal": 0.25, "qualification_signal": 0.25 },
+    "execution": { "transition_signal": 0.5, "institution_signal": 0.25, "stability_signal": 0.25 },
+    "adaptation": { "stability_signal": 0.6, "benefit_signal": 0.2, "institution_signal": 0.2 }
+  },
+  "merit_selection_weights": { "application_signal": 0.35, "qualification_signal": 0.3, "institution_signal": 0.2, "competition_signal": 0.15 },
+  "mode_guards": {
+    "lottery": { "uncertainty": "high", "confidence_cap": "low", "selection_cap": 70, "allocation_cap": 75, "preference_cap": 65 },
+    "weighted_lottery": { "uncertainty": "high", "confidence_cap": "low", "selection_cap": 72, "allocation_cap": 78, "preference_cap": 68 },
+    "hybrid": { "uncertainty": "medium", "confidence_cap": "medium", "selection_cap": 80, "allocation_cap": 82, "preference_cap": 75 },
+    "first_come": { "uncertainty": "medium", "confidence_cap": "medium", "selection_cap": 82, "allocation_cap": 84, "preference_cap": 78 },
+    "queue": { "uncertainty": "medium", "confidence_cap": "medium", "selection_cap": 82, "allocation_cap": 84, "preference_cap": 78 },
+    "score_ranked": { "uncertainty": "low", "confidence_cap": "medium", "selection_cap": 88, "allocation_cap": 88, "preference_cap": 82 },
+    "administrative": { "uncertainty": "medium", "confidence_cap": "medium", "selection_cap": 84, "allocation_cap": 84, "preference_cap": 78 }
+  }
+}

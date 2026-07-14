@@ -180,6 +180,9 @@ class LlmEventCandidate(BaseModel):
     # 신살 기간 채널 색채(§10-2, Phase B-2) — 숫자 없는 한글(완충/리스크/색채/질감). 발생 가능성
     # 미반영. 토큰 초과 시 캐시 prefix보다 먼저 트림되는 보조 텍스트(serialize_with_guard Tier0).
     sinsal_channel_note: str = ""
+    # 총운형 반복 신호 집계(2026-07-14 총운 다변화) — 의미 클러스터 대표 후보에 보조 기간·
+    # 반복 횟수를 보존한다('반복적으로 강한 신호' 정보 유실 방지). 비총운·단일 후보는 빈값.
+    recurrence_note: str = ""
     # 관계 단계(MARRIAGE_TIMING_ENHANCEMENT — Production Readiness v1 Step 2). MT 신호 기반.
     # 빈값이면 MT 미발동(비-관계 후보·default 프로파일) — 렌더 시 미노출(출력 불변).
     marriage_stage: str = ""  # awareness | relationship | ""
@@ -398,6 +401,13 @@ class LlmInput(BaseModel):
     # 질문 기간 밖 상위 후보 — 참고 맥락 전용(메인 서술 금지 지시 동반).
     out_of_range_candidates: list[LlmEventCandidate] = Field(default_factory=list)
     no_candidates_in_period: bool = False  # 기간 내 후보 없음 → 정직한 '신호 없음' 유도
+    # 총운형 선정 제외 강신호 메타(2026-07-14 not_selected_due_to_limit) — 근-최고점인데
+    # 슬롯·개인화 가중에서 밀린 클러스터의 제한 언급용 한 줄들. '신호 없음' 표현 금지의
+    # 근거 채널(엔진이 메타를 제공한 경우에만 제한적으로 언급 가능 — 감수 확정 방식).
+    overview_dropped_notables: list[str] = Field(default_factory=list)
+    # 총운 조망 모드(2026-07-14 5차) — 직렬화가 [유력 달 종합] 헤더의 우선순위 문구를
+    # 분기하는 근거(총운에선 이벤트 후보 조망이 서술 골격, 달 순위는 시기 참고).
+    overview_mode: bool = False
     reference: ReferenceFrame | None = None  # 기준 시점(필수 주입 — chat 경로)
     is_followup_turn: bool = False  # 멀티턴 2턴째 이상 — 인사·재인용 절제 지시(항목 19)
     # 이전 턴에서 시스템이 이미 제시한 엔진 결과(한글화) — 턴 간 모순 방지(2026-06-12:

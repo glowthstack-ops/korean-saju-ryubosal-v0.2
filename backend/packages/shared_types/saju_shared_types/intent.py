@@ -185,6 +185,40 @@ class ChainedStep(BaseModel):
     window: str | None = None
 
 
+class TimeConstraintRole(StrEnum):
+    """발화 속 시간 표현의 담화 역할 (2026-07-14 시점 정합 P1).
+
+    '처음/마지막 연도 기계 선택'을 금지하고, 각 시간 표현에 역할을 부여한 뒤
+    담화상 중심 시점을 결정하기 위한 분류다. 우선순위:
+    명시적 정정 > 명시적 요청 대상 > 긍정 절 중심 > 승계 > 단순 언급.
+    """
+
+    TARGET = "target"  # 실제 분석 대상
+    EXCLUDED = "excluded"  # 이번 요청에서 제외한 시점
+    COMPARISON = "comparison"  # 비교용 시점
+    REFERENCE = "reference"  # 과거 답변·사건을 가리키는 시점
+    HYPOTHETICAL = "hypothetical"  # 가정으로 언급한 시점
+    CORRECTION = "correction"  # 이전 시점을 정정하며 새로 제시한 시점
+    MENTION = "mention"  # 술어 없이 단순 언급(역할 미확정)
+
+
+class TimeConstraintItem(BaseModel):
+    """연 단위 시간 표현 1건 + 역할 (2026-07-14 시점 정합 P1).
+
+    실측 결함: "2026년 27년은 의미없고 2033년이 중요해"에서 첫 연도(2026)가
+    시점으로 저장돼 후속 턴까지 오염. 모든 연도 표현을 추출해 역할을 부여하고,
+    배제 연도는 절대 target으로 승격하지 않는다.
+    """
+
+    role: TimeConstraintRole
+    start_year: int
+    end_year: int
+    source_span: str = ""  # 원문 근거 조각(출처 추적 — P7)
+    reason: str = ""  # 역할 판정 근거 술어('의미없고' 등)
+    explicit: bool = True
+    confidence: float = 1.0
+
+
 class TimeRange(BaseModel):
     """시점 상세 (docs/03 B2 timeRange — C차원 18패턴 수용)."""
 
@@ -245,6 +279,12 @@ class IntentJson(BaseModel):
 
     time_scope: TimeScope = TimeScope.TIMELESS
     time_range: TimeRange | None = None
+    # 이번 턴에서 사용자가 배제·비교·정정한 연 단위 시간 제약(2026-07-14 P1).
+    # excluded 역할은 엔진 창·서술에서 제외 대상이며 절대 target으로 승격하지 않는다.
+    time_exclusions: list[TimeConstraintItem] = Field(default_factory=list)
+    # 대화 행위(도메인 intent보다 상위) — 'conclusion_summary'(결론 재확인) 등.
+    # 결론 요구형은 새 월별 분석 대신 직전 분석의 압축 결론을 계약한다(2026-07-14 P4).
+    dialogue_act: str | None = None
 
     # R4 — 이사 종류(집=일지 중심 / 사무실=월주 중심). 기본 home(선택, 원칙 11).
     relocation_kind: str = "home"  # home|office
@@ -265,3 +305,6 @@ class ParsedMessage(BaseModel):
     inherited_from: str | None = None
     output_style: OutputStyle | None = None
     reality_context_updates: list[str] = Field(default_factory=list)
+    # 턴별 시점 해소 추적(2026-07-14 P0) — extracted_times/resolved_target/excluded/
+    # inherited_time 등. 파싱→상속→커밋 경로의 회귀 진단·E2E 검증용(운영 로직 미사용).
+    trace: dict = Field(default_factory=dict)

@@ -22,16 +22,19 @@ from saju_shared_types.conversation import (
     LinkResult,
     ResultSummaryRef,
     SubjectResolution,
+    TimeExclusion,
     TrackedEntity,
 )
 from saju_shared_types.intent import (
     Domain,
     Granularity,
+    IntentJson,
     ParsedMessage,
     QueryType,
     SubjectKind,
     SubjectMode,
     SubjectRef,
+    TimeRange,
 )
 
 from .companion_alias import (
@@ -151,6 +154,42 @@ def is_affirm_continue(text: str) -> bool:
     return bool(_AFFIRM_CONTINUE_RE.match(text.strip())) and not _detect_domains(text)
 
 
+# 결론 요구형 후속(2026-07-14 P4) — "그래서 붙는다는거야 아니라는거야?"류. 도메인 intent보다
+# 상위의 대화 행위로, 새 월별 분석 대신 직전 분석의 압축 결론(1문장 결론→확실성→근거→조건)을
+# 계약한다. 실측: 이 유형이 domain_analysis로 떨어져 월별 흐름을 통째 재서술하던 결함.
+_CONCLUSION_SEEK_RE = re.compile(
+    r"(?:그래서|결국|그러니까|그니까)[^\n]{0,40}?(?:[다이]라는\s*거야|다는\s*거야|는\s*거야)"
+    r"|결론(?:이|은|만)?\s*(?:뭐|무엇|어떻|말해|알려)"
+    r"|(?:된다는|안\s*된다는|맞다는|아니라는)\s*거(?:야|지|냐)"
+    r"|(?:되는\s*거야|안\s*되는\s*거야)\s*(?:아니(?:야|냐))?"
+    # '~(한)다는 소리야/뜻이야/말이야' 변형(2026-07-14 후속②) — '무슨 뜻이야'(용어 질문)는
+    # (다는|라는) 선행 조건으로 배제된다.
+    r"|[가-힣]+(?:다는|라는)\s*(?:소리|뜻|말)\s*이?[야지냐]"
+)
+
+
+def tr_year_span(tr: TimeRange | None) -> tuple[int, int] | None:
+    """TimeRange의 연 단위 창을 (시작연, 끝연)으로 환산한다(연도 미상이면 None)."""
+    if tr is None:
+        return None
+    ys: list[int] = []
+    for key in (tr.start, tr.end):
+        if key and key[:4].isdigit():
+            ys.append(int(key[:4]))
+    return (min(ys), max(ys)) if ys else None
+
+
+def overlaps_exclusions(
+    span: tuple[int, int] | None, exclusions: list[TimeExclusion]
+) -> bool:
+    """연도 창이 배제 목록과 겹치는가 — 승계·커밋 가드 공용."""
+    if span is None:
+        return False
+    return any(
+        not (span[1] < e.start_year or e.end_year < span[0]) for e in exclusions
+    )
+
+
 class ConversationEngine:
     """스레드 1개의 턴 처리기 — 상태는 호출 측이 보존/주입(저장소 분리)."""
 
@@ -243,10 +282,35 @@ class ConversationEngine:
             if resolution.correction:
                 intent.query_type = QueryType.FEEDBACK_CORRECTION
 
+        # 이번 턴 자체 시점 보유 여부 — 배제 재요청 해제(P2)·시점 출처 메타(P7)의 근거.
+        # 승계로 덮어쓰기 전에 판정해야 한다.
+        primary = parsed.intents[0]
+        own_time = primary.time_range is not None and bool(primary.time_range.start)
+
+        # P2 — 배제 시점 병합: 스코프 만료 → 이번 턴 배제 추가 → 명시적 재요청 해제.
+        exclusions = self._merge_time_exclusions(state, primary, link, own_time)
+
+        # P4 — 결론 요구형 후속: 같은 주제의 결론 재확인이면 대화 행위를 표시한다.
+        # 도메인 전환(다른 주제의 결론 요구)은 새 분석이므로 제외.
+        if (
+            link.is_follow_up and prev is not None
+            and _CONCLUSION_SEEK_RE.search(text)
+            and (primary.domain is prev.domain or primary.domain is Domain.GENERAL)
+        ):
+            for intent in parsed.intents:
+                intent.dialogue_act = "conclusion_summary"
+                # '~라는 소리야 뭐야'의 '뭐야'가 용어 질문(policy)으로 오분류되면 canned
+                # 응답으로 빠진다 — 결론 재확인은 직전 분석 주제를 잇는다.
+                if intent.query_type in _POLICY_QTYPES:
+                    intent.query_type = prev.query_type
+                    intent.event_key = intent.event_key or prev.event_key
+                    intent.event_keys = intent.event_keys or list(prev.event_keys)
+
         # 시점 슬롯은 스레드 레벨로 유지 — 후속이든 도메인 전환(link=NEW 포함)이든, 이번 턴이 자체
         # 시점을 안 들고 오고 '새 풀이/리셋' 신호도 아니면 직전 턴의 시점 창을 이어받는다(2026-06-23
         # 데굴님 지적: 8/31·9/30=2026 맥락의 후속 '대출 안 나오나?'가 link=NEW로 떨어져 막연한 미래
         # 10년 흐름으로 빠짐). 사용자가 명시 시점을 새로 주거나 총운·새 풀이를 요청하면 미승계.
+        inherited_time_used = False
         last = state.last_intent
         if (
             last is not None and last.time_range is not None and last.time_range.start
@@ -254,6 +318,9 @@ class ConversationEngine:
             and not _READING_REQUEST_RE.search(text)
             and not _TIME_SEEKING_RE.search(text)
             and not _PLACE_SEEKING_RE.search(text)
+            # P2 승계 가드 — 직전 시점이 배제 창과 겹치면 오염 승계를 차단한다(배제 기간은
+            # 절대 target으로 승격 금지). 시점 미확정으로 두면 broad/재질문 경로가 처리.
+            and not overlaps_exclusions(tr_year_span(last.time_range), exclusions)
         ):
             for intent in parsed.intents:
                 # 자체 시점이 있거나(다른 시점을 새로 지정 → 그 시점이 이후 승계 기준이 됨) '언제'
@@ -264,6 +331,7 @@ class ConversationEngine:
                 ):
                     continue
                 intent.time_range = last.time_range
+                inherited_time_used = True
 
         # offer-slot: 직전 제안이 '월별 흐름'이었고 이번이 후속이면 연 단위 시점을 월별로 승격한다
         # ('어느 해의 월별 흐름?' → '2026년' = 2026년 월별). 사용자가 명시 월을 준 경우는 유지.
@@ -275,8 +343,61 @@ class ConversationEngine:
                         update={"granularity": Granularity.MONTH, "granularity_override": True}
                     )
 
-        new_state = self._advance_state(state, text, parsed, resolution)
+        # P0 — 시점 해소 추적(대화 계층): 파싱 계층 trace에 승계·배제·행위를 덧붙인다.
+        parsed.trace.update({
+            "own_time": own_time,
+            "inherited_time": (
+                (last.time_range.start, last.time_range.end)
+                if inherited_time_used and last is not None and last.time_range is not None
+                else None
+            ),
+            "active_exclusions": [e.model_dump() for e in exclusions],
+            "dialogue_act": parsed.intents[0].dialogue_act,
+        })
+        new_state = self._advance_state(
+            state, text, parsed, resolution, exclusions, own_time
+        )
         return parsed, new_state, resolution, link
+
+    @staticmethod
+    def _merge_time_exclusions(
+        state: ConversationState,
+        intent: IntentJson,
+        link: LinkResult,
+        own_time: bool,
+    ) -> list[TimeExclusion]:
+        """배제 시점 상태 병합 (2026-07-14 P2).
+
+        규칙: ①current_turn 스코프는 다음 턴에 만료 ②주제 전환(link=NEW)이면
+        current_topic 스코프 만료(thread 스코프만 존속) ③이번 턴 명시 배제 추가
+        ④이번 턴 자체 명시 시점이 배제 창과 겹치면 그 배제 해제(명시적 재요청 —
+        "아까는 의미 없다 했지만 이번에는 2026년만 다시 봐줘").
+        """
+        turn = state.turn_no + 1
+        kept = [
+            e for e in state.time_exclusions
+            if e.scope != "current_turn"
+            and not (e.scope == "current_topic" and not link.is_follow_up)
+        ]
+        for it in intent.time_exclusions:
+            if not any(
+                k.start_year == it.start_year and k.end_year == it.end_year
+                for k in kept
+            ):
+                kept.append(TimeExclusion(
+                    start_year=it.start_year, end_year=it.end_year,
+                    scope="current_topic", source_turn=turn,
+                    explicit=it.explicit, reason=it.reason,
+                    confidence=it.confidence,
+                ))
+        if own_time:
+            span = tr_year_span(intent.time_range)
+            if span is not None:
+                kept = [
+                    k for k in kept
+                    if span[1] < k.start_year or k.end_year < span[0]
+                ]
+        return kept
 
     # ── T4.4 Subject Resolution (A0) ─────────────────────────────
 
@@ -488,6 +609,14 @@ class ConversationEngine:
         ):
             return self._follow(parent_id, LinkKind.TIME_SHIFT, state)
 
+        # 결론 요구형(P4, 2026-07-14) — "그래서 ~라는 소리야/거야"는 같은 도메인 단어('합격')가
+        # 들어 있어도 새 질문이 아니라 직전 분석의 결론 재확인이다. 도메인이 직전과 같거나
+        # 미검출일 때만 후속으로 잇는다(다른 주제의 결론 요구는 새 분석 — 4순위로).
+        if _CONCLUSION_SEEK_RE.search(text):
+            doms = _detect_domains(text)
+            if not doms or state.last_intent.domain in doms:
+                return self._follow(parent_id, LinkKind.DRILL_DOWN, state)
+
         # 토픽 연속(2026-06-22) — 활성 스레드(직전 분야 확정)에서 '새 도메인을 안 들고 온' 충분히
         # 구체적인 후속은 직전 분야를 잇는 drill-down으로 본다(예: 관계 풀이 뒤 '주변 사람이야
         # 새로운 사람이야?'). 지시어·도메인 키워드가 없어 NEW로 떨어진 뒤 시점·분야 부재로
@@ -524,8 +653,10 @@ class ConversationEngine:
         text: str,
         parsed: ParsedMessage,
         resolution: SubjectResolution,
+        time_exclusions: list[TimeExclusion] | None = None,
+        own_time: bool = False,
     ) -> ConversationState:
-        """턴 종료 상태 — 엔티티 등록·반복 감지·활성 문맥 갱신."""
+        """턴 종료 상태 — 엔티티 등록·반복 감지·활성 문맥·배제 시점·시점 출처 갱신."""
         turn = state.turn_no + 1
         intent = parsed.intents[0]
         entities = list(state.entities)
@@ -561,6 +692,17 @@ class ConversationEngine:
         norm = re.sub(r"[\s?.!~ㅋㅎ]", "", text)
         repeat = state.repeat_count + 1 if norm == state.last_question_norm else 0
 
+        # P7 lite — 활성 시점의 출처 메타. 명시 시점이 승계보다 우선하며, 이번 턴이
+        # 시점을 못 정했으면 기존 메타 유지(낮은 신뢰 갱신이 상태를 덮지 않게).
+        time_meta = state.active_time_meta
+        if intent.time_range is not None and intent.time_range.start:
+            time_meta = {
+                "value": intent.time_range.start,
+                "source_turn": turn,
+                "resolution_type": "explicit" if own_time else "inherited",
+                "confidence": 0.95 if own_time else 0.7,
+            }
+
         return state.model_copy(update={
             "turn_no": turn,
             "active_subjects": resolution.subjects,
@@ -573,6 +715,10 @@ class ConversationEngine:
             "repeat_count": repeat,
             "last_question_norm": norm,
             "entities": entities,
+            "time_exclusions": (
+                time_exclusions if time_exclusions is not None else state.time_exclusions
+            ),
+            "active_time_meta": time_meta,
         })
 
     # ── T4.5 claim 엔티티(시스템 답변 발) ─────────────────────────

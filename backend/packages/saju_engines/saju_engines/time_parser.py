@@ -18,6 +18,8 @@ from saju_shared_types.intent import (
     AnchorDate,
     Granularity,
     LabeledRange,
+    TimeConstraintItem,
+    TimeConstraintRole,
     TimeRange,
     TimeScope,
 )
@@ -470,3 +472,242 @@ def bucket_to_range(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
         ), TimeScope.MID_TERM
     return None, TimeScope.TIMELESS
+
+
+# ── 시간 제약 역할 분류 (2026-07-14 시점 정합 P1) ──────────────────────────
+#
+# 실측 결함: "2026년 27년은 초딩때라 의미없고 2033년 시험운 합격운이 중요해"에서
+# C6이 첫 4자리 연도(2026)만 잡아 배제 대상이 스레드 시점으로 저장·승계됨.
+# 처음/마지막 연도의 기계적 선택을 금지하고, 모든 연도 표현을 추출해 술어·접속
+# 관계로 역할(target/excluded/comparison/correction/…)을 부여한 뒤 담화상 중심
+# 시점을 결정한다. 우선순위: 명시적 정정 > 명시적 요청 대상 > 긍정 절 중심 >
+# (승계는 대화 엔진 몫) > 단순 언급.
+
+# 배제 술어 — 연도 그룹 뒤 창(다음 그룹 전까지)에서 탐지. '아니라/말고/됐고'는
+# 정정 접속을 겸한다(_CORRECTION_MARK_RE).
+_NEG_PRED_RE = re.compile(
+    r"의미\s*없|필요\s*없|중요하지\s*않|소용\s*없|상관\s*없[다어고]|빼고|제외|말고"
+    r"|아니라|아니고|[은는]\s*됐고|넘어가|안\s*봐도|보지\s*마|이미\s*지났|다\s*지난"
+)
+# 요청·중요 술어 — 명시적 분석 대상 신호.
+_POS_PRED_RE = re.compile(
+    r"중요|궁금|봐\s*줘|봐줘|보고\s*싶|알려|어때|결론|기준|중심|봐야|볼래|보자"
+    r"|필요해|다시\s*봐|풀어|중점"
+)
+# 정정 접속 — 앞 그룹 배제 + 뒤 그룹이 정정 시점(correction).
+_CORRECTION_MARK_RE = re.compile(r"말고|아니라|아니고|[은는]\s*됐고|까지는\s*아니고")
+# 비교 신호 — 복수 그룹이 모두 비교 대상(comparison, 스팬 유지).
+_COMPARE_MARK_RE = re.compile(r"비교|둘\s*중|중\s*(?:언제|어디|뭐|누가|어느)|어느\s*(?:해|쪽)|vs")
+# 가정 신호 — 그룹 직후 어미('2030년이라면').
+_HYPO_TAIL_RE = re.compile(r"^\s*(?:이?라면|이면)")
+# 연도 그룹 내부 구분자 — 이것만으로 이어지면 같은 그룹("2026년 27년", "2026, 2027년").
+_YEAR_SEP_RE = re.compile(r"^[\s,·~\-과와랑년및]*(?:이랑)?[\s,·~\-과와랑년및]*$")
+# 상대 연도 어휘 — 배제/정정 구문에 흔한 '올해 말고 내년' 지원.
+_REL_YEAR_WORDS = {"올해": 0, "금년": 0, "내년": 1, "내후년": 2}
+
+
+def _year_mentions(text: str, today: date) -> list[tuple[int, int, int]]:
+    """텍스트의 연 단위 언급을 (연도, 시작, 끝) 목록으로 추출한다.
+
+    4자리 연도(년 선택)·상대 연도 어휘(올해/내년…)는 항상, 2자리 축약 연도('27년')는
+    4자리 연도가 앞서 등장한 체인 문맥에서만 잡는다(C6b 오탐 가드 동일 + '생' 제외).
+    """
+    out: list[tuple[int, int, int]] = []
+    # (?!\s*년?\s*생) — '2020년생'·'2020생' 출생 표기 제외(년? 백트래킹으로 가드가
+    # 비켜가지 않도록 소비 전에 검사).
+    for m in re.finditer(r"(?<!\d)(20\d{2})(?!\d)(?!\s*년?\s*생)\s*년?", text):
+        out.append((int(m.group(1)), m.start(), m.end()))
+    for word, off in _REL_YEAR_WORDS.items():
+        for m in re.finditer(word, text):
+            # '내후년'이 '내년'으로 중복 매칭되지 않게 더 긴 어휘 우선(스팬 겹침 제거는 아래).
+            out.append((today.year + off, m.start(), m.end()))
+    first_full = min((s for _, s, _ in out), default=None)
+    if first_full is not None:
+        for m in re.finditer(
+            r"(?<![\d.])(\d{2})\s*년(?!\s*(?:후|뒤|동안|간|내|째|차|생))", text
+        ):
+            if m.start() < first_full or m.group(1).startswith("20"):
+                continue
+            yy = int(m.group(1))
+            if any(s <= m.start() < e for _, s, e in out):  # 4자리 연도의 꼬리 재매칭 방지
+                continue
+            out.append((2000 + yy if yy <= 69 else 1900 + yy, m.start(), m.end()))
+    # 스팬 겹침 제거(긴 매칭 우선: '내후년' > '내년') 후 위치순 정렬.
+    out.sort(key=lambda t: (t[1], -(t[2] - t[1])))
+    dedup: list[tuple[int, int, int]] = []
+    for y, s, e in out:
+        if dedup and s < dedup[-1][2]:
+            continue
+        dedup.append((y, s, e))
+    return dedup
+
+
+def extract_time_constraints(text: str, today: date) -> list[TimeConstraintItem]:
+    """연 단위 시간 표현을 전수 추출해 담화 역할을 부여한다 (P1).
+
+    처리 순서: ①연도 언급 전수 추출 ②인접 언급의 그룹핑(구분자만 사이에 있으면
+    같은 그룹 — "2026년 27년") ③그룹별 술어 창(다음 그룹 전까지) 분석 ④역할 분류
+    ⑤같은 연도가 배제·대상 양쪽에 놓이면 나중 긍정이 승리(명시적 재요청 해제).
+
+    Returns:
+        위치순 TimeConstraintItem 목록. 연도 언급이 없으면 [].
+    """
+    mentions = _year_mentions(text, today)
+    if not mentions:
+        return []
+    # ② 그룹핑 — 사이 텍스트가 구분자뿐이면 같은 그룹.
+    groups: list[list[tuple[int, int, int]]] = [[mentions[0]]]
+    for cur in mentions[1:]:
+        prev_end = groups[-1][-1][2]
+        if _YEAR_SEP_RE.match(text[prev_end:cur[1]]):
+            groups[-1].append(cur)
+        else:
+            groups.append([cur])
+    comparison = bool(_COMPARE_MARK_RE.search(text)) and len(groups) >= 2
+
+    items: list[TimeConstraintItem] = []
+    prev_neg_correction = False  # 직전 그룹이 정정 접속으로 배제됐는가
+    for gi, grp in enumerate(groups):
+        g_start, g_end = grp[0][1], grp[-1][2]
+        window_end = groups[gi + 1][0][1] if gi + 1 < len(groups) else len(text)
+        window = text[g_end:window_end]
+        years = sorted(y for y, _, _ in grp)
+        span_text = text[g_start:g_end]
+        neg = _NEG_PRED_RE.search(window)
+        pos = _POS_PRED_RE.search(window)
+        role: TimeConstraintRole
+        reason = ""
+        if neg and (not pos or neg.start() < pos.start()):
+            # 부정 술어가 먼저 — 배제. 창 안 긍정 술어는 다음 그룹 몫일 수 있으나,
+            # 창은 다음 그룹 앞에서 끊기므로 이 그룹에 대한 술어만 남는다.
+            role = TimeConstraintRole.EXCLUDED
+            reason = neg.group(0)
+        elif _HYPO_TAIL_RE.match(window):
+            role = TimeConstraintRole.HYPOTHETICAL
+            reason = "가정 어미"
+        elif prev_neg_correction:
+            role = TimeConstraintRole.CORRECTION
+            reason = "정정 접속 뒤 제시"
+        elif comparison:
+            role = TimeConstraintRole.COMPARISON
+            reason = "비교 구문"
+        elif pos:
+            role = TimeConstraintRole.TARGET
+            reason = pos.group(0)
+        else:
+            role = TimeConstraintRole.MENTION
+        prev_neg_correction = (
+            role is TimeConstraintRole.EXCLUDED
+            and bool(_CORRECTION_MARK_RE.search(window))
+        )
+        items.append(TimeConstraintItem(
+            role=role, start_year=years[0], end_year=years[-1],
+            source_span=span_text, reason=reason,
+        ))
+
+    # ⑤ 재요청 해제 — 같은 연도가 EXCLUDED와 (TARGET|CORRECTION) 양쪽이면 긍정이 승리.
+    positive_years: set[int] = set()
+    for it in items:
+        if it.role in (TimeConstraintRole.TARGET, TimeConstraintRole.CORRECTION):
+            positive_years.update(range(it.start_year, it.end_year + 1))
+    return [
+        it for it in items
+        if not (
+            it.role is TimeConstraintRole.EXCLUDED
+            and set(range(it.start_year, it.end_year + 1)) <= positive_years
+        )
+    ]
+
+
+def resolve_time_target(items: list[TimeConstraintItem]) -> tuple[int, int] | None:
+    """제약 목록에서 담화상 중심 연도 스팬을 결정한다 (P1 우선순위).
+
+    명시적 정정 > 명시적 요청 대상 > 비교(전체 스팬) > 단일 단순 언급.
+    배제(EXCLUDED)·가정(HYPOTHETICAL)은 절대 중심 시점이 되지 않는다.
+    복수 그룹이 모두 단순 언급이면 None(모호 — 기존 규칙·승계에 양보).
+    """
+    def _span(role: TimeConstraintRole) -> tuple[int, int] | None:
+        ys = [
+            y for it in items if it.role is role
+            for y in (it.start_year, it.end_year)
+        ]
+        return (min(ys), max(ys)) if ys else None
+
+    for role in (TimeConstraintRole.CORRECTION, TimeConstraintRole.TARGET):
+        span = _span(role)
+        if span is not None:
+            return span
+    span = _span(TimeConstraintRole.COMPARISON)
+    if span is not None:
+        return span
+    mentions = [it for it in items if it.role is TimeConstraintRole.MENTION]
+    if len(mentions) == 1:
+        return mentions[0].start_year, mentions[0].end_year
+    return None
+
+
+def parse_time_with_constraints(
+    text: str,
+    today: date,
+    birth_year: int | None = None,
+    current_month_label: str | None = None,
+) -> tuple[TimeRange | None, TimeScope, list[TimeConstraintItem]]:
+    """parse_time + 연 단위 제약 해소 — 배제 연도가 시점으로 뽑히는 것을 교정한다.
+
+    기존 18패턴 결과를 유지하되, ①결과가 없거나 ②결과의 연도가 배제 연도이거나
+    ③복수 연도 그룹의 중심 스팬과 다르면 연/월 단위에 한해 재조준(retarget)한다.
+    나이·구간묶음·데드라인·앵커 등 복합 표현은 손대지 않는다(회귀 0 원칙).
+
+    Returns:
+        (TimeRange | None, TimeScope, 제약 목록). 제약 목록은 배제 지속(P2)·LLM
+        서술 제한에 쓰인다.
+    """
+    tr, scope = parse_time(text, today, birth_year, current_month_label)
+    items = extract_time_constraints(text, today)
+    if not items:
+        return tr, scope, items
+    excluded_years = {
+        y for it in items if it.role is TimeConstraintRole.EXCLUDED
+        for y in range(it.start_year, it.end_year + 1)
+    }
+    target = resolve_time_target(items)
+    multi_group = len(items) >= 2
+
+    def _tr_year(t: TimeRange) -> int | None:
+        key = t.start or t.end
+        return int(key[:4]) if key and key[:4].isdigit() else None
+
+    retargetable = tr is None or (
+        tr.type in ("absolute", "relative")
+        and tr.granularity in (Granularity.YEAR, Granularity.MONTH)
+        and not tr.ranges and tr.age is None and not tr.anchor_dates
+    )
+    if not retargetable:
+        return tr, scope, items
+    naive_year = _tr_year(tr) if tr is not None else None
+    naive_excluded = naive_year is not None and naive_year in excluded_years
+    if target is not None:
+        y1, y2 = target
+        needs_fix = tr is None or naive_excluded or (
+            (multi_group or y1 != y2)  # 복수 그룹 또는 한 그룹 복수 연도 스팬(비교 나열)
+            and tr.granularity is Granularity.YEAR
+            and (tr.start, tr.end) != (str(y1), str(y2))
+        )
+        if needs_fix:
+            if tr is not None and tr.granularity is Granularity.MONTH and naive_excluded:
+                # '2026년 말고 2033년 3월' — 월 유지, 연도만 교체.
+                fix = {
+                    "start": tr.start and f"{y1}{tr.start[4:]}",
+                    "end": tr.end and f"{y1}{tr.end[4:]}",
+                }
+                return tr.model_copy(update=fix), scope, items
+            return TimeRange(
+                type="absolute", granularity=Granularity.YEAR,
+                start=str(y1), end=str(y2),
+                urgency=tr.urgency if tr is not None else None,
+            ), TimeScope.MID_TERM, items
+    elif naive_excluded:
+        # 언급된 연도가 전부 배제 — 시점 미확정으로 되돌린다(승계·재질문 경로가 처리,
+        # 승계 시 배제 창 회피는 대화 엔진 가드 몫).
+        return None, TimeScope.TIMELESS, items
+    return tr, scope, items

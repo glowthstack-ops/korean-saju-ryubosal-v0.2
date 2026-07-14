@@ -13,6 +13,7 @@ llm_guard로 입력 토큰을 호출 전 검증한다(초과 시 후보 수를 �
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date as date_cls
 
@@ -29,8 +30,8 @@ from saju_shared_types.constants import (
     ten_god,
 )
 from saju_shared_types.enums import Branch, Element, Stem
+from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN, direction_label
 from saju_shared_types.event_taxonomy_v2 import EVENT_KO as _EVENT_KO_V2
-from saju_shared_types.event_taxonomy_v2 import direction_label
 from saju_shared_types.events import EventCandidate, EventKey
 from saju_shared_types.graph import EvidenceBundle
 from saju_shared_types.intent import IntentJson, QueryType
@@ -553,6 +554,229 @@ def reduce_candidates(
     )[:top_n]
 
 
+# ── 총운형 다변화 선별 (2026-07-14 데굴님 설계 확정) ─────────────────────
+#
+# 실측 결함: "앞으로 1년 주요 이벤트" 같은 총운 질문에 단일 도메인 질문과 동일한 순수
+# 점수순 Top-N을 적용 → 강한 십성 유입 해에 한 사건이 기간만 바꿔 5슬롯을 독점(재물
+# 변화 ×5), 답변이 한 도메인으로 쏠림. 해법은 균등 배분(라운드로빈)이 아니라 **중복을
+# 압축한 뒤 유효 신호 범위 안에서 조망성 확보**:
+#   ①의미 클러스터링(event_key+길흉 방향+지배 신호 계열 — 반대 방향·원인 다른 독립
+#     피크는 분리, 기간 반복은 대표+supporting_periods로 집계)
+#   ②품질 게이트 다양화(전체 최고 1개 → 미포함 도메인 후보는 절대·상대·life_fit 게이트
+#     통과 시에만 추가 → 남는 슬롯 점수순, 동일 도메인은 다른 유효 도메인이 있는 동안
+#     최대 2개 — 약한 후보를 억지로 끌어올리지 않고, 압도 도메인은 집중 보존)
+#   ③life_fit 계층 불변(다양화는 정렬 계층 안에서만) ④Top 3~5는 목표 범위(강제 충원 금지).
+# 특정 도메인 질문은 reduce_candidates 기존 로직 그대로(회귀 0).
+
+_overview_log = logging.getLogger(__name__)
+
+# 커버리지 품질 게이트 — 절대 최소점수 / 전체 최고점 대비 허용 격차 / life_fit 허용 격차.
+OVERVIEW_COVERAGE_MIN_SCORE = 55
+OVERVIEW_RELATIVE_WINDOW = 30
+OVERVIEW_LIFE_FIT_WINDOW = 0.15
+# 동일 도메인 상한(조건부 — 미포함 유효 도메인 클러스터가 남아 있을 때만 적용).
+OVERVIEW_DOMAIN_CAP = 2
+# 근-최고점(co-top) 창(2026-07-14 실사용 2차 결함) — 최고점과 이 격차 이내의 클러스터는
+# '주요 이벤트' 그 자체이므로 커버리지보다 먼저 선정한다. 실측: 커버리지 패스가 슬롯을
+# 전부 소모해 결혼 신호 98점이 이동 82·건강 75점에 밀려 탈락(총운이 최상위 사건을 누락).
+OVERVIEW_CO_TOP_WINDOW = 10
+# 선정 제외 강신호 메타의 포함 기준(2026-07-14 3차 평가 — 데굴님 확정): co-top 창(−10)
+# 만으로는 85점급 '강' 신호가 여전히 침묵 가능(최고점 100 기준 창 밖) → 상대 창은
+# 커버리지 게이트와 동일(−30), 절대 하한은 '가능성이 높습니다' 등급(70). 나열 폭주
+# 방지 캡 3건(정렬순 상위).
+OVERVIEW_DROPPED_META_MIN = 70
+OVERVIEW_DROPPED_META_CAP = 3
+
+_QUALITY_POS = frozenset({"opportunity", "achievement", "resolution"})
+_QUALITY_NEG = frozenset({"loss", "pressure", "conflict"})
+
+
+def _overview_direction(c: EventCandidate) -> str:
+    """길흉 방향 축 — quality 길·흉군 우선, 없으면 favorability 부호(반대 방향 병합 금지)."""
+    if c.quality in _QUALITY_POS:
+        return "pos"
+    if c.quality in _QUALITY_NEG:
+        return "neg"
+    if c.favorability > 0.15:
+        return "pos"
+    if c.favorability < -0.15:
+        return "neg"
+    return "mixed"
+
+
+def _dominant_trigger(c: EventCandidate) -> str:
+    """지배 신호 계열(|weight| 최대 신호의 type) — 원인이 다른 독립 피크의 분리 축."""
+    if not c.signals:
+        return ""
+    return max(c.signals, key=lambda s: abs(s.weight)).type
+
+
+def _life_fit_sort_key(c: EventCandidate) -> tuple:
+    """reduce_candidates와 동일한 정렬 계층(life_fit>personal_match>score>raw) — 불변."""
+    return (
+        -getattr(c, "life_fit", 0.0),
+        -getattr(c, "personal_match", 0.0),
+        -c.score,
+        -getattr(c, "raw_total", 0.0),
+        c.period,
+        str(c.event_key),
+    )
+
+
+def reduce_overview_candidates(
+    candidates: list[EventCandidate],
+    period_start: str | None,
+    period_end: str | None,
+    month_bounds: dict[str, tuple[str, str]] | None = None,
+    top_n: int = TOP_N_CANDIDATES,
+    score_floor: int = SCORE_FLOOR,
+) -> tuple[list[EventCandidate], dict[int, str], list[str]]:
+    """총운형 후보 선별 — 의미 클러스터링 + 품질 게이트 다양화.
+
+    Returns:
+        (선별 후보, {선별 인덱스: 반복 신호 노트}, 선정 제외 강신호 메타 줄들).
+        유효 클러스터가 top_n보다 적으면 그 수만 반환한다(약한 후보 강제 충원 금지 —
+        Top 3~5는 목표 범위). 제외 메타는 근-최고점 미선정 클러스터 한정.
+    """
+    pool = sorted(
+        (
+            c for c in candidates
+            if c.score >= score_floor
+            and in_question_range(c.period, period_start, period_end, month_bounds)
+        ),
+        key=_life_fit_sort_key,
+    )
+    if not pool:
+        return [], {}, []
+
+    # ① 의미 클러스터링 — 대표(정렬 최상위) + 보조 기간 집계.
+    clusters: dict[tuple, dict] = {}
+    order: list[tuple] = []
+    for c in pool:
+        key = (str(c.event_key), _overview_direction(c), _dominant_trigger(c))
+        if key not in clusters:
+            clusters[key] = {"rep": c, "periods": [c.period], "count": 1}
+            order.append(key)
+        else:
+            clusters[key]["periods"].append(c.period)
+            clusters[key]["count"] += 1
+    ranked = [clusters[k] for k in order]  # pool 정렬 순서 = 대표 정렬 순서
+
+    # ② 품질 게이트 다양화 — 전체 최고 1개 → 미포함 도메인 → 점수순 충원.
+    top = ranked[0]
+    top_score = top["rep"].score
+    top_fit = getattr(top["rep"], "life_fit", 0.0)
+
+    def _domain_of(cl: dict) -> str:
+        return EVENT_DOMAIN.get(cl["rep"].event_key, "general")
+
+    def _passes_gate(cl: dict) -> bool:
+        rep = cl["rep"]
+        return (
+            rep.score >= OVERVIEW_COVERAGE_MIN_SCORE
+            and rep.score >= top_score - OVERVIEW_RELATIVE_WINDOW
+            and getattr(rep, "life_fit", 0.0) >= top_fit - OVERVIEW_LIFE_FIT_WINDOW
+        )
+
+    selected: list[dict] = [top]
+    covered = {_domain_of(top)}
+    remaining = [cl for cl in ranked[1:]]
+
+    def _domain_count(d: str) -> int:
+        return sum(1 for s in selected if _domain_of(s) == d)
+
+    def _uncovered_valid_exists(exclude: dict) -> bool:
+        return any(
+            _domain_of(o) not in covered and _passes_gate(o)
+            for o in remaining if o is not exclude and o not in selected
+        )
+
+    # co-top 패스 — 최고점 근접 클러스터는 도메인 커버리지보다 먼저(그 자체가 '주요
+    # 이벤트'). 게이트·조건부 도메인 캡은 동일 적용(단일 도메인 90점대 나열로의 회귀 방지).
+    for cl in remaining:
+        if len(selected) >= top_n:
+            break
+        if cl["rep"].score < top_score - OVERVIEW_CO_TOP_WINDOW:
+            continue  # 정렬은 life_fit 우선이라 점수 비단조 — 창 밖만 건너뛴다
+        if not _passes_gate(cl):
+            continue
+        d = _domain_of(cl)
+        if _uncovered_valid_exists(cl) and _domain_count(d) >= OVERVIEW_DOMAIN_CAP:
+            continue
+        selected.append(cl)
+        covered.add(d)
+
+    # 커버리지 패스 — 미포함 도메인의 최상위 클러스터를 게이트 통과 시에만 1개씩.
+    for cl in remaining:
+        if len(selected) >= top_n:
+            break
+        d = _domain_of(cl)
+        if cl in selected or d in covered or not _passes_gate(cl):
+            continue
+        selected.append(cl)
+        covered.add(d)
+    # 충원 패스 — 남는 슬롯은 정렬순, 단 품질 게이트 통과 클러스터만(유효 신호 범위
+    # 안에서 조망 — 약한 후보로 3~5개를 강제 충원하지 않는다). 동일 도메인 상한은
+    # '미포함 유효 도메인이 남아 있을 때만' 적용(조건부) — 압도 도메인 집중은 보존.
+    for cl in remaining:
+        if len(selected) >= top_n:
+            break
+        if cl in selected or not _passes_gate(cl):
+            continue
+        d = _domain_of(cl)
+        uncovered_valid = any(
+            _domain_of(o) not in covered and _passes_gate(o)
+            for o in remaining if o is not cl and o not in selected
+        )
+        if (
+            uncovered_valid
+            and sum(1 for s in selected if _domain_of(s) == d) >= OVERVIEW_DOMAIN_CAP
+        ):
+            continue
+        selected.append(cl)
+        covered.add(d)
+
+    out: list[EventCandidate] = []
+    notes: dict[int, str] = {}
+    for idx, cl in enumerate(selected):
+        out.append(cl["rep"])
+        if cl["count"] > 1:
+            others = sorted(p for p in cl["periods"] if p != cl["rep"].period)
+            notes[idx] = (
+                f"반복 신호: 같은 계열 신호가 {', '.join(others)}에도 나타남"
+                f"(총 {cl['count']}회 — 대표 시기 {cl['rep'].period})"
+            )
+
+    # 선정 제외 강신호 메타(2026-07-14 not_selected_due_to_limit — 감수 확정 방식):
+    # 근-최고점(co-top 창)인데 개인화 가중·슬롯 제한으로 밀린 클러스터는 '신호 없음'이
+    # 아니다 — 제한 언급용 메타로 노출한다. 실측: 데굴님 총운에서 결혼 신호 98점이
+    # 완전 침묵해 후속 질문("애정운은 없어?")에서야 드러난 결함.
+    dropped: list[str] = []
+    for cl in ranked:
+        if len(dropped) >= OVERVIEW_DROPPED_META_CAP:
+            break
+        if cl in selected:
+            continue
+        rep = cl["rep"]
+        # '강' 등급(≥70) + 커버리지 상대 창(−30) 이내만 — 85점급 침묵 방지(3차 확대),
+        # 그 아래는 노이즈로 보고 메타에서도 생략.
+        if (
+            rep.score < OVERVIEW_DROPPED_META_MIN
+            or rep.score < top_score - OVERVIEW_RELATIVE_WINDOW
+        ):
+            continue
+        if getattr(rep, "life_fit", 0.0) < top_fit - OVERVIEW_LIFE_FIT_WINDOW:
+            reason = "현재 생활 맥락 가중(개인화 적합도)에서 후순위"
+        else:
+            reason = "조망 슬롯 제한"
+        label = _EVENT_KO_V2.get(rep.event_key, str(rep.event_key))
+        dropped.append(
+            f"{label} @ {rep.period} — 신호가 강하게 잡혀 있으나 {reason}로 "
+            "이번 조망 선정에서 제외됨"
+        )
+    return out, notes, dropped
+
+
 def reduce_with_context(
     candidates: list[EventCandidate],
     graph_scope: list[EventKey],
@@ -712,12 +936,17 @@ def build_calendar_context(
 
 
 def _selection_reason(year_label: str, selected: list[EventCandidate]) -> str:
-    """세운 선별 사유 — 그 해 최고 후보."""
+    """세운 선별 사유 — 그 해 최고 후보(한글 라벨 + 강도 표현).
+
+    2026-07-14 데굴님 실사용 발견: 종전 f"{event_key} {score}점"이 영문 내부 키와
+    원점수를 LLM에 그대로 노출 — 답변에 '98점'이 인용되는 원칙 위반(점수 비노출·
+    내부 키 비노출)의 소스였다. 강도는 tone 표현으로만 전달한다.
+    """
     in_year = [c for c in selected if c.period[:4] == year_label]
     if not in_year:
         return ""
     top = max(in_year, key=lambda c: c.score)
-    return f"{top.event_key} {top.score}점"
+    return f"{event_ko(top.event_key)} — {tone_for_score(top.score)}"
 
 
 def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
@@ -1144,6 +1373,7 @@ def build_llm_input(
     subject_blocks: list[SubjectBlock] | None = None,
     relationship_context: RelationshipContext | None = None,
     reserved_tokens: int | None = None,
+    overview_mode: bool = False,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
 
@@ -1175,13 +1405,49 @@ def build_llm_input(
         period_start = period_end = None
     # 월 후보 기간 비교를 절기 경계로 — 질문일이 속한 절기월이 '지난 달'로 밀려나는 결함 보정.
     month_bounds = _month_seolgi_bounds(result)
-    selected, out_of_range = reduce_with_context(
-        candidates,
-        graph_scope or [b.event_key for b in bundles],
-        period_start,
-        period_end,
-        month_bounds=month_bounds,
-    )
+    recurrence_notes: dict[int, str] = {}
+    overview_dropped: list[str] = []
+    if overview_mode:
+        # 총운형(2026-07-14) — 의미 클러스터링 + 품질 게이트 다양화(위 주석 참조).
+        # graph_scope 미적용(멀티도메인 조망), 기간 외 참고 상위는 기존 로직 재사용.
+        selected, recurrence_notes, overview_dropped = reduce_overview_candidates(
+            candidates, period_start, period_end, month_bounds=month_bounds,
+        )
+        # 표시 순서 = 강도(점수) 내림차순(2026-07-14 5차) — 선정·life_fit 계층은 불변,
+        # 직렬화 순서만 조정. 선정 정렬(fit 우선)을 그대로 두면 최약 후보가 목록
+        # 맨 앞에 놓여 LLM 서술 리드를 잡는 문제(조망 지침의 '최강 후보 앞부분
+        # 비중' 요구를 구조로 보장).
+        _disp = sorted(
+            range(len(selected)),
+            key=lambda i: (-selected[i].score, selected[i].period),
+        )
+        selected = [selected[i] for i in _disp]
+        recurrence_notes = {
+            new_i: recurrence_notes[old_i]
+            for new_i, old_i in enumerate(_disp)
+            if old_i in recurrence_notes
+        }
+        _, out_of_range = reduce_with_context(
+            candidates, [], period_start, period_end, month_bounds=month_bounds,
+        )
+        # 선별 결정 trace(관측용) — 라이브 재질문 시 서버 로그에서 원인 확인 가능.
+        _overview_log.info(
+            "overview_selection selected=%s dropped=%s",
+            [
+                (str(c.event_key), c.period, c.score,
+                 round(getattr(c, "life_fit", 0.0), 3))
+                for c in selected
+            ],
+            overview_dropped,
+        )
+    else:
+        selected, out_of_range = reduce_with_context(
+            candidates,
+            graph_scope or [b.event_key for b in bundles],
+            period_start,
+            period_end,
+            month_bounds=month_bounds,
+        )
     dw_by_year = _daewoon_lookup(result)
     ganji = _ganji_lookup(result)
     day_master = result.pillars.day_master if result.pillars else ""
@@ -1195,6 +1461,12 @@ def build_llm_input(
     _nt_order = near_tie_demotion_order(result, selected, ganji, domain=str(intent.domain.value))
     if _nt_order is not None:
         selected = [selected[i] for i in _nt_order]
+        # 반복 신호 노트는 selected 인덱스와 1:1 — 재배열을 따라간다.
+        recurrence_notes = {
+            new_i: recurrence_notes[old_i]
+            for new_i, old_i in enumerate(_nt_order)
+            if old_i in recurrence_notes
+        }
 
     # 신살 보조 태그(Phase A-1) — 질문 도메인 기준으로 1회 derive·prune(후보당 ≤3).
     # 점수·랭킹·favorability 불변(순수 enrichment). domain 은 파서 확정 도메인의 대표값.
@@ -1241,6 +1513,10 @@ def build_llm_input(
         )
         for i, c in enumerate(selected)
     ]
+    # 총운형 반복 신호 노트(2026-07-14) — 클러스터 대표에 보조 기간·반복 횟수 병기.
+    for _ri, _rnote in recurrence_notes.items():
+        if 0 <= _ri < len(llm_candidates):
+            llm_candidates[_ri].recurrence_note = _rnote
     # Scoring 1c-α rank guard 는 payload 조립 후(_apply_rank_guards)에서 토큰 헤드룸 가드와 함께
     # 적용한다 — 본문을 절단하지 않도록(spec §14-9). 여기서는 본문만 만든다.
     out_candidates = [
@@ -1303,6 +1579,8 @@ def build_llm_input(
         calendar_context=build_calendar_context(result, selected, intent),
         event_candidates=llm_candidates,
         out_of_range_candidates=out_candidates,
+        overview_dropped_notables=overview_dropped,
+        overview_mode=overview_mode,
         # 택일(DATE_RECOMMENDATION)·날짜표가 있는 답에는 '신호 없음' 면책을 넣지 않는다 —
         # 택일 표가 곧 답이라 "뚜렷한 신호가 없습니다"와 날짜 추천이 한 답에서 모순되던 결함
         # 수정(2026-06-16). 사건 점수 공집합은 택일 질의에 무관(길흉이 아니라 실행일을 묻는다).
@@ -1627,6 +1905,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
         if with_notes and _rel_focus and c.marriage_stage:
             # 관계 단계(MT) — 결혼 확정이 아니라 단계로 표현. 관계 도메인 질문에만(토큰 절약).
             block.append(f"  관계 단계: {c.marriage_stage}(결혼 확정 아님)")
+        if with_notes and c.recurrence_note:
+            # 총운형 집계 — 같은 계열 신호의 보조 기간·반복 횟수(대표만 남긴 것이 아님).
+            block.append(f"  {c.recurrence_note}")
         if with_notes and c.incoming_note:
             block.append(f"  해석: {c.incoming_note}")
         if with_notes and c.amhap_notes:
@@ -1653,20 +1934,38 @@ def serialize_llm_input(payload: LlmInput) -> str:
         )
         for cl in payload.prior_claims:
             lines.append(f"- {cl}")
+    # 총운 모드(2026-07-14 6차 — 데굴님 확정: 재생성 대신 무비용 입력 구조로 유도) —
+    # 이벤트 후보·제외 강신호 블록을 월별 요약·유력 달 종합 '뒤'(최종 지시문 인접)로
+    # 미룬다. 마지막 데이터 블록이 서술을 지배하는 경향을 역이용해, 월별 표(직업 신호
+    # 밀집)가 후보 조망을 덮는 쏠림을 줄인다. 비총운 질문은 기존 위치 그대로.
+    _cand_out: list[str] = [] if payload.overview_mode else lines
     # 이벤트 후보 섹션 — 내용이 있을 때만 출력(구조 질문 등 후보 미산출 시 빈 헤더 노출 방지).
     if payload.event_candidates or payload.no_candidates_in_period:
-        lines.append("")
-        lines.append(
+        _cand_out.append("")
+        _cand_out.append(
             "[이벤트 후보 — 그 기간에 가능성이 상대적으로 높은 사건의 추측 신호. "
-            "기간 전체를 대표하지 않음, 강도는 표현 그대로 인용]"
+            "기간 전체를 대표하지 않음, 강도는 표현 그대로 인용. 점수·백분율 등 "
+            "숫자 수치는 제공되지 않았다 — '98점'류 수치를 지어내 말하지 말 것]"
         )
         if payload.no_candidates_in_period:
-            lines.append(
+            _cand_out.append(
                 "질문 기간 내 해당 도메인 후보 없음 — '해당 기간에는 뚜렷한 신호가 "
                 "없습니다'로 정직하게 안내할 것(추측 금지)."
             )
-        for c in payload.event_candidates:
-            lines += candidate_block(c)
+        _n_cands = len(payload.event_candidates)
+        for _ci, c in enumerate(payload.event_candidates, 1):
+            _blk = candidate_block(c)
+            if payload.overview_mode and _blk:
+                # 순번 체크리스트화 — 누락 인지 강화(총운 한정).
+                _blk[0] = f"후보 {_ci}/{_n_cands} · {_blk[0]}"
+            _cand_out += _blk
+        if payload.overview_mode and _n_cands:
+            _cand_out.append(
+                f"(총운 서술 체크리스트: 위 {_n_cands}개 후보 각각을 그 시기와 함께 "
+                "최소 한 문장씩 답변에 포함할 것. 후보의 성격(갈등·마찰/손실·지출/압박·"
+                "부담)과 결과 유불리 '불리'는 완곡하게 뒤집거나 생략하지 말 것 — ⚠ 표시가 "
+                "있는 시기를 '긍정적'으로 요약하는 것은 금지)"
+            )
         # 결혼 출력 가드(Step 3·4) — 관계 도메인 질문 + MT 단계가 있을 때만 코드 결정 지시문 주입.
         # risk 코드(충·쟁합·기신)면 관계 변화·갈등 가능성 병기 강제(Step 4 분기).
         _mt_cands = [c for c in payload.event_candidates if c.marriage_stage]
@@ -1683,11 +1982,23 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 _stages = {c.marriage_stage for c in _mt_cands}
                 _top = "relationship" if "relationship" in _stages else "awareness"
                 _risk = any(has_stability_risk(c.marriage_stage_reason) for c in _mt_cands)
-                lines.append(
+                _cand_out.append(
                     marriage_guard_directive(
                         compute_marriage_output_guard(_top, stability_risk=_risk)
                     )
                 )
+    # 총운 선정 제외 강신호(2026-07-14 not_selected_due_to_limit) — 침묵 금지·승격 금지.
+    if payload.overview_dropped_notables:
+        _cand_out.append("")
+        _cand_out.append(
+            "[선정 제외 강신호 — '신호 없음'이 아니다] 아래는 신호 강도가 최상위권이나 "
+            "조망 선정에서 밀린 항목이다. 각 항목의 존재를 답변에서 **한 문장으로 짧게** "
+            "언급하라('~신호도 강하게 잡혀 있으니 따로 물어보면 자세히 볼 수 있다' 수준). "
+            "주요 서사로 승격하거나 상세 풀이하지 말고, 반대로 이 영역을 '신호 없음·"
+            "조용함'으로 단정하지도 마라."
+        )
+        for _dn in payload.overview_dropped_notables:
+            _cand_out.append(f"- {_dn}")
     # cur_month(현재 절기월)는 위에서 1회 산출 — 지난 기간 행·후보에 '지남' 마커(P6)에 재사용.
     if payload.out_of_range_candidates:
         lines.append("")
@@ -1825,9 +2136,16 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 if payload.resolved_intent.event_key is not None
                 else ""
             )
+            # 총운 조망에선 이벤트 후보가 서술 골격 — 유력 달 순위가 조망 지침을
+            # 눌러 직업 등 특정 영역 쏠림을 만들던 지시문 충돌 해소(2026-07-14 5차).
             lines.append(
-                "[유력 달 종합 — 엔진 확정 골자. 각 달을 서술할 때 아래의 우세 사건·"
-                "유불리·주의를 반드시 그대로 함께 밝힐 것(누락 금지)]"
+                "[유력 달 종합 — 이 순위는 '시기 짚기' 참고 자료다. 총운·조망 답변의 "
+                "서술 골격은 [이벤트 후보] 목록이며 이 달 순위가 서술 비중 기준이 "
+                "아니다. 아래 달을 서술할 때는 우세 사건·유불리·주의를 그대로 함께 "
+                "밝힐 것]"
+                if payload.overview_mode
+                else "[유력 달 종합 — 엔진 확정 골자. 각 달을 서술할 때 아래의 우세 "
+                "사건·유불리·주의를 반드시 그대로 함께 밝힐 것(누락 금지)]"
             )
             for mr in ranked_rows:
                 events = mr.top_event_ko.split(" > ")
@@ -1876,6 +2194,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
                         "'좋은 달'로 단정하지 말 것"
                     )
                 lines.append(line)
+    # 총운 모드 — 미뤄둔 이벤트 후보·제외 강신호 블록을 여기(월별·유력 달 뒤,
+    # 최종 지시문 인접)에 삽입한다. 월별 표가 비어도 반드시 방출된다.
+    if payload.overview_mode and _cand_out is not lines and _cand_out:
+        lines += _cand_out
     if payload.period_fortune is not None:
         pf = payload.period_fortune
         header, pillar_label = _PERIOD_FORTUNE_HEADER.get(pf.fortune_type, ("기간 총운", "운"))

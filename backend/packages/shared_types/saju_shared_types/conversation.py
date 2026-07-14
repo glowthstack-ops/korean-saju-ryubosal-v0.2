@@ -81,6 +81,23 @@ class ResultSummaryRef(BaseModel):
     detail: str = ""
 
 
+class TimeExclusion(BaseModel):
+    """사용자가 배제한 연 단위 기간 + 스코프 (2026-07-14 시점 정합 P2).
+
+    "2026·27년은 의미없고"처럼 배제된 기간을 스레드 전체 영구 금지가 아니라
+    출처·스코프가 있는 제약으로 저장한다 — 이후 "이번에는 2026년만 다시 봐줘"
+    같은 명시적 재요청이 오면 해제하고, 주제 전환 시 topic 스코프는 만료한다.
+    """
+
+    start_year: int
+    end_year: int
+    scope: str = "current_topic"  # 'current_turn' | 'current_topic' | 'thread'
+    source_turn: int = 0
+    explicit: bool = True
+    reason: str = ""  # 배제 판정 근거 술어 원문('의미없고' 등)
+    confidence: float = 1.0
+
+
 class ConversationState(BaseModel):
     """현재 대화가 무엇을 다루는지 (docs/03 A1 ConversationState)."""
 
@@ -107,3 +124,9 @@ class ConversationState(BaseModel):
     # ('2026년')을 제안 수락(offer-slot)으로 연결하고, '월별' 함의면 granularity를 월로 승격한다
     # (2026-07-01). 답변 확정 시 _extract_offer로 채우고 비offer면 ''로 만료.
     last_offer: str = ""
+    # 사용자가 배제한 기간 목록(2026-07-14 P2) — 시점 승계·엔진 창·LLM 서술에서 제외.
+    # 명시적 재요청 시 해제, 주제 전환 시 current_topic 스코프 만료(병합 규칙은 엔진).
+    time_exclusions: list[TimeExclusion] = Field(default_factory=list)
+    # 활성 시점의 출처 메타(2026-07-14 P7 lite) — {'value','source_turn','resolution_type',
+    # 'confidence'}. 낮은 신뢰 파싱이 기존 상태를 덮어쓰는 것을 막는 근거 기록.
+    active_time_meta: dict = Field(default_factory=dict)
