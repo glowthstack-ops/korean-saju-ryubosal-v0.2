@@ -124,3 +124,96 @@ def test_linked_shape_and_activation_active(engine: RiskEngine) -> None:
                                 target_ten_god=TenGod.ZHENGGUAN)],
     )), "CAR_WORK_OVERLOAD")
     assert pos is not None and is_active(pos)
+
+
+def test_same_god_group_different_target_objects_unlinked() -> None:
+    """감수 12차 — 같은 십성군이라도 궁위·대상 객체가 다르면 연결되지 않는다
+    (십성군 fallback은 상위 대상 정보 부재 시에만)."""
+    from saju_engines.dictionaries import RiskItem
+    from saju_shared_types.risk_engine import EligibilityStatus
+
+    item = RiskItem.model_validate({
+        "riskId": "CAR_TEST_LNK",
+        "domain": "career", "kind": "pressure", "baseImpact": 0.4,
+        "triggerRules": [
+            {"id": "S1", "group": "targeted_event_shape", "relation": "HYEONG",
+             "relationPalace": "day_pillar", "tenGodGroup": "authority", "strength": 0.5},
+            {"id": "A1", "group": "target_activation", "relation": "CHUNG",
+             "relationPalace": "month_pillar", "strength": 0.45},
+        ],
+        "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+        "evidenceContract": {
+            "anyOf": [{"allOfGroups": ["targeted_event_shape", "target_activation"]}],
+            "minIndependentCauses": 1, "requiresLinkedTargets": True,
+        },
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo = RiskEngine(_DICTS)
+    solo._items = [item]
+    # 일지 형(관성 대상)과 월주 충(관성 대상) — 같은 관성군이지만 대상 객체가 다름.
+    cands = solo.generate(_facts(
+        gods={TenGod.QISHA: {LuckLayer.SEWOON}},
+        relations=[
+            RelationFact(RelationKind.HYEONG, Pillar4.DAY, target_ten_god=TenGod.QISHA),
+            RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                         target_ten_god=TenGod.ZHENGGUAN),
+        ],
+    ))
+    assert len(cands) == 1
+    assert cands[0].eligibility_status is EligibilityStatus.INSUFFICIENT_EVIDENCE
+    assert "targets_unlinked" in cands[0].suppression_reasons
+
+
+# ── C3-b — CAR canonical 5항목 fixture ──
+
+
+def test_car_c3b_positives_and_legacy_gone(engine_c3b=None) -> None:
+    """canonical 5항목 양성 + legacy ID(EVALUATION_DISADVANTAGE 등) 미생성."""
+    eng = RiskEngine(_DICTS)
+    facts = _facts(
+        gods={TenGod.SHANGGUAN: {LuckLayer.SEWOON}, TenGod.ZHENGGUAN: {LuckLayer.SEWOON},
+              TenGod.QISHA: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN),
+                   RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                                target_ten_god=TenGod.QISHA)],
+    )
+    ids_all = {c.risk_id for c in eng.generate(facts)}
+    active = {c.risk_id for c in eng.generate(facts) if is_active(c)}
+    assert "CAR_EVALUATION_SETBACK_RISK" in ids_all
+    assert "CAR_REASSIGNMENT_RISK" in ids_all
+    assert "CAR_EXIT_PRESSURE" in ids_all
+    # legacy ID는 사전에서 제거 — 신·구 동시 생성 불가.
+    assert not ({"CAR_EVALUATION_DISADVANTAGE", "CAR_UNWANTED_TRANSFER",
+                 "CAR_HIRING_DELAY_REJECTION"} & ids_all)
+    assert active  # 활성 대표 존재(family별 흡수 후)
+
+
+def test_car_hiring_split(engine_c3b=None) -> None:
+    """채용 분리 — 공망 정체+절차 자극=지연 pressure, 관성 피격 targeted=결과 incident.
+    같은 hiring family에서 결과(3)가 지연(0)을 흡수(원인 공유 시)."""
+    eng = RiskEngine(_DICTS)
+    delay_only = {c.risk_id: c for c in eng.generate(_facts(
+        gods={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}}, 
+        relations=[RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+    ))}
+    # 공망 없음 — 지연 shape 미충족.
+    hpd = delay_only.get("CAR_HIRING_PROCESS_DELAY")
+    assert hpd is None or not is_active(hpd)
+    both = build_raw_period_facts(
+        period_key="2026", layer=LuckLayer.SEWOON,
+        ten_god_layers={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN),
+                   RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+        void_active=True, polarity_role=PolarityRole.GI, twelve_stage=None,
+    )
+    by = {c.risk_id: c for c in eng.generate(both)}
+    assert is_active(by["CAR_HIRING_OUTCOME_SETBACK"]) or is_active(
+        by["CAR_HIRING_PROCESS_DELAY"])
+    if by["CAR_HIRING_PROCESS_DELAY"].suppressed_by_specificity:
+        assert by["CAR_HIRING_PROCESS_DELAY"].primary_risk_id == (
+            "CAR_HIRING_OUTCOME_SETBACK")

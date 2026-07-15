@@ -305,137 +305,48 @@
       "reviewEnvironmentVersion": "risk-engine-r0.5.5"
     },
     {
-      "riskId": "CAR_EVALUATION_DISADVANTAGE",
+      "riskId": "CAR_EVALUATION_SETBACK_RISK",
       "domain": "career",
       "kind": "incident_risk",
+      "riskFamily": "evaluation",
+      "specificityRank": 2,
       "baseImpact": 0.55,
       "triggerRules": [
         {
-          "id": "CAR_EVA_T1",
+          "id": "CAR_EVS_S1",
+          "group": "event_shape",
           "tenGod": "SHANGGUAN",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
-          "strength": 0.55
+          "tenGodGroup": "authority",
+          "strength": 0.5
         },
         {
-          "id": "CAR_EVA_T2",
+          "id": "CAR_EVS_T1",
+          "group": "targeted_event_shape",
           "relation": "HYEONG",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
+          "relationTargetTenGodGroup": "authority",
+          "tenGodGroup": "authority",
           "strength": 0.45
         },
         {
-          "id": "CAR_EVA_T3",
-          "tenGodGroup": "authority",
-          "polarityRoleIn": [
-            "HAN_BAD"
-          ],
+          "id": "CAR_EVS_TA1",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "authority",
           "strength": 0.4
-        }
-      ],
-      "amplifierRules": [
-        {
-          "id": "CAR_EVA_A1",
-          "polarityRoleIn": [
-            "GI_STRONG"
-          ],
-          "strength": 0.5
-        }
-      ],
-      "mitigatorRules": [
-        {
-          "id": "CAR_EVA_M1",
-          "polarityRoleIn": [
-            "YONG",
-            "YONG_STRONG",
-            "HEE",
-            "HAN_GOOD"
-          ],
-          "strength": 0.5
         },
         {
-          "id": "CAR_EVA_M2",
-          "tenGodGroup": "resource",
-          "strength": 0.3
-        }
-      ],
-      "blockerRules": [
-        {
-          "id": "CAR_EVA_B1",
-          "polarityRoleIn": [
-            "YONG_STRONG"
-          ],
-          "strength": 0.6
-        }
-      ],
-      "minimumEvidence": {
-        "triggerCount": 2,
-        "independentSourceCount": 2
-      },
-      "manifestations": [
-        {
-          "id": "review_unfavorable",
-          "ko": "평가·승진에서 기대보다 불리한 결과"
-        },
-        {
-          "id": "role_reduction",
-          "ko": "보직·역할의 축소"
-        },
-        {
-          "id": "credit_missed",
-          "ko": "성과 인정이 늦거나 가려짐"
-        }
-      ],
-      "prohibitedClaims": [
-        "승진 탈락 확정 단정"
-      ],
-      "note": "상관(견관) 기신 + 형 — 평가·승진 불이익 사건 위험",
-      "reviewed": false
-    },
-    {
-      "riskId": "CAR_UNWANTED_TRANSFER",
-      "domain": "career",
-      "kind": "incident_risk",
-      "baseImpact": 0.55,
-      "triggerRules": [
-        {
-          "id": "CAR_TRF_T1",
+          "id": "CAR_EVS_TA2",
+          "group": "target_activation",
           "relation": "CHUNG",
           "relationPalace": "month_pillar",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
-          "strength": 0.5
-        },
-        {
-          "id": "CAR_TRF_T2",
-          "relation": "CHUNG",
-          "relationPalace": "day_pillar",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
-          "strength": 0.4
-        },
-        {
-          "id": "CAR_TRF_T3",
-          "tenGodGroup": "authority",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
           "strength": 0.4
         }
       ],
       "amplifierRules": [
         {
-          "id": "CAR_TRF_A1",
+          "id": "CAR_EVS_A1",
           "polarityRoleIn": [
+            "GI",
             "GI_STRONG"
           ],
           "strength": 0.5
@@ -443,71 +354,236 @@
       ],
       "mitigatorRules": [
         {
-          "id": "CAR_TRF_M1",
+          "id": "CAR_EVS_M1",
           "polarityRoleIn": [
             "YONG",
-            "YONG_STRONG",
             "HEE",
             "HAN_GOOD"
           ],
           "strength": 0.5
         },
         {
-          "id": "CAR_TRF_M2",
+          "id": "CAR_EVS_M2",
+          "tenGodGroup": "resource",
+          "strength": 0.3
+        },
+        {
+          "id": "CAR_EVS_M3",
           "relation": "HAP",
           "strength": 0.3
         }
       ],
-      "blockerRules": [
-        {
-          "id": "CAR_TRF_B1",
-          "polarityRoleIn": [
-            "YONG_STRONG"
-          ],
-          "strength": 0.6
-        }
-      ],
+      "blockerRules": [],
       "minimumEvidence": {
-        "triggerCount": 2,
-        "independentSourceCount": 2
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          },
+          {
+            "allOfGroups": [
+              "targeted_event_shape"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
       },
       "manifestations": [
         {
-          "id": "unwanted_assignment",
-          "ko": "원치 않는 이동·배치 통보"
+          "id": "review_gap",
+          "ko": "평가 결과가 기대에 못 미칠 가능성"
         },
         {
-          "id": "workplace_change",
-          "ko": "근무지·조직 개편의 영향"
-        },
-        {
-          "id": "role_shift",
-          "ko": "담당 업무의 갑작스러운 변경"
+          "id": "criteria_check",
+          "ko": "기준·성과 자료 재확인 필요"
         }
       ],
       "prohibitedClaims": [
-        "발령 확정 단정"
+        "인사평가 불이익 단정",
+        "승진 탈락 단정",
+        "상사의 낮은 평가 단정"
       ],
-      "note": "사회궁(월주)·일지 충 + 관살 기신 — 비자발 이동·배치 사건 위험",
+      "allowedClaimScope": [
+        "기준·성과 자료 확인 권고",
+        "가능한 발현 형태"
+      ],
+      "claimCeiling": "warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3-b 신설(EVALUATION_DISADVANTAGE 대체 — SETBACK_RISK로 완화): 평가 과정에서 기대 결과를 얻지 못할 위험. 평가·인사 심사 노출 필요, UNKNOWN='평가·심사가 있다면 기준·성과 자료 확인' 수준(결과 불이익 표현 금지)",
+      "reviewed": false
+    },
+    {
+      "riskId": "CAR_REASSIGNMENT_RISK",
+      "domain": "career",
+      "kind": "incident_risk",
+      "riskFamily": "assignment",
+      "specificityRank": 2,
+      "baseImpact": 0.55,
+      "triggerRules": [
+        {
+          "id": "CAR_RAS_S1",
+          "group": "event_shape",
+          "relation": "CHUNG",
+          "tenGodGroup": "authority",
+          "strength": 0.5
+        },
+        {
+          "id": "CAR_RAS_T1",
+          "group": "targeted_event_shape",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "authority",
+          "tenGodGroup": "authority",
+          "strength": 0.5
+        },
+        {
+          "id": "CAR_RAS_TA1",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationPalace": "month_pillar",
+          "strength": 0.45
+        },
+        {
+          "id": "CAR_RAS_TA2",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationPalace": "day_pillar",
+          "strength": 0.4
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "CAR_RAS_A1",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "id": "CAR_RAS_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "CAR_RAS_M2",
+          "tenGodGroup": "resource",
+          "strength": 0.3
+        },
+        {
+          "id": "CAR_RAS_M3",
+          "relation": "HAP",
+          "strength": 0.3
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          },
+          {
+            "allOfGroups": [
+              "targeted_event_shape"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
+      },
+      "manifestations": [
+        {
+          "id": "role_shift",
+          "ko": "보직·담당의 재조정 가능성"
+        },
+        {
+          "id": "site_change",
+          "ko": "근무지·프로젝트 변경 가능성"
+        }
+      ],
+      "prohibitedClaims": [
+        "발령 확정 단정",
+        "원치 않는 이동 단정(선호 미확인)"
+      ],
+      "allowedClaimScope": [
+        "재조정 가능성 안내",
+        "조건 확인 권고"
+      ],
+      "claimCeiling": "warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "watch",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3-b 신설(UNWANTED_TRANSFER 대체): 기준은 직업 범주가 아니라 assignment_authority 노출 — 조직·고객이 역할·근무지를 배정 가능=적용(프리랜서 포함), 본인이 전부 독립 결정=NOT_APPLICABLE. '원치 않는'은 preference CONFIRMED에서만",
       "reviewed": false
     },
     {
       "riskId": "CAR_EXIT_PRESSURE",
       "domain": "career",
-      "kind": "incident_risk",
-      "baseImpact": 0.65,
+      "kind": "pressure",
+      "riskFamily": "work_role",
+      "baseImpact": 0.55,
       "triggerRules": [
         {
-          "id": "CAR_EXT_T1",
-          "relation": "CHUNG",
-          "polarityRoleIn": [
-            "GI_STRONG"
-          ],
-          "strength": 0.6
+          "id": "CAR_EXT_S1",
+          "group": "event_shape",
+          "tenGod": "SHANGGUAN",
+          "tenGodGroup": "authority",
+          "strength": 0.45
         },
         {
-          "id": "CAR_EXT_T2",
-          "tenGod": "QISHA",
+          "id": "CAR_EXT_S2",
+          "group": "event_shape",
+          "tenGod": "JIECAI",
+          "tenGodGroup": "authority",
+          "strength": 0.4
+        },
+        {
+          "id": "CAR_EXT_TA1",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationPalace": "month_pillar",
+          "strength": 0.45
+        },
+        {
+          "id": "CAR_EXT_TA2",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "authority",
+          "strength": 0.4
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "CAR_EXT_A1",
           "polarityRoleIn": [
             "GI",
             "GI_STRONG"
@@ -515,23 +591,7 @@
           "strength": 0.5
         },
         {
-          "id": "CAR_EXT_T3",
-          "tenGod": "SHANGGUAN",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
-          "strength": 0.45
-        }
-      ],
-      "amplifierRules": [
-        {
-          "id": "CAR_EXT_A1",
-          "relation": "HYEONG",
-          "strength": 0.4
-        },
-        {
-          "id": "CAR_EXT_A2",
+          "id": "CAR_EXT_A9",
           "twelveStageIn": [
             "JEOL",
             "MYO",
@@ -545,7 +605,6 @@
           "id": "CAR_EXT_M1",
           "polarityRoleIn": [
             "YONG",
-            "YONG_STRONG",
             "HEE",
             "HAN_GOOD"
           ],
@@ -553,130 +612,274 @@
         },
         {
           "id": "CAR_EXT_M2",
+          "tenGodGroup": "resource",
+          "strength": 0.3
+        },
+        {
+          "id": "CAR_EXT_M3",
           "relation": "HAP",
           "strength": 0.3
         }
       ],
-      "blockerRules": [
-        {
-          "id": "CAR_EXT_B1",
-          "polarityRoleIn": [
-            "YONG_STRONG"
-          ],
-          "strength": 0.6
-        }
-      ],
+      "blockerRules": [],
       "minimumEvidence": {
-        "triggerCount": 2,
-        "independentSourceCount": 2
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
       },
       "manifestations": [
         {
-          "id": "contract_end",
-          "ko": "계약 종료·갱신 불발 가능성"
+          "id": "role_strain",
+          "ko": "현재 역할을 유지하는 부담의 증가"
         },
         {
-          "id": "exit_pressure",
-          "ko": "퇴사·이탈 압박이 커짐"
-        },
-        {
-          "id": "position_insecure",
-          "ko": "자리의 안정성이 흔들림"
+          "id": "transition_thought",
+          "ko": "이탈·전환을 고민하기 쉬운 시기"
         }
       ],
       "prohibitedClaims": [
-        "해고·퇴사 시점 확정 단정"
+        "해고 단정",
+        "퇴사 확정 단정",
+        "실직 단정",
+        "계약 종료 단정"
       ],
-      "note": "강한 흉운 충(천충지충 계열) + 편관·상관 기신 — 퇴사 압박 사건 위험",
+      "allowedClaimScope": [
+        "역할 유지 부담 안내",
+        "전환 검토 관리"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3-b 재분류(incident→pressure): 자발 이탈 욕구·조직 압박·계약 종료 가능성을 단정하지 않는 이탈 압박. 종료 사건은 별도 강한 계약+노출 없이 생성 금지",
       "reviewed": false
     },
     {
-      "riskId": "CAR_HIRING_DELAY_REJECTION",
+      "riskId": "CAR_HIRING_PROCESS_DELAY",
       "domain": "career",
-      "kind": "incident_risk",
-      "baseImpact": 0.5,
+      "kind": "pressure",
+      "riskFamily": "hiring",
+      "relatedDomains": [
+        "selection"
+      ],
+      "baseImpact": 0.45,
       "triggerRules": [
         {
-          "id": "CAR_HIR_T1",
+          "id": "CAR_HPD_S1",
+          "group": "event_shape",
           "voidActive": true,
           "tenGodGroup": "authority",
           "strength": 0.5
         },
         {
-          "id": "CAR_HIR_T2",
+          "id": "CAR_HPD_TA1",
+          "group": "target_activation",
           "relation": "HAE",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
-          "strength": 0.4
-        },
-        {
-          "id": "CAR_HIR_T3",
-          "tenGodGroup": "authority",
-          "polarityRoleIn": [
-            "HAN_BAD"
-          ],
-          "strength": 0.4
+          "relationTargetTenGodGroup": "authority",
+          "strength": 0.35
         }
       ],
       "amplifierRules": [
         {
-          "id": "CAR_HIR_A1",
+          "id": "CAR_HPD_A1",
           "polarityRoleIn": [
+            "GI",
             "GI_STRONG"
           ],
-          "strength": 0.4
+          "strength": 0.5
         }
       ],
       "mitigatorRules": [
         {
-          "id": "CAR_HIR_M1",
+          "id": "CAR_HPD_M1",
           "polarityRoleIn": [
             "YONG",
-            "YONG_STRONG",
             "HEE",
             "HAN_GOOD"
           ],
           "strength": 0.5
         },
         {
-          "id": "CAR_HIR_M2",
+          "id": "CAR_HPD_M2",
           "tenGodGroup": "resource",
           "strength": 0.3
         }
       ],
-      "blockerRules": [
-        {
-          "id": "CAR_HIR_B1",
-          "polarityRoleIn": [
-            "YONG_STRONG"
-          ],
-          "strength": 0.6
-        }
-      ],
+      "blockerRules": [],
       "minimumEvidence": {
-        "triggerCount": 2,
-        "independentSourceCount": 2
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
       },
       "manifestations": [
         {
-          "id": "process_delay",
-          "ko": "채용·이직 절차의 지연"
+          "id": "contact_wait",
+          "ko": "연락·발표 대기의 장기화"
         },
         {
-          "id": "result_unfavorable",
-          "ko": "서류·면접에서 기대 이하의 결과"
-        },
-        {
-          "id": "offer_change",
-          "ko": "제안 조건의 축소·변경"
+          "id": "extra_step",
+          "ko": "추가 면접·보완 요청 가능성"
         }
       ],
       "prohibitedClaims": [
-        "합격·불합격 확정 단정"
+        "불합격 의미 부여",
+        "채용 취소 단정"
       ],
-      "note": "관성 공망(지연) + 해 — 채용·이직 과정 차질 사건 위험(당락 단정 금지)",
+      "allowedClaimScope": [
+        "일정 여유 확보",
+        "절차 대비"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3-b 신설(HIRING_DELAY_REJECTION 분리 — 지연 pressure): 지원·면접·채용 절차 노출 필요. 취업·채용 결과는 CAR primary(일반 시험·공모·추첨=SEL primary)",
+      "reviewed": false
+    },
+    {
+      "riskId": "CAR_HIRING_OUTCOME_SETBACK",
+      "domain": "career",
+      "kind": "incident_risk",
+      "riskFamily": "hiring",
+      "relatedDomains": [
+        "selection"
+      ],
+      "specificityRank": 3,
+      "baseImpact": 0.6,
+      "triggerRules": [
+        {
+          "id": "CAR_HOS_S1",
+          "group": "event_shape",
+          "voidActive": true,
+          "tenGodGroup": "authority",
+          "strength": 0.45
+        },
+        {
+          "id": "CAR_HOS_T1",
+          "group": "targeted_event_shape",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "authority",
+          "tenGodGroup": "authority",
+          "strength": 0.5
+        },
+        {
+          "id": "CAR_HOS_TA1",
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "authority",
+          "strength": 0.4
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "CAR_HOS_A1",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "id": "CAR_HOS_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "CAR_HOS_M2",
+          "tenGodGroup": "resource",
+          "strength": 0.3
+        },
+        {
+          "id": "CAR_HOS_M3",
+          "relation": "HAP",
+          "strength": 0.3
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          },
+          {
+            "allOfGroups": [
+              "targeted_event_shape"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
+      },
+      "manifestations": [
+        {
+          "id": "outcome_unsettled",
+          "ko": "결과가 기대대로 확정되지 않을 가능성"
+        },
+        {
+          "id": "offer_change",
+          "ko": "제안 조건의 축소·변경 가능성"
+        }
+      ],
+      "prohibitedClaims": [
+        "불합격 확정 단정",
+        "합격 확정 단정"
+      ],
+      "allowedClaimScope": [
+        "결과 유보 가능성 안내",
+        "대안 준비 권고"
+      ],
+      "claimCeiling": "warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3-b 신설(HIRING_DELAY_REJECTION 분리 — 결과 incident): 실제 지원 노출 + 결과 단계 activation + 강한 targeted 또는 다원인. CAR primary, SEL 자동 중복 생성 금지",
       "reviewed": false
     }
   ]

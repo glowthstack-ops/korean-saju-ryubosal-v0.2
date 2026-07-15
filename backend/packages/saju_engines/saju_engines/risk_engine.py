@@ -74,23 +74,35 @@ def _evidence_god_groups(e: RiskEvidence) -> set[str]:
     return groups
 
 
-def _targets_linked(triggers: list[RiskEvidence]) -> bool:
-    """shape 계열과 활성 계열 trigger의 대상 연결 판정(감수 11차).
+def _relation_atoms(e: RiskEvidence) -> frozenset[str]:
+    """근거의 관계 원자(정규화된 대상 객체 서명 포함)만 추출."""
+    return frozenset(a for a in cause_atoms(e.source) if a.startswith("relation:"))
 
-    연결 = 원인 원자 공유(같은 사실) 또는 십성군 대상 겹침(활성이 친 대상의 군과
-    shape 구조의 군이 동일 도메인). 활성의 피자극 십성이 미상이면 보수적으로 미연결.
+
+def _targets_linked(triggers: list[RiskEvidence]) -> bool:
+    """shape 계열과 활성 계열 trigger의 대상 연결 판정(감수 11차·12차 강화).
+
+    연결 우선순위: ①동일 원인 원자(같은 사실) ②십성군 대상 겹침 — 단, **양쪽 모두
+    구체적 대상 객체(관계 원자)를 갖고 있는데 서로 다르면 십성군 일치가 이를 구제하지
+    못한다**(같은 관성군이어도 사회궁 피격과 일지 피격은 별개 대상). 십성군 fallback은
+    한쪽에 상위 대상 정보가 없을 때만 제한적으로 허용된다. link_type 기록(연결 강도별
+    occurrence 신뢰도)은 R1 백로그.
     """
     shapes = [e for e in triggers if e.source_group in _SHAPE_GROUPS]
     acts = [e for e in triggers if e.source_group in _ACTIVATION_GROUPS]
     if not shapes or not acts:
         return True  # 두 계열이 모두 있을 때만 연결을 요구한다(targeted 단독 경로 등).
     for s in shapes:
-        s_atoms, s_groups = cause_atoms(s.source), _evidence_god_groups(s)
+        s_atoms = cause_atoms(s.source)
+        s_rel, s_groups = _relation_atoms(s), _evidence_god_groups(s)
         for a in acts:
             if s_atoms & cause_atoms(a.source):
-                return True
+                return True  # ① 동일 원인 사실.
+            a_rel = _relation_atoms(a)
+            if s_rel and a_rel and not (s_rel & a_rel):
+                continue  # 양쪽 대상 객체가 명시적으로 다름 — fallback 구제 금지.
             if s_groups & _evidence_god_groups(a):
-                return True
+                return True  # ② 십성군 fallback(상위 대상 정보 부재 시에만 도달).
     return False
 
 

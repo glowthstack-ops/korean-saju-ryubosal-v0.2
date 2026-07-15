@@ -7636,3 +7636,22 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
   폐기 — EXIT_PRESSURE·ELIGIBILITY·LOTTERY(폐기→DRAW_OUTCOME_UNCERTAINTY)·WAITLIST
   pressure 계열, HIRING 분리(지연 pressure+결과 incident), 선발 mode+stage 2축.
 - 검증: pytest 1836 passed·ruff·mypy clean.
+
+### 위험 엔진 C3-b — CAR canonical 5항목 저작 (2026-07-15, 데굴님 조건 4종 반영)
+
+- **십성군 fallback 강화(감수 12차)**: 양쪽이 구체 대상 객체(관계 원자)를 갖는데 서로
+  다르면 십성군 일치가 구제 불가 — fixture 고정(일지 형 vs 월주 충, 같은 관성군 →
+  targets_unlinked). link_type 기록은 R1 백로그.
+- **CAR legacy 4항목 → canonical 5항목**(전부 reviewed:false — 감수 대기):
+  EVALUATION_SETBACK_RISK(DISADVANTAGE 대체 — 결과 불이익 아닌 기대 미달 위험, 평가
+  노출 필요)/REASSIGNMENT_RISK(UNWANTED_TRANSFER 대체 — assignment_authority 노출
+  기준, 직업 범주 아님·프리랜서 포함, '원치 않는'은 preference CONFIRMED)/
+  EXIT_PRESSURE(pressure 재분류 — 해고·퇴사·실직·계약 종료 단정 금지)/
+  HIRING_PROCESS_DELAY(pressure)/HIRING_OUTCOME_SETBACK(incident — 분리, 채용 결과
+  CAR primary·일반 시험/공모/추첨 SEL primary). legacy 3 ID 제거(신·구 동시 생성
+  불가 fixture). 전 항목 requiresLinkedTargets.
+- 밀도: 활성 5.18/기간(structural incident 2.15·exposure-qualified 1.82). 검증:
+  pytest 1839 passed·ruff·mypy clean.
+- 다음: C3-c = SEL 4항목 canonical(DOCUMENT_DEFECT·ELIGIBILITY_REVIEW·
+  DRAW_OUTCOME_UNCERTAINTY·WAITLIST_PROLONGATION/RESULT_DELAY 분기) + mode/stage
+  2축(적격성 사용 시 env r0.5.6 필수) → CAR 5항목 표본 감수.
