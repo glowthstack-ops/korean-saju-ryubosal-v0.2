@@ -96,16 +96,21 @@ class RiskLevel(StrEnum):
 
 class EligibilityStatus(StrEnum):
     """후보 적격 상태 — blocker/mitigator를 근거로만 남기지 않고 상태로 분리한다
-    (RISK_ENGINE.md §불변식, 2026-07-15 감수).
+    (RISK_ENGINE.md §불변식, 2026-07-15 감수 2차 개정).
+
+    'matched'는 룰 평가 결과일 뿐 후보 적격 상태가 아니다 — 룰 일부가 매칭됐지만 증거
+    계약을 못 채운 후보는 INSUFFICIENT_EVIDENCE로 남겨 밀도 통계(observed)와 활성
+    집계를 분리한다.
 
     불변식: blocker는 후보 기록을 삭제하지 않지만 활성 위험 집계(R2 슬롯·R4 오경고
-    분모)에서는 제외할 수 있다. mitigator는 후보를 유지하고 강도만 낮춘다(R1).
+    분모)에서는 제외한다. mitigator는 후보를 유지하고 강도만 낮춘다(R1).
     recovery는 현재 후보의 적격성·점수를 낮추지 않는다.
     """
 
-    MATCHED = "matched"  # 활성 — trigger 충족, 차단·완화 없음
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"  # 일부 룰 매칭·증거 계약 미충족
+    ELIGIBLE = "eligible"  # 활성 — 증거 계약 충족, 차단·완화 없음
     MITIGATED = "mitigated"  # 활성 — 보호 신호 동반(강도 하향은 R1)
-    BLOCKED = "blocked"  # 비활성 — 발현 차단(근거 연구용 보존, 활성 집계 제외)
+    BLOCKED = "blocked"  # 비활성 — 노출 부재·대상 부재 등 발현 차단(기록 보존)
 
 
 class RiskEvidence(BaseModel):
@@ -155,15 +160,43 @@ class RiskCandidate(BaseModel):
     risk_id: str  # 위험 사전 키 — 예: 'FIN_CASHFLOW_PRESSURE' (EventKeyV2와 별도 네임스페이스)
     domain: RiskDomain
     kind: RiskKind
+    risk_family: str | None = None  # 교차 도메인 중복 통합 키(특이도 억제·R2 병합)
     period_key: str  # 원자 후보는 단일 기간 라벨만 갖는다(start/peak/end는 Episode 소관)
     manifestation_ids: list[str] = Field(default_factory=list)  # 가능한 발현 형태 id
     evidence: list[RiskEvidence] = Field(default_factory=list)  # 구조화 근거(전 역할)
     score_components: RiskScoreComponents | None = None  # R1에서 산출 — R0는 None
     exposure_status: ExposureStatus = ExposureStatus.UNKNOWN
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)  # 근거 충분도 — R1 산출(R0=0.0)
-    # 적격 상태 — blocked 후보는 기록을 보존하되 활성 집계에서 제외한다(불변식).
-    eligibility_status: EligibilityStatus = EligibilityStatus.MATCHED
-    suppression_reasons: list[str] = Field(default_factory=list)  # 차단 근거 룰 id들
+    # 적격 상태 — blocked·insufficient 후보는 기록을 보존하되 활성 집계에서 제외한다.
+    eligibility_status: EligibilityStatus = EligibilityStatus.ELIGIBLE
+    suppression_reasons: list[str] = Field(default_factory=list)  # 차단·미충족 사유
+    # 특이도 우선 억제(2026-07-15 감수) — 동일 원인·동일 family·동일 기간에서 더 구체적
+    # 위험이 있으면 하위 일반 후보를 대표 후보에 흡수한다(별도 활성 후보 아님).
+    specificity_rank: int = 0  # 구체 대상 사건 3 > 도메인 일반 2 > 취약성 1 > 압박 0
+    primary_risk_id: str | None = None  # 흡수된 경우 대표 위험의 risk_id
+    suppressed_by_specificity: str | None = None  # 억제 사유(대표 risk_id — 활성 집계 제외)
+    # 흡수 후보의 역할(2026-07-15 감수 3차) — 흡수는 삭제가 아니라 역할 전환이다.
+    # R1에서 대표 후보의 impact/exposure 계산·보조 서술에 쓴다:
+    # supporting_manifestation(같은 도메인 하위 사건) / impact_amplifier(압박 — 예상 영향)
+    # / background_vulnerability(취약성 — 피해 확대 요인) / secondary_domain_effect(교차
+    # 도메인 파생).
+    absorbed_role: str | None = None
+
+
+def is_active(candidate: RiskCandidate) -> bool:
+    """**구조적 활성** 판정 — 사용자 노출 가능 여부가 아니다(2026-07-15 감수 3차 확정).
+
+    True의 의미: "구조적으로 성립한 shadow 후보"까지다 — 증거 계약 충족(ELIGIBLE/
+    MITIGATED) + 비차단 + 특이도 미흡수. 점수·등급·노출 기준 통과를 뜻하지 않는다.
+    R1 이후 is_score_qualified(점수 통과), R3 이후 is_exposable(claimCeiling·등급·노출
+    정책 통과)이 별도 판정으로 추가된다. R2 슬롯·R4 오경고 분모·밀도 active 지표는
+    이 구조적 활성을 기준으로 하되, 사용자 노출은 반드시 exposable 판정을 거친다.
+    """
+    return (
+        candidate.eligibility_status
+        in (EligibilityStatus.ELIGIBLE, EligibilityStatus.MITIGATED)
+        and candidate.suppressed_by_specificity is None
+    )
 
 
 class ProtectiveFactor(BaseModel):

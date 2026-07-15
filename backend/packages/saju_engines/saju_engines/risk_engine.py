@@ -40,6 +40,86 @@ from .dictionaries import RiskItem, RiskMappingFile, RiskRuleSpec
 
 # 극성 사실은 특정 운 층위가 아니라 시점(기간) 전체의 판정이다 — 근거 layer 표기용.
 _PERIOD_LAYER = "period"
+# kind → 기본 특이도(사전 specificityRank 미지정 시): 구체 대상 사건은 사전에서 3 명시.
+_KIND_SPECIFICITY = {"incident_risk": 2, "vulnerability": 1, "pressure": 0}
+
+
+def _specificity_rank(item: RiskItem) -> int:
+    """항목 특이도 — 명시값 우선, 없으면 kind에서 유도한다."""
+    if item.specificity_rank is not None:
+        return item.specificity_rank
+    return _KIND_SPECIFICITY.get(item.kind, 0)
+
+
+def cause_atoms(source: str) -> frozenset[str]:
+    """원인 서명 → 원자 사실 집합. 복합 조건 룰(충&극성 등)의 서명을 원자로 분해해
+    '같은 충'을 공유하는지 판정한다(서명 문자열 전체 비교는 부가 조건이 붙으면 어긋남)."""
+    return frozenset(source.split("&"))
+
+
+def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandidate]:
+    """특이도 우선 억제 — 동일 기간·동일 risk_family에서 원인을 공유하면 가장 구체적인
+    후보를 대표로 남기고 하위 일반 후보를 흡수한다(2026-07-15 감수).
+
+    조건(전부 충족 시 억제): 같은 period_key, 같은 risk_family(둘 다 non-null), trigger
+    원인 원자(cause atom) 교집합 존재, 더 높은 specificity_rank의 활성 후보 존재.
+    흡수된 후보는 삭제하지 않고 suppressed_by_specificity/primary_risk_id를 남긴다 —
+    대표 후보의 부가 설명(보조 발현·배경 취약성)으로 쓴다. relatedDomains 복제 금지의
+    코드 표현: 교차 도메인이라도 family가 같으면 대표 1건으로 수렴한다.
+    """
+    candidates_ok = [
+        c for c in cands
+        if c.eligibility_status in (EligibilityStatus.ELIGIBLE, EligibilityStatus.MITIGATED)
+        and c.risk_family is not None
+    ]
+    by_key: dict[tuple[str, str], list[RiskCandidate]] = {}
+    for c in candidates_ok:
+        by_key.setdefault((c.period_key, c.risk_family or ""), []).append(c)
+
+    def _atoms(c: RiskCandidate) -> set[str]:
+        return {
+            atom
+            for e in c.evidence if e.role is EvidenceRole.TRIGGER
+            for atom in cause_atoms(e.source)
+        }
+
+    suppression: dict[int, tuple[str, str]] = {}  # id(candidate) → (대표 risk_id, 흡수 역할)
+    for group in by_key.values():
+        if len(group) < 2:
+            continue
+        ordered = sorted(group, key=lambda c: -c.specificity_rank)
+        primary = ordered[0]
+        primary_atoms = _atoms(primary)
+        for c in ordered[1:]:
+            if c.specificity_rank >= primary.specificity_rank:
+                continue  # 동률은 억제하지 않는다(서로 다른 구체 사건 병존 허용).
+            if _atoms(c) & primary_atoms:
+                suppression[id(c)] = (primary.risk_id, _absorbed_role(c, primary))
+    if not suppression:
+        return cands
+    return [
+        c.model_copy(update={
+            "suppressed_by_specificity": suppression[id(c)][0],
+            "primary_risk_id": suppression[id(c)][0],
+            "absorbed_role": suppression[id(c)][1],
+        }) if id(c) in suppression else c
+        for c in cands
+    ]
+
+
+def _absorbed_role(absorbed: RiskCandidate, primary: RiskCandidate) -> str:
+    """흡수 후보의 역할 — 삭제가 아니라 역할 전환(2026-07-15 감수 3차).
+
+    R1에서 대표 후보의 impact(압박=예상 영향)·exposure(취약성=피해 확대 요인) 계산과
+    보조 서술에 쓴다. vulnerability는 사건 후보보다 일반적이어도 버리지 않는다.
+    """
+    if absorbed.kind is RiskKind.VULNERABILITY:
+        return "background_vulnerability"
+    if absorbed.kind is RiskKind.PRESSURE:
+        return "impact_amplifier"
+    if absorbed.domain is not primary.domain:
+        return "secondary_domain_effect"
+    return "supporting_manifestation"
 
 
 @dataclass(frozen=True)
@@ -53,8 +133,9 @@ class RelationFact:
 
     kind: RelationKind
     palace: Pillar4
-    position: str = "branch"  # 'stem' | 'branch'
+    position: str = "branch"  # 'stem' | 'branch' (피자극 자리 slot)
     target_ten_god: TenGod | None = None  # 피자극 글자(궁성의 천간/지지 본기) 십성
+    target_letter: str | None = None  # 피자극 글자 자체(한자 천간/지지) — 정밀 매칭용
 
 
 @dataclass(frozen=True)
@@ -122,15 +203,16 @@ class RiskEngine:
     ) -> list[RiskCandidate]:
         """한 시점의 원시 신호에서 원자 위험 후보를 생성한다.
 
-        생성 조건(minimum_evidence): trigger 근거 수(중복 제거 후) ≥ trigger_count AND
-        독립 출처 수 ≥ independent_source_count AND 필수 그룹(required_groups — 사건
-        형태/대상 활성 등)별 trigger 근거 ≥ 1. '약한 범용 신호 N개'와 '사건 형태 + 대상
-        활성'을 구분해 신호 1개·범용 신호만의 범람을 사전 게이트로 막는다.
-
-        불변식(2026-07-15 감수): blocker 근거는 후보 기록을 삭제하지 않되
-        eligibility_status=BLOCKED로 분리한다 — 근거 연구용으로 보존하고, 활성 위험
-        집계(R2 슬롯·R4 오경고 분모)에서는 제외 가능해야 한다. mitigator는 후보 유지 +
-        MITIGATED 표시(강도 하향은 R1).
+        단계(2026-07-15 감수 2차):
+        1) 룰 매칭·근거 수집(중복 제거). trigger가 하나도 없으면 관측 자체가 없음(미생성).
+        2) 증거 계약 — 개수(trigger_count·독립 원인 수) + 그룹(evidenceContract anyOf
+           또는 requiredGroups). 미충족이면 삭제하지 않고 INSUFFICIENT_EVIDENCE로 보존
+           (observed 통계와 활성 집계 분리).
+        3) 차단 — blocker 근거(대상 부재 등 동시 존재 가능한 차단 조건) 또는 사용자
+           노출 DENIED/NOT_APPLICABLE(hard blocker)이면 BLOCKED.
+        4) 완화 — mitigator 동반이면 MITIGATED(후보 유지, 강도 하향은 R1). 아니면 ELIGIBLE.
+        5) 특이도 억제 — 동일 기간·동일 risk_family·원인 공유 시 가장 구체적인 후보를
+           대표로 남기고 하위 일반 후보는 suppressed_by_specificity로 흡수(활성 제외).
 
         Args:
             facts: 원시 신호 스냅샷.
@@ -138,7 +220,7 @@ class RiskEngine:
                 미입력을 숫자 중간값으로 대체하지 않는다.
 
         Returns:
-            생성된 원자 RiskCandidate 목록(점수·등급 미산출 상태).
+            생성된 원자 RiskCandidate 목록(관측 후보 포함 — 활성 판정은 is_active).
         """
         out: list[RiskCandidate] = []
         for item in self._items:
@@ -163,29 +245,14 @@ class RiskEngine:
                     ))
             evidences = dedupe_evidence(evidences)
             triggers = [e for e in evidences if e.role is EvidenceRole.TRIGGER]
-            if len(triggers) < item.minimum_evidence.trigger_count:
-                continue
-            if independent_source_count(evidences) < (
-                item.minimum_evidence.independent_source_count
-            ):
-                continue
-            trigger_groups = {e.source_group for e in triggers}
-            if any(
-                g not in trigger_groups
-                for g in item.minimum_evidence.required_groups
-            ):
-                continue
-            blockers = [e for e in evidences if e.role is EvidenceRole.BLOCKER]
-            if blockers:
-                status = EligibilityStatus.BLOCKED
-            elif any(e.role is EvidenceRole.MITIGATOR for e in evidences):
-                status = EligibilityStatus.MITIGATED
-            else:
-                status = EligibilityStatus.MATCHED
+            if not triggers:
+                continue  # 관측 없음 — 후보 자체를 만들지 않는다.
+            status, reasons = self._evaluate(item, evidences, triggers, exposure_status)
             out.append(RiskCandidate(
                 risk_id=item.risk_id,
                 domain=RiskDomain(item.domain),
                 kind=RiskKind(item.kind),
+                risk_family=item.risk_family,
                 period_key=facts.period_key,
                 manifestation_ids=[m.id for m in item.manifestations],
                 evidence=evidences,
@@ -193,9 +260,63 @@ class RiskEngine:
                 exposure_status=exposure_status,
                 confidence=0.0,  # R1에서 산출
                 eligibility_status=status,
-                suppression_reasons=[e.code for e in blockers],
+                suppression_reasons=reasons,
+                specificity_rank=_specificity_rank(item),
             ))
-        return out
+        return _apply_specificity_suppression(out)
+
+    @staticmethod
+    def _evaluate(
+        item: RiskItem,
+        evidences: list[RiskEvidence],
+        triggers: list[RiskEvidence],
+        exposure_status: ExposureStatus,
+    ) -> tuple[EligibilityStatus, list[str]]:
+        """증거 계약·차단·완화를 평가해 (적격 상태, 사유 목록)을 반환한다."""
+        contract = item.evidence_contract
+        min_causes = (
+            contract.min_independent_causes if contract is not None
+            else item.minimum_evidence.independent_source_count
+        )
+        trigger_groups = {e.source_group for e in triggers}
+        if contract is not None:
+            groups_ok = any(
+                set(clause.all_of_groups) <= trigger_groups
+                for clause in contract.any_of
+            )
+        else:
+            groups_ok = all(
+                g in trigger_groups for g in item.minimum_evidence.required_groups
+            )
+        insufficient: list[str] = []
+        if len(triggers) < item.minimum_evidence.trigger_count:
+            insufficient.append("trigger_count_unmet")
+        if independent_source_count(evidences) < min_causes:
+            insufficient.append("independent_causes_unmet")
+        if not groups_ok:
+            insufficient.append("evidence_groups_unmet")
+        if insufficient:
+            return EligibilityStatus.INSUFFICIENT_EVIDENCE, insufficient
+        # hard blocker — 대상·노출 부재는 위험 신호와 동시에 존재할 수 있는 차단 조건.
+        blockers = [e.code for e in evidences if e.role is EvidenceRole.BLOCKER]
+        if exposure_status is ExposureStatus.DENIED:
+            blockers.append("exposure_denied")
+        if exposure_status is ExposureStatus.NOT_APPLICABLE:
+            blockers.append("exposure_not_applicable")
+        if blockers:
+            return EligibilityStatus.BLOCKED, blockers
+        # 원인별 완화(2026-07-15 감수 3차) — 용희신이 강하다는 극성 사실 '단독'으로는
+        # 상태를 완화하지 않는다(전역 완화 금지). 극성 단독 mitigator는 근거로만 보존하고,
+        # 실질 조건(관계 완화·통관 십성 등 — 원인·대상 제어를 표현)이 동반된 mitigator만
+        # MITIGATED로 전환한다. 투간·통근 작동성(operability) 연동은 R1에서 확장한다.
+        substantive_mitigation = any(
+            e.role is EvidenceRole.MITIGATOR
+            and any(not atom.startswith("polarity:") for atom in cause_atoms(e.source))
+            for e in evidences
+        )
+        if substantive_mitigation:
+            return EligibilityStatus.MITIGATED, []
+        return EligibilityStatus.ELIGIBLE, []
 
     # ── 룰 매칭 ───────────────────────────────────────────────────
 
@@ -255,6 +376,8 @@ class RiskEngine:
                         rule.relation_target_ten_god_group
                     )
                 ]
+            if rule.relation_target_letter is not None:
+                hits = [r for r in hits if r.target_letter == rule.relation_target_letter]
             if not hits:
                 return None
             palaces = sorted({r.palace.value for r in hits})
@@ -327,4 +450,5 @@ __all__ = [
     "RelationFact",
     "RiskEngine",
     "build_raw_period_facts",
+    "cause_atoms",
 ]

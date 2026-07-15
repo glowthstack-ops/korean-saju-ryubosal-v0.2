@@ -6,29 +6,96 @@
       "riskId": "HLT_FATIGUE_ACCUMULATION",
       "domain": "health_safety",
       "kind": "pressure",
+      "riskFamily": "health_condition",
       "baseImpact": 0.5,
       "triggerRules": [
-        { "id": "HLT_FTG_T1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.55 },
-        { "id": "HLT_FTG_T2", "tenGodGroup": "authority", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "HLT_FTG_T3", "twelveStageIn": ["SOE", "BYEONG", "SA", "JEOL"], "polarityRoleIn": ["GI", "GI_STRONG", "HAN_BAD"], "strength": 0.45 }
+        {
+          "id": "HLT_FTG_T1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.55
+        },
+        {
+          "id": "HLT_FTG_T2",
+          "tenGodGroup": "authority",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "HLT_FTG_T3",
+          "twelveStageIn": [
+            "SOE",
+            "BYEONG",
+            "SA",
+            "JEOL"
+          ],
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG",
+            "HAN_BAD"
+          ],
+          "strength": 0.45
+        }
       ],
       "amplifierRules": [
-        { "id": "HLT_FTG_A1", "relation": "CHUNG", "strength": 0.35 }
+        {
+          "id": "HLT_FTG_A1",
+          "relation": "CHUNG",
+          "strength": 0.35
+        }
       ],
       "mitigatorRules": [
-        { "id": "HLT_FTG_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
-        { "id": "HLT_FTG_M2", "tenGodGroup": "resource", "strength": 0.3 }
+        {
+          "id": "HLT_FTG_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "HLT_FTG_M2",
+          "tenGodGroup": "resource",
+          "strength": 0.3
+        }
       ],
       "blockerRules": [
-        { "id": "HLT_FTG_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "HLT_FTG_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
       "manifestations": [
-        { "id": "fatigue_build", "ko": "피로·부담의 누적" },
-        { "id": "recovery_slow", "ko": "회복 속도의 저하" },
-        { "id": "stress_load", "ko": "스트레스 총량의 증가" }
+        {
+          "id": "fatigue_build",
+          "ko": "피로·부담의 누적"
+        },
+        {
+          "id": "recovery_slow",
+          "ko": "회복 속도의 저하"
+        },
+        {
+          "id": "stress_load",
+          "ko": "스트레스 총량의 증가"
+        }
       ],
-      "prohibitedClaims": ["질병명 단정", "사망·중병 암시"],
+      "prohibitedClaims": [
+        "질병명 단정",
+        "사망·중병 암시"
+      ],
       "note": "강한 흉운 + 관살 소모 + 쇠병사절 운성 — 소모성 압박(의료 조언 아님 고지 동반)",
       "reviewed": false
     },
@@ -36,56 +103,204 @@
       "riskId": "HLT_CHRONIC_FLAREUP",
       "domain": "health_safety",
       "kind": "incident_risk",
+      "riskFamily": "health_condition",
+      "specificityRank": 3,
       "baseImpact": 0.6,
       "triggerRules": [
-        { "id": "HLT_CHR_T1", "relation": "CHUNG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "HLT_CHR_T2", "relation": "HYEONG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "HLT_CHR_T3", "twelveStageIn": ["BYEONG", "SA"], "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "HLT_CHR_T1",
+          "group": "event_shape",
+          "relation": "HYEONG",
+          "twelveStageIn": [
+            "BYEONG",
+            "SA"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "HLT_CHR_T2",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationPalace": "day_pillar",
+          "strength": 0.45
+        },
+        {
+          "id": "HLT_CHR_T3",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationPalace": "hour_pillar",
+          "strength": 0.4
+        }
       ],
       "amplifierRules": [
-        { "id": "HLT_CHR_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+        {
+          "id": "HLT_CHR_A1",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "HLT_CHR_A2",
+          "voidActive": true,
+          "strength": 0.3
+        }
       ],
       "mitigatorRules": [
-        { "id": "HLT_CHR_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
-        { "id": "HLT_CHR_M2", "tenGodGroup": "resource", "strength": 0.3 }
+        {
+          "id": "HLT_CHR_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "HLT_CHR_M2",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        },
+        {
+          "id": "HLT_CHR_M3",
+          "tenGodGroup": "resource",
+          "strength": 0.3
+        },
+        {
+          "id": "HLT_CHR_M4",
+          "relation": "HAP",
+          "strength": 0.3
+        }
       ],
-      "blockerRules": [
-        { "id": "HLT_CHR_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
-      ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2
+      },
       "manifestations": [
-        { "id": "weak_spot_flare", "ko": "기존 약한 부위의 재발·악화 가능성" },
-        { "id": "condition_drop", "ko": "수면·소화·순환 등 컨디션 저하" },
-        { "id": "care_need", "ko": "관리·치료 필요성이 커짐" }
+        {
+          "id": "weak_spot_flare",
+          "ko": "기존 약한 부위의 재발·악화 가능성"
+        },
+        {
+          "id": "condition_drop",
+          "ko": "수면·소화·순환 등 컨디션 저하"
+        },
+        {
+          "id": "care_need",
+          "ko": "관리·치료 필요성이 커짐"
+        }
       ],
-      "prohibitedClaims": ["질병명·발병 시점 단정", "사망 관련 표현", "의료 진단 대체 표현"],
-      "note": "충·형 발동 + 병사 운성 — 부담 부위·위험 행동 경고 방식(질병 단정 금지)",
-      "reviewed": false
+      "prohibitedClaims": [
+        "질병명 단정",
+        "발병 시점 단정",
+        "사망 관련 표현",
+        "의료 진단 대체 표현"
+      ],
+      "allowedClaimScope": [
+        "관리 필요성",
+        "검진 필요성",
+        "가능한 발현 형태",
+        "위험 행동 주의"
+      ],
+      "claimCeiling": "conditional_warning",
+      "note": "감수 2차 개정 — 건강은 targeted 단독 경로 없음(가장 엄격): 형+병사 운성(event_shape) AND 일지·시지 충(target_activation), 독립 원인 2개 필수. 기신·공망 amplifier 강등",
+      "reviewed": true
     },
     {
       "riskId": "HLT_CONDITION_DECLINE",
       "domain": "health_safety",
       "kind": "pressure",
+      "riskFamily": "health_condition",
       "baseImpact": 0.45,
       "triggerRules": [
-        { "id": "HLT_CND_T1", "twelveStageIn": ["SOE", "BYEONG", "SA", "MYO", "JEOL"], "polarityRoleIn": ["GI", "GI_STRONG", "HAN_BAD"], "strength": 0.45 },
-        { "id": "HLT_CND_T2", "voidActive": true, "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 }
+        {
+          "id": "HLT_CND_T1",
+          "twelveStageIn": [
+            "SOE",
+            "BYEONG",
+            "SA",
+            "MYO",
+            "JEOL"
+          ],
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG",
+            "HAN_BAD"
+          ],
+          "strength": 0.45
+        },
+        {
+          "id": "HLT_CND_T2",
+          "voidActive": true,
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35
+        }
       ],
       "amplifierRules": [
-        { "id": "HLT_CND_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "HLT_CND_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "mitigatorRules": [
-        { "id": "HLT_CND_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+        {
+          "id": "HLT_CND_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        }
       ],
       "blockerRules": [
-        { "id": "HLT_CND_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "HLT_CND_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
       "manifestations": [
-        { "id": "energy_low", "ko": "전반적 기력·집중력 저하" },
-        { "id": "rhythm_break", "ko": "생활 리듬이 흐트러지기 쉬움" }
+        {
+          "id": "energy_low",
+          "ko": "전반적 기력·집중력 저하"
+        },
+        {
+          "id": "rhythm_break",
+          "ko": "생활 리듬이 흐트러지기 쉬움"
+        }
       ],
-      "prohibitedClaims": ["질병명 단정"],
+      "prohibitedClaims": [
+        "질병명 단정"
+      ],
       "note": "쇠병사묘절 운성 흉방향 — 컨디션 저하 압박(사건 특정 없음)",
       "reviewed": false
     },
@@ -95,27 +310,92 @@
       "kind": "incident_risk",
       "baseImpact": 0.65,
       "triggerRules": [
-        { "id": "HLT_MOB_T1", "relation": "CHUNG", "relationPalace": "day_pillar", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "HLT_MOB_T2", "relation": "CHUNG", "relationPalace": "hour_pillar", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
-        { "id": "HLT_MOB_T3", "relation": "HYEONG", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+        {
+          "id": "HLT_MOB_T1",
+          "relation": "CHUNG",
+          "relationPalace": "day_pillar",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "HLT_MOB_T2",
+          "relation": "CHUNG",
+          "relationPalace": "hour_pillar",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.45
+        },
+        {
+          "id": "HLT_MOB_T3",
+          "relation": "HYEONG",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        }
       ],
       "amplifierRules": [
-        { "id": "HLT_MOB_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+        {
+          "id": "HLT_MOB_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        }
       ],
       "mitigatorRules": [
-        { "id": "HLT_MOB_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
-        { "id": "HLT_MOB_M2", "relation": "HAP", "strength": 0.3 }
+        {
+          "id": "HLT_MOB_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "HLT_MOB_M2",
+          "relation": "HAP",
+          "strength": 0.3
+        }
       ],
       "blockerRules": [
-        { "id": "HLT_MOB_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "HLT_MOB_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
       "manifestations": [
-        { "id": "transit_caution", "ko": "이동·운전 중 부주의 위험 증가" },
-        { "id": "haste_injury", "ko": "서두름·과로 상태의 실수" },
-        { "id": "focus_drop_move", "ko": "장거리 이동 시 집중력 저하" }
+        {
+          "id": "transit_caution",
+          "ko": "이동·운전 중 부주의 위험 증가"
+        },
+        {
+          "id": "haste_injury",
+          "ko": "서두름·과로 상태의 실수"
+        },
+        {
+          "id": "focus_drop_move",
+          "ko": "장거리 이동 시 집중력 저하"
+        }
       ],
-      "prohibitedClaims": ["사고 발생 단정", "사망·중상 암시"],
+      "prohibitedClaims": [
+        "사고 발생 단정",
+        "사망·중상 암시"
+      ],
       "note": "일지·시지 충 + 강한 형 — 위험 행동 경고 방식(안전 행동 권고로 서술)",
       "reviewed": false
     },
@@ -123,22 +403,57 @@
       "riskId": "HLT_FOCUS_DROP",
       "domain": "health_safety",
       "kind": "vulnerability",
+      "riskFamily": "health_condition",
       "baseImpact": 0.4,
       "triggerRules": [
-        { "id": "HLT_FCS_T1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 },
-        { "id": "HLT_FCS_T2", "tenGod": "PIANYIN", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "HLT_FCS_T1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "HLT_FCS_T2",
+          "tenGod": "PIANYIN",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "amplifierRules": [],
       "mitigatorRules": [
-        { "id": "HLT_FCS_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+        {
+          "id": "HLT_FCS_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        }
       ],
       "blockerRules": [],
-      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
       "manifestations": [
-        { "id": "focus_weak", "ko": "과로에 따른 집중력·판단력 저하" },
-        { "id": "sleep_digest", "ko": "수면·소화 리듬의 흔들림" }
+        {
+          "id": "focus_weak",
+          "ko": "과로에 따른 집중력·판단력 저하"
+        },
+        {
+          "id": "sleep_digest",
+          "ko": "수면·소화 리듬의 흔들림"
+        }
       ],
-      "prohibitedClaims": ["질병명 단정"],
+      "prohibitedClaims": [
+        "질병명 단정"
+      ],
       "note": "취약성 — 단독 노출 없음. 이동·문서·건강 incident_risk의 심각도 상향 중간 신호",
       "reviewed": false
     },
@@ -146,28 +461,93 @@
       "riskId": "HLT_CHECKUP_NEED",
       "domain": "health_safety",
       "kind": "incident_risk",
+      "riskFamily": "health_condition",
       "baseImpact": 0.5,
       "triggerRules": [
-        { "id": "HLT_CHK_T1", "relation": "HYEONG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "HLT_CHK_T2", "twelveStageIn": ["BYEONG", "SA"], "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
-        { "id": "HLT_CHK_T3", "relation": "CHUNG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "HLT_CHK_T1",
+          "relation": "HYEONG",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "HLT_CHK_T2",
+          "twelveStageIn": [
+            "BYEONG",
+            "SA"
+          ],
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.45
+        },
+        {
+          "id": "HLT_CHK_T3",
+          "relation": "CHUNG",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "amplifierRules": [
-        { "id": "HLT_CHK_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+        {
+          "id": "HLT_CHK_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        }
       ],
       "mitigatorRules": [
-        { "id": "HLT_CHK_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
-        { "id": "HLT_CHK_M2", "tenGodGroup": "resource", "strength": 0.3 }
+        {
+          "id": "HLT_CHK_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "HLT_CHK_M2",
+          "tenGodGroup": "resource",
+          "strength": 0.3
+        }
       ],
       "blockerRules": [
-        { "id": "HLT_CHK_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "HLT_CHK_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
       "manifestations": [
-        { "id": "checkup_signal", "ko": "검진·관리가 필요해지는 신호" },
-        { "id": "treatment_window", "ko": "치료·시술 검토 가능성" }
+        {
+          "id": "checkup_signal",
+          "ko": "검진·관리가 필요해지는 신호"
+        },
+        {
+          "id": "treatment_window",
+          "ko": "치료·시술 검토 가능성"
+        }
       ],
-      "prohibitedClaims": ["수술·질병 시기 단정", "질병명 단정"],
+      "prohibitedClaims": [
+        "수술·질병 시기 단정",
+        "질병명 단정"
+      ],
       "note": "형(수술 가능 신호 계열) + 병사 운성 — 검진 유도 톤(단정 금지, health_vulnerability 선례)",
       "reviewed": false
     }

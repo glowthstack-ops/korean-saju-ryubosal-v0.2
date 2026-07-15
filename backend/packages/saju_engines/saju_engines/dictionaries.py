@@ -723,10 +723,15 @@ _RISK_ID_PREFIX = {
 }
 # 신호 역할 그룹(RISK_ENGINE.md §신호 역할 매트릭스, 2026-07-15 감수) — 룰 group 유효값.
 # event_shape=사건 형태 결정 / target_activation=발현 영역(대상) 활성 / activation=잠재
-# 구조의 기간 발동 / generic=미분류(감수 전 초안 전용).
-_RISK_SOURCE_GROUPS = ("event_shape", "target_activation", "activation", "generic")
-# requiredGroups 유효값 — generic은 필수 그룹이 될 수 없다.
-_RISK_REQUIRED_GROUPS = ("event_shape", "target_activation", "activation")
+# 구조의 기간 발동 / targeted_event_shape=사건 형태와 피자극 대상이 하나의 구조화된
+# 사실에 함께 담김(배우자궁 직접 피격 등 — 형식적 중복 룰 방지) / generic=미분류(초안 전용).
+_RISK_SOURCE_GROUPS = (
+    "event_shape", "target_activation", "activation", "targeted_event_shape", "generic",
+)
+# requiredGroups·evidenceContract 유효값 — generic은 필수 그룹이 될 수 없다.
+_RISK_REQUIRED_GROUPS = (
+    "event_shape", "target_activation", "activation", "targeted_event_shape",
+)
 # claimCeiling 유효값 — 표현 상한(허용 범위 화이트리스트 allowedClaimScope와 병용).
 _RISK_CLAIM_CEILINGS = ("advisory", "watch", "conditional_warning", "warning")
 
@@ -753,6 +758,9 @@ class RiskRuleSpec(_AliasModel):
     relation_target_ten_god_group: str | None = Field(
         default=None, alias="relationTargetTenGodGroup",
     )
+    # 정확한 피자극 글자(천간/지지 한자) — 매칭 우선순위: 궁위·자리 > 글자 > 십성 >
+    # 십성군 > 도메인 일반 활성(RISK_ENGINE.md §3-2).
+    relation_target_letter: str | None = Field(default=None, alias="relationTargetLetter")
     polarity_role_in: list[str] | None = Field(default=None, alias="polarityRoleIn")
     void_active: bool | None = Field(default=None, alias="voidActive")
     twelve_stage_in: list[str] | None = Field(default=None, alias="twelveStageIn")
@@ -775,6 +783,29 @@ class RiskRuleSpec(_AliasModel):
             raise ValueError(
                 f"기신·공망·12운성 단독 룰은 {self.group} 그룹 불가(증폭·취약 신호): {self.id}"
             )
+        # targeted_event_shape — 사건 형태와 피자극 대상이 한 사실에 담긴 룰만 허용.
+        # '대상이 특정된 일반 관계'(targeted_relation — target_activation으로 저작)와
+        # 구분한다(2026-07-15 감수 3차): 관계+십성(군) 대상만으로는 부족하고,
+        # ①궁위가 사건 형태를 정의(배우자궁 충 등 relationPalace 지정)하거나
+        # ②사건 구조 십성 동반 조건(tenGod/tenGodGroup — 겁재-재성 경쟁이 재성을
+        # 직접 대상으로 함 등)이 함께 있어야 한다.
+        if self.group == "targeted_event_shape":
+            has_target = any(c is not None for c in (
+                self.relation_target_ten_god, self.relation_target_ten_god_group,
+                self.relation_target_letter, self.relation_palace,
+            ))
+            if self.relation is None or not has_target:
+                raise ValueError(
+                    f"targeted_event_shape는 관계+대상(십성/글자/궁위) 필수: {self.id}"
+                )
+            shape_bearing = self.relation_palace is not None or any(
+                c is not None for c in (self.ten_god, self.ten_god_group)
+            )
+            if not shape_bearing:
+                raise ValueError(
+                    f"targeted_event_shape는 궁위 지정 또는 사건 구조 십성 동반 필수"
+                    f"(대상 특정 일반 관계는 target_activation): {self.id}"
+                )
         if self.ten_god is not None and self.ten_god not in {str(g) for g in _TenGodRoman}:
             raise ValueError(f"tenGod 값 오류: {self.ten_god} ({self.id})")
         if self.ten_god_group is not None and self.ten_god_group not in _RISK_TEN_GOD_GROUPS:
@@ -789,8 +820,15 @@ class RiskRuleSpec(_AliasModel):
         if (
             self.relation_target_ten_god is not None
             or self.relation_target_ten_god_group is not None
+            or self.relation_target_letter is not None
         ) and self.relation is None:
             raise ValueError(f"relationTarget*은 relation과 함께만 쓴다: {self.id}")
+        if self.relation_target_letter is not None and self.relation_target_letter not in (
+            {s.value for s in Stem} | {b.value for b in Branch}
+        ):
+            raise ValueError(
+                f"relationTargetLetter 값 오류: {self.relation_target_letter} ({self.id})"
+            )
         if self.relation_target_ten_god is not None and (
             self.relation_target_ten_god not in {str(g) for g in _TenGodRoman}
         ):
@@ -835,6 +873,32 @@ class RiskMinimumEvidence(_AliasModel):
         return self
 
 
+class RiskGroupClause(_AliasModel):
+    """증거 계약의 대안 절 1개 — 나열된 그룹 전부의 trigger 근거가 있어야 충족."""
+
+    all_of_groups: list[str] = Field(alias="allOfGroups", min_length=1)
+
+    @model_validator(mode="after")
+    def _validate_clause(self) -> RiskGroupClause:
+        for g in self.all_of_groups:
+            if g not in _RISK_REQUIRED_GROUPS:
+                raise ValueError(f"allOfGroups 값 오류: {g}")
+        return self
+
+
+class RiskEvidenceContract(_AliasModel):
+    """증거 계약 대안 구조(2026-07-15 감수) — requiredGroups의 상위 표현.
+
+    anyOf 중 한 절이라도 충족하면 그룹 조건 통과. targeted_event_shape(사건 형태+대상이
+    한 사실)를 별도 절로 허용해 형식적 중복 룰을 없앤다. 단 하나의 사실이 두 의미를
+    충족해도 **독립 원인은 1개**로 계산한다(원인 서명 중복 방지 원칙 유지). 후보 생성
+    조건과 높은 경고 등급 조건은 분리한다 — 독립 원인 1개는 R1 등급에서 watch 상한.
+    """
+
+    any_of: list[RiskGroupClause] = Field(alias="anyOf", min_length=1)
+    min_independent_causes: int = Field(alias="minIndependentCauses", ge=1, default=1)
+
+
 class RiskManifestationSpec(_AliasModel):
     """가능한 발현 형태 1건 — 노출 미확인 시 조건부 제시(2~3개)의 원천."""
 
@@ -852,12 +916,20 @@ class RiskItem(_AliasModel):
     # 도메인 risk_id로 갈라질 때 주 위험 1건 + 파생 설명으로 통합하기 위한 통합 키.
     risk_family: str | None = Field(default=None, alias="riskFamily")
     related_domains: list[str] = Field(alias="relatedDomains", default_factory=list)
+    # 특이도(2026-07-15 감수) — 동일 원인·family·기간에서 대표 후보 결정에 쓴다:
+    # 구체 대상 사건 3 > 도메인 일반 사건 2 > 취약성 1 > 전반 압박 0. 미지정 시 kind로
+    # 유도(incident=2, vulnerability=1, pressure=0 — 구체 대상 사건은 명시 3 권장).
+    specificity_rank: int | None = Field(default=None, alias="specificityRank", ge=0, le=3)
     base_impact: float = Field(alias="baseImpact", ge=0.0, le=1.0)
     trigger_rules: list[RiskRuleSpec] = Field(alias="triggerRules", min_length=1)
     amplifier_rules: list[RiskRuleSpec] = Field(alias="amplifierRules", default_factory=list)
     mitigator_rules: list[RiskRuleSpec] = Field(alias="mitigatorRules", default_factory=list)
     blocker_rules: list[RiskRuleSpec] = Field(alias="blockerRules", default_factory=list)
     minimum_evidence: RiskMinimumEvidence = Field(alias="minimumEvidence")
+    # 증거 계약 대안 구조 — 있으면 requiredGroups 대신 이 계약으로 그룹·독립 원인 판정.
+    evidence_contract: RiskEvidenceContract | None = Field(
+        default=None, alias="evidenceContract",
+    )
     manifestations: list[RiskManifestationSpec] = Field(min_length=1)
     # 표현 정책 — 블랙리스트(prohibited)만으로는 건강·법률 빈틈이 생긴다: 허용 범위
     # 화이트리스트(allowedClaimScope) + 표현 상한(claimCeiling)을 병용한다.
@@ -1388,11 +1460,15 @@ def _lint_risk_mapping(rel: str, file: RiskMappingFile) -> list[str]:
 
     - 파일 domain과 항목 domain 불일치 / risk_id 접두 규약 위반(파일 간 충돌 차단).
     - 같은 파일 안 risk_id 중복, 항목 안 룰 id 중복(역할 전체 통합).
-    - incident_risk인데 independent_source_count < 2 — 신호 1개 사건 위험 범람 방지
-      (RISK_ENGINE.md §R0-C minimum_evidence 정책).
-    - requiredGroups가 trigger 룰 group에 없으면 충족 불가능 항목(항상 차단) — 오저작.
-    - 감수 승격(reviewed:true) 게이트: incident_risk는 requiredGroups에 event_shape·
-      target_activation 포함 + generic 그룹 trigger 금지(2026-07-15 감수 원칙).
+    - incident_risk인데(evidenceContract 부재 시) independent_source_count < 2 — 신호
+      1개 사건 위험 범람 방지. evidenceContract가 있으면 그 계약이 개수 조건을 대신한다.
+    - requiredGroups/evidenceContract 절이 trigger 룰 group에 없으면 충족 불가능 항목.
+    - 감수 승격(reviewed:true) 게이트 — kind별 최소 계약(2026-07-15 감수 2차):
+      incident_risk = (event_shape+target_activation) 또는 targeted_event_shape 경로 +
+      generic trigger 금지 / pressure = 비generic trigger 1개 이상 / vulnerability =
+      target_activation·targeted_event_shape 또는 event_shape 1개 이상.
+    - manifestation 문구가 prohibitedClaims와 충돌하면 실패. 건강·법률 incident_risk는
+      승격 시 claimCeiling + allowedClaimScope 필수(건강은 conditional_warning 이하).
     """
     errors: list[str] = []
     prefix = _RISK_ID_PREFIX.get(file.domain)
@@ -1420,10 +1496,12 @@ def _lint_risk_mapping(rel: str, file: RiskMappingFile) -> list[str]:
             errors.append(f"{rel}: 룰 id 중복 — {item.risk_id}")
         if (
             item.kind == "incident_risk"
+            and item.evidence_contract is None
             and item.minimum_evidence.independent_source_count < 2
         ):
             errors.append(
-                f"{rel}: incident_risk는 독립 출처 2개 이상 필요 — {item.risk_id}"
+                f"{rel}: incident_risk는 독립 출처 2개 이상 필요"
+                f"(또는 evidenceContract 저작) — {item.risk_id}"
             )
         trigger_groups = {r.group for r in item.trigger_rules}
         for g in item.minimum_evidence.required_groups:
@@ -1432,18 +1510,78 @@ def _lint_risk_mapping(rel: str, file: RiskMappingFile) -> list[str]:
                     f"{rel}: requiredGroups({g})를 만족할 trigger 룰 없음(충족 불가) — "
                     f"{item.risk_id}"
                 )
-        if item.reviewed and item.kind == "incident_risk":
-            required = set(item.minimum_evidence.required_groups)
-            if not {"event_shape", "target_activation"} <= required:
+        if item.evidence_contract is not None and not any(
+            set(clause.all_of_groups) <= trigger_groups
+            for clause in item.evidence_contract.any_of
+        ):
+            errors.append(
+                f"{rel}: evidenceContract의 어떤 절도 trigger 룰 group으로 충족 불가 — "
+                f"{item.risk_id}"
+            )
+        # manifestation ↔ prohibitedClaims 충돌(기계 검사 가능한 substring 수준).
+        for m in item.manifestations:
+            for banned in item.prohibited_claims:
+                if banned and banned in m.ko:
+                    errors.append(
+                        f"{rel}: manifestation({m.id})이 prohibitedClaims와 충돌 — "
+                        f"{item.risk_id}"
+                    )
+        if item.reviewed:
+            errors.extend(_lint_reviewed_risk_item(rel, item, trigger_groups))
+    return errors
+
+
+def _lint_reviewed_risk_item(
+    rel: str, item: RiskItem, trigger_groups: set[str]
+) -> list[str]:
+    """감수 승격(reviewed:true) 항목의 kind별 최소 계약 게이트(2026-07-15 감수 2차).
+
+    기신·공망·운성·불리 극성만으로는 pressure의 증폭, vulnerability의 보조 근거는 될 수
+    있어도 incident_risk의 직접 trigger는 될 수 없다 — 승격 시점에 강제한다.
+    """
+    errors: list[str] = []
+    non_generic = trigger_groups - {"generic"}
+    if item.kind == "incident_risk":
+        required = set(item.minimum_evidence.required_groups)
+        contract_ok = item.evidence_contract is not None and all(
+            ("targeted_event_shape" in set(clause.all_of_groups))
+            or ({"event_shape", "target_activation"} <= set(clause.all_of_groups))
+            for clause in item.evidence_contract.any_of
+        )
+        groups_ok = {"event_shape", "target_activation"} <= required
+        if not (contract_ok or groups_ok):
+            errors.append(
+                f"{rel}: 감수 승격 incident_risk는 (event_shape+target_activation) 또는 "
+                f"targeted_event_shape 증거 계약 필수 — {item.risk_id}"
+            )
+        if "generic" in trigger_groups:
+            errors.append(
+                f"{rel}: 감수 승격 incident_risk에 generic 그룹 trigger 금지 — "
+                f"{item.risk_id}"
+            )
+        if item.domain in ("health_safety", "contract_legal"):
+            if item.claim_ceiling is None or not item.allowed_claim_scope:
                 errors.append(
-                    f"{rel}: 감수 승격 incident_risk는 requiredGroups에 "
-                    f"event_shape·target_activation 필수 — {item.risk_id}"
+                    f"{rel}: 감수 승격 건강·법률 incident_risk는 claimCeiling·"
+                    f"allowedClaimScope 필수 — {item.risk_id}"
                 )
-            if "generic" in trigger_groups:
+            if item.domain == "health_safety" and item.claim_ceiling == "warning":
                 errors.append(
-                    f"{rel}: 감수 승격 incident_risk에 generic 그룹 trigger 금지 — "
-                    f"{item.risk_id}"
+                    f"{rel}: 건강 incident_risk의 claimCeiling은 conditional_warning "
+                    f"이하 — {item.risk_id}"
                 )
+    elif item.kind == "pressure":
+        if not non_generic:
+            errors.append(
+                f"{rel}: 감수 승격 pressure는 비generic trigger(도메인 관련 activation "
+                f"등) 1개 이상 필요 — {item.risk_id}"
+            )
+    elif item.kind == "vulnerability":
+        if not non_generic & {"target_activation", "targeted_event_shape", "event_shape"}:
+            errors.append(
+                f"{rel}: 감수 승격 vulnerability는 구체적 대상 활성 또는 구조적 약화 "
+                f"trigger 필요 — {item.risk_id}"
+            )
     return errors
 
 

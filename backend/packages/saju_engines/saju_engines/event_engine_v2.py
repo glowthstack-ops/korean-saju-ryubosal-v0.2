@@ -563,15 +563,15 @@ class EventEngineV2:
             ten_god_layers.setdefault(s.ten_god, set()).add(s.layer)
         hits = self._relation_hits(result, level, target)
         layer = _LEVEL_TO_LAYER[level]
-        # 피자극 십성 provenance — 충·형은 '무엇을 쳤는가'로 도메인이 갈리므로(재성 충≠
-        # 배우자궁 충≠사회궁 충) 자극 궁성의 천간/지지 본기 십성을 사실에 보존한다.
-        relations = [
-            RelationFact(
+        # 피자극 대상 provenance — 충·형은 '무엇을 쳤는가'로 도메인이 갈리므로(재성 충≠
+        # 배우자궁 충≠사회궁 충) 자극 궁성의 천간/지지 십성·글자를 사실에 보존한다.
+        relations: list[RelationFact] = []
+        for a in _activations(hits, layer):
+            god, letter = _natal_target(result, a.palace, a.position)
+            relations.append(RelationFact(
                 kind=a.kind, palace=a.palace, position=a.position,
-                target_ten_god=_natal_target_ten_god(result, a.palace, a.position),
-            )
-            for a in _activations(hits, layer)
-        ]
+                target_ten_god=god, target_letter=letter,
+            ))
         hwa_el = _target_hwa_element(target, result, fav_map)
         stem_bound = _target_stem_bound(target, result, fav_map) if hwa_el is None else False
         facts = build_raw_period_facts(
@@ -714,23 +714,25 @@ def _stage_of(pillar: LuckPillar) -> TwelveStage | None:
     return TWELVE_STAGE_KO_TO_KEY.get(pillar.twelve_unseong or "")
 
 
-def _natal_target_ten_god(
+def _natal_target(
     result: ManseV2Result, palace: Pillar4, position: str
-) -> TenGod | None:
-    """관계 발동의 피자극 글자(자극 궁성의 천간/지지 본기) 십성 — 위험 근거 provenance용.
+) -> tuple[TenGod | None, str | None]:
+    """관계 발동의 피자극 글자(자극 궁성의 천간/지지) — (십성, 글자) provenance.
 
-    한글 십성을 로마자 enum으로 환원한다. 일간(비교 기준 자신)·미정의 라벨은 None.
+    한글 십성을 로마자 enum으로 환원한다. 일간(비교 기준 자신)·미정의 라벨은 십성 None,
+    글자는 있으면 그대로 보존한다(정밀 매칭·자리 구분용 — 2026-07-15 감수 2차).
     """
     if result.pillars is None:
-        return None
+        return None, None
     natal = {
         Pillar4.YEAR: result.pillars.year, Pillar4.MONTH: result.pillars.month,
         Pillar4.DAY: result.pillars.day, Pillar4.HOUR: result.pillars.hour,
     }.get(palace)
     if natal is None:
-        return None
-    ko = natal.stem_ten_god if position == "stem" else natal.branch_main_ten_god
-    return TEN_GOD_KO_TO_KEY.get(ko or "")
+        return None, None
+    if position == "stem":
+        return TEN_GOD_KO_TO_KEY.get(natal.stem_ten_god or ""), natal.stem or None
+    return TEN_GOD_KO_TO_KEY.get(natal.branch_main_ten_god or ""), natal.branch or None
 
 
 # MT4(§9): HAP으로 붕괴되는 합의 원 종류(subtype) 보존 — RelationType → subtype 라벨.

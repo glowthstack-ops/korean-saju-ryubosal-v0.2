@@ -136,13 +136,50 @@
 7. 수정 후 밀도 재실측 목표: 기간당 평균 후보 ≤3, incident 존재 기간 ≤20%, 단일 원인
    확산 ≤3 risk_id, 발동률 >40% 항목 0건.
 
-## 3. 감수 진행 상태
+## 3. 대표 7항목 개정 실룰 반영 (2026-07-15 감수 2차 — 사전 JSON 적용 완료)
+
+§1 개정안이 실제 사전에 반영됐다. 공통 적용 사항:
+
+- 기신·공망 trigger → **amplifier로 강등**, YONG_STRONG blocker → **mitigator로 강등**
+  (blocker는 trigger와 동시 성립 가능한 차단 조건만 — 노출 기반 차단은 엔진이
+  exposure_status로 자동 처리).
+- 모든 관계 trigger에 대상(`relationTargetTenGodGroup`) 또는 궁위 부여 + `group` 라벨.
+- `evidenceContract` 저작: FIN/LEG/REL = targeted 단독 경로, CAR/MOV/SEL =
+  (event_shape+target_activation) 또는 targeted, **HLT = event_shape+target_activation
+  필수 + 독립 원인 2(가장 엄격, targeted 단독 경로 없음)**.
+- riskFamily·specificityRank 저작: cashflow(FIN 3종)·workplace_conflict·liability·
+  health_condition(HLT 5종)·partner_relation(REL 3종)·housing_contract(MOV, related:
+  finance/contract_legal)·placement.
+- 건강·법률·관계: allowedClaimScope + claimCeiling(conditional_warning) 저작.
+- REL_PARTNER_READJUST: 배우자궁(일지) 충·형만 생성 경로 — **배우자성(성별 의존)
+  근거는 R1 성별 축 연동 전까지 미저작**, "배우자 문제 단정" prohibited.
+
+## 4. 밀도 실측 — 단계별 지표 (10차트 코퍼스, 세운+월운 22기간/차트)
+
+`scripts/risk_shadow_density.py` (observed/eligible/active 분리, is_active 기준):
+
+| 지표 | 실측 | 목표 | 판정 |
+|---|---|---|---|
+| 활성/기간 평균 | 6.63 | (family 기준 ≤3) | 미달 — 미개정 37항목 기인 |
+| active incident/기간 | 3.12 | ≤1.5 | 미달 — 미개정 항목 기인 |
+| 활성 family/기간 p50/p90 | 6 / 15 | ≤3 | 미달 — 미개정 항목은 family 미저작(항목=family로 집계) |
+| 단일 원인 활성 family 확산 max | 12 | ≤2(예외 3) | 미달 — 전부 미개정 항목 |
+| 개정 7항목 발동률 | FIN_UEX 27.3%(>40% 차트 1/7) 등 | ≤20~25% | 근접 — 37항목 적용 후 재평가 |
+| 발동률>40% 경고 | LEG_REVIEW_CAPACITY_WEAK 45.5%, CAR_WORK_OVERLOAD 41.8% (전부 미개정) | incident 0건 | 미개정 vulnerability/pressure |
+
+해석: **경고 신호는 전부 미개정 37항목에서 발생** — 개정 7항목은 대상 조건·증거
+계약으로 발동률이 목표 범위에 근접했고, 특이도 억제(차트당 10~24건 흡수)와
+INSUFFICIENT 분리(observed 대비 eligible 약 45%)가 실측에서 작동함을 확인. 잔여
+37항목에 §2 일괄 규칙을 적용해야 목표에 도달한다.
+
+## 5. 감수 진행 상태 (2026-07-15 3차 — 표 A·대표 7항목 확정)
 
 | 단계 | 상태 |
 |---|---|
-| 표 A 매트릭스 | 규격 반영 완료(RISK_ENGINE.md §3-1) — **데굴님 확정 대기** |
-| requiredGroups·대상 provenance·eligibility 지원 | 구현 완료 |
-| 대표 7항목 개정안 | 본 문서 §1 — **데굴님 확정 대기** |
-| 잔여 37항목 적용 | 7항목 확정 후 |
-| 밀도 재실측 | 44항목 개정 후 |
-| reviewed:true 전환 | 재실측 통과 + 데굴님 승인 후 |
+| 표 A 매트릭스 + targeted_event_shape | **확정**(성립 조건 강화: 궁위 정의 또는 구조 십성 동반 — 대상 특정 일반 관계는 target_activation) |
+| 불변식 4종(fallback 금지·원인별 완화·흡수 역할 보존·cause_atom 정규화) | 구현·테스트 고정 완료 |
+| 대표 7항목 실룰 | **shadow 기준 룰로 확정 — reviewed:true 전환**(사전 구조·shadow 감수 완료 의미이며 사용자 노출 승인 아님. RISK_ENGINE_MODE는 계속 off/shadow) |
+| 커밋 | A=c4628e1(인프라) · B=보완+7항목+fixture+계측(본 차수) |
+| 잔여 37항목 적용 | **승인됨** — §2 일괄 규칙 + 변환 직후 reviewed:false, 엔진 로직 변경 필요 시 사전 커밋과 분리 |
+| 밀도 재실측·목표 판정 | 37항목 적용 후(§4 + RISK_ENGINE.md §10-2 확정 기준) |
+| 37항목 reviewed:true 전환 | 재실측 통과 + 도메인별 표본 감수 후 |

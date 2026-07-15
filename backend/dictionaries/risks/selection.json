@@ -8,26 +8,83 @@
       "kind": "incident_risk",
       "baseImpact": 0.5,
       "triggerRules": [
-        { "id": "SEL_DOC_T1", "voidActive": true, "tenGodGroup": "resource", "strength": 0.5 },
-        { "id": "SEL_DOC_T2", "tenGod": "PIANYIN", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 },
-        { "id": "SEL_DOC_T3", "relation": "HAE", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 }
+        {
+          "id": "SEL_DOC_T1",
+          "voidActive": true,
+          "tenGodGroup": "resource",
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_DOC_T2",
+          "tenGod": "PIANYIN",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        },
+        {
+          "id": "SEL_DOC_T3",
+          "relation": "HAE",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35
+        }
       ],
       "amplifierRules": [
-        { "id": "SEL_DOC_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "SEL_DOC_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "mitigatorRules": [
-        { "id": "SEL_DOC_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
-        { "id": "SEL_DOC_M2", "tenGod": "ZHENGYIN", "strength": 0.3 }
+        {
+          "id": "SEL_DOC_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_DOC_M2",
+          "tenGod": "ZHENGYIN",
+          "strength": 0.3
+        }
       ],
       "blockerRules": [
-        { "id": "SEL_DOC_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "SEL_DOC_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
       "manifestations": [
-        { "id": "apply_omission", "ko": "지원 서류의 누락·기한 놓침" },
-        { "id": "form_error", "ko": "기재 오류로 인한 불이익" }
+        {
+          "id": "apply_omission",
+          "ko": "지원 서류의 누락·기한 놓침"
+        },
+        {
+          "id": "form_error",
+          "ko": "기재 오류로 인한 불이익"
+        }
       ],
-      "prohibitedClaims": ["탈락 확정 단정"],
+      "prohibitedClaims": [
+        "탈락 확정 단정"
+      ],
       "note": "문서성(인성) 공망 + 편인 — 서류 누락 사건 위험",
       "reviewed": false
     },
@@ -37,25 +94,77 @@
       "kind": "incident_risk",
       "baseImpact": 0.5,
       "triggerRules": [
-        { "id": "SEL_ELG_T1", "relation": "HYEONG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "SEL_ELG_T2", "tenGodGroup": "resource", "polarityRoleIn": ["HAN_BAD"], "strength": 0.4 },
-        { "id": "SEL_ELG_T3", "voidActive": true, "tenGodGroup": "authority", "strength": 0.4 }
+        {
+          "id": "SEL_ELG_T1",
+          "relation": "HYEONG",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_ELG_T2",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "HAN_BAD"
+          ],
+          "strength": 0.4
+        },
+        {
+          "id": "SEL_ELG_T3",
+          "voidActive": true,
+          "tenGodGroup": "authority",
+          "strength": 0.4
+        }
       ],
       "amplifierRules": [
-        { "id": "SEL_ELG_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "SEL_ELG_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "mitigatorRules": [
-        { "id": "SEL_ELG_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+        {
+          "id": "SEL_ELG_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        }
       ],
       "blockerRules": [
-        { "id": "SEL_ELG_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "SEL_ELG_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
       "manifestations": [
-        { "id": "requirement_gap", "ko": "자격 조건의 미충족 발견" },
-        { "id": "criteria_change", "ko": "선발 기준·조건의 변경" }
+        {
+          "id": "requirement_gap",
+          "ko": "자격 조건의 미충족 발견"
+        },
+        {
+          "id": "criteria_change",
+          "ko": "선발 기준·조건의 변경"
+        }
       ],
-      "prohibitedClaims": ["탈락 확정 단정"],
+      "prohibitedClaims": [
+        "탈락 확정 단정"
+      ],
       "note": "형(조건 시비) + 관성 공망 — 자격 조건 사건 위험",
       "reviewed": false
     },
@@ -65,23 +174,73 @@
       "kind": "incident_risk",
       "baseImpact": 0.45,
       "triggerRules": [
-        { "id": "SEL_LOT_T1", "voidActive": true, "polarityRoleIn": ["GI", "GI_STRONG", "HAN_BAD"], "strength": 0.4 },
-        { "id": "SEL_LOT_T2", "relation": "PA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 },
-        { "id": "SEL_LOT_T3", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "SEL_LOT_T1",
+          "voidActive": true,
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG",
+            "HAN_BAD"
+          ],
+          "strength": 0.4
+        },
+        {
+          "id": "SEL_LOT_T2",
+          "relation": "PA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35
+        },
+        {
+          "id": "SEL_LOT_T3",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "amplifierRules": [],
       "mitigatorRules": [
-        { "id": "SEL_LOT_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+        {
+          "id": "SEL_LOT_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        }
       ],
       "blockerRules": [
-        { "id": "SEL_LOT_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "SEL_LOT_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
       "manifestations": [
-        { "id": "lottery_unfavorable", "ko": "추첨·배정에서 불리한 흐름" },
-        { "id": "waitlist_stay", "ko": "대기 순번에 머무를 가능성" }
+        {
+          "id": "lottery_unfavorable",
+          "ko": "추첨·배정에서 불리한 흐름"
+        },
+        {
+          "id": "waitlist_stay",
+          "ko": "대기 순번에 머무를 가능성"
+        }
       ],
-      "prohibitedClaims": ["당첨·탈락 확정 단정", "당락 확률 수치 제시"],
+      "prohibitedClaims": [
+        "당첨·탈락 확정 단정",
+        "당락 확률 수치 제시"
+      ],
       "note": "무작위성 사건 — 절대 원칙 8 + 선발·배치 코어 무작위성 캡 준수(당락 단정 금지)",
       "reviewed": false
     },
@@ -89,30 +248,113 @@
       "riskId": "SEL_UNWANTED_PLACEMENT",
       "domain": "selection",
       "kind": "incident_risk",
+      "riskFamily": "placement",
+      "specificityRank": 3,
       "baseImpact": 0.55,
       "triggerRules": [
-        { "id": "SEL_UWP_T1", "relation": "CHUNG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "SEL_UWP_T2", "tenGodGroup": "authority", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
-        { "id": "SEL_UWP_T3", "relation": "HYEONG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "SEL_UWP_T1",
+          "group": "event_shape",
+          "relation": "CHUNG",
+          "tenGodGroup": "authority",
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_UWP_T2",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "authority",
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_UWP_T3",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationPalace": "month_pillar",
+          "strength": 0.45
+        }
       ],
       "amplifierRules": [
-        { "id": "SEL_UWP_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+        {
+          "id": "SEL_UWP_A1",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_UWP_A2",
+          "relation": "HYEONG",
+          "strength": 0.35
+        }
       ],
       "mitigatorRules": [
-        { "id": "SEL_UWP_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
-        { "id": "SEL_UWP_M2", "relation": "HAP", "strength": 0.3 }
+        {
+          "id": "SEL_UWP_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_UWP_M2",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        },
+        {
+          "id": "SEL_UWP_M3",
+          "tenGodGroup": "resource",
+          "strength": 0.3
+        },
+        {
+          "id": "SEL_UWP_M4",
+          "relation": "HAP",
+          "strength": 0.3
+        }
       ],
-      "blockerRules": [
-        { "id": "SEL_UWP_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
-      ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2
+      },
       "manifestations": [
-        { "id": "unwanted_slot", "ko": "합격 후 원치 않는 배치" },
-        { "id": "option_narrow", "ko": "선택 가능한 조건의 축소" }
+        {
+          "id": "unwanted_slot",
+          "ko": "합격 후 원치 않는 배치"
+        },
+        {
+          "id": "option_narrow",
+          "ko": "선택 가능한 조건의 축소"
+        }
       ],
-      "prohibitedClaims": ["배치 결과 확정 단정"],
-      "note": "충(비자발 이동) + 관살(외부 결정) — 원치 않는 배치 사건 위험",
-      "reviewed": false
+      "prohibitedClaims": [
+        "배치 결과 확정 단정",
+        "당락·승패 확정 단정"
+      ],
+      "allowedClaimScope": [
+        "조건 확인 필요성",
+        "대안 검토 권고",
+        "가능한 발현 형태"
+      ],
+      "claimCeiling": "warning",
+      "note": "감수 3차 개정 — targeted 단독 경로 제거: 충+관성 동반(event_shape) AND 관성/사회궁 활성(target_activation) 필수, 독립 원인 2. 선발·배치 코어 무작위성 캡 준수",
+      "reviewed": true
     },
     {
       "riskId": "SEL_WAITLIST_DELAY",
@@ -120,25 +362,75 @@
       "kind": "incident_risk",
       "baseImpact": 0.45,
       "triggerRules": [
-        { "id": "SEL_WTL_T1", "voidActive": true, "tenGodGroup": "authority", "strength": 0.5 },
-        { "id": "SEL_WTL_T2", "voidActive": true, "tenGodGroup": "resource", "strength": 0.4 },
-        { "id": "SEL_WTL_T3", "relation": "HAE", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 }
+        {
+          "id": "SEL_WTL_T1",
+          "voidActive": true,
+          "tenGodGroup": "authority",
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_WTL_T2",
+          "voidActive": true,
+          "tenGodGroup": "resource",
+          "strength": 0.4
+        },
+        {
+          "id": "SEL_WTL_T3",
+          "relation": "HAE",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35
+        }
       ],
       "amplifierRules": [
-        { "id": "SEL_WTL_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "SEL_WTL_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "mitigatorRules": [
-        { "id": "SEL_WTL_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+        {
+          "id": "SEL_WTL_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        }
       ],
       "blockerRules": [
-        { "id": "SEL_WTL_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "SEL_WTL_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
       "manifestations": [
-        { "id": "result_delay", "ko": "발표·결과의 연기" },
-        { "id": "wait_extend", "ko": "대기 기간의 장기화" }
+        {
+          "id": "result_delay",
+          "ko": "발표·결과의 연기"
+        },
+        {
+          "id": "wait_extend",
+          "ko": "대기 기간의 장기화"
+        }
       ],
-      "prohibitedClaims": ["결과 확정 단정"],
+      "prohibitedClaims": [
+        "결과 확정 단정"
+      ],
       "note": "관성·인성 공망(절차 지연) — 대기·연기 사건 위험",
       "reviewed": false
     },
@@ -148,25 +440,81 @@
       "kind": "pressure",
       "baseImpact": 0.45,
       "triggerRules": [
-        { "id": "SEL_CMP_T1", "tenGod": "JIECAI", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "SEL_CMP_T2", "tenGodGroup": "peer", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
-        { "id": "SEL_CMP_T3", "tenGod": "QISHA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "SEL_CMP_T1",
+          "tenGod": "JIECAI",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_CMP_T2",
+          "tenGodGroup": "peer",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.45
+        },
+        {
+          "id": "SEL_CMP_T3",
+          "tenGod": "QISHA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "amplifierRules": [
-        { "id": "SEL_CMP_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "SEL_CMP_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "mitigatorRules": [
-        { "id": "SEL_CMP_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+        {
+          "id": "SEL_CMP_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        }
       ],
       "blockerRules": [
-        { "id": "SEL_CMP_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "SEL_CMP_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
       "manifestations": [
-        { "id": "rival_grow", "ko": "경쟁 강도의 상승" },
-        { "id": "margin_thin", "ko": "합격선·기준의 상향 부담" }
+        {
+          "id": "rival_grow",
+          "ko": "경쟁 강도의 상승"
+        },
+        {
+          "id": "margin_thin",
+          "ko": "합격선·기준의 상향 부담"
+        }
       ],
-      "prohibitedClaims": ["당락·승패 확정 단정"],
+      "prohibitedClaims": [
+        "당락·승패 확정 단정"
+      ],
       "note": "비겁(경쟁자) 기신 — 경쟁 심화 압박(절대 원칙 8: 우열+근거까지만)",
       "reviewed": false
     }

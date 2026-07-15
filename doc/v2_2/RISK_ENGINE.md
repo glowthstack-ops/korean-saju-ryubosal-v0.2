@@ -140,13 +140,42 @@ conditional_warning/warning)을 병용한다.
 | 궁위 활성(relationPalace) | target_activation | 보조 | 예 |
 | 다층 반복 | persistence(R1) | 단독 불가 | 기존 대상 계승 |
 
-kind별 필수 그룹:
+**targeted_event_shape**(2026-07-15 감수 3차 확정): 사건 형태와 피자극 대상이 하나의
+구조화된 사실에 함께 담긴 경우 — '대상이 특정된 일반 관계'(targeted_relation —
+`target_activation`으로 저작)와 구분한다. 관계+십성(군) 대상만으로는 성립하지 않고
+(스키마 강제) 다음 중 하나가 필요하다: ①궁위가 사건 형태를 정의(배우자궁이 관계
+변동형 충·형의 직접 대상) ②사건 구조 십성 동반(겁재-재성 경쟁 구조가 재성을 직접
+대상으로, 상관 동반 관성 피격, 편관 동반 형). **한 사실이 두 의미를 충족해도 독립
+원인은 1개**로 계산하며(원인 서명 원칙), 독립 원인 1개 후보는 R1 등급에서 watch
+상한이다 — 후보 생성 조건과 높은 경고 등급 조건은 다르다.
+
+증거 계약(`evidenceContract`) — requiredGroups의 상위 표현:
+
+```json
+{ "anyOf": [ { "allOfGroups": ["event_shape", "target_activation"] },
+             { "allOfGroups": ["targeted_event_shape"] } ],
+  "minIndependentCauses": 1 }
+```
+
+kind별 최소 계약(reviewed:true 승격 시 lint 강제):
 
 ```text
-pressure       — polarity·부담 계열 신호만으로 생성 가능(requiredGroups 선택)
-vulnerability  — 보호력 저하 + 관련 영역 활성
-incident_risk  — event_shape + target_activation 필수, polarity는 증폭 요소
+pressure       — 비generic trigger(도메인 관련 activation 등) 1개 이상
+vulnerability  — target_activation·targeted_event_shape 또는 event_shape 1개 이상
+incident_risk  — (event_shape + target_activation) 또는 targeted_event_shape
+                 + generic trigger 금지. polarity는 증폭 요소.
+critical 승격  — 독립 원인 2개 이상 + 노출 CONFIRMED + 보호 부족 (R1)
 ```
+
+### 3-2. 관계 대상 매칭 우선순위
+
+RelationFact provenance: 궁위(palace) · 자리(position: stem/branch) · 피자극 글자
+(target_letter) · 피자극 십성(target_ten_god) · 관계 종류 · 층위 · 기간. 매칭 정밀도
+우선순위: ①정확한 궁위·자리 ②정확한 천간·지지 글자(relationTargetLetter) ③십성
+(relationTargetTenGod) ④십성군(relationTargetTenGodGroup) ⑤도메인 일반 활성.
+`relationTargetTenGodGroup`만 맞다고 배우자·직업·현금흐름 위험을 동시에 만들면 안
+된다 — 궁위·글자 조건과 risk_family 억제로 분리한다. 잔여 갭(R1 백로그): 원국 취약
+구조, 투간·통근 작동성, 구조 패턴, 성별 의존 배우자성.
 
 건강·안전 도메인은 질병명·사망을 단정하지 않고 **부담 부위와 위험 행동을 경고**하는
 방식으로만 저작한다(`prohibitedClaims` + 기존 PROHIBITIONS 계열 준수).
@@ -164,17 +193,62 @@ incident_risk  — event_shape + target_activation 필수, polarity는 증폭 �
 - `ExposureStatus` — CONFIRMED / DENIED / UNKNOWN / NOT_APPLICABLE.
 - `RiskLevel` — advisory / watch / warning / critical.
 
-### 4-0. 적격 상태 불변식 (`EligibilityStatus` — 2026-07-15 감수)
+### 4-0. 적격 상태 불변식 (`EligibilityStatus` — 2026-07-15 감수 2차)
 
-blocker/mitigator를 근거로만 남기면 shadow 통계에서 실제 활성 후보처럼 집계된다 —
-상태를 분리한다: `matched` / `mitigated` / `blocked` (+`suppression_reasons`).
+'matched'는 룰 평가 결과일 뿐 후보 적격 상태가 아니다. 4상태로 분리한다:
+
+| 상태 | 의미 | 활성 집계 |
+|---|---|---|
+| `insufficient_evidence` | 일부 룰은 맞지만 증거 계약 미충족 | 제외(observed에만 포함) |
+| `eligible` | 필수 증거 계약 충족 | 포함 |
+| `mitigated` | 성립하되 보호 신호로 위험도 하향(R1) | 포함 |
+| `blocked` | 노출 부재·대상 부재 등 발현 대상 제외 | 제외(기록 보존) |
+
+활성 판정은 `is_active()` 단일 함수: eligible/mitigated이면서 특이도 억제
+(`suppressed_by_specificity`)되지 않은 후보. **`is_active()`는 '구조적 활성'에
+한정된다(2026-07-15 감수 3차)** — 사용자 노출 가능을 뜻하지 않는다. R1 이후
+`is_score_qualified`, R3 이후 `is_exposable`(claimCeiling·등급·노출 정책)이 별도
+판정으로 추가되며, 사용자 노출은 반드시 exposable을 거친다.
+
+**매칭 fallback 금지**: provenance에 더 구체적인 대상 정보(궁위 등)가 있고 그 정보가
+룰과 불일치하면, 하위 일반화 축(십성군 동일 등)이 그 룰을 구제하지 못한다(AND 결합 —
+테스트 고정). 궁위 무관 매칭을 원하면 룰 자체가 궁위 조건 없는 일반 룰이어야 한다.
+
+**원인별 완화(전역 완화 금지)**: 용희신이 강하다는 극성 사실 단독으로는 계약 분쟁·
+배우자궁 충·재성 경쟁 등 모든 위험이 자동 완화되지 않는다 — 극성 단독 mitigator는
+근거로만 보존되고, 실질 조건(관계 완화·통관 십성 등 원인·대상 제어 표현) 동반
+mitigator만 MITIGATED로 전환한다. 투간·통근 작동성(operability)·mitigation_target
+연동은 R1에서 확장한다.
 
 ```text
 blocker는 후보 기록을 삭제하지 않는다.
-그러나 활성 위험 후보 집계(R2 슬롯·R4 오경고 분모)에서는 제외할 수 있다.
+그러나 활성 위험 후보 집계(R2 슬롯·R4 오경고 분모)에서는 제외한다.
 mitigator는 후보를 유지하고 강도를 낮춘다(R1).
 recovery는 현재 후보의 적격성이나 점수를 낮추지 않는다.
 ```
+
+**blocker ≠ 반대 극성.** 반대 극성은 룰 불일치 조건일 뿐이다. 차단은 3종으로 분리한다:
+- **hard blocker**(→BLOCKED): 위험 신호와 동시에 존재할 수 있는 차단 조건 — 대상
+  글자·궁위의 원국 부재, 노출 `DENIED`/`NOT_APPLICABLE`(엔진이 자동 처리), 요구 대상
+  불일치.
+- **mitigator**(→MITIGATED): 용희신 제어, 통관, 충 완화 합, 제도적 보호, 완충력.
+  YONG_STRONG은 blocker가 아니라 mitigator다(개정 7항목 반영).
+- **claim ceiling**(후보 유지·표현 제한): 노출 미입력, 비특이적 건강 근거, 성별 정보
+  부재 등 — R3 직렬화기에서 강제.
+
+### 4-0-1. 특이도 우선 억제 (동일 원인의 다중 후보 — cap이 아니라 대표 결정)
+
+동일 원인에서 여러 후보가 생성되면 사후 cap이 아니라 **대표 후보**를 정한다:
+`구체 대상 사건(3) > 도메인 일반 사건(2) > 취약성(1) > 전반 압박(0)` (`specificityRank`,
+미지정 시 kind로 유도). 억제 조건: 동일 period + 동일 `risk_family` + trigger 원인
+원자(cause atom) 공유 + 더 구체적 활성 후보 존재. **흡수는 삭제가 아니라 역할
+전환이다** — 흡수 후보는 `absorbed_role`을 부여받아 대표 아래에서 유지된다:
+`supporting_manifestation`(동일 도메인 하위 사건) / `impact_amplifier`(압박 — 예상
+영향, R1 impact 계산) / `background_vulnerability`(취약성 — 피해 확대 요인, R1
+exposure 계산) / `secondary_domain_effect`(교차 도메인 파생). family가 다르면(재성
+피격→지출 vs 배우자궁 피격→관계 재조정) 같은 충에서 나와도 별개 위험으로 병존한다.
+`relatedDomains`는 후보 복제용이 아니라 주 도메인 후보에 파급 도메인을 부착하는
+용도다 — 독립 추가 근거가 있을 때만 교차 도메인 후보를 별도 생성한다.
 
 ### 4-1. protection ≠ recovery (필수 분리)
 
@@ -334,14 +408,41 @@ answer_contract:
 | R4 | 골든 세트·shadow 비교·임계값 도메인별 조정 | 대기 |
 | R5 | 개인화(현실 노출 확장·개인 민감도) | 대기 |
 
-### 10-1. R0.5 절차 (2026-07-15 확정 순서)
+### 10-1. R0.5 절차 (2026-07-15 확정 순서 · 2차 감수 반영)
 
-1. 공통 신호 역할 매트릭스 확정(§3-1) — 완료
-2. `minimumEvidence.requiredGroups` 스키마·엔진 지원 — 완료
-3. RawPeriodFacts 대상 provenance 보강(피자극 십성 `relationTarget*`) — 완료.
-   잔여 갭(R1 백로그): 원국 취약 구조, 용신 canonical 역할 상세, 투간·통근 작동성,
-   구조 패턴, 동일 원인의 다계층 반복 추적.
-4. 44항목 도메인별 감수표 작성(대표 7항목 기준 샘플 우선 — `RISK_DICTIONARY_REVIEW.md`)
-5. 점수 없는 shadow 후보 밀도 리포트(`scripts/risk_shadow_density.py`) — 기준선 실측 완료
-6. 오발동 항목 수정 후 reviewed:true 전환(사용자 감수)
+1. 공통 신호 역할 매트릭스 확정(§3-1) — 완료(targeted_event_shape 포함)
+2. 증거 계약(`requiredGroups`/`evidenceContract`) 스키마·엔진 지원 — 완료
+3. RawPeriodFacts 대상 provenance(피자극 십성·글자·궁위·자리) — 완료.
+   잔여 갭(R1 백로그): 원국 취약 구조, 투간·통근 작동성, 구조 패턴, 성별 의존
+   배우자성, 동일 원인의 다계층 반복 추적.
+4. 대표 7항목 기준 샘플 개정 — 완료(`RISK_DICTIONARY_REVIEW.md` §1, 확정 대기)
+5. 단계별 밀도 리포트(observed/eligible/active) + 10차트 코퍼스 — 완료(기준선·개정
+   후 실측, §10-2)
+6. 잔여 37항목 일괄 적용 → 재실측 → reviewed:true 전환(사용자 감수)
 7. 이후 R1 착수
+
+### 10-2. 밀도 지표·목표 (2026-07-15 감수 2차)
+
+단계 분리: `observed`(룰 1개 이상 매칭) → `eligible`(증거 계약 충족) → `active`
+(blocker·특이도 억제 통과, `is_active`) → `exposable`(claimCeiling·등급 통과 — R3).
+목표는 raw가 아니라 **active·unique risk family 기준**이다:
+
+```text
+active incident / period ≤ 1.5          (p90 ≤ 3 권장)
+active unique risk family / period ≤ 3
+단일 원인의 활성 family 확산 ≤ 2 (명시적 교차 도메인 연쇄만 3)
+incident 항목의 코퍼스 발동률 >40% = 0건 (개별 차트가 아니라 코퍼스 전체 기준,
+  일반 코퍼스 목표 20~25% 이하 — 차트 고유의 반복 구조라면 높은 발동률 자체는 오류 아님)
+동일 incident 최장 연속 발동 > 기간의 50% = 수동 검토(범용 룰 의심)
+vulnerability/pressure >40% = 자동 실패 아님·수동 검토(내부 보조 신호는 별도 관리)
+```
+
+발동률 분모 정의: 해당 위험이 1회 이상 활성인 **적용 차트** 기준(리포트에 적용/전체
+병기). 재실측 시 평균 외에 p50/p90/최댓값, unique cause atom/period, 특이도 흡수
+전후, BLOCKED/MITIGATED/INSUFFICIENT 비율, 상시 발동 항목을 함께 보고한다.
+
+pressure는 자주 발생할 수 있다 — 개별 빈도보다 연속 기간·도메인 편향을 보고, 노출은
+watch 이상 또는 위험 질문에 한정한다(§6-2). "사건보다 압박이 많다"가 목표가 아니라
+**구체 사건은 구체 근거가 있을 때만 희소하게 생성된다**가 목표다. 임계값 확정은 기준
+차트 1건이 아니라 코퍼스(10~20차트: 신강·신약, 오행 과다·부재, 관계 다·소, 보호
+강·약, 골든 사례)의 p50/p90/최댓값·kind별·차트별 상시 발동 분포로 한다.

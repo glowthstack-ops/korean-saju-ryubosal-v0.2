@@ -6,30 +6,100 @@
       "riskId": "FIN_CASHFLOW_PRESSURE",
       "domain": "finance",
       "kind": "pressure",
+      "riskFamily": "cashflow",
       "baseImpact": 0.5,
       "triggerRules": [
-        { "id": "FIN_CFP_T1", "tenGodGroup": "wealth", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.6 },
-        { "id": "FIN_CFP_T2", "tenGod": "JIECAI", "polarityRoleIn": ["GI", "GI_STRONG", "HAN_BAD"], "strength": 0.6 },
-        { "id": "FIN_CFP_T3", "relation": "CHUNG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 }
+        {
+          "id": "FIN_CFP_T1",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.6
+        },
+        {
+          "id": "FIN_CFP_T2",
+          "tenGod": "JIECAI",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG",
+            "HAN_BAD"
+          ],
+          "strength": 0.6
+        },
+        {
+          "id": "FIN_CFP_T3",
+          "relation": "CHUNG",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        }
       ],
       "amplifierRules": [
-        { "id": "FIN_CFP_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 },
-        { "id": "FIN_CFP_A2", "relation": "HYEONG", "strength": 0.35 }
+        {
+          "id": "FIN_CFP_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_CFP_A2",
+          "relation": "HYEONG",
+          "strength": 0.35
+        }
       ],
       "mitigatorRules": [
-        { "id": "FIN_CFP_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
-        { "id": "FIN_CFP_M2", "relation": "HAP", "strength": 0.3 }
+        {
+          "id": "FIN_CFP_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_CFP_M2",
+          "relation": "HAP",
+          "strength": 0.3
+        }
       ],
       "blockerRules": [
-        { "id": "FIN_CFP_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "FIN_CFP_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
       "manifestations": [
-        { "id": "spend_increase", "ko": "지출이 수입보다 빠르게 늘어남" },
-        { "id": "settlement_delay", "ko": "정산·지급 일정의 지연" },
-        { "id": "cost_burden", "ko": "고정비·책임 비용의 부담 확대" }
+        {
+          "id": "spend_increase",
+          "ko": "지출이 수입보다 빠르게 늘어남"
+        },
+        {
+          "id": "settlement_delay",
+          "ko": "정산·지급 일정의 지연"
+        },
+        {
+          "id": "cost_burden",
+          "ko": "고정비·책임 비용의 부담 확대"
+        }
       ],
-      "prohibitedClaims": ["파산·부도 단정", "구체 금액 손실 단정"],
+      "prohibitedClaims": [
+        "파산·부도 단정",
+        "구체 금액 손실 단정"
+      ],
       "note": "재성 기신·겁재 탈재·불리 시기 충 — 현금흐름 전반 압박(사건 특정 없음)",
       "reviewed": false
     },
@@ -37,31 +107,139 @@
       "riskId": "FIN_UNEXPECTED_EXPENSE",
       "domain": "finance",
       "kind": "incident_risk",
+      "riskFamily": "cashflow",
+      "relatedDomains": [
+        "contract_legal"
+      ],
+      "specificityRank": 3,
       "baseImpact": 0.6,
       "triggerRules": [
-        { "id": "FIN_UEX_T1", "tenGod": "JIECAI", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.6 },
-        { "id": "FIN_UEX_T2", "relation": "CHUNG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "FIN_UEX_T3", "tenGod": "PIANCAI", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 }
+        {
+          "id": "FIN_UEX_T1",
+          "group": "event_shape",
+          "tenGod": "JIECAI",
+          "tenGodGroup": "wealth",
+          "strength": 0.6
+        },
+        {
+          "id": "FIN_UEX_T2",
+          "group": "targeted_event_shape",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "wealth",
+          "tenGod": "JIECAI",
+          "strength": 0.6
+        },
+        {
+          "id": "FIN_UEX_T3",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "wealth",
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_UEX_T4",
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "wealth",
+          "strength": 0.45
+        },
+        {
+          "id": "FIN_UEX_T5",
+          "group": "target_activation",
+          "relation": "PA",
+          "relationTargetTenGodGroup": "wealth",
+          "strength": 0.45
+        }
       ],
       "amplifierRules": [
-        { "id": "FIN_UEX_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+        {
+          "id": "FIN_UEX_A1",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_UEX_A2",
+          "voidActive": true,
+          "strength": 0.35
+        }
       ],
       "mitigatorRules": [
-        { "id": "FIN_UEX_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
-        { "id": "FIN_UEX_M2", "relation": "HAP", "strength": 0.3 }
+        {
+          "id": "FIN_UEX_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_UEX_M2",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        },
+        {
+          "id": "FIN_UEX_M3",
+          "relation": "HAP",
+          "strength": 0.3
+        },
+        {
+          "id": "FIN_UEX_M4",
+          "tenGod": "ZHENGYIN",
+          "strength": 0.3
+        }
       ],
-      "blockerRules": [
-        { "id": "FIN_UEX_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
-      ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          },
+          {
+            "allOfGroups": [
+              "targeted_event_shape"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
       "manifestations": [
-        { "id": "unexpected_spend", "ko": "예상하지 못한 지출 발생" },
-        { "id": "deposit_issue", "ko": "계약금·환불·정산 관련 문제" },
-        { "id": "family_expense", "ko": "가족·경조사 관련 비용 증가" }
+        {
+          "id": "unexpected_spend",
+          "ko": "예상하지 못한 지출 발생"
+        },
+        {
+          "id": "deposit_issue",
+          "ko": "계약금·환불·정산 관련 문제"
+        },
+        {
+          "id": "family_expense",
+          "ko": "가족·경조사 관련 비용 증가"
+        }
       ],
-      "prohibitedClaims": ["손실 금액·시점 확정 단정"],
-      "note": "겁재 탈재 + 충 발동 — 지출성 사건 위험(독립 출처 2개 이상 요구)",
-      "reviewed": false
+      "prohibitedClaims": [
+        "손실 금액·시점 확정 단정"
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "대비 행동",
+        "확인할 사항"
+      ],
+      "claimCeiling": "warning",
+      "note": "감수 3차 개정 — targeted=겁재-재성 경쟁 구조가 재성을 직접 대상으로(관계+대상+구조 동반). 순수 재성 피격은 target_activation(단독 생성 불가 — 겁재-재성 동반 필요). 기신·공망 amplifier",
+      "reviewed": true
     },
     {
       "riskId": "FIN_INVESTMENT_LOSS",
@@ -69,27 +247,92 @@
       "kind": "incident_risk",
       "baseImpact": 0.7,
       "triggerRules": [
-        { "id": "FIN_INV_T1", "tenGod": "PIANCAI", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.6 },
-        { "id": "FIN_INV_T2", "tenGod": "JIECAI", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "FIN_INV_T3", "relation": "PA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "FIN_INV_T1",
+          "tenGod": "PIANCAI",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.6
+        },
+        {
+          "id": "FIN_INV_T2",
+          "tenGod": "JIECAI",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_INV_T3",
+          "relation": "PA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "amplifierRules": [
-        { "id": "FIN_INV_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 },
-        { "id": "FIN_INV_A2", "relation": "CHUNG", "strength": 0.35 }
+        {
+          "id": "FIN_INV_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_INV_A2",
+          "relation": "CHUNG",
+          "strength": 0.35
+        }
       ],
       "mitigatorRules": [
-        { "id": "FIN_INV_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+        {
+          "id": "FIN_INV_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        }
       ],
       "blockerRules": [
-        { "id": "FIN_INV_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "FIN_INV_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
       "manifestations": [
-        { "id": "price_swing", "ko": "보유 자산의 가격 변동 확대" },
-        { "id": "speculative_loss", "ko": "고위험·투기성 거래의 손실" },
-        { "id": "timing_error", "ko": "매수·매도 타이밍 판단 흐려짐" }
+        {
+          "id": "price_swing",
+          "ko": "보유 자산의 가격 변동 확대"
+        },
+        {
+          "id": "speculative_loss",
+          "ko": "고위험·투기성 거래의 손실"
+        },
+        {
+          "id": "timing_error",
+          "ko": "매수·매도 타이밍 판단 흐려짐"
+        }
       ],
-      "prohibitedClaims": ["특정 종목·상품 추천", "수익·손실 확정 단정", "전량 매도·전액 투입 권유"],
+      "prohibitedClaims": [
+        "특정 종목·상품 추천",
+        "수익·손실 확정 단정",
+        "전량 매도·전액 투입 권유"
+      ],
       "note": "편재 기신(투기 변동) + 겁재 탈재 — 절대 원칙 8 하드 가드 문구 준수",
       "reviewed": false
     },
@@ -99,27 +342,90 @@
       "kind": "incident_risk",
       "baseImpact": 0.7,
       "triggerRules": [
-        { "id": "FIN_DEBT_T1", "tenGodGroup": "authority", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "FIN_DEBT_T2", "tenGod": "JIECAI", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "FIN_DEBT_T3", "relation": "HYEONG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 }
+        {
+          "id": "FIN_DEBT_T1",
+          "tenGodGroup": "authority",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_DEBT_T2",
+          "tenGod": "JIECAI",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_DEBT_T3",
+          "relation": "HYEONG",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.45
+        }
       ],
       "amplifierRules": [
-        { "id": "FIN_DEBT_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+        {
+          "id": "FIN_DEBT_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        }
       ],
       "mitigatorRules": [
-        { "id": "FIN_DEBT_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
-        { "id": "FIN_DEBT_M2", "relation": "HAP", "strength": 0.3 }
+        {
+          "id": "FIN_DEBT_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_DEBT_M2",
+          "relation": "HAP",
+          "strength": 0.3
+        }
       ],
       "blockerRules": [
-        { "id": "FIN_DEBT_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "FIN_DEBT_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
       "manifestations": [
-        { "id": "guarantee_request", "ko": "보증·명의 대여 요청이 들어옴" },
-        { "id": "debt_pressure", "ko": "대출 상환·이자 부담의 증가" },
-        { "id": "liability_expand", "ko": "책임 범위가 예상보다 커짐" }
+        {
+          "id": "guarantee_request",
+          "ko": "보증·명의 대여 요청이 들어옴"
+        },
+        {
+          "id": "debt_pressure",
+          "ko": "대출 상환·이자 부담의 증가"
+        },
+        {
+          "id": "liability_expand",
+          "ko": "책임 범위가 예상보다 커짐"
+        }
       ],
-      "prohibitedClaims": ["채무 불이행 단정"],
+      "prohibitedClaims": [
+        "채무 불이행 단정"
+      ],
       "note": "관살(책임 압박) 기신 + 겁재 — 보증·부채 부담 사건 위험",
       "reviewed": false
     },
@@ -129,26 +435,81 @@
       "kind": "incident_risk",
       "baseImpact": 0.55,
       "triggerRules": [
-        { "id": "FIN_IDL_T1", "voidActive": true, "tenGodGroup": "wealth", "strength": 0.5 },
-        { "id": "FIN_IDL_T2", "relation": "HAE", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 },
-        { "id": "FIN_IDL_T3", "tenGodGroup": "wealth", "polarityRoleIn": ["HAN_BAD"], "strength": 0.4 }
+        {
+          "id": "FIN_IDL_T1",
+          "voidActive": true,
+          "tenGodGroup": "wealth",
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_IDL_T2",
+          "relation": "HAE",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        },
+        {
+          "id": "FIN_IDL_T3",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "HAN_BAD"
+          ],
+          "strength": 0.4
+        }
       ],
       "amplifierRules": [
-        { "id": "FIN_IDL_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "FIN_IDL_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "mitigatorRules": [
-        { "id": "FIN_IDL_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+        {
+          "id": "FIN_IDL_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        }
       ],
       "blockerRules": [
-        { "id": "FIN_IDL_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "FIN_IDL_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
       "manifestations": [
-        { "id": "payment_delay", "ko": "수입·지급의 지연" },
-        { "id": "income_drop", "ko": "수입의 일시적 감소" },
-        { "id": "invoice_issue", "ko": "청구·정산 처리의 차질" }
+        {
+          "id": "payment_delay",
+          "ko": "수입·지급의 지연"
+        },
+        {
+          "id": "income_drop",
+          "ko": "수입의 일시적 감소"
+        },
+        {
+          "id": "invoice_issue",
+          "ko": "청구·정산 처리의 차질"
+        }
       ],
-      "prohibitedClaims": ["소득 상실 단정"],
+      "prohibitedClaims": [
+        "소득 상실 단정"
+      ],
       "note": "재성 공망(결실 공허) + 해(害) — 수입 지연 사건 위험",
       "reviewed": false
     },
@@ -158,28 +519,96 @@
       "kind": "incident_risk",
       "baseImpact": 0.6,
       "triggerRules": [
-        { "id": "FIN_SET_T1", "relation": "HYEONG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.55 },
-        { "id": "FIN_SET_T2", "tenGodGroup": "wealth", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
-        { "id": "FIN_SET_T3", "relation": "PA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+        {
+          "id": "FIN_SET_T1",
+          "relation": "HYEONG",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.55
+        },
+        {
+          "id": "FIN_SET_T2",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_SET_T3",
+          "relation": "PA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.4
+        }
       ],
       "amplifierRules": [
-        { "id": "FIN_SET_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 },
-        { "id": "FIN_SET_A2", "relation": "CHUNG", "strength": 0.35 }
+        {
+          "id": "FIN_SET_A1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_SET_A2",
+          "relation": "CHUNG",
+          "strength": 0.35
+        }
       ],
       "mitigatorRules": [
-        { "id": "FIN_SET_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
-        { "id": "FIN_SET_M2", "relation": "HAP", "strength": 0.3 }
+        {
+          "id": "FIN_SET_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_SET_M2",
+          "relation": "HAP",
+          "strength": 0.3
+        }
       ],
       "blockerRules": [
-        { "id": "FIN_SET_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+        {
+          "id": "FIN_SET_B1",
+          "polarityRoleIn": [
+            "YONG_STRONG"
+          ],
+          "strength": 0.6
+        }
       ],
-      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "minimumEvidence": {
+        "triggerCount": 2,
+        "independentSourceCount": 2
+      },
       "manifestations": [
-        { "id": "settlement_conflict", "ko": "정산·환불을 둘러싼 다툼" },
-        { "id": "property_dispute", "ko": "재산·소유권 관련 이견" },
-        { "id": "money_relationship", "ko": "지인·동업 관계의 금전 갈등" }
+        {
+          "id": "settlement_conflict",
+          "ko": "정산·환불을 둘러싼 다툼"
+        },
+        {
+          "id": "property_dispute",
+          "ko": "재산·소유권 관련 이견"
+        },
+        {
+          "id": "money_relationship",
+          "ko": "지인·동업 관계의 금전 갈등"
+        }
       ],
-      "prohibitedClaims": ["소송 결과 단정", "상대방 귀책 단정"],
+      "prohibitedClaims": [
+        "소송 결과 단정",
+        "상대방 귀책 단정"
+      ],
       "note": "형(시비·조정) + 재성 기신 — 재산 분쟁·정산 문제 사건 위험",
       "reviewed": false
     },
@@ -187,22 +616,56 @@
       "riskId": "FIN_BUFFER_WEAK",
       "domain": "finance",
       "kind": "vulnerability",
+      "riskFamily": "cashflow",
       "baseImpact": 0.4,
       "triggerRules": [
-        { "id": "FIN_BUF_T1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 },
-        { "id": "FIN_BUF_T2", "voidActive": true, "tenGodGroup": "wealth", "strength": 0.4 }
+        {
+          "id": "FIN_BUF_T1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "FIN_BUF_T2",
+          "voidActive": true,
+          "tenGodGroup": "wealth",
+          "strength": 0.4
+        }
       ],
       "amplifierRules": [
-        { "id": "FIN_BUF_A1", "relation": "CHUNG", "strength": 0.3 }
+        {
+          "id": "FIN_BUF_A1",
+          "relation": "CHUNG",
+          "strength": 0.3
+        }
       ],
       "mitigatorRules": [
-        { "id": "FIN_BUF_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+        {
+          "id": "FIN_BUF_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        }
       ],
       "blockerRules": [],
-      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
       "manifestations": [
-        { "id": "buffer_thin", "ko": "재정 완충력(비상 여유)의 약화" },
-        { "id": "judgment_haste", "ko": "금전 판단이 조급해지기 쉬움" }
+        {
+          "id": "buffer_thin",
+          "ko": "재정 완충력(비상 여유)의 약화"
+        },
+        {
+          "id": "judgment_haste",
+          "ko": "금전 판단이 조급해지기 쉬움"
+        }
       ],
       "prohibitedClaims": [],
       "note": "취약성 — 사용자에게 별도 사건처럼 노출하지 않음. incident_risk 심각도 상향 중간 신호",

@@ -7401,3 +7401,73 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
   거부·감수 승격 lint). 검증: pytest 1793 passed·ruff clean·mypy packages clean.
 - **다음**: 표 A + 대표 7항목 확정(데굴님) → 44항목 전체 적용 → 밀도 재실측 → reviewed
   전환 → R1.
+
+### 위험 엔진 R0.5 2차 — 감수 보완 6종 + 대표 7항목 실룰 + 코퍼스 밀도 (2026-07-15, 데굴님 감수 2차)
+
+커밋 A(c4628e1, R0.5 인프라) 후 조건부 승인 보완 반영. 원칙: blocker≠반대 극성,
+후보 생성 조건≠높은 경고 등급 조건, cap이 아니라 대표 후보 결정.
+
+- **상태 4종**: EligibilityStatus = insufficient_evidence(룰 일부 매칭·계약 미충족 —
+  observed와 활성 분리)/eligible/mitigated/blocked. 활성 판정 is_active() 단일 함수.
+  matched는 룰 평가 결과로만.
+- **증거 계약**: evidenceContract(anyOf allOfGroups + minIndependentCauses) — 신그룹
+  targeted_event_shape(형태+대상이 한 사실, 관계+대상 스키마 강제, 형식적 중복 룰
+  제거). 한 사실이 두 의미 충족해도 독립 원인 1개(등급은 R1에서 watch 상한).
+- **kind별 승격 lint**: incident=(shape+activation)|targeted+generic 금지 /
+  pressure=비generic 1+ / vulnerability=대상 활성·구조 약화 / 건강·법률 incident=
+  claimCeiling+allowedClaimScope 필수(건강 conditional_warning 이하) / manifestation↔
+  prohibitedClaims substring 충돌 검사.
+- **blocker 3분리**: hard blocker(BLOCKED — 노출 DENIED/NOT_APPLICABLE 엔진 자동 처리,
+  대상 부재)/mitigator(YONG_STRONG 강등)/claim ceiling(표현 제한, R3 강제).
+- **특이도 억제**: specificityRank(구체3>일반2>취약1>압박0) + 동일 기간·family·원인
+  원자(cause_atoms — 서명 & 분해) 공유 시 하위 후보를 suppressed_by_specificity로
+  대표에 흡수(활성 제외·기록 보존). relatedDomains는 복제가 아니라 부착.
+- **provenance**: RelationFact에 피자극 글자(target_letter) 추가 + relationTargetLetter
+  룰 축. 매칭 우선순위(궁위·자리>글자>십성>십성군>일반) 규격화(RISK_ENGINE.md §3-2).
+- **대표 7항목 실룰 반영**(reviewed:false 유지): FIN_UNEXPECTED_EXPENSE·CAR_ORG_CONFLICT·
+  LEG_PENALTY_LIABILITY·HLT_CHRONIC_FLAREUP(가장 엄격: shape+activation AND 독립 2)·
+  REL_PARTNER_READJUST(배우자궁만 — 배우자성은 R1 성별 축까지 미저작)·MOV_CONTRACT_FAIL
+  (family housing_contract, related FIN/LEG)·SEL_UNWANTED_PLACEMENT. 기신·공망 trigger
+  전량 amplifier 강등. riskFamily 저작(cashflow·health_condition·partner_relation 등).
+- **밀도 리포트 2차**: 단계 분리(observed→eligible→active) + 10차트 코퍼스(시드 지역
+  제약으로 서울/부산) + p50/p90·kind별·원인 확산. 실측: 활성 6.63/기간·incident
+  3.12/기간·확산 max 12 — **경고 전부 미개정 37항목 기인**(개정 7항목은 FIN_UEX 27.3%
+  등 목표 근접, 특이도 흡수·INSUFFICIENT 분리 작동 확인). 목표는 raw가 아니라
+  active·family 기준으로 규격화(incident/기간 ≤1.5, family/기간 ≤3, 확산 ≤2).
+- 테스트 44건(적대적 fixture 7종 추가: generic 기신만→incident 0, 동일 원인 중복
+  INSUFFICIENT, blocker 동시 성립, 구체가 일반 흡수(FIN·REL), 노출 DENIED 차단,
+  targeted 단독 계약, claim 정책 lint). 검증: pytest 1800 passed·ruff·mypy clean.
+- **대기**: 표 A(+targeted_event_shape)·대표 7항목 실룰 데굴님 확정 → 커밋 B → 잔여
+  37항목 일괄 적용(§2 규칙) → 재실측 → reviewed:true → R1.
+
+### 위험 엔진 R0.5 3차 — 불변식 4종 고정 + 표 A·대표 7항목 확정 (2026-07-15, 데굴님 커밋 B 승인)
+
+- **is_active = 구조적 활성 한정**: 사용자 노출 가능 의미 아님(문서·docstring 고정).
+  R1 is_score_qualified / R3 is_exposable 별도 판정 예정. RISK_ENGINE_MODE는 유지(off).
+- **targeted_event_shape 성립 조건 강화**(스키마 강제): 관계+십성(군) 대상만으로는
+  불가 — ①궁위가 사건 형태 정의(배우자궁 충) 또는 ②사건 구조 십성 동반(겁재-재성
+  경쟁이 재성을 직접 대상 등). '대상 특정 일반 관계'는 target_activation으로 저작.
+  7항목 재구조화: FIN(targeted=+JIECAI 동반, 순수 재성 피격은 target_activation로
+  강등 — 단독 생성 불가)·CAR(+SHANGGUAN)·LEG(+QISHA)·MOV/SEL(targeted 단독 경로
+  제거, shape+activation AND 독립 2)·REL(궁위 정의 유지)·HLT(불변).
+- **fallback 금지**: 구체 provenance(궁위) 불일치 시 하위 일반화 축(십성군)이 룰을
+  구제하지 못함(AND 결합) — 테스트 고정. 궁위 무관 매칭은 일반 룰로만.
+- **원인별 완화(전역 완화 금지)**: 극성 단독(YONG_STRONG 등) mitigator는 근거만
+  보존·상태 전환 없음. 실질 조건(합·통관 십성) 동반 mitigator만 MITIGATED.
+  operability·mitigation_target 연동은 R1.
+- **흡수 역할 보존**: absorbed_role(supporting_manifestation/impact_amplifier/
+  background_vulnerability/secondary_domain_effect) — 흡수는 삭제가 아니라 역할 전환,
+  R1 impact/exposure 계산에 사용. family 다르면 같은 충이라도 병존.
+- **cause_atom 정규화 테스트**: 관계·대상·기간별 분리, 반복 호출 결정성, 다중 십성
+  정렬(순서 무관), & 원자 분해.
+- **대표 7항목 reviewed:true 전환**(shadow 구조 감수 완료 의미 — 노출 승인 아님).
+  kind별 승격 lint 통과 확인.
+- **밀도 리포트 3차**: 발동률 분모 명시(적용 차트/전체 병기) + 최장 연속 발동(월)
+  지표(>50% 범용 룰 의심 경고). 재실측: FIN_UNEXPECTED_EXPENSE top10 이탈(3차
+  강화 효과), incident 687→632. 잔여 경고 전부 미개정 37항목. 목표 확정치
+  (RISK_ENGINE.md §10-2): 코퍼스 기준 >40% = 0, p90 active incident ≤3, 확산 3은
+  교차 도메인 연쇄만.
+- 테스트 47건(+5: fallback 금지·극성 mitigator 무전환·흡수 역할·cause_atom 정규화·
+  target-only targeted 거부). 검증: pytest 1805 passed·ruff·mypy clean.
+- **다음(승인됨)**: 잔여 37항목 §2 일괄 규칙 적용(변환 직후 reviewed:false, 엔진 변경
+  필요 시 커밋 분리) → 재실측(§10-2 기준) → 도메인별 표본 감수 → reviewed:true.

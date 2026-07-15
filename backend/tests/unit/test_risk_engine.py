@@ -15,6 +15,7 @@ import pytest
 from saju_engines.dictionaries import (
     RiskItem,
     RiskMappingFile,
+    RiskRuleSpec,
     _lint_risk_mapping,
     lint_dictionaries,
     schema_for,
@@ -35,6 +36,7 @@ from saju_shared_types.risk_engine import (
     ExposureStatus,
     RiskDomain,
     RiskKind,
+    is_active,
 )
 
 _BACKEND = Path(__file__).resolve().parents[2]
@@ -129,35 +131,44 @@ def test_no_adverse_signals_no_candidates(engine: RiskEngine) -> None:
     assert engine.generate(facts) == []
 
 
+def _active(cands):
+    """활성 후보만(is_active) — 관측(insufficient)·차단·특이도 흡수 제외."""
+    return [c for c in cands if is_active(c)]
+
+
 def test_pressure_only_without_incident(engine: RiskEngine) -> None:
-    """압박 신호만 있으면 pressure 후보만 생성되고 사건 위험(incident)은 차단된다."""
+    """압박 신호만 있으면 활성 후보는 pressure뿐 — 사건 위험은 증거 계약에서 걸러진다."""
     facts = _facts(gods={TenGod.QISHA: {LuckLayer.SEWOON}}, role=PolarityRole.GI)
-    cands = engine.generate(facts)
-    assert cands, "관살 기신 압박은 pressure 후보를 만든다"
-    assert all(c.kind is RiskKind.PRESSURE for c in cands)
-    assert any(c.risk_id == "CAR_WORK_OVERLOAD" for c in cands)
+    active = _active(engine.generate(facts))
+    assert active, "관살 기신 압박은 pressure 후보를 만든다"
+    assert all(c.kind is RiskKind.PRESSURE for c in active)
+    assert any(c.risk_id == "CAR_WORK_OVERLOAD" for c in active)
 
 
 def test_single_trigger_blocks_incident(engine: RiskEngine) -> None:
-    """사건 위험은 trigger 1개(독립 출처 1개)만으로는 생성이 차단된다."""
+    """겁재 기신 단독으로는 사건 위험이 생성되지 않는다(형태·대상 근거 부재)."""
     facts = _facts(gods={TenGod.JIECAI: {LuckLayer.SEWOON}}, role=PolarityRole.GI)
-    ids = {c.risk_id for c in engine.generate(facts)}
-    assert "FIN_UNEXPECTED_EXPENSE" not in ids  # incident — 출처 1개라 차단
-    assert "FIN_CASHFLOW_PRESSURE" in ids  # pressure — 1개 허용
+    cands = engine.generate(facts)
+    active_ids = {c.risk_id for c in _active(cands)}
+    assert "FIN_UNEXPECTED_EXPENSE" not in {c.risk_id for c in cands}  # 관측조차 없음
+    assert "FIN_CASHFLOW_PRESSURE" in active_ids  # pressure — 1개 허용
 
 
 def test_two_independent_sources_create_incident(engine: RiskEngine) -> None:
-    """서로 독립된 신호 2개(겁재 기신 + 충 발동)면 사건 위험 후보가 생성된다."""
+    """사건 형태(겁재-재성 동반) + 대상 활성(재성 피격)이면 사건 위험이 생성된다."""
     facts = _facts(
-        gods={TenGod.JIECAI: {LuckLayer.SEWOON}},
-        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY)],
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}, TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(
+            RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI,
+        )],
         role=PolarityRole.GI,
     )
-    cands = {c.risk_id: c for c in engine.generate(facts)}
+    cands = {c.risk_id: c for c in _active(engine.generate(facts))}
     assert "FIN_UNEXPECTED_EXPENSE" in cands
     c = cands["FIN_UNEXPECTED_EXPENSE"]
     triggers = [e for e in c.evidence if e.role is EvidenceRole.TRIGGER]
     assert len({e.source for e in triggers}) >= 2
+    assert {e.source_group for e in triggers} >= {"event_shape", "targeted_event_shape"}
     assert c.domain is RiskDomain.FINANCE
     assert c.score_components is None and c.confidence == 0.0  # R0 미산출 계약
     assert c.exposure_status is ExposureStatus.UNKNOWN  # 기본 — 숫자 대체 금지
@@ -167,14 +178,14 @@ def test_two_independent_sources_create_incident(engine: RiskEngine) -> None:
 def test_mitigator_attached_without_deleting_candidate(engine: RiskEngine) -> None:
     """보호 신호(합)는 후보를 삭제하지 않고 mitigator 근거로 동반 보존된다."""
     facts = _facts(
-        gods={TenGod.JIECAI: {LuckLayer.SEWOON}},
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}, TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
         relations=[
-            RelationFact(RelationKind.CHUNG, Pillar4.DAY),
+            RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI),
             RelationFact(RelationKind.HAP, Pillar4.MONTH),
         ],
         role=PolarityRole.GI,
     )
-    cands = {c.risk_id: c for c in engine.generate(facts)}
+    cands = {c.risk_id: c for c in _active(engine.generate(facts))}
     assert "FIN_UNEXPECTED_EXPENSE" in cands  # 보호 신호가 있어도 위험은 남는다
     c = cands["FIN_UNEXPECTED_EXPENSE"]
     assert EvidenceRole.MITIGATOR in {e.role for e in c.evidence}
@@ -198,7 +209,10 @@ def test_same_cause_counts_once(engine: RiskEngine) -> None:
     solo._items = [item]
     # 겁재 1글자 — 십성 룰과 그룹 룰이 같은 원인(ten_god:JIECAI)을 잡는다 → 출처 1개.
     facts = _facts(gods={TenGod.JIECAI: {LuckLayer.SEWOON}})
-    assert solo.generate(facts) == []
+    cands = solo.generate(facts)
+    assert len(cands) == 1  # 관측은 남되(INSUFFICIENT) 활성 아님
+    assert cands[0].eligibility_status is EligibilityStatus.INSUFFICIENT_EVIDENCE
+    assert not is_active(cands[0])
 
 
 def test_blocker_evidence_preserved(engine: RiskEngine) -> None:
@@ -250,22 +264,25 @@ def test_required_groups_gate() -> None:
     })
     solo = RiskEngine(_DICTS)
     solo._items = [item]
-    # 범용 신호 2개(겁재-재성 동반 없음·대상 충 없음): 극성 GI + 무관 충 → 차단.
+    # 범용 신호(극성 GI)만 매칭: 필수 그룹 미충족 → INSUFFICIENT_EVIDENCE(활성 아님).
     weak = _facts(
         gods={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
         relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
                                 target_ten_god=TenGod.ZHENGGUAN)],
         role=PolarityRole.GI,
     )
-    assert solo.generate(weak) == []
-    # 사건 형태(겁재+재성) + 대상 활성(재성 충) → 생성.
+    weak_cands = solo.generate(weak)
+    assert len(weak_cands) == 1
+    assert weak_cands[0].eligibility_status is EligibilityStatus.INSUFFICIENT_EVIDENCE
+    assert "evidence_groups_unmet" in weak_cands[0].suppression_reasons
+    # 사건 형태(겁재+재성) + 대상 활성(재성 충) → 활성 생성.
     strong = _facts(
         gods={TenGod.JIECAI: {LuckLayer.SEWOON}, TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
         relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
                                 target_ten_god=TenGod.ZHENGCAI)],
         role=PolarityRole.GI,
     )
-    cands = solo.generate(strong)
+    cands = _active(solo.generate(strong))
     assert [c.risk_id for c in cands] == ["FIN_TEST_GRP"]
     groups = {e.source_group for e in cands[0].evidence if e.role is EvidenceRole.TRIGGER}
     assert {"event_shape", "target_activation"} <= groups
@@ -293,7 +310,7 @@ def test_relation_target_filter() -> None:
         RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGGUAN),
     ])
     assert [c.risk_id for c in solo.generate(wealth_hit)] == ["FIN_TEST_TGT"]
-    assert solo.generate(other_hit) == []
+    assert solo.generate(other_hit) == []  # 대상 불일치 — 룰 자체 미매칭(관측 없음)
 
 
 def test_same_clash_generic_and_targeted_rule_share_source() -> None:
@@ -315,8 +332,11 @@ def test_same_clash_generic_and_targeted_rule_share_source() -> None:
     facts = _facts(relations=[
         RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI),
     ])
-    # 두 룰 모두 매칭되지만 동일 원인(같은 충) → 출처 1개 → 생성 차단.
-    assert solo.generate(facts) == []
+    # 두 룰 모두 매칭되지만 동일 원인(같은 충) → 출처 1개 → 활성 불가(INSUFFICIENT).
+    cands = solo.generate(facts)
+    assert len(cands) == 1
+    assert cands[0].eligibility_status is EligibilityStatus.INSUFFICIENT_EVIDENCE
+    assert "independent_causes_unmet" in cands[0].suppression_reasons
 
 
 def test_schema_rejects_polarity_only_event_shape() -> None:
@@ -353,7 +373,7 @@ def test_lint_reviewed_incident_requires_groups() -> None:
         }],
     })
     errors = _lint_risk_mapping("risks/finance.json", file)
-    assert any("event_shape·target_activation 필수" in e for e in errors)
+    assert any("targeted_event_shape 증거 계약 필수" in e for e in errors)
 
 
 def test_exposure_status_passthrough(engine: RiskEngine) -> None:
@@ -363,51 +383,363 @@ def test_exposure_status_passthrough(engine: RiskEngine) -> None:
     assert cands and all(c.exposure_status is ExposureStatus.DENIED for c in cands)
 
 
-# ── 7도메인 synthetic fixture — 사전 배선 누락 감지 ────────────────
+# ── 7도메인 synthetic fixture — 사전 배선 누락 감지 (개정 증거 계약 기준) ──
 
 _DOMAIN_CASES: list[tuple[str, dict]] = [
+    # 사건 형태(겁재-재성 동반) + 재성 피격(targeted).
     ("FIN_UNEXPECTED_EXPENSE", dict(
-        gods={TenGod.JIECAI: {LuckLayer.SEWOON}},
-        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY)],
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}, TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY,
+                                target_ten_god=TenGod.ZHENGCAI)],
         role=PolarityRole.GI,
     )),
+    # 상관견관(event_shape) + 관성 피격(targeted).
     ("CAR_ORG_CONFLICT", dict(
-        gods={TenGod.SHANGGUAN: {LuckLayer.SEWOON}},
-        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH)],
+        gods={TenGod.SHANGGUAN: {LuckLayer.SEWOON}, TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
         role=PolarityRole.GI,
     )),
+    # 형+편관 동반(event_shape) + 관성 피격 형(targeted).
     ("LEG_PENALTY_LIABILITY", dict(
         gods={TenGod.QISHA: {LuckLayer.SEWOON}},
-        relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH)],
+        relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                                target_ten_god=TenGod.QISHA)],
         role=PolarityRole.GI,
     )),
+    # 형+병사 운성(event_shape) AND 일지 충(target_activation) — 독립 원인 2개.
     ("HLT_CHRONIC_FLAREUP", dict(
         relations=[
             RelationFact(RelationKind.CHUNG, Pillar4.DAY),
             RelationFact(RelationKind.HYEONG, Pillar4.MONTH),
         ],
-        role=PolarityRole.GI,
+        role=PolarityRole.GI, stage=TwelveStage.BYEONG,
     )),
-    ("REL_EMOTIONAL_CLASH", dict(
-        gods={TenGod.JIECAI: {LuckLayer.SEWOON}},
+    # 배우자궁(일지) 직접 충 — targeted 단독 경로(독립 1원인 허용, R1 등급 watch 상한).
+    ("REL_PARTNER_READJUST", dict(
         relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY)],
         role=PolarityRole.GI,
     )),
+    # 문서 공망(event_shape) + 주거궁 활성(target_activation).
     ("MOV_CONTRACT_FAIL", dict(
         gods={TenGod.ZHENGYIN: {LuckLayer.SEWOON}},
         relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY)],
         void=True, role=PolarityRole.GI,
     )),
-    ("SEL_WAITLIST_DELAY", dict(
+    # 충+관성 동반(event_shape) + 사회궁 활성 — 관성 피격이면 targeted도 성립.
+    ("SEL_UNWANTED_PLACEMENT", dict(
         gods={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
-        relations=[RelationFact(RelationKind.HAE, Pillar4.YEAR)],
-        void=True, role=PolarityRole.GI,
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+        role=PolarityRole.GI,
     )),
 ]
 
 
 @pytest.mark.parametrize(("risk_id", "kwargs"), _DOMAIN_CASES)
 def test_each_domain_generates(engine: RiskEngine, risk_id: str, kwargs: dict) -> None:
-    """도메인별 대표 사건 위험이 독립 출처 2개 조합에서 생성된다(7도메인 전수)."""
-    ids = {c.risk_id for c in engine.generate(_facts(**kwargs))}
+    """도메인별 대표 사건 위험이 증거 계약 충족 조합에서 활성 생성된다(7도메인 전수)."""
+    ids = {c.risk_id for c in _active(engine.generate(_facts(**kwargs)))}
     assert risk_id in ids
+
+
+# ── 적대적 fixture (2026-07-15 감수 2차 — 커밋 B 요구 케이스) ──────
+
+
+def test_generic_gisin_only_no_incident(engine: RiskEngine) -> None:
+    """generic 기신(GI_STRONG)만 있는 경우 — 활성 incident가 하나도 없어야 한다."""
+    facts = _facts(role=PolarityRole.GI_STRONG)
+    active = _active(engine.generate(facts))
+    assert all(c.kind is not RiskKind.INCIDENT_RISK for c in active)
+
+
+def test_specific_absorbs_generic_same_cause(engine: RiskEngine) -> None:
+    """동일 원인·동일 family에서 구체 위험이 일반 후보를 흡수한다(특이도 우선).
+
+    재성 피격 + 겁재-재성 동반 → FIN_UNEXPECTED_EXPENSE(3)가 대표,
+    FIN_CASHFLOW_PRESSURE(0, 같은 cashflow family·같은 원인)는 흡수돼 활성 제외.
+    """
+    facts = _facts(
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}, TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY,
+                                target_ten_god=TenGod.ZHENGCAI)],
+        role=PolarityRole.GI,
+    )
+    cands = {c.risk_id: c for c in engine.generate(facts)}
+    assert is_active(cands["FIN_UNEXPECTED_EXPENSE"])
+    cfp = cands["FIN_CASHFLOW_PRESSURE"]
+    assert cfp.suppressed_by_specificity == "FIN_UNEXPECTED_EXPENSE"
+    assert cfp.primary_risk_id == "FIN_UNEXPECTED_EXPENSE"
+    assert not is_active(cfp)  # 기록은 보존(부가 설명용), 활성 집계 제외
+
+
+def test_partner_readjust_absorbs_emotional_clash(engine: RiskEngine) -> None:
+    """배우자궁 충 공유 시 관계 재조정(3)이 감정 충돌(기본 2)을 흡수한다."""
+    facts = _facts(
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY,
+                                target_ten_god=TenGod.ZHENGCAI)],
+        role=PolarityRole.GI,
+    )
+    cands = {c.risk_id: c for c in engine.generate(facts)}
+    assert is_active(cands["REL_PARTNER_READJUST"])
+    if "REL_EMOTIONAL_CLASH" in cands and cands["REL_EMOTIONAL_CLASH"].eligibility_status \
+            in (EligibilityStatus.ELIGIBLE, EligibilityStatus.MITIGATED):
+        assert cands["REL_EMOTIONAL_CLASH"].suppressed_by_specificity == (
+            "REL_PARTNER_READJUST"
+        )
+
+
+def test_exposure_denied_hard_blocks(engine: RiskEngine) -> None:
+    """노출 DENIED는 hard blocker — 후보는 보존되되 BLOCKED로 활성 집계에서 빠진다."""
+    facts = _facts(
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}, TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY,
+                                target_ten_god=TenGod.ZHENGCAI)],
+        role=PolarityRole.GI,
+    )
+    cands = {c.risk_id: c for c in engine.generate(
+        facts, exposure_status=ExposureStatus.DENIED,
+    )}
+    c = cands["FIN_UNEXPECTED_EXPENSE"]
+    assert c.eligibility_status is EligibilityStatus.BLOCKED
+    assert "exposure_denied" in c.suppression_reasons
+    assert not is_active(c)
+
+
+def test_evidence_contract_targeted_single_cause() -> None:
+    """targeted_event_shape 단독 절 — 한 사실이 형태+대상을 겸해도 독립 원인은 1개."""
+    item = RiskItem.model_validate({
+        "riskId": "FIN_TEST_TES",
+        "domain": "finance", "kind": "incident_risk", "baseImpact": 0.5,
+        "triggerRules": [
+            # 구조 동반(겁재) + 대상(재성) — targeted_event_shape 성립 조건.
+            {"id": "T1", "group": "targeted_event_shape", "relation": "CHUNG",
+             "relationTargetTenGodGroup": "wealth", "tenGod": "JIECAI", "strength": 0.6},
+        ],
+        "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+        "evidenceContract": {
+            "anyOf": [{"allOfGroups": ["targeted_event_shape"]}],
+            "minIndependentCauses": 1,
+        },
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo = RiskEngine(_DICTS)
+    solo._items = [item]
+    facts = _facts(
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY,
+                                target_ten_god=TenGod.ZHENGCAI)],
+    )
+    cands = _active(solo.generate(facts))
+    assert [c.risk_id for c in cands] == ["FIN_TEST_TES"]
+    triggers = [e for e in cands[0].evidence if e.role is EvidenceRole.TRIGGER]
+    assert len({e.source for e in triggers}) == 1  # 독립 원인 1개(부풀림 없음)
+
+
+def test_schema_rejects_target_only_targeted_event_shape() -> None:
+    """대상만 특정된 일반 관계는 targeted_event_shape가 될 수 없다(감수 3차).
+
+    관계+십성(군) 대상만으로는 부족 — 궁위 지정 또는 사건 구조 십성 동반이 필요하다.
+    """
+    with pytest.raises(ValueError, match="target_activation"):
+        RiskItem.model_validate({
+            "riskId": "FIN_TEST_TRO",
+            "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+            "triggerRules": [
+                {"id": "T1", "group": "targeted_event_shape", "relation": "CHUNG",
+                 "relationTargetTenGodGroup": "wealth", "strength": 0.5},
+            ],
+            "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+            "manifestations": [{"id": "m1", "ko": "테스트"}],
+            "reviewed": False,
+        })
+
+
+def test_no_fallback_when_specific_provenance_mismatch() -> None:
+    """구체 provenance(궁위) 불일치 시 하위 일반화 축(십성군)이 룰을 구제하지 못한다.
+
+    사실: 월지 사회궁의 재성 피격 / 룰: 일지 배우자궁 피격(+재성군) → 궁위 불일치로
+    미매칭. 궁위 무관 매칭을 원하면 룰 자체가 궁위 조건 없는 일반 룰이어야 한다.
+    """
+    strict = RiskItem.model_validate({
+        "riskId": "FIN_TEST_NF1",
+        "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+        "triggerRules": [
+            {"id": "T1", "group": "target_activation", "relation": "CHUNG",
+             "relationPalace": "day_pillar",
+             "relationTargetTenGodGroup": "wealth", "strength": 0.5},
+        ],
+        "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    general = RiskItem.model_validate({
+        "riskId": "FIN_TEST_NF2",
+        "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+        "triggerRules": [
+            {"id": "T1", "group": "target_activation", "relation": "CHUNG",
+             "relationTargetTenGodGroup": "wealth", "strength": 0.5},  # 궁위 무관 명시
+        ],
+        "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo = RiskEngine(_DICTS)
+    solo._items = [strict, general]
+    month_wealth_hit = _facts(relations=[
+        RelationFact(RelationKind.CHUNG, Pillar4.MONTH, target_ten_god=TenGod.ZHENGCAI),
+    ])
+    ids = {c.risk_id for c in solo.generate(month_wealth_hit)}
+    assert "FIN_TEST_NF1" not in ids  # 궁위 불일치 — 십성군 동일로 구제 불가
+    assert "FIN_TEST_NF2" in ids  # 일반 룰만 매칭
+
+
+def test_polarity_only_mitigator_does_not_flip_status() -> None:
+    """극성 단독(용신 강함) mitigator는 전역 완화 금지 — 근거만 보존, 상태는 ELIGIBLE."""
+    item = RiskItem.model_validate({
+        "riskId": "FIN_TEST_PMG",
+        "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+        "triggerRules": [{"id": "T1", "tenGod": "JIECAI", "strength": 0.5}],
+        "mitigatorRules": [
+            {"id": "M_POL", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6},
+        ],
+        "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo = RiskEngine(_DICTS)
+    solo._items = [item]
+    facts = _facts(gods={TenGod.JIECAI: {LuckLayer.SEWOON}}, role=PolarityRole.YONG_STRONG)
+    cands = solo.generate(facts)
+    assert len(cands) == 1
+    assert EvidenceRole.MITIGATOR in {e.role for e in cands[0].evidence}  # 근거 보존
+    assert cands[0].eligibility_status is EligibilityStatus.ELIGIBLE  # 상태 완화 없음
+    # 실질 조건(합 — 원인 완화 표현) 동반이면 완화된다.
+    item2 = item.model_copy(update={"mitigator_rules": [
+        *item.mitigator_rules,
+        RiskRuleSpec.model_validate({"id": "M_HAP", "relation": "HAP", "strength": 0.3}),
+    ]})
+    solo._items = [item2]
+    facts2 = _facts(
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.HAP, Pillar4.MONTH)],
+        role=PolarityRole.YONG_STRONG,
+    )
+    assert solo.generate(facts2)[0].eligibility_status is EligibilityStatus.MITIGATED
+
+
+def test_absorbed_candidate_keeps_role_and_evidence(engine: RiskEngine) -> None:
+    """흡수는 삭제가 아니라 역할 전환 — 근거·역할(absorbed_role)이 보존된다."""
+    facts = _facts(
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}, TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY,
+                                target_ten_god=TenGod.ZHENGCAI)],
+        role=PolarityRole.GI,
+    )
+    cands = {c.risk_id: c for c in engine.generate(facts)}
+    cfp = cands["FIN_CASHFLOW_PRESSURE"]
+    assert cfp.absorbed_role == "impact_amplifier"  # 압박 = 대표 사건의 예상 영향
+    assert cfp.evidence, "흡수 후보의 근거는 R1 impact/exposure 계산용으로 보존"
+
+
+def test_cause_atoms_normalization() -> None:
+    """cause_atom 정규화 — 관계·대상·기간별 분리와 결정성(순서 무관)을 고정한다."""
+    from saju_engines.risk_engine import cause_atoms
+
+    item = RiskItem.model_validate({
+        "riskId": "FIN_TEST_ATM",
+        "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+        "triggerRules": [
+            {"id": "T1", "group": "target_activation", "relation": "CHUNG",
+             "relationTargetTenGodGroup": "wealth", "strength": 0.5},
+        ],
+        "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo = RiskEngine(_DICTS)
+    solo._items = [item]
+
+    def _src(facts):
+        cands = solo.generate(facts)
+        return cands[0].evidence[0].source if cands else None
+
+    base = _facts(relations=[
+        RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI),
+    ])
+    # 같은 관계+같은 대상 → 같은 원인 서명(반복 호출 결정성).
+    assert _src(base) == _src(base)
+    # 같은 관계+다른 대상(편재) → 다른 원인 서명.
+    other_target = _facts(relations=[
+        RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.PIANCAI),
+    ])
+    assert _src(base) != _src(other_target)
+    # 같은 대상+다른 기간 → evidence_id가 다르다(기간 접두).
+    later = _facts(period="2027", relations=[
+        RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI),
+    ])
+    c1 = solo.generate(base)[0].evidence[0]
+    c2 = solo.generate(later)[0].evidence[0]
+    assert c1.source == c2.source and c1.evidence_id != c2.evidence_id
+    # 원자 분해 — 복합 서명은 & 로 나뉜다.
+    assert cause_atoms("relation:CHUNG:day_pillar:ZHENGCAI&polarity:GI") == {
+        "relation:CHUNG:day_pillar:ZHENGCAI", "polarity:GI",
+    }
+    # 다중 매칭 십성의 서명은 정렬돼 입력 순서와 무관하다.
+    grp = RiskItem.model_validate({
+        "riskId": "FIN_TEST_ORD",
+        "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+        "triggerRules": [{"id": "T1", "tenGodGroup": "wealth", "strength": 0.5}],
+        "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo._items = [grp]
+    ab = _facts(gods={TenGod.ZHENGCAI: {LuckLayer.SEWOON}, TenGod.PIANCAI: {LuckLayer.SEWOON}})
+    ba = _facts(gods={TenGod.PIANCAI: {LuckLayer.SEWOON}, TenGod.ZHENGCAI: {LuckLayer.SEWOON}})
+    assert _src(ab) == _src(ba) == "ten_god:PIANCAI+ZHENGCAI"
+
+
+def test_lint_health_reviewed_requires_claim_policy() -> None:
+    """감수 승격 건강 incident는 claimCeiling·allowedClaimScope 필수(lint)."""
+    file = RiskMappingFile.model_validate({
+        "version": "0.0.1", "domain": "health_safety",
+        "items": [{
+            "riskId": "HLT_TEST_CP",
+            "domain": "health_safety", "kind": "incident_risk", "baseImpact": 0.5,
+            "triggerRules": [
+                {"id": "T1", "group": "event_shape", "relation": "HYEONG",
+                 "twelveStageIn": ["BYEONG"]},
+                {"id": "T2", "group": "target_activation", "relation": "CHUNG",
+                 "relationPalace": "day_pillar"},
+            ],
+            "minimumEvidence": {
+                "triggerCount": 2, "independentSourceCount": 2,
+                "requiredGroups": ["event_shape", "target_activation"],
+            },
+            "manifestations": [{"id": "m1", "ko": "테스트"}],
+            "reviewed": True,
+        }],
+    })
+    errors = _lint_risk_mapping("risks/health_safety.json", file)
+    assert any("claimCeiling·allowedClaimScope 필수" in e for e in errors)
+
+
+def test_lint_manifestation_prohibited_conflict() -> None:
+    """manifestation 문구가 prohibitedClaims와 충돌하면 lint가 거부한다."""
+    file = RiskMappingFile.model_validate({
+        "version": "0.0.1", "domain": "finance",
+        "items": [{
+            "riskId": "FIN_TEST_MPC",
+            "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+            "triggerRules": [{"id": "T1", "tenGod": "JIECAI"}],
+            "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+            "manifestations": [{"id": "m1", "ko": "파산 단정 수준의 손실"}],
+            "prohibitedClaims": ["파산 단정"],
+            "reviewed": False,
+        }],
+    })
+    errors = _lint_risk_mapping("risks/finance.json", file)
+    assert any("prohibitedClaims와 충돌" in e for e in errors)
