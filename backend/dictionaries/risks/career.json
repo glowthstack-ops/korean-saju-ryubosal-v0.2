@@ -6,38 +6,56 @@
       "riskId": "CAR_WORK_OVERLOAD",
       "domain": "career",
       "kind": "pressure",
+      "riskFamily": "work_role",
       "baseImpact": 0.5,
       "triggerRules": [
         {
-          "id": "CAR_OVL_T1",
-          "tenGodGroup": "authority",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
-          "strength": 0.6
+          "id": "CAR_OVL_R1",
+          "group": "activation",
+          "relation": "CHUNG",
+          "relationPalace": "month_pillar",
+          "strength": 0.45
         },
         {
-          "id": "CAR_OVL_T2",
+          "id": "CAR_OVL_R2",
+          "group": "activation",
+          "relation": "HYEONG",
+          "relationPalace": "month_pillar",
+          "strength": 0.4
+        },
+        {
+          "id": "CAR_OVL_R3",
+          "group": "activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "authority",
+          "strength": 0.4
+        },
+        {
+          "id": "CAR_OVL_R4",
+          "group": "activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "output",
+          "strength": 0.35
+        },
+        {
+          "id": "CAR_OVL_S1",
+          "group": "event_shape",
           "tenGod": "QISHA",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG",
-            "HAN_BAD"
-          ],
-          "strength": 0.5
+          "tenGodGroup": "output",
+          "strength": 0.45
         },
         {
-          "id": "CAR_OVL_T3",
-          "twelveStageIn": [
-            "SOE",
-            "BYEONG",
-            "SA"
-          ],
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
+          "id": "CAR_OVL_S2",
+          "group": "event_shape",
+          "tenGod": "ZHENGGUAN",
+          "tenGodGroup": "wealth",
+          "strength": 0.4
+        },
+        {
+          "id": "CAR_OVL_S3",
+          "group": "event_shape",
+          "tenGod": "JIECAI",
+          "tenGodGroup": "authority",
           "strength": 0.4
         }
       ],
@@ -45,9 +63,25 @@
         {
           "id": "CAR_OVL_A1",
           "polarityRoleIn": [
+            "GI",
             "GI_STRONG"
           ],
           "strength": 0.5
+        },
+        {
+          "id": "CAR_OVL_A2",
+          "twelveStageIn": [
+            "SOE",
+            "BYEONG",
+            "SA",
+            "JEOL"
+          ],
+          "strength": 0.3
+        },
+        {
+          "id": "CAR_OVL_A3",
+          "voidActive": true,
+          "strength": 0.25
         }
       ],
       "mitigatorRules": [
@@ -55,7 +89,6 @@
           "id": "CAR_OVL_M1",
           "polarityRoleIn": [
             "YONG",
-            "YONG_STRONG",
             "HEE",
             "HAN_GOOD"
           ],
@@ -64,38 +97,62 @@
         {
           "id": "CAR_OVL_M2",
           "tenGodGroup": "resource",
+          "strength": 0.35
+        },
+        {
+          "id": "CAR_OVL_M3",
+          "relation": "HAP",
           "strength": 0.3
         }
       ],
-      "blockerRules": [
-        {
-          "id": "CAR_OVL_B1",
-          "polarityRoleIn": [
-            "YONG_STRONG"
-          ],
-          "strength": 0.6
-        }
-      ],
+      "blockerRules": [],
       "minimumEvidence": {
         "triggerCount": 1,
         "independentSourceCount": 1
       },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "activation",
+              "event_shape"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
       "manifestations": [
         {
-          "id": "workload_spike",
-          "ko": "업무량·책임의 급격한 증가"
+          "id": "duty_expand",
+          "ko": "업무량과 책임 부담이 커질 수 있는 시기"
         },
         {
-          "id": "deadline_pressure",
-          "ko": "일정 압박과 소모 누적"
+          "id": "deadline_stack",
+          "ko": "산출·마감 요구의 중첩"
         },
         {
-          "id": "role_burden",
-          "ko": "역할 부담이 커져 여유가 줄어듦"
+          "id": "role_overlap",
+          "ko": "여러 역할이 동시에 활성되는 부담"
         }
       ],
-      "prohibitedClaims": [],
-      "note": "관살 기신(압박 십성) — 사건 특정 없는 업무 압박. 인성은 압박 흡수(완화)",
+      "prohibitedClaims": [
+        "과부하 단정",
+        "번아웃 단정",
+        "건강 악화 확장"
+      ],
+      "allowedClaimScope": [
+        "일정·책임 관리 필요성",
+        "가능한 발현 형태"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3 개정 — 관성+월주 고정 AND가 아니라 work_role_activation(월주 궁위/관성·식상 피격 대안 경로) + workload_shape(요구·산출·역할 중첩 조합) 계약. 기신·운성·공망 amplifier. UNKNOWN='맡은 일이 있다면' advisory. 사업자·프리랜서·학생도 역할 피격 경로로 포착",
       "reviewed": false
     },
     {

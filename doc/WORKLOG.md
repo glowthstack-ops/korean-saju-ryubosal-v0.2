@@ -7600,3 +7600,24 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
 - **다음(C3 착수 전 확정 필요)**: CAR_WORK_OVERLOAD·SEL_COMPETITION_INTENSIFY의
   kind 재분류(pressure 유지 vs 구체 incident 분리) — 범용 관성·경쟁 신호 단독 발동
   제거가 선행 과제.
+
+### 위험 엔진 C3 선행 — CAR_WORK_OVERLOAD·SEL_COMPETITION 재저작 (2026-07-15, 데굴님 수정 조건 5종)
+
+- **manifest 확정(조건4)**: 미개정 = CAR 5 + SEL 5 = 10항목(이전 "CAR 6"은 reviewed
+  ORG_CONFLICT 포함 오집계 — 코드 기준 고정).
+- **CAR_WORK_OVERLOAD(조건1)**: 관성+월주 고정 AND 폐기 → work_role_activation(월주
+  궁위 충·형 또는 관성·식상 피격 — 사업자·프리랜서·학생 경로 포함) + workload_shape
+  (편관+식상/정관+재성/겁재+관성 등 요구·산출·역할 중첩 조합) 계약. 기신·운성·공망
+  amplifier. required_for_exposure(UNKNOWN='맡은 일이 있다면' advisory). 과부하·번아웃·
+  건강 악화 표현 금지.
+- **SEL_COMPETITION_INTENSIFY(조건2·3)**: selection_target_activation(심사 관문 피격)
+  + competition_shape(비겁+관성 결합) 필수. applicableSelectionModes 필드 신설 —
+  competitive_assessment 전용(추첨·자격 심사·배치 별도 구조, '실력 열세 단정(추첨형)'
+  prohibited). 경쟁 심화는 탈락 후보의 trigger가 아니라 배경 압박(fixture 고정).
+- **조건5**: 기존 그룹·매칭 축만 사용(신규 매처 의미 없음) — reviewEnvironmentVersion
+  r0.5.4 유지.
+- fixture: 양성/관성 기신만 음성/월주만 음성/선발 대상 없음 음성/DENIED 차단/결과
+  미생성. **밀도: 발동률 >40% 항목 0건 달성**(CAR 41.8%·SEL 39.1% top10 소멸), 활성
+  5.20/기간. 검증: pytest 1834 passed·ruff·mypy clean. 두 항목 reviewed:false — 감수 대기.
+- 다음: C3 본 차수(CAR 4 incident + SEL 4 incident 재저작 — EXIT_PRESSURE·HIRING·
+  LOTTERY_MISS(SEL_ODDS_PRESSURE 전환 검토)·PLACEMENT 등).

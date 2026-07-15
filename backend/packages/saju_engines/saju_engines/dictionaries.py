@@ -948,6 +948,13 @@ class RiskManifestationSpec(_AliasModel):
     ko: str
 
 
+# 선발 방식(감수 10차) — 경쟁 평가/추첨/자격 심사/배치는 서로 다른 위험 구조다.
+# 항목이 적용 가능한 방식을 명시해 추첨형에 '실력 경쟁' 표현이 확산되는 것을 막는다.
+_RISK_SELECTION_MODES = (
+    "competitive_assessment", "lottery_draw", "eligibility_screening",
+    "placement_allocation",
+)
+
 # exposurePolicy 유효값(감수 6차) — 현실 노출 정책을 note가 아닌 기계 판독 필드로.
 _RISK_EXPOSURE_REQUIREMENTS = (
     "not_required", "required_for_warning", "required_for_exposure", "confirmed_required",
@@ -1044,6 +1051,11 @@ class RiskItem(_AliasModel):
     exposure_policy: RiskExposurePolicy | None = Field(default=None, alias="exposurePolicy")
     # 교차 도메인 파생 효과 — 후보 복제 대신 주 도메인 후보에 부착(예: contract_review_needed).
     cross_domain_effects: list[str] = Field(alias="crossDomainEffects", default_factory=list)
+    # 적용 가능한 선발 방식(감수 10차, selection 도메인 전용) — 미지정=방식 무관.
+    # 방식 UNKNOWN이면 claim은 '선발 조건 부담' 일반 수준으로 제한(R3).
+    applicable_selection_modes: list[str] = Field(
+        alias="applicableSelectionModes", default_factory=list,
+    )
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
@@ -1068,6 +1080,11 @@ class RiskItem(_AliasModel):
                 raise ValueError(f"relatedDomains에 자기 도메인 포함: {self.risk_id}")
         if self.claim_ceiling is not None and self.claim_ceiling not in _RISK_CLAIM_CEILINGS:
             raise ValueError(f"claimCeiling 값 오류: {self.claim_ceiling} ({self.risk_id})")
+        for mode in self.applicable_selection_modes:
+            if mode not in _RISK_SELECTION_MODES:
+                raise ValueError(
+                    f"applicableSelectionModes 값 오류: {mode} ({self.risk_id})"
+                )
         return self
 
 

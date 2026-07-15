@@ -448,43 +448,49 @@
       "riskId": "SEL_COMPETITION_INTENSIFY",
       "domain": "selection",
       "kind": "pressure",
+      "riskFamily": "selection_process",
       "baseImpact": 0.45,
+      "applicableSelectionModes": [
+        "competitive_assessment"
+      ],
       "triggerRules": [
         {
-          "id": "SEL_CMP_T1",
-          "tenGod": "JIECAI",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
-          "strength": 0.5
-        },
-        {
-          "id": "SEL_CMP_T2",
-          "tenGodGroup": "peer",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
+          "id": "SEL_CMP_R1",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "authority",
           "strength": 0.45
         },
         {
-          "id": "SEL_CMP_T3",
-          "tenGod": "QISHA",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
+          "id": "SEL_CMP_R2",
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "authority",
           "strength": 0.4
+        },
+        {
+          "id": "SEL_CMP_S1",
+          "group": "event_shape",
+          "tenGod": "JIECAI",
+          "tenGodGroup": "authority",
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_CMP_S2",
+          "group": "event_shape",
+          "tenGod": "BIJIAN",
+          "tenGodGroup": "authority",
+          "strength": 0.45
         }
       ],
       "amplifierRules": [
         {
           "id": "SEL_CMP_A1",
           "polarityRoleIn": [
+            "GI",
             "GI_STRONG"
           ],
-          "strength": 0.4
+          "strength": 0.45
         }
       ],
       "mitigatorRules": [
@@ -492,40 +498,61 @@
           "id": "SEL_CMP_M1",
           "polarityRoleIn": [
             "YONG",
-            "YONG_STRONG",
             "HEE",
             "HAN_GOOD"
           ],
           "strength": 0.5
-        }
-      ],
-      "blockerRules": [
+        },
         {
-          "id": "SEL_CMP_B1",
-          "polarityRoleIn": [
-            "YONG_STRONG"
-          ],
-          "strength": 0.6
+          "id": "SEL_CMP_M2",
+          "tenGodGroup": "resource",
+          "strength": 0.3
         }
       ],
+      "blockerRules": [],
       "minimumEvidence": {
         "triggerCount": 1,
         "independentSourceCount": 1
       },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
       "manifestations": [
         {
           "id": "rival_grow",
-          "ko": "경쟁 강도의 상승"
+          "ko": "경쟁 강도가 높아지는 흐름"
         },
         {
-          "id": "margin_thin",
-          "ko": "합격선·기준의 상향 부담"
+          "id": "criteria_tighten",
+          "ko": "선발 조건·기준의 부담 증가"
         }
       ],
       "prohibitedClaims": [
-        "당락·승패 확정 단정"
+        "당락·승패 확정 단정",
+        "탈락 의미 부여",
+        "실력 열세 단정(추첨형)"
       ],
-      "note": "비겁(경쟁자) 기신 — 경쟁 심화 압박(절대 원칙 8: 우열+근거까지만)",
+      "allowedClaimScope": [
+        "선발 조건 부담 안내",
+        "준비 관리 필요성"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3 개정 — 비겁-관성만으로 부족: selection_target_activation(심사 관문 피격) + competition_shape(비겁+관성 결합) 필수. 경쟁 평가 전용(applicableSelectionModes) — 추첨·자격 심사·배치는 별도 구조(LOTTERY/ELIGIBILITY/PLACEMENT). 경쟁 심화는 탈락 후보의 occurrence trigger가 아니라 배경 압박/amplifier. UNKNOWN='지원 계획이 있다면' advisory",
       "reviewed": false
     }
   ]

@@ -140,9 +140,11 @@ def test_pressure_only_without_incident(engine: RiskEngine) -> None:
     """압박 신호만 있으면 활성 후보는 pressure뿐 — 사건 위험은 증거 계약에서 걸러진다."""
     facts = _facts(gods={TenGod.QISHA: {LuckLayer.SEWOON}}, role=PolarityRole.GI)
     active = _active(engine.generate(facts))
-    assert active, "관살 기신 압박은 pressure 후보를 만든다"
+    assert active, "관살 기신 압박은 소모성 pressure 후보를 만든다"
     assert all(c.kind is RiskKind.PRESSURE for c in active)
-    assert any(c.risk_id == "CAR_WORK_OVERLOAD" for c in active)
+    # C3 강화 — 관성 기신 단독으로는 업무 부담(pressure)도 활성되지 않는다
+    # (work_role_activation + workload_shape 계약, 양성은 test_risk_car_sel_c3).
+    assert all(c.risk_id != "CAR_WORK_OVERLOAD" for c in active)
 
 
 def test_single_trigger_blocks_incident(engine: RiskEngine) -> None:
