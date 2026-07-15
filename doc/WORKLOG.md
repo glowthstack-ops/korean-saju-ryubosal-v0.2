@@ -7471,3 +7471,28 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
   target-only targeted 거부). 검증: pytest 1805 passed·ruff·mypy clean.
 - **다음(승인됨)**: 잔여 37항목 §2 일괄 규칙 적용(변환 직후 reviewed:false, 엔진 변경
   필요 시 커밋 분리) → 재실측(§10-2 기준) → 도메인별 표본 감수 → reviewed:true.
+
+### 위험 엔진 R0.5 4차 — 생성/등급 재분리·reviewScope·관계 allowlist·과소탐지 가드 (2026-07-15, 데굴님 커밋 B 승인 조건)
+
+37항목 도메인별 적용 착수 전 선행 조건 반영:
+- **생성 조건 ≠ 등급 조건 재분리**: MOV/SEL evidenceContract minIndependentCauses
+  2→1 완화(구조 충족 + 독립 1원인도 후보 생성, 등급 watch 상한은 R1). 다원인 강제는
+  예외적 위험별 정책으로 격하 — candidatePolicy="multi_cause_only"+rationale 명시를
+  스키마로 강제(현재 유일: HLT_CHRONIC_FLAREUP 건강 오경고 통제).
+- **reviewScope/reviewVersion**: reviewed:true는 reviewScope 필수(lint) —
+  shadow_structure(노출 승인 아님)/scoring/selection/exposure. 대표 7항목에
+  shadow_structure·R0.5 부여.
+- **targeted_event_shape 관계 allowlist**: 충·형·파·해만(HAP·BOKEUM 스키마 거부) —
+  '궁위가 있으니 targeted' 기계 변환 차단.
+- **다층 중첩 cause 테스트**: 같은 관계·같은 대상 반복=원인 1(중첩은 R1
+  layer_convergence 소관), 충+형이 같은 대상=독립 2. 파생 태그≠새 원인(원시 사실만
+  수집으로 원천 차단) 문서화.
+- **과소탐지 가드**: 단일 원인 targeted 후보 생존 테스트(FIN 겁재 동반 재성 피격
+  단독→활성), 유사 음성(대상 미상 관계) 테스트, 지표 규격화(양성 fixture recall
+  100%=pytest CI·골든 recall·watch 생존율·mitigated 보존율 — 밀도만 최적화 금지).
+- 테스트 53건. 검증: pytest 1811 passed·ruff·mypy clean.
+- **다음**: 37항목 도메인별 적용(①재물·계약 ②직업·시험·선발 ③이동·주거 ④관계
+  ⑤건강·안전 ⑥일반 pressure/vulnerability — 차수당 5~10항목, 각 차수 저작→lint→
+  fixture→중간 밀도→표본 감수. 자동 변환 금지 대상: 무대상 사건·건강/법률 결과
+  암시·프로필 축 필요·relatedDomains 복제·3도메인 확산 → pressure/vulnerability
+  강등 또는 비활성).

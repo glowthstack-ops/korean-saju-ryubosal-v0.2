@@ -734,6 +734,12 @@ _RISK_REQUIRED_GROUPS = (
 )
 # claimCeiling 유효값 — 표현 상한(허용 범위 화이트리스트 allowedClaimScope와 병용).
 _RISK_CLAIM_CEILINGS = ("advisory", "watch", "conditional_warning", "warning")
+# reviewScope 유효값 — reviewed:true의 의미 범위(감수 4차): shadow_structure=사전 구조·
+# shadow 감수 완료(사용자 노출 승인 아님). scoring/selection/exposure는 R1/R2/R3 감수.
+_RISK_REVIEW_SCOPES = ("shadow_structure", "scoring", "selection", "exposure")
+# targeted_event_shape에 허용되는 관계 유형 — 우호 결합(HAP)·복음(BOKEUM)은 위험 사건
+# 형태가 아니다(궁위 특정만으로 모든 관계가 사건 형태가 되는 것을 차단).
+_RISK_TARGETED_RELATIONS = ("CHUNG", "HYEONG", "PA", "HAE")
 
 
 class RiskRuleSpec(_AliasModel):
@@ -805,6 +811,11 @@ class RiskRuleSpec(_AliasModel):
                 raise ValueError(
                     f"targeted_event_shape는 궁위 지정 또는 사건 구조 십성 동반 필수"
                     f"(대상 특정 일반 관계는 target_activation): {self.id}"
+                )
+            if self.relation not in _RISK_TARGETED_RELATIONS:
+                raise ValueError(
+                    f"targeted_event_shape 관계 유형 오류({self.relation}) — 충·형·파·해만"
+                    f" 허용(우호 결합은 사건 형태 아님): {self.id}"
                 )
         if self.ten_god is not None and self.ten_god not in {str(g) for g in _TenGodRoman}:
             raise ValueError(f"tenGod 값 오류: {self.ten_god} ({self.id})")
@@ -891,12 +902,31 @@ class RiskEvidenceContract(_AliasModel):
 
     anyOf 중 한 절이라도 충족하면 그룹 조건 통과. targeted_event_shape(사건 형태+대상이
     한 사실)를 별도 절로 허용해 형식적 중복 룰을 없앤다. 단 하나의 사실이 두 의미를
-    충족해도 **독립 원인은 1개**로 계산한다(원인 서명 중복 방지 원칙 유지). 후보 생성
-    조건과 높은 경고 등급 조건은 분리한다 — 독립 원인 1개는 R1 등급에서 watch 상한.
+    충족해도 **독립 원인은 1개**로 계산한다(원인 서명 중복 방지 원칙 유지).
+
+    **후보 생성 조건 ≠ 높은 경고 등급 조건(감수 4차 재확인)**: 독립 원인 1개도 구조가
+    충족되면 후보는 생성되고(R1 등급 watch 상한), 독립 원인 2개 강제는 전체 저작
+    원칙이 아니라 **예외적인 위험별 정책**이다 — minIndependentCauses ≥ 2는
+    candidatePolicy="multi_cause_only" + rationale 명시가 있어야 한다(검증 강제).
     """
 
     any_of: list[RiskGroupClause] = Field(alias="anyOf", min_length=1)
     min_independent_causes: int = Field(alias="minIndependentCauses", ge=1, default=1)
+    candidate_policy: str | None = Field(default=None, alias="candidatePolicy")
+    rationale: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_policy(self) -> RiskEvidenceContract:
+        if self.candidate_policy is not None and self.candidate_policy != "multi_cause_only":
+            raise ValueError(f"candidatePolicy 값 오류: {self.candidate_policy}")
+        if self.min_independent_causes >= 2 and (
+            self.candidate_policy != "multi_cause_only" or not self.rationale
+        ):
+            raise ValueError(
+                "minIndependentCauses ≥ 2는 예외 정책 — candidatePolicy="
+                "'multi_cause_only' + rationale 명시 필수(생성/등급 분리 원칙)"
+            )
+        return self
 
 
 class RiskManifestationSpec(_AliasModel):
@@ -938,11 +968,17 @@ class RiskItem(_AliasModel):
     claim_ceiling: str | None = Field(default=None, alias="claimCeiling")
     note: str | None = None
     reviewed: bool
+    # 감수 범위 메타데이터(감수 4차) — reviewed:true의 의미를 명시한다. shadow_structure는
+    # 사전 구조·shadow 감수 완료를 뜻하며 사용자 노출 승인이 아니다(노출은 exposure 감수).
+    review_scope: str | None = Field(default=None, alias="reviewScope")
+    review_version: str | None = Field(default=None, alias="reviewVersion")
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
         if self.kind not in ("pressure", "vulnerability", "incident_risk"):
             raise ValueError(f"kind 값 오류: {self.kind} ({self.risk_id})")
+        if self.review_scope is not None and self.review_scope not in _RISK_REVIEW_SCOPES:
+            raise ValueError(f"reviewScope 값 오류: {self.review_scope} ({self.risk_id})")
         if self.domain not in _RISK_ID_PREFIX:
             raise ValueError(f"domain 값 오류: {self.domain} ({self.risk_id})")
         for d in self.related_domains:
@@ -1540,6 +1576,11 @@ def _lint_reviewed_risk_item(
     있어도 incident_risk의 직접 trigger는 될 수 없다 — 승격 시점에 강제한다.
     """
     errors: list[str] = []
+    if item.review_scope is None:
+        errors.append(
+            f"{rel}: reviewed:true는 reviewScope 명시 필수(shadow_structure 등 — "
+            f"사용자 노출 승인과 구분) — {item.risk_id}"
+        )
     non_generic = trigger_groups - {"generic"}
     if item.kind == "incident_risk":
         required = set(item.minimum_evidence.required_groups)

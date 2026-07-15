@@ -95,7 +95,7 @@
             ]
           }
         ],
-        "minIndependentCauses": 2
+        "minIndependentCauses": 1
       },
       "manifestations": [
         {
@@ -120,8 +120,10 @@
         "가능한 발현 형태"
       ],
       "claimCeiling": "warning",
-      "note": "감수 3차 개정 — targeted 단독 경로 제거(문서 피격은 대상 특정 일반 관계라 target_activation): 문서 공망(event_shape) AND 문서·주거궁 활성 필수, 독립 원인 2. risk_family=housing_contract로 FIN/LEG 파생과 대표 1건 수렴(R2)",
-      "reviewed": true
+      "note": "감수 3차 개정 — targeted 단독 경로 제거(문서 피격은 대상 특정 일반 관계라 target_activation): 문서 공망(event_shape) AND 문서·주거궁 활성 필수, 독립 원인 1(등급은 R1 — 1원인 watch 상한). risk_family=housing_contract로 FIN/LEG 파생과 대표 1건 수렴(R2)",
+      "reviewed": true,
+      "reviewScope": "shadow_structure",
+      "reviewVersion": "R0.5"
     },
     {
       "riskId": "MOV_SCHEDULE_DISRUPTION",

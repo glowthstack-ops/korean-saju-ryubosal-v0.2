@@ -189,7 +189,9 @@
             ]
           }
         ],
-        "minIndependentCauses": 2
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "single-cause false-positive control — 건강 도메인은 단일 근거 오경고 통제(감수 2차 확정: targeted 단독 경로 없음 + 독립 원인 2)"
       },
       "manifestations": [
         {
@@ -219,7 +221,9 @@
       ],
       "claimCeiling": "conditional_warning",
       "note": "감수 2차 개정 — 건강은 targeted 단독 경로 없음(가장 엄격): 형+병사 운성(event_shape) AND 일지·시지 충(target_activation), 독립 원인 2개 필수. 기신·공망 amplifier 강등",
-      "reviewed": true
+      "reviewed": true,
+      "reviewScope": "shadow_structure",
+      "reviewVersion": "R0.5"
     },
     {
       "riskId": "HLT_CONDITION_DECLINE",

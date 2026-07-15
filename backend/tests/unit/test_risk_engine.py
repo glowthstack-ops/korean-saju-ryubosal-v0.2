@@ -727,6 +727,122 @@ def test_lint_health_reviewed_requires_claim_policy() -> None:
     assert any("claimCeiling·allowedClaimScope 필수" in e for e in errors)
 
 
+def test_schema_multi_cause_requires_explicit_policy() -> None:
+    """독립 원인 ≥2 강제는 예외 정책 — candidatePolicy·rationale 없으면 스키마 거부.
+
+    후보 생성 조건과 높은 경고 등급 조건의 분리(감수 4차): 구조 충족 + 독립 1원인도
+    후보는 생성돼야 하며(R1 watch 상한), 다원인 강제는 위험별 명시 정책만 허용.
+    """
+    with pytest.raises(ValueError, match="multi_cause_only"):
+        RiskItem.model_validate({
+            "riskId": "FIN_TEST_MCP",
+            "domain": "finance", "kind": "incident_risk", "baseImpact": 0.5,
+            "triggerRules": [
+                {"id": "T1", "group": "event_shape", "tenGod": "JIECAI"},
+                {"id": "T2", "group": "target_activation", "relation": "CHUNG",
+                 "relationTargetTenGodGroup": "wealth"},
+            ],
+            "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+            "evidenceContract": {
+                "anyOf": [{"allOfGroups": ["event_shape", "target_activation"]}],
+                "minIndependentCauses": 2,  # 정책 명시 없음 → 거부
+            },
+            "manifestations": [{"id": "m1", "ko": "테스트"}],
+            "reviewed": False,
+        })
+
+
+def test_lint_reviewed_requires_review_scope() -> None:
+    """reviewed:true는 reviewScope 필수 — 사용자 노출 승인과의 혼동 차단(감수 4차)."""
+    file = RiskMappingFile.model_validate({
+        "version": "0.0.1", "domain": "finance",
+        "items": [{
+            "riskId": "FIN_TEST_RS",
+            "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+            "triggerRules": [{"id": "T1", "group": "activation", "tenGod": "JIECAI"}],
+            "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+            "manifestations": [{"id": "m1", "ko": "테스트"}],
+            "reviewed": True,
+        }],
+    })
+    errors = _lint_risk_mapping("risks/finance.json", file)
+    assert any("reviewScope 명시 필수" in e for e in errors)
+
+
+def test_schema_rejects_hap_targeted_event_shape() -> None:
+    """우호 결합(HAP)은 targeted_event_shape가 될 수 없다 — 관계 유형 allowlist."""
+    with pytest.raises(ValueError, match="충·형·파·해만"):
+        RiskItem.model_validate({
+            "riskId": "REL_TEST_HAP",
+            "domain": "relationship", "kind": "pressure", "baseImpact": 0.4,
+            "triggerRules": [
+                {"id": "T1", "group": "targeted_event_shape", "relation": "HAP",
+                 "relationPalace": "day_pillar", "strength": 0.5},
+            ],
+            "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+            "manifestations": [{"id": "m1", "ko": "테스트"}],
+            "reviewed": False,
+        })
+
+
+def test_layer_repeat_same_cause_but_different_kind_splits() -> None:
+    """다층 중첩 cause 계산 — 같은 관계·같은 대상 반복은 원인 1개(중첩은 강도 증가
+    소관·R1 layer_convergence), 다른 관계 유형(충 vs 형)이 같은 대상을 치면 원인 2개."""
+    item = RiskItem.model_validate({
+        "riskId": "FIN_TEST_LYR",
+        "domain": "finance", "kind": "incident_risk", "baseImpact": 0.5,
+        "triggerRules": [
+            {"id": "T_C", "group": "target_activation", "relation": "CHUNG",
+             "relationTargetTenGodGroup": "wealth", "strength": 0.5},
+            {"id": "T_H", "group": "target_activation", "relation": "HYEONG",
+             "relationTargetTenGodGroup": "wealth", "strength": 0.5},
+        ],
+        "minimumEvidence": {"triggerCount": 2, "independentSourceCount": 2},
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo = RiskEngine(_DICTS)
+    solo._items = [item]
+    # 같은 충이 여러 발동으로 반복(계층 중첩의 스냅샷 표현) — 서명 집계로 원인 1개.
+    repeat = _facts(relations=[
+        RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI),
+        RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI),
+    ])
+    cands = solo.generate(repeat)
+    assert len(cands) == 1
+    assert cands[0].eligibility_status is EligibilityStatus.INSUFFICIENT_EVIDENCE
+    # 충 + 형이 같은 대상 — 서로 다른 원인 원자 → 독립 2원인 성립.
+    mixed = _facts(relations=[
+        RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI),
+        RelationFact(RelationKind.HYEONG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI),
+    ])
+    active = _active(solo.generate(mixed))
+    assert [c.risk_id for c in active] == ["FIN_TEST_LYR"]
+
+
+def test_single_cause_targeted_candidate_survives(engine: RiskEngine) -> None:
+    """단일 원인 생존율 — targeted 경로 충족 시 독립 1원인도 활성 후보로 살아남는다
+    (등급 watch 상한은 R1 — 후보 생성 단계에서 죽이지 않는다)."""
+    facts = _facts(
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY,
+                                target_ten_god=TenGod.ZHENGCAI)],
+        role=PolarityRole.GI,
+    )
+    active_ids = {c.risk_id for c in _active(engine.generate(facts))}
+    assert "FIN_UNEXPECTED_EXPENSE" in active_ids  # 겁재 동반 재성 피격(targeted) 단독
+
+
+def test_relation_without_target_not_observed(engine: RiskEngine) -> None:
+    """유사 음성 — 관계는 있으나 대상 정보가 없으면 대상 요구 사건은 관측되지 않는다."""
+    facts = _facts(
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY)],  # 피자극 십성 미상
+        role=PolarityRole.GI,
+    )
+    ids = {c.risk_id for c in engine.generate(facts)}
+    assert "FIN_UNEXPECTED_EXPENSE" not in ids
+
+
 def test_lint_manifestation_prohibited_conflict() -> None:
     """manifestation 문구가 prohibitedClaims와 충돌하면 lint가 거부한다."""
     file = RiskMappingFile.model_validate({

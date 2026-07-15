@@ -331,7 +331,7 @@
             ]
           }
         ],
-        "minIndependentCauses": 2
+        "minIndependentCauses": 1
       },
       "manifestations": [
         {
@@ -353,8 +353,10 @@
         "가능한 발현 형태"
       ],
       "claimCeiling": "warning",
-      "note": "감수 3차 개정 — targeted 단독 경로 제거: 충+관성 동반(event_shape) AND 관성/사회궁 활성(target_activation) 필수, 독립 원인 2. 선발·배치 코어 무작위성 캡 준수",
-      "reviewed": true
+      "note": "감수 3차 개정 — targeted 단독 경로 제거: 충+관성 동반(event_shape) AND 관성/사회궁 활성(target_activation) 필수, 독립 원인 1(등급은 R1 — 1원인 watch 상한). 선발·배치 코어 무작위성 캡 준수",
+      "reviewed": true,
+      "reviewScope": "shadow_structure",
+      "reviewVersion": "R0.5"
     },
     {
       "riskId": "SEL_WAITLIST_DELAY",

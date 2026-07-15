@@ -157,6 +157,21 @@ conditional_warning/warning)을 병용한다.
   "minIndependentCauses": 1 }
 ```
 
+**생성 조건 ≠ 등급 조건(감수 4차 재확인)**: 구조(shape+activation 또는 targeted)가
+충족되면 독립 원인 1개도 후보는 생성된다(R1 등급 watch 상한) — 하나의 강한 구조
+신호만 있어도 '주의해서 볼 후보'는 남긴다. `minIndependentCauses ≥ 2` 강제는 전체
+저작 원칙이 아니라 **예외적 위험별 정책**으로, `candidatePolicy: "multi_cause_only"`
++ `rationale` 명시가 스키마로 강제된다(현재 유일 사용: HLT_CHRONIC_FLAREUP — 건강
+단일 근거 오경고 통제).
+
+**targeted_event_shape 관계 유형 allowlist**: 궁위 특정만으로 모든 관계가 사건
+형태가 되지 않는다 — 충·형·파·해만 허용(우호 결합 HAP·복음 BOKEUM 스키마 거부).
+잔여 항목 변환 시 '궁위가 있으니 targeted' 식 기계 변환 금지.
+
+**reviewed 메타데이터**: `reviewed:true`는 `reviewScope` 필수(lint) —
+`shadow_structure`(사전 구조·shadow 감수, **사용자 노출 승인 아님**) / `scoring`(R1)
+/ `selection`(R2) / `exposure`(R3). + `reviewVersion`.
+
 kind별 최소 계약(reviewed:true 승격 시 lint 강제):
 
 ```text
@@ -440,6 +455,18 @@ vulnerability/pressure >40% = 자동 실패 아님·수동 검토(내부 보조 
 발동률 분모 정의: 해당 위험이 1회 이상 활성인 **적용 차트** 기준(리포트에 적용/전체
 병기). 재실측 시 평균 외에 p50/p90/최댓값, unique cause atom/period, 특이도 흡수
 전후, BLOCKED/MITIGATED/INSUFFICIENT 비율, 상시 발동 항목을 함께 보고한다.
+
+**과소탐지 지표(감수 4차 — 밀도만 최적화 금지)**: reviewed 항목별 양성 fixture
+recall = 100%(pytest CI 강제 — 명확 양성·단일 원인 양성·유사 음성 4종·보호 동반),
+어려운 사건 골든 recall(R4), 단일 원인 watch 후보 생존율, mitigated 후보 보존율.
+목표는 후보 수 최소화가 아니라 **구체 위험은 희소하게, 실제 사건 구조가 충분한
+후보는 watch 수준으로라도 반드시 생존**이다.
+
+**다층 중첩 cause 계산**: 같은 관계·같은 대상의 반복은 원인 1개(중첩은 R1
+layer_convergence/occurrence 증폭 근거로 보존 — 독립 원인 수를 올리지 않음), 대운
+충 + 세운 형처럼 **다른 방식**이 같은 대상을 치면 독립 원인 2개. 파생 태그·
+favorability·modifier는 원인의 해석 결과이지 새 원인이 아니다(원시 사실만 수집하는
+RawPeriodFacts 설계로 원천 차단). 계층 태그 관계 사실 수집은 R1 백로그.
 
 pressure는 자주 발생할 수 있다 — 개별 빈도보다 연속 기간·도메인 편향을 보고, 노출은
 watch 이상 또는 위험 질문에 한정한다(§6-2). "사건보다 압박이 많다"가 목표가 아니라
