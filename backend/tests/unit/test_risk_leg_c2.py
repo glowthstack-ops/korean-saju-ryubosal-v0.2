@@ -77,23 +77,41 @@ def test_leg_positives_each_item(engine: RiskEngine) -> None:
 
 
 def test_dispute_vs_litigation_separation(engine: RiskEngine) -> None:
-    """분쟁 ≠ 소송 — 확대(escalation)는 confirmed_required이며, 편관 동반 형이면
-    같은 family에서 escalation(3)이 dispute(2)를 흡수한다."""
+    """분쟁 ≠ 소송 — 노출 미충족 escalation은 dispute를 흡수할 수 없다(역전 방지).
+
+    UNKNOWN: 대표=DISPUTE_RISK(노출 가능), escalation은 구조 후보로만 보존.
+    CONFIRMED: escalation(3)이 dispute(2)를 흡수. DENIED: escalation BLOCKED.
+    """
     facts = _facts(
         gods={TenGod.QISHA: {LuckLayer.SEWOON}, TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
         relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
                                 target_ten_god=TenGod.ZHENGGUAN)],
     )
-    by = {c.risk_id: c for c in engine.generate(facts)}
-    lit = by["LEG_LITIGATION_ESCALATION"]
-    assert is_active(lit) and lit.exposure_requirement == "confirmed_required"
-    if "LEG_DISPUTE_RISK" in by and by["LEG_DISPUTE_RISK"].suppressed_by_specificity:
-        assert by["LEG_DISPUTE_RISK"].primary_risk_id == "LEG_LITIGATION_ESCALATION"
-    # 노출 DENIED — 기존 절차 없음이 확인되면 BLOCKED.
+    unknown = {c.risk_id: c for c in engine.generate(facts)}
+    dsr, lit = unknown["LEG_DISPUTE_RISK"], unknown["LEG_LITIGATION_ESCALATION"]
+    assert is_active(dsr), "노출 미확인 상태의 대표는 일반 분쟁 경고(DISPUTE_RISK)"
+    assert dsr.suppressed_by_specificity is None
+    assert lit.exposure_requirement == "confirmed_required"
+    confirmed = {c.risk_id: c for c in engine.generate(
+        facts, exposure_status=ExposureStatus.CONFIRMED,
+    )}
+    assert is_active(confirmed["LEG_LITIGATION_ESCALATION"])
+    assert confirmed["LEG_DISPUTE_RISK"].primary_risk_id == "LEG_LITIGATION_ESCALATION"
     denied = {c.risk_id: c for c in engine.generate(
         facts, exposure_status=ExposureStatus.DENIED,
     )}
     assert not is_active(denied["LEG_LITIGATION_ESCALATION"])
+
+
+def test_document_error_needs_target_activation(engine: RiskEngine) -> None:
+    """유사 음성 — 문서 대상 활성 없이 검토 취약성(공망+인성)만으로는 DOCUMENT_ERROR
+    미생성(REVIEW_CAPACITY_WEAK 소관)."""
+    by = {c.risk_id: c for c in engine.generate(_facts(
+        gods={TenGod.ZHENGYIN: {LuckLayer.SEWOON}}, void=True,
+    ))}
+    doc = by.get("LEG_DOCUMENT_ERROR")
+    assert doc is None or not is_active(doc)
+    assert is_active(by["LEG_REVIEW_CAPACITY_WEAK"])
 
 
 def test_cross_domain_fin_leg(engine: RiskEngine) -> None:

@@ -83,16 +83,29 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
             for atom in cause_atoms(e.source)
         }
 
+    def _exposure_ok(c: RiskCandidate) -> bool:
+        """노출 적격성 — confirmed_required인데 CONFIRMED가 아니면 대표 부적격."""
+        return not (
+            c.exposure_requirement == "confirmed_required"
+            and c.exposure_status is not ExposureStatus.CONFIRMED
+        )
+
     suppression: dict[int, tuple[str, str]] = {}  # id(candidate) → (대표 risk_id, 흡수 역할)
     for group in by_key.values():
         if len(group) < 2:
             continue
-        ordered = sorted(group, key=lambda c: -c.specificity_rank)
+        # 대표 우선순위(감수 9차): 구조적 적격성(이미 필터) → 노출 적격성 → 특이도.
+        # 불변식: 더 구체적이지만 더 엄격한 exposure를 요구하는 후보는, 그 exposure가
+        # 충족되지 않은 상태에서 더 일반적이고 노출 가능한 후보를 흡수할 수 없다
+        # (소송 확대가 노출 미확인 상태로 일반 분쟁 경고를 지우는 역전 방지).
+        ordered = sorted(group, key=lambda c: (not _exposure_ok(c), -c.specificity_rank))
         primary = ordered[0]
         primary_atoms = _atoms(primary)
         for c in ordered[1:]:
             if c.specificity_rank >= primary.specificity_rank:
                 continue  # 동률은 억제하지 않는다(서로 다른 구체 사건 병존 허용).
+            if not _exposure_ok(primary) and _exposure_ok(c):
+                continue  # 노출 부적격 대표는 노출 가능 후보를 흡수 불가.
             if _atoms(c) & primary_atoms:
                 suppression[id(c)] = (primary.risk_id, _absorbed_role(c, primary))
     if not suppression:
@@ -384,17 +397,21 @@ class RiskEngine:
                 hits = [r for r in hits if r.target_letter == rule.relation_target_letter]
             if not hits:
                 return None
+            # 정규화된 대상 서명(감수 9차) — 독립 대상 판정을 '다른 글자'가 아니라
+            # 궁위+자리+글자+십성의 대상 객체 서명으로 한다. 같은 충을 잡은 일반 룰과
+            # 대상 룰은 같은 hits를 집계하므로 서명이 같다(같은 원인 = 같은 서명).
             palaces = sorted({r.palace.value for r in hits})
-            sig = f"relation:{kind.value}:" + "+".join(palaces)
-            # 피자극 십성을 서명에 **항상** 포함 — 대상 조건이 있는 룰과 없는 룰이 같은
-            # 충을 잡았을 때 서명이 갈라져 독립 출처가 부풀려지는 것을 막는다(같은 원인
-            # 사실 = 같은 서명). 대상이 다르면 실제로 다른 글자를 친 다른 사실이다.
+            positions = sorted({r.position for r in hits})
+            letters = sorted({r.target_letter for r in hits if r.target_letter})
             gods = sorted({
                 r.target_ten_god.value for r in hits if r.target_ten_god is not None
             })
+            sig_parts = [f"relation:{kind.value}", "+".join(palaces), "+".join(positions)]
+            if letters:
+                sig_parts.append("+".join(letters))
             if gods:
-                sig += ":" + "+".join(gods)
-            parts.append(sig)
+                sig_parts.append("+".join(gods))
+            parts.append(":".join(sig_parts))
             layers.append(facts.layer.value)
             palace = palaces[0] if len(palaces) == 1 else None
 

@@ -363,7 +363,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "5f3d62e1ca8ea51d"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "SEL_WAITLIST_DELAY",

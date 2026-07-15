@@ -231,7 +231,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "16b5db5fb32102c6"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "HLT_CONDITION_DECLINE",

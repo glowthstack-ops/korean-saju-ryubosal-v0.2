@@ -7577,3 +7577,26 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
   LEG 전 항목 경고·top10 이탈. 잔여 경고 = CAR_WORK_OVERLOAD 41.8%(직업 차수).
   pytest 1829 passed·ruff·mypy clean.
 - 다음: LEG 6항목 표본 감수 → 직업·시험·선발 차수(C3).
+
+### 위험 엔진 C2 마감 — LEG 승격 조건 6종 + shadow_structure 전환 (2026-07-15)
+
+- **흡수 역전 방지(조건1)**: 대표 우선순위 = 구조 적격성 → 노출 적격성 → 특이도.
+  confirmed_required인데 CONFIRMED가 아닌 후보는 노출 가능 후보를 흡수 불가 —
+  UNKNOWN이면 대표=DISPUTE_RISK(escalation은 구조 보존), CONFIRMED이면 escalation이
+  흡수, DENIED면 BLOCKED(fixture 3상태 고정).
+- **reviewEnvironmentVersion 도입(조건6)**: 억제 의미 변경과 동시 도입 —
+  RISK_REVIEW_ENVIRONMENT_VERSION="risk-engine-r0.5.4", reviewed 항목은 감수 당시
+  버전 스탬프·불일치 시 lint 실패(사전 불변이어도 엔진 의미 변경=재감수).
+- **대상 서명 정규화(조건2)**: 관계 서명에 궁위+자리+글자+십성(target_object_signature)
+  — '다른 글자'만으로 병존 판정하지 않음.
+- **fixture(조건3~5)**: LEG 6항목 양성 전수 + DOC 문서 대상 없는 유사 음성(RCW 소관
+  분리) + RCW 단독 양성·흡수 역할 recall. 커버리지 게이트에 LEG_POSITIVE_IDS 편입.
+- **LEG 6항목 shadow_structure 승격**(reviewVersions C2) — reviewed 총 19항목(대표7+
+  FIN6+LEG6), 전체 env 버전+v4 해시 스탬프. RISK_ENGINE_MODE는 계속 off.
+- **87 카운트 설명(조건 — 숫자 불일치 해소)**: validate_dictionaries의 87은 위험
+  엔트리 수가 아니라 **사전 JSON 파일 수**다. risks/는 도메인 7파일 고정이라 분리로
+  항목이 45개(44+분리1)가 돼도 파일 수는 불변.
+- 테스트 60건. 검증: pytest 1830 passed·ruff·mypy clean.
+- **다음(C3 착수 전 확정 필요)**: CAR_WORK_OVERLOAD·SEL_COMPETITION_INTENSIFY의
+  kind 재분류(pressure 유지 vs 구체 incident 분리) — 범용 관성·경쟁 신호 단독 발동
+  제거가 선행 과제.

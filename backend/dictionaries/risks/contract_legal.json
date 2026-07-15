@@ -91,7 +91,7 @@
         "취소 발생 단정"
       ],
       "note": "C2 개정 — 종료·분리형(충+문서 동반) shape + 문서 대상 활성 필수. 노출 UNKNOWN이면 '계약 진행 중이라면 조항 확인' 수준",
-      "reviewed": false,
+      "reviewed": true,
       "riskFamily": "contract",
       "specificityRank": 3,
       "evidenceContract": {
@@ -122,6 +122,16 @@
         "claimCeilingWhenUnknown": "watch",
         "deniedAction": "block",
         "notApplicableAction": "block"
+      },
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C2"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4",
+      "reviewHashes": {
+        "shadow_structure": "04f5446fb0aaaa33"
       }
     },
     {
@@ -214,7 +224,7 @@
         "계약서 오작성 단정"
       ],
       "note": "C2 개정 — 실제 서류·신청·계약 노출 + 문서 대상 활성 + 누락·왜곡 shape 필수. 검토력 약화만이면 REVIEW_CAPACITY_WEAK 소관",
-      "reviewed": false,
+      "reviewed": true,
       "riskFamily": "contract",
       "specificityRank": 3,
       "evidenceContract": {
@@ -240,6 +250,16 @@
         "claimCeilingWhenUnknown": "watch",
         "deniedAction": "block",
         "notApplicableAction": "block"
+      },
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C2"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4",
+      "reviewHashes": {
+        "shadow_structure": "f1f28b897d2715c8"
       }
     },
     {
@@ -377,7 +397,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "d84b9de0ec0b1bf7"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "LEG_ADMIN_DELAY",
@@ -449,7 +470,7 @@
         "처리 결과 단정"
       ],
       "note": "C2 개정 — incident→pressure 강등(승인 지연·대기·보완 요청은 절차 압박). 활성 신청·심사 미확인 시 일반 총운 노출 금지",
-      "reviewed": false,
+      "reviewed": true,
       "riskFamily": "procedure",
       "evidenceContract": {
         "anyOf": [
@@ -478,6 +499,16 @@
         "claimCeilingWhenUnknown": "advisory",
         "deniedAction": "block",
         "notApplicableAction": "block"
+      },
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C2"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4",
+      "reviewHashes": {
+        "shadow_structure": "02c2c3c24ea86840"
       }
     },
     {
@@ -598,7 +629,17 @@
         "notApplicableAction": "block"
       },
       "note": "C2 신설(분리) — 분쟁≠소송: 활성 계약·청구·행정 관계 전제의 이견·분쟁 가능성. 형+관성 동반(책임 시비) shape 필수",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C2"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4",
+      "reviewHashes": {
+        "shadow_structure": "a946a2c82008ce97"
+      }
     },
     {
       "riskId": "LEG_LITIGATION_ESCALATION",
@@ -716,7 +757,17 @@
         "notApplicableAction": "block"
       },
       "note": "C2 신설(분리) — 기존 분쟁·법적 절차 CONFIRMED 전제의 확대·장기화. UNKNOWN이면 advisory(일반 노출 금지). 같은 family로 DISPUTE_RISK(2)를 흡수(3)",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C2"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4",
+      "reviewHashes": {
+        "shadow_structure": "75bb900fc68cbeac"
+      }
     },
     {
       "riskId": "LEG_REVIEW_CAPACITY_WEAK",
@@ -785,7 +836,7 @@
         "판단 능력 부족 단정"
       ],
       "note": "C2 개정 — GI_STRONG 단독 발동 제거(문서 영역 활성 동반 structural_weakness 필수). 독립 경고보다 CONTRACT_CANCEL·DOCUMENT_ERROR의 background_vulnerability 흡수 우선",
-      "reviewed": false,
+      "reviewed": true,
       "riskFamily": "contract",
       "allowedClaimScope": [
         "확인할 조건이 늘어나는 시기 안내"
@@ -793,6 +844,16 @@
       "claimCeiling": "advisory",
       "exposurePolicy": {
         "requirement": "not_required"
+      },
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C2"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4",
+      "reviewHashes": {
+        "shadow_structure": "b3550e51ec1f1f35"
       }
     }
   ]

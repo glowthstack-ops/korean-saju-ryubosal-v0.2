@@ -131,7 +131,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "e830607fd5e88f19"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "FIN_UNEXPECTED_EXPENSE",
@@ -278,7 +279,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "b04b0405cf49c90b"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "FIN_INVESTMENT_LOSS",
@@ -418,7 +420,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "64b2e99d41040014"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "FIN_DEBT_GUARANTEE_BURDEN",
@@ -553,7 +556,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "41e8cc01c662470d"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "FIN_INCOME_DELAY",
@@ -665,7 +669,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "f0be8637a9ced362"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "FIN_SETTLEMENT_DISPUTE",
@@ -803,7 +808,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "10b4a061e216485b"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "FIN_BUFFER_WEAK",
@@ -887,7 +893,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "39f417ae5225a380"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     }
   ]
 }

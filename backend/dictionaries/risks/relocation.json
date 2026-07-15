@@ -130,7 +130,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "3ecf175cdcb325ff"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "MOV_SCHEDULE_DISRUPTION",

@@ -1036,6 +1036,10 @@ class RiskItem(_AliasModel):
     # 감수 무효화 가드(감수 6차 — 범위별 해시): scope→감수 당시 해당 범위 본문 해시.
     # 현재 해시와 다르면 lint 실패(본문을 고치면 그 범위 감수가 자동 무효 — 재스탬프).
     review_hashes: dict[str, str] = Field(alias="reviewHashes", default_factory=dict)
+    # 감수 당시 엔진 의미론 버전(감수 9차) — RISK_REVIEW_ENVIRONMENT_VERSION과 대조.
+    review_environment_version: str | None = Field(
+        default=None, alias="reviewEnvironmentVersion",
+    )
     # 현실 노출 정책(감수 6차) — note가 아니라 기계 판독 필드. R1이 소비한다.
     exposure_policy: RiskExposurePolicy | None = Field(default=None, alias="exposurePolicy")
     # 교차 도메인 파생 효과 — 후보 복제 대신 주 도메인 후보에 부착(예: contract_review_needed).
@@ -1076,6 +1080,11 @@ class RiskItem(_AliasModel):
 # active 밀도가 변하는데 구조 감수 해시가 유지되는 구멍 차단. claimCeilingWhenUnknown은
 # 표현 정책이라 exposure 해시 유지.
 _RISK_HASH_SCHEMA_VERSION = 4
+# 매처·억제 의미론 버전(감수 9차 도입) — matcher/eligibility/cause atom/suppression의
+# 의미가 바뀔 때 올린다. reviewed 항목은 감수 당시 이 값을 스탬프하며, 불일치 시 lint
+# 실패(사전 JSON이 그대로여도 엔진 의미가 바뀌면 재감수 대상).
+# r0.5.4: 흡수 대표 우선순위에 노출 적격성 추가 + 관계 대상 서명 정규화(궁위·자리·글자·십성).
+RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.4"
 
 
 def risk_scope_hash(item: RiskItem, scope: str) -> str:
@@ -1742,6 +1751,12 @@ def _lint_reviewed_risk_item(
         errors.append(
             f"{rel}: reviewed:true는 reviewScopes 명시 필수(shadow_structure 등 — "
             f"사용자 노출 승인과 구분) — {item.risk_id}"
+        )
+    if item.review_environment_version != RISK_REVIEW_ENVIRONMENT_VERSION:
+        errors.append(
+            f"{rel}: 엔진 의미론 버전 불일치(감수 당시 "
+            f"{item.review_environment_version} ≠ 현재 "
+            f"{RISK_REVIEW_ENVIRONMENT_VERSION}) — 재감수 필요 — {item.risk_id}"
         )
     for scope in item.review_scopes:
         if scope not in item.review_versions:

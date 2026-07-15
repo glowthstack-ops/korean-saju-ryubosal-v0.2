@@ -233,7 +233,8 @@
       },
       "reviewHashes": {
         "shadow_structure": "9e7a674a56d9d302"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
     },
     {
       "riskId": "CAR_EVALUATION_DISADVANTAGE",
