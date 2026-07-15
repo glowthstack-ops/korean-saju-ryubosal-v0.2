@@ -161,9 +161,9 @@
       "reviewVersions": {
         "shadow_structure": "C3"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "505e26ef2fb79401"
+        "shadow_structure": "d1bb56009c273b03"
       }
     },
     {
@@ -300,9 +300,9 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "38e5062b784cfc71"
+        "shadow_structure": "e9a5fb230bec255d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7"
     },
     {
       "riskId": "CAR_EVALUATION_SETBACK_RISK",
@@ -430,9 +430,9 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "242e1563a48d7291"
+        "shadow_structure": "b25e0848755238f2"
       }
     },
     {
@@ -560,9 +560,9 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "cef7518afecb0954"
+        "shadow_structure": "0543959e2a367b40"
       }
     },
     {
@@ -694,9 +694,9 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "239842138b21ab90"
+        "shadow_structure": "97877f9b8e24a8e4"
       }
     },
     {
@@ -804,9 +804,9 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "cce9187a6a2d3704"
+        "shadow_structure": "3fb99e9ed8b7fd8e"
       }
     },
     {
@@ -921,7 +921,7 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C3-b 신설(HIRING_DELAY_REJECTION 분리 — 결과 incident) · 감수 15차: 공망 shape→amplifier 강등 — shape=결정·통지 어긋남(해+관성 동반), 최종 판단 대상 직접 충·형 활성. 실제 지원 노출 필요. CAR primary, SEL 자동 중복 생성 금지",
+      "note": "C3-b 신설(HIRING_DELAY_REJECTION 분리 — 결과 incident) · 감수 15차: 공망 shape→amplifier 강등 — shape=결정·통지 어긋남(해+관성 동반), 최종 판단 대상 직접 충·형 활성. 실제 지원 노출 필요. 감수 16차: 결과 단계 게이트 — stage= result_wait/final_decision에서만 적용(지원·면접 단계 어긋남은 미적용, 절차 지연은 HIRING_PROCESS_DELAY 소관). CAR primary, SEL 자동 중복 생성 금지",
       "reviewed": true,
       "applicableTargetTypes": [
         "employment_hiring"
@@ -930,12 +930,16 @@
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3-d"
+        "shadow_structure": "C4-f"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "f0cc2c8d35d82dda"
-      }
+        "shadow_structure": "449ae6c347cb1a91"
+      },
+      "applicableSelectionStages": [
+        "result_wait",
+        "final_decision"
+      ]
     }
   ]
 }

@@ -129,9 +129,9 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "fee16628ce2ca225"
+        "shadow_structure": "8ec28b459e6bb3b3"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7"
     },
     {
       "riskId": "MOV_SCHEDULE_DISRUPTION",

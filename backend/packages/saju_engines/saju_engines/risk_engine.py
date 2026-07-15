@@ -132,6 +132,11 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
     흡수된 후보는 삭제하지 않고 suppressed_by_specificity/primary_risk_id를 남긴다 —
     대표 후보의 부가 설명(보조 발현·배경 취약성)으로 쓴다. relatedDomains 복제 금지의
     코드 표현: 교차 도메인이라도 family가 같으면 대표 1건으로 수렴한다.
+
+    relationship 도메인(감수 16차)은 흡수 범위가 family가 아니라 '같은 상대'다: 같은
+    상대·같은 원인에서 나온 감정 충돌·오해·신뢰 저하·거리감이 family가 달라도 대표
+    1건+보조 역할로 수렴한다. 다른 target_id(배우자 vs 친구) 또는 다른 확인 역할은
+    별개 그룹 — 서로 억제하지 않는다(같은 십성군이라도 상대가 다르면 병존).
     """
     candidates_ok = [
         c for c in cands
@@ -140,7 +145,14 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
     ]
     by_key: dict[tuple[str, str], list[RiskCandidate]] = {}
     for c in candidates_ok:
-        by_key.setdefault((c.period_key, c.risk_family or ""), []).append(c)
+        if c.domain is RiskDomain.RELATIONSHIP:
+            # 도메인 전체가 한 흡수 범위 — 상대 호환성(target_id·역할 상이 시 흡수
+            # 금지)은 그룹 내부에서 검사한다: 상대 미상(None) 일반 후보가 매칭된
+            # 대표(배우자 재조정 등)에 흡수되는 주 경로를 보존하기 위함이다.
+            key = (c.period_key, "\x00relationship")
+        else:
+            key = (c.period_key, "\x00family:" + (c.risk_family or ""))
+        by_key.setdefault(key, []).append(c)
 
     def _atoms(c: RiskCandidate) -> set[str]:
         return {
@@ -160,27 +172,81 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
     for group in by_key.values():
         if len(group) < 2:
             continue
-        # 대표 우선순위(감수 9차): 구조적 적격성(이미 필터) → 노출 적격성 → 특이도.
+        # 대표 우선순위(감수 9차 → 17차 결정화): 구조적 적격성(이미 필터) → 노출
+        # 적격성 → 구체 상대(target_id) → 역할 특정 → 특이도 → canonical risk_id
+        # 타이브레이크. 사전 항목 순서·iteration 순서에 무관한 결정적 비교자다(같은
+        # 입력은 저작 순서를 바꿔도 같은 대표를 선택 — 결정성 fixture 고정).
         # 불변식: 더 구체적이지만 더 엄격한 exposure를 요구하는 후보는, 그 exposure가
         # 충족되지 않은 상태에서 더 일반적이고 노출 가능한 후보를 흡수할 수 없다
         # (소송 확대가 노출 미확인 상태로 일반 분쟁 경고를 지우는 역전 방지).
-        ordered = sorted(group, key=lambda c: (not _exposure_ok(c), -c.specificity_rank))
-        primary = ordered[0]
-        primary_atoms = _atoms(primary)
-        for c in ordered[1:]:
-            if c.specificity_rank >= primary.specificity_rank:
-                continue  # 동률은 억제하지 않는다(서로 다른 구체 사건 병존 허용).
-            if not _exposure_ok(primary) and _exposure_ok(c):
-                continue  # 노출 부적격 대표는 노출 가능 후보를 흡수 불가.
-            # stage-aware(감수 14차) — 양쪽 stage 메타가 명시적으로 다르면(교집합 없음)
-            # 상호 배타 단계 후보라 같은 family여도 흡수하지 않는다(서류 단계 vs 대기명단).
-            if (
-                primary.selection_stages and c.selection_stages
-                and not (set(primary.selection_stages) & set(c.selection_stages))
-            ):
-                continue
-            if _atoms(c) & primary_atoms:
+        # 감수 16차 일반화 — 그룹 최상위 1건만이 아니라 선호 순서대로 '원인을 공유하는
+        # 첫 적격 대표'를 찾는다(관계 도메인처럼 한 그룹에 서로 다른 상대의 대표가
+        # 공존할 때 최상위와 원인이 무관하면 차선 대표가 흡수). 이미 흡수된 후보는
+        # 대표가 될 수 없다(대표 체인 금지 — primary_risk_id는 항상 활성 대표:
+        # A├─B supporting └─C trajectory, B→C 체인 없음).
+        ordered = sorted(group, key=lambda c: (
+            not _exposure_ok(c),
+            c.relationship_target_id is None,
+            c.relationship_role is None,
+            -c.specificity_rank,
+            c.risk_id,
+        ))
+        for c in ordered:
+            for primary in ordered:
+                if primary is c or id(primary) in suppression:
+                    continue
+                if c.specificity_rank >= primary.specificity_rank:
+                    continue  # 동률은 억제하지 않는다(서로 다른 구체 사건 병존 허용).
+                if not _exposure_ok(primary) and _exposure_ok(c):
+                    continue  # 노출 부적격 대표는 노출 가능 후보를 흡수 불가.
+                # stage-aware(감수 14차) — 양쪽 stage 메타가 명시적으로 다르면(교집합
+                # 없음) 상호 배타 단계 후보라 같은 family여도 흡수하지 않는다.
+                if (
+                    primary.selection_stages and c.selection_stages
+                    and not (set(primary.selection_stages) & set(c.selection_stages))
+                ):
+                    continue
+                # 상대 상이(감수 16차) — 확인된 target_id 또는 역할이 서로 다르면 다른
+                # 상대의 위험이다(배우자 재조정이 친구 금전·가족 부담을 흡수 금지 —
+                # 같은 십성군이라도 병존). 미확인(None)은 같은 상대일 수 있어 통과.
+                if (
+                    c.relationship_target_id and primary.relationship_target_id
+                    and c.relationship_target_id != primary.relationship_target_id
+                ):
+                    continue
+                if (
+                    c.relationship_role and primary.relationship_role
+                    and c.relationship_role != primary.relationship_role
+                ):
+                    continue
+                shared = _atoms(c) & _atoms(primary)
+                if not shared:
+                    continue
+                if c.domain is RiskDomain.RELATIONSHIP:
+                    # 같은 상대 판정 강화(감수 17차) — target_id 미확인 후보를 한
+                    # 상대처럼 합치지 않는다: 같은 target_id가 아니면 **관계 사실
+                    # (relation 원자 — 대상 객체 서명 내장)** 공유가 필수다. 십성
+                    # 유입 원자(겁재 등)만 공유한 두 후보는 서로 다른 현실 상대일 수
+                    # 있다(부모 부담 vs 형제 오해).
+                    same_person = (
+                        c.relationship_target_id is not None
+                        and c.relationship_target_id == primary.relationship_target_id
+                    )
+                    if not same_person and not any(
+                        a.startswith("relation:") for a in shared
+                    ):
+                        continue
+                    # 명시적 수렴 관계(감수 17차) — cross-family 흡수는 사전이
+                    # absorbedRoleHint로 수렴을 허용한 항목만(감정 충돌·소통·신뢰·
+                    # 거리감). FAMILY_BURDEN·PEER_FINANCIAL처럼 별개 현실 문제인
+                    # 항목은 같은 상대·같은 원인이어도 자동 흡수 금지.
+                    if (
+                        c.risk_family != primary.risk_family
+                        and c.absorbed_role_hint is None
+                    ):
+                        continue
                 suppression[id(c)] = (primary.risk_id, _absorbed_role(c, primary))
+                break
     if not suppression:
         return cands
     return [
@@ -198,7 +264,11 @@ def _absorbed_role(absorbed: RiskCandidate, primary: RiskCandidate) -> str:
 
     R1에서 대표 후보의 impact(압박=예상 영향)·exposure(취약성=피해 확대 요인) 계산과
     보조 서술에 쓴다. vulnerability는 사건 후보보다 일반적이어도 버리지 않는다.
+    사전 absorbedRoleHint(감수 16차)가 있으면 kind 기본값 대신 그 역할을 쓴다
+    (감정 충돌=supporting_manifestation, 거리감=possible_trajectory 등).
     """
+    if absorbed.absorbed_role_hint is not None:
+        return absorbed.absorbed_role_hint
     if absorbed.kind is RiskKind.VULNERABILITY:
         return "background_vulnerability"
     if absorbed.kind is RiskKind.PRESSURE:
@@ -230,6 +300,106 @@ def _axis_alignment(ctx_value: str | None, allowed: list[str]) -> str:
     if ctx_value is None:
         return "unknown"
     return "matched" if ctx_value in allowed else "mismatched"
+
+
+@dataclass(frozen=True)
+class RelationshipContext:
+    """현실 관계 컨텍스트 1건(감수 16차 — REL 차수) — 프로필·동반자 등록·질문에서 확인된
+    관계다. 관계 위험은 십성·궁위만으로 현실의 상대를 만들어내지 않는다: 배우자궁 충은
+    관계 영역의 구조적 활성일 뿐, "배우자가 있다/갈등한다"는 이 컨텍스트가 공급한다.
+
+    공급원: ①2단계 프로필(결혼·가족 — 항상 선택, 부재≠DENIED) ②동반자 등록·관계힌트
+    (테마사주·AI채팅의 궁합/함께보기 — 등록된 동반자는 role·target_id가 확인된 관계)
+    ③질문 명시("남자친구랑…"). target_id는 실명이 아니라 동일 기간 서로 다른 상대를
+    구분하는 익명 대상 서명(동반자 프로필 키 등) — 배우자 감정 충돌과 친구 금전 문제가
+    서로 억제되지 않게 한다.
+
+    is_question_target: 이 관계가 질문의 직접 대상(궁합·함께보기·비교 질문)인지 —
+    True인 컨텍스트의 역할이 항목 허용 밖이면 MISMATCHED(BLOCKED, fallback 금지).
+    False 컨텍스트는 존재 정보일 뿐이라 불일치해도 UNKNOWN(다른 상대가 있을 수 있음).
+    """
+
+    target_role: str | None = None  # _RISK_RELATIONSHIP_ROLES 값(None=역할 미확인)
+    target_id: str | None = None  # 익명 대상 서명 — 같은 상대 억제·동반자 후보 선별
+    exposure_status: ExposureStatus = ExposureStatus.UNKNOWN  # 이 관계에 대한 노출
+    financial_tie: bool | None = None  # 금전 거래·공동 비용·대여·보증·정산(None=미확인)
+    shared_responsibility: bool | None = None  # 돌봄·재정·주거·의사결정 책임(None=미확인)
+    relationship_status: str | None = None  # 교제·별거 등 상태 — R1 소비 예약
+    current_contact_state: str | None = None  # 교류 상태 — R1 소비 예약
+    is_question_target: bool = False
+
+
+# 유효 노출 선호 순서 — 같은 항목에 매칭된 관계가 여럿이면 가장 유리한(가장 확인된)
+# 상대 기준으로 후보를 만든다(둘 다 위험하면 R2 Episode가 상대별로 분리).
+_EXPOSURE_PREFERENCE = {
+    ExposureStatus.CONFIRMED: 3, ExposureStatus.UNKNOWN: 2,
+    ExposureStatus.DENIED: 1, ExposureStatus.NOT_APPLICABLE: 0,
+}
+
+
+def _effective_ctx_exposure(
+    item: RiskItem, ctx: RelationshipContext,
+) -> ExposureStatus:
+    """한 관계 컨텍스트의 유효 노출 — 실질 조건(금전 관계·공동 책임)을 반영한다.
+
+    조건 요구 항목에서 컨텍스트 값이 False면 그 관계에 대해 DENIED(명시적 부재),
+    None(미확인)이면 CONFIRMED여도 UNKNOWN으로 강등한다 — 겁재·재성만으로 "친구에게
+    돈을 빌려줬다"를 추론하지 않는다(감수 16차 불변식).
+    """
+    policy = item.exposure_policy
+    eff = ctx.exposure_status
+    if policy is None:
+        return eff
+    for required, value in (
+        (policy.requires_financial_tie, ctx.financial_tie),
+        (policy.requires_shared_responsibility, ctx.shared_responsibility),
+    ):
+        if not required:
+            continue
+        if value is False:
+            return ExposureStatus.DENIED
+        if value is None and eff is ExposureStatus.CONFIRMED:
+            eff = ExposureStatus.UNKNOWN
+    return eff
+
+
+def _resolve_relationship(
+    item: RiskItem,
+    contexts: list[RelationshipContext] | None,
+    default_exposure: ExposureStatus,
+) -> tuple[str, str | None, str | None, ExposureStatus]:
+    """관계 축 3상태 + 유효 노출 유도 → (alignment, role, target_id, exposure).
+
+    관계 역할·실질 조건이 없는 항목은 관계 축과 무관하다(matched, 전역 노출 사용).
+    역할 지정 항목: ①허용 역할의 컨텍스트가 있으면 matched — 가장 확인된 상대 기준
+    ②없고, 질문 직접 대상(is_question_target)의 확인된 역할이 허용 밖이면 mismatched
+    (BLOCKED) ③그 외는 unknown — 유효 노출 UNKNOWN(구조 보존, 조건부 표현 가부는
+    exposurePolicy 소관). 컨텍스트 부재는 관계 부재(DENIED)가 아니다.
+    """
+    policy = item.exposure_policy
+    needs_context = bool(item.applicable_relationship_roles) or (
+        policy is not None
+        and (policy.requires_financial_tie or policy.requires_shared_responsibility)
+    )
+    if not needs_context:
+        return "matched", None, None, default_exposure
+    allowed = item.applicable_relationship_roles
+    ctxs = contexts or []
+    matching = [
+        c for c in ctxs
+        if c.target_role is not None and (not allowed or c.target_role in allowed)
+    ]
+    if not matching:
+        if any(
+            c.is_question_target and c.target_role is not None
+            and allowed and c.target_role not in allowed
+            for c in ctxs
+        ):
+            return "mismatched", None, None, ExposureStatus.UNKNOWN
+        return "unknown", None, None, ExposureStatus.UNKNOWN
+    scored = [(_effective_ctx_exposure(item, c), c) for c in matching]
+    eff, best = max(scored, key=lambda pair: _EXPOSURE_PREFERENCE[pair[0]])
+    return "matched", best.target_role, best.target_id, eff
 
 
 @dataclass(frozen=True)
@@ -311,6 +481,7 @@ class RiskEngine:
         facts: RawPeriodFacts,
         exposure_status: ExposureStatus = ExposureStatus.UNKNOWN,
         selection_context: SelectionContext | None = None,
+        relationship_contexts: list[RelationshipContext] | None = None,
     ) -> list[RiskCandidate]:
         """한 시점의 원시 신호에서 원자 위험 후보를 생성한다.
 
@@ -328,7 +499,11 @@ class RiskEngine:
         Args:
             facts: 원시 신호 스냅샷.
             exposure_status: 사용자 노출 상태 — R0 기본 UNKNOWN(프로필 배선은 R1/R5).
-                미입력을 숫자 중간값으로 대체하지 않는다.
+                미입력을 숫자 중간값으로 대체하지 않는다. 관계 역할이 지정된 항목은
+                이 전역값 대신 relationship_contexts에서 유효 노출을 유도한다.
+            selection_context: 현실 선발 컨텍스트(감수 14차).
+            relationship_contexts: 확인된 현실 관계 목록(감수 16차) — 미제공(None/[])은
+                관계 정보 부재(UNKNOWN)이지 관계 부재(DENIED)가 아니다.
 
         Returns:
             생성된 원자 RiskCandidate 목록(관측 후보 포함 — 활성 판정은 is_active).
@@ -358,7 +533,14 @@ class RiskEngine:
             triggers = [e for e in evidences if e.role is EvidenceRole.TRIGGER]
             if not triggers:
                 continue  # 관측 없음 — 후보 자체를 만들지 않는다.
-            status, reasons = self._evaluate(item, evidences, triggers, exposure_status)
+            # RelationshipContext(감수 16차) — 관계 역할 지정 항목의 유효 노출은 전역
+            # 파라미터가 아니라 매칭된 현실 관계에서 유도한다(존재 추론 금지).
+            rel_alignment, rel_role, rel_target_id, effective_exposure = (
+                _resolve_relationship(item, relationship_contexts, exposure_status)
+            )
+            status, reasons = self._evaluate(
+                item, evidences, triggers, effective_exposure,
+            )
             # SelectionContext 3상태(감수 14차) — MISMATCHED는 명시적 부적용(BLOCKED,
             # 임의 fallback 금지). UNKNOWN은 구조 보존(노출은 is_exposable이 차단).
             ctx = selection_context or SelectionContext()
@@ -378,6 +560,11 @@ class RiskEngine:
                 alignment = "unknown"
             else:
                 alignment = "matched"
+            # 관계 축 MISMATCHED — 질문 직접 대상의 역할이 항목 허용 밖(궁합 대상이
+            # 사업 파트너인데 배우자 전용 항목 등). fallback 없이 차단한다.
+            if rel_alignment == "mismatched":
+                status = EligibilityStatus.BLOCKED
+                reasons = list(reasons) + ["relationship_role_mismatch"]
             out.append(RiskCandidate(
                 risk_id=item.risk_id,
                 domain=RiskDomain(item.domain),
@@ -387,7 +574,7 @@ class RiskEngine:
                 manifestation_ids=[m.id for m in item.manifestations],
                 evidence=evidences,
                 score_components=None,  # R1에서 산출
-                exposure_status=exposure_status,
+                exposure_status=effective_exposure,
                 exposure_requirement=(
                     item.exposure_policy.requirement
                     if item.exposure_policy is not None else "not_required"
@@ -397,10 +584,25 @@ class RiskEngine:
                 suppression_reasons=reasons,
                 specificity_rank=_specificity_rank(item),
                 selection_alignment=alignment,
+                relationship_alignment=rel_alignment,
+                relationship_role=rel_role,
+                relationship_target_id=rel_target_id,
                 selection_stages=list(item.applicable_selection_stages),
+                # UNKNOWN 노출 차등(감수 17차) — 역할 특정 관계 항목은 관계가 확인
+                # 되거나 질문 대상일 때(alignment=matched)만 조건부 노출 가능. 총운·
+                # 재물운처럼 관계가 질문 대상이 아닌 컨텍스트에서 partner·peer 후보가
+                # 상시 조건부 경고로 반복 노출되는 것을 기계적으로 차단한다.
                 exposable_when_unknown=(
-                    item.exposure_policy.unknown_exposable
-                    if item.exposure_policy is not None else True
+                    (item.exposure_policy.unknown_exposable
+                     if item.exposure_policy is not None else True)
+                    and (rel_alignment == "matched"
+                         or not item.applicable_relationship_roles)
+                ),
+                absorbed_role_hint=item.absorbed_role_hint,
+                # 교차 도메인 연결 키(감수 17차) — 같은 원인의 FIN·REL 병존 후보를
+                # R1(중복 1회 점수)·R2(episode 병합·대표 1개)가 연결하는 재료.
+                trigger_cause_atoms=sorted(
+                    {a for e in triggers for a in cause_atoms(e.source)}
                 ),
             ))
         return _apply_specificity_suppression(out)

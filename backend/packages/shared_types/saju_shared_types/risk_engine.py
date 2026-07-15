@@ -181,6 +181,17 @@ class RiskCandidate(BaseModel):
     # SelectionContext 3상태(감수 14차) — matched/unknown/mismatched. mismatched는
     # BLOCKED로 이어지며, unknown은 구조 보존 + mode·stage 특정 표현 금지.
     selection_alignment: str = "matched"
+    # RelationshipContext 3상태(감수 16차 — REL 차수) — matched/unknown/mismatched.
+    # mismatched(질문 직접 대상의 역할이 항목 허용 밖 — 궁합·함께보기 등)는 BLOCKED.
+    # unknown은 selection과 달리 hard 비노출이 아니다: 유효 노출이 UNKNOWN으로 유도되어
+    # exposurePolicy(unknownExposable·claimCeilingWhenUnknown)가 조건부 표현("현재
+    # 관계가 있다면") 가부를 정한다 — 관계 존재를 단정하는 표현은 어느 경우에도 금지.
+    relationship_alignment: str = "matched"
+    # 매칭된 현실 관계(감수 16차): role=관계 역할(spouse/friend_peer 등), target_id=
+    # 익명 대상 서명(동반자 프로필 키 등) — 동일 기간 서로 다른 상대 구분, '같은 상대'
+    # 기준 억제, 궁합·함께보기에서 해당 동반자 관련 REL 후보 선별에 쓴다(실명 저장 금지).
+    relationship_role: str | None = None
+    relationship_target_id: str | None = None
     # 항목의 stage 메타(사전 applicableSelectionStages 복사) — stage-aware suppression용.
     selection_stages: list[str] = Field(default_factory=list)
     # UNKNOWN 노출 가부(사전 exposurePolicy.unknownExposable) — is_exposable이 소비.
@@ -189,8 +200,17 @@ class RiskCandidate(BaseModel):
     # R1에서 대표 후보의 impact/exposure 계산·보조 서술에 쓴다:
     # supporting_manifestation(같은 도메인 하위 사건) / impact_amplifier(압박 — 예상 영향)
     # / background_vulnerability(취약성 — 피해 확대 요인) / secondary_domain_effect(교차
-    # 도메인 파생).
+    # 도메인 파생) / possible_trajectory(대표 위험 진행 시의 궤적 — 감수 16차, 거리감 등
+    # 독립 발현이 아니라 전개 방향 서술 전용).
     absorbed_role: str | None = None
+    # 사전 absorbedRoleHint 복사(감수 16차) — 흡수 시 kind 기본값 대신 쓸 역할.
+    # 관계 도메인 cross-family 흡수 허용 마커를 겸한다(감수 17차 — 미지정 항목은
+    # 같은 상대·같은 원인이어도 family 밖 대표에 자동 흡수되지 않는다).
+    absorbed_role_hint: str | None = None
+    # trigger 원인 원자(정렬·중복 제거) — 교차 도메인 연결 키(감수 17차): 같은 원인의
+    # FIN·REL 병존 후보를 R1(independent cause·occurrence 1회 계산)·R2(episode 병합
+    # 시 대표 1개 선택)가 연결하는 재료. cause_signature/episode key의 원천.
+    trigger_cause_atoms: list[str] = Field(default_factory=list)
 
 
 def is_active(candidate: RiskCandidate) -> bool:
@@ -221,6 +241,10 @@ def is_exposable(candidate: RiskCandidate) -> bool:
     ①selection 정렬이 unknown/mismatched가 아니고 ②UNKNOWN 비노출 항목
     (unknownExposable=false, 예: 대기명단)은 노출 CONFIRMED여야 한다. R3는 이 함수가
     True인 후보만 표현 정책 대상으로 삼는다 — "대기명단일 수 있다면" 류 우회 금지.
+
+    관계 축(감수 16차)은 별도 분기가 없다: mismatched는 생성 시 BLOCKED(is_active에서
+    탈락), unknown은 유효 노출 UNKNOWN으로 유도되어 위 ②(unknownExposable)가 그대로
+    지배한다 — 관계 항목의 조건부 표현 가부는 사전 exposurePolicy가 정한다.
     """
     if not is_active(candidate):
         return False

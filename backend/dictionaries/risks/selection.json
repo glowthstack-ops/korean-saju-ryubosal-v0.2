@@ -125,9 +125,9 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "c353a714683075cc"
+        "shadow_structure": "918d2d4003a4bb96"
       }
     },
     {
@@ -252,9 +252,9 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "b746ec33837671a8"
+        "shadow_structure": "60e8441075a86889"
       }
     },
     {
@@ -379,9 +379,9 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "ba1fcd564fb6c702"
+        "shadow_structure": "c7c94f80e9004fd4"
       }
     },
     {
@@ -505,9 +505,9 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "eb26b1148b03e67d"
+        "shadow_structure": "dcb74b8a5170a2ec"
       }
     },
     {
@@ -620,9 +620,9 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "63529e176e240c00"
+        "shadow_structure": "18a2d6c49a1789a8"
       }
     },
     {
@@ -743,9 +743,9 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "469a26f172f4a57a"
+        "shadow_structure": "8398324d3bc197ba"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "applicableTargetTypes": [
         "examination",
         "public_selection",
@@ -875,9 +875,9 @@
       "reviewVersions": {
         "shadow_structure": "C3"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
       "reviewHashes": {
-        "shadow_structure": "e8898ed5adfbefad"
+        "shadow_structure": "d903517bd30f4708"
       },
       "applicableTargetTypes": [
         "examination",

@@ -205,6 +205,48 @@ RelationFact provenance: 궁위(palace) · 자리(position: stem/branch) · 피�
 건강·안전 도메인은 질병명·사망을 단정하지 않고 **부담 부위와 위험 행동을 경고**하는
 방식으로만 저작한다(`prohibitedClaims` + 기존 PROHIBITIONS 계열 준수).
 
+### 3-3. 관계 컨텍스트 — `RelationshipContext` (감수 16차 · env r0.5.7)
+
+REL 차수 불변식: **관계 위험은 십성·궁위만으로 현실의 상대를 만들어내지 않는다.**
+배우자궁 충은 관계 영역의 구조적 활성일 뿐이며, "현재 연인·배우자가 있다/갈등한다/
+소원해진다"는 전부 현실 노출(RelationshipContext)이 공급한다.
+
+- 필드: `target_role`(역할 어휘: current_partner/spouse/dating_partner/family_member/
+  friend_peer/business_partner/colleague/broader_social) · `target_id`(익명 대상 서명 —
+  실명 저장 금지, 동반자 프로필 키 등) · `exposure_status` · `financial_tie` ·
+  `shared_responsibility` · `relationship_status`/`current_contact_state`(R1 예약) ·
+  `is_question_target`.
+- 공급원: ①2단계 프로필(항상 선택 — 부재≠DENIED) ②동반자 등록·관계힌트 —
+  **테마사주·AI채팅의 궁합/함께보기에서는 등록된 동반자가 role·target_id 확인된
+  컨텍스트로 주입된다**(궁합 대상은 `is_question_target=true`) ③질문 명시. R3/R5에서
+  companion 레이어·프로필과 배선한다.
+- 3상태: 허용 역할 컨텍스트 존재=`matched`(그 관계의 유효 노출 사용) / 질문 직접
+  대상의 확인 역할이 허용 밖=`mismatched`(BLOCKED, fallback 금지 — 친구 궁합에서
+  배우자 항목 미생성) / 그 외=`unknown`(유효 노출 UNKNOWN — 구조 보존).
+- **UNKNOWN 노출 차등(감수 17차)**: 역할 특정 항목의 조건부 표현("현재 관계가
+  있다면")은 `matched`(관계 확인 또는 관계가 질문 대상 — 연애운 질문 등)에서만 —
+  `unknown`이면 unknownExposable=true여도 비노출(총운·재물운에서 partner·peer 후보
+  상시 조건부 경고 반복 차단, 엔진이 exposable_when_unknown을 기계적으로 끔). 역할
+  무관 항목은 기존대로 exposurePolicy가 정한다. `is_question_target`은 "질문의 직접
+  분석 대상"만 의미한다 — exposure·금전 거래·공동 책임·관계 상태를 자동 확인하지
+  않는다(궁합 대상이어도 financial_tie 미확인=UNKNOWN 유지).
+- 유효 노출 유도: `requiresFinancialTie`(대인 금전 사건)·`requiresSharedResponsibility`
+  (가족 부담) — 컨텍스트 값 False→해당 관계 DENIED, None(미확인)→CONFIRMED여도
+  UNKNOWN 강등. 겁재·재성만으로 "친구에게 돈을 빌려줬다"를 추론하지 않는다.
+- partner DENIED → partner-specific 후보 BLOCKED, **일반 대인 pressure로 자동 전환
+  금지**(fallback 금지 불변식).
+- 억제 확장: relationship 도메인의 흡수 범위는 family가 아니라 **같은 상대**(같은
+  period + target_id·역할 호환) — 같은 상대·같은 원인의 감정 충돌·오해·신뢰 저하·
+  거리감은 대표 1건 + 보조 역할(supporting_manifestation/background_vulnerability/
+  possible_trajectory)로 수렴하고, 다른 상대(배우자 A vs 친구 B)는 원인을 공유해도
+  병존한다. 감수 17차 강화: ①target_id 미확인 후보를 한 상대처럼 합치지 않는다 —
+  같은 target_id가 아니면 **관계 사실(relation 원자) 공유 필수**(십성 유입 공유만으로
+  수렴 금지: 부모 부담 vs 형제 오해) ②cross-family 흡수는 사전 `absorbedRoleHint`로
+  수렴이 명시된 항목만(감정 충돌·소통·신뢰·거리감) — FAMILY_BURDEN·PEER_FINANCIAL은
+  같은 상대·같은 원인이어도 별개 현실 문제라 자동 흡수 금지 ③대표 선택은 사전 순서
+  무관 결정적 비교자(노출 적격→구체 상대(target_id)→역할 특정→specificityRank→
+  canonical risk_id).
+
 파이프라인: 절대 원칙 5 그대로 — validate(`scripts/validate_dictionaries.py`, 스키마
 `RiskMappingFile` 등록·lint `_lint_risk_mapping`) → compile → regression → 배포.
 
@@ -270,10 +312,19 @@ recovery는 현재 후보의 적격성이나 점수를 낮추지 않는다.
 전환이다** — 흡수 후보는 `absorbed_role`을 부여받아 대표 아래에서 유지된다:
 `supporting_manifestation`(동일 도메인 하위 사건) / `impact_amplifier`(압박 — 예상
 영향, R1 impact 계산) / `background_vulnerability`(취약성 — 피해 확대 요인, R1
-exposure 계산) / `secondary_domain_effect`(교차 도메인 파생). family가 다르면(재성
+exposure 계산) / `secondary_domain_effect`(교차 도메인 파생) / `possible_trajectory`(감수 16차 —
+대표 위험 진행 시의 궤적, 거리감 등 전개 방향 서술 전용). 사전 `absorbedRoleHint`가
+있으면 kind 기본값 대신 그 역할을 쓴다. family가 다르면(재성
 피격→지출 vs 배우자궁 피격→관계 재조정) 같은 충에서 나와도 별개 위험으로 병존한다.
 `relatedDomains`는 후보 복제용이 아니라 주 도메인 후보에 파급 도메인을 부착하는
 용도다 — 독립 추가 근거가 있을 때만 교차 도메인 후보를 별도 생성한다.
+
+감수 16차 일반화: 대표는 그룹 최상위 1건 고정이 아니라 **선호 순서(노출 적격성 →
+특이도)대로 원인을 공유하는 첫 적격 대표**를 후보별로 찾는다(이미 흡수된 후보는 대표
+불가 — `primary_risk_id`는 항상 활성 대표). relationship 도메인의 억제 범위는 §3-3
+(같은 상대)을 따른다. 같은 원인의 FIN·REL 교차 도메인 동시 활성(예: 겁재-재성 충 →
+FIN_UNEXPECTED_EXPENSE + 대인 금전 사건)의 대표 선정은 R2 Episode 병합 소관 —
+R0.5는 양쪽 구조 보존(REL 쪽은 노출 CONFIRMED 전 비노출이라 사용자 중복 없음).
 
 ### 4-1. protection ≠ recovery (필수 분리)
 
@@ -308,6 +359,17 @@ risk_priority = occurrence × impact × exposure + persistence + compound − pr
   - compound는 **별도의 다른 risk_id 연결이 있을 때만** 반영.
 - 연쇄 구조(직업 갈등→퇴사 압박→소득 감소→현금흐름 악화)는 개별 사건 3개가 아니라
   **복합 위험 시나리오**로 묶는다(compound).
+- **possible_trajectory 불변식(감수 17차)**: trajectory로 흡수된 후보(거리감 등)는
+  "현재 압박이 지속될 경우 나타날 수 있는 후속 양상"으로 한정한다 — occurrence 점수
+  증가·독립 원인 수 증가·별도 incident 생성·위험 등급 상승에 **일절 기여 금지**.
+  독립된 추가 원인이 있을 때만 별도 active 후보가 될 수 있다(그 경우 흡수되지 않음).
+  표현도 "관계가 멀어진다"가 아니라 "조율이 오래 지연되면 거리감이 커질 수 있다"
+  수준으로 제한.
+- **교차 도메인 1회 계산 불변식(감수 17차)**: 같은 원인(공유 relation 원자 —
+  `RiskCandidate.trigger_cause_atoms`가 연결 키)에서 생성된 FIN+REL 병존 후보는
+  구조 후보 2개를 보존하되, independent cause **1회**·occurrence 직접 점수 **1회**만
+  계산하고 사용자 risk budget에서는 R2가 대표 1개를 선택한다(양쪽 노출 확인 시에도
+  중복 노출 금지 — episode 병합 키에 trigger_cause_atoms 교집합 사용).
 
 ### 5-1. exposure 정책 (미입력 숫자 대체 금지)
 

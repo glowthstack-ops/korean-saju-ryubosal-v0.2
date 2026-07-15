@@ -961,15 +961,33 @@ _RISK_SELECTION_MODES = (
 # 선발 단계(감수 13차) — mode와 독립 축(상호 자동 추론 금지: stage=draw여도 mode를
 # lottery로 가정하지 않는다). MATCHED/UNKNOWN/MISMATCHED 3상태는 R3 노출 판정 소비
 # (UNKNOWN=구조 보존·특정 표현 금지, MISMATCHED=NOT_APPLICABLE·임의 fallback 금지).
-# 현 R0.5 엔진 적격성에는 미사용(사전 메타데이터) — 적격성 사용 시 env r0.5.6 필수.
+# r0.5.6부터 엔진 적격성이 실제 소비(3상태 → mismatched=BLOCKED).
+# final_decision(감수 16차): 내부 승인·최종 판단이 **실제 진행 중**인 단계에만 부여 —
+# 사용자가 결과를 궁금해한다는 이유만으로 추론 금지(데굴님 제한). result_wait와 함께
+# HIRING_OUTCOME_SETBACK류 '결과 단계' 항목의 게이트로 쓴다(지원·면접 단계 오적용 차단).
 _RISK_SELECTION_STAGES = (
     "application_document", "eligibility_check", "assessment", "draw",
-    "result_wait", "waitlist", "placement_allocation",
+    "result_wait", "final_decision", "waitlist", "placement_allocation",
 )
 # 선발 대상 유형(감수 14차) — CAR·SEL 소유권 라우팅: 채용=CAR primary, 그 외=SEL.
 _RISK_TARGET_TYPES = (
     "employment_hiring", "examination", "public_selection", "lottery_allocation",
     "placement", "procurement_bid",
+)
+# 관계 역할 유형(감수 16차 — REL 차수) — 관계 위험은 십성·궁위만으로 현실의 상대를
+# 만들어내지 않는다: 항목이 적용 가능한 관계 역할을 명시하고, 현실 역할·노출은
+# RelationshipContext(프로필·동반자 등록·궁합/함께보기 질문 대상)가 공급한다.
+# 테마사주·AI채팅 궁합 풀이에서는 동반자 관계힌트가 이 역할 어휘로 매핑된다.
+_RISK_RELATIONSHIP_ROLES = (
+    "current_partner", "spouse", "dating_partner", "family_member",
+    "friend_peer", "business_partner", "colleague", "broader_social",
+)
+# 흡수 역할 힌트 어휘(감수 16차) — 항목이 대표 후보에 흡수될 때 갖는 역할을 사전에서
+# 지정(kind 기반 기본값 대체). possible_trajectory: 대표 위험이 진행될 경우의 궤적
+# (거리감 증가 등) — 독립 발현이 아니라 전개 방향 서술 전용.
+_RISK_ABSORBED_ROLES = (
+    "supporting_manifestation", "impact_amplifier", "background_vulnerability",
+    "secondary_domain_effect", "possible_trajectory",
 )
 
 # exposurePolicy 유효값(감수 6차) — 현실 노출 정책을 note가 아닌 기계 판독 필드로.
@@ -1000,6 +1018,16 @@ class RiskExposurePolicy(_AliasModel):
     # (구조 후보만 보존, "~일 수 있다면" 표현도 금지). 기계 판독 — is_exposable이 소비.
     unknown_exposable: bool = Field(default=True, alias="unknownExposable")
     fallback_risk_id: str | None = Field(default=None, alias="fallbackRiskId")
+    # 관계 노출 실질 조건(감수 16차 — REL 차수): 관계 역할 존재만으로는 부족한 항목의
+    # 추가 노출 요건. requiresFinancialTie=실제 금전 거래·공동 비용·대여·보증·정산 관계
+    # (대인 금전 사건은 이것 없이 구체 사건 노출 금지). requiresSharedResponsibility=
+    # 돌봄·가족 재정·동거/주거·가족 의사결정 중 1개 이상의 실제 책임(가족 부담 항목).
+    # 엔진 유도: 조건 True인데 컨텍스트 값 False→해당 관계에 대해 DENIED, None(미확인)
+    # →CONFIRMED여도 UNKNOWN으로 강등(존재 추론 금지).
+    requires_financial_tie: bool = Field(default=False, alias="requiresFinancialTie")
+    requires_shared_responsibility: bool = Field(
+        default=False, alias="requiresSharedResponsibility",
+    )
 
     @model_validator(mode="after")
     def _validate_policy(self) -> RiskExposurePolicy:
@@ -1084,6 +1112,15 @@ class RiskItem(_AliasModel):
     applicable_target_types: list[str] = Field(
         alias="applicableTargetTypes", default_factory=list,
     )
+    # 적용 가능한 관계 역할(감수 16차 — REL 차수): 미지정=역할 무관(일반 대인).
+    # 지정 항목은 RelationshipContext의 역할·노출로 유효 노출을 유도하며, 질문 직접
+    # 대상(궁합·함께보기)의 역할이 목록 밖이면 MISMATCHED(차단, fallback 금지).
+    applicable_relationship_roles: list[str] = Field(
+        alias="applicableRelationshipRoles", default_factory=list,
+    )
+    # 흡수 시 역할 힌트(감수 16차) — 대표 후보에 흡수될 때 kind 기본값 대신 쓸 역할
+    # (감정 충돌=supporting_manifestation, 거리감=possible_trajectory 등).
+    absorbed_role_hint: str | None = Field(default=None, alias="absorbedRoleHint")
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
@@ -1123,6 +1160,18 @@ class RiskItem(_AliasModel):
                 raise ValueError(
                     f"applicableTargetTypes 값 오류: {tt} ({self.risk_id})"
                 )
+        for role in self.applicable_relationship_roles:
+            if role not in _RISK_RELATIONSHIP_ROLES:
+                raise ValueError(
+                    f"applicableRelationshipRoles 값 오류: {role} ({self.risk_id})"
+                )
+        if (
+            self.absorbed_role_hint is not None
+            and self.absorbed_role_hint not in _RISK_ABSORBED_ROLES
+        ):
+            raise ValueError(
+                f"absorbedRoleHint 값 오류: {self.absorbed_role_hint} ({self.risk_id})"
+            )
         return self
 
 
@@ -1134,7 +1183,12 @@ class RiskItem(_AliasModel):
 # notApplicable action·fallbackRiskId)를 structure 해시에 편입 — deniedAction 변경으로
 # active 밀도가 변하는데 구조 감수 해시가 유지되는 구멍 차단. claimCeilingWhenUnknown은
 # 표현 정책이라 exposure 해시 유지.
-_RISK_HASH_SCHEMA_VERSION = 4
+# v5(감수 16차): ①적용 가능성 축(applicableSelectionModes/Stages/TargetTypes/
+# RelationshipRoles)을 structure 해시에 편입 — 축이 MISMATCHED→BLOCKED를 만드는 구조적
+# 상태 재료인데 어느 해시에도 없던 구멍 차단(v4의 exposurePolicy와 같은 원칙).
+# ②requiresFinancialTie/SharedResponsibility(노출 유도 상태 재료)를 structure 해시에,
+# ③absorbedRoleHint(흡수 역할 — 대표·흡수 소관)를 selection 해시에 편입.
+_RISK_HASH_SCHEMA_VERSION = 5
 # 매처·억제 의미론 버전(감수 9차 도입) — matcher/eligibility/cause atom/suppression의
 # 의미가 바뀔 때 올린다. reviewed 항목은 감수 당시 이 값을 스탬프하며, 불일치 시 lint
 # 실패(사전 JSON이 그대로여도 엔진 의미가 바뀌면 재감수 대상).
@@ -1143,16 +1197,25 @@ _RISK_HASH_SCHEMA_VERSION = 4
 # 원인에 속해야 적격(무관 신호의 느슨한 조합 차단, 감수 11차).
 # r0.5.6: SelectionContext(mode/stage/target_type) 3상태(MATCHED/UNKNOWN/MISMATCHED)를
 # 엔진 적격성에 실제 소비 + stage-aware suppression + 소유권 차단(감수 14차 C3-d).
-RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.6"
+# r0.5.7(감수 16·17차 — REL 차수): RelationshipContext(역할·target_id·관계별 노출·실질
+# 조건)를 적격성에 소비 — 관계 항목의 유효 노출은 전역 파라미터가 아니라 매칭 컨텍스트
+# 에서 유도. 억제는 relationship 도메인에서 family를 넘어 '같은 상대(target_id·역할)'
+# 기준으로 확장(감정충돌·오해·신뢰·거리감의 동일 원인 확산을 대표 1건+보조 역할로 수렴).
+# 17차 확정: ①대표 선택은 사전 순서 무관 결정적 비교자(노출 적격→구체 상대→역할 특정→
+# 특이도→risk_id) ②REL cross-family 흡수는 absorbedRoleHint 명시 항목 + 같은 target_id
+# 또는 관계 사실(relation 원자) 공유 필수(십성 유입 공유만으로 다른 상대 수렴 금지)
+# ③역할 특정 항목의 UNKNOWN 조건부 노출은 alignment=matched(관계 확인·질문 대상)에서만.
+RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.7"
 
 
 def risk_scope_hash(item: RiskItem, scope: str) -> str:
     """감수 범위별 본문 해시 — 범위별 감수 무효화 가드(감수 6차).
 
-    범위별 해시 대상: shadow_structure=kind·룰 4종·minimumEvidence·evidenceContract /
-    scoring=baseImpact·specificityRank(등급·가중 재료) / selection=riskFamily·
-    relatedDomains·crossDomainEffects·specificityRank(흡수·소유권) / exposure=
-    manifestations·claim 정책·exposurePolicy. 결정적이며 키 순서·공백에 무관하다.
+    범위별 해시 대상: shadow_structure=kind·룰 4종·minimumEvidence·evidenceContract·
+    상태 변경 exposure 조건·적용 가능성 축(v5) / scoring=baseImpact(등급·가중 재료) /
+    selection=riskFamily·relatedDomains·crossDomainEffects·specificityRank·
+    absorbedRoleHint(흡수·소유권) / exposure=manifestations·claim 정책·exposurePolicy.
+    결정적이며 키 순서·공백에 무관하다.
     """
     if scope == "shadow_structure":
         body: dict = {
@@ -1171,7 +1234,7 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
                 if item.evidence_contract is not None else None
             ),
             # 상태 변경 exposurePolicy 필드 — 구조적 적격성(BLOCKED 등)을 바꾸므로
-            # structure 감수 대상(v4).
+            # structure 감수 대상(v4). 관계 실질 조건(v5)도 유효 노출 상태를 바꾼다.
             "exposureEligibility": (
                 {
                     "requirement": item.exposure_policy.requirement,
@@ -1179,9 +1242,20 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
                     "deniedAction": item.exposure_policy.denied_action,
                     "notApplicableAction": item.exposure_policy.not_applicable_action,
                     "fallbackRiskId": item.exposure_policy.fallback_risk_id,
+                    "requiresFinancialTie": item.exposure_policy.requires_financial_tie,
+                    "requiresSharedResponsibility": (
+                        item.exposure_policy.requires_shared_responsibility
+                    ),
                 }
                 if item.exposure_policy is not None else None
             ),
+            # 적용 가능성 축(v5) — MISMATCHED→BLOCKED의 재료(축 변경=구조 재감수).
+            "applicability": {
+                "selectionModes": sorted(item.applicable_selection_modes),
+                "selectionStages": sorted(item.applicable_selection_stages),
+                "targetTypes": sorted(item.applicable_target_types),
+                "relationshipRoles": sorted(item.applicable_relationship_roles),
+            },
         }
     elif scope == "scoring":
         body = {"baseImpact": item.base_impact}
@@ -1191,6 +1265,7 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
             "relatedDomains": sorted(item.related_domains),
             "crossDomainEffects": sorted(item.cross_domain_effects),
             "specificityRank": item.specificity_rank,
+            "absorbedRoleHint": item.absorbed_role_hint,  # 흡수 역할(v5)
         }
     elif scope == "exposure":
         body = {

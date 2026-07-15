@@ -1,0 +1,90 @@
+{
+  "review_environment_version": "risk-engine-r0.5.7",
+  "hash_schema_version": 5,
+  "reviewed_total": 37,
+  "unreviewed_total": 10,
+  "reviewed_by_scope": {
+    "shadow_structure": 37
+  },
+  "reviewed_by_domain": {
+    "career": {
+      "reviewed": 7,
+      "unreviewed": 0
+    },
+    "contract_legal": {
+      "reviewed": 7,
+      "unreviewed": 0
+    },
+    "finance": {
+      "reviewed": 7,
+      "unreviewed": 0
+    },
+    "health_safety": {
+      "reviewed": 1,
+      "unreviewed": 5
+    },
+    "relationship": {
+      "reviewed": 7,
+      "unreviewed": 0
+    },
+    "relocation": {
+      "reviewed": 1,
+      "unreviewed": 5
+    },
+    "selection": {
+      "reviewed": 7,
+      "unreviewed": 0
+    }
+  },
+  "reviewed_risk_ids": [
+    "CAR_EVALUATION_SETBACK_RISK",
+    "CAR_EXIT_PRESSURE",
+    "CAR_HIRING_OUTCOME_SETBACK",
+    "CAR_HIRING_PROCESS_DELAY",
+    "CAR_ORG_CONFLICT",
+    "CAR_REASSIGNMENT_RISK",
+    "CAR_WORK_OVERLOAD",
+    "FIN_BUFFER_WEAK",
+    "FIN_CASHFLOW_PRESSURE",
+    "FIN_DEBT_GUARANTEE_BURDEN",
+    "FIN_INCOME_DELAY",
+    "FIN_INVESTMENT_LOSS",
+    "FIN_SETTLEMENT_DISPUTE",
+    "FIN_UNEXPECTED_EXPENSE",
+    "HLT_CHRONIC_FLAREUP",
+    "LEG_ADMIN_DELAY",
+    "LEG_CONTRACT_CANCEL",
+    "LEG_DISPUTE_RISK",
+    "LEG_DOCUMENT_ERROR",
+    "LEG_LITIGATION_ESCALATION",
+    "LEG_PENALTY_LIABILITY",
+    "LEG_REVIEW_CAPACITY_WEAK",
+    "MOV_CONTRACT_FAIL",
+    "REL_COMMUNICATION_MISALIGNMENT",
+    "REL_DISTANCE_PRESSURE",
+    "REL_EMOTIONAL_CLASH",
+    "REL_FAMILY_BURDEN",
+    "REL_PARTNER_READJUST",
+    "REL_PEER_FINANCIAL_ENTANGLEMENT_RISK",
+    "REL_TRUST_STABILITY_WEAK",
+    "SEL_COMPETITION_INTENSIFY",
+    "SEL_DOCUMENT_DEFECT_RISK",
+    "SEL_DRAW_OUTCOME_UNCERTAINTY",
+    "SEL_ELIGIBILITY_REVIEW_RISK",
+    "SEL_RESULT_DELAY_PRESSURE",
+    "SEL_UNWANTED_PLACEMENT",
+    "SEL_WAITLIST_PROLONGATION"
+  ],
+  "unreviewed_risk_ids": [
+    "HLT_CHECKUP_NEED",
+    "HLT_CONDITION_DECLINE",
+    "HLT_FATIGUE_ACCUMULATION",
+    "HLT_FOCUS_DROP",
+    "HLT_MOBILITY_ACCIDENT_CAUTION",
+    "MOV_COMMUTE_BURDEN",
+    "MOV_DEFECT_REPAIR_COST",
+    "MOV_SCHEDULE_DISRUPTION",
+    "MOV_UNWANTED_MOVE",
+    "MOV_VEHICLE_TRANSPORT_ISSUE"
+  ]
+}

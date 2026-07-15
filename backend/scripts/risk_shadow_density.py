@@ -36,6 +36,7 @@ from saju_shared_types.ganji_calendar import GanjiLevel  # noqa: E402
 from saju_shared_types.risk_engine import (  # noqa: E402
     EligibilityStatus,
     EvidenceRole,
+    RiskDomain,
     RiskKind,
     is_active,
 )
@@ -144,6 +145,27 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
         if key not in seen_dfp:
             seen_dfp.add(key)
             domain_family_periods[c.domain.value] += 1
+    # REL 차수 지표(감수 16차) — '같은 관계 작용 하나가 여러 위험 이름으로 복제'를
+    # 직접 측정: REL 활성 family/기간 + REL 단일 원인 확산(목표: 같은 원인 활성 REL
+    # family ≤1, 독립 발현 시 예외 2) + 흡수 역할 분포(대표 수렴이 실제 일어나는가).
+    # 관계 컨텍스트 부재 가정(전 REL UNKNOWN) — partner DENIED 오발동=0은 단위
+    # fixture(test_risk_rel_c5)가 고정한다.
+    rel_active = [c for c in active if c.domain is RiskDomain.RELATIONSHIP]
+    rel_fam_per_period: dict[str, set[str]] = defaultdict(set)
+    rel_cause_fanout: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for c in rel_active:
+        rel_fam_per_period[c.period_key].add(c.risk_family or c.risk_id)
+        for e in c.evidence:
+            if e.role is EvidenceRole.TRIGGER:
+                for atom in cause_atoms(e.source):
+                    if not atom.startswith("polarity:"):
+                        rel_cause_fanout[(c.period_key, atom)].add(
+                            c.risk_family or c.risk_id,
+                        )
+    rel_absorbed_roles: Counter = Counter(
+        c.absorbed_role for c in cands
+        if c.domain is RiskDomain.RELATIONSHIP and c.absorbed_role
+    )
     # 최장 연속 발동(월운 기준) — 평균이 낮아도 특정 위험이 계속 켜져 있으면 범용 룰 신호.
     month_labels = sorted(p.label for p in lc.monthly_luck)
     longest_streak: dict[str, int] = {}
@@ -177,6 +199,11 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
                           {c.period_key for c in cands} | set(active_per_period)] or [0],
         "family_per_period": [len(v) for v in fam_per_period.values()] or [0],
         "max_cause_fanout": max((len(v) for v in cause_fanout.values()), default=0),
+        "rel_active": len(rel_active),
+        "rel_family_per_period": [len(v) for v in rel_fam_per_period.values()] or [0],
+        "rel_max_cause_fanout": max(
+            (len(v) for v in rel_cause_fanout.values()), default=0),
+        "rel_absorbed_roles": dict(rel_absorbed_roles),
         "fire_rates": {rid: len(ps) / total for rid, ps in fire_periods.items() if total},
         "periods_with_active": len(active_per_period),
     }
@@ -249,6 +276,19 @@ def main() -> None:
     fanout_max = max((s["max_cause_fanout"] for s in totals), default=0)
     print(f"단일 원인 활성 family 확산 max: {fanout_max} (목표 ≤2, 예외 3)")
 
+    rel_fam_all = [x for s in totals for x in s.get("rel_family_per_period", [])]
+    rel_fanout_max = max((s.get("rel_max_cause_fanout", 0) for s in totals), default=0)
+    rel_roles: Counter = Counter()
+    for s in totals:
+        rel_roles.update(s.get("rel_absorbed_roles", {}))
+    print("\n## REL 차수 지표(감수 16차 — 관계 컨텍스트 부재=전 REL UNKNOWN 가정)")
+    print(f"REL 활성 family/기간(REL 활성 기간 기준): p50 "
+          f"{_percentile(rel_fam_all, 0.5):.0f} · p90 {_percentile(rel_fam_all, 0.9):.0f} "
+          f"· max {max(rel_fam_all, default=0)}")
+    print(f"REL 단일 원인 활성 family 확산 max: {rel_fanout_max} "
+          f"(목표 ≤1 · 독립 발현 형태 예외 2)")
+    print(f"REL 흡수 역할 분포(대표 수렴 실측): {dict(rel_roles) or '없음'}")
+
     # 발동률 분모 정의: 해당 위험이 1회 이상 활성인 '적용 차트'만 집계에 포함된다
     # (agg_fire에 없는 차트는 미적용). 코퍼스 평균은 적용 차트 평균이다.
     print("\n## 항목별 평균 발동률 top10 (활성 기준 · 분모=적용 차트 수)")
@@ -270,6 +310,8 @@ def main() -> None:
             warn.append(f"{rid} 최장 연속 발동 {streak}/{n_months}개월 (>50% — 범용 룰 의심)")
     if fanout_max > 3:
         warn.append(f"단일 원인 확산 {fanout_max} family (>3)")
+    if rel_fanout_max > 2:
+        warn.append(f"REL 단일 원인 확산 {rel_fanout_max} family (>2 — 관계 복제 의심)")
     if n_periods and n_inc / n_periods > 1.5:
         warn.append("active incident/기간 > 1.5")
     print("\n경고 신호:" if warn else "\n경고 신호: 없음(목표 범위)")

@@ -227,3 +227,85 @@ application_document/eligibility_check/assessment/draw/result_wait/waitlist/
 placement_allocation)** 2축 — C3-c에서 stage 축 추가 시 적격성 영향이면
 reviewEnvironmentVersion 갱신. 커밋 구조: C3-a(두 pressure 마감 — 완료) →
 C3-b(CAR 4) → C3-c(SEL 4 + mode/stage 모델).
+
+## 8. REL 차수(C5 — 감수 16차) manifest (데굴님 착수 조건 7건 고정)
+
+**차수 불변식(데굴님 확정)**: 관계 위험은 십성이나 궁위만으로 현실의 상대를
+만들어내지 않으며, 동일한 상대와 동일한 원인에서 나온 감정 충돌·오해·신뢰 저하·
+거리감은 하나의 대표 위험과 보조 발현으로 정리한다.
+
+착수 조건 반영: ①pressure·vulnerability·조건부 incident 재분류(아래 표) ②역할별
+exposure(RelationshipContext — partner/family/peer/business) ③같은 상대·같은 원인
+대표+흡수 역할(supporting_manifestation/background_vulnerability/possible_trajectory)
+④배우자궁 활성≠partner exposure 분리(UNKNOWN=조건부, DENIED=차단·fallback 금지)
+⑤PEER_FINANCIAL과 FIN 소유권 분리(requiresFinancialTie·confirmed_required·R2 병합
+소관 명시) ⑥관계 컨텍스트 적격성 사용 → env `risk-engine-r0.5.7` + 해시 v5(적용
+가능성 축·관계 실질 조건 편입) — reviewed 30항목 재스탬프 ⑦reviewed 수량 자동
+manifest(`scripts/risk_review_manifest.py` → `doc/v2_2/RISK_REVIEW_MANIFEST.json`,
+회귀 `tests/regression/test_risk_review_manifest.py`).
+
+| 이전 항목 | 처리 | kind | family | rank | 역할/노출 |
+|---|---|---|---|---|---|
+| REL_PARTNER_READJUST | 재저작(reviewed 반납 — 재감수 대상) | incident→**pressure** | relationship_adjustment | 3 | spouse·current_partner·dating_partner / required_for_exposure(UNKNOWN=advisory 조건부) |
+| REL_EMOTIONAL_CLASH | 재저작 | incident→**pressure** | communication_conflict | 2 | 역할 무관 / 흡수 힌트 supporting_manifestation |
+| REL_MISUNDERSTANDING_SLIP | **개명** REL_COMMUNICATION_MISALIGNMENT | incident→**pressure** | communication_conflict | 2 | 역할 무관 / 흡수 힌트 supporting_manifestation |
+| REL_TRUST_EROSION | **개명** REL_TRUST_STABILITY_WEAK | pressure→**vulnerability** | relationship_stability | 1 | structural_weakness(겁재)+파 계약 — 단독 겁재 미활성 |
+| REL_DISTANCE_ESTRANGE | **개명** REL_DISTANCE_PRESSURE | **pressure** | relationship_stability | 1 | 공망·묘절·편인=amplifier 강등 / 흡수 힌트 possible_trajectory |
+| REL_FAMILY_BURDEN | 재저작 | **pressure** | family_responsibility | 3 | family_member / requiresSharedResponsibility(돌봄·재정·주거·의사결정 — 미확인 시 CONFIRMED 강등) |
+| REL_MONEY_BETWEEN_PEERS | **개명** REL_PEER_FINANCIAL_ENTANGLEMENT_RISK | **조건부 incident** | peer_finance | 3 | friend_peer·colleague·business_partner / confirmed_required+requiresFinancialTie, unknownExposable=false, 2독립 원인(multi_cause_only) |
+
+**C4-f(HOS 후속)**: CAR_HIRING_OUTCOME_SETBACK에 결과 단계 게이트
+`applicableSelectionStages: [result_wait, final_decision]`(어휘에 final_decision 신설)
+— 지원·면접 단계 통지 어긋남 미적용(절차 지연은 HIRING_PROCESS_DELAY), fixture 3종.
+
+**REL 밀도 실측(10차트, 세운+월운, 관계 컨텍스트 부재=전 REL UNKNOWN 가정)**:
+family 도메인 기여도 relationship 32%→**19%**(contract_legal 23%가 최대로 교대) ·
+REL 활성 family/기간 p50 1·p90 2·max 3 · REL 단일 원인 확산 max **2**(목표 ≤1·독립
+발현 예외 2 이내) · 흡수 역할 실측 possible_trajectory 13·supporting 6·background 4 ·
+REL 발동률 최고 FAMILY_BURDEN 27.7%(>40% 차트 0) · partner DENIED 오발동=0(단위
+fixture 고정). 전체 지표 개선: structural incident/기간 1.75→1.22, exposure-qualified
+0.65. 잔여 경고: 전역 단일 원인 확산 max 9(>3) — 미개정 MOV·HLT + 교차 도메인 관측
+후보가 원천(다음 차수 대상), LEG_REVIEW_CAPACITY_WEAK 37.3%(vulnerability 수동 검토
+대상 유지).
+
+**테마사주·AI채팅 궁합 연동(설계 고정, 배선 R3/R5)**: 궁합·함께보기의 동반자 관계힌트
+→ RelationshipContext(role·target_id 확인, `is_question_target=true`) — 친구 궁합에서
+배우자 항목 MISMATCHED 차단, 해당 동반자 관련 REL 후보만 target_id로 선별.
+
+상태: REL 7항목 reviewed:false(표본 감수 대기 — 승격 시 reviewed_total 30→37,
+자동 manifest로 확인).
+
+### 8-1. 감수 17차 — 커밋 전 필수 조건 7건 반영 (데굴님 조건부 승인 후속)
+
+1. **대표 선택 결정성**: 비교자=(노출 적격 → 구체 상대(target_id) → 역할 특정 →
+   specificityRank → canonical risk_id) — 사전 항목 순서 역순 엔진과 결과 동일
+   fixture(`test_representative_deterministic_under_item_order`). 대표 체인 금지 유지
+   (A├─B supporting └─C trajectory, B→C 없음).
+2. **target_id 미확인 수렴 제한**: 같은 target_id가 아니면 관계 사실(relation 원자 —
+   대상 객체 서명 내장) 공유 필수 — 십성 유입(겁재)만 공유한 부모 부담 vs 형제 오해
+   수렴 금지 fixture. 실측: 십성 원자 단독 흡수(background 4건)가 병존으로 전환.
+3. **is_question_target 의미 제한**: 질문 직접 대상만 의미 — exposure·금전 거래·공동
+   책임 자동 확인 금지 fixture(궁합 대상 친구 + financial_tie 미확인 → 비노출 유지).
+4. **FAMILY_BURDEN 월주 조건부**: 년주=단독 경로 유지, 월주=가족 육친 대상(인성=부모·
+   비겁군=형제) 피격 provenance 명시 발동만(월주 충+일반 기신 → 미생성 — 직업 변화의
+   가족 문제 오역 차단). 발동률 27.7%→20.0%. 배우자=PARTNER_READJUST 소유권 명시.
+5. **possible_trajectory R1 불변식 기록**(RISK_ENGINE.md §5): occurrence·독립 원인·
+   incident 생성·등급 상승 기여 금지, 표현 "지연되면 거리감이 커질 수 있다" 수준 한정.
+6. **교차 도메인 연결 키**: `RiskCandidate.trigger_cause_atoms`(정렬 trigger 원인
+   원자) — FIN·REL 같은 원인 병존 후보의 R1 1회 계산·R2 대표 1개 선택 재료.
+   공유 relation 원자 fixture 고정.
+7. **r0.5.6→r0.5.7 비REL diff 실측(10차트·비REL 2,759건)**: 기존 대표 변경 **0** ·
+   신규 흡수 **0** · 흡수 해제 **0** — 전역 알고리즘 변경의 비REL 무영향 확정.
+
+추가: UNKNOWN 노출 차등 — 역할 특정 항목의 조건부 노출은 alignment=matched(관계
+확인·질문 대상)에서만(엔진이 exposable_when_unknown 기계 차단), 연애 질문 fixture로
+조건부 경로 보존 확인. cross-family 흡수는 absorbedRoleHint 명시 항목만(TRUST에 hint
+명시 — FAMILY_BURDEN·PEER_FINANCIAL 자동 흡수 금지). final_decision 어휘 의미 제한
+(내부 승인·최종 판단 실제 진행 중 단계만 — 결과 궁금증만으로 추론 금지) 주석 고정.
+
+**재실측(17차 반영)**: relationship 기여 17%(3위 — contract_legal 23% 1위 유지:
+R1 진입 전 C2 cross-family 재검토 후보), REL family/기간 p50 1·p90 2·max 4(십성 원자
+단독 수렴 해제로 정당 병존 증가), REL 확산 max 2 유지, FAMILY_BURDEN 20.0%,
+전체 family p50 4·p90 8·max 13, 전역 확산 max 8(미개정 MOV·HLT 원천). 밀도는 전
+REL UNKNOWN 가정 — 3프로필 시나리오(all_unknown/typical_confirmed/high_exposure)
+재실측은 MOV·HLT 차수 후 예정.

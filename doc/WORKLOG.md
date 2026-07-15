@@ -7723,3 +7723,59 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
 - **다음: REL 6항목 차수**(family 기여 32% 최대) — 목표: 같은 관계 작용 하나가
   배우자·감정·가족·동업·사회관계 위험으로 복제되지 않도록 관계 대상·관계 exposure·
   역할별 대표 위험 분리.
+
+## 위험 엔진 REL 차수(C5 — 감수 16차) — RelationshipContext + 관계 7항목 재저작 + C4-f (2026-07-15)
+
+배경: C4 승인 시 데굴님 조건 — ①HOS 결과 단계 게이트 확인(부재 시 후속 패치)
+②reviewed 자동 manifest ③REL 착수 조건 7건(재분류·역할별 exposure·같은 상대 흡수·
+배우자궁≠현실 관계·FIN 소유권·env r0.5.7·수량 자동화). 추가 지시: 테마사주·AI채팅
+궁합/함께보기 풀이 고려.
+
+- **C4-f(HOS 후속)**: 결과 단계 게이트 부재 확인 → `applicableSelectionStages:
+  [result_wait, final_decision]`(어휘 신설) — 지원·면접 단계 통지 어긋남 미적용,
+  fixture 3종(matched/assessment 차단/단계 미확인 비노출).
+- **자동 manifest**: `scripts/risk_review_manifest.py` →
+  `doc/v2_2/RISK_REVIEW_MANIFEST.json`(reviewed_total/by_scope/by_domain/ids/env/해시
+  버전) + 회귀 `test_risk_review_manifest.py`(파일=재생성 일치 + 수량 정합 강제).
+- **RelationshipContext(env r0.5.7·해시 v5)**: 역할 8종 어휘·익명 target_id·관계별
+  exposure·financial_tie/shared_responsibility·is_question_target(궁합/함께보기 질문
+  대상). 3상태 matched/unknown/mismatched — mismatched=BLOCKED(fallback 금지),
+  unknown=유효 노출 UNKNOWN(조건부 표현은 exposurePolicy 소관 — selection 축과 다름).
+  requires* 유도: False→DENIED, None→CONFIRMED여도 UNKNOWN 강등(존재 추론 금지).
+  해시 v5: 적용 가능성 축(mode/stage/targetType/relationshipRole)+관계 실질 조건을
+  structure 해시에, absorbedRoleHint를 selection 해시에 편입(축 변경=재감수 구멍 차단).
+  reviewed 30항목 재스탬프(31-PARTNER_READJUST 재저작 반납).
+- **같은 상대 흡수**: relationship 도메인 억제 범위=family→같은 상대(target_id·역할
+  호환), cross-family 수렴. 대표 탐색 일반화(그룹 최상위 1건→선호 순서대로 원인 공유
+  첫 적격 대표, 흡수된 후보는 대표 불가). absorbed_role에 possible_trajectory 신설
+  (사전 absorbedRoleHint 데이터 주도).
+- **REL 7항목 재저작**: PARTNER_READJUST(incident→pressure, 역할 한정, 겁재·상관
+  amplifier 강등) · EMOTIONAL_CLASH(→pressure, 겁재/칠살 shape+비겁군 피격 linked) ·
+  COMMUNICATION_MISALIGNMENT(개명, 상관 shape+식상군 해·파) · TRUST_STABILITY_WEAK
+  (개명, vulnerability — structural_weakness+파 계약) · DISTANCE_PRESSURE(개명,
+  공망·묘절·편인 amplifier 강등, 흡수 시 possible_trajectory) · FAMILY_BURDEN
+  (년·월주 targeted, requiresSharedResponsibility) · PEER_FINANCIAL_ENTANGLEMENT_RISK
+  (개명, confirmed_required+requiresFinancialTie+2독립 원인, unknownExposable=false,
+  FIN 소유권: 같은 원인 동시 활성 대표 선정은 R2 병합 소관 — R0.5 양쪽 구조 보존).
+- **fixture(test_risk_rel_c5.py, 23종)**: 항목별 양성 recall 7 + 역할 분리(배우자궁/
+  가족궁/친구 금전) + partner 4상태(CONFIRMED 노출·UNKNOWN 조건부·DENIED 차단
+  +fallback 금지·N.A. 차단) + 같은 상대 확산 수렴(대표 1 family) + 다른 상대 병존 +
+  궁합 질문 대상 역할 불일치 차단 + requires* 축별 유도 + FIN-REL 소유권/병존 +
+  HOS 단계 게이트.
+- **밀도 실측**: relationship 기여 32%→19%, REL family/기간 p90 2, REL 단일 원인 확산
+  max 2(예외 한도 내), 흡수 역할 수렴 실측(trajectory 13·supporting 6·background 4),
+  structural incident/기간 1.75→1.22. 잔여: 전역 확산 max 9 — 미개정 MOV·HLT 원천.
+- 상태: REL 7항목 reviewed:false(표본 감수 대기 — 승격 시 30→37, manifest 확인).
+  RISK_ENGINE_MODE=off 유지. 검증: pytest passed·ruff·mypy clean(아래 게이트 실행).
+
+### C5 감수 17차 후속 — 커밋 전 필수 조건 7건 (2026-07-15)
+
+①대표 선택 결정적 비교자(노출 적격→구체 상대→역할 특정→rank→risk_id, 사전 역순
+fixture) ②target_id 미확인 수렴 제한(같은 상대 아니면 relation 원자 공유 필수 —
+십성 유입 단독 수렴 금지) ③is_question_target 자동 확인 금지 fixture ④FAMILY_BURDEN
+월주 경로=가족 육친 대상(인성·비겁군) 피격 명시 발동만(27.7%→20.0%) ⑤possible_
+trajectory R1 불변식 기록(occurrence·원인 수·등급 기여 금지) ⑥trigger_cause_atoms
+연결 키(FIN·REL 1회 계산·R2 대표 1개 재료) ⑦r0.5.6→r0.5.7 비REL diff: 2,759건 비교
+— 대표 변경 0·신규 흡수 0·해제 0(무영향 확정). UNKNOWN 차등: 역할 특정 항목 조건부
+노출은 matched(관계 질문·확인)에서만. cross-family 흡수=absorbedRoleHint 명시 항목만.
+재실측: REL 기여 17%, REL 확산 max 2, 전체 family p50 4·p90 8·max 13.

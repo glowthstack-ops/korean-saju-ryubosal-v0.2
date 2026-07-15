@@ -846,10 +846,12 @@ def test_every_reviewed_item_has_positive_fixture(engine: RiskEngine) -> None:
     )
     from tests.unit.test_risk_fin_c1 import FIN_POSITIVE_IDS
     from tests.unit.test_risk_leg_c2 import LEG_POSITIVE_IDS
+    from tests.unit.test_risk_rel_c5 import REL_POSITIVE_IDS
 
     covered = ({rid for rid, _ in _DOMAIN_CASES} | FIN_POSITIVE_IDS
                | LEG_POSITIVE_IDS | CAR_SEL_POSITIVE_IDS
-               | CAR_C3B_POSITIVE_IDS | SEL_C3C_POSITIVE_IDS)
+               | CAR_C3B_POSITIVE_IDS | SEL_C3C_POSITIVE_IDS
+               | REL_POSITIVE_IDS)
     assert reviewed_ids <= covered, (
         f"양성 fixture 없는 reviewed 항목: {sorted(reviewed_ids - covered)}"
     )
