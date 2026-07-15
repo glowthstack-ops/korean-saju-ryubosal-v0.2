@@ -7562,3 +7562,18 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
 - **다음: C2 = LEG 5항목**(REVIEW_CAPACITY_WEAK 45.5% 원인 제거, DISPUTE_LITIGATION
   노출 필수, FIN-LEG primary 구분: 돈=FIN/권리·의무·절차=LEG/독립 원인 양쪽=병존/
   파급만=primary+crossDomainEffects).
+
+### 위험 엔진 C2 — 계약·법률 6항목 저작 + 착수 조건 5종 (2026-07-15, 데굴님 C2 승인)
+
+- C2-a(60c6850): 상태 변경 exposurePolicy 필드 구조 해시 편입(hashSchemaVersion 4),
+  structural_weakness 그룹(vulnerability 전용 — occurrence/impact 역할 분리),
+  BUF 재분류·13항목 v4 재스탬프. 매처 의미론 불변 → reviewEnvironmentVersion 연기.
+- C2-b(62222ac): LEG_DISPUTE_LITIGATION을 DISPUTE_RISK(required_for_exposure)/
+  LITIGATION_ESCALATION(confirmed_required, 같은 family 흡수)으로 분리. ADMIN_DELAY
+  pressure 강등. REVIEW_CAPACITY_WEAK GI_STRONG 단독 제거(structural_weakness+문서
+  동반). CONTRACT_CANCEL·DOCUMENT_ERROR 대상·노출 계약. FIN-LEG primary fixture
+  (재성 형=FIN/관성 형=LEG/독립 대상=병존/흡수). 전부 reviewed:false — 감수 대기.
+- 밀도(10차트): structural incident 2.41→2.20, exposure-qualified 1.88(목표 1.5 근접),
+  LEG 전 항목 경고·top10 이탈. 잔여 경고 = CAR_WORK_OVERLOAD 41.8%(직업 차수).
+  pytest 1829 passed·ruff·mypy clean.
+- 다음: LEG 6항목 표본 감수 → 직업·시험·선발 차수(C3).
