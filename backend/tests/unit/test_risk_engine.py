@@ -858,16 +858,18 @@ def test_every_reviewed_item_has_positive_fixture(engine: RiskEngine) -> None:
     for path in sorted((_DICTS / "risks").glob("*.json")):
         data = _json.loads(path.read_text(encoding="utf-8"))
         reviewed_ids |= {i["riskId"] for i in data["items"] if i.get("reviewed")}
-    from tests.unit.test_risk_car_sel_c3 import (
+    # 같은 디렉토리 top-level import — 'tests.unit.' 접두를 쓰면 mypy가 동일 파일을
+    # 두 모듈명으로 중복 인식한다(tests/에 __init__.py 없음 — pytest는 rootdir 삽입).
+    from test_risk_car_sel_c3 import (
         CAR_C3B_POSITIVE_IDS,
         CAR_SEL_POSITIVE_IDS,
         SEL_C3C_POSITIVE_IDS,
     )
-    from tests.unit.test_risk_fin_c1 import FIN_POSITIVE_IDS
-    from tests.unit.test_risk_hlt_c7 import HLT_POSITIVE_IDS
-    from tests.unit.test_risk_leg_c2 import LEG_POSITIVE_IDS
-    from tests.unit.test_risk_mov_c6 import MOV_POSITIVE_IDS
-    from tests.unit.test_risk_rel_c5 import REL_POSITIVE_IDS
+    from test_risk_fin_c1 import FIN_POSITIVE_IDS
+    from test_risk_hlt_c7 import HLT_POSITIVE_IDS
+    from test_risk_leg_c2 import LEG_POSITIVE_IDS
+    from test_risk_mov_c6 import MOV_POSITIVE_IDS
+    from test_risk_rel_c5 import REL_POSITIVE_IDS
 
     covered = ({rid for rid, _ in _DOMAIN_CASES} | FIN_POSITIVE_IDS
                | LEG_POSITIVE_IDS | CAR_SEL_POSITIVE_IDS

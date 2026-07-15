@@ -1,6 +1,6 @@
 {
-  "review_environment_version": "risk-engine-r0.5.9",
-  "hash_schema_version": 7,
+  "review_environment_version": "risk-engine-r0.5.11",
+  "hash_schema_version": 8,
   "reviewed_total": 49,
   "unreviewed_total": 0,
   "reviewed_by_scope": {
@@ -60,10 +60,10 @@
     "HLT_RECOVERY_CAPACITY_WEAK",
     "HLT_TREATMENT_RECOVERY_LOAD",
     "LEG_ADMIN_DELAY",
-    "LEG_CONTRACT_CANCEL",
+    "LEG_CONTRACT_TERMINATION_RISK",
     "LEG_DISPUTE_RISK",
     "LEG_DOCUMENT_ERROR",
-    "LEG_LITIGATION_ESCALATION",
+    "LEG_LITIGATION_PROCESS_BURDEN",
     "LEG_PENALTY_LIABILITY",
     "LEG_REVIEW_CAPACITY_WEAK",
     "MOV_COMMUTE_BURDEN",

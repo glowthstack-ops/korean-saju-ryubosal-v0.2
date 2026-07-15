@@ -130,9 +130,9 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "301a4a5711d5e137"
+        "shadow_structure": "723ea6b6a95cf6b0"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "FIN_UNEXPECTED_EXPENSE",
@@ -278,9 +278,9 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "1d17000d018bcbc3"
+        "shadow_structure": "4d0be3c9927fc195"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "FIN_INVESTMENT_LOSS",
@@ -419,9 +419,9 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "0163b4496431ab28"
+        "shadow_structure": "be2fd2fff402ab00"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "FIN_DEBT_GUARANTEE_BURDEN",
@@ -555,9 +555,9 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "f8f623c3a8f6ab41"
+        "shadow_structure": "21e7f38f45f2a220"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "FIN_INCOME_DELAY",
@@ -668,9 +668,9 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "014cd0593862dd0a"
+        "shadow_structure": "cd47b290b8635889"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "FIN_SETTLEMENT_DISPUTE",
@@ -807,9 +807,9 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "9b0fbb6ea854a3da"
+        "shadow_structure": "cec146df50f0ee7d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "FIN_BUFFER_WEAK",
@@ -892,9 +892,9 @@
         "shadow_structure": "C2"
       },
       "reviewHashes": {
-        "shadow_structure": "8c3abc95d213cd6f"
+        "shadow_structure": "26546227afd72256"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     }
   ]
 }

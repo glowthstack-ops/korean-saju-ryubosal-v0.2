@@ -569,3 +569,88 @@ vulnerability 추적 신설: 활성/기간 1.20 · 대표 흡수 23 · 승격 �
 structural incident 1.00(감소분 구성: CHRONIC kind 재분류 주요인 — 트리거 강화·
 suppression 부차). **HLT 8항목 승격(C7) — reviewed 49(health 8/8, unreviewed 0)**,
 restamp 가드 49건 정합, baseline은 C7 확정 상태로 재기록.
+
+## 11. LEG 재검토 차수(C8 — 감수 23차) manifest (데굴님 착수 기준 9건 선행 고정)
+
+**차수 불변식(데굴님 확정)**: 문서·지연·계약·분쟁 신호가 있다는 이유만으로 모든
+절차가 법적 위험으로 복제되지 않게 하고, 실제로 진행 중인 계약·행정·분쟁 episode에
+해당하는 LEG 후보만 남긴다.
+
+1. **감수 반납**: LEG 6항목(CONTRACT_CANCEL·DOCUMENT_ERROR·ADMIN_DELAY·DISPUTE_RISK·
+   LITIGATION_ESCALATION·REVIEW_CAPACITY_WEAK) 착수 강등 — reviewed 49→**43**.
+   PENALTY_LIABILITY(대표 7)는 이번 차수 축 미부여 유지(**감수 질문** — 규정 위반·
+   책임 항목의 process 축 부여는 별도 판단).
+2. **LegalProcessContext 신설**(SelectionContext 어휘 재사용 금지 — 공통 3상태
+   판정기·episode identity·stage 억제·노출 게이트·결정적 병합만 공유):
+   process_episode_id · target_type 8종(contract/administrative_application/
+   permit_registration/settlement_recovery/rights_obligation/dispute/litigation/
+   claim_compensation) · stage 11종(drafting/negotiating/submission/review/
+   supplement_request/decision_wait/response_required/settlement/dispute_active/
+   litigation_active/closed) · exposure · existing_dispute · existing_litigation ·
+   document_responsibility/response_obligation(R1 예약) · is_question_target.
+3. 재분류·소유권: CONTRACT_CANCEL→**LEG_CONTRACT_TERMINATION_RISK**(결과형 완화,
+   active contract=target contract+exposure CONFIRMED) / DOCUMENT_ERROR=법적 효력·
+   권리 문서 한정(선발 서류=SEL·주거 계약 진행=MOV primary), rank 3→2(계약 종료·소송
+   대표 아래 수렴 가능) / ADMIN_DELAY=공식 행정·허가·등록 절차 한정(채용=CAR·선발=
+   SEL·이사=MOV·정산=FIN primary) / DISPUTE=권리·의무·청구 대상 필요 /
+   LITIGATION=confirmed_required+**requiresExistingLitigation** / REVIEW_CAPACITY_
+   WEAK=vulnerability 유지·단독 노출 없음·background 수렴(신호 삭제가 아니라 process
+   연결·episode·흡수로 37.3% 관리).
+4. 수렴(같은 process episode·같은 원인): 구체 대표 ├ ADMIN_DELAY=supporting ├
+   REVIEW_CAPACITY=background └ DOCUMENT_ERROR=supporting(독립 targeted 없으면).
+   DISPUTE/LITIGATION은 exposure-aware 대표 원칙 유지(소송 미확인 시 dispute 대표).
+   다른 process_episode_id=병존.
+5. env **r0.5.10** + 해시 **v8**(legal 축·조건 편입), 재스탬프 43(--schema-migration).
+6. C7 baseline(3,412건) 대비 **비LEG 변화=명시 허용 목록 외 0** 게이트.
+
+### 11-1. C8 구현 결과 (감수 23차 — 표본 감수 대기)
+
+- env **r0.5.10** + 해시 **v8**, LEG 6항목 착수 강등(reviewed 49→**43**, PENALTY_
+  LIABILITY 유지 — 축 부여는 감수 질문), 재스탬프 43(--schema-migration).
+- LegalProcessContext(§11-2 규격 그대로) + episode별 후보 분리·stage 억제·노출 차등
+  전부 공통 기계 재사용. 개명 LEG_CONTRACT_TERMINATION_RISK. LITIGATION=
+  requiresExistingLitigation+unknownExposable=false.
+- **vulnerability 단독 노출 없음 명문화**(is_exposable) — 의도 변경 허용 목록:
+  FIN_BUFFER_WEAK(취약성 대표)가 CASHFLOW_PRESSURE(노출 가능 압박)를 지우던 역전
+  42건 해제(비LEG 파생 유일 항목 — baseline 분류 확인). **같은 현실 대상 판정
+  일반화**: 관계 target_id → +이동·건강·법적 episode 동일성.
+- fixture 8종(test_risk_leg_c8.py) + c2 개정(컨텍스트 기반 분쟁·소송 대표, 개명):
+  process 없는 인성 약화=RCW 비노출 / 선발 서류=SEL·채용 대기=CAR(LEG 비노출) /
+  허가·등록 진행=ADMIN 노출 / 같은 episode 수렴(문서 대표+지연 supporting+검토
+  background, 활성 family 1) / 다른 episode 병존 / 진행 계약 필요.
+- 밀도: structural incident 1.00→**0.95**, LEG family/기간 p90 2. **감수 판단 지점
+  2건**: ①RCW 구조 발동 40.9%(노출은 0 — 코퍼스에 legal ctx 없어 흡수 미발생, 신호
+  삭제 대신 비노출·수렴 통제 — 사용자 지시 방향) ②LEG 단일 원인 확산 max 3 실측
+  구성 = 계약 종료(비노출)+분쟁(비노출)+**PENALTY_LIABILITY(미개정 — 유일 노출
+  경로)**: 서로 다른 법적 현실 문제의 병존이나, PENALTY 축 부여 여부가 남은 변수.
+- 상태: LEG 6항목 reviewed:false(표본 감수 대기 — 승격 시 43→49 복귀).
+
+### 11-2. C8 감수 23차 결론 — 커밋 조건 반영·LEG 7항목 승격 (2026-07-16)
+
+데굴님 결론: 기본 구조·6항목 재저작 방향·인프라(LegalProcessContext·env·해시 v8·
+vulnerability 단독 노출 차단·비LEG 42건)는 승인, **6항목만의 재승격은 보류** —
+아래 조건을 닫고 PENALTY 포함 **7항목** 반납→재승격(reviewed 49−7=42→49).
+
+| # | 조건 | 반영 |
+|---|---|---|
+| 1 | PENALTY도 감수 반납 후 LegalProcessContext 적용 | 대상 5종(contract/rights_obligation/행정/허가/claim)+성립 전·종결 제외 stage 9종+`unknownExposable=false`(결과형 경고는 위반·제재 노출 확인 필수). 금지 표현에 벌금·과태료·처벌·유죄·행정처분 단정 추가 |
+| 2 | LITIGATION_ESCALATION kind·명칭 재확정 | **LEG_LITIGATION_PROCESS_BURDEN · incident→pressure**(이미 소송 중=절차 부담, 사건 아님). 단계 전환 탐지는 별도 shape 확보 전 저작 금지. requiresExistingLitigation 유지 |
+| 3 | RCW 40.9% 실제 절차 시나리오 재측정 | `--leg-scenarios` 4종(all_unknown/active_contract/행정/분쟁·소송): observed 90 전부 잠재 구조 — **독립 노출 0·독립 family 기여 0·대표 흡수 0**(전 시나리오, 목표 충족). 표기=observed latent vulnerability 40.9%·standalone exposable 0 |
+| 4 | episode·stage·소유권 fixture 보강 | c8 fixture 8→**19종**: PENALTY 3종(무절차 비노출·의무 절차 노출·성립 전 비노출)/RCW 역할 보장/중복 컨텍스트 결정적 병합(입력 순서 무관)/stage 상호 배타 수렴 금지/closed 신규 생성 제한/이사 일정=MOV·선발 대기=SEL·관계 신뢰=REL 소유권/vulnerability 역전 방지 **전 도메인 synthetic**(7도메인 파라미터라이즈) |
+
+파생 확정(권장 조건): ①stage `active_contract` 신설(12종) — TERMINATION은 이
+stage 없이 노출 불가(negotiating 대체 불가) ②closed=명시 opt-in(엔진 규칙 — 종결
+절차는 신규 LEG 후보 생성·흡수 불가, 사후 정산·청구는 별도 episode 병존)
+③vulnerability 대표 금지 일반화(어느 도메인에서도 흡수 대표 불가 — 엔진 규칙+
+synthetic fixture) ④`document_responsibility`/`response_obligation`은 R1 예약 유지.
+
+- env **r0.5.10→r0.5.11**(vuln 대표 금지·closed opt-in·active_contract) — 타 도메인
+  42건 env-only 재스탬프(내용 불변 확인), LEG 7항목 승격 스탬프.
+- 밀도: structural incident 0.95→**0.92**(BURDEN pressure 재분류 효과 — 룰 약화
+  아님), LEG family/기간 p90 2 유지, LEG 단일 원인 확산 max 3(=계약 종료+분쟁+제재,
+  전부 비노출 구조 병존 — 노출 대표는 시나리오 실측 p90 1~3).
+- baseline(3,412건) diff 전수 분류: FIN 42건(승인된 역전 해소·비LEG 유일)/개명 이동
+  50+31건/같은 원인 LEG 구조 수렴 11건(비노출 단계)/RCW 흡수 해제 8건(episode 없는
+  흡수 차단 — C8 설계). --write 재기록(env r0.5.11).
+- **reviewed 49(전 도메인 unreviewed 0)** · manifest 재생성 · pytest 1960 ·
+  ruff clean · mypy(C8 대상 파일 clean — 기존 테스트 타입 부채 142건 별도 보고).

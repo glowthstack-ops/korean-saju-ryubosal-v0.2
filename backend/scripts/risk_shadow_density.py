@@ -176,6 +176,7 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
     rel_metrics = _domain_metrics(RiskDomain.RELATIONSHIP)
     mov_metrics = _domain_metrics(RiskDomain.RELOCATION)
     hlt_metrics = _domain_metrics(RiskDomain.HEALTH_SAFETY)
+    leg_metrics = _domain_metrics(RiskDomain.CONTRACT_LEGAL)
     # 노출 후보 밀도(감수 18차 — family 목표 계층화): 구조 진단(structural)과 별도로
     # context-exposable(현 컨텍스트에서 노출 가능 판정) family/기간을 병기한다 —
     # R2 최종 선별(≤3)의 입력 규모. 전 컨텍스트 UNKNOWN 가정이므로 하한 추정치.
@@ -240,6 +241,9 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
         "hlt_family_per_period": hlt_metrics["family_per_period"],
         "hlt_max_cause_fanout": hlt_metrics["max_cause_fanout"],
         "hlt_absorbed_roles": hlt_metrics["absorbed_roles"],
+        "leg_family_per_period": leg_metrics["family_per_period"],
+        "leg_max_cause_fanout": leg_metrics["max_cause_fanout"],
+        "leg_absorbed_roles": leg_metrics["absorbed_roles"],
         "exposable_family_per_period": [
             len(v) for v in exposable_fam_pp.values()] or [0],
         "fam_max_period_composition": fam_max_composition,
@@ -383,6 +387,97 @@ def _hlt_scenario_report(levels: set[GanjiLevel], corpus) -> None:
               f"p90 {_percentile(expo_fams, 0.9):.0f} · max {max(expo_fams)}")
 
 
+def _build_leg_scenarios() -> list[tuple[str, list]]:
+    """LEG confirmed 절차 시나리오 4종(감수 23차 커밋 조건 3) — 지연 구성."""
+    from saju_engines.risk_engine import LegalProcessContext
+    return [
+        ("all_unknown", []),
+        ("active_contract", [LegalProcessContext(
+            target_type="contract", stage="active_contract",
+            exposure_status=ExposureStatus.CONFIRMED,
+            process_episode_id="contract_1")]),
+        ("official_administrative_process", [LegalProcessContext(
+            target_type="administrative_application", stage="review",
+            exposure_status=ExposureStatus.CONFIRMED,
+            process_episode_id="permit_1")]),
+        ("active_dispute_or_litigation", [LegalProcessContext(
+            target_type="litigation", stage="litigation_active",
+            exposure_status=ExposureStatus.CONFIRMED, existing_dispute=True,
+            existing_litigation=True, process_episode_id="dispute_1")]),
+    ]
+
+
+def _leg_scenario_report(levels: set[GanjiLevel], corpus) -> None:
+    """시나리오별 LEG 밀도 + RCW 역할 보장 실측(감수 23차 커밋 조건 3·4).
+
+    보고 축(데굴님 요구): observed RCW / context-matched RCW / 대표 아래 흡수 RCW /
+    독립 잔존 RCW / family 집계 기여 / 사용자 노출 수. 목표: RCW 독립 노출=0 ·
+    RCW 독립 family 기여=0 · RCW가 대표를 흡수한 수=0.
+    """
+    print("\n# LEG confirmed 절차 시나리오 밀도(감수 23차 커밋 조건)")
+    rcw_id = "LEG_REVIEW_CAPACITY_WEAK"
+    specific_reqs = ("required_for_exposure", "confirmed_required")
+    for name, ctxs in _build_leg_scenarios():
+        engine = EventEngineV2(_DICTS, risk_mode="shadow")
+        engine.set_risk_shadow_contexts(legal_contexts=ctxs)
+        active = exposable = blocked = 0
+        mis_specific = 0  # 미확인 절차에서 노출된 특정 항목(=오노출, 0 목표)
+        rcw_observed = rcw_matched = rcw_absorbed = rcw_standalone = 0
+        rcw_exposed = rcw_as_primary = rcw_family_contrib = 0
+        expo_fam_pp: dict[str, set[str]] = defaultdict(set)
+        kind_cnt: Counter = Counter()
+        for cname, birth in corpus:
+            chart = calculate(birth)
+            engine.score(chart, levels=levels)
+            for c in engine.risk_shadow:
+                if c.domain is not RiskDomain.CONTRACT_LEGAL:
+                    continue
+                if c.suppressed_by_specificity == rcw_id:
+                    rcw_as_primary += 1  # RCW가 대표로 다른 후보를 흡수(목표 0)
+                if c.risk_id == rcw_id:
+                    rcw_observed += 1
+                    if c.legal_alignment == "matched":
+                        rcw_matched += 1
+                    if c.suppressed_by_specificity:
+                        rcw_absorbed += 1
+                    elif is_active(c):
+                        rcw_standalone += 1
+                    if is_exposable(c):
+                        rcw_exposed += 1
+                if c.eligibility_status is EligibilityStatus.BLOCKED:
+                    blocked += 1
+                if not is_active(c):
+                    continue
+                active += 1
+                kind_cnt[c.kind.value] += 1
+                # 노출 지표·family 기여는 is_exposable 기준 — vulnerability는 단독
+                # 노출 없음 원칙이 kind 차단으로 내장돼 자동 제외된다.
+                if is_exposable(c):
+                    exposable += 1
+                    expo_fam_pp[f"{cname}|{c.period_key}"].add(
+                        c.risk_family or c.risk_id)
+                    if c.risk_id == rcw_id:
+                        rcw_family_contrib += 1
+                    if (c.exposure_requirement in specific_reqs
+                            and c.exposure_status is not ExposureStatus.CONFIRMED):
+                        mis_specific += 1
+        expo_fams = [len(v) for v in expo_fam_pp.values()] or [0]
+        print(f"\n## {name}")
+        print(f"  LEG 활성 {active} · 노출 가능 {exposable} · 차단 {blocked} · "
+              f"kind {dict(kind_cnt)}")
+        if active:
+            print(f"  비율: exposable/active {_pct(exposable, active)} · "
+                  f"UNKNOWN 보존 {_pct(active - exposable, active)}")
+        print(f"  특정 항목 미확인 오노출: {mis_specific}건 (목표 0)")
+        print(f"  노출 가능 family/기간: p50 {_percentile(expo_fams, 0.5):.0f} · "
+              f"p90 {_percentile(expo_fams, 0.9):.0f} · max {max(expo_fams)}")
+        print(f"  RCW(latent vulnerability): observed {rcw_observed} · "
+              f"context-matched {rcw_matched} · 대표 아래 흡수 {rcw_absorbed} · "
+              f"독립 잔존(구조) {rcw_standalone}")
+        print(f"  RCW 역할 보장(목표 전부 0): 독립 사용자 노출 {rcw_exposed} · "
+              f"독립 family 기여 {rcw_family_contrib} · 대표 흡수 {rcw_as_primary}")
+
+
 def main() -> None:
     """코퍼스 단계별 밀도를 계산해 stdout으로 리포트한다."""
     parser = argparse.ArgumentParser(description="위험 shadow 후보 밀도 리포트(단계별)")
@@ -393,6 +488,8 @@ def main() -> None:
                         help="MOV confirmed 컨텍스트 시나리오 4종 밀도(감수 19차)")
     parser.add_argument("--hlt-scenarios", action="store_true",
                         help="HLT confirmed 컨텍스트 시나리오 5종 밀도(감수 21차)")
+    parser.add_argument("--leg-scenarios", action="store_true",
+                        help="LEG confirmed 절차 시나리오 4종 밀도(감수 23차 커밋 조건)")
     args = parser.parse_args()
     levels = {_LEVELS[x.strip()] for x in args.levels.split(",") if x.strip()}
     corpus = _CORPUS[:1] if args.baseline_only else _CORPUS
@@ -401,6 +498,9 @@ def main() -> None:
         return
     if args.hlt_scenarios:
         _hlt_scenario_report(levels, corpus)
+        return
+    if args.leg_scenarios:
+        _leg_scenario_report(levels, corpus)
         return
 
     engine = EventEngineV2(_DICTS, risk_mode="shadow")
@@ -470,6 +570,7 @@ def main() -> None:
         ("REL 차수 지표(감수 16차)", "rel", "목표 ≤1 · 독립 발현 형태 예외 2"),
         ("MOV 차수 지표(감수 18차)", "mov", "목표 ≤1 · 독립 발현 형태 예외 2"),
         ("HLT 차수 지표(감수 21차)", "hlt", "목표 ≤1 · 독립 발현 형태 예외 2"),
+        ("LEG 재검토 지표(감수 23차)", "leg", "목표 ≤1 · 독립 발현 형태 예외 2"),
     ):
         fam_all_d = [x for s in totals for x in s.get(f"{prefix}_family_per_period", [])]
         fanout_d = max((s.get(f"{prefix}_max_cause_fanout", 0) for s in totals), default=0)
@@ -516,7 +617,8 @@ def main() -> None:
             warn.append(f"{rid} 최장 연속 발동 {streak}/{n_months}개월 (>50% — 범용 룰 의심)")
     if fanout_max > 3:
         warn.append(f"단일 원인 확산 {fanout_max} family (>3)")
-    for prefix, name in (("rel", "REL"), ("mov", "MOV"), ("hlt", "HLT")):
+    for prefix, name in (("rel", "REL"), ("mov", "MOV"), ("hlt", "HLT"),
+                         ("leg", "LEG")):
         fo = max((s.get(f"{prefix}_max_cause_fanout", 0) for s in totals), default=0)
         if fo > 2:
             warn.append(f"{name} 단일 원인 확산 {fo} family (>2 — 복제 의심)")

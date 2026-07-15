@@ -986,6 +986,25 @@ _RISK_MOBILITY_STAGES = (
     "no_plan", "considering", "searching", "negotiating", "contracted",
     "preparing", "moving", "settled",
 )
+# 법적 절차 컨텍스트(감수 23차 — LEG 재검토 차수) — Selection 어휘를 재사용하지
+# 않는다(선발 심사·행정 처리·계약 협의·분쟁·소송이 섞이는 것 방지): 공통 3상태
+# 판정기만 공유하고 어휘·현실 의미는 LEG 전용. 문서·지연·계약·분쟁 신호만으로 모든
+# 절차가 법적 위험으로 복제되지 않게, 실제 진행 중인 process episode에 연결한다.
+_RISK_LEGAL_TARGET_TYPES = (
+    "contract", "administrative_application", "permit_registration",
+    "settlement_recovery", "rights_obligation", "dispute", "litigation",
+    "claim_compensation",
+)
+_RISK_LEGAL_STAGES = (
+    "drafting", "negotiating", "active_contract", "submission", "review",
+    "supplement_request", "decision_wait", "response_required", "settlement",
+    "dispute_active", "litigation_active", "closed",
+)
+# stage 의미 확정(감수 23차 커밋 조건): active_contract=성립·이행 중 계약(협상 중
+# 미성립 negotiating과 상호 대체 불가 — 계약 종료 위험은 이 stage 없이 노출 금지).
+# closed=종결 절차 — 어떤 항목의 stage 목록에도 명시되지 않으면 신규 LEG 후보를
+# 만들지 못한다(엔진 _resolve_legal_all의 명시 opt-in 규칙 — 사후 정산·청구는 별도
+# episode·별도 stage 컨텍스트로 병존).
 # 건강 컨텍스트 유형(감수 21차 — HLT 차수) — 질병명·진단·부위는 저장·식별자 사용
 # 금지: 항목이 적용 가능한 건강 맥락 유형을 명시하고, 기존 질환·치료·회복·신체 부담의
 # 실재는 HealthContext(프로필·질문 — 익명 상태값)가 공급한다. 건강 질문이라는 사실이
@@ -1064,6 +1083,14 @@ class RiskExposurePolicy(_AliasModel):
     # 업무 부담이 실제 확인된 경우에만 해당 맥락 위험을 설명한다. 유도: 상태 'none'
     # (명시 부재)→DENIED, None(미확인)→CONFIRMED여도 UNKNOWN 강등, physical_demand는
     # none·low→DENIED(직업 존재만으로 신체 부하 추론 금지).
+    # 법적 절차 실질 조건(감수 23차): 기존 분쟁/소송이 실제 확인된 경우에만 해당
+    # 맥락 위험을 설명한다(False=DENIED, None=미확인 강등 — 분쟁·소송 존재 추론 금지).
+    requires_existing_dispute: bool = Field(
+        default=False, alias="requiresExistingDispute",
+    )
+    requires_existing_litigation: bool = Field(
+        default=False, alias="requiresExistingLitigation",
+    )
     requires_existing_condition: bool = Field(
         default=False, alias="requiresExistingCondition",
     )
@@ -1179,6 +1206,13 @@ class RiskItem(_AliasModel):
     applicable_health_context_types: list[str] = Field(
         alias="applicableHealthContextTypes", default_factory=list,
     )
+    # 적용 가능한 법적 절차 유형·단계(감수 23차 — LEG 차수): 미지정=무관.
+    applicable_legal_target_types: list[str] = Field(
+        alias="applicableLegalTargetTypes", default_factory=list,
+    )
+    applicable_legal_stages: list[str] = Field(
+        alias="applicableLegalStages", default_factory=list,
+    )
     # 흡수 시 역할 힌트(감수 16차) — 대표 후보에 흡수될 때 kind 기본값 대신 쓸 역할
     # (감정 충돌=supporting_manifestation, 거리감=possible_trajectory 등).
     absorbed_role_hint: str | None = Field(default=None, alias="absorbedRoleHint")
@@ -1235,6 +1269,16 @@ class RiskItem(_AliasModel):
                 raise ValueError(
                     f"applicableMobilityStages 값 오류: {ms} ({self.risk_id})"
                 )
+        for lt in self.applicable_legal_target_types:
+            if lt not in _RISK_LEGAL_TARGET_TYPES:
+                raise ValueError(
+                    f"applicableLegalTargetTypes 값 오류: {lt} ({self.risk_id})"
+                )
+        for ls in self.applicable_legal_stages:
+            if ls not in _RISK_LEGAL_STAGES:
+                raise ValueError(
+                    f"applicableLegalStages 값 오류: {ls} ({self.risk_id})"
+                )
         for ht in self.applicable_health_context_types:
             if ht not in _RISK_HEALTH_CONTEXT_TYPES:
                 raise ValueError(
@@ -1273,7 +1317,9 @@ class RiskItem(_AliasModel):
 # 편입 — v5와 같은 원칙(BLOCKED·노출 상태 재료는 구조 감수 대상).
 # v7(감수 21차): 건강 축(applicableHealthContextTypes)·건강 실질 조건(requiresExisting
 # Condition/TreatmentProcess/RecoveryProcess/PhysicalDemand)을 structure 해시에 편입.
-_RISK_HASH_SCHEMA_VERSION = 7
+# v8(감수 23차): 법적 절차 축(applicableLegalTargetTypes/Stages)·법적 실질 조건
+# (requiresExistingDispute/Litigation)을 structure 해시에 편입.
+_RISK_HASH_SCHEMA_VERSION = 8
 # 매처·억제 의미론 버전(감수 9차 도입) — matcher/eligibility/cause atom/suppression의
 # 의미가 바뀔 때 올린다. reviewed 항목은 감수 당시 이 값을 스탬프하며, 불일치 시 lint
 # 실패(사전 JSON이 그대로여도 엔진 의미가 바뀌면 재감수 대상).
@@ -1298,7 +1344,15 @@ _RISK_HASH_SCHEMA_VERSION = 7
 # health_episode_id)를 적격성에 소비 — 건강 질문·명리 신호만으로 질병·치료·신체 부위를
 # 만들지 않는다. 수렴 도메인에 health_safety 추가(같은 건강 episode 수렴 — relation
 # 원자·hint 게이트 동일). 이동과 동일한 UNKNOWN 차등(구체 항목 비노출/일반 조건부).
-RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.9"
+# r0.5.10(감수 23차 — LEG 재검토): LegalProcessContext(target·stage 축·process
+# episode·기존 분쟁/소송 조건)를 적격성에 소비. 수렴 도메인에 contract_legal 추가
+# (같은 process episode의 문서·지연·검토 취약을 대표 1건+보조로 수렴).
+# r0.5.11(감수 23차 커밋 조건 — 데굴님 검토 반영): ①vulnerability 대표 금지 일반화 —
+# 단독 노출 없음(r0.5.10)에 더해 어느 도메인에서도 다른 후보를 흡수하는 대표가 될 수
+# 없다(RCW 역할 보장 목록의 기계 강제 — 배경 근거 전용) ②legal stage 'closed' 명시
+# opt-in — 항목 stage 목록에 없으면 종결 절차 컨텍스트로 신규 후보 생성 불가
+# ③legal stage 'active_contract' 신설(협상 중 미성립≠진행 중 계약).
+RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.11"
 
 
 def risk_scope_hash(item: RiskItem, scope: str) -> str:
@@ -1348,6 +1402,12 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
                     "requiresVehicleExposure": (
                         item.exposure_policy.requires_vehicle_exposure
                     ),
+                    "requiresExistingDispute": (
+                        item.exposure_policy.requires_existing_dispute
+                    ),
+                    "requiresExistingLitigation": (
+                        item.exposure_policy.requires_existing_litigation
+                    ),
                     "requiresExistingCondition": (
                         item.exposure_policy.requires_existing_condition
                     ),
@@ -1372,6 +1432,8 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
                 "mobilityTargetTypes": sorted(item.applicable_mobility_target_types),
                 "mobilityStages": sorted(item.applicable_mobility_stages),
                 "healthContextTypes": sorted(item.applicable_health_context_types),
+                "legalTargetTypes": sorted(item.applicable_legal_target_types),
+                "legalStages": sorted(item.applicable_legal_stages),
             },
         }
     elif scope == "scoring":

@@ -7843,3 +7843,33 @@ ok=is_exposable, confirmed_required 미충족=비노출) — 비HLT 30건 의도
 vulnerability 추적 지표 신설(활성/기간 1.20·흡수 23·승격 기여 0). **HLT 8항목
 shadow_structure 승격 — reviewed 49(전 도메인 unreviewed 0)**. incident 감소분
 1.09→1.00은 CHRONIC kind 재분류 주요인. pytest 1936·ruff·mypy clean.
+
+## 위험 엔진 LEG 재검토 차수(C8 — 감수 23차) — LegalProcessContext (2026-07-15, 감수 대기)
+
+manifest 선행(REVIEW.md §11 — 기준 9건): ①LEG 6항목 착수 강등(49→43, PENALTY 유지=
+감수 질문)+재스탬프 43 ②LegalProcessContext(target 8·stage 11·process_episode_id·
+existing_dispute/litigation — Selection 어휘 비재사용) ③개명 CONTRACT_TERMINATION_
+RISK·문서=법적 효력 한정·ADMIN=공식 행정 한정·LITIGATION=requiresExistingLitigation·
+RCW=process 연결+background 수렴 ④수렴 도메인 LEG 추가+같은 현실 대상 판정 일반화
+(episode 동일성) ⑤vulnerability 단독 노출 없음 명문화 — BUF→CFP 역전 42건 해소(의도
+변경 목록) ⑥env r0.5.10·해시 v8 ⑦baseline: 비LEG 파생=위 42건뿐. 밀도: structural
+incident 0.95, LEG p90 2, 잔여=RCW 구조 40.9%(노출 0)·확산 3(PENALTY 미개정 포함).
+fixture 8종+c2 개정. pytest 전체 clean. 감수 대기.
+
+## 위험 엔진 C8 마감 — 감수 23차 커밋 조건 4건+권장 2건 일괄·LEG 7항목 승격 49 (2026-07-16)
+
+데굴님 감수 23차 결론(6항목 단독 재승격 보류) 반영: ①PENALTY 감수 반납+C8 편입
+(process 대상 5종·성립 전/종결 stage 제외·unknownExposable=false — 벌금·과태료·처벌·
+유죄·행정처분 단정 금지) ②LITIGATION_ESCALATION→**LEG_LITIGATION_PROCESS_BURDEN**
+(incident→pressure — 이미 소송 중=절차 부담, structural incident 0.95→0.92는 재분류
+효과) ③stage **active_contract** 신설 — TERMINATION은 negotiating으로 대체 불가
+④closed stage 명시 opt-in(종결 절차의 신규 후보 생성·흡수 차단) ⑤vulnerability
+대표 금지 일반화(단독 노출 없음+흡수 대표 불가 — 전 도메인 synthetic fixture)
+⑥`--leg-scenarios` 4종 실측: RCW observed 90 전부 잠재 구조 — 독립 노출 0·독립
+family 기여 0·대표 흡수 0(전 시나리오 목표 충족, 표기=observed latent 40.9%).
+fixture 8→19종(PENALTY 3·RCW 역할·결정적 병합·stage 배타·closed·MOV/SEL/REL
+소유권·7도메인 역전 방지). env r0.5.11(42건 env-only 재스탬프)+**LEG 7항목 승격 —
+reviewed 49(전 도메인 unreviewed 0)**, manifest·baseline 재기록(diff 전수 분류:
+비LEG=승인된 FIN 42건뿐). pytest 1960·ruff clean·mypy C8 파일 clean(기존 테스트
+타입 부채 142건 발견 — 중복 모듈 오류가 가리던 것, 별도 차수 필요). 다음: 3프로필
+시나리오 재실측→R1.

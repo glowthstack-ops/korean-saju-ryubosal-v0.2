@@ -316,6 +316,57 @@ HLT 차수 불변식: **건강 질문이나 명리 신호만으로 질병·치�
   MOV primary(HLT는 이동 중 주의력 압박 — MobilityContext 재사용) / **실제 부상·질병
   진단=위험 엔진 예측 대상 아님**.
 
+### 3-6. 법적 절차 컨텍스트 — `LegalProcessContext` (감수 23차 · env r0.5.11)
+
+LEG 재검토 불변식: **문서·지연·계약·분쟁 신호가 있다는 이유만으로 모든 절차가 법적
+위험으로 복제되지 않으며, 실제로 진행 중인 계약·행정·분쟁 episode에 해당하는 LEG
+후보만 남긴다.** Selection 어휘를 재사용하지 않는다(공통 3상태 판정기·episode
+identity·stage 억제·노출 게이트·결정적 병합만 공유).
+
+- 필드: `target_type`(8종: contract/administrative_application/permit_registration/
+  settlement_recovery/rights_obligation/dispute/litigation/claim_compensation) ·
+  `stage`(12종: drafting~closed — **active_contract 포함, 감수 23차 커밋 조건**) ·
+  `exposure_status` · `existing_dispute`/
+  `existing_litigation`(False=DENIED·미확인=강등 — 분쟁·소송 존재 추론 금지) ·
+  `document_responsibility`/`response_obligation`(R1 예약) · `process_episode_id`
+  (익명 — 전세 계약 vs 인허가 vs 진행 분쟁 분리) · `is_question_target`.
+- 소유권: 선발 서류=SEL / 채용 지연=CAR / 이사 일정=MOV / 금전 정산=FIN — 공식 행정·
+  허가·등록·신고 절차와 법적 효력·권리·의무 문서만 LEG primary.
+- 수렴: 수렴 도메인={REL, MOV, HLT, **LEG**} — 같은 process episode에서 구체 대표
+  ├ ADMIN_DELAY=supporting ├ REVIEW_CAPACITY=background └ DOCUMENT_ERROR=supporting
+  (독립 targeted 원인이면 병존). DISPUTE/LITIGATION은 exposure-aware 대표(소송
+  requiresExistingLitigation 미확인 시 dispute 대표·소송 부담 비노출).
+- **같은 현실 대상 판정 일반화(감수 23차)**: 확인된 동일성 = 같은 상대(target_id)
+  또는 같은 이동·건강·법적 episode — episode 동일이 확인되면 relation 원자가 없는
+  구조 신호(검토 취약 등)도 그 절차의 배경으로 수렴한다.
+- **vulnerability 단독 노출 없음 명문화**: is_exposable이 vulnerability를 항상
+  비노출로 판정(§2 원칙의 기계화) — 취약성이 대표가 되어 노출 가능한 압박 경고를
+  지우던 역전(FIN_BUFFER_WEAK→CASHFLOW 42건) 해소.
+
+감수 23차 **커밋 조건**(데굴님 검토 — env r0.5.11로 일괄 반영, LEG 7항목 승격):
+
+- **PENALTY_LIABILITY C8 편입**: 제재·의무 위반 계열은 결과 단정 위험이 가장 높다 —
+  감수 반납 후 formal process exposure(대상 5종·성립 전/종결 stage 제외) +
+  `unknownExposable=false`(위반·제재 미확인 시 결과형 경고 비노출, "~라면" 우회
+  금지)로 재승격. 금지 표현에 벌금·과태료·처벌·유죄·행정처분 단정 추가.
+- **LITIGATION_ESCALATION → LITIGATION_PROCESS_BURDEN**(incident→**pressure**):
+  requiresExistingLitigation=이미 소송 중이므로 '소송 확대 사건'이 아니라 진행 중
+  절차의 부담이다(kind 정합성 개선 — structural incident 0.95→0.92는 룰 약화가
+  아니라 재분류 효과). 분쟁→소송 전환 탐지는 별도 stage-transition shape 확보 전
+  저작 금지.
+- **CONTRACT_TERMINATION=active_contract stage 필수**: 협상 중 미성립(negotiating)
+  은 종료 위험이 아니다(도메인별 setback 소관) — stage 축으로 기계 차단.
+- **closed stage 명시 opt-in**: 종결 절차 컨텍스트는 stage 목록에 closed를 명시한
+  항목만 매칭(무관 항목 포함 신규 후보 생성·흡수 차단, 사후 정산·청구는 별도
+  episode로 병존).
+- **vulnerability 대표 금지 일반화**: 단독 노출 없음에 더해 어느 도메인에서도 다른
+  후보를 흡수하는 대표가 될 수 없다(RCW 역할 보장의 기계 강제 — 전 도메인 synthetic
+  fixture 고정).
+- **RCW 재측정**(confirmed 시나리오 4종: all_unknown/active_contract/행정/분쟁·소송):
+  observed 90(잠재 구조 — `observed latent vulnerability 40.9%`로 표기, '활성 위험
+  40.9%' 표기 금지) · **독립 사용자 노출 0 · 독립 family 기여 0 · 대표 흡수 0**
+  (전 시나리오) — 절차 확인(matched) 시에도 background 수렴만 가능.
+
 ## 4. 타입 계층 (`shared_types/risk_engine.py`)
 
 - `RiskCandidate` — **원자 후보** (단일 `period_key`). R0 산출물. 점수·등급 없음.

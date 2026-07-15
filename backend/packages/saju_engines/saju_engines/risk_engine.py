@@ -57,6 +57,7 @@ def _specificity_rank(item: RiskItem) -> int:
 # 공유 + absorbedRoleHint 명시 항목만.
 _CONVERGENCE_DOMAINS = frozenset({
     RiskDomain.RELATIONSHIP, RiskDomain.RELOCATION, RiskDomain.HEALTH_SAFETY,
+    RiskDomain.CONTRACT_LEGAL,
 })
 
 _SHAPE_GROUPS = frozenset({"event_shape", "targeted_event_shape", "structural_weakness"})
@@ -212,6 +213,13 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
             for primary in ordered:
                 if primary is c or id(primary) in suppression:
                     continue
+                # vulnerability 대표 금지(감수 23차 커밋 조건 — RCW 역할 보장 일반화):
+                # 취약성은 어떤 후보도 흡수할 수 없다 — 단독 노출 없음(is_exposable)에
+                # 더해 대표 역할 자체를 차단한다(배경 근거·심각도 상향 재료 전용).
+                # 노출 적격성 가드(_exposure_ok)와 독립인 이유: 양쪽 모두 비노출인
+                # 조합(취약성 vs 미확인 압박)에서도 취약성이 대표가 되면 안 된다.
+                if primary.kind is RiskKind.VULNERABILITY:
+                    continue
                 if c.specificity_rank >= primary.specificity_rank:
                     continue  # 동률은 억제하지 않는다(서로 다른 구체 사건 병존 허용).
                 if not _exposure_ok(primary) and _exposure_ok(c):
@@ -262,17 +270,31 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
                     and c.health_episode_id != primary.health_episode_id
                 ):
                     continue
+                # 법적 process episode·stage(감수 23차) — 다른 절차는 병존, 명시
+                # stage 상호 배타(초안 작성 vs 소송 진행)는 수렴 금지.
+                if (
+                    c.legal_episode_id and primary.legal_episode_id
+                    and c.legal_episode_id != primary.legal_episode_id
+                ):
+                    continue
+                if (
+                    primary.legal_stages and c.legal_stages
+                    and not (set(primary.legal_stages) & set(c.legal_stages))
+                ):
+                    continue
                 if c.domain in _CONVERGENCE_DOMAINS:
-                    # 같은 상대 판정 강화(감수 17차) — target_id 미확인 후보를 한
-                    # 상대처럼 합치지 않는다: 같은 target_id가 아니면 **관계 사실
-                    # (relation 원자 — 대상 객체 서명 내장)** 공유가 필수다. 십성
-                    # 유입 원자(겁재 등)만 공유한 두 후보는 서로 다른 현실 상대일 수
-                    # 있다(부모 부담 vs 형제 오해).
-                    same_person = (
-                        c.relationship_target_id is not None
-                        and c.relationship_target_id == primary.relationship_target_id
+                    # 같은 현실 대상 판정(감수 17→23차 일반화) — 확인된 동일성(같은
+                    # 상대 target_id / 같은 이동·건강·법적 process episode)이 없으면
+                    # **관계 사실(relation 원자 — 대상 객체 서명 내장)** 공유가 필수다.
+                    # 십성 유입 원자만 공유한 두 후보는 서로 다른 현실 대상일 수 있다
+                    # (부모 부담 vs 형제 오해). 같은 episode가 확인되면 검토 취약처럼
+                    # relation 원자가 없는 구조 신호도 그 절차의 배경으로 수렴한다.
+                    same_real_target = any(
+                        getattr(c, f) is not None and getattr(c, f) == getattr(primary, f)
+                        for f in ("relationship_target_id", "mobility_episode_id",
+                                  "health_episode_id", "legal_episode_id")
                     )
-                    if not same_person and not any(
+                    if not same_real_target and not any(
                         a.startswith("relation:") for a in shared
                     ):
                         continue
@@ -626,6 +648,101 @@ def _resolve_health_all(
     return out
 
 
+@dataclass(frozen=True)
+class LegalProcessContext:
+    """현실 법적 절차 컨텍스트 1건(감수 23차 — LEG 재검토) — 진행 중인 계약·행정·
+    분쟁·소송 process를 표현한다. Selection 어휘와 별개(공통 판정기만 공유).
+
+    process_episode_id: 같은 시기 서로 다른 절차(전세 계약 vs 사업 인허가 vs 진행
+    분쟁)를 구분하는 익명 키 — episode별 후보 분리·수렴 경계.
+    """
+
+    target_type: str | None = None  # _RISK_LEGAL_TARGET_TYPES 값(None=UNKNOWN)
+    stage: str | None = None  # _RISK_LEGAL_STAGES 값(None=UNKNOWN)
+    exposure_status: ExposureStatus = ExposureStatus.UNKNOWN  # 절차 진행 확인 수준
+    existing_dispute: bool | None = None  # 진행 중 분쟁 존재(None=미확인)
+    existing_litigation: bool | None = None  # 진행 중 소송·공식 절차(None=미확인)
+    document_responsibility: bool | None = None  # R1 예약
+    response_obligation: bool | None = None  # R1 예약
+    process_episode_id: str | None = None
+    is_question_target: bool = False
+
+
+def _effective_legal_exposure(
+    item: RiskItem, ctx: LegalProcessContext,
+) -> ExposureStatus:
+    """법적 절차 컨텍스트의 유효 노출 — 기존 분쟁/소송 조건 반영(존재 추론 금지)."""
+    policy = item.exposure_policy
+    eff = ctx.exposure_status
+    if policy is None:
+        return eff
+    for required, value in (
+        (policy.requires_existing_dispute, ctx.existing_dispute),
+        (policy.requires_existing_litigation, ctx.existing_litigation),
+    ):
+        if not required:
+            continue
+        if value is False:
+            return ExposureStatus.DENIED
+        if value is None and eff is ExposureStatus.CONFIRMED:
+            eff = ExposureStatus.UNKNOWN
+    return eff
+
+
+def _item_legal_gated(item: RiskItem) -> bool:
+    """법적 절차 축·조건이 있는 항목인가."""
+    if item.applicable_legal_target_types or item.applicable_legal_stages:
+        return True
+    policy = item.exposure_policy
+    return policy is not None and (
+        policy.requires_existing_dispute or policy.requires_existing_litigation
+    )
+
+
+def _resolve_legal_all(
+    item: RiskItem,
+    contexts: list[LegalProcessContext] | None,
+) -> list[tuple[str, str | None, ExposureStatus | None]]:
+    """법적 절차 축 3상태 + episode·유효 노출 — episode별 해석(이동·건강과 동일 원리).
+
+    closed stage(감수 23차 커밋 조건 — 데굴님 권장 10): 종결된 절차 컨텍스트는 항목이
+    stage 목록에 'closed'를 명시(opt-in)하지 않는 한 어떤 LEG 항목과도 매칭되지
+    않는다 — stage 축을 제한하지 않는 항목(빈 목록=무관)도 예외가 아니다. 종결 계약이
+    신규 문서·행정·분쟁 후보를 만들거나 흡수하는 경로 차단(사후 정산·청구는 별도
+    episode·별도 stage 컨텍스트로 병존).
+    """
+    if not _item_legal_gated(item):
+        return [("matched", None, None)]
+    ctxs = contexts or []
+    groups: dict[str | None, list[tuple[bool, ExposureStatus, LegalProcessContext]]] = {}
+    mismatch_question = False
+    for ctx in ctxs:
+        t = _axis_alignment(ctx.target_type, item.applicable_legal_target_types)
+        s = _axis_alignment(ctx.stage, item.applicable_legal_stages)
+        if ctx.stage == "closed" and "closed" not in item.applicable_legal_stages:
+            s = "mismatched"  # closed는 명시 opt-in — 무관(빈 목록) 항목도 비매칭.
+        if t == "mismatched" or s == "mismatched":
+            if ctx.is_question_target:
+                mismatch_question = True
+            continue
+        groups.setdefault(ctx.process_episode_id, []).append(
+            (t == "matched" and s == "matched",
+             _effective_legal_exposure(item, ctx), ctx))
+    if not groups:
+        if mismatch_question:
+            return [("mismatched", None, ExposureStatus.UNKNOWN)]
+        return [("unknown", None, ExposureStatus.UNKNOWN)]
+    out: list[tuple[str, str | None, ExposureStatus | None]] = []
+    for ep in sorted(groups, key=lambda e: (e is None, e or "")):
+        fully, eff, _ctx = sorted(
+            groups[ep],
+            key=lambda t3: (not t3[0], -_EXPOSURE_PREFERENCE[t3[1]],
+                            t3[2].target_type or "", t3[2].stage or ""),
+        )[0]
+        out.append((("matched" if fully else "unknown"), ep, eff))
+    return out
+
+
 def _resolve_relationship(
     item: RiskItem,
     contexts: list[RelationshipContext] | None,
@@ -747,6 +864,7 @@ class RiskEngine:
         relationship_contexts: list[RelationshipContext] | None = None,
         mobility_contexts: list[MobilityContext] | None = None,
         health_contexts: list[HealthContext] | None = None,
+        legal_contexts: list[LegalProcessContext] | None = None,
     ) -> list[RiskCandidate]:
         """한 시점의 원시 신호에서 원자 위험 후보를 생성한다.
 
@@ -774,6 +892,8 @@ class RiskEngine:
                 (UNKNOWN)이지 계획 부재(DENIED)가 아니다.
             health_contexts: 확인된 건강 컨텍스트 목록(감수 21차 — 익명 상태값·
                 episode_id). 미제공은 질환·치료 부재(DENIED)가 아니다.
+            legal_contexts: 확인된 법적 절차 컨텍스트 목록(감수 23차 — process
+                episode). 미제공은 절차 부재(DENIED)가 아니다.
 
         Returns:
             생성된 원자 RiskCandidate 목록(관측 후보 포함 — 활성 판정은 is_active).
@@ -829,19 +949,22 @@ class RiskEngine:
             # 컨텍스트 해석 곱(감수 21차) — 항목은 실제로 한 컨텍스트 축만 게이트
             # 한다(미적용 축은 (matched, None, None) 단일 해석이라 곱이 1이 된다).
             combos = [
-                (m, h)
+                (m, h, lg)
                 for m in _resolve_mobility_all(item, mobility_contexts)
                 for h in _resolve_health_all(item, health_contexts)
+                for lg in _resolve_legal_all(item, legal_contexts)
             ]
             for (mob_alignment, mob_episode_id, mob_exposure), (
                 hlt_alignment, hlt_episode_id, hlt_exposure,
-            ) in combos:
-                # 유효 노출 우선순위: 건강 > 이동 > 관계 > 전역.
+            ), (leg_alignment, leg_episode_id, leg_exposure) in combos:
+                # 유효 노출 우선순위: 법적 절차 > 건강 > 이동 > 관계 > 전역.
                 effective_exposure = rel_exposure
                 if mob_exposure is not None:
                     effective_exposure = mob_exposure
                 if hlt_exposure is not None:
                     effective_exposure = hlt_exposure
+                if leg_exposure is not None:
+                    effective_exposure = leg_exposure
                 status, reasons = self._evaluate(
                     item, evidences, triggers, effective_exposure,
                 )
@@ -861,6 +984,10 @@ class RiskEngine:
                 if hlt_alignment == "mismatched":
                     status = EligibilityStatus.BLOCKED
                     reasons = list(reasons) + ["health_context_mismatch"]
+                # 법적 절차 축 MISMATCHED(감수 23차).
+                if leg_alignment == "mismatched":
+                    status = EligibilityStatus.BLOCKED
+                    reasons = list(reasons) + ["legal_process_mismatch"]
                 # 관계 축 MISMATCHED — 질문 직접 대상의 역할이 항목 허용 밖(궁합
                 # 대상이 사업 파트너인데 배우자 전용 항목 등). fallback 없이 차단.
                 if rel_alignment == "mismatched":
@@ -891,6 +1018,9 @@ class RiskEngine:
                     mobility_gated=_item_mobility_gated(item),
                     health_alignment=hlt_alignment,
                     health_episode_id=hlt_episode_id,
+                    legal_alignment=leg_alignment,
+                    legal_episode_id=leg_episode_id,
+                    legal_stages=list(item.applicable_legal_stages),
                     relationship_alignment=rel_alignment,
                     relationship_role=rel_role,
                     relationship_target_id=rel_target_id,

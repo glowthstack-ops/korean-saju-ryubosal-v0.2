@@ -3,7 +3,7 @@
   "domain": "contract_legal",
   "items": [
     {
-      "riskId": "LEG_CONTRACT_CANCEL",
+      "riskId": "LEG_CONTRACT_TERMINATION_RISK",
       "domain": "contract_legal",
       "kind": "incident_risk",
       "baseImpact": 0.65,
@@ -74,23 +74,21 @@
       },
       "manifestations": [
         {
-          "id": "deal_cancel",
-          "ko": "진행 중 계약의 취소·무산"
+          "id": "termination_risk",
+          "ko": "계약 관계가 기대와 달리 정리·재조정될 가능성"
         },
         {
-          "id": "condition_change",
-          "ko": "계약 조건의 일방적 변경"
-        },
-        {
-          "id": "counterparty_delay",
-          "ko": "상대방 사정에 따른 지연"
+          "id": "condition_shift",
+          "ko": "권리·의무 조건의 변경 소지"
         }
       ],
       "prohibitedClaims": [
         "계약 무산 확정 단정",
-        "취소 발생 단정"
+        "취소 발생 단정",
+        "계약 취소 확정 단정",
+        "파기 단정"
       ],
-      "note": "C2 개정 — 종료·분리형(충+문서 동반) shape + 문서 대상 활성 필수. 노출 UNKNOWN이면 '계약 진행 중이라면 조항 확인' 수준",
+      "note": "C2 개정 — 종료·분리형(충+문서 동반) shape + 문서 대상 활성 필수. 노출 UNKNOWN이면 '계약 진행 중이라면 조항 확인' 수준 · 감수 23차(C8): 개명(취소 전제 완화 — TERMINATION_RISK) + 진행 중 계약(target=contract, stage=active_contract, exposure CONFIRMED) 필요. drafting/negotiating(성립 전 협의)은 계약 종료 위험이 아니라 도메인별 setback 소관(주거=MOV_CONTRACT_SETBACK 등) — stage 목록에서 배제해 협의 중 컨텍스트로는 노출 불가. MOV 계약 협의 차질·FIN 정산 차질과 구분(법적 효력·권리·의무 관계 한정).",
       "reviewed": true,
       "riskFamily": "contract",
       "specificityRank": 3,
@@ -123,16 +121,23 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
+      "applicableLegalTargetTypes": [
+        "contract",
+        "rights_obligation"
+      ],
+      "applicableLegalStages": [
+        "active_contract"
+      ],
       "reviewScopes": [
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C2"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "c48bc4365963c036"
-      }
+        "shadow_structure": "2b5f06c1d69044a5"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "LEG_DOCUMENT_ERROR",
@@ -223,10 +228,10 @@
         "서류 실수 발생 단정",
         "계약서 오작성 단정"
       ],
-      "note": "C2 개정 — 실제 서류·신청·계약 노출 + 문서 대상 활성 + 누락·왜곡 shape 필수. 검토력 약화만이면 REVIEW_CAPACITY_WEAK 소관",
+      "note": "C2 개정 — 실제 서류·신청·계약 노출 + 문서 대상 활성 + 누락·왜곡 shape 필수. 검토력 약화만이면 REVIEW_CAPACITY_WEAK 소관 · 감수 23차: 법적 효력·권리·의무 문서 한정(선발 서류=SEL_DOCUMENT_DEFECT primary·주거 계약 진행=MOV primary — 문서 존재만으로 LEG 복제 금지). rank 3→2 + supporting hint(같은 process episode의 구체 대표 아래 수렴 — 독립 targeted 원인이면 병존).",
       "reviewed": true,
       "riskFamily": "contract",
-      "specificityRank": 3,
+      "specificityRank": 2,
       "evidenceContract": {
         "anyOf": [
           {
@@ -251,16 +256,30 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
+      "absorbedRoleHint": "supporting_manifestation",
+      "applicableLegalTargetTypes": [
+        "contract",
+        "administrative_application",
+        "permit_registration",
+        "rights_obligation"
+      ],
+      "applicableLegalStages": [
+        "drafting",
+        "negotiating",
+        "submission",
+        "review",
+        "supplement_request"
+      ],
       "reviewScopes": [
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C2"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "5b6c317fdc8a0e2f"
-      }
+        "shadow_structure": "18ebb0757938aaf5"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "LEG_PENALTY_LIABILITY",
@@ -379,15 +398,45 @@
       "prohibitedClaims": [
         "배상 금액 확정 단정",
         "법적 결과 확정 단정",
-        "승소·패소 단정"
+        "승소·패소 단정",
+        "벌금 부과 단정",
+        "과태료 부과 단정",
+        "처벌 단정",
+        "유죄 단정",
+        "행정처분 확정 단정"
       ],
       "allowedClaimScope": [
-        "문서·절차 검토 필요성",
-        "책임 범위 확인 권고",
-        "가능한 발현 형태"
+        "공식 절차의 기한·요건 재확인",
+        "제재 가능성이 있는 의무 사항 점검",
+        "대응 자료·이행 상태 검토"
       ],
       "claimCeiling": "conditional_warning",
-      "note": "감수 3차 개정 — targeted=편관 동반 관성 피격 형(강제 조정 구조+대상). 형+편관(event_shape)+책임·문서 피격(target_activation) 경로 병행. 기신 amplifier",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false
+      },
+      "applicableLegalTargetTypes": [
+        "contract",
+        "rights_obligation",
+        "administrative_application",
+        "permit_registration",
+        "claim_compensation"
+      ],
+      "applicableLegalStages": [
+        "active_contract",
+        "submission",
+        "review",
+        "supplement_request",
+        "decision_wait",
+        "response_required",
+        "settlement",
+        "dispute_active",
+        "litigation_active"
+      ],
+      "note": "감수 3차 개정 — targeted=편관 동반 관성 피격 형(강제 조정 구조+대상). 형+편관(event_shape)+책임·문서 피격(target_activation) 경로 병행. 기신 amplifier · 감수 23차(C8 편입): 제재·의무 위반 계열은 결과 단정 위험이 가장 높다 — formal process exposure(대상 5종·성립 전/종결 stage 제외) + 제재·의무 대상 + targeted shape 최소 계약. 실제 위반·제재 노출 미확인이면 결과형 경고 비노출(unknownExposable=false — '~라면' 우회 금지). 허용 표현=기한·요건 재확인·의무 점검·이행 상태 검토까지.",
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure"
@@ -396,9 +445,9 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "3f9bcf2a198255c7"
+        "shadow_structure": "0428d4cdfdf10093"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "LEG_ADMIN_DELAY",
@@ -469,7 +518,7 @@
       "prohibitedClaims": [
         "처리 결과 단정"
       ],
-      "note": "C2 개정 — incident→pressure 강등(승인 지연·대기·보완 요청은 절차 압박). 활성 신청·심사 미확인 시 일반 총운 노출 금지",
+      "note": "C2 개정 — incident→pressure 강등(승인 지연·대기·보완 요청은 절차 압박). 활성 신청·심사 미확인 시 일반 총운 노출 금지 · 감수 23차: 공식 행정·허가·등록·신고 절차 한정(채용 지연=CAR·선발 결과 지연=SEL·이사 일정=MOV·금전 정산=FIN primary). 제출~결정 대기 단계 게이트. 같은 process episode 대표 아래 supporting 수렴.",
       "reviewed": true,
       "riskFamily": "procedure",
       "evidenceContract": {
@@ -500,16 +549,28 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
+      "absorbedRoleHint": "supporting_manifestation",
+      "applicableLegalTargetTypes": [
+        "administrative_application",
+        "permit_registration",
+        "settlement_recovery"
+      ],
+      "applicableLegalStages": [
+        "submission",
+        "review",
+        "supplement_request",
+        "decision_wait"
+      ],
       "reviewScopes": [
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C2"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "762c33cf2f81b3b8"
-      }
+        "shadow_structure": "9009dc8acd5ccc71"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "LEG_DISPUTE_RISK",
@@ -628,23 +689,30 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C2 신설(분리) — 분쟁≠소송: 활성 계약·청구·행정 관계 전제의 이견·분쟁 가능성. 형+관성 동반(책임 시비) shape 필수",
+      "note": "C2 신설(분리) — 분쟁≠소송: 활성 계약·청구·행정 관계 전제의 이견·분쟁 가능성. 형+관성 동반(책임 시비) shape 필수 · 감수 23차: 권리·의무·계약·청구 현실 대상(legal target) 필요 — 일반 관성 피격·형·충만으로 부족(축 미확인=비노출 구조 보존). exposure-aware 대표 원칙 유지(소송 미확인 시 dispute가 대표).",
       "reviewed": true,
+      "applicableLegalTargetTypes": [
+        "contract",
+        "rights_obligation",
+        "claim_compensation",
+        "settlement_recovery",
+        "dispute"
+      ],
       "reviewScopes": [
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C2"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "d76b370e59b0b36d"
-      }
+        "shadow_structure": "56d4331f89180475"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
-      "riskId": "LEG_LITIGATION_ESCALATION",
+      "riskId": "LEG_LITIGATION_PROCESS_BURDEN",
       "domain": "contract_legal",
-      "kind": "incident_risk",
+      "kind": "pressure",
       "riskFamily": "legal_dispute",
       "specificityRank": 3,
       "baseImpact": 0.7,
@@ -741,12 +809,13 @@
       "prohibitedClaims": [
         "소송 발생 확정 단정",
         "패소·유죄 단정",
-        "벌금·배상 발생 단정"
+        "벌금·배상 발생 단정",
+        "소송 발생 단정",
+        "벌금 단정"
       ],
       "allowedClaimScope": [
-        "절차 장기화 가능성",
-        "대응 부담 안내",
-        "검토 필요성"
+        "대응 기한·자료 준비 부담 안내",
+        "절차 장기화 대비 권고"
       ],
       "claimCeiling": "conditional_warning",
       "exposurePolicy": {
@@ -754,20 +823,32 @@
         "unknownAction": "retain_structural_candidate",
         "claimCeilingWhenUnknown": "advisory",
         "deniedAction": "block",
-        "notApplicableAction": "block"
+        "notApplicableAction": "block",
+        "requiresExistingLitigation": true,
+        "unknownExposable": false
       },
-      "note": "C2 신설(분리) — 기존 분쟁·법적 절차 CONFIRMED 전제의 확대·장기화. UNKNOWN이면 advisory(일반 노출 금지). 같은 family로 DISPUTE_RISK(2)를 흡수(3)",
+      "note": "C2 신설(분리) — 기존 분쟁·법적 절차 CONFIRMED 전제의 확대·장기화. UNKNOWN이면 advisory(일반 노출 금지). 같은 family로 DISPUTE_RISK(2)를 흡수(3) · 감수 23차: 진행 중 소송·공식 절차 확인(requiresExistingLitigation — False=DENIED·미확인=강등+비노출, unknownExposable=false) 없이는 노출 불가. 표현=대응 기한·절차 장기화·자료 준비·응답 부담까지 · 감수 23차 kind 재확정: requiresExistingLitigation=이미 소송 중이므로 '소송 확대 사건'이 아니라 진행 중 절차의 부담이다 — incident_risk→pressure, 개명 ESCALATION→PROCESS_BURDEN(kind 정합성 개선, 룰 약화 아님). 분쟁→소송 단계 전환 탐지는 별도 stage-transition shape 확보 전 저작 금지.",
       "reviewed": true,
+      "applicableLegalTargetTypes": [
+        "dispute",
+        "litigation",
+        "claim_compensation"
+      ],
+      "applicableLegalStages": [
+        "dispute_active",
+        "response_required",
+        "litigation_active"
+      ],
       "reviewScopes": [
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C2"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "c6483a11deb8ba67"
-      }
+        "shadow_structure": "9bc46a65164e4682"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
       "riskId": "LEG_REVIEW_CAPACITY_WEAK",
@@ -835,7 +916,7 @@
       "prohibitedClaims": [
         "판단 능력 부족 단정"
       ],
-      "note": "C2 개정 — GI_STRONG 단독 발동 제거(문서 영역 활성 동반 structural_weakness 필수). 독립 경고보다 CONTRACT_CANCEL·DOCUMENT_ERROR의 background_vulnerability 흡수 우선",
+      "note": "C2 개정 — GI_STRONG 단독 발동 제거(문서 영역 활성 동반 structural_weakness 필수). 독립 경고보다 CONTRACT_CANCEL·DOCUMENT_ERROR의 background_vulnerability 흡수 우선 · 감수 23차: 실제 문서·계약·행정·법적 절차 episode 연결(legal 축 — 일반 인성·편인·공망 신호 단독의 독립 노출 차단은 신호 삭제가 아니라 process 연결·episode·stage·흡수로). vulnerability 단독 노출 없음 원칙 + 같은 episode 대표 아래 background_vulnerability 수렴(hint). 발동률 37.3% 관리는 이 구조가 담당.",
       "reviewed": true,
       "riskFamily": "contract",
       "allowedClaimScope": [
@@ -845,16 +926,35 @@
       "exposurePolicy": {
         "requirement": "not_required"
       },
+      "specificityRank": 1,
+      "absorbedRoleHint": "background_vulnerability",
+      "applicableLegalTargetTypes": [
+        "contract",
+        "administrative_application",
+        "permit_registration",
+        "rights_obligation",
+        "settlement_recovery",
+        "dispute",
+        "litigation",
+        "claim_compensation"
+      ],
+      "applicableLegalStages": [
+        "drafting",
+        "negotiating",
+        "submission",
+        "review",
+        "supplement_request"
+      ],
       "reviewScopes": [
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C2"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "d8fa1d5ccb7b19fb"
-      }
+        "shadow_structure": "bc8c9725d41b879e"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     }
   ]
 }

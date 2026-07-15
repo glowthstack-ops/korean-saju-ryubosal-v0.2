@@ -83,6 +83,7 @@ from .reality_context import RealityContext
 from .relation_palace_engine import RelationActivation, RelationPalaceEngine
 from .risk_engine import (
     HealthContext,
+    LegalProcessContext,
     MobilityContext,
     RelationFact,
     RelationshipContext,
@@ -196,6 +197,7 @@ class EventEngineV2:
         self._risk_shadow_relationships: list[RelationshipContext] | None = None
         self._risk_shadow_mobility: list[MobilityContext] | None = None
         self._risk_shadow_health: list[HealthContext] | None = None
+        self._risk_shadow_legal: list[LegalProcessContext] | None = None
         try:
             self._risk: RiskEngine | None = RiskEngine(dictionaries_dir)
         except FileNotFoundError:
@@ -561,6 +563,7 @@ class EventEngineV2:
         relationship_contexts: list[RelationshipContext] | None = None,
         mobility_contexts: list[MobilityContext] | None = None,
         health_contexts: list[HealthContext] | None = None,
+        legal_contexts: list[LegalProcessContext] | None = None,
     ) -> None:
         """shadow 후보 생성용 현실 컨텍스트 주입(감수 19·21차 — QA·시나리오 밀도 전용).
 
@@ -571,6 +574,7 @@ class EventEngineV2:
         self._risk_shadow_relationships = relationship_contexts
         self._risk_shadow_mobility = mobility_contexts
         self._risk_shadow_health = health_contexts
+        self._risk_shadow_legal = legal_contexts
 
     def _collect_risk_shadow(
         self,
@@ -623,6 +627,7 @@ class EventEngineV2:
             relationship_contexts=self._risk_shadow_relationships,
             mobility_contexts=self._risk_shadow_mobility,
             health_contexts=self._risk_shadow_health,
+            legal_contexts=self._risk_shadow_legal,
         ))
 
     def _wealth_activations(

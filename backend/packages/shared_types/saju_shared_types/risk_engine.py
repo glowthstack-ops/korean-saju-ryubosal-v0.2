@@ -197,6 +197,14 @@ class RiskCandidate(BaseModel):
     # 매칭된 건강 맥락의 익명 episode 키(감수 21차) — 기존 불편 관리 vs 치료 회복 vs
     # 신체 부담 분리·같은 episode 기준 수렴. 질병명·부위 저장 금지.
     health_episode_id: str | None = None
+    # LegalProcessContext 3상태(감수 23차) — 이동·건강 축과 동일 정책(mismatched=
+    # BLOCKED, unknown은 구체 항목 하드 비노출·일반 압박 조건부).
+    legal_alignment: str = "matched"
+    # 매칭된 법적 절차의 익명 process episode 키(감수 23차) — 전세 계약 vs 인허가 vs
+    # 진행 분쟁 분리·같은 episode 기준 수렴.
+    legal_episode_id: str | None = None
+    # 항목의 법적 단계 메타(applicableLegalStages 복사) — stage 호환 억제용.
+    legal_stages: list[str] = Field(default_factory=list)
     # 항목의 이동 단계 메타(사전 applicableMobilityStages 복사) — stage 호환 억제용
     # (계약 전 vs 정착 후 상호 배타 단계는 같은 원인이어도 수렴 금지).
     mobility_stages: list[str] = Field(default_factory=list)
@@ -270,6 +278,12 @@ def is_exposable(candidate: RiskCandidate) -> bool:
     """
     if not is_active(candidate):
         return False
+    # vulnerability 단독 노출 없음 원칙(§2)의 명문화(감수 23차) — 취약성은 사용자
+    # 경고로 단독 노출되지 않는다(incident 생성·심각도 상향의 중간 신호·배경 근거
+    # 전용). 대표 흡수 적격성(_exposure_ok)도 이 판정을 소비하므로, 노출 부적격
+    # 대표가 취약성을 background로 흡수하는 경로는 역전 방지에 걸리지 않는다.
+    if candidate.kind is RiskKind.VULNERABILITY:
+        return False
     if candidate.selection_alignment != "matched":
         return False
     if candidate.mobility_alignment == "mismatched":
@@ -280,6 +294,14 @@ def is_exposable(candidate: RiskCandidate) -> bool:
         # 이동 축 미확인(감수 19차 차등): 구체 항목(계약·수리·통근·차량)은 계획 확인
         # 없이 비노출. required_for_warning 일반 이동 압박은 unknownExposable 경로로
         # 조건부 서술 가능("거주·이동 조건을 조정할 변수가 생길 수 있음" 수준 — R3).
+        return False
+    if candidate.legal_alignment == "mismatched":
+        return False
+    if candidate.legal_alignment == "unknown" and candidate.exposure_requirement in (
+        "required_for_exposure", "confirmed_required",
+    ):
+        # 법적 절차 축 미확인(감수 23차 — 이동·건강과 동일 차등): 절차 특정 항목은
+        # 진행 확인 없이 비노출.
         return False
     if candidate.health_alignment == "mismatched":
         return False

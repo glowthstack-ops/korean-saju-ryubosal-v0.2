@@ -151,9 +151,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
-        "shadow_structure": "8fb7da8dee7d978d"
+        "shadow_structure": "9b2e288c7b4e85d5"
       }
     },
     {
@@ -285,9 +285,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
-        "shadow_structure": "fe9b2337eb0e9858"
+        "shadow_structure": "0d19c50f872c637e"
       }
     },
     {
@@ -422,9 +422,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
-        "shadow_structure": "f79c93602462fd24"
+        "shadow_structure": "1f9a885e6ae2715c"
       }
     },
     {
@@ -529,9 +529,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
-        "shadow_structure": "d1bbe6d2f85b73f6"
+        "shadow_structure": "7309e8e6e91e5233"
       }
     },
     {
@@ -654,9 +654,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
-        "shadow_structure": "7cfb452b943bf011"
+        "shadow_structure": "173b2dd7fba4cbdf"
       }
     },
     {
@@ -775,9 +775,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
-        "shadow_structure": "97fbe7e09bdd18fb"
+        "shadow_structure": "1f14f1a77359a1f2"
       }
     }
   ]
