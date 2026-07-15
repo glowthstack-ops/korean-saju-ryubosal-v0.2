@@ -18,6 +18,9 @@ from saju_shared_types.risk_engine import ExposureStatus, is_active
 
 _DICTS = Path(__file__).resolve().parents[2] / "dictionaries"
 
+# 양성 fixture 커버리지 manifest — reviewed 승격 게이트가 참조.
+CAR_SEL_POSITIVE_IDS = {"CAR_WORK_OVERLOAD", "SEL_COMPETITION_INTENSIFY"}
+
 
 @pytest.fixture(scope="module")
 def engine() -> RiskEngine:
@@ -95,3 +98,29 @@ def test_competition_does_not_spawn_outcome(engine: RiskEngine) -> None:
     ))
     lot = _get(cands, "SEL_LOTTERY_MISS")
     assert lot is None or not is_active(lot)
+
+
+def test_unlinked_shape_and_activation_insufficient(engine: RiskEngine) -> None:
+    """대상 무관 조합 — 역할 활성(재성 피격)과 부담 shape(관성·식상)가 연결되지 않으면
+    INSUFFICIENT(느슨한 조합 차단, requiresLinkedTargets)."""
+    from saju_shared_types.risk_engine import EligibilityStatus
+
+    cands = engine.generate(_facts(
+        gods={TenGod.QISHA: {LuckLayer.SEWOON}, TenGod.SHISHEN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGCAI)],  # 재물 대상 — 역할 무관
+    ))
+    ovl = _get(cands, "CAR_WORK_OVERLOAD")
+    assert ovl is not None
+    assert ovl.eligibility_status is EligibilityStatus.INSUFFICIENT_EVIDENCE
+    assert "targets_unlinked" in ovl.suppression_reasons
+
+
+def test_linked_shape_and_activation_active(engine: RiskEngine) -> None:
+    """대상 연결 양성 — 관성 피격(활성)과 편관 동반 shape가 같은 십성군(관성)이면 활성."""
+    pos = _get(engine.generate(_facts(
+        gods={TenGod.QISHA: {LuckLayer.SEWOON}, TenGod.SHISHEN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+    )), "CAR_WORK_OVERLOAD")
+    assert pos is not None and is_active(pos)

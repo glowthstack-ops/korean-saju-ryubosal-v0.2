@@ -119,7 +119,8 @@
             ]
           }
         ],
-        "minIndependentCauses": 1
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
       },
       "manifestations": [
         {
@@ -152,8 +153,18 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C3 개정 — 관성+월주 고정 AND가 아니라 work_role_activation(월주 궁위/관성·식상 피격 대안 경로) + workload_shape(요구·산출·역할 중첩 조합) 계약. 기신·운성·공망 amplifier. UNKNOWN='맡은 일이 있다면' advisory. 사업자·프리랜서·학생도 역할 피격 경로로 포착",
-      "reviewed": false
+      "note": "C3 개정 — 관성+월주 고정 AND가 아니라 work_role_activation(월주 궁위/관성·식상 피격 대안 경로) + workload_shape(요구·산출·역할 중첩 조합) 계약. 기신·운성·공망 amplifier. UNKNOWN='맡은 일이 있다면' advisory. 사업자·프리랜서·학생도 역할 피격 경로로 포착 · 대상 연결 필수(requiresLinkedTargets — 역할 활성과 부담 shape가 원인 공유 또는 십성군 대상 겹침)",
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.5",
+      "reviewHashes": {
+        "shadow_structure": "505e26ef2fb79401"
+      }
     },
     {
       "riskId": "CAR_ORG_CONFLICT",
@@ -289,9 +300,9 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "9e7a674a56d9d302"
+        "shadow_structure": "38e5062b784cfc71"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.5"
     },
     {
       "riskId": "CAR_EVALUATION_DISADVANTAGE",

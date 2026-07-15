@@ -208,3 +208,22 @@ fixture → LEG 전용 밀도 → 교차 도메인 중복 검사 → 감수.**
 target_activation만), FIN 항목별 상이한 증거 계약(동일 계약 복제 금지),
 riskFamily(cashflow/liability/settlement 등) 저작, 변환 직후 reviewed:false.
 중간 밀도는 전체/개정 항목만/미개정 제외/동일 항목 delta 4종 분리 보고.
+
+## 7. C3 본 차수 재분류 manifest (감수 12차 확정 — "incident 8개" 전제 폐기)
+
+| 현재 항목 | 처리 | kind |
+|---|---|---|
+| CAR_EVALUATION_DISADVANTAGE | 평가상 불리 요소 위험(결과 단정 금지, ID 완화 검토: EVALUATION_SETBACK_RISK) | 조건부 incident(근거 부족 시 pressure 강등) |
+| CAR_UNWANTED_TRANSFER | CAR_REASSIGNMENT_RISK로 — "원치 않음"은 preference CONFIRMED에서만, 사업자·프리랜서 NOT_APPLICABLE | 조건부 incident |
+| CAR_EXIT_PRESSURE | 이탈 압박(해고·퇴사 확정 사건 자동 생성 금지 — 종료 사건은 별도 강한 계약+노출) | **pressure** |
+| CAR_HIRING_DELAY_REJECTION | **분리**: HIRING_PROCESS_DELAY(pressure) + HIRING_OUTCOME_SETBACK(incident, 지원 노출 필수, 불합격 단정 금지) | pressure + incident |
+| SEL_DOCUMENT_OMISSION | SEL_DOCUMENT_DEFECT_RISK — 서류 결함·확인 위험(application_document 단계) | 조건부 incident |
+| SEL_ELIGIBILITY_SHORTFALL | SEL_ELIGIBILITY_REVIEW_RISK — 자격 미달 단정 금지(외부 정보), 심사 부담 | **pressure**(자격 데이터 연결 시 incident 승격) |
+| SEL_LOTTERY_MISS | **폐기** → SEL_DRAW_OUTCOME_UNCERTAINTY(lottery_draw 전용, 당첨 확률 표현 금지 — 확률은 외부 데이터 필요) | **pressure** |
+| SEL_WAITLIST_DELAY | 분기: WAITLIST_PROLONGATION(confirmed_required — 대기명단 추론 금지) vs 일반 RESULT_DELAY | pressure |
+
+공통: 선발은 방식(applicableSelectionModes) + **단계(applicableSelectionStages —
+application_document/eligibility_check/assessment/draw/result_wait/waitlist/
+placement_allocation)** 2축 — C3-c에서 stage 축 추가 시 적격성 영향이면
+reviewEnvironmentVersion 갱신. 커밋 구조: C3-a(두 pressure 마감 — 완료) →
+C3-b(CAR 4) → C3-c(SEL 4 + mode/stage 모델).

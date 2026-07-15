@@ -51,6 +51,49 @@ def _specificity_rank(item: RiskItem) -> int:
     return _KIND_SPECIFICITY.get(item.kind, 0)
 
 
+_SHAPE_GROUPS = frozenset({"event_shape", "targeted_event_shape", "structural_weakness"})
+_ACTIVATION_GROUPS = frozenset({"activation", "target_activation"})
+
+
+def _evidence_god_groups(e: RiskEvidence) -> set[str]:
+    """근거 원자에서 십성군 토큰 추출 — 유입 십성(ten_god:)과 피자극 십성(관계 원자
+    말미 gods)을 모두 군으로 환원한다(대상 연결 판정용)."""
+    groups: set[str] = set()
+    for atom in cause_atoms(e.source):
+        if atom.startswith("ten_god:"):
+            names = atom.split(":", 1)[1].split("+")
+        elif atom.startswith("relation:"):
+            names = atom.split(":")[-1].split("+")  # 서명 말미 = 피자극 십성(없으면 잡음)
+        else:
+            continue
+        for n in names:
+            try:
+                groups.add(TEN_GOD_GROUP[TenGod(n)].value)
+            except (KeyError, ValueError):
+                continue
+    return groups
+
+
+def _targets_linked(triggers: list[RiskEvidence]) -> bool:
+    """shape 계열과 활성 계열 trigger의 대상 연결 판정(감수 11차).
+
+    연결 = 원인 원자 공유(같은 사실) 또는 십성군 대상 겹침(활성이 친 대상의 군과
+    shape 구조의 군이 동일 도메인). 활성의 피자극 십성이 미상이면 보수적으로 미연결.
+    """
+    shapes = [e for e in triggers if e.source_group in _SHAPE_GROUPS]
+    acts = [e for e in triggers if e.source_group in _ACTIVATION_GROUPS]
+    if not shapes or not acts:
+        return True  # 두 계열이 모두 있을 때만 연결을 요구한다(targeted 단독 경로 등).
+    for s in shapes:
+        s_atoms, s_groups = cause_atoms(s.source), _evidence_god_groups(s)
+        for a in acts:
+            if s_atoms & cause_atoms(a.source):
+                return True
+            if s_groups & _evidence_god_groups(a):
+                return True
+    return False
+
+
 def cause_atoms(source: str) -> frozenset[str]:
     """원인 서명 → 원자 사실 집합. 복합 조건 룰(충&극성 등)의 서명을 원자로 분해해
     '같은 충'을 공유하는지 판정한다(서명 문자열 전체 비교는 부가 조건이 붙으면 어긋남)."""
@@ -312,6 +355,11 @@ class RiskEngine:
             insufficient.append("independent_causes_unmet")
         if not groups_ok:
             insufficient.append("evidence_groups_unmet")
+        if (
+            contract is not None and contract.requires_linked_targets and groups_ok
+            and not _targets_linked(triggers)
+        ):
+            insufficient.append("targets_unlinked")
         if insufficient:
             return EligibilityStatus.INSUFFICIENT_EVIDENCE, insufficient
         # hard blocker — 대상·노출 부재는 위험 신호와 동시에 존재할 수 있는 차단 조건.

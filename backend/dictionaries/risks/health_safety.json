@@ -230,9 +230,9 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "16b5db5fb32102c6"
+        "shadow_structure": "b5f9acecd7488977"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.5"
     },
     {
       "riskId": "HLT_CONDITION_DECLINE",

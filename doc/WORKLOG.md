@@ -7621,3 +7621,18 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
   5.20/기간. 검증: pytest 1834 passed·ruff·mypy clean. 두 항목 reviewed:false — 감수 대기.
 - 다음: C3 본 차수(CAR 4 incident + SEL 4 incident 재저작 — EXIT_PRESSURE·HIRING·
   LOTTERY_MISS(SEL_ODDS_PRESSURE 전환 검토)·PLACEMENT 등).
+
+### 위험 엔진 C3-a 마감 — 대상 연결·mode UNKNOWN 정책 + 두 pressure 승격 (2026-07-15)
+
+- **requiresLinkedTargets(env r0.5.5)**: shape 계열과 활성 계열 trigger가 원인 원자
+  공유 또는 십성군 대상 겹침이어야 적격 — 편관=사회궁·식상=가족궁 같은 무관 조합은
+  targets_unlinked로 INSUFFICIENT(fixture 고정: 재성 피격+관성·식상 shape=미연결,
+  관성 피격+편관 shape=연결 양성). 적격성 의미 변경이라 env 버전 갱신+21항목 재스탬프.
+- **SEL 표현 제한**: 경쟁률 상승·지원자 증가·당첨 확률 저하 단정 prohibited(사주
+  신호로 외부 사실 주장 금지), 사용자 라벨='선발 경쟁 부담'. 선발 방식 UNKNOWN이면
+  경쟁 평가 가정 금지(fallback 미저작 — is_exposable=false, R3).
+- CAR_WORK_OVERLOAD·SEL_COMPETITION_INTENSIFY shadow_structure 승격(C3) —
+  reviewed 21항목. C3 본 차수 재분류 manifest 확정(REVIEW.md §7): incident 8개 전제
+  폐기 — EXIT_PRESSURE·ELIGIBILITY·LOTTERY(폐기→DRAW_OUTCOME_UNCERTAINTY)·WAITLIST
+  pressure 계열, HIRING 분리(지연 pressure+결과 incident), 선발 mode+stage 2축.
+- 검증: pytest 1836 passed·ruff·mypy clean.

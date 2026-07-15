@@ -839,10 +839,12 @@ def test_every_reviewed_item_has_positive_fixture(engine: RiskEngine) -> None:
     for path in sorted((_DICTS / "risks").glob("*.json")):
         data = _json.loads(path.read_text(encoding="utf-8"))
         reviewed_ids |= {i["riskId"] for i in data["items"] if i.get("reviewed")}
+    from tests.unit.test_risk_car_sel_c3 import CAR_SEL_POSITIVE_IDS
     from tests.unit.test_risk_fin_c1 import FIN_POSITIVE_IDS
     from tests.unit.test_risk_leg_c2 import LEG_POSITIVE_IDS
 
-    covered = {rid for rid, _ in _DOMAIN_CASES} | FIN_POSITIVE_IDS | LEG_POSITIVE_IDS
+    covered = ({rid for rid, _ in _DOMAIN_CASES} | FIN_POSITIVE_IDS
+               | LEG_POSITIVE_IDS | CAR_SEL_POSITIVE_IDS)
     assert reviewed_ids <= covered, (
         f"양성 fixture 없는 reviewed 항목: {sorted(reviewed_ids - covered)}"
     )

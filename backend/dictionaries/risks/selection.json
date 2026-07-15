@@ -362,9 +362,9 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "5f3d62e1ca8ea51d"
+        "shadow_structure": "469a26f172f4a57a"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.5"
     },
     {
       "riskId": "SEL_WAITLIST_DELAY",
@@ -523,7 +523,8 @@
             ]
           }
         ],
-        "minIndependentCauses": 1
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
       },
       "manifestations": [
         {
@@ -538,11 +539,15 @@
       "prohibitedClaims": [
         "당락·승패 확정 단정",
         "탈락 의미 부여",
-        "실력 열세 단정(추첨형)"
+        "실력 열세 단정(추첨형)",
+        "경쟁률 상승 단정",
+        "지원자 증가 단정",
+        "당첨 확률 저하 단정"
       ],
       "allowedClaimScope": [
-        "선발 조건 부담 안내",
-        "준비 관리 필요성"
+        "평가 경쟁 부담 안내",
+        "심사 과정 준비 관리",
+        "한정된 자리 경쟁 압박 안내"
       ],
       "claimCeiling": "watch",
       "exposurePolicy": {
@@ -552,8 +557,18 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C3 개정 — 비겁-관성만으로 부족: selection_target_activation(심사 관문 피격) + competition_shape(비겁+관성 결합) 필수. 경쟁 평가 전용(applicableSelectionModes) — 추첨·자격 심사·배치는 별도 구조(LOTTERY/ELIGIBILITY/PLACEMENT). 경쟁 심화는 탈락 후보의 occurrence trigger가 아니라 배경 압박/amplifier. UNKNOWN='지원 계획이 있다면' advisory",
-      "reviewed": false
+      "note": "C3 개정 — 비겁-관성만으로 부족: selection_target_activation(심사 관문 피격) + competition_shape(비겁+관성 결합) 필수. 경쟁 평가 전용(applicableSelectionModes) — 추첨·자격 심사·배치는 별도 구조(LOTTERY/ELIGIBILITY/PLACEMENT). 경쟁 심화는 탈락 후보의 occurrence trigger가 아니라 배경 압박/amplifier. UNKNOWN='지원 계획이 있다면' advisory · 대상 연결 필수 · 사용자 라벨='선발 경쟁 부담' · 선발 방식 UNKNOWN이면 경쟁 평가 가정 금지(fallback 미저작 — is_exposable=false, R3)",
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.5",
+      "reviewHashes": {
+        "shadow_structure": "e8898ed5adfbefad"
+      }
     }
   ]
 }

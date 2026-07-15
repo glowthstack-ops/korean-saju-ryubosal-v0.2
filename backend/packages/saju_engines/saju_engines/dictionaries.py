@@ -926,6 +926,10 @@ class RiskEvidenceContract(_AliasModel):
     min_independent_causes: int = Field(alias="minIndependentCauses", ge=1, default=1)
     candidate_policy: str | None = Field(default=None, alias="candidatePolicy")
     rationale: str | None = None
+    # 대상 연결 요구(감수 11차) — shape 계열과 활성 계열 trigger가 원인 원자를 공유하거나
+    # 십성군 대상이 겹쳐야 적격. 서로 무관한 신호(편관=사회궁·식상=가족궁)의 느슨한
+    # 조합으로 부담·경쟁 후보가 만들어지는 것을 차단한다.
+    requires_linked_targets: bool = Field(default=False, alias="requiresLinkedTargets")
 
     @model_validator(mode="after")
     def _validate_policy(self) -> RiskEvidenceContract:
@@ -1101,7 +1105,9 @@ _RISK_HASH_SCHEMA_VERSION = 4
 # 의미가 바뀔 때 올린다. reviewed 항목은 감수 당시 이 값을 스탬프하며, 불일치 시 lint
 # 실패(사전 JSON이 그대로여도 엔진 의미가 바뀌면 재감수 대상).
 # r0.5.4: 흡수 대표 우선순위에 노출 적격성 추가 + 관계 대상 서명 정규화(궁위·자리·글자·십성).
-RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.4"
+# r0.5.5: 증거 계약 requiresLinkedTargets — 역할 활성과 부담 shape가 같은 대상/연결된
+# 원인에 속해야 적격(무관 신호의 느슨한 조합 차단, 감수 11차).
+RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.5"
 
 
 def risk_scope_hash(item: RiskItem, scope: str) -> str:

@@ -573,9 +573,9 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "10c65dd0626f5f06"
+        "shadow_structure": "6849b0c709f4889a"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.4"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.5"
     },
     {
       "riskId": "REL_MONEY_BETWEEN_PEERS",
