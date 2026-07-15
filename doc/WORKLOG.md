@@ -7907,3 +7907,25 @@ fixture recall 유지 ⑥교차 도메인 동일 cause occurrence 1회 계산 �
 372~399건) ⑦possible_trajectory·vulnerability occurrence 기여 0 ⑧R1 전 baseline
 commit·env·사전 해시 고정. 순서: C8 baseline → 3프로필(완료) → **TYP-0** → 동일
 프로필 재확인 → R1.
+
+## C8-f — 구 PENALTY kind 정합화·baseline 최종 고정(감수 24차 후속) (2026-07-16)
+
+데굴님 확정 반영: **LEG_PENALTY_LIABILITY → LEG_COMPLIANCE_OBLIGATION_PRESSURE**
+(incident_risk→pressure·claimCeiling watch·manifestations=기한 재확인/의무 점검/
+대응 자료 부담 — 허용 표현·노출 조건이 전부 준법 점검 수준이라 incident 아님, R1
+impact prior·budget 왜곡 방지). 금지 표현 유지. 별도 제재 incident(LEG_SANCTION_
+RISK 류)는 실제 위반·제재 절차 CONFIRMED 데이터 확보 전 저작 금지. 감수 반납
+(49→48)→재승격(49), env r0.5.11·해시 v8 유지(사전 변경 — 엔진 의미 불변).
+suppression baseline diff=순수 개명 이동(29+대표 표기 5)·비LEG 0, 재기록.
+
+재측정: structural incident/기간 0.92→**0.87**(재분류 효과), LEG 기여 193(23%)·
+family p50/p90/max·exposable 밀도 전부 불변. **기계 판독 profile baseline 신설**
+(scripts/risk_profile_baseline.py --write/--check — 완전 일치 원칙, env·사전 해시·
+프로필 컨텍스트 해시 불일치도 실패): doc/v2_2/RISK_PROFILE_BASELINE.json + MD 최종
+고정(exposable/기간 1.28/1.56/1.64). **blocked 분해 지표 추가 + SEL 45→0 범위
+확정**: C의 BLOCKED 468 전량 selection 도메인·selection 축 사유(타 도메인 오차단
+0 — 채용 episode 국한 정상). 단 SelectionContext는 단수·episode 없음이라 "채용+
+일반 선발 동시 episode" 병존은 표현 불가 — selection 축 episode 확장(SEL-e 차수,
+엔진 의미 변경) 필요 여부를 감수 질문으로 기록(확장 전 R3/R5 배선은 질문 대상
+선발 1건만 주입). pytest 1960·ruff clean·mypy 신규/변경 스크립트 clean.
+다음: **TYP-0** → profile·suppression baseline exact match → R1.

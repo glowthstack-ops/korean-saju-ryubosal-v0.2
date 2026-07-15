@@ -425,7 +425,7 @@ _DOMAIN_CASES: list[tuple[str, dict]] = [
         role=PolarityRole.GI,
     )),
     # 형+편관 동반(event_shape) + 관성 피격 형(targeted).
-    ("LEG_PENALTY_LIABILITY", dict(
+    ("LEG_COMPLIANCE_OBLIGATION_PRESSURE", dict(
         gods={TenGod.QISHA: {LuckLayer.SEWOON}},
         relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
                                 target_ten_god=TenGod.QISHA)],

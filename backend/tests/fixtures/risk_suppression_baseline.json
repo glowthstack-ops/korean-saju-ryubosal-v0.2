@@ -780,17 +780,17 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1955 여|2026-07|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1955 여|2026-07|LEG_DISPUTE_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
   },
   "1955 여|2026-07|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1955 여|2026-07|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -1045,17 +1045,17 @@
    "domain": "contract_legal",
    "primary": null
   },
+  "1955 여|2026-10|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1955 여|2026-10|LEG_DISPUTE_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
   },
   "1955 여|2026-10|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1955 여|2026-10|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -1375,17 +1375,17 @@
    "domain": "finance",
    "primary": null
   },
+  "1955 여|2027-01|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1955 여|2027-01|LEG_DISPUTE_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
   },
   "1955 여|2027-01|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1955 여|2027-01|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -1850,17 +1850,17 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1963 남|2022|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1963 남|2022|LEG_DISPUTE_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
   },
   "1963 남|2022|LEG_DOCUMENT_ERROR": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1963 남|2022|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -1975,17 +1975,17 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1963 남|2024|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1963 남|2024|LEG_DISPUTE_RISK": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
    "primary": "LEG_LITIGATION_PROCESS_BURDEN"
   },
   "1963 남|2024|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1963 남|2024|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -2125,6 +2125,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1963 남|2026-02|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1963 남|2026-02|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -2136,11 +2141,6 @@
    "primary": null
   },
   "1963 남|2026-02|LEG_DOCUMENT_ERROR": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1963 남|2026-02|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -2285,17 +2285,17 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1963 남|2026-04|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1963 남|2026-04|LEG_DISPUTE_RISK": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
    "primary": "LEG_LITIGATION_PROCESS_BURDEN"
   },
   "1963 남|2026-04|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1963 남|2026-04|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -3895,6 +3895,11 @@
    "domain": "contract_legal",
    "primary": null
   },
+  "1972 여|2026-07|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1972 여|2026-07|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -3911,11 +3916,6 @@
    "primary": null
   },
   "1972 여|2026-07|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1972 여|2026-07|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -5260,6 +5260,11 @@
    "domain": "contract_legal",
    "primary": null
   },
+  "1985 여|2026-04|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1985 여|2026-04|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -5276,11 +5281,6 @@
    "primary": null
   },
   "1985 여|2026-04|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1985 여|2026-04|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -5460,6 +5460,11 @@
    "domain": "finance",
    "primary": null
   },
+  "1985 여|2026-06|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1985 여|2026-06|LEG_DISPUTE_RISK": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
@@ -5471,11 +5476,6 @@
    "primary": null
   },
   "1985 여|2026-06|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1985 여|2026-06|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -5565,6 +5565,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1985 여|2026-07|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1985 여|2026-07|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -5578,14 +5583,9 @@
   "1985 여|2026-07|LEG_DOCUMENT_ERROR": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
-   "primary": "LEG_PENALTY_LIABILITY"
+   "primary": "LEG_COMPLIANCE_OBLIGATION_PRESSURE"
   },
   "1985 여|2026-07|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1985 여|2026-07|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -5880,6 +5880,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1985 여|2026-10|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1985 여|2026-10|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -5893,14 +5898,9 @@
   "1985 여|2026-10|LEG_DOCUMENT_ERROR": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
-   "primary": "LEG_PENALTY_LIABILITY"
+   "primary": "LEG_COMPLIANCE_OBLIGATION_PRESSURE"
   },
   "1985 여|2026-10|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1985 여|2026-10|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -6045,6 +6045,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1985 여|2026-12|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1985 여|2026-12|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -6061,11 +6066,6 @@
    "primary": null
   },
   "1985 여|2026-12|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1985 여|2026-12|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -6175,6 +6175,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1985 여|2026|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1985 여|2026|LEG_DISPUTE_RISK": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
@@ -6186,11 +6191,6 @@
    "primary": null
   },
   "1985 여|2026|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1985 여|2026|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -6335,6 +6335,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1985 여|2027|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1985 여|2027|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -6348,14 +6353,9 @@
   "1985 여|2027|LEG_DOCUMENT_ERROR": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
-   "primary": "LEG_PENALTY_LIABILITY"
+   "primary": "LEG_COMPLIANCE_OBLIGATION_PRESSURE"
   },
   "1985 여|2027|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1985 여|2027|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -6630,6 +6630,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1985 여|2030|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1985 여|2030|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -6643,14 +6648,9 @@
   "1985 여|2030|LEG_DOCUMENT_ERROR": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
-   "primary": "LEG_PENALTY_LIABILITY"
+   "primary": "LEG_COMPLIANCE_OBLIGATION_PRESSURE"
   },
   "1985 여|2030|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1985 여|2030|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -6820,6 +6820,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1990 남|2023|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1990 남|2023|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -6831,11 +6836,6 @@
    "primary": null
   },
   "1990 남|2023|LEG_DOCUMENT_ERROR": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1990 남|2023|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -7185,6 +7185,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "1990 남|2026-03|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1990 남|2026-03|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -7196,11 +7201,6 @@
    "primary": null
   },
   "1990 남|2026-03|LEG_DOCUMENT_ERROR": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1990 남|2026-03|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -8245,6 +8245,11 @@
    "domain": "contract_legal",
    "primary": null
   },
+  "1990 남|2028|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1990 남|2028|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -8261,11 +8266,6 @@
    "primary": null
   },
   "1990 남|2028|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1990 남|2028|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -8785,17 +8785,17 @@
    "domain": "contract_legal",
    "primary": null
   },
+  "1995 여|2024|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1995 여|2024|LEG_DISPUTE_RISK": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
    "primary": "LEG_LITIGATION_PROCESS_BURDEN"
   },
   "1995 여|2024|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1995 여|2024|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -9265,17 +9265,17 @@
    "domain": "contract_legal",
    "primary": null
   },
+  "1995 여|2026-04|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1995 여|2026-04|LEG_DISPUTE_RISK": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
    "primary": "LEG_LITIGATION_PROCESS_BURDEN"
   },
   "1995 여|2026-04|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1995 여|2026-04|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -11390,6 +11390,11 @@
    "domain": "contract_legal",
    "primary": null
   },
+  "1998 남|2026-07|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "1998 남|2026-07|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -11406,11 +11411,6 @@
    "primary": null
   },
   "1998 남|2026-07|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "1998 남|2026-07|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -13065,6 +13065,11 @@
    "domain": "contract_legal",
    "primary": null
   },
+  "2001 여|2026-10|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "2001 여|2026-10|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -13081,11 +13086,6 @@
    "primary": null
   },
   "2001 여|2026-10|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "2001 여|2026-10|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -13415,6 +13415,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "2001 여|2027-01|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "2001 여|2027-01|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -13428,14 +13433,9 @@
   "2001 여|2027-01|LEG_DOCUMENT_ERROR": {
    "absorbed_role": "supporting_manifestation",
    "domain": "contract_legal",
-   "primary": "LEG_PENALTY_LIABILITY"
+   "primary": "LEG_COMPLIANCE_OBLIGATION_PRESSURE"
   },
   "2001 여|2027-01|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "2001 여|2027-01|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -13695,6 +13695,11 @@
    "domain": "contract_legal",
    "primary": null
   },
+  "2001 여|2030|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "2001 여|2030|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -13711,11 +13716,6 @@
    "primary": null
   },
   "2001 여|2030|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "2001 여|2030|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -13910,17 +13910,17 @@
    "domain": "health_safety",
    "primary": null
   },
+  "2004 남|2022|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "2004 남|2022|LEG_DISPUTE_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
   },
   "2004 남|2022|LEG_DOCUMENT_ERROR": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "2004 남|2022|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -14155,6 +14155,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "2004 남|2026-02|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "2004 남|2026-02|LEG_CONTRACT_TERMINATION_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -14166,11 +14171,6 @@
    "primary": null
   },
   "2004 남|2026-02|LEG_DOCUMENT_ERROR": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "2004 남|2026-02|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -14735,6 +14735,11 @@
    "domain": "health_safety",
    "primary": null
   },
+  "2004 남|2026-11|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "2004 남|2026-11|LEG_DISPUTE_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
@@ -14746,11 +14751,6 @@
    "primary": null
   },
   "2004 남|2026-11|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "2004 남|2026-11|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -15465,17 +15465,17 @@
    "domain": "contract_legal",
    "primary": null
   },
+  "기준 1980 남|2024|LEG_COMPLIANCE_OBLIGATION_PRESSURE": {
+   "absorbed_role": null,
+   "domain": "contract_legal",
+   "primary": null
+  },
   "기준 1980 남|2024|LEG_DISPUTE_RISK": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
   },
   "기준 1980 남|2024|LEG_LITIGATION_PROCESS_BURDEN": {
-   "absorbed_role": null,
-   "domain": "contract_legal",
-   "primary": null
-  },
-  "기준 1980 남|2024|LEG_PENALTY_LIABILITY": {
    "absorbed_role": null,
    "domain": "contract_legal",
    "primary": null
@@ -17062,11 +17062,11 @@
   }
  },
  "meta": {
-  "baseline_commit": "2b5eb59",
+  "baseline_commit": "c4c5781",
   "candidate_count": 3412,
   "corpus_version": "seoul-busan-10 (year+month)",
-  "dictionary_hash": "dd5d20889652082d",
-  "generated_at": "2026-07-15T22:02:10+00:00",
+  "dictionary_hash": "e5173b6e039e38c2",
+  "generated_at": "2026-07-15T23:45:37+00:00",
   "hash_schema_version": 8,
   "review_environment_version": "risk-engine-r0.5.11"
  }

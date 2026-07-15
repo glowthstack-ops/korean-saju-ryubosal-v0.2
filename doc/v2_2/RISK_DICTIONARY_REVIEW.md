@@ -680,3 +680,31 @@ R1 착수 전 별도 게이트(§10):
 5. 프로필별 양성 fixture recall 유지 / 교차 도메인 동일 cause occurrence 1회 규격 /
    possible_trajectory·vulnerability occurrence 기여 0 / R1 전 baseline commit·env·
    사전 해시 고정.
+
+### 11-4. C8-f — 구 PENALTY kind 정합화 (감수 24차 확정, 2026-07-16)
+
+데굴님 결정: 현 계약(허용 표현=점검 수준·노출=절차 확인 수준·결과 표현 전부 금지)
+에서 kind는 **pressure가 맞다** — 재분류 확정.
+
+- **LEG_PENALTY_LIABILITY → LEG_COMPLIANCE_OBLIGATION_PRESSURE**: kind incident_
+  risk→pressure, claimCeiling conditional_warning→watch, manifestations 3종 교체
+  (기한·요건 재확인 필요/의무 이행 상태 점검 필요/공식 대응 자료 정리 부담).
+  prohibitedClaims·exposurePolicy(required_for_exposure+unknownExposable=false)·
+  대상 5종·stage 9종·family liability(FIN_DEBT_GUARANTEE 수렴)·rank 3 유지.
+- 별도 제재 incident는 actual violation exposure CONFIRMED + formal sanction
+  proceeding CONFIRMED + 독립 event shape 데이터 확보 전 저작 금지(항목 note 명문화).
+- 절차: 반납(49→48)→개명·전환→재승격(**49**). env r0.5.11·해시 v8 유지(사전
+  structure/selection/exposure 해시 변경 — 엔진 의미 불변). suppression baseline
+  diff=개명 이동뿐(비LEG 0)·재기록. 재측정: structural incident 0.92→**0.87**,
+  나머지 지표 불변.
+- **profile baseline 기계 판독 고정본 신설**(데굴님 §4): RISK_PROFILE_BASELINE.
+  json + scripts/risk_profile_baseline.py --write/--check(완전 일치 원칙 — TYP-0
+  게이트). blocked 분해 지표(도메인·risk_id·사유별) 추가.
+- **SEL 45→0 범위 확정**(데굴님 추가 확인): C의 차단 468 전량 selection 도메인·
+  selection 축 사유 — 채용 episode 국한 정상. **감수 질문**: SelectionContext는
+  단수·episode 없음 → "채용+일반 선발 동시 episode" 병존 불변식은 selection 축
+  episode 확장(SEL-e 차수) 전에는 표현 불가. 확장 전 R3/R5 배선은 질문 대상 선발
+  1건만 주입하는 제약을 둔다.
+
+다음 순서(데굴님 확정): TYP-0(테스트 타입 부채 142→0) → profile·suppression
+baseline exact match 확인 → R1 착수.

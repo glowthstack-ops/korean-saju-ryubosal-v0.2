@@ -282,9 +282,9 @@
       "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },
     {
-      "riskId": "LEG_PENALTY_LIABILITY",
+      "riskId": "LEG_COMPLIANCE_OBLIGATION_PRESSURE",
       "domain": "contract_legal",
-      "kind": "incident_risk",
+      "kind": "pressure",
       "riskFamily": "liability",
       "relatedDomains": [
         "finance"
@@ -383,16 +383,16 @@
       },
       "manifestations": [
         {
-          "id": "penalty_charge",
-          "ko": "위약금·벌금·손해배상 요구"
+          "id": "deadline_requirement_recheck",
+          "ko": "기한·요건 재확인 필요"
         },
         {
-          "id": "liability_issue",
-          "ko": "명의·보증에 따른 책임 문제"
+          "id": "obligation_fulfillment_review",
+          "ko": "의무 이행 상태 점검 필요"
         },
         {
-          "id": "compliance_gap",
-          "ko": "규정·절차 위반의 뒤늦은 발견"
+          "id": "formal_response_preparation",
+          "ko": "공식 대응 자료 정리 부담"
         }
       ],
       "prohibitedClaims": [
@@ -410,7 +410,7 @@
         "제재 가능성이 있는 의무 사항 점검",
         "대응 자료·이행 상태 검토"
       ],
-      "claimCeiling": "conditional_warning",
+      "claimCeiling": "watch",
       "exposurePolicy": {
         "requirement": "required_for_exposure",
         "unknownAction": "retain_structural_candidate",
@@ -436,7 +436,7 @@
         "dispute_active",
         "litigation_active"
       ],
-      "note": "감수 3차 개정 — targeted=편관 동반 관성 피격 형(강제 조정 구조+대상). 형+편관(event_shape)+책임·문서 피격(target_activation) 경로 병행. 기신 amplifier · 감수 23차(C8 편입): 제재·의무 위반 계열은 결과 단정 위험이 가장 높다 — formal process exposure(대상 5종·성립 전/종결 stage 제외) + 제재·의무 대상 + targeted shape 최소 계약. 실제 위반·제재 노출 미확인이면 결과형 경고 비노출(unknownExposable=false — '~라면' 우회 금지). 허용 표현=기한·요건 재확인·의무 점검·이행 상태 검토까지.",
+      "note": "감수 3차 개정 — targeted=편관 동반 관성 피격 형(강제 조정 구조+대상). 형+편관(event_shape)+책임·문서 피격(target_activation) 경로 병행. 기신 amplifier · 감수 23차(C8 편입): formal process exposure(대상 5종·성립 전/종결 stage 제외) + unknownExposable=false(위반·제재 미확인 시 결과형 경고 비노출 — '~라면' 우회 금지). 허용 표현=기한·요건 재확인·의무 점검·이행 상태 검토까지 · 감수 24차(C8-f) kind 정합화: 허용 표현·노출 조건이 전부 준법·의무 이행 점검 수준(위반·제재 CONFIRMED 아님) — incident_risk→pressure, 개명 PENALTY_LIABILITY→COMPLIANCE_OBLIGATION_PRESSURE, claimCeiling watch(R1 impact prior·risk budget 왜곡 방지). 별도 제재 incident(LEG_SANCTION_RISK 류)는 actual violation exposure CONFIRMED+formal sanction proceeding CONFIRMED+독립 event shape 데이터 확보 전 저작 금지. 금지 표현(벌금·과태료·처벌·유죄·행정처분 단정)은 그대로 유지.",
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure"
@@ -445,7 +445,7 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "0428d4cdfdf10093"
+        "shadow_structure": "6be07a30492b4a49"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.11"
     },

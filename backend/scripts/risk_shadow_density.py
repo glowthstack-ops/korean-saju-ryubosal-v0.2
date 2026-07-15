@@ -534,19 +534,24 @@ def _build_exposure_profiles() -> list[tuple[str, dict]]:
             ("C_high_exposure", high)]
 
 
-def _profile_scenario_report(levels: set[GanjiLevel], corpus) -> None:
-    """3프로필 밀도 baseline(감수 24차 필수 지표) — TYP-0 전후 불변 비교의 기준.
+def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
+    """3프로필 지표 수집(감수 24차) — 리포트·JSON baseline의 단일 계산 원천.
 
-    출력은 결정적이다(코퍼스·컨텍스트 고정, 정렬 출력) — 저장본과의 diff가 회귀 신호.
+    반환은 전부 JSON 직렬화 가능·결정적(코퍼스·컨텍스트 고정, 키 정렬)이다.
+    blocked 분해(데굴님 §3): 도메인·risk_id·차단 사유별 분해 — 소유권 mismatch의
+    과도한 전역 차단을 발견하는 재료.
     """
-    print("# 위험 3프로필 노출 단계 baseline(감수 24차 — R1 진입 게이트)")
-    print(f"코퍼스 {len(corpus)}차트 · 층위 year+month · env 사전 기준 manifest 참조")
+    out: dict[str, dict] = {}
     for name, ctxs in _build_exposure_profiles():
         engine = EventEngineV2(_DICTS, risk_mode="shadow")
         engine.set_risk_shadow_contexts(**ctxs)
         periods = 0
         active: list = []
         blocked = mismatched = 0
+        blocked_by_domain: Counter = Counter()
+        blocked_by_risk: Counter = Counter()
+        blocked_by_reason: Counter = Counter()
+        active_by_risk: Counter = Counter()
         expo_fam_pp: dict[str, set[str]] = defaultdict(set)
         fam_pp: dict[str, set[str]] = defaultdict(set)
         fanout: dict[tuple[str, str, str], set[str]] = defaultdict(set)
@@ -565,12 +570,17 @@ def _profile_scenario_report(levels: set[GanjiLevel], corpus) -> None:
             for c in engine.risk_shadow:
                 if c.eligibility_status is EligibilityStatus.BLOCKED:
                     blocked += 1
+                    blocked_by_domain[c.domain.value] += 1
+                    blocked_by_risk[c.risk_id] += 1
+                    for r in c.suppression_reasons:
+                        blocked_by_reason[r] += 1
                     if any(r.endswith("_mismatch") for r in c.suppression_reasons):
                         mismatched += 1
                 if not is_active(c):
                     continue
                 active.append(c)
                 kind_cnt[c.kind.value] += 1
+                active_by_risk[c.risk_id] += 1
                 pkey = f"{cname}|{c.period_key}"
                 fam = c.risk_family or c.risk_id
                 fam_pp[pkey].add(fam)
@@ -595,25 +605,69 @@ def _profile_scenario_report(levels: set[GanjiLevel], corpus) -> None:
                                     c.domain.value)
         fams = [len(v) for v in fam_pp.values()] or [0]
         expo_fams = [len(v) for v in expo_fam_pp.values()] or [0]
-        cross_domain_causes = sum(
-            1 for doms in atom_domains.values() if len(doms) >= 2)
+        out[name] = {
+            "periods": periods,
+            "active_total": len(active),
+            "exposable_total": exposable_n,
+            "active_per_period": round(len(active) / max(1, periods), 4),
+            "exposable_per_period": round(exposable_n / max(1, periods), 4),
+            "kind": dict(sorted(kind_cnt.items())),
+            "family_per_period": {
+                "p50": _percentile(fams, 0.5), "p90": _percentile(fams, 0.9),
+                "max": max(fams)},
+            "exposable_family_per_period": {
+                "p50": _percentile(expo_fams, 0.5),
+                "p90": _percentile(expo_fams, 0.9), "max": max(expo_fams)},
+            "max_cause_fanout": max((len(v) for v in fanout.values()), default=0),
+            "cross_domain_shared_causes": sum(
+                1 for doms in atom_domains.values() if len(doms) >= 2),
+            "unknown_retained": len(active) - exposable_n,
+            "blocked_total": blocked,
+            "blocked_mismatched": mismatched,
+            "blocked_by_domain": dict(sorted(blocked_by_domain.items())),
+            "blocked_by_risk_id": dict(sorted(blocked_by_risk.items())),
+            "blocked_by_reason": dict(sorted(blocked_by_reason.items())),
+            "active_by_risk_id": dict(sorted(active_by_risk.items())),
+            "episode_active_counts": dict(sorted(episode_counts.items())),
+            "domain_family_contribution": dict(sorted(dom_fam.items())),
+        }
+    return out
+
+
+def _profile_scenario_report(levels: set[GanjiLevel], corpus) -> None:
+    """3프로필 밀도 baseline(감수 24차 필수 지표) — TYP-0 전후 불변 비교의 기준.
+
+    출력은 결정적이다(코퍼스·컨텍스트 고정, 정렬 출력) — 저장본과의 diff가 회귀 신호.
+    기계 판독 baseline은 scripts/risk_profile_baseline.py --write/--check가 담당.
+    """
+    print("# 위험 3프로필 노출 단계 baseline(감수 24차 — R1 진입 게이트)")
+    print(f"코퍼스 {len(corpus)}차트 · 층위 year+month · env 사전 기준 manifest 참조")
+    for name, m in collect_profile_metrics(levels, corpus).items():
         print(f"\n## {name}")
-        print(f"  기간 {periods} · 활성/기간 {len(active) / max(1, periods):.2f} · "
-              f"context-exposable/기간 {exposable_n / max(1, periods):.2f}")
-        print(f"  kind(활성): {dict(sorted(kind_cnt.items()))}")
-        print(f"  활성 family/기간: p50 {_percentile(fams, 0.5):.0f} · "
-              f"p90 {_percentile(fams, 0.9):.0f} · max {max(fams)}")
-        print(f"  노출 가능 family/기간: p50 {_percentile(expo_fams, 0.5):.0f} · "
-              f"p90 {_percentile(expo_fams, 0.9):.0f} · max {max(expo_fams)}")
-        print(f"  단일 원인 family 확산 max: "
-              f"{max((len(v) for v in fanout.values()), default=0)}")
-        print(f"  교차 도메인 공유 원인(기간·원인 기준): {cross_domain_causes}")
-        print(f"  UNKNOWN 보존(활성·비노출): {len(active) - exposable_n} · "
-              f"BLOCKED {blocked}(축 MISMATCHED {mismatched})")
+        print(f"  기간 {m['periods']} · 활성/기간 {m['active_per_period']:.2f} · "
+              f"context-exposable/기간 {m['exposable_per_period']:.2f}")
+        print(f"  kind(활성): {m['kind']}")
+        print(f"  활성 family/기간: p50 {m['family_per_period']['p50']:.0f} · "
+              f"p90 {m['family_per_period']['p90']:.0f} · "
+              f"max {m['family_per_period']['max']}")
+        print(f"  노출 가능 family/기간: "
+              f"p50 {m['exposable_family_per_period']['p50']:.0f} · "
+              f"p90 {m['exposable_family_per_period']['p90']:.0f} · "
+              f"max {m['exposable_family_per_period']['max']}")
+        print(f"  단일 원인 family 확산 max: {m['max_cause_fanout']}")
+        print(f"  교차 도메인 공유 원인(기간·원인 기준): "
+              f"{m['cross_domain_shared_causes']}")
+        print(f"  UNKNOWN 보존(활성·비노출): {m['unknown_retained']} · "
+              f"BLOCKED {m['blocked_total']}(축 MISMATCHED {m['blocked_mismatched']})")
+        print("  blocked 분해 — 도메인: " + (", ".join(
+            f"{k}={v}" for k, v in m["blocked_by_domain"].items()) or "없음"))
+        print("  blocked 분해 — 사유: " + (", ".join(
+            f"{k}={v}" for k, v in m["blocked_by_reason"].items()) or "없음"))
         print("  episode별 활성 후보: " + (", ".join(
-            f"{k}={v}" for k, v in sorted(episode_counts.items())) or "없음"))
+            f"{k}={v}" for k, v in m["episode_active_counts"].items()) or "없음"))
         print("  도메인 기여도(unique 기간·family): " + ", ".join(
-            f"{d} {n}" for d, n in dom_fam.most_common()))
+            f"{d} {n}" for d, n in sorted(
+                m["domain_family_contribution"].items(), key=lambda kv: -kv[1])))
 
 
 def main() -> None:

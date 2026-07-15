@@ -546,7 +546,7 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C1 개정 — 운 구조만으로 대출·보증 보유 추론 금지(confirmed_required): 노출 UNKNOWN은 '타인 재정 책임 선택 주의' 체크포인트(advisory)만. family=liability로 LEG_PENALTY와 대표 수렴",
+      "note": "C1 개정 — 운 구조만으로 대출·보증 보유 추론 금지(confirmed_required): 노출 UNKNOWN은 '타인 재정 책임 선택 주의' 체크포인트(advisory)만. family=liability로 LEG_COMPLIANCE_OBLIGATION_PRESSURE(구 LEG_PENALTY)와 대표 수렴",
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure"

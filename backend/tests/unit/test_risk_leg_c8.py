@@ -9,8 +9,9 @@ LEG 후보만 남긴다.
 수렴(대표+supporting/background) ⑤다른 episode 병존 ⑥소송 절차 exposure-aware 대표
 (test_risk_leg_c2 개정판) ⑦vulnerability 단독 노출 없음 명문화.
 
-감수 23차 커밋 조건(데굴님 검토) 추가 고정: ⑧PENALTY=formal process 없이 결과형 경고
-비노출 ⑨termination=active_contract 필수(negotiating 대체 불가) ⑩closed stage 신규
+감수 23차 커밋 조건(데굴님 검토) 추가 고정: ⑧구 PENALTY(감수 24차 C8-f에서
+LEG_COMPLIANCE_OBLIGATION_PRESSURE·pressure로 정합화)=formal process 없이 비노출
+⑨termination=active_contract 필수(negotiating 대체 불가) ⑩closed stage 신규
 후보 생성 제한 ⑪RCW 역할 보장(대표·독립 노출 불가) ⑫episode 중복 컨텍스트 결정적
 병합 ⑬stage 상호 배타 수렴 금지 ⑭타 도메인 소유권(SEL·CAR·MOV·REL·FIN)
 ⑮vulnerability 역전 방지 전 도메인 일반화(synthetic).
@@ -235,7 +236,7 @@ def test_contract_termination_requires_active_contract(engine: RiskEngine) -> No
     assert trm3.legal_episode_id == "contract_1"
 
 
-# ── ⑧ PENALTY — formal process 없이 결과형 경고 비노출 ───────────
+# ── ⑧ 준법·의무 부담(구 PENALTY) — formal process 없이 비노출 ────
 
 
 def _penalty_facts():
@@ -248,12 +249,17 @@ def _penalty_facts():
 
 
 def test_penalty_requires_formal_process(engine: RiskEngine) -> None:
-    """PENALTY_LIABILITY(감수 23차 C8 편입) — 제재·의무 절차 확인 없이 비노출.
+    """COMPLIANCE_OBLIGATION_PRESSURE(감수 24차 C8-f 개명·pressure 정합화) —
+    제재·의무 절차 확인 없이 비노출.
 
+    kind=pressure: 허용 표현·노출 조건이 전부 준법·의무 이행 점검 수준이라
+    incident가 아니다(R1 impact prior·risk budget 왜곡 방지 — 데굴님 확정).
     unknownExposable=false: '위반이 있다면' 류 조건부 표현 우회도 금지(구조 보존).
     """
+    from saju_shared_types.risk_engine import RiskKind
     pen = next(c for c in engine.generate(_penalty_facts())
-               if c.risk_id == "LEG_PENALTY_LIABILITY")
+               if c.risk_id == "LEG_COMPLIANCE_OBLIGATION_PRESSURE")
+    assert pen.kind is RiskKind.PRESSURE  # 감수 24차 kind 정합화
     assert is_active(pen)  # 구조 보존
     assert pen.legal_alignment == "unknown"
     assert not pen.exposable_when_unknown
@@ -266,7 +272,7 @@ def test_penalty_exposable_with_obligation_process(engine: RiskEngine) -> None:
         target_type="rights_obligation", stage="response_required",
         exposure_status=ExposureStatus.CONFIRMED, process_episode_id="obligation_1")
     pen = next(c for c in engine.generate(_penalty_facts(), legal_contexts=[ctx])
-               if c.risk_id == "LEG_PENALTY_LIABILITY")
+               if c.risk_id == "LEG_COMPLIANCE_OBLIGATION_PRESSURE")
     assert is_active(pen) and is_exposable(pen)
     assert pen.legal_episode_id == "obligation_1"
 
@@ -277,7 +283,7 @@ def test_penalty_not_exposable_pre_contract(engine: RiskEngine) -> None:
         target_type="contract", stage="negotiating",
         exposure_status=ExposureStatus.CONFIRMED, process_episode_id="draft_1")
     pen = next(c for c in engine.generate(_penalty_facts(), legal_contexts=[ctx])
-               if c.risk_id == "LEG_PENALTY_LIABILITY")
+               if c.risk_id == "LEG_COMPLIANCE_OBLIGATION_PRESSURE")
     assert pen.legal_alignment == "unknown"
     assert not is_exposable(pen)
 
