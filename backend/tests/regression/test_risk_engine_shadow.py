@@ -61,8 +61,9 @@ def test_shadow_candidates_are_atomic_and_r0_scoped(chart) -> None:
         assert triggers, "trigger 근거 없는 후보 금지"
         assert c.score_components is None and c.confidence == 0.0  # R1 이전 미산출
         assert c.period_key.isdigit()  # 세운 레벨 원자 후보 — 단일 연도 라벨(병합은 R2)
-        # evidence_id 중복 반영 금지(동일 원인·동일 역할 1회).
-        keys = [(e.evidence_id, e.role) for e in c.evidence]
+        # evidence_id 중복 반영 금지(동일 원인·동일 역할·동일 그룹 1회 — 같은 사실을
+        # event_shape/targeted 룰이 함께 잡는 경우는 그룹 사실 보존을 위해 허용).
+        keys = [(e.evidence_id, e.role, e.source_group) for e in c.evidence]
         assert len(keys) == len(set(keys))
 
 

@@ -258,6 +258,10 @@ class RiskEngine:
                 evidence=evidences,
                 score_components=None,  # R1에서 산출
                 exposure_status=exposure_status,
+                exposure_requirement=(
+                    item.exposure_policy.requirement
+                    if item.exposure_policy is not None else "not_required"
+                ),
                 confidence=0.0,  # R1에서 산출
                 eligibility_status=status,
                 suppression_reasons=reasons,

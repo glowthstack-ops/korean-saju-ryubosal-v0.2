@@ -128,7 +128,9 @@
       "reviewVersions": {
         "shadow_structure": "R0.5"
       },
-      "reviewedRuleHash": "51918f3b5d518e89"
+      "reviewHashes": {
+        "shadow_structure": "0a98823cce3a77dc"
+      }
     },
     {
       "riskId": "MOV_SCHEDULE_DISRUPTION",

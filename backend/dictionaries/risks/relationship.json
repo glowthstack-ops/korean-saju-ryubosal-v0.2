@@ -572,7 +572,9 @@
       "reviewVersions": {
         "shadow_structure": "R0.5"
       },
-      "reviewedRuleHash": "6e43c3ea6a10951f"
+      "reviewHashes": {
+        "shadow_structure": "8c1dabeb837a4e6d"
+      }
     },
     {
       "riskId": "REL_MONEY_BETWEEN_PEERS",

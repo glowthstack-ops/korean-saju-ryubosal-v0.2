@@ -318,7 +318,9 @@
       "reviewVersions": {
         "shadow_structure": "R0.5"
       },
-      "reviewedRuleHash": "23ca44ee51db5674"
+      "reviewHashes": {
+        "shadow_structure": "10d9c9fee6f920cb"
+      }
     },
     {
       "riskId": "LEG_ADMIN_DELAY",

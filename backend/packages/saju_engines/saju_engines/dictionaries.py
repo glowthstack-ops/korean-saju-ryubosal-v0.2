@@ -941,6 +941,54 @@ class RiskManifestationSpec(_AliasModel):
     ko: str
 
 
+# exposurePolicy 유효값(감수 6차) — 현실 노출 정책을 note가 아닌 기계 판독 필드로.
+_RISK_EXPOSURE_REQUIREMENTS = (
+    "not_required", "required_for_warning", "required_for_exposure", "confirmed_required",
+)
+_RISK_UNKNOWN_ACTIONS = ("retain_structural_candidate", "downgrade")
+_RISK_BLOCK_ACTIONS = ("block", "downgrade")
+
+
+class RiskExposurePolicy(_AliasModel):
+    """현실 노출 정책 — R1 노출 판정·등급 상한이 이 필드를 소비한다(R0.5는 저작만).
+
+    requirement: not_required(운 신호만으로 유지) / required_for_warning(경고 승격에
+    노출 필요) / required_for_exposure(사용자 노출에 노출 확인 필요 — UNKNOWN은 조건부
+    표현) / confirmed_required(노출 CONFIRMED 없이는 사건 적용 불가 — 운 구조만으로
+    보증·투자 등을 추론 금지).
+    """
+
+    requirement: str = "not_required"
+    unknown_action: str = Field(default="retain_structural_candidate", alias="unknownAction")
+    denied_action: str = Field(default="block", alias="deniedAction")
+    not_applicable_action: str = Field(default="block", alias="notApplicableAction")
+    claim_ceiling_when_unknown: str | None = Field(
+        default=None, alias="claimCeilingWhenUnknown",
+    )
+    fallback_risk_id: str | None = Field(default=None, alias="fallbackRiskId")
+
+    @model_validator(mode="after")
+    def _validate_policy(self) -> RiskExposurePolicy:
+        if self.requirement not in _RISK_EXPOSURE_REQUIREMENTS:
+            raise ValueError(f"exposurePolicy.requirement 값 오류: {self.requirement}")
+        if self.unknown_action not in _RISK_UNKNOWN_ACTIONS:
+            raise ValueError(f"unknownAction 값 오류: {self.unknown_action}")
+        if self.denied_action not in _RISK_BLOCK_ACTIONS:
+            raise ValueError(f"deniedAction 값 오류: {self.denied_action}")
+        if self.not_applicable_action not in _RISK_BLOCK_ACTIONS:
+            raise ValueError(f"notApplicableAction 값 오류: {self.not_applicable_action}")
+        if (
+            self.claim_ceiling_when_unknown is not None
+            and self.claim_ceiling_when_unknown not in _RISK_CLAIM_CEILINGS
+        ):
+            raise ValueError(
+                f"claimCeilingWhenUnknown 값 오류: {self.claim_ceiling_when_unknown}"
+            )
+        if self.unknown_action == "downgrade" and self.fallback_risk_id is None:
+            raise ValueError("unknownAction=downgrade는 fallbackRiskId 필수")
+        return self
+
+
 class RiskItem(_AliasModel):
     """위험 이벤트 정의 1건."""
 
@@ -978,21 +1026,27 @@ class RiskItem(_AliasModel):
     # (노출은 exposure 감수). reviewVersions는 scope→감수 차수 기록.
     review_scopes: list[str] = Field(alias="reviewScopes", default_factory=list)
     review_versions: dict[str, str] = Field(alias="reviewVersions", default_factory=dict)
-    # 감수 무효화 가드(감수 5차) — 감수 당시 룰 본문의 해시. 현재 룰 해시와 다르면
-    # lint 실패(룰을 고치면 과거 감수가 자동 무효 — 재감수 후 재스탬프).
-    reviewed_rule_hash: str | None = Field(default=None, alias="reviewedRuleHash")
+    # 감수 무효화 가드(감수 6차 — 범위별 해시): scope→감수 당시 해당 범위 본문 해시.
+    # 현재 해시와 다르면 lint 실패(본문을 고치면 그 범위 감수가 자동 무효 — 재스탬프).
+    review_hashes: dict[str, str] = Field(alias="reviewHashes", default_factory=dict)
+    # 현실 노출 정책(감수 6차) — note가 아니라 기계 판독 필드. R1이 소비한다.
+    exposure_policy: RiskExposurePolicy | None = Field(default=None, alias="exposurePolicy")
+    # 교차 도메인 파생 효과 — 후보 복제 대신 주 도메인 후보에 부착(예: contract_review_needed).
+    cross_domain_effects: list[str] = Field(alias="crossDomainEffects", default_factory=list)
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
         if self.kind not in ("pressure", "vulnerability", "incident_risk"):
             raise ValueError(f"kind 값 오류: {self.kind} ({self.risk_id})")
+        if len(set(self.review_scopes)) != len(self.review_scopes):
+            raise ValueError(f"reviewScopes 중복: {self.risk_id}")
         for scope in self.review_scopes:
             if scope not in _RISK_REVIEW_SCOPES:
                 raise ValueError(f"reviewScopes 값 오류: {scope} ({self.risk_id})")
-        for scope in self.review_versions:
+        for scope in (*self.review_versions, *self.review_hashes):
             if scope not in self.review_scopes:
                 raise ValueError(
-                    f"reviewVersions에 미감수 scope 기록: {scope} ({self.risk_id})"
+                    f"review 메타에 미감수 scope 기록: {scope} ({self.risk_id})"
                 )
         if self.domain not in _RISK_ID_PREFIX:
             raise ValueError(f"domain 값 오류: {self.domain} ({self.risk_id})")
@@ -1006,30 +1060,67 @@ class RiskItem(_AliasModel):
         return self
 
 
-def risk_rule_hash(item: RiskItem) -> str:
-    """위험 항목의 룰 본문 해시 — 감수 무효화 가드(감수 5차).
+# 해시 스키마 버전 — 해시 대상 구성이 바뀌면 올린다(공백·키 순서 무관 canonical 직렬화).
+_RISK_HASH_SCHEMA_VERSION = 2
 
-    구조 감수의 대상인 룰·증거 계약·kind만 포함한다(표현 정책 prohibited/allowedClaim은
-    exposure 감수 소관이라 제외). 결정적이며 키 순서에 무관하다.
+
+def risk_scope_hash(item: RiskItem, scope: str) -> str:
+    """감수 범위별 본문 해시 — 범위별 감수 무효화 가드(감수 6차).
+
+    범위별 해시 대상: shadow_structure=kind·룰 4종·minimumEvidence·evidenceContract /
+    scoring=baseImpact·specificityRank(등급·가중 재료) / selection=riskFamily·
+    relatedDomains·crossDomainEffects·specificityRank(흡수·소유권) / exposure=
+    manifestations·claim 정책·exposurePolicy. 결정적이며 키 순서·공백에 무관하다.
     """
-    body = {
-        "kind": item.kind,
-        "triggerRules": [r.model_dump(by_alias=True, exclude_none=True)
-                         for r in item.trigger_rules],
-        "amplifierRules": [r.model_dump(by_alias=True, exclude_none=True)
-                           for r in item.amplifier_rules],
-        "mitigatorRules": [r.model_dump(by_alias=True, exclude_none=True)
-                           for r in item.mitigator_rules],
-        "blockerRules": [r.model_dump(by_alias=True, exclude_none=True)
-                         for r in item.blocker_rules],
-        "minimumEvidence": item.minimum_evidence.model_dump(by_alias=True),
-        "evidenceContract": (
-            item.evidence_contract.model_dump(by_alias=True, exclude_none=True)
-            if item.evidence_contract is not None else None
-        ),
-    }
-    canonical = json.dumps(body, ensure_ascii=False, sort_keys=True)
+    if scope == "shadow_structure":
+        body: dict = {
+            "kind": item.kind,
+            "triggerRules": [r.model_dump(by_alias=True, exclude_none=True)
+                             for r in item.trigger_rules],
+            "amplifierRules": [r.model_dump(by_alias=True, exclude_none=True)
+                               for r in item.amplifier_rules],
+            "mitigatorRules": [r.model_dump(by_alias=True, exclude_none=True)
+                               for r in item.mitigator_rules],
+            "blockerRules": [r.model_dump(by_alias=True, exclude_none=True)
+                             for r in item.blocker_rules],
+            "minimumEvidence": item.minimum_evidence.model_dump(by_alias=True),
+            "evidenceContract": (
+                item.evidence_contract.model_dump(by_alias=True, exclude_none=True)
+                if item.evidence_contract is not None else None
+            ),
+        }
+    elif scope == "scoring":
+        body = {"baseImpact": item.base_impact, "specificityRank": item.specificity_rank}
+    elif scope == "selection":
+        body = {
+            "riskFamily": item.risk_family,
+            "relatedDomains": sorted(item.related_domains),
+            "crossDomainEffects": sorted(item.cross_domain_effects),
+            "specificityRank": item.specificity_rank,
+        }
+    elif scope == "exposure":
+        body = {
+            "manifestations": [m.model_dump(by_alias=True) for m in item.manifestations],
+            "prohibitedClaims": sorted(item.prohibited_claims),
+            "allowedClaimScope": sorted(item.allowed_claim_scope),
+            "claimCeiling": item.claim_ceiling,
+            "exposurePolicy": (
+                item.exposure_policy.model_dump(by_alias=True, exclude_none=True)
+                if item.exposure_policy is not None else None
+            ),
+        }
+    else:
+        raise ValueError(f"미지원 감수 범위: {scope}")
+    canonical = json.dumps(
+        {"hashSchemaVersion": _RISK_HASH_SCHEMA_VERSION, "scope": scope, "body": body},
+        ensure_ascii=False, sort_keys=True,
+    )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
+
+def risk_rule_hash(item: RiskItem) -> str:
+    """shadow_structure 범위 해시(하위 호환 별칭)."""
+    return risk_scope_hash(item, "shadow_structure")
 
 
 class RiskMappingFile(_AliasModel):
@@ -1605,6 +1696,10 @@ def _lint_risk_mapping(rel: str, file: RiskMappingFile) -> list[str]:
                     )
         if item.reviewed:
             errors.extend(_lint_reviewed_risk_item(rel, item, trigger_groups))
+        elif item.review_scopes:
+            errors.append(
+                f"{rel}: reviewed:false인데 reviewScopes 기록 존재(불일치) — {item.risk_id}"
+            )
     return errors
 
 
@@ -1622,16 +1717,22 @@ def _lint_reviewed_risk_item(
             f"{rel}: reviewed:true는 reviewScopes 명시 필수(shadow_structure 등 — "
             f"사용자 노출 승인과 구분) — {item.risk_id}"
         )
-    if item.reviewed_rule_hash is None:
-        errors.append(
-            f"{rel}: reviewed:true는 reviewedRuleHash 필수(감수 무효화 가드) — "
-            f"{item.risk_id}"
-        )
-    elif item.reviewed_rule_hash != risk_rule_hash(item):
-        errors.append(
-            f"{rel}: 룰 본문이 감수 이후 변경됨(해시 불일치 — 재감수 후 재스탬프 필요) "
-            f"— {item.risk_id}"
-        )
+    for scope in item.review_scopes:
+        if scope not in item.review_versions:
+            errors.append(
+                f"{rel}: reviewScope({scope})에 reviewVersion 누락 — {item.risk_id}"
+            )
+        stamped = item.review_hashes.get(scope)
+        if stamped is None:
+            errors.append(
+                f"{rel}: reviewScope({scope})에 reviewHash 누락(감수 무효화 가드) — "
+                f"{item.risk_id}"
+            )
+        elif stamped != risk_scope_hash(item, scope):
+            errors.append(
+                f"{rel}: {scope} 본문이 감수 이후 변경됨(해시 불일치 — 재감수 후 "
+                f"재스탬프 필요) — {item.risk_id}"
+            )
     non_generic = trigger_groups - {"generic"}
     if item.kind == "incident_risk":
         required = set(item.minimum_evidence.required_groups)

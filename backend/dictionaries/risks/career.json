@@ -231,7 +231,9 @@
       "reviewVersions": {
         "shadow_structure": "R0.5"
       },
-      "reviewedRuleHash": "35b48825b51347e5"
+      "reviewHashes": {
+        "shadow_structure": "88a842aca91f058c"
+      }
     },
     {
       "riskId": "CAR_EVALUATION_DISADVANTAGE",

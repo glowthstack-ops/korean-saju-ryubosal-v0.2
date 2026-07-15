@@ -361,7 +361,9 @@
       "reviewVersions": {
         "shadow_structure": "R0.5"
       },
-      "reviewedRuleHash": "156b28a999c0ab4b"
+      "reviewHashes": {
+        "shadow_structure": "c19fe1e4567d2d2a"
+      }
     },
     {
       "riskId": "SEL_WAITLIST_DELAY",

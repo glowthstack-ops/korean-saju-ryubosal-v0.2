@@ -229,7 +229,9 @@
       "reviewVersions": {
         "shadow_structure": "R0.5"
       },
-      "reviewedRuleHash": "3bb31486a7c06e9b"
+      "reviewHashes": {
+        "shadow_structure": "ef514cc3e2fc699a"
+      }
     },
     {
       "riskId": "HLT_CONDITION_DECLINE",

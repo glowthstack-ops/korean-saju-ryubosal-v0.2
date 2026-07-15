@@ -166,6 +166,9 @@ class RiskCandidate(BaseModel):
     evidence: list[RiskEvidence] = Field(default_factory=list)  # 구조화 근거(전 역할)
     score_components: RiskScoreComponents | None = None  # R1에서 산출 — R0는 None
     exposure_status: ExposureStatus = ExposureStatus.UNKNOWN
+    # 항목의 노출 요구 수준(사전 exposurePolicy.requirement) — 밀도 단계 분리·R1 소비:
+    # not_required / required_for_warning / required_for_exposure / confirmed_required.
+    exposure_requirement: str = "not_required"
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)  # 근거 충분도 — R1 산출(R0=0.0)
     # 적격 상태 — blocked·insufficient 후보는 기록을 보존하되 활성 집계에서 제외한다.
     eligibility_status: EligibilityStatus = EligibilityStatus.ELIGIBLE
@@ -245,12 +248,17 @@ def independent_source_count(evidences: list[RiskEvidence]) -> int:
 
 
 def dedupe_evidence(evidences: list[RiskEvidence]) -> list[RiskEvidence]:
-    """(evidence_id, role) 단위 중복 제거 — 같은 원인 사실이 같은 역할로 두 번 반영되는 것을
-    차단한다(먼저 온 것 유지, 입력 순서 보존)."""
-    seen: set[tuple[str, EvidenceRole]] = set()
+    """(evidence_id, role, source_group) 단위 중복 제거.
+
+    같은 원인 사실이 같은 역할·그룹으로 두 번 반영되는 것을 차단한다(먼저 온 것 유지,
+    입력 순서 보존). source_group을 키에 포함하는 이유: 같은 사실을 event_shape 룰과
+    targeted_event_shape 룰이 동시에 잡을 수 있고, 그룹 사실은 증거 계약 판정에
+    필요하다 — 독립 원인 수 부풀림은 source 기준 계산(independent_source_count)이
+    별도로 막는다."""
+    seen: set[tuple[str, EvidenceRole, str | None]] = set()
     out: list[RiskEvidence] = []
     for e in evidences:
-        key = (e.evidence_id, e.role)
+        key = (e.evidence_id, e.role, e.source_group)
         if key in seen:
             continue
         seen.add(key)

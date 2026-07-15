@@ -115,6 +115,14 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
         if c.eligibility_status is not EligibilityStatus.INSUFFICIENT_EVIDENCE
     ]
     active = [c for c in cands if is_active(c)]
+    # 노출 단계 분리(감수 6차) — structural active를 노출 요구별로 나눈다:
+    # exposure-required-unknown 후보는 R1에서 등급 상한·차단 대상이므로 일반 incident
+    # 밀도와 합산하면 과발동 판단이 왜곡된다(structural vs exposure-qualified 병기).
+    exp_unknown = [
+        c for c in active
+        if c.exposure_requirement in ("required_for_exposure", "confirmed_required")
+    ]
+    exp_qualified = [c for c in active if c not in exp_unknown]
     active_per_period: dict[str, int] = Counter(c.period_key for c in active)
     fam_per_period: dict[str, set[str]] = defaultdict(set)
     cause_fanout: dict[tuple[str, str], set[str]] = defaultdict(set)
@@ -152,6 +160,10 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
         ),
         "active_incident": sum(
             1 for c in active if c.kind is RiskKind.INCIDENT_RISK
+        ),
+        "exposure_required_unknown": len(exp_unknown),
+        "exposure_qualified_incident": sum(
+            1 for c in exp_qualified if c.kind is RiskKind.INCIDENT_RISK
         ),
         "active_kind": Counter(c.kind.value for c in active),
         "active_counts": [active_per_period.get(p, 0) for p in
@@ -202,9 +214,15 @@ def main() -> None:
     kind_sum: Counter = Counter()
     for s in totals:
         kind_sum.update(s["active_kind"])
+    n_exp_unknown = sum(s.get("exposure_required_unknown", 0) for s in totals)
+    n_exp_inc = sum(s.get("exposure_qualified_incident", 0) for s in totals)
     print("\n## 코퍼스 종합")
     print(f"활성/기간 평균: {n_active / max(1, n_periods):.2f} "
-          f"(active incident/기간: {n_inc / max(1, n_periods):.2f} — 목표 ≤1.5)")
+          f"(structural incident/기간: {n_inc / max(1, n_periods):.2f} · "
+          f"exposure-qualified incident/기간: {n_exp_inc / max(1, n_periods):.2f} — "
+          f"목표 ≤1.5는 exposure-qualified 기준 병기)")
+    print(f"노출 확인 필요(UNKNOWN) 활성 후보: {n_exp_unknown} — R1 등급 상한·차단 대상"
+          f"(일반 밀도와 분리, 룰 약화 판단에 합산 금지)")
     print(f"활성 kind 분포: {dict(kind_sum)}")
     fam_all = [x for s in totals for x in s["family_per_period"]]
     print(f"활성 family/기간: p50 {_percentile(fam_all, 0.5):.0f} · "
