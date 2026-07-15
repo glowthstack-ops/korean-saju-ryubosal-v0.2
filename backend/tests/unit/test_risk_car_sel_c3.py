@@ -245,11 +245,9 @@ def test_exit_pressure_no_termination_event(engine: RiskEngine) -> None:
     ))
     exi = _get(cands, "CAR_EXIT_PRESSURE")
     assert exi is not None
+    # 채용 결과의 독립 근거(공망 shape·targeted)가 없는 facts — 결과 후보는 활성 불가.
     hos = _get(cands, "CAR_HIRING_OUTCOME_SETBACK")
-    assert hos is None or not is_active(hos) or hos.suppressed_by_specificity is None
-    # 결과 후보가 활성이라도 exposure 미충족(required)이면 pressure를 흡수 못 함은
-    # family 상이(hiring vs work_role)로 원천 보장.
-    assert exi.risk_family != "hiring"
+    assert hos is None or not is_active(hos)
 
 
 def test_hiring_outcome_needs_result_stage(engine: RiskEngine) -> None:
@@ -293,8 +291,6 @@ def test_sel_c3c_positives_and_legacy_gone() -> None:
     cands = eng.generate(facts_auth_void)
     drw = _get(cands, "SEL_DRAW_OUTCOME_UNCERTAINTY")
     assert drw is not None
-    wlp = _get(cands, "SEL_WAITLIST_PROLONGATION")
-    assert wlp is not None and wlp.exposure_requirement == "confirmed_required"
     legacy = {"SEL_DOCUMENT_OMISSION", "SEL_ELIGIBILITY_SHORTFALL",
               "SEL_LOTTERY_MISS", "SEL_WAITLIST_DELAY"}
     assert not (legacy & {c.risk_id for c in cands})
@@ -310,3 +306,147 @@ def test_draw_uncertainty_not_always_on() -> None:
         twelve_stage=None,
     )), "SEL_DRAW_OUTCOME_UNCERTAINTY")
     assert void_only is None or not is_active(void_only)
+
+
+# ── C3-d — SelectionContext 3상태·소유권·stage-aware suppression·노출 게이트 ──
+
+from saju_engines.risk_engine import SelectionContext  # noqa: E402
+from saju_shared_types.risk_engine import is_exposable  # noqa: E402
+
+
+def _sel_facts():
+    """SEL 5항목이 두루 관측되는 관성·인성 자극 facts(같은 궁 대상 — 연결 성립)."""
+    return build_raw_period_facts(
+        period_key="2026", layer=LuckLayer.SEWOON,
+        ten_god_layers={TenGod.ZHENGGUAN: {LuckLayer.SEWOON},
+                        TenGod.PIANYIN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN),
+                   RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN),
+                   RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN),
+                   RelationFact(RelationKind.HAE, Pillar4.YEAR,
+                                target_ten_god=TenGod.ZHENGYIN)],
+        void_active=True, polarity_role=PolarityRole.GI, twelve_stage=None,
+    )
+
+
+def test_mode_stage_tristate(engine: RiskEngine) -> None:
+    """mode 3상태 — MATCHED=활성 가능, UNKNOWN=구조 보존·비노출, MISMATCHED=BLOCKED."""
+    from saju_shared_types.risk_engine import EligibilityStatus
+
+    comp_facts = _facts(
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}, TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+    )
+    matched = _get(engine.generate(comp_facts, selection_context=SelectionContext(
+        mode="competitive_assessment", target_type="examination",
+    )), "SEL_COMPETITION_INTENSIFY")
+    assert matched is not None and matched.selection_alignment == "matched"
+    assert is_active(matched)
+    unknown = _get(engine.generate(comp_facts), "SEL_COMPETITION_INTENSIFY")
+    assert unknown is not None and unknown.selection_alignment == "unknown"
+    assert is_active(unknown) and not is_exposable(unknown)  # 구조 보존·노출 불가
+    mismatched = _get(engine.generate(comp_facts, selection_context=SelectionContext(
+        mode="lottery_draw",
+    )), "SEL_COMPETITION_INTENSIFY")
+    assert mismatched is not None
+    assert mismatched.eligibility_status is EligibilityStatus.BLOCKED
+    assert "selection_mode_mismatch" in mismatched.suppression_reasons
+    assert mismatched.selection_alignment == "mismatched"
+
+
+def test_mode_stage_no_mutual_inference(engine: RiskEngine) -> None:
+    """상호 추론 금지 — stage=draw만 확인돼도 mode는 UNKNOWN으로 남는다."""
+    drw = _get(engine.generate(_sel_facts(), selection_context=SelectionContext(
+        stage="draw",
+    )), "SEL_DRAW_OUTCOME_UNCERTAINTY")
+    assert drw is not None
+    assert drw.selection_alignment == "unknown"  # mode 미확인 — lottery로 가정 안 함
+    assert not is_exposable(drw)
+
+
+def test_car_sel_target_ownership(engine: RiskEngine) -> None:
+    """소유권 — 채용 대상이면 SEL 결과 지연 차단, 일반 선발이면 CAR 채용 차단."""
+    hiring = SelectionContext(target_type="employment_hiring")
+    general = SelectionContext(target_type="examination")
+    cands_h = engine.generate(_sel_facts(), selection_context=hiring)
+    sel_rdl = _get(cands_h, "SEL_RESULT_DELAY_PRESSURE")
+    assert sel_rdl is None or not is_active(sel_rdl)  # SEL 차단
+    cands_g = engine.generate(_sel_facts(), selection_context=general)
+    car_hpd = _get(cands_g, "CAR_HIRING_PROCESS_DELAY")
+    assert car_hpd is None or not is_active(car_hpd)  # CAR 차단
+    car_hpd_h = _get(cands_h, "CAR_HIRING_PROCESS_DELAY")
+    assert car_hpd_h is None or car_hpd_h.selection_alignment in ("matched", "unknown")
+
+
+def test_result_delay_vs_waitlist_mutual_exclusion(engine: RiskEngine) -> None:
+    """RESULT_DELAY vs WAITLIST — stage로 상호 배제(+stage-aware 흡수 금지)."""
+    result_stage = engine.generate(_sel_facts(), selection_context=SelectionContext(
+        stage="result_wait", target_type="examination",
+    ))
+    wlp = _get(result_stage, "SEL_WAITLIST_PROLONGATION")
+    assert wlp is None or not is_active(wlp)  # stage mismatch → 차단
+    rdl = _get(result_stage, "SEL_RESULT_DELAY_PRESSURE")
+    assert rdl is not None and rdl.selection_alignment in ("matched", "unknown")
+    # 흡수 검사 — 다른 stage 메타 후보끼리는 같은 family여도 흡수하지 않는다.
+    no_ctx = engine.generate(_sel_facts())
+    for c in no_ctx:
+        if c.risk_id in ("SEL_RESULT_DELAY_PRESSURE", "SEL_WAITLIST_PROLONGATION"):
+            assert c.suppressed_by_specificity is None
+
+
+def test_waitlist_unknown_never_exposable(engine: RiskEngine) -> None:
+    """대기명단 — UNKNOWN에서는 기계적으로 비노출(unknownExposable=false)."""
+    wlp = _get(engine.generate(_sel_facts(), selection_context=SelectionContext(
+        stage="waitlist", target_type="examination",
+    )), "SEL_WAITLIST_PROLONGATION")
+    assert wlp is not None and is_active(wlp)
+    assert not is_exposable(wlp)  # 노출 UNKNOWN — confirmed 전 절대 비노출
+    confirmed = _get(engine.generate(_sel_facts(), selection_context=SelectionContext(
+        stage="waitlist", target_type="examination", mode="mixed",
+    ), exposure_status=ExposureStatus.CONFIRMED), "SEL_WAITLIST_PROLONGATION")
+    assert confirmed is not None and is_exposable(confirmed)
+
+
+def test_sel_c3c_positive_recall_all_five(engine: RiskEngine) -> None:
+    """SEL canonical 5항목 전수 — 각자 명확 양성에서 활성(INSUFFICIENT 아님)."""
+    from saju_shared_types.risk_engine import EligibilityStatus
+
+    cases = {
+        "SEL_DOCUMENT_DEFECT_RISK": _facts(
+            gods={TenGod.PIANYIN: {LuckLayer.SEWOON}},
+            relations=[RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                    target_ten_god=TenGod.ZHENGYIN)],
+        ),
+        "SEL_ELIGIBILITY_REVIEW_RISK": _facts(
+            gods={TenGod.ZHENGYIN: {LuckLayer.SEWOON}},
+            relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                                    target_ten_god=TenGod.ZHENGYIN)],
+        ),
+        "SEL_DRAW_OUTCOME_UNCERTAINTY": _facts(
+            gods={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+            relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                    target_ten_god=TenGod.ZHENGGUAN)],
+        ),
+        "SEL_RESULT_DELAY_PRESSURE": _facts(
+            gods={TenGod.ZHENGYIN: {LuckLayer.SEWOON}},
+            relations=[RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                    target_ten_god=TenGod.ZHENGYIN)],
+        ),
+        "SEL_WAITLIST_PROLONGATION": _facts(
+            gods={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+            relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                                    target_ten_god=TenGod.ZHENGGUAN),
+                       RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                    target_ten_god=TenGod.ZHENGGUAN)],  # 같은 대상 객체
+        ),
+    }
+    for rid, facts in cases.items():
+        c = _get(engine.generate(facts), rid)
+        assert c is not None, rid
+        assert c.eligibility_status in (
+            EligibilityStatus.ELIGIBLE, EligibilityStatus.MITIGATED,
+        ), (rid, c.suppression_reasons)

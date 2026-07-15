@@ -7674,3 +7674,30 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
   HIRING_OUTCOME 절차 정체 단독 음성. CAR·SEL canonical 전부 reviewed:false — 감수
   대기(승격은 표본 감수 후).
 - 검증: pytest 1844 passed·ruff·mypy clean.
+
+### 위험 엔진 C3-d — 선발 적격성 마감 (2026-07-15, 데굴님 필수 수정 9종)
+
+- **결함 테스트 수정(①)**: exit/hiring OR assertion 교정 → 실제 과발동 노출 →
+  HIRING_OUTCOME 계약 조정(targeted 단독 제거 — 결과 정체(공망+관성) AND 관성 피격
+  필수: 관성 피격만으로는 EXIT 압박과 미구분).
+- **SelectionContext 3상태 실구현(②③, env r0.5.6)**: mode/stage/target_type 엔진
+  입력 — MATCHED=활성 / UNKNOWN=구조 보존+is_exposable=false / MISMATCHED=BLOCKED
+  (selection_*_mismatch, 임의 fallback 금지). 상호 자동 추론 금지 fixture(stage=draw
+  여도 mode=unknown). stage-aware suppression(교집합 없는 stage 메타끼리 흡수 금지).
+  적격성 의미 변경 — env r0.5.6 + 21항목 재스탬프.
+- **소유권 실구현(④)**: applicableTargetTypes — 채용(employment_hiring)=CAR primary
+  (SEL 결과 지연 차단), 일반 선발=SEL(CAR 채용 차단) fixture. context_target_signature
+  의 선발·직업 구현체(확장은 후속).
+- **waitlist 기계 차단(⑤)**: exposurePolicy.unknownExposable=false + is_exposable()
+  헬퍼(R3 상위 게이트 — '~일 수 있다면' 우회 금지) fixture.
+- **SEL 전수 fixture(⑥)**: 5항목 각각 양성(INSUFFICIENT 아님)·3상태·상호배제·비노출.
+- **공망 shape 강등(⑦)**: SEL 4건 공망 event_shape → amplifier(대체 shape: 편인 왜곡/
+  관문 흔들림(충+관성)/통지 어긋남(해+인성)/계류(형+관성)). 대상 연결 판정을
+  target_object_signature(관계 종류 제외 — 궁위:자리:글자:십성) 비교로 교정(형·해가
+  같은 대상을 치면 연결).
+- **밀도 표현·기여도(⑧⑨)**: 목표 분리(구조=structural 추적/노출=exposure-qualified
+  ≤1.5 — "달성"은 프로필 미입력 UNKNOWN 가정의 projected 값임을 명시), family 밀도
+  도메인 기여도 추가 — **relationship 32%가 최대**(다음 차수 근거), contract 19%,
+  finance 15%. kind 비율은 완료 기준에서 제거.
+- CAR 5·SEL 5 여전히 reviewed:false — C3-d 재실측 후 표본 감수 대기. 검증: pytest
+  1850 passed·ruff·mypy clean.

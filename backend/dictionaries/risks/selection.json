@@ -21,13 +21,6 @@
           "strength": 0.45
         },
         {
-          "id": "SEL_DDF_S2",
-          "group": "event_shape",
-          "voidActive": true,
-          "tenGodGroup": "resource",
-          "strength": 0.45
-        },
-        {
           "id": "SEL_DDF_TA1",
           "group": "target_activation",
           "relation": "HAE",
@@ -50,6 +43,11 @@
             "GI_STRONG"
           ],
           "strength": 0.45
+        },
+        {
+          "id": "SEL_DDF_AP2",
+          "voidActive": true,
+          "strength": 0.3
         }
       ],
       "mitigatorRules": [
@@ -111,8 +109,15 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C3-c 신설(DOCUMENT_OMISSION 대체) — stage=application_document + 문서 대상 활성 + 누락·왜곡 shape. 검토 취약성만으로 미생성. mode 불필요(any)",
-      "reviewed": false
+      "note": "C3-c 신설(DOCUMENT_OMISSION 대체) — stage=application_document + 문서 대상 활성 + 누락·왜곡 shape. 검토 취약성만으로 미생성. mode 불필요(any) · 감수 14차: 공망 shape 강등(amplifier — 편인 왜곡 구조만 shape)",
+      "reviewed": false,
+      "applicableTargetTypes": [
+        "examination",
+        "public_selection",
+        "lottery_allocation",
+        "placement",
+        "procurement_bid"
+      ]
     },
     {
       "riskId": "SEL_ELIGIBILITY_REVIEW_RISK",
@@ -221,7 +226,14 @@
         "notApplicableAction": "block"
       },
       "note": "C3-c 신설(ELIGIBILITY_SHORTFALL 대체 — pressure): 자격·모집 기준은 외부 정보라 미달 단정 금지. 자격 데이터 연결 시 incident 승격 검토",
-      "reviewed": false
+      "reviewed": false,
+      "applicableTargetTypes": [
+        "examination",
+        "public_selection",
+        "lottery_allocation",
+        "placement",
+        "procurement_bid"
+      ]
     },
     {
       "riskId": "SEL_DRAW_OUTCOME_UNCERTAINTY",
@@ -239,7 +251,7 @@
         {
           "id": "SEL_DRW_S1",
           "group": "event_shape",
-          "voidActive": true,
+          "relation": "CHUNG",
           "tenGodGroup": "authority",
           "strength": 0.4
         },
@@ -266,6 +278,11 @@
             "GI_STRONG"
           ],
           "strength": 0.45
+        },
+        {
+          "id": "SEL_DRW_AP2",
+          "voidActive": true,
+          "strength": 0.3
         }
       ],
       "mitigatorRules": [
@@ -329,8 +346,11 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C3-c 신설(LOTTERY_MISS 폐기·대체): mode=lottery_draw+stage=draw 전용 — 추첨이 본질적으로 불확실하다는 이유로 상시 발동 금지(관문 대상 활성+기간 특이 shape 필수). 확률·방향 단정 금지(외부 데이터 소관)",
-      "reviewed": false
+      "note": "C3-c 신설(LOTTERY_MISS 폐기·대체): mode=lottery_draw+stage=draw 전용 — 추첨이 본질적으로 불확실하다는 이유로 상시 발동 금지(관문 대상 활성+기간 특이 shape 필수). 확률·방향 단정 금지(외부 데이터 소관) · 감수 14차: 공망 shape 강등 — shape=관문 흔들림(충+관성 동반), 공망=불확실성 증폭",
+      "reviewed": false,
+      "applicableTargetTypes": [
+        "lottery_allocation"
+      ]
     },
     {
       "riskId": "SEL_RESULT_DELAY_PRESSURE",
@@ -345,14 +365,21 @@
         {
           "id": "SEL_RDL_S1",
           "group": "event_shape",
-          "voidActive": true,
+          "relation": "HAE",
           "tenGodGroup": "resource",
-          "strength": 0.45
+          "strength": 0.4
         },
         {
           "id": "SEL_RDL_TA1",
           "group": "target_activation",
           "relation": "HAE",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.35
+        },
+        {
+          "id": "SEL_RDL_TA2",
+          "group": "target_activation",
+          "relation": "CHUNG",
           "relationTargetTenGodGroup": "resource",
           "strength": 0.35
         }
@@ -365,6 +392,11 @@
             "GI_STRONG"
           ],
           "strength": 0.45
+        },
+        {
+          "id": "SEL_RDL_AP2",
+          "voidActive": true,
+          "strength": 0.3
         }
       ],
       "mitigatorRules": [
@@ -426,8 +458,15 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C3-c 신설(WAITLIST_DELAY 분리 — 일반 결과 대기): stage=result_wait, 소식·통지(인성) 정체 구조. 대기명단은 WAITLIST_PROLONGATION 소관(추론 금지). 채용 결과 대기는 CAR primary(target_type 라우팅 R3)",
-      "reviewed": false
+      "note": "C3-c 신설(WAITLIST_DELAY 분리 — 일반 결과 대기): stage=result_wait, 소식·통지(인성) 정체 구조. 대기명단은 WAITLIST_PROLONGATION 소관(추론 금지). 채용 결과 대기는 CAR primary(target_type 라우팅 R3) · 감수 14차: 공망 shape 강등 — shape=통지 어긋남(해+인성 동반)",
+      "reviewed": false,
+      "applicableTargetTypes": [
+        "examination",
+        "public_selection",
+        "lottery_allocation",
+        "placement",
+        "procurement_bid"
+      ]
     },
     {
       "riskId": "SEL_WAITLIST_PROLONGATION",
@@ -442,9 +481,9 @@
         {
           "id": "SEL_WLP_S1",
           "group": "event_shape",
-          "voidActive": true,
+          "relation": "HYEONG",
           "tenGodGroup": "authority",
-          "strength": 0.45
+          "strength": 0.4
         },
         {
           "id": "SEL_WLP_TA1",
@@ -462,6 +501,11 @@
             "GI_STRONG"
           ],
           "strength": 0.45
+        },
+        {
+          "id": "SEL_WLP_AP2",
+          "voidActive": true,
+          "strength": 0.3
         }
       ],
       "mitigatorRules": [
@@ -515,10 +559,18 @@
         "unknownAction": "retain_structural_candidate",
         "claimCeilingWhenUnknown": "advisory",
         "deniedAction": "block",
-        "notApplicableAction": "block"
+        "notApplicableAction": "block",
+        "unknownExposable": false
       },
-      "note": "C3-c 신설(WAITLIST_DELAY 분리 — 실제 대기명단): stage=waitlist + waitlist exposure CONFIRMED 필수 — UNKNOWN이면 '대기명단 장기화' 표현 절대 불가(노출 차단)",
-      "reviewed": false
+      "note": "C3-c 신설(WAITLIST_DELAY 분리 — 실제 대기명단): stage=waitlist + waitlist exposure CONFIRMED 필수 — UNKNOWN이면 '대기명단 장기화' 표현 절대 불가(노출 차단) · 감수 14차: 공망 shape 강등(shape=형+관성 계류 구조) + unknownExposable=false(UNKNOWN 노출 기계 차단 — '~일 수 있다면' 우회 금지)",
+      "reviewed": false,
+      "applicableTargetTypes": [
+        "examination",
+        "public_selection",
+        "lottery_allocation",
+        "placement",
+        "procurement_bid"
+      ]
     },
     {
       "riskId": "SEL_UNWANTED_PLACEMENT",
@@ -640,7 +692,14 @@
       "reviewHashes": {
         "shadow_structure": "469a26f172f4a57a"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.5"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "applicableTargetTypes": [
+        "examination",
+        "public_selection",
+        "lottery_allocation",
+        "placement",
+        "procurement_bid"
+      ]
     },
     {
       "riskId": "SEL_COMPETITION_INTENSIFY",
@@ -763,10 +822,17 @@
       "reviewVersions": {
         "shadow_structure": "C3"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.5",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
       "reviewHashes": {
         "shadow_structure": "e8898ed5adfbefad"
-      }
+      },
+      "applicableTargetTypes": [
+        "examination",
+        "public_selection",
+        "lottery_allocation",
+        "placement",
+        "procurement_bid"
+      ]
     }
   ]
 }

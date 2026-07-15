@@ -136,8 +136,14 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
                             c.risk_family or c.risk_id,
                         )
     fire_periods: dict[str, set[str]] = defaultdict(set)
+    domain_family_periods: Counter = Counter()
+    seen_dfp: set[tuple[str, str, str]] = set()
     for c in active:
         fire_periods[c.risk_id].add(c.period_key)
+        key = (c.period_key, c.domain.value, c.risk_family or c.risk_id)
+        if key not in seen_dfp:
+            seen_dfp.add(key)
+            domain_family_periods[c.domain.value] += 1
     # 최장 연속 발동(월운 기준) — 평균이 낮아도 특정 위험이 계속 켜져 있으면 범용 룰 신호.
     month_labels = sorted(p.label for p in lc.monthly_luck)
     longest_streak: dict[str, int] = {}
@@ -150,6 +156,7 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
     return {
         "n_months": len(month_labels),
         "longest_streak": longest_streak,
+        "domain_family_periods": dict(domain_family_periods),
         "total": total,
         "observed": len(cands),
         "eligible": len(eligible),
@@ -230,6 +237,14 @@ def main() -> None:
     fam_all = [x for s in totals for x in s["family_per_period"]]
     print(f"활성 family/기간: p50 {_percentile(fam_all, 0.5):.0f} · "
           f"p90 {_percentile(fam_all, 0.9):.0f} · max {max(fam_all, default=0)} (목표 ≤3)")
+    dom_fam: Counter = Counter()
+    for s in totals:
+        dom_fam.update(s.get("domain_family_periods", {}))
+    total_fam_periods = sum(dom_fam.values()) or 1
+    print("family 밀도 도메인 기여도(활성 family-기간 합): " + ", ".join(
+        f"{d} {n}({100*n//total_fam_periods}%)" for d, n in dom_fam.most_common()))
+    print("밀도 목표(감수 14차 분리): 구조 품질=structural incident 별도 추적(현재 상단) · "
+          "사용자 노출 밀도=exposure-qualified incident ≤1.5")
     fanout_max = max((s["max_cause_fanout"] for s in totals), default=0)
     print(f"단일 원인 활성 family 확산 max: {fanout_max} (목표 ≤2, 예외 3)")
 

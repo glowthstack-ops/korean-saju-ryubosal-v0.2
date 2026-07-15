@@ -79,6 +79,15 @@ def _relation_atoms(e: RiskEvidence) -> frozenset[str]:
     return frozenset(a for a in cause_atoms(e.source) if a.startswith("relation:"))
 
 
+def _target_object_signatures(e: RiskEvidence) -> frozenset[str]:
+    """관계 원자에서 **관계 종류를 제외한** 대상 객체 서명(궁위:자리[:글자][:십성])만
+    추출 — 형과 해가 같은 대상을 쳐도 같은 객체로 판정한다(감수 14차: 대상 동일성은
+    관계 종류가 아니라 target_object_signature 기준)."""
+    return frozenset(
+        a.split(":", 2)[2] for a in _relation_atoms(e) if a.count(":") >= 2
+    )
+
+
 def _targets_linked(triggers: list[RiskEvidence]) -> bool:
     """shape 계열과 활성 계열 trigger의 대상 연결 판정(감수 11차·12차 강화).
 
@@ -99,7 +108,9 @@ def _targets_linked(triggers: list[RiskEvidence]) -> bool:
             if s_atoms & cause_atoms(a.source):
                 return True  # ① 동일 원인 사실.
             a_rel = _relation_atoms(a)
-            if s_rel and a_rel and not (s_rel & a_rel):
+            if s_rel and a_rel and not (
+                _target_object_signatures(s) & _target_object_signatures(a)
+            ):
                 continue  # 양쪽 대상 객체가 명시적으로 다름 — fallback 구제 금지.
             if s_groups & _evidence_god_groups(a):
                 return True  # ② 십성군 fallback(상위 대상 정보 부재 시에만 도달).
@@ -161,6 +172,13 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
                 continue  # 동률은 억제하지 않는다(서로 다른 구체 사건 병존 허용).
             if not _exposure_ok(primary) and _exposure_ok(c):
                 continue  # 노출 부적격 대표는 노출 가능 후보를 흡수 불가.
+            # stage-aware(감수 14차) — 양쪽 stage 메타가 명시적으로 다르면(교집합 없음)
+            # 상호 배타 단계 후보라 같은 family여도 흡수하지 않는다(서류 단계 vs 대기명단).
+            if (
+                primary.selection_stages and c.selection_stages
+                and not (set(primary.selection_stages) & set(c.selection_stages))
+            ):
+                continue
             if _atoms(c) & primary_atoms:
                 suppression[id(c)] = (primary.risk_id, _absorbed_role(c, primary))
     if not suppression:
@@ -188,6 +206,30 @@ def _absorbed_role(absorbed: RiskCandidate, primary: RiskCandidate) -> str:
     if absorbed.domain is not primary.domain:
         return "secondary_domain_effect"
     return "supporting_manifestation"
+
+
+@dataclass(frozen=True)
+class SelectionContext:
+    """현실 선발 컨텍스트(감수 14차) — 질문·프로필에서 확인된 mode/stage/대상 유형.
+
+    None = UNKNOWN(정보 부족 — 구조 보존, 특정 표현 금지). 값이 있는데 항목의 허용
+    목록 밖이면 MISMATCHED(BLOCKED — 임의 fallback 금지). mode와 stage는 상호 자동
+    추론 금지: stage=draw여도 mode를 lottery로 가정하지 않는다. target_type은 CAR·SEL
+    소유권(채용=CAR primary) — context_target_signature의 선발·직업 도메인 구현체.
+    """
+
+    mode: str | None = None  # competitive_assessment/lottery_draw/... (None=UNKNOWN)
+    stage: str | None = None  # application_document/.../waitlist (None=UNKNOWN)
+    target_type: str | None = None  # employment_hiring/examination/... (None=UNKNOWN)
+
+
+def _axis_alignment(ctx_value: str | None, allowed: list[str]) -> str:
+    """한 축의 3상태 판정 — 항목이 축을 제한하지 않으면 항상 matched."""
+    if not allowed:
+        return "matched"
+    if ctx_value is None:
+        return "unknown"
+    return "matched" if ctx_value in allowed else "mismatched"
 
 
 @dataclass(frozen=True)
@@ -268,6 +310,7 @@ class RiskEngine:
         self,
         facts: RawPeriodFacts,
         exposure_status: ExposureStatus = ExposureStatus.UNKNOWN,
+        selection_context: SelectionContext | None = None,
     ) -> list[RiskCandidate]:
         """한 시점의 원시 신호에서 원자 위험 후보를 생성한다.
 
@@ -316,6 +359,25 @@ class RiskEngine:
             if not triggers:
                 continue  # 관측 없음 — 후보 자체를 만들지 않는다.
             status, reasons = self._evaluate(item, evidences, triggers, exposure_status)
+            # SelectionContext 3상태(감수 14차) — MISMATCHED는 명시적 부적용(BLOCKED,
+            # 임의 fallback 금지). UNKNOWN은 구조 보존(노출은 is_exposable이 차단).
+            ctx = selection_context or SelectionContext()
+            axes = (
+                ("mode", _axis_alignment(ctx.mode, item.applicable_selection_modes)),
+                ("stage", _axis_alignment(ctx.stage, item.applicable_selection_stages)),
+                ("target_type", _axis_alignment(
+                    ctx.target_type, item.applicable_target_types)),
+            )
+            if any(a == "mismatched" for _, a in axes):
+                status = EligibilityStatus.BLOCKED
+                reasons = list(reasons) + [
+                    f"selection_{name}_mismatch" for name, a in axes if a == "mismatched"
+                ]
+                alignment = "mismatched"
+            elif any(a == "unknown" for _, a in axes):
+                alignment = "unknown"
+            else:
+                alignment = "matched"
             out.append(RiskCandidate(
                 risk_id=item.risk_id,
                 domain=RiskDomain(item.domain),
@@ -334,6 +396,12 @@ class RiskEngine:
                 eligibility_status=status,
                 suppression_reasons=reasons,
                 specificity_rank=_specificity_rank(item),
+                selection_alignment=alignment,
+                selection_stages=list(item.applicable_selection_stages),
+                exposable_when_unknown=(
+                    item.exposure_policy.unknown_exposable
+                    if item.exposure_policy is not None else True
+                ),
             ))
         return _apply_specificity_suppression(out)
 
@@ -530,6 +598,7 @@ __all__ = [
     "RawPeriodFacts",
     "RelationFact",
     "RiskEngine",
+    "SelectionContext",
     "build_raw_period_facts",
     "cause_atoms",
 ]

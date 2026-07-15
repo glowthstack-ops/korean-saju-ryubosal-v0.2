@@ -178,6 +178,13 @@ class RiskCandidate(BaseModel):
     specificity_rank: int = 0  # 구체 대상 사건 3 > 도메인 일반 2 > 취약성 1 > 압박 0
     primary_risk_id: str | None = None  # 흡수된 경우 대표 위험의 risk_id
     suppressed_by_specificity: str | None = None  # 억제 사유(대표 risk_id — 활성 집계 제외)
+    # SelectionContext 3상태(감수 14차) — matched/unknown/mismatched. mismatched는
+    # BLOCKED로 이어지며, unknown은 구조 보존 + mode·stage 특정 표현 금지.
+    selection_alignment: str = "matched"
+    # 항목의 stage 메타(사전 applicableSelectionStages 복사) — stage-aware suppression용.
+    selection_stages: list[str] = Field(default_factory=list)
+    # UNKNOWN 노출 가부(사전 exposurePolicy.unknownExposable) — is_exposable이 소비.
+    exposable_when_unknown: bool = True
     # 흡수 후보의 역할(2026-07-15 감수 3차) — 흡수는 삭제가 아니라 역할 전환이다.
     # R1에서 대표 후보의 impact/exposure 계산·보조 서술에 쓴다:
     # supporting_manifestation(같은 도메인 하위 사건) / impact_amplifier(압박 — 예상 영향)
@@ -200,6 +207,25 @@ def is_active(candidate: RiskCandidate) -> bool:
         in (EligibilityStatus.ELIGIBLE, EligibilityStatus.MITIGATED)
         and candidate.suppressed_by_specificity is None
     )
+
+
+def is_exposable(candidate: RiskCandidate) -> bool:
+    """사용자 노출 가부의 구조적 근사(감수 14차 — R3 전 기계 강제).
+
+    R3 노출 정책(claimCeiling·등급·질문 컨텍스트)의 상위 게이트다: 구조적 활성이면서
+    ①selection 정렬이 unknown/mismatched가 아니고 ②UNKNOWN 비노출 항목
+    (unknownExposable=false, 예: 대기명단)은 노출 CONFIRMED여야 한다. R3는 이 함수가
+    True인 후보만 표현 정책 대상으로 삼는다 — "대기명단일 수 있다면" 류 우회 금지.
+    """
+    if not is_active(candidate):
+        return False
+    if candidate.selection_alignment != "matched":
+        return False
+    if not candidate.exposable_when_unknown and (
+        candidate.exposure_status is not ExposureStatus.CONFIRMED
+    ):
+        return False
+    return True
 
 
 class ProtectiveFactor(BaseModel):

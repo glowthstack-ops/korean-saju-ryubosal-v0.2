@@ -966,6 +966,11 @@ _RISK_SELECTION_STAGES = (
     "application_document", "eligibility_check", "assessment", "draw",
     "result_wait", "waitlist", "placement_allocation",
 )
+# 선발 대상 유형(감수 14차) — CAR·SEL 소유권 라우팅: 채용=CAR primary, 그 외=SEL.
+_RISK_TARGET_TYPES = (
+    "employment_hiring", "examination", "public_selection", "lottery_allocation",
+    "placement", "procurement_bid",
+)
 
 # exposurePolicy 유효값(감수 6차) — 현실 노출 정책을 note가 아닌 기계 판독 필드로.
 _RISK_EXPOSURE_REQUIREMENTS = (
@@ -991,6 +996,9 @@ class RiskExposurePolicy(_AliasModel):
     claim_ceiling_when_unknown: str | None = Field(
         default=None, alias="claimCeilingWhenUnknown",
     )
+    # UNKNOWN 노출 가부(감수 14차) — false면 노출 확인 전 사용자 노출 절대 불가
+    # (구조 후보만 보존, "~일 수 있다면" 표현도 금지). 기계 판독 — is_exposable이 소비.
+    unknown_exposable: bool = Field(default=True, alias="unknownExposable")
     fallback_risk_id: str | None = Field(default=None, alias="fallbackRiskId")
 
     @model_validator(mode="after")
@@ -1071,6 +1079,11 @@ class RiskItem(_AliasModel):
     applicable_selection_stages: list[str] = Field(
         alias="applicableSelectionStages", default_factory=list,
     )
+    # 적용 가능한 선발 대상 유형(감수 14차) — CAR·SEL 소유권: 명시 목록 밖의
+    # target_type이 확인되면 MISMATCHED(차단). 미지정=유형 무관.
+    applicable_target_types: list[str] = Field(
+        alias="applicableTargetTypes", default_factory=list,
+    )
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
@@ -1105,6 +1118,11 @@ class RiskItem(_AliasModel):
                 raise ValueError(
                     f"applicableSelectionStages 값 오류: {stage} ({self.risk_id})"
                 )
+        for tt in self.applicable_target_types:
+            if tt not in _RISK_TARGET_TYPES:
+                raise ValueError(
+                    f"applicableTargetTypes 값 오류: {tt} ({self.risk_id})"
+                )
         return self
 
 
@@ -1123,7 +1141,9 @@ _RISK_HASH_SCHEMA_VERSION = 4
 # r0.5.4: 흡수 대표 우선순위에 노출 적격성 추가 + 관계 대상 서명 정규화(궁위·자리·글자·십성).
 # r0.5.5: 증거 계약 requiresLinkedTargets — 역할 활성과 부담 shape가 같은 대상/연결된
 # 원인에 속해야 적격(무관 신호의 느슨한 조합 차단, 감수 11차).
-RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.5"
+# r0.5.6: SelectionContext(mode/stage/target_type) 3상태(MATCHED/UNKNOWN/MISMATCHED)를
+# 엔진 적격성에 실제 소비 + stage-aware suppression + 소유권 차단(감수 14차 C3-d).
+RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.6"
 
 
 def risk_scope_hash(item: RiskItem, scope: str) -> str:

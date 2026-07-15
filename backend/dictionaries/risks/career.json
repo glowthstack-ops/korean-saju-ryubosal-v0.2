@@ -161,7 +161,7 @@
       "reviewVersions": {
         "shadow_structure": "C3"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.5",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
       "reviewHashes": {
         "shadow_structure": "505e26ef2fb79401"
       }
@@ -302,7 +302,7 @@
       "reviewHashes": {
         "shadow_structure": "38e5062b784cfc71"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.5"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6"
     },
     {
       "riskId": "CAR_EVALUATION_SETBACK_RISK",
@@ -764,7 +764,10 @@
         "notApplicableAction": "block"
       },
       "note": "C3-b 신설(HIRING_DELAY_REJECTION 분리 — 지연 pressure): 지원·면접·채용 절차 노출 필요. 취업·채용 결과는 CAR primary(일반 시험·공모·추첨=SEL primary)",
-      "reviewed": false
+      "reviewed": false,
+      "applicableTargetTypes": [
+        "employment_hiring"
+      ]
     },
     {
       "riskId": "CAR_HIRING_OUTCOME_SETBACK",
@@ -785,17 +788,16 @@
           "strength": 0.45
         },
         {
-          "id": "CAR_HOS_T1",
-          "group": "targeted_event_shape",
-          "relation": "CHUNG",
-          "relationTargetTenGodGroup": "authority",
-          "tenGodGroup": "authority",
-          "strength": 0.5
-        },
-        {
           "id": "CAR_HOS_TA1",
           "group": "target_activation",
           "relation": "HYEONG",
+          "relationTargetTenGodGroup": "authority",
+          "strength": 0.4
+        },
+        {
+          "id": "CAR_HOS_TA2",
+          "group": "target_activation",
+          "relation": "CHUNG",
           "relationTargetTenGodGroup": "authority",
           "strength": 0.4
         }
@@ -843,11 +845,6 @@
               "event_shape",
               "target_activation"
             ]
-          },
-          {
-            "allOfGroups": [
-              "targeted_event_shape"
-            ]
           }
         ],
         "minIndependentCauses": 1,
@@ -879,8 +876,11 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C3-b 신설(HIRING_DELAY_REJECTION 분리 — 결과 incident): 실제 지원 노출 + 결과 단계 activation + 강한 targeted 또는 다원인. CAR primary, SEL 자동 중복 생성 금지",
-      "reviewed": false
+      "note": "C3-b 신설(HIRING_DELAY_REJECTION 분리 — 결과 incident): 실제 지원 노출 + 결과 단계 activation + 강한 targeted 또는 다원인. CAR primary, SEL 자동 중복 생성 금지 · 감수 14차: targeted 단독 경로 제거 — 결과 정체(공망+관성) AND 관성 피격 필수(관성 피격만으로는 EXIT 압박과 미구분·과발동)",
+      "reviewed": false,
+      "applicableTargetTypes": [
+        "employment_hiring"
+      ]
     }
   ]
 }
