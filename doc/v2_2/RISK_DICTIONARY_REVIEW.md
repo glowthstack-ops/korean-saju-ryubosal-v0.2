@@ -654,3 +654,29 @@ synthetic fixture) ④`document_responsibility`/`response_obligation`은 R1 예�
   흡수 차단 — C8 설계). --write 재기록(env r0.5.11).
 - **reviewed 49(전 도메인 unreviewed 0)** · manifest 재생성 · pytest 1960 ·
   ruff clean · mypy(C8 대상 파일 clean — 기존 테스트 타입 부채 142건 별도 보고).
+
+### 11-3. C8 승인 확정(감수 24차) 및 R1 진입 게이트 (2026-07-16)
+
+데굴님 최종 결정: 커밋 03eeac5·7항목 재승격·reviewed 49·env r0.5.11 **전부 승인 —
+C8 마감 완료(재오픈 없음)**. RCW 40.9%는 latent 구조 관측률로 허용(단독 노출·대표·
+독립 family·occurrence 기여 금지가 전부 기계 보장됐으므로 룰 축소 사유 아님).
+
+R1 착수 전 별도 게이트(§10):
+
+1. **PENALTY kind 정합화(감수 질문)**: 현 허용 표현(기한·요건 확인/의무 이행 점검/
+   대응 준비)이 전부 점검 수준 — 실질 의미가 준법·의무 이행 pressure에 가깝다.
+   R1 impact prior·risk budget 왜곡 방지를 위해 다음 중 하나로 확정:
+   ⓐ formal violation/sanction exposure CONFIRMED+구체 제재 대상+독립 targeted
+   shape 조건의 conditional incident 유지 ⓑ LEG_COMPLIANCE_OBLIGATION_PRESSURE 류
+   pressure 재분류. — C8 재오픈 아님, R1 진입 게이트.
+2. RCW 지표 분리(완료): rcw_became_representative=0 필수 / rcw_absorbed_as_
+   background=정상 발생 가능 / rcw_standalone_exposable=0 필수.
+3. 3프로필 baseline 고정(완료 — RISK_PROFILE_BASELINE.md): 하한 1.28/일반 1.56/
+   상한 1.64 exposable/기간, R2 최종 선별 목표는 selected family ≤3 유지(raw
+   structural 3 컷 금지).
+4. **TYP-0**(테스트 타입 부채 142건): mypy production=0 즉시, tests=baseline 증가
+   금지 → 별도 차수 0. 완료 조건 = mypy 0 + pytest 불변 + risk baseline diff 0 +
+   3프로필 지표 불변. 순서상 R1보다 먼저.
+5. 프로필별 양성 fixture recall 유지 / 교차 도메인 동일 cause occurrence 1회 규격 /
+   possible_trajectory·vulnerability occurrence 기여 0 / R1 전 baseline commit·env·
+   사전 해시 고정.

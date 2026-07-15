@@ -411,8 +411,11 @@ def _leg_scenario_report(levels: set[GanjiLevel], corpus) -> None:
     """시나리오별 LEG 밀도 + RCW 역할 보장 실측(감수 23차 커밋 조건 3·4).
 
     보고 축(데굴님 요구): observed RCW / context-matched RCW / 대표 아래 흡수 RCW /
-    독립 잔존 RCW / family 집계 기여 / 사용자 노출 수. 목표: RCW 독립 노출=0 ·
-    RCW 독립 family 기여=0 · RCW가 대표를 흡수한 수=0.
+    독립 잔존 RCW / family 집계 기여 / 사용자 노출 수. 지표 명칭 분리(감수 24차 —
+    '대표 흡수'의 두 의미 구분): rcw_became_representative(RCW가 다른 후보를 흡수한
+    대표가 된 수 — 반드시 0) vs rcw_absorbed_as_background(RCW가 구체 대표 아래
+    background로 흡수된 수 — 같은 episode에 구체 후보가 있으면 정상 발생). 목표:
+    rcw_became_representative=0 · rcw_standalone_exposable=0 · 독립 family 기여=0.
     """
     print("\n# LEG confirmed 절차 시나리오 밀도(감수 23차 커밋 조건)")
     rcw_id = "LEG_REVIEW_CAPACITY_WEAK"
@@ -422,8 +425,9 @@ def _leg_scenario_report(levels: set[GanjiLevel], corpus) -> None:
         engine.set_risk_shadow_contexts(legal_contexts=ctxs)
         active = exposable = blocked = 0
         mis_specific = 0  # 미확인 절차에서 노출된 특정 항목(=오노출, 0 목표)
-        rcw_observed = rcw_matched = rcw_absorbed = rcw_standalone = 0
-        rcw_exposed = rcw_as_primary = rcw_family_contrib = 0
+        rcw_observed = rcw_matched = rcw_absorbed_as_background = 0
+        rcw_standalone = rcw_standalone_exposable = 0
+        rcw_became_representative = rcw_family_contrib = 0
         expo_fam_pp: dict[str, set[str]] = defaultdict(set)
         kind_cnt: Counter = Counter()
         for cname, birth in corpus:
@@ -433,17 +437,17 @@ def _leg_scenario_report(levels: set[GanjiLevel], corpus) -> None:
                 if c.domain is not RiskDomain.CONTRACT_LEGAL:
                     continue
                 if c.suppressed_by_specificity == rcw_id:
-                    rcw_as_primary += 1  # RCW가 대표로 다른 후보를 흡수(목표 0)
+                    rcw_became_representative += 1  # RCW가 흡수 대표(반드시 0)
                 if c.risk_id == rcw_id:
                     rcw_observed += 1
                     if c.legal_alignment == "matched":
                         rcw_matched += 1
                     if c.suppressed_by_specificity:
-                        rcw_absorbed += 1
+                        rcw_absorbed_as_background += 1  # 정상 발생 가능
                     elif is_active(c):
                         rcw_standalone += 1
                     if is_exposable(c):
-                        rcw_exposed += 1
+                        rcw_standalone_exposable += 1
                 if c.eligibility_status is EligibilityStatus.BLOCKED:
                     blocked += 1
                 if not is_active(c):
@@ -472,10 +476,144 @@ def _leg_scenario_report(levels: set[GanjiLevel], corpus) -> None:
         print(f"  노출 가능 family/기간: p50 {_percentile(expo_fams, 0.5):.0f} · "
               f"p90 {_percentile(expo_fams, 0.9):.0f} · max {max(expo_fams)}")
         print(f"  RCW(latent vulnerability): observed {rcw_observed} · "
-              f"context-matched {rcw_matched} · 대표 아래 흡수 {rcw_absorbed} · "
-              f"독립 잔존(구조) {rcw_standalone}")
-        print(f"  RCW 역할 보장(목표 전부 0): 독립 사용자 노출 {rcw_exposed} · "
-              f"독립 family 기여 {rcw_family_contrib} · 대표 흡수 {rcw_as_primary}")
+              f"context-matched {rcw_matched} · "
+              f"rcw_absorbed_as_background {rcw_absorbed_as_background}(정상 발생 가능)"
+              f" · 독립 잔존(구조) {rcw_standalone}")
+        print(f"  RCW 역할 보장(목표 전부 0): rcw_standalone_exposable "
+              f"{rcw_standalone_exposable} · 독립 family 기여 {rcw_family_contrib} · "
+              f"rcw_became_representative {rcw_became_representative}")
+
+
+def _build_exposure_profiles() -> list[tuple[str, dict]]:
+    """3프로필 노출 단계 묶음(감수 24차 — R1 진입 게이트 baseline).
+
+    A all_unknown: 전 컨텍스트 미확인 — projected 하한(required_for_warning advisory만).
+    B typical_confirmed: 현실적 단일 사용자 — 파트너 확인+일반 건강 질문(상태 미확인)+
+      진행 중 계약 1건. 이사·소송·치료·대인 금전거래 없음. 직업 역할(전역 노출 축)은
+      R5 프로필 배선 전이라 UNKNOWN 유지 — career 구체 항목은 하한으로 측정된다.
+    C high_exposure: 서로 다른 익명 episode 복수 병존(채용 결과 대기+이사 계약+진행
+      계약+파트너+치료 중) — R2 risk budget 상한 측정. boolean 무차별 true 금지
+      (인위적 후보 폭발이 아니라 현실 상한을 잰다).
+    """
+    from saju_engines.risk_engine import (
+        HealthContext,
+        LegalProcessContext,
+        MobilityContext,
+        RelationshipContext,
+        SelectionContext,
+    )
+    typical = dict(
+        relationship_contexts=[RelationshipContext(
+            target_role="current_partner", target_id="partner_1",
+            exposure_status=ExposureStatus.CONFIRMED)],
+        health_contexts=[HealthContext(is_question_target=True)],
+        legal_contexts=[LegalProcessContext(
+            target_type="contract", stage="active_contract",
+            exposure_status=ExposureStatus.CONFIRMED,
+            process_episode_id="contract_1")],
+    )
+    high = dict(
+        selection_context=SelectionContext(
+            target_type="employment_hiring", stage="result_wait"),
+        relationship_contexts=[RelationshipContext(
+            target_role="current_partner", target_id="partner_1",
+            exposure_status=ExposureStatus.CONFIRMED)],
+        mobility_contexts=[MobilityContext(
+            target_type="residential_move", stage="contracted",
+            exposure_status=ExposureStatus.CONFIRMED,
+            episode_id="housing_move_1")],
+        health_contexts=[HealthContext(
+            context_type="treatment_process", treatment_status="ongoing",
+            exposure_status=ExposureStatus.CONFIRMED, episode_id="treatment_1")],
+        legal_contexts=[LegalProcessContext(
+            target_type="contract", stage="active_contract",
+            exposure_status=ExposureStatus.CONFIRMED,
+            process_episode_id="active_contract_1")],
+    )
+    return [("A_all_unknown", {}), ("B_typical_confirmed", typical),
+            ("C_high_exposure", high)]
+
+
+def _profile_scenario_report(levels: set[GanjiLevel], corpus) -> None:
+    """3프로필 밀도 baseline(감수 24차 필수 지표) — TYP-0 전후 불변 비교의 기준.
+
+    출력은 결정적이다(코퍼스·컨텍스트 고정, 정렬 출력) — 저장본과의 diff가 회귀 신호.
+    """
+    print("# 위험 3프로필 노출 단계 baseline(감수 24차 — R1 진입 게이트)")
+    print(f"코퍼스 {len(corpus)}차트 · 층위 year+month · env 사전 기준 manifest 참조")
+    for name, ctxs in _build_exposure_profiles():
+        engine = EventEngineV2(_DICTS, risk_mode="shadow")
+        engine.set_risk_shadow_contexts(**ctxs)
+        periods = 0
+        active: list = []
+        blocked = mismatched = 0
+        expo_fam_pp: dict[str, set[str]] = defaultdict(set)
+        fam_pp: dict[str, set[str]] = defaultdict(set)
+        fanout: dict[tuple[str, str, str], set[str]] = defaultdict(set)
+        atom_domains: dict[tuple[str, str, str], set[str]] = defaultdict(set)
+        episode_counts: Counter = Counter()
+        dom_fam: Counter = Counter()
+        seen_dfp: set = set()
+        kind_cnt: Counter = Counter()
+        exposable_n = 0
+        for cname, birth in corpus:
+            chart = calculate(birth)
+            engine.score(chart, levels=levels)
+            lc = chart.luck_cycles
+            assert lc is not None
+            periods += len(lc.yearly_luck) + len(lc.monthly_luck)
+            for c in engine.risk_shadow:
+                if c.eligibility_status is EligibilityStatus.BLOCKED:
+                    blocked += 1
+                    if any(r.endswith("_mismatch") for r in c.suppression_reasons):
+                        mismatched += 1
+                if not is_active(c):
+                    continue
+                active.append(c)
+                kind_cnt[c.kind.value] += 1
+                pkey = f"{cname}|{c.period_key}"
+                fam = c.risk_family or c.risk_id
+                fam_pp[pkey].add(fam)
+                key = (cname, c.period_key, c.domain.value, fam)
+                if key not in seen_dfp:
+                    seen_dfp.add(key)
+                    dom_fam[c.domain.value] += 1
+                for axis in ("legal_episode_id", "mobility_episode_id",
+                             "health_episode_id", "relationship_target_id"):
+                    ep = getattr(c, axis)
+                    if ep is not None:
+                        episode_counts[f"{axis.rsplit('_', 1)[0]}:{ep}"] += 1
+                if is_exposable(c):
+                    exposable_n += 1
+                    expo_fam_pp[pkey].add(fam)
+                for e in c.evidence:
+                    if e.role is EvidenceRole.TRIGGER:
+                        for atom in cause_atoms(e.source):
+                            if not atom.startswith("polarity:"):
+                                fanout[(cname, c.period_key, atom)].add(fam)
+                                atom_domains[(cname, c.period_key, atom)].add(
+                                    c.domain.value)
+        fams = [len(v) for v in fam_pp.values()] or [0]
+        expo_fams = [len(v) for v in expo_fam_pp.values()] or [0]
+        cross_domain_causes = sum(
+            1 for doms in atom_domains.values() if len(doms) >= 2)
+        print(f"\n## {name}")
+        print(f"  기간 {periods} · 활성/기간 {len(active) / max(1, periods):.2f} · "
+              f"context-exposable/기간 {exposable_n / max(1, periods):.2f}")
+        print(f"  kind(활성): {dict(sorted(kind_cnt.items()))}")
+        print(f"  활성 family/기간: p50 {_percentile(fams, 0.5):.0f} · "
+              f"p90 {_percentile(fams, 0.9):.0f} · max {max(fams)}")
+        print(f"  노출 가능 family/기간: p50 {_percentile(expo_fams, 0.5):.0f} · "
+              f"p90 {_percentile(expo_fams, 0.9):.0f} · max {max(expo_fams)}")
+        print(f"  단일 원인 family 확산 max: "
+              f"{max((len(v) for v in fanout.values()), default=0)}")
+        print(f"  교차 도메인 공유 원인(기간·원인 기준): {cross_domain_causes}")
+        print(f"  UNKNOWN 보존(활성·비노출): {len(active) - exposable_n} · "
+              f"BLOCKED {blocked}(축 MISMATCHED {mismatched})")
+        print("  episode별 활성 후보: " + (", ".join(
+            f"{k}={v}" for k, v in sorted(episode_counts.items())) or "없음"))
+        print("  도메인 기여도(unique 기간·family): " + ", ".join(
+            f"{d} {n}" for d, n in dom_fam.most_common()))
 
 
 def main() -> None:
@@ -490,6 +628,8 @@ def main() -> None:
                         help="HLT confirmed 컨텍스트 시나리오 5종 밀도(감수 21차)")
     parser.add_argument("--leg-scenarios", action="store_true",
                         help="LEG confirmed 절차 시나리오 4종 밀도(감수 23차 커밋 조건)")
+    parser.add_argument("--profile-scenarios", action="store_true",
+                        help="3프로필 노출 단계 baseline(감수 24차 — R1 진입 게이트)")
     args = parser.parse_args()
     levels = {_LEVELS[x.strip()] for x in args.levels.split(",") if x.strip()}
     corpus = _CORPUS[:1] if args.baseline_only else _CORPUS
@@ -501,6 +641,9 @@ def main() -> None:
         return
     if args.leg_scenarios:
         _leg_scenario_report(levels, corpus)
+        return
+    if args.profile_scenarios:
+        _profile_scenario_report(levels, corpus)
         return
 
     engine = EventEngineV2(_DICTS, risk_mode="shadow")

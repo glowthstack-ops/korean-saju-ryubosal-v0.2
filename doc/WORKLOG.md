@@ -7873,3 +7873,37 @@ reviewed 49(전 도메인 unreviewed 0)**, manifest·baseline 재기록(diff 전
 비LEG=승인된 FIN 42건뿐). pytest 1960·ruff clean·mypy C8 파일 clean(기존 테스트
 타입 부채 142건 발견 — 중복 모듈 오류가 가리던 것, 별도 차수 필요). 다음: 3프로필
 시나리오 재실측→R1.
+
+## C8 승인 확정(감수 24차) — RCW 지표 분리·3프로필 baseline·R1 진입 게이트 (2026-07-16)
+
+데굴님 최종 결정: **커밋 03eeac5·LEG 7항목 재승격·reviewed 49·env r0.5.11·해시 v8
+전부 승인, C8 마감 완료(재오픈 없음)**.
+
+**검증 표기 정정(데굴님 지적 — 이후 차수 공통 규칙)**: 기존 `mypy .` 검사가
+tests.unit 접두 import의 중복 모듈 오류 1건에서 조기 종료되어 **전체 테스트 타입
+검증을 수행하지 못하고 있었음**(기존 게이트의 사각지대 — C8의 실패 아님). import
+정합화 후 기존 부채 142건 확인. 현재 정확한 상태 표기:
+`mypy production/C8 scope: clean · project-wide mypy: existing test typing debt 142`.
+저장소 전체를 "mypy clean"으로 표기 금지. env r0.5.11 재스탬프 42건의 정확한 성격:
+사전 본문은 불변이나 엔진 대표 선정 의미가 변경됐고, 관측된 비LEG 동작 변화
+42건(FIN 역전 해소)을 전수 감수한 **환경 재승격**.
+
+후속 반영: ①RCW 지표 명칭 분리 — rcw_became_representative(반드시 0) vs
+rcw_absorbed_as_background(같은 episode 구체 대표 아래 흡수 — 정상 발생 가능) vs
+rcw_standalone_exposable(반드시 0) ②**3프로필 노출 단계 baseline 고정**
+(--profile-scenarios → doc/v2_2/RISK_PROFILE_BASELINE.md): all_unknown 하한
+exposable 1.28/기간 → typical_confirmed 1.56 → high_exposure 상한 1.64, C의
+BLOCKED 468 전량 소유권 MISMATCHED(SEL 45→0, CAR primary — 라우팅 검증).
+
+**R1 진입 게이트(데굴님 §10 — R1 착수 전 필수)**: ①PENALTY risk_id/kind/claim
+scope 최종 정합화(현 허용 표현이 전부 점검 수준이면 pressure 재분류 —
+LEG_COMPLIANCE_OBLIGATION_PRESSURE 류 — 또는 위반·제재 CONFIRMED 조건의 conditional
+incident 유지, **감수 질문**) ②RCW 지표 분리(완료) ③3프로필 결과 고정(완료)
+④**TYP-0 차수: 프로젝트 전체 mypy 부채 0**(mypy production=0 즉시·tests=142
+baseline 신규 증가 금지 CI 분리 → 별도 차수에서 0. union-attr=assert/type guard,
+arg-type=fixture 반환 타입, 광범위 Any·ignore 금지, 테스트 의미·입력 불변, 완료
+조건=mypy 0+pytest 불변+risk baseline diff 0+3프로필 지표 불변) ⑤프로필별 양성
+fixture recall 유지 ⑥교차 도메인 동일 cause occurrence 1회 계산 규격 확인(표본
+372~399건) ⑦possible_trajectory·vulnerability occurrence 기여 0 ⑧R1 전 baseline
+commit·env·사전 해시 고정. 순서: C8 baseline → 3프로필(완료) → **TYP-0** → 동일
+프로필 재확인 → R1.
