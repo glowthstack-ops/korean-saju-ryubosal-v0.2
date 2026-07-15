@@ -974,6 +974,18 @@ _RISK_TARGET_TYPES = (
     "employment_hiring", "examination", "public_selection", "lottery_allocation",
     "placement", "procurement_bid",
 )
+# 이동·주거 대상 유형/단계(감수 18차 — MOV 차수) — 운 신호만으로 이사 계획·계약·
+# 차량·통근의 존재를 만들지 않는다: 항목이 적용 가능한 이동 대상·단계를 명시하고
+# 현실 축은 MobilityContext(프로필·질문)가 공급한다. 3상태는 selection 축과 동일
+# (UNKNOWN=하드 비노출 — 이사·차량 특정 표현은 계획 확인 없이 불가).
+_RISK_MOBILITY_TARGET_TYPES = (
+    "residential_move", "housing_search", "housing_contract", "workplace_relocation",
+    "temporary_stay", "commute_change", "travel_transport", "vehicle_use",
+)
+_RISK_MOBILITY_STAGES = (
+    "no_plan", "considering", "searching", "negotiating", "contracted",
+    "preparing", "moving", "settled",
+)
 # 관계 역할 유형(감수 16차 — REL 차수) — 관계 위험은 십성·궁위만으로 현실의 상대를
 # 만들어내지 않는다: 항목이 적용 가능한 관계 역할을 명시하고, 현실 역할·노출은
 # RelationshipContext(프로필·동반자 등록·궁합/함께보기 질문 대상)가 공급한다.
@@ -1027,6 +1039,18 @@ class RiskExposurePolicy(_AliasModel):
     requires_financial_tie: bool = Field(default=False, alias="requiresFinancialTie")
     requires_shared_responsibility: bool = Field(
         default=False, alias="requiresSharedResponsibility",
+    )
+    # 이동·주거 노출 실질 조건(감수 18차 — MOV 차수): 수리 책임(하자 비용 위험),
+    # 통근 의존(통근 부담), 차량 노출(차량·운송 사건 — 대중교통 사용자에게 차량 경고
+    # 금지). 유도 규칙은 관계 조건과 동일: False→DENIED, None→CONFIRMED여도 UNKNOWN.
+    requires_repair_responsibility: bool = Field(
+        default=False, alias="requiresRepairResponsibility",
+    )
+    requires_commute_dependency: bool = Field(
+        default=False, alias="requiresCommuteDependency",
+    )
+    requires_vehicle_exposure: bool = Field(
+        default=False, alias="requiresVehicleExposure",
     )
 
     @model_validator(mode="after")
@@ -1118,9 +1142,22 @@ class RiskItem(_AliasModel):
     applicable_relationship_roles: list[str] = Field(
         alias="applicableRelationshipRoles", default_factory=list,
     )
+    # 적용 가능한 이동 대상 유형·단계(감수 18차 — MOV 차수): 미지정=무관. 소유권
+    # 라우팅 포함(발령·보직=CAR primary — workplace_relocation을 목록에서 제외하면
+    # 해당 질문 대상에서 MISMATCHED 차단).
+    applicable_mobility_target_types: list[str] = Field(
+        alias="applicableMobilityTargetTypes", default_factory=list,
+    )
+    applicable_mobility_stages: list[str] = Field(
+        alias="applicableMobilityStages", default_factory=list,
+    )
     # 흡수 시 역할 힌트(감수 16차) — 대표 후보에 흡수될 때 kind 기본값 대신 쓸 역할
     # (감정 충돌=supporting_manifestation, 거리감=possible_trajectory 등).
     absorbed_role_hint: str | None = Field(default=None, alias="absorbedRoleHint")
+    # 재감수 대기 차수(감수 19차 — 절차 가드): 구조가 변경된 reviewed 항목은 자동
+    # 강등(reviewed:false)되고 이 필드에 대기 차수를 기록한다. 감수 승인 시 재승격하며
+    # 이 필드를 지운다. reviewed:true와 동시 존재 금지(lint).
+    review_pending: str | None = Field(default=None, alias="reviewPending")
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
@@ -1160,6 +1197,16 @@ class RiskItem(_AliasModel):
                 raise ValueError(
                     f"applicableTargetTypes 값 오류: {tt} ({self.risk_id})"
                 )
+        for mt in self.applicable_mobility_target_types:
+            if mt not in _RISK_MOBILITY_TARGET_TYPES:
+                raise ValueError(
+                    f"applicableMobilityTargetTypes 값 오류: {mt} ({self.risk_id})"
+                )
+        for ms in self.applicable_mobility_stages:
+            if ms not in _RISK_MOBILITY_STAGES:
+                raise ValueError(
+                    f"applicableMobilityStages 값 오류: {ms} ({self.risk_id})"
+                )
         for role in self.applicable_relationship_roles:
             if role not in _RISK_RELATIONSHIP_ROLES:
                 raise ValueError(
@@ -1188,7 +1235,10 @@ class RiskItem(_AliasModel):
 # 상태 재료인데 어느 해시에도 없던 구멍 차단(v4의 exposurePolicy와 같은 원칙).
 # ②requiresFinancialTie/SharedResponsibility(노출 유도 상태 재료)를 structure 해시에,
 # ③absorbedRoleHint(흡수 역할 — 대표·흡수 소관)를 selection 해시에 편입.
-_RISK_HASH_SCHEMA_VERSION = 5
+# v6(감수 18차): 이동 축(applicableMobilityTargetTypes/Stages)·이동 실질 조건
+# (requiresRepairResponsibility/CommuteDependency/VehicleExposure)을 structure 해시에
+# 편입 — v5와 같은 원칙(BLOCKED·노출 상태 재료는 구조 감수 대상).
+_RISK_HASH_SCHEMA_VERSION = 6
 # 매처·억제 의미론 버전(감수 9차 도입) — matcher/eligibility/cause atom/suppression의
 # 의미가 바뀔 때 올린다. reviewed 항목은 감수 당시 이 값을 스탬프하며, 불일치 시 lint
 # 실패(사전 JSON이 그대로여도 엔진 의미가 바뀌면 재감수 대상).
@@ -1205,7 +1255,11 @@ _RISK_HASH_SCHEMA_VERSION = 5
 # 특이도→risk_id) ②REL cross-family 흡수는 absorbedRoleHint 명시 항목 + 같은 target_id
 # 또는 관계 사실(relation 원자) 공유 필수(십성 유입 공유만으로 다른 상대 수렴 금지)
 # ③역할 특정 항목의 UNKNOWN 조건부 노출은 alignment=matched(관계 확인·질문 대상)에서만.
-RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.7"
+# r0.5.8(감수 18차 — MOV 차수): MobilityContext(target_type·stage 축, 이동 실질 조건)를
+# 적격성에 소비 — UNKNOWN 축은 selection과 동일한 하드 비노출. 현실 대상 수렴 도메인을
+# relationship→{relationship, relocation}으로 확장(같은 이동 episode의 일정 차질·적응
+# 부담을 대표 1건+보조 역할로 수렴 — relation 원자 공유+absorbedRoleHint 게이트 동일).
+RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.8"
 
 
 def risk_scope_hash(item: RiskItem, scope: str) -> str:
@@ -1246,15 +1300,26 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
                     "requiresSharedResponsibility": (
                         item.exposure_policy.requires_shared_responsibility
                     ),
+                    "requiresRepairResponsibility": (
+                        item.exposure_policy.requires_repair_responsibility
+                    ),
+                    "requiresCommuteDependency": (
+                        item.exposure_policy.requires_commute_dependency
+                    ),
+                    "requiresVehicleExposure": (
+                        item.exposure_policy.requires_vehicle_exposure
+                    ),
                 }
                 if item.exposure_policy is not None else None
             ),
-            # 적용 가능성 축(v5) — MISMATCHED→BLOCKED의 재료(축 변경=구조 재감수).
+            # 적용 가능성 축(v5·v6) — MISMATCHED→BLOCKED의 재료(축 변경=구조 재감수).
             "applicability": {
                 "selectionModes": sorted(item.applicable_selection_modes),
                 "selectionStages": sorted(item.applicable_selection_stages),
                 "targetTypes": sorted(item.applicable_target_types),
                 "relationshipRoles": sorted(item.applicable_relationship_roles),
+                "mobilityTargetTypes": sorted(item.applicable_mobility_target_types),
+                "mobilityStages": sorted(item.applicable_mobility_stages),
             },
         }
     elif scope == "scoring":
@@ -1885,6 +1950,11 @@ def _lint_reviewed_risk_item(
         errors.append(
             f"{rel}: reviewed:true는 reviewScopes 명시 필수(shadow_structure 등 — "
             f"사용자 노출 승인과 구분) — {item.risk_id}"
+        )
+    if item.review_pending is not None:
+        errors.append(
+            f"{rel}: reviewed:true와 reviewPending 동시 존재 금지(재감수 대기 항목은 "
+            f"강등 상태여야 함) — {item.risk_id}"
         )
     if item.review_environment_version != RISK_REVIEW_ENVIRONMENT_VERSION:
         errors.append(

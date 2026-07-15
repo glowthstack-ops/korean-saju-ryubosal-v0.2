@@ -250,6 +250,42 @@ REL 차수 불변식: **관계 위험은 십성·궁위만으로 현실의 상�
 파이프라인: 절대 원칙 5 그대로 — validate(`scripts/validate_dictionaries.py`, 스키마
 `RiskMappingFile` 등록·lint `_lint_risk_mapping`) → compile → regression → 배포.
 
+### 3-4. 이동·주거 컨텍스트 — `MobilityContext` (감수 18차 · env r0.5.8)
+
+MOV 차수 불변식: **운 신호만으로 이사 계획·계약·차량·통근의 존재를 만들지 않으며,
+"원치 않는 이동"은 preference=undesired 확인이 결정한다**(신호로 비자발 판단 금지).
+
+- 필드: `target_type`(8종: residential_move/housing_search/housing_contract/
+  workplace_relocation/temporary_stay/commute_change/travel_transport/vehicle_use) ·
+  `stage`(8종: no_plan~settled) · `preference`(desired/neutral/undesired — **적격성
+  미사용, R3 표현 전용**) · `housing_tenure`(R1 예약) · `exposure_status` ·
+  `repair_responsibility`/`commute_dependency`/`vehicle_exposure`(실질 조건 —
+  False→DENIED, None→UNKNOWN 강등) · `active_contract`(stage 축이 대체)/
+  `assignment_authority`(R1 예약).
+- 컨텍스트는 **목록**(감수 19차) — 같은 시기 복수 계획(현 집 계약 종료·새 집 계약·
+  임시 숙소·통근 조정·차량)을 `episode_id`(익명 계획 키)로 구분한다. 항목별로 축이
+  호환되는 최적 컨텍스트를 선택하며, `is_question_target` 컨텍스트의 축이 항목 허용
+  밖일 때만 MISMATCHED(BLOCKED — 발령 질문에서 주거 항목). 질문 대상이 아닌
+  컨텍스트의 불일치는 UNKNOWN(다른 계획이 있을 수 있음). **발령(CAR) 질문이라도 별도
+  residential_move·commute_change 컨텍스트가 확인되면 MOV 후보는 matched로 병존**
+  (과소탐지 방지 — 조건 6).
+- UNKNOWN 노출 차등(감수 19차): 구체 항목(계약·수리·통근·차량 — required_for_exposure/
+  confirmed_required)은 축 미확인 시 **하드 비노출**. 일반 이동 압박
+  (required_for_warning — RELOCATION_PRESSURE)은 축 미확인에서도 조건부 서술
+  ('거주·이동 조건을 조정할 변수' 수준, advisory 상한) 유지 — 예상 못한 이동 압박
+  경고 목적. 경고(warning) 승격은 계획 확인 필요.
+- 수렴 조건(감수 19차): 같은 이동 episode = 같은 episode_id(상이하면 병존) + **stage
+  호환**(명시 stage 집합이 상호 배타면 같은 원인·family여도 흡수 금지 — 계약 전
+  단계의 계약 차질 vs 정착 후 통근·적응 부담은 별개 국면) + relation 원자 공유 +
+  absorbedRoleHint.
+- 소유권: 발령·보직=CAR primary(workplace_relocation 제외로 MISMATCHED) / 계약 문서·
+  법적 책임=LEG primary / 보증금·수리비 금전=FIN 파생(crossDomainEffects) / 거주
+  이동·일정·적응=MOV primary / 이동 안전=안전 권고 톤(사고·부상 단정 금지, HLT 파생).
+- 수렴: 현실 대상 수렴 도메인={relationship, relocation} — 같은 이동 episode(relation
+  원자 공유+absorbedRoleHint)의 일정 차질=supporting_manifestation, 통근·적응 부담=
+  impact_amplifier로 대표(계약 무산·이동 압박)에 수렴. 하자·수리비, 차량 문제는 별개
+  현실 문제(hint 없음 — 자동 흡수 금지).
+
 ## 4. 타입 계층 (`shared_types/risk_engine.py`)
 
 - `RiskCandidate` — **원자 후보** (단일 `period_key`). R0 산출물. 점수·등급 없음.

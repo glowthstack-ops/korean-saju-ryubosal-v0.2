@@ -181,6 +181,17 @@ class RiskCandidate(BaseModel):
     # SelectionContext 3상태(감수 14차) — matched/unknown/mismatched. mismatched는
     # BLOCKED로 이어지며, unknown은 구조 보존 + mode·stage 특정 표현 금지.
     selection_alignment: str = "matched"
+    # MobilityContext 3상태(감수 18·19차 — MOV 차수) — matched/unknown/mismatched.
+    # mismatched=BLOCKED. unknown 노출 차등(감수 19차): 구체 항목(required_for_
+    # exposure/confirmed_required — 계약·수리·통근·차량)은 하드 비노출, 일반 이동
+    # 압박(required_for_warning)은 조건부 경로 유지(예상 못한 이동 압박 경고 목적).
+    mobility_alignment: str = "matched"
+    # 매칭된 이동 계획의 익명 episode 키(감수 19차) — 같은 시기 복수 계획(새 집 계약
+    # vs 임시 숙소 vs 통근 조정) 구분·같은 episode 기준 수렴·교차 도메인 연결에 쓴다.
+    mobility_episode_id: str | None = None
+    # 항목의 이동 단계 메타(사전 applicableMobilityStages 복사) — stage 호환 억제용
+    # (계약 전 vs 정착 후 상호 배타 단계는 같은 원인이어도 수렴 금지).
+    mobility_stages: list[str] = Field(default_factory=list)
     # RelationshipContext 3상태(감수 16차 — REL 차수) — matched/unknown/mismatched.
     # mismatched(질문 직접 대상의 역할이 항목 허용 밖 — 궁합·함께보기 등)는 BLOCKED.
     # unknown은 selection과 달리 hard 비노출이 아니다: 유효 노출이 UNKNOWN으로 유도되어
@@ -249,6 +260,15 @@ def is_exposable(candidate: RiskCandidate) -> bool:
     if not is_active(candidate):
         return False
     if candidate.selection_alignment != "matched":
+        return False
+    if candidate.mobility_alignment == "mismatched":
+        return False
+    if candidate.mobility_alignment == "unknown" and candidate.exposure_requirement in (
+        "required_for_exposure", "confirmed_required",
+    ):
+        # 이동 축 미확인(감수 19차 차등): 구체 항목(계약·수리·통근·차량)은 계획 확인
+        # 없이 비노출. required_for_warning 일반 이동 압박은 unknownExposable 경로로
+        # 조건부 서술 가능("거주·이동 조건을 조정할 변수가 생길 수 있음" 수준 — R3).
         return False
     if not candidate.exposable_when_unknown and (
         candidate.exposure_status is not ExposureStatus.CONFIRMED

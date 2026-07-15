@@ -129,9 +129,9 @@
       "reviewVersions": {
         "shadow_structure": "C2"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
       "reviewHashes": {
-        "shadow_structure": "bb2cd8334741a8c7"
+        "shadow_structure": "3c89dc331153c78f"
       }
     },
     {
@@ -257,9 +257,9 @@
       "reviewVersions": {
         "shadow_structure": "C2"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
       "reviewHashes": {
-        "shadow_structure": "886acea87014e5a3"
+        "shadow_structure": "8c061f380c878a11"
       }
     },
     {
@@ -396,9 +396,9 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "750de9fc74e1d3a4"
+        "shadow_structure": "e83105b82a68f45a"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.7"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.8"
     },
     {
       "riskId": "LEG_ADMIN_DELAY",
@@ -506,9 +506,9 @@
       "reviewVersions": {
         "shadow_structure": "C2"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
       "reviewHashes": {
-        "shadow_structure": "364c6d5aadaf38c0"
+        "shadow_structure": "395bcc75bbb4f3b0"
       }
     },
     {
@@ -636,9 +636,9 @@
       "reviewVersions": {
         "shadow_structure": "C2"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
       "reviewHashes": {
-        "shadow_structure": "98bcd95ebcbf0de9"
+        "shadow_structure": "9bbeb049d37b4da5"
       }
     },
     {
@@ -764,9 +764,9 @@
       "reviewVersions": {
         "shadow_structure": "C2"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
       "reviewHashes": {
-        "shadow_structure": "ed5c18e6fbb8a81a"
+        "shadow_structure": "fe085c95b4c92e68"
       }
     },
     {
@@ -851,9 +851,9 @@
       "reviewVersions": {
         "shadow_structure": "C2"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.7",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
       "reviewHashes": {
-        "shadow_structure": "dd8eed171e20793b"
+        "shadow_structure": "ceb02a2b72116a63"
       }
     }
   ]

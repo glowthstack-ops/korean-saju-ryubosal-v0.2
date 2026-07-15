@@ -36,9 +36,11 @@ from saju_shared_types.ganji_calendar import GanjiLevel  # noqa: E402
 from saju_shared_types.risk_engine import (  # noqa: E402
     EligibilityStatus,
     EvidenceRole,
+    ExposureStatus,
     RiskDomain,
     RiskKind,
     is_active,
+    is_exposable,
 )
 
 _DICTS = _BACKEND / "dictionaries"
@@ -150,22 +152,44 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
     # family ≤1, 독립 발현 시 예외 2) + 흡수 역할 분포(대표 수렴이 실제 일어나는가).
     # 관계 컨텍스트 부재 가정(전 REL UNKNOWN) — partner DENIED 오발동=0은 단위
     # fixture(test_risk_rel_c5)가 고정한다.
-    rel_active = [c for c in active if c.domain is RiskDomain.RELATIONSHIP]
-    rel_fam_per_period: dict[str, set[str]] = defaultdict(set)
-    rel_cause_fanout: dict[tuple[str, str], set[str]] = defaultdict(set)
-    for c in rel_active:
-        rel_fam_per_period[c.period_key].add(c.risk_family or c.risk_id)
-        for e in c.evidence:
-            if e.role is EvidenceRole.TRIGGER:
-                for atom in cause_atoms(e.source):
-                    if not atom.startswith("polarity:"):
-                        rel_cause_fanout[(c.period_key, atom)].add(
-                            c.risk_family or c.risk_id,
-                        )
-    rel_absorbed_roles: Counter = Counter(
-        c.absorbed_role for c in cands
-        if c.domain is RiskDomain.RELATIONSHIP and c.absorbed_role
-    )
+    def _domain_metrics(domain: RiskDomain) -> dict:
+        dom_active = [c for c in active if c.domain is domain]
+        fam_pp: dict[str, set[str]] = defaultdict(set)
+        fanout: dict[tuple[str, str], set[str]] = defaultdict(set)
+        for c in dom_active:
+            fam_pp[c.period_key].add(c.risk_family or c.risk_id)
+            for e in c.evidence:
+                if e.role is EvidenceRole.TRIGGER:
+                    for atom in cause_atoms(e.source):
+                        if not atom.startswith("polarity:"):
+                            fanout[(c.period_key, atom)].add(
+                                c.risk_family or c.risk_id)
+        return {
+            "family_per_period": [len(v) for v in fam_pp.values()] or [0],
+            "max_cause_fanout": max((len(v) for v in fanout.values()), default=0),
+            "absorbed_roles": dict(Counter(
+                c.absorbed_role for c in cands
+                if c.domain is domain and c.absorbed_role
+            )),
+        }
+
+    rel_metrics = _domain_metrics(RiskDomain.RELATIONSHIP)
+    mov_metrics = _domain_metrics(RiskDomain.RELOCATION)
+    # 노출 후보 밀도(감수 18차 — family 목표 계층화): 구조 진단(structural)과 별도로
+    # context-exposable(현 컨텍스트에서 노출 가능 판정) family/기간을 병기한다 —
+    # R2 최종 선별(≤3)의 입력 규모. 전 컨텍스트 UNKNOWN 가정이므로 하한 추정치.
+    exposable_fam_pp: dict[str, set[str]] = defaultdict(set)
+    for c in active:
+        if is_exposable(c):
+            exposable_fam_pp[c.period_key].add(c.risk_family or c.risk_id)
+    # 전체 family 최대 기간의 구성(도메인·family) — max가 부당 중복인지 정당 병존인지
+    # 감수가 판단할 재료.
+    fam_max_period = max(fam_per_period, key=lambda k: len(fam_per_period[k]),
+                         default=None)
+    fam_max_composition = sorted(
+        {f"{c.domain.value}:{c.risk_family or c.risk_id}"
+         for c in active if c.period_key == fam_max_period}
+    ) if fam_max_period else []
     # 최장 연속 발동(월운 기준) — 평균이 낮아도 특정 위험이 계속 켜져 있으면 범용 룰 신호.
     month_labels = sorted(p.label for p in lc.monthly_luck)
     longest_streak: dict[str, int] = {}
@@ -199,14 +223,92 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
                           {c.period_key for c in cands} | set(active_per_period)] or [0],
         "family_per_period": [len(v) for v in fam_per_period.values()] or [0],
         "max_cause_fanout": max((len(v) for v in cause_fanout.values()), default=0),
-        "rel_active": len(rel_active),
-        "rel_family_per_period": [len(v) for v in rel_fam_per_period.values()] or [0],
-        "rel_max_cause_fanout": max(
-            (len(v) for v in rel_cause_fanout.values()), default=0),
-        "rel_absorbed_roles": dict(rel_absorbed_roles),
+        "rel_family_per_period": rel_metrics["family_per_period"],
+        "rel_max_cause_fanout": rel_metrics["max_cause_fanout"],
+        "rel_absorbed_roles": rel_metrics["absorbed_roles"],
+        "mov_family_per_period": mov_metrics["family_per_period"],
+        "mov_max_cause_fanout": mov_metrics["max_cause_fanout"],
+        "mov_absorbed_roles": mov_metrics["absorbed_roles"],
+        "exposable_family_per_period": [
+            len(v) for v in exposable_fam_pp.values()] or [0],
+        "fam_max_period_composition": fam_max_composition,
         "fire_rates": {rid: len(ps) / total for rid, ps in fire_periods.items() if total},
         "periods_with_active": len(active_per_period),
     }
+
+
+_MOV_SCENARIOS: list[tuple[str, list]] = []
+
+
+def _build_mov_scenarios() -> list[tuple[str, list]]:
+    """MOV confirmed 컨텍스트 시나리오 4종(감수 19차 조건 7) — 지연 구성."""
+    from saju_engines.risk_engine import MobilityContext
+    return [
+        ("계획 없음(전 UNKNOWN)", []),
+        ("이사 진행 중", [MobilityContext(
+            target_type="residential_move", stage="contracted",
+            exposure_status=ExposureStatus.CONFIRMED, episode_id="move_plan_1")]),
+        ("통근 의존", [MobilityContext(
+            target_type="commute_change", stage="moving",
+            exposure_status=ExposureStatus.CONFIRMED, commute_dependency=True,
+            episode_id="commute_route_1")]),
+        ("정착+수리 책임", [MobilityContext(
+            target_type="residential_move", stage="settled",
+            exposure_status=ExposureStatus.CONFIRMED, repair_responsibility=True,
+            episode_id="home_1")]),
+    ]
+
+
+def _mov_scenario_report(levels: set[GanjiLevel], corpus) -> None:
+    """시나리오별 MOV 밀도 — 하드 비노출로 낮아진 수치와 실제 노출 밀도를 분리 실측."""
+    print("\n# MOV confirmed 시나리오 밀도(감수 19차 조건 7)")
+    for name, ctxs in _build_mov_scenarios():
+        engine = EventEngineV2(_DICTS, risk_mode="shadow")
+        engine.set_risk_shadow_contexts(mobility_contexts=ctxs)
+        mov_active = mov_exposable = mov_blocked = periods = 0
+        expo_fam_pp: dict[str, set[str]] = defaultdict(set)
+        fanout: dict[tuple[str, str, str], set[str]] = defaultdict(set)
+        kind_cnt: Counter = Counter()
+        for cname, birth in corpus:
+            chart = calculate(birth)
+            engine.score(chart, levels=levels)
+            lc = chart.luck_cycles
+            assert lc is not None
+            periods += len(lc.yearly_luck) + len(lc.monthly_luck)
+            for c in engine.risk_shadow:
+                if c.domain is not RiskDomain.RELOCATION:
+                    continue
+                if c.eligibility_status is EligibilityStatus.BLOCKED:
+                    mov_blocked += 1
+                if not is_active(c):
+                    continue
+                mov_active += 1
+                kind_cnt[c.kind.value] += 1
+                if is_exposable(c):
+                    mov_exposable += 1
+                    expo_fam_pp[f"{cname}|{c.period_key}"].add(
+                        c.risk_family or c.risk_id)
+                for e in c.evidence:
+                    if e.role is EvidenceRole.TRIGGER:
+                        for atom in cause_atoms(e.source):
+                            if not atom.startswith("polarity:"):
+                                fanout[(cname, c.period_key, atom)].add(
+                                    c.risk_family or c.risk_id)
+        expo_fams = [len(v) for v in expo_fam_pp.values()] or [0]
+        print(f"\n## {name}")
+        print(f"  MOV 활성 {mov_active} · 노출 가능 {mov_exposable} · 차단 {mov_blocked} "
+              f"· kind {dict(kind_cnt)}")
+        # 비율 지표(감수 20차) — 구조 후보 대비 노출·차단·UNKNOWN 보존 비율.
+        if mov_active:
+            print(f"  비율: exposable/active {_pct(mov_exposable, mov_active)} · "
+                  f"blocked/active {_pct(mov_blocked, mov_active)} · "
+                  f"UNKNOWN 보존/active "
+                  f"{_pct(mov_active - mov_exposable, mov_active)}")
+        print(f"  노출 가능 family/기간: p50 {_percentile(expo_fams, 0.5):.0f} · "
+              f"p90 {_percentile(expo_fams, 0.9):.0f} · max {max(expo_fams)} · "
+              f"노출 기간 수 {len(expo_fam_pp)}/{periods}")
+        print(f"  단일 원인 MOV family 확산 max: "
+              f"{max((len(v) for v in fanout.values()), default=0)}")
 
 
 def main() -> None:
@@ -215,9 +317,14 @@ def main() -> None:
     parser.add_argument("--levels", default="year,month")
     parser.add_argument("--baseline-only", action="store_true",
                         help="기준 차트 1건만 실행(빠른 진단)")
+    parser.add_argument("--mov-scenarios", action="store_true",
+                        help="MOV confirmed 컨텍스트 시나리오 4종 밀도(감수 19차)")
     args = parser.parse_args()
     levels = {_LEVELS[x.strip()] for x in args.levels.split(",") if x.strip()}
     corpus = _CORPUS[:1] if args.baseline_only else _CORPUS
+    if args.mov_scenarios:
+        _mov_scenario_report(levels, corpus)
+        return
 
     engine = EventEngineV2(_DICTS, risk_mode="shadow")
     all_stats: list[tuple[str, dict]] = []
@@ -276,18 +383,33 @@ def main() -> None:
     fanout_max = max((s["max_cause_fanout"] for s in totals), default=0)
     print(f"단일 원인 활성 family 확산 max: {fanout_max} (목표 ≤2, 예외 3)")
 
-    rel_fam_all = [x for s in totals for x in s.get("rel_family_per_period", [])]
-    rel_fanout_max = max((s.get("rel_max_cause_fanout", 0) for s in totals), default=0)
-    rel_roles: Counter = Counter()
-    for s in totals:
-        rel_roles.update(s.get("rel_absorbed_roles", {}))
-    print("\n## REL 차수 지표(감수 16차 — 관계 컨텍스트 부재=전 REL UNKNOWN 가정)")
-    print(f"REL 활성 family/기간(REL 활성 기간 기준): p50 "
-          f"{_percentile(rel_fam_all, 0.5):.0f} · p90 {_percentile(rel_fam_all, 0.9):.0f} "
-          f"· max {max(rel_fam_all, default=0)}")
-    print(f"REL 단일 원인 활성 family 확산 max: {rel_fanout_max} "
-          f"(목표 ≤1 · 독립 발현 형태 예외 2)")
-    print(f"REL 흡수 역할 분포(대표 수렴 실측): {dict(rel_roles) or '없음'}")
+    for label, prefix, note in (
+        ("REL 차수 지표(감수 16차)", "rel", "목표 ≤1 · 독립 발현 형태 예외 2"),
+        ("MOV 차수 지표(감수 18차)", "mov", "목표 ≤1 · 독립 발현 형태 예외 2"),
+    ):
+        fam_all_d = [x for s in totals for x in s.get(f"{prefix}_family_per_period", [])]
+        fanout_d = max((s.get(f"{prefix}_max_cause_fanout", 0) for s in totals), default=0)
+        roles_d: Counter = Counter()
+        for s in totals:
+            roles_d.update(s.get(f"{prefix}_absorbed_roles", {}))
+        print(f"\n## {label} — 컨텍스트 부재=전 항목 UNKNOWN 가정")
+        print(f"활성 family/기간(해당 도메인 활성 기간 기준): p50 "
+              f"{_percentile(fam_all_d, 0.5):.0f} · p90 {_percentile(fam_all_d, 0.9):.0f} "
+              f"· max {max(fam_all_d, default=0)}")
+        print(f"단일 원인 활성 family 확산 max: {fanout_d} ({note})")
+        print(f"흡수 역할 분포(대표 수렴 실측): {dict(roles_d) or '없음'}")
+    # family 목표 계층화(감수 18차 승인): 구조 진단(structural p90=중복·fanout 감시) /
+    # context-exposable p90 ≤4~5 권장 / R2 최종 선별 ≤3 — raw 구조를 3으로 자르지 않는다.
+    expo_fam_all = [x for s in totals for x in s.get("exposable_family_per_period", [])]
+    print("\n## 노출 후보 밀도(계층화 목표 — 구조 진단/context-exposable ≤4~5/R2 선별 ≤3)")
+    print(f"context-exposable family/기간: p50 {_percentile(expo_fam_all, 0.5):.0f} · "
+          f"p90 {_percentile(expo_fam_all, 0.9):.0f} · max {max(expo_fam_all, default=0)} "
+          f"(전 컨텍스트 UNKNOWN 가정 — 하한 추정)")
+    worst = max(all_stats, key=lambda kv: max(kv[1]["family_per_period"], default=0),
+                default=None)
+    if worst:
+        print(f"전체 family max 기간 구성({worst[0]}): "
+              + ", ".join(worst[1].get("fam_max_period_composition", [])))
 
     # 발동률 분모 정의: 해당 위험이 1회 이상 활성인 '적용 차트'만 집계에 포함된다
     # (agg_fire에 없는 차트는 미적용). 코퍼스 평균은 적용 차트 평균이다.
@@ -310,8 +432,10 @@ def main() -> None:
             warn.append(f"{rid} 최장 연속 발동 {streak}/{n_months}개월 (>50% — 범용 룰 의심)")
     if fanout_max > 3:
         warn.append(f"단일 원인 확산 {fanout_max} family (>3)")
-    if rel_fanout_max > 2:
-        warn.append(f"REL 단일 원인 확산 {rel_fanout_max} family (>2 — 관계 복제 의심)")
+    for prefix, name in (("rel", "REL"), ("mov", "MOV")):
+        fo = max((s.get(f"{prefix}_max_cause_fanout", 0) for s in totals), default=0)
+        if fo > 2:
+            warn.append(f"{name} 단일 원인 확산 {fo} family (>2 — 복제 의심)")
     if n_periods and n_inc / n_periods > 1.5:
         warn.append("active incident/기간 > 1.5")
     print("\n경고 신호:" if warn else "\n경고 신호: 없음(목표 범위)")

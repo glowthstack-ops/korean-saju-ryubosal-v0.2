@@ -309,3 +309,143 @@ R1 진입 전 C2 cross-family 재검토 후보), REL family/기간 p50 1·p90 2�
 전체 family p50 4·p90 8·max 13, 전역 확산 max 8(미개정 MOV·HLT 원천). 밀도는 전
 REL UNKNOWN 가정 — 3프로필 시나리오(all_unknown/typical_confirmed/high_exposure)
 재실측은 MOV·HLT 차수 후 예정.
+
+## 9. MOV 차수(C6 — 감수 18차) manifest (데굴님 착수 조건 6건 선행 고정)
+
+**차수 불변식**: 이동·주거 위험은 운 신호만으로 이사 계획·계약·차량·통근의 존재를
+만들어내지 않으며, "원치 않는 이동"은 사주 신호가 아니라 preference=undesired 확인이
+결정한다. 같은 이동 episode의 일정 지연·계약 문제·수리비·적응 부담은 대표 1건+보조
+역할로 수렴한다.
+
+### 9-1. MobilityContext (조건 2·3·6 — 적격성 사용 → env r0.5.8)
+
+- target_type 8종: residential_move / housing_search / housing_contract /
+  workplace_relocation / temporary_stay / commute_change / travel_transport / vehicle_use
+- stage 8종: no_plan / considering / searching / negotiating / contracted / preparing /
+  moving / settled
+- preference: desired / neutral / undesired (None=미확인) — **적격성 미사용, R3 표현
+  전용**(undesired 확인 시에만 '원치 않는' 표현. 신호만으로 비자발 판단 금지)
+- housing_tenure: owner / renter / family_home / dormitory / company_housing / temporary
+- 추가 현실 노출: active_contract(stage 축이 대체 — 별도 flag 없음) ·
+  repair_responsibility · commute_dependency · vehicle_exposure ·
+  assignment_authority(R1 예약 — CAR 소유권 보조)
+- 3상태(target_type·stage 축): MISMATCHED=BLOCKED(fallback 금지) / UNKNOWN=구조 보존
+  +**하드 비노출**(selection 축과 동일 — 이사·차량 특정 표현은 계획 확인 없이 불가) /
+  MATCHED=exposurePolicy 소관(조건부 표현 포함)
+
+### 9-2. 재분류·소유권 (조건 1·4)
+
+| 항목 | 처리 | kind | family | rank | target/stage/노출 |
+|---|---|---|---|---|---|
+| MOV_CONTRACT_FAIL(reviewed) | 축·정책 추가(구조 변경 — C6 재스탬프, 감수 대상) | incident 유지 | housing_contract | 3 | residential_move·housing_search·housing_contract / searching·negotiating·contracted / required_for_exposure |
+| MOV_SCHEDULE_DISRUPTION | incident→**pressure** 재분류, 공망 트리거 강등(문서·계획 공망 shape=인성 동반) | pressure | move_execution | 2 | residential_move·housing_contract·temporary_stay / contracted·preparing·moving / required_for_exposure · 흡수 힌트 supporting_manifestation |
+| MOV_DEFECT_REPAIR_COST | 계약 강화(겁재+인성 동반 shape+주거 피격 linked) | incident | housing_defect | 3 | residential_move·housing_contract·temporary_stay / requiresRepairResponsibility(미확인=UNKNOWN 강등·없음 확인=DENIED) |
+| MOV_COMMUTE_BURDEN | 운성 트리거→amplifier 강등 | pressure | mobility_load | 1 | commute_change·workplace_relocation·travel_transport·residential_move / requiresCommuteDependency · 흡수 힌트 impact_amplifier |
+| MOV_UNWANTED_MOVE | **개명** MOV_RELOCATION_PRESSURE(비자발 전제 명칭 제거) | incident→**pressure** | relocation_change | 2 | residential_move·temporary_stay(발령·보직=CAR REASSIGNMENT primary — workplace 제외) |
+| MOV_VEHICLE_TRANSPORT_ISSUE | 조건부 사건화 | incident | vehicle_transport | 3 | vehicle_use·travel_transport·commute_change / requiresVehicleExposure+unknownExposable=false(차량 존재 추론 금지) |
+
+**소유권(조건 4)**: 직장 발령·보직=CAR primary(MOV_RELOCATION_PRESSURE는 workplace
+MISMATCHED) / 주택 계약 해지·문서·법적 책임=LEG primary(MOV_CONTRACT_FAIL은 '이사
+진행 무산'이라는 주거 현실 사건 — crossDomainEffects로 LEG·FIN 연결) / 계약금·보증금·
+수리비 금전=FIN 파생(crossDomainEffects) / 거주 이동·일정·적응=MOV primary /
+교통·이동 안전=안전 권고 톤(사고·부상 단정 금지, HLT 파생).
+
+### 9-3. 같은 이동 episode 수렴 (조건 5)
+
+현실 대상 수렴 도메인을 relationship→{relationship, relocation}으로 확장: 같은 관계
+사실(relation 원자) 공유 + absorbedRoleHint 명시 항목만 cross-family 흡수. 수렴 트리:
+
+```text
+대표(계약 무산 또는 이동 압박)
+├─ 일정 차질 → supporting_manifestation
+└─ 통근·적응 부담 → impact_amplifier
+하자·수리비, 차량 문제 → 별개 현실 문제(자동 흡수 금지 — hint 없음)
+```
+
+### 9-4. 억제 회귀 자동 게이트 (감수 17차 §7 후속)
+
+`scripts/risk_suppression_baseline.py` 신설 — 억제 결과(차트·기간·risk_id→대표)
+baseline을 git 추적하고, 억제 의미 변경 차수마다 --check로 diff를 산출해 감수 보고에
+포함한다(비대상 도메인 대표 변경>0 → env 갱신+표본 재감수). 승인 후 --write 재생성.
+
+### 9-5. C6 구현 결과 (감수 18차 — 표본 감수 대기)
+
+- **env r0.5.8 + 해시 v6**(이동 축·이동 실질 조건 structure 편입) — reviewed 37 재스탬프.
+  MOV_CONTRACT_FAIL(reviewed)은 축·정책 추가로 구조 변경(reviewVersion "C6") — 재감수 대상.
+- 재저작 5 + CONTRACT_FAIL 메타: manifest §9-2 그대로. 밀도 교정 1건 — COMMUTE_BURDEN의
+  해(HAE) 트리거 제거(31.8%·>40% 차트 4 → 충 단독 회귀). RELOCATION_PRESSURE에 수렴
+  hint(supporting_manifestation — 구체 사건 대표 존재 시 수렴, 단독일 땐 대표).
+- fixture 13종(test_risk_mov_c6.py): 항목별 recall 6 + 발령=CAR 소유권 차단 + 타 도메인
+  무영향 + 축 UNKNOWN 하드 비노출 + stage MISMATCHED + 차량 추론 금지(미확인 비노출·
+  없음 차단) + 통근 의존 강등 + 같은 이동 episode 수렴(대표 1 family) + 하자 병존 +
+  preference 적격성 무영향.
+- **억제 baseline 게이트 신설**(scripts/risk_suppression_baseline.py, §9-4): C5 시점
+  baseline 3,330건 대비 diff — **relocation 도메인만 변경**(신규 흡수 21=episode 수렴,
+  후보 소실 214·신규 155=재저작·개명·계약 강화), 타 도메인 0건.
+- 밀도: relocation 기여 14%→**12%**, MOV family/기간 p50 1·p90 2·max 3, MOV 단일 원인
+  확산 max 2, 흡수 실측 impact_amplifier 44·supporting 6. structural incident/기간
+  1.22→**1.09**, exposure-qualified 0.31(이동 축 게이트 반영 — UNKNOWN 가정 하한).
+  context-exposable family/기간 p50 3·p90 4·max 8(계층화 목표 ≤4~5 이내). 전체 family
+  max 12 구성 실측: 7도메인 12 family 정당 병존(단일 상대·원인 복제 아님).
+- 상태: MOV 5항목 reviewed:false(표본 감수 대기 — 승격 시 37→42), CONTRACT_FAIL은
+  reviewed 유지+C6 재스탬프(구조 변경 감수 필요). RISK_ENGINE_MODE=off 유지.
+
+### 9-6. 감수 19차 — C6 커밋·승격 전 필수 조건 8건 반영 (표본 감수 대기)
+
+1. **감수 절차 교정**: MOV_CONTRACT_FAIL을 승인 전 reviewed 해제(reviewPending="C6",
+   scope·해시 제거 — manifest 37→**36**). 절차 자동화: `scripts/risk_restamp.py` —
+   git HEAD 구조 본문과 비교해 내용 불변 항목만 env 재스탬프, 내용 변경 항목은 자동
+   강등(reviewPending) + reviewed:true·reviewPending 동시 존재 lint 금지.
+2. **canonical ID 완화**: MOV_CONTRACT_FAIL→**MOV_CONTRACT_SETBACK_RISK**(허용 의미=
+   협의 차질·조건 변경·일정 재조정, 금지=무산·실패·이사 불가 단정 — manifest·claim 개정).
+3. **stage 호환 억제**: mobility_stages 상호 배타 시 수렴 금지 — 계약 episode에서 일정
+   차질(contracted 교집합)만 수렴, 통근 부담(moving·settled)은 수렴 금지 fixture.
+   이사 후 episode에서는 이동 압박 대표 아래 통근=impact_amplifier 수렴 fixture.
+4. **mobility episode_id**: 익명 계획 키 — 서로 다른 계획(새 집 계약 vs 통근 조정)은
+   원인을 공유해도 병존 fixture. 수렴 우선순위: episode_id > 대상 provenance > 원인 공유.
+5. **UNKNOWN 차등**: RELOCATION_PRESSURE=required_for_warning(축 미확인에서도 '거주·
+   이동 조건을 조정할 변수' 수준 조건부 — 예상 못한 이동 압박 경고 보존), 구체 항목은
+   하드 비노출 유지. is_exposable이 exposure_requirement로 차등 판정.
+6. **workplace 병존**: 컨텍스트 목록+is_question_target — 발령 질문 단독=MISMATCHED,
+   발령+별도 주거 이동 확인=CAR·MOV 병존(episode 연결) fixture.
+7. **confirmed 시나리오 실측**(scripts/risk_shadow_density.py --mov-scenarios, 10차트):
+   노출 가능 MOV 후보 — 계획 없음 25 / 이사 진행 38 / 통근 의존 52 / 정착+수리 56
+   (활성 99 동일 — 구조 불변·노출만 차등). 노출 가능 family/기간 p50·p90 1(max 2),
+   단일 원인 확산 max 2, 차단 0. 하드 비노출로 낮아진 0.31과 실제 노출 밀도 분리 확인.
+8. **하자·수리·적응 분리**: DEFECT→**MOV_HOUSING_DEFECT_RISK**(하자·수리 필요 전용,
+   비용=FIN repair_cost_exposure·책임=LEG contract_responsibility_review 파생, cause
+   atom 보존), COMMUTE에서 '정착 적응 피로' manifest 제거(통근 전용 — 정착·적응
+   pressure 신설 여부는 감수 질문), 단계=이사 이후.
+
+**baseline diff 분류 확장**(--rename, 항목별 delta): relocation만 변경 — rename-
+equivalent 130/130, 신규 흡수 20(episode 수렴), 소실 200(UNWANTED 68·VEHICLE 43·
+DEFECT 43·SCH 32·CMT 14 — 계약 강화·트리거 제거 의도 결과), 신규 141(재저작 경로),
+타 도메인 0. 상태: MOV 6항목 전부 reviewed:false(감수 대기 — 승격 시 36→42).
+
+### 9-7. 감수 20차 — C6 마감 조건 4건 반영·승격 (데굴님 조건부 승인 이행)
+
+1. **restamp 기준 교체**: 불변 판정의 1차 기준=git HEAD→**저장된 reviewHashes**(작업
+   순서 비의존 — 변경이 먼저 커밋돼도 강등). HEAD 비교는 해시 스키마 이행
+   (--schema-migration)의 보조 진단으로 격하. 필수 회귀 3종
+   (tests/unit/test_risk_restamp.py): 룰 변경=커밋 여부 무관 강등·부분 스탬프=변경
+   취급·현 리포 정합 0건.
+2. **MOV_HOUSING_DEFECT_RISK 적격성 분리**: requiresRepairResponsibility를 본체에서
+   제거(임차인도 입주 지연·사용 불편·보수 요청을 겪음 — 과소탐지 방지). 수리 책임은
+   FIN 파생(repair_cost_exposure) 게이트 전용(DENIED→비용 파생만 차단, R1 배선).
+   repair DENIED에서 본체 활성·노출 유지 fixture.
+3. **RELOCATION_PRESSURE DENIED 정책 확정**: 계획 DENIED('계획 전혀 없음' 명시)=
+   BLOCKED — UNKNOWN(advisory 조건부)과 동일 처리 금지, 구체 이사·이전 표현 차단
+   (prohibitedClaims 명시). 일반 생활환경 fallback은 저작하지 않음(fallback 금지 —
+   필요 시 R3 별도 감수). fixture 고정.
+4. **episode identity**: 이동 게이트 항목은 **episode별 후보 분리 생성**(같은
+   risk_id+기간+episode 2개→후보 2개, exposure·정렬 독립) + 같은 episode 중복
+   컨텍스트=입력 순서 무관 결정적 병합 + episode 경계가 흡수 범위를 가름(한 episode
+   대표가 다른 episode 미흡수) fixture 3종.
+
+시나리오 비율 지표 추가: exposable/active 25.3%(계획 없음)→38.4%(이사)→52.5%(통근)
+→56.6%(정착+수리), blocked 0%, UNKNOWN 보존 74.7%~43.4%. '계획 없음 25'는 전량
+RELOCATION_PRESSURE 조건부(advisory) — DENIED와 구분 fixture로 고정.
+
+**승격(감수 20차 조건부 승인 이행)**: MOV_CONTRACT_SETBACK_RISK 재승격 + 신규 5 승격
+(reviewVersions "C6") — **reviewed 36→42**(자동 manifest 확인), restamp 가드 42건
+정합. 억제 baseline을 C6 확정 상태로 재기록(--write, 다음 HLT 차수의 기준선).

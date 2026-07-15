@@ -7779,3 +7779,42 @@ trajectory R1 불변식 기록(occurrence·원인 수·등급 기여 금지) ⑥
 — 대표 변경 0·신규 흡수 0·해제 0(무영향 확정). UNKNOWN 차등: 역할 특정 항목 조건부
 노출은 matched(관계 질문·확인)에서만. cross-family 흡수=absorbedRoleHint 명시 항목만.
 재실측: REL 기여 17%, REL 확산 max 2, 전체 family p50 4·p90 8·max 13.
+
+## 위험 엔진 MOV 차수(C6 — 감수 18차) — MobilityContext + 이동·주거 6항목 (2026-07-15, 감수 대기)
+
+manifest 선행 고정(REVIEW.md §9 — 데굴님 조건 6건) 후 구현: ①MobilityContext(target
+8종·stage 8종·preference=R3 표현 전용·tenure·실질 조건 3종) — 축 UNKNOWN=selection과
+동일 하드 비노출, env r0.5.8·해시 v6, reviewed 37 재스탬프 ②소유권: 발령=CAR(workplace
+제외 MISMATCHED)·계약 문서=LEG·수리비 금전=FIN 파생·거주 이동=MOV·안전=권고 톤
+③재저작: SCHEDULE_DISRUPTION(→pressure·공망 강등), DEFECT_REPAIR(겁재-인성 동반+
+requiresRepairResponsibility), COMMUTE_BURDEN(운성 강등+requiresCommuteDependency·해
+트리거 밀도 교정), UNWANTED_MOVE→RELOCATION_PRESSURE(비자발 명칭 제거·→pressure),
+VEHICLE(requiresVehicleExposure+unknownExposable=false), CONTRACT_FAIL 축·정책 추가
+(C6 재스탬프 — 재감수 대상) ④수렴 도메인 {relationship, relocation} 확장 — 같은 이동
+episode 대표+supporting/impact_amplifier ⑤억제 baseline 게이트 신설(3,330건 — diff는
+relocation만, 타 도메인 0) ⑥밀도 계층화(구조 진단/context-exposable ≤4~5/R2 ≤3)+max
+기간 구성 보고. 밀도: relocation 12%, MOV fanout 2, structural incident 1.09. fixture
+13종, pytest·ruff·mypy clean(아래 게이트). MOV 5항목 reviewed:false 감수 대기.
+
+### C6 감수 19차 후속 — 커밋·승격 전 필수 조건 8건 (2026-07-15, 감수 대기)
+
+①CONTRACT_FAIL 승인 전 강등(reviewPending=C6, manifest 36)+재스탬프 절차 가드
+(scripts/risk_restamp.py — HEAD 비교로 내용 변경=자동 강등, env-only만 재스탬프)
+②개명 MOV_CONTRACT_SETBACK_RISK(결과형 명칭 완화) ③stage 호환 억제(계약 전 vs 정착
+후 상호 배타 수렴 금지) ④mobility episode_id(익명 계획 키 — 다른 계획 병존)
+⑤UNKNOWN 차등(RELOCATION=required_for_warning 조건부 유지, 구체 항목 하드 비노출)
+⑥workplace 병존(컨텍스트 목록+is_question_target — 발령+주거 이동 확인 시 CAR·MOV)
+⑦confirmed 시나리오 4종 실측(--mov-scenarios: 노출 25/38/52/56, family/기간 p90 1)
+⑧DEFECT→MOV_HOUSING_DEFECT_RISK(하자 전용·비용 FIN·책임 LEG 파생)+COMMUTE 적응 분리.
+baseline --rename 분류: relocation만(rename 130·수렴 20·소실 200·신규 141), 타 도메인 0.
+
+### C6 감수 20차 — 마감 조건 4건·승격 42 (2026-07-15)
+
+①restamp 1차 기준=저장 reviewHashes(커밋 순서 비의존, HEAD는 --schema-migration 보조)
++회귀 3종 ②DEFECT 본체에서 repair_responsibility 제거(FIN 파생 게이트 전용 — 임차인
+과소탐지 방지) ③RELOCATION DENIED=BLOCKED 확정(UNKNOWN advisory와 구분, 이사 표현
+차단, fallback 미저작) ④episode별 후보 분리 생성(동일 항목 2 episode=후보 2·결정적
+병합·episode 경계 흡수) + 시나리오 비율 지표(exposable/active 25→57%). baseline 소실
+200건 성격 명시: exposure 게이트는 후보를 제거하지 않으므로(구조 보존) 소실은 전량
+구조 단계 변화(트리거 강화·계약·개명 — UNWANTED 68=개명 14+트리거 재저작 54 등).
+**MOV 6항목 shadow_structure 승격(C6) — reviewed 42**, baseline 재기록. pytest 1911.

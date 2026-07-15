@@ -81,7 +81,14 @@ from .marriage_flow_modifier import (
 )
 from .reality_context import RealityContext
 from .relation_palace_engine import RelationActivation, RelationPalaceEngine
-from .risk_engine import RelationFact, RiskEngine, build_raw_period_facts
+from .risk_engine import (
+    MobilityContext,
+    RelationFact,
+    RelationshipContext,
+    RiskEngine,
+    SelectionContext,
+    build_raw_period_facts,
+)
 from .ten_god_brancher import TenGodEventBrancher, TransitSignal
 from .twelve_stage_modifier import TwelveStageModifier
 from .wealth_activation_modifier import WealthActivationModifier
@@ -181,6 +188,12 @@ class EventEngineV2:
         # risk_shadow는 LLM 입력·리포트·토큰에 주입하지 않는다(구조화 로그/QA 전용).
         self._risk_mode_override = risk_mode
         self.risk_shadow: list[RiskCandidate] = []
+        # shadow 컨텍스트(감수 19차 — QA·시나리오 밀도 전용): set_risk_shadow_contexts로
+        # 주입하면 shadow 후보 생성에 현실 컨텍스트(선발·관계·이동)가 반영된다.
+        # LLM 입력·긍정 파이프라인과 무관하며 off 모드에선 사용되지 않는다.
+        self._risk_shadow_selection: SelectionContext | None = None
+        self._risk_shadow_relationships: list[RelationshipContext] | None = None
+        self._risk_shadow_mobility: list[MobilityContext] | None = None
         try:
             self._risk: RiskEngine | None = RiskEngine(dictionaries_dir)
         except FileNotFoundError:
@@ -540,6 +553,21 @@ class EventEngineV2:
         except ValueError:
             return RiskEngineMode.OFF  # 미상 값은 안전하게 OFF(byte-identical)로 처리.
 
+    def set_risk_shadow_contexts(
+        self,
+        selection_context: SelectionContext | None = None,
+        relationship_contexts: list[RelationshipContext] | None = None,
+        mobility_contexts: list[MobilityContext] | None = None,
+    ) -> None:
+        """shadow 후보 생성용 현실 컨텍스트 주입(감수 19차 — QA·시나리오 밀도 전용).
+
+        프로필·질문 컨텍스트가 확인된 시나리오의 위험 밀도를 실측하기 위한 통로다.
+        긍정 파이프라인·LLM 입력에는 어떤 영향도 없다(risk_shadow 사이드채널 한정).
+        """
+        self._risk_shadow_selection = selection_context
+        self._risk_shadow_relationships = relationship_contexts
+        self._risk_shadow_mobility = mobility_contexts
+
     def _collect_risk_shadow(
         self,
         result: ManseV2Result,
@@ -585,7 +613,12 @@ class EventEngineV2:
             ),
             twelve_stage=_stage_of(target),
         )
-        self.risk_shadow.extend(self._risk.generate(facts))
+        self.risk_shadow.extend(self._risk.generate(
+            facts,
+            selection_context=self._risk_shadow_selection,
+            relationship_contexts=self._risk_shadow_relationships,
+            mobility_contexts=self._risk_shadow_mobility,
+        ))
 
     def _wealth_activations(
         self,

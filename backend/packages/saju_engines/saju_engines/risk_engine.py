@@ -51,6 +51,11 @@ def _specificity_rank(item: RiskItem) -> int:
     return _KIND_SPECIFICITY.get(item.kind, 0)
 
 
+# 현실 대상 수렴 도메인(감수 16→18차) — 흡수 범위가 family가 아니라 '같은 현실 대상'
+# (관계=같은 상대, 이동=같은 이동 episode)인 도메인. cross-family 흡수는 relation 원자
+# 공유 + absorbedRoleHint 명시 항목만.
+_CONVERGENCE_DOMAINS = frozenset({RiskDomain.RELATIONSHIP, RiskDomain.RELOCATION})
+
 _SHAPE_GROUPS = frozenset({"event_shape", "targeted_event_shape", "structural_weakness"})
 _ACTIVATION_GROUPS = frozenset({"activation", "target_activation"})
 
@@ -145,11 +150,11 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
     ]
     by_key: dict[tuple[str, str], list[RiskCandidate]] = {}
     for c in candidates_ok:
-        if c.domain is RiskDomain.RELATIONSHIP:
+        if c.domain in _CONVERGENCE_DOMAINS:
             # 도메인 전체가 한 흡수 범위 — 상대 호환성(target_id·역할 상이 시 흡수
             # 금지)은 그룹 내부에서 검사한다: 상대 미상(None) 일반 후보가 매칭된
             # 대표(배우자 재조정 등)에 흡수되는 주 경로를 보존하기 위함이다.
-            key = (c.period_key, "\x00relationship")
+            key = (c.period_key, "\x00convergence:" + c.domain.value)
         else:
             key = (c.period_key, "\x00family:" + (c.risk_family or ""))
         by_key.setdefault(key, []).append(c)
@@ -222,7 +227,23 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
                 shared = _atoms(c) & _atoms(primary)
                 if not shared:
                     continue
-                if c.domain is RiskDomain.RELATIONSHIP:
+                # 이동 stage 호환(감수 19차) — 계약 전 단계와 정착 후 단계처럼 명시
+                # stage 집합이 상호 배타면 같은 원인·family여도 흡수하지 않는다
+                # (계약 차질 vs 통근·정착 부담 — 계약이 무산되면 후자는 발생하지 않을
+                # 수 있는 별개 국면). selection stage-aware와 동일 규칙.
+                if (
+                    primary.mobility_stages and c.mobility_stages
+                    and not (set(primary.mobility_stages) & set(c.mobility_stages))
+                ):
+                    continue
+                # 이동 episode 상이(감수 19차) — 확인된 episode_id가 서로 다르면 다른
+                # 이동 계획의 위험이다(새 집 계약 vs 임시 숙소 — 병존).
+                if (
+                    c.mobility_episode_id and primary.mobility_episode_id
+                    and c.mobility_episode_id != primary.mobility_episode_id
+                ):
+                    continue
+                if c.domain in _CONVERGENCE_DOMAINS:
                     # 같은 상대 판정 강화(감수 17차) — target_id 미확인 후보를 한
                     # 상대처럼 합치지 않는다: 같은 target_id가 아니면 **관계 사실
                     # (relation 원자 — 대상 객체 서명 내장)** 공유가 필수다. 십성
@@ -363,6 +384,123 @@ def _effective_ctx_exposure(
     return eff
 
 
+@dataclass(frozen=True)
+class MobilityContext:
+    """현실 이동·주거 컨텍스트(감수 18차 — MOV 차수) — 프로필·질문에서 확인된 계획·상황.
+
+    운 신호만으로 이사 계획·계약·차량·통근의 존재를 만들지 않는다: 일지 충은 이동
+    영역의 구조적 활성일 뿐, "이사를 준비 중이다/차가 있다"는 이 컨텍스트가 공급한다.
+    preference(desired/neutral/undesired, None=미확인)는 **적격성 미사용 — R3 표현
+    전용**이다: '원치 않는 이동' 표현은 undesired 확인 시에만 허용(신호만으로 비자발
+    판단 금지). assignment_authority는 R1 예약(CAR 소유권 보조).
+    """
+
+    target_type: str | None = None  # _RISK_MOBILITY_TARGET_TYPES 값(None=UNKNOWN)
+    stage: str | None = None  # _RISK_MOBILITY_STAGES 값(None=UNKNOWN)
+    preference: str | None = None  # desired/neutral/undesired — R3 표현 전용
+    housing_tenure: str | None = None  # owner/renter/... — R1 예약
+    exposure_status: ExposureStatus = ExposureStatus.UNKNOWN  # 이동 계획·상황 확인 수준
+    # 익명 이동 계획 키(감수 19차) — 같은 시기의 서로 다른 계획(현 집 계약 종료 vs
+    # 새 집 계약 vs 임시 숙소 vs 통근 조정)을 구분한다. 실명 주소 저장 금지.
+    episode_id: str | None = None
+    # 질문 직접 대상 여부(감수 19차) — True인 컨텍스트의 축이 항목 허용 밖이면
+    # MISMATCHED(발령 질문에서 주거 이동 항목 차단). False 컨텍스트는 존재 정보일 뿐
+    # (차량 등록만 있는 사용자의 이사 여부는 UNKNOWN — 다른 계획이 있을 수 있음).
+    is_question_target: bool = False
+    active_contract: bool | None = None  # stage 축이 대체 — R1 예약
+    repair_responsibility: bool | None = None  # 수리 책임(하자 비용 위험 조건)
+    commute_dependency: bool | None = None  # 통근 의존(통근 부담 조건)
+    vehicle_exposure: bool | None = None  # 차량 노출(차량·운송 사건 조건)
+    assignment_authority: bool | None = None  # 발령 권한 조직 소속 — R1 예약
+
+
+def _effective_mobility_exposure(
+    item: RiskItem, ctx: MobilityContext | None,
+) -> ExposureStatus:
+    """이동 컨텍스트의 유효 노출 — 실질 조건(수리 책임·통근 의존·차량)을 반영한다.
+
+    관계 조건과 동일 규칙: 조건 요구 항목에서 값 False→DENIED(명시적 부재), None
+    (미확인)→CONFIRMED여도 UNKNOWN 강등(존재 추론 금지). 컨텍스트 부재=UNKNOWN.
+    """
+    if ctx is None:
+        return ExposureStatus.UNKNOWN
+    policy = item.exposure_policy
+    eff = ctx.exposure_status
+    if policy is None:
+        return eff
+    for required, value in (
+        (policy.requires_repair_responsibility, ctx.repair_responsibility),
+        (policy.requires_commute_dependency, ctx.commute_dependency),
+        (policy.requires_vehicle_exposure, ctx.vehicle_exposure),
+    ):
+        if not required:
+            continue
+        if value is False:
+            return ExposureStatus.DENIED
+        if value is None and eff is ExposureStatus.CONFIRMED:
+            eff = ExposureStatus.UNKNOWN
+    return eff
+
+
+def _item_mobility_gated(item: RiskItem) -> bool:
+    """이동 축·실질 조건이 있는 항목인가 — 유효 노출을 MobilityContext에서 유도."""
+    if item.applicable_mobility_target_types or item.applicable_mobility_stages:
+        return True
+    policy = item.exposure_policy
+    return policy is not None and (
+        policy.requires_repair_responsibility
+        or policy.requires_commute_dependency
+        or policy.requires_vehicle_exposure
+    )
+
+
+def _resolve_mobility_all(
+    item: RiskItem,
+    contexts: list[MobilityContext] | None,
+) -> list[tuple[str, str | None, ExposureStatus | None]]:
+    """이동 축 3상태 + episode·유효 노출 유도 — **episode별** 해석 목록을 반환한다.
+
+    미적용 항목(이동 축·조건 없음)은 [(matched, None, None — 전역 노출 사용)]. 적용
+    항목: ①축이 호환(mismatch 없는)되는 컨텍스트를 episode_id별로 묶어 각각 해석
+    (감수 20차 조건 4 — 같은 risk_id라도 서로 다른 이동 계획이면 후보를 분리 보존:
+    CONFIRMED episode와 UNKNOWN episode가 섞이거나 exposure가 잘못 승계되는 것 차단.
+    같은 episode의 중복 컨텍스트는 입력 순서 무관 결정적 병합) ②호환 컨텍스트가 없고
+    질문 직접 대상 컨텍스트가 명시적으로 축 밖이면 [(mismatched — BLOCKED)] ③그 외
+    [(unknown — 구조 보존)]. 컨텍스트 부재는 계획 부재(DENIED)가 아니다. 발령(CAR)
+    질문이라도 별도 residential_move·commute_change 컨텍스트가 확인되면 해당 항목은
+    matched로 병존한다(감수 19차 조건 6).
+    """
+    if not _item_mobility_gated(item):
+        return [("matched", None, None)]
+    ctxs = contexts or []
+    groups: dict[str | None, list[tuple[bool, ExposureStatus, MobilityContext]]] = {}
+    mismatch_question = False
+    for ctx in ctxs:
+        t = _axis_alignment(ctx.target_type, item.applicable_mobility_target_types)
+        s = _axis_alignment(ctx.stage, item.applicable_mobility_stages)
+        if t == "mismatched" or s == "mismatched":
+            if ctx.is_question_target:
+                mismatch_question = True
+            continue
+        fully = t == "matched" and s == "matched"
+        groups.setdefault(ctx.episode_id, []).append(
+            (fully, _effective_mobility_exposure(item, ctx), ctx))
+    if not groups:
+        if mismatch_question:
+            return [("mismatched", None, ExposureStatus.UNKNOWN)]
+        return [("unknown", None, ExposureStatus.UNKNOWN)]
+    out: list[tuple[str, str | None, ExposureStatus | None]] = []
+    for ep in sorted(groups, key=lambda e: (e is None, e or "")):
+        # 같은 episode 중복 컨텍스트 — 결정적 병합(완전 매칭 > 노출 선호 > 축 값).
+        fully, eff, _ctx = sorted(
+            groups[ep],
+            key=lambda t3: (not t3[0], -_EXPOSURE_PREFERENCE[t3[1]],
+                            t3[2].target_type or "", t3[2].stage or ""),
+        )[0]
+        out.append((("matched" if fully else "unknown"), ep, eff))
+    return out
+
+
 def _resolve_relationship(
     item: RiskItem,
     contexts: list[RelationshipContext] | None,
@@ -482,6 +620,7 @@ class RiskEngine:
         exposure_status: ExposureStatus = ExposureStatus.UNKNOWN,
         selection_context: SelectionContext | None = None,
         relationship_contexts: list[RelationshipContext] | None = None,
+        mobility_contexts: list[MobilityContext] | None = None,
     ) -> list[RiskCandidate]:
         """한 시점의 원시 신호에서 원자 위험 후보를 생성한다.
 
@@ -504,6 +643,9 @@ class RiskEngine:
             selection_context: 현실 선발 컨텍스트(감수 14차).
             relationship_contexts: 확인된 현실 관계 목록(감수 16차) — 미제공(None/[])은
                 관계 정보 부재(UNKNOWN)이지 관계 부재(DENIED)가 아니다.
+            mobility_contexts: 확인된 이동·주거 컨텍스트 목록(감수 18·19차 — 같은
+                시기 복수 계획 지원, episode_id로 구분). 미제공은 계획 정보 부재
+                (UNKNOWN)이지 계획 부재(DENIED)가 아니다.
 
         Returns:
             생성된 원자 RiskCandidate 목록(관측 후보 포함 — 활성 판정은 is_active).
@@ -535,11 +677,8 @@ class RiskEngine:
                 continue  # 관측 없음 — 후보 자체를 만들지 않는다.
             # RelationshipContext(감수 16차) — 관계 역할 지정 항목의 유효 노출은 전역
             # 파라미터가 아니라 매칭된 현실 관계에서 유도한다(존재 추론 금지).
-            rel_alignment, rel_role, rel_target_id, effective_exposure = (
+            rel_alignment, rel_role, rel_target_id, rel_exposure = (
                 _resolve_relationship(item, relationship_contexts, exposure_status)
-            )
-            status, reasons = self._evaluate(
-                item, evidences, triggers, effective_exposure,
             )
             # SelectionContext 3상태(감수 14차) — MISMATCHED는 명시적 부적용(BLOCKED,
             # 임의 fallback 금지). UNKNOWN은 구조 보존(노출은 is_exposable이 차단).
@@ -551,60 +690,83 @@ class RiskEngine:
                     ctx.target_type, item.applicable_target_types)),
             )
             if any(a == "mismatched" for _, a in axes):
-                status = EligibilityStatus.BLOCKED
-                reasons = list(reasons) + [
-                    f"selection_{name}_mismatch" for name, a in axes if a == "mismatched"
-                ]
                 alignment = "mismatched"
             elif any(a == "unknown" for _, a in axes):
                 alignment = "unknown"
             else:
                 alignment = "matched"
-            # 관계 축 MISMATCHED — 질문 직접 대상의 역할이 항목 허용 밖(궁합 대상이
-            # 사업 파트너인데 배우자 전용 항목 등). fallback 없이 차단한다.
-            if rel_alignment == "mismatched":
-                status = EligibilityStatus.BLOCKED
-                reasons = list(reasons) + ["relationship_role_mismatch"]
-            out.append(RiskCandidate(
-                risk_id=item.risk_id,
-                domain=RiskDomain(item.domain),
-                kind=RiskKind(item.kind),
-                risk_family=item.risk_family,
-                period_key=facts.period_key,
-                manifestation_ids=[m.id for m in item.manifestations],
-                evidence=evidences,
-                score_components=None,  # R1에서 산출
-                exposure_status=effective_exposure,
-                exposure_requirement=(
-                    item.exposure_policy.requirement
-                    if item.exposure_policy is not None else "not_required"
-                ),
-                confidence=0.0,  # R1에서 산출
-                eligibility_status=status,
-                suppression_reasons=reasons,
-                specificity_rank=_specificity_rank(item),
-                selection_alignment=alignment,
-                relationship_alignment=rel_alignment,
-                relationship_role=rel_role,
-                relationship_target_id=rel_target_id,
-                selection_stages=list(item.applicable_selection_stages),
-                # UNKNOWN 노출 차등(감수 17차) — 역할 특정 관계 항목은 관계가 확인
-                # 되거나 질문 대상일 때(alignment=matched)만 조건부 노출 가능. 총운·
-                # 재물운처럼 관계가 질문 대상이 아닌 컨텍스트에서 partner·peer 후보가
-                # 상시 조건부 경고로 반복 노출되는 것을 기계적으로 차단한다.
-                exposable_when_unknown=(
-                    (item.exposure_policy.unknown_exposable
-                     if item.exposure_policy is not None else True)
-                    and (rel_alignment == "matched"
-                         or not item.applicable_relationship_roles)
-                ),
-                absorbed_role_hint=item.absorbed_role_hint,
-                # 교차 도메인 연결 키(감수 17차) — 같은 원인의 FIN·REL 병존 후보를
-                # R1(중복 1회 점수)·R2(episode 병합·대표 1개)가 연결하는 재료.
-                trigger_cause_atoms=sorted(
-                    {a for e in triggers for a in cause_atoms(e.source)}
-                ),
-            ))
+            # MobilityContext(감수 18~20차) — episode별 해석 목록: 같은 risk_id라도
+            # 서로 다른 이동 계획이면 후보를 분리 보존한다(각 후보의 exposure·stage·
+            # episode 독립 — identity는 risk_id+period+episode).
+            for mob_alignment, mob_episode_id, mob_exposure in _resolve_mobility_all(
+                item, mobility_contexts,
+            ):
+                effective_exposure = (
+                    mob_exposure if mob_exposure is not None else rel_exposure
+                )
+                status, reasons = self._evaluate(
+                    item, evidences, triggers, effective_exposure,
+                )
+                if alignment == "mismatched":
+                    status = EligibilityStatus.BLOCKED
+                    reasons = list(reasons) + [
+                        f"selection_{name}_mismatch"
+                        for name, a in axes if a == "mismatched"
+                    ]
+                # 이동 축 MISMATCHED(감수 18·19차) — 질문 직접 대상의 계획이 항목 축
+                # 밖(발령 질문에서 주거 이동 항목 등). fallback 없이 차단. UNKNOWN의
+                # 노출 차등은 is_exposable이 exposure_requirement로 판정.
+                if mob_alignment == "mismatched":
+                    status = EligibilityStatus.BLOCKED
+                    reasons = list(reasons) + ["mobility_target_mismatch"]
+                # 관계 축 MISMATCHED — 질문 직접 대상의 역할이 항목 허용 밖(궁합
+                # 대상이 사업 파트너인데 배우자 전용 항목 등). fallback 없이 차단.
+                if rel_alignment == "mismatched":
+                    status = EligibilityStatus.BLOCKED
+                    reasons = list(reasons) + ["relationship_role_mismatch"]
+                out.append(RiskCandidate(
+                    risk_id=item.risk_id,
+                    domain=RiskDomain(item.domain),
+                    kind=RiskKind(item.kind),
+                    risk_family=item.risk_family,
+                    period_key=facts.period_key,
+                    manifestation_ids=[m.id for m in item.manifestations],
+                    evidence=evidences,
+                    score_components=None,  # R1에서 산출
+                    exposure_status=effective_exposure,
+                    exposure_requirement=(
+                        item.exposure_policy.requirement
+                        if item.exposure_policy is not None else "not_required"
+                    ),
+                    confidence=0.0,  # R1에서 산출
+                    eligibility_status=status,
+                    suppression_reasons=reasons,
+                    specificity_rank=_specificity_rank(item),
+                    selection_alignment=alignment,
+                    mobility_alignment=mob_alignment,
+                    mobility_episode_id=mob_episode_id,
+                    mobility_stages=list(item.applicable_mobility_stages),
+                    relationship_alignment=rel_alignment,
+                    relationship_role=rel_role,
+                    relationship_target_id=rel_target_id,
+                    selection_stages=list(item.applicable_selection_stages),
+                    # UNKNOWN 노출 차등(감수 17차) — 역할 특정 관계 항목은 관계가 확인
+                    # 되거나 질문 대상일 때(alignment=matched)만 조건부 노출 가능. 총운·
+                    # 재물운처럼 관계가 질문 대상이 아닌 컨텍스트에서 partner·peer 후보가
+                    # 상시 조건부 경고로 반복 노출되는 것을 기계적으로 차단한다.
+                    exposable_when_unknown=(
+                        (item.exposure_policy.unknown_exposable
+                         if item.exposure_policy is not None else True)
+                        and (rel_alignment == "matched"
+                             or not item.applicable_relationship_roles)
+                    ),
+                    absorbed_role_hint=item.absorbed_role_hint,
+                    # 교차 도메인 연결 키(감수 17차) — 같은 원인의 FIN·REL 병존 후보를
+                    # R1(중복 1회 점수)·R2(episode 병합·대표 1개)가 연결하는 재료.
+                    trigger_cause_atoms=sorted(
+                        {a for e in triggers for a in cause_atoms(e.source)}
+                    ),
+                ))
         return _apply_specificity_suppression(out)
 
     @staticmethod

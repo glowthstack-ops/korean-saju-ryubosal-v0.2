@@ -1,10 +1,10 @@
 {
-  "review_environment_version": "risk-engine-r0.5.7",
-  "hash_schema_version": 5,
-  "reviewed_total": 37,
-  "unreviewed_total": 10,
+  "review_environment_version": "risk-engine-r0.5.8",
+  "hash_schema_version": 6,
+  "reviewed_total": 42,
+  "unreviewed_total": 5,
   "reviewed_by_scope": {
-    "shadow_structure": 37
+    "shadow_structure": 42
   },
   "reviewed_by_domain": {
     "career": {
@@ -28,8 +28,8 @@
       "unreviewed": 0
     },
     "relocation": {
-      "reviewed": 1,
-      "unreviewed": 5
+      "reviewed": 6,
+      "unreviewed": 0
     },
     "selection": {
       "reviewed": 7,
@@ -59,7 +59,12 @@
     "LEG_LITIGATION_ESCALATION",
     "LEG_PENALTY_LIABILITY",
     "LEG_REVIEW_CAPACITY_WEAK",
-    "MOV_CONTRACT_FAIL",
+    "MOV_COMMUTE_BURDEN",
+    "MOV_CONTRACT_SETBACK_RISK",
+    "MOV_HOUSING_DEFECT_RISK",
+    "MOV_RELOCATION_PRESSURE",
+    "MOV_SCHEDULE_DISRUPTION",
+    "MOV_VEHICLE_TRANSPORT_ISSUE",
     "REL_COMMUNICATION_MISALIGNMENT",
     "REL_DISTANCE_PRESSURE",
     "REL_EMOTIONAL_CLASH",
@@ -80,11 +85,6 @@
     "HLT_CONDITION_DECLINE",
     "HLT_FATIGUE_ACCUMULATION",
     "HLT_FOCUS_DROP",
-    "HLT_MOBILITY_ACCIDENT_CAUTION",
-    "MOV_COMMUTE_BURDEN",
-    "MOV_DEFECT_REPAIR_COST",
-    "MOV_SCHEDULE_DISRUPTION",
-    "MOV_UNWANTED_MOVE",
-    "MOV_VEHICLE_TRANSPORT_ISSUE"
+    "HLT_MOBILITY_ACCIDENT_CAUTION"
   ]
 }
