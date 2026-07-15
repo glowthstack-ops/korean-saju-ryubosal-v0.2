@@ -7496,3 +7496,26 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
   fixture→중간 밀도→표본 감수. 자동 변환 금지 대상: 무대상 사건·건강/법률 결과
   암시·프로필 축 필요·relatedDomains 복제·3도메인 확산 → pressure/vulnerability
   강등 또는 비활성).
+
+### 위험 엔진 R0.5 5차 — 착수 전 필수 보완 6종 (2026-07-15, 데굴님 재물·계약 차수 승인 조건)
+
+- **manifest 정정**: 미개정 = FIN 6 + LEG 5 = **11항목**(이전 "10항목" 보고 오류 —
+  코드 기준 재집계). REVIEW.md §6에 항목별 표(kind 변경·exposure 필요·claim 방향)
+  고정. 커밋 분리: C1=FIN 6(전용 밀도·감수) / C2=LEG 5(교차 중복 검사).
+- **reviewScopes 누적 구조**: 단일 reviewScope → reviewScopes 배열 +
+  reviewVersions(scope→차수 map). 단계별 감수(structure/scoring/selection/exposure)
+  기록이 덮어써지지 않음.
+- **감수 무효화 가드**: reviewedRuleHash(룰 본문 sha256[:16] — 트리거·증폭·완화·차단·
+  증거계약·kind, 표현 정책 제외) — reviewed:true인데 해시 불일치면 lint 실패(룰 수정
+  = 자동 재감수 요구). risk_rule_hash() 헬퍼로 스탬프. 7항목 스탬프 완료.
+- **관계 의미 계층**: targeted_event_shape는 충·형만(disruptive_strong). 파·해
+  (disruptive_weak)는 target_activation만 — 단독 발화 불가·기계 동일 적용 금지.
+  특수 합(합거·묶임)·복음(반복성)은 relationEffect 축 R1 백로그.
+- **HLT_CHRONIC_FLAREUP 현실 노출 조건**: multi_cause는 필요조건일 뿐 — R1 필수
+  조건(독립 2 + 관리 상태/노출 CONFIRMED, UNKNOWN이면 '기존 약점 관리' 수준 제한 +
+  is_exposable=false, 미충족 시 HLT_GENERAL_VULNERABILITY 강등 검토) 명시,
+  "만성질환 재발 단정" prohibited 추가.
+- **항목별 recall 게이트**: reviewed:true risk_id마다 양성 fixture 존재를 테스트로
+  강제(_DOMAIN_CASES 커버리지 검사 — 전체 평균이 아니라 항목 단위 100%).
+- 테스트 56건(해시 불일치·PA targeted 거부·reviewed fixture 커버리지 등 +3).
+  검증: pytest 1814 passed·ruff·mypy clean.

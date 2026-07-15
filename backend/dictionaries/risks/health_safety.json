@@ -211,7 +211,8 @@
         "질병명 단정",
         "발병 시점 단정",
         "사망 관련 표현",
-        "의료 진단 대체 표현"
+        "의료 진단 대체 표현",
+        "만성질환 재발 단정"
       ],
       "allowedClaimScope": [
         "관리 필요성",
@@ -220,10 +221,15 @@
         "위험 행동 주의"
       ],
       "claimCeiling": "conditional_warning",
-      "note": "감수 2차 개정 — 건강은 targeted 단독 경로 없음(가장 엄격): 형+병사 운성(event_shape) AND 일지·시지 충(target_activation), 독립 원인 2개 필수. 기신·공망 amplifier 강등",
+      "note": "감수 2차 개정 — 건강은 targeted 단독 경로 없음(가장 엄격): 형+병사 운성(event_shape) AND 일지·시지 충(target_activation), 독립 원인 2개 필수. 기신·공망 amplifier 강등 · R1 필수 조건: 독립 원인 2 + 기존 관리 상태/관련 노출 CONFIRMED — 노출 UNKNOWN이면 claim '기존 약점 관리 필요' 수준으로 제한(is_exposable=false), 미충족 시 HLT_GENERAL_VULNERABILITY 강등 검토",
       "reviewed": true,
-      "reviewScope": "shadow_structure",
-      "reviewVersion": "R0.5"
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "R0.5"
+      },
+      "reviewedRuleHash": "3bb31486a7c06e9b"
     },
     {
       "riskId": "HLT_CONDITION_DECLINE",

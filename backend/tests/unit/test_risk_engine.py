@@ -766,12 +766,81 @@ def test_lint_reviewed_requires_review_scope() -> None:
         }],
     })
     errors = _lint_risk_mapping("risks/finance.json", file)
-    assert any("reviewScope 명시 필수" in e for e in errors)
+    assert any("reviewScopes 명시 필수" in e for e in errors)
+    assert any("reviewedRuleHash 필수" in e for e in errors)
+
+
+def test_lint_rule_change_invalidates_review() -> None:
+    """감수 무효화 — reviewed:true 항목의 룰을 고치면 해시 불일치로 lint가 실패한다."""
+    base = {
+        "riskId": "FIN_TEST_HSH",
+        "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+        "triggerRules": [{"id": "T1", "group": "activation", "tenGod": "JIECAI"}],
+        "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": True,
+        "reviewScopes": ["shadow_structure"],
+    }
+    from saju_engines.dictionaries import risk_rule_hash
+    stamped = RiskItem.model_validate(base)
+    base["reviewedRuleHash"] = risk_rule_hash(stamped)
+    ok_file = RiskMappingFile.model_validate(
+        {"version": "0.0.1", "domain": "finance", "items": [base]},
+    )
+    assert not any(
+        "해시 불일치" in e for e in _lint_risk_mapping("risks/finance.json", ok_file)
+    )
+    # 감수 후 룰 본문 변경(강도 수정) → 해시 불일치.
+    changed = dict(base)
+    changed["triggerRules"] = [
+        {"id": "T1", "group": "activation", "tenGod": "JIECAI", "strength": 0.9},
+    ]
+    bad_file = RiskMappingFile.model_validate(
+        {"version": "0.0.1", "domain": "finance", "items": [changed]},
+    )
+    assert any(
+        "해시 불일치" in e for e in _lint_risk_mapping("risks/finance.json", bad_file)
+    )
+
+
+def test_schema_rejects_weak_relation_targeted() -> None:
+    """파·해는 약한 신호 — 대상 특정만으로 targeted_event_shape가 되지 못한다
+    (target_activation로 저작 — 단독 발화 불가, 충·형과 동일 강도 기계 적용 금지)."""
+    with pytest.raises(ValueError, match="충·형만"):
+        RiskItem.model_validate({
+            "riskId": "FIN_TEST_PAW",
+            "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+            "triggerRules": [
+                {"id": "T1", "group": "targeted_event_shape", "relation": "PA",
+                 "relationTargetTenGodGroup": "wealth", "tenGod": "JIECAI",
+                 "strength": 0.5},
+            ],
+            "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+            "manifestations": [{"id": "m1", "ko": "테스트"}],
+            "reviewed": False,
+        })
+
+
+def test_every_reviewed_item_has_positive_fixture(engine: RiskEngine) -> None:
+    """reviewed:true 항목별 양성 fixture 필수 — 항목 단위 recall 100% 게이트.
+
+    전체 평균이 아니라 reviewed risk_id마다 명확 양성 케이스가 존재해야 한다
+    (_DOMAIN_CASES가 그 원천 — 여기서 누락을 강제 검출한다).
+    """
+    import json as _json
+    reviewed_ids = set()
+    for path in sorted((_DICTS / "risks").glob("*.json")):
+        data = _json.loads(path.read_text(encoding="utf-8"))
+        reviewed_ids |= {i["riskId"] for i in data["items"] if i.get("reviewed")}
+    covered = {rid for rid, _ in _DOMAIN_CASES}
+    assert reviewed_ids <= covered, (
+        f"양성 fixture 없는 reviewed 항목: {sorted(reviewed_ids - covered)}"
+    )
 
 
 def test_schema_rejects_hap_targeted_event_shape() -> None:
     """우호 결합(HAP)은 targeted_event_shape가 될 수 없다 — 관계 유형 allowlist."""
-    with pytest.raises(ValueError, match="충·형·파·해만"):
+    with pytest.raises(ValueError, match="충·형만"):
         RiskItem.model_validate({
             "riskId": "REL_TEST_HAP",
             "domain": "relationship", "kind": "pressure", "baseImpact": 0.4,

@@ -240,8 +240,13 @@
       "claimCeiling": "warning",
       "note": "감수 3차 개정 — targeted=겁재-재성 경쟁 구조가 재성을 직접 대상으로(관계+대상+구조 동반). 순수 재성 피격은 target_activation(단독 생성 불가 — 겁재-재성 동반 필요). 기신·공망 amplifier",
       "reviewed": true,
-      "reviewScope": "shadow_structure",
-      "reviewVersion": "R0.5"
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "R0.5"
+      },
+      "reviewedRuleHash": "b37a55fd99bac4ff"
     },
     {
       "riskId": "FIN_INVESTMENT_LOSS",

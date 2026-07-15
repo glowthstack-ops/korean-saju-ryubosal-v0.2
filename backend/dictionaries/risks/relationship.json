@@ -566,8 +566,13 @@
       "claimCeiling": "conditional_warning",
       "note": "감수 2차 개정 — 배우자궁(일지) 직접 충·형만 생성 경로(궁위가 사건 형태를 정의하는 targeted). 배우자성(성별 의존) 근거는 R1 성별 축 연동 전까지 미저작 — 성별 미상이므로 '배우자 문제' 단정 금지, 관계 재조정 가능성까지만",
       "reviewed": true,
-      "reviewScope": "shadow_structure",
-      "reviewVersion": "R0.5"
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "R0.5"
+      },
+      "reviewedRuleHash": "6e43c3ea6a10951f"
     },
     {
       "riskId": "REL_MONEY_BETWEEN_PEERS",

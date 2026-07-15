@@ -183,3 +183,28 @@ INSUFFICIENT 분리(observed 대비 eligible 약 45%)가 실측에서 작동함�
 | 잔여 37항목 적용 | **승인됨** — §2 일괄 규칙 + 변환 직후 reviewed:false, 엔진 로직 변경 필요 시 사전 커밋과 분리 |
 | 밀도 재실측·목표 판정 | 37항목 적용 후(§4 + RISK_ENGINE.md §10-2 확정 기준) |
 | 37항목 reviewed:true 전환 | 재실측 통과 + 도메인별 표본 감수 후 |
+
+## 6. 잔여 항목 작업 manifest (감수 5차 확정 — 코드 기준 재집계)
+
+미개정 = **FIN 6 + LEG 5 = 11항목**(이전 보고의 "10항목"은 오류 — FIN_BUFFER_WEAK 누락 집계).
+커밋 분리: **C1 = FIN 6항목 → fixture → FIN 전용 밀도 → 감수 / C2 = LEG 5항목 →
+fixture → LEG 전용 밀도 → 교차 도메인 중복 검사 → 감수.**
+
+| risk_id | 현재 kind | 변경 후 kind | exposure 필요(R1) | claim 방향 |
+|---|---|---|---|---|
+| FIN_CASHFLOW_PRESSURE | pressure | pressure | 선택 | 구체 손실 단정 금지, 반복성·완충력 중심 |
+| FIN_INVESTMENT_LOSS | incident | incident(조건부) | **필수**(투자 노출 CONFIRMED — UNKNOWN이면 "투자를 한다면 변동성 관리" 조건부) | 손실 단정 금지 |
+| FIN_DEBT_GUARANTEE_BURDEN | incident | incident(조건부) | **필수**(대출·보증 노출 — 없으면 BLOCKED/N.A. 겁재·재성만으로 보증 추론 금지) | 책임 발생 단정 금지 |
+| FIN_INCOME_DELAY | incident | incident | 준필수(급여·매출·정산 대상 존재) — "소득 감소"와 "지급 지연" 분리 | 소득 상실 단정 금지 |
+| FIN_SETTLEMENT_DISPUTE | incident | incident | 준필수(계약·정산 관계) — LEG와 primary domain 결정(risk_family) | 법적 분쟁 단정 금지 |
+| FIN_BUFFER_WEAK | vulnerability | vulnerability | 선택 | 내부 보조 — 독립 경고보다 impact_amplifier 흡수 우선 |
+| LEG_CONTRACT_CANCEL | incident | incident | 준필수(진행 계약) | 파기 확정 금지 |
+| LEG_DOCUMENT_ERROR | incident | incident | 선택 | — |
+| LEG_ADMIN_DELAY | incident | incident 또는 pressure 강등 검토(무대상 지연) | 준필수(절차 진행) | — |
+| LEG_DISPUTE_LITIGATION | incident | incident(조건부) | **필수**(분쟁·소송 노출) | 승패·처벌 단정 금지 |
+| LEG_REVIEW_CAPACITY_WEAK | vulnerability | vulnerability | 선택 | 내부 보조(발동률 45.5% — 영역 활성 동반 조건으로 하향) |
+
+공통: 기신·공망·운성 trigger → amplifier, 관계 trigger에 대상/궁위(파·해는
+target_activation만), FIN 항목별 상이한 증거 계약(동일 계약 복제 금지),
+riskFamily(cashflow/liability/settlement 등) 저작, 변환 직후 reviewed:false.
+중간 밀도는 전체/개정 항목만/미개정 제외/동일 항목 delta 4종 분리 보고.

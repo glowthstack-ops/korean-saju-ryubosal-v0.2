@@ -225,8 +225,13 @@
       "claimCeiling": "warning",
       "note": "감수 3차 개정 — targeted=상관 동반 관성 피격. 상관견관(event_shape)+사회궁/관성 활성(target_activation) 경로 병행. 인성=통관 완화",
       "reviewed": true,
-      "reviewScope": "shadow_structure",
-      "reviewVersion": "R0.5"
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "R0.5"
+      },
+      "reviewedRuleHash": "35b48825b51347e5"
     },
     {
       "riskId": "CAR_EVALUATION_DISADVANTAGE",

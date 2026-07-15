@@ -13,6 +13,7 @@ camelCase를 그대로 따르고(절대 원칙 10), Python 모델은 snake_case 
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Iterable
 from pathlib import Path
@@ -737,9 +738,12 @@ _RISK_CLAIM_CEILINGS = ("advisory", "watch", "conditional_warning", "warning")
 # reviewScope 유효값 — reviewed:true의 의미 범위(감수 4차): shadow_structure=사전 구조·
 # shadow 감수 완료(사용자 노출 승인 아님). scoring/selection/exposure는 R1/R2/R3 감수.
 _RISK_REVIEW_SCOPES = ("shadow_structure", "scoring", "selection", "exposure")
-# targeted_event_shape에 허용되는 관계 유형 — 우호 결합(HAP)·복음(BOKEUM)은 위험 사건
-# 형태가 아니다(궁위 특정만으로 모든 관계가 사건 형태가 되는 것을 차단).
-_RISK_TARGETED_RELATIONS = ("CHUNG", "HYEONG", "PA", "HAE")
+# targeted_event_shape에 허용되는 관계 유형 — 관계 의미 계층(감수 5차):
+# disruptive_strong(충·형)만 단독 targeted 가능. disruptive_weak(파·해)는 약한 신호라
+# 대상 특정만으로 사건 형태가 되지 못한다(target_activation로 저작 — 단독 발화 불가).
+# conditional_binding(합거·묶임 등 특수 합)·recurrence(복음)는 relationEffect 축이 필요해
+# R1 백로그(우호 합·복음은 계속 거부). 파·해를 충·형과 동일 강도로 기계 적용 금지.
+_RISK_TARGETED_RELATIONS = ("CHUNG", "HYEONG")
 
 
 class RiskRuleSpec(_AliasModel):
@@ -814,8 +818,9 @@ class RiskRuleSpec(_AliasModel):
                 )
             if self.relation not in _RISK_TARGETED_RELATIONS:
                 raise ValueError(
-                    f"targeted_event_shape 관계 유형 오류({self.relation}) — 충·형·파·해만"
-                    f" 허용(우호 결합은 사건 형태 아님): {self.id}"
+                    f"targeted_event_shape 관계 유형 오류({self.relation}) — 충·형만"
+                    f" 단독 targeted 허용(파·해는 target_activation, 합·복음은 사건"
+                    f" 형태 아님): {self.id}"
                 )
         if self.ten_god is not None and self.ten_god not in {str(g) for g in _TenGodRoman}:
             raise ValueError(f"tenGod 값 오류: {self.ten_god} ({self.id})")
@@ -968,17 +973,27 @@ class RiskItem(_AliasModel):
     claim_ceiling: str | None = Field(default=None, alias="claimCeiling")
     note: str | None = None
     reviewed: bool
-    # 감수 범위 메타데이터(감수 4차) — reviewed:true의 의미를 명시한다. shadow_structure는
-    # 사전 구조·shadow 감수 완료를 뜻하며 사용자 노출 승인이 아니다(노출은 exposure 감수).
-    review_scope: str | None = Field(default=None, alias="reviewScope")
-    review_version: str | None = Field(default=None, alias="reviewVersion")
+    # 감수 범위 메타데이터(감수 5차 — 누적 구조): 항목은 여러 단계 감수를 순차 통과한다.
+    # shadow_structure는 사전 구조·shadow 감수 완료를 뜻하며 사용자 노출 승인이 아니다
+    # (노출은 exposure 감수). reviewVersions는 scope→감수 차수 기록.
+    review_scopes: list[str] = Field(alias="reviewScopes", default_factory=list)
+    review_versions: dict[str, str] = Field(alias="reviewVersions", default_factory=dict)
+    # 감수 무효화 가드(감수 5차) — 감수 당시 룰 본문의 해시. 현재 룰 해시와 다르면
+    # lint 실패(룰을 고치면 과거 감수가 자동 무효 — 재감수 후 재스탬프).
+    reviewed_rule_hash: str | None = Field(default=None, alias="reviewedRuleHash")
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
         if self.kind not in ("pressure", "vulnerability", "incident_risk"):
             raise ValueError(f"kind 값 오류: {self.kind} ({self.risk_id})")
-        if self.review_scope is not None and self.review_scope not in _RISK_REVIEW_SCOPES:
-            raise ValueError(f"reviewScope 값 오류: {self.review_scope} ({self.risk_id})")
+        for scope in self.review_scopes:
+            if scope not in _RISK_REVIEW_SCOPES:
+                raise ValueError(f"reviewScopes 값 오류: {scope} ({self.risk_id})")
+        for scope in self.review_versions:
+            if scope not in self.review_scopes:
+                raise ValueError(
+                    f"reviewVersions에 미감수 scope 기록: {scope} ({self.risk_id})"
+                )
         if self.domain not in _RISK_ID_PREFIX:
             raise ValueError(f"domain 값 오류: {self.domain} ({self.risk_id})")
         for d in self.related_domains:
@@ -989,6 +1004,32 @@ class RiskItem(_AliasModel):
         if self.claim_ceiling is not None and self.claim_ceiling not in _RISK_CLAIM_CEILINGS:
             raise ValueError(f"claimCeiling 값 오류: {self.claim_ceiling} ({self.risk_id})")
         return self
+
+
+def risk_rule_hash(item: RiskItem) -> str:
+    """위험 항목의 룰 본문 해시 — 감수 무효화 가드(감수 5차).
+
+    구조 감수의 대상인 룰·증거 계약·kind만 포함한다(표현 정책 prohibited/allowedClaim은
+    exposure 감수 소관이라 제외). 결정적이며 키 순서에 무관하다.
+    """
+    body = {
+        "kind": item.kind,
+        "triggerRules": [r.model_dump(by_alias=True, exclude_none=True)
+                         for r in item.trigger_rules],
+        "amplifierRules": [r.model_dump(by_alias=True, exclude_none=True)
+                           for r in item.amplifier_rules],
+        "mitigatorRules": [r.model_dump(by_alias=True, exclude_none=True)
+                           for r in item.mitigator_rules],
+        "blockerRules": [r.model_dump(by_alias=True, exclude_none=True)
+                         for r in item.blocker_rules],
+        "minimumEvidence": item.minimum_evidence.model_dump(by_alias=True),
+        "evidenceContract": (
+            item.evidence_contract.model_dump(by_alias=True, exclude_none=True)
+            if item.evidence_contract is not None else None
+        ),
+    }
+    canonical = json.dumps(body, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
 class RiskMappingFile(_AliasModel):
@@ -1576,10 +1617,20 @@ def _lint_reviewed_risk_item(
     있어도 incident_risk의 직접 trigger는 될 수 없다 — 승격 시점에 강제한다.
     """
     errors: list[str] = []
-    if item.review_scope is None:
+    if not item.review_scopes:
         errors.append(
-            f"{rel}: reviewed:true는 reviewScope 명시 필수(shadow_structure 등 — "
+            f"{rel}: reviewed:true는 reviewScopes 명시 필수(shadow_structure 등 — "
             f"사용자 노출 승인과 구분) — {item.risk_id}"
+        )
+    if item.reviewed_rule_hash is None:
+        errors.append(
+            f"{rel}: reviewed:true는 reviewedRuleHash 필수(감수 무효화 가드) — "
+            f"{item.risk_id}"
+        )
+    elif item.reviewed_rule_hash != risk_rule_hash(item):
+        errors.append(
+            f"{rel}: 룰 본문이 감수 이후 변경됨(해시 불일치 — 재감수 후 재스탬프 필요) "
+            f"— {item.risk_id}"
         )
     non_generic = trigger_groups - {"generic"}
     if item.kind == "incident_risk":

@@ -168,9 +168,19 @@ conditional_warning/warning)을 병용한다.
 형태가 되지 않는다 — 충·형·파·해만 허용(우호 결합 HAP·복음 BOKEUM 스키마 거부).
 잔여 항목 변환 시 '궁위가 있으니 targeted' 식 기계 변환 금지.
 
-**reviewed 메타데이터**: `reviewed:true`는 `reviewScope` 필수(lint) —
-`shadow_structure`(사전 구조·shadow 감수, **사용자 노출 승인 아님**) / `scoring`(R1)
-/ `selection`(R2) / `exposure`(R3). + `reviewVersion`.
+**reviewed 메타데이터(감수 5차 — 누적 구조)**: `reviewed:true`는 `reviewScopes`
+(배열 — 통과한 감수 단계 누적: `shadow_structure`=사전 구조·shadow 감수(**사용자
+노출 승인 아님**) / `scoring`(R1) / `selection`(R2) / `exposure`(R3)) +
+`reviewVersions`(scope→차수) + `reviewedRuleHash` 필수(lint). **감수 무효화 가드**:
+룰 본문(트리거·증폭·완화·차단·증거 계약·kind)을 고치면 해시 불일치로 lint가
+실패한다 — 재감수 후 `risk_rule_hash()`로 재스탬프해야 한다(표현 정책 prohibited/
+allowedClaim 변경은 exposure 감수 소관이라 해시 무관).
+
+**관계 의미 계층**: disruptive_strong(충·형 — 단독 targeted 가능) /
+disruptive_weak(파·해 — target_activation만, 단독 발화 불가·R1 등급 advisory/watch
+상한) / conditional_binding(합거·묶임 등 특수 합 — relationEffect 축 필요, R1 백로그)
+/ recurrence(복음 — persistence·amplifier 소관, R1) / supportive(일반 합 — 위험 사건
+형태 아님, 거부).
 
 kind별 최소 계약(reviewed:true 승격 시 lint 강제):
 
