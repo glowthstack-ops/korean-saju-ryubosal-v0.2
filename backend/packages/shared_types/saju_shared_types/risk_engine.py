@@ -210,7 +210,12 @@ def is_active(candidate: RiskCandidate) -> bool:
 
 
 def is_exposable(candidate: RiskCandidate) -> bool:
-    """사용자 노출 가부의 구조적 근사(감수 14차 — R3 전 기계 강제).
+    """**context-level exposure eligibility** — 최종 사용자 노출 승인이 아니다(감수 15차).
+
+    판정 계층: is_active(구조적 활성) → is_exposable(본 함수 — 컨텍스트·mode·stage·
+    노출 상위 게이트) → is_score_qualified(R1 점수·등급·confidence·protection) →
+    is_selection_qualified(R2 병합·risk budget) → is_finally_exposable(R3 표현 감수).
+    본 함수가 True여도 뒤 계층을 통과해야 사용자에게 노출된다.
 
     R3 노출 정책(claimCeiling·등급·질문 컨텍스트)의 상위 게이트다: 구조적 활성이면서
     ①selection 정렬이 unknown/mismatched가 아니고 ②UNKNOWN 비노출 항목

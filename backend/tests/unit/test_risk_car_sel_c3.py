@@ -450,3 +450,111 @@ def test_sel_c3c_positive_recall_all_five(engine: RiskEngine) -> None:
         assert c.eligibility_status in (
             EligibilityStatus.ELIGIBLE, EligibilityStatus.MITIGATED,
         ), (rid, c.suppression_reasons)
+
+
+# ── C4 승격 조건 fixture (감수 15차) ──
+
+
+def test_same_target_different_relations_linked_but_two_causes() -> None:
+    """같은 대상의 형+해 — linked targets=true AND 독립 원인 2개(collapse 금지).
+
+    target_object_signature(무엇을)와 cause_atom(어떤 방식으로)은 별개 축 —
+    layer_convergence·compound 계산의 전제.
+    """
+    from saju_engines.dictionaries import RiskItem
+
+    item = RiskItem.model_validate({
+        "riskId": "CAR_TEST_2CS",
+        "domain": "career", "kind": "incident_risk", "baseImpact": 0.5,
+        "triggerRules": [
+            {"id": "S1", "group": "event_shape", "relation": "HYEONG",
+             "tenGodGroup": "authority", "strength": 0.5},
+            {"id": "A1", "group": "target_activation", "relation": "HAE",
+             "relationTargetTenGodGroup": "authority", "strength": 0.4},
+        ],
+        "minimumEvidence": {"triggerCount": 2, "independentSourceCount": 2},
+        "evidenceContract": {
+            "anyOf": [{"allOfGroups": ["event_shape", "target_activation"]}],
+            "minIndependentCauses": 2, "candidatePolicy": "multi_cause_only",
+            "rationale": "test — 같은 대상·다른 관계의 독립 2원인 검증",
+            "requiresLinkedTargets": True,
+        },
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo = RiskEngine(_DICTS)
+    solo._items = [item]
+    cands = solo.generate(_facts(
+        gods={TenGod.QISHA: {LuckLayer.SEWOON}},
+        relations=[
+            RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                         target_ten_god=TenGod.ZHENGGUAN),
+            RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                         target_ten_god=TenGod.ZHENGGUAN),  # 같은 대상 객체
+        ],
+    ))
+    assert len(cands) == 1 and is_active(cands[0])  # linked ✓ + 독립 2원인 충족
+    from saju_shared_types.risk_engine import EvidenceRole
+    triggers = [e for e in cands[0].evidence if e.role is EvidenceRole.TRIGGER]
+    assert len({e.source for e in triggers}) == 2  # 형·해 = 별개 cause
+
+
+def test_hiring_target_allows_common_process_risks(engine: RiskEngine) -> None:
+    """소유권 항목별 — 채용 대상이어도 공통 절차 위험(서류·자격)은 SEL에서 유지된다."""
+    hiring_doc = _get(engine.generate(_facts(
+        gods={TenGod.PIANYIN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGYIN)],
+    ), selection_context=SelectionContext(
+        target_type="employment_hiring", stage="application_document",
+    )), "SEL_DOCUMENT_DEFECT_RISK")
+    assert hiring_doc is not None and is_active(hiring_doc)
+    assert hiring_doc.selection_alignment in ("matched", "unknown")
+
+
+def test_partial_unknown_per_item_axes(engine: RiskEngine) -> None:
+    """부분 UNKNOWN — 각 항목이 요구하는 축만 평가한다.
+
+    문서 결함은 mode 무제한이라 stage만 확인되면 matched. 추첨 불확실성은 stage=draw
+    여도 mode 미확인이면 unknown(비노출). 자격 검토는 mode=mixed로 matched.
+    """
+    doc = _get(engine.generate(_facts(
+        gods={TenGod.PIANYIN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGYIN)],
+    ), selection_context=SelectionContext(
+        stage="application_document", target_type="examination",
+    )), "SEL_DOCUMENT_DEFECT_RISK")
+    assert doc is not None and doc.selection_alignment == "matched"
+    assert is_exposable(doc)
+    elig = _get(engine.generate(_facts(
+        gods={TenGod.ZHENGYIN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGYIN)],
+    ), selection_context=SelectionContext(
+        mode="mixed", stage="eligibility_check", target_type="examination",
+    )), "SEL_ELIGIBILITY_REVIEW_RISK")
+    assert elig is not None and elig.selection_alignment == "matched"
+
+
+def test_hiring_outcome_void_is_amplifier_not_shape(engine: RiskEngine) -> None:
+    """HOS 공망 강등 확인 — 공망+관성 유입만으로는 결과 후보 미활성(shape=해+관성)."""
+    void_only = _get(engine.generate(build_raw_period_facts(
+        period_key="2026", layer=LuckLayer.SEWOON,
+        ten_god_layers={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+        void_active=True, polarity_role=PolarityRole.GI, twelve_stage=None,
+    )), "CAR_HIRING_OUTCOME_SETBACK")
+    # 공망+관성 피격은 있으나 결정·통지 어긋남 shape(해+관성) 부재 → 미활성.
+    assert void_only is None or not is_active(void_only)
+    pos = _get(engine.generate(_facts(
+        gods={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN),
+                   RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+    ), selection_context=SelectionContext(
+        target_type="employment_hiring",
+    )), "CAR_HIRING_OUTCOME_SETBACK")
+    assert pos is not None and is_active(pos)

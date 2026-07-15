@@ -109,15 +109,26 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C3-c 신설(DOCUMENT_OMISSION 대체) — stage=application_document + 문서 대상 활성 + 누락·왜곡 shape. 검토 취약성만으로 미생성. mode 불필요(any) · 감수 14차: 공망 shape 강등(amplifier — 편인 왜곡 구조만 shape)",
-      "reviewed": false,
+      "note": "C3-c 신설(DOCUMENT_OMISSION 대체) — stage=application_document + 문서 대상 활성 + 누락·왜곡 shape. 검토 취약성만으로 미생성. mode 불필요(any) · 감수 14차: 공망 shape 강등(amplifier — 편인 왜곡 구조만 shape) · 감수 15차: 채용(employment_hiring)에도 적용 — CAR primary는 채용 과정·결과 소유권이지 공통 절차 위험 차단이 아님",
+      "reviewed": true,
       "applicableTargetTypes": [
+        "employment_hiring",
         "examination",
         "public_selection",
         "lottery_allocation",
         "placement",
         "procurement_bid"
-      ]
+      ],
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3-d"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewHashes": {
+        "shadow_structure": "c353a714683075cc"
+      }
     },
     {
       "riskId": "SEL_ELIGIBILITY_REVIEW_RISK",
@@ -225,15 +236,26 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C3-c 신설(ELIGIBILITY_SHORTFALL 대체 — pressure): 자격·모집 기준은 외부 정보라 미달 단정 금지. 자격 데이터 연결 시 incident 승격 검토",
-      "reviewed": false,
+      "note": "C3-c 신설(ELIGIBILITY_SHORTFALL 대체 — pressure): 자격·모집 기준은 외부 정보라 미달 단정 금지. 자격 데이터 연결 시 incident 승격 검토 · 감수 15차: 채용(employment_hiring)에도 적용 — CAR primary는 채용 과정·결과 소유권이지 공통 절차 위험 차단이 아님",
+      "reviewed": true,
       "applicableTargetTypes": [
+        "employment_hiring",
         "examination",
         "public_selection",
         "lottery_allocation",
         "placement",
         "procurement_bid"
-      ]
+      ],
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3-d"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewHashes": {
+        "shadow_structure": "b746ec33837671a8"
+      }
     },
     {
       "riskId": "SEL_DRAW_OUTCOME_UNCERTAINTY",
@@ -347,10 +369,20 @@
         "notApplicableAction": "block"
       },
       "note": "C3-c 신설(LOTTERY_MISS 폐기·대체): mode=lottery_draw+stage=draw 전용 — 추첨이 본질적으로 불확실하다는 이유로 상시 발동 금지(관문 대상 활성+기간 특이 shape 필수). 확률·방향 단정 금지(외부 데이터 소관) · 감수 14차: 공망 shape 강등 — shape=관문 흔들림(충+관성 동반), 공망=불확실성 증폭",
-      "reviewed": false,
+      "reviewed": true,
       "applicableTargetTypes": [
         "lottery_allocation"
-      ]
+      ],
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3-d"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewHashes": {
+        "shadow_structure": "ba1fcd564fb6c702"
+      }
     },
     {
       "riskId": "SEL_RESULT_DELAY_PRESSURE",
@@ -459,14 +491,24 @@
         "notApplicableAction": "block"
       },
       "note": "C3-c 신설(WAITLIST_DELAY 분리 — 일반 결과 대기): stage=result_wait, 소식·통지(인성) 정체 구조. 대기명단은 WAITLIST_PROLONGATION 소관(추론 금지). 채용 결과 대기는 CAR primary(target_type 라우팅 R3) · 감수 14차: 공망 shape 강등 — shape=통지 어긋남(해+인성 동반)",
-      "reviewed": false,
+      "reviewed": true,
       "applicableTargetTypes": [
         "examination",
         "public_selection",
         "lottery_allocation",
         "placement",
         "procurement_bid"
-      ]
+      ],
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3-d"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewHashes": {
+        "shadow_structure": "eb26b1148b03e67d"
+      }
     },
     {
       "riskId": "SEL_WAITLIST_PROLONGATION",
@@ -562,15 +604,26 @@
         "notApplicableAction": "block",
         "unknownExposable": false
       },
-      "note": "C3-c 신설(WAITLIST_DELAY 분리 — 실제 대기명단): stage=waitlist + waitlist exposure CONFIRMED 필수 — UNKNOWN이면 '대기명단 장기화' 표현 절대 불가(노출 차단) · 감수 14차: 공망 shape 강등(shape=형+관성 계류 구조) + unknownExposable=false(UNKNOWN 노출 기계 차단 — '~일 수 있다면' 우회 금지)",
-      "reviewed": false,
+      "note": "C3-c 신설(WAITLIST_DELAY 분리 — 실제 대기명단): stage=waitlist + waitlist exposure CONFIRMED 필수 — UNKNOWN이면 '대기명단 장기화' 표현 절대 불가(노출 차단) · 감수 14차: 공망 shape 강등(shape=형+관성 계류 구조) + unknownExposable=false(UNKNOWN 노출 기계 차단 — '~일 수 있다면' 우회 금지) · 감수 15차: 채용(employment_hiring)에도 적용 — CAR primary는 채용 과정·결과 소유권이지 공통 절차 위험 차단이 아님",
+      "reviewed": true,
       "applicableTargetTypes": [
+        "employment_hiring",
         "examination",
         "public_selection",
         "lottery_allocation",
         "placement",
         "procurement_bid"
-      ]
+      ],
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3-d"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewHashes": {
+        "shadow_structure": "63529e176e240c00"
+      }
     },
     {
       "riskId": "SEL_UNWANTED_PLACEMENT",

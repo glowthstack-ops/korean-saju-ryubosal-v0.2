@@ -7701,3 +7701,25 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
   finance 15%. kind 비율은 완료 기준에서 제거.
 - CAR 5·SEL 5 여전히 reviewed:false — C3-d 재실측 후 표본 감수 대기. 검증: pytest
   1850 passed·ruff·mypy clean.
+
+### 위험 엔진 C4 — CAR·SEL 승격 조건 4종 + shadow_structure 전환 (2026-07-15)
+
+- ①HOS 공망 강등: event_shape→amplifier — shape=결정·통지 어긋남(해+관성 동반),
+  공망+관성 피격만으로 미활성 fixture.
+- ②같은 대상·다른 관계(형+해) = linked ✓ AND 독립 원인 2(collapse 금지) fixture —
+  target_object_signature(무엇을)와 cause_atom(어떤 방식) 분리, layer_convergence·
+  compound 전제.
+- ③소유권 항목별 매트릭스: 공통 절차 위험(문서·자격·대기명단)은 채용에도 적용
+  (employment_hiring 추가) — CAR primary는 채용 과정·결과 소유권이지 절차 위험
+  차단 아님. fixture(채용+서류 단계 → SEL_DOCUMENT 활성).
+- ④부분 UNKNOWN: 항목이 요구하는 축만 평가(문서=stage만→matched, 추첨=mode 미확인
+  →unknown 비노출, 자격=mixed matched) fixture.
+- is_exposable=context-level exposure eligibility로 의미 제한(판정 계층:
+  is_active→is_exposable→is_score_qualified(R1)→is_selection_qualified(R2)→
+  is_finally_exposable(R3)). 기여도 계산 기준 명시(suppression 후 활성 unique
+  (기간,도메인,family) 합).
+- **CAR 5·SEL 5 shadow_structure 승격(C3-d)** — reviewed **31항목**, r0.5.6 재스탬프.
+  검증: pytest 1854 passed·ruff·mypy clean.
+- **다음: REL 6항목 차수**(family 기여 32% 최대) — 목표: 같은 관계 작용 하나가
+  배우자·감정·가족·동업·사회관계 위험으로 복제되지 않도록 관계 대상·관계 exposure·
+  역할별 대표 위험 분리.

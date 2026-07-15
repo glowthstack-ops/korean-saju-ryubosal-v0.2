@@ -241,7 +241,8 @@ def main() -> None:
     for s in totals:
         dom_fam.update(s.get("domain_family_periods", {}))
     total_fam_periods = sum(dom_fam.values()) or 1
-    print("family 밀도 도메인 기여도(활성 family-기간 합): " + ", ".join(
+    print("family 밀도 도메인 기여도(기준: suppression 후 활성 unique (기간,도메인,family) 합"
+          " — exposure 미확인 후보 포함): " + ", ".join(
         f"{d} {n}({100*n//total_fam_periods}%)" for d, n in dom_fam.most_common()))
     print("밀도 목표(감수 14차 분리): 구조 품질=structural incident 별도 추적(현재 상단) · "
           "사용자 노출 밀도=exposure-qualified incident ≤1.5")

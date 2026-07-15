@@ -423,7 +423,17 @@
         "notApplicableAction": "block"
       },
       "note": "C3-b 신설(EVALUATION_DISADVANTAGE 대체 — SETBACK_RISK로 완화): 평가 과정에서 기대 결과를 얻지 못할 위험. 평가·인사 심사 노출 필요, UNKNOWN='평가·심사가 있다면 기준·성과 자료 확인' 수준(결과 불이익 표현 금지)",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3-d"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewHashes": {
+        "shadow_structure": "242e1563a48d7291"
+      }
     },
     {
       "riskId": "CAR_REASSIGNMENT_RISK",
@@ -543,7 +553,17 @@
         "notApplicableAction": "block"
       },
       "note": "C3-b 신설(UNWANTED_TRANSFER 대체): 기준은 직업 범주가 아니라 assignment_authority 노출 — 조직·고객이 역할·근무지를 배정 가능=적용(프리랜서 포함), 본인이 전부 독립 결정=NOT_APPLICABLE. '원치 않는'은 preference CONFIRMED에서만",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3-d"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewHashes": {
+        "shadow_structure": "cef7518afecb0954"
+      }
     },
     {
       "riskId": "CAR_EXIT_PRESSURE",
@@ -667,7 +687,17 @@
         "notApplicableAction": "block"
       },
       "note": "C3-b 재분류(incident→pressure): 자발 이탈 욕구·조직 압박·계약 종료 가능성을 단정하지 않는 이탈 압박. 종료 사건은 별도 강한 계약+노출 없이 생성 금지",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3-d"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewHashes": {
+        "shadow_structure": "239842138b21ab90"
+      }
     },
     {
       "riskId": "CAR_HIRING_PROCESS_DELAY",
@@ -764,10 +794,20 @@
         "notApplicableAction": "block"
       },
       "note": "C3-b 신설(HIRING_DELAY_REJECTION 분리 — 지연 pressure): 지원·면접·채용 절차 노출 필요. 취업·채용 결과는 CAR primary(일반 시험·공모·추첨=SEL primary)",
-      "reviewed": false,
+      "reviewed": true,
       "applicableTargetTypes": [
         "employment_hiring"
-      ]
+      ],
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3-d"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewHashes": {
+        "shadow_structure": "cce9187a6a2d3704"
+      }
     },
     {
       "riskId": "CAR_HIRING_OUTCOME_SETBACK",
@@ -783,7 +823,7 @@
         {
           "id": "CAR_HOS_S1",
           "group": "event_shape",
-          "voidActive": true,
+          "relation": "HAE",
           "tenGodGroup": "authority",
           "strength": 0.45
         },
@@ -810,6 +850,11 @@
             "GI_STRONG"
           ],
           "strength": 0.5
+        },
+        {
+          "id": "CAR_HOS_A2",
+          "voidActive": true,
+          "strength": 0.35
         }
       ],
       "mitigatorRules": [
@@ -876,11 +921,21 @@
         "deniedAction": "block",
         "notApplicableAction": "block"
       },
-      "note": "C3-b 신설(HIRING_DELAY_REJECTION 분리 — 결과 incident): 실제 지원 노출 + 결과 단계 activation + 강한 targeted 또는 다원인. CAR primary, SEL 자동 중복 생성 금지 · 감수 14차: targeted 단독 경로 제거 — 결과 정체(공망+관성) AND 관성 피격 필수(관성 피격만으로는 EXIT 압박과 미구분·과발동)",
-      "reviewed": false,
+      "note": "C3-b 신설(HIRING_DELAY_REJECTION 분리 — 결과 incident) · 감수 15차: 공망 shape→amplifier 강등 — shape=결정·통지 어긋남(해+관성 동반), 최종 판단 대상 직접 충·형 활성. 실제 지원 노출 필요. CAR primary, SEL 자동 중복 생성 금지",
+      "reviewed": true,
       "applicableTargetTypes": [
         "employment_hiring"
-      ]
+      ],
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C3-d"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.6",
+      "reviewHashes": {
+        "shadow_structure": "f0cc2c8d35d82dda"
+      }
     }
   ]
 }
