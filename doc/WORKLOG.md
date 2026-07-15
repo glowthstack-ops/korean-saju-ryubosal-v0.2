@@ -7519,3 +7519,29 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
   강제(_DOMAIN_CASES 커버리지 검사 — 전체 평균이 아니라 항목 단위 100%).
 - 테스트 56건(해시 불일치·PA targeted 거부·reviewed fixture 커버리지 등 +3).
   검증: pytest 1814 passed·ruff·mypy clean.
+
+### 위험 엔진 C1 — 재물 6항목 저작 + 공통 정책 (2026-07-15, 데굴님 C1 승인 조건 6종 반영)
+
+- **C1-a(ed27514) 공통 정책**: 범위별 reviewHashes(hashSchemaVersion=2, structure/
+  scoring/selection/exposure 해시 대상 분리+lint), RiskExposurePolicy(요구 4단계
+  not_required/required_for_warning/required_for_exposure/confirmed_required + UNKNOWN/
+  DENIED 액션 + claimCeilingWhenUnknown — note가 아닌 기계 판독), crossDomainEffects,
+  dedupe 키에 source_group(같은 사실의 shape/targeted 병행 매칭 시 그룹 보존),
+  밀도 structural vs exposure-qualified 병기.
+- **C1-b FIN 6항목 저작**(전부 reviewed:false): CASHFLOW_PRESSURE=재정 유입·유출
+  activation 필수(범용 기신+겁재 단독 미생성 — 회귀 갱신)/INVESTMENT_LOSS=편재-비겁
+  동반 shape·required_for_exposure(UNKNOWN watch 상한)/DEBT_GUARANTEE_BURDEN(canonical
+  ID)=confirmed_required(UNKNOWN은 advisory 체크포인트만·운 구조로 보증 추론 금지·
+  family=liability)/INCOME_DELAY=지급 지연 전용(수입 감소=CFP·금액 이견=SET 분리,
+  재성 공망 shape 필수)/SETTLEMENT_DISPUTE=FIN 소유(돈의 지급·회수·정산 — 권리·의무·
+  절차는 LEG, crossDomainEffects=contract_review_needed, 형+재성 이견 구조 필수 —
+  단순 재성 충으로 승격 금지)/BUFFER_WEAK=GI_STRONG 단독 제거(재물 활성 동반),
+  구체 사건 시 background_vulnerability 흡수.
+- **의미론적 recall fixture**(test_risk_fin_c1.py 7건): 생성 여부가 아니라 상태·흡수
+  역할·근거 원자·exposure_requirement까지 검증. 유사 음성(편재 없는 피격, 공망 없는
+  피격, 충만으로 분쟁 승격) 고정.
+- **밀도(C1 후, 10차트)**: 활성 6.38→5.81/기간, structural incident 2.87→2.41,
+  exposure-qualified 2.25. **FIN 전 항목 경고·top10 발동률 이탈**(BUFFER_WEAK 28.2%
+  · >40% 차트 0). 잔여 경고 = LEG_REVIEW_CAPACITY_WEAK 45.5%(C2 대상)·
+  CAR_WORK_OVERLOAD 41.8%(직업 차수 대상). 검증: pytest 1821 passed·ruff·mypy clean.
+- **다음**: C2 = LEG 5항목(+교차 도메인 중복 검사) → 표본 감수.

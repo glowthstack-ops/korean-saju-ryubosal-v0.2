@@ -146,12 +146,15 @@ def test_pressure_only_without_incident(engine: RiskEngine) -> None:
 
 
 def test_single_trigger_blocks_incident(engine: RiskEngine) -> None:
-    """겁재 기신 단독으로는 사건 위험이 생성되지 않는다(형태·대상 근거 부재)."""
+    """겁재 기신 단독으로는 FIN 사건·압박 모두 생성되지 않는다(C1 — 재정 구조 필수).
+
+    사건 위험은 형태·대상 근거 부재로, 현금흐름 압박도 재성 유입·유출 구조 activation이
+    없어 미관측이다(재성 기신 양성은 test_risk_fin_c1의 CFP 케이스가 고정).
+    """
     facts = _facts(gods={TenGod.JIECAI: {LuckLayer.SEWOON}}, role=PolarityRole.GI)
-    cands = engine.generate(facts)
-    active_ids = {c.risk_id for c in _active(cands)}
-    assert "FIN_UNEXPECTED_EXPENSE" not in {c.risk_id for c in cands}  # 관측조차 없음
-    assert "FIN_CASHFLOW_PRESSURE" in active_ids  # pressure — 1개 허용
+    ids = {c.risk_id for c in engine.generate(facts)}
+    assert "FIN_UNEXPECTED_EXPENSE" not in ids  # 관측조차 없음
+    assert "FIN_CASHFLOW_PRESSURE" not in ids  # 범용 기신+겁재만으로 압박도 미생성
 
 
 def test_two_independent_sources_create_incident(engine: RiskEngine) -> None:
@@ -767,7 +770,6 @@ def test_lint_reviewed_requires_review_scope() -> None:
     })
     errors = _lint_risk_mapping("risks/finance.json", file)
     assert any("reviewScopes 명시 필수" in e for e in errors)
-    assert any("reviewedRuleHash 필수" in e for e in errors)
 
 
 def test_lint_rule_change_invalidates_review() -> None:
@@ -780,10 +782,13 @@ def test_lint_rule_change_invalidates_review() -> None:
         "manifestations": [{"id": "m1", "ko": "테스트"}],
         "reviewed": True,
         "reviewScopes": ["shadow_structure"],
+        "reviewVersions": {"shadow_structure": "R0.5"},
     }
-    from saju_engines.dictionaries import risk_rule_hash
+    from saju_engines.dictionaries import risk_scope_hash
     stamped = RiskItem.model_validate(base)
-    base["reviewedRuleHash"] = risk_rule_hash(stamped)
+    base["reviewHashes"] = {
+        "shadow_structure": risk_scope_hash(stamped, "shadow_structure"),
+    }
     ok_file = RiskMappingFile.model_validate(
         {"version": "0.0.1", "domain": "finance", "items": [base]},
     )
