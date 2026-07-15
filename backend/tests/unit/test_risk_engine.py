@@ -137,8 +137,17 @@ def _active(cands):
 
 
 def test_pressure_only_without_incident(engine: RiskEngine) -> None:
-    """압박 신호만 있으면 활성 후보는 pressure뿐 — 사건 위험은 증거 계약에서 걸러진다."""
-    facts = _facts(gods={TenGod.QISHA: {LuckLayer.SEWOON}}, role=PolarityRole.GI)
+    """압박 신호만 있으면 활성 후보는 pressure뿐 — 사건 위험은 증거 계약에서 걸러진다.
+
+    감수 22차: 소모성 pressure는 의미 있는 소모 shape(기신 관살=책임 과다)+체력 기반
+    피격의 결합을 요구한다 — GI_STRONG 강도 단독은 사건 형태가 아니다.
+    """
+    facts = _facts(
+        gods={TenGod.QISHA: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.YEAR,
+                                target_ten_god=TenGod.BIJIAN)],
+        role=PolarityRole.GI,
+    )
     active = _active(engine.generate(facts))
     assert active, "관살 기신 압박은 소모성 pressure 후보를 만든다"
     assert all(c.kind is RiskKind.PRESSURE for c in active)
@@ -382,10 +391,20 @@ def test_lint_reviewed_incident_requires_groups() -> None:
 
 
 def test_exposure_status_passthrough(engine: RiskEngine) -> None:
-    """호출부가 넘긴 노출 상태(DENIED 등)가 후보에 그대로 실린다."""
+    """호출부가 넘긴 전역 노출 상태(DENIED 등)가 후보에 그대로 실린다.
+
+    관계·이동·건강 컨텍스트로 게이트되는 항목은 전역 파라미터가 아니라 해당 축에서
+    유효 노출을 유도하므로(감수 16~21차) 컨텍스트 무관 후보만 검사한다.
+    """
     facts = _facts(gods={TenGod.QISHA: {LuckLayer.SEWOON}}, role=PolarityRole.GI)
     cands = engine.generate(facts, exposure_status=ExposureStatus.DENIED)
-    assert cands and all(c.exposure_status is ExposureStatus.DENIED for c in cands)
+    global_gated = [
+        c for c in cands
+        if c.relationship_alignment == "matched" and c.mobility_alignment == "matched"
+        and c.health_alignment == "matched"
+    ]
+    assert global_gated
+    assert all(c.exposure_status is ExposureStatus.DENIED for c in global_gated)
 
 
 # ── 7도메인 synthetic fixture — 사전 배선 누락 감지 (개정 증거 계약 기준) ──
@@ -413,7 +432,7 @@ _DOMAIN_CASES: list[tuple[str, dict]] = [
         role=PolarityRole.GI,
     )),
     # 형+병사 운성(event_shape) AND 일지 충(target_activation) — 독립 원인 2개.
-    ("HLT_CHRONIC_FLAREUP", dict(
+    ("HLT_EXISTING_CONDITION_STRAIN", dict(
         relations=[
             RelationFact(RelationKind.CHUNG, Pillar4.DAY),
             RelationFact(RelationKind.HYEONG, Pillar4.MONTH),
@@ -845,6 +864,7 @@ def test_every_reviewed_item_has_positive_fixture(engine: RiskEngine) -> None:
         SEL_C3C_POSITIVE_IDS,
     )
     from tests.unit.test_risk_fin_c1 import FIN_POSITIVE_IDS
+    from tests.unit.test_risk_hlt_c7 import HLT_POSITIVE_IDS
     from tests.unit.test_risk_leg_c2 import LEG_POSITIVE_IDS
     from tests.unit.test_risk_mov_c6 import MOV_POSITIVE_IDS
     from tests.unit.test_risk_rel_c5 import REL_POSITIVE_IDS
@@ -852,7 +872,7 @@ def test_every_reviewed_item_has_positive_fixture(engine: RiskEngine) -> None:
     covered = ({rid for rid, _ in _DOMAIN_CASES} | FIN_POSITIVE_IDS
                | LEG_POSITIVE_IDS | CAR_SEL_POSITIVE_IDS
                | CAR_C3B_POSITIVE_IDS | SEL_C3C_POSITIVE_IDS
-               | REL_POSITIVE_IDS | MOV_POSITIVE_IDS)
+               | REL_POSITIVE_IDS | MOV_POSITIVE_IDS | HLT_POSITIVE_IDS)
     assert reviewed_ids <= covered, (
         f"양성 fixture 없는 reviewed 항목: {sorted(reviewed_ids - covered)}"
     )

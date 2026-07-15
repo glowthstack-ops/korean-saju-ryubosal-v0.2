@@ -449,3 +449,123 @@ RELOCATION_PRESSURE 조건부(advisory) — DENIED와 구분 fixture로 고정.
 **승격(감수 20차 조건부 승인 이행)**: MOV_CONTRACT_SETBACK_RISK 재승격 + 신규 5 승격
 (reviewVersions "C6") — **reviewed 36→42**(자동 manifest 확인), restamp 가드 42건
 정합. 억제 baseline을 C6 확정 상태로 재기록(--write, 다음 HLT 차수의 기준선).
+
+## 10. HLT 차수(C7 — 감수 21차) manifest (데굴님 착수 조건 8건 선행 고정)
+
+**차수 불변식(데굴님 확정)**: 건강 질문이나 명리 신호만으로 질병·치료·신체 부위를
+만들어내지 않으며, 기존 질환·치료·신체적 업무 부담이 실제로 확인된 경우에만 해당
+맥락의 위험을 설명한다.
+
+### 10-1. 범위·수량 (조건 1)
+
+기존 reviewed HLT_CHRONIC_FLAREUP은 HealthContext 적용·개명으로 구조가 변경되므로
+**착수 시점에 강등**(reviewPending="C7") — reviewed 42→41. 재저작 대상 6 + **신설 2
+(감수 질문 — 데굴님 §11 노출 정책·§15 필수 fixture가 치료·회복 및 신체 부담 항목을
+전제하므로 저작 포함, 감수에서 거부 시 제거)**:
+
+| 항목 | 처리 | kind | family | exposure |
+|---|---|---|---|---|
+| HLT_CHRONIC_FLAREUP | 강등+**개명 HLT_EXISTING_CONDITION_STRAIN**(악화 전제 완화) | incident→**pressure**(rank 3) | existing_condition | confirmed_required+requiresExistingCondition, unknownExposable=false |
+| HLT_FATIGUE_ACCUMULATION | 재저작(generic 전용 트리거 교체) | pressure(rank 2) | vitality_load | required_for_warning(일반 컨디션 advisory) · 흡수 힌트 supporting |
+| HLT_CONDITION_DECLINE | **개명 HLT_RECOVERY_CAPACITY_WEAK**(저하 전제 완화) | pressure→**vulnerability**(rank 1) | recovery_capacity | not_required(단독 노출 없음 원칙) · 흡수 힌트 background |
+| HLT_FOCUS_DROP | 재저작(기신 편인 구조 약화) | vulnerability(rank 1) | vitality_load | not_required · 흡수 힌트 background |
+| HLT_MOBILITY_ACCIDENT_CAUTION | **개명 HLT_MOBILITY_SAFETY_CAUTION**(사고 결과형 완화) — 이동 노출은 MobilityContext 재사용 | incident→**pressure**(rank 2) | mobility_safety | required_for_exposure+이동 축(vehicle_use·travel_transport·commute_change) |
+| HLT_CHECKUP_NEED | 재저작('치료·시술 검토' 문구 제거 — 검진·관리 권고 전용) | incident→**pressure**(rank 2) | health_management | required_for_warning |
+| **신설** HLT_TREATMENT_RECOVERY_LOAD | 치료·회복 과정 부담(§11·§15 근거) | pressure(rank 3) | treatment_recovery | confirmed_required+requiresTreatmentProcess(또는 recovery), unknownExposable=false |
+| **신설** HLT_PHYSICAL_WORKLOAD_STRAIN | 직업적 신체 부담(§11·§15 근거 — 직업 존재≠신체 부하) | pressure(rank 3) | physical_workload | required_for_exposure+requiresPhysicalDemand |
+
+승격 시: 41+8=**49**(신설 2 거부 시 47) — 자동 manifest로 확인.
+
+### 10-2. HealthContext (조건 3·4·7)
+
+질병명·진단·부위는 저장·식별자 사용 금지. 필드: context_type(8종: general_wellness/
+existing_condition/current_symptom/treatment_process/recovery_process/physical_workload/
+sleep_schedule_load/unknown) · condition_status(none/managed/currently_uncomfortable/
+recently_worsened) · treatment_status(none/monitoring/ongoing/recent_procedure) ·
+recovery_status(none/in_progress/recently_completed) · physical_demand(none/low/
+moderate/high/shift_or_irregular) · exposure_status · **health_episode_id**(익명 —
+기존 불편 관리 vs 치료 회복 vs 교대 근무 부담 분리, episode별 후보 분리·수렴 경계)
+· is_question_target. 유도: 상태 "none"(명시 부재)→DENIED, None(미확인)→CONFIRMED여도
+UNKNOWN 강등, physical_demand는 none/low→DENIED. **건강 질문(is_question_target)이
+질환·치료 존재를 자동 확인하지 않는다** — 일반 컨디션 advisory만 가능.
+
+### 10-3. 수렴·소유권 (조건 5·6)
+
+수렴 도메인에 health_safety 추가(같은 건강 episode + relation 원자 공유 + hint):
+대표 pressure ├ 피로·컨디션=supporting ├ 회복 여력=background └ 지속 시 기능 부담=
+possible_trajectory(REL과 동일 불변식 — occurrence·원인·등급 기여 금지). 소유권:
+업무량·근무 책임=CAR / 그 업무의 신체 부담=HLT(교차 — trigger_cause_atoms 보존) /
+치료비·의료비=FIN / 보험·보상·법적 책임=LEG / 차량·교통=MOV primary(HLT는 주의력
+압박, 이동 노출은 MobilityContext 재사용) / **실제 부상·질병 진단=예측 대상 아님**.
+
+### 10-4. env·게이트 (조건 7·8)
+
+적격성 의미 변경 → env **r0.5.9** + 해시 **v7**(healthContextTypes·건강 requires 4종
+편입) — reviewed 42 재스탬프는 --schema-migration(저장 해시 기준 도구, HEAD 보조
+진단, 사유 WORKLOG 기록). C6 baseline(3,271건+메타데이터) 대비 **비HLT 대표·흡수
+변화 0** 게이트 — HLT 도메인 변화만 허용(분류 보고).
+
+### 10-5. C7 구현 결과 (감수 21차 — 표본 감수 대기)
+
+- **env r0.5.9 + 해시 v7**(건강 축·실질 조건 4종 편입). 재스탬프는 신설 도구 절차
+  준수: `risk_restamp.py --restamp --schema-migration` — 저장 해시 기준 1차 판정,
+  HEAD 본문 비교는 스키마 이행 보조(41건 불변 재스탬프·변경 0, 사유=해시 v7 이행).
+- **HLT_CHRONIC_FLAREUP 착수 강등**(reviewed 42→**41**) + 개명 HLT_EXISTING_
+  CONDITION_STRAIN(incident→pressure — 질환 악화 사건화 금지, confirmed_required+
+  requiresExistingCondition+unknownExposable=false).
+- 재저작·개명: RECOVERY_CAPACITY_WEAK(→vulnerability·회복 자원 공망 구조),
+  FOCUS_DROP(기신 편인 구조 약화), MOBILITY_SAFETY_CAUTION(사고 결과형 완화·
+  incident→pressure·MobilityContext 재사용), CHECKUP_NEED(incident→pressure·치료
+  표현 제거), FATIGUE_ACCUMULATION(경로 2종 — 강한 기신 관살 shape+비겁 피격 TA,
+  밀도 교정 42.7%→18.2%·최장 연속 8→2개월). **신설 2(감수 질문)**: TREATMENT_
+  RECOVERY_LOAD·PHYSICAL_WORKLOAD_STRAIN(§11 노출 정책·§15 fixture 근거 — 거부 시
+  제거, 승격 시 41→49, 거부 시 47).
+- fixture 19종(test_risk_hlt_c7.py): 질문≠질환(자동 CONFIRMED 금지)·DENIED 차단·
+  CONFIRMED 노출·치료 미확인 비노출·신체 부담 축(low=차단)·episode 분리·같은 episode
+  수렴(supporting)·질병명/수술/입원 토큰 사전 전수 차단·**HLT 전 항목 pressure/
+  vulnerability(런타임+사전 이중)**·강등 상태 확인.
+- **baseline 게이트(메타데이터 포함)**: C6 기준 3,271건 대비 diff **전량 health_safety**
+  (rename 76/76·신규 흡수 6·대표 변경 3·소실 145·신규 248 — PWS 신설 103 포함),
+  **비HLT 변화 0**(조건 8 충족).
+- 시나리오 5종(--hlt-scenarios, vulnerability는 단독 노출 없음 원칙으로 노출 지표
+  제외): exposable/active 22.5%(all_unknown=건강 질문만과 동일 — 질문이 아무것도
+  확인하지 않음 검증)→25.8%(치료)→27.5%(신체 부담), **특정 항목 미확인 오노출 0**,
+  노출 family/기간 p90 1. '기존 질환 확인' 시나리오의 노출 증가가 미미한 것은 ECS
+  2원인 계약의 희소 생성 정책 결과(코퍼스 내 성립 기간 희소).
+- 밀도: health_safety 기여 20%(2위 — vulnerability 2종 구조 관측 증가분, 노출 지표
+  아님), HLT family/기간 p90 2·단일 원인 확산 max 2, structural incident/기간
+  1.09→**1.00**, 경고=전역 확산 9(교차 도메인 관측 — R2 episode 병합 소관)뿐.
+- 상태: HLT 8항목 전부 reviewed:false(표본 감수 대기), RISK_ENGINE_MODE=off 유지.
+
+### 10-6. 감수 22차 — C7 마감 조건 4건 반영·승격 49 (데굴님 조건부 승인 이행)
+
+1. **FATIGUE 재저작**: GI_STRONG을 event_shape에서 제거(길흉 강도≠사건 형태 —
+   amplifier·심각도 전용). 계약=의미 있는 소모 shape(기신 식상=설기 또는 기신 관살=
+   책임 과다) AND 체력 기반(비겁군) 충·형 피격. 필수 테스트 2종: GI_STRONG 단독=미활성
+   / shape+피격+GI_STRONG=활성·증폭 근거. 커밋 B test_pressure_only도 신계약으로 개정.
+2. **ECS 1원인 watch 복원**: minIndependentCauses=2·multi_cause_only 제거(생성 조건≠
+   등급 조건 원칙 — 질환 CONFIRMED+연결 원인 1개=watch, 2원인·convergence=warning은
+   R1). 단일 targeted 이중 역할 경로(HYEONG 일지) 추가 + fixture. 코퍼스 실측에서
+   여전히 성립 희소(형+병·사 운성 동반 조건) — 계약이 아니라 신호 희소성의 결과.
+3. **shift_or_irregular 분리**: 확인 취급 집합 도입(physical=moderate/high만) —
+   shift 단독=UNKNOWN 강등·비노출 fixture. schedule_load 필드 예약(R3). **monitoring
+   비확인**(치료 중 단정 금지 — ongoing/recent_procedure만) fixture. TRL manifestation
+   단계 분기(treatment_load/recovery_load — R3 상호 혼용 금지 규격).
+4. **차량 episode MOV primary**: 이동 게이트 후보의 교차 도메인 수렴 그룹(mobility_
+   gated 마커) — 같은 원인에서 MOV_VEHICLE 대표, HLT 안전 주의=impact_amplifier 수렴
+   fixture. 차량 없는 이동자(travel_transport+vehicle_exposure=false)는 MOV 차단·HLT
+   단독 활성(정당 병존 recall 원천).
+
+**노출 역전 방지 불변식 일반화(조건 1의 파생 — 의도된 변경 허용 목록)**: 대표 흡수
+적격성을 is_exposable 전체 기준으로 확장(비노출 후보는 노출 가능 후보를 흡수 불가)
++ is_exposable에 confirmed_required 미충족=비노출 명시화. **비HLT 파생 30건**(C6 감수
+§7 규칙에 따른 기록): REL — 책임 미확인 FAMILY_BURDEN(비노출)이 DISTANCE·CLASH
+advisory를 더는 흡수하지 못함(흡수 해제 12·대표 변경 3), MOV — 미확인 CONTRACT_
+SETBACK이 RELOCATION 조건부 advisory를 못 지움(해제 6·COMMUTE 신규 흡수 3). 전부
+"숨은 후보가 보이는 경고를 지우는" 역전의 제거 — env r0.5.9 정의에 포함.
+
+vulnerability 추적 신설: 활성/기간 1.20 · 대표 흡수 23 · 승격 기여 0(R1 원칙).
+시나리오 재실측: 오노출 0 유지, 신체 부담 확인 시 PWS 대표 승격+피로 supporting 수렴.
+structural incident 1.00(감소분 구성: CHRONIC kind 재분류 주요인 — 트리거 강화·
+suppression 부차). **HLT 8항목 승격(C7) — reviewed 49(health 8/8, unreviewed 0)**,
+restamp 가드 49건 정합, baseline은 C7 확정 상태로 재기록.

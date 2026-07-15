@@ -1,10 +1,10 @@
 {
-  "review_environment_version": "risk-engine-r0.5.8",
-  "hash_schema_version": 6,
-  "reviewed_total": 42,
-  "unreviewed_total": 5,
+  "review_environment_version": "risk-engine-r0.5.9",
+  "hash_schema_version": 7,
+  "reviewed_total": 49,
+  "unreviewed_total": 0,
   "reviewed_by_scope": {
-    "shadow_structure": 42
+    "shadow_structure": 49
   },
   "reviewed_by_domain": {
     "career": {
@@ -20,8 +20,8 @@
       "unreviewed": 0
     },
     "health_safety": {
-      "reviewed": 1,
-      "unreviewed": 5
+      "reviewed": 8,
+      "unreviewed": 0
     },
     "relationship": {
       "reviewed": 7,
@@ -51,7 +51,14 @@
     "FIN_INVESTMENT_LOSS",
     "FIN_SETTLEMENT_DISPUTE",
     "FIN_UNEXPECTED_EXPENSE",
-    "HLT_CHRONIC_FLAREUP",
+    "HLT_CHECKUP_NEED",
+    "HLT_EXISTING_CONDITION_STRAIN",
+    "HLT_FATIGUE_ACCUMULATION",
+    "HLT_FOCUS_DROP",
+    "HLT_MOBILITY_SAFETY_CAUTION",
+    "HLT_PHYSICAL_WORKLOAD_STRAIN",
+    "HLT_RECOVERY_CAPACITY_WEAK",
+    "HLT_TREATMENT_RECOVERY_LOAD",
     "LEG_ADMIN_DELAY",
     "LEG_CONTRACT_CANCEL",
     "LEG_DISPUTE_RISK",
@@ -80,11 +87,5 @@
     "SEL_UNWANTED_PLACEMENT",
     "SEL_WAITLIST_PROLONGATION"
   ],
-  "unreviewed_risk_ids": [
-    "HLT_CHECKUP_NEED",
-    "HLT_CONDITION_DECLINE",
-    "HLT_FATIGUE_ACCUMULATION",
-    "HLT_FOCUS_DROP",
-    "HLT_MOBILITY_ACCIDENT_CAUTION"
-  ]
+  "unreviewed_risk_ids": []
 }

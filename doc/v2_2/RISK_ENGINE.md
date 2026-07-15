@@ -286,6 +286,36 @@ MOV 차수 불변식: **운 신호만으로 이사 계획·계약·차량·통�
   impact_amplifier로 대표(계약 무산·이동 압박)에 수렴. 하자·수리비, 차량 문제는 별개
   현실 문제(hint 없음 — 자동 흡수 금지).
 
+### 3-5. 건강 컨텍스트 — `HealthContext` (감수 21차 · env r0.5.9)
+
+HLT 차수 불변식: **건강 질문이나 명리 신호만으로 질병·치료·신체 부위를 만들어내지
+않으며, 기존 질환·치료·신체적 업무 부담이 실제로 확인된 경우에만 해당 맥락의 위험을
+설명한다.** 질병명·진단·부위는 컨텍스트에 저장하지 않고 룰 식별자로도 쓰지 않는다.
+
+- 필드: `context_type`(7종+미확인: general_wellness/existing_condition/current_symptom/
+  treatment_process/recovery_process/physical_workload/sleep_schedule_load) ·
+  `condition_status`(none/managed/currently_uncomfortable/recently_worsened) ·
+  `treatment_status`(none/monitoring/ongoing/recent_procedure) · `recovery_status` ·
+  `physical_demand`(none/low/moderate/high/shift_or_irregular) · `exposure_status` ·
+  `health_episode_id`(익명 — 기존 불편 관리 vs 치료 회복 vs 교대 근무 부담 분리,
+  episode별 후보 분리·수렴 경계) · `is_question_target`.
+- 실질 조건 4종(requiresExistingCondition/TreatmentProcess/RecoveryProcess/
+  PhysicalDemand): 상태 'none'(명시 부재)→DENIED, None(미확인)→CONFIRMED여도 UNKNOWN
+  강등. physical_demand는 none·low→DENIED(**직업 존재만으로 신체 부하 추론 금지**).
+- **건강 질문(is_question_target)은 질환·치료 존재를 자동 확인하지 않는다** — 상태
+  미확인이면 일반 컨디션 advisory(required_for_warning)만 가능하고, 질환·치료·신체
+  부담 특정 항목(confirmed_required/required_for_exposure + unknownExposable=false)은
+  비노출("질환이 있다면" 우회 금지).
+- kind 원칙: 건강 위험은 pressure·vulnerability로만 저작한다 — 질병 발생·악화·부상·
+  수술·입원·특정 장기/정신질환은 사주 신호로 incident화하지 않는다(사전 전수 fixture).
+- 수렴: 수렴 도메인={relationship, relocation, health_safety} — 같은 건강 episode에서
+  대표 pressure ├ 피로·컨디션=supporting ├ 회복 여력=background_vulnerability
+  └ 지속 시 기능 부담=possible_trajectory(REL 불변식 동일). 다른 episode는 병존.
+- 소유권: 업무량·근무 책임=CAR(같은 원인은 trigger_cause_atoms 연결 — 1회 계산) /
+  치료비=FIN 파생(medical_cost_exposure) / 보험·보상·법적 책임=LEG / 차량·교통 사건=
+  MOV primary(HLT는 이동 중 주의력 압박 — MobilityContext 재사용) / **실제 부상·질병
+  진단=위험 엔진 예측 대상 아님**.
+
 ## 4. 타입 계층 (`shared_types/risk_engine.py`)
 
 - `RiskCandidate` — **원자 후보** (단일 `period_key`). R0 산출물. 점수·등급 없음.

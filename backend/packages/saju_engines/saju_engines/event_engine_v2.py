@@ -82,6 +82,7 @@ from .marriage_flow_modifier import (
 from .reality_context import RealityContext
 from .relation_palace_engine import RelationActivation, RelationPalaceEngine
 from .risk_engine import (
+    HealthContext,
     MobilityContext,
     RelationFact,
     RelationshipContext,
@@ -194,6 +195,7 @@ class EventEngineV2:
         self._risk_shadow_selection: SelectionContext | None = None
         self._risk_shadow_relationships: list[RelationshipContext] | None = None
         self._risk_shadow_mobility: list[MobilityContext] | None = None
+        self._risk_shadow_health: list[HealthContext] | None = None
         try:
             self._risk: RiskEngine | None = RiskEngine(dictionaries_dir)
         except FileNotFoundError:
@@ -558,8 +560,9 @@ class EventEngineV2:
         selection_context: SelectionContext | None = None,
         relationship_contexts: list[RelationshipContext] | None = None,
         mobility_contexts: list[MobilityContext] | None = None,
+        health_contexts: list[HealthContext] | None = None,
     ) -> None:
-        """shadow 후보 생성용 현실 컨텍스트 주입(감수 19차 — QA·시나리오 밀도 전용).
+        """shadow 후보 생성용 현실 컨텍스트 주입(감수 19·21차 — QA·시나리오 밀도 전용).
 
         프로필·질문 컨텍스트가 확인된 시나리오의 위험 밀도를 실측하기 위한 통로다.
         긍정 파이프라인·LLM 입력에는 어떤 영향도 없다(risk_shadow 사이드채널 한정).
@@ -567,6 +570,7 @@ class EventEngineV2:
         self._risk_shadow_selection = selection_context
         self._risk_shadow_relationships = relationship_contexts
         self._risk_shadow_mobility = mobility_contexts
+        self._risk_shadow_health = health_contexts
 
     def _collect_risk_shadow(
         self,
@@ -618,6 +622,7 @@ class EventEngineV2:
             selection_context=self._risk_shadow_selection,
             relationship_contexts=self._risk_shadow_relationships,
             mobility_contexts=self._risk_shadow_mobility,
+            health_contexts=self._risk_shadow_health,
         ))
 
     def _wealth_activations(

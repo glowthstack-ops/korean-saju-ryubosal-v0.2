@@ -151,9 +151,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "ac62d91ac41ef67f"
+        "shadow_structure": "8fb7da8dee7d978d"
       }
     },
     {
@@ -285,9 +285,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "53253dfd0de9014e"
+        "shadow_structure": "fe9b2337eb0e9858"
       }
     },
     {
@@ -422,9 +422,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "e1388f00fa4af3b1"
+        "shadow_structure": "f79c93602462fd24"
       }
     },
     {
@@ -529,9 +529,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "d67085388fdef493"
+        "shadow_structure": "d1bbe6d2f85b73f6"
       }
     },
     {
@@ -654,9 +654,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "2a89a6f9c7cda075"
+        "shadow_structure": "7cfb452b943bf011"
       }
     },
     {
@@ -775,9 +775,9 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.8",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.9",
       "reviewHashes": {
-        "shadow_structure": "1b2971485b804fc2"
+        "shadow_structure": "97fbe7e09bdd18fb"
       }
     }
   ]

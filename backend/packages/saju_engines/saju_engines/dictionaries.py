@@ -986,6 +986,14 @@ _RISK_MOBILITY_STAGES = (
     "no_plan", "considering", "searching", "negotiating", "contracted",
     "preparing", "moving", "settled",
 )
+# 건강 컨텍스트 유형(감수 21차 — HLT 차수) — 질병명·진단·부위는 저장·식별자 사용
+# 금지: 항목이 적용 가능한 건강 맥락 유형을 명시하고, 기존 질환·치료·회복·신체 부담의
+# 실재는 HealthContext(프로필·질문 — 익명 상태값)가 공급한다. 건강 질문이라는 사실이
+# 질환·치료 존재를 자동 확인하지 않는다.
+_RISK_HEALTH_CONTEXT_TYPES = (
+    "general_wellness", "existing_condition", "current_symptom", "treatment_process",
+    "recovery_process", "physical_workload", "sleep_schedule_load",
+)
 # 관계 역할 유형(감수 16차 — REL 차수) — 관계 위험은 십성·궁위만으로 현실의 상대를
 # 만들어내지 않는다: 항목이 적용 가능한 관계 역할을 명시하고, 현실 역할·노출은
 # RelationshipContext(프로필·동반자 등록·궁합/함께보기 질문 대상)가 공급한다.
@@ -1051,6 +1059,22 @@ class RiskExposurePolicy(_AliasModel):
     )
     requires_vehicle_exposure: bool = Field(
         default=False, alias="requiresVehicleExposure",
+    )
+    # 건강 노출 실질 조건(감수 21차 — HLT 차수): 기존 질환/치료 과정/회복 과정/신체적
+    # 업무 부담이 실제 확인된 경우에만 해당 맥락 위험을 설명한다. 유도: 상태 'none'
+    # (명시 부재)→DENIED, None(미확인)→CONFIRMED여도 UNKNOWN 강등, physical_demand는
+    # none·low→DENIED(직업 존재만으로 신체 부하 추론 금지).
+    requires_existing_condition: bool = Field(
+        default=False, alias="requiresExistingCondition",
+    )
+    requires_treatment_process: bool = Field(
+        default=False, alias="requiresTreatmentProcess",
+    )
+    requires_recovery_process: bool = Field(
+        default=False, alias="requiresRecoveryProcess",
+    )
+    requires_physical_demand: bool = Field(
+        default=False, alias="requiresPhysicalDemand",
     )
 
     @model_validator(mode="after")
@@ -1151,6 +1175,10 @@ class RiskItem(_AliasModel):
     applicable_mobility_stages: list[str] = Field(
         alias="applicableMobilityStages", default_factory=list,
     )
+    # 적용 가능한 건강 컨텍스트 유형(감수 21차 — HLT 차수): 미지정=유형 무관.
+    applicable_health_context_types: list[str] = Field(
+        alias="applicableHealthContextTypes", default_factory=list,
+    )
     # 흡수 시 역할 힌트(감수 16차) — 대표 후보에 흡수될 때 kind 기본값 대신 쓸 역할
     # (감정 충돌=supporting_manifestation, 거리감=possible_trajectory 등).
     absorbed_role_hint: str | None = Field(default=None, alias="absorbedRoleHint")
@@ -1207,6 +1235,11 @@ class RiskItem(_AliasModel):
                 raise ValueError(
                     f"applicableMobilityStages 값 오류: {ms} ({self.risk_id})"
                 )
+        for ht in self.applicable_health_context_types:
+            if ht not in _RISK_HEALTH_CONTEXT_TYPES:
+                raise ValueError(
+                    f"applicableHealthContextTypes 값 오류: {ht} ({self.risk_id})"
+                )
         for role in self.applicable_relationship_roles:
             if role not in _RISK_RELATIONSHIP_ROLES:
                 raise ValueError(
@@ -1238,7 +1271,9 @@ class RiskItem(_AliasModel):
 # v6(감수 18차): 이동 축(applicableMobilityTargetTypes/Stages)·이동 실질 조건
 # (requiresRepairResponsibility/CommuteDependency/VehicleExposure)을 structure 해시에
 # 편입 — v5와 같은 원칙(BLOCKED·노출 상태 재료는 구조 감수 대상).
-_RISK_HASH_SCHEMA_VERSION = 6
+# v7(감수 21차): 건강 축(applicableHealthContextTypes)·건강 실질 조건(requiresExisting
+# Condition/TreatmentProcess/RecoveryProcess/PhysicalDemand)을 structure 해시에 편입.
+_RISK_HASH_SCHEMA_VERSION = 7
 # 매처·억제 의미론 버전(감수 9차 도입) — matcher/eligibility/cause atom/suppression의
 # 의미가 바뀔 때 올린다. reviewed 항목은 감수 당시 이 값을 스탬프하며, 불일치 시 lint
 # 실패(사전 JSON이 그대로여도 엔진 의미가 바뀌면 재감수 대상).
@@ -1259,7 +1294,11 @@ _RISK_HASH_SCHEMA_VERSION = 6
 # 적격성에 소비 — UNKNOWN 축은 selection과 동일한 하드 비노출. 현실 대상 수렴 도메인을
 # relationship→{relationship, relocation}으로 확장(같은 이동 episode의 일정 차질·적응
 # 부담을 대표 1건+보조 역할로 수렴 — relation 원자 공유+absorbedRoleHint 게이트 동일).
-RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.8"
+# r0.5.9(감수 21차 — HLT 차수): HealthContext(context_type 축·건강 실질 조건 4종·
+# health_episode_id)를 적격성에 소비 — 건강 질문·명리 신호만으로 질병·치료·신체 부위를
+# 만들지 않는다. 수렴 도메인에 health_safety 추가(같은 건강 episode 수렴 — relation
+# 원자·hint 게이트 동일). 이동과 동일한 UNKNOWN 차등(구체 항목 비노출/일반 조건부).
+RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.9"
 
 
 def risk_scope_hash(item: RiskItem, scope: str) -> str:
@@ -1309,6 +1348,18 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
                     "requiresVehicleExposure": (
                         item.exposure_policy.requires_vehicle_exposure
                     ),
+                    "requiresExistingCondition": (
+                        item.exposure_policy.requires_existing_condition
+                    ),
+                    "requiresTreatmentProcess": (
+                        item.exposure_policy.requires_treatment_process
+                    ),
+                    "requiresRecoveryProcess": (
+                        item.exposure_policy.requires_recovery_process
+                    ),
+                    "requiresPhysicalDemand": (
+                        item.exposure_policy.requires_physical_demand
+                    ),
                 }
                 if item.exposure_policy is not None else None
             ),
@@ -1320,6 +1371,7 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
                 "relationshipRoles": sorted(item.applicable_relationship_roles),
                 "mobilityTargetTypes": sorted(item.applicable_mobility_target_types),
                 "mobilityStages": sorted(item.applicable_mobility_stages),
+                "healthContextTypes": sorted(item.applicable_health_context_types),
             },
         }
     elif scope == "scoring":

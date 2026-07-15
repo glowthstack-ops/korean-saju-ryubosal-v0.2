@@ -7818,3 +7818,28 @@ baseline --rename 분류: relocation만(rename 130·수렴 20·소실 200·신�
 200건 성격 명시: exposure 게이트는 후보를 제거하지 않으므로(구조 보존) 소실은 전량
 구조 단계 변화(트리거 강화·계약·개명 — UNWANTED 68=개명 14+트리거 재저작 54 등).
 **MOV 6항목 shadow_structure 승격(C6) — reviewed 42**, baseline 재기록. pytest 1911.
+
+## 위험 엔진 HLT 차수(C7 — 감수 21차) — HealthContext + 건강 8항목 (2026-07-15, 감수 대기)
+
+manifest 선행 고정(REVIEW.md §10 — 조건 8건) 후 구현: ①HealthContext(context_type
+7종·상태값 4축·health_episode_id·is_question_target — 질병명·부위 저장 금지), 실질
+조건 4종(none=DENIED·미확인=UNKNOWN 강등·physical none/low=DENIED), env r0.5.9·해시
+v7 ②CHRONIC_FLAREUP 착수 강등(42→41)+개명 EXISTING_CONDITION_STRAIN(→pressure)
+③전 항목 pressure/vulnerability(질병 incident 금지 — 사전+런타임 fixture) ④신설 2
+(치료·회복 부담/신체 업무 부담 — §11·§15 근거, 감수 질문) ⑤수렴 도메인 health_safety
+추가+episode 분리 ⑥소유권(CAR·FIN·LEG·MOV — 진단은 예측 대상 아님) ⑦restamp
+--schema-migration 절차 첫 적용(41건 불변) ⑧baseline 메타데이터 신설+비HLT 변화 0
+확인 ⑨밀도 교정(FATIGUE 42.7%→18.2%) ⑩시나리오 5종(오노출 0, 질문=미확인 동일성
+검증). structural incident 1.00. pytest 전체(아래)·ruff·mypy clean. 감수 대기.
+
+## 위험 엔진 HLT 차수(C7 — 감수 21·22차) — HealthContext + 건강 8항목 승격 49 (2026-07-15)
+
+감수 22차 조건 4건: ①FATIGUE에서 GI_STRONG shape 제거(소모 shape+체력 피격 계약,
+GI_STRONG=amplifier — 단독 미활성/증폭 테스트) ②ECS 1원인 watch 복원(2원인 필수 폐지)
+③shift_or_irregular·monitoring 비확인 처리+TRL 표현 단계 분기 ④차량 episode 교차
+도메인 수렴(MOV primary·HLT impact_amplifier). 파생: 노출 역전 방지 일반화(_exposure_
+ok=is_exposable, confirmed_required 미충족=비노출) — 비HLT 30건 의도 변경 허용 목록
+기록(REL FAMILY_BURDEN·MOV CONTRACT_SETBACK 비노출 대표의 advisory 흡수 해제).
+vulnerability 추적 지표 신설(활성/기간 1.20·흡수 23·승격 기여 0). **HLT 8항목
+shadow_structure 승격 — reviewed 49(전 도메인 unreviewed 0)**. incident 감소분
+1.09→1.00은 CHRONIC kind 재분류 주요인. pytest 1936·ruff·mypy clean.

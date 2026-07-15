@@ -34,6 +34,7 @@ from saju_shared_types.risk_engine import (
     RiskKind,
     dedupe_evidence,
     independent_source_count,
+    is_exposable,
 )
 
 from .dictionaries import RiskItem, RiskMappingFile, RiskRuleSpec
@@ -54,7 +55,9 @@ def _specificity_rank(item: RiskItem) -> int:
 # 현실 대상 수렴 도메인(감수 16→18차) — 흡수 범위가 family가 아니라 '같은 현실 대상'
 # (관계=같은 상대, 이동=같은 이동 episode)인 도메인. cross-family 흡수는 relation 원자
 # 공유 + absorbedRoleHint 명시 항목만.
-_CONVERGENCE_DOMAINS = frozenset({RiskDomain.RELATIONSHIP, RiskDomain.RELOCATION})
+_CONVERGENCE_DOMAINS = frozenset({
+    RiskDomain.RELATIONSHIP, RiskDomain.RELOCATION, RiskDomain.HEALTH_SAFETY,
+})
 
 _SHAPE_GROUPS = frozenset({"event_shape", "targeted_event_shape", "structural_weakness"})
 _ACTIVATION_GROUPS = frozenset({"activation", "target_activation"})
@@ -154,7 +157,13 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
             # 도메인 전체가 한 흡수 범위 — 상대 호환성(target_id·역할 상이 시 흡수
             # 금지)은 그룹 내부에서 검사한다: 상대 미상(None) 일반 후보가 매칭된
             # 대표(배우자 재조정 등)에 흡수되는 주 경로를 보존하기 위함이다.
-            key = (c.period_key, "\x00convergence:" + c.domain.value)
+            # 이동 게이트 후보(감수 22차): 같은 차량·이동 episode의 MOV 사건과 HLT
+            # 안전 주의는 교차 도메인이라도 한 수렴 범위다(MOV primary — HLT는
+            # hint로 impact_amplifier 수렴, 독립 원인이면 relation 원자 불공유로 병존).
+            scope = ("mobility" if c.mobility_gated
+                     and c.domain in (RiskDomain.RELOCATION, RiskDomain.HEALTH_SAFETY)
+                     else c.domain.value)
+            key = (c.period_key, "\x00convergence:" + scope)
         else:
             key = (c.period_key, "\x00family:" + (c.risk_family or ""))
         by_key.setdefault(key, []).append(c)
@@ -167,11 +176,14 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
         }
 
     def _exposure_ok(c: RiskCandidate) -> bool:
-        """노출 적격성 — confirmed_required인데 CONFIRMED가 아니면 대표 부적격."""
-        return not (
-            c.exposure_requirement == "confirmed_required"
-            and c.exposure_status is not ExposureStatus.CONFIRMED
-        )
+        """노출 적격성 — 컨텍스트 노출 게이트(is_exposable) 전체 기준(감수 22차 일반화).
+
+        C2 불변식의 확장: 어떤 이유로든(노출 미확인·축 미확인·unknownExposable=false)
+        사용자에게 노출될 수 없는 후보는, 노출 가능한 더 일반적인 후보를 흡수할 수
+        없다(신체 부담 미확인 후보가 일반 피로 advisory를 지우는 역전 방지). 이 시점
+        후보는 전부 활성(eligible·미흡수)이라 is_exposable을 그대로 쓸 수 있다.
+        """
+        return is_exposable(c)
 
     suppression: dict[int, tuple[str, str]] = {}  # id(candidate) → (대표 risk_id, 흡수 역할)
     for group in by_key.values():
@@ -241,6 +253,13 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
                 if (
                     c.mobility_episode_id and primary.mobility_episode_id
                     and c.mobility_episode_id != primary.mobility_episode_id
+                ):
+                    continue
+                # 건강 episode 상이(감수 21차) — 기존 불편 관리 vs 치료 회복 vs 교대
+                # 근무 부담은 서로 다른 현실 맥락이다(병존).
+                if (
+                    c.health_episode_id and primary.health_episode_id
+                    and c.health_episode_id != primary.health_episode_id
                 ):
                     continue
                 if c.domain in _CONVERGENCE_DOMAINS:
@@ -501,6 +520,112 @@ def _resolve_mobility_all(
     return out
 
 
+@dataclass(frozen=True)
+class HealthContext:
+    """현실 건강 컨텍스트 1건(감수 21차 — HLT 차수) — 질병명·진단·부위 저장 금지.
+
+    익명 상태값만 갖는다: 기존 질환·치료·회복·신체 부담의 실재가 확인된 경우에만
+    해당 맥락 위험을 설명한다(건강 질문이라는 사실은 어느 것도 자동 확인하지 않음).
+    episode_id: 같은 시기 서로 다른 건강 맥락(기존 불편 관리 vs 최근 치료 회복 vs
+    교대 근무 부담)을 구분하는 익명 키 — episode별 후보 분리·수렴 경계.
+    """
+
+    context_type: str | None = None  # _RISK_HEALTH_CONTEXT_TYPES 값(None=UNKNOWN)
+    condition_status: str | None = None  # none/managed/currently_uncomfortable/recently_worsened
+    treatment_status: str | None = None  # none/monitoring/ongoing/recent_procedure
+    recovery_status: str | None = None  # none/in_progress/recently_completed
+    # none/low/moderate/high(확인 취급)·shift_or_irregular(근무 리듬 — 확인 아님)
+    physical_demand: str | None = None
+    schedule_load: str | None = None  # regular/shift/irregular — R3 배선 예약(리듬 부담 축)
+    exposure_status: ExposureStatus = ExposureStatus.UNKNOWN
+    episode_id: str | None = None
+    is_question_target: bool = False
+
+
+def _effective_health_exposure(item: RiskItem, ctx: HealthContext) -> ExposureStatus:
+    """건강 컨텍스트의 유효 노출 — 실질 조건 4종을 반영한다.
+
+    상태 'none'(명시 부재)→DENIED, None(미확인)→CONFIRMED여도 UNKNOWN 강등.
+    physical_demand는 none·low→DENIED(직업 존재만으로 신체 부하 추론 금지).
+    """
+    policy = item.exposure_policy
+    eff = ctx.exposure_status
+    if policy is None:
+        return eff
+    # (요구 여부, 컨텍스트 값, 명시 부재=DENIED 집합, 확인 취급 집합) — 확인 집합
+    # 밖의 값(monitoring=관찰 중, shift_or_irregular=리듬 패턴)은 확인이 아니라
+    # 미확인(UNKNOWN 강등)이다: 관찰 중을 치료 중으로, 교대 근무를 신체 강도로
+    # 단정하지 않는다(감수 22차).
+    checks: list[tuple[bool, str | None, frozenset[str], frozenset[str]]] = [
+        (policy.requires_existing_condition, ctx.condition_status,
+         frozenset({"none"}),
+         frozenset({"managed", "currently_uncomfortable", "recently_worsened"})),
+        (policy.requires_treatment_process, ctx.treatment_status,
+         frozenset({"none"}), frozenset({"ongoing", "recent_procedure"})),
+        (policy.requires_recovery_process, ctx.recovery_status,
+         frozenset({"none"}), frozenset({"in_progress", "recently_completed"})),
+        (policy.requires_physical_demand, ctx.physical_demand,
+         frozenset({"none", "low"}), frozenset({"moderate", "high"})),
+    ]
+    for required, value, denied_values, confirmed_values in checks:
+        if not required:
+            continue
+        if value in denied_values:
+            return ExposureStatus.DENIED
+        if value not in confirmed_values and eff is ExposureStatus.CONFIRMED:
+            eff = ExposureStatus.UNKNOWN
+    return eff
+
+
+def _item_health_gated(item: RiskItem) -> bool:
+    """건강 축·실질 조건이 있는 항목인가 — 유효 노출을 HealthContext에서 유도."""
+    if item.applicable_health_context_types:
+        return True
+    policy = item.exposure_policy
+    return policy is not None and (
+        policy.requires_existing_condition or policy.requires_treatment_process
+        or policy.requires_recovery_process or policy.requires_physical_demand
+    )
+
+
+def _resolve_health_all(
+    item: RiskItem,
+    contexts: list[HealthContext] | None,
+) -> list[tuple[str, str | None, ExposureStatus | None]]:
+    """건강 축 3상태 + episode·유효 노출 유도 — episode별 해석 목록(이동과 동일 원리).
+
+    미적용 항목은 [(matched, None, None)]. 적용 항목: 호환 컨텍스트를 episode별로
+    해석(중복=결정적 병합), 질문 직접 대상이 명시적으로 축 밖이면 mismatched, 그 외
+    unknown. 컨텍스트 부재는 질환·치료 부재(DENIED)가 아니다.
+    """
+    if not _item_health_gated(item):
+        return [("matched", None, None)]
+    ctxs = contexts or []
+    groups: dict[str | None, list[tuple[bool, ExposureStatus, HealthContext]]] = {}
+    mismatch_question = False
+    for ctx in ctxs:
+        t = _axis_alignment(ctx.context_type, item.applicable_health_context_types)
+        if t == "mismatched":
+            if ctx.is_question_target:
+                mismatch_question = True
+            continue
+        groups.setdefault(ctx.episode_id, []).append(
+            (t == "matched", _effective_health_exposure(item, ctx), ctx))
+    if not groups:
+        if mismatch_question:
+            return [("mismatched", None, ExposureStatus.UNKNOWN)]
+        return [("unknown", None, ExposureStatus.UNKNOWN)]
+    out: list[tuple[str, str | None, ExposureStatus | None]] = []
+    for ep in sorted(groups, key=lambda e: (e is None, e or "")):
+        fully, eff, _ctx = sorted(
+            groups[ep],
+            key=lambda t3: (not t3[0], -_EXPOSURE_PREFERENCE[t3[1]],
+                            t3[2].context_type or ""),
+        )[0]
+        out.append((("matched" if fully else "unknown"), ep, eff))
+    return out
+
+
 def _resolve_relationship(
     item: RiskItem,
     contexts: list[RelationshipContext] | None,
@@ -621,6 +746,7 @@ class RiskEngine:
         selection_context: SelectionContext | None = None,
         relationship_contexts: list[RelationshipContext] | None = None,
         mobility_contexts: list[MobilityContext] | None = None,
+        health_contexts: list[HealthContext] | None = None,
     ) -> list[RiskCandidate]:
         """한 시점의 원시 신호에서 원자 위험 후보를 생성한다.
 
@@ -646,6 +772,8 @@ class RiskEngine:
             mobility_contexts: 확인된 이동·주거 컨텍스트 목록(감수 18·19차 — 같은
                 시기 복수 계획 지원, episode_id로 구분). 미제공은 계획 정보 부재
                 (UNKNOWN)이지 계획 부재(DENIED)가 아니다.
+            health_contexts: 확인된 건강 컨텍스트 목록(감수 21차 — 익명 상태값·
+                episode_id). 미제공은 질환·치료 부재(DENIED)가 아니다.
 
         Returns:
             생성된 원자 RiskCandidate 목록(관측 후보 포함 — 활성 판정은 is_active).
@@ -698,12 +826,22 @@ class RiskEngine:
             # MobilityContext(감수 18~20차) — episode별 해석 목록: 같은 risk_id라도
             # 서로 다른 이동 계획이면 후보를 분리 보존한다(각 후보의 exposure·stage·
             # episode 독립 — identity는 risk_id+period+episode).
-            for mob_alignment, mob_episode_id, mob_exposure in _resolve_mobility_all(
-                item, mobility_contexts,
-            ):
-                effective_exposure = (
-                    mob_exposure if mob_exposure is not None else rel_exposure
-                )
+            # 컨텍스트 해석 곱(감수 21차) — 항목은 실제로 한 컨텍스트 축만 게이트
+            # 한다(미적용 축은 (matched, None, None) 단일 해석이라 곱이 1이 된다).
+            combos = [
+                (m, h)
+                for m in _resolve_mobility_all(item, mobility_contexts)
+                for h in _resolve_health_all(item, health_contexts)
+            ]
+            for (mob_alignment, mob_episode_id, mob_exposure), (
+                hlt_alignment, hlt_episode_id, hlt_exposure,
+            ) in combos:
+                # 유효 노출 우선순위: 건강 > 이동 > 관계 > 전역.
+                effective_exposure = rel_exposure
+                if mob_exposure is not None:
+                    effective_exposure = mob_exposure
+                if hlt_exposure is not None:
+                    effective_exposure = hlt_exposure
                 status, reasons = self._evaluate(
                     item, evidences, triggers, effective_exposure,
                 )
@@ -719,6 +857,10 @@ class RiskEngine:
                 if mob_alignment == "mismatched":
                     status = EligibilityStatus.BLOCKED
                     reasons = list(reasons) + ["mobility_target_mismatch"]
+                # 건강 축 MISMATCHED(감수 21차) — 질문 직접 대상 맥락이 항목 축 밖.
+                if hlt_alignment == "mismatched":
+                    status = EligibilityStatus.BLOCKED
+                    reasons = list(reasons) + ["health_context_mismatch"]
                 # 관계 축 MISMATCHED — 질문 직접 대상의 역할이 항목 허용 밖(궁합
                 # 대상이 사업 파트너인데 배우자 전용 항목 등). fallback 없이 차단.
                 if rel_alignment == "mismatched":
@@ -746,6 +888,9 @@ class RiskEngine:
                     mobility_alignment=mob_alignment,
                     mobility_episode_id=mob_episode_id,
                     mobility_stages=list(item.applicable_mobility_stages),
+                    mobility_gated=_item_mobility_gated(item),
+                    health_alignment=hlt_alignment,
+                    health_episode_id=hlt_episode_id,
                     relationship_alignment=rel_alignment,
                     relationship_role=rel_role,
                     relationship_target_id=rel_target_id,

@@ -175,6 +175,7 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
 
     rel_metrics = _domain_metrics(RiskDomain.RELATIONSHIP)
     mov_metrics = _domain_metrics(RiskDomain.RELOCATION)
+    hlt_metrics = _domain_metrics(RiskDomain.HEALTH_SAFETY)
     # 노출 후보 밀도(감수 18차 — family 목표 계층화): 구조 진단(structural)과 별도로
     # context-exposable(현 컨텍스트에서 노출 가능 판정) family/기간을 병기한다 —
     # R2 최종 선별(≤3)의 입력 규모. 전 컨텍스트 UNKNOWN 가정이므로 하한 추정치.
@@ -208,6 +209,13 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
         "eligible": len(eligible),
         "active": len(active),
         "suppressed": sum(1 for c in cands if c.suppressed_by_specificity),
+        # vulnerability 추적(감수 22차) — 단독 노출 없음 원칙의 실측: 활성/흡수/잔존.
+        # incident·warning 승격 기여는 R1 미구현(원칙상 0 — R1 배선 시 지표 추가).
+        "vuln_active": sum(
+            1 for c in active if c.kind is RiskKind.VULNERABILITY),
+        "vuln_absorbed": sum(
+            1 for c in cands
+            if c.kind is RiskKind.VULNERABILITY and c.suppressed_by_specificity),
         "blocked": sum(
             1 for c in cands if c.eligibility_status is EligibilityStatus.BLOCKED
         ),
@@ -229,6 +237,9 @@ def _chart_stats(engine: EventEngineV2, birth: BirthInput, levels: set[GanjiLeve
         "mov_family_per_period": mov_metrics["family_per_period"],
         "mov_max_cause_fanout": mov_metrics["max_cause_fanout"],
         "mov_absorbed_roles": mov_metrics["absorbed_roles"],
+        "hlt_family_per_period": hlt_metrics["family_per_period"],
+        "hlt_max_cause_fanout": hlt_metrics["max_cause_fanout"],
+        "hlt_absorbed_roles": hlt_metrics["absorbed_roles"],
         "exposable_family_per_period": [
             len(v) for v in exposable_fam_pp.values()] or [0],
         "fam_max_period_composition": fam_max_composition,
@@ -311,6 +322,67 @@ def _mov_scenario_report(levels: set[GanjiLevel], corpus) -> None:
               f"{max((len(v) for v in fanout.values()), default=0)}")
 
 
+def _build_hlt_scenarios() -> list[tuple[str, list]]:
+    """HLT confirmed 컨텍스트 시나리오 5종(감수 21차 §16) — 지연 구성."""
+    from saju_engines.risk_engine import HealthContext
+    return [
+        ("all_unknown", []),
+        ("건강 질문만(상태 미확인)", [HealthContext(is_question_target=True)]),
+        ("기존 질환 확인", [HealthContext(
+            context_type="existing_condition", condition_status="managed",
+            exposure_status=ExposureStatus.CONFIRMED, episode_id="health_1")]),
+        ("치료·회복 중", [HealthContext(
+            context_type="treatment_process", treatment_status="ongoing",
+            exposure_status=ExposureStatus.CONFIRMED, episode_id="treatment_1")]),
+        ("고강도 신체 업무", [HealthContext(
+            context_type="physical_workload", physical_demand="high",
+            exposure_status=ExposureStatus.CONFIRMED, episode_id="workload_1")]),
+    ]
+
+
+def _hlt_scenario_report(levels: set[GanjiLevel], corpus) -> None:
+    """시나리오별 HLT 밀도 — 오노출률(미확인 특정 노출)은 엔진 게이트로 0이어야 한다."""
+    print("\n# HLT confirmed 시나리오 밀도(감수 21차)")
+    specific_reqs = ("required_for_exposure", "confirmed_required")
+    for name, ctxs in _build_hlt_scenarios():
+        engine = EventEngineV2(_DICTS, risk_mode="shadow")
+        engine.set_risk_shadow_contexts(health_contexts=ctxs)
+        active = exposable = blocked = 0
+        mis_specific = 0  # 미확인 상태에서 노출된 특정 항목(=오노출, 0 목표)
+        expo_fam_pp: dict[str, set[str]] = defaultdict(set)
+        kind_cnt: Counter = Counter()
+        for cname, birth in corpus:
+            chart = calculate(birth)
+            engine.score(chart, levels=levels)
+            for c in engine.risk_shadow:
+                if c.domain is not RiskDomain.HEALTH_SAFETY:
+                    continue
+                if c.eligibility_status is EligibilityStatus.BLOCKED:
+                    blocked += 1
+                if not is_active(c):
+                    continue
+                active += 1
+                kind_cnt[c.kind.value] += 1
+                # vulnerability는 단독 노출 없음 원칙(R1/R2) — 노출 지표에서 제외.
+                if c.kind is not RiskKind.VULNERABILITY and is_exposable(c):
+                    exposable += 1
+                    expo_fam_pp[f"{cname}|{c.period_key}"].add(
+                        c.risk_family or c.risk_id)
+                    if (c.exposure_requirement in specific_reqs
+                            and c.exposure_status is not ExposureStatus.CONFIRMED):
+                        mis_specific += 1
+        expo_fams = [len(v) for v in expo_fam_pp.values()] or [0]
+        print(f"\n## {name}")
+        print(f"  HLT 활성 {active} · 노출 가능 {exposable} · 차단 {blocked} · "
+              f"kind {dict(kind_cnt)}")
+        if active:
+            print(f"  비율: exposable/active {_pct(exposable, active)} · "
+                  f"UNKNOWN 보존 {_pct(active - exposable, active)}")
+        print(f"  특정 항목 미확인 오노출: {mis_specific}건 (목표 0)")
+        print(f"  노출 가능 family/기간: p50 {_percentile(expo_fams, 0.5):.0f} · "
+              f"p90 {_percentile(expo_fams, 0.9):.0f} · max {max(expo_fams)}")
+
+
 def main() -> None:
     """코퍼스 단계별 밀도를 계산해 stdout으로 리포트한다."""
     parser = argparse.ArgumentParser(description="위험 shadow 후보 밀도 리포트(단계별)")
@@ -319,11 +391,16 @@ def main() -> None:
                         help="기준 차트 1건만 실행(빠른 진단)")
     parser.add_argument("--mov-scenarios", action="store_true",
                         help="MOV confirmed 컨텍스트 시나리오 4종 밀도(감수 19차)")
+    parser.add_argument("--hlt-scenarios", action="store_true",
+                        help="HLT confirmed 컨텍스트 시나리오 5종 밀도(감수 21차)")
     args = parser.parse_args()
     levels = {_LEVELS[x.strip()] for x in args.levels.split(",") if x.strip()}
     corpus = _CORPUS[:1] if args.baseline_only else _CORPUS
     if args.mov_scenarios:
         _mov_scenario_report(levels, corpus)
+        return
+    if args.hlt_scenarios:
+        _hlt_scenario_report(levels, corpus)
         return
 
     engine = EventEngineV2(_DICTS, risk_mode="shadow")
@@ -368,6 +445,12 @@ def main() -> None:
           "required_for_exposure/confirmed_required=분리 · "
           "not_required/required_for_warning=qualified 포함")
     print(f"활성 kind 분포: {dict(kind_sum)}")
+    n_vuln_active = sum(s.get("vuln_active", 0) for s in totals)
+    n_vuln_absorbed = sum(s.get("vuln_absorbed", 0) for s in totals)
+    print(f"vulnerability 추적(단독 노출 없음 원칙): 활성/기간 "
+          f"{n_vuln_active / max(1, n_periods):.2f} · 대표 흡수 {n_vuln_absorbed} · "
+          f"독립 잔존 {n_vuln_active} · incident/warning 승격 기여 0(R1 미구현 — "
+          f"원칙상 0 유지)")
     fam_all = [x for s in totals for x in s["family_per_period"]]
     print(f"활성 family/기간: p50 {_percentile(fam_all, 0.5):.0f} · "
           f"p90 {_percentile(fam_all, 0.9):.0f} · max {max(fam_all, default=0)} (목표 ≤3)")
@@ -386,6 +469,7 @@ def main() -> None:
     for label, prefix, note in (
         ("REL 차수 지표(감수 16차)", "rel", "목표 ≤1 · 독립 발현 형태 예외 2"),
         ("MOV 차수 지표(감수 18차)", "mov", "목표 ≤1 · 독립 발현 형태 예외 2"),
+        ("HLT 차수 지표(감수 21차)", "hlt", "목표 ≤1 · 독립 발현 형태 예외 2"),
     ):
         fam_all_d = [x for s in totals for x in s.get(f"{prefix}_family_per_period", [])]
         fanout_d = max((s.get(f"{prefix}_max_cause_fanout", 0) for s in totals), default=0)
@@ -432,7 +516,7 @@ def main() -> None:
             warn.append(f"{rid} 최장 연속 발동 {streak}/{n_months}개월 (>50% — 범용 룰 의심)")
     if fanout_max > 3:
         warn.append(f"단일 원인 확산 {fanout_max} family (>3)")
-    for prefix, name in (("rel", "REL"), ("mov", "MOV")):
+    for prefix, name in (("rel", "REL"), ("mov", "MOV"), ("hlt", "HLT")):
         fo = max((s.get(f"{prefix}_max_cause_fanout", 0) for s in totals), default=0)
         if fo > 2:
             warn.append(f"{name} 단일 원인 확산 {fo} family (>2 — 복제 의심)")

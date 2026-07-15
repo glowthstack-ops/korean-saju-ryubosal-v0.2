@@ -1,5 +1,9 @@
 """위험 억제 결과 baseline — 억제 의미 변경의 자동 회귀 게이트 (감수 17차 §7 후속).
 
+메타데이터(감수 21차): baseline_commit·env 버전·해시 스키마·사전 해시·코퍼스 버전·
+후보 수·생성 시각을 함께 기록한다 — 어떤 상태의 기준선인지 추적(비대상 도메인 변화
+게이트의 전제).
+
 억제 비교자·수렴 그룹 의미가 바뀌는 차수마다 실행한다:
 1) 변경 전(직전 승인 커밋) 상태에서 --write로 baseline 기록(git 추적)
 2) 변경 후 --check로 diff 산출 — (차트, 기간, risk_id)별 대표 변경·신규 흡수·해제를
@@ -24,9 +28,17 @@ _BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_BACKEND / "apps" / "api"))
 sys.path.insert(0, str(_BACKEND / "scripts"))
 
+import hashlib  # noqa: E402
+import subprocess  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
+
 from risk_shadow_density import _CORPUS, _DICTS, _LEVELS  # noqa: E402
 from saju_api.services.manse_service import calculate  # noqa: E402
 from saju_engines import EventEngineV2  # noqa: E402
+from saju_engines.dictionaries import (  # noqa: E402
+    _RISK_HASH_SCHEMA_VERSION,
+    RISK_REVIEW_ENVIRONMENT_VERSION,
+)
 
 _BASELINE_PATH = _BACKEND / "tests" / "fixtures" / "risk_suppression_baseline.json"
 
@@ -59,8 +71,33 @@ def main() -> int:
     args = parser.parse_args()
     current = snapshot()
     if args.write:
+        # 메타데이터(감수 21차) — baseline이 어떤 상태에서 기록됐는지 추적.
+        dict_hash = hashlib.sha256(b"".join(
+            path.read_bytes()
+            for path in sorted((_DICTS / "risks").glob("*.json"))
+        )).hexdigest()[:16]
+        try:
+            commit = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True, text=True, check=True, cwd=_BACKEND.parent,
+            ).stdout.strip()
+        except subprocess.CalledProcessError:
+            commit = "unknown"
+        payload = {
+            "meta": {
+                "baseline_commit": commit,
+                "review_environment_version": RISK_REVIEW_ENVIRONMENT_VERSION,
+                "hash_schema_version": _RISK_HASH_SCHEMA_VERSION,
+                "dictionary_hash": dict_hash,
+                "corpus_version": "seoul-busan-10 (year+month)",
+                "candidate_count": len(current),
+                "generated_at": datetime.now(UTC).isoformat(
+                    timespec="seconds"),
+            },
+            "candidates": current,
+        }
         _BASELINE_PATH.write_text(
-            json.dumps(current, ensure_ascii=False, indent=1, sort_keys=True) + "\n",
+            json.dumps(payload, ensure_ascii=False, indent=1, sort_keys=True) + "\n",
             encoding="utf-8",
         )
         print(f"baseline 기록: {_BASELINE_PATH} ({len(current)}건)")
@@ -68,7 +105,10 @@ def main() -> int:
     if not _BASELINE_PATH.exists():
         print("baseline 없음 — 먼저 --write로 기록")
         return 1
-    base = json.loads(_BASELINE_PATH.read_text(encoding="utf-8"))
+    stored = json.loads(_BASELINE_PATH.read_text(encoding="utf-8"))
+    base = stored.get("candidates", stored)  # 구(평면) 형식 하위 호환
+    if "meta" in stored:
+        print(f"baseline meta: {stored['meta']}")
     renames = dict(pair.split("=", 1) for pair in args.rename)
     changed: Counter = Counter()  # (도메인, 유형)
     by_risk: Counter = Counter()  # (risk_id, 유형) — 항목별 delta(worklog 기록용)
