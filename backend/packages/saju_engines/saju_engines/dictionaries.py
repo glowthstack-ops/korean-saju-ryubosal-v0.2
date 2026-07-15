@@ -727,11 +727,16 @@ _RISK_ID_PREFIX = {
 # 구조의 기간 발동 / targeted_event_shape=사건 형태와 피자극 대상이 하나의 구조화된
 # 사실에 함께 담김(배우자궁 직접 피격 등 — 형식적 중복 룰 방지) / generic=미분류(초안 전용).
 _RISK_SOURCE_GROUPS = (
-    "event_shape", "target_activation", "activation", "targeted_event_shape", "generic",
+    "event_shape", "target_activation", "activation", "targeted_event_shape",
+    "structural_weakness", "generic",
 )
 # requiredGroups·evidenceContract 유효값 — generic은 필수 그룹이 될 수 없다.
+# structural_weakness(감수 8차): 사건 형태가 아니라 충격 흡수·검토력 등 방어 능력의
+# 약화 — vulnerability 전용(R1에서 event_shape=occurrence와 달리 impact·protection에
+# 기여).
 _RISK_REQUIRED_GROUPS = (
     "event_shape", "target_activation", "activation", "targeted_event_shape",
+    "structural_weakness",
 )
 # claimCeiling 유효값 — 표현 상한(허용 범위 화이트리스트 allowedClaimScope와 병용).
 _RISK_CLAIM_CEILINGS = ("advisory", "watch", "conditional_warning", "warning")
@@ -789,7 +794,9 @@ class RiskRuleSpec(_AliasModel):
         has_substantive = any(
             c is not None for c in (self.ten_god, self.ten_god_group, self.relation)
         )
-        if self.group in ("event_shape", "target_activation") and not has_substantive:
+        if self.group in (
+            "event_shape", "target_activation", "structural_weakness",
+        ) and not has_substantive:
             raise ValueError(
                 f"기신·공망·12운성 단독 룰은 {self.group} 그룹 불가(증폭·취약 신호): {self.id}"
             )
@@ -1064,7 +1071,11 @@ class RiskItem(_AliasModel):
 # v3(감수 7차): specificityRank를 scoring에서 제거 — 대표·흡수 우선순위는 selection 소관,
 # scoring은 위험도 prior(baseImpact)만. 매처 의미론 변경 감지(reviewEnvironmentVersion/
 # reviewDependencyHash)는 R1 전 도입 예정.
-_RISK_HASH_SCHEMA_VERSION = 3
+# v4(감수 8차): 후보 상태를 바꾸는 exposurePolicy 필드(requirement·unknown/denied/
+# notApplicable action·fallbackRiskId)를 structure 해시에 편입 — deniedAction 변경으로
+# active 밀도가 변하는데 구조 감수 해시가 유지되는 구멍 차단. claimCeilingWhenUnknown은
+# 표현 정책이라 exposure 해시 유지.
+_RISK_HASH_SCHEMA_VERSION = 4
 
 
 def risk_scope_hash(item: RiskItem, scope: str) -> str:
@@ -1090,6 +1101,18 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
             "evidenceContract": (
                 item.evidence_contract.model_dump(by_alias=True, exclude_none=True)
                 if item.evidence_contract is not None else None
+            ),
+            # 상태 변경 exposurePolicy 필드 — 구조적 적격성(BLOCKED 등)을 바꾸므로
+            # structure 감수 대상(v4).
+            "exposureEligibility": (
+                {
+                    "requirement": item.exposure_policy.requirement,
+                    "unknownAction": item.exposure_policy.unknown_action,
+                    "deniedAction": item.exposure_policy.denied_action,
+                    "notApplicableAction": item.exposure_policy.not_applicable_action,
+                    "fallbackRiskId": item.exposure_policy.fallback_risk_id,
+                }
+                if item.exposure_policy is not None else None
             ),
         }
     elif scope == "scoring":
@@ -1773,10 +1796,11 @@ def _lint_reviewed_risk_item(
                 f"등) 1개 이상 필요 — {item.risk_id}"
             )
     elif item.kind == "vulnerability":
-        if not non_generic & {"target_activation", "targeted_event_shape", "event_shape"}:
+        if not non_generic & {"target_activation", "targeted_event_shape",
+                              "structural_weakness"}:
             errors.append(
-                f"{rel}: 감수 승격 vulnerability는 구체적 대상 활성 또는 구조적 약화 "
-                f"trigger 필요 — {item.risk_id}"
+                f"{rel}: 감수 승격 vulnerability는 구체적 대상 활성(target_activation) "
+                f"또는 구조적 약화(structural_weakness) trigger 필요 — {item.risk_id}"
             )
     return errors
 

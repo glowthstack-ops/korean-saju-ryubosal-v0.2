@@ -130,7 +130,7 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "33fea870d97ff1e5"
+        "shadow_structure": "e830607fd5e88f19"
       }
     },
     {
@@ -277,7 +277,7 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "3e15c8bb522ced0c"
+        "shadow_structure": "b04b0405cf49c90b"
       }
     },
     {
@@ -417,7 +417,7 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "d855623f545bfb00"
+        "shadow_structure": "64b2e99d41040014"
       }
     },
     {
@@ -552,7 +552,7 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "35df66ac2dd725e5"
+        "shadow_structure": "41e8cc01c662470d"
       }
     },
     {
@@ -664,7 +664,7 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "1c4e6ca4a6987aaf"
+        "shadow_structure": "f0be8637a9ced362"
       }
     },
     {
@@ -802,7 +802,7 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "21013dcac034d0be"
+        "shadow_structure": "10b4a061e216485b"
       }
     },
     {
@@ -814,14 +814,14 @@
       "triggerRules": [
         {
           "id": "FIN_BUF_T1",
-          "group": "event_shape",
+          "group": "structural_weakness",
           "voidActive": true,
           "tenGodGroup": "wealth",
           "strength": 0.4
         },
         {
           "id": "FIN_BUF_T2",
-          "group": "event_shape",
+          "group": "structural_weakness",
           "tenGod": "JIECAI",
           "tenGodGroup": "wealth",
           "polarityRoleIn": [
@@ -856,7 +856,7 @@
         "triggerCount": 1,
         "independentSourceCount": 1,
         "requiredGroups": [
-          "event_shape"
+          "structural_weakness"
         ]
       },
       "manifestations": [
@@ -883,10 +883,10 @@
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C1"
+        "shadow_structure": "C2"
       },
       "reviewHashes": {
-        "shadow_structure": "6b7bfa039894504d"
+        "shadow_structure": "39f417ae5225a380"
       }
     }
   ]
