@@ -52,6 +52,7 @@ from saju_shared_types.ganji_calendar import GanjiLevel, RelationHit, RelationTy
 from saju_shared_types.life_event import LifeEventRow
 from saju_shared_types.luck import DaewoonItem, LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.risk_engine import RiskCandidate, RiskEngineMode
 from saju_shared_types.wealth_capacity import WealthCapacity
 
 from .addendum_gate_modifier import AddendumGateModifier, GateContext
@@ -79,7 +80,8 @@ from .marriage_flow_modifier import (
 )
 from .reality_context import RealityContext
 from .relation_palace_engine import RelationActivation, RelationPalaceEngine
-from .ten_god_brancher import TenGodEventBrancher
+from .risk_engine import RelationFact, RiskEngine, build_raw_period_facts
+from .ten_god_brancher import TenGodEventBrancher, TransitSignal
 from .twelve_stage_modifier import TwelveStageModifier
 from .wealth_activation_modifier import WealthActivationModifier
 from .wealth_capacity import analyze_wealth_capacity, detect_wealth_activations
@@ -149,6 +151,7 @@ class EventEngineV2:
         enable_mt2_emergence: bool = False,
         enable_mt3_directional: bool = False,
         enable_mt4_subtype: str = "off",
+        risk_mode: str | None = None,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -163,6 +166,9 @@ class EventEngineV2:
                 점수는 안 바꾸고 reason_code 태그만 부여한다(§8, A안). OFF면 결과 불변.
             enable_mt4_subtype: MT4 관계 도메인 HAP 합 종류 재가중(§9). 'off'(기본)=불변 /
                 'shadow'=점수·reason 불변 + diagnostics(mt4_shadow)만 기록 / 'apply'=실제 재분배.
+            risk_mode: 위험 엔진 모드 강제("off"/"shadow"/"expose", RISK_ENGINE.md). None(기본)
+                이면 risk_engine_config.RISK_ENGINE_MODE를 score() 호출 시점에 읽는다(테스트
+                monkeypatch 가능). off면 위험 계산을 전혀 하지 않아 기존 출력이 byte-identical.
         """
         self._enable_mt1_awareness = enable_mt1_awareness
         self._enable_mt2_emergence = enable_mt2_emergence
@@ -170,6 +176,15 @@ class EventEngineV2:
         self._mt4_mode = enable_mt4_subtype
         # MT4 shadow 진단 사이드채널(결과 payload·LLM 입력 미포함 — debug-only). score()마다 초기화.
         self.mt4_shadow: list[dict] = []
+        # ── 위험 엔진 R0(RISK_ENGINE.md) — 기회 파이프라인과 독립 shadow 사이드채널 ──
+        # risk_shadow는 LLM 입력·리포트·토큰에 주입하지 않는다(구조화 로그/QA 전용).
+        self._risk_mode_override = risk_mode
+        self.risk_shadow: list[RiskCandidate] = []
+        try:
+            self._risk: RiskEngine | None = RiskEngine(dictionaries_dir)
+        except FileNotFoundError:
+            # fresh-clone graceful — risks/ 사전이 없으면 위험 엔진만 비활성(기존 기능 무영향).
+            self._risk = None
         self._brancher = TenGodEventBrancher(dictionaries_dir)
         self._stage = TwelveStageModifier(dictionaries_dir)
         self._flow = LayerFlowModifier(dictionaries_dir)
@@ -196,6 +211,7 @@ class EventEngineV2:
     ) -> list[EventCandidateV2]:
         """만세 결과의 운을 거버닝 스택으로 스코어링해 EventCandidateV2 목록을 산출한다."""
         self.mt4_shadow = []  # MT4 shadow 진단 사이드채널 초기화(이번 호출분만)
+        self.risk_shadow = []  # 위험 shadow 사이드채널 초기화(이번 호출분만)
         if result.pillars is None or result.luck_cycles is None:
             return []
         wanted = levels or set(GanjiLevel)
@@ -238,6 +254,7 @@ class EventEngineV2:
     ) -> list[EventCandidateV2]:
         """지정 세운 연도를 직접 스코어링한다(용신 검증용 — 과거 연도 포함)."""
         self.mt4_shadow = []  # MT4 shadow 진단 사이드채널 초기화(이번 호출분만)
+        self.risk_shadow = []  # 위험 shadow 사이드채널 초기화(이번 호출분만)
         if result.pillars is None or result.luck_cycles is None:
             return []
         fav_map = fav_override if fav_override is not None else favorability_map(result)
@@ -354,6 +371,11 @@ class EventEngineV2:
                 pillar, layer, is_target=layer is target_layer,
             )
         ]
+        # ── 위험 엔진 R0 shadow(RISK_ENGINE.md) — reducer·모디파이어 이전 원시 신호 소비 ──
+        # 긍정 후보가 없어도(아래 조기 반환) 위험 근거는 남아야 하므로 조기 반환보다 앞에
+        # 둔다. OFF면 아무 계산도 하지 않아 기존 결과가 byte-identical이다(수집은 읽기 전용 —
+        # cands·signals를 변형하지 않는다).
+        self._collect_risk_shadow(result, level, label, target, signals, fav_map)
         if not signals:
             return []
         # 사건 '종류'는 십성(세운·월운)이 결정한다 — 합화는 여기(라벨 생성기)에 넣지 않는다.
@@ -503,6 +525,61 @@ class EventEngineV2:
             level, target.stem, target.branch,
             target.relations_to_chart, target.gongmang_activation, result.pillars,
         )
+
+    # ── 위험 엔진 R0 shadow (RISK_ENGINE.md) ─────────────────────
+
+    def _active_risk_mode(self) -> RiskEngineMode:
+        """유효 위험 모드 — 생성자 강제값 우선, 없으면 config를 호출 시점에 읽는다."""
+        raw = self._risk_mode_override
+        if raw is None:
+            from . import risk_engine_config
+            raw = risk_engine_config.RISK_ENGINE_MODE
+        try:
+            return RiskEngineMode(raw)
+        except ValueError:
+            return RiskEngineMode.OFF  # 미상 값은 안전하게 OFF(byte-identical)로 처리.
+
+    def _collect_risk_shadow(
+        self,
+        result: ManseV2Result,
+        level: GanjiLevel,
+        label: str,
+        target: LuckPillar,
+        signals: list[TransitSignal],
+        fav_map: dict[str, str],
+    ) -> None:
+        """한 시점의 원시 신호를 위험 엔진에 넘겨 원자 후보를 shadow 수집한다.
+
+        OFF면 즉시 반환(계산 없음 — 기존 출력 byte-identical). SHADOW/EXPOSE(R0에선 동작
+        동일)면 모디파이어 적용 전 재료(십성 신호·관계 적중·시점 극성·공망·운성)로
+        RawPeriodFacts를 구성해 risk_shadow에 누적한다. 긍정 파이프라인의 어떤 상태도
+        변형하지 않는다(읽기 전용). 관계 적중은 시점당 1회 재계산(순수 함수)이라 안전하다.
+        """
+        if self._active_risk_mode() is RiskEngineMode.OFF or self._risk is None:
+            return
+        ten_god_layers: dict[TenGod, set[LuckLayer]] = {}
+        for s in signals:
+            ten_god_layers.setdefault(s.ten_god, set()).add(s.layer)
+        hits = self._relation_hits(result, level, target)
+        layer = _LEVEL_TO_LAYER[level]
+        relations = [
+            RelationFact(kind=a.kind, palace=a.palace, position=a.position)
+            for a in _activations(hits, layer)
+        ]
+        hwa_el = _target_hwa_element(target, result, fav_map)
+        stem_bound = _target_stem_bound(target, result, fav_map) if hwa_el is None else False
+        facts = build_raw_period_facts(
+            period_key=label,
+            layer=layer,
+            ten_god_layers=ten_god_layers,
+            relations=relations,
+            void_active=any(h.type in _VOID_TYPES for h in hits),
+            polarity_role=_period_role(
+                target, fav_map, stem_element=hwa_el, stem_bound=stem_bound,
+            ),
+            twelve_stage=_stage_of(target),
+        )
+        self.risk_shadow.extend(self._risk.generate(facts))
 
     def _wealth_activations(
         self,

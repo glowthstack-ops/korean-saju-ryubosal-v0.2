@@ -1,0 +1,205 @@
+"""위험 탐지 엔진(Risk Engine) 타입 — R0 (doc/v2_2/RISK_ENGINE.md).
+
+기회 후보(EventCandidateV2)와 독립된 위험 후보 계층. 핵심 계약:
+
+- 위험 엔진의 입력은 **reducer·모디파이어 이전의 원시 신호**다(감점·floor·Top-N을 거친
+  최종 후보를 소비하면 위험 근거가 이미 손실됨).
+- `RiskCandidate`(원자, 단일 period_key)와 `RiskEpisode`(R2 기간 병합 결과)는 별도 타입 —
+  원자 후보 생성과 기간 병합의 책임을 섞지 않는다.
+- 근거는 문자열 코드가 아니라 구조화 provenance(`RiskEvidence`)로 남기며, `evidence_id`로
+  동일 원인의 중복 반영을 차단한다(동일 원인 파생 신호는 독립 출처 1개로 계산).
+- protection(현재 완충 — 점수 차감 대상)과 recovery(사후 회복 — 별도 창 산출, 현재 위험
+  점수에서 빼지 않음)는 분리한다.
+- `risk_level`(얼마나 주의할 문제인가)과 `confidence`(근거가 얼마나 충분한가)는 독립 축.
+"""
+
+from __future__ import annotations
+
+from enum import StrEnum
+
+from pydantic import BaseModel, Field
+
+
+class RiskEngineMode(StrEnum):
+    """위험 엔진 게이트 3단계.
+
+    OFF: 계산하지 않음 — 기존 출력 byte-identical.
+    SHADOW: 계산하되 사용자 답변·리포트·LLM 입력·토큰에 일절 주입하지 않음(구조화 로그 전용).
+    EXPOSE: 선별·임계값을 통과한 위험만 사용자 노출(R3 이후, 세분 게이트 별도).
+    """
+
+    OFF = "off"
+    SHADOW = "shadow"
+    EXPOSE = "expose"
+
+
+class RiskDomain(StrEnum):
+    """위험 도메인 7종 (RISK_ENGINE.md §3)."""
+
+    FINANCE = "finance"
+    CAREER = "career"
+    CONTRACT_LEGAL = "contract_legal"
+    HEALTH_SAFETY = "health_safety"
+    RELATIONSHIP = "relationship"
+    RELOCATION = "relocation"
+    SELECTION = "selection"
+
+
+class RiskKind(StrEnum):
+    """위험 종류 3분류 — 시기적 압박 ≠ 취약성 ≠ 사건 위험 (RISK_ENGINE.md §2).
+
+    PRESSURE: 특정 사건을 특정하지 않는 전반적 부담·소모(피로·긴장·비용 증가).
+    VULNERABILITY: 특정 영역의 보호력이 약해진 상태(검토력·완충력 저하) — 사용자에게 별도
+        사건처럼 노출하지 않고, incident_risk 생성·심각도 상향의 중간 신호로 쓴다.
+    INCIDENT_RISK: 구체적 사건 가능성이 형성된 상태(계약 취소·지급 지연·배치 불이익 등).
+    """
+
+    PRESSURE = "pressure"
+    VULNERABILITY = "vulnerability"
+    INCIDENT_RISK = "incident_risk"
+
+
+class EvidenceRole(StrEnum):
+    """근거 역할 — 모든 불리 신호를 단일 감점으로 합치지 않기 위한 4분류."""
+
+    TRIGGER = "trigger"  # 위험 발생 근거
+    AMPLIFIER = "amplifier"  # 위험 강도 증가
+    MITIGATOR = "mitigator"  # 보호·완화(현재 완충 — protection 축)
+    BLOCKER = "blocker"  # 해당 위험의 발현 제한
+
+
+class ExposureStatus(StrEnum):
+    """사용자 현실 노출 상태 — 미입력을 중간값 숫자로 대체하지 않는다(RISK_ENGINE.md §7).
+
+    UNKNOWN이면 위험을 삭제하지 않되 risk_level 상한을 warning으로 제한하고 조건부
+    표현("현재 해당 활동을 하고 있다면")으로 서술한다. CRITICAL은 CONFIRMED에서만 허용.
+    """
+
+    CONFIRMED = "confirmed"
+    DENIED = "denied"
+    UNKNOWN = "unknown"
+    NOT_APPLICABLE = "not_applicable"
+
+
+class RiskLevel(StrEnum):
+    """노출 밴드 — 사용자 노출 방식이 다른 4등급. CRITICAL은 다중 조건 동시 충족 시만.
+
+    사용자 노출 문구에서 내부 명칭(critical)을 그대로 쓰지 않고 "강한 주의가 필요한 시기"
+    수준으로 변환한다(건강·법률·재정 영역 특히).
+    """
+
+    ADVISORY = "advisory"  # 약한 부담·초기 신호 — 참고
+    WATCH = "watch"  # 주의 가능성 — 체크 사항 제공
+    WARNING = "warning"  # 여러 신호 중첩 — 주요 위험으로 노출
+    CRITICAL = "critical"  # 고영향·노출 확인·근접 시점 — 최상단 경고
+
+
+class RiskEvidence(BaseModel):
+    """위험 근거 1건 — 구조화 provenance.
+
+    evidence_id는 매칭 룰이 아니라 **바탕 원인 사실**의 식별자(period|source)다. 서로 다른
+    룰이 같은 원인 사실을 잡으면 evidence_id가 같아 중복 반영이 차단된다(독립 출처 판정도
+    source 기준). code는 매칭된 사전 룰 id(추적용)로 별도 보존한다.
+    """
+
+    evidence_id: str  # 원인 사실 식별자 — "{period_key}|{source}" (중복 반영 방지 키)
+    code: str  # 매칭된 사전 룰 id (추적용 — 독립 출처 판정에 쓰지 않는다)
+    period_key: str  # '2026' / '2026-09' 등 운 기간 라벨
+    layer: str  # 신호 층위(daewoon/sewoon/wolwoon/ilwoon, 복합이면 '+' 연결, 시점 극성='period')
+    source: str  # 원인 사실 서명 — 예: 'relation:CHUNG:branch:day_pillar', 'polarity:GI_STRONG'
+    strength: float = Field(ge=0.0, le=1.0)  # 사전 룰의 기여 강도(0~1 정규화)
+    role: EvidenceRole
+    target_domain: RiskDomain | None = None
+    target_palace: str | None = None  # 자극 궁성(year/month/day/hour_pillar)
+
+
+class RiskScoreComponents(BaseModel):
+    """위험 점수 6축 — R1에서 산출(전 축 0~1 정규화). R0에서는 채우지 않는다(None).
+
+    불변식(RISK_ENGINE.md §5): 한 evidence_id는 occurrence 직접 점수에 한 번만 반영,
+    persistence는 기간 반복 횟수만, compound는 별도의 다른 risk_id 연결이 있을 때만.
+    recovery(사후 회복)는 여기서 빼지 않는다 — protection(현재 완충)만 차감 축이다.
+    """
+
+    occurrence: float = Field(ge=0.0, le=1.0)  # 운 신호로부터의 발생 가능성
+    impact: float = Field(ge=0.0, le=1.0)  # 사전의 사건별 기본 피해 prior
+    exposure: float = Field(ge=0.0, le=1.0)  # 사용자 현실 노출(ExposureStatus 기반)
+    persistence: float = Field(ge=0.0, le=1.0)  # 기간 반복성
+    compound: float = Field(ge=0.0, le=1.0)  # 다른 위험으로의 확산 가능성
+    protection: float = Field(ge=0.0, le=1.0)  # 현재 완충력(mitigator 근거)
+
+
+class RiskCandidate(BaseModel):
+    """원자 위험 후보 — 단일 기간(period_key) 1건. 기간 병합 결과는 RiskEpisode(별도 타입).
+
+    R0에서는 생성·근거 수집까지만 하고 점수(score_components)·등급·확신도는 채우지 않는다.
+    """
+
+    risk_id: str  # 위험 사전 키 — 예: 'FIN_CASHFLOW_PRESSURE' (EventKeyV2와 별도 네임스페이스)
+    domain: RiskDomain
+    kind: RiskKind
+    period_key: str  # 원자 후보는 단일 기간 라벨만 갖는다(start/peak/end는 Episode 소관)
+    manifestation_ids: list[str] = Field(default_factory=list)  # 가능한 발현 형태 id
+    evidence: list[RiskEvidence] = Field(default_factory=list)  # 구조화 근거(전 역할)
+    score_components: RiskScoreComponents | None = None  # R1에서 산출 — R0는 None
+    exposure_status: ExposureStatus = ExposureStatus.UNKNOWN
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)  # 근거 충분도 — R1 산출(R0=0.0)
+
+
+class ProtectiveFactor(BaseModel):
+    """보호 요인(현재 완충) — 위험을 삭제하지 않고 "보호 요인이 있어 피해 확대 가능성이
+    낮다"로 서술하기 위한 구조. mitigator 근거에서 파생된다(R1)."""
+
+    code: str
+    description_ko: str
+    strength: float = Field(ge=0.0, le=1.0)
+
+
+class RecoveryWindow(BaseModel):
+    """회복 창 — 위험·압박 이후 정상화 흐름(별도 산출, R2). 현재 위험 점수에서 빼지 않는다."""
+
+    start_period: str  # 회복 신호가 들어오는 기간 라벨
+    note_ko: str | None = None  # 회복 근거 요약(기신 약화·보호 오행 유입 등)
+
+
+class RiskEpisode(BaseModel):
+    """병합된 위험 구간 — R2 산출물(R0에서는 타입만 고정, 생성하지 않는다).
+
+    병합 키는 risk_id 단독이 아니라 (risk_id, cause_signature, domain, exposure_target)다 —
+    같은 risk_id라도 원인 구조가 크게 바뀌면 별도 episode로 분리한다.
+    """
+
+    risk_id: str
+    domain: RiskDomain
+    kind: RiskKind
+    cause_signature: str  # 지배 원인 서명 — 병합 키 구성 요소
+    start_period: str
+    peak_period: str  # 단순 최고 점수가 아니라 confidence 동반 고려(R2)
+    end_period: str
+    candidates: list[RiskCandidate] = Field(default_factory=list)
+    risk_level: RiskLevel | None = None  # 등급(주의 필요도) — confidence와 독립 축
+    protective_factors: list[ProtectiveFactor] = Field(default_factory=list)
+    recovery_window: RecoveryWindow | None = None
+
+
+def independent_source_count(evidences: list[RiskEvidence]) -> int:
+    """TRIGGER 근거의 독립 출처 수 — source(원인 사실 서명) 기준 중복 제거.
+
+    동일 원인에서 파생된 신호(같은 충의 감점·태그 등)는 source가 같아 1개로 계산된다.
+    minimum_evidence.independent_source_count 판정에 쓴다.
+    """
+    return len({e.source for e in evidences if e.role is EvidenceRole.TRIGGER})
+
+
+def dedupe_evidence(evidences: list[RiskEvidence]) -> list[RiskEvidence]:
+    """(evidence_id, role) 단위 중복 제거 — 같은 원인 사실이 같은 역할로 두 번 반영되는 것을
+    차단한다(먼저 온 것 유지, 입력 순서 보존)."""
+    seen: set[tuple[str, EvidenceRole]] = set()
+    out: list[RiskEvidence] = []
+    for e in evidences:
+        key = (e.evidence_id, e.role)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(e)
+    return out

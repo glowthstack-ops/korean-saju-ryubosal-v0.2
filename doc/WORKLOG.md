@@ -7326,3 +7326,49 @@ co-top 수정 후에도 데굴님 실계정 총운에서 결혼 신호 98 여전
 - 검증: 전체 pytest 통과(실패 0)·ruff clean·mypy 248파일 clean.
 - **남은 관찰**: ①②로도 위반이 지속되면(coverage_miss 로그로 확인) 남는 옵션은
   모델 교체 실험 또는 총운 전용 시스템 프롬프트 — 데굴님 결정 사항.
+
+## 위험 탐지 엔진 R0 — 원자 위험 후보 생성 기반 (2026-07-15, 데굴님 조건부 승인 반영)
+
+**배경**: 기존 서비스가 좋은 시기만 찾고 어려운 시기·위험 이벤트를 경고하지 못함
+(불리 신호가 감점·quality flip·favorability 조정으로만 소비 — 별도 위험 후보 없음,
+Top-N에서 긍정 후보에 밀림). 데굴님이 기회/위험/회복 독립 산출 스펙 제공 → 조건부
+승인 4조건(①reducer 이전 raw signal 입력 ②RiskCandidate/RiskEpisode 분리 ③구조화
+근거 provenance ④protection/recovery 분리)을 R0에 전부 반영. 규격은
+`doc/v2_2/RISK_ENGINE.md`로 고정.
+
+- **R0-A 규격**: `doc/v2_2/RISK_ENGINE.md` — kind 3분류(pressure/vulnerability/
+  incident_risk), risk_level≠confidence, protection≠recovery, critical 필수 조건
+  (exposure CONFIRMED + 독립 계층 2개 등), exposure 미입력 숫자 대체 금지(UNKNOWN=
+  warning 상한), R2 병합 키(risk_id+cause_signature+domain+exposure_target), 질문
+  유형별 위험 노출 min/max 정책, R3 우선 서술 계약. **토큰 일괄 30k 상향 보류** —
+  R3에서 위험 블록 p50/p95 실측 후 risk_context_reserve + 호출별 개별 상향.
+- **R0-B 타입**: `shared_types/risk_engine.py` — RiskEngineMode(off/shadow/expose)/
+  RiskDomain(7종)/RiskKind/EvidenceRole(trigger·amplifier·mitigator·blocker)/
+  ExposureStatus/RiskLevel/RiskEvidence(evidence_id=원인 사실 서명 기반 중복 방지)/
+  RiskScoreComponents(6축 0~1, R1)/RiskCandidate(원자·단일 period_key)/RiskEpisode
+  (R2 병합, 타입만)/ProtectiveFactor/RecoveryWindow + independent_source_count·
+  dedupe_evidence 헬퍼.
+- **R0-C 사전**: `dictionaries/risks/{finance,career,contract_legal,health_safety,
+  relationship,relocation,selection}.json` 7종 44항목 전부 reviewed:false 초안(감수
+  대기). 기존 SignalSpec 재사용 안 함 — RiskRuleSpec(AND 조건: tenGod/tenGodGroup/
+  relation+palace/polarityRoleIn/voidActive/twelveStageIn) + trigger/amplifier/
+  mitigator/blocker 분리 + minimumEvidence(incident_risk는 독립 출처 ≥2 lint 강제 —
+  신호 1개 범람 방지). risk_id는 EventKeyV2와 별도 네임스페이스(FIN_/CAR_/LEG_/HLT_/
+  REL_/MOV_/SEL_ 접두 lint). `dictionaries.py`에 RiskMappingFile 스키마·schema_for
+  등록·`_lint_risk_mapping` 추가(검사 사전 87개 통과).
+- **R0-D 엔진**: `saju_engines/risk_engine.py` — RawPeriodFacts(원시 신호 스냅샷:
+  층위별 십성·관계 발동·공망·시점 극성(化/制 반영)·12운성) → 룰 매칭 → provenance
+  수집(dedupe) → minimum_evidence 게이트 → 원자 RiskCandidate. 점수·병합·노출 없음.
+  blocker 근거는 후보 삭제 없이 보존(발현 제한 판정은 R1). `event_engine_v2.py`
+  `_collect_risk_shadow`: 모디파이어 적용 전 재료로 스냅샷 구성, **긍정 후보 0건
+  조기 반환보다 앞에서 수집**(위험 근거 소실 방지), 읽기 전용 — risk_shadow
+  사이드채널(LLM 입력·리포트 미주입). 게이트 `risk_engine_config.RISK_ENGINE_MODE`
+  기본 "off"(byte-identical, 호출 시점 로드 — 1줄 전환), risks/ 부재 시 graceful.
+- **R0-E 검증**: unit 20건(무불리신호→0건, 압박만→pressure만, 단일 trigger 차단,
+  독립 2출처 생성, mitigator 보존, 동일 원인 2룰=출처 1개, blocker 보존, exposure
+  전달, 7도메인 대표 사건 parametrize, lint/스키마 거부) + regression 5건(OFF 기본
+  무수집, SHADOW=OFF 긍정 출력 동일 직렬화, 원자 후보 R0 계약, config 1줄 전환,
+  score_years 초기화). 검증: 전체 pytest 1788 passed·ruff clean·mypy packages 224
+  파일 clean(전체 리포 잔존 오류는 tests/ 기존분, 신규 파일 0건).
+- **다음**: 위험 사전 7종 감수(reviewed:false → 확정) → R1 점수 6축 → R2 병합·분리
+  선별 → R3 답변 계약+토큰 실측 → R4 골든 세트 → R5 개인화.

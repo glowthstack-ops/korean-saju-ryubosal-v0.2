@@ -17,12 +17,17 @@ from .ganji_calendar import (
 )
 from .graph_builder import build_event_graph, load_event_graph, save_event_graph
 from .graph_retrieval import GraphIndex
+from .risk_engine import RawPeriodFacts, RelationFact, RiskEngine, build_raw_period_facts
 
 __all__ = [
     "EventEngineV2",
     "GraphIndex",
+    "RawPeriodFacts",
+    "RelationFact",
+    "RiskEngine",
     "adapt_manse_chart",
     "build_event_graph",
+    "build_raw_period_facts",
     "calendar_entries_from_result",
     "favorability_map",
     "filter_year_candidates",

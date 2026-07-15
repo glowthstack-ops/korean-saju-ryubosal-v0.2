@@ -1,0 +1,178 @@
+{
+  "version": "0.1.0",
+  "domain": "relocation",
+  "items": [
+    {
+      "riskId": "MOV_CONTRACT_FAIL",
+      "domain": "relocation",
+      "kind": "incident_risk",
+      "baseImpact": 0.6,
+      "triggerRules": [
+        { "id": "MOV_CTF_T1", "voidActive": true, "tenGodGroup": "resource", "strength": 0.5 },
+        { "id": "MOV_CTF_T2", "relation": "CHUNG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
+        { "id": "MOV_CTF_T3", "relation": "PA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 }
+      ],
+      "amplifierRules": [
+        { "id": "MOV_CTF_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+      ],
+      "mitigatorRules": [
+        { "id": "MOV_CTF_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
+        { "id": "MOV_CTF_M2", "relation": "HAP", "strength": 0.3 }
+      ],
+      "blockerRules": [
+        { "id": "MOV_CTF_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "housing_deal_fail", "ko": "매매·임대 계약의 무산" },
+        { "id": "deposit_condition", "ko": "보증금·계약 조건의 문제" },
+        { "id": "counter_change", "ko": "상대방 사정에 따른 취소" }
+      ],
+      "prohibitedClaims": ["계약 무산 확정 단정"],
+      "note": "문서성(인성) 공망 + 충·파 — 주거 계약 실패 사건 위험",
+      "reviewed": false
+    },
+    {
+      "riskId": "MOV_SCHEDULE_DISRUPTION",
+      "domain": "relocation",
+      "kind": "incident_risk",
+      "baseImpact": 0.5,
+      "triggerRules": [
+        { "id": "MOV_SCH_T1", "voidActive": true, "polarityRoleIn": ["GI", "GI_STRONG", "HAN_BAD"], "strength": 0.45 },
+        { "id": "MOV_SCH_T2", "relation": "HAE", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 },
+        { "id": "MOV_SCH_T3", "relation": "CHUNG", "polarityRoleIn": ["HAN_BAD"], "strength": 0.4 }
+      ],
+      "amplifierRules": [
+        { "id": "MOV_SCH_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+      ],
+      "mitigatorRules": [
+        { "id": "MOV_SCH_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+      ],
+      "blockerRules": [
+        { "id": "MOV_SCH_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "moving_delay", "ko": "이사 일정의 변경·지연" },
+        { "id": "chain_slip", "ko": "입주·퇴거 일정의 연쇄 차질" },
+        { "id": "plan_rework", "ko": "계획 재조정의 필요" }
+      ],
+      "prohibitedClaims": [],
+      "note": "공망(지연) + 해 — 이사 일정 차질 사건 위험",
+      "reviewed": false
+    },
+    {
+      "riskId": "MOV_DEFECT_REPAIR_COST",
+      "domain": "relocation",
+      "kind": "incident_risk",
+      "baseImpact": 0.5,
+      "triggerRules": [
+        { "id": "MOV_DFC_T1", "relation": "HYEONG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
+        { "id": "MOV_DFC_T2", "tenGod": "JIECAI", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "MOV_DFC_T3", "relation": "PA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+      ],
+      "amplifierRules": [
+        { "id": "MOV_DFC_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+      ],
+      "mitigatorRules": [
+        { "id": "MOV_DFC_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+      ],
+      "blockerRules": [
+        { "id": "MOV_DFC_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "defect_found", "ko": "하자 발견과 수리 비용 발생" },
+        { "id": "repair_dispute", "ko": "수리 책임을 둘러싼 이견" },
+        { "id": "hidden_cost", "ko": "예상 밖의 부대 비용" }
+      ],
+      "prohibitedClaims": [],
+      "note": "형(수리·조정) + 겁재 탈재 — 하자·수리 비용 사건 위험",
+      "reviewed": false
+    },
+    {
+      "riskId": "MOV_COMMUTE_BURDEN",
+      "domain": "relocation",
+      "kind": "pressure",
+      "baseImpact": 0.4,
+      "triggerRules": [
+        { "id": "MOV_CMT_T1", "relation": "CHUNG", "polarityRoleIn": ["GI", "GI_STRONG", "HAN_BAD"], "strength": 0.4 },
+        { "id": "MOV_CMT_T2", "twelveStageIn": ["SOE", "BYEONG"], "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 }
+      ],
+      "amplifierRules": [],
+      "mitigatorRules": [
+        { "id": "MOV_CMT_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+      ],
+      "blockerRules": [
+        { "id": "MOV_CMT_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "manifestations": [
+        { "id": "commute_tire", "ko": "이동·통근 부담의 증가" },
+        { "id": "adapt_stress", "ko": "새 환경 적응의 피로" }
+      ],
+      "prohibitedClaims": [],
+      "note": "충(이동 스트레스) 흉방향 — 이동 부담 압박(사건 특정 없음)",
+      "reviewed": false
+    },
+    {
+      "riskId": "MOV_UNWANTED_MOVE",
+      "domain": "relocation",
+      "kind": "incident_risk",
+      "baseImpact": 0.55,
+      "triggerRules": [
+        { "id": "MOV_UWM_T1", "relation": "CHUNG", "relationPalace": "day_pillar", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
+        { "id": "MOV_UWM_T2", "relation": "CHUNG", "relationPalace": "month_pillar", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "MOV_UWM_T3", "tenGodGroup": "authority", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+      ],
+      "amplifierRules": [
+        { "id": "MOV_UWM_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+      ],
+      "mitigatorRules": [
+        { "id": "MOV_UWM_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
+        { "id": "MOV_UWM_M2", "relation": "HAP", "strength": 0.3 }
+      ],
+      "blockerRules": [
+        { "id": "MOV_UWM_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "forced_move", "ko": "원치 않는 이동·이주 압박" },
+        { "id": "place_mismatch", "ko": "장소 적응의 어려움" },
+        { "id": "external_reason", "ko": "외부 사정(직장·가족)에 따른 이동" }
+      ],
+      "prohibitedClaims": ["이사 확정 단정"],
+      "note": "일지·월주 충 + 관살(외부 압박) — 비자발 이동 사건 위험",
+      "reviewed": false
+    },
+    {
+      "riskId": "MOV_VEHICLE_TRANSPORT_ISSUE",
+      "domain": "relocation",
+      "kind": "incident_risk",
+      "baseImpact": 0.5,
+      "triggerRules": [
+        { "id": "MOV_VHC_T1", "relation": "CHUNG", "relationPalace": "hour_pillar", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "MOV_VHC_T2", "relation": "HYEONG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 },
+        { "id": "MOV_VHC_T3", "relation": "HAE", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 }
+      ],
+      "amplifierRules": [
+        { "id": "MOV_VHC_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+      ],
+      "mitigatorRules": [
+        { "id": "MOV_VHC_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+      ],
+      "blockerRules": [
+        { "id": "MOV_VHC_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "vehicle_trouble", "ko": "차량 고장·정비 필요" },
+        { "id": "transport_delay", "ko": "운송·배송의 차질" },
+        { "id": "traffic_cost", "ko": "교통 관련 비용 증가" }
+      ],
+      "prohibitedClaims": ["사고 발생 단정"],
+      "note": "시지 충 + 형·해 — 차량·운송 문제 사건 위험(안전 행동 권고 톤)",
+      "reviewed": false
+    }
+  ]
+}

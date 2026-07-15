@@ -699,6 +699,117 @@ class EventMappingFile(_AliasModel):
     items: list[EventMappingItem]
 
 
+# ── risks/<domain>.json — 위험 이벤트 사전 (RISK_ENGINE.md §R0-C) ────────────
+# 기존 SignalSpec(긍정 사건 생성 중심)을 재사용하지 않는다 — 위험 전용 룰은 발생(trigger)/
+# 증폭(amplifier)/완화(mitigator)/차단(blocker) 역할을 분리하고, minimum_evidence로 신호
+# 1개 후보 범람을 막는다. 조건은 원시 신호 사실(RawPeriodFacts) 대상 AND 결합이다.
+
+# 위험 룰 조건 유효값 — RawPeriodFacts가 제공하는 사실 축과 1:1.
+_RISK_RELATIONS = ("HAP", "CHUNG", "HYEONG", "PA", "HAE", "BOKEUM")
+_RISK_PALACES = ("year_pillar", "month_pillar", "day_pillar", "hour_pillar")
+_RISK_POLARITY_ROLES = (
+    "YONG", "HEE", "NEUTRAL", "GI", "HAN_GOOD", "HAN_BAD", "YONG_STRONG", "GI_STRONG",
+)
+_RISK_TEN_GOD_GROUPS = ("peer", "output", "wealth", "authority", "resource")
+_RISK_TWELVE_STAGES = (
+    "JANGSAENG", "MOKYOK", "GWANDAE", "GEONROK", "JEWANG", "SOE",
+    "BYEONG", "SA", "MYO", "JEOL", "TAE", "YANG",
+)
+# 도메인 → risk_id 접두 — 파일 간 risk_id 충돌을 접두 규약으로 차단한다.
+_RISK_ID_PREFIX = {
+    "finance": "FIN_", "career": "CAR_", "contract_legal": "LEG_",
+    "health_safety": "HLT_", "relationship": "REL_", "relocation": "MOV_",
+    "selection": "SEL_",
+}
+
+
+class RiskRuleSpec(_AliasModel):
+    """위험 룰 1건 — 조건은 전부 AND. 최소 1개 조건 필수(무조건 룰 금지)."""
+
+    id: str
+    strength: float = Field(default=0.5, ge=0.0, le=1.0)
+    ten_god: str | None = Field(default=None, alias="tenGod")  # TenGod 로마자 키
+    ten_god_group: str | None = Field(default=None, alias="tenGodGroup")  # peer/output/...
+    relation: str | None = None  # HAP/CHUNG/HYEONG/PA/HAE/BOKEUM
+    relation_palace: str | None = Field(default=None, alias="relationPalace")
+    polarity_role_in: list[str] | None = Field(default=None, alias="polarityRoleIn")
+    void_active: bool | None = Field(default=None, alias="voidActive")
+    twelve_stage_in: list[str] | None = Field(default=None, alias="twelveStageIn")
+
+    @model_validator(mode="after")
+    def _validate_rule(self) -> RiskRuleSpec:
+        conditions = (
+            self.ten_god, self.ten_god_group, self.relation,
+            self.polarity_role_in, self.void_active, self.twelve_stage_in,
+        )
+        if all(c is None for c in conditions):
+            raise ValueError(f"위험 룰 조건 없음(무조건 룰 금지): {self.id}")
+        if self.ten_god is not None and self.ten_god not in {str(g) for g in _TenGodRoman}:
+            raise ValueError(f"tenGod 값 오류: {self.ten_god} ({self.id})")
+        if self.ten_god_group is not None and self.ten_god_group not in _RISK_TEN_GOD_GROUPS:
+            raise ValueError(f"tenGodGroup 값 오류: {self.ten_god_group} ({self.id})")
+        if self.relation is not None and self.relation not in _RISK_RELATIONS:
+            raise ValueError(f"relation 값 오류: {self.relation} ({self.id})")
+        if self.relation_palace is not None:
+            if self.relation is None:
+                raise ValueError(f"relationPalace는 relation과 함께만 쓴다: {self.id}")
+            if self.relation_palace not in _RISK_PALACES:
+                raise ValueError(f"relationPalace 값 오류: {self.relation_palace} ({self.id})")
+        for role in self.polarity_role_in or []:
+            if role not in _RISK_POLARITY_ROLES:
+                raise ValueError(f"polarityRoleIn 값 오류: {role} ({self.id})")
+        for stage in self.twelve_stage_in or []:
+            if stage not in _RISK_TWELVE_STAGES:
+                raise ValueError(f"twelveStageIn 값 오류: {stage} ({self.id})")
+        return self
+
+
+class RiskMinimumEvidence(_AliasModel):
+    """후보 생성 최소 근거 — 신호 1개로 모든 위험 후보가 생성되는 범람을 막는다."""
+
+    trigger_count: int = Field(alias="triggerCount", ge=1)
+    independent_source_count: int = Field(alias="independentSourceCount", ge=1)
+
+
+class RiskManifestationSpec(_AliasModel):
+    """가능한 발현 형태 1건 — 노출 미확인 시 조건부 제시(2~3개)의 원천."""
+
+    id: str
+    ko: str
+
+
+class RiskItem(_AliasModel):
+    """위험 이벤트 정의 1건."""
+
+    risk_id: str = Field(alias="riskId")
+    domain: str  # RiskDomain 값 — 파일 domain과 일치(lint)
+    kind: str  # pressure | vulnerability | incident_risk
+    base_impact: float = Field(alias="baseImpact", ge=0.0, le=1.0)
+    trigger_rules: list[RiskRuleSpec] = Field(alias="triggerRules", min_length=1)
+    amplifier_rules: list[RiskRuleSpec] = Field(alias="amplifierRules", default_factory=list)
+    mitigator_rules: list[RiskRuleSpec] = Field(alias="mitigatorRules", default_factory=list)
+    blocker_rules: list[RiskRuleSpec] = Field(alias="blockerRules", default_factory=list)
+    minimum_evidence: RiskMinimumEvidence = Field(alias="minimumEvidence")
+    manifestations: list[RiskManifestationSpec] = Field(min_length=1)
+    prohibited_claims: list[str] = Field(alias="prohibitedClaims", default_factory=list)
+    note: str | None = None
+    reviewed: bool
+
+    @model_validator(mode="after")
+    def _validate_item(self) -> RiskItem:
+        if self.kind not in ("pressure", "vulnerability", "incident_risk"):
+            raise ValueError(f"kind 값 오류: {self.kind} ({self.risk_id})")
+        if self.domain not in _RISK_ID_PREFIX:
+            raise ValueError(f"domain 값 오류: {self.domain} ({self.risk_id})")
+        return self
+
+
+class RiskMappingFile(_AliasModel):
+    version: str
+    domain: str
+    items: list[RiskItem]
+
+
 class FavorabilityRulesFile(_AliasModel):
     version: str
     items: list[FavorabilityRule]
@@ -1093,6 +1204,8 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
 }
 # events/<domain>.json (taxonomy 제외)은 신호→이벤트 매핑 스키마.
 _EVENT_MAPPING_DIR = "events"
+# risks/<domain>.json — 위험 이벤트 사전(RISK_ENGINE.md, EventKeyV2와 별도 risk_id 네임스페이스).
+_RISK_MAPPING_DIR = "risks"
 
 
 def schema_for(rel_path: str) -> type[BaseModel] | None:
@@ -1102,6 +1215,8 @@ def schema_for(rel_path: str) -> type[BaseModel] | None:
     parent = str(Path(rel_path).parent)
     if parent == _EVENT_MAPPING_DIR:
         return EventMappingFile
+    if parent == _RISK_MAPPING_DIR:
+        return RiskMappingFile
     return None
 
 
@@ -1185,6 +1300,48 @@ def _lint_event_mapping(rel: str, file: EventMappingFile) -> list[str]:
             errors.append(
                 f"{rel}: 같은 신호가 상반 이벤트를 동시에 강하게 유발 — "
                 f"{[c.event for c in strong_pos]} vs {[c.event for c in strong_neg]}"
+            )
+    return errors
+
+
+def _lint_risk_mapping(rel: str, file: RiskMappingFile) -> list[str]:
+    """risks/<domain>.json 충돌 검사.
+
+    - 파일 domain과 항목 domain 불일치 / risk_id 접두 규약 위반(파일 간 충돌 차단).
+    - 같은 파일 안 risk_id 중복, 항목 안 룰 id 중복(역할 전체 통합).
+    - incident_risk인데 independent_source_count < 2 — 신호 1개 사건 위험 범람 방지
+      (RISK_ENGINE.md §R0-C minimum_evidence 정책).
+    """
+    errors: list[str] = []
+    prefix = _RISK_ID_PREFIX.get(file.domain)
+    if prefix is None:
+        errors.append(f"{rel}: 파일 domain 값 오류 — {file.domain}")
+        return errors
+    seen_ids: set[str] = set()
+    for item in file.items:
+        if item.domain != file.domain:
+            errors.append(f"{rel}: 항목 domain({item.domain}) ≠ 파일 domain — {item.risk_id}")
+        if not item.risk_id.startswith(prefix):
+            errors.append(f"{rel}: risk_id 접두 규약 위반({prefix}*) — {item.risk_id}")
+        if item.risk_id in seen_ids:
+            errors.append(f"{rel}: risk_id 중복 — {item.risk_id}")
+        seen_ids.add(item.risk_id)
+        rule_ids = [
+            r.id
+            for rules in (
+                item.trigger_rules, item.amplifier_rules,
+                item.mitigator_rules, item.blocker_rules,
+            )
+            for r in rules
+        ]
+        if len(rule_ids) != len(set(rule_ids)):
+            errors.append(f"{rel}: 룰 id 중복 — {item.risk_id}")
+        if (
+            item.kind == "incident_risk"
+            and item.minimum_evidence.independent_source_count < 2
+        ):
+            errors.append(
+                f"{rel}: incident_risk는 독립 출처 2개 이상 필요 — {item.risk_id}"
             )
     return errors
 
@@ -1674,6 +1831,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_direction_suggestions(directory, parsed))
         elif isinstance(parsed, EventMappingFile):
             errors.extend(_lint_event_mapping(rel, parsed))
+        elif isinstance(parsed, RiskMappingFile):
+            errors.extend(_lint_risk_mapping(rel, parsed))
         elif isinstance(parsed, FavorabilityRulesFile):
             errors.extend(_lint_favorability(parsed))
         elif isinstance(parsed, IljuFile):

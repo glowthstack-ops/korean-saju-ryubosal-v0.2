@@ -1,0 +1,209 @@
+{
+  "version": "0.1.0",
+  "domain": "relationship",
+  "items": [
+    {
+      "riskId": "REL_EMOTIONAL_CLASH",
+      "domain": "relationship",
+      "kind": "incident_risk",
+      "baseImpact": 0.55,
+      "triggerRules": [
+        { "id": "REL_EMO_T1", "relation": "CHUNG", "relationPalace": "day_pillar", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.6 },
+        { "id": "REL_EMO_T2", "tenGod": "JIECAI", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "REL_EMO_T3", "tenGod": "QISHA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+      ],
+      "amplifierRules": [
+        { "id": "REL_EMO_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 },
+        { "id": "REL_EMO_A2", "relation": "HYEONG", "strength": 0.35 }
+      ],
+      "mitigatorRules": [
+        { "id": "REL_EMO_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
+        { "id": "REL_EMO_M2", "relation": "HAP", "strength": 0.3 }
+      ],
+      "blockerRules": [
+        { "id": "REL_EMO_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "hot_conflict", "ko": "감정이 격해지는 충돌" },
+        { "id": "argument_repeat", "ko": "같은 문제로 반복되는 다툼" },
+        { "id": "impulse_word", "ko": "감정적인 말이 상처로 남음" }
+      ],
+      "prohibitedClaims": ["이별·이혼 단정"],
+      "note": "배우자궁(일지) 충 + 겁재·편관 기신 — 감정 충돌 사건 위험",
+      "reviewed": false
+    },
+    {
+      "riskId": "REL_MISUNDERSTANDING_SLIP",
+      "domain": "relationship",
+      "kind": "incident_risk",
+      "baseImpact": 0.45,
+      "triggerRules": [
+        { "id": "REL_MIS_T1", "tenGod": "SHANGGUAN", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.55 },
+        { "id": "REL_MIS_T2", "relation": "HAE", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "REL_MIS_T3", "relation": "PA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 }
+      ],
+      "amplifierRules": [
+        { "id": "REL_MIS_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+      ],
+      "mitigatorRules": [
+        { "id": "REL_MIS_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
+        { "id": "REL_MIS_M2", "tenGodGroup": "resource", "strength": 0.3 }
+      ],
+      "blockerRules": [
+        { "id": "REL_MIS_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "slip_of_tongue", "ko": "말실수·오해가 커짐" },
+        { "id": "message_misread", "ko": "의도와 다르게 전달되는 말" },
+        { "id": "gossip_expose", "ko": "뒷말·소문에 휘말릴 가능성" }
+      ],
+      "prohibitedClaims": [],
+      "note": "상관 기신(구설) + 해·파 — 오해·말실수 사건 위험. 인성=숙고 완화",
+      "reviewed": false
+    },
+    {
+      "riskId": "REL_TRUST_EROSION",
+      "domain": "relationship",
+      "kind": "pressure",
+      "baseImpact": 0.5,
+      "triggerRules": [
+        { "id": "REL_TRS_T1", "tenGod": "JIECAI", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
+        { "id": "REL_TRS_T2", "relation": "PA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "REL_TRS_T3", "relation": "HAE", "relationPalace": "day_pillar", "strength": 0.45 }
+      ],
+      "amplifierRules": [
+        { "id": "REL_TRS_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+      ],
+      "mitigatorRules": [
+        { "id": "REL_TRS_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+      ],
+      "blockerRules": [
+        { "id": "REL_TRS_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "manifestations": [
+        { "id": "trust_thin", "ko": "신뢰가 조금씩 얇아짐" },
+        { "id": "doubt_grow", "ko": "의심·서운함의 누적" }
+      ],
+      "prohibitedClaims": ["배신 단정"],
+      "note": "겁재(경쟁·탈취 상징) 기신 + 파·해 — 신뢰 저하 압박",
+      "reviewed": false
+    },
+    {
+      "riskId": "REL_DISTANCE_ESTRANGE",
+      "domain": "relationship",
+      "kind": "pressure",
+      "baseImpact": 0.45,
+      "triggerRules": [
+        { "id": "REL_DST_T1", "voidActive": true, "polarityRoleIn": ["GI", "GI_STRONG", "HAN_BAD"], "strength": 0.4 },
+        { "id": "REL_DST_T2", "relation": "CHUNG", "relationPalace": "day_pillar", "polarityRoleIn": ["HAN_BAD"], "strength": 0.4 },
+        { "id": "REL_DST_T3", "twelveStageIn": ["MYO", "JEOL"], "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 }
+      ],
+      "amplifierRules": [],
+      "mitigatorRules": [
+        { "id": "REL_DST_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
+        { "id": "REL_DST_M2", "relation": "HAP", "strength": 0.3 }
+      ],
+      "blockerRules": [
+        { "id": "REL_DST_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "manifestations": [
+        { "id": "distance_grow", "ko": "거리감·소원함이 커짐" },
+        { "id": "contact_thin", "ko": "연락·교류의 자연스러운 감소" }
+      ],
+      "prohibitedClaims": ["관계 단절 단정"],
+      "note": "공망(공허) + 묘절 운성 — 소원 압박(사건 특정 없음)",
+      "reviewed": false
+    },
+    {
+      "riskId": "REL_FAMILY_BURDEN",
+      "domain": "relationship",
+      "kind": "pressure",
+      "baseImpact": 0.5,
+      "triggerRules": [
+        { "id": "REL_FAM_T1", "relation": "CHUNG", "relationPalace": "year_pillar", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "REL_FAM_T2", "relation": "HYEONG", "relationPalace": "year_pillar", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "REL_FAM_T3", "tenGodGroup": "authority", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+      ],
+      "amplifierRules": [
+        { "id": "REL_FAM_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+      ],
+      "mitigatorRules": [
+        { "id": "REL_FAM_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+      ],
+      "blockerRules": [
+        { "id": "REL_FAM_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "manifestations": [
+        { "id": "family_care", "ko": "가족 돌봄·책임의 증가" },
+        { "id": "family_expense_burden", "ko": "가족 관련 비용·시간 부담" }
+      ],
+      "prohibitedClaims": ["가족 유고 단정"],
+      "note": "조상·가족궁(년주) 충형 + 관살(책임) — 가족 책임 압박",
+      "reviewed": false
+    },
+    {
+      "riskId": "REL_PARTNER_READJUST",
+      "domain": "relationship",
+      "kind": "incident_risk",
+      "baseImpact": 0.55,
+      "triggerRules": [
+        { "id": "REL_PTN_T1", "relation": "CHUNG", "relationPalace": "day_pillar", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.55 },
+        { "id": "REL_PTN_T2", "relation": "HYEONG", "relationPalace": "day_pillar", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
+        { "id": "REL_PTN_T3", "tenGod": "SHANGGUAN", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+      ],
+      "amplifierRules": [
+        { "id": "REL_PTN_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+      ],
+      "mitigatorRules": [
+        { "id": "REL_PTN_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
+        { "id": "REL_PTN_M2", "relation": "HAP", "strength": 0.3 }
+      ],
+      "blockerRules": [
+        { "id": "REL_PTN_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "relation_redefine", "ko": "연인·배우자와의 관계 재조정" },
+        { "id": "value_gap", "ko": "가치관·생활 방식 차이의 표면화" },
+        { "id": "big_talk_need", "ko": "중요한 대화가 필요해지는 국면" }
+      ],
+      "prohibitedClaims": ["이별·이혼 단정", "상대방 잘못 단정"],
+      "note": "배우자궁 충형 중첩 — 관계 재조정 사건 위험(단절 단정 금지)",
+      "reviewed": false
+    },
+    {
+      "riskId": "REL_MONEY_BETWEEN_PEERS",
+      "domain": "relationship",
+      "kind": "incident_risk",
+      "baseImpact": 0.55,
+      "triggerRules": [
+        { "id": "REL_MNY_T1", "tenGod": "JIECAI", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.6 },
+        { "id": "REL_MNY_T2", "tenGodGroup": "wealth", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "REL_MNY_T3", "relation": "PA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4 }
+      ],
+      "amplifierRules": [
+        { "id": "REL_MNY_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+      ],
+      "mitigatorRules": [
+        { "id": "REL_MNY_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+      ],
+      "blockerRules": [
+        { "id": "REL_MNY_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "lend_borrow", "ko": "지인 간 돈 거래·빌려주기 요청" },
+        { "id": "partner_money", "ko": "동업·모임의 금전 문제" },
+        { "id": "split_conflict", "ko": "비용 분담을 둘러싼 갈등" }
+      ],
+      "prohibitedClaims": ["관계 파탄 단정"],
+      "note": "겁재(동료 탈재) 기신 + 재성 기신 — 동업·친구 금전 문제 사건 위험",
+      "reviewed": false
+    }
+  ]
+}

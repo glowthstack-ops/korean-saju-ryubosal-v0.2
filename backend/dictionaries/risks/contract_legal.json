@@ -1,0 +1,181 @@
+{
+  "version": "0.1.0",
+  "domain": "contract_legal",
+  "items": [
+    {
+      "riskId": "LEG_CONTRACT_CANCEL",
+      "domain": "contract_legal",
+      "kind": "incident_risk",
+      "baseImpact": 0.65,
+      "triggerRules": [
+        { "id": "LEG_CCL_T1", "relation": "CHUNG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.55 },
+        { "id": "LEG_CCL_T2", "voidActive": true, "tenGodGroup": "resource", "strength": 0.5 },
+        { "id": "LEG_CCL_T3", "relation": "PA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 }
+      ],
+      "amplifierRules": [
+        { "id": "LEG_CCL_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 },
+        { "id": "LEG_CCL_A2", "relation": "HYEONG", "strength": 0.35 }
+      ],
+      "mitigatorRules": [
+        { "id": "LEG_CCL_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
+        { "id": "LEG_CCL_M2", "relation": "HAP", "strength": 0.3 }
+      ],
+      "blockerRules": [
+        { "id": "LEG_CCL_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "deal_cancel", "ko": "진행 중 계약의 취소·무산" },
+        { "id": "condition_change", "ko": "계약 조건의 일방적 변경" },
+        { "id": "counterparty_delay", "ko": "상대방 사정에 따른 지연" }
+      ],
+      "prohibitedClaims": ["계약 파기 확정 단정"],
+      "note": "충(파열) + 문서성(인성) 공망 — 계약 취소 사건 위험",
+      "reviewed": false
+    },
+    {
+      "riskId": "LEG_DOCUMENT_ERROR",
+      "domain": "contract_legal",
+      "kind": "incident_risk",
+      "baseImpact": 0.5,
+      "triggerRules": [
+        { "id": "LEG_DOC_T1", "voidActive": true, "tenGodGroup": "resource", "strength": 0.5 },
+        { "id": "LEG_DOC_T2", "tenGod": "PIANYIN", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "LEG_DOC_T3", "relation": "HAE", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 }
+      ],
+      "amplifierRules": [
+        { "id": "LEG_DOC_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+      ],
+      "mitigatorRules": [
+        { "id": "LEG_DOC_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
+        { "id": "LEG_DOC_M2", "tenGod": "ZHENGYIN", "strength": 0.3 }
+      ],
+      "blockerRules": [
+        { "id": "LEG_DOC_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "doc_omission", "ko": "서류 누락·기재 오류" },
+        { "id": "term_misread", "ko": "조건·특약의 오해와 확인 부족" },
+        { "id": "sign_haste", "ko": "검토 없이 서두른 서명" }
+      ],
+      "prohibitedClaims": [],
+      "note": "인성(문서) 공망 + 편인 기신(왜곡) — 문서 실수 사건 위험",
+      "reviewed": false
+    },
+    {
+      "riskId": "LEG_PENALTY_LIABILITY",
+      "domain": "contract_legal",
+      "kind": "incident_risk",
+      "baseImpact": 0.7,
+      "triggerRules": [
+        { "id": "LEG_PEN_T1", "relation": "HYEONG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.6 },
+        { "id": "LEG_PEN_T2", "tenGod": "QISHA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.5 },
+        { "id": "LEG_PEN_T3", "relation": "CHUNG", "polarityRoleIn": ["GI_STRONG"], "strength": 0.45 }
+      ],
+      "amplifierRules": [
+        { "id": "LEG_PEN_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 }
+      ],
+      "mitigatorRules": [
+        { "id": "LEG_PEN_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
+        { "id": "LEG_PEN_M2", "tenGodGroup": "resource", "strength": 0.35 }
+      ],
+      "blockerRules": [
+        { "id": "LEG_PEN_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "penalty_charge", "ko": "위약금·벌금·손해배상 요구" },
+        { "id": "liability_issue", "ko": "명의·보증에 따른 책임 문제" },
+        { "id": "compliance_gap", "ko": "규정·절차 위반의 뒤늦은 발견" }
+      ],
+      "prohibitedClaims": ["배상 금액·법적 결과 확정 단정"],
+      "note": "형(법적 조정·시비) + 편관 기신 — 위약·배상 사건 위험. 인성=절차·문서 보호",
+      "reviewed": false
+    },
+    {
+      "riskId": "LEG_ADMIN_DELAY",
+      "domain": "contract_legal",
+      "kind": "incident_risk",
+      "baseImpact": 0.45,
+      "triggerRules": [
+        { "id": "LEG_ADM_T1", "voidActive": true, "tenGodGroup": "authority", "strength": 0.5 },
+        { "id": "LEG_ADM_T2", "tenGodGroup": "resource", "polarityRoleIn": ["HAN_BAD"], "strength": 0.4 },
+        { "id": "LEG_ADM_T3", "relation": "HAE", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 }
+      ],
+      "amplifierRules": [
+        { "id": "LEG_ADM_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.4 }
+      ],
+      "mitigatorRules": [
+        { "id": "LEG_ADM_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+      ],
+      "blockerRules": [
+        { "id": "LEG_ADM_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "approval_delay", "ko": "인허가·행정 처리의 지연" },
+        { "id": "requirement_add", "ko": "보완 요구·추가 서류 발생" },
+        { "id": "schedule_slip", "ko": "관련 일정의 연쇄 밀림" }
+      ],
+      "prohibitedClaims": [],
+      "note": "관성 공망(절차 지연) + 해 — 행정 지연 사건 위험",
+      "reviewed": false
+    },
+    {
+      "riskId": "LEG_DISPUTE_LITIGATION",
+      "domain": "contract_legal",
+      "kind": "incident_risk",
+      "baseImpact": 0.7,
+      "triggerRules": [
+        { "id": "LEG_DSP_T1", "relation": "HYEONG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.6 },
+        { "id": "LEG_DSP_T2", "relation": "CHUNG", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 },
+        { "id": "LEG_DSP_T3", "tenGod": "QISHA", "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.45 }
+      ],
+      "amplifierRules": [
+        { "id": "LEG_DSP_A1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 },
+        { "id": "LEG_DSP_A2", "tenGod": "SHANGGUAN", "strength": 0.3 }
+      ],
+      "mitigatorRules": [
+        { "id": "LEG_DSP_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 },
+        { "id": "LEG_DSP_M2", "relation": "HAP", "strength": 0.3 }
+      ],
+      "blockerRules": [
+        { "id": "LEG_DSP_B1", "polarityRoleIn": ["YONG_STRONG"], "strength": 0.6 }
+      ],
+      "minimumEvidence": { "triggerCount": 2, "independentSourceCount": 2 },
+      "manifestations": [
+        { "id": "dispute_raise", "ko": "분쟁·민원의 제기 또는 피소 부담" },
+        { "id": "mediation_need", "ko": "조정·중재 절차의 필요" },
+        { "id": "legal_cost", "ko": "법률 비용·대응 부담 증가" }
+      ],
+      "prohibitedClaims": ["승소·패소 단정", "소송 결과 확정 표현"],
+      "note": "형+충 중첩 — 분쟁·소송 부담 사건 위험(절대 원칙 8: 승패 단정 금지)",
+      "reviewed": false
+    },
+    {
+      "riskId": "LEG_REVIEW_CAPACITY_WEAK",
+      "domain": "contract_legal",
+      "kind": "vulnerability",
+      "baseImpact": 0.4,
+      "triggerRules": [
+        { "id": "LEG_RVW_T1", "polarityRoleIn": ["GI_STRONG"], "strength": 0.5 },
+        { "id": "LEG_RVW_T2", "voidActive": true, "tenGodGroup": "resource", "strength": 0.4 },
+        { "id": "LEG_RVW_T3", "twelveStageIn": ["BYEONG", "SA", "JEOL"], "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.35 }
+      ],
+      "amplifierRules": [],
+      "mitigatorRules": [
+        { "id": "LEG_RVW_M1", "polarityRoleIn": ["YONG", "YONG_STRONG", "HEE", "HAN_GOOD"], "strength": 0.5 }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 1 },
+      "manifestations": [
+        { "id": "review_weak", "ko": "계약·문서 검토력의 일시 저하" },
+        { "id": "detail_miss", "ko": "세부 조건을 놓치기 쉬운 상태" }
+      ],
+      "prohibitedClaims": [],
+      "note": "취약성 — 단독 노출 없음. LEG_* incident_risk의 심각도 상향 중간 신호",
+      "reviewed": false
+    }
+  ]
+}
