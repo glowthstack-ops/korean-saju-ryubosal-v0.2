@@ -1061,7 +1061,10 @@ class RiskItem(_AliasModel):
 
 
 # 해시 스키마 버전 — 해시 대상 구성이 바뀌면 올린다(공백·키 순서 무관 canonical 직렬화).
-_RISK_HASH_SCHEMA_VERSION = 2
+# v3(감수 7차): specificityRank를 scoring에서 제거 — 대표·흡수 우선순위는 selection 소관,
+# scoring은 위험도 prior(baseImpact)만. 매처 의미론 변경 감지(reviewEnvironmentVersion/
+# reviewDependencyHash)는 R1 전 도입 예정.
+_RISK_HASH_SCHEMA_VERSION = 3
 
 
 def risk_scope_hash(item: RiskItem, scope: str) -> str:
@@ -1090,7 +1093,7 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
             ),
         }
     elif scope == "scoring":
-        body = {"baseImpact": item.base_impact, "specificityRank": item.specificity_rank}
+        body = {"baseImpact": item.base_impact}
     elif scope == "selection":
         body = {
             "riskFamily": item.risk_family,

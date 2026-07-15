@@ -7545,3 +7545,20 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
   · >40% 차트 0). 잔여 경고 = LEG_REVIEW_CAPACITY_WEAK 45.5%(C2 대상)·
   CAR_WORK_OVERLOAD 41.8%(직업 차수 대상). 검증: pytest 1821 passed·ruff·mypy clean.
 - **다음**: C2 = LEG 5항목(+교차 도메인 중복 검사) → 표본 감수.
+
+### 위험 엔진 C1 마감 — FIN 6항목 shadow_structure 승격 (2026-07-15, 데굴님 조건 3종 충족)
+
+- 조건① specificityRank를 scoring 해시에서 제거(selection 전용) — hashSchemaVersion 3.
+  매처 의미론 변경 감지(reviewEnvironmentVersion)는 R1 전 도입 예정으로 규격 기록.
+- 조건② 노출 음성 fixture 확장: INV UNKNOWN(구조 유지)≠DENIED(BLOCKED), DEBT
+  DENIED→BLOCKED(근거 보존), SET 대상 무관 형 음성 + 동일 사실 shape/targeted 병행
+  매칭 시 독립 원인 1 assertion(R1 occurrence 1회 가산 규격).
+- 조건③ SET는 형 자체가 아니라 정산 대상(재성) 활성 필수 — 음성 fixture로 고정.
+- FIN 6항목 reviewed:true·reviewScopes [shadow_structure]·reviewVersions {C1} 승격 +
+  전 reviewed 13항목 v3 해시 재스탬프. BUF trigger는 구조적 약화=event_shape 재분류
+  (vulnerability 승격 계약 충족). RISK_ENGINE_MODE는 계속 off.
+- 밀도 리포트에 exposure_assumption 명시(전 후보 UNKNOWN 가정·qualified 정의).
+- 테스트 59건(FIN 10건). 검증: pytest 1824 passed·ruff·mypy clean.
+- **다음: C2 = LEG 5항목**(REVIEW_CAPACITY_WEAK 45.5% 원인 제거, DISPUTE_LITIGATION
+  노출 필수, FIN-LEG primary 구분: 돈=FIN/권리·의무·절차=LEG/독립 원인 양쪽=병존/
+  파급만=primary+crossDomainEffects).

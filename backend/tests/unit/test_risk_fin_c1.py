@@ -26,6 +26,12 @@ from saju_shared_types.risk_engine import (
 
 _DICTS = Path(__file__).resolve().parents[2] / "dictionaries"
 
+# 양성 fixture 커버리지 manifest — reviewed 승격 게이트(test_risk_engine)가 참조한다.
+FIN_POSITIVE_IDS = {
+    "FIN_CASHFLOW_PRESSURE", "FIN_INVESTMENT_LOSS", "FIN_DEBT_GUARANTEE_BURDEN",
+    "FIN_INCOME_DELAY", "FIN_SETTLEMENT_DISPUTE", "FIN_BUFFER_WEAK",
+}
+
 
 @pytest.fixture(scope="module")
 def engine() -> RiskEngine:
@@ -78,6 +84,62 @@ def test_investment_loss_shape_and_exposure_requirement(engine: RiskEngine) -> N
     )))
     inv = neg.get("FIN_INVESTMENT_LOSS")
     assert inv is None or not is_active(inv)
+
+
+def test_investment_loss_unknown_vs_denied(engine: RiskEngine) -> None:
+    """INV 노출 음성 — UNKNOWN은 구조 후보 유지(조건부), DENIED는 BLOCKED."""
+    from saju_shared_types.risk_engine import ExposureStatus
+
+    facts = _facts(
+        gods={TenGod.PIANCAI: {LuckLayer.SEWOON}, TenGod.JIECAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY,
+                                target_ten_god=TenGod.PIANCAI)],
+        role=PolarityRole.GI,
+    )
+    unknown = _by_id(engine.generate(facts))["FIN_INVESTMENT_LOSS"]
+    assert is_active(unknown)  # 구조 후보 유지 — 등급·노출 상한은 R1/R3
+    denied = _by_id(engine.generate(
+        facts, exposure_status=ExposureStatus.DENIED,
+    ))["FIN_INVESTMENT_LOSS"]
+    assert denied.eligibility_status is EligibilityStatus.BLOCKED
+    assert not is_active(denied)
+
+
+def test_debt_guarantee_denied_blocked(engine: RiskEngine) -> None:
+    """DEBT 노출 음성 — 대출·보증 노출 DENIED면 반드시 BLOCKED(기록은 보존)."""
+    from saju_shared_types.risk_engine import ExposureStatus
+
+    facts = _facts(
+        gods={TenGod.QISHA: {LuckLayer.SEWOON}, TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+        role=PolarityRole.GI,
+    )
+    denied = _by_id(engine.generate(
+        facts, exposure_status=ExposureStatus.DENIED,
+    ))["FIN_DEBT_GUARANTEE_BURDEN"]
+    assert denied.eligibility_status is EligibilityStatus.BLOCKED
+    assert denied.evidence  # 근거 연구용 보존
+
+
+def test_settlement_requires_wealth_target_not_bare_hyeong(engine: RiskEngine) -> None:
+    """SET 대상 요구 — 형 자체가 아니라 정산 대상(재성) 활성이 필수: 대상 무관 형은
+    미생성, 같은 사실을 shape/targeted가 함께 잡아도 독립 원인은 1개."""
+    bare = _by_id(engine.generate(_facts(
+        relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+        role=PolarityRole.GI,
+    )))
+    st = bare.get("FIN_SETTLEMENT_DISPUTE")
+    assert st is None or not is_active(st)
+    pos = _by_id(engine.generate(_facts(
+        gods={TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGCAI)],
+        role=PolarityRole.GI,
+    )))["FIN_SETTLEMENT_DISPUTE"]
+    triggers = [e for e in pos.evidence if e.role is EvidenceRole.TRIGGER]
+    assert len({e.source for e in triggers}) == 1  # 동일 사실 → 독립 원인 1(점수 1회 가산 규격)
 
 
 def test_debt_guarantee_confirmed_required(engine: RiskEngine) -> None:

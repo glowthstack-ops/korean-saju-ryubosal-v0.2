@@ -223,6 +223,9 @@ def main() -> None:
           f"목표 ≤1.5는 exposure-qualified 기준 병기)")
     print(f"노출 확인 필요(UNKNOWN) 활성 후보: {n_exp_unknown} — R1 등급 상한·차단 대상"
           f"(일반 밀도와 분리, 룰 약화 판단에 합산 금지)")
+    print("exposure_assumption: 전 후보 UNKNOWN 가정(프로필 미적용) · "
+          "required_for_exposure/confirmed_required=분리 · "
+          "not_required/required_for_warning=qualified 포함")
     print(f"활성 kind 분포: {dict(kind_sum)}")
     fam_all = [x for s in totals for x in s["family_per_period"]]
     print(f"활성 family/기간: p50 {_percentile(fam_all, 0.5):.0f} · "

@@ -122,7 +122,16 @@
         "requirement": "not_required"
       },
       "note": "C1 개정 — 재정 유입·유출 구조 activation 필수(범용 기신 단독 생성 금지). INCOME_DELAY·UNEXPECTED_EXPENSE가 성립하면 supporting/배경으로 흡수",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C1"
+      },
+      "reviewHashes": {
+        "shadow_structure": "33fea870d97ff1e5"
+      }
     },
     {
       "riskId": "FIN_UNEXPECTED_EXPENSE",
@@ -268,7 +277,7 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "d1bd7df69b1023b8"
+        "shadow_structure": "3e15c8bb522ced0c"
       }
     },
     {
@@ -400,7 +409,16 @@
         "notApplicableAction": "block"
       },
       "note": "C1 개정 — shape=편재-비겁 동반(투기 변동+경쟁) 또는 편재 동반 재물 피격(targeted). 노출 UNKNOWN이면 '투자·고위험 거래를 한다면' 조건부(watch 상한), DENIED=BLOCKED",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C1"
+      },
+      "reviewHashes": {
+        "shadow_structure": "d855623f545bfb00"
+      }
     },
     {
       "riskId": "FIN_DEBT_GUARANTEE_BURDEN",
@@ -526,7 +544,16 @@
         "notApplicableAction": "block"
       },
       "note": "C1 개정 — 운 구조만으로 대출·보증 보유 추론 금지(confirmed_required): 노출 UNKNOWN은 '타인 재정 책임 선택 주의' 체크포인트(advisory)만. family=liability로 LEG_PENALTY와 대표 수렴",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C1"
+      },
+      "reviewHashes": {
+        "shadow_structure": "35df66ac2dd725e5"
+      }
     },
     {
       "riskId": "FIN_INCOME_DELAY",
@@ -629,7 +656,16 @@
         "notApplicableAction": "block"
       },
       "note": "C1 개정 — '지급 지연'(받을 돈의 시점) 전용: 수입 감소는 CASHFLOW_PRESSURE, 금액 이견은 SETTLEMENT_DISPUTE 소관. shape=재성 공망(결실 지연 구조) AND 재성 피격 활성",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C1"
+      },
+      "reviewHashes": {
+        "shadow_structure": "1c4e6ca4a6987aaf"
+      }
     },
     {
       "riskId": "FIN_SETTLEMENT_DISPUTE",
@@ -758,7 +794,16 @@
         "notApplicableAction": "block"
       },
       "note": "C1 개정 — FIN 소유(돈의 지급·회수·정산). 권리·의무·절차 문제는 LEG 소유(후보 복제 금지 — crossDomainEffects=contract_review_needed 부착, 독립 법률 원인이 있을 때만 LEG 별도). shape=형+재성 동반(이견 구조) — 단순 지급 지연·재성 피격만으로 승격 금지",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C1"
+      },
+      "reviewHashes": {
+        "shadow_structure": "21013dcac034d0be"
+      }
     },
     {
       "riskId": "FIN_BUFFER_WEAK",
@@ -769,14 +814,14 @@
       "triggerRules": [
         {
           "id": "FIN_BUF_T1",
-          "group": "activation",
+          "group": "event_shape",
           "voidActive": true,
           "tenGodGroup": "wealth",
           "strength": 0.4
         },
         {
           "id": "FIN_BUF_T2",
-          "group": "activation",
+          "group": "event_shape",
           "tenGod": "JIECAI",
           "tenGodGroup": "wealth",
           "polarityRoleIn": [
@@ -811,7 +856,7 @@
         "triggerCount": 1,
         "independentSourceCount": 1,
         "requiredGroups": [
-          "activation"
+          "event_shape"
         ]
       },
       "manifestations": [
@@ -833,7 +878,16 @@
         "requirement": "not_required"
       },
       "note": "C1 개정 — GI_STRONG 단독 발동 제거(재물 영역 활성 동반 필수). 독립 노출 없음: 다른 FIN 사건 성립 시 impact_amplifier 흡수 우선. CASHFLOW_PRESSURE(흐름 압박)와 구분=완충력 자체의 약화",
-      "reviewed": false
+      "reviewed": true,
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "C1"
+      },
+      "reviewHashes": {
+        "shadow_structure": "6b7bfa039894504d"
+      }
     }
   ]
 }
