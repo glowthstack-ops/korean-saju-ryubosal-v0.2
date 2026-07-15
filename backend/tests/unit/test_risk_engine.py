@@ -30,6 +30,7 @@ from saju_shared_types.event_engine import (
     TwelveStage,
 )
 from saju_shared_types.risk_engine import (
+    EligibilityStatus,
     EvidenceRole,
     ExposureStatus,
     RiskDomain,
@@ -175,8 +176,9 @@ def test_mitigator_attached_without_deleting_candidate(engine: RiskEngine) -> No
     )
     cands = {c.risk_id: c for c in engine.generate(facts)}
     assert "FIN_UNEXPECTED_EXPENSE" in cands  # 보호 신호가 있어도 위험은 남는다
-    roles = {e.role for e in cands["FIN_UNEXPECTED_EXPENSE"].evidence}
-    assert EvidenceRole.MITIGATOR in roles
+    c = cands["FIN_UNEXPECTED_EXPENSE"]
+    assert EvidenceRole.MITIGATOR in {e.role for e in c.evidence}
+    assert c.eligibility_status is EligibilityStatus.MITIGATED  # 유지 + 상태 표시
 
 
 def test_same_cause_counts_once(engine: RiskEngine) -> None:
@@ -200,7 +202,7 @@ def test_same_cause_counts_once(engine: RiskEngine) -> None:
 
 
 def test_blocker_evidence_preserved(engine: RiskEngine) -> None:
-    """blocker 근거는 후보를 삭제하지 않고 보존된다(발현 제한 판정은 R1 소관)."""
+    """blocker는 후보 기록을 삭제하지 않되 BLOCKED 상태로 분리한다(활성 집계 제외 가능)."""
     item = RiskItem.model_validate({
         "riskId": "FIN_TEST_BLK",
         "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
@@ -219,6 +221,139 @@ def test_blocker_evidence_preserved(engine: RiskEngine) -> None:
     cands = solo.generate(facts)
     assert len(cands) == 1
     assert {e.role for e in cands[0].evidence} == {EvidenceRole.TRIGGER, EvidenceRole.BLOCKER}
+    assert cands[0].eligibility_status is EligibilityStatus.BLOCKED
+    assert cands[0].suppression_reasons == ["B1"]
+
+
+def test_required_groups_gate() -> None:
+    """requiredGroups — '약한 범용 신호 2개'는 차단, '사건 형태+대상 활성'만 생성한다."""
+    item = RiskItem.model_validate({
+        "riskId": "FIN_TEST_GRP",
+        "domain": "finance", "kind": "incident_risk", "baseImpact": 0.6,
+        "triggerRules": [
+            # 사건 형태: 겁재-재성 동반(탈재 구조).
+            {"id": "T_SHAPE", "group": "event_shape", "tenGod": "JIECAI",
+             "tenGodGroup": "wealth", "strength": 0.6},
+            # 대상 활성: 재성이 충의 직접 대상.
+            {"id": "T_TARGET", "group": "target_activation", "relation": "CHUNG",
+             "relationTargetTenGodGroup": "wealth", "strength": 0.55},
+            # 범용(증폭 성격) 신호 — 필수 그룹을 채우지 못한다.
+            {"id": "T_GENERIC", "group": "generic",
+             "polarityRoleIn": ["GI", "GI_STRONG"], "strength": 0.4},
+        ],
+        "minimumEvidence": {
+            "triggerCount": 2, "independentSourceCount": 2,
+            "requiredGroups": ["event_shape", "target_activation"],
+        },
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo = RiskEngine(_DICTS)
+    solo._items = [item]
+    # 범용 신호 2개(겁재-재성 동반 없음·대상 충 없음): 극성 GI + 무관 충 → 차단.
+    weak = _facts(
+        gods={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+        role=PolarityRole.GI,
+    )
+    assert solo.generate(weak) == []
+    # 사건 형태(겁재+재성) + 대상 활성(재성 충) → 생성.
+    strong = _facts(
+        gods={TenGod.JIECAI: {LuckLayer.SEWOON}, TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGCAI)],
+        role=PolarityRole.GI,
+    )
+    cands = solo.generate(strong)
+    assert [c.risk_id for c in cands] == ["FIN_TEST_GRP"]
+    groups = {e.source_group for e in cands[0].evidence if e.role is EvidenceRole.TRIGGER}
+    assert {"event_shape", "target_activation"} <= groups
+
+
+def test_relation_target_filter() -> None:
+    """관계 대상 조건 — 같은 충이라도 피자극 십성이 다르면 매칭되지 않는다."""
+    item = RiskItem.model_validate({
+        "riskId": "FIN_TEST_TGT",
+        "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+        "triggerRules": [
+            {"id": "T1", "group": "target_activation", "relation": "CHUNG",
+             "relationTargetTenGodGroup": "wealth", "strength": 0.5},
+        ],
+        "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo = RiskEngine(_DICTS)
+    solo._items = [item]
+    wealth_hit = _facts(relations=[
+        RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI),
+    ])
+    other_hit = _facts(relations=[
+        RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGGUAN),
+    ])
+    assert [c.risk_id for c in solo.generate(wealth_hit)] == ["FIN_TEST_TGT"]
+    assert solo.generate(other_hit) == []
+
+
+def test_same_clash_generic_and_targeted_rule_share_source() -> None:
+    """같은 충을 일반 룰과 대상 룰이 잡아도 원인 서명이 같아 독립 출처 1개다."""
+    item = RiskItem.model_validate({
+        "riskId": "FIN_TEST_SIG",
+        "domain": "finance", "kind": "incident_risk", "baseImpact": 0.5,
+        "triggerRules": [
+            {"id": "T_ANY", "relation": "CHUNG", "strength": 0.5},
+            {"id": "T_TGT", "relation": "CHUNG",
+             "relationTargetTenGodGroup": "wealth", "strength": 0.5},
+        ],
+        "minimumEvidence": {"triggerCount": 2, "independentSourceCount": 2},
+        "manifestations": [{"id": "m1", "ko": "테스트"}],
+        "reviewed": False,
+    })
+    solo = RiskEngine(_DICTS)
+    solo._items = [item]
+    facts = _facts(relations=[
+        RelationFact(RelationKind.CHUNG, Pillar4.DAY, target_ten_god=TenGod.ZHENGCAI),
+    ])
+    # 두 룰 모두 매칭되지만 동일 원인(같은 충) → 출처 1개 → 생성 차단.
+    assert solo.generate(facts) == []
+
+
+def test_schema_rejects_polarity_only_event_shape() -> None:
+    """감수 원칙 — 극성(기신)만으로 구성된 룰은 event_shape 그룹이 될 수 없다."""
+    with pytest.raises(ValueError, match="증폭·취약 신호"):
+        RiskItem.model_validate({
+            "riskId": "FIN_TEST_POL",
+            "domain": "finance", "kind": "pressure", "baseImpact": 0.4,
+            "triggerRules": [
+                {"id": "T1", "group": "event_shape",
+                 "polarityRoleIn": ["GI"], "strength": 0.5},
+            ],
+            "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
+            "manifestations": [{"id": "m1", "ko": "테스트"}],
+            "reviewed": False,
+        })
+
+
+def test_lint_reviewed_incident_requires_groups() -> None:
+    """감수 승격(reviewed:true) incident_risk는 requiredGroups 필수(lint 게이트)."""
+    file = RiskMappingFile.model_validate({
+        "version": "0.0.1", "domain": "finance",
+        "items": [{
+            "riskId": "FIN_TEST_RG",
+            "domain": "finance", "kind": "incident_risk", "baseImpact": 0.5,
+            "triggerRules": [
+                {"id": "T1", "group": "event_shape", "tenGod": "JIECAI"},
+                {"id": "T2", "group": "target_activation", "relation": "CHUNG",
+                 "relationTargetTenGodGroup": "wealth"},
+            ],
+            "minimumEvidence": {"triggerCount": 2, "independentSourceCount": 2},
+            "manifestations": [{"id": "m1", "ko": "테스트"}],
+            "reviewed": True,
+        }],
+    })
+    errors = _lint_risk_mapping("risks/finance.json", file)
+    assert any("event_shape·target_activation 필수" in e for e in errors)
 
 
 def test_exposure_status_passthrough(engine: RiskEngine) -> None:

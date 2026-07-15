@@ -7372,3 +7372,32 @@ Top-N에서 긍정 후보에 밀림). 데굴님이 기회/위험/회복 독립 �
   파일 clean(전체 리포 잔존 오류는 tests/ 기존분, 신규 파일 0건).
 - **다음**: 위험 사전 7종 감수(reviewed:false → 확정) → R1 점수 6축 → R2 병합·분리
   선별 → R3 답변 계약+토큰 실측 → R4 골든 세트 → R5 개인화.
+
+### 위험 엔진 R0.5 — 사전 감수 인프라 + 밀도 기준선 (2026-07-15, 데굴님 감수 지시)
+
+R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙적으로 독립 사건 트리거가
+아니라 증폭·취약 신호, incident_risk는 사건 형태(event_shape)+대상 활성(target_activation)
+필수 그룹. R1은 계속 보류.
+
+- **스키마**: RiskRuleSpec에 `group`(신호 역할 — 극성·공망·운성 단독 룰은 event_shape/
+  target_activation 금지 스키마 강제) + `relationTargetTenGod(Group)`(무엇을 충·형했는가).
+  RiskMinimumEvidence에 `requiredGroups`(약한 범용 신호 2개 ≠ 사건형태+대상활성 구분).
+  RiskItem에 `riskFamily`/`relatedDomains`(도메인 교차 중복 통합), `allowedClaimScope`/
+  `claimCeiling`(건강·법률 화이트리스트+표현 상한). lint: requiredGroups 충족 불가능
+  항목 검출 + 감수 승격(reviewed:true) incident 게이트(필수 그룹·generic trigger 금지).
+- **provenance**: RelationFact에 피자극 십성(target_ten_god) — event_engine_v2가 자극
+  궁성의 천간/지지 본기 십성을 주입. 관계 서명에 피자극 십성 항상 포함(대상 조건
+  유무로 서명이 갈라져 독립 출처가 부풀려지는 것 차단). 잔여 갭(R1): 원국 취약 구조·
+  투간통근 작동성·구조 패턴.
+- **적격 상태**: EligibilityStatus(matched/mitigated/blocked) + suppression_reasons —
+  blocker는 기록 보존하되 활성 집계 제외 가능(불변식: recovery는 적격성·점수 불변).
+- **밀도 리포트**: scripts/risk_shadow_density.py — 기준선 실측(1980 차트, 세운+월운
+  22기간): 기간당 6.82후보, 활성 기간 81.8%, 충 1건→11개 risk_id 확산, vulnerability
+  발동률 54.5% — 감수 필요성 실증(진단: 대상 무관 관계 trigger + 기신 독립 trigger).
+- **감수 문서**: RISK_ENGINE.md §3-1 신호 역할 매트릭스(표 A)·§4-0 적격 불변식·§10-1
+  R0.5 절차. doc/v2_2/RISK_DICTIONARY_REVIEW.md — 대표 7항목(도메인별 1건) 개정안 +
+  잔여 37항목 일괄 규칙 + 밀도 목표(기간당 ≤3, 단일 원인 확산 ≤3) — **데굴님 확정 대기**.
+- 테스트 +5(requiredGroups 게이트·대상 매칭·동일 충 서명 공유·극성 단독 event_shape
+  거부·감수 승격 lint). 검증: pytest 1793 passed·ruff clean·mypy packages clean.
+- **다음**: 표 A + 대표 7항목 확정(데굴님) → 44항목 전체 적용 → 밀도 재실측 → reviewed
+  전환 → R1.

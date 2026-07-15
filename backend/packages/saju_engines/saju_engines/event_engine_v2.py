@@ -21,6 +21,7 @@ from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_engine import (
     TEN_GOD_GROUP,
+    TEN_GOD_KO_TO_KEY,
     TWELVE_STAGE_KO_TO_KEY,
     ConfidenceLevel,
     EventCandidateV2,
@@ -562,8 +563,13 @@ class EventEngineV2:
             ten_god_layers.setdefault(s.ten_god, set()).add(s.layer)
         hits = self._relation_hits(result, level, target)
         layer = _LEVEL_TO_LAYER[level]
+        # 피자극 십성 provenance — 충·형은 '무엇을 쳤는가'로 도메인이 갈리므로(재성 충≠
+        # 배우자궁 충≠사회궁 충) 자극 궁성의 천간/지지 본기 십성을 사실에 보존한다.
         relations = [
-            RelationFact(kind=a.kind, palace=a.palace, position=a.position)
+            RelationFact(
+                kind=a.kind, palace=a.palace, position=a.position,
+                target_ten_god=_natal_target_ten_god(result, a.palace, a.position),
+            )
             for a in _activations(hits, layer)
         ]
         hwa_el = _target_hwa_element(target, result, fav_map)
@@ -706,6 +712,25 @@ def _daewoon_pillar(d: DaewoonItem) -> LuckPillar:
 def _stage_of(pillar: LuckPillar) -> TwelveStage | None:
     """기둥 지지 12운성(한글) → TwelveStage enum."""
     return TWELVE_STAGE_KO_TO_KEY.get(pillar.twelve_unseong or "")
+
+
+def _natal_target_ten_god(
+    result: ManseV2Result, palace: Pillar4, position: str
+) -> TenGod | None:
+    """관계 발동의 피자극 글자(자극 궁성의 천간/지지 본기) 십성 — 위험 근거 provenance용.
+
+    한글 십성을 로마자 enum으로 환원한다. 일간(비교 기준 자신)·미정의 라벨은 None.
+    """
+    if result.pillars is None:
+        return None
+    natal = {
+        Pillar4.YEAR: result.pillars.year, Pillar4.MONTH: result.pillars.month,
+        Pillar4.DAY: result.pillars.day, Pillar4.HOUR: result.pillars.hour,
+    }.get(palace)
+    if natal is None:
+        return None
+    ko = natal.stem_ten_god if position == "stem" else natal.branch_main_ten_god
+    return TEN_GOD_KO_TO_KEY.get(ko or "")
 
 
 # MT4(§9): HAP으로 붕괴되는 합의 원 종류(subtype) 보존 — RelationType → subtype 라벨.

@@ -83,23 +83,70 @@
   "riskId": "FIN_CASHFLOW_PRESSURE",
   "domain": "finance",
   "kind": "incident_risk | pressure | vulnerability",
+  "riskFamily": "cashflow",
+  "relatedDomains": ["contract_legal"],
   "baseImpact": 0.65,
-  "triggerRules": [ { "id": "...", "strength": 0.6, "...조건(AND)..." } ],
+  "triggerRules": [ { "id": "...", "group": "event_shape", "strength": 0.6, "...조건(AND)..." } ],
   "amplifierRules": [],
   "mitigatorRules": [],
   "blockerRules": [],
-  "minimumEvidence": { "triggerCount": 1, "independentSourceCount": 2 },
+  "minimumEvidence": {
+    "triggerCount": 1,
+    "independentSourceCount": 2,
+    "requiredGroups": ["event_shape", "target_activation"]
+  },
   "manifestations": [ { "id": "unexpected_spend", "ko": "예상하지 못한 지출 발생" } ],
   "prohibitedClaims": ["파산 단정"],
+  "allowedClaimScope": ["관리 필요성", "검토 필요성", "가능한 발현 형태"],
+  "claimCeiling": "conditional_warning",
   "reviewed": false
 }
 ```
 
-룰 조건 축(전부 AND, 최소 1개 필수): `tenGod` / `tenGodGroup` / `relation`(+`relationPalace`)
-/ `polarityRoleIn` / `voidActive` / `twelveStageIn`.
+룰 조건 축(전부 AND, 최소 1개 필수): `tenGod` / `tenGodGroup` / `relation`(+`relationPalace`,
+`relationTargetTenGod(Group)` — **무엇을 충·형했는가**) / `polarityRoleIn` / `voidActive` /
+`twelveStageIn`. 각 룰은 신호 역할 그룹(`group`)을 갖는다(§3-1).
 
-**minimum_evidence 정책**: `incident_risk`는 독립 출처 2개 이상 필수(lint 강제) — 신호
-1개로 사건 위험 후보가 범람하는 것을 사전 게이트로 막는다. pressure/vulnerability는 1/1 허용.
+**minimum_evidence 정책**: 개수(`independentSourceCount` — incident_risk ≥2 lint 강제)와
+별개로 `requiredGroups`가 **서로 다른 필수 신호 그룹**을 요구한다 — '약한 범용 신호
+2개'와 '사건 형태 1 + 대상 활성 1'을 구분하기 위함(2026-07-15 감수). incident_risk는
+감수 승격(reviewed:true) 시 `event_shape`·`target_activation` 포함 + generic 그룹 trigger
+금지가 lint로 강제된다.
+
+**표현 정책**: 건강·법률은 블랙리스트(`prohibitedClaims`)만으로 빈틈이 생긴다 — 허용
+범위 화이트리스트(`allowedClaimScope`)와 표현 상한(`claimCeiling`: advisory/watch/
+conditional_warning/warning)을 병용한다.
+
+**도메인 교차 중복**: 같은 현실 사건(임대차 하자 → MOV 계약실패 + FIN 지출 + LEG 분쟁)이
+여러 risk_id로 갈라질 때를 위해 `riskFamily`/`relatedDomains`로 통합 키를 저작한다 —
+최종 출력은 주 위험 1건 + 파생 영향 설명(별도 3건처럼 부풀리지 않음, R2 배선).
+
+### 3-1. 공통 신호 역할 매트릭스 (표 A — 2026-07-15 감수 확정)
+
+**핵심 원칙: 기신·공망·12운성은 원칙적으로 독립 사건 트리거가 아니다** — 사건 종류를
+결정하지 않고 방향·부담을 키우는 증폭·취약 신호다. 극성·공망·운성 조건만으로 구성된
+룰은 event_shape/target_activation 그룹이 될 수 없다(스키마 강제). **incident_risk는
+반드시 사건 형태(event_shape)와 대상 활성(target_activation) 근거를 모두 가져야 한다.**
+
+| 신호 | 기본 역할 | 독립 트리거 | 도메인 지정 |
+|---|---|---|---|
+| 기신(polarityRole) | amplifier | 아니오 | 아니오 |
+| 공망(voidActive) | vulnerability/amplifier | 원칙적으로 아니오 | 대상에 따라 |
+| 충(CHUNG) | activation/disruption | 조건부 | **대상 정보 필요**(relationTarget*) |
+| 형(HYEONG) | persistence/conflict | 조건부 | 대상 정보 필요 |
+| 겁재(JIECAI) | event_shape 후보 | 조건부 | 재물·관계 맥락(동반 조건) 필요 |
+| 편재(PIANCAI) | volatility | 단독 불가 | 재물 |
+| 12운성(twelveStageIn) | operability/amplifier | 단독 불가 | 제한적 |
+| 궁위 활성(relationPalace) | target_activation | 보조 | 예 |
+| 다층 반복 | persistence(R1) | 단독 불가 | 기존 대상 계승 |
+
+kind별 필수 그룹:
+
+```text
+pressure       — polarity·부담 계열 신호만으로 생성 가능(requiredGroups 선택)
+vulnerability  — 보호력 저하 + 관련 영역 활성
+incident_risk  — event_shape + target_activation 필수, polarity는 증폭 요소
+```
 
 건강·안전 도메인은 질병명·사망을 단정하지 않고 **부담 부위와 위험 행동을 경고**하는
 방식으로만 저작한다(`prohibitedClaims` + 기존 PROHIBITIONS 계열 준수).
@@ -116,6 +163,18 @@
 - `ProtectiveFactor` / `RecoveryWindow` — 보호(현재)와 회복(사후)의 분리 타입.
 - `ExposureStatus` — CONFIRMED / DENIED / UNKNOWN / NOT_APPLICABLE.
 - `RiskLevel` — advisory / watch / warning / critical.
+
+### 4-0. 적격 상태 불변식 (`EligibilityStatus` — 2026-07-15 감수)
+
+blocker/mitigator를 근거로만 남기면 shadow 통계에서 실제 활성 후보처럼 집계된다 —
+상태를 분리한다: `matched` / `mitigated` / `blocked` (+`suppression_reasons`).
+
+```text
+blocker는 후보 기록을 삭제하지 않는다.
+그러나 활성 위험 후보 집계(R2 슬롯·R4 오경고 분모)에서는 제외할 수 있다.
+mitigator는 후보를 유지하고 강도를 낮춘다(R1).
+recovery는 현재 후보의 적격성이나 점수를 낮추지 않는다.
+```
 
 ### 4-1. protection ≠ recovery (필수 분리)
 
@@ -263,17 +322,26 @@ answer_contract:
   가능성, 긍정·위험 균형, 노출 없음 시 경고 하향 여부.
 - 초기: 중대 위험 누락 방지 우선의 shadow 검증. 사용자 노출 전환 시 높은 임계값 적용.
 
-## 10. 로드맵 (R0 = 이번 PR)
+## 10. 로드맵
 
 | 단계 | 내용 | 상태 |
 |---|---|---|
-| R0-A | 본 규격 문서 | 완료 |
-| R0-B | 타입 계층(shared_types/risk_engine.py) | 완료 |
-| R0-C | 위험 사전 7종(reviewed:false) + 스키마·lint | 완료 — **감수 대기** |
-| R0-D | 엔진 뼈대(원시 신호 입력, 원자 후보만, shadow) | 완료 |
-| R0-E | 회귀(OFF byte-identical·7도메인 fixture·provenance 중복 방지) | 완료 |
+| R0 | 규격·타입·사전 초안·엔진 뼈대·shadow 회귀 | 완료(커밋 fe939f8) |
+| R0.5 | 위험 사전 감수 및 후보 밀도 검증 | **진행 중** |
 | R1 | 6축 점수·보호 분석·exposure·등급 (사전 감수 후) | 대기 |
-| R2 | Episode 병합·최대 위험 월·분리 선별(min/max 정책) | 대기 |
+| R2 | Episode 병합·최대 위험 월·분리 선별(min/max 정책)·risk_family 통합 | 대기 |
 | R3 | 답변 계약·표현 가드·토큰 실측·reserve | 대기 |
 | R4 | 골든 세트·shadow 비교·임계값 도메인별 조정 | 대기 |
 | R5 | 개인화(현실 노출 확장·개인 민감도) | 대기 |
+
+### 10-1. R0.5 절차 (2026-07-15 확정 순서)
+
+1. 공통 신호 역할 매트릭스 확정(§3-1) — 완료
+2. `minimumEvidence.requiredGroups` 스키마·엔진 지원 — 완료
+3. RawPeriodFacts 대상 provenance 보강(피자극 십성 `relationTarget*`) — 완료.
+   잔여 갭(R1 백로그): 원국 취약 구조, 용신 canonical 역할 상세, 투간·통근 작동성,
+   구조 패턴, 동일 원인의 다계층 반복 추적.
+4. 44항목 도메인별 감수표 작성(대표 7항목 기준 샘플 우선 — `RISK_DICTIONARY_REVIEW.md`)
+5. 점수 없는 shadow 후보 밀도 리포트(`scripts/risk_shadow_density.py`) — 기준선 실측 완료
+6. 오발동 항목 수정 후 reviewed:true 전환(사용자 감수)
+7. 이후 R1 착수

@@ -94,6 +94,20 @@ class RiskLevel(StrEnum):
     CRITICAL = "critical"  # 고영향·노출 확인·근접 시점 — 최상단 경고
 
 
+class EligibilityStatus(StrEnum):
+    """후보 적격 상태 — blocker/mitigator를 근거로만 남기지 않고 상태로 분리한다
+    (RISK_ENGINE.md §불변식, 2026-07-15 감수).
+
+    불변식: blocker는 후보 기록을 삭제하지 않지만 활성 위험 집계(R2 슬롯·R4 오경고
+    분모)에서는 제외할 수 있다. mitigator는 후보를 유지하고 강도만 낮춘다(R1).
+    recovery는 현재 후보의 적격성·점수를 낮추지 않는다.
+    """
+
+    MATCHED = "matched"  # 활성 — trigger 충족, 차단·완화 없음
+    MITIGATED = "mitigated"  # 활성 — 보호 신호 동반(강도 하향은 R1)
+    BLOCKED = "blocked"  # 비활성 — 발현 차단(근거 연구용 보존, 활성 집계 제외)
+
+
 class RiskEvidence(BaseModel):
     """위험 근거 1건 — 구조화 provenance.
 
@@ -109,6 +123,9 @@ class RiskEvidence(BaseModel):
     source: str  # 원인 사실 서명 — 예: 'relation:CHUNG:branch:day_pillar', 'polarity:GI_STRONG'
     strength: float = Field(ge=0.0, le=1.0)  # 사전 룰의 기여 강도(0~1 정규화)
     role: EvidenceRole
+    # 신호 역할 그룹(사전 룰의 group) — event_shape(사건 형태)/target_activation(대상 활성)/
+    # activation(발동)/generic. minimum_evidence.required_groups 판정에 쓴다(§신호 역할 매트릭스).
+    source_group: str | None = None
     target_domain: RiskDomain | None = None
     target_palace: str | None = None  # 자극 궁성(year/month/day/hour_pillar)
 
@@ -144,6 +161,9 @@ class RiskCandidate(BaseModel):
     score_components: RiskScoreComponents | None = None  # R1에서 산출 — R0는 None
     exposure_status: ExposureStatus = ExposureStatus.UNKNOWN
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)  # 근거 충분도 — R1 산출(R0=0.0)
+    # 적격 상태 — blocked 후보는 기록을 보존하되 활성 집계에서 제외한다(불변식).
+    eligibility_status: EligibilityStatus = EligibilityStatus.MATCHED
+    suppression_reasons: list[str] = Field(default_factory=list)  # 차단 근거 룰 id들
 
 
 class ProtectiveFactor(BaseModel):

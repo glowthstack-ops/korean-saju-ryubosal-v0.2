@@ -721,17 +721,38 @@ _RISK_ID_PREFIX = {
     "health_safety": "HLT_", "relationship": "REL_", "relocation": "MOV_",
     "selection": "SEL_",
 }
+# 신호 역할 그룹(RISK_ENGINE.md §신호 역할 매트릭스, 2026-07-15 감수) — 룰 group 유효값.
+# event_shape=사건 형태 결정 / target_activation=발현 영역(대상) 활성 / activation=잠재
+# 구조의 기간 발동 / generic=미분류(감수 전 초안 전용).
+_RISK_SOURCE_GROUPS = ("event_shape", "target_activation", "activation", "generic")
+# requiredGroups 유효값 — generic은 필수 그룹이 될 수 없다.
+_RISK_REQUIRED_GROUPS = ("event_shape", "target_activation", "activation")
+# claimCeiling 유효값 — 표현 상한(허용 범위 화이트리스트 allowedClaimScope와 병용).
+_RISK_CLAIM_CEILINGS = ("advisory", "watch", "conditional_warning", "warning")
 
 
 class RiskRuleSpec(_AliasModel):
-    """위험 룰 1건 — 조건은 전부 AND. 최소 1개 조건 필수(무조건 룰 금지)."""
+    """위험 룰 1건 — 조건은 전부 AND. 최소 1개 조건 필수(무조건 룰 금지).
+
+    group은 신호 역할 그룹 — trigger 룰에서 requiredGroups 판정에 쓴다. 감수 원칙
+    (2026-07-15): 기신·공망·12운성은 원칙적으로 독립 사건 트리거가 아니라 증폭·취약
+    신호다 — 극성·공망·운성 조건 **만**으로 구성된 룰에는 event_shape/target_activation
+    그룹을 붙일 수 없다(스키마 강제).
+    """
 
     id: str
     strength: float = Field(default=0.5, ge=0.0, le=1.0)
+    group: str = "generic"  # 신호 역할 그룹(_RISK_SOURCE_GROUPS)
     ten_god: str | None = Field(default=None, alias="tenGod")  # TenGod 로마자 키
     ten_god_group: str | None = Field(default=None, alias="tenGodGroup")  # peer/output/...
     relation: str | None = None  # HAP/CHUNG/HYEONG/PA/HAE/BOKEUM
     relation_palace: str | None = Field(default=None, alias="relationPalace")
+    # 관계의 '대상'(무엇을 충·형했는가) — 원국 피자극 글자의 십성/십성군. 충·형·공망은
+    # 존재만으로 도메인을 못 정한다(재성 충≠배우자궁 충≠사회궁 충) — 대상 조건으로 구분.
+    relation_target_ten_god: str | None = Field(default=None, alias="relationTargetTenGod")
+    relation_target_ten_god_group: str | None = Field(
+        default=None, alias="relationTargetTenGodGroup",
+    )
     polarity_role_in: list[str] | None = Field(default=None, alias="polarityRoleIn")
     void_active: bool | None = Field(default=None, alias="voidActive")
     twelve_stage_in: list[str] | None = Field(default=None, alias="twelveStageIn")
@@ -744,6 +765,16 @@ class RiskRuleSpec(_AliasModel):
         )
         if all(c is None for c in conditions):
             raise ValueError(f"위험 룰 조건 없음(무조건 룰 금지): {self.id}")
+        if self.group not in _RISK_SOURCE_GROUPS:
+            raise ValueError(f"group 값 오류: {self.group} ({self.id})")
+        # 감수 원칙 — 극성·공망·운성 단독 룰은 사건 형태/대상 활성 그룹 불가(증폭·취약).
+        has_substantive = any(
+            c is not None for c in (self.ten_god, self.ten_god_group, self.relation)
+        )
+        if self.group in ("event_shape", "target_activation") and not has_substantive:
+            raise ValueError(
+                f"기신·공망·12운성 단독 룰은 {self.group} 그룹 불가(증폭·취약 신호): {self.id}"
+            )
         if self.ten_god is not None and self.ten_god not in {str(g) for g in _TenGodRoman}:
             raise ValueError(f"tenGod 값 오류: {self.ten_god} ({self.id})")
         if self.ten_god_group is not None and self.ten_god_group not in _RISK_TEN_GOD_GROUPS:
@@ -755,6 +786,24 @@ class RiskRuleSpec(_AliasModel):
                 raise ValueError(f"relationPalace는 relation과 함께만 쓴다: {self.id}")
             if self.relation_palace not in _RISK_PALACES:
                 raise ValueError(f"relationPalace 값 오류: {self.relation_palace} ({self.id})")
+        if (
+            self.relation_target_ten_god is not None
+            or self.relation_target_ten_god_group is not None
+        ) and self.relation is None:
+            raise ValueError(f"relationTarget*은 relation과 함께만 쓴다: {self.id}")
+        if self.relation_target_ten_god is not None and (
+            self.relation_target_ten_god not in {str(g) for g in _TenGodRoman}
+        ):
+            raise ValueError(
+                f"relationTargetTenGod 값 오류: {self.relation_target_ten_god} ({self.id})"
+            )
+        if self.relation_target_ten_god_group is not None and (
+            self.relation_target_ten_god_group not in _RISK_TEN_GOD_GROUPS
+        ):
+            raise ValueError(
+                f"relationTargetTenGodGroup 값 오류: "
+                f"{self.relation_target_ten_god_group} ({self.id})"
+            )
         for role in self.polarity_role_in or []:
             if role not in _RISK_POLARITY_ROLES:
                 raise ValueError(f"polarityRoleIn 값 오류: {role} ({self.id})")
@@ -765,10 +814,25 @@ class RiskRuleSpec(_AliasModel):
 
 
 class RiskMinimumEvidence(_AliasModel):
-    """후보 생성 최소 근거 — 신호 1개로 모든 위험 후보가 생성되는 범람을 막는다."""
+    """후보 생성 최소 근거 — 신호 1개로 모든 위험 후보가 생성되는 범람을 막는다.
+
+    required_groups: 개수 조건과 별개의 **필수 신호 그룹** — '약한 범용 신호 2개'와
+    '사건 형태 1 + 대상 활성 1'을 구분한다(2026-07-15 감수). incident_risk는 감수 승격
+    (reviewed:true) 시 event_shape·target_activation 포함이 lint로 강제된다.
+    """
 
     trigger_count: int = Field(alias="triggerCount", ge=1)
     independent_source_count: int = Field(alias="independentSourceCount", ge=1)
+    required_groups: list[str] = Field(alias="requiredGroups", default_factory=list)
+
+    @model_validator(mode="after")
+    def _validate_groups(self) -> RiskMinimumEvidence:
+        for g in self.required_groups:
+            if g not in _RISK_REQUIRED_GROUPS:
+                raise ValueError(f"requiredGroups 값 오류: {g}")
+        if len(set(self.required_groups)) != len(self.required_groups):
+            raise ValueError("requiredGroups 중복")
+        return self
 
 
 class RiskManifestationSpec(_AliasModel):
@@ -784,6 +848,10 @@ class RiskItem(_AliasModel):
     risk_id: str = Field(alias="riskId")
     domain: str  # RiskDomain 값 — 파일 domain과 일치(lint)
     kind: str  # pressure | vulnerability | incident_risk
+    # 도메인 교차 중복 관리(2026-07-15 감수) — 같은 현실 사건(예: 임대차 하자)이 여러
+    # 도메인 risk_id로 갈라질 때 주 위험 1건 + 파생 설명으로 통합하기 위한 통합 키.
+    risk_family: str | None = Field(default=None, alias="riskFamily")
+    related_domains: list[str] = Field(alias="relatedDomains", default_factory=list)
     base_impact: float = Field(alias="baseImpact", ge=0.0, le=1.0)
     trigger_rules: list[RiskRuleSpec] = Field(alias="triggerRules", min_length=1)
     amplifier_rules: list[RiskRuleSpec] = Field(alias="amplifierRules", default_factory=list)
@@ -791,7 +859,11 @@ class RiskItem(_AliasModel):
     blocker_rules: list[RiskRuleSpec] = Field(alias="blockerRules", default_factory=list)
     minimum_evidence: RiskMinimumEvidence = Field(alias="minimumEvidence")
     manifestations: list[RiskManifestationSpec] = Field(min_length=1)
+    # 표현 정책 — 블랙리스트(prohibited)만으로는 건강·법률 빈틈이 생긴다: 허용 범위
+    # 화이트리스트(allowedClaimScope) + 표현 상한(claimCeiling)을 병용한다.
     prohibited_claims: list[str] = Field(alias="prohibitedClaims", default_factory=list)
+    allowed_claim_scope: list[str] = Field(alias="allowedClaimScope", default_factory=list)
+    claim_ceiling: str | None = Field(default=None, alias="claimCeiling")
     note: str | None = None
     reviewed: bool
 
@@ -801,6 +873,13 @@ class RiskItem(_AliasModel):
             raise ValueError(f"kind 값 오류: {self.kind} ({self.risk_id})")
         if self.domain not in _RISK_ID_PREFIX:
             raise ValueError(f"domain 값 오류: {self.domain} ({self.risk_id})")
+        for d in self.related_domains:
+            if d not in _RISK_ID_PREFIX:
+                raise ValueError(f"relatedDomains 값 오류: {d} ({self.risk_id})")
+            if d == self.domain:
+                raise ValueError(f"relatedDomains에 자기 도메인 포함: {self.risk_id}")
+        if self.claim_ceiling is not None and self.claim_ceiling not in _RISK_CLAIM_CEILINGS:
+            raise ValueError(f"claimCeiling 값 오류: {self.claim_ceiling} ({self.risk_id})")
         return self
 
 
@@ -1311,6 +1390,9 @@ def _lint_risk_mapping(rel: str, file: RiskMappingFile) -> list[str]:
     - 같은 파일 안 risk_id 중복, 항목 안 룰 id 중복(역할 전체 통합).
     - incident_risk인데 independent_source_count < 2 — 신호 1개 사건 위험 범람 방지
       (RISK_ENGINE.md §R0-C minimum_evidence 정책).
+    - requiredGroups가 trigger 룰 group에 없으면 충족 불가능 항목(항상 차단) — 오저작.
+    - 감수 승격(reviewed:true) 게이트: incident_risk는 requiredGroups에 event_shape·
+      target_activation 포함 + generic 그룹 trigger 금지(2026-07-15 감수 원칙).
     """
     errors: list[str] = []
     prefix = _RISK_ID_PREFIX.get(file.domain)
@@ -1343,6 +1425,25 @@ def _lint_risk_mapping(rel: str, file: RiskMappingFile) -> list[str]:
             errors.append(
                 f"{rel}: incident_risk는 독립 출처 2개 이상 필요 — {item.risk_id}"
             )
+        trigger_groups = {r.group for r in item.trigger_rules}
+        for g in item.minimum_evidence.required_groups:
+            if g not in trigger_groups:
+                errors.append(
+                    f"{rel}: requiredGroups({g})를 만족할 trigger 룰 없음(충족 불가) — "
+                    f"{item.risk_id}"
+                )
+        if item.reviewed and item.kind == "incident_risk":
+            required = set(item.minimum_evidence.required_groups)
+            if not {"event_shape", "target_activation"} <= required:
+                errors.append(
+                    f"{rel}: 감수 승격 incident_risk는 requiredGroups에 "
+                    f"event_shape·target_activation 필수 — {item.risk_id}"
+                )
+            if "generic" in trigger_groups:
+                errors.append(
+                    f"{rel}: 감수 승격 incident_risk에 generic 그룹 trigger 금지 — "
+                    f"{item.risk_id}"
+                )
     return errors
 
 

@@ -25,6 +25,7 @@ from saju_shared_types.event_engine import (
     TwelveStage,
 )
 from saju_shared_types.risk_engine import (
+    EligibilityStatus,
     EvidenceRole,
     ExposureStatus,
     RiskCandidate,
@@ -43,11 +44,17 @@ _PERIOD_LAYER = "period"
 
 @dataclass(frozen=True)
 class RelationFact:
-    """시점의 관계 발동 원시 사실 1건(합충형파해·복음, 자극 궁성 포함)."""
+    """시점의 관계 발동 원시 사실 1건(합충형파해·복음, 자극 궁성·피자극 십성 포함).
+
+    target_ten_god: 원국 피자극 글자의 십성 — 충·형·공망은 존재만으로 위험 도메인을 못
+    정하므로(재성 충 ≠ 배우자궁 충 ≠ 사회궁 충) '무엇을 쳤는가'를 근거에 보존한다
+    (2026-07-15 감수 — R0 근거 정확도 문제). 일간 등 십성 미정의는 None.
+    """
 
     kind: RelationKind
     palace: Pillar4
     position: str = "branch"  # 'stem' | 'branch'
+    target_ten_god: TenGod | None = None  # 피자극 글자(궁성의 천간/지지 본기) 십성
 
 
 @dataclass(frozen=True)
@@ -116,9 +123,14 @@ class RiskEngine:
         """한 시점의 원시 신호에서 원자 위험 후보를 생성한다.
 
         생성 조건(minimum_evidence): trigger 근거 수(중복 제거 후) ≥ trigger_count AND
-        독립 출처 수 ≥ independent_source_count. 신호 1개로 모든 위험이 생성되는 범람을
-        사전 게이트로 막는다. blocker 근거는 후보를 삭제하지 않고 근거로 동반 보존한다 —
-        발현 제한 판정은 R1 점수 계층의 소관(근거 손실 방지).
+        독립 출처 수 ≥ independent_source_count AND 필수 그룹(required_groups — 사건
+        형태/대상 활성 등)별 trigger 근거 ≥ 1. '약한 범용 신호 N개'와 '사건 형태 + 대상
+        활성'을 구분해 신호 1개·범용 신호만의 범람을 사전 게이트로 막는다.
+
+        불변식(2026-07-15 감수): blocker 근거는 후보 기록을 삭제하지 않되
+        eligibility_status=BLOCKED로 분리한다 — 근거 연구용으로 보존하고, 활성 위험
+        집계(R2 슬롯·R4 오경고 분모)에서는 제외 가능해야 한다. mitigator는 후보 유지 +
+        MITIGATED 표시(강도 하향은 R1).
 
         Args:
             facts: 원시 신호 스냅샷.
@@ -145,6 +157,7 @@ class RiskEngine:
                         source=m.source,
                         strength=rule.strength,
                         role=role,
+                        source_group=rule.group,
                         target_domain=RiskDomain(item.domain),
                         target_palace=m.palace,
                     ))
@@ -156,6 +169,19 @@ class RiskEngine:
                 item.minimum_evidence.independent_source_count
             ):
                 continue
+            trigger_groups = {e.source_group for e in triggers}
+            if any(
+                g not in trigger_groups
+                for g in item.minimum_evidence.required_groups
+            ):
+                continue
+            blockers = [e for e in evidences if e.role is EvidenceRole.BLOCKER]
+            if blockers:
+                status = EligibilityStatus.BLOCKED
+            elif any(e.role is EvidenceRole.MITIGATOR for e in evidences):
+                status = EligibilityStatus.MITIGATED
+            else:
+                status = EligibilityStatus.MATCHED
             out.append(RiskCandidate(
                 risk_id=item.risk_id,
                 domain=RiskDomain(item.domain),
@@ -166,6 +192,8 @@ class RiskEngine:
                 score_components=None,  # R1에서 산출
                 exposure_status=exposure_status,
                 confidence=0.0,  # R1에서 산출
+                eligibility_status=status,
+                suppression_reasons=[e.code for e in blockers],
             ))
         return out
 
@@ -214,10 +242,32 @@ class RiskEngine:
                     or r.palace.value == rule.relation_palace
                 )
             ]
+            # 대상 조건 — '무엇을 충·형했는가'(피자극 십성). 충·형은 존재만으로 도메인을
+            # 못 정하므로 대상 필터가 있으면 피자극 십성/십성군이 일치하는 발동만 남긴다.
+            if rule.relation_target_ten_god is not None:
+                want = TenGod(rule.relation_target_ten_god)
+                hits = [r for r in hits if r.target_ten_god is want]
+            if rule.relation_target_ten_god_group is not None:
+                hits = [
+                    r for r in hits
+                    if r.target_ten_god is not None
+                    and TEN_GOD_GROUP[r.target_ten_god].value == (
+                        rule.relation_target_ten_god_group
+                    )
+                ]
             if not hits:
                 return None
             palaces = sorted({r.palace.value for r in hits})
-            parts.append(f"relation:{kind.value}:" + "+".join(palaces))
+            sig = f"relation:{kind.value}:" + "+".join(palaces)
+            # 피자극 십성을 서명에 **항상** 포함 — 대상 조건이 있는 룰과 없는 룰이 같은
+            # 충을 잡았을 때 서명이 갈라져 독립 출처가 부풀려지는 것을 막는다(같은 원인
+            # 사실 = 같은 서명). 대상이 다르면 실제로 다른 글자를 친 다른 사실이다.
+            gods = sorted({
+                r.target_ten_god.value for r in hits if r.target_ten_god is not None
+            })
+            if gods:
+                sig += ":" + "+".join(gods)
+            parts.append(sig)
             layers.append(facts.layer.value)
             palace = palaces[0] if len(palaces) == 1 else None
 
