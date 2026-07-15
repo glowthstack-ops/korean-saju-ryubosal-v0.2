@@ -956,7 +956,15 @@ class RiskManifestationSpec(_AliasModel):
 # 항목이 적용 가능한 방식을 명시해 추첨형에 '실력 경쟁' 표현이 확산되는 것을 막는다.
 _RISK_SELECTION_MODES = (
     "competitive_assessment", "lottery_draw", "eligibility_screening",
-    "placement_allocation",
+    "placement_allocation", "mixed",
+)
+# 선발 단계(감수 13차) — mode와 독립 축(상호 자동 추론 금지: stage=draw여도 mode를
+# lottery로 가정하지 않는다). MATCHED/UNKNOWN/MISMATCHED 3상태는 R3 노출 판정 소비
+# (UNKNOWN=구조 보존·특정 표현 금지, MISMATCHED=NOT_APPLICABLE·임의 fallback 금지).
+# 현 R0.5 엔진 적격성에는 미사용(사전 메타데이터) — 적격성 사용 시 env r0.5.6 필수.
+_RISK_SELECTION_STAGES = (
+    "application_document", "eligibility_check", "assessment", "draw",
+    "result_wait", "waitlist", "placement_allocation",
 )
 
 # exposurePolicy 유효값(감수 6차) — 현실 노출 정책을 note가 아닌 기계 판독 필드로.
@@ -1060,6 +1068,9 @@ class RiskItem(_AliasModel):
     applicable_selection_modes: list[str] = Field(
         alias="applicableSelectionModes", default_factory=list,
     )
+    applicable_selection_stages: list[str] = Field(
+        alias="applicableSelectionStages", default_factory=list,
+    )
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
@@ -1088,6 +1099,11 @@ class RiskItem(_AliasModel):
             if mode not in _RISK_SELECTION_MODES:
                 raise ValueError(
                     f"applicableSelectionModes 값 오류: {mode} ({self.risk_id})"
+                )
+        for stage in self.applicable_selection_stages:
+            if stage not in _RISK_SELECTION_STAGES:
+                raise ValueError(
+                    f"applicableSelectionStages 값 오류: {stage} ({self.risk_id})"
                 )
         return self
 

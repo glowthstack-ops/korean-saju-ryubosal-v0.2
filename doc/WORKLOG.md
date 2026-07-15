@@ -7655,3 +7655,22 @@ R0 커밋(fe939f8) 후 감수 지시 반영: 기신·공망·12운성은 원칙�
 - 다음: C3-c = SEL 4항목 canonical(DOCUMENT_DEFECT·ELIGIBILITY_REVIEW·
   DRAW_OUTCOME_UNCERTAINTY·WAITLIST_PROLONGATION/RESULT_DELAY 분기) + mode/stage
   2축(적격성 사용 시 env r0.5.6 필수) → CAR 5항목 표본 감수.
+
+### 위험 엔진 C3-c — SEL canonical 5항목 + stage 축 + CAR fixture 확충 (2026-07-15)
+
+- **manifest 정정**: SEL legacy 4 → canonical **5**(RESULT_DELAY와 WAITLIST 분리 —
+  exposure·stage 상이). SEL_DOCUMENT_DEFECT_RISK(stage=application_document)/
+  ELIGIBILITY_REVIEW_RISK(pressure — 자격 미달 단정 금지)/DRAW_OUTCOME_UNCERTAINTY
+  (mode=lottery_draw+stage=draw 전용, 상시 발동 방지: 관문 활성+기간 특이 shape,
+  확률·방향 단정 금지)/RESULT_DELAY_PRESSURE(stage=result_wait, 인성 통지 정체 —
+  대기명단 추론 금지, 채용 대기는 CAR primary)/WAITLIST_PROLONGATION(stage=waitlist,
+  confirmed_required — UNKNOWN이면 표현 절대 불가). legacy 4 ID 제거.
+- **applicableSelectionStages 축**(7단계) + mixed mode: mode·stage 상호 자동 추론
+  금지, MATCHED/UNKNOWN/MISMATCHED 3상태는 R3 노출 판정 소비(UNKNOWN=구조 보존·특정
+  표현 금지 / MISMATCHED=NOT_APPLICABLE·임의 fallback 금지). **현 엔진 적격성에는
+  미사용(사전 메타데이터)이라 env r0.5.5 유지** — 적격성 사용 시 r0.5.6 필수 규격 명시.
+  context_target_signature(현실 맥락 activation 연결)는 R1 백로그.
+- CAR 승격 커버리지 확충: EVALUATION 관성 피격 단독 음성, EXIT 종료 사건 미생성,
+  HIRING_OUTCOME 절차 정체 단독 음성. CAR·SEL canonical 전부 reviewed:false — 감수
+  대기(승격은 표본 감수 후).
+- 검증: pytest 1844 passed·ruff·mypy clean.

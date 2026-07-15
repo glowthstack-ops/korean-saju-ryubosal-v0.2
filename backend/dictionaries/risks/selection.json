@@ -3,245 +3,521 @@
   "domain": "selection",
   "items": [
     {
-      "riskId": "SEL_DOCUMENT_OMISSION",
+      "riskId": "SEL_DOCUMENT_DEFECT_RISK",
       "domain": "selection",
       "kind": "incident_risk",
+      "riskFamily": "selection_process",
+      "specificityRank": 2,
       "baseImpact": 0.5,
+      "applicableSelectionStages": [
+        "application_document"
+      ],
       "triggerRules": [
         {
-          "id": "SEL_DOC_T1",
+          "id": "SEL_DDF_S1",
+          "group": "event_shape",
+          "tenGod": "PIANYIN",
+          "tenGodGroup": "resource",
+          "strength": 0.45
+        },
+        {
+          "id": "SEL_DDF_S2",
+          "group": "event_shape",
           "voidActive": true,
           "tenGodGroup": "resource",
-          "strength": 0.5
+          "strength": 0.45
         },
         {
-          "id": "SEL_DOC_T2",
-          "tenGod": "PIANYIN",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
-          "strength": 0.4
-        },
-        {
-          "id": "SEL_DOC_T3",
+          "id": "SEL_DDF_TA1",
+          "group": "target_activation",
           "relation": "HAE",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.35
+        },
+        {
+          "id": "SEL_DDF_TA2",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
           "strength": 0.35
         }
       ],
       "amplifierRules": [
         {
-          "id": "SEL_DOC_A1",
+          "id": "SEL_DDF_AP1",
           "polarityRoleIn": [
+            "GI",
             "GI_STRONG"
           ],
-          "strength": 0.4
+          "strength": 0.45
         }
       ],
       "mitigatorRules": [
         {
-          "id": "SEL_DOC_M1",
+          "id": "SEL_DDF_M1",
           "polarityRoleIn": [
             "YONG",
-            "YONG_STRONG",
             "HEE",
             "HAN_GOOD"
           ],
           "strength": 0.5
         },
         {
-          "id": "SEL_DOC_M2",
+          "id": "SEL_DDF_M2",
           "tenGod": "ZHENGYIN",
           "strength": 0.3
         }
       ],
-      "blockerRules": [
-        {
-          "id": "SEL_DOC_B1",
-          "polarityRoleIn": [
-            "YONG_STRONG"
-          ],
-          "strength": 0.6
-        }
-      ],
+      "blockerRules": [],
       "minimumEvidence": {
-        "triggerCount": 2,
-        "independentSourceCount": 2
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
       },
       "manifestations": [
         {
-          "id": "apply_omission",
-          "ko": "지원 서류의 누락·기한 놓침"
+          "id": "item_omission",
+          "ko": "제출 항목 누락 여부 확인 필요"
         },
         {
-          "id": "form_error",
-          "ko": "기재 오류로 인한 불이익"
+          "id": "form_mismatch",
+          "ko": "증빙·기한·양식 불일치 가능성"
         }
       ],
       "prohibitedClaims": [
-        "탈락 확정 단정"
+        "서류 탈락 단정",
+        "누락 발생 단정"
       ],
-      "note": "문서성(인성) 공망 + 편인 — 서류 누락 사건 위험",
+      "allowedClaimScope": [
+        "제출 전 재점검 체크포인트",
+        "가능한 발현 형태"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3-c 신설(DOCUMENT_OMISSION 대체) — stage=application_document + 문서 대상 활성 + 누락·왜곡 shape. 검토 취약성만으로 미생성. mode 불필요(any)",
       "reviewed": false
     },
     {
-      "riskId": "SEL_ELIGIBILITY_SHORTFALL",
+      "riskId": "SEL_ELIGIBILITY_REVIEW_RISK",
       "domain": "selection",
-      "kind": "incident_risk",
-      "baseImpact": 0.5,
+      "kind": "pressure",
+      "riskFamily": "selection_process",
+      "baseImpact": 0.45,
+      "applicableSelectionModes": [
+        "eligibility_screening",
+        "mixed"
+      ],
+      "applicableSelectionStages": [
+        "eligibility_check"
+      ],
       "triggerRules": [
         {
-          "id": "SEL_ELG_T1",
+          "id": "SEL_ELR_S1",
+          "group": "event_shape",
           "relation": "HYEONG",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
-          "strength": 0.5
-        },
-        {
-          "id": "SEL_ELG_T2",
           "tenGodGroup": "resource",
-          "polarityRoleIn": [
-            "HAN_BAD"
-          ],
+          "strength": 0.45
+        },
+        {
+          "id": "SEL_ELR_TA1",
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "resource",
           "strength": 0.4
         },
         {
-          "id": "SEL_ELG_T3",
-          "voidActive": true,
-          "tenGodGroup": "authority",
-          "strength": 0.4
+          "id": "SEL_ELR_TA2",
+          "group": "target_activation",
+          "relation": "HAE",
+          "relationTargetTenGodGroup": "authority",
+          "strength": 0.35
         }
       ],
       "amplifierRules": [
         {
-          "id": "SEL_ELG_A1",
+          "id": "SEL_ELR_AP1",
           "polarityRoleIn": [
+            "GI",
             "GI_STRONG"
           ],
-          "strength": 0.4
+          "strength": 0.45
         }
       ],
       "mitigatorRules": [
         {
-          "id": "SEL_ELG_M1",
+          "id": "SEL_ELR_M1",
           "polarityRoleIn": [
             "YONG",
-            "YONG_STRONG",
             "HEE",
             "HAN_GOOD"
           ],
           "strength": 0.5
-        }
-      ],
-      "blockerRules": [
+        },
         {
-          "id": "SEL_ELG_B1",
-          "polarityRoleIn": [
-            "YONG_STRONG"
-          ],
-          "strength": 0.6
+          "id": "SEL_ELR_M2",
+          "tenGod": "ZHENGYIN",
+          "strength": 0.3
         }
       ],
+      "blockerRules": [],
       "minimumEvidence": {
-        "triggerCount": 2,
-        "independentSourceCount": 2
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
       },
       "manifestations": [
         {
-          "id": "requirement_gap",
-          "ko": "자격 조건의 미충족 발견"
+          "id": "criteria_recheck",
+          "ko": "자격 조건을 다시 확인할 필요"
         },
         {
-          "id": "criteria_change",
-          "ko": "선발 기준·조건의 변경"
+          "id": "proof_supplement",
+          "ko": "증빙 보완 가능성"
         }
       ],
       "prohibitedClaims": [
-        "탈락 확정 단정"
+        "자격 미달 단정",
+        "조건 불충족 확정",
+        "서류 탈락 단정"
       ],
-      "note": "형(조건 시비) + 관성 공망 — 자격 조건 사건 위험",
+      "allowedClaimScope": [
+        "조건 재확인 권고",
+        "심사 기준 확인"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3-c 신설(ELIGIBILITY_SHORTFALL 대체 — pressure): 자격·모집 기준은 외부 정보라 미달 단정 금지. 자격 데이터 연결 시 incident 승격 검토",
       "reviewed": false
     },
     {
-      "riskId": "SEL_LOTTERY_MISS",
+      "riskId": "SEL_DRAW_OUTCOME_UNCERTAINTY",
       "domain": "selection",
-      "kind": "incident_risk",
-      "baseImpact": 0.45,
+      "kind": "pressure",
+      "riskFamily": "selection_process",
+      "baseImpact": 0.4,
+      "applicableSelectionModes": [
+        "lottery_draw"
+      ],
+      "applicableSelectionStages": [
+        "draw"
+      ],
       "triggerRules": [
         {
-          "id": "SEL_LOT_T1",
+          "id": "SEL_DRW_S1",
+          "group": "event_shape",
           "voidActive": true,
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG",
-            "HAN_BAD"
-          ],
+          "tenGodGroup": "authority",
           "strength": 0.4
         },
         {
-          "id": "SEL_LOT_T2",
+          "id": "SEL_DRW_TA1",
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "authority",
+          "strength": 0.4
+        },
+        {
+          "id": "SEL_DRW_TA2",
+          "group": "target_activation",
           "relation": "PA",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
+          "relationTargetTenGodGroup": "authority",
           "strength": 0.35
-        },
-        {
-          "id": "SEL_LOT_T3",
-          "polarityRoleIn": [
-            "GI_STRONG"
-          ],
-          "strength": 0.4
         }
       ],
-      "amplifierRules": [],
+      "amplifierRules": [
+        {
+          "id": "SEL_DRW_AP1",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.45
+        }
+      ],
       "mitigatorRules": [
         {
-          "id": "SEL_LOT_M1",
+          "id": "SEL_DRW_M1",
           "polarityRoleIn": [
             "YONG",
-            "YONG_STRONG",
             "HEE",
             "HAN_GOOD"
           ],
           "strength": 0.5
-        }
-      ],
-      "blockerRules": [
+        },
         {
-          "id": "SEL_LOT_B1",
-          "polarityRoleIn": [
-            "YONG_STRONG"
-          ],
-          "strength": 0.6
+          "id": "SEL_DRW_M2",
+          "tenGod": "ZHENGYIN",
+          "strength": 0.3
         }
       ],
+      "blockerRules": [],
       "minimumEvidence": {
-        "triggerCount": 2,
-        "independentSourceCount": 2
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
       },
       "manifestations": [
         {
-          "id": "lottery_unfavorable",
-          "ko": "추첨·배정에서 불리한 흐름"
+          "id": "alt_plan",
+          "ko": "대체 일정·차선 조건 준비"
         },
         {
-          "id": "waitlist_stay",
-          "ko": "대기 순번에 머무를 가능성"
+          "id": "option_keep",
+          "ko": "결과 확정 전 선택지 유지"
         }
       ],
       "prohibitedClaims": [
-        "당첨·탈락 확정 단정",
-        "당락 확률 수치 제시"
+        "당첨 확률 저하 단정",
+        "추첨 실패 단정",
+        "경쟁률 상승 단정",
+        "운이 나빠 뽑히지 않음"
       ],
-      "note": "무작위성 사건 — 절대 원칙 8 + 선발·배치 코어 무작위성 캡 준수(당락 단정 금지)",
+      "allowedClaimScope": [
+        "대체안 유지 권고",
+        "한 결과 의존 회피"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3-c 신설(LOTTERY_MISS 폐기·대체): mode=lottery_draw+stage=draw 전용 — 추첨이 본질적으로 불확실하다는 이유로 상시 발동 금지(관문 대상 활성+기간 특이 shape 필수). 확률·방향 단정 금지(외부 데이터 소관)",
+      "reviewed": false
+    },
+    {
+      "riskId": "SEL_RESULT_DELAY_PRESSURE",
+      "domain": "selection",
+      "kind": "pressure",
+      "riskFamily": "selection_process",
+      "baseImpact": 0.4,
+      "applicableSelectionStages": [
+        "result_wait"
+      ],
+      "triggerRules": [
+        {
+          "id": "SEL_RDL_S1",
+          "group": "event_shape",
+          "voidActive": true,
+          "tenGodGroup": "resource",
+          "strength": 0.45
+        },
+        {
+          "id": "SEL_RDL_TA1",
+          "group": "target_activation",
+          "relation": "HAE",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.35
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "SEL_RDL_AP1",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.45
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "id": "SEL_RDL_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_RDL_M2",
+          "tenGod": "ZHENGYIN",
+          "strength": 0.3
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
+      },
+      "manifestations": [
+        {
+          "id": "announce_delay",
+          "ko": "결과 발표가 늦어질 가능성"
+        },
+        {
+          "id": "extra_wait",
+          "ko": "추가 확인·대기 필요"
+        }
+      ],
+      "prohibitedClaims": [
+        "대기명단 상태 추론",
+        "결과 불리 단정"
+      ],
+      "allowedClaimScope": [
+        "일정 여유 확보",
+        "대기 대비"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3-c 신설(WAITLIST_DELAY 분리 — 일반 결과 대기): stage=result_wait, 소식·통지(인성) 정체 구조. 대기명단은 WAITLIST_PROLONGATION 소관(추론 금지). 채용 결과 대기는 CAR primary(target_type 라우팅 R3)",
+      "reviewed": false
+    },
+    {
+      "riskId": "SEL_WAITLIST_PROLONGATION",
+      "domain": "selection",
+      "kind": "pressure",
+      "riskFamily": "selection_process",
+      "baseImpact": 0.45,
+      "applicableSelectionStages": [
+        "waitlist"
+      ],
+      "triggerRules": [
+        {
+          "id": "SEL_WLP_S1",
+          "group": "event_shape",
+          "voidActive": true,
+          "tenGodGroup": "authority",
+          "strength": 0.45
+        },
+        {
+          "id": "SEL_WLP_TA1",
+          "group": "target_activation",
+          "relation": "HAE",
+          "relationTargetTenGodGroup": "authority",
+          "strength": 0.35
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "SEL_WLP_AP1",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.45
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "id": "SEL_WLP_M1",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5
+        },
+        {
+          "id": "SEL_WLP_M2",
+          "tenGod": "ZHENGYIN",
+          "strength": 0.3
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1,
+        "requiresLinkedTargets": true
+      },
+      "manifestations": [
+        {
+          "id": "wait_extend",
+          "ko": "대기 기간이 길어질 가능성"
+        }
+      ],
+      "prohibitedClaims": [
+        "대기명단 진입·탈락 단정"
+      ],
+      "allowedClaimScope": [
+        "대기 중 대안 유지"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "confirmed_required",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block"
+      },
+      "note": "C3-c 신설(WAITLIST_DELAY 분리 — 실제 대기명단): stage=waitlist + waitlist exposure CONFIRMED 필수 — UNKNOWN이면 '대기명단 장기화' 표현 절대 불가(노출 차단)",
       "reviewed": false
     },
     {
@@ -365,84 +641,6 @@
         "shadow_structure": "469a26f172f4a57a"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.5"
-    },
-    {
-      "riskId": "SEL_WAITLIST_DELAY",
-      "domain": "selection",
-      "kind": "incident_risk",
-      "baseImpact": 0.45,
-      "triggerRules": [
-        {
-          "id": "SEL_WTL_T1",
-          "voidActive": true,
-          "tenGodGroup": "authority",
-          "strength": 0.5
-        },
-        {
-          "id": "SEL_WTL_T2",
-          "voidActive": true,
-          "tenGodGroup": "resource",
-          "strength": 0.4
-        },
-        {
-          "id": "SEL_WTL_T3",
-          "relation": "HAE",
-          "polarityRoleIn": [
-            "GI",
-            "GI_STRONG"
-          ],
-          "strength": 0.35
-        }
-      ],
-      "amplifierRules": [
-        {
-          "id": "SEL_WTL_A1",
-          "polarityRoleIn": [
-            "GI_STRONG"
-          ],
-          "strength": 0.4
-        }
-      ],
-      "mitigatorRules": [
-        {
-          "id": "SEL_WTL_M1",
-          "polarityRoleIn": [
-            "YONG",
-            "YONG_STRONG",
-            "HEE",
-            "HAN_GOOD"
-          ],
-          "strength": 0.5
-        }
-      ],
-      "blockerRules": [
-        {
-          "id": "SEL_WTL_B1",
-          "polarityRoleIn": [
-            "YONG_STRONG"
-          ],
-          "strength": 0.6
-        }
-      ],
-      "minimumEvidence": {
-        "triggerCount": 2,
-        "independentSourceCount": 2
-      },
-      "manifestations": [
-        {
-          "id": "result_delay",
-          "ko": "발표·결과의 연기"
-        },
-        {
-          "id": "wait_extend",
-          "ko": "대기 기간의 장기화"
-        }
-      ],
-      "prohibitedClaims": [
-        "결과 확정 단정"
-      ],
-      "note": "관성·인성 공망(절차 지연) — 대기·연기 사건 위험",
-      "reviewed": false
     },
     {
       "riskId": "SEL_COMPETITION_INTENSIFY",

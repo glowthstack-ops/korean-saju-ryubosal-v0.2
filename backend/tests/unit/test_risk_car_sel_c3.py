@@ -217,3 +217,96 @@ def test_car_hiring_split(engine_c3b=None) -> None:
     if by["CAR_HIRING_PROCESS_DELAY"].suppressed_by_specificity:
         assert by["CAR_HIRING_PROCESS_DELAY"].primary_risk_id == (
             "CAR_HIRING_OUTCOME_SETBACK")
+
+
+# ── CAR 승격 커버리지(감수 13차) — 항목별 양성·음성 ──
+
+CAR_C3B_POSITIVE_IDS = {
+    "CAR_EVALUATION_SETBACK_RISK", "CAR_REASSIGNMENT_RISK", "CAR_EXIT_PRESSURE",
+    "CAR_HIRING_PROCESS_DELAY", "CAR_HIRING_OUTCOME_SETBACK",
+}
+
+
+def test_evaluation_setback_negatives(engine: RiskEngine) -> None:
+    """EVALUATION — 관성 피격 단독·일반 직업 pressure만으로는 미활성."""
+    only_hit = _get(engine.generate(_facts(
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+    )), "CAR_EVALUATION_SETBACK_RISK")
+    assert only_hit is None or not is_active(only_hit)
+
+
+def test_exit_pressure_no_termination_event(engine: RiskEngine) -> None:
+    """EXIT_PRESSURE 양성 시에도 종료형 사건(HIRING_OUTCOME 등)이 자동 생성되지 않는다."""
+    cands = engine.generate(_facts(
+        gods={TenGod.SHANGGUAN: {LuckLayer.SEWOON}, TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+    ))
+    exi = _get(cands, "CAR_EXIT_PRESSURE")
+    assert exi is not None
+    hos = _get(cands, "CAR_HIRING_OUTCOME_SETBACK")
+    assert hos is None or not is_active(hos) or hos.suppressed_by_specificity is None
+    # 결과 후보가 활성이라도 exposure 미충족(required)이면 pressure를 흡수 못 함은
+    # family 상이(hiring vs work_role)로 원천 보장.
+    assert exi.risk_family != "hiring"
+
+
+def test_hiring_outcome_needs_result_stage(engine: RiskEngine) -> None:
+    """HIRING_OUTCOME — 절차 정체(공망)만으로는 미활성(targeted/결과 활성 필요)."""
+    proc_only = _get(engine.generate(build_raw_period_facts(
+        period_key="2026", layer=LuckLayer.SEWOON,
+        ten_god_layers={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+        relations=[], void_active=True, polarity_role=PolarityRole.GI,
+        twelve_stage=None,
+    )), "CAR_HIRING_OUTCOME_SETBACK")
+    assert proc_only is None or not is_active(proc_only)
+
+
+# ── C3-c — SEL canonical 5항목 fixture ──
+
+SEL_C3C_POSITIVE_IDS = {
+    "SEL_DOCUMENT_DEFECT_RISK", "SEL_ELIGIBILITY_REVIEW_RISK",
+    "SEL_DRAW_OUTCOME_UNCERTAINTY", "SEL_RESULT_DELAY_PRESSURE",
+    "SEL_WAITLIST_PROLONGATION",
+}
+
+
+def test_sel_c3c_positives_and_legacy_gone() -> None:
+    """SEL canonical 5항목 양성 + legacy ID 미생성 + waitlist confirmed_required."""
+    eng = RiskEngine(_DICTS)
+    doc = _get(eng.generate(build_raw_period_facts(
+        period_key="2026", layer=LuckLayer.SEWOON,
+        ten_god_layers={TenGod.PIANYIN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGYIN)],
+        void_active=False, polarity_role=PolarityRole.GI, twelve_stage=None,
+    )), "SEL_DOCUMENT_DEFECT_RISK")
+    assert doc is not None and is_active(doc)
+    facts_auth_void = build_raw_period_facts(
+        period_key="2026", layer=LuckLayer.SEWOON,
+        ten_god_layers={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGGUAN)],
+        void_active=True, polarity_role=PolarityRole.GI, twelve_stage=None,
+    )
+    cands = eng.generate(facts_auth_void)
+    drw = _get(cands, "SEL_DRAW_OUTCOME_UNCERTAINTY")
+    assert drw is not None
+    wlp = _get(cands, "SEL_WAITLIST_PROLONGATION")
+    assert wlp is not None and wlp.exposure_requirement == "confirmed_required"
+    legacy = {"SEL_DOCUMENT_OMISSION", "SEL_ELIGIBILITY_SHORTFALL",
+              "SEL_LOTTERY_MISS", "SEL_WAITLIST_DELAY"}
+    assert not (legacy & {c.risk_id for c in cands})
+
+
+def test_draw_uncertainty_not_always_on() -> None:
+    """추첨 불확실성 — 관문 대상 활성 없이 공망만으로는 상시 발동하지 않는다."""
+    eng = RiskEngine(_DICTS)
+    void_only = _get(eng.generate(build_raw_period_facts(
+        period_key="2026", layer=LuckLayer.SEWOON,
+        ten_god_layers={TenGod.ZHENGGUAN: {LuckLayer.SEWOON}},
+        relations=[], void_active=True, polarity_role=PolarityRole.GI,
+        twelve_stage=None,
+    )), "SEL_DRAW_OUTCOME_UNCERTAINTY")
+    assert void_only is None or not is_active(void_only)
