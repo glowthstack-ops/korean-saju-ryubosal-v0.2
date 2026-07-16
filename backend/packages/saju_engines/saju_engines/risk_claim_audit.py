@@ -369,6 +369,9 @@ def build_risk_output_schema(llm_episodes: list[dict],
             for e in llm_episodes]
     levels = sorted({str(e.get("presentationLevel", "warning"))
                      for e in llm_episodes})
+    required_count = sum(
+        1 for e in llm_episodes
+        if str(e.get("presentationLevel", "")) in ("warning", "critical"))
     return {
         "type": "object",
         "additionalProperties": False,
@@ -377,7 +380,11 @@ def build_risk_output_schema(llm_episodes: list[dict],
             "main_answer": {"type": "string", "minLength": 1},
             "risk_guidance": {
                 "type": "array",
-                "maxItems": hard_max,
+                # 감수 53차 §9: hard_max는 상한일 뿐 — 실제 최종 episode
+                # 수가 정확한 상한. minItems=필수 warning 수(watch/advisory
+                # 생략 허용과 무충돌 — 특정 key 포함은 후처리 validator).
+                "maxItems": min(hard_max, len(llm_episodes)),
+                "minItems": required_count,
                 "items": {
                     "type": "object",
                     "additionalProperties": False,

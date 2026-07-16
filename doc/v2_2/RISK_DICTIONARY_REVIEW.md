@@ -2160,3 +2160,40 @@ baseline 불변·manifest 일치. 3중 잠금 유지.
 policy) → provider output schema 실배선(3상태 분리) → 재작성/재생성 LLM
 실배선 → provider 직전 검증 → renderer 후 최종 감사 배선 → expose_pipeline
 감수(validatedTokenCounters 포함) → 별도 커밋 canary 전환.
+
+### 28-9. 감수 53차 반영 — adapter 대조 키 확장·전역 suspension·HMAC 키 차단·EventKey hash (2026-07-16)
+
+**adapter shadow 등록 전 필수 preflight 5건**:
+
+1. **대조 키 확장(§2)**: TokenCounterAdapter에 request_schema_version 필드
+   추가, resolve_expose_counter가 validation key **4종 전부**(provider·
+   model·counterVersion·providerRequestSchemaVersion) + 감수 artifact
+   (**validationPolicyHash=현행 정책 일치**·validationCorpusHash 존재)까지
+   대조 — 하나라도 불일치=BYPASS(fixture 6분기).
+2. **전역 suspension(§3 — 다중 worker)**: 공유 파일(compiled/risk_adapter_
+   suspensions.json — gitignore·atomic replace) — 한 worker의 under-count
+   관측이 모든 worker의 다음 요청부터 BYPASS. VALIDATED→SUSPENDED
+   단방향(자동 복구 금지 — 재감수 artifact 배포 절차에서만 해제). 관측:
+   undercount_detected_count·first_undercount_request_id_hash·
+   adapter_suspended_at.
+3. **운영 개발키 구조적 차단(§8)**: _audit_hmac_key_valid(개발 기본키
+   또는 32byte 미만=False) → 게이트 AUDIT_HMAC_KEY_INVALID(BYPASS 부류).
+   secret은 policy hash 비포함(회전≠정책 변경)·알고리즘/truncation만 hash.
+4. **EventKey exhaustiveness(§1)**: event_key_enum_hash를 expose_policy_
+   hash에 편입 — enum에 새 값 추가=hash 불일치=expose_pipeline pending
+   (BYPASS): 비사건형 키 자동 노출 경로 차단.
+5. **schema·fingerprint 보강(§5·9)**: llm episode에 episodeKey P0 노출
+   (envelope 대응용 — renderer가 사용자 출력에서 제거·누출 감사 유지),
+   order hash에 key+exposed level+warning 필수 여부 포함(같은 순서의
+   level 변경도 탐지), output schema maxItems=**min(hard_max,
+   len(llmRiskEpisodes))**·minItems=필수 warning 수. strict 검증을
+   critical_validation_state·validatedTokenCounters 구간까지 확장
+   (미등록 필드=fail-closed).
+
+fixture 갱신+6분기 확장(통합 46종 유지). **게이트**: pytest 2120·ruff
+clean·mypy 0(534)·baseline 불변·manifest 일치. 3중 잠금 유지.
+
+**다음**: adapter 실물 shadow 등록(고정 policy·30표본/조합·대조 관측) →
+provider output schema 실배선 → 재작성/재생성 실배선 → provider 직전 검증
+→ renderer 후 최종 감사 → expose_pipeline 감수(validatedTokenCounters
+포함) → 별도 커밋 canary 전환.

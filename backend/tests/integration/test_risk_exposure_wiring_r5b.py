@@ -88,6 +88,8 @@ def test_qualified_but_runtime_short_is_suppressed_guard(
                         frozenset({"internal-tester-1"}))
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSURE_RUNTIME_ENABLED", True)
+    monkeypatch.setattr(risk_engine_config, "RISK_AUDIT_HMAC_KEY",
+                        b"a" * 32)  # 운영 유효 키 모의(감수 53차 §8)
     from saju_api.services import risk_exposure_service as _svc
     monkeypatch.setattr(_svc, "_load_manifest_snapshot",
                         lambda: {"reviewed": True, "hash_ok": True,
@@ -143,6 +145,8 @@ def test_all_conditions_met_is_injected(monkeypatch) -> None:
                         frozenset({"internal-tester-1"}))
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSURE_RUNTIME_ENABLED", True)
+    monkeypatch.setattr(risk_engine_config, "RISK_AUDIT_HMAC_KEY",
+                        b"a" * 32)  # 운영 유효 키 모의(감수 53차 §8)
     from saju_api.services import risk_exposure_service as _svc
     monkeypatch.setattr(_svc, "_load_manifest_snapshot",
                         lambda: {"reviewed": True, "hash_ok": True,
@@ -908,6 +912,7 @@ def test_adapter_manifest_ssot_and_drift_suspend() -> None:
     항목 일치 필요. drift(counted<reported) 1건=즉시 SUSPENDED."""
     from saju_api.services.token_counter_registry import (
         TokenCounterAdapter,
+        adapter_validation_policy_hash,
         record_count_observation,
         register_adapter,
         resolve_expose_counter,
@@ -916,21 +921,46 @@ def test_adapter_manifest_ssot_and_drift_suspend() -> None:
 
     register_adapter(TokenCounterAdapter(
         model_id="ssot-model", mode="MODEL_TOKENIZER", counter=len,
-        provider_id="prov", counter_version="v1"))
+        provider_id="prov", counter_version="v1",
+        request_schema_version="1"))
     set_validation_state("ssot-model", "VALIDATED")
     # manifest 항목 없음 → None(BYPASS).
     assert resolve_expose_counter("ssot-model", []) is None
+    # 확장 대조 키(감수 53차 §2): schemaVersion·policy/corpus hash 포함.
     entry = {"reviewed": True, "resolvedModelId": "ssot-model",
-             "providerId": "prov", "counterVersion": "v1"}
+             "providerId": "prov", "counterVersion": "v1",
+             "providerRequestSchemaVersion": "1",
+             "validationPolicyHash": adapter_validation_policy_hash(),
+             "validationCorpusHash": "corpus-abc"}
     assert resolve_expose_counter("ssot-model", [entry]) is not None
-    # reviewed=false·version 불일치 → None.
+    # reviewed=false·key 불일치·artifact 부재 → None.
     assert resolve_expose_counter(
         "ssot-model", [{**entry, "reviewed": False}]) is None
     assert resolve_expose_counter(
         "ssot-model", [{**entry, "counterVersion": "v2"}]) is None
-    # drift: 과소 계산 1건 → SUSPENDED → 이후 해소 불가.
-    record_count_observation("ssot-model", counted=100, reported=120)
+    assert resolve_expose_counter(
+        "ssot-model",
+        [{**entry, "providerRequestSchemaVersion": "2"}]) is None
+    assert resolve_expose_counter(
+        "ssot-model", [{**entry, "validationPolicyHash": "stale"}]) is None
+    assert resolve_expose_counter(
+        "ssot-model", [{**entry, "validationCorpusHash": ""}]) is None
+    # drift: 과소 계산 1건 → 전역 SUSPENDED(공유 파일) → 이후 해소 불가.
+    record_count_observation("ssot-model", counted=100, reported=120,
+                             request_id_hash="req-1")
     assert resolve_expose_counter("ssot-model", [entry]) is None
+    from saju_api.services.token_counter_registry import (
+        _SUSPENSION_FILE,
+        _shared_suspensions,
+    )
+    rec = _shared_suspensions()["ssot-model"]
+    assert rec["undercount_detected_count"] >= 1
+    assert rec["first_undercount_request_id_hash"] == "req-1"
+    # 정리(테스트 격리 — 공유 파일에서 제거는 재감수 절차의 모의).
+    import json as _json
+    remaining = {k: v for k, v in _shared_suspensions().items()
+                 if k != "ssot-model"}
+    _SUSPENSION_FILE.write_text(_json.dumps(remaining), encoding="utf-8")
 
 
 def test_injected_output_schema_contract() -> None:
@@ -943,7 +973,9 @@ def test_injected_output_schema_contract() -> None:
     schema = build_risk_output_schema(llm, hard_max=3)
     assert schema["additionalProperties"] is False
     guidance = schema["properties"]["risk_guidance"]
-    assert guidance["maxItems"] == 3
+    # 감수 53차 §9: 실제 최종 episode 수(2)가 정확한 상한 — hard_max는 상한.
+    assert guidance["maxItems"] == 2
+    assert guidance["minItems"] == 1  # warning 1건=필수 최소
     item = guidance["items"]
     assert item["additionalProperties"] is False
     assert set(item["properties"]["episode_key"]["enum"]) == {"A", "B"}

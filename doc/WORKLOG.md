@@ -8398,3 +8398,17 @@ schema — SUPPRESSED에 risk_guidance 미요구). fixture +7(통합 46종).
 pytest 2120·ruff·mypy 0(534)·baseline 불변·manifest 일치. REVIEW.md §28-8.
 잔여: adapter 실물 shadow 등록·계수 대조→schema 실배선→재작성 배선→
 provider 검증→renderer 감사→감수→canary(별도 커밋).
+
+## 감수 53차 — adapter 대조 확장·전역 suspension·HMAC 차단·EventKey hash (2026-07-16)
+
+preflight 5건: ①resolve_expose_counter 대조 키 4종+validationPolicyHash
+(현행 일치)+validationCorpusHash(존재) — 불일치=BYPASS ②전역 suspension
+공유 파일(atomic·단방향·자동 복구 금지·관측 3필드 — 다중 worker 즉시
+적용) ③운영 개발 HMAC 키 구조적 차단(AUDIT_HMAC_KEY_INVALID BYPASS)
+④event_key_enum_hash expose hash 편입(enum 추가=자동 pending)
+⑤episodeKey P0 노출(envelope 대응·renderer 제거)+order hash 보강(key+
+level+required)+output schema maxItems=min(hard_max, len)·minItems=warning
+수+strict 확장(critical_validation_state·validatedTokenCounters 미지 필드
+실패). pytest 2120·ruff·mypy 0(534)·baseline 불변·manifest 일치.
+REVIEW.md §28-9. 다음: adapter 실물 shadow 등록(30표본)→schema 실배선→
+재작성 배선→provider 검증→renderer 감사→감수→canary(별도 커밋).

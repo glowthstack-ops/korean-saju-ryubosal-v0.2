@@ -59,3 +59,6 @@ doc/gis/region_geo_features.jsonl
 # 방향성 지형 요약(31MB, 재생성: extract_osm_geo_features→build_region_directional_summary).
 # 런타임 graceful(부재 시 directional_terrain.available=false). 소형 compiled(profiles/admin)은 추적.
 backend/compiled/region_directional_summary_v1.json
+
+# 위험 adapter 전역 suspension 상태(런타임 공유 파일 — 감수 53차, git 미추적)
+backend/compiled/risk_adapter_suspensions.json

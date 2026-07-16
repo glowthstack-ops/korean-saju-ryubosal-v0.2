@@ -404,6 +404,9 @@ def build_presentation(
                              if c not in all_prohibited]
         records.append({
             # ── P0(LLM에서도 절대 보존) ──
+            # episodeKey: envelope(risk_guidance) 대응용 — LLM에는 노출되고
+            # renderer가 사용자 출력에서 제거한다(누출=INTERNAL_KEY_LEAKED).
+            "episodeKey": ep.episode_key,
             "presentationLevel": level,
             "presentationLabel": USER_LEVEL_LABELS.get(level),
             "representativeSummary": _texts(item, "manifestations") or None,
@@ -472,8 +475,12 @@ def llm_episode_order_hash(llm_episodes: list[dict]) -> str:
     key가 없는 episode(P0_COMPACT 등 축약형)는 level 나열로 대체 —
     fingerprint 목적은 '같은 배열·같은 순서' 확인이다.
     """
-    parts = [f"{e.get('presentationLevel', '')}"
-             f"|{e.get('domains', '')}|{e.get('effectRoles', '')}"
+    # 보강(감수 53차 §5): 순서뿐 아니라 key·exposed level·warning 필수
+    # 여부까지 canonical에 포함 — 같은 순서에서 level이 바뀐 배열도 탐지.
+    required_rank = {"warning", "critical"}
+    parts = [f"{e.get('episodeKey', '')}"
+             f"|{e.get('presentationLevel', '')}"
+             f"|{e.get('presentationLevel', '') in required_rank}"
              for e in llm_episodes]
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]
 
@@ -481,6 +488,7 @@ def llm_episode_order_hash(llm_episodes: list[dict]) -> str:
 # token guard 압축 tier(§26-8 + 감수 42차 §8) — P0는 어떤 예산에서도 유지,
 # P0 초과 시 P0_COMPACT 고정 포맷으로 축약(예산 초과 방치 금지).
 _P0_FIELDS = (
+    "episodeKey",
     "presentationLevel", "presentationLabel", "representativeSummary",
     "domains", "exposureStatus", "identityPhraseMode", "requiredQualifiers",
     "episodeProhibitedClaimCodes", "episodeProhibitedPhrases",

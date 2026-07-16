@@ -60,13 +60,31 @@ def _load_manifest_snapshot() -> dict:
         pipeline = manifest["expose_pipeline"]  # strict — 부재=실패
         if not isinstance(pipeline, dict):
             raise ValueError("expose_pipeline 타입 불일치")
-        # 정책 구간 additionalProperties=false(감수 52차 §5): 작성자는
-        # 적용됐다고 믿고 런타임은 무시하는 미등록 정책 필드 차단.
+        # 정책 구간 additionalProperties=false(감수 52차 §5 + 53차 §7):
+        # 작성자는 적용됐다고 믿고 런타임은 무시하는 미등록 필드 차단 —
+        # expose_pipeline·critical_validation_state·validatedTokenCounters
+        # 전 구간.
         unknown = set(pipeline) - {"reviewed", "expose_policy_hash",
                                    "critical_validation_state",
                                    "validatedTokenCounters"}
         if unknown:
             raise ValueError(f"expose_pipeline 미등록 필드: {unknown}")
+        cvs = pipeline.get("critical_validation_state") or {}
+        cvs_unknown = set(cvs) - {"synthetic_fixtures",
+                                  "corpus_positive_cases",
+                                  "empirical_calibration",
+                                  "expose_behavior"}
+        if cvs_unknown:
+            raise ValueError(f"critical_validation_state 미등록 필드:"
+                             f" {cvs_unknown}")
+        for counter_entry in pipeline.get("validatedTokenCounters") or []:
+            entry_unknown = set(counter_entry) - {
+                "providerId", "resolvedModelId", "counterVersion",
+                "providerRequestSchemaVersion", "countMode",
+                "validationPolicyHash", "validationCorpusHash", "reviewed"}
+            if entry_unknown:
+                raise ValueError(f"validatedTokenCounters 미등록 필드:"
+                                 f" {entry_unknown}")
         reviewed = pipeline["reviewed"]
         if not isinstance(reviewed, bool):
             raise ValueError("reviewed 타입 불일치")
@@ -97,6 +115,17 @@ def _manifest_expose_state() -> tuple[bool, bool]:
 def exposure_mode_active() -> bool:
     """EXPOSE 계열 모드 여부 — OFF/SHADOW면 배선 분기 자체를 건너뛴다."""
     return risk_engine_config.RISK_ENGINE_MODE in ("expose_canary", "expose")
+
+
+_DEV_HMAC_KEY = b"dev-only-rotate-before-canary"
+
+
+def _audit_hmac_key_valid() -> bool:
+    """운영 HMAC 키 검증(감수 53차 §8 — 구조적 차단): 개발 기본키·32byte
+    미만이면 False → 게이트 AUDIT_HMAC_KEY_INVALID BYPASS. secret 자체는
+    policy hash 비포함(회전≠정책 변경) — 알고리즘·truncation만 hash에."""
+    key = risk_engine_config.RISK_AUDIT_HMAC_KEY
+    return key != _DEV_HMAC_KEY and len(key) >= 32
 
 
 def _canary_allowlisted(subject_id: str | None) -> bool:
@@ -179,6 +208,7 @@ def apply_risk_exposure(
         counter_model_id=counter_model_id,
         resolved_model_id=resolved_model_id,
         future_period_range=future_period_range,
+        audit_key_valid=_audit_hmac_key_valid(),
     )
     empty: dict = {
         "globalProhibitedClaimCodes": [], "globalAllowedClaimCodes": [],

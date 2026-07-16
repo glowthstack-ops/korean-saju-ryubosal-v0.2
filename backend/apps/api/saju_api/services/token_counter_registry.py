@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC
+from pathlib import Path
 
 __all__ = ["ADAPTER_VALIDATION_POLICY", "ADAPTER_VALIDATION_STATES",
            "adapter_validation_policy_hash", "record_count_observation",
@@ -104,6 +106,9 @@ class TokenCounterAdapter:
     counter: Callable[[str], int]
     provider_id: str = ""
     counter_version: str = ""
+    # validation key 4번째 축(감수 53차 §2): ProviderRequest 구조 버전 —
+    # 요청 구조가 바뀌면 감수 무효(manifest 대조 대상).
+    request_schema_version: str = "1"
 
     def count_request(self, request: ProviderRequest) -> int:
         """provider request 전체 계수 — 기본 구현은 전 구성요소 합산 +
@@ -149,17 +154,40 @@ def resolve_validated_counter(
     return _REGISTRY.get(resolved_model_id)
 
 
+# 전역 suspension 공유 저장소(감수 53차 §3 — 다중 worker): 한 worker의
+# under-count 관측이 모든 worker의 다음 요청부터 BYPASS되도록 파일 기반
+# 공유 상태 사용(atomic replace). 자동 복구 금지 — 재감수 artifact 배포
+# 절차에서만 파일 항목 제거.
+_SUSPENSION_FILE = Path(__file__).resolve().parents[4] / (
+    "compiled") / "risk_adapter_suspensions.json"
+
+
+def _shared_suspensions() -> dict:
+    try:
+        import json as _json
+        return _json.loads(_SUSPENSION_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _is_globally_suspended(model_id: str) -> bool:
+    return model_id in _shared_suspensions()
+
+
 def resolve_expose_counter(
     resolved_model_id: str,
     manifest_counters: list[dict],
 ) -> TokenCounterAdapter | None:
-    """manifest SSOT 대조 해소(감수 52차 §2) — canary 주입의 정본 경로.
+    """manifest SSOT 대조 해소(감수 52차 §2 + 53차 §2) — canary 정본 경로.
 
     registry의 VALIDATED 선언만으로는 부족: manifest validatedTokenCounters
-    항목(reviewed=true)과 validation key 4종(provider·model·counter version
-    ·request schema version)이 **모두 일치**해야 반환한다. 불일치·항목
-    부재=None(BYPASS).
+    항목(reviewed=true)과 **validation key 4종 전부**(provider·model·
+    counter version·request schema version) + 감수 artifact 해시
+    (validationPolicyHash — 현행 정책과 일치, validationCorpusHash — 존재)
+    가 맞아야 반환. 전역 suspension 기록 존재=무조건 None(BYPASS).
     """
+    if _is_globally_suspended(resolved_model_id):
+        return None
     adapter = resolve_validated_counter(resolved_model_id)
     if adapter is None:
         return None
@@ -167,20 +195,45 @@ def resolve_expose_counter(
         if (entry.get("reviewed") is True
                 and entry.get("resolvedModelId") == adapter.model_id
                 and entry.get("providerId") == adapter.provider_id
-                and entry.get("counterVersion") == adapter.counter_version):
+                and entry.get("counterVersion") == adapter.counter_version
+                and entry.get("providerRequestSchemaVersion")
+                == adapter.request_schema_version
+                and entry.get("validationPolicyHash")
+                == adapter_validation_policy_hash()
+                and bool(entry.get("validationCorpusHash"))):
             return adapter
     return None
 
 
-def record_count_observation(model_id: str, counted: int,
-                             reported: int) -> None:
-    """canary 계수 관측(감수 52차 §2 — drift auto-suspend).
+def record_count_observation(model_id: str, counted: int, reported: int,
+                             request_id_hash: str = "") -> None:
+    """canary 계수 관측(감수 52차 §2 + 53차 §3 — 전역 drift suspend).
 
-    counted < reported(과소 계산) 1건이라도 관측되면 즉시
-    VALIDATED→SUSPENDED — 이후 요청은 BYPASS된다.
+    counted < reported(과소 계산) 1건이라도 관측되면: ①현 프로세스
+    registry 즉시 SUSPENDED ②공유 suspension 파일에 원자적 기록(모든
+    worker의 다음 요청부터 BYPASS) ③관측 필드(undercount 수·최초 요청
+    hash·시각) 보존. VALIDATED→SUSPENDED 단방향 — 자동 복구 금지.
     """
-    if counted < reported and _VALIDATION.get(model_id) == "VALIDATED":
-        _VALIDATION[model_id] = "SUSPENDED"
+    if counted >= reported:
+        return
+    _VALIDATION[model_id] = "SUSPENDED"
+    import json as _json
+    import os
+    import tempfile
+    from datetime import datetime
+    records = _shared_suspensions()
+    entry = records.get(model_id) or {
+        "undercount_detected_count": 0,
+        "first_undercount_request_id_hash": request_id_hash,
+        "adapter_suspended_at": datetime.now(UTC).isoformat(),
+    }
+    entry["undercount_detected_count"] += 1
+    records[model_id] = entry
+    _SUSPENSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(_SUSPENSION_FILE.parent))
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        _json.dump(records, f, ensure_ascii=False, sort_keys=True)
+    os.replace(tmp, _SUSPENSION_FILE)  # atomic
 
 
 def resolve_counter(resolved_model_id: str) -> TokenCounterAdapter | None:

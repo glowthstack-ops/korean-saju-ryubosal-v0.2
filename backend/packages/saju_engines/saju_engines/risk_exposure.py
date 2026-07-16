@@ -58,6 +58,7 @@ EXPOSURE_SUPPRESSION_REASONS = (
     "POLICY_HASH_MISMATCH",
     "TOKENIZER_UNAVAILABLE",
     "TOKENIZER_MODEL_MISMATCH",
+    "AUDIT_HMAC_KEY_INVALID",
     "TOKEN_BUDGET_INSUFFICIENT",
     "NO_EXPOSABLE_EPISODE",
     "CLAIM_POLICY_ERROR",
@@ -119,6 +120,7 @@ _BYPASS_REASONS = frozenset({
     "QUESTION_TYPE_NOT_ALLOWED", "SCOPE_NOT_REVIEWED",
     "EXPOSE_PIPELINE_NOT_REVIEWED", "POLICY_HASH_MISMATCH",
     "TOKENIZER_UNAVAILABLE", "TOKENIZER_MODEL_MISMATCH",
+    "AUDIT_HMAC_KEY_INVALID",
 })
 # 질문 노출 정책(감수 45차 §9 — boolean intent 대체): 미래 overview·기간
 # 질문은 '위험'이라는 단어 없이도 implicit 허용, 과거 회고·미등록=DENY.
@@ -257,6 +259,9 @@ class ExposureGateContext:
     # 혼합 기간(감수 45차 §9): 미래 질문 범위(기간 라벨 [시작, 끝]) — 지정
     # 시 R2 선택 episode 중 교집합만 노출 대상.
     future_period_range: tuple[str, str] | None = None
+    # audit HMAC 키 유효성(감수 53차 §8 — 운영에서 개발 기본키/미달 키
+    # 사용의 구조적 차단): False=BYPASS(AUDIT_HMAC_KEY_INVALID).
+    audit_key_valid: bool = True
     target_domains: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -378,6 +383,8 @@ def evaluate_risk_exposure_gate(
     elif (ctx.counter_model_id is None or ctx.resolved_model_id is None
           or ctx.counter_model_id != ctx.resolved_model_id):
         static.append("TOKENIZER_MODEL_MISMATCH")
+    if not ctx.audit_key_valid:
+        static.append("AUDIT_HMAC_KEY_INVALID")
     if static:
         return _suppress(static)
     # ── 동적 조건(정적 전부 통과 후에만 — tokenizer·직렬화 비용) ──
@@ -609,6 +616,15 @@ def resolve_block_integrity_failure(result: dict, *,
     }
 
 
+def event_key_enum_hash() -> str:
+    """EventKey enum exhaustiveness hash(감수 53차 §1) — 새 enum 값이
+    추가되면 expose_policy_hash가 바뀌어 expose_pipeline pending(BYPASS):
+    비사건형 키가 추가됐는데 주석만 남고 자동 노출되는 경로 차단."""
+    from saju_shared_types.events import EventKey
+    return hashlib.sha256(",".join(
+        sorted(k.value for k in EventKey)).encode()).hexdigest()[:16]
+
+
 def expose_policy_hash() -> str:
     """EXPOSE 전역 pipeline 정책 해시(감수 44차 §7 — 항목 scope 아님)."""
     policy = {
@@ -634,6 +650,10 @@ def expose_policy_hash() -> str:
                                   " tokenizer·직렬화는 정적 통과 후만",
         "question_exposure_policy": dict(sorted(
             RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE.items())),
+        "event_key_enum_hash": event_key_enum_hash(),
+        "audit_hmac": "keyed HMAC-SHA256·truncation 16 — secret은 hash"
+                      " 비포함(회전≠정책 변경), 운영에서 개발 기본키/형식"
+                      " 미달=AUDIT_HMAC_KEY_INVALID BYPASS(감수 53차 §8)",
         "temporal_intersection": "혼합 기간=R2 선택 episode 기간 ∩ 미래 질문"
                                  " 범위만(past_only=false 전체 주입 금지)",
         "tokenizer_model_match": "counter.model_id == resolved model —"
@@ -726,6 +746,7 @@ __all__ = [
     "RISK_SAFE_RESPONSE_REQUIRED",
     "RISK_SAFE_RESPONSE_SEQUENCE",
     "RISK_SAFE_FALLBACK_TEMPLATE",
+    "event_key_enum_hash",
     "RISK_SAFE_FALLBACK_VERSION",
     "plan_safe_response",
     "resolve_block_integrity_failure",
