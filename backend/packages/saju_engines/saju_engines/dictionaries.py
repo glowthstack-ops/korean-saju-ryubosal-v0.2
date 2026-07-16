@@ -743,8 +743,8 @@ _RISK_CLAIM_CEILINGS = ("advisory", "watch", "conditional_warning", "warning")
 # reviewScope 유효값 — reviewed:true의 의미 범위(감수 4차): shadow_structure=사전 구조·
 # shadow 감수 완료(사용자 노출 승인 아님). scoring/selection/exposure는 R1/R2/R3 감수.
 _RISK_REVIEW_SCOPES = (
-    "shadow_structure", "shadow_scoring", "shadow_temporal", "scoring",
-    "selection", "exposure",
+    "shadow_structure", "shadow_scoring", "shadow_temporal",
+    "shadow_selection", "scoring", "selection", "exposure",
 )
 # reality episode 유형(감수 37차) — alias 오부여로 전혀 다른 현실 건이 합쳐지는
 # 것을 데이터 모델에서 감지하기 위한 최소 대상 정보: 같은 reality_episode_id라도
@@ -1635,7 +1635,9 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
         body = {"transitionSensitivity": item.transition_sensitivity}
     elif scope == "scoring":
         body = {"baseImpact": item.base_impact}
-    elif scope == "selection":
+    elif scope in ("selection", "shadow_selection"):
+        # shadow_selection(감수 40차 스탬프 명칭)과 legacy "selection"은 같은
+        # 본문 — scope 문자열이 canonical에 들어가므로 해시는 서로 다르다.
         body = {
             "riskFamily": item.risk_family,
             "relatedDomains": sorted(item.related_domains),

@@ -40,7 +40,7 @@ from .risk_scoring import (
 )
 
 # 선별 의미 버전 — 병합·대표·budget·portfolio·recovery 정책 변경 시 올린다.
-RISK_SELECTION_VERSION = "risk-select-r2.1.0-shadow"
+RISK_SELECTION_VERSION = "risk-select-r2.2.0-shadow"
 
 # dominant cause 동률 판정 ε(감수 37차 — 잠정, shadow_selection 감수 대상):
 # earliest relief는 strength ≥ max−ε 집합 **전체** 완화를 요구한다.
@@ -89,6 +89,28 @@ class RiskBudgetPolicy:
 
     soft_target: int = 2  # 권장 개수(진단 표시용 — 강제 아님)
     hard_max: int = 3  # 사용자 노출 최대
+
+
+# 질문 유형별 노출 예산(감수 40차 확정 표 — 데굴님 권장 초기 정책 채택).
+# 공통: hard_min 없음. soft_target은 **최소 출력 개수가 아니다** — 적격 episode
+# 부족 시 미달 허용(약한 후보로 채우지 않음). 같은 role·cause의 다른 현실
+# episode는 hard dedup하지 않고 near-tie novelty에서만 불리(기존 계약 유지).
+BUDGET_BY_QUESTION_TYPE: dict[str, RiskBudgetPolicy] = {
+    "specific_event": RiskBudgetPolicy(soft_target=1, hard_max=2),
+    "single_domain_period": RiskBudgetPolicy(soft_target=2, hard_max=2),
+    "period_overview": RiskBudgetPolicy(soft_target=3, hard_max=3),
+    "multi_episode_compare": RiskBudgetPolicy(soft_target=3, hard_max=4),
+    "episode_followup": RiskBudgetPolicy(soft_target=1, hard_max=2),
+}
+
+
+def budget_for(question_type: str) -> RiskBudgetPolicy:
+    """질문 유형 → 노출 예산(감수 40차 고정 표). 미상 유형은 fail-closed 오류
+    — 임의 기본값으로 넓은 예산을 부여하지 않는다(호출부가 유형을 명시)."""
+    policy = BUDGET_BY_QUESTION_TYPE.get(question_type)
+    if policy is None:
+        raise ValueError(f"미지원 질문 유형 budget: {question_type}")
+    return policy
 
 
 def _member_ok(c: RiskCandidate) -> bool:
@@ -441,7 +463,7 @@ def attach_recovery_windows(
     *,
     quiet_span: int = 2,
 ) -> list[RiskEpisode]:
-    """recovery window 산출(감수 35차 개정) — 현재 점수·순위와 완전 독립.
+    """recovery window 산출(감수 35차 개정·40차 confidence/layer 계약).
 
     - **earliest_relief**: 대표(primary) cause 중 하나가 처음 비활성화된 뒤의
       기간 — 부분 완화(다른 primary cause 지속 가능), confidence 낮음.
@@ -449,6 +471,14 @@ def attach_recovery_windows(
       활성 이후 quiet_span(기본 2 native 기간) 이상 비활성이고 그 quiet 구간이
       관측 지평 안에 실제로 존재할 때만. 관측 종료 직전의 일시 비활성은
       **right-censored** — stable 미산출 + reasons에 censored 기록.
+    - **quiet span layer 계약(감수 40차)**: stable은 **월 단위(month-native)
+      episode에서만** 산출(quiet 2 = 2개월). 연 단위 2기간=2년은 같은 의미가
+      아니므로 비월 episode는 earliest만 + `stable_month_native_only` 기록.
+      quiet 계산도 월 라벨 지평만 사용(연 라벨 혼합 지평의 오계수 방지).
+    - **confidence는 고정값이 아니라 상한(감수 40차)**: earliest=0.20 ×
+      episode.context_confidence / stable=0.40 × episode.context_confidence —
+      identity가 약한(fallback·partial) episode가 resolved와 같은 회복 확신을
+      받는 과대 표시 금지. right-censored는 stable 자체 미생성(기존 유지).
     - cause 하나 종료·다른 cause 지속 → episode 회복 아님(earliest만 가능).
     - '미래 운이 좋다' 사유의 회복 생성 금지, 단정 표현 금지(R3 계약).
     """
@@ -509,17 +539,29 @@ def attach_recovery_windows(
         reasons = [f"cause_relief:{a}@{last_actives[a]}"
                    for a in sorted(dominant)]
         # stable — 모든 primary cause 종료 + quiet_span 확보(우측 검열 처리).
+        # 월 단위 계약(감수 40차): month-native episode만 stable 산출, quiet
+        # 계수도 월 라벨 지평만(연 2기간=2년 오해석 차단).
         overall_end = max(v for v in last_actives.values() if v is not None)
-        quiet = [p for p in horizon if p > overall_end]
+        member_periods = {c.period_key for c in
+                          (by_uid.get(m) for m in ep.member_candidate_ids)
+                          if c is not None}
+        month_native = all(_month_index(p) is not None
+                           for p in member_periods)
+        quiet = [p for p in horizon
+                 if p > overall_end and _month_index(p) is not None]
         ongoing = [a for a, v in last_actives.items()
                    if v == horizon[-1]]
         stable = None
-        confidence = 0.2  # 부분 완화 — 보수 고정(잠정)
+        # confidence 상한(감수 40차): cap × episode.context_confidence —
+        # identity 약한 episode(fallback 0.6·partial 0.85)의 회복 확신 축소.
+        confidence = round(0.20 * ep.context_confidence, 6)
         if ongoing:
             reasons.append("other_primary_cause_ongoing")
+        elif not month_native:
+            reasons.append("stable_month_native_only")
         elif len(quiet) >= quiet_span:
             stable = quiet[quiet_span - 1]
-            confidence = 0.4
+            confidence = round(0.40 * ep.context_confidence, 6)
             reasons.append(f"all_primary_causes_quiet:{quiet_span}")
         else:
             reasons.append("right_censored_quiet_span")
@@ -564,8 +606,19 @@ def selection_policy_hash() -> str:
                                            " 병합 근거일 뿐 ownership 증거"
                                            " 금지",
         },
-        "recovery_censoring": "quiet_span 2 native 기간·right-censored=stable"
-                              " 미산출·다중 cause 지속=earliest만",
+        "recovery_censoring": "quiet_span 2·right-censored=stable 미산출·"
+                              "다중 cause 지속=earliest만 — **월 단위 계약**"
+                              "(감수 40차): stable은 month-native episode만,"
+                              " quiet 계수는 월 라벨 지평만",
+        "recovery_confidence": "고정값 아님(감수 40차) — cap × episode."
+                               "context_confidence: earliest cap 0.20 ·"
+                               " stable cap 0.40(identity 약한 episode의"
+                               " 회복 확신 과대 표시 금지)",
+        "budget_by_question_type": {
+            k: {"soft_target": v.soft_target, "hard_max": v.hard_max}
+            for k, v in sorted(BUDGET_BY_QUESTION_TYPE.items())
+        },
+        "hard_min": 0,
         "earliest_relief_basis": "대표의 최고 기여(최강 trigger) primary cause"
                                  " 완화 기준(보조 원인 종료로 미생성) — dominant"
                                  " 동률(strength≥max−ε, ε=0.02 잠정) 집합"
@@ -600,8 +653,10 @@ def selection_policy_hash() -> str:
 
 
 __all__ = [
+    "BUDGET_BY_QUESTION_TYPE",
     "RISK_SELECTION_VERSION",
     "RiskBudgetPolicy",
+    "budget_for",
     "attach_recovery_windows",
     "build_episodes",
     "candidate_uid",

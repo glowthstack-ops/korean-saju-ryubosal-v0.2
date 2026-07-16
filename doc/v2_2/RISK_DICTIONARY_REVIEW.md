@@ -1401,3 +1401,56 @@ survey 2종 재생성 byte-identical.
 계약 49건(본 차수 저작), near-tie·dominant ε=0.02, identity quality(1.0/0.9/
 0.85/0.6/0.0), quiet span 2, relief confidence(0.2/0.4), 질문 유형별
 hard_max·soft_target, partial≠ownership 계약(본 차수 구현).
+
+## 25. 감수 40차 — temporal high 4 최종·recovery 계약 교정·budget 표·shadow_selection 49/49 (2026-07-16)
+
+**감수 결정 반영**: shadow_selection 스탬프 전 필수 4건 완료 + 스탬프.
+
+1. **CAR_EXIT_PRESSURE·MOV_RELOCATION_PRESSURE high→medium**(REL과 동일
+   기준 적용 — 퇴직·이탈 '압박·고민'≠실제 퇴직 확정, 이동 '필요성·검토'≠실제
+   이사 실행. PRESSURE 명칭·prohibited와 정합). 근거 note 저작(실제 전환
+   항목(CAR_EXIT_TRANSITION 등) 신설 시에만 high 재론 명시). **최종 분포
+   high 4·medium 14·low 26·none 5** — manifest 근거표는 high 4종만 잔존
+   (강등 3종 근거는 사전 note+본 고정본에 보존: REL_PARTNER_READJUST·
+   CAR_EXIT_PRESSURE·MOV_RELOCATION_PRESSURE = 전환 '과정'의 부담·조정).
+   shadow_temporal 2종 해시 재계산·R1-T2 재스탬프(47종 R1-T 유지) — 49/49
+   유지. RISK_SCORING_VERSION **r1.2.2-shadow**. **delta survey**: candidate
+   평균 상승률 9.4→8.3%(교운일·MB 0.20), 강등 2종이 candidate top10 신규
+   진입에서 소멸, episode 판정 5기준 전 프로필 PASS 유지.
+2. **recovery confidence = cap × episode.context_confidence**(고정값 기각
+   반영): earliest cap 0.20 · stable cap 0.40 — fallback(0.6)·partial(0.85)
+   episode가 resolved와 같은 회복 확신을 받는 과대 표시 제거. right-censored
+   는 stable 자체 미생성 유지. fixture: resolved vs fallback 동일 구조에서
+   confidence 차등 검증.
+3. **quiet span 월 단위 계약**: stable은 **month-native episode만** 산출
+   (quiet 2=2개월), quiet 계수도 월 라벨 지평만. 비월 episode는 earliest만
+   + `stable_month_native_only` 기록. **효과(재측정)**: stable 95~115건 →
+   **6~7건**(연 단위 episode의 '2기간=2년 quiet' 오해석 전량 차단 — 기존
+   stable 대부분이 연 단위였음이 드러남). fixture: 연 단위 episode stable
+   미산출.
+4. **질문 유형별 budget 표 고정**(권장 초기 정책 채택): specific_event
+   1/2 · single_domain_period 2/2 · period_overview 3/3 ·
+   multi_episode_compare 3/4 · episode_followup 1/2(soft/hard). hard_min 0
+   공통·soft_target=최소 출력 아님(적격 부족 시 미달 허용 fixture)·미상
+   유형 fail-closed 오류. budget_for() 헬퍼 + policy hash 편입.
+5. **axis=none 불변식 fixture**: ownership 미적용 항목도 exposable·rankable
+   이면 대표·선택 가능(우선권 가산만 부재) — 같은 episode에 owner 후보가
+   있으면 owner 우선.
+6. **shadow_selection 49/49 스탬프(R2-c)**: scope 명칭 shadow_selection
+   신설(본문=selection scope: riskFamily·relatedDomains·crossDomainEffects·
+   specificityRank·absorbedRoleHint·**primaryOwnership**). 확정값: ownership
+   계약 49건·near-tie/dominant ε=0.02(각각 별도 필드)·identity quality
+   (1.0/0.9/0.85/0.6/0.0 — resolved=type 완비·호환 필수)·quiet span 2(월)·
+   relief confidence cap(0.2/0.4)·budget 표. RISK_SELECTION_VERSION
+   **r2.2.0-shadow**.
+
+**최종 상태**: shadow_structure 49 · shadow_scoring 49 · shadow_temporal 49
+· **shadow_selection 49** (RISK_ENGINE_MODE 기본 off — 노출 승인 아님).
+
+**게이트**: pytest 2045·ruff clean·mypy 0(524)·suppression diff 0·profile
+baseline 값 byte 동일(meta만)·manifest 일치·survey 2종 byte-identical.
+
+**다음**: R3(노출 계층 — warning 우선 서술 계약·risk_level 밴드·R2 선별
+결과의 LLM 입력 직렬화·prohibited/allowed claim 강제·partial identity 단정
+금지 표현 계약). recovery stable의 연 단위 정책(quietSpanByLayer)은 실사용
+지평 설계 후 별도 감수.

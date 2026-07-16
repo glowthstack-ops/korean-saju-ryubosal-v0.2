@@ -1,7 +1,7 @@
-> R1-T/R2-a2 전수 측정 고정본(감수 39차 — MAX_BONUS 0.20 확정 반영: 0.30 보조 비교·0.40/0.50 기각) — 재생성: `python scripts/risk_scoring_survey.py`
+> R1-T 전수 측정 고정본(감수 40차 — high 4·medium 14 최종, MAX_BONUS 0.20) — 재생성: `python scripts/risk_scoring_survey.py`
 > 출력 결정적 — 본 파일과의 diff = 점수 의미 회귀 신호.
 
-# R1-c1 위험 점수 전수 측정 — risk-score-r1.2.1-shadow
+# R1-c1 위험 점수 전수 측정 — risk-score-r1.2.2-shadow
 semantics cause-semantics-v3 · config 2d328df293863b3a · semantics 607f75c4a8dfc72c
 compound=연결된 effect graph(shared canonical cause)만 · is_question_target=context confidence 제외(fixture 고정)
 
@@ -207,30 +207,28 @@ context 축 상태 합(A군): confirmed 66, conflicted 0, required 496, unknown 
   승인 기준(0.50↔0.60 top-25 ≥85%): PASS
 
 ## 교운기 overlay(커널 SSOT — 이벤트 엔진 함수 공유)
-  교운일(w=1.000): 평균 상승률 9.8% · top10 overlap 9/10(신규 1) · transition이 최대 modifier 210 · capped=1 0
-  ±1년(w=0.368): 평균 상승률 3.6% · top10 overlap 9/10(신규 1) · transition이 최대 modifier 185 · capped=1 0
-  ±2년(w=0.135): 평균 상승률 1.3% · top10 overlap 10/10(신규 0) · transition이 최대 modifier 185 · capped=1 0
+  교운일(w=1.000): 평균 상승률 9.1% · top10 overlap 9/10(신규 1) · transition이 최대 modifier 210 · capped=1 0
+  ±1년(w=0.368): 평균 상승률 3.3% · top10 overlap 9/10(신규 1) · transition이 최대 modifier 185 · capped=1 0
+  ±2년(w=0.135): 평균 상승률 1.2% · top10 overlap 10/10(신규 0) · transition이 최대 modifier 185 · capped=1 0
 
 ### 교운일 capped=1 상세(조건2 — 개별 감수 재료)
 ### 교운일 top10 신규 진입 상세(조건2)
   MOV_CONTRACT_SETBACK_RISK [relocation] 2027-01: rank 11 → 7 · raw 0.672 → 0.753 · trans_bonus +0.120 · sensitivity medium
 
 ### MAX_BONUS 민감도(감수 39차 — 0.20 **확정**, 0.30 보조 비교·0.40/0.50 기각, 교운일 w=1.0 최악점)
-  MAX_BONUS=0.20: 평균 상승률 9.8% · top10 overlap(무교운 대비) 9/10 · transition이 최대 modifier 210 · capped=1 0
-  MAX_BONUS=0.30: 평균 상승률 14.6% · top10 overlap(무교운 대비) 9/10 · transition이 최대 modifier 221 · capped=1 3
-  MAX_BONUS=0.40: 평균 상승률 19.5% · top10 overlap(무교운 대비) 8/10 · transition이 최대 modifier 241 · capped=1 3
-  MAX_BONUS=0.50: 평균 상승률 24.4% · top10 overlap(무교운 대비) 8/10 · transition이 최대 modifier 243 · capped=1 3
+  MAX_BONUS=0.20: 평균 상승률 9.1% · top10 overlap(무교운 대비) 9/10 · transition이 최대 modifier 210 · capped=1 0
+  MAX_BONUS=0.30: 평균 상승률 13.6% · top10 overlap(무교운 대비) 9/10 · transition이 최대 modifier 221 · capped=1 3
+  MAX_BONUS=0.40: 평균 상승률 18.1% · top10 overlap(무교운 대비) 8/10 · transition이 최대 modifier 241 · capped=1 3
+  MAX_BONUS=0.50: 평균 상승률 22.7% · top10 overlap(무교운 대비) 8/10 · transition이 최대 modifier 241 · capped=1 3
 
 ## transitionSensitivity 저작 audit(조건4 — 상태 전환성 기준)
-  분포: high 6 · medium 12 · low 26 · none 5
+  분포: high 4 · medium 14 · low 26 · none 5
   ### high 전체(전환기 가속 사건인지 개별 감수)
-    CAR_EXIT_PRESSURE [career] kind=pressure role=exit_pressure
     CAR_HIRING_OUTCOME_SETBACK [career] kind=incident_risk role=hiring_outcome
     CAR_REASSIGNMENT_RISK [career] kind=incident_risk role=reassignment
     LEG_CONTRACT_TERMINATION_RISK [contract_legal] kind=incident_risk role=contract_termination
-    MOV_RELOCATION_PRESSURE [relocation] kind=pressure role=relocation_pressure
     SEL_UNWANTED_PLACEMENT [selection] kind=incident_risk role=selection_outcome
-  medium 12종: CAR_EVALUATION_SETBACK_RISK, CAR_HIRING_PROCESS_DELAY, FIN_SETTLEMENT_DISPUTE, LEG_DISPUTE_RISK, MOV_COMMUTE_BURDEN, MOV_CONTRACT_SETBACK_RISK, MOV_SCHEDULE_DISRUPTION, REL_DISTANCE_PRESSURE, REL_PARTNER_READJUST, SEL_DRAW_OUTCOME_UNCERTAINTY, SEL_RESULT_DELAY_PRESSURE, SEL_WAITLIST_PROLONGATION
+  medium 14종: CAR_EVALUATION_SETBACK_RISK, CAR_EXIT_PRESSURE, CAR_HIRING_PROCESS_DELAY, FIN_SETTLEMENT_DISPUTE, LEG_DISPUTE_RISK, MOV_COMMUTE_BURDEN, MOV_CONTRACT_SETBACK_RISK, MOV_RELOCATION_PRESSURE, MOV_SCHEDULE_DISRUPTION, REL_DISTANCE_PRESSURE, REL_PARTNER_READJUST, SEL_DRAW_OUTCOME_UNCERTAINTY, SEL_RESULT_DELAY_PRESSURE, SEL_WAITLIST_PROLONGATION
 
 ## pairwise golden(기대 순서 명시 — 감수 대상)
   같은 구조: CONFIRMED 0.300 > 허용 UNKNOWN 0.165 > 비노출 0.000 — PASS

@@ -158,18 +158,21 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "C3",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "22a06def68819126",
         "shadow_scoring": "90647b24e25fc8b5",
-        "shadow_temporal": "def7684e3f4fe396"
+        "shadow_temporal": "def7684e3f4fe396",
+        "shadow_selection": "f0e0b934ccd32b79"
       },
       "normalizedEffectRole": "workload_strain",
       "transitionSensitivity": "low",
@@ -307,17 +310,20 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewHashes": {
         "shadow_structure": "bdec17ae089bf6de",
         "shadow_scoring": "f439229acb7c85fd",
-        "shadow_temporal": "def7684e3f4fe396"
+        "shadow_temporal": "def7684e3f4fe396",
+        "shadow_selection": "8d3938147e2afbf6"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "workplace_conflict",
@@ -449,18 +455,21 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "C3-d",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "7f8eafafb486e6bc",
         "shadow_scoring": "ea7bf9db09d3bb2b",
-        "shadow_temporal": "f1b5cb2f4d23c5f9"
+        "shadow_temporal": "f1b5cb2f4d23c5f9",
+        "shadow_selection": "370cb6c81e8052d2"
       },
       "normalizedEffectRole": "evaluation_setback",
       "transitionSensitivity": "medium",
@@ -590,18 +599,21 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "C3-d",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "3ee5db5bf0450f31",
         "shadow_scoring": "23957c8537135032",
-        "shadow_temporal": "ef86c29f33dae7ab"
+        "shadow_temporal": "ef86c29f33dae7ab",
+        "shadow_selection": "2163cd4ff444fa10"
       },
       "normalizedEffectRole": "reassignment",
       "transitionSensitivity": "high",
@@ -736,22 +748,25 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "C3-d",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T2",
+        "shadow_selection": "R2-c"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1238b07f9ff24cda",
         "shadow_scoring": "937e57eed73e0085",
-        "shadow_temporal": "ef86c29f33dae7ab"
+        "shadow_temporal": "f1b5cb2f4d23c5f9",
+        "shadow_selection": "f0e0b934ccd32b79"
       },
       "normalizedEffectRole": "exit_pressure",
-      "transitionSensitivity": "high",
-      "transitionSensitivityNote": "감수 39차 high 확정: 대상이 역할 이탈·전환(직업 상태 변경) 자체 — 일반 업무 부담 증가(low 기준)가 아니라 상태 종료·전환 방향의 압박. 전환기에 이직·퇴직이 실제로 가속.",
+      "transitionSensitivity": "medium",
+      "transitionSensitivityNote": "감수 40차 high→medium: 명칭·kind(pressure)·manifestation(역할 유지 부담 증가·이탈 고민)이 퇴직·이탈의 '압박·고민'이지 실제 퇴직 확정(high 기준)이 아님 — REL_PARTNER_READJUST와 동일 기준. 실제 상태 전환 항목(CAR_EXIT_TRANSITION)을 만들 경우에만 high 재론.",
       "primaryOwnership": {
         "axis": "none"
       }
@@ -858,17 +873,20 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewHashes": {
         "shadow_structure": "2d15be02f6386174",
         "shadow_scoring": "c91c29907ba04609",
-        "shadow_temporal": "f1b5cb2f4d23c5f9"
+        "shadow_temporal": "f1b5cb2f4d23c5f9",
+        "shadow_selection": "459b7dd8751e7748"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "result_wait_delay",
@@ -1001,17 +1019,20 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewHashes": {
         "shadow_structure": "7ce79c16f5dd630d",
         "shadow_scoring": "998be247b5377085",
-        "shadow_temporal": "ef86c29f33dae7ab"
+        "shadow_temporal": "ef86c29f33dae7ab",
+        "shadow_selection": "7e7888c44408cd64"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "hiring_outcome",

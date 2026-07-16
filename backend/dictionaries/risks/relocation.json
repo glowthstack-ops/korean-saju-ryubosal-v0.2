@@ -148,18 +148,21 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "69c1c96e3f1e704e",
         "shadow_scoring": "bd64dec7b88ebe97",
-        "shadow_temporal": "f1b5cb2f4d23c5f9"
+        "shadow_temporal": "f1b5cb2f4d23c5f9",
+        "shadow_selection": "e72337cf797ce0d8"
       },
       "normalizedEffectRole": "contract_setback",
       "transitionSensitivity": "medium",
@@ -294,18 +297,21 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "605b7d43db4a680b",
         "shadow_scoring": "a7edd8e92d533aba",
-        "shadow_temporal": "f1b5cb2f4d23c5f9"
+        "shadow_temporal": "f1b5cb2f4d23c5f9",
+        "shadow_selection": "6c785b76a257a405"
       },
       "normalizedEffectRole": "schedule_disruption",
       "transitionSensitivity": "medium",
@@ -442,18 +448,21 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "412b4eacde761fe9",
         "shadow_scoring": "f5b88d5083df1bad",
-        "shadow_temporal": "def7684e3f4fe396"
+        "shadow_temporal": "def7684e3f4fe396",
+        "shadow_selection": "717b5466c8c0e31e"
       },
       "normalizedEffectRole": "housing_defect",
       "transitionSensitivity": "low",
@@ -560,18 +569,21 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1eff57ea86cb49c3",
         "shadow_scoring": "4b1558323558fc75",
-        "shadow_temporal": "f1b5cb2f4d23c5f9"
+        "shadow_temporal": "f1b5cb2f4d23c5f9",
+        "shadow_selection": "4d46c223052cd215"
       },
       "normalizedEffectRole": "commute_burden",
       "transitionSensitivity": "medium",
@@ -696,22 +708,25 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T2",
+        "shadow_selection": "R2-c"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "7d2ee0bd51e3b397",
         "shadow_scoring": "48d0ad0a921c01d8",
-        "shadow_temporal": "ef86c29f33dae7ab"
+        "shadow_temporal": "f1b5cb2f4d23c5f9",
+        "shadow_selection": "7ad29edeb0f7f9f0"
       },
       "normalizedEffectRole": "relocation_pressure",
-      "transitionSensitivity": "high",
-      "transitionSensitivityNote": "감수 39차 high 확정: 거주 상태 전환(이동·이사) 자체를 겨냥한 압박 — 이동 '진행의 지연'(medium 기준)이 아니라 전환 발생 방향. 전환기 이사 가속의 대표 사건.",
+      "transitionSensitivity": "medium",
+      "transitionSensitivityNote": "감수 40차 high→medium: 이동 필요성·주거 압박·이사 검토는 실제 이사·거주 상태 변경(high 기준)이 아니라 전환 과정의 압박 — 실제 전환 항목(MOV_RELOCATION_TRANSITION) 신설 시에만 high 재론. prohibited(이사 단정 계열)와도 정합.",
       "primaryOwnership": {
         "axis": "mobility"
       }
@@ -829,18 +844,21 @@
       "reviewScopes": [
         "shadow_structure",
         "shadow_scoring",
-        "shadow_temporal"
+        "shadow_temporal",
+        "shadow_selection"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
         "shadow_scoring": "R1",
-        "shadow_temporal": "R1-T"
+        "shadow_temporal": "R1-T",
+        "shadow_selection": "R2-c"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "4febad86b0e07b54",
         "shadow_scoring": "610c02720c23560d",
-        "shadow_temporal": "def7684e3f4fe396"
+        "shadow_temporal": "def7684e3f4fe396",
+        "shadow_selection": "dcb116efca962387"
       },
       "normalizedEffectRole": "vehicle_transport",
       "transitionSensitivity": "low",

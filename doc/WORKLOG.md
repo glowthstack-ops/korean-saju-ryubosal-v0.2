@@ -8207,3 +8207,17 @@ near_tie/dominant 0.02·"<="), r2.1.0-shadow. proxy audit: match 34·mismatch
 pytest 2041·ruff·mypy 0(524)·baseline 값 불변·manifest 일치. REVIEW.md §24.
 다음: shadow_selection 스탬프 감수(ε·identity quality·quiet span·relief
 confidence·budget 정책·ownership 계약 49건 확정).
+
+## 감수 40차 — temporal high 4 최종·recovery 교정·shadow_selection 49/49 (2026-07-16)
+
+CAR_EXIT_PRESSURE·MOV_RELOCATION_PRESSURE high→medium(압박·검토≠실제 상태
+전환 — REL 동일 기준, note 저작·R1-T2 재스탬프·r1.2.2-shadow). 최종 high 4·
+medium 14·low 26·none 5. delta: candidate 상승 9.4→8.3%·강등 2종 top10 신규
+소멸·판정 전 PASS. recovery confidence를 고정값에서 **cap×episode.context_
+confidence**로(earliest 0.20·stable 0.40 — identity 약한 episode 과대 확신
+제거), quiet span **월 단위 계약**(month-native만 stable — 재측정에서 stable
+95~115→6~7건: 연 단위 '2기간=2년' 오해석 전량 차단). 질문 유형별 budget 표
+고정(5유형·hard_min 0·미상 fail-closed)+axis none 대표 자격 불변식. fixture
++4(selection 38종). **shadow_selection 49/49 스탬프(R2-c)** — 4 scope 전부
+49/49(모드 off 유지). r2.2.0-shadow. pytest 2045·ruff·mypy 0(524)·baseline
+값 불변·manifest 일치·고정본 2종 갱신. REVIEW.md §25. 다음: R3 노출 계층.

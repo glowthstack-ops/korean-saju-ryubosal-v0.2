@@ -860,3 +860,105 @@ def test_anchor_epsilon_boundary_is_float_safe() -> None:
     picked2 = _trio(0.558)
     assert any(p.startswith("LEG_C|") for p in picked2)
     assert not any(p.startswith("FIN_B|") for p in picked2)
+
+
+# ── 감수 40차 확정 fixture ────────────────────────────────────────
+
+
+def test_budget_by_question_type_table_fixed() -> None:
+    """질문 유형별 budget 고정 표(감수 40차) — hard_min 없음(암묵 0),
+    soft_target은 최소 출력 개수가 아님, 미상 유형은 fail-closed."""
+    import pytest
+
+    from saju_engines.risk_selection import (
+        BUDGET_BY_QUESTION_TYPE,
+        budget_for,
+    )
+    expected = {
+        "specific_event": (1, 2),
+        "single_domain_period": (2, 2),
+        "period_overview": (3, 3),
+        "multi_episode_compare": (3, 4),
+        "episode_followup": (1, 2),
+    }
+    assert {k: (v.soft_target, v.hard_max)
+            for k, v in BUDGET_BY_QUESTION_TYPE.items()} == expected
+    assert budget_for("period_overview").hard_max == 3
+    with pytest.raises(ValueError):
+        budget_for("unknown_type")
+    # 적격 1개 + soft_target 3(overview) → 1개만(약한 후보로 채우지 않음).
+    only = _cand(risk_id="LEG_ONLY", legal_episode_id="e1",
+                 role="contract_termination")
+    scored = _scored([only])
+    eps = build_episodes(scored)
+    selected, _ = select_episodes(eps, scored, budget_for("period_overview"))
+    assert len(selected) == 1
+
+
+def test_axis_none_item_can_still_represent() -> None:
+    """axis=none(ownership 미적용) 항목도 exposable·rankable이면 대표 가능
+    (감수 40차 불변식) — ownership 우선권만 없을 뿐 자격 박탈이 아니다."""
+    none_axis = _cand(risk_id="FIN_NONE", role="cashflow_pressure",
+                      legal_episode_id="e1")  # 기본 axis="none"
+    scored = _scored([none_axis])
+    eps = build_episodes(scored)
+    assert len(eps) == 1
+    rep = eps[0].representative_candidate_id
+    assert rep is not None and rep.startswith("FIN_NONE|")
+    selected, _ = select_episodes(eps, scored,
+                                  RiskBudgetPolicy(soft_target=1, hard_max=1))
+    assert len(selected) == 1
+    # 같은 episode에 ownership 보유 후보가 있으면 그쪽이 우선(가산의 의미).
+    owner = _cand(risk_id="LEG_OWNED", role="administrative_delay",
+                  sources=(_HYEONG,), legal_episode_id="e1",
+                  primary_ownership_axis="legal")
+    scored2 = _scored([none_axis, owner])
+    eps2 = build_episodes(scored2)
+    rep2 = eps2[0].representative_candidate_id or ""
+    assert rep2.startswith("LEG_OWNED|")
+
+
+def test_recovery_confidence_scales_with_identity_quality() -> None:
+    """recovery confidence=cap × episode.context_confidence(감수 40차) —
+    identity 약한 fallback episode가 resolved와 같은 회복 확신을 받지 않는다."""
+    def _episode_conf(reality_type: str | None, use_alias: bool):
+        base = dict(risk_id="MOV_R", domain=RiskDomain.RELOCATION,
+                    role="contract_setback")
+        cands = [_cand(**base, period=p,
+                       mobility_episode_id="mv1" if use_alias else None,
+                       reality_episode_id="deal_1" if use_alias else None,
+                       reality_episode_type=reality_type)
+                 for p in ("2026-01", "2026-02")]
+        scored = _scored(cands)
+        eps = build_episodes(scored)
+        horizon = ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05"]
+        out = attach_recovery_windows(eps, scored, horizon)
+        rws = [(ep.context_confidence, ep.recovery_window) for ep in out
+               if ep.recovery_window is not None]
+        assert len(rws) == 1
+        return rws[0]
+
+    ctx_res, rw_res = _episode_conf("housing_contract", True)
+    ctx_fall, rw_fall = _episode_conf(None, False)  # fallback 병합
+    # stable 산출(월 단위·quiet 2 충족) — cap 0.40 × context_confidence.
+    assert rw_res.stable_recovery_window is not None
+    assert rw_res.recovery_confidence == round(0.40 * ctx_res, 6)
+    assert rw_fall.recovery_confidence == round(0.40 * ctx_fall, 6)
+    assert rw_res.recovery_confidence > rw_fall.recovery_confidence
+
+
+def test_stable_recovery_month_native_only() -> None:
+    """quiet span 월 단위 계약(감수 40차): 연 단위 episode는 stable 미산출
+    (2기간=2년 오해석 차단) — earliest relief만 + 사유 기록."""
+    yearly = [_cand(risk_id="LEG_Y", legal_episode_id="e1",
+                    role="legal_dispute", period=p)
+              for p in ("2024", "2025")]
+    scored = _scored(yearly)
+    eps = build_episodes(scored)
+    horizon = ["2024", "2025", "2026", "2027", "2028"]
+    out = attach_recovery_windows(eps, scored, horizon)
+    rw = next(ep.recovery_window for ep in out
+              if ep.recovery_window is not None)
+    assert rw.earliest_relief_window == "2026"
+    assert rw.stable_recovery_window is None
+    assert "stable_month_native_only" in rw.recovery_reasons
