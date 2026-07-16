@@ -262,9 +262,14 @@ def test_partial_identity_requires_qualifier() -> None:
     assert "same_episode_certainty" in payload["globalProhibitedClaimCodes"]
 
 
-def test_token_guard_preserves_p0_under_extreme_budget() -> None:
-    """극단적 예산 부족 → prohibited claim·qualifier·대표 요약·level 보존,
-    episode 삭제 없음(compact P0 표현으로 유지)."""
+def test_token_guard_fail_closed_and_tiers() -> None:
+    """token guard(감수 43차): 512 미만=전체 비주입(fail-closed), 512 이상은
+    tier 축약 — episode 삭제·qualifier/prohibited 제거는 어떤 단계에도 없고
+    overflow 상태 주입 경로도 없다."""
+    from saju_engines.risk_presentation import (
+        MIN_SAFE_RISK_PRESENTATION_BUDGET,
+    )
+
     cands = _scored([
         _cand(risk_id="LEG_A", legal_episode_id="e1",
               exposure=ExposureStatus.UNKNOWN, kind=RiskKind.PRESSURE,
@@ -276,24 +281,61 @@ def test_token_guard_preserves_p0_under_extreme_budget() -> None:
     claims = {"LEG_A": {"manifestations": ["점검 부담 증가 가능성"],
                         "prohibited": ["처분 단정"]}}
     payload = build_presentation(eps, cands, claims)
-    out = serialize_llm_payload(payload, token_budget=10)  # 극단 부족
-    data = json.loads(out)
-    n_llm = len(payload["llmRiskEpisodes"])
-    assert len(data["riskEpisodes"]) == n_llm  # 조용한 삭제 없음
-    # 전역 guard는 최상단 1회 — 극단 예산에서도 보존.
-    assert data["globalProhibitedClaimCodes"] == list(
+    # ① 512 미만 → 위험 payload 전체 비주입 + 사유(감사 기록은 payload 유지).
+    low = json.loads(serialize_llm_payload(payload, token_budget=256))
+    assert low["riskEpisodes"] == []
+    assert low["exposureSuppressedReason"] == "TOKEN_BUDGET_INSUFFICIENT"
+    assert low["globalProhibitedClaimCodes"] == list(
         GLOBAL_PROHIBITED_CLAIM_CODES)
-    assert data["compressionMode"] == "P0_COMPACT"
-    assert data["tokenBudgetOverflow"] is True
-    for p in data["riskEpisodes"]:
-        assert "presentationLevel" in p and "requiredQualifiers" in p
-        assert "episodeProhibitedClaimCodes" in p
-        assert "diagnostics" not in p  # 진단은 LLM payload에 없음
-    # 충분한 예산이면 전체 tier(P2까지) 포함 — 진단은 여전히 미포함.
+    assert len(payload["presentationRecords"]) == 2  # 감사 기록 불변
+    # ② min_safe(512)에서는 축약 계층으로 주입 가능해야 함(이 payload 크기).
+    mid = json.loads(serialize_llm_payload(
+        payload, token_budget=MIN_SAFE_RISK_PRESENTATION_BUDGET))
+    assert len(mid["riskEpisodes"]) == len(payload["llmRiskEpisodes"])
+    for ep in mid["riskEpisodes"]:
+        assert "presentationLevel" in ep and "requiredQualifiers" in ep
+        assert "diagnostics" not in ep
+    assert "tokenBudgetOverflow" not in mid  # overflow 주입 경로 없음
+    # ③ 충분한 예산 → 전체 tier(P2) — 진단은 여전히 미포함.
     full = json.loads(serialize_llm_payload(payload, token_budget=100_000))
     assert "effectRoles" in full["riskEpisodes"][0]
     assert "diagnostics" not in full["riskEpisodes"][0]
-    assert "tokenBudgetOverflow" not in full
+    # ④ P0_COMPACT조차 초과(episode 다수) → 전체 비주입(512 이상이어도).
+    many = _scored([
+        _cand(risk_id=f"LEG_{i:02d}", legal_episode_id=f"e{i}")
+        for i in range(60)
+    ])
+    eps_many = build_episodes(many)
+    payload_big = build_presentation(eps_many, many)
+    big = json.loads(serialize_llm_payload(payload_big, token_budget=512))
+    assert big["riskEpisodes"] == []
+    assert big["exposureSuppressedReason"] == "TOKEN_BUDGET_INSUFFICIENT"
+
+
+def test_estimator_is_conservative_for_korean() -> None:
+    """estimator(감수 43차): 한국어(비ascii)는 1자≈1토큰 + 여유 — /3 과소
+    추정 금지. tokenizer adapter 주입 시 그 결과를 우선한다."""
+    from saju_engines.risk_presentation import estimate_tokens
+
+    korean = "위험" * 300  # 600자 비ascii
+    est = estimate_tokens(korean)
+    assert est >= 600  # 비ascii 1:1 하한(구 ceil/3=200은 과소)
+    ascii_text = "a" * 400
+    assert estimate_tokens(ascii_text) >= 100  # ascii/4
+    # adapter 주입 우선.
+    assert estimate_tokens("anything", counter=lambda _t: 42) == 42
+
+
+def test_user_labels_confirmed() -> None:
+    """표시명(감수 43차 확정) — 사건 확정으로 읽히지 않는 대응 우선도."""
+    from saju_engines.risk_presentation import USER_LEVEL_LABELS
+
+    assert USER_LEVEL_LABELS == {
+        "advisory": "참고 신호",
+        "watch": "관찰 필요",
+        "warning": "주의 필요",
+        "critical": "우선 점검 필요",
+    }
 
 
 def test_shadow_mode_no_prompt_wiring() -> None:

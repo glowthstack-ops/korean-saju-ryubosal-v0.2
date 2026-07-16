@@ -131,11 +131,13 @@ def _profile_presentation(name: str, built: list, claims: dict) -> None:
             if kind is not None:
                 by_kind.setdefault(kind, Counter())[
                     rec["presentationLevel"]] += 1
-    print(f"\n## profile {name} — presentation 분포")
-    print("  전체 episode: " + " · ".join(
+    print(f"\n## profile {name} — presentation 분포"
+          "(단위: episode 건수 — 10차트 합산)")
+    print("  전체 episode(선택 전 — 잠재 구조 포함): " + " · ".join(
         f"{k} {all_levels[k]}" for k in ("critical", "warning", "watch",
                                          "advisory", "none")))
-    print("  budget 선택 후: " + " · ".join(
+    print("  budget 선택 후(warning_episode_count 등 —"
+          " hard_max 3 적용): " + " · ".join(
         f"{k} {sel_levels[k]}" for k in ("critical", "warning", "watch",
                                          "advisory", "none")))
     print("  도메인별(선택): " + " / ".join(
@@ -167,7 +169,8 @@ def _profile_presentation(name: str, built: list, claims: dict) -> None:
 
 def _token_guard_measure(built: list, claims: dict) -> None:
     """token guard 실측(감수 42차 §12) — budget 256/512/1024/2048."""
-    print("\n## token guard 실측(선택 집합·프로필 C 기준)")
+    print("\n## token guard 실측(선택 집합·프로필 C 기준 — 보수 estimator·"
+          "512 미만/compact 초과=fail-closed 비주입)")
     p0_tokens: list[int] = []
     for budget in (256, 512, 1024, 2048):
         tier_hits: Counter = Counter()
@@ -180,7 +183,9 @@ def _token_guard_measure(built: list, claims: dict) -> None:
             data = json.loads(rendered)
             total += len(payload["llmRiskEpisodes"])
             kept += len(data["riskEpisodes"])
-            if data.get("compressionMode") == "P0_COMPACT":
+            if data.get("exposureSuppressedReason"):
+                tier_hits["SUPPRESSED(fail-closed)"] += 1
+            elif data.get("compressionMode") == "P0_COMPACT":
                 tier_hits["P0_COMPACT"] += 1
             elif any("effectRoles" in e for e in data["riskEpisodes"]):
                 tier_hits["P2(full)"] += 1
@@ -188,7 +193,7 @@ def _token_guard_measure(built: list, claims: dict) -> None:
                 tier_hits["P1"] += 1
             else:
                 tier_hits["P0"] += 1
-            overflow += 1 if data.get("tokenBudgetOverflow") else 0
+            overflow += 1 if data.get("exposureSuppressedReason") else 0
             # 전역 dedup 절감량: 전역 7+4 코드를 episode마다 반복했을 경우.
             per_ep = len(json.dumps(
                 {"globalProhibitedClaimCodes":
@@ -197,16 +202,17 @@ def _token_guard_measure(built: list, claims: dict) -> None:
                  payload["globalAllowedClaimCodes"]}, ensure_ascii=False))
             dedup_saving += per_ep * max(
                 0, len(data["riskEpisodes"]) - 1)
-            if budget == 256:
+            if budget == 512:  # compact(최소 주입 표현) 크기 측정
                 p0_tokens.append(estimate_tokens(rendered))
         print(f"  budget {budget}: tier " + " · ".join(
             f"{k} {v}" for k, v in sorted(tier_hits.items()))
-            + f" · overflow {overflow} · episode 보존 {kept}/{total}"
+            + f" · fail-closed 비주입 차트 {overflow} ·"
+            f" episode 주입 {kept}/{total}"
             f" · 전역 dedup 절감(반복 대비) ≈{dedup_saving // 3} tokens")
     if p0_tokens:
         s = sorted(p0_tokens)
-        print(f"  최소 표현 토큰(차트별): p50 {s[len(s) // 2]} · "
-              f"max {s[-1]}")
+        print(f"  최소 주입 표현(P0_COMPACT) 토큰(차트별): "
+              f"p50 {s[len(s) // 2]} · max {s[-1]}")
 
 
 def _threshold_sensitivity(built: list, claims: dict) -> None:
@@ -233,7 +239,8 @@ def _threshold_sensitivity(built: list, claims: dict) -> None:
         return " ".join(f"{k}:{c[k]}" for k in
                         ("critical", "warning", "watch", "advisory", "none"))
 
-    print("\n## 경계 국소 민감도(선택 집합·프로필 C — 한 축씩)")
+    print("\n## 경계 국소 민감도(단위: 선택 후 episode 건수 — C 프로필"
+          " 10차트 합산, 한 축씩)")
     base = (("critical", 0.40), ("warning", 0.25), ("watch", 0.12),
             ("advisory", 0.0))
     for label, variants in (

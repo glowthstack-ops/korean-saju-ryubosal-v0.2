@@ -132,20 +132,23 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "c8624a247f045526",
         "shadow_scoring": "0300b5febf8e25ae",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "8cb2d24eb5db30af"
+        "shadow_selection": "8cb2d24eb5db30af",
+        "shadow_presentation": "8220cf9e68312bad"
       },
       "normalizedEffectRole": "condition_strain",
       "transitionSensitivity": "low",
@@ -285,20 +288,23 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "002c8aca49446d9c",
         "shadow_scoring": "30043fa5f9579849",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "c2b1dc39b8cbf347"
+        "shadow_selection": "c2b1dc39b8cbf347",
+        "shadow_presentation": "ffa7b0a564a72f07"
       },
       "normalizedEffectRole": "vitality_load",
       "transitionSensitivity": "low",
@@ -405,20 +411,23 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "14cd06609952a242",
         "shadow_scoring": "b5d34aae65e28a37",
         "shadow_temporal": "e4836d592a2be568",
-        "shadow_selection": "58b119fc1d5a6dbd"
+        "shadow_selection": "58b119fc1d5a6dbd",
+        "shadow_presentation": "abf86c056b097281"
       },
       "normalizedEffectRole": "recovery_capacity",
       "transitionSensitivity": "none",
@@ -521,20 +530,23 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1ed0dbac337734a4",
         "shadow_scoring": "119f6e65ac45c17d",
         "shadow_temporal": "e4836d592a2be568",
-        "shadow_selection": "6d20d071fa95702e"
+        "shadow_selection": "6d20d071fa95702e",
+        "shadow_presentation": "47eda8ec7a4c1353"
       },
       "normalizedEffectRole": "vitality_load",
       "transitionSensitivity": "none",
@@ -657,20 +669,23 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1518cb5fbd90c5aa",
         "shadow_scoring": "b88e0ec2822972d0",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "2ec74a405e0b1c04"
+        "shadow_selection": "2ec74a405e0b1c04",
+        "shadow_presentation": "4251274c65eba5b1"
       },
       "normalizedEffectRole": "mobility_safety",
       "transitionSensitivity": "low",
@@ -775,20 +790,23 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "5f25f1b5557267a5",
         "shadow_scoring": "151278e43db09504",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "5da2da0d2e64b65e"
+        "shadow_selection": "5da2da0d2e64b65e",
+        "shadow_presentation": "9d3f827d4cf87f92"
       },
       "normalizedEffectRole": "health_management",
       "transitionSensitivity": "low",
@@ -924,20 +942,23 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "dbfd5788ac95fb9c",
         "shadow_scoring": "23a8ed0a760868b0",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "f43c119c741efd9d"
+        "shadow_selection": "f43c119c741efd9d",
+        "shadow_presentation": "64be87a10b496068"
       },
       "normalizedEffectRole": "treatment_management",
       "normalizedEffectRoleByContext": {
@@ -1071,20 +1092,23 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "2ff560fd02e3be5e",
         "shadow_scoring": "6b0adb658bb81986",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "03530b6576294528"
+        "shadow_selection": "03530b6576294528",
+        "shadow_presentation": "b710b740597c4d0b"
       },
       "normalizedEffectRole": "physical_strain",
       "transitionSensitivity": "low",

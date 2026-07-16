@@ -39,20 +39,22 @@ from .risk_scoring import _candidate_atoms, normalized_effect_role, risk_priorit
 from .risk_selection import candidate_uid
 
 # 노출 의미 버전 — 밴드·게이트·claim 정책·압축 순서 변경 시 올린다.
-RISK_PRESENTATION_VERSION = "risk-present-r3.0.1-shadow"
+RISK_PRESENTATION_VERSION = "risk-present-r3.1.0-shadow"
 
 # 내부 level 서열(§26-2). 사용자 표시명은 완화형 — 내부 명칭 직접 노출 금지.
 _LEVELS = ("none", "advisory", "watch", "warning", "critical")
 _LEVEL_RANK = {lv: i for i, lv in enumerate(_LEVELS)}
+# 표시명(감수 43차 확정): 사건 발생 확정으로 읽히지 않는 대응 우선도 표현.
 USER_LEVEL_LABELS = {
-    "advisory": "참고",
-    "watch": "주의 관찰",
+    "advisory": "참고 신호",
+    "watch": "관찰 필요",
     "warning": "주의 필요",
-    "critical": "높은 주의",
+    "critical": "우선 점검 필요",
 }
 
-# numeric band 경계(잠정 — shadow_presentation 감수 대상): 대표 **capped**
-# rankable 기준(감수 42차 — cap 초과 정보는 R2 정렬 소관, 의미 밴드는 bounded).
+# numeric band 경계(감수 43차 — warning 0.25 **확정**, watch 0.12·critical
+# 0.40 shadow 확정: critical은 코퍼스 양성 0건이라 실분포 검증 pending).
+# 대표 **capped** rankable 기준(감수 42차 — cap 초과 정보는 R2 정렬 소관).
 _NUMERIC_BAND_THRESHOLDS = (
     ("critical", 0.40),
     ("warning", 0.25),
@@ -62,8 +64,23 @@ _NUMERIC_BAND_THRESHOLDS = (
 # 사용자·LLM 노출용 점수 밴드(§26-7 — raw 소수값 비노출): 같은 경계 공유.
 _SCORE_BANDS = (("high", 0.40), ("elevated", 0.25), ("moderate", 0.12),
                 ("low", 0.0))
-# critical gate의 context confidence 하한(잠정 — R3-b에서 0.50/0.65/0.75 비교).
-_CRITICAL_MIN_CONTEXT_CONFIDENCE = 0.5
+# critical gate의 context confidence 하한(감수 43차 **0.75 확정** — 코퍼스
+# 양성 0건이라 분포 선택 불가 → 최강 표현에 맞는 보수 정책값. 실분포
+# calibration pending: EXPOSE에서 critical 활성화 전 golden corpus 필요).
+_CRITICAL_MIN_CONTEXT_CONFIDENCE = 0.75
+# critical 정책 검증 상태(감수 43차 §4 — manifest·감수 추적용).
+CRITICAL_POLICY_VALIDATION = {
+    "synthetic_fixtures": "passed",
+    "corpus_positive_cases": 0,
+    "empirical_calibration": "pending",
+    "expose_precondition": "감수된 critical golden corpus 또는 실사용"
+                           " confirmed 후보 확보 전에는 EXPOSE에서 critical을"
+                           " warning으로 하향하는 별도 노출 게이트 필요",
+}
+# token budget(감수 43차 확정): 기본 1024 · 안전 하한 512 — 512 미만이거나
+# P0_COMPACT조차 초과하면 위험 payload 전체 비주입(fail-closed).
+DEFAULT_RISK_PRESENTATION_BUDGET = 1024
+MIN_SAFE_RISK_PRESENTATION_BUDGET = 512
 
 # 전역 claim 코드(§26-7 — 기계 판정). 항목별 prohibitedClaims 원문은 감수된
 # 짧은 지침으로 episode payload에 병기하되, 런타임 강제는 코드가 담당한다.
@@ -465,9 +482,21 @@ _P2_FIELDS = ("effectRoles", "supportingCount", "earliestReliefWindow",
               "stableRecoveryWindow", "recoveryConfidenceBand")
 
 
-def estimate_tokens(text: str) -> int:
-    """결정적 token 추정(잠정 — 한국어 혼재 텍스트 3자≈1토큰, 감수 대상)."""
-    return math.ceil(len(text) / 3)
+def estimate_tokens(text: str, counter=None) -> int:
+    """token 추정(감수 43차 — ceil(chars/3) 기각·교체).
+
+    1순위: counter(모델 tokenizer adapter — Callable[[str], int]) 주입 시
+    그 결과 사용(EXPOSE 배선 시 provider token-count 연결). fallback(보수적
+    다국어): ascii 4자≈1토큰, **비ascii(한국어 등) 1자≈1토큰**(한국어에 /3
+    적용 금지 — 과소 추정 불허가 원칙) + 10% 안전 여유 + 고정 wrapper 8토큰.
+    과대 계산은 허용, 과소 계산은 불허.
+    """
+    if counter is not None:
+        return int(counter(text))
+    ascii_chars = sum(1 for ch in text if ord(ch) < 128)
+    non_ascii = len(text) - ascii_chars
+    estimated = math.ceil(ascii_chars / 4) + non_ascii
+    return math.ceil(estimated * 1.10) + 8
 
 
 def _compact_episode(r: dict) -> dict:
@@ -481,18 +510,22 @@ def _compact_episode(r: dict) -> dict:
     }
 
 
-def serialize_llm_payload(payload: dict, token_budget: int) -> str:
-    """LLM payload 직렬화 + token guard(감수 42차 §8 — token 추정 기반).
+def serialize_llm_payload(payload: dict, token_budget: int,
+                          counter=None) -> str:
+    """LLM payload 직렬화 + token guard(감수 42·43차 — fail-closed).
 
     전역 prohibited/allowed 코드는 최상단 1회(중복 제거). 예산 부족 시
-    P2→P1 순 전 episode 일괄 탈락 → 그래도 초과면 **P0_COMPACT**(고정 축약
-    포맷 + tokenBudgetOverflow/compressionMode 표시). episode의 조용한
+    P2→P1→P0→**P0_COMPACT** 순 전 episode 일괄 축약 — episode의 조용한
     삭제·prohibited/qualifier 제거는 어떤 단계에도 없다.
+
+    **fail-closed(감수 43차)**: budget < MIN_SAFE(512)이거나 P0_COMPACT
+    조차 초과하면 riskEpisodes=[] + exposureSuppressedReason=
+    TOKEN_BUDGET_INSUFFICIENT — overflow 상태로 prompt에 주입하는 경로는
+    존재하지 않는다. counter=모델 tokenizer adapter(미주입 시 보수 추정).
     """
     episodes = payload["llmRiskEpisodes"]
 
-    def _render(fields: tuple[str, ...] | None, compact: bool,
-                overflow: bool) -> str:
+    def _render(fields: tuple[str, ...] | None, compact: bool) -> str:
         if compact:
             slim = [_compact_episode(r) for r in episodes]
         else:
@@ -506,24 +539,35 @@ def serialize_llm_payload(payload: dict, token_budget: int) -> str:
         }
         if compact:
             doc["compressionMode"] = "P0_COMPACT"
-        if overflow:
-            doc["tokenBudgetOverflow"] = True
         return json.dumps(doc, ensure_ascii=False, sort_keys=True)
 
+    def _suppressed() -> str:
+        # fail-closed(감수 43차): 일부 episode·qualifier를 잘라 불완전한
+        # 위험 설명을 넣는 것보다 위험 payload 전체 비주입이 안전 —
+        # presentationRecords(감사)는 payload dict에 그대로 남는다.
+        return json.dumps({
+            "globalProhibitedClaimCodes":
+                payload["globalProhibitedClaimCodes"],
+            "globalAllowedClaimCodes": payload["globalAllowedClaimCodes"],
+            "riskEpisodes": [],
+            "exposureSuppressedReason": "TOKEN_BUDGET_INSUFFICIENT",
+        }, ensure_ascii=False, sort_keys=True)
+
+    if token_budget < MIN_SAFE_RISK_PRESENTATION_BUDGET:
+        return _suppressed()
     tiers: list[tuple[str, ...]] = [
         _P0_FIELDS + _P1_FIELDS + _P2_FIELDS,
         _P0_FIELDS + _P1_FIELDS,
         _P0_FIELDS,
     ]
     for fields in tiers:
-        rendered = _render(fields, compact=False, overflow=False)
-        if estimate_tokens(rendered) <= token_budget:
+        rendered = _render(fields, compact=False)
+        if estimate_tokens(rendered, counter) <= token_budget:
             return rendered
-    rendered = _render(None, compact=True, overflow=False)
-    if estimate_tokens(rendered) <= token_budget:
+    rendered = _render(None, compact=True)
+    if estimate_tokens(rendered, counter) <= token_budget:
         return rendered
-    # compact조차 초과 — 안전 정보 보존이 우선이므로 overflow 표시 후 반환.
-    return _render(None, compact=True, overflow=True)
+    return _suppressed()  # compact조차 초과 — 전체 비주입(fail-closed)
 
 
 def presentation_policy_hash() -> str:
@@ -584,12 +628,20 @@ def presentation_policy_hash() -> str:
         "score_exposure": "raw/capped 소수값·내부 risk_id·cause atom 원문·"
                           "manifest hash 비노출 — scoreBand/confidenceBand만",
         "token_guard": {
-            "estimator": "ceil(chars/3) 잠정(감수 대상)",
+            "estimator": "1순위=모델 tokenizer adapter 주입 / fallback="
+                         "보수적 다국어(ascii/4 + 비ascii 1:1 · ×1.10 · +8"
+                         " wrapper) — 한국어 /3 금지·과소 추정 불허"
+                         "(감수 43차 확정)",
+            "budgets": {"default": DEFAULT_RISK_PRESENTATION_BUDGET,
+                        "min_safe": MIN_SAFE_RISK_PRESENTATION_BUDGET},
             "tiers": {"P0": list(_P0_FIELDS), "P1": list(_P1_FIELDS),
                       "P2": list(_P2_FIELDS)},
-            "fallback": "P0 초과 시 P0_COMPACT 고정 포맷 + overflow 표시 —"
-                        " episode 삭제·prohibited/qualifier 제거 없음",
+            "fail_closed": "budget<512 또는 P0_COMPACT 초과 →"
+                           " riskEpisodes=[] + exposureSuppressedReason="
+                           "TOKEN_BUDGET_INSUFFICIENT(감사 기록 유지) —"
+                           " overflow 주입 경로 없음(감수 43차)",
         },
+        "critical_policy_validation": CRITICAL_POLICY_VALIDATION,
         "mode": "SHADOW=payload 계산·검증만 — OFF와 최종 LLM 입력"
                 " byte-identical(주입 후 '사용 금지' 지시 방식 불허)"
                 "·EXPOSE=감수 payload만",
@@ -601,7 +653,10 @@ def presentation_policy_hash() -> str:
 
 
 __all__ = [
+    "CRITICAL_POLICY_VALIDATION",
+    "DEFAULT_RISK_PRESENTATION_BUDGET",
     "GLOBAL_ALLOWED_CLAIM_CODES",
+    "MIN_SAFE_RISK_PRESENTATION_BUDGET",
     "GLOBAL_PROHIBITED_CLAIM_CODES",
     "RISK_PRESENTATION_VERSION",
     "USER_LEVEL_LABELS",

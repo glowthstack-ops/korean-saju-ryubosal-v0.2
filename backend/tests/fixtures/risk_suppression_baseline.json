@@ -17062,11 +17062,11 @@
   }
  },
  "meta": {
-  "baseline_commit": "c7ba3db",
+  "baseline_commit": "a2c7778",
   "candidate_count": 3412,
   "corpus_version": "seoul-busan-10 (year+month)",
-  "dictionary_hash": "45ccf802250f42a4",
-  "generated_at": "2026-07-16T07:19:47+00:00",
+  "dictionary_hash": "c8d90c02fab436b9",
+  "generated_at": "2026-07-16T08:33:15+00:00",
   "hash_schema_version": 10,
   "review_environment_version": "risk-engine-r0.5.12"
  }

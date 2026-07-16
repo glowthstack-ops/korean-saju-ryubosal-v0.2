@@ -8256,3 +8256,17 @@ survey.py·고정본): critical 전 프로필 0(정상), 선택 후 warning 4~14
 확정은 critical 발생 코퍼스 후). pytest 2062·ruff·mypy 0(527)·baseline
 불변·manifest 일치. REVIEW.md §26-2. 다음: 밴드·하한·token 기본값 감수 →
 shadow_presentation 스탬프 → EXPOSE 게이트 설계.
+
+## 감수 43차 — 확정값 반영·estimator 교체·shadow_presentation 49/49 (2026-07-16)
+
+확정: warning 0.25·conf 0.75(보수 정책값 — validation pending 기록)·budget
+1024/512(256=EXPOSE 미지원)·표시명(참고 신호/관찰 필요/주의 필요/우선 점검
+필요). 수정 2건: ①estimator — ceil(chars/3) 기각 → tokenizer adapter 주입
+1순위 + 보수 다국어 fallback(ascii/4+비ascii 1:1×1.10+8, 한국어 과소 추정
+불허) ②token fail-closed — 512 미만/compact 초과=riskEpisodes 비주입+
+exposureSuppressedReason(overflow 주입 경로 제거). 재측정: 256=비주입·512=
+compact 30/30(p50 272 tokens)·1024=P1~P2·2048=full. **shadow_presentation
+49/49 스탬프 — 5 scope 전부 49/49**(모드 off 유지). r3.1.0-shadow. fixture
+18종. pytest 2064·ruff·mypy 0(527)·baseline 값 불변·manifest 일치. REVIEW.md
+§26-3. 다음: EXPOSE 게이트 설계(critical 하향 게이트·tokenizer adapter·R5
+연동 — manifest 선행).

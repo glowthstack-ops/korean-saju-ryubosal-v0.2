@@ -1629,3 +1629,51 @@ mypy 0(527)·suppression diff 0·profile baseline exact·manifest 일치.
 warning 축만 실질 변별)·critical conf 하한(현 코퍼스 변별 불가 — 보수적으로
 높은 값 권장)·token budget 기본값(512=compact/1024=full 경계)·표시명 golden
 문장·estimator(ceil/3) — 데굴님 확정 후 스탬프.
+
+### 26-3. 감수 43차 확정 반영 + shadow_presentation 49/49 스탬프 (2026-07-16)
+
+**확정값(데굴님)**: warning 0.25 **확정** · watch 0.12/critical 0.40
+**shadow 확정**(critical은 코퍼스 양성 0 — 실분포 검증 pending) ·
+critical context confidence **0.75 확정**(보수 정책값 — CRITICAL_POLICY_
+VALIDATION={synthetic passed·corpus 0·empirical pending·EXPOSE 전 golden
+corpus 또는 critical→warning 하향 게이트 필요}를 policy hash에 기록) ·
+token budget **기본 1024·안전 하한 512·256=EXPOSE 미지원** · 표시명 확정
+(참고 신호/관찰 필요/주의 필요/**우선 점검 필요**).
+
+**스탬프 전 수정 2건**:
+
+1. **estimator 교체(ceil(chars/3) 기각)**: 1순위=모델 tokenizer adapter
+   주입(counter 파라미터 — EXPOSE 배선 시 provider token-count 연결),
+   fallback=보수적 다국어(ascii 4:1 + **비ascii 1:1** × 1.10 + wrapper 8)
+   — 한국어에 /3 적용 금지·과소 추정 불허. fixture: 한국어 600자 ≥ 600
+   토큰(구 추정 200의 과소 차단).
+2. **token fail-closed**: budget < 512 또는 P0_COMPACT조차 초과 →
+   **riskEpisodes=[] + exposureSuppressedReason=TOKEN_BUDGET_INSUFFICIENT**
+   (감사 기록 유지) — tokenBudgetOverflow 상태로 주입하는 경로 자체를 제거.
+   fixture 4분기(256=비주입 / 512=compact 주입 / 충분=full / episode 다수
+   =512여도 비주입).
+
+**재측정(고정본 갱신 — 보수 estimator 기준)**: 256=전 차트 fail-closed
+비주입(0/30) · 512=P0_COMPACT 주입 30/30(최소 주입 표현 p50 272·max 285
+tokens) · 1024=P1 6·P2 4 · 2048=full — **기본 1024가 P1~P2 유지 경계임을
+재확인**. 단위 라벨 명확화(§3 지적): 분포=episode 건수·10차트 합산, 민감도
+=선택 후 C 프로필 합산(warning_episode_count).
+
+**shadow_presentation 49/49 스탬프(R3-b)** — 본문=manifestations·claim
+정책·claimCeiling·exposurePolicy. RISK_PRESENTATION_VERSION
+**r3.1.0-shadow**. 최종 상태:
+
+    shadow_structure     49/49
+    shadow_scoring       49/49
+    shadow_temporal      49/49
+    shadow_selection     49/49
+    shadow_presentation  49/49  (RISK_ENGINE_MODE 기본 off — 노출 승인 아님)
+
+**게이트**: pytest 2064(presentation fixture 18종)·ruff clean·mypy 0(527)·
+suppression diff 0·profile baseline 값 불변·manifest 일치·survey
+byte-identical.
+
+**다음(EXPOSE 게이트 설계 — presentation 스탬프 후 착수 승인)**: 질문
+유형별 주입 조건·critical→warning 하향 게이트(golden corpus 확보 전)·모델
+tokenizer adapter 배선·R5(질문 파이프라인) 연동 지점 — manifest 선행 고정
+후 진행.

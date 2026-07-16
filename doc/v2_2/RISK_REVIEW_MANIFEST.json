@@ -7,8 +7,8 @@
   "risk_selection_version": "risk-select-r2.2.0-shadow",
   "selection_policy_hash": "e7d9795fd23c54eb",
   "transition_policy_hash": "49df076a0ad56cc1",
-  "risk_presentation_version": "risk-present-r3.0.1-shadow",
-  "presentation_policy_hash": "2c26fc4ec5acd801",
+  "risk_presentation_version": "risk-present-r3.1.0-shadow",
+  "presentation_policy_hash": "fa183fbeea946528",
   "transition_sensitivity_distribution": {
     "high": 4,
     "low": 26,
@@ -36,6 +36,7 @@
   "reviewed_total": 49,
   "unreviewed_total": 0,
   "reviewed_by_scope": {
+    "shadow_presentation": 49,
     "shadow_scoring": 49,
     "shadow_selection": 49,
     "shadow_structure": 49,

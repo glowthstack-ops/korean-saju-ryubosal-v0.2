@@ -127,19 +127,22 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C1",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewHashes": {
         "shadow_structure": "ce4115792403a5ec",
         "shadow_scoring": "5fe6995b17140078",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "bbe7a45e8e1b7aa4"
+        "shadow_selection": "bbe7a45e8e1b7aa4",
+        "shadow_presentation": "2f565a37add6d932"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "cashflow_pressure",
@@ -289,19 +292,22 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewHashes": {
         "shadow_structure": "cbbc202ba92ce0e8",
         "shadow_scoring": "a9008207ed6fe71e",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "b3ffec3ae4ce967f"
+        "shadow_selection": "b3ffec3ae4ce967f",
+        "shadow_presentation": "2cfa7c2e925776fe"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "financial_outflow",
@@ -444,19 +450,22 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C1",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewHashes": {
         "shadow_structure": "904e1b25ce2ba673",
         "shadow_scoring": "0ed03db87c5128fc",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "37bc78079588e804"
+        "shadow_selection": "37bc78079588e804",
+        "shadow_presentation": "405fee8c7a8ef0e4"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "financial_outflow",
@@ -594,19 +603,22 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C1",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewHashes": {
         "shadow_structure": "1941781ae90c93d1",
         "shadow_scoring": "de5c31560b714710",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "8466e89b14f8cf53"
+        "shadow_selection": "8466e89b14f8cf53",
+        "shadow_presentation": "520d6aaf0591a6c9"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "guarantee_or_contractual_liability",
@@ -721,19 +733,22 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C1",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewHashes": {
         "shadow_structure": "4f3600f7bad896d9",
         "shadow_scoring": "3d9e78308e8e4f66",
         "shadow_temporal": "def7684e3f4fe396",
-        "shadow_selection": "9d5221c50f4e533c"
+        "shadow_selection": "9d5221c50f4e533c",
+        "shadow_presentation": "7071c11e089a52f7"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "payment_recovery",
@@ -874,19 +889,22 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C1",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewHashes": {
         "shadow_structure": "2244db031cadc33c",
         "shadow_scoring": "5b3d36302d13bd03",
         "shadow_temporal": "f1b5cb2f4d23c5f9",
-        "shadow_selection": "1ca9253a98ad065d"
+        "shadow_selection": "1ca9253a98ad065d",
+        "shadow_presentation": "364c2fd2a89eb5e2"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "payment_recovery",
@@ -973,19 +991,22 @@
         "shadow_structure",
         "shadow_scoring",
         "shadow_temporal",
-        "shadow_selection"
+        "shadow_selection",
+        "shadow_presentation"
       ],
       "reviewVersions": {
         "shadow_structure": "C2",
         "shadow_scoring": "R1",
         "shadow_temporal": "R1-T",
-        "shadow_selection": "R2-c"
+        "shadow_selection": "R2-c",
+        "shadow_presentation": "R3-b"
       },
       "reviewHashes": {
         "shadow_structure": "52d64ebec192c809",
         "shadow_scoring": "6a9c0526e76c3c56",
         "shadow_temporal": "e4836d592a2be568",
-        "shadow_selection": "bbe7a45e8e1b7aa4"
+        "shadow_selection": "bbe7a45e8e1b7aa4",
+        "shadow_presentation": "ee947a54c216419f"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "financial_buffer",
