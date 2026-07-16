@@ -65,6 +65,9 @@ def test_canary_allowed_but_pipeline_unreviewed_is_bypass(
     monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
                         "expose_canary")
     monkeypatch.setattr(risk_engine_config,
+                        "RISK_DEPLOYMENT_TOPOLOGY",
+                        "single_host_single_process")
+    monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSE_CANARY_SUBJECT_IDS",
                         frozenset({"internal-tester-1"}))
     p, s, obs = apply_risk_exposure(
@@ -83,6 +86,9 @@ def test_qualified_but_runtime_short_is_suppressed_guard(
 
     monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
                         "expose_canary")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_DEPLOYMENT_TOPOLOGY",
+                        "single_host_single_process")
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSE_CANARY_SUBJECT_IDS",
                         frozenset({"internal-tester-1"}))
@@ -140,6 +146,9 @@ def test_all_conditions_met_is_injected(monkeypatch) -> None:
     payload = build_presentation(build_episodes(scored), scored)
     monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
                         "expose_canary")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_DEPLOYMENT_TOPOLOGY",
+                        "single_host_single_process")
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSE_CANARY_SUBJECT_IDS",
                         frozenset({"internal-tester-1"}))
@@ -290,6 +299,9 @@ def test_runtime_and_manifest_must_both_be_true(monkeypatch) -> None:
     monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
                         "expose_canary")
     monkeypatch.setattr(risk_engine_config,
+                        "RISK_DEPLOYMENT_TOPOLOGY",
+                        "single_host_single_process")
+    monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSE_CANARY_SUBJECT_IDS",
                         frozenset({"internal-tester-1"}))
     common: dict = dict(
@@ -325,6 +337,9 @@ def test_manifest_hash_mismatch_is_bypass(monkeypatch) -> None:
 
     monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
                         "expose_canary")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_DEPLOYMENT_TOPOLOGY",
+                        "single_host_single_process")
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSE_CANARY_SUBJECT_IDS",
                         frozenset({"internal-tester-1"}))
@@ -970,10 +985,18 @@ def test_adapter_manifest_ssot_and_drift_suspend() -> None:
     assert rec["undercount_detected_count"] >= 1
     assert len(rec["first_undercount_request_id_hash"]) == 16  # HMAC
     # 정리(테스트 격리 — 항목 제거는 재감수 절차의 모의: 실제 운영에선
-    # 새 identity 감수로만 복구).
+    # 새 identity 감수로만 복구하며 tombstone ledger는 삭제 금지).
     import json as _json
+
+    from saju_api.services.token_counter_registry import _SUSPENSION_LEDGER
     remaining = {k: v for k, v in records.items() if k != identity}
     _SUSPENSION_FILE.write_text(_json.dumps(remaining), encoding="utf-8")
+    if _SUSPENSION_LEDGER.exists():
+        kept = [line for line in _SUSPENSION_LEDGER.read_text(
+            encoding="utf-8").splitlines()
+            if line.strip() and identity not in line]
+        _SUSPENSION_LEDGER.write_text(
+            "\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
 
 
 def test_injected_output_schema_contract() -> None:
@@ -1269,3 +1292,204 @@ def test_persistence_failure_marker_disables_exposure(monkeypatch,
     assert reg.suspension_state_ok() is True
     marker.write_text("suspension_persistence_failed", encoding="utf-8")
     assert reg.suspension_state_ok() is False
+
+
+def test_suspension_tombstone_survives_state_file_deletion(
+        monkeypatch, tmp_path) -> None:
+    """감수 56차 §5: state 파일 삭제·항목 제거만으로 옛 identity가
+    부활하지 않는다 — append-only ledger(tombstone)가 계속 차단."""
+    from saju_api.services import token_counter_registry as reg
+    from saju_api.services.token_counter_registry import (
+        TokenCounterAdapter,
+        adapter_identity_hash,
+        adapter_validation_policy_hash,
+        record_count_observation,
+        register_adapter,
+        resolve_expose_counter,
+        set_validation_state,
+    )
+
+    monkeypatch.setattr(reg, "_SUSPENSION_FILE",
+                        tmp_path / "adapter_suspensions.json")
+    monkeypatch.setattr(reg, "_SUSPENSION_LOCK_FILE",
+                        tmp_path / "adapter_suspensions.lock")
+    monkeypatch.setattr(reg, "_SUSPENSION_LEDGER",
+                        tmp_path / "adapter_suspensions_ledger.jsonl")
+    monkeypatch.setattr(reg, "_EXPOSURE_DISABLED_MARKER",
+                        tmp_path / "exposure_disabled.marker")
+    register_adapter(TokenCounterAdapter(
+        model_id="tomb-model", mode="MODEL_TOKENIZER", counter=len,
+        provider_id="prov", counter_version="v1",
+        validation_corpus_hash="corpus"))
+    set_validation_state("tomb-model", "VALIDATED")
+    entry = {"reviewed": True, "resolvedModelId": "tomb-model",
+             "providerId": "prov", "counterVersion": "v1",
+             "providerRequestSchemaVersion": "1",
+             "countMode": "MODEL_TOKENIZER",
+             "validationPolicyHash": adapter_validation_policy_hash(),
+             "validationCorpusHash": "corpus"}
+    assert resolve_expose_counter("tomb-model", [entry]) is not None
+    record_count_observation("tomb-model", counted=10, reported=20)
+    assert resolve_expose_counter("tomb-model", [entry]) is None
+    # state 파일 전체 삭제 — ledger tombstone이 남아 있어 계속 차단.
+    reg._SUSPENSION_FILE.unlink()
+    set_validation_state("tomb-model", "VALIDATED")  # 로컬 상태 복구 모의
+    assert reg._SUSPENSION_LEDGER.exists()
+    assert resolve_expose_counter("tomb-model", [entry]) is None
+    identity = adapter_identity_hash(reg._REGISTRY["tomb-model"])
+    assert identity in reg._SUSPENSION_LEDGER.read_text(encoding="utf-8")
+    set_validation_state("tomb-model", "SUSPENDED")
+
+
+def test_suspension_ledger_corruption_is_bypass(
+        monkeypatch, tmp_path) -> None:
+    """감수 56차 §5: ledger 손상=저장소 불가용(suspension 없음 아님) →
+    suspension_state_ok=False(전부 BYPASS)."""
+    from saju_api.services import token_counter_registry as reg
+
+    monkeypatch.setattr(reg, "_SUSPENSION_FILE",
+                        tmp_path / "adapter_suspensions.json")
+    monkeypatch.setattr(reg, "_SUSPENSION_LEDGER",
+                        tmp_path / "adapter_suspensions_ledger.jsonl")
+    monkeypatch.setattr(reg, "_EXPOSURE_DISABLED_MARKER",
+                        tmp_path / "exposure_disabled.marker")
+    assert reg.suspension_state_ok() is True
+    reg._SUSPENSION_LEDGER.write_text('{"부분 json', encoding="utf-8")
+    assert reg.suspension_state_ok() is False
+
+
+def test_guidance_ref_leak_unicode_variants_detected() -> None:
+    """감수 56차 §6: NFKC(전각)·casefold(대문자)·zero-width 삽입 변형도
+    INTERNAL_GUIDANCE_REF_LEAKED — zero-width 존재 자체도 검출."""
+    from saju_engines.risk_claim_audit import audit_rendered_output
+
+    assert "INTERNAL_GUIDANCE_REF_LEAKED:rg2" in audit_rendered_output(
+        "RG2 항목을 확인하세요.", [], issued_refs=["rg2"])
+    assert "INTERNAL_GUIDANCE_REF_LEAKED:rg2" in audit_rendered_output(
+        "Rg2 항목을 확인하세요.", [], issued_refs=["rg2"])
+    assert "INTERNAL_GUIDANCE_REF_LEAKED:rg2" in audit_rendered_output(
+        "ｒｇ２ 항목을 확인하세요.", [], issued_refs=["rg2"])
+    zw = audit_rendered_output(
+        "r\u200bg2 항목을 확인하세요.", [], issued_refs=["rg2"])
+    assert "INTERNAL_GUIDANCE_REF_LEAKED:rg2" in zw
+    assert "OBFUSCATION_ZERO_WIDTH_DETECTED" in zw
+    # 정상 문장(변형 없음)은 통과.
+    assert audit_rendered_output(
+        "규모 2의 문제가 아니라 일정 관리의 문제입니다.", [],
+        issued_refs=["rg1"]) == []
+
+
+def test_guidance_context_binding_mismatch() -> None:
+    """감수 56차 §7: 다른 요청의 context 재사용·snapshot과 다른 payload
+    소비 → GUIDANCE_CONTEXT_MISMATCH(REVISE/BLOCK — 전달 금지)."""
+    from saju_engines.risk_exposure import (
+        GUIDANCE_CONTEXT_MISMATCH,
+        build_guidance_reference_context,
+        verify_guidance_context,
+    )
+
+    payload = {"guidanceRefMap": {"rg1": "explicit:legal:e1"},
+               "llmEpisodeOrderHash": "abc123"}
+    ctx = build_guidance_reference_context("req-1", payload)
+    assert verify_guidance_context(ctx, "req-1", payload) == []
+    assert verify_guidance_context(ctx, "req-2") == [
+        GUIDANCE_CONTEXT_MISMATCH]
+    mutated = {"guidanceRefMap": {"rg1": "explicit:legal:e9"},
+               "llmEpisodeOrderHash": "abc123"}
+    assert verify_guidance_context(ctx, "req-1", mutated) == [
+        GUIDANCE_CONTEXT_MISMATCH]
+
+
+def test_canary_topology_eligibility_gate(monkeypatch) -> None:
+    """감수 56차 §4: marker 기록까지 실패해도 전 worker 차단이 보장되지
+    않는 조합(file+multi-worker)은 EXPOSE 진입 자체가 BYPASS — 파일
+    backend의 canary 자격은 single_host_single_process뿐."""
+    from saju_engines import risk_engine_config as cfg
+    from saju_engines.risk_exposure import (
+        ExposureGateContext,
+        evaluate_risk_exposure_gate,
+    )
+    from saju_shared_types.risk_engine import RiskEngineMode
+
+    assert (("file", "single_host_shared_state")
+            not in cfg._CANARY_ELIGIBLE_SUSPENSION_COMBOS)
+    assert (("file", "single_host_single_process")
+            in cfg._CANARY_ELIGIBLE_SUSPENSION_COMBOS)
+    ctx = ExposureGateContext(
+        mode=RiskEngineMode.EXPOSE_CANARY, question_type="specific_event",
+        temporal_scope="future", risk_intent_allowed=True,
+        token_count_mode="MODEL_TOKENIZER", model_context_limit=100000,
+        base_prompt_tokens=100, user_input_tokens=10,
+        existing_context_tokens=0, response_reserve=100,
+        scopes_all_reviewed=True, policy_hashes_match=True,
+        canary_allowlisted=True, expose_pipeline_reviewed=True,
+        counter_model_id="m", resolved_model_id="m",
+        topology_canary_eligible=False)
+    result = evaluate_risk_exposure_gate(
+        ctx, {"globalProhibitedClaimCodes": [],
+              "globalAllowedClaimCodes": [], "presentationRecords": [],
+              "llmRiskEpisodes": []}, counter=len)
+    assert result["disposition"] == "BYPASS"
+    assert ("DEPLOYMENT_TOPOLOGY_UNSUPPORTED"
+            in result["observability"]["all_reasons"])
+
+
+def test_crash_during_lock_hold_recovers(monkeypatch, tmp_path) -> None:
+    """감수 56차 §2: process A가 lock 보유 중 SIGKILL → OS가 flock 회수 →
+    process B(현 프로세스) 정상 진입·기록, suspension JSON은 완성본만
+    존재(부분 JSON 없음). 실제 별도 process 기반."""
+    import json as _json
+    import signal
+    import subprocess
+    import sys
+    import time
+
+    from saju_api.services import token_counter_registry as reg
+    from saju_api.services.token_counter_registry import (
+        TokenCounterAdapter,
+        record_count_observation,
+        register_adapter,
+    )
+
+    state = tmp_path / "adapter_suspensions.json"
+    lock = tmp_path / "adapter_suspensions.lock"
+    monkeypatch.setattr(reg, "_SUSPENSION_FILE", state)
+    monkeypatch.setattr(reg, "_SUSPENSION_LOCK_FILE", lock)
+    monkeypatch.setattr(reg, "_SUSPENSION_LEDGER",
+                        tmp_path / "ledger.jsonl")
+    monkeypatch.setattr(reg, "_EXPOSURE_DISABLED_MARKER",
+                        tmp_path / "exposure_disabled.marker")
+    # process A: 전용 lock 파일 flock 획득 + 데이터 파일에 '부분 쓰기'
+    # (crash 직전 상태 모의) 후 신호를 보내고 대기 — SIGKILL로 종료.
+    child_src = (
+        "import fcntl, sys, time\n"
+        "f = open(sys.argv[1], 'w')\n"
+        "fcntl.flock(f, fcntl.LOCK_EX)\n"
+        "open(sys.argv[2] + '.tmp-crash', 'w').write('{\"부분')\n"
+        "print('LOCKED', flush=True)\n"
+        "time.sleep(30)\n")
+    proc = subprocess.Popen(
+        [sys.executable, "-c", child_src, str(lock), str(state)],
+        stdout=subprocess.PIPE, text=True)
+    try:
+        assert proc.stdout is not None
+        assert proc.stdout.readline().strip() == "LOCKED"
+        proc.send_signal(signal.SIGKILL)
+        deadline = time.time() + 10
+        while proc.poll() is None and time.time() < deadline:
+            time.sleep(0.05)
+        assert proc.poll() is not None
+        # process B: OS가 flock을 회수했으므로 정상 진입·기록된다.
+        register_adapter(TokenCounterAdapter(
+            model_id="crash-model", mode="MODEL_TOKENIZER", counter=len,
+            provider_id="prov", counter_version="v1",
+            validation_corpus_hash="corpus"))
+        record_count_observation("crash-model", counted=1, reported=2)
+        # 데이터 파일은 완성된 JSON — 부분 쓰기 잔재는 데이터 파일이 아님.
+        records = _json.loads(state.read_text(encoding="utf-8"))
+        assert any(v.get("model_id") == "crash-model"
+                   for v in records.values())
+        assert not reg._EXPOSURE_DISABLED_MARKER.exists()
+    finally:
+        if proc.poll() is None:
+            proc.kill()

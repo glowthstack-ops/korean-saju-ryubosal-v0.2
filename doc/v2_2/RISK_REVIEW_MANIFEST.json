@@ -10,16 +10,28 @@
   "risk_presentation_version": "risk-present-r3.1.0-shadow",
   "presentation_policy_hash": "ce68dfc2c6c5fa0e",
   "risk_exposure_version": "risk-expose-r4.0.1-gated",
-  "adapter_validation_policy_hash": "0c4a838c22285875",
+  "adapter_validation_policy_hash": "5f818e50cd6ef437",
   "expose_pipeline": {
     "reviewed": false,
-    "expose_policy_hash": "8d47ea989aa5f345",
+    "expose_policy_hash": "0bc90a6cf968245f",
     "critical_validation_state": {
       "synthetic_fixtures": "passed",
       "corpus_positive_cases": 0,
       "empirical_calibration": "pending",
       "expose_behavior": "pending 동안 computed CRITICAL → exposed WARNING(item-level downgrade, reason=CRITICAL_EMPIRICAL_VALIDATION_PENDING)"
-    }
+    },
+    "validatedTokenCounters": [
+      {
+        "countMode": "PROVIDER_EXACT",
+        "counterVersion": "countTokens-v1beta-r1",
+        "providerId": "gemini",
+        "providerRequestSchemaVersion": "1",
+        "resolvedModelId": "gemini-3-flash-preview",
+        "validationPolicyHash": "5f818e50cd6ef437",
+        "validationCorpusHash": "90e88fa2cafb3d24",
+        "reviewed": false
+      }
+    ]
   },
   "transition_sensitivity_distribution": {
     "high": 4,

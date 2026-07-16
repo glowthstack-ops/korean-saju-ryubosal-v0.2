@@ -8438,3 +8438,16 @@ GuidanceReferenceContext(요청 단위 불변 snapshot — 전 과정 동일 객
 topology 검증(미지원 조합=BYPASS). fixture +6(통합 56종). pytest 2130·
 ruff·mypy 0(534)·baseline 불변·manifest 일치. REVIEW.md §28-11.
 다음: adapter 실물 shadow 등록(30표본·§11 보고) 착수 조건 충족.
+
+## 감수 56차 — tombstone·Unicode 누출·topology 자격 + 실물 adapter 30표본 합격 (2026-07-16)
+
+suspension tombstone(append-only ledger — state 삭제로 부활 불가·손상=
+BYPASS)·Unicode 변형 rg 누출 감사(NFKC+zero-width+casefold: RG2·ｒｇ２·
+r​g2 검출)·canary topology 자격(DEPLOYMENT_TOPOLOGY_UNSUPPORTED —
+파일 backend는 single_host_single_process만)·실제 subprocess crash·lock
+회수 fixture·verify_guidance_context(GUIDANCE_CONTEXT_MISMATCH). 실물
+Gemini adapter(PROVIDER_EXACT·countTokens) 30표본 실측: **30/30 delta 0·
+undercount 0·rerouting recount 3/3·4 tier 대표 — 합격**, corpus hash
+90e88fa2cafb3d24, artifact→manifest validatedTokenCounters(reviewed=
+false 감수 후보) 결정적 생성. SHADOW_VALIDATING 유지(자동 승격 없음).
+pytest 2136·ruff·mypy 0(536)·manifest 일치. REVIEW.md §28-12.

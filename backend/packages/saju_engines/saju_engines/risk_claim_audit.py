@@ -345,9 +345,12 @@ _INTERNAL_TOKEN_PATTERNS = ("reality:", "explicit:", "fallback:",
 
 
 # 한글 등 유니코드 인접("rg2도")에서도 잡히도록 \b(유니코드 word 경계)
-# 대신 영숫자 lookaround 사용.
+# 대신 영숫자 lookaround 사용. Unicode 변형(감수 56차 §6)은 감사 입력을
+# NFKC 정규화+zero-width 제거+casefold한 뒤 이 패턴으로 재검사한다.
 _GUIDANCE_REF_PATTERN = __import__("re").compile(
     r"(?<![A-Za-z0-9])rg[0-9]+(?![0-9])")
+# zero-width·비가시 문자(감수 56차 §6): 'r\u200bg2' 류 난독화 검출·제거용.
+_ZERO_WIDTH_CHARS = ("\u200b", "\u200c", "\u200d", "\u2060", "\ufeff")
 
 
 def audit_rendered_output(final_text: str, episode_keys: list[str],
@@ -358,10 +361,14 @@ def audit_rendered_output(final_text: str, episode_keys: list[str],
 
     검출: ①내부 episode_key 원문 ②key prefix·내부 enum 원문(reality: 등)
     ③내부 risk_id·cause_atom(internal_ids) ④**opaque guidanceRef 누출**
-    (\brg[0-9]+\b 패턴 + 실제 발급 ref 직접 대조 — guidance_ref 필드는
-    renderer가 제거해도 text 안의 'rg1'은 자동으로 사라지지 않는다).
-    사용자에게는 감수된 표시명만 나가야 한다. 전체 claim audit과 병행.
+    (영숫자 lookaround 패턴 + 실제 발급 ref 직접 대조 — guidance_ref
+    필드는 renderer가 제거해도 text 안의 'rg1'은 자동으로 사라지지 않는다)
+    ⑤Unicode 변형 누출(감수 56차 §6): NFKC 정규화(전각 ｒｇ２)+zero-width
+    제거(r\u200bg2)+casefold(RG2·Rg2) 후 ④를 재검사하고, zero-width 문자
+    존재 자체도 별도 검출한다. 사용자에게는 감수된 표시명만 나가야 한다.
+    전체 claim audit과 병행.
     """
+    import unicodedata
     leaks = [f"INTERNAL_KEY_LEAKED:{k}" for k in episode_keys
              if k and k in final_text]
     leaks += [f"INTERNAL_TOKEN_LEAKED:{p}" for p in _INTERNAL_TOKEN_PATTERNS
@@ -369,9 +376,17 @@ def audit_rendered_output(final_text: str, episode_keys: list[str],
     for ident in internal_ids or []:
         if ident and ident in final_text:
             leaks.append(f"INTERNAL_ID_LEAKED:{ident}")
+    normalized = unicodedata.normalize("NFKC", final_text)
+    if any(c in normalized for c in _ZERO_WIDTH_CHARS):
+        leaks.append("OBFUSCATION_ZERO_WIDTH_DETECTED")
+        for c in _ZERO_WIDTH_CHARS:
+            normalized = normalized.replace(c, "")
+    normalized = normalized.casefold()
     found = set(_GUIDANCE_REF_PATTERN.findall(final_text))
-    found |= {ref for ref in (issued_refs or [])
-              if ref and ref in final_text}
+    found |= set(_GUIDANCE_REF_PATTERN.findall(normalized))
+    for ref in (issued_refs or []):
+        if ref and (ref in final_text or ref.casefold() in normalized):
+            found.add(ref)
     leaks += [f"INTERNAL_GUIDANCE_REF_LEAKED:{m}" for m in sorted(found)]
     return leaks
 

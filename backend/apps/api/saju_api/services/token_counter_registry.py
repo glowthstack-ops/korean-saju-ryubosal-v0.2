@@ -46,8 +46,9 @@ ADAPTER_VALIDATION_POLICY: dict = {
                       "SUPPRESSED guard", "INJECTED instruction",
                       "FULL/P1/P0/P0_COMPACT 각 tier",
                       "모델 fallback·rerouting", "hard-max episode 요청"],
-    "sample_minimum": "카테고리 10형 × 각 3개 이상 = 모델·counter 조합당"
-                      " 최소 30개(크기 변형 포함 — 감수 52차 §2)",
+    "sample_minimum": "카테고리 10형 × 각 3개 이상 = **validation"
+                      " identity(7요소)별** 최소 30개(registry 전체 아님 —"
+                      " 감수 56차 §9, 크기 변형 포함)",
     "runtime_drift": "canary 중 counted < provider_reported **1건**이라도"
                      " 발생 시 즉시 VALIDATED→SUSPENDED(이후 BYPASS)."
                      " overcount_ratio p50/p90/max 별도 관측(과대 계산은"
@@ -63,6 +64,20 @@ ADAPTER_VALIDATION_POLICY: dict = {
                             " reserve 포함) — 과소 계산 불허(과대는 허용)",
     "reported_basis": "비용 청구 수치가 아니라 실제 전체 prompt/input"
                       " token 수 기준(cached_input_tokens 별도 기록)",
+    "corpus_canonical_rule": "표본을 sample ID로 정렬 후 canonical"
+                             " 직렬화(sha256) — 포함: validation identity"
+                             "(corpus 제외 6요소)·유형별 고정 sample ID·"
+                             "정규화된 provider request digest·counted"
+                             " tokens·provider-reported total input(cached"
+                             "+non-cached)·cached input tokens·routing/"
+                             "recount 결과·tier·합격 여부. 제외: 실행 시각·"
+                             "원본 request ID·파일 경로·결과 배열 실행"
+                             " 순서·임시 로그 ID(감수 56차 §1)",
+    "shadow_promotion": "30표본 통과만으로 runtime 객체 자동 VALIDATED"
+                        " 금지(감수 56차 §9) — 검증 통과 → validation"
+                        " artifact 생성 → manifest 감수(reviewed entry"
+                        " 배포) → 그 이후에만 VALIDATED 자격. 등록 직후는"
+                        " SHADOW_VALIDATING 고정",
     "observability": ["counted_request_tokens",
                       "provider_reported_input_tokens", "delta",
                       "relative_error", "cached_input_tokens",
@@ -163,14 +178,21 @@ def resolve_validated_counter(
 # **배포 불변식(감수 54차)**: 파일 backend는 single host + shared writable
 # runtime state에서만 전역이다 — 다중 호스트/컨테이너는 공유 저장소(Redis·
 # DB)로 교체 후 canary. 경로=빌드 산출물(compiled/) 아님·runtime state.
-# 자동 복구 금지 — suspension은 **validation identity hash** 기준 기록:
-# 항목 삭제로 옛 identity가 부활하지 않는다(복구=counterVersion/corpus
-# 변경(새 identity)+재감수+새 manifest).
+# 자동 복구 금지 — suspension은 **validation identity hash** 기준 기록.
+# tombstone 계약(감수 56차 §5): 옛 identity는 suspension tombstone
+# (append-only ledger)을 삭제하지 않으며, 복구는 record 삭제가 아니라
+# 새 validation identity(counterVersion/corpus 변경)의 재감수·새 manifest
+# entry로만 수행한다. 운영 정리는 [기존 identity manifest 제거 + 새
+# identity 배포 완료 + 감사 ledger 보존] 전부 충족 시에만.
 _STATE_DIR = Path(__file__).resolve().parents[4] / "var" / "risk_state"
 _SUSPENSION_FILE = _STATE_DIR / "adapter_suspensions.json"
 # 전용 lock 파일(감수 55차 §2): 데이터 파일은 atomic replace로 inode가
 # 바뀌므로 lock 대상은 교체되지 않는 별도 파일이어야 한다.
 _SUSPENSION_LOCK_FILE = _STATE_DIR / "adapter_suspensions.lock"
+# append-only suspension ledger(감수 56차 §5 — tombstone): state 파일이
+# 삭제·재생성돼도 ledger에 남은 identity는 계속 차단된다(단일 파일 삭제로
+# 부활 불가). ledger 손상=저장소 불가용(BYPASS).
+_SUSPENSION_LEDGER = _STATE_DIR / "adapter_suspensions_ledger.jsonl"
 # persistence 쓰기 실패 전역 차단 marker(감수 55차 §4): under-count 기록에
 # 실패하면 로컬 SUSPENDED만으로는 전역 보장이 없다 — marker가 존재하면
 # 모든 worker의 suspension_state_ok()=False(전부 BYPASS). marker 기록조차
@@ -215,6 +237,30 @@ def _shared_suspensions() -> tuple[dict, bool]:
         return {}, False
 
 
+def _ledger_suspensions() -> tuple[set[str], bool]:
+    """(ledger의 suspended identity 집합, 상태 정상 여부).
+
+    tombstone 저장소(감수 56차 §5) — 손상 line·읽기 실패는 '기록 없음'이
+    아니라 불가용(fail-closed). 파일 부재는 최초 상태로 정상.
+    """
+    import json as _json
+    identities: set[str] = set()
+    try:
+        if not _SUSPENSION_LEDGER.exists():
+            return identities, True
+        for line in _SUSPENSION_LEDGER.read_text(
+                encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            rec = _json.loads(line)
+            if not isinstance(rec, dict) or "identity" not in rec:
+                return identities, False
+            identities.add(str(rec["identity"]))
+        return identities, True
+    except (OSError, ValueError):
+        return identities, False
+
+
 def suspension_state_ok() -> bool:
     """suspension 저장소 가용성 — False면 EXPOSE 해소 전부 BYPASS.
 
@@ -227,13 +273,19 @@ def suspension_state_ok() -> bool:
     combo = (_cfg.RISK_SUSPENSION_BACKEND, _cfg.RISK_DEPLOYMENT_TOPOLOGY)
     if combo not in _cfg._SUPPORTED_SUSPENSION_COMBOS:
         return False  # 미지원 배포 조합=전역 suspension 미보장(감수 55차 §6)
-    return _shared_suspensions()[1]
+    return _shared_suspensions()[1] and _ledger_suspensions()[1]
 
 
 def _is_globally_suspended(identity_hash: str) -> tuple[bool, bool]:
-    """(suspended 여부, 상태 정상 여부)."""
+    """(suspended 여부, 상태 정상 여부) — state 파일 ∪ append-only ledger.
+
+    tombstone 계약(감수 56차 §5): state 파일의 항목·파일 삭제만으로는
+    identity가 부활하지 않는다 — ledger에 남은 identity도 차단 대상.
+    """
     records, ok = _shared_suspensions()
-    return identity_hash in records, ok
+    ledger_ids, ledger_ok = _ledger_suspensions()
+    return (identity_hash in records or identity_hash in ledger_ids,
+            ok and ledger_ok)
 
 
 def resolve_expose_counter(
@@ -309,6 +361,16 @@ def record_count_observation(model_id: str, counted: int, reported: int,
     with _IN_PROCESS_LOCK, open(_SUSPENSION_LOCK_FILE, "w") as lock_f:
         fcntl.flock(lock_f, fcntl.LOCK_EX)
         try:
+            # tombstone 선기록(감수 56차 §5 — append-only·삭제 금지):
+            # state 파일과 독립적으로 identity 차단 사실을 영속화한다.
+            with open(_SUSPENSION_LEDGER, "a", encoding="utf-8") as lf:
+                lf.write(_json.dumps({
+                    "identity": identity, "model_id": model_id,
+                    "event": "SUSPENDED", "request_id_hash": rid_hash,
+                    "at": datetime.now(UTC).isoformat(),
+                }, ensure_ascii=False, sort_keys=True) + "\n")
+                lf.flush()
+                os.fsync(lf.fileno())
             records, _ok = _shared_suspensions()
             entry = records.get(identity) or {
                 "model_id": model_id,

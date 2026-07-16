@@ -2274,3 +2274,68 @@ baseline 불변·manifest 일치. 3중 잠금 유지.
 실물 adapter 등록·identity 조합당 30표본·§11 보고 형식(유형별 count·tier
 분포·counted/reported/delta·캐시 분리·rerouting·overcount p50/p90/max·
 compression 분포·suppression 예상률·corpus canonical hash).
+
+### 28-12. 감수 56차 반영 — tombstone·Unicode 누출·topology 자격·crash fixture + 실물 adapter 30표본 실측 (2026-07-16)
+
+**canary 전 계약 4건 반영**:
+
+1. **suspension tombstone(§5)**: state 파일과 별도의 **append-only ledger**
+   (adapter_suspensions_ledger.jsonl) 신설 — 차단 판정은 state ∪ ledger,
+   state 파일 항목·파일 삭제만으로는 identity가 부활하지 않는다(fixture:
+   state 삭제 후에도 resolve=None). ledger 손상=저장소 불가용(BYPASS).
+   문서 표현 교정: "옛 identity는 tombstone을 삭제하지 않으며 복구는 새
+   validation identity의 재감수로만 수행한다." 운영 정리 3조건(기존
+   manifest 제거+새 identity 배포+감사 ledger 보존) 명시.
+2. **Unicode 변형 누출 감사(§6)**: 최종 감사 입력을 NFKC 정규화→
+   zero-width 제거(존재 자체도 OBFUSCATION_ZERO_WIDTH_DETECTED)→casefold
+   후 rg 패턴+발급 ref 재대조 — RG2·Rg2·ｒｇ２·r​g2 전부 검출
+   fixture(정상 한국어 문장 오탐 없음 확인).
+3. **canary topology 자격(§4)**: _CANARY_ELIGIBLE_SUSPENSION_COMBOS =
+   {(file, single_host_single_process)}만 — marker 기록까지 실패해도 로컬
+   flag=전역이 되는 조합. 게이트에 DEPLOYMENT_TOPOLOGY_UNSUPPORTED(BYPASS)
+   신설, EXPOSE 계열 진입 시 검사(현 기본 shared_state는 canary 부적격 —
+   multi-worker 유지 시 공유 backend 전환 후 조합 추가·재감수).
+   "쓰기 실패 전역 fail-closed 완료" 표현 철회 — 파일 backend의 전역
+   보장은 단일 프로세스 topology 전제임을 계약으로 고정.
+4. **process crash·lock 회수 fixture(§2)**: 실제 별도 process가 전용
+   lock 파일 flock 보유+부분 쓰기 잔재 생성 후 SIGKILL → OS lock 회수 →
+   현 프로세스 정상 진입·기록, 데이터 파일은 완성 JSON만 존재.
+
+**GuidanceReferenceContext 결속(§7)**: verify_guidance_context —
+①다른 request_context_id 재사용 ②snapshot과 다른 payload(재계산 흔적)
+→ GUIDANCE_CONTEXT_MISMATCH(REVISE/BLOCK). 전 과정 소비 배선은 provider
+schema 실배선 차수에서.
+
+**실물 adapter shadow 등록·30표본 실측(§9 — §11 보고)**:
+
+- gemini_token_adapter.py: mode=PROVIDER_EXACT, countTokens API가 최종
+  provider request 전체(systemInstruction·contents·generationConfig·
+  responseSchema·tools) 계수. 등록=명시 호출만, 등록 직후
+  SHADOW_VALIDATING 고정(자동 VALIDATED 없음).
+- harness(scripts/risk_adapter_shadow_validation.py): 10형×3=30표본
+  (한국어 장문/한영 혼합/risk block JSON/tool schema/output schema/
+  suppressed guard/injected instruction/render tier P1·P0·P0_COMPACT
+  강제/rerouting 재계수/hard-max 8·12·16 episode).
+- **결과(gemini-3-flash-preview)**: 30/30 counted==reported(**delta 전부
+  0**) — undercount 0·overcount p50/p90/max=0/0/0·relative error 0·
+  rerouting recount 3/3·cached 0(관측 없음)·tier 분포 FULL 27/P1 1/P0 1/
+  P0_COMPACT 1. **합격**(provider_exact_pass 4조건 전부).
+- corpus canonical hash=90e88fa2cafb3d24(sample ID 정렬·변동성 필드
+  제외 — 정책에 corpus_canonical_rule로 선행 고정), artifact=
+  backend/compiled/risk_adapter_validation/gemini-3-flash-preview__
+  90e88fa2cafb3d24.json(canonical 구간 재해시 무결성 검사).
+- manifest: validatedTokenCounters를 artifact에서 결정적 생성(무결성
+  재해시 일치 필수), reviewed는 스크립트 내 _REVIEWED_COUNTER_CORPUS_
+  HASHES allowlist로만 true — 현 entry **reviewed=false(감수 후보)**.
+- 정책 갱신: sample_minimum을 "validation identity(7요소)별"로 명확화,
+  corpus_canonical_rule·shadow_promotion 추가(변경=재감수 신호, hash
+  재스탬프).
+
+fixture +6(통합 62종). **게이트**: pytest 2136·ruff clean·mypy 0(536)·
+manifest 일치·baseline 불변. 3중 잠금 유지, EXPOSE_CANARY 보류.
+
+**잔여(canary 전)**: 실 provider output schema 3상태 배선(Gemini
+responseSchema 호환 변환 정본화+후처리 validator)·재작성/재생성 LLM
+배선·GuidanceReferenceContext 전 과정 소비·renderer 후 최종 감사 배선·
+expose_pipeline 감수. 파일 backend canary는 topology=
+single_host_single_process 전환(또는 공유 backend) 필요.

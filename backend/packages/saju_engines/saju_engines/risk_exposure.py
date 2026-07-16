@@ -52,6 +52,7 @@ EXPOSURE_SUPPRESSION_REASONS = (
     "KILL_SWITCH",
     "MODE_NOT_EXPOSE",
     "CANARY_NOT_ALLOWLISTED",
+    "DEPLOYMENT_TOPOLOGY_UNSUPPORTED",
     "QUESTION_TYPE_NOT_ALLOWED",
     "SCOPE_NOT_REVIEWED",
     "EXPOSE_PIPELINE_NOT_REVIEWED",
@@ -117,6 +118,7 @@ EXPOSURE_DECISION_REASONS = EXPOSURE_SUPPRESSION_REASONS
 EXPOSURE_DISPOSITIONS = ("BYPASS", "SUPPRESSED", "INJECTED")
 _BYPASS_REASONS = frozenset({
     "KILL_SWITCH", "MODE_NOT_EXPOSE", "CANARY_NOT_ALLOWLISTED",
+    "DEPLOYMENT_TOPOLOGY_UNSUPPORTED",
     "QUESTION_TYPE_NOT_ALLOWED", "SCOPE_NOT_REVIEWED",
     "EXPOSE_PIPELINE_NOT_REVIEWED", "POLICY_HASH_MISMATCH",
     "TOKENIZER_UNAVAILABLE", "TOKENIZER_MODEL_MISMATCH",
@@ -259,6 +261,37 @@ def build_guidance_reference_context(
     )
 
 
+# 소비 지점 결속 위반(감수 56차 §7): 다른 요청의 context 사용·snapshot과
+# 다른 payload 소비 → REVISE 또는 BLOCK(전달 금지).
+GUIDANCE_CONTEXT_MISMATCH = "GUIDANCE_CONTEXT_MISMATCH"
+
+
+def verify_guidance_context(
+    context: GuidanceReferenceContext,
+    request_context_id: str,
+    payload: dict | None = None,
+) -> list[str]:
+    """guidance context 소비 지점 결속 검증(감수 56차 §7).
+
+    생성→초안→재작성→renderer→최종 감사의 **모든** 소비 지점이 호출한다:
+    ①다른 request_context_id의 context(타 요청 재사용) ②payload 지정 시
+    snapshot(refMap·orderHash·policy hash)과의 불일치(revision 중 재계산
+    흔적) → GUIDANCE_CONTEXT_MISMATCH. 위반 시 전달 금지(REVISE/BLOCK).
+    """
+    if context.request_context_id != request_context_id:
+        return [GUIDANCE_CONTEXT_MISMATCH]
+    if payload is not None:
+        rebuilt = build_guidance_reference_context(
+            request_context_id, payload)
+        if (rebuilt.guidance_ref_map != context.guidance_ref_map
+                or rebuilt.llm_episode_order_hash
+                != context.llm_episode_order_hash
+                or rebuilt.expose_policy_hash
+                != context.expose_policy_hash):
+            return [GUIDANCE_CONTEXT_MISMATCH]
+    return []
+
+
 @dataclass(frozen=True)
 class ExposureGateContext:
     """게이트 입력(감수 44차 §7·§8) — 호출부(R5 파이프라인)가 채운다.
@@ -296,6 +329,11 @@ class ExposureGateContext:
     # audit HMAC 키 유효성(감수 53차 §8 — 운영에서 개발 기본키/미달 키
     # 사용의 구조적 차단): False=BYPASS(AUDIT_HMAC_KEY_INVALID).
     audit_key_valid: bool = True
+    # 배포 topology canary 자격(감수 56차 §4): suspension 기록과 전역
+    # marker 기록이 **둘 다** 실패해도 다른 worker의 주입이 남지 않는
+    # 조합에서만 EXPOSE 계열 진입 — 파일 backend는 로컬 flag=전역이 되는
+    # single_host_single_process뿐. False=BYPASS.
+    topology_canary_eligible: bool = True
     target_domains: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -402,6 +440,9 @@ def evaluate_risk_exposure_gate(
     elif ctx.mode is RiskEngineMode.EXPOSE_CANARY and (
             not ctx.canary_allowlisted):
         static.append("CANARY_NOT_ALLOWLISTED")
+    if (ctx.mode in (RiskEngineMode.EXPOSE, RiskEngineMode.EXPOSE_CANARY)
+            and not ctx.topology_canary_eligible):
+        static.append("DEPLOYMENT_TOPOLOGY_UNSUPPORTED")
     policy = RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE.get(
         ctx.question_type, "DENY")
     question_ok = (
@@ -795,6 +836,7 @@ __all__ = [
     "RiskPromptBlock",
     "GuidanceReferenceContext",
     "build_guidance_reference_context",
+    "verify_guidance_context",
     "filter_payload_to_future_scope",
     "finalize_risk_prompt_block",
     "CRITICAL_DOWNGRADE_REASON",

@@ -55,6 +55,46 @@ _RISKS_DIR = _BACKEND / "dictionaries" / "risks"
 _MANIFEST_PATH = _BACKEND.parent / "doc" / "v2_2" / "RISK_REVIEW_MANIFEST.json"
 
 
+# adapter 감수 승격 allowlist(감수 56차 §9 — manifest=SSOT): shadow 검증
+# artifact의 corpus canonical hash를 감수자가 승인하면 여기에 추가한다 —
+# 그때만 해당 entry가 reviewed=true로 생성된다(30표본 통과 자체는 승격이
+# 아니다). corpus hash가 다르면(재검증) 새 identity로 재감수.
+_REVIEWED_COUNTER_CORPUS_HASHES: frozenset[str] = frozenset()
+
+_ADAPTER_VALIDATION_DIR = (
+    Path(__file__).resolve().parents[1] / "compiled"
+    / "risk_adapter_validation")
+
+
+def _token_counter_candidates() -> list[dict]:
+    """shadow 검증 artifact → validatedTokenCounters 항목(결정적).
+
+    artifact의 identity+corpus hash를 그대로 옮기고 reviewed는
+    _REVIEWED_COUNTER_CORPUS_HASHES 포함 여부로만 결정한다(감수 56차 §9 —
+    artifact 해시와 manifest entry의 기계 대조).
+    """
+    entries: list[dict] = []
+    if not _ADAPTER_VALIDATION_DIR.exists():
+        return entries
+    for path in sorted(_ADAPTER_VALIDATION_DIR.glob("*.json")):
+        artifact = json.loads(path.read_text(encoding="utf-8"))
+        corpus_hash = str(artifact["corpus_canonical_hash"])
+        # artifact 무결성: canonical 구간 재해시가 기록된 hash와 일치해야
+        # 후보 자격(파일 수정=후보 탈락이 아니라 생성 실패로 조기 노출).
+        import hashlib
+        recomputed = hashlib.sha256(json.dumps(
+            artifact["canonical"], ensure_ascii=False, sort_keys=True,
+        ).encode()).hexdigest()[:16]
+        if recomputed != corpus_hash:
+            raise ValueError(
+                f"adapter validation artifact 무결성 실패: {path.name}")
+        identity = dict(artifact["canonical"]["identity"])
+        entries.append({**identity, "validationCorpusHash": corpus_hash,
+                        "reviewed": corpus_hash
+                        in _REVIEWED_COUNTER_CORPUS_HASHES})
+    return entries
+
+
 def build_manifest() -> dict:
     """risks/*.json 전수에서 감수 현황 manifest를 결정적으로 산출한다.
 
@@ -121,6 +161,7 @@ def build_manifest() -> dict:
             "reviewed": False,
             "expose_policy_hash": expose_policy_hash(),
             "critical_validation_state": critical_validation_state(),
+            "validatedTokenCounters": _token_counter_candidates(),
         },
         # transitionSensitivity 저작 현황(감수 39차 확정 — MAX_BONUS 0.20):
         # 분포 + high 항목별 판정 근거(상태 전환성 기준) 보존.

@@ -43,6 +43,15 @@ RISK_SUSPENSION_BACKEND: str = "file"
 RISK_DEPLOYMENT_TOPOLOGY: str = "single_host_shared_state"
 _SUPPORTED_SUSPENSION_COMBOS: frozenset[tuple[str, str]] = frozenset({
     ("file", "single_host_shared_state"),
+    ("file", "single_host_single_process"),
+})
+# canary 자격 조합(감수 56차 §4): suspension 기록과 전역 marker 기록이
+# **둘 다** 실패해도 다른 worker의 위험 주입이 남지 않는 조합만 — 파일
+# backend는 로컬 flag가 곧 전역이 되는 단일 프로세스 topology뿐이다.
+# multi-worker 유지 시에는 공유 저장소 backend(Redis·DB)·supervisor 전역
+# kill switch 등으로 교체·보강 후 이 집합에 조합을 추가한다(재감수 필요).
+_CANARY_ELIGIBLE_SUSPENSION_COMBOS: frozenset[tuple[str, str]] = frozenset({
+    ("file", "single_host_single_process"),
 })
 
 # claim audit evidence용 HMAC 키(감수 52차 §6): 짧은 한국어 절의 사전

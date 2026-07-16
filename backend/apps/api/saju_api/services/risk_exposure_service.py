@@ -209,6 +209,12 @@ def apply_risk_exposure(
         resolved_model_id=resolved_model_id,
         future_period_range=future_period_range,
         audit_key_valid=_audit_hmac_key_valid(),
+        # 감수 56차 §4: marker 기록까지 실패해도 전 worker 차단이 보장되는
+        # 배포 조합에서만 EXPOSE 진입(파일 backend=단일 프로세스만).
+        topology_canary_eligible=(
+            (risk_engine_config.RISK_SUSPENSION_BACKEND,
+             risk_engine_config.RISK_DEPLOYMENT_TOPOLOGY)
+            in risk_engine_config._CANARY_ELIGIBLE_SUSPENSION_COMBOS),
     )
     empty: dict = {
         "globalProhibitedClaimCodes": [], "globalAllowedClaimCodes": [],
