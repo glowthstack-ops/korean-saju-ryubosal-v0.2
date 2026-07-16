@@ -945,21 +945,30 @@ def test_adapter_manifest_ssot_and_drift_suspend() -> None:
         "ssot-model", [{**entry, "validationPolicyHash": "stale"}]) is None
     assert resolve_expose_counter(
         "ssot-model", [{**entry, "validationCorpusHash": ""}]) is None
-    # drift: 과소 계산 1건 → 전역 SUSPENDED(공유 파일) → 이후 해소 불가.
-    record_count_observation("ssot-model", counted=100, reported=120,
-                             request_id_hash="req-1")
-    assert resolve_expose_counter("ssot-model", [entry]) is None
+    # drift: 과소 계산 1건 → 전역 SUSPENDED(공유 파일·identity 기준·
+    # 잠금 하 기록) → 이후 해소 불가.
     from saju_api.services.token_counter_registry import (
         _SUSPENSION_FILE,
         _shared_suspensions,
+        adapter_identity_hash,
+        resolve_counter,
     )
-    rec = _shared_suspensions()["ssot-model"]
+
+    adapter = resolve_counter("ssot-model")
+    assert adapter is not None
+    identity = adapter_identity_hash(adapter)
+    record_count_observation("ssot-model", counted=100, reported=120,
+                             request_id_hash="req-1")
+    assert resolve_expose_counter("ssot-model", [entry]) is None
+    records, ok = _shared_suspensions()
+    assert ok is True
+    rec = records[identity]
     assert rec["undercount_detected_count"] >= 1
-    assert rec["first_undercount_request_id_hash"] == "req-1"
-    # 정리(테스트 격리 — 공유 파일에서 제거는 재감수 절차의 모의).
+    assert len(rec["first_undercount_request_id_hash"]) == 16  # HMAC
+    # 정리(테스트 격리 — 항목 제거는 재감수 절차의 모의: 실제 운영에선
+    # 새 identity 감수로만 복구).
     import json as _json
-    remaining = {k: v for k, v in _shared_suspensions().items()
-                 if k != "ssot-model"}
+    remaining = {k: v for k, v in records.items() if k != identity}
     _SUSPENSION_FILE.write_text(_json.dumps(remaining), encoding="utf-8")
 
 
@@ -968,8 +977,8 @@ def test_injected_output_schema_contract() -> None:
     hard_max·episode_key/level enum(후처리 validator 병행 전제)."""
     from saju_engines.risk_claim_audit import build_risk_output_schema
 
-    llm = [{"episodeKey": "A", "presentationLevel": "warning"},
-           {"episodeKey": "B", "presentationLevel": "watch"}]
+    llm = [{"guidanceRef": "rg1", "presentationLevel": "warning"},
+           {"guidanceRef": "rg2", "presentationLevel": "watch"}]
     schema = build_risk_output_schema(llm, hard_max=3)
     assert schema["additionalProperties"] is False
     guidance = schema["properties"]["risk_guidance"]
@@ -978,7 +987,8 @@ def test_injected_output_schema_contract() -> None:
     assert guidance["minItems"] == 1  # warning 1건=필수 최소
     item = guidance["items"]
     assert item["additionalProperties"] is False
-    assert set(item["properties"]["episode_key"]["enum"]) == {"A", "B"}
+    # opaque guidanceRef(감수 54차 §5) — canonical key 대신 요청 단위 참조.
+    assert set(item["properties"]["guidance_ref"]["enum"]) == {"rg1", "rg2"}
     assert set(item["properties"]["exposed_level"]["enum"]) == {
         "warning", "watch"}
 
@@ -999,3 +1009,139 @@ def test_clause_hash_is_keyed_hmac() -> None:
     finally:
         risk_engine_config.RISK_AUDIT_HMAC_KEY = original
     assert h1 != h2
+
+
+# ── 감수 54차 fixture ─────────────────────────────────────────────
+
+
+def test_concurrent_suspension_writes_are_not_lost() -> None:
+    """§2: 동시 writer 갱신 유실 차단(flock read-modify-write) — adapter
+    A·B를 병렬 기록해도 최종 파일에 둘 다 존재."""
+    import json as _json
+    import threading
+
+    from saju_api.services.token_counter_registry import (
+        _SUSPENSION_FILE,
+        TokenCounterAdapter,
+        adapter_identity_hash,
+        record_count_observation,
+        register_adapter,
+    )
+
+    ids = []
+    for name in ("conc-a", "conc-b"):
+        adapter = TokenCounterAdapter(
+            model_id=name, mode="MODEL_TOKENIZER", counter=len,
+            provider_id="prov", counter_version="v1")
+        register_adapter(adapter)
+        ids.append(adapter_identity_hash(adapter))
+    threads = [threading.Thread(
+        target=record_count_observation,
+        args=(name, 10, 20), kwargs={"request_id_hash": name})
+        for name in ("conc-a", "conc-b")]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    records = _json.loads(_SUSPENSION_FILE.read_text(encoding="utf-8"))
+    assert all(identity in records for identity in ids)
+    # 정리(테스트 격리).
+    remaining = {k: v for k, v in records.items() if k not in ids}
+    _SUSPENSION_FILE.write_text(_json.dumps(remaining), encoding="utf-8")
+
+
+def test_suspension_store_corruption_is_bypass(monkeypatch) -> None:
+    """§2: 저장소 손상='suspension 없음'이 아니라 불가용 → 해소 전부
+    None(BYPASS)."""
+    from saju_api.services import token_counter_registry as reg
+    from saju_api.services.token_counter_registry import (
+        TokenCounterAdapter,
+        adapter_validation_policy_hash,
+        register_adapter,
+        resolve_expose_counter,
+        set_validation_state,
+        suspension_state_ok,
+    )
+
+    register_adapter(TokenCounterAdapter(
+        model_id="corrupt-model", mode="MODEL_TOKENIZER", counter=len,
+        provider_id="prov", counter_version="v1"))
+    set_validation_state("corrupt-model", "VALIDATED")
+    entry = {"reviewed": True, "resolvedModelId": "corrupt-model",
+             "providerId": "prov", "counterVersion": "v1",
+             "providerRequestSchemaVersion": "1",
+             "validationPolicyHash": adapter_validation_policy_hash(),
+             "validationCorpusHash": "corpus"}
+    assert resolve_expose_counter("corrupt-model", [entry]) is not None
+    # 손상 파일 주입 → 불가용 → BYPASS.
+    bad = reg._SUSPENSION_FILE
+    bad.parent.mkdir(parents=True, exist_ok=True)
+    original = bad.read_text(encoding="utf-8") if bad.exists() else None
+    try:
+        bad.write_text("{corrupted json", encoding="utf-8")
+        assert suspension_state_ok() is False
+        assert resolve_expose_counter("corrupt-model", [entry]) is None
+    finally:
+        if original is None:
+            bad.unlink(missing_ok=True)
+        else:
+            bad.write_text(original, encoding="utf-8")
+
+
+def test_llm_payload_uses_opaque_guidance_ref() -> None:
+    """§5: LLM payload에 canonical episodeKey 부재 — guidanceRef(rg1…)만,
+    canonical 연결은 guidanceRefMap(감사 전용)·직렬화 제외."""
+    import json as _json
+
+    from saju_engines.risk_presentation import (
+        build_presentation,
+        serialize_llm_payload,
+    )
+    from saju_engines.risk_scoring import score_shadow
+    from saju_engines.risk_selection import build_episodes
+    from saju_shared_types.risk_engine import (
+        EvidenceRole,
+        ExposureStatus,
+        RiskCandidate,
+        RiskDomain,
+        RiskEvidence,
+        RiskKind,
+    )
+
+    src = "relation:CHUNG:month_pillar:branch:ZHENGCAI"
+    cands = score_shadow([RiskCandidate(
+        risk_id="LEG_A", domain=RiskDomain.CONTRACT_LEGAL,
+        kind=RiskKind.INCIDENT_RISK, risk_family="fam", period_key="2026",
+        evidence=[RiskEvidence(
+            evidence_id=f"2026|{src}", code="T", period_key="2026",
+            layer="sewoon", source=src, strength=0.5,
+            role=EvidenceRole.TRIGGER, source_group="event_shape",
+            target_domain=RiskDomain.CONTRACT_LEGAL)],
+        exposure_status=ExposureStatus.CONFIRMED, specificity_rank=2,
+        normalized_effect_role="legal_dispute", trigger_cause_atoms=[src],
+        legal_episode_id="e1")], {"LEG_A": 0.6})
+    payload = build_presentation(build_episodes(cands), cands)
+    llm = payload["llmRiskEpisodes"]
+    assert [e["guidanceRef"] for e in llm] == [
+        f"rg{i + 1}" for i in range(len(llm))]
+    assert all("episodeKey" not in e for e in llm)
+    ref_map = payload["guidanceRefMap"]
+    assert set(ref_map) == {e["guidanceRef"] for e in llm}
+    assert all(v.startswith(("explicit:", "reality:", "fallback:",
+                             "conflict:")) for v in ref_map.values())
+    rendered = serialize_llm_payload(payload, token_budget=100_000)
+    doc = _json.loads(rendered)
+    assert "guidanceRefMap" not in doc  # 감사 전용 — LLM 비노출
+    assert all("episodeKey" not in e for e in doc["riskEpisodes"])
+    assert all(e.get("guidanceRef") for e in doc["riskEpisodes"])
+
+
+def test_order_fingerprint_uses_canonical_identity() -> None:
+    """§6: fingerprint는 ref가 아니라 canonical identity 기준 — 같은 ref
+    배열이라도 canonical 구성이 다르면 hash가 다르다."""
+    from saju_engines.risk_presentation import llm_episode_order_hash
+
+    llm = [{"guidanceRef": "rg1", "presentationLevel": "warning"}]
+    h1 = llm_episode_order_hash(llm, {"rg1": "reality:deal_1"})
+    h2 = llm_episode_order_hash(llm, {"rg1": "explicit:legal:e9"})
+    assert h1 != h2  # 같은 rg1이어도 canonical이 다르면 상이

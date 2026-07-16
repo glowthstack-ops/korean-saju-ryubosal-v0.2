@@ -231,13 +231,14 @@ _LEVEL_RANK = {"advisory": 0, "watch": 1, "warning": 2, "critical": 3}
 
 # envelope 허용 필드(감수 49차 §5 — 알 수 없는 필드 금지).
 _ENVELOPE_ALLOWED_FIELDS = frozenset(
-    {"episode_key", "exposed_level", "identity_phrase_mode",
+    {"guidance_ref", "episode_key", "exposed_level", "identity_phrase_mode",
      "required_qualifiers", "prohibited_phrases", "text"})
 
 
 def validate_risk_guidance_envelope(
     sections: list[dict], llm_episodes: list[dict],
     expected_order_hash: str | None = None,
+    ref_map: dict[str, str] | None = None,
 ) -> list[str]:
     """구조화 risk_guidance 불변식(감수 48차 §10-⑤ + 49차 §5).
 
@@ -256,10 +257,14 @@ def validate_risk_guidance_envelope(
     errors: list[str] = []
     if expected_order_hash is not None:
         from .risk_presentation import llm_episode_order_hash
-        if llm_episode_order_hash(llm_episodes) != expected_order_hash:
+        if llm_episode_order_hash(llm_episodes,
+                                  ref_map) != expected_order_hash:
             # 잘못된 배열(records·필터 전 순서) 전달 탐지(감수 52차 §3).
             return ["EPISODE_ORDER_SOURCE_MISMATCH"]
-    allowed_keys = [str(e.get("episodeKey") or e.get("episode_key") or "")
+    # opaque guidanceRef(감수 54차 §5): sections는 guidance_ref로 대응 —
+    # 미등록 ref 실패·중복 실패·요청 간 재사용 불가(ref는 요청 단위 생성).
+    allowed_keys = [str(e.get("guidanceRef") or e.get("episodeKey")
+                        or e.get("episode_key") or "")
                     for e in llm_episodes]
     levels = {k: str(e.get("presentationLevel", "warning"))
               for k, e in zip(allowed_keys, llm_episodes, strict=True)}
@@ -271,7 +276,7 @@ def validate_risk_guidance_envelope(
         if unknown:
             errors.append(
                 f"UNKNOWN_ENVELOPE_FIELD:{','.join(sorted(unknown))}")
-        key = str(sec.get("episode_key", ""))
+        key = str(sec.get("guidance_ref") or sec.get("episode_key") or "")
         if not key:
             errors.append("EMPTY_EPISODE_KEY")
             continue
@@ -305,8 +310,10 @@ def validate_risk_guidance_envelope(
     # 부분수열 검증(감수 50차 §5): watch/advisory 생략이 허용되므로 완전
     # 동일 비교가 아니라 — 생성 순서가 입력 순서(R3 warning-first)의
     # **부분수열**이어야 한다(B,A 같은 역전 금지).
-    gen_keys = [str(s.get("episode_key", "")) for s in sections
-                if str(s.get("episode_key", "")) in levels]
+    gen_keys = [str(s.get("guidance_ref") or s.get("episode_key") or "")
+                for s in sections
+                if str(s.get("guidance_ref") or s.get("episode_key")
+                       or "") in levels]
     pos = {k: i for i, k in enumerate(allowed_keys)}
     indices = [pos[k] for k in gen_keys if k in pos]
     if indices != sorted(indices):
@@ -365,7 +372,8 @@ def build_risk_output_schema(llm_episodes: list[dict],
     표현하지 못하므로 후처리 validator(validate_risk_guidance_envelope)를
     반드시 병행한다.
     """
-    keys = [str(e.get("episodeKey") or e.get("episode_key") or "")
+    keys = [str(e.get("guidanceRef") or e.get("episodeKey")
+                or e.get("episode_key") or "")
             for e in llm_episodes]
     levels = sorted({str(e.get("presentationLevel", "warning"))
                      for e in llm_episodes})
@@ -388,10 +396,10 @@ def build_risk_output_schema(llm_episodes: list[dict],
                 "items": {
                     "type": "object",
                     "additionalProperties": False,
-                    "required": ["episode_key", "exposed_level", "text"],
+                    "required": ["guidance_ref", "exposed_level", "text"],
                     "properties": {
-                        "episode_key": {"type": "string",
-                                        "enum": [k for k in keys if k]},
+                        "guidance_ref": {"type": "string",
+                                         "enum": [k for k in keys if k]},
                         "exposed_level": {"type": "string",
                                           "enum": levels},
                         "text": {"type": "string", "minLength": 1},
@@ -464,9 +472,14 @@ def claim_audit_policy_hash() -> str:
                                         " validator 병행(감수 52차 §7)",
         "clause_hash": "keyed HMAC-SHA256(16자) — 운영 secret 환경별·회전,"
                        " 식별자/보안 증명 사용 금지(감수 52차 §6)",
-        "order_fingerprint": "llmEpisodeOrderHash — validator가 잘못된"
-                             " 배열(records·필터 전) 수신 탐지(감수 52차"
-                             " §3)",
+        "order_fingerprint": "llmEpisodeOrderHash — canonical identity"
+                             "(episodeKey+level+required) 기준(감수 54차"
+                             " §6), validator가 잘못된 배열 수신 탐지",
+        "opaque_reference": "LLM payload=guidanceRef(rg1… — 요청 단위·순서"
+                            " 기반·중복 없음·타 요청 재사용 불가·사용자"
+                            " 출력 제거), canonical episodeKey는"
+                            " guidanceRefMap(감사·후처리 전용 — LLM 직렬화"
+                            " 제외)만 보유(감수 54차 §5)",
     }
     return hashlib.sha256(json.dumps(
         policy, sort_keys=True, ensure_ascii=False).encode()

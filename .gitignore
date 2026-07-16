@@ -62,3 +62,6 @@ backend/compiled/region_directional_summary_v1.json
 
 # 위험 adapter 전역 suspension 상태(런타임 공유 파일 — 감수 53차, git 미추적)
 backend/compiled/risk_adapter_suspensions.json
+
+# 위험 adapter 런타임 상태 디렉터리(감수 54차 — git 미추적)
+backend/var/

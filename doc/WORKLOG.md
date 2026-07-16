@@ -8412,3 +8412,17 @@ level+required)+output schema maxItems=min(hard_max, len)·minItems=warning
 실패). pytest 2120·ruff·mypy 0(534)·baseline 불변·manifest 일치.
 REVIEW.md §28-9. 다음: adapter 실물 shadow 등록(30표본)→schema 실배선→
 재작성 배선→provider 검증→renderer 감사→감수→canary(별도 커밋).
+
+## 감수 54차 — suspension 동시성·오류 BYPASS·opaque guidanceRef (2026-07-16)
+
+flock read-modify-write(+fsync·dir fsync — 동시 writer 유실 차단 fixture)·
+suspension을 validation identity hash 기준 기록(옛 identity 영구 거부·
+복구=새 identity 감수)·경로 var/risk_state(gitignore)·request id HMAC·
+배포 불변식(single host 전제·다중 호스트=공유 저장소) 명시. 저장소 손상=
+불가용→전부 BYPASS(fixture). **opaque guidanceRef**: LLM payload=rg1…만
+(canonical episodeKey 제거 — guidanceRefMap은 감사 전용·직렬화 제외),
+validator/schema guidance_ref 전환, order fingerprint는 canonical
+identity 유지(같은 ref 배열·다른 구성=상이 hash). fixture +4(통합 50종).
+pytest 2124·ruff·mypy 0(534)·baseline 불변·manifest 일치. REVIEW.md
+§28-10. 다음: adapter 실물 shadow 등록(30표본·artifact hash) 착수 조건
+충족.

@@ -302,9 +302,14 @@ def filter_payload_to_future_scope(
         if llm_ep is not None and in_scope:
             keep_llm.append(llm_ep)
     from .risk_presentation import llm_episode_order_hash
+    ref_map = payload.get("guidanceRefMap", {})
+    kept_refs = {str(e.get("guidanceRef", "")) for e in keep_llm}
+    new_ref_map = {r: k for r, k in ref_map.items() if r in kept_refs}
     return {**payload, "presentationRecords": out_records,
             "llmRiskEpisodes": keep_llm,
-            "llmEpisodeOrderHash": llm_episode_order_hash(keep_llm)}
+            "guidanceRefMap": new_ref_map,
+            "llmEpisodeOrderHash": llm_episode_order_hash(keep_llm,
+                                                          new_ref_map)}
 
 
 def evaluate_risk_exposure_gate(
@@ -409,6 +414,7 @@ def evaluate_risk_exposure_gate(
     exposed_records = apply_exposure_levels(payload["llmRiskEpisodes"])
     downgraded = sum(1 for r in exposed_records
                      if r.get("exposureDowngradeReason"))
+    # guidanceRefMap은 감사·후처리 전용 — LLM 직렬화 payload에서 제외.
     exposed_payload = {
         "globalProhibitedClaimCodes": payload["globalProhibitedClaimCodes"],
         "globalAllowedClaimCodes": payload["globalAllowedClaimCodes"],

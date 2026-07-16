@@ -2197,3 +2197,37 @@ clean·mypy 0(534)·baseline 불변·manifest 일치. 3중 잠금 유지.
 provider output schema 실배선 → 재작성/재생성 실배선 → provider 직전 검증
 → renderer 후 최종 감사 → expose_pipeline 감수(validatedTokenCounters
 포함) → 별도 커밋 canary 전환.
+
+### 28-10. 감수 54차 반영 — suspension 동시성·저장소 오류 BYPASS·opaque guidanceRef (2026-07-16)
+
+**adapter shadow 등록 전 보완 3건**:
+
+1. **suspension 동시성(§2)**: flock 기반 process-safe read-modify-write
+   (lock 내 최신 read→merge→fsync→atomic replace→dir fsync) — 동시 writer
+   갱신 유실 차단(A·B 병렬 기록 fixture). 기록 키를 model_id에서
+   **validation identity hash**(provider|model|counterVersion|schemaVersion
+   |policyHash)로 전환 — 항목 삭제로 옛 identity 부활 불가, 복구=새
+   identity 감수+새 manifest(영구 거부). 경로를 compiled/(빌드 산출물)에서
+   **var/risk_state/**(runtime state·gitignore)로 이동.
+   first_undercount_request_id_hash도 HMAC(원문 request id 비노출).
+   **배포 불변식 명시**: 파일 backend=single host+shared writable state
+   전제 — 다중 호스트는 공유 저장소(Redis·DB) 교체 후 canary.
+2. **저장소 오류=BYPASS(§2)**: 손상·권한·타입 오류를 'suspension 없음'이
+   아니라 **불가용**으로 — suspension_state_ok()=False면 해소 전부
+   None(BYPASS). 손상 파일 주입 fixture.
+3. **opaque guidanceRef(§5 — canonical episodeKey LLM 노출 기각)**: LLM
+   payload에는 요청 단위 참조(rg1, rg2…)만 — 순서 기반·중복 없음·타 요청
+   재사용 불가·사용자 출력 제거. canonical 연결은 guidanceRefMap(감사·
+   후처리 전용 — **LLM 직렬화 제외** fixture). envelope validator·output
+   schema를 guidance_ref 기준으로 전환(미등록 ref 실패·중복 실패 유지).
+   **order fingerprint는 canonical identity 기준 유지(§6)**: ref_map으로
+   해소한 episodeKey+level+required — 같은 ref 배열이라도 canonical 구성이
+   다르면 hash 상이(fixture).
+
+fixture +4(통합 50종). **게이트**: pytest 2124·ruff clean·mypy 0(534)·
+baseline 불변·manifest 일치. 3중 잠금 유지.
+
+**adapter shadow 등록 착수 조건 충족** — 다음 차수: 실물 adapter 등록
+(identity 조합당 30표본·undercount 0·overcount p50/p90/max·유형별 count·
+tier 분포·캐시 분리·rerouting 재계수) → validation artifact(canonical
+hash) 생성 → manifest validatedTokenCounters 감수 후보 작성.

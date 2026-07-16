@@ -404,9 +404,6 @@ def build_presentation(
                              if c not in all_prohibited]
         records.append({
             # ── P0(LLM에서도 절대 보존) ──
-            # episodeKey: envelope(risk_guidance) 대응용 — LLM에는 노출되고
-            # renderer가 사용자 출력에서 제거한다(누출=INTERNAL_KEY_LEAKED).
-            "episodeKey": ep.episode_key,
             "presentationLevel": level,
             "presentationLabel": USER_LEVEL_LABELS.get(level),
             "representativeSummary": _texts(item, "manifestations") or None,
@@ -453,42 +450,58 @@ def build_presentation(
     bucket = {"critical": 0, "warning": 0, "watch": 1, "advisory": 2,
               "none": 3}
     records.sort(key=lambda p: bucket[p["presentationLevel"]])
-    llm_episodes = [
-        {k: r[k] for k in (*_P0_FIELDS, *_P1_FIELDS, *_P2_FIELDS)}
-        for r in records if r["presentationLevel"] != "none"
-    ]
+    # opaque guidanceRef(감수 54차 §5 — canonical episodeKey의 LLM 직접
+    # 노출 기각): 요청 단위 참조(rg1, rg2…)만 모델에 제공하고 canonical
+    # 연결은 guidanceRefMap(감사·후처리 전용 — LLM 직렬화 제외)이 보유.
+    # ref는 요청 내에서만 유효·순서 기반·중복 없음·타 요청 재사용 불가.
+    llm_episodes = []
+    ref_map: dict[str, str] = {}
+    for i, r in enumerate(
+            [r for r in records if r["presentationLevel"] != "none"]):
+        ref = f"rg{i + 1}"
+        ref_map[ref] = r["diagnostics"]["episodeKey"]
+        llm_episodes.append({
+            "guidanceRef": ref,
+            **{k: r[k] for k in (*_P0_FIELDS, *_P1_FIELDS, *_P2_FIELDS)},
+        })
     return {
         "globalProhibitedClaimCodes": list(GLOBAL_PROHIBITED_CLAIM_CODES),
         "globalAllowedClaimCodes": list(GLOBAL_ALLOWED_CLAIM_CODES),
         "presentationRecords": records,
         "llmRiskEpisodes": llm_episodes,
-        # 순서 fingerprint(감수 52차 §3): envelope 검증기가 잘못된 배열
-        # (records·필터 전 순서)을 받는 실수를 탐지하는 대조값. 미래 필터
-        # 적용 시 filter가 재계산한다.
-        "llmEpisodeOrderHash": llm_episode_order_hash(llm_episodes),
+        # 감사·후처리 전용(LLM 직렬화 제외): ref → canonical episodeKey.
+        "guidanceRefMap": ref_map,
+        # 순서 fingerprint(감수 52차 §3 + 54차 §6): **canonical** identity
+        # (episodeKey+level+required) 기준 — ref만 hash하면 다른 구성이
+        # 같은 참조 배열을 가질 수 있다. filter가 재계산.
+        "llmEpisodeOrderHash": llm_episode_order_hash(llm_episodes,
+                                                      ref_map),
     }
 
 
-def llm_episode_order_hash(llm_episodes: list[dict]) -> str:
-    """최종 llmRiskEpisodes 순서 fingerprint(감수 52차 §3 — SSOT 대조).
+def llm_episode_order_hash(llm_episodes: list[dict],
+                           ref_map: dict[str, str] | None = None) -> str:
+    """최종 llmRiskEpisodes 순서 fingerprint(감수 52차 §3 + 54차 §6).
 
-    key가 없는 episode(P0_COMPACT 등 축약형)는 level 나열로 대체 —
-    fingerprint 목적은 '같은 배열·같은 순서' 확인이다.
+    **canonical identity 기준**: ref_map으로 guidanceRef→canonical
+    episodeKey를 해소해 key+exposed level+warning 필수 여부를 canonical에
+    포함 — 요청 단위 ref(rg1…)만 hash하면 서로 다른 episode 구성이 같은
+    참조 배열을 가질 수 있다(감수 54차 기각 사유).
     """
-    # 보강(감수 53차 §5): 순서뿐 아니라 key·exposed level·warning 필수
-    # 여부까지 canonical에 포함 — 같은 순서에서 level이 바뀐 배열도 탐지.
     required_rank = {"warning", "critical"}
-    parts = [f"{e.get('episodeKey', '')}"
-             f"|{e.get('presentationLevel', '')}"
-             f"|{e.get('presentationLevel', '') in required_rank}"
-             for e in llm_episodes]
+    rm = ref_map or {}
+    parts = []
+    for e in llm_episodes:
+        canonical = rm.get(str(e.get("guidanceRef", "")), "")
+        parts.append(f"{canonical}"
+                     f"|{e.get('presentationLevel', '')}"
+                     f"|{e.get('presentationLevel', '') in required_rank}")
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]
 
 
 # token guard 압축 tier(§26-8 + 감수 42차 §8) — P0는 어떤 예산에서도 유지,
 # P0 초과 시 P0_COMPACT 고정 포맷으로 축약(예산 초과 방치 금지).
 _P0_FIELDS = (
-    "episodeKey",
     "presentationLevel", "presentationLabel", "representativeSummary",
     "domains", "exposureStatus", "identityPhraseMode", "requiredQualifiers",
     "episodeProhibitedClaimCodes", "episodeProhibitedPhrases",
@@ -520,6 +533,7 @@ def estimate_tokens(text: str, counter=None) -> int:
 def _compact_episode(r: dict) -> dict:
     """P0 compact fallback(감수 42차 §8) — 고정 포맷 최소 표현."""
     return {
+        "guidanceRef": r.get("guidanceRef", ""),
         "presentationLevel": r["presentationLevel"],
         "domains": r["domains"],
         "effectRoles": r.get("effectRoles", [])[:1],
@@ -549,7 +563,8 @@ def render_llm_payload(payload: dict, tier: str) -> str:
         fields = fields_by_tier.get(tier)
         if fields is None:
             raise ValueError(f"미지원 render tier: {tier}")
-        slim = [{k: r[k] for k in fields if k in r} for r in episodes]
+        slim = [{k: r[k] for k in ("guidanceRef", *fields) if k in r}
+                for r in episodes]
     doc = {
         "globalProhibitedClaimCodes": payload["globalProhibitedClaimCodes"],
         "globalAllowedClaimCodes": payload["globalAllowedClaimCodes"],
@@ -580,7 +595,8 @@ def serialize_llm_payload(payload: dict, token_budget: int,
             slim = [_compact_episode(r) for r in episodes]
         else:
             assert fields is not None
-            slim = [{k: r[k] for k in fields if k in r} for r in episodes]
+            slim = [{k: r[k] for k in ("guidanceRef", *fields) if k in r}
+                    for r in episodes]
         doc = {
             "globalProhibitedClaimCodes":
                 payload["globalProhibitedClaimCodes"],

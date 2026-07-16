@@ -20,6 +20,7 @@ from datetime import UTC
 from pathlib import Path
 
 __all__ = ["ADAPTER_VALIDATION_POLICY", "ADAPTER_VALIDATION_STATES",
+           "adapter_identity_hash", "suspension_state_ok",
            "adapter_validation_policy_hash", "record_count_observation",
            "resolve_expose_counter", "ProviderRequest",
            "TokenCounterAdapter", "register_adapter", "resolve_counter",
@@ -154,24 +155,55 @@ def resolve_validated_counter(
     return _REGISTRY.get(resolved_model_id)
 
 
-# 전역 suspension 공유 저장소(감수 53차 §3 — 다중 worker): 한 worker의
-# under-count 관측이 모든 worker의 다음 요청부터 BYPASS되도록 파일 기반
-# 공유 상태 사용(atomic replace). 자동 복구 금지 — 재감수 artifact 배포
-# 절차에서만 파일 항목 제거.
-_SUSPENSION_FILE = Path(__file__).resolve().parents[4] / (
-    "compiled") / "risk_adapter_suspensions.json"
+# 전역 suspension 공유 저장소(감수 53차 §3 + 54차 §2 — 다중 worker).
+# **배포 불변식(감수 54차)**: 파일 backend는 single host + shared writable
+# runtime state에서만 전역이다 — 다중 호스트/컨테이너는 공유 저장소(Redis·
+# DB)로 교체 후 canary. 경로=빌드 산출물(compiled/) 아님·runtime state.
+# 자동 복구 금지 — suspension은 **validation identity hash** 기준 기록:
+# 항목 삭제로 옛 identity가 부활하지 않는다(복구=counterVersion/corpus
+# 변경(새 identity)+재감수+새 manifest).
+_STATE_DIR = Path(__file__).resolve().parents[4] / "var" / "risk_state"
+_SUSPENSION_FILE = _STATE_DIR / "adapter_suspensions.json"
 
 
-def _shared_suspensions() -> dict:
+def adapter_identity_hash(adapter: TokenCounterAdapter) -> str:
+    """validation identity hash(감수 54차 §1) — suspension·감수 결속 키.
+
+    identity가 바뀌면(counterVersion·schema version 등) 기존 VALIDATED·
+    SUSPENDED 상태를 재사용하지 않는다.
+    """
+    import hashlib
+    parts = "|".join([adapter.provider_id, adapter.model_id,
+                      adapter.counter_version,
+                      adapter.request_schema_version,
+                      adapter_validation_policy_hash()])
+    return hashlib.sha256(parts.encode()).hexdigest()[:16]
+
+
+def _shared_suspensions() -> tuple[dict, bool]:
+    """(기록, 상태 정상 여부) — 손상·권한 오류는 '없음'이 아니라 불가용
+    (감수 54차 §2: 저장소 오류=BYPASS)."""
+    import json as _json
     try:
-        import json as _json
-        return _json.loads(_SUSPENSION_FILE.read_text(encoding="utf-8"))
+        if not _SUSPENSION_FILE.exists():
+            return {}, True  # 최초 상태 — 기록 없음은 정상
+        data = _json.loads(_SUSPENSION_FILE.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return {}, False
+        return data, True
     except (OSError, ValueError):
-        return {}
+        return {}, False
 
 
-def _is_globally_suspended(model_id: str) -> bool:
-    return model_id in _shared_suspensions()
+def suspension_state_ok() -> bool:
+    """suspension 저장소 가용성 — False면 EXPOSE 해소 전부 BYPASS."""
+    return _shared_suspensions()[1]
+
+
+def _is_globally_suspended(identity_hash: str) -> tuple[bool, bool]:
+    """(suspended 여부, 상태 정상 여부)."""
+    records, ok = _shared_suspensions()
+    return identity_hash in records, ok
 
 
 def resolve_expose_counter(
@@ -186,10 +218,14 @@ def resolve_expose_counter(
     (validationPolicyHash — 현행 정책과 일치, validationCorpusHash — 존재)
     가 맞아야 반환. 전역 suspension 기록 존재=무조건 None(BYPASS).
     """
-    if _is_globally_suspended(resolved_model_id):
-        return None
     adapter = resolve_validated_counter(resolved_model_id)
     if adapter is None:
+        return None
+    suspended, state_ok = _is_globally_suspended(
+        adapter_identity_hash(adapter))
+    if suspended or not state_ok:
+        # 저장소 불가용(손상·권한)도 BYPASS(감수 54차 §2) — 'suspension
+        # 없음'으로 처리하지 않는다.
         return None
     for entry in manifest_counters:
         if (entry.get("reviewed") is True
@@ -217,23 +253,52 @@ def record_count_observation(model_id: str, counted: int, reported: int,
     if counted >= reported:
         return
     _VALIDATION[model_id] = "SUSPENDED"
+    adapter = _REGISTRY.get(model_id)
+    identity = (adapter_identity_hash(adapter) if adapter is not None
+                else f"unregistered:{model_id}")
+    import fcntl
+    import hashlib
+    import hmac as _hmac
     import json as _json
     import os
     import tempfile
     from datetime import datetime
-    records = _shared_suspensions()
-    entry = records.get(model_id) or {
-        "undercount_detected_count": 0,
-        "first_undercount_request_id_hash": request_id_hash,
-        "adapter_suspended_at": datetime.now(UTC).isoformat(),
-    }
-    entry["undercount_detected_count"] += 1
-    records[model_id] = entry
+
+    from saju_engines import risk_engine_config
+    # request id도 HMAC(감수 54차 §9 — 순차·예측 가능 원문 비노출).
+    rid_hash = _hmac.new(risk_engine_config.RISK_AUDIT_HMAC_KEY,
+                         request_id_hash.encode(),
+                         hashlib.sha256).hexdigest()[:16]
     _SUSPENSION_FILE.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=str(_SUSPENSION_FILE.parent))
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        _json.dump(records, f, ensure_ascii=False, sort_keys=True)
-    os.replace(tmp, _SUSPENSION_FILE)  # atomic
+    lock_path = _SUSPENSION_FILE.parent / "adapter_suspensions.lock"
+    # process-safe read-modify-write(감수 54차 §2): flock으로 동시 writer
+    # 갱신 유실 차단 — lock 안에서 최신 read→merge→fsync→atomic replace→
+    # dir fsync.
+    with open(lock_path, "w") as lock_f:
+        fcntl.flock(lock_f, fcntl.LOCK_EX)
+        try:
+            records, _ok = _shared_suspensions()
+            entry = records.get(identity) or {
+                "model_id": model_id,
+                "undercount_detected_count": 0,
+                "first_undercount_request_id_hash": rid_hash,
+                "adapter_suspended_at": datetime.now(UTC).isoformat(),
+            }
+            entry["undercount_detected_count"] += 1
+            records[identity] = entry
+            fd, tmp = tempfile.mkstemp(dir=str(_SUSPENSION_FILE.parent))
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                _json.dump(records, f, ensure_ascii=False, sort_keys=True)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, _SUSPENSION_FILE)
+            dir_fd = os.open(str(_SUSPENSION_FILE.parent), os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        finally:
+            fcntl.flock(lock_f, fcntl.LOCK_UN)
 
 
 def resolve_counter(resolved_model_id: str) -> TokenCounterAdapter | None:

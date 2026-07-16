@@ -8,12 +8,12 @@
   "selection_policy_hash": "e7d9795fd23c54eb",
   "transition_policy_hash": "49df076a0ad56cc1",
   "risk_presentation_version": "risk-present-r3.1.0-shadow",
-  "presentation_policy_hash": "771f114a7f2a9831",
+  "presentation_policy_hash": "ce68dfc2c6c5fa0e",
   "risk_exposure_version": "risk-expose-r4.0.1-gated",
   "adapter_validation_policy_hash": "0c4a838c22285875",
   "expose_pipeline": {
     "reviewed": false,
-    "expose_policy_hash": "5d7a3220d13418fc",
+    "expose_policy_hash": "4c0b8f053db4b160",
     "critical_validation_state": {
       "synthetic_fixtures": "passed",
       "corpus_positive_cases": 0,
