@@ -493,17 +493,27 @@ def test_reality_conflict_isolated_from_fallback() -> None:
 
 
 def test_identity_quality_orders_context_confidence() -> None:
-    """context confidence: reality alias > 축 explicit > fallback."""
+    """context confidence: reality(resolved) > 축 explicit > reality(partial)
+    > fallback(감수 38차 — type 미기재 alias는 완전 identity가 아님)."""
     real = _cand(risk_id="LEG_R", legal_episode_id="p1",
-                 reality_episode_id="deal_1", role="contract_termination")
+                 reality_episode_id="deal_1", role="contract_termination",
+                 reality_episode_type="legal_proceeding")
     expl = _cand(risk_id="LEG_E", legal_episode_id="p2",
                  role="administrative_delay", sources=(_HYEONG,))
+    part = _cand(risk_id="LEG_P", legal_episode_id="p3",
+                 reality_episode_id="deal_2", role="legal_dispute",
+                 sources=(_CHUNG, _HYEONG))
     fall = _cand(risk_id="FIN_F", domain=RiskDomain.FINANCE,
                  role="financial_outflow", sources=(_PA_DAY,))
-    eps = {ep.episode_key.split(":")[0]: ep
-           for ep in build_episodes(_scored([real, expl, fall]))}
-    assert eps["reality"].context_confidence > eps["explicit"].context_confidence
-    assert eps["explicit"].context_confidence > eps["fallback"].context_confidence
+    eps = {}
+    for ep in build_episodes(_scored([real, expl, part, fall])):
+        kind = ep.episode_key.split(":")[0]
+        if kind == "reality":
+            kind = ep.reality_identity_status or kind
+        eps[kind] = ep
+    assert eps["resolved"].context_confidence > eps["explicit"].context_confidence
+    assert eps["explicit"].context_confidence > eps["partial"].context_confidence
+    assert eps["partial"].context_confidence > eps["fallback"].context_confidence
 
 
 def test_transition_does_not_flip_ownership_or_create_recovery() -> None:
@@ -738,3 +748,94 @@ def test_selection_permutation_byte_identical() -> None:
                 {"selected": [ep.episode_key for ep in selected],
                  "dropped": dropped}, sort_keys=True, ensure_ascii=False))
     assert len(outputs) == 1
+
+
+# ── 감수 38차 preflight fixture ──────────────────────────────────
+
+
+def test_reality_partial_merges_with_lower_confidence() -> None:
+    """같은 alias + 한쪽 type 미기재 → 병합 유지·status=partial·confidence는
+    type 완비(resolved) 동일 구성보다 낮다(감수 38차 — 완전 identity 금지)."""
+    mov = _cand(risk_id="MOV_X", domain=RiskDomain.RELOCATION,
+                role="contract_setback", mobility_episode_id="mv_1",
+                reality_episode_id="deal_1",
+                reality_episode_type="housing_contract")
+    leg_typed = _cand(risk_id="LEG_X", domain=RiskDomain.CONTRACT_LEGAL,
+                      role="legal_dispute", sources=(_HYEONG,),
+                      legal_episode_id="lg_1", reality_episode_id="deal_1",
+                      reality_episode_type="housing_contract")
+    leg_untyped = leg_typed.model_copy(
+        update={"reality_episode_type": None})
+
+    resolved = build_episodes(_scored([mov, leg_typed]))
+    partial = build_episodes(_scored([mov, leg_untyped]))
+    assert len(resolved) == 1 and len(partial) == 1  # 둘 다 병합 유지
+    assert resolved[0].reality_identity_status == "resolved"
+    assert partial[0].reality_identity_status == "partial"
+    assert partial[0].context_confidence < resolved[0].context_confidence
+    # 전부 미기재도 partial(완전 identity 아님).
+    both_untyped = build_episodes(_scored([
+        mov.model_copy(update={"reality_episode_type": None}), leg_untyped]))
+    assert both_untyped[0].reality_identity_status == "partial"
+
+
+def test_selection_ranking_uses_raw_not_capped() -> None:
+    """대표·budget 정렬=raw(감수 38차) — cap(1.0)을 넘긴 후보들이 동점으로
+    뭉쳐 분별력을 잃지 않는다. capped는 표시·상한 진단 전용."""
+    from saju_shared_types.risk_engine import RiskScoreComponents
+
+    def _comp(occ: float) -> RiskScoreComponents:
+        return RiskScoreComponents(
+            occurrence=occ, impact=0.9, exposure=1.0,
+            persistence=0.6, compound=0.1, protection=0.0)
+
+    # raw 1.224 vs 1.148 — capped는 둘 다 1.0(동점).
+    hi = _cand(risk_id="LEG_HI", legal_episode_id="e1",
+               role="contract_termination").model_copy(
+        update={"score_components": _comp(0.80)})
+    lo = _cand(risk_id="LEG_LO", legal_episode_id="e2",
+               role="legal_dispute", sources=(_HYEONG,)).model_copy(
+        update={"score_components": _comp(0.75)})
+    eps = build_episodes([hi, lo])
+    selected, dropped = select_episodes(
+        eps, [hi, lo], RiskBudgetPolicy(soft_target=1, hard_max=1))
+    assert len(selected) == 1
+    rep = selected[0].representative_candidate_id or ""
+    assert rep.startswith("LEG_HI|")  # capped 동점이었다면 결정 불가였을 순서
+    # 대표 선택도 raw: 같은 episode 안에서 cap 초과 2후보 경쟁.
+    lo_same = lo.model_copy(update={"selection_episode_id": None,
+                                    "legal_episode_id": "e1"})
+    eps2 = build_episodes([hi, lo_same])
+    assert len(eps2) == 1
+    rep2 = eps2[0].representative_candidate_id or ""
+    assert rep2.startswith("LEG_HI|")
+
+
+def test_anchor_epsilon_boundary_is_float_safe() -> None:
+    """ε 경계 정규화(감수 38차): 점수 차이가 정확히 ε(0.020)인 후보는 이진
+    부동소수점 오차(0.0200…18)에도 같은 bucket — 0.021은 다른 bucket."""
+    def _trio(b_impact: float):
+        a = _cand(risk_id="LEG_A", legal_episode_id="ea",
+                  role="contract_termination")
+        c = _cand(risk_id="LEG_C", legal_episode_id="ec",
+                  role="contract_termination", sources=(_HYEONG,))
+        b = _cand(risk_id="FIN_B", domain=RiskDomain.FINANCE,
+                  legal_episode_id="eb", role="financial_outflow",
+                  sources=(_PA_DAY,))
+        # rankable = 0.5(strength) × impact: A=0.300 · C=0.285 · B 가변.
+        scored = score_shadow([a, b, c], {"LEG_A": 0.60, "LEG_C": 0.57,
+                                          "FIN_B": b_impact})
+        eps = build_episodes(scored)
+        selected, _ = select_episodes(
+            eps, scored, RiskBudgetPolicy(soft_target=2, hard_max=2))
+        return [ep.representative_candidate_id or "" for ep in selected]
+
+    # B=0.280(차이 0.020 — 경계): A의 bucket에 포함 → novel role B가 dup
+    # role C보다 먼저 선택된다. 반올림 없이는 0.0200…18 > ε로 탈락했을 배치.
+    picked = _trio(0.56)
+    assert any(p.startswith("FIN_B|") for p in picked)
+    assert not any(p.startswith("LEG_C|") for p in picked)
+    # B=0.279(차이 0.021): bucket 밖 — C가 선택된다.
+    picked2 = _trio(0.558)
+    assert any(p.startswith("LEG_C|") for p in picked2)
+    assert not any(p.startswith("FIN_B|") for p in picked2)

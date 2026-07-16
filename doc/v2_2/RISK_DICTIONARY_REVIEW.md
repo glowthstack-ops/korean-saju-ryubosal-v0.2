@@ -1281,3 +1281,68 @@ suppression baseline diff 0(3412 — meta만 갱신)·profile baseline **값 byt
 계수는 shadow_selection 감수 시 확정. 다음: R2-b 전수 측정 착수(승인 완료 —
 기존 §12 지표 + A-T/B-T/C-T/D-T 교운 overlay + ownership proxy audit +
 fallback under-merge).
+
+## 23. 감수 38차 preflight + R2-b 전수 선별 측정 (2026-07-16)
+
+**preflight 4건(데굴님 지시 — 후보 생성·R1 구조 불변)**:
+
+1. **MOV_CONTRACT_SETBACK_RISK high→medium**: manifestation이 협의 차질·조건
+   재협상·일정 재조정(전환 과정의 차질)이고 "계약 무산 단정"은 prohibited —
+   상태 전환 확정이 아니므로 medium. 판정 근거를 사전 필드
+   transitionSensitivityNote(해시 비대상 주석)로 명문화. sensitivity 분포
+   high 7·medium 11·low 26·none 5.
+2. **reality identity 3상태**: resolved(전원 type 보유·호환)=1.0 /
+   partial(alias 동일·type 일부·전부 미기재 — **병합 유지, 완전 identity 아님**)
+   =0.85 잠정 / conflict=0.0. RiskEpisode.reality_identity_status 필드 신설,
+   context confidence 차등(resolved > explicit 0.9 > partial > fallback 0.6).
+3. **선별 정렬=raw**: 대표·budget 정렬을 capped→raw_rankable_priority로 —
+   capped는 표시·상한 진단 전용(cap 초과 후보의 1.0 동점 뭉침 금지). 자격
+   게이트는 capped>0 유지(raw>0과 동치). fixture: raw 1.224 vs 1.148(capped
+   둘 다 1.0)의 budget·대표 순서.
+4. **ε 경계 정규화**: near-tie·dominant 차이값을 round(9) 후 ε 비교 —
+   0.300−0.280=0.0200…18 같은 이진 오차가 경계(=0.020) 판정을 뒤집지 않음.
+   경계 fixture(0.020=같은 bucket·0.021=다른 bucket). dominant strength는
+   cause별 trigger evidence **max**(누적 가산 금지) 확인 주석화.
+   RISK_SELECTION_VERSION **r2.0.4-shadow**·policy hash 갱신. fixture +3
+   (selection 36종). 게이트: pytest 2040·mypy 0(524)·suppression diff 0·
+   profile baseline 값 byte 동일(meta 해시만)·manifest 일치.
+
+**R2-b 전수 선별 측정**(scripts/risk_selection_survey.py — 고정본
+RISK_SELECTION_SURVEY_R2B.md, 재실행 byte-identical):
+
+- **모집단**: 프로필 A/B/C/D + **E_reality_linked 신설**(스크립트 국소 —
+  이동·계약 컨텍스트에 같은 reality alias 부여, 치료는 type 미기재) × 코퍼스
+  10차트(year+month), 차트 단위 병합.
+- **episode 형성**: A 735(전량 fallback)·B 715(explicit 16)·C 653(explicit
+  29)·D 718(explicit 30)·E 701(**reality 13 — resolved 10·partial 3,
+  다도메인 episode 6** — 교차 도메인 병합 실측 최초). 구성원 p50 1·p90 2.
+- **대표·ownership**: 대표 보유 210~245/프로필 · ownership 대표=explicit 축
+  매칭 수와 일치(A 0·B 16·C 29·D 30·E 13) — proxy 매핑 오적용 0.
+- **budget**: 전 차트 hard_max 3 도달, 누락 taxonomy 정상(BUDGET_HARD_MAX
+  10/프로필·LOWER_PRIORITY·NO_EXPOSABLE 분리). recovery earliest 135~169·
+  stable 87~115·censored 39~50(우측 검열 작동).
+- **fallback 분리 잔존 진단**: 같은 (대상·family) 3+ 분리 60~69 — cause
+  상이·비인접의 fail-closed 분리(위반 아님, R2-c explicit id 저작·ownership
+  사전 편입 후보군).
+- **교운 overlay(episode 압축 이후 기준)**: matrix = sensitivity(적용안
+  medium/비교안 MOV high) × MAX_BONUS(0.20/0.30), 교운일 w=1.0 최악점.
+  - **episode top10 overlap**: 적용안 9~10/10 전 프로필(±1년 10/10). **비교안
+    (high)은 C-T에서 MOV_CONTRACT_SETBACK 신규 진입으로 9/10** — medium 조정이
+    감수 지적의 독점 진입을 정확히 제거.
+  - candidate-level 신규 top10 진입: 적용안에서 단일 id 독점 없음(최대
+    REL_PARTNER_READJUST 3~4·MOV_RELOCATION_PRESSURE 2~4 — 전부 high/medium
+    항목). 민감도별 상승률 분리: high 20/30%·medium 12/18%·low 5/7.5%
+    (MB 0.20/0.30).
+  - **판정 5기준 × 4변형 × 5프로필: 전부 PASS** — episode top10 overlap ≥80%·
+    신규 진입 단일 risk_id 미집중(≤2)·cap 동점이 선택을 결정하지 않음(raw
+    정렬 — cap이면 동점이었을 쌍 0·자연 raw 동점은 D 13~15=동일 구조 시험
+    episode 병존, novelty·key로 결정적 처리)·**ownership override 0**·
+    low/none 항목 top10 신규 진입 0.
+  - MAX_BONUS 0.20 vs 0.30: episode-level 판정 차이 없음(candidate 평균 상승
+    9.4~11.0% vs 14.1~16.5%) — **확정은 데굴님 소관**(0.30도 episode 기준
+    안정 — candidate 노이즈 억제를 우선하면 0.20).
+
+**감수 대기**: shadow_temporal 0/49 스탬프 — sensitivity 저작(high 7 확정
+여부)·MAX_BONUS(0.20/0.30 택일)·계수 형태 확정 후. partial 0.85·dominant
+ε=0.02·_DOMAIN_AXIS_EPISODE는 shadow_selection 감수 시 확정. 다음: R2-c —
+primaryOwnership 사전 계약 편입 + shadow_selection·shadow_temporal 감수·스탬프.

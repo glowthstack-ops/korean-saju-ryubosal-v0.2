@@ -159,7 +159,8 @@
         "shadow_scoring": "bd64dec7b88ebe97"
       },
       "normalizedEffectRole": "contract_setback",
-      "transitionSensitivity": "high",
+      "transitionSensitivity": "medium",
+      "transitionSensitivityNote": "감수 38차: high→medium — manifestation이 협의 차질·조건 재협상·일정 재조정(전환 과정의 차질)이고 계약 무산 단정은 prohibited라 '상태 전환 확정'이 아님. high 유지 조건(계약 무산·해제 확정 의미 명문화)을 충족하지 않음.",
       "reviewPendingScopes": [
         "shadow_temporal"
       ]

@@ -40,11 +40,14 @@ from .risk_scoring import (
 )
 
 # 선별 의미 버전 — 병합·대표·budget·portfolio·recovery 정책 변경 시 올린다.
-RISK_SELECTION_VERSION = "risk-select-r2.0.3-shadow"
+RISK_SELECTION_VERSION = "risk-select-r2.0.4-shadow"
 
 # dominant cause 동률 판정 ε(감수 37차 — 잠정, shadow_selection 감수 대상):
 # earliest relief는 strength ≥ max−ε 집합 **전체** 완화를 요구한다.
 _DOMINANT_TIE_EPSILON = 0.02
+# ε 비교 전 차이값 반올림 자릿수(감수 38차 preflight) — 이진 부동소수점
+# 오차가 near-tie·dominant 경계(정확히 ε 차이) 판정을 뒤집지 않게 고정.
+_EPSILON_DECIMALS = 9
 
 
 def candidate_uid(c: RiskCandidate) -> str:
@@ -147,11 +150,19 @@ def build_episodes(candidates: list[RiskCandidate]) -> list[RiskEpisode]:
                 # (fallback 재진입 금지, 데이터 위생 로그 대상).
                 for c in group:
                     episodes.append(_make_episode(
-                        f"conflict:{candidate_uid(c)}", [c]))
+                        f"conflict:{candidate_uid(c)}", [c],
+                        reality_status="conflict"))
                 continue
-            episodes.append(_make_episode(f"reality:{key[1]}", group))
+            # identity 상태(감수 38차): 전원 type 보유·호환=resolved, 일부·
+            # 전부 미기재=partial(병합 유지·완전 identity 아님 — confidence 차등).
+            status = ("resolved" if types and all(
+                c.reality_episode_type is not None for c in group)
+                else "partial")
+            episodes.append(_make_episode(f"reality:{key[1]}", group,
+                                          reality_status=status))
         elif key[0] == "conflict":
-            episodes.append(_make_episode(f"conflict:{key[1]}", group))
+            episodes.append(_make_episode(f"conflict:{key[1]}", group,
+                                          reality_status="conflict"))
         else:
             sig = key[1]
             ep_key = "explicit:" + ",".join(
@@ -180,10 +191,13 @@ def _representative(group: list[RiskCandidate]) -> RiskCandidate | None:
         comp = c.score_components
         if comp is None:
             continue
-        _, capped = risk_priority(comp, transition_bonus=c.transition_bonus)
+        # 정렬은 raw(감수 38차 preflight): capped는 표시·상한 진단 전용 —
+        # cap을 넘긴 후보들이 1.0 동점으로 뭉치면 분별력이 사라진다.
+        # 자격 게이트(>0)는 raw/capped 어느 쪽이든 동치(capped=max(0,raw) 하한).
+        raw, capped = risk_priority(comp, transition_bonus=c.transition_bonus)
         if capped <= 0:
             continue
-        eligible.append((c, capped))
+        eligible.append((c, raw))
     if not eligible:
         return None
     # 정렬(감수 35차 — **primary ownership이 specificity보다 앞**): ownership
@@ -215,11 +229,15 @@ def _ownership_rank(c: RiskCandidate) -> int:
     return 1 if axis and getattr(c, axis) is not None else 0
 
 
-def _identity_quality(ep_key: str) -> float:
-    """episode identity 품질 계수(잠정 — 감수 대상): reality alias > 축
-    explicit > fallback, conflict=0."""
+def _identity_quality(ep_key: str, reality_status: str | None) -> float:
+    """episode identity 품질 계수(잠정 — 감수 대상): reality alias(resolved) >
+    explicit > partial reality > fallback, conflict=0.
+
+    감수 38차 preflight: 같은 alias라도 type 일부 미기재(partial)면 완전한
+    identity(1.0)로 취급하지 않는다 — context confidence 과대평가 방지.
+    """
     if ep_key.startswith("reality:"):
-        return 1.0
+        return 1.0 if reality_status == "resolved" else 0.85
     if ep_key.startswith("explicit:"):
         return 0.9
     if ep_key.startswith("conflict:"):
@@ -227,7 +245,11 @@ def _identity_quality(ep_key: str) -> float:
     return 0.6
 
 
-def _make_episode(ep_key: str, group: list[RiskCandidate]) -> RiskEpisode:
+def _make_episode(
+    ep_key: str,
+    group: list[RiskCandidate],
+    reality_status: str | None = None,
+) -> RiskEpisode:
     rep = _representative(group)
     supporting = [
         candidate_uid(c) for c in group
@@ -260,12 +282,14 @@ def _make_episode(ep_key: str, group: list[RiskCandidate]) -> RiskEpisode:
         domains=sorted({c.domain for c in group}),
         exposure_status=(rep.exposure_status if rep is not None
                          else ExposureStatus.UNKNOWN),
+        reality_identity_status=reality_status,
         structural_confidence=(rep.confidence if rep is not None else 0.0),
-        # context confidence(감수 36차) = 대표의 required 축 충족도 ×
-        # episode identity 품질(reality alias=1.0 / 축 explicit=0.9 /
-        # fallback=0.6 / conflict=0.0). 대표 없으면 0(진단 전용).
+        # context confidence(감수 36차·38차) = 대표의 required 축 충족도 ×
+        # episode identity 품질(reality resolved=1.0 / partial=0.85 /
+        # explicit=0.9 / fallback=0.6 / conflict=0.0). 대표 없으면 0.
         context_confidence=(round(
-            context_confidence(rep) * _identity_quality(ep_key), 6)
+            context_confidence(rep) * _identity_quality(ep_key,
+                                                        reality_status), 6)
             if rep is not None else 0.0),
         recovery_window=None,  # attach_recovery_windows가 별도 산출(점수 불변)
     )
@@ -297,8 +321,10 @@ def select_episodes(
         rep = rep_of(ep)
         if rep is None or rep.score_components is None:
             return 0.0
+        # budget 정렬도 raw(감수 38차 preflight) — capped는 표시 전용.
+        # temporal로 cap을 넘긴 후보들이 selection 동점을 만들지 않는다.
         return risk_priority(rep.score_components,
-                             transition_bonus=rep.transition_bonus)[1]
+                             transition_bonus=rep.transition_bonus)[0]
 
     qualified = [ep for ep in episodes
                  if ep.representative_candidate_id is not None]
@@ -340,8 +366,12 @@ def select_episodes(
 
     while remaining and len(selected) < policy.hard_max:
         anchor = max(rep_score(ep) for ep in remaining)
+        # ε 경계 정규화(감수 38차 preflight): 차이를 고정 소수 자릿수로 반올림
+        # 후 비교 — 0.300−0.280 같은 이진 부동소수점 오차(2.0000…18e-2)가
+        # 경계(=ε)에서 bucket 판정을 뒤집지 않는다.
         bucket = [ep for ep in remaining
-                  if anchor - rep_score(ep) <= _NEAR_TIE_EPSILON]
+                  if round(anchor - rep_score(ep),
+                           _EPSILON_DECIMALS) <= _NEAR_TIE_EPSILON]
         while bucket and len(selected) < policy.hard_max:
             pick = sorted(bucket, key=lambda ep: _tie_key(
                 ep, seen_roles, seen_causes, seen_domains))[0]
@@ -431,6 +461,9 @@ def attach_recovery_windows(
         # earliest relief(감수 36차 제한) — 아무 보조 원인이 아니라 **최고 기여
         # (최강 trigger strength) primary cause**의 완화 기준. 다른 primary가
         # 지속되면 표현은 '부분적인 압박 완화 가능' 수준으로 한정(R3 계약).
+        # cause별 강도 = trigger evidence의 **max**(감수 38차 확인) — 같은
+        # canonical cause의 source가 여러 개라도 누적 가산하지 않는다
+        # (dominant 판정에서 중복 강화 금지).
         strengths: dict[str, float] = {}
         for e in rep.evidence:
             if e.role.value != "trigger":
@@ -444,7 +477,8 @@ def attach_recovery_windows(
         # 기여 원인 완화'로 부르면 어느 쪽이 최강인지 입증 불가인 상태에서
         # 낙관 편향이 생긴다(fail-closed — 집합의 마지막 종료가 relief 기준).
         dominant = [a for a, s in strengths.items()
-                    if s >= top_strength - _DOMINANT_TIE_EPSILON]
+                    if round(top_strength - s,
+                             _EPSILON_DECIMALS) <= _DOMINANT_TIE_EPSILON]
         dominant_ends = [v for a, v in last_actives.items()
                          if a in dominant and v is not None]
         if not dominant_ends or len(dominant_ends) < len(dominant):
@@ -492,6 +526,9 @@ def selection_policy_hash() -> str:
                             "+riskFamily(ownership 계약)+기간 연속(fail-closed)",
         "representative_order": "exposure 적격(자격) → specificity → rankable →"
                                 " structural confidence → risk_id",
+        "ranking_score": "대표·budget 정렬=raw_rankable_priority(감수 38차 —"
+                         " capped는 표시·상한 진단 전용, cap 동점 뭉침 금지),"
+                         " 자격 게이트는 capped>0(raw>0과 동치)",
         "representative_gate": "exposable + rankable>0 + kind≠vulnerability"
                                " + 비흡수",
         "budget": {"hard_min": 0,
@@ -515,8 +552,14 @@ def selection_policy_hash() -> str:
         "reality_conflict": "CONFLICT 상태 보존·fallback 재진입 금지·단독 episode"
                             " — 같은 alias의 reality_episode_type 비호환·enum 밖"
                             " 값 포함(감수 37차)",
-        "identity_quality": {"reality": 1.0, "explicit": 0.9, "fallback": 0.6,
-                             "conflict": 0.0},
+        "identity_quality": {"reality_resolved": 1.0,
+                             "reality_partial": 0.85, "explicit": 0.9,
+                             "fallback": 0.6, "conflict": 0.0},
+        "reality_identity_status": "resolved=전원 type 보유·호환 / partial="
+                                   "alias 동일·type 일부 미기재(병합 유지·"
+                                   "완전 identity 아님) / conflict(감수 38차)",
+        "epsilon_boundary": "near-tie·dominant 차이값 round(9) 후 ε 비교 —"
+                            " 부동소수점 경계 고정(감수 38차)",
         "transition_in_selection": "대표·budget 점수에 transition_bonus 반영"
                                    "(적격성·episode identity 불개입)",
         "portfolio_source": "unique cause·lineage·effect role·episode"

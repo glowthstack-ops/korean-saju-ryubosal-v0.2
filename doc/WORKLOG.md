@@ -8172,3 +8172,21 @@ byte-identical fixture). earliest relief는 dominant 동률(strength≥max−ε)
 fixture +7(selection 36종). pytest 2037·ruff·mypy 0(523)·suppression diff 0·
 profile baseline 값 byte 동일(meta만)·manifest 일치·survey 재생성 byte 동일.
 REVIEW.md §22. 다음: R2-b 전수 측정(교운 overlay·ownership proxy audit 포함).
+
+## 감수 38차 preflight + R2-b 전수 선별 측정 (2026-07-16)
+
+preflight 4건: MOV_CONTRACT_SETBACK high→medium(과정 차질 — 무산 단정
+prohibited, 근거 note 사전 명문화)·reality identity 3상태(resolved 1.0/partial
+0.85 잠정/conflict 0 — partial=병합 유지·완전 identity 금지, episode 필드
+신설)·선별 정렬 raw 전환(capped=표시 전용 — cap 동점 뭉침 금지)·ε 경계
+round(9) 정규화(0.020 경계 float-safe fixture). r2.0.4-shadow, fixture +3.
+R2-b 전수 측정(risk_selection_survey.py — RISK_SELECTION_SURVEY_R2B.md 고정,
+byte-identical): 프로필 A~D+E_reality_linked(reality 13·resolved 10·partial
+3·다도메인 6 — 교차 병합 실측 최초)·episode 형성/대표/budget/recovery/
+portfolio/under-merge 진단·교운 overlay matrix(medium 적용안 vs MOV high
+비교안 × MB 0.20/0.30). 판정 5기준 전 변형·전 프로필 PASS: episode top10
+overlap 9~10/10(비교안 high는 C-T 9/10 — MOV 독점 진입, medium이 제거)·
+ownership override 0·low 신규 진입 0·cap 유발 동점 0. MB 0.20/0.30 확정·
+sensitivity 저작·shadow_temporal 스탬프는 데굴님 감수 대기. pytest 2040·
+ruff·mypy 0(524)·baseline 값 불변·manifest 일치. REVIEW.md §23.
+다음: R2-c(primaryOwnership 사전 편입 + shadow_selection·temporal 감수).

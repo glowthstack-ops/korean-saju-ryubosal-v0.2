@@ -407,6 +407,11 @@ class RiskEpisode(BaseModel):
     effect_roles: list[str] = Field(default_factory=list)  # effect 축(별도)
     domains: list[RiskDomain] = Field(default_factory=list)  # 구성원 속성
     exposure_status: ExposureStatus = ExposureStatus.UNKNOWN  # 대표 기준
+    # reality alias identity 상태(감수 38차 preflight): resolved=구성원 전원
+    # type 보유·호환 / partial=alias 동일이나 type 일부·전부 미기재(병합은
+    # 유지하되 완전한 identity로 취급 금지 — confidence 차등) / conflict.
+    # 비reality episode(explicit·fallback)는 None.
+    reality_identity_status: str | None = None
     structural_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     context_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     risk_level: RiskLevel | None = None  # 등급 — confidence와 독립 축(R3 상한 소비)

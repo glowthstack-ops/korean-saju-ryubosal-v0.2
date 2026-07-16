@@ -1280,6 +1280,11 @@ class RiskItem(_AliasModel):
     transition_sensitivity: str = Field(
         default="none", alias="transitionSensitivity",
     )
+    # 민감도 판정 근거 메모(감수 38차 — 상태 전환성 기준의 개별 판정 기록.
+    # 해시 비대상 주석: high 유지·조정의 근거를 사전에 남겨 감수 추적).
+    transition_sensitivity_note: str | None = Field(
+        default=None, alias="transitionSensitivityNote",
+    )
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
