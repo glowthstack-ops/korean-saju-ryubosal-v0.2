@@ -303,7 +303,12 @@ def test_mixed_period_filters_to_future_intersection() -> None:
     assert len(payload["llmRiskEpisodes"]) == 2
     filtered = filter_payload_to_future_scope(payload, ("2026-01", "2027-12"))
     assert len(filtered["llmRiskEpisodes"]) == 1
-    assert len(filtered["presentationRecords"]) == 1
+    # 감사 records는 전량 보존(감수 46차 §4) — scope status만 표시.
+    assert len(filtered["presentationRecords"]) == 2
+    statuses = {r["diagnostics"]["episodeKey"]: r["exposureScopeStatus"]
+                for r in filtered["presentationRecords"]}
+    assert "OUTSIDE_FUTURE_SCOPE" in statuses.values()
+    assert "IN_SCOPE" in statuses.values()
     assert payload["llmRiskEpisodes"] and len(
         payload["llmRiskEpisodes"]) == 2  # 입력 불변
     # 게이트 경유: future_period_range 지정 시 동일 필터.
@@ -339,7 +344,8 @@ def test_final_prompt_recount_and_compression_retry() -> None:
         exposed, budget=2_000, counter=_tok, final_prompt_builder=builder,
         final_token_limit=10_000)
     assert reason is None and isinstance(block, RiskPromptBlock)
-    assert block.compression_mode == "P2" and block.immutable is True
+    assert block.compression_mode == "FULL"  # FULL=P2 별칭(감수 46차 §5)
+    assert block.immutable is True and len(block.content_hash) == 16
     import dataclasses
 
     import pytest as _pytest

@@ -25,6 +25,9 @@ from dataclasses import dataclass, field
 
 from saju_shared_types.risk_engine import RiskEngineMode
 
+from .risk_claim_audit import (
+    claim_audit_policy_hash as _claim_audit_policy_hash,
+)
 from .risk_presentation import (
     DEFAULT_RISK_PRESENTATION_BUDGET,
     MIN_SAFE_RISK_PRESENTATION_BUDGET,
@@ -212,15 +215,19 @@ def _month_bounds(label: str) -> tuple[int, int]:
 def filter_payload_to_future_scope(
     payload: dict, future_range: tuple[str, str],
 ) -> dict:
-    """혼합 기간 질문(감수 45차 §9): R2 선택 episode ∩ 미래 질문 범위만 노출.
+    """혼합 기간 질문(감수 45·46차): 미래 질문 범위 ∩ episode만 LLM 노출.
 
-    records의 diagnostics 기간으로 판정(같은 순서로 llm episodes 병행 필터 —
-    NONE 제외 규칙과 동일한 생성 순서를 공유). past_only=false라는 이유로 전
-    episode를 넣지 않는다. 반환은 새 payload(입력 불변).
+    **감사 records는 전량 보존**(감수 46차 §4 — 과거 범위라서 비노출된
+    episode의 흔적을 지우지 않는다): 각 record에 exposureScopeStatus
+    (IN_SCOPE/OUTSIDE_FUTURE_SCOPE)를 표시하고 **llmRiskEpisodes만**
+    필터한다. 판정 기준=episode의 primary activity 기간(diagnostics
+    start/end — 구성원 활동 기간). recovery window·supporting 단독·배경
+    vulnerability의 미래 존재는 범위 판단에 쓰지 않는다(과거 위험의 회복
+    시점이 미래라고 그 위험을 미래 경고로 재노출 금지). 입력 불변.
     """
     lo, _ = _month_bounds(future_range[0])
     _, hi = _month_bounds(future_range[1])
-    keep_records = []
+    out_records = []
     keep_llm = []
     llm_iter = iter(payload["llmRiskEpisodes"])
     for rec in payload["presentationRecords"]:
@@ -228,12 +235,12 @@ def filter_payload_to_future_scope(
                   if rec["presentationLevel"] != "none" else None)
         s, _e1 = _month_bounds(rec["diagnostics"]["startPeriod"])
         _s2, e = _month_bounds(rec["diagnostics"]["endPeriod"])
-        if e < lo or s > hi:  # 미래 질문 범위와 교집합 없음
-            continue
-        keep_records.append(rec)
-        if llm_ep is not None:
+        in_scope = not (e < lo or s > hi)
+        out_records.append({**rec, "exposureScopeStatus": (
+            "IN_SCOPE" if in_scope else "OUTSIDE_FUTURE_SCOPE")})
+        if llm_ep is not None and in_scope:
             keep_llm.append(llm_ep)
-    return {**payload, "presentationRecords": keep_records,
+    return {**payload, "presentationRecords": out_records,
             "llmRiskEpisodes": keep_llm}
 
 
@@ -364,32 +371,56 @@ def evaluate_risk_exposure_gate(
     }
 
 
-# suppressed guard(감수 45차 §10 — EXPOSE 계열 모드 전용: OFF/SHADOW prompt
-# byte 불변 유지). 일반 사건 후보의 위험 승격만 금지 — 계약 검토 권고 수준의
-# 기존 표현은 계속 허용(과잉 차단 금지).
-RISK_EXPOSURE_GUARD_BLOCK = (
-    "[위험 표현 계약] 구조화된 riskEpisodes 블록이 제공되지 않은 경우, 일반"
-    " 사건 후보나 운세 신호를 별도의 위험·경고·사고·손실 주장으로 확대"
-    " 해석하지 않는다('계약 검토가 필요한 시기' 수준의 권고는 허용)."
-    " riskEpisodes가 제공된 경우: presentationLevel은 발생 확률이 아니며"
-    " 점수가 높아도 사건을 단정하지 않는다. requiredQualifiers를 반드시"
-    " 유지하고, prohibitedClaimCodes에 해당하는 문장을 생성하지 않으며,"
-    " 표현 강도는 각 episode의 표시 수준을 초과하지 않는다."
+# EXPOSE 계열 모드 전용 지침 2종(감수 46차 §8 — 상태별 분리, OFF/SHADOW
+# prompt byte 불변 유지). 둘 다 최종 token 계수에 포함돼야 한다(§6).
+# ① 위험 block이 실제 주입된 경우.
+RISK_EXPOSURE_INSTRUCTION_BLOCK = (
+    "[위험 표현 계약] riskEpisodes의 presentationLevel은 발생 확률이 아니며"
+    " 점수가 높아도 사건을 단정하지 않는다. 각 episode의"
+    " requiredQualifiers를 해당 설명 문장에 반드시 유지하고,"
+    " prohibitedClaimCodes에 해당하는 문장을 생성하지 않으며, 표현 강도는"
+    " 각 episode의 표시 수준(presentationLabel)을 초과하지 않는다."
 )
+# ② 위험 payload가 비주입(suppressed)된 경우 — 일반 후보의 위험 승격만
+# 금지, '계약 검토가 필요한 시기' 수준의 권고 표현은 허용(과잉 차단 금지).
+RISK_EXPOSURE_SUPPRESSED_GUARD = (
+    "[위험 표현 계약] 구조화된 riskEpisodes 블록이 제공되지 않았다. 일반"
+    " 사건 후보나 운세 신호를 별도의 위험·경고·사고·손실 주장으로 확대"
+    " 해석하지 않는다(검토·일정 조정 권고 수준의 표현은 허용)."
+)
+# 하위 호환 별칭(감수 45차 명칭) — R5-b에서 분리(제거 예정 아님·감사 추적).
+RISK_EXPOSURE_GUARD_BLOCK = RISK_EXPOSURE_SUPPRESSED_GUARD
 
 
 @dataclass(frozen=True)
 class RiskPromptBlock:
-    """주입용 위험 block(감수 45차 §12 — 원자 단위·불변).
+    """주입용 위험 block(감수 45·46차 — 원자 단위·불변·checksum).
 
     reducer는 내부 필드를 개별 삭제할 수 없다(frozen) — 토큰이 부족하면
     R3 serializer에 더 작은 compression mode를 요청한다(재생성).
+    content_hash(감수 46차 §7): provider request 직전
+    verify_risk_block_integrity로 대조 — frozen이 막지 못하는 복사 후
+    변형·wrapper 재구성 중 훼손을 탐지한다.
     """
 
     serialized_text: str
-    compression_mode: str  # P2 | P1 | P0 | P0_COMPACT
+    compression_mode: str  # FULL | P1 | P0 | P0_COMPACT
     exact_token_count: int
+    content_hash: str = ""
     immutable: bool = True
+
+
+def _block_hash(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
+def verify_risk_block_integrity(final_prompt: str,
+                                block: RiskPromptBlock) -> bool:
+    """provider request 직전 무결성 검증(감수 46차 §7) — block 원문이 최종
+    prompt에 **그대로** 포함되고 checksum이 일치할 때만 True. 실패=비주입
+    (reducer는 그대로 포함/작은 tier 재요청/전체 비주입만 가능)."""
+    return (block.serialized_text in final_prompt
+            and _block_hash(block.serialized_text) == block.content_hash)
 
 
 def finalize_risk_prompt_block(
@@ -414,6 +445,9 @@ def finalize_risk_prompt_block(
         final_token_limit: 최종 prompt 전체 허용 토큰(context limit −
             response reserve − safety headroom).
     """
+    # FULL 우선(감수 46차 §5 — FULL=P2 별칭·최대 표현부터 시도).
+    # final_prompt_builder는 instruction/guard block 포함 **전체 provider
+    # request**를 조립해야 한다(§6 — 지침도 token 계수 대상).
     for tier in RENDER_TIERS:
         text = render_llm_payload(exposed_payload, tier)
         if counter(text) > budget:
@@ -422,7 +456,8 @@ def finalize_risk_prompt_block(
         if counter(final_prompt) <= final_token_limit:
             return (RiskPromptBlock(
                 serialized_text=text, compression_mode=tier,
-                exact_token_count=int(counter(text))), None)
+                exact_token_count=int(counter(text)),
+                content_hash=_block_hash(text)), None)
     return None, "FINAL_PROMPT_TOKEN_OVERFLOW"
 
 
@@ -463,12 +498,26 @@ def expose_policy_hash() -> str:
         "prompt_block": "RiskPromptBlock immutable — reducer 내부 편집"
                         " 금지(부족 시 serializer에 작은 mode 재요청)",
         "kill_switch": "게이트 최앞 — mode 무관 비주입",
-        "guard_block": "EXPOSE 계열 모드 전용(OFF/SHADOW prompt byte 불변)"
-                       " — suppressed 시 일반 후보의 위험 승격 금지·기존"
-                       " 권고 표현 허용",
+        "instruction_blocks": "주입 시 RISK_EXPOSURE_INSTRUCTION_BLOCK /"
+                              " 비주입 시 RISK_EXPOSURE_SUPPRESSED_GUARD"
+                              " 분리(감수 46차 §8) — 둘 다 EXPOSE 계열"
+                              " 전용·최종 token 계수 포함",
+        "block_integrity": "RiskPromptBlock.content_hash — provider request"
+                           " 직전 verify_risk_block_integrity 대조(복사 후"
+                           " 변형·wrapper 훼손 탐지), 실패=비주입",
+        "compression_order": "FULL(=P2)→P1→P0→P0_COMPACT(감수 46차 §5)",
+        "future_scope_audit": "OUTSIDE_FUTURE_SCOPE records 전량 보존 —"
+                              " LLM episodes만 필터(감수 46차 §4), 판정="
+                              "primary activity 기간(recovery·supporting"
+                              " 단독 미래는 재노출 사유 아님)",
+        "canary_question_types": "초기 canary=specific_event·"
+                                 "single_domain_period·period_overview"
+                                 " 3유형(compare·followup은 2차 확대 —"
+                                 " 감수 46차 §3)",
         "answer_claim_audit": "생성 답변 사후 검사(risk_claim_audit) —"
-                              " 위반 시 재작성/제거/차단, 기록만 남기고"
-                              " 노출 금지",
+                              " episode별 section + 전체 답변 병행, 위반 시"
+                              " REVISE(1회)→REGENERATE_WITHOUT_RISK→BLOCK",
+        "claim_audit_policy_hash": _claim_audit_policy_hash(),
         "modes": "OFF/SHADOW/EXPOSE_CANARY(allowlist 필수·기본 거부·내부"
                  " subject ID)/EXPOSE",
         "injection_contract": "R3가 FULL~P0_COMPACT/SUPPRESSED를 완성 단위로"
@@ -487,6 +536,9 @@ def expose_policy_hash() -> str:
 __all__ = [
     "ALLOWED_QUESTION_TYPES",
     "RISK_EXPOSURE_GUARD_BLOCK",
+    "RISK_EXPOSURE_INSTRUCTION_BLOCK",
+    "RISK_EXPOSURE_SUPPRESSED_GUARD",
+    "verify_risk_block_integrity",
     "RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE",
     "RiskPromptBlock",
     "filter_payload_to_future_scope",

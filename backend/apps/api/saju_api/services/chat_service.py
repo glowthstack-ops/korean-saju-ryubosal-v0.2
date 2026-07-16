@@ -107,7 +107,7 @@ from saju_shared_types.precompute import CompositeLevel
 from saju_shared_types.profile import PersonaConfig
 from saju_shared_types.topic_context import PeriodSpec
 
-from . import llm_client
+from . import llm_client, risk_exposure_service
 from .manse_service import (
     calculate,
     daily_luck_window,
@@ -3654,6 +3654,20 @@ def chat(
         )
 
     prompt_text = prompt_text + "".join("\n" + part for part in trailing)
+
+    # R5-b(감수 46차): 위험 노출 배선 — **EXPOSE 계열 모드에서만** 실행.
+    # OFF/SHADOW에서는 아래 분기가 실행되지 않아 prompt·system byte 불변
+    # (회귀 fixture). 현 단계는 expose_pipeline.reviewed=false + tokenizer
+    # adapter 부재라 게이트가 전부 비주입하고 suppressed guard만 부착된다 —
+    # 질문 매핑·adapter·canary allowlist는 canary 개시 차수에서 감수 후 공급.
+    if risk_exposure_service.exposure_mode_active():
+        prompt_text, system, _risk_obs = (
+            risk_exposure_service.apply_risk_exposure(
+                prompt_text, system,
+                subject_id=owner_id,
+                model_context_limit=0,  # adapter 배선 전 — 게이트 fail-closed
+            ))
+        _logger.info("risk_exposure_gate %s", _risk_obs)
 
     if state is not None:
         # T4.5 — 시스템이 제시한 상위 이벤트를 claim/event 엔티티로 등록(이의 재검산 대비).

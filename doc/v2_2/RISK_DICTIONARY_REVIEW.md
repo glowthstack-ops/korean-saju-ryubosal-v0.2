@@ -1876,3 +1876,58 @@ future_period_range 매핑, tokenizer adapter 실물(llm_config resolved
 model→counter registry), canary allowlist(내부 subject ID)·kill switch
 env, answer audit 배선(위반 시 재생성 흐름), 통합 fixture(§14 전체) →
 expose_pipeline reviewed=true 감수 → r4.1.0-canary → EXPOSE_CANARY 개시.
+
+### 28-2. R5-b 실배선 구현 결과 (2026-07-16 — canary 개시 전·비주입 고정)
+
+**완료 조건 반영(감수 46차)**:
+
+1. **FULL 명시(§5)**: RENDER_TIERS=FULL(=P2 별칭·최대 표현)→P1→P0→
+   P0_COMPACT — finalize가 FULL부터 시도, 진단(diagnostics)은 어떤 tier에도
+   미포함(감사 전용) 명시.
+2. **감사 records 전량 보존(§4)**: filter_payload_to_future_scope 재설계 —
+   OUTSIDE_FUTURE_SCOPE/IN_SCOPE 표시 후 **llmRiskEpisodes만** 필터.
+   판정=primary activity 기간(recovery window·supporting 단독·배경
+   vulnerability의 미래 존재는 재노출 사유 아님 — docstring 계약).
+3. **RiskPromptBlock checksum(§7)**: content_hash(sha256[:16]) +
+   verify_risk_block_integrity(원문 포함+해시 일치) — 복사 후 변형·wrapper
+   훼손 탐지, 실패=비주입. reducer는 그대로 포함/작은 tier 재요청/전체
+   비주입만.
+4. **instruction/guard 분리(§8)**: RISK_EXPOSURE_INSTRUCTION_BLOCK(주입
+   시 — level≠확률·qualifier 유지·claim code 준수·표시 수준 초과 금지)과
+   RISK_EXPOSURE_SUPPRESSED_GUARD(비주입 시 — 일반 후보 위험 승격 금지·권고
+   허용) — 둘 다 EXPOSE 계열 전용·최종 token 계수 대상(finalize builder
+   계약).
+5. **episode별 claim audit(§10·12)**: audit_risk_sections — 구조화 risk
+   section별 검사(qualifier 존재를 episode 단위로 — 전역 출현 오인 차단)
+   + **전체 답변 감사 병행**(mainAnswer 위반 검출 fixture).
+6. **재작성 상태기(§11)**: plan_remediation — DELIVER/REVISE(1회)/
+   REGENERATE_WITHOUT_RISK/BLOCK, MAX_RISK_REVISION_ATTEMPTS=1(정책 해시
+   포함) — 위반 초안 직접 전달 경로 없음.
+7. **claim audit 감수 표면(§16)**: RISK_CLAIM_AUDIT_VERSION=
+   risk-claim-audit-r5.0.0 · claim_audit_policy_hash(패턴 registry·
+   qualifier 어휘·격상 패턴·부정문 정책·재작성 횟수) — expose_policy_hash에
+   포함(정책 변경=expose 재감수 신호).
+8. **canary 정책(§3·14)**: RISK_CANARY_QUESTION_TYPES=초기 3유형(specific·
+   single_domain·overview — compare/followup 2차), RISK_EXPOSE_CANARY_
+   SUBJECT_IDS(인증 내부 subject ID·기본 빈 set=전부 거부·로그는 해시),
+   RISK_EXPOSURE_KILL_SWITCH(게이트 최앞).
+
+**chat_service 배선**: EXPOSE 계열 모드에서만 실행되는 단일 분기(prompt
+최종 조립 직후) → risk_exposure_service.apply_risk_exposure — 현 단계는
+expose_pipeline.reviewed=false 고정 + adapter 부재 + 질문 매핑 미공급이라
+게이트가 **전부 비주입**하고 suppressed guard만 부착(위험 정보는 어떤
+필드로도 미주입 — '"riskEpisodes"' 부재 fixture). OFF/SHADOW는 분기 자체
+미실행 — **실제 chat 최종 prompt·system byte-identical 통합 fixture**.
+
+fixture: unit 16종 갱신(FULL·records 보존) + 통합 8종(OFF/SHADOW byte
+불변·canary suppressed guard 차등·게이트 관측 fail-closed·kill switch·
+재작성 흐름·episode별 qualifier·checksum·미래 필터 보존). **게이트**:
+pytest 2088·ruff clean·mypy 0(532)·suppression diff 0·profile baseline
+exact·manifest 일치(claim_audit_policy_hash 반영).
+
+**canary 개시 잔여(EXPOSE_CANARY 전 감수 필수)**: ①모델 tokenizer adapter
+실물(llm_config resolved model→counter registry — TOKENIZER_MODEL_MISMATCH
+는 게이트 구현 완료) ②질문 파서→questionType/temporalScope/future_period_
+range 매핑 감수 ③구조화 출력 envelope(risk_guidance) 프롬프트 계약 ④audit
+재작성 흐름의 LLM 재호출 배선 ⑤expose_pipeline reviewed=true 전환 감수 →
+r4.1.0-canary.

@@ -15,5 +15,22 @@ sinsal_modifier_config(byte-identical off 게이트)·marriage_timing_profile(1�
 
 from __future__ import annotations
 
-# 위험 엔진 모드 — RiskEngineMode 값("off" | "shadow" | "expose"). 기본 off(승격은 사용자 승인).
+# 위험 엔진 모드 — RiskEngineMode 값("off" | "shadow" | "expose_canary" |
+# "expose"). 기본 off(승격은 사용자 승인 — canary는 R5-b 통합·expose_pipeline
+# 감수 후에만).
 RISK_ENGINE_MODE: str = "off"
+
+# 전역 kill switch(감수 45·46차 — 게이트 최앞): True면 mode 무관 비주입.
+# 긴급 중단용 — 계산 자체 차단이 필요하면 RISK_ENGINE_MODE="off"를 함께 쓴다.
+RISK_EXPOSURE_KILL_SWITCH: bool = False
+
+# canary allowlist(감수 46차 §14) — **인증된 내부 subject ID만**(클라이언트
+# 전달 ID·이메일 원문·쿠키 미검증 값·질문 본문 플래그 금지). 조회 실패·ID
+# 부재=비주입. 로그에는 원문 대신 해시/코호트 ID를 남긴다.
+RISK_EXPOSE_CANARY_SUBJECT_IDS: frozenset[str] = frozenset()
+
+# canary 초기 허용 질문 유형(감수 46차 §3 — 감수 5유형 중 3유형만 1차 개방,
+# compare·followup은 맥락 혼합이 잦아 2차 확대).
+RISK_CANARY_QUESTION_TYPES: tuple[str, ...] = (
+    "specific_event", "single_domain_period", "period_overview",
+)

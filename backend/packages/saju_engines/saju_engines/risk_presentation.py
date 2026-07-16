@@ -504,15 +504,18 @@ def _compact_episode(r: dict) -> dict:
     }
 
 
-RENDER_TIERS = ("P2", "P1", "P0", "P0_COMPACT")
+# FULL=P2 별칭(감수 46차 §5 명시): P2가 LLM 노출 최대 표현(전체 tier —
+# 진단(diagnostics)은 어떤 tier에도 포함되지 않는 감사 전용)이다.
+RENDER_TIERS = ("FULL", "P1", "P0", "P0_COMPACT")
 
 
 def render_llm_payload(payload: dict, tier: str) -> str:
     """명시 tier로 LLM payload 직렬화(감수 45차 — RiskPromptBlock의 2차
-    재계수·재압축 루프가 사용). tier: P2(full)/P1/P0/P0_COMPACT."""
+    재계수·재압축 루프가 사용). tier: FULL(=P2)/P1/P0/P0_COMPACT."""
     episodes = payload["llmRiskEpisodes"]
     fields_by_tier = {
-        "P2": _P0_FIELDS + _P1_FIELDS + _P2_FIELDS,
+        "FULL": _P0_FIELDS + _P1_FIELDS + _P2_FIELDS,
+        "P2": _P0_FIELDS + _P1_FIELDS + _P2_FIELDS,  # 하위 호환 별칭
         "P1": _P0_FIELDS + _P1_FIELDS,
         "P0": _P0_FIELDS,
     }

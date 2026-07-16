@@ -11,6 +11,16 @@ episode 동일 현실 건 단정·recovery 보장·항목별 prohibited 원문. 
 
 from __future__ import annotations
 
+import hashlib
+import json
+
+# claim audit 정책 버전(감수 46차 §16) — 패턴·qualifier registry·재작성
+# 정책 변경 시 올린다(claim_audit_policy_hash 변경 = expose_pipeline 재감수
+# 신호 — manifest 병기).
+RISK_CLAIM_AUDIT_VERSION = "risk-claim-audit-r5.0.0"
+# 재작성 정책(감수 46차 §11): 무제한 재생성 금지.
+MAX_RISK_REVISION_ATTEMPTS = 1
+
 # 전역 금지 코드 → 결정적 한국어 위반 패턴(부분 문자열 — 감수 대상 어휘).
 # 과잉 차단 금지: '계약 검토가 필요한 시기' 수준의 권고는 잡지 않는다.
 _PROHIBITED_PATTERNS: dict[str, tuple[str, ...]] = {
@@ -98,4 +108,104 @@ def audit_generated_risk_claims(
     }
 
 
-__all__ = ["audit_generated_risk_claims"]
+# qualifier 코드 → 답변에서 인정되는 한정어 문구(결정적 — 감수 대상 어휘).
+_QUALIFIER_PHRASES: dict[str, tuple[str, ...]] = {
+    "possibly_related": ("관련됐을 가능성", "관련이 있을 수", "연결은 확인되지",
+                         "함께 나타날 수", "겹칠 수"),
+    "conditional_exposure": ("해당된다면", "하고 있다면", "진행 중이라면",
+                             "경우에는", "확인되지 않았"),
+    "non_assertive_recovery": ("완화될 가능성", "줄어들 수", "안정될 수",
+                               "이어질 수"),
+}
+
+
+def audit_risk_sections(sections: list[dict], whole_answer: str) -> dict:
+    """구조화 risk section의 episode별 감사(감수 46차 §10·§12).
+
+    전역 문자열 검사의 오판(다른 episode의 qualifier로 충족 오인)을 막기
+    위해 **episode 단위**로 검사하고, 모델이 위험 주장을 mainAnswer에 쓸 수
+    있으므로 **전체 답변 감사를 병행**한다.
+
+    Args:
+        sections: [{"episode_key", "exposed_level", "identity_phrase_mode",
+            "required_qualifiers", "prohibited_phrases", "text"}...] —
+            구조화 출력 envelope의 risk_guidance 항목들.
+        whole_answer: 사용자에게 전달될 전체 답변(main + risk + followup).
+
+    Returns:
+        {"violations": [{"episode_key"|None, "code", "matched"}...],
+         "action": "ALLOW" | "REVISE_REQUIRED"}
+    """
+    violations: list[dict] = []
+    for sec in sections:
+        text = sec.get("text", "")
+        key = sec.get("episode_key")
+        part = audit_generated_risk_claims(
+            text,
+            episode_prohibited_phrases=list(
+                sec.get("prohibited_phrases", [])),
+            required_qualifiers=list(sec.get("required_qualifiers", [])),
+            max_exposed_level=str(sec.get("exposed_level", "warning")))
+        for v in part["violations"]:
+            violations.append({"episode_key": key, **v})
+        # episode별 qualifier 존재 검사(전역 출현으로 충족 오인 금지).
+        for q in sec.get("required_qualifiers", []):
+            phrases = _QUALIFIER_PHRASES.get(q, ())
+            if phrases and not any(ph in text for ph in phrases):
+                violations.append({"episode_key": key,
+                                   "code": "missing_qualifier",
+                                   "matched": q})
+    whole = audit_generated_risk_claims(whole_answer)
+    for v in whole["violations"]:
+        violations.append({"episode_key": None, **v})
+    return {"violations": violations,
+            "action": "ALLOW" if not violations else "REVISE_REQUIRED"}
+
+
+def plan_remediation(attempt: int, audit_action: str) -> str:
+    """위반 시 결정적 처리 순서(감수 46차 §11 — 무제한 재생성 금지).
+
+    attempt 0 위반 → REVISE(violation code로 1회 재작성) / 재작성도 위반 →
+    REGENERATE_WITHOUT_RISK(risk payload 없이 suppressed guard로 전체
+    재생성) / 그래도 위반 → BLOCK(안전 fallback·응답 차단). 위반 초안을
+    그대로 사용자에게 전달하는 경로는 없다.
+    """
+    if audit_action == "ALLOW":
+        return "DELIVER"
+    if attempt <= MAX_RISK_REVISION_ATTEMPTS - 1:
+        return "REVISE"
+    if attempt == MAX_RISK_REVISION_ATTEMPTS:
+        return "REGENERATE_WITHOUT_RISK"
+    return "BLOCK"
+
+
+def claim_audit_policy_hash() -> str:
+    """claim audit 정책 해시(감수 46차 §16) — 변경=expose 재감수 신호."""
+    policy = {
+        "version": RISK_CLAIM_AUDIT_VERSION,
+        "prohibited_patterns": {k: list(v) for k, v in
+                                sorted(_PROHIBITED_PATTERNS.items())},
+        "escalation_patterns": list(_ESCALATION_PATTERNS),
+        "qualifier_phrases": {k: list(v) for k, v in
+                              sorted(_QUALIFIER_PHRASES.items())},
+        "negation_handling": "결정적 부분 문자열 — 부정문 오탐은 재작성"
+                             " 경로로 흡수(패턴 정교화는 canary 실측 후"
+                             " 감수), LLM 재판정 금지",
+        "max_revision_attempts": MAX_RISK_REVISION_ATTEMPTS,
+        "remediation_order": "REVISE(1회) → REGENERATE_WITHOUT_RISK →"
+                             " BLOCK — 위반 초안 직접 전달 경로 없음",
+        "audit_scope": "risk section(episode별) + whole answer 병행",
+    }
+    return hashlib.sha256(json.dumps(
+        policy, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()[:16]
+
+
+__all__ = [
+    "MAX_RISK_REVISION_ATTEMPTS",
+    "RISK_CLAIM_AUDIT_VERSION",
+    "audit_generated_risk_claims",
+    "audit_risk_sections",
+    "claim_audit_policy_hash",
+    "plan_remediation",
+]

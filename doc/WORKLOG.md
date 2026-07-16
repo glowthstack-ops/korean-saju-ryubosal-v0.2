@@ -8303,3 +8303,20 @@ pytest 2080·ruff·mypy 0(530)·baseline 불변·manifest 일치. REVIEW.md §28
 다음: R5-b 배선(chat 주입 지점·tokenizer adapter 실물·canary allowlist·
 audit 재생성 흐름·통합 fixture) → expose_pipeline reviewed 감수 →
 r4.1.0-canary.
+
+## R5-b — EXPOSE 실배선(감수 46차 착수 승인, 2026-07-16)
+
+완료 조건 반영: FULL(=P2) 우선 압축 순서·미래 필터의 감사 records 전량
+보존(OUTSIDE_FUTURE_SCOPE 표시·LLM만 필터·recovery 미래≠재노출)·
+RiskPromptBlock content_hash+verify_risk_block_integrity·instruction/
+suppressed guard 분리(둘 다 EXPOSE 전용·token 계수 대상)·episode별
+claim audit(audit_risk_sections — 전역 출현 오인 차단+전체 답변 병행)·
+재작성 상태기(REVISE 1회→REGENERATE_WITHOUT_RISK→BLOCK)·claim audit
+버전/해시(expose_policy_hash 포함)·canary 정책(초기 3유형·내부 subject
+ID allowlist 기본 거부·kill switch env). chat_service 배선: EXPOSE 계열
+전용 분기+risk_exposure_service(현 단계=reviewed:false·adapter 부재 →
+전부 비주입·suppressed guard만). 통합 fixture 8종: **OFF/SHADOW 실제
+chat 최종 prompt byte-identical**·canary 차등·kill switch·재작성·checksum.
+pytest 2088·ruff·mypy 0(532)·baseline 불변·manifest 일치. REVIEW.md §28-2.
+canary 개시 잔여: tokenizer adapter 실물·질문 매핑 감수·출력 envelope·
+재호출 배선·reviewed=true 전환(r4.1.0-canary).
