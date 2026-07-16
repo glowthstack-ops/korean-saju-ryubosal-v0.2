@@ -248,6 +248,9 @@ class RiskCandidate(BaseModel):
     # 구분되며(문자열 우연 일치 병합 금지), 교차 축 병합은 이 alias가 있을 때만.
     # 매칭된 축 컨텍스트들의 reality id가 상충하면 None(fail-closed)이다.
     reality_episode_id: str | None = None
+    # 현실 건 유형(감수 37차) — 같은 alias라도 type 비호환이면 CONFLICT(오부여
+    # alias가 전혀 다른 현실 건을 합치는 것을 데이터 모델에서 감지).
+    reality_episode_type: str | None = None
     # reality alias 상충(감수 36차) — 매칭 축 컨텍스트들의 alias가 서로 다름.
     # 병합 금지(fallback 재진입도 금지)·데이터 위생 로그 대상.
     reality_conflict: bool = False

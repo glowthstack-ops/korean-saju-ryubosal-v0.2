@@ -641,16 +641,8 @@ def scoring_config_hash() -> str:
                                " taxonomy 정리 후 재측정 확정"},
         "occurrence": {"combine": "1-prod(1-s)", "per_source_dedup": "max"},
         "protection_cap": _PROTECTION_CAP,
-        "transition": {
-            "kernel_ssot": "saju_engines.event_scoring."
-                           "daewoon_transition_weight (exp(-(d/365)^1.0)"
-                           " 라플라스형·MIN 0.05 공유)",
-            "apply": "timed_base = base × (1 + weight×coef×MAX_BONUS)",
-            "sensitivity_coef": _TRANSITION_SENSITIVITY_COEF,
-            "max_bonus": _TRANSITION_MAX_BONUS,
-            "invariants": "적격성·원인 수·cause table·persistence·episode"
-                          " identity 불개입, base=0·비노출 부활 불가",
-        },
+        "transition": "shadow_temporal scope 분리(감수 37차) —"
+                      " transition_policy_hash 참조",
         "confidence": {"base": _CONF_BASE, "per_extra_cause": _CONF_PER_EXTRA_CAUSE,
                        "layer": _CONF_LAYER,
                        "context_confidence": "separate_diagnostic"},
@@ -658,6 +650,32 @@ def scoring_config_hash() -> str:
     }
     return hashlib.sha256(
         _json.dumps(config, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()[:16]
+
+
+def transition_policy_hash() -> str:
+    """교운기 temporal 정책 해시(감수 37차 — shadow_temporal scope 재료).
+
+    계수·MAX_BONUS·커널 참조·기간→대표일 규칙·공식이 하나라도 바뀌면 변경 —
+    shadow_temporal 감수 자동 강등 재료(스탬프·manifest 병기).
+    """
+    import hashlib
+    import json as _json
+    policy = {
+        "kernel_ssot": "saju_engines.event_scoring.daewoon_transition_weight"
+                       " (exp(-(d/365)^1.0) 라플라스형 kernel)",
+        "min_weight_gate": 0.05,
+        "period_reference": "호출부가 기간 대표일→커널값을 이벤트 엔진과 동일"
+                            " 규칙으로 산출해 transition_weights로 공급"
+                            "(월=이벤트 엔진 기준일 규칙 공유)",
+        "apply": "timed_base = base × (1 + weight×coef×MAX_BONUS)",
+        "sensitivity_coef": _TRANSITION_SENSITIVITY_COEF,
+        "max_bonus": _TRANSITION_MAX_BONUS,
+        "invariants": "적격성·원인 수·cause table·persistence·episode identity"
+                      " 불개입, base=0·비노출 부활 불가, vulnerability=none",
+    }
+    return hashlib.sha256(
+        _json.dumps(policy, sort_keys=True, ensure_ascii=False).encode()
     ).hexdigest()[:16]
 
 
@@ -702,5 +720,6 @@ __all__ = [
     "score_shadow",
     "scoring_config_hash",
     "structural_priority",
+    "transition_policy_hash",
     "trigger_bundle_contiguous_runs",
 ]

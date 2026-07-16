@@ -37,7 +37,12 @@ from saju_shared_types.risk_engine import (
     is_exposable,
 )
 
-from .dictionaries import RiskItem, RiskMappingFile, RiskRuleSpec
+from .dictionaries import (
+    _REALITY_EPISODE_TYPES,
+    RiskItem,
+    RiskMappingFile,
+    RiskRuleSpec,
+)
 
 # 극성 사실은 특정 운 층위가 아니라 시점(기간) 전체의 판정이다 — 근거 layer 표기용.
 _PERIOD_LAYER = "period"
@@ -373,6 +378,7 @@ class SelectionContext:
     episode_id: str | None = None
     # 교차 도메인 현실 건 alias(감수 35차) — 같은 현실 건의 타 축 컨텍스트 연결.
     reality_episode_id: str | None = None
+    reality_episode_type: str | None = None  # 현실 건 유형(감수 37차 — 충돌 감지)
     # 이 선발 건에 대한 현실 노출 확인 수준 — UNKNOWN(기본)이면 전역 노출 인자 사용
     # (단수 시절 호출 하위 호환: 전역 exposure_status가 선발 노출을 대신 표현했다).
     exposure_status: ExposureStatus = ExposureStatus.UNKNOWN
@@ -496,6 +502,7 @@ class RelationshipContext:
     relationship_status: str | None = None  # 교제·별거 등 상태 — R1 소비 예약
     current_contact_state: str | None = None  # 교류 상태 — R1 소비 예약
     reality_episode_id: str | None = None  # 교차 도메인 현실 건 alias(감수 35차)
+    reality_episode_type: str | None = None  # 현실 건 유형(감수 37차)
     is_question_target: bool = False
 
 
@@ -553,6 +560,7 @@ class MobilityContext:
     # 새 집 계약 vs 임시 숙소 vs 통근 조정)을 구분한다. 실명 주소 저장 금지.
     episode_id: str | None = None
     reality_episode_id: str | None = None  # 교차 도메인 현실 건 alias(감수 35차)
+    reality_episode_type: str | None = None  # 현실 건 유형(감수 37차)
     # 질문 직접 대상 여부(감수 19차) — True인 컨텍스트의 축이 항목 허용 밖이면
     # MISMATCHED(발령 질문에서 주거 이동 항목 차단). False 컨텍스트는 존재 정보일 뿐
     # (차량 등록만 있는 사용자의 이사 여부는 UNKNOWN — 다른 계획이 있을 수 있음).
@@ -671,6 +679,7 @@ class HealthContext:
     exposure_status: ExposureStatus = ExposureStatus.UNKNOWN
     episode_id: str | None = None
     reality_episode_id: str | None = None  # 교차 도메인 현실 건 alias(감수 35차)
+    reality_episode_type: str | None = None  # 현실 건 유형(감수 37차)
     is_question_target: bool = False
 
 
@@ -779,6 +788,7 @@ class LegalProcessContext:
     response_obligation: bool | None = None  # R1 예약
     process_episode_id: str | None = None
     reality_episode_id: str | None = None  # 교차 도메인 현실 건 alias(감수 35차)
+    reality_episode_type: str | None = None  # 현실 건 유형(감수 37차)
     is_question_target: bool = False
 
 
@@ -1030,14 +1040,19 @@ class RiskEngine:
         def _reality_alias(
             sel_ep: str | None, mob_ep: str | None,
             hlt_ep: str | None, leg_ep: str | None,
-        ) -> tuple[str | None, bool]:
+        ) -> tuple[str | None, str | None, bool]:
             """매칭된 축 local episode들의 reality alias 해석(감수 35차).
 
             해당 local id를 명시한 컨텍스트의 reality_episode_id를 모아 단일
             값이면 채택, 상충하면 None(fail-closed). 축 namespace가 문자열 우연
             일치 병합을 막고, 교차 축 병합은 이 alias만 허용한다.
+            reality_episode_type(감수 37차): 같은 alias라도 type이 2종 이상
+            (비호환)이거나 enum(_REALITY_EPISODE_TYPES) 밖 값이면 CONFLICT —
+            동일 현실 건 입증 불가로 간주해 병합을 차단한다(fail-closed).
             """
             found: set[str] = set()
+            types: set[str] = set()
+            invalid_type = False
             for ctx_list, attr, ep in (
                 (sel_ctxs, "episode_id", sel_ep),
                 (mobility_contexts or [], "episode_id", mob_ep),
@@ -1051,9 +1066,18 @@ class RiskEngine:
                         ctx.reality_episode_id is not None
                     ):
                         found.add(ctx.reality_episode_id)
-            if len(found) == 1:
-                return next(iter(found)), False
-            return None, len(found) > 1  # 상충=CONFLICT 상태 보존(감수 36차)
+                        if ctx.reality_episode_type is not None:
+                            types.add(ctx.reality_episode_type)
+                            if (ctx.reality_episode_type
+                                    not in _REALITY_EPISODE_TYPES):
+                                invalid_type = True
+            if len(found) == 1 and len(types) <= 1 and not invalid_type:
+                return (next(iter(found)),
+                        next(iter(types)) if types else None, False)
+            # 상충(alias 불일치·같은 alias의 type 비호환·enum 밖 type) =
+            # CONFLICT 보존(감수 36·37차) — 전혀 다른 현실 건의 오병합 차단.
+            return (None, None,
+                    len(found) > 1 or len(types) > 1 or invalid_type)
 
         for item in self._items:
             evidences: list[RiskEvidence] = []
@@ -1178,7 +1202,8 @@ class RiskEngine:
                     reality_episode_id=(reality := _reality_alias(
                         sel_episode_id, mob_episode_id, hlt_episode_id,
                         leg_episode_id))[0],
-                    reality_conflict=reality[1],
+                    reality_episode_type=reality[1],
+                    reality_conflict=reality[2],
                     transition_sensitivity=item.transition_sensitivity,
                     legal_stages=list(item.applicable_legal_stages),
                     relationship_alignment=rel_alignment,

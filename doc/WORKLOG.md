@@ -8155,3 +8155,20 @@ R1-T 재스탬프. R2-a 잔여: alias CONFLICT 상태 보존(fallback 재진입 
 near-tie(ε=0.02) 전용·earliest relief=최고 기여 cause 기준·context confidence=
 대표 충족도×identity 품질·ownership 사전 계약은 R2-c 전(adapter 유지). r2.0.2-
 shadow. pytest 2031·mypy 0·baseline diff 0. 다음: R2-b 전수(교운 overlay 포함).
+
+## 감수 37차 조건 차수 — scope 절차 교정·reality type·anchor-bucket (2026-07-16)
+
+절차 교정: 잠정 temporal 계수의 shadow_scoring 재스탬프를 **shadow_temporal
+scope 신설**로 교정(shadow_scoring="R1" 복원·temporal 0/49 pending·
+transition_policy_hash 분리·manifest 병기). reality_episode_type 7종 enum —
+같은 alias라도 type 비호환·enum 밖 값이면 CONFLICT(엔진+병합 이중 감지, 오부여
+alias 오병합 차단). near-tie를 **anchor-bucket**으로 재구현(anchor 고정 bucket
+≤ε=0.02 내부만 novelty 순서 — 비추이적 연쇄 확장 금지, 입력 permutation 전수
+byte-identical fixture). earliest relief는 dominant 동률(strength≥max−ε) 집합
+**전체** 완화 필요(r2.0.3-shadow). temporal 감수 재료: 교운일 capped 4건 개별
+(LEG_COMPLIANCE 3 — bonus 기여 미미 / MOV_CONTRACT_SETBACK 1 — +0.500)·top10
+신규 4건 전부 MOV_CONTRACT_SETBACK(high)·MAX_BONUS 0.30/0.40/0.50 민감도
+(16.2/21.6/27.0% — 포화 3/3/4)·sensitivity 저작 audit(high 8·medium 10 표).
+fixture +7(selection 36종). pytest 2037·ruff·mypy 0(523)·suppression diff 0·
+profile baseline 값 byte 동일(meta만)·manifest 일치·survey 재생성 byte 동일.
+REVIEW.md §22. 다음: R2-b 전수 측정(교운 overlay·ownership proxy audit 포함).

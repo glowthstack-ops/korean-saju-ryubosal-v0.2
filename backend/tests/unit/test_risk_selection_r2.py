@@ -400,7 +400,9 @@ def test_recovery_right_censored_and_multi_cause() -> None:
     rw2 = out2[0].recovery_window
     assert rw2 is not None and rw2.stable_recovery_window == "2026-05"
     assert rw2.recovery_confidence <= 0.5
-    # ③ 다중 cause — 하나 종료·하나 지평 끝까지 지속 → earliest만.
+    # ③ 다중 cause **동률**(감수 37차) — 충·형 strength 동일(0.5)·형이 지평
+    # 끝까지 지속 → dominant 집합 {충, 형} 전체 완화가 안 됐으므로 relief
+    # 미산출(fail-closed: 어느 쪽이 최고 기여인지 입증 불가).
     multi = [
         _cand(risk_id="LEG_M", legal_episode_id="e2", period="2026-01",
               role="legal_dispute", sources=(_CHUNG, _HYEONG)),
@@ -414,10 +416,42 @@ def test_recovery_right_censored_and_multi_cause() -> None:
     scored_m = _scored(multi)
     eps_m = build_episodes(scored_m)
     out_m = attach_recovery_windows(eps_m, scored_m, horizon)
-    rw_m = next(ep.recovery_window for ep in out_m
-                if ep.recovery_window is not None)
-    assert rw_m.stable_recovery_window is None
-    assert "other_primary_cause_ongoing" in rw_m.recovery_reasons
+    assert all(ep.recovery_window is None for ep in out_m)
+
+
+def test_recovery_dominant_tie_epsilon_and_clear_dominant() -> None:
+    """감수 37차: dominant 동률(ε) 집합 전체 완화 필요 vs 명확한 최강 단독.
+
+    ①충(0.9)이 형(0.5)보다 명확히 강함 — dominant={충} 단독, 충 종료(2026-01)
+    직후 relief + 형 지속은 other_primary_cause_ongoing(부분 완화 표현 한정).
+    ②충(0.5)·형(0.49) — 차이 0.01 ≤ ε=0.02 동률: 형이 지평 끝까지 지속하면
+    relief 미산출(집합 전체 완화 필요)."""
+    def _multi(chung_strength: float, hyeong_strength: float):
+        head = _cand(risk_id="LEG_M", legal_episode_id="e2", period="2026-01",
+                     role="legal_dispute", sources=(_CHUNG, _HYEONG))
+        head = head.model_copy(update={"evidence": [
+            _ev(_CHUNG, strength=chung_strength, period="2026-01"),
+            _ev(_HYEONG, strength=hyeong_strength, period="2026-01")]})
+        tail = [_cand(risk_id="LEG_M", legal_episode_id="e2", period=p,
+                      role="legal_dispute", sources=(_HYEONG,))
+                for p in ("2026-02", "2026-03", "2026-04")]
+        return _scored([head, *tail])
+
+    horizon = ["2026-01", "2026-02", "2026-03", "2026-04"]
+    # ① 명확한 최강(0.9 vs 0.5 — 차이 > ε) → 충 완화 기준 relief.
+    scored = _multi(0.9, 0.5)
+    out = attach_recovery_windows(build_episodes(scored), scored, horizon)
+    rw = next(ep.recovery_window for ep in out
+              if ep.recovery_window is not None)
+    assert rw.earliest_relief_window == "2026-02"
+    assert rw.stable_recovery_window is None
+    assert "other_primary_cause_ongoing" in rw.recovery_reasons
+    assert any(r.startswith(f"cause_relief:{_CHUNG}") for r in
+               rw.recovery_reasons)
+    # ② ε 이내 동률(0.5 vs 0.49) → 집합 전체 완화 전이라 relief 없음.
+    scored2 = _multi(0.5, 0.49)
+    out2 = attach_recovery_windows(build_episodes(scored2), scored2, horizon)
+    assert all(ep.recovery_window is None for ep in out2)
 
 
 # ── 감수 36차 보완 fixture ────────────────────────────────────────
@@ -523,3 +557,184 @@ def test_earliest_relief_requires_top_cause_not_minor() -> None:
         rw = ep.recovery_window
         # 최고 기여 cause(_CHUNG)가 지평 끝까지 활성 — relief 미생성.
         assert rw is None
+
+
+# ── 감수 37차 보완 fixture ────────────────────────────────────────
+
+
+def test_reality_type_incompatible_same_alias_conflicts() -> None:
+    """같은 reality alias + 비호환 reality_episode_type → 병합 금지(감수 37차).
+
+    오부여 alias가 전혀 다른 현실 건(주택 계약 vs 소송)을 합치는 것을 병합
+    시점에 감지 — RESOLVED가 아니라 후보별 단독 CONFLICT episode. 같은
+    type(또는 일부 미기재)은 정상 병합."""
+    mov = _cand(risk_id="MOV_X", domain=RiskDomain.RELOCATION,
+                role="contract_setback", mobility_episode_id="mv_1",
+                reality_episode_id="deal_1",
+                reality_episode_type="housing_contract")
+    leg = _cand(risk_id="LEG_X", domain=RiskDomain.CONTRACT_LEGAL,
+                role="legal_dispute", sources=(_HYEONG,),
+                legal_episode_id="lg_1", reality_episode_id="deal_1",
+                reality_episode_type="legal_proceeding")
+    eps = build_episodes(_scored([mov, leg]))
+    assert len(eps) == 2
+    assert all(ep.episode_key.startswith("conflict:") for ep in eps)
+    # 같은 type이면 병합 유지.
+    leg_same = leg.model_copy(
+        update={"reality_episode_type": "housing_contract"})
+    eps2 = build_episodes(_scored([mov, leg_same]))
+    assert len(eps2) == 1 and eps2[0].episode_key == "reality:deal_1"
+    # 한쪽 type 미기재(None)는 상충 증거가 아님 — 병합 유지.
+    leg_none = leg.model_copy(update={"reality_episode_type": None})
+    eps3 = build_episodes(_scored([mov, leg_none]))
+    assert len(eps3) == 1 and eps3[0].episode_key == "reality:deal_1"
+
+
+def test_reality_type_conflict_from_engine_contexts() -> None:
+    """엔진: 같은 local episode를 가리키는 컨텍스트들의 reality alias가 같아도
+    type이 비호환이거나 enum 밖이면 CONFLICT(감수 37차)."""
+    from pathlib import Path as _P
+
+    from saju_engines.risk_engine import (
+        LegalProcessContext,
+        RelationFact,
+        RiskEngine,
+        build_raw_period_facts,
+    )
+    from saju_shared_types.event_engine import (
+        LuckLayer,
+        Pillar4,
+        PolarityRole,
+        RelationKind,
+        TenGod,
+    )
+    engine = RiskEngine(
+        _P(__file__).resolve().parents[2] / "dictionaries")
+    facts = build_raw_period_facts(
+        period_key="2026", layer=LuckLayer.SEWOON,
+        ten_god_layers={TenGod.ZHENGYIN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGYIN)],
+        void_active=False, polarity_role=PolarityRole.GI, twelve_stage=None)
+
+    def _ctx(reality_type: str | None) -> LegalProcessContext:
+        return LegalProcessContext(
+            target_type="contract", stage="active_contract",
+            exposure_status=ExposureStatus.CONFIRMED,
+            process_episode_id="proc_1", reality_episode_id="housing_1",
+            reality_episode_type=reality_type)
+
+    # ① 단일 type — alias·type이 후보로 전파.
+    trm = next(c for c in engine.generate(
+        facts, legal_contexts=[_ctx("legal_proceeding")])
+        if c.risk_id == "LEG_CONTRACT_TERMINATION_RISK")
+    assert trm.reality_episode_id == "housing_1"
+    assert trm.reality_episode_type == "legal_proceeding"
+    assert trm.reality_conflict is False
+    # ② 같은 alias·비호환 type 2종 → CONFLICT(fail-closed).
+    trm2 = next(c for c in engine.generate(
+        facts, legal_contexts=[_ctx("legal_proceeding"),
+                               _ctx("housing_contract")])
+        if c.risk_id == "LEG_CONTRACT_TERMINATION_RISK")
+    assert trm2.reality_episode_id is None
+    assert trm2.reality_conflict is True
+    # ③ enum 밖 type → CONFLICT(임의 fallback 금지).
+    trm3 = next(c for c in engine.generate(
+        facts, legal_contexts=[_ctx("mystery_case")])
+        if c.risk_id == "LEG_CONTRACT_TERMINATION_RISK")
+    assert trm3.reality_episode_id is None
+    assert trm3.reality_conflict is True
+
+
+def _bucket_cands():
+    """anchor-bucket fixture 공용 후보 3종 — base_impact로 점수 간격 제어.
+
+    A(최고)·B(A와 near-tie, A와 같은 role)·C(B와는 ≤ε이지만 anchor A와는
+    >ε, novel role) — 연쇄 확장 시에만 C가 bucket에 편입될 수 있는 배치."""
+    a = _cand(risk_id="LEG_A", legal_episode_id="ea",
+              role="contract_termination")
+    b = _cand(risk_id="LEG_B", legal_episode_id="eb",
+              role="contract_termination", sources=(_HYEONG,))
+    c = _cand(risk_id="FIN_C", domain=RiskDomain.FINANCE,
+              legal_episode_id="ec", role="financial_outflow",
+              sources=(_PA_DAY,))
+    scored = score_shadow([a, b, c],
+                          {"LEG_A": 0.60, "LEG_B": 0.57, "FIN_C": 0.54})
+    return scored
+
+
+def test_anchor_bucket_no_chain_expansion() -> None:
+    """anchor-bucket(감수 37차): anchor는 bucket 소진까지 고정 — B를 골랐다고
+    B 기준 ε 이내인 C가 같은 bucket에 연쇄 편입되지 않는다."""
+    from saju_engines.risk_scoring import risk_priority as _rp
+
+    scored = _bucket_cands()
+    by_id = {c.risk_id: c for c in scored}
+    s: dict[str, float] = {}
+    for rid in ("LEG_A", "LEG_B", "FIN_C"):
+        comp = by_id[rid].score_components
+        assert comp is not None
+        s[rid] = _rp(comp)[1]
+    # 전제 검증: A–B ≤ ε < A–C, B–C ≤ ε (연쇄 확장이 실제로 가능한 배치).
+    assert s["LEG_A"] - s["LEG_B"] <= 0.02 < s["LEG_A"] - s["FIN_C"]
+    assert s["LEG_B"] - s["FIN_C"] <= 0.02
+    eps = build_episodes(scored)
+    selected, dropped = select_episodes(
+        eps, scored, RiskBudgetPolicy(soft_target=2, hard_max=2))
+    # 연쇄 허용이었다면 novel role의 C가 B를 밀어냈을 배치 — bucket 고정으로
+    # {A, B} 선택, C는 예산 탈락.
+    picked = [ep.representative_candidate_id or "" for ep in selected]
+    assert any(p.startswith("LEG_A|") for p in picked)
+    assert any(p.startswith("LEG_B|") for p in picked)
+    assert not any(p.startswith("FIN_C|") for p in picked)
+    assert dropped and dropped[0][1] == "BUDGET_HARD_MAX"
+
+
+def test_anchor_bucket_novelty_orders_inside_bucket() -> None:
+    """bucket 내부(≤ε)에서는 novelty가 점수보다 앞선다 — 같은 bucket의
+    중복 role(B)보다 novel role(C)이 먼저 선택."""
+    from saju_engines.risk_scoring import risk_priority as _rp
+
+    a = _cand(risk_id="LEG_A", legal_episode_id="ea",
+              role="contract_termination")
+    b = _cand(risk_id="LEG_B", legal_episode_id="eb",
+              role="contract_termination", sources=(_HYEONG,))
+    c = _cand(risk_id="FIN_C", domain=RiskDomain.FINANCE,
+              legal_episode_id="ec", role="financial_outflow",
+              sources=(_PA_DAY,))
+    scored = score_shadow([a, b, c],
+                          {"LEG_A": 0.60, "LEG_B": 0.58, "FIN_C": 0.56})
+    by_id = {x.risk_id: x for x in scored}
+    s: dict[str, float] = {}
+    for rid in ("LEG_A", "LEG_B", "FIN_C"):
+        comp = by_id[rid].score_components
+        assert comp is not None
+        s[rid] = _rp(comp)[1]
+    assert s["LEG_A"] - s["FIN_C"] <= 0.02  # 셋 모두 한 bucket.
+    eps = build_episodes(scored)
+    selected, _ = select_episodes(
+        eps, scored, RiskBudgetPolicy(soft_target=2, hard_max=2))
+    picked = [ep.representative_candidate_id or "" for ep in selected]
+    assert any("LEG_A" in p for p in picked)
+    assert any("FIN_C" in p for p in picked)  # novel role이 B를 앞선다.
+    assert not any("LEG_B" in p for p in picked)
+
+
+def test_selection_permutation_byte_identical() -> None:
+    """입력 순서의 모든 permutation에 대해 선택·누락 결과 byte-identical
+    (감수 37차 — 비추이적 comparator 부재의 실증)."""
+    import itertools
+    import json as _json
+
+    scored = _bucket_cands()
+    eps = build_episodes(scored)
+    outputs = set()
+    for ep_perm in itertools.permutations(eps):
+        for cand_perm in itertools.permutations(scored):
+            selected, dropped = select_episodes(
+                list(ep_perm), list(cand_perm),
+                RiskBudgetPolicy(soft_target=2, hard_max=2))
+            outputs.add(_json.dumps(
+                {"selected": [ep.episode_key for ep in selected],
+                 "dropped": dropped}, sort_keys=True, ensure_ascii=False))
+    assert len(outputs) == 1

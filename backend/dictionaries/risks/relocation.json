@@ -151,15 +151,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "69c1c96e3f1e704e",
-        "shadow_scoring": "a40db40c948607e8"
+        "shadow_scoring": "bd64dec7b88ebe97"
       },
       "normalizedEffectRole": "contract_setback",
-      "transitionSensitivity": "high"
+      "transitionSensitivity": "high",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "MOV_SCHEDULE_DISRUPTION",
@@ -290,15 +293,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "605b7d43db4a680b",
-        "shadow_scoring": "68819b9b3f0d5b66"
+        "shadow_scoring": "a7edd8e92d533aba"
       },
       "normalizedEffectRole": "schedule_disruption",
-      "transitionSensitivity": "medium"
+      "transitionSensitivity": "medium",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "MOV_HOUSING_DEFECT_RISK",
@@ -432,15 +438,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "412b4eacde761fe9",
-        "shadow_scoring": "77dc0df928136084"
+        "shadow_scoring": "f5b88d5083df1bad"
       },
       "normalizedEffectRole": "housing_defect",
-      "transitionSensitivity": "low"
+      "transitionSensitivity": "low",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "MOV_COMMUTE_BURDEN",
@@ -544,15 +553,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1eff57ea86cb49c3",
-        "shadow_scoring": "c50a62025d0f7e6c"
+        "shadow_scoring": "4b1558323558fc75"
       },
       "normalizedEffectRole": "commute_burden",
-      "transitionSensitivity": "medium"
+      "transitionSensitivity": "medium",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "MOV_RELOCATION_PRESSURE",
@@ -674,15 +686,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "7d2ee0bd51e3b397",
-        "shadow_scoring": "60594db1fc05589b"
+        "shadow_scoring": "48d0ad0a921c01d8"
       },
       "normalizedEffectRole": "relocation_pressure",
-      "transitionSensitivity": "high"
+      "transitionSensitivity": "high",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "MOV_VEHICLE_TRANSPORT_ISSUE",
@@ -800,15 +815,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "4febad86b0e07b54",
-        "shadow_scoring": "0e036082861f3bf5"
+        "shadow_scoring": "610c02720c23560d"
       },
       "normalizedEffectRole": "vehicle_transport",
-      "transitionSensitivity": "low"
+      "transitionSensitivity": "low",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     }
   ]
 }

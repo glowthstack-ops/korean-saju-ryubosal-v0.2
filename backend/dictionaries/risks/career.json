@@ -161,15 +161,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "C3",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "22a06def68819126",
-        "shadow_scoring": "b5461e99b459d744"
+        "shadow_scoring": "90647b24e25fc8b5"
       },
       "normalizedEffectRole": "workload_strain",
-      "transitionSensitivity": "low"
+      "transitionSensitivity": "low",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "CAR_ORG_CONFLICT",
@@ -304,15 +307,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
         "shadow_structure": "bdec17ae089bf6de",
-        "shadow_scoring": "91a049180224f866"
+        "shadow_scoring": "f439229acb7c85fd"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "workplace_conflict",
-      "transitionSensitivity": "low"
+      "transitionSensitivity": "low",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "CAR_EVALUATION_SETBACK_RISK",
@@ -440,15 +446,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "C3-d",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "7f8eafafb486e6bc",
-        "shadow_scoring": "367581477da40529"
+        "shadow_scoring": "ea7bf9db09d3bb2b"
       },
       "normalizedEffectRole": "evaluation_setback",
-      "transitionSensitivity": "medium"
+      "transitionSensitivity": "medium",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "CAR_REASSIGNMENT_RISK",
@@ -575,15 +584,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "C3-d",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "3ee5db5bf0450f31",
-        "shadow_scoring": "f49870edfbb29ff2"
+        "shadow_scoring": "23957c8537135032"
       },
       "normalizedEffectRole": "reassignment",
-      "transitionSensitivity": "high"
+      "transitionSensitivity": "high",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "CAR_EXIT_PRESSURE",
@@ -714,15 +726,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "C3-d",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1238b07f9ff24cda",
-        "shadow_scoring": "6de093818923e74a"
+        "shadow_scoring": "937e57eed73e0085"
       },
       "normalizedEffectRole": "exit_pressure",
-      "transitionSensitivity": "high"
+      "transitionSensitivity": "high",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "CAR_HIRING_PROCESS_DELAY",
@@ -829,15 +844,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
         "shadow_structure": "2d15be02f6386174",
-        "shadow_scoring": "1fc9eeb8a5489a4c"
+        "shadow_scoring": "c91c29907ba04609"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "result_wait_delay",
-      "transitionSensitivity": "medium"
+      "transitionSensitivity": "medium",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     },
     {
       "riskId": "CAR_HIRING_OUTCOME_SETBACK",
@@ -966,15 +984,18 @@
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1-T"
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
         "shadow_structure": "7ce79c16f5dd630d",
-        "shadow_scoring": "9c18b670402b8cb2"
+        "shadow_scoring": "998be247b5377085"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "hiring_outcome",
-      "transitionSensitivity": "high"
+      "transitionSensitivity": "high",
+      "reviewPendingScopes": [
+        "shadow_temporal"
+      ]
     }
   ]
 }

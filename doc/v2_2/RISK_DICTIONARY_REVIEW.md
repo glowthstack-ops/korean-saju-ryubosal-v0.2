@@ -1228,3 +1228,56 @@ RISK_SELECTION_VERSION **r2.0.2-shadow**. fixture 총 29종(selection)+44종
 **감수 대기**: transitionSensitivity 49항목 저작·계수/MAX_BONUS·교운일 포화 4건·
 같은 reality alias+target 충돌 fixture(컨텍스트 수준 — 표현 불가 항목 기록).
 다음: R2-b 전수 측정(기존 + A-T/B-T/C-T/D-T 교운 overlay + ownership audit).
+
+## 22. 감수 37차 조건 차수 — scope 절차 교정·reality type·anchor-bucket·temporal 감수 재료 (2026-07-16)
+
+**절차 교정(조건1 — 데굴님 지적)**: 잠정(미감수) temporal 계수·MAX_BONUS를
+shadow_scoring 49/49로 재스탬프한 것은 "미확정 가중치를 reviewed로 스탬프 금지"
+원칙 위반 — **shadow_temporal scope 신설**로 교정.
+
+1. **shadow_temporal scope 분리(조건1)**: `_RISK_REVIEW_SCOPES`에 shadow_temporal
+   추가, risk_scope_hash의 shadow_scoring 본문에서 transitionSensitivity **제거**
+   (기 감수된 shadow_scoring 오염 방지) → 신설 shadow_temporal 본문으로 이동.
+   49항목 reviewVersions.shadow_scoring="R1" 복원 + reviewPendingScopes=
+   ["shadow_temporal"](0/49 — 계수·MAX_BONUS·저작 감수 후 스탬프).
+   `transition_policy_hash()` 신설(커널 참조·계수·MAX_BONUS·MIN·공식 —
+   scoring_config_hash에서 transition 블록 분리)·manifest 병기.
+2. **reality_episode_type(조건5)**: 7종 enum(housing_contract/employment_selection/
+   legal_proceeding/relationship/treatment_recovery/travel_mobility/financial_claim).
+   컨텍스트 5종·RiskCandidate에 필드 추가. 같은 alias라도 ①type 2종 비호환
+   ②enum 밖 값이면 CONFLICT(fail-closed — 오부여 alias의 오병합을 엔진 해석과
+   build_episodes 병합 시점 이중 감지, 후보별 단독 conflict episode). type 한쪽
+   미기재(None)는 상충 증거 아님(병합 유지). fixture 2종(병합 계층+엔진 전파).
+3. **anchor-bucket near-tie(조건6)**: pairwise '차이≤ε' 비교는 비추이적이라 연쇄
+   확장 가능 → ①최고 미배정 점수=anchor ②anchor 기준 ≤ε(0.02)만 bucket(소진까지
+   anchor 고정 — 연쇄 편입 금지) ③bucket 내부만 novelty 순서(bucket 경계가 점수
+   역전 불가를 강제) ④다음 anchor. NO_EXPOSABLE drop도 episode_key 정렬. fixture
+   3종: 연쇄 확장 차단(A–B≤ε<A–C·B–C≤ε 배치)·bucket 내부 novelty 우선·**입력
+   permutation 전수(episode×candidate 순서) byte-identical**.
+4. **dominant cause 동률 relief(조건7)**: earliest relief의 기준 cause를 단일
+   최강에서 **strength ≥ max−ε(0.02 잠정) 집합 전체**로 — 동률이면 집합의 마지막
+   종료가 relief 기준(하나만 끝난 시점을 완화로 부르면 낙관 편향, fail-closed).
+   fixture 2종(동률 지속=미산출·명확 최강=단독 기준). RISK_SELECTION_VERSION
+   **r2.0.3-shadow**·selection_policy_hash 갱신.
+5. **temporal 감수 재료(조건2·3·4 — survey 확장)**:
+   - 조건2 교운일 capped=1 4건 개별: LEG_COMPLIANCE_OBLIGATION_PRESSURE 3기간
+     (raw 1.071 — 무교운도 rank 1~3·bonus +0.125로 상한 기여 미미) +
+     MOV_CONTRACT_SETBACK_RISK 2027-01(raw 1.008 — bonus +0.500, rank 11→4).
+     top10 신규 4건 전부 MOV_CONTRACT_SETBACK_RISK(high·+0.500): rank 11→4·
+     15→5·16→6·19→9.
+   - 조건3 MAX_BONUS 민감도(교운일 w=1.0 최악점): 0.30=상승 16.2%·overlap 7/10·
+     포화 3 / 0.40=21.6%·6/10·포화 3 / 0.50=27.0%·6/10·포화 4.
+   - 조건4 transitionSensitivity 저작 audit: high 8·medium 10·low 26·none 5.
+     high 전량 표(도메인 아닌 상태 전환성 기준 감수용 — CAR 3·LEG 1·MOV 2·
+     REL 1·SEL 1)·medium 10종 목록.
+
+**게이트**: pytest 2037(fixture selection 36종·+7)·ruff clean·mypy 0(523)·
+suppression baseline diff 0(3412 — meta만 갱신)·profile baseline **값 byte
+동일**(meta 해시만 갱신: dictionary v10 scope 재편·context 필드 추가)·manifest
+일치·survey 재생성 byte-identical. 측정 고정본 갱신(RISK_SCORING_SURVEY_R1C1).
+
+**감수 대기(shadow_temporal 0/49)**: 계수(0/0.25/0.6/1.0)·MAX_BONUS(0.30/0.40/
+0.50 중 확정)·high 8종 저작 — 확정 후 스탬프. dominant ε=0.02·identity 품질
+계수는 shadow_selection 감수 시 확정. 다음: R2-b 전수 측정 착수(승인 완료 —
+기존 §12 지표 + A-T/B-T/C-T/D-T 교운 overlay + ownership proxy audit +
+fallback under-merge).

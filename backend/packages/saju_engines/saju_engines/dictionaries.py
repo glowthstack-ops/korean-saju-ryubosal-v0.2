@@ -743,7 +743,15 @@ _RISK_CLAIM_CEILINGS = ("advisory", "watch", "conditional_warning", "warning")
 # reviewScope 유효값 — reviewed:true의 의미 범위(감수 4차): shadow_structure=사전 구조·
 # shadow 감수 완료(사용자 노출 승인 아님). scoring/selection/exposure는 R1/R2/R3 감수.
 _RISK_REVIEW_SCOPES = (
-    "shadow_structure", "shadow_scoring", "scoring", "selection", "exposure",
+    "shadow_structure", "shadow_scoring", "shadow_temporal", "scoring",
+    "selection", "exposure",
+)
+# reality episode 유형(감수 37차) — alias 오부여로 전혀 다른 현실 건이 합쳐지는
+# 것을 데이터 모델에서 감지하기 위한 최소 대상 정보: 같은 reality_episode_id라도
+# type이 비호환이면 CONFLICT(병합 금지·fallback 재진입 금지).
+_REALITY_EPISODE_TYPES = (
+    "housing_contract", "employment_selection", "legal_proceeding",
+    "relationship", "treatment_recovery", "travel_mobility", "financial_claim",
 )
 # normalized effect role 어휘(감수 31차 — R1-c2 SSOT 편입): compound의 '서로 다른
 # 현실 효과' 판정·교차 도메인 dedup에 직접 쓰는 감수 필드. kind(위험 표현 성격)와
@@ -1417,8 +1425,9 @@ class RiskItem(_AliasModel):
 # Condition/TreatmentProcess/RecoveryProcess/PhysicalDemand)을 structure 해시에 편입.
 # v8(감수 23차): 법적 절차 축(applicableLegalTargetTypes/Stages)·법적 실질 조건
 # (requiresExistingDispute/Litigation)을 structure 해시에 편입.
-# v10(감수 36차 — R1-T): transitionSensitivity를 shadow_scoring scope 본문에 편입 —
-# 교운기 민감도는 점수 의미 감수 필드(값 변경=shadow_scoring 강등, structure 불변).
+# v10(감수 36→37차 — R1-T 절차 교정): transitionSensitivity는 **shadow_temporal
+# scope**(신설) 본문 — 미확정 temporal 설정이 기 감수된 shadow_scoring을 오염하지
+# 않는다(값 변경=shadow_temporal만 강등, scoring·structure 불변).
 # v9(감수 31차 — R1-c2): shadow_scoring scope 신설 — normalizedEffectRole(+ByContext)
 # ·baseImpact를 그 해시 본문으로. role은 compound·교차 도메인 dedup의 감수 필드라
 # 값 변경 시 shadow_scoring만 자동 강등된다(shadow_structure는 유지 — 후보 생성·
@@ -1556,8 +1565,11 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
             "normalizedEffectRoleByContext": dict(sorted(
                 item.normalized_effect_role_by_context.items())),
             "baseImpact": item.base_impact,
-            "transitionSensitivity": item.transition_sensitivity,  # v10
         }
+    elif scope == "shadow_temporal":
+        # 교운기 감수(감수 37차 — scope 분리): 민감도는 temporal 정책 감수
+        # 대상이며 transition_policy_hash(계수·MAX_BONUS·커널 참조)와 병기된다.
+        body = {"transitionSensitivity": item.transition_sensitivity}
     elif scope == "scoring":
         body = {"baseImpact": item.base_impact}
     elif scope == "selection":

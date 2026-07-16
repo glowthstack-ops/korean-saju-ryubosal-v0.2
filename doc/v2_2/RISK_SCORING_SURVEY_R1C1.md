@@ -1,8 +1,8 @@
-> R1-T/R2-a2 전수 측정 고정본(감수 36차) — 재생성: `python scripts/risk_scoring_survey.py`
+> R1-T/R2-a2 전수 측정 고정본(감수 37차 조건 반영 — 조건2 capped 상세·top10 신규 상세, 조건3 MAX_BONUS 민감도, 조건4 sensitivity audit 추가) — 재생성: `python scripts/risk_scoring_survey.py`
 > 출력 결정적 — 본 파일과의 diff = 점수 의미 회귀 신호.
 
 # R1-c1 위험 점수 전수 측정 — risk-score-r1.2.0-shadow
-semantics cause-semantics-v3 · config 6b2d452d8c23d425 · semantics 607f75c4a8dfc72c
+semantics cause-semantics-v3 · config 2d328df293863b3a · semantics 607f75c4a8dfc72c
 compound=연결된 effect graph(shared canonical cause)만 · is_question_target=context confidence 제외(fixture 고정)
 
 # 모집단 1 — 전체 구조 코퍼스(컨텍스트 없음·suppression baseline 동일)
@@ -210,6 +210,35 @@ context 축 상태 합(A군): confirmed 66, conflicted 0, required 496, unknown 
   교운일(w=1.000): 평균 상승률 27.0% · top10 overlap 6/10(신규 4) · transition이 최대 modifier 249 · capped=1 4
   ±1년(w=0.368): 평균 상승률 9.9% · top10 overlap 8/10(신규 2) · transition이 최대 modifier 210 · capped=1 0
   ±2년(w=0.135): 평균 상승률 3.6% · top10 overlap 9/10(신규 1) · transition이 최대 modifier 185 · capped=1 0
+
+### 교운일 capped=1 상세(조건2 — 개별 감수 재료)
+  LEG_COMPLIANCE_OBLIGATION_PRESSURE [contract_legal] 2026: raw 1.071 · occ 0.80 × imp 0.70 × exp 1.00 · trans_bonus +0.125 · pers 0.60 · comp 0.10 · prot 0.00 · 무교운 rank 1 → 교운일 rank 1
+  LEG_COMPLIANCE_OBLIGATION_PRESSURE [contract_legal] 2024: raw 1.071 · occ 0.80 × imp 0.70 × exp 1.00 · trans_bonus +0.125 · pers 0.60 · comp 0.10 · prot 0.00 · 무교운 rank 2 → 교운일 rank 2
+  LEG_COMPLIANCE_OBLIGATION_PRESSURE [contract_legal] 2026-04: raw 1.071 · occ 0.80 × imp 0.70 × exp 1.00 · trans_bonus +0.125 · pers 0.60 · comp 0.10 · prot 0.00 · 무교운 rank 3 → 교운일 rank 3
+  MOV_CONTRACT_SETBACK_RISK [relocation] 2027-01: raw 1.008 · occ 0.70 × imp 0.60 × exp 1.00 · trans_bonus +0.500 · pers 0.40 · comp 0.20 · prot 0.00 · 무교운 rank 11 → 교운일 rank 4
+### 교운일 top10 신규 진입 상세(조건2)
+  MOV_CONTRACT_SETBACK_RISK [relocation] 2027-01: rank 11 → 4 · raw 0.672 → 1.008 · trans_bonus +0.500 · sensitivity high
+  MOV_CONTRACT_SETBACK_RISK [relocation] 2026-10: rank 15 → 5 · raw 0.630 → 0.945 · trans_bonus +0.500 · sensitivity high
+  MOV_CONTRACT_SETBACK_RISK [relocation] 2030: rank 16 → 6 · raw 0.599 → 0.898 · trans_bonus +0.500 · sensitivity high
+  MOV_CONTRACT_SETBACK_RISK [relocation] 2025: rank 19 → 9 · raw 0.559 → 0.838 · trans_bonus +0.500 · sensitivity high
+
+### MAX_BONUS 민감도(조건3 — 0.30/0.40/0.50, 교운일 w=1.0 최악점)
+  MAX_BONUS=0.30: 평균 상승률 16.2% · top10 overlap(무교운 대비) 7/10 · transition이 최대 modifier 226 · capped=1 3
+  MAX_BONUS=0.40: 평균 상승률 21.6% · top10 overlap(무교운 대비) 6/10 · transition이 최대 modifier 241 · capped=1 3
+  MAX_BONUS=0.50: 평균 상승률 27.0% · top10 overlap(무교운 대비) 6/10 · transition이 최대 modifier 249 · capped=1 4
+
+## transitionSensitivity 저작 audit(조건4 — 상태 전환성 기준)
+  분포: high 8 · medium 10 · low 26 · none 5
+  ### high 전체(전환기 가속 사건인지 개별 감수)
+    CAR_EXIT_PRESSURE [career] kind=pressure role=exit_pressure
+    CAR_HIRING_OUTCOME_SETBACK [career] kind=incident_risk role=hiring_outcome
+    CAR_REASSIGNMENT_RISK [career] kind=incident_risk role=reassignment
+    LEG_CONTRACT_TERMINATION_RISK [contract_legal] kind=incident_risk role=contract_termination
+    MOV_CONTRACT_SETBACK_RISK [relocation] kind=incident_risk role=contract_setback
+    MOV_RELOCATION_PRESSURE [relocation] kind=pressure role=relocation_pressure
+    REL_PARTNER_READJUST [relationship] kind=pressure role=partner_readjustment
+    SEL_UNWANTED_PLACEMENT [selection] kind=incident_risk role=selection_outcome
+  medium 10종: CAR_EVALUATION_SETBACK_RISK, CAR_HIRING_PROCESS_DELAY, FIN_SETTLEMENT_DISPUTE, LEG_DISPUTE_RISK, MOV_COMMUTE_BURDEN, MOV_SCHEDULE_DISRUPTION, REL_DISTANCE_PRESSURE, SEL_DRAW_OUTCOME_UNCERTAINTY, SEL_RESULT_DELAY_PRESSURE, SEL_WAITLIST_PROLONGATION
 
 ## pairwise golden(기대 순서 명시 — 감수 대상)
   같은 구조: CONFIRMED 0.300 > 허용 UNKNOWN 0.165 > 비노출 0.000 — PASS

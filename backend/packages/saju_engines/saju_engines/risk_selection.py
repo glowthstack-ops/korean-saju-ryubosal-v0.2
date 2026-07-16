@@ -40,7 +40,11 @@ from .risk_scoring import (
 )
 
 # 선별 의미 버전 — 병합·대표·budget·portfolio·recovery 정책 변경 시 올린다.
-RISK_SELECTION_VERSION = "risk-select-r2.0.2-shadow"
+RISK_SELECTION_VERSION = "risk-select-r2.0.3-shadow"
+
+# dominant cause 동률 판정 ε(감수 37차 — 잠정, shadow_selection 감수 대상):
+# earliest relief는 strength ≥ max−ε 집합 **전체** 완화를 요구한다.
+_DOMINANT_TIE_EPSILON = 0.02
 
 
 def candidate_uid(c: RiskCandidate) -> str:
@@ -112,6 +116,8 @@ def build_episodes(candidates: list[RiskCandidate]) -> list[RiskEpisode]:
             # 를 하나의 현실 건으로 병합하는 유일한 경로. local id는 축
             # namespace라 문자열 우연 일치로는 절대 병합되지 않는다.
             key: tuple = ("reality", c.reality_episode_id)
+            # 같은 alias의 type 비호환(감수 37차) — 오부여 alias가 전혀 다른
+            # 현실 건을 합치는 것을 병합 시점에도 감지: 그룹 확정 후 검사.
         elif sig:
             key = ("explicit", sig)
         else:
@@ -133,6 +139,16 @@ def build_episodes(candidates: list[RiskCandidate]) -> list[RiskEpisode]:
                 {a for c in group for a in _candidate_atoms(c)}))
             episodes.append(_make_episode(ep_key, group))
         elif key[0] == "reality":
+            types = {c.reality_episode_type for c in group
+                     if c.reality_episode_type is not None}
+            if len(types) > 1:
+                # 같은 alias인데 현실 건 유형이 비호환(감수 37차) — RESOLVED가
+                # 아니라 CONFLICT: 병합하지 않고 후보별 단독 episode로 보존
+                # (fallback 재진입 금지, 데이터 위생 로그 대상).
+                for c in group:
+                    episodes.append(_make_episode(
+                        f"conflict:{candidate_uid(c)}", [c]))
+                continue
             episodes.append(_make_episode(f"reality:{key[1]}", group))
         elif key[0] == "conflict":
             episodes.append(_make_episode(f"conflict:{key[1]}", group))
@@ -286,25 +302,30 @@ def select_episodes(
 
     qualified = [ep for ep in episodes
                  if ep.representative_candidate_id is not None]
-    dropped: list[tuple[str, str]] = [
+    # episode_key 정렬 — 입력 permutation에 결과 byte-identical(감수 37차).
+    dropped: list[tuple[str, str]] = sorted(
         (ep.episode_key, "NO_EXPOSABLE_REPRESENTATIVE")
         for ep in episodes if ep.representative_candidate_id is None
-    ]
+    )
     if len(qualified) <= policy.hard_max:
         # 적격이 예산 이하 — 중복 role·cause라도 전부 선택(제거 금지).
         ordered = sorted(qualified, key=lambda ep: (-rep_score(ep),
                                                     ep.episode_key))
         return ordered, dropped
 
-    # soft tie-break greedy(결정적): 매 단계 rankable + novelty 보너스 최대
-    # episode 선택 — novelty는 우선도 요인이지 제거 사유가 아니다.
+    # anchor-bucket(감수 37차 — 결정적 near-tie): pairwise 비교는 '차이 ≤ ε'가
+    # 추이적이지 않아 입력 순서에 따라 bucket이 연쇄 확장될 수 있다. 절차 고정:
+    # ①가장 높은 미배정 점수를 anchor로 ②anchor와 차이 ≤ ε인 후보만 bucket
+    # (anchor는 bucket 소진까지 고정 — 0.99를 골랐다고 0.97이 새 bucket에
+    # 편입되는 연쇄 금지) ③bucket 내부는 novelty 순서로 소진 ④다음 anchor.
+    # 모든 정렬 키가 episode_key로 끝나므로 입력 permutation에 결과 불변.
     selected: list[RiskEpisode] = []
     remaining = list(qualified)
     seen_roles: set[str] = set()
     seen_causes: set[str] = set()
     seen_domains: set[str] = set()
-    # novelty는 **near-tie 전용** lexicographic tie-break(감수 36차 — 숫자
-    # 가산 폐지: 점수 차이가 epsilon을 넘으면 novelty가 역전 불가).
+    # novelty는 **near-tie 전용**(감수 36차 — 숫자 가산 폐지): bucket 경계가
+    # '점수 역전 불가'를 강제하고, bucket 내부(≤ε)에서만 novelty가 앞선다.
     _NEAR_TIE_EPSILON = 0.02
 
     def _tie_key(ep: RiskEpisode, roles: set[str], causes: set[str],
@@ -314,22 +335,24 @@ def select_episodes(
                       if rep else False)
         cause_novel = bool(rep and (set(_candidate_atoms(rep)) - causes))
         domain_novel = bool(rep and rep.domain.value not in domains)
-        return (-rep_score(ep), not role_novel, not cause_novel,
-                not domain_novel, ep.episode_key)
+        return (not role_novel, not cause_novel, not domain_novel,
+                -rep_score(ep), ep.episode_key)
 
     while remaining and len(selected) < policy.hard_max:
-        top_score = max(rep_score(ep) for ep in remaining)
-        near = [ep for ep in remaining
-                if top_score - rep_score(ep) <= _NEAR_TIE_EPSILON]
-        pick = sorted(near, key=lambda ep: _tie_key(
-            ep, seen_roles, seen_causes, seen_domains))[0]
-        remaining.remove(pick)
-        selected.append(pick)
-        rep = rep_of(pick)
-        if rep is not None:
-            seen_roles.add(normalized_effect_role(rep))
-            seen_causes |= set(_candidate_atoms(rep))
-            seen_domains.add(rep.domain.value)
+        anchor = max(rep_score(ep) for ep in remaining)
+        bucket = [ep for ep in remaining
+                  if anchor - rep_score(ep) <= _NEAR_TIE_EPSILON]
+        while bucket and len(selected) < policy.hard_max:
+            pick = sorted(bucket, key=lambda ep: _tie_key(
+                ep, seen_roles, seen_causes, seen_domains))[0]
+            bucket.remove(pick)
+            remaining.remove(pick)
+            selected.append(pick)
+            rep = rep_of(pick)
+            if rep is not None:
+                seen_roles.add(normalized_effect_role(rep))
+                seen_causes |= set(_candidate_atoms(rep))
+                seen_domains.add(rep.domain.value)
     ranked_rest = sorted(remaining, key=lambda ep: (-rep_score(ep),
                                                     ep.episode_key))
     for i, ep in enumerate(ranked_rest):
@@ -416,20 +439,24 @@ def attach_recovery_windows(
                 if a in last_actives:
                     strengths[a] = max(strengths.get(a, 0.0), e.strength)
         top_strength = max(strengths.values(), default=0.0)
-        top_causes = [a for a, s in strengths.items() if s == top_strength]
-        first_end = min(
-            (v for a, v in last_actives.items()
-             if a in top_causes and v is not None),
-            default=None)
-        if first_end is None:
+        # dominant 동률(감수 37차) — 최강과 사실상 동률(strength ≥ max−ε)인
+        # cause **집합 전체**의 완화가 필요: 동률 중 하나만 끝난 시점을 '최고
+        # 기여 원인 완화'로 부르면 어느 쪽이 최강인지 입증 불가인 상태에서
+        # 낙관 편향이 생긴다(fail-closed — 집합의 마지막 종료가 relief 기준).
+        dominant = [a for a, s in strengths.items()
+                    if s >= top_strength - _DOMINANT_TIE_EPSILON]
+        dominant_ends = [v for a, v in last_actives.items()
+                         if a in dominant and v is not None]
+        if not dominant_ends or len(dominant_ends) < len(dominant):
             out.append(ep)
             continue
+        first_end = max(dominant_ends)
         relief_after = [p for p in horizon if p > first_end]
         if not relief_after:
             out.append(ep)  # 지평 내 완화 관측 없음
             continue
-        reasons = [f"cause_relief:{a}@{v}" for a, v in sorted(
-            last_actives.items()) if v == first_end]
+        reasons = [f"cause_relief:{a}@{last_actives[a]}"
+                   for a in sorted(dominant)]
         # stable — 모든 primary cause 종료 + quiet_span 확보(우측 검열 처리).
         overall_end = max(v for v in last_actives.values() if v is not None)
         quiet = [p for p in horizon if p > overall_end]
@@ -479,9 +506,15 @@ def selection_policy_hash() -> str:
         "recovery_censoring": "quiet_span 2 native 기간·right-censored=stable"
                               " 미산출·다중 cause 지속=earliest만",
         "earliest_relief_basis": "대표의 최고 기여(최강 trigger) primary cause"
-                                 " 완화 기준(보조 원인 종료로 미생성)",
-        "novelty": "near-tie(ε=0.02) 전용 lexicographic — 점수 역전 불가",
-        "reality_conflict": "CONFLICT 상태 보존·fallback 재진입 금지·단독 episode",
+                                 " 완화 기준(보조 원인 종료로 미생성) — dominant"
+                                 " 동률(strength≥max−ε, ε=0.02 잠정) 집합"
+                                 " 전체 완화 필요(감수 37차)",
+        "novelty": "anchor-bucket(감수 37차): anchor 고정 bucket(≤ε=0.02)"
+                   " 내부만 novelty 순서 — 연쇄 확장·점수 역전 불가,"
+                   " permutation 불변",
+        "reality_conflict": "CONFLICT 상태 보존·fallback 재진입 금지·단독 episode"
+                            " — 같은 alias의 reality_episode_type 비호환·enum 밖"
+                            " 값 포함(감수 37차)",
         "identity_quality": {"reality": 1.0, "explicit": 0.9, "fallback": 0.6,
                              "conflict": 0.0},
         "transition_in_selection": "대표·budget 점수에 transition_bonus 반영"

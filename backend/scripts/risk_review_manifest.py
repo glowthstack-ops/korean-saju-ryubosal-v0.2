@@ -28,6 +28,7 @@ from saju_engines.risk_scoring import (  # noqa: E402
     RISK_SCORING_VERSION,
     cause_semantics_hash,
     scoring_config_hash,
+    transition_policy_hash,
 )
 from saju_engines.risk_selection import (  # noqa: E402
     RISK_SELECTION_VERSION,
@@ -75,6 +76,9 @@ def build_manifest() -> dict:
         # R2 측정·감수 후 스탬프.
         "risk_selection_version": RISK_SELECTION_VERSION,
         "selection_policy_hash": selection_policy_hash(),
+        # temporal 감수 표면(감수 37차 — scope 분리): 계수·MAX_BONUS·커널 참조
+        # 변경 시 manifest diff로 감지. shadow_temporal 0/49 → 감수 후 스탬프.
+        "transition_policy_hash": transition_policy_hash(),
         "reviewed_total": len(reviewed_ids),
         "unreviewed_total": len(unreviewed_ids),
         "reviewed_by_scope": dict(sorted(by_scope.items())),

@@ -589,6 +589,8 @@ def _transition_overlay(cands: list[RiskCandidate]) -> None:
         plain_totals.append(risk_priority(c.score_components)[1])
     plain_top = _rank_ids(plain_active, plain_totals)
     print("\n## 교운기 overlay(커널 SSOT — 이벤트 엔진 함수 공유)")
+    jiao_active: list[RiskCandidate] = []
+    jiao_totals: list[float] = []
     for label, w in kernel.items():
         periods = {c.period_key for c in raw_cands}
         boosted = _ss(raw_cands, base_impacts,
@@ -616,6 +618,99 @@ def _transition_overlay(cands: list[RiskCandidate]) -> None:
               f"{100 * sum(rises) / max(1, len(rises)):.1f}% · top10 overlap "
               f"{overlap}/10(신규 {10 - overlap}) · transition이 최대 modifier "
               f"{dominant} · capped=1 {n_sat}")
+        if label == "교운일":
+            jiao_active, jiao_totals = b_active, totals
+
+    # 조건2(감수 37차) — 교운일 최악점에서 상한 도달·top10 신규 진입 개별 공개.
+    def _rank_map(totals: list[float]) -> dict[int, int]:
+        order = sorted(range(len(totals)), key=lambda i: (-totals[i], i))
+        return {idx: rank + 1 for rank, idx in enumerate(order)}
+
+    plain_rank = _rank_map(plain_totals)
+    jiao_rank = _rank_map(jiao_totals)
+    print("\n### 교운일 capped=1 상세(조건2 — 개별 감수 재료)")
+    for i, bc in enumerate(jiao_active):
+        assert bc.score_components is not None
+        raw, cap = risk_priority(bc.score_components,
+                                 transition_bonus=bc.transition_bonus)
+        if cap < 1.0:
+            continue
+        comp = bc.score_components
+        print(f"  {bc.risk_id} [{bc.domain.value}] {bc.period_key}: "
+              f"raw {raw:.3f} · occ {comp.occurrence:.2f} × imp "
+              f"{comp.impact:.2f} × exp {comp.exposure:.2f} · trans_bonus "
+              f"+{bc.transition_bonus:.3f} · pers {comp.persistence:.2f} · "
+              f"comp {comp.compound:.2f} · prot {comp.protection:.2f} · "
+              f"무교운 rank {plain_rank[i]} → 교운일 rank {jiao_rank[i]}")
+    jiao_top = _rank_ids(jiao_active, jiao_totals)
+    print("### 교운일 top10 신규 진입 상세(조건2)")
+    for i in jiao_top:
+        if i in plain_top:
+            continue
+        bc = jiao_active[i]
+        assert bc.score_components is not None
+        raw, _cap = risk_priority(bc.score_components,
+                                  transition_bonus=bc.transition_bonus)
+        p_raw, _ = risk_priority(plain_active[i].score_components)  # type: ignore[arg-type]
+        print(f"  {bc.risk_id} [{bc.domain.value}] {bc.period_key}: rank "
+              f"{plain_rank[i]} → {jiao_rank[i]} · raw {p_raw:.3f} → "
+              f"{raw:.3f} · trans_bonus +{bc.transition_bonus:.3f} · "
+              f"sensitivity {bc.transition_sensitivity}")
+
+    # 조건3(감수 37차) — MAX_BONUS 민감도: bonus가 MAX_BONUS에 선형 비례하므로
+    # 교운일(w=1.0) bonus를 비율 재스케일해 0.30/0.40/0.50 비교(재점수 불필요).
+    from saju_engines.risk_scoring import _TRANSITION_MAX_BONUS as _MB
+    print("\n### MAX_BONUS 민감도(조건3 — 0.30/0.40/0.50, 교운일 w=1.0 최악점)")
+    for mb in (0.30, 0.40, 0.50):
+        scale = mb / _MB
+        totals_mb = []
+        rises_mb = []
+        dominant_mb = 0
+        for pc, bc in zip(plain_active, jiao_active, strict=True):
+            assert pc.score_components and bc.score_components
+            bonus = bc.transition_bonus * scale
+            p_raw, _ = risk_priority(pc.score_components)
+            b_raw, b_cap = risk_priority(bc.score_components,
+                                         transition_bonus=bonus)
+            totals_mb.append(b_cap)
+            if p_raw > 0:
+                rises_mb.append(b_raw / p_raw - 1.0)
+            if bonus > max(bc.score_components.persistence,
+                           bc.score_components.compound):
+                dominant_mb += 1
+        top_mb = _rank_ids(jiao_active, totals_mb)
+        print(f"  MAX_BONUS={mb:.2f}: 평균 상승률 "
+              f"{100 * sum(rises_mb) / max(1, len(rises_mb)):.1f}% · top10 "
+              f"overlap(무교운 대비) {len(set(plain_top) & set(top_mb))}/10 · "
+              f"transition이 최대 modifier {dominant_mb} · "
+              f"capped=1 {sum(1 for v in totals_mb if v >= 1.0)}")
+
+
+def _transition_sensitivity_audit() -> None:
+    """조건4(감수 37차) — transitionSensitivity 저작 audit 표.
+
+    기준은 도메인이 아니라 **상태 전환성**(대운 전환기에 실제로 더 잘
+    발생하는 성격의 사건인가). high 전량 + medium 목록을 감수 재료로 공개
+    — 확정·조정은 데굴님 소관(shadow_temporal 스탬프 전 감수 대상).
+    """
+    import json
+    rows: list[tuple[str, str, str, str, str]] = []
+    for f in sorted((_DICTS / "risks").glob("*.json")):
+        for raw in json.loads(f.read_text(encoding="utf-8"))["items"]:
+            rows.append((raw.get("transitionSensitivity", "none"),
+                         raw["riskId"], f.stem, raw["kind"],
+                         raw["normalizedEffectRole"]))
+    counts = Counter(r[0] for r in rows)
+    print("\n## transitionSensitivity 저작 audit(조건4 — 상태 전환성 기준)")
+    print("  분포: " + " · ".join(
+        f"{lv} {counts.get(lv, 0)}" for lv in ("high", "medium", "low",
+                                               "none")))
+    print("  ### high 전체(전환기 가속 사건인지 개별 감수)")
+    for lv, rid, dom, kind, role in sorted(rows):
+        if lv == "high":
+            print(f"    {rid} [{dom}] kind={kind} role={role}")
+    med = [rid for lv, rid, *_ in sorted(rows) if lv == "medium"]
+    print(f"  medium {len(med)}종: " + ", ".join(med))
 
 
 def _pairwise_golden() -> None:
@@ -674,6 +769,7 @@ def main() -> int:
     _sensitivity_and_ablation(c_overlay)
     _unknown_local_sensitivity(c_overlay)
     _transition_overlay(c_overlay)
+    _transition_sensitivity_audit()
     _pairwise_golden()
     _persistence_span_comparison()
     _protection_pairwise()
