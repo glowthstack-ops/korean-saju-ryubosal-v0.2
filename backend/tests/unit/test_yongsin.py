@@ -140,8 +140,8 @@ def test_2015_gyeongin_final_fire_metal(make_pillars) -> None:
     assert "wealth_breaks_resource" in types
     # 土(한신)는 중립이 아니라 protected_output 주석을 가진다.
     op_by_el = {r.element: r for r in (y.operational_roles or [])}
-    assert "protected_output" in (op_by_el.get("土").note or "")
-    assert "필요성 높음" in (op_by_el.get("金").note or "")
+    assert "protected_output" in (op_by_el["土"].note or "")
+    assert "필요성 높음" in (op_by_el["金"].note or "")
     # P3: 乙庚합 이원 평가 — 설명 전용(점수·역할 불변)으로 구속 이득/자기 묶임 병기.
     gold = op_by_el["金"]
     assert any("beneficial_binding" in s for s in gold.positive_when)

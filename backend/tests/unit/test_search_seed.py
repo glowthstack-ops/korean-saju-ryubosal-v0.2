@@ -27,8 +27,8 @@ _ANCHOR_LON, _ANCHOR_LAT = 126.96977, 37.58904
 
 def _load_script(name: str):
     spec = importlib.util.spec_from_file_location(name, _SCRIPTS / f"{name}.py")
+    assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
     spec.loader.exec_module(mod)
     return mod
 

@@ -30,6 +30,7 @@ _BIRTH = BirthInput(
 
 def _day_parent_month(target: date) -> str | None:
     chart = calculate(_BIRTH.model_copy(update={"reference_date": target}))
+    assert chart.luck_cycles is not None
     chart.luck_cycles.daily_luck = luck_days(_BIRTH, target.year, target.month)
     comps = CompositeBuilder(_DICTS).build(
         chart, "t", "1.0.0", f"{target.isoformat()}T00:00:00+00:00",
@@ -103,6 +104,7 @@ def test_bare_affirmation_continues_prior_intent() -> None:
         date(2026, 6, 18), birth_year=1990,
     )
     prior = state.last_intent
+    assert prior is not None and prior.time_range is not None
     assert prior.domain.value == "relocation" and prior.time_range.start == "2027-06-01"
     p2, state, _, link = eng.process_turn(
         state, "그래", date(2026, 6, 18), birth_year=1990)
@@ -145,7 +147,9 @@ def test_time_seeking_followup_does_not_inherit_prior_date() -> None:
     _, state, _, _ = eng.process_turn(
         state, "이번 7월 4일에 이사해", date(2026, 6, 23), birth_year=1990,
     )
-    assert state.last_intent.time_range.start == "2026-07-04"
+    li = state.last_intent
+    assert li is not None and li.time_range is not None
+    assert li.time_range.start == "2026-07-04"
     # '언제쯤 ~ 할 수 있어?' = 시점-탐색 → 7/4 미승계(open_when으로 스스로 탐색).
     p2, state, _, _ = eng.process_turn(
         state, "연애는 언제쯤 시작할 수 있어?", date(2026, 6, 23), birth_year=1990,
@@ -171,14 +175,16 @@ def test_new_explicit_time_resets_inheritance_baseline() -> None:
     p2, state, _, _ = eng.process_turn(
         state, "그럼 2028년은 어때?", date(2026, 6, 23), birth_year=1990,
     )
-    assert p2.intents[0].time_range is not None
-    assert p2.intents[0].time_range.start.startswith("2028")
+    tr2 = p2.intents[0].time_range
+    assert tr2 is not None and tr2.start is not None
+    assert tr2.start.startswith("2028")
     # 이후 시점 없는 평가 후속은 옛 8/31이 아니라 새 기준(2028)을 승계.
     p3, _s, _, _ = eng.process_turn(
         state, "그럼 돈은 어때?", date(2026, 6, 23), birth_year=1990,
     )
     tr3 = p3.intents[0].time_range
-    assert tr3 is not None and tr3.start.startswith("2028")
+    assert tr3 is not None and tr3.start is not None
+    assert tr3.start.startswith("2028")
 
 
 def test_followup_explicit_time_and_fresh_reading_skip_inheritance() -> None:

@@ -22,7 +22,9 @@ _STD = ((Stem.JEONG, Branch.SA), (Stem.IM, Branch.JA),
 # 용신 金 투출(庚)·乙庚合 bind → yongsin_bound (0.85)
 _BOUND = ((Stem.EUL, Branch.CHUK), (Stem.GAP, Branch.JA),
           (Stem.GAP, Branch.JA), (Stem.GYEONG, Branch.O), Stem.GAP)
-_CANON = {"yongsin": "金", "heesin": "土", "gisin": "火", "gusin": "木", "hansin": "水"}
+_CANON: dict[str, str | None] = {
+    "yongsin": "金", "heesin": "土", "gisin": "火", "gusin": "木", "hansin": "水",
+}
 
 
 def _yongsin(make_pillars, *args):

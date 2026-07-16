@@ -551,6 +551,10 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
         blocked_by_domain: Counter = Counter()
         blocked_by_risk: Counter = Counter()
         blocked_by_reason: Counter = Counter()
+        blocked_reason_occurrences = 0
+        # selection 축 사유 조합 분해(감수 25차 표기 보완) — 한 후보가 target_type과
+        # stage 사유를 동시에 가질 수 있어 사유 합계는 unique 후보 수를 초과한다.
+        blocked_axis_combo: Counter = Counter()
         active_by_risk: Counter = Counter()
         expo_fam_pp: dict[str, set[str]] = defaultdict(set)
         fam_pp: dict[str, set[str]] = defaultdict(set)
@@ -574,8 +578,18 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
                     blocked_by_risk[c.risk_id] += 1
                     for r in c.suppression_reasons:
                         blocked_by_reason[r] += 1
+                        blocked_reason_occurrences += 1
                     if any(r.endswith("_mismatch") for r in c.suppression_reasons):
                         mismatched += 1
+                    has_target = "selection_target_type_mismatch" in (
+                        c.suppression_reasons)
+                    has_stage = "selection_stage_mismatch" in c.suppression_reasons
+                    if has_target and has_stage:
+                        blocked_axis_combo["target_type_and_stage"] += 1
+                    elif has_target:
+                        blocked_axis_combo["target_type_only"] += 1
+                    elif has_stage:
+                        blocked_axis_combo["stage_only"] += 1
                 if not is_active(c):
                     continue
                 active.append(c)
@@ -622,8 +636,10 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
             "cross_domain_shared_causes": sum(
                 1 for doms in atom_domains.values() if len(doms) >= 2),
             "unknown_retained": len(active) - exposable_n,
-            "blocked_total": blocked,
+            "blocked_unique_candidates": blocked,
+            "blocked_reason_occurrences": blocked_reason_occurrences,
             "blocked_mismatched": mismatched,
+            "blocked_selection_axis_combo": dict(sorted(blocked_axis_combo.items())),
             "blocked_by_domain": dict(sorted(blocked_by_domain.items())),
             "blocked_by_risk_id": dict(sorted(blocked_by_risk.items())),
             "blocked_by_reason": dict(sorted(blocked_by_reason.items())),
@@ -658,7 +674,12 @@ def _profile_scenario_report(levels: set[GanjiLevel], corpus) -> None:
         print(f"  교차 도메인 공유 원인(기간·원인 기준): "
               f"{m['cross_domain_shared_causes']}")
         print(f"  UNKNOWN 보존(활성·비노출): {m['unknown_retained']} · "
-              f"BLOCKED {m['blocked_total']}(축 MISMATCHED {m['blocked_mismatched']})")
+              f"blocked_unique_candidates {m['blocked_unique_candidates']}"
+              f"(축 MISMATCHED {m['blocked_mismatched']}) · "
+              f"blocked_reason_occurrences {m['blocked_reason_occurrences']}")
+        print("  blocked 축 조합(selection): " + (", ".join(
+            f"{k}={v}" for k, v in m["blocked_selection_axis_combo"].items())
+            or "없음"))
         print("  blocked 분해 — 도메인: " + (", ".join(
             f"{k}={v}" for k, v in m["blocked_by_domain"].items()) or "없음"))
         print("  blocked 분해 — 사유: " + (", ".join(

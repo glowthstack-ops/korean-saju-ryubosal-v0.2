@@ -44,10 +44,10 @@ def _intent(**over) -> IntentJson:
 def test_resolve_kinds_for_exemplar_questions() -> None:
     """기준 예시 4종의 유형 감지 — 우선순위(구조>즉시>전망)."""
     it = _intent()
-    assert resolve_horizon(Q_IMMEDIATE, it).kind == "immediate"
-    assert resolve_horizon(Q_VENTURE, it).kind == "venture"
-    assert resolve_horizon(Q_BUSINESS, it).kind == "structural"
-    assert resolve_horizon(Q_QUIT, it).kind == "structural"
+    for question, kind in ((Q_IMMEDIATE, "immediate"), (Q_VENTURE, "venture"),
+                           (Q_BUSINESS, "structural"), (Q_QUIT, "structural")):
+        policy = resolve_horizon(question, it)
+        assert policy is not None and policy.kind == kind
 
 
 def test_resolve_long_term_returns_none() -> None:

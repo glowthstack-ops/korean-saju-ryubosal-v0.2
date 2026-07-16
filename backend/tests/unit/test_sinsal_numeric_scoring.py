@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -21,6 +22,7 @@ from saju_engines.sinsal_numeric_scoring import (
     sinsal_invariance_snapshot,
 )
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.events import EventCandidate
 from saju_shared_types.ganji_calendar import GanjiLevel
 
 _BACKEND = Path(__file__).resolve().parents[2]
@@ -115,7 +117,8 @@ def test_channel_sign_semantics() -> None:
         extras = SimpleNamespace(sinsal=sinsal)
         return SimpleNamespace(traditional_extras=extras, pillars=pillars)
 
-    cand = [SimpleNamespace(score=50, event_key="career_change", period="P")]
+    cand = cast("list[EventCandidate]",
+                [SimpleNamespace(score=50, event_key="career_change", period="P")])
     gbp = {"P": "丙午"}  # 일지 午·일간 丙 재출현 → 일주 신살 재활성.
 
     aus = apply_sinsal_channel_shadow(_result("천을귀인"), cand, gbp, domain="relationship")[0]

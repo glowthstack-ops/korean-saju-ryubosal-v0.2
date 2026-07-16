@@ -6,6 +6,8 @@ model_scores·selected_model·final_yongsin·event score를 바꾸지 않는다(
 
 from __future__ import annotations
 
+from typing import Any
+
 from saju_api.services.manse_service import calculate, calibrate_feedback
 from saju_api.services.personalization import calibration_hint_lines
 from saju_shared_types.birth_input import BirthInput
@@ -23,7 +25,8 @@ def _pair_answers(static: str | None, transit: str | None) -> list[FeedbackAnswe
     assert r.calibration is not None
     out = []
     for q in r.calibration.questions:
-        d = {"question_id": q.id, "overall_rating": "unknown", "selected_events": [],
+        d: dict[str, Any] = {
+            "question_id": q.id, "overall_rating": "unknown", "selected_events": [],
              "trait_response": None, "trait_statement": None,
              "static_response": None, "transit_response": None}
         if q.question_type == "static_deficiency_probe":

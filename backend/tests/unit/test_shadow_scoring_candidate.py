@@ -25,7 +25,7 @@ _GBP = {"W": "壬子", "F": "丙午", "M": "甲寅", "E": "戊辰", "G": "庚申
 def _diffs(make_pillars, score=70):
     res = SimpleNamespace(yongsin_analysis=analyze_chart(make_pillars(*_STD)).yongsin)
     cands = [SimpleNamespace(period=p, score=score, event_key="x") for p in _GBP]
-    return candidate_shadow_diff(res, cands, _GBP)  # type: ignore[arg-type]
+    return candidate_shadow_diff(res, cands, _GBP)
 
 
 def _by_period(diffs):

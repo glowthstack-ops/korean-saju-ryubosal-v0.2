@@ -179,6 +179,7 @@ def test_case12_daewoon_transition_reemployment_ranking() -> None:
         timezone="Asia/Seoul", gender="male",
     )
     result = calculate(birth)
+    assert result.luck_cycles is not None
     # 교운일이 11월 중순인지 전제 확인(부스트 거리 기준).
     assert "2025-11-15" in result.luck_cycles.trace.get("exact_jiao_un_dates", [])
     result.luck_cycles.monthly_luck = luck_months(birth, 2025) + luck_months(birth, 2026)

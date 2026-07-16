@@ -33,7 +33,7 @@ _STD_BIRTH = BirthInput(
 
 def _clamp(make_pillars, ganji):
     res = SimpleNamespace(yongsin_analysis=analyze_chart(make_pillars(*_STD)).yongsin)
-    return luck_expression_clamp(res, ganji)  # type: ignore[arg-type]
+    return luck_expression_clamp(res, ganji)
 
 
 def test_standard_luck_expression_classes(make_pillars) -> None:

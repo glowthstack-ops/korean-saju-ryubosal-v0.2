@@ -14,6 +14,7 @@ from pathlib import Path
 from saju_engines.region_element_engine import RegionElementEngine
 from saju_shared_types.region_element import (
     DominanceType,
+    RegionElementProfile,
     RegionGeoFeature,
     RegionLevel,
     RegionProfilesSnapshot,
@@ -36,7 +37,7 @@ def _emd(code: str = "4011010100", parent: str = "40110") -> RegionUnitInput:
     )
 
 
-def _parent_earth(eng: RegionElementEngine) -> object:
+def _parent_earth(eng: RegionElementEngine) -> RegionElementProfile:
     """土 우세 부모 시군구(상속 비교 기준)."""
     sig = RegionUnitInput(
         region_code="40110", region_level=RegionLevel.SIG, parent_code="40",
@@ -169,8 +170,8 @@ def test_build_profiles_script_consumes_geo_handoff(tmp_path: Path) -> None:
 
     spec = importlib.util.spec_from_file_location(
         "build_profiles_t", _BACKEND / "scripts" / "build_region_profiles.py")
+    assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
     spec.loader.exec_module(mod)
     rc = mod.main(["x", str(units), str(out_dir), str(geo)])
     assert rc == 0

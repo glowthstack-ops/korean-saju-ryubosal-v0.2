@@ -7929,3 +7929,30 @@ family p50/p90/max·exposable 밀도 전부 불변. **기계 판독 profile base
 엔진 의미 변경) 필요 여부를 감수 질문으로 기록(확장 전 R3/R5 배선은 질문 대상
 선발 1건만 주입). pytest 1960·ruff clean·mypy 신규/변경 스크립트 clean.
 다음: **TYP-0** → profile·suppression baseline exact match → R1.
+
+## TYP-0 — 테스트 타입 부채 142건 → 0·mypy 게이트 복구 (감수 25차 승인 착수, 2026-07-16)
+
+blocked 지표 표기 보완 선행(데굴님 §3): blocked_unique_candidates(468) vs
+blocked_reason_occurrences(927) 분리 + selection 축 조합 분해(target_type_only 214·
+stage_only 202·동시 52 = 468 합 검증), profile baseline JSON/MD 재기록.
+
+TYP-0 본문 — 런타임 동작 불변 원칙(허용 diff 0): tests/ 39개 파일 142건 전수 수정.
+①union-attr(51)=assert/type guard 축소(luck_cycles·yongsin_analysis·time_range·
+pillars 등 Optional 접근) ②arg-type(57)=helper 반환 타입 정확화(SimpleNamespace
+테스트 더블은 cast("ManseV2Result" 등) — 개별·명시적, 광범위 Any 금지 준수.
+importlib spec None 가드, dict 값 타입 주석, **kwargs 번들만 dict[str, Any])
+③attr-defined(23)=helper 반환 object→실제 타입(DirectionSuggestion·
+RegionElementProfile 등) ④전체 실행에서 unused 확인된 type: ignore 4건 제거(스코프
+실행의 unused 오탐 2건은 유지) ⑤hap_modes _pillar 가변 인자 정리·lei_db fixture
+Iterator 반환 명시. 수정 중 회귀 1건 자가 검출·정정(test_event_taxonomy_v2 —
+signals_ko는 list[str]인데 str 가정으로 의미 변경했던 것을 원 의미로 복원).
+
+CI 게이트 분리(ci.yml): Mypy (production)=packages/apps/scripts + Mypy
+(project-wide)=`mypy .` 2단계 — 테스트 부채가 production 회귀를 가리는 사각지대
+재발 방지.
+
+완료 게이트 전부 통과: **mypy . = 0(516파일) · mypy production = 0(294파일)** ·
+pytest 1960 passed·38 skipped(기존 결과 불변) · ruff clean · **profile baseline
+완전 일치(exact match)** · suppression baseline diff 0(3,412건) · manifest 일치.
+다음: SEL-e(다중 선발 episode 확장 — R1 전 필수) → A/B/C+D(multi_selection)
+프로필 재실측 → R1.

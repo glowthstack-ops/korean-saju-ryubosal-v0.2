@@ -16,13 +16,14 @@ from saju_engines.wealth_capacity import analyze_wealth_capacity, detect_wealth_
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.event_engine import EventCandidateV2
 from saju_shared_types.event_taxonomy_v2 import EventKeyV2
+from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.wealth_capacity import WealthCapacity
 
 _BACKEND = Path(__file__).resolve().parents[2]
 _DICTS = _BACKEND / "dictionaries"
 
 
-def _chart(date_: str, time_: str) -> object:
+def _chart(date_: str, time_: str) -> ManseV2Result:
     return calculate(
         BirthInput(
             calendar_type="solar", birth_date=date_, birth_time=time_,

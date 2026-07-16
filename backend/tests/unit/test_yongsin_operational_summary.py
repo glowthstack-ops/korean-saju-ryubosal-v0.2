@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 from types import SimpleNamespace
+from typing import cast
 
 from saju_manse_analysis import analyze_chart
 from saju_manse_analysis.yongsin.operational_role_config import OPERATIONAL_ROLE_CLASS
@@ -28,6 +29,7 @@ from saju_shared_types.llm_input import (
     ChartInterpretation,
     UsefulGods,
 )
+from saju_shared_types.manse_result import ManseV2Result
 
 # 표준사례 丁巳/壬子/丁未/癸卯 = 1977-12-16 05:30 서울(진태양시 경유 동일 명식).
 _STD_BIRTH = BirthInput(
@@ -66,8 +68,10 @@ def test_mapper_guard_conditional_not_favorable(make_pillars) -> None:
 
 
 def test_fallback_none(make_pillars) -> None:
-    assert build_yongsin_operational_summary(SimpleNamespace(yongsin_analysis=None)) is None
-    empty = SimpleNamespace(yongsin_analysis=SimpleNamespace(operational_roles=[]))
+    none_chart = cast("ManseV2Result", SimpleNamespace(yongsin_analysis=None))
+    assert build_yongsin_operational_summary(none_chart) is None
+    empty = cast("ManseV2Result", SimpleNamespace(
+        yongsin_analysis=SimpleNamespace(operational_roles=[])))
     assert build_yongsin_operational_summary(empty) is None
 
 

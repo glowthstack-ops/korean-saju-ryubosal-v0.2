@@ -47,6 +47,7 @@ def test_boundary_fields_absent_when_time_unknown() -> None:
         "gender": "male",
     })
     tc = manse_service.calculate(birth).time_correction
+    assert tc is not None
     assert tc.hour_boundary_distance_seconds is None
     assert tc.boundary_sensitive is False
     assert tc.alternative_hour_pillar is None

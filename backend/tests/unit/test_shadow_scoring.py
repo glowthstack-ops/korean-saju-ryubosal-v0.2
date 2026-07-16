@@ -7,7 +7,7 @@ exact label·fail-fast·enum 전체 매핑. 규격: doc/v2_2/YONGSIN_OPERATIONAL
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import get_args
+from typing import cast, get_args
 
 import pytest
 from saju_manse_analysis import analyze_chart
@@ -19,6 +19,7 @@ from saju_engines.shadow_scoring import (
     shadow_vs_legacy_diff,
 )
 from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.yongsin import OperationalRole
 
 _STD = ((Stem.JEONG, Branch.SA), (Stem.IM, Branch.JA),
@@ -59,7 +60,8 @@ def test_operability_only_on_yongsin(make_pillars) -> None:
 
 def test_diff_has_all_fields_and_delta(make_pillars) -> None:
     # 희신 과다 교정(2026-07-12) 후 legacy(final)=모델맵: 水=한신·火=희신.
-    diff = shadow_vs_legacy_diff(SimpleNamespace(yongsin_analysis=_ya(make_pillars)))
+    diff = shadow_vs_legacy_diff(cast(
+        "ManseV2Result", SimpleNamespace(yongsin_analysis=_ya(make_pillars))))
     water = diff["水"]
     assert water == {
         "legacy_role": "한신", "legacy_weight": 0.0,

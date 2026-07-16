@@ -215,7 +215,8 @@ def test_domain_ratings_drive_model_selection_and_no_signal_excluded() -> None:
     ]
     de = build_domain_expectations(events)
     assert de["eokbu_normal"]["career"].status == "scored"
-    assert de["eokbu_normal"]["career"].expected_polarity > 0
+    polarity = de["eokbu_normal"]["career"].expected_polarity
+    assert polarity is not None and polarity > 0
 
     q = CalibrationQuestion(
         id="q1", question_type="event_list", period_type="year", year=2015,

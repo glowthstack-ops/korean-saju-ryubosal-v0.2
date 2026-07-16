@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -479,7 +480,7 @@ def test_representative_deterministic_under_item_order(engine: RiskEngine) -> No
     """
     reversed_engine = RiskEngine(_DICTS)
     reversed_engine._items = list(reversed(reversed_engine._items))  # noqa: SLF001
-    scenarios = [
+    scenarios: list[dict[str, Any]] = [
         dict(gods={TenGod.JIECAI: {LuckLayer.SEWOON}},
              relations=[RelationFact(RelationKind.CHUNG, Pillar4.DAY,
                                      target_ten_god=TenGod.BIJIAN)],

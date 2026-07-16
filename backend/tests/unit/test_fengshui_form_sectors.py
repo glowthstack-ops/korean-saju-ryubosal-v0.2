@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from saju_engines.fengshui_form import compass_from_bearing, sasinsa_sectors
+from saju_shared_types.region_element import RegionDirectionalElementSummary
 
 
 @pytest.mark.parametrize(
@@ -35,8 +36,8 @@ def test_facing_bearing_modulo() -> None:
     assert sasinsa_sectors(540).facing_bearing == 180.0  # 360 밖 보정
 
 
-def _dir(code: str, *, earth=0.0, wood=0.0, water=0.0, mnt=None, riv=None) -> object:
-    from saju_shared_types.region_element import RegionDirectionalElementSummary
+def _dir(code: str, *, earth=0.0, wood=0.0, water=0.0, mnt=None,
+         riv=None) -> RegionDirectionalElementSummary:
     return RegionDirectionalElementSummary(
         region_code="t", direction_code=code, earth_score=earth, wood_score=wood,
         water_score=water, nearest_mountain_m=mnt, nearest_river_m=riv, confidence=0.65)

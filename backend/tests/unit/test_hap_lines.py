@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 from saju_manse_analysis.relations.hap_modes import AffectedGod, StemHapResolution
 
@@ -19,7 +20,7 @@ from saju_shared_types.birth_input import BirthInput
 
 
 def _res(**kw) -> StemHapResolution:
-    base = dict(
+    base: dict[str, Any] = dict(
         pair=("甲", "己"), positions=("year", "month"), transform_element="土",
         transform_tier="none", hap_mode="bind",
     )

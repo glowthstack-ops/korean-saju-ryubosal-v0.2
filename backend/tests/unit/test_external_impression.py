@@ -9,10 +9,12 @@ SSOT: doc/v2_2/EXTERNAL_IMPRESSION_SIGNAL.md §6.1(최소 6개 케이스). '미�
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 
 from saju_engines.external_impression import analyze_external_impression
 from saju_engines.structural_context import external_impression_lines
 from saju_shared_types.intent import Domain, IntentJson, QueryType
+from saju_shared_types.manse_result import ManseV2Result
 
 # SSOT §4 금지어(생성 지시문에 문자열로 등장하면 실패 처리).
 _BANNED = (
@@ -32,8 +34,8 @@ def _result(
     *, groups: dict | None = None, elem_env: dict | None = None,
     elem_sa: dict | None = None, strongest: str = "土", deficient: list | None = None,
     gender: str = "female",
-) -> SimpleNamespace:
-    return SimpleNamespace(
+) -> ManseV2Result:
+    return cast("ManseV2Result", SimpleNamespace(
         input_summary={"gender": gender},
         pillars=SimpleNamespace(year=year, month=month, day=day, hour=hour),
         force_analysis=SimpleNamespace(
@@ -45,7 +47,7 @@ def _result(
                 deficient_elements=deficient or [],
             ),
         ),
-    )
+    ))
 
 
 def _intent(domain: Domain = Domain.RELATIONSHIP,
@@ -58,7 +60,7 @@ def _codes(profile) -> dict:
 
 
 # ── Case 1: 금수상관 + 관성 있음 → METAL_WATER_OFFICER primary 1.0 ──
-def _metal_water_officer_result(gender: str = "female") -> SimpleNamespace:
+def _metal_water_officer_result(gender: str = "female") -> ManseV2Result:
     # 庚(金) 일간 + 壬(水) 투간 + 월간 정관. 지지 未巳辰丑(도화·홍염·역마 아님).
     return _result(
         _pil("壬", "未", "상관", "정인"),
@@ -103,7 +105,7 @@ def test_case2_metal_water_without_officer() -> None:
 
 
 # ── Case 3: 일지 도화 + 식상 적정(18~35%) → notable 노출 ──
-def _day_peach_output_result(gender: str = "female") -> SimpleNamespace:
+def _day_peach_output_result(gender: str = "female") -> ManseV2Result:
     # 丙午 일주(일지 午=도화) + 식상 25%. 홍염(丙→寅) 미존재, 실제 도화 target 미존재.
     return _result(
         _pil("甲", "申", "편인", "편재"),
@@ -187,7 +189,8 @@ def test_gender_unknown_gated() -> None:
 
 # ── 결측(pillars None) graceful ──
 def test_missing_pillars_graceful() -> None:
-    r = SimpleNamespace(input_summary={"gender": "female"}, pillars=None, force_analysis=None)
+    r = cast("ManseV2Result", SimpleNamespace(
+        input_summary={"gender": "female"}, pillars=None, force_analysis=None))
     prof = analyze_external_impression(r)
     assert prof.band == "none" and prof.signals == []
     assert external_impression_lines(prof, _intent(Domain.RELATIONSHIP)) == []

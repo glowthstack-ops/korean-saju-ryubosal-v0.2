@@ -17,7 +17,10 @@ from saju_engines.direction_suggestion import (
     load_direction_suggestions,
 )
 from saju_shared_types.birth_input import BirthInput
-from saju_shared_types.direction_suggestions import DirectionFacts
+from saju_shared_types.direction_suggestions import (
+    DirectionFacts,
+    DirectionSuggestion,
+)
 from saju_shared_types.enums import StrengthBand
 from saju_shared_types.event_engine import TenGod as TenGodRoman
 
@@ -48,7 +51,8 @@ def _facts(**overrides: object) -> DirectionFacts:
     return DirectionFacts.model_validate(base)
 
 
-def _only(suggestions: list, suggestion_id: str) -> object:
+def _only(suggestions: list[DirectionSuggestion],
+          suggestion_id: str) -> DirectionSuggestion:
     """특정 룰의 제안 1건을 꺼낸다(없으면 실패)."""
     hits = [s for s in suggestions if s.suggestion_id == suggestion_id]
     assert len(hits) == 1, f"{suggestion_id} 제안 {len(hits)}건"

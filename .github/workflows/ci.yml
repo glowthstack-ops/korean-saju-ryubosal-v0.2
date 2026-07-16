@@ -20,7 +20,11 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Ruff
         run: ruff check .
-      - name: Mypy
+      # TYP-0(감수 25차): production과 전체를 분리 게이트로 고정 — 테스트 타입
+      # 부채가 production 회귀를 가리지 않게 한다. 둘 다 0 errors가 기준.
+      - name: Mypy (production)
+        run: mypy packages apps scripts
+      - name: Mypy (project-wide)
         run: mypy .
       - name: Pytest
         run: pytest

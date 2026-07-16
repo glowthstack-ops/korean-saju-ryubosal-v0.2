@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from types import SimpleNamespace
+from typing import cast
 
 import saju_manse_analysis.yongsin.operational_role_config as cfg
 
@@ -18,6 +19,7 @@ from saju_engines.scoring_operational import (
     operational_scoring_sidecar,
 )
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.events import EventCandidate
 
 # 희신 과다 교정(2026-07-12) 후 구 표준차트는 A 감점 대상이 아님(水=조건부 한신/병·legacy
 # 한신 0) — 교정 후에도 조건부 희신/병이 남는 차트(비겁 희신의 한습 강등, 癸巳 일주)를 쓴다.
@@ -64,7 +66,8 @@ def test_master_flag_on_runs(monkeypatch) -> None:
 def test_sidecar_index_aligned(monkeypatch) -> None:
     _on(monkeypatch)
     dup = [SimpleNamespace(period="W", score=80, event_key="x") for _ in range(3)]
-    rows = apply_operational_scoring(calculate(_STD), dup, {"W": "壬子"})
+    rows = apply_operational_scoring(
+        calculate(_STD), cast("list[EventCandidate]", dup), {"W": "壬子"})
     assert [r["candidate_index"] for r in rows] == [0, 1, 2]  # 충돌 없이 보존
 
 
@@ -108,7 +111,9 @@ def test_components_both_off(monkeypatch) -> None:
 def test_missing_ganji(monkeypatch) -> None:
     _on(monkeypatch)
     rows = apply_operational_scoring(
-        calculate(_STD), [SimpleNamespace(period="ZZ", score=80, event_key="x")], {})
+        calculate(_STD),
+        cast("list[EventCandidate]",
+             [SimpleNamespace(period="ZZ", score=80, event_key="x")]), {})
     assert rows[0]["missing_ganji"] is True
     assert rows[0]["operational_score_delta"] == 0
 
@@ -116,6 +121,7 @@ def test_missing_ganji(monkeypatch) -> None:
 # ── 불변: 산출이 favorability_map/final 미변경 ──
 def test_invariance(monkeypatch) -> None:
     chart = calculate(_STD)
+    assert chart.yongsin_analysis is not None
     fav, final = favorability_map(chart), dict(chart.yongsin_analysis.final)
     _on(monkeypatch)
     apply_operational_scoring(chart, _cands(), _GBP)

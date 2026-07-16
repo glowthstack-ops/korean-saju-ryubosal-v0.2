@@ -234,7 +234,9 @@ def test_open_when_followup_inherits_direction() -> None:
                           thread_id=tid, subject_id="s1", subject_label="회원", store=store)
         chat_service.chat(birth, "월단위로 알려줘", date(2026, 6, 30), dry_run=True,
                           thread_id=tid, subject_id="s1", subject_label="회원", store=store)
-        retro = bool(store.load(tid).last_retro)
+        loaded = store.load(tid)
+        assert loaded is not None
+        retro = bool(loaded.last_retro)
         store.delete(tid)
         return retro
 

@@ -145,7 +145,8 @@ def test_m14_past_validation_reverse_engine() -> None:
         birth=birth, scorer=EventEngineV2(dicts), compute=calculate,
     )
     assert ctx.module_id == "M14" and ctx.findings
-    assert all(2019 <= int(f.period_key[:4]) <= 2021 for f in ctx.findings)
+    assert all(f.period_key is not None and 2019 <= int(f.period_key[:4]) <= 2021
+               for f in ctx.findings)
     assert any("콜드리딩" in t for t in ctx.style_rules.tone_notes)
 
 

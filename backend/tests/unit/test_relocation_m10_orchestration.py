@@ -186,7 +186,7 @@ def test_region_recommendation_context_open_and_specific() -> None:
     def _intent(**c: object) -> IntentJson:
         return IntentJson(
             intent_id="t", query_type=QueryType.DECISION_SUPPORT, domain=Domain.RELOCATION,
-            constraints=Constraints(**c),  # type: ignore[arg-type]
+            constraints=Constraints(**c),
         )
 
     # 개방형(목적지 미지정) → 전국 시군구 후보 랭킹.

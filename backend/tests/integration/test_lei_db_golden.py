@@ -8,6 +8,7 @@ DB(saju-v2-db) 미기동 시 skip. 테스트 전용 owner로 격리하고 종료
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
 
@@ -39,7 +40,7 @@ def _dsn() -> str | None:
 
 
 @pytest.fixture(scope="module")
-def store() -> LifeEventStore:
+def store() -> Iterator[LifeEventStore]:
     dsn = _dsn()
     if not dsn:
         pytest.skip("SAJU_V2_DATABASE_URL 미설정 — DB 통합 skip")

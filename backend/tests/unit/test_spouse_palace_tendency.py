@@ -73,6 +73,7 @@ def test_build_chart_interpretation_contains_excerpt() -> None:
         birth_place_name="Seoul", gender="male"))
     assert result.pillars is not None
     ci = build_chart_interpretation(result)
+    assert ci is not None
     spouse = [e for e in ci.excerpts if e.kind == "spouse_palace_tendency"]
     assert spouse  # 계절 레이어가 모든 일지를 커버 — 항상 존재
     day_branch = result.pillars.day.branch

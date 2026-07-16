@@ -1,9 +1,9 @@
 {
  "meta": {
-  "baseline_commit": "c4c5781",
+  "baseline_commit": "a7cf3f8",
   "corpus_version": "seoul-busan-10 (year+month)",
   "dictionary_hash": "e5173b6e039e38c2",
-  "generated_at": "2026-07-15T23:45:35+00:00",
+  "generated_at": "2026-07-15T23:53:44+00:00",
   "hash_schema_version": 8,
   "profile_context_hash": "6c5246d728a47009",
   "review_environment_version": "risk-engine-r0.5.11"
@@ -63,7 +63,9 @@
    "blocked_by_reason": {},
    "blocked_by_risk_id": {},
    "blocked_mismatched": 0,
-   "blocked_total": 0,
+   "blocked_reason_occurrences": 0,
+   "blocked_selection_axis_combo": {},
+   "blocked_unique_candidates": 0,
    "cross_domain_shared_causes": 398,
    "domain_family_contribution": {
     "career": 52,
@@ -150,7 +152,9 @@
    "blocked_by_reason": {},
    "blocked_by_risk_id": {},
    "blocked_mismatched": 0,
-   "blocked_total": 0,
+   "blocked_reason_occurrences": 0,
+   "blocked_selection_axis_combo": {},
+   "blocked_unique_candidates": 0,
    "cross_domain_shared_causes": 399,
    "domain_family_contribution": {
     "career": 52,
@@ -249,7 +253,13 @@
     "SEL_WAITLIST_PROLONGATION": 43
    },
    "blocked_mismatched": 468,
-   "blocked_total": 468,
+   "blocked_reason_occurrences": 927,
+   "blocked_selection_axis_combo": {
+    "stage_only": 202,
+    "target_type_and_stage": 52,
+    "target_type_only": 214
+   },
+   "blocked_unique_candidates": 468,
    "cross_domain_shared_causes": 372,
    "domain_family_contribution": {
     "career": 52,

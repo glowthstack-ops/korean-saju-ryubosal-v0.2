@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 from types import SimpleNamespace
+from typing import cast
 
 import saju_manse_analysis.yongsin.operational_role_config as cfg
 
@@ -16,6 +17,7 @@ from saju_api.services import chat_service
 from saju_api.services.manse_service import calculate
 from saju_engines.scoring_operational import near_tie_demotion_order
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.events import EventCandidate
 
 # 희신 과다 교정(2026-07-12) 후 구 표준차트는 A 감점 대상이 아님(水=조건부 한신/병·legacy
 # 한신 0) — 교정 후에도 조건부 희신/병이 남는 차트(비겁 희신의 한습 강등, 癸巳 일주)를 쓴다.
@@ -59,7 +61,9 @@ _PAIR = [(_PEN, 80, "e"), (_CLEAN, 80, "e")]  # 감점 후보가 위 — swap �
 # ── 게이트: 기본 config(sub-flag off) → None(byte-identical) ──
 def test_default_config_none() -> None:
     sel, gbp = _cands(_PAIR)
-    assert near_tie_demotion_order(calculate(_STD), sel, gbp, domain="career") is None
+    assert near_tie_demotion_order(
+        calculate(_STD), cast("list[EventCandidate]", sel), gbp,
+        domain="career") is None
 
 
 def test_master_off_none(monkeypatch) -> None:
@@ -104,8 +108,9 @@ def test_penalized_below_stays(monkeypatch) -> None:
 
 def test_different_level_none(monkeypatch) -> None:
     _on(monkeypatch)
-    sel = [SimpleNamespace(period="2026", score=80, event_key="e"),
-           SimpleNamespace(period="2026-07", score=80, event_key="e")]
+    sel = cast("list[EventCandidate]",
+               [SimpleNamespace(period="2026", score=80, event_key="e"),
+                SimpleNamespace(period="2026-07", score=80, event_key="e")])
     gbp = {"2026": _PEN, "2026-07": _CLEAN}
     assert near_tie_demotion_order(calculate(_STD), sel, gbp, domain="career") is None
 

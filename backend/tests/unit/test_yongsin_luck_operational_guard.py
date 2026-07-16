@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 from types import SimpleNamespace
+from typing import cast
 
 from saju_manse_analysis import analyze_chart
 
@@ -21,6 +22,7 @@ from saju_engines.chart_interpretation import (
 from saju_engines.event_scoring import favorability_map
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.manse_result import ManseV2Result
 
 _STD_BIRTH = BirthInput(
     calendar_type="solar", birth_date="1977-12-16", birth_time="05:30",
@@ -35,7 +37,8 @@ def _std_opmap(make_pillars) -> dict[str, str]:
         (Stem.JEONG, Branch.SA), (Stem.IM, Branch.JA),
         (Stem.JEONG, Branch.MI), (Stem.GYE, Branch.MYO), Stem.JEONG,
     )).yongsin
-    return natal_operational_role_map(SimpleNamespace(yongsin_analysis=ya))
+    return natal_operational_role_map(
+        cast("ManseV2Result", SimpleNamespace(yongsin_analysis=ya)))
 
 
 def test_natal_operational_role_map(make_pillars) -> None:
@@ -43,7 +46,8 @@ def test_natal_operational_role_map(make_pillars) -> None:
     assert m["水"] == "조건부 한신/병" and m["火"] == "조후보조신"
     assert m["土"] == "조건부 제살보조" and m["木"] == "용신"
     # fallback: operational_roles 없으면 빈 dict.
-    assert natal_operational_role_map(SimpleNamespace(yongsin_analysis=None)) == {}
+    none_chart = cast("ManseV2Result", SimpleNamespace(yongsin_analysis=None))
+    assert natal_operational_role_map(none_chart) == {}
 
 
 def test_water_luck_conditional_guard(make_pillars) -> None:

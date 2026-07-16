@@ -49,7 +49,8 @@ def test_bare_year_inherits_wealth() -> None:
     it = _run(_state(Domain.WEALTH, QueryType.TIMING_SEARCH), "2026년")
     assert it.domain is Domain.WEALTH
     assert it.query_type is QueryType.TIMING_SEARCH  # 총운으로 리셋되지 않음
-    assert it.time_range is not None and it.time_range.start.startswith("2026")
+    assert it.time_range is not None and it.time_range.start is not None
+    assert it.time_range.start.startswith("2026")
 
 
 # ── 1b. offer가 '월별 흐름'이면 granularity 월로 승격 ──
@@ -73,7 +74,8 @@ def test_year_plus_overview_does_not_inherit() -> None:
 def test_year_plus_new_domain_switches() -> None:
     it = _run(_state(Domain.WEALTH, QueryType.TIMING_SEARCH), "2026년 연애운")
     assert it.domain is Domain.RELATIONSHIP
-    assert it.time_range is not None and it.time_range.start.startswith("2026")
+    assert it.time_range is not None and it.time_range.start is not None
+    assert it.time_range.start.startswith("2026")
 
 
 # ── 4. "내년": 상대 절대시점도 재물 상속 ──

@@ -95,6 +95,7 @@ def test_serialize_enriched_fields() -> None:
     assert d["event_ko"] == "합격·진학·자격"
     assert d["confidence_ko"] == "강한 사건 후보"
     assert d["quality_ko"] == "성취·결실"
-    assert d["palace_ko"].startswith("시주")
-    assert "관계 발동" in d["signals_ko"]
+    palace_ko, signals_ko = d["palace_ko"], d["signals_ko"]
+    assert isinstance(palace_ko, str) and palace_ko.startswith("시주")
+    assert isinstance(signals_ko, list) and "관계 발동" in signals_ko
     assert d["prohibitions"]  # 당락 단정 금지 부착

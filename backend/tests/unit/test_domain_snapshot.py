@@ -111,6 +111,7 @@ def test_not_per_candidate() -> None:
 # ── H. 불변 — domain_key 무관하게 favorability/final 동일 ──
 def test_invariance_across_domains() -> None:
     chart = calculate(_STD)
+    assert chart.yongsin_analysis is not None
     fav = favorability_map(chart)
     final = dict(chart.yongsin_analysis.final)
     for dom in (None, "career", "wealth", "relationship", "relocation", "education"):

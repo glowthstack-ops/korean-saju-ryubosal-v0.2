@@ -41,7 +41,8 @@ def _pillar(stem: str, branch: str, dm: str) -> Pillar:
 
 def _pillars(y: str, m: str, d: str, h: str, dm: str) -> FourPillarsResult:
     return FourPillarsResult(
-        year=_pillar(*y.split(), dm) if " " in y else _pillar(y[0], y[1], dm),
+        year=(_pillar(y.split()[0], y.split()[1], dm) if " " in y
+              else _pillar(y[0], y[1], dm)),
         month=_pillar(m[0], m[1], dm),
         day=_pillar(d[0], d[1], dm),
         hour=_pillar(h[0], h[1], dm),

@@ -22,21 +22,26 @@ _TODAY = date(2026, 6, 20)
 
 def test_bucket_rolling_week() -> None:
     tr, _ = bucket_to_range("rolling_week", _TODAY, "2026-06")
+    assert tr is not None
     assert tr.granularity is Granularity.DAY
     assert tr.start == "2026-06-20" and tr.end == "2026-06-26"
 
 
 def test_bucket_this_and_next_month() -> None:
     tm, _ = bucket_to_range("this_month", _TODAY, "2026-06")
+    assert tm is not None
     assert tm.granularity is Granularity.MONTH and tm.start == tm.end == "2026-06"
     nm, _ = bucket_to_range("next_month", _TODAY, "2026-06")
+    assert nm is not None
     assert nm.start == nm.end == "2026-07"
 
 
 def test_bucket_this_and_next_year() -> None:
     ty, _ = bucket_to_range("this_year", _TODAY, "2026-06")
+    assert ty is not None
     assert ty.granularity is Granularity.YEAR and ty.start == ty.end == "2026"
     ny, _ = bucket_to_range("next_year", _TODAY, "2026-06")
+    assert ny is not None
     assert ny.start == ny.end == "2027"
 
 

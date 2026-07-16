@@ -50,7 +50,7 @@ def _fake(
         name_ko=f"{suggestion_id} 테스트",
         group=group,
         group_state="natal_excess",
-        mode=mode,  # type: ignore[arg-type]
+        mode=mode,
         strength=strength,
         channel_id="c1",
         headline="테스트 방향",

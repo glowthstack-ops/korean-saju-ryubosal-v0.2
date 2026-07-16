@@ -129,6 +129,7 @@ def test_missing_ganji_kept() -> None:
 # ── 불변: favorability/final 미변경 ──
 def test_invariance() -> None:
     chart = calculate(_STD)
+    assert chart.yongsin_analysis is not None
     fav, final = favorability_map(chart), dict(chart.yongsin_analysis.final)
     adjusted_rank_experiment(chart, _cands((90, 80, 70, 60, 50)), _GBP, _LEVEL,
                              components=_AB)

@@ -57,8 +57,10 @@ def test_rolling_one_week_phrases() -> None:
 def test_calendar_week_unchanged() -> None:
     base = date(2026, 6, 20)  # 토
     this_w = parse_time("이번 주 어때", base)[0]
+    assert this_w is not None
     assert this_w.start == "2026-06-15" and this_w.end == "2026-06-21"  # 월~일 캘린더 주
     next_w = parse_time("다음 주 운세", base)[0]
+    assert next_w is not None
     assert next_w.start == "2026-06-22" and next_w.end == "2026-06-28"
 
 

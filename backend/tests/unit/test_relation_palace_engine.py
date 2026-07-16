@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from saju_engines.relation_palace_engine import RelationActivation, RelationPalaceEngine
 from saju_shared_types.event_engine import (
@@ -14,6 +15,7 @@ from saju_shared_types.event_engine import (
     Pillar4,
     RelationKind,
 )
+from saju_shared_types.luck import LuckPillar
 
 _DICTS = Path(__file__).resolve().parents[2] / "dictionaries"
 
@@ -112,12 +114,15 @@ def test_bokeum_activation_detection() -> None:
         calendar_type="solar", birth_date="1985-03-15", birth_time="14:30",
         birth_place_name="서울", gender="female",
     ))
+    assert r.pillars is not None
     day_branch = r.pillars.day.branch  # 癸丑 → 丑
     # 일지와 같은 지지 → 복음 발동(일지궁).
-    acts = _bokeum_activations(r, SimpleNamespace(branch=day_branch), LuckLayer.SEWOON)
+    acts = _bokeum_activations(
+        r, cast("LuckPillar", SimpleNamespace(branch=day_branch)), LuckLayer.SEWOON)
     assert len(acts) == 1
     assert acts[0].kind is RelationKind.BOKEUM and acts[0].palace is Pillar4.DAY
     assert acts[0].position == "branch" and acts[0].layer is LuckLayer.SEWOON
     # 다른 지지 → 미발동.
     other = "寅" if day_branch != "寅" else "卯"
-    assert _bokeum_activations(r, SimpleNamespace(branch=other), LuckLayer.SEWOON) == []
+    assert _bokeum_activations(
+        r, cast("LuckPillar", SimpleNamespace(branch=other)), LuckLayer.SEWOON) == []

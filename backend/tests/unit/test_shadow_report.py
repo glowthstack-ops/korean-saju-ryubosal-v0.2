@@ -7,6 +7,7 @@ build_shadow_report 행 구조·guard 플래그·불변(Guard #6)·missing ganji
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 
 from saju_manse_analysis import analyze_chart
 
@@ -16,6 +17,7 @@ from saju_engines.shadow_report import (
     invariance_snapshot,
 )
 from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.events import EventCandidate
 
 _STD = ((Stem.JEONG, Branch.SA), (Stem.IM, Branch.JA),
         (Stem.JEONG, Branch.MI), (Stem.GYE, Branch.MYO), Stem.JEONG)
@@ -67,7 +69,8 @@ def test_level_aware_ranking(make_pillars) -> None:
               for p in _GBP]
              + [SimpleNamespace(period=f"D_{p}", score=40, event_key="d", polarity="x")
                 for p in _GBP])
-    rows, _ = build_shadow_report(res, cands, gbp, chart_id="t", period_level=level)
+    rows, _ = build_shadow_report(res, cast("list[EventCandidate]", cands), gbp,
+                              chart_id="t", period_level=level)
     # 레벨별 순위는 레벨 내부(1~5), 전역은 1~10 범위.
     for r in rows:
         assert 1 <= r["legacy_rank_level"] <= 5
@@ -118,7 +121,8 @@ def test_rank_warn_threshold_scales_with_pool(make_pillars) -> None:
     level = dict.fromkeys(gbp, "year")
     cands = [SimpleNamespace(period=f"P{i}", score=50 + (i % 30),
                              event_key="e", polarity="x") for i in range(n)]
-    rows, _ = build_shadow_report(res, cands, gbp, chart_id="t", period_level=level)
+    rows, _ = build_shadow_report(res, cast("list[EventCandidate]", cands), gbp,
+                              chart_id="t", period_level=level)
     assert all(r["level_pool_size"] == n for r in rows)
     assert all(r["rank_warn_threshold"] == 5 for r in rows)       # ratio 적용
     assert all("rank_delta_pct" in r for r in rows)               # 해석 필드

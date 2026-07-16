@@ -41,10 +41,14 @@ episode별 활성 후보:
 - C: health:treatment_1=6 · legal:active_contract_1=32 · mobility:housing_move_1=38 ·
   relationship:partner_1=36
 
-BLOCKED 분해(C — 데굴님 §3 요구):
+BLOCKED 분해(C — 데굴님 §3 요구, 감수 25차 표기 보완):
+- **blocked_unique_candidates = 468** vs **blocked_reason_occurrences = 927**
+  (한 후보가 복수 사유를 동시 보유 — 두 수치는 다른 지표다).
 - 도메인: **selection=468 (전량)** — 타 도메인 차단 0.
-- 사유: selection_target_type_mismatch 266 · selection_stage_mismatch 254 ·
-  evidence_groups_unmet 406 · targets_unlinked 1 (후보당 복수 사유 중복 집계).
+- 사유(발생 기준): selection_target_type_mismatch 266 · selection_stage_mismatch
+  254 · evidence_groups_unmet 406 · targets_unlinked 1.
+- selection 축 조합(unique 후보 기준): target_type_only 214 · stage_only 202 ·
+  target_type_and_stage 52 (합 = 468).
 
 도메인 기여도(unique 기간·family):
 - A: LEG 193 / REL 159 / FIN 152 / HLT 135 / MOV 102 / CAR 52 / SEL 45
