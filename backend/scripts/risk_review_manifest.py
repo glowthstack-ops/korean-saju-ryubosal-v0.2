@@ -24,6 +24,10 @@ from saju_engines.dictionaries import (  # noqa: E402
     _RISK_HASH_SCHEMA_VERSION,
     RISK_REVIEW_ENVIRONMENT_VERSION,
 )
+from saju_engines.risk_presentation import (  # noqa: E402
+    RISK_PRESENTATION_VERSION,
+    presentation_policy_hash,
+)
 from saju_engines.risk_scoring import (  # noqa: E402
     RISK_SCORING_VERSION,
     cause_semantics_hash,
@@ -90,6 +94,11 @@ def build_manifest() -> dict:
         # temporal 감수 표면(감수 37차 — scope 분리): 계수·MAX_BONUS·커널 참조
         # 변경 시 manifest diff로 감지. shadow_temporal 0/49 → 감수 후 스탬프.
         "transition_policy_hash": transition_policy_hash(),
+        # 노출 감수 표면(감수 41차 — R3): 밴드·상한 매트릭스·critical gate·
+        # claim 정책·token guard 변경 시 manifest diff로 감지.
+        # scope shadow_presentation 0/49 — R3 측정·감수 후 스탬프.
+        "risk_presentation_version": RISK_PRESENTATION_VERSION,
+        "presentation_policy_hash": presentation_policy_hash(),
         # transitionSensitivity 저작 현황(감수 39차 확정 — MAX_BONUS 0.20):
         # 분포 + high 항목별 판정 근거(상태 전환성 기준) 보존.
         "transition_sensitivity_distribution": dict(

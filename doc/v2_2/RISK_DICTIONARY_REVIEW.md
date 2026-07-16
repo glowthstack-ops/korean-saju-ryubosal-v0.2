@@ -1424,10 +1424,12 @@ hard_max·soft_target, partial≠ownership 계약(본 차수 구현).
    confidence 차등 검증.
 3. **quiet span 월 단위 계약**: stable은 **month-native episode만** 산출
    (quiet 2=2개월), quiet 계수도 월 라벨 지평만. 비월 episode는 earliest만
-   + `stable_month_native_only` 기록. **효과(재측정)**: stable 95~115건 →
-   **6~7건**(연 단위 episode의 '2기간=2년 quiet' 오해석 전량 차단 — 기존
-   stable 대부분이 연 단위였음이 드러남). fixture: 연 단위 episode stable
-   미산출.
+   + `stable_month_native_only` 기록. **효과(재측정 — 프로필별 명시,
+   감수 41차 표기 정정)**: stable 산출 건수 A 95→6 · B 100→6 · C 92→7 ·
+   D 115→6 · E 87→6(비월 분류 stable_month_native_only A 73·B 85·C 85·
+   D 95·E 71) — 연 단위 episode의 '2기간=2년 quiet' 오해석 전량 차단,
+   기존 stable 대부분이 연 단위였음이 드러남. fixture: 연 단위 episode
+   stable 미산출.
 4. **질문 유형별 budget 표 고정**(권장 초기 정책 채택): specific_event
    1/2 · single_domain_period 2/2 · period_overview 3/3 ·
    multi_episode_compare 3/4 · episode_followup 1/2(soft/hard). hard_min 0
@@ -1454,3 +1456,112 @@ baseline 값 byte 동일(meta만)·manifest 일치·survey 2종 byte-identical.
 결과의 LLM 입력 직렬화·prohibited/allowed claim 강제·partial identity 단정
 금지 표현 계약). recovery stable의 연 단위 정책(quietSpanByLayer)은 실사용
 지평 설계 후 별도 감수.
+
+## 26. R3 차수(감수 41차 착수 승인) manifest — 노출 계층 선행 고정 (2026-07-16)
+
+**핵심 원칙(데굴님)**: 위험 수준은 점수를 다시 계산하는 계층이 아니라, **이미
+감수된 episode를 현실 확인 수준과 근거 독립성에 맞는 문장 강도로 변환하는
+계층**이다. R3는 R1 점수·R2 선택 집합을 절대 변경하지 않는다.
+
+착수 전 고정 8건(감수 41차 지시):
+
+1. **numeric band ↔ presentation level 분리**: numeric_band=대표 raw 점수의
+   잠정 구간(밴드 경계는 shadow_presentation 감수 대상) /
+   presentation_level=numeric_band에 exposure policy·kind·독립 원인·identity
+   품질·context confidence 게이트를 적용한 표현 단계. level 산출은 R1
+   score·R2 selection에 역영향 금지(byte 불변 fixture).
+2. **level 상한 매트릭스**: confirmed_required+UNKNOWN=NONE ·
+   DENIED/NOT_APPLICABLE/CONFLICT=NONE · incident_risk+UNKNOWN=WATCH 이하 ·
+   pressure+허용 UNKNOWN=WARNING 이하 · vulnerability=ADVISORY 이하 ·
+   CONFIRMED=밴드+추가 조건. 내부 enum NONE/ADVISORY/WATCH/WARNING/CRITICAL,
+   사용자 표시명 완화(critical→'높은 주의').
+3. **critical gate — '독립 2계층' 폐기, 독립 canonical cause ≥ 2**: 같은
+   cause의 대운·세운 반복=원인 1개(layer corroboration은 confidence 소관).
+   critical = numeric critical + CONFIRMED + 독립 canonical cause ≥2 +
+   대표 비취약 + context conflict 없음 + context confidence 기준 +
+   **identity resolved/explicit**(partial·fallback은 교차 도메인 결합 근거의
+   critical 금지).
+4. **R2 불변식**: R3 산출 전후 selected episode ids·대표·budget 누락 기록
+   byte-identical. R3는 episode 추가·삭제·재선택 금지, warning-first는 R2
+   선택 집합 안의 **stable sort**(bucket: CRITICAL·WARNING→WATCH→ADVISORY,
+   bucket 내 R2 순서 유지). 경고 0건이어도 억지 경고 금지 + '특별한 위험
+   없음' 단정도 금지.
+5. **episode level 원천 = 대표 raw**: 구성원 점수 합산·supporting 개수
+   승격 금지. 추가 반영은 R1 기 감수 정보만(unique 독립 cause·resolved
+   distinct effect role·confirmed exposure).
+6. **identity phrase mode 4종**: confirmed_same_episode(resolved) /
+   explicit_local_episode(explicit) / possibly_related(partial·fallback) /
+   separate_due_to_conflict(conflict). partial을 하나의 확정 현실 사건으로
+   서술 금지(qualifier 필수).
+7. **claim policy = 기계 판정 payload**: episode별 allowed_claim_codes ·
+   prohibited_claim_codes(전역+항목 결합) · required_qualifiers 직렬화 —
+   프롬프트 문구가 아니라 코드. recovery 표현 계약(단정 금지·confidence
+   숫자/퍼센트 비노출 — band만). raw 소수값·내부 risk_id·cause atom 원문·
+   manifest hash는 LLM 비노출(점수는 scoreBand: low/moderate/elevated/high).
+8. **token guard 압축 순서**: P0(전역 claim guard·대표 요약·level·exposure/
+   identity qualifier) → P1(주요 cause 설명·claim codes·warning 세부) →
+   P2(supporting role·recovery window) → P3(진단). prohibited claim·partial/
+   UNKNOWN qualifier·warning 대표 요약은 절대 우선 제거 금지. 선택된
+   episode의 조용한 삭제 금지(불가피 시 compact 표현).
+
+**모드 계약**: R3 초기 = SHADOW(payload 계산·검증만 — 기존 LLM prompt에
+비주입·주입 후 '사용 금지' 지시 방식 불허). EXPOSE는 감수된 payload만.
+
+**감수 표면**: scope **shadow_presentation 0/49** 신설(항목 본문=
+manifestations·claim 정책·claimCeiling·exposurePolicy),
+RISK_PRESENTATION_VERSION=**risk-present-r3.0.0-shadow**,
+presentation_policy_hash(밴드 경계·상한 매트릭스·critical gate·정렬·phrase
+정책·claim code 정책·recovery 문구 정책·token 예산/압축 순서·점수/confidence
+노출 정책) manifest 병기.
+
+**필수 fixture(§19)**: level 5종(같은 점수 CONFIRMED>UNKNOWN>비노출 ·
+UNKNOWN incident≤WATCH · vulnerability≤ADVISORY · 층 반복≠독립 2원인 ·
+CONFIRMED+독립 2원인+critical 밴드=critical 가능) · R2 불변 byte 3종 ·
+partial qualifier 필수 · recovery 추가=level 불변 · token guard 보존 ·
+SHADOW=기존 LLM 입력 byte 불변.
+
+### 26-1. R3-a 구현 결과 (2026-07-16 — shadow 전용·프롬프트 미배선)
+
+`risk_presentation.py` 신설(순수 함수 — 사전·LLM 미접근, 표현 payload만):
+
+- **numeric band / presentation level 분리**: 밴드 경계 잠정(critical 0.40·
+  warning 0.25·watch 0.12·advisory >0 — C overlay 분포 기반, 감수 대상).
+  level = 밴드 + 상한 매트릭스(§26-2 그대로) — R1/R2에 역영향 없음(순수).
+- **critical gate**: CONFIRMED + **독립 canonical cause ≥2**(atom 유일성 —
+  다층 반복=1, fixture) + 비취약 + conflict 없음 + context confidence ≥0.5
+  (잠정) + identity resolved/explicit(partial·fallback 금지) — 미충족 시
+  warning 하향.
+- **warning-first**: bucket(critical·warning→watch→advisory→none) 사이만
+  stable sort, bucket 내 R2 순서 유지. NONE level도 payload 보존(조용한
+  삭제 금지 — 비노출 사유 추적).
+- **identity phrase mode 4종** + required qualifiers(conditional_exposure/
+  possibly_related/non_assertive_recovery — P0 절대 보존).
+- **claim payload**: 전역 prohibited 7코드+allowed 4코드, 항목
+  prohibitedClaims·allowedClaimScope·manifestation 결합(호출부가 사전 공급).
+  raw 소수값·내부 risk_id·cause atom·hash 비노출 — scoreBand(low/moderate/
+  elevated/high)·confidenceBand(limited/moderate/supported)만.
+- **token guard**: P0(level·라벨·대표 요약·domains·exposure·phrase mode·
+  qualifier·prohibited) → P1(allowed·cause 수·scoreBand·confidenceBand) →
+  P2(effect role·supporting 수·recovery window·recoveryConfidenceBand) →
+  P3(진단). 예산 부족 시 P3→P2→P1 전 episode 일괄 탈락 — P0는 예산 초과여도
+  보존, episode 삭제 없음(fixture: 예산 10자에서도 전 episode·prohibited·
+  qualifier 잔존).
+- **SHADOW 구조 보장**: 모듈이 어떤 프롬프트 빌더·엔진 경로에도 import되지
+  않음을 fixture가 grep으로 강제(주입 후 '사용 금지' 지시 방식 원천 차단).
+- **감수 표면**: RISK_PRESENTATION_VERSION=risk-present-r3.0.0-shadow ·
+  presentation_policy_hash(밴드·매트릭스·gate·정렬·phrase·claim·recovery
+  문구·token tier·노출 정책) manifest 병기 · scope **shadow_presentation
+  0/49** 신설(본문=manifestations·claim 정책·claimCeiling·exposurePolicy).
+
+fixture 11종(test_risk_presentation_r3.py — §19 전 항목): level 5종(같은
+점수 CONFIRMED>UNKNOWN>비노출·UNKNOWN incident≤watch·pressure≤warning·
+confirmed_required+UNKNOWN=none·vulnerability≤advisory·층 반복≠독립 2원인·
+critical gate 4분기) · R2 불변(선택·대표·누락 byte + 입력 episode model_dump
+불변) · warning-first stable · recovery 추가=level 불변 · partial qualifier
+필수 · token guard 극단 예산 · SHADOW 미배선. **게이트**: pytest 2056·ruff
+clean·mypy 0(526)·suppression diff 0·profile baseline exact·manifest 일치.
+
+**감수 대기**: 밴드 경계(0.40/0.25/0.12)·critical context confidence 하한
+(0.5)·confidence band 경계(0.3/0.6)·claim 코드 어휘·사용자 표시명 — R3-b
+전수 측정(프로필별 level 분포·cap 강등 사유·critical 발생률·token 압축
+실측) 후 shadow_presentation 스탬프.

@@ -8221,3 +8221,20 @@ confidence**로(earliest 0.20·stable 0.40 — identity 약한 episode 과대 �
 +4(selection 38종). **shadow_selection 49/49 스탬프(R2-c)** — 4 scope 전부
 49/49(모드 off 유지). r2.2.0-shadow. pytest 2045·ruff·mypy 0(524)·baseline
 값 불변·manifest 일치·고정본 2종 갱신. REVIEW.md §25. 다음: R3 노출 계층.
+
+## R3-a — 노출 계층 구현(감수 41차 착수 승인, 2026-07-16)
+
+manifest 선행 고정(REVIEW.md §26 — 8건: 밴드/level 분리·상한 매트릭스·
+critical=독립 canonical cause≥2(층 반복≠2)·R2 불변식·phrase mode 4종·claim
+코드·SHADOW 비주입·token guard P0 보존) 후 risk_presentation.py 구현: 밴드
+잠정(0.40/0.25/0.12)·cap 매트릭스(confirmed_required+UNKNOWN=none·incident+
+UNKNOWN≤watch·pressure≤warning·vuln≤advisory)·critical gate(CONFIRMED+독립
+cause 2+identity resolved/explicit+conf≥0.5)·warning-first stable sort(R2
+순서 보존·NONE도 payload 유지)·claim payload(전역 7+4 코드·항목 결합·raw/
+risk_id/atom 비노출·scoreBand·confidenceBand)·token guard(P0~P3 — P0 절대
+보존·episode 삭제 금지)·presentation_policy_hash·shadow_presentation 0/49·
+r3.0.0-shadow. fixture 11종(§19 전 항목 — SHADOW 미배선 grep 강제 포함).
+§25 stable 건수 표기 프로필별 정정(A 95→6·B 100→6·C 92→7·D 115→6·E 87→6).
+pytest 2056·ruff·mypy 0(526)·baseline 불변·manifest 일치. 다음: R3-b 전수
+측정(level 분포·cap 강등 사유·critical 발생률·token 압축) → 밴드·경계 감수
+→ shadow_presentation 스탬프.

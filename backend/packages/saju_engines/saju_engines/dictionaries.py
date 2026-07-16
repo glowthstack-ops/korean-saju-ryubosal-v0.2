@@ -744,7 +744,8 @@ _RISK_CLAIM_CEILINGS = ("advisory", "watch", "conditional_warning", "warning")
 # shadow 감수 완료(사용자 노출 승인 아님). scoring/selection/exposure는 R1/R2/R3 감수.
 _RISK_REVIEW_SCOPES = (
     "shadow_structure", "shadow_scoring", "shadow_temporal",
-    "shadow_selection", "scoring", "selection", "exposure",
+    "shadow_selection", "shadow_presentation", "scoring", "selection",
+    "exposure",
 )
 # reality episode 유형(감수 37차) — alias 오부여로 전혀 다른 현실 건이 합쳐지는
 # 것을 데이터 모델에서 감지하기 위한 최소 대상 정보: 같은 reality_episode_id라도
@@ -1650,7 +1651,9 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
                 by_alias=True, exclude_none=True)
                 if item.primary_ownership is not None else None),
         }
-    elif scope == "exposure":
+    elif scope in ("exposure", "shadow_presentation"):
+        # shadow_presentation(감수 41차 — R3 감수 명칭)과 legacy "exposure"는
+        # 같은 본문(표현 계약: manifestations·claim 정책·상한·노출 정책).
         body = {
             "manifestations": [m.model_dump(by_alias=True) for m in item.manifestations],
             "prohibitedClaims": sorted(item.prohibited_claims),
