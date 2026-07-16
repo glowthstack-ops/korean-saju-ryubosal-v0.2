@@ -1,12 +1,12 @@
 {
- "canonical": {
+ "nativeValidationCorpus": {
   "identity": {
    "countMode": "PROVIDER_EXACT",
    "counterVersion": "countTokens-v1beta-r1",
    "providerId": "gemini",
    "providerRequestSchemaVersion": "1",
    "resolvedModelId": "gemini-3-flash-preview",
-   "validationPolicyHash": "3f4441a457a13924"
+   "validationPolicyHash": "3f4441a457a13924b69626a0b1683b384882a8839ce724cfc91e2fae8d167c26"
   },
   "samples": [
    {
@@ -399,8 +399,59 @@
     "sample_id": "S10_oversized_stress-c",
     "tier": "FULL"
    }
-  ],
-  "supplementary_rerouting": [
+  ]
+ },
+ "report": {
+  "cached_input_observed": 0,
+  "canonicalOutputSchemaHash": "9b250baa05519b538ff8774cf8f3a81144703f4c425f3249f17afe6aa7732eed",
+  "geminiTransportSchemaHash": "796c649fbfcf3b39a0a2bca6d1eed5a10bba85d320ebd6b5df561f34d12e1fca",
+  "identity": {
+   "countMode": "PROVIDER_EXACT",
+   "counterVersion": "countTokens-v1beta-r1",
+   "providerId": "gemini",
+   "providerRequestSchemaVersion": "1",
+   "resolvedModelId": "gemini-3-flash-preview",
+   "validationCorpusHash": "65db8eb9e5c04ddb7e73e982ed1332ddca767b72bde1785089170633437ee59b",
+   "validationCorpusHashShort": "65db8eb9e5c04ddb",
+   "validationPolicyHash": "3f4441a457a13924b69626a0b1683b384882a8839ce724cfc91e2fae8d167c26"
+  },
+  "overcount_max": 0,
+  "overcount_p50": 0.0,
+  "overcount_p90": 0.0,
+  "pass": true,
+  "primary_native_samples": 30,
+  "relative_error_max": 0.0,
+  "samples_by_category": {
+   "S01_korean_long": 3,
+   "S02_mixed_ko_en": 3,
+   "S03_json_risk_block": 3,
+   "S04_tool_schema": 3,
+   "S05_output_schema": 3,
+   "S06_suppressed_guard": 3,
+   "S07_injected_instruction": 3,
+   "S08_render_tier": 3,
+   "S09_runtime_hard_max": 3,
+   "S10_oversized_stress": 3
+  },
+  "supplementaryReroutingHash": "a77f24cb35403ce672402e1f5791a2a9ab000d56138c87358e1301da19b216c6",
+  "supplementary_rerouting": {
+   "by_final_resolved_model": {
+    "gemini-2.5-flash": 3
+   },
+   "note": "최종 resolved 모델(fallback)은 별도 identity — 해당 모델의 30표본 감수 전 canary에서 validated counter 없음 → BYPASS 유지",
+   "recounts_performed": 3,
+   "samples": 3
+  },
+  "tier_distribution": {
+   "FULL": 27,
+   "P0": 1,
+   "P0_COMPACT": 1,
+   "P1": 1
+  },
+  "undercount_count": 0
+ },
+ "supplementaryReroutingEvidence": {
+  "samples": [
    {
     "cached_input": 0,
     "category": "R01_rerouting",
@@ -442,56 +493,12 @@
    }
   ]
  },
- "corpus_canonical_hash": "fc54e4bc106c917b096965b6d3e2a93b7bdb5b19a6a3564d6aa2a2900ebb3f9c",
- "corpus_canonical_hash_short": "fc54e4bc106c917b",
- "report": {
-  "cached_input_observed": 0,
-  "identity": {
-   "countMode": "PROVIDER_EXACT",
-   "counterVersion": "countTokens-v1beta-r1",
-   "providerId": "gemini",
-   "providerRequestSchemaVersion": "1",
-   "resolvedModelId": "gemini-3-flash-preview",
-   "validationCorpusHash": "fc54e4bc106c917b096965b6d3e2a93b7bdb5b19a6a3564d6aa2a2900ebb3f9c",
-   "validationCorpusHashShort": "fc54e4bc106c917b",
-   "validationPolicyHash": "3f4441a457a13924"
-  },
-  "overcount_max": 0,
-  "overcount_p50": 0.0,
-  "overcount_p90": 0.0,
-  "pass": true,
-  "primary_native_samples": 30,
-  "relative_error_max": 0.0,
-  "samples_by_category": {
-   "S01_korean_long": 3,
-   "S02_mixed_ko_en": 3,
-   "S03_json_risk_block": 3,
-   "S04_tool_schema": 3,
-   "S05_output_schema": 3,
-   "S06_suppressed_guard": 3,
-   "S07_injected_instruction": 3,
-   "S08_render_tier": 3,
-   "S09_runtime_hard_max": 3,
-   "S10_oversized_stress": 3
-  },
-  "supplementary_rerouting": {
-   "by_final_resolved_model": {
-    "gemini-2.5-flash": 3
-   },
-   "note": "최종 resolved 모델(fallback)은 별도 identity — 해당 모델의 30표본 감수 전 canary에서 validated counter 없음 → BYPASS 유지",
-   "recounts_performed": 3,
-   "samples": 3
-  },
-  "tier_distribution": {
-   "FULL": 27,
-   "P0": 1,
-   "P0_COMPACT": 1,
-   "P1": 1
-  },
-  "undercount_count": 0
- },
+ "supplementaryReroutingHash": "a77f24cb35403ce672402e1f5791a2a9ab000d56138c87358e1301da19b216c6",
+ "validationArtifactHash": "2245f5549ea7a42767f6d1777a44d80a478643b9dbec755d02e82ea30e1cb326",
+ "validationCorpusHash": "65db8eb9e5c04ddb7e73e982ed1332ddca767b72bde1785089170633437ee59b",
+ "validationCorpusHashShort": "65db8eb9e5c04ddb",
  "volatile": {
-  "generated_at": "2026-07-16T21:21:29.421681+00:00",
+  "generated_at": "2026-07-16T21:40:44.785342+00:00",
   "script": "risk_adapter_shadow_validation.py"
  }
 }

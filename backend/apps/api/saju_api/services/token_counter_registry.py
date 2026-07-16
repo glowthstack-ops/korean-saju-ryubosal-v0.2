@@ -101,12 +101,16 @@ ADAPTER_VALIDATION_POLICY: dict = {
 
 
 def adapter_validation_policy_hash() -> str:
-    """승격 기준 해시 — manifest 병기(변경=expose 재감수 신호)."""
+    """승격 기준 해시 — manifest 병기(변경=expose 재감수 신호).
+
+    정본=**전체 SHA-256 digest**(감수 58차 §6 — EXPOSE 자격을 결정하는
+    값이므로 corpus hash와 동일하게 full digest, 16자 축약은 표시 전용).
+    """
     import hashlib
     import json
     return hashlib.sha256(json.dumps(
         ADAPTER_VALIDATION_POLICY, sort_keys=True, ensure_ascii=False,
-    ).encode()).hexdigest()[:16]
+    ).encode()).hexdigest()
 
 
 @dataclass(frozen=True)

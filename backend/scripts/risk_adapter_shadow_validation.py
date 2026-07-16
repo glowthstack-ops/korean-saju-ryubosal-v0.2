@@ -313,13 +313,19 @@ def main() -> int:
         "providerRequestSchemaVersion": "1", "countMode": "PROVIDER_EXACT",
         "validationPolicyHash": adapter_validation_policy_hash(),
     }
-    canonical = {"identity": identity_wo_corpus, "samples": records,
-                 "supplementary_rerouting": supp_records}
-    # 정본=전체 SHA-256 digest(감수 57차 §5) — 16자는 표시·파일명 전용.
-    corpus_hash = hashlib.sha256(json.dumps(
-        canonical, ensure_ascii=False, sort_keys=True).encode()
-    ).hexdigest()
+
+    def _digest(obj: object) -> str:
+        return hashlib.sha256(json.dumps(
+            obj, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+
+    # 3층 hash 분리(감수 58차 §2): validation identity는 **해당 모델의
+    # qualifying corpus(native 30)에만** 결속 — fallback 부록이 바뀌어도
+    # primary identity가 변하지 않는다.
+    native_corpus = {"identity": identity_wo_corpus, "samples": records}
+    corpus_hash = _digest(native_corpus)  # validationCorpusHash(정본)
     corpus_hash_short = corpus_hash[:16]
+    supplementary_evidence = {"samples": supp_records}
+    supplementary_hash = _digest(supplementary_evidence)
 
     all_records = [*records, *supp_records]
     deltas = [r["counted"] - r["reported_total_input"] for r in all_records]
@@ -335,10 +341,20 @@ def main() -> int:
             vals, n=100, method="inclusive")[int(q) - 1]) if len(
                 vals) > 1 else float(vals[0])
 
+    # transport 변환 규칙 digest(감수 58차 §5): schema version을 올리지
+    # 않은 채 transport shape가 바뀌는 실수를 탐지하는 대조값.
+    canonical_schema = build_risk_output_schema(
+        _payload(1)["llmRiskEpisodes"], hard_max=3)
+    canonical_schema_hash = _digest(canonical_schema)
+    transport_schema_hash = _digest(
+        build_gemini_transport_schema(canonical_schema))
     report = {
         "identity": {**identity_wo_corpus,
                      "validationCorpusHash": corpus_hash,
                      "validationCorpusHashShort": corpus_hash_short},
+        "supplementaryReroutingHash": supplementary_hash,
+        "canonicalOutputSchemaHash": canonical_schema_hash,
+        "geminiTransportSchemaHash": transport_schema_hash,
         # 30표본=전부 최종 resolved=primary native(감수 57차 §2) —
         # rerouting 3건은 별도 집계(최종 resolved 모델 기준).
         "primary_native_samples": len(records),
@@ -374,14 +390,23 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     artifact_path = out_dir / f"{args.model}__{corpus_hash_short}.json"
-    artifact_path.write_text(json.dumps({
-        "canonical": canonical,
-        "corpus_canonical_hash": corpus_hash,
-        "corpus_canonical_hash_short": corpus_hash_short,
+    artifact_body = {
+        # native corpus(정본 — validationCorpusHash의 유일한 입력)와
+        # rerouting 부록·메타데이터를 분리 보관(감수 58차 §2).
+        "nativeValidationCorpus": native_corpus,
+        "validationCorpusHash": corpus_hash,
+        "validationCorpusHashShort": corpus_hash_short,
+        "supplementaryReroutingEvidence": supplementary_evidence,
+        "supplementaryReroutingHash": supplementary_hash,
         "report": report,
         "volatile": {"generated_at": datetime.now(UTC).isoformat(),
                      "script": "risk_adapter_shadow_validation.py"},
-    }, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
+    }
+    artifact_body["validationArtifactHash"] = _digest(
+        {k: v for k, v in artifact_body.items() if k != "volatile"})
+    artifact_path.write_text(json.dumps(
+        artifact_body, ensure_ascii=False, indent=1, sort_keys=True),
+        encoding="utf-8")
 
     manifest_candidate = {**identity_wo_corpus,
                           "validationCorpusHash": corpus_hash,

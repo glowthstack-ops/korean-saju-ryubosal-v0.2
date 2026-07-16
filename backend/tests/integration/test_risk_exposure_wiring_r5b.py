@@ -1605,3 +1605,60 @@ def test_output_schema_three_state_wiring(monkeypatch) -> None:
     assert "additionalProperties" not in schemas["gemini_transport"]
     guidance = schemas["canonical"]["properties"]["risk_guidance"]
     assert guidance["maxItems"] <= 3  # period_overview hard_max=3
+
+
+def test_transport_conversion_rule_digest_frozen() -> None:
+    """감수 58차 §5: transport 변환 규칙 스냅샷 고정 — 이 digest가 바뀌면
+    provider 전송 shape 변경 가능성이므로 providerRequestSchemaVersion
+    상향+SHADOW_VALIDATING 강등+새 corpus 재검증 없이는 배포 금지."""
+    import hashlib
+    import json as _json
+
+    from saju_api.services.gemini_token_adapter import (
+        build_gemini_transport_schema,
+    )
+
+    reference = {
+        "type": "object", "additionalProperties": False,
+        "properties": {
+            "risk_guidance": {
+                "type": "array", "minItems": 1, "maxItems": 2,
+                "items": {"type": "object", "additionalProperties": False,
+                          "properties": {
+                              "guidance_ref": {"type": "string",
+                                               "enum": ["rg1", "rg2"]},
+                              "exposed_level": {"type": "string",
+                                                "enum": ["warning"]}},
+                          "required": ["guidance_ref", "exposed_level"]}},
+        }, "required": ["risk_guidance"], "x_internal": "drop-me"}
+    digest = hashlib.sha256(_json.dumps(
+        build_gemini_transport_schema(reference), ensure_ascii=False,
+        sort_keys=True).encode()).hexdigest()
+    # 규칙 스냅샷(결정적 참조 입력에 대한 출력 digest) — 변환 규칙이
+    # 하나라도 바뀌면 아래 값이 달라진다.
+    expected = hashlib.sha256(_json.dumps({
+        "type": "OBJECT",
+        "properties": {
+            "risk_guidance": {
+                "type": "ARRAY", "minItems": 1, "maxItems": 2,
+                "items": {"type": "OBJECT",
+                          "properties": {
+                              "guidance_ref": {"type": "STRING",
+                                               "enum": ["rg1", "rg2"]},
+                              "exposed_level": {"type": "STRING",
+                                                "enum": ["warning"]}},
+                          "required": ["guidance_ref", "exposed_level"]}},
+        }, "required": ["risk_guidance"]}, ensure_ascii=False,
+        sort_keys=True).encode()).hexdigest()
+    assert digest == expected
+
+
+def test_output_schema_max_items_is_final_episode_count() -> None:
+    """감수 58차 §9: maxItems=min(질문 hard_max, **미래 필터 후 최종
+    episode 수**) — hard_max=4여도 최종 2건이면 maxItems=2."""
+    from saju_engines.risk_claim_audit import build_risk_output_schema
+
+    llm = [{"guidanceRef": "rg1", "presentationLevel": "warning"},
+           {"guidanceRef": "rg2", "presentationLevel": "watch"}]
+    schema = build_risk_output_schema(llm, hard_max=4)
+    assert schema["properties"]["risk_guidance"]["maxItems"] == 2

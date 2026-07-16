@@ -10,7 +10,7 @@
   "risk_presentation_version": "risk-present-r3.1.0-shadow",
   "presentation_policy_hash": "ce68dfc2c6c5fa0e",
   "risk_exposure_version": "risk-expose-r4.0.1-gated",
-  "adapter_validation_policy_hash": "3f4441a457a13924",
+  "adapter_validation_policy_hash": "3f4441a457a13924b69626a0b1683b384882a8839ce724cfc91e2fae8d167c26",
   "expose_pipeline": {
     "reviewed": false,
     "expose_policy_hash": "0bc90a6cf968245f",
@@ -27,9 +27,9 @@
         "providerId": "gemini",
         "providerRequestSchemaVersion": "1",
         "resolvedModelId": "gemini-3-flash-preview",
-        "validationPolicyHash": "3f4441a457a13924",
-        "validationCorpusHash": "fc54e4bc106c917b096965b6d3e2a93b7bdb5b19a6a3564d6aa2a2900ebb3f9c",
-        "reviewed": false
+        "validationPolicyHash": "3f4441a457a13924b69626a0b1683b384882a8839ce724cfc91e2fae8d167c26",
+        "validationCorpusHash": "65db8eb9e5c04ddb7e73e982ed1332ddca767b72bde1785089170633437ee59b",
+        "reviewed": true
       }
     ]
   },

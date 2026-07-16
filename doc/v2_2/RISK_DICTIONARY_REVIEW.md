@@ -2398,3 +2398,57 @@ manifest 일치. 3중 잠금 유지, EXPOSE_CANARY 보류.
 REVISE/REGENERATE LLM 실배선, renderer 후 최종 audit 배선 — 다음 차수.
 canary 시 topology=single_host_single_process 전환+실제 worker 수 1
 확인(배포 절차) 필요.
+
+### 28-14. 감수 58차 반영 — corpus 3층 hash 분리·policy full digest·schema digest 고정 + adapter reviewed 승격 (2026-07-17)
+
+**§2 확인 결과와 교정**: 직전 `fc54e4bc…ebb3f9c`는 **supplementary 3건
+포함 hash였음** — 분리 재구성. artifact 3층:
+
+- nativeValidationCorpus(해당 모델 native 30표본만) →
+  **validationCorpusHash**(identity 결속 정본) =
+  `65db8eb9e5c04ddb7e73e982ed1332ddca767b72bde1785089170633437ee59b`
+- supplementaryReroutingEvidence(gemini-2.5-flash 3건) →
+  supplementaryReroutingHash = `a77f24cb…19b216c6` — fallback 부록이
+  바뀌어도 primary identity 불변
+- 전체(volatile 제외) → validationArtifactHash
+
+manifest 생성기의 무결성 대조도 native corpus 재해시 기준으로 교정.
+
+**§6 policy hash full digest**: adapter_validation_policy_hash 정본=전체
+SHA-256(`3f4441a457a13924b69626a0b1683b384882a8839ce724cfc91e2fae8d167c26`)
+— identity hash·manifest 대조 전부 full 기준(16자는 표시 전용).
+
+**§5 schema digest 병기**: artifact/보고에 canonicalOutputSchemaHash
+(`9b250baa…a7732eed`)·geminiTransportSchemaHash(`796c649f…d12e1fca`)
+기록 + **변환 규칙 스냅샷 fixture**(결정적 참조 입력→출력 digest 고정 —
+규칙이 바뀌면 실패=schemaVersion 상향+SHADOW_VALIDATING 강등+새 corpus
+신호).
+
+**§9 maxItems**: builder가 이미 min(hard_max, len(최종 llmRiskEpisodes))
+적용 — 요구 fixture(hard_max=4·최종 2건→maxItems=2) 추가로 고정. §7
+표기 정정: runtime hard-max 표본의 601/780/960은 episode 수가 아니라
+직렬화 요청 **token 수**.
+
+**재실측(최종 3층 구조)**: native 30/30 delta 0·undercount 0·overcount
+0/0/0·tier FULL 27/P1 1/P0 1/P0_COMPACT 1·supplementary rerouting 3건
+전부 delta 0(recount 3/3)·cached 0 — **합격**.
+
+**adapter reviewed 승격(§11 — 사전 승인 조건 전부 충족 확인)**:
+_REVIEWED_COUNTER_CORPUS_HASHES에 native hash 추가 → manifest entry
+`gemini-3-flash-preview reviewed=true`. **adapter 감수≠EXPOSE 개방**:
+expose_pipeline.reviewed=false·RISK_EXPOSURE_RUNTIME_ENABLED=false·
+RISK_ENGINE_MODE=off 3중 잠금 그대로. runtime 상태도 SHADOW_VALIDATING
+(VALIDATED 전환은 canary 배선 차수에서 manifest 대조와 함께).
+gemini-2.5-flash는 미감수 — canary에서 BYPASS 유지.
+
+fixture +2(통합 67종). 게이트: pytest 2140·ruff clean·mypy 0(536)·
+manifest 일치. EXPOSE_CANARY 계속 보류.
+
+**다음 차수(§12 — 착수 승인)**: ①GuidanceReferenceContext 전 과정 동일
+객체 배선 ②risk-enabled schema 실제 요청 강제 ③최초 응답 envelope·claim
+audit ④REVISE 1회 실호출 ⑤실패 시 risk 없이 REGENERATE ⑥provider 직전
+model·token·schema·checksum 검증 ⑦renderer 후 최종 문자열 감사 ⑧최종
+request shape corpus 대조 ⑨expose_pipeline 감수 자료. canary 차단점:
+재작성 경로 감사 우회 부재·rerouting 시 **게이트 전체 재평가**(counter
+교체만으로 불충분 — BYPASS면 기존 요청으로 완전 재조립)·context 타 요청
+재사용 차단·single-process 실배포 확인.

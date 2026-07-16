@@ -8466,3 +8466,16 @@ undercount 0·rerouting 3/3 delta 0 — 합격, corpus full hash
 fc54e4bc…ebb3f9c. manifest 후보(reviewed=false) 갱신. pytest 2138·
 ruff·mypy 0·manifest 일치. REVIEW.md §28-13. 잔여: context 전 경로 소비·
 REVISE 실배선·renderer 후 최종 감사.
+
+## 감수 58차 — corpus 3층 분리·full policy hash + adapter reviewed 승격 (2026-07-17)
+
+fc54e4bc…는 supplementary 포함 hash였음을 확인 — nativeValidationCorpus
+(30표본만)/supplementaryReroutingEvidence/validationArtifactHash 3층
+분리, native hash 65db8eb9…7ee59b 재산출(재실측 합격: delta 전부 0).
+policy hash full digest 전환, schema digest 2종 병기+변환 규칙 스냅샷
+fixture, maxItems=min(hard_max,최종 episode 수) fixture. 감수 58차 §11
+사전 승인 조건 충족 확인 후 _REVIEWED_COUNTER_CORPUS_HASHES 승격
+(reviewed=true) — expose_pipeline.reviewed=false 등 3중 잠금 유지,
+gemini-2.5-flash 미감수 BYPASS. pytest 2140·ruff·mypy 0·manifest 일치.
+REVIEW.md §28-14. 다음: §12 실배선(context 전 경로·schema 강제·envelope
+audit·REVISE/REGENERATE·provider 직전 검증·최종 감사·corpus 대조).
