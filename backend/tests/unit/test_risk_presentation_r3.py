@@ -351,8 +351,12 @@ def test_shadow_mode_no_prompt_wiring() -> None:
          str(backend / "packages" / "saju_engines" / "saju_engines")],
         capture_output=True, text=True, check=False).stdout.splitlines()
     # 위험 스택 내부 모듈(프롬프트 빌더 아님)만 허용.
+    # risk_exposure_bootstrap(감수 61차 §13 — freeze 후 배선): EXPOSE
+    # 계열 모드 전용 payload 조립·실호출 모듈 — OFF/SHADOW에서는 chat
+    # 분기가 실행되지 않아 기존 LLM 입력 byte 불변 계약이 유지된다
+    # (회귀 fixture: OFF/SHADOW prompt byte-identical).
     allowed = {"risk_presentation.py", "risk_exposure.py",
-               "risk_claim_audit.py"}
+               "risk_claim_audit.py", "risk_exposure_bootstrap.py"}
     offenders = [h for h in hits if Path(h).name not in allowed]
     assert offenders == [], offenders
     assert sys.modules  # sanity

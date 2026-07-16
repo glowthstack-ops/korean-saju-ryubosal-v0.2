@@ -28,8 +28,17 @@ _logger = logging.getLogger("saju_api.risk")
 _ARTIFACT_DIR = (Path(__file__).resolve().parents[4] / "compiled"
                  / "risk_adapter_validation")
 
-__all__ = ["bootstrap_risk_exposure", "exposure_runtime_inputs",
-           "load_reviewed_shape_digests"]
+__all__ = ["bootstrap_risk_exposure", "build_risk_payload",
+           "exposure_runtime_inputs", "last_bootstrap_reason",
+           "load_reviewed_shape_digests", "run_exposed_reading"]
+
+# 마지막 bootstrap 실패 사유(감수 61차 후속 §4 — 조용한 무시 금지,
+# 정적 reason 관측): 성공=None.
+_LAST_BOOTSTRAP_REASON: str | None = None
+
+
+def last_bootstrap_reason() -> str | None:
+    return _LAST_BOOTSTRAP_REASON
 
 
 def _exposure_mode_active() -> bool:
@@ -66,14 +75,42 @@ def load_reviewed_shape_digests(model_id: str) -> frozenset[str]:
                      if isinstance(e, dict) and e.get("digest"))
 
 
+def _actual_worker_count_ok() -> bool:
+    """worker=1 실측 검증(감수 61차 §13 — 설정값만으로 불충분).
+
+    topology=single_host_single_process 선언 시 배포 환경 신호
+    (WEB_CONCURRENCY·UVICORN_WORKERS·GUNICORN worker 표기)가 1을
+    초과하면 부적격 — adapter를 등록하지 않아 전부 BYPASS. 신호 부재=
+    uvicorn 기본(단일 프로세스)으로 간주하되, 배포 preflight에서 실제
+    프로세스 수 재확인을 통합 감수 자료에 포함한다.
+    """
+    import os
+    if (risk_engine_config.RISK_DEPLOYMENT_TOPOLOGY
+            != "single_host_single_process"):
+        return True  # 다른 topology의 canary 자격은 게이트가 별도 판정
+    for var in ("WEB_CONCURRENCY", "UVICORN_WORKERS"):
+        raw = os.environ.get(var)
+        if raw:
+            try:
+                if int(raw) > 1:
+                    return False
+            except ValueError:
+                return False  # 해석 불가=검증 불가(fail-closed)
+    return True
+
+
 def bootstrap_risk_exposure() -> str | None:
-    """startup 1회 배선(감수 61차 §13-②) — EXPOSE 계열 모드 전용.
+    """startup 1회 배선(감수 61차 §13-②) — EXPOSE **계열**(EXPOSE_CANARY
+    포함) 모드 전용.
 
     reviewed artifact의 corpus hash로 실물 adapter를 등록하고 runtime
     상태를 검증 결과로 파생한다. OFF/SHADOW=None(아무것도 하지 않음).
-    실패는 예외 대신 None+로그 — 게이트는 adapter 부재로 BYPASS.
+    실패=미등록(전부 BYPASS — baseline 서비스는 정상) + 정적 reason 기록
+    (조용한 무시 금지, 감수 61차 후속 §4).
     """
+    global _LAST_BOOTSTRAP_REASON
     if not _exposure_mode_active():
+        _LAST_BOOTSTRAP_REASON = None
         return None
     try:
         from .gemini_token_adapter import register_gemini_shadow_adapter
@@ -81,15 +118,29 @@ def bootstrap_risk_exposure() -> str | None:
         from .risk_exposure_service import stamp_runtime_adapter_state
 
         model_id = reading_model()
+        if not _actual_worker_count_ok():
+            _LAST_BOOTSTRAP_REASON = "RISK_BOOTSTRAP_TOPOLOGY_MISMATCH"
+            _logger.error("risk_adapter_bootstrap: worker>1 감지 — "
+                          "single_process 선언과 불일치(BYPASS 유지)")
+            return None
         artifact = _find_artifact(model_id)
-        corpus_hash = (str(artifact.get("validationCorpusHash", ""))
-                       if artifact else "")
+        if artifact is None:
+            _LAST_BOOTSTRAP_REASON = "RISK_BOOTSTRAP_ARTIFACT_INVALID"
+            _logger.error("risk_adapter_bootstrap: artifact 부재/손상 "
+                          "model=%s — BYPASS 유지", model_id)
+            return None
+        corpus_hash = str(artifact.get("validationCorpusHash", ""))
         register_gemini_shadow_adapter(model_id, corpus_hash)
         state = stamp_runtime_adapter_state(model_id)
+        if state != "VALIDATED":
+            _LAST_BOOTSTRAP_REASON = "RISK_BOOTSTRAP_MANIFEST_MISMATCH"
+        else:
+            _LAST_BOOTSTRAP_REASON = None
         _logger.info("risk_adapter_bootstrap model=%s state=%s",
                      model_id, state)
         return state
     except Exception:  # noqa: BLE001 — startup 실패=미등록(BYPASS)
+        _LAST_BOOTSTRAP_REASON = "RISK_BOOTSTRAP_ADAPTER_UNAVAILABLE"
         _logger.exception("risk_adapter_bootstrap 실패 — BYPASS 유지")
         return None
 
@@ -133,3 +184,135 @@ def exposure_runtime_inputs(call_type: str = "chat_single") -> dict:
         "response_reserve": response_reserve,
         "reviewed_shape_digests": load_reviewed_shape_digests(model_id),
     }
+
+
+def build_risk_payload(shadow_candidates: list) -> dict | None:
+    """risk_shadow 원자 후보 → 표현 payload(감수 61차 후속 — EXPOSE 배선).
+
+    base_impact는 risks/*.json의 baseImpact(사전 prior)에서 로드한다.
+    후보 없음=None(게이트 NO_EXPOSABLE_EPISODE → SUPPRESSED guard).
+    """
+    if not shadow_candidates:
+        return None
+    import json as _json
+
+    from saju_engines.risk_presentation import build_presentation
+    from saju_engines.risk_scoring import score_shadow
+    from saju_engines.risk_selection import build_episodes
+
+    risks_dir = (Path(__file__).resolve().parents[4] / "dictionaries"
+                 / "risks")
+    base_impact: dict[str, float] = {}
+    for path in sorted(risks_dir.glob("*.json")):
+        try:
+            data = _json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for item in data.get("items", []):
+            rid = item.get("riskId")
+            if rid is not None:
+                base_impact[str(rid)] = float(
+                    item.get("baseImpact", 0.0) or 0.0)
+    scored = score_shadow(list(shadow_candidates), base_impact)
+    return build_presentation(build_episodes(scored), scored)
+
+
+def run_exposed_reading(
+    *,
+    baseline_prompt: str,
+    injected_prompt: str,
+    system: str,
+    observability: dict,
+    payload: dict,
+    call_type: str,
+    request_context_id: str,
+    renderer,
+) -> dict:
+    """INJECTED 실호출 실행(감수 60·61차 — run_injected_risk_flow 소비).
+
+    chat_service EXPOSE 분기 전용: 실행 context 1회 조립 → 실 Gemini
+    구조화 호출(계수와 동일 body) → envelope/claim 감사 → REVISE/
+    REGENERATE 상태기 → renderer 후 최종 감사. 종료 후 provider 보고
+    token으로 undercount(drift)·cache 관측을 기록한다(감수 60차 §7).
+    반환: run_injected_risk_flow 결과(outcome=DELIVER_GENERATED/
+    DELIVER_SAFE_FALLBACK/BLOCK).
+    """
+    import json as _json
+
+    from saju_engines.risk_exposure import (
+        build_guidance_reference_context,
+    )
+
+    from .gemini_token_adapter import generate_structured
+    from .llm_client import reading_model
+    from .risk_exposure_service import _load_manifest_snapshot
+    from .risk_llm_pipeline import (
+        build_risk_execution_context,
+        run_injected_risk_flow,
+    )
+    from .token_counter_registry import (
+        ProviderRequest,
+        record_cache_observation,
+        record_count_observation,
+        resolve_expose_counter,
+    )
+
+    model_id = reading_model()
+    counters = _load_manifest_snapshot()["validated_token_counters"]
+    adapter = resolve_expose_counter(model_id, counters)
+    inputs = exposure_runtime_inputs(call_type)
+    guidance_context = build_guidance_reference_context(
+        request_context_id, payload)
+    baseline_request = ProviderRequest(
+        system_messages=(system,), user_messages=(baseline_prompt,))
+    transport = (observability.get("risk_output_schemas") or {}).get(
+        "gemini_transport")
+    initial_request = ProviderRequest(
+        system_messages=(system,), user_messages=(injected_prompt,),
+        output_schema=(_json.dumps(transport, ensure_ascii=False,
+                                   sort_keys=True) if transport else None))
+    exec_ctx = build_risk_execution_context(
+        request_context_id, manifest_counters=list(counters),
+        guidance_context=guidance_context,
+        baseline_request=baseline_request, resolved_model_id=model_id)
+    provider_reports: list[dict] = []
+
+    def _llm_call(request: ProviderRequest) -> dict:
+        out = generate_structured(
+            request, model_id,
+            max_output_tokens=max(256, inputs["response_reserve"]))
+        provider_reports.append(out)
+        envelope = None
+        if request.output_schema:
+            try:
+                envelope = _json.loads(out["text"])
+            except ValueError:
+                envelope = {}  # schema 요구에도 비JSON=envelope 실패
+        answer = (str(envelope.get("main_answer", ""))
+                  if isinstance(envelope, dict) and envelope
+                  else out["text"])
+        return {"answer": answer, "envelope": envelope}
+
+    result = run_injected_risk_flow(
+        initial_request=initial_request,
+        baseline_request=baseline_request,
+        execution_context=exec_ctx,
+        llm_episodes=payload.get("llmRiskEpisodes") or [],
+        adapter=adapter,
+        final_token_limit=inputs["context_limit"]
+        - inputs["response_reserve"],
+        llm_call=_llm_call, renderer=renderer,
+        resolve_model=reading_model,
+        reviewed_shape_digests=inputs["reviewed_shape_digests"])
+    # drift·cache 관측(감수 60차 §7 + 51차 계약): 각 실행 attempt의
+    # counted vs provider 보고 전체 input — undercount 1건=전역 SUSPENDED,
+    # cached>0=CACHE_PATH_UNVALIDATED 차단.
+    executed = [a for a in result["attempts"]
+                if not a.get("preflight_issues") and not a.get("skipped")]
+    for attempt, report in zip(executed, provider_reports, strict=False):
+        record_count_observation(
+            model_id, counted=attempt["counted_tokens"],
+            reported=report["prompt_tokens"],
+            request_id_hash=attempt.get("provider_request_digest", ""))
+        record_cache_observation(model_id, report["cached_tokens"])
+    return result

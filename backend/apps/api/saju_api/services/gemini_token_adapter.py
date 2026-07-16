@@ -38,7 +38,7 @@ from .token_counter_registry import (
 
 __all__ = ["GEMINI_COUNTER_VERSION", "GeminiTokenCounterAdapter",
            "build_gemini_request_body", "build_gemini_adapter",
-           "build_gemini_transport_schema",
+           "build_gemini_transport_schema", "generate_structured",
            "register_gemini_shadow_adapter"]
 
 # counter 구현 버전 — 매핑(build_gemini_request_body)·endpoint 의미가
@@ -138,6 +138,36 @@ class GeminiTokenCounterAdapter(TokenCounterAdapter):
             timeout=self.timeout_seconds)
         res.raise_for_status()
         return int(res.json()["totalTokens"])
+
+
+def generate_structured(request: ProviderRequest, model_id: str, *,
+                        max_output_tokens: int,
+                        timeout: float = 90.0) -> dict:
+    """계수와 **동일한 body**(build_gemini_request_body)로 generateContent
+    호출(감수 61차 §8 — countTokens와 같은 ProviderRequest 사용 계약).
+
+    위험 INJECTED 전용 — 폴백 없음(실패=예외 전파 → flow가 REGENERATE/
+    fallback 처리). 반환: {"text", "prompt_tokens"(전체 input — cached
+    포함), "cached_tokens", "output_tokens"}.
+    """
+    body = build_gemini_request_body(request)
+    cfg = dict(body.get("generationConfig") or {})
+    cfg["maxOutputTokens"] = max_output_tokens
+    body["generationConfig"] = cfg
+    res = httpx.post(f"{_API_BASE}/{model_id}:generateContent", json=body,
+                     headers={"x-goog-api-key": _api_key()},
+                     timeout=timeout)
+    res.raise_for_status()
+    data = res.json()
+    parts = (data.get("candidates") or [{}])[0].get(
+        "content", {}).get("parts", [])
+    usage = data.get("usageMetadata", {})
+    return {
+        "text": "".join(p.get("text", "") for p in parts),
+        "prompt_tokens": int(usage.get("promptTokenCount", 0)),
+        "cached_tokens": int(usage.get("cachedContentTokenCount", 0)),
+        "output_tokens": int(usage.get("candidatesTokenCount", 0)),
+    }
 
 
 def build_gemini_adapter(model_id: str,

@@ -3660,16 +3660,21 @@ def chat(
     # (회귀 fixture). 현 단계는 expose_pipeline.reviewed=false + tokenizer
     # adapter 부재라 게이트가 전부 비주입하고 suppressed guard만 부착된다 —
     # 질문 매핑·adapter·canary allowlist는 canary 개시 차수에서 감수 후 공급.
+    _risk_flow_result: dict | None = None
     if risk_exposure_service.exposure_mode_active():
         # 실값 공급(감수 61차 §13-① — freeze 후 배선): 감수된 adapter·
         # context limit(llm_config — 부재·0=BYPASS)·shape 집합. 어느
         # 하나라도 미해소면 게이트가 해당 사유로 BYPASS(fail-closed).
-        from .risk_exposure_bootstrap import exposure_runtime_inputs
-        _risk_inputs = exposure_runtime_inputs(call_type)
+        from . import risk_exposure_bootstrap as _reb
+        _risk_inputs = _reb.exposure_runtime_inputs(call_type)
+        _baseline_prompt = prompt_text  # 주입 전 원문(REGENERATE 재조립)
+        _risk_payload = _reb.build_risk_payload(
+            list(_get_scorer().risk_shadow))
         prompt_text, system, _risk_obs = (
             risk_exposure_service.apply_risk_exposure(
                 prompt_text, system,
                 intent=intent,  # 파서 SSOT 매핑(감수 50차 — fail-closed)
+                payload=_risk_payload,
                 subject_id=owner_id,
                 counter=_risk_inputs["counter"],
                 counter_model_id=_risk_inputs["counter_model_id"],
@@ -3681,6 +3686,19 @@ def chat(
                 response_reserve=_risk_inputs["response_reserve"],
             ))
         _logger.info("risk_exposure_gate %s", _risk_obs)
+        if _risk_obs.get("disposition") == "INJECTED" and _risk_payload:
+            # INJECTED 실호출(감수 60·61차): 구조화 생성→감사→REVISE/
+            # REGENERATE→renderer 후 최종 감사. BYPASS/SUPPRESSED는 아래
+            # 기존 generate_reading 경로 그대로(byte-equivalent 계약).
+            _risk_flow_result = _reb.run_exposed_reading(
+                baseline_prompt=_baseline_prompt,
+                injected_prompt=prompt_text,
+                system=system or llm_client._SYSTEM_PROMPT,
+                observability=_risk_obs, payload=_risk_payload,
+                call_type=call_type,
+                request_context_id=f"{thread_id or 'oneshot'}:"
+                                   f"{state.turn_no if state else 0}",
+                renderer=_normalize_ganji_gloss)
 
     if state is not None:
         # T4.5 — 시스템이 제시한 상위 이벤트를 claim/event 엔티티로 등록(이의 재검산 대비).
@@ -3710,15 +3728,31 @@ def chat(
             call_type=call_type,
         )
 
-    answer = llm_client.generate_reading(
-        prompt_text,
-        call_type=call_type,
-        system=system,
-        owner_id=owner_id,
-        surface="chat",
-        ref_id=thread_id,
-    )
-    answer = _normalize_ganji_gloss(answer)  # 간지 이중 병기(과글로싱) 보정.
+    if _risk_flow_result is not None:
+        # INJECTED 경로(감수 60차 §8): DELIVER_*만 전달 — renderer·최종
+        # 감사는 flow 내부에서 이미 완료(재가공 금지). BLOCK=전달 금지 →
+        # 위험 무관 일반 실패 문구(내부 상태 설명 금지).
+        if _risk_flow_result["outcome"] in ("DELIVER_GENERATED",
+                                            "DELIVER_SAFE_FALLBACK"):
+            answer = _risk_flow_result["final_text"]
+        else:
+            _save_thread(store, state)
+            return ChatResponse(
+                status="error",
+                answer="답변 생성 검증에 실패했어요. 잠시 후 다시"
+                       " 시도해 주세요.",
+                intents=parsed.intents, thread_id=thread_id,
+                turn_no=state.turn_no if state else None)
+    else:
+        answer = llm_client.generate_reading(
+            prompt_text,
+            call_type=call_type,
+            system=system,
+            owner_id=owner_id,
+            surface="chat",
+            ref_id=thread_id,
+        )
+        answer = _normalize_ganji_gloss(answer)  # 간지 병기 보정.
     # 총운 커버리지 계측(관측 전용 — 재생성·재호출 없음, 데굴님 확정): 누락 후보를
     # 로그로 남겨 입력 구조 개선(후보 블록 후치 등)의 효과를 실측한다.
     if _overview_mode and payload.event_candidates:

@@ -8530,3 +8530,22 @@ fixture +3(79종). pytest 2154·ruff·mypy 0(538)·manifest 일치·회귀 통�
 잔여(통합 감수 전): INJECTED 시 run_injected_risk_flow 소비(response
 schema 실호출·renderer 연결)·rerouting 실배선·worker=1 실측 검증·kill
 switch e2e·expose_pipeline 감수 자료.
+
+## freeze 후 구현 2 — INJECTED 실호출 배선 (2026-07-17)
+
+(감수 61차 §10 방식 — 게이트 통과 구현 커밋)
+generate_structured(계수와 동일 build_gemini_request_body 본문으로
+generateContent — 폴백 없음·실패=예외→flow 처리), bootstrap 확장:
+build_risk_payload(risk_shadow→score(사전 baseImpact prior)→episodes→
+presentation), run_exposed_reading(실행 context 1회 조립→실 구조화 호출→
+envelope/claim 감사→REVISE/REGENERATE→renderer(_normalize_ganji_gloss)
+후 최종 감사→종료 후 attempt별 counted vs provider 보고 대조
+record_count_observation+record_cache_observation), 정적 bootstrap
+reason 4종(TOPOLOGY_MISMATCH/ARTIFACT_INVALID/MANIFEST_MISMATCH/
+ADAPTER_UNAVAILABLE)+worker>1 환경 신호 검증. chat_service: EXPOSE
+분기에 payload 공급+INJECTED 시 flow 소비(DELIVER_*만 전달, BLOCK=위험
+무관 일반 실패 문구), BYPASS/SUPPRESSED는 기존 generate_reading 경로
+그대로. shadow 비주입 가드 allowed에 bootstrap 등재(EXPOSE 전용 근거
+주석). pytest 2154·ruff·mypy 0(538)·manifest 일치.
+잔여: rerouting 시 모델별 context limit 재해소·kill switch/rollback
+e2e·worker=1 배포 preflight 문서·expose_pipeline 통합 감수 자료.
