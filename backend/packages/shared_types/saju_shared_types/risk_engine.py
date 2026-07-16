@@ -30,6 +30,9 @@ class RiskEngineMode(StrEnum):
 
     OFF = "off"
     SHADOW = "shadow"
+    # canary(감수 44차 — R4): allowlist 계정·감수 질문 유형·critical 강제
+    # 하향·tokenizer 지원 모델·충분한 headroom에만 주입하는 제한 노출 단계.
+    EXPOSE_CANARY = "expose_canary"
     EXPOSE = "expose"
 
 

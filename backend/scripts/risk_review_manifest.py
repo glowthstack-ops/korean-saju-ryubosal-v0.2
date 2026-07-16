@@ -24,6 +24,11 @@ from saju_engines.dictionaries import (  # noqa: E402
     _RISK_HASH_SCHEMA_VERSION,
     RISK_REVIEW_ENVIRONMENT_VERSION,
 )
+from saju_engines.risk_exposure import (  # noqa: E402
+    RISK_EXPOSURE_VERSION,
+    critical_validation_state,
+    expose_policy_hash,
+)
 from saju_engines.risk_presentation import (  # noqa: E402
     RISK_PRESENTATION_VERSION,
     presentation_policy_hash,
@@ -99,6 +104,15 @@ def build_manifest() -> dict:
         # scope shadow_presentation 0/49 — R3 측정·감수 후 스탬프.
         "risk_presentation_version": RISK_PRESENTATION_VERSION,
         "presentation_policy_hash": presentation_policy_hash(),
+        # EXPOSE 게이트(감수 44차 — R4): 전역 pipeline 계약(항목 scope 아님).
+        # critical 실증 상태는 presentation policy와 분리 — 상태 변화가
+        # 49항목 감수를 강등하지 않는다(EXPOSE 게이트 감수만 갱신).
+        "risk_exposure_version": RISK_EXPOSURE_VERSION,
+        "expose_pipeline": {
+            "reviewed": False,
+            "expose_policy_hash": expose_policy_hash(),
+            "critical_validation_state": critical_validation_state(),
+        },
         # transitionSensitivity 저작 현황(감수 39차 확정 — MAX_BONUS 0.20):
         # 분포 + high 항목별 판정 근거(상태 전환성 기준) 보존.
         "transition_sensitivity_distribution": dict(

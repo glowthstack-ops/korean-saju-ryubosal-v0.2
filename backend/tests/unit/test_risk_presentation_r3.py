@@ -350,7 +350,7 @@ def test_shadow_mode_no_prompt_wiring() -> None:
          str(backend / "apps"),
          str(backend / "packages" / "saju_engines" / "saju_engines")],
         capture_output=True, text=True, check=False).stdout.splitlines()
-    allowed = {"risk_presentation.py"}
+    allowed = {"risk_presentation.py", "risk_exposure.py"}
     offenders = [h for h in hits if Path(h).name not in allowed]
     assert offenders == [], offenders
     assert sys.modules  # sanity

@@ -8270,3 +8270,20 @@ compact 30/30(p50 272 tokens)·1024=P1~P2·2048=full. **shadow_presentation
 18종. pytest 2064·ruff·mypy 0(527)·baseline 값 불변·manifest 일치. REVIEW.md
 §26-3. 다음: EXPOSE 게이트 설계(critical 하향 게이트·tokenizer adapter·R5
 연동 — manifest 선행).
+
+## R4-a — EXPOSE 게이트(감수 44차 착수 승인, 2026-07-16)
+
+manifest 선행(REVIEW.md §27 — 8건: tokenizer 필수·전체 prompt headroom·
+episode/token budget 분리·computed/exposed 분리·critical 하향·단일
+fail-closed 게이트·전역 pipeline scope·canary). risk_exposure.py:
+tokenCountMode 3분류(heuristic=EXPOSE 금지), available/effective budget
+공식(<512 비주입), exposure_token_budget_for(768/1024 — R2 개수 예산과
+분리), apply_exposure_levels(critical→warning 하향·감사 computed 보존·LLM
+직렬화에서 사유 필드 제거), evaluate_risk_exposure_gate(reason codes 10종·
+관측값), RiskEngineMode.EXPOSE_CANARY 추가, critical_validation_state 분리
+(presentation policy hash에서 이동 — 상태 변화≠49항목 강등),
+expose_policy_hash·manifest expose_pipeline{reviewed:false} 병기.
+r4.0.0-gated. fixture 10종(§13). 주입 배선 없음(게이트 함수만 — off 기본
+불변). pytest 2074·ruff·mypy 0(529)·baseline 불변·manifest 일치.
+다음: R5 파이프라인 배선(주입 지점·tokenizer adapter 실물·canary allowlist)
+감수 후 EXPOSE_CANARY.

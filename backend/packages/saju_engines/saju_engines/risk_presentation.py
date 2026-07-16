@@ -68,15 +68,9 @@ _SCORE_BANDS = (("high", 0.40), ("elevated", 0.25), ("moderate", 0.12),
 # 양성 0건이라 분포 선택 불가 → 최강 표현에 맞는 보수 정책값. 실분포
 # calibration pending: EXPOSE에서 critical 활성화 전 golden corpus 필요).
 _CRITICAL_MIN_CONTEXT_CONFIDENCE = 0.75
-# critical 정책 검증 상태(감수 43차 §4 — manifest·감수 추적용).
-CRITICAL_POLICY_VALIDATION = {
-    "synthetic_fixtures": "passed",
-    "corpus_positive_cases": 0,
-    "empirical_calibration": "pending",
-    "expose_precondition": "감수된 critical golden corpus 또는 실사용"
-                           " confirmed 후보 확보 전에는 EXPOSE에서 critical을"
-                           " warning으로 하향하는 별도 노출 게이트 필요",
-}
+# critical 실증 검증 상태는 risk_exposure.critical_validation_state로
+# 분리(감수 44차 §2) — 실사용 양성 사례 추가가 49항목 shadow_presentation
+# 감수를 강등하지 않도록 정책 공식(본 모듈 hash)과 실증 상태를 분리한다.
 # token budget(감수 43차 확정): 기본 1024 · 안전 하한 512 — 512 미만이거나
 # P0_COMPACT조차 초과하면 위험 payload 전체 비주입(fail-closed).
 DEFAULT_RISK_PRESENTATION_BUDGET = 1024
@@ -641,7 +635,9 @@ def presentation_policy_hash() -> str:
                            "TOKEN_BUDGET_INSUFFICIENT(감사 기록 유지) —"
                            " overflow 주입 경로 없음(감수 43차)",
         },
-        "critical_policy_validation": CRITICAL_POLICY_VALIDATION,
+        "critical_validation": "실증 상태는 exposure 계층으로 분리"
+                               "(감수 44차 — risk_exposure."
+                               "critical_validation_state)",
         "mode": "SHADOW=payload 계산·검증만 — OFF와 최종 LLM 입력"
                 " byte-identical(주입 후 '사용 금지' 지시 방식 불허)"
                 "·EXPOSE=감수 payload만",
@@ -653,7 +649,6 @@ def presentation_policy_hash() -> str:
 
 
 __all__ = [
-    "CRITICAL_POLICY_VALIDATION",
     "DEFAULT_RISK_PRESENTATION_BUDGET",
     "GLOBAL_ALLOWED_CLAIM_CODES",
     "MIN_SAFE_RISK_PRESENTATION_BUDGET",

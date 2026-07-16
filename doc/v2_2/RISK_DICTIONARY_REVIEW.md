@@ -1677,3 +1677,106 @@ byte-identical.
 유형별 주입 조건·critical→warning 하향 게이트(golden corpus 확보 전)·모델
 tokenizer adapter 배선·R5(질문 파이프라인) 연동 지점 — manifest 선행 고정
 후 진행.
+
+## 27. R4 차수(감수 44차 착수 승인) manifest — EXPOSE 게이트 선행 고정 (2026-07-16)
+
+**핵심 원칙(데굴님)**: 위험 payload 자체가 안전하게 만들어졌더라도, 실제
+모델·질문·프롬프트의 남은 토큰과 감수 상태를 모두 확인하기 전에는 절대
+주입하지 않는다.
+
+착수 전 고정 8건(감수 44차 지시):
+
+1. **tokenizer 필수**: tokenCountMode 3분류(PROVIDER_EXACT/MODEL_TOKENIZER/
+   HEURISTIC_FALLBACK). heuristic은 SHADOW 측정 전용 — **EXPOSE 주입 금지**
+   (adapter 부재 시 exposureSuppressedReason=TOKENIZER_UNAVAILABLE
+   fail-closed). fallback을 상한으로 부풀리는 대신 정확한 adapter를 필수
+   조건으로 둔다.
+2. **최종 prompt 전체 headroom 기준**: available_risk_tokens =
+   model_context_limit − base_prompt − user_input − existing_context −
+   response_reserve − safety_headroom. effective_risk_budget =
+   min(질문 유형 token budget, DEFAULT 1024, available). <512 = 비주입 —
+   위험 payload가 기존 본문·용신·사건 근거를 밀어내지 않는다.
+3. **R2 episode budget ≠ R3 token budget**: episode_budget_for(개수)와
+   exposure_token_budget_for(직렬화 길이) 분리. 초기 token 정책:
+   specific_event 768 · single_domain_period 1024 · period_overview 1024 ·
+   multi_episode_compare 1024 · episode_followup 768(항상 headroom과 min).
+4. **computed vs exposed level 분리**: computedPresentationLevel(감사 보존)
+   과 exposedPresentationLevel(LLM 전달) — critical은 양성 코퍼스 확보 전
+   **warning으로 하향**(item-level exposureDowngradeReason=
+   CRITICAL_EMPIRICAL_VALIDATION_PENDING — payload 전체 차단 사유 아님).
+   critical_validation_state는 presentation policy hash에서 **분리**(실증
+   상태 변화가 49항목 shadow_presentation 감수를 강등하지 않음 — EXPOSE
+   게이트 감수 상태만 변경).
+5. **단일 fail-closed 게이트**: evaluate_risk_exposure_gate — mode·질문
+   allowlist·temporal scope(과거 회고=비주입)·risk intent·전 scope
+   reviewed·manifest/policy hash 일치·tokenizer·effective budget≥512·
+   비어 있지 않은 llmRiskEpisodes·claim lint·직렬화 성공 전부 통과 시만
+   주입. reason codes: MODE_NOT_EXPOSE/QUESTION_TYPE_NOT_ALLOWED/
+   SCOPE_NOT_REVIEWED/POLICY_HASH_MISMATCH/TOKENIZER_UNAVAILABLE/
+   TOKEN_BUDGET_INSUFFICIENT/NO_EXPOSABLE_EPISODE/CLAIM_POLICY_ERROR/
+   SERIALIZATION_ERROR(+item-level CRITICAL_EMPIRICAL_VALIDATION_PENDING).
+6. **질문 컨텍스트 조건**: questionType 단독이 아니라 temporalScope(과거
+   회고 제외)·targetDomains·targetEpisodeIds·riskIntentAllowed 병합 판정.
+   미등록·불명확 유형은 fail-closed 비주입.
+7. **전역 pipeline scope**: EXPOSE는 항목 49건 scope가 아니라 전역 계약 —
+   manifest에 expose_pipeline{reviewed:false, expose_policy_hash} 병기.
+   RISK_EXPOSURE_VERSION=**risk-expose-r4.0.0-gated**.
+8. **canary rollout**: 모드 4단(OFF/SHADOW/**EXPOSE_CANARY**/EXPOSE) —
+   canary는 allowlist 계정·감수 질문 유형·critical 강제 하향·adapter 지원
+   모델·충분한 headroom에만. 관측값: attempt/injected/suppressed(사유별)/
+   compression 분포/estimate vs actual/level 분포/critical downgraded/
+   claim violation.
+
+**주입 위치 계약(R5 연동)**: R3가 FULL/P2/P1/P0/P0_COMPACT/SUPPRESSED 중
+하나를 **완성된 단위로** 선택해 prompt builder에 전달 — 일반 context
+reducer가 위험 payload 필드를 임의 삭제하는 경로 금지. risk payload가
+suppressed면 모델이 위험 내용을 임의 보충하지 않도록 전역 계약 유지.
+warning-first는 서술 순서 규칙(신규 위험 생성 아님).
+
+### 27-1. R4-a 구현 결과 (2026-07-16 — gated·프롬프트 미배선)
+
+`risk_exposure.py` 신설(순수 — 파일·프롬프트 미접근, 단일 fail-closed 게이트):
+
+- **tokenCountMode 3분류** + EXPOSE 허용은 PROVIDER_EXACT/MODEL_TOKENIZER만
+  — heuristic fallback 또는 adapter 부재=TOKENIZER_UNAVAILABLE 비주입.
+- **headroom 기반 예산**: available_risk_tokens(limit−base−user−context−
+  reserve−safety 256) → effective=min(질문 유형 budget, DEFAULT 1024,
+  available), <512 비주입. **R2 episode budget과 분리**:
+  exposure_token_budget_for(specific 768·single_domain 1024·overview 1024·
+  compare 1024·followup 768, 미등록 fail-closed).
+- **computed/exposed level 분리**: apply_exposure_levels — critical은 실증
+  pending 동안 exposed=warning(item-level CRITICAL_EMPIRICAL_VALIDATION_
+  PENDING), 감사 record에 computed 보존, LLM 직렬화에는 exposed만(computed·
+  하향 사유 필드 제거). critical_validation_state를 presentation policy
+  hash에서 **분리**(상태 변화≠49항목 감수 강등 — manifest expose_pipeline에
+  병기).
+- **evaluate_risk_exposure_gate**: mode(OFF/SHADOW=MODE_NOT_EXPOSE·
+  EXPOSE_CANARY=allowlist 필수) → 질문 게이트(allowlist+temporal past_only
+  비주입+risk_intent) → scope reviewed → policy hash 일치 → tokenizer →
+  effective budget≥512 → 비어 있지 않은 episodes → critical 하향 → 직렬화
+  (claim lint ValueError=CLAIM_POLICY_ERROR·기타=SERIALIZATION_ERROR·
+  suppressed 문서=TOKEN_BUDGET_INSUFFICIENT). 전 조건 통과 시만 inject=true
+  + 관측값(attempted/injected/reason/effective_budget/compression/episode
+  수/critical_downgraded).
+- **모드 4단**: RiskEngineMode에 EXPOSE_CANARY 추가(OFF 기본 불변).
+- **감수 표면**: RISK_EXPOSURE_VERSION=risk-expose-r4.0.0-gated ·
+  expose_policy_hash(토큰 모드·예산 공식·질문 게이트·level 분리·reason
+  codes·모드·주입 위치 계약·관측값) · manifest expose_pipeline
+  {reviewed:false, hash, critical_validation_state} — **전역 pipeline
+  scope**(항목 49건 아님).
+
+fixture 10종(test_risk_exposure_r4.py — §13 전 항목): tokenizer 부재/
+heuristic 비주입 · adapter actual 계수 우선(과대 계수→비주입) · 전체 prompt
+headroom<512 비주입(payload 단독 크기 아님) · computed CRITICAL→exposed
+WARNING+감사 보존+원본 불변 · scope/hash 불일치 비주입 · OFF/SHADOW/CANARY
+게이트 · past_only/intent/미등록 유형 비주입 · episode/token budget 분리 ·
+P0_COMPACT 초과=전체 비주입 · 주입 직렬화에 exposed만+관측값.
+
+**게이트**: pytest 2074·ruff clean·mypy 0(529)·suppression diff 0·profile
+baseline exact·manifest 일치. RISK_ENGINE_MODE 기본 off 불변(주입 배선은
+R5 파이프라인 차수 — 게이트 함수만 존재, 호출 경로 없음).
+
+**감수 대기**: expose_pipeline reviewed:false — 배선(R5 질문 파이프라인
+주입 지점·tokenizer adapter 실물·canary allowlist 정책) 감수 후 EXPOSE_
+CANARY 개시. safety headroom 256·질문 유형 token 표는 잠정(canary 실측 후
+확정).

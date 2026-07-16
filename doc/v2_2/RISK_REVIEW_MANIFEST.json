@@ -8,7 +8,18 @@
   "selection_policy_hash": "e7d9795fd23c54eb",
   "transition_policy_hash": "49df076a0ad56cc1",
   "risk_presentation_version": "risk-present-r3.1.0-shadow",
-  "presentation_policy_hash": "fa183fbeea946528",
+  "presentation_policy_hash": "ce68dfc2c6c5fa0e",
+  "risk_exposure_version": "risk-expose-r4.0.0-gated",
+  "expose_pipeline": {
+    "reviewed": false,
+    "expose_policy_hash": "cf3844b67119a32b",
+    "critical_validation_state": {
+      "synthetic_fixtures": "passed",
+      "corpus_positive_cases": 0,
+      "empirical_calibration": "pending",
+      "expose_behavior": "pending 동안 computed CRITICAL → exposed WARNING(item-level downgrade, reason=CRITICAL_EMPIRICAL_VALIDATION_PENDING)"
+    }
+  },
   "transition_sensitivity_distribution": {
     "high": 4,
     "low": 26,
