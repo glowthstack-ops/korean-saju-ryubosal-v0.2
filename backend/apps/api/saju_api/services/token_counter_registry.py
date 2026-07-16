@@ -17,8 +17,17 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-__all__ = ["ProviderRequest", "TokenCounterAdapter", "register_adapter",
-           "resolve_counter"]
+__all__ = ["ADAPTER_VALIDATION_STATES", "ProviderRequest",
+           "TokenCounterAdapter", "register_adapter", "resolve_counter",
+           "resolve_validated_counter", "set_validation_state"]
+
+# adapter 검증 상태(감수 50차 §4): EXPOSE 주입 자격=VALIDATED만.
+# UNREGISTERED→SHADOW_VALIDATING(등록 직후 — shadow에서 counted vs
+# provider_reported 대조)→VALIDATED(감수)→SUSPENDED(오차 허용 초과 시).
+# calibration 용어: counted_request_tokens / provider_reported_input_tokens
+# / token_count_delta / token_count_relative_error.
+ADAPTER_VALIDATION_STATES = ("UNREGISTERED", "SHADOW_VALIDATING",
+                             "VALIDATED", "SUSPENDED")
 
 
 @dataclass(frozen=True)
@@ -63,6 +72,7 @@ class TokenCounterAdapter:
 
 
 _REGISTRY: dict[str, TokenCounterAdapter] = {}
+_VALIDATION: dict[str, str] = {}  # model_id → 검증 상태(기본 SHADOW_VALIDATING)
 
 
 def register_adapter(adapter: TokenCounterAdapter) -> None:
@@ -70,6 +80,28 @@ def register_adapter(adapter: TokenCounterAdapter) -> None:
     if adapter.mode not in ("PROVIDER_EXACT", "MODEL_TOKENIZER"):
         raise ValueError(f"EXPOSE 불가 token mode: {adapter.mode}")
     _REGISTRY[adapter.model_id] = adapter
+    # 등록≠검증(감수 50차 §4 — 등록과 canary 활성화 분리): shadow 대조 후
+    # 감수를 거쳐야 VALIDATED가 된다.
+    _VALIDATION.setdefault(adapter.model_id, "SHADOW_VALIDATING")
+
+
+def set_validation_state(model_id: str, state: str) -> None:
+    """adapter 검증 상태 전환(감수 절차 전용) — 미등록 상태값 거부."""
+    if state not in ADAPTER_VALIDATION_STATES:
+        raise ValueError(f"미지원 검증 상태: {state}")
+    _VALIDATION[model_id] = state
+
+
+def resolve_validated_counter(
+        resolved_model_id: str) -> TokenCounterAdapter | None:
+    """EXPOSE 주입용 해소(감수 50차 §4) — **VALIDATED 상태만** 반환.
+
+    SHADOW_VALIDATING/SUSPENDED/미등록은 None(게이트 BYPASS). shadow
+    측정에는 resolve_counter(상태 무관)를 쓴다.
+    """
+    if _VALIDATION.get(resolved_model_id) != "VALIDATED":
+        return None
+    return _REGISTRY.get(resolved_model_id)
 
 
 def resolve_counter(resolved_model_id: str) -> TokenCounterAdapter | None:

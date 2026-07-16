@@ -26,6 +26,9 @@ from saju_engines.risk_exposure import (
     expose_policy_hash,
     verify_risk_block_integrity,
 )
+from saju_engines.risk_question_mapping import (
+    map_intent_to_exposure_question,
+)
 from saju_shared_types.risk_engine import RiskEngineMode
 
 _logger = logging.getLogger("saju.risk_exposure")
@@ -54,16 +57,26 @@ def _load_manifest_snapshot() -> dict:
         schema = int(manifest.get("hash_schema_version", -1))
         if schema not in _SUPPORTED_MANIFEST_SCHEMA_VERSIONS:
             raise ValueError(f"미지원 manifest schema: {schema}")
-        pipeline = manifest.get("expose_pipeline") or {}
+        pipeline = manifest["expose_pipeline"]  # strict — 부재=실패
+        if not isinstance(pipeline, dict):
+            raise ValueError("expose_pipeline 타입 불일치")
+        reviewed = pipeline["reviewed"]
+        if not isinstance(reviewed, bool):
+            raise ValueError("reviewed 타입 불일치")
+        policy_hash = pipeline["expose_policy_hash"]
+        if not isinstance(policy_hash, str):
+            raise ValueError("expose_policy_hash 타입 불일치")
+        # canonical hash(감수 50차 §2): 공백·키 순서 차이에 불변 — parse된
+        # JSON의 canonical 직렬화 기준.
+        canonical = json.dumps(manifest, sort_keys=True, ensure_ascii=False)
         return {
-            "reviewed": bool(pipeline.get("reviewed")),
-            "hash_ok": (pipeline.get("expose_policy_hash")
-                        == expose_policy_hash()),
+            "reviewed": reviewed,
+            "hash_ok": policy_hash == expose_policy_hash(),
             "schema_version": schema,
             "snapshot_hash": hashlib.sha256(
-                raw.encode()).hexdigest()[:16],
+                canonical.encode()).hexdigest()[:16],
         }
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError, KeyError):
         return {"reviewed": False, "hash_ok": False,
                 "schema_version": None, "snapshot_hash": None}
 
@@ -98,6 +111,7 @@ def apply_risk_exposure(
     prompt_text: str,
     system: str | None,
     *,
+    intent=None,  # IntentJson — 지정 시 파서 SSOT 매핑(감수 50차 §9-①)
     payload: dict | None = None,
     question_type: str | None = None,
     temporal_scope: str | None = None,
@@ -118,6 +132,14 @@ def apply_risk_exposure(
     prompt에 부착하고, 아니면 suppressed guard만 부착한다(주입 실패 상태로
     위험 정보를 절대 싣지 않음). 반환: (prompt, system, observability).
     """
+    if intent is not None:
+        # 파서 정본 매핑(감수 50차 §9-① — fail-closed): 매핑 실패(None)면
+        # 미매핑 상태 유지 → 게이트가 QUESTION_TYPE_NOT_ALLOWED로 BYPASS.
+        mapped = map_intent_to_exposure_question(intent)
+        if mapped is not None:
+            question_type = mapped["question_type"]
+            temporal_scope = mapped["temporal_scope"]
+            future_period_range = mapped["future_period_range"]
     mode = (RiskEngineMode.EXPOSE
             if risk_engine_config.RISK_ENGINE_MODE == "expose"
             else RiskEngineMode.EXPOSE_CANARY)

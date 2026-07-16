@@ -17,7 +17,7 @@ import json
 # claim audit 정책 버전(감수 46차 §16) — 패턴·qualifier registry·재작성
 # 정책 변경 시 올린다(claim_audit_policy_hash 변경 = expose_pipeline 재감수
 # 신호 — manifest 병기).
-RISK_CLAIM_AUDIT_VERSION = "risk-claim-audit-r5.2.0"
+RISK_CLAIM_AUDIT_VERSION = "risk-claim-audit-r5.3.0"
 # 재작성 정책(감수 46차 §11): 무제한 재생성 금지.
 MAX_RISK_REVISION_ATTEMPTS = 1
 
@@ -57,6 +57,9 @@ _PROHIBITED_PATTERNS: dict[str, tuple[str, ...]] = {
         # 이중 부정(감수 49차 §6) — 위험 가능성을 강화하는 표현.
         "않는다고 볼 수는 없", "않는다고 볼 수는 아닙", "아닐 수는 없",
         "배제할 수 없",
+        # 확률을 가장한 단정·부정 뒤 재강화(감수 50차 §8).
+        "거의 확실하게", "사실상 결과가 정해진", "가능성이 매우 높아 피하기",
+        "실질적으로 손해를 피하기", "사실상 종료 수순",
     ),
 }
 # 절 단위 부정문(감수 49차 §6 — 25자 창 기각·교체): 매치가 속한 **절**
@@ -120,8 +123,20 @@ def audit_generated_risk_claims(
     for code, patterns in _PROHIBITED_PATTERNS.items():
         for pat in patterns:
             idx = answer.find(pat)
-            if idx >= 0 and not _negated(idx, pat):
-                violations.append({"code": code, "matched": pat})
+            if idx < 0:
+                continue
+            negated = _negated(idx, pat)
+            if negated:
+                continue  # 같은 절 부정 — 예외(evidence는 위반만 기록)
+            # 감사 evidence(감수 50차 §7 — canary 표본 재현용): 원문 장기
+            # 저장 없이 span·절 정보만.
+            violations.append({
+                "code": code, "matched": pat,
+                "matched_span": [idx, idx + len(pat)],
+                "clause_text": _clause_of(answer, idx)[:80],
+                "negation_status": "not_negated",
+                "exception_applied": False,
+            })
     for phrase in episode_prohibited_phrases or []:
         # 사전 원문은 '~단정' 형태의 지침이라 어간만 대조(예: "계약 무산
         # 단정" → "계약 무산"이 단정형으로 등장하는지).
@@ -266,7 +281,42 @@ def validate_risk_guidance_envelope(
         if _LEVEL_RANK.get(lv, 0) >= _LEVEL_RANK["warning"] and (
                 k not in seen):
             errors.append(f"MISSING_REQUIRED_RISK_EPISODE:{k}")
+    # 부분수열 검증(감수 50차 §5): watch/advisory 생략이 허용되므로 완전
+    # 동일 비교가 아니라 — 생성 순서가 입력 순서(R3 warning-first)의
+    # **부분수열**이어야 한다(B,A 같은 역전 금지).
+    gen_keys = [str(s.get("episode_key", "")) for s in sections
+                if str(s.get("episode_key", "")) in levels]
+    pos = {k: i for i, k in enumerate(allowed_keys)}
+    indices = [pos[k] for k in gen_keys if k in pos]
+    if indices != sorted(indices):
+        errors.append("ORDER_NOT_SUBSEQUENCE")
     return errors
+
+
+def validate_injected_guidance_presence(
+    guidance: list[dict] | None, llm_episodes: list[dict],
+) -> list[str]:
+    """None vs 빈 배열 계약(감수 50차 §5): INJECTED인데 risk_guidance 필드
+    자체가 없음(None)=schema 실패, []는 필수 WARNING episode가 없을 때만
+    허용."""
+    if guidance is None:
+        return ["RISK_GUIDANCE_FIELD_MISSING"]
+    if guidance == []:
+        has_warning = any(
+            _LEVEL_RANK.get(str(e.get("presentationLevel", "")), 0)
+            >= _LEVEL_RANK["warning"] for e in llm_episodes)
+        return (["EMPTY_GUIDANCE_WITH_REQUIRED_WARNING"]
+                if has_warning else [])
+    return validate_risk_guidance_envelope(guidance, llm_episodes)
+
+
+def audit_rendered_output(final_text: str,
+                          episode_keys: list[str]) -> list[str]:
+    """renderer 후 최종 사용자 문자열 감사 보조(감수 50차 §6): 내부
+    episode_key가 최종 Markdown에 노출되면 실패(INTERNAL_KEY_LEAKED) —
+    본 검사는 전체 claim audit(audit_generated_risk_claims)와 병행한다."""
+    return [f"INTERNAL_KEY_LEAKED:{k}" for k in episode_keys
+            if k and k in final_text]
 
 
 def plan_remediation(attempt: int, audit_action: str) -> str:
@@ -312,7 +362,13 @@ def claim_audit_policy_hash() -> str:
         "max_revision_attempts": MAX_RISK_REVISION_ATTEMPTS,
         "remediation_order": "REVISE(1회) → REGENERATE_WITHOUT_RISK →"
                              " BLOCK — 위반 초안 직접 전달 경로 없음",
-        "audit_scope": "risk section(episode별) + whole answer 병행",
+        "audit_scope": "risk section(episode별) + whole answer 병행 +"
+                       " renderer 후 최종 문자열(key 비노출 포함)",
+        "evidence": "violation에 matched_span·clause_text(80자)·negation"
+                    "_status 보존 — 원문 장기 저장 없음(감수 50차 §7)",
+        "order_check": "부분수열(watch/advisory 생략 허용·역전 금지)",
+        "presence_contract": "INJECTED+guidance None=schema 실패 / []="
+                             "필수 warning 없을 때만 허용(감수 50차 §5)",
     }
     return hashlib.sha256(json.dumps(
         policy, sort_keys=True, ensure_ascii=False).encode()
@@ -326,5 +382,7 @@ __all__ = [
     "audit_risk_sections",
     "claim_audit_policy_hash",
     "plan_remediation",
+    "audit_rendered_output",
+    "validate_injected_guidance_presence",
     "validate_risk_guidance_envelope",
 ]

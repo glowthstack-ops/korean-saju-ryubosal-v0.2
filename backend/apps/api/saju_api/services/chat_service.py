@@ -3664,6 +3664,7 @@ def chat(
         prompt_text, system, _risk_obs = (
             risk_exposure_service.apply_risk_exposure(
                 prompt_text, system,
+                intent=intent,  # 파서 SSOT 매핑(감수 50차 — fail-closed)
                 subject_id=owner_id,
                 model_context_limit=0,  # adapter 배선 전 — 게이트 fail-closed
             ))

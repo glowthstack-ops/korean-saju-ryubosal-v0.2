@@ -559,3 +559,137 @@ def test_count_request_covers_whole_provider_request() -> None:
         generation_config="cfg")
     # 구성요소 전부 합산(3+4+6+3) + wrapper 여유(4×4).
     assert adapter.count_request(req) == 3 + 4 + 6 + 3 + 16
+
+
+# ── 감수 50차 fixture ─────────────────────────────────────────────
+
+
+def test_intent_mapping_ssot_and_fail_closed() -> None:
+    """질문 파서 SSOT 매핑(감수 50차 §9-①): 정본 IntentJson에서만 매핑,
+    미등록 유형·불명확 시간·미래 범위 산출 실패·비단독 대상=fail-closed."""
+    from saju_engines.risk_question_mapping import (
+        map_intent_to_exposure_question,
+    )
+    from saju_shared_types.intent import (
+        Domain,
+        IntentJson,
+        QueryType,
+        SubjectMode,
+        TimeRange,
+        TimeScope,
+    )
+
+    def _intent(**kw):
+        base = dict(intent_id="i1", query_type=QueryType.FORTUNE_OVERVIEW,
+                    time_scope=TimeScope.MID_TERM,
+                    time_range=TimeRange(type="relative",
+                                         granularity="month",
+                                         start="2026-07", end="2027-06"),
+                    domains=[Domain.WEALTH])
+        base.update(kw)
+        return IntentJson(**base)
+
+    ok = map_intent_to_exposure_question(_intent())
+    assert ok == {"question_type": "period_overview",
+                  "temporal_scope": "future",
+                  "future_period_range": ("2026-07", "2027-06"),
+                  "target_domains": ("finance",)}
+    # fail-closed 4종.
+    assert map_intent_to_exposure_question(
+        _intent(query_type=QueryType.CHART_ANALYSIS)) is None
+    assert map_intent_to_exposure_question(
+        _intent(time_scope=TimeScope.TIMELESS)) is None
+    assert map_intent_to_exposure_question(
+        _intent(time_range=None)) is None
+    assert map_intent_to_exposure_question(
+        _intent(subject_mode=SubjectMode.PAIRWISE)) is None
+    # 과거 회고 → past_only(게이트가 비주입 판단).
+    past = map_intent_to_exposure_question(
+        _intent(time_scope=TimeScope.PAST, time_range=None))
+    assert past is not None and past["temporal_scope"] == "past_only"
+
+
+def test_safe_response_sequence_is_fixed() -> None:
+    """safe response 우선순위 고정(감수 50차 §3): 재생성 1회→감사→전달/
+    fallback→BLOCK — 호출부 임의 선택 금지, 최종 감사 생략 경로 없음."""
+    from saju_engines.risk_exposure import plan_safe_response
+
+    assert plan_safe_response(0, False) == "SAFE_REGENERATE_ONCE"
+    assert plan_safe_response(1, True) == "DELIVER"
+    assert plan_safe_response(1, False) == "DETERMINISTIC_FALLBACK"
+    assert plan_safe_response(2, True) == "DELIVER"
+    assert plan_safe_response(2, False) == "BLOCK"
+    assert plan_safe_response(3, True) == "BLOCK"
+
+
+def test_adapter_validation_states_gate_expose() -> None:
+    """adapter 검증 상태기(감수 50차 §4): 등록≠검증 — EXPOSE 해소는
+    VALIDATED만, SHADOW_VALIDATING/SUSPENDED=None(BYPASS)."""
+    import pytest as _pytest
+
+    from saju_api.services.token_counter_registry import (
+        TokenCounterAdapter,
+        register_adapter,
+        resolve_counter,
+        resolve_validated_counter,
+        set_validation_state,
+    )
+
+    register_adapter(TokenCounterAdapter(
+        model_id="val-model", mode="MODEL_TOKENIZER", counter=len))
+    assert resolve_counter("val-model") is not None  # shadow 측정용
+    assert resolve_validated_counter("val-model") is None  # 검증 전
+    set_validation_state("val-model", "VALIDATED")
+    assert resolve_validated_counter("val-model") is not None
+    set_validation_state("val-model", "SUSPENDED")
+    assert resolve_validated_counter("val-model") is None
+    with _pytest.raises(ValueError):
+        set_validation_state("val-model", "WHATEVER")
+
+
+def test_envelope_subsequence_and_presence_contract() -> None:
+    """부분수열 검증(감수 50차 §5): A,B,C 입력에서 A,C 허용·B,A 역전 실패.
+    None=schema 실패, []=필수 warning 있으면 실패."""
+    from saju_engines.risk_claim_audit import (
+        validate_injected_guidance_presence,
+        validate_risk_guidance_envelope,
+    )
+
+    llm = [{"episodeKey": "A", "presentationLevel": "warning"},
+           {"episodeKey": "B", "presentationLevel": "watch"},
+           {"episodeKey": "C", "presentationLevel": "advisory"}]
+    ok = validate_risk_guidance_envelope(
+        [{"episode_key": "A", "exposed_level": "warning", "text": "x"},
+         {"episode_key": "C", "exposed_level": "advisory", "text": "y"}],
+        llm)
+    assert ok == []  # watch 생략 + 부분수열 유지
+    bad = validate_risk_guidance_envelope(
+        [{"episode_key": "B", "exposed_level": "watch", "text": "x"},
+         {"episode_key": "A", "exposed_level": "warning", "text": "y"}],
+        llm)
+    assert any(e.startswith("ORDER_NOT_") for e in bad)
+    assert validate_injected_guidance_presence(None, llm) == [
+        "RISK_GUIDANCE_FIELD_MISSING"]
+    assert validate_injected_guidance_presence([], llm) == [
+        "EMPTY_GUIDANCE_WITH_REQUIRED_WARNING"]
+    only_watch = [{"episodeKey": "B", "presentationLevel": "watch"}]
+    assert validate_injected_guidance_presence([], only_watch) == []
+
+
+def test_rendered_output_key_leak_and_evidence() -> None:
+    """episode_key 비노출(감수 50차 §6) + 감사 evidence(§7 — span·절)."""
+    from saju_engines.risk_claim_audit import (
+        audit_generated_risk_claims,
+        audit_rendered_output,
+    )
+
+    leaked = audit_rendered_output(
+        "하반기에는 reality:deal_1 관련 점검이 필요합니다.",
+        ["reality:deal_1", "explicit:legal:e2"])
+    assert leaked == ["INTERNAL_KEY_LEAKED:reality:deal_1"]
+    assert audit_rendered_output("점검이 필요합니다.", ["reality:d"]) == []
+    out = audit_generated_risk_claims("이 문제는 거의 확실하게 현실화됩니다.")
+    v = out["violations"][0]
+    assert v["code"] == "circumvented_certainty"
+    assert v["matched_span"][0] >= 0 and "clause_text" in v
+    assert v["negation_status"] == "not_negated"

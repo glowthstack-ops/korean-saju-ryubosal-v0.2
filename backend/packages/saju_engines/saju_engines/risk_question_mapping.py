@@ -1,0 +1,96 @@
+"""질문 파서 → 위험 노출 질문 컨텍스트 매핑 R5 (감수 50차 §9-① — SSOT).
+
+새 분류기를 만들지 않는다 — 기존 query_parser의 IntentJson(정본)에서만
+매핑한다. **fail-closed**: 미등록 질문 유형·불명확한 시간 범위(TIMELESS·
+LIFE_STAGE)·미래 범위 산출 실패(time_range 부재)·과거 회고 전부 None →
+게이트 BYPASS(guard조차 없음). episode_followup은 저장된 canonical
+episode ID가 있을 때만 허용(문자열 유사도 추정 금지 — canary 2차 확대
+전까지 미매핑).
+"""
+
+from __future__ import annotations
+
+from saju_shared_types.intent import Domain, IntentJson, QueryType, TimeScope
+
+__all__ = ["map_intent_to_exposure_question"]
+
+# QueryType → 노출 질문 유형(감수 50차 — 보수 매핑: 초기 canary 3유형만.
+# COMPARISON→multi_episode_compare는 정의만 두고 canary allowlist가 차단,
+# TIMING_SEARCH(좋은 시기 탐색)는 위험 주입 적합성 별도 감수 전 미매핑).
+_QUERY_TYPE_MAP: dict[QueryType, str] = {
+    QueryType.FORTUNE_OVERVIEW: "period_overview",
+    QueryType.DOMAIN_ANALYSIS: "single_domain_period",
+    QueryType.EVENT_EXPLANATION: "specific_event",
+    QueryType.DECISION_SUPPORT: "specific_event",
+    QueryType.COMPARISON: "multi_episode_compare",
+}
+# TimeScope → temporal scope(불명확=매핑 없음 → fail-closed).
+_TIME_SCOPE_MAP: dict[TimeScope, str] = {
+    TimeScope.LONG_TERM: "future",
+    TimeScope.MID_TERM: "future",
+    TimeScope.SHORT_TERM: "future",
+    TimeScope.DATE_LEVEL: "future",
+    TimeScope.DAEWOON_UNIT: "future",
+    TimeScope.PAST: "past_only",
+}
+# 파서 Domain → 위험 도메인(risk 7도메인 어휘) — general은 무제약.
+_DOMAIN_MAP: dict[Domain, str] = {
+    Domain.CAREER: "career",
+    Domain.RELATIONSHIP: "relationship",
+    Domain.RELOCATION: "relocation",
+    Domain.WEALTH: "finance",
+    Domain.HEALTH: "health_safety",
+    Domain.EDUCATION: "selection",
+}
+
+
+def _period_label_ok(label: str) -> bool:
+    """미래 범위 라벨 검증 — YYYY 또는 YYYY-MM만(그 외=산출 실패)."""
+    if len(label) == 4 and label.isdigit():
+        return True
+    return (len(label) == 7 and label[4] == "-"
+            and label[:4].isdigit() and label[5:7].isdigit())
+
+
+def map_intent_to_exposure_question(intent: IntentJson) -> dict | None:
+    """IntentJson → 노출 게이트 질문 컨텍스트(감수 50차 — SSOT·fail-closed).
+
+    반환: {"question_type", "temporal_scope", "future_period_range",
+    "target_domains"} 또는 **None**(매핑 불가 — 게이트 BYPASS). None 사유:
+    미등록 query_type·불명확 time_scope(TIMELESS/LIFE_STAGE 등)·미래 질문의
+    time_range 부재/라벨 비정형(미래 범위 산출 실패)·subject가 본인 단독이
+    아닌 질문(동반자 위험 노출은 별도 감수 전 금지).
+    """
+    question_type = _QUERY_TYPE_MAP.get(intent.query_type)
+    if question_type is None:
+        return None
+    temporal = _TIME_SCOPE_MAP.get(intent.time_scope)
+    if temporal is None:
+        return None  # TIMELESS·LIFE_STAGE·HOUR_LEVEL 등 — 불명확=fail-closed
+    if intent.subject_mode.value != "single":
+        return None  # 동반자·비교 대상 위험 노출은 별도 감수 전 금지
+    future_range: tuple[str, str] | None = None
+    if temporal == "future":
+        tr = intent.time_range
+        if tr is None or not tr.start or not tr.end:
+            return None  # 미래 범위 산출 실패 — fail-closed
+        start, end = str(tr.start)[:7], str(tr.end)[:7]
+        if not (_period_label_ok(start[:4]) or _period_label_ok(start)):
+            return None
+        if not (_period_label_ok(end[:4]) or _period_label_ok(end)):
+            return None
+        # 라벨 정규화: YYYY-MM-DD → YYYY-MM.
+        start = start if _period_label_ok(start) else start[:4]
+        end = end if _period_label_ok(end) else end[:4]
+        future_range = (start, end)
+    domains = []
+    for d in (intent.domains or [intent.domain]):
+        mapped = _DOMAIN_MAP.get(d)
+        if mapped:
+            domains.append(mapped)
+    return {
+        "question_type": question_type,
+        "temporal_scope": temporal,
+        "future_period_range": future_range,
+        "target_domains": tuple(sorted(set(domains))),
+    }

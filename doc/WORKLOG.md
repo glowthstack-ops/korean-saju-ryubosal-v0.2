@@ -8357,3 +8357,16 @@ TOKEN_OVERFLOW→RISK_SAFE_RESPONSE_REQUIRED(조용한 원 prompt 호출 경로
 4종). fixture +6(통합 28종). pytest 2102·ruff·mypy 0(533)·baseline 불변·
 manifest 일치. REVIEW.md §28-5. 잔여: 질문 파서 매핑→adapter shadow 등록→
 envelope 배선→재작성 실배선→provider 검증→renderer 감사→감수→canary.
+
+## 감수 50차 — 파서 SSOT 매핑·safe response 순서·validation 상태기 (2026-07-16)
+
+risk_question_mapping 신설(IntentJson 정본만 — 미등록 유형·TIMELESS·
+time_range 부재·비단독 subject=fail-closed None→BYPASS, chat이 intent
+전달)·plan_safe_response(재생성 1회→감사→전달/fallback→BLOCK 고정)·strict
+manifest schema+canonical snapshot hash·adapter 검증 상태기(VALIDATED만
+EXPOSE 해소·등록≠검증)·envelope 부분수열 검증+presence 계약(None/빈 배열)
++episode_key 비노출 감사·audit evidence(span·절·negation)+확률 가장 단정
+패턴(r5.3.0). fixture +5(통합 33종). pytest 2107·ruff·mypy 0(534)·baseline
+불변·manifest 일치. REVIEW.md §28-6. 잔여: adapter 실물 shadow 등록·output
+envelope provider 강제·재작성 실배선·provider 직전 검증·renderer 감사 배선
+→ expose_pipeline 감수 → canary 전환(별도 커밋).

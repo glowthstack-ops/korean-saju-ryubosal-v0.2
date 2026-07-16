@@ -71,6 +71,30 @@ EXPOSURE_SUPPRESSION_REASONS = (
 RISK_SAFE_RESPONSE_REQUIRED = "RISK_SAFE_RESPONSE_REQUIRED"
 # 재조립 시도 상한(감수 49차 §3 — 재귀 금지): INITIAL → REBUILD(1회) → TERMINAL.
 MAX_SUPPRESSED_REBUILD_ATTEMPTS = 1
+# safe response 우선순위(감수 50차 §3 — 호출부 임의 선택 금지·순서 고정):
+# ①risk 없이 안전 재생성 1회 → ②renderer 후 전체 claim audit → ③통과=전달
+# → ④실패=결정적 안전 fallback → ⑤fallback 불가/감사 실패=BLOCK.
+# 어느 단계에도 사용자 전달 전 최종 문자열 감사 생략 경로 없음.
+RISK_SAFE_RESPONSE_SEQUENCE = (
+    "SAFE_REGENERATE_ONCE", "RENDERED_AUDIT", "DELIVER_IF_CLEAN",
+    "DETERMINISTIC_FALLBACK", "BLOCK",
+)
+
+
+def plan_safe_response(step: int, audit_ok: bool) -> str:
+    """RISK_SAFE_RESPONSE_REQUIRED 이후의 결정적 처리(감수 50차 §3).
+
+    step 0=안전 재생성 시도 전 → SAFE_REGENERATE_ONCE. step 1=재생성 결과
+    감사 후 → 통과=DELIVER, 실패=DETERMINISTIC_FALLBACK. step 2=fallback
+    감사 후 → 통과=DELIVER, 실패=BLOCK. 그 이상=BLOCK.
+    """
+    if step == 0:
+        return "SAFE_REGENERATE_ONCE"
+    if step == 1:
+        return "DELIVER" if audit_ok else "DETERMINISTIC_FALLBACK"
+    if step == 2:
+        return "DELIVER" if audit_ok else "BLOCK"
+    return "BLOCK"
 # 하위 호환·명칭 정리(감수 48차 §2): disposition 분리 후에는 BYPASS 사유까지
 # 'suppression'이라 부르지 않는다 — 게이트 반환은 decision reason 스키마
 # (primary_decision_reason/all_decision_reasons)가 정본이고, 기존 키는
@@ -639,6 +663,7 @@ def expose_policy_hash() -> str:
                                   " suppression 아님 — 감수 48차 §2), 구"
                                   " 필드=정본 복사만(불일치 0·r4.2.0 제거"
                                   " 예정), 관측은 disposition 분리 집계",
+        "safe_response_sequence": list(RISK_SAFE_RESPONSE_SEQUENCE),
         "rebuild_policy": "재조립 최대 1회(INITIAL→REBUILD→TERMINAL) —"
                           " guard 포함 prompt조차 예산 초과 시"
                           " SUPPRESSED_GUARD_TOKEN_OVERFLOW +"
@@ -684,6 +709,8 @@ __all__ = [
     "EXPOSURE_DECISION_REASONS",
     "MAX_SUPPRESSED_REBUILD_ATTEMPTS",
     "RISK_SAFE_RESPONSE_REQUIRED",
+    "RISK_SAFE_RESPONSE_SEQUENCE",
+    "plan_safe_response",
     "resolve_block_integrity_failure",
     "resolve_guard_overflow",
     "RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE",

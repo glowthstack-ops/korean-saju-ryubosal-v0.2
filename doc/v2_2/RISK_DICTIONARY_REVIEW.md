@@ -2037,3 +2037,46 @@ baseline 불변·manifest 일치. 3중 잠금 유지.
 계수 검증 → 구조화 output envelope 배선 → 재작성/재생성 LLM 실배선 →
 provider 직전 검증 → renderer 후 최종 감사 → expose_pipeline 감수 →
 r4.1.0-canary(별도 커밋 전환).
+
+### 28-6. 감수 50차 반영 — 파서 SSOT 매핑·safe response 순서·validation 상태기·부분수열·evidence (2026-07-16)
+
+1. **질문 파서 SSOT 매핑(§9-① — risk_question_mapping)**: IntentJson
+   정본에서만 매핑(새 분류기 없음) — FORTUNE_OVERVIEW→period_overview·
+   DOMAIN_ANALYSIS→single_domain_period·EVENT_EXPLANATION/DECISION_SUPPORT
+   →specific_event·COMPARISON→multi_episode_compare(canary allowlist가
+   차단). **fail-closed**: 미등록 query_type(chart_analysis·remedy 등)·
+   불명확 time_scope(TIMELESS·LIFE_STAGE)·미래 질문의 time_range 부재/라벨
+   비정형·비단독 subject(동반자 위험 노출은 별도 감수 전 금지)=None →
+   BYPASS. TIMING_SEARCH(좋은 시기 탐색)는 적합성 별도 감수 전 미매핑.
+   PAST→past_only(게이트 차단). Domain→위험 도메인 매핑(wealth→finance·
+   health→health_safety·education→selection). chat_service가 intent를
+   서비스에 전달(파서 정본 소비).
+2. **safe response 순서 고정(§3)**: RISK_SAFE_RESPONSE_SEQUENCE + plan_
+   safe_response — 안전 재생성 1회→renderer 후 전체 감사→통과=전달/실패=
+   결정적 fallback→fallback 감사 실패=BLOCK(호출부 임의 선택 금지·최종
+   감사 생략 경로 없음). policy hash 편입.
+3. **strict manifest schema + canonical hash(§2)**: 필수 필드 부재·타입
+   불일치=실패(get 기본값 제거), snapshot_hash를 canonical parsed JSON
+   (sort_keys) 기준으로 — 공백·키 순서 차이에 불변.
+4. **adapter 검증 상태기(§4)**: UNREGISTERED/SHADOW_VALIDATING(등록
+   직후)/VALIDATED/SUSPENDED — resolve_validated_counter는 **VALIDATED만**
+   반환(EXPOSE 자격), shadow 측정은 resolve_counter. calibration 용어
+   (counted vs provider_reported·delta·relative_error) 문서화.
+5. **envelope 보강(§5·6)**: 생성 순서=입력 순서의 **부분수열**(watch/
+   advisory 생략 허용·역전 금지 — ORDER_NOT_SUBSEQUENCE),
+   validate_injected_guidance_presence(None=RISK_GUIDANCE_FIELD_MISSING·
+   []=필수 warning 있으면 실패), audit_rendered_output(내부 episode_key의
+   최종 Markdown 노출=INTERNAL_KEY_LEAKED).
+6. **audit evidence + FP/FN 확장(§7·8 — r5.3.0)**: violation에 matched_
+   span·clause_text(80자)·negation_status·exception_applied 보존(원문
+   장기 저장 없음), 확률 가장 단정("거의 확실하게"·"사실상 결과가 정해진"
+   등)·부정 뒤 재강화("실질적으로 손해를 피하기") 패턴 편입.
+
+fixture +5(통합 33종). **게이트**: pytest 2107·ruff clean·mypy 0(534)·
+baseline 불변·manifest 일치. 3중 잠금 유지.
+
+**잔여(canary 개시 전)**: adapter 실물 shadow 등록·provider 계수 대조 →
+구조화 output envelope의 provider schema 강제 배선 → 재작성/재생성 LLM
+실배선(plan_remediation·plan_safe_response 소비) → provider 직전 검증
+(snapshot 동일성·validated counter·token·marker·checksum·disposition) →
+renderer 후 최종 감사 배선 → expose_pipeline 감수 → 별도 커밋 canary 전환.
