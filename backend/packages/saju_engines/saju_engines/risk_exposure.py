@@ -64,7 +64,13 @@ EXPOSURE_SUPPRESSION_REASONS = (
     "SERIALIZATION_ERROR",
     "FINAL_PROMPT_TOKEN_OVERFLOW",
     "RISK_BLOCK_INTEGRITY_ERROR",
+    "SUPPRESSED_GUARD_TOKEN_OVERFLOW",
 )
+# 재조립 종결 정책(감수 49차 §3): guard 포함 prompt조차 예산 초과 —
+# guard 없이 원 prompt로 조용히 호출하는 경로는 존재하지 않는다.
+RISK_SAFE_RESPONSE_REQUIRED = "RISK_SAFE_RESPONSE_REQUIRED"
+# 재조립 시도 상한(감수 49차 §3 — 재귀 금지): INITIAL → REBUILD(1회) → TERMINAL.
+MAX_SUPPRESSED_REBUILD_ATTEMPTS = 1
 # 하위 호환·명칭 정리(감수 48차 §2): disposition 분리 후에는 BYPASS 사유까지
 # 'suppression'이라 부르지 않는다 — 게이트 반환은 decision reason 스키마
 # (primary_decision_reason/all_decision_reasons)가 정본이고, 기존 키는
@@ -294,7 +300,8 @@ def evaluate_risk_exposure_gate(
             # 정본 스키마(감수 48차 §2) — BYPASS 사유는 suppression이 아님.
             "primary_decision_reason": primary,
             "all_decision_reasons": alls,
-            # 하위 호환 별칭(마이그레이션 후 제거).
+            # 하위 호환 별칭(감수 49차 §1 — **정본 복사만**·별도 계산
+            # 금지·불일치 0 fixture, r4.2.0에서 제거 예정).
             "suppression_reason": primary,
             "all_suppression_reasons": alls,
             "serialized": None,
@@ -510,7 +517,35 @@ def finalize_risk_prompt_block(
     return None, "FINAL_PROMPT_TOKEN_OVERFLOW"
 
 
-def resolve_block_integrity_failure(result: dict) -> dict:
+def resolve_guard_overflow(result: dict) -> dict:
+    """suppressed guard조차 예산 초과 시 종결(감수 49차 §3).
+
+    이미 노출 자격을 얻은 뒤 런타임 실패한 요청 — guard 없이 원 prompt로
+    조용히 호출하면 일반 사건 신호가 위험 주장으로 승격될 수 있다. 반환
+    action=RISK_SAFE_RESPONSE_REQUIRED: 호출부는 ①위험 무관 결정적 fallback
+    응답 ②위험 오해 소지 사건 설명까지 제거한 안전 재생성 ③BLOCK 중 하나로
+    종료한다.
+    """
+    obs = dict(result.get("observability", {}))
+    obs.update({"injected": False, "disposition": "SUPPRESSED",
+                "reason": "SUPPRESSED_GUARD_TOKEN_OVERFLOW",
+                "all_reasons": ["SUPPRESSED_GUARD_TOKEN_OVERFLOW"],
+                "terminal_action": RISK_SAFE_RESPONSE_REQUIRED})
+    return {
+        "inject": False,
+        "disposition": "SUPPRESSED",
+        "terminal_action": RISK_SAFE_RESPONSE_REQUIRED,
+        "primary_decision_reason": "SUPPRESSED_GUARD_TOKEN_OVERFLOW",
+        "all_decision_reasons": ["SUPPRESSED_GUARD_TOKEN_OVERFLOW"],
+        "suppression_reason": "SUPPRESSED_GUARD_TOKEN_OVERFLOW",
+        "all_suppression_reasons": ["SUPPRESSED_GUARD_TOKEN_OVERFLOW"],
+        "serialized": None,
+        "observability": obs,
+    }
+
+
+def resolve_block_integrity_failure(result: dict, *,
+                                    rebuild_attempt: int = 0) -> dict:
     """provider 직전 integrity 실패의 재조립 계약(감수 48차 §7).
 
     잘못된 상태(instruction은 남고 block만 제거)를 만들지 않는다 —
@@ -518,7 +553,13 @@ def resolve_block_integrity_failure(result: dict) -> dict:
     suppressed guard 삽입, 사유=RISK_BLOCK_INTEGRITY_ERROR. 호출부는 이
     결과로 prompt를 처음부터 재조립하고(부분 편집 금지) 최종 재계수·재검증을
     다시 수행해야 한다.
+
+    **재조립 1회 제한(감수 49차 §3)**: rebuild_attempt ≥
+    MAX_SUPPRESSED_REBUILD_ATTEMPTS면 재귀하지 않고 종결(resolve_guard_
+    overflow와 동일한 RISK_SAFE_RESPONSE_REQUIRED terminal).
     """
+    if rebuild_attempt >= MAX_SUPPRESSED_REBUILD_ATTEMPTS:
+        return resolve_guard_overflow(result)
     obs = dict(result.get("observability", {}))
     obs.update({"injected": False, "disposition": "SUPPRESSED",
                 "reason": "RISK_BLOCK_INTEGRITY_ERROR",
@@ -595,8 +636,15 @@ def expose_policy_hash() -> str:
                            " 전체 재계수·재검증(부분 편집 금지)",
         "decision_reason_schema": "primary_decision_reason/"
                                   "all_decision_reasons 정본(BYPASS 사유는"
-                                  " suppression 아님 — 감수 48차 §2), 관측"
-                                  "은 bypass/suppressed/injected 분리 집계",
+                                  " suppression 아님 — 감수 48차 §2), 구"
+                                  " 필드=정본 복사만(불일치 0·r4.2.0 제거"
+                                  " 예정), 관측은 disposition 분리 집계",
+        "rebuild_policy": "재조립 최대 1회(INITIAL→REBUILD→TERMINAL) —"
+                          " guard 포함 prompt조차 예산 초과 시"
+                          " SUPPRESSED_GUARD_TOKEN_OVERFLOW +"
+                          " RISK_SAFE_RESPONSE_REQUIRED(결정적 fallback/"
+                          "안전 재생성/BLOCK — guard 없는 조용한 원 prompt"
+                          " 호출 경로 없음, 감수 49차 §3)",
         "compression_order": "FULL(=P2)→P1→P0→P0_COMPACT(감수 46차 §5)",
         "future_scope_audit": "OUTSIDE_FUTURE_SCOPE records 전량 보존 —"
                               " LLM episodes만 필터(감수 46차 §4), 판정="
@@ -634,7 +682,10 @@ __all__ = [
     "wrap_risk_block",
     "EXPOSURE_DISPOSITIONS",
     "EXPOSURE_DECISION_REASONS",
+    "MAX_SUPPRESSED_REBUILD_ATTEMPTS",
+    "RISK_SAFE_RESPONSE_REQUIRED",
     "resolve_block_integrity_failure",
+    "resolve_guard_overflow",
     "RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE",
     "RiskPromptBlock",
     "filter_payload_to_future_scope",

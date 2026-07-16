@@ -8344,3 +8344,16 @@ audit r5.1.0(부정문 예외 5표지+우회 단정 패턴 — FP/FN 코퍼스 f
 pytest 2096·ruff·mypy 0(533)·baseline 불변·manifest 일치. REVIEW.md §28-4.
 잔여: 질문 파서 매핑·재작성 실배선·provider 직전 검증·renderer 재감사·
 expose_pipeline 감수 → r4.1.0-canary.
+
+## 감수 49차 — snapshot·재조립 상한·인터페이스·누락 정책·절 부정문 (2026-07-16)
+
+별칭=정본 복사만(불일치 0 fixture)·ManifestSnapshot(단일 read·schema 검증·
+snapshot_hash 관측 — 혼합 상태 차단)·재조립 1회 상한+SUPPRESSED_GUARD_
+TOKEN_OVERFLOW→RISK_SAFE_RESPONSE_REQUIRED(조용한 원 prompt 호출 경로
+없음)·TokenCounter 인터페이스(ProviderRequest 전체 계수·count_request
+정본)·warning 이상 출력 필수(MISSING_REQUIRED→REVISE·watch/advisory 생략
+허용)+envelope schema(미지 필드·빈 key/text·level 정확 일치)·절 단위
+부정문(r5.2.0 — 25자 창 기각·역접 경계·이중 부정 위반 편입·필수 코퍼스
+4종). fixture +6(통합 28종). pytest 2102·ruff·mypy 0(533)·baseline 불변·
+manifest 일치. REVIEW.md §28-5. 잔여: 질문 파서 매핑→adapter shadow 등록→
+envelope 배선→재작성 실배선→provider 검증→renderer 감사→감수→canary.

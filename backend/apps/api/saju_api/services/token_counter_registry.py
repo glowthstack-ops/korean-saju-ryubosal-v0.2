@@ -15,18 +15,51 @@ adapter(Gemini token-count API·GPT 계열 tokenizer)는 canary 개시 차수에
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-__all__ = ["TokenCounterAdapter", "register_adapter", "resolve_counter"]
+__all__ = ["ProviderRequest", "TokenCounterAdapter", "register_adapter",
+           "resolve_counter"]
+
+
+@dataclass(frozen=True)
+class ProviderRequest:
+    """provider에 실제 전송되는 요청 전체(감수 49차 §4 — 계수 대상 SSOT).
+
+    문자열 하나가 아니라 요청 전체를 계수한다: 모든 message(system/user)·
+    risk instruction 또는 suppressed guard·risk block·output/tool schema·
+    provider wrapper·모델 특수 토큰(어댑터 구현이 반영).
+    """
+
+    system_messages: tuple[str, ...] = field(default_factory=tuple)
+    user_messages: tuple[str, ...] = field(default_factory=tuple)
+    output_schema: str | None = None
+    tool_schema: str | None = None
+    generation_config: str | None = None
 
 
 @dataclass(frozen=True)
 class TokenCounterAdapter:
-    """모델별 token counter — model_id는 alias 해소 후의 resolved ID."""
+    """모델별 token counter — model_id는 alias 해소 후의 resolved ID.
+
+    count_request가 정본(요청 전체 계수 — 감수 49차 §4). counter(문자열
+    단건)는 block 단위 예비 계수 용도로만 유지한다.
+    """
 
     model_id: str
     mode: str  # PROVIDER_EXACT | MODEL_TOKENIZER
     counter: Callable[[str], int]
+    provider_id: str = ""
+    counter_version: str = ""
+
+    def count_request(self, request: ProviderRequest) -> int:
+        """provider request 전체 계수 — 기본 구현은 전 구성요소 합산 +
+        wrapper 여유(어댑터가 provider 정밀 계수로 재정의 가능)."""
+        parts = [*request.system_messages, *request.user_messages]
+        for extra in (request.output_schema, request.tool_schema,
+                      request.generation_config):
+            if extra:
+                parts.append(extra)
+        return sum(self.counter(p) for p in parts) + 4 * len(parts)
 
 
 _REGISTRY: dict[str, TokenCounterAdapter] = {}

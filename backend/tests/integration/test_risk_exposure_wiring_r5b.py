@@ -89,8 +89,10 @@ def test_qualified_but_runtime_short_is_suppressed_guard(
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSURE_RUNTIME_ENABLED", True)
     from saju_api.services import risk_exposure_service as _svc
-    monkeypatch.setattr(_svc, "_manifest_expose_state",
-                        lambda: (True, True))  # 감수 완료 상태 모의
+    monkeypatch.setattr(_svc, "_load_manifest_snapshot",
+                        lambda: {"reviewed": True, "hash_ok": True,
+                                 "schema_version": 10,
+                                 "snapshot_hash": "mock"})
     p, _s, obs = apply_risk_exposure(
         "본문", None, subject_id="internal-tester-1",
         question_type="period_overview", temporal_scope="future",
@@ -142,8 +144,10 @@ def test_all_conditions_met_is_injected(monkeypatch) -> None:
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSURE_RUNTIME_ENABLED", True)
     from saju_api.services import risk_exposure_service as _svc
-    monkeypatch.setattr(_svc, "_manifest_expose_state",
-                        lambda: (True, True))  # 감수 완료 상태 모의
+    monkeypatch.setattr(_svc, "_load_manifest_snapshot",
+                        lambda: {"reviewed": True, "hash_ok": True,
+                                 "schema_version": 10,
+                                 "snapshot_hash": "mock"})
     p, _s, obs = apply_risk_exposure(
         "본문", None, payload=payload, subject_id="internal-tester-1",
         question_type="period_overview", temporal_scope="future",
@@ -301,8 +305,10 @@ def test_runtime_and_manifest_must_both_be_true(monkeypatch) -> None:
     # ② manifest reviewed=true(모의) + runtime=false → BYPASS.
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSURE_RUNTIME_ENABLED", False)
-    monkeypatch.setattr(svc, "_manifest_expose_state",
-                        lambda: (True, True))
+    monkeypatch.setattr(svc, "_load_manifest_snapshot",
+                        lambda: {"reviewed": True, "hash_ok": True,
+                                 "schema_version": 10,
+                                 "snapshot_hash": "mock"})
     p2, _s2, obs2 = svc.apply_risk_exposure("본문", None, **common)
     assert obs2["disposition"] == "BYPASS" and p2 == "본문"
     assert obs2["reason"] == "EXPOSE_PIPELINE_NOT_REVIEWED"
@@ -320,8 +326,10 @@ def test_manifest_hash_mismatch_is_bypass(monkeypatch) -> None:
                         frozenset({"internal-tester-1"}))
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSURE_RUNTIME_ENABLED", True)
-    monkeypatch.setattr(svc, "_manifest_expose_state",
-                        lambda: (True, False))  # reviewed=true·hash 불일치
+    monkeypatch.setattr(svc, "_load_manifest_snapshot",
+                        lambda: {"reviewed": True, "hash_ok": False,
+                                 "schema_version": 10,
+                                 "snapshot_hash": "mock"})
     p, _s, obs = svc.apply_risk_exposure(
         "본문", None, subject_id="internal-tester-1",
         question_type="period_overview", temporal_scope="future",
@@ -378,14 +386,18 @@ def test_risk_guidance_envelope_invariants() -> None:
     llm = [{"episodeKey": "e1", "presentationLevel": "warning"},
            {"episodeKey": "e2", "presentationLevel": "watch"}]
     ok = validate_risk_guidance_envelope(
-        [{"episode_key": "e1", "exposed_level": "warning"},
-         {"episode_key": "e2", "exposed_level": "watch"}], llm)
+        [{"episode_key": "e1", "exposed_level": "warning", "text": "점검"},
+         {"episode_key": "e2", "exposed_level": "watch", "text": "관찰"}],
+        llm)
     assert ok == []
     errors = validate_risk_guidance_envelope(
-        [{"episode_key": "e2", "exposed_level": "watch"},
-         {"episode_key": "e1", "exposed_level": "critical"},  # 초과+순서
-         {"episode_key": "e1", "exposed_level": "warning"},   # 중복
-         {"episode_key": "ghost", "exposed_level": "watch"}], llm)
+        [{"episode_key": "e2", "exposed_level": "watch", "text": "a"},
+         {"episode_key": "e1", "exposed_level": "critical",
+          "text": "b"},  # 초과+순서
+         {"episode_key": "e1", "exposed_level": "warning",
+          "text": "c"},   # 중복
+         {"episode_key": "ghost", "exposed_level": "watch", "text": "d"}],
+        llm)
     codes = {e.split(":")[0] for e in errors}
     assert {"LEVEL_EXCEEDS_EXPOSED", "ORDER_NOT_WARNING_FIRST",
             "DUPLICATE_EPISODE_KEY", "UNREGISTERED_EPISODE_KEY"} <= codes
@@ -406,3 +418,144 @@ def test_claim_audit_negation_and_circumvention() -> None:
     assert out2["action"] == "REVISE_REQUIRED"
     assert any(v["code"] == "circumvented_certainty"
                for v in out2["violations"])
+
+
+# ── 감수 49차 fixture ─────────────────────────────────────────────
+
+
+def test_clause_aware_negation_corpus() -> None:
+    """절 단위 부정문(감수 49차 §6 필수 코퍼스 4종): 안전 부정문 허용,
+    역접 뒤 재단정·이중 부정·부정 후 우회 단정은 위반."""
+    from saju_engines.risk_claim_audit import audit_generated_risk_claims
+
+    # ① 안전 부정문 → 허용.
+    ok = audit_generated_risk_claims("사고가 난다는 뜻은 아닙니다.")
+    assert ok["action"] == "ALLOW", ok["violations"]
+    # ② 부정 후 역접 재단정 → 위반(앞 절 부정이 뒤 절을 덮지 못함).
+    v2 = audit_generated_risk_claims(
+        "사고가 난다는 뜻은 아닙니다. 하지만 발생을 피하기 어려운 흐름입니다.")
+    assert v2["action"] == "REVISE_REQUIRED"
+    # ③ 이중 부정 → 위반(예외 제외).
+    v3 = audit_generated_risk_claims("사고가 나지 않는다고 볼 수는 없습니다.")
+    assert v3["action"] == "REVISE_REQUIRED", v3["violations"]
+    # ④ 같은 문장 부정 + 역접 후 우회 단정 → 위반.
+    v4 = audit_generated_risk_claims(
+        "계약이 반드시 깨진다는 뜻은 아닙니다만 사실상 이어지는 수순입니다.")
+    assert v4["action"] == "REVISE_REQUIRED"
+
+
+def test_envelope_missing_required_warning_episode() -> None:
+    """warning 이상 episode 출력 필수(감수 49차 §5) — 누락=MISSING_REQUIRED,
+    watch/advisory는 생략 허용. schema 위반(미지 필드·빈 text)도 검출."""
+    from saju_engines.risk_claim_audit import (
+        validate_risk_guidance_envelope,
+    )
+
+    llm = [{"episodeKey": "w1", "presentationLevel": "warning"},
+           {"episodeKey": "w2", "presentationLevel": "warning"},
+           {"episodeKey": "c1", "presentationLevel": "watch"}]
+    # warning 1건 누락 + watch 생략 → MISSING은 w2만.
+    errors = validate_risk_guidance_envelope(
+        [{"episode_key": "w1", "exposed_level": "warning",
+          "text": "일정·문서를 점검해 두면 좋습니다."}], llm)
+    assert errors == ["MISSING_REQUIRED_RISK_EPISODE:w2"]
+    # 미지 필드·빈 text·level 불일치.
+    errors2 = validate_risk_guidance_envelope(
+        [{"episode_key": "w1", "exposed_level": "watch", "text": "x",
+          "surprise_field": 1},
+         {"episode_key": "w2", "exposed_level": "warning", "text": " "}],
+        llm)
+    codes = {e.split(":")[0] for e in errors2}
+    assert {"UNKNOWN_ENVELOPE_FIELD", "LEVEL_MISMATCH",
+            "EMPTY_SECTION_TEXT"} <= codes
+
+
+def test_rebuild_once_then_terminal_safe_response() -> None:
+    """재조립 1회 제한(감수 49차 §3): 2회째 integrity 실패·guard 예산
+    초과=RISK_SAFE_RESPONSE_REQUIRED — guard 없는 조용한 원 prompt 호출
+    경로 없음."""
+    from saju_engines.risk_exposure import (
+        MAX_SUPPRESSED_REBUILD_ATTEMPTS,
+        RISK_SAFE_RESPONSE_REQUIRED,
+        resolve_block_integrity_failure,
+        resolve_guard_overflow,
+    )
+
+    injected = {"inject": True, "disposition": "INJECTED",
+                "serialized": "{}", "observability": {}}
+    first = resolve_block_integrity_failure(injected, rebuild_attempt=0)
+    assert first["disposition"] == "SUPPRESSED"
+    assert "terminal_action" not in first
+    second = resolve_block_integrity_failure(
+        injected, rebuild_attempt=MAX_SUPPRESSED_REBUILD_ATTEMPTS)
+    assert second["terminal_action"] == RISK_SAFE_RESPONSE_REQUIRED
+    overflow = resolve_guard_overflow(injected)
+    assert overflow["primary_decision_reason"] == (
+        "SUPPRESSED_GUARD_TOKEN_OVERFLOW")
+    assert overflow["terminal_action"] == RISK_SAFE_RESPONSE_REQUIRED
+
+
+def test_legacy_reason_fields_are_copies() -> None:
+    """하위 호환 별칭(감수 49차 §1): 구 필드=정본 복사만 — 불일치 0."""
+    from saju_engines.risk_exposure import (
+        ExposureGateContext,
+        evaluate_risk_exposure_gate,
+    )
+    from saju_shared_types.risk_engine import RiskEngineMode
+
+    empty: dict = {"globalProhibitedClaimCodes": [],
+                   "globalAllowedClaimCodes": [],
+                   "presentationRecords": [], "llmRiskEpisodes": []}
+    for mode in (RiskEngineMode.OFF, RiskEngineMode.EXPOSE):
+        ctx = ExposureGateContext(
+            mode=mode, question_type="period_overview",
+            temporal_scope="future", risk_intent_allowed=True,
+            token_count_mode="MODEL_TOKENIZER", model_context_limit=16_000,
+            base_prompt_tokens=1_000, user_input_tokens=100,
+            existing_context_tokens=1_000, response_reserve=2_000,
+            scopes_all_reviewed=True, policy_hashes_match=True,
+            expose_pipeline_reviewed=True, counter_model_id="m",
+            resolved_model_id="m")
+        out = evaluate_risk_exposure_gate(ctx, empty, counter=len)
+        assert out["suppression_reason"] == out["primary_decision_reason"]
+        assert out["all_suppression_reasons"] == out["all_decision_reasons"]
+
+
+def test_manifest_snapshot_consistency_and_observability(
+        monkeypatch) -> None:
+    """manifest snapshot(감수 49차 §2): 단일 로드·schema 검증·snapshot
+    hash 관측 — 미지원 schema=fail-closed."""
+    from saju_api.services import risk_exposure_service as svc
+
+    snap = svc._load_manifest_snapshot()
+    assert snap["schema_version"] == 10
+    assert snap["hash_ok"] is True and snap["reviewed"] is False
+    assert len(snap["snapshot_hash"]) == 16
+    # 관측에 snapshot hash 병기.
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    _p, _s, obs = svc.apply_risk_exposure("본문", None)
+    assert obs["manifest_snapshot_hash"] == snap["snapshot_hash"]
+    # 미지원 schema → fail-closed.
+    monkeypatch.setattr(svc, "_SUPPORTED_MANIFEST_SCHEMA_VERSIONS", (99,))
+    bad = svc._load_manifest_snapshot()
+    assert bad["reviewed"] is False and bad["hash_ok"] is False
+
+
+def test_count_request_covers_whole_provider_request() -> None:
+    """TokenCounter 인터페이스(감수 49차 §4): count_request가 request
+    전체(system·user·schema·config)를 계수."""
+    from saju_api.services.token_counter_registry import (
+        ProviderRequest,
+        TokenCounterAdapter,
+    )
+
+    adapter = TokenCounterAdapter(
+        model_id="m", mode="MODEL_TOKENIZER", counter=len,
+        provider_id="test", counter_version="v1")
+    req = ProviderRequest(
+        system_messages=("sys",), user_messages=("user",),
+        output_schema="schema", tool_schema=None,
+        generation_config="cfg")
+    # 구성요소 전부 합산(3+4+6+3) + wrapper 여유(4×4).
+    assert adapter.count_request(req) == 3 + 4 + 6 + 3 + 16

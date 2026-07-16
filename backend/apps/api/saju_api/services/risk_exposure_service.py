@@ -35,21 +35,43 @@ _MANIFEST_PATH = (Path(__file__).resolve().parents[4].parent
 __all__ = ["apply_risk_exposure", "exposure_mode_active"]
 
 
-def _manifest_expose_state() -> tuple[bool, bool]:
-    """(expose_pipeline reviewed, policy hash 일치) — 감수 SSOT는 manifest.
+# manifest snapshot이 지원하는 해시 스키마(감수 49차 §2 — 미지원=fail-closed).
+_SUPPORTED_MANIFEST_SCHEMA_VERSIONS = (10,)
 
-    로드 실패·필드 부재·해시 불일치 전부 (False, False) — fail-closed
-    (환경변수가 감수 사실을 대체할 수 없다, 감수 48차 §4).
+
+def _load_manifest_snapshot() -> dict:
+    """요청 단위의 일관된 manifest snapshot(감수 49차 §2).
+
+    파일을 **한 번** 읽어 불변 snapshot으로 만든다 — reviewed·hash·schema
+    version이 서로 다른 파일 버전에서 섞이는 혼합 상태(배포 중 교체)를
+    차단한다. parse 실패·schema 미지원·필드 부재·digest 계산 실패 전부
+    fail-closed(reviewed=False·hash_ok=False). 관측에는 원문 대신
+    snapshot_hash만 남긴다.
     """
     try:
-        manifest = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
+        raw = _MANIFEST_PATH.read_text(encoding="utf-8")  # 단일 read
+        manifest = json.loads(raw)
+        schema = int(manifest.get("hash_schema_version", -1))
+        if schema not in _SUPPORTED_MANIFEST_SCHEMA_VERSIONS:
+            raise ValueError(f"미지원 manifest schema: {schema}")
         pipeline = manifest.get("expose_pipeline") or {}
-        reviewed = bool(pipeline.get("reviewed"))
-        hash_ok = (pipeline.get("expose_policy_hash")
-                   == expose_policy_hash())
-        return reviewed, hash_ok
-    except (OSError, ValueError):
-        return False, False
+        return {
+            "reviewed": bool(pipeline.get("reviewed")),
+            "hash_ok": (pipeline.get("expose_policy_hash")
+                        == expose_policy_hash()),
+            "schema_version": schema,
+            "snapshot_hash": hashlib.sha256(
+                raw.encode()).hexdigest()[:16],
+        }
+    except (OSError, ValueError, TypeError):
+        return {"reviewed": False, "hash_ok": False,
+                "schema_version": None, "snapshot_hash": None}
+
+
+def _manifest_expose_state() -> tuple[bool, bool]:
+    """(reviewed, hash 일치) — 하위 호환 wrapper(snapshot 단일 소스)."""
+    snap = _load_manifest_snapshot()
+    return snap["reviewed"], snap["hash_ok"]
 
 
 def exposure_mode_active() -> bool:
@@ -99,7 +121,9 @@ def apply_risk_exposure(
     mode = (RiskEngineMode.EXPOSE
             if risk_engine_config.RISK_ENGINE_MODE == "expose"
             else RiskEngineMode.EXPOSE_CANARY)
-    manifest_reviewed, manifest_hash_ok = _manifest_expose_state()
+    snapshot = _load_manifest_snapshot()  # 요청 전체가 동일 snapshot 사용
+    manifest_reviewed = snapshot["reviewed"]
+    manifest_hash_ok = snapshot["hash_ok"]
     canary_types = risk_engine_config.RISK_CANARY_QUESTION_TYPES
     qt = question_type if question_type in canary_types else "__unmapped__"
     ctx = ExposureGateContext(
@@ -131,6 +155,10 @@ def apply_risk_exposure(
         "globalProhibitedClaimCodes": [], "globalAllowedClaimCodes": [],
         "presentationRecords": [], "llmRiskEpisodes": []}
     result = evaluate_risk_exposure_gate(ctx, payload or empty, counter)
+    result["observability"]["manifest_snapshot_hash"] = (
+        snapshot["snapshot_hash"])
+    result["observability"]["manifest_schema_version"] = (
+        snapshot["schema_version"])
     disposition = result["disposition"]
     if disposition == "INJECTED":
         block_text = result["serialized"]

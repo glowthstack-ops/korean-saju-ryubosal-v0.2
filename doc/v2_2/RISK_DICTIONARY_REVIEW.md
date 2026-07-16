@@ -2001,3 +2001,39 @@ MODE=off·RISK_EXPOSURE_RUNTIME_ENABLED=false 유지(3중 잠금).
 **잔여(canary 개시 전)**: ④질문 파서 SSOT 매핑 ⑥재작성·재생성 LLM 실배선
 ⑦provider 직전 검증 배선(전용 message slot 권장) ⑧renderer 후 최종 문자열
 재감사 ⑨expose_pipeline 감수(manifest reviewed=true) ⑩r4.1.0-canary.
+
+### 28-5. 감수 49차 반영 — snapshot·재조립 상한·인터페이스·누락 정책·절 단위 부정문 (2026-07-16)
+
+1. **별칭 계약(§1)**: 구 suppression 필드=정본(decision reasons) 복사만 —
+   별도 계산 금지·불일치 0 fixture(OFF·EXPOSE 양쪽)·r4.2.0 제거 예정 명시.
+2. **ManifestSnapshot(§2)**: 파일 **단일 read** → 불변 snapshot(reviewed·
+   hash_ok·schema_version·snapshot_hash) — 요청 전체가 동일 snapshot 사용
+   (배포 중 교체의 혼합 상태 차단). parse 실패·schema 미지원(허용=10)·필드
+   부재 전부 fail-closed. 관측에 manifest_snapshot_hash·schema_version
+   병기(원문 미기록).
+3. **재조립 상한(§3)**: MAX_SUPPRESSED_REBUILD_ATTEMPTS=1(INITIAL→REBUILD→
+   TERMINAL — 재귀 금지), guard 포함 prompt조차 예산 초과 시
+   SUPPRESSED_GUARD_TOKEN_OVERFLOW + **RISK_SAFE_RESPONSE_REQUIRED**
+   (결정적 fallback/안전 재생성/BLOCK — guard 없는 조용한 원 prompt 호출
+   경로 없음). policy hash 편입.
+4. **TokenCounter 인터페이스(§4)**: ProviderRequest(전 message·schema·
+   config) + count_request 정본 — 문자열 단건이 아니라 provider 전송 요청
+   전체를 계수. provider_id·counter_version 필드. adapter 등록과 canary
+   활성화 분리(shadow 계수 검증 후 감수) 원칙 문서화.
+5. **warning 누락 정책 + envelope schema(§5)**: exposed WARNING 이상=출력
+   필수(MISSING_REQUIRED_RISK_EPISODE→REVISE), WATCH/ADVISORY 생략 허용.
+   미지 필드·빈 episode_key·빈 text 금지, level은 입력과 **정확 일치**
+   (초과=EXCEEDS·상이=MISMATCH), 부재(None)와 빈 배열 구분은 호출부 계약.
+6. **절 단위 부정문(§6 — 25자 창 기각·r5.2.0)**: 매치가 속한 절의 부정
+   표지만 인정(절 경계=문장 부호+역접 접속 — "하지만" 뒤 재단정은 별도
+   판정), 이중 부정("않는다고 볼 수는 없" 등)은 예외 제외 + 위반 패턴으로
+   직접 편입. **필수 코퍼스 4종 fixture**: 안전 부정문 허용/역접 재단정
+   위반/이중 부정 위반/부정+우회 단정 위반.
+
+fixture +6(통합 28종). **게이트**: pytest 2102·ruff clean·mypy 0(533)·
+baseline 불변·manifest 일치. 3중 잠금 유지.
+
+**잔여(canary 개시 전)**: 질문 파서 SSOT 매핑 → adapter 실물 shadow 등록·
+계수 검증 → 구조화 output envelope 배선 → 재작성/재생성 LLM 실배선 →
+provider 직전 검증 → renderer 후 최종 감사 → expose_pipeline 감수 →
+r4.1.0-canary(별도 커밋 전환).
