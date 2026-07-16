@@ -2080,3 +2080,43 @@ baseline 불변·manifest 일치. 3중 잠금 유지.
 실배선(plan_remediation·plan_safe_response 소비) → provider 직전 검증
 (snapshot 동일성·validated counter·token·marker·checksum·disposition) →
 renderer 후 최종 감사 배선 → expose_pipeline 감수 → 별도 커밋 canary 전환.
+
+### 28-7. 감수 51차 반영 — 매핑 정밀화·validation policy 선행 고정·fallback hash (2026-07-16)
+
+**착수 전 계약 4건(A~D)**:
+
+1. **A. 매핑 정밀화**: ①DOMAIN_ANALYSIS=실질 도메인(general 제외) **정확
+   1개**일 때만 single_domain_period(0·2개 이상=BYPASS — "직업과 재물운
+   같이" 류에 단일 도메인 budget 금지) ②EVENT_EXPLANATION/DECISION_SUPPORT
+   =파서가 해소한 **event_key 필수**(광역 "요즘 왜 안 풀릴까"=BYPASS)
+   ③미래 범위=시간 파서가 정규화한 절대 날짜만 — **본 모듈의 regex 시간
+   재해석 0** 불변식 docstring 고정.
+2. **B. adapter validation policy 선행 고정**(실측 전 — 결과 맞춤 기준
+   방지): validation key(provider·resolved model·counter version·request
+   schema version — 변경=SHADOW_VALIDATING 강등)·감수 표본 10형(한국어
+   장문·혼합·risk block·tool/output schema·guard/instruction·전 tier·
+   rerouting·hard-max)·합격 기준(PROVIDER_EXACT: undercount 0 등 4항 /
+   MODEL_TOKENIZER: **counted ≥ provider_reported 전 표본 — 과소 계산
+   불허**)·reported 기준(청구 수치 아님·cached 별도)·관측 7필드.
+   adapter_validation_policy_hash **manifest 병기**(변경=재감수 신호).
+3. **C. envelope 순서 SSOT 명시**: 검사 기준=미래 필터+critical 하향+
+   warning-first 정렬이 끝난 **최종 llmRiskEpisodes 순서**(records·필터 전
+   순서 사용 금지 — docstring 계약).
+4. **D. safe fallback 정책화**: RISK_SAFE_FALLBACK_TEMPLATE(결정적 문구 —
+   위험 없음 단정·발생 안 함 보장·시스템 내부 설명·누락 episode 추측 없음,
+   자체 claim audit ALLOW fixture) + VERSION — expose_policy_hash에 편입
+   (문구 변경=pipeline pending).
+
+**보완**: key 누출 감사 확장(§9 — key 원문+prefix/내부 enum(reality: 등)
++risk_id/cause_atom internal_ids), evidence 로그 정책(§10 — 일반 로그=
+clause_hash(12자)·길이만, 원문 clause_text 80자는 감수 표본 전용·단기
+보존·접근 제한 — policy hash 명시).
+
+fixture +6(통합 39종). **게이트**: pytest 2113·ruff clean·mypy 0(534)·
+baseline 불변·manifest 일치(adapter_validation_policy_hash 병기). 3중 잠금
+유지.
+
+**잔여(canary 개시 전)**: adapter 실물 shadow 등록·계수 대조(고정된 policy
+기준) → output envelope provider schema 강제 → 재작성/재생성 LLM 실배선 →
+provider 직전 검증 → renderer 후 최종 감사 배선 → expose_pipeline 감수 →
+별도 커밋 canary 전환.

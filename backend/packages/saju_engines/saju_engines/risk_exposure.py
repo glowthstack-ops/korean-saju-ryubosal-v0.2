@@ -75,6 +75,13 @@ MAX_SUPPRESSED_REBUILD_ATTEMPTS = 1
 # ①risk 없이 안전 재생성 1회 → ②renderer 후 전체 claim audit → ③통과=전달
 # → ④실패=결정적 안전 fallback → ⑤fallback 불가/감사 실패=BLOCK.
 # 어느 단계에도 사용자 전달 전 최종 문자열 감사 생략 경로 없음.
+# 결정적 안전 fallback(감수 51차 §4-D — 문구 자체가 정책): 위험 없음 단정·
+# 발생 안 함 보장·내부 게이트/감수 실패 설명·누락 episode 추측 전부 금지.
+RISK_SAFE_FALLBACK_VERSION = "risk-safe-fallback-r1.0.0"
+RISK_SAFE_FALLBACK_TEMPLATE = (
+    "이번 질문에 대한 상세 풀이를 안전하게 구성하지 못했습니다. 잠시 후"
+    " 다시 시도해 주시거나, 기간이나 분야를 조금 좁혀서 물어봐 주세요."
+)
 RISK_SAFE_RESPONSE_SEQUENCE = (
     "SAFE_REGENERATE_ONCE", "RENDERED_AUDIT", "DELIVER_IF_CLEAN",
     "DETERMINISTIC_FALLBACK", "BLOCK",
@@ -664,6 +671,12 @@ def expose_policy_hash() -> str:
                                   " 필드=정본 복사만(불일치 0·r4.2.0 제거"
                                   " 예정), 관측은 disposition 분리 집계",
         "safe_response_sequence": list(RISK_SAFE_RESPONSE_SEQUENCE),
+        "safe_fallback": {"version": RISK_SAFE_FALLBACK_VERSION,
+                          "template": RISK_SAFE_FALLBACK_TEMPLATE,
+                          "contract": "위험 없음 단정·발생 안 함 보장·시스템"
+                                      " 내부 설명·누락 episode 추측 금지 —"
+                                      " 문구 변경=expose pipeline pending"
+                                      "(hash 변경, 감수 51차 §4)"},
         "rebuild_policy": "재조립 최대 1회(INITIAL→REBUILD→TERMINAL) —"
                           " guard 포함 prompt조차 예산 초과 시"
                           " SUPPRESSED_GUARD_TOKEN_OVERFLOW +"
@@ -710,6 +723,8 @@ __all__ = [
     "MAX_SUPPRESSED_REBUILD_ATTEMPTS",
     "RISK_SAFE_RESPONSE_REQUIRED",
     "RISK_SAFE_RESPONSE_SEQUENCE",
+    "RISK_SAFE_FALLBACK_TEMPLATE",
+    "RISK_SAFE_FALLBACK_VERSION",
     "plan_safe_response",
     "resolve_block_integrity_failure",
     "resolve_guard_overflow",

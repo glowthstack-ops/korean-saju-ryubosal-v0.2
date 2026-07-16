@@ -686,10 +686,136 @@ def test_rendered_output_key_leak_and_evidence() -> None:
     leaked = audit_rendered_output(
         "하반기에는 reality:deal_1 관련 점검이 필요합니다.",
         ["reality:deal_1", "explicit:legal:e2"])
-    assert leaked == ["INTERNAL_KEY_LEAKED:reality:deal_1"]
+    # key 원문 + prefix(감수 51차 확장) 둘 다 검출.
+    assert "INTERNAL_KEY_LEAKED:reality:deal_1" in leaked
+    assert "INTERNAL_TOKEN_LEAKED:reality:" in leaked
     assert audit_rendered_output("점검이 필요합니다.", ["reality:d"]) == []
     out = audit_generated_risk_claims("이 문제는 거의 확실하게 현실화됩니다.")
     v = out["violations"][0]
     assert v["code"] == "circumvented_certainty"
     assert v["matched_span"][0] >= 0 and "clause_text" in v
     assert v["negation_status"] == "not_negated"
+
+
+# ── 감수 51차 fixture ─────────────────────────────────────────────
+
+
+def test_domain_analysis_requires_exactly_one_domain() -> None:
+    """§1-1: DOMAIN_ANALYSIS는 도메인 정확히 1개일 때만 매핑 — 0·2개=BYPASS."""
+    from saju_engines.risk_question_mapping import (
+        map_intent_to_exposure_question,
+    )
+    from saju_shared_types.intent import (
+        Domain,
+        IntentJson,
+        QueryType,
+        TimeRange,
+        TimeScope,
+    )
+
+    def _intent(domains):
+        return IntentJson(
+            intent_id="i", query_type=QueryType.DOMAIN_ANALYSIS,
+            time_scope=TimeScope.MID_TERM,
+            time_range=TimeRange(type="relative", granularity="month",
+                                 start="2026-07", end="2026-12"),
+            domains=domains)
+
+    ok = map_intent_to_exposure_question(_intent([Domain.CAREER]))
+    assert ok is not None and ok["question_type"] == "single_domain_period"
+    assert map_intent_to_exposure_question(
+        _intent([Domain.CAREER, Domain.WEALTH])) is None
+    assert map_intent_to_exposure_question(
+        _intent([Domain.GENERAL])) is None  # 실질 도메인 0개
+
+
+def test_specific_event_requires_resolved_target() -> None:
+    """§1-2: EVENT_EXPLANATION/DECISION_SUPPORT는 파서가 해소한 event
+    target(event_key)이 있을 때만 — 광역 질문=BYPASS."""
+    from saju_engines.risk_question_mapping import (
+        map_intent_to_exposure_question,
+    )
+    from saju_shared_types.intent import (
+        IntentJson,
+        QueryType,
+        TimeRange,
+        TimeScope,
+    )
+
+    def _intent(**kw):
+        base = dict(intent_id="i", query_type=QueryType.DECISION_SUPPORT,
+                    time_scope=TimeScope.SHORT_TERM,
+                    time_range=TimeRange(type="relative",
+                                         granularity="month",
+                                         start="2026-08", end="2026-10"))
+        base.update(kw)
+        return IntentJson(**base)
+
+    assert map_intent_to_exposure_question(_intent()) is None  # target 없음
+    ok = map_intent_to_exposure_question(
+        _intent(event_key="career_change"))
+    assert ok is not None and ok["question_type"] == "specific_event"
+
+
+def test_safe_fallback_template_is_policy() -> None:
+    """§4-D: fallback 문구=정책(hash 포함) — 단정·보장·시스템 설명·추측
+    표현 부재, 자체 claim audit 통과."""
+    from saju_engines.risk_claim_audit import audit_generated_risk_claims
+    from saju_engines.risk_exposure import (
+        RISK_SAFE_FALLBACK_TEMPLATE,
+        RISK_SAFE_FALLBACK_VERSION,
+        expose_policy_hash,
+    )
+
+    assert RISK_SAFE_FALLBACK_VERSION.startswith("risk-safe-fallback-")
+    out = audit_generated_risk_claims(RISK_SAFE_FALLBACK_TEMPLATE)
+    assert out["action"] == "ALLOW"
+    for banned in ("위험이 없", "발생하지 않", "게이트", "감수", "검증 실패"):
+        assert banned not in RISK_SAFE_FALLBACK_TEMPLATE
+    assert len(expose_policy_hash()) == 16  # template이 hash에 편입됨
+
+
+def test_adapter_validation_policy_fixed_before_measurement() -> None:
+    """§6-B: 승격 기준이 실측 전 고정(hash·manifest 병기) — 과소 계산
+    불허·validation key·표본 목록 포함."""
+    import json
+    from pathlib import Path
+
+    from saju_api.services.token_counter_registry import (
+        ADAPTER_VALIDATION_POLICY,
+        adapter_validation_policy_hash,
+    )
+
+    assert "과소 계산 불허" in ADAPTER_VALIDATION_POLICY[
+        "model_tokenizer_pass"]
+    assert "provider_request_schema_version" in ADAPTER_VALIDATION_POLICY[
+        "validation_key"]
+    manifest = json.loads(
+        (Path(__file__).resolve().parents[2].parent / "doc" / "v2_2"
+         / "RISK_REVIEW_MANIFEST.json").read_text(encoding="utf-8"))
+    assert manifest["adapter_validation_policy_hash"] == (
+        adapter_validation_policy_hash())
+
+
+def test_rendered_leak_covers_prefixes_and_internal_ids() -> None:
+    """§9: key 원문 외 prefix·내부 enum·risk_id/cause_atom 노출도 검출."""
+    from saju_engines.risk_claim_audit import audit_rendered_output
+
+    leaks = audit_rendered_output(
+        "이 시기의 reality: 연결 신호와 LEG_CONTRACT_TERMINATION_RISK를"
+        " 주의하세요.",
+        episode_keys=[], internal_ids=["LEG_CONTRACT_TERMINATION_RISK"])
+    codes = {leak.split(":")[0] for leak in leaks}
+    assert "INTERNAL_TOKEN_LEAKED" in codes
+    assert "INTERNAL_ID_LEAKED" in codes
+    assert audit_rendered_output("일정과 문서를 점검해 두세요.", []) == []
+
+
+def test_violation_evidence_has_hash_for_general_logs() -> None:
+    """§10: 일반 로그용 clause_hash·길이 병기(원문은 80자 제한 표본 전용)."""
+    from saju_engines.risk_claim_audit import audit_generated_risk_claims
+
+    out = audit_generated_risk_claims("계약 파기가 거의 확실하게 진행됩니다.")
+    v = out["violations"][0]
+    assert len(v["clause_hash"]) == 12 and v["clause_len"] > 0
+    assert len(v["clause_text"]) <= 80

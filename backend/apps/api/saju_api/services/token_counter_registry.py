@@ -17,7 +17,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-__all__ = ["ADAPTER_VALIDATION_STATES", "ProviderRequest",
+__all__ = ["ADAPTER_VALIDATION_POLICY", "ADAPTER_VALIDATION_STATES",
+           "adapter_validation_policy_hash", "ProviderRequest",
            "TokenCounterAdapter", "register_adapter", "resolve_counter",
            "resolve_validated_counter", "set_validation_state"]
 
@@ -28,6 +29,39 @@ __all__ = ["ADAPTER_VALIDATION_STATES", "ProviderRequest",
 # / token_count_delta / token_count_relative_error.
 ADAPTER_VALIDATION_STATES = ("UNREGISTERED", "SHADOW_VALIDATING",
                              "VALIDATED", "SUSPENDED")
+
+# adapter 승격 기준(감수 51차 §6 — **실측 전 선행 고정**: 결과에 맞춘 기준
+# 방지). 변경=expose 재감수 신호(hash가 manifest에 병기됨).
+ADAPTER_VALIDATION_POLICY: dict = {
+    "validation_key": ["provider_id", "resolved_model_id",
+                       "counter_version", "provider_request_schema_version"],
+    "key_change": "하나라도 변경 시 VALIDATED → SHADOW_VALIDATING 강등",
+    "sample_shapes": ["한국어 장문", "한영 혼합", "JSON risk block",
+                      "tool schema 포함", "output schema 포함",
+                      "SUPPRESSED guard", "INJECTED instruction",
+                      "FULL/P1/P0/P0_COMPACT 각 tier",
+                      "모델 fallback·rerouting", "hard-max episode 요청"],
+    "provider_exact_pass": "undercount=0 · request shape 누락=0 · model"
+                           " mismatch=0 · routing 후 recount 누락=0",
+    "model_tokenizer_pass": "전 감수 표본에서 counted_request_tokens >="
+                            " provider_reported_input_tokens(wrapper"
+                            " reserve 포함) — 과소 계산 불허(과대는 허용)",
+    "reported_basis": "비용 청구 수치가 아니라 실제 전체 prompt/input"
+                      " token 수 기준(cached_input_tokens 별도 기록)",
+    "observability": ["counted_request_tokens",
+                      "provider_reported_input_tokens", "delta",
+                      "relative_error", "cached_input_tokens",
+                      "routing_changed", "recount_performed"],
+}
+
+
+def adapter_validation_policy_hash() -> str:
+    """승격 기준 해시 — manifest 병기(변경=expose 재감수 신호)."""
+    import hashlib
+    import json
+    return hashlib.sha256(json.dumps(
+        ADAPTER_VALIDATION_POLICY, sort_keys=True, ensure_ascii=False,
+    ).encode()).hexdigest()[:16]
 
 
 @dataclass(frozen=True)

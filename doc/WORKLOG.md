@@ -8370,3 +8370,17 @@ EXPOSE 해소·등록≠검증)·envelope 부분수열 검증+presence 계약(No
 불변·manifest 일치. REVIEW.md §28-6. 잔여: adapter 실물 shadow 등록·output
 envelope provider 강제·재작성 실배선·provider 직전 검증·renderer 감사 배선
 → expose_pipeline 감수 → canary 전환(별도 커밋).
+
+## 감수 51차 — 매핑 정밀화·validation policy 선행 고정·fallback hash (2026-07-16)
+
+착수 전 계약 4건: A.매핑 정밀화(DOMAIN_ANALYSIS=실질 도메인 정확 1개·
+specific_event=event_key 해소 필수·시간 regex 재해석 0 불변식) B.adapter
+승격 기준 선행 고정(validation key·표본 10형·과소 계산 불허·reported 기준
+— adapter_validation_policy_hash manifest 병기) C.envelope 순서 SSOT=최종
+llmRiskEpisodes(필터·하향·정렬 후) D.safe fallback template 정책화(자체
+audit ALLOW·expose hash 편입 — 문구 변경=pending). 보완: key 누출 확장
+(prefix·내부 enum·internal_ids)·evidence 로그 정책(일반=clause_hash/길이·
+원문=감수 표본 전용). fixture +6(통합 39종). pytest 2113·ruff·mypy 0(534)·
+baseline 불변·manifest 일치. REVIEW.md §28-7. 잔여: adapter 실물 shadow
+등록→envelope provider 강제→재작성 실배선→provider 검증→renderer 감사→
+감수→canary(별도 커밋).

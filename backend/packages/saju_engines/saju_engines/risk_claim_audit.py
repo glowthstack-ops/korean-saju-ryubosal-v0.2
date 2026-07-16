@@ -130,10 +130,16 @@ def audit_generated_risk_claims(
                 continue  # 같은 절 부정 — 예외(evidence는 위반만 기록)
             # 감사 evidence(감수 50차 §7 — canary 표본 재현용): 원문 장기
             # 저장 없이 span·절 정보만.
+            clause = _clause_of(answer, idx)
             violations.append({
                 "code": code, "matched": pat,
                 "matched_span": [idx, idx + len(pat)],
-                "clause_text": _clause_of(answer, idx)[:80],
+                # 일반 운영 로그=clause_hash·길이만 사용(감수 51차 §10 —
+                # 원문 clause_text는 감수용 제한 표본 전용·80자·단기 보존).
+                "clause_hash": hashlib.sha256(
+                    clause.encode()).hexdigest()[:12],
+                "clause_len": len(clause),
+                "clause_text": clause[:80],
                 "negation_status": "not_negated",
                 "exception_applied": False,
             })
@@ -228,6 +234,9 @@ def validate_risk_guidance_envelope(
 ) -> list[str]:
     """구조화 risk_guidance 불변식(감수 48차 §10-⑤ + 49차 §5).
 
+    **순서 SSOT(감수 51차 §7-C)**: llm_episodes는 미래 범위 필터 +
+    critical exposed 하향 + warning-first 정렬이 전부 끝난 **최종
+    llmRiskEpisodes**여야 한다 — presentationRecords·필터 전 순서 사용 금지.
     ①episode_key ⊆ 주입된 llmRiskEpisodes ②같은 key 중복 실패 ③R3
     warning-first 순서 유지 ④exposed level보다 높은 level 출력 실패
     ⑤**필수 episode 누락**(초기 정책: exposed WARNING 이상=출력 필수 —
@@ -310,13 +319,28 @@ def validate_injected_guidance_presence(
     return validate_risk_guidance_envelope(guidance, llm_episodes)
 
 
-def audit_rendered_output(final_text: str,
-                          episode_keys: list[str]) -> list[str]:
-    """renderer 후 최종 사용자 문자열 감사 보조(감수 50차 §6): 내부
-    episode_key가 최종 Markdown에 노출되면 실패(INTERNAL_KEY_LEAKED) —
-    본 검사는 전체 claim audit(audit_generated_risk_claims)와 병행한다."""
-    return [f"INTERNAL_KEY_LEAKED:{k}" for k in episode_keys
-            if k and k in final_text]
+# 내부 식별자 leak 검사 대상(감수 51차 §9): key 원문 외 prefix·내부 enum.
+_INTERNAL_TOKEN_PATTERNS = ("reality:", "explicit:", "fallback:",
+                            "conflict:", "presentationLevel",
+                            "exposedPresentationLevel", "riskEpisodes")
+
+
+def audit_rendered_output(final_text: str, episode_keys: list[str],
+                          internal_ids: list[str] | None = None) -> list[str]:
+    """renderer 후 최종 사용자 문자열 감사 보조(감수 50차 §6 + 51차 §9).
+
+    검출: ①내부 episode_key 원문 ②key prefix·내부 enum 원문(reality: 등)
+    ③내부 risk_id·cause_atom(internal_ids로 공급). 사용자에게는 감수된
+    표시명만 나가야 한다. 전체 claim audit과 병행.
+    """
+    leaks = [f"INTERNAL_KEY_LEAKED:{k}" for k in episode_keys
+             if k and k in final_text]
+    leaks += [f"INTERNAL_TOKEN_LEAKED:{p}" for p in _INTERNAL_TOKEN_PATTERNS
+              if p in final_text]
+    for ident in internal_ids or []:
+        if ident and ident in final_text:
+            leaks.append(f"INTERNAL_ID_LEAKED:{ident}")
+    return leaks
 
 
 def plan_remediation(attempt: int, audit_action: str) -> str:
@@ -364,6 +388,9 @@ def claim_audit_policy_hash() -> str:
                              " BLOCK — 위반 초안 직접 전달 경로 없음",
         "audit_scope": "risk section(episode별) + whole answer 병행 +"
                        " renderer 후 최종 문자열(key 비노출 포함)",
+        "evidence_log_policy": "일반 운영 로그=code·pattern·clause_hash·"
+                               "길이만 / 감수용 제한 표본=clause_text 80자·"
+                               "단기 보존·접근 제한(감수 51차 §10)",
         "evidence": "violation에 matched_span·clause_text(80자)·negation"
                     "_status 보존 — 원문 장기 저장 없음(감수 50차 §7)",
         "order_check": "부분수열(watch/advisory 생략 허용·역전 금지)",

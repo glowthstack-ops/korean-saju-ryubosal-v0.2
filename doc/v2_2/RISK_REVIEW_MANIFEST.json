@@ -10,9 +10,10 @@
   "risk_presentation_version": "risk-present-r3.1.0-shadow",
   "presentation_policy_hash": "ce68dfc2c6c5fa0e",
   "risk_exposure_version": "risk-expose-r4.0.1-gated",
+  "adapter_validation_policy_hash": "b394beb1a6c1b84c",
   "expose_pipeline": {
     "reviewed": false,
-    "expose_policy_hash": "acb44c4256745456",
+    "expose_policy_hash": "e4938f5345283a87",
     "critical_validation_state": {
       "synthetic_fixtures": "passed",
       "corpus_positive_cases": 0,

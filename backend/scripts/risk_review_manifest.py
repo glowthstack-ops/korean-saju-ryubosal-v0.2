@@ -20,9 +20,16 @@ _BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_BACKEND / "packages" / "shared_types"))
 sys.path.insert(0, str(_BACKEND / "packages" / "saju_engines"))
 
+import sys as _sys  # noqa: E402
+
 from saju_engines.dictionaries import (  # noqa: E402
     _RISK_HASH_SCHEMA_VERSION,
     RISK_REVIEW_ENVIRONMENT_VERSION,
+)
+
+_sys.path.insert(0, str(_BACKEND / "apps" / "api"))
+from saju_api.services.token_counter_registry import (  # noqa: E402
+    adapter_validation_policy_hash as _adapter_validation_policy_hash,
 )
 from saju_engines.risk_exposure import (  # noqa: E402
     RISK_EXPOSURE_VERSION,
@@ -108,6 +115,8 @@ def build_manifest() -> dict:
         # critical 실증 상태는 presentation policy와 분리 — 상태 변화가
         # 49항목 감수를 강등하지 않는다(EXPOSE 게이트 감수만 갱신).
         "risk_exposure_version": RISK_EXPOSURE_VERSION,
+        # adapter 승격 기준(감수 51차 — 실측 전 선행 고정): 변경=재감수 신호.
+        "adapter_validation_policy_hash": _adapter_validation_policy_hash(),
         "expose_pipeline": {
             "reviewed": False,
             "expose_policy_hash": expose_policy_hash(),

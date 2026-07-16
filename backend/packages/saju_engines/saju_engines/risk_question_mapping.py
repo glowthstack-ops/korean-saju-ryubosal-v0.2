@@ -45,7 +45,12 @@ _DOMAIN_MAP: dict[Domain, str] = {
 
 
 def _period_label_ok(label: str) -> bool:
-    """미래 범위 라벨 검증 — YYYY 또는 YYYY-MM만(그 외=산출 실패)."""
+    """미래 범위 라벨 **형식 검증**(YYYY/YYYY-MM만 — 그 외=산출 실패).
+
+    감수 51차 §1-3 불변식: 본 모듈은 시간 라벨을 **재해석하지 않는다**
+    ("향후 1년"·"하반기" 류의 regex 파싱 0) — 시간 파서(SSOT)가 정규화한
+    절대 날짜만 받아 형식을 확인하고, 정규화 실패는 그대로 BYPASS.
+    """
     if len(label) == 4 and label.isdigit():
         return True
     return (len(label) == 7 and label[4] == "-"
@@ -69,6 +74,20 @@ def map_intent_to_exposure_question(intent: IntentJson) -> dict | None:
         return None  # TIMELESS·LIFE_STAGE·HOUR_LEVEL 등 — 불명확=fail-closed
     if intent.subject_mode.value != "single":
         return None  # 동반자·비교 대상 위험 노출은 별도 감수 전 금지
+    # 감수 51차 §1-1: DOMAIN_ANALYSIS는 intent 이름이 아니라 **도메인이
+    # 정확히 1개**일 때만 single_domain_period — 0개·2개 이상=BYPASS
+    # ("직업과 재물운 같이" 류에 단일 도메인 budget 적용 금지).
+    if question_type == "single_domain_period":
+        effective_domains = [d for d in (intent.domains or [intent.domain])
+                             if d.value != "general"]
+        if len(set(effective_domains)) != 1:
+            return None
+    # 감수 51차 §1-2: specific_event는 **해소된 target**이 있을 때만 —
+    # event_key(정본 파서가 해소한 사건 타깃)가 없으면 "요즘 왜 안
+    # 풀릴까" 류 광역 질문에 사건별 budget이 적용된다(BYPASS).
+    if question_type == "specific_event":
+        if intent.event_key is None and not intent.event_keys:
+            return None
     future_range: tuple[str, str] | None = None
     if temporal == "future":
         tr = intent.time_range
