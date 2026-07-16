@@ -95,7 +95,8 @@ def apply_risk_exposure(
         policy_hashes_match=True,
         canary_allowlisted=_canary_allowlisted(subject_id),
         kill_switch=risk_engine_config.RISK_EXPOSURE_KILL_SWITCH,
-        expose_pipeline_reviewed=False,  # R5-b 통합 감수 전 고정(비주입)
+        expose_pipeline_reviewed=(
+            risk_engine_config.RISK_EXPOSE_PIPELINE_REVIEWED),
         counter_model_id=counter_model_id,
         resolved_model_id=resolved_model_id,
         future_period_range=future_period_range,
@@ -104,15 +105,22 @@ def apply_risk_exposure(
         "globalProhibitedClaimCodes": [], "globalAllowedClaimCodes": [],
         "presentationRecords": [], "llmRiskEpisodes": []}
     result = evaluate_risk_exposure_gate(ctx, payload or empty, counter)
-    if result["inject"]:
+    disposition = result["disposition"]
+    if disposition == "INJECTED":
         block_text = result["serialized"]
         new_prompt = (prompt_text + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
                       + "\n" + block_text)
-        # provider request 직전 무결성 재확인(감수 46차 §7)이 필요하나 현
-        # 단계는 reviewed=false라 이 경로 자체가 실행되지 않는다 — canary
-        # 개시 차수에서 RiskPromptBlock 경유로 교체·검증한다.
+        # provider request 직전 무결성 재확인(감수 46·47차)은 canary 개시
+        # 차수에서 RiskPromptBlock+wrap_risk_block 경유로 교체·검증한다.
         _ = verify_risk_block_integrity
         return new_prompt, system, result["observability"]
-    # 비주입 — suppressed guard만(위험 정보 자체는 어떤 필드에도 없음).
-    return (prompt_text + "\n" + RISK_EXPOSURE_SUPPRESSED_GUARD, system,
-            result["observability"])
+    if disposition == "SUPPRESSED":
+        # 노출 자격은 있으나 런타임 조건으로 안전 주입 불가 — guard만
+        # (위험 정보 자체는 어떤 필드에도 없음).
+        return (prompt_text + "\n" + RISK_EXPOSURE_SUPPRESSED_GUARD, system,
+                result["observability"])
+    # BYPASS(감수 47차 §1): 위험 노출 파이프라인의 적용 대상이 아닌 요청 —
+    # "위험 정보가 없는 노출 요청"이 아니라 "파이프라인을 전혀 거치지 않은
+    # 기존 요청"이다. guard조차 없이 prompt 한 바이트도 바꾸지 않는다
+    # (진단은 observability 로그로만).
+    return prompt_text, system, result["observability"]

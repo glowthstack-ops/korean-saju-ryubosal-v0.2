@@ -43,45 +43,126 @@ def test_off_and_shadow_final_prompt_byte_identical(monkeypatch) -> None:
     assert RISK_EXPOSURE_INSTRUCTION_BLOCK not in off_p
 
 
-def test_expose_canary_appends_suppressed_guard_only(monkeypatch) -> None:
-    """EXPOSE_CANARY(현 단계 — reviewed:false·adapter 부재): suppressed
-    guard만 부착되고 위험 episode 정보는 어떤 형태로도 주입되지 않는다."""
-    off_p, _ = _prompt("off", monkeypatch)
-    can_p, _ = _prompt("expose_canary", monkeypatch)
-    assert can_p.endswith("\n" + RISK_EXPOSURE_SUPPRESSED_GUARD)
-    assert can_p[: -len("\n" + RISK_EXPOSURE_SUPPRESSED_GUARD)] == off_p
+def test_expose_canary_unauthorized_is_bypass_byte_identical(
+        monkeypatch) -> None:
+    """감수 47차 §2-①: EXPOSE_CANARY + canary 비허용 → disposition=BYPASS —
+    guard조차 없이 **최종 prompt baseline과 byte-identical**(위험 파이프라인
+    적용 대상이 아닌 요청은 기존 요청 그대로)."""
+    off_p, off_s = _prompt("off", monkeypatch)
+    can_p, can_s = _prompt("expose_canary", monkeypatch)
+    assert can_p == off_p
+    assert can_s == off_s
+    assert RISK_EXPOSURE_SUPPRESSED_GUARD not in can_p
     assert RISK_EXPOSURE_INSTRUCTION_BLOCK not in can_p
-    # 위험 payload 미주입(guard 문구의 'riskEpisodes' 언급과 구분 —
-    # JSON 직렬화 키·필드가 존재하지 않음을 검사).
-    assert '"riskEpisodes"' not in can_p
-    assert "presentationLevel" not in can_p
 
 
-def test_gate_observability_reports_fail_closed(monkeypatch) -> None:
-    """현 단계 게이트 사유: 질문 매핑 미확정(DENY)·pipeline 미감수·adapter
-    부재가 all reasons에 잡히고 primary는 고정 순서를 따른다."""
+def test_canary_allowed_but_pipeline_unreviewed_is_bypass(
+        monkeypatch) -> None:
+    """감수 47차 §2-②: canary 허용 + expose_pipeline reviewed=false →
+    BYPASS(guard 없음·prompt 불변)."""
     from saju_api.services.risk_exposure_service import apply_risk_exposure
 
     monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
                         "expose_canary")
-    _p, _s, obs = apply_risk_exposure("본문", None, subject_id=None)
-    assert obs["injected"] is False
-    reasons = set(obs["all_reasons"])
-    assert {"CANARY_NOT_ALLOWLISTED", "QUESTION_TYPE_NOT_ALLOWED",
-            "EXPOSE_PIPELINE_NOT_REVIEWED",
-            "TOKENIZER_UNAVAILABLE"} <= reasons
-    assert obs["reason"] == "CANARY_NOT_ALLOWLISTED"  # 순서 최앞
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSE_CANARY_SUBJECT_IDS",
+                        frozenset({"internal-tester-1"}))
+    p, s, obs = apply_risk_exposure(
+        "본문", None, subject_id="internal-tester-1",
+        question_type="period_overview", temporal_scope="future")
+    assert p == "본문" and s is None
+    assert obs["disposition"] == "BYPASS"
+    assert obs["reason"] == "EXPOSE_PIPELINE_NOT_REVIEWED"
+
+
+def test_qualified_but_runtime_short_is_suppressed_guard(
+        monkeypatch) -> None:
+    """감수 47차 §2-③: 감수·허용·tokenizer 정상 + 노출 episode 없음/예산
+    부족 → SUPPRESSED — suppressed guard만 추가."""
+    from saju_api.services.risk_exposure_service import apply_risk_exposure
+
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSE_CANARY_SUBJECT_IDS",
+                        frozenset({"internal-tester-1"}))
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSE_PIPELINE_REVIEWED", True)
+    p, _s, obs = apply_risk_exposure(
+        "본문", None, subject_id="internal-tester-1",
+        question_type="period_overview", temporal_scope="future",
+        counter=lambda t: max(1, len(t) // 4),
+        counter_model_id="m1", resolved_model_id="m1",
+        model_context_limit=16_000, base_prompt_tokens=1_000,
+        user_input_tokens=100, existing_context_tokens=1_000,
+        response_reserve=2_000)
+    assert obs["disposition"] == "SUPPRESSED"
+    assert obs["reason"] == "NO_EXPOSABLE_EPISODE"
+    assert p == "본문\n" + RISK_EXPOSURE_SUPPRESSED_GUARD
+
+
+def test_all_conditions_met_is_injected(monkeypatch) -> None:
+    """감수 47차 §2-④: 모든 조건 충족 → INJECTED — instruction + risk
+    block 추가(위험 payload 실주입 경로의 유일한 형태)."""
+    from saju_api.services.risk_exposure_service import apply_risk_exposure
+    from saju_engines.risk_presentation import build_presentation
+    from saju_engines.risk_scoring import score_shadow
+    from saju_engines.risk_selection import build_episodes
+    from saju_shared_types.risk_engine import (
+        EvidenceRole,
+        ExposureStatus,
+        RiskCandidate,
+        RiskDomain,
+        RiskEvidence,
+        RiskKind,
+    )
+
+    src = "relation:CHUNG:month_pillar:branch:ZHENGCAI"
+    cand = RiskCandidate(
+        risk_id="LEG_A", domain=RiskDomain.CONTRACT_LEGAL,
+        kind=RiskKind.INCIDENT_RISK, risk_family="fam", period_key="2026",
+        evidence=[RiskEvidence(
+            evidence_id=f"2026|{src}", code="T", period_key="2026",
+            layer="sewoon", source=src, strength=0.5,
+            role=EvidenceRole.TRIGGER, source_group="event_shape",
+            target_domain=RiskDomain.CONTRACT_LEGAL)],
+        exposure_status=ExposureStatus.CONFIRMED, specificity_rank=2,
+        normalized_effect_role="legal_dispute", trigger_cause_atoms=[src],
+        legal_episode_id="e1")
+    scored = score_shadow([cand], {"LEG_A": 0.6})
+    payload = build_presentation(build_episodes(scored), scored)
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSE_CANARY_SUBJECT_IDS",
+                        frozenset({"internal-tester-1"}))
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSE_PIPELINE_REVIEWED", True)
+    p, _s, obs = apply_risk_exposure(
+        "본문", None, payload=payload, subject_id="internal-tester-1",
+        question_type="period_overview", temporal_scope="future",
+        counter=lambda t: max(1, len(t) // 4),
+        counter_model_id="m1", resolved_model_id="m1",
+        model_context_limit=16_000, base_prompt_tokens=1_000,
+        user_input_tokens=100, existing_context_tokens=1_000,
+        response_reserve=2_000)
+    assert obs["disposition"] == "INJECTED"
+    assert RISK_EXPOSURE_INSTRUCTION_BLOCK in p
+    assert '"riskEpisodes"' in p
+    assert RISK_EXPOSURE_SUPPRESSED_GUARD not in p
 
 
 def test_kill_switch_blocks_regardless_of_mode(monkeypatch) -> None:
-    """kill switch=게이트 최앞 — EXPOSE 모드여도 비주입 primary."""
+    """kill switch=게이트 최앞 — EXPOSE 모드여도 BYPASS primary."""
     from saju_api.services.risk_exposure_service import apply_risk_exposure
 
     monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE", "expose")
     monkeypatch.setattr(risk_engine_config, "RISK_EXPOSURE_KILL_SWITCH",
                         True)
-    _p, _s, obs = apply_risk_exposure("본문", None)
+    p, _s, obs = apply_risk_exposure("본문", None)
     assert obs["reason"] == "KILL_SWITCH"
+    assert obs["disposition"] == "BYPASS"
+    assert p == "본문"  # 한 바이트도 불변
 
 
 def test_remediation_flow_is_deterministic() -> None:
@@ -138,6 +219,7 @@ def test_block_integrity_checksum() -> None:
     from saju_engines.risk_exposure import (
         RiskPromptBlock,
         verify_risk_block_integrity,
+        wrap_risk_block,
     )
 
     text = '{"riskEpisodes": []}'
@@ -145,12 +227,19 @@ def test_block_integrity_checksum() -> None:
         serialized_text=text, compression_mode="P0_COMPACT",
         exact_token_count=10,
         content_hash=hashlib.sha256(text.encode()).hexdigest()[:16])
-    assert verify_risk_block_integrity(f"머리\n{text}\n꼬리", block)
+    wrapped = wrap_risk_block(block)
+    assert verify_risk_block_integrity(f"머리\n{wrapped}\n꼬리", block)
+    # 본문 변형·marker 부재 → 실패.
     assert not verify_risk_block_integrity("머리\n변형된 블록\n꼬리", block)
+    assert not verify_risk_block_integrity(f"머리\n{text}\n꼬리", block)
+    # 중복 삽입(감수 47차 §3) — hash가 맞아도 실패.
+    assert not verify_risk_block_integrity(
+        f"{wrapped}\n중간\n{wrapped}", block)
     tampered = RiskPromptBlock(
         serialized_text=text, compression_mode="P0_COMPACT",
         exact_token_count=10, content_hash="0" * 16)
-    assert not verify_risk_block_integrity(f"머리\n{text}\n꼬리", tampered)
+    assert not verify_risk_block_integrity(
+        f"머리\n{wrap_risk_block(tampered)}\n꼬리", tampered)
 
 
 def test_future_scope_preserves_audit_records() -> None:

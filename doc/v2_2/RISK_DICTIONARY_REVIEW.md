@@ -1931,3 +1931,36 @@ exact·manifest 일치(claim_audit_policy_hash 반영).
 range 매핑 감수 ③구조화 출력 envelope(risk_guidance) 프롬프트 계약 ④audit
 재작성 흐름의 LLM 재호출 배선 ⑤expose_pipeline reviewed=true 전환 감수 →
 r4.1.0-canary.
+
+### 28-3. 감수 47차 — BYPASS/SUPPRESSED/INJECTED 분리 (2026-07-16)
+
+**핵심 교정(데굴님 지적)**: "위험 파이프라인 적용 대상이 아닌 요청은 '위험
+정보가 없는 노출 요청'이 아니라 '노출 파이프라인을 전혀 거치지 않은 기존
+요청'이다 — 진단 로그만 남기고 프롬프트는 한 바이트도 바뀌면 안 된다."
+직전 구현은 canary 비허용·pipeline 미감수 요청에도 suppressed guard를
+붙여 모델 행태를 바꿀 수 있었다(기각 반영).
+
+1. **ExposureDisposition 3상태**: BYPASS(정적 사유 — kill switch·mode·
+   canary·질문 정책·scope·pipeline 미감수·hash·tokenizer/모델) → guard조차
+   없이 **prompt 완전 불변**·진단 로그만 / SUPPRESSED(런타임 사유 — 예산·
+   episode 부재·직렬화·final overflow) → suppressed guard만 / INJECTED →
+   instruction + 감수 block. reason→disposition 매핑을 expose_policy_hash에
+   편입.
+2. **§2 필수 회귀 fixture 4종**: ①canary 비허용 → BYPASS·실제 chat 최종
+   prompt baseline byte-identical ②canary 허용+pipeline 미감수 → BYPASS·
+   guard 없음 ③감수·허용·tokenizer 정상+episode 없음 → SUPPRESSED·guard만
+   ④전 조건 충족 → INJECTED·instruction+block(실주입 유일 경로). kill
+   switch도 BYPASS(prompt 불변) 검증.
+3. **FULL alias 정리**: render tier에서 "P2" 별칭 제거 — FULL 단일 명칭
+   (survey·로그 이중 집계 방지).
+4. **단일 삽입 검증**: wrap_risk_block(BEGIN_RISK_BLOCK:<hash>…
+   END_RISK_BLOCK) + verify_risk_block_integrity 강화 — 시작/종료 marker
+   각 1회·본문 1회·checksum 일치(hash가 맞아도 중복 삽입=실패 fixture).
+5. **RISK_EXPOSE_PIPELINE_REVIEWED config**(기본 False — manifest
+   reviewed와 함께 감수 후 1줄 전환): False면 게이트가 BYPASS 처리.
+
+**게이트**: pytest 2090·ruff clean·mypy 0(532)·baseline 불변·manifest 일치.
+EXPOSE_CANARY 개시 잔여(§28-2 목록에 추가): 구조화 risk_guidance envelope
+불변식(episode_key ⊆ llm episodes·중복/미등록 실패·warning-first 순서·
+renderer 후 최종 문자열 재감사), claim audit FP/FN 코퍼스(안전 부정문·우회
+확정문) + canary 관측 지표(violation/revision/regenerate/block rate).

@@ -29,6 +29,11 @@ RISK_EXPOSURE_KILL_SWITCH: bool = False
 # 부재=비주입. 로그에는 원문 대신 해시/코호트 ID를 남긴다.
 RISK_EXPOSE_CANARY_SUBJECT_IDS: frozenset[str] = frozenset()
 
+# expose_pipeline 감수 상태(감수 47차) — R5-b 통합·감수 완료 후에만 True
+# (manifest expose_pipeline.reviewed와 함께 전환). False면 게이트가
+# BYPASS(프롬프트 완전 불변)로 처리한다.
+RISK_EXPOSE_PIPELINE_REVIEWED: bool = False
+
 # canary 초기 허용 질문 유형(감수 46차 §3 — 감수 5유형 중 3유형만 1차 개방,
 # compare·followup은 맥락 혼합이 잦아 2차 확대).
 RISK_CANARY_QUESTION_TYPES: tuple[str, ...] = (

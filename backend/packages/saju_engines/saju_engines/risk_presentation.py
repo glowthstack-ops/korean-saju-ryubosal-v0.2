@@ -513,9 +513,9 @@ def render_llm_payload(payload: dict, tier: str) -> str:
     """명시 tier로 LLM payload 직렬화(감수 45차 — RiskPromptBlock의 2차
     재계수·재압축 루프가 사용). tier: FULL(=P2)/P1/P0/P0_COMPACT."""
     episodes = payload["llmRiskEpisodes"]
+    # 단일 명칭(감수 47차 — FULL·P2 이중 집계 방지: FULL만 유효).
     fields_by_tier = {
         "FULL": _P0_FIELDS + _P1_FIELDS + _P2_FIELDS,
-        "P2": _P0_FIELDS + _P1_FIELDS + _P2_FIELDS,  # 하위 호환 별칭
         "P1": _P0_FIELDS + _P1_FIELDS,
         "P0": _P0_FIELDS,
     }

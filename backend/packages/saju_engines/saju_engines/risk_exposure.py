@@ -64,6 +64,19 @@ EXPOSURE_SUPPRESSION_REASONS = (
     "SERIALIZATION_ERROR",
     "FINAL_PROMPT_TOKEN_OVERFLOW",
 )
+# 노출 처분 3상태(감수 47차 §1 — suppression reason과 prompt 행동 분리):
+# BYPASS=위험 노출 파이프라인의 적용 대상이 아님(정적 사유 — kill switch·
+# mode·canary·질문 정책·scope·hash·tokenizer) → **prompt 한 바이트도 불변**
+# (guard조차 없음·진단 로그만). SUPPRESSED=노출 자격은 있으나 런타임 조건
+# (예산·episode 부재·직렬화)으로 안전 주입 불가 → suppressed guard만.
+# INJECTED=instruction + 감수 risk block.
+EXPOSURE_DISPOSITIONS = ("BYPASS", "SUPPRESSED", "INJECTED")
+_BYPASS_REASONS = frozenset({
+    "KILL_SWITCH", "MODE_NOT_EXPOSE", "CANARY_NOT_ALLOWLISTED",
+    "QUESTION_TYPE_NOT_ALLOWED", "SCOPE_NOT_REVIEWED",
+    "EXPOSE_PIPELINE_NOT_REVIEWED", "POLICY_HASH_MISMATCH",
+    "TOKENIZER_UNAVAILABLE", "TOKENIZER_MODEL_MISMATCH",
+})
 # 질문 노출 정책(감수 45차 §9 — boolean intent 대체): 미래 overview·기간
 # 질문은 '위험'이라는 단어 없이도 implicit 허용, 과거 회고·미등록=DENY.
 RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE = {
@@ -264,14 +277,20 @@ def evaluate_risk_exposure_gate(
     def _suppress(reasons: list[str], budget: int | None = None) -> dict:
         ordered = [r for r in EXPOSURE_SUPPRESSION_REASONS if r in reasons]
         primary = ordered[0] if ordered else reasons[0]
+        # 처분 분리(감수 47차 §1): 정적 사유=BYPASS(파이프라인 적용 대상
+        # 아님 — prompt 완전 불변), 런타임 사유=SUPPRESSED(guard 부착 가능).
+        disposition = ("BYPASS" if primary in _BYPASS_REASONS
+                       else "SUPPRESSED")
         return {
             "inject": False,
+            "disposition": disposition,
             "suppression_reason": primary,
             "all_suppression_reasons": ordered or list(reasons),
             "serialized": None,
             "observability": {
                 "attempted": True,
                 "injected": False,
+                "disposition": disposition,
                 "reason": primary,
                 "all_reasons": ordered or list(reasons),
                 "effective_budget": budget,
@@ -355,6 +374,7 @@ def evaluate_risk_exposure_gate(
         return _suppress(["TOKEN_BUDGET_INSUFFICIENT"], budget)
     return {
         "inject": True,
+        "disposition": "INJECTED",
         "suppression_reason": None,
         "all_suppression_reasons": [],
         "serialized": serialized,
@@ -362,6 +382,7 @@ def evaluate_risk_exposure_gate(
         "observability": {
             "attempted": True,
             "injected": True,
+            "disposition": "INJECTED",
             "reason": None,
             "effective_budget": budget,
             "compression_mode": doc.get("compressionMode", "TIERED"),
@@ -414,13 +435,28 @@ def _block_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
+def wrap_risk_block(block: RiskPromptBlock) -> str:
+    """주입용 wrapper(감수 47차 §3) — 단일 삽입 검증 가능한 marker 구조."""
+    return (f"BEGIN_RISK_BLOCK:{block.content_hash}\n"
+            f"{block.serialized_text}\nEND_RISK_BLOCK")
+
+
 def verify_risk_block_integrity(final_prompt: str,
                                 block: RiskPromptBlock) -> bool:
-    """provider request 직전 무결성 검증(감수 46차 §7) — block 원문이 최종
-    prompt에 **그대로** 포함되고 checksum이 일치할 때만 True. 실패=비주입
-    (reducer는 그대로 포함/작은 tier 재요청/전체 비주입만 가능)."""
-    return (block.serialized_text in final_prompt
-            and _block_hash(block.serialized_text) == block.content_hash)
+    """provider request 직전 무결성 검증(감수 46차 §7 + 47차 §3 단일 삽입).
+
+    조건 전부 충족 시만 True: ①시작 marker(BEGIN_RISK_BLOCK:<hash>) 정확
+    1회 ②종료 marker 정확 1회 ③본문 출현 정확 1회 ④checksum 일치 — hash가
+    맞아도 중복 삽입이면 실패. 실패=비주입(reducer는 그대로 포함/작은 tier
+    재요청/전체 비주입만 가능).
+    """
+    begin = f"BEGIN_RISK_BLOCK:{block.content_hash}"
+    return (
+        _block_hash(block.serialized_text) == block.content_hash
+        and final_prompt.count(begin) == 1
+        and final_prompt.count("END_RISK_BLOCK") == 1
+        and final_prompt.count(block.serialized_text) == 1
+    )
 
 
 def finalize_risk_prompt_block(
@@ -498,13 +534,24 @@ def expose_policy_hash() -> str:
         "prompt_block": "RiskPromptBlock immutable — reducer 내부 편집"
                         " 금지(부족 시 serializer에 작은 mode 재요청)",
         "kill_switch": "게이트 최앞 — mode 무관 비주입",
-        "instruction_blocks": "주입 시 RISK_EXPOSURE_INSTRUCTION_BLOCK /"
-                              " 비주입 시 RISK_EXPOSURE_SUPPRESSED_GUARD"
-                              " 분리(감수 46차 §8) — 둘 다 EXPOSE 계열"
-                              " 전용·최종 token 계수 포함",
-        "block_integrity": "RiskPromptBlock.content_hash — provider request"
-                           " 직전 verify_risk_block_integrity 대조(복사 후"
-                           " 변형·wrapper 훼손 탐지), 실패=비주입",
+        "dispositions": {"BYPASS": sorted(_BYPASS_REASONS),
+                         "SUPPRESSED": ["TOKEN_BUDGET_INSUFFICIENT",
+                                        "NO_EXPOSABLE_EPISODE",
+                                        "CLAIM_POLICY_ERROR",
+                                        "SERIALIZATION_ERROR",
+                                        "FINAL_PROMPT_TOKEN_OVERFLOW"],
+                         "contract": "BYPASS=prompt 한 바이트도 불변(guard"
+                                     " 없음·진단 로그만) / SUPPRESSED="
+                                     "guard만 / INJECTED=instruction+block"
+                                     "(감수 47차 §1)"},
+        "instruction_blocks": "INJECTED=RISK_EXPOSURE_INSTRUCTION_BLOCK /"
+                              " SUPPRESSED=RISK_EXPOSURE_SUPPRESSED_GUARD /"
+                              " BYPASS=없음(감수 46차 §8 + 47차 §1) — 전부"
+                              " EXPOSE 계열 전용·최종 token 계수 포함",
+        "block_integrity": "RiskPromptBlock.content_hash + BEGIN/END"
+                           " marker — provider request 직전 단일 삽입"
+                           "(각 1회·본문 1회)·checksum 대조, 실패=비주입"
+                           "(감수 47차 §3)",
         "compression_order": "FULL(=P2)→P1→P0→P0_COMPACT(감수 46차 §5)",
         "future_scope_audit": "OUTSIDE_FUTURE_SCOPE records 전량 보존 —"
                               " LLM episodes만 필터(감수 46차 §4), 판정="
@@ -539,6 +586,8 @@ __all__ = [
     "RISK_EXPOSURE_INSTRUCTION_BLOCK",
     "RISK_EXPOSURE_SUPPRESSED_GUARD",
     "verify_risk_block_integrity",
+    "wrap_risk_block",
+    "EXPOSURE_DISPOSITIONS",
     "RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE",
     "RiskPromptBlock",
     "filter_payload_to_future_scope",

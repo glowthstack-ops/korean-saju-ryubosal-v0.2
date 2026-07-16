@@ -8320,3 +8320,14 @@ chat 최종 prompt byte-identical**·canary 차등·kill switch·재작성·chec
 pytest 2088·ruff·mypy 0(532)·baseline 불변·manifest 일치. REVIEW.md §28-2.
 canary 개시 잔여: tokenizer adapter 실물·질문 매핑 감수·출력 envelope·
 재호출 배선·reviewed=true 전환(r4.1.0-canary).
+
+## 감수 47차 — BYPASS/SUPPRESSED/INJECTED 분리 (2026-07-16)
+
+핵심 교정: 비대상 요청(정적 사유 — canary 비허용·pipeline 미감수·tokenizer
+부재 등)은 guard조차 없이 **prompt 한 바이트도 불변**(BYPASS — 진단 로그만),
+자격 있는 요청의 런타임 실패만 suppressed guard(SUPPRESSED), 실주입은
+INJECTED 단일 경로. reason→disposition 매핑 policy hash 편입. §2 회귀
+fixture 4종(비허용 canary=chat 실측 byte-identical 포함). FULL 단일
+명칭(P2 별칭 제거)·wrap_risk_block(BEGIN/END marker)+단일 삽입 검증(중복
+=실패)·RISK_EXPOSE_PIPELINE_REVIEWED config(기본 False). pytest 2090·
+ruff·mypy 0(532)·baseline 불변·manifest 일치. REVIEW.md §28-3.
