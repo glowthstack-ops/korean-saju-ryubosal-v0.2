@@ -67,14 +67,15 @@ def _evidence(source: str, *, strength=0.5, role=EvidenceRole.TRIGGER,
 
 
 def _candidate(*, risk_id="SYN_RISK", period="2026", evidence,
-               exposure=ExposureStatus.UNKNOWN, **overrides) -> RiskCandidate:
+               exposure=ExposureStatus.UNKNOWN, family="syn",
+               **overrides) -> RiskCandidate:
     atoms = sorted({
         a for e in evidence if e.role is EvidenceRole.TRIGGER
         for a in e.source.split("&")
     })
     return RiskCandidate(
         risk_id=risk_id, domain=RiskDomain.FINANCE, kind=RiskKind.INCIDENT_RISK,
-        risk_family="syn", period_key=period, evidence=evidence,
+        risk_family=family, period_key=period, evidence=evidence,
         exposure_status=exposure, trigger_cause_atoms=atoms, **overrides,
     )
 
@@ -200,19 +201,53 @@ def test_amplifier_and_mitigator_zero_occurrence_contribution() -> None:
 
 
 def test_cause_occurrence_table_single_entry_per_cause() -> None:
-    """같은 원인을 공유하는 FIN·다른 risk_id 후보 — 표에는 (기간, 원인) 1항목."""
-    a = _candidate(risk_id="SYN_A", evidence=[_evidence(_CHUNG, strength=0.5)])
-    b = _candidate(risk_id="SYN_B", evidence=[_evidence(_CHUNG, strength=0.4)])
+    """같은 원인을 공유하는 다른 family 후보 — 표에는 (기간, 원인) 1항목."""
+    a = _candidate(risk_id="SYN_A", family="fam_a",
+                   evidence=[_evidence(_CHUNG, strength=0.5)])
+    b = _candidate(risk_id="SYN_B", family="fam_b",
+                   evidence=[_evidence(_CHUNG, strength=0.4)])
     table = cause_occurrence_table([a, b])
     assert list(table) == [("2026", _CHUNG)]
     assert table[("2026", _CHUNG)] == 0.5  # 최강 strength 1회(결정적)
-    # compound 축이 연결을 표현한다(occurrence 중복 가산 아님).
+    # compound 축이 독립 효과군 연결을 표현한다(occurrence 중복 가산 아님).
     [sa, sb] = score_shadow([a, b], {})
     assert _comp(sa).compound > 0 and _comp(sb).compound > 0
     lone = _candidate(risk_id="SYN_C", evidence=[
         _evidence("relation:PA:day_pillar:branch:BIJIAN", strength=0.5)])
     [sc] = score_shadow([lone], {})
     assert _comp(sc).compound == 0.0  # 연결 없으면 0
+
+
+def test_compound_requires_independent_exposable_effect() -> None:
+    """감수 26차 보완 4: 같은 family alias·흡수 후보·비노출 연결은 compound 0."""
+    base = _candidate(risk_id="SYN_A", family="fam_a",
+                      evidence=[_evidence(_CHUNG, strength=0.5)])
+    # 같은 family의 다른 risk_id(동일 효과 계열의 파생 표현) → 연결 아님.
+    alias = _candidate(risk_id="SYN_A2", family="fam_a",
+                       evidence=[_evidence(_CHUNG, strength=0.4)])
+    [sa, _] = score_shadow([base, alias], {})
+    assert _comp(sa).compound == 0.0
+    # 흡수된 supporting 후보 → 연결 아님.
+    absorbed = _candidate(
+        risk_id="SYN_B", family="fam_b",
+        evidence=[_evidence(_CHUNG, strength=0.4)],
+        suppressed_by_specificity="SYN_A", primary_risk_id="SYN_A",
+        absorbed_role="supporting_manifestation")
+    [sa2, _] = score_shadow([base, absorbed], {})
+    assert _comp(sa2).compound == 0.0
+    # 비노출 vulnerability 연결 → 연결 아님.
+    vuln = RiskCandidate(
+        risk_id="SYN_V", domain=RiskDomain.FINANCE,
+        kind=RiskKind.VULNERABILITY, risk_family="fam_v", period_key="2026",
+        evidence=[_evidence(_CHUNG, strength=0.4)],
+        trigger_cause_atoms=[_CHUNG])
+    [sa3, _] = score_shadow([base, vuln], {})
+    assert _comp(sa3).compound == 0.0
+    # 독립 exposable 다른 family → 연결 1건.
+    other = _candidate(risk_id="SYN_C", family="fam_c",
+                       evidence=[_evidence(_CHUNG, strength=0.4)])
+    [sa4, _] = score_shadow([base, other], {})
+    assert _comp(sa4).compound == pytest.approx(0.25)
 
 
 def test_multi_episode_same_cause_portfolio_once(engine: RiskEngine) -> None:
@@ -245,17 +280,31 @@ def test_multi_episode_same_cause_portfolio_once(engine: RiskEngine) -> None:
 # ── 7. persistence·총점 — 반복 횟수만·포화 금지 ───────────────────
 
 
-def test_persistence_counts_periods_only() -> None:
+def test_persistence_contiguous_not_intermittent() -> None:
+    """감수 26차 보완 5: 연속 3개월 ≠ 간헐 3회 — longest contiguous run 기준."""
     ev = lambda p: [_evidence(_CHUNG, strength=0.5, period=p)]  # noqa: E731
-    series = [_candidate(period=p, evidence=ev(p)) for p in
-              ("2026-01", "2026-02", "2026-03")]
+    contiguous = [_candidate(period=p, evidence=ev(p)) for p in
+                  ("2026-01", "2026-02", "2026-03")]
+    intermittent = [_candidate(risk_id="SYN_GAP", period=p, evidence=ev(p))
+                    for p in ("2026-01", "2026-06", "2026-11")]
     lone = _candidate(period="2026-07", evidence=ev("2026-07"),
                       risk_id="SYN_LONE")
-    scored = score_shadow(series + [lone], {})
-    assert _comp(scored[0]).persistence == pytest.approx(2 / 5)
+    scored = score_shadow(contiguous + intermittent + [lone], {})
+    assert _comp(scored[0]).persistence == pytest.approx(2 / 5)  # 연속 3
+    assert _comp(scored[3]).persistence == 0.0  # 간헐 3회 = run 1
+    assert _comp(scored[6]).persistence == 0.0
     assert _comp(scored[0]).occurrence == (
-        _comp(scored[3]).occurrence)  # 반복이 신호 강도를 재합산 금지
-    assert _comp(scored[3]).persistence == 0.0
+        _comp(scored[6]).occurrence)  # 반복이 신호 강도를 재합산 금지
+
+
+def test_persistence_year_containing_month_not_double_counted() -> None:
+    """연운과 월운이 같은 달을 지지 → 기간 2가 아니라 1(+layer convergence 소관)."""
+    ev = lambda p: [_evidence(_CHUNG, strength=0.5, period=p)]  # noqa: E731
+    pair = [_candidate(period="2026", evidence=ev("2026")),
+            _candidate(period="2026-03", evidence=ev("2026-03"))]
+    scored = score_shadow(pair, {})
+    assert _comp(scored[0]).persistence == 0.0  # 월 라벨 존재 시 월 연속만(run 1)
+    assert _comp(scored[1]).persistence == 0.0
 
 
 def test_priority_raw_and_capped_no_saturation() -> None:
@@ -272,3 +321,83 @@ def test_priority_raw_and_capped_no_saturation() -> None:
     assert raw > 1.0  # 원값 보존(포화 진단)
     assert capped == 1.0  # 소비값만 clamp
     assert RISK_SCORING_VERSION.startswith("risk-score-r1.")
+
+
+# ── 8. cause identity 계약(감수 26차 보완 1) — 관계 원자=target 내장 canonical ──
+
+
+def test_cause_identity_target_and_kind_and_layer() -> None:
+    """①같은 원자+다른 대상=원인 2 ②같은 대상+다른 관계=원인 2 ③같은 대상·관계의
+    다층=원인 1(+supporting layer). 관계 원자에 target_object_signature 내장."""
+    other_target = "relation:CHUNG:day_pillar:branch:ZHENGGUAN"
+    # ① 같은 관계 종류(충) + 다른 대상 → 서로 다른 원자 → cause row 2개.
+    a = _candidate(risk_id="SYN_A", family="fam_a",
+                   evidence=[_evidence(_CHUNG, strength=0.5)])
+    b = _candidate(risk_id="SYN_B", family="fam_b",
+                   evidence=[_evidence(other_target, strength=0.5)])
+    assert len(cause_occurrence_table([a, b])) == 2
+    # ② 같은 대상 + 다른 관계(충 vs 형) → cause row 2개.
+    c = _candidate(risk_id="SYN_C", family="fam_c",
+                   evidence=[_evidence(_HYEONG, strength=0.5)])
+    assert len(cause_occurrence_table([a, c])) == 2
+    # ③ 같은 대상·같은 관계의 다층 반복 → cause row 1개(layer는 서명 밖).
+    multi = _candidate(risk_id="SYN_D", family="fam_d", evidence=[
+        _evidence(_CHUNG, strength=0.5, layer="daewoon+sewoon")])
+    assert len(cause_occurrence_table([a, multi])) == 1
+
+
+# ── 9. exposure = rankable 가중(감수 26차 보완 2·3) — 게이트 미통과 0 ──
+
+
+def test_exposure_weight_policy_gated() -> None:
+    """DENIED·confirmed_required+UNKNOWN·conflict·vulnerability → exposure 0.
+    required_for_warning+UNKNOWN → 0.55 잠정 / CONFIRMED → 1.0."""
+    ev = [_evidence(_CHUNG, strength=0.5)]
+    confirmed = _candidate(evidence=ev, exposure=ExposureStatus.CONFIRMED)
+    warn_unknown = _candidate(
+        evidence=ev, exposure=ExposureStatus.UNKNOWN,
+        exposure_requirement="required_for_warning")
+    hard_unknown = _candidate(
+        evidence=ev, exposure=ExposureStatus.UNKNOWN,
+        exposure_requirement="confirmed_required")
+    conflicted = _candidate(evidence=ev, selection_context_conflict=True)
+    vuln = RiskCandidate(
+        risk_id="SYN_V", domain=RiskDomain.FINANCE,
+        kind=RiskKind.VULNERABILITY, risk_family="fam_v", period_key="2026",
+        evidence=ev, trigger_cause_atoms=[_CHUNG])
+    scored = score_shadow(
+        [confirmed, warn_unknown, hard_unknown, conflicted, vuln],
+        {"SYN_RISK": 0.6, "SYN_V": 0.4})
+    assert _comp(scored[0]).exposure == 1.0
+    assert _comp(scored[1]).exposure == pytest.approx(0.55)
+    assert _comp(scored[2]).exposure == 0.0  # 확인 전 ranking 대상 아님
+    assert _comp(scored[3]).exposure == 0.0  # CONTEXT_CONFLICT
+    assert _comp(scored[4]).exposure == 0.0  # vulnerability 단독 노출 없음
+    # rankable=0이어도 구조 진단은 보존(DENIED counterfactual 경로).
+    from saju_engines.risk_scoring import structural_priority
+    assert structural_priority(_comp(scored[2])) > 0
+    raw, capped = risk_priority(_comp(scored[2]))
+    assert raw <= 0.0 or capped == 0.0 or _comp(scored[2]).exposure == 0.0
+
+
+def test_denied_blocked_candidate_rankable_zero(engine: RiskEngine) -> None:
+    """엔진 실후보: 전역 DENIED → BLOCKED(기존 판정 유지) + exposure 축 0 —
+    구조 진단(structural_priority)은 별도로 살아 있다."""
+    from saju_engines.risk_scoring import structural_priority
+    cands = engine.generate(
+        _facts(gods={TenGod.ZHENGCAI: {LuckLayer.SEWOON}},
+               relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                                       target_ten_god=TenGod.ZHENGCAI)]),
+        exposure_status=ExposureStatus.DENIED,
+    )
+    scored = score_shadow(cands, engine.base_impacts())
+    denied = [c for c in scored
+              if c.exposure_status is ExposureStatus.DENIED
+              and c.score_components is not None]
+    assert denied
+    for c in denied:
+        assert _comp(c).exposure == 0.0  # ranking 가중 0(0.15 제거)
+        raw, capped = risk_priority(_comp(c))
+        assert _comp(c).occurrence * _comp(c).impact * _comp(c).exposure == 0.0
+        if _comp(c).occurrence > 0:
+            assert structural_priority(_comp(c)) != raw or capped == 0.0

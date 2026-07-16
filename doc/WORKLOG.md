@@ -7993,3 +7993,16 @@ risk_priority(raw/capped — total은 마지막 한 번·후보 미저장). 불�
 전부 잠정(감수 질문 — exposure UNKNOWN 0.55는 랭킹 정책 가중·§5-1 상한 별도).
 pytest 1977·ruff·mypy 0·전 baseline exact match. 다음: R1-b 표본 → R1-c 49항목
 shadow scoring(+shadow_scoring scope 감수).
+
+## R1-a 후속 보완 — 감수 26차 확정 5건(R1-b 착수 전) (2026-07-16)
+
+①cause identity 계약 명시(관계 원자=target_object_signature 내장 canonical —
+로직 불변, docstring+fixture 3종: 다른 대상=원인 2·다른 관계=원인 2·다층=원인 1)
+②DENIED ranking 가중 0.15 제거 — exposure 축=rankable 가중(is_exposable 미통과
+전부 0: DENIED·confirmed_required+UNKNOWN·conflict·vulnerability), 통과 후보만
+1.0/0.55 ③structural_priority 신설(exposure 제외 구조 진단 — counterfactual 전용)
+④compound=독립 exposable 효과군(다른 family+노출 가능+미흡수 — alias·supporting·
+vuln 연결 제외, fixture 4상황) ⑤persistence=longest contiguous run(간헐 3회 0.0 ≠
+연속 3개월 0.4, 연운이 같은 달 지지=기간 1+convergence). RISK_SCORING_VERSION
+r1.0.1-shadow(env r0.5.12 불변). fixture 14종·pytest 1982·mypy 0·전 baseline
+exact match. 다음: R1-b 표본 측정(경계 사례 목록은 REVIEW.md §13-1·데굴님 지정).

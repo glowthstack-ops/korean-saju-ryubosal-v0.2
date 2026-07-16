@@ -9,6 +9,13 @@ R0.5 원자 후보의 6축 `RiskScoreComponents`를 산출한다. **shadow 전�
 - **raw cause 1회 계산**: cause-level occurrence 기여는 (period, cause_atom)당 한 번
   계산되어 여러 후보가 참조한다 — 포트폴리오·episode 합산은 후보 합이 아니라
   `cause_occurrence_table`을 원천으로 써야 중복 가산이 없다.
+- **cause identity 계약(감수 26차 확정)**: 관계 원자는 매처가 사실 기반으로 만든
+  완전한 canonical 서명이다 — `relation:<종류>:<궁위>:<자리>[:<글자>][:<십성>]`에
+  **target_object_signature가 내장**되어, 같은 관계 종류라도 대상이 다르면 서로
+  다른 원자(원인 2), 같은 대상의 다른 관계도 다른 원자(원인 2), 같은 대상·같은
+  관계의 다층 반복은 같은 원자(원인 1 — layer는 서명 밖, 수렴 진단만)다. 같은
+  사실을 재표현한 복수 룰은 매처가 같은 source 서명을 만들므로 root-fact 기준
+  dedup이 자동 성립한다(fixture 고정).
 - **서로 다른 관계 = 독립 원인**(같은 대상의 충+형=2), **같은 관계의 layer 반복 =
   원인 1 + layer_convergence 별도 진단**(occurrence 재합산 금지).
 - **컨텍스트는 증거가 아님**: episode 존재·is_question_target·exposure CONFIRMED·
@@ -40,27 +47,33 @@ from saju_shared_types.risk_engine import (
     ExposureStatus,
     RiskCandidate,
     RiskScoreComponents,
+    is_exposable,
 )
 
 from .risk_engine import cause_atoms
 
 # 점수 의미 버전 — 축 정의·가중·매핑이 바뀌면 올린다(엔진 env 버전과 독립).
-RISK_SCORING_VERSION = "risk-score-r1.0.0-shadow"
+RISK_SCORING_VERSION = "risk-score-r1.0.1-shadow"
 
-# exposure 상태 → 축 가중(잠정 — 감수 질문): CONFIRMED만 만점, DENIED는 하향
-# (삭제 아님 — '현재 노출 없음' 보호), NOT_APPLICABLE은 스킵(0). UNKNOWN은
-# 중간 사실이 아니라 '확인 전 랭킹 정책 가중'이며 §5-1 상한(warning)이 별도 적용.
-_EXPOSURE_WEIGHT: dict[ExposureStatus, float] = {
-    ExposureStatus.CONFIRMED: 1.0,
-    ExposureStatus.UNKNOWN: 0.55,
-    ExposureStatus.DENIED: 0.15,
-    ExposureStatus.NOT_APPLICABLE: 0.0,
-}
-# persistence 정규화: 반복 기간 n → (n-1)/_PERSISTENCE_SPAN, cap 1.0 (반복 횟수만
-# 반영 — 같은 신호 강도의 재합산 금지).
+# exposure 축 = **rankable 가중**(감수 26차 확정 — 정책별 분리, 전 항목 공통값
+# 금지): 노출 게이트(is_exposable)를 통과하지 못한 후보는 0 — DENIED(명시 부정)·
+# NOT_APPLICABLE·confirmed_required+UNKNOWN·CONTEXT_CONFLICT·vulnerability(단독
+# 노출 없음) 전부 ranking 대상 아님(구조 진단은 structural_priority가 exposure
+# 없이 별도 제공 — DENIED의 counterfactual 진단도 그쪽). 통과 후보만:
+# CONFIRMED=1.0, UNKNOWN(required_for_warning 등 조건부 허용 항목)=0.55(잠정 —
+# 사실 중간값이 아니라 랭킹 정책 가중, §5-1 상한 warning 별도 강제).
+_EXPOSURE_CONFIRMED, _EXPOSURE_UNKNOWN_RANKABLE = 1.0, 0.55
+# persistence 정규화(감수 26차 확정 — 단순 반복 횟수 아님): 같은 계열(risk_id+
+# episode 서명)의 **최장 연속 구간(longest contiguous run)** n → (n-1)/SPAN,
+# cap 1.0. 간헐 반복(1·6·11월)은 연속 3개월과 다르다. 월운 라벨이 있으면 월
+# 연속만 계산하고 그 달들을 포함하는 연운 라벨은 별도 기간이 아니라 layer
+# convergence로 본다(기간 중복 계산 금지). 신호 강도 재합산 금지. total/gap-
+# adjusted 비교 지표는 R1-b 측정에서 병행 출력(잠정 기본=contiguous run).
 _PERSISTENCE_SPAN = 5
-# compound: 같은 기간에 원인 원자를 공유하는 **별도의 다른 risk_id** 연결 1건당
-# 가중(연쇄=복합 시나리오 재료), cap 1.0.
+# compound(감수 26차 확정 — risk_id 개수 기준 금지): 같은 기간·원인 공유 연결 중
+# **독립 exposable 효과군**만 — 다른 risk_family(같은 family=동일 효과 계열의
+# alias·파생) + is_exposable + 미흡수(supporting 아님). 같은 원인의 문서 부담·
+# 검토 취약·행정 supporting 파생은 복합 위험이 아니다. family 1건당 가중, cap 1.0.
 _COMPOUND_PER_LINK = 0.25
 # confidence 휴리스틱(잠정): 기본 + 독립 원인 추가분 + 다층 수렴 관측.
 _CONF_BASE, _CONF_PER_EXTRA_CAUSE, _CONF_LAYER = 0.4, 0.2, 0.2
@@ -157,31 +170,41 @@ def score_shadow(
     Returns:
         점수 채운 후보 사본 목록(원본 불변).
     """
-    # persistence 재료 — 같은 (risk_id + 전 축 episode 서명)의 반복 기간 수.
+    # persistence 재료 — 같은 (risk_id + 전 축 episode 서명)의 기간 라벨 집합.
     period_sets: dict[tuple[str | None, ...], set[str]] = {}
     for c in candidates:
         period_sets.setdefault(_series_key(c), set()).add(c.period_key)
-    # compound 재료 — 같은 기간·원인 원자를 공유하는 다른 risk_id 연결 수.
-    atoms_by_period: dict[str, list[tuple[str, frozenset[str]]]] = {}
+    # compound 재료 — 같은 기간의 (risk_id, family, 원자, 독립 exposable 여부).
+    links_by_period: dict[str, list[tuple[str, str | None, frozenset[str], bool]]]
+    links_by_period = {}
     for c in candidates:
-        atoms_by_period.setdefault(c.period_key, []).append(
-            (c.risk_id, _candidate_atoms(c)))
+        links_by_period.setdefault(c.period_key, []).append((
+            c.risk_id, c.risk_family, _candidate_atoms(c),
+            # 독립 exposable 효과: 노출 게이트 통과 + 미흡수(supporting·
+            # background·trajectory 후보는 suppressed라 자동 제외).
+            is_exposable(c) and c.suppressed_by_specificity is None,
+        ))
 
     out: list[RiskCandidate] = []
     for c in candidates:
         occ, n_causes, layer_conv = _occurrence(c)
         my_atoms = _candidate_atoms(c)
-        linked_ids = {
-            rid for rid, atoms in atoms_by_period.get(c.period_key, [])
-            if rid != c.risk_id and (atoms & my_atoms)
+        # compound(감수 26차) — 원인을 공유하는 **다른 primary effect family**의
+        # 독립 exposable 후보만 연결로 계산(같은 family=alias·파생 표현, 비노출·
+        # 흡수 후보=복합 위험 아님). risk_id 개수 기준 금지.
+        linked_families = {
+            fam for rid, fam, atoms, independent in (
+                links_by_period.get(c.period_key, []))
+            if independent and rid != c.risk_id and fam is not None
+            and fam != c.risk_family and (atoms & my_atoms)
         }
-        n_periods = len(period_sets[_series_key(c)])
+        run = _longest_contiguous_run(period_sets[_series_key(c)])
         components = RiskScoreComponents(
             occurrence=occ,
             impact=min(1.0, max(0.0, base_impact.get(c.risk_id, 0.0))),
-            exposure=_EXPOSURE_WEIGHT[c.exposure_status],
-            persistence=min(1.0, (n_periods - 1) / _PERSISTENCE_SPAN),
-            compound=min(1.0, _COMPOUND_PER_LINK * len(linked_ids)),
+            exposure=_exposure_weight(c),
+            persistence=min(1.0, (run - 1) / _PERSISTENCE_SPAN),
+            compound=min(1.0, _COMPOUND_PER_LINK * len(linked_families)),
             protection=_protection(c),
         )
         confidence = min(1.0, (
@@ -194,6 +217,50 @@ def score_shadow(
             "confidence": round(confidence, 6),
         }))
     return out
+
+
+def _exposure_weight(c: RiskCandidate) -> float:
+    """exposure 축 = rankable 가중(감수 26차) — 게이트 미통과는 0.
+
+    is_exposable이 정책을 이미 통합한다: DENIED/NOT_APPLICABLE(BLOCKED),
+    confirmed_required+UNKNOWN, unknownExposable=false, CONTEXT_CONFLICT,
+    vulnerability(단독 노출 없음), 축 미확인 구체 항목 — 전부 0. 통과 후보만
+    CONFIRMED=1.0 / UNKNOWN(조건부 허용 항목)=0.55. DENIED의 구조 진단은
+    structural_priority(exposure 제외)가 담당한다.
+    """
+    if not is_exposable(c):
+        return 0.0
+    if c.exposure_status is ExposureStatus.CONFIRMED:
+        return _EXPOSURE_CONFIRMED
+    return _EXPOSURE_UNKNOWN_RANKABLE
+
+
+def _month_index(label: str) -> int | None:
+    """'YYYY-MM' → 절대 월 인덱스(연속 판정용). 그 외 형식은 None."""
+    if len(label) == 7 and label[4] == "-":
+        return int(label[:4]) * 12 + int(label[5:7]) - 1
+    return None
+
+
+def _longest_contiguous_run(periods: set[str]) -> int:
+    """같은 계열의 최장 연속 구간(감수 26차 — 간헐 반복≠연속 압박).
+
+    월운 라벨('YYYY-MM')이 있으면 월 연속만 계산한다 — 그 달들을 포함하는 연운
+    라벨('YYYY')은 별도 기간이 아니라 layer convergence(기간 중복 계산 금지).
+    월운이 없으면 연 단위 연속으로 계산한다.
+    """
+    months = sorted(m for m in (_month_index(x) for x in periods) if m is not None)
+    if months:
+        seq = months
+    else:
+        seq = sorted(int(x) for x in periods if len(x) == 4 and x.isdigit())
+        if not seq:
+            return max(1, len(periods))  # 미상 형식 — 보수적으로 반복 없음 취급
+    best = cur = 1
+    for prev, nxt in zip(seq, seq[1:], strict=False):
+        cur = cur + 1 if nxt == prev + 1 else 1
+        best = max(best, cur)
+    return best
 
 
 def _series_key(c: RiskCandidate) -> tuple[str | None, ...]:
@@ -218,9 +285,23 @@ def risk_priority(components: RiskScoreComponents) -> tuple[float, float]:
     return round(raw, 6), min(1.0, max(0.0, round(raw, 6)))
 
 
+def structural_priority(components: RiskScoreComponents) -> float:
+    """exposure 제외 구조 진단 우선도 — DENIED·미확인 후보의 counterfactual 진단.
+
+    rankable(risk_priority)과 달리 노출 게이트와 무관하게 구조 신호의 세기만
+    본다(사용자 노출·선별에 쓰지 않는다 — R4 오경고 분석·감수 재료).
+    """
+    return round(
+        components.occurrence * components.impact
+        + components.persistence + components.compound - components.protection,
+        6,
+    )
+
+
 __all__ = [
     "RISK_SCORING_VERSION",
     "cause_occurrence_table",
     "risk_priority",
     "score_shadow",
+    "structural_priority",
 ]

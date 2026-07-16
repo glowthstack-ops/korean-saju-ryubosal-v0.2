@@ -785,3 +785,28 @@ episode에서 한 번만 평가하고, 점수 계산이 이미 감수된 적격�
   baseline exact match·manifest 일치.
 - 다음: R1-b(대표 항목 표본 — kind·컨텍스트 조합) → R1-c(49항목 shadow scoring
   분포·포화율·A/B/C/D 비교·recall 생존 + shadow_scoring scope 감수).
+
+### 13-1. R1-a 후속 보완(감수 26차 확정 5건 — R1-b 착수 전) (2026-07-16)
+
+1. **cause identity 계약 명시**: 관계 원자 `relation:<종류>:<궁위>:<자리>[:<글자>]
+   [:<십성>]`은 매처가 사실 기반으로 만든 canonical 서명으로 **target_object_
+   signature 내장** — 같은 관계+다른 대상=원인 2, 같은 대상+다른 관계=원인 2,
+   같은 대상·관계 다층=원인 1(+supporting layer, convergence 진단). 같은 사실의
+   재표현 룰은 같은 source 서명(root-fact dedup 자동). 로직 변경 불필요 —
+   계약을 docstring+fixture 3종으로 고정.
+2. **DENIED ranking 가중 0.15 제거**: exposure 축 = rankable 가중으로 재정의 —
+   `is_exposable` 미통과(DENIED·NOT_APPLICABLE·confirmed_required+UNKNOWN·
+   unknownExposable=false·CONTEXT_CONFLICT·vulnerability·축 미확인 구체 항목)는
+   전부 **0**. 통과 후보만 CONFIRMED 1.0/UNKNOWN(조건부 허용 항목) 0.55 잠정.
+3. **structural vs rankable 분리**: `structural_priority()`(exposure 제외) 신설 —
+   DENIED counterfactual·오경고 분석 등 구조 진단 전용(노출·선별 사용 금지).
+4. **compound = 독립 exposable 효과군**: risk_id 개수 기준 폐기 — 다른 risk_
+   family + is_exposable + 미흡수 연결만(같은 family=alias·파생, supporting·
+   vulnerability·비노출 연결=복합 위험 아님). fixture 4상황 고정.
+5. **persistence = 최장 연속 구간**: 단순 반복 기간 수 폐기 — 같은 계열의
+   longest contiguous run((run-1)/5 cap). 간헐 3회=run 1(0.0)≠연속 3개월(0.4).
+   월운 라벨 존재 시 월 연속만 계산 — 같은 달을 지지하는 연운 라벨은 기간 중복이
+   아니라 layer convergence. total/gap-adjusted 비교는 R1-b 측정 병행 출력.
+
+`RISK_SCORING_VERSION` r1.0.0→**r1.0.1-shadow**(점수 의미 변경 — env r0.5.12
+불변). fixture 9→**14종**. pytest 1982·mypy 0·전 baseline exact match.
