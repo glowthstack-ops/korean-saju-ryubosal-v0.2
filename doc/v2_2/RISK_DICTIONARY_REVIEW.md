@@ -1098,3 +1098,56 @@ manifest: shadow_structure 49/49 · **shadow_scoring 49/49**. 게이트: pytest
 2002·mypy 0(521)·baseline 지표 diff 0(사전 해시 메타 재기록)·restamp 검증
 불변 49. **다음: R2 착수**(episode 병합·risk budget·대표 선택 — 병합 키에
 trigger_cause_atoms 교집합, cause 표 기반 포트폴리오 1회 계산).
+
+## 20. R2 차수(감수 34차) manifest — episode 병합·대표·budget·portfolio·recovery
+(데굴님 착수 기준 선행 고정, 2026-07-16)
+
+**차수 성공 조건(데굴님 확정)**: 같은 현실 건은 도메인과 위험 항목이 달라도 하나의
+episode로 묶고, 같은 원인은 여러 episode에 연결돼도 포트폴리오에서 한 번만
+계산하며, 보여줄 위험이 부족할 때 budget을 채우기 위해 약한 위험을 만들지 않는다.
+
+1. **3-identity 분리(병합 키 수정 — R0 자리표시 키 폐기)**: reality episode
+   identity(명시 context episode_id + exposure target 서명 + stage·기간 호환) /
+   cause identity(canonical cause_atom·lineage) / effect identity(normalized
+   EffectRole). **risk_id·domain은 key에서 제외 — episode 구성원 속성**(주택
+   계약 episode에 MOV·LEG·FIN 후보가 함께 묶여야 함).
+2. **병합 규칙**: 명시 episode_id(전 축) 우선 — 같은 explicit id+stage 호환이면
+   cause가 달라도 병합. 명시 id 부재 fallback은 보수적: 같은 exposure target
+   서명+같거나 인접 기간+shared canonical cause+stage 호환+**동일 현실 건
+   ownership 계약**(현 시점 잔여 계약=같은 riskFamily — 교차 통합 감수 키) 전부
+   충족 시만. 동일성 입증 불가=병합 금지(fail-closed). cause 교집합은 identity가
+   아니라 연결 근거(다른 episode+같은 cause=병합 금지·portfolio 1회).
+3. **RiskEpisode 구조(§8 권장안)**: episode_id·target_signature·start/end·
+   stages·member/representative/supporting/background ids·canonical_cause_ids·
+   effect_roles·domains·exposure_status·structural/context confidence·
+   recovery_window. 대표 선택 후에도 supporting·vulnerability·trajectory 역할
+   보존(삭제 금지 — 출력 압축만).
+4. **대표 자격**: context-exposable + rankable>0 + kind≠vulnerability + 비흡수.
+   비교 순서: ①explicit primary ownership ②exposure 적격성 ③effect
+   specificity ④rankable score ⑤structural confidence ⑥deterministic risk_id.
+   점수가 primary owner를 밀어내지 못하고, 비노출 구체 후보가 노출 가능한 일반
+   후보를 제거하지 못한다(R0.5 역전 방지 유지).
+5. **risk budget**: hard_min=0(적격 없으면 0개 — 약한/BLOCKED 끌어올림 금지),
+   soft_target(단일 도메인 1~2·overview 2~3), hard_max(2/3). 순서: episode
+   중복 제거→같은 effect role 제거→shared cause 제거→budget→동점에서만 도메인
+   다양성 soft tie-break(강제 다양성 금지 — 같은 도메인 3 episode 허용). 누락
+   이유 기록.
+6. **portfolio 합산**: 원천=unique canonical cause 표·unique persistent
+   lineage·distinct resolved effect roles·unique reality episodes. 금지=후보
+   rankable 합·episode별 occurrence 합·같은 cause persistence 반복·supporting/
+   vulnerability 재가산. total 필요 시 unique cause 원천 포화 결합.
+7. **recovery window**: 현재 점수와 완전 독립(별도 전망 — 점수·순위 불변
+   fixture). 성립=주요 cause lineage 종료·약화+protection 강화+불리 stage 종료
+   보수 판정. 출력=earliest_relief_window·stable_recovery_window·recovery_
+   confidence·reasons. 단정 표현 금지(반드시 해결·완전 소멸·회복 운이라 현재
+   위험 낮음).
+8. **버전·감수**: env r0.5.12 유지, **RISK_SELECTION_VERSION=risk-select-
+   r2.0.0-shadow** 신설, manifest에 selection_policy_hash 병기(병합 정책·stage
+   호환·대표 순서·budget·portfolio dedup·recovery 정책). scope shadow_selection
+   0/49 — 스탬프는 R2 측정·감수 후.
+9. **필수 fixture(§13)**: 병합 4(같은 explicit episode+다른 risk_id·domain=1
+   episode / 다른 episode+같은 cause=2 episode·portfolio 1회 / 같은 episode+
+   다른 cause=1 episode·cause 2 / 명시 없음+같은 cause·다른 target=병합 금지),
+   대표 2(비노출 구체 vs 노출 일반 — 일반 대표·구체 background / vulnerability
+   고득점 대표 불가), budget 3(적격 0→0 / episode 후보 5→대표 1 / episode 4·
+   max 3→상위 3+누락 기록), recovery 1(추가→현재 점수·순위 byte 불변).

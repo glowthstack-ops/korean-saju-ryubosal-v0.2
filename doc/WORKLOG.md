@@ -8112,3 +8112,22 @@ crossing 0·추월 0). shared-cause 16조합 표(최다 compliance↔dispute 13�
 + manifest에 scoring version·config/semantics hash 병기(변경=자동 재감수 신호).
 r1.1.1-shadow. fixture 34종·pytest 2002·mypy 0·전 baseline 지표 diff 0·restamp
 불변 49. **R1 완료 — 다음: R2(episode 병합·risk budget·대표 선택).**
+
+## R2-a — 선별 계층 인프라(episode 병합·대표·budget·portfolio·recovery)
+(감수 34차 착수, 2026-07-16)
+
+manifest 선행 고정(REVIEW.md §20 — 데굴님 episode key 수정 반영: **risk_id·domain
+제외**, 3-identity 분리). ①RiskEpisode 개편(§8 구조 — R0 자리표시 키 폐기,
+member/representative/supporting/background·cause·role·domains 속성) + Recovery
+Window 확장(earliest/stable/confidence/reasons) ②risk_selection.py 신설(shadow
+전용): build_episodes(explicit id 우선·fallback=대상+원인+family+기간 연속
+fail-closed), 대표 선택(exposable+rankable>0+비취약+비흡수, specificity→score→
+confidence→id — 점수가 primary를 못 밀어냄), RiskBudgetPolicy(hard_min 0·
+soft_target·hard_max, dedup: role→shared cause→budget→도메인 soft tie-break·누락
+기록), portfolio_diagnostics(unique cause·role·episode — 후보 합산 금지),
+attach_recovery_windows(lineage 지평 내 종료 시만·점수/순위 byte 불변)
+③RISK_SELECTION_VERSION=risk-select-r2.0.0-shadow + selection_policy_hash
+manifest 병기(scope shadow_selection 0/49 — 스탬프는 측정·감수 후). §13 필수
+fixture 10종 전부 통과(병합 4·대표 2·budget 3·recovery 1). pytest 2012·mypy
+0(523)·전 baseline 불변. 다음: R2-b — 전수 episode 측정(코퍼스·프로필 overlay
+선별 밀도·대표 분포·budget 시뮬레이션) → R2-c 감수·스탬프.

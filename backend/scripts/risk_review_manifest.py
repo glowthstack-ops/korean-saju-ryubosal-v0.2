@@ -29,6 +29,10 @@ from saju_engines.risk_scoring import (  # noqa: E402
     cause_semantics_hash,
     scoring_config_hash,
 )
+from saju_engines.risk_selection import (  # noqa: E402
+    RISK_SELECTION_VERSION,
+    selection_policy_hash,
+)
 
 _RISKS_DIR = _BACKEND / "dictionaries" / "risks"
 _MANIFEST_PATH = _BACKEND.parent / "doc" / "v2_2" / "RISK_REVIEW_MANIFEST.json"
@@ -66,6 +70,11 @@ def build_manifest() -> dict:
         "risk_scoring_version": RISK_SCORING_VERSION,
         "scoring_config_hash": scoring_config_hash(),
         "cause_semantics_hash": cause_semantics_hash(),
+        # 선별 감수 표면(감수 34차) — 병합·대표·budget·portfolio·recovery 정책
+        # 변경 시 manifest diff로 감지(재감수 신호). scope shadow_selection은
+        # R2 측정·감수 후 스탬프.
+        "risk_selection_version": RISK_SELECTION_VERSION,
+        "selection_policy_hash": selection_policy_hash(),
         "reviewed_total": len(reviewed_ids),
         "unreviewed_total": len(unreviewed_ids),
         "reviewed_by_scope": dict(sorted(by_scope.items())),

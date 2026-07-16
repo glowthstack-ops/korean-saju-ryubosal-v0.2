@@ -351,30 +351,50 @@ class ProtectiveFactor(BaseModel):
 
 
 class RecoveryWindow(BaseModel):
-    """회복 창 — 위험·압박 이후 정상화 흐름(별도 산출, R2). 현재 위험 점수에서 빼지 않는다."""
+    """회복 창 — 위험·압박 이후 정상화 전망(별도 산출, R2). 현재 위험 점수·순위에서
+    빼지 않는다(감수 34차 — 점수 불변 fixture). 단정 표현 금지: '반드시 해결'·
+    '완전 소멸'·'회복 운이라 현재 위험 낮음' 불가."""
 
-    start_period: str  # 회복 신호가 들어오는 기간 라벨
+    earliest_relief_window: str  # 부담이 처음 덜릴 수 있는 기간 라벨
+    stable_recovery_window: str | None = None  # 안정 회복 전망 기간(보수적)
+    recovery_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    recovery_reasons: list[str] = Field(default_factory=list)  # lineage 종료 등
     note_ko: str | None = None  # 회복 근거 요약(기신 약화·보호 오행 유입 등)
 
 
 class RiskEpisode(BaseModel):
-    """병합된 위험 구간 — R2 산출물(R0에서는 타입만 고정, 생성하지 않는다).
+    """병합된 위험 episode — R2 산출물(감수 34차 — R0 자리표시 키 폐기).
 
-    병합 키는 risk_id 단독이 아니라 (risk_id, cause_signature, domain, exposure_target)다 —
-    같은 risk_id라도 원인 구조가 크게 바뀌면 별도 episode로 분리한다.
+    **identity 3분리**: reality episode(명시 context episode_id+대상 서명+stage·
+    기간 호환)가 병합 키다 — cause(canonical atom·lineage)와 effect(normalized
+    EffectRole)는 별도 축. **risk_id·domain은 키가 아니라 구성원 속성**: 주택
+    계약 episode 하나에 MOV·LEG·FIN 후보가 함께 묶인다. cause 교집합은 연결
+    근거일 뿐(다른 episode+같은 cause=병합 금지·portfolio 1회 계산).
+
+    대표 선택 후에도 supporting·background·trajectory 구성원을 삭제하지 않는다 —
+    역할 보존, 사용자 출력만 대표 중심 압축(R3).
     """
 
-    risk_id: str
-    domain: RiskDomain
-    kind: RiskKind
-    cause_signature: str  # 지배 원인 서명 — 병합 키 구성 요소
+    # reality episode identity — 명시 (축, episode_id) 서명. fallback 병합
+    # episode는 결정적 합성 키("fallback:<대상·원인 서명 해시>").
+    episode_key: str
+    target_signature: list[str] = Field(default_factory=list)  # 대상 객체 서명들
     start_period: str
-    peak_period: str  # 단순 최고 점수가 아니라 confidence 동반 고려(R2)
     end_period: str
-    candidates: list[RiskCandidate] = Field(default_factory=list)
-    risk_level: RiskLevel | None = None  # 등급(주의 필요도) — confidence와 독립 축
+    stages: list[str] = Field(default_factory=list)  # 관측 stage 메타(호환 기록)
+    member_candidate_ids: list[str] = Field(default_factory=list)
+    representative_candidate_id: str | None = None  # 자격 미달이면 None(비노출)
+    supporting_candidate_ids: list[str] = Field(default_factory=list)
+    background_vulnerability_ids: list[str] = Field(default_factory=list)
+    canonical_cause_ids: list[str] = Field(default_factory=list)  # cause 축(별도)
+    effect_roles: list[str] = Field(default_factory=list)  # effect 축(별도)
+    domains: list[RiskDomain] = Field(default_factory=list)  # 구성원 속성
+    exposure_status: ExposureStatus = ExposureStatus.UNKNOWN  # 대표 기준
+    structural_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    context_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    risk_level: RiskLevel | None = None  # 등급 — confidence와 독립 축(R3 상한 소비)
     protective_factors: list[ProtectiveFactor] = Field(default_factory=list)
-    recovery_window: RecoveryWindow | None = None
+    recovery_window: RecoveryWindow | None = None  # 현재 점수와 완전 독립
 
 
 def independent_source_count(evidences: list[RiskEvidence]) -> int:
