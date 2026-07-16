@@ -59,10 +59,14 @@ _MANIFEST_PATH = _BACKEND.parent / "doc" / "v2_2" / "RISK_REVIEW_MANIFEST.json"
 # artifact의 corpus canonical hash를 감수자가 승인하면 여기에 추가한다 —
 # 그때만 해당 entry가 reviewed=true로 생성된다(30표본 통과 자체는 승격이
 # 아니다). corpus hash가 다르면(재검증) 새 identity로 재감수.
-_REVIEWED_COUNTER_CORPUS_HASHES: frozenset[str] = frozenset()
-# [감수 60차 §5] 직전 승격분(65db8eb9…7ee59b, 30표본)은 attempt shape
-# 2형(REVISION_1/REGENERATE) 추가로 validation policy가 변경되며 무효 —
-# 새 36표본 corpus는 reviewed=false 후보로 재제출(재감수 대기).
+_REVIEWED_COUNTER_CORPUS_HASHES: frozenset[str] = frozenset({
+    # gemini-3-flash-preview · countTokens-v1beta-r1 · schema 1 ·
+    # PROVIDER_EXACT — 감수 61차 §8 승격: attempt shape 12형×3=36표본·
+    # delta 전부 0·shape digest 7종·full digest 결속. adapter 감수≠EXPOSE
+    # 개방(expose_pipeline.reviewed=false·RUNTIME_ENABLED=false·MODE=off).
+    # [이력] 65db8eb9…(30표본)은 감수 60차 §5 policy 변경으로 폐기.
+    "b00716ee891569dad164f56dd2bc21e0a62f15c5436a5e6d4e2b2c634f902ce1",
+})
 
 _ADAPTER_VALIDATION_DIR = (
     Path(__file__).resolve().parents[1] / "compiled"

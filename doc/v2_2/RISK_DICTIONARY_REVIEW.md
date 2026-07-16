@@ -2559,3 +2559,38 @@ manifest 일치. 3중 잠금·EXPOSE_CANARY 보류 유지.
 공급)·routingControlMode=APPLICATION_CONTROLLED 확인(전송 전 resolved
 model 미확정 provider 경로=EXPOSE BYPASS)·expose_pipeline 감수 자료·
 single-process 실배포 확인(worker 수 1).
+
+### 28-17. 감수 61차 — corpus 승격·shape 이름 결속 + **pre-canary architecture freeze** (2026-07-17)
+
+**corpus 승격(§8)**: b00716ee891569da…902ce1(36표본·attempt shape 포함)
+→ _REVIEWED_COUNTER_CORPUS_HASHES 추가, manifest entry reviewed=true.
+승격 범위=tokenizer adapter 감수 한정(expose_pipeline.reviewed=false·
+RUNTIME_ENABLED=false·MODE=off 유지).
+
+**shape 이름 결속(§5)**: reviewedRequestShapeDigests를
+{name, digest} 목록으로 — 7종: BYPASS_PLAIN/BYPASS_TOOL_SCHEMA/
+BYPASS_OUTPUT_SCHEMA/SUPPRESSED/INITIAL_INJECTED/REVISION_1_INJECTED/
+REGENERATE_WITHOUT_RISK. artifact 후처리 갱신(corpus hash 불변 검증 —
+nativeValidationCorpus만 hash 입력이므로 재실측 불필요,
+validationArtifactHash 재계산).
+
+**Architecture freeze(§9~§11 — `1b52cc2` 기준)**: 이후 다음 항목 동결 —
+risk question mapping·R1/R2/R3 점수·episode 구조·exposure disposition·
+token validation identity·request shape digest 규칙·claim audit policy·
+safe fallback 문구·retry 횟수·terminal 상태·output envelope 정본·
+suspension identity·ledger 계약. 변경 허용 사유: P0(기존 출력·안전
+불변식 위반)/P1(provider 호출 불가·데이터 유출·위험 claim 우회·
+fail-open 경로)만 — 단순 개선·우아한 설계는 canary 후 backlog.
+
+**감수 방식 전환(§10)**: 차수별 미세 감수 반복 중단 — 이후 구현 커밋은
+게이트(pytest·ruff·mypy·manifest) 통과 시 별도 감수 없이 진행하고,
+아래 10항 완료 후 **통합 pre-canary 감수 1회**만 수행:
+①chat_service 실연결 ②startup adapter state stamp ③실제 Gemini provider
+호출 연결 ④GuidanceReferenceContext 전 과정 동일 객체 소비 ⑤INITIAL→
+REVISION→REGENERATE e2e ⑥rerouting·BYPASS 완전 재조립 ⑦renderer 후 최종
+audit ⑧request shape digest runtime 대조 ⑨single-process worker=1 실배포
+검증(설정값 아닌 실측 — 불일치=BYPASS) ⑩kill switch·rollback 동작 확인.
+routing control(전송 전 resolved model 확정 가능) canary 필수 —
+불가능한 provider 경로=BYPASS. canary 관측 대상(§12): disposition 비율·
+WATCH 생략률·WARNING 누락·revision 성공률·renderer 차단률·fallback
+발생률·tier 분포·routing 변화·경고 편향·품질 영향.

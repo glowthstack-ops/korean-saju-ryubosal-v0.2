@@ -571,7 +571,15 @@
   "pass": true,
   "primary_native_samples": 36,
   "relative_error_max": 0.0,
-  "reviewed_request_shape_digests": 7,
+  "reviewed_request_shapes": {
+   "BYPASS_OUTPUT_SCHEMA": "7fb9741791a63742",
+   "BYPASS_PLAIN": "973591eaabcce663",
+   "BYPASS_TOOL_SCHEMA": "9ce946412f4b7961",
+   "INITIAL_INJECTED": "adf4c57ff3ad50d6",
+   "REGENERATE_WITHOUT_RISK": "c1b53bf82ddbc9c2",
+   "REVISION_1_INJECTED": "3fde349ba0f06cf4",
+   "SUPPRESSED": "0a338503f00f4bff"
+  },
   "samples_by_category": {
    "S01_korean_long": 3,
    "S02_mixed_ko_en": 3,
@@ -604,13 +612,34 @@
   "undercount_count": 0
  },
  "reviewedRequestShapeDigests": [
-  "0a338503f00f4bffc3288e0dab23a89af88fbbe77282f420ed6623b51bc3e19a",
-  "3fde349ba0f06cf4fcdf94fafa40ddb19dbb38450af84cc5aae28c81ff2233b8",
-  "7fb9741791a6374231ec5180f6b79e10ed367211ff893f03a5c0dfabf1a83c83",
-  "973591eaabcce66300ebc4e1728ca5a316b0d5a8f77191dab05b4fabace42454",
-  "9ce946412f4b7961c9f1b645dcec2d4343113081958f0cb84e0befe74e35c3fd",
-  "adf4c57ff3ad50d678b591c71b3762fcb8bc205eac16f556a3ba922076cb6fe9",
-  "c1b53bf82ddbc9c2d1adc0dc9ac87873e264bc9ecd30e4ec6c7ff492884172ce"
+  {
+   "digest": "0a338503f00f4bffc3288e0dab23a89af88fbbe77282f420ed6623b51bc3e19a",
+   "name": "SUPPRESSED"
+  },
+  {
+   "digest": "3fde349ba0f06cf4fcdf94fafa40ddb19dbb38450af84cc5aae28c81ff2233b8",
+   "name": "REVISION_1_INJECTED"
+  },
+  {
+   "digest": "7fb9741791a6374231ec5180f6b79e10ed367211ff893f03a5c0dfabf1a83c83",
+   "name": "BYPASS_OUTPUT_SCHEMA"
+  },
+  {
+   "digest": "973591eaabcce66300ebc4e1728ca5a316b0d5a8f77191dab05b4fabace42454",
+   "name": "BYPASS_PLAIN"
+  },
+  {
+   "digest": "9ce946412f4b7961c9f1b645dcec2d4343113081958f0cb84e0befe74e35c3fd",
+   "name": "BYPASS_TOOL_SCHEMA"
+  },
+  {
+   "digest": "adf4c57ff3ad50d678b591c71b3762fcb8bc205eac16f556a3ba922076cb6fe9",
+   "name": "INITIAL_INJECTED"
+  },
+  {
+   "digest": "c1b53bf82ddbc9c2d1adc0dc9ac87873e264bc9ecd30e4ec6c7ff492884172ce",
+   "name": "REGENERATE_WITHOUT_RISK"
+  }
  ],
  "supplementaryReroutingEvidence": {
   "samples": [
@@ -662,7 +691,7 @@
   ]
  },
  "supplementaryReroutingHash": "a4e71c1d538f69b3c8519eb7d7c3eb09dd12807e59d970de95da0e0eee570560",
- "validationArtifactHash": "7b1acf5ee55661a50eb19434112f3fbf7ceab9f56d8e06d9329e4c51382fb3d1",
+ "validationArtifactHash": "990600eaeed2b95bc4fb824e0dcfec14a8f1b57ae6767bc1a35a129e3c6d8626",
  "validationCorpusHash": "b00716ee891569dad164f56dd2bc21e0a62f15c5436a5e6d4e2b2c634f902ce1",
  "validationCorpusHashShort": "b00716ee891569da",
  "volatile": {

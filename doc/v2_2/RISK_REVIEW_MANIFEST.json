@@ -29,8 +29,8 @@
         "resolvedModelId": "gemini-3-flash-preview",
         "validationPolicyHash": "a0f234615ad2836ed59d6c9c58e8c6b56909482f543ac466f89a58efbc460bfc",
         "validationCorpusHash": "b00716ee891569dad164f56dd2bc21e0a62f15c5436a5e6d4e2b2c634f902ce1",
-        "validationArtifactHash": "7b1acf5ee55661a50eb19434112f3fbf7ceab9f56d8e06d9329e4c51382fb3d1",
-        "reviewed": false
+        "validationArtifactHash": "990600eaeed2b95bc4fb824e0dcfec14a8f1b57ae6767bc1a35a129e3c6d8626",
+        "reviewed": true
       }
     ]
   },

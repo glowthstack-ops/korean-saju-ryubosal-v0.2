@@ -376,7 +376,31 @@ def main() -> int:
             vals, n=100, method="inclusive")[int(q) - 1]) if len(
                 vals) > 1 else float(vals[0])
 
-    reviewed_shapes = sorted({r["request_shape_digest"] for r in records})
+    def _shape_name(r: dict) -> str:
+        """digest에 사람이 읽을 수 있는 안정적 shape 이름 결속(감수 61차
+        §5) — hash만 저장하면 어떤 구조가 빠졌는지 검토 불가."""
+        if r["attempt_kind"] == "REVISION_1":
+            return "REVISION_1_INJECTED"
+        if r["attempt_kind"] == "REGENERATE_WITHOUT_RISK":
+            return "REGENERATE_WITHOUT_RISK"
+        cat = r["category"]
+        if cat in ("S07_injected_instruction", "S09_runtime_hard_max",
+                   "S10_oversized_stress"):
+            return "INITIAL_INJECTED"
+        if cat == "S06_suppressed_guard":
+            return "SUPPRESSED"
+        if cat == "S04_tool_schema":
+            return "BYPASS_TOOL_SCHEMA"
+        if cat == "S05_output_schema":
+            return "BYPASS_OUTPUT_SCHEMA"
+        return "BYPASS_PLAIN"
+
+    shape_names: dict[str, str] = {}
+    for r in records:
+        shape_names.setdefault(r["request_shape_digest"], _shape_name(r))
+    reviewed_shapes = [
+        {"name": shape_names[d], "digest": d}
+        for d in sorted(shape_names)]
     # transport 변환 규칙 digest(감수 58차 §5): schema version을 올리지
     # 않은 채 transport shape가 바뀌는 실수를 탐지하는 대조값.
     canonical_schema = build_risk_output_schema(
@@ -419,7 +443,8 @@ def main() -> int:
         },
         "cached_input_observed": sum(r["cached_input"]
                                      for r in all_records),
-        "reviewed_request_shape_digests": len(reviewed_shapes),
+        "reviewed_request_shapes": {s["name"]: s["digest"][:16]
+                                    for s in reviewed_shapes},
         "pass": (len(records) == 36 and undercount == 0
                  and recount_performed == 3
                  and all(r["passed"] for r in all_records)),

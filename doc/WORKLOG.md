@@ -8506,3 +8506,12 @@ identity 차단). policy에 attempt shape 2형 추가(12형×3=36) → 직전 �
 무효(allowlist 비움) → 재실측 합격(36/36 delta 0·shape digest 7종) →
 corpus b00716ee…902ce1 reviewed=false 후보 재제출. fixture +5(76종).
 pytest 2151·ruff·mypy 0(537)·manifest 일치. REVIEW.md §28-16.
+
+## 감수 61차 — corpus 승격·shape 이름·architecture freeze (2026-07-17)
+
+corpus b00716ee…902ce1 승격(reviewed=true — adapter 감수 한정, 3중 잠금
+유지), shape digest 7종에 안정 이름 결속(BYPASS_PLAIN~REVISION_1_
+INJECTED — artifact 후처리, corpus hash 불변 검증). **1b52cc2 기준
+pre-canary architecture freeze**: 동결 목록·P0/P1 변경 사유 고정, 차수별
+미세 감수 중단 → 구현 커밋은 게이트 통과 시 진행, 10항 완료 후 통합
+pre-canary 감수 1회 → 제한 canary → 관측 기반 수정. REVIEW.md §28-17.
