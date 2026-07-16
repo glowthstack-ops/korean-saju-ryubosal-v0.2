@@ -53,7 +53,7 @@ from saju_shared_types.risk_engine import (
 from .risk_engine import cause_atoms
 
 # 점수 의미 버전 — 축 정의·가중·매핑이 바뀌면 올린다(엔진 env 버전과 독립).
-RISK_SCORING_VERSION = "risk-score-r1.0.1-shadow"
+RISK_SCORING_VERSION = "risk-score-r1.0.2-shadow"
 
 # exposure 축 = **rankable 가중**(감수 26차 확정 — 정책별 분리, 전 항목 공통값
 # 금지): 노출 게이트(is_exposable)를 통과하지 못한 후보는 0 — DENIED(명시 부정)·
@@ -77,6 +77,27 @@ _PERSISTENCE_SPAN = 5
 _COMPOUND_PER_LINK = 0.25
 # confidence 휴리스틱(잠정): 기본 + 독립 원인 추가분 + 다층 수렴 관측.
 _CONF_BASE, _CONF_PER_EXTRA_CAUSE, _CONF_LAYER = 0.4, 0.2, 0.2
+
+
+# cause namespace 계약(감수 27차 — R1-b 슬라이스 1): TRIGGER 원자는 ①대상 내장
+# canonical(relation:* — 궁위·자리·글자·십성 서명 포함)이거나 ②명시적 전역 사실
+# 이어야 한다. 전역 사실 = 시점(기간) 단위로 유일해 대상 구분이 필요 없는 원자:
+# ten_god:*(운 유입 십성 — 유입 자체가 사실), void/no_void(시점 공망 활성),
+# stage:*(채점 대상 기둥의 12운성 — 스냅샷당 대상 1개라 기간 내 유일).
+# polarity:*는 원인이 아니라 방향 신호 — cause table 진입 금지(호출 전 필터).
+# 미상 namespace는 과소/과대 dedup을 조용히 일으키므로 거부한다(계약 위반 감지).
+_TARGET_LINKED_PREFIXES = ("relation:",)
+_GLOBAL_FACT_PREFIXES = ("ten_god:", "stage:")
+_GLOBAL_FACT_LITERALS = frozenset({"void", "no_void"})
+
+
+def _is_canonical_cause_atom(atom: str) -> bool:
+    """cause 원자의 canonical identity 계약 충족 여부."""
+    return (
+        atom.startswith(_TARGET_LINKED_PREFIXES)
+        or atom.startswith(_GLOBAL_FACT_PREFIXES)
+        or atom in _GLOBAL_FACT_LITERALS
+    )
 
 
 def _trigger_cause_strengths(c: RiskCandidate) -> dict[str, float]:
@@ -108,6 +129,11 @@ def cause_occurrence_table(
             for atom in cause_atoms(source):
                 if atom.startswith("polarity:"):
                     continue  # 극성은 원인이 아니라 방향 — 기여 0 역할.
+                if not _is_canonical_cause_atom(atom):
+                    raise ValueError(
+                        f"canonical cause 계약 위반 — 미상 namespace 원자: {atom!r} "
+                        f"(target 내장 canonical이거나 명시적 전역 사실이어야 함)"
+                    )
                 key = (c.period_key, atom)
                 table[key] = max(table.get(key, 0.0), strength)
     return table
@@ -170,40 +196,33 @@ def score_shadow(
     Returns:
         점수 채운 후보 사본 목록(원본 불변).
     """
-    # persistence 재료 — 같은 (risk_id + 전 축 episode 서명)의 기간 라벨 집합.
-    period_sets: dict[tuple[str | None, ...], set[str]] = {}
+    # persistence 재료(감수 27차 — 직렬화 구분): 같은 계열(lineage — risk_id+
+    # 전 축 episode 서명)에서 **period-native trigger**가 있는 기간만 센다.
+    # 상위 layer(세운) 원인이 12개 월 후보에 단순 복제된 직렬화는 같은 사실의
+    # 반복 출력이라 persistence를 자동 최대화하면 안 된다 — 월 기간은 월운/일운
+    # 발동, 연 기간은 세운 발동이 실제로 있는 경우만 지속으로 인정.
+    native_period_sets: dict[tuple[str | None, ...], set[str]] = {}
     for c in candidates:
-        period_sets.setdefault(_series_key(c), set()).add(c.period_key)
-    # compound 재료 — 같은 기간의 (risk_id, family, 원자, 독립 exposable 여부).
-    links_by_period: dict[str, list[tuple[str, str | None, frozenset[str], bool]]]
-    links_by_period = {}
-    for c in candidates:
-        links_by_period.setdefault(c.period_key, []).append((
-            c.risk_id, c.risk_family, _candidate_atoms(c),
-            # 독립 exposable 효과: 노출 게이트 통과 + 미흡수(supporting·
-            # background·trajectory 후보는 suppressed라 자동 제외).
-            is_exposable(c) and c.suppressed_by_specificity is None,
-        ))
+        if _has_period_native_trigger(c):
+            native_period_sets.setdefault(_series_key(c), set()).add(c.period_key)
+    rankable_links = compound_family_links(candidates, exposable_only=True)
 
     out: list[RiskCandidate] = []
-    for c in candidates:
+    for idx, c in enumerate(candidates):
         occ, n_causes, layer_conv = _occurrence(c)
-        my_atoms = _candidate_atoms(c)
-        # compound(감수 26차) — 원인을 공유하는 **다른 primary effect family**의
-        # 독립 exposable 후보만 연결로 계산(같은 family=alias·파생 표현, 비노출·
-        # 흡수 후보=복합 위험 아님). risk_id 개수 기준 금지.
-        linked_families = {
-            fam for rid, fam, atoms, independent in (
-                links_by_period.get(c.period_key, []))
-            if independent and rid != c.risk_id and fam is not None
-            and fam != c.risk_family and (atoms & my_atoms)
-        }
-        run = _longest_contiguous_run(period_sets[_series_key(c)])
+        # compound(감수 26차) = rankable 연결 — 원인을 공유하는 다른 primary
+        # effect family의 독립 exposable 후보만(같은 family=alias·파생, 비노출·
+        # 흡수=복합 위험 아님). exposure 무관 구조 연결은 compound_family_links(
+        # exposable_only=False)가 별도 진단으로 제공(structural_priority는 이
+        # 축을 아예 제외 — exposability가 구조 진단에 새는 것 차단, 감수 27차).
+        linked_families = rankable_links[idx]
+        run = _longest_contiguous_run(
+            native_period_sets.get(_series_key(c), set()))
         components = RiskScoreComponents(
             occurrence=occ,
             impact=min(1.0, max(0.0, base_impact.get(c.risk_id, 0.0))),
             exposure=_exposure_weight(c),
-            persistence=min(1.0, (run - 1) / _PERSISTENCE_SPAN),
+            persistence=min(1.0, max(0.0, (run - 1) / _PERSISTENCE_SPAN)),
             compound=min(1.0, _COMPOUND_PER_LINK * len(linked_families)),
             protection=_protection(c),
         )
@@ -219,6 +238,65 @@ def score_shadow(
     return out
 
 
+def compound_family_links(
+    candidates: list[RiskCandidate],
+    *,
+    exposable_only: bool,
+) -> list[set[str]]:
+    """후보별 compound 연결 family 집합(입력 순서 정렬 반환).
+
+    연결 = 같은 기간 + 원인 원자 공유 + **다른 primary effect family** + 미흡수.
+    exposable_only=True(=rankable compound — components.compound 재료)는 여기에
+    is_exposable 통과를 추가로 요구한다. False(=structural compound — 구조 연결
+    진단·R1-b 측정 전용)는 exposure 무관: 같은 구조에서 노출 상태만 바뀌어도
+    구조 연결 수는 변하지 않는다(감수 27차 — exposability의 구조 진단 누수 차단).
+    """
+    links_by_period: dict[str, list[tuple[str, str | None, frozenset[str], bool]]]
+    links_by_period = {}
+    for c in candidates:
+        links_by_period.setdefault(c.period_key, []).append((
+            c.risk_id, c.risk_family, _candidate_atoms(c),
+            c.suppressed_by_specificity is None
+            # rankable 연결의 노출 판정은 _exposure_weight와 동일 기준(DENIED/
+            # NOT_APPLICABLE 상태 방어 포함) — 축 간 기준 불일치 방지.
+            and (not exposable_only or _exposure_weight(c) > 0.0),
+        ))
+    out: list[set[str]] = []
+    for c in candidates:
+        my_atoms = _candidate_atoms(c)
+        out.append({
+            fam for rid, fam, atoms, independent in (
+                links_by_period.get(c.period_key, []))
+            if independent and rid != c.risk_id and fam is not None
+            and fam != c.risk_family and (atoms & my_atoms)
+        })
+    return out
+
+
+def _layer_tokens(layer: str) -> set[str]:
+    """근거 layer 표기('daewoon+sewoon', 'sewoon&period' 등) → 토큰 집합."""
+    return {tok for part in layer.split("&") for tok in part.split("+")}
+
+
+def _has_period_native_trigger(c: RiskCandidate) -> bool:
+    """기간 granularity에 맞는 native 발동 trigger가 있는가(직렬화 구분).
+
+    월 기간('YYYY-MM')=월운/일운 발동, 연 기간('YYYY')=세운 발동. 그 외 라벨
+    (대운 등)은 보수적으로 native 취급. 상위 layer 원인만으로 구성된 하위 기간
+    후보는 같은 사실의 직렬화 — persistence 지속 근거가 아니다.
+    """
+    if _month_index(c.period_key) is not None:
+        native = {"wolwoon", "ilwoon"}
+    elif len(c.period_key) == 4 and c.period_key.isdigit():
+        native = {"sewoon"}
+    else:
+        return True
+    return any(
+        e.role is EvidenceRole.TRIGGER and (_layer_tokens(e.layer) & native)
+        for e in c.evidence
+    )
+
+
 def _exposure_weight(c: RiskCandidate) -> float:
     """exposure 축 = rankable 가중(감수 26차) — 게이트 미통과는 0.
 
@@ -228,6 +306,11 @@ def _exposure_weight(c: RiskCandidate) -> float:
     CONFIRMED=1.0 / UNKNOWN(조건부 허용 항목)=0.55. DENIED의 구조 진단은
     structural_priority(exposure 제외)가 담당한다.
     """
+    # DENIED/NOT_APPLICABLE는 엔진에서 BLOCKED로 이어지지만(hard blocker),
+    # 점수층은 입력 상태를 신뢰하지 않고 자체 방어한다(0 — counterfactual 진단은
+    # structural_priority 소관).
+    if c.exposure_status in (ExposureStatus.DENIED, ExposureStatus.NOT_APPLICABLE):
+        return 0.0
     if not is_exposable(c):
         return 0.0
     if c.exposure_status is ExposureStatus.CONFIRMED:
@@ -290,10 +373,15 @@ def structural_priority(components: RiskScoreComponents) -> float:
 
     rankable(risk_priority)과 달리 노출 게이트와 무관하게 구조 신호의 세기만
     본다(사용자 노출·선별에 쓰지 않는다 — R4 오경고 분석·감수 재료).
+
+    **compound 축 제외(감수 27차)**: components.compound는 rankable 연결(is_
+    exposable 내장)이라 노출 상태에 따라 변한다 — 구조 진단에 포함하면 CONFIRMED
+    ↔DENIED 전환만으로 structural 값이 바뀌는 누수가 생긴다. 구조 연결 진단은
+    compound_family_links(exposable_only=False)를 별도로 쓴다.
     """
     return round(
         components.occurrence * components.impact
-        + components.persistence + components.compound - components.protection,
+        + components.persistence - components.protection,
         6,
     )
 
@@ -301,6 +389,7 @@ def structural_priority(components: RiskScoreComponents) -> float:
 __all__ = [
     "RISK_SCORING_VERSION",
     "cause_occurrence_table",
+    "compound_family_links",
     "risk_priority",
     "score_shadow",
     "structural_priority",

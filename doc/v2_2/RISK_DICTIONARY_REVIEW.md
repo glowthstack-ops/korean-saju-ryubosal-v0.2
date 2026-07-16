@@ -810,3 +810,40 @@ episode에서 한 번만 평가하고, 점수 계산이 이미 감수된 적격�
 
 `RISK_SCORING_VERSION` r1.0.0→**r1.0.1-shadow**(점수 의미 변경 — env r0.5.12
 불변). fixture 9→**14종**. pytest 1982·mypy 0·전 baseline exact match.
+
+## 14. R1-b 차수(감수 27차) — 표본 검증·슬라이스 1 (2026-07-16)
+
+데굴님 착수 조건 2건(첫 슬라이스) + 표본 리포트. 감수 목표(데굴님 확정): **같은
+원인은 하나로 계산되고, 다른 대상·작동 방식은 분리되며, 현실 exposure는 구조 발생
+근거를 바꾸지 않고, 반복·복합·보호 축이 occurrence를 다시 복제하지 않는다.**
+
+1. **cause namespace 계약 검증기**: TRIGGER 원자는 ①target 내장 canonical
+   (relation:* — 궁위·자리·글자·십성 서명) ②명시적 전역 사실(ten_god:*=유입 자체가
+   사실 / void=시점 공망 / stage:*=스냅샷당 대상 1개라 기간 내 유일)만 허용 —
+   미상 namespace는 cause_occurrence_table이 **거부**(조용한 과소/과대 dedup 차단).
+   polarity:*는 진입 전 필터. 엔진 실후보 전 도메인 관측 조합 전수 통과 fixture.
+2. **structural/rankable 완전 분리**: `compound_family_links(exposable_only=
+   False)`=구조 연결(exposure 무관 — 진단 전용) vs True=rankable(components.
+   compound 재료). `structural_priority`는 compound 축 **제외**(exposability 내장
+   축이 구조 진단에 새는 것 차단). 필수 fixture: CONFIRMED↔DENIED 전환 시
+   structural(occ·impact·persistence·protection·priority·구조 연결) 완전 동일,
+   rankable(exposure·compound·total)만 변화. 점수층 자체 방어 추가: DENIED/
+   NOT_APPLICABLE 상태는 rankable 가중·연결 판정 모두 0(엔진 BLOCKED와 무관).
+3. **persistence 경계 확정**: 연도 경계(2026-12→2027-02)=canonical month index로
+   연속 3(0.4) / **상위 layer 직렬화 구분** — 세운 원인이 월 후보 12개에 복제된
+   계열은 period-native trigger(월=월운·일운, 연=세운) 없음 → 지속 근거 아님(0.0),
+   occurrence도 불변. persistence 키=lineage(risk_id+전 축 episode 서명 — 기간
+   가로지름), cause instance(기간 내 원인)와 구분.
+4. **표본 리포트**(scripts/risk_scoring_sample.py → RISK_SCORING_SAMPLE_R1B.md
+   고정): 표본 7종 — cause identity(관계 3경계+비관계 전역+미상 거부)/exposure
+   정책(CONFIRMED>허용 UNKNOWN>비노출 0, DENIED counterfactual 보존)/structural
+   불변/compound 4상황/persistence 4상황/D-golden 다중 episode(후보 2·cause row
+   1·평가 동일·compound 비증가)/protection(occurrence 불변·net 완화·극성 0·미래
+   회복 반영 경로 없음 구조 보장). **예상 불변식 26개 전부 PASS**(§9 필드 전체
+   출력 — 절대 점수가 아니라 관계 감수용).
+
+`RISK_SCORING_VERSION` r1.0.1→**r1.0.2-shadow**(structural compound 제외·native
+persistence — env r0.5.12 불변). fixture 14→19종. pytest 1987·mypy 0(520파일)·전
+baseline exact match. 다음: R1-c(49항목 shadow scoring 전수 — 분포 p50/p90/max·
+축 기여도·포화율(raw>1·raw>1.2·capped=1·축별 cap 도달률·상위 10% 축 구성)·
+A/B/C/D 프로필 비교·양성 fixture score 생존 + shadow_scoring scope 감수).

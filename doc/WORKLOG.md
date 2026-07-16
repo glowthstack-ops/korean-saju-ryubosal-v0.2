@@ -8006,3 +8006,22 @@ vuln 연결 제외, fixture 4상황) ⑤persistence=longest contiguous run(간�
 연속 3개월 0.4, 연운이 같은 달 지지=기간 1+convergence). RISK_SCORING_VERSION
 r1.0.1-shadow(env r0.5.12 불변). fixture 14종·pytest 1982·mypy 0·전 baseline
 exact match. 다음: R1-b 표본 측정(경계 사례 목록은 REVIEW.md §13-1·데굴님 지정).
+
+## R1-b — 표본 검증 차수(감수 27차 착수 슬라이스 1 + 표본 리포트, 2026-07-16)
+
+착수 조건 2건: ①cause namespace 계약 검증기(target 내장 canonical/명시적 전역
+사실만 — 미상 namespace는 cause_occurrence_table이 거부, polarity 진입 필터, 엔진
+실후보 전수 통과) ②structural/rankable 완전 분리 — compound_family_links(
+exposable_only False/True), structural_priority는 compound 축 제외, CONFIRMED↔
+DENIED 전환 시 structural 완전 동일 fixture, 점수층 DENIED/NA 자체 방어.
+
+persistence 경계: 연도 경계 연속(canonical month index)·상위 layer 직렬화 구분
+(period-native trigger 게이트 — 세운 원인 12개월 복제=지속 0·occurrence 불변)·
+lineage(계열 키) vs cause instance(기간 내) 구분 문서화.
+
+표본 리포트 신설(scripts/risk_scoring_sample.py → doc/v2_2/RISK_SCORING_SAMPLE_
+R1B.md 고정): 표본 7종·§9 필드 전체 출력·**예상 불변식 26개 전부 PASS**(감수
+대상=절대 점수가 아니라 관계). RISK_SCORING_VERSION r1.0.2-shadow(env r0.5.12
+불변). fixture 19종·pytest 1987·mypy 0·전 baseline exact match.
+다음: R1-c 49항목 shadow scoring 전수(+포화 지표·프로필 비교·shadow_scoring
+scope 감수 — 기존 scope 해제 금지).
