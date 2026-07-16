@@ -1,7 +1,8 @@
-> R1-b 표본 감수 고정본(감수 27차) — 재생성: `python scripts/risk_scoring_sample.py`
-> 출력 결정적 — 본 파일과의 diff = 점수 의미 회귀 신호. 기준 커밋은 git log 참조.
+> R1-b/c0 표본 감수 고정본(감수 27·28차) — 재생성: `python scripts/risk_scoring_sample.py`
+> 출력 결정적 — 본 파일과의 diff = 점수 의미 회귀 신호.
 
-# R1-b 위험 점수 표본 리포트 — risk-score-r1.0.2-shadow
+# R1-b/c0 위험 점수 표본 리포트 — risk-score-r1.0.3-shadow
+cause semantics: cause-semantics-v2 · scoring_config_hash=ea789b931ee68d29 · cause_semantics_hash=9f2e80bd80731edb
 감수 대상 = 절대 점수가 아니라 표본별 예상 불변식(PASS/FAIL).
 
 ## 표본 1 — cause identity(관계 원자 + 비관계 전역 namespace)
@@ -9,11 +10,12 @@
     SMP_B@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
     SMP_C@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
     SMP_D@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.25 prot=0.00 | structural=0.000 rankable raw=0.250 capped=0.250 conf=0.60
-    SMP_G@2026 elig=eligible exposable=True | occ=0.875 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.80
+    SMP_G@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
   [PASS] 같은 충+다른 대상 → cause row 2
   [PASS] 같은 대상+다른 관계(충/형) → cause row 2
   [PASS] 같은 대상·관계 다층 → cause row 1(+supporting layer)
-  [PASS] 비관계 전역 원자(ten_god/void/stage) → 각자 row(계약 통과)
+  [PASS] semantic registry: ten_god만 CAUSE row — void/stage/no_void 진입 금지
+  [PASS] 상태 원자(void/stage/no_void) 추가 → occurrence 불변
   [PASS] 미상 namespace 거부
 
 ## 표본 2 — exposure 정책(rankable 가중)
@@ -73,4 +75,4 @@
   [PASS] 극성 단독 mitigator → protection 0(전역 완화 금지)
     (미래 회복 창은 R0.5 후보에 존재하지 않음 — recovery는 R2 recovery_window 소관, 현재 축 어디에도 반영 경로 없음: 구조적 보장)
 
-## 종합: 26개 불변식 중 FAIL 0건
+## 종합: 27개 불변식 중 FAIL 0건

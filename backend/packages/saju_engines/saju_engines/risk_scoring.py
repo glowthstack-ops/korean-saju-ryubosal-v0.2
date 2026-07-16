@@ -53,7 +53,7 @@ from saju_shared_types.risk_engine import (
 from .risk_engine import cause_atoms
 
 # 점수 의미 버전 — 축 정의·가중·매핑이 바뀌면 올린다(엔진 env 버전과 독립).
-RISK_SCORING_VERSION = "risk-score-r1.0.2-shadow"
+RISK_SCORING_VERSION = "risk-score-r1.0.3-shadow"
 
 # exposure 축 = **rankable 가중**(감수 26차 확정 — 정책별 분리, 전 항목 공통값
 # 금지): 노출 게이트(is_exposable)를 통과하지 못한 후보는 0 — DENIED(명시 부정)·
@@ -79,24 +79,52 @@ _COMPOUND_PER_LINK = 0.25
 _CONF_BASE, _CONF_PER_EXTRA_CAUSE, _CONF_LAYER = 0.4, 0.2, 0.2
 
 
-# cause namespace 계약(감수 27차 — R1-b 슬라이스 1): TRIGGER 원자는 ①대상 내장
-# canonical(relation:* — 궁위·자리·글자·십성 서명 포함)이거나 ②명시적 전역 사실
-# 이어야 한다. 전역 사실 = 시점(기간) 단위로 유일해 대상 구분이 필요 없는 원자:
-# ten_god:*(운 유입 십성 — 유입 자체가 사실), void/no_void(시점 공망 활성),
-# stage:*(채점 대상 기둥의 12운성 — 스냅샷당 대상 1개라 기간 내 유일).
-# polarity:*는 원인이 아니라 방향 신호 — cause table 진입 금지(호출 전 필터).
-# 미상 namespace는 과소/과대 dedup을 조용히 일으키므로 거부한다(계약 위반 감지).
-_TARGET_LINKED_PREFIXES = ("relation:",)
-_GLOBAL_FACT_PREFIXES = ("ten_god:", "stage:")
-_GLOBAL_FACT_LITERALS = frozenset({"void", "no_void"})
+# ── occurrence 의미 registry(감수 28차 — R1-c0) ────────────────────
+# canonical identity(원자를 고유 식별)와 **occurrence 적격성**(발생 원인으로 점수에
+# 들어가도 되는가)은 다른 문제다. 시점 상태·비공망·운성 같은 보조 조건까지 원인으로
+# 계산하면 점수는 결정적이어도 의미적으로 잘못된다(데굴님 확정):
+#   relation:*  → CAUSE(target 내장 canonical — 사건 구조의 원인)
+#   ten_god:*   → CAUSE(운 유입 사실 — 같은 십성의 layer·source 반복은 같은
+#                 semantic cause 1개, supporting layer/convergence로만 누적)
+#   void        → CONDITIONAL_CAUSE(일반 공망 상태 단독=원인 아님 — 같은 source에
+#                 CAUSE 원자가 동반된 감수 룰에서만 그 원인의 조건으로 작동.
+#                 독립 cause row·독립 원인 수 증가 금지)
+#   no_void     → GATE_OR_PROTECTION(비공망 상태 — 원인 아님, 기여 0)
+#   stage:*     → ACTIVATION_OR_CONFIDENCE(12운성 시점 상태 — 작동 조건·강도
+#                 보조. occurrence source row 생성 금지, confidence 보조는 예약)
+#   polarity:*  → AMPLIFIER(방향 신호 — 진입 금지)
+# 미상 namespace는 조용한 과소/과대 dedup을 막기 위해 거부(fail-closed).
+_SEM_CAUSE = "cause"
+_SEM_CONDITIONAL = "conditional_cause"
+_SEM_GATE = "gate_or_protection"
+_SEM_ACTIVATION = "activation_or_confidence"
+_SEM_AMPLIFIER = "amplifier"
+# cause 정규화 의미 버전 — registry 분류가 바뀌면 올린다(감수 hash 재료).
+CAUSE_SEMANTICS_VERSION = "cause-semantics-v2"
 
 
-def _is_canonical_cause_atom(atom: str) -> bool:
-    """cause 원자의 canonical identity 계약 충족 여부."""
-    return (
-        atom.startswith(_TARGET_LINKED_PREFIXES)
-        or atom.startswith(_GLOBAL_FACT_PREFIXES)
-        or atom in _GLOBAL_FACT_LITERALS
+def atom_semantics(atom: str) -> str:
+    """원자 → occurrence 의미 분류(미상 namespace는 ValueError — fail-closed)."""
+    if atom.startswith("relation:") or atom.startswith("ten_god:"):
+        return _SEM_CAUSE
+    if atom == "void":
+        return _SEM_CONDITIONAL
+    if atom == "no_void":
+        return _SEM_GATE
+    if atom.startswith("stage:"):
+        return _SEM_ACTIVATION
+    if atom.startswith("polarity:"):
+        return _SEM_AMPLIFIER
+    raise ValueError(
+        f"canonical cause 계약 위반 — 미상 namespace 원자: {atom!r} "
+        f"(occurrence 의미 registry 등재·감수 후 사용)"
+    )
+
+
+def _cause_atoms_of_source(source: str) -> frozenset[str]:
+    """source의 occurrence 적격(CAUSE) 원자만 — 보조 조건은 원인이 아니다."""
+    return frozenset(
+        a for a in cause_atoms(source) if atom_semantics(a) == _SEM_CAUSE
     )
 
 
@@ -109,6 +137,11 @@ def _trigger_cause_strengths(c: RiskCandidate) -> dict[str, float]:
     out: dict[str, float] = {}
     for e in c.evidence:
         if e.role is not EvidenceRole.TRIGGER:
+            continue
+        if not _cause_atoms_of_source(e.source):
+            # CAUSE 원자가 없는 source(순수 공망·비공망·운성 상태) — 발생
+            # 원인이 아니다(semantic registry, 감수 28차). 독립 원인 수·
+            # occurrence에 진입 금지(작동 조건·확신 보조는 별도 축 예약).
             continue
         out[e.source] = max(out.get(e.source, 0.0), e.strength)
     return out
@@ -127,13 +160,10 @@ def cause_occurrence_table(
     for c in candidates:
         for source, strength in _trigger_cause_strengths(c).items():
             for atom in cause_atoms(source):
-                if atom.startswith("polarity:"):
-                    continue  # 극성은 원인이 아니라 방향 — 기여 0 역할.
-                if not _is_canonical_cause_atom(atom):
-                    raise ValueError(
-                        f"canonical cause 계약 위반 — 미상 namespace 원자: {atom!r} "
-                        f"(target 내장 canonical이거나 명시적 전역 사실이어야 함)"
-                    )
+                # 전 원자 namespace 검증(미상=raise) 후 CAUSE 의미만 row 생성 —
+                # void/no_void/stage/polarity는 원인 표가 아니라 보조 축 소관.
+                if atom_semantics(atom) != _SEM_CAUSE:
+                    continue
                 key = (c.period_key, atom)
                 table[key] = max(table.get(key, 0.0), strength)
     return table
@@ -176,8 +206,9 @@ def _protection(c: RiskCandidate) -> float:
 
 
 def _candidate_atoms(c: RiskCandidate) -> frozenset[str]:
+    """후보의 occurrence 적격(CAUSE) 원인 원자 — compound 연결·lineage 재료."""
     return frozenset(a for a in c.trigger_cause_atoms
-                     if not a.startswith("polarity:"))
+                     if atom_semantics(a) == _SEM_CAUSE)
 
 
 def score_shadow(
@@ -251,11 +282,11 @@ def compound_family_links(
     진단·R1-b 측정 전용)는 exposure 무관: 같은 구조에서 노출 상태만 바뀌어도
     구조 연결 수는 변하지 않는다(감수 27차 — exposability의 구조 진단 누수 차단).
     """
-    links_by_period: dict[str, list[tuple[str, str | None, frozenset[str], bool]]]
-    links_by_period = {}
+    links_by_period: dict[str, list[tuple]] = {}
     for c in candidates:
         links_by_period.setdefault(c.period_key, []).append((
             c.risk_id, c.risk_family, _candidate_atoms(c),
+            _effect_identity(c),
             c.suppressed_by_specificity is None
             # rankable 연결의 노출 판정은 _exposure_weight와 동일 기준(DENIED/
             # NOT_APPLICABLE 상태 방어 포함) — 축 간 기준 불일치 방지.
@@ -264,13 +295,35 @@ def compound_family_links(
     out: list[set[str]] = []
     for c in candidates:
         my_atoms = _candidate_atoms(c)
+        my_effect = _effect_identity(c)
         out.append({
-            fam for rid, fam, atoms, independent in (
+            fam for rid, fam, atoms, effect, independent in (
                 links_by_period.get(c.period_key, []))
             if independent and rid != c.risk_id and fam is not None
             and fam != c.risk_family and (atoms & my_atoms)
+            # 교차 도메인 normalized effect identity(감수 28차): family가 달라도
+            # 같은 현실 효과의 복제(같은 episode·같은 효과 성격)는 영향 확장이
+            # 아니다 — compound 제외. episode-free 쌍의 동일 효과 통합은 사전
+            # riskFamily(교차 도메인 통합 키) 저작이 담당(감수 질문로 기록).
+            and effect != my_effect
         })
     return out
+
+
+def _effect_identity(c: RiskCandidate) -> tuple:
+    """normalized effect identity(잠정) — (kind, 연결 episode 서명).
+
+    같은 episode에 걸린 같은 성격(kind)의 후보는 family·도메인이 달라도 같은
+    현실 효과의 복제로 본다(계약 일정 차질의 MOV·LEG·FIN 병렬 표현). episode
+    정보가 없는 후보는 이 proxy로 동일성을 주장할 수 없으므로 후보별 고유
+    identity를 부여해 제외 규칙이 발동하지 않는다 — episode-free 쌍의 동일 효과
+    통합은 riskFamily(교차 도메인 통합 키) 저작+R2 대표 선택 소관(효과 role
+    어휘 정식화는 R1-c 감수 질문).
+    """
+    sig = _episode_signature(c)
+    if not sig:
+        return (c.kind.value, None, c.risk_id)  # 고유 — 동일성 주장 불가
+    return (c.kind.value, sig)
 
 
 def _layer_tokens(layer: str) -> set[str]:
@@ -346,12 +399,46 @@ def _longest_contiguous_run(periods: set[str]) -> int:
     return best
 
 
-def _series_key(c: RiskCandidate) -> tuple[str | None, ...]:
-    """persistence 반복 계열 키 — risk_id + 전 축 현실 대상 서명(episode 경계 유지)."""
-    return (
-        c.risk_id, c.selection_episode_id, c.mobility_episode_id,
-        c.health_episode_id, c.legal_episode_id, c.relationship_target_id,
+def _episode_signature(c: RiskCandidate) -> frozenset[tuple[str, str]]:
+    """후보가 실제로 연결된 (축, episode) 서명 — 항목이 게이트하지 않는 축은
+    None이라 자동 제외된다(무관 episode가 lineage·효과 식별에 못 들어감)."""
+    return frozenset(
+        (axis, ep) for axis, ep in (
+            ("selection", c.selection_episode_id),
+            ("mobility", c.mobility_episode_id),
+            ("health", c.health_episode_id),
+            ("legal", c.legal_episode_id),
+            ("relationship", c.relationship_target_id),
+        ) if ep is not None
     )
+
+
+def _series_key(c: RiskCandidate) -> tuple:
+    """persistence **cause lineage** 키(감수 28차) — risk_id + 연결 episode 서명 +
+    CAUSE 원인 원자 집합.
+
+    같은 risk_id·episode라도 매달 원인이 바뀌면(충→형→십성 유입) 같은 지속 위험이
+    아니다 — cause lineage가 끊겨 run이 분리된다. 원인이 달라도 이어지는 효과
+    연속성(effect run)은 점수가 아니라 진단(effect_contiguous_runs — R2 episode
+    분석 재료)으로만 남긴다.
+    """
+    return (c.risk_id, _episode_signature(c), _candidate_atoms(c))
+
+
+def effect_contiguous_runs(candidates: list[RiskCandidate]) -> dict[tuple, int]:
+    """effect 연속성 진단 — (risk_id, episode 서명)별 최장 연속 구간.
+
+    원인이 교체되어도 이어지는 노출 연속(1월 충→2월 형→3월 유입)을 별도로
+    관찰한다. **persistence component에는 쓰지 않는다**(점수는 cause lineage
+    기준) — R2 episode 병합·서술 재료.
+    """
+    period_sets: dict[tuple, set[str]] = {}
+    for c in candidates:
+        if _has_period_native_trigger(c):
+            period_sets.setdefault(
+                (c.risk_id, _episode_signature(c)), set()).add(c.period_key)
+    return {k: _longest_contiguous_run(v) for k, v in sorted(
+        period_sets.items(), key=lambda kv: repr(kv[0]))}
 
 
 def risk_priority(components: RiskScoreComponents) -> tuple[float, float]:
@@ -386,11 +473,89 @@ def structural_priority(components: RiskScoreComponents) -> float:
     )
 
 
+def context_confidence(c: RiskCandidate) -> float:
+    """context confidence(잠정) — 현실 exposure 정보의 완전성·충돌 여부.
+
+    structural confidence(candidate.confidence — provenance 구체성·독립 근거·
+    layer corroboration)와 분리된 축이다: context가 CONFIRMED라고 structural
+    confidence가 오르지 않고, context가 UNKNOWN이라고 occurrence가 내려가지
+    않는다(불변식 fixture). 후보에 저장하지 않는 진단 함수 — R2/R3 표현 재료.
+    """
+    if c.selection_context_conflict:
+        return 0.0
+    if c.exposure_status is ExposureStatus.CONFIRMED:
+        return 1.0
+    if c.exposure_status is ExposureStatus.UNKNOWN:
+        return 0.5
+    return 0.0  # DENIED/NOT_APPLICABLE — 적용 부정(완전성 아님)
+
+
+def scoring_config_hash() -> str:
+    """점수 설정 해시 — shadow_scoring 감수 무효화 가드 재료(감수 28차).
+
+    공식·가중·cap·매핑이 하나라도 바뀌면 값이 바뀐다 — reviewHashes에 포함된
+    감수는 자동 강등 대상이 된다(RISK_SCORING_VERSION 문자열만으로는 부족).
+    """
+    import hashlib
+    import json as _json
+    config = {
+        "formula": "occurrence*impact*exposure + persistence + compound"
+                   " - protection",
+        "structural_formula": "occurrence*impact + persistence - protection"
+                              " (compound 제외)",
+        "exposure_weights": {
+            "confirmed": _EXPOSURE_CONFIRMED,
+            "unknown_rankable": _EXPOSURE_UNKNOWN_RANKABLE,
+            "denied": 0.0, "not_applicable": 0.0, "context_conflict": 0.0,
+            "gate": "is_exposable",
+        },
+        "persistence": {"basis": "cause_lineage_longest_contiguous_run",
+                        "native_gate": True, "span": _PERSISTENCE_SPAN},
+        "compound": {"basis": "independent_exposable_effect_family",
+                     "effect_identity": "kind+episode_signature",
+                     "per_link": _COMPOUND_PER_LINK, "cap": 1.0},
+        "occurrence": {"combine": "1-prod(1-s)", "per_source_dedup": "max"},
+        "confidence": {"base": _CONF_BASE, "per_extra_cause": _CONF_PER_EXTRA_CAUSE,
+                       "layer": _CONF_LAYER,
+                       "context_confidence": "separate_diagnostic"},
+        "component_caps": "각 축 [0,1] + capped total clamp",
+    }
+    return hashlib.sha256(
+        _json.dumps(config, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()[:16]
+
+
+def cause_semantics_hash() -> str:
+    """cause 의미 registry 해시 — 분류·정규화 변경 시 감수 자동 강등 재료."""
+    import hashlib
+    import json as _json
+    semantics = {
+        "version": CAUSE_SEMANTICS_VERSION,
+        "registry": {
+            "relation:*": _SEM_CAUSE, "ten_god:*": _SEM_CAUSE,
+            "void": _SEM_CONDITIONAL, "no_void": _SEM_GATE,
+            "stage:*": _SEM_ACTIVATION, "polarity:*": _SEM_AMPLIFIER,
+            "unknown": "reject",
+        },
+        "cause_eligibility": "CAUSE 원자 동반 source만 occurrence 재료",
+        "lineage": "risk_id + 연결 episode 서명 + CAUSE 원자 집합",
+    }
+    return hashlib.sha256(
+        _json.dumps(semantics, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()[:16]
+
+
 __all__ = [
+    "CAUSE_SEMANTICS_VERSION",
     "RISK_SCORING_VERSION",
+    "atom_semantics",
     "cause_occurrence_table",
+    "cause_semantics_hash",
     "compound_family_links",
+    "context_confidence",
+    "effect_contiguous_runs",
     "risk_priority",
     "score_shadow",
+    "scoring_config_hash",
     "structural_priority",
 ]

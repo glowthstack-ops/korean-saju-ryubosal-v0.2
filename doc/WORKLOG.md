@@ -8025,3 +8025,19 @@ R1B.md 고정): 표본 7종·§9 필드 전체 출력·**예상 불변식 26개 
 불변). fixture 19종·pytest 1987·mypy 0·전 baseline exact match.
 다음: R1-c 49항목 shadow scoring 전수(+포화 지표·프로필 비교·shadow_scoring
 scope 감수 — 기존 scope 해제 금지).
+
+## R1-c0 — 점수 의미론 고정 슬라이스(감수 28차, 2026-07-16)
+
+canonical 식별≠occurrence 적격(데굴님 필수 7건): ①의미 registry — relation/
+ten_god=CAUSE·void=조건부(단독 원인 금지)·no_void=게이트(기여 0)·stage=작동/확신
+보조(row 금지)·polarity=증폭·미상 fail-closed. CAUSE 동반 source만 occurrence
+재료 ②persistence=cause lineage(연결 episode 서명+CAUSE 원자 집합 — 원인 교체형
+연속=run 1, 효과 연속은 effect_contiguous_runs 진단 분리, 무관 episode 추가=전
+점수 byte 불변) ③compound effect identity — 같은 episode·같은 kind의 교차 family
+복제=0(MOV·LEG·FIN 병렬 표현), episode-free 쌍은 riskFamily 저작 소관(감수 질문)
+④confidence 분리 — structural(후보 저장)/context_confidence(진단 함수), 상호
+불간섭 fixture ⑤scoring_config_hash+cause_semantics_hash(잠정 가중 변경=감수
+자동 강등 재료). RISK_SCORING_VERSION r1.0.3-shadow(env r0.5.12 불변). fixture
+26종·표본 불변식 27 PASS·pytest 1994·mypy 0·전 baseline exact match.
+다음: R1-c1(49항목 전수 — cohort 6군 분리·structural/rankable 분포·포화·단조성)
+→ R1-c2(가중 확정·shadow_scoring scope 승격).

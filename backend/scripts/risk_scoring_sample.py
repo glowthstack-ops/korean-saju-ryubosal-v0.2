@@ -26,11 +26,14 @@ from saju_engines.risk_engine import (  # noqa: E402
     build_raw_period_facts,
 )
 from saju_engines.risk_scoring import (  # noqa: E402
+    CAUSE_SEMANTICS_VERSION,
     RISK_SCORING_VERSION,
     cause_occurrence_table,
+    cause_semantics_hash,
     compound_family_links,
     risk_priority,
     score_shadow,
+    scoring_config_hash,
     structural_priority,
 )
 from saju_shared_types.event_engine import (  # noqa: E402
@@ -107,8 +110,9 @@ def sample_cause_identity() -> None:
     d = _cand(risk_id="SMP_D", family="fam_d",
               evidence=[_ev(_CHUNG, layer="daewoon+sewoon")])
     g = _cand(risk_id="SMP_G", family="fam_g", evidence=[
-        _ev("ten_god:ZHENGCAI"), _ev("void"), _ev("stage:병")])
-    for s in score_shadow([a, b, c, d, g], {}):
+        _ev("ten_god:ZHENGCAI"), _ev("void"), _ev("stage:병"), _ev("no_void")])
+    scored_g = score_shadow([a, b, c, d, g], {})
+    for s in scored_g:
         print(_row(s))
     _expect("같은 충+다른 대상 → cause row 2",
             len(cause_occurrence_table([a, b])) == 2)
@@ -116,10 +120,19 @@ def sample_cause_identity() -> None:
             len(cause_occurrence_table([a, c])) == 2)
     _expect("같은 대상·관계 다층 → cause row 1(+supporting layer)",
             len(cause_occurrence_table([a, d])) == 1)
-    _expect("비관계 전역 원자(ten_god/void/stage) → 각자 row(계약 통과)",
-            len(cause_occurrence_table([g])) == 3)
+    _expect("semantic registry: ten_god만 CAUSE row — void/stage/no_void 진입 금지",
+            len(cause_occurrence_table([g])) == 1)
+    only_ten = _cand(risk_id="SMP_G2", family="fam_g",
+                     evidence=[_ev("ten_god:ZHENGCAI")])
+    [sg2] = score_shadow([only_ten], {})
+    smp_g = scored_g[4]
+    _expect("상태 원자(void/stage/no_void) 추가 → occurrence 불변",
+            smp_g.score_components is not None
+            and sg2.score_components is not None
+            and smp_g.score_components.occurrence
+            == sg2.score_components.occurrence)
     try:
-        cause_occurrence_table([_cand(evidence=[_ev("pattern:new_thing")])])
+        score_shadow([_cand(evidence=[_ev("pattern:new_thing")])], {})
         _expect("미상 namespace 거부", False)
     except ValueError:
         _expect("미상 namespace 거부", True)
@@ -306,7 +319,10 @@ def sample_protection() -> None:
 
 def main() -> int:
     """표본 7종 리포트 + 예상 불변식 검증 결과를 출력한다."""
-    print(f"# R1-b 위험 점수 표본 리포트 — {RISK_SCORING_VERSION}")
+    print(f"# R1-b/c0 위험 점수 표본 리포트 — {RISK_SCORING_VERSION}")
+    print(f"cause semantics: {CAUSE_SEMANTICS_VERSION} · "
+          f"scoring_config_hash={scoring_config_hash()} · "
+          f"cause_semantics_hash={cause_semantics_hash()}")
     print("감수 대상 = 절대 점수가 아니라 표본별 예상 불변식(PASS/FAIL).")
     sample_cause_identity()
     sample_exposure_policy()

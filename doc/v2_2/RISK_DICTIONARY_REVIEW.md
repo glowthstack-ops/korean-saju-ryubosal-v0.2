@@ -847,3 +847,46 @@ persistence — env r0.5.12 불변). fixture 14→19종. pytest 1987·mypy 0(520
 baseline exact match. 다음: R1-c(49항목 shadow scoring 전수 — 분포 p50/p90/max·
 축 기여도·포화율(raw>1·raw>1.2·capped=1·축별 cap 도달률·상위 10% 축 구성)·
 A/B/C/D 프로필 비교·양성 fixture score 생존 + shadow_scoring scope 감수).
+
+## 15. R1-c0 차수(감수 28차) — 점수 의미론 고정 슬라이스 (2026-07-16)
+
+데굴님 필수 보완 7건: **원자를 고유하게 식별하는 데 성공했더라도, 시점 상태·비공망·
+취약성 같은 보조 조건까지 발생 원인으로 계산하면 점수는 결정적이지만 의미적으로
+잘못될 수 있다.**
+
+1. **occurrence 의미 registry**(canonical identity ≠ occurrence 적격):
+   relation:*/ten_god:*=CAUSE · void=CONDITIONAL_CAUSE(단독=원인 아님 — CAUSE
+   원자 동반 감수 룰의 조건으로만) · no_void=GATE_OR_PROTECTION(기여 0) ·
+   stage:*=ACTIVATION_OR_CONFIDENCE(occurrence row 금지·confidence 보조 예약) ·
+   polarity:*=AMPLIFIER · 미상=fail-closed 거부. CAUSE 원자 동반 source만
+   occurrence 재료·cause table row도 CAUSE만. fixture: 상태 원자 추가 →
+   occurrence·원인 수 불변 / 형+병 운성 → row 1 / 조건부 void → CAUSE 원자만
+   row / ten_god semantic collapse(source·layer 반복=1개·layer는 confidence만).
+2. **persistence = cause lineage**: 계열 키 = risk_id + **연결 episode 서명**
+   (항목이 게이트하는 축만 — 무관 episode 자동 제외) + **CAUSE 원자 집합**.
+   원인 교체형 연속(1월 충→2월 형→3월 유입)은 cause run 1 — 효과 연속은
+   `effect_contiguous_runs()` 진단(R2 episode 분석 재료)으로만. gap 분리 fixture,
+   무관 health episode 추가 → 계약 후보 전 점수·필드 byte 불변(엔진 fixture).
+3. **compound normalized effect identity**: (kind, 연결 episode 서명) — 같은
+   episode·같은 kind의 교차 family 복제(계약 일정 차질의 MOV·LEG·FIN 병렬)는
+   compound 0, 다른 episode 독립 효과만 0.25. episode-free 쌍은 동일성 주장
+   불가(후보별 고유 identity — riskFamily 교차 도메인 통합 저작+R2 대표 소관,
+   **효과 role 어휘 정식화는 감수 질문**).
+4. **confidence 분리**: candidate.confidence=structural(provenance·독립 근거·
+   layer corroboration — context 무관 fixture) / `context_confidence()`=진단
+   함수(CONFIRMED 1.0·UNKNOWN 0.5·conflict/DENIED/NA 0.0). context CONFIRMED가
+   structural을 못 올리고 UNKNOWN이 occurrence를 못 내림(fixture).
+5. **감수 hash 재료**: `scoring_config_hash()`(공식·가중·cap·매핑 전부 —
+   ea789b931ee68d29) + `cause_semantics_hash()`(registry·정규화 —
+   9f2e80bd80731edb) + CAUSE_SEMANTICS_VERSION=v2. R1-c2의 shadow_scoring
+   scope 스탬프에 포함 — 잠정값(UNKNOWN 0.55·span 5·compound 0.25) 변경 시
+   감수 자동 강등.
+
+`RISK_SCORING_VERSION` r1.0.2→**r1.0.3-shadow**(env r0.5.12 불변). fixture
+19→**26종**, 표본 리포트 불변식 **27개 전부 PASS**(고정본 갱신). pytest 1994·
+mypy 0(520파일)·전 baseline exact match. 다음: R1-c1(49항목 전수 — cohort 분리
+측정(A structural active/B ELIGIBLE/C context-exposable/D rankable>0/E BLOCKED·
+INSUFFICIENT/F vulnerability), structural·rankable 분포 분리, 포화 지표 + 단조성
+검증(원인 추가↛occ 감소·protection 추가↛priority 증가·CONFIRMED→UNKNOWN↛증가·
+supporting/vuln 추가↛occ 증가·무관 episode↛변화·입력 순서 byte 불변)) →
+R1-c2(가중 확정·shadow_scoring scope 승격).

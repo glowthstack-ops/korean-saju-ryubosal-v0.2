@@ -68,13 +68,13 @@ def _evidence(source: str, *, strength=0.5, role=EvidenceRole.TRIGGER,
 
 def _candidate(*, risk_id="SYN_RISK", period="2026", evidence,
                exposure=ExposureStatus.UNKNOWN, family="syn",
-               **overrides) -> RiskCandidate:
+               kind=RiskKind.INCIDENT_RISK, **overrides) -> RiskCandidate:
     atoms = sorted({
         a for e in evidence if e.role is EvidenceRole.TRIGGER
         for a in e.source.split("&")
     })
     return RiskCandidate(
-        risk_id=risk_id, domain=RiskDomain.FINANCE, kind=RiskKind.INCIDENT_RISK,
+        risk_id=risk_id, domain=RiskDomain.FINANCE, kind=kind,
         risk_family=family, period_key=period, evidence=evidence,
         exposure_status=exposure, trigger_cause_atoms=atoms, **overrides,
     )
@@ -438,15 +438,16 @@ def test_denied_blocked_candidate_rankable_zero(engine: RiskEngine) -> None:
 
 
 def test_cause_namespace_contract() -> None:
-    """TRIGGER 원자는 target 내장 canonical 또는 명시적 전역 사실 — 미상 거부."""
+    """canonical 식별 ≠ occurrence 적격(감수 28차 registry): CAUSE 의미만 원인
+    row 생성, 보조 상태(void/no_void/stage/polarity)는 진입 금지, 미상 거부."""
     ok = _candidate(evidence=[
-        _evidence(_CHUNG, strength=0.5),  # relation:* — target 내장
-        _evidence("ten_god:ZHENGCAI", strength=0.4),  # 전역: 유입 십성
-        _evidence("void", strength=0.4),  # 전역: 시점 공망
-        _evidence("stage:병", strength=0.3),  # 전역: 스냅샷당 대상 1개
+        _evidence(_CHUNG, strength=0.5),  # relation:* — CAUSE
+        _evidence("ten_god:ZHENGCAI", strength=0.4),  # ten_god:* — CAUSE
+        _evidence("void", strength=0.4),  # CONDITIONAL — 단독=원인 아님
+        _evidence("stage:병", strength=0.3),  # ACTIVATION — 원인 아님
     ])
     table = cause_occurrence_table([ok])
-    assert len(table) == 4
+    assert len(table) == 2  # relation·ten_god만 — 상태 원자는 row 금지
     # 극성은 TRIGGER 조건에 섞여 있어도 원인이 아니다(진입 금지).
     with_pol = _candidate(evidence=[
         _evidence(f"{_CHUNG}&polarity:GI", strength=0.5)])
@@ -454,7 +455,47 @@ def test_cause_namespace_contract() -> None:
     # 미상 namespace → 계약 위반 감지(조용한 과소/과대 dedup 방지).
     bad = _candidate(evidence=[_evidence("pattern:some_new_thing", strength=0.5)])
     with pytest.raises(ValueError, match="canonical cause 계약 위반"):
-        cause_occurrence_table([bad])
+        score_shadow([bad], {})
+
+
+def test_state_atoms_zero_occurrence_contribution() -> None:
+    """감수 28차 필수: no_void·stage·일반 void 추가 → occurrence·원인 수 불변."""
+    base = _candidate(evidence=[_evidence(_CHUNG, strength=0.5)])
+    with_states = _candidate(evidence=[
+        _evidence(_CHUNG, strength=0.5),
+        _evidence("no_void", strength=0.9),  # 비공망 상태 — GATE
+        _evidence("stage:병", strength=0.9),  # 운성 상태 — ACTIVATION
+        _evidence("void", strength=0.9),  # 일반 공망 단독 — 원인 아님
+    ])
+    [b, w] = score_shadow([base, with_states], {})
+    assert _comp(b).occurrence == _comp(w).occurrence
+    assert b.confidence == w.confidence  # 독립 원인 수 불변(휴리스틱 동일)
+    # 형 + 병 운성: 운성이 두 번째 원인이 되지 않는다 — cause row 1.
+    hyeong_stage = _candidate(evidence=[
+        _evidence(_HYEONG, strength=0.5), _evidence("stage:병", strength=0.5)])
+    assert len(cause_occurrence_table([hyeong_stage])) == 1
+    # 감수 룰의 조건부 공망(같은 source에 CAUSE 동반)은 그 원인의 조건일 뿐
+    # 별도 원인이 아니다 — row는 CAUSE 원자만.
+    conditional = _candidate(evidence=[
+        _evidence("ten_god:ZHENGYIN&void", strength=0.5)])
+    assert list(cause_occurrence_table([conditional])) == [
+        ("2026", "ten_god:ZHENGYIN")]
+
+
+def test_ten_god_semantic_collapse() -> None:
+    """감수 28차: 같은 십성의 source·layer 반복 = semantic cause 1개."""
+    single = _candidate(evidence=[_evidence("ten_god:ZHENGCAI", strength=0.5)])
+    repeated = _candidate(evidence=[
+        _evidence("ten_god:ZHENGCAI", strength=0.5, group="event_shape"),
+        _evidence("ten_god:ZHENGCAI", strength=0.5, group="activation"),
+    ])
+    multi_layer = _candidate(evidence=[
+        _evidence("ten_god:ZHENGCAI", strength=0.5, layer="daewoon+sewoon")])
+    [s, r, m] = score_shadow([single, repeated, multi_layer], {})
+    assert _comp(s).occurrence == _comp(r).occurrence  # source 수 재가산 금지
+    assert len(cause_occurrence_table([repeated])) == 1
+    assert _comp(m).occurrence == _comp(s).occurrence  # layer는 confidence만
+    assert m.confidence > s.confidence
 
 
 def test_engine_atoms_all_canonical(engine: RiskEngine) -> None:
@@ -515,3 +556,115 @@ def test_structural_metrics_invariant_under_exposure_flip() -> None:
     raw_c, _ = risk_priority(_comp(sc[0]))
     raw_d, capped_d = risk_priority(_comp(sd[0]))
     assert raw_c > raw_d and capped_d == 0.0
+
+
+# ── 12. persistence = cause lineage(감수 28차) — 원인 교체·무관 episode ──
+
+
+def test_persistence_cause_lineage_not_effect_run() -> None:
+    """같은 risk_id·episode의 연속이라도 매달 원인이 바뀌면 cause run 1 —
+    effect run(진단)은 3으로 별도 관찰된다."""
+    from saju_engines.risk_scoring import effect_contiguous_runs
+    same_cause = [
+        _candidate(risk_id="SYN_SAME", period=p, evidence=_month_ev(p))
+        for p in ("2026-01", "2026-02", "2026-03")
+    ]
+    rotating_sources = [_CHUNG, _HYEONG, "ten_god:ZHENGCAI"]
+    rotating = [
+        _candidate(risk_id="SYN_ROT", period=p, evidence=[
+            _evidence(src, strength=0.5, period=p, layer="wolwoon")])
+        for p, src in zip(("2026-01", "2026-02", "2026-03"),
+                          rotating_sources, strict=True)
+    ]
+    scored = score_shadow(same_cause + rotating, {})
+    assert _comp(scored[0]).persistence == pytest.approx(2 / 5)  # cause run 3
+    assert _comp(scored[3]).persistence == 0.0  # 원인 교체 — cause run 1
+    runs = effect_contiguous_runs(same_cause + rotating)
+    assert runs[("SYN_SAME", frozenset())] == 3
+    assert runs[("SYN_ROT", frozenset())] == 3  # 효과 연속은 진단으로 보존
+
+
+def test_persistence_gap_splits_run() -> None:
+    """같은 cause라도 중간 한 달 비활성이면 run 분리(최장 구간만)."""
+    series = [_candidate(period=p, evidence=_month_ev(p))
+              for p in ("2026-01", "2026-02", "2026-04", "2026-05", "2026-06")]
+    scored = score_shadow(series, {})
+    assert _comp(scored[0]).persistence == pytest.approx(2 / 5)  # 최장 run 3(4~6월)
+
+
+def test_unrelated_episode_does_not_change_lineage(engine: RiskEngine) -> None:
+    """감수 28차 필수: 무관 health episode 추가 → 계약 후보 lineage·전 점수 불변."""
+    from saju_engines.risk_engine import HealthContext, LegalProcessContext
+    facts = _facts(
+        gods={TenGod.ZHENGYIN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGYIN)],
+    )
+    leg_ctx = LegalProcessContext(
+        target_type="contract", stage="active_contract",
+        exposure_status=ExposureStatus.CONFIRMED, process_episode_id="contract_1")
+    base = engine.generate(facts, legal_contexts=[leg_ctx])
+    with_health = engine.generate(
+        facts, legal_contexts=[leg_ctx],
+        health_contexts=[HealthContext(
+            context_type="treatment_process", treatment_status="ongoing",
+            exposure_status=ExposureStatus.CONFIRMED, episode_id="treatment_9")],
+    )
+    pick = lambda cands: {  # noqa: E731
+        (c.risk_id, c.legal_episode_id): c for c in cands
+        if c.risk_id == "LEG_CONTRACT_TERMINATION_RISK"}
+    b = pick(base)[("LEG_CONTRACT_TERMINATION_RISK", "contract_1")]
+    w = pick(with_health)[("LEG_CONTRACT_TERMINATION_RISK", "contract_1")]
+    [sb] = score_shadow([b], engine.base_impacts())
+    [sw] = score_shadow([w], engine.base_impacts())
+    assert sb.model_dump() == sw.model_dump()  # lineage 포함 전 점수·필드 불변
+
+
+# ── 13. compound normalized effect identity(감수 28차) ────────────
+
+
+def test_compound_same_real_effect_across_families_zero() -> None:
+    """같은 cause + 다른 family + 같은 episode·같은 kind(=같은 현실 효과의
+    교차 도메인 복제) → compound 0. 독립 효과(다른 episode/식별 불가 쌍)만 가능."""
+    ev = [_evidence(_CHUNG, strength=0.5)]
+    mov_like = _candidate(risk_id="SYN_MOV", family="move_execution",
+                          kind=RiskKind.PRESSURE, evidence=ev,
+                          legal_episode_id="contract_1")
+    leg_like = _candidate(risk_id="SYN_LEG", family="procedure",
+                          kind=RiskKind.PRESSURE, evidence=ev,
+                          legal_episode_id="contract_1")
+    [sm, sl] = score_shadow([mov_like, leg_like], {})
+    assert _comp(sm).compound == 0.0 and _comp(sl).compound == 0.0
+    # 같은 원인·다른 episode의 독립 효과 → compound 가능.
+    other_ep = _candidate(risk_id="SYN_LEG2", family="procedure",
+                          kind=RiskKind.PRESSURE, evidence=ev,
+                          legal_episode_id="permit_9")
+    [sm2, _] = score_shadow([mov_like, other_ep], {})
+    assert _comp(sm2).compound == pytest.approx(0.25)
+    # episode-free 쌍은 동일성 주장 불가 — family 상이면 연결 유지(사전
+    # riskFamily 통합 저작 소관, 감수 질문).
+    free_a = _candidate(risk_id="SYN_FA", family="fam_a",
+                        kind=RiskKind.PRESSURE, evidence=ev)
+    free_b = _candidate(risk_id="SYN_FB", family="fam_b",
+                        kind=RiskKind.PRESSURE, evidence=ev)
+    [sf, _] = score_shadow([free_a, free_b], {})
+    assert _comp(sf).compound == pytest.approx(0.25)
+
+
+# ── 14. confidence 분리(감수 28차) — structural vs context ─────────
+
+
+def test_confidence_axes_separated() -> None:
+    """context CONFIRMED가 structural confidence를 못 올리고, UNKNOWN이
+    occurrence를 못 내린다 — context confidence만 별도 축으로 변화."""
+    from saju_engines.risk_scoring import context_confidence
+    ev = [_evidence(_CHUNG, strength=0.5)]
+    unknown = _candidate(evidence=ev, exposure=ExposureStatus.UNKNOWN)
+    confirmed = _candidate(evidence=ev, exposure=ExposureStatus.CONFIRMED)
+    conflicted = _candidate(evidence=ev, selection_context_conflict=True)
+    [su, sc, sx] = score_shadow([unknown, confirmed, conflicted], {})
+    assert su.confidence == sc.confidence  # structural — context 무관
+    assert _comp(su).occurrence == _comp(sc).occurrence  # UNKNOWN이 occ 불변
+    assert context_confidence(sc) == 1.0
+    assert context_confidence(su) == 0.5
+    assert context_confidence(sx) == 0.0  # conflict — 완전성 훼손
