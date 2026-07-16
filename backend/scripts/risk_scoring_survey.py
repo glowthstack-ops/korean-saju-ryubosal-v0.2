@@ -223,18 +223,23 @@ def _report_population(title: str, cands: list[RiskCandidate]) -> None:
                          "compound", "protection")}
         print("상위 10%(D군) 축 원값 평균(6축 전부): " + ", ".join(
             f"{k} {v:.3f}" for k, v in axes_mean.items()))
-        # 가중 기여도 — total 공식 항별 실제 기여(원값 평균과 구분): total =
-        # occ×imp×exp + persistence + compound − protection.
-        terms = {"occ×imp×exp": 0.0, "persistence": 0.0, "compound": 0.0,
-                 "-protection": 0.0}
+        # 가중 기여도 — modifier 공식(감수 32차) 항별 실제 기여: total =
+        # E×B×(1+P+C)×(1−prot), B=occ×imp. 분해: base항=E×B×(1−prot),
+        # persistence항=E×B×P×(1−prot), compound항=E×B×C×(1−prot),
+        # protection 손실=E×B×(1+P+C)×prot(음수 표기).
+        terms = {"base(E×B)": 0.0, "persistence항": 0.0, "compound항": 0.0,
+                 "-protection손실": 0.0}
         cap_loss = 0.0
         for c in top:
             comp = c.score_components
             assert comp is not None
-            terms["occ×imp×exp"] += comp.occurrence * comp.impact * comp.exposure
-            terms["persistence"] += comp.persistence
-            terms["compound"] += comp.compound
-            terms["-protection"] -= comp.protection
+            eb = comp.exposure * comp.occurrence * comp.impact
+            keep = 1.0 - comp.protection
+            terms["base(E×B)"] += eb * keep
+            terms["persistence항"] += eb * comp.persistence * keep
+            terms["compound항"] += eb * comp.compound * keep
+            terms["-protection손실"] -= (
+                eb * (1.0 + comp.persistence + comp.compound) * comp.protection)
             raw, capped = risk_priority(comp)
             cap_loss += max(0.0, raw - capped)
         print("상위 10% 가중 기여(공식 항별 평균): " + ", ".join(
@@ -309,15 +314,16 @@ def _sensitivity_and_ablation(cands: list[RiskCandidate]) -> None:
             exp_v = comp.exposure
             if unknown_w is not None and exp_v == 0.55:
                 exp_v = unknown_w
-            raw = (comp.occurrence * comp.impact * exp_v
-                   + comp.persistence + cmp_v - comp.protection)
+            raw = (exp_v * comp.occurrence * comp.impact
+                   * (1.0 + comp.persistence + cmp_v)
+                   * (1.0 - comp.protection))
             out.append(min(1.0, max(0.0, raw)))
         return out
 
-    base = totals_with(0.25, None)
+    base = totals_with(0.10, None)
     base_top = _rank_ids([c for _, c in active], base)
-    print("\n## compound 증분 민감도(C overlay·기준 0.25)")
-    for inc in (0.0, 0.10, 0.15):
+    print("\n## compound 증분 민감도(C overlay·기준 0.10 — 0.25는 기각(감수 32차))")
+    for inc in (0.0, 0.15, 0.25):
         alt = totals_with(inc, None)
         alt_top = _rank_ids([c for _, c in active], alt)
         overlap = len(set(base_top) & set(alt_top))
@@ -329,13 +335,13 @@ def _sensitivity_and_ablation(cands: list[RiskCandidate]) -> None:
         dominant = sum(
             1 for i, c in active
             if c.score_components is not None
-            and min(1.0, inc * len(links[i])) > max(
-                c.score_components.occurrence * c.score_components.impact
-                * c.score_components.exposure,
-                c.score_components.persistence)
+            and min(1.0, inc * len(links[i]))
+            > max(1.0, c.score_components.persistence)  # (1+per+cmp)에서 cmp 우위
         )
+        new_top_entrants = len(set(alt_top) - set(base_top))
         print(f"  inc={inc:.2f}: top10 overlap {overlap}/10 · 기준 top10 내 역전 "
-              f"{inversions} · rankable>0 {n_pos} · compound가 최대 항 {dominant}")
+              f"{inversions} · rankable>0 {n_pos} · compound 항이 persistence "
+              f"우위 {dominant} · top10 신규 진입 {new_top_entrants}")
     print("## exposure UNKNOWN 가중 ablation(기준 0.55)")
     for w in (1.0, 0.775, 0.3):
         alt = totals_with(0.25, w)
@@ -343,6 +349,114 @@ def _sensitivity_and_ablation(cands: list[RiskCandidate]) -> None:
         overlap = len(set(base_top) & set(alt_top))
         print(f"  unknown_w={w:.3f}: top10 overlap {overlap}/10 · "
               f"rankable>0 {sum(1 for v in alt if v > 0)}")
+
+
+def _role_audit(cands: list[RiskCandidate]) -> None:
+    """effect role taxonomy 감수 재료(감수 32차 — 스탬프 전 필수 audit)."""
+    import json
+    roles_by_item: dict[str, str] = {}
+    for f in sorted((_DICTS / "risks").glob("*.json")):
+        for raw in json.loads(f.read_text(encoding="utf-8"))["items"]:
+            roles_by_item[raw["riskId"]] = raw["normalizedEffectRole"]
+    role_items: dict[str, list[str]] = defaultdict(list)
+    for rid, role in roles_by_item.items():
+        role_items[role].append(rid)
+    singleton = {r for r, ids in role_items.items() if len(ids) == 1}
+    shared = {r for r, ids in role_items.items() if len(ids) > 1}
+    cross_domain = {
+        r for r, ids in role_items.items()
+        if len({i.split("_")[0] for i in ids}) > 1}
+    print("\n## effect role taxonomy audit(감수 32차)")
+    print(f"  항목 {len(roles_by_item)} · role {len(role_items)}종 · "
+          f"singleton {len(singleton)} · 공유 {len(shared)} · "
+          f"도메인 간 공유 {len(cross_domain)}종({sorted(cross_domain)})")
+    print("  공유 role: " + ", ".join(
+        f"{r}({len(role_items[r])})" for r in sorted(shared)))
+    # shared-cause 연결쌍의 role 분해(같은 기간·원인 공유 쌍 — 방향 무시).
+    from saju_engines.risk_scoring import _candidate_atoms, _episode_signature
+    same_role = diff_role = unresolved_pairs = 0
+    by_period: dict[str, list[RiskCandidate]] = defaultdict(list)
+    for c in cands:
+        if is_active(c):
+            by_period[c.period_key].append(c)
+    for group in by_period.values():
+        for i, a in enumerate(group):
+            for b in group[i + 1:]:
+                if a.risk_id == b.risk_id:
+                    continue
+                if not (_candidate_atoms(a) & _candidate_atoms(b)):
+                    continue
+                ra = a.normalized_effect_role or a.risk_family
+                rb = b.normalized_effect_role or b.risk_family
+                if not (_episode_signature(a) and _episode_signature(b)):
+                    unresolved_pairs += 1
+                elif ra == rb:
+                    same_role += 1
+                else:
+                    diff_role += 1
+    print(f"  shared-cause 연결쌍: same-role {same_role} · different-role "
+          f"{diff_role} · unresolved {unresolved_pairs}")
+
+
+def _capped_detail(cands: list[RiskCandidate]) -> None:
+    """capped=1 후보 개별 공개(감수 32차 — CAR 3건 등 단일 항목 상한 감수 재료)."""
+    rows = []
+    for c in cands:
+        comp = c.score_components
+        if comp is None or not is_active(c):
+            continue
+        raw, capped = risk_priority(comp)
+        if capped >= 1.0:
+            rows.append((c, comp, raw))
+    print(f"\n## capped=1 후보 상세({len(rows)}건 — 개별 감수 재료)")
+    for c, comp, raw in sorted(rows, key=lambda r: (-r[2], r[0].risk_id)):
+        atoms = ", ".join(sorted(c.trigger_cause_atoms)[:3])
+        print(f"  {c.risk_id}@{c.period_key}: raw {raw:.3f}(cap-loss "
+              f"{raw - 1.0:.3f}) · occ {comp.occurrence:.3f} imp {comp.impact:.2f} "
+              f"exp {comp.exposure:.2f} per {comp.persistence:.2f} "
+              f"cmp {comp.compound:.2f} prot {comp.protection:.2f} · "
+              f"원인 [{atoms}]")
+
+
+def _persistence_span_comparison() -> None:
+    """persistence span 5/8/12 비교 + 지속 vs 단기 pairwise(감수 32차)."""
+    from saju_shared_types.risk_engine import RiskScoreComponents
+
+    def rankable(occ, imp, per, span_run):
+        per_v = min(1.0, max(0.0, (span_run[1] - 1) / span_run[0]))
+        comp = RiskScoreComponents(
+            occurrence=occ, impact=imp, exposure=1.0,
+            persistence=per_v, compound=0.0, protection=0.0)
+        return risk_priority(comp)[1]
+
+    print("\n## persistence span 비교·pairwise(감수 32차 — 기대 순서 명시)")
+    for span in (5, 8, 12):
+        strong_short = rankable(0.8, 0.7, 0.0, (span, 1))
+        weak_persistent = rankable(0.2, 0.6, 0.0, (span, 6))  # 6개월 연속
+        mid_persistent = rankable(0.5, 0.6, 0.0, (span, 4))  # 3+1개월 연속
+        print(f"  span={span}: 강한 단기 {strong_short:.3f} vs 약한 6개월 지속 "
+              f"{weak_persistent:.3f}(기대: 단기 우위 "
+              f"{'PASS' if strong_short > weak_persistent else 'FAIL'}) · "
+              f"중간 4개월 지속 {mid_persistent:.3f}"
+              f"({'단기 우위' if strong_short > mid_persistent else '지속 우위'})")
+
+
+def _protection_pairwise() -> None:
+    """protection 비례 완화 pairwise(감수 32차 — 감점의 음수 양산 해소 검증)."""
+    from saju_shared_types.risk_engine import RiskScoreComponents
+
+    def total(prot):
+        comp = RiskScoreComponents(
+            occurrence=0.5, impact=0.6, exposure=1.0,
+            persistence=0.0, compound=0.0, protection=prot)
+        return risk_priority(comp)[1]
+
+    print("\n## protection pairwise(비례 완화)")
+    none_p, weak_p, strong_p = total(0.0), total(0.3), total(0.8)
+    print(f"  보호 없음 {none_p:.3f} > 약한 보호 {weak_p:.3f} > 강한 보호 "
+          f"{strong_p:.3f} — "
+          f"{'PASS' if none_p > weak_p > strong_p > 0 else 'FAIL'}"
+          f"(강한 보호도 0으로 소거하지 않음 — 완화이지 삭제 아님)")
 
 
 def _pairwise_golden() -> None:
@@ -394,8 +508,12 @@ def main() -> int:
             c_overlay = cands
 
     assert c_overlay is not None
+    _role_audit(c_overlay)
+    _capped_detail(c_overlay)
     _sensitivity_and_ablation(c_overlay)
     _pairwise_golden()
+    _persistence_span_comparison()
+    _protection_pairwise()
 
     print("\n## 단조성 검증: 8종 전부 단위 fixture로 고정(test_risk_scoring_r1a"
           " — 원인 추가↛occ 감소·protection↛priority 증가·CONFIRMED→UNKNOWN↛"

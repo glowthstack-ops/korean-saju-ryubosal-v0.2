@@ -749,15 +749,21 @@ _RISK_REVIEW_SCOPES = (
 # 현실 효과' 판정·교차 도메인 dedup에 직접 쓰는 감수 필드. kind(위험 표현 성격)와
 # 다른 축이며 riskFamily(대부분 도메인 내부 키)를 대체하지 않는다(family는 기존
 # 분류 유지). 값 변경은 shadow_scoring scope만 자동 강등(shadow_structure 유지).
+# 감수 32차 taxonomy 정리(잠정 — R1-c3 감수 대상): 49항목 43종은 risk_id 재명명에
+# 가깝다는 지적에 따라 명백한 동일 현실 효과를 병합 — ①hiring_delay+selection_
+# delay→**result_wait_delay**(채용·시험·선발의 결과 대기 지연은 같은 현실 효과 —
+# 같은 원인·episode에서 compound 금지) ②compliance_obligation+financial_liability
+# →**liability_obligation**(의무·보증 책임 계열 — 기존 riskFamily=liability 교차
+# 통합 저작과 일관). singleton 심사 표는 survey role audit 출력.
 _RISK_EFFECT_ROLES = (
     "contract_termination", "contract_setback", "document_defect",
-    "administrative_delay", "compliance_obligation", "legal_dispute",
+    "administrative_delay", "legal_dispute",
     "litigation_process_burden", "review_capacity",
     "cashflow_pressure", "financial_outflow", "payment_recovery",
-    "financial_liability", "financial_buffer",
-    "hiring_delay", "hiring_outcome", "evaluation_setback", "reassignment",
+    "liability_obligation", "financial_buffer",
+    "hiring_outcome", "evaluation_setback", "reassignment",
     "workload_strain", "exit_pressure", "workplace_conflict",
-    "selection_eligibility", "selection_outcome", "selection_delay",
+    "selection_eligibility", "selection_outcome", "result_wait_delay",
     "selection_competition",
     "schedule_disruption", "housing_defect", "commute_burden",
     "relocation_pressure", "vehicle_transport",
@@ -1344,6 +1350,19 @@ class RiskItem(_AliasModel):
             self.normalized_effect_role,
             *self.normalized_effect_role_by_context.values(),
         ]
+        if self.normalized_effect_role_by_context:
+            if self.normalized_effect_role is None:
+                raise ValueError(
+                    f"normalizedEffectRoleByContext는 base role 필수(항상 해소 "
+                    f"보장): {self.risk_id}"
+                )
+            for ctx_key in self.normalized_effect_role_by_context:
+                # 현 소비 축은 건강 컨텍스트뿐(감수 32차 — 타 축 확장 시 갱신).
+                if ctx_key not in _RISK_HEALTH_CONTEXT_TYPES:
+                    raise ValueError(
+                        f"normalizedEffectRoleByContext key 오류: {ctx_key} "
+                        f"({self.risk_id})"
+                    )
         for effect_role in roles:
             if effect_role is None:
                 continue

@@ -53,7 +53,7 @@ from saju_shared_types.risk_engine import (
 from .risk_engine import cause_atoms
 
 # 점수 의미 버전 — 축 정의·가중·매핑이 바뀌면 올린다(엔진 env 버전과 독립).
-RISK_SCORING_VERSION = "risk-score-r1.0.4-shadow"
+RISK_SCORING_VERSION = "risk-score-r1.1.0-shadow"
 
 # exposure 축 = **rankable 가중**(감수 26차 확정 — 정책별 분리, 전 항목 공통값
 # 금지): 노출 게이트(is_exposable)를 통과하지 못한 후보는 0 — DENIED(명시 부정)·
@@ -70,11 +70,10 @@ _EXPOSURE_CONFIRMED, _EXPOSURE_UNKNOWN_RANKABLE = 1.0, 0.55
 # convergence로 본다(기간 중복 계산 금지). 신호 강도 재합산 금지. total/gap-
 # adjusted 비교 지표는 R1-b 측정에서 병행 출력(잠정 기본=contiguous run).
 _PERSISTENCE_SPAN = 5
-# compound(감수 26차 확정 — risk_id 개수 기준 금지): 같은 기간·원인 공유 연결 중
-# **독립 exposable 효과군**만 — 다른 risk_family(같은 family=동일 효과 계열의
-# alias·파생) + is_exposable + 미흡수(supporting 아님). 같은 원인의 문서 부담·
-# 검토 취약·행정 supporting 파생은 복합 위험이 아니다. family 1건당 가중, cap 1.0.
-_COMPOUND_PER_LINK = 0.25
+# compound(감수 26→32차): 독립 exposable 효과(role 상이·resolved)만. 증분은
+# 감수 32차에서 **0.25 기각** — 0.10을 보수적 shadow 잠정값으로 두고 taxonomy·
+# ByContext 정리 후 재측정으로 확정한다(민감도 표 병행 출력). role 1건당, cap 1.0.
+_COMPOUND_PER_LINK = 0.10
 # confidence 휴리스틱(잠정): 기본 + 독립 원인 추가분 + 다층 수렴 관측.
 _CONF_BASE, _CONF_PER_EXTRA_CAUSE, _CONF_LAYER = 0.4, 0.2, 0.2
 
@@ -474,15 +473,27 @@ def effect_contiguous_runs(candidates: list[RiskCandidate]) -> dict[tuple, int]:
 
 
 def risk_priority(components: RiskScoreComponents) -> tuple[float, float]:
-    """§5 공식의 (raw, capped) 우선도 — total은 여기서 마지막 한 번만 계산한다.
+    """(raw, capped) rankable 우선도 — total은 여기서 마지막 한 번만 계산한다.
 
-    raw = occurrence×impact×exposure + persistence + compound − protection.
-    capped = raw를 [0, 1]로 clamp(포화 진단은 raw로, 소비는 capped로).
-    후보에 저장하지 않는다 — 등급·선별은 R2 소관.
+    감수 32차 공식 개정 — **지속성·복합성·보호는 기본 위험의 modifier**이지
+    독립 점수원이 아니다(additive에서 persistence가 기본 구조항의 3배로 상위를
+    주도하던 문제 교정):
+
+        structural_base = occurrence × impact
+        raw = exposure × structural_base × (1 + persistence + compound)
+              × (1 − protection)
+
+    성질: ①비노출(exposure 0)은 지속·복합으로 부활 불가 ②occurrence가 약하면
+    persistence만으로 상위 진입 불가(기여 상한 = base×1) ③UNKNOWN 가중이 전
+    양의 항에 일관 적용 ④protection은 비례 완화 — 절대 감점이 다수 후보를
+    음수로 만들던 문제(context-exposable 65% 음수) 해소, raw ≥ 0.
+    capped = [0,1] clamp(포화 진단은 raw). 후보 저장 금지 — 등급·선별은 R2.
     """
+    base = components.occurrence * components.impact
     raw = (
-        components.occurrence * components.impact * components.exposure
-        + components.persistence + components.compound - components.protection
+        components.exposure * base
+        * (1.0 + components.persistence + components.compound)
+        * (1.0 - components.protection)
     )
     return round(raw, 6), min(1.0, max(0.0, round(raw, 6)))
 
@@ -498,9 +509,9 @@ def structural_priority(components: RiskScoreComponents) -> float:
     ↔DENIED 전환만으로 structural 값이 바뀌는 누수가 생긴다. 구조 연결 진단은
     compound_family_links(exposable_only=False)를 별도로 쓴다.
     """
+    base = components.occurrence * components.impact
     return round(
-        components.occurrence * components.impact
-        + components.persistence - components.protection,
+        base * (1.0 + components.persistence) * (1.0 - components.protection),
         6,
     )
 
@@ -574,10 +585,10 @@ def scoring_config_hash() -> str:
     import hashlib
     import json as _json
     config = {
-        "formula": "occurrence*impact*exposure + persistence + compound"
-                   " - protection",
-        "structural_formula": "occurrence*impact + persistence - protection"
-                              " (compound 제외)",
+        "formula": "exposure * (occurrence*impact) * (1+persistence+compound)"
+                   " * (1-protection) — modifier 구조(감수 32차)",
+        "structural_formula": "(occurrence*impact) * (1+persistence)"
+                              " * (1-protection) — compound·exposure 제외",
         "exposure_weights": {
             "confirmed": _EXPOSURE_CONFIRMED,
             "unknown_rankable": _EXPOSURE_UNKNOWN_RANKABLE,
@@ -590,7 +601,9 @@ def scoring_config_hash() -> str:
         "compound": {"basis": "distinct_normalized_effect_roles",
                      "identity_resolution": "episode 서명 필수 —"
                                             " unresolved=제외(fail-closed)",
-                     "per_link": _COMPOUND_PER_LINK, "cap": 1.0},
+                     "per_link": _COMPOUND_PER_LINK, "cap": 1.0,
+                     "status": "잠정 0.10 — 0.25 기각(감수 32차),"
+                               " taxonomy 정리 후 재측정 확정"},
         "occurrence": {"combine": "1-prod(1-s)", "per_source_dedup": "max"},
         "confidence": {"base": _CONF_BASE, "per_extra_cause": _CONF_PER_EXTRA_CAUSE,
                        "layer": _CONF_LAYER,

@@ -718,15 +718,17 @@ def _item_health_gated(item: RiskItem) -> bool:
 def _resolve_health_all(
     item: RiskItem,
     contexts: list[HealthContext] | None,
-) -> list[tuple[str, str | None, ExposureStatus | None]]:
-    """건강 축 3상태 + episode·유효 노출 유도 — episode별 해석 목록(이동과 동일 원리).
+) -> list[tuple[str, str | None, ExposureStatus | None, str | None]]:
+    """건강 축 3상태 + episode·유효 노출·**매칭 context_type** — episode별 해석.
 
-    미적용 항목은 [(matched, None, None)]. 적용 항목: 호환 컨텍스트를 episode별로
-    해석(중복=결정적 병합), 질문 직접 대상이 명시적으로 축 밖이면 mismatched, 그 외
-    unknown. 컨텍스트 부재는 질환·치료 부재(DENIED)가 아니다.
+    미적용 항목은 [(matched, None, None, None)]. 적용 항목: 호환 컨텍스트를
+    episode별로 해석(중복=결정적 병합), 질문 직접 대상이 명시적으로 축 밖이면
+    mismatched, 그 외 unknown. 컨텍스트 부재는 질환·치료 부재(DENIED)가 아니다.
+    매칭 context_type(감수 32차)은 normalizedEffectRoleByContext 해소 재료 —
+    치료 과정과 회복 과정은 같은 항목이라도 현실 효과가 다르다.
     """
     if not _item_health_gated(item):
-        return [("matched", None, None)]
+        return [("matched", None, None, None)]
     ctxs = contexts or []
     groups: dict[str | None, list[tuple[bool, ExposureStatus, HealthContext]]] = {}
     mismatch_question = False
@@ -740,16 +742,17 @@ def _resolve_health_all(
             (t == "matched", _effective_health_exposure(item, ctx), ctx))
     if not groups:
         if mismatch_question:
-            return [("mismatched", None, ExposureStatus.UNKNOWN)]
-        return [("unknown", None, ExposureStatus.UNKNOWN)]
-    out: list[tuple[str, str | None, ExposureStatus | None]] = []
+            return [("mismatched", None, ExposureStatus.UNKNOWN, None)]
+        return [("unknown", None, ExposureStatus.UNKNOWN, None)]
+    out: list[tuple[str, str | None, ExposureStatus | None, str | None]] = []
     for ep in sorted(groups, key=lambda e: (e is None, e or "")):
-        fully, eff, _ctx = sorted(
+        fully, eff, best = sorted(
             groups[ep],
             key=lambda t3: (not t3[0], -_EXPOSURE_PREFERENCE[t3[1]],
                             t3[2].context_type or ""),
         )[0]
-        out.append((("matched" if fully else "unknown"), ep, eff))
+        out.append((("matched" if fully else "unknown"), ep, eff,
+                    best.context_type))
     return out
 
 
@@ -1065,7 +1068,7 @@ class RiskEngine:
                 alignment, sel_episode_id, sel_exposure, sel_conflict,
                 sel_mismatch_axes,
             ), (mob_alignment, mob_episode_id, mob_exposure), (
-                hlt_alignment, hlt_episode_id, hlt_exposure,
+                hlt_alignment, hlt_episode_id, hlt_exposure, hlt_ctx_type,
             ), (leg_alignment, leg_episode_id, leg_exposure) in combos:
                 # 유효 노출 우선순위: 법적 절차 > 건강 > 이동 > 선발 > 관계 > 전역.
                 effective_exposure = rel_exposure
@@ -1152,7 +1155,14 @@ class RiskEngine:
                              or not item.applicable_relationship_roles)
                     ),
                     absorbed_role_hint=item.absorbed_role_hint,
-                    normalized_effect_role=item.normalized_effect_role,
+                    # 현실 효과 role(감수 32차) — 매칭된 건강 context branch가
+                    # 있으면 ByContext로 해소(치료≠회복), 아니면 base role.
+                    normalized_effect_role=(
+                        item.normalized_effect_role_by_context.get(
+                            hlt_ctx_type, item.normalized_effect_role)
+                        if hlt_ctx_type is not None
+                        else item.normalized_effect_role
+                    ),
                     # 교차 도메인 연결 키(감수 17차) — 같은 원인의 FIN·REL 병존 후보를
                     # R1(중복 1회 점수)·R2(episode 병합·대표 1개)가 연결하는 재료.
                     trigger_cause_atoms=sorted(

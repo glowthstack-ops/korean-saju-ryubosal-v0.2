@@ -456,7 +456,7 @@
         "shadow_structure": "d98033fe6c44e2ac"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "compliance_obligation",
+      "normalizedEffectRole": "liability_obligation",
       "reviewPendingScopes": [
         "shadow_scoring"
       ]

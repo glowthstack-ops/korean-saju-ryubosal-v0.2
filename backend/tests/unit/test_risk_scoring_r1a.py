@@ -251,7 +251,7 @@ def test_compound_requires_independent_exposable_effect() -> None:
     other = _candidate(risk_id="SYN_C", family="fam_c", legal_episode_id="e2",
                        evidence=[_evidence(_CHUNG, strength=0.4)])
     [sa4, _] = score_shadow([base, other], {})
-    assert _comp(sa4).compound == pytest.approx(0.25)
+    assert _comp(sa4).compound == pytest.approx(0.10)  # 잠정 증분(감수 32차)
 
 
 def test_multi_episode_same_cause_portfolio_once(engine: RiskEngine) -> None:
@@ -704,7 +704,7 @@ def test_compound_normalized_effect_role_semantics() -> None:
                      legal_episode_id="contract_1",
                      normalized_effect_role="administrative_delay")
     [st, _] = score_shadow([trm, adm], {})
-    assert _comp(st).compound == pytest.approx(0.25)
+    assert _comp(st).compound == pytest.approx(0.10)  # 잠정 증분(감수 32차)
     # ③ 다른 episode + 같은 role → episode 수만으로 compound 증가 금지.
     doc2 = _candidate(risk_id="SEL_DOCUMENT_DEFECT_RISK",
                       family="selection_process", evidence=ev,
@@ -761,7 +761,7 @@ def test_compound_requires_explicit_link_not_co_period() -> None:
     linked = _candidate(risk_id="SYN_C", family="fam_c", legal_episode_id="e2",
                         evidence=[_evidence(_CHUNG, strength=0.4)])
     [sa2, _] = score_shadow([a, linked], {})
-    assert _comp(sa2).compound == pytest.approx(0.25)  # 원인 공유 연결만
+    assert _comp(sa2).compound == pytest.approx(0.10)  # 원인 공유 연결만(잠정 증분)
 
 
 def test_question_target_excluded_from_context_confidence() -> None:
@@ -784,3 +784,71 @@ def test_question_target_excluded_from_context_confidence() -> None:
             is_question_target=question)])
         return next(c for c in cands if c.risk_id == "SEL_RESULT_DELAY_PRESSURE")
     assert context_confidence(rdl(True)) == context_confidence(rdl(False))
+
+
+# ── 16. ByContext role 해소(감수 32차) — 치료 ≠ 회복 ──────────────
+
+
+def test_by_context_role_resolution(engine: RiskEngine) -> None:
+    """TRL: 치료 과정 컨텍스트=treatment_management, 회복 과정=recovery_adjustment
+    — 같은 항목이라도 현실 효과가 다르면 role이 갈린다(compound 재료)."""
+    from saju_engines.risk_engine import HealthContext
+    from saju_engines.risk_scoring import normalized_effect_role
+    facts = _facts(
+        gods={TenGod.ZHENGYIN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.HYEONG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGYIN)],
+        void=True,
+    )
+    def trl(ctx):
+        cands = engine.generate(facts, health_contexts=[ctx])
+        return next(c for c in cands
+                    if c.risk_id == "HLT_TREATMENT_RECOVERY_LOAD")
+    treat = trl(HealthContext(
+        context_type="treatment_process", treatment_status="ongoing",
+        exposure_status=ExposureStatus.CONFIRMED, episode_id="t1"))
+    recover = trl(HealthContext(
+        context_type="recovery_process", recovery_status="in_progress",
+        exposure_status=ExposureStatus.CONFIRMED, episode_id="r1"))
+    assert normalized_effect_role(treat) == "treatment_management"
+    assert normalized_effect_role(recover) == "recovery_adjustment"
+    # 컨텍스트 부재(unknown) → base role로 항상 해소(lint가 base 필수 강제).
+    base = next(c for c in engine.generate(facts)
+                if c.risk_id == "HLT_TREATMENT_RECOVERY_LOAD")
+    assert normalized_effect_role(base) == "treatment_management"
+
+
+def test_persistence_cannot_outrank_strong_base() -> None:
+    """감수 32차 공식: 약한 원인의 장기 지속이 강한 단기 구조를 못 넘는다
+    (persistence 기여 상한 = base×1 — modifier 구조)."""
+    weak_persistent = _candidate(
+        risk_id="SYN_WEAK", family="fam_w", exposure=ExposureStatus.CONFIRMED,
+        period="2026-01",
+        evidence=[_evidence(_CHUNG, strength=0.2, period="2026-01",
+                            layer="wolwoon")])
+    series = [weak_persistent] + [
+        _candidate(risk_id="SYN_WEAK", family="fam_w",
+                   exposure=ExposureStatus.CONFIRMED, period=p,
+                   evidence=[_evidence(_CHUNG, strength=0.2, period=p,
+                                       layer="wolwoon")])
+        for p in ("2026-02", "2026-03", "2026-04", "2026-05", "2026-06")
+    ]
+    strong_short = _candidate(
+        risk_id="SYN_STRONG", family="fam_s", exposure=ExposureStatus.CONFIRMED,
+        period="2026-07",
+        evidence=[_evidence(_CHUNG, strength=0.8, period="2026-07",
+                            layer="wolwoon"),
+                  _evidence(_HYEONG, strength=0.7, period="2026-07",
+                            layer="wolwoon")])
+    scored = score_shadow(series + [strong_short],
+                          {"SYN_WEAK": 0.6, "SYN_STRONG": 0.6})
+    weak_raw, _ = risk_priority(_comp(scored[0]))
+    strong_raw, _ = risk_priority(_comp(scored[6]))
+    assert _comp(scored[0]).persistence == 1.0  # 6개월 연속 — 지속 최대
+    assert strong_raw > weak_raw  # 지속만으로 강한 단기 구조를 못 넘는다
+    # 비노출 후보는 지속·복합으로 부활 불가(전 양의 항에 exposure 게이트).
+    unexposed = scored[0].model_copy(update={
+        "exposure_status": ExposureStatus.UNKNOWN,
+        "exposure_requirement": "confirmed_required"})
+    comp = _comp(unexposed).model_copy(update={"exposure": 0.0})
+    assert risk_priority(comp) == (0.0, 0.0)

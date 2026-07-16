@@ -8085,3 +8085,17 @@ v9**(shadow_scoring scope 신설 — role 변경=해당 scope만 강등)+reviewP
 고정. 게이트: pytest 1998·mypy 0(521)·ruff clean·baseline 지표 diff 0(메타 v9
 재기록)·manifest 일치. **감수 대기**: compound 증분(0.15 권고)·UNKNOWN 0.55·
 persistence 주도 허용·capped=1 단일 항목·ByContext·shadow_scoring 49 스탬프.
+
+## R1-c2b — 점수 공식 modifier 전환·taxonomy 정리·ByContext(감수 32차, 2026-07-16)
+
+공식 개정(r1.1.0-shadow): raw = exposure × (occ×impact) × (1+per+cmp) × (1−prot)
+— 지속·복합·보호를 기본 위험의 modifier로(독립 가산 폐지). 3대 문제 전면 해소:
+persistence 주도(기여 base의 1/4로)·protection 음수 64.8%→0·CAR capped 3건→0
+(자연 해소 — persistence additive가 원인). compound 증분 0.25 기각→0.10 잠정
+(민감도: 0.10~0.15 안정). role taxonomy 43→40종(병합 3건: result_wait_delay·
+liability_obligation — 감수 질문)+audit(singleton 32·공유 8·교차 3종·shared-cause
+same-role 0/diff 68). ByContext 저작(TRL 치료≠회복)+엔진 branch 해소+lint.
+pairwise·span 비교·protection pairwise 전부 PASS·고정본 갱신. fixture 32종·
+pytest 2000·mypy 0·baseline 지표 diff 0·manifest 일치(scoring scope 0/49 유지).
+다음: R1-c3 — singleton 32 심사·compound/span/UNKNOWN 확정·shadow_scoring 49
+스탬프(감수) → R2.

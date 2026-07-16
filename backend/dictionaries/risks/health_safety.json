@@ -873,7 +873,11 @@
       "normalizedEffectRole": "treatment_management",
       "reviewPendingScopes": [
         "shadow_scoring"
-      ]
+      ],
+      "normalizedEffectRoleByContext": {
+        "treatment_process": "treatment_management",
+        "recovery_process": "recovery_adjustment"
+      }
     },
     {
       "riskId": "HLT_PHYSICAL_WORKLOAD_STRAIN",

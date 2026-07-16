@@ -1022,3 +1022,41 @@ C overlay에선 곱항·compound가 역전 ⑤net_priority_raw(C군) 명칭·raw
 기여 3배)의 허용 여부·span 5 확정 ④capped=1 3건(단일 risk_id — CAR 계열)
 개별 확인 ⑤ByContext 저작 여부(TRL 등) ⑥확정 후 shadow_scoring 49항목 스탬프
 (reviewHashes에 scope 해시+config/semantics hash 병기).
+
+## 18. R1-c2b 교정 차수(감수 32차) — 공식 modifier 전환·taxonomy·ByContext (2026-07-16)
+
+데굴님 확정: **지속성·복합성·보호는 기본 위험을 보정해야지, 기본 위험보다 더 강한
+독립 점수원으로 작동해서는 안 된다.** compound 0.25 기각·persistence additive
+보류·protection 감점 재검토 반영.
+
+1. **공식 modifier 전환**(RISK_SCORING_VERSION r1.0.4→**r1.1.0-shadow**):
+   `raw = exposure × (occ×impact) × (1+persistence+compound) × (1−protection)`,
+   structural = `(occ×impact) × (1+persistence) × (1−protection)`(exposure·
+   compound 제외 유지). 성질: 비노출은 지속·복합으로 부활 불가 / persistence
+   기여 상한 = base×1(fixture: 약한 원인 6개월 지속 < 강한 단기) / UNKNOWN
+   가중이 전 양의 항에 일관 적용(§8) / protection 비례 완화.
+2. **3대 문제 전면 해소(재측정 실증)**: ①persistence 주도 — 상위 10% 가중 기여
+   base +0.217~0.328 주도, persistence항 +0.05~0.06(base의 ~1/4) ②protection
+   음수 양산 — raw<0 0건(구 64.8%)·0 하강 0건 ③**CAR capped 3건 자연 해소 —
+   전 모집단 capped=1 **0건**(persistence additive가 원인이었음 확증), raw p99
+   0.364(구조 D군).
+3. **compound**: 잠정 증분 0.25→**0.10**(기각 반영 — 보수 후보). 새 공식 민감도
+   (기준 0.10): 0→top10 overlap 8/10·0.15→10/10·0.25→7/10 — 0.10~0.15 구간
+   안정, compound 항이 persistence를 넘는 후보 0. 확정은 R1-c3 감수.
+4. **role taxonomy audit**: 49항목 **40종**(병합 3건 적용·감수 질문 —
+   hiring_delay+selection_delay+waitlist→result_wait_delay / compliance+
+   financial_liability→liability_obligation(기존 family=liability와 일관)) ·
+   singleton 32 · 공유 8 · 도메인 간 3종. shared-cause 쌍: same-role 0 ·
+   different-role 68 · unresolved 1,873(episode-free). singleton 32의 개별
+   심사(독립 현실 효과 여부)는 R1-c3 감수 대상.
+5. **ByContext 저작·소비**: TRL = treatment_process→treatment_management /
+   recovery_process→recovery_adjustment. 엔진이 매칭된 건강 context branch로
+   role 해소(치료≠회복 fixture), lint(base role 필수=항상 해소·key enum 검사).
+6. exposure ablation(새 공식): UNKNOWN 가중이 전 항에 곱해져 상위 민감도가
+   상승(overlap 6~7/10 — 구 10/10) — UNKNOWN cohort 분리 측정은 R1-c3 계속.
+   pairwise 3종·protection pairwise·span 5/8/12 비교 전부 PASS·고정.
+
+게이트: pytest 2000·mypy 0(521)·baseline 지표 diff 0(사전 해시 메타만 재기록)·
+manifest 일치(shadow_structure 49/49·shadow_scoring 0/49 유지). **R1-c3 감수
+대상**: compound 증분(0.10 vs 0.15)·span(5 유지 여부 — 비교표)·singleton 32
+심사·UNKNOWN 0.55(shadow 잠정 승인 유지)·shadow_scoring 49 스탬프.
