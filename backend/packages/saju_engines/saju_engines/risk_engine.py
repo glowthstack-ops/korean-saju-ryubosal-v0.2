@@ -1152,6 +1152,7 @@ class RiskEngine:
                              or not item.applicable_relationship_roles)
                     ),
                     absorbed_role_hint=item.absorbed_role_hint,
+                    normalized_effect_role=item.normalized_effect_role,
                     # 교차 도메인 연결 키(감수 17차) — 같은 원인의 FIN·REL 병존 후보를
                     # R1(중복 1회 점수)·R2(episode 병합·대표 1개)가 연결하는 재료.
                     trigger_cause_atoms=sorted(

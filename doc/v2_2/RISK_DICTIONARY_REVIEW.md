@@ -970,3 +970,55 @@ shadow_scoring 강등), dictionary hash 변경(v9 여부 포함 감수) ②episo
 시나리오에서 compound·unresolved 재측정 ③가중 확정(compound 제외 축 우선) ④
 shadow_scoring scope 감수·스탬프(reviewHashes에 scoring_config_hash+
 cause_semantics_hash 포함, 기존 shadow_structure 해제 금지).
+
+## 17. R1-c2 차수(감수 31차) — 보고 정정·role SSOT·민감도/ablation (가중 확정 감수 대기)
+
+### 17-1. R1-c1 보고서 표기 정정(데굴님 지적 5건)
+
+①count/rate 분리(raw_gt_1/raw_gt_1_2/raw_ge_1/capped_eq_1 각각 건수+비율 —
+구조 D군: 전부 3건(1.7%), '14%'/'713%'류 오독 표기 제거) ②exposure 1.0 =
+CONFIRMED 범주값(exposure_at_max_rate)과 계산값 clamp(component_clamped —
+persistence 4건 0.4%뿐)를 분리 집계 ③'포화 없음'→**'병적 상한 집중 없음'**:
+capped=1 후보 risk_id 다양성(구조 1종)·상위 10% 동점(5/17·unique raw 12)·
+p90/p95/p99 병기 ④상위 10% 6축 원값+**가중 기여(공식 항별)**+cap-loss —
+**발견: 구조 코퍼스 상위는 persistence(+0.541)가 곱항(+0.169)의 3배로 주도**,
+C overlay에선 곱항·compound가 역전 ⑤net_priority_raw(C군) 명칭·raw<0
+64.8%(182건 — 전량 protection 감점)·capped=0·protection 0 하강 분리 보고.
+
+### 17-2. normalizedEffectRole 사전 SSOT 편입(해시 v9)
+
+- 사전 필드 `normalizedEffectRole`(+`normalizedEffectRoleByContext` 스키마 지원
+  — 저작·소비는 감수 질문) 신설, 49항목 전수 저작(기존 registry 매핑 이관 후
+  코드 registry 삭제 — scoring은 후보 복사 필드 소비).
+- lint: enum(_RISK_EFFECT_ROLES 43종) 외 금지·kind 값 혼동 금지·(승격 시) 존재
+  필수. **해시 스키마 v8→v9**: `shadow_scoring` scope 신설(본문=role·ByContext·
+  baseImpact) — role 변경은 shadow_scoring만 강등(shadow_structure 유지),
+  스탬프에 scoring_config_hash·cause_semantics_hash 병기 예정.
+- scope별 pending: `reviewPendingScopes: ["shadow_scoring"]` 49항목 표시(항목
+  전체 강등 없음 — shadow_structure 49/49 유지, shadow_scoring 0/49 감수 대기).
+- v9 이행 재스탬프 49건(--schema-migration — 본문 불변 확인), env r0.5.12 불변,
+  baseline 메타 갱신(지표 diff 0 확인 후 재기록).
+
+### 17-3. E1~E6·민감도·ablation·pairwise (고정본 RISK_SCORING_SURVEY_R1C1.md)
+
+- E1~E6은 전부 단위 fixture로 고정 완료(§8 — 교차 role 복제 0/다른 role 0.25/
+  episode 수 비증가/독립 가능/episode-free 0+진단/무연결 0).
+- **compound 증분 민감도(C overlay·기준 0.25)**: inc=0 → top10 overlap 4/10
+  (compound가 상위 순위의 주 결정자), 0.10 → 7/10, 0.15 → 9/10(역전 26,
+  compound 최대 항 11건). 데굴님 지적대로 0.25는 작지 않음 — **0.10~0.15
+  구간이 완만(권고: 0.15 우선 검토)**, 확정은 감수 소관.
+- **exposure UNKNOWN 가중 ablation**: 1.0/0.775/0.3 전 구간 top10 overlap
+  10/10 — 상위 순위는 UNKNOWN 가중에 둔감(상위=CONFIRMED 위주), exposure가
+  상위를 과도 지배하지 않음.
+- **pairwise golden 3종 PASS**(기대 순서 명시): 같은 구조 CONFIRMED 0.300 >
+  허용 UNKNOWN 0.165 > 비노출 0 / 강한 구조+UNKNOWN 0.308 > 약한 구조+
+  CONFIRMED 0.120(구조 우위 유지) / 근접 구조에선 확인된 현실 우선(0.300 >
+  0.181).
+
+### 17-4. 감수 대기 항목(데굴님 확정 필요)
+
+①compound 증분 확정(0.15 vs 0.25 — 민감도 표 기준) ②exposure UNKNOWN 0.55
+유지 여부(ablation상 상위 영향 없음) ③persistence 주도 진입(구조 코퍼스 상위
+기여 3배)의 허용 여부·span 5 확정 ④capped=1 3건(단일 risk_id — CAR 계열)
+개별 확인 ⑤ByContext 저작 여부(TRL 등) ⑥확정 후 shadow_scoring 49항목 스탬프
+(reviewHashes에 scope 해시+config/semantics hash 병기).

@@ -163,8 +163,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "7e31265cf894d829"
-      }
+        "shadow_structure": "5baa433b0285c02e"
+      },
+      "normalizedEffectRole": "workload_strain",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "CAR_ORG_CONFLICT",
@@ -300,9 +304,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "6fad96dc151abc41"
+        "shadow_structure": "991062dae225fed6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "workplace_conflict",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "CAR_EVALUATION_SETBACK_RISK",
@@ -432,8 +440,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "fa81d1cd5679ffab"
-      }
+        "shadow_structure": "f2aa3a2e1c18059d"
+      },
+      "normalizedEffectRole": "evaluation_setback",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "CAR_REASSIGNMENT_RISK",
@@ -562,8 +574,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "41559d5367e4c82c"
-      }
+        "shadow_structure": "6909996e706bb4d7"
+      },
+      "normalizedEffectRole": "reassignment",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "CAR_EXIT_PRESSURE",
@@ -696,8 +712,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "93bdc6c71be0a809"
-      }
+        "shadow_structure": "473df83b69af2025"
+      },
+      "normalizedEffectRole": "exit_pressure",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "CAR_HIRING_PROCESS_DELAY",
@@ -805,9 +825,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "ec111f60221d4056"
+        "shadow_structure": "4fc25fd5c6602451"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "hiring_delay",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "CAR_HIRING_OUTCOME_SETBACK",
@@ -937,9 +961,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "bc2b5dc8c25ff005"
+        "shadow_structure": "35be940fe6f5e90d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "hiring_outcome",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     }
   ]
 }

@@ -8069,3 +8069,19 @@ persistence lineage 1,061·다기간 793. 모집단 1≡overlay A 상호 검증.
 30종·pytest 1998·mypy 0(521파일)·전 baseline exact match.
 다음: R1-c2 — normalizedEffectRole 사전 SSOT 편입(+lint·해시)·episode 시나리오
 compound 재측정·가중 확정·shadow_scoring scope 감수.
+
+## R1-c2 — 보고 정정·normalizedEffectRole 사전 SSOT(해시 v9)·민감도/ablation
+(감수 31차, 가중 확정 대기, 2026-07-16)
+
+①R1-c1 보고 정정 5건: count/rate 분리·exposure 범주값 vs clamp 분리·'병적 상한
+집중 없음' 표현+동점/다양성/p95/p99·가중 기여도(발견: 구조 상위=persistence
++0.541이 곱항 +0.169의 3배)·net_priority_raw(C군 raw<0 64.8%=protection 감점).
+②role SSOT: 사전 필드 신설+49항목 저작+lint(enum 43종·kind 혼동 금지)+**해시
+v9**(shadow_scoring scope 신설 — role 변경=해당 scope만 강등)+reviewPendingScopes
+(shadow_structure 49/49 유지·shadow_scoring 0/49 대기)+v9 재스탬프 49(본문 불변)
++코드 registry 삭제. ③측정: compound 민감도(0→overlap 4/10·0.15→9/10 — 0.25는
+작지 않음, 0.10~0.15 완만)·exposure ablation(전 구간 10/10 — 상위 과대 지배
+없음)·pairwise golden 3종 PASS(구조 우위·근접 구조선 현실 우선). E1~E6=fixture
+고정. 게이트: pytest 1998·mypy 0(521)·ruff clean·baseline 지표 diff 0(메타 v9
+재기록)·manifest 일치. **감수 대기**: compound 증분(0.15 권고)·UNKNOWN 0.55·
+persistence 주도 허용·capped=1 단일 항목·ByContext·shadow_scoring 49 스탬프.

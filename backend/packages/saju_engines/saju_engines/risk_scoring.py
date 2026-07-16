@@ -121,77 +121,16 @@ def atom_semantics(atom: str) -> str:
     )
 
 
-# ── normalized effect role registry(감수 29차 — R1-c0 후속) ────────
-# compound의 '서로 다른 현실 효과' 판정 어휘. kind(pressure 등)는 위험 표현의
-# 성격이지 효과 의미가 아니고, riskFamily는 대부분 도메인 내부 키라(교차 통합은
-# liability뿐) 둘 다 부족하다 — 교차 도메인 최소 어휘를 scoring 계층 registry로
-# 잠정 도입한다(**사전 필드(normalizedEffectRole) 편입 여부는 감수 질문** —
-# registry는 cause_semantics_hash에 포함되어 변경 시 감수 자동 강등). 문서 결함
-# (LEG·SEL)처럼 같은 현실 효과의 교차 도메인 복제는 같은 role로 통합한다.
-_EFFECT_ROLE_BY_RISK_ID: dict[str, str] = {
-    # contract_legal
-    "LEG_CONTRACT_TERMINATION_RISK": "contract_termination",
-    "LEG_DOCUMENT_ERROR": "document_defect",
-    "LEG_ADMIN_DELAY": "administrative_delay",
-    "LEG_COMPLIANCE_OBLIGATION_PRESSURE": "compliance_obligation",
-    "LEG_DISPUTE_RISK": "legal_dispute",
-    "LEG_LITIGATION_PROCESS_BURDEN": "litigation_process_burden",
-    "LEG_REVIEW_CAPACITY_WEAK": "review_capacity",
-    # finance
-    "FIN_CASHFLOW_PRESSURE": "cashflow_pressure",
-    "FIN_UNEXPECTED_EXPENSE": "financial_outflow",
-    "FIN_INVESTMENT_LOSS": "financial_outflow",
-    "FIN_INCOME_DELAY": "payment_recovery",
-    "FIN_SETTLEMENT_DISPUTE": "payment_recovery",
-    "FIN_DEBT_GUARANTEE_BURDEN": "financial_liability",
-    "FIN_BUFFER_WEAK": "financial_buffer",
-    # career
-    "CAR_HIRING_PROCESS_DELAY": "hiring_delay",
-    "CAR_HIRING_OUTCOME_SETBACK": "hiring_outcome",
-    "CAR_EVALUATION_SETBACK_RISK": "evaluation_setback",
-    "CAR_REASSIGNMENT_RISK": "reassignment",
-    "CAR_WORK_OVERLOAD": "workload_strain",
-    "CAR_EXIT_PRESSURE": "exit_pressure",
-    "CAR_ORG_CONFLICT": "workplace_conflict",
-    # selection
-    "SEL_DOCUMENT_DEFECT_RISK": "document_defect",
-    "SEL_ELIGIBILITY_REVIEW_RISK": "selection_eligibility",
-    "SEL_DRAW_OUTCOME_UNCERTAINTY": "selection_outcome",
-    "SEL_UNWANTED_PLACEMENT": "selection_outcome",
-    "SEL_RESULT_DELAY_PRESSURE": "selection_delay",
-    "SEL_WAITLIST_PROLONGATION": "selection_delay",
-    "SEL_COMPETITION_INTENSIFY": "selection_competition",
-    # relocation
-    "MOV_SCHEDULE_DISRUPTION": "schedule_disruption",
-    "MOV_CONTRACT_SETBACK_RISK": "contract_setback",
-    "MOV_HOUSING_DEFECT_RISK": "housing_defect",
-    "MOV_COMMUTE_BURDEN": "commute_burden",
-    "MOV_RELOCATION_PRESSURE": "relocation_pressure",
-    "MOV_VEHICLE_TRANSPORT_ISSUE": "vehicle_transport",
-    # health_safety
-    "HLT_FATIGUE_ACCUMULATION": "vitality_load",
-    "HLT_FOCUS_DROP": "vitality_load",
-    "HLT_EXISTING_CONDITION_STRAIN": "condition_strain",
-    "HLT_TREATMENT_RECOVERY_LOAD": "treatment_management",
-    "HLT_PHYSICAL_WORKLOAD_STRAIN": "physical_strain",
-    "HLT_RECOVERY_CAPACITY_WEAK": "recovery_capacity",
-    "HLT_CHECKUP_NEED": "health_management",
-    "HLT_MOBILITY_SAFETY_CAUTION": "mobility_safety",
-    # relationship
-    "REL_EMOTIONAL_CLASH": "relationship_conflict",
-    "REL_COMMUNICATION_MISALIGNMENT": "relationship_conflict",
-    "REL_TRUST_STABILITY_WEAK": "relationship_stability",
-    "REL_DISTANCE_PRESSURE": "relationship_distance",
-    "REL_PARTNER_READJUST": "partner_readjustment",
-    "REL_FAMILY_BURDEN": "family_care_burden",
-    "REL_PEER_FINANCIAL_ENTANGLEMENT_RISK": "peer_financial_entanglement",
-}
-
-
 def normalized_effect_role(c: RiskCandidate) -> str:
-    """후보의 현실 효과 role — 미등재(합성 등)는 risk_family fallback."""
-    return _EFFECT_ROLE_BY_RISK_ID.get(
-        c.risk_id, c.risk_family or c.risk_id)
+    """후보의 현실 효과 role — **사전 SSOT**(normalizedEffectRole, 감수 31차).
+
+    compound '서로 다른 현실 효과' 판정·교차 도메인 dedup의 어휘. scoring 코드
+    registry는 사전 필드로 이관·삭제됨(사전 lint가 감수 승격 항목의 role 존재·
+    enum·kind 혼동 금지를 강제, 값 변경=shadow_scoring scope 자동 강등). 미등재
+    (합성 후보 등)는 risk_family fallback — 독립 효과 주장에 쓰이지 않도록
+    fail-closed(episode 미해결 제외)와 병행된다.
+    """
+    return c.normalized_effect_role or c.risk_family or c.risk_id
 
 
 def _cause_atoms_of_source(source: str) -> frozenset[str]:
@@ -677,7 +616,8 @@ def cause_semantics_hash() -> str:
         },
         "cause_eligibility": "CAUSE 원자 동반 source만 occurrence 재료",
         "lineage": "risk_id + 연결 episode 서명 + 개별 canonical cause_atom",
-        "effect_roles": dict(sorted(_EFFECT_ROLE_BY_RISK_ID.items())),
+        "effect_roles_ssot": "dictionary field normalizedEffectRole"
+                             " (hash schema v9 — shadow_scoring scope 본문)",
         "void_target_contract": "현재 매처의 void는 시점 전역 상태(궁위 무관) — "
                                 "targeted void 원자는 미정의(미상 namespace로 "
                                 "fail-closed 거부, 도입 시 target 일치 검증 필수)",

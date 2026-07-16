@@ -142,7 +142,8 @@ def _report_population(title: str, cands: list[RiskCandidate]) -> None:
         print(f"  {dom:14s} structural {_dist(dom_structural.get(dom, []))} | "
               f"rankable {_dist(dom_rankable.get(dom, []))}")
 
-    # 포화 지표(D군 rankable 기준 + A군 축별 cap 도달률).
+    # 상한 집중 진단(감수 31차 표기 정정 — count/rate 분리, '포화 없음' 표현
+    # 금지: 상한 클리핑 존재 여부와 병적 집중 여부를 구분해 보고한다).
     d = coh["D_rankable_positive"]
     if d:
         raws = []
@@ -150,21 +151,60 @@ def _report_population(title: str, cands: list[RiskCandidate]) -> None:
             assert c.score_components is not None
             raws.append(risk_priority(c.score_components)[0])
         n = len(raws)
-        print(f"## 포화(D군 n={n}): raw>1 {sum(1 for r in raws if r > 1)}"
-              f"({100 * sum(1 for r in raws if r > 1) // n}%) · "
-              f"raw>1.2 {sum(1 for r in raws if r > 1.2)} · "
-              f"capped=1 {sum(1 for r in raws if min(1.0, r) >= 1.0)}")
-    axis_cap: Counter = Counter()
+
+        def _cr(cnt: int) -> str:
+            return f"{cnt}건({100.0 * cnt / n:.1f}%)"
+
+        capped_eq_1 = [c for c, r in zip(d, raws, strict=True) if r >= 1.0]
+        print(f"## 상한 집중 진단(D군 n={n}):")
+        print(f"  raw_gt_1 {_cr(sum(1 for r in raws if r > 1))} · "
+              f"raw_gt_1_2 {_cr(sum(1 for r in raws if r > 1.2))} · "
+              f"raw_ge_1 {_cr(sum(1 for r in raws if r >= 1.0))} · "
+              f"capped_eq_1 {_cr(len(capped_eq_1))}")
+        print(f"  raw p90 {_pctl(raws, 0.9):.3f} · p95 {_pctl(raws, 0.95):.3f}"
+              f" · p99 {_pctl(raws, 0.99):.3f}")
+        print(f"  capped=1 후보 risk_id 다양성: "
+              f"{len({c.risk_id for c in capped_eq_1})}종")
+        top_n = max(1, n // 10)
+        top_raws = sorted(raws, reverse=True)[:top_n]
+        ties = top_n - len(set(top_raws))
+        print(f"  상위 10% 동점: {ties}/{top_n} · unique raw {len(set(top_raws))}"
+              f" — 다수 동점이면 R2 순위 분별력 저하(감수 판단)")
+        negatives = sum(1 for r in raws if r < 0)
+        print(f"  raw<0 {_cr(negatives)}(D군은 capped>0 정의라 0이어야 정상)")
+    # C군은 net raw(음수 가능 — protection 감점) — 별도 보고.
+    c_raws = []
+    zero_by_protection = 0
+    for c in coh["C_context_exposable"]:
+        assert c.score_components is not None
+        raw, capped = risk_priority(c.score_components)
+        c_raws.append(raw)
+        if capped == 0.0 and c.score_components.protection > 0 and raw < 0:
+            zero_by_protection += 1
+    if c_raws:
+        nn = len(c_raws)
+        print(f"  net_priority_raw(C군): raw<0 {sum(1 for r in c_raws if r < 0)}건"
+              f"({100.0 * sum(1 for r in c_raws if r < 0) / nn:.1f}%) · "
+              f"capped=0 {sum(1 for r in c_raws if r <= 0)}건 · "
+              f"protection로 0 하강 {zero_by_protection}건 — capped 하한 0·raw 보존")
+    # 축별 최대값 도달 — exposure 1.0은 clamp가 아니라 CONFIRMED 범주값이므로
+    # component saturation과 분리 집계한다.
     a = coh["A_structural_active"]
+    axis_cap: Counter = Counter()
+    exposure_at_max = 0
     for c in a:
         comp = c.score_components
         assert comp is not None
-        for axis in ("occurrence", "impact", "exposure", "persistence",
-                     "compound", "protection"):
+        if comp.exposure >= 1.0:
+            exposure_at_max += 1
+        for axis in ("occurrence", "impact", "persistence", "compound",
+                     "protection"):
             if getattr(comp, axis) >= 1.0:
                 axis_cap[axis] += 1
-    print("축별 cap(=1.0) 도달(A군): " + (", ".join(
-        f"{k} {v}({100 * v // max(1, len(a))}%)"
+    print(f"  exposure_at_max_rate(CONFIRMED 범주값 — 포화 아님): "
+          f"{exposure_at_max}건({100.0 * exposure_at_max / max(1, len(a)):.1f}%)")
+    print("  component_clamped(계산값 cap 도달, A군): " + (", ".join(
+        f"{k} {v}건({100.0 * v / max(1, len(a)):.1f}%)"
         for k, v in sorted(axis_cap.items())) or "없음"))
 
     # 상위 10%(D군 rankable capped) 축 구성 + unresolved 지배 검사.
@@ -181,8 +221,25 @@ def _report_population(title: str, cands: list[RiskCandidate]) -> None:
             getattr(c.score_components, axis) for c in top) / len(top)
             for axis in ("occurrence", "impact", "exposure", "persistence",
                          "compound", "protection")}
-        print("상위 10%(D군) 축 평균: " + ", ".join(
+        print("상위 10%(D군) 축 원값 평균(6축 전부): " + ", ".join(
             f"{k} {v:.3f}" for k, v in axes_mean.items()))
+        # 가중 기여도 — total 공식 항별 실제 기여(원값 평균과 구분): total =
+        # occ×imp×exp + persistence + compound − protection.
+        terms = {"occ×imp×exp": 0.0, "persistence": 0.0, "compound": 0.0,
+                 "-protection": 0.0}
+        cap_loss = 0.0
+        for c in top:
+            comp = c.score_components
+            assert comp is not None
+            terms["occ×imp×exp"] += comp.occurrence * comp.impact * comp.exposure
+            terms["persistence"] += comp.persistence
+            terms["compound"] += comp.compound
+            terms["-protection"] -= comp.protection
+            raw, capped = risk_priority(comp)
+            cap_loss += max(0.0, raw - capped)
+        print("상위 10% 가중 기여(공식 항별 평균): " + ", ".join(
+            f"{k} {v / len(top):+.3f}" for k, v in terms.items())
+            + f" · cap-loss 평균 {cap_loss / len(top):.3f}")
         top_unresolved = sum(1 for c in top if unresolved_by_id[id(c)] > 0)
         print(f"상위 10% 중 unresolved effect 연결 보유: {top_unresolved}/{len(top)}"
               f" — 다수면 가중 확정 보류(감수 기준)")
@@ -227,6 +284,96 @@ def _report_population(title: str, cands: list[RiskCandidate]) -> None:
         f"{k} {v}" for k, v in sorted(axis_counts.items())))
 
 
+def _rank_ids(cands: list[RiskCandidate], totals: list[float],
+              k: int = 10) -> list[int]:
+    order = sorted(range(len(cands)), key=lambda i: (-totals[i], i))
+    return order[:k]
+
+
+def _sensitivity_and_ablation(cands: list[RiskCandidate]) -> None:
+    """compound 증분 민감도(0/0.10/0.15/0.25) + exposure UNKNOWN 가중 ablation.
+
+    compound가 풍부한 C overlay를 대상으로 top-10 overlap·순위 역전·상한
+    지표를 비교한다 — 가중 확정(R1-c2 감수)의 재료(확정은 데굴님 소관).
+    """
+    from saju_engines.risk_scoring import compound_family_links
+    links = compound_family_links(cands, exposable_only=True)
+    active = [(i, c) for i, c in enumerate(cands) if is_active(c)]
+
+    def totals_with(compound_inc: float, unknown_w: float | None) -> list[float]:
+        out = []
+        for i, c in active:
+            comp = c.score_components
+            assert comp is not None
+            cmp_v = min(1.0, compound_inc * len(links[i]))
+            exp_v = comp.exposure
+            if unknown_w is not None and exp_v == 0.55:
+                exp_v = unknown_w
+            raw = (comp.occurrence * comp.impact * exp_v
+                   + comp.persistence + cmp_v - comp.protection)
+            out.append(min(1.0, max(0.0, raw)))
+        return out
+
+    base = totals_with(0.25, None)
+    base_top = _rank_ids([c for _, c in active], base)
+    print("\n## compound 증분 민감도(C overlay·기준 0.25)")
+    for inc in (0.0, 0.10, 0.15):
+        alt = totals_with(inc, None)
+        alt_top = _rank_ids([c for _, c in active], alt)
+        overlap = len(set(base_top) & set(alt_top))
+        inversions = sum(
+            1 for x in range(len(base_top)) for y in range(x + 1, len(base_top))
+            if alt[base_top[x]] < alt[base_top[y]]
+        )
+        n_pos = sum(1 for i, _ in enumerate(active) if totals_with(inc, None)[i] > 0)
+        dominant = sum(
+            1 for i, c in active
+            if c.score_components is not None
+            and min(1.0, inc * len(links[i])) > max(
+                c.score_components.occurrence * c.score_components.impact
+                * c.score_components.exposure,
+                c.score_components.persistence)
+        )
+        print(f"  inc={inc:.2f}: top10 overlap {overlap}/10 · 기준 top10 내 역전 "
+              f"{inversions} · rankable>0 {n_pos} · compound가 최대 항 {dominant}")
+    print("## exposure UNKNOWN 가중 ablation(기준 0.55)")
+    for w in (1.0, 0.775, 0.3):
+        alt = totals_with(0.25, w)
+        alt_top = _rank_ids([c for _, c in active], alt)
+        overlap = len(set(base_top) & set(alt_top))
+        print(f"  unknown_w={w:.3f}: top10 overlap {overlap}/10 · "
+              f"rankable>0 {sum(1 for v in alt if v > 0)}")
+
+
+def _pairwise_golden() -> None:
+    """§6 pairwise golden — 기대 순서를 명시해 감수한다(구조 vs exposure 경쟁)."""
+    from saju_engines.risk_scoring import risk_priority as _rp
+
+    def rankable(occ: float, imp: float, exp: float) -> float:
+        from saju_shared_types.risk_engine import RiskScoreComponents
+        comp = RiskScoreComponents(
+            occurrence=occ, impact=imp, exposure=exp,
+            persistence=0.0, compound=0.0, protection=0.0)
+        return _rp(comp)[1]
+
+    print("\n## pairwise golden(기대 순서 명시 — 감수 대상)")
+    same_conf = rankable(0.5, 0.6, 1.0)
+    same_unknown = rankable(0.5, 0.6, 0.55)
+    print(f"  같은 구조: CONFIRMED {same_conf:.3f} > 허용 UNKNOWN "
+          f"{same_unknown:.3f} > 비노출 0.000 — "
+          f"{'PASS' if same_conf > same_unknown > 0 else 'FAIL'}")
+    strong_unknown = rankable(0.8, 0.7, 0.55)
+    weak_conf = rankable(0.3, 0.4, 1.0)
+    print(f"  강한 구조+허용 UNKNOWN {strong_unknown:.3f} vs 약한 구조+CONFIRMED "
+          f"{weak_conf:.3f} → 기대: 구조 우위 유지 — "
+          f"{'PASS' if strong_unknown > weak_conf else 'FAIL'}")
+    near_unknown = rankable(0.55, 0.6, 0.55)
+    near_conf = rankable(0.5, 0.6, 1.0)
+    print(f"  근접 구조(0.55 vs 0.5)+노출 차이: UNKNOWN {near_unknown:.3f} vs "
+          f"CONFIRMED {near_conf:.3f} → 기대: 근접 구조에선 확인된 현실이 우선 — "
+          f"{'PASS' if near_conf > near_unknown else 'FAIL'}")
+
+
 def main() -> int:
     """전체 구조 코퍼스 + A/B/C/D overlay 전수 측정 리포트."""
     print(f"# R1-c1 위험 점수 전수 측정 — {RISK_SCORING_VERSION}")
@@ -239,8 +386,16 @@ def main() -> int:
         "모집단 1 — 전체 구조 코퍼스(컨텍스트 없음·suppression baseline 동일)",
         _collect(None))
 
+    c_overlay: list[RiskCandidate] | None = None
     for name, ctxs in _build_exposure_profiles():
-        _report_population(f"모집단 2 — profile overlay: {name}", _collect(ctxs))
+        cands = _collect(ctxs)
+        _report_population(f"모집단 2 — profile overlay: {name}", cands)
+        if name == "C_high_exposure":
+            c_overlay = cands
+
+    assert c_overlay is not None
+    _sensitivity_and_ablation(c_overlay)
+    _pairwise_golden()
 
     print("\n## 단조성 검증: 8종 전부 단위 fixture로 고정(test_risk_scoring_r1a"
           " — 원인 추가↛occ 감소·protection↛priority 증가·CONFIRMED→UNKNOWN↛"

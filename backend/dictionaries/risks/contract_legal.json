@@ -135,9 +135,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "2b5f06c1d69044a5"
+        "shadow_structure": "3182f80b8dc64e0f"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "contract_termination",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "LEG_DOCUMENT_ERROR",
@@ -277,9 +281,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "18ebb0757938aaf5"
+        "shadow_structure": "2255662e7de14c14"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "document_defect",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "LEG_COMPLIANCE_OBLIGATION_PRESSURE",
@@ -445,9 +453,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "6be07a30492b4a49"
+        "shadow_structure": "d98033fe6c44e2ac"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "compliance_obligation",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "LEG_ADMIN_DELAY",
@@ -568,9 +580,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "9009dc8acd5ccc71"
+        "shadow_structure": "da0bcc8aafa2db87"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "administrative_delay",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "LEG_DISPUTE_RISK",
@@ -705,9 +721,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "56d4331f89180475"
+        "shadow_structure": "3d4dec353aaf1af3"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "legal_dispute",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "LEG_LITIGATION_PROCESS_BURDEN",
@@ -846,9 +866,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "9bc46a65164e4682"
+        "shadow_structure": "36ccd515b1c787ea"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "litigation_process_burden",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "LEG_REVIEW_CAPACITY_WEAK",
@@ -952,9 +976,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "bc8c9725d41b879e"
+        "shadow_structure": "96b140a3594c0272"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "review_capacity",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     }
   ]
 }

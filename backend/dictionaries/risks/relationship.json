@@ -135,8 +135,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "764b990d814a4fb0"
-      }
+        "shadow_structure": "aef89e8143d793cd"
+      },
+      "normalizedEffectRole": "partner_readjustment",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "REL_EMOTIONAL_CLASH",
@@ -263,8 +267,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "3801007b775c1776"
-      }
+        "shadow_structure": "7048a9d6dfc83ce1"
+      },
+      "normalizedEffectRole": "relationship_conflict",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "REL_COMMUNICATION_MISALIGNMENT",
@@ -380,8 +388,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "fa35249d1e939c7a"
-      }
+        "shadow_structure": "5fef18ad968fc4f5"
+      },
+      "normalizedEffectRole": "relationship_conflict",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "REL_TRUST_STABILITY_WEAK",
@@ -480,8 +492,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "e3d1d23880c530cc"
-      }
+        "shadow_structure": "6bf7c6e41a85fb26"
+      },
+      "normalizedEffectRole": "relationship_stability",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "REL_DISTANCE_PRESSURE",
@@ -594,8 +610,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "63204f70a314624b"
-      }
+        "shadow_structure": "92b0c4e9fd986eef"
+      },
+      "normalizedEffectRole": "relationship_distance",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "REL_FAMILY_BURDEN",
@@ -744,8 +764,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "f6cb8d9fd5535ac5"
-      }
+        "shadow_structure": "c78dfe0ecdb4b9a5"
+      },
+      "normalizedEffectRole": "family_care_burden",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "REL_PEER_FINANCIAL_ENTANGLEMENT_RISK",
@@ -894,8 +918,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "8ac68362c9242558"
-      }
+        "shadow_structure": "454cb3a5480dbf0c"
+      },
+      "normalizedEffectRole": "peer_financial_entanglement",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     }
   ]
 }

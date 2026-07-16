@@ -153,8 +153,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "9b2e288c7b4e85d5"
-      }
+        "shadow_structure": "dc26e30579a0c6d4"
+      },
+      "normalizedEffectRole": "contract_setback",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "MOV_SCHEDULE_DISRUPTION",
@@ -287,8 +291,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "0d19c50f872c637e"
-      }
+        "shadow_structure": "bada38d826b9d7f5"
+      },
+      "normalizedEffectRole": "schedule_disruption",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "MOV_HOUSING_DEFECT_RISK",
@@ -424,8 +432,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "1f9a885e6ae2715c"
-      }
+        "shadow_structure": "7602e098e6754414"
+      },
+      "normalizedEffectRole": "housing_defect",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "MOV_COMMUTE_BURDEN",
@@ -531,8 +543,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "7309e8e6e91e5233"
-      }
+        "shadow_structure": "20a8446e511a9c73"
+      },
+      "normalizedEffectRole": "commute_burden",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "MOV_RELOCATION_PRESSURE",
@@ -656,8 +672,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "173b2dd7fba4cbdf"
-      }
+        "shadow_structure": "54d73c8ae3ba11b8"
+      },
+      "normalizedEffectRole": "relocation_pressure",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "MOV_VEHICLE_TRANSPORT_ISSUE",
@@ -777,8 +797,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "1f14f1a77359a1f2"
-      }
+        "shadow_structure": "ef88daeb0b8990bd"
+      },
+      "normalizedEffectRole": "vehicle_transport",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     }
   ]
 }

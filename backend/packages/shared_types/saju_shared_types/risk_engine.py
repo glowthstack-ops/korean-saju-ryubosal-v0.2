@@ -240,6 +240,9 @@ class RiskCandidate(BaseModel):
     # 도메인 파생) / possible_trajectory(대표 위험 진행 시의 궤적 — 감수 16차, 거리감 등
     # 독립 발현이 아니라 전개 방향 서술 전용).
     absorbed_role: str | None = None
+    # 사전 normalizedEffectRole 복사(감수 31차 — SSOT): compound '서로 다른 현실
+    # 효과' 판정·교차 도메인 dedup 재료. 값 변경은 shadow_scoring scope만 강등.
+    normalized_effect_role: str | None = None
     # 사전 absorbedRoleHint 복사(감수 16차) — 흡수 시 kind 기본값 대신 쓸 역할.
     # 관계 도메인 cross-family 흡수 허용 마커를 겸한다(감수 17차 — 미지정 항목은
     # 같은 상대·같은 원인이어도 family 밖 대표에 자동 흡수되지 않는다).

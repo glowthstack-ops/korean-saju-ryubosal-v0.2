@@ -684,10 +684,12 @@ def test_compound_normalized_effect_role_semantics() -> None:
     ev = [_evidence(_CHUNG, strength=0.5)]
     # ① 같은 episode + 같은 role(document_defect — LEG·SEL 교차 복제) → 0.
     leg_doc = _candidate(risk_id="LEG_DOCUMENT_ERROR", family="contract",
-                         evidence=ev, legal_episode_id="contract_1")
+                         evidence=ev, legal_episode_id="contract_1",
+                         normalized_effect_role="document_defect")
     sel_doc = _candidate(risk_id="SEL_DOCUMENT_DEFECT_RISK",
                          family="selection_process", evidence=ev,
-                         legal_episode_id="contract_1")
+                         legal_episode_id="contract_1",
+                         normalized_effect_role="document_defect")
     assert normalized_effect_role(leg_doc) == normalized_effect_role(sel_doc)
     [sl, ss] = score_shadow([leg_doc, sel_doc], {})
     assert _comp(sl).compound == 0.0 and _comp(ss).compound == 0.0
@@ -695,16 +697,19 @@ def test_compound_normalized_effect_role_semantics() -> None:
     # 현실 효과) → compound 가능.
     trm = _candidate(risk_id="LEG_CONTRACT_TERMINATION_RISK", family="contract",
                      kind=RiskKind.PRESSURE, evidence=ev,
-                     legal_episode_id="contract_1")
+                     legal_episode_id="contract_1",
+                     normalized_effect_role="contract_termination")
     adm = _candidate(risk_id="LEG_ADMIN_DELAY", family="procedure",
                      kind=RiskKind.PRESSURE, evidence=ev,
-                     legal_episode_id="contract_1")
+                     legal_episode_id="contract_1",
+                     normalized_effect_role="administrative_delay")
     [st, _] = score_shadow([trm, adm], {})
     assert _comp(st).compound == pytest.approx(0.25)
     # ③ 다른 episode + 같은 role → episode 수만으로 compound 증가 금지.
     doc2 = _candidate(risk_id="SEL_DOCUMENT_DEFECT_RISK",
                       family="selection_process", evidence=ev,
-                      legal_episode_id="permit_9")
+                      legal_episode_id="permit_9",
+                      normalized_effect_role="document_defect")
     [sl3, _] = score_shadow([leg_doc, doc2], {})
     assert _comp(sl3).compound == 0.0
     # ④ episode-free — 독립 효과 증명 불가 → compound 0 + unresolved 진단.

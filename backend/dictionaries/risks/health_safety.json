@@ -136,8 +136,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "c4ab58f0a4aeae75"
-      }
+        "shadow_structure": "dc7e6208d1468d23"
+      },
+      "normalizedEffectRole": "condition_strain",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "HLT_FATIGUE_ACCUMULATION",
@@ -275,8 +279,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "e7d27a7780aee571"
-      }
+        "shadow_structure": "585ac3df1e802f1b"
+      },
+      "normalizedEffectRole": "vitality_load",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "HLT_RECOVERY_CAPACITY_WEAK",
@@ -381,8 +389,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "102fc15cbdee3efd"
-      }
+        "shadow_structure": "4b5ef44dfad5e068"
+      },
+      "normalizedEffectRole": "recovery_capacity",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "HLT_FOCUS_DROP",
@@ -483,8 +495,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "adcd68799263f6bd"
-      }
+        "shadow_structure": "0993d9c54619739a"
+      },
+      "normalizedEffectRole": "vitality_load",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "HLT_MOBILITY_SAFETY_CAUTION",
@@ -605,8 +621,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "d8b89edd771eaf61"
-      }
+        "shadow_structure": "6ffa726beca41088"
+      },
+      "normalizedEffectRole": "mobility_safety",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "HLT_CHECKUP_NEED",
@@ -709,8 +729,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "e3eb91bca4cc120c"
-      }
+        "shadow_structure": "ec2fdade30d42add"
+      },
+      "normalizedEffectRole": "health_management",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "HLT_TREATMENT_RECOVERY_LOAD",
@@ -844,8 +868,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "76c7268fa89b0240"
-      }
+        "shadow_structure": "c7f57a3c978d14e3"
+      },
+      "normalizedEffectRole": "treatment_management",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "HLT_PHYSICAL_WORKLOAD_STRAIN",
@@ -973,8 +1001,12 @@
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "fdbc599f25b86c7f"
-      }
+        "shadow_structure": "5eb945e53bd78f6b"
+      },
+      "normalizedEffectRole": "physical_strain",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     }
   ]
 }

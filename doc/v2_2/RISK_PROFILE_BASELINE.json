@@ -1,10 +1,10 @@
 {
  "meta": {
-  "baseline_commit": "7fa21e0",
+  "baseline_commit": "4fd2f84",
   "corpus_version": "seoul-busan-10 (year+month)",
-  "dictionary_hash": "66856ddc4f61d0a5",
-  "generated_at": "2026-07-16T00:44:59+00:00",
-  "hash_schema_version": 8,
+  "dictionary_hash": "28557872ce5a39fc",
+  "generated_at": "2026-07-16T02:41:23+00:00",
+  "hash_schema_version": 9,
   "profile_context_hash": "99006f94fc5fa828",
   "review_environment_version": "risk-engine-r0.5.12"
  },

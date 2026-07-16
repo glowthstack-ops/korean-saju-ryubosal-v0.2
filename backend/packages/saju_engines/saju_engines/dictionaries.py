@@ -742,7 +742,31 @@ _RISK_REQUIRED_GROUPS = (
 _RISK_CLAIM_CEILINGS = ("advisory", "watch", "conditional_warning", "warning")
 # reviewScope 유효값 — reviewed:true의 의미 범위(감수 4차): shadow_structure=사전 구조·
 # shadow 감수 완료(사용자 노출 승인 아님). scoring/selection/exposure는 R1/R2/R3 감수.
-_RISK_REVIEW_SCOPES = ("shadow_structure", "scoring", "selection", "exposure")
+_RISK_REVIEW_SCOPES = (
+    "shadow_structure", "shadow_scoring", "scoring", "selection", "exposure",
+)
+# normalized effect role 어휘(감수 31차 — R1-c2 SSOT 편입): compound의 '서로 다른
+# 현실 효과' 판정·교차 도메인 dedup에 직접 쓰는 감수 필드. kind(위험 표현 성격)와
+# 다른 축이며 riskFamily(대부분 도메인 내부 키)를 대체하지 않는다(family는 기존
+# 분류 유지). 값 변경은 shadow_scoring scope만 자동 강등(shadow_structure 유지).
+_RISK_EFFECT_ROLES = (
+    "contract_termination", "contract_setback", "document_defect",
+    "administrative_delay", "compliance_obligation", "legal_dispute",
+    "litigation_process_burden", "review_capacity",
+    "cashflow_pressure", "financial_outflow", "payment_recovery",
+    "financial_liability", "financial_buffer",
+    "hiring_delay", "hiring_outcome", "evaluation_setback", "reassignment",
+    "workload_strain", "exit_pressure", "workplace_conflict",
+    "selection_eligibility", "selection_outcome", "selection_delay",
+    "selection_competition",
+    "schedule_disruption", "housing_defect", "commute_burden",
+    "relocation_pressure", "vehicle_transport",
+    "vitality_load", "condition_strain", "treatment_management",
+    "recovery_adjustment", "physical_strain", "recovery_capacity",
+    "health_management", "mobility_safety",
+    "relationship_conflict", "relationship_stability", "relationship_distance",
+    "partner_readjustment", "family_care_burden", "peer_financial_entanglement",
+)
 # targeted_event_shape에 허용되는 관계 유형 — 관계 의미 계층(감수 5차):
 # disruptive_strong(충·형)만 단독 targeted 가능. disruptive_weak(파·해)는 약한 신호라
 # 대상 특정만으로 사건 형태가 되지 못한다(target_activation로 저작 — 단독 발화 불가).
@@ -1220,6 +1244,19 @@ class RiskItem(_AliasModel):
     # 강등(reviewed:false)되고 이 필드에 대기 차수를 기록한다. 감수 승인 시 재승격하며
     # 이 필드를 지운다. reviewed:true와 동시 존재 금지(lint).
     review_pending: str | None = Field(default=None, alias="reviewPending")
+    # scope별 재감수 대기(감수 31차) — 항목 전체 강등 없이 특정 scope만 대기 표시
+    # (예: role 변경 → shadow_scoring만 강등, shadow_structure 감수는 유지).
+    review_pending_scopes: list[str] = Field(
+        alias="reviewPendingScopes", default_factory=list,
+    )
+    # 현실 효과 role(감수 31차 — compound·교차 도메인 dedup의 SSOT).
+    # 문맥별 분화가 필요한 항목은 ByContext(스키마 지원 — 저작·소비는 감수 질문).
+    normalized_effect_role: str | None = Field(
+        default=None, alias="normalizedEffectRole",
+    )
+    normalized_effect_role_by_context: dict[str, str] = Field(
+        alias="normalizedEffectRoleByContext", default_factory=dict,
+    )
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
@@ -1296,6 +1333,29 @@ class RiskItem(_AliasModel):
             raise ValueError(
                 f"absorbedRoleHint 값 오류: {self.absorbed_role_hint} ({self.risk_id})"
             )
+        for scope in self.review_pending_scopes:
+            if scope not in _RISK_REVIEW_SCOPES:
+                raise ValueError(
+                    f"reviewPendingScopes 값 오류: {scope} ({self.risk_id})"
+                )
+        # normalized effect role(감수 31차): enum 외 금지 + kind 값과 혼동 금지
+        # (pressure/vulnerability/incident_risk는 효과가 아니라 표현 성격).
+        roles: list[str | None] = [
+            self.normalized_effect_role,
+            *self.normalized_effect_role_by_context.values(),
+        ]
+        for effect_role in roles:
+            if effect_role is None:
+                continue
+            if effect_role in ("pressure", "vulnerability", "incident_risk"):
+                raise ValueError(
+                    f"normalizedEffectRole에 kind 값 사용 금지: {effect_role} "
+                    f"({self.risk_id})"
+                )
+            if effect_role not in _RISK_EFFECT_ROLES:
+                raise ValueError(
+                    f"normalizedEffectRole 값 오류: {effect_role} ({self.risk_id})"
+                )
         return self
 
 
@@ -1319,7 +1379,12 @@ class RiskItem(_AliasModel):
 # Condition/TreatmentProcess/RecoveryProcess/PhysicalDemand)을 structure 해시에 편입.
 # v8(감수 23차): 법적 절차 축(applicableLegalTargetTypes/Stages)·법적 실질 조건
 # (requiresExistingDispute/Litigation)을 structure 해시에 편입.
-_RISK_HASH_SCHEMA_VERSION = 8
+# v9(감수 31차 — R1-c2): shadow_scoring scope 신설 — normalizedEffectRole(+ByContext)
+# ·baseImpact를 그 해시 본문으로. role은 compound·교차 도메인 dedup의 감수 필드라
+# 값 변경 시 shadow_scoring만 자동 강등된다(shadow_structure는 유지 — 후보 생성·
+# 적격성 본문은 불변). 스탬프에는 scoring_config_hash·cause_semantics_hash도
+# 별도 키로 병기(risk_scoring 소관 — 가중·registry 변경 감지).
+_RISK_HASH_SCHEMA_VERSION = 9
 # 매처·억제 의미론 버전(감수 9차 도입) — matcher/eligibility/cause atom/suppression의
 # 의미가 바뀔 때 올린다. reviewed 항목은 감수 당시 이 값을 스탬프하며, 불일치 시 lint
 # 실패(사전 JSON이 그대로여도 엔진 의미가 바뀌면 재감수 대상).
@@ -1442,6 +1507,15 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
                 "legalTargetTypes": sorted(item.applicable_legal_target_types),
                 "legalStages": sorted(item.applicable_legal_stages),
             },
+        }
+    elif scope == "shadow_scoring":
+        # 점수 의미 감수(감수 31차) — 효과 role SSOT + 점수 prior. 공식·가중은
+        # scoring_config_hash/cause_semantics_hash가 스탬프에 병기된다.
+        body = {
+            "normalizedEffectRole": item.normalized_effect_role,
+            "normalizedEffectRoleByContext": dict(sorted(
+                item.normalized_effect_role_by_context.items())),
+            "baseImpact": item.base_impact,
         }
     elif scope == "scoring":
         body = {"baseImpact": item.base_impact}

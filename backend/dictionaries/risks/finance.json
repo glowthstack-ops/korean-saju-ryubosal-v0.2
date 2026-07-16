@@ -130,9 +130,13 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "723ea6b6a95cf6b0"
+        "shadow_structure": "9bdbae77eb6d97ff"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "cashflow_pressure",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "FIN_UNEXPECTED_EXPENSE",
@@ -278,9 +282,13 @@
         "shadow_structure": "R0.5"
       },
       "reviewHashes": {
-        "shadow_structure": "4d0be3c9927fc195"
+        "shadow_structure": "27cfe68007d848d3"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "financial_outflow",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "FIN_INVESTMENT_LOSS",
@@ -419,9 +427,13 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "be2fd2fff402ab00"
+        "shadow_structure": "f9d7dbea4338fab2"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "financial_outflow",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "FIN_DEBT_GUARANTEE_BURDEN",
@@ -555,9 +567,13 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "21e7f38f45f2a220"
+        "shadow_structure": "7a58520a977b70db"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "financial_liability",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "FIN_INCOME_DELAY",
@@ -668,9 +684,13 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "cd47b290b8635889"
+        "shadow_structure": "02cc3bd56a5884e3"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "payment_recovery",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "FIN_SETTLEMENT_DISPUTE",
@@ -807,9 +827,13 @@
         "shadow_structure": "C1"
       },
       "reviewHashes": {
-        "shadow_structure": "cec146df50f0ee7d"
+        "shadow_structure": "01f86401b8410699"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "payment_recovery",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     },
     {
       "riskId": "FIN_BUFFER_WEAK",
@@ -892,9 +916,13 @@
         "shadow_structure": "C2"
       },
       "reviewHashes": {
-        "shadow_structure": "26546227afd72256"
+        "shadow_structure": "60fb1ed0cd390123"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
+      "normalizedEffectRole": "financial_buffer",
+      "reviewPendingScopes": [
+        "shadow_scoring"
+      ]
     }
   ]
 }
