@@ -1060,3 +1060,41 @@ C overlay에선 곱항·compound가 역전 ⑤net_priority_raw(C군) 명칭·raw
 manifest 일치(shadow_structure 49/49·shadow_scoring 0/49 유지). **R1-c3 감수
 대상**: compound 증분(0.10 vs 0.15)·span(5 유지 여부 — 비교표)·singleton 32
 심사·UNKNOWN 0.55(shadow 잠정 승인 유지)·shadow_scoring 49 스탬프.
+
+## 19. R1-c3 차수(감수 33차) — 최종 확정·shadow_scoring 49/49 스탬프 (2026-07-16)
+
+감수 33차 확정 반영: modifier 공식·span 5·compound 0.10·result_wait_delay 병합·
+TRL ByContext·protection 공식 **승인** / liability_obligation 병합 **기각** /
+compound 0.25 기각 유지.
+
+1. **liability 분리**: compliance_obligation(준법 의무 — 기한·요건 이행 관리) /
+   guarantee_or_contractual_liability(보증·계약상 금전 책임) — 같은 cause 병존
+   시 compound 계산 가능해야 하는 다른 현실 효과. '3번째 병합' 공개: 별도 어휘가
+   아니라 SEL_WAITLIST의 result_wait_delay 계열 흡수(승인된 병합에 포함).
+2. **protection cap 0.70 하드 가드**: positive base+최대 보호 → rankable>0
+   fixture(존재 삭제 금지·단조 감소·occ/imp/exp 불변), config hash 편입.
+3. **additive 상한 회귀 golden**: 구 공식이면 상한(1.26)인 지속 조합이 modifier
+   에선 0.52 — persistence 가중 변경 재발 방지 fixture.
+4. **UNKNOWN 0.55 국소 민감도 — 승인 기준 전부 충족**: w 0.40/0.50/0.60/0.70
+   비교 — 0.50 top25 overlap 100%·0.60 92%(기준 ≥85%) · threshold crossing 0 ·
+   CONFIRMED 최고점 추월 UNKNOWN 0 · UNKNOWN-only cohort p50 0.125/p90 0.210.
+   → **0.55 shadow 확정**.
+5. **shared-cause different-role 연결쌍 감수 표**: 68쌍=unique 16조합 산출(고정본)
+   — 최다 compliance↔dispute 13×(분리 복원의 정당성 실증: 의무 이행 부담과
+   분쟁 위험은 같은 원인의 다른 결과·병존 compound 정당). 전 조합이 '같은
+   원인이 만든 실제로 다른 결과' 유형 — different role 유지 판정(감수 확인 대상
+   표는 고정본 §shared-cause).
+6. **ByContext 자동 탐색**: branch 2+ 항목 3건 — TRL(저작됨)·ECS(existing_
+   condition/current_symptom — 같은 '기존 불편 부담' 계열, base 단일 유지)·
+   PWS(physical_workload/sleep_schedule_load — sleep branch는 확인 취급이 아니라
+   노출 경로 없음, base 유지). 추가 저작 불요 판정(감수 확인).
+7. **shadow_scoring 49/49 스탬프**: reviewScopes에 shadow_scoring 추가(R1),
+   scope 해시 스탬프, reviewPendingScopes 해제. manifest에 **risk_scoring_
+   version·scoring_config_hash·cause_semantics_hash 병기** — 공식·가중·registry
+   변경 시 manifest diff→회귀 테스트 실패→재감수 신호(자동 강등 트리거).
+   RISK_SCORING_VERSION **r1.1.1-shadow**.
+
+manifest: shadow_structure 49/49 · **shadow_scoring 49/49**. 게이트: pytest
+2002·mypy 0(521)·baseline 지표 diff 0(사전 해시 메타 재기록)·restamp 검증
+불변 49. **다음: R2 착수**(episode 병합·risk budget·대표 선택 — 병합 키에
+trigger_cause_atoms 교집합, cause 표 기반 포트폴리오 1회 계산).

@@ -749,18 +749,20 @@ _RISK_REVIEW_SCOPES = (
 # 현실 효과' 판정·교차 도메인 dedup에 직접 쓰는 감수 필드. kind(위험 표현 성격)와
 # 다른 축이며 riskFamily(대부분 도메인 내부 키)를 대체하지 않는다(family는 기존
 # 분류 유지). 값 변경은 shadow_scoring scope만 자동 강등(shadow_structure 유지).
-# 감수 32차 taxonomy 정리(잠정 — R1-c3 감수 대상): 49항목 43종은 risk_id 재명명에
-# 가깝다는 지적에 따라 명백한 동일 현실 효과를 병합 — ①hiring_delay+selection_
-# delay→**result_wait_delay**(채용·시험·선발의 결과 대기 지연은 같은 현실 효과 —
-# 같은 원인·episode에서 compound 금지) ②compliance_obligation+financial_liability
-# →**liability_obligation**(의무·보증 책임 계열 — 기존 riskFamily=liability 교차
-# 통합 저작과 일관). singleton 심사 표는 survey role audit 출력.
+# 감수 32→33차 taxonomy: ①result_wait_delay 병합 **승인**(채용·시험·대기명단의
+# 결과 대기 지연 — 3항목 통합. '3번째 병합'은 별도 어휘가 아니라 SEL_WAITLIST의
+# 동일 계열 흡수였음. 소유권은 episode·domain에 그대로 — role 병합≠소유권 통합)
+# ②liability_obligation 병합 **기각·분리**(감수 33차): 준법 의무(기한·요건 이행
+# 관리)와 보증 책임(금전·계약상 책임 부담)은 같은 cause에서 병존 시 compound로
+# 계산돼야 하는 서로 다른 현실 효과다 — compliance_obligation /
+# guarantee_or_contractual_liability로 분리. singleton 심사 표는 survey 출력.
 _RISK_EFFECT_ROLES = (
     "contract_termination", "contract_setback", "document_defect",
     "administrative_delay", "legal_dispute",
     "litigation_process_burden", "review_capacity",
     "cashflow_pressure", "financial_outflow", "payment_recovery",
-    "liability_obligation", "financial_buffer",
+    "compliance_obligation", "guarantee_or_contractual_liability",
+    "financial_buffer",
     "hiring_outcome", "evaluation_setback", "reassignment",
     "workload_strain", "exit_pressure", "workplace_conflict",
     "selection_eligibility", "selection_outcome", "result_wait_delay",

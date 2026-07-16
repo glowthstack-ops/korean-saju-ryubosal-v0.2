@@ -852,3 +852,46 @@ def test_persistence_cannot_outrank_strong_base() -> None:
         "exposure_requirement": "confirmed_required"})
     comp = _comp(unexposed).model_copy(update={"exposure": 0.0})
     assert risk_priority(comp) == (0.0, 0.0)
+
+
+# ── 17. protection cap(감수 33차) — 존재 삭제 금지 ────────────────
+
+
+def test_protection_cap_never_erases_positive_base() -> None:
+    """positive base + 최대 보호 → rankable > 0(완화이지 삭제 아님) +
+    단조 감소 + occurrence·impact·exposure 불변."""
+    base_ev = [_evidence(_CHUNG, strength=0.5)]
+    heavy_mit = [
+        _evidence(f"relation:HAP:month_pillar:branch:M{i}", strength=0.95,
+                  role=EvidenceRole.MITIGATOR, group=None)
+        for i in range(4)
+    ]
+    plain = _candidate(evidence=base_ev, exposure=ExposureStatus.CONFIRMED)
+    guarded = _candidate(evidence=base_ev + heavy_mit,
+                         exposure=ExposureStatus.CONFIRMED)
+    [sp, sg] = score_shadow([plain, guarded], {"SYN_RISK": 0.6})
+    assert _comp(sg).protection == 0.70  # 하드 cap — 1.0 불허
+    raw_p, _ = risk_priority(_comp(sp))
+    raw_g, capped_g = risk_priority(_comp(sg))
+    assert raw_g > 0 and capped_g > 0  # 존재 삭제 금지
+    assert raw_g < raw_p  # 단조 감소
+    assert _comp(sg).occurrence == _comp(sp).occurrence
+    assert _comp(sg).impact == _comp(sp).impact
+    assert _comp(sg).exposure == _comp(sp).exposure
+
+
+# ── 18. additive 상한 회귀 golden(감수 33차 — 구 CAR capped 재발 방지) ──
+
+
+def test_additive_saturation_case_stays_uncapped_in_modifier() -> None:
+    """구 additive 공식에서 상한(0.26+1.0=1.26>1)이던 지속 조합이 modifier
+    공식에선 미도달(0.52) — persistence 가중 변경 시 재발을 잡는 golden."""
+    from saju_shared_types.risk_engine import RiskScoreComponents
+    comp = RiskScoreComponents(
+        occurrence=0.4, impact=0.65, exposure=1.0,
+        persistence=1.0, compound=0.0, protection=0.0)
+    additive_raw = (comp.occurrence * comp.impact * comp.exposure
+                    + comp.persistence + comp.compound - comp.protection)
+    assert additive_raw > 1.0  # 과거 공식이면 상한
+    raw, capped = risk_priority(comp)
+    assert raw == pytest.approx(0.52) and capped < 1.0  # modifier — 미도달

@@ -129,19 +129,19 @@
       "note": "감수 21차(C7): HLT_CHRONIC_FLAREUP에서 개명 + incident→pressure 재분류. **기존 질환 CONFIRMED(requiresExistingCondition — none=DENIED·미확인=UNKNOWN 강등) 없이는 노출 불가(unknownExposable=false)**. 감수 22차: 2원인 필수 계약 제거 — 생성 조건≠등급 조건 원칙 복원(질환 CONFIRMED+연결 원인 1개=watch 상한, 독립 2원인·layer convergence=conditional_warning 승격은 R1). 질병명·부위는 컨텍스트에 저장하지 않는다.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C7"
+        "shadow_structure": "C7",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "dc7e6208d1468d23"
+        "shadow_structure": "dc7e6208d1468d23",
+        "shadow_scoring": "63c6b14f48193128"
       },
-      "normalizedEffectRole": "condition_strain",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "condition_strain"
     },
     {
       "riskId": "HLT_FATIGUE_ACCUMULATION",
@@ -272,19 +272,19 @@
       "note": "감수 22차 재저작 — **GI_STRONG을 event_shape에서 제거(길흉 강도는 사건 형태가 아님 — amplifier·심각도 전용)**. 계약=의미 있는 소모 구조 shape(기신 식상=설기 산출 과다 또는 기신 관살=책임 부담 과다) AND 체력·생활 기반(비겁군) 충·형 피격 — 소모 유입과 신체 기반 자극이라는 서로 다른 축의 결합이 항목 정의(linked 비요구). 일반 컨디션 pressure(required_for_warning — UNKNOWN advisory). 같은 건강 episode 대표에 supporting_manifestation 수렴.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C7"
+        "shadow_structure": "C7",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "585ac3df1e802f1b"
+        "shadow_structure": "585ac3df1e802f1b",
+        "shadow_scoring": "9df6f188f051f2a0"
       },
-      "normalizedEffectRole": "vitality_load",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "vitality_load"
     },
     {
       "riskId": "HLT_RECOVERY_CAPACITY_WEAK",
@@ -382,19 +382,19 @@
       "note": "감수 21차 — HLT_CONDITION_DECLINE에서 개명(저하 전제 완화 — 회복 여력 약화 구조) + pressure→vulnerability 재분류(단독 노출 없음 원칙 — incident 생성·심각도 상향의 중간 신호·background_vulnerability 흡수 전용). 계약=회복 자원(인성군) 공망 구조 약화 — 운성·기신은 amplifier 강등.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C7"
+        "shadow_structure": "C7",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "4b5ef44dfad5e068"
+        "shadow_structure": "4b5ef44dfad5e068",
+        "shadow_scoring": "827cb5b734174d35"
       },
-      "normalizedEffectRole": "recovery_capacity",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "recovery_capacity"
     },
     {
       "riskId": "HLT_FOCUS_DROP",
@@ -488,19 +488,19 @@
       "note": "감수 21차 재저작 — generic 전용 트리거 교체: 기신 편인(도식 — 집중 분산) 구조 약화 경로. vulnerability 유지(판단력 취약 — 단독 노출 없음, background_vulnerability 흡수 전용).",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C7"
+        "shadow_structure": "C7",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "0993d9c54619739a"
+        "shadow_structure": "0993d9c54619739a",
+        "shadow_scoring": "7bdd643c7202d9c1"
       },
-      "normalizedEffectRole": "vitality_load",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "vitality_load"
     },
     {
       "riskId": "HLT_MOBILITY_SAFETY_CAUTION",
@@ -614,19 +614,19 @@
       "reviewed": true,
       "absorbedRoleHint": "impact_amplifier",
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C7"
+        "shadow_structure": "C7",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "6ffa726beca41088"
+        "shadow_structure": "6ffa726beca41088",
+        "shadow_scoring": "b5e65996c99f3ade"
       },
-      "normalizedEffectRole": "mobility_safety",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "mobility_safety"
     },
     {
       "riskId": "HLT_CHECKUP_NEED",
@@ -722,19 +722,19 @@
       "note": "감수 21차 재저작 — incident→pressure(검진·관리 권고 압박 — 사건 아님). '치료·시술 검토 가능성' manifest 제거(치료 미확인 시 치료 표현 금지 원칙). 계약=조정 반복 형태(형+병·사 운성 동시)의 강한 단일 조건.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C7"
+        "shadow_structure": "C7",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "ec2fdade30d42add"
+        "shadow_structure": "ec2fdade30d42add",
+        "shadow_scoring": "bf99cc8c9aef01eb"
       },
-      "normalizedEffectRole": "health_management",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "health_management"
     },
     {
       "riskId": "HLT_TREATMENT_RECOVERY_LOAD",
@@ -861,19 +861,19 @@
       "note": "감수 21차 **신설(감수 질문 — 데굴님 §11 노출 정책·§15 필수 fixture 근거, 거부 시 제거)**: 치료·회복 과정 부담 pressure. 치료 중 CONFIRMED(requiresTreatmentProcess — treatment_status none=DENIED·미확인=UNKNOWN 강등, recovery_process 컨텍스트 유형 포함) 없이는 노출 불가(unknownExposable=false — 치료 미확인 시 '치료가 늦어진다' 표현 금지). 치료비=FIN 파생(medical_cost_exposure). 감수 22차: monitoring은 치료 중 단정 금지(ongoing·recent_procedure만 확인 취급 — 엔진 유도), manifestation은 컨텍스트별 분기(R3: treatment_process→treatment_load만, recovery_process→recovery_load만 — 치료 단계에 '회복 지연', 회복 단계에 '치료 부담' 상호 혼용 금지).",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C7"
+        "shadow_structure": "C7",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "c7f57a3c978d14e3"
+        "shadow_structure": "c7f57a3c978d14e3",
+        "shadow_scoring": "4db859a199178bd8"
       },
       "normalizedEffectRole": "treatment_management",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ],
       "normalizedEffectRoleByContext": {
         "treatment_process": "treatment_management",
         "recovery_process": "recovery_adjustment"
@@ -998,19 +998,19 @@
       "note": "감수 21차 **신설(감수 질문 — §11·§15 근거, 거부 시 제거)**: 직업적 신체 부담 pressure. 직업 존재만으로 신체 부하 추론 금지 — physical_demand moderate/high/shift_or_irregular 확인 필요(none·low=DENIED, 미확인=UNKNOWN 강등+비노출). 업무량·근무 책임 자체=CAR primary(같은 원인은 trigger_cause_atoms로 연결 — 중복 1회 계산). 기신 관살 유입(부담 형태)+체력 기반(비겁군) 피격 — 서로 다른 축의 결합이 항목 정의라 linked 비요구. 감수 22차: shift_or_irregular는 신체 강도가 아니라 근무 리듬 패턴 — requiresPhysicalDemand 확인 취급 아님(moderate/high만 확인, 단독으로 본 항목 미노출 — 리듬 부담은 FATIGUE·생활 리듬 activation 소관, schedule_load 분리는 R3 배선 시).",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C7"
+        "shadow_structure": "C7",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "5eb945e53bd78f6b"
+        "shadow_structure": "5eb945e53bd78f6b",
+        "shadow_scoring": "66eab5e17dbd048a"
       },
-      "normalizedEffectRole": "physical_strain",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "physical_strain"
     }
   ]
 }

@@ -459,6 +459,109 @@ def _protection_pairwise() -> None:
           f"(강한 보호도 0으로 소거하지 않음 — 완화이지 삭제 아님)")
 
 
+def _unknown_local_sensitivity(cands: list[RiskCandidate]) -> None:
+    """UNKNOWN 가중 국소 민감도(감수 33차 §8 — 0.55 주변 안정성).
+
+    승인 기준(데굴님): 0.50↔0.60 top-25 overlap ≥ 85% · 특정 도메인 상위 진입
+    급증 없음 · 약한 UNKNOWN이 강한 CONFIRMED를 반복 추월하지 않음.
+    """
+    active = [c for c in cands if is_active(c)]
+
+    def totals(w: float) -> list[float]:
+        out = []
+        for c in active:
+            comp = c.score_components
+            assert comp is not None
+            exp_v = w if comp.exposure == 0.55 else comp.exposure
+            out.append(min(1.0, exp_v * comp.occurrence * comp.impact
+                           * (1.0 + comp.persistence + comp.compound)
+                           * (1.0 - comp.protection)))
+        return out
+
+    base = totals(0.55)
+    base25 = set(_rank_ids(active, base, k=25))
+    base50 = set(_rank_ids(active, base, k=50))
+    unknown_only = [v for c, v in zip(active, base, strict=True)
+                    if c.score_components is not None
+                    and c.score_components.exposure == 0.55 and v > 0]
+    print("\n## UNKNOWN 가중 국소 민감도(기준 0.55 — 감수 33차)")
+    print(f"  UNKNOWN-only cohort(양수): n={len(unknown_only)} · "
+          f"p50 {_pctl(unknown_only, 0.5):.3f} · p90 {_pctl(unknown_only, 0.9):.3f}")
+    pass_5060 = None
+    for w in (0.40, 0.50, 0.60, 0.70):
+        alt = totals(w)
+        o25 = len(base25 & set(_rank_ids(active, alt, k=25)))
+        o50 = len(base50 & set(_rank_ids(active, alt, k=50)))
+        crossings = sum(
+            1 for i, c in enumerate(active)
+            if c.score_components is not None
+            and c.score_components.exposure == 0.55
+            and (base[i] > 0) != (alt[i] > 0))
+        overtakes = 0
+        conf_max = max((base[i] for i, c in enumerate(active)
+                        if c.score_components is not None
+                        and c.score_components.exposure == 1.0), default=0.0)
+        overtakes = sum(
+            1 for i, c in enumerate(active)
+            if c.score_components is not None
+            and c.score_components.exposure == 0.55 and alt[i] > conf_max)
+        print(f"  w={w:.2f}: top25 overlap {o25}/25({100 * o25 // 25}%) · "
+              f"top50 {o50}/50 · threshold crossing {crossings} · "
+              f"CONFIRMED 최고점 추월 UNKNOWN {overtakes}")
+        if w in (0.50, 0.60):
+            ok = o25 >= 22  # ≥85%(22/25)
+            pass_5060 = ok if pass_5060 is None else (pass_5060 and ok)
+    print(f"  승인 기준(0.50↔0.60 top-25 ≥85%): "
+          f"{'PASS' if pass_5060 else 'FAIL'}")
+
+
+def _shared_cause_pair_table(cands: list[RiskCandidate]) -> None:
+    """different-role shared-cause 연결쌍의 unique 조합 표(감수 33차 §5 —
+    같은 원인의 다른 표현인지, 실제 다른 결과인지 항목쌍 단위 감수 재료)."""
+    from saju_engines.risk_scoring import _candidate_atoms, _episode_signature
+    pairs: Counter = Counter()
+    by_period: dict[str, list[RiskCandidate]] = defaultdict(list)
+    for c in cands:
+        if is_active(c):
+            by_period[c.period_key].append(c)
+    for group in by_period.values():
+        for i, a in enumerate(group):
+            for b in group[i + 1:]:
+                if a.risk_id == b.risk_id:
+                    continue
+                if not (_candidate_atoms(a) & _candidate_atoms(b)):
+                    continue
+                if not (_episode_signature(a) and _episode_signature(b)):
+                    continue
+                ra = a.normalized_effect_role or a.risk_family or ""
+                rb = b.normalized_effect_role or b.risk_family or ""
+                if ra == rb:
+                    continue
+                key = tuple(sorted((f"{a.risk_id}[{ra}]", f"{b.risk_id}[{rb}]")))
+                pairs[key] += 1
+    print(f"\n## shared-cause different-role 연결쌍(unique 조합 "
+          f"{len(pairs)} — 감수 재료)")
+    for (x, y), n in sorted(pairs.items(), key=lambda kv: (-kv[1], kv[0])):
+        print(f"  {n:4d}× {x} ↔ {y}")
+
+
+def _multi_context_audit() -> None:
+    """ByContext 필요 항목 자동 탐색(감수 33차 §7) — context branch 2+ 항목."""
+    import json
+    print("\n## ByContext 자동 탐색(context branch 2+ 항목)")
+    found = 0
+    for f in sorted((_DICTS / "risks").glob("*.json")):
+        for raw in json.loads(f.read_text(encoding="utf-8"))["items"]:
+            branches = raw.get("applicableHealthContextTypes", [])
+            if len(branches) >= 2:
+                has = bool(raw.get("normalizedEffectRoleByContext"))
+                print(f"  {raw['riskId']}: branches={branches} · "
+                      f"ByContext {'저작됨' if has else '단일 base role'}")
+                found += 1
+    if not found:
+        print("  없음 — TRL 1건으로 충분")
+
+
 def _pairwise_golden() -> None:
     """§6 pairwise golden — 기대 순서를 명시해 감수한다(구조 vs exposure 경쟁)."""
     from saju_engines.risk_scoring import risk_priority as _rp
@@ -509,8 +612,11 @@ def main() -> int:
 
     assert c_overlay is not None
     _role_audit(c_overlay)
+    _shared_cause_pair_table(c_overlay)
+    _multi_context_audit()
     _capped_detail(c_overlay)
     _sensitivity_and_ablation(c_overlay)
+    _unknown_local_sensitivity(c_overlay)
     _pairwise_golden()
     _persistence_span_comparison()
     _protection_pairwise()

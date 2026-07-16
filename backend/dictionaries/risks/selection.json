@@ -120,19 +120,19 @@
         "procurement_bid"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "638a07ef136a0d1b"
+        "shadow_structure": "638a07ef136a0d1b",
+        "shadow_scoring": "029d77c4dbbad758"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "document_defect",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "document_defect"
     },
     {
       "riskId": "SEL_ELIGIBILITY_REVIEW_RISK",
@@ -251,19 +251,19 @@
         "procurement_bid"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "1b8297d07cc96de0"
+        "shadow_structure": "1b8297d07cc96de0",
+        "shadow_scoring": "b630a8d528e1b882"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "selection_eligibility",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "selection_eligibility"
     },
     {
       "riskId": "SEL_DRAW_OUTCOME_UNCERTAINTY",
@@ -382,19 +382,19 @@
         "lottery_allocation"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "e2f75e5057f60899"
+        "shadow_structure": "e2f75e5057f60899",
+        "shadow_scoring": "3bcef0b64fcfbfbe"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "selection_outcome",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "selection_outcome"
     },
     {
       "riskId": "SEL_RESULT_DELAY_PRESSURE",
@@ -512,19 +512,19 @@
         "procurement_bid"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "5f9cc8eb68161815"
+        "shadow_structure": "5f9cc8eb68161815",
+        "shadow_scoring": "9e9b56d22e0c679a"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "result_wait_delay",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "result_wait_delay"
     },
     {
       "riskId": "SEL_WAITLIST_PROLONGATION",
@@ -631,19 +631,19 @@
         "procurement_bid"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "a3af4c5edd86a024"
+        "shadow_structure": "a3af4c5edd86a024",
+        "shadow_scoring": "3540099fb00f1f5b"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "result_wait_delay",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "result_wait_delay"
     },
     {
       "riskId": "SEL_UNWANTED_PLACEMENT",
@@ -764,19 +764,19 @@
         "procurement_bid"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "cd3fe6da135cf0a2"
+        "shadow_structure": "cd3fe6da135cf0a2",
+        "shadow_scoring": "dd7a4a78edbe40a4"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "selection_outcome",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "selection_outcome"
     },
     {
       "riskId": "SEL_COMPETITION_INTENSIFY",
@@ -901,19 +901,19 @@
         "procurement_bid"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "10cbbcfb17bc6166"
+        "shadow_structure": "10cbbcfb17bc6166",
+        "shadow_scoring": "b29c53137656dc8d"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "selection_competition",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "selection_competition"
     }
   ]
 }

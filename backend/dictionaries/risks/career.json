@@ -156,19 +156,19 @@
       "note": "C3 개정 — 관성+월주 고정 AND가 아니라 work_role_activation(월주 궁위/관성·식상 피격 대안 경로) + workload_shape(요구·산출·역할 중첩 조합) 계약. 기신·운성·공망 amplifier. UNKNOWN='맡은 일이 있다면' advisory. 사업자·프리랜서·학생도 역할 피격 경로로 포착 · 대상 연결 필수(requiresLinkedTargets — 역할 활성과 부담 shape가 원인 공유 또는 십성군 대상 겹침)",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3"
+        "shadow_structure": "C3",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "5baa433b0285c02e"
+        "shadow_structure": "5baa433b0285c02e",
+        "shadow_scoring": "dc8051260fae5879"
       },
-      "normalizedEffectRole": "workload_strain",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "workload_strain"
     },
     {
       "riskId": "CAR_ORG_CONFLICT",
@@ -298,19 +298,19 @@
       "note": "감수 3차 개정 — targeted=상관 동반 관성 피격. 상관견관(event_shape)+사회궁/관성 활성(target_activation) 경로 병행. 인성=통관 완화",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "991062dae225fed6"
+        "shadow_structure": "991062dae225fed6",
+        "shadow_scoring": "e04db75b875fa564"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "workplace_conflict",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "workplace_conflict"
     },
     {
       "riskId": "CAR_EVALUATION_SETBACK_RISK",
@@ -433,19 +433,19 @@
       "note": "C3-b 신설(EVALUATION_DISADVANTAGE 대체 — SETBACK_RISK로 완화): 평가 과정에서 기대 결과를 얻지 못할 위험. 평가·인사 심사 노출 필요, UNKNOWN='평가·심사가 있다면 기준·성과 자료 확인' 수준(결과 불이익 표현 금지)",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3-d"
+        "shadow_structure": "C3-d",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "f2aa3a2e1c18059d"
+        "shadow_structure": "f2aa3a2e1c18059d",
+        "shadow_scoring": "ab72756d19734911"
       },
-      "normalizedEffectRole": "evaluation_setback",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "evaluation_setback"
     },
     {
       "riskId": "CAR_REASSIGNMENT_RISK",
@@ -567,19 +567,19 @@
       "note": "C3-b 신설(UNWANTED_TRANSFER 대체): 기준은 직업 범주가 아니라 assignment_authority 노출 — 조직·고객이 역할·근무지를 배정 가능=적용(프리랜서 포함), 본인이 전부 독립 결정=NOT_APPLICABLE. '원치 않는'은 preference CONFIRMED에서만",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3-d"
+        "shadow_structure": "C3-d",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "6909996e706bb4d7"
+        "shadow_structure": "6909996e706bb4d7",
+        "shadow_scoring": "07e977b9afe754bf"
       },
-      "normalizedEffectRole": "reassignment",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "reassignment"
     },
     {
       "riskId": "CAR_EXIT_PRESSURE",
@@ -705,19 +705,19 @@
       "note": "C3-b 재분류(incident→pressure): 자발 이탈 욕구·조직 압박·계약 종료 가능성을 단정하지 않는 이탈 압박. 종료 사건은 별도 강한 계약+노출 없이 생성 금지",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3-d"
+        "shadow_structure": "C3-d",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "473df83b69af2025"
+        "shadow_structure": "473df83b69af2025",
+        "shadow_scoring": "779071afc0d4cd75"
       },
-      "normalizedEffectRole": "exit_pressure",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "exit_pressure"
     },
     {
       "riskId": "CAR_HIRING_PROCESS_DELAY",
@@ -819,19 +819,19 @@
         "employment_hiring"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "4fc25fd5c6602451"
+        "shadow_structure": "4fc25fd5c6602451",
+        "shadow_scoring": "3540099fb00f1f5b"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "result_wait_delay",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "result_wait_delay"
     },
     {
       "riskId": "CAR_HIRING_OUTCOME_SETBACK",
@@ -955,19 +955,19 @@
         "final_decision"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "35be940fe6f5e90d"
+        "shadow_structure": "35be940fe6f5e90d",
+        "shadow_scoring": "eb50511578d1ec88"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "hiring_outcome",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "hiring_outcome"
     }
   ]
 }

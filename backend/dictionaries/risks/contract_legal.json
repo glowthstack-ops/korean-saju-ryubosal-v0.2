@@ -129,19 +129,19 @@
         "active_contract"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "3182f80b8dc64e0f"
+        "shadow_structure": "3182f80b8dc64e0f",
+        "shadow_scoring": "53fdb1e3b46dd9eb"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "contract_termination",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "contract_termination"
     },
     {
       "riskId": "LEG_DOCUMENT_ERROR",
@@ -275,19 +275,19 @@
         "supplement_request"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "2255662e7de14c14"
+        "shadow_structure": "2255662e7de14c14",
+        "shadow_scoring": "029d77c4dbbad758"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "document_defect",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "document_defect"
     },
     {
       "riskId": "LEG_COMPLIANCE_OBLIGATION_PRESSURE",
@@ -447,19 +447,19 @@
       "note": "감수 3차 개정 — targeted=편관 동반 관성 피격 형(강제 조정 구조+대상). 형+편관(event_shape)+책임·문서 피격(target_activation) 경로 병행. 기신 amplifier · 감수 23차(C8 편입): formal process exposure(대상 5종·성립 전/종결 stage 제외) + unknownExposable=false(위반·제재 미확인 시 결과형 경고 비노출 — '~라면' 우회 금지). 허용 표현=기한·요건 재확인·의무 점검·이행 상태 검토까지 · 감수 24차(C8-f) kind 정합화: 허용 표현·노출 조건이 전부 준법·의무 이행 점검 수준(위반·제재 CONFIRMED 아님) — incident_risk→pressure, 개명 PENALTY_LIABILITY→COMPLIANCE_OBLIGATION_PRESSURE, claimCeiling watch(R1 impact prior·risk budget 왜곡 방지). 별도 제재 incident(LEG_SANCTION_RISK 류)는 actual violation exposure CONFIRMED+formal sanction proceeding CONFIRMED+독립 event shape 데이터 확보 전 저작 금지. 금지 표현(벌금·과태료·처벌·유죄·행정처분 단정)은 그대로 유지.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "d98033fe6c44e2ac"
+        "shadow_structure": "d98033fe6c44e2ac",
+        "shadow_scoring": "31b9db40aa414425"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "liability_obligation",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "compliance_obligation"
     },
     {
       "riskId": "LEG_ADMIN_DELAY",
@@ -574,19 +574,19 @@
         "decision_wait"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "da0bcc8aafa2db87"
+        "shadow_structure": "da0bcc8aafa2db87",
+        "shadow_scoring": "c802996dfa638acc"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "administrative_delay",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "administrative_delay"
     },
     {
       "riskId": "LEG_DISPUTE_RISK",
@@ -715,19 +715,19 @@
         "dispute"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "3d4dec353aaf1af3"
+        "shadow_structure": "3d4dec353aaf1af3",
+        "shadow_scoring": "e06452e54fc25edb"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "legal_dispute",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "legal_dispute"
     },
     {
       "riskId": "LEG_LITIGATION_PROCESS_BURDEN",
@@ -860,19 +860,19 @@
         "litigation_active"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "36ccd515b1c787ea"
+        "shadow_structure": "36ccd515b1c787ea",
+        "shadow_scoring": "4351490f12dd69d7"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "litigation_process_burden",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "litigation_process_burden"
     },
     {
       "riskId": "LEG_REVIEW_CAPACITY_WEAK",
@@ -970,19 +970,19 @@
         "supplement_request"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "96b140a3594c0272"
+        "shadow_structure": "96b140a3594c0272",
+        "shadow_scoring": "e71f84d60eabcef8"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "review_capacity",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "review_capacity"
     }
   ]
 }

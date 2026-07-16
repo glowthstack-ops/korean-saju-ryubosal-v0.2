@@ -24,6 +24,11 @@ from saju_engines.dictionaries import (  # noqa: E402
     _RISK_HASH_SCHEMA_VERSION,
     RISK_REVIEW_ENVIRONMENT_VERSION,
 )
+from saju_engines.risk_scoring import (  # noqa: E402
+    RISK_SCORING_VERSION,
+    cause_semantics_hash,
+    scoring_config_hash,
+)
 
 _RISKS_DIR = _BACKEND / "dictionaries" / "risks"
 _MANIFEST_PATH = _BACKEND.parent / "doc" / "v2_2" / "RISK_REVIEW_MANIFEST.json"
@@ -56,6 +61,11 @@ def build_manifest() -> dict:
     return {
         "review_environment_version": RISK_REVIEW_ENVIRONMENT_VERSION,
         "hash_schema_version": _RISK_HASH_SCHEMA_VERSION,
+        # 점수 감수 표면(감수 33차) — 공식·가중·cause registry 변경 시 manifest
+        # diff로 감지(회귀 테스트가 재생성 일치를 강제 → 재감수 신호).
+        "risk_scoring_version": RISK_SCORING_VERSION,
+        "scoring_config_hash": scoring_config_hash(),
+        "cause_semantics_hash": cause_semantics_hash(),
         "reviewed_total": len(reviewed_ids),
         "unreviewed_total": len(unreviewed_ids),
         "reviewed_by_scope": dict(sorted(by_scope.items())),

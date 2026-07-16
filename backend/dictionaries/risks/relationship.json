@@ -128,19 +128,19 @@
       "note": "감수 16차(REL 차수) 재저작 — kind incident→pressure 재분류(재조정은 확정 사건이 아니라 조정 압박 국면). 배우자궁(일지) 직접 충·형만 생성 경로(targeted). 배우자궁 활성≠현실 관계 존재: partner exposure CONFIRMED=노출, UNKNOWN=조건부 표현('현재 관계가 있다면') 이하, DENIED=차단·일반 대인 pressure로 자동 전환 금지. 겁재·상관은 amplifier(배우자성 성별 축은 R1 연동 전 미저작 유지). 궁합·함께보기에서는 동반자 관계힌트가 RelationshipContext로 주입된다.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C5"
+        "shadow_structure": "C5",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "aef89e8143d793cd"
+        "shadow_structure": "aef89e8143d793cd",
+        "shadow_scoring": "592b7c31440d6519"
       },
-      "normalizedEffectRole": "partner_readjustment",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "partner_readjustment"
     },
     {
       "riskId": "REL_EMOTIONAL_CLASH",
@@ -260,19 +260,19 @@
       "note": "감수 16차 재저작 — kind incident→pressure(감정 충돌은 사건 확정이 아니라 긴장·충돌 압박). 계약=감정 마찰 shape(겁재/칠살)+대인 기반 피격(충·형이 비겁군 대상, linked). 역할 무관(일반 대인) — 같은 상대·같은 원인에서 역할 특정 대표(배우자 재조정 등)가 있으면 supporting_manifestation으로 흡수.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C5"
+        "shadow_structure": "C5",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "7048a9d6dfc83ce1"
+        "shadow_structure": "7048a9d6dfc83ce1",
+        "shadow_scoring": "fabea39aac1c3e4b"
       },
-      "normalizedEffectRole": "relationship_conflict",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "relationship_conflict"
     },
     {
       "riskId": "REL_COMMUNICATION_MISALIGNMENT",
@@ -381,19 +381,19 @@
       "note": "감수 16차 — REL_MISUNDERSTANDING_SLIP에서 개명(결과 전제 명칭 완화) + incident→pressure 재분류. 계약=상관(표현 과잉) shape+표현 채널(식상군) 피격(해·파, linked) — 전달 왜곡·구설 압박. 인성=숙고 완화 유지.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C5"
+        "shadow_structure": "C5",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "5fef18ad968fc4f5"
+        "shadow_structure": "5fef18ad968fc4f5",
+        "shadow_scoring": "8c763bb3e854a5d1"
       },
-      "normalizedEffectRole": "relationship_conflict",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "relationship_conflict"
     },
     {
       "riskId": "REL_TRUST_STABILITY_WEAK",
@@ -485,19 +485,19 @@
       "reviewed": true,
       "absorbedRoleHint": "background_vulnerability",
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C5"
+        "shadow_structure": "C5",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "6bf7c6e41a85fb26"
+        "shadow_structure": "6bf7c6e41a85fb26",
+        "shadow_scoring": "80870d72c0b9d7bf"
       },
-      "normalizedEffectRole": "relationship_stability",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "relationship_stability"
     },
     {
       "riskId": "REL_DISTANCE_PRESSURE",
@@ -603,19 +603,19 @@
       "note": "감수 16차 — REL_DISTANCE_ESTRANGE에서 개명(소원 '결과'가 아니라 거리감 압박) + 재저작: 대인 기반(비겁군) 피격(충·해) 단독 경로, 공망·묘절·편인은 amplifier로 강등(독립 트리거 금지 원칙). 흡수 시 possible_trajectory — 대표 위험 진행 시의 궤적 서술 전용(독립 발현 아님).",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C5"
+        "shadow_structure": "C5",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "92b0c4e9fd986eef"
+        "shadow_structure": "92b0c4e9fd986eef",
+        "shadow_scoring": "4307c13c88c712f4"
       },
-      "normalizedEffectRole": "relationship_distance",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "relationship_distance"
     },
     {
       "riskId": "REL_FAMILY_BURDEN",
@@ -757,19 +757,19 @@
       "note": "감수 16차 재저작 + 17차 월주 제한 — 년주(원가족궁) 직접 충·형은 단독 경로, 월주는 사회궁·직업 환경 의미가 강하므로 가족 육친 대상(인성=부모·비겁군=형제) 피격 provenance가 명시된 발동만 인정(월주 충+일반 기신 → 미생성: 직업 변화가 가족 문제로 오역되는 것 차단). 관성=책임 압박 amplifier, 비겁=형제 분담 완화. '가족이 있다'만으로는 부족: 돌봄·가족 재정·동거/주거·의사결정 중 실제 책임(requiresSharedResponsibility) 확인 전 CONFIRMED 취급 금지 — 미확인은 UNKNOWN 강등(조건부 표현). 배우자 부담은 PARTNER_READJUST, 자녀·부모 돌봄은 본 항목. 표현은 '가족 관련 책임·조율 부담이 커질 수 있는 시기'까지.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C5"
+        "shadow_structure": "C5",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "c78dfe0ecdb4b9a5"
+        "shadow_structure": "c78dfe0ecdb4b9a5",
+        "shadow_scoring": "50c30de0ea62ed7b"
       },
-      "normalizedEffectRole": "family_care_burden",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "family_care_burden"
     },
     {
       "riskId": "REL_PEER_FINANCIAL_ENTANGLEMENT_RISK",
@@ -911,19 +911,19 @@
       "note": "감수 16차 — REL_MONEY_BETWEEN_PEERS에서 개명·조건부 사건화. 가장 엄격한 노출: 친구·동료·동업 역할 + 실제 금전 거래·공동 비용·대여·보증·정산 (requiresFinancialTie) CONFIRMED 없이는 구체 사건 노출 금지(unknownExposable false — 겁재·재성만으로 금전 관계 존재 추론 금지). FIN 소유권: 돈의 손실· 회수·정산이 핵심=FIN primary(REL은 관계 부담 파생), 관계 신뢰·갈등 핵심=REL primary(finance는 crossDomainEffect). 같은 원인에서 FIN·REL 동시 활성 시 대표 선정은 R2 Episode 병합 소관 — R0.5는 양쪽 구조 보존.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C5"
+        "shadow_structure": "C5",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "454cb3a5480dbf0c"
+        "shadow_structure": "454cb3a5480dbf0c",
+        "shadow_scoring": "8621567a2c34f0af"
       },
-      "normalizedEffectRole": "peer_financial_entanglement",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "peer_financial_entanglement"
     }
   ]
 }

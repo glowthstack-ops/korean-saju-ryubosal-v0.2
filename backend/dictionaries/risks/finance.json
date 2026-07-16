@@ -124,19 +124,19 @@
       "note": "C1 개정 — 재정 유입·유출 구조 activation 필수(범용 기신 단독 생성 금지). INCOME_DELAY·UNEXPECTED_EXPENSE가 성립하면 supporting/배경으로 흡수",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C1"
+        "shadow_structure": "C1",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "9bdbae77eb6d97ff"
+        "shadow_structure": "9bdbae77eb6d97ff",
+        "shadow_scoring": "4493036e0bdf99c0"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "cashflow_pressure",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "cashflow_pressure"
     },
     {
       "riskId": "FIN_UNEXPECTED_EXPENSE",
@@ -276,19 +276,19 @@
       "note": "감수 3차 개정 — targeted=겁재-재성 경쟁 구조가 재성을 직접 대상으로(관계+대상+구조 동반). 순수 재성 피격은 target_activation(단독 생성 불가 — 겁재-재성 동반 필요). 기신·공망 amplifier",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "R0.5"
+        "shadow_structure": "R0.5",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "27cfe68007d848d3"
+        "shadow_structure": "27cfe68007d848d3",
+        "shadow_scoring": "13af976d234b6c9e"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "financial_outflow",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "financial_outflow"
     },
     {
       "riskId": "FIN_INVESTMENT_LOSS",
@@ -421,19 +421,19 @@
       "note": "C1 개정 — shape=편재-비겁 동반(투기 변동+경쟁) 또는 편재 동반 재물 피격(targeted). 노출 UNKNOWN이면 '투자·고위험 거래를 한다면' 조건부(watch 상한), DENIED=BLOCKED",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C1"
+        "shadow_structure": "C1",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "f9d7dbea4338fab2"
+        "shadow_structure": "f9d7dbea4338fab2",
+        "shadow_scoring": "9d2d6f942950ba16"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "financial_outflow",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "financial_outflow"
     },
     {
       "riskId": "FIN_DEBT_GUARANTEE_BURDEN",
@@ -561,19 +561,19 @@
       "note": "C1 개정 — 운 구조만으로 대출·보증 보유 추론 금지(confirmed_required): 노출 UNKNOWN은 '타인 재정 책임 선택 주의' 체크포인트(advisory)만. family=liability로 LEG_COMPLIANCE_OBLIGATION_PRESSURE(구 LEG_PENALTY)와 대표 수렴",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C1"
+        "shadow_structure": "C1",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "7a58520a977b70db"
+        "shadow_structure": "7a58520a977b70db",
+        "shadow_scoring": "3ace8c8b3d8c9de9"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "liability_obligation",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "guarantee_or_contractual_liability"
     },
     {
       "riskId": "FIN_INCOME_DELAY",
@@ -678,19 +678,19 @@
       "note": "C1 개정 — '지급 지연'(받을 돈의 시점) 전용: 수입 감소는 CASHFLOW_PRESSURE, 금액 이견은 SETTLEMENT_DISPUTE 소관. shape=재성 공망(결실 지연 구조) AND 재성 피격 활성",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C1"
+        "shadow_structure": "C1",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "02cc3bd56a5884e3"
+        "shadow_structure": "02cc3bd56a5884e3",
+        "shadow_scoring": "e11dd24e522ef06f"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "payment_recovery",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "payment_recovery"
     },
     {
       "riskId": "FIN_SETTLEMENT_DISPUTE",
@@ -821,19 +821,19 @@
       "note": "C1 개정 — FIN 소유(돈의 지급·회수·정산). 권리·의무·절차 문제는 LEG 소유(후보 복제 금지 — crossDomainEffects=contract_review_needed 부착, 독립 법률 원인이 있을 때만 LEG 별도). shape=형+재성 동반(이견 구조) — 단순 지급 지연·재성 피격만으로 승격 금지",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C1"
+        "shadow_structure": "C1",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "01f86401b8410699"
+        "shadow_structure": "01f86401b8410699",
+        "shadow_scoring": "b597e213772b3853"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "payment_recovery",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "payment_recovery"
     },
     {
       "riskId": "FIN_BUFFER_WEAK",
@@ -910,19 +910,19 @@
       "note": "C1 개정 — GI_STRONG 단독 발동 제거(재물 영역 활성 동반 필수). 독립 노출 없음: 다른 FIN 사건 성립 시 impact_amplifier 흡수 우선. CASHFLOW_PRESSURE(흐름 압박)와 구분=완충력 자체의 약화",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C2"
+        "shadow_structure": "C2",
+        "shadow_scoring": "R1"
       },
       "reviewHashes": {
-        "shadow_structure": "60fb1ed0cd390123"
+        "shadow_structure": "60fb1ed0cd390123",
+        "shadow_scoring": "2a234a29bf034cae"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
-      "normalizedEffectRole": "financial_buffer",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "financial_buffer"
     }
   ]
 }

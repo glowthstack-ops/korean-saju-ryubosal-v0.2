@@ -146,19 +146,19 @@
         "unknownExposable": true
       },
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C6"
+        "shadow_structure": "C6",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "dc26e30579a0c6d4"
+        "shadow_structure": "dc26e30579a0c6d4",
+        "shadow_scoring": "d9e0b9ca7301bb71"
       },
-      "normalizedEffectRole": "contract_setback",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "contract_setback"
     },
     {
       "riskId": "MOV_SCHEDULE_DISRUPTION",
@@ -284,19 +284,19 @@
       "note": "감수 18차(C6) 재저작 — incident→pressure 재분류(일정 차질은 확정 사건이 아니라 진행 압박 — HIRING_PROCESS_DELAY와 동일 원리). 공망 단독 트리거 강등: shape=문서·계획 공망(인성 동반), 계획 채널(인성군) 피격(해·충, linked). 계약~이사 단계에서만 적용. 같은 이동 episode에서 계약 무산·이동 압박 대표에 supporting_manifestation으로 흡수.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C6"
+        "shadow_structure": "C6",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "bada38d826b9d7f5"
+        "shadow_structure": "bada38d826b9d7f5",
+        "shadow_scoring": "8183c9c699a94e05"
       },
-      "normalizedEffectRole": "schedule_disruption",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "schedule_disruption"
     },
     {
       "riskId": "MOV_HOUSING_DEFECT_RISK",
@@ -425,19 +425,19 @@
         "settled"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C6"
+        "shadow_structure": "C6",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "7602e098e6754414"
+        "shadow_structure": "7602e098e6754414",
+        "shadow_scoring": "a371614387af2556"
       },
-      "normalizedEffectRole": "housing_defect",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "housing_defect"
     },
     {
       "riskId": "MOV_COMMUTE_BURDEN",
@@ -536,19 +536,19 @@
         "settled"
       ],
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C6"
+        "shadow_structure": "C6",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "20a8446e511a9c73"
+        "shadow_structure": "20a8446e511a9c73",
+        "shadow_scoring": "3893213edf8690ce"
       },
-      "normalizedEffectRole": "commute_burden",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "commute_burden"
     },
     {
       "riskId": "MOV_RELOCATION_PRESSURE",
@@ -665,19 +665,19 @@
       "reviewed": true,
       "absorbedRoleHint": "supporting_manifestation",
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C6"
+        "shadow_structure": "C6",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "54d73c8ae3ba11b8"
+        "shadow_structure": "54d73c8ae3ba11b8",
+        "shadow_scoring": "7991dc535b4dd7e7"
       },
-      "normalizedEffectRole": "relocation_pressure",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "relocation_pressure"
     },
     {
       "riskId": "MOV_VEHICLE_TRANSPORT_ISSUE",
@@ -790,19 +790,19 @@
       "note": "감수 18차(C6) 재저작 — 시주(이동 수단·수족) 직접 충·형 targeted 경로, 해= amplifier. 차량 노출(requiresVehicleExposure) CONFIRMED 없이는 노출 금지 (unknownExposable=false — 대중교통 사용자에게 차량 경고 금지, '차가 있다면' 우회도 불가). 안전 톤: 사고·부상 단정 금지, 정비·점검 권고까지 — 이동 안전 파급은 crossDomainEffects(transport_safety_caution)로 HLT 연결.",
       "reviewed": true,
       "reviewScopes": [
-        "shadow_structure"
+        "shadow_structure",
+        "shadow_scoring"
       ],
       "reviewVersions": {
-        "shadow_structure": "C6"
+        "shadow_structure": "C6",
+        "shadow_scoring": "R1"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
-        "shadow_structure": "ef88daeb0b8990bd"
+        "shadow_structure": "ef88daeb0b8990bd",
+        "shadow_scoring": "500003d18e0c0aa3"
       },
-      "normalizedEffectRole": "vehicle_transport",
-      "reviewPendingScopes": [
-        "shadow_scoring"
-      ]
+      "normalizedEffectRole": "vehicle_transport"
     }
   ]
 }

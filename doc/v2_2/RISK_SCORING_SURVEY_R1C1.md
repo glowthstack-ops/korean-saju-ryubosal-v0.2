@@ -1,8 +1,8 @@
-> R1-c2b 교정 전수 측정 고정본(감수 32차) — 재생성: `python scripts/risk_scoring_survey.py`
+> R1-c3 최종 전수 측정 고정본(감수 33차) — 재생성: `python scripts/risk_scoring_survey.py`
 > 출력 결정적 — 본 파일과의 diff = 점수 의미 회귀 신호.
 
-# R1-c1 위험 점수 전수 측정 — risk-score-r1.1.0-shadow
-semantics cause-semantics-v3 · config 5286f7df8e17e399 · semantics 607f75c4a8dfc72c
+# R1-c1 위험 점수 전수 측정 — risk-score-r1.1.1-shadow
+semantics cause-semantics-v3 · config 95a9c56c0c7b143e · semantics 607f75c4a8dfc72c
 compound=연결된 effect graph(shared canonical cause)만 · is_question_target=context confidence 제외(fixture 고정)
 
 # 모집단 1 — 전체 구조 코퍼스(컨텍스트 없음·suppression baseline 동일)
@@ -160,9 +160,32 @@ rankable capped(C군): p50 0.135 · p90 0.258 · max 0.441 · n=347
 context 축 상태 합(A군): confirmed 66, conflicted 0, required 496, unknown 430
 
 ## effect role taxonomy audit(감수 32차)
-  항목 49 · role 40종 · singleton 32 · 공유 8 · 도메인 간 공유 3종(['document_defect', 'liability_obligation', 'result_wait_delay'])
-  공유 role: document_defect(2), financial_outflow(2), liability_obligation(2), payment_recovery(2), relationship_conflict(2), result_wait_delay(3), selection_outcome(2), vitality_load(2)
+  항목 49 · role 41종 · singleton 34 · 공유 7 · 도메인 간 공유 2종(['document_defect', 'result_wait_delay'])
+  공유 role: document_defect(2), financial_outflow(2), payment_recovery(2), relationship_conflict(2), result_wait_delay(3), selection_outcome(2), vitality_load(2)
   shared-cause 연결쌍: same-role 0 · different-role 68 · unresolved 1873
+
+## shared-cause different-role 연결쌍(unique 조합 16 — 감수 재료)
+    13× LEG_COMPLIANCE_OBLIGATION_PRESSURE[compliance_obligation] ↔ LEG_DISPUTE_RISK[legal_dispute]
+    10× MOV_RELOCATION_PRESSURE[relocation_pressure] ↔ REL_PARTNER_READJUST[partner_readjustment]
+     8× MOV_CONTRACT_SETBACK_RISK[contract_setback] ↔ REL_PARTNER_READJUST[partner_readjustment]
+     5× LEG_COMPLIANCE_OBLIGATION_PRESSURE[compliance_obligation] ↔ LEG_CONTRACT_TERMINATION_RISK[contract_termination]
+     5× LEG_CONTRACT_TERMINATION_RISK[contract_termination] ↔ LEG_DISPUTE_RISK[legal_dispute]
+     4× HLT_TREATMENT_RECOVERY_LOAD[treatment_management] ↔ MOV_CONTRACT_SETBACK_RISK[contract_setback]
+     4× LEG_COMPLIANCE_OBLIGATION_PRESSURE[compliance_obligation] ↔ REL_PARTNER_READJUST[partner_readjustment]
+     4× LEG_DISPUTE_RISK[legal_dispute] ↔ REL_PARTNER_READJUST[partner_readjustment]
+     3× LEG_CONTRACT_TERMINATION_RISK[contract_termination] ↔ MOV_RELOCATION_PRESSURE[relocation_pressure]
+     2× HLT_TREATMENT_RECOVERY_LOAD[treatment_management] ↔ REL_PARTNER_READJUST[partner_readjustment]
+     2× LEG_COMPLIANCE_OBLIGATION_PRESSURE[compliance_obligation] ↔ MOV_RELOCATION_PRESSURE[relocation_pressure]
+     2× LEG_CONTRACT_TERMINATION_RISK[contract_termination] ↔ MOV_CONTRACT_SETBACK_RISK[contract_setback]
+     2× LEG_CONTRACT_TERMINATION_RISK[contract_termination] ↔ REL_PARTNER_READJUST[partner_readjustment]
+     2× LEG_DISPUTE_RISK[legal_dispute] ↔ MOV_RELOCATION_PRESSURE[relocation_pressure]
+     1× HLT_TREATMENT_RECOVERY_LOAD[treatment_management] ↔ MOV_SCHEDULE_DISRUPTION[schedule_disruption]
+     1× MOV_CONTRACT_SETBACK_RISK[contract_setback] ↔ MOV_SCHEDULE_DISRUPTION[schedule_disruption]
+
+## ByContext 자동 탐색(context branch 2+ 항목)
+  HLT_EXISTING_CONDITION_STRAIN: branches=['existing_condition', 'current_symptom'] · ByContext 단일 base role
+  HLT_TREATMENT_RECOVERY_LOAD: branches=['treatment_process', 'recovery_process'] · ByContext 저작됨
+  HLT_PHYSICAL_WORKLOAD_STRAIN: branches=['physical_workload', 'sleep_schedule_load'] · ByContext 단일 base role
 
 ## capped=1 후보 상세(0건 — 개별 감수 재료)
 
@@ -174,6 +197,14 @@ context 축 상태 합(A군): confirmed 66, conflicted 0, required 496, unknown 
   unknown_w=1.000: top10 overlap 6/10 · rankable>0 361
   unknown_w=0.775: top10 overlap 7/10 · rankable>0 361
   unknown_w=0.300: top10 overlap 7/10 · rankable>0 361
+
+## UNKNOWN 가중 국소 민감도(기준 0.55 — 감수 33차)
+  UNKNOWN-only cohort(양수): n=249 · p50 0.125 · p90 0.210
+  w=0.40: top25 overlap 22/25(88%) · top50 43/50 · threshold crossing 0 · CONFIRMED 최고점 추월 UNKNOWN 0
+  w=0.50: top25 overlap 25/25(100%) · top50 50/50 · threshold crossing 0 · CONFIRMED 최고점 추월 UNKNOWN 0
+  w=0.60: top25 overlap 23/25(92%) · top50 50/50 · threshold crossing 0 · CONFIRMED 최고점 추월 UNKNOWN 0
+  w=0.70: top25 overlap 20/25(80%) · top50 47/50 · threshold crossing 0 · CONFIRMED 최고점 추월 UNKNOWN 0
+  승인 기준(0.50↔0.60 top-25 ≥85%): PASS
 
 ## pairwise golden(기대 순서 명시 — 감수 대상)
   같은 구조: CONFIRMED 0.300 > 허용 UNKNOWN 0.165 > 비노출 0.000 — PASS

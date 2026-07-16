@@ -53,7 +53,7 @@ from saju_shared_types.risk_engine import (
 from .risk_engine import cause_atoms
 
 # 점수 의미 버전 — 축 정의·가중·매핑이 바뀌면 올린다(엔진 env 버전과 독립).
-RISK_SCORING_VERSION = "risk-score-r1.1.0-shadow"
+RISK_SCORING_VERSION = "risk-score-r1.1.1-shadow"
 
 # exposure 축 = **rankable 가중**(감수 26차 확정 — 정책별 분리, 전 항목 공통값
 # 금지): 노출 게이트(is_exposable)를 통과하지 못한 후보는 0 — DENIED(명시 부정)·
@@ -74,6 +74,10 @@ _PERSISTENCE_SPAN = 5
 # 감수 32차에서 **0.25 기각** — 0.10을 보수적 shadow 잠정값으로 두고 taxonomy·
 # ByContext 정리 후 재측정으로 확정한다(민감도 표 병행 출력). role 1건당, cap 1.0.
 _COMPOUND_PER_LINK = 0.10
+# protection 하드 상한(감수 33차): 보호는 위험을 크게 완화할 수 있지만, 구조와
+# 현실 노출을 통과한 후보의 존재 자체를 삭제할 수 없다 — protection=1.0으로
+# rankable이 0이 되는 경로 차단(positive base + 최대 보호 → rankable > 0 fixture).
+_PROTECTION_CAP = 0.70
 # confidence 휴리스틱(잠정): 기본 + 독립 원인 추가분 + 다층 수렴 관측.
 _CONF_BASE, _CONF_PER_EXTRA_CAUSE, _CONF_LAYER = 0.4, 0.2, 0.2
 
@@ -213,7 +217,7 @@ def _protection(c: RiskCandidate) -> float:
             continue
         seen.add(e.source)
         acc *= 1.0 - min(1.0, max(0.0, e.strength))
-    return round(1.0 - acc, 6)
+    return round(min(_PROTECTION_CAP, 1.0 - acc), 6)
 
 
 def _candidate_atoms(c: RiskCandidate) -> frozenset[str]:
@@ -605,6 +609,7 @@ def scoring_config_hash() -> str:
                      "status": "잠정 0.10 — 0.25 기각(감수 32차),"
                                " taxonomy 정리 후 재측정 확정"},
         "occurrence": {"combine": "1-prod(1-s)", "per_source_dedup": "max"},
+        "protection_cap": _PROTECTION_CAP,
         "confidence": {"base": _CONF_BASE, "per_extra_cause": _CONF_PER_EXTRA_CAUSE,
                        "layer": _CONF_LAYER,
                        "context_confidence": "separate_diagnostic"},

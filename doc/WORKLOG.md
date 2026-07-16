@@ -8099,3 +8099,16 @@ pairwise·span 비교·protection pairwise 전부 PASS·고정본 갱신. fixtur
 pytest 2000·mypy 0·baseline 지표 diff 0·manifest 일치(scoring scope 0/49 유지).
 다음: R1-c3 — singleton 32 심사·compound/span/UNKNOWN 확정·shadow_scoring 49
 스탬프(감수) → R2.
+
+## R1-c3 — 최종 확정·shadow_scoring 49/49 스탬프(감수 33차, 2026-07-16)
+
+확정: modifier 공식·span 5·compound 0.10(cap 0.30)·result_wait_delay·TRL
+ByContext·protection 공식 승인 / liability 병합 기각→**분리**(compliance_
+obligation·guarantee_or_contractual_liability — 병존 compound 정당). protection
+**cap 0.70** 하드 가드(+존재 삭제 금지 fixture)·additive 상한 회귀 golden.
+**UNKNOWN 0.55 확정**(국소 민감도 기준 전부 충족: 0.50↔0.60 top25 100%/92%·
+crossing 0·추월 0). shared-cause 16조합 표(최다 compliance↔dispute 13× — 분리
+정당성 실증)·ByContext 자동 탐색(추가 저작 불요). **shadow_scoring 49/49 스탬프**
++ manifest에 scoring version·config/semantics hash 병기(변경=자동 재감수 신호).
+r1.1.1-shadow. fixture 34종·pytest 2002·mypy 0·전 baseline 지표 diff 0·restamp
+불변 49. **R1 완료 — 다음: R2(episode 병합·risk budget·대표 선택).**
