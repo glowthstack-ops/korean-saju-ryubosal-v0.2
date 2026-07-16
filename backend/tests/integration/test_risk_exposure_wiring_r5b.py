@@ -2197,3 +2197,62 @@ def test_runtime_inputs_fail_closed_defaults(monkeypatch) -> None:
     shapes = load_reviewed_shape_digests("gemini-3-flash-preview")
     assert len(shapes) == 7  # 감수 61차 §5 — 이름 결속 7종
     assert load_reviewed_shape_digests("unknown-model") == frozenset()
+
+
+def test_kill_switch_blocks_expose_end_to_end(monkeypatch) -> None:
+    """통합 §13-⑩ kill switch: EXPOSE 전 조건 충족 상태에서도 kill
+    switch=True면 즉시 BYPASS(prompt 불변·flow 미실행)."""
+    from saju_api.services.risk_exposure_service import apply_risk_exposure
+
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSE_CANARY_SUBJECT_IDS",
+                        frozenset({"internal-tester-1"}))
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_DEPLOYMENT_TOPOLOGY",
+                        "single_host_single_process")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSURE_RUNTIME_ENABLED", True)
+    monkeypatch.setattr(risk_engine_config, "RISK_EXPOSURE_KILL_SWITCH",
+                        True)
+    p, s, obs = apply_risk_exposure(
+        "본문", None, subject_id="internal-tester-1",
+        question_type="period_overview", temporal_scope="future")
+    assert p == "본문" and s is None
+    assert obs["disposition"] == "BYPASS"
+    assert obs["reason"] == "KILL_SWITCH"
+
+
+def test_rollback_to_off_restores_byte_identical(monkeypatch) -> None:
+    """통합 §13-⑩ rollback: EXPOSE→off 전환만으로 chat 분기 자체가
+    실행되지 않아 prompt·system이 byte-identical로 복귀."""
+    from saju_api.services.risk_exposure_service import (
+        exposure_mode_active,
+    )
+
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    assert exposure_mode_active() is True
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE", "off")
+    assert exposure_mode_active() is False  # 분기 미실행=불변 복귀
+
+
+def test_bootstrap_worker_mismatch_disables(monkeypatch) -> None:
+    """감수 61차 §13 worker=1 실측: single_process 선언+worker>1 환경
+    신호 → adapter 미등록(RISK_BOOTSTRAP_TOPOLOGY_MISMATCH — 전부
+    BYPASS). baseline 서비스는 영향 없음."""
+    from saju_api.services import risk_exposure_bootstrap as reb
+
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    monkeypatch.setattr(risk_engine_config, "RISK_DEPLOYMENT_TOPOLOGY",
+                        "single_host_single_process")
+    monkeypatch.setenv("WEB_CONCURRENCY", "4")
+    assert reb.bootstrap_risk_exposure() is None
+    assert reb.last_bootstrap_reason() == (
+        "RISK_BOOTSTRAP_TOPOLOGY_MISMATCH")
+    monkeypatch.setenv("WEB_CONCURRENCY", "abc")  # 해석 불가=검증 불가
+    assert reb.bootstrap_risk_exposure() is None
+    assert reb.last_bootstrap_reason() == (
+        "RISK_BOOTSTRAP_TOPOLOGY_MISMATCH")

@@ -8549,3 +8549,11 @@ ADAPTER_UNAVAILABLE)+worker>1 환경 신호 검증. chat_service: EXPOSE
 주석). pytest 2154·ruff·mypy 0(538)·manifest 일치.
 잔여: rerouting 시 모델별 context limit 재해소·kill switch/rollback
 e2e·worker=1 배포 preflight 문서·expose_pipeline 통합 감수 자료.
+
+## freeze 후 구현 3 — kill switch/rollback e2e·worker 검증·통합 감수 자료 (2026-07-17)
+
+kill switch e2e(전 조건 충족+switch=BYPASS)·rollback(off 전환=분기
+미실행 byte 복귀)·worker>1 신호=TOPOLOGY_MISMATCH fixture 3종(통합
+87종). 통합 pre-canary 감수 자료 doc/v2_2/RISK_EXPOSE_PRECANARY.md
+작성(잠금 상태·경로 계약·canary 전 사람 확인 5항·관측 계획·알려진
+한계). pytest 2157·ruff·mypy clean·manifest 일치.
