@@ -155,7 +155,7 @@ def test_budget_zero_when_no_qualified() -> None:
     eps = build_episodes(scored)
     selected, dropped = select_episodes(eps, scored, RiskBudgetPolicy())
     assert selected == []
-    assert dropped and dropped[0][1] == "no_qualified_representative"
+    assert dropped and dropped[0][1] == "NO_EXPOSABLE_REPRESENTATIVE"
 
 
 def test_one_episode_many_candidates_one_representative() -> None:
@@ -179,7 +179,7 @@ def test_one_episode_many_candidates_one_representative() -> None:
 
 
 def test_hard_max_selects_top_and_records_drops() -> None:
-    """서로 다른 episode 4 + hard_max 3 → 상위 3 선택 + 누락 이유 기록.
+    """서로 다른 episode 4 + hard_max 3 → 상위 3 선택 + 누락 taxonomy 기록.
 
     도메인 다양성 강제 없음 — 같은 도메인 episode 3개도 선택 가능.
     """
@@ -198,14 +198,30 @@ def test_hard_max_selects_top_and_records_drops() -> None:
     assert len(eps) == 4
     selected, dropped = select_episodes(eps, scored, RiskBudgetPolicy(hard_max=3))
     assert len(selected) == 3
-    assert any(reason == "hard_max_budget" for _, reason in dropped)
-    # 같은 effect role 중복은 budget 전에 제거된다.
-    dup_role = _cand(risk_id="LEG_DUP", legal_episode_id="e9",
-                     role="contract_termination", sources=(_PA_DAY,))
-    scored2 = _scored(cands + [dup_role])
-    eps2 = build_episodes(scored2)
-    _, dropped2 = select_episodes(eps2, scored2, RiskBudgetPolicy(hard_max=4))
-    assert any("duplicate_effect_role" in reason for _, reason in dropped2)
+    assert any(reason == "BUDGET_HARD_MAX" for _, reason in dropped)
+
+
+def test_same_role_distinct_episodes_not_hard_deduped() -> None:
+    """감수 35차: 다른 현실 episode의 같은 effect role·shared cause는 제거
+    금지(soft tie-break만) — 적격이 예산 이하면 중복이라도 전부 선택."""
+    exam1 = _cand(risk_id="SEL_D1", selection_episode_id="exam_1",
+                  role="result_wait_delay", sources=(_CHUNG,))
+    exam2 = _cand(risk_id="SEL_D2", selection_episode_id="exam_2",
+                  role="result_wait_delay", sources=(_CHUNG,))
+    scored = _scored([exam1, exam2])
+    eps = build_episodes(scored)
+    assert len(eps) == 2  # 서로 다른 실제 선발 건
+    selected, dropped = select_episodes(eps, scored, RiskBudgetPolicy(hard_max=3))
+    assert len(selected) == 2  # 같은 role·같은 cause라도 둘 다 보존
+    assert not dropped
+    # portfolio에선 같은 원인 1회.
+    diag = portfolio_diagnostics(eps, selected)
+    assert diag["unique_cause_count"] == 1
+    # 예산 초과 시에도 사유는 '중복 제거'가 아니라 우선도 taxonomy.
+    selected1, dropped1 = select_episodes(
+        eps, scored, RiskBudgetPolicy(hard_max=1))
+    assert len(selected1) == 1
+    assert dropped1[0][1] in ("BUDGET_HARD_MAX", "LOWER_PRIORITY")
 
 
 # ── recovery 1종(§13) — 점수·순위 완전 불변 ──────────────────────
@@ -234,3 +250,171 @@ def test_recovery_window_never_changes_scores_or_ranking() -> None:
               if ep.recovery_window is not None)
     assert rw.recovery_confidence <= 0.5
     assert rw.earliest_relief_window > "2026-01"
+
+
+# ── 감수 35차 보완 fixture ────────────────────────────────────────
+
+
+def test_same_local_string_different_axis_never_merges() -> None:
+    """같은 local 문자열 + 다른 context 축 → 병합 금지(축 namespace)."""
+    mob = _cand(risk_id="MOV_X", domain=RiskDomain.RELOCATION,
+                role="schedule_disruption", mobility_episode_id="case_1")
+    leg = _cand(risk_id="LEG_X", domain=RiskDomain.CONTRACT_LEGAL,
+                role="administrative_delay", legal_episode_id="case_1",
+                sources=(_HYEONG,))
+    eps = build_episodes(_scored([mob, leg]))
+    assert len(eps) == 2  # mobility:case_1 ≠ legal:case_1
+
+
+def test_reality_alias_merges_across_axes() -> None:
+    """다른 local id + 같은 reality_episode_id → 교차 도메인 episode 하나."""
+    mov = _cand(risk_id="MOV_X", domain=RiskDomain.RELOCATION,
+                role="contract_setback", mobility_episode_id="move_plan_1",
+                reality_episode_id="housing_contract_1")
+    leg = _cand(risk_id="LEG_X", domain=RiskDomain.CONTRACT_LEGAL,
+                role="document_defect", legal_episode_id="process_7",
+                sources=(_HYEONG,), reality_episode_id="housing_contract_1")
+    eps = build_episodes(_scored([mov, leg]))
+    assert len(eps) == 1
+    assert eps[0].episode_key == "reality:housing_contract_1"
+    assert set(eps[0].domains) == {RiskDomain.RELOCATION,
+                                   RiskDomain.CONTRACT_LEGAL}
+
+
+def test_same_local_id_conflicting_reality_alias_splits() -> None:
+    """같은 local id인데 reality alias 상충 → 병합 금지(후보 alias는 None —
+    엔진 fail-closed와 동일 원리, alias 명시 후보끼리는 alias별 분리)."""
+    a = _cand(risk_id="LEG_A", legal_episode_id="proc_1",
+              role="contract_termination", reality_episode_id="deal_1")
+    b = _cand(risk_id="LEG_B", legal_episode_id="proc_1",
+              role="administrative_delay", sources=(_HYEONG,),
+              reality_episode_id="deal_2")
+    eps = build_episodes(_scored([a, b]))
+    assert len(eps) == 2  # 같은 local id라도 현실 건이 다르면 분리
+
+
+def test_reality_alias_propagates_from_contexts(  # 엔진 전파 검증
+) -> None:
+    """엔진: 매칭된 컨텍스트의 reality_episode_id가 후보로 복사되고, 상충 시
+    None(fail-closed)."""
+    from pathlib import Path as _P
+
+    from saju_engines.risk_engine import (
+        LegalProcessContext,
+        RelationFact,
+        RiskEngine,
+        build_raw_period_facts,
+    )
+    from saju_shared_types.event_engine import (
+        LuckLayer,
+        Pillar4,
+        PolarityRole,
+        RelationKind,
+        TenGod,
+    )
+    engine = RiskEngine(
+        _P(__file__).resolve().parents[2] / "dictionaries")
+    facts = build_raw_period_facts(
+        period_key="2026", layer=LuckLayer.SEWOON,
+        ten_god_layers={TenGod.ZHENGYIN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.CHUNG, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGYIN)],
+        void_active=False, polarity_role=PolarityRole.GI, twelve_stage=None)
+    ctx = LegalProcessContext(
+        target_type="contract", stage="active_contract",
+        exposure_status=ExposureStatus.CONFIRMED,
+        process_episode_id="proc_1", reality_episode_id="housing_1")
+    trm = next(c for c in engine.generate(facts, legal_contexts=[ctx])
+               if c.risk_id == "LEG_CONTRACT_TERMINATION_RISK")
+    assert trm.reality_episode_id == "housing_1"
+
+
+def test_ownership_beats_score_and_specificity() -> None:
+    """primary ownership이 정렬 선두 — 점수·특이도 높은 비소유 후보가
+    소유 축 매칭 후보를 밀어내지 못한다."""
+    owner = _cand(risk_id="LEG_OWN", domain=RiskDomain.CONTRACT_LEGAL,
+                  role="administrative_delay", rank=2,
+                  legal_episode_id="e1",
+                  reality_episode_id="deal_1", sources=(_HYEONG,))
+    outsider = _cand(risk_id="FIN_OUT", domain=RiskDomain.FINANCE,
+                     role="financial_outflow", rank=3,
+                     reality_episode_id="deal_1",
+                     sources=(_CHUNG, _HYEONG))  # 더 높은 점수·특이도
+    scored = _scored([owner, outsider])
+    eps = build_episodes(scored)
+    assert len(eps) == 1
+    rep = eps[0].representative_candidate_id
+    assert rep is not None and rep.startswith("LEG_OWN|")
+
+
+def test_fallback_no_transitive_bridge() -> None:
+    """fallback은 완전 일치 그룹만 — pairwise 연쇄(transitive bridge)로
+    비호환 후보가 한 episode에 합쳐지지 않는다."""
+    a = _cand(risk_id="FIN_S", period="2026-01", family="fam_s",
+              sources=(_CHUNG,))
+    b = _cand(risk_id="FIN_S", period="2026-02", family="fam_s",
+              sources=(_CHUNG, _HYEONG))  # 원인 집합 상이 — 다른 fallback 그룹
+    c = _cand(risk_id="FIN_S", period="2026-03", family="fam_s",
+              sources=(_HYEONG,))
+    eps = build_episodes(_scored([a, b, c]))
+    assert len(eps) == 3  # A↔B·B↔C가 부분 겹쳐도 전체 병합 없음(exact-match)
+
+
+def test_episode_confidence_not_inflated_by_members() -> None:
+    """duplicate supporting 구성원 추가 → episode confidence 불변(대표 기준)."""
+    rep = _cand(risk_id="LEG_R", rank=3, legal_episode_id="e1",
+                role="contract_termination")
+    dup1 = _cand(risk_id="LEG_S1", rank=2, legal_episode_id="e1",
+                 role="document_defect",
+                 suppressed_by_specificity="LEG_R", primary_risk_id="LEG_R",
+                 absorbed_role="supporting_manifestation")
+    dup2 = _cand(risk_id="LEG_S2", rank=2, legal_episode_id="e1",
+                 role="document_defect",
+                 suppressed_by_specificity="LEG_R", primary_risk_id="LEG_R",
+                 absorbed_role="supporting_manifestation")
+    small = build_episodes(_scored([rep, dup1]))
+    big = build_episodes(_scored([rep, dup1, dup2]))
+    assert small[0].structural_confidence == big[0].structural_confidence
+    assert small[0].context_confidence == big[0].context_confidence
+
+
+def test_recovery_right_censored_and_multi_cause() -> None:
+    """recovery: 지평 끝 일시 비활성=stable 미산출(right-censored),
+    다른 primary cause 지속=earliest만(부분 완화)."""
+    # ① 지평 마지막 직전 종료 — quiet 1기간뿐 → stable None + censored 기록.
+    a = [_cand(risk_id="LEG_A", legal_episode_id="e1", period=p,
+               role="contract_termination")
+         for p in ("2026-01", "2026-02", "2026-03")]
+    scored = _scored(a)
+    eps = build_episodes(scored)
+    horizon = ["2026-01", "2026-02", "2026-03", "2026-04"]
+    out = attach_recovery_windows(eps, scored, horizon)
+    rw = out[0].recovery_window
+    assert rw is not None
+    assert rw.earliest_relief_window == "2026-04"
+    assert rw.stable_recovery_window is None  # quiet 1기간 — 우측 검열
+    assert "right_censored_quiet_span" in rw.recovery_reasons
+    # ② 충분한 quiet(2기간) → stable 산출·보수 confidence.
+    horizon2 = horizon + ["2026-05"]
+    out2 = attach_recovery_windows(eps, scored, horizon2)
+    rw2 = out2[0].recovery_window
+    assert rw2 is not None and rw2.stable_recovery_window == "2026-05"
+    assert rw2.recovery_confidence <= 0.5
+    # ③ 다중 cause — 하나 종료·하나 지평 끝까지 지속 → earliest만.
+    multi = [
+        _cand(risk_id="LEG_M", legal_episode_id="e2", period="2026-01",
+              role="legal_dispute", sources=(_CHUNG, _HYEONG)),
+        _cand(risk_id="LEG_M", legal_episode_id="e2", period="2026-02",
+              role="legal_dispute", sources=(_HYEONG,)),
+        _cand(risk_id="LEG_M", legal_episode_id="e2", period="2026-03",
+              role="legal_dispute", sources=(_HYEONG,)),
+        _cand(risk_id="LEG_M", legal_episode_id="e2", period="2026-04",
+              role="legal_dispute", sources=(_HYEONG,)),
+    ]
+    scored_m = _scored(multi)
+    eps_m = build_episodes(scored_m)
+    out_m = attach_recovery_windows(eps_m, scored_m, horizon)
+    rw_m = next(ep.recovery_window for ep in out_m
+                if ep.recovery_window is not None)
+    assert rw_m.stable_recovery_window is None
+    assert "other_primary_cause_ongoing" in rw_m.recovery_reasons

@@ -8131,3 +8131,15 @@ manifest 병기(scope shadow_selection 0/49 — 스탬프는 측정·감수 후)
 fixture 10종 전부 통과(병합 4·대표 2·budget 3·recovery 1). pytest 2012·mypy
 0(523)·전 baseline 불변. 다음: R2-b — 전수 episode 측정(코퍼스·프로필 overlay
 선별 밀도·대표 분포·budget 시뮬레이션) → R2-c 감수·스탬프.
+
+## R2-a 후속 — 감수 35차 확정 6건(R2-b 착수 전) (2026-07-16)
+
+①축 namespace+reality_episode_id alias(컨텍스트 5종·엔진 전파·상충 fail-closed·
+병합 우선순위 reality→explicit→fallback) ②대표 정렬 ownership 선두(잠정 도메인
+소유 축 매핑 — 감수 질문·policy hash) ③budget soft tie-break(같은 role·cause의
+다른 현실 episode 제거 금지·적격≤max 전부 선택·누락 taxonomy 3종) ④fallback
+transitive bridge 차단(완전 일치 그룹) ⑤recovery right-censoring(quiet 2기간·
+다중 cause 지속=earliest만·censored 기록) ⑥episode confidence 팽창 방지 fixture.
+r2.0.1-shadow. fixture 19종·pytest 2021·mypy 0·baseline 불변.
+다음: R2-b 전수 episode 측정(§12 지표 — 형성·병합 품질·대표·budget 시뮬레이션·
+recovery·portfolio) → R2-c 감수·shadow_selection 스탬프.

@@ -1151,3 +1151,40 @@ episode로 묶고, 같은 원인은 여러 episode에 연결돼도 포트폴리�
    대표 2(비노출 구체 vs 노출 일반 — 일반 대표·구체 background / vulnerability
    고득점 대표 불가), budget 3(적격 0→0 / episode 후보 5→대표 1 / episode 4·
    max 3→상위 3+누락 기록), recovery 1(추가→현재 점수·순위 byte 불변).
+
+### 20-1. R2-a 후속(감수 35차 확정 6건 — R2-b 착수 전) (2026-07-16)
+
+핵심 위험(데굴님): 이름이 우연히 같은 local episode 병합 / 같은 원인·role 이유의
+현실 episode 삭제 / 지평 끝 일시 비활성의 안정 회복 오판 — 전부 차단.
+
+1. **축 namespace + reality alias 계약**: local episode id는 (축, id) 서명이라
+   문자열 우연 일치로 병합 불가(fixture: mobility:case_1 ≠ legal:case_1). 교차
+   도메인 병합은 컨텍스트 5종에 신설한 `reality_episode_id`(명시 alias)가 유일
+   경로 — 엔진이 매칭 컨텍스트에서 후보로 복사(상충=None fail-closed). 병합
+   우선순위: reality alias → 축 explicit → fallback. 같은 local id+상충 alias=
+   분리(fixture).
+2. **대표 정렬에 primary ownership 선두**: 자격 필터(exposable·rankable>0·
+   비취약·비흡수)와 정렬(ownership→specificity→rankable→confidence→id) 분리.
+   ownership proxy=자기 도메인 소유 축 episode 직접 매칭(_DOMAIN_AXIS_EPISODE —
+   **잠정 매핑·감수 질문**, policy hash 포함). fixture: 점수·특이도 높은 비소유
+   FIN 후보가 LEG 소유 후보를 밀어내지 못함.
+3. **budget soft tie-break(hard dedup 폐지)**: 다른 현실 episode의 같은 effect
+   role·shared cause는 제거 금지 — 적격≤hard_max면 중복이라도 전부 선택(시험
+   결과 대기 2건 fixture: 둘 다 보존·portfolio 원인 1회), 초과 시 novelty(role
+   0.02·cause 0.01·domain 0.005 — 동점 수준)만 greedy 우선도에 가산. 누락
+   taxonomy: NO_EXPOSABLE_REPRESENTATIVE/BUDGET_HARD_MAX/LOWER_PRIORITY
+   (redundancy는 사유 아님).
+4. **fallback transitive over-merge 차단**: fallback 그룹은 (대상·원인·family)
+   완전 일치만 — pairwise 연쇄 bridge 불가(fixture: A↔B·B↔C 부분 겹침 → 3분리).
+5. **recovery right-censoring·quiet span·다중 cause**: earliest_relief=첫
+   primary cause 완화 다음 기간(confidence 0.2 보수) / stable=모든 primary
+   cause 종료+quiet 2 native 기간이 지평 안에 실재할 때만(0.4) / 지평 끝 일시
+   비활성=stable 미산출+`right_censored_quiet_span` 기록 / 한 cause 지속=
+   `other_primary_cause_ongoing`(earliest만). 점수·순위 불변 유지.
+6. **episode confidence 팽창 방지**: 대표 기준 집계(구성원 합산 없음) —
+   duplicate supporting 추가 fixture로 불변 고정.
+
+RISK_SELECTION_VERSION r2.0.0→**r2.0.1-shadow**(policy hash 갱신 — 병합 우선
+순위·ownership 매핑·soft budget·censoring 편입). fixture 10→**19종**. pytest
+2021·mypy 0(523)·전 baseline 지표 불변(profile 컨텍스트 해시 메타만 재기록).
+R2-b 측정 지표(§12)는 스크립트 설계에 반영 예정.

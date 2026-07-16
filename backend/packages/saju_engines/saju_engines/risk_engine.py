@@ -371,6 +371,8 @@ class SelectionContext:
     target_type: str | None = None  # employment_hiring/examination/... (None=UNKNOWN)
     # 익명 선발 episode 키(감수 25차) — 후보 identity·소유권·수렴 경계의 핵심.
     episode_id: str | None = None
+    # 교차 도메인 현실 건 alias(감수 35차) — 같은 현실 건의 타 축 컨텍스트 연결.
+    reality_episode_id: str | None = None
     # 이 선발 건에 대한 현실 노출 확인 수준 — UNKNOWN(기본)이면 전역 노출 인자 사용
     # (단수 시절 호출 하위 호환: 전역 exposure_status가 선발 노출을 대신 표현했다).
     exposure_status: ExposureStatus = ExposureStatus.UNKNOWN
@@ -493,6 +495,7 @@ class RelationshipContext:
     shared_responsibility: bool | None = None  # 돌봄·재정·주거·의사결정 책임(None=미확인)
     relationship_status: str | None = None  # 교제·별거 등 상태 — R1 소비 예약
     current_contact_state: str | None = None  # 교류 상태 — R1 소비 예약
+    reality_episode_id: str | None = None  # 교차 도메인 현실 건 alias(감수 35차)
     is_question_target: bool = False
 
 
@@ -549,6 +552,7 @@ class MobilityContext:
     # 익명 이동 계획 키(감수 19차) — 같은 시기의 서로 다른 계획(현 집 계약 종료 vs
     # 새 집 계약 vs 임시 숙소 vs 통근 조정)을 구분한다. 실명 주소 저장 금지.
     episode_id: str | None = None
+    reality_episode_id: str | None = None  # 교차 도메인 현실 건 alias(감수 35차)
     # 질문 직접 대상 여부(감수 19차) — True인 컨텍스트의 축이 항목 허용 밖이면
     # MISMATCHED(발령 질문에서 주거 이동 항목 차단). False 컨텍스트는 존재 정보일 뿐
     # (차량 등록만 있는 사용자의 이사 여부는 UNKNOWN — 다른 계획이 있을 수 있음).
@@ -666,6 +670,7 @@ class HealthContext:
     schedule_load: str | None = None  # regular/shift/irregular — R3 배선 예약(리듬 부담 축)
     exposure_status: ExposureStatus = ExposureStatus.UNKNOWN
     episode_id: str | None = None
+    reality_episode_id: str | None = None  # 교차 도메인 현실 건 alias(감수 35차)
     is_question_target: bool = False
 
 
@@ -773,6 +778,7 @@ class LegalProcessContext:
     document_responsibility: bool | None = None  # R1 예약
     response_obligation: bool | None = None  # R1 예약
     process_episode_id: str | None = None
+    reality_episode_id: str | None = None  # 교차 도메인 현실 건 alias(감수 35차)
     is_question_target: bool = False
 
 
@@ -1016,6 +1022,37 @@ class RiskEngine:
             생성된 원자 RiskCandidate 목록(관측 후보 포함 — 활성 판정은 is_active).
         """
         out: list[RiskCandidate] = []
+        # 단수 selection_context 정규화(항목 무관 — 루프 밖 1회).
+        sel_ctxs = list(selection_contexts or [])
+        if selection_context is not None:
+            sel_ctxs.append(selection_context)
+
+        def _reality_alias(
+            sel_ep: str | None, mob_ep: str | None,
+            hlt_ep: str | None, leg_ep: str | None,
+        ) -> str | None:
+            """매칭된 축 local episode들의 reality alias 해석(감수 35차).
+
+            해당 local id를 명시한 컨텍스트의 reality_episode_id를 모아 단일
+            값이면 채택, 상충하면 None(fail-closed). 축 namespace가 문자열 우연
+            일치 병합을 막고, 교차 축 병합은 이 alias만 허용한다.
+            """
+            found: set[str] = set()
+            for ctx_list, attr, ep in (
+                (sel_ctxs, "episode_id", sel_ep),
+                (mobility_contexts or [], "episode_id", mob_ep),
+                (health_contexts or [], "episode_id", hlt_ep),
+                (legal_contexts or [], "process_episode_id", leg_ep),
+            ):
+                if ep is None:
+                    continue
+                for ctx in ctx_list:
+                    if getattr(ctx, attr) == ep and (
+                        ctx.reality_episode_id is not None
+                    ):
+                        found.add(ctx.reality_episode_id)
+            return next(iter(found)) if len(found) == 1 else None
+
         for item in self._items:
             evidences: list[RiskEvidence] = []
             for role, section in _ROLE_SECTIONS:
@@ -1049,9 +1086,6 @@ class RiskEngine:
             # MISMATCHED는 명시적 부적용(BLOCKED — 단, 호환 episode가 있으면 그
             # episode가 우선·mismatch 전파 금지). UNKNOWN은 구조 보존. 단수
             # selection_context는 목록으로 정규화(두 입력 형태 결과 동일).
-            sel_ctxs = list(selection_contexts or [])
-            if selection_context is not None:
-                sel_ctxs.append(selection_context)
             # MobilityContext(감수 18~20차) — episode별 해석 목록: 같은 risk_id라도
             # 서로 다른 이동 계획이면 후보를 분리 보존한다(각 후보의 exposure·stage·
             # episode 독립 — identity는 risk_id+period+episode).
@@ -1139,6 +1173,9 @@ class RiskEngine:
                     health_episode_id=hlt_episode_id,
                     legal_alignment=leg_alignment,
                     legal_episode_id=leg_episode_id,
+                    reality_episode_id=_reality_alias(
+                        sel_episode_id, mob_episode_id, hlt_episode_id,
+                        leg_episode_id),
                     legal_stages=list(item.applicable_legal_stages),
                     relationship_alignment=rel_alignment,
                     relationship_role=rel_role,

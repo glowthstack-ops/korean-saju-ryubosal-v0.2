@@ -243,6 +243,11 @@ class RiskCandidate(BaseModel):
     # 사전 normalizedEffectRole 복사(감수 31차 — SSOT): compound '서로 다른 현실
     # 효과' 판정·교차 도메인 dedup 재료. 값 변경은 shadow_scoring scope만 강등.
     normalized_effect_role: str | None = None
+    # 교차 도메인 현실 건 alias(감수 35차 — R2): 같은 주택 계약을 MOV·LEG·FIN
+    # 컨텍스트가 공유할 때의 명시 연결값. 축별 local episode_id는 축 namespace로
+    # 구분되며(문자열 우연 일치 병합 금지), 교차 축 병합은 이 alias가 있을 때만.
+    # 매칭된 축 컨텍스트들의 reality id가 상충하면 None(fail-closed)이다.
+    reality_episode_id: str | None = None
     # 사전 absorbedRoleHint 복사(감수 16차) — 흡수 시 kind 기본값 대신 쓸 역할.
     # 관계 도메인 cross-family 흡수 허용 마커를 겸한다(감수 17차 — 미지정 항목은
     # 같은 상대·같은 원인이어도 family 밖 대표에 자동 흡수되지 않는다).
