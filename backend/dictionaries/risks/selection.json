@@ -123,12 +123,12 @@
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3-d"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
         "shadow_structure": "4f157d61cef09dfc"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "SEL_ELIGIBILITY_REVIEW_RISK",
@@ -250,12 +250,12 @@
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3-d"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
         "shadow_structure": "8b552e2ed88daff0"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "SEL_DRAW_OUTCOME_UNCERTAINTY",
@@ -377,12 +377,12 @@
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3-d"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
         "shadow_structure": "842e33c7a92781eb"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "SEL_RESULT_DELAY_PRESSURE",
@@ -503,12 +503,12 @@
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3-d"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
         "shadow_structure": "57f8388d6968e24e"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "SEL_WAITLIST_PROLONGATION",
@@ -618,12 +618,12 @@
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3-d"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
         "shadow_structure": "a52fd80b4eb9c447"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "SEL_UNWANTED_PLACEMENT",
@@ -736,6 +736,13 @@
       "claimCeiling": "warning",
       "note": "감수 3차 개정 — targeted 단독 경로 제거: 충+관성 동반(event_shape) AND 관성/사회궁 활성(target_activation) 필수, 독립 원인 1(등급은 R1 — 1원인 watch 상한). 선발·배치 코어 무작위성 캡 준수",
       "reviewed": true,
+      "applicableTargetTypes": [
+        "examination",
+        "public_selection",
+        "lottery_allocation",
+        "placement",
+        "procurement_bid"
+      ],
       "reviewScopes": [
         "shadow_structure"
       ],
@@ -745,14 +752,7 @@
       "reviewHashes": {
         "shadow_structure": "3b0e6485dda13fff"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
-      "applicableTargetTypes": [
-        "examination",
-        "public_selection",
-        "lottery_allocation",
-        "placement",
-        "procurement_bid"
-      ]
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "SEL_COMPETITION_INTENSIFY",
@@ -869,23 +869,23 @@
       },
       "note": "C3 개정 — 비겁-관성만으로 부족: selection_target_activation(심사 관문 피격) + competition_shape(비겁+관성 결합) 필수. 경쟁 평가 전용(applicableSelectionModes) — 추첨·자격 심사·배치는 별도 구조(LOTTERY/ELIGIBILITY/PLACEMENT). 경쟁 심화는 탈락 후보의 occurrence trigger가 아니라 배경 압박/amplifier. UNKNOWN='지원 계획이 있다면' advisory · 대상 연결 필수 · 사용자 라벨='선발 경쟁 부담' · 선발 방식 UNKNOWN이면 경쟁 평가 가정 금지(fallback 미저작 — is_exposable=false, R3)",
       "reviewed": true,
-      "reviewScopes": [
-        "shadow_structure"
-      ],
-      "reviewVersions": {
-        "shadow_structure": "C3"
-      },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
-      "reviewHashes": {
-        "shadow_structure": "8cf5d79d29d83035"
-      },
       "applicableTargetTypes": [
         "examination",
         "public_selection",
         "lottery_allocation",
         "placement",
         "procurement_bid"
-      ]
+      ],
+      "reviewScopes": [
+        "shadow_structure"
+      ],
+      "reviewVersions": {
+        "shadow_structure": "R0.5"
+      },
+      "reviewHashes": {
+        "shadow_structure": "8cf5d79d29d83035"
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     }
   ]
 }

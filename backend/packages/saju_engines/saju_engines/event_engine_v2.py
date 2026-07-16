@@ -198,6 +198,7 @@ class EventEngineV2:
         self._risk_shadow_mobility: list[MobilityContext] | None = None
         self._risk_shadow_health: list[HealthContext] | None = None
         self._risk_shadow_legal: list[LegalProcessContext] | None = None
+        self._risk_shadow_selections: list[SelectionContext] | None = None
         try:
             self._risk: RiskEngine | None = RiskEngine(dictionaries_dir)
         except FileNotFoundError:
@@ -560,6 +561,7 @@ class EventEngineV2:
     def set_risk_shadow_contexts(
         self,
         selection_context: SelectionContext | None = None,
+        selection_contexts: list[SelectionContext] | None = None,
         relationship_contexts: list[RelationshipContext] | None = None,
         mobility_contexts: list[MobilityContext] | None = None,
         health_contexts: list[HealthContext] | None = None,
@@ -571,6 +573,7 @@ class EventEngineV2:
         긍정 파이프라인·LLM 입력에는 어떤 영향도 없다(risk_shadow 사이드채널 한정).
         """
         self._risk_shadow_selection = selection_context
+        self._risk_shadow_selections = selection_contexts
         self._risk_shadow_relationships = relationship_contexts
         self._risk_shadow_mobility = mobility_contexts
         self._risk_shadow_health = health_contexts
@@ -624,6 +627,7 @@ class EventEngineV2:
         self.risk_shadow.extend(self._risk.generate(
             facts,
             selection_context=self._risk_shadow_selection,
+            selection_contexts=self._risk_shadow_selections,
             relationship_contexts=self._risk_shadow_relationships,
             mobility_contexts=self._risk_shadow_mobility,
             health_contexts=self._risk_shadow_health,

@@ -494,6 +494,9 @@ def _build_exposure_profiles() -> list[tuple[str, dict]]:
     C high_exposure: 서로 다른 익명 episode 복수 병존(채용 결과 대기+이사 계약+진행
       계약+파트너+치료 중) — R2 risk budget 상한 측정. boolean 무차별 true 금지
       (인위적 후보 폭발이 아니라 현실 상한을 잰다).
+    D multi_selection(감수 25차 — SEL-e 회귀): 서로 다른 target type 병존 + 동일
+      target type 복수 episode 병존을 동시에 검증 — 채용(결과 대기)+시험 2건
+      (assessment/결과 대기)+추첨(draw). C의 의미는 바꾸지 않는다(역사 비교 유지).
     """
     from saju_engines.risk_engine import (
         HealthContext,
@@ -530,8 +533,28 @@ def _build_exposure_profiles() -> list[tuple[str, dict]]:
             exposure_status=ExposureStatus.CONFIRMED,
             process_episode_id="active_contract_1")],
     )
+    multi_selection = dict(
+        selection_contexts=[
+            SelectionContext(
+                target_type="employment_hiring", stage="result_wait",
+                exposure_status=ExposureStatus.CONFIRMED,
+                episode_id="employment_hiring_1"),
+            SelectionContext(
+                target_type="examination", stage="assessment",
+                exposure_status=ExposureStatus.CONFIRMED,
+                episode_id="examination_1"),
+            SelectionContext(
+                target_type="examination", stage="result_wait",
+                exposure_status=ExposureStatus.CONFIRMED,
+                episode_id="examination_2"),
+            SelectionContext(
+                mode="lottery_draw", target_type="lottery_allocation",
+                stage="draw", exposure_status=ExposureStatus.CONFIRMED,
+                episode_id="lottery_draw_1"),
+        ],
+    )
     return [("A_all_unknown", {}), ("B_typical_confirmed", typical),
-            ("C_high_exposure", high)]
+            ("C_high_exposure", high), ("D_multi_selection", multi_selection)]
 
 
 def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
@@ -551,9 +574,15 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
         blocked_by_domain: Counter = Counter()
         blocked_by_risk: Counter = Counter()
         blocked_by_reason: Counter = Counter()
-        blocked_reason_occurrences = 0
-        # selection 축 사유 조합 분해(감수 25차 표기 보완) — 한 후보가 target_type과
-        # stage 사유를 동시에 가질 수 있어 사유 합계는 unique 후보 수를 초과한다.
+        # blocked 집계 3층(감수 25차 정의 확정 — 데굴님 §4):
+        # unique(후보 identity 중복 제거) / unique candidate×reason pair(후보+사유
+        # 코드 중복 제거 — 조합표와 같은 모집단은 selection 축 pair) / raw rule hit
+        # (동일 사유의 복수 기록 포함). 한 후보가 selection 축 사유와 증거 미충족
+        # 사유(evidence_groups_unmet 등)를 동시에 가질 수 있어 전체 pair는 축 pair를
+        # 초과한다 — 축 조합표와 비교할 값은 selection_axis_reason_pairs다.
+        blocked_reason_pairs = 0  # 후보×사유 중복 제거(전 사유)
+        blocked_raw_rule_hits = 0  # 중복 포함 원시 기록 수
+        blocked_axis_pairs = 0  # selection 축 2종만의 후보×사유 pair
         blocked_axis_combo: Counter = Counter()
         active_by_risk: Counter = Counter()
         expo_fam_pp: dict[str, set[str]] = defaultdict(set)
@@ -576,14 +605,16 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
                     blocked += 1
                     blocked_by_domain[c.domain.value] += 1
                     blocked_by_risk[c.risk_id] += 1
-                    for r in c.suppression_reasons:
+                    blocked_raw_rule_hits += len(c.suppression_reasons)
+                    unique_reasons = set(c.suppression_reasons)
+                    blocked_reason_pairs += len(unique_reasons)
+                    for r in sorted(unique_reasons):
                         blocked_by_reason[r] += 1
-                        blocked_reason_occurrences += 1
-                    if any(r.endswith("_mismatch") for r in c.suppression_reasons):
+                    if any(r.endswith("_mismatch") for r in unique_reasons):
                         mismatched += 1
-                    has_target = "selection_target_type_mismatch" in (
-                        c.suppression_reasons)
-                    has_stage = "selection_stage_mismatch" in c.suppression_reasons
+                    has_target = "selection_target_type_mismatch" in unique_reasons
+                    has_stage = "selection_stage_mismatch" in unique_reasons
+                    blocked_axis_pairs += int(has_target) + int(has_stage)
                     if has_target and has_stage:
                         blocked_axis_combo["target_type_and_stage"] += 1
                     elif has_target:
@@ -603,7 +634,8 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
                     seen_dfp.add(key)
                     dom_fam[c.domain.value] += 1
                 for axis in ("legal_episode_id", "mobility_episode_id",
-                             "health_episode_id", "relationship_target_id"):
+                             "health_episode_id", "relationship_target_id",
+                             "selection_episode_id"):
                     ep = getattr(c, axis)
                     if ep is not None:
                         episode_counts[f"{axis.rsplit('_', 1)[0]}:{ep}"] += 1
@@ -619,6 +651,14 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
                                     c.domain.value)
         fams = [len(v) for v in fam_pp.values()] or [0]
         expo_fams = [len(v) for v in expo_fam_pp.values()] or [0]
+        # 집계 불변식(감수 25차 — baseline 기록 전 기계 검증): 축 조합 분해 합 =
+        # 축 사유를 가진 unique 후보 수 ≤ 전체 unique, only+only+2×both = 축 pair.
+        combo_total = sum(blocked_axis_combo.values())
+        assert combo_total <= blocked, (name, combo_total, blocked)
+        assert (blocked_axis_combo.get("target_type_only", 0)
+                + blocked_axis_combo.get("stage_only", 0)
+                + 2 * blocked_axis_combo.get("target_type_and_stage", 0)
+                ) == blocked_axis_pairs, name
         out[name] = {
             "periods": periods,
             "active_total": len(active),
@@ -637,7 +677,9 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
                 1 for doms in atom_domains.values() if len(doms) >= 2),
             "unknown_retained": len(active) - exposable_n,
             "blocked_unique_candidates": blocked,
-            "blocked_reason_occurrences": blocked_reason_occurrences,
+            "blocked_unique_candidate_reason_pairs": blocked_reason_pairs,
+            "blocked_raw_rule_hits": blocked_raw_rule_hits,
+            "blocked_selection_axis_reason_pairs": blocked_axis_pairs,
             "blocked_mismatched": mismatched,
             "blocked_selection_axis_combo": dict(sorted(blocked_axis_combo.items())),
             "blocked_by_domain": dict(sorted(blocked_by_domain.items())),
@@ -675,8 +717,12 @@ def _profile_scenario_report(levels: set[GanjiLevel], corpus) -> None:
               f"{m['cross_domain_shared_causes']}")
         print(f"  UNKNOWN 보존(활성·비노출): {m['unknown_retained']} · "
               f"blocked_unique_candidates {m['blocked_unique_candidates']}"
-              f"(축 MISMATCHED {m['blocked_mismatched']}) · "
-              f"blocked_reason_occurrences {m['blocked_reason_occurrences']}")
+              f"(축 MISMATCHED {m['blocked_mismatched']})")
+        print(f"  blocked 3층: unique {m['blocked_unique_candidates']} · "
+              f"candidate×reason pairs {m['blocked_unique_candidate_reason_pairs']}"
+              f"(target·stage 축만 {m['blocked_selection_axis_reason_pairs']} — "
+              f"mode 사유는 분해표 밖·사유 목록에 표시) · "
+              f"raw rule hits {m['blocked_raw_rule_hits']}")
         print("  blocked 축 조합(selection): " + (", ".join(
             f"{k}={v}" for k, v in m["blocked_selection_axis_combo"].items())
             or "없음"))

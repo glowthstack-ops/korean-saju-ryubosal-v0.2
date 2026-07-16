@@ -1,8 +1,9 @@
 # 위험 엔진 3프로필 노출 단계 baseline (감수 24차 — R1 진입 게이트)
 
-> 최종 고정: 2026-07-16 · C8-f(PENALTY→COMPLIANCE_OBLIGATION_PRESSURE 재분류) 반영 ·
-> env risk-engine-r0.5.11 · 해시 v8 · reviewed 49(전 도메인 unreviewed 0) ·
-> 코퍼스 seoul-busan-10 (year+month, 220기간)
+> 최종 고정: 2026-07-16 · SEL-e(다중 선발 episode — 감수 25차) 반영 ·
+> env risk-engine-r0.5.12 · 해시 v8 · reviewed 49(전 도메인 unreviewed 0) ·
+> 코퍼스 seoul-busan-10 (year+month, 220기간) · A/B/C 지표는 C8-f 고정본과 완전
+> 동일(의도 변화 없음 확인), D_multi_selection 신설
 >
 > **용도**: TYP-0(테스트 타입 부채 정리) 전후·R1 착수 전 지표 **완전 일치** 비교 기준
 > (허용 오차 없음 — TYP-0은 런타임 동작 불변 차수).
@@ -18,56 +19,61 @@
 | A `all_unknown` | 전 컨텍스트 미확인·질문 대상 없음 | projected 하한(required_for_warning advisory만) |
 | B `typical_confirmed` | 파트너 확인(partner_1) + 일반 건강 질문(상태 미확인) + 진행 중 계약 1건(contract_1). 이사·소송·치료·대인 금전거래 없음 | 일반 사용자 노출 밀도 |
 | C `high_exposure` | 채용 결과 대기 + 이사 계약(housing_move_1) + 진행 계약(active_contract_1) + 파트너(partner_1) + 치료 중(treatment_1) — 전부 서로 다른 익명 episode, boolean 무차별 true 금지 | R2 risk budget 상한 |
+| D `multi_selection` | employment_hiring_1(result_wait) + examination_1(assessment) + examination_2(result_wait) + lottery_draw_1(draw·lottery_draw) — 서로 다른 target type 병존과 **동일 target type 복수 episode 병존**을 동시 검증(SEL-e 회귀). C의 의미 불변 | 다중 선발 episode 정확성 |
 
 제약: 직업 역할(전역 노출 축)은 R5 프로필 배선 전이라 3프로필 모두 UNKNOWN —
 career 구체 항목(required_for_exposure)은 하한으로 측정된다.
 
-## 측정 결과 (2026-07-16 C8-f 반영 최종 고정)
+## 측정 결과 (2026-07-16 SEL-e 반영 최종 고정 — A/B/C는 C8-f와 동일)
 
-| 지표 | A all_unknown | B typical | C high |
-|---|---|---|---|
-| 활성/기간 | 4.15 | 4.16 | 3.87 |
-| context-exposable/기간 | **1.28** | **1.56** | **1.64** |
-| kind(활성) incident/pressure/vuln | 192/451/271 | 198/446/271 | 171/409/271 |
-| 활성 family/기간 p50·p90·max | 4·8·13 | 4·8·13 | 4·7·11 |
-| 노출 가능 family/기간 p50·p90·max | 2·3·6 | 2·4·6 | 2·4·6 |
-| 단일 원인 family 확산 max | 9 | 9 | 7 |
-| 교차 도메인 공유 원인(기간·원인) | 398 | 399 | 372 |
-| UNKNOWN 보존(활성·비노출) | 633 | 571 | 490 |
-| BLOCKED(축 MISMATCHED) | 0(0) | 0(0) | 468(468) |
+| 지표 | A all_unknown | B typical | C high | D multi_sel |
+|---|---|---|---|---|
+| 활성/기간 | 4.15 | 4.16 | 3.87 | 4.24 |
+| context-exposable/기간 | **1.28** | **1.56** | **1.64** | **1.58** |
+| kind(활성) incident/pressure/vuln | 192/451/271 | 198/446/271 | 171/409/271 | 213/449/271 |
+| 활성 family/기간 p50·p90·max | 4·8·13 | 4·8·13 | 4·7·11 | 4·7·13 |
+| 노출 가능 family/기간 p50·p90·max | 2·3·6 | 2·4·6 | 2·4·6 | 2·4·8 |
+| 단일 원인 family 확산 max | 9 | 9 | 7 | 9 |
+| 교차 도메인 공유 원인(기간·원인) | 398 | 399 | 372 | 392 |
+| UNKNOWN 보존(활성·비노출) | 633 | 571 | 490 | 586 |
+| blocked_unique_candidates(축 MISMATCHED) | 0(0) | 0(0) | 468(468) | 202(202) |
 
 episode별 활성 후보:
 - B: legal:contract_1=32 · relationship:partner_1=36
 - C: health:treatment_1=6 · legal:active_contract_1=32 · mobility:housing_move_1=38 ·
   relationship:partner_1=36
 
-BLOCKED 분해(C — 데굴님 §3 요구, 감수 25차 표기 보완):
-- **blocked_unique_candidates = 468** vs **blocked_reason_occurrences = 927**
-  (한 후보가 복수 사유를 동시 보유 — 두 수치는 다른 지표다).
-- 도메인: **selection=468 (전량)** — 타 도메인 차단 0.
-- 사유(발생 기준): selection_target_type_mismatch 266 · selection_stage_mismatch
-  254 · evidence_groups_unmet 406 · targets_unlinked 1.
-- selection 축 조합(unique 후보 기준): target_type_only 214 · stage_only 202 ·
-  target_type_and_stage 52 (합 = 468).
+BLOCKED 집계 3층(감수 25차 정의 확정 — 스크립트에 불변식 assert 내장):
+- **blocked_unique_candidates**(후보 identity 중복 제거) /
+  **blocked_unique_candidate_reason_pairs**(후보×사유 코드 중복 제거 — 전 사유) /
+  **blocked_raw_rule_hits**(동일 사유 복수 기록 포함).
+- C: unique **468** · pairs **927**(target·stage 축만 **520** — 나머지 407은
+  evidence_groups_unmet 406 + targets_unlinked 1) · raw hits 927.
+- 축 조합(unique 후보): target_type_only 214 + stage_only 202 +
+  target_type_and_stage 52 = 468 ✓ / 214 + 202 + 2×52 = 520 = 축 pair ✓.
+- D: unique **202** · pairs 431(축 pair 202 — stage_only 202) · 도메인 전량
+  selection. mode 사유(49)는 stage 사유와 동반(분해표 밖·사유 목록 표시).
+- 도메인: C·D 모두 selection 전량 — 타 도메인 오차단 0.
 
 도메인 기여도(unique 기간·family):
 - A: LEG 193 / REL 159 / FIN 152 / HLT 135 / MOV 102 / CAR 52 / SEL 45
 - B: LEG 193 / REL 154 / FIN 152 / HLT 135 / MOV 102 / CAR 52 / SEL 45
 - C: LEG 193 / REL 154 / FIN 152 / HLT 135 / MOV 99 / CAR 52 / **SEL 0**
 
-## SEL 45→0 차단 범위 확인 (감수 24차 추가 확인 지시)
+## D_multi_selection 필수 결과 (감수 25차 — SEL-e 해소 확인)
 
-- blocked 분해로 확정: C의 차단 468건 전량이 selection 도메인·selection 축 사유 —
-  employment_hiring 컨텍스트에 의한 소유권 차단이며 타 도메인 오차단 없음.
-- **프로필 C의 선발 episode는 채용 1건뿐이므로 이 baseline은 정상**(채용 관련 선발
-  후보 차단 = CAR primary 라우팅).
-- **한계(감수 질문 — R1 전 결정 필요)**: 현재 SelectionContext는 단수이며 episode
-  개념이 없다(C3-d 설계). 따라서 "employment_hiring_1 + general_selection_1 동시
-  존재" 시나리오는 **엔진이 표현 자체를 못 하며**, 그런 사용자가 실재하면 채용
-  컨텍스트가 일반 선발 후보까지 전역 차단한다. 데굴님 불변식(각 episode가 자기
-  선발 후보를 유지·병존)을 충족하려면 selection 축도 이동·건강·법률처럼 복수
-  컨텍스트+episode_id로 확장해야 한다(SEL-e 차수 — 엔진 의미 변경·env 갱신 수반).
-  확장 전까지 R3/R5 배선에서 selection 컨텍스트는 질문 대상 선발 1건만 주입한다.
+- **episode별 활성 후보**: employment_hiring_1=4 · examination_1=25 ·
+  examination_2=32 · lottery_draw_1=23 — 서로 다른 target type 병존과 동일
+  target type 복수 episode(시험 2건) 병존이 모두 보존된다.
+- **채용 episode의 차단이 다른 episode로 전파되지 않음**: D의 BLOCKED 202는
+  전량 stage 사유(waitlist·eligibility_check 등 실재하지 않는 단계의 항목) —
+  C에서 468이던 소유권 차단이 D에선 시험·추첨 episode가 살아 있어 202로 줄고
+  SEL 기여 0→33으로 복원된다.
+- **exposable 밀도 1.58/기간·family p90 4**: episode 4건 병존에도 노출 후보가
+  무제한 비례 증가하지 않는다(R2 선별 ≤3 입력 규모 유지, family max 6→8).
+- 감수 24차에 기록했던 단수 SelectionContext 한계는 SEL-e(env r0.5.12)로 해소 —
+  R3/R5의 '질문 대상 선발 1건만 주입' 임시 제약도 함께 해제 가능(배선 시점에
+  복수 episode 공급으로 전환).
 
 ## 해석
 

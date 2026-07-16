@@ -1,12 +1,12 @@
 {
  "meta": {
-  "baseline_commit": "a7cf3f8",
+  "baseline_commit": "1cc7785",
   "corpus_version": "seoul-busan-10 (year+month)",
-  "dictionary_hash": "e5173b6e039e38c2",
-  "generated_at": "2026-07-15T23:53:44+00:00",
+  "dictionary_hash": "66856ddc4f61d0a5",
+  "generated_at": "2026-07-16T00:30:56+00:00",
   "hash_schema_version": 8,
-  "profile_context_hash": "6c5246d728a47009",
-  "review_environment_version": "risk-engine-r0.5.11"
+  "profile_context_hash": "99006f94fc5fa828",
+  "review_environment_version": "risk-engine-r0.5.12"
  },
  "profiles": {
   "A_all_unknown": {
@@ -63,8 +63,10 @@
    "blocked_by_reason": {},
    "blocked_by_risk_id": {},
    "blocked_mismatched": 0,
-   "blocked_reason_occurrences": 0,
+   "blocked_raw_rule_hits": 0,
    "blocked_selection_axis_combo": {},
+   "blocked_selection_axis_reason_pairs": 0,
+   "blocked_unique_candidate_reason_pairs": 0,
    "blocked_unique_candidates": 0,
    "cross_domain_shared_causes": 398,
    "domain_family_contribution": {
@@ -152,8 +154,10 @@
    "blocked_by_reason": {},
    "blocked_by_risk_id": {},
    "blocked_mismatched": 0,
-   "blocked_reason_occurrences": 0,
+   "blocked_raw_rule_hits": 0,
    "blocked_selection_axis_combo": {},
+   "blocked_selection_axis_reason_pairs": 0,
+   "blocked_unique_candidate_reason_pairs": 0,
    "blocked_unique_candidates": 0,
    "cross_domain_shared_causes": 399,
    "domain_family_contribution": {
@@ -253,12 +257,14 @@
     "SEL_WAITLIST_PROLONGATION": 43
    },
    "blocked_mismatched": 468,
-   "blocked_reason_occurrences": 927,
+   "blocked_raw_rule_hits": 927,
    "blocked_selection_axis_combo": {
     "stage_only": 202,
     "target_type_and_stage": 52,
     "target_type_only": 214
    },
+   "blocked_selection_axis_reason_pairs": 520,
+   "blocked_unique_candidate_reason_pairs": 927,
    "blocked_unique_candidates": 468,
    "cross_domain_shared_causes": 372,
    "domain_family_contribution": {
@@ -295,6 +301,112 @@
    "max_cause_fanout": 7,
    "periods": 220,
    "unknown_retained": 490
+  },
+  "D_multi_selection": {
+   "active_by_risk_id": {
+    "CAR_EVALUATION_SETBACK_RISK": 9,
+    "CAR_EXIT_PRESSURE": 6,
+    "CAR_HIRING_PROCESS_DELAY": 4,
+    "CAR_ORG_CONFLICT": 7,
+    "CAR_REASSIGNMENT_RISK": 19,
+    "CAR_WORK_OVERLOAD": 13,
+    "FIN_BUFFER_WEAK": 62,
+    "FIN_CASHFLOW_PRESSURE": 81,
+    "FIN_DEBT_GUARANTEE_BURDEN": 6,
+    "FIN_INCOME_DELAY": 4,
+    "FIN_INVESTMENT_LOSS": 11,
+    "FIN_SETTLEMENT_DISPUTE": 14,
+    "FIN_UNEXPECTED_EXPENSE": 16,
+    "HLT_CHECKUP_NEED": 1,
+    "HLT_FATIGUE_ACCUMULATION": 13,
+    "HLT_FOCUS_DROP": 45,
+    "HLT_PHYSICAL_WORKLOAD_STRAIN": 9,
+    "HLT_RECOVERY_CAPACITY_WEAK": 62,
+    "HLT_TREATMENT_RECOVERY_LOAD": 6,
+    "LEG_ADMIN_DELAY": 72,
+    "LEG_COMPLIANCE_OBLIGATION_PRESSURE": 11,
+    "LEG_CONTRACT_TERMINATION_RISK": 10,
+    "LEG_DISPUTE_RISK": 5,
+    "LEG_DOCUMENT_ERROR": 7,
+    "LEG_LITIGATION_PROCESS_BURDEN": 7,
+    "LEG_REVIEW_CAPACITY_WEAK": 90,
+    "MOV_COMMUTE_BURDEN": 24,
+    "MOV_CONTRACT_SETBACK_RISK": 10,
+    "MOV_HOUSING_DEFECT_RISK": 4,
+    "MOV_RELOCATION_PRESSURE": 31,
+    "MOV_SCHEDULE_DISRUPTION": 3,
+    "MOV_VEHICLE_TRANSPORT_ISSUE": 30,
+    "REL_COMMUNICATION_MISALIGNMENT": 6,
+    "REL_DISTANCE_PRESSURE": 33,
+    "REL_EMOTIONAL_CLASH": 17,
+    "REL_FAMILY_BURDEN": 44,
+    "REL_PARTNER_READJUST": 36,
+    "REL_PEER_FINANCIAL_ENTANGLEMENT_RISK": 13,
+    "REL_TRUST_STABILITY_WEAK": 12,
+    "SEL_COMPETITION_INTENSIFY": 18,
+    "SEL_DRAW_OUTCOME_UNCERTAINTY": 7,
+    "SEL_RESULT_DELAY_PRESSURE": 7,
+    "SEL_UNWANTED_PLACEMENT": 48
+   },
+   "active_per_period": 4.2409,
+   "active_total": 933,
+   "blocked_by_domain": {
+    "selection": 202
+   },
+   "blocked_by_reason": {
+    "evidence_groups_unmet": 180,
+    "selection_mode_mismatch": 49,
+    "selection_stage_mismatch": 202
+   },
+   "blocked_by_risk_id": {
+    "SEL_DOCUMENT_DEFECT_RISK": 110,
+    "SEL_ELIGIBILITY_REVIEW_RISK": 49,
+    "SEL_WAITLIST_PROLONGATION": 43
+   },
+   "blocked_mismatched": 202,
+   "blocked_raw_rule_hits": 431,
+   "blocked_selection_axis_combo": {
+    "stage_only": 202
+   },
+   "blocked_selection_axis_reason_pairs": 202,
+   "blocked_unique_candidate_reason_pairs": 431,
+   "blocked_unique_candidates": 202,
+   "cross_domain_shared_causes": 392,
+   "domain_family_contribution": {
+    "career": 52,
+    "contract_legal": 193,
+    "finance": 152,
+    "health_safety": 135,
+    "relationship": 159,
+    "relocation": 102,
+    "selection": 33
+   },
+   "episode_active_counts": {
+    "selection_episode:employment_hiring_1": 4,
+    "selection_episode:examination_1": 25,
+    "selection_episode:examination_2": 32,
+    "selection_episode:lottery_draw_1": 23
+   },
+   "exposable_family_per_period": {
+    "max": 8,
+    "p50": 2.0,
+    "p90": 4.0
+   },
+   "exposable_per_period": 1.5773,
+   "exposable_total": 347,
+   "family_per_period": {
+    "max": 13,
+    "p50": 4.0,
+    "p90": 7.0
+   },
+   "kind": {
+    "incident_risk": 213,
+    "pressure": 449,
+    "vulnerability": 271
+   },
+   "max_cause_fanout": 9,
+   "periods": 220,
+   "unknown_retained": 586
   }
  }
 }

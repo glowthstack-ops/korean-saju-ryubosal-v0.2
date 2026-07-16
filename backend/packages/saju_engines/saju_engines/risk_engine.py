@@ -277,6 +277,15 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
                     and c.legal_episode_id != primary.legal_episode_id
                 ):
                     continue
+                # 선발 episode 상이(감수 25차 — SEL-e): 서로 다른 선발 건은 같은
+                # 원인을 공유해도 자동 흡수하지 않는다(취업 결과 대기 vs 자격시험 —
+                # 각자 자기 episode의 후보 보존, R1 shared cause 1회 계산은
+                # trigger_cause_atoms 연결이 담당).
+                if (
+                    c.selection_episode_id and primary.selection_episode_id
+                    and c.selection_episode_id != primary.selection_episode_id
+                ):
+                    continue
                 if (
                     primary.legal_stages and c.legal_stages
                     and not (set(primary.legal_stages) & set(c.legal_stages))
@@ -342,17 +351,30 @@ def _absorbed_role(absorbed: RiskCandidate, primary: RiskCandidate) -> str:
 
 @dataclass(frozen=True)
 class SelectionContext:
-    """현실 선발 컨텍스트(감수 14차) — 질문·프로필에서 확인된 mode/stage/대상 유형.
+    """현실 선발 컨텍스트 1건(감수 14차 → 25차 SEL-e 확장) — mode/stage/대상 유형.
 
     None = UNKNOWN(정보 부족 — 구조 보존, 특정 표현 금지). 값이 있는데 항목의 허용
-    목록 밖이면 MISMATCHED(BLOCKED — 임의 fallback 금지). mode와 stage는 상호 자동
-    추론 금지: stage=draw여도 mode를 lottery로 가정하지 않는다. target_type은 CAR·SEL
-    소유권(채용=CAR primary) — context_target_signature의 선발·직업 도메인 구현체.
+    목록 밖이면 MISMATCHED(임의 fallback 금지). mode와 stage는 상호 자동 추론 금지:
+    stage=draw여도 mode를 lottery로 가정하지 않는다. target_type은 CAR·SEL 소유권
+    (채용=CAR primary) — context_target_signature의 선발·직업 도메인 구현체.
+
+    SEL-e(감수 25차): 복수 선발 episode 지원 — 취업 지원 결과 대기와 별도 자격시험·
+    추첨 지원이 동시에 실재할 수 있다. episode_id는 target_type과 별개의 명시 키다
+    (같은 유형의 선발 2건 병존 — examination_1/examination_2). is_question_target
+    기본 True인 이유: 선발 컨텍스트의 기존 공급원은 질문 파싱(질문 대상)뿐이라
+    단수 시절 의미(축 밖 질문 대상 = BLOCKED)를 보존한다 — 프로필·등록 유래의
+    '존재 정보' 컨텍스트는 False를 명시한다.
     """
 
     mode: str | None = None  # competitive_assessment/lottery_draw/... (None=UNKNOWN)
     stage: str | None = None  # application_document/.../waitlist (None=UNKNOWN)
     target_type: str | None = None  # employment_hiring/examination/... (None=UNKNOWN)
+    # 익명 선발 episode 키(감수 25차) — 후보 identity·소유권·수렴 경계의 핵심.
+    episode_id: str | None = None
+    # 이 선발 건에 대한 현실 노출 확인 수준 — UNKNOWN(기본)이면 전역 노출 인자 사용
+    # (단수 시절 호출 하위 호환: 전역 exposure_status가 선발 노출을 대신 표현했다).
+    exposure_status: ExposureStatus = ExposureStatus.UNKNOWN
+    is_question_target: bool = True
 
 
 def _axis_alignment(ctx_value: str | None, allowed: list[str]) -> str:
@@ -362,6 +384,89 @@ def _axis_alignment(ctx_value: str | None, allowed: list[str]) -> str:
     if ctx_value is None:
         return "unknown"
     return "matched" if ctx_value in allowed else "mismatched"
+
+
+_SELECTION_AXES = ("mode", "stage", "target_type")
+
+
+def _item_selection_gated(item: RiskItem) -> bool:
+    """선발 축이 있는 항목인가 — episode별 해석 대상."""
+    return bool(
+        item.applicable_selection_modes or item.applicable_selection_stages
+        or item.applicable_target_types
+    )
+
+
+def _resolve_selection_all(
+    item: RiskItem,
+    contexts: list[SelectionContext],
+) -> list[tuple[str, str | None, ExposureStatus | None, bool, list[str]]]:
+    """선발 축 episode별 해석(감수 25차 — SEL-e) → (alignment, episode_id,
+    유효 노출(None=전역 사용), context_conflict, mismатch 축 목록).
+
+    이동·건강·법률과 동일 원리 + 선발 고유 규칙 둘:
+
+    - **결정적 병합·보완**: 같은 episode의 중복 컨텍스트는 입력 순서와 무관하게
+      병합한다 — 축별로 명시 값이 하나뿐이면 그 값으로 보완(stage만 아는 입력 +
+      mode를 아는 입력 = 둘 다 반영), 서로 다른 명시 값이 충돌하면 임의 우선순위
+      없이 CONTEXT_CONFLICT(구조 보존·비노출·위생 로그).
+    - **episode ≠ target_type**: 같은 유형의 선발 2건(examination_1/2)이 병존할
+      수 있다 — episode 합치기는 명시 episode_id로만 한다(유형 기반 병합 금지).
+
+    질문 대상(is_question_target) 컨텍스트가 명시적으로 축 밖이면 그 항목은
+    mismatched(BLOCKED — 단수 시절 의미 보존)지만, **다른 episode가 호환되면
+    그 episode 해석이 우선한다**(mismatch의 episode 간 전파 금지).
+    """
+    if not _item_selection_gated(item):
+        return [("matched", None, None, False, [])]
+    groups: dict[str | None, list[SelectionContext]] = {}
+    for ctx in contexts:
+        groups.setdefault(ctx.episode_id, []).append(ctx)
+    out: list[tuple[str, str | None, ExposureStatus | None, bool, list[str]]] = []
+    mismatch_axes: list[str] = []  # 질문 대상 컨텍스트의 명시 불일치 축(전 episode)
+    for ep in sorted(groups, key=lambda e: (e is None, e or "")):
+        group = groups[ep]
+        # 축별 결정적 병합 — 명시 값 집합이 2개 이상이면 충돌.
+        merged: dict[str, str | None] = {}
+        conflict = False
+        for axis in _SELECTION_AXES:
+            values = {v for v in (getattr(c, axis) for c in group) if v is not None}
+            if len(values) > 1:
+                conflict = True
+                merged[axis] = None
+            else:
+                merged[axis] = next(iter(values), None)
+        exposure = max(
+            (c.exposure_status for c in group),
+            key=lambda e: _EXPOSURE_PREFERENCE[e],
+        )
+        question = any(c.is_question_target for c in group)
+        if conflict:
+            # 양립 불가 상태 — 구조 후보 보존, 노출은 is_exposable이 차단.
+            out.append(("unknown", ep, ExposureStatus.UNKNOWN, True, []))
+            continue
+        axes = {
+            "mode": _axis_alignment(merged["mode"], item.applicable_selection_modes),
+            "stage": _axis_alignment(
+                merged["stage"], item.applicable_selection_stages),
+            "target_type": _axis_alignment(
+                merged["target_type"], item.applicable_target_types),
+        }
+        if any(a == "mismatched" for a in axes.values()):
+            if question:
+                mismatch_axes.extend(
+                    name for name, a in axes.items() if a == "mismatched")
+            continue  # 이 episode는 이 항목의 대상이 아님 — 다른 episode 병존.
+        alignment = ("unknown" if any(a == "unknown" for a in axes.values())
+                     else "matched")
+        eff = exposure if exposure is not ExposureStatus.UNKNOWN else None
+        out.append((alignment, ep, eff, False, []))
+    if out:
+        return out
+    if mismatch_axes:
+        return [("mismatched", None, None, False,
+                 sorted(dict.fromkeys(mismatch_axes)))]
+    return [("unknown", None, None, False, [])]
 
 
 @dataclass(frozen=True)
@@ -861,6 +966,7 @@ class RiskEngine:
         facts: RawPeriodFacts,
         exposure_status: ExposureStatus = ExposureStatus.UNKNOWN,
         selection_context: SelectionContext | None = None,
+        selection_contexts: list[SelectionContext] | None = None,
         relationship_contexts: list[RelationshipContext] | None = None,
         mobility_contexts: list[MobilityContext] | None = None,
         health_contexts: list[HealthContext] | None = None,
@@ -884,7 +990,11 @@ class RiskEngine:
             exposure_status: 사용자 노출 상태 — R0 기본 UNKNOWN(프로필 배선은 R1/R5).
                 미입력을 숫자 중간값으로 대체하지 않는다. 관계 역할이 지정된 항목은
                 이 전역값 대신 relationship_contexts에서 유효 노출을 유도한다.
-            selection_context: 현실 선발 컨텍스트(감수 14차).
+            selection_context: 현실 선발 컨텍스트 1건(감수 14차 — 단수 하위 호환:
+                selection_contexts=[ctx]와 결과 동일, 내부에서 목록으로 정규화).
+            selection_contexts: 확인된 선발 건 목록(감수 25차 — SEL-e): 같은 시기
+                복수 선발 episode(채용+자격시험+추첨, 같은 유형 2건 포함)를
+                episode_id로 구분해 병존시킨다. 미제공은 선발 정보 부재(UNKNOWN).
             relationship_contexts: 확인된 현실 관계 목록(감수 16차) — 미제공(None/[])은
                 관계 정보 부재(UNKNOWN)이지 관계 부재(DENIED)가 아니다.
             mobility_contexts: 확인된 이동·주거 컨텍스트 목록(감수 18·19차 — 같은
@@ -928,37 +1038,35 @@ class RiskEngine:
             rel_alignment, rel_role, rel_target_id, rel_exposure = (
                 _resolve_relationship(item, relationship_contexts, exposure_status)
             )
-            # SelectionContext 3상태(감수 14차) — MISMATCHED는 명시적 부적용(BLOCKED,
-            # 임의 fallback 금지). UNKNOWN은 구조 보존(노출은 is_exposable이 차단).
-            ctx = selection_context or SelectionContext()
-            axes = (
-                ("mode", _axis_alignment(ctx.mode, item.applicable_selection_modes)),
-                ("stage", _axis_alignment(ctx.stage, item.applicable_selection_stages)),
-                ("target_type", _axis_alignment(
-                    ctx.target_type, item.applicable_target_types)),
-            )
-            if any(a == "mismatched" for _, a in axes):
-                alignment = "mismatched"
-            elif any(a == "unknown" for _, a in axes):
-                alignment = "unknown"
-            else:
-                alignment = "matched"
+            # SelectionContext(감수 14차 → 25차 SEL-e) — episode별 해석 목록:
+            # MISMATCHED는 명시적 부적용(BLOCKED — 단, 호환 episode가 있으면 그
+            # episode가 우선·mismatch 전파 금지). UNKNOWN은 구조 보존. 단수
+            # selection_context는 목록으로 정규화(두 입력 형태 결과 동일).
+            sel_ctxs = list(selection_contexts or [])
+            if selection_context is not None:
+                sel_ctxs.append(selection_context)
             # MobilityContext(감수 18~20차) — episode별 해석 목록: 같은 risk_id라도
             # 서로 다른 이동 계획이면 후보를 분리 보존한다(각 후보의 exposure·stage·
             # episode 독립 — identity는 risk_id+period+episode).
             # 컨텍스트 해석 곱(감수 21차) — 항목은 실제로 한 컨텍스트 축만 게이트
             # 한다(미적용 축은 (matched, None, None) 단일 해석이라 곱이 1이 된다).
             combos = [
-                (m, h, lg)
+                (s, m, h, lg)
+                for s in _resolve_selection_all(item, sel_ctxs)
                 for m in _resolve_mobility_all(item, mobility_contexts)
                 for h in _resolve_health_all(item, health_contexts)
                 for lg in _resolve_legal_all(item, legal_contexts)
             ]
-            for (mob_alignment, mob_episode_id, mob_exposure), (
+            for (
+                alignment, sel_episode_id, sel_exposure, sel_conflict,
+                sel_mismatch_axes,
+            ), (mob_alignment, mob_episode_id, mob_exposure), (
                 hlt_alignment, hlt_episode_id, hlt_exposure,
             ), (leg_alignment, leg_episode_id, leg_exposure) in combos:
-                # 유효 노출 우선순위: 법적 절차 > 건강 > 이동 > 관계 > 전역.
+                # 유효 노출 우선순위: 법적 절차 > 건강 > 이동 > 선발 > 관계 > 전역.
                 effective_exposure = rel_exposure
+                if sel_exposure is not None:
+                    effective_exposure = sel_exposure
                 if mob_exposure is not None:
                     effective_exposure = mob_exposure
                 if hlt_exposure is not None:
@@ -971,9 +1079,11 @@ class RiskEngine:
                 if alignment == "mismatched":
                     status = EligibilityStatus.BLOCKED
                     reasons = list(reasons) + [
-                        f"selection_{name}_mismatch"
-                        for name, a in axes if a == "mismatched"
+                        f"selection_{name}_mismatch" for name in sel_mismatch_axes
                     ]
+                if sel_conflict:
+                    # 데이터 위생 로그 — 구조 보존, 노출은 is_exposable이 차단.
+                    reasons = list(reasons) + ["selection_context_conflict"]
                 # 이동 축 MISMATCHED(감수 18·19차) — 질문 직접 대상의 계획이 항목 축
                 # 밖(발령 질문에서 주거 이동 항목 등). fallback 없이 차단. UNKNOWN의
                 # 노출 차등은 is_exposable이 exposure_requirement로 판정.
@@ -1012,6 +1122,8 @@ class RiskEngine:
                     suppression_reasons=reasons,
                     specificity_rank=_specificity_rank(item),
                     selection_alignment=alignment,
+                    selection_episode_id=sel_episode_id,
+                    selection_context_conflict=sel_conflict,
                     mobility_alignment=mob_alignment,
                     mobility_episode_id=mob_episode_id,
                     mobility_stages=list(item.applicable_mobility_stages),

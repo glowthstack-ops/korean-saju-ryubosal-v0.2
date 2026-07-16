@@ -161,7 +161,7 @@
       "reviewVersions": {
         "shadow_structure": "C3"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "7e31265cf894d829"
       }
@@ -302,7 +302,7 @@
       "reviewHashes": {
         "shadow_structure": "6fad96dc151abc41"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "CAR_EVALUATION_SETBACK_RISK",
@@ -430,7 +430,7 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "fa81d1cd5679ffab"
       }
@@ -560,7 +560,7 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "41559d5367e4c82c"
       }
@@ -694,7 +694,7 @@
       "reviewVersions": {
         "shadow_structure": "C3-d"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "93bdc6c71be0a809"
       }
@@ -802,12 +802,12 @@
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C3-d"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
         "shadow_structure": "ec111f60221d4056"
-      }
+      },
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "CAR_HIRING_OUTCOME_SETBACK",
@@ -926,20 +926,20 @@
       "applicableTargetTypes": [
         "employment_hiring"
       ],
+      "applicableSelectionStages": [
+        "result_wait",
+        "final_decision"
+      ],
       "reviewScopes": [
         "shadow_structure"
       ],
       "reviewVersions": {
-        "shadow_structure": "C4-f"
+        "shadow_structure": "R0.5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
       "reviewHashes": {
         "shadow_structure": "bc2b5dc8c25ff005"
       },
-      "applicableSelectionStages": [
-        "result_wait",
-        "final_decision"
-      ]
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     }
   ]
 }

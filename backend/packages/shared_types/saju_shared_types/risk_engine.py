@@ -181,6 +181,13 @@ class RiskCandidate(BaseModel):
     # SelectionContext 3상태(감수 14차) — matched/unknown/mismatched. mismatched는
     # BLOCKED로 이어지며, unknown은 구조 보존 + mode·stage 특정 표현 금지.
     selection_alignment: str = "matched"
+    # 매칭된 선발 건의 익명 episode 키(감수 25차 — SEL-e): 같은 시기 서로 다른
+    # 선발(취업 지원 vs 자격시험 vs 추첨 — 같은 유형 2건 포함)을 구분한다. 후보
+    # identity(risk_id+period+episode+target)·episode별 소유권·수렴 경계에 쓴다.
+    selection_episode_id: str | None = None
+    # 같은 selection episode의 컨텍스트 명시적 충돌(감수 25차) — 임의 우선순위로
+    # 병합하지 않고 구조 보존+비노출(is_exposable 차단)+데이터 위생 로그로 남긴다.
+    selection_context_conflict: bool = False
     # MobilityContext 3상태(감수 18·19차 — MOV 차수) — matched/unknown/mismatched.
     # mismatched=BLOCKED. unknown 노출 차등(감수 19차): 구체 항목(required_for_
     # exposure/confirmed_required — 계약·수리·통근·차량)은 하드 비노출, 일반 이동
@@ -285,6 +292,10 @@ def is_exposable(candidate: RiskCandidate) -> bool:
     if candidate.kind is RiskKind.VULNERABILITY:
         return False
     if candidate.selection_alignment != "matched":
+        return False
+    # 같은 selection episode의 명시적 충돌 컨텍스트(감수 25차 — SEL-e): 임의
+    # 우선순위 병합 금지 — 구조 후보는 보존하되 사용자 노출은 차단한다.
+    if candidate.selection_context_conflict:
         return False
     if candidate.mobility_alignment == "mismatched":
         return False

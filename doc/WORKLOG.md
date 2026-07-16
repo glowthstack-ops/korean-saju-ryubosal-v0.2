@@ -7956,3 +7956,22 @@ pytest 1960 passed·38 skipped(기존 결과 불변) · ruff clean · **profile 
 완전 일치(exact match)** · suppression baseline diff 0(3,412건) · manifest 일치.
 다음: SEL-e(다중 선발 episode 확장 — R1 전 필수) → A/B/C+D(multi_selection)
 프로필 재실측 → R1.
+
+## SEL-e — SelectionContext 다중 선발 episode 확장(감수 25차 승인 착수, 2026-07-16)
+
+blocked 3층 집계 확정 선행(unique 468/candidate×reason pairs 927 — target·stage 축
+520=불변식 assert 내장/raw hits 927 — '927'은 축 외 사유 포함 pair였음, 명칭 정정).
+
+본문: ①SelectionContext 확장 — episode_id(유형과 별개 명시 키)·exposure·
+is_question_target(기본 True=단수 의미 보존) ②episode별 해석·후보 identity(risk_id+
+period+episode)·소유권(mismatch 전파 금지 — 호환 episode 우선) ③결정적 병합·보완
+vs CONTEXT_CONFLICT(임의 우선순위 금지 — 구조 보존·비노출·위생 로그) ④서로 다른
+episode 자동 흡수 금지(shared cause는 R1 1회 계산 연결 유지) ⑤단수 하위 호환
+(selection_context=ctx ≡ selection_contexts=[ctx], byte-identical). env r0.5.12·
+해시 v8 유지, 9항목(SEL 7+CAR_HIRING 2) 반납 49→40→재승격 **49**, 타 40건 env-only
+재스탬프. fixture 8종 + 기존 위험 테스트 198건 불변 + A/B/C profile 완전 동일 +
+**D_multi_selection 신설**(hiring 4·exam_1 25·exam_2 32·lottery 23 병존, BLOCKED
+468→202 전량 stage 사유, SEL 기여 0→33, exposable 1.58·p90 4). suppression
+baseline diff 0 재기록(메타 r0.5.12). pytest 1968·ruff·mypy 0(전체) clean.
+다음: **R1 착수**(진입 게이트 §10 전부 충족 — occurrence 1회 계산 표본 372~399,
+possible_trajectory·vulnerability 기여 0 원칙, baseline commit·env·해시 고정).

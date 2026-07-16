@@ -151,7 +151,7 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "9b2e288c7b4e85d5"
       }
@@ -285,7 +285,7 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "0d19c50f872c637e"
       }
@@ -422,7 +422,7 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1f9a885e6ae2715c"
       }
@@ -529,7 +529,7 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "7309e8e6e91e5233"
       }
@@ -654,7 +654,7 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "173b2dd7fba4cbdf"
       }
@@ -775,7 +775,7 @@
       "reviewVersions": {
         "shadow_structure": "C6"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11",
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1f14f1a77359a1f2"
       }

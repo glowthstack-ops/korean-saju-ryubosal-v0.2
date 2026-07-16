@@ -708,3 +708,43 @@ R1 착수 전 별도 게이트(§10):
 
 다음 순서(데굴님 확정): TYP-0(테스트 타입 부채 142→0) → profile·suppression
 baseline exact match 확인 → R1 착수.
+
+## 12. SEL-e 차수(감수 25차) — 다중 선발 episode (2026-07-16)
+
+데굴님 착수 승인 + 필수 기준 10건 확정 반영. 차수 불변식: **취업 지원 결과 대기와
+별도 자격시험·추첨 지원이 동시에 실재할 수 있다 — 한 선발 건의 소유권 차단이 다른
+선발 건의 후보를 지우지 않는다.**
+
+1. **SelectionContext 확장**(단수→복수): `episode_id`(target_type과 별개의 명시 키
+   — 같은 유형 2건 병존), `exposure_status`(UNKNOWN=전역 노출 인자 사용 — 단수
+   하위 호환), `is_question_target`(기본 True — 단수 시절 질문 대상 의미 보존,
+   프로필 유래 존재 정보는 False 명시).
+2. **후보 identity**: risk_id + period + selection_episode_id(+target 축) —
+   같은 risk_id라도 episode가 다르면 후보 분리 보존(examination_1/2 fixture).
+3. **episode별 소유권**: mismatch는 해당 episode에만 적용 — 호환 episode가 있으면
+   그 해석이 우선(전파 금지). 질문 대상 컨텍스트가 전부 명시적으로 축 밖일 때만
+   BLOCKED(단수 시절 의미 보존 — 기존 축 사유 코드 유지). 소유권 매트릭스는
+   risk_id×target_type×stage 그대로(채용+서류=SEL_DOCUMENT 적용 fixture).
+4. **결정적 병합·보완 vs CONTEXT_CONFLICT**: 같은 episode의 중복 컨텍스트는 입력
+   순서 무관 병합, 축별 명시 값 1개면 보완(stage만 아는 입력+mode를 아는 입력),
+   서로 다른 명시 값 충돌이면 임의 우선순위 없이 selection_context_conflict —
+   구조 보존·is_exposable 차단·suppression_reasons 위생 로그.
+5. **수렴 경계**: 서로 다른 selection episode는 같은 cause를 공유해도 자동 흡수
+   금지(구조 후보 병존 — R1 shared-cause 1회 계산은 trigger_cause_atoms 연결).
+6. **env r0.5.11→r0.5.12**(엔진 적격성·후보 identity 변경), 해시 v8 유지(사전
+   필드 불변). 감수 반납 SEL 7+CAR_HIRING 2=9항목(49→40)→재승격(49). 타 40건
+   env-only 재스탬프(내용 불변). 단수 selection_context와 [ctx]는 결과 동일
+   (byte-identical fixture).
+7. **blocked 집계 3층 확정**(선행 — 데굴님 §4): unique(468) / candidate×reason
+   pairs(927 — target·stage 축만 520=214+202+2×52 불변식 assert 내장) / raw rule
+   hits(927). 927은 selection 축 외 사유(evidence_groups_unmet 406 등)를 포함한
+   후보×사유 pair였음 — 명칭 정정.
+8. **검증**: fixture 8종(test_risk_sel_e.py — 병존 2·미전파·복수 episode·결정적
+   병합/보완·충돌·legacy 동등·문서 매트릭스) + 기존 위험 테스트 198건 불변 +
+   suppression baseline diff 0(3,412건 — 코퍼스 무선발 컨텍스트) + **A/B/C profile
+   지표 완전 동일**(의도 변화 없음) + **D_multi_selection 신설**: episode별 활성
+   hiring 4/exam_1 25/exam_2 32/lottery 23, BLOCKED 202(전량 stage 사유 — C의
+   소유권 468이 episode 병존으로 축소, SEL 기여 0→33 복원), exposable 1.58/기간·
+   family p90 4(episode 수 무제한 비례 없음). pytest 1968·ruff·mypy 0 clean.
+9. R3/R5의 '질문 대상 선발 1건만 주입' 임시 제약 해제 가능(배선 시 복수 episode
+   공급 전환 — 배선 차수 소관).

@@ -137,7 +137,7 @@
       "reviewHashes": {
         "shadow_structure": "2b5f06c1d69044a5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "LEG_DOCUMENT_ERROR",
@@ -279,7 +279,7 @@
       "reviewHashes": {
         "shadow_structure": "18ebb0757938aaf5"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "LEG_COMPLIANCE_OBLIGATION_PRESSURE",
@@ -447,7 +447,7 @@
       "reviewHashes": {
         "shadow_structure": "6be07a30492b4a49"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "LEG_ADMIN_DELAY",
@@ -570,7 +570,7 @@
       "reviewHashes": {
         "shadow_structure": "9009dc8acd5ccc71"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "LEG_DISPUTE_RISK",
@@ -707,7 +707,7 @@
       "reviewHashes": {
         "shadow_structure": "56d4331f89180475"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "LEG_LITIGATION_PROCESS_BURDEN",
@@ -848,7 +848,7 @@
       "reviewHashes": {
         "shadow_structure": "9bc46a65164e4682"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     },
     {
       "riskId": "LEG_REVIEW_CAPACITY_WEAK",
@@ -954,7 +954,7 @@
       "reviewHashes": {
         "shadow_structure": "bc8c9725d41b879e"
       },
-      "reviewEnvironmentVersion": "risk-engine-r0.5.11"
+      "reviewEnvironmentVersion": "risk-engine-r0.5.12"
     }
   ]
 }

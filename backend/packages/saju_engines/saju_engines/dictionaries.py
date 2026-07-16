@@ -1352,7 +1352,14 @@ _RISK_HASH_SCHEMA_VERSION = 8
 # 없다(RCW 역할 보장 목록의 기계 강제 — 배경 근거 전용) ②legal stage 'closed' 명시
 # opt-in — 항목 stage 목록에 없으면 종결 절차 컨텍스트로 신규 후보 생성 불가
 # ③legal stage 'active_contract' 신설(협상 중 미성립≠진행 중 계약).
-RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.11"
+# r0.5.12(감수 25차 — SEL-e): SelectionContext 단수→복수 episode(selection_episode_
+# id·exposure·is_question_target 기본 True=단수 시절 질문 대상 의미 보존). 후보
+# identity에 selection episode 편입, episode별 CAR-SEL 소유권(mismatch의 episode 간
+# 전파 금지 — 호환 episode 우선), 같은 유형 복수 episode 병존(examination_1/2),
+# 결정적 병합+보완(축별 명시 값 1개) vs 명시 충돌=CONTEXT_CONFLICT(구조 보존·비노출·
+# 위생 로그), 서로 다른 선발 episode 간 자동 흡수 금지. 단수 selection_context와
+# [ctx]는 결과 동일(하위 호환 어댑터).
+RISK_REVIEW_ENVIRONMENT_VERSION = "risk-engine-r0.5.12"
 
 
 def risk_scope_hash(item: RiskItem, scope: str) -> str:
