@@ -130,22 +130,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "c8624a247f045526",
-        "shadow_scoring": "0300b5febf8e25ae"
+        "shadow_scoring": "0300b5febf8e25ae",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "normalizedEffectRole": "condition_strain",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "health"
+      }
     },
     {
       "riskId": "HLT_FATIGUE_ACCUMULATION",
@@ -277,22 +280,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "002c8aca49446d9c",
-        "shadow_scoring": "30043fa5f9579849"
+        "shadow_scoring": "30043fa5f9579849",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "normalizedEffectRole": "vitality_load",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "none"
+      }
     },
     {
       "riskId": "HLT_RECOVERY_CAPACITY_WEAK",
@@ -391,22 +397,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "14cd06609952a242",
-        "shadow_scoring": "b5d34aae65e28a37"
+        "shadow_scoring": "b5d34aae65e28a37",
+        "shadow_temporal": "e4836d592a2be568"
       },
       "normalizedEffectRole": "recovery_capacity",
       "transitionSensitivity": "none",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "none"
+      }
     },
     {
       "riskId": "HLT_FOCUS_DROP",
@@ -501,22 +510,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1ed0dbac337734a4",
-        "shadow_scoring": "119f6e65ac45c17d"
+        "shadow_scoring": "119f6e65ac45c17d",
+        "shadow_temporal": "e4836d592a2be568"
       },
       "normalizedEffectRole": "vitality_load",
       "transitionSensitivity": "none",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "none"
+      }
     },
     {
       "riskId": "HLT_MOBILITY_SAFETY_CAUTION",
@@ -631,22 +643,25 @@
       "absorbedRoleHint": "impact_amplifier",
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1518cb5fbd90c5aa",
-        "shadow_scoring": "b88e0ec2822972d0"
+        "shadow_scoring": "b88e0ec2822972d0",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "normalizedEffectRole": "mobility_safety",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "mobility"
+      }
     },
     {
       "riskId": "HLT_CHECKUP_NEED",
@@ -743,22 +758,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "5f25f1b5557267a5",
-        "shadow_scoring": "151278e43db09504"
+        "shadow_scoring": "151278e43db09504",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "normalizedEffectRole": "health_management",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "none"
+      }
     },
     {
       "riskId": "HLT_TREATMENT_RECOVERY_LOAD",
@@ -886,16 +904,19 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "dbfd5788ac95fb9c",
-        "shadow_scoring": "23a8ed0a760868b0"
+        "shadow_scoring": "23a8ed0a760868b0",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "normalizedEffectRole": "treatment_management",
       "normalizedEffectRoleByContext": {
@@ -903,9 +924,9 @@
         "recovery_process": "recovery_adjustment"
       },
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "health"
+      }
     },
     {
       "riskId": "HLT_PHYSICAL_WORKLOAD_STRAIN",
@@ -1027,22 +1048,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C7",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "2ff560fd02e3be5e",
-        "shadow_scoring": "6b0adb658bb81986"
+        "shadow_scoring": "6b0adb658bb81986",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "normalizedEffectRole": "physical_strain",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "health"
+      }
     }
   ]
 }

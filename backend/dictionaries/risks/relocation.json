@@ -147,23 +147,26 @@
       },
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "69c1c96e3f1e704e",
-        "shadow_scoring": "bd64dec7b88ebe97"
+        "shadow_scoring": "bd64dec7b88ebe97",
+        "shadow_temporal": "f1b5cb2f4d23c5f9"
       },
       "normalizedEffectRole": "contract_setback",
       "transitionSensitivity": "medium",
       "transitionSensitivityNote": "감수 38차: high→medium — manifestation이 협의 차질·조건 재협상·일정 재조정(전환 과정의 차질)이고 계약 무산 단정은 prohibited라 '상태 전환 확정'이 아님. high 유지 조건(계약 무산·해제 확정 의미 명문화)을 충족하지 않음.",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "mobility"
+      }
     },
     {
       "riskId": "MOV_SCHEDULE_DISRUPTION",
@@ -290,22 +293,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "605b7d43db4a680b",
-        "shadow_scoring": "a7edd8e92d533aba"
+        "shadow_scoring": "a7edd8e92d533aba",
+        "shadow_temporal": "f1b5cb2f4d23c5f9"
       },
       "normalizedEffectRole": "schedule_disruption",
       "transitionSensitivity": "medium",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "mobility"
+      }
     },
     {
       "riskId": "MOV_HOUSING_DEFECT_RISK",
@@ -435,22 +441,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "412b4eacde761fe9",
-        "shadow_scoring": "f5b88d5083df1bad"
+        "shadow_scoring": "f5b88d5083df1bad",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "normalizedEffectRole": "housing_defect",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "mobility"
+      }
     },
     {
       "riskId": "MOV_COMMUTE_BURDEN",
@@ -550,22 +559,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "1eff57ea86cb49c3",
-        "shadow_scoring": "4b1558323558fc75"
+        "shadow_scoring": "4b1558323558fc75",
+        "shadow_temporal": "f1b5cb2f4d23c5f9"
       },
       "normalizedEffectRole": "commute_burden",
       "transitionSensitivity": "medium",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "mobility"
+      }
     },
     {
       "riskId": "MOV_RELOCATION_PRESSURE",
@@ -683,22 +695,26 @@
       "absorbedRoleHint": "supporting_manifestation",
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "7d2ee0bd51e3b397",
-        "shadow_scoring": "48d0ad0a921c01d8"
+        "shadow_scoring": "48d0ad0a921c01d8",
+        "shadow_temporal": "ef86c29f33dae7ab"
       },
       "normalizedEffectRole": "relocation_pressure",
       "transitionSensitivity": "high",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "transitionSensitivityNote": "감수 39차 high 확정: 거주 상태 전환(이동·이사) 자체를 겨냥한 압박 — 이동 '진행의 지연'(medium 기준)이 아니라 전환 발생 방향. 전환기 이사 가속의 대표 사건.",
+      "primaryOwnership": {
+        "axis": "mobility"
+      }
     },
     {
       "riskId": "MOV_VEHICLE_TRANSPORT_ISSUE",
@@ -812,22 +828,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C6",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "reviewHashes": {
         "shadow_structure": "4febad86b0e07b54",
-        "shadow_scoring": "610c02720c23560d"
+        "shadow_scoring": "610c02720c23560d",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "normalizedEffectRole": "vehicle_transport",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "mobility"
+      }
     }
   ]
 }

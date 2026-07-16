@@ -53,7 +53,7 @@ from saju_shared_types.risk_engine import (
 from .risk_engine import cause_atoms
 
 # 점수 의미 버전 — 축 정의·가중·매핑이 바뀌면 올린다(엔진 env 버전과 독립).
-RISK_SCORING_VERSION = "risk-score-r1.2.0-shadow"
+RISK_SCORING_VERSION = "risk-score-r1.2.1-shadow"
 
 # exposure 축 = **rankable 가중**(감수 26차 확정 — 정책별 분리, 전 항목 공통값
 # 금지): 노출 게이트(is_exposable)를 통과하지 못한 후보는 0 — DENIED(명시 부정)·
@@ -79,11 +79,13 @@ _COMPOUND_PER_LINK = 0.10
 # daewoon_transition_weight를 단일 SSOT로 공유(복제 금지 — exp(-(d/365)^1.0)
 # 라플라스형, MIN 0.05 게이트 동일). 적용: timed_base = base × (1 + weight ×
 # 민감도 계수 × MAX_BONUS). base=0·비노출·BLOCKED는 교운기로 부활 불가(곱 구조).
-# 계수·MAX_BONUS는 잠정(전수 측정 후 감수 확정). cause table 진입 금지 — 교운
-# 원자는 존재하지 않는다(fail-closed namespace가 방어).
+# 계수·MAX_BONUS=0.20 **확정**(감수 39차 — R2-b episode 기준 0.20/0.30 판정
+# 동일 → "같은 episode 결과면 더 작은 modifier" 원칙, 0.30은 비교 기록만).
+# 교운일 최대 보정: high +20% · medium +12% · low +5% · none 0%.
+# cause table 진입 금지 — 교운 원자는 존재하지 않는다(fail-closed namespace).
 _TRANSITION_SENSITIVITY_COEF = {"none": 0.0, "low": 0.25, "medium": 0.6,
                                 "high": 1.0}
-_TRANSITION_MAX_BONUS = 0.5
+_TRANSITION_MAX_BONUS = 0.20
 # protection 하드 상한(감수 33차): 보호는 위험을 크게 완화할 수 있지만, 구조와
 # 현실 노출을 통과한 후보의 존재 자체를 삭제할 수 없다 — protection=1.0으로
 # rankable이 0이 되는 경로 차단(positive base + 최대 보호 → rankable > 0 fixture).

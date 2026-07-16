@@ -125,22 +125,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C1",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "ce4115792403a5ec",
-        "shadow_scoring": "5fe6995b17140078"
+        "shadow_scoring": "5fe6995b17140078",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "cashflow_pressure",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "none"
+      }
     },
     {
       "riskId": "FIN_UNEXPECTED_EXPENSE",
@@ -281,22 +284,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "cbbc202ba92ce0e8",
-        "shadow_scoring": "a9008207ed6fe71e"
+        "shadow_scoring": "a9008207ed6fe71e",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "financial_outflow",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "none"
+      }
     },
     {
       "riskId": "FIN_INVESTMENT_LOSS",
@@ -430,22 +436,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C1",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "904e1b25ce2ba673",
-        "shadow_scoring": "0ed03db87c5128fc"
+        "shadow_scoring": "0ed03db87c5128fc",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "financial_outflow",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "none"
+      }
     },
     {
       "riskId": "FIN_DEBT_GUARANTEE_BURDEN",
@@ -574,22 +583,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C1",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "1941781ae90c93d1",
-        "shadow_scoring": "de5c31560b714710"
+        "shadow_scoring": "de5c31560b714710",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "guarantee_or_contractual_liability",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "legal"
+      }
     },
     {
       "riskId": "FIN_INCOME_DELAY",
@@ -695,22 +707,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C1",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "4f3600f7bad896d9",
-        "shadow_scoring": "3d9e78308e8e4f66"
+        "shadow_scoring": "3d9e78308e8e4f66",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "payment_recovery",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "legal"
+      }
     },
     {
       "riskId": "FIN_SETTLEMENT_DISPUTE",
@@ -842,22 +857,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C1",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "2244db031cadc33c",
-        "shadow_scoring": "5b3d36302d13bd03"
+        "shadow_scoring": "5b3d36302d13bd03",
+        "shadow_temporal": "f1b5cb2f4d23c5f9"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "payment_recovery",
       "transitionSensitivity": "medium",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "legal"
+      }
     },
     {
       "riskId": "FIN_BUFFER_WEAK",
@@ -935,22 +953,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "C2",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "52d64ebec192c809",
-        "shadow_scoring": "6a9c0526e76c3c56"
+        "shadow_scoring": "6a9c0526e76c3c56",
+        "shadow_temporal": "e4836d592a2be568"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "financial_buffer",
       "transitionSensitivity": "none",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "none"
+      }
     }
   ]
 }

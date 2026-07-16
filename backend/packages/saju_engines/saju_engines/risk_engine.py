@@ -1205,6 +1205,9 @@ class RiskEngine:
                     reality_episode_type=reality[1],
                     reality_conflict=reality[2],
                     transition_sensitivity=item.transition_sensitivity,
+                    primary_ownership_axis=(
+                        item.primary_ownership.axis
+                        if item.primary_ownership is not None else "none"),
                     legal_stages=list(item.applicable_legal_stages),
                     relationship_alignment=rel_alignment,
                     relationship_role=rel_role,

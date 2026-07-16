@@ -46,6 +46,8 @@ from saju_engines.risk_scoring import (  # noqa: E402
     transition_policy_hash,
 )
 from saju_engines.risk_selection import (  # noqa: E402
+    _AXIS_EPISODE_FIELD,
+    _DOMAIN_AXIS_EPISODE,
     RISK_SELECTION_VERSION,
     RiskBudgetPolicy,
     _ownership_rank,
@@ -255,7 +257,7 @@ def _temporal_overlay(profile: str, raw_by_chart: list,
     확정 기준 판정은 데굴님 소관 — 여기서는 기준별 측정값만 판정 표기.
     """
     plain_by_chart = [(n, _score_variant(r, base_impacts, weight=None,
-                                         max_bonus=0.30, mov_high=False))
+                                         max_bonus=0.20, mov_high=False))
                       for n, r in raw_by_chart]
     plain_built = _build_all(plain_by_chart)
     # episode 기준 무보정 top-10(프로필 전체 — episode 압축 이후가 최종 기준).
@@ -277,7 +279,8 @@ def _temporal_overlay(profile: str, raw_by_chart: list,
         plain_eps, key=lambda r: (-r[1], r[0]))[:10]]
 
     print(f"\n## {profile}-T 교운 overlay(episode 압축 이후 기준)")
-    variants = [("medium(적용안)", False, 0.20), ("medium(적용안)", False, 0.30),
+    # MAX_BONUS 0.20=감수 39차 **확정**, 0.30=보조 비교 기록(미채택).
+    variants = [("medium(확정안)", False, 0.20), ("medium(비교 0.30)", False, 0.30),
                 ("high(비교안)", True, 0.20), ("high(비교안)", True, 0.30)]
     for label, mov_high, mb in variants:
         boosted_by_chart = [(n, _score_variant(
@@ -404,7 +407,7 @@ def _temporal_overlay(profile: str, raw_by_chart: list,
         print("    판정: " + " · ".join(
             f"{name} {'PASS' if ok else 'FAIL'}" for name, ok in checks))
     # 잠정안 ±1년 참고(감쇠 후 안정성).
-    ref = [(n, _score_variant(r, base_impacts, weight=_W_1Y, max_bonus=0.30,
+    ref = [(n, _score_variant(r, base_impacts, weight=_W_1Y, max_bonus=0.20,
                               mov_high=False)) for n, r in raw_by_chart]
     ref_built = _build_all(ref)
     ref_eps: list[tuple[str, float]] = []
@@ -415,8 +418,66 @@ def _temporal_overlay(profile: str, raw_by_chart: list,
                 ref_eps.append((f"{chart}|{ep.episode_key}",
                                 _ep_score(ep, by_uid)))
     ref_top = [u for u, _ in sorted(ref_eps, key=lambda r: (-r[1], r[0]))[:10]]
-    print(f"  ### 참고 — medium(적용안)×0.30, ±1년(w={_W_1Y:.3f}): "
+    print(f"  ### 참고 — medium(확정안)×0.20, ±1년(w={_W_1Y:.3f}): "
           f"episode top10 overlap {len(set(plain_top) & set(ref_top))}/10")
+
+
+def _proxy_audit(built: list) -> None:
+    """R2-c proxy audit(감수 39차 §9) — (구) 도메인 proxy vs 사전 계약 비교.
+
+    분류(항목 static + 후보 behavioral): proxy_match / proxy_mismatch /
+    proxy_ambiguous(proxy는 소유 부여·계약은 부정 또는 그 반대 — 행동 차이) /
+    ownership_not_applicable(axis=none). mismatch여도 최종 대표가 정상이면
+    문제없음(proxy 폐기 목적) — 대표 변경 episode 수를 별도 보고.
+    """
+    static: Counter = Counter()
+    behavioral: Counter = Counter()
+    rep_changed = 0
+    seen_ids: dict[str, str] = {}
+    for _chart, scored, eps, _sel, _ in built:
+        by_uid = {candidate_uid(c): c for c in scored}
+        for c in scored:
+            proxy_field = _DOMAIN_AXIS_EPISODE.get(c.domain.value)
+            contract_field = _AXIS_EPISODE_FIELD.get(c.primary_ownership_axis)
+            if c.risk_id not in seen_ids:
+                if c.primary_ownership_axis == "none":
+                    seen_ids[c.risk_id] = "ownership_not_applicable"
+                elif proxy_field == contract_field:
+                    seen_ids[c.risk_id] = "proxy_match"
+                else:
+                    seen_ids[c.risk_id] = "proxy_mismatch"
+            proxy_rank = (1 if proxy_field
+                          and getattr(c, proxy_field) is not None else 0)
+            if proxy_rank != _ownership_rank(c):
+                behavioral["proxy_ambiguous"] += 1
+        for ep in eps:
+            rep = by_uid.get(ep.representative_candidate_id or "")
+            if rep is None:
+                continue
+            group = [by_uid[m] for m in ep.member_candidate_ids if m in by_uid]
+
+            def _proxy_rank(c: RiskCandidate) -> int:
+                f = _DOMAIN_AXIS_EPISODE.get(c.domain.value)
+                return 1 if f and getattr(c, f) is not None else 0
+
+            # proxy 정렬로 대표를 재선정했다면 달라졌을 episode 수.
+            from saju_engines.risk_selection import _representative
+            contract_rep = _representative(group)
+            if contract_rep is None:
+                continue
+            best_proxy = sorted(
+                group, key=lambda c: (-_proxy_rank(c), -c.specificity_rank,
+                                      -_raw_score(c), c.risk_id))[0]
+            if candidate_uid(best_proxy) != candidate_uid(contract_rep) and (
+                    _proxy_rank(best_proxy) != _ownership_rank(contract_rep)):
+                rep_changed += 1
+    for cls in seen_ids.values():
+        static[cls] += 1
+    print("  proxy audit(risk_id static): " + " · ".join(
+        f"{k} {v}" for k, v in sorted(static.items())))
+    print(f"  proxy audit(behavioral): 후보 rank 불일치 "
+          f"{behavioral['proxy_ambiguous']} · proxy였다면 대표가 달라졌을 "
+          f"episode {rep_changed}")
 
 
 def _reality_linked_profile() -> dict:
@@ -456,16 +517,18 @@ def main() -> int:
     print(f"scoring {RISK_SCORING_VERSION} · policy {selection_policy_hash()}"
           f" · transition {transition_policy_hash()}")
     print("episode 병합=차트 단위 · budget hard_max 3 · 교운일 커널 w="
-          f"{_W_DAY:.3f}(2026-06-01) — sensitivity 적용안=MOV_CONTRACT_"
-          "SETBACK medium(감수 38차)")
+          f"{_W_DAY:.3f}(2026-06-01) — MAX_BONUS 0.20 확정·REL_PARTNER_"
+          "READJUST medium(감수 39차)·ownership=사전 primaryOwnership 계약")
     base_impacts = RiskEngine(_DICTS).base_impacts()
     for name, ctxs in [*_build_exposure_profiles(),
                        ("E_reality_linked", _reality_linked_profile())]:
         raw_by_chart = _collect_by_chart(ctxs)
         scored_by_chart = [(n, _score_variant(
-            r, base_impacts, weight=None, max_bonus=0.30, mov_high=False))
+            r, base_impacts, weight=None, max_bonus=0.20, mov_high=False))
             for n, r in raw_by_chart]
-        _profile_report(name, _build_all(scored_by_chart, horizon=True))
+        built = _build_all(scored_by_chart, horizon=True)
+        _profile_report(name, built)
+        _proxy_audit(built)
         _temporal_overlay(name.split("_")[0], raw_by_chart, base_impacts)
     return 0
 

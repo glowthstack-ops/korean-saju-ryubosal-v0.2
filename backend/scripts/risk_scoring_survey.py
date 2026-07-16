@@ -651,7 +651,9 @@ def _transition_overlay(cands: list[RiskCandidate]) -> None:
         assert bc.score_components is not None
         raw, _cap = risk_priority(bc.score_components,
                                   transition_bonus=bc.transition_bonus)
-        p_raw, _ = risk_priority(plain_active[i].score_components)  # type: ignore[arg-type]
+        p_comp = plain_active[i].score_components
+        assert p_comp is not None
+        p_raw, _ = risk_priority(p_comp)
         print(f"  {bc.risk_id} [{bc.domain.value}] {bc.period_key}: rank "
               f"{plain_rank[i]} → {jiao_rank[i]} · raw {p_raw:.3f} → "
               f"{raw:.3f} · trans_bonus +{bc.transition_bonus:.3f} · "
@@ -660,8 +662,9 @@ def _transition_overlay(cands: list[RiskCandidate]) -> None:
     # 조건3(감수 37차) — MAX_BONUS 민감도: bonus가 MAX_BONUS에 선형 비례하므로
     # 교운일(w=1.0) bonus를 비율 재스케일해 0.30/0.40/0.50 비교(재점수 불필요).
     from saju_engines.risk_scoring import _TRANSITION_MAX_BONUS as _MB
-    print("\n### MAX_BONUS 민감도(조건3 — 0.30/0.40/0.50, 교운일 w=1.0 최악점)")
-    for mb in (0.30, 0.40, 0.50):
+    print("\n### MAX_BONUS 민감도(감수 39차 — 0.20 **확정**, 0.30 보조"
+          " 비교·0.40/0.50 기각, 교운일 w=1.0 최악점)")
+    for mb in (0.20, 0.30, 0.40, 0.50):
         scale = mb / _MB
         totals_mb = []
         rises_mb = []

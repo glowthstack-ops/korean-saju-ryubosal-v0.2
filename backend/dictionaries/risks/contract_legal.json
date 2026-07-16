@@ -130,22 +130,26 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "c560da4b495ed179",
-        "shadow_scoring": "00e6578586cac90d"
+        "shadow_scoring": "00e6578586cac90d",
+        "shadow_temporal": "ef86c29f33dae7ab"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "contract_termination",
       "transitionSensitivity": "high",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "transitionSensitivityNote": "감수 39차 high 확정: 계약 관계의 정리·종료 — 법적 상태의 실제 전환(절차 부담·문서 점검 아님).",
+      "primaryOwnership": {
+        "axis": "legal"
+      }
     },
     {
       "riskId": "LEG_DOCUMENT_ERROR",
@@ -280,22 +284,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "b12bb6d0cd5b7aaf",
-        "shadow_scoring": "f2bd93db08b132f8"
+        "shadow_scoring": "f2bd93db08b132f8",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "document_defect",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "legal"
+      }
     },
     {
       "riskId": "LEG_COMPLIANCE_OBLIGATION_PRESSURE",
@@ -456,22 +463,25 @@
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "dcbc49c6adcfb21b",
-        "shadow_scoring": "b6a2acd9594eb671"
+        "shadow_scoring": "b6a2acd9594eb671",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "compliance_obligation",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "legal"
+      }
     },
     {
       "riskId": "LEG_ADMIN_DELAY",
@@ -587,22 +597,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "6386dc8a8bbc990a",
-        "shadow_scoring": "6349abdd1614d208"
+        "shadow_scoring": "6349abdd1614d208",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "administrative_delay",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "legal"
+      }
     },
     {
       "riskId": "LEG_DISPUTE_RISK",
@@ -732,22 +745,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "10f9299ae77435bb",
-        "shadow_scoring": "40d13680e59f273f"
+        "shadow_scoring": "40d13680e59f273f",
+        "shadow_temporal": "f1b5cb2f4d23c5f9"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "legal_dispute",
       "transitionSensitivity": "medium",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "legal"
+      }
     },
     {
       "riskId": "LEG_LITIGATION_PROCESS_BURDEN",
@@ -881,22 +897,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "0968b74d7e349b7c",
-        "shadow_scoring": "b43be618567fd603"
+        "shadow_scoring": "b43be618567fd603",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "litigation_process_burden",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "legal"
+      }
     },
     {
       "riskId": "LEG_REVIEW_CAPACITY_WEAK",
@@ -995,22 +1014,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "348522df48b6d539",
-        "shadow_scoring": "6d302ddea133b444"
+        "shadow_scoring": "6d302ddea133b444",
+        "shadow_temporal": "e4836d592a2be568"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "review_capacity",
       "transitionSensitivity": "none",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "legal"
+      }
     }
   ]
 }

@@ -927,7 +927,7 @@ def test_transition_only_changes_scores() -> None:
     assert plain.model_dump(exclude={"transition_bonus"}) == (
         boosted.model_dump(exclude={"transition_bonus"}))
     assert plain.transition_bonus == 0.0
-    assert boosted.transition_bonus == pytest.approx(0.5)  # 1.0×1.0×0.5
+    assert boosted.transition_bonus == pytest.approx(0.2)  # 1.0×1.0×0.20(확정)
     raw_p, _ = risk_priority(_comp(plain),
                              transition_bonus=plain.transition_bonus)
     raw_b, _ = risk_priority(_comp(boosted),

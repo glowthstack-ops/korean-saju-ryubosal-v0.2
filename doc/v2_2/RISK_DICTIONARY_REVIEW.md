@@ -1346,3 +1346,58 @@ RISK_SELECTION_SURVEY_R2B.md, 재실행 byte-identical):
 여부)·MAX_BONUS(0.20/0.30 택일)·계수 형태 확정 후. partial 0.85·dominant
 ε=0.02·_DOMAIN_AXIS_EPISODE는 shadow_selection 감수 시 확정. 다음: R2-c —
 primaryOwnership 사전 계약 편입 + shadow_selection·shadow_temporal 감수·스탬프.
+
+## 24. 감수 39차 — temporal 확정·shadow_temporal 49/49 스탬프·R2-c ownership 사전 편입 (2026-07-16)
+
+**temporal 확정(데굴님)**: MAX_BONUS **0.20**(0.30 보조 비교 기록·0.40/0.50
+기각 — "같은 episode 결과면 더 작은 modifier"), sensitivity 계수(0/0.25/0.6/
+1.0) 유지, 커널·MIN 0.05·공식 최종 승인. RISK_SCORING_VERSION
+**r1.2.1-shadow**.
+
+1. **high 항목별 재판정(승인 조건 적용)**: 감수 기준(직접 상태 전환 결과=high /
+   전환 과정의 조정·차질=medium)으로 7종 개별 판정 —
+   **REL_PARTNER_READJUST high→medium**(manifestation이 "재조정 국면·차이
+   표면화·대화 필요" = medium 기준 "관계 재조정 과정의 부담"에 정확히 해당,
+   관계 상태의 명시적 변경 아님). 나머지 6종 high 확정: CAR_REASSIGNMENT
+   (보직·근무지 변경)·CAR_EXIT_PRESSURE(역할 이탈·전환 — 일반 부담 아님)·
+   CAR_HIRING_OUTCOME_SETBACK(결과 확정)·LEG_CONTRACT_TERMINATION(계약 종료)·
+   MOV_RELOCATION_PRESSURE(거주 상태 전환 방향)·SEL_UNWANTED_PLACEMENT(배치
+   결과). 최종 분포 **high 6·medium 12·low 26·none 5**. 항목별 근거를
+   transitionSensitivityNote(비해시 주석)로 저작하고 **manifest에
+   transition_sensitivity_distribution + high 근거표 병기**.
+2. **shadow_temporal 49/49 스탬프**: reviewVersions.shadow_temporal="R1-T",
+   scope 해시(transitionSensitivity 본문) 저장, reviewPendingScopes 해소.
+   현 상태: structure 49 · scoring 49 · **temporal 49** · selection 0.
+   sensitivity·계수·MAX_BONUS 변경 시 shadow_temporal만 자동 강등(scope 분리).
+3. **R2-c primaryOwnership 사전 편입(proxy → SSOT)**: RiskPrimaryOwnership
+   모델(axis: selection/mobility/health/legal/relationship/**none** +
+   targetTypes/stages 선택 제약). 49항목 저작 — 도메인≠축: 채용 2종=selection,
+   FIN 절차형 3종(보증·지급지연·정산분쟁)=legal, HLT 차량 안전=mobility(교차
+   gate), 축 episode가 없는 역할·구조 기반 14종=none 명시. lint: reviewed
+   전원 계약 존재·axis enum·targetTypes/stages applicable 부분집합·axis=none
+   제약 금지. **selection scope 해시에 편입**(미스탬프 scope 확장 — 스키마
+   v10 유지, 변경 시 shadow_selection만 자동 pending).
+4. **ownership 소비 교체 + partial 가드**: 후보에 primary_ownership_axis
+   전파(엔진), _ownership_rank = 계약 축의 **명시 local episode 직접 매칭**만
+   성립 — reality alias(partial 포함)는 병합 근거일 뿐 ownership 증거 금지
+   (함수가 reality_episode_id를 참조하지 않음 + fixture). (구) 도메인 proxy
+   _DOMAIN_AXIS_EPISODE는 판정 미사용(audit 비교 전용 보존).
+5. **ε 해시 명시화**: epsilon_boundary={digits 9, near_tie 0.02, dominant
+   0.02, boundary "<="} 구조화 편입. RISK_SELECTION_VERSION **r2.1.0-shadow**.
+6. **proxy audit(4분류·전 프로필)**: static — proxy_match 34 ·
+   proxy_mismatch 1(HLT_MOBILITY_SAFETY_CAUTION: proxy는 health 축·계약은
+   mobility 교차 소유 — 의도 반영) · ownership_not_applicable 14. behavioral —
+   후보 rank 불일치 **0** · proxy였다면 대표가 달라졌을 episode **0**(proxy
+   제거로 최종 대표 변화 없음 — 안전 교체 실증).
+7. **재측정(고정본 갱신)**: 확정안(medium×0.20) 판정 5기준 전 프로필 PASS
+   유지(episode top10 overlap 9~10/10·ownership override 0·low 신규 0·cap
+   동점 0). scoring survey에 0.20 확정 표기(0.20/0.30/0.40/0.50 비교 보존).
+
+**게이트**: pytest 2041·ruff clean·mypy 0(524)·suppression diff 0·profile
+baseline 값 byte 동일(감수 36차 원본 대비 — meta 해시만 갱신)·manifest 일치·
+survey 2종 재생성 byte-identical.
+
+**감수 대기(shadow_selection 스탬프 전 확정 목록 — §10)**: primaryOwnership
+계약 49건(본 차수 저작), near-tie·dominant ε=0.02, identity quality(1.0/0.9/
+0.85/0.6/0.0), quiet span 2, relief confidence(0.2/0.4), 질문 유형별
+hard_max·soft_target, partial≠ownership 계약(본 차수 구현).

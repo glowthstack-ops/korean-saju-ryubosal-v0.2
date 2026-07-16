@@ -8190,3 +8190,20 @@ ownership override 0·low 신규 진입 0·cap 유발 동점 0. MB 0.20/0.30 확
 sensitivity 저작·shadow_temporal 스탬프는 데굴님 감수 대기. pytest 2040·
 ruff·mypy 0(524)·baseline 값 불변·manifest 일치. REVIEW.md §23.
 다음: R2-c(primaryOwnership 사전 편입 + shadow_selection·temporal 감수).
+
+## 감수 39차 — temporal 확정·49/49 스탬프·R2-c ownership SSOT (2026-07-16)
+
+MAX_BONUS **0.20 확정**(r1.2.1-shadow)·high 재판정: REL_PARTNER_READJUST
+high→medium(재조정 과정 부담 — 감수 medium 기준 해당), 6종 high 확정(근거
+note 저작 + manifest 근거표 병기, 최종 high 6·medium 12·low 26·none 5).
+**shadow_temporal 49/49 스탬프**(R1-T — structure·scoring·temporal 49/
+selection 0). R2-c: RiskPrimaryOwnership 사전 계약 49항목 저작(axis 6종·
+none 명시 14종·도메인≠축)+lint 4종+selection scope 해시 편입(변경=selection만
+pending), _ownership_rank를 사전 계약 소비로 교체(명시 local episode 직접
+매칭만 — **partial alias≠ownership 가드**+fixture), ε 해시 구조화(digits 9·
+near_tie/dominant 0.02·"<="), r2.1.0-shadow. proxy audit: match 34·mismatch
+1(HLT 차량=mobility 교차 소유 의도)·n/a 14, behavioral 불일치 0·대표 변화 0
+(안전 교체 실증). 재측정 판정 전 PASS 유지·고정본 2종 갱신(byte-identical).
+pytest 2041·ruff·mypy 0(524)·baseline 값 불변·manifest 일치. REVIEW.md §24.
+다음: shadow_selection 스탬프 감수(ε·identity quality·quiet span·relief
+confidence·budget 정책·ownership 계약 49건 확정).

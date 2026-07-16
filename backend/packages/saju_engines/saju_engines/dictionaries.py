@@ -1166,6 +1166,27 @@ class RiskExposurePolicy(_AliasModel):
         return self
 
 
+_OWNERSHIP_AXES = (
+    "selection", "mobility", "health", "legal", "relationship", "none",
+)
+
+
+class RiskPrimaryOwnership(_AliasModel):
+    """primary ownership 사전 계약(감수 39차 — R2-c: proxy → SSOT 편입).
+
+    axis: 이 항목의 primary ownership을 입증하는 **컨텍스트 축**(도메인과
+    동일시 금지 — 채용 항목은 career 도메인이지만 selection 축이 소유).
+    none = 축 episode가 존재하지 않는 항목(역할·구조 기반 — ownership 미적용).
+    targetTypes/stages는 선택 제약(축 매칭 자체는 applicable* 필드가 이미
+    강제하므로 대부분 생략) — 저작 시 항목의 applicable* 목록의 부분집합 lint.
+    복수 소유(primary/fallback)는 현 저작에 불요 — 필요 시 별도 감수로 확장.
+    """
+
+    axis: str
+    target_types: list[str] | None = Field(default=None, alias="targetTypes")
+    stages: list[str] | None = None
+
+
 class RiskItem(_AliasModel):
     """위험 이벤트 정의 1건."""
 
@@ -1285,6 +1306,12 @@ class RiskItem(_AliasModel):
     transition_sensitivity_note: str | None = Field(
         default=None, alias="transitionSensitivityNote",
     )
+    # primary ownership 사전 계약(감수 39차 — R2-c). 전 항목 필수(lint) —
+    # _DOMAIN_AXIS_EPISODE proxy를 대체하는 SSOT. selection scope 해시 편입:
+    # 변경 시 shadow_selection만 자동 pending(structure·scoring·temporal 유지).
+    primary_ownership: RiskPrimaryOwnership | None = Field(
+        default=None, alias="primaryOwnership",
+    )
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
@@ -1390,6 +1417,37 @@ class RiskItem(_AliasModel):
                 f"transitionSensitivity 값 오류: {self.transition_sensitivity} "
                 f"({self.risk_id})"
             )
+        # 감수 39차 lint: **reviewed 항목 전원** ownership 계약 존재(감수 문구
+        # 그대로 — 합성/미감수 항목은 저작 단계라 강제하지 않음).
+        if self.reviewed and self.primary_ownership is None:
+            raise ValueError(f"primaryOwnership 누락(감수 39차 — reviewed"
+                             f" 항목 필수): {self.risk_id}")
+        own = self.primary_ownership
+        if own is not None:
+            if own.axis not in _OWNERSHIP_AXES:
+                raise ValueError(f"primaryOwnership.axis 값 오류: {own.axis}"
+                                 f" ({self.risk_id})")
+            if own.axis == "none" and (own.target_types or own.stages):
+                raise ValueError(
+                    f"axis=none에 targetTypes/stages 불가: {self.risk_id}")
+            _own_applicable = {
+                "selection": (self.applicable_target_types,
+                              self.applicable_selection_stages),
+                "mobility": (self.applicable_mobility_target_types,
+                             self.applicable_mobility_stages),
+                "legal": (self.applicable_legal_target_types,
+                          self.applicable_legal_stages),
+            }
+            if own.axis in _own_applicable:
+                types_all, stages_all = _own_applicable[own.axis]
+                if own.target_types and types_all and not (
+                        set(own.target_types) <= set(types_all)):
+                    raise ValueError(f"primaryOwnership.targetTypes가"
+                                     f" applicable 목록 밖: {self.risk_id}")
+                if own.stages and stages_all and not (
+                        set(own.stages) <= set(stages_all)):
+                    raise ValueError(f"primaryOwnership.stages가 applicable"
+                                     f" 목록 밖: {self.risk_id}")
         if self.kind == "vulnerability" and self.transition_sensitivity != "none":
             raise ValueError(
                 f"vulnerability는 transitionSensitivity=none 필수(교운기가 잠재 "
@@ -1584,6 +1642,11 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
             "crossDomainEffects": sorted(item.cross_domain_effects),
             "specificityRank": item.specificity_rank,
             "absorbedRoleHint": item.absorbed_role_hint,  # 흡수 역할(v5)
+            # primary ownership 계약(감수 39차 — R2-c): 변경=shadow_selection
+            # 자동 pending. 미스탬프 scope 확장이라 스키마 v10 유지.
+            "primaryOwnership": (item.primary_ownership.model_dump(
+                by_alias=True, exclude_none=True)
+                if item.primary_ownership is not None else None),
         }
     elif scope == "exposure":
         body = {

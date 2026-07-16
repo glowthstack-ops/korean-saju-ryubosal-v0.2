@@ -121,22 +121,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "62a0c828fed9db8b",
-        "shadow_scoring": "f2bd93db08b132f8"
+        "shadow_scoring": "f2bd93db08b132f8",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "document_defect",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "selection"
+      }
     },
     {
       "riskId": "SEL_ELIGIBILITY_REVIEW_RISK",
@@ -256,22 +259,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "4527fe776e8e5a58",
-        "shadow_scoring": "0cdae0de401fd2cd"
+        "shadow_scoring": "0cdae0de401fd2cd",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "selection_eligibility",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "selection"
+      }
     },
     {
       "riskId": "SEL_DRAW_OUTCOME_UNCERTAINTY",
@@ -391,22 +397,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "1f858f705596e8c0",
-        "shadow_scoring": "92f3ea72787c3c83"
+        "shadow_scoring": "92f3ea72787c3c83",
+        "shadow_temporal": "f1b5cb2f4d23c5f9"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "selection_outcome",
       "transitionSensitivity": "medium",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "selection"
+      }
     },
     {
       "riskId": "SEL_RESULT_DELAY_PRESSURE",
@@ -525,22 +534,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "faf2fa63054dca1a",
-        "shadow_scoring": "86158e61e9cb8957"
+        "shadow_scoring": "86158e61e9cb8957",
+        "shadow_temporal": "f1b5cb2f4d23c5f9"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "result_wait_delay",
       "transitionSensitivity": "medium",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "selection"
+      }
     },
     {
       "riskId": "SEL_WAITLIST_PROLONGATION",
@@ -648,22 +660,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "e28859a8eb293c56",
-        "shadow_scoring": "c91c29907ba04609"
+        "shadow_scoring": "c91c29907ba04609",
+        "shadow_temporal": "f1b5cb2f4d23c5f9"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "result_wait_delay",
       "transitionSensitivity": "medium",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "selection"
+      }
     },
     {
       "riskId": "SEL_UNWANTED_PLACEMENT",
@@ -785,22 +800,26 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "4ce663ea18f7af08",
-        "shadow_scoring": "17599f27427bddca"
+        "shadow_scoring": "17599f27427bddca",
+        "shadow_temporal": "ef86c29f33dae7ab"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "selection_outcome",
       "transitionSensitivity": "high",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "transitionSensitivityNote": "감수 39차 high 확정: 배치 '결과' 확정 사건(선발 과정 지연·대기와 분리) — 상태 전환 결과.",
+      "primaryOwnership": {
+        "axis": "selection"
+      }
     },
     {
       "riskId": "SEL_COMPETITION_INTENSIFY",
@@ -926,22 +945,25 @@
       ],
       "reviewScopes": [
         "shadow_structure",
-        "shadow_scoring"
+        "shadow_scoring",
+        "shadow_temporal"
       ],
       "reviewVersions": {
         "shadow_structure": "R0.5",
-        "shadow_scoring": "R1"
+        "shadow_scoring": "R1",
+        "shadow_temporal": "R1-T"
       },
       "reviewHashes": {
         "shadow_structure": "723e10e48c7af933",
-        "shadow_scoring": "13a883f6ddf5bc38"
+        "shadow_scoring": "13a883f6ddf5bc38",
+        "shadow_temporal": "def7684e3f4fe396"
       },
       "reviewEnvironmentVersion": "risk-engine-r0.5.12",
       "normalizedEffectRole": "selection_competition",
       "transitionSensitivity": "low",
-      "reviewPendingScopes": [
-        "shadow_temporal"
-      ]
+      "primaryOwnership": {
+        "axis": "selection"
+      }
     }
   ]
 }

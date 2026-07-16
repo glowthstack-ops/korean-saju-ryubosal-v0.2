@@ -257,6 +257,11 @@ class RiskCandidate(BaseModel):
     # 사전 transitionSensitivity 복사(감수 36차 — R1-T): 교운기 modifier 계수
     # 선택 재료(none/low/medium/high — vulnerability는 none 강제).
     transition_sensitivity: str = "none"
+    # primary ownership 축(감수 39차 — R2-c 사전 계약 사본): 대표 정렬의
+    # ownership rank는 이 축의 **명시 local episode 매칭**으로만 성립한다 —
+    # reality alias(특히 partial)는 episode 연결 근거일 뿐 ownership 증거가
+    # 아니다. "none"=축 미적용(역할·구조 기반 항목).
+    primary_ownership_axis: str = "none"
     # 교운기 시점 보정(감수 36차) — score_shadow가 채우는 파생값(0=보정 없음).
     # 적격성·원인·persistence·episode identity에 일절 관여하지 않는다.
     transition_bonus: float = 0.0

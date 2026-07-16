@@ -384,6 +384,7 @@ def test_lint_reviewed_incident_requires_groups() -> None:
             "minimumEvidence": {"triggerCount": 2, "independentSourceCount": 2},
             "manifestations": [{"id": "m1", "ko": "테스트"}],
             "reviewed": True,
+            "primaryOwnership": {"axis": "none"},
         }],
     })
     errors = _lint_risk_mapping("risks/finance.json", file)
@@ -745,6 +746,7 @@ def test_lint_health_reviewed_requires_claim_policy() -> None:
             },
             "manifestations": [{"id": "m1", "ko": "테스트"}],
             "reviewed": True,
+            "primaryOwnership": {"axis": "none"},
         }],
     })
     errors = _lint_risk_mapping("risks/health_safety.json", file)
@@ -787,6 +789,7 @@ def test_lint_reviewed_requires_review_scope() -> None:
             "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
             "manifestations": [{"id": "m1", "ko": "테스트"}],
             "reviewed": True,
+            "primaryOwnership": {"axis": "none"},
         }],
     })
     errors = _lint_risk_mapping("risks/finance.json", file)
@@ -802,6 +805,7 @@ def test_lint_rule_change_invalidates_review() -> None:
         "minimumEvidence": {"triggerCount": 1, "independentSourceCount": 1},
         "manifestations": [{"id": "m1", "ko": "테스트"}],
         "reviewed": True,
+            "primaryOwnership": {"axis": "none"},
         "reviewScopes": ["shadow_structure"],
         "reviewVersions": {"shadow_structure": "R0.5"},
     }

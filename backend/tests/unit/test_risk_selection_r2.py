@@ -334,7 +334,7 @@ def test_ownership_beats_score_and_specificity() -> None:
     소유 축 매칭 후보를 밀어내지 못한다."""
     owner = _cand(risk_id="LEG_OWN", domain=RiskDomain.CONTRACT_LEGAL,
                   role="administrative_delay", rank=2,
-                  legal_episode_id="e1",
+                  legal_episode_id="e1", primary_ownership_axis="legal",
                   reality_episode_id="deal_1", sources=(_HYEONG,))
     outsider = _cand(risk_id="FIN_OUT", domain=RiskDomain.FINANCE,
                      role="financial_outflow", rank=3,
@@ -345,6 +345,26 @@ def test_ownership_beats_score_and_specificity() -> None:
     assert len(eps) == 1
     rep = eps[0].representative_candidate_id
     assert rep is not None and rep.startswith("LEG_OWN|")
+
+
+def test_partial_reality_alias_is_not_ownership_evidence() -> None:
+    """감수 39차 가드: reality alias(partial — type 미기재 포함)만 있는 후보는
+    소유 축 계약(axis)이 있어도 ownership 성립 불가 — 축의 명시 local episode
+    직접 매칭만 인정한다."""
+    from saju_engines.risk_selection import _ownership_rank
+
+    alias_only = _cand(risk_id="LEG_A", domain=RiskDomain.CONTRACT_LEGAL,
+                       role="legal_dispute",
+                       primary_ownership_axis="legal",
+                       reality_episode_id="deal_1")  # legal_episode_id 없음
+    explicit = _cand(risk_id="LEG_B", domain=RiskDomain.CONTRACT_LEGAL,
+                     role="administrative_delay", sources=(_HYEONG,),
+                     primary_ownership_axis="legal", legal_episode_id="p1")
+    none_axis = _cand(risk_id="CAR_C", role="exit_pressure",
+                      legal_episode_id="p1")  # 계약 axis="none"(기본)
+    assert _ownership_rank(alias_only) == 0
+    assert _ownership_rank(explicit) == 1
+    assert _ownership_rank(none_axis) == 0
 
 
 def test_fallback_no_transitive_bridge() -> None:
@@ -521,6 +541,7 @@ def test_transition_does_not_flip_ownership_or_create_recovery() -> None:
     교운 가중 감소가 stable recovery를 단독 생성하지 못한다."""
     owner = _cand(risk_id="LEG_OWN", domain=RiskDomain.CONTRACT_LEGAL,
                   role="administrative_delay", rank=2, legal_episode_id="e1",
+                  primary_ownership_axis="legal",
                   reality_episode_id="deal_1", sources=(_HYEONG,))
     outsider = _cand(risk_id="FIN_OUT", domain=RiskDomain.FINANCE,
                      role="financial_outflow", rank=3,

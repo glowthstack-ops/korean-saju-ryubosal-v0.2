@@ -50,11 +50,22 @@ def build_manifest() -> dict:
     unreviewed_ids: list[str] = []
     by_scope: dict[str, int] = {}
     by_domain: dict[str, dict[str, int]] = {}
+    sensitivity_dist: dict[str, int] = {}
+    sensitivity_high: dict[str, dict[str, str]] = {}
     for path in sorted(_RISKS_DIR.glob("*.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
         domain = data["domain"]
         stats = by_domain.setdefault(domain, {"reviewed": 0, "unreviewed": 0})
         for item in data["items"]:
+            sens = item.get("transitionSensitivity", "none")
+            sensitivity_dist[sens] = sensitivity_dist.get(sens, 0) + 1
+            if sens == "high":
+                # high 판정 근거표(감수 39차) — 항목별 상태 전환성 근거를
+                # manifest에 보존(스탬프 추적 가능성 요구).
+                sensitivity_high[item["riskId"]] = {
+                    "domain": domain,
+                    "note": item.get("transitionSensitivityNote", ""),
+                }
             if item.get("reviewed"):
                 reviewed_ids.append(item["riskId"])
                 stats["reviewed"] += 1
@@ -79,6 +90,12 @@ def build_manifest() -> dict:
         # temporal 감수 표면(감수 37차 — scope 분리): 계수·MAX_BONUS·커널 참조
         # 변경 시 manifest diff로 감지. shadow_temporal 0/49 → 감수 후 스탬프.
         "transition_policy_hash": transition_policy_hash(),
+        # transitionSensitivity 저작 현황(감수 39차 확정 — MAX_BONUS 0.20):
+        # 분포 + high 항목별 판정 근거(상태 전환성 기준) 보존.
+        "transition_sensitivity_distribution": dict(
+            sorted(sensitivity_dist.items())),
+        "transition_sensitivity_high": dict(
+            sorted(sensitivity_high.items())),
         "reviewed_total": len(reviewed_ids),
         "unreviewed_total": len(unreviewed_ids),
         "reviewed_by_scope": dict(sorted(by_scope.items())),

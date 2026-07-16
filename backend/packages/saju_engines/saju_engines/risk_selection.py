@@ -40,7 +40,7 @@ from .risk_scoring import (
 )
 
 # 선별 의미 버전 — 병합·대표·budget·portfolio·recovery 정책 변경 시 올린다.
-RISK_SELECTION_VERSION = "risk-select-r2.0.4-shadow"
+RISK_SELECTION_VERSION = "risk-select-r2.1.0-shadow"
 
 # dominant cause 동률 판정 ε(감수 37차 — 잠정, shadow_selection 감수 대상):
 # earliest relief는 strength ≥ max−ε 집합 **전체** 완화를 요구한다.
@@ -211,6 +211,8 @@ def _representative(group: list[RiskCandidate]) -> RiskCandidate | None:
     )[0][0]
 
 
+# (구) 도메인 proxy — 감수 39차에 사전 primaryOwnership 계약으로 대체됨.
+# 판정에 사용하지 않는다: R2-c proxy audit(사전 계약과의 일치 분류) 전용 보존.
 _DOMAIN_AXIS_EPISODE = {
     "selection": "selection_episode_id",
     "career": "selection_episode_id",  # 채용 소유권은 선발 축이 공급
@@ -218,15 +220,30 @@ _DOMAIN_AXIS_EPISODE = {
     "health_safety": "health_episode_id",
     "contract_legal": "legal_episode_id",
     "relationship": "relationship_target_id",
-    "finance": "legal_episode_id",  # 금전 절차 소유권 축(잠정 — 감수 질문)
+    "finance": "legal_episode_id",  # 금전 절차 소유권 축(잠정이었음)
+}
+
+
+# 축 → 후보의 명시 local episode 필드(구조적 매핑 — 도메인 proxy 아님).
+_AXIS_EPISODE_FIELD = {
+    "selection": "selection_episode_id",
+    "mobility": "mobility_episode_id",
+    "health": "health_episode_id",
+    "legal": "legal_episode_id",
+    "relationship": "relationship_target_id",
 }
 
 
 def _ownership_rank(c: RiskCandidate) -> int:
-    """explicit primary ownership proxy — 자기 도메인의 소유 축 episode를
-    직접 명시 매칭한 후보=1(잠정 매핑은 selection_policy_hash 포함·감수 대상)."""
-    axis = _DOMAIN_AXIS_EPISODE.get(c.domain.value)
-    return 1 if axis and getattr(c, axis) is not None else 0
+    """explicit primary ownership(감수 39차 — 사전 primaryOwnership 계약 소비).
+
+    성립 조건: 항목의 소유 축(axis)에 **명시 local episode를 직접 매칭**한
+    후보만 1. axis="none"=미적용. reality alias(특히 partial — type 미기재)는
+    episode 병합 근거일 뿐 ownership 증거로 쓰지 않는다(감수 39차 가드 —
+    이 함수는 reality_episode_id를 어떤 경로로도 참조하지 않는다).
+    """
+    field = _AXIS_EPISODE_FIELD.get(c.primary_ownership_axis)
+    return 1 if field and getattr(c, field) is not None else 0
 
 
 def _identity_quality(ep_key: str, reality_status: str | None) -> float:
@@ -538,8 +555,15 @@ def selection_policy_hash() -> str:
                                         "BUDGET_HARD_MAX/LOWER_PRIORITY"},
         "episode_identity_order": "reality alias → 축 namespace explicit"
                                   " → fallback(fail-closed)",
-        "ownership_first": {"representative": "ownership→specificity→score",
-                            "domain_axis": _DOMAIN_AXIS_EPISODE},
+        "ownership_first": {
+            "representative": "ownership→specificity→score",
+            "source": "사전 primaryOwnership.axis(감수 39차 SSOT) — 축의 명시"
+                      " local episode 직접 매칭만 성립, 도메인 proxy 폐기",
+            "axis_episode_field": _AXIS_EPISODE_FIELD,
+            "partial_alias_not_ownership": "reality alias(partial 포함)는"
+                                           " 병합 근거일 뿐 ownership 증거"
+                                           " 금지",
+        },
         "recovery_censoring": "quiet_span 2 native 기간·right-censored=stable"
                               " 미산출·다중 cause 지속=earliest만",
         "earliest_relief_basis": "대표의 최고 기여(최강 trigger) primary cause"
@@ -558,8 +582,12 @@ def selection_policy_hash() -> str:
         "reality_identity_status": "resolved=전원 type 보유·호환 / partial="
                                    "alias 동일·type 일부 미기재(병합 유지·"
                                    "완전 identity 아님) / conflict(감수 38차)",
-        "epsilon_boundary": "near-tie·dominant 차이값 round(9) 후 ε 비교 —"
-                            " 부동소수점 경계 고정(감수 38차)",
+        "epsilon_boundary": {
+            "normalization_digits": 9,
+            "near_tie_epsilon": 0.02,
+            "dominant_cause_epsilon": _DOMINANT_TIE_EPSILON,
+            "boundary_inclusive": "<=",
+        },
         "transition_in_selection": "대표·budget 점수에 transition_bonus 반영"
                                    "(적격성·episode identity 불개입)",
         "portfolio_source": "unique cause·lineage·effect role·episode"
