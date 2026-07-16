@@ -45,10 +45,21 @@ ADAPTER_VALIDATION_POLICY: dict = {
                       "tool schema 포함", "output schema 포함",
                       "SUPPRESSED guard", "INJECTED instruction",
                       "FULL/P1/P0/P0_COMPACT 각 tier",
-                      "모델 fallback·rerouting", "hard-max episode 요청"],
+                      "runtime hard-max payload(질문 유형별 실제 상한"
+                      " 2/3/4 episodes — 감수 57차 §6)",
+                      "oversized stress payload(8/12/16 episodes —"
+                      " synthetic 과대 요청, tokenizer 압박용)"],
+    "rerouting_verification": "모델 fallback·rerouting 재계수는 30표본"
+                              " **외** 별도 검증(감수 57차 §2) — 표본의"
+                              " validation identity는 최초 설정 모델이"
+                              " 아니라 **최종 resolved 모델** 기준으로"
+                              " 집계하며, 감수되지 않은 fallback 모델"
+                              " (validated counter 없음)은 canary에서"
+                              " BYPASS를 유지한다",
     "sample_minimum": "카테고리 10형 × 각 3개 이상 = **validation"
-                      " identity(7요소)별** 최소 30개(registry 전체 아님 —"
-                      " 감수 56차 §9, 크기 변형 포함)",
+                      " identity(7요소)별·최종 resolved 모델 native"
+                      " 표본** 최소 30개(registry 전체 아님·rerouting"
+                      " 표본 불포함 — 감수 56차 §9 + 57차 §2)",
     "runtime_drift": "canary 중 counted < provider_reported **1건**이라도"
                      " 발생 시 즉시 VALIDATED→SUSPENDED(이후 BYPASS)."
                      " overcount_ratio p50/p90/max 별도 관측(과대 계산은"
@@ -64,6 +75,10 @@ ADAPTER_VALIDATION_POLICY: dict = {
                             " reserve 포함) — 과소 계산 불허(과대는 허용)",
     "reported_basis": "비용 청구 수치가 아니라 실제 전체 prompt/input"
                       " token 수 기준(cached_input_tokens 별도 기록)",
+    "corpus_hash_form": "validationCorpusHash 정본=**전체 SHA-256"
+                        " digest(64 hex)**(감수 57차 §5 — gate·artifact"
+                        " 무결성 기준). 16자 축약은 표시·로그·파일명"
+                        " 전용(validationCorpusHashShort)",
     "corpus_canonical_rule": "표본을 sample ID로 정렬 후 canonical"
                              " 직렬화(sha256) — 포함: validation identity"
                              "(corpus 제외 6요소)·유형별 고정 sample ID·"
@@ -273,7 +288,29 @@ def suspension_state_ok() -> bool:
     combo = (_cfg.RISK_SUSPENSION_BACKEND, _cfg.RISK_DEPLOYMENT_TOPOLOGY)
     if combo not in _cfg._SUPPORTED_SUSPENSION_COMBOS:
         return False  # 미지원 배포 조합=전역 suspension 미보장(감수 55차 §6)
-    return _shared_suspensions()[1] and _ledger_suspensions()[1]
+    return _suspension_snapshot()[2]
+
+
+def _suspension_snapshot() -> tuple[dict, set[str], bool]:
+    """(state 기록, ledger identity, 정상 여부) — **동일 lock 스냅샷**.
+
+    감수 57차 §7: ledger와 state 파일은 같은 공유 lock(LOCK_SH) 안에서
+    읽는다 — writer의 RMW(EX lock)와 배타적이므로 두 파일이 서로 다른
+    시점의 상태로 읽히지 않는다. lock 획득 실패=저장소 불가용(BYPASS).
+    """
+    import fcntl
+    try:
+        _SUSPENSION_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_SUSPENSION_LOCK_FILE, "a+") as lock_f:
+            fcntl.flock(lock_f, fcntl.LOCK_SH)
+            try:
+                records, ok = _shared_suspensions()
+                ledger_ids, ledger_ok = _ledger_suspensions()
+            finally:
+                fcntl.flock(lock_f, fcntl.LOCK_UN)
+        return records, ledger_ids, ok and ledger_ok
+    except OSError:
+        return {}, set(), False
 
 
 def _is_globally_suspended(identity_hash: str) -> tuple[bool, bool]:
@@ -282,10 +319,8 @@ def _is_globally_suspended(identity_hash: str) -> tuple[bool, bool]:
     tombstone 계약(감수 56차 §5): state 파일의 항목·파일 삭제만으로는
     identity가 부활하지 않는다 — ledger에 남은 identity도 차단 대상.
     """
-    records, ok = _shared_suspensions()
-    ledger_ids, ledger_ok = _ledger_suspensions()
-    return (identity_hash in records or identity_hash in ledger_ids,
-            ok and ledger_ok)
+    records, ledger_ids, ok = _suspension_snapshot()
+    return identity_hash in records or identity_hash in ledger_ids, ok
 
 
 def resolve_expose_counter(

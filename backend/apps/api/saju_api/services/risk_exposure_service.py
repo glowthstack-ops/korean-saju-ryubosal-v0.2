@@ -143,6 +143,30 @@ def _canary_allowlisted(subject_id: str | None) -> bool:
     return ok
 
 
+def build_risk_output_schemas(payload: dict, *,
+                              question_type: str) -> dict:
+    """INJECTED 전용 output schema 산출(감수 57차 §4 — canonical/transport
+    분리).
+
+    canonical(build_risk_output_schema — additionalProperties=false·요청별
+    guidance_ref enum·episode 수 기반 maxItems)이 서비스 정본이고, Gemini
+    transport는 provider 수용용 축소 표현이다. transport가 표현하지 못하는
+    계약은 후처리 validator(validate_risk_guidance_envelope + claim
+    audit)가 canonical 기준으로 전부 재검사한다.
+    """
+    from saju_engines.risk_claim_audit import build_risk_output_schema
+    from saju_engines.risk_selection import BUDGET_BY_QUESTION_TYPE
+
+    from .gemini_token_adapter import build_gemini_transport_schema
+
+    episodes = payload.get("llmRiskEpisodes") or []
+    policy = BUDGET_BY_QUESTION_TYPE.get(question_type)
+    hard_max = policy.hard_max if policy is not None else len(episodes)
+    canonical = build_risk_output_schema(episodes, hard_max=hard_max)
+    return {"canonical": canonical,
+            "gemini_transport": build_gemini_transport_schema(canonical)}
+
+
 def apply_risk_exposure(
     prompt_text: str,
     system: str | None,
@@ -227,12 +251,25 @@ def apply_risk_exposure(
     disposition = result["disposition"]
     if disposition == "INJECTED":
         block_text = result["serialized"]
+        # provider output schema 3상태(감수 52차 §7 + 57차 §4): INJECTED만
+        # risk-enabled schema — canonical 정본 + Gemini transport 변환을
+        # 함께 산출(관측·provider 호출부 소비). BYPASS/SUPPRESSED는 기존
+        # schema 그대로(request byte-identical / guard만).
+        result["observability"]["output_schema_state"] = "RISK_ENABLED"
+        # 호출부(provider 요청 조립) 소비 경로 — canonical이 정본, transport
+        # 는 provider 전송용. BYPASS/SUPPRESSED 반환에는 이 키 자체가 없다.
+        result["observability"]["risk_output_schemas"] = (
+            build_risk_output_schemas(
+                {"llmRiskEpisodes": result.get("audit_records") or []},
+                question_type=qt))
         new_prompt = (prompt_text + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
                       + "\n" + block_text)
         # provider request 직전 무결성 재확인(감수 46·47차)은 canary 개시
         # 차수에서 RiskPromptBlock+wrap_risk_block 경유로 교체·검증한다.
         _ = verify_risk_block_integrity
         return new_prompt, system, result["observability"]
+    result["observability"].setdefault(
+        "output_schema_state", "BASE_UNCHANGED")
     if disposition == "SUPPRESSED":
         # 노출 자격은 있으나 런타임 조건으로 안전 주입 불가 — guard만
         # (위험 정보 자체는 어떤 필드에도 없음).

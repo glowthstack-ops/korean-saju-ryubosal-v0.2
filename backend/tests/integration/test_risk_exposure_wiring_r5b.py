@@ -1493,3 +1493,115 @@ def test_crash_during_lock_hold_recovers(monkeypatch, tmp_path) -> None:
     finally:
         if proc.poll() is None:
             proc.kill()
+
+
+def test_transport_schema_separated_from_canonical() -> None:
+    """감수 57차 §4: canonical 정본은 약화되지 않는다 — transport는
+    provider 수용용 축소 표현일 뿐(additionalProperties 제거·type 대문자),
+    canonical 계약(additionalProperties=false·enum·minItems)은 유지."""
+    from saju_api.services.gemini_token_adapter import (
+        build_gemini_transport_schema,
+    )
+    from saju_engines.risk_claim_audit import build_risk_output_schema
+
+    llm = [{"guidanceRef": "rg1", "presentationLevel": "warning"},
+           {"guidanceRef": "rg2", "presentationLevel": "watch"}]
+    canonical = build_risk_output_schema(llm, hard_max=3)
+    transport = build_gemini_transport_schema(canonical)
+    # canonical 정본 유지(입력 불변·계약 보존).
+    assert canonical["additionalProperties"] is False
+    guidance = canonical["properties"]["risk_guidance"]
+    assert guidance["minItems"] == 1
+    # transport: 미지원 키 제거·type 대문자·enum/required 보존.
+    assert "additionalProperties" not in transport
+    assert transport["type"] == "OBJECT"
+    t_item = transport["properties"]["risk_guidance"]["items"]
+    assert "additionalProperties" not in t_item
+    assert set(t_item["properties"]["guidance_ref"]["enum"]) == {
+        "rg1", "rg2"}
+
+
+def test_output_schema_three_state_wiring(monkeypatch) -> None:
+    """감수 57차 §10-3: BYPASS/SUPPRESSED=기존 schema 그대로(schema 키
+    부재·output_schema_state=BASE_UNCHANGED), INJECTED만 RISK_ENABLED +
+    canonical/transport 병행 산출."""
+    from saju_api.services.risk_exposure_service import apply_risk_exposure
+
+    # BYPASS(비허용 canary): schema 키 자체가 없음.
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    _p, _s, obs = apply_risk_exposure(
+        "본문", None, subject_id=None,
+        question_type="period_overview", temporal_scope="future")
+    assert obs["disposition"] == "BYPASS"
+    assert obs["output_schema_state"] == "BASE_UNCHANGED"
+    assert "risk_output_schemas" not in obs
+    # SUPPRESSED(자격 충족·episode 없음): guard만 — schema 불변.
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSE_CANARY_SUBJECT_IDS",
+                        frozenset({"internal-tester-1"}))
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_DEPLOYMENT_TOPOLOGY",
+                        "single_host_single_process")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSURE_RUNTIME_ENABLED", True)
+    monkeypatch.setattr(risk_engine_config, "RISK_AUDIT_HMAC_KEY",
+                        b"a" * 32)
+    from saju_api.services import risk_exposure_service as _svc
+    monkeypatch.setattr(_svc, "_load_manifest_snapshot",
+                        lambda: {"reviewed": True, "hash_ok": True,
+                                 "schema_version": 10,
+                                 "snapshot_hash": "mock"})
+    _p, _s, obs = apply_risk_exposure(
+        "본문", None, subject_id="internal-tester-1",
+        question_type="period_overview", temporal_scope="future",
+        counter=lambda t: max(1, len(t) // 4),
+        counter_model_id="m1", resolved_model_id="m1",
+        model_context_limit=16_000, base_prompt_tokens=1_000,
+        user_input_tokens=100, existing_context_tokens=1_000,
+        response_reserve=2_000)
+    assert obs["disposition"] == "SUPPRESSED"
+    assert obs["output_schema_state"] == "BASE_UNCHANGED"
+    assert "risk_output_schemas" not in obs
+    # INJECTED: canonical+transport 병행 산출, hard_max=질문 유형 정책.
+    from saju_engines.risk_presentation import build_presentation
+    from saju_engines.risk_scoring import score_shadow
+    from saju_engines.risk_selection import build_episodes
+    from saju_shared_types.risk_engine import (
+        EvidenceRole,
+        ExposureStatus,
+        RiskCandidate,
+        RiskDomain,
+        RiskEvidence,
+        RiskKind,
+    )
+
+    src = "relation:CHUNG:month_pillar:branch:ZHENGCAI"
+    cand = RiskCandidate(
+        risk_id="LEG_A", domain=RiskDomain.CONTRACT_LEGAL,
+        kind=RiskKind.INCIDENT_RISK, risk_family="fam", period_key="2026",
+        evidence=[RiskEvidence(
+            evidence_id=f"2026|{src}", code="T", period_key="2026",
+            layer="sewoon", source=src, strength=0.5,
+            role=EvidenceRole.TRIGGER, source_group="event_shape",
+            target_domain=RiskDomain.CONTRACT_LEGAL)],
+        exposure_status=ExposureStatus.CONFIRMED, specificity_rank=2,
+        normalized_effect_role="legal_dispute", trigger_cause_atoms=[src],
+        legal_episode_id="e1")
+    scored = score_shadow([cand], {"LEG_A": 0.6})
+    payload = build_presentation(build_episodes(scored), scored)
+    _p, _s, obs = apply_risk_exposure(
+        "본문", None, subject_id="internal-tester-1", payload=payload,
+        question_type="period_overview", temporal_scope="future",
+        counter=lambda t: max(1, len(t) // 4),
+        counter_model_id="m1", resolved_model_id="m1",
+        model_context_limit=100_000, base_prompt_tokens=1_000,
+        user_input_tokens=100, existing_context_tokens=1_000,
+        response_reserve=2_000)
+    assert obs["disposition"] == "INJECTED"
+    assert obs["output_schema_state"] == "RISK_ENABLED"
+    schemas = obs["risk_output_schemas"]
+    assert schemas["canonical"]["additionalProperties"] is False
+    assert "additionalProperties" not in schemas["gemini_transport"]
+    guidance = schemas["canonical"]["properties"]["risk_guidance"]
+    assert guidance["maxItems"] <= 3  # period_overview hard_max=3

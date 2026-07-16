@@ -6,7 +6,7 @@
    "providerId": "gemini",
    "providerRequestSchemaVersion": "1",
    "resolvedModelId": "gemini-3-flash-preview",
-   "validationPolicyHash": "5f818e50cd6ef437"
+   "validationPolicyHash": "3f4441a457a13924"
   },
   "samples": [
    {
@@ -323,46 +323,46 @@
    },
    {
     "cached_input": 0,
-    "category": "S09_rerouting",
-    "counted": 109,
+    "category": "S09_runtime_hard_max",
+    "counted": 601,
     "passed": true,
-    "recount_performed": true,
-    "reported_total_input": 109,
-    "request_digest": "9ddb98d25c7c25c7",
-    "resolved_model_id": "gemini-2.5-flash",
-    "routing_changed": true,
-    "sample_id": "S09_rerouting-a",
+    "recount_performed": false,
+    "reported_total_input": 601,
+    "request_digest": "099e12dff3348faa",
+    "resolved_model_id": "gemini-3-flash-preview",
+    "routing_changed": false,
+    "sample_id": "S09_runtime_hard_max-a",
     "tier": "FULL"
    },
    {
     "cached_input": 0,
-    "category": "S09_rerouting",
-    "counted": 253,
+    "category": "S09_runtime_hard_max",
+    "counted": 780,
     "passed": true,
-    "recount_performed": true,
-    "reported_total_input": 253,
-    "request_digest": "9c59a255f7e363ff",
-    "resolved_model_id": "gemini-2.5-flash",
-    "routing_changed": true,
-    "sample_id": "S09_rerouting-b",
+    "recount_performed": false,
+    "reported_total_input": 780,
+    "request_digest": "9f90b233fc1af8fa",
+    "resolved_model_id": "gemini-3-flash-preview",
+    "routing_changed": false,
+    "sample_id": "S09_runtime_hard_max-b",
     "tier": "FULL"
    },
    {
     "cached_input": 0,
-    "category": "S09_rerouting",
-    "counted": 637,
+    "category": "S09_runtime_hard_max",
+    "counted": 960,
     "passed": true,
-    "recount_performed": true,
-    "reported_total_input": 637,
-    "request_digest": "ba9f93a3db507ac2",
-    "resolved_model_id": "gemini-2.5-flash",
-    "routing_changed": true,
-    "sample_id": "S09_rerouting-c",
+    "recount_performed": false,
+    "reported_total_input": 960,
+    "request_digest": "423814760514136b",
+    "resolved_model_id": "gemini-3-flash-preview",
+    "routing_changed": false,
+    "sample_id": "S09_runtime_hard_max-c",
     "tier": "FULL"
    },
    {
     "cached_input": 0,
-    "category": "S10_hard_max",
+    "category": "S10_oversized_stress",
     "counted": 1679,
     "passed": true,
     "recount_performed": false,
@@ -370,12 +370,12 @@
     "request_digest": "6afc92d7c91fb51f",
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
-    "sample_id": "S10_hard_max-a",
+    "sample_id": "S10_oversized_stress-a",
     "tier": "FULL"
    },
    {
     "cached_input": 0,
-    "category": "S10_hard_max",
+    "category": "S10_oversized_stress",
     "counted": 2401,
     "passed": true,
     "recount_performed": false,
@@ -383,12 +383,12 @@
     "request_digest": "c8473b8f13666508",
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
-    "sample_id": "S10_hard_max-b",
+    "sample_id": "S10_oversized_stress-b",
     "tier": "FULL"
    },
    {
     "cached_input": 0,
-    "category": "S10_hard_max",
+    "category": "S10_oversized_stress",
     "counted": 3124,
     "passed": true,
     "recount_performed": false,
@@ -396,12 +396,54 @@
     "request_digest": "8dd047ba92dbace0",
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
-    "sample_id": "S10_hard_max-c",
+    "sample_id": "S10_oversized_stress-c",
+    "tier": "FULL"
+   }
+  ],
+  "supplementary_rerouting": [
+   {
+    "cached_input": 0,
+    "category": "R01_rerouting",
+    "counted": 109,
+    "passed": true,
+    "recount_performed": true,
+    "reported_total_input": 109,
+    "request_digest": "9ddb98d25c7c25c7",
+    "resolved_model_id": "gemini-2.5-flash",
+    "routing_changed": true,
+    "sample_id": "R01_rerouting-a",
+    "tier": "FULL"
+   },
+   {
+    "cached_input": 0,
+    "category": "R01_rerouting",
+    "counted": 253,
+    "passed": true,
+    "recount_performed": true,
+    "reported_total_input": 253,
+    "request_digest": "9c59a255f7e363ff",
+    "resolved_model_id": "gemini-2.5-flash",
+    "routing_changed": true,
+    "sample_id": "R01_rerouting-b",
+    "tier": "FULL"
+   },
+   {
+    "cached_input": 0,
+    "category": "R01_rerouting",
+    "counted": 637,
+    "passed": true,
+    "recount_performed": true,
+    "reported_total_input": 637,
+    "request_digest": "ba9f93a3db507ac2",
+    "resolved_model_id": "gemini-2.5-flash",
+    "routing_changed": true,
+    "sample_id": "R01_rerouting-c",
     "tier": "FULL"
    }
   ]
  },
- "corpus_canonical_hash": "90e88fa2cafb3d24",
+ "corpus_canonical_hash": "fc54e4bc106c917b096965b6d3e2a93b7bdb5b19a6a3564d6aa2a2900ebb3f9c",
+ "corpus_canonical_hash_short": "fc54e4bc106c917b",
  "report": {
   "cached_input_observed": 0,
   "identity": {
@@ -410,16 +452,16 @@
    "providerId": "gemini",
    "providerRequestSchemaVersion": "1",
    "resolvedModelId": "gemini-3-flash-preview",
-   "validationCorpusHash": "90e88fa2cafb3d24",
-   "validationPolicyHash": "5f818e50cd6ef437"
+   "validationCorpusHash": "fc54e4bc106c917b096965b6d3e2a93b7bdb5b19a6a3564d6aa2a2900ebb3f9c",
+   "validationCorpusHashShort": "fc54e4bc106c917b",
+   "validationPolicyHash": "3f4441a457a13924"
   },
   "overcount_max": 0,
   "overcount_p50": 0.0,
   "overcount_p90": 0.0,
   "pass": true,
-  "primary_samples": 27,
+  "primary_native_samples": 30,
   "relative_error_max": 0.0,
-  "rerouting_recounts": 3,
   "samples_by_category": {
    "S01_korean_long": 3,
    "S02_mixed_ko_en": 3,
@@ -429,10 +471,17 @@
    "S06_suppressed_guard": 3,
    "S07_injected_instruction": 3,
    "S08_render_tier": 3,
-   "S09_rerouting": 3,
-   "S10_hard_max": 3
+   "S09_runtime_hard_max": 3,
+   "S10_oversized_stress": 3
   },
-  "samples_total": 30,
+  "supplementary_rerouting": {
+   "by_final_resolved_model": {
+    "gemini-2.5-flash": 3
+   },
+   "note": "최종 resolved 모델(fallback)은 별도 identity — 해당 모델의 30표본 감수 전 canary에서 validated counter 없음 → BYPASS 유지",
+   "recounts_performed": 3,
+   "samples": 3
+  },
   "tier_distribution": {
    "FULL": 27,
    "P0": 1,
@@ -442,7 +491,7 @@
   "undercount_count": 0
  },
  "volatile": {
-  "generated_at": "2026-07-16T14:56:04.191322+00:00",
+  "generated_at": "2026-07-16T21:21:29.421681+00:00",
   "script": "risk_adapter_shadow_validation.py"
  }
 }

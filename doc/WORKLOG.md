@@ -8451,3 +8451,18 @@ undercount 0·rerouting recount 3/3·4 tier 대표 — 합격**, corpus hash
 90e88fa2cafb3d24, artifact→manifest validatedTokenCounters(reviewed=
 false 감수 후보) 결정적 생성. SHADOW_VALIDATING 유지(자동 승격 없음).
 pytest 2136·ruff·mypy 0(536)·manifest 일치. REVIEW.md §28-12.
+
+## 감수 57차 — rerouting 집계 분리·full digest·schema 분리·3상태 배선 (2026-07-17)
+
+rerouting 3건이 30표본에 포함돼 있었음(native 27)을 확인·교정 — native
+30(전부 최종 resolved=primary)+rerouting 별도 부록(최종 모델 기준 집계·
+fallback은 감수 전 BYPASS). S09_runtime_hard_max(2/3/4)+
+S10_oversized_stress(8/12/16) 명칭 정정. corpus hash 정본=full SHA-256
+(short는 표시용). ledger·state 동일 lock(LOCK_SH) 스냅샷.
+build_gemini_transport_schema 정본화(canonical 불약화·후처리 validator가
+canonical 재검사·S05 출력 동일=schemaVersion 1 유지)+3상태 output
+schema 배선(INJECTED만 RISK_ENABLED). 재실측: native 30/30 delta 0·
+undercount 0·rerouting 3/3 delta 0 — 합격, corpus full hash
+fc54e4bc…ebb3f9c. manifest 후보(reviewed=false) 갱신. pytest 2138·
+ruff·mypy 0·manifest 일치. REVIEW.md §28-13. 잔여: context 전 경로 소비·
+REVISE 실배선·renderer 후 최종 감사.

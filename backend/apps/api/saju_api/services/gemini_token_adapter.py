@@ -38,12 +38,48 @@ from .token_counter_registry import (
 
 __all__ = ["GEMINI_COUNTER_VERSION", "GeminiTokenCounterAdapter",
            "build_gemini_request_body", "build_gemini_adapter",
+           "build_gemini_transport_schema",
            "register_gemini_shadow_adapter"]
 
 # counter 구현 버전 — 매핑(build_gemini_request_body)·endpoint 의미가
 # 바뀌면 반드시 올린다(validation identity 구성 요소 → 재감수).
 GEMINI_COUNTER_VERSION = "countTokens-v1beta-r1"
 _API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+
+
+def build_gemini_transport_schema(canonical: dict) -> dict:
+    """canonical risk output schema → Gemini transport schema(감수 57차 §4).
+
+    정본은 canonical(build_risk_output_schema — additionalProperties=false·
+    요청별 guidance_ref enum·minItems 등)이며 **약화하지 않는다** — 이
+    변환은 provider가 수용 가능한 축소 표현일 뿐이고, transport가 표현하지
+    못하는 계약(부분수열·episode별 level 대응·중복 금지·필수 warning)은
+    후처리 validator(validate_risk_guidance_envelope + claim audit)가
+    canonical 기준으로 전부 재검사한다: provider schema 통과 ≠ risk
+    envelope 감수 통과.
+
+    변환 규칙(보수 부분집합 — 감수 56차 corpus S05와 동일 출력 유지 →
+    providerRequestSchemaVersion=1 불변): 지원 키(type·properties·
+    required·items·enum·description·minItems·maxItems)만 유지, type은
+    대문자. 규칙이 바뀌어 provider 전송 request가 달라지면 schema version
+    상향+SHADOW_VALIDATING 강등+새 corpus 재감수.
+    """
+    keep = {"type", "properties", "required", "items", "enum",
+            "description", "minItems", "maxItems"}
+    out: dict = {}
+    for k, v in canonical.items():
+        if k not in keep:
+            continue
+        if k == "type":
+            out[k] = str(v).upper()
+        elif k == "properties":
+            out[k] = {name: build_gemini_transport_schema(sub)
+                      for name, sub in v.items()}
+        elif k == "items":
+            out[k] = build_gemini_transport_schema(v)
+        else:
+            out[k] = v
+    return out
 
 
 def _api_key() -> str:

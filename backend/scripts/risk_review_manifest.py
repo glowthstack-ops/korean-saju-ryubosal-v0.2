@@ -82,9 +82,10 @@ def _token_counter_candidates() -> list[dict]:
         # artifact 무결성: canonical 구간 재해시가 기록된 hash와 일치해야
         # 후보 자격(파일 수정=후보 탈락이 아니라 생성 실패로 조기 노출).
         import hashlib
+        # 정본=전체 digest(감수 57차 §5) — 축약(16자)은 파일명·표시 전용.
         recomputed = hashlib.sha256(json.dumps(
             artifact["canonical"], ensure_ascii=False, sort_keys=True,
-        ).encode()).hexdigest()[:16]
+        ).encode()).hexdigest()
         if recomputed != corpus_hash:
             raise ValueError(
                 f"adapter validation artifact 무결성 실패: {path.name}")

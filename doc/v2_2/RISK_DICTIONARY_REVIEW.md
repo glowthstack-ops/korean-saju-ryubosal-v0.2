@@ -2339,3 +2339,62 @@ responseSchema 호환 변환 정본화+후처리 validator)·재작성/재생성
 배선·GuidanceReferenceContext 전 과정 소비·renderer 후 최종 감사 배선·
 expose_pipeline 감수. 파일 backend canary는 topology=
 single_host_single_process 전환(또는 공유 backend) 필요.
+
+### 28-13. 감수 57차 반영 — rerouting 집계 분리·full digest·schema 분리 정본화·3상태 배선 + corpus 재확정 (2026-07-17)
+
+**§11 재집계 확인(§2)**: 이전 corpus는 **경우 B**(rerouting 3건이 30건에
+포함 — native 27건)였음을 확인·교정. 재구성: **native 30 = 10형×3 전부
+최종 resolved=primary**, rerouting 3건은 30표본 **외** 별도 부록
+(supplementary_rerouting — 최종 resolved 모델별 집계, 재계수 계약 검증
+전용). 정책에 rerouting_verification 명문화: 표본 identity는 최초 설정
+모델이 아니라 **최종 resolved 모델** 기준, 감수 안 된 fallback
+(gemini-2.5-flash)은 validated counter 없음 → canary BYPASS 유지.
+
+**표본 명칭 정정(§6)**: 구 "hard-max 8·12·16"은 R2 hard max(2/2/3/4/2)와
+무관한 synthetic이었음 — **S09_runtime_hard_max(2/3/4 episodes — 실제
+질문 유형별 상한)** 신설 + **S10_oversized_stress(8/12/16)**로 개명.
+정책 sample_shapes도 두 형태로 분리 기재.
+
+**corpus hash full digest(§5)**: validationCorpusHash 정본=전체 SHA-256
+(64 hex) — adapter identity·manifest 대조·artifact 무결성 전부 full
+기준, 16자는 validationCorpusHashShort(표시·파일명 전용). 정책에
+corpus_hash_form 고정.
+
+**ledger·state 동일 lock 스냅샷(§7)**: _suspension_snapshot —
+읽기도 전용 lock 파일 LOCK_SH 안에서 state+ledger를 한 번에 읽음(writer
+EX와 배타 — 두 파일이 다른 시점으로 읽히지 않음). lock 실패=불가용
+(BYPASS).
+
+**canonical/transport schema 분리 정본화(§4)**: build_gemini_transport_
+schema를 harness 임시 변환에서 adapter 모듈 정본으로 승격 — **canonical
+(build_risk_output_schema)은 약화하지 않는다**: transport는 수용용 축소
+표현(additionalProperties 제거·type 대문자·지원 키만), 표현 못 하는
+계약(부분수열·episode별 level·중복 금지·필수 warning)은 후처리 validator
+가 canonical 기준 전부 재검사(provider schema 통과 ≠ envelope 감수
+통과). 변환 출력은 감수 56차 S05와 **동일**(byte 동일 규칙) →
+providerRequestSchemaVersion=1 유지 — 규칙 변경 시 version 상향+
+SHADOW_VALIDATING 강등+새 corpus 계약 명시.
+
+**3상태 output schema 배선(§10-3)**: apply_risk_exposure —
+BYPASS/SUPPRESSED=기존 schema 그대로(관측 output_schema_state=
+BASE_UNCHANGED·schema 키 부재), **INJECTED만** RISK_ENABLED + canonical/
+gemini_transport 병행 산출(hard_max=질문 유형 BUDGET_BY_QUESTION_TYPE).
+fixture 3종(분리 계약·3상태·hard_max 상한).
+
+**corpus 재실측(최종 shape 기준 — §11)**: native 30/30 delta 전부 0·
+undercount 0·overcount 0/0/0·relative error 0·tier FULL 27/P1 1/P0 1/
+P0_COMPACT 1·runtime hard-max 601/780/960 tokens·supplementary
+rerouting 3건(gemini-2.5-flash, 전부 delta 0·recount 3/3)·cached 0 —
+**합격**. corpus canonical hash(full)=
+fc54e4bc106c917b096965b6d3e2a93b7bdb5b19a6a3564d6aa2a2900ebb3f9c
+(short fc54e4bc106c917b), policy hash 3f4441a457a13924(문구 정정 반영
+재스탬프). manifest validatedTokenCounters **reviewed=false 감수 후보**
+갱신 — 이전 corpus(90e88fa2…)는 폐기(경우 B 집계).
+
+fixture +3(통합 65종). 게이트: pytest 2138·ruff clean·mypy 0(536)·
+manifest 일치. 3중 잠금 유지, EXPOSE_CANARY 보류.
+
+**잔여(§10 순서 6~8)**: GuidanceReferenceContext 전 과정 소비 배선,
+REVISE/REGENERATE LLM 실배선, renderer 후 최종 audit 배선 — 다음 차수.
+canary 시 topology=single_host_single_process 전환+실제 worker 수 1
+확인(배포 절차) 필요.

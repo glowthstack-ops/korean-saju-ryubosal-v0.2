@@ -37,6 +37,7 @@ from saju_api.services.gemini_token_adapter import (  # noqa: E402
     GEMINI_COUNTER_VERSION,
     build_gemini_adapter,
     build_gemini_request_body,
+    build_gemini_transport_schema,
 )
 from saju_api.services.token_counter_registry import (  # noqa: E402
     ProviderRequest,
@@ -117,31 +118,15 @@ def _tier_of(rendered: str) -> str:
     return "P0"
 
 
-def _gemini_schema(schema: dict) -> dict:
-    """JSON Schema → Gemini responseSchema 호환 변환(보수 부분집합).
+def _build_corpus(model_id: str,
+                  reroute_model: str) -> tuple[list[dict], list[dict]]:
+    """(native 30표본, rerouting 별도 3표본) — 결정적(감수 57차 §2).
 
-    additionalProperties 등 미지원 키 제거 — 실배선(provider output
-    schema 3상태) 차수에서 후처리 validator와 함께 정본화한다.
+    native 30 = 10형×3 전부 최종 resolved=primary 모델. rerouting 표본은
+    최종 resolved 모델이 다르므로 **30표본에 불포함** — 재계수 계약 검증
+    전용 부록으로 별도 집계한다(fallback 모델의 canary 자격은 그 모델
+    identity의 별도 30표본 감수로만).
     """
-    keep = {"type", "properties", "required", "items", "enum",
-            "description", "minItems", "maxItems"}
-    out: dict = {}
-    for k, v in schema.items():
-        if k not in keep:
-            continue
-        if k == "type":
-            out[k] = str(v).upper()
-        elif k == "properties":
-            out[k] = {name: _gemini_schema(sub) for name, sub in v.items()}
-        elif k == "items":
-            out[k] = _gemini_schema(v)
-        else:
-            out[k] = v
-    return out
-
-
-def _build_corpus(model_id: str, reroute_model: str) -> list[dict]:
-    """10형×3 표본(감수 52차 §2 sample_shapes 전 카테고리) — 결정적."""
     p1 = _payload(1)
     p8 = _payload(8)
     full_1 = serialize_llm_payload(p1, 100_000)
@@ -153,8 +138,9 @@ def _build_corpus(model_id: str, reroute_model: str) -> list[dict]:
             "topic": {"type": "STRING"},
             "period": {"type": "STRING"}}, "required": ["topic"]},
     }]}], ensure_ascii=False)
-    out_schema = json.dumps(_gemini_schema(build_risk_output_schema(
-        p1["llmRiskEpisodes"], hard_max=3)), ensure_ascii=False)
+    out_schema = json.dumps(build_gemini_transport_schema(
+        build_risk_output_schema(p1["llmRiskEpisodes"], hard_max=3)),
+        ensure_ascii=False)
 
     def req(user: str, *, system: str = _SYSTEM, schema: str | None = None,
             tools: str | None = None) -> ProviderRequest:
@@ -210,16 +196,29 @@ def _build_corpus(model_id: str, reroute_model: str) -> list[dict]:
         add("S08_render_tier", idx, req(_KO + "\n" + rendered),
             tier=_tier_of(rendered) if tier in rendered_by_tier
             else "FULL")
-    # S09: 모델 fallback·rerouting — 최종 라우팅 모델로 재계수 필수.
-    for idx, scale in (("a", 1), ("b", 4), ("c", 12)):
-        add("S09_rerouting", idx, req(_KO * scale + _MIX),
-            resolved=reroute_model, reroute=True)
-    # S10: hard-max episode 요청(최대 episode 블록).
+    # S09: runtime hard-max payload — R2 질문 유형별 **실제** 상한
+    # (specific_event 2 / period_overview 3 / multi_episode_compare 4,
+    # 감수 57차 §6 — 운영 형태 표본).
+    for idx, n in (("a", 2), ("b", 3), ("c", 4)):
+        block = serialize_llm_payload(_payload(n), 100_000)
+        add("S09_runtime_hard_max", idx,
+            req(_KO + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
+                + "\n" + block))
+    # S10: oversized stress payload(8/12/16 episodes) — R2 hard max가
+    # 아니라 tokenizer 압박용 synthetic 과대 요청(감수 57차 §6 명칭 정정).
     for idx, n in (("a", 8), ("b", 12), ("c", 16)):
         big = serialize_llm_payload(_payload(n), 100_000)
-        add("S10_hard_max", idx,
+        add("S10_oversized_stress", idx,
             req(_KO + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK + "\n" + big))
-    return samples
+    # 부록: 모델 fallback·rerouting 재계수 검증(30표본 외 — 감수 57차 §2).
+    supplementary: list[dict] = []
+    for idx, scale in (("a", 1), ("b", 4), ("c", 12)):
+        supplementary.append({
+            "sample_id": f"R01_rerouting-{idx}",
+            "category": "R01_rerouting", "tier": "FULL",
+            "request": req(_KO * scale + _MIX),
+            "resolved_model_id": reroute_model, "reroute": True})
+    return samples, supplementary
 
 
 def _provider_reported(model_id: str, body: dict,
@@ -266,12 +265,14 @@ def main() -> int:
     api_key = _api_key()
     adapter = build_gemini_adapter(args.model)
     reroute_adapter = build_gemini_adapter(args.reroute_model)
-    corpus = _build_corpus(args.model, args.reroute_model)
-    assert len(corpus) == 30, len(corpus)
+    native, supplementary = _build_corpus(args.model, args.reroute_model)
+    assert len(native) == 30, len(native)
+    assert all(not s["reroute"] for s in native)  # 30표본=전부 native
 
     records: list[dict] = []
+    supp_records: list[dict] = []
     recount_performed = 0
-    for sample in corpus:
+    for sample in [*native, *supplementary]:
         request: ProviderRequest = sample["request"]
         body = build_gemini_request_body(request)
         resolved = sample["resolved_model_id"]
@@ -287,7 +288,7 @@ def main() -> int:
         digest = hashlib.sha256(json.dumps(
             body, ensure_ascii=False, sort_keys=True).encode()
         ).hexdigest()[:16]
-        records.append({
+        (supp_records if sample["reroute"] else records).append({
             "sample_id": sample["sample_id"],
             "category": sample["category"],
             "tier": sample["tier"],
@@ -305,23 +306,27 @@ def main() -> int:
               f" cached={cached}")
 
     records.sort(key=lambda r: r["sample_id"])  # 실행 순서 배제(canonical)
+    supp_records.sort(key=lambda r: r["sample_id"])
     identity_wo_corpus = {
         "providerId": "gemini", "resolvedModelId": args.model,
         "counterVersion": GEMINI_COUNTER_VERSION,
         "providerRequestSchemaVersion": "1", "countMode": "PROVIDER_EXACT",
         "validationPolicyHash": adapter_validation_policy_hash(),
     }
-    canonical = {"identity": identity_wo_corpus, "samples": records}
+    canonical = {"identity": identity_wo_corpus, "samples": records,
+                 "supplementary_rerouting": supp_records}
+    # 정본=전체 SHA-256 digest(감수 57차 §5) — 16자는 표시·파일명 전용.
     corpus_hash = hashlib.sha256(json.dumps(
         canonical, ensure_ascii=False, sort_keys=True).encode()
-    ).hexdigest()[:16]
+    ).hexdigest()
+    corpus_hash_short = corpus_hash[:16]
 
-    primary = [r for r in records if not r["routing_changed"]]
-    deltas = [r["counted"] - r["reported_total_input"] for r in records]
+    all_records = [*records, *supp_records]
+    deltas = [r["counted"] - r["reported_total_input"] for r in all_records]
     undercount = sum(1 for d in deltas if d < 0)
     overs = sorted(d for d in deltas if d >= 0)
     rel = [abs(d) / max(1, r["reported_total_input"])
-           for d, r in zip(deltas, records, strict=True)]
+           for d, r in zip(deltas, all_records, strict=True)]
 
     def pct(vals: list[int], q: float) -> float:
         if not vals:
@@ -332,8 +337,11 @@ def main() -> int:
 
     report = {
         "identity": {**identity_wo_corpus,
-                     "validationCorpusHash": corpus_hash},
-        "samples_total": len(records),
+                     "validationCorpusHash": corpus_hash,
+                     "validationCorpusHashShort": corpus_hash_short},
+        # 30표본=전부 최종 resolved=primary native(감수 57차 §2) —
+        # rerouting 3건은 별도 집계(최종 resolved 모델 기준).
+        "primary_native_samples": len(records),
         "samples_by_category": {
             c: sum(1 for r in records if r["category"] == c)
             for c in sorted({r["category"] for r in records})},
@@ -345,18 +353,31 @@ def main() -> int:
         "overcount_p90": pct(overs, 90),
         "overcount_max": max(overs) if overs else 0,
         "relative_error_max": max(rel) if rel else 0.0,
-        "rerouting_recounts": recount_performed,
-        "cached_input_observed": sum(r["cached_input"] for r in records),
-        "primary_samples": len(primary),
-        "pass": (undercount == 0 and recount_performed == 3
-                 and all(r["passed"] for r in records)),
+        "supplementary_rerouting": {
+            "samples": len(supp_records),
+            "recounts_performed": recount_performed,
+            "by_final_resolved_model": {
+                m: sum(1 for r in supp_records
+                       if r["resolved_model_id"] == m)
+                for m in sorted({r["resolved_model_id"]
+                                 for r in supp_records})},
+            "note": "최종 resolved 모델(fallback)은 별도 identity — 해당"
+                    " 모델의 30표본 감수 전 canary에서 validated counter"
+                    " 없음 → BYPASS 유지",
+        },
+        "cached_input_observed": sum(r["cached_input"]
+                                     for r in all_records),
+        "pass": (len(records) == 30 and undercount == 0
+                 and recount_performed == 3
+                 and all(r["passed"] for r in all_records)),
     }
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    artifact_path = out_dir / f"{args.model}__{corpus_hash}.json"
+    artifact_path = out_dir / f"{args.model}__{corpus_hash_short}.json"
     artifact_path.write_text(json.dumps({
         "canonical": canonical,
         "corpus_canonical_hash": corpus_hash,
+        "corpus_canonical_hash_short": corpus_hash_short,
         "report": report,
         "volatile": {"generated_at": datetime.now(UTC).isoformat(),
                      "script": "risk_adapter_shadow_validation.py"},
