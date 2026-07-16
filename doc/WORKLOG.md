@@ -8384,3 +8384,17 @@ audit ALLOW·expose hash 편입 — 문구 변경=pending). 보완: key 누출 �
 baseline 불변·manifest 일치. REVIEW.md §28-7. 잔여: adapter 실물 shadow
 등록→envelope provider 강제→재작성 실배선→provider 검증→renderer 감사→
 감수→canary(별도 커밋).
+
+## 감수 52차 — adapter manifest SSOT·order fingerprint·output schema·HMAC (2026-07-16)
+
+매핑 보완(도메인 dedup fixture·EventKey enum 근거 완료·boundary 보정 금지)·
+adapter manifest SSOT(resolve_expose_counter — registry 자체 선언 불가·
+manifest 항목 대조, drift 1건=SUSPENDED, 표본 30·overcount 관측)·order
+fingerprint(llmEpisodeOrderHash — 잘못된 배열=EPISODE_ORDER_SOURCE_
+MISMATCH)·fallback 문구 교정(r1.1.0 — 시스템 실패 노출 제거)·strict 정책
+구간(expose_pipeline 미지 필드=실패)·HMAC clause hash(keyed 16자·운영
+secret 교체 계약)·output schema 3상태(INJECTED 전용 build_risk_output_
+schema — SUPPRESSED에 risk_guidance 미요구). fixture +7(통합 46종).
+pytest 2120·ruff·mypy 0(534)·baseline 불변·manifest 일치. REVIEW.md §28-8.
+잔여: adapter 실물 shadow 등록·계수 대조→schema 실배선→재작성 배선→
+provider 검증→renderer 감사→감수→canary(별도 커밋).

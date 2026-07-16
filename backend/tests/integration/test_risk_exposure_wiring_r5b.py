@@ -817,5 +817,153 @@ def test_violation_evidence_has_hash_for_general_logs() -> None:
 
     out = audit_generated_risk_claims("계약 파기가 거의 확실하게 진행됩니다.")
     v = out["violations"][0]
-    assert len(v["clause_hash"]) == 12 and v["clause_len"] > 0
+    assert len(v["clause_hash"]) == 16 and v["clause_len"] > 0  # HMAC 16자
     assert len(v["clause_text"]) <= 80
+
+
+# ── 감수 52차 fixture ─────────────────────────────────────────────
+
+
+def test_domain_dedup_before_count() -> None:
+    """§1: 도메인 중복 제거 후 개수 판정 — [career, career]=1개 허용."""
+    from saju_engines.risk_question_mapping import (
+        map_intent_to_exposure_question,
+    )
+    from saju_shared_types.intent import (
+        Domain,
+        IntentJson,
+        QueryType,
+        TimeRange,
+        TimeScope,
+    )
+
+    intent = IntentJson(
+        intent_id="i", query_type=QueryType.DOMAIN_ANALYSIS,
+        time_scope=TimeScope.MID_TERM,
+        time_range=TimeRange(type="relative", granularity="month",
+                             start="2026-07", end="2026-12"),
+        domains=[Domain.CAREER, Domain.CAREER, Domain.GENERAL])
+    ok = map_intent_to_exposure_question(intent)
+    assert ok is not None and ok["question_type"] == "single_domain_period"
+
+
+def test_order_fingerprint_detects_wrong_array() -> None:
+    """§3: llmEpisodeOrderHash — validator가 records(잘못된 배열)를 받으면
+    EPISODE_ORDER_SOURCE_MISMATCH, 최종 llmRiskEpisodes면 통과."""
+    from saju_engines.risk_claim_audit import (
+        validate_risk_guidance_envelope,
+    )
+    from saju_engines.risk_presentation import llm_episode_order_hash
+
+    llm = [{"episodeKey": "A", "presentationLevel": "warning",
+            "domains": ["contract_legal"], "effectRoles": ["x"]},
+           {"episodeKey": "B", "presentationLevel": "watch",
+            "domains": ["finance"], "effectRoles": ["y"]}]
+    wrong = list(reversed(llm))  # records/필터 전 순서를 흉내
+    expected = llm_episode_order_hash(llm)
+    sections = [{"episode_key": "A", "exposed_level": "warning",
+                 "text": "점검"}]
+    assert validate_risk_guidance_envelope(
+        sections, llm, expected_order_hash=expected) == []
+    out = validate_risk_guidance_envelope(
+        sections, wrong, expected_order_hash=expected)
+    assert out == ["EPISODE_ORDER_SOURCE_MISMATCH"]
+
+
+def test_new_fallback_wording_and_hash_updated() -> None:
+    """§4: 교정된 fallback 문구 — 시스템 실패 직접 노출 없음·audit ALLOW·
+    버전 r1.1.0."""
+    from saju_engines.risk_claim_audit import audit_generated_risk_claims
+    from saju_engines.risk_exposure import (
+        RISK_SAFE_FALLBACK_TEMPLATE,
+        RISK_SAFE_FALLBACK_VERSION,
+    )
+
+    assert RISK_SAFE_FALLBACK_VERSION == "risk-safe-fallback-r1.1.0"
+    assert "안전하게 구성하지 못했" not in RISK_SAFE_FALLBACK_TEMPLATE
+    assert "실제 일정과 조건" in RISK_SAFE_FALLBACK_TEMPLATE
+    assert audit_generated_risk_claims(
+        RISK_SAFE_FALLBACK_TEMPLATE)["action"] == "ALLOW"
+
+
+def test_strict_policy_section_rejects_unknown_fields(tmp_path,
+                                                      monkeypatch) -> None:
+    """§5: expose_pipeline 구간 미등록 필드=fail-closed."""
+    import json
+
+    from saju_api.services import risk_exposure_service as svc
+
+    manifest = json.loads(svc._MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest["expose_pipeline"]["surprise_policy"] = True
+    bad = tmp_path / "manifest.json"
+    bad.write_text(json.dumps(manifest, ensure_ascii=False),
+                   encoding="utf-8")
+    monkeypatch.setattr(svc, "_MANIFEST_PATH", bad)
+    snap = svc._load_manifest_snapshot()
+    assert snap["reviewed"] is False and snap["hash_ok"] is False
+
+
+def test_adapter_manifest_ssot_and_drift_suspend() -> None:
+    """§2: registry 자체 VALIDATED 선언만으로 EXPOSE 자격 불가 — manifest
+    항목 일치 필요. drift(counted<reported) 1건=즉시 SUSPENDED."""
+    from saju_api.services.token_counter_registry import (
+        TokenCounterAdapter,
+        record_count_observation,
+        register_adapter,
+        resolve_expose_counter,
+        set_validation_state,
+    )
+
+    register_adapter(TokenCounterAdapter(
+        model_id="ssot-model", mode="MODEL_TOKENIZER", counter=len,
+        provider_id="prov", counter_version="v1"))
+    set_validation_state("ssot-model", "VALIDATED")
+    # manifest 항목 없음 → None(BYPASS).
+    assert resolve_expose_counter("ssot-model", []) is None
+    entry = {"reviewed": True, "resolvedModelId": "ssot-model",
+             "providerId": "prov", "counterVersion": "v1"}
+    assert resolve_expose_counter("ssot-model", [entry]) is not None
+    # reviewed=false·version 불일치 → None.
+    assert resolve_expose_counter(
+        "ssot-model", [{**entry, "reviewed": False}]) is None
+    assert resolve_expose_counter(
+        "ssot-model", [{**entry, "counterVersion": "v2"}]) is None
+    # drift: 과소 계산 1건 → SUSPENDED → 이후 해소 불가.
+    record_count_observation("ssot-model", counted=100, reported=120)
+    assert resolve_expose_counter("ssot-model", [entry]) is None
+
+
+def test_injected_output_schema_contract() -> None:
+    """§7: INJECTED 전용 schema — additionalProperties=false·maxItems=
+    hard_max·episode_key/level enum(후처리 validator 병행 전제)."""
+    from saju_engines.risk_claim_audit import build_risk_output_schema
+
+    llm = [{"episodeKey": "A", "presentationLevel": "warning"},
+           {"episodeKey": "B", "presentationLevel": "watch"}]
+    schema = build_risk_output_schema(llm, hard_max=3)
+    assert schema["additionalProperties"] is False
+    guidance = schema["properties"]["risk_guidance"]
+    assert guidance["maxItems"] == 3
+    item = guidance["items"]
+    assert item["additionalProperties"] is False
+    assert set(item["properties"]["episode_key"]["enum"]) == {"A", "B"}
+    assert set(item["properties"]["exposed_level"]["enum"]) == {
+        "warning", "watch"}
+
+
+def test_clause_hash_is_keyed_hmac() -> None:
+    """§6: clause_hash=keyed HMAC(16자) — key가 다르면 hash가 다르다."""
+    from saju_engines import risk_engine_config
+    from saju_engines.risk_claim_audit import audit_generated_risk_claims
+
+    text = "계약 파기가 거의 확실하게 진행됩니다."
+    h1 = audit_generated_risk_claims(text)["violations"][0]["clause_hash"]
+    assert len(h1) == 16
+    original = risk_engine_config.RISK_AUDIT_HMAC_KEY
+    try:
+        risk_engine_config.RISK_AUDIT_HMAC_KEY = b"other-key"
+        h2 = audit_generated_risk_claims(
+            text)["violations"][0]["clause_hash"]
+    finally:
+        risk_engine_config.RISK_AUDIT_HMAC_KEY = original
+    assert h1 != h2

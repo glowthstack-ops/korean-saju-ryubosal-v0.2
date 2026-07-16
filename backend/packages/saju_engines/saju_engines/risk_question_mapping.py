@@ -82,9 +82,11 @@ def map_intent_to_exposure_question(intent: IntentJson) -> dict | None:
                              if d.value != "general"]
         if len(set(effective_domains)) != 1:
             return None
-    # 감수 51차 §1-2: specific_event는 **해소된 target**이 있을 때만 —
-    # event_key(정본 파서가 해소한 사건 타깃)가 없으면 "요즘 왜 안
-    # 풀릴까" 류 광역 질문에 사건별 budget이 적용된다(BYPASS).
+    # 감수 51차 §1-2 + 52차 §1: specific_event는 **해소된 target**이 있을
+    # 때만. event_key는 자유 문자열이 아니라 EventKey **enum**(사건형 21종
+    # — 성향·개념·처방 항목이 없는 폐쇄 어휘)이므로 별도 allowlist 없이
+    # enum 존재=eligible로 완료 처리(감수 52차 승인 조건). 파서 enum에
+    # 비사건형 키가 추가되면 이 지점에 명시 allowlist를 도입해야 한다.
     if question_type == "specific_event":
         if intent.event_key is None and not intent.event_keys:
             return None
@@ -98,7 +100,9 @@ def map_intent_to_exposure_question(intent: IntentJson) -> dict | None:
             return None
         if not (_period_label_ok(end[:4]) or _period_label_ok(end)):
             return None
-        # 라벨 정규화: YYYY-MM-DD → YYYY-MM.
+        # 라벨 정규화: YYYY-MM-DD → YYYY-MM. boundary 정책(감수 52차 §1):
+        # 범위 의미는 시간 파서 SSOT가 확정한 [start, end] 그대로 —
+        # 본 모듈은 검사만 하고 날짜를 보정·확장하지 않는다.
         start = start if _period_label_ok(start) else start[:4]
         end = end if _period_label_ok(end) else end[:4]
         future_range = (start, end)

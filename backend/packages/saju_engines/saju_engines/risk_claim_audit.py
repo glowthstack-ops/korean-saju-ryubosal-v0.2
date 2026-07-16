@@ -12,7 +12,10 @@ episode 동일 현실 건 단정·recovery 보장·항목별 prohibited 원문. 
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
+
+from . import risk_engine_config
 
 # claim audit 정책 버전(감수 46차 §16) — 패턴·qualifier registry·재작성
 # 정책 변경 시 올린다(claim_audit_policy_hash 변경 = expose_pipeline 재감수
@@ -134,10 +137,13 @@ def audit_generated_risk_claims(
             violations.append({
                 "code": code, "matched": pat,
                 "matched_span": [idx, idx + len(pat)],
-                # 일반 운영 로그=clause_hash·길이만 사용(감수 51차 §10 —
-                # 원문 clause_text는 감수용 제한 표본 전용·80자·단기 보존).
-                "clause_hash": hashlib.sha256(
-                    clause.encode()).hexdigest()[:12],
+                # 일반 운영 로그=clause_hash·길이만 사용(감수 51차 §10).
+                # keyed HMAC(감수 52차 §6 — 사전 대입 추정 차단): 식별자·
+                # 보안 증명이 아니라 표본 상관관계 확인 전용. 원문
+                # clause_text는 감수용 제한 표본 전용·80자·단기 보존.
+                "clause_hash": hmac.new(
+                    risk_engine_config.RISK_AUDIT_HMAC_KEY,
+                    clause.encode(), hashlib.sha256).hexdigest()[:16],
                 "clause_len": len(clause),
                 "clause_text": clause[:80],
                 "negation_status": "not_negated",
@@ -231,6 +237,7 @@ _ENVELOPE_ALLOWED_FIELDS = frozenset(
 
 def validate_risk_guidance_envelope(
     sections: list[dict], llm_episodes: list[dict],
+    expected_order_hash: str | None = None,
 ) -> list[str]:
     """구조화 risk_guidance 불변식(감수 48차 §10-⑤ + 49차 §5).
 
@@ -247,6 +254,11 @@ def validate_risk_guidance_envelope(
     본 함수는 '주입됐는데 생성이 비었는가'만 판정.
     """
     errors: list[str] = []
+    if expected_order_hash is not None:
+        from .risk_presentation import llm_episode_order_hash
+        if llm_episode_order_hash(llm_episodes) != expected_order_hash:
+            # 잘못된 배열(records·필터 전 순서) 전달 탐지(감수 52차 §3).
+            return ["EPISODE_ORDER_SOURCE_MISMATCH"]
     allowed_keys = [str(e.get("episodeKey") or e.get("episode_key") or "")
                     for e in llm_episodes]
     levels = {k: str(e.get("presentationLevel", "warning"))
@@ -343,6 +355,46 @@ def audit_rendered_output(final_text: str, episode_keys: list[str],
     return leaks
 
 
+def build_risk_output_schema(llm_episodes: list[dict],
+                             hard_max: int) -> dict:
+    """INJECTED 전용 risk-enabled output schema(감수 52차 §7).
+
+    BYPASS=기존 schema 그대로(request byte-identical), SUPPRESSED=기존
+    schema+guard(risk_guidance 요구 금지 — 빈 위험 section 유도 방지),
+    INJECTED만 본 schema. JSON Schema가 episode별 key-level 대응을 완전히
+    표현하지 못하므로 후처리 validator(validate_risk_guidance_envelope)를
+    반드시 병행한다.
+    """
+    keys = [str(e.get("episodeKey") or e.get("episode_key") or "")
+            for e in llm_episodes]
+    levels = sorted({str(e.get("presentationLevel", "warning"))
+                     for e in llm_episodes})
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["main_answer", "risk_guidance"],
+        "properties": {
+            "main_answer": {"type": "string", "minLength": 1},
+            "risk_guidance": {
+                "type": "array",
+                "maxItems": hard_max,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["episode_key", "exposed_level", "text"],
+                    "properties": {
+                        "episode_key": {"type": "string",
+                                        "enum": [k for k in keys if k]},
+                        "exposed_level": {"type": "string",
+                                          "enum": levels},
+                        "text": {"type": "string", "minLength": 1},
+                    },
+                },
+            },
+        },
+    }
+
+
 def plan_remediation(attempt: int, audit_action: str) -> str:
     """위반 시 결정적 처리 순서(감수 46차 §11 — 무제한 재생성 금지).
 
@@ -396,6 +448,18 @@ def claim_audit_policy_hash() -> str:
         "order_check": "부분수열(watch/advisory 생략 허용·역전 금지)",
         "presence_contract": "INJECTED+guidance None=schema 실패 / []="
                              "필수 warning 없을 때만 허용(감수 50차 §5)",
+        "output_schema_by_disposition": "BYPASS=기존 schema(byte 불변) /"
+                                        " SUPPRESSED=기존 schema+guard"
+                                        "(risk_guidance 미요구) / INJECTED="
+                                        "risk-enabled schema(additional"
+                                        "Properties=false·maxItems=hard_max"
+                                        "·episode_key/level enum)+후처리"
+                                        " validator 병행(감수 52차 §7)",
+        "clause_hash": "keyed HMAC-SHA256(16자) — 운영 secret 환경별·회전,"
+                       " 식별자/보안 증명 사용 금지(감수 52차 §6)",
+        "order_fingerprint": "llmEpisodeOrderHash — validator가 잘못된"
+                             " 배열(records·필터 전) 수신 탐지(감수 52차"
+                             " §3)",
     }
     return hashlib.sha256(json.dumps(
         policy, sort_keys=True, ensure_ascii=False).encode()
@@ -410,6 +474,7 @@ __all__ = [
     "claim_audit_policy_hash",
     "plan_remediation",
     "audit_rendered_output",
+    "build_risk_output_schema",
     "validate_injected_guidance_presence",
     "validate_risk_guidance_envelope",
 ]

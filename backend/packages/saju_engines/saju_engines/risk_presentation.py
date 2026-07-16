@@ -459,7 +459,23 @@ def build_presentation(
         "globalAllowedClaimCodes": list(GLOBAL_ALLOWED_CLAIM_CODES),
         "presentationRecords": records,
         "llmRiskEpisodes": llm_episodes,
+        # 순서 fingerprint(감수 52차 §3): envelope 검증기가 잘못된 배열
+        # (records·필터 전 순서)을 받는 실수를 탐지하는 대조값. 미래 필터
+        # 적용 시 filter가 재계산한다.
+        "llmEpisodeOrderHash": llm_episode_order_hash(llm_episodes),
     }
+
+
+def llm_episode_order_hash(llm_episodes: list[dict]) -> str:
+    """최종 llmRiskEpisodes 순서 fingerprint(감수 52차 §3 — SSOT 대조).
+
+    key가 없는 episode(P0_COMPACT 등 축약형)는 level 나열로 대체 —
+    fingerprint 목적은 '같은 배열·같은 순서' 확인이다.
+    """
+    parts = [f"{e.get('presentationLevel', '')}"
+             f"|{e.get('domains', '')}|{e.get('effectRoles', '')}"
+             for e in llm_episodes]
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]
 
 
 # token guard 압축 tier(§26-8 + 감수 42차 §8) — P0는 어떤 예산에서도 유지,
@@ -698,6 +714,7 @@ __all__ = [
     "presentation_policy_hash",
     "RENDER_TIERS",
     "render_llm_payload",
+    "llm_episode_order_hash",
     "score_band",
     "serialize_llm_payload",
 ]

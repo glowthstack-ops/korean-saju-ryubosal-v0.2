@@ -2120,3 +2120,43 @@ baseline 불변·manifest 일치(adapter_validation_policy_hash 병기). 3중 �
 기준) → output envelope provider schema 강제 → 재작성/재생성 LLM 실배선 →
 provider 직전 검증 → renderer 후 최종 감사 배선 → expose_pipeline 감수 →
 별도 커밋 canary 전환.
+
+### 28-8. 감수 52차 반영 — adapter manifest SSOT·order fingerprint·output schema 3상태·HMAC (2026-07-16)
+
+1. **매핑 보완(§1)**: 도메인 중복 제거 후 개수 판정(이미 set — [career,
+   career]=1개 fixture 고정), event_key는 EventKey **enum(사건형 21종 폐쇄
+   어휘)** 근거로 별도 allowlist 없이 완료 처리(비사건형 키 추가 시 명시
+   allowlist 도입 계약 주석), 미래 범위 boundary=시간 파서 SSOT 확정값
+   그대로(보정·확장 금지 명시).
+2. **adapter manifest SSOT(§2)**: resolve_expose_counter — registry
+   VALIDATED 선언만으로 자격 불가, manifest validatedTokenCounters 항목
+   (reviewed=true·provider/model/counterVersion 일치) 대조 필수.
+   record_count_observation — canary 중 counted<reported **1건**=즉시
+   SUSPENDED(이후 BYPASS). 표본 최소 30(10형×3)·overcount_ratio 관측을
+   validation policy에 편입(hash 갱신).
+3. **order fingerprint(§3)**: payload에 llmEpisodeOrderHash(build 시 생성·
+   미래 필터가 재계산), validator에 expected_order_hash 대조 — 잘못된
+   배열(records·필터 전 순서) 수신=EPISODE_ORDER_SOURCE_MISMATCH. fixture:
+   역순 배열 전달=실패·최종 배열=통과.
+4. **safe fallback 문구 교정(§4)**: "확인 가능한 범위만으로 구체적인
+   해석을 제공하기 어렵습니다…"로 교체(시스템 실패 직접 노출 제거) —
+   r1.1.0·expose hash 갱신(감수 지시), 자체 audit ALLOW 유지.
+5. **strict 정책 구간(§5)**: expose_pipeline에 미등록 필드 존재=fail-closed
+   (허용 키: reviewed·expose_policy_hash·critical_validation_state·
+   validatedTokenCounters) — fixture(surprise 필드 주입=reviewed/hash
+   전부 False).
+6. **HMAC clause hash(§6)**: 단순 SHA(12자)→keyed HMAC-SHA256(16자,
+   RISK_AUDIT_HMAC_KEY — 운영 배포 전 환경별 secret 교체·회전 필수 주석).
+   식별자·보안 증명 사용 금지 계약.
+7. **output schema 3상태(§7)**: BYPASS=기존 schema(byte 불변)/SUPPRESSED=
+   기존 schema+guard(risk_guidance 미요구 — 빈 위험 section 유도 방지)/
+   INJECTED=build_risk_output_schema(additionalProperties=false·maxItems=
+   hard_max·episode_key/level enum) + 후처리 validator 병행 계약.
+
+fixture +7(통합 46종). **게이트**: pytest 2120·ruff clean·mypy 0(534)·
+baseline 불변·manifest 일치. 3중 잠금 유지.
+
+**잔여(canary 개시 전)**: adapter 실물 shadow 등록·30표본 계수 대조(고정
+policy) → provider output schema 실배선(3상태 분리) → 재작성/재생성 LLM
+실배선 → provider 직전 검증 → renderer 후 최종 감사 배선 → expose_pipeline
+감수(validatedTokenCounters 포함) → 별도 커밋 canary 전환.

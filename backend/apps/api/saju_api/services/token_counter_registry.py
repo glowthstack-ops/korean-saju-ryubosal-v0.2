@@ -18,7 +18,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 __all__ = ["ADAPTER_VALIDATION_POLICY", "ADAPTER_VALIDATION_STATES",
-           "adapter_validation_policy_hash", "ProviderRequest",
+           "adapter_validation_policy_hash", "record_count_observation",
+           "resolve_expose_counter", "ProviderRequest",
            "TokenCounterAdapter", "register_adapter", "resolve_counter",
            "resolve_validated_counter", "set_validation_state"]
 
@@ -41,6 +42,16 @@ ADAPTER_VALIDATION_POLICY: dict = {
                       "SUPPRESSED guard", "INJECTED instruction",
                       "FULL/P1/P0/P0_COMPACT 각 tier",
                       "모델 fallback·rerouting", "hard-max episode 요청"],
+    "sample_minimum": "카테고리 10형 × 각 3개 이상 = 모델·counter 조합당"
+                      " 최소 30개(크기 변형 포함 — 감수 52차 §2)",
+    "runtime_drift": "canary 중 counted < provider_reported **1건**이라도"
+                     " 발생 시 즉시 VALIDATED→SUSPENDED(이후 BYPASS)."
+                     " overcount_ratio p50/p90/max 별도 관측(과대 계산은"
+                     " 안전 문제 아님 — 과도하면 불필요 compact/suppressed)",
+    "manifest_ssot": "registry 자체 선언으로 EXPOSE 자격 불가 — manifest"
+                     " validatedTokenCounters 항목(reviewed=true·validation"
+                     " key 4종·corpus/policy hash 일치)과 runtime adapter"
+                     " key가 일치해야 주입(감수 52차 §2)",
     "provider_exact_pass": "undercount=0 · request shape 누락=0 · model"
                            " mismatch=0 · routing 후 recount 누락=0",
     "model_tokenizer_pass": "전 감수 표본에서 counted_request_tokens >="
@@ -136,6 +147,40 @@ def resolve_validated_counter(
     if _VALIDATION.get(resolved_model_id) != "VALIDATED":
         return None
     return _REGISTRY.get(resolved_model_id)
+
+
+def resolve_expose_counter(
+    resolved_model_id: str,
+    manifest_counters: list[dict],
+) -> TokenCounterAdapter | None:
+    """manifest SSOT 대조 해소(감수 52차 §2) — canary 주입의 정본 경로.
+
+    registry의 VALIDATED 선언만으로는 부족: manifest validatedTokenCounters
+    항목(reviewed=true)과 validation key 4종(provider·model·counter version
+    ·request schema version)이 **모두 일치**해야 반환한다. 불일치·항목
+    부재=None(BYPASS).
+    """
+    adapter = resolve_validated_counter(resolved_model_id)
+    if adapter is None:
+        return None
+    for entry in manifest_counters:
+        if (entry.get("reviewed") is True
+                and entry.get("resolvedModelId") == adapter.model_id
+                and entry.get("providerId") == adapter.provider_id
+                and entry.get("counterVersion") == adapter.counter_version):
+            return adapter
+    return None
+
+
+def record_count_observation(model_id: str, counted: int,
+                             reported: int) -> None:
+    """canary 계수 관측(감수 52차 §2 — drift auto-suspend).
+
+    counted < reported(과소 계산) 1건이라도 관측되면 즉시
+    VALIDATED→SUSPENDED — 이후 요청은 BYPASS된다.
+    """
+    if counted < reported and _VALIDATION.get(model_id) == "VALIDATED":
+        _VALIDATION[model_id] = "SUSPENDED"
 
 
 def resolve_counter(resolved_model_id: str) -> TokenCounterAdapter | None:

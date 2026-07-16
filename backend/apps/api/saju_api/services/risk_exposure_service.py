@@ -60,6 +60,13 @@ def _load_manifest_snapshot() -> dict:
         pipeline = manifest["expose_pipeline"]  # strict — 부재=실패
         if not isinstance(pipeline, dict):
             raise ValueError("expose_pipeline 타입 불일치")
+        # 정책 구간 additionalProperties=false(감수 52차 §5): 작성자는
+        # 적용됐다고 믿고 런타임은 무시하는 미등록 정책 필드 차단.
+        unknown = set(pipeline) - {"reviewed", "expose_policy_hash",
+                                   "critical_validation_state",
+                                   "validatedTokenCounters"}
+        if unknown:
+            raise ValueError(f"expose_pipeline 미등록 필드: {unknown}")
         reviewed = pipeline["reviewed"]
         if not isinstance(reviewed, bool):
             raise ValueError("reviewed 타입 불일치")

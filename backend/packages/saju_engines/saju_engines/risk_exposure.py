@@ -77,10 +77,10 @@ MAX_SUPPRESSED_REBUILD_ATTEMPTS = 1
 # 어느 단계에도 사용자 전달 전 최종 문자열 감사 생략 경로 없음.
 # 결정적 안전 fallback(감수 51차 §4-D — 문구 자체가 정책): 위험 없음 단정·
 # 발생 안 함 보장·내부 게이트/감수 실패 설명·누락 episode 추측 전부 금지.
-RISK_SAFE_FALLBACK_VERSION = "risk-safe-fallback-r1.0.0"
+RISK_SAFE_FALLBACK_VERSION = "risk-safe-fallback-r1.1.0"
 RISK_SAFE_FALLBACK_TEMPLATE = (
-    "이번 질문에 대한 상세 풀이를 안전하게 구성하지 못했습니다. 잠시 후"
-    " 다시 시도해 주시거나, 기간이나 분야를 조금 좁혀서 물어봐 주세요."
+    "이번 질문은 현재 확인 가능한 범위만으로 구체적인 해석을 제공하기"
+    " 어렵습니다. 중요한 결정은 실제 일정과 조건을 함께 확인해 주세요."
 )
 RISK_SAFE_RESPONSE_SEQUENCE = (
     "SAFE_REGENERATE_ONCE", "RENDERED_AUDIT", "DELIVER_IF_CLEAN",
@@ -296,8 +296,10 @@ def filter_payload_to_future_scope(
             "IN_SCOPE" if in_scope else "OUTSIDE_FUTURE_SCOPE")})
         if llm_ep is not None and in_scope:
             keep_llm.append(llm_ep)
+    from .risk_presentation import llm_episode_order_hash
     return {**payload, "presentationRecords": out_records,
-            "llmRiskEpisodes": keep_llm}
+            "llmRiskEpisodes": keep_llm,
+            "llmEpisodeOrderHash": llm_episode_order_hash(keep_llm)}
 
 
 def evaluate_risk_exposure_gate(

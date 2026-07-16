@@ -36,6 +36,12 @@ RISK_EXPOSE_CANARY_SUBJECT_IDS: frozenset[str] = frozenset()
 # (fixture 강제). 기본 False.
 RISK_EXPOSURE_RUNTIME_ENABLED: bool = False
 
+# claim audit evidence용 HMAC 키(감수 52차 §6): 짧은 한국어 절의 사전
+# 대입 추정을 막기 위해 clause hash는 단순 SHA가 아니라 keyed HMAC.
+# **운영 배포 전 환경별 secret으로 교체·주기 회전 필수**(원문과 secret
+# 동시 보관 금지) — 기본값은 개발·테스트 전용.
+RISK_AUDIT_HMAC_KEY: bytes = b"dev-only-rotate-before-canary"
+
 # canary 초기 허용 질문 유형(감수 46차 §3 — 감수 5유형 중 3유형만 1차 개방,
 # compare·followup은 맥락 혼합이 잦아 2차 확대).
 RISK_CANARY_QUESTION_TYPES: tuple[str, ...] = (
