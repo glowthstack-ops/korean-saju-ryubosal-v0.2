@@ -1,30 +1,40 @@
-"""INJECTED 위험 생성 실호출 파이프라인(감수 59차 §14 순서 1~8).
+"""INJECTED 위험 생성 실호출 파이프라인(감수 59차 §14 + 60차 §1~§10).
 
 EXPOSE 계열 모드에서 INJECTED 요청의 **생성→감사→재작성→재생성→renderer→
 최종 감사** 전 과정을 결정적 상태기로 배선한다. LLM 호출과 renderer는
 callable 주입(순수 조립 — 사이드이펙트는 호출부).
 
 핵심 계약:
-- **attempt별 독립 ProviderRequest**(감수 59차 §10): INITIAL/REVISION_1/
-  REGENERATE_WITHOUT_RISK은 서로 다른 요청이며 각각 직전에 모델 재해소·
-  adapter 재검증·**전체 token 재계수**·block integrity·schema·context
-  결속을 다시 통과해야 한다. 최초 count 재사용 금지.
-- **GuidanceReferenceContext 동일 객체**(감수 59차 §11): 최초 INJECTED
-  요청에서 1회 생성된 context를 schema 생성·초안 검증·REVISE·renderer·
-  최종 감사가 전부 소비한다 — revision에서 ref 재발급·재정렬·order hash
-  재생성 금지. REGENERATE 요청의 prompt/schema에는 사용 금지(감사 기록
-  보존만).
+- **attempt별 독립 ProviderRequest·재계수**(감수 59차 §10 + 60차 §1):
+  INITIAL/REVISION_1/REGENERATE_WITHOUT_RISK은 서로 다른 요청이며 각각
+  직전에 모델 재해소·adapter 재검증(suspension 최신 상태 포함)·**전체
+  token 재계수**·block integrity·shape 대조·context 결속을 다시 통과한다.
+  이전 attempt의 count·routing 결과 승계 금지.
+- **요청 단위 불변 실행 context**(감수 60차 §2): manifest snapshot·
+  guidance context·policy hash·baseline digest는 RiskExecutionContext에
+  1회 고정 — attempt 간 manifest 재읽기로 버전이 섞이지 않는다. 단
+  **suspension은 안전 차단 상태이므로 attempt마다 최신 공유 상태 재확인**
+  (resolve_expose_counter 경유).
+- **미감수 fallback에 위험 초안 미전송**(감수 60차 §3): REVISION_1 직전
+  라우팅이 바뀌었으면 위험 초안을 포함한 revision을 어떤 모델로도 보내지
+  않는다 — 즉시 REGENERATE_WITHOUT_RISK(baseline+guard)로 전환. 감수된
+  모델로의 rerouting도 canary 초기에는 게이트 전체 재평가가 필요하므로
+  위험 revision을 중단한다(보수 정책 — REROUTE_REQUIRES_GATE_REEVALUATION).
+- **request shape 대조**(감수 60차 §5): 각 attempt의 **구조적** shape
+  digest(동적 본문 제외 — attempt type·message role 배열·instruction/
+  block 존재·schema hash·config shape·schemaVersion)가 reviewed corpus의
+  shape digest 집합에 없으면 REQUEST_SHAPE_NOT_REVIEWED(해당 attempt
+  실행 금지).
 - **REVISE 입력 최소화**(감수 59차 §12): violation codes·누락 required
-  refs·필요 qualifier 종류·허용 exposed level·원 초안만 — 내부 canonical
-  episode ID·cause atom·manifest hash·감수 상태·clause hash 미포함.
-- **rerouting=게이트 전체 재평가**(감수 59차 §4·§8): 미감수 모델로
-  라우팅되면 risk 요소 일부 제거가 아니라 **BYPASS baseline으로 완전
-  재조립**(canonical bytes가 원 baseline과 동일해야 함).
-- **캐시 경로**(감수 59차 §8): risk-enabled 요청은 explicit caching을
-  사용하지 않는다(cachedContent 미사용). implicit cache 적중이 관측되면
-  cached_input을 별도 기록하되 undercount 비교는 항상 **전체 input**
-  (cached+non-cached) 기준 — 할인 후 과금 token 비교 금지.
-- 감사 통과 전 사용자 전달 경로 없음: DELIVER/BLOCK만 종결 상태.
+  refs·qualifier 종류·허용 level·원 초안만 — 내부 canonical episode ID·
+  cause atom·manifest hash·감수 상태·clause hash 미포함.
+- **terminal 3분리**(감수 60차 §8): DELIVER_GENERATED /
+  DELIVER_SAFE_FALLBACK / BLOCK. 결정적 fallback도 renderer 후 최종
+  감사를 통과해야 DELIVER_SAFE_FALLBACK — 실패 시에만 BLOCK. 감사 통과
+  전 사용자 전달 경로 없음.
+- **캐시 경로**(감수 60차 §7): risk-enabled 요청은 explicit caching
+  미사용. cached_input>0 관측은 record_cache_observation으로 identity
+  전역 차단(CACHE_PATH_UNVALIDATED — 별도 감수 전 재활성화 금지).
 """
 
 from __future__ import annotations
@@ -37,6 +47,7 @@ from dataclasses import dataclass, field
 from saju_engines.risk_claim_audit import (
     audit_rendered_output,
     audit_risk_sections,
+    claim_audit_policy_hash,
     plan_remediation,
     validate_injected_guidance_presence,
     validate_risk_guidance_envelope,
@@ -47,6 +58,7 @@ from saju_engines.risk_exposure import (
     RISK_SAFE_FALLBACK_TEMPLATE,
     GuidanceReferenceContext,
     RiskPromptBlock,
+    expose_policy_hash,
     verify_guidance_context,
     verify_risk_block_integrity,
 )
@@ -54,22 +66,20 @@ from saju_engines.risk_exposure import (
 from .token_counter_registry import (
     ProviderRequest,
     TokenCounterAdapter,
+    adapter_identity_hash,
     resolve_expose_counter,
 )
 
-__all__ = ["ATTEMPT_KINDS", "RiskAttemptPlan", "build_revision_request",
+__all__ = ["ATTEMPT_KINDS", "RiskAttemptPlan", "RiskExecutionContext",
+           "build_risk_execution_context", "build_revision_request",
            "build_regenerate_request", "canonical_request_bytes",
            "handle_rerouting", "preflight_provider_attempt",
-           "run_injected_risk_flow"]
+           "request_shape_digest", "run_injected_risk_flow"]
 
 # attempt 종류(감수 59차 §10) — 각각 독립 ProviderRequest·독립 preflight.
 ATTEMPT_KINDS = ("INITIAL", "REVISION_1", "REGENERATE_WITHOUT_RISK")
-
-# REVISE 요청에 포함 가능한 정보 화이트리스트(감수 59차 §12) — 이 외의
-# 내부 정보(canonical episode ID·cause atom·hash·감수 상태)는 주입 금지.
-_REVISION_INPUT_FIELDS = ("violation_codes", "missing_required_refs",
-                          "required_qualifier_kinds", "allowed_levels",
-                          "draft")
+# terminal 결과(감수 60차 §8) — 차단과 전달을 동시에 표현하지 않는다.
+TERMINAL_OUTCOMES = ("DELIVER_GENERATED", "DELIVER_SAFE_FALLBACK", "BLOCK")
 
 
 def canonical_request_bytes(request: ProviderRequest) -> bytes:
@@ -83,14 +93,97 @@ def canonical_request_bytes(request: ProviderRequest) -> bytes:
     }, ensure_ascii=False, sort_keys=True).encode()
 
 
+def request_shape_digest(kind: str, request: ProviderRequest,
+                         provider_request_schema_version: str = "1") -> str:
+    """구조적 request shape digest(감수 60차 §5).
+
+    동적 본문(질문 원문·초안·violation span·token 수·request ID·시각)은
+    제외하고 attempt type·message role 배열·risk instruction/block 존재·
+    schema hash·generation config shape·schemaVersion만 표현한다 —
+    reviewed corpus의 shape digest 집합과 대조 가능해야 한다.
+    """
+    joined = "\n".join(request.user_messages)
+    gen_keys: list[str] = []
+    if request.generation_config:
+        try:
+            gen_keys = sorted(json.loads(request.generation_config))
+        except ValueError:
+            gen_keys = ["<unparseable>"]
+    shape = {
+        "attempt_kind": kind,
+        "system_message_count": len(request.system_messages),
+        "user_message_count": len(request.user_messages),
+        "has_risk_instruction": RISK_EXPOSURE_INSTRUCTION_BLOCK in joined,
+        "has_risk_block": "BEGIN_RISK_BLOCK:" in joined,
+        "risk_block_wrapper": "BEGIN/END_RISK_BLOCK:v1",
+        "has_suppressed_guard": RISK_EXPOSURE_SUPPRESSED_GUARD in joined,
+        "has_revision_note": "[재작성 요청]" in joined,
+        "output_schema_hash": (hashlib.sha256(
+            request.output_schema.encode()).hexdigest()
+            if request.output_schema else None),
+        "tool_schema_hash": (hashlib.sha256(
+            request.tool_schema.encode()).hexdigest()
+            if request.tool_schema else None),
+        "generation_config_keys": gen_keys,
+        "provider_request_schema_version": provider_request_schema_version,
+    }
+    return hashlib.sha256(json.dumps(
+        shape, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+
+
+@dataclass(frozen=True)
+class RiskExecutionContext:
+    """요청 단위 불변 실행 context(감수 60차 §2).
+
+    하나의 사용자 요청 안에서 INITIAL→REVISION→REGENERATE→renderer→최종
+    감사가 **동일한 감수 정본**을 소비한다 — manifest 파일이 중간에
+    교체돼도 현재 요청은 최초 snapshot으로 끝까지 처리(다음 요청부터 새
+    snapshot). suspension은 여기 고정하지 않는다(attempt마다 최신 확인).
+    """
+
+    request_context_id: str
+    manifest_counters: tuple[dict, ...]
+    guidance_context: GuidanceReferenceContext
+    expose_policy_hash: str
+    claim_audit_policy_hash: str
+    baseline_request_digest: str
+    initial_resolved_model_id: str
+
+
+def build_risk_execution_context(
+    request_context_id: str,
+    *,
+    manifest_counters: list[dict],
+    guidance_context: GuidanceReferenceContext,
+    baseline_request: ProviderRequest,
+    resolved_model_id: str,
+) -> RiskExecutionContext:
+    """실행 context 1회 조립 — 요청당 한 번, attempt 간 재생성 금지."""
+    return RiskExecutionContext(
+        request_context_id=request_context_id,
+        manifest_counters=tuple(manifest_counters),
+        guidance_context=guidance_context,
+        expose_policy_hash=expose_policy_hash(),
+        claim_audit_policy_hash=claim_audit_policy_hash(),
+        baseline_request_digest=hashlib.sha256(
+            canonical_request_bytes(baseline_request)).hexdigest(),
+        initial_resolved_model_id=resolved_model_id)
+
+
 @dataclass(frozen=True)
 class RiskAttemptPlan:
-    """attempt 1건의 실행 계획 — preflight 통과 후에만 llm_call 허용."""
+    """attempt 1건의 실행 계획·관측(감수 60차 §1 필드) — preflight 통과
+    후에만 llm_call 허용."""
 
     kind: str  # ATTEMPT_KINDS
     request: ProviderRequest
     counted_tokens: int
     uses_risk_schema: bool
+    resolved_model_id: str = ""
+    provider_request_digest: str = ""
+    request_shape_digest: str = ""
+    counter_validation_identity: str = ""
+    available_response_tokens: int = 0
     preflight_issues: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -133,9 +226,9 @@ def build_regenerate_request(
     """REGENERATE_WITHOUT_RISK 요청(감수 59차 §10) — risk 요소 전무.
 
     baseline은 위험 주입 **전**의 원 요청(BYPASS 형태)이어야 하며, 여기에
-    suppressed guard만 부착한다. instruction·risk block·risk-enabled
-    schema·guidance context 흔적이 조금이라도 남으면 계약 위반(fixture
-    강제) — canonical bytes가 baseline+guard와 정확히 일치해야 한다.
+    suppressed guard만 부착한다(canonical diff=guard 하나). instruction·
+    risk block·risk-enabled schema·guidance context 흔적이 조금이라도
+    남으면 계약 위반(fixture 강제).
     """
     return ProviderRequest(
         system_messages=baseline.system_messages,
@@ -148,17 +241,19 @@ def build_regenerate_request(
 
 def handle_rerouting(
     new_resolved_model_id: str,
-    manifest_counters: list[dict],
+    manifest_counters: list[dict] | tuple[dict, ...],
 ) -> str:
-    """모델 rerouting 처리 판정(감수 59차 §4·§8).
+    """모델 rerouting 처리 판정(감수 59차 §4·§8 + 60차 §3).
 
     반환: "REEVALUATE_GATE"(감수된 adapter 존재 — 새 모델 기준으로 게이트
-    **전체** 재평가: 재해소→suspension 재검사→전체 재계수→transport schema
-    재선택) 또는 "REBUILD_BYPASS"(미감수 — 기존 요청의 risk 요소 일부
-    제거가 아니라 baseline BYPASS 요청으로 완전 재조립).
+    **전체** 재평가 필요) 또는 "REBUILD_BYPASS"(미감수 — risk 요소 일부
+    제거가 아니라 baseline BYPASS 요청으로 완전 재조립). **위험 초안이
+    이미 존재하는 REVISION 단계에서는 어느 쪽이든 위험 revision을
+    중단한다**(초안을 미감수 모델에 보내지 않음·감수 모델도 게이트 재평가
+    전 전송 금지) — run_injected_risk_flow가 REGENERATE로 전환.
     """
     adapter = resolve_expose_counter(new_resolved_model_id,
-                                     manifest_counters)
+                                     list(manifest_counters))
     return "REEVALUATE_GATE" if adapter is not None else "REBUILD_BYPASS"
 
 
@@ -167,25 +262,29 @@ def preflight_provider_attempt(
     request: ProviderRequest,
     *,
     resolved_model_id: str,
-    manifest_counters: list[dict],
+    manifest_counters: list[dict] | tuple[dict, ...],
     adapter: TokenCounterAdapter | None,
     guidance_context: GuidanceReferenceContext | None,
     request_context_id: str,
     final_token_limit: int,
     expects_risk_block: bool,
+    reviewed_shape_digests: frozenset[str] | None = None,
 ) -> RiskAttemptPlan:
-    """provider 호출 직전 검증(감수 59차 §14-6) — attempt마다 전부 재실행.
+    """provider 호출 직전 검증(감수 59차 §14-6 + 60차 §1·§5·§6) —
+    attempt마다 전부 재실행.
 
-    ①모델-adapter 재해소(manifest 대조 — VALIDATED 선언만으로 불충분)
-    ②**전체 token 재계수**(이전 attempt count 재사용 금지)+한도 ③risk
-    block 단일 삽입 integrity(주입 attempt만) ④REGENERATE에 risk 요소
-    잔재 금지 ⑤guidance context 결속(주입 attempt만 — 타 요청 재사용
-    차단). 하나라도 실패=해당 attempt 실행 금지(issues에 사유).
+    ①모델-adapter 재해소(manifest 대조+**최신 suspension·marker·topology**
+    — resolve_expose_counter 경유) ②**전체 token 재계수**(이전 attempt
+    count 재사용 금지)+한도 ③risk block 단일 삽입 integrity(주입 attempt
+    만) ④REGENERATE에 risk 요소 잔재 금지 ⑤guidance context 결속(주입
+    attempt만) ⑥구조적 shape digest가 reviewed 집합에 존재(집합 지정 시).
+    하나라도 실패=해당 attempt 실행 금지(issues에 사유).
     """
     issues: list[str] = []
     if kind not in ATTEMPT_KINDS:
         issues.append("UNKNOWN_ATTEMPT_KIND")
-    resolved = resolve_expose_counter(resolved_model_id, manifest_counters)
+    resolved = resolve_expose_counter(resolved_model_id,
+                                      list(manifest_counters))
     if resolved is None or adapter is None \
             or resolved.model_id != adapter.model_id:
         issues.append("TOKENIZER_UNAVAILABLE")
@@ -209,9 +308,22 @@ def preflight_provider_attempt(
         if ("BEGIN_RISK_BLOCK" in joined
                 or RISK_EXPOSURE_INSTRUCTION_BLOCK in joined):
             issues.append("RISK_RESIDUE_IN_NON_RISK_ATTEMPT")
+    shape = request_shape_digest(
+        kind, request,
+        adapter.request_schema_version if adapter is not None else "1")
+    if reviewed_shape_digests is not None \
+            and shape not in reviewed_shape_digests:
+        issues.append("REQUEST_SHAPE_NOT_REVIEWED")
     return RiskAttemptPlan(
         kind=kind, request=request, counted_tokens=counted,
         uses_risk_schema=expects_risk_block,
+        resolved_model_id=resolved_model_id,
+        provider_request_digest=hashlib.sha256(
+            canonical_request_bytes(request)).hexdigest(),
+        request_shape_digest=shape,
+        counter_validation_identity=(
+            adapter_identity_hash(adapter) if adapter is not None else ""),
+        available_response_tokens=max(0, final_token_limit - counted),
         preflight_issues=tuple(issues))
 
 
@@ -270,42 +382,59 @@ def run_injected_risk_flow(
     *,
     initial_request: ProviderRequest,
     baseline_request: ProviderRequest,
-    guidance_context: GuidanceReferenceContext,
-    request_context_id: str,
+    execution_context: RiskExecutionContext,
     llm_episodes: list[dict],
-    resolved_model_id: str,
-    manifest_counters: list[dict],
     adapter: TokenCounterAdapter | None,
     final_token_limit: int,
     llm_call: Callable[[ProviderRequest], dict],
     renderer: Callable[[str], str],
+    resolve_model: Callable[[], str] | None = None,
+    reviewed_shape_digests: frozenset[str] | None = None,
     allowed_levels: list[str] | None = None,
 ) -> dict:
-    """INJECTED 실호출 상태기(감수 59차 §14 — DELIVER/BLOCK만 종결).
+    """INJECTED 실호출 상태기(감수 59차 §14 + 60차 §3·§8·§9).
 
-    INITIAL → 감사 → (위반) REVISION_1 → 감사 → (위반)
-    REGENERATE_WITHOUT_RISK → renderer → **최종 문자열 감사** → DELIVER.
-    어느 attempt든 preflight 실패=그 attempt 실행 없이 다음 단계(주입
-    attempt 실패는 REGENERATE로, REGENERATE 실패는 BLOCK). llm_call은
-    {"answer": str, "envelope": dict|None} 반환 계약.
-
-    반환: {"outcome": DELIVER|BLOCK, "final_text", "attempts": [...],
-    "final_audit_issues"}.
+    INITIAL→감사→(위반) REVISION_1→감사→(위반) REGENERATE_WITHOUT_RISK→
+    renderer→최종 감사→DELIVER_GENERATED. 어느 단계든 실패가 이어지면
+    결정적 safe fallback을 생성하되 **fallback도 renderer 후 최종 감사를
+    통과해야 DELIVER_SAFE_FALLBACK** — 실패 시에만 BLOCK. REVISION 직전
+    라우팅 변경이 감지되면(resolve_model) 위험 초안을 어떤 모델에도 보내지
+    않고 REGENERATE로 직행(감수 60차 §3). llm_call은 {"answer": str,
+    "envelope": dict|None} 반환 계약.
     """
+    ctx = execution_context
+    guidance_context = ctx.guidance_context
+    counters = list(ctx.manifest_counters)
     attempts: list[dict] = []
 
-    def _run_risk_attempt(kind: str,
-                          request: ProviderRequest) -> dict | None:
-        plan = preflight_provider_attempt(
-            kind, request, resolved_model_id=resolved_model_id,
-            manifest_counters=manifest_counters, adapter=adapter,
-            guidance_context=guidance_context,
-            request_context_id=request_context_id,
-            final_token_limit=final_token_limit, expects_risk_block=True)
-        record: dict = {"kind": kind,
-                        "counted_tokens": plan.counted_tokens,
-                        "preflight_issues": list(plan.preflight_issues)}
+    def _current_model() -> str:
+        return (resolve_model() if resolve_model is not None
+                else ctx.initial_resolved_model_id)
+
+    def _record(plan: RiskAttemptPlan) -> dict:
+        record = {"kind": plan.kind,
+                  "resolved_model_id": plan.resolved_model_id,
+                  "provider_request_digest": plan.provider_request_digest,
+                  "request_shape_digest": plan.request_shape_digest,
+                  "counter_validation_identity":
+                      plan.counter_validation_identity,
+                  "counted_tokens": plan.counted_tokens,
+                  "available_response_tokens":
+                      plan.available_response_tokens,
+                  "preflight_issues": list(plan.preflight_issues)}
         attempts.append(record)
+        return record
+
+    def _run_risk_attempt(kind: str, request: ProviderRequest,
+                          model_id: str) -> dict | None:
+        plan = preflight_provider_attempt(
+            kind, request, resolved_model_id=model_id,
+            manifest_counters=counters, adapter=adapter,
+            guidance_context=guidance_context,
+            request_context_id=ctx.request_context_id,
+            final_token_limit=final_token_limit, expects_risk_block=True,
+            reviewed_shape_digests=reviewed_shape_digests)
+        record = _record(plan)
         if plan.preflight_issues:
             return None
         result = llm_call(request)
@@ -321,15 +450,26 @@ def run_injected_risk_flow(
                 "envelope": result.get("envelope") or {},
                 "issues": issues}
 
-    # INITIAL(attempt 0) → 필요 시 REVISION_1(attempt 1) — plan_remediation
-    # 상태기(REVISE 1회 상한) 그대로.
-    outcome = _run_risk_attempt("INITIAL", initial_request)
+    outcome = _run_risk_attempt(
+        "INITIAL", initial_request, _current_model())
     final_answer: str | None = None
+    delivery_kind = "DELIVER_GENERATED"
     if outcome is not None and not outcome["issues"]:
         final_answer = outcome["answer"]
-    elif outcome is not None:
-        step = plan_remediation(0, "REVISE_REQUIRED")
-        if step == "REVISE":
+    elif outcome is not None \
+            and plan_remediation(0, "REVISE_REQUIRED") == "REVISE":
+        # REVISION 직전 라우팅 재확인(감수 60차 §3): 모델이 바뀌었으면
+        # 위험 초안을 포함한 revision을 어떤 모델에도 보내지 않는다 —
+        # REBUILD_BYPASS는 물론, 감수된 모델(REEVALUATE_GATE)도 게이트
+        # 전체 재평가 전에는 전송 금지(보수 정책) → REGENERATE 직행.
+        revision_model = _current_model()
+        if revision_model != ctx.initial_resolved_model_id:
+            attempts.append({
+                "kind": "REVISION_1", "skipped": True,
+                "reason": ("REROUTE_"
+                           + handle_rerouting(revision_model, counters)),
+            })
+        else:
             guidance = outcome["envelope"].get("risk_guidance") or []
             revision = build_revision_request(
                 initial_request, draft=outcome["answer"],
@@ -341,45 +481,54 @@ def run_injected_risk_flow(
                     str(q) for g in guidance
                     for q in (g.get("required_qualifiers") or [])],
                 allowed_levels=allowed_levels or ["warning"])
-            revised = _run_risk_attempt("REVISION_1", revision)
+            revised = _run_risk_attempt(
+                "REVISION_1", revision, revision_model)
             if revised is not None and not revised["issues"]:
                 final_answer = revised["answer"]
+
     if final_answer is None:
         # REGENERATE_WITHOUT_RISK(감수 59차 §10·§11): baseline 완전
         # 재조립 — guidance context는 prompt/schema에 사용 금지.
         regen = build_regenerate_request(baseline_request)
         plan = preflight_provider_attempt(
             "REGENERATE_WITHOUT_RISK", regen,
-            resolved_model_id=resolved_model_id,
-            manifest_counters=manifest_counters, adapter=adapter,
-            guidance_context=None, request_context_id=request_context_id,
-            final_token_limit=final_token_limit, expects_risk_block=False)
-        attempts.append({"kind": plan.kind,
-                         "counted_tokens": plan.counted_tokens,
-                         "preflight_issues": list(plan.preflight_issues)})
-        if plan.preflight_issues:
-            return {"outcome": "BLOCK",
-                    "final_text": RISK_SAFE_FALLBACK_TEMPLATE,
-                    "attempts": attempts,
-                    "final_audit_issues": list(plan.preflight_issues)}
-        final_answer = str(llm_call(regen).get("answer", ""))
+            resolved_model_id=_current_model(),
+            manifest_counters=counters, adapter=adapter,
+            guidance_context=None,
+            request_context_id=ctx.request_context_id,
+            final_token_limit=final_token_limit, expects_risk_block=False,
+            reviewed_shape_digests=reviewed_shape_digests)
+        _record(plan)
+        if not plan.preflight_issues:
+            final_answer = str(llm_call(regen).get("answer", ""))
+
+    if final_answer is None:
+        # 결정적 safe fallback(감수 60차 §8·§9) — 이 역시 renderer 후
+        # 최종 감사를 통과해야 전달된다.
+        final_answer = RISK_SAFE_FALLBACK_TEMPLATE
+        delivery_kind = "DELIVER_SAFE_FALLBACK"
+
+    def _final_audit(text: str) -> list[str]:
+        return audit_rendered_output(
+            text,
+            episode_keys=[k for _, k in guidance_context.guidance_ref_map],
+            issued_refs=guidance_context.refs())
 
     rendered = renderer(final_answer)
-    # renderer 후 **최종 사용자 문자열** 감사(감수 59차 §14-7) — 통과 전
-    # 전달 경로 없음. guidance context는 여기서도 동일 객체(발급 ref 대조).
-    final_issues = audit_rendered_output(
-        rendered, episode_keys=[k for _, k in
-                                guidance_context.guidance_ref_map],
-        issued_refs=guidance_context.refs())
-    if final_issues:
-        return {"outcome": "BLOCK",
-                "final_text": RISK_SAFE_FALLBACK_TEMPLATE,
-                "attempts": attempts, "final_audit_issues": final_issues}
-    return {"outcome": "DELIVER", "final_text": rendered,
-            "attempts": attempts, "final_audit_issues": []}
-
-
-def request_shape_digest(request: ProviderRequest) -> str:
-    """최종 provider request shape digest(감수 59차 §14-9) — reviewed
-    corpus의 request digest와 동일 규칙(sha256/canonical)로 대조 가능."""
-    return hashlib.sha256(canonical_request_bytes(request)).hexdigest()
+    final_issues = _final_audit(rendered)
+    if not final_issues:
+        return {"outcome": delivery_kind, "final_text": rendered,
+                "attempts": attempts, "final_audit_issues": []}
+    if delivery_kind == "DELIVER_GENERATED":
+        # 생성물이 최종 감사 실패 → 결정적 fallback으로 1회 더(§9) —
+        # fallback도 같은 renderer·최종 감사를 통과해야 전달.
+        fallback_rendered = renderer(RISK_SAFE_FALLBACK_TEMPLATE)
+        fallback_issues = _final_audit(fallback_rendered)
+        if not fallback_issues:
+            return {"outcome": "DELIVER_SAFE_FALLBACK",
+                    "final_text": fallback_rendered,
+                    "attempts": attempts,
+                    "final_audit_issues": final_issues}
+        final_issues = final_issues + fallback_issues
+    return {"outcome": "BLOCK", "final_text": "",
+            "attempts": attempts, "final_audit_issues": final_issues}

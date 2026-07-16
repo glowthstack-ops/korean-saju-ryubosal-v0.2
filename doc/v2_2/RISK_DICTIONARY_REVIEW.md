@@ -2503,3 +2503,59 @@ pytest 2146·ruff clean·mypy 0(537)·manifest 일치. 3중 잠금·EXPOSE_CANAR
 **잔여**: chat_service 실연결(EXPOSE 분기에서 adapter 공급+run_injected_
 risk_flow 소비+실제 renderer 연결)·최종 request shape corpus 대조 배선·
 expose_pipeline 감수 자료 작성·single-process 실배포 확인.
+
+### 28-16. 감수 60차 반영 — 실행 context 결속·revision fallback 차단·shape 대조·terminal 3분리·cache 차단 + 36표본 재확정 (2026-07-17)
+
+**RiskExecutionContext(§2)**: 요청 단위 불변 실행 context —
+request_context_id·manifest counters snapshot(tuple)·guidance context·
+expose/claim audit policy hash·baseline request digest·최초 resolved
+model을 1회 고정. attempt 간 manifest 재읽기로 버전이 섞이지 않는다
+(중간 교체=다음 요청부터). **suspension만 attempt마다 최신 재확인**
+(preflight의 resolve_expose_counter 경유 — §6). fixture: 외부 리스트
+변이에도 snapshot 불변·guidance context 전 과정 object identity 동일.
+
+**미감수 fallback에 위험 초안 미전송(§3)**: REVISION_1 직전
+resolve_model 재확인 — 모델이 바뀌었으면 위험 초안 포함 revision을
+**어떤 모델에도** 보내지 않고 REGENERATE 직행(REBUILD_BYPASS는 물론
+감수 모델(REEVALUATE_GATE)도 게이트 전체 재평가 전 전송 금지 — canary
+초기 보수 정책). fixture: 미감수 2.5로 reroute 시 두 번째 전송이
+baseline+guard뿐(초안·block 부재)임을 검증.
+
+**구조적 request shape 대조(§5)**: request_shape_digest — 동적 본문
+(질문·초안·violation span·token 수·ID·시각) 제외, attempt type·message
+role 배열·instruction/block/guard/revision note 존재·output/tool schema
+hash·generation config shape·schemaVersion만. preflight에
+REQUEST_SHAPE_NOT_REVIEWED(reviewed 집합 부재=attempt 실행 금지).
+**corpus에 attempt shape가 없었으므로 policy에 REVISION_1/REGENERATE
+2형 추가(12형×3=36)** → policy hash 변경 → **직전 승격(65db8eb9…)은
+무효 — allowlist 비움**, 새 corpus는 reviewed=false 후보로 재제출.
+
+**terminal 3분리(§8·§9)**: DELIVER_GENERATED/DELIVER_SAFE_FALLBACK/
+BLOCK — 결정적 fallback도 renderer 후 최종 감사를 통과해야
+DELIVER_SAFE_FALLBACK, 실패 시에만 BLOCK(차단과 전달 동시 표현 없음).
+attempt 관측 필드(§1): attempt_type·provider_request_digest·
+request_shape_digest·resolved_model_id·counter_validation_identity·
+counted_request_tokens·available_response_tokens.
+
+**cache 경로 차단(§7)**: record_cache_observation — risk-enabled 요청
+에서 cached_input>0 최초 관측=CACHE_PATH_UNVALIDATED ledger 기록+해당
+validation identity 전역 차단(별도 cache 표본 감수 전 재활성화 금지).
+
+**36표본 재실측(§11 — 최종 policy·shape 기준)**: native 36/36 delta
+전부 0(신규: REVISION_1 attempt 525/549/609 tokens·REGENERATE attempt
+142/286/670 tokens)·undercount 0·overcount 0/0/0·tier FULL 33/P1 1/
+P0 1/P0_COMPACT 1·supplementary rerouting 3건 delta 0(recount 3/3)·
+cached 0·**reviewedRequestShapeDigests 7종**(artifact 기록 — preflight
+대조 집합) — **합격**. corpus hash(full)=
+b00716ee891569dad164f56dd2bc21e0a62f15c5436a5e6d4e2b2c634f902ce1,
+policy hash(full)=a0f234615ad2836e…bc460bfc. manifest 후보
+**reviewed=false(재감수 대기)**.
+
+fixture +5(통합 76종). 게이트: pytest 2151·ruff clean·mypy 0(537)·
+manifest 일치. 3중 잠금·EXPOSE_CANARY 보류 유지.
+
+**잔여**: chat_service 실연결(§11 3상태 불변식 — limit 누락·0·미등록
+모델=BYPASS 유지, startup stamp 배선, reviewedRequestShapeDigests
+공급)·routingControlMode=APPLICATION_CONTROLLED 확인(전송 전 resolved
+model 미확정 provider 경로=EXPOSE BYPASS)·expose_pipeline 감수 자료·
+single-process 실배포 확인(worker 수 1).

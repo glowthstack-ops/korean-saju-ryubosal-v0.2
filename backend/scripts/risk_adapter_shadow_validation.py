@@ -153,10 +153,15 @@ def _build_corpus(model_id: str,
     def add(cat: str, idx: str, request: ProviderRequest, *,
             tier: str = "FULL", resolved: str | None = None,
             reroute: bool = False) -> None:
+        # attempt shape 라벨(감수 60차 §5): S11/S12는 재작성·재생성
+        # attempt 구조, 나머지는 INITIAL 계열 구조로 대조된다.
+        attempt_kind = {"S11_revision_attempt": "REVISION_1",
+                        "S12_regenerate_attempt":
+                            "REGENERATE_WITHOUT_RISK"}.get(cat, "INITIAL")
         samples.append({
             "sample_id": f"{cat}-{idx}", "category": cat, "tier": tier,
             "request": request, "resolved_model_id": resolved or model_id,
-            "reroute": reroute})
+            "attempt_kind": attempt_kind, "reroute": reroute})
 
     for idx, scale in (("a", 1), ("b", 6), ("c", 20)):
         add("S01_korean_long", idx, req(_KO * scale))
@@ -210,14 +215,37 @@ def _build_corpus(model_id: str,
         big = serialize_llm_payload(_payload(n), 100_000)
         add("S10_oversized_stress", idx,
             req(_KO + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK + "\n" + big))
-    # 부록: 모델 fallback·rerouting 재계수 검증(30표본 외 — 감수 57차 §2).
+    # S11: REVISION_1 attempt(감수 60차 §5) — 원 요청(instruction+block)
+    # +위반 요약+원 초안이 추가된 실제 재작성 message 구조.
+    from saju_api.services.risk_llm_pipeline import (
+        build_regenerate_request,
+        build_revision_request,
+    )
+    for idx, draft_scale in (("a", 1), ("b", 3), ("c", 8)):
+        base_req = req(_KO + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
+                       + "\n" + full_1)
+        revision = build_revision_request(
+            base_req,
+            draft="관련 조건을 점검해 두면 좋은 시기입니다. " * draft_scale,
+            violation_codes=["prohibited_phrase"],
+            missing_required_refs=["rg1"],
+            required_qualifier_kinds=["uncertainty"],
+            allowed_levels=["warning"])
+        add("S11_revision_attempt", idx, revision)
+    # S12: REGENERATE_WITHOUT_RISK attempt(감수 60차 §5) — baseline+
+    # suppressed guard의 실제 재생성 message 구조.
+    for idx, scale in (("a", 1), ("b", 4), ("c", 12)):
+        add("S12_regenerate_attempt", idx,
+            build_regenerate_request(req(_KO * scale)))
+    # 부록: 모델 fallback·rerouting 재계수 검증(36표본 외 — 감수 57차 §2).
     supplementary: list[dict] = []
     for idx, scale in (("a", 1), ("b", 4), ("c", 12)):
         supplementary.append({
             "sample_id": f"R01_rerouting-{idx}",
             "category": "R01_rerouting", "tier": "FULL",
             "request": req(_KO * scale + _MIX),
-            "resolved_model_id": reroute_model, "reroute": True})
+            "resolved_model_id": reroute_model,
+            "attempt_kind": "INITIAL", "reroute": True})
     return samples, supplementary
 
 
@@ -266,7 +294,7 @@ def main() -> int:
     adapter = build_gemini_adapter(args.model)
     reroute_adapter = build_gemini_adapter(args.reroute_model)
     native, supplementary = _build_corpus(args.model, args.reroute_model)
-    assert len(native) == 30, len(native)
+    assert len(native) == 36, len(native)  # 12형×3(감수 60차 §5)
     assert all(not s["reroute"] for s in native)  # 30표본=전부 native
 
     records: list[dict] = []
@@ -288,12 +316,19 @@ def main() -> int:
         digest = hashlib.sha256(json.dumps(
             body, ensure_ascii=False, sort_keys=True).encode()
         ).hexdigest()[:16]
+        from saju_api.services.risk_llm_pipeline import (
+            request_shape_digest,
+        )
+        shape_digest = request_shape_digest(
+            sample["attempt_kind"], request, "1")
         (supp_records if sample["reroute"] else records).append({
             "sample_id": sample["sample_id"],
             "category": sample["category"],
             "tier": sample["tier"],
             "resolved_model_id": resolved,
+            "attempt_kind": sample["attempt_kind"],
             "request_digest": digest,
+            "request_shape_digest": shape_digest,
             "counted": counted,
             "reported_total_input": reported,
             "cached_input": cached,
@@ -341,6 +376,7 @@ def main() -> int:
             vals, n=100, method="inclusive")[int(q) - 1]) if len(
                 vals) > 1 else float(vals[0])
 
+    reviewed_shapes = sorted({r["request_shape_digest"] for r in records})
     # transport 변환 규칙 digest(감수 58차 §5): schema version을 올리지
     # 않은 채 transport shape가 바뀌는 실수를 탐지하는 대조값.
     canonical_schema = build_risk_output_schema(
@@ -383,7 +419,8 @@ def main() -> int:
         },
         "cached_input_observed": sum(r["cached_input"]
                                      for r in all_records),
-        "pass": (len(records) == 30 and undercount == 0
+        "reviewed_request_shape_digests": len(reviewed_shapes),
+        "pass": (len(records) == 36 and undercount == 0
                  and recount_performed == 3
                  and all(r["passed"] for r in all_records)),
     }
@@ -398,6 +435,9 @@ def main() -> int:
         "validationCorpusHashShort": corpus_hash_short,
         "supplementaryReroutingEvidence": supplementary_evidence,
         "supplementaryReroutingHash": supplementary_hash,
+        # 실제 attempt shape 대조 집합(감수 60차 §5 — native 표본의
+        # 구조적 digest만): preflight의 REQUEST_SHAPE_NOT_REVIEWED 기준.
+        "reviewedRequestShapeDigests": reviewed_shapes,
         "report": report,
         "volatile": {"generated_at": datetime.now(UTC).isoformat(),
                      "script": "risk_adapter_shadow_validation.py"},

@@ -1747,8 +1747,15 @@ def _pipeline_env(monkeypatch, tmp_path):
         user_messages=("질문 본문",
                        RISK_EXPOSURE_INSTRUCTION_BLOCK,
                        wrap_risk_block(block)))
+    from saju_api.services.risk_llm_pipeline import (
+        build_risk_execution_context,
+    )
+    exec_ctx = build_risk_execution_context(
+        "req-flow-1", manifest_counters=[entry], guidance_context=ctx,
+        baseline_request=baseline, resolved_model_id="flow-model")
     return {"adapter": adapter, "entry": entry, "payload": payload,
-            "ctx": ctx, "baseline": baseline, "initial": initial}
+            "ctx": ctx, "baseline": baseline, "initial": initial,
+            "exec": exec_ctx}
 
 
 def _good_envelope(payload: dict) -> dict:
@@ -1776,13 +1783,12 @@ def test_injected_flow_clean_draft_delivers(monkeypatch,
 
     result = run_injected_risk_flow(
         initial_request=env["initial"], baseline_request=env["baseline"],
-        guidance_context=env["ctx"], request_context_id="req-flow-1",
+        execution_context=env["exec"],
         llm_episodes=env["payload"]["llmRiskEpisodes"],
-        resolved_model_id="flow-model",
-        manifest_counters=[env["entry"]], adapter=env["adapter"],
+        adapter=env["adapter"],
         final_token_limit=100_000, llm_call=llm_call,
         renderer=lambda s: s + "\n(정리된 답변)")
-    assert result["outcome"] == "DELIVER"
+    assert result["outcome"] == "DELIVER_GENERATED"
     assert len(calls) == 1
     assert [a["kind"] for a in result["attempts"]] == ["INITIAL"]
     assert result["attempts"][0]["counted_tokens"] > 0
@@ -1806,13 +1812,12 @@ def test_injected_flow_revise_then_deliver(monkeypatch, tmp_path) -> None:
 
     result = run_injected_risk_flow(
         initial_request=env["initial"], baseline_request=env["baseline"],
-        guidance_context=env["ctx"], request_context_id="req-flow-1",
+        execution_context=env["exec"],
         llm_episodes=env["payload"]["llmRiskEpisodes"],
-        resolved_model_id="flow-model",
-        manifest_counters=[env["entry"]], adapter=env["adapter"],
+        adapter=env["adapter"],
         final_token_limit=100_000, llm_call=llm_call,
         renderer=lambda s: s)
-    assert result["outcome"] == "DELIVER"
+    assert result["outcome"] == "DELIVER_GENERATED"
     kinds = [a["kind"] for a in result["attempts"]]
     assert kinds == ["INITIAL", "REVISION_1"]
     # attempt별 독립 재계수(§10) — revision이 더 긴 요청이므로 count 증가.
@@ -1854,13 +1859,12 @@ def test_injected_flow_regenerate_without_risk(monkeypatch,
 
     result = run_injected_risk_flow(
         initial_request=env["initial"], baseline_request=env["baseline"],
-        guidance_context=env["ctx"], request_context_id="req-flow-1",
+        execution_context=env["exec"],
         llm_episodes=env["payload"]["llmRiskEpisodes"],
-        resolved_model_id="flow-model",
-        manifest_counters=[env["entry"]], adapter=env["adapter"],
+        adapter=env["adapter"],
         final_token_limit=100_000, llm_call=llm_call,
         renderer=lambda s: s)
-    assert result["outcome"] == "DELIVER"
+    assert result["outcome"] == "DELIVER_GENERATED"
     kinds = [a["kind"] for a in result["attempts"]]
     assert kinds == ["INITIAL", "REVISION_1", "REGENERATE_WITHOUT_RISK"]
     # 완전 재조립 계약: baseline+guard와 canonical bytes 정확 일치.
@@ -1886,18 +1890,20 @@ def test_injected_flow_final_render_audit_blocks(monkeypatch,
 
     result = run_injected_risk_flow(
         initial_request=env["initial"], baseline_request=env["baseline"],
-        guidance_context=env["ctx"], request_context_id="req-flow-1",
+        execution_context=env["exec"],
         llm_episodes=env["payload"]["llmRiskEpisodes"],
-        resolved_model_id="flow-model",
-        manifest_counters=[env["entry"]], adapter=env["adapter"],
+        adapter=env["adapter"],
         final_token_limit=100_000,
         llm_call=lambda r: {"answer": "조건을 점검해 두면 좋습니다.",
                             "envelope": _good_envelope(env["payload"])},
         renderer=lambda s: s + "\n(내부 참조: rg1)")  # renderer가 누출
+    # 생성물·결정적 fallback 모두 같은 renderer로 오염 → 전달 없음(BLOCK,
+    # 감수 60차 §8 — 차단과 전달을 동시에 표현하지 않는다).
     assert result["outcome"] == "BLOCK"
-    assert result["final_text"] == RISK_SAFE_FALLBACK_TEMPLATE
+    assert result["final_text"] == ""
     assert any("INTERNAL_GUIDANCE_REF_LEAKED" in i
                for i in result["final_audit_issues"])
+    _ = RISK_SAFE_FALLBACK_TEMPLATE  # fallback 문구는 정책 상수 유지
 
 
 def test_rerouting_decision_and_context_mismatch(monkeypatch,
@@ -1965,3 +1971,177 @@ def test_runtime_validated_is_derived_not_configured(monkeypatch,
     record_count_observation("derive-model", counted=1, reported=2)
     assert derive_runtime_adapter_state(adapter, [entry], True) == (
         "SUSPENDED")
+
+
+def test_revision_reroute_never_sends_risky_draft(monkeypatch,
+                                                  tmp_path) -> None:
+    """감수 60차 §3: INITIAL 후 라우팅이 미감수 모델로 바뀌면 위험 초안을
+    포함한 revision을 어떤 모델에도 보내지 않고 REGENERATE로 직행."""
+    from saju_api.services.risk_llm_pipeline import run_injected_risk_flow
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+    models = iter(["flow-model", "unreviewed-2.5", "flow-model"])
+    sent_requests = []
+
+    def llm_call(request):
+        sent_requests.append("\n".join(request.user_messages))
+        if len(sent_requests) == 1:
+            return {"answer": "반드시 소송이 발생한다.",
+                    "envelope": {"risk_guidance": []}}
+        return {"answer": "일정을 점검해 두면 좋은 시기입니다.",
+                "envelope": None}
+
+    result = run_injected_risk_flow(
+        initial_request=env["initial"], baseline_request=env["baseline"],
+        execution_context=env["exec"],
+        llm_episodes=env["payload"]["llmRiskEpisodes"],
+        adapter=env["adapter"], final_token_limit=100_000,
+        llm_call=llm_call, renderer=lambda s: s,
+        resolve_model=lambda: next(models))
+    assert result["outcome"] == "DELIVER_GENERATED"
+    skipped = [a for a in result["attempts"] if a.get("skipped")]
+    assert skipped and skipped[0]["kind"] == "REVISION_1"
+    assert skipped[0]["reason"] == "REROUTE_REBUILD_BYPASS"
+    # 위험 초안이 포함된 두 번째 provider 전송이 없어야 한다 — 두 번째
+    # 전송은 REGENERATE(baseline+guard, 초안·block 없음)뿐.
+    assert len(sent_requests) == 2
+    assert "반드시 소송이 발생한다" not in sent_requests[1]
+    assert "BEGIN_RISK_BLOCK" not in sent_requests[1]
+
+
+def test_request_shape_not_reviewed_blocks_attempt(monkeypatch,
+                                                   tmp_path) -> None:
+    """감수 60차 §5: attempt의 구조적 shape digest가 reviewed 집합에
+    없으면 REQUEST_SHAPE_NOT_REVIEWED — 해당 attempt 실행 금지."""
+    from saju_api.services.risk_llm_pipeline import (
+        build_regenerate_request,
+        request_shape_digest,
+        run_injected_risk_flow,
+    )
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+    reviewed = frozenset({
+        request_shape_digest("INITIAL", env["initial"]),
+        request_shape_digest(
+            "REGENERATE_WITHOUT_RISK",
+            build_regenerate_request(env["baseline"])),
+    })  # REVISION_1 shape은 의도적으로 미포함
+
+    calls = []
+
+    def llm_call(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return {"answer": "반드시 소송이 발생한다.",
+                    "envelope": {"risk_guidance": []}}
+        return {"answer": "일정을 점검해 두면 좋습니다.", "envelope": None}
+
+    result = run_injected_risk_flow(
+        initial_request=env["initial"], baseline_request=env["baseline"],
+        execution_context=env["exec"],
+        llm_episodes=env["payload"]["llmRiskEpisodes"],
+        adapter=env["adapter"], final_token_limit=100_000,
+        llm_call=llm_call, renderer=lambda s: s,
+        reviewed_shape_digests=reviewed)
+    assert result["outcome"] == "DELIVER_GENERATED"
+    revision = [a for a in result["attempts"]
+                if a["kind"] == "REVISION_1"][0]
+    assert "REQUEST_SHAPE_NOT_REVIEWED" in revision["preflight_issues"]
+    assert len(calls) == 2  # revision은 provider로 전송되지 않음
+
+
+def test_execution_context_snapshot_isolated(monkeypatch,
+                                             tmp_path) -> None:
+    """감수 60차 §2: 실행 context는 요청 단위 불변 — 전달한 counters
+    리스트를 이후에 바꿔도 snapshot이 유지되고, guidance context는 전
+    과정 동일 객체(object identity)다."""
+    from saju_api.services.risk_llm_pipeline import (
+        build_risk_execution_context,
+    )
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+    counters = [env["entry"]]
+    ctx = build_risk_execution_context(
+        "req-x", manifest_counters=counters,
+        guidance_context=env["ctx"], baseline_request=env["baseline"],
+        resolved_model_id="flow-model")
+    counters.clear()  # 외부 변이 — snapshot에 영향 없어야 함
+    assert len(ctx.manifest_counters) == 1
+    assert ctx.guidance_context is env["ctx"]  # 동일 객체 소비(§10)
+    assert ctx.expose_policy_hash and ctx.claim_audit_policy_hash
+    assert len(ctx.baseline_request_digest) == 64
+
+
+def test_suspension_between_attempts_stops_risky_calls(monkeypatch,
+                                                       tmp_path) -> None:
+    """감수 60차 §6·§12: INITIAL 후 adapter가 SUSPENDED되면 REVISION·
+    REGENERATE preflight가 최신 suspension을 감지 — 이후 위험 호출 없이
+    safe fallback으로 종결(fallback도 최종 감사 통과 시 전달)."""
+    from saju_api.services.risk_llm_pipeline import run_injected_risk_flow
+    from saju_api.services.token_counter_registry import (
+        record_count_observation,
+    )
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+    calls = []
+
+    def llm_call(request):
+        calls.append(request)
+        # INITIAL 처리 중 undercount 관측 → 전역 SUSPENDED.
+        record_count_observation("flow-model", counted=1, reported=2)
+        return {"answer": "반드시 소송이 발생한다.",
+                "envelope": {"risk_guidance": []}}
+
+    result = run_injected_risk_flow(
+        initial_request=env["initial"], baseline_request=env["baseline"],
+        execution_context=env["exec"],
+        llm_episodes=env["payload"]["llmRiskEpisodes"],
+        adapter=env["adapter"], final_token_limit=100_000,
+        llm_call=llm_call, renderer=lambda s: s)
+    assert result["outcome"] == "DELIVER_SAFE_FALLBACK"
+    assert len(calls) == 1  # suspension 후 어떤 provider 호출도 없음
+    revision = [a for a in result["attempts"]
+                if a["kind"] == "REVISION_1"][0]
+    assert "TOKENIZER_UNAVAILABLE" in revision["preflight_issues"]
+    from saju_api.services.token_counter_registry import (
+        set_validation_state,
+    )
+    set_validation_state("flow-model", "SUSPENDED")
+
+
+def test_cache_observation_blocks_identity(monkeypatch,
+                                           tmp_path) -> None:
+    """감수 60차 §7: cached_input>0 최초 관측 → CACHE_PATH_UNVALIDATED
+    ledger 기록 + identity 전역 차단(별도 감수 전 재활성화 금지)."""
+    from saju_api.services import token_counter_registry as reg
+    from saju_api.services.token_counter_registry import (
+        TokenCounterAdapter,
+        adapter_validation_policy_hash,
+        record_cache_observation,
+        register_adapter,
+        resolve_expose_counter,
+        set_validation_state,
+    )
+
+    monkeypatch.setattr(reg, "_SUSPENSION_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(reg, "_SUSPENSION_LOCK_FILE", tmp_path / "s.lock")
+    monkeypatch.setattr(reg, "_SUSPENSION_LEDGER", tmp_path / "s.jsonl")
+    monkeypatch.setattr(reg, "_EXPOSURE_DISABLED_MARKER", tmp_path / "m")
+    register_adapter(TokenCounterAdapter(
+        model_id="cache-model", mode="MODEL_TOKENIZER", counter=len,
+        provider_id="prov", counter_version="v1",
+        validation_corpus_hash="corpus"))
+    set_validation_state("cache-model", "VALIDATED")
+    entry = {"reviewed": True, "resolvedModelId": "cache-model",
+             "providerId": "prov", "counterVersion": "v1",
+             "providerRequestSchemaVersion": "1",
+             "countMode": "MODEL_TOKENIZER",
+             "validationPolicyHash": adapter_validation_policy_hash(),
+             "validationCorpusHash": "corpus"}
+    assert resolve_expose_counter("cache-model", [entry]) is not None
+    record_cache_observation("cache-model", cached_input=0)  # 무변화
+    assert resolve_expose_counter("cache-model", [entry]) is not None
+    record_cache_observation("cache-model", cached_input=17)
+    assert resolve_expose_counter("cache-model", [entry]) is None
+    ledger = (tmp_path / "s.jsonl").read_text(encoding="utf-8")
+    assert "CACHE_PATH_UNVALIDATED" in ledger

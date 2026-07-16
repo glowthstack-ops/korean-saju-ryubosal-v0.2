@@ -23,7 +23,8 @@ from pathlib import Path
 __all__ = ["ADAPTER_VALIDATION_POLICY", "ADAPTER_VALIDATION_STATES",
            "adapter_identity_hash", "derive_runtime_adapter_state",
            "suspension_state_ok",
-           "adapter_validation_policy_hash", "record_count_observation",
+           "adapter_validation_policy_hash", "record_cache_observation",
+           "record_count_observation",
            "resolve_expose_counter", "ProviderRequest",
            "TokenCounterAdapter", "register_adapter", "resolve_counter",
            "resolve_validated_counter", "set_validation_state"]
@@ -49,7 +50,26 @@ ADAPTER_VALIDATION_POLICY: dict = {
                       "runtime hard-max payload(질문 유형별 실제 상한"
                       " 2/3/4 episodes — 감수 57차 §6)",
                       "oversized stress payload(8/12/16 episodes —"
-                      " synthetic 과대 요청, tokenizer 압박용)"],
+                      " synthetic 과대 요청, tokenizer 압박용)",
+                      "REVISION_1 attempt(원 요청+위반 요약+원 초안 —"
+                      " 감수 60차 §5: 재작성도 독립 provider 요청이므로"
+                      " 그 최종 message 구조가 corpus에 있어야 함)",
+                      "REGENERATE_WITHOUT_RISK attempt(baseline+"
+                      "suppressed guard — 감수 60차 §5)"],
+    "request_shape_review": "실제 attempt의 구조적 request shape digest가"
+                            " reviewed corpus의 shape digest 집합에"
+                            " 없으면 REQUEST_SHAPE_NOT_REVIEWED로 BYPASS"
+                            "(감수 60차 §5). shape digest는 동적 본문"
+                            "(질문 원문·초안·violation span·token 수·"
+                            "request ID·시각)을 제외하고 attempt type·"
+                            "message role 배열·instruction/block 존재·"
+                            "schema hash·config shape·schemaVersion만"
+                            " 표현한다",
+    "cache_path_policy": "risk-enabled 요청은 explicit caching 미사용."
+                         " cached_input>0 최초 관측=CACHE_PATH_"
+                         "UNVALIDATED — 해당 validation identity 전역"
+                         " 차단(별도 cache 표본 감수 전 재활성화 금지,"
+                         " 감수 60차 §7)",
     "rerouting_verification": "모델 fallback·rerouting 재계수는 30표본"
                               " **외** 별도 검증(감수 57차 §2) — 표본의"
                               " validation identity는 최초 설정 모델이"
@@ -57,10 +77,11 @@ ADAPTER_VALIDATION_POLICY: dict = {
                               " 집계하며, 감수되지 않은 fallback 모델"
                               " (validated counter 없음)은 canary에서"
                               " BYPASS를 유지한다",
-    "sample_minimum": "카테고리 10형 × 각 3개 이상 = **validation"
-                      " identity(7요소)별·최종 resolved 모델 native"
-                      " 표본** 최소 30개(registry 전체 아님·rerouting"
-                      " 표본 불포함 — 감수 56차 §9 + 57차 §2)",
+    "sample_minimum": "카테고리 12형 × 각 3개 = **validation identity"
+                      "(7요소)별·최종 resolved 모델 native 표본** 36개"
+                      "(최소 30 — registry 전체 아님·rerouting 표본"
+                      " 불포함, 감수 56차 §9 + 57차 §2 + 60차 §5 attempt"
+                      " shape 2형 추가)",
     "runtime_drift": "canary 중 counted < provider_reported **1건**이라도"
                      " 발생 시 즉시 VALIDATED→SUSPENDED(이후 BYPASS)."
                      " overcount_ratio p50/p90/max 별도 관측(과대 계산은"
@@ -474,6 +495,64 @@ def record_count_observation(model_id: str, counted: int, reported: int,
             try:
                 _EXPOSURE_DISABLED_MARKER.write_text(
                     "suspension_persistence_failed", encoding="utf-8")
+            except OSError:
+                _LOCAL_PERSISTENCE_FAILED = True
+        finally:
+            fcntl.flock(lock_f, fcntl.LOCK_UN)
+
+
+def record_cache_observation(model_id: str, cached_input: int) -> None:
+    """cache 적중 관측(감수 60차 §7 — 미감수 cohort fail-closed).
+
+    현 corpus는 cached_input=0 표본만 검증됐다 — risk-enabled 요청에서
+    cached_input>0이 최초 관측되면 CACHE_PATH_UNVALIDATED로 해당
+    validation identity를 **전역 차단**(suspension 저장소·ledger 기록 —
+    별도 cache 표본 감수(새 corpus/identity) 전 재활성화 금지).
+    """
+    if cached_input <= 0:
+        return
+    _VALIDATION[model_id] = "SUSPENDED"
+    adapter = _REGISTRY.get(model_id)
+    identity = (adapter_identity_hash(adapter) if adapter is not None
+                else f"unregistered:{model_id}")
+    import fcntl
+    import json as _json
+    import os
+    import tempfile
+    from datetime import datetime
+    _SUSPENSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with _IN_PROCESS_LOCK, open(_SUSPENSION_LOCK_FILE, "w") as lock_f:
+        fcntl.flock(lock_f, fcntl.LOCK_EX)
+        try:
+            with open(_SUSPENSION_LEDGER, "a", encoding="utf-8") as lf:
+                lf.write(_json.dumps({
+                    "identity": identity, "model_id": model_id,
+                    "event": "CACHE_PATH_UNVALIDATED",
+                    "cached_input": cached_input,
+                    "at": datetime.now(UTC).isoformat(),
+                }, ensure_ascii=False, sort_keys=True) + "\n")
+                lf.flush()
+                os.fsync(lf.fileno())
+            records, _ok = _shared_suspensions()
+            entry = records.get(identity) or {
+                "model_id": model_id, "undercount_detected_count": 0,
+                "first_undercount_request_id_hash": "",
+                "adapter_suspended_at": datetime.now(UTC).isoformat(),
+            }
+            entry["cache_path_unvalidated"] = True
+            records[identity] = entry
+            fd, tmp = tempfile.mkstemp(dir=str(_SUSPENSION_FILE.parent))
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                _json.dump(records, f, ensure_ascii=False, sort_keys=True)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, _SUSPENSION_FILE)
+        except OSError:
+            global _LOCAL_PERSISTENCE_FAILED
+            try:
+                _EXPOSURE_DISABLED_MARKER.write_text(
+                    "cache_observation_persistence_failed",
+                    encoding="utf-8")
             except OSError:
                 _LOCAL_PERSISTENCE_FAILED = True
         finally:

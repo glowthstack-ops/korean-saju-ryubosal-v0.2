@@ -8493,3 +8493,16 @@ DELIVER/BLOCK만. 캐시 정책 명문화(explicit 미사용·비교는 전체 i
 fixture +6(71종). pytest 2146·ruff·mypy 0(537)·manifest 일치.
 REVIEW.md §28-15. 잔여: chat_service 실연결·shape corpus 대조 배선·
 expose_pipeline 감수 자료.
+
+## 감수 60차 — 실행 context 결속·revision fallback 차단·shape 대조·36표본 (2026-07-17)
+
+RiskExecutionContext(요청 단위 불변 — manifest snapshot 승계·suspension
+만 attempt마다 최신), REVISION 직전 reroute 감지 시 위험 초안 미전송
+(REGENERATE 직행 — 감수 모델도 게이트 재평가 전 금지), 구조적
+request_shape_digest+REQUEST_SHAPE_NOT_REVIEWED(동적 본문 제외), terminal
+3분리(DELIVER_GENERATED/DELIVER_SAFE_FALLBACK/BLOCK — fallback도 최종
+감사 경유), attempt 관측 7필드, record_cache_observation(cached>0=
+identity 차단). policy에 attempt shape 2형 추가(12형×3=36) → 직전 승격
+무효(allowlist 비움) → 재실측 합격(36/36 delta 0·shape digest 7종) →
+corpus b00716ee…902ce1 reviewed=false 후보 재제출. fixture +5(76종).
+pytest 2151·ruff·mypy 0(537)·manifest 일치. REVIEW.md §28-16.
