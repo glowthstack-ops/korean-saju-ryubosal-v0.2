@@ -2145,3 +2145,55 @@ def test_cache_observation_blocks_identity(monkeypatch,
     assert resolve_expose_counter("cache-model", [entry]) is None
     ledger = (tmp_path / "s.jsonl").read_text(encoding="utf-8")
     assert "CACHE_PATH_UNVALIDATED" in ledger
+
+
+def test_bootstrap_noop_outside_expose_modes() -> None:
+    """감수 61차 §13: OFF/SHADOW에서 bootstrap=no-op(None) — 기존 경로
+    byte 불변 계약 유지(등록·stamp 부작용 없음)."""
+    from saju_api.services.risk_exposure_bootstrap import (
+        bootstrap_risk_exposure,
+    )
+
+    assert risk_engine_config.RISK_ENGINE_MODE == "off"
+    assert bootstrap_risk_exposure() is None
+
+
+def test_bootstrap_stamps_derived_state_in_expose(monkeypatch) -> None:
+    """감수 61차 §13-②: EXPOSE 모드 startup — adapter 등록 후 상태를
+    검증 결과로 파생(artifact·manifest 일치 실환경 기준). 실물 corpus가
+    reviewed=true이므로 suspension 없으면 VALIDATED, 저장소 상태에 따라
+    SHADOW_VALIDATING/SUSPENDED — 어느 쪽이든 임의 대입이 아니다."""
+    from saju_api.services.risk_exposure_bootstrap import (
+        bootstrap_risk_exposure,
+    )
+    from saju_api.services.token_counter_registry import (
+        ADAPTER_VALIDATION_STATES,
+    )
+
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    state = bootstrap_risk_exposure()
+    assert state in ADAPTER_VALIDATION_STATES
+    from saju_api.services.token_counter_registry import (
+        set_validation_state,
+    )
+    set_validation_state("gemini-3-flash-preview", "SHADOW_VALIDATING")
+
+
+def test_runtime_inputs_fail_closed_defaults(monkeypatch) -> None:
+    """감수 61차 §11: limit 미등록·adapter 미해소=게이트 BYPASS 입력 —
+    reviewed shape 집합은 실물 artifact에서 7종 로드."""
+    from saju_api.services.risk_exposure_bootstrap import (
+        exposure_runtime_inputs,
+        load_reviewed_shape_digests,
+    )
+
+    inputs = exposure_runtime_inputs("chat_single")
+    # 실물 corpus 승격 후에도 runtime 상태는 startup stamp 전
+    # SHADOW_VALIDATING이므로 counter는 해소되지 않는다(VALIDATED만).
+    assert inputs["resolved_model_id"] == "gemini-3-flash-preview"
+    assert inputs["context_limit"] >= 0
+    assert inputs["response_reserve"] > 0
+    shapes = load_reviewed_shape_digests("gemini-3-flash-preview")
+    assert len(shapes) == 7  # 감수 61차 §5 — 이름 결속 7종
+    assert load_reviewed_shape_digests("unknown-model") == frozenset()

@@ -8515,3 +8515,18 @@ INJECTED — artifact 후처리, corpus hash 불변 검증). **1b52cc2 기준
 pre-canary architecture freeze**: 동결 목록·P0/P1 변경 사유 고정, 차수별
 미세 감수 중단 → 구현 커밋은 게이트 통과 시 진행, 10항 완료 후 통합
 pre-canary 감수 1회 → 제한 canary → 관측 기반 수정. REVIEW.md §28-17.
+
+## freeze 후 구현 1 — startup 배선·runtime 실값 공급 (2026-07-17)
+
+(감수 61차 §10 방식 — 게이트 통과 구현 커밋, 개별 감수 없음)
+risk_exposure_bootstrap 신설: bootstrap_risk_exposure(EXPOSE 전용 —
+artifact corpus hash로 adapter 등록+stamp_runtime_adapter_state 파생,
+OFF/SHADOW=no-op)·exposure_runtime_inputs(감수 adapter counter·
+llm_config primary.context_limit(부재·0=BYPASS)·call_type 출력 예산·
+reviewed shape digest 7종). main.py lifespan 연결(suppress).
+chat_service EXPOSE 분기 model_context_limit=0 해제 — 실값 공급(기존
+직렬화 추정치·시스템 예약 재사용). llm_config에 context_limit=1000000.
+fixture +3(79종). pytest 2154·ruff·mypy 0(538)·manifest 일치·회귀 통과.
+잔여(통합 감수 전): INJECTED 시 run_injected_risk_flow 소비(response
+schema 실호출·renderer 연결)·rerouting 실배선·worker=1 실측 검증·kill
+switch e2e·expose_pipeline 감수 자료.

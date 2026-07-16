@@ -64,6 +64,13 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
         error_logging.setup()  # 010 마이그레이션 + llm 에러 sink 주입
     with contextlib.suppress(Exception):
         _seed_admins()
+    with contextlib.suppress(Exception):
+        # 위험 노출 adapter startup stamp(감수 61차 §13) — EXPOSE 계열
+        # 모드가 아니면 no-op(기존 경로 byte 불변).
+        from .services.risk_exposure_bootstrap import (
+            bootstrap_risk_exposure,
+        )
+        bootstrap_risk_exposure()
     yield
 
 

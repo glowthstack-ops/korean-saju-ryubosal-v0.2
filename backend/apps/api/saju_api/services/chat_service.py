@@ -3661,12 +3661,24 @@ def chat(
     # adapter 부재라 게이트가 전부 비주입하고 suppressed guard만 부착된다 —
     # 질문 매핑·adapter·canary allowlist는 canary 개시 차수에서 감수 후 공급.
     if risk_exposure_service.exposure_mode_active():
+        # 실값 공급(감수 61차 §13-① — freeze 후 배선): 감수된 adapter·
+        # context limit(llm_config — 부재·0=BYPASS)·shape 집합. 어느
+        # 하나라도 미해소면 게이트가 해당 사유로 BYPASS(fail-closed).
+        from .risk_exposure_bootstrap import exposure_runtime_inputs
+        _risk_inputs = exposure_runtime_inputs(call_type)
         prompt_text, system, _risk_obs = (
             risk_exposure_service.apply_risk_exposure(
                 prompt_text, system,
                 intent=intent,  # 파서 SSOT 매핑(감수 50차 — fail-closed)
                 subject_id=owner_id,
-                model_context_limit=0,  # adapter 배선 전 — 게이트 fail-closed
+                counter=_risk_inputs["counter"],
+                counter_model_id=_risk_inputs["counter_model_id"],
+                resolved_model_id=_risk_inputs["resolved_model_id"],
+                model_context_limit=_risk_inputs["context_limit"],
+                base_prompt_tokens=tokens,
+                user_input_tokens=0,  # prompt_text에 포함(중복 가산 금지)
+                existing_context_tokens=estimate_tokens(sys_for_budget),
+                response_reserve=_risk_inputs["response_reserve"],
             ))
         _logger.info("risk_exposure_gate %s", _risk_obs)
 
