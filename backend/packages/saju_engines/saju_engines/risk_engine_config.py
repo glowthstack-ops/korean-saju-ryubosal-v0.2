@@ -29,10 +29,12 @@ RISK_EXPOSURE_KILL_SWITCH: bool = False
 # 부재=비주입. 로그에는 원문 대신 해시/코호트 ID를 남긴다.
 RISK_EXPOSE_CANARY_SUBJECT_IDS: frozenset[str] = frozenset()
 
-# expose_pipeline 감수 상태(감수 47차) — R5-b 통합·감수 완료 후에만 True
-# (manifest expose_pipeline.reviewed와 함께 전환). False면 게이트가
-# BYPASS(프롬프트 완전 불변)로 처리한다.
-RISK_EXPOSE_PIPELINE_REVIEWED: bool = False
+# 런타임 활성화 스위치(감수 48차 §4 — 역할 분리): 감수 사실의 SSOT는
+# **manifest**(expose_pipeline.reviewed + expose_policy_hash 일치)이고,
+# 이 값은 "감수된 기능을 현 환경에서 켤지"만 결정한다. 환경변수가 스스로
+# reviewed=true를 선언할 수 없다 — 둘 중 하나만 true면 절대 주입되지 않음
+# (fixture 강제). 기본 False.
+RISK_EXPOSURE_RUNTIME_ENABLED: bool = False
 
 # canary 초기 허용 질문 유형(감수 46차 §3 — 감수 5유형 중 3유형만 1차 개방,
 # compare·followup은 맥락 혼합이 잦아 2차 확대).

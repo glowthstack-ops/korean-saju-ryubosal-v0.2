@@ -8331,3 +8331,16 @@ fixture 4종(비허용 canary=chat 실측 byte-identical 포함). FULL 단일
 명칭(P2 별칭 제거)·wrap_risk_block(BEGIN/END marker)+단일 삽입 검증(중복
 =실패)·RISK_EXPOSE_PIPELINE_REVIEWED config(기본 False). pytest 2090·
 ruff·mypy 0(532)·baseline 불변·manifest 일치. REVIEW.md §28-3.
+
+## 감수 48차 — SSOT 분리·integrity 재조립·registry·envelope·FP/FN (2026-07-16)
+
+decision reason 스키마 정본화(BYPASS≠suppression·하위 호환 별칭)·감수 SSOT
+분리(RISK_EXPOSURE_RUNTIME_ENABLED=활성화만, manifest reviewed+expose_
+policy_hash **런타임 실비교** — 한쪽만 true=BYPASS fixture 2종)·integrity
+실패=SUPPRESSED 강등 계약(RISK_BLOCK_INTEGRITY_ERROR — instruction 잔존
+금지·전체 재조립)·tokenizer adapter registry 골격(미등록=BYPASS·heuristic
+등록 금지·fallback 재해소 계약)·risk_guidance envelope 불변식 검증기·claim
+audit r5.1.0(부정문 예외 5표지+우회 단정 패턴 — FP/FN 코퍼스 fixture).
+pytest 2096·ruff·mypy 0(533)·baseline 불변·manifest 일치. REVIEW.md §28-4.
+잔여: 질문 파서 매핑·재작성 실배선·provider 직전 검증·renderer 재감사·
+expose_pipeline 감수 → r4.1.0-canary.

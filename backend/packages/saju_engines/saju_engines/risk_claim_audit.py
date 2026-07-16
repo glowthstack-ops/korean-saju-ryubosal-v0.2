@@ -17,7 +17,7 @@ import json
 # claim audit 정책 버전(감수 46차 §16) — 패턴·qualifier registry·재작성
 # 정책 변경 시 올린다(claim_audit_policy_hash 변경 = expose_pipeline 재감수
 # 신호 — manifest 병기).
-RISK_CLAIM_AUDIT_VERSION = "risk-claim-audit-r5.0.0"
+RISK_CLAIM_AUDIT_VERSION = "risk-claim-audit-r5.1.0"
 # 재작성 정책(감수 46차 §11): 무제한 재생성 금지.
 MAX_RISK_REVISION_ATTEMPTS = 1
 
@@ -50,7 +50,16 @@ _PROHIBITED_PATTERNS: dict[str, tuple[str, ...]] = {
         "완전히 해결됩니다", "완전히 회복됩니다", "위험이 사라집니다",
         "문제가 해결됩니다", "완벽하게 회복",
     ),
+    # 우회 단정(감수 48차 §11 FN 코퍼스): 금지 키워드 없이 확정을 시사.
+    "circumvented_certainty": (
+        "피하기 어려운 흐름", "이어지는 수순", "현실화될 가능성이 매우 높",
+        "기정사실", "피할 수 없는 수순",
+    ),
 }
+# 안전한 부정문(감수 48차 §11 FP 코퍼스): 매치 직후 부정 표지가 오면 위반
+# 아님 — "사고가 난다는 뜻은 아닙니다" 류를 차단하지 않는다.
+_NEGATION_MARKERS = ("아닙니다", "아니에요", "않습니다", "아니며", "아니라")
+_NEGATION_WINDOW = 25  # 매치 종료 후 부정 표지 탐색 범위(문자)
 # exposed level 초과 표현(감수 45차): 최대 노출 수준이 warning 이하일 때
 # 금지되는 격상 표현(치명·중대 단정 계열).
 _ESCALATION_PATTERNS = ("치명적", "심각한 위험이 확실", "매우 위험합니다",
@@ -80,10 +89,15 @@ def audit_generated_risk_claims(
         "REVISE_REQUIRED"} — REVISE_REQUIRED면 재작성/위험 단락 제거/전체
         fail-closed 중 하나를 호출부가 수행(그대로 노출 금지).
     """
+    def _negated(idx: int, pat: str) -> bool:
+        tail = answer[idx + len(pat): idx + len(pat) + _NEGATION_WINDOW]
+        return any(m in tail for m in _NEGATION_MARKERS)
+
     violations: list[dict] = []
     for code, patterns in _PROHIBITED_PATTERNS.items():
         for pat in patterns:
-            if pat in answer:
+            idx = answer.find(pat)
+            if idx >= 0 and not _negated(idx, pat):
                 violations.append({"code": code, "matched": pat})
     for phrase in episode_prohibited_phrases or []:
         # 사전 원문은 '~단정' 형태의 지침이라 어간만 대조(예: "계약 무산
@@ -162,6 +176,46 @@ def audit_risk_sections(sections: list[dict], whole_answer: str) -> dict:
             "action": "ALLOW" if not violations else "REVISE_REQUIRED"}
 
 
+_LEVEL_RANK = {"advisory": 0, "watch": 1, "warning": 2, "critical": 3}
+
+
+def validate_risk_guidance_envelope(
+    sections: list[dict], llm_episodes: list[dict],
+) -> list[str]:
+    """구조화 risk_guidance 불변식(감수 48차 §10-⑤) — 위반 코드 목록 반환.
+
+    ①episode_key ⊆ 주입된 llmRiskEpisodes ②같은 key 중복 실패 ③R3
+    warning-first 순서 유지 ④exposed level보다 높은 level 출력 실패.
+    빈 목록=통과. 위반 시 해당 답변은 REVISE 경로로 보낸다(그대로 전달 금지).
+    """
+    errors: list[str] = []
+    allowed_keys = [str(e.get("episodeKey") or e.get("episode_key") or "")
+                    for e in llm_episodes]
+    levels = {k: str(e.get("presentationLevel", "warning"))
+              for k, e in zip(allowed_keys, llm_episodes, strict=True)}
+    seen: set[str] = set()
+    last_bucket = -1
+    bucket = {"critical": 0, "warning": 0, "watch": 1, "advisory": 2}
+    for sec in sections:
+        key = str(sec.get("episode_key", ""))
+        if key not in levels:
+            errors.append(f"UNREGISTERED_EPISODE_KEY:{key}")
+            continue
+        if key in seen:
+            errors.append(f"DUPLICATE_EPISODE_KEY:{key}")
+            continue
+        seen.add(key)
+        out_level = str(sec.get("exposed_level", "warning"))
+        max_level = levels[key]
+        if _LEVEL_RANK.get(out_level, 9) > _LEVEL_RANK.get(max_level, 0):
+            errors.append(f"LEVEL_EXCEEDS_EXPOSED:{key}")
+        b = bucket.get(out_level, 3)
+        if b < last_bucket:
+            errors.append(f"ORDER_NOT_WARNING_FIRST:{key}")
+        last_bucket = max(last_bucket, b)
+    return errors
+
+
 def plan_remediation(attempt: int, audit_action: str) -> str:
     """위반 시 결정적 처리 순서(감수 46차 §11 — 무제한 재생성 금지).
 
@@ -188,9 +242,13 @@ def claim_audit_policy_hash() -> str:
         "escalation_patterns": list(_ESCALATION_PATTERNS),
         "qualifier_phrases": {k: list(v) for k, v in
                               sorted(_QUALIFIER_PHRASES.items())},
-        "negation_handling": "결정적 부분 문자열 — 부정문 오탐은 재작성"
-                             " 경로로 흡수(패턴 정교화는 canary 실측 후"
-                             " 감수), LLM 재판정 금지",
+        "negation_handling": "매치 직후 25자 내 부정 표지(아닙니다 등)="
+                             "위반 아님(감수 48차 FP 코퍼스) — 잔여 오탐은"
+                             " 재작성 경로로 흡수, LLM 재판정 금지",
+        "negation_markers": list(_NEGATION_MARKERS),
+        "envelope_invariants": "episode_key ⊆ llm episodes·중복 실패·"
+                               "warning-first 순서·exposed level 초과 실패"
+                               "(validate_risk_guidance_envelope)",
         "max_revision_attempts": MAX_RISK_REVISION_ATTEMPTS,
         "remediation_order": "REVISE(1회) → REGENERATE_WITHOUT_RISK →"
                              " BLOCK — 위반 초안 직접 전달 경로 없음",
@@ -208,4 +266,5 @@ __all__ = [
     "audit_risk_sections",
     "claim_audit_policy_hash",
     "plan_remediation",
+    "validate_risk_guidance_envelope",
 ]

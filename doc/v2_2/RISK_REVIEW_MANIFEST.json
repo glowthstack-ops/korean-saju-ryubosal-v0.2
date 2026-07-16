@@ -12,7 +12,7 @@
   "risk_exposure_version": "risk-expose-r4.0.1-gated",
   "expose_pipeline": {
     "reviewed": false,
-    "expose_policy_hash": "b98b1446e3a6f78a",
+    "expose_policy_hash": "92d83483e38ece9d",
     "critical_validation_state": {
       "synthetic_fixtures": "passed",
       "corpus_positive_cases": 0,

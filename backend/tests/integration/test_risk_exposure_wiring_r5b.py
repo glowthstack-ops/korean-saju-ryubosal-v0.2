@@ -87,7 +87,10 @@ def test_qualified_but_runtime_short_is_suppressed_guard(
                         "RISK_EXPOSE_CANARY_SUBJECT_IDS",
                         frozenset({"internal-tester-1"}))
     monkeypatch.setattr(risk_engine_config,
-                        "RISK_EXPOSE_PIPELINE_REVIEWED", True)
+                        "RISK_EXPOSURE_RUNTIME_ENABLED", True)
+    from saju_api.services import risk_exposure_service as _svc
+    monkeypatch.setattr(_svc, "_manifest_expose_state",
+                        lambda: (True, True))  # 감수 완료 상태 모의
     p, _s, obs = apply_risk_exposure(
         "본문", None, subject_id="internal-tester-1",
         question_type="period_overview", temporal_scope="future",
@@ -137,7 +140,10 @@ def test_all_conditions_met_is_injected(monkeypatch) -> None:
                         "RISK_EXPOSE_CANARY_SUBJECT_IDS",
                         frozenset({"internal-tester-1"}))
     monkeypatch.setattr(risk_engine_config,
-                        "RISK_EXPOSE_PIPELINE_REVIEWED", True)
+                        "RISK_EXPOSURE_RUNTIME_ENABLED", True)
+    from saju_api.services import risk_exposure_service as _svc
+    monkeypatch.setattr(_svc, "_manifest_expose_state",
+                        lambda: (True, True))  # 감수 완료 상태 모의
     p, _s, obs = apply_risk_exposure(
         "본문", None, payload=payload, subject_id="internal-tester-1",
         question_type="period_overview", temporal_scope="future",
@@ -263,3 +269,140 @@ def test_future_scope_preserves_audit_records() -> None:
     statuses = [r["exposureScopeStatus"] for r in out["presentationRecords"]]
     assert statuses == ["OUTSIDE_FUTURE_SCOPE", "IN_SCOPE"]
     assert len(out["llmRiskEpisodes"]) == 1
+
+
+# ── 감수 48차 fixture ─────────────────────────────────────────────
+
+
+def test_runtime_and_manifest_must_both_be_true(monkeypatch) -> None:
+    """감수 48차 §4: manifest(감수 SSOT)와 runtime enabled 중 하나만
+    true여서는 절대 주입되지 않는다 — 환경변수가 reviewed를 대체 불가."""
+    from saju_api.services import risk_exposure_service as svc
+
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSE_CANARY_SUBJECT_IDS",
+                        frozenset({"internal-tester-1"}))
+    common: dict = dict(
+        subject_id="internal-tester-1",
+        question_type="period_overview", temporal_scope="future",
+        counter=lambda t: max(1, len(t) // 4),
+        counter_model_id="m1", resolved_model_id="m1",
+        model_context_limit=16_000, base_prompt_tokens=1_000,
+        user_input_tokens=100, existing_context_tokens=1_000,
+        response_reserve=2_000)
+    # ① runtime=true + manifest reviewed=false(현 실제 상태) → BYPASS.
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSURE_RUNTIME_ENABLED", True)
+    p, _s, obs = svc.apply_risk_exposure("본문", None, **common)
+    assert obs["disposition"] == "BYPASS" and p == "본문"
+    assert obs["reason"] == "EXPOSE_PIPELINE_NOT_REVIEWED"
+    # ② manifest reviewed=true(모의) + runtime=false → BYPASS.
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSURE_RUNTIME_ENABLED", False)
+    monkeypatch.setattr(svc, "_manifest_expose_state",
+                        lambda: (True, True))
+    p2, _s2, obs2 = svc.apply_risk_exposure("본문", None, **common)
+    assert obs2["disposition"] == "BYPASS" and p2 == "본문"
+    assert obs2["reason"] == "EXPOSE_PIPELINE_NOT_REVIEWED"
+
+
+def test_manifest_hash_mismatch_is_bypass(monkeypatch) -> None:
+    """expose 정책 코드가 manifest와 어긋나면(hash 불일치) BYPASS —
+    감수 시점과 다른 정책으로 주입 불가."""
+    from saju_api.services import risk_exposure_service as svc
+
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSE_CANARY_SUBJECT_IDS",
+                        frozenset({"internal-tester-1"}))
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSURE_RUNTIME_ENABLED", True)
+    monkeypatch.setattr(svc, "_manifest_expose_state",
+                        lambda: (True, False))  # reviewed=true·hash 불일치
+    p, _s, obs = svc.apply_risk_exposure(
+        "본문", None, subject_id="internal-tester-1",
+        question_type="period_overview", temporal_scope="future",
+        counter=lambda t: 1, counter_model_id="m1", resolved_model_id="m1")
+    assert obs["disposition"] == "BYPASS" and p == "본문"
+    assert obs["reason"] == "POLICY_HASH_MISMATCH"
+
+
+def test_integrity_failure_demotes_to_suppressed() -> None:
+    """감수 48차 §7: integrity 실패=instruction만 남는 상태 금지 —
+    SUPPRESSED 강등(RISK_BLOCK_INTEGRITY_ERROR)·전체 재조립 계약."""
+    from saju_engines.risk_exposure import resolve_block_integrity_failure
+
+    injected = {"inject": True, "disposition": "INJECTED",
+                "serialized": "{}",
+                "observability": {"attempted": True, "injected": True,
+                                  "disposition": "INJECTED",
+                                  "effective_budget": 1024}}
+    out = resolve_block_integrity_failure(injected)
+    assert out["disposition"] == "SUPPRESSED"
+    assert out["primary_decision_reason"] == "RISK_BLOCK_INTEGRITY_ERROR"
+    assert out["serialized"] is None
+    assert out["observability"]["reason"] == "RISK_BLOCK_INTEGRITY_ERROR"
+
+
+def test_token_counter_registry_contract() -> None:
+    """adapter registry(감수 48차 §10-③): 기본 비어 있음(미등록=None →
+    BYPASS), heuristic mode 등록 금지, resolved ID 기반 해소."""
+    import pytest as _pytest
+
+    from saju_api.services.token_counter_registry import (
+        TokenCounterAdapter,
+        register_adapter,
+        resolve_counter,
+    )
+
+    assert resolve_counter("gemini-2.5-flash") is None  # 기본 미등록
+    with _pytest.raises(ValueError):
+        register_adapter(TokenCounterAdapter(
+            model_id="x", mode="HEURISTIC_FALLBACK", counter=len))
+    register_adapter(TokenCounterAdapter(
+        model_id="test-model-x", mode="MODEL_TOKENIZER", counter=len))
+    adapter = resolve_counter("test-model-x")
+    assert adapter is not None and adapter.counter("abc") == 3
+
+
+def test_risk_guidance_envelope_invariants() -> None:
+    """envelope 불변식(감수 48차 §10-⑤): 미등록 key·중복·level 초과·
+    warning-first 위반 검출."""
+    from saju_engines.risk_claim_audit import (
+        validate_risk_guidance_envelope,
+    )
+
+    llm = [{"episodeKey": "e1", "presentationLevel": "warning"},
+           {"episodeKey": "e2", "presentationLevel": "watch"}]
+    ok = validate_risk_guidance_envelope(
+        [{"episode_key": "e1", "exposed_level": "warning"},
+         {"episode_key": "e2", "exposed_level": "watch"}], llm)
+    assert ok == []
+    errors = validate_risk_guidance_envelope(
+        [{"episode_key": "e2", "exposed_level": "watch"},
+         {"episode_key": "e1", "exposed_level": "critical"},  # 초과+순서
+         {"episode_key": "e1", "exposed_level": "warning"},   # 중복
+         {"episode_key": "ghost", "exposed_level": "watch"}], llm)
+    codes = {e.split(":")[0] for e in errors}
+    assert {"LEVEL_EXCEEDS_EXPOSED", "ORDER_NOT_WARNING_FIRST",
+            "DUPLICATE_EPISODE_KEY", "UNREGISTERED_EPISODE_KEY"} <= codes
+
+
+def test_claim_audit_negation_and_circumvention() -> None:
+    """FP/FN 코퍼스(감수 48차 §11): 안전한 부정문은 통과, 우회 단정은 검출."""
+    from saju_engines.risk_claim_audit import audit_generated_risk_claims
+
+    safe = ("이 신호가 사고가 납니다라는 뜻은 아닙니다. 계약이 반드시"
+            " 종료된다는 의미는 아니며, 손실이 확정된 것은 아닙니다.")
+    # 부정문 — 위반 아님(FP 차단).
+    out = audit_generated_risk_claims(safe)
+    assert out["action"] == "ALLOW", out["violations"]
+    evasive = ("법적 결과를 피하기 어려운 흐름입니다. 금전 손실로"
+               " 이어지는 수순입니다.")
+    out2 = audit_generated_risk_claims(evasive)
+    assert out2["action"] == "REVISE_REQUIRED"
+    assert any(v["code"] == "circumvented_certainty"
+               for v in out2["violations"])

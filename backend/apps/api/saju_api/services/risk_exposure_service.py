@@ -13,7 +13,9 @@ chat_service가 최종 prompt 조립 직전에 호출한다. **OFF/SHADOW에서�
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
+from pathlib import Path
 
 from saju_engines import risk_engine_config
 from saju_engines.risk_exposure import (
@@ -21,13 +23,33 @@ from saju_engines.risk_exposure import (
     RISK_EXPOSURE_SUPPRESSED_GUARD,
     ExposureGateContext,
     evaluate_risk_exposure_gate,
+    expose_policy_hash,
     verify_risk_block_integrity,
 )
 from saju_shared_types.risk_engine import RiskEngineMode
 
 _logger = logging.getLogger("saju.risk_exposure")
+_MANIFEST_PATH = (Path(__file__).resolve().parents[4].parent
+                  / "doc" / "v2_2" / "RISK_REVIEW_MANIFEST.json")
 
 __all__ = ["apply_risk_exposure", "exposure_mode_active"]
+
+
+def _manifest_expose_state() -> tuple[bool, bool]:
+    """(expose_pipeline reviewed, policy hash 일치) — 감수 SSOT는 manifest.
+
+    로드 실패·필드 부재·해시 불일치 전부 (False, False) — fail-closed
+    (환경변수가 감수 사실을 대체할 수 없다, 감수 48차 §4).
+    """
+    try:
+        manifest = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
+        pipeline = manifest.get("expose_pipeline") or {}
+        reviewed = bool(pipeline.get("reviewed"))
+        hash_ok = (pipeline.get("expose_policy_hash")
+                   == expose_policy_hash())
+        return reviewed, hash_ok
+    except (OSError, ValueError):
+        return False, False
 
 
 def exposure_mode_active() -> bool:
@@ -77,6 +99,7 @@ def apply_risk_exposure(
     mode = (RiskEngineMode.EXPOSE
             if risk_engine_config.RISK_ENGINE_MODE == "expose"
             else RiskEngineMode.EXPOSE_CANARY)
+    manifest_reviewed, manifest_hash_ok = _manifest_expose_state()
     canary_types = risk_engine_config.RISK_CANARY_QUESTION_TYPES
     qt = question_type if question_type in canary_types else "__unmapped__"
     ctx = ExposureGateContext(
@@ -91,12 +114,15 @@ def apply_risk_exposure(
         user_input_tokens=user_input_tokens,
         existing_context_tokens=existing_context_tokens,
         response_reserve=response_reserve,
-        scopes_all_reviewed=True,  # 5 scope 49/49(manifest 검증은 호출부)
-        policy_hashes_match=True,
+        scopes_all_reviewed=True,  # 항목 5 scope 49/49(회귀 테스트 강제)
+        policy_hashes_match=manifest_hash_ok,
         canary_allowlisted=_canary_allowlisted(subject_id),
         kill_switch=risk_engine_config.RISK_EXPOSURE_KILL_SWITCH,
+        # 감수 SSOT=manifest(reviewed+hash), runtime enabled는 활성화만 —
+        # **둘 다** true여야 주입 가능(한쪽만 true=BYPASS, 감수 48차 §4).
         expose_pipeline_reviewed=(
-            risk_engine_config.RISK_EXPOSE_PIPELINE_REVIEWED),
+            manifest_reviewed
+            and risk_engine_config.RISK_EXPOSURE_RUNTIME_ENABLED),
         counter_model_id=counter_model_id,
         resolved_model_id=resolved_model_id,
         future_period_range=future_period_range,

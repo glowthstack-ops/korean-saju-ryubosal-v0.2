@@ -63,7 +63,13 @@ EXPOSURE_SUPPRESSION_REASONS = (
     "CLAIM_POLICY_ERROR",
     "SERIALIZATION_ERROR",
     "FINAL_PROMPT_TOKEN_OVERFLOW",
+    "RISK_BLOCK_INTEGRITY_ERROR",
 )
+# 하위 호환·명칭 정리(감수 48차 §2): disposition 분리 후에는 BYPASS 사유까지
+# 'suppression'이라 부르지 않는다 — 게이트 반환은 decision reason 스키마
+# (primary_decision_reason/all_decision_reasons)가 정본이고, 기존 키는
+# 별칭으로 병기(fixture·관측 마이그레이션 후 제거).
+EXPOSURE_DECISION_REASONS = EXPOSURE_SUPPRESSION_REASONS
 # 노출 처분 3상태(감수 47차 §1 — suppression reason과 prompt 행동 분리):
 # BYPASS=위험 노출 파이프라인의 적용 대상이 아님(정적 사유 — kill switch·
 # mode·canary·질문 정책·scope·hash·tokenizer) → **prompt 한 바이트도 불변**
@@ -281,18 +287,23 @@ def evaluate_risk_exposure_gate(
         # 아님 — prompt 완전 불변), 런타임 사유=SUPPRESSED(guard 부착 가능).
         disposition = ("BYPASS" if primary in _BYPASS_REASONS
                        else "SUPPRESSED")
+        alls = ordered or list(reasons)
         return {
             "inject": False,
             "disposition": disposition,
+            # 정본 스키마(감수 48차 §2) — BYPASS 사유는 suppression이 아님.
+            "primary_decision_reason": primary,
+            "all_decision_reasons": alls,
+            # 하위 호환 별칭(마이그레이션 후 제거).
             "suppression_reason": primary,
-            "all_suppression_reasons": ordered or list(reasons),
+            "all_suppression_reasons": alls,
             "serialized": None,
             "observability": {
                 "attempted": True,
                 "injected": False,
                 "disposition": disposition,
                 "reason": primary,
-                "all_reasons": ordered or list(reasons),
+                "all_reasons": alls,
                 "effective_budget": budget,
                 "critical_downgraded": 0,
             },
@@ -375,7 +386,9 @@ def evaluate_risk_exposure_gate(
     return {
         "inject": True,
         "disposition": "INJECTED",
-        "suppression_reason": None,
+        "primary_decision_reason": None,
+        "all_decision_reasons": [],
+        "suppression_reason": None,  # 하위 호환 별칭
         "all_suppression_reasons": [],
         "serialized": serialized,
         "audit_records": exposed_records,  # computed level·하향 사유 보존
@@ -497,6 +510,31 @@ def finalize_risk_prompt_block(
     return None, "FINAL_PROMPT_TOKEN_OVERFLOW"
 
 
+def resolve_block_integrity_failure(result: dict) -> dict:
+    """provider 직전 integrity 실패의 재조립 계약(감수 48차 §7).
+
+    잘못된 상태(instruction은 남고 block만 제거)를 만들지 않는다 —
+    INJECTED 결과를 **SUPPRESSED로 강등**: instruction+block 전부 제거 대상,
+    suppressed guard 삽입, 사유=RISK_BLOCK_INTEGRITY_ERROR. 호출부는 이
+    결과로 prompt를 처음부터 재조립하고(부분 편집 금지) 최종 재계수·재검증을
+    다시 수행해야 한다.
+    """
+    obs = dict(result.get("observability", {}))
+    obs.update({"injected": False, "disposition": "SUPPRESSED",
+                "reason": "RISK_BLOCK_INTEGRITY_ERROR",
+                "all_reasons": ["RISK_BLOCK_INTEGRITY_ERROR"]})
+    return {
+        "inject": False,
+        "disposition": "SUPPRESSED",
+        "primary_decision_reason": "RISK_BLOCK_INTEGRITY_ERROR",
+        "all_decision_reasons": ["RISK_BLOCK_INTEGRITY_ERROR"],
+        "suppression_reason": "RISK_BLOCK_INTEGRITY_ERROR",
+        "all_suppression_reasons": ["RISK_BLOCK_INTEGRITY_ERROR"],
+        "serialized": None,
+        "observability": obs,
+    }
+
+
 def expose_policy_hash() -> str:
     """EXPOSE 전역 pipeline 정책 해시(감수 44차 §7 — 항목 scope 아님)."""
     policy = {
@@ -550,8 +588,15 @@ def expose_policy_hash() -> str:
                               " EXPOSE 계열 전용·최종 token 계수 포함",
         "block_integrity": "RiskPromptBlock.content_hash + BEGIN/END"
                            " marker — provider request 직전 단일 삽입"
-                           "(각 1회·본문 1회)·checksum 대조, 실패=비주입"
-                           "(감수 47차 §3)",
+                           "(각 1회·본문 1회)·checksum 대조(감수 47차 §3)."
+                           " 실패 시 재조립 계약(감수 48차 §7):"
+                           " instruction+block 전부 제거 → SUPPRESSED 강등"
+                           "(RISK_BLOCK_INTEGRITY_ERROR) → guard 삽입 →"
+                           " 전체 재계수·재검증(부분 편집 금지)",
+        "decision_reason_schema": "primary_decision_reason/"
+                                  "all_decision_reasons 정본(BYPASS 사유는"
+                                  " suppression 아님 — 감수 48차 §2), 관측"
+                                  "은 bypass/suppressed/injected 분리 집계",
         "compression_order": "FULL(=P2)→P1→P0→P0_COMPACT(감수 46차 §5)",
         "future_scope_audit": "OUTSIDE_FUTURE_SCOPE records 전량 보존 —"
                               " LLM episodes만 필터(감수 46차 §4), 판정="
@@ -588,6 +633,8 @@ __all__ = [
     "verify_risk_block_integrity",
     "wrap_risk_block",
     "EXPOSURE_DISPOSITIONS",
+    "EXPOSURE_DECISION_REASONS",
+    "resolve_block_integrity_failure",
     "RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE",
     "RiskPromptBlock",
     "filter_payload_to_future_scope",

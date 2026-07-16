@@ -1964,3 +1964,40 @@ EXPOSE_CANARY 개시 잔여(§28-2 목록에 추가): 구조화 risk_guidance en
 불변식(episode_key ⊆ llm episodes·중복/미등록 실패·warning-first 순서·
 renderer 후 최종 문자열 재감사), claim audit FP/FN 코퍼스(안전 부정문·우회
 확정문) + canary 관측 지표(violation/revision/regenerate/block rate).
+
+### 28-4. 감수 48차 반영 — SSOT 분리·integrity 재조립·registry·envelope·FP/FN (2026-07-16)
+
+1. **decision reason 스키마(§2)**: 게이트 정본=primary_decision_reason/
+   all_decision_reasons(BYPASS 사유는 suppression이 아님 — 기존 키는 하위
+   호환 별칭으로 병기·마이그레이션 후 제거), 관측은 disposition별 분리 집계.
+2. **감수 SSOT 분리(§4 — 권고 채택)**: RISK_EXPOSE_PIPELINE_REVIEWED 제거
+   → **RISK_EXPOSURE_RUNTIME_ENABLED**(활성화만 결정). 감수 사실은
+   manifest가 SSOT: 서비스가 RISK_REVIEW_MANIFEST.json에서
+   expose_pipeline.reviewed + **expose_policy_hash 런타임 실비교**(로드
+   실패·필드 부재·불일치=fail-closed). 게이트 주입 조건=manifest reviewed
+   AND hash 일치 AND runtime enabled AND mode. fixture: 한쪽만 true(runtime
+   만/manifest만) → BYPASS, hash 불일치 → BYPASS(POLICY_HASH_MISMATCH).
+3. **integrity 실패 재조립 계약(§7)**: RISK_BLOCK_INTEGRITY_ERROR(SUPPRESSED
+   부류) 신설 + resolve_block_integrity_failure — instruction만 남는 상태
+   금지: INJECTED→SUPPRESSED 강등·전부 제거·guard 삽입·전체 재계수 계약
+   (부분 편집 금지). policy hash 명시.
+4. **tokenizer adapter registry 골격(§10-③)**: token_counter_registry —
+   resolved model ID 기반 해소·heuristic mode 등록 금지·기본 빈
+   registry(미등록=BYPASS)·fallback 라우팅 시 재해소+전체 재계수 계약
+   docstring. 실물 adapter는 canary 차수에서 감수와 함께 등록.
+5. **risk_guidance envelope 불변식(§10-⑤)**: validate_risk_guidance_
+   envelope — 미등록 episode_key/중복/exposed level 초과/warning-first
+   순서 위반 검출(위반=REVISE 경로).
+6. **claim audit FP/FN 보강(§11 — r5.1.0)**: 부정문 예외(매치 직후 25자 내
+   '아닙니다' 등 5표지 — "사고가 난다는 뜻은 아닙니다" 통과 fixture) +
+   우회 단정 패턴(circumvented_certainty: "피하기 어려운 흐름"·"이어지는
+   수순"·"현실화될 가능성이 매우 높"·"기정사실") — claim_audit_policy_hash
+   변경(=expose 재감수 신호, 본 감수 지시로 정당).
+
+fixture +6(통합 22종). **게이트**: pytest 2096·ruff clean·mypy 0(533)·
+baseline 불변·manifest 일치. expose_pipeline.reviewed=false·RISK_ENGINE_
+MODE=off·RISK_EXPOSURE_RUNTIME_ENABLED=false 유지(3중 잠금).
+
+**잔여(canary 개시 전)**: ④질문 파서 SSOT 매핑 ⑥재작성·재생성 LLM 실배선
+⑦provider 직전 검증 배선(전용 message slot 권장) ⑧renderer 후 최종 문자열
+재감사 ⑨expose_pipeline 감수(manifest reviewed=true) ⑩r4.1.0-canary.
