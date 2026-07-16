@@ -14,6 +14,7 @@ adapter(Gemini token-count API·GPT 계열 tokenizer)는 canary 개시 차수에
 
 from __future__ import annotations
 
+import threading as _threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC
@@ -110,6 +111,9 @@ class TokenCounterAdapter:
     # validation key 4번째 축(감수 53차 §2): ProviderRequest 구조 버전 —
     # 요청 구조가 바뀌면 감수 무효(manifest 대조 대상).
     request_schema_version: str = "1"
+    # 감수 corpus canonical hash(감수 55차 §1 — identity 구성 요소): corpus
+    # 재감수=새 identity(기존 suspension 미적용·새 manifest 감수 전 BYPASS).
+    validation_corpus_hash: str = ""
 
     def count_request(self, request: ProviderRequest) -> int:
         """provider request 전체 계수 — 기본 구현은 전 구성요소 합산 +
@@ -164,19 +168,35 @@ def resolve_validated_counter(
 # 변경(새 identity)+재감수+새 manifest).
 _STATE_DIR = Path(__file__).resolve().parents[4] / "var" / "risk_state"
 _SUSPENSION_FILE = _STATE_DIR / "adapter_suspensions.json"
+# 전용 lock 파일(감수 55차 §2): 데이터 파일은 atomic replace로 inode가
+# 바뀌므로 lock 대상은 교체되지 않는 별도 파일이어야 한다.
+_SUSPENSION_LOCK_FILE = _STATE_DIR / "adapter_suspensions.lock"
+# persistence 쓰기 실패 전역 차단 marker(감수 55차 §4): under-count 기록에
+# 실패하면 로컬 SUSPENDED만으로는 전역 보장이 없다 — marker가 존재하면
+# 모든 worker의 suspension_state_ok()=False(전부 BYPASS). marker 기록조차
+# 실패하면 프로세스 로컬 flag로 최소 현 worker 차단 + supervisor 재시작
+# 계약(canary 전 공유 저장소 전환 권장 — 배포 불변식).
+_EXPOSURE_DISABLED_MARKER = _STATE_DIR / "exposure_disabled.marker"
+_LOCAL_PERSISTENCE_FAILED = False
+_IN_PROCESS_LOCK = _threading.Lock()  # 동일 프로세스 thread/async 동기화
 
 
 def adapter_identity_hash(adapter: TokenCounterAdapter) -> str:
     """validation identity hash(감수 54차 §1) — suspension·감수 결속 키.
 
-    identity가 바뀌면(counterVersion·schema version 등) 기존 VALIDATED·
-    SUSPENDED 상태를 재사용하지 않는다.
+    identity가 바뀌면(counterVersion·schema version·**corpus**·count mode
+    등) 기존 VALIDATED·SUSPENDED 상태를 재사용하지 않는다 — 감수 55차 §1:
+    corpus 재감수=새 identity 복구 계약과 정합(감수 identity와 완전 동일
+    구성: provider|model|counterVersion|schemaVersion|countMode|policyHash
+    |corpusHash).
     """
     import hashlib
     parts = "|".join([adapter.provider_id, adapter.model_id,
                       adapter.counter_version,
                       adapter.request_schema_version,
-                      adapter_validation_policy_hash()])
+                      adapter.mode,
+                      adapter_validation_policy_hash(),
+                      adapter.validation_corpus_hash])
     return hashlib.sha256(parts.encode()).hexdigest()[:16]
 
 
@@ -196,7 +216,17 @@ def _shared_suspensions() -> tuple[dict, bool]:
 
 
 def suspension_state_ok() -> bool:
-    """suspension 저장소 가용성 — False면 EXPOSE 해소 전부 BYPASS."""
+    """suspension 저장소 가용성 — False면 EXPOSE 해소 전부 BYPASS.
+
+    persistence 쓰기 실패 marker(전 worker)·로컬 실패 flag(현 worker)도
+    불가용으로 판정한다(감수 55차 §4).
+    """
+    if _LOCAL_PERSISTENCE_FAILED or _EXPOSURE_DISABLED_MARKER.exists():
+        return False
+    from saju_engines import risk_engine_config as _cfg
+    combo = (_cfg.RISK_SUSPENSION_BACKEND, _cfg.RISK_DEPLOYMENT_TOPOLOGY)
+    if combo not in _cfg._SUPPORTED_SUSPENSION_COMBOS:
+        return False  # 미지원 배포 조합=전역 suspension 미보장(감수 55차 §6)
     return _shared_suspensions()[1]
 
 
@@ -236,7 +266,10 @@ def resolve_expose_counter(
                 == adapter.request_schema_version
                 and entry.get("validationPolicyHash")
                 == adapter_validation_policy_hash()
-                and bool(entry.get("validationCorpusHash"))):
+                and entry.get("countMode") == adapter.mode
+                and bool(adapter.validation_corpus_hash)
+                and entry.get("validationCorpusHash")
+                == adapter.validation_corpus_hash):
             return adapter
     return None
 
@@ -270,11 +303,10 @@ def record_count_observation(model_id: str, counted: int, reported: int,
                          request_id_hash.encode(),
                          hashlib.sha256).hexdigest()[:16]
     _SUSPENSION_FILE.parent.mkdir(parents=True, exist_ok=True)
-    lock_path = _SUSPENSION_FILE.parent / "adapter_suspensions.lock"
-    # process-safe read-modify-write(감수 54차 §2): flock으로 동시 writer
-    # 갱신 유실 차단 — lock 안에서 최신 read→merge→fsync→atomic replace→
-    # dir fsync.
-    with open(lock_path, "w") as lock_f:
+    # process-safe RMW(감수 54차 §2 + 55차 §2): flock 대상은 **교체되지
+    # 않는 전용 lock 파일**(데이터 파일은 replace로 inode 변경) + 동일
+    # 프로세스 thread용 mutex 병행. temp는 같은 디렉터리(atomic 보장).
+    with _IN_PROCESS_LOCK, open(_SUSPENSION_LOCK_FILE, "w") as lock_f:
         fcntl.flock(lock_f, fcntl.LOCK_EX)
         try:
             records, _ok = _shared_suspensions()
@@ -297,6 +329,16 @@ def record_count_observation(model_id: str, counted: int, reported: int,
                 os.fsync(dir_fd)
             finally:
                 os.close(dir_fd)
+        except OSError:
+            # persistence 실패(감수 55차 §4) — 로컬 SUSPENDED만으로는 전역
+            # 보장이 없다: 전역 marker 기록(실패 시 로컬 flag) → 모든
+            # 해소가 BYPASS로 강등.
+            global _LOCAL_PERSISTENCE_FAILED
+            try:
+                _EXPOSURE_DISABLED_MARKER.write_text(
+                    "suspension_persistence_failed", encoding="utf-8")
+            except OSError:
+                _LOCAL_PERSISTENCE_FAILED = True
         finally:
             fcntl.flock(lock_f, fcntl.LOCK_UN)
 

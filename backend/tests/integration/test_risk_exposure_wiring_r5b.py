@@ -922,14 +922,16 @@ def test_adapter_manifest_ssot_and_drift_suspend() -> None:
     register_adapter(TokenCounterAdapter(
         model_id="ssot-model", mode="MODEL_TOKENIZER", counter=len,
         provider_id="prov", counter_version="v1",
-        request_schema_version="1"))
+        request_schema_version="1", validation_corpus_hash="corpus-abc"))
     set_validation_state("ssot-model", "VALIDATED")
     # manifest 항목 없음 → None(BYPASS).
     assert resolve_expose_counter("ssot-model", []) is None
-    # 확장 대조 키(감수 53차 §2): schemaVersion·policy/corpus hash 포함.
+    # 확장 대조 키(감수 53차 §2 + 55차 §1): schemaVersion·countMode·
+    # policy/corpus hash 포함(corpus는 adapter 값과 일치).
     entry = {"reviewed": True, "resolvedModelId": "ssot-model",
              "providerId": "prov", "counterVersion": "v1",
              "providerRequestSchemaVersion": "1",
+             "countMode": "MODEL_TOKENIZER",
              "validationPolicyHash": adapter_validation_policy_hash(),
              "validationCorpusHash": "corpus-abc"}
     assert resolve_expose_counter("ssot-model", [entry]) is not None
@@ -945,6 +947,8 @@ def test_adapter_manifest_ssot_and_drift_suspend() -> None:
         "ssot-model", [{**entry, "validationPolicyHash": "stale"}]) is None
     assert resolve_expose_counter(
         "ssot-model", [{**entry, "validationCorpusHash": ""}]) is None
+    assert resolve_expose_counter(
+        "ssot-model", [{**entry, "countMode": "PROVIDER_EXACT"}]) is None
     # drift: 과소 계산 1건 → 전역 SUSPENDED(공유 파일·identity 기준·
     # 잠금 하 기록) → 이후 해소 불가.
     from saju_api.services.token_counter_registry import (
@@ -1065,11 +1069,13 @@ def test_suspension_store_corruption_is_bypass(monkeypatch) -> None:
 
     register_adapter(TokenCounterAdapter(
         model_id="corrupt-model", mode="MODEL_TOKENIZER", counter=len,
-        provider_id="prov", counter_version="v1"))
+        provider_id="prov", counter_version="v1",
+        validation_corpus_hash="corpus"))
     set_validation_state("corrupt-model", "VALIDATED")
     entry = {"reviewed": True, "resolvedModelId": "corrupt-model",
              "providerId": "prov", "counterVersion": "v1",
              "providerRequestSchemaVersion": "1",
+             "countMode": "MODEL_TOKENIZER",
              "validationPolicyHash": adapter_validation_policy_hash(),
              "validationCorpusHash": "corpus"}
     assert resolve_expose_counter("corrupt-model", [entry]) is not None
@@ -1145,3 +1151,121 @@ def test_order_fingerprint_uses_canonical_identity() -> None:
     h1 = llm_episode_order_hash(llm, {"rg1": "reality:deal_1"})
     h2 = llm_episode_order_hash(llm, {"rg1": "explicit:legal:e9"})
     assert h1 != h2  # 같은 rg1이어도 canonical이 다르면 상이
+
+
+# ── 감수 55차 fixture ─────────────────────────────────────────────
+
+
+def test_new_corpus_hash_creates_new_identity() -> None:
+    """§1: 같은 adapter + 새 validationCorpusHash → 새 validation identity
+    — 기존 suspension 미적용·새 manifest 감수 전에는 여전히 BYPASS."""
+    from saju_api.services.token_counter_registry import (
+        TokenCounterAdapter,
+        adapter_identity_hash,
+        adapter_validation_policy_hash,
+        register_adapter,
+        resolve_expose_counter,
+        set_validation_state,
+    )
+
+    def _make(corpus: str) -> TokenCounterAdapter:
+        return TokenCounterAdapter(
+            model_id="corpus-model", mode="MODEL_TOKENIZER", counter=len,
+            provider_id="prov", counter_version="v1",
+            request_schema_version="1", validation_corpus_hash=corpus)
+
+    old_adapter = _make("corpus-old")
+    new_adapter = _make("corpus-new")
+    assert adapter_identity_hash(old_adapter) != adapter_identity_hash(
+        new_adapter)  # corpus 변경=새 identity
+    # 새 identity 등록·VALIDATED여도 manifest entry의 corpus hash가
+    # 어긋나면 BYPASS.
+    register_adapter(new_adapter)
+    set_validation_state("corpus-model", "VALIDATED")
+    entry = {"reviewed": True, "resolvedModelId": "corpus-model",
+             "providerId": "prov", "counterVersion": "v1",
+             "providerRequestSchemaVersion": "1",
+             "countMode": "MODEL_TOKENIZER",
+             "validationPolicyHash": adapter_validation_policy_hash(),
+             "validationCorpusHash": "corpus-old"}  # 옛 corpus로 감수됨
+    assert resolve_expose_counter("corpus-model", [entry]) is None
+    assert resolve_expose_counter(
+        "corpus-model",
+        [{**entry, "validationCorpusHash": "corpus-new"}]) is not None
+
+
+def test_lock_file_is_dedicated_and_stable() -> None:
+    """§2: flock 대상=교체되지 않는 전용 lock 파일(데이터 파일과 분리) —
+    atomic replace 후에도 lock inode 불변."""
+    from saju_api.services.token_counter_registry import (
+        _SUSPENSION_FILE,
+        _SUSPENSION_LOCK_FILE,
+    )
+
+    assert _SUSPENSION_LOCK_FILE != _SUSPENSION_FILE
+    assert _SUSPENSION_LOCK_FILE.parent == _SUSPENSION_FILE.parent
+    assert _SUSPENSION_LOCK_FILE.suffix == ".lock"
+
+
+def test_guidance_ref_leak_in_final_text_detected() -> None:
+    """§8: opaque ref가 최종 사용자 문장에 남으면
+    INTERNAL_GUIDANCE_REF_LEAKED — guidance_ref 필드 제거만으로는 text 안
+    'rg1'이 사라지지 않는다."""
+    from saju_engines.risk_claim_audit import audit_rendered_output
+
+    leaks = audit_rendered_output(
+        "rg1 항목은 주의가 필요합니다. rg2도 함께 보세요.",
+        episode_keys=[], issued_refs=["rg1", "rg2"])
+    assert "INTERNAL_GUIDANCE_REF_LEAKED:rg1" in leaks
+    assert "INTERNAL_GUIDANCE_REF_LEAKED:rg2" in leaks
+    assert audit_rendered_output(
+        "계약 조건을 점검해 두면 좋은 시기입니다.", [],
+        issued_refs=["rg1"]) == []
+
+
+def test_guidance_reference_context_is_immutable_snapshot() -> None:
+    """§7·9: 최종 payload에서 요청 단위 불변 snapshot(refMap·orderHash·
+    policy hash) 생성 — 전 과정이 동일 객체를 소비(재계산 금지)."""
+    import dataclasses
+
+    import pytest as _pytest
+
+    from saju_engines.risk_exposure import (
+        build_guidance_reference_context,
+        expose_policy_hash,
+    )
+
+    payload = {"guidanceRefMap": {"rg1": "explicit:legal:e1"},
+               "llmEpisodeOrderHash": "abc123"}
+    ctx = build_guidance_reference_context("req-1", payload)
+    assert ctx.refs() == ["rg1"]
+    assert ctx.llm_episode_order_hash == "abc123"
+    assert ctx.expose_policy_hash == expose_policy_hash()
+    with _pytest.raises(dataclasses.FrozenInstanceError):
+        ctx.request_context_id = "req-2"  # type: ignore[misc]
+
+
+def test_unsupported_topology_disables_suspension_state(monkeypatch) -> None:
+    """§6: 미지원 backend·topology 조합=전역 suspension 미보장 →
+    suspension_state_ok=False(전부 BYPASS)."""
+    from saju_api.services.token_counter_registry import (
+        suspension_state_ok,
+    )
+    from saju_engines import risk_engine_config
+
+    assert suspension_state_ok() is True
+    monkeypatch.setattr(risk_engine_config, "RISK_DEPLOYMENT_TOPOLOGY",
+                        "kubernetes_multi_pod")
+    assert suspension_state_ok() is False
+
+
+def test_persistence_failure_marker_disables_exposure(monkeypatch,
+                                                      tmp_path) -> None:
+    """§4: suspension 기록 실패 → 전역 marker → 모든 해소 BYPASS."""
+    from saju_api.services import token_counter_registry as reg
+
+    marker = tmp_path / "exposure_disabled.marker"
+    monkeypatch.setattr(reg, "_EXPOSURE_DISABLED_MARKER", marker)
+    assert reg.suspension_state_ok() is True
+    marker.write_text("suspension_persistence_failed", encoding="utf-8")
+    assert reg.suspension_state_ok() is False

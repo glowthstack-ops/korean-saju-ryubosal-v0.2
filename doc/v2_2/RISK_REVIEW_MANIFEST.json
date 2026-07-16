@@ -13,7 +13,7 @@
   "adapter_validation_policy_hash": "0c4a838c22285875",
   "expose_pipeline": {
     "reviewed": false,
-    "expose_policy_hash": "4c0b8f053db4b160",
+    "expose_policy_hash": "8d47ea989aa5f345",
     "critical_validation_state": {
       "synthetic_fixtures": "passed",
       "corpus_positive_cases": 0,

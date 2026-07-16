@@ -8426,3 +8426,15 @@ identity 유지(같은 ref 배열·다른 구성=상이 hash). fixture +4(통합
 pytest 2124·ruff·mypy 0(534)·baseline 불변·manifest 일치. REVIEW.md
 §28-10. 다음: adapter 실물 shadow 등록(30표본·artifact hash) 착수 조건
 충족.
+
+## 감수 55차 — identity corpus 포함·전용 lock·rg 누출·요청 결속 (2026-07-16)
+
+suspension identity를 감수 identity와 동일 구성으로(+countMode·corpusHash
+— corpus 재감수=새 identity 복구 계약 정합, manifest 대조도 corpus 일치·
+countMode 일치 강화)·전용 lock 파일 계약 fixture(+in-process mutex)·
+INTERNAL_GUIDANCE_REF_LEAKED(한글 인접 rg 검출+발급 ref 대조). 병행:
+persistence 쓰기 실패=전역 marker→전부 BYPASS(+로컬 flag fallback)·
+GuidanceReferenceContext(요청 단위 불변 snapshot — 전 과정 동일 객체)·
+topology 검증(미지원 조합=BYPASS). fixture +6(통합 56종). pytest 2130·
+ruff·mypy 0(534)·baseline 불변·manifest 일치. REVIEW.md §28-11.
+다음: adapter 실물 shadow 등록(30표본·§11 보고) 착수 조건 충족.

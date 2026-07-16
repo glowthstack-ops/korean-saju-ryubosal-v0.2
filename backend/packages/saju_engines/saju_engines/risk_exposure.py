@@ -226,6 +226,40 @@ def apply_exposure_levels(records: list[dict]) -> list[dict]:
 
 
 @dataclass(frozen=True)
+class GuidanceReferenceContext:
+    """요청 단위 guidance 참조 결속(감수 55차 §7·9 — 불변 snapshot).
+
+    'rg1'은 요청마다 반복되는 문자열이라 그 자체로 재사용 금지를 보장하지
+    못한다 — 생성→revision→renderer→final audit 전 과정이 **동일한 이
+    불변 객체**를 소비해야 한다(재작성 중 ref map 재계산 금지). 최종
+    llmRiskEpisodes·guidanceRefMap·orderHash는 미래 필터 후 한 번만
+    생성되는 단일 snapshot이다.
+    """
+
+    request_context_id: str
+    guidance_ref_map: tuple[tuple[str, str], ...]  # (ref, canonical key)
+    llm_episode_order_hash: str
+    expose_policy_hash: str
+
+    def refs(self) -> list[str]:
+        return [r for r, _ in self.guidance_ref_map]
+
+
+def build_guidance_reference_context(
+    request_context_id: str, payload: dict,
+) -> GuidanceReferenceContext:
+    """최종(필터 후) payload에서 불변 참조 snapshot 생성 — 요청당 1회."""
+    return GuidanceReferenceContext(
+        request_context_id=request_context_id,
+        guidance_ref_map=tuple(sorted(
+            (payload.get("guidanceRefMap") or {}).items())),
+        llm_episode_order_hash=str(
+            payload.get("llmEpisodeOrderHash") or ""),
+        expose_policy_hash=expose_policy_hash(),
+    )
+
+
+@dataclass(frozen=True)
 class ExposureGateContext:
     """게이트 입력(감수 44차 §7·§8) — 호출부(R5 파이프라인)가 채운다.
 
@@ -759,6 +793,8 @@ __all__ = [
     "resolve_guard_overflow",
     "RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE",
     "RiskPromptBlock",
+    "GuidanceReferenceContext",
+    "build_guidance_reference_context",
     "filter_payload_to_future_scope",
     "finalize_risk_prompt_block",
     "CRITICAL_DOWNGRADE_REASON",

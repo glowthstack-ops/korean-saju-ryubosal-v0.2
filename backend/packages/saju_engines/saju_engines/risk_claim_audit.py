@@ -344,13 +344,23 @@ _INTERNAL_TOKEN_PATTERNS = ("reality:", "explicit:", "fallback:",
                             "exposedPresentationLevel", "riskEpisodes")
 
 
+# 한글 등 유니코드 인접("rg2도")에서도 잡히도록 \b(유니코드 word 경계)
+# 대신 영숫자 lookaround 사용.
+_GUIDANCE_REF_PATTERN = __import__("re").compile(
+    r"(?<![A-Za-z0-9])rg[0-9]+(?![0-9])")
+
+
 def audit_rendered_output(final_text: str, episode_keys: list[str],
-                          internal_ids: list[str] | None = None) -> list[str]:
-    """renderer 후 최종 사용자 문자열 감사 보조(감수 50차 §6 + 51차 §9).
+                          internal_ids: list[str] | None = None,
+                          issued_refs: list[str] | None = None) -> list[str]:
+    """renderer 후 최종 사용자 문자열 감사 보조(감수 50차 §6 + 51차 §9 +
+    55차 §8).
 
     검출: ①내부 episode_key 원문 ②key prefix·내부 enum 원문(reality: 등)
-    ③내부 risk_id·cause_atom(internal_ids로 공급). 사용자에게는 감수된
-    표시명만 나가야 한다. 전체 claim audit과 병행.
+    ③내부 risk_id·cause_atom(internal_ids) ④**opaque guidanceRef 누출**
+    (\brg[0-9]+\b 패턴 + 실제 발급 ref 직접 대조 — guidance_ref 필드는
+    renderer가 제거해도 text 안의 'rg1'은 자동으로 사라지지 않는다).
+    사용자에게는 감수된 표시명만 나가야 한다. 전체 claim audit과 병행.
     """
     leaks = [f"INTERNAL_KEY_LEAKED:{k}" for k in episode_keys
              if k and k in final_text]
@@ -359,6 +369,10 @@ def audit_rendered_output(final_text: str, episode_keys: list[str],
     for ident in internal_ids or []:
         if ident and ident in final_text:
             leaks.append(f"INTERNAL_ID_LEAKED:{ident}")
+    found = set(_GUIDANCE_REF_PATTERN.findall(final_text))
+    found |= {ref for ref in (issued_refs or [])
+              if ref and ref in final_text}
+    leaks += [f"INTERNAL_GUIDANCE_REF_LEAKED:{m}" for m in sorted(found)]
     return leaks
 
 
@@ -454,7 +468,8 @@ def claim_audit_policy_hash() -> str:
         "remediation_order": "REVISE(1회) → REGENERATE_WITHOUT_RISK →"
                              " BLOCK — 위반 초안 직접 전달 경로 없음",
         "audit_scope": "risk section(episode별) + whole answer 병행 +"
-                       " renderer 후 최종 문자열(key 비노출 포함)",
+                       " renderer 후 최종 문자열(key·opaque ref 비노출"
+                       " 포함 — 감수 55차 §8)",
         "evidence_log_policy": "일반 운영 로그=code·pattern·clause_hash·"
                                "길이만 / 감수용 제한 표본=clause_text 80자·"
                                "단기 보존·접근 제한(감수 51차 §10)",

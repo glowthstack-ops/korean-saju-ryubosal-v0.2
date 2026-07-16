@@ -2231,3 +2231,46 @@ baseline 불변·manifest 일치. 3중 잠금 유지.
 (identity 조합당 30표본·undercount 0·overcount p50/p90/max·유형별 count·
 tier 분포·캐시 분리·rerouting 재계수) → validation artifact(canonical
 hash) 생성 → manifest validatedTokenCounters 감수 후보 작성.
+
+### 28-11. 감수 55차 반영 — identity에 corpus 포함·전용 lock·rg 누출 감사·요청 결속 (2026-07-16)
+
+**adapter shadow 등록 전 필수 수정 3건**:
+
+1. **suspension identity = 감수 identity(§1)**: adapter에
+   validation_corpus_hash 필드 추가, identity hash 구성을 provider|model|
+   counterVersion|schemaVersion|**countMode**|policyHash|**corpusHash**로
+   확장 — corpus 재감수=새 identity 복구 계약과 완전 정합. manifest 대조도
+   corpus hash **일치**(존재만이 아님)+countMode 일치로 강화. fixture:
+   같은 adapter+새 corpus=새 identity(기존 suspension 미적용)·옛 corpus로
+   감수된 manifest entry로는 BYPASS.
+2. **전용 lock 파일 계약(§2)**: flock 대상=_SUSPENSION_LOCK_FILE(교체되지
+   않는 별도 파일 — 데이터 파일은 atomic replace로 inode 변경) 명시 +
+   fixture(경로 분리·같은 디렉터리). 동일 프로세스 thread/async용
+   in-process mutex 병행.
+3. **opaque ref 누출 감사(§8)**: audit_rendered_output에
+   INTERNAL_GUIDANCE_REF_LEAKED — (?<![A-Za-z0-9])rg[0-9]+(?![0-9]) 패턴
+   (한글 인접 "rg2도" 검출) + 발급 ref 직접 대조. guidance_ref 필드 제거와
+   무관하게 text 안 rg 잔존 검출 fixture.
+
+**병행 과제(canary 전 — 본 차수 선반영)**:
+
+- **persistence 쓰기 실패 전역 차단(§4)**: 기록 실패 시 전역 marker
+  (exposure_disabled.marker) 기록 → 모든 worker suspension_state_ok=False
+  (전부 BYPASS), marker 기록도 실패하면 로컬 flag(현 worker 차단)+
+  supervisor 재시작 계약. 공유 저장소(Redis·DB) 전환이 1순위 권장임을 명시.
+- **GuidanceReferenceContext(§7·9)**: 요청 단위 불변 snapshot(request_
+  context_id·refMap·orderHash·policy hash) — 생성→revision→renderer→final
+  audit 전 과정이 동일 객체 소비(재작성 중 ref map 재계산 금지). frozen
+  fixture.
+- **배포 topology 검증(§6)**: RISK_SUSPENSION_BACKEND·RISK_DEPLOYMENT_
+  TOPOLOGY config — 지원 조합(file+single_host_shared_state) 밖이면
+  suspension_state_ok=False(전부 BYPASS). fixture(kubernetes_multi_pod=
+  차단).
+
+fixture +6(통합 56종). **게이트**: pytest 2130·ruff clean·mypy 0(534)·
+baseline 불변·manifest 일치. 3중 잠금 유지.
+
+**adapter 실물 shadow 등록 착수 조건 충족(감수 55차 §10)** — 다음 차수:
+실물 adapter 등록·identity 조합당 30표본·§11 보고 형식(유형별 count·tier
+분포·counted/reported/delta·캐시 분리·rerouting·overcount p50/p90/max·
+compression 분포·suppression 예상률·corpus canonical hash).

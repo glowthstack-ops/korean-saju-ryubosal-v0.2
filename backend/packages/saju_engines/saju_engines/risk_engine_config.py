@@ -36,6 +36,15 @@ RISK_EXPOSE_CANARY_SUBJECT_IDS: frozenset[str] = frozenset()
 # (fixture 강제). 기본 False.
 RISK_EXPOSURE_RUNTIME_ENABLED: bool = False
 
+# suspension backend·배포 topology(감수 55차 §6): 파일 backend는
+# single_host_shared_state에서만 전역 suspension이다 — 미지원 조합이면
+# EXPOSE 해소가 BYPASS된다(다중 호스트=공유 저장소 backend 필요).
+RISK_SUSPENSION_BACKEND: str = "file"
+RISK_DEPLOYMENT_TOPOLOGY: str = "single_host_shared_state"
+_SUPPORTED_SUSPENSION_COMBOS: frozenset[tuple[str, str]] = frozenset({
+    ("file", "single_host_shared_state"),
+})
+
 # claim audit evidence용 HMAC 키(감수 52차 §6): 짧은 한국어 절의 사전
 # 대입 추정을 막기 위해 clause hash는 단순 SHA가 아니라 keyed HMAC.
 # **운영 배포 전 환경별 secret으로 교체·주기 회전 필수**(원문과 secret
