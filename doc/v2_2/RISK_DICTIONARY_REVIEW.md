@@ -890,3 +890,41 @@ INSUFFICIENT/F vulnerability), structural·rankable 분포 분리, 포화 지표
 검증(원인 추가↛occ 감소·protection 추가↛priority 증가·CONFIRMED→UNKNOWN↛증가·
 supporting/vuln 추가↛occ 증가·무관 episode↛변화·입력 순서 byte 불변)) →
 R1-c2(가중 확정·shadow_scoring scope 승격).
+
+### 15-1. R1-c0 후속(감수 29차 확정 6건 — R1-c1 착수 전) (2026-07-16)
+
+지속성 = "같은 위험 이름의 연속"이 아니라 "같은 **원인**의 연속", 복합성 = "후보·
+episode 개수"가 아니라 "서로 다른 **현실 효과**의 동시 존재"(데굴님 확정).
+
+1. **persistence = 개별 cause lineage**: 키 = (risk_id, 연결 episode 서명,
+   canonical cause_atom **1개**) — 보조 원인 증감({A}→{A,B}→{A})이 지속성을 못
+   끊는다(A run 3=0.4). 후보 persistence = 지지 원인 lineage 중 최장 run. 묶음
+   연속은 `trigger_bundle_contiguous_runs()`(진단 — {A,B}×3=bundle 3), 효과
+   연속은 `effect_contiguous_runs()`(R2 재료). 원인 전체 교체({A}→{B}→{C})=run
+   1·effect run 3(기존 fixture 유지).
+2. **normalized effect role registry**: riskFamily는 교차 도메인 통합이
+   liability 1건뿐(대부분 도메인 내부 키)이라 부족 — 데굴님 최소 어휘 기반
+   49항목 전수 role 매핑을 **scoring 계층 registry**로 잠정 도입(cause_semantics_
+   hash에 포함 — 변경=감수 강등. **사전 필드(normalizedEffectRole) 편입 여부는
+   감수 질문**). 문서 결함(LEG·SEL)=같은 role 통합.
+3. **compound = 서로 다른 role의 개수**: 같은 role은 family·도메인·episode 수와
+   무관하게 복제/반복 폭(폭은 R2 breadth 소관). §8 fixture 5종: 같은 episode+
+   다른 role=0.25 / 같은 role(교차 도메인)=0 / episode 수만 증가=0 / episode-
+   free 미해결=**0 + unresolved 진단**(fail-closed — 고유 identity 부여 방식
+   폐기: 독립성 증명 불가=제외). `compound_unresolved_counts()` 진단 신설.
+4. **targeted void 계약**: 현재 매처의 void는 시점 전역 상태(궁위 무관) —
+   궁위 지정 void 원자는 미정의 namespace로 fail-closed 거부됨을 fixture로 고정
+   (도입 시 동반 CAUSE와의 target 일치 검증을 registry에 정의해야 함 — 배우자궁
+   void가 계약 CAUSE의 조건이 되는 경로 차단).
+5. **context confidence 축별 평가**: `context_axes()` — 후보가 요구하는 축만
+   (required/confirmed/unknown/conflicted 분해, R1-c1 리포트 출력). 점수 미포함
+   진단 유지.
+6. 버전·해시: `RISK_SCORING_VERSION` r1.0.3→**r1.0.4-shadow**, CAUSE_SEMANTICS_
+   VERSION v3(role registry·per-cause lineage 편입 — 해시 자동 변경). env
+   r0.5.12 불변(전 baseline exact match).
+
+fixture 26→**28종**, 표본 불변식 **31개 전부 PASS**(고정본 갱신 — {A}→{A,B}→{A}
+지속·교차 role 복제·episode-free fail-closed·episode 수 비증가 포함). pytest
+1996·mypy 0(520파일). R1-c1 추가 진단 예약: cause_set_churn_count·unresolved_
+effect_identity_rate·episode_count_only_compound_violations(0 목표)·void_target_
+mismatch_count(0 목표).

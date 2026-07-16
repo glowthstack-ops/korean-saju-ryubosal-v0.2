@@ -1,15 +1,15 @@
-> R1-b/c0 표본 감수 고정본(감수 27·28차) — 재생성: `python scripts/risk_scoring_sample.py`
+> R1-b/c0 표본 감수 고정본(감수 27~29차) — 재생성: `python scripts/risk_scoring_sample.py`
 > 출력 결정적 — 본 파일과의 diff = 점수 의미 회귀 신호.
 
-# R1-b/c0 위험 점수 표본 리포트 — risk-score-r1.0.3-shadow
-cause semantics: cause-semantics-v2 · scoring_config_hash=ea789b931ee68d29 · cause_semantics_hash=9f2e80bd80731edb
+# R1-b/c0 위험 점수 표본 리포트 — risk-score-r1.0.4-shadow
+cause semantics: cause-semantics-v3 · scoring_config_hash=b010e439c6902d29 · cause_semantics_hash=3a0cc513141a1c21
 감수 대상 = 절대 점수가 아니라 표본별 예상 불변식(PASS/FAIL).
 
 ## 표본 1 — cause identity(관계 원자 + 비관계 전역 namespace)
-    SMP_A@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.25 prot=0.00 | structural=0.000 rankable raw=0.250 capped=0.250 conf=0.40
+    SMP_A@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
     SMP_B@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
     SMP_C@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
-    SMP_D@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.25 prot=0.00 | structural=0.000 rankable raw=0.250 capped=0.250 conf=0.60
+    SMP_D@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.60
     SMP_G@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
   [PASS] 같은 충+다른 대상 → cause row 2
   [PASS] 같은 대상+다른 관계(충/형) → cause row 2
@@ -37,15 +37,20 @@ cause semantics: cause-semantics-v2 · scoring_config_hash=ea789b931ee68d29 · c
   [PASS] 구조 compound 연결(exposure 무관) 동일
   [PASS] rankable compound: CONFIRMED만 양수
 
-## 표본 4 — compound 독립 효과군
+## 표본 4 — compound 독립 효과(normalized effect role)
     SMP_A@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
-  [PASS] compound(같은 family alias) = 0.0
+  [PASS] compound(같은 family alias(role fallback 동일)) = 0.0
     SMP_A@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
   [PASS] compound(흡수 supporting) = 0.0
     SMP_A@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
   [PASS] compound(비노출 vulnerability) = 0.0
     SMP_A@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.25 prot=0.00 | structural=0.000 rankable raw=0.250 capped=0.250 conf=0.40
-  [PASS] compound(독립 exposable 다른 family) = 0.25
+  [PASS] compound(독립 exposable 다른 role(resolved)) = 0.25
+    SMP_A@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
+  [PASS] compound(episode-free 미해결(fail-closed)) = 0.0
+    LEG_DOCUMENT_ERROR@2026 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.00 cmp=0.00 prot=0.00 | structural=0.000 rankable raw=0.000 capped=0.000 conf=0.40
+  [PASS] 교차 도메인 같은 role·같은 episode = 하나의 효과(compound 0)
+  [PASS] 같은 role + episode만 2개 → compound 증가 없음
 
 ## 표본 5 — persistence(연속성·직렬화 구분)
     SMP_RUN@2026-01 elig=eligible exposable=True | occ=0.500 imp=0.00 exp=0.55 per=0.40 cmp=0.00 prot=0.00 | structural=0.400 rankable raw=0.400 capped=0.400 conf=0.40
@@ -57,6 +62,7 @@ cause semantics: cause-semantics-v2 · scoring_config_hash=ea789b931ee68d29 · c
   [PASS] 연도 경계(12→01→02)도 연속 3 = 0.4
   [PASS] 세운 원인 12개월 직렬화 = 0.0(native 발동 아님)
   [PASS] 직렬화가 occurrence를 바꾸지 않음
+  [PASS] {A}→{A,B}→{A}: A 원인 run 3 = 0.4(보조 원인 증감 무영향)
 
 ## 표본 6 — 다중 selection episode 공유 원인(엔진 실후보)
     SEL_RESULT_DELAY_PRESSURE@2026/exam_1 elig=mitigated exposable=True | occ=0.610 imp=0.40 exp=1.00 per=0.00 cmp=0.00 prot=0.30 | structural=-0.056 rankable raw=-0.056 capped=0.000 conf=0.60
@@ -75,4 +81,4 @@ cause semantics: cause-semantics-v2 · scoring_config_hash=ea789b931ee68d29 · c
   [PASS] 극성 단독 mitigator → protection 0(전역 완화 금지)
     (미래 회복 창은 R0.5 후보에 존재하지 않음 — recovery는 R2 recovery_window 소관, 현재 축 어디에도 반영 경로 없음: 구조적 보장)
 
-## 종합: 27개 불변식 중 FAIL 0건
+## 종합: 31개 불변식 중 FAIL 0건

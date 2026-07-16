@@ -209,8 +209,11 @@ def test_cause_occurrence_table_single_entry_per_cause() -> None:
     table = cause_occurrence_table([a, b])
     assert list(table) == [("2026", _CHUNG)]
     assert table[("2026", _CHUNG)] == 0.5  # 최강 strength 1회(결정적)
-    # compound 축이 독립 효과군 연결을 표현한다(occurrence 중복 가산 아님).
-    [sa, sb] = score_shadow([a, b], {})
+    # compound 축이 독립 효과군 연결을 표현한다(occurrence 중복 가산 아님) —
+    # 감수 29차: effect identity는 episode 서명으로 해결(resolved)돼야 한다.
+    a_ep = a.model_copy(update={"legal_episode_id": "ep_a"})
+    b_ep = b.model_copy(update={"legal_episode_id": "ep_b"})
+    [sa, sb] = score_shadow([a_ep, b_ep], {})
     assert _comp(sa).compound > 0 and _comp(sb).compound > 0
     lone = _candidate(risk_id="SYN_C", evidence=[
         _evidence("relation:PA:day_pillar:branch:BIJIAN", strength=0.5)])
@@ -219,32 +222,33 @@ def test_cause_occurrence_table_single_entry_per_cause() -> None:
 
 
 def test_compound_requires_independent_exposable_effect() -> None:
-    """감수 26차 보완 4: 같은 family alias·흡수 후보·비노출 연결은 compound 0."""
-    base = _candidate(risk_id="SYN_A", family="fam_a",
+    """감수 26차 보완 4(+29차 resolved 필수): alias·흡수·비노출 연결은 compound 0."""
+    base = _candidate(risk_id="SYN_A", family="fam_a", legal_episode_id="e1",
                       evidence=[_evidence(_CHUNG, strength=0.5)])
-    # 같은 family의 다른 risk_id(동일 효과 계열의 파생 표현) → 연결 아님.
-    alias = _candidate(risk_id="SYN_A2", family="fam_a",
+    # 같은 family(role fallback 동일 — 동일 효과 계열의 파생 표현) → 연결 아님.
+    alias = _candidate(risk_id="SYN_A2", family="fam_a", legal_episode_id="e2",
                        evidence=[_evidence(_CHUNG, strength=0.4)])
     [sa, _] = score_shadow([base, alias], {})
     assert _comp(sa).compound == 0.0
     # 흡수된 supporting 후보 → 연결 아님.
     absorbed = _candidate(
-        risk_id="SYN_B", family="fam_b",
+        risk_id="SYN_B", family="fam_b", legal_episode_id="e2",
         evidence=[_evidence(_CHUNG, strength=0.4)],
         suppressed_by_specificity="SYN_A", primary_risk_id="SYN_A",
         absorbed_role="supporting_manifestation")
     [sa2, _] = score_shadow([base, absorbed], {})
     assert _comp(sa2).compound == 0.0
-    # 비노출 vulnerability 연결 → 연결 아님.
+    # 비노출 vulnerability 연결 → 연결 아님(rankable).
     vuln = RiskCandidate(
         risk_id="SYN_V", domain=RiskDomain.FINANCE,
         kind=RiskKind.VULNERABILITY, risk_family="fam_v", period_key="2026",
+        legal_episode_id="e2",
         evidence=[_evidence(_CHUNG, strength=0.4)],
         trigger_cause_atoms=[_CHUNG])
     [sa3, _] = score_shadow([base, vuln], {})
     assert _comp(sa3).compound == 0.0
-    # 독립 exposable 다른 family → 연결 1건.
-    other = _candidate(risk_id="SYN_C", family="fam_c",
+    # 독립 exposable 다른 효과(role 상이·resolved) → 연결 1건.
+    other = _candidate(risk_id="SYN_C", family="fam_c", legal_episode_id="e2",
                        evidence=[_evidence(_CHUNG, strength=0.4)])
     [sa4, _] = score_shadow([base, other], {})
     assert _comp(sa4).compound == pytest.approx(0.25)
@@ -531,8 +535,10 @@ def test_structural_metrics_invariant_under_exposure_flip() -> None:
 
     def pair(exposure):
         base = _candidate(risk_id="SYN_A", family="fam_a", exposure=exposure,
+                          legal_episode_id="c1",
                           evidence=[_evidence(_CHUNG, strength=0.5)])
         other = _candidate(risk_id="SYN_B", family="fam_b", exposure=exposure,
+                           legal_episode_id="c1",
                            evidence=[_evidence(_CHUNG, strength=0.4)])
         return [base, other]
 
@@ -556,6 +562,16 @@ def test_structural_metrics_invariant_under_exposure_flip() -> None:
     raw_c, _ = risk_priority(_comp(sc[0]))
     raw_d, capped_d = risk_priority(_comp(sd[0]))
     assert raw_c > raw_d and capped_d == 0.0
+
+
+def test_targeted_void_fail_closed_until_defined() -> None:
+    """감수 29차 §1: 현재 매처의 void는 시점 전역 상태(궁위 무관) — 궁위 지정
+    void 원자는 미정의 namespace라 fail-closed 거부된다(도입 시 동반 CAUSE와의
+    target 일치 검증을 registry에 정의해야 함)."""
+    bad = _candidate(evidence=[
+        _evidence("void:month_pillar&ten_god:ZHENGCAI", strength=0.5)])
+    with pytest.raises(ValueError, match="canonical cause 계약 위반"):
+        score_shadow([bad], {})
 
 
 # ── 12. persistence = cause lineage(감수 28차) — 원인 교체·무관 episode ──
@@ -582,6 +598,37 @@ def test_persistence_cause_lineage_not_effect_run() -> None:
     runs = effect_contiguous_runs(same_cause + rotating)
     assert runs[("SYN_SAME", frozenset())] == 3
     assert runs[("SYN_ROT", frozenset())] == 3  # 효과 연속은 진단으로 보존
+
+
+def test_persistence_per_cause_lineage_not_bundle() -> None:
+    """감수 29차 §3: {A}→{A,B}→{A} — A 원인 run 3(0.4)·bundle run 1(진단).
+
+    보조 원인의 추가·제거가 지속성을 끊지 않는다. 원인 전체 교체({A}→{B}→{C})만
+    run 1(기존 fixture). {A,B}×3은 양쪽 run 3=bundle run 3.
+    """
+    from saju_engines.risk_scoring import trigger_bundle_contiguous_runs
+    ab_mid = [
+        _candidate(period="2026-01", evidence=_month_ev("2026-01")),
+        _candidate(period="2026-02", evidence=[
+            _evidence(_CHUNG, strength=0.5, period="2026-02", layer="wolwoon"),
+            _evidence("ten_god:ZHENGCAI", strength=0.4, period="2026-02",
+                      layer="wolwoon")]),
+        _candidate(period="2026-03", evidence=_month_ev("2026-03")),
+    ]
+    scored = score_shadow(ab_mid, {})
+    assert _comp(scored[0]).persistence == pytest.approx(2 / 5)  # A run 3
+    bundles = trigger_bundle_contiguous_runs(ab_mid)
+    assert max(bundles.values()) == 1  # 묶음 자체는 매달 다름 — 진단으로만
+    both = [
+        _candidate(period=p, evidence=[
+            _evidence(_CHUNG, strength=0.5, period=p, layer="wolwoon"),
+            _evidence("ten_god:ZHENGCAI", strength=0.4, period=p,
+                      layer="wolwoon")])
+        for p in ("2026-01", "2026-02", "2026-03")
+    ]
+    scored2 = score_shadow(both, {})
+    assert _comp(scored2[0]).persistence == pytest.approx(2 / 5)
+    assert max(trigger_bundle_contiguous_runs(both).values()) == 3
 
 
 def test_persistence_gap_splits_run() -> None:
@@ -623,32 +670,51 @@ def test_unrelated_episode_does_not_change_lineage(engine: RiskEngine) -> None:
 # ── 13. compound normalized effect identity(감수 28차) ────────────
 
 
-def test_compound_same_real_effect_across_families_zero() -> None:
-    """같은 cause + 다른 family + 같은 episode·같은 kind(=같은 현실 효과의
-    교차 도메인 복제) → compound 0. 독립 효과(다른 episode/식별 불가 쌍)만 가능."""
+def test_compound_normalized_effect_role_semantics() -> None:
+    """감수 29차 §8: compound = 서로 다른 normalized effect role의 개수.
+
+    ①같은 episode+같은 role(교차 도메인 문서 결함 복제)=0 ②같은 episode+다른
+    role=가능 ③다른 episode+같은 role=0(episode 수는 compound 아님 — breadth
+    소관) ④episode-free 미해결=0+unresolved 진단(fail-closed).
+    """
+    from saju_engines.risk_scoring import (
+        compound_unresolved_counts,
+        normalized_effect_role,
+    )
     ev = [_evidence(_CHUNG, strength=0.5)]
-    mov_like = _candidate(risk_id="SYN_MOV", family="move_execution",
-                          kind=RiskKind.PRESSURE, evidence=ev,
-                          legal_episode_id="contract_1")
-    leg_like = _candidate(risk_id="SYN_LEG", family="procedure",
-                          kind=RiskKind.PRESSURE, evidence=ev,
-                          legal_episode_id="contract_1")
-    [sm, sl] = score_shadow([mov_like, leg_like], {})
-    assert _comp(sm).compound == 0.0 and _comp(sl).compound == 0.0
-    # 같은 원인·다른 episode의 독립 효과 → compound 가능.
-    other_ep = _candidate(risk_id="SYN_LEG2", family="procedure",
-                          kind=RiskKind.PRESSURE, evidence=ev,
-                          legal_episode_id="permit_9")
-    [sm2, _] = score_shadow([mov_like, other_ep], {})
-    assert _comp(sm2).compound == pytest.approx(0.25)
-    # episode-free 쌍은 동일성 주장 불가 — family 상이면 연결 유지(사전
-    # riskFamily 통합 저작 소관, 감수 질문).
+    # ① 같은 episode + 같은 role(document_defect — LEG·SEL 교차 복제) → 0.
+    leg_doc = _candidate(risk_id="LEG_DOCUMENT_ERROR", family="contract",
+                         evidence=ev, legal_episode_id="contract_1")
+    sel_doc = _candidate(risk_id="SEL_DOCUMENT_DEFECT_RISK",
+                         family="selection_process", evidence=ev,
+                         legal_episode_id="contract_1")
+    assert normalized_effect_role(leg_doc) == normalized_effect_role(sel_doc)
+    [sl, ss] = score_shadow([leg_doc, sel_doc], {})
+    assert _comp(sl).compound == 0.0 and _comp(ss).compound == 0.0
+    # ② 같은 episode + 다른 role(종료 vs 행정 지연 — 둘 다 pressure여도 다른
+    # 현실 효과) → compound 가능.
+    trm = _candidate(risk_id="LEG_CONTRACT_TERMINATION_RISK", family="contract",
+                     kind=RiskKind.PRESSURE, evidence=ev,
+                     legal_episode_id="contract_1")
+    adm = _candidate(risk_id="LEG_ADMIN_DELAY", family="procedure",
+                     kind=RiskKind.PRESSURE, evidence=ev,
+                     legal_episode_id="contract_1")
+    [st, _] = score_shadow([trm, adm], {})
+    assert _comp(st).compound == pytest.approx(0.25)
+    # ③ 다른 episode + 같은 role → episode 수만으로 compound 증가 금지.
+    doc2 = _candidate(risk_id="SEL_DOCUMENT_DEFECT_RISK",
+                      family="selection_process", evidence=ev,
+                      legal_episode_id="permit_9")
+    [sl3, _] = score_shadow([leg_doc, doc2], {})
+    assert _comp(sl3).compound == 0.0
+    # ④ episode-free — 독립 효과 증명 불가 → compound 0 + unresolved 진단.
     free_a = _candidate(risk_id="SYN_FA", family="fam_a",
                         kind=RiskKind.PRESSURE, evidence=ev)
     free_b = _candidate(risk_id="SYN_FB", family="fam_b",
                         kind=RiskKind.PRESSURE, evidence=ev)
     [sf, _] = score_shadow([free_a, free_b], {})
-    assert _comp(sf).compound == pytest.approx(0.25)
+    assert _comp(sf).compound == 0.0
+    assert compound_unresolved_counts([free_a, free_b]) == [1, 1]
 
 
 # ── 14. confidence 분리(감수 28차) — structural vs context ─────────

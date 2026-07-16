@@ -53,7 +53,7 @@ from saju_shared_types.risk_engine import (
 from .risk_engine import cause_atoms
 
 # 점수 의미 버전 — 축 정의·가중·매핑이 바뀌면 올린다(엔진 env 버전과 독립).
-RISK_SCORING_VERSION = "risk-score-r1.0.3-shadow"
+RISK_SCORING_VERSION = "risk-score-r1.0.4-shadow"
 
 # exposure 축 = **rankable 가중**(감수 26차 확정 — 정책별 분리, 전 항목 공통값
 # 금지): 노출 게이트(is_exposable)를 통과하지 못한 후보는 0 — DENIED(명시 부정)·
@@ -100,7 +100,7 @@ _SEM_GATE = "gate_or_protection"
 _SEM_ACTIVATION = "activation_or_confidence"
 _SEM_AMPLIFIER = "amplifier"
 # cause 정규화 의미 버전 — registry 분류가 바뀌면 올린다(감수 hash 재료).
-CAUSE_SEMANTICS_VERSION = "cause-semantics-v2"
+CAUSE_SEMANTICS_VERSION = "cause-semantics-v3"
 
 
 def atom_semantics(atom: str) -> str:
@@ -119,6 +119,79 @@ def atom_semantics(atom: str) -> str:
         f"canonical cause 계약 위반 — 미상 namespace 원자: {atom!r} "
         f"(occurrence 의미 registry 등재·감수 후 사용)"
     )
+
+
+# ── normalized effect role registry(감수 29차 — R1-c0 후속) ────────
+# compound의 '서로 다른 현실 효과' 판정 어휘. kind(pressure 등)는 위험 표현의
+# 성격이지 효과 의미가 아니고, riskFamily는 대부분 도메인 내부 키라(교차 통합은
+# liability뿐) 둘 다 부족하다 — 교차 도메인 최소 어휘를 scoring 계층 registry로
+# 잠정 도입한다(**사전 필드(normalizedEffectRole) 편입 여부는 감수 질문** —
+# registry는 cause_semantics_hash에 포함되어 변경 시 감수 자동 강등). 문서 결함
+# (LEG·SEL)처럼 같은 현실 효과의 교차 도메인 복제는 같은 role로 통합한다.
+_EFFECT_ROLE_BY_RISK_ID: dict[str, str] = {
+    # contract_legal
+    "LEG_CONTRACT_TERMINATION_RISK": "contract_termination",
+    "LEG_DOCUMENT_ERROR": "document_defect",
+    "LEG_ADMIN_DELAY": "administrative_delay",
+    "LEG_COMPLIANCE_OBLIGATION_PRESSURE": "compliance_obligation",
+    "LEG_DISPUTE_RISK": "legal_dispute",
+    "LEG_LITIGATION_PROCESS_BURDEN": "litigation_process_burden",
+    "LEG_REVIEW_CAPACITY_WEAK": "review_capacity",
+    # finance
+    "FIN_CASHFLOW_PRESSURE": "cashflow_pressure",
+    "FIN_UNEXPECTED_EXPENSE": "financial_outflow",
+    "FIN_INVESTMENT_LOSS": "financial_outflow",
+    "FIN_INCOME_DELAY": "payment_recovery",
+    "FIN_SETTLEMENT_DISPUTE": "payment_recovery",
+    "FIN_DEBT_GUARANTEE_BURDEN": "financial_liability",
+    "FIN_BUFFER_WEAK": "financial_buffer",
+    # career
+    "CAR_HIRING_PROCESS_DELAY": "hiring_delay",
+    "CAR_HIRING_OUTCOME_SETBACK": "hiring_outcome",
+    "CAR_EVALUATION_SETBACK_RISK": "evaluation_setback",
+    "CAR_REASSIGNMENT_RISK": "reassignment",
+    "CAR_WORK_OVERLOAD": "workload_strain",
+    "CAR_EXIT_PRESSURE": "exit_pressure",
+    "CAR_ORG_CONFLICT": "workplace_conflict",
+    # selection
+    "SEL_DOCUMENT_DEFECT_RISK": "document_defect",
+    "SEL_ELIGIBILITY_REVIEW_RISK": "selection_eligibility",
+    "SEL_DRAW_OUTCOME_UNCERTAINTY": "selection_outcome",
+    "SEL_UNWANTED_PLACEMENT": "selection_outcome",
+    "SEL_RESULT_DELAY_PRESSURE": "selection_delay",
+    "SEL_WAITLIST_PROLONGATION": "selection_delay",
+    "SEL_COMPETITION_INTENSIFY": "selection_competition",
+    # relocation
+    "MOV_SCHEDULE_DISRUPTION": "schedule_disruption",
+    "MOV_CONTRACT_SETBACK_RISK": "contract_setback",
+    "MOV_HOUSING_DEFECT_RISK": "housing_defect",
+    "MOV_COMMUTE_BURDEN": "commute_burden",
+    "MOV_RELOCATION_PRESSURE": "relocation_pressure",
+    "MOV_VEHICLE_TRANSPORT_ISSUE": "vehicle_transport",
+    # health_safety
+    "HLT_FATIGUE_ACCUMULATION": "vitality_load",
+    "HLT_FOCUS_DROP": "vitality_load",
+    "HLT_EXISTING_CONDITION_STRAIN": "condition_strain",
+    "HLT_TREATMENT_RECOVERY_LOAD": "treatment_management",
+    "HLT_PHYSICAL_WORKLOAD_STRAIN": "physical_strain",
+    "HLT_RECOVERY_CAPACITY_WEAK": "recovery_capacity",
+    "HLT_CHECKUP_NEED": "health_management",
+    "HLT_MOBILITY_SAFETY_CAUTION": "mobility_safety",
+    # relationship
+    "REL_EMOTIONAL_CLASH": "relationship_conflict",
+    "REL_COMMUNICATION_MISALIGNMENT": "relationship_conflict",
+    "REL_TRUST_STABILITY_WEAK": "relationship_stability",
+    "REL_DISTANCE_PRESSURE": "relationship_distance",
+    "REL_PARTNER_READJUST": "partner_readjustment",
+    "REL_FAMILY_BURDEN": "family_care_burden",
+    "REL_PEER_FINANCIAL_ENTANGLEMENT_RISK": "peer_financial_entanglement",
+}
+
+
+def normalized_effect_role(c: RiskCandidate) -> str:
+    """후보의 현실 효과 role — 미등재(합성 등)는 risk_family fallback."""
+    return _EFFECT_ROLE_BY_RISK_ID.get(
+        c.risk_id, c.risk_family or c.risk_id)
 
 
 def _cause_atoms_of_source(source: str) -> frozenset[str]:
@@ -227,15 +300,21 @@ def score_shadow(
     Returns:
         점수 채운 후보 사본 목록(원본 불변).
     """
-    # persistence 재료(감수 27차 — 직렬화 구분): 같은 계열(lineage — risk_id+
-    # 전 축 episode 서명)에서 **period-native trigger**가 있는 기간만 센다.
-    # 상위 layer(세운) 원인이 12개 월 후보에 단순 복제된 직렬화는 같은 사실의
-    # 반복 출력이라 persistence를 자동 최대화하면 안 된다 — 월 기간은 월운/일운
-    # 발동, 연 기간은 세운 발동이 실제로 있는 경우만 지속으로 인정.
-    native_period_sets: dict[tuple[str | None, ...], set[str]] = {}
+    # persistence 재료(감수 29차 — **개별 cause lineage**): 원인 하나가 유지되는
+    # 한 보조 원인의 추가·제거({A}→{A,B}→{A})로 지속성이 끊기지 않는다 — lineage
+    # 키 = (risk_id, 연결 episode 서명, canonical cause_atom 1개). 후보 persistence
+    # = 자신을 지지한 원인 lineage 중 최장 연속 run. native gate(감수 27차 —
+    # 직렬화 구분)는 유지: 월 기간은 월운/일운 발동, 연 기간은 세운 발동만 지속.
+    # 전체 원인 묶음 연속(trigger_bundle_contiguous_runs)·효과 연속(effect_
+    # contiguous_runs)은 진단 전용 — 점수 키로 쓰지 않는다.
+    cause_period_sets: dict[tuple, set[str]] = {}
     for c in candidates:
-        if _has_period_native_trigger(c):
-            native_period_sets.setdefault(_series_key(c), set()).add(c.period_key)
+        if not _has_period_native_trigger(c):
+            continue
+        for atom in _candidate_atoms(c):
+            cause_period_sets.setdefault(
+                (c.risk_id, _episode_signature(c), atom), set(),
+            ).add(c.period_key)
     rankable_links = compound_family_links(candidates, exposable_only=True)
 
     out: list[RiskCandidate] = []
@@ -247,8 +326,10 @@ def score_shadow(
         # exposable_only=False)가 별도 진단으로 제공(structural_priority는 이
         # 축을 아예 제외 — exposability가 구조 진단에 새는 것 차단, 감수 27차).
         linked_families = rankable_links[idx]
-        run = _longest_contiguous_run(
-            native_period_sets.get(_series_key(c), set()))
+        run = max((
+            _longest_contiguous_run(cause_period_sets.get(
+                (c.risk_id, _episode_signature(c), atom), set()))
+            for atom in _candidate_atoms(c)), default=0)
         components = RiskScoreComponents(
             occurrence=occ,
             impact=min(1.0, max(0.0, base_impact.get(c.risk_id, 0.0))),
@@ -285,8 +366,8 @@ def compound_family_links(
     links_by_period: dict[str, list[tuple]] = {}
     for c in candidates:
         links_by_period.setdefault(c.period_key, []).append((
-            c.risk_id, c.risk_family, _candidate_atoms(c),
-            _effect_identity(c),
+            c.risk_id, normalized_effect_role(c), _candidate_atoms(c),
+            bool(_episode_signature(c)),  # effect identity RESOLVED 여부
             c.suppressed_by_specificity is None
             # rankable 연결의 노출 판정은 _exposure_weight와 동일 기준(DENIED/
             # NOT_APPLICABLE 상태 방어 포함) — 축 간 기준 불일치 방지.
@@ -295,35 +376,40 @@ def compound_family_links(
     out: list[set[str]] = []
     for c in candidates:
         my_atoms = _candidate_atoms(c)
-        my_effect = _effect_identity(c)
+        my_role = normalized_effect_role(c)
+        my_resolved = bool(_episode_signature(c))
         out.append({
-            fam for rid, fam, atoms, effect, independent in (
+            role for rid, role, atoms, resolved, independent in (
                 links_by_period.get(c.period_key, []))
-            if independent and rid != c.risk_id and fam is not None
-            and fam != c.risk_family and (atoms & my_atoms)
-            # 교차 도메인 normalized effect identity(감수 28차): family가 달라도
-            # 같은 현실 효과의 복제(같은 episode·같은 효과 성격)는 영향 확장이
-            # 아니다 — compound 제외. episode-free 쌍의 동일 효과 통합은 사전
-            # riskFamily(교차 도메인 통합 키) 저작이 담당(감수 질문로 기록).
-            and effect != my_effect
+            if independent and rid != c.risk_id and (atoms & my_atoms)
+            # compound = **서로 다른 normalized effect role**의 개수(감수 29차):
+            # 같은 role은 family·도메인·episode 수와 무관하게 같은 현실 효과의
+            # 복제/반복 폭이다(폭은 R2 breadth 소관 — compound 아님).
+            and role != my_role
+            # effect identity 미해결(episode-free)은 독립 효과를 증명할 수 없다
+            # — fail-closed: compound 제외(진단은 compound_unresolved_counts).
+            and resolved and my_resolved
         })
     return out
 
 
-def _effect_identity(c: RiskCandidate) -> tuple:
-    """normalized effect identity(잠정) — (kind, 연결 episode 서명).
+def compound_unresolved_counts(candidates: list[RiskCandidate]) -> list[int]:
+    """effect identity 미해결로 compound에서 제외된 원인 공유 연결 수(진단).
 
-    같은 episode에 걸린 같은 성격(kind)의 후보는 family·도메인이 달라도 같은
-    현실 효과의 복제로 본다(계약 일정 차질의 MOV·LEG·FIN 병렬 표현). episode
-    정보가 없는 후보는 이 proxy로 동일성을 주장할 수 없으므로 후보별 고유
-    identity를 부여해 제외 규칙이 발동하지 않는다 — episode-free 쌍의 동일 효과
-    통합은 riskFamily(교차 도메인 통합 키) 저작+R2 대표 선택 소관(효과 role
-    어휘 정식화는 R1-c 감수 질문).
+    episode-free 후보끼리(또는 한쪽이 episode-free) 원인·role 상이 조건은 맞지만
+    독립 효과를 증명할 수 없어 0 처리된 연결 — R1-c1 unresolved_effect_identity
+    지표 재료(사전 role 편입·episode 공급 확충의 우선순위 판단).
     """
-    sig = _episode_signature(c)
-    if not sig:
-        return (c.kind.value, None, c.risk_id)  # 고유 — 동일성 주장 불가
-    return (c.kind.value, sig)
+    rows = [(c.risk_id, normalized_effect_role(c), _candidate_atoms(c),
+             bool(_episode_signature(c)), c.period_key) for c in candidates]
+    out: list[int] = []
+    for rid, role, atoms, resolved, period in rows:
+        out.append(sum(
+            1 for orid, orole, oatoms, oresolved, operiod in rows
+            if operiod == period and orid != rid and (oatoms & atoms)
+            and orole != role and not (resolved and oresolved)
+        ))
+    return out
 
 
 def _layer_tokens(layer: str) -> set[str]:
@@ -413,16 +499,23 @@ def _episode_signature(c: RiskCandidate) -> frozenset[tuple[str, str]]:
     )
 
 
-def _series_key(c: RiskCandidate) -> tuple:
-    """persistence **cause lineage** 키(감수 28차) — risk_id + 연결 episode 서명 +
-    CAUSE 원인 원자 집합.
+def trigger_bundle_contiguous_runs(
+    candidates: list[RiskCandidate],
+) -> dict[tuple, int]:
+    """복수 원인 **묶음**의 연속성 진단(감수 29차) — 점수 키로 쓰지 않는다.
 
-    같은 risk_id·episode라도 매달 원인이 바뀌면(충→형→십성 유입) 같은 지속 위험이
-    아니다 — cause lineage가 끊겨 run이 분리된다. 원인이 달라도 이어지는 효과
-    연속성(effect run)은 점수가 아니라 진단(effect_contiguous_runs — R2 episode
-    분석 재료)으로만 남긴다.
+    키 = (risk_id, 연결 episode 서명, CAUSE 원자 전체 집합). 두 원인의 동시
+    존재를 요구하는 항목의 조합 지속 관찰 전용 — 후보 persistence는 개별 cause
+    lineage 기준이다({A}→{A,B}→{A}: A run 3·bundle run 1).
     """
-    return (c.risk_id, _episode_signature(c), _candidate_atoms(c))
+    period_sets: dict[tuple, set[str]] = {}
+    for c in candidates:
+        if _has_period_native_trigger(c):
+            period_sets.setdefault(
+                (c.risk_id, _episode_signature(c), _candidate_atoms(c)), set(),
+            ).add(c.period_key)
+    return {k: _longest_contiguous_run(v) for k, v in sorted(
+        period_sets.items(), key=lambda kv: repr(kv[0]))}
 
 
 def effect_contiguous_runs(candidates: list[RiskCandidate]) -> dict[tuple, int]:
@@ -473,21 +566,64 @@ def structural_priority(components: RiskScoreComponents) -> float:
     )
 
 
+def context_axes(c: RiskCandidate) -> dict[str, list[str]]:
+    """후보가 실제로 요구하는 context 축의 상태 분해(감수 29차 — R1-c1 리포트).
+
+    required = 항목이 게이트하는 축(alignment 비기본·episode·stage 메타 존재).
+    confirmed/unknown/conflicted로 분해 — context confidence의 근거를 축 단위로
+    보여준다(요구하지 않는 축은 평가하지 않는다).
+    """
+    axes = {
+        "selection": (c.selection_alignment, c.selection_episode_id,
+                      bool(c.selection_stages)),
+        "mobility": (c.mobility_alignment, c.mobility_episode_id,
+                     bool(c.mobility_stages)),
+        "health": (c.health_alignment, c.health_episode_id, False),
+        "legal": (c.legal_alignment, c.legal_episode_id, bool(c.legal_stages)),
+        "relationship": (c.relationship_alignment, c.relationship_target_id,
+                         c.relationship_role is not None),
+    }
+    out: dict[str, list[str]] = {
+        "required": [], "confirmed": [], "unknown": [], "conflicted": []}
+    for name, (alignment, episode, gated_meta) in sorted(axes.items()):
+        required = alignment != "matched" or episode is not None or gated_meta
+        if not required:
+            continue
+        out["required"].append(name)
+        if name == "selection" and c.selection_context_conflict:
+            out["conflicted"].append(name)
+        elif alignment == "matched" and (
+            c.exposure_status is ExposureStatus.CONFIRMED or episode is not None
+        ):
+            out["confirmed"].append(name)
+        else:
+            out["unknown"].append(name)
+    return out
+
+
 def context_confidence(c: RiskCandidate) -> float:
-    """context confidence(잠정) — 현실 exposure 정보의 완전성·충돌 여부.
+    """context confidence(잠정) — **후보가 요구하는 축만** 평가한 현실 정보의
+    완전성·충돌 여부(감수 29차).
 
     structural confidence(candidate.confidence — provenance 구체성·독립 근거·
     layer corroboration)와 분리된 축이다: context가 CONFIRMED라고 structural
     confidence가 오르지 않고, context가 UNKNOWN이라고 occurrence가 내려가지
     않는다(불변식 fixture). 후보에 저장하지 않는 진단 함수 — R2/R3 표현 재료.
+    점수(rankable/structural priority)에 포함하지 않는다.
     """
     if c.selection_context_conflict:
         return 0.0
-    if c.exposure_status is ExposureStatus.CONFIRMED:
-        return 1.0
-    if c.exposure_status is ExposureStatus.UNKNOWN:
-        return 0.5
-    return 0.0  # DENIED/NOT_APPLICABLE — 적용 부정(완전성 아님)
+    if c.exposure_status in (ExposureStatus.DENIED, ExposureStatus.NOT_APPLICABLE):
+        return 0.0  # 적용 부정 — 완전성 축 아님
+    axes = context_axes(c)
+    if not axes["required"]:  # 축 요구 없음 — 전역 노출 상태만
+        return 1.0 if c.exposure_status is ExposureStatus.CONFIRMED else 0.5
+    if axes["conflicted"]:
+        return 0.0
+    resolved = len(axes["confirmed"])
+    return round(0.5 + 0.5 * (resolved / len(axes["required"])), 6) if (
+        c.exposure_status is ExposureStatus.CONFIRMED or resolved
+    ) else 0.5
 
 
 def scoring_config_hash() -> str:
@@ -509,10 +645,12 @@ def scoring_config_hash() -> str:
             "denied": 0.0, "not_applicable": 0.0, "context_conflict": 0.0,
             "gate": "is_exposable",
         },
-        "persistence": {"basis": "cause_lineage_longest_contiguous_run",
+        "persistence": {"basis": "per_cause_lineage_longest_contiguous_run"
+                                 " (개별 원인 — 보조 원인 증감에 불연속 금지)",
                         "native_gate": True, "span": _PERSISTENCE_SPAN},
-        "compound": {"basis": "independent_exposable_effect_family",
-                     "effect_identity": "kind+episode_signature",
+        "compound": {"basis": "distinct_normalized_effect_roles",
+                     "identity_resolution": "episode 서명 필수 —"
+                                            " unresolved=제외(fail-closed)",
                      "per_link": _COMPOUND_PER_LINK, "cap": 1.0},
         "occurrence": {"combine": "1-prod(1-s)", "per_source_dedup": "max"},
         "confidence": {"base": _CONF_BASE, "per_extra_cause": _CONF_PER_EXTRA_CAUSE,
@@ -538,7 +676,11 @@ def cause_semantics_hash() -> str:
             "unknown": "reject",
         },
         "cause_eligibility": "CAUSE 원자 동반 source만 occurrence 재료",
-        "lineage": "risk_id + 연결 episode 서명 + CAUSE 원자 집합",
+        "lineage": "risk_id + 연결 episode 서명 + 개별 canonical cause_atom",
+        "effect_roles": dict(sorted(_EFFECT_ROLE_BY_RISK_ID.items())),
+        "void_target_contract": "현재 매처의 void는 시점 전역 상태(궁위 무관) — "
+                                "targeted void 원자는 미정의(미상 namespace로 "
+                                "fail-closed 거부, 도입 시 target 일치 검증 필수)",
     }
     return hashlib.sha256(
         _json.dumps(semantics, sort_keys=True, ensure_ascii=False).encode()
@@ -552,10 +694,14 @@ __all__ = [
     "cause_occurrence_table",
     "cause_semantics_hash",
     "compound_family_links",
+    "compound_unresolved_counts",
+    "context_axes",
     "context_confidence",
     "effect_contiguous_runs",
+    "normalized_effect_role",
     "risk_priority",
     "score_shadow",
     "scoring_config_hash",
     "structural_priority",
+    "trigger_bundle_contiguous_runs",
 ]

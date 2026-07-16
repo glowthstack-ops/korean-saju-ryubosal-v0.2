@@ -8041,3 +8041,17 @@ ten_god=CAUSE·void=조건부(단독 원인 금지)·no_void=게이트(기여 0)
 26종·표본 불변식 27 PASS·pytest 1994·mypy 0·전 baseline exact match.
 다음: R1-c1(49항목 전수 — cohort 6군 분리·structural/rankable 분포·포화·단조성)
 → R1-c2(가중 확정·shadow_scoring scope 승격).
+
+## R1-c0 후속 — 감수 29차 확정 6건(R1-c1 착수 전) (2026-07-16)
+
+①persistence=**개별 cause lineage**(보조 원인 증감 무영향 — {A}→{A,B}→{A}=A run
+3, 묶음 연속은 trigger_bundle_contiguous_runs 진단 분리) ②normalized effect role
+registry(49항목 전수 매핑 — riskFamily는 교차 통합 1건뿐이라 부족, scoring 계층
+잠정+cause_semantics_hash 포함, 사전 필드 편입=감수 질문) ③compound=서로 다른
+role 개수(같은 role=복제/폭 — R2 breadth 소관, episode 수 비증가, episode-free
+미해결=fail-closed 0+unresolved 진단) ④targeted void fail-closed fixture(전역
+상태 계약 명문화) ⑤context_axes 축별 confidence(요구 축만 평가) ⑥r1.0.4-shadow·
+semantics v3(env r0.5.12 불변). fixture 28종·표본 불변식 31 PASS·pytest 1996·
+mypy 0·전 baseline exact match. 다음: R1-c1(49항목 전수 — cohort 6군·structural/
+rankable 분포 분리·포화·단조성 6종·추가 진단 4종) → R1-c2(가중 확정·shadow_
+scoring scope 승격).

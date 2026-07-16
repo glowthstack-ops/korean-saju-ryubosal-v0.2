@@ -171,8 +171,9 @@ def sample_structural_invariance() -> None:
 
     def pair(exposure):
         return [_cand(risk_id="SMP_A", family="fam_a", exposure=exposure,
-                      evidence=[_ev(_CHUNG)]),
+                      legal_episode_id="c1", evidence=[_ev(_CHUNG)]),
                 _cand(risk_id="SMP_B", family="fam_b", exposure=exposure,
+                      legal_episode_id="c1",
                       evidence=[_ev(_CHUNG, strength=0.4)])]
 
     conf, den = pair(ExposureStatus.CONFIRMED), pair(ExposureStatus.DENIED)
@@ -193,31 +194,56 @@ def sample_structural_invariance() -> None:
 
 
 def sample_compound_effects() -> None:
-    """§10-4: compound — alias·supporting·vuln 0, 독립 exposable 효과만."""
-    print("\n## 표본 4 — compound 독립 효과군")
-    base = _cand(risk_id="SMP_A", family="fam_a", evidence=[_ev(_CHUNG)])
-    alias = _cand(risk_id="SMP_A2", family="fam_a",
-                  evidence=[_ev(_CHUNG, strength=0.4)])
-    absorbed = _cand(risk_id="SMP_B", family="fam_b",
-                     evidence=[_ev(_CHUNG, strength=0.4)],
-                     suppressed_by_specificity="SMP_A",
-                     primary_risk_id="SMP_A",
-                     absorbed_role="supporting_manifestation")
-    vuln = _cand(risk_id="SMP_V", family="fam_v", kind=RiskKind.VULNERABILITY,
-                 evidence=[_ev(_CHUNG, strength=0.4)])
-    indep = _cand(risk_id="SMP_C", family="fam_c",
-                  evidence=[_ev(_CHUNG, strength=0.4)])
-    for label, others, want in (
-        ("같은 family alias", [alias], 0.0),
-        ("흡수 supporting", [absorbed], 0.0),
-        ("비노출 vulnerability", [vuln], 0.0),
-        ("독립 exposable 다른 family", [indep], 0.25),
-    ):
-        [s, *_] = score_shadow([base, *others], {})
+    """§10-4(+감수 29차): compound = 서로 다른 normalized effect role만."""
+    print("\n## 표본 4 — compound 독립 효과(normalized effect role)")
+    ev = [_ev(_CHUNG)]
+    base = _cand(risk_id="SMP_A", family="fam_a", legal_episode_id="e1",
+                 evidence=ev)
+    cases = [
+        ("같은 family alias(role fallback 동일)",
+         _cand(risk_id="SMP_A2", family="fam_a", legal_episode_id="e2",
+               evidence=[_ev(_CHUNG, strength=0.4)]), 0.0),
+        ("흡수 supporting",
+         _cand(risk_id="SMP_B", family="fam_b", legal_episode_id="e2",
+               evidence=[_ev(_CHUNG, strength=0.4)],
+               suppressed_by_specificity="SMP_A", primary_risk_id="SMP_A",
+               absorbed_role="supporting_manifestation"), 0.0),
+        ("비노출 vulnerability",
+         _cand(risk_id="SMP_V", family="fam_v", kind=RiskKind.VULNERABILITY,
+               legal_episode_id="e2",
+               evidence=[_ev(_CHUNG, strength=0.4)]), 0.0),
+        ("독립 exposable 다른 role(resolved)",
+         _cand(risk_id="SMP_C", family="fam_c", legal_episode_id="e2",
+               evidence=[_ev(_CHUNG, strength=0.4)]), 0.25),
+        ("episode-free 미해결(fail-closed)",
+         _cand(risk_id="SMP_F", family="fam_f",
+               evidence=[_ev(_CHUNG, strength=0.4)]), 0.0),
+    ]
+    for label, other, want in cases:
+        [s, *_] = score_shadow([base, other], {})
         assert s.score_components is not None
         print(_row(s))
         _expect(f"compound({label}) = {want}",
                 s.score_components.compound == want)
+    # 교차 도메인 같은 role(문서 결함 LEG·SEL) 같은 episode → 하나의 효과.
+    leg_doc = _cand(risk_id="LEG_DOCUMENT_ERROR", family="contract",
+                    legal_episode_id="contract_1", evidence=ev)
+    sel_doc = _cand(risk_id="SEL_DOCUMENT_DEFECT_RISK",
+                    family="selection_process", legal_episode_id="contract_1",
+                    evidence=[_ev(_CHUNG, strength=0.4)])
+    [sl, *_] = score_shadow([leg_doc, sel_doc], {})
+    assert sl.score_components is not None
+    print(_row(sl))
+    _expect("교차 도메인 같은 role·같은 episode = 하나의 효과(compound 0)",
+            sl.score_components.compound == 0.0)
+    # episode 수만으로 증가 금지: 같은 role 다른 episode.
+    doc2 = _cand(risk_id="SEL_DOCUMENT_DEFECT_RISK",
+                 family="selection_process", legal_episode_id="permit_9",
+                 evidence=[_ev(_CHUNG, strength=0.4)])
+    [sl2, *_] = score_shadow([leg_doc, doc2], {})
+    assert sl2.score_components is not None
+    _expect("같은 role + episode만 2개 → compound 증가 없음",
+            sl2.score_components.compound == 0.0)
 
 
 def sample_persistence() -> None:
@@ -249,6 +275,21 @@ def sample_persistence() -> None:
             and scored[0].score_components is not None
             and scored[9].score_components.occurrence
             == scored[0].score_components.occurrence)
+    # 감수 29차 — 개별 cause lineage: 보조 원인 증감이 지속성을 못 끊는다.
+    ab_mid = [
+        _cand(risk_id="SMP_ABM", period="2026-01",
+              evidence=[_ev(_CHUNG, period="2026-01", layer="wolwoon")]),
+        _cand(risk_id="SMP_ABM", period="2026-02", evidence=[
+            _ev(_CHUNG, period="2026-02", layer="wolwoon"),
+            _ev("ten_god:ZHENGCAI", strength=0.4, period="2026-02",
+                layer="wolwoon")]),
+        _cand(risk_id="SMP_ABM", period="2026-03",
+              evidence=[_ev(_CHUNG, period="2026-03", layer="wolwoon")]),
+    ]
+    sab = score_shadow(ab_mid, {})
+    assert sab[0].score_components is not None
+    _expect("{A}→{A,B}→{A}: A 원인 run 3 = 0.4(보조 원인 증감 무영향)",
+            sab[0].score_components.persistence == 0.4)
 
 
 def sample_shared_cause_multi_episode() -> None:
