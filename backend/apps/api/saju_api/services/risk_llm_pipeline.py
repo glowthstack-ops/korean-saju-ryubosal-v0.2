@@ -391,6 +391,8 @@ def run_injected_risk_flow(
     resolve_model: Callable[[], str] | None = None,
     reviewed_shape_digests: frozenset[str] | None = None,
     allowed_levels: list[str] | None = None,
+    drift_observer: Callable[[str, int, int, int, str], None]
+    | None = None,
 ) -> dict:
     """INJECTED 실호출 상태기(감수 59차 §14 + 60차 §3·§8·§9).
 
@@ -399,8 +401,16 @@ def run_injected_risk_flow(
     결정적 safe fallback을 생성하되 **fallback도 renderer 후 최종 감사를
     통과해야 DELIVER_SAFE_FALLBACK** — 실패 시에만 BLOCK. REVISION 직전
     라우팅 변경이 감지되면(resolve_model) 위험 초안을 어떤 모델에도 보내지
-    않고 REGENERATE로 직행(감수 60차 §3). llm_call은 {"answer": str,
-    "envelope": dict|None} 반환 계약.
+    않고 REGENERATE로 직행(감수 60차 §3).
+
+    llm_call 반환 계약: {"answer": str, "envelope": dict|None,
+    "provider_reported_input": int|None, "cached_input": int}. **drift·
+    cache 검사는 응답 수신 직후·전달 판정 전**(통합 감수 §2): counted <
+    reported(undercount) 또는 cached_input>0이면 drift_observer로 즉시
+    identity 차단을 기록하고 **그 응답 자체를 폐기**(TOKEN_UNDERCOUNT_
+    DETECTED/CACHE_PATH_UNVALIDATED) — 이후 위험 attempt·REGENERATE는
+    preflight의 최신 suspension 확인이 차단하므로 위험 없는 종결
+    (DELIVER_SAFE_FALLBACK/BLOCK)로 수렴한다.
     """
     ctx = execution_context
     guidance_context = ctx.guidance_context
@@ -438,6 +448,25 @@ def run_injected_risk_flow(
         if plan.preflight_issues:
             return None
         result = llm_call(request)
+        # drift·cache 검사(통합 감수 §2 — **전달 판정보다 먼저**): 감수된
+        # token 조건을 벗어난 응답은 내용이 안전해도 폐기한다.
+        reported = result.get("provider_reported_input")
+        cached = int(result.get("cached_input") or 0)
+        record["provider_reported_input"] = reported
+        record["cached_input"] = cached
+        if drift_observer is not None and reported is not None:
+            drift_observer(kind, plan.counted_tokens, int(reported),
+                           cached, plan.provider_request_digest)
+        integrity_issues: list[str] = []
+        if reported is not None and plan.counted_tokens < int(reported):
+            integrity_issues.append("TOKEN_UNDERCOUNT_DETECTED")
+        if cached > 0:
+            integrity_issues.append("CACHE_PATH_UNVALIDATED")
+        if integrity_issues:
+            record["audit_issues"] = integrity_issues
+            record["audit_action"] = "DISCARDED"
+            return {"answer": "", "envelope": {},
+                    "issues": integrity_issues}
         issues, section_audit = _audit_response(
             result.get("envelope") or {},
             guidance_context=guidance_context,

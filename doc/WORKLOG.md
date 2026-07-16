@@ -8557,3 +8557,13 @@ kill switch e2e(전 조건 충족+switch=BYPASS)·rollback(off 전환=분기
 87종). 통합 pre-canary 감수 자료 doc/v2_2/RISK_EXPOSE_PRECANARY.md
 작성(잠금 상태·경로 계약·canary 전 사람 확인 5항·관측 계획·알려진
 한계). pytest 2157·ruff·mypy clean·manifest 일치.
+
+## 통합 pre-canary 감수 반영 — 두 불변식 + reviewed=true (2026-07-17)
+
+drift·cache 검사를 attempt 응답 직후·전달 판정 전으로 이동(위반=응답
+폐기 DISCARDED→identity 차단→위험 없는 종결, fixture 2종 통과),
+SUPPRESSED bytes-diff e2e fixture(=guard 한 블록·schema 불변), BLOCK
+문구 중립화. **expose_pipeline.reviewed=true 전환**(§8 즉시 승인 조건
+충족) — 실주입은 RUNTIME_ENABLED=False·MODE=off·dev HMAC 키가 계속
+차단(fixture ①-b). canary 개시=사람 확인 5항 후 r4.1.0-canary 별도
+커밋. pytest 2160·ruff·mypy 0(538)·manifest 일치. REVIEW.md §28-18.

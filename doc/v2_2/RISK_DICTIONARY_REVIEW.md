@@ -2594,3 +2594,38 @@ routing control(전송 전 resolved model 확정 가능) canary 필수 —
 불가능한 provider 경로=BYPASS. canary 관측 대상(§12): disposition 비율·
 WATCH 생략률·WARNING 누락·revision 성공률·renderer 차단률·fallback
 발생률·tier 분포·routing 변화·경고 편향·품질 영향.
+
+### 28-18. 통합 pre-canary 감수 반영 — 두 불변식 e2e + expose_pipeline.reviewed=true 전환 (2026-07-17)
+
+**차단점 1(§2 — drift·cache는 전달 판정 전)**: run_injected_risk_flow의
+attempt 응답 수신 직후에 검사 이동 — llm_call이 provider_reported_input·
+cached_input을 응답과 함께 반환, counted<reported(undercount) 또는
+cached>0이면 drift_observer(record_count/cache_observation — identity
+전역 차단)를 즉시 호출하고 **그 응답 자체를 폐기**(audit_action=
+DISCARDED). 이후 위험 attempt·REGENERATE는 preflight의 최신 suspension
+확인이 차단 → 위험 없는 종결. fixture-①(안전 응답+undercount→DELIVER_
+GENERATED 금지·SUSPENDED·초안 미전달)·fixture-②(안전 응답+cached>0→
+CACHE_PATH_UNVALIDATED·위험 없는 종결) **둘 다 통과**.
+
+**차단점 2(§3 — SUPPRESSED 실배선)**: e2e fixture — BYPASS=prompt·
+system·schema 완전 동일(키 부재), SUPPRESSED=canonical diff가
+suppressed guard 한 블록뿐(BEGIN_RISK_BLOCK 없음·risk schema 없음·
+system 불변). **통과**.
+
+**§4 BLOCK 문구**: "답변 생성에 문제가 있었어요. 잠시 후 다시 시도해
+주세요." — 완전 상수·LLM 호출 없음·위험/안전 주장 없음·내부 게이트
+언급 없음·사용자 입력/초안 삽입 없음.
+
+**expose_pipeline.reviewed=true 전환(§8 — fixture 통과 즉시 승인)**:
+manifest 생성기 전환+재생성. **실주입은 여전히 불가** —
+RISK_EXPOSURE_RUNTIME_ENABLED=False·RISK_ENGINE_MODE="off"·dev HMAC
+키(AUDIT_HMAC_KEY_INVALID)가 3중으로 막는다(fixture ①-b: manifest
+true+runtime true여도 HMAC이 차단). canary 개시=사람 확인 5항
+(RISK_EXPOSE_PRECANARY.md §4 — 권장 순서: HMAC·topology·worker 확인→
+artifact/manifest 재검증→runtime enabled→EXPOSE_CANARY→allowlist→태그)
+후 별도 커밋 r4.1.0-canary.
+
+fixture +3(통합 90종). 게이트: pytest 2160·ruff clean·mypy 0(538)·
+manifest 일치. 자동 중단 조건(§9): undercount·cached·ref 누출·required
+warning 미복구·unreviewed shape·artifact/manifest 불일치·topology
+불일치·suspension backend 불가 — 전부 기존 게이트/관측에 배선됨.

@@ -291,7 +291,18 @@ def run_exposed_reading(
         answer = (str(envelope.get("main_answer", ""))
                   if isinstance(envelope, dict) and envelope
                   else out["text"])
-        return {"answer": answer, "envelope": envelope}
+        # provider 보고 token을 응답과 함께 반환 — flow가 **전달 판정
+        # 전에** drift·cache를 검사한다(통합 감수 §2).
+        return {"answer": answer, "envelope": envelope,
+                "provider_reported_input": out["prompt_tokens"],
+                "cached_input": out["cached_tokens"]}
+
+    def _drift_observer(kind: str, counted: int, reported: int,
+                        cached: int, request_digest: str) -> None:
+        record_count_observation(model_id, counted=counted,
+                                 reported=reported,
+                                 request_id_hash=request_digest)
+        record_cache_observation(model_id, cached)
 
     result = run_injected_risk_flow(
         initial_request=initial_request,
@@ -303,16 +314,7 @@ def run_exposed_reading(
         - inputs["response_reserve"],
         llm_call=_llm_call, renderer=renderer,
         resolve_model=reading_model,
-        reviewed_shape_digests=inputs["reviewed_shape_digests"])
-    # drift·cache 관측(감수 60차 §7 + 51차 계약): 각 실행 attempt의
-    # counted vs provider 보고 전체 input — undercount 1건=전역 SUSPENDED,
-    # cached>0=CACHE_PATH_UNVALIDATED 차단.
-    executed = [a for a in result["attempts"]
-                if not a.get("preflight_issues") and not a.get("skipped")]
-    for attempt, report in zip(executed, provider_reports, strict=False):
-        record_count_observation(
-            model_id, counted=attempt["counted_tokens"],
-            reported=report["prompt_tokens"],
-            request_id_hash=attempt.get("provider_request_digest", ""))
-        record_cache_observation(model_id, report["cached_tokens"])
+        reviewed_shape_digests=inputs["reviewed_shape_digests"],
+        drift_observer=_drift_observer)
+    result["provider_reports"] = len(provider_reports)  # 관측 보조
     return result

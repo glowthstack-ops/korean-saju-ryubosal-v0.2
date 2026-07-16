@@ -3739,7 +3739,7 @@ def chat(
             _save_thread(store, state)
             return ChatResponse(
                 status="error",
-                answer="답변 생성 검증에 실패했어요. 잠시 후 다시"
+                answer="답변 생성에 문제가 있었어요. 잠시 후 다시"
                        " 시도해 주세요.",
                 intents=parsed.intents, thread_id=thread_id,
                 turn_no=state.turn_no if state else None)

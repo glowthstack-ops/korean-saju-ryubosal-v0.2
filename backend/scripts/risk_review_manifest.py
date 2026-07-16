@@ -179,7 +179,14 @@ def build_manifest() -> dict:
         # adapter 승격 기준(감수 51차 — 실측 전 선행 고정): 변경=재감수 신호.
         "adapter_validation_policy_hash": _adapter_validation_policy_hash(),
         "expose_pipeline": {
-            "reviewed": False,
+            # 통합 pre-canary 감수 §8(2026-07-17): 두 e2e 불변식
+            # (undercount·cache가 DELIVER 전 폐기 / SUPPRESSED=baseline
+            # +guard·schema 불변) fixture 통과 확인 후 전환 승인.
+            # 실주입은 여전히 RISK_EXPOSURE_RUNTIME_ENABLED(False)와
+            # RISK_ENGINE_MODE("off")가 막는다 — canary 개시는 사람 확인
+            # 5항(HMAC 운영 키·topology 전환+worker 실측·allowlist·태그)
+            # 완료 후 별도 커밋.
+            "reviewed": True,
             "expose_policy_hash": expose_policy_hash(),
             "critical_validation_state": critical_validation_state(),
             "validatedTokenCounters": _token_counter_candidates(),

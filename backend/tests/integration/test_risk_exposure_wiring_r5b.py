@@ -312,17 +312,34 @@ def test_runtime_and_manifest_must_both_be_true(monkeypatch) -> None:
         model_context_limit=16_000, base_prompt_tokens=1_000,
         user_input_tokens=100, existing_context_tokens=1_000,
         response_reserve=2_000)
-    # ① runtime=true + manifest reviewed=false(현 실제 상태) → BYPASS.
+    # ① runtime=true + manifest reviewed=false(모의 — 통합 감수 §8로
+    # 실물은 true 전환: 역방향 차단이 유지됨을 검증) → BYPASS.
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSURE_RUNTIME_ENABLED", True)
+    monkeypatch.setattr(svc, "_load_manifest_snapshot",
+                        lambda: {"reviewed": False, "hash_ok": True,
+                                 "validated_token_counters": [],
+                                 "schema_version": 10,
+                                 "snapshot_hash": "mock"})
     p, _s, obs = svc.apply_risk_exposure("본문", None, **common)
     assert obs["disposition"] == "BYPASS" and p == "본문"
     assert obs["reason"] == "EXPOSE_PIPELINE_NOT_REVIEWED"
+    # ①-b manifest reviewed=true + runtime=true여도 dev 기본 HMAC 키가
+    # 다음 차단기 — 운영 키 교체(사람 확인 4항) 전 주입 불가.
+    monkeypatch.setattr(svc, "_load_manifest_snapshot",
+                        lambda: {"reviewed": True, "hash_ok": True,
+                                 "validated_token_counters": [],
+                                 "schema_version": 10,
+                                 "snapshot_hash": "mock"})
+    p1b, _s1b, obs1b = svc.apply_risk_exposure("본문", None, **common)
+    assert obs1b["disposition"] == "BYPASS" and p1b == "본문"
+    assert obs1b["reason"] == "AUDIT_HMAC_KEY_INVALID"
     # ② manifest reviewed=true(모의) + runtime=false → BYPASS.
     monkeypatch.setattr(risk_engine_config,
                         "RISK_EXPOSURE_RUNTIME_ENABLED", False)
     monkeypatch.setattr(svc, "_load_manifest_snapshot",
                         lambda: {"reviewed": True, "hash_ok": True,
+                                 "validated_token_counters": [],
                                  "schema_version": 10,
                                  "snapshot_hash": "mock"})
     p2, _s2, obs2 = svc.apply_risk_exposure("본문", None, **common)
@@ -548,7 +565,9 @@ def test_manifest_snapshot_consistency_and_observability(
 
     snap = svc._load_manifest_snapshot()
     assert snap["schema_version"] == 10
-    assert snap["hash_ok"] is True and snap["reviewed"] is False
+    # 통합 pre-canary 감수 §8(2026-07-17): reviewed=true 전환 — 실주입은
+    # RUNTIME_ENABLED(False)·MODE(off)·운영 HMAC 키가 계속 막는다.
+    assert snap["hash_ok"] is True and snap["reviewed"] is True
     assert len(snap["snapshot_hash"]) == 16
     # 관측에 snapshot hash 병기.
     monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
@@ -2256,3 +2275,147 @@ def test_bootstrap_worker_mismatch_disables(monkeypatch) -> None:
     assert reb.bootstrap_risk_exposure() is None
     assert reb.last_bootstrap_reason() == (
         "RISK_BOOTSTRAP_TOPOLOGY_MISMATCH")
+
+
+def test_undercount_discards_safe_response_before_delivery(
+        monkeypatch, tmp_path) -> None:
+    """통합 감수 §2 fixture-①: 내용이 안전한 INITIAL 응답이라도 provider
+    보고 input이 counted를 초과(undercount)하면 **전달 전에 폐기** —
+    identity 전역 SUSPENDED, 이후 위험 attempt 전부 차단 → 위험 없는
+    종결(DELIVER_SAFE_FALLBACK)."""
+    from saju_api.services.risk_llm_pipeline import run_injected_risk_flow
+    from saju_api.services.token_counter_registry import (
+        record_cache_observation,
+        record_count_observation,
+    )
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+    calls = []
+
+    def llm_call(request):
+        calls.append(request)
+        return {"answer": "조건을 점검해 두면 좋은 시기입니다.",
+                "envelope": _good_envelope(env["payload"]),
+                # 안전한 내용 + undercount(reported > counted) 보고.
+                "provider_reported_input": 10_000_000,
+                "cached_input": 0}
+
+    def observer(kind, counted, reported, cached, digest):
+        record_count_observation("flow-model", counted=counted,
+                                 reported=reported, request_id_hash=digest)
+        record_cache_observation("flow-model", cached)
+
+    result = run_injected_risk_flow(
+        initial_request=env["initial"], baseline_request=env["baseline"],
+        execution_context=env["exec"],
+        llm_episodes=env["payload"]["llmRiskEpisodes"],
+        adapter=env["adapter"], final_token_limit=100_000_000,
+        llm_call=llm_call, renderer=lambda s: s,
+        drift_observer=observer)
+    assert result["outcome"] == "DELIVER_SAFE_FALLBACK"
+    assert len(calls) == 1  # suspension 후 어떤 위험 호출도 없음
+    initial = result["attempts"][0]
+    assert "TOKEN_UNDERCOUNT_DETECTED" in initial["audit_issues"]
+    assert initial["audit_action"] == "DISCARDED"
+    # 안전 문구는 위험 초안이 아님 — 초안 내용이 전달되지 않았다.
+    assert "조건을 점검" not in result["final_text"]
+    from saju_api.services.token_counter_registry import (
+        set_validation_state,
+    )
+    set_validation_state("flow-model", "SUSPENDED")
+
+
+def test_cache_hit_discards_response_before_delivery(
+        monkeypatch, tmp_path) -> None:
+    """통합 감수 §2 fixture-②: cached_input>0 관측 시 안전한 응답도
+    전달 전 폐기 — CACHE_PATH_UNVALIDATED로 identity 차단 후 위험 없는
+    종결."""
+    from saju_api.services.risk_llm_pipeline import run_injected_risk_flow
+    from saju_api.services.token_counter_registry import (
+        record_cache_observation,
+        record_count_observation,
+    )
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+    calls = []
+
+    def llm_call(request):
+        calls.append(request)
+        return {"answer": "조건을 점검해 두면 좋은 시기입니다.",
+                "envelope": _good_envelope(env["payload"]),
+                "provider_reported_input": 1,  # undercount 아님
+                "cached_input": 42}
+
+    def observer(kind, counted, reported, cached, digest):
+        record_count_observation("flow-model", counted=counted,
+                                 reported=reported, request_id_hash=digest)
+        record_cache_observation("flow-model", cached)
+
+    result = run_injected_risk_flow(
+        initial_request=env["initial"], baseline_request=env["baseline"],
+        execution_context=env["exec"],
+        llm_episodes=env["payload"]["llmRiskEpisodes"],
+        adapter=env["adapter"], final_token_limit=100_000,
+        llm_call=llm_call, renderer=lambda s: s,
+        drift_observer=observer)
+    assert result["outcome"] == "DELIVER_SAFE_FALLBACK"
+    assert len(calls) == 1
+    initial = result["attempts"][0]
+    assert "CACHE_PATH_UNVALIDATED" in initial["audit_issues"]
+    ledger = (tmp_path / "l.jsonl").read_text(encoding="utf-8")
+    assert "CACHE_PATH_UNVALIDATED" in ledger
+    from saju_api.services.token_counter_registry import (
+        set_validation_state,
+    )
+    set_validation_state("flow-model", "SUSPENDED")
+
+
+def test_suppressed_request_is_baseline_plus_guard_only(
+        monkeypatch) -> None:
+    """통합 감수 §3 fixture: 3상태 실제 요청 경계 — BYPASS=baseline
+    bytes 동일, SUPPRESSED=canonical diff가 guard 하나뿐(risk schema·
+    BEGIN_RISK_BLOCK 없음)."""
+    from saju_api.services.risk_exposure_service import apply_risk_exposure
+    from saju_engines.risk_exposure import (
+        RISK_EXPOSURE_SUPPRESSED_GUARD,
+    )
+
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE",
+                        "expose_canary")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSE_CANARY_SUBJECT_IDS",
+                        frozenset({"internal-tester-1"}))
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_DEPLOYMENT_TOPOLOGY",
+                        "single_host_single_process")
+    monkeypatch.setattr(risk_engine_config,
+                        "RISK_EXPOSURE_RUNTIME_ENABLED", True)
+    monkeypatch.setattr(risk_engine_config, "RISK_AUDIT_HMAC_KEY",
+                        b"a" * 32)
+    from saju_api.services import risk_exposure_service as _svc
+    monkeypatch.setattr(_svc, "_load_manifest_snapshot",
+                        lambda: {"reviewed": True, "hash_ok": True,
+                                 "validated_token_counters": [],
+                                 "schema_version": 10,
+                                 "snapshot_hash": "mock"})
+    # BYPASS(비허용 subject): prompt·system 완전 동일 + schema 키 없음.
+    p, s, obs = apply_risk_exposure(
+        "본문", "시스템", subject_id=None,
+        question_type="period_overview", temporal_scope="future")
+    assert (p, s) == ("본문", "시스템")
+    assert obs["disposition"] == "BYPASS"
+    assert "risk_output_schemas" not in obs
+    # SUPPRESSED(자격 충족·episode 없음): diff=guard 한 블록뿐.
+    p, s, obs = apply_risk_exposure(
+        "본문", "시스템", subject_id="internal-tester-1",
+        question_type="period_overview", temporal_scope="future",
+        counter=lambda t: max(1, len(t) // 4),
+        counter_model_id="m1", resolved_model_id="m1",
+        model_context_limit=100_000, base_prompt_tokens=100,
+        user_input_tokens=0, existing_context_tokens=0,
+        response_reserve=1_000)
+    assert obs["disposition"] == "SUPPRESSED"
+    assert p == "본문\n" + RISK_EXPOSURE_SUPPRESSED_GUARD
+    assert s == "시스템"  # system 불변
+    assert "BEGIN_RISK_BLOCK" not in p
+    assert "risk_output_schemas" not in obs  # 기존 output schema 유지
