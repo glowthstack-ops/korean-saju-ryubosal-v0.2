@@ -1565,3 +1565,67 @@ clean·mypy 0(526)·suppression diff 0·profile baseline exact·manifest 일치.
 (0.5)·confidence band 경계(0.3/0.6)·claim 코드 어휘·사용자 표시명 — R3-b
 전수 측정(프로필별 level 분포·cap 강등 사유·critical 발생률·token 압축
 실측) 후 shadow_presentation 스탬프.
+
+### 26-2. R3-a preflight(감수 42차 6건) + R3-b 전수 측정 (2026-07-16)
+
+**preflight 6건(스탬프 전 완료 조건)**:
+
+1. **항목 ceiling 실적용(조건1)**: final level = min(전역 상한, item
+   claimCeiling, exposurePolicy의 UNKNOWN ceiling). 사전 어휘 정규화
+   fail-closed(`conditional_warning`→warning — 조건성은 qualifier 소관,
+   미등록 값 오류). fixture: 같은 점수·exposure에서 ceiling만
+   warning→advisory 변경 시 level만 하향·R1/R2 불변, ceiling "none"=
+   비노출+CLAIM_CEILING_NONE.
+2. **critical_eligible_cause_ids 분리(조건2)**: episode 전체 원인이 아니라
+   대표 직접 지지 CAUSE + 독립 exposable primary effect(대표와 다른 role의
+   비흡수·비취약·노출 가능 구성원)의 CAUSE만 — vulnerability·absorbed
+   supporting·비노출·partial 교차 연결 제외. fixture 3종(대표1+supporting1
+   =1 / 대표1+독립 effect1=2 / partial=대표만).
+3. **audit/LLM payload 분리(조건3 — NONE의 LLM 보존 기각 반영)**:
+   presentation_records(전 episode·NONE 포함·omission reason 4종·강등 사유
+   primary/all·진단)와 llm_risk_episodes(ADVISORY 이상만·진단 없음) 분리.
+   fixture: 3선택+1 NONE → records 3·llm 2·사유 보존.
+4. **claim 충돌·미등록(조건4)**: prohibited always wins(effective allowed
+   에서 제거), 미등록 코드 fail-closed 오류. 항목 prohibitedClaims 원문은
+   감수된 짧은 지침으로 병기(런타임 강제는 코드).
+5. **token guard 재설계(조건5)**: 전역 7+4 코드는 payload 최상단 1회
+   (episode 반복 제거), token 추정(ceil(chars/3) 잠정), P2→P1→P0 →
+   **P0_COMPACT 고정 축약**(level·domains·role 1·qualifier·항목 금지 코드
+   + compressionMode/tokenBudgetOverflow 표시) — episode 삭제·qualifier/
+   prohibited 제거는 어떤 단계에도 없음.
+6. **OFF vs SHADOW 최종 LLM 입력 byte-identical(조건6)**: grep(미배선)은
+   보조 — 실제 `serialize_candidate_v2` 직렬화 결과 byte 비교 + SHADOW
+   presentation payload 생성 후에도 불변(통합 fixture, 기준 차트).
+   numeric band 입력=대표 **capped**(조건 §2 — R2 정렬 raw와 분리) 계약
+   해시·fixture 포함. RISK_PRESENTATION_VERSION **r3.0.1-shadow**.
+
+**R3-b 전수 측정**(scripts/risk_presentation_survey.py — 고정본
+RISK_PRESENTATION_SURVEY_R3B.md, byte-identical):
+
+- **level 분포(선택 후)**: A watch 21·advisory 9 / B warning 4·watch 21·
+  advisory 5 / C warning 14·watch 12·advisory 4 / D warning 11·watch 13·
+  advisory 6 / E warning 7·watch 17·advisory 6 — **critical 전 프로필
+  0건**(정상 — 개수를 만들기 위한 경계 하향 없음), none 0(budget 선택
+  후보는 전부 노출 가능 상태였음), 전체 episode 기준 none 428~520은 대표
+  없는 잠재 구조(선택 전 단계).
+- **강등 사유(3층)**: unique 8~17/프로필, primary=EXPOSURE_POLICY_CEILING
+  (5~10)·ITEM_CLAIM_CEILING(1~8)·INCIDENT_UNKNOWN_CAP(1~3) — 항목 ceiling이
+  실제로 작동(조건1 실증).
+- **claim 검증**: partial qualifier 누락 0 · 전역 prohibited 상존 ·
+  same_episode_certainty/recovery_guarantee 전역 금지 유지.
+- **token guard 실측**: budget 256=전 차트 P0_COMPACT+overflow(최소 표현
+  p50 329·max 344 tokens — 256은 R2 hard_max 3 기준 부족), 512=P0_COMPACT
+  (overflow 0), 1024=P1~P2, 2048=P2(full). episode 보존 30/30 전 구간.
+  전역 dedup 절감 ≈2,093 tokens(반복 대비, 프로필 C 10차트 합).
+- **경계 국소 민감도(C)**: watch 0.10/0.12/0.15 — 분포 불변(경계 부근 후보
+  없음), warning 0.22/0.25/0.28 — 16/14/12로 완만, critical 0.35/0.40/
+  0.45·conf 0.50/0.65/0.75 — 전부 불변(critical 후보 자체가 없어 하한
+  변별 불가 — **확정 판단은 critical 발생 코퍼스 확보 후**가 정직).
+
+**게이트**: pytest 2062(fixture presentation 16종+통합 1종)·ruff clean·
+mypy 0(527)·suppression diff 0·profile baseline exact·manifest 일치.
+
+**감수 대기(shadow_presentation 스탬프 전)**: 밴드 경계(0.40/0.25/0.12 —
+warning 축만 실질 변별)·critical conf 하한(현 코퍼스 변별 불가 — 보수적으로
+높은 값 권장)·token budget 기본값(512=compact/1024=full 경계)·표시명 golden
+문장·estimator(ceil/3) — 데굴님 확정 후 스탬프.

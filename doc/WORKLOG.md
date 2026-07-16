@@ -8238,3 +8238,21 @@ r3.0.0-shadow. fixture 11종(§19 전 항목 — SHADOW 미배선 grep 강제 �
 pytest 2056·ruff·mypy 0(526)·baseline 불변·manifest 일치. 다음: R3-b 전수
 측정(level 분포·cap 강등 사유·critical 발생률·token 압축) → 밴드·경계 감수
 → shadow_presentation 스탬프.
+
+## R3-a preflight + R3-b 전수 측정(감수 42차, 2026-07-16)
+
+preflight 6건: ①item claimCeiling·exposurePolicy UNKNOWN ceiling 실적용
+(min 결합·conditional_warning 정규화·fail-closed) ②critical_eligible_cause
+분리(대표+독립 exposable primary effect만 — supporting·partial 교차 제외)
+③audit/LLM payload 분리 — **NONE은 LLM 비노출**(omission reason 4종 기록)
+④claim 충돌 prohibited 우선·미등록 fail-closed ⑤token guard: 전역 코드
+최상단 1회·token 추정·P0_COMPACT fallback(overflow 표시·episode 삭제 없음)
+⑥OFF vs SHADOW 최종 직렬화 byte-identical 통합 fixture + numeric band=
+capped 계약. r3.0.1-shadow, fixture 16+1종. R3-b 전수(risk_presentation_
+survey.py·고정본): critical 전 프로필 0(정상), 선택 후 warning 4~14·watch
+12~21·advisory 4~9, 강등 primary=EXPOSURE_POLICY_CEILING·ITEM_CLAIM_CEILING
+(항목 ceiling 실작동), token 512=compact 경계·1024=full·보존 30/30, 경계
+민감도 warning 축만 실질 변별(critical·conf 축은 후보 부재로 변별 불가 —
+확정은 critical 발생 코퍼스 후). pytest 2062·ruff·mypy 0(527)·baseline
+불변·manifest 일치. REVIEW.md §26-2. 다음: 밴드·하한·token 기본값 감수 →
+shadow_presentation 스탬프 → EXPOSE 게이트 설계.

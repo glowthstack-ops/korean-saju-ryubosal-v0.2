@@ -85,3 +85,38 @@ def test_score_years_resets_shadow(chart) -> None:
     first = list(engine.risk_shadow)
     engine.score_years(chart, [2026])
     assert _dump(first) == _dump(engine.risk_shadow)
+
+
+def test_off_vs_shadow_final_llm_input_byte_identical(chart) -> None:
+    """감수 42차 §9: OFF와 SHADOW의 **최종 LLM 입력 직렬화**가 byte-identical.
+
+    grep(모듈 미배선)은 보조 장치 — 실제 직렬화 결과 비교가 감수 기준이다.
+    SHADOW는 presentation payload를 별도로 계산할 수 있지만 최종 LLM 입력에는
+    필드·문구·토큰 변화가 0이어야 한다(주입 후 '사용 금지' 지시 방식 불허).
+    """
+    import json
+
+    from saju_engines.llm_event_serializer import serialize_candidate_v2
+
+    off_cands = EventEngineV2(_DICTS, risk_mode="off").score(
+        chart, levels={GanjiLevel.YEAR})
+    shadow_engine = EventEngineV2(_DICTS, risk_mode="shadow")
+    shadow_cands = shadow_engine.score(chart, levels={GanjiLevel.YEAR})
+    off_llm = json.dumps([serialize_candidate_v2(c) for c in off_cands],
+                         ensure_ascii=False, sort_keys=True)
+    shadow_llm = json.dumps([serialize_candidate_v2(c) for c in shadow_cands],
+                            ensure_ascii=False, sort_keys=True)
+    assert off_llm == shadow_llm  # byte-identical
+    # SHADOW 진단(presentation payload)은 생성 가능해야 하고, 생성 후에도
+    # 최종 LLM 입력이 변하지 않는다.
+    from saju_engines.risk_presentation import build_presentation
+    from saju_engines.risk_scoring import score_shadow
+    from saju_engines.risk_selection import build_episodes
+
+    scored = score_shadow(list(shadow_engine.risk_shadow), {})
+    payload = build_presentation(build_episodes(scored), scored)
+    assert "presentationRecords" in payload
+    shadow_llm_after = json.dumps(
+        [serialize_candidate_v2(c) for c in shadow_cands],
+        ensure_ascii=False, sort_keys=True)
+    assert shadow_llm_after == off_llm

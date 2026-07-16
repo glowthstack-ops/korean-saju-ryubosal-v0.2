@@ -7,8 +7,8 @@
   "risk_selection_version": "risk-select-r2.2.0-shadow",
   "selection_policy_hash": "e7d9795fd23c54eb",
   "transition_policy_hash": "49df076a0ad56cc1",
-  "risk_presentation_version": "risk-present-r3.0.0-shadow",
-  "presentation_policy_hash": "dfb0583523a8b8ad",
+  "risk_presentation_version": "risk-present-r3.0.1-shadow",
+  "presentation_policy_hash": "2c26fc4ec5acd801",
   "transition_sensitivity_distribution": {
     "high": 4,
     "low": 26,

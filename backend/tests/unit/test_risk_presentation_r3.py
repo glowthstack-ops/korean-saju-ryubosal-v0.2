@@ -12,10 +12,12 @@ import json
 from saju_engines.risk_presentation import (
     GLOBAL_PROHIBITED_CLAIM_CODES,
     build_presentation,
+    critical_eligible_cause_count,
     identity_phrase_mode,
     independent_cause_count,
+    presentation_decision,
     presentation_level,
-    serialize_presentation,
+    serialize_llm_payload,
 )
 from saju_engines.risk_scoring import score_shadow
 from saju_engines.risk_selection import (
@@ -185,12 +187,13 @@ def test_presentation_does_not_change_r2_selection() -> None:
     selected, dropped = select_episodes(
         eps, cands, RiskBudgetPolicy(soft_target=2, hard_max=2))
     before = ([ep.model_dump() for ep in selected], list(dropped))
-    payloads = build_presentation(selected, cands)
+    payload = build_presentation(selected, cands)
     after = ([ep.model_dump() for ep in selected], list(dropped))
     assert before == after
-    # episode 추가·삭제 없음 — NONE도 payload 보존(조용한 삭제 금지).
-    assert len(payloads) == len(selected)
-    keys = {p["diagnostics"]["episodeKey"] for p in payloads}
+    # episode 추가·삭제 없음 — NONE도 감사 record에 보존(조용한 삭제 금지).
+    records = payload["presentationRecords"]
+    assert len(records) == len(selected)
+    keys = {p["diagnostics"]["episodeKey"] for p in records}
     assert keys == {ep.episode_key for ep in selected}
 
 
@@ -213,7 +216,7 @@ def test_warning_first_is_stable_within_buckets() -> None:
     eps = build_episodes(patched)
     selected, _ = select_episodes(eps, patched,
                                   RiskBudgetPolicy(soft_target=3, hard_max=3))
-    payloads = build_presentation(selected, patched)
+    payloads = build_presentation(selected, patched)["presentationRecords"]
     levels = [p["presentationLevel"] for p in payloads]
     assert levels == sorted(
         levels, key=lambda lv: {"critical": 0, "warning": 0, "watch": 1,
@@ -229,10 +232,10 @@ def test_recovery_addition_does_not_change_level() -> None:
     cands = _scored([_cand(risk_id="LEG_A", legal_episode_id="e1",
                            period=p) for p in ("2026-01", "2026-02")])
     eps = build_episodes(cands)
-    base = build_presentation(eps, cands)
+    base = build_presentation(eps, cands)["presentationRecords"]
     with_rec = attach_recovery_windows(
         eps, cands, ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05"])
-    after = build_presentation(with_rec, cands)
+    after = build_presentation(with_rec, cands)["presentationRecords"]
     assert [p["presentationLevel"] for p in base] == \
         [p["presentationLevel"] for p in after]
     assert after[0]["recoveryConfidenceBand"] is not None  # band만 노출
@@ -253,10 +256,10 @@ def test_partial_identity_requires_qualifier() -> None:
     eps = build_episodes(scored)
     assert eps[0].reality_identity_status == "partial"
     assert identity_phrase_mode(eps[0]) == "possibly_related"
-    payloads = build_presentation(eps, scored)
-    p = payloads[0]
+    payload = build_presentation(eps, scored)
+    p = payload["presentationRecords"][0]
     assert "possibly_related" in p["requiredQualifiers"]
-    assert "same_episode_certainty" in p["prohibitedClaimCodes"]
+    assert "same_episode_certainty" in payload["globalProhibitedClaimCodes"]
 
 
 def test_token_guard_preserves_p0_under_extreme_budget() -> None:
@@ -272,18 +275,25 @@ def test_token_guard_preserves_p0_under_extreme_budget() -> None:
     eps = build_episodes(cands)
     claims = {"LEG_A": {"manifestations": ["점검 부담 증가 가능성"],
                         "prohibited": ["처분 단정"]}}
-    payloads = build_presentation(eps, cands, claims)
-    out = serialize_presentation(payloads, char_budget=10)  # 극단 부족
+    payload = build_presentation(eps, cands, claims)
+    out = serialize_llm_payload(payload, token_budget=10)  # 극단 부족
     data = json.loads(out)
-    assert len(data["riskEpisodes"]) == len(payloads)  # 조용한 삭제 없음
+    n_llm = len(payload["llmRiskEpisodes"])
+    assert len(data["riskEpisodes"]) == n_llm  # 조용한 삭제 없음
+    # 전역 guard는 최상단 1회 — 극단 예산에서도 보존.
+    assert data["globalProhibitedClaimCodes"] == list(
+        GLOBAL_PROHIBITED_CLAIM_CODES)
+    assert data["compressionMode"] == "P0_COMPACT"
+    assert data["tokenBudgetOverflow"] is True
     for p in data["riskEpisodes"]:
-        assert set(GLOBAL_PROHIBITED_CLAIM_CODES) <= set(
-            p["prohibitedClaimCodes"])
         assert "presentationLevel" in p and "requiredQualifiers" in p
-        assert "diagnostics" not in p  # P3부터 탈락
-    # 충분한 예산이면 전체 tier 포함.
-    full = json.loads(serialize_presentation(payloads, char_budget=100_000))
-    assert "diagnostics" in full["riskEpisodes"][0]
+        assert "episodeProhibitedClaimCodes" in p
+        assert "diagnostics" not in p  # 진단은 LLM payload에 없음
+    # 충분한 예산이면 전체 tier(P2까지) 포함 — 진단은 여전히 미포함.
+    full = json.loads(serialize_llm_payload(payload, token_budget=100_000))
+    assert "effectRoles" in full["riskEpisodes"][0]
+    assert "diagnostics" not in full["riskEpisodes"][0]
+    assert "tokenBudgetOverflow" not in full
 
 
 def test_shadow_mode_no_prompt_wiring() -> None:
@@ -302,3 +312,129 @@ def test_shadow_mode_no_prompt_wiring() -> None:
     offenders = [h for h in hits if Path(h).name not in allowed]
     assert offenders == [], offenders
     assert sys.modules  # sanity
+
+
+# ── 감수 42차 preflight fixture ──────────────────────────────────
+
+
+def test_item_claim_ceiling_caps_level_without_touching_r1r2() -> None:
+    """항목 claimCeiling이 level을 상한(감수 42차 §3) — 같은 점수·같은
+    exposure에서 ceiling만 바꾸면 level만 내려가고 episode·점수는 불변."""
+    ep, rep = _episode_with({}, ctx_conf=0.9)
+    rep = rep.model_copy(update={"score_components": _comp(0.3)})  # warning 밴드
+    before = (ep.model_dump(), rep.model_dump())
+    d_plain = presentation_decision(ep, rep)
+    d_capped = presentation_decision(ep, rep, item_claim_ceiling="advisory")
+    assert d_plain["level"] == "warning"
+    assert d_capped["level"] == "advisory"
+    assert d_capped["primary_downgrade_reason"] == "ITEM_CLAIM_CEILING"
+    assert (ep.model_dump(), rep.model_dump()) == before  # R1/R2 불변
+    # exposurePolicy UNKNOWN ceiling — UNKNOWN일 때만 적용.
+    ep_u, rep_u = _episode_with({"exposure": ExposureStatus.UNKNOWN,
+                                 "kind": RiskKind.PRESSURE})
+    rep_u = rep_u.model_copy(update={"score_components": _comp(0.9, 0.55)})
+    d_u = presentation_decision(ep_u, rep_u,
+                                unknown_claim_ceiling="advisory")
+    assert d_u["level"] == "advisory"
+    assert "EXPOSURE_POLICY_CEILING" in d_u["downgrade_reasons"]
+    # ceiling "none" → 비노출 + CLAIM_CEILING_NONE 사유.
+    d_none = presentation_decision(ep, rep, item_claim_ceiling="none")
+    assert d_none["level"] == "none"
+    assert d_none["omission_reason"] == "CLAIM_CEILING_NONE"
+
+
+def test_critical_eligible_causes_exclude_supporting_and_partial() -> None:
+    """critical 원인 수는 episode 전체가 아니라 적격 집합만(감수 42차 §4):
+    absorbed supporting 원인 제외·독립 exposable primary effect 원인 포함·
+    partial은 대표 원인만."""
+    rep = _cand(risk_id="LEG_R", legal_episode_id="e1",
+                role="contract_termination")
+    absorbed = _cand(risk_id="LEG_S", legal_episode_id="e1",
+                     role="administrative_delay", sources=(_HYEONG,),
+                     suppressed_by_specificity="LEG_R")
+    ep1 = build_episodes(_scored([rep, absorbed]))[0]
+    scored = _scored([rep, absorbed])
+    # ① 대표 1원인 + absorbed supporting 1원인 → 적격 1.
+    assert critical_eligible_cause_count(ep1, scored[0], scored) == 1
+    # ② 대표 1원인 + 독립 exposable primary effect(비흡수) 1원인 → 2 가능.
+    independent = _cand(risk_id="LEG_I", legal_episode_id="e1",
+                        role="legal_dispute", sources=(_HYEONG,))
+    scored2 = _scored([rep, independent])
+    ep2 = build_episodes(scored2)[0]
+    assert critical_eligible_cause_count(ep2, scored2[0], scored2) == 2
+    # ③ partial identity — 교차 연결 원인 배제(대표 원인만).
+    mov = _cand(risk_id="MOV_X", domain=RiskDomain.RELOCATION,
+                role="contract_setback", mobility_episode_id="mv1",
+                reality_episode_id="deal_1")
+    leg = _cand(risk_id="LEG_X", role="legal_dispute", sources=(_HYEONG,),
+                legal_episode_id="lg1", reality_episode_id="deal_1")
+    scored3 = _scored([mov, leg])
+    ep3 = build_episodes(scored3)[0]
+    assert ep3.reality_identity_status == "partial"
+    assert critical_eligible_cause_count(ep3, scored3[0], scored3) == 1
+
+
+def test_none_episodes_excluded_from_llm_payload_with_reason() -> None:
+    """NONE은 감사 record에 omission reason과 함께 보존하되 LLM payload에서
+    제외(감수 42차 §5) — prompt에 넣고 '언급 금지' 지시 방식 불허."""
+    ok_a = _cand(risk_id="LEG_A", legal_episode_id="e1")
+    ok_b = _cand(risk_id="LEG_B", legal_episode_id="e2",
+                 role="administrative_delay", sources=(_HYEONG,))
+    denied = _cand(risk_id="FIN_D", domain=RiskDomain.FINANCE,
+                   legal_episode_id="e3", role="financial_outflow",
+                   exposure=ExposureStatus.UNKNOWN,
+                   exposure_requirement="confirmed_required",
+                   exposable_when_unknown=False)
+    scored = _scored([ok_a, ok_b, denied])
+    eps = build_episodes(scored)
+    payload = build_presentation(eps, scored)
+    records = payload["presentationRecords"]
+    llm = payload["llmRiskEpisodes"]
+    assert len(records) == 3
+    assert len(llm) == 2
+    none_rec = next(r for r in records if r["presentationLevel"] == "none")
+    assert none_rec["presentationOmissionReason"] in (
+        "NON_EXPOSABLE", "CONFIRMED_REQUIRED_UNKNOWN")
+    assert all("presentationOmissionReason" not in e for e in llm)
+    assert all("diagnostics" not in e for e in llm)
+
+
+def test_claim_conflict_prohibited_wins_and_unknown_fails() -> None:
+    """claim 충돌은 prohibited 우선·미등록 코드 fail-closed(감수 42차 §6)."""
+    import pytest
+
+    c = _cand(risk_id="LEG_A", legal_episode_id="e1")
+    scored = _scored([c])
+    eps = build_episodes(scored)
+    # allowed에 전역 prohibited 코드가 들어오면 effective에서 제거.
+    payload = build_presentation(eps, scored, {
+        "LEG_A": {"allowedCodes": ["watch_timing", "same_episode_certainty"]},
+    })
+    rec = payload["presentationRecords"][0]
+    assert "same_episode_certainty" not in rec["effectiveAllowedClaimCodes"]
+    assert "watch_timing" in rec["effectiveAllowedClaimCodes"]
+    # 미등록 코드 → 오류.
+    with pytest.raises(ValueError):
+        build_presentation(eps, scored, {
+            "LEG_A": {"allowedCodes": ["totally_unknown_code"]}})
+    with pytest.raises(ValueError):
+        build_presentation(eps, scored, {
+            "LEG_A": {"prohibitedCodes": ["mystery_prohibition"]}})
+
+
+def test_numeric_band_uses_capped_not_raw() -> None:
+    """numeric band 입력=capped(감수 42차 §2) — cap 초과 raw는 R2 정렬
+    소관, 표현 밴드는 bounded score로 동일."""
+    from saju_engines.risk_presentation import numeric_band, score_band
+
+    over = RiskScoreComponents(occurrence=0.8, impact=0.9, exposure=1.0,
+                               persistence=0.6, compound=0.1, protection=0.0)
+    ep, rep = _episode_with({}, ctx_conf=0.9)
+    rep_over = rep.model_copy(update={"score_components": over})  # raw 1.224
+    rep_one = rep.model_copy(update={"score_components": _comp(0.9)})
+    d_over = presentation_decision(ep, rep_over)
+    d_one = presentation_decision(ep, rep_one)
+    # capped가 입력이므로 raw 1.224와 raw 0.81 모두 밴드 결정은 capped 기준
+    # (동일 gate 결과) — cap 초과가 표현 밴드를 더 올리지 못한다.
+    assert d_over["level"] == d_one["level"]
+    assert numeric_band(1.0) == "critical" and score_band(1.0) == "high"
