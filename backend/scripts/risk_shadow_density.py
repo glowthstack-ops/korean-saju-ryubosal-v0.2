@@ -47,6 +47,12 @@ _DICTS = _BACKEND / "dictionaries"
 _LEVELS = {"daewoon": GanjiLevel.DAEWOON, "year": GanjiLevel.YEAR,
            "month": GanjiLevel.MONTH, "day": GanjiLevel.DAY}
 _REF = date(2026, 6, 11)
+# BLOCKED 후보에 동반 기록되는 증거 미충족 계열 사유(INSUFFICIENT 유래 — 차단 사유
+# 아님). blocked 집계 명칭 분리(감수 26차)의 분류 기준.
+_DEFICIENCY_REASONS = frozenset({
+    "evidence_groups_unmet", "targets_unlinked", "trigger_count_unmet",
+    "independent_causes_unmet",
+})
 
 # 코퍼스 — 기준 차트 + 구조가 다른 합성 명식(신강·신약/오행 편중/관계 다·소 등을 넓게
 # 커버하려는 생년 분산 샘플). 임계값 확정용이 아니라 분포 관찰용(R0.5).
@@ -580,9 +586,11 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
         # (동일 사유의 복수 기록 포함). 한 후보가 selection 축 사유와 증거 미충족
         # 사유(evidence_groups_unmet 등)를 동시에 가질 수 있어 전체 pair는 축 pair를
         # 초과한다 — 축 조합표와 비교할 값은 selection_axis_reason_pairs다.
-        blocked_reason_pairs = 0  # 후보×사유 중복 제거(전 사유)
+        blocked_all_reason_pairs = 0  # 후보×사유 중복 제거(전 사유 — 적격성 계열 포함)
         blocked_raw_rule_hits = 0  # 중복 포함 원시 기록 수
-        blocked_axis_pairs = 0  # selection 축 2종만의 후보×사유 pair
+        blocking_axis_pairs = 0  # 축 mismatch 계열(*_mismatch) 후보×사유 pair
+        deficiency_pairs = 0  # 증거 미충족 계열(INSUFFICIENT 유래) 후보×사유 pair
+        blocked_ts_axis_pairs = 0  # target·stage 2종만(조합표 불변식용)
         blocked_axis_combo: Counter = Counter()
         active_by_risk: Counter = Counter()
         expo_fam_pp: dict[str, set[str]] = defaultdict(set)
@@ -607,14 +615,17 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
                     blocked_by_risk[c.risk_id] += 1
                     blocked_raw_rule_hits += len(c.suppression_reasons)
                     unique_reasons = set(c.suppression_reasons)
-                    blocked_reason_pairs += len(unique_reasons)
+                    blocked_all_reason_pairs += len(unique_reasons)
+                    blocking_axis_pairs += sum(
+                        1 for r in unique_reasons if r.endswith("_mismatch"))
+                    deficiency_pairs += len(unique_reasons & _DEFICIENCY_REASONS)
                     for r in sorted(unique_reasons):
                         blocked_by_reason[r] += 1
                     if any(r.endswith("_mismatch") for r in unique_reasons):
                         mismatched += 1
                     has_target = "selection_target_type_mismatch" in unique_reasons
                     has_stage = "selection_stage_mismatch" in unique_reasons
-                    blocked_axis_pairs += int(has_target) + int(has_stage)
+                    blocked_ts_axis_pairs += int(has_target) + int(has_stage)
                     if has_target and has_stage:
                         blocked_axis_combo["target_type_and_stage"] += 1
                     elif has_target:
@@ -658,7 +669,7 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
         assert (blocked_axis_combo.get("target_type_only", 0)
                 + blocked_axis_combo.get("stage_only", 0)
                 + 2 * blocked_axis_combo.get("target_type_and_stage", 0)
-                ) == blocked_axis_pairs, name
+                ) == blocked_ts_axis_pairs, name
         out[name] = {
             "periods": periods,
             "active_total": len(active),
@@ -677,9 +688,15 @@ def collect_profile_metrics(levels: set[GanjiLevel], corpus) -> dict[str, dict]:
                 1 for doms in atom_domains.values() if len(doms) >= 2),
             "unknown_retained": len(active) - exposable_n,
             "blocked_unique_candidates": blocked,
-            "blocked_unique_candidate_reason_pairs": blocked_reason_pairs,
+            # 명칭 분리(감수 26차 — 데굴님 §2): 927류는 '차단 사유'가 아니라 BLOCKED
+            # 후보에 기록된 전체 eligibility·evidence 사유 pair다 — 축 mismatch
+            # (blocking)와 증거 미충족(deficiency — INSUFFICIENT 계열 동반 기록)을
+            # 분리해야 R1에서 적격성과 점수 미달을 구분할 수 있다.
+            "blocked_candidate_all_reason_pairs": blocked_all_reason_pairs,
+            "blocking_axis_reason_pairs": blocking_axis_pairs,
+            "evidence_deficiency_reason_pairs": deficiency_pairs,
+            "blocked_ts_axis_reason_pairs": blocked_ts_axis_pairs,
             "blocked_raw_rule_hits": blocked_raw_rule_hits,
-            "blocked_selection_axis_reason_pairs": blocked_axis_pairs,
             "blocked_mismatched": mismatched,
             "blocked_selection_axis_combo": dict(sorted(blocked_axis_combo.items())),
             "blocked_by_domain": dict(sorted(blocked_by_domain.items())),
@@ -718,11 +735,13 @@ def _profile_scenario_report(levels: set[GanjiLevel], corpus) -> None:
         print(f"  UNKNOWN 보존(활성·비노출): {m['unknown_retained']} · "
               f"blocked_unique_candidates {m['blocked_unique_candidates']}"
               f"(축 MISMATCHED {m['blocked_mismatched']})")
-        print(f"  blocked 3층: unique {m['blocked_unique_candidates']} · "
-              f"candidate×reason pairs {m['blocked_unique_candidate_reason_pairs']}"
-              f"(target·stage 축만 {m['blocked_selection_axis_reason_pairs']} — "
-              f"mode 사유는 분해표 밖·사유 목록에 표시) · "
-              f"raw rule hits {m['blocked_raw_rule_hits']}")
+        print(f"  blocked 집계: unique {m['blocked_unique_candidates']} · "
+              f"blocking_axis_reason_pairs {m['blocking_axis_reason_pairs']} · "
+              f"evidence_deficiency_reason_pairs "
+              f"{m['evidence_deficiency_reason_pairs']} · "
+              f"all_reason_pairs {m['blocked_candidate_all_reason_pairs']} · "
+              f"raw rule hits {m['blocked_raw_rule_hits']} "
+              f"(target·stage 축 조합표 대상 {m['blocked_ts_axis_reason_pairs']})")
         print("  blocked 축 조합(selection): " + (", ".join(
             f"{k}={v}" for k, v in m["blocked_selection_axis_combo"].items())
             or "없음"))

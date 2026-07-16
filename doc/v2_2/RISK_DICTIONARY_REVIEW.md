@@ -748,3 +748,40 @@ baseline exact match 확인 → R1 착수.
    family p90 4(episode 수 무제한 비례 없음). pytest 1968·ruff·mypy 0 clean.
 9. R3/R5의 '질문 대상 선발 1건만 주입' 임시 제약 해제 가능(배선 시 복수 episode
    공급 전환 — 배선 차수 소관).
+
+## 13. R1-a 차수(감수 26차 착수) — 점수 인프라·shadow 전용 (2026-07-16)
+
+데굴님 R1 착수 승인 + 불변식 7건 반영. **R1 성공 조건: 동일한 원인을 여러 도메인·
+episode에서 한 번만 평가하고, 점수 계산이 이미 감수된 적격성·노출·대표 선택을 단
+한 건도 변경하지 않는 것.**
+
+- 선행: blocked 지표 명칭 분리 — `blocking_axis_reason_pairs`(축 mismatch=실제
+  차단)/`evidence_deficiency_reason_pairs`(INSUFFICIENT 계열 동반 기록)/
+  `blocked_candidate_all_reason_pairs`/`blocked_raw_rule_hits`. C=468/520/407/927,
+  D=202/251/180/431(D의 blocking_axis에 mode 49 포함 — 사유 전량 표시).
+- **saju_engines/risk_scoring.py 신설**(순수 함수·shadow 전용 — 랭킹·노출·등급
+  없음): ①`score_shadow()` — 6축 RiskScoreComponents+confidence만 채운 사본 반환
+  (그 외 필드 byte 불변 fixture) ②occurrence=TRIGGER 근거의 source(원인 사실)
+  단위 포화형 결합 1-Π(1-s) — evidence 1회·같은 대상 충+형=원인 2·다층 반복=원인
+  1(layer convergence는 confidence 진단만) ③`cause_occurrence_table()` —
+  (period, cause_atom)당 1회 계산 표(포트폴리오·episode 합산의 원천 — 후보 합산
+  금지) ④compound=같은 기간 원인 공유하는 **다른 risk_id** 연결만(교차 도메인
+  확산 축 — occurrence 중복 가산 아님) ⑤persistence=반복 기간 수만((n-1)/5 cap)
+  ⑥protection=실질 조건 동반 mitigator만(극성 단독 0)·미래 회복 반영 금지
+  ⑦`risk_priority()` — §5 공식 total은 마지막 한 번, (raw, capped) 병행 반환·
+  후보에 저장하지 않음(포화 진단=raw, 소비=capped).
+- 기여 0 역할 fixture: polarity amplifier·context(episode·질문 대상·CONFIRMED·
+  conflict)·mitigator가 occurrence를 올리지 못함. D-프로필 golden 축소판(시험 2
+  episode 같은 원인 → cause 표 1항목·동일 평가).
+- 버전: **env r0.5.12 유지**(후보 생성·적격성·suppression 불변 — suppression
+  baseline diff 0·A/B/C/D 지표 불변으로 실증), 점수 의미는
+  **`RISK_SCORING_VERSION = "risk-score-r1.0.0-shadow"`** 별도 추적. 감수 scope는
+  shadow_structure 유지 + R1-c에서 `shadow_scoring` 추가 예정.
+- 가중치·매핑(exposure 상태 가중 1.0/0.55/0.15/0.0, persistence span 5, compound
+  0.25/연결, confidence 휴리스틱)은 전부 **잠정값 — R1-b/c 실측 후 감수 확정
+  대상**(UNKNOWN 0.55는 사실 대체가 아니라 투명한 랭킹 정책 가중, §5-1 상한
+  warning 별도).
+- fixture 9종(test_risk_scoring_r1a.py). pytest 1977·ruff·mypy 0(519파일)·전
+  baseline exact match·manifest 일치.
+- 다음: R1-b(대표 항목 표본 — kind·컨텍스트 조합) → R1-c(49항목 shadow scoring
+  분포·포화율·A/B/C/D 비교·recall 생존 + shadow_scoring scope 감수).

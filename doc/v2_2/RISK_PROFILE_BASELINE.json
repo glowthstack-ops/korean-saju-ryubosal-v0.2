@@ -1,9 +1,9 @@
 {
  "meta": {
-  "baseline_commit": "1cc7785",
+  "baseline_commit": "7fa21e0",
   "corpus_version": "seoul-busan-10 (year+month)",
   "dictionary_hash": "66856ddc4f61d0a5",
-  "generated_at": "2026-07-16T00:30:56+00:00",
+  "generated_at": "2026-07-16T00:44:59+00:00",
   "hash_schema_version": 8,
   "profile_context_hash": "99006f94fc5fa828",
   "review_environment_version": "risk-engine-r0.5.12"
@@ -62,12 +62,13 @@
    "blocked_by_domain": {},
    "blocked_by_reason": {},
    "blocked_by_risk_id": {},
+   "blocked_candidate_all_reason_pairs": 0,
    "blocked_mismatched": 0,
    "blocked_raw_rule_hits": 0,
    "blocked_selection_axis_combo": {},
-   "blocked_selection_axis_reason_pairs": 0,
-   "blocked_unique_candidate_reason_pairs": 0,
+   "blocked_ts_axis_reason_pairs": 0,
    "blocked_unique_candidates": 0,
+   "blocking_axis_reason_pairs": 0,
    "cross_domain_shared_causes": 398,
    "domain_family_contribution": {
     "career": 52,
@@ -79,6 +80,7 @@
     "selection": 45
    },
    "episode_active_counts": {},
+   "evidence_deficiency_reason_pairs": 0,
    "exposable_family_per_period": {
     "max": 6,
     "p50": 2.0,
@@ -153,12 +155,13 @@
    "blocked_by_domain": {},
    "blocked_by_reason": {},
    "blocked_by_risk_id": {},
+   "blocked_candidate_all_reason_pairs": 0,
    "blocked_mismatched": 0,
    "blocked_raw_rule_hits": 0,
    "blocked_selection_axis_combo": {},
-   "blocked_selection_axis_reason_pairs": 0,
-   "blocked_unique_candidate_reason_pairs": 0,
+   "blocked_ts_axis_reason_pairs": 0,
    "blocked_unique_candidates": 0,
+   "blocking_axis_reason_pairs": 0,
    "cross_domain_shared_causes": 399,
    "domain_family_contribution": {
     "career": 52,
@@ -173,6 +176,7 @@
     "legal_episode:contract_1": 32,
     "relationship_target:partner_1": 36
    },
+   "evidence_deficiency_reason_pairs": 0,
    "exposable_family_per_period": {
     "max": 6,
     "p50": 2.0,
@@ -256,6 +260,7 @@
     "SEL_UNWANTED_PLACEMENT": 50,
     "SEL_WAITLIST_PROLONGATION": 43
    },
+   "blocked_candidate_all_reason_pairs": 927,
    "blocked_mismatched": 468,
    "blocked_raw_rule_hits": 927,
    "blocked_selection_axis_combo": {
@@ -263,9 +268,9 @@
     "target_type_and_stage": 52,
     "target_type_only": 214
    },
-   "blocked_selection_axis_reason_pairs": 520,
-   "blocked_unique_candidate_reason_pairs": 927,
+   "blocked_ts_axis_reason_pairs": 520,
    "blocked_unique_candidates": 468,
+   "blocking_axis_reason_pairs": 520,
    "cross_domain_shared_causes": 372,
    "domain_family_contribution": {
     "career": 52,
@@ -281,6 +286,7 @@
     "mobility_episode:housing_move_1": 38,
     "relationship_target:partner_1": 36
    },
+   "evidence_deficiency_reason_pairs": 407,
    "exposable_family_per_period": {
     "max": 6,
     "p50": 2.0,
@@ -363,14 +369,15 @@
     "SEL_ELIGIBILITY_REVIEW_RISK": 49,
     "SEL_WAITLIST_PROLONGATION": 43
    },
+   "blocked_candidate_all_reason_pairs": 431,
    "blocked_mismatched": 202,
    "blocked_raw_rule_hits": 431,
    "blocked_selection_axis_combo": {
     "stage_only": 202
    },
-   "blocked_selection_axis_reason_pairs": 202,
-   "blocked_unique_candidate_reason_pairs": 431,
+   "blocked_ts_axis_reason_pairs": 202,
    "blocked_unique_candidates": 202,
+   "blocking_axis_reason_pairs": 251,
    "cross_domain_shared_causes": 392,
    "domain_family_contribution": {
     "career": 52,
@@ -387,6 +394,7 @@
     "selection_episode:examination_2": 32,
     "selection_episode:lottery_draw_1": 23
    },
+   "evidence_deficiency_reason_pairs": 180,
    "exposable_family_per_period": {
     "max": 8,
     "p50": 2.0,

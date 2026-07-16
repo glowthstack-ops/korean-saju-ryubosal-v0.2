@@ -7975,3 +7975,21 @@ episode 자동 흡수 금지(shared cause는 R1 1회 계산 연결 유지) ⑤�
 baseline diff 0 재기록(메타 r0.5.12). pytest 1968·ruff·mypy 0(전체) clean.
 다음: **R1 착수**(진입 게이트 §10 전부 충족 — occurrence 1회 계산 표본 372~399,
 possible_trajectory·vulnerability 기여 0 원칙, baseline commit·env·해시 고정).
+
+## R1-a — 위험 점수 인프라(shadow 전용·감수 26차 착수, 2026-07-16)
+
+blocked 지표 명칭 분리 선행(데굴님 §2 — 927은 차단 사유가 아니라 BLOCKED 후보의
+전체 eligibility 사유 pair): blocking_axis(C 520/D 251)·evidence_deficiency(407/
+180)·all_reason_pairs(927/431)·raw_hits 4층 + 불변식 assert.
+
+risk_scoring.py 신설(순수 함수·랭킹/노출/등급 없음): 6축 score_shadow(그 외 필드
+byte 불변)·cause_occurrence_table((기간,원인)당 1회 — 포트폴리오 합산 원천)·
+risk_priority(raw/capped — total은 마지막 한 번·후보 미저장). 불변식 fixture 9종:
+적격성/대표/노출 불변·evidence 1회·충+형=2원인 vs 다층=1원인+convergence 진단·
+컨텍스트 occurrence 비기여·polarity amplifier/극성 mitigator 기여 0·compound=
+다른 risk_id 연결만·persistence=반복 횟수만·D-golden(시험 2 episode 같은 원인
+1회 평가)·raw>1 보존+capped clamp. env r0.5.12 유지(suppression baseline diff 0·
+전 프로필 지표 불변), RISK_SCORING_VERSION=risk-score-r1.0.0-shadow 분리, 가중치
+전부 잠정(감수 질문 — exposure UNKNOWN 0.55는 랭킹 정책 가중·§5-1 상한 별도).
+pytest 1977·ruff·mypy 0·전 baseline exact match. 다음: R1-b 표본 → R1-c 49항목
+shadow scoring(+shadow_scoring scope 감수).

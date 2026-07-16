@@ -961,6 +961,10 @@ class RiskEngine:
 
     # ── 공개 API ─────────────────────────────────────────────────
 
+    def base_impacts(self) -> dict[str, float]:
+        """risk_id → 사전 baseImpact prior — R1 점수(impact 축) 재료."""
+        return {item.risk_id: item.base_impact for item in self._items}
+
     def generate(
         self,
         facts: RawPeriodFacts,

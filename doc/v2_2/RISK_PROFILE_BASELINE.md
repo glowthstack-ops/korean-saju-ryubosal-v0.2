@@ -43,16 +43,19 @@ episode별 활성 후보:
 - C: health:treatment_1=6 · legal:active_contract_1=32 · mobility:housing_move_1=38 ·
   relationship:partner_1=36
 
-BLOCKED 집계 3층(감수 25차 정의 확정 — 스크립트에 불변식 assert 내장):
+BLOCKED 집계 명칭 확정(감수 26차 — 데굴님 §2: 927류는 '차단 사유'가 아니라
+BLOCKED 후보에 기록된 전체 eligibility·evidence 사유 pair, 스크립트 불변식 assert):
 - **blocked_unique_candidates**(후보 identity 중복 제거) /
-  **blocked_unique_candidate_reason_pairs**(후보×사유 코드 중복 제거 — 전 사유) /
-  **blocked_raw_rule_hits**(동일 사유 복수 기록 포함).
-- C: unique **468** · pairs **927**(target·stage 축만 **520** — 나머지 407은
-  evidence_groups_unmet 406 + targets_unlinked 1) · raw hits 927.
+  **blocking_axis_reason_pairs**(축 mismatch 계열 — 실제 차단 사유) /
+  **evidence_deficiency_reason_pairs**(증거 미충족 계열 — INSUFFICIENT 유래 동반
+  기록, 차단 사유 아님) / **blocked_candidate_all_reason_pairs**(전 사유 pair) /
+  **blocked_raw_rule_hits**(중복 기록 포함).
+- C: unique **468** · blocking_axis **520** · deficiency **407**(unmet 406+
+  unlinked 1) · all 927 · raw 927.
 - 축 조합(unique 후보): target_type_only 214 + stage_only 202 +
-  target_type_and_stage 52 = 468 ✓ / 214 + 202 + 2×52 = 520 = 축 pair ✓.
-- D: unique **202** · pairs 431(축 pair 202 — stage_only 202) · 도메인 전량
-  selection. mode 사유(49)는 stage 사유와 동반(분해표 밖·사유 목록 표시).
+  target_type_and_stage 52 = 468 ✓ / 214 + 202 + 2×52 = 520 ✓.
+- D: unique **202** · blocking_axis 251(stage 202 + mode 49) · deficiency 180 ·
+  all 431 · raw 431.
 - 도메인: C·D 모두 selection 전량 — 타 도메인 오차단 0.
 
 도메인 기여도(unique 기간·family):
