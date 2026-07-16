@@ -734,3 +734,48 @@ def test_confidence_axes_separated() -> None:
     assert context_confidence(sc) == 1.0
     assert context_confidence(su) == 0.5
     assert context_confidence(sx) == 0.0  # conflict — 완전성 훼손
+
+
+# ── 15. R1-c1 착수 조건(감수 30차) — 연결 그래프·질문 대상 제외 ────
+
+
+def test_compound_requires_explicit_link_not_co_period() -> None:
+    """같은 기간 + 다른 role + 아무 연결(원인 공유) 없음 → compound 0.
+
+    compound는 전역 동시 후보 스캔이 아니라 연결된 effect graph(shared canonical
+    cause)에서만 계산된다 — 우연한 동시 발생은 복합 위험이 아니다.
+    """
+    a = _candidate(risk_id="SYN_A", family="fam_a", legal_episode_id="e1",
+                   evidence=[_evidence(_CHUNG, strength=0.5)])
+    unlinked = _candidate(
+        risk_id="SYN_B", family="fam_b", legal_episode_id="e2",
+        evidence=[_evidence("relation:PA:day_pillar:branch:BIJIAN",
+                            strength=0.5)])
+    [sa, sb] = score_shadow([a, unlinked], {})
+    assert _comp(sa).compound == 0.0 and _comp(sb).compound == 0.0
+    linked = _candidate(risk_id="SYN_C", family="fam_c", legal_episode_id="e2",
+                        evidence=[_evidence(_CHUNG, strength=0.4)])
+    [sa2, _] = score_shadow([a, linked], {})
+    assert _comp(sa2).compound == pytest.approx(0.25)  # 원인 공유 연결만
+
+
+def test_question_target_excluded_from_context_confidence() -> None:
+    """is_question_target은 답변 관련성이지 현실 상태의 정확성이 아니다 —
+    context confidence 증감 금지(relevance 축은 R2/R3 소관)."""
+    from saju_engines.risk_engine import RiskEngine as _RE  # noqa: F401
+    from saju_engines.risk_engine import SelectionContext
+    from saju_engines.risk_scoring import context_confidence
+    engine = RiskEngine(_DICTS)
+    facts = _facts(
+        gods={TenGod.ZHENGYIN: {LuckLayer.SEWOON}},
+        relations=[RelationFact(RelationKind.HAE, Pillar4.MONTH,
+                                target_ten_god=TenGod.ZHENGYIN)],
+        void=True,
+    )
+    def rdl(question: bool):
+        cands = engine.generate(facts, selection_contexts=[SelectionContext(
+            target_type="examination", stage="result_wait",
+            exposure_status=ExposureStatus.CONFIRMED, episode_id="exam_1",
+            is_question_target=question)])
+        return next(c for c in cands if c.risk_id == "SEL_RESULT_DELAY_PRESSURE")
+    assert context_confidence(rdl(True)) == context_confidence(rdl(False))

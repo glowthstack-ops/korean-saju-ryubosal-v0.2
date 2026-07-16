@@ -8055,3 +8055,17 @@ semantics v3(env r0.5.12 불변). fixture 28종·표본 불변식 31 PASS·pytes
 mypy 0·전 baseline exact match. 다음: R1-c1(49항목 전수 — cohort 6군·structural/
 rankable 분포 분리·포화·단조성 6종·추가 진단 4종) → R1-c2(가중 확정·shadow_
 scoring scope 승격).
+
+## R1-c1 — 49항목 전수 shadow scoring 측정(감수 30차, 2026-07-16)
+
+착수 조건: compound=연결 effect graph만(무연결 co-period 0 fixture)·is_question_
+target 제외 fixture·이중 모집단(전체 구조 코퍼스+A/B/C/D overlay)·단조성 8종.
+결과(고정본 RISK_SCORING_SURVEY_R1C1.md): **포화 없음**(raw>1 1~4%·축 cap 미미),
+상위 10% 축 구성 건강(구조=occurrence·persistence 주도 → C=exposure·compound
+상승 — 컨텍스트가 상위 결정), cohort 분리 유효(비rankable 739 제외). **감수 판단
+지점**: 코퍼스 98% episode-free → unresolved effect 연결이 상위 10% 전원 —
+compound 가중 확정은 R1-c2(사전 role 편입+episode 시나리오 재측정) 후로 보류.
+persistence lineage 1,061·다기간 793. 모집단 1≡overlay A 상호 검증. fixture
+30종·pytest 1998·mypy 0(521파일)·전 baseline exact match.
+다음: R1-c2 — normalizedEffectRole 사전 SSOT 편입(+lint·해시)·episode 시나리오
+compound 재측정·가중 확정·shadow_scoring scope 감수.

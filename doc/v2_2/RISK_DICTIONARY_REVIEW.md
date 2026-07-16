@@ -928,3 +928,45 @@ fixture 26→**28종**, 표본 불변식 **31개 전부 PASS**(고정본 갱신 
 1996·mypy 0(520파일). R1-c1 추가 진단 예약: cause_set_churn_count·unresolved_
 effect_identity_rate·episode_count_only_compound_violations(0 목표)·void_target_
 mismatch_count(0 목표).
+
+## 16. R1-c1 차수(감수 30차) — 49항목 전수 shadow scoring 측정 (2026-07-16)
+
+착수 조건 반영: compound=연결된 effect graph(shared canonical cause)만(무연결
+co-period=0 fixture) · is_question_target=context confidence 제외(fixture) ·
+**이중 모집단**(전체 구조 코퍼스 + A/B/C/D overlay 별도 표) · 단조성 8종 fixture
+고정. 측정 고정본: doc/v2_2/RISK_SCORING_SURVEY_R1C1.md.
+
+### 16-1. 핵심 결과 (전 지표는 고정본 참조)
+
+- **포화 없음**: raw>1 1~4%(구조 3/175, C-overlay 10/246), raw>1.2 최대 8건,
+  축별 cap 도달 미미(exposure 7~13%=CONFIRMED 자체, persistence 0%) — 기존 사건
+  엔진의 100점 포화 문제 재현 없음. total은 마지막 1회 계산 구조가 유효.
+- **상위 10% 축 구성이 컨텍스트에 따라 건강하게 이동**: 구조 코퍼스=occurrence
+  0.78·persistence 0.54 주도(compound 0 — episode 없음), C-overlay=exposure
+  0.925·compound 0.573 상승 — cap·exposure가 분포를 왜곡하지 않고 컨텍스트
+  확인이 상위 후보를 결정.
+- **cohort 분리 유효**: 구조 코퍼스 A 914/C 281/D 175 — 비rankable 739가
+  rankable 분포에서 제외되어 median 왜곡 없음(C군 rankable raw p50 -0.116 →
+  D군 기준 보고).
+- **감수 판단 지점 — unresolved effect identity**: 코퍼스 후보의 98%가
+  episode-free라 cause 공유 연결이 전부 unresolved(fail-closed 0), **상위 10%
+  후보 전원이 unresolved 연결 보유** — 데굴님 기준(다수면 가중 확정 보류)에
+  해당. 원인은 측정 코퍼스의 구조적 특성(컨텍스트 미공급)이며, compound 자체는
+  overlay에서 정상 작동(B 55·C 190·D 62건). **결론: compound 가중(0.25/cap)
+  확정은 R1-c2의 normalizedEffectRole 사전 편입+episode 공급 시나리오 재측정
+  후로 보류**(다른 축 가중은 확정 가능 후보).
+- persistence 진단: unique lineage 1,061 · 다기간 793 · 후보 부여 1,034 —
+  포트폴리오 원천=lineage 규격 확인. LEG D군 rankable이 균일(0.200)한 것은
+  UNKNOWN 조건부 항목의 동일 구성(occ 0.5×imp 0.65×exp 0.55) — 실컨텍스트
+  overlay(B/C)에서 1.000까지 분화 확인.
+- 검증: 모집단 1 ≡ overlay A(all_unknown) 완전 동일(회귀 상호 검증),
+  episode_count_only_violations 0 · void_target_mismatch 0 · 단조성 8종 fixture.
+
+### 16-2. R1-c2 계획(감수 승인 대기)
+
+①**normalizedEffectRole 사전 SSOT 편입**(감수 30차 지시): scoring registry →
+사전 필드 이동, lint(49항목 전원 존재·enum 외 금지·kind 혼동 금지·변경 시
+shadow_scoring 강등), dictionary hash 변경(v9 여부 포함 감수) ②episode 공급
+시나리오에서 compound·unresolved 재측정 ③가중 확정(compound 제외 축 우선) ④
+shadow_scoring scope 감수·스탬프(reviewHashes에 scoring_config_hash+
+cause_semantics_hash 포함, 기존 shadow_structure 해제 금지).
