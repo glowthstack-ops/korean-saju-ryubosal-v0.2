@@ -21,7 +21,8 @@ from datetime import UTC
 from pathlib import Path
 
 __all__ = ["ADAPTER_VALIDATION_POLICY", "ADAPTER_VALIDATION_STATES",
-           "adapter_identity_hash", "suspension_state_ok",
+           "adapter_identity_hash", "derive_runtime_adapter_state",
+           "suspension_state_ok",
            "adapter_validation_policy_hash", "record_count_observation",
            "resolve_expose_counter", "ProviderRequest",
            "TokenCounterAdapter", "register_adapter", "resolve_counter",
@@ -349,20 +350,55 @@ def resolve_expose_counter(
         # 없음'으로 처리하지 않는다.
         return None
     for entry in manifest_counters:
-        if (entry.get("reviewed") is True
-                and entry.get("resolvedModelId") == adapter.model_id
-                and entry.get("providerId") == adapter.provider_id
-                and entry.get("counterVersion") == adapter.counter_version
-                and entry.get("providerRequestSchemaVersion")
-                == adapter.request_schema_version
-                and entry.get("validationPolicyHash")
-                == adapter_validation_policy_hash()
-                and entry.get("countMode") == adapter.mode
-                and bool(adapter.validation_corpus_hash)
-                and entry.get("validationCorpusHash")
-                == adapter.validation_corpus_hash):
+        if _manifest_entry_matches(adapter, entry):
             return adapter
     return None
+
+
+def _manifest_entry_matches(adapter: TokenCounterAdapter,
+                            entry: dict) -> bool:
+    """validation identity 7요소 + reviewed 대조(감수 52·53·55차)."""
+    return (entry.get("reviewed") is True
+            and entry.get("resolvedModelId") == adapter.model_id
+            and entry.get("providerId") == adapter.provider_id
+            and entry.get("counterVersion") == adapter.counter_version
+            and entry.get("providerRequestSchemaVersion")
+            == adapter.request_schema_version
+            and entry.get("validationPolicyHash")
+            == adapter_validation_policy_hash()
+            and entry.get("countMode") == adapter.mode
+            and bool(adapter.validation_corpus_hash)
+            and entry.get("validationCorpusHash")
+            == adapter.validation_corpus_hash)
+
+
+def derive_runtime_adapter_state(
+    adapter: TokenCounterAdapter | None,
+    manifest_counters: list[dict],
+    artifact_corpus_ok: bool,
+) -> str:
+    """runtime 검증 상태 **파생**(감수 59차 §3 — VALIDATED는 설정값이
+    아니라 검증 결과).
+
+    startup/registry 초기화에서 결정적으로 해소한다: adapter 존재 +
+    artifact native corpus 재해시 일치 + manifest reviewed entry
+    7요소 일치 + suspension 기록 없음 + suspension backend 정상 →
+    VALIDATED. 하나라도 실패=VALIDATED 금지(요청 중 임의 대입 금지).
+    """
+    if adapter is None:
+        return "UNREGISTERED"
+    suspended, store_ok = _is_globally_suspended(
+        adapter_identity_hash(adapter))
+    if suspended:
+        return "SUSPENDED"
+    if not store_ok or not suspension_state_ok():
+        return "SHADOW_VALIDATING"
+    if not artifact_corpus_ok:
+        return "SHADOW_VALIDATING"
+    if any(_manifest_entry_matches(adapter, e)
+           for e in manifest_counters):
+        return "VALIDATED"
+    return "SHADOW_VALIDATING"
 
 
 def record_count_observation(model_id: str, counted: int, reported: int,

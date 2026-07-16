@@ -81,7 +81,8 @@ def _load_manifest_snapshot() -> dict:
             entry_unknown = set(counter_entry) - {
                 "providerId", "resolvedModelId", "counterVersion",
                 "providerRequestSchemaVersion", "countMode",
-                "validationPolicyHash", "validationCorpusHash", "reviewed"}
+                "validationPolicyHash", "validationCorpusHash",
+                "validationArtifactHash", "reviewed"}
             if entry_unknown:
                 raise ValueError(f"validatedTokenCounters 미등록 필드:"
                                  f" {entry_unknown}")
@@ -97,6 +98,8 @@ def _load_manifest_snapshot() -> dict:
         return {
             "reviewed": reviewed,
             "hash_ok": policy_hash == expose_policy_hash(),
+            "validated_token_counters": (
+                pipeline.get("validatedTokenCounters") or []),
             "schema_version": schema,
             "snapshot_hash": hashlib.sha256(
                 canonical.encode()).hexdigest()[:16],
@@ -141,6 +144,60 @@ def _canary_allowlisted(subject_id: str | None) -> bool:
     _logger.info("risk_canary_check subject=%s allowed=%s",
                  hashlib.sha256(subject_id.encode()).hexdigest()[:12], ok)
     return ok
+
+
+_ARTIFACT_DIR = (Path(__file__).resolve().parents[4] / "compiled"
+                 / "risk_adapter_validation")
+
+
+def _artifact_corpus_ok(model_id: str, corpus_hash: str) -> bool:
+    """validation artifact의 native corpus·artifact 재해시 검증(감수 59차
+    §1·§3) — runtime이 artifact를 직접 신뢰 근거로 쓰므로 둘 다 확인."""
+    import hashlib
+    if not corpus_hash or not _ARTIFACT_DIR.exists():
+        return False
+    for path in sorted(_ARTIFACT_DIR.glob("*.json")):
+        try:
+            artifact = json.loads(path.read_text(encoding="utf-8"))
+            native = artifact["nativeValidationCorpus"]
+            if native["identity"].get("resolvedModelId") != model_id:
+                continue
+            native_ok = hashlib.sha256(json.dumps(
+                native, ensure_ascii=False, sort_keys=True).encode()
+            ).hexdigest() == corpus_hash == str(
+                artifact.get("validationCorpusHash"))
+            artifact_ok = hashlib.sha256(json.dumps(
+                {k: v for k, v in artifact.items()
+                 if k not in ("volatile", "validationArtifactHash")},
+                ensure_ascii=False, sort_keys=True).encode()
+            ).hexdigest() == str(artifact.get("validationArtifactHash"))
+            return native_ok and artifact_ok
+        except (OSError, ValueError, KeyError, TypeError):
+            return False  # 손상 artifact=신뢰 불가(fail-closed)
+    return False
+
+
+def stamp_runtime_adapter_state(model_id: str) -> str:
+    """startup/registry 초기화용 runtime 상태 결정 해소(감수 59차 §3).
+
+    VALIDATED는 설정값이 아니라 검증 결과: adapter 존재 + artifact
+    native/전체 재해시 일치 + manifest reviewed entry(7요소) 일치 +
+    suspension 정상·기록 없음일 때만. 요청 처리 중 임의 대입 금지 —
+    이 함수만이 VALIDATED를 스탬프한다.
+    """
+    from .token_counter_registry import (
+        derive_runtime_adapter_state,
+        resolve_counter,
+        set_validation_state,
+    )
+    adapter = resolve_counter(model_id)
+    counters = _load_manifest_snapshot()["validated_token_counters"]
+    artifact_ok = (adapter is not None and _artifact_corpus_ok(
+        model_id, adapter.validation_corpus_hash))
+    state = derive_runtime_adapter_state(adapter, counters, artifact_ok)
+    if adapter is not None:
+        set_validation_state(model_id, state)
+    return state
 
 
 def build_risk_output_schemas(payload: dict, *,

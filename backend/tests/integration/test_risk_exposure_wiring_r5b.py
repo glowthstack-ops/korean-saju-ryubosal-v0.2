@@ -1662,3 +1662,306 @@ def test_output_schema_max_items_is_final_episode_count() -> None:
            {"guidanceRef": "rg2", "presentationLevel": "watch"}]
     schema = build_risk_output_schema(llm, hard_max=4)
     assert schema["properties"]["risk_guidance"]["maxItems"] == 2
+
+
+def _pipeline_env(monkeypatch, tmp_path):
+    """감수 59차 pipeline fixture 공통 조립 — VALIDATED adapter + 최종
+    payload/guidance context + wrapped block prompt."""
+    import hashlib as _hashlib
+
+    from saju_api.services import token_counter_registry as reg
+    from saju_api.services.token_counter_registry import (
+        ProviderRequest,
+        TokenCounterAdapter,
+        adapter_validation_policy_hash,
+        register_adapter,
+        set_validation_state,
+    )
+    from saju_engines.risk_exposure import (
+        RiskPromptBlock,
+        build_guidance_reference_context,
+        wrap_risk_block,
+    )
+    from saju_engines.risk_presentation import (
+        build_presentation,
+        serialize_llm_payload,
+    )
+    from saju_engines.risk_scoring import score_shadow
+    from saju_engines.risk_selection import build_episodes
+    from saju_shared_types.risk_engine import (
+        EvidenceRole,
+        ExposureStatus,
+        RiskCandidate,
+        RiskDomain,
+        RiskEvidence,
+        RiskKind,
+    )
+
+    monkeypatch.setattr(reg, "_SUSPENSION_FILE",
+                        tmp_path / "suspensions.json")
+    monkeypatch.setattr(reg, "_SUSPENSION_LOCK_FILE", tmp_path / "l.lock")
+    monkeypatch.setattr(reg, "_SUSPENSION_LEDGER", tmp_path / "l.jsonl")
+    monkeypatch.setattr(reg, "_EXPOSURE_DISABLED_MARKER",
+                        tmp_path / "marker")
+    adapter = TokenCounterAdapter(
+        model_id="flow-model", mode="MODEL_TOKENIZER",
+        counter=lambda s: max(1, len(s) // 4), provider_id="prov",
+        counter_version="v1", validation_corpus_hash="corpus")
+    register_adapter(adapter)
+    set_validation_state("flow-model", "VALIDATED")
+    entry = {"reviewed": True, "resolvedModelId": "flow-model",
+             "providerId": "prov", "counterVersion": "v1",
+             "providerRequestSchemaVersion": "1",
+             "countMode": "MODEL_TOKENIZER",
+             "validationPolicyHash": adapter_validation_policy_hash(),
+             "validationCorpusHash": "corpus"}
+    src = "relation:CHUNG:month_pillar:branch:ZHENGCAI"
+    cand = RiskCandidate(
+        risk_id="LEG_A", domain=RiskDomain.CONTRACT_LEGAL,
+        kind=RiskKind.INCIDENT_RISK, risk_family="fam", period_key="2026",
+        evidence=[RiskEvidence(
+            evidence_id=f"2026|{src}", code="T", period_key="2026",
+            layer="sewoon", source=src, strength=0.5,
+            role=EvidenceRole.TRIGGER, source_group="event_shape",
+            target_domain=RiskDomain.CONTRACT_LEGAL)],
+        exposure_status=ExposureStatus.CONFIRMED, specificity_rank=2,
+        normalized_effect_role="legal_dispute", trigger_cause_atoms=[src],
+        legal_episode_id="e1")
+    scored = score_shadow([cand], {"LEG_A": 0.6})
+    payload = build_presentation(build_episodes(scored), scored)
+    serialized = serialize_llm_payload(payload, 100_000)
+    block = RiskPromptBlock(
+        serialized_text=serialized,
+        content_hash=_hashlib.sha256(
+            serialized.encode()).hexdigest()[:16],
+        compression_mode="FULL",
+        exact_token_count=max(1, len(serialized) // 4))
+    ctx = build_guidance_reference_context("req-flow-1", payload)
+    baseline = ProviderRequest(system_messages=("sys",),
+                               user_messages=("질문 본문",))
+    from saju_engines.risk_exposure import (
+        RISK_EXPOSURE_INSTRUCTION_BLOCK,
+    )
+    initial = ProviderRequest(
+        system_messages=("sys",),
+        user_messages=("질문 본문",
+                       RISK_EXPOSURE_INSTRUCTION_BLOCK,
+                       wrap_risk_block(block)))
+    return {"adapter": adapter, "entry": entry, "payload": payload,
+            "ctx": ctx, "baseline": baseline, "initial": initial}
+
+
+def _good_envelope(payload: dict) -> dict:
+    eps = payload["llmRiskEpisodes"]
+    return {"risk_guidance": [{
+        "guidance_ref": e["guidanceRef"],
+        "exposed_level": e.get("presentationLevel", "warning"),
+        "text": "관련 조건을 미리 점검해 두면 좋은 시기입니다.",
+    } for e in eps]}
+
+
+def test_injected_flow_clean_draft_delivers(monkeypatch,
+                                            tmp_path) -> None:
+    """감수 59차 §14: 정상 초안 → INITIAL 1회·감사 통과 → renderer →
+    최종 감사 통과 → DELIVER."""
+    from saju_api.services.risk_llm_pipeline import run_injected_risk_flow
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+    calls: list[str] = []
+
+    def llm_call(request):
+        calls.append("call")
+        return {"answer": "조건을 점검해 두면 좋은 시기입니다.",
+                "envelope": _good_envelope(env["payload"])}
+
+    result = run_injected_risk_flow(
+        initial_request=env["initial"], baseline_request=env["baseline"],
+        guidance_context=env["ctx"], request_context_id="req-flow-1",
+        llm_episodes=env["payload"]["llmRiskEpisodes"],
+        resolved_model_id="flow-model",
+        manifest_counters=[env["entry"]], adapter=env["adapter"],
+        final_token_limit=100_000, llm_call=llm_call,
+        renderer=lambda s: s + "\n(정리된 답변)")
+    assert result["outcome"] == "DELIVER"
+    assert len(calls) == 1
+    assert [a["kind"] for a in result["attempts"]] == ["INITIAL"]
+    assert result["attempts"][0]["counted_tokens"] > 0
+
+
+def test_injected_flow_revise_then_deliver(monkeypatch, tmp_path) -> None:
+    """감수 59차 §10·§12: 초안 위반 → REVISION_1(별도 요청·재계수·최소
+    입력 — 내부 episodeKey 미포함) → 통과 → DELIVER."""
+    from saju_api.services.risk_llm_pipeline import run_injected_risk_flow
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+    seen_requests = []
+
+    def llm_call(request):
+        seen_requests.append(request)
+        if len(seen_requests) == 1:
+            return {"answer": "반드시 소송이 발생한다.",
+                    "envelope": {"risk_guidance": []}}  # 필수 warning 누락
+        return {"answer": "조건을 점검해 두면 좋은 시기입니다.",
+                "envelope": _good_envelope(env["payload"])}
+
+    result = run_injected_risk_flow(
+        initial_request=env["initial"], baseline_request=env["baseline"],
+        guidance_context=env["ctx"], request_context_id="req-flow-1",
+        llm_episodes=env["payload"]["llmRiskEpisodes"],
+        resolved_model_id="flow-model",
+        manifest_counters=[env["entry"]], adapter=env["adapter"],
+        final_token_limit=100_000, llm_call=llm_call,
+        renderer=lambda s: s)
+    assert result["outcome"] == "DELIVER"
+    kinds = [a["kind"] for a in result["attempts"]]
+    assert kinds == ["INITIAL", "REVISION_1"]
+    # attempt별 독립 재계수(§10) — revision이 더 긴 요청이므로 count 증가.
+    assert (result["attempts"][1]["counted_tokens"]
+            > result["attempts"][0]["counted_tokens"])
+    # REVISE 입력 최소화(§12): 내부 canonical episode key 미포함.
+    revision_text = "\n".join(seen_requests[1].user_messages)
+    for _, canonical_key in env["ctx"].guidance_ref_map:
+        assert canonical_key not in revision_text
+    assert "[재작성 요청]" in revision_text
+
+
+def test_injected_flow_regenerate_without_risk(monkeypatch,
+                                               tmp_path) -> None:
+    """감수 59차 §10: REVISE도 위반 → REGENERATE_WITHOUT_RISK — baseline
+    +suppressed guard만(canonical bytes 일치·risk 요소 잔재 0)."""
+    from saju_api.services.risk_llm_pipeline import (
+        build_regenerate_request,
+        canonical_request_bytes,
+        run_injected_risk_flow,
+    )
+    from saju_api.services.token_counter_registry import ProviderRequest
+    from saju_engines.risk_exposure import (
+        RISK_EXPOSURE_SUPPRESSED_GUARD,
+    )
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+    regen_requests = []
+
+    def llm_call(request):
+        joined = "\n".join(request.user_messages)
+        if RISK_EXPOSURE_SUPPRESSED_GUARD in joined \
+                and "BEGIN_RISK_BLOCK" not in joined:
+            regen_requests.append(request)
+            return {"answer": "일정을 점검해 두면 좋은 시기입니다.",
+                    "envelope": None}
+        return {"answer": "반드시 소송이 발생한다.",
+                "envelope": {"risk_guidance": []}}
+
+    result = run_injected_risk_flow(
+        initial_request=env["initial"], baseline_request=env["baseline"],
+        guidance_context=env["ctx"], request_context_id="req-flow-1",
+        llm_episodes=env["payload"]["llmRiskEpisodes"],
+        resolved_model_id="flow-model",
+        manifest_counters=[env["entry"]], adapter=env["adapter"],
+        final_token_limit=100_000, llm_call=llm_call,
+        renderer=lambda s: s)
+    assert result["outcome"] == "DELIVER"
+    kinds = [a["kind"] for a in result["attempts"]]
+    assert kinds == ["INITIAL", "REVISION_1", "REGENERATE_WITHOUT_RISK"]
+    # 완전 재조립 계약: baseline+guard와 canonical bytes 정확 일치.
+    assert len(regen_requests) == 1
+    expected = ProviderRequest(
+        system_messages=env["baseline"].system_messages,
+        user_messages=(*env["baseline"].user_messages,
+                       RISK_EXPOSURE_SUPPRESSED_GUARD))
+    assert (canonical_request_bytes(regen_requests[0])
+            == canonical_request_bytes(expected)
+            == canonical_request_bytes(
+                build_regenerate_request(env["baseline"])))
+
+
+def test_injected_flow_final_render_audit_blocks(monkeypatch,
+                                                 tmp_path) -> None:
+    """감수 59차 §14-7: 감사 통과 초안이라도 renderer 후 최종 문자열에
+    내부 ref가 남으면 BLOCK+결정적 fallback(전달 경로 없음)."""
+    from saju_api.services.risk_llm_pipeline import run_injected_risk_flow
+    from saju_engines.risk_exposure import RISK_SAFE_FALLBACK_TEMPLATE
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+
+    result = run_injected_risk_flow(
+        initial_request=env["initial"], baseline_request=env["baseline"],
+        guidance_context=env["ctx"], request_context_id="req-flow-1",
+        llm_episodes=env["payload"]["llmRiskEpisodes"],
+        resolved_model_id="flow-model",
+        manifest_counters=[env["entry"]], adapter=env["adapter"],
+        final_token_limit=100_000,
+        llm_call=lambda r: {"answer": "조건을 점검해 두면 좋습니다.",
+                            "envelope": _good_envelope(env["payload"])},
+        renderer=lambda s: s + "\n(내부 참조: rg1)")  # renderer가 누출
+    assert result["outcome"] == "BLOCK"
+    assert result["final_text"] == RISK_SAFE_FALLBACK_TEMPLATE
+    assert any("INTERNAL_GUIDANCE_REF_LEAKED" in i
+               for i in result["final_audit_issues"])
+
+
+def test_rerouting_decision_and_context_mismatch(monkeypatch,
+                                                 tmp_path) -> None:
+    """감수 59차 §4·§8·§11: 미감수 모델 rerouting=REBUILD_BYPASS, 감수
+    모델=REEVALUATE_GATE. 다른 요청의 guidance context는 preflight에서
+    GUIDANCE_CONTEXT_MISMATCH."""
+    from saju_api.services.risk_llm_pipeline import (
+        handle_rerouting,
+        preflight_provider_attempt,
+    )
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+    assert handle_rerouting("flow-model", [env["entry"]]) == (
+        "REEVALUATE_GATE")
+    assert handle_rerouting("unreviewed-2.5", [env["entry"]]) == (
+        "REBUILD_BYPASS")
+    plan = preflight_provider_attempt(
+        "INITIAL", env["initial"], resolved_model_id="flow-model",
+        manifest_counters=[env["entry"]], adapter=env["adapter"],
+        guidance_context=env["ctx"],
+        request_context_id="req-OTHER",  # 타 요청 재사용 시도
+        final_token_limit=100_000, expects_risk_block=True)
+    assert "GUIDANCE_CONTEXT_MISMATCH" in plan.preflight_issues
+
+
+def test_runtime_validated_is_derived_not_configured(monkeypatch,
+                                                     tmp_path) -> None:
+    """감수 59차 §3: VALIDATED=검증 결과 — artifact 불일치·manifest 불일치·
+    suspension이면 절대 VALIDATED가 되지 않는다."""
+    from saju_api.services import token_counter_registry as reg
+    from saju_api.services.token_counter_registry import (
+        TokenCounterAdapter,
+        adapter_validation_policy_hash,
+        derive_runtime_adapter_state,
+        record_count_observation,
+        register_adapter,
+    )
+
+    monkeypatch.setattr(reg, "_SUSPENSION_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(reg, "_SUSPENSION_LOCK_FILE", tmp_path / "s.lock")
+    monkeypatch.setattr(reg, "_SUSPENSION_LEDGER", tmp_path / "s.jsonl")
+    monkeypatch.setattr(reg, "_EXPOSURE_DISABLED_MARKER",
+                        tmp_path / "m")
+    adapter = TokenCounterAdapter(
+        model_id="derive-model", mode="MODEL_TOKENIZER", counter=len,
+        provider_id="prov", counter_version="v1",
+        validation_corpus_hash="corpus")
+    entry = {"reviewed": True, "resolvedModelId": "derive-model",
+             "providerId": "prov", "counterVersion": "v1",
+             "providerRequestSchemaVersion": "1",
+             "countMode": "MODEL_TOKENIZER",
+             "validationPolicyHash": adapter_validation_policy_hash(),
+             "validationCorpusHash": "corpus"}
+    assert derive_runtime_adapter_state(None, [entry], True) == (
+        "UNREGISTERED")
+    assert derive_runtime_adapter_state(adapter, [entry], True) == (
+        "VALIDATED")
+    assert derive_runtime_adapter_state(adapter, [entry], False) == (
+        "SHADOW_VALIDATING")  # artifact 재해시 불일치=승격 불가
+    assert derive_runtime_adapter_state(
+        adapter, [{**entry, "reviewed": False}], True) == (
+        "SHADOW_VALIDATING")
+    register_adapter(adapter)
+    record_count_observation("derive-model", counted=1, reported=2)
+    assert derive_runtime_adapter_state(adapter, [entry], True) == (
+        "SUSPENDED")

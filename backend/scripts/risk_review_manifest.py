@@ -99,8 +99,19 @@ def _token_counter_candidates() -> list[dict]:
         if recomputed != corpus_hash:
             raise ValueError(
                 f"adapter validation artifact 무결성 실패: {path.name}")
+        # artifact 전체 무결성(감수 59차 §1): validationArtifactHash도
+        # 재계산 대조 후 entry에 무결성 참조로 병기(identity 구성요소는
+        # 아님 — 대조 키는 corpus hash까지 7요소).
+        recomputed_artifact = hashlib.sha256(json.dumps(
+            {k: v for k, v in artifact.items()
+             if k not in ("volatile", "validationArtifactHash")},
+            ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+        if recomputed_artifact != artifact.get("validationArtifactHash"):
+            raise ValueError(
+                f"validation artifact hash 불일치: {path.name}")
         identity = dict(artifact["nativeValidationCorpus"]["identity"])
         entries.append({**identity, "validationCorpusHash": corpus_hash,
+                        "validationArtifactHash": recomputed_artifact,
                         "reviewed": corpus_hash
                         in _REVIEWED_COUNTER_CORPUS_HASHES})
     return entries

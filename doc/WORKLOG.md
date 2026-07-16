@@ -8479,3 +8479,17 @@ fixture, maxItems=min(hard_max,최종 episode 수) fixture. 감수 58차 §11
 gemini-2.5-flash 미감수 BYPASS. pytest 2140·ruff·mypy 0·manifest 일치.
 REVIEW.md §28-14. 다음: §12 실배선(context 전 경로·schema 강제·envelope
 audit·REVISE/REGENERATE·provider 직전 검증·최종 감사·corpus 대조).
+
+## 감수 59차 — INJECTED 실호출 파이프라인·runtime 상태 파생 (2026-07-17)
+
+adapter reviewed 승격 승인 후속: derive_runtime_adapter_state(VALIDATED=
+검증 결과 — artifact 재해시+manifest 7요소+suspension 전부 충족 시만,
+stamp 함수 전용)·validationArtifactHash manifest 병기(생성기 재해시
+검증). risk_llm_pipeline 신설: attempt별 독립 ProviderRequest·전체
+재계수·preflight(모델 재해소·block integrity·context 결속)·REVISE 입력
+최소화(내부 ID 금지)·REGENERATE=baseline+guard 완전 재조립(bytes 일치
+fixture)·rerouting 판정(미감수=REBUILD_BYPASS)·renderer 후 최종 감사→
+DELIVER/BLOCK만. 캐시 정책 명문화(explicit 미사용·비교는 전체 input).
+fixture +6(71종). pytest 2146·ruff·mypy 0(537)·manifest 일치.
+REVIEW.md §28-15. 잔여: chat_service 실연결·shape corpus 대조 배선·
+expose_pipeline 감수 자료.

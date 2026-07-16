@@ -2452,3 +2452,54 @@ request shape corpus 대조 ⑨expose_pipeline 감수 자료. canary 차단점:
 재작성 경로 감사 우회 부재·rerouting 시 **게이트 전체 재평가**(counter
 교체만으로 불충분 — BYPASS면 기존 요청으로 완전 재조립)·context 타 요청
 재사용 차단·single-process 실배포 확인.
+
+### 28-15. 감수 59차 반영 — INJECTED 실호출 파이프라인·runtime 상태 파생·artifact hash 병기 (2026-07-17)
+
+**runtime VALIDATED=검증 결과(§3)**: derive_runtime_adapter_state —
+adapter 존재+artifact native/전체 재해시 일치+manifest reviewed entry
+7요소 일치+suspension 기록 없음+backend 정상일 때만 VALIDATED.
+stamp_runtime_adapter_state(startup 전용)만이 스탬프 — 요청 처리 중
+임의 대입 금지. 하나라도 실패=UNREGISTERED/SUSPENDED/SHADOW_VALIDATING
+(EXPOSE counter 반환 금지). fixture: 조건 매트릭스 5상태.
+
+**validationArtifactHash manifest 병기(§1)**: manifest 생성기가 artifact
+전체 재해시(volatile 제외)를 검증 후 entry에 무결성 참조로 병기(identity
+대조 키는 아님). runtime artifact 검증(_artifact_corpus_ok)은 native
+corpus hash와 artifact hash **둘 다** 확인.
+
+**risk_llm_pipeline(§14 순서 1~8 — LLM 호출·renderer는 callable 주입)**:
+
+- **attempt별 독립 요청·재계수(§10)**: INITIAL/REVISION_1/REGENERATE_
+  WITHOUT_RISK 각각 preflight_provider_attempt — 모델-adapter 재해소
+  (manifest 대조)·**전체 token 재계수**(이전 count 재사용 금지)·한도·
+  block 단일 삽입 integrity·guidance context 결속을 전부 재실행.
+- **REVISE 입력 최소화(§12)**: violation codes·누락 required refs(opaque
+  ref)·qualifier 종류·허용 level·원 초안만 — canonical episodeKey·
+  cause atom·hash·감수 상태 미포함(fixture: revision 요청 본문에 내부
+  key 부재 검증).
+- **REGENERATE=완전 재조립(§10)**: baseline(BYPASS 원 요청)+suppressed
+  guard만 — canonical bytes 정확 일치 fixture, risk 요소 잔재 검출 시
+  RISK_RESIDUE_IN_NON_RISK_ATTEMPT. guidance context는 prompt/schema에
+  사용 금지(감사 기록만).
+- **rerouting=게이트 전체 재평가(§4·§8)**: handle_rerouting — 감수
+  adapter 존재=REEVALUATE_GATE(재해소→suspension→전체 재계수→transport
+  재선택), 미감수=REBUILD_BYPASS(완전 재조립).
+- **상태기**: INITIAL→감사(envelope 불변식+presence+episode별 claim
+  audit)→위반 시 REVISE 1회(plan_remediation)→재위반 시 REGENERATE→
+  renderer→**최종 문자열 감사**(발급 ref 대조 포함)→DELIVER. 최종 감사
+  실패=BLOCK+결정적 fallback. 감사 통과 전 전달 경로 없음.
+- request_shape_digest: 최종 provider request를 corpus request digest와
+  동일 규칙으로 대조 가능(§14-9 — chat 실연결 차수에서 소비).
+
+**캐시 정책(§8)**: risk-enabled 요청은 explicit caching 미사용
+(cachedContent 없음 — 현 코드 그대로), implicit 적중은 cached_input
+별도 기록하되 undercount 비교는 항상 전체 input 기준(모듈 계약 명문화).
+
+fixture +6(통합 71종: DELIVER/REVISE 성공/REGENERATE bytes 일치/최종
+감사 BLOCK/rerouting·context mismatch/runtime 파생 매트릭스). 게이트:
+pytest 2146·ruff clean·mypy 0(537)·manifest 일치. 3중 잠금·EXPOSE_CANARY
+보류 유지.
+
+**잔여**: chat_service 실연결(EXPOSE 분기에서 adapter 공급+run_injected_
+risk_flow 소비+실제 renderer 연결)·최종 request shape corpus 대조 배선·
+expose_pipeline 감수 자료 작성·single-process 실배포 확인.
