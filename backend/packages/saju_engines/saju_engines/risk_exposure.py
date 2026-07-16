@@ -28,11 +28,13 @@ from saju_shared_types.risk_engine import RiskEngineMode
 from .risk_presentation import (
     DEFAULT_RISK_PRESENTATION_BUDGET,
     MIN_SAFE_RISK_PRESENTATION_BUDGET,
+    RENDER_TIERS,
+    render_llm_payload,
     serialize_llm_payload,
 )
 
 # 노출 게이트 버전 — 전역 pipeline 계약 변경 시 올린다(항목 scope 아님).
-RISK_EXPOSURE_VERSION = "risk-expose-r4.0.0-gated"
+RISK_EXPOSURE_VERSION = "risk-expose-r4.0.1-gated"
 
 # token 계수 모드(감수 44차 §4): heuristic은 SHADOW 전용 — EXPOSE 금지.
 TOKEN_COUNT_MODES = ("PROVIDER_EXACT", "MODEL_TOKENIZER",
@@ -40,18 +42,35 @@ TOKEN_COUNT_MODES = ("PROVIDER_EXACT", "MODEL_TOKENIZER",
 _EXPOSE_OK_TOKEN_MODES = ("PROVIDER_EXACT", "MODEL_TOKENIZER")
 
 # payload 전체 비주입 사유(기계 판독 — 관측·감사용).
+# primary reason 결정 순서(감수 45차 §7 — policy hash 포함): 정적 저비용
+# 조건은 일괄 수집(all), primary는 이 순서의 첫 항목. tokenizer·직렬화 등
+# 비용 조건은 정적 전부 통과 후에만 평가한다.
 EXPOSURE_SUPPRESSION_REASONS = (
+    "KILL_SWITCH",
     "MODE_NOT_EXPOSE",
+    "CANARY_NOT_ALLOWLISTED",
     "QUESTION_TYPE_NOT_ALLOWED",
     "SCOPE_NOT_REVIEWED",
+    "EXPOSE_PIPELINE_NOT_REVIEWED",
     "POLICY_HASH_MISMATCH",
     "TOKENIZER_UNAVAILABLE",
+    "TOKENIZER_MODEL_MISMATCH",
     "TOKEN_BUDGET_INSUFFICIENT",
     "NO_EXPOSABLE_EPISODE",
     "CLAIM_POLICY_ERROR",
     "SERIALIZATION_ERROR",
-    "CANARY_NOT_ALLOWLISTED",
+    "FINAL_PROMPT_TOKEN_OVERFLOW",
 )
+# 질문 노출 정책(감수 45차 §9 — boolean intent 대체): 미래 overview·기간
+# 질문은 '위험'이라는 단어 없이도 implicit 허용, 과거 회고·미등록=DENY.
+RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE = {
+    "specific_event": "ALLOW_IMPLICIT",
+    "single_domain_period": "ALLOW_IMPLICIT",
+    "period_overview": "ALLOW_IMPLICIT",
+    "multi_episode_compare": "ALLOW_IMPLICIT",
+    "episode_followup": "ALLOW_IMPLICIT",
+}
+_EXPOSURE_POLICIES = ("ALLOW_IMPLICIT", "REQUIRE_EXPLICIT", "DENY")
 # item-level 하향 사유 — payload 전체 차단이 아니라 critical 1건 하향.
 CRITICAL_DOWNGRADE_REASON = "CRITICAL_EMPIRICAL_VALIDATION_PENDING"
 
@@ -125,8 +144,10 @@ def apply_exposure_levels(records: list[dict]) -> list[dict]:
     computedPresentationLevel을 보존하고 LLM에는 exposed만 전달한다.
     입력 records는 변경하지 않는다(사본 반환).
     """
-    pending = (critical_validation_state()["empirical_calibration"]
-               == "pending")
+    # fail-closed(감수 45차 §5): 명시적 "validated"가 아니면(미등록·손상
+    # 포함) critical 하향 유지.
+    pending = (critical_validation_state().get("empirical_calibration")
+               != "validated")
     out = []
     for r in records:
         rec = dict(r)
@@ -155,7 +176,7 @@ class ExposureGateContext:
     mode: RiskEngineMode
     question_type: str
     temporal_scope: str  # current | future | mixed | past_only
-    risk_intent_allowed: bool
+    risk_intent_allowed: bool  # REQUIRE_EXPLICIT 정책에서만 검사
     token_count_mode: str
     model_context_limit: int
     base_prompt_tokens: int
@@ -165,7 +186,55 @@ class ExposureGateContext:
     scopes_all_reviewed: bool
     policy_hashes_match: bool
     canary_allowlisted: bool = False
+    # 전역 kill switch(감수 45차 §8 — 게이트 최앞·mode 무관 비주입).
+    kill_switch: bool = False
+    # expose_pipeline 감수 상태(감수 45차 §6 — 현 reviewed=false: 모든 조건
+    # 충족이어도 비주입).
+    expose_pipeline_reviewed: bool = False
+    # tokenizer-모델 일치(감수 45차 §1): counter가 계수하는 모델과 실제
+    # 호출 모델(alias 해소 후)이 같아야 주입 가능.
+    counter_model_id: str | None = None
+    resolved_model_id: str | None = None
+    # 혼합 기간(감수 45차 §9): 미래 질문 범위(기간 라벨 [시작, 끝]) — 지정
+    # 시 R2 선택 episode 중 교집합만 노출 대상.
+    future_period_range: tuple[str, str] | None = None
     target_domains: tuple[str, ...] = field(default_factory=tuple)
+
+
+def _month_bounds(label: str) -> tuple[int, int]:
+    """기간 라벨 → (시작, 끝) 월 인덱스(연 라벨=그 해 전체)."""
+    if len(label) == 7 and label[4] == "-":
+        m = int(label[:4]) * 12 + int(label[5:7]) - 1
+        return m, m
+    year = int(label[:4])
+    return year * 12, year * 12 + 11
+
+def filter_payload_to_future_scope(
+    payload: dict, future_range: tuple[str, str],
+) -> dict:
+    """혼합 기간 질문(감수 45차 §9): R2 선택 episode ∩ 미래 질문 범위만 노출.
+
+    records의 diagnostics 기간으로 판정(같은 순서로 llm episodes 병행 필터 —
+    NONE 제외 규칙과 동일한 생성 순서를 공유). past_only=false라는 이유로 전
+    episode를 넣지 않는다. 반환은 새 payload(입력 불변).
+    """
+    lo, _ = _month_bounds(future_range[0])
+    _, hi = _month_bounds(future_range[1])
+    keep_records = []
+    keep_llm = []
+    llm_iter = iter(payload["llmRiskEpisodes"])
+    for rec in payload["presentationRecords"]:
+        llm_ep = (next(llm_iter)
+                  if rec["presentationLevel"] != "none" else None)
+        s, _e1 = _month_bounds(rec["diagnostics"]["startPeriod"])
+        _s2, e = _month_bounds(rec["diagnostics"]["endPeriod"])
+        if e < lo or s > hi:  # 미래 질문 범위와 교집합 없음
+            continue
+        keep_records.append(rec)
+        if llm_ep is not None:
+            keep_llm.append(llm_ep)
+    return {**payload, "presentationRecords": keep_records,
+            "llmRiskEpisodes": keep_llm}
 
 
 def evaluate_risk_exposure_gate(
@@ -185,35 +254,56 @@ def evaluate_risk_exposure_gate(
         counter: 모델 tokenizer adapter(Callable[[str], int]) —
             EXPOSE에서는 필수(부재=TOKENIZER_UNAVAILABLE).
     """
-    def _suppress(reason: str, budget: int | None = None) -> dict:
+    def _suppress(reasons: list[str], budget: int | None = None) -> dict:
+        ordered = [r for r in EXPOSURE_SUPPRESSION_REASONS if r in reasons]
+        primary = ordered[0] if ordered else reasons[0]
         return {
             "inject": False,
-            "suppression_reason": reason,
+            "suppression_reason": primary,
+            "all_suppression_reasons": ordered or list(reasons),
             "serialized": None,
             "observability": {
                 "attempted": True,
                 "injected": False,
-                "reason": reason,
+                "reason": primary,
+                "all_reasons": ordered or list(reasons),
                 "effective_budget": budget,
                 "critical_downgraded": 0,
             },
         }
 
+    # ── 정적 저비용 조건 일괄 수집(감수 45차 §7 — primary+all) ──
+    static: list[str] = []
+    if ctx.kill_switch:
+        static.append("KILL_SWITCH")
     if ctx.mode not in (RiskEngineMode.EXPOSE, RiskEngineMode.EXPOSE_CANARY):
-        return _suppress("MODE_NOT_EXPOSE")
-    if ctx.mode is RiskEngineMode.EXPOSE_CANARY and (
+        static.append("MODE_NOT_EXPOSE")
+    elif ctx.mode is RiskEngineMode.EXPOSE_CANARY and (
             not ctx.canary_allowlisted):
-        return _suppress("CANARY_NOT_ALLOWLISTED")
-    if (ctx.question_type not in ALLOWED_QUESTION_TYPES
-            or ctx.temporal_scope not in _ALLOWED_TEMPORAL_SCOPES
-            or not ctx.risk_intent_allowed):
-        return _suppress("QUESTION_TYPE_NOT_ALLOWED")
+        static.append("CANARY_NOT_ALLOWLISTED")
+    policy = RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE.get(
+        ctx.question_type, "DENY")
+    question_ok = (
+        policy != "DENY"
+        and ctx.temporal_scope in _ALLOWED_TEMPORAL_SCOPES
+        and (policy != "REQUIRE_EXPLICIT" or ctx.risk_intent_allowed)
+    )
+    if not question_ok:
+        static.append("QUESTION_TYPE_NOT_ALLOWED")
     if not ctx.scopes_all_reviewed:
-        return _suppress("SCOPE_NOT_REVIEWED")
+        static.append("SCOPE_NOT_REVIEWED")
+    if not ctx.expose_pipeline_reviewed:
+        static.append("EXPOSE_PIPELINE_NOT_REVIEWED")
     if not ctx.policy_hashes_match:
-        return _suppress("POLICY_HASH_MISMATCH")
+        static.append("POLICY_HASH_MISMATCH")
     if ctx.token_count_mode not in _EXPOSE_OK_TOKEN_MODES or counter is None:
-        return _suppress("TOKENIZER_UNAVAILABLE")
+        static.append("TOKENIZER_UNAVAILABLE")
+    elif (ctx.counter_model_id is None or ctx.resolved_model_id is None
+          or ctx.counter_model_id != ctx.resolved_model_id):
+        static.append("TOKENIZER_MODEL_MISMATCH")
+    if static:
+        return _suppress(static)
+    # ── 동적 조건(정적 전부 통과 후에만 — tokenizer·직렬화 비용) ──
     available = available_risk_tokens(
         model_context_limit=ctx.model_context_limit,
         base_prompt_tokens=ctx.base_prompt_tokens,
@@ -223,11 +313,14 @@ def evaluate_risk_exposure_gate(
     try:
         budget = effective_risk_budget(ctx.question_type, available)
     except ValueError:
-        return _suppress("QUESTION_TYPE_NOT_ALLOWED")
+        return _suppress(["QUESTION_TYPE_NOT_ALLOWED"])
     if budget < MIN_SAFE_RISK_PRESENTATION_BUDGET:
-        return _suppress("TOKEN_BUDGET_INSUFFICIENT", budget)
+        return _suppress(["TOKEN_BUDGET_INSUFFICIENT"], budget)
+    if ctx.future_period_range is not None:
+        payload = filter_payload_to_future_scope(
+            payload, ctx.future_period_range)
     if not payload.get("llmRiskEpisodes"):
-        return _suppress("NO_EXPOSABLE_EPISODE", budget)
+        return _suppress(["NO_EXPOSABLE_EPISODE"], budget)
     # computed→exposed 하향(critical 실증 pending) 후 직렬화.
     exposed_records = apply_exposure_levels(payload["llmRiskEpisodes"])
     downgraded = sum(1 for r in exposed_records
@@ -247,15 +340,16 @@ def evaluate_risk_exposure_gate(
     try:
         serialized = serialize_llm_payload(exposed_payload, budget, counter)
     except ValueError:
-        return _suppress("CLAIM_POLICY_ERROR", budget)
+        return _suppress(["CLAIM_POLICY_ERROR"], budget)
     except Exception:  # noqa: BLE001 — 직렬화 실패=비주입(fail-closed)
-        return _suppress("SERIALIZATION_ERROR", budget)
+        return _suppress(["SERIALIZATION_ERROR"], budget)
     doc = json.loads(serialized)
     if doc.get("exposureSuppressedReason"):
-        return _suppress("TOKEN_BUDGET_INSUFFICIENT", budget)
+        return _suppress(["TOKEN_BUDGET_INSUFFICIENT"], budget)
     return {
         "inject": True,
         "suppression_reason": None,
+        "all_suppression_reasons": [],
         "serialized": serialized,
         "audit_records": exposed_records,  # computed level·하향 사유 보존
         "observability": {
@@ -268,6 +362,68 @@ def evaluate_risk_exposure_gate(
             "critical_downgraded": downgraded,
         },
     }
+
+
+# suppressed guard(감수 45차 §10 — EXPOSE 계열 모드 전용: OFF/SHADOW prompt
+# byte 불변 유지). 일반 사건 후보의 위험 승격만 금지 — 계약 검토 권고 수준의
+# 기존 표현은 계속 허용(과잉 차단 금지).
+RISK_EXPOSURE_GUARD_BLOCK = (
+    "[위험 표현 계약] 구조화된 riskEpisodes 블록이 제공되지 않은 경우, 일반"
+    " 사건 후보나 운세 신호를 별도의 위험·경고·사고·손실 주장으로 확대"
+    " 해석하지 않는다('계약 검토가 필요한 시기' 수준의 권고는 허용)."
+    " riskEpisodes가 제공된 경우: presentationLevel은 발생 확률이 아니며"
+    " 점수가 높아도 사건을 단정하지 않는다. requiredQualifiers를 반드시"
+    " 유지하고, prohibitedClaimCodes에 해당하는 문장을 생성하지 않으며,"
+    " 표현 강도는 각 episode의 표시 수준을 초과하지 않는다."
+)
+
+
+@dataclass(frozen=True)
+class RiskPromptBlock:
+    """주입용 위험 block(감수 45차 §12 — 원자 단위·불변).
+
+    reducer는 내부 필드를 개별 삭제할 수 없다(frozen) — 토큰이 부족하면
+    R3 serializer에 더 작은 compression mode를 요청한다(재생성).
+    """
+
+    serialized_text: str
+    compression_mode: str  # P2 | P1 | P0 | P0_COMPACT
+    exact_token_count: int
+    immutable: bool = True
+
+
+def finalize_risk_prompt_block(
+    exposed_payload: dict,
+    budget: int,
+    counter,
+    final_prompt_builder,
+    final_token_limit: int,
+) -> tuple[RiskPromptBlock | None, str | None]:
+    """최종 prompt 2차 계수(감수 45차 §1·§2) — 사전 headroom만으로 주입 금지.
+
+    각 compression mode에 대해: ①block 자체가 budget 이내인지 counter로
+    계수 ②final_prompt_builder(block_text)로 **최종 prompt를 조립해 전체를
+    재계수** ③final_token_limit 이내면 채택. 모든 mode가 초과하면
+    (None, "FINAL_PROMPT_TOKEN_OVERFLOW") — 전체 비주입.
+
+    Args:
+        exposed_payload: apply_exposure_levels 반영·LLM 필드만 남긴 payload.
+        budget: effective_risk_budget 결과.
+        counter: 실제 모델 tokenizer adapter(필수 — 게이트가 보장).
+        final_prompt_builder: block 문자열 → 완성된 최종 prompt 문자열.
+        final_token_limit: 최종 prompt 전체 허용 토큰(context limit −
+            response reserve − safety headroom).
+    """
+    for tier in RENDER_TIERS:
+        text = render_llm_payload(exposed_payload, tier)
+        if counter(text) > budget:
+            continue
+        final_prompt = final_prompt_builder(text)
+        if counter(final_prompt) <= final_token_limit:
+            return (RiskPromptBlock(
+                serialized_text=text, compression_mode=tier,
+                exact_token_count=int(counter(text))), None)
+    return None, "FINAL_PROMPT_TOKEN_OVERFLOW"
 
 
 def expose_policy_hash() -> str:
@@ -287,10 +443,34 @@ def expose_policy_hash() -> str:
         "question_gate": "allowlist + temporal(past_only 비주입) +"
                          " risk_intent_allowed — 미등록 fail-closed",
         "level_split": "computed(감사 보존) vs exposed(LLM 전달) —"
-                       " critical은 실증 pending 동안 warning 하향"
-                       f"(item-level {CRITICAL_DOWNGRADE_REASON})",
-        "suppression_reasons": list(EXPOSURE_SUPPRESSION_REASONS),
-        "modes": "OFF/SHADOW/EXPOSE_CANARY(allowlist 필수)/EXPOSE",
+                       " critical은 'validated' 명시 전(미등록·손상 포함)"
+                       f" warning 하향(item-level {CRITICAL_DOWNGRADE_REASON})",
+        "critical_validation_state": critical_validation_state(),
+        "suppression_reason_order": list(EXPOSURE_SUPPRESSION_REASONS),
+        "suppression_collection": "정적 저비용 조건 일괄 수집(primary+all),"
+                                  " tokenizer·직렬화는 정적 통과 후만",
+        "question_exposure_policy": dict(sorted(
+            RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE.items())),
+        "temporal_intersection": "혼합 기간=R2 선택 episode 기간 ∩ 미래 질문"
+                                 " 범위만(past_only=false 전체 주입 금지)",
+        "tokenizer_model_match": "counter.model_id == resolved model —"
+                                 " 불일치=TOKENIZER_MODEL_MISMATCH,"
+                                 " fallback 라우팅 시 재계수",
+        "final_prompt_recount": "위험 block 포함 최종 prompt를 동일"
+                                " tokenizer로 재계수 — 초과 시 더 작은"
+                                " compression 재시도, 전부 초과="
+                                "FINAL_PROMPT_TOKEN_OVERFLOW 비주입",
+        "prompt_block": "RiskPromptBlock immutable — reducer 내부 편집"
+                        " 금지(부족 시 serializer에 작은 mode 재요청)",
+        "kill_switch": "게이트 최앞 — mode 무관 비주입",
+        "guard_block": "EXPOSE 계열 모드 전용(OFF/SHADOW prompt byte 불변)"
+                       " — suppressed 시 일반 후보의 위험 승격 금지·기존"
+                       " 권고 표현 허용",
+        "answer_claim_audit": "생성 답변 사후 검사(risk_claim_audit) —"
+                              " 위반 시 재작성/제거/차단, 기록만 남기고"
+                              " 노출 금지",
+        "modes": "OFF/SHADOW/EXPOSE_CANARY(allowlist 필수·기본 거부·내부"
+                 " subject ID)/EXPOSE",
         "injection_contract": "R3가 FULL~P0_COMPACT/SUPPRESSED를 완성 단위로"
                               " 선택해 전달 — 일반 reducer의 위험 필드 임의"
                               " 삭제 금지, suppressed 시 모델의 위험 내용"
@@ -306,6 +486,11 @@ def expose_policy_hash() -> str:
 
 __all__ = [
     "ALLOWED_QUESTION_TYPES",
+    "RISK_EXPOSURE_GUARD_BLOCK",
+    "RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE",
+    "RiskPromptBlock",
+    "filter_payload_to_future_scope",
+    "finalize_risk_prompt_block",
     "CRITICAL_DOWNGRADE_REASON",
     "EXPOSURE_SUPPRESSION_REASONS",
     "EXPOSURE_TOKEN_BUDGET_BY_QUESTION_TYPE",

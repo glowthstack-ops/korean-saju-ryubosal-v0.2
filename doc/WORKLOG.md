@@ -8287,3 +8287,19 @@ r4.0.0-gated. fixture 10종(§13). 주입 배선 없음(게이트 함수만 — 
 불변). pytest 2074·ruff·mypy 0(529)·baseline 불변·manifest 일치.
 다음: R5 파이프라인 배선(주입 지점·tokenizer adapter 실물·canary allowlist)
 감수 후 EXPOSE_CANARY.
+
+## R5-a — EXPOSE 배선 전 계층(감수 45차 착수 승인, 2026-07-16)
+
+§28 manifest 선행(EXPOSE_CANARY 개시 전 필수 4건 — 2차 계수·모델 일치·
+suppressed guard·출력 claim audit). 게이트 확장(r4.0.1-gated): kill switch
+최앞·EXPOSE_PIPELINE_NOT_REVIEWED·TOKENIZER_MODEL_MISMATCH·primary/all
+reasons(정적 일괄 수집·순서 policy hash)·riskExposurePolicy enum(전 유형
+ALLOW_IMPLICIT·미등록 DENY)·혼합 기간 필터(episode ∩ 미래 범위)·critical
+state fail-closed(validated 명시 전 하향). RiskPromptBlock(frozen)+
+finalize_risk_prompt_block(최종 prompt 재계수→재압축→FINAL_PROMPT_TOKEN_
+OVERFLOW)·RISK_EXPOSURE_GUARD_BLOCK(EXPOSE 전용 — apps 미참조 grep 강제)·
+risk_claim_audit(결정적 사후 검사 — ALLOW/REVISE_REQUIRED). fixture 16종.
+pytest 2080·ruff·mypy 0(530)·baseline 불변·manifest 일치. REVIEW.md §28-1.
+다음: R5-b 배선(chat 주입 지점·tokenizer adapter 실물·canary allowlist·
+audit 재생성 흐름·통합 fixture) → expose_pipeline reviewed 감수 →
+r4.1.0-canary.

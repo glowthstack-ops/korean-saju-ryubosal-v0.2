@@ -1780,3 +1780,99 @@ R5 파이프라인 차수 — 게이트 함수만 존재, 호출 경로 없음).
 주입 지점·tokenizer adapter 실물·canary allowlist 정책) 감수 후 EXPOSE_
 CANARY 개시. safety headroom 256·질문 유형 token 표는 잠정(canary 실측 후
 확정).
+
+## 28. R5 차수(감수 45차 착수 승인) manifest — 배선·출력 감사 선행 고정 (2026-07-16)
+
+**핵심 원칙(데굴님)**: 감수된 위험 block을 안전하게 만들었다는 사실만으로는
+충분하지 않다 — 실제 모델이 받은 **최종 프롬프트**와 실제 생성한 **최종
+문장**까지 감수 계약을 지켜야 노출을 허용할 수 있다.
+
+**슬라이스**: R5-a=게이트 확장·RiskPromptBlock·answer claim audit(채팅 배선
+전 계층 — 본 차수) / R5-b=chat_service 실배선·tokenizer adapter 실물·canary
+allowlist 정책(다음 차수). EXPOSE_CANARY 개시는 R5-b 통합 fixture +
+expose_pipeline reviewed=true 후.
+
+EXPOSE_CANARY 개시 전 필수 4건(감수 45차):
+
+1. **최종 prompt 2차 계수**: 사전 headroom 통과 후, 위험 block을 포함해
+   조립된 최종 prompt를 **동일 tokenizer로 재계수** — 초과 시 더 작은
+   compression(FULL→P2→P1→P0→P0_COMPACT) 재시도, 그래도 초과면
+   FINAL_PROMPT_TOKEN_OVERFLOW 비주입. 사전 계산만으로 주입 금지.
+2. **tokenizer-모델 일치**: counter.model_id == llm_config resolved model —
+   불일치=TOKENIZER_MODEL_MISMATCH 비주입. alias 해소 후 counter 선택,
+   fallback 라우팅 시 재계수.
+3. **suppressed guard 계약**: 구조화 riskEpisodes 부재 시 일반 사건 후보를
+   위험·경고·사고·손실 주장으로 확대 해석 금지(계약 검토 권고 수준은 유지 —
+   과잉 차단 금지). guard block은 **EXPOSE 계열 모드에만** 추가(OFF/SHADOW
+   prompt byte 불변 유지).
+4. **answer claim audit(사후 검사)**: 규칙 기반 — 확정 발생·사고/질병/법적
+   결과 단정·금전 손실 확정·partial 동일 건 단정·recovery 보장·exposed
+   level 초과 표현. 위반 시 사용자 전달 전 재작성/위험 단락 제거/전체
+   fail-closed(위반 기록만 남기고 그대로 노출 금지 — prompt 지시만으로
+   claim 강제 완료로 판단 금지).
+
+게이트 보강(감수 45차):
+- kill switch(RISK_EXPOSURE_KILL_SWITCH — 게이트 최앞, mode 무관 비주입).
+- EXPOSE_PIPELINE_NOT_REVIEWED reason 분리(현 reviewed=false → 모든 조건
+  충족이어도 비주입 fixture).
+- suppression reason: primary + all(저비용 정적 조건은 일괄 수집, tokenizer·
+  직렬화는 정적 통과 후만) — primary 순서는 policy hash 포함.
+- 질문 게이트: boolean intent → **riskExposurePolicy enum**(ALLOW_IMPLICIT/
+  REQUIRE_EXPLICIT/DENY — 미래 overview·single_domain=implicit, 과거
+  회고=DENY). 혼합 기간은 R2 선택 episode 기간 ∩ 미래 질문 범위만 노출.
+- critical_validation_state를 expose_policy_hash에 포함, 미등록/손상 상태
+  =critical 하향 유지(fail-closed).
+- **RiskPromptBlock immutable**: serialized_text·compression_mode·
+  exact_token_count·immutable=true — reducer는 내부 편집 금지, 부족 시 R3
+  serializer에 더 작은 mode 요청.
+- canary 기본 거부: allowlist 부재·식별값 없음·조회 실패·설정 누락·미등록
+  모델/질문 유형 전부 비주입. allowlist는 내부 subject ID 기준.
+
+버전: R5-a=risk-expose-**r4.0.1-gated**(게이트 의미 확장), R5-b 배선 완료
+시 **r4.1.0-canary**. expose_pipeline.reviewed=true는 R5-b 통합 fixture
+감수 후.
+
+### 28-1. R5-a 구현 결과 (2026-07-16 — 배선 전 계층·chat 미연결)
+
+게이트 확장(risk_exposure — r4.0.1-gated):
+
+- **kill switch**(게이트 최앞·mode 무관)·**EXPOSE_PIPELINE_NOT_REVIEWED**
+  분리(현 reviewed=false → 모든 조건 충족이어도 비주입 fixture)·
+  **TOKENIZER_MODEL_MISMATCH**(counter.model_id ≠ resolved model — 부재
+  포함) 신설.
+- **primary + all suppression reasons**: 정적 저비용 조건(kill switch·mode·
+  canary·질문·scope·pipeline·hash·tokenizer·모델 일치) 일괄 수집, primary=
+  고정 순서(policy hash 포함)의 첫 항목 — 예산·직렬화는 정적 통과 후만.
+- **riskExposurePolicy enum**(ALLOW_IMPLICIT/REQUIRE_EXPLICIT/DENY):
+  감수 5유형 전부 ALLOW_IMPLICIT('위험' 단어 없이 허용 — fixture), 미등록
+  =DENY, REQUIRE_EXPLICIT만 intent 검사. **혼합 기간**:
+  filter_payload_to_future_scope — R2 선택 episode 기간 ∩ 미래 질문
+  범위만(records·llm 병행 필터·입력 불변).
+- **critical state fail-closed**: 명시 "validated"가 아니면(미등록·손상
+  포함) 하향 유지. critical_validation_state를 expose_policy_hash에 포함.
+- **RiskPromptBlock**(frozen — serialized_text·compression_mode·
+  exact_token_count·immutable) + **finalize_risk_prompt_block**: tier별
+  ①block budget 계수 ②최종 prompt 조립 후 **동일 counter 재계수**
+  ③한도 내면 채택, 전부 초과=FINAL_PROMPT_TOKEN_OVERFLOW 비주입(사전
+  headroom만으로 주입 금지). reducer 내부 편집 불가(frozen fixture).
+- **suppressed guard block**(RISK_EXPOSURE_GUARD_BLOCK — EXPOSE 계열
+  전용): 구조화 block 부재 시 일반 후보의 위험 승격 금지 + 권고 수준 표현
+  허용(과잉 차단 금지) + level≠확률·qualifier 유지·prohibited 미생성.
+  OFF/SHADOW 미참조를 grep fixture로 강제(apps 전체 0 hit — R5-b 배선 시
+  EXPOSE 분기 내에서만 허용).
+- **answer claim audit**(risk_claim_audit — 결정적 패턴·LLM 미사용):
+  확정 발생·사고/질병/법적 단정·금전 손실 확정·동일 사건 단정·recovery
+  보장·항목 원문·level 격상 검사 → ALLOW/REVISE_REQUIRED(위반 시 재작성/
+  제거/차단 — 기록만 남기고 노출 금지).
+
+fixture 16종(기존 10 + R5-a 6): kill switch 순서·pipeline not reviewed·
+모델 불일치·혼합 기간 필터(게이트 경유 포함)·2차 계수 3분기(채택/재압축/
+비주입)·claim audit(위반·권고 통과)·guard block EXPOSE 전용. **게이트**:
+pytest 2080·ruff clean·mypy 0(530)·baseline 불변·manifest 일치.
+
+**R5-b(다음 차수 — 배선)**: chat_service 주입 지점(EXPOSE 분기 —
+OFF/SHADOW prompt byte 불변), 질문 파서→questionType/temporalScope/
+future_period_range 매핑, tokenizer adapter 실물(llm_config resolved
+model→counter registry), canary allowlist(내부 subject ID)·kill switch
+env, answer audit 배선(위반 시 재생성 흐름), 통합 fixture(§14 전체) →
+expose_pipeline reviewed=true 감수 → r4.1.0-canary → EXPOSE_CANARY 개시.

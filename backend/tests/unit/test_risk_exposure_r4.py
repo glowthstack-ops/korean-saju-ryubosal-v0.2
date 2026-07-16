@@ -80,6 +80,9 @@ def _ctx(**overrides) -> ExposureGateContext:
         response_reserve=2_000,
         scopes_all_reviewed=True,
         policy_hashes_match=True,
+        expose_pipeline_reviewed=True,
+        counter_model_id="test-model",
+        resolved_model_id="test-model",
     )
     base.update(overrides)
     return ExposureGateContext(**base)
@@ -184,15 +187,32 @@ def test_mode_gates_off_shadow_and_canary() -> None:
     assert canary_ok["inject"] is True
 
 
-def test_question_gate_temporal_and_intent() -> None:
-    """과거 회고(past_only)·intent 불허·미등록 유형 → 비주입."""
+def test_question_gate_temporal_policy_and_intent() -> None:
+    """riskExposurePolicy enum(감수 45차 §9): 과거 회고·미등록 유형=비주입,
+    ALLOW_IMPLICIT은 '위험' 단어 없이도 허용, REQUIRE_EXPLICIT만 intent 검사."""
+    import saju_engines.risk_exposure as rx
+
     payload = _payload()
     for override in ({"temporal_scope": "past_only"},
-                     {"risk_intent_allowed": False},
                      {"question_type": "unknown_type"}):
         out = evaluate_risk_exposure_gate(_ctx(**override), payload,
                                           counter=_tok)
         assert out["suppression_reason"] == "QUESTION_TYPE_NOT_ALLOWED"
+    # ALLOW_IMPLICIT: 위험을 직접 묻지 않아도(intent=False) 주입 허용.
+    implicit = evaluate_risk_exposure_gate(
+        _ctx(risk_intent_allowed=False), payload, counter=_tok)
+    assert implicit["inject"] is True
+    # REQUIRE_EXPLICIT 정책이면 intent=False → 비주입.
+    orig = dict(rx.RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE)
+    try:
+        rx.RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE["period_overview"] = (
+            "REQUIRE_EXPLICIT")
+        out = evaluate_risk_exposure_gate(
+            _ctx(risk_intent_allowed=False), payload, counter=_tok)
+        assert out["suppression_reason"] == "QUESTION_TYPE_NOT_ALLOWED"
+    finally:
+        rx.RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE.clear()
+        rx.RISK_EXPOSURE_POLICY_BY_QUESTION_TYPE.update(orig)
 
 
 def test_token_budgets_are_separate_from_episode_budget() -> None:
@@ -236,3 +256,149 @@ def test_injection_serialized_has_exposed_levels_only() -> None:
     obs = out["observability"]
     assert obs["injected"] is True and obs["effective_budget"] >= 512
     assert "critical_downgraded" in obs
+
+
+# ── R5-a fixture(감수 45차 — §14 중 배선 전 계층) ────────────────
+
+
+def test_kill_switch_first_and_pipeline_not_reviewed() -> None:
+    """kill switch=게이트 최앞(mode 무관), expose_pipeline reviewed=false면
+    모든 조건 충족이어도 비주입(EXPOSE_PIPELINE_NOT_REVIEWED)."""
+    payload = _payload()
+    out = evaluate_risk_exposure_gate(
+        _ctx(kill_switch=True, expose_pipeline_reviewed=False,
+             scopes_all_reviewed=False), payload, counter=_tok)
+    assert out["suppression_reason"] == "KILL_SWITCH"  # primary=순서 최앞
+    assert "EXPOSE_PIPELINE_NOT_REVIEWED" in out["all_suppression_reasons"]
+    assert "SCOPE_NOT_REVIEWED" in out["all_suppression_reasons"]
+    # 현 상태 계약: reviewed=false 단독으로도 비주입.
+    out2 = evaluate_risk_exposure_gate(
+        _ctx(expose_pipeline_reviewed=False), payload, counter=_tok)
+    assert out2["suppression_reason"] == "EXPOSE_PIPELINE_NOT_REVIEWED"
+
+
+def test_tokenizer_model_mismatch_suppresses() -> None:
+    """counter 모델 ≠ 실제 호출 모델 → TOKENIZER_MODEL_MISMATCH(감수 45차)."""
+    payload = _payload()
+    out = evaluate_risk_exposure_gate(
+        _ctx(counter_model_id="gpt-5-mini", resolved_model_id="gemini"),
+        payload, counter=_tok)
+    assert out["suppression_reason"] == "TOKENIZER_MODEL_MISMATCH"
+    out2 = evaluate_risk_exposure_gate(
+        _ctx(counter_model_id=None), payload, counter=_tok)
+    assert out2["suppression_reason"] == "TOKENIZER_MODEL_MISMATCH"
+
+
+def test_mixed_period_filters_to_future_intersection() -> None:
+    """혼합 기간 질문: R2 선택 episode ∩ 미래 질문 범위만 노출 —
+    past_only=false라는 이유로 과거 episode를 넣지 않는다."""
+    from saju_engines.risk_exposure import filter_payload_to_future_scope
+
+    past = _cand(risk_id="LEG_PAST", legal_episode_id="e1")
+    past = past.model_copy(update={"period_key": "2024"})
+    future = _cand(risk_id="LEG_FUT", legal_episode_id="e2",
+                   sources=(_HYEONG,), role="administrative_delay")
+    cands = score_shadow([past, future], {"LEG_PAST": 0.6, "LEG_FUT": 0.6})
+    payload = build_presentation(build_episodes(cands), cands)
+    assert len(payload["llmRiskEpisodes"]) == 2
+    filtered = filter_payload_to_future_scope(payload, ("2026-01", "2027-12"))
+    assert len(filtered["llmRiskEpisodes"]) == 1
+    assert len(filtered["presentationRecords"]) == 1
+    assert payload["llmRiskEpisodes"] and len(
+        payload["llmRiskEpisodes"]) == 2  # 입력 불변
+    # 게이트 경유: future_period_range 지정 시 동일 필터.
+    out = evaluate_risk_exposure_gate(
+        _ctx(temporal_scope="mixed", future_period_range=("2026-01",
+                                                          "2027-12")),
+        payload, counter=_tok)
+    assert out["inject"] is True
+    assert out["observability"]["episode_count"] == 1
+
+
+def test_final_prompt_recount_and_compression_retry() -> None:
+    """최종 prompt 2차 계수(감수 45차 §1·§2): 사전 통과 후 wrapper 포함
+    재계수 초과 → 더 작은 compression 재시도 → 전부 초과면 비주입."""
+    from saju_engines.risk_exposure import (
+        RiskPromptBlock,
+        finalize_risk_prompt_block,
+    )
+
+    payload = _payload()
+    exposed = {
+        "globalProhibitedClaimCodes": payload["globalProhibitedClaimCodes"],
+        "globalAllowedClaimCodes": payload["globalAllowedClaimCodes"],
+        "llmRiskEpisodes": payload["llmRiskEpisodes"],
+    }
+    wrapper = "시스템 프롬프트 " * 100  # 고정 wrapper
+
+    def builder(block_text: str) -> str:
+        return wrapper + block_text
+
+    # ① 충분한 한도 → 최대 tier(P2) 채택 + immutable block.
+    block, reason = finalize_risk_prompt_block(
+        exposed, budget=2_000, counter=_tok, final_prompt_builder=builder,
+        final_token_limit=10_000)
+    assert reason is None and isinstance(block, RiskPromptBlock)
+    assert block.compression_mode == "P2" and block.immutable is True
+    import dataclasses
+
+    import pytest as _pytest
+    with _pytest.raises(dataclasses.FrozenInstanceError):
+        block.serialized_text = "변조"  # type: ignore[misc]
+    # ② block 자체는 budget 이내지만 최종 prompt가 한도 초과 → 작은 tier로.
+    tight_limit = _tok(wrapper) + _tok(
+        __import__("saju_engines.risk_presentation",
+                   fromlist=["render_llm_payload"]).render_llm_payload(
+            exposed, "P0_COMPACT")) + 1
+    block2, reason2 = finalize_risk_prompt_block(
+        exposed, budget=2_000, counter=_tok, final_prompt_builder=builder,
+        final_token_limit=tight_limit)
+    assert reason2 is None and block2 is not None
+    assert block2.compression_mode == "P0_COMPACT"
+    # ③ 전부 초과 → FINAL_PROMPT_TOKEN_OVERFLOW 비주입.
+    block3, reason3 = finalize_risk_prompt_block(
+        exposed, budget=2_000, counter=_tok, final_prompt_builder=builder,
+        final_token_limit=10)
+    assert block3 is None and reason3 == "FINAL_PROMPT_TOKEN_OVERFLOW"
+
+
+def test_answer_claim_audit_blocks_prohibited_output() -> None:
+    """생성 답변 사후 감사(감수 45차 §11): prohibited 표현·partial 동일 건
+    단정·recovery 보장·level 격상 → REVISE_REQUIRED(그대로 노출 금지)."""
+    from saju_engines.risk_claim_audit import audit_generated_risk_claims
+
+    bad = ("이 시기에는 계약 문제가 반드시 발생하고, 두 신호는 같은"
+           " 사건입니다. 6월 이후에는 완전히 해결됩니다.")
+    out = audit_generated_risk_claims(
+        bad, episode_prohibited_phrases=["계약 무산 단정"],
+        required_qualifiers=["possibly_related"],
+        max_exposed_level="warning")
+    codes = {v["code"] for v in out["violations"]}
+    assert out["action"] == "REVISE_REQUIRED"
+    assert {"guaranteed_occurrence", "same_episode_certainty",
+            "recovery_guarantee"} <= codes
+    # 허용 표현(권고 수준)은 통과 — 과잉 차단 금지.
+    ok = ("계약 조건을 한 번 더 검토해 두면 좋은 시기입니다. 관련 신호가"
+          " 이어질 수 있어 진행 상황을 세심하게 살펴보시길 권합니다.")
+    out2 = audit_generated_risk_claims(
+        ok, required_qualifiers=["possibly_related"],
+        max_exposed_level="warning")
+    assert out2["action"] == "ALLOW" and out2["violations"] == []
+
+
+def test_guard_block_is_expose_only() -> None:
+    """suppressed guard block은 EXPOSE 계열 전용 상수 — OFF/SHADOW 프롬프트
+    경로(chat/report/llm_client)에서 참조되지 않는다(byte 불변 유지)."""
+    import subprocess
+    from pathlib import Path
+
+    from saju_engines.risk_exposure import RISK_EXPOSURE_GUARD_BLOCK
+
+    assert "확대 해석하지 않는다" in RISK_EXPOSURE_GUARD_BLOCK
+    assert "허용" in RISK_EXPOSURE_GUARD_BLOCK  # 과잉 차단 금지 문구
+    backend = Path(__file__).resolve().parents[2]
+    hits = subprocess.run(
+        ["grep", "-rl", "--include=*.py", "RISK_EXPOSURE_GUARD_BLOCK",
+         str(backend / "apps")],
+        capture_output=True, text=True, check=False).stdout.splitlines()
+    assert hits == []  # R5-b 배선 전 — 배선 시 EXPOSE 분기 내에서만 허용

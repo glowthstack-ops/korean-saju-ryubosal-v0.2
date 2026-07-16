@@ -504,6 +504,35 @@ def _compact_episode(r: dict) -> dict:
     }
 
 
+RENDER_TIERS = ("P2", "P1", "P0", "P0_COMPACT")
+
+
+def render_llm_payload(payload: dict, tier: str) -> str:
+    """명시 tier로 LLM payload 직렬화(감수 45차 — RiskPromptBlock의 2차
+    재계수·재압축 루프가 사용). tier: P2(full)/P1/P0/P0_COMPACT."""
+    episodes = payload["llmRiskEpisodes"]
+    fields_by_tier = {
+        "P2": _P0_FIELDS + _P1_FIELDS + _P2_FIELDS,
+        "P1": _P0_FIELDS + _P1_FIELDS,
+        "P0": _P0_FIELDS,
+    }
+    if tier == "P0_COMPACT":
+        slim = [_compact_episode(r) for r in episodes]
+    else:
+        fields = fields_by_tier.get(tier)
+        if fields is None:
+            raise ValueError(f"미지원 render tier: {tier}")
+        slim = [{k: r[k] for k in fields if k in r} for r in episodes]
+    doc = {
+        "globalProhibitedClaimCodes": payload["globalProhibitedClaimCodes"],
+        "globalAllowedClaimCodes": payload["globalAllowedClaimCodes"],
+        "riskEpisodes": slim,
+    }
+    if tier == "P0_COMPACT":
+        doc["compressionMode"] = "P0_COMPACT"
+    return json.dumps(doc, ensure_ascii=False, sort_keys=True)
+
+
 def serialize_llm_payload(payload: dict, token_budget: int,
                           counter=None) -> str:
     """LLM payload 직렬화 + token guard(감수 42·43차 — fail-closed).
@@ -664,6 +693,8 @@ __all__ = [
     "presentation_decision",
     "presentation_level",
     "presentation_policy_hash",
+    "RENDER_TIERS",
+    "render_llm_payload",
     "score_band",
     "serialize_llm_payload",
 ]
