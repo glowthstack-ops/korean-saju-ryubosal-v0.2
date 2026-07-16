@@ -895,3 +895,92 @@ def test_additive_saturation_case_stays_uncapped_in_modifier() -> None:
     assert additive_raw > 1.0  # 과거 공식이면 상한
     raw, capped = risk_priority(comp)
     assert raw == pytest.approx(0.52) and capped < 1.0  # modifier — 미도달
+
+
+# ── 19. 대운 교운기 modifier(감수 36차 — R1-T) ────────────────────
+
+
+def test_transition_kernel_ssot_and_symmetry() -> None:
+    """커널=이벤트 엔진 함수 공유(SSOT — 복제 없음), 교운일 중심·양측 대칭 감쇠."""
+    from datetime import date
+
+    from saju_engines.event_scoring import daewoon_transition_weight
+    jiao = [date(2026, 6, 1)]
+    w0 = daewoon_transition_weight(date(2026, 6, 1), jiao)
+    w1p = daewoon_transition_weight(date(2027, 6, 1), jiao)
+    w1m = daewoon_transition_weight(date(2025, 6, 1), jiao)
+    w2 = daewoon_transition_weight(date(2028, 6, 1), jiao)
+    w3 = daewoon_transition_weight(date(2029, 6, 1), jiao)
+    assert w0 == 1.0 and w0 > w1p > w2 > w3
+    assert w1p == pytest.approx(w1m)  # 양측 대칭
+
+
+def test_transition_only_changes_scores() -> None:
+    """교운기 가중만 변경 → eligibility·노출·cause·episode 등 전 필드 불변,
+    transition_bonus·(파생 점수)만 변경."""
+    c = _candidate(evidence=[_evidence(_CHUNG, strength=0.5)],
+                   exposure=ExposureStatus.CONFIRMED,
+                   transition_sensitivity="high")
+    [plain] = score_shadow([c], {"SYN_RISK": 0.6})
+    [boosted] = score_shadow([c], {"SYN_RISK": 0.6},
+                             transition_weights={"2026": 1.0})
+    assert plain.model_dump(exclude={"transition_bonus"}) == (
+        boosted.model_dump(exclude={"transition_bonus"}))
+    assert plain.transition_bonus == 0.0
+    assert boosted.transition_bonus == pytest.approx(0.5)  # 1.0×1.0×0.5
+    raw_p, _ = risk_priority(_comp(plain),
+                             transition_bonus=plain.transition_bonus)
+    raw_b, _ = risk_priority(_comp(boosted),
+                             transition_bonus=boosted.transition_bonus)
+    assert raw_b > raw_p
+    # cause table도 불변(교운 원자 없음 — 진입 금지는 fail-closed namespace).
+    assert cause_occurrence_table([plain]) == cause_occurrence_table([boosted])
+
+
+def test_transition_cannot_revive_zero_base_or_unexposed() -> None:
+    """base=0 또는 비노출(BLOCKED·DENIED·confirmed_required UNKNOWN)은
+    교운기 가중 최대여도 rankable 0."""
+    zero_base = _candidate(evidence=[_evidence(_CHUNG, strength=0.5)],
+                           transition_sensitivity="high")
+    [z] = score_shadow([zero_base], {},  # impact 미등재=0 → base 0
+                       transition_weights={"2026": 1.0})
+    assert risk_priority(_comp(z), transition_bonus=z.transition_bonus) == (
+        0.0, 0.0)
+    unexposed = _candidate(evidence=[_evidence(_CHUNG, strength=0.5)],
+                           exposure=ExposureStatus.UNKNOWN,
+                           exposure_requirement="confirmed_required",
+                           transition_sensitivity="high")
+    [u] = score_shadow([unexposed], {"SYN_RISK": 0.9},
+                       transition_weights={"2026": 1.0})
+    assert _comp(u).exposure == 0.0
+    assert risk_priority(_comp(u), transition_bonus=u.transition_bonus)[1] == 0.0
+
+
+def test_transition_kernel_persistence_not_double_counted() -> None:
+    """교운 커널이 여러 월에 걸쳐 있어도 native cause 반복이 없으면
+    persistence 0 — 교운기는 persistence 재료가 아니다."""
+    serialized = [
+        _candidate(risk_id="SYN_T", period=f"2026-{m:02d}",
+                   transition_sensitivity="high",
+                   evidence=[_evidence(_CHUNG, strength=0.5,
+                                       period=f"2026-{m:02d}",
+                                       layer="sewoon")])
+        for m in range(1, 7)
+    ]
+    weights = {f"2026-{m:02d}": 0.9 for m in range(1, 7)}
+    scored = score_shadow(serialized, {"SYN_T": 0.6},
+                          transition_weights=weights)
+    assert all(_comp(s).persistence == 0.0 for s in scored)
+    assert all(s.transition_bonus > 0 for s in scored)
+
+
+def test_transition_sensitivity_none_and_vulnerability() -> None:
+    """민감도 none(취약성 포함)은 교운기 가중 최대여도 bonus 0."""
+    none_c = _candidate(evidence=[_evidence(_CHUNG, strength=0.5)],
+                        transition_sensitivity="none")
+    vuln = _candidate(evidence=[_evidence(_CHUNG, strength=0.5)],
+                      kind=RiskKind.VULNERABILITY,
+                      transition_sensitivity="none")
+    scored = score_shadow([none_c, vuln], {"SYN_RISK": 0.6},
+                          transition_weights={"2026": 1.0})
+    assert all(s.transition_bonus == 0.0 for s in scored)

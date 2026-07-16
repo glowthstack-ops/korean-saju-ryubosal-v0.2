@@ -1,8 +1,8 @@
-> R1-c3 최종 전수 측정 고정본(감수 33차) — 재생성: `python scripts/risk_scoring_survey.py`
+> R1-T/R2-a2 전수 측정 고정본(감수 36차) — 재생성: `python scripts/risk_scoring_survey.py`
 > 출력 결정적 — 본 파일과의 diff = 점수 의미 회귀 신호.
 
-# R1-c1 위험 점수 전수 측정 — risk-score-r1.1.1-shadow
-semantics cause-semantics-v3 · config 95a9c56c0c7b143e · semantics 607f75c4a8dfc72c
+# R1-c1 위험 점수 전수 측정 — risk-score-r1.2.0-shadow
+semantics cause-semantics-v3 · config 6b2d452d8c23d425 · semantics 607f75c4a8dfc72c
 compound=연결된 effect graph(shared canonical cause)만 · is_question_target=context confidence 제외(fixture 고정)
 
 # 모집단 1 — 전체 구조 코퍼스(컨텍스트 없음·suppression baseline 동일)
@@ -205,6 +205,11 @@ context 축 상태 합(A군): confirmed 66, conflicted 0, required 496, unknown 
   w=0.60: top25 overlap 23/25(92%) · top50 50/50 · threshold crossing 0 · CONFIRMED 최고점 추월 UNKNOWN 0
   w=0.70: top25 overlap 20/25(80%) · top50 47/50 · threshold crossing 0 · CONFIRMED 최고점 추월 UNKNOWN 0
   승인 기준(0.50↔0.60 top-25 ≥85%): PASS
+
+## 교운기 overlay(커널 SSOT — 이벤트 엔진 함수 공유)
+  교운일(w=1.000): 평균 상승률 27.0% · top10 overlap 6/10(신규 4) · transition이 최대 modifier 249 · capped=1 4
+  ±1년(w=0.368): 평균 상승률 9.9% · top10 overlap 8/10(신규 2) · transition이 최대 modifier 210 · capped=1 0
+  ±2년(w=0.135): 평균 상승률 3.6% · top10 overlap 9/10(신규 1) · transition이 최대 modifier 185 · capped=1 0
 
 ## pairwise golden(기대 순서 명시 — 감수 대상)
   같은 구조: CONFIRMED 0.300 > 허용 UNKNOWN 0.165 > 비노출 0.000 — PASS

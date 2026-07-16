@@ -1265,6 +1265,13 @@ class RiskItem(_AliasModel):
     normalized_effect_role_by_context: dict[str, str] = Field(
         alias="normalizedEffectRoleByContext", default_factory=dict,
     )
+    # 대운 교운기 민감도(감수 36차 — R1-T): 교운기는 새 원인·노출·persistence가
+    # 아니라 **이미 성립한 사건 구조의 시점 활성도 modifier**다. 전환성(직업·주거·
+    # 관계·계약/선발 결과·역할 기반 변화)=medium·high, 잠재 취약성·문서 점검·구조
+    # 배경=none·low. vulnerability는 none 강제(lint).
+    transition_sensitivity: str = Field(
+        default="none", alias="transitionSensitivity",
+    )
 
     @model_validator(mode="after")
     def _validate_item(self) -> RiskItem:
@@ -1365,6 +1372,16 @@ class RiskItem(_AliasModel):
                         f"normalizedEffectRoleByContext key 오류: {ctx_key} "
                         f"({self.risk_id})"
                     )
+        if self.transition_sensitivity not in ("none", "low", "medium", "high"):
+            raise ValueError(
+                f"transitionSensitivity 값 오류: {self.transition_sensitivity} "
+                f"({self.risk_id})"
+            )
+        if self.kind == "vulnerability" and self.transition_sensitivity != "none":
+            raise ValueError(
+                f"vulnerability는 transitionSensitivity=none 필수(교운기가 잠재 "
+                f"취약성을 증폭 금지): {self.risk_id}"
+            )
         for effect_role in roles:
             if effect_role is None:
                 continue
@@ -1400,12 +1417,14 @@ class RiskItem(_AliasModel):
 # Condition/TreatmentProcess/RecoveryProcess/PhysicalDemand)을 structure 해시에 편입.
 # v8(감수 23차): 법적 절차 축(applicableLegalTargetTypes/Stages)·법적 실질 조건
 # (requiresExistingDispute/Litigation)을 structure 해시에 편입.
+# v10(감수 36차 — R1-T): transitionSensitivity를 shadow_scoring scope 본문에 편입 —
+# 교운기 민감도는 점수 의미 감수 필드(값 변경=shadow_scoring 강등, structure 불변).
 # v9(감수 31차 — R1-c2): shadow_scoring scope 신설 — normalizedEffectRole(+ByContext)
 # ·baseImpact를 그 해시 본문으로. role은 compound·교차 도메인 dedup의 감수 필드라
 # 값 변경 시 shadow_scoring만 자동 강등된다(shadow_structure는 유지 — 후보 생성·
 # 적격성 본문은 불변). 스탬프에는 scoring_config_hash·cause_semantics_hash도
 # 별도 키로 병기(risk_scoring 소관 — 가중·registry 변경 감지).
-_RISK_HASH_SCHEMA_VERSION = 9
+_RISK_HASH_SCHEMA_VERSION = 10
 # 매처·억제 의미론 버전(감수 9차 도입) — matcher/eligibility/cause atom/suppression의
 # 의미가 바뀔 때 올린다. reviewed 항목은 감수 당시 이 값을 스탬프하며, 불일치 시 lint
 # 실패(사전 JSON이 그대로여도 엔진 의미가 바뀌면 재감수 대상).
@@ -1537,6 +1556,7 @@ def risk_scope_hash(item: RiskItem, scope: str) -> str:
             "normalizedEffectRoleByContext": dict(sorted(
                 item.normalized_effect_role_by_context.items())),
             "baseImpact": item.base_impact,
+            "transitionSensitivity": item.transition_sensitivity,  # v10
         }
     elif scope == "scoring":
         body = {"baseImpact": item.base_impact}

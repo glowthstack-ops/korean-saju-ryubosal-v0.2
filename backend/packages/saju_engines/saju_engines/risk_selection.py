@@ -40,7 +40,7 @@ from .risk_scoring import (
 )
 
 # 선별 의미 버전 — 병합·대표·budget·portfolio·recovery 정책 변경 시 올린다.
-RISK_SELECTION_VERSION = "risk-select-r2.0.1-shadow"
+RISK_SELECTION_VERSION = "risk-select-r2.0.2-shadow"
 
 
 def candidate_uid(c: RiskCandidate) -> str:
@@ -102,6 +102,11 @@ def build_episodes(candidates: list[RiskCandidate]) -> list[RiskEpisode]:
     groups: dict[tuple, list[RiskCandidate]] = defaultdict(list)
     for c in members:
         sig = _episode_signature(c)
+        if c.reality_conflict:
+            # alias 상충(감수 36차) — RESOLVED가 아니라 CONFLICT: fallback
+            # 병합 재진입 금지, 단독 episode로 보존(데이터 위생 로그 대상).
+            groups[("conflict", candidate_uid(c))].append(c)
+            continue
         if c.reality_episode_id is not None:
             # 교차 도메인 현실 건 alias(감수 35차) — 서로 다른 축 local episode
             # 를 하나의 현실 건으로 병합하는 유일한 경로. local id는 축
@@ -129,6 +134,8 @@ def build_episodes(candidates: list[RiskCandidate]) -> list[RiskEpisode]:
             episodes.append(_make_episode(ep_key, group))
         elif key[0] == "reality":
             episodes.append(_make_episode(f"reality:{key[1]}", group))
+        elif key[0] == "conflict":
+            episodes.append(_make_episode(f"conflict:{key[1]}", group))
         else:
             sig = key[1]
             ep_key = "explicit:" + ",".join(
@@ -157,7 +164,7 @@ def _representative(group: list[RiskCandidate]) -> RiskCandidate | None:
         comp = c.score_components
         if comp is None:
             continue
-        _, capped = risk_priority(comp)
+        _, capped = risk_priority(comp, transition_bonus=c.transition_bonus)
         if capped <= 0:
             continue
         eligible.append((c, capped))
@@ -190,6 +197,18 @@ def _ownership_rank(c: RiskCandidate) -> int:
     직접 명시 매칭한 후보=1(잠정 매핑은 selection_policy_hash 포함·감수 대상)."""
     axis = _DOMAIN_AXIS_EPISODE.get(c.domain.value)
     return 1 if axis and getattr(c, axis) is not None else 0
+
+
+def _identity_quality(ep_key: str) -> float:
+    """episode identity 품질 계수(잠정 — 감수 대상): reality alias > 축
+    explicit > fallback, conflict=0."""
+    if ep_key.startswith("reality:"):
+        return 1.0
+    if ep_key.startswith("explicit:"):
+        return 0.9
+    if ep_key.startswith("conflict:"):
+        return 0.0
+    return 0.6
 
 
 def _make_episode(ep_key: str, group: list[RiskCandidate]) -> RiskEpisode:
@@ -226,8 +245,12 @@ def _make_episode(ep_key: str, group: list[RiskCandidate]) -> RiskEpisode:
         exposure_status=(rep.exposure_status if rep is not None
                          else ExposureStatus.UNKNOWN),
         structural_confidence=(rep.confidence if rep is not None else 0.0),
-        context_confidence=(round(context_confidence(rep), 6)
-                            if rep is not None else 0.0),
+        # context confidence(감수 36차) = 대표의 required 축 충족도 ×
+        # episode identity 품질(reality alias=1.0 / 축 explicit=0.9 /
+        # fallback=0.6 / conflict=0.0). 대표 없으면 0(진단 전용).
+        context_confidence=(round(
+            context_confidence(rep) * _identity_quality(ep_key), 6)
+            if rep is not None else 0.0),
         recovery_window=None,  # attach_recovery_windows가 별도 산출(점수 불변)
     )
 
@@ -258,7 +281,8 @@ def select_episodes(
         rep = rep_of(ep)
         if rep is None or rep.score_components is None:
             return 0.0
-        return risk_priority(rep.score_components)[1]
+        return risk_priority(rep.score_components,
+                             transition_bonus=rep.transition_bonus)[1]
 
     qualified = [ep for ep in episodes
                  if ep.representative_candidate_id is not None]
@@ -279,25 +303,27 @@ def select_episodes(
     seen_roles: set[str] = set()
     seen_causes: set[str] = set()
     seen_domains: set[str] = set()
-    def _pick_key(ep: RiskEpisode, roles: set[str], causes: set[str],
-                  domains: set[str]) -> tuple:
+    # novelty는 **near-tie 전용** lexicographic tie-break(감수 36차 — 숫자
+    # 가산 폐지: 점수 차이가 epsilon을 넘으면 novelty가 역전 불가).
+    _NEAR_TIE_EPSILON = 0.02
+
+    def _tie_key(ep: RiskEpisode, roles: set[str], causes: set[str],
+                 domains: set[str]) -> tuple:
         rep = rep_of(ep)
         role_novel = (normalized_effect_role(rep) not in roles
                       if rep else False)
         cause_novel = bool(rep and (set(_candidate_atoms(rep)) - causes))
         domain_novel = bool(rep and rep.domain.value not in domains)
-        return (
-            -(rep_score(ep)
-              + (0.02 if role_novel else 0.0)  # soft tie-break 수준
-              + (0.01 if cause_novel else 0.0)
-              + (0.005 if domain_novel else 0.0)),
-            ep.episode_key,
-        )
+        return (-rep_score(ep), not role_novel, not cause_novel,
+                not domain_novel, ep.episode_key)
 
     while remaining and len(selected) < policy.hard_max:
-        remaining.sort(key=lambda ep: _pick_key(
-            ep, seen_roles, seen_causes, seen_domains))
-        pick = remaining.pop(0)
+        top_score = max(rep_score(ep) for ep in remaining)
+        near = [ep for ep in remaining
+                if top_score - rep_score(ep) <= _NEAR_TIE_EPSILON]
+        pick = sorted(near, key=lambda ep: _tie_key(
+            ep, seen_roles, seen_causes, seen_domains))[0]
+        remaining.remove(pick)
         selected.append(pick)
         rep = rep_of(pick)
         if rep is not None:
@@ -379,8 +405,25 @@ def attach_recovery_windows(
             a: max(active_by_cause.get(a, {ep.end_period}), default=None)
             for a in primary_causes
         }
-        # earliest relief — 가장 먼저 끝나는 primary cause 다음 기간.
-        first_end = min(v for v in last_actives.values() if v is not None)
+        # earliest relief(감수 36차 제한) — 아무 보조 원인이 아니라 **최고 기여
+        # (최강 trigger strength) primary cause**의 완화 기준. 다른 primary가
+        # 지속되면 표현은 '부분적인 압박 완화 가능' 수준으로 한정(R3 계약).
+        strengths: dict[str, float] = {}
+        for e in rep.evidence:
+            if e.role.value != "trigger":
+                continue
+            for a in e.source.split("&"):
+                if a in last_actives:
+                    strengths[a] = max(strengths.get(a, 0.0), e.strength)
+        top_strength = max(strengths.values(), default=0.0)
+        top_causes = [a for a, s in strengths.items() if s == top_strength]
+        first_end = min(
+            (v for a, v in last_actives.items()
+             if a in top_causes and v is not None),
+            default=None)
+        if first_end is None:
+            out.append(ep)
+            continue
         relief_after = [p for p in horizon if p > first_end]
         if not relief_after:
             out.append(ep)  # 지평 내 완화 관측 없음
@@ -435,6 +478,14 @@ def selection_policy_hash() -> str:
                             "domain_axis": _DOMAIN_AXIS_EPISODE},
         "recovery_censoring": "quiet_span 2 native 기간·right-censored=stable"
                               " 미산출·다중 cause 지속=earliest만",
+        "earliest_relief_basis": "대표의 최고 기여(최강 trigger) primary cause"
+                                 " 완화 기준(보조 원인 종료로 미생성)",
+        "novelty": "near-tie(ε=0.02) 전용 lexicographic — 점수 역전 불가",
+        "reality_conflict": "CONFLICT 상태 보존·fallback 재진입 금지·단독 episode",
+        "identity_quality": {"reality": 1.0, "explicit": 0.9, "fallback": 0.6,
+                             "conflict": 0.0},
+        "transition_in_selection": "대표·budget 점수에 transition_bonus 반영"
+                                   "(적격성·episode identity 불개입)",
         "portfolio_source": "unique cause·lineage·effect role·episode"
                             " (후보 점수 합산 금지)",
         "recovery": "cause lineage 지평 내 종료 시만·점수 독립·단정 금지",

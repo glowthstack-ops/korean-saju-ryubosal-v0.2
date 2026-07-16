@@ -53,7 +53,7 @@ from saju_shared_types.risk_engine import (
 from .risk_engine import cause_atoms
 
 # 점수 의미 버전 — 축 정의·가중·매핑이 바뀌면 올린다(엔진 env 버전과 독립).
-RISK_SCORING_VERSION = "risk-score-r1.1.1-shadow"
+RISK_SCORING_VERSION = "risk-score-r1.2.0-shadow"
 
 # exposure 축 = **rankable 가중**(감수 26차 확정 — 정책별 분리, 전 항목 공통값
 # 금지): 노출 게이트(is_exposable)를 통과하지 못한 후보는 0 — DENIED(명시 부정)·
@@ -74,6 +74,16 @@ _PERSISTENCE_SPAN = 5
 # 감수 32차에서 **0.25 기각** — 0.10을 보수적 shadow 잠정값으로 두고 taxonomy·
 # ByContext 정리 후 재측정으로 확정한다(민감도 표 병행 출력). role 1건당, cap 1.0.
 _COMPOUND_PER_LINK = 0.10
+# 대운 교운기 modifier(감수 36차 — R1-T): 교운기는 새 원인·노출·persistence가
+# 아니라 이미 성립한 사건 구조의 **시점 활성도 modifier**다. 커널은 이벤트 엔진의
+# daewoon_transition_weight를 단일 SSOT로 공유(복제 금지 — exp(-(d/365)^1.0)
+# 라플라스형, MIN 0.05 게이트 동일). 적용: timed_base = base × (1 + weight ×
+# 민감도 계수 × MAX_BONUS). base=0·비노출·BLOCKED는 교운기로 부활 불가(곱 구조).
+# 계수·MAX_BONUS는 잠정(전수 측정 후 감수 확정). cause table 진입 금지 — 교운
+# 원자는 존재하지 않는다(fail-closed namespace가 방어).
+_TRANSITION_SENSITIVITY_COEF = {"none": 0.0, "low": 0.25, "medium": 0.6,
+                                "high": 1.0}
+_TRANSITION_MAX_BONUS = 0.5
 # protection 하드 상한(감수 33차): 보호는 위험을 크게 완화할 수 있지만, 구조와
 # 현실 노출을 통과한 후보의 존재 자체를 삭제할 수 없다 — protection=1.0으로
 # rankable이 0이 되는 경로 차단(positive base + 최대 보호 → rankable > 0 fixture).
@@ -229,6 +239,7 @@ def _candidate_atoms(c: RiskCandidate) -> frozenset[str]:
 def score_shadow(
     candidates: list[RiskCandidate],
     base_impact: Mapping[str, float],
+    transition_weights: Mapping[str, float] | None = None,
 ) -> list[RiskCandidate]:
     """R0.5 후보 목록에 6축 점수·confidence를 채운 사본을 반환한다(순수 함수).
 
@@ -238,6 +249,9 @@ def score_shadow(
     Args:
         candidates: R0.5 원자 후보(상태·억제 판정 완료본).
         base_impact: risk_id → 사전 baseImpact prior(0~1). 미등재는 0.0(관측 전용).
+        transition_weights: period_key → 교운기 커널 가중(이벤트 엔진
+            daewoon_transition_weight 산출값 — SSOT). None/미등재=보정 없음
+            (기존 결과 byte 불변). MIN 0.05 미만 값은 무시.
 
     Returns:
         점수 채운 후보 사본 목록(원본 불변).
@@ -280,6 +294,13 @@ def score_shadow(
             compound=min(1.0, _COMPOUND_PER_LINK * len(linked_families)),
             protection=_protection(c),
         )
+        t_weight = (transition_weights or {}).get(c.period_key, 0.0)
+        if t_weight < 0.05:  # 이벤트 엔진 MIN_WEIGHT와 동일 게이트
+            t_weight = 0.0
+        transition_bonus = round(
+            t_weight
+            * _TRANSITION_SENSITIVITY_COEF.get(c.transition_sensitivity, 0.0)
+            * _TRANSITION_MAX_BONUS, 6)
         confidence = min(1.0, (
             _CONF_BASE
             + _CONF_PER_EXTRA_CAUSE * max(0, n_causes - 1)
@@ -288,6 +309,7 @@ def score_shadow(
         out.append(c.model_copy(update={
             "score_components": components,
             "confidence": round(confidence, 6),
+            "transition_bonus": transition_bonus,
         }))
     return out
 
@@ -476,7 +498,11 @@ def effect_contiguous_runs(candidates: list[RiskCandidate]) -> dict[tuple, int]:
         period_sets.items(), key=lambda kv: repr(kv[0]))}
 
 
-def risk_priority(components: RiskScoreComponents) -> tuple[float, float]:
+def risk_priority(
+    components: RiskScoreComponents,
+    *,
+    transition_bonus: float = 0.0,
+) -> tuple[float, float]:
     """(raw, capped) rankable 우선도 — total은 여기서 마지막 한 번만 계산한다.
 
     감수 32차 공식 개정 — **지속성·복합성·보호는 기본 위험의 modifier**이지
@@ -494,15 +520,20 @@ def risk_priority(components: RiskScoreComponents) -> tuple[float, float]:
     capped = [0,1] clamp(포화 진단은 raw). 후보 저장 금지 — 등급·선별은 R2.
     """
     base = components.occurrence * components.impact
+    timed_base = base * (1.0 + transition_bonus)  # 교운기 시점 modifier(감수 36차)
     raw = (
-        components.exposure * base
+        components.exposure * timed_base
         * (1.0 + components.persistence + components.compound)
         * (1.0 - components.protection)
     )
     return round(raw, 6), min(1.0, max(0.0, round(raw, 6)))
 
 
-def structural_priority(components: RiskScoreComponents) -> float:
+def structural_priority(
+    components: RiskScoreComponents,
+    *,
+    transition_bonus: float = 0.0,
+) -> float:
     """exposure 제외 구조 진단 우선도 — DENIED·미확인 후보의 counterfactual 진단.
 
     rankable(risk_priority)과 달리 노출 게이트와 무관하게 구조 신호의 세기만
@@ -513,7 +544,7 @@ def structural_priority(components: RiskScoreComponents) -> float:
     ↔DENIED 전환만으로 structural 값이 바뀌는 누수가 생긴다. 구조 연결 진단은
     compound_family_links(exposable_only=False)를 별도로 쓴다.
     """
-    base = components.occurrence * components.impact
+    base = components.occurrence * components.impact * (1.0 + transition_bonus)
     return round(
         base * (1.0 + components.persistence) * (1.0 - components.protection),
         6,
@@ -610,6 +641,16 @@ def scoring_config_hash() -> str:
                                " taxonomy 정리 후 재측정 확정"},
         "occurrence": {"combine": "1-prod(1-s)", "per_source_dedup": "max"},
         "protection_cap": _PROTECTION_CAP,
+        "transition": {
+            "kernel_ssot": "saju_engines.event_scoring."
+                           "daewoon_transition_weight (exp(-(d/365)^1.0)"
+                           " 라플라스형·MIN 0.05 공유)",
+            "apply": "timed_base = base × (1 + weight×coef×MAX_BONUS)",
+            "sensitivity_coef": _TRANSITION_SENSITIVITY_COEF,
+            "max_bonus": _TRANSITION_MAX_BONUS,
+            "invariants": "적격성·원인 수·cause table·persistence·episode"
+                          " identity 불개입, base=0·비노출 부활 불가",
+        },
         "confidence": {"base": _CONF_BASE, "per_extra_cause": _CONF_PER_EXTRA_CAUSE,
                        "layer": _CONF_LAYER,
                        "context_confidence": "separate_diagnostic"},

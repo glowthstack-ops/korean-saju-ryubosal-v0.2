@@ -248,6 +248,15 @@ class RiskCandidate(BaseModel):
     # 구분되며(문자열 우연 일치 병합 금지), 교차 축 병합은 이 alias가 있을 때만.
     # 매칭된 축 컨텍스트들의 reality id가 상충하면 None(fail-closed)이다.
     reality_episode_id: str | None = None
+    # reality alias 상충(감수 36차) — 매칭 축 컨텍스트들의 alias가 서로 다름.
+    # 병합 금지(fallback 재진입도 금지)·데이터 위생 로그 대상.
+    reality_conflict: bool = False
+    # 사전 transitionSensitivity 복사(감수 36차 — R1-T): 교운기 modifier 계수
+    # 선택 재료(none/low/medium/high — vulnerability는 none 강제).
+    transition_sensitivity: str = "none"
+    # 교운기 시점 보정(감수 36차) — score_shadow가 채우는 파생값(0=보정 없음).
+    # 적격성·원인·persistence·episode identity에 일절 관여하지 않는다.
+    transition_bonus: float = 0.0
     # 사전 absorbedRoleHint 복사(감수 16차) — 흡수 시 kind 기본값 대신 쓸 역할.
     # 관계 도메인 cross-family 흡수 허용 마커를 겸한다(감수 17차 — 미지정 항목은
     # 같은 상대·같은 원인이어도 family 밖 대표에 자동 흡수되지 않는다).

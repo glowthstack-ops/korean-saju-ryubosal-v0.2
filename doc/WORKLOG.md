@@ -8143,3 +8143,15 @@ transitive bridge 차단(완전 일치 그룹) ⑤recovery right-censoring(quiet
 r2.0.1-shadow. fixture 19종·pytest 2021·mypy 0·baseline 불변.
 다음: R2-b 전수 episode 측정(§12 지표 — 형성·병합 품질·대표·budget 시뮬레이션·
 recovery·portfolio) → R2-c 감수·shadow_selection 스탬프.
+
+## R1-T/R2-a2 — 교운기 temporal modifier·R2-a 잔여 보완(감수 36차, 2026-07-16)
+
+교운기: 이벤트 엔진 kernel SSOT 공유(복제 0·MIN 0.05 동일)·transitionSensitivity
+사전 필드(v10·vulnerability=none lint·49항목 잠정 저작)·timed_base 곱형 공식
+(r1.2.0-shadow — None 입력=기존 byte 불변)·불변식 fixture 7종(부활 차단·persistence
+비개입·ownership 유지·recovery 비생성)·overlay 실측(교운일 +27.0%/±1년 +9.9%/
+±2년 +3.6% — 감쇠 정상, 교운일 포화 4건 감수 확인 대상)·shadow_scoring 49/49
+R1-T 재스탬프. R2-a 잔여: alias CONFLICT 상태 보존(fallback 재진입 금지)·novelty
+near-tie(ε=0.02) 전용·earliest relief=최고 기여 cause 기준·context confidence=
+대표 충족도×identity 품질·ownership 사전 계약은 R2-c 전(adapter 유지). r2.0.2-
+shadow. pytest 2031·mypy 0·baseline diff 0. 다음: R2-b 전수(교운 overlay 포함).

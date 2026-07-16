@@ -418,3 +418,108 @@ def test_recovery_right_censored_and_multi_cause() -> None:
                 if ep.recovery_window is not None)
     assert rw_m.stable_recovery_window is None
     assert "other_primary_cause_ongoing" in rw_m.recovery_reasons
+
+
+# ── 감수 36차 보완 fixture ────────────────────────────────────────
+
+
+def test_novelty_cannot_invert_clear_score_gap() -> None:
+    """near-tie(ε=0.02) 밖의 점수 차이는 novelty로 역전 불가."""
+    strong_dup = _cand(risk_id="LEG_S", legal_episode_id="e1",
+                       role="contract_termination", sources=(_CHUNG,))
+    strong_dup = strong_dup.model_copy(update={"evidence": [
+        _ev(_CHUNG, strength=0.9)]})
+    weak_novel = _cand(risk_id="FIN_N", domain=RiskDomain.FINANCE,
+                       legal_episode_id="e2", role="financial_outflow",
+                       sources=(_PA_DAY,))
+    weak_novel = weak_novel.model_copy(update={"evidence": [
+        _ev(_PA_DAY, strength=0.3)]})
+    dup2 = _cand(risk_id="LEG_S2", legal_episode_id="e3",
+                 role="contract_termination", sources=(_CHUNG,))
+    dup2 = dup2.model_copy(update={"evidence": [_ev(_CHUNG, strength=0.85)]})
+    scored = _scored([strong_dup, weak_novel, dup2])
+    eps = build_episodes(scored)
+    selected, _ = select_episodes(eps, scored, RiskBudgetPolicy(hard_max=2))
+    reps = {ep.representative_candidate_id.split("|")[0]
+            for ep in selected if ep.representative_candidate_id}
+    assert reps == {"LEG_S", "LEG_S2"}  # 큰 점수차 — novelty 역전 금지
+
+
+def test_reality_conflict_isolated_from_fallback() -> None:
+    """alias CONFLICT 후보는 fallback 병합에 재진입하지 않고 단독 보존."""
+    conflicted = _cand(risk_id="LEG_C", role="administrative_delay",
+                       sources=(_HYEONG,), reality_conflict=True)
+    normal = _cand(risk_id="LEG_N", family=conflicted.risk_family,
+                   role="administrative_delay", sources=(_HYEONG,))
+    eps = build_episodes(_scored([conflicted, normal]))
+    assert len(eps) == 2
+    conflict_ep = next(ep for ep in eps
+                       if ep.episode_key.startswith("conflict:"))
+    assert conflict_ep.context_confidence == 0.0  # identity 품질 0
+
+
+def test_identity_quality_orders_context_confidence() -> None:
+    """context confidence: reality alias > 축 explicit > fallback."""
+    real = _cand(risk_id="LEG_R", legal_episode_id="p1",
+                 reality_episode_id="deal_1", role="contract_termination")
+    expl = _cand(risk_id="LEG_E", legal_episode_id="p2",
+                 role="administrative_delay", sources=(_HYEONG,))
+    fall = _cand(risk_id="FIN_F", domain=RiskDomain.FINANCE,
+                 role="financial_outflow", sources=(_PA_DAY,))
+    eps = {ep.episode_key.split(":")[0]: ep
+           for ep in build_episodes(_scored([real, expl, fall]))}
+    assert eps["reality"].context_confidence > eps["explicit"].context_confidence
+    assert eps["explicit"].context_confidence > eps["fallback"].context_confidence
+
+
+def test_transition_does_not_flip_ownership_or_create_recovery() -> None:
+    """교운기 보정 후 비소유 후보 점수가 더 높아도 primary owner 대표 유지,
+    교운 가중 감소가 stable recovery를 단독 생성하지 못한다."""
+    owner = _cand(risk_id="LEG_OWN", domain=RiskDomain.CONTRACT_LEGAL,
+                  role="administrative_delay", rank=2, legal_episode_id="e1",
+                  reality_episode_id="deal_1", sources=(_HYEONG,))
+    outsider = _cand(risk_id="FIN_OUT", domain=RiskDomain.FINANCE,
+                     role="financial_outflow", rank=3,
+                     reality_episode_id="deal_1",
+                     sources=(_CHUNG, _HYEONG))
+    outsider = outsider.model_copy(
+        update={"transition_sensitivity": "high"})
+    scored = score_shadow([owner, outsider], {"LEG_OWN": 0.6, "FIN_OUT": 0.6},
+                          transition_weights={"2026": 1.0})
+    assert scored[1].transition_bonus > scored[0].transition_bonus
+    eps = build_episodes(scored)
+    rep = eps[0].representative_candidate_id
+    assert rep is not None and rep.startswith("LEG_OWN|")  # ownership 유지
+    # 교운 가중이 줄어드는 기간이 있어도 cause lineage 지속이면 recovery 없음.
+    horizon = ["2026", "2027"]
+    out = attach_recovery_windows(eps, scored, horizon)
+    rw = out[0].recovery_window
+    assert rw is None or rw.stable_recovery_window is None
+
+
+def test_earliest_relief_requires_top_cause_not_minor() -> None:
+    """보조(약한) cause만 종료되면 earliest relief 미생성 — 최고 기여 cause
+    완화 기준(감수 36차)."""
+    strong_going = [
+        _cand(risk_id="LEG_M", legal_episode_id="e1", period=p,
+              role="legal_dispute", sources=(_CHUNG, _HYEONG))
+        for p in ("2026-01",)
+    ]
+    # 이후 기간: 강한 cause(_CHUNG, strength 0.5)가 계속, 약한 보조는 소멸.
+    strong_going[0] = strong_going[0].model_copy(update={"evidence": [
+        _ev(_CHUNG, strength=0.6, period="2026-01"),
+        _ev(_HYEONG, strength=0.2, period="2026-01"),
+    ], "trigger_cause_atoms": [_CHUNG, _HYEONG]})
+    later = [
+        _cand(risk_id="LEG_M", legal_episode_id="e1", period=p,
+              role="legal_dispute", sources=(_CHUNG,))
+        for p in ("2026-02", "2026-03")
+    ]
+    scored = _scored(strong_going + later)
+    eps = build_episodes(scored)
+    horizon = ["2026-01", "2026-02", "2026-03"]
+    out = attach_recovery_windows(eps, scored, horizon)
+    for ep in out:
+        rw = ep.recovery_window
+        # 최고 기여 cause(_CHUNG)가 지평 끝까지 활성 — relief 미생성.
+        assert rw is None

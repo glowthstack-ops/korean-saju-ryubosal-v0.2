@@ -1030,7 +1030,7 @@ class RiskEngine:
         def _reality_alias(
             sel_ep: str | None, mob_ep: str | None,
             hlt_ep: str | None, leg_ep: str | None,
-        ) -> str | None:
+        ) -> tuple[str | None, bool]:
             """매칭된 축 local episode들의 reality alias 해석(감수 35차).
 
             해당 local id를 명시한 컨텍스트의 reality_episode_id를 모아 단일
@@ -1051,7 +1051,9 @@ class RiskEngine:
                         ctx.reality_episode_id is not None
                     ):
                         found.add(ctx.reality_episode_id)
-            return next(iter(found)) if len(found) == 1 else None
+            if len(found) == 1:
+                return next(iter(found)), False
+            return None, len(found) > 1  # 상충=CONFLICT 상태 보존(감수 36차)
 
         for item in self._items:
             evidences: list[RiskEvidence] = []
@@ -1173,9 +1175,11 @@ class RiskEngine:
                     health_episode_id=hlt_episode_id,
                     legal_alignment=leg_alignment,
                     legal_episode_id=leg_episode_id,
-                    reality_episode_id=_reality_alias(
+                    reality_episode_id=(reality := _reality_alias(
                         sel_episode_id, mob_episode_id, hlt_episode_id,
-                        leg_episode_id),
+                        leg_episode_id))[0],
+                    reality_conflict=reality[1],
+                    transition_sensitivity=item.transition_sensitivity,
                     legal_stages=list(item.applicable_legal_stages),
                     relationship_alignment=rel_alignment,
                     relationship_role=rel_role,

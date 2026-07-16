@@ -562,6 +562,62 @@ def _multi_context_audit() -> None:
         print("  없음 — TRL 1건으로 충분")
 
 
+def _transition_overlay(cands: list[RiskCandidate]) -> None:
+    """교운기 overlay(감수 36차 — R1-T): 커널값 3단(교운일 1.0/±1년 0.368/
+    ±2년 0.135 — 이벤트 엔진 kernel SSOT 산출값)으로 상승률·순위 영향·포화를
+    실측한다. 기존 baseline(무보정)은 그대로 보존·비교."""
+    from datetime import date as _date
+
+    from saju_engines.event_scoring import daewoon_transition_weight
+    from saju_engines.risk_scoring import score_shadow as _ss
+    # 커널 SSOT 검증 산출(교운일 2026-06-01 기준).
+    jiao = [_date(2026, 6, 1)]
+    kernel = {
+        "교운일": daewoon_transition_weight(_date(2026, 6, 1), jiao),
+        "±1년": daewoon_transition_weight(_date(2027, 6, 1), jiao),
+        "±2년": daewoon_transition_weight(_date(2028, 6, 1), jiao),
+    }
+    base_impacts = RiskEngine(_DICTS).base_impacts()
+    raw_cands = [c.model_copy(update={
+        "score_components": None, "confidence": 0.0, "transition_bonus": 0.0,
+    }) for c in cands]
+    plain = _ss(raw_cands, base_impacts)
+    plain_active = [c for c in plain if is_active(c)]
+    plain_totals = []
+    for c in plain_active:
+        assert c.score_components is not None
+        plain_totals.append(risk_priority(c.score_components)[1])
+    plain_top = _rank_ids(plain_active, plain_totals)
+    print("\n## 교운기 overlay(커널 SSOT — 이벤트 엔진 함수 공유)")
+    for label, w in kernel.items():
+        periods = {c.period_key for c in raw_cands}
+        boosted = _ss(raw_cands, base_impacts,
+                      transition_weights=dict.fromkeys(periods, w))
+        b_active = [c for c in boosted if is_active(c)]
+        totals = []
+        rises = []
+        dominant = 0
+        for pc, bc in zip(plain_active, b_active, strict=True):
+            assert pc.score_components and bc.score_components
+            p_raw, _ = risk_priority(pc.score_components,
+                                     transition_bonus=pc.transition_bonus)
+            b_raw, b_cap = risk_priority(bc.score_components,
+                                         transition_bonus=bc.transition_bonus)
+            totals.append(b_cap)
+            if p_raw > 0:
+                rises.append(b_raw / p_raw - 1.0)
+            if bc.transition_bonus > max(bc.score_components.persistence,
+                                         bc.score_components.compound):
+                dominant += 1
+        top = _rank_ids(b_active, totals)
+        overlap = len(set(plain_top) & set(top))
+        n_sat = sum(1 for v in totals if v >= 1.0)
+        print(f"  {label}(w={w:.3f}): 평균 상승률 "
+              f"{100 * sum(rises) / max(1, len(rises)):.1f}% · top10 overlap "
+              f"{overlap}/10(신규 {10 - overlap}) · transition이 최대 modifier "
+              f"{dominant} · capped=1 {n_sat}")
+
+
 def _pairwise_golden() -> None:
     """§6 pairwise golden — 기대 순서를 명시해 감수한다(구조 vs exposure 경쟁)."""
     from saju_engines.risk_scoring import risk_priority as _rp
@@ -617,6 +673,7 @@ def main() -> int:
     _capped_detail(c_overlay)
     _sensitivity_and_ablation(c_overlay)
     _unknown_local_sensitivity(c_overlay)
+    _transition_overlay(c_overlay)
     _pairwise_golden()
     _persistence_span_comparison()
     _protection_pairwise()

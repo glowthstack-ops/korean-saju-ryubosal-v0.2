@@ -1188,3 +1188,43 @@ RISK_SELECTION_VERSION r2.0.0→**r2.0.1-shadow**(policy hash 갱신 — 병합 
 순위·ownership 매핑·soft budget·censoring 편입). fixture 10→**19종**. pytest
 2021·mypy 0(523)·전 baseline 지표 불변(profile 컨텍스트 해시 메타만 재기록).
 R2-b 측정 지표(§12)는 스크립트 설계에 반영 예정.
+
+## 21. R1-T/R2-a2 차수(감수 36차) — 교운기 temporal modifier·R2-a 잔여 보완 (2026-07-16)
+
+**교운기 계약(데굴님 확정)**: 교운기는 위험 후보를 만드는 원인이 아니라 이미 성립한
+위험 구조의 시점 민감도를 높이는 modifier이며, 이벤트 엔진의 커널을 단일 SSOT로
+공유하고, 후보 적격성·원인 수·persistence·episode identity에는 절대 개입하지 않는다.
+
+1. **커널 SSOT**: `event_scoring.daewoon_transition_weight`(exp(-(d/365)^1.0)
+   라플라스형 — 분포명 단정 대신 kernel로 지칭) 직접 import·MIN 0.05 게이트 공유
+   (복제 0). 대칭·감쇠 fixture.
+2. **transitionSensitivity 사전 필드**(해시 **v10** — shadow_scoring scope 편입):
+   none/low/medium/high enum·**vulnerability=none lint 강제**. 49항목 잠정 저작
+   (전환성=직업·주거·관계·계약/선발 결과 high — 감수 대상). 계수(0/0.25/0.6/1.0)·
+   MAX_BONUS 0.5 잠정.
+3. **공식**: `timed_base = base × (1 + weight×coef×MAX_BONUS)` — rankable·
+   structural 모두 적용(exposure·(1+per+cmp)·(1−prot) 구조 유지). score_shadow에
+   transition_weights(기간→커널값) 입력 — None=기존 결과 byte 불변. 후보
+   transition_bonus 파생 필드(적격성·cause table 불개입).
+4. **불변식 fixture 7종**: 커널 대칭·후보 전 필드 불변(bonus만)·base=0 부활
+   차단·비노출 부활 차단·커널 다월≠persistence·민감도 none/vulnerability 0·
+   (selection) 교운 보정 후 ownership 유지+recovery 비생성.
+5. **overlay 실측**(C overlay·커널 3단): 교운일 평균 상승률 27.0%(top10 신규 4·
+   capped=1 4) / ±1년 9.9%(신규 2·포화 0) / ±2년 3.6%(신규 1) — 감쇠 의도대로,
+   포화는 교운일 중심 4건(감수 확인 대상). shadow_scoring 49/49 **R1-T 재스탬프**
+   (RISK_SCORING_VERSION **r1.2.0-shadow**·config hash에 transition 편입).
+
+**R2-a 잔여 보완 5건**: ①alias 상충=CONFLICT 상태 보존(reality_conflict 필드 —
+fallback 재진입 금지·단독 episode·identity 품질 0) ②novelty **near-tie(ε=0.02)
+전용 lexicographic**(숫자 가산 폐지 — 큰 점수차 역전 금지 fixture) ③earliest
+relief=대표의 **최고 기여(최강 trigger) primary cause** 완화 기준(보조 원인 종료
+로 미생성 fixture) ④episode context confidence=대표 required 축 충족도×identity
+품질(reality 1.0/explicit 0.9/fallback 0.6/conflict 0.0 — 잠정) ⑤ownership
+사전 계약(primaryOwnership axis·targetTypes·stages)은 R2-c 전 편입 예정 —
+_DOMAIN_AXIS_EPISODE는 adapter(감수 질문 유지), proxy audit는 R2-b 측정 항목.
+RISK_SELECTION_VERSION **r2.0.2-shadow**. fixture 총 29종(selection)+44종
+(scoring). pytest 2031·mypy 0(523)·suppression baseline diff 0·manifest 일치.
+
+**감수 대기**: transitionSensitivity 49항목 저작·계수/MAX_BONUS·교운일 포화 4건·
+같은 reality alias+target 충돌 fixture(컨텍스트 수준 — 표현 불가 항목 기록).
+다음: R2-b 전수 측정(기존 + A-T/B-T/C-T/D-T 교운 overlay + ownership audit).

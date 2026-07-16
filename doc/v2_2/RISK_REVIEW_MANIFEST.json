@@ -1,11 +1,11 @@
 {
   "review_environment_version": "risk-engine-r0.5.12",
-  "hash_schema_version": 9,
-  "risk_scoring_version": "risk-score-r1.1.1-shadow",
-  "scoring_config_hash": "95a9c56c0c7b143e",
+  "hash_schema_version": 10,
+  "risk_scoring_version": "risk-score-r1.2.0-shadow",
+  "scoring_config_hash": "6b2d452d8c23d425",
   "cause_semantics_hash": "607f75c4a8dfc72c",
-  "risk_selection_version": "risk-select-r2.0.1-shadow",
-  "selection_policy_hash": "8eee0937cc7d58db",
+  "risk_selection_version": "risk-select-r2.0.2-shadow",
+  "selection_policy_hash": "7e551cb51b8da2f4",
   "reviewed_total": 49,
   "unreviewed_total": 0,
   "reviewed_by_scope": {
