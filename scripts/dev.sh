@@ -11,6 +11,11 @@ API_PORT="${API_PORT:-8000}"
 if [ -f "$ROOT/.env" ]; then
   set -a; . "$ROOT/.env"; set +a
 fi
+# 위험 노출 베타 활성화 값(.env.risk — gitignore): pytest가 읽지 않도록
+# .env와 분리, 서버 기동 시에만 주입된다. 파일 부재=위험 기능 전부 잠금.
+if [ -f "$ROOT/.env.risk" ]; then
+  set -a; . "$ROOT/.env.risk"; set +a
+fi
 if [ -z "${SAJU_V2_DATABASE_URL:-}" ]; then
   echo "[warn] SAJU_V2_DATABASE_URL 미설정 — DB 엔드포인트가 503을 반환한다. .env 확인 필요." >&2
 fi

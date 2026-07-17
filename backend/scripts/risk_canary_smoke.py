@@ -31,7 +31,8 @@ def main() -> int:
         checks.append((name, ok, detail))
         print(f"  [{'OK' if ok else 'FAIL'}] {name} {detail}")
 
-    check("mode=expose_canary", cfg.RISK_ENGINE_MODE == "expose_canary",
+    check("mode=expose 계열",
+          cfg.RISK_ENGINE_MODE in ("expose_canary", "expose"),
           cfg.RISK_ENGINE_MODE)
     check("runtime_enabled", cfg.RISK_EXPOSURE_RUNTIME_ENABLED is True)
     check("topology=single_host_single_process",
@@ -40,22 +41,45 @@ def main() -> int:
     check("hmac_key=production(32B+·비기본)",
           cfg.RISK_AUDIT_HMAC_KEY != b"dev-only-rotate-before-canary"
           and len(cfg.RISK_AUDIT_HMAC_KEY) >= 32)
-    check("allowlist_nonempty",
-          len(cfg.RISK_EXPOSE_CANARY_SUBJECT_IDS) > 0,
-          f"{len(cfg.RISK_EXPOSE_CANARY_SUBJECT_IDS)}건")
+    if cfg.RISK_ENGINE_MODE == "expose_canary":
+        check("allowlist_nonempty",
+              len(cfg.RISK_EXPOSE_CANARY_SUBJECT_IDS) > 0,
+              f"{len(cfg.RISK_EXPOSE_CANARY_SUBJECT_IDS)}건")
+    else:
+        print("  [--] allowlist 검사 생략(expose — 베타 전면 적용)")
 
     state = bootstrap_risk_exposure()
     check("bootstrap_state=VALIDATED", state == "VALIDATED",
           f"state={state} reason={last_bootstrap_reason()}")
 
-    # baseline(allowlist 밖) — BYPASS·byte 불변.
+    # 비대상 질문(과거 회고 — fail-closed 매핑) → BYPASS·byte 불변.
     p, s, obs = apply_risk_exposure(
-        "smoke baseline 질문", None, subject_id="__not_allowlisted__",
-        question_type="period_overview", temporal_scope="future")
-    check("non_allowlisted=BYPASS",
+        "smoke baseline 질문", None, subject_id="beta-user",
+        question_type="period_overview", temporal_scope="past_only")
+    check("non_target_question=BYPASS",
           obs.get("disposition") == "BYPASS"
           and p == "smoke baseline 질문" and s is None,
           str(obs.get("reason")))
+    # 대상 질문(미래 기간) — 감수 경로 disposition 산출(payload 없음이라
+    # SUPPRESSED 기대·BYPASS면 실패).
+    from saju_api.services.risk_exposure_bootstrap import (
+        exposure_runtime_inputs,
+    )
+    inputs = exposure_runtime_inputs("chat_single")
+    _p2, _s2, obs2 = apply_risk_exposure(
+        "smoke 미래 질문", None, subject_id="beta-user",
+        question_type="period_overview", temporal_scope="future",
+        counter=inputs["counter"],
+        counter_model_id=inputs["counter_model_id"],
+        resolved_model_id=inputs["resolved_model_id"],
+        model_context_limit=inputs["context_limit"],
+        base_prompt_tokens=100, user_input_tokens=0,
+        existing_context_tokens=0,
+        response_reserve=inputs["response_reserve"])
+    check("target_question_gate",
+          obs2.get("disposition") in ("SUPPRESSED", "INJECTED"),
+          f"disposition={obs2.get('disposition')}"
+          f" reason={obs2.get('reason')}")
     print()
     failed = [c for c in checks if not c[1]]
     print(f"결과: {len(checks) - len(failed)}/{len(checks)} 통과")

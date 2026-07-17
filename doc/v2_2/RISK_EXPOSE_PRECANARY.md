@@ -63,17 +63,22 @@ canary 이후 확장**(현재는 어떤 rerouted 모델로도 위험 요청이 �
 (routingControlMode=APPLICATION_CONTROLLED 전제 — Gemini REST 직접
 호출로 충족).
 
-## 4. Canary 개시 전 사람 확인 필요 항목 (감수·배포 절차)
+## 4. 베타 적용 상태 (2026-07-17 — 데굴님 결정: preflight 절차 생략)
 
-1. **expose_pipeline.reviewed=true 전환**(본 통합 감수 통과 시).
-2. RISK_ENGINE_MODE="expose_canary" + RISK_EXPOSURE_RUNTIME_ENABLED=True
-   + canary allowlist(내부 subject ID) 등록.
-3. **RISK_DEPLOYMENT_TOPOLOGY="single_host_single_process"로 전환** +
-   배포 preflight에서 **실제 프로세스 수 1** 확인(환경 신호 검증은
-   bootstrap이 수행하나 실측 재확인 필수).
-4. RISK_AUDIT_HMAC_KEY 운영 secret 교체(dev 기본키=AUDIT_HMAC_KEY_
-   INVALID BYPASS).
-5. r4.1.0-canary 버전 태그 별도 커밋.
+현 환경=테스트 상태로 확인되어 별도 운영 preflight 없이 **베타 테스터
+대상 전면 적용(RISK_ENGINE_MODE=expose)**으로 전환했다. 활성화 값은
+`.env.risk`(gitignore — dev.sh가 기동 시 source, pytest는 읽지 않음):
+mode=expose · runtime_enabled=true · topology=single_host_single_process
+· 테스트용 HMAC 키(base64 48B). 감수된 게이트는 하나도 완화하지 않았다
+— 게이트가 요구하는 값을 충족시켜 통과하는 방식.
+
+smoke(scripts/risk_canary_smoke.py) 결과 **7/7 통과**: mode·runtime·
+topology·HMAC 유효·bootstrap **VALIDATED**(실 artifact·manifest·
+suspension 검증 파생)·비대상 질문 BYPASS(byte 불변)·대상 질문 감수 경로
+산출(SUPPRESSED — smoke는 payload 없음).
+
+중단 절차: `.env.risk` 삭제 또는 RISK_ENGINE_MODE=off 후 재기동 —
+기존 답변 경로 byte-identical 복귀(fixture 검증).
 
 ## 5. Canary 관측 계획 (감수 61차 §12)
 

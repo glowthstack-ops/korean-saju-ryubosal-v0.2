@@ -8576,3 +8576,14 @@ RISK_EXPOSURE_VERSION=r4.1.0-canary(policy hash 재스탬프), 활성화 env
 .env.example 안내. pytest 2161·ruff·mypy 0(539)·manifest 일치.
 활성화 자체=데굴님 운영 preflight(HMAC secret·worker=1 실측·allowlist)
 후 환경변수 설정 — 코드 커밋으로는 아무것도 켜지지 않음.
+
+## 베타 적용 — 위험 노출 expose 활성화 (2026-07-17 데굴님 결정)
+
+운영 preflight 절차 생략(현 환경=테스트 상태) — 베타 테스터 전면 적용.
+.env.risk(gitignore·dev.sh source·pytest 미접촉): mode=expose·runtime
+=true·topology=single_host_single_process·테스트 HMAC 키(48B). 감수
+게이트 완화 없음(요구값 충족 방식). smoke 7/7: bootstrap VALIDATED
+(실 artifact·manifest 파생)·비대상 BYPASS byte 불변·대상 질문 감수 경로.
+smoke 스크립트 expose 모드 지원 갱신. 문서에서 preflight 요구 절차
+제거(PRECANARY §4=적용 상태 기록). 중단=.env.risk 삭제/mode=off.
+pytest 전체 통과(격리 확인)·ruff·mypy clean.
