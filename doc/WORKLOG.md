@@ -8611,3 +8611,15 @@ OFF no-op fixture(+shadow 가드 allowed 등재). 실서비스 INITIAL shape이
 reviewed corpus에 존재함을 fixture로 고정. smoke 7/7 재통과(bootstrap
 VALIDATED — 새 corpus 기준). pytest 전체 통과·ruff·mypy 0(539)·manifest
 일치.
+
+## 대화 시점 scope 동반 승계 (2026-07-17 데굴님 베타 실로그 지적)
+
+실로그: '오늘 운세'→'이후 3개월 주의점'→'건강은 어때?'에서 마지막 턴이
+시점 창(90일 offset)은 승계했지만 time_scope가 timeless로 남아 응답이
+'오늘' 중심으로 좁혀짐. conversation 승계 블록에서 time_range 승계 시
+scope도 동반 승계(이번 턴 scope가 미확정 기본값 timeless일 때만 — 자체
+신호 보존). 회귀 fixture: 3턴 시나리오(scope=short_term·offset=90 승계)
++명시 연도 후속은 미승계. 부수 확인: '작년에 건강이 왜 나빴지?'류 과거
+회고 시점 미파싱은 별도 기존 이슈로 관찰. pytest 전체·ruff·mypy clean.
+위험 게이트 부수 효과: scope 승계로 후속 질문도 미래 창이 살아 위험
+노출 대상이 정상 판정됨(timeless=BYPASS였던 것이 창 기준으로).

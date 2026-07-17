@@ -128,3 +128,32 @@ def test_relationship_question_switches_from_relocation() -> None:
     reloc = _state(Domain.RELOCATION, QueryType.DOMAIN_ANALYSIS, start="2026-07-04")
     assert _run(reloc, "ㄱㄱ과 나는 어떤 관계일까?").domain is Domain.RELATIONSHIP
     assert _run(reloc, "우리 사이는 어때?").domain is Domain.RELATIONSHIP
+
+
+# ── time_scope 동반 승계(2026-07-17 데굴님 지적 — 베타 실로그) ──
+def test_followup_inherits_time_scope_not_just_window() -> None:
+    """'오늘 운세'→'이후 3개월 주의점'→'건강은 어때?' 3턴: 마지막 턴이
+    시점 창(90일)만 이어받고 time_scope가 timeless로 남으면 응답이
+    '오늘' 중심으로 좁혀진다 — scope까지 함께 승계해야 한다. 단 이번
+    턴이 자체 scope 신호(과거 회고 등)를 가지면 보존."""
+    from saju_shared_types.intent import TimeScope
+
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t-scope")
+    today = date(2026, 7, 17)
+    _p1, state, _, _ = eng.process_turn(state, "오늘 운세를 알려줘", today)
+    p2, state, _, _ = eng.process_turn(
+        state, "이후 3개월안에 주의해야할게 있을까?", today)
+    assert p2.intents[0].time_scope is TimeScope.SHORT_TERM
+    p3, state, _, _ = eng.process_turn(state, "건강은 어때?", today)
+    i3 = p3.intents[0]
+    assert i3.time_range is not None
+    assert i3.time_range.end_offset_days == 90  # 3개월 창 승계
+    assert i3.time_scope is TimeScope.SHORT_TERM  # scope 동반 승계
+    # 자체 시점을 새로 든 후속은 그 시점이 기준(승계로 덮지 않음).
+    p4, _state, _, _ = eng.process_turn(
+        state, "2027년 건강은 어때?", today)
+    tr4 = p4.intents[0].time_range
+    assert tr4 is not None and tr4.start is not None
+    assert tr4.start.startswith("2027")  # 명시 연도 유지
+    assert tr4.end_offset_days != 90  # 3개월 창을 덮어쓰지 않음

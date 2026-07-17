@@ -35,6 +35,7 @@ from saju_shared_types.intent import (
     SubjectMode,
     SubjectRef,
     TimeRange,
+    TimeScope,
 )
 
 from .companion_alias import (
@@ -331,6 +332,14 @@ class ConversationEngine:
                 ):
                     continue
                 intent.time_range = last.time_range
+                # 시점 창과 함께 time_scope도 승계(2026-07-17 데굴님 지적:
+                # '이후 3개월' 맥락의 후속 '건강은 어때?'가 창(90일)은
+                # 이어받고 scope는 timeless로 남아 응답이 '오늘' 중심으로
+                # 좁혀지던 결함). 이번 턴이 자체적으로 의미 있는 scope
+                # 신호(과거 회고·인생 단계 등)를 갖고 있으면 보존하고,
+                # 미확정 기본값(timeless)일 때만 직전 scope를 잇는다.
+                if intent.time_scope is TimeScope.TIMELESS:
+                    intent.time_scope = last.time_scope
                 inherited_time_used = True
 
         # offer-slot: 직전 제안이 '월별 흐름'이었고 이번이 후속이면 연 단위 시점을 월별로 승격한다
