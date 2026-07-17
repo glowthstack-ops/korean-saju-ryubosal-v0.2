@@ -2419,3 +2419,53 @@ def test_suppressed_request_is_baseline_plus_guard_only(
     assert s == "시스템"  # system 불변
     assert "BEGIN_RISK_BLOCK" not in p
     assert "risk_output_schemas" not in obs  # 기존 output schema 유지
+
+
+def test_env_activation_is_fail_closed(monkeypatch) -> None:
+    """r4.1.0-canary 활성화 배선: env 미설정·오타·비정상 값=전부 잠금
+    유지(off·False·dev키 → AUDIT_HMAC_KEY_INVALID) — env 오염으로 켜지는
+    경로 없음."""
+    import importlib
+
+    from saju_engines import risk_engine_config as cfg
+
+    monkeypatch.delenv("RISK_ENGINE_MODE", raising=False)
+    monkeypatch.delenv("RISK_EXPOSURE_RUNTIME_ENABLED", raising=False)
+    monkeypatch.delenv("RISK_AUDIT_HMAC_KEY_B64", raising=False)
+    monkeypatch.delenv("RISK_EXPOSE_CANARY_SUBJECT_IDS", raising=False)
+    mod = importlib.reload(cfg)
+    assert mod.RISK_ENGINE_MODE == "off"
+    assert mod.RISK_EXPOSURE_RUNTIME_ENABLED is False
+    assert mod.RISK_AUDIT_HMAC_KEY == b"dev-only-rotate-before-canary"
+    assert mod.RISK_EXPOSE_CANARY_SUBJECT_IDS == frozenset()
+    # 오타·비정상 값=기본값(fail-closed).
+    monkeypatch.setenv("RISK_ENGINE_MODE", "expose!!")
+    monkeypatch.setenv("RISK_EXPOSURE_RUNTIME_ENABLED", "yes")
+    monkeypatch.setenv("RISK_AUDIT_HMAC_KEY_B64", "not-base64!!")
+    mod = importlib.reload(cfg)
+    assert mod.RISK_ENGINE_MODE == "off"
+    assert mod.RISK_EXPOSURE_RUNTIME_ENABLED is False
+    assert mod.RISK_AUDIT_HMAC_KEY == b"dev-only-rotate-before-canary"
+    # 짧은 키(<32B)=기본키 유지(운영 키 자격 없음).
+    import base64
+    monkeypatch.setenv("RISK_AUDIT_HMAC_KEY_B64",
+                       base64.b64encode(b"short").decode())
+    mod = importlib.reload(cfg)
+    assert mod.RISK_AUDIT_HMAC_KEY == b"dev-only-rotate-before-canary"
+    # 정상 활성화 값은 반영된다(운영 preflight 후에만 설정).
+    monkeypatch.setenv("RISK_ENGINE_MODE", "expose_canary")
+    monkeypatch.setenv("RISK_EXPOSURE_RUNTIME_ENABLED", "true")
+    monkeypatch.setenv("RISK_AUDIT_HMAC_KEY_B64",
+                       base64.b64encode(b"k" * 32).decode())
+    monkeypatch.setenv("RISK_EXPOSE_CANARY_SUBJECT_IDS", "tester-1, t2")
+    mod = importlib.reload(cfg)
+    assert mod.RISK_ENGINE_MODE == "expose_canary"
+    assert mod.RISK_EXPOSURE_RUNTIME_ENABLED is True
+    assert mod.RISK_AUDIT_HMAC_KEY == b"k" * 32
+    assert mod.RISK_EXPOSE_CANARY_SUBJECT_IDS == {"tester-1", "t2"}
+    # 정리: env 제거 후 원상 복구(다른 테스트 오염 방지).
+    monkeypatch.delenv("RISK_ENGINE_MODE")
+    monkeypatch.delenv("RISK_EXPOSURE_RUNTIME_ENABLED")
+    monkeypatch.delenv("RISK_AUDIT_HMAC_KEY_B64")
+    monkeypatch.delenv("RISK_EXPOSE_CANARY_SUBJECT_IDS")
+    importlib.reload(cfg)

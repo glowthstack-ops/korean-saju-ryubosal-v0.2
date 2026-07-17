@@ -37,7 +37,11 @@ from .risk_presentation import (
 )
 
 # 노출 게이트 버전 — 전역 pipeline 계약 변경 시 올린다(항목 scope 아님).
-RISK_EXPOSURE_VERSION = "risk-expose-r4.0.1-gated"
+# r4.1.0-canary(통합 pre-canary 감수 승인 — 2026-07-17): expose_pipeline
+# reviewed=true + 두 실행 불변식(drift/cache 전달 전 폐기·SUPPRESSED
+# bytes 계약) 통과. 활성화는 운영 preflight(HMAC·topology·worker=1·
+# allowlist) 후 환경변수로만.
+RISK_EXPOSURE_VERSION = "risk-expose-r4.1.0-canary"
 
 # token 계수 모드(감수 44차 §4): heuristic은 SHADOW 전용 — EXPOSE 금지.
 TOKEN_COUNT_MODES = ("PROVIDER_EXACT", "MODEL_TOKENIZER",

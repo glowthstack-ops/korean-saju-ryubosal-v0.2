@@ -9,11 +9,11 @@
   "transition_policy_hash": "49df076a0ad56cc1",
   "risk_presentation_version": "risk-present-r3.1.0-shadow",
   "presentation_policy_hash": "ce68dfc2c6c5fa0e",
-  "risk_exposure_version": "risk-expose-r4.0.1-gated",
+  "risk_exposure_version": "risk-expose-r4.1.0-canary",
   "adapter_validation_policy_hash": "a0f234615ad2836ed59d6c9c58e8c6b56909482f543ac466f89a58efbc460bfc",
   "expose_pipeline": {
     "reviewed": true,
-    "expose_policy_hash": "0bc90a6cf968245f",
+    "expose_policy_hash": "d6a9036b3faa954e",
     "critical_validation_state": {
       "synthetic_fixtures": "passed",
       "corpus_positive_cases": 0,

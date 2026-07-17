@@ -92,3 +92,20 @@ counted vs reported drift(undercount=자동 전역 차단) / cached_input
   3유형만).
 - REEVALUATE_GATE(감수된 모델로의 rerouting 계속 진행) 미배선 — 전부
   REGENERATE로 보수 처리.
+
+## 7. r4.1.0-canary 전환 (2026-07-17 — 통합 감수 승인 후)
+
+- RISK_EXPOSURE_VERSION = risk-expose-**r4.1.0-canary**(policy hash
+  재스탬프·manifest 재생성).
+- **활성화=환경변수로만**(코드 기본값 전부 잠금 유지 — env 미설정·오타·
+  비정상 값=off/False/dev키, fixture 고정): RISK_ENGINE_MODE·
+  RISK_EXPOSURE_RUNTIME_ENABLED·RISK_DEPLOYMENT_TOPOLOGY·
+  RISK_AUDIT_HMAC_KEY_B64(base64, 32B+ 미만=기본키=차단)·
+  RISK_EXPOSE_CANARY_SUBJECT_IDS(콤마 구분). .env.example에 안내.
+- smoke: scripts/risk_canary_smoke.py — §9 항목(모드·runtime·topology·
+  운영 키·allowlist·bootstrap VALIDATED·비대상 BYPASS byte 불변) 점검
+  후 내부 계정 1건 실요청 관측 확인.
+- 관측 라벨: 응답 폐기는 attempt 기록의 TOKEN_UNDERCOUNT_DETECTED /
+  CACHE_PATH_UNVALIDATED로 구분 집계(원인·복구 절차 상이).
+- 중단 절차: RISK_ENGINE_MODE=off(1순위 — byte 복귀 fixture) → 필요 시
+  RUNTIME_ENABLED=false → baseline 회귀 확인.

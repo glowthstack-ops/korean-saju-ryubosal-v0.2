@@ -8567,3 +8567,12 @@ SUPPRESSED bytes-diff e2e fixture(=guard 한 블록·schema 불변), BLOCK
 충족) — 실주입은 RUNTIME_ENABLED=False·MODE=off·dev HMAC 키가 계속
 차단(fixture ①-b). canary 개시=사람 확인 5항 후 r4.1.0-canary 별도
 커밋. pytest 2160·ruff·mypy 0(538)·manifest 일치. REVIEW.md §28-18.
+
+## r4.1.0-canary 전환 준비 커밋 (2026-07-17 — 통합 감수 최종 승인)
+
+RISK_EXPOSURE_VERSION=r4.1.0-canary(policy hash 재스탬프), 활성화 env
+배선(모드·runtime·topology·HMAC_B64(32B+ 검증)·allowlist — 미설정·오타·
+비정상=전부 잠금 유지 fixture), scripts/risk_canary_smoke.py(§9 점검),
+.env.example 안내. pytest 2161·ruff·mypy 0(539)·manifest 일치.
+활성화 자체=데굴님 운영 preflight(HMAC secret·worker=1 실측·allowlist)
+후 환경변수 설정 — 코드 커밋으로는 아무것도 켜지지 않음.
