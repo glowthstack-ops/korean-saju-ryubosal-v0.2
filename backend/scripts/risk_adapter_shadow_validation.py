@@ -49,6 +49,8 @@ from saju_engines.risk_claim_audit import (  # noqa: E402
 from saju_engines.risk_exposure import (  # noqa: E402
     RISK_EXPOSURE_INSTRUCTION_BLOCK,
     RISK_EXPOSURE_SUPPRESSED_GUARD,
+    RiskPromptBlock,
+    wrap_risk_block,
 )
 from saju_engines.risk_presentation import (  # noqa: E402
     build_presentation,
@@ -178,10 +180,21 @@ def _build_corpus(model_id: str,
     for idx, scale in (("a", 1), ("b", 4), ("c", 12)):
         add("S06_suppressed_guard", idx,
             req(_KO * scale + "\n" + RISK_EXPOSURE_SUPPRESSED_GUARD))
+    # 실서비스 INITIAL과 동일 구조: instruction+**wrapped block**(BEGIN/
+    # END marker)+**transport output schema**(P1 교정 — 실요청과 동일한
+    # message 구조가 corpus에 있어야 shape 대조가 성립).
+    def _wrapped(serialized: str) -> str:
+        return wrap_risk_block(RiskPromptBlock(
+            serialized_text=serialized,
+            content_hash=hashlib.sha256(
+                serialized.encode()).hexdigest()[:16],
+            compression_mode="FULL",
+            exact_token_count=max(1, len(serialized) // 4)))
+
     for idx, block in (("a", full_1), ("b", full_8), ("c", full_1)):
         add("S07_injected_instruction", idx,
             req(_KO + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
-                + "\n" + block))
+                + "\n" + _wrapped(block), schema=out_schema))
     # S08: render tier 축약 단계 — P1·P0·P0_COMPACT를 결정적으로 강제
     # (직전 tier 실측 토큰-1을 다음 예산으로; FULL은 S03·S07·S10이 대표).
     from saju_engines.risk_presentation import estimate_tokens
@@ -208,13 +221,14 @@ def _build_corpus(model_id: str,
         block = serialize_llm_payload(_payload(n), 100_000)
         add("S09_runtime_hard_max", idx,
             req(_KO + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
-                + "\n" + block))
+                + "\n" + _wrapped(block), schema=out_schema))
     # S10: oversized stress payload(8/12/16 episodes) — R2 hard max가
     # 아니라 tokenizer 압박용 synthetic 과대 요청(감수 57차 §6 명칭 정정).
     for idx, n in (("a", 8), ("b", 12), ("c", 16)):
         big = serialize_llm_payload(_payload(n), 100_000)
         add("S10_oversized_stress", idx,
-            req(_KO + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK + "\n" + big))
+            req(_KO + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK + "\n"
+                + _wrapped(big), schema=out_schema))
     # S11: REVISION_1 attempt(감수 60차 §5) — 원 요청(instruction+block)
     # +위반 요약+원 초안이 추가된 실제 재작성 message 구조.
     from saju_api.services.risk_llm_pipeline import (
@@ -223,7 +237,7 @@ def _build_corpus(model_id: str,
     )
     for idx, draft_scale in (("a", 1), ("b", 3), ("c", 8)):
         base_req = req(_KO + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
-                       + "\n" + full_1)
+                       + "\n" + _wrapped(full_1), schema=out_schema)
         revision = build_revision_request(
             base_req,
             draft="관련 조건을 점검해 두면 좋은 시기입니다. " * draft_scale,

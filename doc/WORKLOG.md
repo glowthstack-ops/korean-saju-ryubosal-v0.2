@@ -8587,3 +8587,27 @@ RISK_EXPOSURE_VERSION=r4.1.0-canary(policy hash 재스탬프), 활성화 env
 smoke 스크립트 expose 모드 지원 갱신. 문서에서 preflight 요구 절차
 제거(PRECANARY §4=적용 상태 기록). 중단=.env.risk 삭제/mode=off.
 pytest 전체 통과(격리 확인)·ruff·mypy clean.
+
+## 테마사주(리포트) 배선 + P1 교정 2건 (2026-07-17 데굴님 지시)
+
+**P1 교정(실서비스 INJECTED 차단 결함 — 배선 중 발견)**: ①shape digest의
+output/tool schema hash를 내용→**구조 골격**(동적 enum·개수 상한 자리
+표시자 치환)으로 — 요청별 episode 구성 차이로 corpus와 항상 불일치하던
+문제 해소(구조 변화에는 여전히 반응, fixture) ②INJECTED prompt에
+wrap_risk_block(BEGIN/END marker+checksum) 실적용 — flow preflight
+integrity 검사와 정합(기존 주석 "canary 차수에서 교체" 잔여분).
+harness S07/S09/S10/S11을 실요청과 동일 구조(wrapped block+transport
+schema)로 갱신 → 재실측 39표본 delta 전부 0·합격, 새 corpus
+f7f33358…f38914 승격(b00716ee… 대체 — 구 표본은 실요청과 shape 불일치).
+
+**테마사주 배선**: 기존 목차 C-06 "주의 시기·리스크" 슬롯 재사용(목차
+변경 없음 — 데굴님 변경 허용받았으나 불필요). _try_risk_exposed_section:
+리포트는 기간이 상품 파라미터(allowed_years)로 명시적이라 파서 없이
+period_overview/future/연도범위 직접 전달, data.scorer.risk_shadow→
+payload, 채팅과 동일한 run_exposed_reading(게이트·상태기·감사·최종 감사)
+소비. INJECTED 성공=그 본문, SUPPRESSED=guard 부착 prompt로 기존 생성,
+BYPASS/BLOCK/실패=기존 경로 폴백(위반 초안 미전달). renderer=_tighten.
+OFF no-op fixture(+shadow 가드 allowed 등재). 실서비스 INITIAL shape이
+reviewed corpus에 존재함을 fixture로 고정. smoke 7/7 재통과(bootstrap
+VALIDATED — 새 corpus 기준). pytest 전체 통과·ruff·mypy 0(539)·manifest
+일치.

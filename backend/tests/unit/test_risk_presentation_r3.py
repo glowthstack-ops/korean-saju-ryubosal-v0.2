@@ -355,8 +355,13 @@ def test_shadow_mode_no_prompt_wiring() -> None:
     # 계열 모드 전용 payload 조립·실호출 모듈 — OFF/SHADOW에서는 chat
     # 분기가 실행되지 않아 기존 LLM 입력 byte 불변 계약이 유지된다
     # (회귀 fixture: OFF/SHADOW prompt byte-identical).
+    # report_service(테마사주 배선 — 2026-07-17): C-06 위험 섹션 헬퍼가
+    # estimate_tokens를 지연 import — OFF/SHADOW에서는 exposure_mode_
+    # active 체크로 즉시 (None, 원본) 반환이라 기존 리포트 prompt byte
+    # 불변(off no-op fixture 존재).
     allowed = {"risk_presentation.py", "risk_exposure.py",
-               "risk_claim_audit.py", "risk_exposure_bootstrap.py"}
+               "risk_claim_audit.py", "risk_exposure_bootstrap.py",
+               "report_service.py"}
     offenders = [h for h in hits if Path(h).name not in allowed]
     assert offenders == [], offenders
     assert sys.modules  # sanity

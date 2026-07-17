@@ -65,7 +65,12 @@ _REVIEWED_COUNTER_CORPUS_HASHES: frozenset[str] = frozenset({
     # delta 전부 0·shape digest 7종·full digest 결속. adapter 감수≠EXPOSE
     # 개방(expose_pipeline.reviewed=false·RUNTIME_ENABLED=false·MODE=off).
     # [이력] 65db8eb9…(30표본)은 감수 60차 §5 policy 변경으로 폐기.
-    "b00716ee891569dad164f56dd2bc21e0a62f15c5436a5e6d4e2b2c634f902ce1",
+    # [테마사주 배선 차(2026-07-17) P1 교정 재검증] b00716ee…(구 표본 —
+    # 실서비스 INJECTED와 shape 불일치: schema 내용 hash·wrap 부재)를
+    # 대체. 새 corpus=wrapped block+transport schema 포함 실요청 구조,
+    # shape digest=구조 골격(동적 enum·상한 제외). 측정 결과 동등
+    # (39표본 delta 전부 0·undercount 0).
+    "f7f33358df78d576c71341b1e39aaed5faf9f1b5a8d30f3f2f4e7085e3f38914",
 })
 
 _ADAPTER_VALIDATION_DIR = (

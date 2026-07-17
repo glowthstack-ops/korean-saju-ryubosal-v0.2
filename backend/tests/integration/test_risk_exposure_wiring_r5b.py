@@ -2469,3 +2469,101 @@ def test_env_activation_is_fail_closed(monkeypatch) -> None:
     monkeypatch.delenv("RISK_AUDIT_HMAC_KEY_B64")
     monkeypatch.delenv("RISK_EXPOSE_CANARY_SUBJECT_IDS")
     importlib.reload(cfg)
+
+
+def test_shape_digest_invariant_to_dynamic_schema_values() -> None:
+    """P1 교정(테마사주 배선 차): shape digest는 schema의 요청별 동적
+    값(guidance_ref enum·maxItems)에 불변 — 구조(필드·타입) 변화에만
+    반응한다. 실서비스 INJECTED가 corpus와 대조 가능해지는 근거."""
+    import json as _json
+
+    from saju_api.services.risk_llm_pipeline import request_shape_digest
+    from saju_api.services.token_counter_registry import ProviderRequest
+
+    def schema(refs, max_items):
+        return _json.dumps({
+            "type": "OBJECT", "required": ["main_answer", "risk_guidance"],
+            "properties": {
+                "main_answer": {"type": "STRING"},
+                "risk_guidance": {
+                    "type": "ARRAY", "maxItems": max_items,
+                    "items": {"type": "OBJECT", "properties": {
+                        "guidance_ref": {"type": "STRING", "enum": refs},
+                    }}}}}, ensure_ascii=False)
+
+    req_a = ProviderRequest(system_messages=("s",), user_messages=("u",),
+                            output_schema=schema(["rg1"], 1))
+    req_b = ProviderRequest(system_messages=("s",), user_messages=("u",),
+                            output_schema=schema(["rg1", "rg2", "rg3"], 3))
+    assert (request_shape_digest("INITIAL", req_a)
+            == request_shape_digest("INITIAL", req_b))
+    # 구조 자체가 바뀌면(필드 추가) digest 상이 — 감수 의도 보존.
+    extra = _json.loads(schema(["rg1"], 1))
+    extra["properties"]["unreviewed_field"] = {"type": "STRING"}
+    req_c = ProviderRequest(
+        system_messages=("s",), user_messages=("u",),
+        output_schema=_json.dumps(extra, ensure_ascii=False))
+    assert (request_shape_digest("INITIAL", req_a)
+            != request_shape_digest("INITIAL", req_c))
+
+
+def test_report_risk_section_off_mode_is_noop() -> None:
+    """테마사주 배선: OFF 모드에서 C-06 헬퍼는 (None, 원본 그대로) —
+    기존 리포트 경로 byte 불변."""
+    from saju_api.services.report_service import (
+        _RISK_EXPOSED_SECTION_ID,
+        _try_risk_exposed_section,
+    )
+
+    assert _RISK_EXPOSED_SECTION_ID == "C-06"
+    assert risk_engine_config.RISK_ENGINE_MODE == "off"
+    # OFF면 data/spec 접근 전에 즉시 반환하므로 None 전달이 안전.
+    text, prompt = _try_risk_exposed_section(
+        None,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
+        "원본 프롬프트", "시스템", "report_full_section",
+        subject_id="s1")
+    assert text is None
+    assert prompt == "원본 프롬프트"
+
+
+def test_service_initial_request_shape_in_reviewed_corpus() -> None:
+    """실서비스 정합(P1 교정 검증): 채팅/리포트가 실제로 조립하는 INITIAL
+    INJECTED 요청(instruction+wrapped block+transport schema)의 구조적
+    digest가 reviewed corpus shape 집합에 존재해야 한다."""
+    import hashlib as _hashlib
+    import json as _json
+
+    from saju_api.services.gemini_token_adapter import (
+        build_gemini_transport_schema,
+    )
+    from saju_api.services.risk_exposure_bootstrap import (
+        load_reviewed_shape_digests,
+    )
+    from saju_api.services.risk_llm_pipeline import request_shape_digest
+    from saju_api.services.token_counter_registry import ProviderRequest
+    from saju_engines.risk_claim_audit import build_risk_output_schema
+    from saju_engines.risk_exposure import (
+        RISK_EXPOSURE_INSTRUCTION_BLOCK,
+        RiskPromptBlock,
+        wrap_risk_block,
+    )
+
+    llm = [{"guidanceRef": "rg1", "presentationLevel": "warning"}]
+    transport = build_gemini_transport_schema(
+        build_risk_output_schema(llm, hard_max=3))
+    serialized = '{"riskEpisodes": []}'
+    block = RiskPromptBlock(
+        serialized_text=serialized,
+        content_hash=_hashlib.sha256(
+            serialized.encode()).hexdigest()[:16],
+        compression_mode="FULL", exact_token_count=5)
+    initial = ProviderRequest(
+        system_messages=("sys",),
+        user_messages=("질문 본문\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
+                       + "\n" + wrap_risk_block(block),),
+        output_schema=_json.dumps(transport, ensure_ascii=False,
+                                  sort_keys=True))
+    digest = request_shape_digest("INITIAL", initial)
+    reviewed = load_reviewed_shape_digests("gemini-3-flash-preview")
+    assert digest in reviewed, "실서비스 INITIAL shape이 corpus에 없음"

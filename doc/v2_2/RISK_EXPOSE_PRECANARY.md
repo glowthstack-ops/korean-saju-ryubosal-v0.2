@@ -114,3 +114,13 @@ counted vs reported drift(undercount=자동 전역 차단) / cached_input
   CACHE_PATH_UNVALIDATED로 구분 집계(원인·복구 절차 상이).
 - 중단 절차: RISK_ENGINE_MODE=off(1순위 — byte 복귀 fixture) → 필요 시
   RUNTIME_ENABLED=false → baseline 회귀 확인.
+
+## 8. 테마사주(리포트) 배선 + P1 교정 (2026-07-17)
+
+- 채팅 외 **리포트 C-06 섹션**에도 동일 감수 경로 적용(목차 변경 없음):
+  period_overview/future/연도 범위(allowed_years — 시간 재해석 없음),
+  INJECTED=flow 본문·SUPPRESSED=guard 프롬프트·BYPASS/BLOCK=기존 생성.
+- P1 교정: shape digest=구조 골격(동적 enum·상한 제외)·INJECTED prompt에
+  BEGIN/END_RISK_BLOCK wrapper 실적용. corpus 재검증
+  f7f33358df78d576…e3f38914(39표본 delta 0)로 승격 — 구 corpus는 실요청과
+  shape 불일치(측정 자체는 동등).

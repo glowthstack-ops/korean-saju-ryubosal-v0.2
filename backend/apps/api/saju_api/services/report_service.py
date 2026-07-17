@@ -1796,6 +1796,83 @@ def plan_report(
     return [build_section_context(p, spec, data) for p in build_section_plans(spec)]
 
 
+# 위험 노출 대상 섹션(테마사주 배선 — 2026-07-17 데굴님 승인): 기존 목차의
+# C-06 "주의 시기·리스크" 슬롯 재사용(목차 변경 없음). 감수된 채팅 경로와
+# 동일한 게이트·상태기·감사(run_exposed_reading)를 소비한다.
+_RISK_EXPOSED_SECTION_ID = "C-06"
+
+
+def _try_risk_exposed_section(
+    data: _ReportData,
+    spec: ReportSpec,
+    body_prompt: str,
+    system: str,
+    call_type: str,
+    subject_id: str | None,
+) -> tuple[str | None, str]:
+    """C-06 위험 노출 시도 — (완성 본문 | None, 유효 prompt).
+
+    리포트는 기간이 상품 파라미터로 명시적이므로 파서 매핑 없이
+    period_overview/future/연도 범위를 직접 전달한다(시간 재해석 없음 —
+    allowed_years가 SSOT). 반환: INJECTED 성공=(감사 통과 본문, _),
+    그 외=(None, 유효 prompt — SUPPRESSED면 guard 부착본, BYPASS/실패면
+    원본)으로 기존 generate_reading 경로가 이어받는다(BLOCK 포함:
+    위험 없는 일반 생성으로 폴백 — 위반 초안은 전달되지 않음).
+    """
+    from saju_engines.risk_presentation import estimate_tokens
+
+    from . import risk_exposure_bootstrap as _reb
+    from . import risk_exposure_service as _res
+
+    if not _res.exposure_mode_active():
+        return None, body_prompt
+    try:
+        years = data.allowed_years
+        if not years:
+            return None, body_prompt
+        payload = _reb.build_risk_payload(list(data.scorer.risk_shadow))
+        inputs = _reb.exposure_runtime_inputs(call_type)
+        prompt, _sys, obs = _res.apply_risk_exposure(
+            body_prompt, system,
+            payload=payload,
+            subject_id=subject_id,
+            question_type="period_overview",
+            temporal_scope="future",
+            future_period_range=(str(min(years)), str(max(years))),
+            counter=inputs["counter"],
+            counter_model_id=inputs["counter_model_id"],
+            resolved_model_id=inputs["resolved_model_id"],
+            model_context_limit=inputs["context_limit"],
+            base_prompt_tokens=estimate_tokens(body_prompt),
+            user_input_tokens=0,
+            existing_context_tokens=estimate_tokens(system),
+            response_reserve=inputs["response_reserve"])
+        _logger.info("report_risk_gate section=%s %s",
+                     _RISK_EXPOSED_SECTION_ID, obs)
+        if obs.get("disposition") != "INJECTED" or not payload:
+            # SUPPRESSED=guard 부착 prompt·BYPASS=원본 — 기존 경로로.
+            return None, prompt
+        flow = _reb.run_exposed_reading(
+            baseline_prompt=body_prompt,
+            injected_prompt=prompt,
+            system=system,
+            observability=obs,
+            payload=payload,
+            call_type=call_type,
+            request_context_id=(
+                f"report:{subject_id or 'anon'}:{spec.product_code}:"
+                f"{_RISK_EXPOSED_SECTION_ID}"),
+            renderer=_tighten)
+        if flow["outcome"] in ("DELIVER_GENERATED",
+                               "DELIVER_SAFE_FALLBACK"):
+            return flow["final_text"], prompt
+        # BLOCK: 위험 본문 미전달 — 위험 없는 기존 생성으로 폴백(원본).
+        return None, body_prompt
+    except Exception:  # noqa: BLE001 — 위험 경로 실패=기존 경로(불변)
+        _logger.exception("report_risk_section 실패 — 기존 경로 폴백")
+        return None, body_prompt
+
+
 def generate_report(
     birth: BirthInput,
     spec: ReportSpec,
@@ -1848,6 +1925,19 @@ def generate_report(
         system = llm_client._REPORT_SYSTEM_PROMPT
         if persona_block:
             system = system + "\n\n" + persona_block
+        # C-06 위험 노출(테마사주 배선): 감수된 게이트·상태기·감사 전체를
+        # 채팅과 동일하게 소비 — INJECTED 성공 시 그 본문 사용, 그 외
+        # (BYPASS/SUPPRESSED/BLOCK)는 유효 prompt로 기존 경로 계속.
+        risk_prompt_override: str | None = None
+        if plan.section_id == _RISK_EXPOSED_SECTION_ID and attempt == 0:
+            risk_text, effective_prompt = _try_risk_exposed_section(
+                data, spec, context.body_prompt, system, call_type,
+                subject_id or owner_id)
+            if risk_text is not None:
+                data.record_opening(risk_text)
+                return risk_text, 0, len(risk_text)
+            if effective_prompt != context.body_prompt:
+                risk_prompt_override = effective_prompt  # SUPPRESSED guard
         # Context Reduction(docs/09 L333) — 섹션 입력(본문+시스템)이 토큰 상한을 넘으면(가드
         # 예외) 단계를 올려 가변 블록(다년 월별·연도별 흐름)을 ★주목 위주로 축소하고 재호출한다.
         # 상한 내 섹션은 0단계로 한 번에 통과(전체 12개월 유지) — 초과한 섹션만 축소된다.
@@ -1859,8 +1949,11 @@ def generate_report(
                 else build_section_context(plan, spec, data, reduction_level=reduction_level)
             )
             try:
+                body = (risk_prompt_override
+                        if risk_prompt_override is not None
+                        and reduction_level == 0 else ctx.body_prompt)
                 text = llm_client.generate_reading(
-                    _regen_note(ctx.body_prompt, attempt),
+                    _regen_note(body, attempt),
                     call_type=call_type,
                     system=system,
                     product_code=f"{spec.product_code}:{plan.section_id}",

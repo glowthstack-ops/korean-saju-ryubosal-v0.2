@@ -264,7 +264,8 @@ def apply_risk_exposure(
     manifest_reviewed = snapshot["reviewed"]
     manifest_hash_ok = snapshot["hash_ok"]
     canary_types = risk_engine_config.RISK_CANARY_QUESTION_TYPES
-    qt = question_type if question_type in canary_types else "__unmapped__"
+    qt: str = (question_type if question_type is not None
+               and question_type in canary_types else "__unmapped__")
     ctx = ExposureGateContext(
         mode=mode,
         question_type=qt,
@@ -319,11 +320,25 @@ def apply_risk_exposure(
             build_risk_output_schemas(
                 {"llmRiskEpisodes": result.get("audit_records") or []},
                 question_type=qt))
+        # 무결성 wrapper(감수 46·47차 — 테마사주 배선 차에서 실적용):
+        # BEGIN_RISK_BLOCK:<checksum>…END marker로 감싸 flow preflight의
+        # 단일 삽입·checksum 검증(verify_risk_block_integrity)과 정합.
+        import hashlib as _hashlib
+
+        from saju_engines.risk_exposure import (
+            RiskPromptBlock,
+            wrap_risk_block,
+        )
+        block = RiskPromptBlock(
+            serialized_text=block_text,
+            content_hash=_hashlib.sha256(
+                block_text.encode()).hexdigest()[:16],
+            compression_mode=str(result["observability"].get(
+                "compression_mode", "TIERED")),
+            exact_token_count=0)
         new_prompt = (prompt_text + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
-                      + "\n" + block_text)
-        # provider request 직전 무결성 재확인(감수 46·47차)은 canary 개시
-        # 차수에서 RiskPromptBlock+wrap_risk_block 경유로 교체·검증한다.
-        _ = verify_risk_block_integrity
+                      + "\n" + wrap_risk_block(block))
+        assert verify_risk_block_integrity(new_prompt, block)
         return new_prompt, system, result["observability"]
     result["observability"].setdefault(
         "output_schema_state", "BASE_UNCHANGED")

@@ -93,14 +93,46 @@ def canonical_request_bytes(request: ProviderRequest) -> bytes:
     }, ensure_ascii=False, sort_keys=True).encode()
 
 
+def _schema_structure_hash(schema_text: str) -> str:
+    """schema **구조 골격** hash(감수 60차 §5 의도 보존 — P1 교정).
+
+    실서비스 INJECTED의 output schema는 episode 구성에 따라 guidance_ref
+    enum·maxItems가 매 요청 달라진다 — 내용 hash를 쓰면 reviewed corpus와
+    항상 불일치해 모든 INJECTED가 REQUEST_SHAPE_NOT_REVIEWED로 차단된다
+    (fail-open이 아니라 fail-shut 결함). 동적 값(enum 목록·개수 상한)을
+    자리표시자로 치환한 구조만 hash — 필드·타입·계약 구조가 바뀌면 여전히
+    digest가 달라진다.
+    """
+    try:
+        parsed = json.loads(schema_text)
+    except ValueError:
+        return hashlib.sha256(schema_text.encode()).hexdigest()
+
+    def _skeleton(obj: object) -> object:
+        if isinstance(obj, dict):
+            return {k: ("<enum>" if k == "enum"
+                        else "<n>" if k in ("minItems", "maxItems",
+                                            "minLength", "maxLength")
+                        else _skeleton(v))
+                    for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_skeleton(x) for x in obj]
+        return obj
+
+    return hashlib.sha256(json.dumps(
+        _skeleton(parsed), ensure_ascii=False,
+        sort_keys=True).encode()).hexdigest()
+
+
 def request_shape_digest(kind: str, request: ProviderRequest,
                          provider_request_schema_version: str = "1") -> str:
     """구조적 request shape digest(감수 60차 §5).
 
-    동적 본문(질문 원문·초안·violation span·token 수·request ID·시각)은
-    제외하고 attempt type·message role 배열·risk instruction/block 존재·
-    schema hash·generation config shape·schemaVersion만 표현한다 —
-    reviewed corpus의 shape digest 집합과 대조 가능해야 한다.
+    동적 본문(질문 원문·초안·violation span·token 수·request ID·시각·
+    schema의 요청별 enum/상한)은 제외하고 attempt type·message role 배열·
+    risk instruction/block 존재·schema **구조 골격** hash·generation
+    config shape·schemaVersion만 표현한다 — reviewed corpus의 shape
+    digest 집합과 대조 가능해야 한다.
     """
     joined = "\n".join(request.user_messages)
     gen_keys: list[str] = []
@@ -118,11 +150,10 @@ def request_shape_digest(kind: str, request: ProviderRequest,
         "risk_block_wrapper": "BEGIN/END_RISK_BLOCK:v1",
         "has_suppressed_guard": RISK_EXPOSURE_SUPPRESSED_GUARD in joined,
         "has_revision_note": "[재작성 요청]" in joined,
-        "output_schema_hash": (hashlib.sha256(
-            request.output_schema.encode()).hexdigest()
+        "output_schema_hash": (_schema_structure_hash(
+            request.output_schema)
             if request.output_schema else None),
-        "tool_schema_hash": (hashlib.sha256(
-            request.tool_schema.encode()).hexdigest()
+        "tool_schema_hash": (_schema_structure_hash(request.tool_schema)
             if request.tool_schema else None),
         "generation_config_keys": gen_keys,
         "provider_request_schema_version": provider_request_schema_version,
