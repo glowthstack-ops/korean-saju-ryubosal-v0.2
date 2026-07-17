@@ -2567,3 +2567,27 @@ def test_service_initial_request_shape_in_reviewed_corpus() -> None:
     digest = request_shape_digest("INITIAL", initial)
     reviewed = load_reviewed_shape_digests("gemini-3-flash-preview")
     assert digest in reviewed, "실서비스 INITIAL shape이 corpus에 없음"
+
+
+def test_provider_outage_never_raises_to_caller(monkeypatch,
+                                                tmp_path) -> None:
+    """베타 회복(2026-07-17 실장애): provider 503 등 llm_call 예외가
+    호출자(chat 500)로 전파되지 않는다 — attempt 실패로 기록하고
+    REGENERATE→그마저 장애면 결정적 fallback으로 종결."""
+    from saju_api.services.risk_llm_pipeline import run_injected_risk_flow
+
+    env = _pipeline_env(monkeypatch, tmp_path)
+
+    def failing_llm_call(request):
+        raise RuntimeError("503 Service Unavailable")
+
+    result = run_injected_risk_flow(
+        initial_request=env["initial"], baseline_request=env["baseline"],
+        execution_context=env["exec"],
+        llm_episodes=env["payload"]["llmRiskEpisodes"],
+        adapter=env["adapter"], final_token_limit=100_000,
+        llm_call=failing_llm_call, renderer=lambda s: s)
+    assert result["outcome"] == "DELIVER_SAFE_FALLBACK"
+    kinds = [(a["kind"], a.get("audit_issues")) for a in result["attempts"]]
+    assert ("INITIAL", ["PROVIDER_CALL_FAILED"]) in kinds
+    assert any(k == "REGENERATE_WITHOUT_RISK" for k, _ in kinds)

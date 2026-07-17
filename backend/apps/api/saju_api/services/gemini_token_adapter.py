@@ -150,13 +150,29 @@ def generate_structured(request: ProviderRequest, model_id: str, *,
     fallback 처리). 반환: {"text", "prompt_tokens"(전체 input — cached
     포함), "cached_tokens", "output_tokens"}.
     """
+    import time as _time
     body = build_gemini_request_body(request)
     cfg = dict(body.get("generationConfig") or {})
     cfg["maxOutputTokens"] = max_output_tokens
     body["generationConfig"] = cfg
-    res = httpx.post(f"{_API_BASE}/{model_id}:generateContent", json=body,
-                     headers={"x-goog-api-key": _api_key()},
-                     timeout=timeout)
+    res = None
+    last_exc: Exception | None = None
+    for attempt in range(4):  # 프리뷰 모델 503·읽기 지연 간헐 — 지수 백오프
+        try:
+            res = httpx.post(f"{_API_BASE}/{model_id}:generateContent",
+                             json=body,
+                             headers={"x-goog-api-key": _api_key()},
+                             timeout=timeout)
+        except httpx.TimeoutException as exc:
+            last_exc = exc
+            _time.sleep(1.5 * (attempt + 1))
+            continue
+        if res.status_code not in (429, 500, 503):
+            break
+        _time.sleep(1.5 * (attempt + 1))
+    if res is None:
+        raise last_exc if last_exc is not None else RuntimeError(
+            "generateContent 호출 실패")
     res.raise_for_status()
     data = res.json()
     parts = (data.get("candidates") or [{}])[0].get(

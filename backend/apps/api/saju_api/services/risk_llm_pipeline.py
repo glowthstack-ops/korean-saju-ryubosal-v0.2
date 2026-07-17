@@ -478,7 +478,14 @@ def run_injected_risk_flow(
         record = _record(plan)
         if plan.preflight_issues:
             return None
-        result = llm_call(request)
+        try:
+            result = llm_call(request)
+        except Exception:  # noqa: BLE001 — provider 장애=attempt 실패
+            # (재시도는 llm_call 내부 소관) → 상태기가 REGENERATE/fallback
+            # 으로 수렴. 사용자 500 금지 — DELIVER_*/BLOCK만 종결.
+            record["audit_issues"] = ["PROVIDER_CALL_FAILED"]
+            record["audit_action"] = "DISCARDED"
+            return None
         # drift·cache 검사(통합 감수 §2 — **전달 판정보다 먼저**): 감수된
         # token 조건을 벗어난 응답은 내용이 안전해도 폐기한다.
         reported = result.get("provider_reported_input")
@@ -560,7 +567,11 @@ def run_injected_risk_flow(
             reviewed_shape_digests=reviewed_shape_digests)
         _record(plan)
         if not plan.preflight_issues:
-            final_answer = str(llm_call(regen).get("answer", ""))
+            try:
+                final_answer = str(llm_call(regen).get("answer", ""))
+            except Exception:  # noqa: BLE001 — REGENERATE도 장애=fallback
+                attempts[-1]["audit_issues"] = ["PROVIDER_CALL_FAILED"]
+                final_answer = None
 
     if final_answer is None:
         # 결정적 safe fallback(감수 60차 §8·§9) — 이 역시 renderer 후

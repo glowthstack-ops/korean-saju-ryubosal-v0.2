@@ -3690,15 +3690,24 @@ def chat(
             # INJECTED 실호출(감수 60·61차): 구조화 생성→감사→REVISE/
             # REGENERATE→renderer 후 최종 감사. BYPASS/SUPPRESSED는 아래
             # 기존 generate_reading 경로 그대로(byte-equivalent 계약).
-            _risk_flow_result = _reb.run_exposed_reading(
-                baseline_prompt=_baseline_prompt,
-                injected_prompt=prompt_text,
-                system=system or llm_client._SYSTEM_PROMPT,
-                observability=_risk_obs, payload=_risk_payload,
-                call_type=call_type,
-                request_context_id=f"{thread_id or 'oneshot'}:"
-                                   f"{state.turn_no if state else 0}",
-                renderer=_normalize_ganji_gloss)
+            try:
+                _risk_flow_result = _reb.run_exposed_reading(
+                    baseline_prompt=_baseline_prompt,
+                    injected_prompt=prompt_text,
+                    system=system or llm_client._SYSTEM_PROMPT,
+                    observability=_risk_obs, payload=_risk_payload,
+                    call_type=call_type,
+                    request_context_id=f"{thread_id or 'oneshot'}:"
+                                       f"{state.turn_no if state else 0}",
+                    renderer=_normalize_ganji_gloss)
+            except Exception:  # noqa: BLE001 — flow 인프라 장애 방어
+                # 위험 요소(instruction·block·schema)가 감사 없이 나가는
+                # 경로 차단: baseline+guard로 복원해 기존 경로 폴백.
+                _logger.exception("risk_flow 실패 — baseline+guard 폴백")
+                _risk_flow_result = None
+                prompt_text = (_baseline_prompt + "\n"
+                               + risk_exposure_service
+                               .RISK_EXPOSURE_SUPPRESSED_GUARD)
 
     if state is not None:
         # T4.5 — 시스템이 제시한 상위 이벤트를 claim/event 엔티티로 등록(이의 재검산 대비).
