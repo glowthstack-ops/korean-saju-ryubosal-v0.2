@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import date as date_cls
+from datetime import timedelta
 
 from saju_manse_analysis.yongsin.operational_role_config import (
     is_favorable_role,
@@ -1178,6 +1179,23 @@ def build_reference_frame(
     ganji = _ganji_lookup(result)
     start = intent.time_range.start if intent.time_range else None
     end = intent.time_range.end if intent.time_range else None
+    # 'N개월 안에' 류 상대 창은 end 대신 end_offset_days로 표현된다 —
+    # end가 비면 offset으로 실제 끝 날짜를 계산해 기간으로 표기한다
+    # (2026-07-17 데굴님 지적: '12개월안에'가 [질문 기간: 오늘 하루]로
+    # 축소돼 일운 중심 답변이 되던 결함).
+    if (
+        start and not end
+        and intent.time_range is not None
+        and intent.time_range.end_offset_days
+        and len(start) == 10
+    ):
+        try:
+            end = (
+                date_cls.fromisoformat(start)
+                + timedelta(days=int(intent.time_range.end_offset_days))
+            ).isoformat()
+        except ValueError:
+            end = None
     period = f"{start} ~ {end}" if start and end and start != end else (start or "")
     note = (
         f"질문의 시점 표현은 {period} 구간으로 해석되었다."

@@ -8623,3 +8623,13 @@ scope도 동반 승계(이번 턴 scope가 미확정 기본값 timeless일 때�
 회고 시점 미파싱은 별도 기존 이슈로 관찰. pytest 전체·ruff·mypy clean.
 위험 게이트 부수 효과: scope 승계로 후속 질문도 미래 창이 살아 위험
 노출 대상이 정상 판정됨(timeless=BYPASS였던 것이 창 기준으로).
+
+## 'N개월 안에' 상대 창 소비 결함 2건 (2026-07-17 데굴님 베타 실로그)
+
+'12개월안에' 질문이 [질문 기간: 오늘 하루]로 축소+'질문한 날짜의 일운'
+블록 오주입 → 일운 중심 답변. 파서는 정상(offset 360일 창) — 소비 측
+결함: ①context_reducer.build_reference_frame이 end_offset_days 창의
+end를 환산 표기(2026-07-17 ~ 2027-07-12) ②chat 일운 블록 fallback을
+진짜 '그 날 하루' 창(granularity=DAY·offset 없음·end==start)으로 한정.
+회귀 fixture 3종(신규 test_offset_window_period_label.py). pytest
+전체·ruff·mypy clean — 실서버 자동 반영.

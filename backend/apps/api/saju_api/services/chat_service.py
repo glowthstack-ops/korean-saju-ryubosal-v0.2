@@ -88,6 +88,7 @@ from saju_shared_types.execution_plan import ExecutionPlan, SubjectInjectionPoli
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import (
     Domain,
+    Granularity,
     IntentJson,
     QueryType,
     SubjectKind,
@@ -3554,14 +3555,22 @@ def chat(
         else today.year
     )
     _date_targets = _explicit_dates(question, _ref_year)
+    _tr = intent.time_range
     if (
         not _date_targets
-        and intent.time_range is not None
-        and intent.time_range.start
-        and len(intent.time_range.start) == 10
+        and _tr is not None
+        and _tr.start
+        and len(_tr.start) == 10
+        # 진짜 '그 날 하루' 창일 때만(2026-07-17 데굴님 지적: '12개월
+        # 안에' 상대 창이 start가 오늘 날짜라는 이유로 단일 날짜로
+        # 오판돼 일운 중심 블록이 주입되던 결함) — offset 창·기간 창·
+        # 월 granularity는 제외한다.
+        and not _tr.end_offset_days
+        and (_tr.end is None or _tr.end == _tr.start)
+        and _tr.granularity is Granularity.DAY
     ):
         try:
-            _date_targets = [date.fromisoformat(intent.time_range.start)]
+            _date_targets = [date.fromisoformat(_tr.start)]
         except ValueError:
             _date_targets = []
     if _date_targets:
