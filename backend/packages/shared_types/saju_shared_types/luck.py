@@ -69,8 +69,8 @@ class DaewoonItem(BaseModel):
     stem_ten_god: str
     branch_ten_god: str
     twelve_unseong: str
-    first_half_focus: str = "stem"  # 0-4년 천간 주도
-    second_half_focus: str = "branch"  # 5-9년 지지 주도
+    # (구 first_half_focus/second_half_focus 삭제 — 2026-07-21. 하드 전/후반 분할 대신
+    # 발현 진행 모드가 서술을 담당: saju_shared_types.daewoon_progression, 소비처 0건 확인.)
     relations_to_chart: list[str] = Field(default_factory=list)
     gongmang_activation: list[str] = Field(default_factory=list)  # 운이 원국 공망을 자극
     raw_elements: list[str] = Field(default_factory=list)

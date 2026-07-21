@@ -30,6 +30,7 @@ from saju_engines.context_reducer import (
     first_sentence,
     serialize_chart_prefix,
 )
+from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.direction_suggestion import (
     DIRECTION_SUGGESTION_INSTRUCTION,
     detect_direction_suggestions,
@@ -85,6 +86,12 @@ from saju_engines.structural_context import (
 )
 from saju_engines.structural_context import (
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE as _DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
+)
+from saju_engines.structural_context import (
+    PROGRESSION_MODE_KO as _PROGRESSION_MODE_KO,
+)
+from saju_engines.structural_context import (
+    daewoon_progression_lines as _daewoon_progression_lines,
 )
 from saju_engines.structure_patterns import (
     detect_structure_patterns,
@@ -270,9 +277,10 @@ _SECTION_GUIDES: dict[str, str] = {
     # 2부 과거(F-07~F-09) — 시간범위를 '출생~현재'로 한정. 미래 연·월 사건 디테일은 3·4부
     # (현재 대운 정밀·향후 로드맵·고점 연도)의 몫이므로 여기서 끌어오지 말 것(데이터-목적 정합).
     "F-07": "출생부터 현재까지 거쳐 온 각 대운(10년)의 색깔과 전환점을 순서대로 짚어 인생 궤적을 "
-    "그릴 것. 대운표의 전/후반(천간·지지) 분할로 시기감을 주되, 특정 미래 연도·월의 사건 "
-    "디테일(예: 몇 년 몇 월 이직)은 다루지 말 것 — 그건 뒤의 '현재 대운 정밀'·'향후 대운 "
-    "로드맵' 섹션 몫이다. 여기서는 대운 단위의 큰 흐름만.",
+    "그릴 것. 대운표의 '발현' 모드(계기 선인식→현실화 누적 경향과 그 예외)로 시기감을 주되, "
+    "전반·후반 연차로 나눠 단정하지 말고, 특정 미래 연도·월의 사건 디테일(예: 몇 년 몇 월 "
+    "이직)은 다루지 말 것 — 그건 뒤의 '현재 대운 정밀'·'향후 대운 로드맵' 섹션 몫이다. "
+    "여기서는 대운 단위의 큰 흐름만.",
     "F-08": "과거 검증 신호(M14)를 토대로 지나온 시기의 주요 사건 가능성을 연도대별로 복원해 "
     "서술할 것. 대운표는 그 사건이 어느 대운기였는지 맥락으로만 쓰고, 미래 시점은 다루지 "
     "말 것.",
@@ -281,8 +289,8 @@ _SECTION_GUIDES: dict[str, str] = {
     "말 것.",
     "F-22": "이 섹션 끝에는 대운(생애)·세운·월운 간지 달력표가 엔진 계산값으로 자동 첨부된다. "
     "본문에서 간지 표를 직접 만들지 말 것(간지를 지어내면 안 됨) — 그 표를 어떻게 읽는지 "
-    "(대운 전/후반, 세운·월운의 의미) 안내하고, 본문에 등장한 용어를 아래 [용어 사전] "
-    "기준으로 짧게 풀이하는 데 집중할 것.",
+    "(대운의 천간=계기·지지=현실 기반 역할, 세운·월운의 의미) 안내하고, 본문에 등장한 "
+    "용어를 아래 [용어 사전] 기준으로 짧게 풀이하는 데 집중할 것.",
     "C-01": "주제와 기간의 핵심 신호를 3~5줄로 요약할 것.",
     "C-02": "주제와 관련된 원국 글자(십성·궁위·관계)만 골라 구조를 설명할 것.",
     "C-04": "이벤트 후보 표의 시기·점수·동반 신호를 타임라인으로 서술할 것.",
@@ -625,6 +633,14 @@ class _ReportData:
         self.preparation_context = build_preparation_context(
             self.result.luck_cycles.yearly_luck if self.result.luck_cycles else [],
             today.year,
+        )
+        # 대운 발현 진행 모드(2026-07-21) — 하드 전/후반 분할 대체(서술 전용, 점수·판정 불변).
+        self.daewoon_progression = (
+            resolve_all_daewoon_progressions(
+                self.result.luck_cycles.daewoon_table, self.result.pillars
+            )
+            if self.result.luck_cycles is not None and self.result.pillars is not None
+            else []
         )
         # 결혼·자산 자원(성별 인지) — 용희신을 넘겨 '배우자성=용신(배우자 덕)'까지 판정(G).
         self.marriage_resource = analyze_marriage_resource(
@@ -1207,17 +1223,24 @@ class _ReportData:
         cands = self.candidates if candidates is None else candidates
         lines = [
             "[대운표]",
-            "(각 대운은 전반 0-4년 천간(드러남) 주도, 후반 5-9년 지지(기반·환경) 주도로 체감이 "
-            "갈린다 — 대운 풀이 시 이 전/후반 시기 분할을 반영할 것)",
+            "(대운 풀이 시: 천간이 나타내는 계기·외부 변화가 상대적으로 먼저 인식되고, 지지가 "
+            "나타내는 생활환경·관계·현실 조건은 시간이 지나며 누적·구체화되기 쉽다 — 고정된 "
+            "전/후반 연차 분할이 아니며, 각 행의 '발현' 모드는 이 순서를 뒤집는 엔진 판정 예외다)",
         ]
         lc = self.result.luck_cycles
         if lc is not None:
+            prog_by_idx = {p.daewoon_index: p for p in self.daewoon_progression}
             for d in lc.daewoon_table:
+                prog = prog_by_idx.get(d.index)
+                mode_ko = (
+                    _PROGRESSION_MODE_KO.get(prog.mode, prog.mode)
+                    if prog is not None
+                    else _PROGRESSION_MODE_KO["default_gradient"]
+                )
                 lines.append(
                     f"대운 {d.ganji}(천간 {d.stem}={d.stem_ten_god}/지지 {d.branch}="
                     f"{d.branch_ten_god}) {d.approx_start_date.year}-{d.approx_end_date.year}, "
-                    f"{d.start_age}-{d.start_age + 9}세: 전반 0-4년 {d.stem} 주도 · "
-                    f"후반 5-9년 {d.branch} 주도"
+                    f"{d.start_age}-{d.start_age + 9}세: 발현 {mode_ko}"
                 )
         if daewoon_only:
             return lines  # 미래 이벤트 후보 4블록 생략(과거·메타 섹션 — 시간범위 정합)
@@ -1303,7 +1326,7 @@ class _ReportData:
         base_year = self.today.year if is_full else int(self._spec.period.start[:4])
         span = 10 if is_full else 1
         out: list[str] = ["## 간지 달력표 (엔진 계산값 — 참고용)"]
-        # 대운(생애) — 전/후반 주도 간지까지.
+        # 대운(생애) — 천간(계기)·지지(현실 기반) 십성까지.
         out += [
             "",
             "### 대운 (10년 주기 · 생애)",
@@ -1736,6 +1759,10 @@ def build_section_context(
     # 대운 풀이 관점·교체기 신호·안 맞는 구간 조언(2026-06-23, 전문가 강의 참고 — 서술 가이드).
     if sid in _DAEWOON_FRAMING_SECTIONS:
         lines += ["", _DAEWOON_FRAMING_DIRECTIVE]
+        # 발현 진행 예외 모드(2026-07-21) — 기본 그라데이션을 뒤집는 대운만 주입(서술 전용).
+        _prog_lines = _daewoon_progression_lines(data.daewoon_progression)
+        if _prog_lines:
+            lines += ["", *_prog_lines]
     if sid in _DAEWOON_TRANSITION_SIGNAL_SECTIONS:
         lines += ["", _DAEWOON_TRANSITION_SIGNALS_DIRECTIVE]
     if sid in _OFF_PEAK_ADVICE_SECTIONS:

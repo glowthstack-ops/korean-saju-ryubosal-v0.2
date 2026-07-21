@@ -40,6 +40,7 @@ from saju_engines.conversation import (
     tr_year_span,
 )
 from saju_engines.conversation_store import ConversationStore
+from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
 from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
@@ -74,6 +75,7 @@ from saju_engines.structural_context import (
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
     TRAIT_FEEDBACK_DIRECTIVE,
+    daewoon_progression_lines,
     spouse_star_directive,
 )
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
@@ -3607,6 +3609,12 @@ def chat(
     )
     if _wants_daewoon_frame and not _relo_dest:
         trailing.append(DAEWOON_FRAMING_DIRECTIVE)
+        # 발현 진행 예외 모드(2026-07-21) — 기본 그라데이션(계기→현실화)을 뒤집는 대운만
+        # 주입(서술 전용, 점수·판정 불변). 예외 없으면 빈 목록(디렉티브 기본 prior로 충분).
+        if result.luck_cycles is not None and result.pillars is not None:
+            trailing.extend(daewoon_progression_lines(resolve_all_daewoon_progressions(
+                result.luck_cycles.daewoon_table, result.pillars,
+            )))
         trailing.append(DAEWOON_TRANSITION_SIGNALS_DIRECTIVE)
         # 운 품질 → 의사결정 태도 번역(좋은 시기=직감 실행, 불안정=점검·내실 — 사례 P0-5).
         trailing.append(DECISION_ATTITUDE_DIRECTIVE)

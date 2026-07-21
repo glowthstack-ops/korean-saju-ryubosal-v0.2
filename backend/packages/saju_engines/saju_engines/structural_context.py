@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from saju_shared_types.daewoon_progression import DaewoonProgressionProfile
 from saju_shared_types.external_impression import ExternalImpressionProfile
 from saju_shared_types.health_vulnerability import HealthVulnerabilityProfile
 from saju_shared_types.intent import Domain, IntentJson, QueryType
@@ -546,14 +547,19 @@ def era_energy_lines(result: ManseV2Result, year: int) -> list[str]:
 # ── 대운 풀이 관점·교체기 신호(2026-06-23, 전문가 강의 참고 — 채팅·리포트 공용) ──
 # 계산 불변(점수·날짜·간지·판정 무관). 대운을 '환경/공간감(플랫폼)이 닥쳐오는 흐름'으로,
 # 핵심을 '이 대운이 나에게(용신·조후) 맞느냐'로 잡는 서술 관점만 제공한다(절대원칙 1·8 준수).
+# 발현 순서는 하드 전/후반 분할이 아니라 그라데이션 prior + 예외 모드(2026-07-21 개정,
+# doc/v2_2/DAEWOON_PROGRESSION_NARRATIVE.md).
 DAEWOON_FRAMING_DIRECTIVE = (
     "[대운 풀이 관점] 대운은 '내가 바꾸는 것'이 아니라 계절이 닥치듯 환경·공간감(플랫폼)이 "
     "바뀌어 오는 10년 흐름이다. 핵심은 '운이 바뀐다'가 아니라 '이 대운이 나에게(용신·조후) 맞는 "
     "대운이냐' — 맞으면 같은 노력이 순풍을, 안 맞으면 역풍이 된다(안 맞는 평운·기신 구간은 포기가 "
-    "아니라 지금 하던 것을 지키며 내실을 다지고 다음 맞는 대운을 준비). 대운의 전반 0-4년은 "
-    "천간(드러남), 후반 5-9년은 지지(기반·환경)가 주도하는 시기 차이도 반영하고, 새 환경에 "
-    "적응하며 그 대운의 미션(이동·전환·확장·정착 등)을 수행하는 관점으로 — 단정 말고 에너지·"
-    "방향·적응으로 풀 것."
+    "아니라 지금 하던 것을 지키며 내실을 다지고 다음 맞는 대운을 준비). 발현 순서는 대개 천간이 "
+    "나타내는 계기·외부 변화가 상대적으로 먼저 인식되고, 시간이 지나며 지지가 나타내는 생활환경·"
+    "관계·현실 조건이 누적·구체화되기 쉽다 — 단 이는 고정된 전/후반 연차 분할이 아니라 일반적 "
+    "경향이며, 지지의 충·형·합국 성립은 현실 변화를 초입부터 부르고 천간의 강한 작동은 외부 "
+    "주제를 전 기간 지속시킬 수 있다('주도'로 단정하지 말고 '상대적으로 드러나기 쉽다'로 표현). "
+    "새 환경에 적응하며 그 대운의 미션(이동·전환·확장·정착 등)을 수행하는 관점으로 — 단정 말고 "
+    "에너지·방향·적응으로 풀 것."
 )
 DAEWOON_TRANSITION_SIGNALS_DIRECTIVE = (
     "[대운 교체기 체감 신호 — 단정 아님, 사람·정도 차이] 교운(대운 교체) 무렵엔 흔히 다음이 함께 "
@@ -562,6 +568,66 @@ DAEWOON_TRANSITION_SIGNALS_DIRECTIVE = (
     "정리하고 싶어짐 · 외모·분위기 변화. '겪으셨을 수 있다/겪을 수 있다'로 가능 형태로만 짚고, "
     "확정·예언으로 말하지 말 것."
 )
+
+# ── 대운 발현 진행 모드(2026-07-21 데굴님 확정 — 하드 전/후반 분할 대체, 서술 전용) ──
+# 대운표 행 표기용 짧은 라벨. 점수·판정 불변(doc/v2_2/DAEWOON_PROGRESSION_NARRATIVE.md).
+PROGRESSION_MODE_KO: dict[str, str] = {
+    "default_gradient": "점진(계기→현실화)",
+    "branch_early_activation": "지지 조기 발동",
+    "stem_persistent": "천간 지속",
+    "coactivated": "동시 발현",
+    "weak_manifestation": "약발현(명분 위주)",
+    "indeterminate": "단정 불가(세운·월운 확인)",
+}
+_PROGRESSION_MODE_DESC: dict[str, str] = {
+    "branch_early_activation": (
+        "지지의 충·형·합국·공망 발동이 강하게 성립 — 생활환경·관계·현실 조건의 변화가 후반을 "
+        "기다리지 않고 운 초입부터 나타날 수 있다"
+    ),
+    "stem_persistent": (
+        "천간의 작동성이 강함(통근) — 직책·계약·평가·선택 같은 외부 주제가 초기에만 머물지 않고 "
+        "대운 전 기간에 걸쳐 반복될 수 있다"
+    ),
+    "coactivated": (
+        "천간의 외부 계기와 지지의 현실 변화가 함께 강화 — 제안·결정과 실제 환경 변화가 짧은 "
+        "간격으로 이어질 수 있다"
+    ),
+    "weak_manifestation": (
+        "천간 무근·합거 또는 지지 공망 — 신호가 명분·가능성 수준에 머물고 실제 결과로는 더디게 "
+        "이어질 수 있다"
+    ),
+    "indeterminate": (
+        "발동과 저하 신호가 상충 — 이 대운은 전반·후반으로 나눠 단정하지 말고 세운·월운이 어느 "
+        "글자를 활성화하는지로 시점을 좁힐 것"
+    ),
+}
+
+
+def daewoon_progression_lines(profiles: list[DaewoonProgressionProfile]) -> list[str]:
+    """[대운 발현 진행 신호] — 기본 그라데이션 prior를 뒤집는 예외 대운만 표기(서술 전용).
+
+    전 대운이 default_gradient면 빈 목록(디렉티브의 기본 prior 문구로 충분 — 무언급).
+    불변식: 점수·순위·시기·확신도 불변, 사건 생성 금지 — 헤더로 LLM에도 강제한다.
+    """
+    exceptional = [p for p in profiles if p.mode != "default_gradient"]
+    if not exceptional:
+        return []
+    out = [
+        "[대운 발현 진행 신호 — 서술 전용(점수·순위·시기·확신도 변경 금지). 기본 경향은 '계기 "
+        "선인식 → 현실화 누적'이지만, 아래 대운은 엔진 판정 예외 모드가 그 순서보다 우선한다]",
+    ]
+    for p in exceptional:
+        desc = _PROGRESSION_MODE_DESC.get(p.mode, "")
+        out.append(
+            f"{p.ganji} 대운({p.start_age}세~): {PROGRESSION_MODE_KO.get(p.mode, p.mode)}"
+            + (f" — {desc}" if desc else "")
+        )
+    out.append(
+        "서술 규칙: ①위 모드는 발현 '순서·양상'의 경향이지 사건·길흉 확정이 아님 ②'전반에는 "
+        "천간 사건, 후반에는 지지 사건'처럼 연차로 나눠 단정하지 말 것 ③구체 발동 시점은 세운·"
+        "월운 활성화가 결정한다고 안내할 것."
+    )
+    return out
 
 
 def marriage_age_prior_lines(result: ManseV2Result) -> list[str]:

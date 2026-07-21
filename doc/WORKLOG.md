@@ -8633,3 +8633,40 @@ end를 환산 표기(2026-07-17 ~ 2027-07-12) ②chat 일운 블록 fallback을
 진짜 '그 날 하루' 창(granularity=DAY·offset 없음·end==start)으로 한정.
 회귀 fixture 3종(신규 test_offset_window_period_label.py). pytest
 전체·ruff·mypy clean — 실서버 자동 반영.
+
+## 대운 발현 진행 모드 — 하드 전/후반 분할 폐기 (2026-07-21 데굴님 확정)
+
+"전반 0-4년 천간 주도 / 후반 5-9년 지지 주도" 하드 이분 서술(디렉티브·
+대운표 입력 블록·죽은 스키마 필드)이 "운 후반이 되어야 지지가 작동"류
+오답을 유도하던 문제. GPT 제안 검토 후 '새 점수 모델이 아니라 잘못된
+하드 이분 서술 제거 + 기존 동태 신호를 발현 서사에 연결'로 정의(P0+P1,
+P2 도메인 확대·P3 수치화는 보류). 스펙 SSOT:
+doc/v2_2/DAEWOON_PROGRESSION_NARRATIVE.md (4축 분리 — 출처 역할/층위
+비중/내부 진행률/발동 예외. luck_cycles._PERIOD_WEIGHTS·transit_source_
+strength는 별개 축으로 유지).
+
+구현: ①shared_types/daewoon_progression.py — ProgressionMode 6종
+(default_gradient/branch_early_activation/stem_persistent/coactivated/
+weak_manifestation/indeterminate)+reason_codes, usage=narrative_only
+②saju_engines/daewoon_progression.py — resolve_daewoon_progression:
+기존 신호만 읽는 순수 판정(relations_to_chart 충·형·합국완성/
+gongmang_activation 공망발동/branch_effect.is_void/간여지동=십성 동일).
+신규 소계산은 운 천간의 통근뿐 — 지속(persistent) 판정은 '운 지지 자체'
+통근으로 한정(원국 뿌리까지 인정하면 전 대운이 지속형화), 원국 통근은
+무근(약발현) 판정에만. 우선순위: 전실+합국 상충→indeterminate > 조기
+발동+천간작동/간여지동→coactivated > 조기발동 > 지속 > 약발현 > 기본
+③structural_context — DAEWOON_FRAMING_DIRECTIVE 그라데이션 개정('주도'
+금지·'상대적으로 드러나기 쉽다'), daewoon_progression_lines(예외 대운만
+표기·전부 기본이면 무언급·서술 전용 헤더) ④report_service — luck_block
+헤더·행 접미를 '발현 {모드}'로 교체, F-07/F-22 가이드 개정,
+_DAEWOON_FRAMING_SECTIONS에 예외 블록 동반 주입 ⑤chat_service —
+_wants_daewoon_frame 시 동일 렌더 재사용 ⑥DaewoonItem.first_half_focus/
+second_half_focus 삭제(소비처 0건 — FE TS 인터페이스 미정의·backend
+로직 참조 없음 전수 확인).
+
+회귀(test_daewoon_progression.py 14케이스): 판정표 모드별 fixture(일지
+충→조기발동, 삼합완성+통근→동시발현, 간여지동→동시발현, 무근+합거+공망
+→약발현, 운지지 통근→지속, 전실+방합완성→단정불가, 공망충발→조기발동)+
+입력 불변(model_dump 동일·실명식 e2e)+문구 회귀(디렉티브·렌더에 0-4/5-9
+재유입 금지, 전부 기본이면 침묵, 라벨맵=모드 전수). pytest 전체·ruff·
+mypy clean.

@@ -22,7 +22,6 @@ def test_daewoon_table_forward() -> None:
     assert lc.daewoon_table[0].ganji == "戊子"  # 월주 丁亥 다음 간지
     assert lc.daewoon_table[1].ganji == "己丑"
     first = lc.daewoon_table[0]
-    assert first.first_half_focus == "stem" and first.second_half_focus == "branch"
     assert (first.approx_end_date.year - first.approx_start_date.year) == 10
 
 
