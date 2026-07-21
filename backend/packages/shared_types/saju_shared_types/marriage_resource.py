@@ -23,6 +23,10 @@ class MarriageResourceProfile(BaseModel):
     spouse_star_present: bool  # 배우자 별이 천간/지지/지장간에 존재
     wealth_in_family_palace: bool  # 재성이 년·월주(부모·집안·초년 자리)에
     wealth_in_result_palace: bool  # 재성이 시주(결혼 후·결과·말년 자리)에
+    # 드러난(천간·지지 본기) 재성의 정확한 자리 목록 — 예: ["월지 정재", "일지 정재"].
+    # '년월(집안 기반)' 뭉뚱그림 라벨이 LLM의 '연주에 재성' 오독을 유발하던 결함 교정
+    # (2026-07-21 데굴님 실로그 — 표면화는 이 표기를 그대로 인용).
+    wealth_positions: list[str] = Field(default_factory=list)
     wealth_strong: bool  # 재성 세력 강(반복·세력 비중)
     resource_support: bool  # 인성 + 일간 뿌리(보호받는 구조)
     wealth_palace_clash: bool  # 재성 지지가 원국 충에 관여(발동·변화 잠재)

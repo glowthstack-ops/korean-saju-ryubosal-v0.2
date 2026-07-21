@@ -287,3 +287,34 @@ def test_relationship_affinity_rendered_neutral() -> None:
         assert "관계 친화·돌봄 성향" in text
     for banned in ("반드시", "확실히", "최악"):
         assert all(banned not in x for x in mr.relationship_affinity)
+
+
+# ── 재성 위치 정밀 표기(2026-07-21 데굴님 실로그) — '년월(집안 기반)' 뭉뚱그림 라벨이
+# LLM의 '재성이 연주와 월주에 드러남' 오독(연주 庚申=상관·상관)을 만들던 결함 회귀 ──
+def _degool_male():
+    # 실로그 동일 조건: 1980-11-22 09:00 서울 남 · 진태양시 미적용 → 庚申 丁亥 己亥 己巳.
+    return analyze_marriage_resource(
+        calculate(
+            BirthInput(
+                calendar_type="solar", birth_date="1980-11-22", birth_time="09:00",
+                birth_place_name="서울", gender="male",
+                time_options={"apply_true_solar_time": False},
+            )
+        )
+    )
+
+
+def test_wealth_positions_exact_pillars() -> None:
+    mr = _degool_male()
+    # 일간 己 → 재성=水: 월지 亥·일지 亥 정재만 드러남(연주 庚申=상관·상관, 재성 아님).
+    assert mr.wealth_positions == ["월지 정재", "일지 정재"]
+    assert not any(pos.startswith("년") for pos in mr.wealth_positions)
+
+
+def test_wealth_line_renders_exact_positions_with_guard() -> None:
+    from saju_engines.structural_context import marriage_resource_lines
+
+    text = " ".join(marriage_resource_lines(_degool_male()))
+    assert "월지 정재·일지 정재" in text
+    assert "옮겨 말하지" in text  # 재성 없는 주(柱)로의 오독 방지 가드
+    assert "년월(집안 기반)" not in text  # 뭉뚱그림 라벨 제거

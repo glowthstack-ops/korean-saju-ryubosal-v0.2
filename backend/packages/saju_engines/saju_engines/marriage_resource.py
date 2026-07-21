@@ -323,6 +323,19 @@ def analyze_marriage_resource(
     wealth_in_family_palace = _has_god(family, _WEALTH_GODS)
     wealth_in_result_palace = bool(hour is not None and _has_god([hour], _WEALTH_GODS))
 
+    # 드러난 재성의 정확한 자리(천간·지지 본기) — '년월' 뭉뚱그림 라벨이 LLM의
+    # '연주에 재성' 오독을 만들던 결함 교정(2026-07-21). 지장간 잠복은 제외(별도 결).
+    wealth_positions: list[str] = []
+    for _pname, _pil in zip(
+        ("년", "월", "일", "시"), (p.year, p.month, p.day, p.hour), strict=True
+    ):
+        if _pil is None:
+            continue
+        if _pil.stem_ten_god in _WEALTH_GODS:
+            wealth_positions.append(f"{_pname}간 {_pil.stem_ten_god}")
+        if _pil.branch_main_ten_god in _WEALTH_GODS:
+            wealth_positions.append(f"{_pname}지 {_pil.branch_main_ten_god}")
+
     # 재성 세력 강 — 분포 비중(>=22%) 또는 자리 반복(>=3곳).
     groups = fa.ten_gods.groups
     wealth_pct = float(groups.get("wealth", 0.0))
@@ -450,6 +463,7 @@ def analyze_marriage_resource(
         spouse_star_present=spouse_star_present,
         wealth_in_family_palace=wealth_in_family_palace,
         wealth_in_result_palace=wealth_in_result_palace,
+        wealth_positions=wealth_positions,
         wealth_strong=wealth_strong,
         resource_support=resource_support,
         wealth_palace_clash=wealth_palace_clash,

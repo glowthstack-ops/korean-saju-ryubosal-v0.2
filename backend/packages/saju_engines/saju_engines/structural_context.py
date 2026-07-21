@@ -359,10 +359,20 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
     )
     pos = []
     if mr.wealth_in_family_palace:
-        pos.append("년월(집안 기반)")
+        pos.append("집안·초년 기반권")
     if mr.wealth_in_result_palace:
-        pos.append("시주(결혼 후·결과 자원)")
-    wealth_line = "재성 환경: " + (", ".join(pos) if pos else "년월·시주에 약함")
+        pos.append("결혼 후·결과 자원(시주)")
+    # 정확한 자리 목록을 1차로 제시 — '년월' 뭉뚱그림 라벨을 LLM이 '연주와 월주에 재성'으로
+    # 옮겨 말하던 오독 교정(2026-07-21 데굴님 실로그). 환경 결 라벨은 보조로만 덧붙인다.
+    if mr.wealth_positions:
+        wealth_line = (
+            "재성 위치(명식 그대로 — 이 자리 표기만 인용하고 재성이 없는 주(柱)로 옮겨 말하지 "
+            "말 것): " + "·".join(mr.wealth_positions)
+        )
+        if pos:
+            wealth_line += " · 환경 결: " + ", ".join(pos)
+    else:
+        wealth_line = "재성 환경: " + (", ".join(pos) if pos else "년월·시주에 약함")
     if mr.wealth_strong:
         wealth_line += " · 세력 강"
     if mr.wealth_palace_clash:
