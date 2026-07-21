@@ -40,6 +40,10 @@ from saju_engines.conversation import (
     tr_year_span,
 )
 from saju_engines.conversation_store import ConversationStore
+from saju_engines.counterfactual_context import (
+    build_counterfactual_context,
+    counterfactual_lines,
+)
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
@@ -3690,6 +3694,16 @@ def chat(
     _wants_daewoon_frame = _is_daewoon_question(intent, question) or (
         vague_future and (horizon is None or horizon.natal_fit)
     )
+    # 반사실 컨텍스트(2026-07-21 데굴님 확정) — '왜 늦어/왜 안 됐지/했다면 어땠을까' 류를
+    # 도메인 범용으로 처리. fail-closed: 기간·근거 미확정이면 제한 지시만(체리피킹·자동
+    # 보호 서사 차단), 성립 시 부담·지원·회복 증거를 서술 전용으로 주입(점수·판정 불변).
+    _cf_lines = counterfactual_lines(build_counterfactual_context(
+        question, intent, result, today,
+        prior_time_scope=state.active_time_scope if state is not None else None,
+        life_events=_sig,
+    ))
+    if _cf_lines:
+        trailing.extend(_cf_lines)
     if _wants_daewoon_frame and not _relo_dest:
         trailing.append(DAEWOON_FRAMING_DIRECTIVE)
         # 발현 진행 예외 모드(2026-07-21) — 기본 그라데이션(계기→현실화)을 뒤집는 대운만

@@ -8796,3 +8796,35 @@ P2 속설 교정: LOVE_MARRIAGE_UNIFIED_DIRECTIVE — '연애운 없으면 결�
 회귀 test_marriage_resource.py +5(세분 라벨 정/편 상이·군 폴백·3튜플·
 마찰 렌더+비낙인 가드·실로그 명식 정재 세분·P2 디렉티브), 실서버
 dry-run에서 3종 주입 확인. pytest 2213 passed·ruff·mypy clean.
+
+## 반사실(counterfactual) 부담 분석 레이어 — 도메인 범용 (2026-07-21 데굴님 승인)
+
+'왜 늦게 결혼할 운이야/왜 안 됐지/그때 했으면 어땠을까' 류 질문에 "그때
+실행됐다면 함께 활성화됐을 부담"을 도메인 범용(관계·직업·계약·재물·이사·
+학업, health 제외)으로 서술하는 inert 레이어. GPT 검토안(사용자 승인)
+4대 수정 선반영: ①부담 분석과 보호 서사 분리 ②fail-closed 상태 기계
+③기간 미확정 시 체리피킹 금지 ④사건 단계(시작/조율/유지/결실/회복) 구분.
+
+구현: shared_types/counterfactual.py(상태 5종·모드 4종·신호·claim level,
+narrative_only) + saju_engines/counterfactual_context.py:
+- 모드 감지 rules-first — 과거 가정형(종성 ㅆ+다면/으면, 있·겠 제외)+
+  결과 질의, 과거 원인 회고, 현재 미발생 구분('한다면' 미래 가정 자동 배제)
+- 기간 우선순위: 질문 명시(전체 과거 절대창) > 직전 대화 active_time_
+  scope > 실제 시도 기록(LifeEventRow confirmed/planned) > 없으면
+  INSUFFICIENT(과거 전체 뒤져 '안 하길 잘했다' 서사 생성 금지 지시만)
+- 증거: 원국 StructuralInteraction(궁위 라벨 내장, 파싱 불필요) 도메인
+  매칭 + 기간 세운(대운 sewoon 생애 커버)의 궁위 직접 자극(충·형·자형
+  partner 대조)·공망 발동·운 품질. '구조 AND 활성화' 동시 성립해야
+  ELIGIBLE — 기신운 단독은 저신뢰 배경(단독 근거 금지 명시). 불성립=
+  BLOCKED(양쪽 모두 단정 금지)
+- 보호 해석: 기간 이후 창(≥2년)에서 자극 빈도 감소 AND 지원 비율 증가가
+  확인될 때만 ELIGIBLE_PROTECTIVE('시간을 둔 것이 부담을 줄이는 방향과
+  겹쳤다' 수준까지) — 아니면 '보호 해석 금지' 명시 주입
+- 금지 가드 6종(파국 생성·확정 실패·미발생 과거형·자동 보호 결론·행동
+  추정·과거 선택 평가) 블록 고정. chat trailing 배선(도메인 무관).
+
+회귀 test_counterfactual_context.py 10케이스(GPT §8: 모드 7변형·비대상
+NA·현재미발생 INSUFFICIENT+자동보호금지·2025충활성 ELIGIBLE_BURDEN_ONLY·
+2021무활성 BLOCKED·이혼 유도 비동조·health 제외·스레드 기간 승계·입력
+불변·narrative_only). 실서버 dry-run 3케이스(한계/맥락/무언급) 확인,
+중복 충 라인 dedupe. pytest 2223 passed·ruff·mypy clean.
