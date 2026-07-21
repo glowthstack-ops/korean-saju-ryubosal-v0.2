@@ -1227,6 +1227,14 @@ def build_reference_frame(
                 f" 이 중 {start_m}~{_prev_month(cur)}는 이미 지났다(과거형으로만, "
                 f"앞으로의 권고·트리거로 쓰지 말 것) — 남은 구간은 {cur}~{end_m}이다."
             )
+        elif end_m < cur:
+            # 창 전체가 과거(회고 질문) — 걸침 케이스만 표시하던 P6의 사각지대. 과거 창이
+            # 미래 예측처럼 서술되던 결함 교정(2026-07-21 데굴님 실로그: '2025년 몇월에
+            # 취직에 성공했을까'가 전면 미래 시제로 답변됨).
+            note += (
+                " 이 기간은 전부 이미 지났다(회고 질문) — 전체를 과거형·추정형으로만 "
+                "서술하고 앞으로의 예측·권고·트리거로 쓰지 말 것."
+            )
     return ReferenceFrame(
         today=f"{today.isoformat()} ({_WEEKDAY_KO[today.weekday()]})",
         this_year=str(today.year),

@@ -356,6 +356,70 @@ _FUTURE_WHEN_RE = re.compile(
     r"될까|될지|할까|생길까|생길지|만날까|나올까|이뤄질까|가능할까|풀릴까|열릴까"
 )
 
+# 축약 과거형 어미 뒤 회고 표지 — '했을까/됐을 때/갔던' 류. '했'은 하+였 축약 음절이라
+# _PAST_KEYWORDS의 '았을까' 부분 문자열에 안 걸린다(2026-07-21 데굴님 실로그: '2025년 몇월에
+# 취직에 성공했을까?'가 미래 시제로 서술되던 결함). 종성 ㅆ을 유니코드 분해로 일반 판정한다.
+_CONTRACTED_PAST_TAILS = ("을까", "을지", "을 때", "던")
+
+
+def _has_contracted_past(question: str) -> bool:
+    """음절 종성이 ㅆ(했/됐/갔/왔…)이고 곧바로 회고 표지가 이어지면 과거형으로 본다.
+
+    '있'('있을까'=가능 의문)·'겠'(추측 선어말)은 종성이 ㅆ이어도 과거가 아니므로 제외.
+    """
+    for i, ch in enumerate(question):
+        if ch in "있겠":
+            continue
+        code = ord(ch) - 0xAC00
+        if 0 <= code < 11172 and code % 28 == 20:  # 종성 인덱스 20 = ㅆ
+            if question[i + 1 : i + 4].startswith(_CONTRACTED_PAST_TAILS):
+                return True
+    return False
+
+
+def _question_time_direction(
+    question: str,
+    intent: IntentJson,
+    state: ConversationState | None,
+    today: date,
+) -> bool:
+    """질문의 시간 방향 판정 — True=과거 회고(retro).
+
+    우선순위: ①창 전체가 오늘 이전인 절대창(구조 신호 — 문구와 무관, 2026-07-21 실로그:
+    '2025년 몇월에 성공했을까'가 문구 매칭 실패로 미래 모드가 되던 결함) ②과거 문구
+    (_PAST_KEYWORDS·축약 과거형) ③미래 문구 ④자체 신호 없는 open_when은 직전 방향 승계.
+    """
+    tr = intent.time_range
+    if tr is not None and (tr.start or tr.end) and not tr.end_offset_days:
+        end = tr.end or tr.start
+        if end:
+            end_m = end[:7] if len(end) >= 7 else f"{end}-12"
+            if end_m < f"{today.year}-{today.month:02d}":
+                return True
+    if (
+        intent.query_type is QueryType.EVENT_EXPLANATION
+        or any(k in question for k in _PAST_KEYWORDS)
+        or _has_contracted_past(question)
+    ):
+        return True
+    if _FUTURE_WHEN_RE.search(question):
+        return False
+    if tr is not None and tr.type == "open_when":
+        # 자체 방향 신호 없는 open_when(상속/단답) → 직전 방향 승계(기본 미래).
+        return bool(state is not None and state.last_retro)
+    return False
+
+
+# 회고 질문 시제 강제 — is_retro여도 시제 지시가 없어 이벤트 후보·트리거류 미래 지향
+# 디렉티브에 묻혀 과거 사건을 예측처럼 서술하던 결함 교정(2026-07-21 데굴님 실로그).
+_RETRO_TENSE_DIRECTIVE = (
+    "[회고 모드 — 질문 기간은 이미 지난 과거] 전체 답변을 과거 추정형('~였을 것으로 보여요', "
+    "'~했을 가능성이 커요')으로만 서술할 것. '~될 것으로 보여요'·'~열릴 거예요'·'기대돼요' 같은 "
+    "미래 예측·권고 표현 금지. 신호 데이터는 '그 시기에 그런 흐름이 있었다'는 확인·복원 용도로만 "
+    "쓰고, 사용자가 묻지 않은 미래 조언을 덧붙이지 말 것. 마무리 확인 질문도 '실제로 그랬는지'를 "
+    "묻는 형태로 할 것."
+)
+
 
 class ChatResponse(BaseModel):
     """대화형 응답 — answer가 본문, 나머지는 추적/디버그 메타."""
@@ -2843,22 +2907,10 @@ def chat(
     # 메인에 올라 미래처럼 서술되는 시점 오류를 엔진 차원에서 차단(지난 달은 배경 분리).
     # 과거 회고(event_explanation·과거 키워드)와 명시적 과거 창은 클램프하지 않는다.
     current_month = luck_month  # 절기 기준 당월(양력 today.month의 절기 경계 어긋남 보정)
-    # 시간 방향 판정 — 과거 신호 우선, 그다음 미래 신호, 둘 다 없는 open_when 후속('월단위로')은
-    # 직전 턴 방향(state.last_retro)을 상속해 미래/과거 창을 일관 유지(2026-06-30 시점 정합).
-    _is_open_when = intent.time_range is not None and intent.time_range.type == "open_when"
-    _past_signal = intent.query_type is QueryType.EVENT_EXPLANATION or any(
-        k in question for k in _PAST_KEYWORDS
-    )
-    _future_signal = bool(_FUTURE_WHEN_RE.search(question))
-    if _past_signal:
-        is_retro = True
-    elif _future_signal:
-        is_retro = False
-    elif _is_open_when:
-        # 자체 방향 신호 없는 open_when(상속/단답) → 직전 방향 승계(기본 미래).
-        is_retro = bool(state is not None and state.last_retro)
-    else:
-        is_retro = False
+    # 시간 방향 판정 — 창 전체 과거(구조) > 과거 문구 > 미래 문구, 둘 다 없는 open_when 후속
+    # ('월단위로')은 직전 턴 방향(state.last_retro)을 상속해 미래/과거 창을 일관 유지
+    # (2026-06-30 시점 정합, 2026-07-21 구조 신호 추가 — _question_time_direction).
+    is_retro = _question_time_direction(question, intent, state, today)
     if state is not None:
         state = state.model_copy(update={"last_retro": is_retro})
     default_period: tuple[str, str] | None = None
@@ -3423,6 +3475,9 @@ def chat(
     # 줄인다. 안 그러면 serialize 통과 후 지시문·시스템이 더해져 generate_reading 재검사에서
     # 한도 초과 → 일반 오류로 마감되던 결함(2026-06-18, 10년 이사 질문 12,098tok 초과).
     trailing: list[str] = [_CHAT_SCOPE_DIRECTIVE, GONGMANG_ACTIVATION_DIRECTIVE]
+    # 회고 질문 — 전체 답변 시제를 과거 추정형으로 강제(미래 예측 표현 차단, 2026-07-21).
+    if is_retro:
+        trailing.append(_RETRO_TENSE_DIRECTIVE)
     # P2b — companion_only: 이 풀이의 대상이 본인이 아니라 동반자임을 못박는다(본인 명식 혼동 차단).
     if companion_only:
         trailing.append(
