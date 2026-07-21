@@ -581,6 +581,12 @@ def _sinsal_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
             if any(p in _PERSONAL_PALACES for p in pos):
                 pos_texts.append(bypos["personal"])
         bypos_note = (" 위치별: " + " / ".join(pos_texts)) if pos_texts else ""
+        # 실위치 앵커 — '위치별: 년·월에 있으면 …' 일반론을 실제 위치로 오인해 신살을
+        # 다른 주로 옮겨 말하던 오독 차단(2026-07-21 데굴님 실로그: 년주 천을귀인을
+        # '월주에 있는 천을귀인'으로 서술). 일반론 문구가 붙는 경우에만 덧붙인다.
+        if bypos_note and pos:
+            labels = "·".join(_SINSAL_PALACE_LABEL[p].split("(")[0] for p in pos)
+            bypos_note += f" ※ 실제 위치 {labels} 한정(다른 주로 옮겨 말하지 말 것)."
         # 양면 해석 동반(2026-06-12 사용자 확정) — 길신의 그림자·흉성의 빛을 함께.
         excerpts.append(InterpretationExcerpt(
             kind="sinsal", key=name,
