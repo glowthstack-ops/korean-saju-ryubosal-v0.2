@@ -125,9 +125,6 @@ export function BirthForm({
         className="w-full rounded bg-gray-900 py-2 text-white disabled:bg-gray-400">
         {submitLabel}
       </button>
-      <p className="text-xs text-gray-400">
-        입력 정보는 서버에 저장하지 않으며, 계산 요청 시에만 전송되고 브라우저에 암호화 저장됩니다.
-      </p>
     </form>
   );
 }
