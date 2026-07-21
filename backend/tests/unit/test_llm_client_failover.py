@@ -155,3 +155,47 @@ def test_guard_blocks_oversize_before_any_call(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setitem(llm_client._PROVIDERS, "openai", must_not_call)
     with pytest.raises(TokenBudgetExceeded):
         llm_client.generate_reading("가" * 40_000)
+
+
+def test_failover_emits_observability(monkeypatch: pytest.MonkeyPatch) -> None:
+    """폴백 전환 관측(2026-07-21 데굴님 실로그) — 무기록이던 전환이 warning 로그와
+    error sink(kind=llm_primary_failover, 비치명)로 남는다. '공급자 콘솔엔 완성 응답이
+    있는데 다른 답이 전달된' 사례를 추적 가능하게 하는 회귀.
+    (caplog는 전체 스위트에서 타 테스트 로깅 설정과 간섭해 _logger.warning을 직접 기록.)"""
+
+    def timeout_gemini(profile, system, prompt, max_tokens, timeout):
+        raise httpx.ReadTimeout("simulated slow generation")
+
+    def fake_openai(profile, system, prompt, max_tokens, timeout):
+        return "폴백 본문", 400, 200, 0
+
+    monkeypatch.setitem(llm_client._PROVIDERS, "gemini", timeout_gemini)
+    monkeypatch.setitem(llm_client._PROVIDERS, "openai", fake_openai)
+    monkeypatch.setattr(llm_client.time, "sleep", lambda _s: None)
+
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        llm_client._logger, "warning",
+        lambda msg, *args: warnings.append(msg % args if args else str(msg)),
+    )
+    captured: list[dict] = []
+    llm_client.set_error_sink(lambda exc, **fields: captured.append(dict(fields)))
+    try:
+        text = llm_client.generate_reading(
+            "질문 본문", product_code="TEST_OBS", ref_id="t-obs",
+        )
+    finally:
+        llm_client.set_error_sink(None)
+
+    assert text == "폴백 본문"
+    assert any("시도 1/" in m and "ReadTimeout" in m for m in warnings)  # 실패 원인 로그
+    assert any("폴백 전환" in m for m in warnings)
+    assert captured and captured[0]["kind"] == "llm_primary_failover"
+    assert "ReadTimeout" in str(captured[0]["message"])
+    assert captured[0]["ref_id"] == "t-obs"
+
+
+def test_timeout_config_covers_slow_generation() -> None:
+    """timeout 60→90초 상향(2026-07-21) — 60초 초과 생성이 폐기·폴백되던 실사례 가드."""
+    cfg = llm_client.load_config()
+    assert float(cfg["options"]["timeout_seconds"]) >= 90

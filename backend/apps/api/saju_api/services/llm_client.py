@@ -15,6 +15,7 @@ generation_extras로 강제), 입출력 토큰은 원가 장부에 적재한다.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
@@ -30,6 +31,8 @@ from saju_shared_types.constants import BRANCH_KO, STEM_KO
 _BACKEND = Path(__file__).resolve().parents[4]
 _CONFIG_PATH = _BACKEND / "config" / "llm_config.json"
 _ENV_PATHS = [_BACKEND.parent / ".env", _BACKEND / ".env"]
+
+_logger = logging.getLogger(__name__)
 
 # 프로세스 전역 원가 장부(요청 단위 가드용). 영속 집계는 아래 usage sink가 DB에 적재한다.
 COST_LEDGER = LLMCostLedger()
@@ -357,11 +360,41 @@ def generate_reading(
                 return text
             except (httpx.HTTPError, RuntimeError, KeyError, IndexError) as exc:
                 last_error = exc
+                # 관측(2026-07-21 데굴님 실로그): 타임아웃→폴백 전환이 무기록이라 '공급자
+                # 콘솔엔 완성 응답이 있는데 다른 답이 전달된' 사례를 추적할 수 없었다.
+                # 실패 원인·시도 차수를 warning으로 남긴다(응답 폐기·과금 낭비 추적용).
+                _logger.warning(
+                    "LLM 메인(%s %s) 시도 %d/%d 실패 — %s: %s (call_type=%s ref=%s)",
+                    cfg["primary"].get("provider"), cfg["primary"].get("model"),
+                    attempt + 1, attempts, type(exc).__name__, str(exc)[:200],
+                    call_type, ref_id,
+                )
                 if attempt + 1 < attempts:
                     time.sleep(backoff * (attempt + 1))
 
     # 비상 폴백(OpenAI) — 문체만 메인 결로 맞추는 지침을 덧붙인다(내용·판정 규칙 불변).
     if _api_key(cfg["fallback"]):
+        if last_error is not None:
+            # 폴백 전환을 영속 기록(system_errors) — 비치명(사용자 응답은 폴백으로 정상
+            # 전달)이지만, 메인에서 생성 완료된 응답이 버려지는 구간이라 빈도 관찰이 필요.
+            _logger.warning(
+                "LLM 폴백 전환(%s %s) — 메인 최종 실패: %s (call_type=%s ref=%s)",
+                cfg["fallback"].get("provider"), cfg["fallback"].get("model"),
+                type(last_error).__name__, call_type, ref_id,
+            )
+            _emit_error(
+                last_error,
+                kind="llm_primary_failover",
+                message=(
+                    f"메인 실패→폴백 전환(비치명): {type(last_error).__name__}: "
+                    f"{str(last_error)[:200]}"
+                ),
+                surface=surface,
+                provider=str(cfg["primary"].get("provider")),
+                model=str(cfg["primary"].get("model")),
+                owner_id=owner_id,
+                ref_id=ref_id,
+            )
         try:
             text, in_tok, out_tok, cached = _call_profile(
                 cfg["fallback"], sys_text, prompt_text + _FALLBACK_STYLE_DIRECTIVE,

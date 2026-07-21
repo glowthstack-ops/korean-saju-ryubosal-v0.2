@@ -8717,3 +8717,59 @@ _run_chat_answer 완료 시 호출. 경합(생성 중 새 턴)은 폴링 UI 특�
 False. pytest 2203 passed·ruff·mypy clean. 부수 발견(별도 이슈):
 비동기 경로는 P3 시점 커밋 가드(_time_commit_guard)도 건너뜀 — 이번
 범위 제외.
+
+## 배우자 질문 '연주 재성' 원국 오독 교정 (2026-07-21 데굴님 실로그)
+
+실로그(1980-11-22 09:00 서울 男·진태양시 미적용, 庚申 丁亥 己亥 己巳):
+"재성이 연주와 월주에 뚜렷하게 드러나 있어" — 연주 庚申은 상관·상관,
+재성(水)은 월지·일지 亥 정재뿐. 원인=결혼·자산 블록의 뭉뚱그림 라벨
+"재성 환경: 년월(집안 기반)"(wealth_in_family_palace boolean이 년·월을
+한 덩어리로 표기)을 LLM이 '연주+월주에 재성'으로 오독.
+
+교정: ①MarriageResourceProfile.wealth_positions 신설 — 드러난(천간·
+지지 본기) 재성의 정확한 자리 목록(예: ["월지 정재","일지 정재"],
+지장간 잠복 제외) ②marriage_resource_lines — "재성 위치(명식 그대로 —
+이 자리 표기만 인용하고 재성이 없는 주(柱)로 옮겨 말하지 말 것): 월지
+정재·일지 정재 · 환경 결: 집안·초년 기반권"으로 정밀 표기+가드, 구
+'년월(집안 기반)' 라벨 제거(위치 데이터 없을 때만 구 형식 폴백).
+판정 boolean·leans 로직 불변.
+
+회귀 test_marriage_resource.py 2케이스(실로그 명식 positions 정확 일치·
+년주 미포함, 렌더 가드·구 라벨 부재). 실서버 dry-run에서 신규 라인 주입
+확인. 부수 확인: BirthInput 최상위에 apply_true_solar_time을 넘기면
+extra로 조용히 무시됨(올바른 경로는 time_options) — 스모크 중 발견,
+별도 이슈로 기록. pytest 2205 passed·ruff·mypy clean.
+
+## 년주 천을귀인 '월주' 오독 교정 (2026-07-21 데굴님 실로그)
+
+동일 명식(庚申 丁亥 己亥 己巳) 답변에서 "월주에 있는 천을귀인" — 실제
+위치는 년주뿐. 원인=신살 발췌의 위치별 일반론("위치별: 년·월에 있으면
+조상의 덕·사회적 조력…")이 재성 '년월' 건과 동일한 뭉뚱그림 패턴으로
+실위치([위치: 년주])를 덮음. 교정: ①chart_interpretation._sinsal_
+excerpts — 위치별 일반론이 붙는 발췌에 실위치 앵커 "※ 실제 위치 년주
+한정(다른 주로 옮겨 말하지 말 것)" 동반 ②_SELF_CHECK_INSTRUCTION에
+신살·십성 주(柱) 위치 대조 항목 추가. 초판 문구가 chat_single 12k 토큰
+한도를 58tok 초과(integration 가드 적중) → 압축 재작성으로 한도 내 복귀.
+회귀 2케이스(test_chart_interpretation.py — 앵커 문구·자체검증 문구),
+실서버 dry-run에서 발췌 라인 앵커 확인. pytest 2207 passed·ruff·mypy
+clean.
+
+## '생성됐는데 전달 안 된 답변' 원인 규명 + 폴백 관측·타임아웃 교정 (2026-07-21)
+
+실로그('그럼 퇴직 신호는 없어?' 턴): Gemini 콘솔엔 완성 답변이 있는데
+사용자에겐 다른 답변이 전달됨. 규명(DB 증거): 01:39:10 질문 → Gemini
+호출이 60초 타임아웃(01:40:11경) → gpt-5.4-mini 폴백이 새로 생성해
+01:40:15 전달(llm_usage #1148 is_fallback=t, 답변 본문도 폴백산 확인).
+Gemini는 서버측 생성을 완료해 콘솔에 남았지만 클라이언트 미수신 —
+'재작성'이 아니라 타임아웃→폴백 재생성. 같은 아침 폴백 3건(Gemini 지연).
+
+문제 2건 교정(데굴님 승인): ①관측 공백 — 전환이 무기록(system_errors
+0건)이라 추적 불가 → llm_client에 메인 시도 실패 warning(원인·차수·
+call_type·ref)+폴백 전환 warning+error sink 통지(kind=
+llm_primary_failover, 비치명) 추가 ②timeout_seconds 60→90
+(llm_config.json — 60초 초과 생성이 폐기·과금 낭비되던 구간 축소,
+pending 폴링 UI라 대기 UX 영향 적음).
+
+회귀 test_llm_client_failover.py 2케이스(전환 시 warning 2종+sink
+kind/ref 통지 — caplog는 스위트 간섭으로 _logger 직접 기록, timeout>=90
+가드). pytest 2209 passed·ruff·mypy clean.
