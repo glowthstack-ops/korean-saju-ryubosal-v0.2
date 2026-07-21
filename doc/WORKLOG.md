@@ -8694,3 +8694,26 @@ open_when 승계 ②_has_contracted_past — 종성 ㅆ(했/됐/갔…) 유니�
 dry-run 스모크: 실로그 질문=회고 디렉티브+전부지남 노트 주입 확인,
 '올해 이직' 대조군=미주입. pytest 2194 passed·ruff·mypy clean —
 uvicorn --reload로 실서버 자동 반영.
+
+## '12개월 내에는 없어?' 후속 단절 결함 3중 교정 (2026-07-21 데굴님 베타 실로그)
+
+이직 타이밍 답변(끝문장 "…월별 흐름을 짚어드릴까요?") 뒤 "12개월
+내에는 없어?"가 too_broad 안내("질문 범위가 넓어요")로 끊기던 결함.
+①time_parser C8이 'N개월 내(에)'를 미커버 — 안에/이내만 인정, '내에는'
+창 미파싱 → 내에/내로/내 추가('내(?!내)' lookahead로 '3년 내내' 오탐
+차단) ②링커에 상대 창 단답·부정 존재형 규칙 부재 — 2순위 단답
+TIME_SHIFT에 '\d+(개월|년|주|일)+(안|이내|내)' 토큰 추가, _REFINE_RE에
+없(어/나/나요/을까/는지) 추가(직전 의도 승계 → broad 가드
+is_followup_turn 발동) ③비동기(로그인+스레드) 경로 last_offer 사장 —
+prep(dry-run)이 조기 return이라 동기 경로 전용 갱신(3849행)이 한 번도
+실행 안 됨, offer-slot 링킹이 죽은 규칙이었음 → chat_service.
+update_thread_offer 신설(성공=answer에서 추출, 실패=''로 만료),
+_run_chat_answer 완료 시 호출. 경합(생성 중 새 턴)은 폴링 UI 특성상
+무시 가능 수준으로 주석 명시.
+
+회귀 test_relative_window_followup.py 9케이스(창 파싱·내내 가드·링커
+2종·실로그 2턴 재현 career+360일 승계·새 도메인 과승계 가드·offer 갱신
+3종). 실서버 2턴 dry-run 스모크: turn2=career/offset360/too_broad
+False. pytest 2203 passed·ruff·mypy clean. 부수 발견(별도 이슈):
+비동기 경로는 P3 시점 커밋 가드(_time_commit_guard)도 건너뜀 — 이번
+범위 제외.

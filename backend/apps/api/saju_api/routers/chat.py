@@ -169,6 +169,10 @@ def _run_chat_answer(
             owner_id=owner_id, surface="chat", ref_id=thread_id,
         )
         history.complete_turn(message_id, answer, status="done")
+        # 답변 끝 제안(offer)을 스레드 상태에 반영 — 다음 턴 offer-slot 링킹의 근거.
+        # 동기 경로 전용이던 갱신이 비동기 경로에서 누락돼 후속이 too_broad로 끊기던
+        # 결함 교정(2026-07-21).
+        chat_service.update_thread_offer(thread_id, answer)
     except Exception as exc:  # noqa: BLE001 — 어떤 실패든 사용자 안내문으로 마감
         history.complete_turn(
             message_id,
@@ -176,6 +180,7 @@ def _run_chat_answer(
             status="error",
             meta={"error": str(exc)[:300]},
         )
+        chat_service.update_thread_offer(thread_id, "")  # 이전 턴 offer 잔존 만료
 
 
 @router.post("", response_model=chat_service.ChatResponse)

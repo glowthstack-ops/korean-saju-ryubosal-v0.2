@@ -1413,6 +1413,29 @@ def _extract_offer(answer: str) -> str:
     return " ".join(picked)[:300].strip()
 
 
+def update_thread_offer(
+    thread_id: str, answer: str, store: ConversationStore | None = None
+) -> None:
+    """백그라운드 생성 완료 후 스레드 last_offer 갱신 — 비동기 경로 offer-slot 링킹 소생.
+
+    베타(로그인+스레드) 경로는 prep(dry-run)이 상태를 저장한 뒤 답변을 백그라운드에서
+    생성하므로, 동기 경로 전용이던 last_offer 갱신이 한 번도 실행되지 않아 offer-slot
+    후속 링킹('…짚어드릴까요?' 뒤 짧은 되물음)이 죽은 규칙이었다(2026-07-21 데굴님 실로그:
+    '12개월 내에는 없어?'가 NEW→too_broad). 동기 경로와 동일 계약: 비offer·실패 답변이면
+    ''(자동 만료). 사용자가 답변 생성 중 새 턴을 보내는 드문 경합에선 늦게 끝난 쪽이
+    남지만, 폴링 UI 특성상 실사용 영향은 무시 가능. 로드/저장 실패는 무해(링킹만 비활성).
+    """
+    try:
+        store = store or ConversationStore()
+        state = store.load(thread_id)
+        if state is None:
+            return
+        state.last_offer = _extract_offer(answer)
+        store.save(state)
+    except Exception:  # noqa: BLE001 — offer 갱신 실패가 답변 영속을 막으면 안 된다
+        _logger.exception("last_offer 갱신 실패 — offer-slot 링킹만 비활성 thread=%s", thread_id)
+
+
 # 상황 제약 — 질문 맥락으로 형제 사건을 결정적으로 좁힌다. 묻힌 일반 안내로는 thinking LOW
 # LLM이 다단계 추론(무직→이직 불가→이사)을 못 하므로, 감지 시 우선순위 높은 명시 지시를
 # 프롬프트 말미에 주입한다(2026-06-14: '2025-08 백수인데 이직으로 단정' 오류 차단).

@@ -195,8 +195,10 @@ def parse_time(
             start=f"{start_label}-01", urgency=urgency,
         ), (TimeScope.LONG_TERM if months > 24 else TimeScope.MID_TERM)
 
-    # C8 상대 기간 — "6개월 안에", "3개월 이내", "1년 안으로", "향후 30년".
-    m = re.search(r"(\d+)\s*(개월|달|년)\s*(안에|이내|안으로|이내에)?", text)
+    # C8 상대 기간 — "6개월 안에", "3개월 이내", "1년 안으로", "향후 30년", "12개월 내에는".
+    # '내' 단독은 '내내'(3년 내내)를 배제하는 lookahead 가드(2026-07-21 데굴님 실로그:
+    # '12개월 내에는 없어?'가 창 미파싱 → too_broad로 빠지던 결함).
+    m = re.search(r"(\d+)\s*(개월|달|년)\s*(안에|안으로|이내에|이내|내에|내로|내(?!내))?", text)
     if m and (m.group(3) or re.search(r"향후|앞으로", text)):
         n, unit = int(m.group(1)), m.group(2)
         days = n * 30 if unit in ("개월", "달") else n * 365
