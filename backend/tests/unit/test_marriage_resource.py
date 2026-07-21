@@ -141,7 +141,7 @@ def test_day_branch_temperament_rendered_neutral() -> None:
         assert banned not in mr.day_branch_tendency
 
 
-# ── 영상 1+2 보강: A 일지 십성 이상형 ──
+# ── 영상 1+2 보강: A 일지 십성 이상형 (2026-07-21 음양 세분+마찰 결 확장) ──
 def test_ideal_type_mapping_all_groups() -> None:
     from saju_engines.marriage_resource import _ideal_type
     cases = {
@@ -150,10 +150,25 @@ def test_ideal_type_mapping_all_groups() -> None:
         "정인": "resource", "편인": "resource",
     }
     for god, grp in cases.items():
-        group, label = _ideal_type(god)
-        assert group == grp and label
-    assert _ideal_type(None) == ("", "")
-    assert _ideal_type("없음") == ("", "")
+        group, label, friction = _ideal_type(god)
+        assert group == grp and label and friction
+    assert _ideal_type(None) == ("", "", "")
+    assert _ideal_type("없음") == ("", "", "")
+
+
+def test_ideal_type_yin_yang_refinement() -> None:
+    """재성·관성·인성은 정/편 세분 라벨, 비겁·식상은 군 라벨(영상 자료 음양 분화)."""
+    from saju_engines.marriage_resource import _ideal_type
+
+    assert "단정" in _ideal_type("정재")[1] and "뚜렷" in _ideal_type("편재")[1]
+    assert _ideal_type("정재")[1] != _ideal_type("편재")[1]
+    assert "균형" in _ideal_type("정관")[1] and "엣지" in _ideal_type("편관")[1]
+    assert "인정" in _ideal_type("정인")[1] and "전문성" in _ideal_type("편인")[1]
+    # 비겁·식상은 군 라벨 유지(자료도 군 단위 설명).
+    assert _ideal_type("비견")[1] == _ideal_type("겁재")[1]
+    assert _ideal_type("식신")[1] == _ideal_type("상관")[1]
+    # 마찰 결은 군 단위 공통.
+    assert _ideal_type("정재")[2] == _ideal_type("편재")[2]
 
 
 def test_ideal_type_on_profile() -> None:
@@ -318,3 +333,29 @@ def test_wealth_line_renders_exact_positions_with_guard() -> None:
     assert "월지 정재·일지 정재" in text
     assert "옮겨 말하지" in text  # 재성 없는 주(柱)로의 오독 방지 가드
     assert "년월(집안 기반)" not in text  # 뭉뚱그림 라벨 제거
+
+
+def test_friction_rendered_with_non_stigma_guard() -> None:
+    """P1 — 잘 안 맞기 쉬운 결이 렌더되고 낙인·이별 단정 금지 가드를 동반한다."""
+    from saju_engines.structural_context import marriage_resource_lines
+
+    mr = _degool_male()  # 일지 亥 본기 壬=정재(wealth군)
+    assert mr.ideal_type_friction and "조건·명분만으로" in mr.ideal_type_friction
+    text = " ".join(marriage_resource_lines(mr))
+    assert "잘 안 맞기 쉬운 결" in text
+    assert "낙인·이별 단정 아님" in text
+
+
+def test_degool_day_branch_jeongjae_refined_label() -> None:
+    """실로그 명식(일지 정재) — 세분 라벨 '정재(현실 매력형·단정)'이 적용된다."""
+    mr = _degool_male()
+    assert "정재(현실 매력형·단정)" in mr.ideal_type_tendency
+
+
+def test_love_marriage_unified_directive_content() -> None:
+    """P2 — 연애운·결혼운 이원 구도 교정 디렉티브(속설 채택 금지·반박 없이 정리)."""
+    from saju_engines.structural_context import LOVE_MARRIAGE_UNIFIED_DIRECTIVE
+
+    assert "이원 구도로 답하지 말 것" in LOVE_MARRIAGE_UNIFIED_DIRECTIVE
+    assert "일지(배우자궁)" in LOVE_MARRIAGE_UNIFIED_DIRECTIVE
+    assert "반박·훈계 없이" in LOVE_MARRIAGE_UNIFIED_DIRECTIVE

@@ -69,6 +69,7 @@ from saju_engines.structural_context import (
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
     DECISION_ATTITUDE_DIRECTIVE,
     GONGMANG_ACTIVATION_DIRECTIVE,
+    LOVE_MARRIAGE_UNIFIED_DIRECTIVE,
     MANAGE_NOT_OVERCOME_DIRECTIVE,
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     PARTNER_SOURCE_DIRECTIVE,
@@ -2265,6 +2266,10 @@ def _structural_context(
         out += palace_network_lines(analyze_palace_network(result), domain)
         out.append(RELATIONSHIP_SELF_AWARENESS_DIRECTIVE)
         out.append(TENDENCY_SHIFT_DIRECTIVE)
+        # P2(2026-07-21) — '연애운 없으면 결혼운 좋다' 류 이원 구도 질문에만 통합 관점 주입.
+        _q_compact = question.replace(" ", "")
+        if "연애운" in _q_compact and "결혼운" in _q_compact:
+            out.append(LOVE_MARRIAGE_UNIFIED_DIRECTIVE)
     if general or domain is Domain.HEALTH:
         hv = analyze_health_vulnerability(result, favorability_map(result))
         out += health_lines(result, hv, today.year)

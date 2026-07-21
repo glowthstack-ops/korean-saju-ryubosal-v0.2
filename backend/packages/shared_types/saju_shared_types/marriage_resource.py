@@ -45,6 +45,9 @@ class MarriageResourceProfile(BaseModel):
     # 비겁=대등·독립 / 식상=표현·꾸밈 / 재성=현실 매력 / 관성=조건·태도 / 인성=보살핌.
     day_branch_ten_god_group: str = ""  # peer/output/wealth/officer/resource(빈 문자열=미상)
     ideal_type_tendency: str = ""  # 끌리는 이상형 타입 한글 라벨(서술용)
+    # 잘 안 맞기 쉬운 결(경향·낙인 아님) — 일지 본성과 다른 기준으로 '결심 선택'한 상대와
+    # 수년에 걸쳐 마찰이 커지기 쉽다는 전문가 견해(2026-07-21 영상 자료, 감수 전 경험칙).
+    ideal_type_friction: str = ""
     # ── 생애 단계별 연애 대상(영상 자료 B — 경향·비단정) ──
     # 연지=어릴 때 또래·유행 타입 / 월지=사회·원숙기 결혼상대 타입 / 시지=말년(약). 시기 단정 아님.
     life_stage_ideals: list[str] = Field(default_factory=list)  # 단계별 끌리는 타입 라벨(서술용)

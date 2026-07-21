@@ -45,12 +45,13 @@ _PEER_GODS = {"비견", "겁재"}
 _IDEAL_TYPE: dict[str, tuple[str, str]] = {
     "peer": (
         "peer",
-        "비겁(대등·독립형) — 친구·동료처럼 맞먹고 자기 앞가림 하는 상대에 끌리는 결(과한 의존·"
-        "애교엔 거리감)",
+        "비겁(대등·독립형) — 친구·동료처럼 맞먹고 급이 맞는, 자기 앞가림 하는 상대에 끌리는 "
+        "결(과한 의존·애교엔 거리감)",
     ),
     "output": (
         "output",
-        "식상(표현·꾸밈형) — 자기 관리하고 애정 표현·이벤트가 있는 상대 선호(과묵·무뚝뚝엔 답답함)",
+        "식상(표현·꾸밈형) — 자기 관리하고 애정 표현·유머로 나를 웃게 하는 상대 선호(과묵·"
+        "무뚝뚝·재미없음엔 답답함, 내가 챙겨주고 싶은 상대에 약함)",
     ),
     "wealth": (
         "wealth",
@@ -63,6 +64,58 @@ _IDEAL_TYPE: dict[str, tuple[str, str]] = {
     "resource": (
         "resource",
         "인성(보살핌형) — 칭찬하고 받아주고 다정한 상대에게 안정감을 느끼는 결",
+    ),
+}
+# 일지 본기 십성(개별) → 세분 이상형 라벨 — 음양 분화(2026-07-21 영상 자료, 감수 전 경험칙).
+# 비겁·식상은 군 라벨로 충분(자료도 군 단위 설명)해 재성·관성·인성 3군만 정/편을 나눈다.
+_IDEAL_TYPE_BY_GOD: dict[str, str] = {
+    "정재": (
+        "정재(현실 매력형·단정) — 외모를 보되 차분하고 단정한 상, 태도·품위까지 함께 보는 "
+        "결(실용·안정형)"
+    ),
+    "편재": (
+        "편재(현실 매력형·뚜렷) — 이목구비 뚜렷하고 특징 있는 외모·스타일 자체에 솔직히 "
+        "끌리는 결"
+    ),
+    "정관": (
+        "정관(조건 균형형) — 외모·직업·경제력·매너 등 여러 조건을 고루 보는 눈 높은 결"
+        "(본인도 그만큼 갖추려 하며, 시간이 지나면 기준을 한 단계씩 현실화하는 편)"
+    ),
+    "편관": (
+        "편관(엣지 선호형) — 조건을 보되 한 가지가 월등하면 다른 하나는 통째로 접어줄 수 "
+        "있는 결(고른 균형보다 뚜렷한 강점에 끌림)"
+    ),
+    "정인": (
+        "정인(보살핌·인정형) — 칭찬·인정을 꾸준히 주고 받아주는 다정한 상대에게 안정감을 "
+        "느끼는 결"
+    ),
+    "편인": (
+        "편인(보살핌·전문성형) — 다정하게 받아주면서도 기술·전문성으로 생활을 든든히 책임질 "
+        "수 있는 상대를 원하는 결"
+    ),
+}
+# 일지 십성군 → 잘 안 맞기 쉬운 결(경향·낙인·이별 단정 아님 — 2026-07-21 영상 자료).
+# 본성(일지 취향)과 다른 기준으로 '결심 선택'한 상대와 수년에 걸쳐 마찰이 커지기 쉽다는 견해.
+_IDEAL_TYPE_FRICTION: dict[str, str] = {
+    "peer": (
+        "위계를 세우거나 나를 휘어잡으려는 상대 — 처음엔 든든해 보여도 대등하지 않으면 "
+        "시간이 갈수록 부딪히기 쉬움"
+    ),
+    "output": (
+        "진지하기만 하고 반응·유머가 없는 상대 — '재미없지만 성실한 사람' 결심 선택은 "
+        "오래 견디기 어려운 결"
+    ),
+    "wealth": (
+        "끌림 없이 조건·명분만으로 정한 상대 — 눈에 들어오지 않는 상대에겐 마음이 오래 "
+        "머물기 어려움"
+    ),
+    "officer": (
+        "여러 기준에 크게 못 미치는 상대 — 눈높이를 억지로 크게 낮춘 선택은 아쉬움이 "
+        "쌓이기 쉬움"
+    ),
+    "resource": (
+        "차갑게 지적하고 인정에 인색한 상대 — 처음엔 '똑똑해 보여' 끌려도 지적이 반복되면 "
+        "크게 지치는 결"
     ),
 }
 _GOD_GROUP: dict[str, str] = {
@@ -124,19 +177,24 @@ def _day_branch_temperament(branch: Branch) -> tuple[str, str]:
     return ("", "")
 
 
-def _ideal_type(day_branch_main_ten_god: str | None) -> tuple[str, str]:
-    """일지 본기 십성 → 끌리는 이상형 타입 그룹·라벨(경향·비단정 — 영상 자료 A).
+def _ideal_type(day_branch_main_ten_god: str | None) -> tuple[str, str, str]:
+    """일지 본기 십성 → 끌리는 이상형 타입 그룹·라벨·마찰 결(경향·비단정).
+
+    재성·관성·인성은 정/편 세분 라벨(_IDEAL_TYPE_BY_GOD)을 우선하고, 비겁·식상은
+    군 라벨을 쓴다(2026-07-21 영상 자료 음양 분화). 마찰 결은 군 단위 공통.
 
     Args:
         day_branch_main_ten_god: 일지 지지 본기의 십성(예: '정재').
 
     Returns:
-        (group, tendency) — group은 peer/output/wealth/officer/resource/''(미상), tendency는 라벨.
+        (group, tendency, friction) — group은 peer/output/wealth/officer/resource/''(미상).
     """
-    group = _GOD_GROUP.get(day_branch_main_ten_god or "", "")
+    god = day_branch_main_ten_god or ""
+    group = _GOD_GROUP.get(god, "")
     if not group:
-        return ("", "")
-    return _IDEAL_TYPE[group]
+        return ("", "", "")
+    tendency = _IDEAL_TYPE_BY_GOD.get(god) or _IDEAL_TYPE[group][1]
+    return (group, tendency, _IDEAL_TYPE_FRICTION.get(group, ""))
 
 
 def _life_stage_ideals(
@@ -385,8 +443,10 @@ def analyze_marriage_resource(
 
     # 배우자궁(일지) 기질 — 왕지/생지/고지 3분류(경향·비단정).
     day_branch_group, day_branch_tendency = _day_branch_temperament(Branch(day_pillar.branch))
-    # A) 일지 십성 이상형 — 일지 본기 십성 → 끌리는 타입(경향).
-    day_branch_ten_god_group, ideal_type_tendency = _ideal_type(day_pillar.branch_main_ten_god)
+    # A) 일지 십성 이상형 — 일지 본기 십성 → 끌리는 타입(경향) + 잘 안 맞기 쉬운 결.
+    day_branch_ten_god_group, ideal_type_tendency, ideal_type_friction = _ideal_type(
+        day_pillar.branch_main_ten_god
+    )
     # B) 생애 단계별 연애 대상 — 연지/월지/시지 본기 십성(경향·시기 단정 아님).
     life_stage_ideals = _life_stage_ideals(
         p.year.branch_main_ten_god if p.year else None,
@@ -474,6 +534,7 @@ def analyze_marriage_resource(
         day_branch_tendency=day_branch_tendency,
         day_branch_ten_god_group=day_branch_ten_god_group,
         ideal_type_tendency=ideal_type_tendency,
+        ideal_type_friction=ideal_type_friction,
         life_stage_ideals=life_stage_ideals,
         relationship_affinity=relationship_affinity,
         spouse_star_clean=spouse_star_clean,
