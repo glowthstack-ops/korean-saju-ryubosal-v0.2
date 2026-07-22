@@ -98,6 +98,23 @@ class TimeExclusion(BaseModel):
     confidence: float = 1.0
 
 
+class UserFact(BaseModel):
+    """사용자가 대화에서 직접 밝힌 사실 1건 (2026-07-22 사실 원장 P0).
+
+    쓰기 정책: 출처는 항상 사용자 명시 발화(user_explicit)다 — 엔진 계산 결과·LLM 해석·
+    추론을 이 모델에 기록하는 것은 금지(대화 오염 차단, GPT 검토안 §8 승인). 상속은
+    질문 원문이 아니라 이 슬롯 단위로만 하며, LLM 입력에는 [사용자 제공 정보] 블록으로
+    주입돼 이미 밝힌 사실과 모순되는 서술·되묻기를 차단한다.
+    """
+
+    key: str  # 'completed' | 'remaining' | 'fixed_schedule' | 'unchangeable' | 'folk_condition'
+    quote: str  # 발화 원문 절(정규화 값 대신 인용 보존 — 오해석 방지, 80자 컷)
+    scope: str = "topic"  # 'topic'(주제 전환 시 만료) | 'global'(스레드 지속)
+    status: str = "confirmed"  # 'confirmed' | 'corrected'(supersede로 대체됨)
+    source_turn: int = 0
+    superseded_quote: str | None = None  # 같은 key 단수 슬롯이 정정된 경우 이전 인용(이력)
+
+
 class ConversationState(BaseModel):
     """현재 대화가 무엇을 다루는지 (docs/03 A1 ConversationState)."""
 
@@ -127,6 +144,9 @@ class ConversationState(BaseModel):
     # 사용자가 배제한 기간 목록(2026-07-14 P2) — 시점 승계·엔진 창·LLM 서술에서 제외.
     # 명시적 재요청 시 해제, 주제 전환 시 current_topic 스코프 만료(병합 규칙은 엔진).
     time_exclusions: list[TimeExclusion] = Field(default_factory=list)
+    # 사용자 제공 사실 원장(2026-07-22 P0) — 완료·잔여·확정 일정 등 명시 사실만 축적해
+    # 후속 턴 LLM 입력에 주입한다(원문 전체 상속 없이 연속성 보존). 규칙은 user_facts 모듈.
+    user_facts: list[UserFact] = Field(default_factory=list)
     # 활성 시점의 출처 메타(2026-07-14 P7 lite) — {'value','source_turn','resolution_type',
     # 'confidence'}. 낮은 신뢰 파싱이 기존 상태를 덮어쓰는 것을 막는 근거 기록.
     active_time_meta: dict = Field(default_factory=dict)

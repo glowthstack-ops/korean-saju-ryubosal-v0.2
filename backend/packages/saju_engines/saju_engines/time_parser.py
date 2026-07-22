@@ -648,6 +648,15 @@ def resolve_time_target(items: list[TimeConstraintItem]) -> tuple[int, int] | No
     return None
 
 
+# 현재 날짜/시기 진술 절 — '오늘은 7월 22일이고'·'지금은 7월인데' 류. 날짜가 목적어가 아니라
+# 화자의 현재 위치 설명이므로 시점 추출 대상에서 제외한다(연결어미 필수 — '7월 22일 운세'
+# 같은 대상 지정과 구분).
+_TODAY_DATE_STATEMENT_RE = re.compile(
+    r"(?:오늘|지금)은?\s*(?:\d{4}년\s*)?\d{1,2}월(?:\s*\d{1,2}일)?"
+    r"(?:이고|이며|인데|이라서|이니까|이라|이야|이잖아|입니다|이에요|이지)"
+)
+
+
 def parse_time_with_constraints(
     text: str,
     today: date,
@@ -664,6 +673,11 @@ def parse_time_with_constraints(
         (TimeRange | None, TimeScope, 제약 목록). 제약 목록은 배제 지속(P2)·LLM
         서술 제한에 쓰인다.
     """
+    # 현재 날짜 '진술' 제거 — "오늘은 7월 22일이고 이사는 미래의 일이야"처럼 오늘 날짜를
+    # 맥락으로 언급한 절은 분석 대상 시점이 아니다(2026-07-22 실로그: 시제 정정 발화의
+    # '7월 22일'이 explicit 시점으로 채택돼 미래 이사 질문이 오늘 일운으로 앵커됨).
+    # 진술 절만 제거하므로 "오늘 운세 봐줘"류 순수 '오늘' 요청은 영향 없다.
+    text = _TODAY_DATE_STATEMENT_RE.sub(" ", text)
     tr, scope = parse_time(text, today, birth_year, current_month_label)
     items = extract_time_constraints(text, today)
     if not items:

@@ -207,11 +207,14 @@ def chat(
     if subjects is not None and owner_id:
         _records = subjects.list_all(owner_id)
         alias_index = build_companion_alias_index(_records, base_subject_id=req.subject_id)
-        # P2a — 동반자 공동 풀이용 birth 맵(owner 한정). base/self 제외, 해소된 companion_id로 조회.
+        # P2a — 동반자 공동 풀이용 birth 맵(owner 한정). 현 FE 사주목록은 모든 사주를
+        # kind='self'로 등록하므로(companion 등록 플로 미사용) kind로 거르지 않고 '기준
+        # 사주 제외 전부'를 동반자 후보로 삼는다(2026-07-22 실측: 남편 레코드가 kind='self'
+        # 라 birth 맵에서 빠져, 칩 첨부 부부 질문이 need_subject로 거부되던 결함).
         companion_births = {
             r.subject_id: r.birth
             for r in _records
-            if r.kind != "self" and r.subject_id != req.subject_id
+            if r.subject_id != req.subject_id
         }
 
     form, occ_status, rel_status, occ_category = profile_event_signals(req.subject_id)

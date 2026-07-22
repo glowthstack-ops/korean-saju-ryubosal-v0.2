@@ -112,11 +112,48 @@ def _detect_relocation_kind(text: str) -> str:
     return "office" if any(w in text for w in _OFFICE_RELOCATION_WORDS) else "home"
 
 
+# 괄호 주석('은행 대출(남편) - 인테리어') — 괄호 안 인물 언급은 역할·귀속 표기이지 풀이 대상
+# 지정이 아니다(2026-07-22 실로그: '(남편)'이 대상으로 채택돼 본인 배제 companion_only로
+# 빠짐 → 첨부 칩 부부 질문이 need_subject 거부). 대상 스캔 전용 치환 — 인라인 생년월일
+# ('동생(1998.07.23 여자)')은 원문에서 계속 파싱한다.
+_PAREN_ANNOTATION_RE = re.compile(r"[(（][^)）]*[)）]")
+
+
+def strip_parenthetical(text: str) -> str:
+    """대상 스캔용 텍스트 — 괄호 주석 구간을 공백으로 치환한다."""
+    return _PAREN_ANNOTATION_RE.sub(" ", text)
+
+
+# 1인칭 복수 주어('우리가/우리는/우리 둘/우리 부부/저희가') — 동반자 언급과 결합하면 본인도
+# 대상에 포함하는 신호(2026-07-22 실로그: '우리가 주의할 점은?'+남편 첨부가 본인 배제된
+# companion_only로 빠져 출생정보 확인 오류). '우리 남편/우리 집' 같은 소유격(조사 없는 명사
+# 연결)과 '우리가게'는 매칭되지 않는다. 파서(_detect_subjects)와 대화 계층(resolve_subjects)
+# 공용 — 단일 출처.
+INCLUSIVE_WE_RE = re.compile(
+    r"우리(?:가(?!게)|는|도|를|한테|에게|끼리|\s*둘|\s*부부|\s*커플)"
+    r"|저희(?:가|는|도|를|한테|에게)"
+)
+
+# '사이' 경계 가드(2026-07-22) — '사이드프로젝트/사이트/사이즈' 등 외래어 속 부분문자열이
+# 관계 도메인으로 오검출돼 스레드 도메인을 오염시키던 결함(too_broad 제안이 '연애운'으로 빠짐).
+# '사이' 뒤가 문말·비한글(공백/문장부호)·조사류·'좋'일 때만 관계어로 인정한다
+# ('우리 사이', '사이가 좋아질까', '사이는 어때', '사이좋게').
+_SAI_BOUNDARY_RE = re.compile(r"사이(?=$|[^가-힣]|[가는도를에로야냐니좋였일인])")
+
+
+def _domain_word_position(text: str, word: str) -> int:
+    """도메인 어휘의 본문 내 첫 위치(-1=없음) — '사이'만 경계 매칭, 나머지는 부분문자열."""
+    if word == "사이":
+        m = _SAI_BOUNDARY_RE.search(text)
+        return m.start() if m else -1
+    return text.find(word)
+
+
 def _detect_domains(text: str) -> list[Domain]:
     """본문에서 등장 순서대로 도메인 추출(B5 다중 도메인 결합)."""
     found: list[tuple[int, Domain]] = []
     for domain, words in _DOMAIN_WORDS.items():
-        positions = [text.find(w) for w in words if w in text]
+        positions = [p for w in words if (p := _domain_word_position(text, w)) >= 0]
         if positions:
             found.append((min(positions), domain))
     return [d for _pos, d in sorted(found)]
@@ -176,13 +213,17 @@ def _detect_subjects(text: str) -> tuple[list[SubjectRef], SubjectMode]:
     """대상 추출(A1~A9 부분) — 관계어/별칭/인라인. 기본 self."""
     subjects: list[SubjectRef] = []
     exclude_self = bool(re.search(r"나를\s*제외", text))
+    # 괄호 주석은 대상 지정이 아니다 — 관계어·별칭 스캔은 괄호 제거본으로(인라인 생년월일은 원문).
+    scan_text = strip_parenthetical(text)
 
-    for m in re.finditer(r"(\d+)\s*호", text):  # A9 별칭("1호")
+    for m in re.finditer(r"(\d+)\s*호", scan_text):  # A9 별칭("1호")
         subjects.append(SubjectRef(
             kind=SubjectKind.COMPANION, label=f"{m.group(1)}호",
         ))
     for word in _RELATION_WORDS:
-        if re.search(rf"{word}(?:의|이랑|과|와|은|는|\s)", text):
+        # 경계: 조사·비한글·문말('남편, 잘 지낼까'의 쉼표 등). '남편감' 합성어는 제외(뒤가
+        # 일반 한글). 뒤가 아예 없는 문말도 인정(2026-07-22 경계 보정).
+        if re.search(rf"{word}(?=$|[^가-힣]|의|이랑|과|와|은|는)", scan_text):
             subjects.append(SubjectRef(kind=SubjectKind.COMPANION, label=word))
             break
     subjects += _parse_inline_births(text)
@@ -190,6 +231,7 @@ def _detect_subjects(text: str) -> tuple[list[SubjectRef], SubjectMode]:
     pairwise = bool(re.search(r"궁합|나랑\s*(?:잘\s*)?맞|내\s*사주가\s*잘\s*맞", text))
     ranking = bool(re.search(r"누구야|누가\s|순위|등수|1등부터", text))
     group = bool(re.search(r"종합해서|둘\s*다|모두|우리\s*가족|함께", text))
+    inclusive_we = bool(INCLUSIVE_WE_RE.search(text))
 
     if exclude_self:
         mode = SubjectMode.COMPARE_EXCLUDE_SELF
@@ -198,7 +240,7 @@ def _detect_subjects(text: str) -> tuple[list[SubjectRef], SubjectMode]:
     elif pairwise and subjects:
         mode = SubjectMode.PAIRWISE
         subjects.insert(0, SubjectRef(kind=SubjectKind.SELF, label="본인"))
-    elif group and subjects:
+    elif (group or inclusive_we) and subjects:
         mode = SubjectMode.GROUP_AGGREGATE
         subjects.insert(0, SubjectRef(kind=SubjectKind.SELF, label="본인"))
     elif subjects:

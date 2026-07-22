@@ -98,7 +98,9 @@ def build_companion_alias_index(
         정규화 별칭 → 그 별칭이 가리키는 동반자 목록(복수면 모호 — 자동 해소 금지).
 
     Note:
-        - kind='self'와 base_subject_id는 제외.
+        - base_subject_id(대화 기준 사주)만 제외 — 현 FE 사주목록은 모든 사주를 kind='self'로
+          등록하므로(companion 등록 플로 미사용) kind로 거르면 등록 기반 동반자 해소가 전부
+          죽는다(2026-07-22 실측: '남편' 레코드가 kind='self'라 인덱스·birth 맵에서 제외).
         - 소스: label, aliases[], relation_to_user 동의어.
         - 1글자 별칭은 과매칭 위험이 커 자동 인덱스에서 제외한다.
     """
@@ -113,7 +115,7 @@ def build_companion_alias_index(
             bucket.append(entry)
 
     for r in records:
-        if r.kind == "self" or (base_subject_id and r.subject_id == base_subject_id):
+        if base_subject_id and r.subject_id == base_subject_id:
             continue
         rel = r.relation_to_user
         add(r.label, AliasEntry(r.subject_id, r.label, rel, "label"))

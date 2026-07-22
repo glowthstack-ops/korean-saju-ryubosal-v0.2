@@ -83,8 +83,14 @@ from saju_engines.structural_context import (
     daewoon_progression_lines,
     spouse_star_directive,
 )
+from saju_engines.task_procedures import (
+    build_capability_answer,
+    detect_task_pack,
+    procedure_reference_block,
+)
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_lifestyle_context, build_topic_context
+from saju_engines.user_facts import user_facts_block
 from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
@@ -401,6 +407,17 @@ def _question_time_direction(
             end_m = end[:7] if len(end) >= 7 else f"{end}-12"
             if end_m < f"{today.year}-{today.month:02d}":
                 return True
+        # ①b 창 전체가 오늘 이후인 절대창 — 준비 완료 사실 나열('이미 계약도 끝냈고 잔금만
+        # 남았는데')의 축약 과거형이 회고로 뒤집히지 않게 한다(2026-07-22 실로그: 9/30 명시
+        # 미래 창 후속이 과거형 서술로 빠짐). 구조 신호가 문구 신호보다 우선(①과 대칭).
+        start = tr.start
+        if start:
+            starts_future = (
+                start[:10] > today.isoformat() if len(start) >= 10
+                else start[:7] > f"{today.year}-{today.month:02d}"
+            )
+            if starts_future:
+                return False
     if (
         intent.query_type is QueryType.EVENT_EXPLANATION
         or any(k in question for k in _PAST_KEYWORDS)
@@ -1394,6 +1411,13 @@ _OFFER_MARKERS = (
     "어느 쪽",
     "어느 흐름",
     "중 어느",
+    # 되물음형 마감(2026-07-22) — 페르소나가 '…인지 궁금해요'로 답을 끝내는 경우도 offer로
+    # 취급해, 사용자의 서술형 답변이 offer-answer 링킹으로 직전 스레드에 이어지게 한다
+    # (실로그: '제품형인지 서비스형인지 궁금해요' 뒤 문장형 답변이 NEW→too_broad로 단절).
+    "궁금해요",
+    "궁금합니다",
+    "알려주시면",
+    "알려 주시면",
 )
 # 동의+이어보기('그래 봐줘')일 때, 직전 답변 끝에 제시한 제안을 이어 답하라는 우선 지시.
 _OFFER_CONTINUE_DIRECTIVE = (
@@ -1508,6 +1532,83 @@ _RELOCATION_DESTINATION_DIRECTIVE = (
     "풀고, 목적지 오행이 용신이어도 이동 방위는 기신일 수 있으니 둘을 구분해 설명하라. 연도별 "
     "흐름은 '굳이 옮긴다면 어느 해가 무난한지'의 보조 배경으로만 한두 줄 곁들이고, 10년 연 단위 "
     "나열로 답을 채우지 말 것."
+)
+
+# 특정일(단일 날짜) 질문 — 당일 중심 상세 서술 강제(2026-07-22 테스터 신고: '9/30 이사
+# 주의점'에 월·연 기간 기운 서술이 답을 채우고, 당일 지침은 두루뭉술하게 흐려지던 결함).
+# 서술 전용 — 위 [해당 일 일운] 블록(엔진 계산값)이 함께 주입된다.
+_SINGLE_DAY_FOCUS_DIRECTIVE = (
+    "[중요·특정일 질문 — 다른 표기보다 우선 적용]\n"
+    "사용자가 특정한 '그 날'({date})을 물었다. 답의 중심은 그 날이다: 위 [해당 일 일운] "
+    "블록의 간지·길흉·십성을 1차 근거로, 그 날 실행할 행동 지침을 구체적 단위(계약·서류 "
+    "확인, 금전 지출, 이동 동선·일정 관리, 컨디션·감정 관리 등)로 정리하라. 월·연 단위 "
+    "기운 서술은 배경 설명 한두 줄로만 제한하고, 질문받지 않은 다른 기간의 흐름을 늘어놓지 "
+    "말 것 — 질문 창 밖의 다른 해 흐름(내년 용신운 등)은 위로·전망용으로도 언급 금지. "
+    "제공된 데이터에 없는 간지 상호작용(합·충·형 성립 여부)을 임의로 계산해 "
+    "서술하는 것은 금지 — 근거 블록에 있는 신호만 쓰라.{solar_month_note}"
+)
+# 기간×과업 점검(2026-07-22 테스터 요청 형식 — "8~9월 인테리어·대출 진행 중 문제점 체크").
+# 과업 명사 + 점검 질문 + 명시 창이면 과업별 소제목 구조를 강제한다(서술 전용).
+_TASK_NOUNS = ("대출", "인테리어", "공사", "계약", "잔금", "입주", "서류", "이직 준비", "이사 준비")
+_RISK_CHECK_RE = re.compile(r"주의|조심|문제|체크|점검|리스크|잘\s*진행|챙겨야|확인해야")
+# 질문 속 월 구간 표현('8~9월'·'8월과 9월'·'8월부터 9월') — 확정 일정 날짜(9/30)가 단일일로
+# 파싱돼도 과업 점검 창은 이 구간이다(2026-07-22: '9/30 이사 결정, 8~9월 대출·인테리어 주의점'
+# 이 특정일 경로에 흡수돼 과업 점검 구조가 안 나오던 결함).
+_MONTH_SPAN_RE = re.compile(
+    r"(\d{1,2})\s*(?:~|∼|-)\s*(\d{1,2})\s*월"
+    r"|(\d{1,2})\s*월\s*(?:과|부터|에서|하고|,)\s*(\d{1,2})\s*월"
+)
+_TASK_RISK_CHECK_DIRECTIVE = (
+    "[중요·기간 과업 점검 — 다른 표기보다 우선 적용]\n"
+    "사용자가 특정 기간({start}~{end}) 동안 진행할 과업({tasks})의 점검을 요청했다. 답을 "
+    "과업별 소제목으로 나눠 구성하라: 각 과업마다 ①그 과업이 걸린 절기월의 엔진 신호(제공 "
+    "데이터만) ②일어날 수 있는 구체적 문제 ③실무 체크포인트(서류·일정·비용 확인 단위)를 "
+    "짧게 제시한다. 질문 창 밖의 다른 해·다른 달 흐름은 위로·전망용으로도 언급하지 말고, "
+    "과업과 무관한 일반 운세 서술로 채우지 말 것. 서술할 때 네 층위를 구분하라: 사용자가 "
+    "밝힌 사실 / 엔진이 산출한 운 신호 / 일반 절차상 점검 항목 / 아직 모르는 정보. 진행 "
+    "단계가 확인되지 않은 과업은 단정하지 말고 '신청 전이라면 ~을, 이미 진행 중이라면 ~을 "
+    "확인하라'처럼 단계 분기로 안내할 것."
+)
+
+# 불확실성 번역 규칙(2026-07-22 GPT 검토안 P0 — 데굴님 승인). "가능성은 열리지만 조건
+# 확인이 필요한 달" 류 추상 문구가 무슨 뜻인지 알 수 없다는 테스터 불만 — 추상 상태를
+# 구체 사건·미확정 결과·실제 변수·행동으로 번역하도록 상시 강제한다(서술 전용).
+_UNCERTAINTY_TRANSLATION_DIRECTIVE = (
+    "[불확실성 표현 규칙 — 항상 적용]\n"
+    "'가능성이 열려요'·'조건 확인이 필요한 달'·'변수가 있어요'·'흐름이 들어와요'·'상황에 "
+    "따라 달라져요'·'신중한 접근이 필요해요'·'흐름을 잘 살펴야 해요'·'무리하지 않는 게 "
+    "좋아요'·'꼼꼼히 준비하세요' 같은 추상 문구를 단독으로 쓰지 말 것. 불확실한 신호는 "
+    "반드시 네 요소로 풀어라: ①무엇이 움직이는가(구체적 사건·행동) ②어디까지 가능한가(되는 "
+    "것과 아직 아닌 것을 구분) ③실제 변수가 무엇인가(심사·상대 의사·자금·서류·일정처럼 "
+    "이름을 붙일 것) ④사용자가 지금 할 행동 한 가지. 경고·주의 문장은 '대상 과업+예상 실패 "
+    "형태+확인 행동+확인 시점' 중 최소 세 요소를 담아야 한다. '조건'이라는 단어는 바로 "
+    "뒤에 구체적 조건명이 따라올 때만 허용하며, 구체 변수를 제공 데이터에서 찾을 수 없으면 "
+    "'결과 신호보다 준비·탐색 신호가 중심인 시기'로 표현하라."
+)
+
+# 특정일의 절기월 앵커 — 질문일이 양력 달과 다른 절기월에 속할 때만 붙는다(2026-07-22
+# 데굴님 지적 재발: 7/4는 소서(7/7) 전이라 甲午월(라벨 2026-06) 소속인데 '7월 운'으로 서술).
+_SINGLE_DAY_SOLAR_MONTH_NOTE = (
+    " 그 날이 속한 절기월은 {ganji}월(라벨 {label})이다 — 양력 {cal_month}월이지만 절기 "
+    "경계상 {ganji}월 기운이 적용된다. 월 기운은 반드시 이 절기월 기준으로 서술하고, 다른 "
+    "절기월(그 다음 달 등)의 기운을 그 날에 적용하거나 '양력 달 이름 운세'로 뭉뚱그리지 말 것."
+)
+
+# 부부 공동 이사 질문 — 세대주(호주)가 누구인지에 따라 기준 명식이 달라지므로 두 갈래 분리
+# 풀이를 강제한다(2026-07-22 데굴님 지시). 서술 전용 — 점수·판정·엔진 경로 불변. 배우자
+# 명식은 [대상별 명식] 블록(pairwise)의 엔진 계산값만 근거로 하며, 블록 밖 간지 관계를 LLM이
+# 계산하는 것은 금지(절대원칙 1·2 — fail-closed 안내로 대체).
+_RELOCATION_HOJU_SPLIT_DIRECTIVE = (
+    "[중요·이사 세대주(호주) 분리 풀이 — 다른 표기보다 우선 적용]\n"
+    "이사·입주 판단은 전통적으로 세대주(호주) 사주를 중심으로 본다. 이 대화에서는 누가 "
+    "세대주인지 확인되지 않았으므로 답을 반드시 두 갈래로 나눠 각각 풀이하라: "
+    "① '{self_label}'이(가) 세대주인 경우 — 본문의 본인 기준 엔진 분석(시기 신호·상호작용·"
+    "용신 역할)을 근거로. ② '{companion_label}'이(가) 세대주인 경우 — [대상별 명식] 블록의 "
+    "'{companion_label}' 명식 구조와 현재 대운·세운 정보만 근거로 서술하되, 그 블록에 없는 "
+    "간지 관계·월별 신호를 임의로 계산하거나 지어내지 말 것. 월 단위 정밀 신호가 필요하면 "
+    "'{companion_label} 기준의 상세 시기 풀이는 그분 사주로 별도 확인이 필요하다'고 안내하라. "
+    "두 갈래의 결론이 다르면 그 차이를 명확히 밝히고, 공통 주의점(계약·문서·일정·지출 관리)은 "
+    "묶어서 한 번에 제시하라. 누가 세대주인지 추측하거나 단정하지 말 것."
 )
 
 _UNEMPLOYED_DIRECTIVE = (
@@ -2315,14 +2416,27 @@ def _daewoon_span_context(result: ManseV2Result, start_year: int, end_year: int)
 
 
 def _is_day_range(intent: IntentJson) -> bool:
-    """일 단위 다중일 범위(주간 등) 질문인가 — 일별 일운 surface 게이트."""
+    """일 단위 범위(주간·단일일 포함) 질문인가 — 일별 일운 surface 게이트.
+
+    단일 날짜(start==end)도 포함한다(2026-07-22 실로그: '9월 30일 이사 주의점'이
+    당일 일운 데이터 없이 월·연 후보만 받아 두루뭉술한 기간 서술 + LLM 임의 간지
+    서술로 빠지던 결함 — 특정일 질문일수록 그 날의 간지·길흉이 필수 근거다).
+    """
     tr = intent.time_range
     return bool(
         tr is not None
         and tr.start
         and tr.end
-        and tr.end != tr.start
         and tr.granularity.value == "day"
+    )
+
+
+def _is_single_day(intent: IntentJson) -> bool:
+    """특정 하루(start==end, 일 단위)를 물은 질문인가 — 당일 집중 디렉티브 게이트."""
+    tr = intent.time_range
+    return bool(
+        tr is not None and tr.start and tr.end
+        and tr.start == tr.end and tr.granularity.value == "day"
     )
 
 
@@ -2344,7 +2458,8 @@ def _weekly_overview_lines(
         end = date.fromisoformat(tr.end[:10])
     except ValueError:
         return []
-    if not (start < end and (end - start).days <= 14):
+    # 단일 날짜(start==end)도 허용 — 특정일 질문의 당일 간지·길흉 근거(2026-07-22).
+    if not (start <= end and (end - start).days <= 14):
         return []
     try:
         chart = calculate(birth.model_copy(update={"reference_date": start}))
@@ -2370,8 +2485,14 @@ def _weekly_overview_lines(
     if not days:
         return []
     header = (
-        f"[해당 기간({start.isoformat()}~{end.isoformat()}) 일별 흐름 — 일운 간지·길흉(용신/희신/"
-        "한신/기신/구신)·십성. 날짜별로 하루씩 짚어 서술하고 월 단위로 뭉뚱그리지 말 것]"
+        f"[해당 일({start.isoformat()}) 일운 — 간지·길흉(용신/희신/한신/기신/구신)·십성. "
+        "이 날을 중심으로 서술할 것]"
+        if start == end
+        else (
+            f"[해당 기간({start.isoformat()}~{end.isoformat()}) 일별 흐름 — 일운 간지·길흉"
+            "(용신/희신/한신/기신/구신)·십성. 날짜별로 하루씩 짚어 서술하고 월 단위로 "
+            "뭉뚱그리지 말 것]"
+        )
     )
     lines = [header]
     for c in days:
@@ -2803,6 +2924,22 @@ def chat(
         companion_alias_index,
     )
 
+    # 능력 탐문('너 집 계약 절차 알아?')·절차 질문('계약 순서가 어떻게 돼?') — 사주 질문이
+    # 아니므로 명식·이벤트 엔진·LLM을 호출하지 않고 절차 지식팩으로 즉답한다(2026-07-22
+    # 데굴님 승인 CAPABILITY_PROBE/PROCEDURE_QUERY — 아는 범위+한계 고지+상담 유도).
+    # policy 라우트와 동일 취급이라 질문권 차감 대상이 아니다.
+    capability = build_capability_answer(question)
+    if capability is not None:
+        _save_thread(store, state)
+        return ChatResponse(
+            status="policy",
+            answer=capability,
+            intents=parsed.intents,
+            thread_id=thread_id,
+            turn_no=state.turn_no if state else None,
+            repeated=repeated,
+        )
+
     # 지역 오행 사실 질문('창원 성산구의 오행은?') — 사주·시점 무관 단순 조회라 too_broad로
     # 빠지지 않게 엔진 프로파일로 직접 답한다(LLM 미호출, 2026-06-26 데굴님 지적).
     region_fact = _region_element_fact(question)
@@ -3101,6 +3238,14 @@ def chat(
             candidates += [
                 c for c in all_scored if (c.event_key, c.period) not in seen and _in_win(c.period)
             ]
+            # 단일일 질문 — 다른 절기월의 월 후보를 제거한다(2026-07-22 실로그: 계층 필터
+            # Top-N이 미리 뽑은 '현재 진행 중' 乙未월(2026-07) 이사 후보가 7/4(甲午월=
+            # 2026-06 소속) 질문 입력에 남아 답이 '7월 운' 중심으로 서술되던 결함 —
+            # 위 solar_m 게이트는 '추가'만 거르고 기존 후보는 안 걸렀다). 연 후보는 유지.
+            if solar_m is not None:
+                candidates = [
+                    c for c in candidates if len(c.period) != 7 or c.period == solar_m
+                ]
         # 의도 필터(intent_event_filter) — 질문 도메인과 무관한 후보를 억제한다.
         # 빈 결과를 만들지 않으며(fallback 원본 유지), general 도메인은 전부 통과.
         candidates = _get_intent_filter().filter(candidates, str(intent.domain))
@@ -3506,7 +3651,23 @@ def chat(
     # 토큰 가드 예약분으로 넘겨야 컨텍스트 축소기가 '실제 총 입력(payload+오버헤드)' 기준으로
     # 줄인다. 안 그러면 serialize 통과 후 지시문·시스템이 더해져 generate_reading 재검사에서
     # 한도 초과 → 일반 오류로 마감되던 결함(2026-06-18, 10년 이사 질문 12,098tok 초과).
-    trailing: list[str] = [_CHAT_SCOPE_DIRECTIVE, GONGMANG_ACTIVATION_DIRECTIVE]
+    trailing: list[str] = [
+        _CHAT_SCOPE_DIRECTIVE,
+        GONGMANG_ACTIVATION_DIRECTIVE,
+        # 추상 불확실성 문구('가능성 열림·조건 확인 필요') 금지 — 상시(2026-07-22 P0).
+        _UNCERTAINTY_TRANSLATION_DIRECTIVE,
+    ]
+    # 사용자 제공 사실 원장(P0, 2026-07-22) — 이전 턴들에서 사용자가 직접 밝힌 사실을
+    # compact 블록으로 주입해 모순 서술·되묻기를 차단한다(원문 전체 상속 없이 연속성 보존.
+    # user_explicit만 저장되므로 엔진·LLM 산출물 오염 없음. 상한 20k→22k 상향분이 흡수 —
+    # 2026-07-22 데굴님 승인).
+    if state is not None:
+        _facts_block = user_facts_block(state.user_facts)
+        if _facts_block:
+            trailing.append(_facts_block)
+            _logger.debug(
+                "user_facts injected thread=%s n=%d", thread_id, len(state.user_facts)
+            )
     # 회고 질문 — 전체 답변 시제를 과거 추정형으로 강제(미래 예측 표현 차단, 2026-07-21).
     if is_retro:
         trailing.append(_RETRO_TENSE_DIRECTIVE)
@@ -3715,9 +3876,95 @@ def chat(
         trailing.append(DAEWOON_TRANSITION_SIGNALS_DIRECTIVE)
         # 운 품질 → 의사결정 태도 번역(좋은 시기=직감 실행, 불안정=점검·내실 — 사례 P0-5).
         trailing.append(DECISION_ATTITUDE_DIRECTIVE)
+    # 기간×과업 점검(2026-07-22 테스터 요청 형식) — 명시 창 + 과업 명사 + 점검 질문이면
+    # 과업별 소제목 구조 강제. 과업은 질문과 사실 원장(planned_task/remaining 인용) 양쪽에서
+    # 수집한다(이전 턴에 밝힌 과업도 포함).
+    _fact_task_text = " ".join(
+        f.quote for f in (state.user_facts if state is not None else [])
+        if f.key in ("planned_task", "remaining")
+    )
+    _task_scan = f"{question} {_fact_task_text}"
+    _tasks_found = [t for t in _TASK_NOUNS if t in _task_scan]
+    _month_span = _MONTH_SPAN_RE.search(question)
+    _task_check = bool(
+        _tasks_found
+        and _RISK_CHECK_RE.search(question)
+        and (
+            _month_span  # 질문에 월 구간 명시 — 파싱이 단일일(확정일)로 잡혀도 우선
+            or (
+                intent.time_range is not None
+                and intent.time_range.start
+                and not _is_single_day(intent)
+            )
+        )
+    )
+    if _task_check:
+        if _month_span:
+            _g = [x for x in _month_span.groups() if x]
+            _start_lbl, _end_lbl = f"{_g[0]}월", f"{_g[1]}월"
+        else:
+            assert intent.time_range is not None
+            _start_lbl = intent.time_range.start or ""
+            _end_lbl = intent.time_range.end or _start_lbl
+        trailing.append(_TASK_RISK_CHECK_DIRECTIVE.format(
+            start=_start_lbl, end=_end_lbl, tasks="·".join(_tasks_found),
+        ))
+        # 절차 지식팩(L1/L2) 가산 — 점검을 실제 단계·의존관계·실패 형태에 연결(2026-07-22
+        # 승인 문서 §5·§8). 팩 없으면 생략(운 신호만으로 점검 — 기존 동작).
+        _pack = detect_task_pack(_task_scan)
+        if _pack is not None:
+            trailing.append(procedure_reference_block(_pack))
+    # 특정일 질문 — 당일 중심·기간 서술 최소화·데이터 밖 간지 계산 금지(2026-07-22).
+    # 과업 점검이 발동했으면 생략 — 질문의 실창은 과업 기간이지 확정일 당일이 아니다.
+    if (
+        not _task_check
+        and _is_single_day(intent)
+        and intent.time_range is not None
+        and intent.time_range.start
+    ):
+        _d0_iso = intent.time_range.start[:10]
+        _sm_note = ""
+        try:
+            _tz0 = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
+            _d0 = date.fromisoformat(_d0_iso)
+            _sm_label = _current_luck_month(_d0, _tz0)
+            # 절기월이 양력 달과 어긋나는 날만 앵커 주입(예: 7/4 → 甲午월=2026-06).
+            if _sm_label != _d0_iso[:7]:
+                _sm_ganji = next(
+                    (
+                        pl.ganji
+                        for pl in luck_months(birth, int(_sm_label[:4]))
+                        if pl.label == _sm_label
+                    ),
+                    None,
+                )
+                if _sm_ganji:
+                    _sm_note = _SINGLE_DAY_SOLAR_MONTH_NOTE.format(
+                        ganji=_sm_ganji, label=_sm_label, cal_month=int(_d0_iso[5:7]),
+                    )
+        except Exception:  # noqa: BLE001 — 앵커 산출 실패가 특정일 지시 자체를 막지 않도록
+            _sm_note = ""
+        trailing.append(
+            _SINGLE_DAY_FOCUS_DIRECTIVE.format(date=_d0_iso, solar_month_note=_sm_note)
+        )
     # 이사 질문 — 십성(유형)과 용신/기신(길흉)을 분리해 답하도록 강제(2026-06-18).
     if _is_relocation_intent(intent):
         trailing.append(_RELOCATION_REASON_DIRECTIVE)
+        # 부부 공동 이사(배우자 pairwise 명식 블록 확보 시) — 본인/배우자 각각이 세대주인
+        # 두 갈래 분리 풀이 강제(2026-07-22 데굴님 지시). 블록이 없으면(birth 미확보 등)
+        # 미주입 — 근거 없는 배우자 서술을 만들지 않는다(fail-closed).
+        if (
+            relationship_context is not None
+            and relationship_context.mode == "pairwise"
+            and relationship_context.relation_type == "spouse"
+            and subject_blocks
+        ):
+            _comp_label = next(
+                (b.label for b in subject_blocks if not b.is_primary), None
+            ) or (partner_label or "배우자")
+            trailing.append(_RELOCATION_HOJU_SPLIT_DIRECTIVE.format(
+                self_label=subject_label or "본인", companion_label=_comp_label,
+            ))
     # 목적지 명시 이사 — 답의 중심을 지역오행·이동 방위 적합에 두게 한다(2026-06-25).
     if _relo_dest:
         trailing.append(_RELOCATION_DESTINATION_DIRECTIVE)

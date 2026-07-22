@@ -40,9 +40,12 @@ class CallLimit:
 # 월별 흐름(예측 창 전체 12개월)을 축소 없이 보존하기 위함. 초과분은 Context Reduction이 흡수.
 # chat_single 12,000→20,000 · chat_compare 14,000→20,000 상향(2026-06-30 사용자 승인): MT 결혼 단계·
 # 출력 가드 콘텐츠(Marriage Production Readiness v1)가 관계 질문 입력에 더해지는 분을 흡수.
+# chat_single/chat_compare 20,000→22,000 상향(2026-07-22 사용자 승인): 사용자 제공 사실 원장
+# ([사용자 제공 정보] 블록, 캡 10건)과 특정일 일운·세대주 분리 디렉티브가 대화 입력에 더해지는
+# 분을 흡수 — 대화 연속성(사실 상속) 개선 건.
 CALL_LIMITS: dict[str, CallLimit] = {
-    "chat_single": CallLimit(20_000, 5_000, max_output_chars=1_500),
-    "chat_compare": CallLimit(20_000, 5_500, max_output_chars=2_400),
+    "chat_single": CallLimit(22_000, 5_000, max_output_chars=1_500),
+    "chat_compare": CallLimit(22_000, 5_500, max_output_chars=2_400),
     "query_parser": CallLimit(2_000, 300),
     "report_focus_section": CallLimit(15_000, 8_000, max_output_chars=4_500),
     "report_full_section": CallLimit(15_000, 8_000, max_output_chars=4_500),

@@ -15,12 +15,12 @@ from saju_engines.llm_guard import (
 
 def test_limit_table_matches_spec() -> None:
     """docs/09 8장 한도표 6행이 그대로 수록된다(임의 상향 금지의 기준점)."""
-    # v2.2.1 개정표(2026-06-12 사용자 승인 — 해석 사전 prefix 포함 상향).
-    assert CALL_LIMITS["chat_single"].max_input_tokens == 20_000
+    # v2.2.1 개정표 + 2026-07-22 승인(사실 원장 블록: chat 20k→22k).
+    assert CALL_LIMITS["chat_single"].max_input_tokens == 22_000
     # 출력 토큰 상한 = thinking + 가시 출력 합산(Gemini) — thinking 잠식 방지 상향.
     assert CALL_LIMITS["chat_single"].max_output_tokens == 5_000
     assert CALL_LIMITS["chat_single"].max_output_chars == 1_500
-    assert CALL_LIMITS["chat_compare"].max_input_tokens == 20_000
+    assert CALL_LIMITS["chat_compare"].max_input_tokens == 22_000
     assert CALL_LIMITS["query_parser"].max_input_tokens == 2_000
     assert CALL_LIMITS["report_focus_section"].max_output_chars == 4_500
     assert CALL_LIMITS["consistency_check"].max_output_tokens == 500

@@ -45,10 +45,13 @@ from .companion_alias import (
 )
 from .query_parser import (
     AFFIRMATION_RE,
+    INCLUSIVE_WE_RE,
     _detect_domains,
     _parse_inline_births,
     parse_message,
+    strip_parenthetical,
 )
+from .user_facts import extract_user_facts, merge_user_facts
 
 # 대상 정정(A10) — subject 교체 + 동일 intent 재실행.
 _CORRECTION_RE = re.compile(r"헷갈려|헷갈렸|잘못\s*봤|다시\s*체크|아니\s.*사주")
@@ -112,7 +115,13 @@ _REFINE_RE = re.compile(
 _DRILL_RE = re.compile(r"세부적으로|구체적으로|시기별로|자세히")
 # 새 스레드를 여는 '처음부터 다시'·새 풀이 요청 신호 — 토픽 연속 후속에서 제외(직전 분야 미상속).
 _FRESH_OVERVIEW_RE = re.compile(r"총운|전체\s*운|평생|사주\s*전체|명식|처음부터|새로\s*봐")
-_READING_REQUEST_RE = re.compile(r"사주\s*(봐|풀)|봐\s*줘|봐주|풀어\s*줘")
+# 요청형만 매칭 — '사주 봐줘/사주 풀어줘/사주 풀이 해줘·부탁'. '사주 풀이를 해주는 (서비스)'처럼
+# 관형형('해주는')으로 이어지는 서술은 새 풀이 요청이 아니다(2026-07-22 실로그: 자기 서비스 설명
+# 발화가 요청으로 오인돼 토픽 연속이 차단 → NEW → too_broad로 빠지던 결함).
+_READING_REQUEST_RE = re.compile(
+    r"사주\s*봐|봐\s*줘|봐주|풀어\s*[줘봐주]"
+    r"|사주\s*풀이?[를은도]?\s*(?:좀\s*)?(?:해(?!\s*주는)|부탁|줘)"
+)
 # 일반 운세 요청('내일 운세를 알려줘'·'오늘 운세'·'하루 운세') — 도메인 키워드가 없을 때 직전 특정
 # 주제(이사·재물 등)를 물려받지 않고 새 일반 운세로 리셋한다. '내일' 같은 시점 슬롯이 붙어도
 # 직전 스레드를 통째 승계하던 과승계 차단(2026-07-01 데굴님 지적: '내일 운세'가 이사 답으로 샘).
@@ -366,8 +375,15 @@ class ConversationEngine:
             "active_exclusions": [e.model_dump() for e in exclusions],
             "dialogue_act": parsed.intents[0].dialogue_act,
         })
+        # 사실 원장(P0) — 주제 전환(NEW + 도메인 변경)이면 topic 스코프 사실 만료.
+        topic_reset = (
+            not link.is_follow_up
+            and state.last_intent is not None
+            and primary.domain is not state.active_topic
+        )
         new_state = self._advance_state(
-            state, text, parsed, resolution, exclusions, own_time
+            state, text, parsed, resolution, exclusions, own_time,
+            topic_reset=topic_reset,
         )
         return parsed, new_state, resolution, link
 
@@ -431,8 +447,11 @@ class ConversationEngine:
 
         # A9 — 별칭/관계어/번호: 등록 동반자 인덱스 기반 최장 매칭(SSOT=레지스트리).
         # 단일 후보만 자동 해소하고, 복수 후보(ambiguous)는 추측 없이 확인 질문으로 넘긴다.
-        norm_text = normalize_token(text)
-        for token, entries in self._match_aliases(text):
+        # 괄호 주석('은행 대출(남편)')은 역할 표기이지 대상 지정이 아니므로 스캔에서 제외
+        # (2026-07-22 실로그: '(남편)'이 대상 채택 → 본인 배제 companion_only 오판).
+        scan_text = strip_parenthetical(text)
+        norm_text = normalize_token(scan_text)
+        for token, entries in self._match_aliases(scan_text):
             if _mention_excluded(norm_text, token):  # "아들 사주는 빼고" — 등록돼 있어도 제외
                 continue
             uniq_ids = {ae.subject_id for ae in entries}
@@ -446,8 +465,8 @@ class ConversationEngine:
                 unresolved.append(token)
         # 미등록 관계어/별칭 지칭(예: 배우자 미등록인데 "와이프랑 봐줘") — 임의 추정 대신 확인.
         resolved_ids = {s.companion_id for s in subjects if s.companion_id}
-        ref_tokens = [m.group(1).replace(" ", "") for m in _STRONG_REF_RE.finditer(text)]
-        ref_tokens += [m.group(1).replace(" ", "") for m in _REL_REF_RE.finditer(text)]
+        ref_tokens = [m.group(1).replace(" ", "") for m in _STRONG_REF_RE.finditer(scan_text)]
+        ref_tokens += [m.group(1).replace(" ", "") for m in _REL_REF_RE.finditer(scan_text)]
         for tok in ref_tokens:
             key = normalize_token(tok)
             if _mention_excluded(norm_text, key):  # 미등록 + 제외 의사 — 확인 질문 대상 아님
@@ -475,6 +494,17 @@ class ConversationEngine:
                 subjects.append(SubjectRef(
                     kind=SubjectKind.INLINE_TEMP, label=e.label, entity_id=e.id,
                 ))
+
+        # 1인칭 복수 주어('우리가/우리는/우리 둘/우리 부부/저희가') — 동반자가 해소됐으면
+        # 본인도 대상에 포함한다(2026-07-22 실로그: '우리가 주의할 점은?'+남편 첨부가 본인
+        # 배제된 companion_only로 빠져 출생정보 확인 오류·남편 단독 풀이 오판). '우리 남편'
+        # 소유격은 INCLUSIVE_WE_RE가 조사 필수라 매칭되지 않는다.
+        if (
+            subjects
+            and INCLUSIVE_WE_RE.search(text)
+            and not any(s.kind is SubjectKind.SELF for s in subjects)
+        ):
+            subjects.insert(0, SubjectRef(kind=SubjectKind.SELF, label="본인"))
 
         if not subjects and not unresolved:
             # 직전 턴 subject 상속, 그것도 없으면 self (A0 4순위).
@@ -535,7 +565,9 @@ class ConversationEngine:
             return SubjectMode.COMPARE_EXCLUDE_SELF
         if re.search(r"궁합|나랑\s*맞", text):
             return SubjectMode.PAIRWISE
-        if re.search(r"둘\s*다|모두|종합해서", text) and len(subjects) >= 2:
+        if (
+            re.search(r"둘\s*다|모두|종합해서", text) or INCLUSIVE_WE_RE.search(text)
+        ) and len(subjects) >= 2:
             return SubjectMode.GROUP_AGGREGATE
         return state.last_intent.subject_mode if (
             state.last_intent and len(subjects) == len(state.last_intent.subjects)
@@ -623,6 +655,18 @@ class ConversationEngine:
             and not _READING_REQUEST_RE.search(text)
         ):
             return self._follow(parent_id, LinkKind.TIME_SHIFT, state)
+        # offer-answer(2026-07-22) — 직전 답변이 되물음/제안(offer)으로 끝났고 이번 발화가
+        # 새 도메인·총운·새 풀이 신호 없는 서술형 답변이면 길이와 무관하게 직전 스레드를
+        # 잇는다(위 offer-slot의 12자 제한이 문장형 답변 '…웹 서비스인데, 이미 개발은
+        # 끝났어'를 NEW로 끊어 too_broad로 빠지던 공백). 시점 슬롯이 아닌 내용 답변이므로
+        # drill-down으로 승계한다.
+        if (
+            state.last_offer
+            and not _detect_domains(text)
+            and not _FRESH_OVERVIEW_RE.search(text)
+            and not _READING_REQUEST_RE.search(text)
+        ):
+            return self._follow(parent_id, LinkKind.DRILL_DOWN, state)
 
         # 결론 요구형(P4, 2026-07-14) — "그래서 ~라는 소리야/거야"는 같은 도메인 단어('합격')가
         # 들어 있어도 새 질문이 아니라 직전 분석의 결론 재확인이다. 도메인이 직전과 같거나
@@ -670,8 +714,9 @@ class ConversationEngine:
         resolution: SubjectResolution,
         time_exclusions: list[TimeExclusion] | None = None,
         own_time: bool = False,
+        topic_reset: bool = False,
     ) -> ConversationState:
-        """턴 종료 상태 — 엔티티 등록·반복 감지·활성 문맥·배제 시점·시점 출처 갱신."""
+        """턴 종료 상태 — 엔티티·반복·활성 문맥·배제 시점·시점 출처·사실 원장 갱신."""
         turn = state.turn_no + 1
         intent = parsed.intents[0]
         entities = list(state.entities)
@@ -718,6 +763,9 @@ class ConversationEngine:
                 "confidence": 0.95 if own_time else 0.7,
             }
 
+        # 사실 원장(P0, 2026-07-22) — 이번 턴 사용자 명시 사실 추출·병합(user_explicit만).
+        facts = merge_user_facts(state, extract_user_facts(text, turn), topic_reset)
+
         return state.model_copy(update={
             "turn_no": turn,
             "active_subjects": resolution.subjects,
@@ -734,6 +782,7 @@ class ConversationEngine:
                 time_exclusions if time_exclusions is not None else state.time_exclusions
             ),
             "active_time_meta": time_meta,
+            "user_facts": facts,
         })
 
     # ── T4.5 claim 엔티티(시스템 답변 발) ─────────────────────────

@@ -251,9 +251,13 @@ def test_weekly_question_surfaces_daily_overview() -> None:
     assert lines and "일별 흐름" in lines[0]
     day_lines = [x for x in lines if x.startswith("- 2026-06-")]
     assert len(day_lines) == 7  # 7일 모두 일별 라인
-    # 단일일 질문은 일 범위가 아니므로 주간 블록 미발생.
+    # 단일일 질문도 당일 일운 근거를 받는다(2026-07-22 개정 — '9/30 이사 주의점'이 당일
+    # 데이터 없이 기간 서술로 흐르던 결함). 헤더는 '해당 일' 단일 형식.
     single = parse_message("오늘 운세 어때?", date(2026, 6, 18)).intents[0]
-    assert not _is_day_range(single)
+    assert _is_day_range(single)
+    single_lines = _weekly_overview_lines(b, single, date(2026, 6, 18))
+    assert single_lines and "해당 일(2026-06-18)" in single_lines[0]
+    assert sum(1 for x in single_lines if x.startswith("- 2026-06-")) == 1
 
 
 # ── D. 월 후보 버킷팅 (절기 경계) ────────────────────────────────

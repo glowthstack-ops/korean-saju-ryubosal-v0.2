@@ -290,3 +290,115 @@ def test_chat_without_partner_has_no_compat_block() -> None:
     res = _post("올해 재물운 어때?")
     assert res.status_code == 200, res.text
     assert "[궁합 분석" not in (res.json()["prompt_preview"] or "")
+
+
+# ── 부부 공동 이사 — 세대주(호주) 분리 풀이 (2026-07-22 실로그) ──
+
+
+def test_couple_relocation_splits_by_household_head() -> None:
+    """'우리가'+남편 첨부 이사 질문 → 본인/배우자 세대주 두 갈래 분리 디렉티브 주입.
+
+    회귀: 본인 배제된 companion_only로 빠져 '비교할 대상의 출생 정보를 확인할 수
+    없어요'(need_subject)가 반환되던 결함 — pairwise로 정상 분석돼야 한다.
+    """
+    res = _post(
+        "9월 30일에 이사가 예정되어 있는데 이 과정에서 우리가 주의할 점은 뭘까? "
+        "은행 대출(남편) - 인테리어 - 가전구입이 남아있어.",
+        partner_inline={
+            "date": "1979-03-05", "time": "04:30",
+            "calendar_type": "solar", "gender": "M",
+        },
+        partner_label="남편",
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["status"] == "dry_run"  # need_subject로 끊기지 않는다
+    preview = body["prompt_preview"] or ""
+    assert "세대주(호주) 분리 풀이" in preview
+    assert "'남편'이(가) 세대주인 경우" in preview
+    # 배우자 명식 블록(pairwise)이 함께 실린다 — 두 번째 갈래의 서술 근거.
+    assert "남편" in preview and "[궁합 분석" in preview
+
+
+def test_solo_relocation_has_no_household_split() -> None:
+    """상대 미첨부 단독 이사 질문 → 세대주 분리 디렉티브 없음."""
+    res = _post("올해 이사 가도 될까?")
+    assert res.status_code == 200, res.text
+    assert "세대주(호주) 분리 풀이" not in (res.json()["prompt_preview"] or "")
+
+
+# ── 특정일 질문 — 당일 일운 근거 + 당일 집중 디렉티브 (2026-07-22 테스터 신고) ──
+
+
+def test_single_day_question_surfaces_day_luck_and_focus() -> None:
+    """단일 날짜 이사 질문 → 당일 일운(엔진 계산) 블록 + 특정일 집중 디렉티브 주입."""
+    res = _post("9월 30일에 이사할 예정인데 주의사항을 알려줘")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["status"] == "dry_run"
+    preview = body["prompt_preview"] or ""
+    assert "[해당 일(2026-09-30) 일운" in preview  # 당일 간지·길흉·십성 근거
+    assert "- 2026-09-30" in preview
+    assert "특정일 질문" in preview  # 당일 중심·기간 서술 최소화·임의 간지 계산 금지
+
+
+@pytest.mark.skipif(not _db_available(), reason="saju-v2-db(5433) 미기동")
+def test_user_facts_carry_into_followup_prompt() -> None:
+    """사실 원장 P0: 1턴에서 밝힌 사실이 2턴 LLM 입력의 [사용자 제공 정보] 블록에 실린다."""
+    from saju_engines.conversation_store import ConversationStore
+    from saju_engines.precompute_store import default_dsn
+
+    store = ConversationStore(
+        default_dsn() or "postgresql://saju_v2:saju_v2@localhost:5433/saju_v2"
+    )
+    store.delete("t-facts")
+    birth = BirthInput(reference_date="2026-06-11", **_BIRTH)
+
+    chat_service.chat(
+        birth, "9월 30일에 이사가 예정되어있어. 이미 계약도 끝냈고 잔금만 남았어.",
+        date(2026, 6, 11), dry_run=True, thread_id="t-facts", store=store,
+    )
+    second = chat_service.chat(
+        birth, "그때까지 뭘 조심해야 할까?",
+        date(2026, 6, 11), dry_run=True, thread_id="t-facts", store=store,
+    )
+    preview = second.prompt_preview or ""
+    assert "[사용자 제공 정보" in preview
+    assert "이미 계약도 끝냈고" in preview  # 1턴 사실이 2턴 입력에 인용됨
+    store.delete("t-facts")
+
+
+# ── 불확실성 번역·기간 과업 점검 디렉티브 (2026-07-22) ──
+
+
+def test_uncertainty_translation_directive_always_on() -> None:
+    """추상 불확실성 문구 금지 규칙이 모든 대화 입력에 실린다."""
+    res = _post("올해 이직운 어때?")
+    assert res.status_code == 200, res.text
+    preview = res.json()["prompt_preview"] or ""
+    assert "[불확실성 표현 규칙" in preview
+    assert "조건 확인이 필요한 달" in preview  # 금지 예시 명시
+
+
+def test_task_risk_check_directive_for_period_tasks() -> None:
+    """명시 기간 + 과업(대출·인테리어) + 점검 질문 → 과업별 점검 구조 디렉티브."""
+    res = _post(
+        "나는 9월 30일에 이사가 결정되었어. 8월과 9월 동안 은행 대출과 인테리어를 "
+        "진행해야 되는데 진행 시 주의할 점을 알려줘"
+    )
+    assert res.status_code == 200, res.text
+    preview = res.json()["prompt_preview"] or ""
+    assert "[중요·기간 과업 점검" in preview
+    assert "대출" in preview and "인테리어" in preview
+
+
+def test_task_check_includes_procedure_pack() -> None:
+    """과업 점검 질문 → [과업 절차 참고](L1/L2 지식) 블록이 함께 실린다."""
+    res = _post(
+        "나는 9월 30일에 이사가 결정되었어. 8월과 9월 동안 은행 대출과 인테리어를 "
+        "진행해야 되는데 진행 시 주의할 점을 알려줘"
+    )
+    assert res.status_code == 200, res.text
+    preview = res.json()["prompt_preview"] or ""
+    assert "[과업 절차 참고 — 주택 계약·대출·이사" in preview
+    assert "대출 승인이 나야 잔금" in preview  # L1 의존관계가 점검 근거로 주입
