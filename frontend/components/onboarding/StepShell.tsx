@@ -13,7 +13,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-const LABELS = ["사주입력", "용신확정", "물상해석", "페르소나"];
+const LABELS = ["사주입력", "용신확정", "물상해석", "페르소나", "현실보정"];
 
 export function StepShell({ step, total, title, desc, canSkip, onSkip, onBack, children }: Props) {
   return (

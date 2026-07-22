@@ -94,7 +94,8 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
   // 신규(add)는 마지막에 현실 캘리브레이션 단계(step 4)를 더 둔다. edit/oneoff는 기존 그대로.
   const total = mode === "oneoff" ? 1 : mode === "add" ? 5 : 4;
 
-  async function finish(d: Draft) {
+  // dest: add 모드 바로가기(테마사주/AI채팅) 목적지 — 저장 후 캘리브레이션 단계를 건너뛰고 이동.
+  async function finish(d: Draft, dest?: string) {
     if (!d.profile) return;
     setSaving(true);
     setError(null);
@@ -126,14 +127,14 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
       });
       await savePersona(d.persona);
       setSelected({ subjectId: subj.subject_id, label: subj.label });
-      // 신규 등록: 마지막에 현실 캘리브레이션(스킵 가능) 단계를 제시. edit는 바로 이동.
-      if (mode === "add") {
+      // 신규 등록: 바로가기(dest)면 즉시 이동, 아니면 현실 캘리브레이션(스킵 가능) 단계를 제시.
+      if (mode === "add" && !dest) {
         setCreatedSubjectId(subj.subject_id);
         setSaving(false);
         setStep(4);
         return;
       }
-      router.push(next);
+      router.push(dest ?? next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "저장 실패");
       setSaving(false);
@@ -150,10 +151,15 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
         <StepBirth
           initialProfile={draft.profile ?? undefined}
           initialNickname={draft.nickname}
-          onNext={(profile, nickname) => {
+          chooseNext={mode === "add"}
+          onNext={(profile, nickname, action) => {
             const d = { ...draft, profile, nickname };
             setDraft(d);
             if (mode === "oneoff") finish(d);
+            // add 바로가기: 테마사주/AI채팅은 즉시 저장 후 해당 화면으로 이동.
+            else if (mode === "add" && action === "theme") finish(d, "/themes");
+            else if (mode === "add" && action === "chat") finish(d, "/chat");
+            // calibrate(또는 edit의 "다음"): 용신확정부터 이어서 진행.
             else setStep(1);
           }}
         />

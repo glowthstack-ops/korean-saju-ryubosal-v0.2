@@ -10,8 +10,10 @@ export function BirthForm({
   heading = "사용자 정보 등록",
   submitLabel = "만세력 보기",
   children,
+  actions,
 }: {
-  onSubmit: (p: Profile) => void;
+  // action = 눌린 submit 버튼의 value(다중 액션 폼에서 분기용). 단일 버튼이면 undefined.
+  onSubmit: (p: Profile, action?: string) => void;
   // 수정(edit) 모드 프리필. 미지정 시 기본값.
   initial?: Profile;
   // 헤더 문구(null이면 숨김 — 온보딩처럼 외부에서 제목을 제공할 때).
@@ -19,6 +21,8 @@ export function BirthForm({
   submitLabel?: string;
   // 폼 상단에 주입할 추가 입력(예: 온보딩 별명) — 같은 submit으로 함께 처리된다.
   children?: React.ReactNode;
+  // 기본 submit 버튼 대신 렌더할 액션 영역(예: 온보딩 3버튼). disabled = 지역 미선택.
+  actions?: (disabled: boolean) => React.ReactNode;
 }) {
   const [gender, setGender] = useState<"male" | "female">(initial?.gender ?? "male");
   const [calendarType, setCalendarType] = useState<"solar" | "lunar">(
@@ -40,11 +44,15 @@ export function BirthForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (!chosen) return;
-        onSubmit({
-          gender, calendarType, isLeapMonth, birthDate,
-          birthTime: timeUnknown ? null : birthTime,
-          timeUnknown, place: chosen,
-        });
+        const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+        onSubmit(
+          {
+            gender, calendarType, isLeapMonth, birthDate,
+            birthTime: timeUnknown ? null : birthTime,
+            timeUnknown, place: chosen,
+          },
+          submitter?.value || undefined,
+        );
       }}
     >
       {heading && <h1 className="text-xl font-bold">{heading}</h1>}
@@ -121,10 +129,14 @@ export function BirthForm({
         )}
       </div>
 
-      <button type="submit" disabled={!chosen}
-        className="w-full rounded bg-gray-900 py-2 text-white disabled:bg-gray-400">
-        {submitLabel}
-      </button>
+      {actions ? (
+        actions(!chosen)
+      ) : (
+        <button type="submit" disabled={!chosen}
+          className="w-full rounded bg-gray-900 py-2 text-white disabled:bg-gray-400">
+          {submitLabel}
+        </button>
+      )}
     </form>
   );
 }
