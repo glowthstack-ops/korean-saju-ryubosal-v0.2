@@ -9030,3 +9030,22 @@ passed·ruff·mypy clean. 능력 탐문 질문('너 ~ 알고 있어?') 라우팅
 검증: 라우팅 판정 8케이스(탐문 4 통과/운세 4 미발동)·팩 감지·L1/L2/L3 경계·policy 즉답·
 과업 점검 절차 블록 주입. pytest 2299 passed·ruff·mypy clean. 잔여: 재생성 린트(출력
 후 검사), 지식팩 확장(사업·여행·치료), uncertainty_type 엔진 코드(P1)·조건명 산출(P2).
+
+## 대화 개선분의 테마 리포트 공유 배선 (2026-07-22 데굴님 승인)
+
+점검 결과 당일 개선분은 전부 chat 경로 전용이었고, 리포트 파이프라인(report_service)은
+별도 경로라 미적용 — 이식 가치 있는 2건을 공유 배선:
+
+1. **불확실성 번역 규칙 공용 승격**: chat_service 내부 상수 → structural_context.
+   UNCERTAINTY_TRANSLATION_DIRECTIVE(양 파이프라인 공유 디렉티브 관례 위치). chat은
+   상시 trailing, 리포트는 전 섹션 prefix(GONGMANG 옆 — 캐시 대상 고정 prefix)에 부착.
+2. **절차 지식팩 리포트 부착**(_PROCEDURE_PACK_SECTIONS): RL-05(리스크·계약 전
+   체크리스트)/RL-07(이사 행동 전략)→housing, J-07(직업 행동 전략)→employment.
+   목차 불변(절대원칙 10 — 컨텍스트 재료만). 선발·배치는 기존 전용 보조 유지.
+   결혼 팩의 관계 테마(R-07/RP-09) 부착은 연애 상담에 결혼 절차가 새는 위험이 있어
+   보류(필요 시 별도 검토).
+
+나머지 당일 개선분(링킹·사실 원장·시점 승계·세대주 분리·능력 탐문·kind 필터)은 대화
+전용 개념이거나 리포트가 원래 정합(절기월=composites 원천, partner=직조회)이라 비대상.
+검증: RL-05 절차 블록+L1/L3 경계·RL-03 불확실성 규칙 prefix 확인, pytest 2300 passed·
+ruff·mypy clean.

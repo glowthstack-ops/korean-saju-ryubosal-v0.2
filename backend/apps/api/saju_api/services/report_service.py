@@ -69,6 +69,7 @@ from saju_engines.structural_context import (
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
+    UNCERTAINTY_TRANSLATION_DIRECTIVE,
     activity_keyword_lines,
     era_energy_lines,
     external_impression_lines,
@@ -97,6 +98,7 @@ from saju_engines.structure_patterns import (
     detect_structure_patterns,
     select_llm_patterns,
 )
+from saju_engines.task_procedures import TASK_PACKS, procedure_reference_block
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_topic_context
 from saju_engines.wealth_capacity import analyze_wealth_capacity
@@ -404,6 +406,14 @@ _SELECTION_AUX_SECTIONS: dict[str, str] = {
     "J-04": "workplace_assignment",  # 직업 테마 — 근무지·부서 배치
 }
 _RELOCATION_RISK_SECTIONS = {"RL-05"}
+# 현실 과업 절차 참고(2026-07-22 데굴님 승인) — 행동 전략·체크리스트 섹션에 L1/L2 절차
+# 지식(task_procedures 팩)을 부착해 운 신호를 실제 단계·의존관계에 연결한다. 목차 불변
+# (절대원칙 10 — 컨텍스트 재료만 추가). 선발·배치는 전용 보조(_SELECTION_AUX_SECTIONS) 담당.
+_PROCEDURE_PACK_SECTIONS: dict[str, str] = {
+    "RL-05": "housing",  # 이사 — 리스크와 계약 전 체크리스트
+    "RL-07": "housing",  # 이사 — 행동 전략
+    "J-07": "employment",  # 직업 — 행동 전략
+}
 # 연간 총운(RPT_YEAR) — 세운 천간 십성 이사 유형을 '세운과 활성 신호'(Y-04)에 간결 부착
 # (2026-06-18 사용자 확정: 인생 총운 RPT_FULL 미부착, 연간 총운에만 노출).
 _RELOCATION_YEAR_SECTIONS = {"Y-04"}
@@ -657,7 +667,13 @@ class _ReportData:
             build_chart_interpretation(self.result),
         )
         # 공망 해석 규칙(전 섹션 공통) — 원국 공망은 배경값·운 자극 시만 발동(미발동 시 언급 금지).
-        self.prefix_lines = [*self.prefix_lines, GONGMANG_ACTIVATION_DIRECTIVE]
+        # 불확실성 번역 규칙(전 섹션 공통, 2026-07-22) — '가능성이 열리는 달' 류 추상 문구
+        # 단독 금지, 구체 사건·미확정 결과·실제 변수·행동으로 번역(chat과 공용 상수).
+        self.prefix_lines = [
+            *self.prefix_lines,
+            GONGMANG_ACTIVATION_DIRECTIVE,
+            UNCERTAINTY_TRANSLATION_DIRECTIVE,
+        ]
         # 확정 용신 적용 안내를 원국 prefix 뒤에 부착(전 섹션 공통) — 확정 5역할을 길흉 기준으로,
         # 엔진 최초 도출(확정 전 후보)은 기본값으로 병기. 확정=도출 일치 시 빈 문자열(미부착).
         if self._confirmed_yongsin is not None:
@@ -1733,6 +1749,10 @@ def build_section_context(
         lines += ["", *data.relocation_reason_block(spec)]
     if sid in _RELOCATION_RISK_SECTIONS:
         lines += ["", *data.relocation_risk_block(spec)]
+    # 현실 과업 절차 참고(2026-07-22) — 행동 전략·체크리스트 섹션에 L1/L2 절차 지식 부착.
+    _proc_key = _PROCEDURE_PACK_SECTIONS.get(sid)
+    if _proc_key is not None:
+        lines += ["", procedure_reference_block(TASK_PACKS[_proc_key])]
     # 이사 테마 — M10 방위 적합(RL-04) / 월별 이동운 흐름·충돌(RL-06) surface.
     if sid in _RELOCATION_DIRECTION_SECTIONS:
         lines += ["", *data.relocation_direction_block(spec)]

@@ -64,3 +64,15 @@ def test_non_relocation_theme_unaffected() -> None:
     assert plans[0].section_id == "W-01"
     secs = plan_report(_BIRTH, spec, date(2026, 6, 11))
     assert all("이사의 이유·집 성격" not in s.body_prompt for s in secs)
+
+
+def test_procedure_pack_and_uncertainty_rule_in_report() -> None:
+    """리포트 공유 배선(2026-07-22): RL-05에 [과업 절차 참고](L1/L2) + 전 섹션 불확실성 규칙."""
+    secs = {s.section_id: s for s in plan_report(_BIRTH, _spec(), date(2026, 6, 11))}
+    body = secs["RL-05"].body_prompt
+    assert "[과업 절차 참고 — 주택 계약·대출·이사" in body
+    assert "대출 승인이 나야 잔금" in body            # L1 의존관계
+    assert "단정 금지" in body                         # L3 경계 고지
+    # 불확실성 번역 규칙은 전 섹션 prefix — 절차 팩 없는 섹션(RL-03)에도 실린다.
+    assert "[불확실성 표현 규칙" in secs["RL-03"].body_prompt
+    assert "[불확실성 표현 규칙" in body
