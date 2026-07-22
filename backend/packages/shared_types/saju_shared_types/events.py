@@ -99,8 +99,16 @@ class EventCandidate(BaseModel):
     # 사건 '방향'(길흉) + '타이밍'(즉시/지연) — polarity 4값 축소로 묻히는 길흉을 또렷이 전달.
     # quality: opportunity/achievement/resolution(길)·loss/pressure/conflict(흉)·mixed(혼합).
     # timing: active/delay(공망·게이트 보류). 표시 계층이 한글 방향 라벨로 노출한다.
+    # ⚠ quality는 '성사 여부(outcome)'가 아니다(2026-07-22 데굴님 확정) — 활성 강도·경험
+    # 품질이 섞인 값이라, 성사/불성사 판정으로 읽지 말 것. 표시 파생은 result_direction 사용.
     quality: str | None = None
     timing: str = "active"
+    # 사건 의미축 분리 예약 필드(2026-07-22 스키마 예약 — 판정 엔진은 후속 개발).
+    # outcome: 'success'|'failure'|'delayed'|None(미판정 — 억지로 채우지 않는다).
+    # experience: 'stable'|'burden'|'conflict'|'drain'|None(미판정).
+    # 결과 명사(합격·취업 성사 등)는 outcome이 확인된 경우에만 표시 계층이 노출한다.
+    outcome: str | None = None
+    experience: str | None = None
     signals: list[Signal] = Field(default_factory=list)
     evidence_path: list[str] = Field(default_factory=list)
     # 클램프(0~100) 전 raw 가중 합 — 동점 후보의 우위 변별용(내부 정렬).

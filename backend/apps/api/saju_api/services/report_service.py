@@ -63,6 +63,7 @@ from saju_engines.report_event_input import (
 from saju_engines.report_plan import YONGSIN_SECTIONS, build_section_plans
 from saju_engines.structural_context import (
     AVOID_DATE_CERTAINTY_DIRECTIVE,
+    BARNUM_SUPPRESSION_DIRECTIVE,
     DECISION_ATTITUDE_DIRECTIVE,
     EVIDENCE_FIDELITY_DIRECTIVE,
     GONGMANG_ACTIVATION_DIRECTIVE,
@@ -680,6 +681,8 @@ class _ReportData:
             UNCERTAINTY_TRANSLATION_DIRECTIVE,
             # P4(2026-07-22) — 근거 밖 사건 창작·저신뢰 정밀 단정·억지 긍정 보완 금지.
             EVIDENCE_FIDELITY_DIRECTIVE,
+            # 질문 무관 성격 칭찬 서두 금지(2026-07-22 — 바넘 문장 억제).
+            BARNUM_SUPPRESSION_DIRECTIVE,
         ]
         # 확정 용신 적용 안내를 원국 prefix 뒤에 부착(전 섹션 공통) — 확정 5역할을 길흉 기준으로,
         # 엔진 최초 도출(확정 전 후보)은 기본값으로 병기. 확정=도출 일치 시 빈 문자열(미부착).

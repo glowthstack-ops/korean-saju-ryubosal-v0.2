@@ -68,6 +68,7 @@ from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.selection_intent import detect_selection_query
 from saju_engines.shadow_scoring import domain_to_expression_key
 from saju_engines.structural_context import (
+    BARNUM_SUPPRESSION_DIRECTIVE,
     CONCLUSION_FIRST_DIRECTIVE,
     DAEWOON_FRAMING_DIRECTIVE,
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
@@ -3645,6 +3646,8 @@ def chat(
         UNCERTAINTY_TRANSLATION_DIRECTIVE,
         # 근거 밖 사건 창작·저신뢰 정밀 단정·억지 긍정 보완 금지 — 상시(P4, 리포트 공용).
         EVIDENCE_FIDELITY_DIRECTIVE,
+        # 질문 무관 성격 칭찬 서두 금지 — 상시(2026-07-22, 리포트 공용).
+        BARNUM_SUPPRESSION_DIRECTIVE,
     ]
     # 사용자 제공 사실 원장(P0, 2026-07-22) — 이전 턴들에서 사용자가 직접 밝힌 사실을
     # compact 블록으로 주입해 모순 서술·되묻기를 차단한다(원문 전체 상속 없이 연속성 보존.

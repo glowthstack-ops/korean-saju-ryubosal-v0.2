@@ -235,6 +235,18 @@ def direction_label(quality: str | None, timing: str = "active") -> str:
     if q and t:
         return f"{q} · {t}"
     return q or t
+# ── 의미 별칭(중장기 마이그레이션 준비, 2026-07-22 데굴님 확정) ─────────────────
+# canonical 키는 당분간 유지(저장 데이터·fixture·통계·캐시 호환). 표시 계층은 이미
+# 방향 인지 라벨(_DIRECTION_DISPLAY)로 중립화됨. 후속 마이그레이션 시 taxonomy version
+# 필드 + 구→신 alias + 읽기 호환 + 통계 통합 + fixture 재생성 + (외부 API 시) deprecation
+# 기간이 필요하며, 장기적으로는 부모(SUDDEN_FINANCIAL_CHANGE)-자식(UNEXPECTED_INFLOW/
+# OUTFLOW/SETTLEMENT_DELAY/VOLATILE) 구조를 검토한다. 과거의 진짜 긍정 횡재 데이터 의미가
+# 바뀌지 않도록 rename이 아니라 alias로 간다.
+EVENT_SEMANTIC_ALIAS: dict[EventKeyV2, str] = {
+    EventKeyV2.WINDFALL: "sudden_financial_change",
+}
+
+
 # ── 결과 방향 파생축(P1 lite, 2026-07-22 데굴님 확정) ─────────────────────────
 # quality 하나에 뭉쳐 있던 '결과 방향'과 '경험 품질'을 표시·서술용으로 분리한다(점수·판정
 # 불변). pressure는 결과가 아니라 경험 품질(부담)이므로 결과 방향은 '활성화만'으로 본다 —

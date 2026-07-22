@@ -140,3 +140,59 @@ def test_selection_no_positive_quota_when_absent() -> None:
     ]
     sel = select_table_candidates(pool, cap=3)
     assert all(c.quality == "loss" for c in sel)
+
+
+# ── 출시 전 필수 재분류(2026-07-22 후속 확정) ─────────────────
+
+def test_relation_contribution_marker() -> None:
+    """실차트 표에서 '관계 발동' 미기여 후보 행에만 시기 참고 마커가 붙는다(기여 일치)."""
+    from saju_api.services.chat_service import _SCORE_LEVELS, _get_scorer
+    from saju_engines.report_event_input import score_table_lines
+
+    r = _chart()
+    scored_pool = _get_scorer().score_legacy_personalized(r, levels=_SCORE_LEVELS)
+    subset = scored_pool[:12]
+    lines = score_table_lines(r, subset)
+    assert any("| 시점 |" in ln for ln in lines)
+    by_row = [ln for ln in lines if ln.startswith("| 2")]
+    assert len(by_row) == len(subset)
+    for ln, c in zip(
+        by_row, sorted(subset, key=lambda x: (str(x.period), -x.score)), strict=True
+    ):
+        if "運 " not in ln:
+            continue
+        contributed = any(s.name == "관계 발동" for s in c.signals)
+        assert ("시기 참고" not in ln) == contributed, ln
+
+
+def test_relation_marker_unit() -> None:
+    """단위: 관계 신호 없는 후보 → 마커 부착 / 관계 발동 후보 → 마커 없음."""
+    from saju_engines.report_event_input import score_table_lines
+    from saju_shared_types.events import Signal
+
+    r = _chart()
+    assert r.luck_cycles is not None
+    period = r.luck_cycles.monthly_luck[0].label
+    no_rel = _cand("wealth_change", period, 80, "loss")
+    with_rel = _cand("wealth_change", period, 80, "loss").model_copy(update={
+        "signals": [Signal(type="reason", name="관계 발동", effect="관계 발동", weight=0.0)],
+    })
+    line_no = score_table_lines(r, [no_rel])[-1]
+    line_with = score_table_lines(r, [with_rel])[-1]
+    if "運 " in line_no:  # 그 달에 관계 적중이 있을 때만 의미 있는 검증
+        assert "시기 참고" in line_no
+        assert "시기 참고" not in line_with
+
+
+def test_void_trigger_label_marks_auxiliary() -> None:
+    """공망 충발 라벨은 지연·변동 보조 성격을 명시한다(실패·무산 판정 아님)."""
+    from saju_engines.report_event_input import _REL_KO
+    from saju_shared_types.ganji_calendar import RelationType
+
+    assert "지연·변동 보조" in _REL_KO[RelationType.VOID_TRIGGER_CLASH]
+
+
+def test_outcome_experience_fields_reserved() -> None:
+    """의미축 예약 필드 — 기본 None(미판정), 억지로 채우지 않는다."""
+    c = _cand("job_gain", "2027-03", 70, "pressure")
+    assert c.outcome is None and c.experience is None

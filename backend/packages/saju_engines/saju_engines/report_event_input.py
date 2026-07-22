@@ -65,7 +65,9 @@ _REL_KO: dict[RelationType, str] = {
     RelationType.DIRECTIONAL_CONTRIB: "방합 일부 결집(미완성·세력 보조)",
     RelationType.STEM_COMBINATION: "천간합",
     RelationType.VOID_FILL: "공망",
-    RelationType.VOID_TRIGGER_CLASH: "공망 충발",
+    # 공망 충발 정의(2026-07-22 명문화): 엔진 효과 = 점수 -10 + 발현 지연(timing=delay),
+    # 방향·사건 성립 불변 — 실패·무산 판정 신호가 아니다. 라벨에 보조 성격을 명시한다.
+    RelationType.VOID_TRIGGER_CLASH: "공망 충발(지연·변동 보조)",
     RelationType.VOID_RELEASE_COMBINE: "공망 해소",
 }
 # 한 글자가 원국 같은 글자를 만나는 복음(伏吟)은 자형과 별개로 표기.
@@ -252,6 +254,16 @@ def score_table_lines(
                 f"{p.stem}={p.stem_ten_god or '?'}/{p.branch}={p.branch_ten_god or '?'}"
             )
             rels = ", ".join(_relation_lines(p, _level(c.period), result))
+            # 기여 일치(P0 감사, 2026-07-22): 그 시기의 관계 적중은 기간 공통 데이터라,
+            # 이 후보 점수에 관계 신호가 실제 기여('관계 발동')했을 때만 점수 근거로
+            # 제시한다. 아니면 '시기 참고'로 구분 — 무관 관계가 점수 근거처럼 보이는
+            # 착시 차단(관계별 delta 구조화는 후속 과제).
+            rel_contributed = any(
+                s.name == "관계 발동" or s.type in ("relation", "hap", "clash")
+                for s in c.signals
+            )
+            if rels and not rel_contributed:
+                rels = f"[시기 참고 — 이 후보 점수의 직접 근거 아님] {rels}"
             evidence = tengods + (" · " + rels if rels else "")
         else:
             evidence = "—"
