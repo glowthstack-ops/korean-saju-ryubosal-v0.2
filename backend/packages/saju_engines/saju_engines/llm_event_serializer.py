@@ -14,7 +14,7 @@ from saju_shared_types.event_taxonomy_v2 import (
     PROHIBITIONS,
     QUALITY_KO,
     TEMPORAL_KO,
-    event_ko_v2,
+    event_display_ko,
 )
 
 # 사람에게 의미 있는 근거코드 접두어만 노출(내부 룰 id는 LLM 입력에서 변별만).
@@ -96,7 +96,10 @@ def serialize_candidate_v2(c: EventCandidateV2) -> dict[str, object]:
     거친 밴드(강/중/약)로만 노출한다(표시용 격하 — 절대 점수 신뢰 금지).
     """
     return {
-        "event_ko": event_ko_v2(c.event_key),
+        # 방향 인지 라벨(2026-07-22 P2) — '횡재+손실' 류 모순 차단(판정·점수 불변).
+        "event_ko": event_display_ko(
+            str(c.event_key), c.quality.value if c.quality else None,
+        ),
         "period": c.period,
         "confidence_ko": CONFIDENCE_KO.get(c.confidence_level, ""),
         "quality_ko": QUALITY_KO.get(c.quality, "") if c.quality else "",

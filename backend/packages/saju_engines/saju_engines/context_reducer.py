@@ -31,7 +31,11 @@ from saju_shared_types.constants import (
     ten_god,
 )
 from saju_shared_types.enums import Branch, Element, Stem
-from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN, direction_label
+from saju_shared_types.event_taxonomy_v2 import (
+    EVENT_DOMAIN,
+    direction_label,
+    event_display_ko,
+)
 from saju_shared_types.event_taxonomy_v2 import EVENT_KO as _EVENT_KO_V2
 from saju_shared_types.events import EventCandidate, EventKey
 from saju_shared_types.graph import EvidenceBundle
@@ -1122,9 +1126,12 @@ def _to_llm_candidate(
             "'실행월'이 아니라 '검토월'(조사·조건 확인까지)로 안내할 것."
         )
         caution = f"{caution} {review_note}".strip()
+    # 방향 인지 표시 라벨(2026-07-22 P2) — '횡재+손실' 모순 차단. 방향 함의 키는 결과
+    # 방향에 맞는 라벨로, 그 외·비V2 키는 기존 라벨 유지(판정·점수 불변).
+    _disp = event_display_ko(str(c.event_key), c.quality, c.timing)
     return LlmEventCandidate(
         event_key=c.event_key,
-        event_ko=event_ko(c.event_key),
+        event_ko=_disp if _disp != str(c.event_key) else event_ko(c.event_key),
         period=c.period,
         ganji=period_ganji,
         daewoon_context=dw_by_year.get(int(c.period[:4]), "") if c.period[:4].isdigit() else "",

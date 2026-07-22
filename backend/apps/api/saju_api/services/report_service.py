@@ -57,12 +57,14 @@ from saju_engines.report_event_input import (
     month_overview_lines,
     precise_candidate_clusters,
     score_table_lines,
+    select_table_candidates,
     year_spectrum_lines,
 )
 from saju_engines.report_plan import YONGSIN_SECTIONS, build_section_plans
 from saju_engines.structural_context import (
     AVOID_DATE_CERTAINTY_DIRECTIVE,
     DECISION_ATTITUDE_DIRECTIVE,
+    EVIDENCE_FIDELITY_DIRECTIVE,
     GONGMANG_ACTIVATION_DIRECTIVE,
     KEYWORD_COMBO_TRANSLATION_DIRECTIVE,
     MANAGE_NOT_OVERCOME_DIRECTIVE,
@@ -630,6 +632,9 @@ class _ReportData:
             domain_pool = [c for c in pool if _EVENT_DOMAIN.get(str(c.event_key)) == spec.topic]
             pool = domain_pool or pool
         self.candidates: list[EventCandidate] = pool[:_TOP_CANDIDATES]
+        # 부록 점수표용 전체 풀(P3, 2026-07-22) — 표 선별은 점수순 절단이 아니라 계층
+        # 선별(중복 제거·방향별 대표)을 거친다. 본문 후보(self.candidates)는 불변.
+        self.candidate_pool: list[EventCandidate] = pool
         self.scored = scored  # 전체 점수화(필터 전) — 발현 분기·섹션별 도메인 후보 산출용.
         # 기간 연도 경계(섹션별 도메인 후보 스코핑용) — 후보 필터와 동일 기준.
         self._yr_lo = spec.period.start[:4]
@@ -673,6 +678,8 @@ class _ReportData:
             *self.prefix_lines,
             GONGMANG_ACTIVATION_DIRECTIVE,
             UNCERTAINTY_TRANSLATION_DIRECTIVE,
+            # P4(2026-07-22) — 근거 밖 사건 창작·저신뢰 정밀 단정·억지 긍정 보완 금지.
+            EVIDENCE_FIDELITY_DIRECTIVE,
         ]
         # 확정 용신 적용 안내를 원국 prefix 뒤에 부착(전 섹션 공통) — 확정 5역할을 길흉 기준으로,
         # 엔진 최초 도출(확정 전 후보)은 기본값으로 병기. 확정=도출 일치 시 빈 문자열(미부착).
@@ -1686,7 +1693,13 @@ def build_section_context(
     elif sid in _SCORE_TABLE_SECTIONS:
         lines.append("")
         lines.append("[점수표 — 아래 표를 그대로 인용. 표 밖 새 수치 생성 금지]")
-        lines += score_table_lines(data.result, data.candidates)
+        # P3(2026-07-22) — 표 후보는 계층 선별: 동일 사건·인접 기간 중복 제거 + 결과
+        # 방향별 대표(존재하는 방향만·고정 긍정 쿼터 금지). '부정 일색 Top-N' 편향 교정.
+        lines += score_table_lines(
+            data.result,
+            select_table_candidates(data.candidate_pool or data.candidates,
+                                    cap=_TOP_CANDIDATES),
+        )
     elif not is_natal_section:
         lines.append("")
         section_domain = _SECTION_DOMAIN.get(sid)

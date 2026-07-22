@@ -72,6 +72,7 @@ from saju_engines.structural_context import (
     DAEWOON_FRAMING_DIRECTIVE,
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
     DECISION_ATTITUDE_DIRECTIVE,
+    EVIDENCE_FIDELITY_DIRECTIVE,
     GONGMANG_ACTIVATION_DIRECTIVE,
     LOVE_MARRIAGE_UNIFIED_DIRECTIVE,
     MANAGE_NOT_OVERCOME_DIRECTIVE,
@@ -3642,6 +3643,8 @@ def chat(
         # 추상 불확실성 문구('가능성 열림·조건 확인 필요') 금지 — 상시(2026-07-22 P0,
         # structural_context 공용 — 테마 리포트 전 섹션 prefix에도 동일 적용).
         UNCERTAINTY_TRANSLATION_DIRECTIVE,
+        # 근거 밖 사건 창작·저신뢰 정밀 단정·억지 긍정 보완 금지 — 상시(P4, 리포트 공용).
+        EVIDENCE_FIDELITY_DIRECTIVE,
     ]
     # 사용자 제공 사실 원장(P0, 2026-07-22) — 이전 턴들에서 사용자가 직접 밝힌 사실을
     # compact 블록으로 주입해 모순 서술·되묻기를 차단한다(원문 전체 상속 없이 연속성 보존.

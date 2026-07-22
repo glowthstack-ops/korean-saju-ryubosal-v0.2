@@ -92,7 +92,8 @@ def test_serialize_enriched_fields() -> None:
         reason_codes=["REL_HAP_hour_pillar", "YONGGI_YONG"],
     )
     d = serialize_candidate_v2(c)
-    assert d["event_ko"] == "합격·진학·자격"
+    # 방향 인지 라벨(2026-07-22 P2) — achievement(긍정) 방향의 승인 문안.
+    assert d["event_ko"] == "합격·진학 가능성"
     assert d["confidence_ko"] == "강한 사건 후보"
     assert d["quality_ko"] == "성취·결실"
     palace_ko, signals_ko = d["palace_ko"], d["signals_ko"]

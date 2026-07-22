@@ -235,6 +235,88 @@ def direction_label(quality: str | None, timing: str = "active") -> str:
     if q and t:
         return f"{q} · {t}"
     return q or t
+# ── 결과 방향 파생축(P1 lite, 2026-07-22 데굴님 확정) ─────────────────────────
+# quality 하나에 뭉쳐 있던 '결과 방향'과 '경험 품질'을 표시·서술용으로 분리한다(점수·판정
+# 불변). pressure는 결과가 아니라 경험 품질(부담)이므로 결과 방향은 '활성화만'으로 본다 —
+# '합격+부담'을 실패로 격하하지 않는다(§3 승인). timing=delay는 결과 방향에 우선한다.
+def result_direction(quality: str | None, timing: str = "active") -> str:
+    """후보의 결과 방향 파생 — 'positive'|'negative'|'delay'|'activation'|'unknown'."""
+    if timing == "delay":
+        return "delay"
+    if quality in ("opportunity", "achievement", "resolution"):
+        return "positive"
+    if quality in ("loss", "conflict"):
+        return "negative"
+    if quality == "pressure":
+        return "activation"  # 주제 활성화 + 경험 부담(방향 라벨이 압박·부담을 병기)
+    return "unknown"  # mixed/None — 중립 국면
+
+
+# 방향 인지 표시 라벨(2026-07-22 데굴님 감수 문안) — 방향 함의가 있는 이벤트명이 반대
+# 방향 quality와 결합해 모순 표기('횡재+손실')가 되는 것을 차단한다. 'neutral'은
+# activation/unknown 공용(국면·변동형 중립 라벨). 미등재 키는 EVENT_KO 그대로.
+_DIRECTION_DISPLAY: dict[EventKeyV2, dict[str, str]] = {
+    EventKeyV2.WINDFALL: {
+        "positive": "뜻밖의 수입·수익 기회",
+        "negative": "예상 밖 지출·손실 위험",
+        "delay": "수령·정산 지연 가능성",
+        "neutral": "돌발 금전 변동",
+    },
+    EventKeyV2.JOB_GAIN: {
+        "positive": "취업 성사 가능성",
+        "negative": "구직·채용 난항",
+        "delay": "채용 결정 지연",
+        "neutral": "구직·채용 국면",
+    },
+    EventKeyV2.EDUCATION_ADMISSION: {
+        "positive": "합격·진학 가능성",
+        "negative": "시험·선발 난항",
+        "delay": "발표·진행 지연",
+        "neutral": "시험·학업 관련 변동",
+    },
+    EventKeyV2.PROMOTION: {
+        "positive": "승진·평가 기회",
+        "negative": "평가 압박·승진 난항",
+        "delay": "승진·보상 결정 지연",
+        "neutral": "승진·평가 국면",
+    },
+    EventKeyV2.NEW_RELATIONSHIP: {
+        "positive": "새로운 인연 가능성",
+        "negative": "관계 불안정",
+        "delay": "관계 진전 지연",
+        "neutral": "인연 접점",
+    },
+    EventKeyV2.MARRIAGE_SIGNAL: {
+        "positive": "혼인 구체화",
+        "negative": "혼인 논의 부담",
+        "delay": "혼인 결정 지연",
+        "neutral": "혼인 논의 국면",
+    },
+}
+
+
+def event_display_ko(
+    event_key: str, quality: str | None = None, timing: str = "active"
+) -> str:
+    """사용자 표시용 사건 라벨 — 방향 함의 이벤트는 결과 방향에 맞춰 치환(판정·점수 불변).
+
+    '횡재'는 결과가 긍정으로 확정된 경우에만 쓴다(데굴님 확정). activation(주제 활성화만)과
+    unknown(혼합·미확정)은 중립 국면 라벨을 공유하며, 경험 품질(압박·부담 등)은 방향 라벨
+    열이 병기한다. 미등재 키는 EVENT_KO 폴백.
+    """
+    try:
+        key = EventKeyV2(event_key)
+    except ValueError:
+        return event_key
+    table = _DIRECTION_DISPLAY.get(key)
+    if table is None:
+        return EVENT_KO.get(key, event_key)
+    d = result_direction(quality, timing)
+    if d in ("activation", "unknown"):
+        return table["neutral"]
+    return table[d]
+
+
 CONFIDENCE_KO: dict[ConfidenceLevel, str] = {
     ConfidenceLevel.THEME_ONLY: "주제·분위기",
     ConfidenceLevel.WEAK_EVENT_CANDIDATE: "약한 사건 후보",

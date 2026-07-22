@@ -111,9 +111,14 @@ def _relation_hit(
     if rtype is None:
         return None
 
-    luck_ref = GanjiRef(
-        side="luck", position=str(luck_level), stem=luck_stem, branch=luck_branch
-    )
+    # 관계 endpoint 불변식(2026-07-22 데굴님 확정 P0): 천간 관계의 양쪽 노드는 천간만,
+    # 지지 관계의 양쪽 노드는 지지만 담는다. 종전에는 luck_ref에 천간·지지를 둘 다 채워
+    # 렌더러(branch 우선)가 천간합을 '運 子↔원국 丁 천간합'처럼 지지로 표기하는 차단급
+    # 오류가 있었다(계산은 정상 — 참조 오류).
+    if rtype is RelationType.STEM_COMBINATION:
+        luck_ref = GanjiRef(side="luck", position=str(luck_level), stem=luck_stem)
+    else:
+        luck_ref = GanjiRef(side="luck", position=str(luck_level), branch=luck_branch)
 
     # 천간합: payload = '운천간-원국천간'.
     if rtype is RelationType.STEM_COMBINATION:

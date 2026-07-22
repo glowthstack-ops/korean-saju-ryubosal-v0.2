@@ -8,7 +8,12 @@
 
 from __future__ import annotations
 
-from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN, direction_label
+from saju_shared_types.event_taxonomy_v2 import (
+    EVENT_DOMAIN,
+    direction_label,
+    event_display_ko,
+    result_direction,
+)
 from saju_shared_types.events import EventCandidate, confidence_ko
 from saju_shared_types.ganji_calendar import GanjiLevel, RelationType
 from saju_shared_types.luck import LuckPillar
@@ -54,8 +59,10 @@ _REL_KO: dict[RelationType, str] = {
     RelationType.BRANCH_BREAK: "파",
     RelationType.HARM: "해",
     RelationType.SIX_COMBINATION: "육합",
-    RelationType.THREE_HARMONY_CONTRIB: "삼합(세력 보조)",
-    RelationType.DIRECTIONAL_CONTRIB: "방합(세력 보조)",
+    # 두 글자 결집은 완성 합국이 아니다(P0, 2026-07-22 데굴님 확정) — '삼합/방합'으로만
+    # 표기하면 완성 국으로 오해된다. 미완성·부분 결집임을 라벨에 명시.
+    RelationType.THREE_HARMONY_CONTRIB: "삼합 일부 결집(미완성·세력 보조)",
+    RelationType.DIRECTIONAL_CONTRIB: "방합 일부 결집(미완성·세력 보조)",
     RelationType.STEM_COMBINATION: "천간합",
     RelationType.VOID_FILL: "공망",
     RelationType.VOID_TRIGGER_CLASH: "공망 충발",
@@ -98,8 +105,15 @@ def _relation_lines(pillar: LuckPillar, level: GanjiLevel, result: ManseV2Result
         name = _REL_KO.get(h.type)
         if name is None:
             continue
-        luck_c = h.luck_ref.branch or h.luck_ref.stem or ""
-        natal_chars = [r.branch or r.stem or "" for r in h.natal_refs if (r.branch or r.stem)]
+        # endpoint 불변식(P0, 2026-07-22): 천간 관계는 천간끼리, 지지 관계는 지지끼리만
+        # 표기한다 — '運 子↔원국 丁 천간합' 같은 혼합 표기 차단(원천은 ganji_calendar에서
+        # 교정, 여기는 과거 데이터·타 생산자 대비 이중 방어).
+        if h.type is RelationType.STEM_COMBINATION:
+            luck_c = h.luck_ref.stem or ""
+            natal_chars = [r.stem or "" for r in h.natal_refs if r.stem]
+        else:
+            luck_c = h.luck_ref.branch or ""
+            natal_chars = [r.branch or "" for r in h.natal_refs if r.branch]
         natal = "·".join(dict.fromkeys(natal_chars))
         if not (luck_c and natal):
             continue
@@ -161,22 +175,74 @@ def precise_candidate_clusters(
             lines.append(f"  {note}")
         for c in evs:
             lines.append(
-                f"  - {event_ko(c.event_key)}: {c.score}점 · "
+                f"  - {event_display_ko(str(c.event_key), c.quality, c.timing)}: "
+                f"신호 강도 {c.score} · "
                 f"신뢰도 {confidence_ko(c.confidence)} · {_dir(c)}{_marriage_stage_note(c)}"
             )
     return lines
 
 
+def _adjacent_period(a: str, b: str) -> bool:
+    """두 기간 라벨이 같은 사건의 연속 신호로 볼 만큼 인접한가(같은 해 이웃 달·동일 기간)."""
+    if a == b:
+        return True
+    if len(a) == 7 and len(b) == 7 and a[:4] == b[:4]:
+        return abs(int(a[5:7]) - int(b[5:7])) <= 1
+    return False
+
+
+def select_table_candidates(
+    pool: list[EventCandidate], cap: int = 12
+) -> list[EventCandidate]:
+    """부록 점수표 후보 계층 선별(P3, 2026-07-22 데굴님 확정) — 점수순 Top-N 편향 교정.
+
+    순서: ①동일 event_key의 인접 기간 중복 제거(강한 신호 유지 — 같은 사건 반복 차단)
+    ②결과 방향(긍정/부정/지연/중립)별 대표 후보를 존재하는 방향만 우선 확보 — 고정 긍정
+    쿼터 금지(억지 낙관 편향 차단, 실제 후보가 있을 때만 노출) ③잔여는 점수순 충원.
+    판정·점수 불변 — 표에 실을 후보의 '선별'만 바꾼다.
+    """
+    ranked = sorted(pool, key=lambda c: -c.score)
+    deduped: list[EventCandidate] = []
+    for c in ranked:
+        if any(
+            d.event_key == c.event_key and _adjacent_period(str(d.period), str(c.period))
+            for d in deduped
+        ):
+            continue
+        deduped.append(c)
+    # 방향별 대표(존재하는 방향만) → 잔여 점수순.
+    picked: list[EventCandidate] = []
+    seen_dir: set[str] = set()
+    for c in deduped:
+        d = result_direction(c.quality, c.timing)
+        if d not in seen_dir:
+            seen_dir.add(d)
+            picked.append(c)
+    for c in deduped:
+        if len(picked) >= cap:
+            break
+        if c not in picked:
+            picked.append(c)
+    return sorted(picked[:cap], key=lambda c: (str(c.period), -c.score))
+
+
 def score_table_lines(
     result: ManseV2Result, candidates: list[EventCandidate]
 ) -> list[str]:
-    """부록 점수표 — 실제 마크다운 표(시점·운간지·이벤트·점수·신뢰도·방향·정밀 근거)."""
+    """부록 점수표 — 실제 마크다운 표(시점·운간지·사건·신호 강도·신뢰도·방향·정밀 근거).
+
+    2026-07-22 데굴님 확정(P2): '점수'는 길흉이 아니라 발동 강도이므로 '신호 강도'로
+    표기하고, 사건명은 결과 방향 인지 라벨(event_display_ko — '횡재+손실' 모순 차단)로
+    치환한다. 판정·점수 값 자체는 불변(표기 전용).
+    """
     if result.pillars is None:
         return []
     lookup = _pillar_lookup(result)
     out = [
-        "| 시점 | 운간지 | 이벤트 | 점수 | 신뢰도 | 방향 | 십성·관계 근거 |",
+        "| 시점 | 운간지 | 사건 | 신호 강도 | 신뢰도 | 예상 방향 | 십성·관계 근거 |",
         "|---|---|---|---|---|---|---|",
+        "(신호 강도는 좋고 나쁨이 아니라 그 주제가 얼마나 강하게 발동하는가다 — "
+        "강도가 높고 방향이 부정이면 '강하게 부정 쪽으로 변동'을 뜻한다)",
     ]
     for c in sorted(candidates, key=lambda x: (x.period, -x.score)):
         p = lookup.get(c.period)
@@ -190,8 +256,8 @@ def score_table_lines(
         else:
             evidence = "—"
         out.append(
-            f"| {c.period} | {ganji} | {event_ko(c.event_key)} | {c.score} | "
-            f"{confidence_ko(c.confidence)} | {_dir(c)} | {evidence} |"
+            f"| {c.period} | {ganji} | {event_display_ko(str(c.event_key), c.quality, c.timing)}"
+            f" | {c.score} | {confidence_ko(c.confidence)} | {_dir(c)} | {evidence} |"
         )
     return out
 
