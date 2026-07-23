@@ -557,6 +557,86 @@ RISK_EXPOSURE_SUPPRESSED_GUARD = (
 # 하위 호환 별칭(감수 45차 명칭) — R5-b에서 분리(제거 예정 아님·감사 추적).
 RISK_EXPOSURE_GUARD_BLOCK = RISK_EXPOSURE_SUPPRESSED_GUARD
 
+# ③ 동반자(PAIRWISE) 위험 노출 부가 고지(감수 62차 — 기존 블록 불변·부가
+# 전용: request_shape_digest의 instruction substring 검사와 독립).
+COMPANION_NOTICE_VERSION = "companion-notice-v1"
+RISK_EXPOSURE_COMPANION_NOTICE_BLOCK = (
+    "[동반자 위험 표현 계약] 이 위험 정보의 대상은 질문자의 동반자다."
+    " 본인에게 전하는 참고 조언 프레임으로만 서술하고(예: '함께 일정을"
+    " 점검해 보라'), 동반자 당사자를 향한 확정적 경고·단정 문장을"
+    " 생성하지 않는다. 건강·법률 도메인은 표시 수준보다 한 단계 더"
+    " 보수적으로 서술한다."
+)
+
+# 동반자 claim ceiling(감수 62차 P0④·⑩ — 순차 강등이 아니라 **명시적
+# 매핑표의 min() 교집합**). 내부 severity 불변 — 외부 노출 level만 제한.
+# None=제약 없음(가장 낮은 수준 취급 금지).
+_LEVEL_ORDER = ("none", "advisory", "watch", "warning", "critical")
+COMPANION_GENERAL_CEILING = "watch"  # 전역 warning 아래 1단계
+COMPANION_DOMAIN_CEILINGS: dict[str, str] = {
+    "health_safety": "advisory",  # 건강 — 추가 1단계 보수
+    "contract_legal": "advisory",  # 법률 — 추가 1단계 보수
+}
+COMPANION_CLAIM_POLICY_VERSION = "companion-ceiling-v1"
+
+
+def companion_effective_level(
+    level: str, domains: tuple[str, ...] | list[str],
+) -> tuple[str, str | None]:
+    """동반자 노출 유효 수준 — (effective_level, policy_reason).
+
+    effective = min(전역 외부 수준, 일반 동반자 ceiling, 도메인 ceiling)
+    — 순위표(_LEVEL_ORDER) 기준. 도메인 ceiling 부재(None)=제약 없음.
+    """
+    if level not in _LEVEL_ORDER or level == "none":
+        return level, None
+    candidates: list[tuple[str, str]] = [
+        (level, ""), (COMPANION_GENERAL_CEILING, "COMPANION_GENERAL_CEILING")]
+    for dom in domains:
+        dom_ceiling = COMPANION_DOMAIN_CEILINGS.get(str(dom))
+        if dom_ceiling is not None:
+            candidates.append(
+                (dom_ceiling, f"COMPANION_{str(dom).upper()}_CEILING"))
+    effective, reason = min(
+        candidates, key=lambda c: _LEVEL_ORDER.index(c[0]))
+    return effective, (reason or None) if effective != level else None
+
+
+def apply_companion_ceiling(payload: dict) -> dict:
+    """payload의 노출 수준에 동반자 ceiling을 적용한 새 payload(입력 불변).
+
+    내부 severity·감사 원본은 보존: 각 record에 subjectScope/
+    effectiveExternalLevel/policyReason을 기록하고, LLM 노출(llmRisk
+    Episodes)의 presentationLevel만 유효 수준으로 교체한다. 감사기는
+    이 유효 수준(=payload의 level) 기준으로 검사하게 된다.
+    """
+    out_records = []
+    keep_llm = []
+    llm_iter = iter(payload.get("llmRiskEpisodes") or [])
+    for rec in payload.get("presentationRecords") or []:
+        level = str(rec.get("presentationLevel", "none"))
+        llm_ep = (next(llm_iter, None)
+                  if level != "none" else None)
+        effective, reason = companion_effective_level(
+            level, tuple(rec.get("domains") or ()))
+        out_records.append({
+            **rec,
+            "subjectScope": "companion_pair",
+            "globalExternalLevel": level,
+            "effectiveExternalLevel": effective,
+            "companionPolicyReason": reason,
+        })
+        if llm_ep is not None:
+            new_ep = dict(llm_ep)
+            new_ep["presentationLevel"] = effective
+            from .risk_presentation import USER_LEVEL_LABELS
+            new_ep["presentationLabel"] = USER_LEVEL_LABELS.get(
+                effective, new_ep.get("presentationLabel"))
+            keep_llm.append(new_ep)
+    return {**payload, "presentationRecords": out_records,
+            "llmRiskEpisodes": keep_llm,
+            "companionClaimPolicyVersion": COMPANION_CLAIM_POLICY_VERSION}
+
 
 @dataclass(frozen=True)
 class RiskPromptBlock:
@@ -764,7 +844,17 @@ def expose_policy_hash() -> str:
         "instruction_blocks": "INJECTED=RISK_EXPOSURE_INSTRUCTION_BLOCK /"
                               " SUPPRESSED=RISK_EXPOSURE_SUPPRESSED_GUARD /"
                               " BYPASS=없음(감수 46차 §8 + 47차 §1) — 전부"
-                              " EXPOSE 계열 전용·최종 token 계수 포함",
+                              " EXPOSE 계열 전용·최종 token 계수 포함."
+                              " 동반자(PAIRWISE) INJECTED에는 부가 고지"
+                              " COMPANION_NOTICE(companion-notice-v1)를"
+                              " 추가한다(기존 블록 불변 — 감수 62차)",
+        "companion_claim_policy": "동반자 노출 유효 수준 ="
+                                  " min(전역 외부 수준, 일반 ceiling=watch,"
+                                  " 건강·법률 ceiling=advisory) — 명시적"
+                                  " 매핑표의 교집합(순차 강등 금지)."
+                                  " 내부 severity 불변·감사 record에 원본"
+                                  "·유효 수준·사유 병기"
+                                  " (companion-ceiling-v1, 감수 62차)",
         "block_integrity": "RiskPromptBlock.content_hash + BEGIN/END"
                            " marker — provider request 직전 단일 삽입"
                            "(각 1회·본문 1회)·checksum 대조(감수 47차 §3)."

@@ -89,8 +89,15 @@ def map_intent_to_exposure_question(
     temporal = _TIME_SCOPE_MAP.get(intent.time_scope)
     if temporal is None:
         return None  # TIMELESS·LIFE_STAGE·HOUR_LEVEL 등 — 불명확=fail-closed
-    if intent.subject_mode.value != "single":
-        return None  # 동반자·비교 대상 위험 노출은 별도 감수 전 금지
+    # 대상 모드(감수 62차 확대): 본인 단독 + 동반자 1:1(PAIRWISE)만 개방.
+    # 다자 합산·순위·본인 제외 비교는 별도 감수 전 차단 유지(fail-closed).
+    subject_scope = {"single": "single",
+                     "pairwise": "companion_pair"}.get(
+        intent.subject_mode.value)
+    if subject_scope is None:
+        return None
+    if question_type == "multi_episode_compare" and subject_scope != "single":
+        return None  # 비교는 1차 개방=단일 대상 시기 비교만(감수 62차 계약)
     # 감수 51차 §1-1: DOMAIN_ANALYSIS는 intent 이름이 아니라 **도메인이
     # 정확히 1개**일 때만 single_domain_period — 0개·2개 이상=BYPASS
     # ("직업과 재물운 같이" 류에 단일 도메인 budget 적용 금지).
@@ -133,6 +140,7 @@ def map_intent_to_exposure_question(
         "temporal_scope": temporal,
         "future_period_range": future_range,
         "target_domains": tuple(sorted(set(domains))),
+        "subject_scope": subject_scope,
     }
     # episode_followup 결정적 해소(감수 62차) — specific_event 계열 질문이
     # 저장된 canonical episode 키와 (도메인 일치 + 기간 겹침) **정확히

@@ -113,6 +113,12 @@ RISK_CANARY_QUESTION_TYPES: tuple[str, ...] = (
     "specific_event", "single_domain_period", "period_overview",
 )
 
+# 동반자 노출 전용 kill switch(감수 62차 P0⑩ — 범위 세분): subject_scope
+# 오귀속 등 동반자 경로 사고 시 이것만 켜서 동반자 노출을 차단한다(본인
+# 위험 노출은 유지 — 전역 kill switch는 반복·오염 증거 시에만).
+RISK_COMPANION_KILL_SWITCH: bool = _env_flag(
+    "RISK_COMPANION_KILL_SWITCH", False)
+
 # expose(전면) 모드 허용 질문 유형(감수 62차 — 2026-07-23 계획 승인):
 # canary 3유형 + 비교·후속 개방. expose_canary 모드는 위 3유형을 유지해
 # 롤백 안전망으로 보존한다(risk_exposure_service가 모드별로 선택).

@@ -184,3 +184,114 @@ def test_comparison_selection_omitted_audited() -> None:
     assert payload is not None
     reasons = {o["reason"] for o in payload["selectionOmitted"]}
     assert reasons  # per-period cap 또는 전체 cap 탈락이 감사에 남는다
+
+
+# ── 4단계: 동반자 개방 ─────────────────────────────────────────────────
+
+
+def test_pairwise_mapping_opened_group_blocked() -> None:
+    from saju_shared_types.intent import SubjectMode
+    out = map_intent_to_exposure_question(
+        _intent(subject_mode=SubjectMode.PAIRWISE))
+    assert out is not None and out["subject_scope"] == "companion_pair"
+    assert map_intent_to_exposure_question(
+        _intent(subject_mode=SubjectMode.GROUP_AGGREGATE)) is None
+    assert map_intent_to_exposure_question(
+        _intent(subject_mode=SubjectMode.RANKING)) is None
+    # 비교는 단일 대상만(1차 계약)
+    assert map_intent_to_exposure_question(
+        _intent(query_type=QueryType.COMPARISON,
+                subject_mode=SubjectMode.PAIRWISE)) is None
+
+
+def test_gate3_companion_ceiling_matrix() -> None:
+    """전 조합 매트릭스 fixture — min() 교집합(순차 강등 금지)."""
+    from saju_engines.risk_exposure import companion_effective_level
+
+    matrix = [
+        # (전역 외부 수준, 도메인, 기대 유효 수준)
+        ("warning", ("finance",), "watch"),        # 일반 동반자 ceiling
+        ("warning", ("health_safety",), "advisory"),
+        ("warning", ("contract_legal",), "advisory"),
+        ("watch", ("finance",), "watch"),          # min(watch, watch)=watch
+        ("watch", ("health_safety",), "advisory"),
+        ("advisory", ("finance",), "advisory"),    # 이미 낮음 — 불변
+        ("advisory", ("health_safety",), "advisory"),
+        ("none", ("health_safety",), "none"),      # none은 대상 아님
+        ("warning", (), "watch"),                  # 도메인 ceiling 없음=제약 없음
+    ]
+    for level, domains, expected in matrix:
+        effective, _reason = companion_effective_level(level, domains)
+        assert effective == expected, (level, domains, effective)
+
+
+def test_companion_payload_ceiling_applied_with_audit() -> None:
+    from saju_engines.risk_exposure import apply_companion_ceiling
+
+    payload = {
+        "presentationRecords": [
+            {"presentationLevel": "warning", "domains": ["health_safety"],
+             "diagnostics": {"episodeKey": "k1"}},
+            {"presentationLevel": "none", "domains": ["finance"],
+             "diagnostics": {"episodeKey": "k2"}},
+        ],
+        "llmRiskEpisodes": [
+            {"guidanceRef": "r1", "presentationLevel": "warning",
+             "presentationLabel": "주의 필요"}],
+    }
+    out = apply_companion_ceiling(payload)
+    rec = out["presentationRecords"][0]
+    assert rec["globalExternalLevel"] == "warning"  # 원본 보존
+    assert rec["effectiveExternalLevel"] == "advisory"
+    assert rec["companionPolicyReason"] == "COMPANION_HEALTH_SAFETY_CEILING"
+    assert out["llmRiskEpisodes"][0]["presentationLevel"] == "advisory"
+    # 입력 불변
+    assert payload["llmRiskEpisodes"][0]["presentationLevel"] == "warning"
+
+
+def test_companion_kill_switch_scoped_bypass(monkeypatch) -> None:
+    """동반자 kill switch — 동반자만 BYPASS, 본인 경로는 진행."""
+    from saju_api.services import risk_exposure_service as svc
+
+    monkeypatch.setattr(
+        "saju_engines.risk_engine_config.RISK_COMPANION_KILL_SWITCH", True)
+    prompt, _sys, obs = svc.apply_risk_exposure(
+        "본문", None, subject_scope="companion_pair")
+    assert obs["disposition"] == "BYPASS"
+    assert obs["reason"] == "COMPANION_KILL_SWITCH"
+    assert prompt == "본문"  # byte 불변
+    # 본인 경로는 kill switch 무관(게이트 정상 평가 경로 진입)
+    _p2, _s2, obs2 = svc.apply_risk_exposure("본문", None,
+                                             subject_scope="single")
+    assert obs2.get("reason") != "COMPANION_KILL_SWITCH"
+
+
+def test_request_local_risk_shadow_thread_isolation() -> None:
+    """async/thread interleaving 오귀속 차단 — thread-local sink 격리."""
+    import threading
+
+    from saju_engines.event_engine_v2 import EventEngineV2
+
+    scorer = EventEngineV2.__new__(EventEngineV2)  # 무거운 __init__ 우회
+    scorer._risk_tls = threading.local()
+
+    results: dict[str, tuple] = {}
+    barrier = threading.Barrier(2)
+
+    def run(name: str, items: list[str]) -> None:
+        sink: list = []
+        scorer._risk_tls.sink = sink
+        barrier.wait()  # 두 스레드가 sink 설정 후 동시에 진행(interleave)
+        for it in items:
+            sink.append(f"{name}:{it}")
+        scorer._risk_tls.last = tuple(sink)
+        results[name] = scorer.take_risk_shadow()
+
+    t1 = threading.Thread(target=run, args=("A", ["r1", "r2"]))
+    t2 = threading.Thread(target=run, args=("B", ["r3"]))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    assert results["A"] == ("A:r1", "A:r2")  # B 항목 혼입 없음
+    assert results["B"] == ("B:r3",)

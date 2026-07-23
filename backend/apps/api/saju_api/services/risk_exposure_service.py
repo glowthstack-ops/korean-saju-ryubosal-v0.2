@@ -246,6 +246,7 @@ def apply_risk_exposure(
     *,
     intent=None,  # IntentJson — 지정 시 파서 SSOT 매핑(감수 50차 §9-①)
     stored_episode_keys: tuple[tuple[str, str, str], ...] = (),
+    subject_scope: str = "single",
     payload: dict | None = None,
     question_type: str | None = None,
     temporal_scope: str | None = None,
@@ -274,6 +275,20 @@ def apply_risk_exposure(
             question_type = mapped["question_type"]
             temporal_scope = mapped["temporal_scope"]
             future_period_range = mapped["future_period_range"]
+            subject_scope = mapped.get("subject_scope", subject_scope)
+    # 동반자 경로(감수 62차 P0④·⑩): ①companion kill switch — 동반자
+    # 노출만 차단(본인 유지) ②claim ceiling을 게이트·감사 **이전** payload
+    # 수준에 적용(프롬프트 지시가 아니라 코드·감사 단계 — 감사기는 유효
+    # 수준 기준으로 검사).
+    companion = subject_scope == "companion_pair"
+    if companion and risk_engine_config.RISK_COMPANION_KILL_SWITCH:
+        return (prompt_text, system, {
+            "disposition": "BYPASS",
+            "reason": "COMPANION_KILL_SWITCH",
+            "subject_scope": subject_scope})
+    if companion and payload:
+        from saju_engines.risk_exposure import apply_companion_ceiling
+        payload = apply_companion_ceiling(payload)
     mode = (RiskEngineMode.EXPOSE
             if risk_engine_config.RISK_ENGINE_MODE == "expose"
             else RiskEngineMode.EXPOSE_CANARY)
@@ -360,6 +375,14 @@ def apply_risk_exposure(
             exact_token_count=0)
         new_prompt = (prompt_text + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
                       + "\n" + wrap_risk_block(block))
+        if companion:
+            # 동반자 부가 고지(감수 62차 — 기존 블록 불변·부가 전용).
+            from saju_engines.risk_exposure import (
+                RISK_EXPOSURE_COMPANION_NOTICE_BLOCK,
+            )
+            new_prompt = (new_prompt + "\n"
+                          + RISK_EXPOSURE_COMPANION_NOTICE_BLOCK)
+            result["observability"]["subject_scope"] = subject_scope
         assert verify_risk_block_integrity(new_prompt, block)
         return new_prompt, system, result["observability"]
     result["observability"].setdefault(

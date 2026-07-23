@@ -631,8 +631,10 @@ def test_intent_mapping_ssot_and_fail_closed() -> None:
     assert ok == {"question_type": "period_overview",
                   "temporal_scope": "future",
                   "future_period_range": ("2026-07", "2027-06"),
-                  "target_domains": ("finance",)}
-    # fail-closed 4종.
+                  "target_domains": ("finance",),
+                  "subject_scope": "single"}
+    # fail-closed — 감수 62차: PAIRWISE는 companion_pair로 개방(별도 검증),
+    # 다자 합산·순위는 차단 유지.
     assert map_intent_to_exposure_question(
         _intent(query_type=QueryType.CHART_ANALYSIS)) is None
     assert map_intent_to_exposure_question(
@@ -640,7 +642,7 @@ def test_intent_mapping_ssot_and_fail_closed() -> None:
     assert map_intent_to_exposure_question(
         _intent(time_range=None)) is None
     assert map_intent_to_exposure_question(
-        _intent(subject_mode=SubjectMode.PAIRWISE)) is None
+        _intent(subject_mode=SubjectMode.GROUP_AGGREGATE)) is None
     # 과거 회고 → past_only(게이트가 비주입 판단).
     past = map_intent_to_exposure_question(
         _intent(time_scope=TimeScope.PAST, time_range=None))
