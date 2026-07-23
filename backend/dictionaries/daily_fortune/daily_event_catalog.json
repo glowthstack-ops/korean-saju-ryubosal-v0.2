@@ -1,6 +1,6 @@
 {
   "schema": "daily_event_catalog.v1",
-  "version": "dict.v1.2",
+  "version": "dict.v1.3",
   "reviewed": false,
   "domains": [
     "money",
@@ -894,7 +894,7 @@
       }
     },
     "travel_schedule_caution": {
-      "label": "이동 일정이 어긋나기 쉬운 확률",
+      "label": "이동 일정이 어긋날 확률",
       "domain": "move",
       "valence": "caution",
       "slots": [
@@ -920,7 +920,7 @@
       "element_affinity": {}
     },
     "fall_slip_caution": {
-      "label": "발밑을 조심하면 좋은 확률",
+      "label": "미끄러지거나 발을 헛디딜 확률",
       "domain": "health",
       "valence": "caution",
       "slots": [
@@ -946,7 +946,7 @@
       "element_affinity": {}
     },
     "cut_burn_tool_caution": {
-      "label": "도구·주방에서 손을 조심할 확률",
+      "label": "칼·뜨거운 것에 손을 다칠 확률",
       "domain": "health",
       "valence": "caution",
       "slots": [
@@ -975,7 +975,7 @@
       }
     },
     "sports_overuse_caution": {
-      "label": "운동 중 무리가 되기 쉬운 확률",
+      "label": "운동하다 몸에 무리가 갈 확률",
       "domain": "health",
       "valence": "caution",
       "slots": [
@@ -1001,7 +1001,7 @@
       "element_affinity": {}
     },
     "fire_electric_check_caution": {
-      "label": "화기·전기를 점검하면 좋은 확률",
+      "label": "불·전기가 말썽을 부릴 확률",
       "domain": "health",
       "valence": "caution",
       "slots": [
@@ -1029,7 +1029,7 @@
       }
     },
     "weather_water_safety_caution": {
-      "label": "궂은 날씨 이동을 줄이면 좋은 확률",
+      "label": "궂은 날씨로 곤란을 겪을 확률",
       "domain": "move",
       "valence": "caution",
       "slots": [
@@ -1057,7 +1057,7 @@
       }
     },
     "belongings_security_caution": {
-      "label": "소지품을 한 번 더 챙기면 좋은 확률",
+      "label": "소지품이 없어져 당황할 확률",
       "domain": "money",
       "valence": "caution",
       "slots": [
@@ -1083,7 +1083,7 @@
       "element_affinity": {}
     },
     "document_device_caution": {
-      "label": "서류·기기를 잘 챙기면 좋은 확률",
+      "label": "서류나 휴대폰을 두고 다닐 확률",
       "domain": "document",
       "valence": "caution",
       "slots": [
@@ -1109,7 +1109,7 @@
       "element_affinity": {}
     },
     "account_phishing_caution": {
-      "label": "낯선 연락·링크를 조심할 확률",
+      "label": "낯선 연락·링크에 속을 확률",
       "domain": "money",
       "valence": "caution",
       "slots": [
@@ -1135,7 +1135,7 @@
       "element_affinity": {}
     },
     "home_vehicle_lock_caution": {
-      "label": "문단속·차량 점검이 좋은 확률",
+      "label": "문단속·차 문을 깜빡할 확률",
       "domain": "money",
       "valence": "caution",
       "slots": [
@@ -1161,7 +1161,7 @@
       "element_affinity": {}
     },
     "guarantee_stamp_caution": {
-      "label": "도장·보증은 책임을 확인할 확률",
+      "label": "보증·도장 부탁으로 곤란해질 확률",
       "domain": "document",
       "valence": "caution",
       "slots": [
@@ -1187,7 +1187,7 @@
       "element_affinity": {}
     },
     "name_lending_caution": {
-      "label": "명의 부탁은 신중하면 좋은 확률",
+      "label": "명의 부탁으로 난처해질 확률",
       "domain": "document",
       "valence": "caution",
       "slots": [
@@ -1213,7 +1213,7 @@
       "element_affinity": {}
     },
     "authorization_scope_caution": {
-      "label": "맡기고 맡은 일의 범위를 확인할 확률",
+      "label": "주고받은 부탁에서 혼선이 생길 확률",
       "domain": "document",
       "valence": "caution",
       "slots": [
@@ -1239,7 +1239,7 @@
       "element_affinity": {}
     },
     "contract_clause_caution": {
-      "label": "문서의 작은 글씨를 확인하면 좋은 확률",
+      "label": "작은 글씨를 놓쳐 손해 볼 확률",
       "domain": "document",
       "valence": "caution",
       "slots": [
@@ -1265,7 +1265,7 @@
       "element_affinity": {}
     },
     "overexertion_recovery_caution": {
-      "label": "무리한 일정 뒤 회복이 필요한 확률",
+      "label": "무리한 일정에 방전될 확률",
       "domain": "health",
       "valence": "caution",
       "slots": [
@@ -1291,7 +1291,7 @@
       "element_affinity": {}
     },
     "sleep_recovery_caution": {
-      "label": "잠을 잘 챙기면 좋은 확률",
+      "label": "잠이 부족해 피곤할 확률",
       "domain": "health",
       "valence": "caution",
       "slots": [
@@ -1317,7 +1317,7 @@
       "element_affinity": {}
     },
     "digestive_rhythm_caution": {
-      "label": "식사 리듬을 지키면 좋은 확률",
+      "label": "속이 더부룩해질 확률",
       "domain": "health",
       "valence": "caution",
       "slots": [
