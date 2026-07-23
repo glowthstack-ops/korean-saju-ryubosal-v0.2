@@ -24,7 +24,7 @@ from saju_shared_types.structure_patterns import StructurePatternDict
 _BACKEND = Path(__file__).resolve().parent.parent
 _DEFAULT_DICTS = _BACKEND / "dictionaries"
 _DEFAULT_COMPILED = _BACKEND / "compiled"
-STRUCTURE_PATTERNS_VERSION = "1.0.0"
+STRUCTURE_PATTERNS_VERSION = "1.1.0"  # 1.1.0: 사고수 확장 23종(2026-07-23)
 
 
 def build(dictionaries_dir: Path, compiled_dir: Path) -> int:

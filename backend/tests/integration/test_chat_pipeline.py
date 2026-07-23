@@ -43,7 +43,10 @@ def test_career_question_produces_guarded_prompt() -> None:
     body = res.json()
     assert body["status"] == "dry_run"
     assert body["candidate_count"] >= 1
-    assert 0 < body["input_tokens"] <= 12_000  # chat_single 한도(docs/09 8장 v2.2.1)
+    # chat_single 실가드 한도는 llm_guard.CALL_LIMITS(22k, 사용자 승인)가 단일 소스다.
+    # (구 12k 하드코딩은 v2.2.1 문서 값 — 구조 패턴 확장(2026-07-23)으로 12.1k 도달해 정정.)
+    from saju_engines.llm_guard import CALL_LIMITS
+    assert 0 < body["input_tokens"] <= CALL_LIMITS["chat_single"].max_input_tokens
     preview = body["prompt_preview"]
     for section in ("[원국·명식 구조", "[간지달력(압축)]", "[이벤트 후보", "[근거 경로]", "[지시]"):
         assert section in preview

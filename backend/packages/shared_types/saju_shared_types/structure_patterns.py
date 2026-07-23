@@ -45,6 +45,9 @@ class StructurePatternEntry(BaseModel):
     detector_source: str  # 'adapter:<기존 감지기>' | 'new:<규칙>'
     llm_usage: str = "explanation_tag_only"
     llm_tag: str  # 압축 설명(120자 이내) — LLM 그대로 전달
+    # 전통 해석 문구('~해석하기도 한다' 형, 220자 이내) — 사고수 확장(2026-07-23).
+    # LLM 3층 출력(전통 해석층) 전용. 단정·질병명·사건 확정 금지. 없으면 llm_tag만 사용.
+    classical_note: str | None = None
 
 
 class StructurePatternDict(BaseModel):
@@ -77,3 +80,4 @@ class DetectedPattern(BaseModel):
     domain_hints: list[str] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
     llm_tag: str = ""
+    classical_note: str | None = None  # 전통 해석층 문구(사전 승계, 사고수 확장)

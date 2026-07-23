@@ -20,9 +20,11 @@ from functools import lru_cache
 from pathlib import Path
 
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
+from saju_manse_analysis.sinsal.sinsal_catalog import SASAENG
 from saju_manse_analysis.structure.geokguk_eval import _group_counts, _tg_counts
 
 from saju_shared_types.constants import (
+    BRANCH_ELEMENT,
     STEM_ELEMENT,
     group_elements,
     hidden_stems_for,
@@ -37,12 +39,13 @@ from saju_shared_types.structure_patterns import (
 )
 
 from .health_vulnerability import analyze_health_vulnerability
+from .relationship_relative_sinsal import get_relative_sinsal
 from .wealth_capacity import analyze_wealth_capacity
 
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 _STORAGE_CLASH_PAIRS = (("辰", "戌"), ("丑", "未"))  # 묘고 충 지지쌍(충개고)
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
-STRUCTURE_PATTERNS_VERSION = "1.0.0"
+STRUCTURE_PATTERNS_VERSION = "1.1.0"  # 1.1.0: 사고수 확장 23종(2026-07-23)
 
 
 @lru_cache(maxsize=8)
@@ -94,6 +97,9 @@ _ELEMENT_OVERWHELM: list[tuple[str, str, str]] = [
     ("水", "火", "SUDA_HWAMYEOL"),
 ]
 _STRONG_BANDS = {"신강", "태신강", "극신강"}
+_WEAK_BANDS = {"신약", "태신약", "극신약"}  # 9단계 밴드(strength_score) 약측
+_PUNISHMENT_TRIPLES = (frozenset({"寅", "巳", "申"}), frozenset({"丑", "戌", "未"}))
+_SASAENG_STR = {str(b.value) for b in SASAENG}  # 사생지(寅申巳亥) 한자
 _STORAGE_BRANCHES = {"辰", "戌", "丑", "未"}  # 사고(잡기) 지지
 _WEALTH_OFFICER_TG = {TenGod.JEONGJAE, TenGod.PYEONJAE, TenGod.JEONGGWAN, TenGod.PYEONGWAN}
 
@@ -195,6 +201,7 @@ def detect_structure_patterns(
                 domain_hints=list(entry.domain_hints),
                 evidence=ev,
                 llm_tag=entry.llm_tag,
+                classical_note=entry.classical_note,
             )
         )
 
@@ -389,6 +396,166 @@ def detect_structure_patterns(
         if found is not None:
             note = f"월지 잡기 {found.value}" + ("(투간)" if revealed else "(미투간·개고 대기)")
             emit("JAPGI_JAEGWAN_GYEOK", 0.6 if revealed else 0.45, "natal", (note,))
+
+    # ── H. 사고수 확장 — 역마·형 세분·행동/제어·건강 부담 (2026-07-23 승인안 A) ──
+    # 역마는 글자살(寅申巳亥 보유)이 아니라 연지·일지 삼합국 기준 상대 12신살로
+    # 산출한다(데굴님 정정). 사생지 충돌은 MOVEMENT_BRANCH_CLASH 보조 라벨로만.
+    yeokma_refs: dict[str, list[str]] = {}  # 역마 지지(한자) → 기준 라벨(연지/일지)
+    for ref_name, base_pos in (("연지", pillars.year), ("일지", pillars.day)):
+        if base_pos is None:
+            continue
+        for nb in natal_branches:
+            if get_relative_sinsal(Branch(base_pos.branch), Branch(nb)).sinsal == "역마살":
+                yeokma_refs.setdefault(nb, []).append(ref_name)
+
+    rel_kinds_by_branch: dict[str, set[str]] = {}  # 지지별 충·형·파·해 종류 집계
+    if sa is not None:
+        for it in sa.interactions:
+            rt = it.relation_type
+            mem = set(it.members)
+            if rt in ("clash", "punishment", "self_punishment", "break", "harm"):
+                kind = "punishment" if rt == "self_punishment" else rt
+                for m in mem:
+                    rel_kinds_by_branch.setdefault(m, set()).add(kind)
+            ym = sorted(mem & set(yeokma_refs))
+            mark = "".join(sorted(mem))
+            if rt == "clash":
+                if ym:
+                    refs = "·".join(sorted(set(yeokma_refs[ym[0]])))
+                    emit("YEOKMA_CLASH_ACTIVE", 0.65, "natal",
+                         (f"{refs} 기준 역마 {ym[0]} 충({mark})",))
+                elif mem & _SASAENG_STR:
+                    emit("MOVEMENT_BRANCH_CLASH", 0.45, "natal", (f"이동지 충 {mark}",))
+            if rt in ("punishment", "self_punishment"):
+                if ym:
+                    refs = "·".join(sorted(set(yeokma_refs[ym[0]])))
+                    emit("YEOKMA_PUNISHMENT_ACTIVE", 0.6, "natal",
+                         (f"{refs} 기준 역마 {ym[0]} 형({mark})",))
+                elif mem & _SASAENG_STR:
+                    emit("MOVEMENT_BRANCH_CLASH", 0.45, "natal", (f"이동지 형 {mark}",))
+            if rt == "punishment" and "삼형" in it.notes:
+                triple = next((t for t in _PUNISHMENT_TRIPLES if mem <= t), None)
+                if triple is not None and len(mem) >= 3:
+                    emit("THREE_PUNISHMENT_COMPLETE", 0.7, "natal", (f"삼형 완성 {mark}",))
+                elif triple is not None:
+                    missing = "".join(sorted(triple - mem))
+                    emit("THREE_PUNISHMENT_PARTIAL", 0.5, "natal",
+                         (f"부분 삼형 {mark}(미완 {missing} — 운 유입 시 완성)",))
+            if rt == "punishment" and "무례지형" in it.notes:
+                emit("ZI_MAO_PUNISHMENT", 0.5, "natal", (f"자묘형 {mark}",))
+            if rt == "self_punishment":
+                emit("SELF_PUNISHMENT", 0.5, "natal", (f"자형 {mark} 병존",))
+
+    # 다중 관계 압박 — 동일 지지에 충·형·파·해 2종 이상.
+    multi = sorted(
+        (b for b, ks in rel_kinds_by_branch.items() if len(ks) >= 2),
+        key=lambda b: -len(rel_kinds_by_branch[b]),
+    )
+    if multi:
+        kinds = "·".join(sorted(rel_kinds_by_branch[multi[0]]))
+        emit("MULTI_RELATION_STRESS", 0.55, "natal", (f"{multi[0]}: {kinds} 중첩",))
+
+    # 동일 영역(오행) 반복 압박 — 같은 오행 지지가 충·형에 2회 이상 피격.
+    elem_hits: dict[str, int] = {}
+    for b, ks in rel_kinds_by_branch.items():
+        if ks & {"clash", "punishment"}:
+            el = str(BRANCH_ELEMENT[Branch(b)])
+            elem_hits[el] = elem_hits.get(el, 0) + len(ks & {"clash", "punishment"})
+    repeated = sorted((e for e, n in elem_hits.items() if n >= 2), key=lambda e: -elem_hits[e])
+    if repeated:
+        emit("SAME_AREA_REPEATED_STRESS", 0.5, "natal",
+             (f"{repeated[0]} 축 반복 피격({elem_hits[repeated[0]]}회)",))
+
+    # 행동 압력·제어·회복·조후 — force_analysis 기반(질병명 생성 금지, 힌트 전용).
+    if force is not None:
+        fe2 = force.five_elements
+        exc2, defi2, vis2 = set(fe2.excessive_elements), set(fe2.deficient_elements), (
+            fe2.visible_percent
+        )
+        band2 = force.strength.band
+        act_ratio = (groups["output"] + groups["peer"]) / total
+        ctrl_ratio = (groups["officer"] + groups["resource"]) / total
+        if act_ratio >= 0.55 and band2 in _STRONG_BANDS:
+            emit("ACTION_PRESSURE_EXCESS", _clamp(0.35 + act_ratio * 0.4, 0.4, 0.7), "natal",
+                 (f"식상·비겁 {act_ratio:.0%}·{band2}",))
+            if ctrl_ratio <= 0.20:
+                emit("CONTROL_RESOURCE_DEFICIT", 0.6, "natal",
+                     (f"제어 축(관·인) {ctrl_ratio:.0%}",))
+        if band2 in _WEAK_BANDS and groups["resource"] / total <= 0.10:
+            emit("RECOVERY_RESOURCE_WEAK", 0.55, "natal", (f"{band2}·인성 미약",))
+        if band2 in _STRONG_BANDS and groups["output"] == 0:
+            emit("FLOW_STAGNATION_BURDEN", 0.5, "natal", (f"{band2}·식상 부재",))
+        if exc2:
+            emit("ELEMENT_EXCESS_ACTIVE", _clamp(0.4 + 0.1 * len(exc2), 0.4, 0.7), "natal",
+                 ("·".join(sorted(exc2)) + " 과다",))
+        if defi2:
+            emit("ELEMENT_DEFICIENCY_ACTIVE", _clamp(0.4 + 0.1 * len(defi2), 0.4, 0.7),
+                 "natal", ("·".join(sorted(defi2)) + " 결핍",))
+        heat = "火" in exc2 and ("水" in defi2 or vis2.get("水", 0.0) == 0)
+        cold = "水" in exc2 and ("火" in defi2 or vis2.get("火", 0.0) == 0)
+        if heat:
+            emit("HEAT_DRYNESS_BURDEN", 0.55, "natal", ("火 과다·水 약",))
+        if cold:
+            emit("COLD_DAMP_BURDEN", 0.55, "natal", ("水 과다·火 약",))
+        if heat or cold:
+            emit("CLIMATE_IMBALANCE_ACTIVE", 0.5, "natal",
+                 ("열조 부담" if heat else "한습 부담",))
+
+        # 인성 지원 약화 — 부재/잠복/약/피극 세분(단독 사건 판정 금지, 보조 라벨).
+        ge2 = group_elements(STEM_ELEMENT[Stem(pillars.day.stem)])
+        res_el2, wealth_el2 = str(ge2["resource"]), str(ge2["wealth"])
+        dm2 = Stem(pillars.day.stem)
+        res_state: str | None = None
+        res_strength = 0.5
+        if groups["resource"] == 0:
+            latent = any(
+                ten_god(dm2, hs) in (TenGod.JEONGIN, TenGod.PYEONIN)
+                for nb in natal_branches
+                for hs, _k, _w in hidden_stems_for(Branch(nb))
+            )
+            res_state, res_strength = ("LATENT_ONLY", 0.5) if latent else ("ABSENT", 0.6)
+        elif res_el2 in defi2 or vis2.get(res_el2, 0.0) < 8:
+            res_state = "WEAK"
+        elif wealth_el2 in exc2:
+            res_state, res_strength = "SUPPRESSED", 0.55
+        if res_state is not None:
+            emit("RESOURCE_SUPPORT_WEAK", res_strength, "natal", (f"상태: {res_state}",))
+
+        # 재성 노출·보호 약 — 재성 투간 + 관성 부재/미약.
+        revealed_wealth = any(
+            ten_god(dm2, Stem(p2.stem)) in (TenGod.JEONGJAE, TenGod.PYEONJAE)
+            for pos in ("year", "month", "hour")
+            if (p2 := getattr(pillars, pos)) is not None
+        )
+        if revealed_wealth and (groups["officer"] == 0 or ctrl_ratio <= 0.08):
+            emit("WEALTH_EXPOSURE_WITH_WEAK_CONTROL", 0.5, "natal",
+                 ("재성 투간·관성 " + ("부재" if groups["officer"] == 0 else "미약"),))
+
+    # 문서·권한 충돌 — 인·관·식상 병존 + 견제 우세(상관견관·제살태과 동반 등).
+    if (
+        groups["resource"] >= 1 and groups["officer"] >= 1 and groups["output"] >= 1
+        and ("SANGGWAN_GYEONGWAN" in seen or "JESAL_TAEGWA" in seen
+             or groups["output"] >= 2 * groups["officer"])
+    ):
+        emit("DOCUMENT_AUTHORITY_CONFLICT", 0.5, "natal", ("인·관·식상 견제 우세",))
+
+    # 명의·권한 보조 — 비겁 경쟁 구조 동반 시에만(문맥 전용, secondaryEvidenceOnly).
+    if ("GUNGEOP_JAENGJAE" in seen or "BIGEOP_TALJAE" in seen) and (
+        groups["resource"] >= 1 or groups["officer"] >= 1
+    ):
+        emit("IDENTITY_AUTHORIZATION_STRESS", 0.35, "natal", ("비겁 경쟁+문서·권한 축",))
+
+    # 예기 보조 신호 — 양인·백호·괴강·편관 중첩 2종+(단독 해석 금지).
+    aux: set[str] = set()
+    te = result.traditional_extras
+    if te is not None and te.sinsal is not None:
+        for s_item in te.sinsal.full_list:
+            if s_item.name in ("양인", "백호", "괴강"):
+                aux.add(s_item.name)
+    if counts.get("편관", 0) >= 2:
+        aux.add("편관 중첩")
+    if len(aux) >= 2:
+        emit("SHARP_INJURY_AUXILIARY", 0.45, "natal", ("·".join(sorted(aux)),))
 
     out.sort(key=lambda d: d.strength, reverse=True)
     return out

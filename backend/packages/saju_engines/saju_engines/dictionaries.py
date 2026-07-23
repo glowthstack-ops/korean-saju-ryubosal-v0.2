@@ -2709,6 +2709,16 @@ def _lint_structure_patterns(file: StructurePatternDict) -> list[str]:
                 errors.append(f"{rel}: {p.pattern_id} ten_god_chain 미지원 십성 — {t}")
         if len(p.llm_tag) > 120:
             errors.append(f"{rel}: {p.pattern_id} llm_tag {len(p.llm_tag)}자(>120)")
+        # 전통 해석 문구(사고수 확장, 2026-07-23) — 길이·비단정 프레임('해석') 강제.
+        if p.classical_note is not None:
+            if len(p.classical_note) > 220:
+                errors.append(
+                    f"{rel}: {p.pattern_id} classical_note {len(p.classical_note)}자(>220)"
+                )
+            if "해석" not in p.classical_note:
+                errors.append(
+                    f"{rel}: {p.pattern_id} classical_note 비단정 프레임('해석하기도') 누락"
+                )
     return errors
 
 
