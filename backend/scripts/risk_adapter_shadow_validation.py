@@ -262,7 +262,7 @@ def _build_corpus(model_id: str,
     # 대형 공통 prefix(≥8,192tok) 표본. 워밍업(최초 호출)은 main()이
     # 수행하고, 재호출에서 cached_input>0 상태의 promptTokenCount
     # 일관성을 검증한다. 표본 간 prefix는 동일(적중 극대화), 접미만 상이.
-    cache_prefix = _KO * 130  # 한글 ≈1자/token — 약 1.1만 token prefix
+    cache_prefix = _KO * 175  # 한글 ≈1자/token — 정책 하한(8,192tok) 상회 보장
     for idx in ("a", "b", "c"):
         add("S13_cache_hit_replay", idx,
             req(cache_prefix + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK

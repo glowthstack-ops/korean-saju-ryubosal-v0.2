@@ -2,11 +2,11 @@
  "nativeValidationCorpus": {
   "identity": {
    "countMode": "PROVIDER_EXACT",
-   "counterVersion": "countTokens-v1beta-r1",
+   "counterVersion": "countTokens-v1beta-r2",
    "providerId": "gemini",
    "providerRequestSchemaVersion": "1",
    "resolvedModelId": "gemini-3-flash-preview",
-   "validationPolicyHash": "a0f234615ad2836ed59d6c9c58e8c6b56909482f543ac466f89a58efbc460bfc"
+   "validationPolicyHash": "ccb348d0555601d2ad9f6f1bb507695a407e15d0ce54cc84edbf4a7b1292483d"
   },
   "samples": [
    {
@@ -22,7 +22,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S01_korean_long-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -37,7 +38,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S01_korean_long-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -52,7 +54,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S01_korean_long-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -67,7 +70,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S02_mixed_ko_en-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -82,7 +86,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S02_mixed_ko_en-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -97,7 +102,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S02_mixed_ko_en-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -112,7 +118,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S03_json_risk_block-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -127,7 +134,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S03_json_risk_block-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -142,7 +150,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S03_json_risk_block-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -157,7 +166,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S04_tool_schema-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -172,7 +182,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S04_tool_schema-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -187,7 +198,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S04_tool_schema-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -202,7 +214,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S05_output_schema-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -217,7 +230,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S05_output_schema-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -232,7 +246,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S05_output_schema-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -247,7 +262,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S06_suppressed_guard-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -262,7 +278,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S06_suppressed_guard-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -277,7 +294,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S06_suppressed_guard-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -292,7 +310,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S07_injected_instruction-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -307,7 +326,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S07_injected_instruction-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -322,7 +342,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S07_injected_instruction-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -337,7 +358,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S08_render_tier-a",
-    "tier": "P1"
+    "tier": "P1",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -352,7 +374,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S08_render_tier-b",
-    "tier": "P0"
+    "tier": "P0",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -367,7 +390,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S08_render_tier-c",
-    "tier": "P0_COMPACT"
+    "tier": "P0_COMPACT",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -382,7 +406,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S09_runtime_hard_max-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -397,7 +422,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S09_runtime_hard_max-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -412,7 +438,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S09_runtime_hard_max-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -427,7 +454,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S10_oversized_stress-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -442,7 +470,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S10_oversized_stress-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "INITIAL",
@@ -457,7 +486,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S10_oversized_stress-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "REVISION_1",
@@ -472,7 +502,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S11_revision_attempt-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "REVISION_1",
@@ -487,7 +518,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S11_revision_attempt-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "REVISION_1",
@@ -502,7 +534,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S11_revision_attempt-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "REGENERATE_WITHOUT_RISK",
@@ -517,7 +550,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S12_regenerate_attempt-a",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "REGENERATE_WITHOUT_RISK",
@@ -532,7 +566,8 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S12_regenerate_attempt-b",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
    },
    {
     "attempt_kind": "REGENERATE_WITHOUT_RISK",
@@ -547,29 +582,90 @@
     "resolved_model_id": "gemini-3-flash-preview",
     "routing_changed": false,
     "sample_id": "S12_regenerate_attempt-c",
-    "tier": "FULL"
+    "tier": "FULL",
+    "validated_framing_overhead": 0
+   },
+   {
+    "attempt_kind": "INITIAL",
+    "cache_hit_achieved": true,
+    "cached_input": 3942,
+    "category": "S13_cache_hit_replay",
+    "counted": 8810,
+    "passed": true,
+    "recount_performed": false,
+    "reported_total_input": 8810,
+    "request_digest": "d1c4760ecdf52e65",
+    "request_shape_digest": "fbd8293a4196ea791d18f450adb35436791c57944cb0b11ce0bfde5aa2d1f4f9",
+    "resolved_model_id": "gemini-3-flash-preview",
+    "routing_changed": false,
+    "sample_id": "S13_cache_hit_replay-a",
+    "tier": "FULL",
+    "validated_framing_overhead": 0,
+    "warmup_reported_total_input": 8810
+   },
+   {
+    "attempt_kind": "INITIAL",
+    "cache_hit_achieved": true,
+    "cached_input": 3942,
+    "category": "S13_cache_hit_replay",
+    "counted": 8810,
+    "passed": true,
+    "recount_performed": false,
+    "reported_total_input": 8810,
+    "request_digest": "23d0f3984f7f92e7",
+    "request_shape_digest": "fbd8293a4196ea791d18f450adb35436791c57944cb0b11ce0bfde5aa2d1f4f9",
+    "resolved_model_id": "gemini-3-flash-preview",
+    "routing_changed": false,
+    "sample_id": "S13_cache_hit_replay-b",
+    "tier": "FULL",
+    "validated_framing_overhead": 0,
+    "warmup_reported_total_input": 8810
+   },
+   {
+    "attempt_kind": "INITIAL",
+    "cache_hit_achieved": true,
+    "cached_input": 3942,
+    "category": "S13_cache_hit_replay",
+    "counted": 8810,
+    "passed": true,
+    "recount_performed": false,
+    "reported_total_input": 8810,
+    "request_digest": "2db9f432e5134d13",
+    "request_shape_digest": "fbd8293a4196ea791d18f450adb35436791c57944cb0b11ce0bfde5aa2d1f4f9",
+    "resolved_model_id": "gemini-3-flash-preview",
+    "routing_changed": false,
+    "sample_id": "S13_cache_hit_replay-c",
+    "tier": "FULL",
+    "validated_framing_overhead": 0,
+    "warmup_reported_total_input": 8810
    }
   ]
  },
  "report": {
-  "cached_input_observed": 0,
+  "cacheSamplesValidated": true,
+  "cached_input_observed": 11826,
   "canonicalOutputSchemaHash": "9b250baa05519b538ff8774cf8f3a81144703f4c425f3249f17afe6aa7732eed",
+  "framingOverheadConsistent": true,
   "geminiTransportSchemaHash": "796c649fbfcf3b39a0a2bca6d1eed5a10bba85d320ebd6b5df561f34d12e1fca",
   "identity": {
    "countMode": "PROVIDER_EXACT",
-   "counterVersion": "countTokens-v1beta-r1",
+   "counterVersion": "countTokens-v1beta-r2",
    "providerId": "gemini",
    "providerRequestSchemaVersion": "1",
    "resolvedModelId": "gemini-3-flash-preview",
-   "validationCorpusHash": "f7f33358df78d576c71341b1e39aaed5faf9f1b5a8d30f3f2f4e7085e3f38914",
-   "validationCorpusHashShort": "f7f33358df78d576",
-   "validationPolicyHash": "a0f234615ad2836ed59d6c9c58e8c6b56909482f543ac466f89a58efbc460bfc"
+   "validationCorpusHash": "97b078b9e223b66a7a4f6a5a2adad311f43f0327c8e7c22ab32b58a2ae059c6e",
+   "validationCorpusHashShort": "97b078b9e223b66a",
+   "validationPolicyHash": "ccb348d0555601d2ad9f6f1bb507695a407e15d0ce54cc84edbf4a7b1292483d"
   },
+  "modelVersionConsistent": true,
+  "modelVersionsObserved": [
+   "gemini-3-flash-preview"
+  ],
   "overcount_max": 0,
   "overcount_p50": 0.0,
   "overcount_p90": 0.0,
   "pass": true,
-  "primary_native_samples": 36,
+  "primary_native_samples": 39,
   "relative_error_max": 0.0,
   "reviewed_request_shapes": {
    "BYPASS_OUTPUT_SCHEMA": "715fe841564afe80",
@@ -592,7 +688,17 @@
    "S09_runtime_hard_max": 3,
    "S10_oversized_stress": 3,
    "S11_revision_attempt": 3,
-   "S12_regenerate_attempt": 3
+   "S12_regenerate_attempt": 3,
+   "S13_cache_hit_replay": 3
+  },
+  "staticIdentity": {
+   "adapter_policy_hash": "ccb348d0555601d2ad9f6f1bb507695a407e15d0ce54cc84edbf4a7b1292483d",
+   "api_endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
+   "api_version": "v1beta",
+   "configured_model": "gemini-3-flash-preview",
+   "required_shape_set_hash": "acc61950f503c83d18b5941d90070763596d51664e43d7a759c1463be95874c3",
+   "sdk_version": "httpx-0.28.1",
+   "serializer_version": "1"
   },
   "supplementaryReroutingHash": "a4e71c1d538f69b3c8519eb7d7c3eb09dd12807e59d970de95da0e0eee570560",
   "supplementary_rerouting": {
@@ -604,7 +710,7 @@
    "samples": 3
   },
   "tier_distribution": {
-   "FULL": 33,
+   "FULL": 36,
    "P0": 1,
    "P0_COMPACT": 1,
    "P1": 1
@@ -613,32 +719,53 @@
  },
  "reviewedRequestShapeDigests": [
   {
+   "cache_hit_samples": 0,
    "digest": "0a338503f00f4bffc3288e0dab23a89af88fbbe77282f420ed6623b51bc3e19a",
-   "name": "SUPPRESSED"
+   "name": "SUPPRESSED",
+   "non_cache_samples": 3,
+   "validated_framing_overhead": 0
   },
   {
+   "cache_hit_samples": 0,
    "digest": "67006fe468274c97d4e9171723b0e2b1007425f5434454f34ffe5cf545185fa6",
-   "name": "BYPASS_TOOL_SCHEMA"
+   "name": "BYPASS_TOOL_SCHEMA",
+   "non_cache_samples": 3,
+   "validated_framing_overhead": 0
   },
   {
+   "cache_hit_samples": 0,
    "digest": "6c944402cf1b014f7666ebdbd4e00839a1109ebfae171f1ac8e508af14ba21f7",
-   "name": "REVISION_1_INJECTED"
+   "name": "REVISION_1_INJECTED",
+   "non_cache_samples": 3,
+   "validated_framing_overhead": 0
   },
   {
+   "cache_hit_samples": 0,
    "digest": "715fe841564afe80b828ebc9614852ddac910e32fb3a8492af29790c5e8eb623",
-   "name": "BYPASS_OUTPUT_SCHEMA"
+   "name": "BYPASS_OUTPUT_SCHEMA",
+   "non_cache_samples": 3,
+   "validated_framing_overhead": 0
   },
   {
+   "cache_hit_samples": 0,
    "digest": "973591eaabcce66300ebc4e1728ca5a316b0d5a8f77191dab05b4fabace42454",
-   "name": "BYPASS_PLAIN"
+   "name": "BYPASS_PLAIN",
+   "non_cache_samples": 12,
+   "validated_framing_overhead": 0
   },
   {
+   "cache_hit_samples": 0,
    "digest": "c1b53bf82ddbc9c2d1adc0dc9ac87873e264bc9ecd30e4ec6c7ff492884172ce",
-   "name": "REGENERATE_WITHOUT_RISK"
+   "name": "REGENERATE_WITHOUT_RISK",
+   "non_cache_samples": 3,
+   "validated_framing_overhead": 0
   },
   {
+   "cache_hit_samples": 3,
    "digest": "fbd8293a4196ea791d18f450adb35436791c57944cb0b11ce0bfde5aa2d1f4f9",
-   "name": "INITIAL_INJECTED"
+   "name": "INITIAL_INJECTED",
+   "non_cache_samples": 9,
+   "validated_framing_overhead": 0
   }
  ],
  "supplementaryReroutingEvidence": {
@@ -691,11 +818,11 @@
   ]
  },
  "supplementaryReroutingHash": "a4e71c1d538f69b3c8519eb7d7c3eb09dd12807e59d970de95da0e0eee570560",
- "validationArtifactHash": "89208e176bbe76cd7aab42be4162a6bc48c2c95a235cc73a3ddd73db3fc76c48",
- "validationCorpusHash": "f7f33358df78d576c71341b1e39aaed5faf9f1b5a8d30f3f2f4e7085e3f38914",
- "validationCorpusHashShort": "f7f33358df78d576",
+ "validationArtifactHash": "dcbb37c36f1755628023106c4c2e5d485747ba96c1f1d113433c2cbff519e37e",
+ "validationCorpusHash": "97b078b9e223b66a7a4f6a5a2adad311f43f0327c8e7c22ab32b58a2ae059c6e",
+ "validationCorpusHashShort": "97b078b9e223b66a",
  "volatile": {
-  "generated_at": "2026-07-17T01:18:37.171527+00:00",
+  "generated_at": "2026-07-23T05:27:21.396819+00:00",
   "script": "risk_adapter_shadow_validation.py"
  }
 }

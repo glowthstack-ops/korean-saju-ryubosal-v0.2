@@ -23,13 +23,13 @@
     "validatedTokenCounters": [
       {
         "countMode": "PROVIDER_EXACT",
-        "counterVersion": "countTokens-v1beta-r1",
+        "counterVersion": "countTokens-v1beta-r2",
         "providerId": "gemini",
         "providerRequestSchemaVersion": "1",
         "resolvedModelId": "gemini-3-flash-preview",
-        "validationPolicyHash": "a0f234615ad2836ed59d6c9c58e8c6b56909482f543ac466f89a58efbc460bfc",
-        "validationCorpusHash": "f7f33358df78d576c71341b1e39aaed5faf9f1b5a8d30f3f2f4e7085e3f38914",
-        "validationArtifactHash": "89208e176bbe76cd7aab42be4162a6bc48c2c95a235cc73a3ddd73db3fc76c48",
+        "validationPolicyHash": "ccb348d0555601d2ad9f6f1bb507695a407e15d0ce54cc84edbf4a7b1292483d",
+        "validationCorpusHash": "97b078b9e223b66a7a4f6a5a2adad311f43f0327c8e7c22ab32b58a2ae059c6e",
+        "validationArtifactHash": "dcbb37c36f1755628023106c4c2e5d485747ba96c1f1d113433c2cbff519e37e",
         "reviewed": true
       }
     ]

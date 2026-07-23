@@ -70,7 +70,13 @@ _REVIEWED_COUNTER_CORPUS_HASHES: frozenset[str] = frozenset({
     # 대체. 새 corpus=wrapped block+transport schema 포함 실요청 구조,
     # shape digest=구조 골격(동적 enum·상한 제외). 측정 결과 동등
     # (39표본 delta 전부 0·undercount 0).
-    "f7f33358df78d576c71341b1e39aaed5faf9f1b5a8d30f3f2f4e7085e3f38914",
+    # [이력] f7f33358…(r1·12형×36)은 감수 62차 캐시 경로 정책 개정으로
+    # 폐기(identity eda667c6 tombstone 보존 — CACHE_PATH_UNVALIDATED).
+    # [감수 62차 승격(2026-07-23 계획 승인)] countTokens-v1beta-r2 ·
+    # 13형×3=39표본(S13 cache-hit replay 3건: prefix 8,810tok·cached
+    # 3,942·counted==reported) · undercount 0 · framing overhead 전부 0 ·
+    # modelVersion 일관 · validation lease(7일) 분리 도입.
+    "97b078b9e223b66a7a4f6a5a2adad311f43f0327c8e7c22ab32b58a2ae059c6e",
 })
 
 _ADAPTER_VALIDATION_DIR = (
