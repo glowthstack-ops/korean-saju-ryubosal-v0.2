@@ -235,6 +235,7 @@ def build_risk_payload(
     question_type: str | None = None,
     target_domains: tuple[str, ...] = (),
     allowed_periods: frozenset[str] | None = None,
+    comparison_periods: tuple[str, ...] = (),
 ) -> dict | None:
     """risk_shadow 원자 후보 → 표현 payload(감수 61차 후속 + 62차 재배선).
 
@@ -296,17 +297,67 @@ def build_risk_payload(
     if not eligible:
         return None
 
-    episodes = build_episodes(eligible)
     selection_omitted: list[tuple[str, str]] = []
-    if question_type is not None:
-        episodes, selection_omitted = select_episodes(
-            episodes, eligible, budget_for(question_type))
+    consolidation: list[dict] | None = None
+    if (question_type == "multi_episode_compare"
+            and len(comparison_periods) >= 2):
+        # 비교 계약(감수 62차 P0⑨ — dedup이 아니라 **consolidation**):
+        # 기간별 독립 필터·선별(per-period cap) → canonical episodeKey별
+        # cross-period 통합 → 전체 cap(통합 item 수·round-robin — 약한
+        # 후보 승격·빈 기간 채우기 없음) → 기간별 occurrence 전부 보존.
+        from saju_engines.risk_selection import RiskBudgetPolicy
+        per_period = RiskBudgetPolicy(soft_target=2, hard_max=2)
+        total_cap = budget_for(question_type).hard_max  # 통합 item 기준
+        keys_by_period: list[list[str]] = []
+        episodes = []
+        for period in comparison_periods[:3]:
+            in_period = [c for c in eligible
+                         if str(c.period_key)[:4] == str(period)[:4]]
+            if not in_period:
+                keys_by_period.append([])  # 적격 없음=0개(채우지 않음)
+                continue
+            eps_p, omitted_p = select_episodes(
+                build_episodes(in_period), in_period, per_period)
+            selection_omitted.extend(omitted_p)
+            episodes.extend(eps_p)
+            keys_by_period.append([e.episode_key for e in eps_p])
+        # round-robin으로 통합 item(고유 key) cap 적용
+        kept: list[str] = []
+        for round_i in range(max((len(k) for k in keys_by_period),
+                                 default=0)):
+            for period_keys in keys_by_period:
+                if round_i < len(period_keys) and len(kept) < total_cap:
+                    key = period_keys[round_i]
+                    if key not in kept:
+                        kept.append(key)
+        dropped = [e for e in episodes if e.episode_key not in kept]
+        selection_omitted.extend(
+            (e.episode_key, "COMPARISON_TOTAL_CAP") for e in dropped)
+        episodes = [e for e in episodes if e.episode_key in kept]
+        consolidation = [
+            {"canonicalEpisodeKey": key,
+             "occurrences": [
+                 {"period": str(p)[:4],
+                  "present": any(
+                      e.episode_key == key
+                      and str(e.start_period)[:4] <= str(p)[:4]
+                      <= str(e.end_period)[:4]
+                      for e in episodes)}
+                 for p in comparison_periods[:3]]}
+            for key in kept]
+    else:
+        episodes = build_episodes(eligible)
+        if question_type is not None:
+            episodes, selection_omitted = select_episodes(
+                episodes, eligible, budget_for(question_type))
     payload = build_presentation(episodes, eligible)
     if payload is not None:
         payload["exposureFilterAudit"] = filter_audit
         payload["selectionOmitted"] = [
             {"episodeKey": key, "reason": reason}
             for key, reason in selection_omitted]
+        if consolidation is not None:
+            payload["comparativeConsolidation"] = consolidation
     return payload
 
 

@@ -57,16 +57,33 @@ def _period_label_ok(label: str) -> bool:
             and label[:4].isdigit() and label[5:7].isdigit())
 
 
-def map_intent_to_exposure_question(intent: IntentJson) -> dict | None:
+def map_intent_to_exposure_question(
+    intent: IntentJson,
+    stored_episode_keys: tuple[tuple[str, str, str], ...] = (),
+) -> dict | None:
     """IntentJson → 노출 게이트 질문 컨텍스트(감수 50차 — SSOT·fail-closed).
 
     반환: {"question_type", "temporal_scope", "future_period_range",
-    "target_domains"} 또는 **None**(매핑 불가 — 게이트 BYPASS). None 사유:
-    미등록 query_type·불명확 time_scope(TIMELESS/LIFE_STAGE 등)·미래 질문의
-    time_range 부재/라벨 비정형(미래 범위 산출 실패)·subject가 본인 단독이
-    아닌 질문(동반자 위험 노출은 별도 감수 전 금지).
+    "target_domains"(+"episode_key")} 또는 **None**(매핑 불가 — 게이트
+    BYPASS). None 사유: 미등록 query_type·불명확 time_scope(TIMELESS/
+    LIFE_STAGE 등)·미래 질문의 time_range 부재/라벨 비정형·subject가
+    본인 단독이 아닌 질문(동반자 위험 노출은 별도 감수 전 금지).
+
+    감수 62차 확대:
+    - TIMING_SEARCH 분기: 명확한 도메인 1개=single_domain_period, 일반
+      총운형=period_overview(전 도메인 위험 3건이 "언제 취업?"류에 실리는
+      것 방지). time_range 부재는 기존과 동일하게 BYPASS.
+    - episode_followup: stored_episode_keys((key, domain, period) — 직전
+      위험 답변 DELIVER 시 저장분)와 도메인·기간이 **정확히 1건으로
+      결정적 해소**될 때만. 유사도 추정 금지 — 해소 실패=원 유형 유지.
     """
     question_type = _QUERY_TYPE_MAP.get(intent.query_type)
+    if question_type is None and intent.query_type is QueryType.TIMING_SEARCH:
+        # TIMING_SEARCH 분기(감수 62차) — 도메인 인식 여부로 예산 유형 결정.
+        effective = [d for d in (intent.domains or [intent.domain])
+                     if d.value != "general"]
+        question_type = ("single_domain_period"
+                         if len(set(effective)) == 1 else "period_overview")
     if question_type is None:
         return None
     temporal = _TIME_SCOPE_MAP.get(intent.time_scope)
@@ -111,9 +128,23 @@ def map_intent_to_exposure_question(intent: IntentJson) -> dict | None:
         mapped = _DOMAIN_MAP.get(d)
         if mapped:
             domains.append(mapped)
-    return {
+    out: dict = {
         "question_type": question_type,
         "temporal_scope": temporal,
         "future_period_range": future_range,
         "target_domains": tuple(sorted(set(domains))),
     }
+    # episode_followup 결정적 해소(감수 62차) — specific_event 계열 질문이
+    # 저장된 canonical episode 키와 (도메인 일치 + 기간 겹침) **정확히
+    # 1건**으로 해소될 때만 승격. 0건·복수건=원 유형 유지(fail-closed).
+    if question_type == "specific_event" and stored_episode_keys \
+            and future_range is not None:
+        lo, hi = future_range[0][:4], future_range[1][:4]
+        matches = [
+            key for (key, dom, period) in stored_episode_keys
+            if (not out["target_domains"] or dom in out["target_domains"])
+            and lo <= str(period)[:4] <= hi]
+        if len(set(matches)) == 1:
+            out["question_type"] = "episode_followup"
+            out["episode_key"] = matches[0]
+    return out

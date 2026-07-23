@@ -224,16 +224,20 @@ def build_risk_output_schemas(payload: dict, *,
             "gemini_transport": build_gemini_transport_schema(canonical)}
 
 
-def map_intent_for_exposure(intent) -> dict | None:
+def map_intent_for_exposure(
+    intent,
+    stored_episode_keys: tuple[tuple[str, str, str], ...] = (),
+) -> dict | None:
     """파서 SSOT 질문 유형 매핑 공개 helper(감수 62차 P0② — R2 예산 선별용).
 
     apply_risk_exposure와 동일한 매핑(map_intent_to_exposure_question)을
     노출 전에 한 번 더 쓸 수 있게 한다(payload 선별의 question_type 소스).
-    실패=None(호출부는 예산 미적용 — 게이트가 어차피 BYPASS).
+    stored_episode_keys는 episode_followup 결정적 해소용(직전 위험 답변
+    저장 키). 실패=None(호출부는 예산 미적용 — 게이트가 어차피 BYPASS).
     """
     if intent is None:
         return None
-    return map_intent_to_exposure_question(intent)
+    return map_intent_to_exposure_question(intent, stored_episode_keys)
 
 
 def apply_risk_exposure(
@@ -241,6 +245,7 @@ def apply_risk_exposure(
     system: str | None,
     *,
     intent=None,  # IntentJson — 지정 시 파서 SSOT 매핑(감수 50차 §9-①)
+    stored_episode_keys: tuple[tuple[str, str, str], ...] = (),
     payload: dict | None = None,
     question_type: str | None = None,
     temporal_scope: str | None = None,
@@ -264,7 +269,7 @@ def apply_risk_exposure(
     if intent is not None:
         # 파서 정본 매핑(감수 50차 §9-① — fail-closed): 매핑 실패(None)면
         # 미매핑 상태 유지 → 게이트가 QUESTION_TYPE_NOT_ALLOWED로 BYPASS.
-        mapped = map_intent_to_exposure_question(intent)
+        mapped = map_intent_to_exposure_question(intent, stored_episode_keys)
         if mapped is not None:
             question_type = mapped["question_type"]
             temporal_scope = mapped["temporal_scope"]
@@ -275,9 +280,14 @@ def apply_risk_exposure(
     snapshot = _load_manifest_snapshot()  # 요청 전체가 동일 snapshot 사용
     manifest_reviewed = snapshot["reviewed"]
     manifest_hash_ok = snapshot["hash_ok"]
-    canary_types = risk_engine_config.RISK_CANARY_QUESTION_TYPES
+    # 모드 인지 허용 유형(감수 62차): expose=5유형, expose_canary=3유형
+    # (롤백 안전망). 미허용 유형은 __unmapped__ → 게이트 BYPASS.
+    allowed_types = (
+        risk_engine_config.RISK_EXPOSED_QUESTION_TYPES
+        if mode is RiskEngineMode.EXPOSE
+        else risk_engine_config.RISK_CANARY_QUESTION_TYPES)
     qt: str = (question_type if question_type is not None
-               and question_type in canary_types else "__unmapped__")
+               and question_type in allowed_types else "__unmapped__")
     ctx = ExposureGateContext(
         mode=mode,
         question_type=qt,

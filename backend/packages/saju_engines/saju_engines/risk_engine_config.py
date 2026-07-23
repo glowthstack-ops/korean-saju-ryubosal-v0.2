@@ -112,3 +112,11 @@ RISK_AUDIT_HMAC_KEY: bytes = _env_hmac_key(
 RISK_CANARY_QUESTION_TYPES: tuple[str, ...] = (
     "specific_event", "single_domain_period", "period_overview",
 )
+
+# expose(전면) 모드 허용 질문 유형(감수 62차 — 2026-07-23 계획 승인):
+# canary 3유형 + 비교·후속 개방. expose_canary 모드는 위 3유형을 유지해
+# 롤백 안전망으로 보존한다(risk_exposure_service가 모드별로 선택).
+RISK_EXPOSED_QUESTION_TYPES: tuple[str, ...] = (
+    "specific_event", "single_domain_period", "period_overview",
+    "multi_episode_compare", "episode_followup",
+)

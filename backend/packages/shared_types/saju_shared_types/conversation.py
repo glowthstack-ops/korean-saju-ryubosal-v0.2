@@ -76,7 +76,7 @@ class SubjectResolution(BaseModel):
 class ResultSummaryRef(BaseModel):
     """직전 답변에서 제시한 이벤트/시기/판정 요약(F5 인용 이의 대응)."""
 
-    kind: str  # 'event' | 'claim' | 'period'
+    kind: str  # 'event' | 'claim' | 'period' | 'risk_episode'(위험 후속 해소·감수 62차)
     label: str
     detail: str = ""
 
