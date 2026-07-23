@@ -17,7 +17,7 @@ from saju_engines.daily_fortune_cache import DailyFortuneCache
 from saju_shared_types.daily_fortune import DailyFortuneBoard, DailyFortuneSingle
 
 from ..deps import get_daily_fortune_cache
-from ..services import daily_fortune_service
+from ..services import daily_fortune_polish, daily_fortune_service
 
 router = APIRouter(prefix="/api/v2/daily-fortune", tags=["daily-fortune"])
 
@@ -43,6 +43,8 @@ async def today(
 ) -> Response | DailyFortuneBoard:
     """오늘의 60일주 보드 — 캐시 미스 시 lazy 생성."""
     board = await asyncio.to_thread(daily_fortune_service.get_board, cache)
+    if board.polish_status == "RAW":  # lazy 경로 교정 — 응답은 항상 즉시(원문)
+        daily_fortune_polish.maybe_schedule_polish(cache, board.fortune_date)
     etag = _etag(board.model_dump_json())
     if request.headers.get("if-none-match") == etag:
         resp = Response(status_code=304)

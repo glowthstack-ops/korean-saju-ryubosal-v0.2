@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import os
 import traceback
 from collections.abc import AsyncIterator
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,6 +59,34 @@ def _seed_admins() -> None:
         store.set_admin(login_id, True)
 
 
+_KST = ZoneInfo("Asia/Seoul")
+
+
+async def _daily_fortune_pregen_loop() -> None:
+    """23:50 KST 에 익일 보드를 선생성·교정한다 (env SAJU_DAILY_FORTUNE_PREGEN=1 전용).
+
+    기본 off — 개발·테스트·임시 서버가 자정마다 LLM 을 호출하지 않도록 운영에서만
+    명시적으로 켠다. 실패·누락은 당일 요청의 lazy 생성이 보완한다(무중단).
+    """
+    from saju_engines.daily_fortune_cache import default_cache
+
+    from .services import daily_fortune_polish
+
+    while True:
+        now = datetime.now(_KST)
+        run_at = now.replace(hour=23, minute=50, second=0, microsecond=0)
+        if run_at <= now:
+            run_at += timedelta(days=1)
+        await asyncio.sleep((run_at - now).total_seconds())
+        try:
+            target = (datetime.now(_KST) + timedelta(days=1)).date()
+            await asyncio.to_thread(
+                daily_fortune_polish.generate_and_polish, default_cache(), target
+            )
+        except Exception:  # noqa: BLE001 — 루프 유지, 다음 자정 재시도
+            logging.getLogger("saju.daily_fortune").exception("익일 선생성 실패")
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """기동 시 admin 사용량 로깅 토대(009 마이그레이션·단가 seed·sink)·관리자 시드를 준비한다."""
@@ -72,7 +103,14 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
             bootstrap_risk_exposure,
         )
         bootstrap_risk_exposure()
+    pregen_task: asyncio.Task[None] | None = None
+    if os.getenv("SAJU_DAILY_FORTUNE_PREGEN") == "1":
+        pregen_task = asyncio.create_task(_daily_fortune_pregen_loop())
     yield
+    if pregen_task is not None:
+        pregen_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await pregen_task
 
 
 app = FastAPI(title="류보살 v2 만세력 엔진", version=ENGINE_VERSION, lifespan=_lifespan)

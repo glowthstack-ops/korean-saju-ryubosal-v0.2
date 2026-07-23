@@ -50,6 +50,10 @@ CALL_LIMITS: dict[str, CallLimit] = {
     "report_focus_section": CallLimit(15_000, 8_000, max_output_chars=4_500),
     "report_full_section": CallLimit(15_000, 8_000, max_output_chars=4_500),
     "consistency_check": CallLimit(8_000, 500),
+    # 일주별 오늘의 운세 60건 배치 문장 교정(JSONL, 하루 1회) — 2026-07-23 계획 승인분.
+    # 출력 예산: 60건 × 레코드 상한(헤드라인 120자·장소 60자·로또 80자 + JSON 구조) 실측
+    # + 20~30% 헤드룸(test_daily_fortune_polish_guard 의 예산 fixture 가 검증).
+    "daily_fortune_polish": CallLimit(30_000, 24_000),
 }
 
 
