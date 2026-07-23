@@ -222,11 +222,33 @@ def exposure_runtime_inputs(call_type: str = "chat_single") -> dict:
     }
 
 
-def build_risk_payload(shadow_candidates: list) -> dict | None:
-    """risk_shadow 원자 후보 → 표현 payload(감수 61차 후속 — EXPOSE 배선).
+def _period_matches(period_key: str, allowed_periods: frozenset[str]) -> bool:
+    """기간 교집합 판정(감수 62차 P1) — 후보의 원자 period_key("2026" 또는
+    "2026-07")가 허용 연도 집합과 하나 이상 겹치면 적격(연 단위 비교)."""
+    year = str(period_key)[:4]
+    return year in allowed_periods
+
+
+def build_risk_payload(
+    shadow_candidates: list,
+    *,
+    question_type: str | None = None,
+    target_domains: tuple[str, ...] = (),
+    allowed_periods: frozenset[str] | None = None,
+) -> dict | None:
+    """risk_shadow 원자 후보 → 표현 payload(감수 61차 후속 + 62차 재배선).
+
+    **필터 → 생성 → 선별 순서 불변식(감수 62차 P0②)**: subject 필터는
+    호출부(요청 로컬 subject→risk 결과 맵)가 담당하고, 여기서는
+    ①기간(정확한 집합 — min/max 범위 아님) ②대상 도메인 필터를 후보
+    단계에서 적용한 뒤 episode 생성·R2 예산 선별(budget_for(question_
+    type))·표현을 수행한다 — 타 도메인 고득점 후보가 슬롯을 점유한 뒤
+    필터로 사라지는 결함 차단. 탈락 후보는 exposureFilterAudit에 사유와
+    함께 전량 보존한다(OUTSIDE_TARGET_DOMAIN/OUTSIDE_TIME_SCOPE).
 
     base_impact는 risks/*.json의 baseImpact(사전 prior)에서 로드한다.
-    후보 없음=None(게이트 NO_EXPOSABLE_EPISODE → SUPPRESSED guard).
+    적격 후보 없음=None(게이트 NO_EXPOSABLE_EPISODE → SUPPRESSED guard —
+    약한 후보를 끌어올리지 않는다).
     """
     if not shadow_candidates:
         return None
@@ -234,7 +256,11 @@ def build_risk_payload(shadow_candidates: list) -> dict | None:
 
     from saju_engines.risk_presentation import build_presentation
     from saju_engines.risk_scoring import score_shadow
-    from saju_engines.risk_selection import build_episodes
+    from saju_engines.risk_selection import (
+        budget_for,
+        build_episodes,
+        select_episodes,
+    )
 
     risks_dir = (Path(__file__).resolve().parents[4] / "dictionaries"
                  / "risks")
@@ -250,7 +276,38 @@ def build_risk_payload(shadow_candidates: list) -> dict | None:
                 base_impact[str(rid)] = float(
                     item.get("baseImpact", 0.0) or 0.0)
     scored = score_shadow(list(shadow_candidates), base_impact)
-    return build_presentation(build_episodes(scored), scored)
+
+    # ── 필터(선별보다 먼저) — 탈락 전량 감사 보존 ──────────────────
+    filter_audit: list[dict] = []
+    eligible = []
+    for c in scored:
+        reason: str | None = None
+        if target_domains and c.domain.value not in target_domains:
+            reason = "OUTSIDE_TARGET_DOMAIN"
+        elif (allowed_periods is not None
+              and not _period_matches(c.period_key, allowed_periods)):
+            reason = "OUTSIDE_TIME_SCOPE"
+        if reason is not None:
+            filter_audit.append({
+                "riskId": c.risk_id, "periodKey": c.period_key,
+                "domain": c.domain.value, "reason": reason})
+        else:
+            eligible.append(c)
+    if not eligible:
+        return None
+
+    episodes = build_episodes(eligible)
+    selection_omitted: list[tuple[str, str]] = []
+    if question_type is not None:
+        episodes, selection_omitted = select_episodes(
+            episodes, eligible, budget_for(question_type))
+    payload = build_presentation(episodes, eligible)
+    if payload is not None:
+        payload["exposureFilterAudit"] = filter_audit
+        payload["selectionOmitted"] = [
+            {"episodeKey": key, "reason": reason}
+            for key, reason in selection_omitted]
+    return payload
 
 
 def run_exposed_reading(

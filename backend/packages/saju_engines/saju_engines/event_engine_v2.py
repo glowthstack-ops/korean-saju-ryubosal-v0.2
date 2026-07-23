@@ -11,6 +11,7 @@ reviewed:false 사전 초안 기반이므로 점수 절대값보다 상대 순�
 from __future__ import annotations
 
 import math
+import threading as _threading
 from datetime import date
 from pathlib import Path
 
@@ -190,6 +191,11 @@ class EventEngineV2:
         # risk_shadow는 LLM 입력·리포트·토큰에 주입하지 않는다(구조화 로그/QA 전용).
         self._risk_mode_override = risk_mode
         self.risk_shadow: list[RiskCandidate] = []
+        # 요청 로컬 위험 수집 sink(감수 62차 P0③ — 싱글턴 scorer의 비동기/
+        # 스레드 interleaving 오귀속 차단): score() 동안 thread-local에
+        # 수집하고, EXPOSE 경로는 take_risk_shadow()(불변 tuple)만 읽는다.
+        # self.risk_shadow는 레거시 QA 사이드채널로만 유지(EXPOSE 사용 금지).
+        self._risk_tls = _threading.local()
         # shadow 컨텍스트(감수 19차 — QA·시나리오 밀도 전용): set_risk_shadow_contexts로
         # 주입하면 shadow 후보 생성에 현실 컨텍스트(선발·관계·이동)가 반영된다.
         # LLM 입력·긍정 파이프라인과 무관하며 off 모드에선 사용되지 않는다.
@@ -228,9 +234,45 @@ class EventEngineV2:
         relationship_status: str | None = None,
         occupation_category: str | None = None,
     ) -> list[EventCandidateV2]:
-        """만세 결과의 운을 거버닝 스택으로 스코어링해 EventCandidateV2 목록을 산출한다."""
+        """만세 결과의 운을 거버닝 스택으로 스코어링해 EventCandidateV2 목록을 산출한다.
+
+        위험 shadow는 호출 스레드 로컬 sink에 수집된다(감수 62차 P0③) —
+        직후 take_risk_shadow()로 **이 호출분의 불변 tuple**을 얻는다.
+        싱글턴 필드(self.risk_shadow)는 레거시 QA 전용이며 동시 요청에서
+        마지막 호출분으로 덮일 수 있으므로 EXPOSE 경로에서 읽지 않는다.
+        """
+        sink: list[RiskCandidate] = []
+        self._risk_tls.sink = sink
+        try:
+            out = self._score_impl(
+                result, levels, fav_override,
+                occupation_status=occupation_status,
+                relationship_status=relationship_status,
+                occupation_category=occupation_category)
+        finally:
+            self._risk_tls.sink = None
+            self._risk_tls.last = tuple(sink)
+            self.risk_shadow = sink  # 레거시 QA 사이드채널(EXPOSE 금지)
+        return out
+
+    def take_risk_shadow(self) -> tuple[RiskCandidate, ...]:
+        """직전 score() 호출(같은 스레드)의 위험 shadow — 불변 tuple.
+
+        요청 로컬 subject_id→risk 결과 맵 구성 전용(감수 62차 P0③).
+        """
+        return tuple(getattr(self._risk_tls, "last", ()) or ())
+
+    def _score_impl(
+        self,
+        result: ManseV2Result,
+        levels: set[GanjiLevel] | None = None,
+        fav_override: dict[str, str] | None = None,
+        *,
+        occupation_status: str | None = None,
+        relationship_status: str | None = None,
+        occupation_category: str | None = None,
+    ) -> list[EventCandidateV2]:
         self.mt4_shadow = []  # MT4 shadow 진단 사이드채널 초기화(이번 호출분만)
-        self.risk_shadow = []  # 위험 shadow 사이드채널 초기화(이번 호출분만)
         if result.pillars is None or result.luck_cycles is None:
             return []
         wanted = levels or set(GanjiLevel)
@@ -624,7 +666,10 @@ class EventEngineV2:
             ),
             twelve_stage=_stage_of(target),
         )
-        self.risk_shadow.extend(self._risk.generate(
+        _sink = getattr(self._risk_tls, "sink", None)
+        if _sink is None:  # score() 밖 직접 호출(테스트 등) — 레거시 경로
+            _sink = self.risk_shadow
+        _sink.extend(self._risk.generate(
             facts,
             selection_context=self._risk_shadow_selection,
             selection_contexts=self._risk_shadow_selections,

@@ -3047,6 +3047,10 @@ def chat(
         relationship_status=relationship_status,
         occupation_category=occupation_category,
     )
+    # 요청 로컬 위험 스냅샷(감수 62차 P0③) — 본 요청 1차 대상의 주 채점
+    # 직후 즉시 확보(불변 tuple). 싱글턴 scorer.risk_shadow는 이후의 보조
+    # 채점·동시 요청으로 덮일 수 있어 EXPOSE 경로에서 읽지 않는다.
+    _subject_risk_shadow = _get_scorer().take_risk_shadow()
 
     # E9 Lifestyle — 특정 기간(일/월/연) 총운은 인생 사건이 아니라 생활 슬롯으로
     # 한정한다(2026-06-12 지적). 위계(대운>세운>월>일)에서 상위가 형성한 기운이 하위
@@ -4021,8 +4025,13 @@ def chat(
         from . import risk_exposure_bootstrap as _reb
         _risk_inputs = _reb.exposure_runtime_inputs(call_type)
         _baseline_prompt = prompt_text  # 주입 전 원문(REGENERATE 재조립)
+        # R2 예산 선별(감수 62차 P0②)을 위해 파서 SSOT 질문 유형을 먼저
+        # 해소 — 매핑 불가(None)면 예산 미적용 payload여도 게이트가 어차피
+        # BYPASS라 무해하다.
+        _mapped = risk_exposure_service.map_intent_for_exposure(intent)
         _risk_payload = _reb.build_risk_payload(
-            list(_get_scorer().risk_shadow))
+            list(_subject_risk_shadow),
+            question_type=(_mapped or {}).get("question_type"))
         prompt_text, system, _risk_obs = (
             risk_exposure_service.apply_risk_exposure(
                 prompt_text, system,

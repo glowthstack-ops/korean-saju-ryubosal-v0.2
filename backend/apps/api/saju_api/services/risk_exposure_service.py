@@ -224,6 +224,18 @@ def build_risk_output_schemas(payload: dict, *,
             "gemini_transport": build_gemini_transport_schema(canonical)}
 
 
+def map_intent_for_exposure(intent) -> dict | None:
+    """파서 SSOT 질문 유형 매핑 공개 helper(감수 62차 P0② — R2 예산 선별용).
+
+    apply_risk_exposure와 동일한 매핑(map_intent_to_exposure_question)을
+    노출 전에 한 번 더 쓸 수 있게 한다(payload 선별의 question_type 소스).
+    실패=None(호출부는 예산 미적용 — 게이트가 어차피 BYPASS).
+    """
+    if intent is None:
+        return None
+    return map_intent_to_exposure_question(intent)
+
+
 def apply_risk_exposure(
     prompt_text: str,
     system: str | None,
