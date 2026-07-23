@@ -91,7 +91,7 @@ class DailyFortuneSingle(BaseModel):
     fortune_date: date
     weekday: int = Field(ge=0, le=6)
     weekday_ko: str
-    fortune: "DailyIljuFortune"
+    fortune: DailyIljuFortune
 
 
 class DailyFortuneBoard(BaseModel):

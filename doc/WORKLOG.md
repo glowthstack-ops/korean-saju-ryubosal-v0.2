@@ -9106,3 +9106,33 @@ pytest 2309 passed·ruff·mypy clean. 후속 보류: 사건 의미축 완전 분
 
 회귀 test_event_direction_integrity.py 13케이스로 확장(기여 마커 실차트+단위·공망 보조
 라벨·예약 필드). pytest 2313 passed·ruff·mypy clean.
+
+## 일주별 오늘의 운세 + 재로그인 선택 사주 복원 (2026-07-23) ✅
+
+- **PRD**: `doc/v2_2/docs/17_DAILY_ILJU_FORTUNE.md` — 사용자 제공 구성안+설계안(1~20장)을
+  전체 규격으로 저장. 휘발성 불변식(과거 본문 미저장·오늘/익일 TTL 캐시만) 및 3차 설계
+  리뷰 확정 규칙(양의 활성도 산식·독립 원인 그룹·관계 세분화·Top5 정규화·로또 게이트) 명문화.
+- **엔진**(`saju_engines/daily_ilju_fortune.py`, 챠트리스 순수 함수): 독립 원인 그룹 5종
+  (일간십성25/일지관계30/지장간15/월운20/세운5) + evidence/contradiction 분리 →
+  `p=5+90·positive_soft_cap(net)`; p≥85는 그룹≥2 지지, p≤10은 강한 반대 신호 시만.
+  반합/삼합완성(제3지=월지·세운지지)·자형/子卯형/삼형 부분·완성 구분. 결정론 seed +
+  당일 60건 중복 감사. 분포 튜닝: GAIN 1.5·K 2.2(30일 전수 avg≈65, 85+≈1%).
+- **사전 3종**(`dictionaries/daily_fortune/`): 사건 28종 카탈로그·조합형 템플릿(사건당
+  8+ 문구)·행운 장소 20종. 금지어(명리 용어·당첨 단정 등) 테스트로 강제. 감수 전(reviewed:false).
+- **저장**: PostgreSQL 미사용 — Redis TTL 캐시(`saju-v2-redis`:16379, 보드 단위 원자 SET,
+  TTL=익일 03:00 KST, owner token 락). 운영 Redis 필수(503), 로컬은 env로 InMemory.
+- **API**: `GET /api/v2/daily-fortune/today`(+`/{ilju}` 한자·한글) 공개 무인증, ETag+304,
+  `must-revalidate`(SWR 금지). 과거 날짜·아카이브 엔드포인트 없음.
+- **LLM 교정**: 하루 1회 JSONL 배치(`daily_fortune_polish` CallLimit 30k/24k — 승인분),
+  확률 숫자 미전달, 줄 단위 검증 게이트(키·순서·장소·로또 유무 불변, 신규 숫자·확정/과장
+  표현·명리 용어 차단, 교정 후 중복 회귀), 잘림 시 완전 줄만 부분 채택. FAILED 자동 재시도
+  없음. 23:50 KST 익일 선생성 루프는 env `SAJU_DAILY_FORTUNE_PREGEN=1`(기본 off).
+  라이브 검증: 게이트가 "반드시"·장소명 누락 실차단, 60/60 POLISHED 확인.
+- **프론트**: `/daily`(서버 프리페치 force-dynamic, Top5 칩 스크롤, 일간 10탭×6카드),
+  메인 무료영역 최상단 `DailyHomeCard`(일주 확보=운세/미확보=날짜+로그인·사주등록 CTA,
+  복원 중 스켈레톤), GNB·FREE 카드 등록. 일주 해석은 `lib/use-current-ilju` 공통 resolver
+  (CalendarGrid 중복 제거).
+- **재로그인 복원**(migrations/015): `account_settings.last_selected_subject_id`(subjects FK
+  ON DELETE SET NULL) + `GET/PUT /api/v2/account/last-subject`(소유 검증). 프론트는
+  latest-write-wins 직렬 저장기(400ms debounce) + 로그인 시 서버 복원(isRestoring).
+- 검증: 신규 테스트 36종(사전 10·엔진 13·API 9·교정 게이트 10 중복 제외) + 게이트 전체 통과.

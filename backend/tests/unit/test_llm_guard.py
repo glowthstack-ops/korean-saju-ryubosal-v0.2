@@ -24,7 +24,10 @@ def test_limit_table_matches_spec() -> None:
     assert CALL_LIMITS["query_parser"].max_input_tokens == 2_000
     assert CALL_LIMITS["report_focus_section"].max_output_chars == 4_500
     assert CALL_LIMITS["consistency_check"].max_output_tokens == 500
-    assert len(CALL_LIMITS) == 6
+    # 일주별 오늘의 운세 배치 교정(2026-07-23 계획 승인) — 60건 JSONL 1회/일.
+    assert CALL_LIMITS["daily_fortune_polish"].max_input_tokens == 30_000
+    assert CALL_LIMITS["daily_fortune_polish"].max_output_tokens == 24_000
+    assert len(CALL_LIMITS) == 7
 
 
 def test_estimate_tokens_conservative_for_korean() -> None:

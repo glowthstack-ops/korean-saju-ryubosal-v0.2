@@ -61,9 +61,14 @@ def test_probe_answer_shows_scope_and_limits() -> None:
 # ── 지식팩 ─────────────────────────────────────────────────────
 
 def test_detect_pack_by_trigger_words() -> None:
-    assert detect_task_pack("8월 대출과 인테리어 점검").key == "housing"
-    assert detect_task_pack("입영 추첨이 걱정돼").key == "selection"
-    assert detect_task_pack("면접이 다음 주야").key == "employment"
+    def _key(q: str) -> str:
+        pack = detect_task_pack(q)
+        assert pack is not None, q
+        return pack.key
+
+    assert _key("8월 대출과 인테리어 점검") == "housing"
+    assert _key("입영 추첨이 걱정돼") == "selection"
+    assert _key("면접이 다음 주야") == "employment"
     assert detect_task_pack("오늘 점심 뭐 먹지") is None
 
 

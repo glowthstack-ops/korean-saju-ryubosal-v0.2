@@ -27,6 +27,14 @@ saju_v2/
 수동 실행은 아래 백엔드/프론트 섹션 참고. 프론트 API 주소는 `frontend/.env.local`
 (`NEXT_PUBLIC_API_BASE`, 예시는 `frontend/.env.example`)로 바꿀 수 있다.
 
+인프라(DB·캐시)는 `docker compose up -d` 로 기동한다:
+
+- `saju-v2-db`(:15432) — PostgreSQL. `.env`의 `SAJU_V2_DATABASE_URL` 필요.
+- `saju-v2-redis`(:16379) — 일주별 오늘의 운세 휘발성 TTL 캐시. `.env`의
+  `SAJU_V2_REDIS_URL=redis://localhost:16379/0` 필요(미설정 시 해당 기능만 503).
+  Redis 없이 로컬 단일 워커로 볼 때는 `SAJU_DAILY_FORTUNE_MEMORY_CACHE=1` 로 대체 가능.
+  운영에서 익일 선생성·LLM 교정을 켜려면 `SAJU_DAILY_FORTUNE_PREGEN=1`(기본 off).
+
 ## 프론트엔드 (서비스 #1)
 
 Next.js App Router. 만세력은 클라이언트 렌더(개인정보는 IndexedDB에 Web Crypto로 암호화 저장,

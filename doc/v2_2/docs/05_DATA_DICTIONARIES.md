@@ -25,6 +25,10 @@ src/dictionaries/
     sinsal_text.json        # 신살 — 의미/발현 영역/주의점 (공포 조장 금지 톤)
     stems_branches_text.json# 천간 10·지지 12 물상 — 모든 비유의 원천 재료
   favorability_rules.json   # 용신/희신/기신/구신/한신 보정
+  daily_fortune/            # ★ 일주별 오늘의 운세 (docs/17, 챠트리스 휘발성 콘텐츠) — 2026-07-23 신설
+    daily_event_catalog.json    # 생활 사건 28종(good12/caution10/support6) — 십성·관계 세분·오행 affinity, 동의어 그룹
+    daily_phrase_templates.json # 조합형 문장 템플릿(사건당 fragment3·action3·result2) + generic fallback + 로또 3종
+    daily_lucky_places.json     # 행운의 장소 20종(오행별 4) — 사건 영역 매핑
   events/
     taxonomy.json           # EventKey 표준 + progress/instant/hybrid 분류
     relocation.json         # 이벤트별 신호→이벤트 매핑
