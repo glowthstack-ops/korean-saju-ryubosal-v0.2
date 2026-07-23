@@ -265,6 +265,13 @@ def test_accident_word_boundary_excludes_purchase() -> None:
     assert _one("내 사고방식은 어떤 편이야?", birth_year=1988).domain.value != "health"
 
 
+def test_property_security_questions_are_wealth() -> None:
+    """도난·분실·피싱 질문 — 재물 도메인 흡수(위험 노출 finance 경로 연결)."""
+    for q in ("도난이나 분실을 조심할 시기가 있을까?",
+              "보이스피싱 사기를 조심해야 할까?"):
+        assert _one(q, birth_year=1988).domain.value == "wealth", q
+
+
 def test_accident_variants_are_health() -> None:
     """교통사고·횡액·다칠 위험 변형 — 모두 건강·안전 도메인."""
     for q in ("교통사고 조심해야 할 시기가 있을까?",
