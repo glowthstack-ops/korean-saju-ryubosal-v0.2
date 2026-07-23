@@ -47,18 +47,28 @@ def _exposure_mode_active() -> bool:
 
 
 def _find_artifact(model_id: str) -> dict | None:
-    """모델의 validation artifact 로드(손상=None — fail-closed)."""
+    """모델의 validation artifact 로드(손상=None — fail-closed).
+
+    감수 62차: 동일 모델의 artifact가 2개 이상이면 fail-closed(None) —
+    구 identity 파일이 남아 신규 대신 잡히는 사고 방지(운영 정리 강제).
+    """
     if not _ARTIFACT_DIR.exists():
         return None
+    matches: list[dict] = []
     for path in sorted(_ARTIFACT_DIR.glob("*.json")):
         try:
             artifact = json.loads(path.read_text(encoding="utf-8"))
             native = artifact["nativeValidationCorpus"]
             if native["identity"].get("resolvedModelId") == model_id:
-                return artifact
+                matches.append(artifact)
         except (OSError, ValueError, KeyError, TypeError):
             return None
-    return None
+    if len(matches) > 1:
+        _logger.error("risk_adapter_bootstrap: 동일 모델 artifact %d개 — "
+                      "fail-closed(구 artifact 정리 필요) model=%s",
+                      len(matches), model_id)
+        return None
+    return matches[0] if matches else None
 
 
 def load_reviewed_shape_digests(model_id: str) -> frozenset[str]:
@@ -130,14 +140,40 @@ def bootstrap_risk_exposure() -> str | None:
                           "model=%s — BYPASS 유지", model_id)
             return None
         corpus_hash = str(artifact.get("validationCorpusHash", ""))
-        register_gemini_shadow_adapter(model_id, corpus_hash)
+        report = artifact.get("report") or {}
+        cache_ok = bool(report.get("cacheSamplesValidated"))
+        overhead = tuple(
+            (str(s.get("digest", "")), int(s.get(
+                "validated_framing_overhead", 0) or 0))
+            for s in (artifact.get("reviewedRequestShapeDigests") or [])
+            if isinstance(s, dict) and s.get("digest"))
+        adapter = register_gemini_shadow_adapter(
+            model_id, corpus_hash, cache_path_validated=cache_ok,
+            framing_overhead_by_shape=overhead)
+        # 운영 validation lease 검사(감수 62차 P1) — 만료·runway·identity·
+        # 서명 불일치 = UNVALIDATED(tombstone 미적용, 재검증으로 복귀).
+        from .risk_validation_lease import load_valid_lease
+        from .token_counter_registry import (
+            adapter_identity_hash,
+            set_validation_state,
+        )
+        lease = load_valid_lease(model_id, adapter_identity_hash(adapter))
+        if lease is None:
+            set_validation_state(model_id, "UNVALIDATED")
+            _LAST_BOOTSTRAP_REASON = "RISK_BOOTSTRAP_LEASE_INVALID"
+            _logger.error("risk_adapter_bootstrap: validation lease "
+                          "무효/만료 model=%s — UNVALIDATED(BYPASS)",
+                          model_id)
+            return "UNVALIDATED"
         state = stamp_runtime_adapter_state(model_id)
         if state != "VALIDATED":
             _LAST_BOOTSTRAP_REASON = "RISK_BOOTSTRAP_MANIFEST_MISMATCH"
         else:
             _LAST_BOOTSTRAP_REASON = None
-        _logger.info("risk_adapter_bootstrap model=%s state=%s",
-                     model_id, state)
+        _logger.info("risk_adapter_bootstrap model=%s state=%s "
+                     "lease_id=%s reported_model_version=%s",
+                     model_id, state, lease.get("lease_id"),
+                     lease.get("reported_model_version"))
         return state
     except Exception:  # noqa: BLE001 — startup 실패=미등록(BYPASS)
         _LAST_BOOTSTRAP_REASON = "RISK_BOOTSTRAP_ADAPTER_UNAVAILABLE"
@@ -261,6 +297,19 @@ def run_exposed_reading(
     counters = _load_manifest_snapshot()["validated_token_counters"]
     adapter = resolve_expose_counter(model_id, counters)
     inputs = exposure_runtime_inputs(call_type)
+    # lease의 기대 모델 버전(감수 62차 P0⑧) — 응답 최상위 modelVersion과
+    # 대조해 불일치·누락이면 그 응답을 폐기하고 UNVALIDATED로 전환한다.
+    from .risk_validation_lease import invalidate_lease, load_valid_lease
+    from .token_counter_registry import (
+        adapter_identity_hash,
+        set_validation_state,
+    )
+    expected_model_version = ""
+    if adapter is not None:
+        lease = load_valid_lease(model_id, adapter_identity_hash(adapter),
+                                 require_runway=False)
+        expected_model_version = (str(lease.get("reported_model_version"))
+                                  if lease else "")
     guidance_context = build_guidance_reference_context(
         request_context_id, payload)
     baseline_request = ProviderRequest(
@@ -282,6 +331,20 @@ def run_exposed_reading(
             request, model_id,
             max_output_tokens=max(256, inputs["response_reserve"]))
         provider_reports.append(out)
+        # modelVersion 대조(감수 62차 P0⑧) — 불일치·누락 응답은 감사·
+        # 재작성 단계로 넘기지 않고 즉시 폐기(DISCARDED), validation
+        # state=UNVALIDATED + lease 무효화 → 이후 요청 BYPASS.
+        observed_version = str(out.get("model_version", ""))
+        if expected_model_version and (
+                not observed_version
+                or observed_version != expected_model_version):
+            invalidate_lease(
+                model_id,
+                f"MODEL_VERSION_MISMATCH:{observed_version or '<missing>'}"
+                f"!={expected_model_version}")
+            set_validation_state(model_id, "UNVALIDATED")
+            raise RuntimeError(
+                "RISK_MODEL_VERSION_MISMATCH — 응답 폐기(UNVALIDATED)")
         envelope = None
         if request.output_schema:
             try:

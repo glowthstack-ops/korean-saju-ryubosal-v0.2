@@ -29,13 +29,16 @@ __all__ = ["ADAPTER_VALIDATION_POLICY", "ADAPTER_VALIDATION_STATES",
            "TokenCounterAdapter", "register_adapter", "resolve_counter",
            "resolve_validated_counter", "set_validation_state"]
 
-# adapter 검증 상태(감수 50차 §4): EXPOSE 주입 자격=VALIDATED만.
+# adapter 검증 상태(감수 50차 §4 + 62차 확대): EXPOSE 주입 자격=VALIDATED만.
 # UNREGISTERED→SHADOW_VALIDATING(등록 직후 — shadow에서 counted vs
 # provider_reported 대조)→VALIDATED(감수)→SUSPENDED(오차 허용 초과 시).
+# UNVALIDATED(62차 신설): modelVersion 변경·validation lease 만료·shape
+# 누락 등 **사고가 아닌 검증 실효** — tombstone 미적용, 재검증(lease 갱신)
+# 으로 복귀 가능. SUSPENDED(undercount 사고)와 구분해 관측·알림한다.
 # calibration 용어: counted_request_tokens / provider_reported_input_tokens
 # / token_count_delta / token_count_relative_error.
 ADAPTER_VALIDATION_STATES = ("UNREGISTERED", "SHADOW_VALIDATING",
-                             "VALIDATED", "SUSPENDED")
+                             "VALIDATED", "SUSPENDED", "UNVALIDATED")
 
 # adapter 승격 기준(감수 51차 §6 — **실측 전 선행 고정**: 결과에 맞춘 기준
 # 방지). 변경=expose 재감수 신호(hash가 manifest에 병기됨).
@@ -55,7 +58,12 @@ ADAPTER_VALIDATION_POLICY: dict = {
                       " 감수 60차 §5: 재작성도 독립 provider 요청이므로"
                       " 그 최종 message 구조가 corpus에 있어야 함)",
                       "REGENERATE_WITHOUT_RISK attempt(baseline+"
-                      "suppressed guard — 감수 60차 §5)"],
+                      "suppressed guard — 감수 60차 §5)",
+                      "cache-hit replay(S13 — 대형 공통 prefix ≥8,192tok"
+                      " 워밍업 후 재호출, cached_input>0 상태에서"
+                      " promptTokenCount(캐시 포함 전체 input) 일관성"
+                      " 검증. 적중 3회 + 동일 표본 최초(non-cache) 호출"
+                      " 보존, 재시도 5회 후 미적중=불합격 — 감수 62차)"],
     "request_shape_review": "실제 attempt의 구조적 request shape digest가"
                             " reviewed corpus의 shape digest 집합에"
                             " 없으면 REQUEST_SHAPE_NOT_REVIEWED로 BYPASS"
@@ -66,10 +74,31 @@ ADAPTER_VALIDATION_POLICY: dict = {
                             "schema hash·config shape·schemaVersion만"
                             " 표현한다",
     "cache_path_policy": "risk-enabled 요청은 explicit caching 미사용."
-                         " cached_input>0 최초 관측=CACHE_PATH_"
-                         "UNVALIDATED — 해당 validation identity 전역"
-                         " 차단(별도 cache 표본 감수 전 재활성화 금지,"
-                         " 감수 60차 §7)",
+                         " implicit cache는 비활성 불가 — corpus에"
+                         " cache-hit 표본(S13)이 포함·검증된 identity"
+                         "(cache_path_validated=true)는 cached_input>0을"
+                         " 관측 필드로만 기록하고 차단하지 않는다."
+                         " **undercount 검사는 캐시 적중 여부와 무관하게"
+                         " 존속**(promptTokenCount는 캐시 포함 전체"
+                         " input). 미검증 identity에서 최초 관측="
+                         "CACHE_PATH_UNVALIDATED 전역 차단 유지(감수"
+                         " 60차 §7 + 62차 조건부 개정)",
+    "framing_overhead_policy": "countTokens와 promptTokenCount의 고정"
+                               " 프레이밍 차이는 **shape별**로만 귀속"
+                               "(validated_framing_overhead). 동일 shape"
+                               " 표본 간 overhead가 가변이면 고정 차이로"
+                               " 인정하지 않고 불합격. 런타임 undercount"
+                               " 판정은 counted+overhead(shape) <"
+                               " reported 기준(감수 62차 — 범용 tolerance"
+                               " 금지)",
+    "lease_policy": "Git artifact(불변: 정책·required shapes·표본 정의)와"
+                    " 운영 validation lease(var/risk_state — 실제"
+                    " reported_model_version·validated_at·만료·HMAC"
+                    " 서명)를 분리한다. lease 만료(Preview 7일)·"
+                    "reported_model_version 변경·shape 누락="
+                    "UNVALIDATED(tombstone 미적용 — 재검증 복귀)."
+                    " 기동 시 minimum_validation_runway(12h) 미만이면"
+                    " 부적격(감수 62차)",
     "rerouting_verification": "모델 fallback·rerouting 재계수는 30표본"
                               " **외** 별도 검증(감수 57차 §2) — 표본의"
                               " validation identity는 최초 설정 모델이"
@@ -77,11 +106,11 @@ ADAPTER_VALIDATION_POLICY: dict = {
                               " 집계하며, 감수되지 않은 fallback 모델"
                               " (validated counter 없음)은 canary에서"
                               " BYPASS를 유지한다",
-    "sample_minimum": "카테고리 12형 × 각 3개 = **validation identity"
-                      "(7요소)별·최종 resolved 모델 native 표본** 36개"
+    "sample_minimum": "카테고리 13형 × 각 3개 = **validation identity"
+                      "(7요소)별·최종 resolved 모델 native 표본** 39개"
                       "(최소 30 — registry 전체 아님·rerouting 표본"
                       " 불포함, 감수 56차 §9 + 57차 §2 + 60차 §5 attempt"
-                      " shape 2형 추가)",
+                      " shape 2형 + 62차 S13 cache-hit 추가)",
     "runtime_drift": "canary 중 counted < provider_reported **1건**이라도"
                      " 발생 시 즉시 VALIDATED→SUSPENDED(이후 BYPASS)."
                      " overcount_ratio p50/p90/max 별도 관측(과대 계산은"
@@ -170,6 +199,21 @@ class TokenCounterAdapter:
     # 감수 corpus canonical hash(감수 55차 §1 — identity 구성 요소): corpus
     # 재감수=새 identity(기존 suspension 미적용·새 manifest 감수 전 BYPASS).
     validation_corpus_hash: str = ""
+    # cache 경로 검증 여부(감수 62차) — artifact의 cacheSamplesValidated에서
+    # 파생. identity 7요소에는 불포함(corpus hash가 S13 표본을 포함하므로
+    # corpus 변경으로 이미 새 identity가 된다).
+    cache_path_validated: bool = False
+    # shape별 고정 프레이밍 오버헤드(감수 62차 framing_overhead_policy) —
+    # (request_shape_digest, overhead) 튜플. 런타임 undercount 판정은
+    # counted + overhead(shape) < reported.
+    framing_overhead_by_shape: tuple[tuple[str, int], ...] = ()
+
+    def framing_overhead_for(self, shape_digest: str) -> int:
+        """shape digest의 검증된 프레이밍 오버헤드(미등록 shape=0)."""
+        for digest, overhead in self.framing_overhead_by_shape:
+            if digest == shape_digest:
+                return overhead
+        return 0
 
     def count_request(self, request: ProviderRequest) -> int:
         """provider request 전체 계수 — 기본 구현은 전 구성요소 합산 +
@@ -502,14 +546,25 @@ def record_count_observation(model_id: str, counted: int, reported: int,
 
 
 def record_cache_observation(model_id: str, cached_input: int) -> None:
-    """cache 적중 관측(감수 60차 §7 — 미감수 cohort fail-closed).
+    """cache 적중 관측(감수 60차 §7 + 62차 조건부 개정).
 
-    현 corpus는 cached_input=0 표본만 검증됐다 — risk-enabled 요청에서
-    cached_input>0이 최초 관측되면 CACHE_PATH_UNVALIDATED로 해당
-    validation identity를 **전역 차단**(suspension 저장소·ledger 기록 —
-    별도 cache 표본 감수(새 corpus/identity) 전 재활성화 금지).
+    cache 경로가 corpus(S13 cache-hit 표본)로 검증된 identity
+    (cache_path_validated=true)는 cached_input>0을 **관측 로그로만**
+    기록하고 차단하지 않는다 — undercount 검사는 별도(record_count_
+    observation)로 캐시와 무관하게 존속한다. 미검증 identity에서 최초
+    관측되면 기존대로 CACHE_PATH_UNVALIDATED 전역 차단(fail-closed —
+    suspension 저장소·ledger 기록, 새 corpus/identity 감수 전 재활성화
+    금지).
     """
     if cached_input <= 0:
+        return
+    adapter = _REGISTRY.get(model_id)
+    if adapter is not None and adapter.cache_path_validated:
+        # 검증된 cache 경로 — 관측 필드만(감수 62차): 차단·ledger 기록 없음.
+        import logging
+        logging.getLogger("saju_api.risk").info(
+            "risk_cache_observation model=%s cached_input=%d "
+            "(cache_path_validated — 관측만)", model_id, cached_input)
         return
     _VALIDATION[model_id] = "SUSPENDED"
     adapter = _REGISTRY.get(model_id)

@@ -1,19 +1,26 @@
-"""실물 token adapter shadow 계수 검증 harness(감수 56차 §9 — §11 보고).
+"""실물 token adapter shadow 계수 검증 harness(감수 56차 §9 + 62차 확대).
 
-validation identity별 10형×3=30표본으로 counted_request_tokens(adapter
-countTokens)와 provider_reported_total_input_tokens(generateContent
-usageMetadata.promptTokenCount — cached+non-cached 전체, 청구 할인 전)를
-전수 대조한다. 합격 기준(ADAPTER_VALIDATION_POLICY 선행 고정):
-undercount=0 · request shape 누락=0 · model mismatch=0 · rerouting 후
-recount 누락=0.
+validation identity별 13형×3=39표본으로 counted_request_tokens(adapter
+countTokens — **generateContent와 동일한 전체 request body**)와
+provider_reported_total_input_tokens(generateContent usageMetadata.
+promptTokenCount — cached+non-cached 전체, 청구 할인 전)를 전수 대조한다.
+합격 기준(ADAPTER_VALIDATION_POLICY 선행 고정): undercount=0(shape별
+검증 프레이밍 오버헤드 귀속 후) · request shape 누락=0 · model mismatch=0
+· rerouting 후 recount 누락=0 · S13 cache-hit 3표본 적중.
+
+감수 62차 추가:
+- S13 cache-hit replay: 대형 공통 prefix(≥8,192tok) 워밍업 후 동일 body
+  재호출 — cached_input>0 상태에서 promptTokenCount 일관성 검증(재시도
+  5회 후 미적중=불합격).
+- shape별 validated_framing_overhead: 동일 shape 표본 간 고정 음수
+  delta만 오버헤드로 귀속(가변이면 불합격). 범용 tolerance 금지.
+- 응답 최상위 modelVersion 수집(표본 간 일치 필수) → **validation
+  lease**(var/risk_state, HMAC 서명, 7일) 기록. artifact는 불변 정적
+  identity만 보관.
 
 **승격 없음**: 본 스크립트는 SHADOW_VALIDATING 상태로 계측·artifact 생성·
 manifest 감수 후보 출력까지만 한다 — VALIDATED 전환은 manifest 감수
-(reviewed entry) 이후 별도 절차(감수 56차 §9).
-
-corpus canonical hash(감수 56차 §1): 표본을 sample ID로 정렬한 canonical
-직렬화 기준 — 실행 시각·원본 request ID·파일 경로·실행 순서·임시 로그 ID
-제외(동일 검증 결과=동일 hash=동일 identity).
+(reviewed entry) + 유효 lease 이후 startup 파생으로만.
 
 사용: python scripts/risk_adapter_shadow_validation.py
       [--model gemini-3-flash-preview] [--reroute-model gemini-2.5-flash]
@@ -251,7 +258,17 @@ def _build_corpus(model_id: str,
     for idx, scale in (("a", 1), ("b", 4), ("c", 12)):
         add("S12_regenerate_attempt", idx,
             build_regenerate_request(req(_KO * scale)))
-    # 부록: 모델 fallback·rerouting 재계수 검증(36표본 외 — 감수 57차 §2).
+    # S13: cache-hit replay(감수 62차) — 실서비스 INITIAL_INJECTED 구조의
+    # 대형 공통 prefix(≥8,192tok) 표본. 워밍업(최초 호출)은 main()이
+    # 수행하고, 재호출에서 cached_input>0 상태의 promptTokenCount
+    # 일관성을 검증한다. 표본 간 prefix는 동일(적중 극대화), 접미만 상이.
+    cache_prefix = _KO * 130  # 한글 ≈1자/token — 약 1.1만 token prefix
+    for idx in ("a", "b", "c"):
+        add("S13_cache_hit_replay", idx,
+            req(cache_prefix + "\n" + RISK_EXPOSURE_INSTRUCTION_BLOCK
+                + "\n" + _wrapped(full_1)
+                + f"\n[cache-replay-{idx}]", schema=out_schema))
+    # 부록: 모델 fallback·rerouting 재계수 검증(39표본 외 — 감수 57차 §2).
     supplementary: list[dict] = []
     for idx, scale in (("a", 1), ("b", 4), ("c", 12)):
         supplementary.append({
@@ -264,11 +281,13 @@ def _build_corpus(model_id: str,
 
 
 def _provider_reported(model_id: str, body: dict,
-                       api_key: str) -> tuple[int, int]:
-    """generateContent 1토큰 호출 — (전체 input 토큰, cached 토큰).
+                       api_key: str) -> tuple[int, int, str]:
+    """generateContent 1토큰 호출 — (전체 input 토큰, cached 토큰,
+    응답 최상위 modelVersion).
 
     promptTokenCount는 캐시 할인 전 **전체 실제 input** 기준(감수 56차
     §9 — cached_input은 별도 관측하되 under-count 비교에서 빼지 않는다).
+    modelVersion은 usageMetadata가 아니라 응답 최상위 필드(감수 62차).
     """
     import time
     gen = dict(body)
@@ -289,9 +308,11 @@ def _provider_reported(model_id: str, body: dict,
         time.sleep(1.5 * 2 ** attempt)
     assert res is not None
     res.raise_for_status()
-    usage = res.json().get("usageMetadata", {})
+    data = res.json()
+    usage = data.get("usageMetadata", {})
     return (int(usage.get("promptTokenCount", 0)),
-            int(usage.get("cachedContentTokenCount", 0)))
+            int(usage.get("cachedContentTokenCount", 0)),
+            str(data.get("modelVersion", "")))
 
 
 def main() -> int:
@@ -308,12 +329,15 @@ def main() -> int:
     adapter = build_gemini_adapter(args.model)
     reroute_adapter = build_gemini_adapter(args.reroute_model)
     native, supplementary = _build_corpus(args.model, args.reroute_model)
-    assert len(native) == 36, len(native)  # 12형×3(감수 60차 §5)
-    assert all(not s["reroute"] for s in native)  # 30표본=전부 native
+    assert len(native) == 39, len(native)  # 13형×3(감수 62차 S13 추가)
+    assert all(not s["reroute"] for s in native)  # native=전부 primary
+
+    import time as _time
 
     records: list[dict] = []
     supp_records: list[dict] = []
     recount_performed = 0
+    model_versions: set[str] = set()
     for sample in [*native, *supplementary]:
         request: ProviderRequest = sample["request"]
         body = build_gemini_request_body(request)
@@ -326,7 +350,26 @@ def main() -> int:
             recount_performed += 1
         else:
             counted = adapter.count_request(request)
-        reported, cached = _provider_reported(resolved, body, api_key)
+        warmup_reported = None
+        if sample["category"] == "S13_cache_hit_replay":
+            # S13(감수 62차): 최초(non-cache) 호출 보존 후 동일 body
+            # 재호출 — cached_input>0 적중까지 재시도 5회(미적중=불합격).
+            warmup_reported, _wc, wmv = _provider_reported(
+                resolved, body, api_key)
+            if wmv:
+                model_versions.add(wmv)
+            reported, cached, mv = 0, 0, ""
+            for _retry in range(5):
+                _time.sleep(2.0)
+                reported, cached, mv = _provider_reported(
+                    resolved, body, api_key)
+                if cached > 0:
+                    break
+        else:
+            reported, cached, mv = _provider_reported(
+                resolved, body, api_key)
+        if mv and not sample["reroute"]:
+            model_versions.add(mv)
         digest = hashlib.sha256(json.dumps(
             body, ensure_ascii=False, sort_keys=True).encode()
         ).hexdigest()[:16]
@@ -335,7 +378,7 @@ def main() -> int:
         )
         shape_digest = request_shape_digest(
             sample["attempt_kind"], request, "1")
-        (supp_records if sample["reroute"] else records).append({
+        record = {
             "sample_id": sample["sample_id"],
             "category": sample["category"],
             "tier": sample["tier"],
@@ -349,13 +392,44 @@ def main() -> int:
             "routing_changed": sample["reroute"],
             "recount_performed": sample["reroute"],
             "passed": counted >= reported,
-        })
+        }
+        if warmup_reported is not None:
+            record["warmup_reported_total_input"] = warmup_reported
+            # 적중 실패는 즉시 불합격 표시(캐시 상태 검증 불가)
+            record["cache_hit_achieved"] = cached > 0
+            record["passed"] = record["passed"] and cached > 0
+        (supp_records if sample["reroute"] else records).append(record)
         print(f"  {sample['sample_id']:26s} counted={counted:6d}"
               f" reported={reported:6d} delta={counted - reported:+3d}"
-              f" cached={cached}")
+              f" cached={cached} mv={mv or '-'}")
 
     records.sort(key=lambda r: r["sample_id"])  # 실행 순서 배제(canonical)
     supp_records.sort(key=lambda r: r["sample_id"])
+
+    # shape별 프레이밍 오버헤드 귀속(감수 62차 framing_overhead_policy):
+    # 동일 shape 표본의 음수 delta(reported-counted)가 **단일 고정값**일
+    # 때만 validated_framing_overhead로 인정. 가변이면 불합격.
+    overhead_by_shape: dict[str, int] = {}
+    overhead_consistent = True
+    for shape_d in {r["request_shape_digest"] for r in records}:
+        group = [r for r in records
+                 if r["request_shape_digest"] == shape_d]
+        deficits = sorted({r["reported_total_input"] - r["counted"]
+                           for r in group
+                           if r["counted"] < r["reported_total_input"]})
+        if not deficits:
+            overhead_by_shape[shape_d] = 0
+        elif len(deficits) == 1:
+            overhead_by_shape[shape_d] = int(deficits[0])
+        else:
+            overhead_consistent = False  # 가변 음수 delta — 고정 아님
+            overhead_by_shape[shape_d] = int(max(deficits))
+    for r in records:
+        oh = overhead_by_shape.get(r["request_shape_digest"], 0)
+        r["validated_framing_overhead"] = oh
+        r["passed"] = bool(
+            (r["counted"] + oh >= r["reported_total_input"])
+            and r.get("cache_hit_achieved", True))
     identity_wo_corpus = {
         "providerId": "gemini", "resolvedModelId": args.model,
         "counterVersion": GEMINI_COUNTER_VERSION,
@@ -377,7 +451,13 @@ def main() -> int:
     supplementary_hash = _digest(supplementary_evidence)
 
     all_records = [*records, *supp_records]
-    deltas = [r["counted"] - r["reported_total_input"] for r in all_records]
+    # undercount는 shape별 검증 오버헤드 귀속 **후** 기준(감수 62차) —
+    # rerouting 부록은 오버헤드 미적용(별도 identity 대상).
+    deltas = []
+    for r in all_records:
+        oh = (overhead_by_shape.get(r["request_shape_digest"], 0)
+              if not r["routing_changed"] else 0)
+        deltas.append(r["counted"] + oh - r["reported_total_input"])
     undercount = sum(1 for d in deltas if d < 0)
     overs = sorted(d for d in deltas if d >= 0)
     rel = [abs(d) / max(1, r["reported_total_input"])
@@ -412,9 +492,20 @@ def main() -> int:
     shape_names: dict[str, str] = {}
     for r in records:
         shape_names.setdefault(r["request_shape_digest"], _shape_name(r))
-    reviewed_shapes = [
-        {"name": shape_names[d], "digest": d}
-        for d in sorted(shape_names)]
+    # validated_shapes(감수 62차 P0⑦): 단일 artifact 안에 shape별 검증
+    # 항목 — runtime required shape ⊆ 이 집합이어야 해당 call_type 주입.
+    reviewed_shapes = []
+    for d in sorted(shape_names):
+        group = [r for r in records if r["request_shape_digest"] == d]
+        reviewed_shapes.append({
+            "name": shape_names[d], "digest": d,
+            "validated_framing_overhead": overhead_by_shape.get(d, 0),
+            "non_cache_samples": sum(1 for r in group
+                                     if r["cached_input"] == 0),
+            "cache_hit_samples": sum(1 for r in group
+                                     if r["cached_input"] > 0),
+        })
+    required_shape_set_hash = _digest(sorted(shape_names))
     # transport 변환 규칙 digest(감수 58차 §5): schema version을 올리지
     # 않은 채 transport shape가 바뀌는 실수를 탐지하는 대조값.
     canonical_schema = build_risk_output_schema(
@@ -459,8 +550,30 @@ def main() -> int:
                                      for r in all_records),
         "reviewed_request_shapes": {s["name"]: s["digest"][:16]
                                     for s in reviewed_shapes},
-        "pass": (len(records) == 36 and undercount == 0
+        # 감수 62차 확대 필드 — 정적 identity(artifact)·검증 요약.
+        "staticIdentity": {
+            "configured_model": args.model,
+            "api_endpoint": _API_BASE,
+            "api_version": "v1beta",
+            "sdk_version": f"httpx-{httpx.__version__}",
+            "serializer_version": "1",
+            "adapter_policy_hash": adapter_validation_policy_hash(),
+            "required_shape_set_hash": required_shape_set_hash,
+        },
+        "framingOverheadConsistent": overhead_consistent,
+        "cacheSamplesValidated": (
+            sum(1 for r in records
+                if r["category"] == "S13_cache_hit_replay"
+                and r.get("cache_hit_achieved") and r["passed"]) == 3),
+        "modelVersionsObserved": sorted(model_versions),
+        "modelVersionConsistent": len(model_versions) == 1,
+        "pass": (len(records) == 39 and undercount == 0
+                 and overhead_consistent
                  and recount_performed == 3
+                 and len(model_versions) == 1
+                 and sum(1 for r in records
+                         if r["category"] == "S13_cache_hit_replay"
+                         and r.get("cache_hit_achieved")) == 3
                  and all(r["passed"] for r in all_records)),
     }
     out_dir = Path(args.out_dir)
@@ -490,13 +603,39 @@ def main() -> int:
     manifest_candidate = {**identity_wo_corpus,
                           "validationCorpusHash": corpus_hash,
                           "reviewed": False}
+    # validation lease 기록(감수 62차 P1 — artifact/운영 lease 분리):
+    # 합격 시에만. 실제 reported modelVersion·만료(7일)를 lease에 담고
+    # artifact는 불변으로 유지한다(주간 재검증=lease만 갱신).
+    if report["pass"]:
+        from saju_api.services.risk_validation_lease import write_lease
+        from saju_api.services.token_counter_registry import (
+            adapter_identity_hash,
+        )
+        final_adapter = build_gemini_adapter(
+            args.model, corpus_hash,
+            cache_path_validated=bool(report["cacheSamplesValidated"]),
+            framing_overhead_by_shape=tuple(
+                (s["digest"], int(s["validated_framing_overhead"]))
+                for s in reviewed_shapes))
+        lease_file = write_lease(
+            model_id=args.model,
+            identity_hash=adapter_identity_hash(final_adapter),
+            reported_model_version=next(iter(model_versions)),
+            samples_summary={
+                "native_samples": len(records),
+                "undercount": undercount,
+                "cache_hit_samples": sum(
+                    1 for r in records
+                    if r["category"] == "S13_cache_hit_replay"),
+            })
+        print(f"\nvalidation lease: {lease_file}")
     print("\n== §11 보고 ==")
     print(json.dumps(report, ensure_ascii=False, indent=1))
     print(f"\nartifact: {artifact_path}")
     print("manifest validatedTokenCounters 감수 후보(reviewed=false):")
     print(json.dumps(manifest_candidate, ensure_ascii=False, indent=1))
     print("\n상태: SHADOW_VALIDATING 유지 — VALIDATED 전환은 manifest 감수"
-          " 후 별도 절차(감수 56차 §9).")
+          " + 유효 lease 후 startup 파생으로만(감수 56차 §9 + 62차).")
     return 0 if report["pass"] else 1
 
 

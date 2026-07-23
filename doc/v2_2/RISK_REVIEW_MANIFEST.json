@@ -10,7 +10,7 @@
   "risk_presentation_version": "risk-present-r3.1.0-shadow",
   "presentation_policy_hash": "ce68dfc2c6c5fa0e",
   "risk_exposure_version": "risk-expose-r4.1.0-canary",
-  "adapter_validation_policy_hash": "a0f234615ad2836ed59d6c9c58e8c6b56909482f543ac466f89a58efbc460bfc",
+  "adapter_validation_policy_hash": "ccb348d0555601d2ad9f6f1bb507695a407e15d0ce54cc84edbf4a7b1292483d",
   "expose_pipeline": {
     "reviewed": true,
     "expose_policy_hash": "d6a9036b3faa954e",

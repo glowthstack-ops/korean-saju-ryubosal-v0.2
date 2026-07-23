@@ -43,7 +43,9 @@ __all__ = ["GEMINI_COUNTER_VERSION", "GeminiTokenCounterAdapter",
 
 # counter 구현 버전 — 매핑(build_gemini_request_body)·endpoint 의미가
 # 바뀌면 반드시 올린다(validation identity 구성 요소 → 재감수).
-GEMINI_COUNTER_VERSION = "countTokens-v1beta-r1"
+# r2(감수 62차): 캐시 경로(S13) 검증 코퍼스 도입 — 새 validation identity
+# (구 identity eda667c6f791d858의 tombstone은 보존·미적용).
+GEMINI_COUNTER_VERSION = "countTokens-v1beta-r2"
 _API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
@@ -148,7 +150,8 @@ def generate_structured(request: ProviderRequest, model_id: str, *,
 
     위험 INJECTED 전용 — 폴백 없음(실패=예외 전파 → flow가 REGENERATE/
     fallback 처리). 반환: {"text", "prompt_tokens"(전체 input — cached
-    포함), "cached_tokens", "output_tokens"}.
+    포함), "cached_tokens", "output_tokens", "model_version"(응답 최상위
+    modelVersion — lease 대조용, 감수 62차 P0⑧), "finish_reason"}.
     """
     import time as _time
     body = build_gemini_request_body(request)
@@ -175,21 +178,33 @@ def generate_structured(request: ProviderRequest, model_id: str, *,
             "generateContent 호출 실패")
     res.raise_for_status()
     data = res.json()
-    parts = (data.get("candidates") or [{}])[0].get(
-        "content", {}).get("parts", [])
+    candidate = (data.get("candidates") or [{}])[0]
+    parts = candidate.get("content", {}).get("parts", [])
     usage = data.get("usageMetadata", {})
     return {
         "text": "".join(p.get("text", "") for p in parts),
         "prompt_tokens": int(usage.get("promptTokenCount", 0)),
         "cached_tokens": int(usage.get("cachedContentTokenCount", 0)),
         "output_tokens": int(usage.get("candidatesTokenCount", 0)),
+        # 응답 최상위 modelVersion(usageMetadata 아님) — lease의
+        # reported_model_version과 대조(불일치=응답 폐기+UNVALIDATED).
+        "model_version": str(data.get("modelVersion", "")),
+        "finish_reason": str(candidate.get("finishReason", "")),
     }
 
 
-def build_gemini_adapter(model_id: str,
-                         validation_corpus_hash: str = "",
-                         ) -> GeminiTokenCounterAdapter:
-    """실물 Gemini adapter 생성(미등록) — corpus hash는 harness 산출값."""
+def build_gemini_adapter(
+    model_id: str,
+    validation_corpus_hash: str = "",
+    *,
+    cache_path_validated: bool = False,
+    framing_overhead_by_shape: tuple[tuple[str, int], ...] = (),
+) -> GeminiTokenCounterAdapter:
+    """실물 Gemini adapter 생성(미등록) — corpus hash는 harness 산출값.
+
+    cache_path_validated·framing_overhead_by_shape는 artifact에서 파생
+    (감수 62차 — identity 7요소 불포함, corpus hash가 이미 결속).
+    """
     def _count_text(text: str) -> int:
         adapter = build_gemini_adapter(model_id, validation_corpus_hash)
         return adapter.count_request(
@@ -202,13 +217,22 @@ def build_gemini_adapter(model_id: str,
         provider_id="gemini",
         counter_version=GEMINI_COUNTER_VERSION,
         request_schema_version="1",
-        validation_corpus_hash=validation_corpus_hash)
+        validation_corpus_hash=validation_corpus_hash,
+        cache_path_validated=cache_path_validated,
+        framing_overhead_by_shape=framing_overhead_by_shape)
 
 
 def register_gemini_shadow_adapter(
-        model_id: str, validation_corpus_hash: str = "",
+    model_id: str,
+    validation_corpus_hash: str = "",
+    *,
+    cache_path_validated: bool = False,
+    framing_overhead_by_shape: tuple[tuple[str, int], ...] = (),
 ) -> GeminiTokenCounterAdapter:
     """shadow 검증용 명시 등록 — 등록 직후 SHADOW_VALIDATING(승격 없음)."""
-    adapter = build_gemini_adapter(model_id, validation_corpus_hash)
+    adapter = build_gemini_adapter(
+        model_id, validation_corpus_hash,
+        cache_path_validated=cache_path_validated,
+        framing_overhead_by_shape=framing_overhead_by_shape)
     register_adapter(adapter)
     return adapter

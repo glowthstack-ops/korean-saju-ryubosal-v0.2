@@ -488,17 +488,28 @@ def run_injected_risk_flow(
             return None
         # drift·cache 검사(통합 감수 §2 — **전달 판정보다 먼저**): 감수된
         # token 조건을 벗어난 응답은 내용이 안전해도 폐기한다.
+        # 감수 62차: undercount 판정은 shape별 검증 프레이밍 오버헤드를
+        # 가산한 effective counted 기준(범용 tolerance 금지). 캐시 적중은
+        # cache 경로가 corpus로 검증된 adapter에서는 관측 필드로만 남긴다
+        # — undercount 검사는 캐시와 무관하게 존속.
         reported = result.get("provider_reported_input")
         cached = int(result.get("cached_input") or 0)
         record["provider_reported_input"] = reported
         record["cached_input"] = cached
+        framing_overhead = (adapter.framing_overhead_for(
+            plan.request_shape_digest)
+            if adapter is not None
+            and hasattr(adapter, "framing_overhead_for") else 0)
+        effective_counted = plan.counted_tokens + framing_overhead
         if drift_observer is not None and reported is not None:
-            drift_observer(kind, plan.counted_tokens, int(reported),
+            drift_observer(kind, effective_counted, int(reported),
                            cached, plan.provider_request_digest)
         integrity_issues: list[str] = []
-        if reported is not None and plan.counted_tokens < int(reported):
+        if reported is not None and effective_counted < int(reported):
             integrity_issues.append("TOKEN_UNDERCOUNT_DETECTED")
-        if cached > 0:
+        cache_path_ok = bool(adapter is not None and getattr(
+            adapter, "cache_path_validated", False))
+        if cached > 0 and not cache_path_ok:
             integrity_issues.append("CACHE_PATH_UNVALIDATED")
         if integrity_issues:
             record["audit_issues"] = integrity_issues
