@@ -3199,6 +3199,40 @@ def chat(
         scope_v: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
         bundles = _get_graph().retrieve(scope_v)
     else:
+        # 원거리 시점 창(2026-07-23): 질문 창이 기본 세운 창(올해±5)을 벗어나면
+        # 해당 연도 세운을 온디맨드로 채워 **실제 채점 근거**를 만든다 — 나이
+        # 기반 질문("88세쯤" → 2067~2069)이 빈 후보로 '신호 없음' 서술되던
+        # 결함 방지. vague_future 경로와 동일한 결정론 재계산(창 상한 12년).
+        _far_span = tr_year_span(intent.time_range)
+        if _far_span is not None and result.luck_cycles is not None:
+            _have_years = {pl.label for pl in result.luck_cycles.yearly_luck}
+            _lo_y, _hi_y = _far_span
+            _fill_years = [
+                y for y in range(_lo_y, min(_hi_y, _lo_y + 11) + 1)
+                if str(y) not in _have_years]
+            if _fill_years:
+                _far_extra = luck_years(chart_birth, _fill_years)
+                _far_result = result.model_copy(deep=True)
+                assert _far_result.luck_cycles is not None
+                _far_result.luck_cycles.yearly_luck = (
+                    list(_far_result.luck_cycles.yearly_luck) + _far_extra)
+                _far_scored = _get_scorer().score_legacy_personalized(
+                    _far_result,
+                    levels={GanjiLevel.YEAR},
+                    fav_override=_fav_override,
+                    signature=_sig,
+                    cohort=_cohort,
+                    occupation_status=occupation_status,
+                    relationship_status=relationship_status,
+                    occupation_category=occupation_category,
+                )
+                _seen_far = {(c.event_key, c.period) for c in all_scored}
+                all_scored = all_scored + [
+                    c for c in _far_scored
+                    if (c.event_key, c.period) not in _seen_far]
+                # 이후 직렬화(간지 lookup 등)도 확장된 세운을 보도록 요청
+                # 로컬 사본으로 교체 — LRU 캐시 원본은 불변 유지.
+                result = _far_result
         candidates = filter_year_candidates(all_scored)
         # P2 보강: 계층 필터(Top5)가 과거 고점에 점유돼도 유효 창(클램프 반영) 후보는 보존.
         win_start: str | None
