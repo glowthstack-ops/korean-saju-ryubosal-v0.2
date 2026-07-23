@@ -251,6 +251,28 @@ def test_c12_decade_band() -> None:
     assert (tr.start, tr.end) == ("2055", "2057")
 
 
+# 사고수(2026-07-23) — 사고·안전 질문은 HEALTH 흡수, 매수·동형어는 오검출 금지.
+def test_accident_risk_question_is_health() -> None:
+    """'앞으로 10년간 사고 위험' — GENERAL로 떨어져 전 도메인 잡탕 답이 되던 결함."""
+    intent = _one("앞으로 10년간 내게 사고 위험은 없을까?", birth_year=1988)
+    assert intent.domain.value == "health"
+    assert intent.time_range is not None
+
+
+def test_accident_word_boundary_excludes_purchase() -> None:
+    """매수 연결형('집을 사고 싶어')·'사고방식'은 사고수가 아니다."""
+    assert _one("내년에 집을 사고 싶어", birth_year=1988).domain.value != "health"
+    assert _one("내 사고방식은 어떤 편이야?", birth_year=1988).domain.value != "health"
+
+
+def test_accident_variants_are_health() -> None:
+    """교통사고·횡액·다칠 위험 변형 — 모두 건강·안전 도메인."""
+    for q in ("교통사고 조심해야 할 시기가 있을까?",
+              "올해 크게 다칠 일은 없을까?",
+              "횡액수가 있는지 봐줘"):
+        assert _one(q, birth_year=1988).domain.value == "health", q
+
+
 def test_c12_hanja_age() -> None:
     intent = _one("환갑에 큰 변화가 있을까?", birth_year=1988)
     tr = intent.time_range

@@ -55,7 +55,7 @@ from saju_engines.persona import PersonaEngine
 from saju_engines.planner import build_execution_plan
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.profile_engine import profile_facts_for
-from saju_engines.query_parser import parse_message
+from saju_engines.query_parser import ACCIDENT_SAGO_RE, parse_message
 from saju_engines.relationship_hints import (
     COMPETITION_SAFETY_GUARDS,
     RANKING_SAFETY_GUARDS,
@@ -1652,6 +1652,43 @@ def _is_lifestyle_windfall(intent: IntentJson, question: str) -> bool:
         "wealth_change",
     )
     return wealth_ctx and any(k in question for k in _LIFESTYLE_WINDFALL_KEYS)
+
+
+# 사고수(事故數) 해석 지식팩(2026-07-23 데굴님 제공 강의 자료 증류) — 사고·안전 질문에서
+# 답이 건강 일반론·재물 잡탕으로 흩어지지 않고 '사고'라는 주제 축으로 모이게 한다.
+# 원자료의 살(煞)·귀신·조상 서사는 서비스 정책상 배제하고, 명리 신호 축 4개
+# (이동 역마 충형 / 문서 인성 충극 / 통제력 관성 손상·태왕 고집 / 외부 유입 대비)만 남겼다.
+# LLM은 제공된 후보·형충회합 근거에 붙여서만 각 축을 언급한다(엔진 계산 우선 원칙).
+_ACCIDENT_RISK_KEYS = ("횡액", "다치", "다칠", "부상", "낙상", "골절")
+_ACCIDENT_RISK_DIRECTIVE = (
+    "[사고수 풀이 — 사고·안전 위험 질문 전용]\n"
+    "이 질문의 주제는 '사고 위험'이다. 재물·직업 등 다른 주제로 흩어지지 말고, 아래 축 중 "
+    "**제공된 후보·근거(충·형·기신 시기, 위험 신호 블록)에 실제로 존재하는 축만** 골라 "
+    "'주의가 필요한 시기와 장면'으로 풀어라. 근거에 없는 축은 언급하지 않는다.\n"
+    "①이동·교통 축: 역마성 지지(寅申巳亥)가 충·형(특히 寅巳申)으로 흔들리는 시기는 이동 중 "
+    "돌발·차량·낙상 같은 횡액성 주의 시기다. 방어운전·일정 여유·무리한 이동 자제처럼 실행 "
+    "가능한 대비로 연결하라.\n"
+    "②문서·계약 사고 축: 인성(문서·도장·보증)이 기신운·재성운에 충극당하는 시기는 계약서·"
+    "보증·도장·명의 관련 실수나 사기 주의 시기다. 원국에 인성이 과다한데 인성운이 겹치면 "
+    "부동산·매매 문서를 특히 꼼꼼히. '보증은 서지 않기, 도장 찍기 전 한 번 더 확인' 같은 "
+    "구체 습관으로 안내하라.\n"
+    "③통제력 축: 관성(제어 장치)이 충·극으로 손상되는 시기이거나 비겁·식상 태왕으로 신강한 "
+    "구조면, 내 속도와 고집이 사고를 부르는 장면(조언을 안 듣고 밀어붙이다 탈)이 된다. "
+    "구조가 그렇다면 '결정 전에 남의 말을 한 번 더 듣는 습관'을 처방으로 제시하라.\n"
+    "④외부 유입 축: 아무리 조심해도 상대 과실처럼 통제 밖에서 오는 변수는 있다 — 이 축은 "
+    "겁주기가 아니라 보험·정기 점검·안전 습관 등 '대비'로만 짧게 서술한다.\n"
+    "금지: '사고가 난다/안 난다' 같은 발생·시점 단정 금지('주의가 필요한 시기' 프레임으로). "
+    "살(煞)·귀신·조상 등 초자연 원인 서술 금지(신살은 제공된 데이터에 있는 것만, 공포 조장 "
+    "금지). 질문 기간이 길면(수년~10년) 주의 시기를 2~3개로 압축하고, 나머지 기간은 비교적 "
+    "평온하다는 균형도 함께 말하라."
+)
+
+
+def _is_accident_risk_question(question: str) -> bool:
+    """사고·안전 위험 질문 여부 — '사고'는 경계 정규식(매수·동형어 차단), 나머지는 부분문자열."""
+    return bool(ACCIDENT_SAGO_RE.search(question)) or any(
+        k in question for k in _ACCIDENT_RISK_KEYS
+    )
 
 
 # 큰 결정(결혼·이혼) 타이밍 — 운 저점이면 보류 권고(궁합 자료: 운이 안 좋을 땐 인생을 바꿀 결정을
@@ -4008,6 +4045,11 @@ def chat(
     # 당첨단정 거부는 유지). CLAUDE.md 절대원칙 8 개정(2026-06-20 데굴님 승인).
     if _is_lifestyle_windfall(intent, question):
         trailing.append(_LIFESTYLE_WINDFALL_DIRECTIVE)
+    # 사고수 — 사고·안전 위험 질문이면 해석 축(이동·문서·통제력·외부유입)과 단정 금지
+    # 프레임을 고정한다(2026-07-23 데굴님 제공 자료 증류). 파서가 HEALTH로 흡수하므로
+    # 후보·위험 신호는 건강·안전 축으로 이미 필터돼 들어온다.
+    if _is_accident_risk_question(question):
+        trailing.append(_ACCIDENT_RISK_DIRECTIVE)
     # 인연·만남 시기 — 만남은 '택일'이 아니므로 약한/기신 달을 선택지로 끌어와 무르지 말고,
     # 가장 유리한 시기 하나(연·반기·계절)로. 만날 장소·경로는 사주로 단정 불가(과도한 구체화 금지).
     # 단 사용자가 '달'을 명시하면 '연·계절로 제시' 지시가 질문 입도와 충돌하므로(실사례 오답의
