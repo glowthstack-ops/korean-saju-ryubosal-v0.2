@@ -85,6 +85,15 @@ class DailyTop5(BaseModel):
     news: list[str] = Field(min_length=5, max_length=5)
 
 
+class DailyFortuneSingle(BaseModel):
+    """일주 단건 응답(메인 카드용) — 보드에서 해당 일주만 추출."""
+
+    fortune_date: date
+    weekday: int = Field(ge=0, le=6)
+    weekday_ko: str
+    fortune: "DailyIljuFortune"
+
+
 class DailyFortuneBoard(BaseModel):
     """하루치 전체 보드(60일주) — 캐시·API 응답의 단위.
 

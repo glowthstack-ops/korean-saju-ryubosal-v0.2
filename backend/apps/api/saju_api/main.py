@@ -20,6 +20,7 @@ from .routers import (
     auth,
     calendar,
     chat,
+    daily_fortune,
     health,
     manse,
     past_validation,
@@ -92,6 +93,7 @@ app.include_router(profile.router)
 app.include_router(account.router)
 app.include_router(manse.router)
 app.include_router(calendar.router)
+app.include_router(daily_fortune.router)
 app.include_router(chat.router)
 app.include_router(past_validation.router)
 app.include_router(reality_calibration.router)

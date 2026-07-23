@@ -19,6 +19,7 @@ from fastapi import Header, HTTPException
 from saju_engines.account_store import AccountSettingsStore
 from saju_engines.auth_store import AccountAuthStore
 from saju_engines.chat_history_store import ChatHistoryStore
+from saju_engines.daily_fortune_cache import DailyFortuneCache, default_cache
 from saju_engines.error_store import ErrorStore
 from saju_engines.life_event_store import LifeEventStore
 from saju_engines.profile_store import ProfileStore
@@ -40,6 +41,11 @@ def _store[StoreT](factory: Callable[[], StoreT]) -> StoreT:
 def get_auth_store() -> AccountAuthStore:
     """accounts 저장소."""
     return _store(AccountAuthStore)
+
+
+def get_daily_fortune_cache() -> DailyFortuneCache:
+    """일주별 오늘의 운세 TTL 캐시 — 미설정(Redis·명시적 InMemory 모두 없음) 시 503."""
+    return _store(default_cache)
 
 
 def get_subject_store() -> SubjectStore:

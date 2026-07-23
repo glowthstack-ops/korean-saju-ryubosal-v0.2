@@ -18,5 +18,17 @@ services:
       timeout: 3s
       retries: 10
 
+  # 일주별 오늘의 운세 휘발성 TTL 캐시 — v1 redis(6379)와 분리. 영속 볼륨 불필요(휘발성 콘텐츠).
+  redis:
+    image: redis:7-alpine
+    container_name: saju-v2-redis
+    ports:
+      - "16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   saju-v2-pgdata:
