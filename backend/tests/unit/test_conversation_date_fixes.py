@@ -18,7 +18,7 @@ from saju_engines.precompute import CompositeBuilder
 from saju_engines.query_parser import parse_message
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.conversation import ConversationState
-from saju_shared_types.intent import QueryType
+from saju_shared_types.intent import Domain, QueryType
 from saju_shared_types.precompute import CompositeLevel
 
 _DICTS = Path(__file__).resolve().parents[2] / "dictionaries"
@@ -413,3 +413,33 @@ def test_explicit_slash_date_overrides_prior_turn_time() -> None:
     )
     tr = p2.intents[0].time_range
     assert tr is not None and tr.start == "2026-06-17"  # 07-05 승계 아님
+
+
+def test_followup_inherits_prev_domain_when_general() -> None:
+    """다의어 후속('그럼 … 쇠락 …')이 GENERAL로 파싱되면 직전 도메인(건강)을
+    승계한다 — 키워드 단정이 아니라 대화 맥락이 도메인을 결정(2026-07-23)."""
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t-dom")
+    p1, state, _, _ = eng.process_turn(
+        state, "88세쯤 건강이 걱정돼", date(2026, 7, 23), birth_year=1980,
+    )
+    assert p1.intents[0].domain is Domain.HEALTH
+    p2, _state, _, link = eng.process_turn(
+        state, "그럼 80세 이후 급격한 쇠락이 오는 때는 언제야?",
+        date(2026, 7, 23), birth_year=1980,
+    )
+    assert link.is_follow_up
+    assert p2.intents[0].domain is Domain.HEALTH  # 승계(쇠락 키워드 아님)
+
+
+def test_followup_explicit_domain_not_overridden() -> None:
+    """후속이라도 명시 도메인을 새로 말하면 승계하지 않는다(도메인 전환 존중)."""
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t-dom2")
+    _p1, state, _, _ = eng.process_turn(
+        state, "88세쯤 건강이 걱정돼", date(2026, 7, 23), birth_year=1980,
+    )
+    p2, _state, _, _ = eng.process_turn(
+        state, "그럼 그 시기 재물운은 어때?", date(2026, 7, 23), birth_year=1980,
+    )
+    assert p2.intents[0].domain is Domain.WEALTH

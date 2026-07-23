@@ -319,6 +319,21 @@ class ConversationEngine:
                     intent.event_key = intent.event_key or prev.event_key
                     intent.event_keys = intent.event_keys or list(prev.event_keys)
 
+        # 도메인 승계(2026-07-23): 후속 턴이 도메인 감지 없이(GENERAL) 이어지면
+        # 직전 턴의 도메인을 잇는다 — '그럼 언제야?'류 후속이 전 도메인 후보
+        # (이동·계약 등)로 흩어져 엉뚱한 주제를 서술하는 결함 방지. 이번 턴이
+        # 명시 도메인을 새로 감지하면 미승계(도메인 전환 존중).
+        if (
+            link.is_follow_up and prev is not None
+            and primary.domain is Domain.GENERAL
+            and prev.domain is not Domain.GENERAL
+        ):
+            for intent in parsed.intents:
+                if intent.domain is Domain.GENERAL:
+                    intent.domain = prev.domain
+                    if not intent.domains:
+                        intent.domains = [prev.domain]
+
         # 시점 슬롯은 스레드 레벨로 유지 — 후속이든 도메인 전환(link=NEW 포함)이든, 이번 턴이 자체
         # 시점을 안 들고 오고 '새 풀이/리셋' 신호도 아니면 직전 턴의 시점 창을 이어받는다(2026-06-23
         # 데굴님 지적: 8/31·9/30=2026 맥락의 후속 '대출 안 나오나?'가 link=NEW로 떨어져 막연한 미래

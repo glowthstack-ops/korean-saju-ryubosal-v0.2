@@ -3207,6 +3207,12 @@ def chat(
         if _far_span is not None and result.luck_cycles is not None:
             _have_years = {pl.label for pl in result.luck_cycles.yearly_luck}
             _lo_y, _hi_y = _far_span
+            # 개방형 창("80세 이후" 등 end 미상)은 시작 연도 단일점으로
+            # 붕괴하지 않고 10년 범위를 훑어 시기 탐색 근거를 만든다.
+            if (intent.time_range is not None
+                    and intent.time_range.start
+                    and not intent.time_range.end):
+                _hi_y = max(_hi_y, _lo_y + 9)
             _fill_years = [
                 y for y in range(_lo_y, min(_hi_y, _lo_y + 11) + 1)
                 if str(y) not in _have_years]
