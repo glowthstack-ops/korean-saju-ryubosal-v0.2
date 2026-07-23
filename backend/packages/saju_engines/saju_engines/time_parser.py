@@ -112,8 +112,12 @@ def parse_time(
             anchor_dates=[anchor], urgency=urgency,
         ), TimeScope.DATE_LEVEL
 
-    # C12 나이 기반 — "20살 전까지", "말년은 몇살부터".
-    m = re.search(r"(\d{1,3})\s*살\s*(전까지|까지|부터|이후)", text)
+    # C12 나이 기반(2026-07-23 확장 — 사용자 제시 나이대를 기준 창으로 풀이).
+    # ①경계형: "20살 전까지", "40세부터" ②단일/근사형: "88세쯤", "70살에"
+    # ③십년대: "60대(초반/중반/후반)" ④한자어: 환갑/칠순/팔순 등.
+    # 세는나이 모호 → 만나이 기준 산출(기존 계약 유지), 근사어(쯤/무렵/즈음/
+    # 경)는 ±1년 창. birth_year 없으면 AgeRange만 남긴다(하류 확인 질문용).
+    m = re.search(r"(\d{1,3})\s*[살세]\s*(전까지|까지|부터|이후)", text)
     if m:
         age_num = int(m.group(1))
         suffix = m.group(2)
@@ -129,6 +133,56 @@ def parse_time(
             type="age_based", granularity=Granularity.YEAR, age=age,
             start=start, end=end, urgency=urgency,
         ), TimeScope.LIFE_STAGE
+
+    # C12-b 십년대 — "60대", "60대 초반/중반/후반"(만나이 십년 창).
+    m = re.search(r"([1-9]\d?)0\s*대(?!\s*운)\s*(초반|중반|후반)?", text)
+    if m:
+        base = int(m.group(1)) * 10
+        band = m.group(2)
+        lo_off, hi_off = {"초반": (0, 3), "중반": (4, 6),
+                          "후반": (7, 9)}.get(band, (0, 9))
+        age = AgeRange(from_age=base + lo_off, to_age=base + hi_off)
+        start = end = None
+        if birth_year is not None:
+            start = str(birth_year + age.from_age)
+            end = str(birth_year + age.to_age)
+        return TimeRange(
+            type="age_based", granularity=Granularity.YEAR, age=age,
+            start=start, end=end, urgency=urgency,
+        ), TimeScope.LIFE_STAGE
+
+    # C12-c 단일·근사 나이 — "88세쯤", "70살에", "88세" (경계 접미사 없음).
+    # 근사어(쯤/무렵/즈음/경)는 ±1년 창, 그 외 단일 연도.
+    m = re.search(r"(\d{1,3})\s*[살세](?:\s*(쯤|무렵|즈음|경))?", text)
+    if m and 1 <= int(m.group(1)) <= 120:
+        age_num = int(m.group(1))
+        approx = m.group(2) is not None
+        pad = 1 if approx else 0
+        age = AgeRange(from_age=max(0, age_num - pad), to_age=age_num + pad)
+        start = end = None
+        if birth_year is not None:
+            start = str(birth_year + age.from_age)
+            end = str(birth_year + age.to_age)
+        return TimeRange(
+            type="age_based", granularity=Granularity.YEAR, age=age,
+            start=start, end=end, urgency=urgency,
+        ), TimeScope.LIFE_STAGE
+
+    # C12-d 한자어 나이 — 환갑(60)·칠순(70)·팔순(80)·구순(90), ±1년 창
+    # (세는나이/만나이 경계 모호 흡수).
+    _HANJA_AGES = {"환갑": 60, "회갑": 60, "칠순": 70, "고희": 70,
+                   "팔순": 80, "구순": 90}
+    for word, hanja_age in _HANJA_AGES.items():
+        if word in text:
+            age = AgeRange(from_age=hanja_age - 1, to_age=hanja_age + 1)
+            start = end = None
+            if birth_year is not None:
+                start = str(birth_year + age.from_age)
+                end = str(birth_year + age.to_age)
+            return TimeRange(
+                type="age_based", granularity=Granularity.YEAR, age=age,
+                start=start, end=end, urgency=urgency,
+            ), TimeScope.LIFE_STAGE
 
     # C13 인생 단계.
     for word, stage in _LIFE_STAGES.items():

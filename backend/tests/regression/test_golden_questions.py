@@ -232,6 +232,44 @@ def test_c12_age_based() -> None:
     assert intent.time_range.end == "2032"  # 1990 + 42 (만나이 기준)
 
 
+# C12 확장(2026-07-23) — 사용자 제시 나이대를 기준 창으로 풀이.
+def test_c12_single_age_approx_window() -> None:
+    """'88세쯤 사망' 질문 — 나이 무시하고 근시 창(2027 등)으로 풀던 결함."""
+    intent = _one("언젠가 88세쯤 사망할 가능성이 높다는 풀이를 본적이 있어",
+                  birth_year=1988)
+    tr = intent.time_range
+    assert tr is not None and tr.type == "age_based"
+    assert (tr.start, tr.end) == ("2075", "2077")  # 1988+87..89 (±1 근사 창)
+    assert intent.domain.value == "health"  # 수명·사망 → HEALTH 흡수(거부 아님)
+
+
+def test_c12_decade_band() -> None:
+    intent = _one("60대 후반 건강운 어때?", birth_year=1988)
+    tr = intent.time_range
+    assert tr is not None and tr.age is not None
+    assert (tr.age.from_age, tr.age.to_age) == (67, 69)
+    assert (tr.start, tr.end) == ("2055", "2057")
+
+
+def test_c12_hanja_age() -> None:
+    intent = _one("환갑에 큰 변화가 있을까?", birth_year=1988)
+    tr = intent.time_range
+    assert tr is not None and (tr.start, tr.end) == ("2047", "2049")
+
+
+def test_c12_boundary_form_with_se() -> None:
+    intent = _one("40세부터 재물운 알려줘", birth_year=1988)
+    tr = intent.time_range
+    assert tr is not None and tr.start == "2028" and tr.end is None
+
+
+def test_c12_no_birth_year_keeps_age_only() -> None:
+    intent = _one("88세쯤 어떨까?")
+    tr = intent.time_range
+    assert tr is not None and tr.age is not None
+    assert tr.start is None and tr.end is None  # 생년 미상 — 연도 미확정
+
+
 # C13 — 인생 단계.
 def test_c13_life_stage() -> None:
     intent = _one("말년운은 어때?")
