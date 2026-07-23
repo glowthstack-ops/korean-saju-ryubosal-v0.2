@@ -295,3 +295,66 @@ def test_request_local_risk_shadow_thread_isolation() -> None:
     t2.join()
     assert results["A"] == ("A:r1", "A:r2")  # B 항목 혼입 없음
     assert results["B"] == ("B:r3",)
+
+
+# ── 5단계: 리포트 소유권·기간 집합 ─────────────────────────────────────
+
+
+def test_gate4_owner_resolver_respects_available_sections() -> None:
+    from saju_api.services.report_service import resolve_risk_owner
+
+    avail_full = frozenset({"C-06", "F-18", "RL-05"})
+    assert resolve_risk_owner("RPT_FULL", "health_safety",
+                              avail_full) == "F-18"
+    assert resolve_risk_owner("RPT_YEAR", "health_safety",
+                              frozenset({"Y-09", "C-06"})) == "Y-09"
+    # 전문 섹션 부재 → C-06 fallback
+    assert resolve_risk_owner("RPT_FULL", "health_safety",
+                              frozenset({"C-06"})) == "C-06"
+    # 둘 다 부재 → None(감사 가능한 미노출)
+    assert resolve_risk_owner("RPT_FULL", "health_safety",
+                              frozenset()) is None
+    # 불변식: owner ∈ available ∪ {None}
+    for domain in ("health_safety", "relocation", "finance"):
+        owner = resolve_risk_owner("RPT_FOCUS", domain, avail_full)
+        assert owner is None or owner in avail_full
+
+
+def test_period_exact_set_excludes_gap_year() -> None:
+    """{2026,2028} 허용 시 2027 후보 배제(min/max 범위 폐기 — P0⑤)."""
+    from saju_api.services.risk_exposure_bootstrap import build_risk_payload
+
+    shadow = [_candidate("FIN_UNEXPECTED_EXPENSE", "2026"),
+              _candidate("FIN_CASHFLOW_PRESSURE", "2027"),
+              _candidate("CAR_ORG_CONFLICT", "2028", RiskDomain.CAREER)]
+    payload = build_risk_payload(
+        shadow, question_type="period_overview",
+        allowed_periods=frozenset({"2026", "2028"}))
+    assert payload is not None
+    audit = payload["exposureFilterAudit"]
+    assert any(a["periodKey"] == "2027"
+               and a["reason"] == "OUTSIDE_TIME_SCOPE" for a in audit)
+    exposed_periods = {
+        str((r.get("diagnostics") or {}).get("startPeriod", ""))[:4]
+        for r in payload["presentationRecords"]}
+    assert "2027" not in exposed_periods
+
+
+def test_domain_filter_keeps_target_candidates() -> None:
+    """타 도메인 고득점이 있어도 대상 도메인 후보가 정상 선별(P0②)."""
+    from saju_api.services.risk_exposure_bootstrap import build_risk_payload
+
+    shadow = [_candidate("FIN_UNEXPECTED_EXPENSE", "2026",
+                         strength=0.9),  # 고득점 타 도메인
+              _candidate("CAR_ORG_CONFLICT", "2026", RiskDomain.CAREER,
+                         strength=0.5)]
+    payload = build_risk_payload(
+        shadow, question_type="single_domain_period",
+        target_domains=("career",))
+    assert payload is not None
+    domains = {d for r in payload["presentationRecords"]
+               for d in (r.get("domains") or [])
+               if r.get("presentationLevel") != "none"}
+    assert domains <= {"career"}
+    assert any(a["reason"] == "OUTSIDE_TARGET_DOMAIN"
+               for a in payload["exposureFilterAudit"])

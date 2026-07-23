@@ -607,6 +607,12 @@ class _ReportData:
             relationship_status=rel_status,
             occupation_category=occ_category,
         )
+        # 요청 로컬 위험 스냅샷(감수 62차 P0③) — 이 보고서 대상의 채점
+        # 직후 즉시 확보. 싱글턴 scorer.risk_shadow는 동시 요청으로 덮일 수
+        # 있어 위험 섹션에서 읽지 않는다. 보고서 단위 1회 계산(P0⑤)의 원천.
+        self.risk_shadow: tuple = self.scorer.take_risk_shadow()
+        # 보고서 내 이미 상세 노출된 canonical episodeKey(중복 억제 원장).
+        self.risk_exposed_keys: set[str] = set()
         in_period = [
             c for c in scored if spec.period.start[:4] <= c.period[:4] <= spec.period.end[:4]
         ]
@@ -1859,10 +1865,45 @@ def plan_report(
     return [build_section_context(p, spec, data) for p in build_section_plans(spec)]
 
 
-# 위험 노출 대상 섹션(테마사주 배선 — 2026-07-17 데굴님 승인): 기존 목차의
-# C-06 "주의 시기·리스크" 슬롯 재사용(목차 변경 없음). 감수된 채팅 경로와
-# 동일한 게이트·상태기·감사(run_exposed_reading)를 소비한다.
+# 위험 노출 대상 섹션(감수 62차 확대 — RISK_ENGINE.md §7 지정 지점 + Y-09):
+# 기존 목차 슬롯 재사용(목차 변경 없음). 감수된 채팅 경로와 동일한 게이트·
+# 상태기·감사(run_exposed_reading)를 소비한다. 섹션별 질문 유형·대상
+# 도메인은 payload 필터(선별보다 먼저)로 강제된다.
+_RISK_EXPOSED_SECTIONS: dict[str, dict] = {
+    "C-06": {"question_type": "period_overview", "target_domains": ()},
+    "F-18": {"question_type": "single_domain_period",
+             "target_domains": ("health_safety",)},
+    "Y-09": {"question_type": "single_domain_period",
+             "target_domains": ("health_safety",)},
+    "RL-05": {"question_type": "single_domain_period",
+              "target_domains": ("relocation",)},
+}
+# 하위 호환(기존 로그·테스트 참조) — 대표 섹션 ID.
 _RISK_EXPOSED_SECTION_ID = "C-06"
+
+# 도메인별 전문(주 소유) 섹션 — (product 계열, domain) → 섹션 ID.
+_RISK_DOMAIN_SPECIALIST: dict[str, dict[str, str]] = {
+    "health_safety": {"RPT_FULL": "F-18", "RPT_YEAR": "Y-09"},
+    "relocation": {"RPT_FOCUS": "RL-05"},
+}
+
+
+def resolve_risk_owner(
+    product_code: str, domain: str,
+    available_section_ids: frozenset[str],
+) -> str | None:
+    """(product, domain)의 위험 상세(OWNER_DETAIL) 주 소유 섹션(감수 62차 P1).
+
+    **실존 섹션 안에서만** 결정: ①전문 섹션이 실제 목차에 있으면 그 섹션
+    ②없고 C-06이 있으면 C-06 ③둘 다 없으면 None(NO_AVAILABLE_OWNER_
+    SECTION — 감사 기록·미노출). 불변식: owner ∈ available ∪ {None}.
+    """
+    specialist = _RISK_DOMAIN_SPECIALIST.get(domain, {}).get(product_code)
+    if specialist and specialist in available_section_ids:
+        return specialist
+    if "C-06" in available_section_ids:
+        return "C-06"
+    return None
 
 
 def _try_risk_exposed_section(
@@ -1872,15 +1913,17 @@ def _try_risk_exposed_section(
     system: str,
     call_type: str,
     subject_id: str | None,
+    section_id: str = "C-06",
+    available_section_ids: frozenset[str] = frozenset({"C-06"}),
 ) -> tuple[str | None, str]:
-    """C-06 위험 노출 시도 — (완성 본문 | None, 유효 prompt).
+    """위험 노출 섹션 시도(감수 62차 확대) — (완성 본문 | None, 유효 prompt).
 
-    리포트는 기간이 상품 파라미터로 명시적이므로 파서 매핑 없이
-    period_overview/future/연도 범위를 직접 전달한다(시간 재해석 없음 —
-    allowed_years가 SSOT). 반환: INJECTED 성공=(감사 통과 본문, _),
-    그 외=(None, 유효 prompt — SUPPRESSED면 guard 부착본, BYPASS/실패면
-    원본)으로 기존 generate_reading 경로가 이어받는다(BLOCK 포함:
-    위험 없는 일반 생성으로 폴백 — 위반 초안은 전달되지 않음).
+    리포트는 기간이 상품 파라미터로 명시적이므로 파서 매핑 없이 섹션별
+    질문 유형·도메인을 직접 전달한다(시간 재해석 없음 — allowed_years가
+    SSOT, **정확한 연도 집합**으로 payload를 필터: {2026,2028}에서 2027
+    배제). 보고서 단위 소유권(owner resolver)·중복 억제: 이미 다른 섹션이
+    상세 노출한 canonicalEpisodeKey는 결정적으로 제외하고 운영 오류로
+    적재한다(보고서 실패 없음). 반환 계약은 기존과 동일.
     """
     from saju_engines.risk_presentation import estimate_tokens
 
@@ -1893,13 +1936,58 @@ def _try_risk_exposed_section(
         years = data.allowed_years
         if not years:
             return None, body_prompt
-        payload = _reb.build_risk_payload(list(data.scorer.risk_shadow))
+        section_cfg = _RISK_EXPOSED_SECTIONS.get(
+            section_id, _RISK_EXPOSED_SECTIONS["C-06"])
+        payload = _reb.build_risk_payload(
+            list(getattr(data, "risk_shadow", ())
+                 or data.scorer.risk_shadow),
+            question_type=section_cfg["question_type"],
+            target_domains=tuple(section_cfg["target_domains"]),
+            allowed_periods=frozenset(str(y) for y in years))
+        # 보고서 단위 소유권·중복 억제(P0⑤): 이 섹션이 owner가 아닌
+        # 도메인의 episode와, 이미 상세 노출된 key를 결정적으로 제외.
+        if payload:
+            kept_records, kept_llm, removed = [], [], []
+            llm_iter = iter(payload.get("llmRiskEpisodes") or [])
+            for rec in payload.get("presentationRecords") or []:
+                llm_ep = (next(llm_iter, None)
+                          if rec.get("presentationLevel") != "none"
+                          else None)
+                key = str((rec.get("diagnostics") or {}).get(
+                    "episodeKey", ""))
+                domains = [str(d) for d in (rec.get("domains") or [])]
+                owner = resolve_risk_owner(
+                    spec.product_code, domains[0] if domains else "",
+                    available_section_ids)
+                reason = None
+                if owner is None:
+                    reason = "NO_AVAILABLE_OWNER_SECTION"
+                elif owner != section_id:
+                    reason = f"OWNED_BY:{owner}"
+                elif key in data.risk_exposed_keys:
+                    reason = "DUPLICATE_EPISODE_SUPPRESSED"
+                    _logger.error(
+                        "report_risk duplicate episode key=%s section=%s"
+                        " — 결정적 dedup(운영 오류)", key, section_id)
+                if reason is None:
+                    kept_records.append(rec)
+                    if llm_ep is not None:
+                        kept_llm.append(llm_ep)
+                else:
+                    removed.append({"episodeKey": key, "reason": reason})
+                    kept_records.append(
+                        {**rec, "reportOwnershipStatus": reason})
+            payload = {**payload, "presentationRecords": kept_records,
+                       "llmRiskEpisodes": kept_llm,
+                       "reportOwnershipRemoved": removed}
+            if not kept_llm:
+                payload = None  # 이 섹션 몫 없음 — SUPPRESSED 경로
         inputs = _reb.exposure_runtime_inputs(call_type)
         prompt, _sys, obs = _res.apply_risk_exposure(
             body_prompt, system,
             payload=payload,
             subject_id=subject_id,
-            question_type="period_overview",
+            question_type=section_cfg["question_type"],
             temporal_scope="future",
             future_period_range=(str(min(years)), str(max(years))),
             counter=inputs["counter"],
@@ -1910,8 +1998,7 @@ def _try_risk_exposed_section(
             user_input_tokens=0,
             existing_context_tokens=estimate_tokens(system),
             response_reserve=inputs["response_reserve"])
-        _logger.info("report_risk_gate section=%s %s",
-                     _RISK_EXPOSED_SECTION_ID, obs)
+        _logger.info("report_risk_gate section=%s %s", section_id, obs)
         if obs.get("disposition") != "INJECTED" or not payload:
             # SUPPRESSED=guard 부착 prompt·BYPASS=원본 — 기존 경로로.
             return None, prompt
@@ -1924,10 +2011,18 @@ def _try_risk_exposed_section(
             call_type=call_type,
             request_context_id=(
                 f"report:{subject_id or 'anon'}:{spec.product_code}:"
-                f"{_RISK_EXPOSED_SECTION_ID}"),
+                f"{section_id}"),
             renderer=_tighten)
         if flow["outcome"] in ("DELIVER_GENERATED",
                                "DELIVER_SAFE_FALLBACK"):
+            if flow["outcome"] == "DELIVER_GENERATED":
+                # 상세 노출 원장 기록 — 보고서 내 동일 key 중복 억제(P0⑤).
+                for rec in payload.get("presentationRecords") or []:
+                    key = str((rec.get("diagnostics") or {}).get(
+                        "episodeKey", ""))
+                    if key and rec.get("presentationLevel") != "none" \
+                            and "reportOwnershipStatus" not in rec:
+                        data.risk_exposed_keys.add(key)
             return flow["final_text"], prompt
         # BLOCK: 위험 본문 미전달 — 위험 없는 기존 생성으로 폴백(원본).
         return None, body_prompt
@@ -1983,6 +2078,11 @@ def generate_report(
             "복수 가능성 등)와 '근거 경로:' 표기를 본문에 노출하지 말 것(일상어로 풀어 서술)."
         )
 
+    # 이 보고서의 실존 위험 섹션 집합(owner resolver 입력 — 감수 62차 P1).
+    _available_risk_sections = frozenset(
+        p.section_id for p in build_section_plans(spec)) & frozenset(
+        _RISK_EXPOSED_SECTIONS)
+
     def generate_fn(plan: SectionPlan, context: SectionContext, attempt: int):
         # 보고서 전용 시스템 프롬프트(대화와 분리 — '정보 없음' 회피 문구 미포함).
         system = llm_client._REPORT_SYSTEM_PROMPT
@@ -1992,10 +2092,12 @@ def generate_report(
         # 채팅과 동일하게 소비 — INJECTED 성공 시 그 본문 사용, 그 외
         # (BYPASS/SUPPRESSED/BLOCK)는 유효 prompt로 기존 경로 계속.
         risk_prompt_override: str | None = None
-        if plan.section_id == _RISK_EXPOSED_SECTION_ID and attempt == 0:
+        if plan.section_id in _RISK_EXPOSED_SECTIONS and attempt == 0:
             risk_text, effective_prompt = _try_risk_exposed_section(
                 data, spec, context.body_prompt, system, call_type,
-                subject_id or owner_id)
+                subject_id or owner_id,
+                section_id=plan.section_id,
+                available_section_ids=_available_risk_sections)
             if risk_text is not None:
                 data.record_opening(risk_text)
                 return risk_text, 0, len(risk_text)
