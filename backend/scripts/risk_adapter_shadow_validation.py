@@ -494,7 +494,7 @@ def main() -> int:
         shape_names.setdefault(r["request_shape_digest"], _shape_name(r))
     # validated_shapes(감수 62차 P0⑦): 단일 artifact 안에 shape별 검증
     # 항목 — runtime required shape ⊆ 이 집합이어야 해당 call_type 주입.
-    reviewed_shapes = []
+    reviewed_shapes: list[dict] = []
     for d in sorted(shape_names):
         group = [r for r in records if r["request_shape_digest"] == d]
         reviewed_shapes.append({
@@ -548,7 +548,7 @@ def main() -> int:
         },
         "cached_input_observed": sum(r["cached_input"]
                                      for r in all_records),
-        "reviewed_request_shapes": {s["name"]: s["digest"][:16]
+        "reviewed_request_shapes": {str(s["name"]): str(s["digest"])[:16]
                                     for s in reviewed_shapes},
         # 감수 62차 확대 필드 — 정적 identity(artifact)·검증 요약.
         "staticIdentity": {
@@ -615,7 +615,7 @@ def main() -> int:
             args.model, corpus_hash,
             cache_path_validated=bool(report["cacheSamplesValidated"]),
             framing_overhead_by_shape=tuple(
-                (s["digest"], int(s["validated_framing_overhead"]))
+                (str(s["digest"]), int(str(s["validated_framing_overhead"])))
                 for s in reviewed_shapes))
         lease_file = write_lease(
             model_id=args.model,

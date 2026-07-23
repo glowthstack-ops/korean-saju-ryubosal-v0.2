@@ -4086,6 +4086,9 @@ def chat(
                 response_reserve=_risk_inputs["response_reserve"],
             ))
         _logger.info("risk_exposure_gate %s", _risk_obs)
+        # fail-loud 관측(감수 62차 7단계) — EXPOSE에서 조용한 BYPASS 감지.
+        from .risk_exposure_monitor import observe_disposition
+        observe_disposition(_risk_obs, surface="chat")
         if _risk_obs.get("disposition") == "INJECTED" and _risk_payload:
             # INJECTED 실호출(감수 60·61차): 구조화 생성→감사→REVISE/
             # REGENERATE→renderer 후 최종 감사. BYPASS/SUPPRESSED는 아래

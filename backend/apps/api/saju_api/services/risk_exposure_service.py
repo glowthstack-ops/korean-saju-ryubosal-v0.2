@@ -200,6 +200,20 @@ def stamp_runtime_adapter_state(model_id: str) -> str:
     return state
 
 
+def stamp_state_snapshot() -> str:
+    """현재 registry의 adapter 검증 상태 조회(읽기 전용 — 관측·readiness).
+
+    UNVALIDATED 강등(lease 무효화 등) 이후 상태를 그대로 반영한다.
+    미해소·오류=UNKNOWN(관측용 — 게이트 판정에는 쓰지 않는다).
+    """
+    try:
+        from .llm_client import reading_model
+        from .token_counter_registry import _VALIDATION
+        return str(_VALIDATION.get(reading_model(), "UNREGISTERED"))
+    except Exception:  # noqa: BLE001
+        return "UNKNOWN"
+
+
 def build_risk_output_schemas(payload: dict, *,
                               question_type: str) -> dict:
     """INJECTED 전용 output schema 산출(감수 57차 §4 — canonical/transport
@@ -371,6 +385,18 @@ def apply_risk_exposure(
         snapshot["snapshot_hash"])
     result["observability"]["manifest_schema_version"] = (
         snapshot["schema_version"])
+    # 요청 시작 시점 config snapshot(감수 62차 P1 — 중간 전환에도 요청 단위
+    # 일관 관측): kill switch·모드·adapter 상태·정책 식별자.
+    result["observability"]["config_snapshot"] = {
+        "risk_mode": risk_engine_config.RISK_ENGINE_MODE,
+        "kill_switch": risk_engine_config.RISK_EXPOSURE_KILL_SWITCH,
+        "companion_kill_switch": (
+            risk_engine_config.RISK_COMPANION_KILL_SWITCH),
+        "adapter_state": stamp_state_snapshot(),
+        "subject_scope": subject_scope,
+        "question_type": qt,
+        "manifest_schema_version": snapshot["schema_version"],
+    }
     disposition = result["disposition"]
     if disposition == "INJECTED":
         block_text = result["serialized"]

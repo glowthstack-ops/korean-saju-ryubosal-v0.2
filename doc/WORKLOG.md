@@ -9136,3 +9136,30 @@ pytest 2309 passed·ruff·mypy clean. 후속 보류: 사건 의미축 완전 분
   ON DELETE SET NULL) + `GET/PUT /api/v2/account/last-subject`(소유 검증). 프론트는
   latest-write-wins 직렬 저장기(400ms debounce) + 로그인 시 서버 복원(isRestoring).
 - 검증: 신규 테스트 36종(사전 10·엔진 13·API 9·교정 게이트 10 중복 제외) + 게이트 전체 통과.
+
+## 위험 노출 전면 확대 — 풀이 전반 적극 활용 (2026-07-23, 감수 62차) ✅
+
+- **목표**: 위험 신호를 풀이 전반에 노출(사용자가 위험을 놓치지 않게) — 3차 설계
+  리뷰(P0 11건+P1 4건+테스트 게이트 5종) 조건부 승인 반영, v4 계획 승인.
+- **어댑터 복구**: SUSPENDED 원인=캐시 경로 미검증(undercount 0) → S13 cache-hit
+  표본 포함 재검증(r2 identity, 39표본 합격), Git artifact(불변)/운영 lease(7일·
+  HMAC·modelVersion 대조) 분리, UNVALIDATED 상태 신설(tombstone 미적용), 다중
+  artifact fail-closed. smoke 7/7 · bootstrap_state=VALIDATED.
+- **파이프라인**: 필터(기간 정확 집합·도메인)→episode→R2 선별 순서 불변식, 탈락
+  전량 감사(OUTSIDE_*), scorer 요청 로컬 불변 반환(thread-local — 오귀속 차단).
+- **대화 5유형**: TIMING_SEARCH 분기(도메인 1개=single_domain/일반=overview),
+  비교=cross-period consolidation(기간별 cap+전체 cap 4·occurrence 보존·빈 기간
+  미충전), episode_followup=DELIVER_GENERATED 저장 키 결정적 해소만.
+- **동반자(PAIRWISE)**: companion ceiling = min(전역, 일반 watch, 건강·법률
+  advisory) 코드·감사 적용(전 조합 fixture), 부가 고지 블록, 전용 kill switch
+  (본인 노출 유지). 다자 합산·순위 차단 유지.
+- **리포트**: C-06+F-18+Y-09+RL-05(목차 불변), owner resolver(실존 섹션 한정·
+  C-06 fallback·None=감사 미노출), 보고서 단위 1회 계산+상세 1회 dedup(운영
+  오류 적재·보고서 실패 없음), allowed_years 정확 집합 필터.
+- **토큰**: RISK_CONTEXT_RESERVE 2,000 — base_content_budget=CALL_LIMIT−reserve,
+  실주입 예정 요청만 활성(BYPASS 확정 요청 미축소). 실측: 운영 형태 최대
+  1,202tok(헤드룸 66%) — CALL_LIMITS 개별 상향 불필요. MAX_TOKENS 응답 폐기→
+  REVISION 스킵→compact 재생성 1회→fallback(부분 결과 금지).
+- **운영 fail-loud**: health에 risk_exposure_readiness 분리, 최초 BYPASS_
+  UNVALIDATED/SUSPENDED 고우선 적재+5분 창 incident 승격, 요청 config snapshot.
+- 게이트: risk 전체 회귀+신규 40여 종(테스트 게이트 5종 포함) 통과.

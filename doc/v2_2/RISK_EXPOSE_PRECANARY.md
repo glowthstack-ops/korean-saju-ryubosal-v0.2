@@ -92,11 +92,18 @@ counted vs reported drift(undercount=자동 전역 차단) / cached_input
 
 - 파일 suspension backend는 단일 호스트·단일 프로세스 전제(다중 worker
   =공유 backend 필요 — 게이트가 topology로 차단).
-- implicit cache 경로 미감수(관측 시 자동 차단으로 대체).
-- multi_episode_compare·episode_followup 질문 유형 미개방(1차 canary
-  3유형만).
+- ~~implicit cache 경로 미감수~~ → **감수 62차 완료**: S13 cache-hit
+  표본(prefix 8,810tok·cached 3,942·counted==reported)으로 새 identity
+  (countTokens-v1beta-r2) 재검증 — 검증 identity 한정 관측 전용 전환
+  (undercount 검사는 존속). validation lease(7일·HMAC) 분리 도입.
+- ~~multi_episode_compare·episode_followup 미개방~~ → **감수 62차 개방**:
+  expose 모드 5유형(+TIMING_SEARCH 분기·PAIRWISE 동반자 — companion
+  ceiling·부가 고지·전용 kill switch). expose_canary는 3유형 유지(롤백).
 - REEVALUATE_GATE(감수된 모델로의 rerouting 계속 진행) 미배선 — 전부
-  REGENERATE로 보수 처리.
+  REGENERATE로 보수 처리(잔여).
+- 파일 suspension backend=단일 호스트 전제(잔여 — 다중 호스트는 공유
+  저장소 전환 후).
+- Preview 모델 lease 7일 만료 — 주간 재검증이 운영 루틴(자동화 후속).
 
 ## 7. r4.1.0-canary 전환 (2026-07-17 — 통합 감수 승인 후)
 

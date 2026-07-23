@@ -1999,6 +1999,8 @@ def _try_risk_exposed_section(
             existing_context_tokens=estimate_tokens(system),
             response_reserve=inputs["response_reserve"])
         _logger.info("report_risk_gate section=%s %s", section_id, obs)
+        from .risk_exposure_monitor import observe_disposition
+        observe_disposition(obs, surface=f"report:{section_id}")
         if obs.get("disposition") != "INJECTED" or not payload:
             # SUPPRESSED=guard 부착 prompt·BYPASS=원본 — 기존 경로로.
             return None, prompt

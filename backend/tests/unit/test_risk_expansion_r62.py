@@ -228,7 +228,7 @@ def test_gate3_companion_ceiling_matrix() -> None:
 def test_companion_payload_ceiling_applied_with_audit() -> None:
     from saju_engines.risk_exposure import apply_companion_ceiling
 
-    payload = {
+    payload: dict = {
         "presentationRecords": [
             {"presentationLevel": "warning", "domains": ["health_safety"],
              "diagnostics": {"episodeKey": "k1"}},
