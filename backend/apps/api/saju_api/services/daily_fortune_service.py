@@ -25,6 +25,8 @@ from saju_shared_types.daily_fortune import (
     DailyFortuneSingle,
 )
 
+from .daily_fortune_export import write_threads_export
+
 _KST = ZoneInfo("Asia/Seoul")
 _GENERATE_LOCK_TTL = 60  # 초 — 엔진 생성은 1초 미만이라 넉넉한 안전 상한
 _LOCK_WAIT_RETRIES = 20
@@ -88,6 +90,7 @@ def get_board(
             if board is None:
                 board = _generate(d)
                 cache.save_board(d, CONTENT_VERSION, board, board_ttl_seconds(d))
+                write_threads_export(board)  # 스레드 업로드용 텍스트 갱신
             return board
         finally:
             cache.release_lock("generate", d, CONTENT_VERSION, token)
@@ -99,6 +102,7 @@ def get_board(
             return board
     board = _generate(d)
     cache.save_board(d, CONTENT_VERSION, board, board_ttl_seconds(d))
+    write_threads_export(board)  # 스레드 업로드용 텍스트 갱신
     return board
 
 

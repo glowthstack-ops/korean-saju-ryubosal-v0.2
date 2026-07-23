@@ -28,6 +28,7 @@ from saju_shared_types.daily_fortune import (
 )
 
 from . import llm_client
+from .daily_fortune_export import write_threads_export
 from .daily_fortune_service import board_ttl_seconds, get_board
 
 logger = logging.getLogger("saju.daily_fortune.polish")
@@ -242,6 +243,7 @@ def polish_board(cache: DailyFortuneCache, d: date) -> dict[str, Any] | None:
             return {"accepted": 0, "error": str(exc)}
         updated, audit = validate_and_apply(board, response)
         cache.save_board(d, CONTENT_VERSION, updated, board_ttl_seconds(d))
+        write_threads_export(updated)  # 교정 반영분으로 스레드 텍스트 갱신
         logger.info(
             "daily fortune polish date=%s audit=%s",
             d,

@@ -165,3 +165,24 @@ def test_places_schema(places: dict[str, Any]) -> None:
     for pl in entries.values():
         by_el[pl["element"]] = by_el.get(pl["element"], 0) + 1
     assert all(v == 8 for v in by_el.values()), by_el
+
+
+# ── 스레드 업로드용 export(2026-07-23) — 최상단 날짜·고정 파일명·원자 교체 ──
+
+def test_threads_export_writes_date_header(tmp_path) -> None:
+    from datetime import date as _date
+
+    from saju_api.services.daily_fortune_export import (
+        render_threads_text,
+        write_threads_export,
+    )
+    from saju_api.services.daily_fortune_service import _generate
+
+    board = _generate(_date(2026, 7, 23))
+    text = render_threads_text(board)
+    first = text.splitlines()[0]
+    assert "2026-07-23" in first and "오늘의 운세" in first  # 대상 날짜 최상단
+    assert text.count("일주") >= 60
+    out = tmp_path / "오늘의운세.txt"
+    assert write_threads_export(board, out) is True
+    assert out.read_text(encoding="utf-8").startswith("[오늘의 운세 — 2026-07-23")
