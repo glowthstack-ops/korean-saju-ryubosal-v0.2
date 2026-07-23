@@ -3,6 +3,7 @@
 // /daily 본문 — 상단(날짜·Top5) + 일간 탭 + 일주 카드 6개. 서버 프리페치 실패 시
 // 클라이언트에서 재요청한다. 표시 날짜는 API 값만 사용(클라이언트 재계산 금지).
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DailyFortuneCard } from "@/components/daily/DailyFortuneCard";
 import { StemTabs } from "@/components/daily/StemTabs";
@@ -57,9 +58,23 @@ export function DailyBoardClient({ initial }: { initial: DailyFortuneBoard | nul
   return (
     <div className="space-y-4">
       <section className="rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-bold">일주별 오늘의 운세</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {formatFortuneDate(board.fortune_date, board.weekday_ko)} · 60일주 전체
+        <div className="flex flex-wrap items-baseline gap-2">
+          <h1 className="text-xl font-bold">일주별 오늘의 운세</h1>
+          <span className="text-sm text-gray-500">
+            {formatFortuneDate(board.fortune_date, board.weekday_ko)}
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
+          일주(태어난 날의 기운)만으로 가볍게 보는 재미 위주의 운세예요. 내 사주 전체를 반영한
+          자세한 풀이가 필요하다면{" "}
+          <Link href="/chat" className="text-gray-700 underline">
+            AI채팅상담
+          </Link>
+          이나{" "}
+          <Link href="/themes" className="text-gray-700 underline">
+            테마사주
+          </Link>
+          를 이용해 보세요.
         </p>
       </section>
 

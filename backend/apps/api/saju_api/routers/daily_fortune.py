@@ -28,11 +28,16 @@ def _etag(payload: str) -> str:
     return '"' + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32] + '"'
 
 
+# 클라이언트 캐시 수명 상한(초) — 교정(RAW→POLISHED)·사전 버전 업이 하루 중에 보드를
+# 교체하므로 자정까지 통짜 캐시하면 화면 간 세대 불일치가 생긴다. 5분마다 ETag 재검증
+# (304 — 본문 미전송)으로 싸게 동기화하고, 자정 직전에는 남은 시간으로 더 줄인다.
+_CLIENT_MAX_AGE = 300
+
+
 def _set_cache_headers(response: Response, etag: str) -> None:
+    max_age = min(_CLIENT_MAX_AGE, daily_fortune_service.seconds_until_next_midnight())
     response.headers["ETag"] = etag
-    response.headers["Cache-Control"] = (
-        f"public, max-age={daily_fortune_service.seconds_until_next_midnight()}, must-revalidate"
-    )
+    response.headers["Cache-Control"] = f"public, max-age={max_age}, must-revalidate"
 
 
 @router.get("/today", response_model=DailyFortuneBoard)

@@ -15,11 +15,6 @@ interface Service {
 
 const FREE: Service[] = [
   {
-    href: "/daily",
-    title: "일주별 오늘의 운세",
-    desc: "내 일주(태어난 날)의 오늘 흐름을 매일 아침 5초 만에 확인하세요. 금전·연애·좋은소식 TOP5 일주도 함께 보여드려요.",
-  },
-  {
     href: "/manse",
     title: "만세력",
     desc: "생년월일시만 입력하면 내 사주 명식과 대운·세운·월운 흐름을 한눈에 볼 수 있어요. 간단한 과거 확인으로 나에게 필요한 기운(용신)까지 찾아드려요.",
@@ -72,10 +67,11 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* 무료 영역 최상단 가로 전체 카드 — 일주별 오늘의 운세 (PRD UI/UX 1항) */}
-      <DailyHomeCard />
-
-      <Section title="무료" subtitle="로그인 없이 이용 가능">
+      <Section
+        title="무료"
+        subtitle="로그인 없이 이용 가능"
+        lead={<DailyHomeCard />} // 무료 영역 최상단 가로 전체 — 일주별 오늘의 운세 (PRD UI/UX 1항)
+      >
         {FREE.map((s) => (
           <ServiceCard key={s.href} service={s} locked={false} />
         ))}
@@ -93,10 +89,13 @@ export default function HomePage() {
 function Section({
   title,
   subtitle,
+  lead,
   children,
 }: {
   title: string;
   subtitle: string;
+  // 카드 그리드 위에 가로 전체로 렌더할 리드 블록(예: 일주별 오늘의 운세)
+  lead?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -105,6 +104,7 @@ function Section({
         <h2 className="text-sm font-semibold text-gray-700">{title}</h2>
         <span className="text-xs text-gray-400">{subtitle}</span>
       </div>
+      {lead && <div className="mb-4">{lead}</div>}
       <div className="grid gap-4 sm:grid-cols-2">{children}</div>
     </section>
   );

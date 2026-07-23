@@ -13,12 +13,14 @@ import {
   getDailyBoard,
   getDailyFortune,
 } from "@/lib/daily-fortune";
+import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 import { useCurrentIlju } from "@/lib/use-current-ilju";
 
 const SLOT_ICON: Record<string, string> = { good: "🌟", caution: "⚠️", support: "🍀" };
 
 export function DailyHomeCard() {
   const { status, ilju } = useCurrentIlju();
+  const { selected } = useSelectedSubject(); // 표시용 별명(로그인 선택 사주) — 게스트는 일주만
   const [single, setSingle] = useState<DailyFortuneSingle | null>(null);
   const [failed, setFailed] = useState(false);
   // CTA 카드용 오늘 날짜(요일) — 클라이언트 재계산 금지, API 값만 사용
@@ -59,7 +61,7 @@ export function DailyHomeCard() {
           </span>
         </div>
         <p className="mt-1 text-sm font-semibold text-gray-700">
-          오늘의 {f.ilju_ko}일주 운세
+          {selected?.label ? `${selected.label}님 | ${f.ilju_ko}일주` : `${f.ilju_ko}일주`}
         </p>
         <p className="mt-2 text-sm leading-relaxed">{f.headline}</p>
         <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">

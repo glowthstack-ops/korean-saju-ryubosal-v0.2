@@ -4,10 +4,13 @@
 
 import type { DailyFortuneBoard } from "@/lib/daily-fortune";
 
-const GROUPS: { key: keyof DailyFortuneBoard["top5"]; label: string; icon: string }[] = [
-  { key: "money", label: "금전", icon: "💰" },
-  { key: "love", label: "연애", icon: "💗" },
-  { key: "news", label: "좋은소식", icon: "💌" },
+// 순위 표기 — 1~3위 메달, 4~5위 참가 메달
+const RANK_MARKS = ["🥇", "🥈", "🥉", "🏅", "🏅"];
+
+const GROUPS: { key: keyof DailyFortuneBoard["top5"]; title: string; icon: string }[] = [
+  { key: "money", title: "오늘 금전 운 좋은 일주 TOP5", icon: "💰" },
+  { key: "love", title: "오늘 연애 운 좋은 일주 TOP5", icon: "💗" },
+  { key: "news", title: "오늘 좋은소식이 들려올 일주 TOP5", icon: "💌" },
 ];
 
 export function Top5Strip({
@@ -23,20 +26,21 @@ export function Top5Strip({
       {GROUPS.map((g) => (
         <div key={g.key} className="rounded-lg border bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold text-gray-700">
-            {g.icon} 오늘 {g.label} 운 좋은 일주 TOP5
+            {g.icon} {g.title}
           </p>
-          <div className="mt-2 flex flex-wrap gap-1">
+          <ol className="mt-2 space-y-1">
             {board.top5[g.key].map((ilju, i) => (
-              <button
-                key={ilju}
-                onClick={() => onSelect?.(ilju)}
-                className="rounded-full bg-gray-100 px-2.5 py-1 text-xs hover:bg-gray-200"
-              >
-                <span className="mr-1 text-[10px] text-gray-400">{i + 1}</span>
-                {koByIlju.get(ilju) ?? ilju}
-              </button>
+              <li key={ilju}>
+                <button
+                  onClick={() => onSelect?.(ilju)}
+                  className="flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-xs hover:bg-gray-100"
+                >
+                  <span className="w-5 shrink-0 text-center">{RANK_MARKS[i]}</span>
+                  {koByIlju.get(ilju) ?? ilju}일주
+                </button>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       ))}
     </div>
