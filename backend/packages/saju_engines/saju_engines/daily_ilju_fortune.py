@@ -1,0 +1,562 @@
+"""일주별 오늘의 운세 — 챠트리스(개인 명식 무관) 규칙 엔진.
+
+docs/17_DAILY_ILJU_FORTUNE.md 규격. 60갑자 일주 × 오늘 일진·월운·세운만으로
+사건별 양의 활성도를 계산해 하루치 보드(60건)를 산출한다. 순수 함수 —
+사이드이펙트(캐시·LLM)는 서비스 계층이 담당한다.
+
+핵심 규칙(검토 확정):
+- 독립 원인 그룹 5종(DAY_STEM/DAY_BRANCH_RELATION/DAY_HIDDEN_STEMS/MONTH_CONTEXT/
+  YEAR_CONTEXT), 그룹당 최강 신호 1개만 독립 원인으로 인정.
+- 사건별 양의 활성도: evidence/contradiction 분리, net=max(0, e−λ·c),
+  p = 5 + 90·positive_soft_cap(net). p≥85는 지지 그룹 ≥2일 때만, p≤10은
+  강한 contradiction 있을 때만.
+- 반복 방지: 영구 이력 없이 날짜 기반 결정론 seed + 당일 60건 내부 중복 감사.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+from dataclasses import dataclass
+from datetime import date
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+from saju_manse_core.calendar.ganji_calendar import build_month
+from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index
+from saju_shared_types.constants import (
+    BRANCH_BREAKS,
+    BRANCH_CLASHES,
+    BRANCH_ELEMENT,
+    BRANCH_HARMS,
+    BRANCH_KO,
+    PUNISHMENT_MUTUAL,
+    PUNISHMENT_TRIPLES,
+    SELF_PUNISHMENT,
+    SIX_COMBINATIONS,
+    STEM_KO,
+    THREE_HARMONY,
+    hidden_stems_for,
+    ten_god,
+)
+from saju_shared_types.daily_fortune import (
+    CONTENT_VERSION,
+    DailyEventForecast,
+    DailyFortuneBoard,
+    DailyIljuFortune,
+    DailyTop5,
+    DayGanjiContext,
+    LuckyPlace,
+)
+from saju_shared_types.enums import Branch, Stem
+
+_DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries" / "daily_fortune"
+
+# 신호 그룹 가중 (PRD §10 — 합계 0.95, 나머지 0.05는 중첩 보너스)
+_GROUP_WEIGHTS: dict[str, float] = {
+    "DAY_STEM": 0.25,
+    "DAY_BRANCH_RELATION": 0.30,
+    "DAY_HIDDEN_STEMS": 0.15,
+    "MONTH_CONTEXT": 0.20,
+    "YEAR_CONTEXT": 0.05,
+}
+_OVERLAP_BONUS = 0.05  # 독립 원인 그룹 ≥2 동방향 지지 시
+_LAMBDA = 0.7  # contradiction 감쇄 계수
+_SIGNAL_GAIN = 1.5  # 신호 진폭 이득 — 그룹 간 상대 비중(25/30/15/20/5)은 유지, 절대 크기만 확대
+_SOFT_CAP_K = 2.2  # positive_soft_cap 기울기 (분포 튜닝 2026-07-23: 85+ 도달 가능·저점 확보)
+_INDEPENDENT_THRESHOLD = 0.35  # |s_g| 가 이 값 이상일 때 독립 원인으로 인정
+_STRONG_CONTRADICTION = 0.25  # p≤10 허용 기준
+_WEEKDAY_KO = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
+_LOTTO_MAX_PER_DAY = 3
+_LOTTO_MIN_MONEY_P = 85
+_LOTTO_MAX_MONEY_RANK = 10
+_PLACE_MAX_REPEAT = 6  # 당일 60건 내 같은 장소 최대 노출
+_DUP_RETRY = 10  # 중복 감사 시 seed salt 재시도 상한
+
+# 관계 종류별 감지 강도(성립 조건 세분화) — 사건별 방향·크기는 카탈로그 affinity 가 결정
+_REL_STRENGTH = {
+    "six_combination": 1.0,
+    "half_harmony": 1.0,  # 반합은 카탈로그 affinity 자체가 낮음
+    "three_harmony_complete": 1.0,
+    "clash": 1.0,
+    "punishment_full": 1.0,  # 子卯형·삼형 완성
+    "punishment_partial": 0.6,  # 삼형 2지·자형
+    "break": 1.0,
+    "harm": 1.0,
+}
+
+
+@dataclass(frozen=True)
+class DailyFortuneDicts:
+    """사전 3종 묶음 — validate 는 test_daily_fortune_dicts 가 담당."""
+
+    catalog: dict[str, Any]
+    templates: dict[str, Any]
+    places: dict[str, Any]
+
+
+@lru_cache(maxsize=2)
+def load_daily_dicts(dictionaries_dir: str | None = None) -> DailyFortuneDicts:
+    """daily_fortune 사전 3종을 로드(캐시)한다."""
+    base = Path(dictionaries_dir) if dictionaries_dir else _DICTS_DEFAULT
+    def _read(name: str) -> dict[str, Any]:
+        return json.loads((base / name).read_text(encoding="utf-8"))
+    return DailyFortuneDicts(
+        catalog=_read("daily_event_catalog.json"),
+        templates=_read("daily_phrase_templates.json"),
+        places=_read("daily_lucky_places.json"),
+    )
+
+
+def _stable_hash(text: str) -> int:
+    """프로세스 간 안정적인 64bit 해시 (Python hash() 금지 — 재현성)."""
+    return int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:8], "big")
+
+
+def _pick(seq: list[str], seed: int) -> str:
+    return seq[seed % len(seq)]
+
+
+def build_day_context(d: date) -> DayGanjiContext:
+    """특정 날짜의 일진·월운·세운 간지 컨텍스트(입춘·절기 반영)를 만든다."""
+    month_data = build_month(d.year, d.month)
+    day = next(x for x in month_data["days"] if x["date"] == d)
+    return DayGanjiContext(
+        the_date=d,
+        day_stem=day["day_ganji"][0],
+        day_branch=day["day_ganji"][1],
+        month_stem=day["month_ganji"][0],
+        month_branch=day["month_ganji"][1],
+        year_stem=day["year_ganji"][0],
+        year_branch=day["year_ganji"][1],
+    )
+
+
+def _branch_relations(
+    a: Branch, b: Branch, helpers: tuple[Branch, ...]
+) -> dict[str, float]:
+    """두 지지(a=운, b=일지) 관계를 세분화 감지한다.
+
+    삼합은 helpers(월지·세운지지)가 제3지를 채울 때만 완성으로 인정하고,
+    형은 자형/子卯형/삼형(2지=부분)을 구분한다. 반환 키는 카탈로그
+    relation_affinity 키와 일치한다.
+    """
+    hits: dict[str, float] = {}
+    pair = frozenset({a, b})
+
+    if len(pair) == 2 and pair in SIX_COMBINATIONS:
+        hits["six_combination"] = _REL_STRENGTH["six_combination"]
+
+    if len(pair) == 2:
+        for members, _element, _royal in THREE_HARMONY:
+            if pair <= members:
+                third = next(iter(members - pair))
+                if third in helpers:
+                    hits["three_harmony_complete"] = _REL_STRENGTH["three_harmony_complete"]
+                else:
+                    hits["half_harmony"] = _REL_STRENGTH["half_harmony"]
+                break
+
+    if pair in BRANCH_CLASHES:
+        hits["clash"] = _REL_STRENGTH["clash"]
+
+    # 형 — 성립 조건 세분화
+    if a == b and a in SELF_PUNISHMENT:
+        hits["punishment"] = _REL_STRENGTH["punishment_partial"]  # 자형
+    elif pair in PUNISHMENT_MUTUAL:
+        hits["punishment"] = _REL_STRENGTH["punishment_full"]  # 子卯형
+    else:
+        for triple in PUNISHMENT_TRIPLES:
+            if len(pair) == 2 and pair <= triple:
+                third = next(iter(triple - pair))
+                strength = (
+                    _REL_STRENGTH["punishment_full"]
+                    if third in helpers
+                    else _REL_STRENGTH["punishment_partial"]
+                )
+                hits["punishment"] = max(hits.get("punishment", 0.0), strength)
+                break
+
+    if pair in BRANCH_BREAKS:
+        hits["break"] = _REL_STRENGTH["break"]
+    if pair in BRANCH_HARMS:
+        hits["harm"] = _REL_STRENGTH["harm"]
+    return hits
+
+
+def _clamp(value: float, lo: float = -1.0, hi: float = 1.0) -> float:
+    return max(lo, min(hi, value))
+
+
+def _tg_aff(event: dict[str, Any], day_master: Stem, target: Stem) -> float:
+    """일간(day_master=일주 천간) 기준 target 천간의 십성 affinity."""
+    if day_master == target:
+        return event["ten_god_affinity"].get("비견", 0.0)  # 동일 천간은 비견으로 간주
+    return event["ten_god_affinity"].get(ten_god(day_master, target).value, 0.0)
+
+
+def _rel_aff(event: dict[str, Any], hits: dict[str, float]) -> float:
+    return _clamp(
+        sum(w * event["relation_affinity"].get(kind, 0.0) for kind, w in hits.items())
+    )
+
+
+def _hidden_aff(event: dict[str, Any], day_master: Stem, branch: Branch) -> float:
+    """지장간 가중평균 십성 affinity."""
+    hidden = hidden_stems_for(branch)
+    total = sum(w for _s, _t, w in hidden)
+    if total <= 0:
+        return 0.0
+    return _clamp(
+        sum(w * _tg_aff(event, day_master, s) for s, _t, w in hidden) / total
+    )
+
+
+def _group_signals(
+    event: dict[str, Any], ilju_stem: Stem, ilju_branch: Branch, ctx: DayGanjiContext
+) -> dict[str, float]:
+    """독립 원인 그룹 5종 각각의 신호값 s_g ∈ [-1, 1]."""
+    day_stem = Stem(ctx.day_stem)
+    day_branch = Branch(ctx.day_branch)
+    month_stem = Stem(ctx.month_stem)
+    month_branch = Branch(ctx.month_branch)
+    year_stem = Stem(ctx.year_stem)
+    year_branch = Branch(ctx.year_branch)
+    helpers = (month_branch, year_branch)
+
+    day_rel = _branch_relations(day_branch, ilju_branch, helpers)
+    month_rel = _branch_relations(month_branch, ilju_branch, (day_branch, year_branch))
+    year_rel = _branch_relations(year_branch, ilju_branch, (day_branch, month_branch))
+
+    month_ctx = _clamp(
+        0.4 * _tg_aff(event, ilju_stem, month_stem)
+        + 0.35 * _rel_aff(event, month_rel)
+        + 0.25 * _hidden_aff(event, ilju_stem, month_branch)
+    )
+    year_ctx = _clamp(
+        0.5 * _tg_aff(event, ilju_stem, year_stem)
+        + 0.3 * _rel_aff(event, year_rel)
+        + 0.2 * event["element_affinity"].get(BRANCH_ELEMENT[year_branch].value, 0.0)
+    )
+    return {
+        "DAY_STEM": _tg_aff(event, ilju_stem, day_stem),
+        "DAY_BRANCH_RELATION": _rel_aff(event, day_rel),
+        "DAY_HIDDEN_STEMS": _hidden_aff(event, ilju_stem, day_branch),
+        "MONTH_CONTEXT": month_ctx,
+        "YEAR_CONTEXT": year_ctx,
+    }
+
+
+@dataclass(frozen=True)
+class _ScoredEvent:
+    """사건 1개의 점수 산출 결과(슬롯 선발·Top5 입력)."""
+
+    event_key: str
+    domain: str
+    valence: str
+    slots: tuple[str, ...]
+    synonym_group: str | None
+    activation: float  # 0..1 (expr_confidence 반영)
+    probability: int  # 5..95 (게이트 후처리 반영)
+    supporting_groups: int
+    contradiction: float
+
+
+def _positive_soft_cap(net: float) -> float:
+    """양의 net evidence 를 0..1 로 포화시키는 단조 함수."""
+    return 1.0 - math.exp(-_SOFT_CAP_K * max(0.0, net))
+
+
+def _score_event(
+    key: str, event: dict[str, Any], ilju_stem: Stem, ilju_branch: Branch,
+    ctx: DayGanjiContext,
+) -> _ScoredEvent:
+    """사건별 양의 활성도 산식(검토 확정) — evidence/contradiction 분리."""
+    signals = _group_signals(event, ilju_stem, ilju_branch, ctx)
+    evidence = float(event["base_weight"])
+    contradiction = 0.0
+    supporting = 0
+    for group, s in signals.items():
+        w = _GROUP_WEIGHTS[group] * _SIGNAL_GAIN
+        if s > 0:
+            evidence += w * s
+            if s >= _INDEPENDENT_THRESHOLD:
+                supporting += 1
+        elif s < 0:
+            contradiction += w * (-s)
+
+    net = max(0.0, evidence - _LAMBDA * contradiction)
+    if supporting >= 2:
+        net += _OVERLAP_BONUS
+    activation = float(event["expr_confidence"]) * _positive_soft_cap(net)
+    p = round(5 + 90 * activation)
+    p = max(5, min(95, p))
+    if p >= 85 and supporting < 2:
+        p = 84  # 85%+ 게이트: 서로 다른 독립 원인 그룹 ≥2 지지 필요
+    if p <= 10 and contradiction < _STRONG_CONTRADICTION:
+        p = 11  # 근거 부재 ≠ 강한 부정 — 극저점은 강한 반대 신호가 있을 때만
+    return _ScoredEvent(
+        event_key=key,
+        domain=event["domain"],
+        valence=event["valence"],
+        slots=tuple(event["slots"]),
+        synonym_group=event.get("synonym_group"),
+        activation=activation,
+        probability=p,
+        supporting_groups=supporting,
+        contradiction=contradiction,
+    )
+
+
+def _rank_key(scored: _ScoredEvent, seed_base: str) -> tuple[float, int]:
+    """내림차순 정렬 키 — 동률은 결정론 seed 로 해소."""
+    return (-scored.probability, _stable_hash(f"{seed_base}|{scored.event_key}") % 9973)
+
+
+def _select_slots(
+    scored: list[_ScoredEvent], seed_base: str
+) -> tuple[_ScoredEvent, _ScoredEvent, _ScoredEvent]:
+    """슬롯 선발 + 완화 사다리 — 불변식: 항상 3개, 최소 2 domain,
+    event_key 중복 금지, 동의어 그룹 동시 노출 금지."""
+    ordered = sorted(scored, key=lambda s: _rank_key(s, seed_base))
+
+    goods = [s for s in ordered if s.valence == "good" and "good" in s.slots]
+    cautions = [s for s in ordered if s.valence == "caution"]
+    good = goods[0]
+
+    def _ok(cand: _ScoredEvent, taken: list[_ScoredEvent], distinct_domain: bool) -> bool:
+        if any(cand.event_key == t.event_key for t in taken):
+            return False
+        if cand.synonym_group and any(cand.synonym_group == t.synonym_group for t in taken):
+            return False
+        if distinct_domain and any(cand.domain == t.domain for t in taken):
+            return False
+        return True
+
+    caution = next((c for c in cautions if _ok(c, [good], True)), None)
+    if caution is None:  # 완화: domain 중복 허용
+        caution = next((c for c in cautions if _ok(c, [good], False)), cautions[0])
+
+    supports = [s for s in ordered if "support" in s.slots]
+    taken = [good, caution]
+    support = next((s for s in supports if _ok(s, taken, True)), None)
+    if support is None:  # 완화 1: domain 중복 허용(최소 2 domain 은 good/caution 이 보장)
+        support = next((s for s in supports if _ok(s, taken, False)), None)
+    if support is None:  # 완화 2: 차순위 good 을 보조로
+        support = next(s for s in goods if _ok(s, taken, False))
+    # 최소 2개 domain 불변식 확인 — good/caution 이 동일 domain 으로 완화된 경우 보조는 다른 domain
+    if good.domain == caution.domain and support.domain == good.domain:
+        alt = next(
+            (s for s in supports + goods if _ok(s, taken, False) and s.domain != good.domain),
+            None,
+        )
+        if alt is not None:
+            support = alt
+    return good, caution, support
+
+
+def _band(good: _ScoredEvent, caution: _ScoredEvent) -> str:
+    """점수-문장 강도 연동 밴드 (PRD §11)."""
+    if caution.probability - good.probability >= 15:
+        return "s1"  # 주의 우세
+    p = good.probability
+    if p >= 85:
+        return "s5"
+    if p >= 70:
+        return "s4"
+    if p >= 55:
+        return "s3"
+    return "s2"
+
+
+def _headline(
+    dicts: DailyFortuneDicts, event_key: str, band: str, seed_base: str, salt: int
+) -> str:
+    """오늘의 한마디 — fragment + action (+ result) 조합, 결정론 seed.
+
+    당일 중복 감사에서 salt 가 커질수록 범용(generic) 풀을 합쳐 조합 공간을
+    넓힌다(같은 사건을 공유하는 일주가 많아도 완전 중복이 나지 않도록).
+    """
+    generic_kind = "caution" if band == "s1" else "good"
+    generic = dicts.templates["generic"][generic_kind]
+    tpl = dicts.templates["events"].get(event_key) or generic
+    fragments = list(tpl["fragments"])
+    actions = list(tpl["actions"])
+    results = list(tpl["results"])
+    if salt >= 3:  # 중복 지속 시 행동 풀 확장
+        actions += generic["actions"]
+        results += generic["results"]
+    if salt >= 6:  # 그래도 중복이면 사건 풀까지 확장
+        fragments += generic["fragments"]
+    s = _stable_hash(f"{seed_base}|headline|{salt}")
+    parts = [_pick(fragments, s), _pick(actions, s // 7)]
+    if band in ("s5", "s4", "s1") or salt >= 3:
+        parts.append(_pick(results, s // 31))
+    return " ".join(parts)
+
+
+def _lucky_place(
+    dicts: DailyFortuneDicts, domain: str, seed_base: str, salt: int
+) -> LuckyPlace:
+    """행운의 장소 선택 — domain="__any__" 면 전체 풀(과다 노출 시 확장용)."""
+    places = dicts.places["places"]
+    if domain == "__any__":
+        candidates = list(places)
+    else:
+        candidates = [k for k, v in places.items() if domain in v["domains"]] or list(places)
+    s = _stable_hash(f"{seed_base}|place|{salt}")
+    key = candidates[s % len(candidates)]
+    phrase_tpl = _pick(dicts.templates["place_phrases"], s // 13)
+    name = places[key]["name"]
+    return LuckyPlace(place_key=key, name=name, phrase=phrase_tpl.format(place=name))
+
+
+def _domain_score(scored: list[_ScoredEvent], domain: str) -> float:
+    """Top5 정규화 점수 — 사건 개수 비의존(대표 사건 기준), 빈 후보=0."""
+    goods = sorted(
+        (s.activation for s in scored if s.domain == domain and s.valence == "good"),
+        reverse=True,
+    )
+    cautions = [s.activation for s in scored if s.domain == domain and s.valence == "caution"]
+    top = goods[0] if goods else 0.0
+    second = goods[1] if len(goods) > 1 else 0.0
+    worst = max(cautions) if cautions else 0.0
+    return top + 0.3 * second - 0.5 * worst
+
+
+def _lotto_slot_open(d: date, ilju_index: int) -> bool:
+    """이력 저장 없는 일주별 로또 쿨다운 — date-ordinal 슬롯(주 1회 이하)."""
+    return (d.toordinal() + ilju_index) % 7 == 0
+
+
+def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortuneBoard:
+    """60일주 전체 보드를 산출한다(결정론 — 동일 입력이면 동일 출력).
+
+    1패스: 일주별 사건 점수·도메인 점수 → Top5·금전 순위 확정.
+    2패스: 로또 게이트·문장 조합·당일 중복 감사.
+    """
+    d = ctx.the_date
+    per_ilju: list[dict[str, Any]] = []
+    for idx in range(60):
+        stem, branch = ganzi_from_index(idx)
+        scored = [
+            _score_event(key, ev, stem, branch, ctx)
+            for key, ev in dicts.catalog["events"].items()
+        ]
+        per_ilju.append({
+            "index": idx,
+            "stem": stem,
+            "branch": branch,
+            "ilju": f"{stem.value}{branch.value}",
+            "scored": scored,
+        })
+
+    # Top5 (금전/연애/좋은소식) + 금전 순위
+    def _ranked(domain: str) -> list[dict[str, Any]]:
+        return sorted(
+            per_ilju,
+            key=lambda row: (
+                -_domain_score(row["scored"], domain),
+                _stable_hash(f"{d.isoformat()}|{domain}|{row['ilju']}") % 9973,
+            ),
+        )
+
+    money_ranked = _ranked("money")
+    top5 = DailyTop5(
+        money=[row["ilju"] for row in money_ranked[:5]],
+        love=[row["ilju"] for row in _ranked("love")[:5]],
+        news=[row["ilju"] for row in _ranked("news")[:5]],
+    )
+
+    # 로또 적격 — 순위 기준 결정론 선택, 당일 최대 3개 (PRD §12)
+    lotto_iljus: set[str] = set()
+    for row in money_ranked[:_LOTTO_MAX_MONEY_RANK]:
+        if len(lotto_iljus) >= _LOTTO_MAX_PER_DAY:
+            break
+        money_goods = [
+            s for s in row["scored"]
+            if s.domain == "money" and s.valence == "good"
+        ]
+        money_cautions = [
+            s.activation for s in row["scored"]
+            if s.domain == "money" and s.valence == "caution"
+        ]
+        best_p = max((s.probability for s in money_goods), default=0)
+        weak_loss = max(money_cautions, default=0.0) < 0.35
+        if (
+            best_p >= _LOTTO_MIN_MONEY_P
+            and weak_loss
+            and _lotto_slot_open(d, row["index"])
+        ):
+            lotto_iljus.add(row["ilju"])
+
+    # 2패스 — 문장 생성 + 당일 중복 감사
+    fortunes: list[DailyIljuFortune] = []
+    used_headlines: set[str] = set()
+    place_counts: dict[str, int] = {}
+    for row in per_ilju:
+        ilju = row["ilju"]
+        seed_base = f"{d.isoformat()}|{ilju}|{CONTENT_VERSION}"
+        good, caution, support = _select_slots(row["scored"], seed_base)
+        band = _band(good, caution)
+        headline_event = caution if band == "s1" else good
+
+        headline = ""
+        for salt in range(_DUP_RETRY):  # 당일 60건 내 완전 중복 회피
+            headline = _headline(dicts, headline_event.event_key, band, seed_base, salt)
+            if headline not in used_headlines:
+                break
+        used_headlines.add(headline)
+
+        place: LuckyPlace | None = None  # 같은 장소 과다 노출 방지 — 상한 도달 시 전체 풀 확장
+        for salt in range(_DUP_RETRY):
+            domain_arg = headline_event.domain if salt < 5 else "__any__"
+            cand = _lucky_place(dicts, domain_arg, seed_base, salt)
+            if place_counts.get(cand.place_key, 0) < _PLACE_MAX_REPEAT:
+                place = cand
+                break
+        if place is None:  # 모든 후보가 상한이면 마지막 후보 사용(60건 내 도달 불가 방어선)
+            place = cand
+        place_counts[place.place_key] = place_counts.get(place.place_key, 0) + 1
+
+        catalog_events = dicts.catalog["events"]
+        events = [
+            DailyEventForecast(
+                slot=slot_name,
+                event_key=s.event_key,
+                domain=s.domain,
+                probability=s.probability,
+                phrase=catalog_events[s.event_key]["label"],
+            )
+            for slot_name, s in (("good", good), ("caution", caution), ("support", support))
+        ]
+        lotto = None
+        if ilju in lotto_iljus:
+            lotto = _pick(
+                dicts.templates["lotto_phrases"],
+                _stable_hash(f"{seed_base}|lotto"),
+            )
+        fortunes.append(
+            DailyIljuFortune(
+                ilju=ilju,
+                ilju_ko=f"{STEM_KO[row['stem']]}{BRANCH_KO[row['branch']]}",
+                day_stem_ko=STEM_KO[row["stem"]],
+                headline=headline,
+                headline_event_key=headline_event.event_key,
+                events=events,
+                lucky_place=place,
+                lotto_phrase=lotto,
+            )
+        )
+
+    return DailyFortuneBoard(
+        fortune_date=d,
+        weekday=d.weekday(),
+        weekday_ko=_WEEKDAY_KO[d.weekday()],
+        content_version=CONTENT_VERSION,
+        polish_status="RAW",
+        top5=top5,
+        fortunes=fortunes,
+    )
