@@ -29,12 +29,19 @@ def render_threads_text(board: DailyFortuneBoard) -> str:
         f"[오늘의 운세 — {board.fortune_date.isoformat()} {board.weekday_ko}]",
         f"(생성 버전: {board.content_version} / 교정: {board.polish_status})",
         "",
-        "오늘 좋은소식이 들려올 일주 TOP5",
     ]
-    for i, ilju in enumerate(board.top5.news[:5]):
-        medal = _MEDALS[i] if i < len(_MEDALS) else "•"
-        lines.append(f"{medal} {i + 1}. {ko_by_ilju.get(ilju, ilju)}일주")
-    lines.append("")
+    # 3분야 TOP5 — 화면(Top5Strip)과 동일한 분야·표기 순서(금전·연애·좋은소식).
+    top5_sections = (
+        ("💰 오늘 금전 운 좋은 일주 TOP5", board.top5.money),
+        ("💗 오늘 연애 운 좋은 일주 TOP5", board.top5.love),
+        ("💌 오늘 좋은소식이 들려올 일주 TOP5", board.top5.news),
+    )
+    for title, iljus in top5_sections:
+        lines.append(title)
+        for i, ilju in enumerate(iljus[:5]):
+            medal = _MEDALS[i] if i < len(_MEDALS) else "•"
+            lines.append(f"{medal} {i + 1}. {ko_by_ilju.get(ilju, ilju)}일주")
+        lines.append("")
     for f in board.fortunes:
         lines.append(f"■ {f.ilju_ko}일주")
         lines.append(f"{f.headline}")
