@@ -42,6 +42,19 @@ export function getSelectedSubjectId(): string | null {
   }
 }
 
+// ── 마지막 선택 사주(서버 영속 — 재로그인 복원) ────────────────
+
+/** 서버에 저장된 마지막 선택 사주 id — 없거나 무효(삭제·타 소유)면 null. */
+export async function getLastSubject(): Promise<string | null> {
+  const r = await getJSON<{ subject_id: string | null }>("/api/v2/account/last-subject");
+  return r.subject_id;
+}
+
+/** 마지막 선택 사주 서버 저장(null=선택 해제). */
+export async function putLastSubject(subjectId: string | null): Promise<void> {
+  await putJSON("/api/v2/account/last-subject", { subject_id: subjectId });
+}
+
 // ── 사주(대상) ───────────────────────────────────────────────
 
 export function listSubjects(): Promise<SubjectSummary[]> {

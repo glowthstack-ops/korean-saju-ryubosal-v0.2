@@ -7,6 +7,7 @@
 // 일주는 calculateManse 결과의 pillars.day.ganji 에서 파생한다(유일한 기존 경로).
 
 import { useEffect, useState } from "react";
+import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 import { calculateManse } from "@/lib/api";
 import { isLoggedIn } from "@/lib/auth";
 import { loadEotPreference, loadProfile } from "@/lib/storage";
@@ -46,13 +47,23 @@ export async function resolveCurrentSubjectIlju(): Promise<string | null> {
 
 export type CurrentIljuStatus = "loading" | "none" | "ready";
 
-/** 메인 카드 등에서 쓰는 현재 일주 hook — loading 동안 스켈레톤 표시용. */
+/** 메인 카드 등에서 쓰는 현재 일주 hook — loading 동안 스켈레톤 표시용.
+
+ * 선택 사주 서버 복원(isRestoring) 중에는 loading 을 유지해 로그인 CTA 깜빡임을
+ * 막고, 선택이 바뀌면 재해석한다.
+ */
 export function useCurrentIlju(): { status: CurrentIljuStatus; ilju: string | null } {
+  const { selected, isRestoring } = useSelectedSubject();
   const [status, setStatus] = useState<CurrentIljuStatus>("loading");
   const [ilju, setIlju] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isRestoring) {
+      setStatus("loading");
+      return;
+    }
     let cancelled = false;
+    setStatus("loading");
     resolveCurrentSubjectIlju().then((value) => {
       if (cancelled) return;
       setIlju(value);
@@ -61,7 +72,7 @@ export function useCurrentIlju(): { status: CurrentIljuStatus; ilju: string | nu
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isRestoring, selected?.subjectId]);
 
   return { status, ilju };
 }

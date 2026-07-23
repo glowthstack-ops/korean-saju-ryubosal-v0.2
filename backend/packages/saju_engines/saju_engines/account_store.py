@@ -14,7 +14,12 @@ from saju_shared_types.profile import PersonaConfig
 
 from .precompute_store import default_dsn
 
-_MIGRATION = Path(__file__).resolve().parents[3] / "migrations" / "005_accounts_and_settings.sql"
+_MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "migrations"
+# 순서대로 적용(멱등) — 005 기본 스키마 + 015 마지막 선택 사주 컬럼.
+_MIGRATIONS = [
+    _MIGRATIONS_DIR / "005_accounts_and_settings.sql",
+    _MIGRATIONS_DIR / "015_account_last_subject.sql",
+]
 
 
 class AccountSettingsStore:
@@ -33,7 +38,8 @@ class AccountSettingsStore:
     def migrate(self) -> None:
         """마이그레이션 적용(멱등)."""
         with self._connect() as conn:
-            conn.execute(_MIGRATION.read_text(encoding="utf-8"))
+            for path in _MIGRATIONS:
+                conn.execute(path.read_text(encoding="utf-8"))
 
     def get_persona(self, owner_id: str) -> PersonaConfig | None:
         """계정 페르소나 조회 — 미설정 시 None(호출 측이 기본값 적용)."""
@@ -56,4 +62,30 @@ class AccountSettingsStore:
                   persona = EXCLUDED.persona, updated_at = now()
                 """,
                 (owner_id, persona.model_dump_json()),
+            )
+
+    def get_last_subject(self, owner_id: str) -> str | None:
+        """마지막 선택 사주 id — 미설정·행 없음이면 None."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT last_selected_subject_id FROM account_settings WHERE owner_id=%s",
+                (owner_id,),
+            ).fetchone()
+        return row[0] if row else None
+
+    def save_last_subject(self, owner_id: str, subject_id: str | None) -> None:
+        """마지막 선택 사주 저장 — 신규 행은 기본 페르소나로 초기화(persona NOT NULL).
+
+        ON CONFLICT 시 last_selected_subject_id 만 갱신한다(사용자 페르소나 보존).
+        """
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO account_settings (owner_id, persona, last_selected_subject_id)
+                VALUES (%s, %s::jsonb, %s)
+                ON CONFLICT (owner_id) DO UPDATE SET
+                  last_selected_subject_id = EXCLUDED.last_selected_subject_id,
+                  updated_at = now()
+                """,
+                (owner_id, PersonaConfig().model_dump_json(), subject_id),
             )
