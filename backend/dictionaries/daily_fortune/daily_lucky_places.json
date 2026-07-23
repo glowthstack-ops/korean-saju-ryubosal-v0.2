@@ -1,0 +1,26 @@
+{
+  "schema": "daily_lucky_places.v1",
+  "version": "dict.v1",
+  "places": {
+    "bookstore": {"name": "동네 서점", "element": "木", "domains": ["news", "work", "leisure"]},
+    "park": {"name": "집 근처 공원", "element": "木", "domains": ["health", "leisure", "love"]},
+    "flower_shop": {"name": "꽃집", "element": "木", "domains": ["love", "social"]},
+    "bakery": {"name": "베이커리", "element": "木", "domains": ["love", "social", "news"]},
+    "cinema": {"name": "영화관", "element": "火", "domains": ["leisure", "love"]},
+    "gallery": {"name": "전시 공간", "element": "火", "domains": ["love", "leisure"]},
+    "busy_street": {"name": "번화한 거리", "element": "火", "domains": ["social", "move"]},
+    "gym": {"name": "운동하는 곳", "element": "火", "domains": ["health", "work"]},
+    "traditional_market": {"name": "전통시장", "element": "土", "domains": ["money", "social"]},
+    "walking_trail": {"name": "산책로", "element": "土", "domains": ["health", "leisure"]},
+    "cafe_terrace": {"name": "테라스 있는 카페", "element": "土", "domains": ["social", "love", "news"]},
+    "neighborhood_diner": {"name": "단골 식당", "element": "土", "domains": ["social", "leisure"]},
+    "bank": {"name": "은행 근처", "element": "金", "domains": ["money", "document"]},
+    "department_store": {"name": "백화점", "element": "金", "domains": ["money", "love"]},
+    "convenience_store": {"name": "편의점", "element": "金", "domains": ["money", "move"]},
+    "hair_salon": {"name": "미용실", "element": "金", "domains": ["love", "social"]},
+    "cafe_window": {"name": "카페 창가 자리", "element": "水", "domains": ["news", "work", "love"]},
+    "riverside": {"name": "물가 산책길", "element": "水", "domains": ["health", "leisure"]},
+    "bath_pool": {"name": "목욕탕·수영장", "element": "水", "domains": ["health", "leisure"]},
+    "library": {"name": "도서관", "element": "水", "domains": ["work", "document", "news"]}
+  }
+}

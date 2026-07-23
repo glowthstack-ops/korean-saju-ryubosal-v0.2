@@ -1,0 +1,897 @@
+{
+  "schema": "daily_event_catalog.v1",
+  "version": "dict.v1",
+  "reviewed": false,
+  "domains": [
+    "money",
+    "love",
+    "work",
+    "social",
+    "news",
+    "document",
+    "move",
+    "health",
+    "leisure"
+  ],
+  "relation_keys": [
+    "six_combination",
+    "half_harmony",
+    "three_harmony_complete",
+    "clash",
+    "punishment",
+    "break",
+    "harm"
+  ],
+  "events": {
+    "money_small_gain": {
+      "label": "공돈이 생길 확률",
+      "domain": "money",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "money_gain",
+      "base_weight": 0.33,
+      "expr_confidence": 1.0,
+      "ten_god_affinity": {
+        "편재": 0.9,
+        "정재": 0.7,
+        "식신": 0.4,
+        "상관": 0.2,
+        "겁재": -0.6,
+        "비견": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": 0.5,
+        "half_harmony": 0.3,
+        "three_harmony_complete": 0.6,
+        "clash": -0.5,
+        "punishment": -0.4,
+        "break": -0.2,
+        "harm": -0.3
+      },
+      "element_affinity": {
+        "金": 0.2,
+        "水": 0.1
+      }
+    },
+    "money_good_deal": {
+      "label": "알뜰한 득템을 할 확률",
+      "domain": "money",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "money_gain",
+      "base_weight": 0.33,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "정재": 0.8,
+        "편재": 0.5,
+        "식신": 0.4,
+        "상관": 0.3,
+        "겁재": -0.5
+      },
+      "relation_affinity": {
+        "six_combination": 0.4,
+        "half_harmony": 0.2,
+        "three_harmony_complete": 0.5,
+        "clash": -0.4,
+        "punishment": -0.3,
+        "break": -0.2,
+        "harm": -0.2
+      },
+      "element_affinity": {
+        "金": 0.2,
+        "土": 0.1
+      }
+    },
+    "treat_received": {
+      "label": "대접이나 선물을 받을 확률",
+      "domain": "social",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.3,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "정인": 0.6,
+        "편인": 0.4,
+        "편재": 0.4,
+        "정재": 0.3,
+        "식신": 0.3,
+        "편관": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": 0.6,
+        "half_harmony": 0.3,
+        "three_harmony_complete": 0.5,
+        "clash": -0.4,
+        "punishment": -0.3,
+        "break": -0.2,
+        "harm": -0.3
+      },
+      "element_affinity": {
+        "土": 0.2,
+        "火": 0.1
+      }
+    },
+    "meet_helper": {
+      "label": "도움 주는 사람을 만날 확률",
+      "domain": "social",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "help_flow",
+      "base_weight": 0.33,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "정인": 0.8,
+        "편인": 0.5,
+        "정관": 0.4,
+        "비견": 0.3,
+        "편관": -0.3,
+        "상관": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.6,
+        "half_harmony": 0.3,
+        "three_harmony_complete": 0.6,
+        "clash": -0.4,
+        "punishment": -0.4,
+        "break": -0.2,
+        "harm": -0.4
+      },
+      "element_affinity": {
+        "土": 0.1,
+        "木": 0.1
+      }
+    },
+    "old_contact": {
+      "label": "오래된 인연에게 연락 올 확률",
+      "domain": "news",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "incoming_news",
+      "base_weight": 0.3,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "비견": 0.5,
+        "겁재": 0.3,
+        "정인": 0.4,
+        "식신": 0.3,
+        "편관": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.7,
+        "half_harmony": 0.4,
+        "three_harmony_complete": 0.6,
+        "clash": -0.3,
+        "punishment": -0.3,
+        "break": -0.2,
+        "harm": -0.3
+      },
+      "element_affinity": {
+        "水": 0.2
+      }
+    },
+    "good_news_arrives": {
+      "label": "기다리던 소식이 올 확률",
+      "domain": "news",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "incoming_news",
+      "base_weight": 0.33,
+      "expr_confidence": 1.0,
+      "ten_god_affinity": {
+        "정인": 0.6,
+        "식신": 0.4,
+        "정관": 0.3,
+        "편인": 0.2,
+        "상관": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.5,
+        "half_harmony": 0.3,
+        "three_harmony_complete": 0.5,
+        "clash": -0.4,
+        "punishment": -0.3,
+        "break": -0.3,
+        "harm": -0.3
+      },
+      "element_affinity": {
+        "水": 0.1,
+        "木": 0.1
+      }
+    },
+    "praise_recognition": {
+      "label": "일에서 인정받을 확률",
+      "domain": "work",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.33,
+      "expr_confidence": 1.0,
+      "ten_god_affinity": {
+        "정관": 0.8,
+        "정인": 0.4,
+        "편관": 0.3,
+        "식신": 0.2,
+        "상관": -0.4,
+        "겁재": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": 0.4,
+        "half_harmony": 0.2,
+        "three_harmony_complete": 0.5,
+        "clash": -0.5,
+        "punishment": -0.5,
+        "break": -0.3,
+        "harm": -0.3
+      },
+      "element_affinity": {
+        "金": 0.1,
+        "火": 0.1
+      }
+    },
+    "love_spark": {
+      "label": "설레는 기류가 생길 확률",
+      "domain": "love",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.3,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "식신": 0.5,
+        "상관": 0.5,
+        "정재": 0.4,
+        "정관": 0.4,
+        "편재": 0.3,
+        "편관": 0.2,
+        "편인": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": 0.8,
+        "half_harmony": 0.4,
+        "three_harmony_complete": 0.6,
+        "clash": -0.4,
+        "punishment": -0.4,
+        "break": -0.3,
+        "harm": -0.4
+      },
+      "element_affinity": {
+        "火": 0.2,
+        "水": 0.1
+      }
+    },
+    "pleasant_meeting": {
+      "label": "즐거운 모임이 생길 확률",
+      "domain": "social",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.3,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "식신": 0.6,
+        "비견": 0.4,
+        "편재": 0.3,
+        "상관": 0.3,
+        "편관": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": 0.5,
+        "half_harmony": 0.4,
+        "three_harmony_complete": 0.7,
+        "clash": -0.4,
+        "punishment": -0.3,
+        "break": -0.2,
+        "harm": -0.3
+      },
+      "element_affinity": {
+        "火": 0.2
+      }
+    },
+    "document_progress": {
+      "label": "서류·계약이 순조로울 확률",
+      "domain": "document",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.3,
+      "expr_confidence": 1.0,
+      "ten_god_affinity": {
+        "정인": 0.8,
+        "정관": 0.6,
+        "편인": 0.3,
+        "상관": -0.4,
+        "겁재": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.5,
+        "half_harmony": 0.2,
+        "three_harmony_complete": 0.5,
+        "clash": -0.5,
+        "punishment": -0.4,
+        "break": -0.4,
+        "harm": -0.3
+      },
+      "element_affinity": {
+        "土": 0.1,
+        "木": 0.1
+      }
+    },
+    "teamwork_flow": {
+      "label": "부탁과 협업이 잘 풀릴 확률",
+      "domain": "work",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "help_flow",
+      "base_weight": 0.33,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "비견": 0.6,
+        "정관": 0.4,
+        "정인": 0.3,
+        "식신": 0.3,
+        "겁재": -0.3,
+        "편관": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.5,
+        "half_harmony": 0.3,
+        "three_harmony_complete": 0.6,
+        "clash": -0.4,
+        "punishment": -0.4,
+        "break": -0.3,
+        "harm": -0.4
+      },
+      "element_affinity": {
+        "木": 0.1,
+        "土": 0.1
+      }
+    },
+    "idea_flash": {
+      "label": "좋은 아이디어가 떠오를 확률",
+      "domain": "work",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.3,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "식신": 0.7,
+        "상관": 0.7,
+        "편인": 0.5,
+        "정관": -0.2,
+        "편관": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": 0.3,
+        "half_harmony": 0.2,
+        "three_harmony_complete": 0.4,
+        "clash": -0.2,
+        "punishment": -0.3,
+        "break": -0.2,
+        "harm": -0.2
+      },
+      "element_affinity": {
+        "木": 0.2,
+        "火": 0.1
+      }
+    },
+    "overspend_caution": {
+      "label": "충동구매할 확률",
+      "domain": "money",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.18,
+      "expr_confidence": 1.0,
+      "ten_god_affinity": {
+        "겁재": 0.7,
+        "편재": 0.6,
+        "상관": 0.4,
+        "비견": 0.3,
+        "정재": -0.4,
+        "정인": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": -0.2,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.2,
+        "clash": 0.4,
+        "punishment": 0.3,
+        "break": 0.3,
+        "harm": 0.3
+      },
+      "element_affinity": {
+        "火": 0.2
+      }
+    },
+    "lend_money_caution": {
+      "label": "금전 거래로 신경 쓸 확률",
+      "domain": "money",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.15,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "겁재": 0.8,
+        "비견": 0.5,
+        "편재": 0.3,
+        "정재": -0.3,
+        "정관": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": -0.2,
+        "half_harmony": 0.1,
+        "three_harmony_complete": 0.0,
+        "clash": 0.3,
+        "punishment": 0.4,
+        "break": 0.3,
+        "harm": 0.3
+      },
+      "element_affinity": {
+        "金": 0.1
+      }
+    },
+    "argument_caution": {
+      "label": "말다툼이 생길 확률",
+      "domain": "social",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "speech_trouble",
+      "base_weight": 0.18,
+      "expr_confidence": 1.0,
+      "ten_god_affinity": {
+        "상관": 0.7,
+        "편관": 0.5,
+        "겁재": 0.4,
+        "정인": -0.4,
+        "식신": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.4,
+        "half_harmony": -0.1,
+        "three_harmony_complete": -0.2,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.3,
+        "harm": 0.5
+      },
+      "element_affinity": {
+        "火": 0.2,
+        "金": 0.1
+      }
+    },
+    "misunderstanding_caution": {
+      "label": "전달이 어긋날 확률",
+      "domain": "news",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "speech_trouble",
+      "base_weight": 0.18,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편인": 0.6,
+        "상관": 0.4,
+        "편관": 0.3,
+        "정인": -0.3,
+        "식신": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": -0.1,
+        "clash": 0.4,
+        "punishment": 0.4,
+        "break": 0.4,
+        "harm": 0.5
+      },
+      "element_affinity": {
+        "水": 0.1
+      }
+    },
+    "rumor_caution": {
+      "label": "구설에 오를 확률",
+      "domain": "social",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "speech_trouble",
+      "base_weight": 0.15,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "상관": 0.6,
+        "겁재": 0.4,
+        "편관": 0.4,
+        "정인": -0.4,
+        "정관": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": -0.1,
+        "clash": 0.4,
+        "punishment": 0.5,
+        "break": 0.3,
+        "harm": 0.6
+      },
+      "element_affinity": {
+        "火": 0.1
+      }
+    },
+    "lost_item_caution": {
+      "label": "물건을 깜빡하거나 흘릴 확률",
+      "domain": "move",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.15,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "편인": 0.4,
+        "겁재": 0.4,
+        "상관": 0.3,
+        "정재": -0.3,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.2,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.0,
+        "clash": 0.4,
+        "punishment": 0.3,
+        "break": 0.5,
+        "harm": 0.3
+      },
+      "element_affinity": {
+        "水": 0.1
+      }
+    },
+    "traffic_delay_caution": {
+      "label": "이동이 꼬이거나 늦어질 확률",
+      "domain": "move",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편관": 0.3,
+        "겁재": 0.3,
+        "상관": 0.2,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.3,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {
+        "木": 0.1
+      }
+    },
+    "fatigue_caution": {
+      "label": "기운이 빠지고 지칠 확률",
+      "domain": "health",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.18,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편관": 0.7,
+        "편인": 0.4,
+        "정관": 0.3,
+        "상관": 0.3,
+        "정인": -0.3,
+        "비견": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": -0.1,
+        "clash": 0.4,
+        "punishment": 0.4,
+        "break": 0.2,
+        "harm": 0.4
+      },
+      "element_affinity": {
+        "水": 0.1,
+        "土": 0.1
+      }
+    },
+    "careless_injury_caution": {
+      "label": "부주의로 작게 다칠 확률",
+      "domain": "health",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.13,
+      "expr_confidence": 0.85,
+      "ten_god_affinity": {
+        "편관": 0.5,
+        "상관": 0.3,
+        "겁재": 0.3,
+        "정인": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": -0.1,
+        "clash": 0.5,
+        "punishment": 0.6,
+        "break": 0.3,
+        "harm": 0.4
+      },
+      "element_affinity": {
+        "金": 0.2
+      }
+    },
+    "contract_recheck_caution": {
+      "label": "서류를 다시 확인할 확률",
+      "domain": "document",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편인": 0.7,
+        "상관": 0.4,
+        "겁재": 0.2,
+        "정인": -0.3,
+        "정관": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.2,
+        "half_harmony": 0.0,
+        "three_harmony_complete": -0.1,
+        "clash": 0.3,
+        "punishment": 0.4,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {
+        "土": 0.1
+      }
+    },
+    "walk_refresh": {
+      "label": "산책 한 번에 기분이 풀릴 확률",
+      "domain": "leisure",
+      "valence": "good",
+      "slots": [
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.33,
+      "expr_confidence": 0.85,
+      "ten_god_affinity": {
+        "식신": 0.5,
+        "정인": 0.3,
+        "편인": 0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.3,
+        "half_harmony": 0.2,
+        "three_harmony_complete": 0.3,
+        "clash": 0.1,
+        "punishment": 0.0,
+        "break": 0.0,
+        "harm": 0.1
+      },
+      "element_affinity": {
+        "木": 0.2
+      }
+    },
+    "tidy_luck": {
+      "label": "정리하면 일이 풀릴 확률",
+      "domain": "leisure",
+      "valence": "good",
+      "slots": [
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.33,
+      "expr_confidence": 0.85,
+      "ten_god_affinity": {
+        "정인": 0.4,
+        "정재": 0.4,
+        "정관": 0.3,
+        "편인": 0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.2,
+        "half_harmony": 0.1,
+        "three_harmony_complete": 0.2,
+        "clash": 0.2,
+        "punishment": 0.1,
+        "break": 0.2,
+        "harm": 0.1
+      },
+      "element_affinity": {
+        "土": 0.2
+      }
+    },
+    "family_talk": {
+      "label": "가까운 사람과 대화가 잘 통할 확률",
+      "domain": "social",
+      "valence": "good",
+      "slots": [
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.33,
+      "expr_confidence": 0.85,
+      "ten_god_affinity": {
+        "정인": 0.5,
+        "비견": 0.3,
+        "식신": 0.3,
+        "편관": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.4,
+        "half_harmony": 0.2,
+        "three_harmony_complete": 0.4,
+        "clash": -0.3,
+        "punishment": -0.2,
+        "break": -0.1,
+        "harm": -0.2
+      },
+      "element_affinity": {
+        "土": 0.1,
+        "火": 0.1
+      }
+    },
+    "focus_flow": {
+      "label": "집중이 잘 될 확률",
+      "domain": "work",
+      "valence": "good",
+      "slots": [
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.33,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "정인": 0.6,
+        "편인": 0.5,
+        "식신": 0.3,
+        "편재": -0.2,
+        "겁재": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.2,
+        "half_harmony": 0.1,
+        "three_harmony_complete": 0.2,
+        "clash": -0.3,
+        "punishment": -0.2,
+        "break": -0.2,
+        "harm": -0.2
+      },
+      "element_affinity": {
+        "水": 0.1,
+        "木": 0.1
+      }
+    },
+    "small_find": {
+      "label": "우연한 발견으로 웃을 확률",
+      "domain": "leisure",
+      "valence": "good",
+      "slots": [
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.3,
+      "expr_confidence": 0.85,
+      "ten_god_affinity": {
+        "편재": 0.4,
+        "식신": 0.4,
+        "편인": 0.3,
+        "상관": 0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.3,
+        "half_harmony": 0.2,
+        "three_harmony_complete": 0.3,
+        "clash": 0.1,
+        "punishment": 0.0,
+        "break": 0.1,
+        "harm": 0.0
+      },
+      "element_affinity": {
+        "火": 0.1,
+        "水": 0.1
+      }
+    },
+    "rest_recharge": {
+      "label": "쉬어가면 좋은 날일 확률",
+      "domain": "health",
+      "valence": "good",
+      "slots": [
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.33,
+      "expr_confidence": 0.85,
+      "ten_god_affinity": {
+        "정인": 0.5,
+        "편인": 0.4,
+        "식신": 0.3,
+        "편관": 0.2,
+        "비견": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.2,
+        "half_harmony": 0.1,
+        "three_harmony_complete": 0.1,
+        "clash": 0.2,
+        "punishment": 0.2,
+        "break": 0.1,
+        "harm": 0.2
+      },
+      "element_affinity": {
+        "水": 0.2,
+        "土": 0.1
+      }
+    }
+  }
+}
