@@ -1881,6 +1881,25 @@ _RISK_EXPOSED_SECTIONS: dict[str, dict] = {
 # 하위 호환(기존 로그·테스트 참조) — 대표 섹션 ID.
 _RISK_EXPOSED_SECTION_ID = "C-06"
 
+# 위험 서술 3층 프레임 + 건강 가드(2026-07-23 데굴님 승인 D·E) — 위험 payload가
+# 실제 주입되는 섹션에만 부착한다(비주입·BYPASS 경로 프롬프트 불변). 기존 위험
+# instruction 블록(RISK_EXPOSURE_INSTRUCTION_BLOCK)은 shape 검증과 얽혀 불변 유지.
+_RISK_SECTION_LAYER_DIRECTIVE = (
+    "[위험 서술 프레임 — 3층 분리]\n"
+    "riskEpisodes 서술 순서: ①전통 해석 — classicalInterpretation을 활용해 '전통적으로 "
+    "~로 해석하기도 합니다' 형으로, 감추거나 지나치게 완화하지 말고 전달 ②이번 명식에서 "
+    "확인된 근거 — 제공된 관계·시기 근거로만 ③현실 확인 항목 — exposureCheckItems를 "
+    "확인 조건('실제로 해당 활동이 많다면 주의 수준을 높이라')으로 ④보호·반대 신호가 "
+    "있으면 함께. 세 층을 한 문장에 섞지 않는다. suddenAdversitySummary가 있으면 "
+    "'횡액'은 단독 사건이 아니라 구성 위험(componentRefs)을 함께 나열하는 묶음 설명으로만 "
+    "쓴다. '조금 조심하면 아무 문제 없다'식 상쇄 완화 금지.\n"
+    "[건강 서술 가드] 특정 질병 진단·사망·생명 위험 예측·치료 중단·약물 변경 권고 금지. "
+    "실제 증상이 있다면 의료적 확인을 안내한다. 전통 오행-신체 대응(bodyAreaHint)은 "
+    "'전통적으로 그렇게 해석한다'로만 쓰고 실제 의학 판정과 분리한다. 사고·수술을 "
+    "살(煞)·귀신·조상 등 초자연 인과로 설명하지 않는다. 사용자가 제공한 병력은 해당 "
+    "대상의 풀이에서만 쓰고 동반자 서술로 전이하지 않는다."
+)
+
 # 도메인별 전문(주 소유) 섹션 — (product 계열, domain) → 섹션 ID.
 _RISK_DOMAIN_SPECIALIST: dict[str, dict[str, str]] = {
     "health_safety": {"RPT_FULL": "F-18", "RPT_YEAR": "Y-09"},
@@ -1982,6 +2001,10 @@ def _try_risk_exposed_section(
                        "reportOwnershipRemoved": removed}
             if not kept_llm:
                 payload = None  # 이 섹션 몫 없음 — SUPPRESSED 경로
+        if payload:
+            # 3층 프레임·건강 가드(승인 D·E) — 주입 예정 섹션에만 부착
+            # (이후 base_prompt_tokens·baseline_prompt 모두 이 본문 기준).
+            body_prompt = body_prompt + "\n\n" + _RISK_SECTION_LAYER_DIRECTIVE
         inputs = _reb.exposure_runtime_inputs(call_type)
         prompt, _sys, obs = _res.apply_risk_exposure(
             body_prompt, system,

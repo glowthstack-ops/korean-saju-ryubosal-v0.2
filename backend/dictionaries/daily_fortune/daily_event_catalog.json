@@ -1,6 +1,6 @@
 {
   "schema": "daily_event_catalog.v1",
-  "version": "dict.v1",
+  "version": "dict.v1.2",
   "reviewed": false,
   "domains": [
     "money",
@@ -571,7 +571,7 @@
       "slots": [
         "caution"
       ],
-      "synonym_group": null,
+      "synonym_group": "property_security_group",
       "base_weight": 0.15,
       "expr_confidence": 0.9,
       "ten_god_affinity": {
@@ -601,7 +601,7 @@
       "slots": [
         "caution"
       ],
-      "synonym_group": null,
+      "synonym_group": "movement_safety_group",
       "base_weight": 0.15,
       "expr_confidence": 0.95,
       "ten_god_affinity": {
@@ -630,7 +630,7 @@
       "slots": [
         "caution"
       ],
-      "synonym_group": null,
+      "synonym_group": "recovery_group",
       "base_weight": 0.18,
       "expr_confidence": 0.95,
       "ten_god_affinity": {
@@ -691,7 +691,7 @@
       "slots": [
         "caution"
       ],
-      "synonym_group": null,
+      "synonym_group": "contract_recheck_group",
       "base_weight": 0.15,
       "expr_confidence": 0.95,
       "ten_god_affinity": {
@@ -891,6 +891,457 @@
       "element_affinity": {
         "水": 0.2,
         "土": 0.1
+      }
+    },
+    "travel_schedule_caution": {
+      "label": "이동 일정이 어긋나기 쉬운 확률",
+      "domain": "move",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "movement_safety_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편관": 0.3,
+        "겁재": 0.2,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {}
+    },
+    "fall_slip_caution": {
+      "label": "발밑을 조심하면 좋은 확률",
+      "domain": "health",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "movement_safety_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편관": 0.3,
+        "겁재": 0.3,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.0,
+        "clash": 0.4,
+        "punishment": 0.6,
+        "break": 0.3,
+        "harm": 0.4
+      },
+      "element_affinity": {}
+    },
+    "cut_burn_tool_caution": {
+      "label": "도구·주방에서 손을 조심할 확률",
+      "domain": "health",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "movement_safety_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편관": 0.35,
+        "상관": 0.2,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.0,
+        "clash": 0.4,
+        "punishment": 0.6,
+        "break": 0.3,
+        "harm": 0.4
+      },
+      "element_affinity": {
+        "金": 0.15,
+        "火": 0.15
+      }
+    },
+    "sports_overuse_caution": {
+      "label": "운동 중 무리가 되기 쉬운 확률",
+      "domain": "health",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "recovery_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "비견": 0.3,
+        "상관": 0.25,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.0,
+        "clash": 0.4,
+        "punishment": 0.6,
+        "break": 0.3,
+        "harm": 0.4
+      },
+      "element_affinity": {}
+    },
+    "fire_electric_check_caution": {
+      "label": "화기·전기를 점검하면 좋은 확률",
+      "domain": "health",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "home_safety_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편관": 0.3,
+        "상관": 0.2,
+        "정인": -0.15
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {
+        "火": 0.25
+      }
+    },
+    "weather_water_safety_caution": {
+      "label": "궂은 날씨 이동을 줄이면 좋은 확률",
+      "domain": "move",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "home_safety_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편관": 0.25,
+        "겁재": 0.2,
+        "정인": -0.15
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {
+        "水": 0.25
+      }
+    },
+    "belongings_security_caution": {
+      "label": "소지품을 한 번 더 챙기면 좋은 확률",
+      "domain": "money",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "property_security_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "겁재": 0.4,
+        "비견": 0.2,
+        "정재": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {}
+    },
+    "document_device_caution": {
+      "label": "서류·기기를 잘 챙기면 좋은 확률",
+      "domain": "document",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "property_security_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "겁재": 0.3,
+        "편인": 0.25,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {}
+    },
+    "account_phishing_caution": {
+      "label": "낯선 연락·링크를 조심할 확률",
+      "domain": "money",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "property_security_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "겁재": 0.35,
+        "편인": 0.2,
+        "정재": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.0,
+        "clash": 0.4,
+        "punishment": 0.6,
+        "break": 0.3,
+        "harm": 0.4
+      },
+      "element_affinity": {}
+    },
+    "home_vehicle_lock_caution": {
+      "label": "문단속·차량 점검이 좋은 확률",
+      "domain": "money",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "property_security_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "겁재": 0.3,
+        "편관": 0.2,
+        "정재": -0.15
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {}
+    },
+    "guarantee_stamp_caution": {
+      "label": "도장·보증은 책임을 확인할 확률",
+      "domain": "document",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "contract_recheck_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편재": 0.3,
+        "겁재": 0.25,
+        "정인": -0.25
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.0,
+        "clash": 0.4,
+        "punishment": 0.6,
+        "break": 0.3,
+        "harm": 0.4
+      },
+      "element_affinity": {}
+    },
+    "name_lending_caution": {
+      "label": "명의 부탁은 신중하면 좋은 확률",
+      "domain": "document",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "contract_recheck_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편재": 0.25,
+        "겁재": 0.3,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.0,
+        "clash": 0.4,
+        "punishment": 0.6,
+        "break": 0.3,
+        "harm": 0.4
+      },
+      "element_affinity": {}
+    },
+    "authorization_scope_caution": {
+      "label": "맡기고 맡은 일의 범위를 확인할 확률",
+      "domain": "document",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "contract_recheck_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편인": 0.3,
+        "상관": 0.2,
+        "정인": -0.15
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {}
+    },
+    "contract_clause_caution": {
+      "label": "문서의 작은 글씨를 확인하면 좋은 확률",
+      "domain": "document",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "contract_recheck_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편재": 0.25,
+        "편인": 0.25,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {}
+    },
+    "overexertion_recovery_caution": {
+      "label": "무리한 일정 뒤 회복이 필요한 확률",
+      "domain": "health",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "recovery_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편관": 0.3,
+        "상관": 0.25,
+        "정인": -0.25
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.0,
+        "clash": 0.4,
+        "punishment": 0.6,
+        "break": 0.3,
+        "harm": 0.4
+      },
+      "element_affinity": {}
+    },
+    "sleep_recovery_caution": {
+      "label": "잠을 잘 챙기면 좋은 확률",
+      "domain": "health",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "recovery_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편인": 0.3,
+        "상관": 0.25,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {}
+    },
+    "digestive_rhythm_caution": {
+      "label": "식사 리듬을 지키면 좋은 확률",
+      "domain": "health",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "recovery_group",
+      "base_weight": 0.15,
+      "expr_confidence": 0.95,
+      "ten_god_affinity": {
+        "편관": 0.25,
+        "편인": 0.2,
+        "정인": -0.15
+      },
+      "relation_affinity": {
+        "six_combination": -0.3,
+        "half_harmony": 0.0,
+        "three_harmony_complete": 0.1,
+        "clash": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "harm": 0.3
+      },
+      "element_affinity": {
+        "土": 0.2
       }
     }
   }

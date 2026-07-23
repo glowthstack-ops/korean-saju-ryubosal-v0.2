@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 # 버전 3분리 — content_version 은 캐시 namespace·ETag·락 키·LLM 감사 전용
 # (과거 결과의 버전별 보존 용도가 아님. 이전 키는 TTL 로 소멸한다.)
 ENGINE_VERSION = "engine.v1"
-DICT_VERSION = "dict.v1"
+DICT_VERSION = "dict.v1.2"
 PROMPT_VERSION = "polish.v1"
 CONTENT_VERSION = f"{ENGINE_VERSION}|{DICT_VERSION}|{PROMPT_VERSION}"
 

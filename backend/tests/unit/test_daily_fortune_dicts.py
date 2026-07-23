@@ -56,7 +56,7 @@ def places() -> dict[str, Any]:
 
 def test_catalog_counts_and_schema(catalog: dict[str, Any]) -> None:
     events = catalog["events"]
-    assert len(events) == 28
+    assert len(events) == 45
     by_valence = {"good": 0, "caution": 0}
     support_only = 0
     for key, ev in events.items():
@@ -75,7 +75,7 @@ def test_catalog_counts_and_schema(catalog: dict[str, Any]) -> None:
         if ev["slots"] == ["support"]:
             support_only += 1
     # good 12 + support 전용 6(모두 valence=good) = 18, caution 10
-    assert by_valence["caution"] == 10
+    assert by_valence["caution"] == 27
     assert by_valence["good"] == 18
     assert support_only == 6
 
@@ -155,13 +155,13 @@ def test_synonym_groups_consistent(catalog: dict[str, Any]) -> None:
 
 def test_places_schema(places: dict[str, Any]) -> None:
     entries = places["places"]
-    assert len(entries) == 20
+    assert len(entries) == 40
     for key, pl in entries.items():
         assert pl["element"] in _ELEMENTS, key
         assert pl["name"], key
         assert set(pl["domains"]) <= _DOMAINS, key
-    # 오행별 4개씩 고르게
+    # 오행별 8개씩 고르게
     by_el: dict[str, int] = {}
     for pl in entries.values():
         by_el[pl["element"]] = by_el.get(pl["element"], 0) + 1
-    assert all(v == 4 for v in by_el.values()), by_el
+    assert all(v == 8 for v in by_el.values()), by_el
