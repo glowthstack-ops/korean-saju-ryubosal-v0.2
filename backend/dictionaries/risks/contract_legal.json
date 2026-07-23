@@ -1075,6 +1075,563 @@
       "primaryOwnership": {
         "axis": "legal"
       }
+    },
+    {
+      "riskId": "LEG_GUARANTEE_STAMP_RISK",
+      "domain": "contract_legal",
+      "kind": "incident_risk",
+      "riskFamily": "document_liability",
+      "relatedDomains": [],
+      "specificityRank": 3,
+      "baseImpact": 0.6,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.45,
+          "id": "LEG_GUARANTEE_STAMP_RISK_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.4,
+          "id": "LEG_GUARANTEE_STAMP_RISK_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "LEG_GUARANTEE_STAMP_RISK_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "LEG_GUARANTEE_STAMP_RISK_A1"
+        },
+        {
+          "voidActive": true,
+          "strength": 0.25,
+          "id": "LEG_GUARANTEE_STAMP_RISK_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "LEG_GUARANTEE_STAMP_RISK_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "보증·도장·서명의 책임 범위 재확인이 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "패소·처벌 단정",
+        "보증 사고 단정",
+        "명의 도용 단정"
+      ],
+      "allowedClaimScope": [
+        "보증·연대 책임 범위 확인 권고",
+        "서명 전 문서 재검토 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "confirmed_required",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false
+      },
+      "classicalInterpretation": "재극인이나 인성 손상이 강한 시기를 전통적으로 금전 문제 때문에 문서나 약속을 충분히 검토하지 못하는 때로 해석하기도 합니다. 특히 보증·도장·명의 사용이 예정되어 있다면 책임 범위를 다시 확인할 자료로 볼 수 있습니다.",
+      "note": "승인 스펙 LEG_GUARANTEE_STAMP_RISK — 최소 증거: 문서·권한 구조 신호+금전·책임 신호+실제 보증·서명 노출(confirmed_required)+독립 원인 2. 인성 충극·재극인 하나만으로 활성화 금지(승인 조건 3).",
+      "reviewed": false,
+      "exposureContext": [
+        "보증·연대 서명 예정",
+        "도장·인감 사용 예정",
+        "명의 제공 요청"
+      ]
+    },
+    {
+      "riskId": "LEG_NAME_LENDING_LIABILITY",
+      "domain": "contract_legal",
+      "kind": "incident_risk",
+      "riskFamily": "document_liability",
+      "relatedDomains": [],
+      "specificityRank": 3,
+      "baseImpact": 0.6,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.45,
+          "id": "LEG_NAME_LENDING_LIABILITY_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.4,
+          "id": "LEG_NAME_LENDING_LIABILITY_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "LEG_NAME_LENDING_LIABILITY_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "LEG_NAME_LENDING_LIABILITY_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "LEG_NAME_LENDING_LIABILITY_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "명의·계좌·사업자 명의 제공의 책임 확인이 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "패소·처벌 단정",
+        "보증 사고 단정",
+        "명의 도용 단정"
+      ],
+      "allowedClaimScope": [
+        "명의 제공 전 법적 책임 확인 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "confirmed_required",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false
+      },
+      "classicalInterpretation": "명의를 뜻하는 인성이 눌리고 금전 압박이 겹치는 때를 전통적으로 남의 일에 이름을 빌려주어 부담을 지기 쉬운 흐름으로 해석하기도 합니다.",
+      "note": "승인 스펙 NAME_LENDING_LIABILITY — 명의 대여·공동명의·계좌 대여·사업자 명의 제공.",
+      "reviewed": false,
+      "exposureContext": [
+        "명의 대여 요청",
+        "공동명의 계획",
+        "계좌·사업자등록 명의 제공"
+      ]
+    },
+    {
+      "riskId": "LEG_AUTHORIZATION_SCOPE_ERROR",
+      "domain": "contract_legal",
+      "kind": "incident_risk",
+      "riskFamily": "document_liability",
+      "relatedDomains": [],
+      "specificityRank": 3,
+      "baseImpact": 0.5,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.45,
+          "id": "LEG_AUTHORIZATION_SCOPE_ERROR_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.4,
+          "id": "LEG_AUTHORIZATION_SCOPE_ERROR_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "LEG_AUTHORIZATION_SCOPE_ERROR_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "LEG_AUTHORIZATION_SCOPE_ERROR_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "LEG_AUTHORIZATION_SCOPE_ERROR_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "위임·대리권·권한 범위 재확인이 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "패소·처벌 단정",
+        "보증 사고 단정",
+        "명의 도용 단정"
+      ],
+      "allowedClaimScope": [
+        "위임 범위·만료 확인 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "문서와 권한의 신호가 어긋나는 때를 전통적으로 절차와 권한이 뒤엉켜 일이 꼬이기 쉬운 흐름으로 해석하기도 합니다.",
+      "note": "승인 스펙 AUTHORIZATION_SCOPE_ERROR — 위임장·대리권·전자서명·관리자 권한 범위 오류.",
+      "reviewed": false,
+      "exposureContext": [
+        "위임장 작성",
+        "대리 업무 수행",
+        "전자서명·권한 관리"
+      ]
+    },
+    {
+      "riskId": "LEG_INSURANCE_CLAIM_DOCUMENT_ISSUE",
+      "domain": "contract_legal",
+      "kind": "incident_risk",
+      "riskFamily": "document_liability",
+      "relatedDomains": [],
+      "specificityRank": 3,
+      "baseImpact": 0.45,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.45,
+          "id": "LEG_INSURANCE_CLAIM_DOCUMENT_ISSUE_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.4,
+          "id": "LEG_INSURANCE_CLAIM_DOCUMENT_ISSUE_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "LEG_INSURANCE_CLAIM_DOCUMENT_ISSUE_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "LEG_INSURANCE_CLAIM_DOCUMENT_ISSUE_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "LEG_INSURANCE_CLAIM_DOCUMENT_ISSUE_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "보험·보상 청구 서류의 꼼꼼한 준비가 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "패소·처벌 단정",
+        "보증 사고 단정",
+        "명의 도용 단정"
+      ],
+      "allowedClaimScope": [
+        "청구 서류·기한 확인 권고"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "문서 신호가 눌린 시기의 청구·보상 절차를 전통적으로 서류 누락이나 다툼이 생기기 쉬운 흐름으로 해석하기도 합니다.",
+      "note": "승인 스펙 INSURANCE_CLAIM_DOCUMENT_ISSUE.",
+      "reviewed": false,
+      "exposureContext": [
+        "보험 청구 진행",
+        "보상·배상 협의"
+      ]
+    },
+    {
+      "riskId": "LEG_SETTLEMENT_RESPONSIBILITY_EXPANSION",
+      "domain": "contract_legal",
+      "kind": "incident_risk",
+      "riskFamily": "document_liability",
+      "relatedDomains": [
+        "finance"
+      ],
+      "specificityRank": 3,
+      "baseImpact": 0.55,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.45,
+          "id": "LEG_SETTLEMENT_RESPONSIBILITY_EXPANSION_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.4,
+          "id": "LEG_SETTLEMENT_RESPONSIBILITY_EXPANSION_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "LEG_SETTLEMENT_RESPONSIBILITY_EXPANSION_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "LEG_SETTLEMENT_RESPONSIBILITY_EXPANSION_A1"
+        },
+        {
+          "voidActive": true,
+          "strength": 0.25,
+          "id": "LEG_SETTLEMENT_RESPONSIBILITY_EXPANSION_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "LEG_SETTLEMENT_RESPONSIBILITY_EXPANSION_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "책임·정산 범위가 예상보다 커지지 않는지 점검할 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "패소·처벌 단정",
+        "보증 사고 단정",
+        "명의 도용 단정"
+      ],
+      "allowedClaimScope": [
+        "책임 범위 문서화 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false
+      },
+      "classicalInterpretation": "형(刑)이 활성화된 시기의 다툼·정산을 전통적으로 처음 예상보다 책임이 확대되기 쉬운 흐름으로 해석하기도 합니다.",
+      "note": "승인 스펙 SETTLEMENT_OR_RESPONSIBILITY_EXPANSION — 기존 FIN_SETTLEMENT_DISPUTE(정산 분쟁)와 같은 원인이면 대표 1건 선택(승인 조건 12). CONTRACT_OMISSION_OR_AMBIGUITY는 기존 LEG_DOCUMENT_ERROR 재사용.",
+      "reviewed": false
     }
   ]
 }

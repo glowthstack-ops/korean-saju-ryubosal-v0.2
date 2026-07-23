@@ -791,6 +791,32 @@ _RISK_EFFECT_ROLES = (
 # R1 백로그(우호 합·복음은 계속 거부). 파·해를 충·형과 동일 강도로 기계 적용 금지.
 _RISK_TARGETED_RELATIONS = ("CHUNG", "HYEONG")
 
+# 상대 신살 매칭 기준 지지(2026-07-23 사고수 확장 — 승인 조건 1).
+_RISK_STAR_REFERENCES = ("day_branch", "year_branch")
+
+
+class RiskRelativeStarMatch(_AliasModel):
+    """상대 신살 매칭 조건 — 글자살(寅申巳亥 보유) 판정 금지(2026-07-23 승인 조건 1).
+
+    기준 지지(연지·일지)의 삼합국으로 산출한 **실제 신살 글자**와 관계 발동의 피자극
+    글자를 대조한다. 일반적인 사생지 충돌 필터는 branchSetIn을 쓴다(역마 아님).
+    현재 star는 YEOKMA만 지원한다.
+    """
+
+    star: str  # 'YEOKMA'
+    reference: list[str] = Field(default_factory=lambda: list(_RISK_STAR_REFERENCES))
+
+    @model_validator(mode="after")
+    def _validate_star(self) -> RiskRelativeStarMatch:
+        if self.star != "YEOKMA":
+            raise ValueError(f"relativeStarMatch star 미지원: {self.star}")
+        if not self.reference:
+            raise ValueError("relativeStarMatch reference 비어 있음")
+        for ref in self.reference:
+            if ref not in _RISK_STAR_REFERENCES:
+                raise ValueError(f"relativeStarMatch reference 값 오류: {ref}")
+        return self
+
 
 class RiskRuleSpec(_AliasModel):
     """위험 룰 1건 — 조건은 전부 AND. 최소 1개 조건 필수(무조건 룰 금지).
@@ -820,6 +846,15 @@ class RiskRuleSpec(_AliasModel):
     polarity_role_in: list[str] | None = Field(default=None, alias="polarityRoleIn")
     void_active: bool | None = Field(default=None, alias="voidActive")
     twelve_stage_in: list[str] | None = Field(default=None, alias="twelveStageIn")
+    # 사고수 확장(2026-07-23) — 관계 발동의 피자극 글자 정밀 필터 2종. 둘 다 relation과
+    # 함께만 쓴다(관계 hit 필터). 역마 정밀 판정은 relativeStarMatch(상대 계산)가 담당하고,
+    # branchSetIn은 일반 이동성 지지(사생지) 필터 전용이다 — branchSetIn만으로 역마를
+    # 판정하지 않는다(승인 조건 1). relationTypeIn은 스키마 침습을 피해 관계별 룰 분리
+    # (CHUNG 룰+HYEONG 룰, evidenceContract anyOf)로 동등 표현한다.
+    branch_set_in: list[str] | None = Field(default=None, alias="branchSetIn")
+    relative_star_match: RiskRelativeStarMatch | None = Field(
+        default=None, alias="relativeStarMatch",
+    )
 
     @model_validator(mode="after")
     def _validate_rule(self) -> RiskRuleSpec:
@@ -887,6 +922,16 @@ class RiskRuleSpec(_AliasModel):
             or self.relation_target_letter is not None
         ) and self.relation is None:
             raise ValueError(f"relationTarget*은 relation과 함께만 쓴다: {self.id}")
+        # 사고수 확장 필터(2026-07-23) — 관계 hit 필터라 relation 없이 단독 사용 금지.
+        if (self.branch_set_in is not None or self.relative_star_match is not None) and (
+            self.relation is None
+        ):
+            raise ValueError(
+                f"branchSetIn/relativeStarMatch는 relation과 함께만 쓴다: {self.id}"
+            )
+        for b in self.branch_set_in or []:
+            if b not in {br.value for br in Branch}:
+                raise ValueError(f"branchSetIn 값 오류(지지 한자 아님): {b} ({self.id})")
         if self.relation_target_letter is not None and self.relation_target_letter not in (
             {s.value for s in Stem} | {b.value for b in Branch}
         ):
@@ -1219,6 +1264,17 @@ class RiskItem(_AliasModel):
     allowed_claim_scope: list[str] = Field(alias="allowedClaimScope", default_factory=list)
     claim_ceiling: str | None = Field(default=None, alias="claimCeiling")
     note: str | None = None
+    # 사고수 확장(2026-07-23 승인) — 3층 출력(전통 해석/판정 근거/현실 확인) 재료.
+    # classicalInterpretation: '~해석하기도 합니다' 형 전통 해석(단정·질병명 금지 — lint).
+    # modernApplication: 전통 신호의 현대적 적용 설명(계정 보안 등 — 전통이 그 사건을
+    # 직접 의미하지 않음을 명시). bodyAreaHint: 전통 오행-신체 대응 힌트(진단 아님).
+    # exposureContext: 현실 노출 예시 목록(R3 확인 질문·조건부 표현 재료).
+    classical_interpretation: str | None = Field(
+        default=None, alias="classicalInterpretation",
+    )
+    modern_application: str | None = Field(default=None, alias="modernApplication")
+    body_area_hint: str | None = Field(default=None, alias="bodyAreaHint")
+    exposure_context: list[str] = Field(alias="exposureContext", default_factory=list)
     reviewed: bool
     # 감수 범위 메타데이터(감수 5차 — 누적 구조): 항목은 여러 단계 감수를 순차 통과한다.
     # shadow_structure는 사전 구조·shadow 감수 완료를 뜻하며 사용자 노출 승인이 아니다
@@ -2217,6 +2273,19 @@ def _lint_risk_mapping(rel: str, file: RiskMappingFile) -> list[str]:
         ]
         if len(rule_ids) != len(set(rule_ids)):
             errors.append(f"{rel}: 룰 id 중복 — {item.risk_id}")
+        # 사고수 확장(2026-07-23) — 전통 해석 3층 재료의 비단정 프레임 강제.
+        if item.classical_interpretation is not None:
+            if "해석" not in item.classical_interpretation:
+                errors.append(
+                    f"{rel}: classicalInterpretation 비단정 프레임('해석하기도') 누락 — "
+                    f"{item.risk_id}"
+                )
+            if len(item.classical_interpretation) > 300:
+                errors.append(
+                    f"{rel}: classicalInterpretation 300자 초과 — {item.risk_id}"
+                )
+        if item.modern_application is not None and len(item.modern_application) > 300:
+            errors.append(f"{rel}: modernApplication 300자 초과 — {item.risk_id}")
         if (
             item.kind == "incident_risk"
             and item.evidence_contract is None

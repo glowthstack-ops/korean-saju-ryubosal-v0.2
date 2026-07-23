@@ -1014,6 +1014,698 @@
       "primaryOwnership": {
         "axis": "none"
       }
+    },
+    {
+      "riskId": "FIN_PERSONAL_BELONGINGS_LOSS",
+      "domain": "finance",
+      "kind": "incident_risk",
+      "riskFamily": "property_security",
+      "relatedDomains": [],
+      "specificityRank": 3,
+      "baseImpact": 0.4,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "wealth",
+          "strength": 0.45,
+          "id": "FIN_PERSONAL_BELONGINGS_LOSS_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "wealth",
+          "strength": 0.4,
+          "id": "FIN_PERSONAL_BELONGINGS_LOSS_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "peer",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_PERSONAL_BELONGINGS_LOSS_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_PERSONAL_BELONGINGS_LOSS_A1"
+        },
+        {
+          "voidActive": true,
+          "strength": 0.25,
+          "id": "FIN_PERSONAL_BELONGINGS_LOSS_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "FIN_PERSONAL_BELONGINGS_LOSS_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "소지품 분실·도난 주의가 필요한 시기"
+        },
+        {
+          "id": "m2",
+          "ko": "귀중품 관리 점검이 유용한 흐름"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "도난 발생 단정",
+        "침입 예고",
+        "특정 인물 지목"
+      ],
+      "allowedClaimScope": [
+        "소지품·귀중품 관리 점검 권고",
+        "혼잡 장소 주의 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "재성이 약해지고 비겁의 경쟁·충돌 신호가 강해지는 때를 전통적으로 소지품 손실이나 재물 이탈로 해석하기도 합니다.",
+      "note": "사고수 확장 33종(2026-07-23) — 승인 스펙 PERSONAL_BELONGINGS_LOSS. UNKNOWN 노출은 '도난 예상'이 아니라 '소지품·계정 보안 점검' 톤(C-2).",
+      "reviewed": false,
+      "exposureContext": [
+        "이동이 많음",
+        "붐비는 장소",
+        "출장·여행",
+        "음주 모임",
+        "이사",
+        "고가 물품 휴대"
+      ]
+    },
+    {
+      "riskId": "FIN_DOCUMENT_DEVICE_LOSS",
+      "domain": "finance",
+      "kind": "incident_risk",
+      "riskFamily": "property_security",
+      "relatedDomains": [],
+      "specificityRank": 3,
+      "baseImpact": 0.45,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.45,
+          "id": "FIN_DOCUMENT_DEVICE_LOSS_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.4,
+          "id": "FIN_DOCUMENT_DEVICE_LOSS_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_DOCUMENT_DEVICE_LOSS_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_DOCUMENT_DEVICE_LOSS_A1"
+        },
+        {
+          "voidActive": true,
+          "strength": 0.25,
+          "id": "FIN_DOCUMENT_DEVICE_LOSS_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "FIN_DOCUMENT_DEVICE_LOSS_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "신분증·서류·업무 기기 분실·훼손 주의 시기"
+        },
+        {
+          "id": "m2",
+          "ko": "백업·보관 점검이 유용한 흐름"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "도난 발생 단정",
+        "침입 예고",
+        "특정 인물 지목"
+      ],
+      "allowedClaimScope": [
+        "서류·기기 백업 점검 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "문서를 뜻하는 인성이 충극당하는 시기를 전통적으로 서류·문서의 분실이나 훼손 주의로 해석하기도 합니다.",
+      "note": "승인 스펙 DOCUMENT_DEVICE_LOSS — 저장매체·업무 기기는 문서 물상의 현대적 적용.",
+      "reviewed": false,
+      "modernApplication": "전통 신호의 '문서'를 신분증·계약서·저장매체·업무 기기로 확장 적용한다 — 특정 기기 고장을 예측하지 않는다."
+    },
+    {
+      "riskId": "FIN_HOME_PROPERTY_INTRUSION",
+      "domain": "finance",
+      "kind": "incident_risk",
+      "riskFamily": "property_security",
+      "relatedDomains": [],
+      "specificityRank": 3,
+      "baseImpact": 0.55,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "wealth",
+          "strength": 0.45,
+          "id": "FIN_HOME_PROPERTY_INTRUSION_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "wealth",
+          "strength": 0.4,
+          "id": "FIN_HOME_PROPERTY_INTRUSION_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "peer",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_HOME_PROPERTY_INTRUSION_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_HOME_PROPERTY_INTRUSION_A1"
+        },
+        {
+          "voidActive": true,
+          "strength": 0.25,
+          "id": "FIN_HOME_PROPERTY_INTRUSION_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "FIN_HOME_PROPERTY_INTRUSION_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "집·차량·보관 공간의 보안 점검이 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "도난 발생 단정",
+        "침입 예고",
+        "특정 인물 지목",
+        "침입 발생 단정"
+      ],
+      "allowedClaimScope": [
+        "잠금·보안 상태 점검 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false
+      },
+      "classicalInterpretation": "재물 궁이 강하게 충극당하며 보호 신호가 약한 때를 전통적으로 재물 침탈 주의 시기로 해석하기도 합니다.",
+      "note": "승인 스펙 HOME_PROPERTY_INTRUSION — 직접 침입 경고는 구조 신호만으로 노출 금지(unknownExposable=false): 이사·공실·장기 부재·보안 취약 등 노출 확인+독립 원인 2 필요.",
+      "reviewed": false,
+      "exposureContext": [
+        "이사·공실·장기 부재",
+        "보안 취약 상태",
+        "차량·보관 공간 노출"
+      ]
+    },
+    {
+      "riskId": "FIN_ACCOUNT_SECURITY_COMPROMISE",
+      "domain": "finance",
+      "kind": "incident_risk",
+      "riskFamily": "property_security",
+      "relatedDomains": [],
+      "specificityRank": 3,
+      "baseImpact": 0.5,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.45,
+          "id": "FIN_ACCOUNT_SECURITY_COMPROMISE_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.4,
+          "id": "FIN_ACCOUNT_SECURITY_COMPROMISE_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_ACCOUNT_SECURITY_COMPROMISE_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_ACCOUNT_SECURITY_COMPROMISE_A1"
+        },
+        {
+          "voidActive": true,
+          "strength": 0.25,
+          "id": "FIN_ACCOUNT_SECURITY_COMPROMISE_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "FIN_ACCOUNT_SECURITY_COMPROMISE_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "계정·인증 보안 점검이 필요한 시기"
+        },
+        {
+          "id": "m2",
+          "ko": "결제 수단 관리 주의 흐름"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "도난 발생 단정",
+        "침입 예고",
+        "특정 인물 지목",
+        "해킹 발생 단정"
+      ],
+      "allowedClaimScope": [
+        "비밀번호·인증 점검 권고",
+        "의심 링크 주의 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "재물과 문서 권한이 함께 흔들리는 때를 전통적으로 재물 보호와 명의 관리에 주의할 시기로 해석하기도 합니다.",
+      "note": "승인 스펙 ACCOUNT_SECURITY_COMPROMISE.",
+      "reviewed": false,
+      "modernApplication": "전통 명리 신호는 디지털 해킹을 직접 의미하지 않는다 — '재물 보호·문서 권한·명의 관리'의 현대적 적용(계정·피싱·결제정보)으로만 서술한다."
+    },
+    {
+      "riskId": "FIN_IDENTITY_OR_NAME_MISUSE",
+      "domain": "finance",
+      "kind": "incident_risk",
+      "riskFamily": "property_security",
+      "relatedDomains": [],
+      "specificityRank": 3,
+      "baseImpact": 0.5,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.45,
+          "id": "FIN_IDENTITY_OR_NAME_MISUSE_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.4,
+          "id": "FIN_IDENTITY_OR_NAME_MISUSE_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_IDENTITY_OR_NAME_MISUSE_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_IDENTITY_OR_NAME_MISUSE_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "FIN_IDENTITY_OR_NAME_MISUSE_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "명의·신분증 사용처 점검이 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "도난 발생 단정",
+        "침입 예고",
+        "특정 인물 지목",
+        "명의 도용 단정"
+      ],
+      "allowedClaimScope": [
+        "명의·인증수단 공유 주의 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false
+      },
+      "classicalInterpretation": "인성(명의·문서)이 눌리고 비겁 경쟁이 겹치는 때를 전통적으로 명의·권한 관리에 주의할 시기로 해석하기도 합니다.",
+      "note": "승인 스펙 IDENTITY_OR_NAME_MISUSE — 명의 대여·사본 오용·대리계약·인증 공유 문맥. LEG_NAME_LENDING_LIABILITY(책임 축)와 family가 다르며 같은 원인이면 대표 1건(승인 조건 12).",
+      "reviewed": false
+    },
+    {
+      "riskId": "FIN_FRAUD_ASSISTED_PROPERTY_LOSS",
+      "domain": "finance",
+      "kind": "incident_risk",
+      "riskFamily": "property_security",
+      "relatedDomains": [],
+      "specificityRank": 3,
+      "baseImpact": 0.55,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "wealth",
+          "strength": 0.45,
+          "id": "FIN_FRAUD_ASSISTED_PROPERTY_LOSS_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "wealth",
+          "strength": 0.4,
+          "id": "FIN_FRAUD_ASSISTED_PROPERTY_LOSS_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "peer",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_FRAUD_ASSISTED_PROPERTY_LOSS_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "FIN_FRAUD_ASSISTED_PROPERTY_LOSS_A1"
+        },
+        {
+          "voidActive": true,
+          "strength": 0.25,
+          "id": "FIN_FRAUD_ASSISTED_PROPERTY_LOSS_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "FIN_FRAUD_ASSISTED_PROPERTY_LOSS_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "event_shape",
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 도난·보증·사기형은 단일 신호로 적격 금지 — 구조 신호+금전·책임 신호+독립 원인 2"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "제안·거래 검증이 특히 필요한 시기"
+        },
+        {
+          "id": "m2",
+          "ko": "송금·결제 전 확인이 유용한 흐름"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "도난 발생 단정",
+        "침입 예고",
+        "특정 인물 지목",
+        "사기 피해 단정"
+      ],
+      "allowedClaimScope": [
+        "거래 상대·조건 검증 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "비겁·식상이 강해 남의 조언을 듣지 않거나, 재물 욕심이 앞서는 구조를 전통적으로 속임수에 취약한 흐름으로 해석하기도 합니다.",
+      "note": "승인 스펙 FRAUD_ASSISTED_PROPERTY_LOSS — 실제 금전 손실이 대표 결과면 FIN 기존 항목(FIN_INVESTMENT_LOSS 등)이 대표가 되고 본 항목은 보조 원인으로 흡수(승인 B-2).",
+      "reviewed": false
     }
   ]
 }

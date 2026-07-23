@@ -38,7 +38,7 @@
     "high": 4,
     "low": 26,
     "medium": 14,
-    "none": 5
+    "none": 38
   },
   "transition_sensitivity_high": {
     "CAR_HIRING_OUTCOME_SETBACK": {
@@ -59,7 +59,7 @@
     }
   },
   "reviewed_total": 49,
-  "unreviewed_total": 0,
+  "unreviewed_total": 33,
   "reviewed_by_scope": {
     "shadow_presentation": 49,
     "shadow_scoring": 49,
@@ -74,15 +74,15 @@
     },
     "contract_legal": {
       "reviewed": 7,
-      "unreviewed": 0
+      "unreviewed": 5
     },
     "finance": {
       "reviewed": 7,
-      "unreviewed": 0
+      "unreviewed": 6
     },
     "health_safety": {
       "reviewed": 8,
-      "unreviewed": 0
+      "unreviewed": 22
     },
     "relationship": {
       "reviewed": 7,
@@ -148,5 +148,39 @@
     "SEL_UNWANTED_PLACEMENT",
     "SEL_WAITLIST_PROLONGATION"
   ],
-  "unreviewed_risk_ids": []
+  "unreviewed_risk_ids": [
+    "FIN_ACCOUNT_SECURITY_COMPROMISE",
+    "FIN_DOCUMENT_DEVICE_LOSS",
+    "FIN_FRAUD_ASSISTED_PROPERTY_LOSS",
+    "FIN_HOME_PROPERTY_INTRUSION",
+    "FIN_IDENTITY_OR_NAME_MISUSE",
+    "FIN_PERSONAL_BELONGINGS_LOSS",
+    "HLT_BURN_HEAT_INJURY",
+    "HLT_COLD_FLUID_BURDEN",
+    "HLT_CUT_PUNCTURE_INJURY",
+    "HLT_DIGESTIVE_APPETITE_BURDEN",
+    "HLT_FALL_SLIP_INJURY",
+    "HLT_FIRE_ELECTRICITY_HAZARD",
+    "HLT_HEAT_INFLAMMATORY_BURDEN",
+    "HLT_IMPACT_CRUSH_INJURY",
+    "HLT_MACHINERY_TOOL_ACCIDENT",
+    "HLT_MEDICATION_ROUTINE_DISRUPTION",
+    "HLT_MUSCULOSKELETAL_BURDEN",
+    "HLT_PEDESTRIAN_CROWD_ACCIDENT_RISK",
+    "HLT_REPETITIVE_OVERUSE_INJURY",
+    "HLT_RESPIRATORY_SKIN_SENSITIVITY",
+    "HLT_SLEEP_RECOVERY_DECLINE",
+    "HLT_SPORT_EXERCISE_INJURY",
+    "HLT_STRESS_PHYSICAL_BURDEN",
+    "HLT_TRANSPORT_COLLISION_RISK",
+    "HLT_TRAVEL_DISRUPTION_RISK",
+    "HLT_VEHICLE_MECHANICAL_CHECK_RISK",
+    "HLT_WATER_WEATHER_HAZARD",
+    "HLT_WORKPLACE_SAFETY_INCIDENT",
+    "LEG_AUTHORIZATION_SCOPE_ERROR",
+    "LEG_GUARANTEE_STAMP_RISK",
+    "LEG_INSURANCE_CLAIM_DOCUMENT_ISSUE",
+    "LEG_NAME_LENDING_LIABILITY",
+    "LEG_SETTLEMENT_RESPONSIBILITY_EXPANSION"
+  ]
 }

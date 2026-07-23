@@ -621,6 +621,27 @@ class EventEngineV2:
         self._risk_shadow_health = health_contexts
         self._risk_shadow_legal = legal_contexts
 
+    @staticmethod
+    def _yeokma_reference_sets(result: ManseV2Result) -> dict[str, set[str]]:
+        """기준 지지(연·일지)별 실제 역마 글자 — 삼합국 상대 계산(사고수 확장 2026-07-23).
+
+        글자살(寅申巳亥 보유)로 판정하지 않는다(승인 조건 1). relativeStarMatch 룰이
+        이 집합과 피자극 글자를 대조한다. pillars 부재 시 빈 dict(fail-closed).
+        """
+        pillars = result.pillars
+        if pillars is None:
+            return {}
+        from .relationship_relative_sinsal import get_relative_sinsal
+        out: dict[str, set[str]] = {}
+        for ref, pil in (("year_branch", pillars.year), ("day_branch", pillars.day)):
+            if pil is None:
+                continue
+            out[ref] = {
+                b.value for b in Branch
+                if get_relative_sinsal(Branch(pil.branch), b).sinsal == "역마살"
+            }
+        return out
+
     def _collect_risk_shadow(
         self,
         result: ManseV2Result,
@@ -665,6 +686,7 @@ class EventEngineV2:
                 target, fav_map, stem_element=hwa_el, stem_bound=stem_bound,
             ),
             twelve_stage=_stage_of(target),
+            yeokma_by_reference=self._yeokma_reference_sets(result),
         )
         _sink = getattr(self._risk_tls, "sink", None)
         if _sink is None:  # score() 밖 직접 호출(테스트 등) — 레거시 경로

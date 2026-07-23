@@ -1115,6 +1115,2458 @@
       "primaryOwnership": {
         "axis": "health"
       }
+    },
+    {
+      "riskId": "HLT_TRANSPORT_COLLISION_RISK",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.6,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relativeStarMatch": {
+            "star": "YEOKMA",
+            "reference": [
+              "day_branch",
+              "year_branch"
+            ]
+          },
+          "strength": 0.5,
+          "id": "HLT_TRANSPORT_COLLISION_RISK_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relativeStarMatch": {
+            "star": "YEOKMA",
+            "reference": [
+              "day_branch",
+              "year_branch"
+            ]
+          },
+          "strength": 0.45,
+          "id": "HLT_TRANSPORT_COLLISION_RISK_TA2"
+        },
+        {
+          "group": "event_shape",
+          "relation": "CHUNG",
+          "relationPalace": "hour_pillar",
+          "strength": 0.4,
+          "id": "HLT_TRANSPORT_COLLISION_RISK_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_TRANSPORT_COLLISION_RISK_A1"
+        },
+        {
+          "twelveStageIn": [
+            "BYEONG",
+            "SA",
+            "MYO"
+          ],
+          "strength": 0.3,
+          "id": "HLT_TRANSPORT_COLLISION_RISK_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_TRANSPORT_COLLISION_RISK_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 사고·부상형은 충 하나·신살 하나만으로 적격 금지 — 독립 원인 2 요구"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "이동·운전 중 방어적 태도가 특히 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고",
+        "충돌 발생 단정"
+      ],
+      "allowedClaimScope": [
+        "방어운전 권고",
+        "이동 일정 여유 확보 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false
+      },
+      "classicalInterpretation": "실제 역마가 충을 받는 시기를 전통적으로 이동 중 사고수, 교통상의 돌발 변수로 해석하기도 합니다.",
+      "note": "승인 스펙 TRANSPORT_COLLISION_RISK — 역마는 relativeStarMatch(연·일지 삼합국 상대 계산)로만 판정(승인 조건 1). 차량·운송 '사건'의 대표는 MOV_VEHICLE_TRANSPORT_ISSUE, 본 항목은 신체 안전 축. 운전 미노출 사용자에게 직접 경고 차단(H 검증).",
+      "reviewed": false,
+      "exposureContext": [
+        "운전·장거리 이동",
+        "오토바이·자전거·킥보드",
+        "대중교통 장시간 이용"
+      ],
+      "applicableMobilityTargetTypes": [
+        "vehicle_use",
+        "travel_transport",
+        "commute_change"
+      ],
+      "absorbedRoleHint": "impact_amplifier"
+    },
+    {
+      "riskId": "HLT_TRAVEL_DISRUPTION_RISK",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.4,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relativeStarMatch": {
+            "star": "YEOKMA",
+            "reference": [
+              "day_branch",
+              "year_branch"
+            ]
+          },
+          "strength": 0.5,
+          "id": "HLT_TRAVEL_DISRUPTION_RISK_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relativeStarMatch": {
+            "star": "YEOKMA",
+            "reference": [
+              "day_branch",
+              "year_branch"
+            ]
+          },
+          "strength": 0.45,
+          "id": "HLT_TRAVEL_DISRUPTION_RISK_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "voidActive": true,
+          "strength": 0.25,
+          "id": "HLT_TRAVEL_DISRUPTION_RISK_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_TRAVEL_DISRUPTION_RISK_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "이동·여행 일정의 변경·지연 대비가 유용한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "일정 여유·예비 경로 권고",
+        "소지품 확인 권고"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "역마가 형·충으로 흔들리는 시기를 전통적으로 출장·여행·이사 과정의 일정 급변이나 반복되는 번거로움으로 해석하기도 합니다.",
+      "note": "승인 스펙 TRAVEL_DISRUPTION_RISK — 일반 이동 압박(required_for_warning, 조건부 유지).",
+      "reviewed": false,
+      "applicableMobilityTargetTypes": [
+        "travel_transport",
+        "residential_move",
+        "temporary_stay"
+      ]
+    },
+    {
+      "riskId": "HLT_PEDESTRIAN_CROWD_ACCIDENT_RISK",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.5,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relativeStarMatch": {
+            "star": "YEOKMA",
+            "reference": [
+              "day_branch",
+              "year_branch"
+            ]
+          },
+          "strength": 0.5,
+          "id": "HLT_PEDESTRIAN_CROWD_ACCIDENT_RISK_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relativeStarMatch": {
+            "star": "YEOKMA",
+            "reference": [
+              "day_branch",
+              "year_branch"
+            ]
+          },
+          "strength": 0.45,
+          "id": "HLT_PEDESTRIAN_CROWD_ACCIDENT_RISK_TA2"
+        },
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_PEDESTRIAN_CROWD_ACCIDENT_RISK_TA3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_PEDESTRIAN_CROWD_ACCIDENT_RISK_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_PEDESTRIAN_CROWD_ACCIDENT_RISK_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 사고·부상형은 충 하나·신살 하나만으로 적격 금지 — 독립 원인 2 요구"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "보행·혼잡 장소에서 주변 확인이 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "보행 중 주의 권고",
+        "혼잡 시간대 회피 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "이동 신호와 신체 피격 신호가 겹치는 때를 전통적으로 보행·혼잡 속 부딪힘 주의 시기로 해석하기도 합니다.",
+      "note": "승인 스펙 PEDESTRIAN_CROWD_ACCIDENT_RISK.",
+      "reviewed": false,
+      "exposureContext": [
+        "행사장·역사 등 밀집 장소",
+        "도보 이동 많음"
+      ]
+    },
+    {
+      "riskId": "HLT_VEHICLE_MECHANICAL_CHECK_RISK",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.4,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationPalace": "hour_pillar",
+          "strength": 0.4,
+          "id": "HLT_VEHICLE_MECHANICAL_CHECK_RISK_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationPalace": "hour_pillar",
+          "strength": 0.35,
+          "id": "HLT_VEHICLE_MECHANICAL_CHECK_RISK_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "twelveStageIn": [
+            "BYEONG",
+            "SA",
+            "MYO"
+          ],
+          "strength": 0.3,
+          "id": "HLT_VEHICLE_MECHANICAL_CHECK_RISK_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_VEHICLE_MECHANICAL_CHECK_RISK_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "이동 수단 점검 항목을 넓히면 좋은 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고",
+        "기계 고장 예측 표현"
+      ],
+      "allowedClaimScope": [
+        "차량·장비 점검 권고"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false
+      },
+      "classicalInterpretation": "이동 수단 궁(시주)이 흔들리는 시기를 전통적으로 탈것의 점검이 필요한 때로 해석하기도 합니다.",
+      "note": "승인 스펙 VEHICLE_MECHANICAL_CHECK_RISK — 명리 신호가 기계 고장을 예측한다고 표현하지 않고, 이동 위험 시기에 점검 항목을 확장하는 방식(승인 B-4). 차량 사건 대표는 MOV.",
+      "reviewed": false,
+      "applicableMobilityTargetTypes": [
+        "vehicle_use"
+      ],
+      "absorbedRoleHint": "impact_amplifier"
+    },
+    {
+      "riskId": "HLT_FALL_SLIP_INJURY",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.45,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_FALL_SLIP_INJURY_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_FALL_SLIP_INJURY_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGod": "QISHA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.3,
+          "id": "HLT_FALL_SLIP_INJURY_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_FALL_SLIP_INJURY_A1"
+        },
+        {
+          "twelveStageIn": [
+            "BYEONG",
+            "SA",
+            "MYO"
+          ],
+          "strength": 0.3,
+          "id": "HLT_FALL_SLIP_INJURY_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_FALL_SLIP_INJURY_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 사고·부상형은 충 하나·신살 하나만으로 적격 금지 — 독립 원인 2 요구"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "계단·욕실·미끄러운 바닥에서 조심할 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "미끄럼 주의 권고",
+        "안전 손잡이·조명 점검 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "신체를 뜻하는 비겁이 충·형으로 피격되는 때를 전통적으로 넘어짐·미끄러짐 주의 시기로 해석하기도 합니다.",
+      "note": "승인 스펙 FALL_SLIP_INJURY.",
+      "reviewed": false,
+      "bodyAreaHint": "근골격(넘어짐·접질림) — 진단 아님",
+      "exposureContext": [
+        "빙판·우천",
+        "높은 곳 작업",
+        "욕실·계단 이용 잦음"
+      ]
+    },
+    {
+      "riskId": "HLT_CUT_PUNCTURE_INJURY",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.4,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_CUT_PUNCTURE_INJURY_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_CUT_PUNCTURE_INJURY_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGod": "QISHA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.3,
+          "id": "HLT_CUT_PUNCTURE_INJURY_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_CUT_PUNCTURE_INJURY_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_CUT_PUNCTURE_INJURY_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 사고·부상형은 충 하나·신살 하나만으로 적격 금지 — 독립 원인 2 요구"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "칼·유리·공구 사용 시 집중이 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "도구 사용 주의 권고",
+        "보호 장갑 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "예리한 금(金) 기운의 충돌을 전통적으로 베임·찔림 주의로 해석하기도 합니다. 실제 다침을 뜻하지 않습니다.",
+      "note": "승인 스펙 CUT_PUNCTURE_INJURY — 오행 세분(金 예기)은 R1 백로그, 현 트리거는 신체 피격 공용.",
+      "reviewed": false,
+      "bodyAreaHint": "피부·손(베임·찔림) — 진단 아님",
+      "exposureContext": [
+        "조리·공구 작업 잦음",
+        "유리·금속 취급"
+      ]
+    },
+    {
+      "riskId": "HLT_BURN_HEAT_INJURY",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.4,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_BURN_HEAT_INJURY_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_BURN_HEAT_INJURY_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGod": "QISHA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.3,
+          "id": "HLT_BURN_HEAT_INJURY_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_BURN_HEAT_INJURY_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_BURN_HEAT_INJURY_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 사고·부상형은 충 하나·신살 하나만으로 적격 금지 — 독립 원인 2 요구"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "불·뜨거운 것을 다룰 때 주의가 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "고온 작업 주의 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "화(火) 기운이 과열된 시기의 신체 피격을 전통적으로 화상·열탈 주의로 해석하기도 합니다. 실제 다침을 뜻하지 않습니다.",
+      "note": "승인 스펙 BURN_HEAT_INJURY — 오행 세분은 R1 백로그.",
+      "reviewed": false,
+      "bodyAreaHint": "피부(화상·열 부담) — 진단 아님",
+      "exposureContext": [
+        "조리·고온 작업",
+        "불·가열 기구 사용"
+      ]
+    },
+    {
+      "riskId": "HLT_IMPACT_CRUSH_INJURY",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.4,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_IMPACT_CRUSH_INJURY_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_IMPACT_CRUSH_INJURY_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGod": "QISHA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.3,
+          "id": "HLT_IMPACT_CRUSH_INJURY_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_IMPACT_CRUSH_INJURY_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_IMPACT_CRUSH_INJURY_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 사고·부상형은 충 하나·신살 하나만으로 적격 금지 — 독립 원인 2 요구"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "부딪힘·끼임을 조심할 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "문·장비 조작 주의 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "충(衝)의 물상을 전통적으로 부딪히고 눌리는 충격 주의로 해석하기도 합니다. 실제 다침을 뜻하지 않습니다.",
+      "note": "승인 스펙 IMPACT_CRUSH_INJURY.",
+      "reviewed": false,
+      "bodyAreaHint": "타박·압박 부위 — 진단 아님"
+    },
+    {
+      "riskId": "HLT_MACHINERY_TOOL_ACCIDENT",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.55,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_MACHINERY_TOOL_ACCIDENT_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_MACHINERY_TOOL_ACCIDENT_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGod": "QISHA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.3,
+          "id": "HLT_MACHINERY_TOOL_ACCIDENT_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_MACHINERY_TOOL_ACCIDENT_A1"
+        },
+        {
+          "twelveStageIn": [
+            "BYEONG",
+            "SA",
+            "MYO"
+          ],
+          "strength": 0.3,
+          "id": "HLT_MACHINERY_TOOL_ACCIDENT_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_MACHINERY_TOOL_ACCIDENT_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 사고·부상형은 충 하나·신살 하나만으로 적격 금지 — 독립 원인 2 요구"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "기계·장비 작업 절차 준수가 특히 중요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "보호구 착용 권고",
+        "작업 절차 점검 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false,
+        "requiresPhysicalDemand": true
+      },
+      "classicalInterpretation": "신체 피격과 제어 약화가 겹치는 때를 전통적으로 연장·기계를 다루다 다치기 쉬운 흐름으로 해석하기도 합니다.",
+      "note": "승인 스펙 MACHINERY_TOOL_ACCIDENT — 실제 기계·공구 작업 노출 없이 구체 사건 노출 금지(requiresPhysicalDemand).",
+      "reviewed": false,
+      "exposureContext": [
+        "산업 장비·공구 작업",
+        "DIY 작업"
+      ],
+      "applicableHealthContextTypes": [
+        "physical_workload"
+      ]
+    },
+    {
+      "riskId": "HLT_SPORT_EXERCISE_INJURY",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.4,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_SPORT_EXERCISE_INJURY_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_SPORT_EXERCISE_INJURY_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGod": "QISHA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.3,
+          "id": "HLT_SPORT_EXERCISE_INJURY_ES3"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "twelveStageIn": [
+            "BYEONG",
+            "SA",
+            "MYO"
+          ],
+          "strength": 0.3,
+          "id": "HLT_SPORT_EXERCISE_INJURY_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_SPORT_EXERCISE_INJURY_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 사고·부상형은 충 하나·신살 하나만으로 적격 금지 — 독립 원인 2 요구"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "운동 강도 조절과 준비 운동이 중요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "준비운동·강도 조절 권고"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "신체 피격 신호가 있는 시기의 격한 활동을 전통적으로 무리한 움직임의 부상 주의로 해석하기도 합니다.",
+      "note": "승인 스펙 SPORT_EXERCISE_INJURY.",
+      "reviewed": false,
+      "bodyAreaHint": "근육·관절 — 진단 아님",
+      "exposureContext": [
+        "격한 운동·등산·레저 계획"
+      ]
+    },
+    {
+      "riskId": "HLT_REPETITIVE_OVERUSE_INJURY",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.35,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_REPETITIVE_OVERUSE_INJURY_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_REPETITIVE_OVERUSE_INJURY_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "twelveStageIn": [
+            "BYEONG",
+            "SA",
+            "MYO"
+          ],
+          "strength": 0.3,
+          "id": "HLT_REPETITIVE_OVERUSE_INJURY_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_REPETITIVE_OVERUSE_INJURY_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "반복 작업의 누적 부담을 살필 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "스트레칭·휴식 배분 권고"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "같은 자리가 반복해 눌리는 신호를 전통적으로 근육·관절의 누적 부담으로 해석하기도 합니다.",
+      "note": "승인 스펙 REPETITIVE_OVERUSE_INJURY.",
+      "reviewed": false,
+      "bodyAreaHint": "근골격(누적 부담) — 진단 아님"
+    },
+    {
+      "riskId": "HLT_WORKPLACE_SAFETY_INCIDENT",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.55,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_WORKPLACE_SAFETY_INCIDENT_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_WORKPLACE_SAFETY_INCIDENT_TA2"
+        },
+        {
+          "group": "event_shape",
+          "tenGod": "QISHA",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.3,
+          "id": "HLT_WORKPLACE_SAFETY_INCIDENT_ES3"
+        },
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relativeStarMatch": {
+            "star": "YEOKMA",
+            "reference": [
+              "day_branch",
+              "year_branch"
+            ]
+          },
+          "strength": 0.5,
+          "id": "HLT_WORKPLACE_SAFETY_INCIDENT_TA4"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_WORKPLACE_SAFETY_INCIDENT_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_WORKPLACE_SAFETY_INCIDENT_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 2,
+        "candidatePolicy": "multi_cause_only",
+        "rationale": "승인 C-2(2026-07-23): 사고·부상형은 충 하나·신살 하나만으로 적격 금지 — 독립 원인 2 요구"
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "작업 환경 안전 수칙 준수가 특히 중요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "보호장비 착용 권고",
+        "현장 이동 주의 권고"
+      ],
+      "claimCeiling": "conditional_warning",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false,
+        "requiresPhysicalDemand": true
+      },
+      "classicalInterpretation": "신체 피격과 이동 신호가 작업 환경에서 겹치는 때를 전통적으로 현장 사고 주의 시기로 해석하기도 합니다.",
+      "note": "승인 스펙 WORKPLACE_SAFETY_INCIDENT — 실제 현장 근무 노출 확인 필요.",
+      "reviewed": false,
+      "exposureContext": [
+        "현장·교대 근무",
+        "보호장비 사용 작업"
+      ],
+      "applicableHealthContextTypes": [
+        "physical_workload"
+      ]
+    },
+    {
+      "riskId": "HLT_FIRE_ELECTRICITY_HAZARD",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.45,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_FIRE_ELECTRICITY_HAZARD_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_FIRE_ELECTRICITY_HAZARD_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_FIRE_ELECTRICITY_HAZARD_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_FIRE_ELECTRICITY_HAZARD_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "화기·전기 사용 환경 점검이 유용한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고",
+        "화재 발생 단정"
+      ],
+      "allowedClaimScope": [
+        "누전·과열 점검 권고"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "화(火)의 과열 물상을 전통적으로 불·전기 관련 환경을 점검할 시기로 해석하기도 합니다.",
+      "note": "승인 스펙 FIRE_ELECTRICITY_HAZARD — 계절·환경 노출 없이 구체 사건 노출 금지(승인 B-5).",
+      "reviewed": false,
+      "exposureContext": [
+        "전열기·가열 기구 상시 사용",
+        "노후 배선 환경"
+      ]
+    },
+    {
+      "riskId": "HLT_WATER_WEATHER_HAZARD",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "accident_injury",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.45,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relativeStarMatch": {
+            "star": "YEOKMA",
+            "reference": [
+              "day_branch",
+              "year_branch"
+            ]
+          },
+          "strength": 0.5,
+          "id": "HLT_WATER_WEATHER_HAZARD_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_WATER_WEATHER_HAZARD_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_WATER_WEATHER_HAZARD_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_WATER_WEATHER_HAZARD_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "악천후·물가 활동의 안전 확인이 유용한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고",
+        "침수·재해 단정"
+      ],
+      "allowedClaimScope": [
+        "악천후 이동 자제 권고"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "수(水)의 범람 물상을 전통적으로 비·물과 관련된 이동·활동을 조심할 시기로 해석하기도 합니다.",
+      "note": "승인 스펙 WATER_WEATHER_HAZARD — 계절·날씨·활동 노출과 결합해서만 구체화(승인 B-5).",
+      "reviewed": false,
+      "exposureContext": [
+        "장마·폭우 시기 이동",
+        "수상 활동 계획"
+      ]
+    },
+    {
+      "riskId": "HLT_SLEEP_RECOVERY_DECLINE",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "health_burden",
+      "relatedDomains": [],
+      "specificityRank": 1,
+      "baseImpact": 0.35,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.35,
+          "id": "HLT_SLEEP_RECOVERY_DECLINE_TA1"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "output",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.3,
+          "id": "HLT_SLEEP_RECOVERY_DECLINE_ES2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_SLEEP_RECOVERY_DECLINE_A1"
+        },
+        {
+          "twelveStageIn": [
+            "BYEONG",
+            "SA",
+            "MYO"
+          ],
+          "strength": 0.3,
+          "id": "HLT_SLEEP_RECOVERY_DECLINE_A2"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_SLEEP_RECOVERY_DECLINE_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "수면의 질과 회복 리듬을 살필 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "수면 루틴 점검 권고"
+      ],
+      "claimCeiling": "advisory",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "회복을 뜻하는 인성이 눌리고 발산(식상)이 과한 때를 전통적으로 잠들기 어렵고 회복이 더딘 흐름으로 해석하기도 합니다.",
+      "note": "승인 스펙 SLEEP_RECOVERY_DECLINE.",
+      "reviewed": false,
+      "applicableHealthContextTypes": [
+        "sleep_schedule_load",
+        "general_wellness"
+      ]
+    },
+    {
+      "riskId": "HLT_STRESS_PHYSICAL_BURDEN",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "health_burden",
+      "relatedDomains": [],
+      "specificityRank": 1,
+      "baseImpact": 0.35,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.35,
+          "id": "HLT_STRESS_PHYSICAL_BURDEN_TA1"
+        },
+        {
+          "group": "event_shape",
+          "tenGodGroup": "authority",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_STRESS_PHYSICAL_BURDEN_ES2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_STRESS_PHYSICAL_BURDEN_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_STRESS_PHYSICAL_BURDEN_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "긴장·압박이 몸에 얹히지 않게 살필 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "긴장 완화 루틴 권고"
+      ],
+      "claimCeiling": "advisory",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "관살의 압박이 강해지는 때를 전통적으로 긴장이 몸의 컨디션으로 번지는 흐름으로 해석하기도 합니다.",
+      "note": "승인 스펙 STRESS_PHYSICAL_BURDEN.",
+      "reviewed": false,
+      "applicableHealthContextTypes": [
+        "general_wellness"
+      ]
+    },
+    {
+      "riskId": "HLT_DIGESTIVE_APPETITE_BURDEN",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "health_burden",
+      "relatedDomains": [],
+      "specificityRank": 1,
+      "baseImpact": 0.3,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_DIGESTIVE_APPETITE_BURDEN_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_DIGESTIVE_APPETITE_BURDEN_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "twelveStageIn": [
+            "BYEONG",
+            "SA",
+            "MYO"
+          ],
+          "strength": 0.3,
+          "id": "HLT_DIGESTIVE_APPETITE_BURDEN_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_DIGESTIVE_APPETITE_BURDEN_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "소화·식욕 리듬을 살필 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "식사 리듬 점검 권고"
+      ],
+      "claimCeiling": "advisory",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "토(土)의 요동을 전통적으로 소화·위장과 생활 리듬의 불편 가능성으로 해석하기도 합니다. 실제 질환을 뜻하지 않습니다.",
+      "note": "승인 스펙 DIGESTIVE_APPETITE_BURDEN.",
+      "reviewed": false,
+      "bodyAreaHint": "소화·위장(전통 土 대응) — 진단 아님",
+      "applicableHealthContextTypes": [
+        "general_wellness"
+      ]
+    },
+    {
+      "riskId": "HLT_MUSCULOSKELETAL_BURDEN",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "health_burden",
+      "relatedDomains": [],
+      "specificityRank": 1,
+      "baseImpact": 0.3,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_MUSCULOSKELETAL_BURDEN_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_MUSCULOSKELETAL_BURDEN_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "twelveStageIn": [
+            "BYEONG",
+            "SA",
+            "MYO"
+          ],
+          "strength": 0.3,
+          "id": "HLT_MUSCULOSKELETAL_BURDEN_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_MUSCULOSKELETAL_BURDEN_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "허리·목·어깨·관절의 부담을 살필 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "자세·스트레칭 점검 권고"
+      ],
+      "claimCeiling": "advisory",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "목(木)의 눌림을 전통적으로 근육·힘줄 계통의 부담과 연결해 해석하기도 합니다. 실제 질환을 뜻하지 않습니다.",
+      "note": "승인 스펙 MUSCULOSKELETAL_BURDEN.",
+      "reviewed": false,
+      "bodyAreaHint": "근육·힘줄·관절(전통 木 대응) — 진단 아님",
+      "applicableHealthContextTypes": [
+        "general_wellness",
+        "physical_workload"
+      ]
+    },
+    {
+      "riskId": "HLT_RESPIRATORY_SKIN_SENSITIVITY",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "health_burden",
+      "relatedDomains": [],
+      "specificityRank": 1,
+      "baseImpact": 0.3,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_RESPIRATORY_SKIN_SENSITIVITY_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_RESPIRATORY_SKIN_SENSITIVITY_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_RESPIRATORY_SKIN_SENSITIVITY_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_RESPIRATORY_SKIN_SENSITIVITY_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "호흡기·피부의 건조 민감성을 살필 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "가습·보습 등 환경 관리 권고"
+      ],
+      "claimCeiling": "advisory",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "금(金)의 손상을 전통적으로 호흡기·피부의 민감성과 연결해 해석하기도 합니다. 실제 질환을 뜻하지 않습니다.",
+      "note": "승인 스펙 RESPIRATORY_SKIN_SENSITIVITY.",
+      "reviewed": false,
+      "bodyAreaHint": "호흡기·피부(전통 金 대응) — 진단 아님",
+      "applicableHealthContextTypes": [
+        "general_wellness"
+      ]
+    },
+    {
+      "riskId": "HLT_HEAT_INFLAMMATORY_BURDEN",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "health_burden",
+      "relatedDomains": [],
+      "specificityRank": 1,
+      "baseImpact": 0.3,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_HEAT_INFLAMMATORY_BURDEN_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_HEAT_INFLAMMATORY_BURDEN_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG"
+          ],
+          "strength": 0.35,
+          "id": "HLT_HEAT_INFLAMMATORY_BURDEN_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_HEAT_INFLAMMATORY_BURDEN_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "과열감·염증성 불편을 살필 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "수분·휴식 관리 권고"
+      ],
+      "claimCeiling": "advisory",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "화(火)의 과열을 전통적으로 열감·염증성 컨디션 부담으로 해석하기도 합니다. 실제 질환을 뜻하지 않습니다.",
+      "note": "승인 스펙 HEAT_INFLAMMATORY_BURDEN.",
+      "reviewed": false,
+      "bodyAreaHint": "순환·열(전통 火 대응) — 진단 아님",
+      "applicableHealthContextTypes": [
+        "general_wellness"
+      ]
+    },
+    {
+      "riskId": "HLT_COLD_FLUID_BURDEN",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "health_burden",
+      "relatedDomains": [],
+      "specificityRank": 1,
+      "baseImpact": 0.3,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_COLD_FLUID_BURDEN_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "HYEONG",
+          "relationTargetTenGodGroup": "peer",
+          "strength": 0.4,
+          "id": "HLT_COLD_FLUID_BURDEN_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "twelveStageIn": [
+            "BYEONG",
+            "SA",
+            "MYO"
+          ],
+          "strength": 0.3,
+          "id": "HLT_COLD_FLUID_BURDEN_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_COLD_FLUID_BURDEN_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "냉감·부종감·수분 대사를 살필 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "보온·순환 관리 권고"
+      ],
+      "claimCeiling": "advisory",
+      "exposurePolicy": {
+        "requirement": "required_for_warning",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": true
+      },
+      "classicalInterpretation": "수(水)의 냉습을 전통적으로 냉감·부종감·수분대사의 불편과 연결해 해석하기도 합니다. 실제 질환을 뜻하지 않습니다.",
+      "note": "승인 스펙 COLD_FLUID_BURDEN.",
+      "reviewed": false,
+      "bodyAreaHint": "신장·비뇨·수분대사(전통 水 대응) — 진단 아님",
+      "applicableHealthContextTypes": [
+        "general_wellness"
+      ]
+    },
+    {
+      "riskId": "HLT_MEDICATION_ROUTINE_DISRUPTION",
+      "domain": "health_safety",
+      "kind": "pressure",
+      "riskFamily": "health_burden",
+      "relatedDomains": [],
+      "specificityRank": 2,
+      "baseImpact": 0.4,
+      "triggerRules": [
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relativeStarMatch": {
+            "star": "YEOKMA",
+            "reference": [
+              "day_branch",
+              "year_branch"
+            ]
+          },
+          "strength": 0.5,
+          "id": "HLT_MEDICATION_ROUTINE_DISRUPTION_TA1"
+        },
+        {
+          "group": "target_activation",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.35,
+          "id": "HLT_MEDICATION_ROUTINE_DISRUPTION_TA2"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "voidActive": true,
+          "strength": 0.25,
+          "id": "HLT_MEDICATION_ROUTINE_DISRUPTION_A1"
+        }
+      ],
+      "mitigatorRules": [
+        {
+          "polarityRoleIn": [
+            "YONG",
+            "YONG_STRONG",
+            "HEE",
+            "HAN_GOOD"
+          ],
+          "strength": 0.5,
+          "id": "HLT_MEDICATION_ROUTINE_DISRUPTION_M1"
+        }
+      ],
+      "blockerRules": [],
+      "minimumEvidence": {
+        "triggerCount": 1,
+        "independentSourceCount": 1
+      },
+      "evidenceContract": {
+        "anyOf": [
+          {
+            "allOfGroups": [
+              "target_activation"
+            ]
+          }
+        ],
+        "minIndependentCauses": 1
+      },
+      "manifestations": [
+        {
+          "id": "m1",
+          "ko": "일정 변화 속 복약·관리 루틴을 지킬 장치가 필요한 시기"
+        }
+      ],
+      "prohibitedClaims": [
+        "사건 발생 단정",
+        "시점 확정",
+        "공포 조장 표현",
+        "초자연 원인 서술",
+        "질병명 단정",
+        "발병 단정",
+        "사망·중병 암시",
+        "의료 진단 대체 표현",
+        "수술·입원 단정",
+        "사고 발생 단정",
+        "부상 단정",
+        "치료 중단·약물 변경 권고"
+      ],
+      "allowedClaimScope": [
+        "복약 알림·체크리스트 권고"
+      ],
+      "claimCeiling": "watch",
+      "exposurePolicy": {
+        "requirement": "required_for_exposure",
+        "unknownAction": "retain_structural_candidate",
+        "claimCeilingWhenUnknown": "advisory",
+        "deniedAction": "block",
+        "notApplicableAction": "block",
+        "unknownExposable": false,
+        "requiresTreatmentProcess": true
+      },
+      "classicalInterpretation": "이동·변동 신호가 강한 시기를 전통적으로 규칙적인 관리 루틴이 흐트러지기 쉬운 흐름으로 해석하기도 합니다.",
+      "note": "승인 스펙 MEDICATION_ROUTINE_DISRUPTION — 약물 변경·중단 권고 금지. 치료 진행 확인 시에만(requiresTreatmentProcess).",
+      "reviewed": false,
+      "applicableHealthContextTypes": [
+        "treatment_process"
+      ]
     }
   ]
 }

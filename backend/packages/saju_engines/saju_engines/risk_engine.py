@@ -11,6 +11,7 @@ RiskCandidate 생성까지. 점수(6축)·기간 병합(RiskEpisode)·risk_level
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,6 +47,13 @@ from .dictionaries import (
 
 # 극성 사실은 특정 운 층위가 아니라 시점(기간) 전체의 판정이다 — 근거 layer 표기용.
 _PERIOD_LAYER = "period"
+
+# 지지 충 고정 6쌍(양방향) — relativeStarMatch의 '역마 운 유입' 방향 판정용
+# (manse_core BRANCH_CLASHES와 동일 목록·이 계층은 manse_core 미의존이라 상수 유지).
+_CLASH_PARTNER: dict[str, str] = {
+    "子": "午", "午": "子", "丑": "未", "未": "丑", "寅": "申", "申": "寅",
+    "卯": "酉", "酉": "卯", "辰": "戌", "戌": "辰", "巳": "亥", "亥": "巳",
+}
 # kind → 기본 특이도(사전 specificityRank 미지정 시): 구체 대상 사건은 사전에서 3 명시.
 _KIND_SPECIFICITY = {"incident_risk": 2, "vulnerability": 1, "pressure": 0}
 
@@ -137,7 +145,9 @@ def cause_atoms(source: str) -> frozenset[str]:
     return frozenset(source.split("&"))
 
 
-def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandidate]:
+def _apply_specificity_suppression(
+    cands: list[RiskCandidate], reviewed_by_id: dict[str, bool] | None = None,
+) -> list[RiskCandidate]:
     """특이도 우선 억제 — 동일 기간·동일 risk_family에서 원인을 공유하면 가장 구체적인
     후보를 대표로 남기고 하위 일반 후보를 흡수한다(2026-07-15 감수).
 
@@ -224,6 +234,15 @@ def _apply_specificity_suppression(cands: list[RiskCandidate]) -> list[RiskCandi
                 # 노출 적격성 가드(_exposure_ok)와 독립인 이유: 양쪽 모두 비노출인
                 # 조합(취약성 vs 미확인 압박)에서도 취약성이 대표가 되면 안 된다.
                 if primary.kind is RiskKind.VULNERABILITY:
+                    continue
+                # 감수 우선 가드(사고수 확장, 2026-07-23): 미감수(reviewed:false)
+                # shadow 등록 항목은 감수 완료 항목을 흡수할 수 없다 — 대량 등록이
+                # 기존 감수 행동(대표 선정·활성 집계)을 승격 전에 바꾸지 못하게 하는
+                # 게이트다. 반대 방향(감수 항목이 미감수 후보 흡수)은 허용.
+                if reviewed_by_id is not None and (
+                    not reviewed_by_id.get(primary.risk_id, True)
+                    and reviewed_by_id.get(c.risk_id, True)
+                ):
                     continue
                 if c.specificity_rank >= primary.specificity_rank:
                     continue  # 동률은 억제하지 않는다(서로 다른 구체 사건 병존 허용).
@@ -937,6 +956,12 @@ class RawPeriodFacts:
     void_active: bool  # 공망 활성(충발·해공 포함 상태 아님 — 활성 여부만)
     polarity_role: PolarityRole  # 시점 유입 글자의 용기신 극성(化/制 반영)
     twelve_stage: TwelveStage | None  # 대상 기둥 지지 12운성
+    # 상대 신살(2026-07-23 사고수 확장) — 기준 지지별 실제 역마 글자 집합.
+    # {"year_branch": {"寅"}, "day_branch": {"申"}} 형태. 글자살(寅申巳亥 보유) 판정
+    # 금지(승인 조건 1) — 호출부(event_engine_v2)가 삼합국 상대 계산으로 채운다.
+    yeokma_by_reference: dict[str, frozenset[str]] = dataclasses.field(
+        default_factory=dict
+    )
 
 
 _ROLE_SECTIONS: tuple[tuple[EvidenceRole, str], ...] = (
@@ -977,6 +1002,10 @@ class RiskEngine:
                 json.loads(path.read_text(encoding="utf-8"))
             )
             self._items.extend(file.items)
+        # 감수 상태 맵(사고수 확장, 2026-07-23) — 미감수 항목의 감수 항목 흡수 차단용.
+        self._reviewed_by_id: dict[str, bool] = {
+            item.risk_id: item.reviewed for item in self._items
+        }
 
     # ── 공개 API ─────────────────────────────────────────────────
 
@@ -1238,7 +1267,7 @@ class RiskEngine:
                         {a for e in triggers for a in cause_atoms(e.source)}
                     ),
                 ))
-        return _apply_specificity_suppression(out)
+        return _apply_specificity_suppression(out, self._reviewed_by_id)
 
     @staticmethod
     def _evaluate(
@@ -1358,6 +1387,28 @@ class RiskEngine:
                 ]
             if rule.relation_target_letter is not None:
                 hits = [r for r in hits if r.target_letter == rule.relation_target_letter]
+            # 사고수 확장(2026-07-23) — 피자극 글자 필터 2종. 원인 서명은 그대로
+            # 관계 사실이다(star 조건을 서명에 넣지 않음 — 같은 충의 동일 원인 판정
+            # 유지, 승인 조건 12 동일 원인 중복 방지).
+            if rule.branch_set_in is not None:
+                allowed_b = set(rule.branch_set_in)
+                hits = [r for r in hits if r.target_letter in allowed_b]
+            if rule.relative_star_match is not None:
+                star_letters: set[str] = set()
+                for ref in rule.relative_star_match.reference:
+                    star_letters |= facts.yeokma_by_reference.get(ref, frozenset())
+                if not star_letters:
+                    return None  # 상대 신살 정보 부재 — fail-closed(글자살 폴백 금지)
+                # 충은 쌍이 고정이라 '역마 글자가 운에서 들어와 원국을 충'하는 방향도
+                # 피자극 글자의 충 상대가 역마인지로 판정한다. 형은 원국 역마 피격만.
+                hits = [
+                    r for r in hits
+                    if r.target_letter is not None and (
+                        r.target_letter in star_letters
+                        or (kind is RelationKind.CHUNG
+                            and _CLASH_PARTNER.get(r.target_letter) in star_letters)
+                    )
+                ]
             if not hits:
                 return None
             # 정규화된 대상 서명(감수 9차) — 독립 대상 판정을 '다른 글자'가 아니라
@@ -1416,8 +1467,13 @@ def build_raw_period_facts(
     void_active: bool,
     polarity_role: PolarityRole,
     twelve_stage: TwelveStage | None,
+    yeokma_by_reference: dict[str, set[str]] | None = None,
 ) -> RawPeriodFacts:
-    """원시 사실 재료 → RawPeriodFacts 스냅샷(불변화)."""
+    """원시 사실 재료 → RawPeriodFacts 스냅샷(불변화).
+
+    yeokma_by_reference: 기준 지지별 실제 역마 글자(사고수 확장, 2026-07-23) —
+        미제공 시 relativeStarMatch 룰은 매칭되지 않는다(fail-closed).
+    """
     return RawPeriodFacts(
         period_key=period_key,
         layer=layer,
@@ -1426,6 +1482,9 @@ def build_raw_period_facts(
         void_active=void_active,
         polarity_role=polarity_role,
         twelve_stage=twelve_stage,
+        yeokma_by_reference={
+            k: frozenset(v) for k, v in (yeokma_by_reference or {}).items()
+        },
     )
 
 
