@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from saju_shared_types.daily_fortune import DailyFortuneBoard
+from saju_shared_types.daily_fortune import DailyFortuneBoard, DailyIljuFortune
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,22 @@ THREADS_EXPORT_PATH = _REPO_ROOT / "오늘의운세.txt"
 
 _MEDALS = ("🥇", "🥈", "🥉", "🏅", "🏅")
 _SLOT_LABEL = {"good": "좋은 흐름", "caution": "주의", "support": "도움"}
+
+# 천간 그룹 정렬 — 화면(StemTabs)과 동일한 갑→계 순서·라벨. 그룹 내부는
+# 보드 순서(60갑자 순)를 유지한다(탭 안 표시 순서와 동일).
+_STEM_ORDER = ("갑", "을", "병", "정", "무", "기", "경", "신", "임", "계")
+_STEM_LABEL = {
+    "갑": "갑목",
+    "을": "을목",
+    "병": "병화",
+    "정": "정화",
+    "무": "무토",
+    "기": "기토",
+    "경": "경금",
+    "신": "신금",
+    "임": "임수",
+    "계": "계수",
+}
 
 
 def render_threads_text(board: DailyFortuneBoard) -> str:
@@ -42,16 +58,33 @@ def render_threads_text(board: DailyFortuneBoard) -> str:
             medal = _MEDALS[i] if i < len(_MEDALS) else "•"
             lines.append(f"{medal} {i + 1}. {ko_by_ilju.get(ilju, ilju)}일주")
         lines.append("")
-    for f in board.fortunes:
-        lines.append(f"■ {f.ilju_ko}일주")
-        lines.append(f"{f.headline}")
+    def _fortune_block(f: DailyIljuFortune) -> list[str]:
+        block = [f"■ {f.ilju_ko}일주", f"{f.headline}"]
         for ev in f.events:
             label = _SLOT_LABEL.get(ev.slot, ev.slot)
-            lines.append(f"- {label}: {ev.phrase} ({ev.probability}%)")
-        lines.append(f"- 행운의 장소: {f.lucky_place.phrase}")
+            block.append(f"- {label}: {ev.phrase} ({ev.probability}%)")
+        block.append(f"- 행운의 장소: {f.lucky_place.phrase}")
         if f.lotto_phrase:
-            lines.append(f"- {f.lotto_phrase}")
+            block.append(f"- {f.lotto_phrase}")
+        block.append("")
+        return block
+
+    # 천간 그룹 순서(갑→계)로 정렬 — 그룹 내부는 보드 순서(60갑자 순) 유지.
+    by_stem: dict[str, list[DailyIljuFortune]] = {}
+    for f in board.fortunes:
+        by_stem.setdefault(f.day_stem_ko, []).append(f)
+    for stem in _STEM_ORDER:
+        group = by_stem.pop(stem, [])
+        if not group:
+            continue
+        lines.append(f"══ {_STEM_LABEL[stem]}({group[0].ilju[0]}) 일주 ══")
         lines.append("")
+        for f in group:
+            lines.extend(_fortune_block(f))
+    # 예상 밖 천간(이론상 없음)이 남으면 누락 없이 말미에 보존한다.
+    for group in by_stem.values():
+        for f in group:
+            lines.extend(_fortune_block(f))
     return "\n".join(lines).rstrip() + "\n"
 
 
