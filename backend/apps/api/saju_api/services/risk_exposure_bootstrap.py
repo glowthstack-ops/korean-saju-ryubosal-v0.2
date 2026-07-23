@@ -294,6 +294,9 @@ def build_risk_payload(
                 "modern": item.get("modernApplication"),
                 "bodyArea": item.get("bodyAreaHint"),
                 "exposureContext": item.get("exposureContext", []),
+                # 베타 관측(2026-07-23 데굴님 결정 — 감수 대신 실서비스 베타 검증):
+                # 미감수 항목 노출을 감사 기록에서 구분한다(diagnostics 전용).
+                "reviewed": bool(item.get("reviewed", False)),
             }
     scored = score_shadow(list(shadow_candidates), base_impact)
 

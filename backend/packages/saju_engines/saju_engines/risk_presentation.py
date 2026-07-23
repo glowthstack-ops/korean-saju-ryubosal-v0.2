@@ -456,6 +456,9 @@ def build_presentation(
                 # 횡액 집계 재료(사고수 확장) — family·원인 원자(감사 전용).
                 "riskFamily": rep.risk_family if rep is not None else None,
                 "causeAtoms": sorted(rep.trigger_cause_atoms) if rep else [],
+                # 베타 관측(감수 대신 실서비스 검증, 2026-07-23) — 미감수 항목
+                # 노출 추적용(감사 전용, LLM 비노출).
+                "reviewedItem": bool(item.get("reviewed", False)),
             },
         })
     # warning-first stable sort — bucket 순위만 키(§26-4), 동순위=R2 순서.
