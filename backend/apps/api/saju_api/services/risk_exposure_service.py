@@ -240,6 +240,34 @@ def map_intent_for_exposure(
     return map_intent_to_exposure_question(intent, stored_episode_keys)
 
 
+def risk_reserve_active(
+    mapped: dict | None,
+    payload: dict | None,
+    runtime_inputs: dict | None,
+) -> bool:
+    """RISK_CONTEXT_RESERVE 활성 판정(감수 62차 P0⑥ — 테스트 게이트 5).
+
+    **실제 주입 예정 요청에만** 예약을 적용한다: 매핑 성공 + 적격 episode
+    ≥1 + adapter 해소(VALIDATED — counter 존재) + reviewed shape 존재 +
+    전역/동반자 kill switch off. BYPASS 사전 확정(TIMELESS·후보 0건·lease
+    무효 등)에는 False — 일반 답변 예산을 줄이지 않는다.
+    """
+    if mapped is None or not payload or runtime_inputs is None:
+        return False
+    if not payload.get("llmRiskEpisodes"):
+        return False
+    if runtime_inputs.get("counter") is None:
+        return False
+    if not runtime_inputs.get("reviewed_shape_digests"):
+        return False
+    if risk_engine_config.RISK_EXPOSURE_KILL_SWITCH:
+        return False
+    if (mapped.get("subject_scope") == "companion_pair"
+            and risk_engine_config.RISK_COMPANION_KILL_SWITCH):
+        return False
+    return True
+
+
 def apply_risk_exposure(
     prompt_text: str,
     system: str | None,

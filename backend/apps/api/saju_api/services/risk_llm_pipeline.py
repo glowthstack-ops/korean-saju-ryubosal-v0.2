@@ -511,6 +511,11 @@ def run_injected_risk_flow(
             adapter, "cache_path_validated", False))
         if cached > 0 and not cache_path_ok:
             integrity_issues.append("CACHE_PATH_UNVALIDATED")
+        # 출력 잘림(감수 62차 P0⑪): finishReason=MAX_TOKENS는 위험 서술이
+        # 중간에서 끊겼을 수 있다 — **부분 결과 전달 금지**, 응답 폐기 후
+        # 상태기가 compact 재생성(REGENERATE, 1회) → 재실패 시 fallback.
+        if str(result.get("finish_reason") or "") == "MAX_TOKENS":
+            integrity_issues.append("OUTPUT_TRUNCATED_MAX_TOKENS")
         if integrity_issues:
             record["audit_issues"] = integrity_issues
             record["audit_action"] = "DISCARDED"
@@ -534,6 +539,12 @@ def run_injected_risk_flow(
     delivery_kind = "DELIVER_GENERATED"
     if outcome is not None and not outcome["issues"]:
         final_answer = outcome["answer"]
+    elif outcome is not None \
+            and "OUTPUT_TRUNCATED_MAX_TOKENS" in outcome["issues"]:
+        # 잘린 초안은 REVISION으로 재전송하지 않는다(감수 62차 P0⑪) —
+        # compact 재생성(REGENERATE_WITHOUT_RISK) 1회로 직행.
+        attempts.append({"kind": "REVISION_1", "skipped": True,
+                         "reason": "OUTPUT_TRUNCATED_COMPACT_REGEN"})
     elif outcome is not None \
             and plan_remediation(0, "REVISE_REQUIRED") == "REVISE":
         # REVISION 직전 라우팅 재확인(감수 60차 §3): 모델이 바뀌었으면

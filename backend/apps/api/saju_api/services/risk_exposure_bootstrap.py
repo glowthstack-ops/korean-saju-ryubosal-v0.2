@@ -463,10 +463,11 @@ def run_exposed_reading(
                   if isinstance(envelope, dict) and envelope
                   else out["text"])
         # provider 보고 token을 응답과 함께 반환 — flow가 **전달 판정
-        # 전에** drift·cache를 검사한다(통합 감수 §2).
+        # 전에** drift·cache·출력 잘림(finish_reason)을 검사한다.
         return {"answer": answer, "envelope": envelope,
                 "provider_reported_input": out["prompt_tokens"],
-                "cached_input": out["cached_tokens"]}
+                "cached_input": out["cached_tokens"],
+                "finish_reason": out.get("finish_reason", "")}
 
     def _drift_observer(kind: str, counted: int, reported: int,
                         cached: int, request_digest: str) -> None:

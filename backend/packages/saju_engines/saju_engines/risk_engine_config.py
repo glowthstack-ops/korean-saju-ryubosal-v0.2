@@ -113,6 +113,12 @@ RISK_CANARY_QUESTION_TYPES: tuple[str, ...] = (
     "specific_event", "single_domain_period", "period_overview",
 )
 
+# 위험 블록 context reserve(감수 62차 P0⑥ — RISK_ENGINE.md §7-1 밴드
+# 1,500~3,000 내). **진짜 예약**: base_content_budget = CALL_LIMIT −
+# reserve(일반 본문 몫을 줄임 — 한도 상향 아님). 실제 주입 예정 요청
+# (매핑 성공·adapter VALIDATED·적격 episode ≥1·kill switch off)에만 활성.
+RISK_CONTEXT_RESERVE: int = 2_000
+
 # 동반자 노출 전용 kill switch(감수 62차 P0⑩ — 범위 세분): subject_scope
 # 오귀속 등 동반자 경로 사고 시 이것만 켜서 동반자 노출을 차단한다(본인
 # 위험 노출은 유지 — 전역 kill switch는 반복·오염 증거 시에만).

@@ -358,3 +358,120 @@ def test_domain_filter_keeps_target_candidates() -> None:
     assert domains <= {"career"}
     assert any(a["reason"] == "OUTSIDE_TARGET_DOMAIN"
                for a in payload["exposureFilterAudit"])
+
+
+# ── 6단계: reserve 활성 판정(테스트 게이트 5)·MAX_TOKENS ───────────────
+
+
+def test_gate5_reserve_inactive_on_predetermined_bypass(monkeypatch) -> None:
+    from saju_api.services.risk_exposure_service import risk_reserve_active
+
+    good_inputs = {"counter": lambda t: 1,
+                   "reviewed_shape_digests": frozenset({"d1"})}
+    good_payload = {"llmRiskEpisodes": [{"guidanceRef": "r1"}]}
+    good_mapped = {"question_type": "period_overview",
+                   "subject_scope": "single"}
+    assert risk_reserve_active(good_mapped, good_payload, good_inputs)
+    # BYPASS 사전 확정 5경로 — 전부 reserve 미적용
+    assert not risk_reserve_active(None, good_payload, good_inputs)  # TIMELESS
+    assert not risk_reserve_active(
+        good_mapped, {"llmRiskEpisodes": []}, good_inputs)  # 후보 0건
+    assert not risk_reserve_active(
+        good_mapped, good_payload,
+        {"counter": None, "reviewed_shape_digests": frozenset({"d"})},
+    )  # adapter 미검증(lease 무효 등)
+    assert not risk_reserve_active(
+        good_mapped, good_payload,
+        {"counter": lambda t: 1, "reviewed_shape_digests": frozenset()},
+    )  # shape 미검증
+    monkeypatch.setattr(
+        "saju_engines.risk_engine_config.RISK_COMPANION_KILL_SWITCH", True)
+    assert not risk_reserve_active(
+        {"question_type": "period_overview",
+         "subject_scope": "companion_pair"}, good_payload, good_inputs)
+
+
+def test_max_tokens_truncation_discard_and_compact_regen() -> None:
+    """MAX_TOKENS 응답 폐기 → REVISION 건너뛰고 REGENERATE(compact) 1회."""
+    import hashlib as _hashlib
+    import json as _json
+
+    from saju_api.services.risk_llm_pipeline import (
+        build_risk_execution_context,
+        run_injected_risk_flow,
+    )
+    from saju_api.services.token_counter_registry import (
+        ProviderRequest,
+        TokenCounterAdapter,
+    )
+    from saju_engines.risk_exposure import (
+        RiskPromptBlock,
+        build_guidance_reference_context,
+        wrap_risk_block,
+    )
+
+    _guidance = build_guidance_reference_context(
+        "t1", {"llmRiskEpisodes": [], "guidanceRefMap": {}})
+    serial = '{"riskEpisodes": []}'
+    wrapped = wrap_risk_block(RiskPromptBlock(
+        serialized_text=serial,
+        content_hash=_hashlib.sha256(serial.encode()).hexdigest()[:16],
+        compression_mode="FULL", exact_token_count=1))
+    from saju_api.services.token_counter_registry import (
+        adapter_validation_policy_hash,
+        register_adapter,
+        set_validation_state,
+    )
+    adapter = TokenCounterAdapter(
+        model_id="m-trunc", mode="PROVIDER_EXACT", counter=lambda s: 50,
+        provider_id="gemini", counter_version="t",
+        validation_corpus_hash="c" * 64)
+    register_adapter(adapter)
+    set_validation_state("m-trunc", "VALIDATED")
+    manifest_entry = {
+        "reviewed": True, "resolvedModelId": "m-trunc",
+        "providerId": "gemini", "counterVersion": "t",
+        "providerRequestSchemaVersion": "1",
+        "countMode": "PROVIDER_EXACT",
+        "validationPolicyHash": adapter_validation_policy_hash(),
+        "validationCorpusHash": "c" * 64}
+    ctx = build_risk_execution_context(
+        "t1", manifest_counters=[manifest_entry],
+        guidance_context=_guidance,
+        baseline_request=ProviderRequest(user_messages=("base",)),
+        resolved_model_id="m-trunc")
+    calls: list[str] = []
+
+    def _llm(request: ProviderRequest) -> dict:
+        calls.append("call")
+        if len(calls) == 1:  # INITIAL — 잘린 응답
+            return {"answer": "잘린 위험 설명…",
+                    "envelope": {"main_answer": "잘린"},
+                    "provider_reported_input": 10, "cached_input": 0,
+                    "finish_reason": "MAX_TOKENS"}
+        return {"answer": "위험 없는 기본 답변", "envelope": None,
+                "provider_reported_input": 10, "cached_input": 0,
+                "finish_reason": "STOP"}
+
+    result = run_injected_risk_flow(
+        initial_request=ProviderRequest(
+            user_messages=("q\n" + wrapped,),
+            output_schema=_json.dumps({"type": "object"})),
+        baseline_request=ProviderRequest(user_messages=("base",)),
+        execution_context=ctx, llm_episodes=[], adapter=adapter,
+        final_token_limit=100_000, llm_call=_llm,
+        renderer=lambda t: t, resolve_model=lambda: "m-trunc",
+        reviewed_shape_digests=None, drift_observer=None)
+    # 부분 결과 미전달 — 잘린 초안이 최종 텍스트가 아니어야 한다
+    assert "잘린" not in str(result.get("final_text", ""))
+    attempts = result.get("attempts", [])
+    initial = next(a for a in attempts if a.get("kind") == "INITIAL")
+    assert "OUTPUT_TRUNCATED_MAX_TOKENS" in (
+        initial.get("audit_issues") or [])
+    assert initial.get("audit_action") == "DISCARDED"
+    # REVISION은 skip(잘린 초안 재전송 금지) — compact 재생성으로 직행
+    assert any(a.get("skipped") and "TRUNCATED" in str(a.get("reason", ""))
+               for a in attempts if a.get("kind") == "REVISION_1")
+    assert any(a.get("kind") == "REGENERATE_WITHOUT_RISK"
+               for a in attempts)
+    assert len(calls) == 2  # INITIAL + REGENERATE(1회) — 자동 재시도 없음

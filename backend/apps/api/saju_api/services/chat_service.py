@@ -3999,6 +3999,50 @@ def chat(
     sys_for_budget = system or llm_client._SYSTEM_PROMPT
     reserve = estimate_tokens(sys_for_budget) + estimate_tokens("\n".join(trailing))
 
+    # ── 위험 노출 사전 계산(감수 62차 P0⑥ — reserve는 진짜 예약) ──────
+    # 직렬화 **이전**에 매핑·payload·adapter를 해소해, 실제 주입 예정
+    # 요청에만 RISK_CONTEXT_RESERVE 만큼 일반 본문 예산을 줄인다
+    # (base_content_budget = CALL_LIMIT − reserve). BYPASS 사전 확정
+    # (매핑 실패·episode 0건·adapter 미검증·kill switch)에는 미적용 —
+    # 일반 답변이 공연히 짧아지지 않는다. OFF/SHADOW는 분기 자체가
+    # 실행되지 않아 byte 불변.
+    _mapped = None
+    _risk_payload = None
+    _risk_inputs: dict | None = None
+    _stored_risk_keys: tuple[tuple[str, str, str], ...] = ()
+    _cmp_periods: tuple[str, ...] = ()
+    if risk_exposure_service.exposure_mode_active():
+        from saju_engines import risk_engine_config as _risk_cfg
+
+        from . import risk_exposure_bootstrap as _reb
+        if state is not None:
+            _parsed_refs: list[tuple[str, str, str]] = []
+            for ent in state.entities:
+                if str(ent.id).startswith("risk_episode_"):
+                    parts = str(ent.label).rsplit("|", 2)
+                    while len(parts) < 3:
+                        parts.append("")
+                    _parsed_refs.append((parts[0], parts[1], parts[2]))
+            _stored_risk_keys = tuple(_parsed_refs[-3:])
+        _mapped = risk_exposure_service.map_intent_for_exposure(
+            intent, _stored_risk_keys)
+        if (_mapped and _mapped.get("question_type")
+                == "multi_episode_compare"
+                and _mapped.get("future_period_range")):
+            _s, _e = _mapped["future_period_range"]
+            _cmp_periods = tuple(
+                str(y) for y in range(
+                    int(str(_s)[:4]),
+                    min(int(str(_e)[:4]), int(str(_s)[:4]) + 2) + 1))
+        _risk_payload = _reb.build_risk_payload(
+            list(_subject_risk_shadow),
+            question_type=(_mapped or {}).get("question_type"),
+            comparison_periods=_cmp_periods)
+        _risk_inputs = _reb.exposure_runtime_inputs(call_type)
+        if risk_exposure_service.risk_reserve_active(
+                _mapped, _risk_payload, _risk_inputs):
+            reserve += _risk_cfg.RISK_CONTEXT_RESERVE
+
     try:
         prompt_text, tokens = serialize_with_guard(payload, call_type, reserve_tokens=reserve)
     except TokenBudgetExceeded as exc:
@@ -4019,46 +4063,12 @@ def chat(
     # 질문 매핑·adapter·canary allowlist는 canary 개시 차수에서 감수 후 공급.
     _risk_flow_result: dict | None = None
     if risk_exposure_service.exposure_mode_active():
-        # 실값 공급(감수 61차 §13-① — freeze 후 배선): 감수된 adapter·
-        # context limit(llm_config — 부재·0=BYPASS)·shape 집합. 어느
-        # 하나라도 미해소면 게이트가 해당 사유로 BYPASS(fail-closed).
+        # 실값 공급(감수 61차 §13-①): 매핑·payload·adapter는 직렬화 전
+        # 사전 계산분(reserve 판정과 동일 값)을 재사용한다 — 어느 하나라도
+        # 미해소면 게이트가 해당 사유로 BYPASS(fail-closed).
         from . import risk_exposure_bootstrap as _reb
-        _risk_inputs = _reb.exposure_runtime_inputs(call_type)
+        assert _risk_inputs is not None  # exposure 모드에서 사전 계산 보장
         _baseline_prompt = prompt_text  # 주입 전 원문(REGENERATE 재조립)
-        # episode_followup 결정적 해소 재료(감수 62차): 직전 위험 답변에서
-        # 저장한 canonical 키(thread 내 최대 3건 — label="key|domain|period",
-        # key에 '|'가 있어도 rsplit(2)로 안전).
-        _stored_risk_keys: tuple[tuple[str, str, str], ...] = ()
-        if state is not None:
-            _parsed_refs: list[tuple[str, str, str]] = []
-            for ent in state.entities:
-                if str(ent.id).startswith("risk_episode_"):
-                    parts = str(ent.label).rsplit("|", 2)
-                    while len(parts) < 3:
-                        parts.append("")
-                    _parsed_refs.append(
-                        (parts[0], parts[1], parts[2]))
-            _stored_risk_keys = tuple(_parsed_refs[-3:])
-        # R2 예산 선별(감수 62차 P0②)을 위해 파서 SSOT 질문 유형을 먼저
-        # 해소 — 매핑 불가(None)면 예산 미적용 payload여도 게이트가 어차피
-        # BYPASS라 무해하다.
-        _mapped = risk_exposure_service.map_intent_for_exposure(
-            intent, _stored_risk_keys)
-        # 비교 질문(P0⑨): 파서 SSOT 범위의 연도 2~3개를 기간별 선별·통합에
-        # 사용(빈 기간은 채우지 않음).
-        _cmp_periods: tuple[str, ...] = ()
-        if (_mapped and _mapped.get("question_type")
-                == "multi_episode_compare"
-                and _mapped.get("future_period_range")):
-            _s, _e = _mapped["future_period_range"]
-            _cmp_periods = tuple(
-                str(y) for y in range(
-                    int(str(_s)[:4]),
-                    min(int(str(_e)[:4]), int(str(_s)[:4]) + 2) + 1))
-        _risk_payload = _reb.build_risk_payload(
-            list(_subject_risk_shadow),
-            question_type=(_mapped or {}).get("question_type"),
-            comparison_periods=_cmp_periods)
         prompt_text, system, _risk_obs = (
             risk_exposure_service.apply_risk_exposure(
                 prompt_text, system,
