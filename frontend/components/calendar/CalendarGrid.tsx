@@ -4,34 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchLuckDays } from "@/lib/api";
-import { isLoggedIn } from "@/lib/auth";
-import { loadEotPreference, loadProfile } from "@/lib/storage";
-import { subjectEotPreference, summaryToProfile } from "@/lib/subject-mapping";
-import { getSelectedSubjectId, getSubject } from "@/lib/subjects";
+// 일운 오버레이 기준 사주 해석은 공통 resolver 사용(일주별 오늘의 운세 메인 카드와 동일 규칙):
+// 로그인=선택 사주(사주별 균시차), 게스트=IndexedDB 프로필+기기 균시차 토글.
+import { resolveOverlayProfile } from "@/lib/use-current-ilju";
 import type { CalendarDay, CalendarMonth, LuckPillar, LuckSinsal, Profile } from "@/lib/types";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
-
-// 일운 오버레이(십성·신살·길흉) 기준 사주:
-// - 로그인: 현재 "선택된 사주"만 사용(선택 안 했으면 오버레이 없음 — 데굴님 확정 2026-07-01).
-//   균시차는 사주별 속성(birth.time_options)을 그대로 쓴다(데굴님 확정 2026-07-13).
-// - 게스트: IndexedDB의 로컬 프로필 + 기기 로컬 균시차 토글.
-async function resolveOverlayProfile(): Promise<
-  { profile: Profile; eot: boolean } | null
-> {
-  if (isLoggedIn()) {
-    const id = getSelectedSubjectId();
-    if (!id) return null;
-    try {
-      const summary = await getSubject(id);
-      return { profile: summaryToProfile(summary), eot: subjectEotPreference(summary) };
-    } catch {
-      return null;
-    }
-  }
-  const profile = await loadProfile().catch(() => null);
-  return profile ? { profile, eot: loadEotPreference() } : null;
-}
 
 // 손없는 날 — 음력 끝수가 9·0인 날(손[方位神]이 어느 방위에도 없어 이사·개업 등에 길). 로그인·사주와
 // 무관한 상시 정보로, 음력일만으로 결정된다(음력 9·10·19·20·29·30일).

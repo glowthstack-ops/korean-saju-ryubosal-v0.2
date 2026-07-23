@@ -3,6 +3,7 @@
 // 랜딩 — 사주목록 진입 + 무료(만세력·간지달력) / 로그인 전용(테마사주·AI상담) 구분.
 
 import Link from "next/link";
+import { DailyHomeCard } from "@/components/daily/DailyHomeCard";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 interface Service {
@@ -13,6 +14,11 @@ interface Service {
 }
 
 const FREE: Service[] = [
+  {
+    href: "/daily",
+    title: "일주별 오늘의 운세",
+    desc: "내 일주(태어난 날)의 오늘 흐름을 매일 아침 5초 만에 확인하세요. 금전·연애·좋은소식 TOP5 일주도 함께 보여드려요.",
+  },
   {
     href: "/manse",
     title: "만세력",
@@ -65,6 +71,9 @@ export default function HomePage() {
           </p>
         )}
       </section>
+
+      {/* 무료 영역 최상단 가로 전체 카드 — 일주별 오늘의 운세 (PRD UI/UX 1항) */}
+      <DailyHomeCard />
 
       <Section title="무료" subtitle="로그인 없이 이용 가능">
         {FREE.map((s) => (

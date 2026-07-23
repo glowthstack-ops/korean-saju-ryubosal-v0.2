@@ -21,6 +21,7 @@ interface NavItem {
 }
 
 const FREE: NavItem[] = [
+  { href: "/daily", label: "일주별 오늘의 운세", desc: "60일주 오늘의 흐름·TOP5" },
   { href: "/manse", label: "만세력", desc: "원국·대운·세운·용신" },
   { href: "/calendar", label: "간지달력", desc: "날짜별 간지·절기" },
 ];
@@ -31,6 +32,7 @@ const PAID: NavItem[] = [
 
 // 경로 → 페이지 타이틀(메인 외 모든 페이지). 헤더의 '류보살 v2'를 대체 표시. 긴 접두사 우선.
 const PAGE_TITLES: [string, string][] = [
+  ["/daily", "일주별 오늘의 운세"],
   ["/manse", "만세력"],
   ["/calendar", "간지달력"],
   ["/themes", "테마사주"],

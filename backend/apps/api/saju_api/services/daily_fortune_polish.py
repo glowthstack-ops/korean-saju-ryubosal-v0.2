@@ -52,6 +52,7 @@ _FORBIDDEN = [
 _LOTTO_FORBIDDEN = ["당첨", "보장", "매일", "전액", "대출", "빚"]
 _DIGITS = re.compile(r"[0-9]")
 _SENTENCE_END = re.compile(r"[.!?]")
+_HANJA_PAIR = re.compile(r"[一-鿿]{2}")  # ilju 정규화 — "甲子(갑자)" 류 방어
 
 _SYSTEM = (
     "너는 아침 방송 운세 코너의 문장 교정가다. 아래 JSONL(한 줄 = 한 일주)의 "
@@ -63,6 +64,8 @@ _SYSTEM = (
     "4) '반드시·무조건·확실히' 같은 결과 확정 표현을 쓰지 않는다.\n"
     "5) headline 은 최대 3문장, 짧고 구체적으로. place_phrase 에는 장소 이름을 "
     "그대로 남긴다. lotto 가 null 이면 null 로 유지한다.\n"
+    "5-1) ilju 값은 입력의 ilju 를 한 글자도 바꾸지 말고 그대로 복사한다(괄호·독음 "
+    "추가 금지).\n"
     "6) 응답은 입력과 동일한 구조의 JSONL 만 출력한다 — 설명·코드펜스·빈 줄 금지. "
     "각 줄: {\"ilju\":..., \"headline\":..., \"place_phrase\":..., \"lotto\":...}\n"
 )
@@ -121,6 +124,11 @@ def validate_and_apply(
             malformed_lines += 1  # 잘린 마지막 줄 등 — 이후 줄도 개별 판단(부분 채택)
             continue
         ilju = rec.get("ilju")
+        if ilju not in by_ilju and isinstance(ilju, str):
+            # 모델이 "甲子(갑자)"처럼 독음을 덧붙이는 사례 방어 — 한자 2자만 추출
+            m = _HANJA_PAIR.search(ilju)
+            if m and m.group(0) in by_ilju:
+                ilju = m.group(0)
         if ilju not in by_ilju:
             malformed_lines += 1
             continue
