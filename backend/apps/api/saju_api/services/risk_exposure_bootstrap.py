@@ -266,6 +266,7 @@ def build_risk_payload(
     risks_dir = (Path(__file__).resolve().parents[4] / "dictionaries"
                  / "risks")
     base_impact: dict[str, float] = {}
+    claims_by_risk_id: dict[str, dict] = {}
     for path in sorted(risks_dir.glob("*.json")):
         try:
             data = _json.loads(path.read_text(encoding="utf-8"))
@@ -273,9 +274,27 @@ def build_risk_payload(
             continue
         for item in data.get("items", []):
             rid = item.get("riskId")
-            if rid is not None:
-                base_impact[str(rid)] = float(
-                    item.get("baseImpact", 0.0) or 0.0)
+            if rid is None:
+                continue
+            base_impact[str(rid)] = float(
+                item.get("baseImpact", 0.0) or 0.0)
+            # 사전 claim·3층 출력 재료(사고수 확장 2026-07-23) — 표현
+            # 계층에 공급한다: manifestations(대표 요약)·prohibited/
+            # allowed(문구 지침)·전통 해석층(classicalInterpretation)·
+            # 현대 적용·신체 힌트·현실 확인 항목(exposureContext).
+            policy = item.get("exposurePolicy") or {}
+            claims_by_risk_id[str(rid)] = {
+                "manifestations": [
+                    m.get("ko", "") for m in item.get("manifestations", [])],
+                "prohibited": item.get("prohibitedClaims", []),
+                "allowed": item.get("allowedClaimScope", []),
+                "claimCeiling": item.get("claimCeiling"),
+                "unknownClaimCeiling": policy.get("claimCeilingWhenUnknown"),
+                "classical": item.get("classicalInterpretation"),
+                "modern": item.get("modernApplication"),
+                "bodyArea": item.get("bodyAreaHint"),
+                "exposureContext": item.get("exposureContext", []),
+            }
     scored = score_shadow(list(shadow_candidates), base_impact)
 
     # ── 필터(선별보다 먼저) — 탈락 전량 감사 보존 ──────────────────
@@ -350,7 +369,7 @@ def build_risk_payload(
         if question_type is not None:
             episodes, selection_omitted = select_episodes(
                 episodes, eligible, budget_for(question_type))
-    payload = build_presentation(episodes, eligible)
+    payload = build_presentation(episodes, eligible, claims_by_risk_id)
     if payload is not None:
         payload["exposureFilterAudit"] = filter_audit
         payload["selectionOmitted"] = [

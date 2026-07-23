@@ -506,6 +506,10 @@ def evaluate_risk_exposure_gate(
             for r in exposed_records
         ],
     }
+    # 횡액 집계(사고수 확장 2026-07-23) — 구성 위험과 함께만 서술하는 상위 요약.
+    if payload.get("suddenAdversitySummary"):
+        exposed_payload["suddenAdversitySummary"] = (
+            payload["suddenAdversitySummary"])
     try:
         serialized = serialize_llm_payload(exposed_payload, budget, counter)
     except ValueError:

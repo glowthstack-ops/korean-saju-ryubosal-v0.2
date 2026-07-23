@@ -39,7 +39,7 @@ from .risk_scoring import _candidate_atoms, normalized_effect_role, risk_priorit
 from .risk_selection import candidate_uid
 
 # 노출 의미 버전 — 밴드·게이트·claim 정책·압축 순서 변경 시 올린다.
-RISK_PRESENTATION_VERSION = "risk-present-r3.1.0-shadow"
+RISK_PRESENTATION_VERSION = "risk-present-r3.2.0-shadow"  # r3.2: 3층 재료·횡액 집계(2026-07-23)
 
 # 내부 level 서열(§26-2). 사용자 표시명은 완화형 — 내부 명칭 직접 노출 금지.
 _LEVELS = ("none", "advisory", "watch", "warning", "critical")
@@ -423,9 +423,18 @@ def build_presentation(
                 if rep is not None else 0),
             "scoreBand": score_band(capped),
             "contextConfidenceBand": _confidence_band(ep.context_confidence),
+            # ── P1(사고수 확장 2026-07-23) — 3층 출력의 전통 해석층 ──
+            "classicalInterpretation": (
+                str(item.get("classical")) if item.get("classical") else None),
             # ── P2 ──
             "effectRoles": list(ep.effect_roles),
             "supportingCount": len(ep.supporting_candidate_ids),
+            # 3층 출력 재료(사고수 확장) — 현대 적용·전통 신체 힌트·현실 확인 항목.
+            "modernApplication": (
+                str(item.get("modern")) if item.get("modern") else None),
+            "bodyAreaHint": (
+                str(item.get("bodyArea")) if item.get("bodyArea") else None),
+            "exposureCheckItems": _texts(item, "exposureContext"),
             "earliestReliefWindow": (
                 ep.recovery_window.earliest_relief_window
                 if ep.recovery_window else None),
@@ -444,6 +453,9 @@ def build_presentation(
                 "selectionOrder": order,
                 "startPeriod": ep.start_period,
                 "endPeriod": ep.end_period,
+                # 횡액 집계 재료(사고수 확장) — family·원인 원자(감사 전용).
+                "riskFamily": rep.risk_family if rep is not None else None,
+                "causeAtoms": sorted(rep.trigger_cause_atoms) if rep else [],
             },
         })
     # warning-first stable sort — bucket 순위만 키(§26-4), 동순위=R2 순서.
@@ -469,6 +481,11 @@ def build_presentation(
         "globalAllowedClaimCodes": list(GLOBAL_ALLOWED_CLAIM_CODES),
         "presentationRecords": records,
         "llmRiskEpisodes": llm_episodes,
+        # 횡액 집계(사고수 확장 2026-07-23, 승인 B-8·조건 10): '횡액'은 단일 사건
+        # 키가 아니라 상위 요약 태그다 — 같은 해에 서로 다른 위험 family 2개 이상이
+        # **서로 다른 원인**으로 활성일 때만 붙는다(같은 원인 파생은 1회 계산 —
+        # 승인 조건 12). 반드시 구성 위험(componentRefs)과 함께만 서술한다.
+        "suddenAdversitySummary": _sudden_adversity_summary(records),
         # 감사·후처리 전용(LLM 직렬화 제외): ref → canonical episodeKey.
         "guidanceRefMap": ref_map,
         # 순서 fingerprint(감수 52차 §3 + 54차 §6): **canonical** identity
@@ -508,9 +525,10 @@ _P0_FIELDS = (
 )
 _P1_FIELDS = ("effectiveAllowedClaimCodes", "allowedClaimScope",
               "criticalEligibleCauseCount", "scoreBand",
-              "contextConfidenceBand")
+              "contextConfidenceBand", "classicalInterpretation")
 _P2_FIELDS = ("effectRoles", "supportingCount", "earliestReliefWindow",
-              "stableRecoveryWindow", "recoveryConfidenceBand")
+              "stableRecoveryWindow", "recoveryConfidenceBand",
+              "modernApplication", "bodyAreaHint", "exposureCheckItems")
 
 
 def estimate_tokens(text: str, counter=None) -> int:
@@ -575,6 +593,40 @@ def render_llm_payload(payload: dict, tier: str) -> str:
     return json.dumps(doc, ensure_ascii=False, sort_keys=True)
 
 
+def _sudden_adversity_summary(records: list[dict]) -> list[dict]:
+    """횡액 집계 태그(승인 B-8) — 노출 episode의 연도별 family 중첩 요약.
+
+    조건: 같은 해에 서로 다른 risk_family 2개 이상 + 원인 원자 집합이 서로 다른
+    항목 2개 이상(같은 巳亥冲 하나가 여러 family로 파생된 경우는 세지 않는다 —
+    승인 C-4·조건 12). componentRefs는 llmRiskEpisodes의 guidanceRef와 정렬된다.
+    """
+    exposed = [r for r in records if r["presentationLevel"] != "none"]
+    by_year: dict[str, list[tuple[str, str, frozenset[str]]]] = {}
+    for i, r in enumerate(exposed):
+        diag = r["diagnostics"]
+        fam = diag.get("riskFamily")
+        if not fam:
+            continue
+        year = str(diag.get("startPeriod", ""))[:4]
+        by_year.setdefault(year, []).append(
+            (f"rg{i + 1}", str(fam), frozenset(diag.get("causeAtoms") or ())))
+    out: list[dict] = []
+    for year in sorted(by_year):
+        entries = by_year[year]
+        families = sorted({fam for _ref, fam, _a in entries})
+        if len(families) < 2:
+            continue
+        distinct_causes = {atoms for _ref, _fam, atoms in entries if atoms}
+        if len(distinct_causes) < 2:
+            continue  # 단일 원인 파생 — 횡액 중첩으로 세지 않음
+        out.append({
+            "period": year,
+            "families": families,
+            "componentRefs": [ref for ref, _fam, _a in entries],
+        })
+    return out
+
+
 def serialize_llm_payload(payload: dict, token_budget: int,
                           counter=None) -> str:
     """LLM payload 직렬화 + token guard(감수 42·43차 — fail-closed).
@@ -603,6 +655,10 @@ def serialize_llm_payload(payload: dict, token_budget: int,
             "globalAllowedClaimCodes": payload["globalAllowedClaimCodes"],
             "riskEpisodes": slim,
         }
+        # 횡액 집계(사고수 확장) — 구성 위험 ref와 함께만 의미가 있으므로
+        # compact(구성 정보 축약) 단계에서는 제외한다.
+        if not compact and payload.get("suddenAdversitySummary"):
+            doc["suddenAdversitySummary"] = payload["suddenAdversitySummary"]
         if compact:
             doc["compressionMode"] = "P0_COMPACT"
         return json.dumps(doc, ensure_ascii=False, sort_keys=True)

@@ -7,8 +7,8 @@
   "risk_selection_version": "risk-select-r2.2.0-shadow",
   "selection_policy_hash": "e7d9795fd23c54eb",
   "transition_policy_hash": "49df076a0ad56cc1",
-  "risk_presentation_version": "risk-present-r3.1.0-shadow",
-  "presentation_policy_hash": "ce68dfc2c6c5fa0e",
+  "risk_presentation_version": "risk-present-r3.2.0-shadow",
+  "presentation_policy_hash": "0596ee6744cd8bf9",
   "risk_exposure_version": "risk-expose-r4.1.0-canary",
   "adapter_validation_policy_hash": "ccb348d0555601d2ad9f6f1bb507695a407e15d0ce54cc84edbf4a7b1292483d",
   "expose_pipeline": {
