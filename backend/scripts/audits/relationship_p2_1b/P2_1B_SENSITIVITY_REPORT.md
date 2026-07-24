@@ -9,6 +9,8 @@ spec p2.1b.v1 · baseline SF30·JW50 · calibration cal-2026-07-24.1 · band B0 
 
 ## 1. 사례별 target support 감소(SF30 · JW sweep)
 
+> **jaenghap_support_weaken는 직접 감산율이 아니라 계수(§1)**: effective_reduction = weaken × modifier_strength(=0.6). 예: JW75 → 0.75×0.6=0.45 감산 → retention 0.55. modifier_strength가 다르면 같은 JW라도 실효 감산이 달라진다.
+
 | 사례 | JW00 | JW25 | JW50 | JW75 | retention(JW75/JW00) |
 |---|--:|--:|--:|--:|--:|
 | pure_support | 0.3 | 0.255 | 0.21 | 0.165 | 0.55 |

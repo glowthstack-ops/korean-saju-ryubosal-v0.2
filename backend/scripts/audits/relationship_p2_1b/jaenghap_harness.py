@@ -365,6 +365,10 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
           "pressure/activation/separation/count JW 불변 · 비대상 root drift 0 · support≥0 · "
           "중복=1× · missing/multi-root 적용 0", "",
           "## 1. 사례별 target support 감소(SF30 · JW sweep)", "",
+          f"> **jaenghap_support_weaken는 직접 감산율이 아니라 계수(§1)**: "
+          f"effective_reduction = weaken × modifier_strength(={_JAENGHAP_STRENGTH}). "
+          f"예: JW75 → 0.75×0.6=0.45 감산 → retention 0.55. modifier_strength가 다르면 "
+          f"같은 JW라도 실효 감산이 달라진다.", "",
           "| 사례 | JW00 | JW25 | JW50 | JW75 | retention(JW75/JW00) |",
           "|---|--:|--:|--:|--:|--:|"]
     for c in cases:

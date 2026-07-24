@@ -112,7 +112,7 @@ modifier.jaenghap_support_weaken  = 0.50
 | `stability.band` | S5 | stability | 감수 | signed |
 | `separation.pressure_weight` | S2 | separation | OAT ±20% | CHUNG≥나머지 |
 | `separation.band` | S5 | separation | 감수 | 오름차순 |
-| `modifier.jaenghap_support_weaken` | S3 | stability | 0.0/0.25/0.5/0.75 | 유일한 수치 modifier(§F) |
+| `modifier.jaenghap_support_weaken` | S3 | stability | 0.0/0.25/0.5/0.75 | **계수**(직접 감산율 아님·§3-2) |
 | `cross_root.synthesis` | S4 | act·stab·sep | 조건부(§G) | P2-0 확정 대상 아님 |
 
 ### 3-1. secondary_factor는 공유 계수 (P2-1A 실측 확정)
@@ -132,6 +132,19 @@ C2  activation / stability / separation 축별 secondary_factor  (3계수)
 ```
 평가 기준: root 구별력 개선·단조성 유지·경계 사례 설명력·파라미터 수 대비 실효·stability와
 separation의 불필요한 동조 감소. **C1로 충분하면 C2까지 분리하지 않는다.**
+
+> **P2-1B 실측 근거(same_root_sf_jw_interaction)**: 같은 root HAP+CHUNG+HYEONG에서 SF↑는
+> pressure를 1.0→1.24→1.48로 키우고(공유 계수) JW↑는 support를 0.3→0.165로 줄여, 둘이
+> stability net에 동시 결합한다. SF를 축별로 분리하면 activation과 stability/separation의
+> 이 동조를 끊을 수 있다 — C0/C1/C2 판단의 정량 근거.
+
+### 3-2. jaenghap_support_weaken은 계수 (직접 감산율 아님 — P2-1B)
+
+> `jaenghap_support_weaken`은 support를 그 비율만큼 직접 제거하지 않는다. 실효 감산은
+> modifier strength와 결합한다: `effective_reduction = weaken × modifier_strength`,
+> `retention = 1 − effective_reduction`. (예: weaken 0.75 × strength 0.6 = 0.45 감산 →
+> retention 0.55.) modifier strength가 다르면 같은 weaken이라도 실효 감산이 달라진다.
+> 코드명(`_SUPPORT_WEAKEN`)은 유지하되 의미는 **계수**임을 명시한다.
 
 ### activation band 후보 profile (§C — profile 단위, weak→moderate→strong)
 ```

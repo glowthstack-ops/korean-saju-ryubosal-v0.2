@@ -1354,4 +1354,15 @@ strong threshold가 바뀌면 P3 후보 승격 조건도 바뀌므로 계수 안
     SF00 15.548 → SF60 6.219). same_inc 비감소·cross_inc는 SF 불변.
   - **핵심 발견 3**: root=1 strong rate가 band 보수화로 급락(B0 0.167→B2 0), root≥2는
     대부분 1.0.
-  - 자동 최적 profile 선정 없음(§12). 분모 분리(lattice 전용). 다음 = P2-1B(쟁합).
+  - 자동 최적 profile 선정 없음(§12). 분모 분리(lattice 전용).
+- **P2-1B(jaenghap_harness)**: jaenghap_weaken(4)×secondary_factor(3)·band B0 고정
+  (§5 stability 무관). 9 case(순수 support·대상/비대상·support+pressure·같은 root·
+  중복·잘못된 대상·multi-root·부호 경계·SF×JW 상호작용). 불변식 0 위반. target support
+  단조 감소(retention 0.55)·boundary sign flip(JW25 zero→neg·JW 구동)·SF×JW 상호작용
+  사례(SF↑ pressure 1.0→1.48·JW↑ support 0.3→0.165 동시 결합). jaenghap_weaken은
+  **계수**(effective=weaken×strength, §3-2).
+- **derived modifier 멱등 hardening(e71abb1)**: P2-1B가 드러낸 계약 위반 수복 —
+  `_merge_modifiers`가 derived(transit) modifier를 canonical key(pattern_id+evidence
+  set)로 dedup, 동일 key·payload 불일치는 derived_modifier_conflict 보류(자동 2회·max
+  금지). production byte-identical·CALIBRATION_VERSION bump 없음. 다음 = P2-1C(C0/C1/C2
+  공유/축별 secondary_factor + kind/stab/sep OAT).
