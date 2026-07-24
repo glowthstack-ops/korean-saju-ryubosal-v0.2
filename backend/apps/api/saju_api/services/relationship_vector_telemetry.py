@@ -110,6 +110,8 @@ class RelationshipEffectShadowEnvelope(BaseModel):
     calibration_version: str = RELATIONSHIP_CALIBRATION_VERSION
     vector: RelationshipEffectVectorResult
     legacy_candidate_audits: list[LegacyCandidateAudit] = Field(default_factory=list)
+    # audit 결합 상태(§2 — reducer 이후 결합 단계에서 기록, 벡터 실패와 분리).
+    audit_status: str = "no_candidate"
     usage: Literal["shadow_only"] = "shadow_only"
 
 
@@ -290,11 +292,24 @@ def build_relationship_vector_telemetry(
 
 
 class PeriodFailureReason(StrEnum):
-    """per-period **벡터 계산** 실패 사유(§2) — telemetry 변환 실패와 분리."""
+    """per-period **벡터 계산** 실패 사유(§2) — audit·telemetry 실패와 분리.
+
+    audit projection은 reducer 이후 legacy 비교 결합 단계라 벡터 실패가 아니다
+    (§2 정정): 실패해도 벡터는 aggregate에 포함되고 audit만 결손 처리한다.
+    """
 
     ADAPTER_FAILURE = "adapter_failure"
     SYNTHESIS_FAILURE = "synthesis_failure"
-    LEGACY_AUDIT_PROJECTION_FAILURE = "legacy_audit_projection_failure"
+
+
+class AuditProjectionStatus(StrEnum):
+    """legacy audit 결합 상태(§2·§3) — 추정 결합 금지(fail-closed)."""
+
+    SUCCESS = "success"
+    NO_CANDIDATE = "no_candidate"
+    JOIN_NOT_FOUND = "join_not_found"
+    JOIN_AMBIGUOUS = "join_ambiguous"
+    PROJECTION_FAILURE = "projection_failure"
 
 
 class EmitStatus(StrEnum):
@@ -312,6 +327,11 @@ class RelationshipVectorAggregate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # key는 enum·bucket 라벨만(회귀가 allowlist 검사) — 자유 문자열 금지.
+    # 축 status 분포 — **합계 = vector_success_count**(§1 정정: 상세 DTO 변환 실패와
+    # 무관하게 벡터 성공 즉시 누적). value bucket 합계 = 그 축 EVALUATED 기간 수.
+    activation_status_counts: dict[str, int] = Field(default_factory=dict)
+    stability_status_counts: dict[str, int] = Field(default_factory=dict)
+    separation_status_counts: dict[str, int] = Field(default_factory=dict)
     activation_bucket_counts: dict[str, int] = Field(default_factory=dict)
     stability_bucket_counts: dict[str, int] = Field(default_factory=dict)
     separation_bucket_counts: dict[str, int] = Field(default_factory=dict)
@@ -351,9 +371,14 @@ class RelationshipVectorTelemetryBatch(BaseModel):
     truncated_success_period_count: int = 0
     sampling_strategy_version: str = SAMPLING_STRATEGY_VERSION
     period_failure_counts: dict[str, int] = Field(default_factory=dict)
+    # audit 결합 상태(§2 정정) — 벡터 실패와 분리(실패해도 벡터는 aggregate 포함).
+    audit_projection_success_count: int = 0
+    audit_projection_missing_count: int = 0   # NO_CANDIDATE·JOIN_NOT_FOUND·AMBIGUOUS
+    audit_projection_failure_count: int = 0
     emit_status: str = EmitStatus.SKIPPED.value
-    # degraded 2축(§2) — 계산 실패와 전송 변환 실패는 다른 문제다.
+    # degraded 3축(§2) — 계산·audit 결합·전송 변환은 서로 다른 문제다.
     vector_degraded: bool = False
+    audit_degraded: bool = False
     telemetry_degraded: bool = False
 
 
@@ -382,6 +407,43 @@ def build_batch(
     vector_failures = sum(period_failure_counts.values())
     vector_success = len(envelopes)
     agg = RelationshipVectorAggregate()
+    audit_success = audit_missing = audit_fail = 0
+    # §1 정정 — aggregate는 **envelope(벡터 성공분)에서 직접** 누적한다: 상세 DTO
+    # 변환 실패가 전체 관계 분포에서 기간을 누락시키지 않는다.
+    for e in envelopes:
+        v = e.vector
+        _inc(agg.activation_status_counts, v.axes.activation.status.value)
+        _inc(agg.stability_status_counts, v.axes.stability.status.value)
+        _inc(agg.separation_status_counts, v.axes.separation_pressure.status.value)
+        _inc(agg.activation_bucket_counts, _hist_bucket(
+            v.axes.activation.value
+            if v.axes.activation.status is AxisStatus.EVALUATED else None, _ACT_HIST))
+        _inc(agg.stability_bucket_counts, _stability_bucket(
+            v.axes.stability.status, v.axes.stability.value))
+        _inc(agg.separation_bucket_counts, _hist_bucket(
+            v.axes.separation_pressure.value
+            if v.axes.separation_pressure.status is AxisStatus.EVALUATED else None,
+            _SEP_HIST))
+        _inc(agg.kind_combo_counts, classify_kind_combo(v).value)
+        _inc(agg.root_count_bucket_counts,
+             _root_bucket(v.independent_root_trigger_count))
+        if v.axes.activation.status is not AxisStatus.EVALUATED:
+            agg.insufficient_activation_count += 1
+        agg.unresolved_evidence_total += v.unresolved_trigger_evidence_count
+        agg.superseded_provisional_total += int(v.superseded_provisional_count > 0)
+        agg.legacy_candidate_count += len(e.legacy_candidate_audits)
+        # cap 단위 분리(§6): audit 값이 relation cap 여부를 후보 단위로 든다.
+        capped_here = sum(
+            1 for a in e.legacy_candidate_audits if a.relation_capped)
+        agg.legacy_capped_candidate_count += capped_here
+        agg.periods_with_any_legacy_cap += int(capped_here > 0)
+        if e.audit_status == AuditProjectionStatus.SUCCESS.value:
+            audit_success += 1
+        elif e.audit_status == AuditProjectionStatus.PROJECTION_FAILURE.value:
+            audit_fail += 1
+        else:
+            audit_missing += 1
+
     prebuilt: list[tuple[str, RelationshipVectorTelemetry]] = []
     record_fail = 0
     for e in envelopes:
@@ -390,21 +452,6 @@ def build_batch(
         except Exception:  # noqa: BLE001 — 변환 실패 1건이 batch를 막지 않는다(§2)
             record_fail += 1
             continue
-        _inc(agg.activation_bucket_counts, t.activation_value_bucket)
-        _inc(agg.stability_bucket_counts, t.stability_bucket)
-        _inc(agg.separation_bucket_counts, t.separation_value_bucket)
-        _inc(agg.kind_combo_counts, t.kind_combo.value)
-        _inc(agg.root_count_bucket_counts, _root_bucket(t.root_count))
-        if t.activation_status != "evaluated":
-            agg.insufficient_activation_count += 1
-        agg.unresolved_evidence_total += t.unresolved_count
-        agg.superseded_provisional_total += int(t.superseded_provisional)
-        agg.legacy_candidate_count += len(e.legacy_candidate_audits)
-        # cap 단위 분리(§6): audit 값이 relation cap 여부를 후보 단위로 든다.
-        capped_here = sum(
-            1 for a in e.legacy_candidate_audits if a.relation_capped)
-        agg.legacy_capped_candidate_count += capped_here
-        agg.periods_with_any_legacy_cap += int(capped_here > 0)
         prebuilt.append((_digest("sample", e.observation_id), t))
     # 상세 record — HMAC digest 정렬 상위 N(입력 순서 불변·주기 aliasing 없음).
     prebuilt.sort(key=lambda x: x[0])
@@ -422,7 +469,11 @@ def build_batch(
         detailed_period_count=len(picked),
         truncated_success_period_count=record_success - len(picked),
         period_failure_counts=period_failure_counts,
+        audit_projection_success_count=audit_success,
+        audit_projection_missing_count=audit_missing,
+        audit_projection_failure_count=audit_fail,
         vector_degraded=bool(evaluated and vector_failures * 2 > evaluated),
+        audit_degraded=bool(vector_success and audit_fail * 2 > vector_success),
         telemetry_degraded=bool(
             vector_success and record_fail * 2 > vector_success),
     )

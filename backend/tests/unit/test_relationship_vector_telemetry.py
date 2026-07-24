@@ -120,8 +120,8 @@ def test_batch_cap_detail_only_aggregate_full() -> None:
     assert batch.detailed_period_count \
         == MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST  # 상세만 cap
     assert batch.truncated_success_period_count == 50 - batch.detailed_period_count
-    # axis bucket 합계 = telemetry_record_success(§1 분모 불변식).
-    assert sum(batch.aggregate.separation_bucket_counts.values()) == 50
+    # 축 status 합계 = vector_success(§1 정정 분모 불변식).
+    assert sum(batch.aggregate.separation_status_counts.values()) == 50
     # 입력 순서 불변 + 재실행 동일(HMAC 정렬).
     rev = build_batch(list(reversed(envs)))
     assert [r.observation_id for r in batch.records] \
@@ -142,8 +142,8 @@ def test_batch_failure_denominators_separated() -> None:
         == batch.vector_success_count + batch.vector_failure_count
     assert batch.vector_degraded is True   # 계산 과반 실패
     assert batch.telemetry_degraded is False  # 변환은 정상 — 축 분리
-    # 실패 기간은 어떤 bucket에도 포함되지 않는다(임의 bucket 배정 금지).
-    assert sum(batch.aggregate.separation_bucket_counts.values()) == 1
+    # 실패 기간은 어떤 status·bucket에도 포함되지 않는다(임의 배정 금지).
+    assert sum(batch.aggregate.separation_status_counts.values()) == 1
     ok2 = build_batch(ok)
     assert ok2.vector_degraded is False and ok2.telemetry_degraded is False
 
@@ -248,3 +248,45 @@ def test_legacy_cap_units_separated() -> None:
     assert batch.aggregate.legacy_capped_candidate_count == 2
     assert batch.aggregate.periods_with_any_legacy_cap == 1
     assert batch.telemetry_record_success_count == 2  # 후보 없어도 관측됨
+
+
+def test_aggregate_denominator_is_vector_success_not_record_success(monkeypatch) -> None:
+    """§1 정정 — 상세 DTO 변환 실패 기간도 축 aggregate에는 포함된다."""
+    import saju_api.services.relationship_vector_telemetry as mod
+
+    envs = [_envelope(), _envelope(), _envelope()]
+    calls = {"n": 0}
+    orig = mod.build_relationship_vector_telemetry
+
+    def flaky(env):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("forced record failure")
+        return orig(env)
+
+    monkeypatch.setattr(mod, "build_relationship_vector_telemetry", flaky)
+    batch = mod.build_batch(envs)
+    assert batch.vector_success_count == 3
+    assert batch.telemetry_record_failure_count == 1
+    assert batch.telemetry_record_success_count == 2
+    # 축 status 합계 = vector_success(3) — record 실패에도 분포 누락 없음.
+    assert sum(batch.aggregate.separation_status_counts.values()) == 3
+    # value bucket 합계 = 해당 축 EVALUATED 기간 수(3 — 충 evidence 전부 평가됨).
+    assert sum(batch.aggregate.separation_bucket_counts.values()) == 3
+
+
+def test_audit_failure_not_vector_failure() -> None:
+    """§2 정정 — audit projection 실패는 벡터 실패가 아니다(aggregate 포함·audit 결손)."""
+    from saju_api.services.relationship_vector_telemetry import AuditProjectionStatus
+
+    ok = _envelope().model_copy(update={
+        "audit_status": AuditProjectionStatus.PROJECTION_FAILURE.value,
+        "legacy_candidate_audits": [],
+    })
+    batch = build_batch([ok])
+    assert batch.vector_failure_count == 0
+    assert batch.vector_success_count == 1
+    assert batch.audit_projection_failure_count == 1
+    assert batch.audit_degraded is True   # 1/1 실패
+    assert batch.vector_degraded is False  # 벡터는 정상 — 축 분리
+    assert sum(batch.aggregate.activation_status_counts.values()) == 1
