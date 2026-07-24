@@ -27,7 +27,7 @@ INSUFFICIENT(**BLOCKED 0건 정상**). shadow 전용(D-3) — 승격류 필드 �
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from saju_shared_types.relationship_effect import (
     AxisStatus,
@@ -57,9 +57,41 @@ RELATIONSHIP_VECTOR_SCHEMA_VERSION = "p1.1"
 RELATIONSHIP_CALIBRATION_VERSION = "cal-2026-07-24.1"
 
 # provisional calibration(§6) — shadow 감사 후 P3 전 재조정 대상.
+# 이 상수들이 BASELINE_CALIBRATION의 단일 source다(drift lint가 명세와 일치 강제).
 _SECONDARY_FACTOR = 0.3
 _SUPPORT_WEAKEN = 0.5
 _ACT_BAND = {"strong": 20.0, "moderate": 12.0, "weak": 6.0}
+
+
+class RelationshipVectorCalibration(BaseModel):
+    """벡터 캘리브레이션 profile(P2-1 §8) — 합성기에 명시 주입한다(전역 monkeypatch 금지).
+
+    production 경로는 BASELINE_CALIBRATION만 쓴다. 감사 harness만 실험 profile을
+    전달한다. `profile_id`는 실험 run 구분용이며 **공식 CALIBRATION_VERSION과 별개**
+    (실험이 운영 telemetry 버전을 오염시키지 않게 — §8). 필드 기본값 = 현행 상수라
+    `RelationshipVectorCalibration()`은 기존 결과와 byte-identical(§9).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    profile_id: str = "baseline"
+    secondary_factor: float = _SECONDARY_FACTOR
+    support_weaken: float = _SUPPORT_WEAKEN
+    activation_band: dict[str, float] = Field(
+        default_factory=lambda: dict(_ACT_BAND))
+    stability_support: dict[str, float] = Field(
+        default_factory=lambda: dict(_STAB_SUPPORT))
+    stability_pressure: dict[str, float] = Field(
+        default_factory=lambda: dict(_STAB_PRESSURE))
+    separation_weight: dict[str, float] = Field(
+        default_factory=lambda: dict(_SEP_WEIGHT))
+    # signed stability band 경계: (weak_max_inclusive, moderate_max_exclusive).
+    stability_band: tuple[float, float] = (-0.8, 0.3)
+    separation_band: dict[str, float] = Field(
+        default_factory=lambda: {"strong": 0.9, "moderate": 0.55, "weak": 0.3})
+
+
+BASELINE_CALIBRATION = RelationshipVectorCalibration()
 
 
 class RootEffectContribution(BaseModel):
@@ -109,12 +141,12 @@ class RelationshipEffectVectorResult(BaseModel):
     usage: str = "shadow_only"
 
 
-def _primary_plus_secondary(values: list[float]) -> float:
+def _primary_plus_secondary(values: list[float], secondary_factor: float) -> float:
     """주 기여 + 제한 복합 보정(같은 root 단순 합산 금지)."""
     if not values:
         return 0.0
     ordered = sorted(values, reverse=True)
-    return ordered[0] + _SECONDARY_FACTOR * sum(ordered[1:])
+    return ordered[0] + secondary_factor * sum(ordered[1:])
 
 
 def _band(value: float, *, strong: float, moderate: float, weak: float) -> str:
@@ -194,6 +226,7 @@ def synthesize_relationship_effect_vector(
     blockers: list[RelationshipActivationEvidence] | None = None,
     modifiers: list[RelationshipStructureModifier] | None = None,
     superseded_map: dict[str, str] | None = None,
+    calibration: RelationshipVectorCalibration | None = None,
 ) -> RelationshipEffectVectorResult:
     """evidence·blocker·modifier → root-deduplicated 7축 벡터(shadow).
 
@@ -202,7 +235,11 @@ def synthesize_relationship_effect_vector(
             EXACT/COMPONENT signal을 가진 evidence만 — PROVISIONAL은 보존·계측 전용.
         blockers: MT2 clashed 등 — realization은 INSUFFICIENT+blocker 보존(BLOCKED 금지).
         modifiers: 구조 패턴 — derived root에만 적용, 동일 static ID는 순서 불변 병합.
+        calibration: 계수 profile(P2-1 §8) — None이면 BASELINE_CALIBRATION(현행 상수).
+            production 경로는 None(BASELINE)만 전달, 감사 harness만 실험 profile 주입.
+            BASELINE은 기존 결과와 byte-identical(§9).
     """
+    cal = calibration or BASELINE_CALIBRATION
     blockers = blockers or []
     modifiers = modifiers or []
     superseded_map = superseded_map or {}
@@ -255,13 +292,16 @@ def synthesize_relationship_effect_vector(
         contributions.append(RootEffectContribution(
             signal_trigger_id=key,
             evidence_ids=[e.evidence_id for e in group],
-            activation=round(_primary_plus_secondary(list(act_by_kind.values())), 3),
+            activation=round(_primary_plus_secondary(
+                list(act_by_kind.values()), cal.secondary_factor), 3),
             stability_support=round(
-                sum(_STAB_SUPPORT.get(k, 0.0) for k in kinds), 3),
+                sum(cal.stability_support.get(k, 0.0) for k in kinds), 3),
             stability_pressure=round(_primary_plus_secondary(
-                [_STAB_PRESSURE[k] for k in kinds if k in _STAB_PRESSURE]), 3),
+                [cal.stability_pressure[k] for k in kinds
+                 if k in cal.stability_pressure], cal.secondary_factor), 3),
             separation_pressure=round(_primary_plus_secondary(
-                [_SEP_WEIGHT[k] for k in kinds if k in _SEP_WEIGHT]), 3),
+                [cal.separation_weight[k] for k in kinds
+                 if k in cal.separation_weight], cal.secondary_factor), 3),
             kinds=kinds,
         ))
 
@@ -290,7 +330,7 @@ def synthesize_relationship_effect_vector(
             continue
         if m.structural_context_id in conflicted_sids:
             continue  # 의미 payload 충돌 — 데이터 계약 위반: 수치 적용 보류(§3)
-        factor = max(0.0, 1.0 - _SUPPORT_WEAKEN * m.strength)
+        factor = max(0.0, 1.0 - cal.support_weaken * m.strength)
         if m.derived_from_evidence_ids:
             targets = set(m.derived_from_evidence_ids)
             matched = [c for c in contributions if targets & set(c.evidence_ids)]
@@ -317,20 +357,22 @@ def synthesize_relationship_effect_vector(
     if activation_ids:
         axes.activation = RelationshipAxisValue(
             status=AxisStatus.EVALUATED, value=round(total_activation, 3),
-            band=_band(total_activation, **_ACT_BAND),
+            band=_band(total_activation, **cal.activation_band),
             evidence_ids=sorted(set(activation_ids)),
         )
     if stability_ids:
         net = round(total_support - total_pressure, 3)
+        _stab_weak_max, _stab_mod_max = cal.stability_band
         axes.stability = RelationshipAxisValue(
             status=AxisStatus.EVALUATED, value=net,
-            band=("weak" if net <= -0.8 else "moderate" if net < 0.3 else "strong"),
+            band=("weak" if net <= _stab_weak_max
+                  else "moderate" if net < _stab_mod_max else "strong"),
             evidence_ids=sorted(set(stability_ids)),
         )
     if separation_ids:
         axes.separation_pressure = RelationshipAxisValue(
             status=AxisStatus.EVALUATED, value=round(total_separation, 3),
-            band=_band(total_separation, strong=0.9, moderate=0.55, weak=0.3),
+            band=_band(total_separation, **cal.separation_band),
             evidence_ids=sorted(set(separation_ids)),
         )
     # realization — positive base 부재(P1): blocker가 있어도 BLOCKED 생성 금지.
