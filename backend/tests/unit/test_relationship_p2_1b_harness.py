@@ -77,14 +77,13 @@ def test_boundary_sign_flip_by_jw():
     assert all(s == "neg" for s in signs[1:])
 
 
-def test_duplicate_finding_surfaced():
-    """중복 modifier 비멱등이 synthesizer 발견으로 관측됨(gate 실패 아님)."""
+def test_duplicate_modifier_idempotent_after_hardening():
+    """P2 hardening 후 중복 derived modifier 멱등(1회=2회)."""
     h = _load()
     cases = h.build_cases()
     synth = h.synthesizer_findings(cases)
-    # 현행 합성기는 transit modifier를 dedup하지 않음 → 비멱등.
-    assert synth["duplicate_derived_modifier_idempotent"] is False
-    assert synth["example"] is not None
+    assert synth["duplicate_derived_modifier_idempotent"] is True
+    assert synth["example"] is None
 
 
 def test_run_writes_outputs(tmp_path):

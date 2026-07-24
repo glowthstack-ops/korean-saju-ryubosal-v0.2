@@ -81,13 +81,8 @@
     }
   ],
   "synthesizer_findings": {
-    "duplicate_derived_modifier_idempotent": false,
-    "example": {
-      "case": "duplicate_modifier",
-      "profile": "SF00_JW25",
-      "support_1x": 0.255,
-      "support_2x": 0.217
-    },
+    "duplicate_derived_modifier_idempotent": true,
+    "example": null,
     "note": "derived(transit) modifier가 _merge_modifiers에서 dedup되지 않아 동일 modifier 2회 = support 2회 약화. production은 pattern_id별 1개만 생성(라이브 영향 0). P3/hardening 후보 — P2 수정 대상 아님."
   }
 }

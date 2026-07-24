@@ -255,17 +255,31 @@ def invariant_checks(cases: list[Case], grid: dict) -> dict:
                 if any(s["multi_root_hold"] < 1 for s in seq):
                     v(f"multiroot_not_held:{c.case_id}:{sf_id}")
 
+    # (§7) 중복 = 1× — P2 hardening 후 하드 게이트(비멱등이면 위반).
+    for c in cases:
+        if c.expect != "dup":
+            continue
+        single = _jaenghap(list(c.target_evidence_ids))
+        for sf_id, sf in _SF:
+            for jw_id, jw in _JW:
+                sup_dup = _target_support(synthesize_relationship_effect_vector(
+                    c.evidences, modifiers=c.modifiers, calibration=_cal(sf, jw)),
+                    c.target_evidence_ids)
+                sup_one = _target_support(synthesize_relationship_effect_vector(
+                    c.evidences, modifiers=single, calibration=_cal(sf, jw)),
+                    c.target_evidence_ids)
+                if sup_dup != sup_one:
+                    v(f"duplicate_not_idempotent:{c.case_id}:{sf_id}_{jw_id}")
+
     return {"violations": viols, "passed": not viols}
 
 
 def synthesizer_findings(cases: list[Case]) -> dict:
-    """calibration과 무관한 synthesizer 관찰(§7 중복 idempotency 검증) — P2 수정 대상
-    아님(audit only). derived(transit) modifier가 dedup되는지 확인해 보고만 한다.
+    """derived modifier 멱등성 확인(§7) — P2 hardening으로 해소됨(idempotent=True 기대).
 
-    발견: `_merge_modifiers`는 structural_context_id(natal static)만 병합한다. derived
-    modifier(JAENGHAP 등)는 transit로 분류돼 dedup되지 않으므로, 동일 derived modifier가
-    2회 들어오면 support가 2회 약화된다(비멱등). production 파이프라인은 pattern_id별
-    1개만 생성하므로 라이브 영향 0 — 방어적 견고성 갭. P3/hardening 후보(수정은 별도 승인).
+    `_merge_modifiers`가 derived(transit) modifier를 canonical key(pattern_id+evidence
+    set)로 dedup하고, 동일 key·payload 불일치는 derived_modifier_conflict로 보류한다.
+    동일 modifier 2회 = 1회(멱등). 이 함수는 회귀 확인용으로 유지한다.
     """
     dup_idempotent = True
     example: dict | None = None

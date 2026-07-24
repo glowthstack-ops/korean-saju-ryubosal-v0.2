@@ -130,6 +130,9 @@ class RelationshipEffectVectorResult(BaseModel):
     # 동일 static ID에 상이한 의미 payload(effects·affects 불일치) — 수치 적용 보류
     # 건수(P1-6 승인 §4: telemetry는 count만, 원문 미기록).
     static_modifier_conflict_count: int = 0
+    # 동일 canonical key(pattern_id+evidence set)인데 payload 불일치한 derived modifier
+    # 수치 적용 보류 건수(P2 hardening — 자동 2회 적용·max 금지, static과 일관).
+    derived_modifier_conflict_count: int = 0
     # supersession 연쇄·순환·유실 계측(P1-6 §1) — 순환·유실은 수치 적용 보류.
     supersession_cycle_count: int = 0
     supersession_target_missing_count: int = 0
@@ -182,22 +185,40 @@ def resolve_canonical_evidence_id(
     return cur, "ok"
 
 
+def _derived_key(m: RelationshipStructureModifier) -> tuple[str, tuple[str, ...]]:
+    """derived(transit) modifier의 canonical identity(P2 hardening).
+
+    (pattern_id, canonical derived evidence set). derived_from은 합성기 진입 전
+    supersession remap으로 이미 canonical(EXACT/COMPONENT)이라 supersession 전후
+    같은 root를 참조하면 동일 key가 된다. root set 정렬로 입력 순서 불변.
+    """
+    return (m.pattern_id, tuple(sorted(m.derived_from_evidence_ids)))
+
+
 def _merge_modifiers(
     modifiers: list[RelationshipStructureModifier],
-) -> tuple[list[RelationshipStructureModifier], list[str], int, set[str]]:
-    """동일 static ID 병합 — strength=max·union, 입력 순서 불변(결과 정렬).
+) -> tuple[
+    list[RelationshipStructureModifier], list[str], int, set[str],
+    int, set[tuple[str, tuple[str, ...]]],
+]:
+    """static ID 병합 + derived modifier 멱등 dedup(P2 hardening).
 
-    현 생성기는 같은 static ID에 동일 payload만 생성한다(단일 매핑 테이블 불변식).
-    방어적으로 effects·affects가 불일치하면 static_modifier_conflict로 세고 해당
-    modifier의 **수치 적용은 보류**한다(메타 보존·count만 계측 — P1-6 §4).
+    static: 같은 structural_context_id는 strength=max·union 병합. effects·affects
+    불일치는 static_modifier_conflict로 세고 수치 적용 보류(P1-6 §4).
+
+    derived(transit): 같은 canonical key(pattern_id + canonical evidence set)는 **1회만**
+    적용한다(중복 입력 멱등 — 합성기 계약). 동일 key인데 effects·affects·strength가
+    불일치하면 derived_modifier_conflict로 세고 그 key의 **수치 적용을 보류**한다
+    (자동 2회 적용·무조건 max 금지 — static fail-closed와 일관). 같은 pattern이라도
+    root set이 다르면 별개 modifier로 유지. 입력 순서 불변(결과 정렬).
     """
     by_static: dict[str, RelationshipStructureModifier] = {}
     conflicts: set[str] = set()
-    transit: list[RelationshipStructureModifier] = []
+    transit_raw: list[RelationshipStructureModifier] = []
     for m in modifiers:
         sid = m.structural_context_id
         if sid is None:
-            transit.append(m)
+            transit_raw.append(m)
             continue
         prev = by_static.get(sid)
         if prev is None:
@@ -215,9 +236,22 @@ def _merge_modifiers(
                     | set(m.derived_from_evidence_ids)
                 ),
             })
+    # derived 멱등 dedup — 같은 canonical key는 1회, payload 불일치는 conflict 보류.
+    by_derived: dict[tuple[str, tuple[str, ...]], RelationshipStructureModifier] = {}
+    derived_conflicts: set[tuple[str, tuple[str, ...]]] = set()
+    for m in transit_raw:
+        key = _derived_key(m)
+        prev = by_derived.get(key)
+        if prev is None:
+            by_derived[key] = m
+        elif (sorted(prev.effects) != sorted(m.effects)
+              or sorted(prev.affects_axes) != sorted(m.affects_axes)
+              or prev.strength != m.strength):
+            derived_conflicts.add(key)  # 동일 key·다른 payload — 수치 적용 보류
     merged = sorted(by_static.values(), key=lambda m: m.structural_context_id or "")
-    merged += sorted(transit, key=lambda m: m.pattern_id)
-    return merged, sorted(by_static), len(conflicts), conflicts
+    merged += sorted(by_derived.values(), key=_derived_key)
+    return (merged, sorted(by_static), len(conflicts), conflicts,
+            len(derived_conflicts), derived_conflicts)
 
 
 def synthesize_relationship_effect_vector(
@@ -320,9 +354,9 @@ def synthesize_relationship_effect_vector(
         lambda e: e.relation_kind in _STAB_SUPPORT or e.relation_kind in _STAB_PRESSURE)
     separation_ids = _ids(lambda e: e.relation_kind in _SEP_WEIGHT)
 
-    # modifier(폐쇄 §3) — 병합(순서 불변) 후 derived root에만 적용.
-    deduped_modifiers, static_ids, static_conflicts, conflicted_sids = (
-        _merge_modifiers(modifiers))
+    # modifier(폐쇄 §3) — 병합·멱등 dedup(순서 불변) 후 derived root에만 적용.
+    (deduped_modifiers, static_ids, static_conflicts, conflicted_sids,
+     derived_conflicts, conflicted_derived_keys) = _merge_modifiers(modifiers)
     multi_root_hold = 0
     for m in deduped_modifiers:
         if StructureModifierEffect.STABILITY_SUPPORT_WEAKEN not in m.effects \
@@ -330,6 +364,9 @@ def synthesize_relationship_effect_vector(
             continue
         if m.structural_context_id in conflicted_sids:
             continue  # 의미 payload 충돌 — 데이터 계약 위반: 수치 적용 보류(§3)
+        if m.structural_context_id is None \
+                and _derived_key(m) in conflicted_derived_keys:
+            continue  # derived 동일 key·payload 충돌 — 수치 적용 보류(P2 hardening)
         factor = max(0.0, 1.0 - cal.support_weaken * m.strength)
         if m.derived_from_evidence_ids:
             targets = set(m.derived_from_evidence_ids)
@@ -405,6 +442,7 @@ def synthesize_relationship_effect_vector(
         root_contributions=contributions,
         static_context_ids=static_ids,
         static_modifier_conflict_count=static_conflicts,
+        derived_modifier_conflict_count=derived_conflicts,
         supersession_cycle_count=cycle_count,
         supersession_target_missing_count=missing_count,
         modifier_multi_root_hold_count=multi_root_hold,

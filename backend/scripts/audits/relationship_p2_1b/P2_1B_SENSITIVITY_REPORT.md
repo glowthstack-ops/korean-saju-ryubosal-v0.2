@@ -15,7 +15,7 @@ spec p2.1b.v1 · baseline SF30·JW50 · calibration cal-2026-07-24.1 · band B0 
 | target_vs_nontarget | 0.3 | 0.255 | 0.21 | 0.165 | 0.55 |
 | support_pressure_mix | 0.3 | 0.255 | 0.21 | 0.165 | 0.55 |
 | same_root_mix | 0.3 | 0.255 | 0.21 | 0.165 | 0.55 |
-| duplicate_modifier | 0.3 | 0.217 | 0.147 | 0.091 | 0.303 |
+| duplicate_modifier | 0.3 | 0.255 | 0.21 | 0.165 | 0.55 |
 | wrong_target | 0.0 | 0.0 | 0.0 | 0.0 | — |
 | multi_root_target | 0.0 | 0.0 | 0.0 | 0.0 | — |
 | boundary_sign_flip | 0.3 | 0.255 | 0.21 | 0.165 | 0.55 |
@@ -57,11 +57,10 @@ spec p2.1b.v1 · baseline SF30·JW50 · calibration cal-2026-07-24.1 · band B0 
 
 ## 5. synthesizer 발견(§7 중복 idempotency — P2 수정 대상 아님)
 
-- ⚠ **derived modifier 중복 비멱등**(finding): derived(transit) modifier가 _merge_modifiers에서 dedup되지 않아 동일 modifier 2회 = support 2회 약화. production은 pattern_id별 1개만 생성(라이브 영향 0). P3/hardening 후보 — P2 수정 대상 아님.
-  - 예: duplicate_modifier SF00_JW25 — 1× support 0.255 vs 2× 0.217(2회 약화).
-  - **decision 필요**: transit modifier dedup 견고화(별도 승인) vs known gap 문서화. production 라이브 영향 0.
+- derived modifier 중복 idempotent: **OK**.
 
 ## 6. 관찰(§P2-1C 전달 — 최적 profile 선정 아님)
 
-- SF↑는 same-root pressure를 키워 같은 JW에서도 stability negative가 늘 수 있다(공유 계수 §3-1). 위 교차표가 공통 SF 유지 여부의 근거.
+- 이 사례군에서 sign flip은 **JW가 구동**(boundary_sign_flip: JW25에서 zero→neg), SF는 미결합(단일 root 경계 사례라 SF 무영향). SF가 same-root multi-pressure를 키워 sign에 결합하는지는 별도 경계 사례 필요(공유 계수 §3-1).
+- supersession remap(§6-8)은 합성기 `resolve_canonical_evidence_id`가 담당 — P1-6 회귀에서 검증됨(PROVISIONAL P→EXACT E 해소 후 E root 1회 적용). 본 harness는 JW 민감도 전용이라 재검증하지 않는다.
 

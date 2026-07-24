@@ -98,6 +98,103 @@ def test_profile_frozen_and_extra_forbid():
         cal.secondary_factor = 0.9  # frozen
 
 
+# ── derived modifier 멱등 hardening (§6) ─────────────────────────────────────
+def _jaenghap(derived_ids):
+    from saju_engines.relationship_structure_modifiers import (
+        build_relationship_structure_modifiers,
+    )
+    from saju_shared_types.structure_patterns import DetectedPattern
+    return build_relationship_structure_modifiers(
+        [DetectedPattern(pattern_id="JAENGHAP", name_ko="쟁합", strength=0.6,
+                         polarity_mode="context_only")],
+        derived_from_by_pattern={"JAENGHAP": derived_ids})
+
+
+def _support(result):
+    return round(sum(rc.stability_support for rc in result.root_contributions), 3)
+
+
+def test_duplicate_derived_modifier_idempotent():
+    """동일 derived modifier 1회 = 2회 (§6) — 축값 동일."""
+    ev = _evidences()
+    tid = ev[0].evidence_id
+    one = synthesize_relationship_effect_vector(ev, modifiers=_jaenghap([tid]))
+    two = synthesize_relationship_effect_vector(
+        ev, modifiers=_jaenghap([tid]) + _jaenghap([tid]))
+    assert one.model_dump() == two.model_dump()
+
+
+def test_derived_modifier_input_order_invariant():
+    """derived modifier 입력 순서 역전 결과 동일(§6)."""
+    ev = _evidences()
+    tid = ev[0].evidence_id
+    m = _jaenghap([tid]) + _jaenghap([tid])
+    a = synthesize_relationship_effect_vector(ev, modifiers=m)
+    b = synthesize_relationship_effect_vector(ev, modifiers=list(reversed(m)))
+    assert a.model_dump() == b.model_dump()
+
+
+def test_same_pattern_different_root_both_apply():
+    """같은 pattern·다른 root set은 각각 적용(dedup 아님, §6)."""
+    from saju_engines.spouse_palace_activation import build_spouse_palace_vector
+    hits = [_hit(RelationKind.HAP, "未", "丑"), _hit(RelationKind.HAP, "戌", "辰")]
+    ev = build_spouse_palace_vector(hits, _DICTS, period_key="2027").evidences
+    a_id = next(e.evidence_id for e in ev if e.transit_participant == "未")
+    b_id = next(e.evidence_id for e in ev if e.transit_participant == "戌")
+    base = synthesize_relationship_effect_vector(ev)
+    # 서로 다른 root를 각각 target하는 두 modifier → 둘 다 적용(support 더 감소).
+    both = synthesize_relationship_effect_vector(
+        ev, modifiers=_jaenghap([a_id]) + _jaenghap([b_id]))
+    assert _support(both) < _support(base)
+
+
+def test_conflicting_derived_modifier_held():
+    """동일 key·다른 strength는 conflict 보류(수치 미적용, §6)."""
+    from saju_engines.relationship_structure_modifiers import (
+        build_relationship_structure_modifiers,
+    )
+    from saju_shared_types.structure_patterns import DetectedPattern
+    ev = _evidences()
+    tid = ev[0].evidence_id
+    m1 = build_relationship_structure_modifiers(
+        [DetectedPattern(pattern_id="JAENGHAP", name_ko="쟁합", strength=0.6,
+                         polarity_mode="context_only")],
+        derived_from_by_pattern={"JAENGHAP": [tid]})
+    m2 = build_relationship_structure_modifiers(
+        [DetectedPattern(pattern_id="JAENGHAP", name_ko="쟁합", strength=0.9,
+                         polarity_mode="context_only")],
+        derived_from_by_pattern={"JAENGHAP": [tid]})
+    base = synthesize_relationship_effect_vector(ev)  # modifier 없음
+    r = synthesize_relationship_effect_vector(ev, modifiers=m1 + m2)
+    # conflict → 수치 미적용(support = modifier 없을 때와 동일) + conflict count.
+    assert _support(r) == _support(base)
+    assert r.derived_modifier_conflict_count == 1
+
+
+def test_hardening_production_pipeline_byte_identical():
+    """정상 production 입력(단일 modifier)은 hardening 전후 동작 불변 — 실제 명식."""
+    from datetime import date
+
+    from saju_api.services.manse_service import calculate
+    from saju_engines.marriage_emergence_modifier import (
+        analyze_marriage_emergence_natal,
+    )
+    from saju_engines.relationship_structure_modifiers import (
+        build_relationship_structure_modifiers,
+    )
+    from saju_engines.structure_patterns import detect_structure_patterns
+    from saju_shared_types.birth_input import BirthInput
+    chart = calculate(BirthInput(
+        calendar_type="solar", birth_date=date(1985, 3, 15), birth_time="14:30",
+        birth_place_name="서울", gender="female", reference_date=date(2026, 7, 24)))
+    mods = build_relationship_structure_modifiers(detect_structure_patterns(chart))
+    analyze_marriage_emergence_natal(chart)  # smoke
+    ev = _evidences()
+    # 정상 파이프라인 modifier(중복 없음)는 dedup 영향 없이 동일 결과.
+    r = synthesize_relationship_effect_vector(ev, modifiers=mods)
+    assert r.derived_modifier_conflict_count == 0
+
+
 def test_profile_id_independent_of_calibration_version():
     """profile_id는 공식 CALIBRATION_VERSION과 무관(실험이 버전 오염 안 함, §8)."""
     cal = RelationshipVectorCalibration(profile_id="exp-1")
