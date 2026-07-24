@@ -2,7 +2,7 @@
   "experiment_spec_version": "p2.1d.v1",
   "baseline_calibration_version": "cal-2026-07-24.1",
   "period_count": 132,
-  "profile_count": 6,
+  "profile_count": 7,
   "thresholds": {
     "collapse_share": 0.85,
     "collapse_min_n": 20,
@@ -49,6 +49,19 @@
         },
         "n_eval": 86,
         "root1_strong_rate": 0.03,
+        "root2plus_strong_rate": 0.526
+      },
+      "D3_CHUNG_bonus_conservative": {
+        "status": "PASS",
+        "flags": [],
+        "band_dist": {
+          "low": 9,
+          "weak": 30,
+          "moderate": 36,
+          "strong": 11
+        },
+        "n_eval": 86,
+        "root1_strong_rate": 0.015,
         "root2plus_strong_rate": 0.526
       },
       "D4_stab_CHUNG_conservative": {

@@ -177,6 +177,7 @@ def synthesize_period_vector(
     *,
     dictionaries_dir: Path,
     calibration=None,  # RelationshipVectorCalibration | None
+    kind_bonus_scale: dict[str, float] | None = None,
 ) -> RelationshipEffectVectorResult:
     """한 기간 projection → 7축 벡터(어댑터·합성기, 순수). 실패는 단계별 예외.
 
@@ -203,6 +204,15 @@ def synthesize_period_vector(
             spouse_palace_clashed=proj.spouse_palace_clashed)
         evidences += mt2.evidences
         blockers += mt2.blocker_evidences
+        # P2-1C-2/P2-1D 감사 hook — kind_base_bonus(S1) OAT: 대상 kind evidence의
+        # base_relation_strength를 스케일(production은 None → 무변경).
+        if kind_bonus_scale:
+            evidences = [
+                e.model_copy(update={
+                    "base_relation_strength": round(
+                        e.base_relation_strength * kind_bonus_scale[e.relation_kind], 6)})
+                if e.relation_kind in kind_bonus_scale else e
+                for e in evidences]
     except Exception as exc:  # noqa: BLE001 — 기간 격리(§2)
         raise _AdapterError from exc
     try:

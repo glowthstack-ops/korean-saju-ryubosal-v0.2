@@ -77,37 +77,43 @@ def _base_dicts():
     return dict(_STAB_SUPPORT), dict(_STAB_PRESSURE), dict(_SEP_WEIGHT)
 
 
-def build_profiles() -> dict[str, RelationshipVectorCalibration]:
-    """shortlist 7 profile(§6) — profile당 단일 변경(추적 가능)."""
+@dataclass
+class ProfileSpec:
+    calibration: RelationshipVectorCalibration
+    kind_bonus_scale: dict[str, float] | None = None  # S1 kind_base_bonus OAT
+
+
+def build_profiles() -> dict[str, ProfileSpec]:
+    """shortlist 7 profile(§6·리뷰 addendum) — profile당 단일 변경(추적 가능)."""
     C = RelationshipVectorCalibration
     sup, prs, sep = _base_dicts()
-    # D4: stability.pressure.CHUNG 한 단계 하향(-20%).
     prs_d4 = dict(prs)
-    prs_d4["CHUNG"] = round(prs["CHUNG"] * 0.8, 6)
-    # D5: separation 지배 weight(CHUNG) 하향(ordering 유지 — 0.8 ≥ 나머지).
+    prs_d4["CHUNG"] = round(prs["CHUNG"] * 0.8, 6)   # D4: stability.pressure.CHUNG -20%
     sep_d5 = dict(sep)
-    sep_d5["CHUNG"] = round(sep["CHUNG"] * 0.8, 6)
-    # D6: support.HAP 상향(+20%).
+    sep_d5["CHUNG"] = round(sep["CHUNG"] * 0.8, 6)   # D5: separation.CHUNG -20%(ordering 유지)
     sup_d6 = dict(sup)
-    sup_d6["HAP"] = round(sup["HAP"] * 1.2, 6)
+    sup_d6["HAP"] = round(sup["HAP"] * 1.2, 6)       # D6: support.HAP +20%
     return {
-        "D0_baseline": C.shared(secondary_factor=0.3, profile_id="D0_baseline"),
-        "D1_C1_act_conservative": C.activation_pressure_split(
-            activation=0.15, pressure=0.3, profile_id="D1_C1_act_conservative"),
-        "D2_C1_prs_conservative": C.activation_pressure_split(
-            activation=0.3, pressure=0.15, profile_id="D2_C1_prs_conservative"),
-        # D3: CHUNG activation bonus 하향은 dict(S1) — calibration 밖이라 evidence 스케일
-        #     필요. 본 harness는 calibration 단위 profile만 다루므로 D3는 별도 노트로 남기고
-        #     구조·factor·weight profile(D0~D2·D4~D6)만 331 확장(§7 단일 변경 유지).
-        "D4_stab_CHUNG_conservative": C.shared(
+        "D0_baseline": ProfileSpec(
+            C.shared(secondary_factor=0.3, profile_id="D0_baseline")),
+        "D1_C1_act_conservative": ProfileSpec(C.activation_pressure_split(
+            activation=0.15, pressure=0.3, profile_id="D1_C1_act_conservative")),
+        "D2_C1_prs_conservative": ProfileSpec(C.activation_pressure_split(
+            activation=0.3, pressure=0.15, profile_id="D2_C1_prs_conservative")),
+        # D3(리뷰 addendum): C0 유지·CHUNG activation kind_base_bonus만 -20%(S1 dict).
+        # D1(generic same-root compounding)과 대조군 — kind-specific vs 구조 분리 구분.
+        "D3_CHUNG_bonus_conservative": ProfileSpec(
+            C.shared(secondary_factor=0.3, profile_id="D3_CHUNG_bonus_conservative"),
+            kind_bonus_scale={"CHUNG": 0.8}),
+        "D4_stab_CHUNG_conservative": ProfileSpec(C.shared(
             secondary_factor=0.3, profile_id="D4_stab_CHUNG_conservative",
-            stability_pressure=prs_d4),
-        "D5_sep_conservative": C.shared(
+            stability_pressure=prs_d4)),
+        "D5_sep_conservative": ProfileSpec(C.shared(
             secondary_factor=0.3, profile_id="D5_sep_conservative",
-            separation_weight=sep_d5),
-        "D6_HAP_support_up": C.shared(
+            separation_weight=sep_d5)),
+        "D6_HAP_support_up": ProfileSpec(C.shared(
             secondary_factor=0.3, profile_id="D6_HAP_support_up",
-            stability_support=sup_d6),
+            stability_support=sup_d6)),
     }
 
 
@@ -139,10 +145,11 @@ def build_period_inputs() -> list[PeriodInput]:
     return out
 
 
-def _synth(pi: PeriodInput, cal):
+def _synth(pi: PeriodInput, spec: ProfileSpec):
     return synthesize_period_vector(
         pi.proj, pi.chart, pi.natal_mt2, pi.static_modifiers,
-        dictionaries_dir=_DICTS, calibration=cal)
+        dictionaries_dir=_DICTS, calibration=spec.calibration,
+        kind_bonus_scale=spec.kind_bonus_scale)
 
 
 def _band(ax):
@@ -158,10 +165,10 @@ def _sign(v):
 def measure(period_inputs, profiles) -> dict:
     """profile × period 벡터 → 분포·root별 strong rate."""
     grid: dict[str, list] = {p: [] for p in profiles}
-    for name, cal in profiles.items():
+    for name, spec in profiles.items():
         for pi in period_inputs:
             try:
-                v = _synth(pi, cal)
+                v = _synth(pi, spec)
             except Exception:  # noqa: BLE001 — 기간 실패는 감사에서 스킵
                 continue
             grid[name].append({
@@ -257,6 +264,10 @@ def boundary_cases(grid, profiles) -> list[dict]:
             reasons.append("sep_band")
         if c0["act_band"] != per["D1_C1_act_conservative"]["act_band"]:
             reasons.append("C0!=C1act_band")
+        # D1(구조 분리) vs D3(CHUNG bonus) 대조 — 같은 사례를 바꾸는지.
+        if (per["D1_C1_act_conservative"]["act_band"]
+                != per["D3_CHUNG_bonus_conservative"]["act_band"]):
+            reasons.append("D1!=D3")
         if disagree == 0 and "C0!=C1act_band" not in reasons:
             continue
         cases.append({
@@ -277,12 +288,18 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
     boundaries = boundary_cases(grid, profiles)
     n_periods = len(period_inputs)
 
+    n_prof = len(profiles)
     md = ["# P2-1D shortlist harness — 7 profile × 331 harness", "",
           f"spec {EXPERIMENT_SPEC_VERSION} · calibration {RELATIONSHIP_CALIBRATION_VERSION} "
-          f"· fixture {len(_FIXTURES)}·기간 {n_periods}. **감사 전용·읽기 전용·production "
-          "delta 0.** 자동 최적 선정 없음(§10) — P2-3 감수 자료. 임계값 사전 등록"
-          "(SSOT §3-3). D3(CHUNG bonus)는 dict(S1) 변경이라 별도(§7 단일 변경 유지 — 본 "
-          "harness는 calibration 단위 6 profile).", "",
+          f"· fixture {len(_FIXTURES)}·기간 {n_periods}·profile {n_prof}. **감사 전용·읽기 "
+          "전용·production delta 0.** 자동 최적 선정 없음(§10) — P2-3 감수 자료. 임계값 "
+          "사전 등록(SSOT §3-3).", "",
+          "## 데이터 단위 매핑(리뷰 §2)", "",
+          "> P1-7 comparison harness는 **family·축별 comparison record 331**(6 명식). 본 "
+          "harness는 그 6 명식의 **period-level vector 재합성 단위**를 쓴다:", "",
+          "- source comparison records: 331 (P1-7)",
+          f"- unique vector periods: {n_periods} (동일 6 명식·year+month 채점)",
+          f"- profile evaluations: {n_periods} × {n_prof} = {n_periods * n_prof}", "",
           "## 0. 사전 등록 임계값(§3-3 — 결과 관찰 전 고정)", "",
           f"- band collapse ≥ {_COLLAPSE_SHARE} (eligible n≥{_COLLAPSE_MIN_N}, EVALUATED만)",
           f"- root=1 overactivation ≥ max(baseline×2, baseline+{_OVERACT_ABS})",
@@ -290,17 +307,19 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
           f"- baseline root=1 strong {flags['baseline_root1']}·root≥2 strong "
           f"{flags['baseline_root2plus']}", "",
           "## 1. profile별 review flag(자동 탈락 아님·중첩 가능)", "",
-          "| profile | status | act band 분포 | root1 strong | root2+ strong |",
-          "|---|---|---|--:|--:|"]
+          "> act band 분포는 EVALUATED 분모(n_eval). root strong rate = strong/eligible.",
+          "", "| profile | status | n_eval | act band 분포 | root1 strong | root2+ strong |",
+          "|---|---|--:|---|--:|--:|"]
     for name, r in flags["per_profile"].items():
-        md.append(f"| {name} | {r['status']} | "
+        md.append(f"| {name} | {r['status']} | {r['n_eval']} | "
                   f"{json.dumps(r['band_dist'], ensure_ascii=False)} "
                   f"| {r['root1_strong_rate']} | {r['root2plus_strong_rate']} |")
 
     md += ["", "## 2. profile disagreement 경계 사례(§8 — P2-3 감수용 상위 15)", "",
-           f"총 {len(boundaries)}건. band/sign/sep 판단이 갈리는 사례.", "",
-           "| roots | 갈림축수 | reasons | D0 | D1 | D2 | D4 | D5 | D6 |",
-           "|--:|--:|---|---|---|---|---|---|---|"]
+           f"총 {len(boundaries)}건. cell=act_band/stab_sign. D1(구조)·D3(CHUNG bonus) "
+           "대조로 kind-specific vs generic compound 구분.", "",
+           "| roots | 갈림 | reasons | D0 | D1 | D2 | D3 | D4 | D5 | D6 |",
+           "|--:|--:|---|---|---|---|---|---|---|---|"]
     for c in boundaries[:15]:
         p = c["profiles"]
 
@@ -309,7 +328,8 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
         md.append(
             f"| {c['roots']} | {c['disagree_axes']} | {','.join(c['reasons'])} "
             f"| {_cell('D0_baseline')} | {_cell('D1_C1_act_conservative')} "
-            f"| {_cell('D2_C1_prs_conservative')} | {_cell('D4_stab_CHUNG_conservative')} "
+            f"| {_cell('D2_C1_prs_conservative')} | {_cell('D3_CHUNG_bonus_conservative')} "
+            f"| {_cell('D4_stab_CHUNG_conservative')} "
             f"| {_cell('D5_sep_conservative')} | {_cell('D6_HAP_support_up')} |")
 
     md += ["", "## 3. 관찰(§10·§11 — 자동 채택 없음)", "",
