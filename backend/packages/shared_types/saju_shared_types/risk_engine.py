@@ -232,6 +232,10 @@ class RiskCandidate(BaseModel):
     # 기준 억제, 궁합·함께보기에서 해당 동반자 관련 REL 후보 선별에 쓴다(실명 저장 금지).
     relationship_role: str | None = None
     relationship_target_id: str | None = None
+    # P1 선행 보강(RELATIONSHIP_EVENT_SYSTEM) — live 관계 상태(P0-B4) 유래 provenance.
+    # P5 전 LLM 노출 차단의 **주 판단**(target namespace는 보조 fail-safe). 흡수·대표
+    # 수렴 시 그룹 내 OR로 전파되며 복사·재구성 기본값 False 유실을 회귀로 고정한다.
+    live_relationship_context_derived: bool = False
     # 항목의 stage 메타(사전 applicableSelectionStages 복사) — stage-aware suppression용.
     selection_stages: list[str] = Field(default_factory=list)
     # UNKNOWN 노출 가부(사전 exposurePolicy.unknownExposable) — is_exposable이 소비.

@@ -201,7 +201,8 @@ def _apply_specificity_suppression(
         """
         return is_exposable(c)
 
-    suppression: dict[int, tuple[str, str]] = {}  # id(candidate) → (대표 risk_id, 흡수 역할)
+    # id(candidate) → (대표 risk_id, 흡수 역할, 대표 객체 id — provenance 전파용)
+    suppression: dict[int, tuple[str, str, int]] = {}
     for group in by_key.values():
         if len(group) < 2:
             continue
@@ -340,18 +341,32 @@ def _apply_specificity_suppression(
                         and c.absorbed_role_hint is None
                     ):
                         continue
-                suppression[id(c)] = (primary.risk_id, _absorbed_role(c, primary))
+                suppression[id(c)] = (primary.risk_id, _absorbed_role(c, primary), id(primary))
                 break
     if not suppression:
         return cands
-    return [
-        c.model_copy(update={
-            "suppressed_by_specificity": suppression[id(c)][0],
-            "primary_risk_id": suppression[id(c)][0],
-            "absorbed_role": suppression[id(c)][1],
-        }) if id(c) in suppression else c
-        for c in cands
-    ]
+    # provenance 전파(P1 선행 보강) — live 유래 후보가 흡수되면 대표도 live-derived=True.
+    # 보안·노출 속성은 그룹 내 OR: 대표의 원래 값으로 덮지 않는다(하드 게이트 우회 방지).
+    live_primary_ids = {
+        pid for c in cands
+        if id(c) in suppression and c.live_relationship_context_derived
+        for pid in (suppression[id(c)][2],)
+    }
+    out: list[RiskCandidate] = []
+    for c in cands:
+        if id(c) in suppression:
+            out.append(c.model_copy(update={
+                "suppressed_by_specificity": suppression[id(c)][0],
+                "primary_risk_id": suppression[id(c)][0],
+                "absorbed_role": suppression[id(c)][1],
+            }))
+        elif id(c) in live_primary_ids and not c.live_relationship_context_derived:
+            out.append(c.model_copy(update={
+                "live_relationship_context_derived": True,
+            }))
+        else:
+            out.append(c)
+    return out
 
 
 def _absorbed_role(absorbed: RiskCandidate, primary: RiskCandidate) -> str:
@@ -523,6 +538,10 @@ class RelationshipContext:
     reality_episode_id: str | None = None  # 교차 도메인 현실 건 alias(감수 35차)
     reality_episode_type: str | None = None  # 현실 건 유형(감수 37차)
     is_question_target: bool = False
+    # P1 선행 보강(RELATIONSHIP_EVENT_SYSTEM C-8 후속) — live 관계 상태(P0-B4 배선)에서
+    # 만든 컨텍스트 표식. 파생 후보의 P5 전 LLM 노출 차단(하드 게이트)의 **주 판단**이며
+    # target namespace는 보조 fail-safe다. QA·기존 경로 기본 False(byte 불변).
+    live_state_derived: bool = False
 
 
 # 유효 노출 선호 순서 — 같은 항목에 매칭된 관계가 여럿이면 가장 유리한(가장 확인된)
@@ -890,8 +909,10 @@ def _resolve_relationship(
     item: RiskItem,
     contexts: list[RelationshipContext] | None,
     default_exposure: ExposureStatus,
-) -> tuple[str, str | None, str | None, ExposureStatus]:
-    """관계 축 3상태 + 유효 노출 유도 → (alignment, role, target_id, exposure).
+) -> tuple[str, str | None, str | None, ExposureStatus, bool]:
+    """관계 축 3상태 + 유효 노출 유도 → (alignment, role, target_id, exposure, live).
+
+    live: 선택된 컨텍스트가 live 관계 상태 유래인지(provenance — 하드 게이트 주 판단).
 
     관계 역할·실질 조건이 없는 항목은 관계 축과 무관하다(matched, 전역 노출 사용).
     역할 지정 항목: ①허용 역할의 컨텍스트가 있으면 matched — 가장 확인된 상대 기준
@@ -905,7 +926,7 @@ def _resolve_relationship(
         and (policy.requires_financial_tie or policy.requires_shared_responsibility)
     )
     if not needs_context:
-        return "matched", None, None, default_exposure
+        return "matched", None, None, default_exposure, False
     allowed = item.applicable_relationship_roles
     ctxs = contexts or []
     matching = [
@@ -918,11 +939,11 @@ def _resolve_relationship(
             and allowed and c.target_role not in allowed
             for c in ctxs
         ):
-            return "mismatched", None, None, ExposureStatus.UNKNOWN
-        return "unknown", None, None, ExposureStatus.UNKNOWN
+            return "mismatched", None, None, ExposureStatus.UNKNOWN, False
+        return "unknown", None, None, ExposureStatus.UNKNOWN, False
     scored = [(_effective_ctx_exposure(item, c), c) for c in matching]
     eff, best = max(scored, key=lambda pair: _EXPOSURE_PREFERENCE[pair[0]])
-    return "matched", best.target_role, best.target_id, eff
+    return "matched", best.target_role, best.target_id, eff, best.live_state_derived
 
 
 @dataclass(frozen=True)
@@ -1134,7 +1155,7 @@ class RiskEngine:
                 continue  # 관측 없음 — 후보 자체를 만들지 않는다.
             # RelationshipContext(감수 16차) — 관계 역할 지정 항목의 유효 노출은 전역
             # 파라미터가 아니라 매칭된 현실 관계에서 유도한다(존재 추론 금지).
-            rel_alignment, rel_role, rel_target_id, rel_exposure = (
+            rel_alignment, rel_role, rel_target_id, rel_exposure, rel_live = (
                 _resolve_relationship(item, relationship_contexts, exposure_status)
             )
             # SelectionContext(감수 14차 → 25차 SEL-e) — episode별 해석 목록:
@@ -1241,6 +1262,7 @@ class RiskEngine:
                     relationship_alignment=rel_alignment,
                     relationship_role=rel_role,
                     relationship_target_id=rel_target_id,
+                    live_relationship_context_derived=rel_live,
                     selection_stages=list(item.applicable_selection_stages),
                     # UNKNOWN 노출 차등(감수 17차) — 역할 특정 관계 항목은 관계가 확인
                     # 되거나 질문 대상일 때(alignment=matched)만 조건부 노출 가능. 총운·

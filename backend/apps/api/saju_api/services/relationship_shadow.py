@@ -228,6 +228,7 @@ def _build_inner(
             shared_responsibility=None,     # 자동 추론 금지
             relationship_status="separated" if separated else None,
             current_contact_state=st.contact_state,  # 별거라도 contact 추론 금지(실측만)
+            live_state_derived=True,
         ))
         seen_targets.add(tid)
         t.context_sources.append("utterance")
@@ -240,6 +241,7 @@ def _build_inner(
         contexts.append(RelationshipContext(
             target_role="spouse", target_id=f"profile-role:{tid}",
             exposure_status=ExposureStatus.CONFIRMED,  # 프로필 명시 입력
+            live_state_derived=True,
         ))
         t.context_sources.append("profile")
         t.exposure_statuses.append(ExposureStatus.CONFIRMED.value)
@@ -248,6 +250,7 @@ def _build_inner(
         contexts.append(RelationshipContext(
             target_role="current_partner", target_id=f"profile-role:{tid}",
             exposure_status=ExposureStatus.CONFIRMED,
+            live_state_derived=True,
         ))
         t.context_sources.append("profile")
         t.exposure_statuses.append(ExposureStatus.CONFIRMED.value)
@@ -259,6 +262,7 @@ def _build_inner(
             target_role=role, target_id=f"attached:{attached_partner_subject_id}",
             exposure_status=ExposureStatus.CONFIRMED,
             is_question_target=True,
+            live_state_derived=True,
         ))
         t.context_sources.append("attached")
         t.exposure_statuses.append(ExposureStatus.CONFIRMED.value)
@@ -291,7 +295,11 @@ def strip_live_relationship_candidates(candidates: list) -> tuple[list, int]:
     kept, removed = [], 0
     for c in candidates:
         tid = getattr(c, "relationship_target_id", None) or ""
-        if any(tid.startswith(p) for p in _LIVE_TARGET_PREFIXES):
+        # provenance가 주 판단(흡수·대표 수렴 후에도 OR 전파로 보존), namespace는
+        # 보조 fail-safe(flag 유실·복사 재구성 대비 이중 방어).
+        if getattr(c, "live_relationship_context_derived", False) or any(
+            tid.startswith(p) for p in _LIVE_TARGET_PREFIXES
+        ):
             removed += 1
             continue
         kept.append(c)
