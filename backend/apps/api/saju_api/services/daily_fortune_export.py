@@ -64,6 +64,8 @@ def render_threads_text(board: DailyFortuneBoard) -> str:
             label = _SLOT_LABEL.get(ev.slot, ev.slot)
             block.append(f"- {label}: {ev.phrase} ({ev.probability}%)")
         block.append(f"- 행운의 장소: {f.lucky_place.phrase}")
+        if f.love_line:  # 일일 연애운 확장(beta)
+            block.append(f"- 오늘의 연애: {f.love_line}")
         if f.lotto_phrase:
             block.append(f"- {f.lotto_phrase}")
         block.append("")

@@ -198,3 +198,28 @@ def test_distribution_30days(dicts) -> None:
     assert place_max <= 8  # 같은 장소 과다 노출 없음(감사 상한 + 여유)
     # Top5 고착 방지 — 특정 일주가 30일 중 과반을 점유하지 않음
     assert max(top5_money_hits.values()) <= 20, top5_money_hits
+
+
+# ── 일일 연애운 확장(dict.v1.4·beta) ─────────────────────────────────────────
+def test_love_line_populated_and_styled() -> None:
+    """모든 일주에 love_line — 사건 서술형·명리 용어 없음·결정론."""
+    dicts = load_daily_dicts()
+    ctx = build_day_context(date(2026, 7, 24))
+    board = compute_board(ctx, dicts)
+    lines = [f.love_line for f in board.fortunes if f.love_line]
+    assert len(lines) >= 50  # 대다수 일주에 연애 한 줄
+    banned = ("일간", "십성", "지장간", "합충", "용신", "편관", "정재")  # 명리 용어 금지
+    for ln in lines:
+        assert not any(t in ln for t in banned), ln
+    # 결정론 — 같은 날 재계산 시 동일.
+    board2 = compute_board(ctx, dicts)
+    assert [f.love_line for f in board.fortunes] == [f.love_line for f in board2.fortunes]
+
+
+def test_love_catalog_expanded() -> None:
+    """love 도메인 사건 5종(확장) — good·caution 모두 존재."""
+    dicts = load_daily_dicts()
+    loves = {k: v for k, v in dicts.catalog["events"].items() if v["domain"] == "love"}
+    assert len(loves) == 5
+    vals = {v["valence"] for v in loves.values()}
+    assert vals == {"good", "caution"}

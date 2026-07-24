@@ -1343,6 +1343,130 @@
       "element_affinity": {
         "土": 0.2
       }
+    },
+    "love_deepening": {
+      "label": "관계가 한 뼘 가까워질 확률",
+      "domain": "love",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.3,
+      "expr_confidence": 0.85,
+      "ten_god_affinity": {
+        "정재": 0.5,
+        "정관": 0.5,
+        "식신": 0.4,
+        "편재": 0.3,
+        "편관": 0.3,
+        "편인": -0.3
+      },
+      "relation_affinity": {
+        "six_combination": 0.8,
+        "half_harmony": 0.5,
+        "three_harmony_complete": 0.6,
+        "clash": -0.4,
+        "punishment": -0.4,
+        "harm": -0.4
+      },
+      "element_affinity": {
+        "土": 0.2,
+        "火": 0.1
+      }
+    },
+    "love_reunion": {
+      "label": "옛 인연에서 연락이 닿을 확률",
+      "domain": "love",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.25,
+      "expr_confidence": 0.8,
+      "ten_god_affinity": {
+        "편재": 0.5,
+        "상관": 0.4,
+        "편관": 0.4,
+        "정재": 0.3,
+        "정인": 0.2,
+        "겁재": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.6,
+        "half_harmony": 0.5,
+        "three_harmony_complete": 0.5,
+        "clash": 0.3,
+        "punishment": -0.2,
+        "harm": -0.2
+      },
+      "element_affinity": {
+        "水": 0.2,
+        "金": 0.1
+      }
+    },
+    "love_cooldown": {
+      "label": "마음이 잠시 시큰둥해질 확률",
+      "domain": "love",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.28,
+      "expr_confidence": 0.8,
+      "ten_god_affinity": {
+        "편인": 0.5,
+        "겁재": 0.4,
+        "비견": 0.3,
+        "정관": -0.3,
+        "식신": -0.3
+      },
+      "relation_affinity": {
+        "clash": 0.7,
+        "harm": 0.6,
+        "punishment": 0.5,
+        "break": 0.4,
+        "six_combination": -0.5,
+        "three_harmony_complete": -0.3
+      },
+      "element_affinity": {
+        "金": 0.2,
+        "水": 0.1
+      }
+    },
+    "love_misread": {
+      "label": "말이 엇갈려 오해가 생길 확률",
+      "domain": "love",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.26,
+      "expr_confidence": 0.78,
+      "ten_god_affinity": {
+        "상관": 0.5,
+        "겁재": 0.4,
+        "편관": 0.3,
+        "정인": -0.3,
+        "정재": -0.2
+      },
+      "relation_affinity": {
+        "punishment": 0.7,
+        "harm": 0.6,
+        "clash": 0.5,
+        "break": 0.4,
+        "six_combination": -0.4,
+        "half_harmony": -0.3
+      },
+      "element_affinity": {
+        "木": 0.2,
+        "火": 0.1
+      }
     }
   }
 }

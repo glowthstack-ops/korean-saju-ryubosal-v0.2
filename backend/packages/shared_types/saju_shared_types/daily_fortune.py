@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 # 버전 3분리 — content_version 은 캐시 namespace·ETag·락 키·LLM 감사 전용
 # (과거 결과의 버전별 보존 용도가 아님. 이전 키는 TTL 로 소멸한다.)
 ENGINE_VERSION = "engine.v1"
-DICT_VERSION = "dict.v1.3"
+DICT_VERSION = "dict.v1.4"  # 일일 연애운 확장 — love 사건 5종·per-ilju love_line(beta·감수 대상)
 PROMPT_VERSION = "polish.v1"
 CONTENT_VERSION = f"{ENGINE_VERSION}|{DICT_VERSION}|{PROMPT_VERSION}"
 
@@ -74,6 +74,9 @@ class DailyIljuFortune(BaseModel):
     events: list[DailyEventForecast] = Field(min_length=3, max_length=3)
     lucky_place: LuckyPlace
     lotto_phrase: str | None = None  # 조건부 희소 노출 (PRD §12)
+    # 일일 연애운 한 줄(확장·beta) — 그 일주의 love 도메인 대표 신호를 사건 서술형으로.
+    # 없으면 None(love 신호 미미). 미평가·판정 없음(오늘의 연애 흐름 서술만).
+    love_line: str | None = None
     polished: bool = False  # LLM 교정 반영 여부(단건)
 
 

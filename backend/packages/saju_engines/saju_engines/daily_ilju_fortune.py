@@ -397,6 +397,35 @@ def _headline(
     return " ".join(parts)
 
 
+def _love_line(
+    dicts: DailyFortuneDicts, scored: list[_ScoredEvent], seed_base: str
+) -> str | None:
+    """일일 연애운 한 줄(확장·beta) — love 도메인 대표 신호를 사건 서술형 한 줄로.
+
+    good이 우세하면 good 사건, caution만 있으면 caution 사건으로 서술한다(발생≠확정 —
+    '오늘의 연애 흐름'만). love 신호가 미미(good·caution 모두 활성 낮음)하면 None.
+    """
+    goods = sorted((s for s in scored if s.domain == "love" and s.valence == "good"),
+                   key=lambda s: s.activation, reverse=True)
+    cautions = sorted(
+        (s for s in scored if s.domain == "love" and s.valence == "caution"),
+        key=lambda s: s.activation, reverse=True)
+    best_good = goods[0] if goods else None
+    best_caution = cautions[0] if cautions else None
+    # 대표 신호 선택 — caution이 뚜렷이 우세할 때만 caution, 아니면 good 우선.
+    pick = None
+    band = "s3"
+    if best_good and (not best_caution
+                      or best_good.activation >= best_caution.activation - 0.1):
+        pick, band = best_good, ("s4" if best_good.activation >= 0.5 else "s3")
+    elif best_caution and best_caution.activation >= 0.25:
+        pick, band = best_caution, "s1"
+    if pick is None:
+        return None
+    # 기존 문장 조합 machinery 재사용(스타일·중복 회피 동일). love seed로 분리.
+    return _headline(dicts, pick.event_key, band, seed_base + "|love", 0)
+
+
 def _lucky_place(
     dicts: DailyFortuneDicts, domain: str, seed_base: str, salt: int
 ) -> LuckyPlace:
@@ -538,6 +567,7 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
                 dicts.templates["lotto_phrases"],
                 _stable_hash(f"{seed_base}|lotto"),
             )
+        love_line = _love_line(dicts, row["scored"], seed_base)
         fortunes.append(
             DailyIljuFortune(
                 ilju=ilju,
@@ -548,6 +578,7 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
                 events=events,
                 lucky_place=place,
                 lotto_phrase=lotto,
+                love_line=love_line,
             )
         )
 

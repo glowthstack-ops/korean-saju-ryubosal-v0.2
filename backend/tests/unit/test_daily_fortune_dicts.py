@@ -56,7 +56,7 @@ def places() -> dict[str, Any]:
 
 def test_catalog_counts_and_schema(catalog: dict[str, Any]) -> None:
     events = catalog["events"]
-    assert len(events) == 45
+    assert len(events) == 49  # 일일 연애운 확장(love 사건 +4: good 2·caution 2)
     by_valence = {"good": 0, "caution": 0}
     support_only = 0
     for key, ev in events.items():
@@ -74,9 +74,10 @@ def test_catalog_counts_and_schema(catalog: dict[str, Any]) -> None:
         by_valence[ev["valence"]] += 1
         if ev["slots"] == ["support"]:
             support_only += 1
-    # good 12 + support 전용 6(모두 valence=good) = 18, caution 10
-    assert by_valence["caution"] == 27
-    assert by_valence["good"] == 18
+    # good 12 + support 전용 6(모두 valence=good) = 18 → +love good 2 = 20,
+    # caution 27 → +love caution 2 = 29(일일 연애운 확장).
+    assert by_valence["caution"] == 29
+    assert by_valence["good"] == 20
     assert support_only == 6
 
 
