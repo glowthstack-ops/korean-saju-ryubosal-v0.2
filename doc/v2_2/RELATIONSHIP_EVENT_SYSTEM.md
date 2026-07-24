@@ -1158,3 +1158,61 @@ C-6 게이트 18항 전항 충족 — P0-B1(41be4a9)·P0-B2(8bf931e)·P0-B3(f1ff
 P0-B4(본 커밋). **P0 전체 폐쇄. 다음 단계 = P1(7축 효과 벡터 shadow — §4-1 확대
 불변식 적용).** 잔여 메모: 관계 evidence 누적의 user_facts cap 침식 retention 테스트
 (P0-B4 차단점 아님 — P1에서 고정), 첨부 상대 relation_type 자동 해소·소스 간 dedup은 P5.
+
+---
+
+## 부록 D. P1 구현 명세 (2026-07-24 승인)
+
+핵심 원칙: **P1은 7축을 모두 숫자로 채우는 작업이 아니다 — 근거가 있는 축만 평가하고,
+근거가 없는 축은 0점이 아니라 `insufficient_evidence`로 보존한다**("약하다"≠"판정 불가").
+
+### D-1. 축별 평가 가능성
+
+- 직접 산출 가능: activation / stability / separation_pressure / 일부 experience_valence
+- 제한적: realization / formalization
+- 현실 컨텍스트 없이는 확정 금지: exposure (P0-B 관계 상태는 대상 존재·접촉 상태이지
+  새 만남의 현실 환경 전체가 아니다)
+
+```python
+class EffectAxisValue:
+    band: EffectBand | None
+    evidence: list[...]
+    status: AxisStatus  # evaluated | insufficient_evidence | not_applicable | blocked
+```
+
+### D-2. RelationshipActivationEvidence 원칙
+
+필드: relation_kind / source_layer / affected_palace / on_spouse_palace /
+independent_cause_id / compound_group_id / raw_strength / legacy_delta / legacy_capped /
+reason_codes. **reason_codes 개수 ≠ 독립 원인 수** — `independent_cause_id`를 결정적으로
+부여하고 독립 원인 수는 이를 기준으로 계산(REL_CHUNG_day+REL_CHUNG_year+REL_COMPOUND가
+2개 원인인지 1구조의 다중 표현인지 구분).
+
+### D-3. P1 확대 불변식 (§4-1 + 2026-07-24 추가)
+
+```text
+후보 생성·삭제·흡수 없음
+score/raw/confidence/personal_match/life_fit 불변
+ranking·Top-N 불변
+timeline delta = 0 / marriage_stage delta = 0
+stability_risk delta = 0 (B2 가드는 기존 REL reason만 계속 사용 —
+  P1 벡터는 별도 승인 전 출력 가드 관여 금지)
+risk candidate delta = 0
+LLM payload·report section input delta = 0
+변경 허용 = shadow side channel + 익명 telemetry
+```
+
+### D-4. 구현 순서·완료 게이트
+
+P1-0 retention(086acd0)·선행 보강(23e89ec — provenance 이중화·동시 재처리) **완료**.
+P1-1 타입(EffectVector·AxisStatus·Evidence) → P1-2 RelationPalace adapter(activation/
+stability/separation) → P1-3 MT2 보조 evidence(기존 MT2 점수와 별개·중복 집계 금지) →
+P1-4 구조 패턴 modifier(쟁합·합거·합반=ambiguity·stability 분리, 관살혼잡 과대 계산
+금지) → P1-5 벡터 합성기(§4 SSOT 준수) → P1-6 shadow 채널·telemetry → P1-7 legacy 비교
+감사.
+
+완료 게이트(2026-07-24 승인안 §14): 7축 AxisStatus 전수 / 근거 없음≠약함 / cap 이전
+원시 구조 보존 / reason 수≠원인 수 / 충·형·파·해의 activation·separation 차등 / 합
+단독으로 formalization 상승 금지 / MT2-RelationPalace 중복 집계 금지 / 도화는 P1 벡터
+입력 금지 / D-3 불변식 전항 / live provenance 흡수 후 차단 유지 / PII 없는 텔레메트리 /
+ruff·mypy·회귀 clean.
