@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from .events import EventKey
 from .intent import Domain, IntentJson, SubjectMode, SubjectRef
+from .relationship_state import RelationshipStateStore
 
 
 class EntityType(StrEnum):
@@ -150,3 +151,8 @@ class ConversationState(BaseModel):
     # 활성 시점의 출처 메타(2026-07-14 P7 lite) — {'value','source_turn','resolution_type',
     # 'confidence'}. 낮은 신뢰 파싱이 기존 상태를 덮어쓰는 것을 막는 근거 기록.
     active_time_meta: dict = Field(default_factory=dict)
+    # 관계 상태 SSOT(P0-B3, RELATIONSHIP_EVENT_SYSTEM 부록 C-3) — user_facts(원문 ledger)와
+    # 소유권 분리: 여기는 해소된 target별 현재 운영 상태. 전역 연애 여부는 저장하지 않고
+    # 파생(derive_relationship_overview). default라 과거 payload 역직렬화 안전.
+    # topic reset에도 유지한다(주제 전환이 배우자 사실을 지우면 안 됨 — C-3 §10).
+    relationship_states: RelationshipStateStore = Field(default_factory=RelationshipStateStore)

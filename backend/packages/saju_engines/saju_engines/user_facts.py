@@ -62,7 +62,31 @@ _FACT_RULES: list[tuple[str, re.Pattern[str], bool]] = [
     ("unchangeable", re.compile(r"어쩔\s*수\s*없|못\s*바꾸|바꿀\s*수\s*없|무를\s*수\s*없"), True),
     # 속설 조건 — "손없는 날이래" (단수)
     ("folk_condition", re.compile(r"손\s*없는\s*날"), True),
+    # 관계 현재형 사실(P0-B3, RELATIONSHIP_EVENT_SYSTEM 부록 C-3) — evidence ledger 전용.
+    # 해소·상태 저장은 relationship_state_resolver/ConversationState.relationship_states가
+    # 담당(소유권 분리). 단수 supersede로 정정 이력을 보존한다("있는 게 아니라 썸").
+    # scope=global(merge에서 승격) — 주제 전환이 배우자 사실을 지우면 안 된다.
+    (
+        "relationship_status",
+        re.compile(
+            r"(?:남자\s*친구|여자\s*친구|남친|여친|애인|연인)[^.!?\n]{0,10}?(?:있|생겼|헤어졌)"
+            r"|사귀고\s*있|연애\s*중|썸|약혼|결혼\s*준비\s*중|별거\s*중"
+            r"|(?:남편|아내|와이프|배우자)[^.!?\n]{0,12}?(?:별거|이혼|있)"
+        ),
+        True,
+    ),
+    # 혼인 상태 정정 — "기혼이라고 했는데 이혼했어" (단수 supersede)
+    ("marital_correction", re.compile(r"이혼했|사별했|재혼했"), True),
 ]
+
+# 관계 슬롯의 제3자 발화 배제 — 친구·가족의 연애 사실을 사용자 원장에 넣지 않는다(C-3).
+_REL_FACT_KEYS = frozenset({"relationship_status", "marital_correction"})
+_REL_THIRD_PARTY_RE = re.compile(
+    r"(?:친구|동생|언니|누나|형|오빠|엄마|아빠|어머니|아버지|부모님|동료|지인|딸|아들)"
+    r"(?:의|네)?\s*(?:남자\s*친구|여자\s*친구|남친|여친|애인|연인|남편|아내|와이프|배우자)"
+)
+# 가정형 발화 배제 — "헤어지면 어떻게 될까"를 사실로 저장하지 않는다.
+_REL_HYPOTHETICAL_RE = re.compile(r"(?:[하지]면\s*(?:어떻|어떨|어찌)|다면)")
 
 _SENT_SPLIT_RE = re.compile(r"[.!?\n]+")
 _MAX_QUOTE = 80
@@ -96,8 +120,16 @@ def extract_user_facts(text: str, turn: int) -> list[UserFact]:
             quote = _clause_of(text, m.start())
             if not quote or (key, quote) in seen:
                 continue
+            # 관계 슬롯 가드(C-3) — 제3자·가정형 발화는 사용자 사실 원장에 넣지 않는다.
+            if key in _REL_FACT_KEYS and (
+                _REL_THIRD_PARTY_RE.search(quote) or _REL_HYPOTHETICAL_RE.search(quote)
+            ):
+                continue
             seen.add((key, quote))
-            out.append(UserFact(key=key, quote=quote, source_turn=turn))
+            # 관계 사실은 scope=global — 주제 전환(topic reset)이 배우자·연애 사실을
+            # 지우면 안 된다(C-3 §10). 그 외 슬롯은 기존 topic scope 유지.
+            scope = "global" if key in _REL_FACT_KEYS else "topic"
+            out.append(UserFact(key=key, quote=quote, source_turn=turn, scope=scope))
     # 같은 절이 fixed_schedule과 planned_task에 겹치면 구체적인 쪽(fixed)만 남긴다.
     fixed_quotes = {f.quote for f in out if f.key == "fixed_schedule"}
     return [f for f in out if not (f.key == "planned_task" and f.quote in fixed_quotes)]
