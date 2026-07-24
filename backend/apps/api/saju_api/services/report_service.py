@@ -117,7 +117,7 @@ from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.report import ReportResult, ReportSpec, SectionContext, SectionPlan
 from saju_shared_types.topic_context import PeriodSpec as _TopicPeriodSpec
 
-from . import llm_client
+from . import llm_client, relationship_shadow, relationship_vector_sidecar
 from .manse_service import calculate, luck_months
 from .personalization import (
     fetch_calibration_expression_hints,
@@ -611,6 +611,9 @@ class _ReportData:
         # 직후 즉시 확보. 싱글턴 scorer.risk_shadow는 동시 요청으로 덮일 수
         # 있어 위험 섹션에서 읽지 않는다. 보고서 단위 1회 계산(P0⑤)의 원천.
         self.risk_shadow: tuple = self.scorer.take_risk_shadow()
+        # 관계 벡터 shadow projection(슬라이스 2 beta 노출용) — 채점 직후 확보.
+        # 플래그 off면 소비하지 않으므로 출력 무변경.
+        self.rel_projections: tuple = self.scorer.take_relationship_shadow()
         # 보고서 내 이미 상세 노출된 canonical episodeKey(중복 억제 원장).
         self.risk_exposed_keys: set[str] = set()
         in_period = [
@@ -1839,6 +1842,19 @@ def build_section_context(
         term_block = data.terminology_block()
         if term_block:
             lines += ["", *term_block]
+    # 관계 인사이트 beta 노출(슬라이스 2 — 테스터, RELATIONSHIP_BETA_EXPOSE 플래그).
+    # 플래그 off면 실행되지 않아 기존 리포트 byte-identical. 관계 도메인 섹션에만 질문
+    # 창 기간의 관계 벡터 3축(평가분)을 beta 블록으로 주입 + 단정 금지 가드. 미평가
+    # 4축 미노출. 실패해도 섹션 생성 비차단.
+    if (relationship_shadow.RELATIONSHIP_BETA_EXPOSE
+            and _SECTION_DOMAIN.get(sid) == "relationship"
+            and getattr(data, "rel_projections", None)):
+        try:
+            _beta_block = _relationship_beta_report_block(data, spec)
+            if _beta_block:
+                lines += ["", *_beta_block]
+        except Exception:  # noqa: BLE001 — beta 노출 실패는 섹션 생성 비차단
+            _logger.exception("relationship beta 리포트 블록 실패 — 비차단")
     subject_label = spec.subjects[0].label if spec.subjects else "본인"
     return SectionContext(
         section_id=plan.section_id,
@@ -1851,6 +1867,36 @@ def build_section_context(
         multi_subject=len(spec.subjects) > 1,
         body_prompt="\n".join(lines),
     )
+
+
+# 관계 인사이트 beta(슬라이스 2) — 3축 라벨·가드(채팅 슬라이스1과 동일 규격).
+_REL_BETA_ACT_KO = {"strong": "강", "moderate": "중", "weak": "약", "low": "미약"}
+_REL_BETA_STAB_KO = {"favorable": "우호", "neutral": "중립", "adverse": "불리"}
+_RELATIONSHIP_BETA_REPORT_DIRECTIVE = (
+    "아래 [관계 인사이트(beta)]는 사람 감수 전 잠정 관측치다. '활성'은 관계 영역이 움직이는 "
+    "에너지 세기일 뿐 결혼·이별의 확정이 아니며, 성사·현실 접촉·공식화는 아직 판정하지 않는다. "
+    "단정·낙인 없이 활성·유지 우호도·종료압력 세 흐름만 참고해 서술하고, 이 신호가 시험(beta) "
+    "관측임을 섹션 안에서 한 번 짧게 밝힌다."
+)
+
+
+def _relationship_beta_report_block(
+    data: _ReportData, spec: ReportSpec,
+) -> list[str]:
+    """관계 도메인 섹션용 관계 벡터 3축 beta 블록(평가분만·미평가 4축 미노출)."""
+    signals = relationship_vector_sidecar.build_relationship_beta_signals(
+        data.rel_projections, data.result, dictionaries_dir=_DICTS,
+        window=(spec.period.start, spec.period.end), cap=8)
+    if not signals:
+        return []
+    lines = [_RELATIONSHIP_BETA_REPORT_DIRECTIVE, "",
+             "[관계 인사이트(beta) — 잠정 관측치, 확정 아님]"]
+    for s in signals:
+        act = _REL_BETA_ACT_KO.get(s.activation_band or "", s.activation_band or "관측")
+        stab = _REL_BETA_STAB_KO.get(s.stability_sign or "", "관측 안 됨")
+        sep = _REL_BETA_ACT_KO.get(s.separation_band or "", "관측 안 됨")
+        lines.append(f"- {s.label}: 관계 활성 {act} · 유지 우호도 {stab} · 종료압력 {sep}")
+    return lines
 
 
 def plan_report(

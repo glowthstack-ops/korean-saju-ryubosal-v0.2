@@ -84,6 +84,41 @@ def test_beta_directive_has_no_determination():
     assert "성사" in d and "beta" in d
 
 
+def test_report_relationship_section_beta_when_flag_on(monkeypatch):
+    """플래그 on → 관계 도메인 리포트 섹션에 beta 블록 주입(슬라이스 2)."""
+    from saju_api.services import relationship_shadow, report_service
+    from saju_shared_types.intent import SubjectRef
+    from saju_shared_types.report import ReportPeriod, ReportSpec
+    monkeypatch.setattr(relationship_shadow, "RELATIONSHIP_BETA_EXPOSE", True)
+    birth = BirthInput(calendar_type="solar", birth_date=date(1985, 3, 15),
+                       birth_time="14:30", birth_place_name="서울", gender="female")
+    spec = ReportSpec(
+        product_code="RPT_FOCUS",
+        subjects=[SubjectRef(subject_id="self", label="본인", kind="self")],
+        topic="relationship", period=ReportPeriod(start="2026", end="2031"))
+    ctxs = report_service.plan_report(birth, spec, today=date(2026, 7, 24))
+    beta = [c for c in ctxs if "[관계 인사이트(beta)" in (c.body_prompt or "")]
+    assert beta, "관계 섹션에 beta 블록이 없음"
+    # 미평가 축 문구(성사/공식화)는 판정으로 노출되지 않고 '판정하지 않는다'만.
+    assert "확정이 아니며" in beta[0].body_prompt
+
+
+def test_report_no_beta_when_flag_off(monkeypatch):
+    """플래그 off → 리포트 무변경(beta 블록 없음)."""
+    from saju_api.services import relationship_shadow, report_service
+    from saju_shared_types.intent import SubjectRef
+    from saju_shared_types.report import ReportPeriod, ReportSpec
+    monkeypatch.setattr(relationship_shadow, "RELATIONSHIP_BETA_EXPOSE", False)
+    birth = BirthInput(calendar_type="solar", birth_date=date(1985, 3, 15),
+                       birth_time="14:30", birth_place_name="서울", gender="female")
+    spec = ReportSpec(
+        product_code="RPT_FOCUS",
+        subjects=[SubjectRef(subject_id="self", label="본인", kind="self")],
+        topic="relationship", period=ReportPeriod(start="2026", end="2031"))
+    ctxs = report_service.plan_report(birth, spec, today=date(2026, 7, 24))
+    assert not any("[관계 인사이트(beta)" in (c.body_prompt or "") for c in ctxs)
+
+
 def test_flag_default_off():
     """기본(env 미설정)은 off — shadow 복귀·기존 출력 불변."""
     import importlib
