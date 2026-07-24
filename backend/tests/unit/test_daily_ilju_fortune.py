@@ -200,17 +200,29 @@ def test_distribution_30days(dicts) -> None:
     assert max(top5_money_hits.values()) <= 20, top5_money_hits
 
 
-# ── 일일 연애운 확장(dict.v1.4·beta) ─────────────────────────────────────────
-def test_love_line_populated_and_styled() -> None:
-    """모든 일주에 love_line — 사건 서술형·명리 용어 없음·결정론."""
+# ── 일일 연애운(dict.v1.5·beta) — 강한 신호 게이트 ───────────────────────────
+def test_love_line_gated_and_styled() -> None:
+    """love_line 은 강한 love 전용 신호(독립 원인 그룹 ≥3)일 때만 노출 — 상시 아님.
+
+    이전엔 모든 일주에 노출돼 총운과 중복되고 '무조건 연애 신호'로 보였다(2026-07-25
+    수정). 이제 소수 일주에만 뜨고, 그 외엔 None(총운 헤드라인이 커버). 서술형·명리
+    용어 부재·결정론은 그대로.
+    """
     dicts = load_daily_dicts()
     ctx = build_day_context(date(2026, 7, 24))
     board = compute_board(ctx, dicts)
     lines = [f.love_line for f in board.fortunes if f.love_line]
-    assert len(lines) >= 50  # 대다수 일주에 연애 한 줄
+    # 게이트: 60일주 중 소수만 — 상시(≥50) 노출이 아님을 회귀로 고정.
+    assert len(lines) < 20, f"게이트 후에도 과다 노출: {len(lines)}/60"
     banned = ("일간", "십성", "지장간", "합충", "용신", "편관", "정재")  # 명리 용어 금지
     for ln in lines:
         assert not any(t in ln for t in banned), ln
+    # 게이트가 기능을 죽이지 않는지 — 인접 날짜 범위에서 최소 몇 건은 노출된다.
+    shown_days = 0
+    for offset in range(10):
+        b = compute_board(build_day_context(date(2026, 7, 24) + timedelta(days=offset)), dicts)
+        shown_days += sum(1 for f in b.fortunes if f.love_line)
+    assert shown_days >= 1, "게이트가 love_line 을 완전히 차단함"
     # 결정론 — 같은 날 재계산 시 동일.
     board2 = compute_board(ctx, dicts)
     assert [f.love_line for f in board.fortunes] == [f.love_line for f in board2.fortunes]

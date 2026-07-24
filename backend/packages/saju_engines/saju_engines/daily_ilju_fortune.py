@@ -74,6 +74,10 @@ _LOTTO_MIN_MONEY_P = 85
 _LOTTO_MAX_MONEY_RANK = 10
 _PLACE_MAX_REPEAT = 6  # 당일 60건 내 같은 장소 최대 노출
 _DUP_RETRY = 10  # 중복 감사 시 seed salt 재시도 상한
+# '오늘의 연애' 별도 노출 게이트 — 대표 love 사건이 서로 다른 독립 원인 그룹 ≥3개의
+# 지지를 받는 '강한 love 전용 신호'일 때만 한 줄을 만든다. 그 외 날은 총운 헤드라인이
+# 이미 그날을 커버하므로 별도 항목을 노출하지 않는다(중복·군더더기 방지, 2026-07-25).
+_LOVE_LINE_MIN_SUPPORT = 3
 
 # 관계 종류별 감지 강도(성립 조건 세분화) — 사건별 방향·크기는 카탈로그 affinity 가 결정
 _REL_STRENGTH = {
@@ -400,10 +404,13 @@ def _headline(
 def _love_line(
     dicts: DailyFortuneDicts, scored: list[_ScoredEvent], seed_base: str
 ) -> str | None:
-    """일일 연애운 한 줄(확장·beta) — love 도메인 대표 신호를 사건 서술형 한 줄로.
+    """일일 연애운 한 줄(확장·beta) — 강한 love 전용 신호가 있을 때만 노출.
 
-    good이 우세하면 good 사건, caution만 있으면 caution 사건으로 서술한다(발생≠확정 —
-    '오늘의 연애 흐름'만). love 신호가 미미(good·caution 모두 활성 낮음)하면 None.
+    대표 love 사건이 서로 다른 독립 원인 그룹 ≥`_LOVE_LINE_MIN_SUPPORT`개의 지지를 받을
+    때만(엔진 p≥85 상한 게이트와 동일한 '독립 원인' 축) 한 줄을 만든다. 그 외에는 총운
+    헤드라인이 이미 그날을 커버하므로 별도 '오늘의 연애' 줄을 만들지 않는다(None). good이
+    우세하면 good 사건, caution만 뚜렷하면 caution 사건으로 서술한다(발생≠확정 — '오늘의
+    연애 흐름'만).
     """
     goods = sorted((s for s in scored if s.domain == "love" and s.valence == "good"),
                    key=lambda s: s.activation, reverse=True)
@@ -420,7 +427,8 @@ def _love_line(
         pick, band = best_good, ("s4" if best_good.activation >= 0.5 else "s3")
     elif best_caution and best_caution.activation >= 0.25:
         pick, band = best_caution, "s1"
-    if pick is None:
+    # 강한 신호 게이트: 독립 원인 그룹 지지가 부족하면 별도 줄을 만들지 않는다.
+    if pick is None or pick.supporting_groups < _LOVE_LINE_MIN_SUPPORT:
         return None
     # 기존 문장 조합 machinery 재사용(스타일·중복 회피 동일). love seed로 분리.
     return _headline(dicts, pick.event_key, band, seed_base + "|love", 0)
