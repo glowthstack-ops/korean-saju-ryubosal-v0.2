@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 import threading as _threading
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -151,6 +152,39 @@ _GROUP_OF: dict[TenGod, str] = {g: grp.value for g, grp in TEN_GOD_GROUP.items()
 _rank_key = lei_rank_key
 
 
+@dataclass(frozen=True)
+class RelationActivationProjection:
+    """관계 벡터 shadow용 발동 1건 불변 projection(P1-6 §12).
+
+    스코어링이 이미 만든 RelationActivation의 primitive 복사 — 원본 객체를 들고
+    나가지 않아 사이드카가 엔진 상태를 변형할 경로가 없다.
+    """
+
+    kind: str                   # RelationKind.value
+    palace: str                 # Pillar4.value
+    layer: str                  # LuckLayer.value
+    position: str               # 'stem' | 'branch'
+    hap_subtype: str | None
+    element: str | None
+
+
+@dataclass(frozen=True)
+class RelationshipShadowProjection:
+    """기간 1건의 관계 탐지 결과 불변 snapshot(P1-6 §12 — chat 배선 계약).
+
+    수집 시점 = relpalace 단계(기존 탐지 결과가 전부 계산된 직후). 탐지기 재호출·
+    yield 변경 없이 이미 존재하는 값만 primitive로 복사한다 — 신호·후보 0으로
+    조기 반환된 기간은 legacy도 비평가라 관측 대상이 아니다.
+    """
+
+    layer: str                              # LuckLayer.value(채점 대상 층)
+    label: str                              # 기간 라벨('2027'/'2027-04'/'1995~2004')
+    luck_stem: str                          # 운 천간(한자) — EXACT trigger 재료
+    luck_branch: str                        # 운 지지(한자)
+    activations: tuple[RelationActivationProjection, ...]
+    spouse_palace_clashed: bool             # 일지 충 동반(MT2 blocker 판정 재료)
+
+
 class EventEngineV2:
     """6계층 통합 — score/score_years는 EventCandidateV2 목록을 반환한다."""
 
@@ -196,6 +230,10 @@ class EventEngineV2:
         # 수집하고, EXPOSE 경로는 take_risk_shadow()(불변 tuple)만 읽는다.
         # self.risk_shadow는 레거시 QA 사이드채널로만 유지(EXPOSE 사용 금지).
         self._risk_tls = _threading.local()
+        # 관계 벡터 shadow projection sink(P1-6 §12) — risk_shadow와 동일한 요청
+        # 로컬 패턴: score() 동안 thread-local에 수집, take_relationship_shadow()로
+        # 이 호출분의 불변 tuple만 소비한다(점수·후보·가드 어디에도 관여하지 않음).
+        self._rel_shadow_tls = _threading.local()
         # shadow 컨텍스트(감수 19차 — QA·시나리오 밀도 전용): set_risk_shadow_contexts로
         # 주입하면 shadow 후보 생성에 현실 컨텍스트(선발·관계·이동)가 반영된다.
         # LLM 입력·긍정 파이프라인과 무관하며 off 모드에선 사용되지 않는다.
@@ -242,7 +280,9 @@ class EventEngineV2:
         마지막 호출분으로 덮일 수 있으므로 EXPOSE 경로에서 읽지 않는다.
         """
         sink: list[RiskCandidate] = []
+        rel_sink: list[RelationshipShadowProjection] = []
         self._risk_tls.sink = sink
+        self._rel_shadow_tls.sink = rel_sink
         try:
             out = self._score_impl(
                 result, levels, fav_override,
@@ -253,6 +293,8 @@ class EventEngineV2:
             self._risk_tls.sink = None
             self._risk_tls.last = tuple(sink)
             self.risk_shadow = sink  # 레거시 QA 사이드채널(EXPOSE 금지)
+            self._rel_shadow_tls.sink = None
+            self._rel_shadow_tls.last = tuple(rel_sink)
         return out
 
     def take_risk_shadow(self) -> tuple[RiskCandidate, ...]:
@@ -261,6 +303,13 @@ class EventEngineV2:
         요청 로컬 subject_id→risk 결과 맵 구성 전용(감수 62차 P0③).
         """
         return tuple(getattr(self._risk_tls, "last", ()) or ())
+
+    def take_relationship_shadow(self) -> tuple[RelationshipShadowProjection, ...]:
+        """직전 score() 호출(같은 스레드)의 관계 탐지 불변 projection(P1-6 §12).
+
+        관계 벡터 sidecar 전용 — 후보·점수·LLM 입력 경로에서 읽지 않는다.
+        """
+        return tuple(getattr(self._rel_shadow_tls, "last", ()) or ())
 
     def _score_impl(
         self,
@@ -474,6 +523,24 @@ class EventEngineV2:
         # 발동·궁성 — 해당 시점 관계 적중(+ 일지 복음 발동: 운 지지=원국 일지).
         layer = target_layer
         activations = _activations(hits, layer) + _bokeum_activations(result, target, layer)
+        # P1-6 §12 — 관계 벡터 shadow projection 수집(읽기 전용 — cands·hits·
+        # activations를 변형하지 않고 primitive만 복사한다. 탐지 재호출 0).
+        rel_shadow_sink = getattr(self._rel_shadow_tls, "sink", None)
+        if rel_shadow_sink is not None:
+            rel_shadow_sink.append(RelationshipShadowProjection(
+                layer=layer.value, label=label,
+                luck_stem=target.stem, luck_branch=target.branch,
+                activations=tuple(RelationActivationProjection(
+                    kind=a.kind.value, palace=a.palace.value, layer=a.layer.value,
+                    position=a.position, hap_subtype=a.hap_subtype,
+                    element=a.element,
+                ) for a in activations),
+                spouse_palace_clashed=any(
+                    h.type is RelationType.BRANCH_CLASH
+                    and any(r.position == "day" for r in h.natal_refs)
+                    for h in hits
+                ),
+            ))
         day_el = (
             str(STEM_ELEMENT[Stem(result.pillars.day.stem)])
             if self._mt4_mode != "off" and result.pillars and result.pillars.day

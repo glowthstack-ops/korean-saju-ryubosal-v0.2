@@ -76,6 +76,17 @@ def vector_run_id(observation_id: str) -> str:
                    RELATIONSHIP_CALIBRATION_VERSION)
 
 
+def candidate_join_signature(
+    *, subject_scope: str, period: str, event_key: str, event_type: str,
+) -> str:
+    """legacy 후보 join 서명(§3) — event_key 단독 매칭 금지.
+
+    (subject, period, event_key, event_type) HMAC digest. 같은 서명 복수 매치는
+    JOIN_AMBIGUOUS로 fail-closed(추정 결합 없음). 원문·간지 미노출(digest에만 소비).
+    """
+    return _digest("cand-join", subject_scope, period, event_key, event_type)
+
+
 class LegacyCandidateAudit(BaseModel):
     """legacy 후보 최소 projection — 벡터와 의미 분리, 원문·reason 미보존.
 
@@ -436,6 +447,59 @@ def select_detailed_drafts(
     return ranked[:MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST]
 
 
+def accumulate_draft(
+    agg: RelationshipVectorAggregate, draft: RelationshipEffectShadowDraft,
+) -> None:
+    """draft 1건을 전체 aggregate에 즉시 누적(§1) — 상세 보존·DTO 변환과 무관."""
+    v = draft.vector
+    _inc(agg.activation_status_counts, v.axes.activation.status.value)
+    _inc(agg.stability_status_counts, v.axes.stability.status.value)
+    _inc(agg.separation_status_counts, v.axes.separation_pressure.status.value)
+    _inc(agg.activation_bucket_counts, _hist_bucket(
+        v.axes.activation.value
+        if v.axes.activation.status is AxisStatus.EVALUATED else None, _ACT_HIST))
+    _inc(agg.stability_bucket_counts, _stability_bucket(
+        v.axes.stability.status, v.axes.stability.value))
+    _inc(agg.separation_bucket_counts, _hist_bucket(
+        v.axes.separation_pressure.value
+        if v.axes.separation_pressure.status is AxisStatus.EVALUATED else None,
+        _SEP_HIST))
+    _inc(agg.kind_combo_counts, classify_kind_combo(v).value)
+    _inc(agg.root_count_bucket_counts,
+         _root_bucket(v.independent_root_trigger_count))
+    if v.axes.activation.status is not AxisStatus.EVALUATED:
+        agg.insufficient_activation_count += 1
+    agg.unresolved_evidence_total += v.unresolved_trigger_evidence_count
+    agg.superseded_provisional_total += int(v.superseded_provisional_count > 0)
+
+
+class BoundedDraftAccumulator:
+    """chat 배선 실행 계약(§12) — Draft 생성 즉시 aggregate 누적 + 상세 후보만
+    bounded 보존(전체 draft 목록을 요청 끝까지 들고 있지 않는다).
+
+    상세 후보 선택은 select_detailed_drafts와 동일한 HMAC(observation) 정렬
+    상위 cap — 일괄 선택과 결과가 같다(결정적·입력 순서 불변).
+    """
+
+    def __init__(self) -> None:
+        self.aggregate = RelationshipVectorAggregate()
+        self.vector_success_count = 0
+        self._ranked: list[tuple[str, RelationshipEffectShadowDraft]] = []
+
+    def add(self, draft: RelationshipEffectShadowDraft) -> None:
+        """aggregate 즉시 누적 + 상세 후보 bounded 유지(초과분 즉시 폐기)."""
+        accumulate_draft(self.aggregate, draft)
+        self.vector_success_count += 1
+        self._ranked.append((_digest("sample", draft.observation_id), draft))
+        self._ranked.sort(key=lambda x: x[0])
+        del self._ranked[MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST:]
+
+    @property
+    def detailed_drafts(self) -> list[RelationshipEffectShadowDraft]:
+        """상세 결합 대상(HMAC 정렬 상위 cap) — reducer 이후 audit를 결합한다."""
+        return [d for _, d in self._ranked]
+
+
 def build_batch(
     drafts: list[RelationshipEffectShadowDraft],
     detailed_envelopes: list[RelationshipEffectShadowEnvelope],
@@ -450,33 +514,34 @@ def build_batch(
             audit를 결합해 finalize한 sidecar — 상세 record·detailed audit 분모.
         period_failure_counts: 벡터 계산 실패 카운트(ADAPTER/SYNTHESIS만).
     """
-    period_failure_counts = dict(period_failure_counts or {})
-    vector_failures = sum(period_failure_counts.values())
-    vector_success = len(drafts)
-    agg = RelationshipVectorAggregate()
     # §1 — aggregate는 draft(벡터 성공분)에서 직접 누적: 상세 선택·DTO 변환과 무관.
+    agg = RelationshipVectorAggregate()
     for d in drafts:
-        v = d.vector
-        _inc(agg.activation_status_counts, v.axes.activation.status.value)
-        _inc(agg.stability_status_counts, v.axes.stability.status.value)
-        _inc(agg.separation_status_counts, v.axes.separation_pressure.status.value)
-        _inc(agg.activation_bucket_counts, _hist_bucket(
-            v.axes.activation.value
-            if v.axes.activation.status is AxisStatus.EVALUATED else None, _ACT_HIST))
-        _inc(agg.stability_bucket_counts, _stability_bucket(
-            v.axes.stability.status, v.axes.stability.value))
-        _inc(agg.separation_bucket_counts, _hist_bucket(
-            v.axes.separation_pressure.value
-            if v.axes.separation_pressure.status is AxisStatus.EVALUATED else None,
-            _SEP_HIST))
-        _inc(agg.kind_combo_counts, classify_kind_combo(v).value)
-        _inc(agg.root_count_bucket_counts,
-             _root_bucket(v.independent_root_trigger_count))
-        if v.axes.activation.status is not AxisStatus.EVALUATED:
-            agg.insufficient_activation_count += 1
-        agg.unresolved_evidence_total += v.unresolved_trigger_evidence_count
-        agg.superseded_provisional_total += int(v.superseded_provisional_count > 0)
+        accumulate_draft(agg, d)
+    return _finalize_batch(
+        agg, len(drafts), detailed_envelopes, dict(period_failure_counts or {}))
 
+
+def build_batch_from_accumulator(
+    acc: BoundedDraftAccumulator,
+    detailed_envelopes: list[RelationshipEffectShadowEnvelope],
+    *,
+    period_failure_counts: dict[str, int] | None = None,
+) -> RelationshipVectorTelemetryBatch:
+    """bounded 누적기(§12 chat 배선) → batch — build_batch와 동일 계약·동일 결과."""
+    return _finalize_batch(
+        acc.aggregate, acc.vector_success_count, detailed_envelopes,
+        dict(period_failure_counts or {}))
+
+
+def _finalize_batch(
+    agg: RelationshipVectorAggregate,
+    vector_success: int,
+    detailed_envelopes: list[RelationshipEffectShadowEnvelope],
+    period_failure_counts: dict[str, int],
+) -> RelationshipVectorTelemetryBatch:
+    """aggregate + 상세 envelope → batch(§1·§2·§4 불변식의 단일 구현)."""
+    vector_failures = sum(period_failure_counts.values())
     # 상세 record + detailed audit 카운트(finalize된 envelope에서만).
     audit_counts: dict[AuditProjectionStatus, int] = {
         s: 0 for s in AuditProjectionStatus}

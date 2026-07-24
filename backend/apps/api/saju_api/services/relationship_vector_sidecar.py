@@ -1,0 +1,267 @@
+"""관계 벡터 shadow chat 배선 — P1-6 §12 (RELATIONSHIP_EVENT_SYSTEM 부록 D).
+
+엔진이 채점 중 수집한 **불변 projection**(탐지 재호출 0)을 어댑터(배우자궁·MT2)와
+합성기에 걸어 기간 단위 Draft를 만들고, reducer 이후 legacy audit를 상세분에만
+결합한다. 실행 계약(2026-07-24 승인):
+
+Top-N 이전 Draft 생성 → 전체 aggregate 즉시 누적 → 상세 cap개만 보존 →
+production reducer 실행 → 상세 Draft에만 audit/rank 결합 → Envelope finalize →
+allowlist batch 1회 emit → sidecar 폐기.
+
+원칙:
+- **탐지 재호출·결과 변형 금지** — 입력은 RelationshipShadowProjection(primitive
+  snapshot)뿐이고, natal 단위 분석(MT2 원국·구조 패턴)은 순수 함수 1회 호출이다.
+- **join은 서명 기반 1건만**(§3 CandidateAuditIdentity) — event_key 단독 매칭
+  금지: (subject, period, event_key, event_type) HMAC 서명이 같은 후보 1건만
+  결합하고, 복수 매치는 JOIN_AMBIGUOUS로 fail-closed(추정 결합 없음).
+- **pre_reduce_rank = production comparator 순위** — 별도 재정렬 없이 reducer에
+  실제 입력된 목록의 순서(1-based)를 그대로 읽는다.
+- 실패 격리: 기간 실패는 PeriodFailureReason 카운트, 요청 실패는 호출측
+  try/except — 어느 쪽도 본 응답을 막지 않는다.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from saju_engines.event_engine_v2 import RelationshipShadowProjection
+from saju_engines.marriage_emergence_modifier import analyze_marriage_emergence_natal
+from saju_engines.partner_star_emergence import build_partner_star_emergence_evidence
+from saju_engines.relationship_effect_vector import synthesize_relationship_effect_vector
+from saju_engines.relationship_structure_modifiers import (
+    build_relationship_structure_modifiers,
+)
+from saju_engines.spouse_palace_activation import (
+    SpousePalaceHit,
+    build_spouse_palace_vector,
+)
+from saju_engines.structure_patterns import detect_structure_patterns
+from saju_shared_types.event_engine import Pillar4, RelationKind
+from saju_shared_types.events import EventCandidate
+from saju_shared_types.manse_result import ManseV2Result
+
+from .relationship_vector_telemetry import (
+    AuditProjectionStatus,
+    BoundedDraftAccumulator,
+    LegacyCandidateAudit,
+    PeriodFailureReason,
+    RelationshipEffectShadowDraft,
+    RelationshipEffectShadowEnvelope,
+    candidate_join_signature,
+    finalize_shadow_envelope,
+    vector_observation_id,
+    vector_run_id,
+)
+
+logger = logging.getLogger(__name__)
+
+# 감사 대상 관계 이벤트 키(P0-A 실측 3종) — M01/M02 canonical과 정합.
+REL_AUDIT_EVENT_KEYS = ("marriage_signal", "new_relationship", "relationship_change")
+
+# Pillar4.value → ManseV2Result.pillars 속성명(원국 참여자 글자 조회).
+_PALACE_ATTR = {
+    "year_pillar": "year", "month_pillar": "month",
+    "day_pillar": "day", "hour_pillar": "hour",
+}
+
+
+@dataclass
+class SidecarBuildResult:
+    """Draft 생성 단계 산출 — bounded 누적기 + 기간 실패 카운트 + 계측."""
+
+    accumulator: BoundedDraftAccumulator
+    period_failure_counts: dict[str, int] = field(default_factory=dict)
+    build_latency_ms: float = 0.0
+
+
+def _natal_participant(result: ManseV2Result, palace: str, position: str) -> str:
+    """활성이 자극한 원국 글자(한자) — pillars에서 결정적 조회(실패 시 빈 값)."""
+    attr = _PALACE_ATTR.get(palace)
+    pillars = result.pillars
+    if attr is None or pillars is None:
+        return ""
+    pil = getattr(pillars, attr, None)
+    if pil is None:
+        return ""
+    return str(pil.stem if position == "stem" else pil.branch)
+
+
+def build_relationship_effect_accumulator(
+    projections: tuple[RelationshipShadowProjection, ...],
+    result: ManseV2Result,
+    *,
+    dictionaries_dir: Path,
+    thread_scope: str,
+    turn: int,
+    subject_scope: str,
+    input_signature: str,
+) -> SidecarBuildResult:
+    """projection → 어댑터·합성기 → Draft 생성 + aggregate 즉시 누적(Top-N 이전).
+
+    Args:
+        projections: 엔진 take_relationship_shadow() 산출(불변 snapshot).
+        result: 채점에 쓰인 만세 결과 — natal 단위 순수 분석(MT2 원국·구조 패턴·
+            참여자 글자 조회)에만 읽는다(변형 금지).
+        dictionaries_dir: 어댑터 사전 루트(엔진과 동일 경로).
+        thread_scope/turn/subject_scope/input_signature: observation identity 재료
+            (§5 — HMAC digest에만 소비, 원문 미노출).
+
+    Returns:
+        bounded 누적기(aggregate 반영 완료·상세 후보만 보존) + 실패 카운트.
+    """
+    t0 = time.perf_counter()
+    acc = BoundedDraftAccumulator()
+    failures: dict[str, int] = {}
+
+    def _fail(reason: PeriodFailureReason) -> None:
+        failures[reason.value] = failures.get(reason.value, 0) + 1
+
+    # natal 단위 순수 분석 1회 — 실패 시 전 기간 ADAPTER_FAILURE(부분 결손 은폐 금지).
+    try:
+        natal_mt2 = analyze_marriage_emergence_natal(result)
+        # 구조 패턴은 natal 정적 — live 경로(context_reducer)와 동일한 순수 감지기를
+        # 재호출한다(결정적·읽기 전용). 관계 소관 6종만 modifier로 변환된다.
+        static_modifiers = build_relationship_structure_modifiers(
+            detect_structure_patterns(result, dictionaries_dir=dictionaries_dir))
+    except Exception:  # noqa: BLE001 — sidecar 실패는 본 응답 비차단(계측만)
+        logger.exception("relationship_vector_sidecar natal 분석 실패")
+        for _ in projections:
+            _fail(PeriodFailureReason.ADAPTER_FAILURE)
+        return SidecarBuildResult(
+            accumulator=acc, period_failure_counts=failures,
+            build_latency_ms=(time.perf_counter() - t0) * 1000.0)
+
+    for proj in projections:
+        try:
+            hits = [SpousePalaceHit(
+                kind=RelationKind(a.kind), palace=Pillar4(a.palace),
+                layer=a.layer, position=a.position,
+                hap_subtype=a.hap_subtype, element=a.element,
+                transit_component=a.position,
+                # 운 글자 확보 — EXACT signal trigger(root 1개 판정 기준, P1-5 §1).
+                transit_participant=(
+                    proj.luck_branch if a.position == "branch" else proj.luck_stem),
+                natal_participant=_natal_participant(result, a.palace, a.position),
+            ) for a in proj.activations]
+            spa = build_spouse_palace_vector(
+                hits, dictionaries_dir, period_key=proj.label)
+            evidences = list(spa.evidences)
+            blockers: list = []
+            mt2 = build_partner_star_emergence_evidence(
+                natal_mt2, proj.luck_stem, layer=proj.layer, period_key=proj.label,
+                spouse_palace_clashed=proj.spouse_palace_clashed)
+            evidences += mt2.evidences
+            blockers += mt2.blocker_evidences
+        except Exception:  # noqa: BLE001 — 기간 실패 격리(§2)
+            _fail(PeriodFailureReason.ADAPTER_FAILURE)
+            continue
+        try:
+            vec = synthesize_relationship_effect_vector(
+                evidences, blockers=blockers, modifiers=static_modifiers,
+                superseded_map=spa.superseded_map)
+        except Exception:  # noqa: BLE001
+            _fail(PeriodFailureReason.SYNTHESIS_FAILURE)
+            continue
+        period_identity = f"{proj.layer}:{proj.label}"
+        obs = vector_observation_id(
+            thread_scope=thread_scope, turn=turn, subject_scope=subject_scope,
+            period_identity=period_identity, input_signature=input_signature)
+        acc.add(RelationshipEffectShadowDraft(
+            observation_id=obs, vector_run_id=vector_run_id(obs),
+            period_identity=period_identity, subject_scope=subject_scope,
+            vector=vec))
+    return SidecarBuildResult(
+        accumulator=acc, period_failure_counts=failures,
+        build_latency_ms=(time.perf_counter() - t0) * 1000.0)
+
+
+def _draft_period(draft: RelationshipEffectShadowDraft) -> str:
+    """period_identity('sewoon:2027') → 후보 period 라벨('2027')."""
+    return draft.period_identity.split(":", 1)[1]
+
+
+def finalize_relationship_envelopes(
+    detailed_drafts: list[RelationshipEffectShadowDraft],
+    *,
+    subject_scope: str,
+    all_scored: list[EventCandidate],
+    pre_reduce_candidates: list[EventCandidate],
+    final_candidates: list[EventCandidate],
+) -> list[RelationshipEffectShadowEnvelope]:
+    """reducer **이후** 상세 draft에만 legacy audit/rank를 결합해 finalize(§2·§3).
+
+    Args:
+        detailed_drafts: bounded 누적기의 상세 후보(HMAC 정렬 상위 cap).
+        subject_scope: draft와 동일한 스코프 — join 서명 재료.
+        all_scored: 채점 전체 목록(production comparator 정렬) — audit 값의 원천.
+        pre_reduce_candidates: reducer에 실제 입력된 목록 — pre_reduce_rank는
+            이 목록의 순서(1-based)다(별도 재정렬 금지). 창 필터로 빠진 기간의
+            후보는 None(존재하지만 reduce 미입장).
+        final_candidates: reducer 이후 Top-N(LLM payload와 동일) —
+            selected_in_top_n/final_rank의 원천. **읽기 전용**(§7).
+    """
+
+    def _sig(period: str, cand: EventCandidate) -> str:
+        return candidate_join_signature(
+            subject_scope=subject_scope, period=period,
+            event_key=str(cand.event_key), event_type=str(cand.event_type.value))
+
+    envelopes: list[RelationshipEffectShadowEnvelope] = []
+    for draft in detailed_drafts:
+        period = _draft_period(draft)
+        try:
+            audits: list[LegacyCandidateAudit] = []
+            ambiguous = False
+            join_not_found = False
+            joined_keys: set[str] = set()
+            base = [c for c in all_scored
+                    if c.period == period and str(c.event_key) in REL_AUDIT_EVENT_KEYS]
+            # 서명 기반 1건 join(§3) — 같은 서명 복수 매치는 결합하지 않는다.
+            by_sig: dict[str, list[EventCandidate]] = {}
+            for c in base:
+                by_sig.setdefault(_sig(period, c), []).append(c)
+            for matches in by_sig.values():
+                if len(matches) > 1:
+                    ambiguous = True
+                    continue
+                c = matches[0]
+                key = str(c.event_key)
+                joined_keys.add(key)
+                pre_rank = next(
+                    (i + 1 for i, x in enumerate(pre_reduce_candidates)
+                     if x.period == period and str(x.event_key) == key), None)
+                final_rank = next(
+                    (i + 1 for i, x in enumerate(final_candidates)
+                     if x.period == period and str(x.event_key) == key), None)
+                audits.append(LegacyCandidateAudit(
+                    event_key=key, candidate_present=True,
+                    pre_reduce_rank=pre_rank,
+                    selected_in_top_n=final_rank is not None,
+                    final_rank=final_rank,
+                    score=float(c.score), raw_score=float(c.raw_total),
+                    confidence=str(c.confidence.value),
+                    # legacy DTO는 contributions를 보존하지 않는다 — 추정 금지(None).
+                    relation_delta=None, relation_capped=None,
+                ))
+            # 최종 목록에만 있고 base 서명과 결합되지 않은 REL 후보 → identity 불일치.
+            for x in final_candidates:
+                if (x.period == period and str(x.event_key) in REL_AUDIT_EVENT_KEYS
+                        and str(x.event_key) not in joined_keys):
+                    join_not_found = True
+            if ambiguous:
+                status = AuditProjectionStatus.JOIN_AMBIGUOUS
+            elif join_not_found:
+                status = AuditProjectionStatus.JOIN_NOT_FOUND
+            elif audits:
+                status = AuditProjectionStatus.SUCCESS
+            else:
+                status = AuditProjectionStatus.NO_CANDIDATE
+        except Exception:  # noqa: BLE001 — audit 실패는 벡터 실패가 아니다(§2)
+            status = AuditProjectionStatus.PROJECTION_FAILURE
+            audits = []
+        envelopes.append(finalize_shadow_envelope(
+            draft, audit_status=status, audits=tuple(audits)))
+    return envelopes

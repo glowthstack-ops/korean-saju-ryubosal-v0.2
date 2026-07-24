@@ -124,7 +124,13 @@ from saju_shared_types.precompute import CompositeLevel
 from saju_shared_types.profile import PersonaConfig
 from saju_shared_types.topic_context import PeriodSpec
 
-from . import llm_client, relationship_shadow, risk_exposure_service
+from . import (
+    llm_client,
+    relationship_shadow,
+    relationship_vector_sidecar,
+    relationship_vector_telemetry,
+    risk_exposure_service,
+)
 from .manse_service import (
     calculate,
     daily_luck_window,
@@ -3110,6 +3116,27 @@ def chat(
     # 직후 즉시 확보(불변 tuple). 싱글턴 scorer.risk_shadow는 이후의 보조
     # 채점·동시 요청으로 덮일 수 있어 EXPOSE 경로에서 읽지 않는다.
     _subject_risk_shadow = _get_scorer().take_risk_shadow()
+    # P1-6 §12 — 관계 벡터 shadow: 주 채점 직후 불변 projection 확보(이후 보조
+    # 채점 year_scored로 tls가 덮이기 전) → Top-N 이전 Draft 생성 + 전체 aggregate
+    # 즉시 누적 + 상세 후보만 bounded 보존. 관측 전용(후보·점수·LLM 델타 0) —
+    # 실패해도 본 응답 비차단(sidecar 내부 격리). 최종 audit 결합·emit은 payload
+    # (Top-N) 확정 이후 단일 지점에서.
+    _rel_vec_subject_scope = "self" if subject_id is None else f"companion:{subject_id}"
+    _rel_vec_sidecar = None
+    try:
+        _rel_projections = _get_scorer().take_relationship_shadow()
+        if _rel_projections:
+            _rel_vec_sidecar = relationship_vector_sidecar.build_relationship_effect_accumulator(
+                _rel_projections, result,
+                dictionaries_dir=_DICTS,
+                thread_scope=thread_id or "no-thread",
+                turn=(state.turn_no if state is not None else 0),
+                subject_scope=_rel_vec_subject_scope,
+                input_signature=question,
+            )
+    except Exception:  # noqa: BLE001 — 관계 벡터 shadow 실패는 본 응답 비차단
+        _logger.exception("relationship_vector_sidecar build 실패 — 본 응답 비차단")
+        _rel_vec_sidecar = None
     # P0-B4 — 요청 로컬성: 관계 컨텍스트 즉시 해제(싱글턴 잔류·타 요청 오염 방지) +
     # REL 후보 수 계측(텔레메트리 emit은 노출 필터 이후 단일 지점에서).
     if _rel_ctxs:
@@ -3743,6 +3770,29 @@ def chat(
         overview_mode=_overview_mode,
     )
     call_type = "chat_compare" if plan.per_subject else "chat_single"
+
+    # P1-6 §12 — 관계 벡터 shadow 최종화(reducer 이후 단일 지점): production Top-N
+    # (payload.event_candidates)이 확정된 지금, 상세 Draft에만 legacy audit/rank를
+    # 결합해 Envelope finalize → allowlist batch 1회 emit → sidecar 폐기. 관측 전용
+    # (payload·후보·점수 무변경). 실패해도 본 응답 비차단.
+    if _rel_vec_sidecar is not None:
+        try:
+            _rel_envelopes = relationship_vector_sidecar.finalize_relationship_envelopes(
+                _rel_vec_sidecar.accumulator.detailed_drafts,
+                subject_scope=_rel_vec_subject_scope,
+                all_scored=list(all_scored),
+                pre_reduce_candidates=list(candidates),
+                final_candidates=list(payload.event_candidates),
+            )
+            _rel_vec_batch = relationship_vector_telemetry.build_batch_from_accumulator(
+                _rel_vec_sidecar.accumulator, _rel_envelopes,
+                period_failure_counts=_rel_vec_sidecar.period_failure_counts,
+            )
+            relationship_vector_telemetry.emit_batch(_rel_vec_batch)
+        except Exception:  # noqa: BLE001 — 관계 벡터 telemetry 실패는 본 응답 비차단
+            _logger.exception("relationship_vector telemetry finalize 실패 — 본 응답 비차단")
+        finally:
+            _rel_vec_sidecar = None  # sidecar 폐기(요청 내 ephemeral — §8)
 
     # 직렬화 본문 뒤에 덧붙는 후행 지시문·시스템 프롬프트를 먼저 모은다 — 이 고정 오버헤드를
     # 토큰 가드 예약분으로 넘겨야 컨텍스트 축소기가 '실제 총 입력(payload+오버헤드)' 기준으로
