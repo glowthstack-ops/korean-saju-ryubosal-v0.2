@@ -55,6 +55,27 @@ _STABILITY_CONTRIB: dict[RelationKind, float] = {
 }
 
 
+class SpousePalaceHit(BaseModel):
+    """활성 1건 + 생성부가 아는 실측 정보(운 글자·참여자·소스 위치).
+
+    P1-5 승인 조건: RelationPalace evidence도 실제 transit component를 받아
+    signal_trigger_id가 EXACT/COMPONENT여야 MT2와의 동일 root 판정이 가능하다.
+    participant·source_locator는 '같은 서명이지만 합법적 별도 원인'(다른 원국
+    참여자)을 서명 수준에서 분리한다(§6).
+    """
+
+    kind: RelationKind
+    palace: Pillar4
+    layer: str                          # sewoon | wolwoon | daewoon (LuckLayer.value)
+    position: str = "branch"
+    hap_subtype: str | None = None
+    element: str | None = None
+    transit_component: str = ""         # stem | branch (운 쪽 구성요소 종류)
+    transit_participant: str = ""       # 운 글자(한자) — 있으면 EXACT trigger
+    natal_participant: str = ""         # 피자극 원국 글자
+    source_locator: str = ""            # 생성 규칙·원국 자리 등 결정적 소스 식별
+
+
 class SpousePalaceVectorResult(BaseModel):
     """어댑터 산출 — 벡터 + cap 이전 원시 증거(중간 승인 샘플의 표시 단위)."""
 
@@ -69,6 +90,11 @@ class SpousePalaceVectorResult(BaseModel):
     # 제한 의미 — 쟁합·합거·합반(P1-4)이 상쇄·blocker로 재분류할 수 있다.
     stability_support: float = 0.0
     stability_pressure: float = 0.0
+    # 3종 카운트 분리(P1-5 승인 §2) — '독립 원인 수' 단일 압축 금지.
+    evidence_count: int = 0
+    semantic_cause_group_count: int = 0
+    root_trigger_count: int = 0                 # EXACT/COMPONENT signal 고유값만
+    unresolved_trigger_evidence_count: int = 0  # PROVISIONAL — root 병합·계산 사용 금지
 
 
 class _Dict:
@@ -86,12 +112,12 @@ class _Dict:
                         for k, v in raw["relation_layer_weights"].items()}
         self.palace_mult = raw["palace_relation_score_multipliers"]
 
-    def raw_strength(self, act: RelationActivation) -> float:
+    def raw_strength_hit(self, h: SpousePalaceHit) -> float:
         """legacy와 동일 산식(likely·MT4 제외 기본형) — cap 없음."""
-        pinfo = self.palace[act.palace.value]
-        layer_mult = self.layer_w.get(f"{act.layer.value}_to_natal", 1.0)
-        pmult = self.palace_mult[act.palace.value][act.position]
-        return (self.rel_bonus[act.kind.value] * float(pinfo["activation_weight"])
+        pinfo = self.palace[h.palace.value]
+        layer_mult = self.layer_w.get(f"{h.layer}_to_natal", 1.0)
+        pmult = self.palace_mult[h.palace.value][h.position]
+        return (self.rel_bonus[h.kind.value] * float(pinfo["activation_weight"])
                 * layer_mult * pmult)
 
 
@@ -105,9 +131,20 @@ def _band(value: float, *, strong: float, moderate: float, weak: float) -> str:
     return "low"
 
 
+def _normalize(hit: RelationActivation | SpousePalaceHit) -> SpousePalaceHit:
+    if isinstance(hit, SpousePalaceHit):
+        return hit
+    return SpousePalaceHit(
+        kind=hit.kind, palace=hit.palace, layer=hit.layer.value,
+        position=hit.position, hap_subtype=hit.hap_subtype, element=hit.element,
+    )
+
+
 def build_spouse_palace_vector(
-    activations: list[RelationActivation],
+    activations: list[RelationActivation] | list[SpousePalaceHit],
     dictionaries_dir: Path,
+    *,
+    period_key: str = "",
 ) -> SpousePalaceVectorResult:
     """배우자궁 발동 목록 → 7축 벡터(shadow) + cap 이전 증거.
 
@@ -119,59 +156,71 @@ def build_spouse_palace_vector(
     연결)이지 새 원인이 아니다(부록 D-2).
     """
     d = _Dict(dictionaries_dir)
+    hits = [_normalize(a) for a in activations]
     evidences: list[RelationshipActivationEvidence] = []
     kinds_on_day: list[RelationKind] = []
     base_day_total = 0.0
-    day_kinds_set = {a.kind for a in activations if a.palace is Pillar4.DAY}
+    day_kinds_set = {h.kind for h in hits if h.palace is Pillar4.DAY}
     compound_id = (
         "+".join(sorted(k.value for k in day_kinds_set)) if len(day_kinds_set) >= 2
         else None
     )
 
     # 입력 순서 불변(permutation invariance) — 확보 가능한 전 필드로 정렬한 뒤 처리한다.
-    # 동일 서명 hit(구분 정보 없음)의 #k suffix는 개수 기반이라 순서와 무관하게 동일하다.
-    def _signature(act: RelationActivation) -> str:
+    # participant·source_locator가 서명에 들어가므로 '같은 kind·궁이지만 다른 원국
+    # 참여자'는 별도 독립 원인으로 갈라진다(§6 합법적 별도 source).
+    def _signature(h: SpousePalaceHit) -> str:
         return ":".join((
-            act.layer.value, act.kind.value, act.palace.value, act.position,
-            act.hap_subtype or "", act.element or "",
+            h.layer, h.kind.value, h.palace.value, h.position,
+            h.hap_subtype or "", h.element or "",
+            h.natal_participant, h.transit_participant, h.source_locator,
         ))
 
     # 완전 동일 typed hit는 별도 독립 원인이 아니다(보완 §2) — 확보 가능한 전 필드
     # 서명이 같으면 evidence 1건 + duplicate_count로 보존한다. 실제로 서로 다른
     # source(다른 원국 참여자)라면 상위 생성부가 participant를 채워 서명이 갈라진다.
-    grouped: dict[str, list[RelationActivation]] = {}
-    for act in activations:
-        grouped.setdefault(_signature(act), []).append(act)
+    grouped: dict[str, list[SpousePalaceHit]] = {}
+    for h in hits:
+        grouped.setdefault(_signature(h), []).append(h)
 
     for base_key in sorted(grouped):
-        acts = grouped[base_key]
-        act = acts[0]
-        dup = len(acts)
-        on_day = act.palace is Pillar4.DAY
-        base = d.raw_strength(act)
+        hs = grouped[base_key]
+        h = hs[0]
+        dup = len(hs)
+        on_day = h.palace is Pillar4.DAY
+        base = d.raw_strength_hit(h)
         if on_day:
-            kinds_on_day.append(act.kind)
+            kinds_on_day.append(h.kind)
             base_day_total += base  # 중복 생성분은 강도 합에도 1회만(과대 집계 방지)
+        # trigger 2계층(보완 §4·P1-5 승인 §1) — 운 글자가 있으면 EXACT(MT2와 동일
+        # 포맷 layer:period:component:글자 — 동일 root 판정 기준), 기간만 있으면
+        # signal 미상(PROVISIONAL — root 병합·계산 사용 금지).
+        if h.transit_participant and period_key:
+            signal = (f"{h.layer}:{period_key}:"
+                      f"{h.transit_component or 'branch'}:{h.transit_participant}")
+            precision = TriggerPrecision.EXACT
+        else:
+            signal = None
+            precision = TriggerPrecision.PROVISIONAL
         evidences.append(RelationshipActivationEvidence(
             evidence_id=f"spa:{base_key}",
             independent_cause_id=base_key,
             independent_cause_group="palace_activation",
-            # trigger 2계층(보완 §4) — 입력에 기간·운 글자가 없어 전부 잠정(PROVISIONAL):
-            # 독립 원인·dedupe·고유 집계 계산에 사용 금지, 관측 기록 전용.
-            # P1-3에서 활성 생성부의 기간·운 글자 주입으로 COMPONENT/EXACT 승급.
-            period_trigger_id=act.layer.value,
-            signal_trigger_id=None,
-            trigger_precision=TriggerPrecision.PROVISIONAL,
+            period_trigger_id=f"{h.layer}:{period_key}" if period_key else h.layer,
+            signal_trigger_id=signal,
+            trigger_precision=precision,
             duplicate_count=dup,
-            relation_kind=act.kind.value,
-            source_layer=act.layer.value,
-            affected_palace=act.palace.value,
+            relation_kind=h.kind.value,
+            source_layer=h.layer,
+            affected_palace=h.palace.value,
             on_spouse_palace=on_day,
+            natal_participant=h.natal_participant,
+            transit_participant=h.transit_participant,
             compound_group_id=compound_id if on_day else None,
             base_relation_strength=round(base, 3),
             # event_adjusted_legacy_strength/legacy_delta/legacy_capped는 특정 이벤트와
             # 결합된 뒤에만 정의 — 어댑터 단계에서는 None(오해 방지, 2026-07-24 보완).
-            reason_codes=[f"REL_{act.kind.value}_{act.palace.value}"],
+            reason_codes=[f"REL_{h.kind.value}_{h.palace.value}"],
         ))
 
     day_evidence_ids = [e.evidence_id for e in evidences if e.on_spouse_palace]
@@ -227,6 +276,14 @@ def build_spouse_palace_vector(
     vector.realization = unevaluated()
     vector.formalization = unevaluated()
 
+    resolved_signals = {
+        e.signal_trigger_id for e in evidences
+        if e.signal_trigger_id is not None
+        and e.trigger_precision is not TriggerPrecision.PROVISIONAL
+    }
+    unresolved = sum(
+        1 for e in evidences if e.trigger_precision is TriggerPrecision.PROVISIONAL
+    )
     return SpousePalaceVectorResult(
         vector=vector,
         evidences=evidences,
@@ -234,4 +291,8 @@ def build_spouse_palace_vector(
         base_activation_total=round(base_day_total, 3),
         stability_support=round(stability_support, 3),
         stability_pressure=round(stability_pressure, 3),
+        evidence_count=len(evidences),
+        semantic_cause_group_count=len({e.independent_cause_group for e in evidences}),
+        root_trigger_count=len(resolved_signals),
+        unresolved_trigger_evidence_count=unresolved,
     )

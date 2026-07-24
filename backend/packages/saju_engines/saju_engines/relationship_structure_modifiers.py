@@ -36,11 +36,25 @@ class StructureModifierEffect(StrEnum):
     FOCUS_DILUTION = "focus_dilution"
 
 
+# modifier가 제한적으로 작용할 수 있는 축(P1-5 승인 §3) — ambiguity·선택 복잡성·
+# 집중 분산은 7축이 아니라 modifier_kind이며, **숨은 8번째 축으로 수치화 금지**.
+# 최종 벡터 반영은 여기 열거된 기존 축에만 허용된다(합성기 소관).
+_PATTERN_AFFECTS: dict[str, tuple[str, ...]] = {
+    "JAENGHAP": ("stability", "realization"),        # activation 직접 상승 금지
+    "HAPGEO": ("realization",),
+    "HAPBAN": ("realization",),
+    "GWANSAL_HONJAP": ("stability",),                # 만남·결혼 발생 원인 아님
+    "MULTI_RELATION_STRESS": ("stability",),
+}
+
+
 class RelationshipStructureModifier(BaseModel):
     """관계 modifier 1건 — 독립 원인·root trigger 수에 불포함."""
 
     pattern_id: str
     effects: list[StructureModifierEffect]
+    # 작용 허용 축(7축 어휘 한정) — 이 밖의 축·신규 수치 축 생성 금지.
+    affects_axes: list[str] = Field(default_factory=list)
     strength: float = 0.0               # 패턴 성립 강도(0~1) — 길흉·발생 아님
     # natal 정적 출처(가짜 transit trigger 금지) — 운 파생이면 None.
     structural_context_id: str | None = None
@@ -94,6 +108,7 @@ def build_relationship_structure_modifiers(
         out.append(RelationshipStructureModifier(
             pattern_id=p.pattern_id,
             effects=list(effects),
+            affects_axes=list(_PATTERN_AFFECTS.get(p.pattern_id, ())),
             strength=float(getattr(p, "strength", 0.0) or 0.0),
             structural_context_id=f"natal:{p.pattern_id}" if is_natal else None,
             derived_from_evidence_ids=[] if is_natal else list(derived.get(p.pattern_id, [])),

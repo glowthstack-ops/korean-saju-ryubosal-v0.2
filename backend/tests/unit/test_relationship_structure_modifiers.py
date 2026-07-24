@@ -71,3 +71,25 @@ def test_modifiers_are_not_independent_causes() -> None:
     m = build_relationship_structure_modifiers([_pat("MULTI_RELATION_STRESS")])[0]
     assert not hasattr(m, "independent_cause_id")
     assert not hasattr(m, "signal_trigger_id")
+
+
+def test_affects_axes_restricted_to_seven_axes() -> None:
+    """modifier 작용 축은 7축 어휘 한정 — ambiguity를 숨은 축으로 수치화 금지(§3)."""
+    seven = {"activation", "exposure", "realization", "experience_valence",
+             "stability", "formalization", "separation_pressure"}
+    mods = build_relationship_structure_modifiers([
+        _pat("JAENGHAP"), _pat("HAPGEO"), _pat("GWANSAL_HONJAP"),
+        _pat("MULTI_RELATION_STRESS"),
+    ])
+    for m in mods:
+        assert m.affects_axes and set(m.affects_axes) <= seven, m.pattern_id
+    # 쟁합은 activation 직접 상승 금지(stability·realization만).
+    j = next(m for m in mods if m.pattern_id == "JAENGHAP")
+    assert "activation" not in j.affects_axes
+
+
+def test_static_modifier_not_period_accumulated() -> None:
+    """natal 정적 modifier — 기간이 달라도 동일 structural_context_id(누적 금지 §5)."""
+    a = build_relationship_structure_modifiers([_pat("GWANSAL_HONJAP")])
+    b = build_relationship_structure_modifiers([_pat("GWANSAL_HONJAP")])
+    assert a[0].structural_context_id == b[0].structural_context_id == "natal:GWANSAL_HONJAP"

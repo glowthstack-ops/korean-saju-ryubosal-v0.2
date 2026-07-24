@@ -189,3 +189,102 @@ def test_stability_support_pressure_decomposed() -> None:
     assert r.stability_support == 0.3
     assert r.stability_pressure == 1.0
     assert r.vector.stability.value == -0.7  # net = support - pressure
+
+
+# ── P1-5 승인 조건 — EXACT trigger·카운트 3분리·합법적 별도 source ────────────────
+
+
+def _hit(kind: RelationKind, *, transit: str = "", natal: str = "",
+         component: str = "branch", locator: str = "",
+         palace: Pillar4 = Pillar4.DAY, layer: str = "sewoon"):
+    from saju_engines.spouse_palace_activation import SpousePalaceHit
+
+    return SpousePalaceHit(
+        kind=kind, palace=palace, layer=layer,
+        transit_component=component, transit_participant=transit,
+        natal_participant=natal, source_locator=locator,
+    )
+
+
+def test_hit_with_transit_letter_gets_exact_signal() -> None:
+    """운 글자 주입 — MT2와 동일 포맷의 EXACT signal(동일 root 판정 기준, §1)."""
+    from saju_shared_types.relationship_effect import TriggerPrecision
+
+    r = build_spouse_palace_vector(
+        [_hit(RelationKind.HAP, transit="己", component="stem", natal="丑")],
+        _DICTS, period_key="2029",
+    )
+    e = r.evidences[0]
+    assert e.signal_trigger_id == "sewoon:2029:stem:己"
+    assert e.trigger_precision is TriggerPrecision.EXACT
+    assert e.period_trigger_id == "sewoon:2029"
+    assert r.root_trigger_count == 1 and r.unresolved_trigger_evidence_count == 0
+
+
+def test_same_signal_as_mt2_enables_root_merge_format() -> None:
+    """RelationPalace EXACT signal == MT2 signal 포맷 — evidence 2·root 1 판정 재료."""
+    from saju_engines.marriage_emergence_modifier import (
+        EmergedStem,
+        MarriageEmergenceNatal,
+    )
+    from saju_engines.partner_star_emergence import build_partner_star_emergence_evidence
+
+    palace = build_spouse_palace_vector(
+        [_hit(RelationKind.HAP, transit="己", component="stem", natal="丑")],
+        _DICTS, period_key="2029",
+    )
+    natal = MarriageEmergenceNatal(
+        day_master="癸",
+        emerged=(EmergedStem(stem="己", element="土", ten_god="편관",
+                             source_pillars=("year",), is_day_master_exposure=False,
+                             is_partner_star=True),),
+        gender="female",
+    )
+    mt2 = build_partner_star_emergence_evidence(
+        natal, "己", layer="sewoon", period_key="2029",
+    )
+    sig_a = palace.evidences[0].signal_trigger_id
+    sig_b = mt2.evidences[0].signal_trigger_id
+    assert sig_a == sig_b == "sewoon:2029:stem:己"  # root 1개 판정 가능(합성기)
+    groups = {palace.evidences[0].independent_cause_group,
+              mt2.evidences[0].independent_cause_group}
+    assert groups == {"palace_activation", "partner_star_emergence"}  # 증거 2종
+
+
+def test_legitimate_distinct_sources_two_causes() -> None:
+    """같은 kind·궁이지만 natal participant가 다름 — 합법적 별도 원인 2(§6)."""
+    r = build_spouse_palace_vector(
+        [_hit(RelationKind.CHUNG, transit="未", natal="丑", locator="natal:day"),
+         _hit(RelationKind.CHUNG, transit="未", natal="未", locator="natal:year")],
+        _DICTS, period_key="2027",
+    )
+    assert r.evidence_count == 2
+    assert r.independent_cause_count == 2
+    assert all(e.duplicate_count == 1 for e in r.evidences)
+
+
+def test_same_period_different_components_two_roots() -> None:
+    """같은 기간의 천간·지지 신호 — period 동일·signal 다름·root 2(§4/§8-B)."""
+    r = build_spouse_palace_vector(
+        [_hit(RelationKind.HAP, transit="戊", component="stem"),
+         _hit(RelationKind.CHUNG, transit="申", component="branch")],
+        _DICTS, period_key="2028",
+    )
+    periods = {e.period_trigger_id for e in r.evidences}
+    signals = {e.signal_trigger_id for e in r.evidences}
+    assert periods == {"sewoon:2028"} and len(signals) == 2
+    assert r.root_trigger_count == 2
+
+
+def test_counts_triple_separation() -> None:
+    """evidence 수·의미 그룹 수·root trigger 수 분리 보고(§2)."""
+    r = build_spouse_palace_vector(
+        [_hit(RelationKind.HAP, transit="己", component="stem")],
+        _DICTS, period_key="2029",
+    )
+    assert (r.evidence_count, r.semantic_cause_group_count, r.root_trigger_count) \
+        == (1, 1, 1)
+    # 잠정 입력(글자 없음) — root 계산 제외 + 미해소 카운트.
+    legacy_input = build_spouse_palace_vector([_act(RelationKind.HAP)], _DICTS)
+    assert legacy_input.root_trigger_count == 0
+    assert legacy_input.unresolved_trigger_evidence_count == 1
