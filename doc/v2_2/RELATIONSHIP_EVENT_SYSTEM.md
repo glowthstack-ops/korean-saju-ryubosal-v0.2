@@ -1316,3 +1316,23 @@ strong threshold가 바뀌면 P3 후보 승격 조건도 바뀌므로 계수 안
 **legacy delta 재현이 아니라** 관계 구조가 7축에 일관·비과대 반영되는지 검증과 상대
 강도·band 결정. 순서: P2-0 조정 가능 값·불변식 고정 → P2-1 민감도 → P2-2 의미 단조성
 회귀 → P2-3 경계 사례 감수 → P2-4 calibration version 고정 → P3.
+
+### D-8. P2-0 캘리브레이션 명세 (2026-07-24) — spec_only
+
+**P2-0 완료(코드·계수 변경 0 — 명세만)**. SSOT: `RELATIONSHIP_VECTOR_CALIBRATION.md`
++ 파라미터 레지스트리 `relationship_vector_calibration_spec.v1.json`(status=spec_only,
+런타임 미판독 — 확인됨).
+
+- **범위 제한(§2)**: P2는 평가 가능 3축(activation·stability·separation_pressure)만.
+  나머지 4축(exposure·realization·experience_valence·formalization)은 P3 증거 계약
+  전까지 INSUFFICIENT_EVIDENCE/None 유지 — 수치화·임시 계수 금지.
+- **조정 가능(§3)**: secondary_factor 0.3(후보 0~0.6)·activation band 6/12/20(profile
+  안1~4)·kind_strength(dict base_bonus)·stability support/pressure·separation weight
+  (CHUNG≥나머지 ordering 고정)·jaenghap_weaken 0.5. modifier 비수치 4종은 P3까지 보수
+  유지. cross-root 합성은 조건부 검토(P2-0 확정 대상 아님).
+- **변경 금지 불변식(§4)**: EXACT>PROVISIONAL·root 정의·같은 root 1회·AxisStatus(근거
+  없음≠0)·modifier 규칙·의미 분리·event independence·production delta 0.
+- **단조성 계약(§5)**: 비감소(non-decreasing)만 고정("반드시 증가"는 secondary_factor=0
+  때문에 고정 안 함). legacy 일치는 목적 함수 아님(§1·§4·금지 최적화 목표 명시).
+- **versioning(§9)**: 값·경계=calibration bump / 구조·의미=schema bump. 실험 run은
+  vector_run_id로 분리. **다음 = P2-1 민감도 분석**(§7 metric).
