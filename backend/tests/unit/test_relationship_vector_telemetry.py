@@ -7,12 +7,15 @@ from pathlib import Path
 
 from saju_api.services.relationship_vector_telemetry import (
     MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST,
+    AuditProjectionStatus,
     KindCombo,
     LegacyCandidateAudit,
-    RelationshipEffectShadowEnvelope,
+    RelationshipEffectShadowDraft,
     build_batch,
     build_relationship_vector_telemetry,
     classify_kind_combo,
+    finalize_shadow_envelope,
+    select_detailed_drafts,
     vector_observation_id,
     vector_run_id,
 )
@@ -37,16 +40,25 @@ def _vector(*kinds: RelationKind, transit: str = "未"):
     return synthesize_relationship_effect_vector(res.evidences)
 
 
-def _envelope(vector=None, audits=None) -> RelationshipEffectShadowEnvelope:
+def _draft(vector=None, period: str = "sewoon:2027") -> RelationshipEffectShadowDraft:
     obs = vector_observation_id(
         thread_scope="t1", turn=3, subject_scope="self",
-        period_identity="sewoon:2027", input_signature="sig-abc",
+        period_identity=period, input_signature="sig-abc",
     )
-    return RelationshipEffectShadowEnvelope(
+    return RelationshipEffectShadowDraft(
         observation_id=obs, vector_run_id=vector_run_id(obs),
-        period_identity="sewoon:2027", subject_scope="self",
+        period_identity=period, subject_scope="self",
         vector=vector or _vector(RelationKind.CHUNG),
-        legacy_candidate_audits=audits or [],
+    )
+
+
+def _envelope(vector=None, audits=None, status=None):
+    d = _draft(vector)
+    if status is None:
+        status = (AuditProjectionStatus.SUCCESS if audits
+                  else AuditProjectionStatus.NO_CANDIDATE)
+    return finalize_shadow_envelope(
+        d, audit_status=status, audits=tuple(audits or ()),
     )
 
 
@@ -106,24 +118,26 @@ def test_kind_combo_fixed_enum() -> None:
 def test_batch_cap_detail_only_aggregate_full() -> None:
     """§2·§13 — hard cap은 상세 record만 제한, aggregate는 전 기간 반영.
     HMAC 정렬 샘플은 입력 순서 불변·재실행 동일."""
-    envs = []
-    for y in range(2027, 2027 + 50):
-        obs = vector_observation_id(
-            thread_scope="t1", turn=3, subject_scope="self",
-            period_identity=f"sewoon:{y}", input_signature="sig")
-        envs.append(_envelope().model_copy(update={
-            "period_identity": f"sewoon:{y}", "observation_id": obs}))
-    batch = build_batch(envs)
+    drafts = [_draft(period=f"sewoon:{y}") for y in range(2027, 2027 + 50)]
+    detailed = [finalize_shadow_envelope(
+        d, audit_status=AuditProjectionStatus.NO_CANDIDATE)
+        for d in select_detailed_drafts(drafts)]
+    batch = build_batch(drafts, detailed)
     assert batch.evaluated_period_count == 50
     assert batch.vector_success_count == 50
-    assert batch.telemetry_record_success_count == 50   # 집계는 절단 없음
     assert batch.detailed_period_count \
         == MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST  # 상세만 cap
+    # §4 불변식: record success+failure = detail_selected / truncated = 성공-상세.
+    assert batch.telemetry_record_success_count \
+        + batch.telemetry_record_failure_count == batch.detailed_period_count
     assert batch.truncated_success_period_count == 50 - batch.detailed_period_count
-    # 축 status 합계 = vector_success(§1 정정 분모 불변식).
+    # 축 status 합계 = vector_success(§1 분모 — 상세 cap과 무관하게 전 기간).
     assert sum(batch.aggregate.separation_status_counts.values()) == 50
-    # 입력 순서 불변 + 재실행 동일(HMAC 정렬).
-    rev = build_batch(list(reversed(envs)))
+    # 입력 순서 불변 + 재실행 동일(HMAC 정렬 — 선택·정렬 모두).
+    rev_detailed = [finalize_shadow_envelope(
+        d, audit_status=AuditProjectionStatus.NO_CANDIDATE)
+        for d in select_detailed_drafts(list(reversed(drafts)))]
+    rev = build_batch(list(reversed(drafts)), rev_detailed)
     assert [r.observation_id for r in batch.records] \
         == [r.observation_id for r in rev.records]
 
@@ -133,7 +147,7 @@ def test_batch_failure_denominators_separated() -> None:
     from saju_api.services.relationship_vector_telemetry import PeriodFailureReason
 
     ok = [_envelope()]
-    batch = build_batch(ok, period_failure_counts={
+    batch = build_batch([e.draft for e in ok], ok, period_failure_counts={
         PeriodFailureReason.ADAPTER_FAILURE.value: 3})
     assert batch.evaluated_period_count == 4
     assert batch.vector_success_count == 1
@@ -144,7 +158,7 @@ def test_batch_failure_denominators_separated() -> None:
     assert batch.telemetry_degraded is False  # 변환은 정상 — 축 분리
     # 실패 기간은 어떤 status·bucket에도 포함되지 않는다(임의 배정 금지).
     assert sum(batch.aggregate.separation_status_counts.values()) == 1
-    ok2 = build_batch(ok)
+    ok2 = build_batch([e.draft for e in ok], ok)
     assert ok2.vector_degraded is False and ok2.telemetry_degraded is False
 
 
@@ -170,7 +184,7 @@ def test_all_string_values_structurally_allowlisted() -> None:
     env = _envelope(audits=[LegacyCandidateAudit(
         event_key="marriage_signal", candidate_present=True,
         pre_reduce_rank=2, selected_in_top_n=True, final_rank=1)])
-    batch = build_batch([env])
+    batch = build_batch([env.draft], [env])
     allowed_exact = {
         "evaluated", "insufficient_evidence", "not_applicable", "blocked",
         "self", "companion", "daewoon", "sewoon", "wolwoon", "ilwoon",
@@ -220,15 +234,9 @@ def test_dto_extra_forbid() -> None:
 
 def test_detail_sampling_does_not_affect_aggregate() -> None:
     """§5 — 상세 샘플 선택이 달라져도 aggregate는 완전히 동일(역순 입력 비교)."""
-    envs = []
-    for y in range(2027, 2027 + 40):
-        obs = vector_observation_id(
-            thread_scope="t1", turn=3, subject_scope="self",
-            period_identity=f"sewoon:{y}", input_signature="sig")
-        envs.append(_envelope().model_copy(update={
-            "period_identity": f"sewoon:{y}", "observation_id": obs}))
-    a = build_batch(envs)
-    b = build_batch(list(reversed(envs)))
+    drafts = [_draft(period=f"sewoon:{y}") for y in range(2027, 2027 + 40)]
+    a = build_batch(drafts, [])
+    b = build_batch(list(reversed(drafts)), [])
     assert a.aggregate.model_dump() == b.aggregate.model_dump()
 
 
@@ -243,7 +251,8 @@ def test_legacy_cap_units_separated() -> None:
                              relation_capped=False),
     ])
     no_candidates = _envelope(audits=[])  # 후보 없는 기간 — 벡터는 존재
-    batch = build_batch([with_caps, no_candidates])
+    batch = build_batch([with_caps.draft, no_candidates.draft],
+                    [with_caps, no_candidates])
     assert batch.aggregate.legacy_candidate_count == 3
     assert batch.aggregate.legacy_capped_candidate_count == 2
     assert batch.aggregate.periods_with_any_legacy_cap == 1
@@ -265,7 +274,7 @@ def test_aggregate_denominator_is_vector_success_not_record_success(monkeypatch)
         return orig(env)
 
     monkeypatch.setattr(mod, "build_relationship_vector_telemetry", flaky)
-    batch = mod.build_batch(envs)
+    batch = mod.build_batch([e.draft for e in envs], envs)
     assert batch.vector_success_count == 3
     assert batch.telemetry_record_failure_count == 1
     assert batch.telemetry_record_success_count == 2
@@ -277,16 +286,11 @@ def test_aggregate_denominator_is_vector_success_not_record_success(monkeypatch)
 
 def test_audit_failure_not_vector_failure() -> None:
     """§2 정정 — audit projection 실패는 벡터 실패가 아니다(aggregate 포함·audit 결손)."""
-    from saju_api.services.relationship_vector_telemetry import AuditProjectionStatus
-
-    ok = _envelope().model_copy(update={
-        "audit_status": AuditProjectionStatus.PROJECTION_FAILURE.value,
-        "legacy_candidate_audits": [],
-    })
-    batch = build_batch([ok])
+    ok = _envelope(status=AuditProjectionStatus.PROJECTION_FAILURE)
+    batch = build_batch([ok.draft], [ok])
     assert batch.vector_failure_count == 0
     assert batch.vector_success_count == 1
-    assert batch.audit_projection_failure_count == 1
+    assert batch.detailed_audit_projection_failure_count == 1
     assert batch.audit_degraded is True   # 1/1 실패
     assert batch.vector_degraded is False  # 벡터는 정상 — 축 분리
     assert sum(batch.aggregate.activation_status_counts.values()) == 1

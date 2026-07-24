@@ -99,8 +99,12 @@ class LegacyCandidateAudit(BaseModel):
     relation_capped: bool | None = None
 
 
-class RelationshipEffectShadowEnvelope(BaseModel):
-    """기간 단위 shadow sidecar(§8) — 요청 내 ephemeral, 저장·직렬화 경로 금지."""
+class RelationshipEffectShadowDraft(BaseModel):
+    """Top-N **이전** 생성되는 기간 단위 초안(§2) — audit·rank 미결 상태.
+
+    미완성 draft는 telemetry DTO로 변환할 수 없다(타입 수준 강제 — 변환은
+    finalize된 Envelope만 받는다). 전체 aggregate는 draft에서 즉시 누적한다.
+    """
 
     observation_id: str
     vector_run_id: str
@@ -109,10 +113,30 @@ class RelationshipEffectShadowEnvelope(BaseModel):
     schema_version: str = RELATIONSHIP_VECTOR_SCHEMA_VERSION
     calibration_version: str = RELATIONSHIP_CALIBRATION_VERSION
     vector: RelationshipEffectVectorResult
-    legacy_candidate_audits: list[LegacyCandidateAudit] = Field(default_factory=list)
-    # audit 결합 상태(§2 — reducer 이후 결합 단계에서 기록, 벡터 실패와 분리).
-    audit_status: str = "no_candidate"
+
+
+class RelationshipEffectShadowEnvelope(BaseModel):
+    """reducer **이후** audit가 결합된 최종 sidecar(§2) — 상세 대상만 생성.
+
+    요청 내 ephemeral(§8) — candidate·ConversationState·LLM/report DTO 저장 금지.
+    """
+
+    draft: RelationshipEffectShadowDraft
+    audit_status: AuditProjectionStatus
+    legacy_candidate_audits: tuple[LegacyCandidateAudit, ...] = ()
     usage: Literal["shadow_only"] = "shadow_only"
+
+
+def finalize_shadow_envelope(
+    draft: RelationshipEffectShadowDraft,
+    *,
+    audit_status: AuditProjectionStatus,
+    audits: tuple[LegacyCandidateAudit, ...] = (),
+) -> RelationshipEffectShadowEnvelope:
+    """draft + reducer 이후 audit 결합 → 최종 Envelope(§2 실행 계약)."""
+    return RelationshipEffectShadowEnvelope(
+        draft=draft, audit_status=audit_status, legacy_candidate_audits=audits,
+    )
 
 
 class KindCombo(StrEnum):
@@ -221,6 +245,7 @@ class RelationshipVectorTelemetry(BaseModel):
     separation_bucket: str | None
     separation_value_bucket: str | None
     realization_status: str
+    audit_status: str                   # AuditProjectionStatus enum 값
     blocker_count: int
     modifier_count: int
 
@@ -243,15 +268,20 @@ class RelationshipVectorTelemetry(BaseModel):
 def build_relationship_vector_telemetry(
     envelope: RelationshipEffectShadowEnvelope,
 ) -> RelationshipVectorTelemetry:
-    """기본 거부·명시 허용 복사(§10) — envelope에 새 필드가 생겨도 유출되지 않는다."""
-    v = envelope.vector
+    """기본 거부·명시 허용 복사(§10) — envelope에 새 필드가 생겨도 유출되지 않는다.
+
+    finalize된 Envelope만 받는다(§2 — 미완성 draft의 telemetry 변환은 타입상 불가).
+    """
+    d = envelope.draft
+    v = d.vector
     return RelationshipVectorTelemetry(
-        schema_version=envelope.schema_version,
-        calibration_version=envelope.calibration_version,
-        observation_id=envelope.observation_id,
-        vector_run_id=envelope.vector_run_id,
-        period_layer=envelope.period_identity.split(":", 1)[0],
-        subject_scope_kind=envelope.subject_scope.split(":", 1)[0],
+        schema_version=d.schema_version,
+        calibration_version=d.calibration_version,
+        observation_id=d.observation_id,
+        vector_run_id=d.vector_run_id,
+        period_layer=d.period_identity.split(":", 1)[0],
+        subject_scope_kind=d.subject_scope.split(":", 1)[0],
+        audit_status=envelope.audit_status.value,
         activation_status=v.axes.activation.status.value,
         activation_bucket=_bucket_from_band(
             v.axes.activation.status, v.axes.activation.band),
@@ -371,10 +401,13 @@ class RelationshipVectorTelemetryBatch(BaseModel):
     truncated_success_period_count: int = 0
     sampling_strategy_version: str = SAMPLING_STRATEGY_VERSION
     period_failure_counts: dict[str, int] = Field(default_factory=dict)
-    # audit 결합 상태(§2 정정) — 벡터 실패와 분리(실패해도 벡터는 aggregate 포함).
-    audit_projection_success_count: int = 0
-    audit_projection_missing_count: int = 0   # NO_CANDIDATE·JOIN_NOT_FOUND·AMBIGUOUS
-    audit_projection_failure_count: int = 0
+    # 상세 audit 상태(§1·§3) — **상세 선택분만 결합**하므로 detailed_ 접두사.
+    # NO_CANDIDATE는 정상 관측 — degraded 분모(eligible)에서 제외(§1).
+    detailed_audit_no_candidate_count: int = 0
+    detailed_audit_success_count: int = 0
+    detailed_audit_join_not_found_count: int = 0
+    detailed_audit_join_ambiguous_count: int = 0
+    detailed_audit_projection_failure_count: int = 0
     emit_status: str = EmitStatus.SKIPPED.value
     # degraded 3축(§2) — 계산·audit 결합·전송 변환은 서로 다른 문제다.
     vector_degraded: bool = False
@@ -391,27 +424,39 @@ def _root_bucket(n: int) -> str:
     return str(n) if n <= 2 else "3+"
 
 
+def select_detailed_drafts(
+    drafts: list[RelationshipEffectShadowDraft],
+) -> list[RelationshipEffectShadowDraft]:
+    """상세 대상 선택(§4) — HMAC(observation) 정렬 상위 cap(결정적·순서 불변).
+
+    detail_selected = min(vector_success, cap). 직렬화 실패의 대체 선발은 하지
+    않는다(§4 — 실패를 그대로 계측하는 단순 계약).
+    """
+    ranked = sorted(drafts, key=lambda d: _digest("sample", d.observation_id))
+    return ranked[:MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST]
+
+
 def build_batch(
-    envelopes: list[RelationshipEffectShadowEnvelope],
+    drafts: list[RelationshipEffectShadowDraft],
+    detailed_envelopes: list[RelationshipEffectShadowEnvelope],
     *,
     period_failure_counts: dict[str, int] | None = None,
 ) -> RelationshipVectorTelemetryBatch:
-    """전 기간 aggregate + HMAC 정렬 상위 N 상세 record(§2·§13).
+    """전 기간 aggregate(draft) + 상세 record(finalize된 envelope)(§2·§13).
 
     Args:
-        envelopes: **벡터 계산에 성공한** 기간의 sidecar들.
-        period_failure_counts: 벡터 계산 실패(PeriodFailureReason enum key) 카운트 —
-            배선부가 per-period try/except로 채운다. emit 실패는 여기 아님(batch 수준).
+        drafts: **벡터 계산에 성공한 전체 기간**의 초안 — aggregate 분모(§1).
+        detailed_envelopes: 상세 선택분(select_detailed_drafts)에 reducer 이후
+            audit를 결합해 finalize한 sidecar — 상세 record·detailed audit 분모.
+        period_failure_counts: 벡터 계산 실패 카운트(ADAPTER/SYNTHESIS만).
     """
     period_failure_counts = dict(period_failure_counts or {})
     vector_failures = sum(period_failure_counts.values())
-    vector_success = len(envelopes)
+    vector_success = len(drafts)
     agg = RelationshipVectorAggregate()
-    audit_success = audit_missing = audit_fail = 0
-    # §1 정정 — aggregate는 **envelope(벡터 성공분)에서 직접** 누적한다: 상세 DTO
-    # 변환 실패가 전체 관계 분포에서 기간을 누락시키지 않는다.
-    for e in envelopes:
-        v = e.vector
+    # §1 — aggregate는 draft(벡터 성공분)에서 직접 누적: 상세 선택·DTO 변환과 무관.
+    for d in drafts:
+        v = d.vector
         _inc(agg.activation_status_counts, v.axes.activation.status.value)
         _inc(agg.stability_status_counts, v.axes.stability.status.value)
         _inc(agg.separation_status_counts, v.axes.separation_pressure.status.value)
@@ -431,51 +476,61 @@ def build_batch(
             agg.insufficient_activation_count += 1
         agg.unresolved_evidence_total += v.unresolved_trigger_evidence_count
         agg.superseded_provisional_total += int(v.superseded_provisional_count > 0)
+
+    # 상세 record + detailed audit 카운트(finalize된 envelope에서만).
+    audit_counts: dict[AuditProjectionStatus, int] = {
+        s: 0 for s in AuditProjectionStatus}
+    prebuilt: list[tuple[str, RelationshipVectorTelemetry]] = []
+    record_fail = 0
+    for e in detailed_envelopes:
+        audit_counts[e.audit_status] += 1
         agg.legacy_candidate_count += len(e.legacy_candidate_audits)
-        # cap 단위 분리(§6): audit 값이 relation cap 여부를 후보 단위로 든다.
         capped_here = sum(
             1 for a in e.legacy_candidate_audits if a.relation_capped)
         agg.legacy_capped_candidate_count += capped_here
         agg.periods_with_any_legacy_cap += int(capped_here > 0)
-        if e.audit_status == AuditProjectionStatus.SUCCESS.value:
-            audit_success += 1
-        elif e.audit_status == AuditProjectionStatus.PROJECTION_FAILURE.value:
-            audit_fail += 1
-        else:
-            audit_missing += 1
-
-    prebuilt: list[tuple[str, RelationshipVectorTelemetry]] = []
-    record_fail = 0
-    for e in envelopes:
         try:
             t = build_relationship_vector_telemetry(e)
         except Exception:  # noqa: BLE001 — 변환 실패 1건이 batch를 막지 않는다(§2)
             record_fail += 1
             continue
-        prebuilt.append((_digest("sample", e.observation_id), t))
-    # 상세 record — HMAC digest 정렬 상위 N(입력 순서 불변·주기 aliasing 없음).
+        prebuilt.append((_digest("sample", e.draft.observation_id), t))
     prebuilt.sort(key=lambda x: x[0])
-    picked = prebuilt[:MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST]
     record_success = len(prebuilt)
+    detail_selected = len(detailed_envelopes)
     evaluated = vector_success + vector_failures
+    # NO_CANDIDATE 제외 eligible 분모(§1) — 후보 없는 기간이 품질 저하를 가리지 않는다.
+    eligible = (audit_counts[AuditProjectionStatus.SUCCESS]
+                + audit_counts[AuditProjectionStatus.JOIN_NOT_FOUND]
+                + audit_counts[AuditProjectionStatus.JOIN_AMBIGUOUS]
+                + audit_counts[AuditProjectionStatus.PROJECTION_FAILURE])
     return RelationshipVectorTelemetryBatch(
-        records=[t for _, t in picked],
+        records=[t for _, t in prebuilt],
         aggregate=agg,
         evaluated_period_count=evaluated,
         vector_success_count=vector_success,
         vector_failure_count=vector_failures,
         telemetry_record_success_count=record_success,
         telemetry_record_failure_count=record_fail,
-        detailed_period_count=len(picked),
-        truncated_success_period_count=record_success - len(picked),
+        detailed_period_count=detail_selected,
+        # §4 불변식: success+failure=detail_selected, truncated=success-detail_selected.
+        truncated_success_period_count=vector_success - detail_selected,
         period_failure_counts=period_failure_counts,
-        audit_projection_success_count=audit_success,
-        audit_projection_missing_count=audit_missing,
-        audit_projection_failure_count=audit_fail,
+        detailed_audit_no_candidate_count=audit_counts[
+            AuditProjectionStatus.NO_CANDIDATE],
+        detailed_audit_success_count=audit_counts[AuditProjectionStatus.SUCCESS],
+        detailed_audit_join_not_found_count=audit_counts[
+            AuditProjectionStatus.JOIN_NOT_FOUND],
+        detailed_audit_join_ambiguous_count=audit_counts[
+            AuditProjectionStatus.JOIN_AMBIGUOUS],
+        detailed_audit_projection_failure_count=audit_counts[
+            AuditProjectionStatus.PROJECTION_FAILURE],
         vector_degraded=bool(evaluated and vector_failures * 2 > evaluated),
-        audit_degraded=bool(vector_success and audit_fail * 2 > vector_success),
+        audit_degraded=bool(
+            eligible and audit_counts[
+                AuditProjectionStatus.PROJECTION_FAILURE] * 2 > eligible),
         telemetry_degraded=bool(
-            vector_success and record_fail * 2 > vector_success),
+            detail_selected and record_fail * 2 > detail_selected),
     )
 
 
