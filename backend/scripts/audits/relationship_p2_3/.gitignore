@@ -1,0 +1,6 @@
+# 생성물은 결정적 재생성(generate_blind_review.py) — answer key를 blind sheet 옆에
+# 커밋하지 않는다(블라인딩 무결성). 필요 시 harness 실행으로 재생성.
+p2_3_blind_review_sheet.csv
+p2_3_profile_key.csv
+p2_3_case_manifest.json
+p2_3_selection_report.md
