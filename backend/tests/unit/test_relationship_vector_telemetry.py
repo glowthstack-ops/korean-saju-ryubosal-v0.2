@@ -68,7 +68,8 @@ def test_no_forbidden_strings_in_nested_telemetry_payload() -> None:
     """§10 — 금지 필드 재귀 검사: 발화·간지·evidence/signal ID가 payload 어디에도 없다."""
     env = _envelope(audits=[LegacyCandidateAudit(
         event_key="marriage_signal", candidate_present=True, score=86.0,
-        confidence="strong_event_candidate", rank=4, relation_delta=22.0,
+        confidence="strong_event_candidate", pre_reduce_rank=4,
+        selected_in_top_n=True, final_rank=4, relation_delta=22.0,
         relation_capped=True)])
     t = build_relationship_vector_telemetry(env)
     dumped = json.dumps(t.model_dump(mode="json"), ensure_ascii=False)
@@ -102,19 +103,41 @@ def test_kind_combo_fixed_enum() -> None:
         synthesize_relationship_effect_vector([])) is KindCombo.NONE
 
 
-def test_batch_cap_deterministic_sampling() -> None:
-    """§13 — hard cap 초과 시 결정적 stride 샘플(뒤쪽 상시 제외 편향 방지)+계측."""
+def test_batch_cap_detail_only_aggregate_full() -> None:
+    """§2·§13 — hard cap은 상세 record만 제한, aggregate는 전 기간 반영.
+    HMAC 정렬 샘플은 입력 순서 불변·재실행 동일."""
     envs = []
     for y in range(2027, 2027 + 50):
-        e = _envelope()
-        envs.append(e.model_copy(update={"period_identity": f"sewoon:{y}"}))
+        obs = vector_observation_id(
+            thread_scope="t1", turn=3, subject_scope="self",
+            period_identity=f"sewoon:{y}", input_signature="sig")
+        envs.append(_envelope().model_copy(update={
+            "period_identity": f"sewoon:{y}", "observation_id": obs}))
     batch = build_batch(envs)
     assert batch.evaluated_period_count == 50
-    assert batch.emitted_period_count <= MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST
-    assert batch.truncated_period_count == 50 - batch.emitted_period_count
-    years = [r.period_layer for r in batch.records]
-    assert years  # stride 샘플 — 앞뒤 고르게(첫 기간 포함)
-    assert batch.records[0].observation_id == build_batch(envs).records[0].observation_id
+    assert batch.aggregated_period_count == 50          # 집계는 절단 없음
+    assert batch.detailed_period_count \
+        == MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST  # 상세만 cap
+    assert batch.truncated_period_count == 50 - batch.detailed_period_count
+    assert sum(batch.aggregate.separation_bucket_counts.values()) == 50
+    # 입력 순서 불변 + 재실행 동일(HMAC 정렬).
+    rev = build_batch(list(reversed(envs)))
+    assert [r.observation_id for r in batch.records] \
+        == [r.observation_id for r in rev.records]
+
+
+def test_batch_failure_isolation_and_degraded() -> None:
+    """§6 — 기간 실패는 enum count로 격리, 과반 실패 시 degraded 표시."""
+    from saju_api.services.relationship_vector_telemetry import PeriodFailureReason
+
+    ok = [_envelope()]
+    batch = build_batch(ok, failure_reason_counts={
+        PeriodFailureReason.PERIOD_ADAPTER_FAILURE.value: 3})
+    assert batch.vector_success_count == 1
+    assert batch.vector_failure_count == 3
+    assert batch.batch_degraded is True  # 3/4 실패 — 부분 정상 오독 방지
+    ok2 = build_batch(ok)
+    assert ok2.batch_degraded is False
 
 
 def test_envelope_not_serializable_into_llm_paths() -> None:
@@ -129,3 +152,59 @@ def test_supersession_counters_surface_in_telemetry() -> None:
     v = v.model_copy(update={"supersession_cycle_count": 1})
     t = build_relationship_vector_telemetry(_envelope(v))
     assert t.supersession_cycle is True and t.supersession_missing is False
+
+
+def test_all_string_values_structurally_allowlisted() -> None:
+    """§4 구조 잠금 — 직렬화된 모든 문자열 값이 enum/버전/hex digest/고정 bucket
+    라벨 중 하나여야 한다(특정 금지 문자열 스캔은 보조 회귀)."""
+    import re
+
+    env = _envelope(audits=[LegacyCandidateAudit(
+        event_key="marriage_signal", candidate_present=True,
+        pre_reduce_rank=2, selected_in_top_n=True, final_rank=1)])
+    batch = build_batch([env])
+    allowed_exact = {
+        "evaluated", "insufficient_evidence", "not_applicable", "blocked",
+        "self", "companion", "daewoon", "sewoon", "wolwoon", "ilwoon",
+        "none", "low", "weak", "moderate", "strong",
+        "strong_pressure", "moderate_pressure", "mixed_or_neutral",
+        "moderate_support", "strong_support",
+        "marriage_signal", "relationship_change", "new_relationship",
+        "shadow_only",
+    } | {k.value for k in KindCombo}
+    patterns = (
+        re.compile(r"^[0-9a-f]{16}$"),            # HMAC digest
+        re.compile(r"^p\d+\.\d+$"),                # schema version
+        re.compile(r"^cal-[0-9.\-]+$"),           # calibration version
+        re.compile(r"^k\d+$"),                     # key version
+        re.compile(r"^hmac-sort\.v\d+$"),          # sampling version
+        re.compile(r"^\d+(\.\d+)?[-+]?(\d+(\.\d+)?)?\+?$"),  # bucket 라벨(0-5 등)
+        re.compile(r"^\d+\+?$"),                   # root bucket(0/1/2/3+)
+        re.compile(r"^[a-z_]+$"),                  # enum snake_case
+    )
+
+    def check(value):
+        if isinstance(value, str):
+            assert value in allowed_exact or any(
+                p.match(value) for p in patterns), f"자유 문자열 유출: {value!r}"
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                check(k)
+                check(v)
+        elif isinstance(value, list):
+            for v in value:
+                check(v)
+
+    check(batch.model_dump(mode="json"))
+
+
+def test_dto_extra_forbid() -> None:
+    """§4 — DTO·batch·audit 전부 extra=forbid(새 필드 자동 유출 차단)."""
+    import pydantic
+    import pytest
+
+    with pytest.raises(pydantic.ValidationError):
+        LegacyCandidateAudit(event_key="x", candidate_present=False, rank=1)
+    t = build_relationship_vector_telemetry(_envelope())
+    with pytest.raises(pydantic.ValidationError):
+        type(t).model_validate({**t.model_dump(), "freeform": "leak"})
