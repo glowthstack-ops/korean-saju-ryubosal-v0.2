@@ -760,7 +760,7 @@ relationship_narrative_adapter.py     # §10 통합 디렉티브 (P5)
 |---|---|
 | ① REL-EVENT-VOCAB-AUDIT | **완료** — 8계층 실측(A-2) |
 | ② 런타임 MT 프로파일 | **완료** — `production_candidate` 활성(MT1/2/3 ON·MT4 shadow·MT6 ON) 실측 |
-| ③ relation delta 기여 실측 | **완료**(A-3) + 조건부 보완: 남성 명식 1건·월운 경로 1건 교차검증 후 P0-A 최종 폐쇄 |
+| ③ relation delta 기여 실측 | **완료**(A-3) + 교차검증 2건 완료(A-6) — **P0-A 폐쇄 (2026-07-24)** |
 | ④ 어휘 결정 | **승인** — canonical=taxonomy_v2 21키, 구키 전부 legacy alias(A-4) |
 | ⑤ 소유권 결정 | **승인** — legacy relation delta=기존 랭킹의 유일한 소유자, 신규 벡터=shadow 분류·설명 전용(§4-1). 전환 결정은 P4 후 |
 
@@ -850,6 +850,28 @@ personalized_only / daily_allowed.
   불필요, 발견 고정 fixture만 필수).
 
 ---
+
+### A-6. 교차검증 2건 (P0-A 폐쇄 조건 — 2026-07-24 완료)
+
+**남성 실전 명식** (甲戌 일주 양간 + 己亥 일주 음간): 기존 결론과 **일치**.
+- 재성 기반(SINGLE_ZHENGCAI) 관계 후보 생성 확인, 배우자궁 합 +16/충 +22(상한) 동일,
+  기신 해에도 상승 동일. 충 연도 marriage_signal 방향 누수 재현.
+- MT1 남성 재성 干合 경로 발화 확인(양간 甲일간 — 간합 파트너=정재일 때만. 음간 己는
+  간합 파트너 甲=정관이라 원리상 미발화 — 결론 불변·보조 발견).
+- MT1(new_relationship seed)과 REL(marriage/rel_change)은 키가 갈려 물리적 분리,
+  MT2/MT3 중첩 형태는 남녀 동일.
+- 뉘앙스(불일치 아님): MT2 회귀 글자가 충에 관여한 사례에서는 SPOUSE_PALACE_CLASHED가
+  붙어 기존 가드 트리거 존재 — MT2 미관여 충은 여전히 리스크 코드 없음(B2 대상 재확인).
+
+**월운 경로** (C1 2026년, `score(levels={MONTH})` — chat_service 동일 경로): 기존 결론과
+**일치**. 단일 합 delta는 층위 가중으로 16→14 소폭 감소하나 충·다중 발동은 상한 22에
+동일 포화. 충 월(2026-07 丑未충×2+형)에서 marriage_signal 49→76(+22) 방향 누수 재현.
+confidence 승격이 랭킹 상승 주 동인인 구조 동일(월별 후보 밀도 17~18개에서도).
+
+재현성 메타데이터: repository_commit `7e041dd` / relation_palace_modifier.json(reviewed:
+false, cap은 엔진 상수 `_MAX_RELATION_DELTA=22.0`) / structure_patterns v1.1.0 /
+ACTIVE_MARRIAGE_PROFILE=production_candidate / Python 3.12.2 / Asia/Seoul /
+reference_date=2026-07-24 / 측정 스크립트 8종(스크래치패드 p0a/, 리포 무수정).
 
 ## 부록 B. 버그픽스 트랙 B1·B2 계획 (관계 시스템과 독립, 별도 PR)
 
