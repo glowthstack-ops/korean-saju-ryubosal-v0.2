@@ -1,0 +1,14 @@
+{
+  "experiment_spec_version": "p2.1c2.v1",
+  "baseline_calibration_version": "cal-2026-07-24.1",
+  "lattice_case_count": 4,
+  "invariants": {
+    "violations": [],
+    "passed": true
+  },
+  "structure_cross_check": {
+    "stability_oat_invariant_to_activation_structure": true,
+    "activation_oat_invariant_to_pressure_structure": true
+  },
+  "inadmissible_separation_count": 0
+}

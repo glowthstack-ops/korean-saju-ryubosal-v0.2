@@ -1,8 +1,18 @@
 {
-  "schema_version": "rel.vec.calibration.spec.v1",
+  "schema_version": "rel.vec.calibration.spec.v2",
+  "spec_migration": "v1(scalar secondary_factor) → v2(P2-1C: factor_structure + same_root_factors 축별 3계수). 구 scalar 형식 profile은 RelationshipVectorCalibration(extra=forbid)가 fail-fast 거부 — 조용한 재해석 없음. 생성은 .shared/.activation_pressure_split/.axis_split factory.",
   "status": "spec_only",
   "runtime_loadable": false,
   "note": "P2-0 파라미터 레지스트리. runtime loader가 읽지 않는다(spec 전용). 실제 값 변경은 P2-1 이후, 런타임 profile 전환은 P2-4. 계수 SSOT는 relationship_effect_vector.py + relation_palace_modifier.json. 값 일치는 test_calibration_spec_drift.py가 강제.",
+  "secondary_factor_structure": {
+    "note": "P2-1C — secondary_factor는 축별 3계수(same_root_factors)로 정규화. 합성기는 항상 3값 소비. C0/C1/C2는 factor_structure로만 구분(model_validator 강제).",
+    "structures": {
+      "c0_shared": "activation = stability_pressure = separation_pressure",
+      "c1_activation_pressure": "stability_pressure = separation_pressure (activation 독립)",
+      "c2_axis_split": "세 축 독립 (조건부 — P2-1C-2 이후)"
+    },
+    "baseline": "c0_shared 0.3/0.3/0.3"
+  },
   "scope_axes": ["activation", "stability", "separation_pressure"],
   "out_of_scope_axes": ["exposure", "realization", "experience_valence", "formalization"],
   "out_of_scope_axis_state": "AxisStatus.INSUFFICIENT_EVIDENCE, value=None (unevaluated() — P3 증거 계약 전까지 수치화 금지)",
