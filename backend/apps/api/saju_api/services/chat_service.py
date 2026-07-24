@@ -124,7 +124,7 @@ from saju_shared_types.precompute import CompositeLevel
 from saju_shared_types.profile import PersonaConfig
 from saju_shared_types.topic_context import PeriodSpec
 
-from . import llm_client, risk_exposure_service
+from . import llm_client, relationship_shadow, risk_exposure_service
 from .manse_service import (
     calculate,
     daily_luck_window,
@@ -3086,6 +3086,16 @@ def chat(
     # 사용자 확정 용신 — 있으면 용희기구한 5역할을 그 용신으로 재도출해 fav_override로 점수에 반영.
     # 엔진 최초 도출값(result.yongsin_analysis.final = 확정 전 후보)은 비파괴 보존(되돌림 기준).
     _fav_override, _confirmed_yongsin = fetch_confirmed_yongsin_override(owner_id, subject_id)
+    # P0-B4(RELATIONSHIP_EVENT_SYSTEM 부록 C-4) — REL shadow 라이브 배선(관측 전용).
+    # 순서: 발화 parse→대상 resolve→decide→apply(이번 turn 반영)→갱신 상태로 컨텍스트
+    # 생성→shadow 주입. 실패해도 본 응답 비차단(내부 격리). 첨부 상대 role 연결은
+    # P5(관계 유형 확정 경로)에서 — 오귀속 방지 위해 현재는 발화·프로필 소스만.
+    _rel_ctxs, _rel_shadow_tel = relationship_shadow.build_relationship_shadow_contexts(
+        question=question, state=state, turn=(state.turn_no if state is not None else 0),
+        profile_relationship_status=relationship_status,
+    )
+    if _rel_ctxs:
+        _get_scorer().set_risk_shadow_contexts(relationship_contexts=_rel_ctxs)
     all_scored = _get_scorer().score_legacy_personalized(
         result,
         levels=_SCORE_LEVELS,
@@ -3100,6 +3110,13 @@ def chat(
     # 직후 즉시 확보(불변 tuple). 싱글턴 scorer.risk_shadow는 이후의 보조
     # 채점·동시 요청으로 덮일 수 있어 EXPOSE 경로에서 읽지 않는다.
     _subject_risk_shadow = _get_scorer().take_risk_shadow()
+    # P0-B4 — 요청 로컬성: 관계 컨텍스트 즉시 해제(싱글턴 잔류·타 요청 오염 방지) +
+    # REL 후보 수 계측(텔레메트리 emit은 노출 필터 이후 단일 지점에서).
+    if _rel_ctxs:
+        _get_scorer().set_risk_shadow_contexts()
+    _rel_shadow_tel.risk_candidate_count = sum(
+        1 for _c in _subject_risk_shadow
+        if str(getattr(_c, "risk_id", "")).startswith("REL_"))
 
     # E9 Lifestyle — 특정 기간(일/월/연) 총운은 인생 사건이 아니라 생활 슬롯으로
     # 한정한다(2026-06-12 지적). 위계(대운>세운>월>일)에서 상위가 형성한 기운이 하위
@@ -4128,8 +4145,14 @@ def chat(
                 str(y) for y in range(
                     int(str(_s)[:4]),
                     min(int(str(_e)[:4]), int(str(_s)[:4]) + 2) + 1))
+        # P0-B4 하드 게이트(부록 C-4 불변식 1) — live 관계 컨텍스트 유래 REL 후보는
+        # 위험 모드와 무관하게 P5 전 LLM 노출 금지(전용 target 네임스페이스로 식별).
+        _exposable_shadow, _rel_blocked = (
+            relationship_shadow.strip_live_relationship_candidates(
+                list(_subject_risk_shadow)))
+        _rel_shadow_tel.risk_blocked_or_suppressed_count = _rel_blocked
         _risk_payload = _reb.build_risk_payload(
-            list(_subject_risk_shadow),
+            _exposable_shadow,
             question_type=(_mapped or {}).get("question_type"),
             comparison_periods=_cmp_periods)
         _risk_inputs = _reb.exposure_runtime_inputs(call_type)
@@ -4137,6 +4160,7 @@ def chat(
                 _mapped, _risk_payload, _risk_inputs):
             reserve += _risk_cfg.RISK_CONTEXT_RESERVE
 
+    _rel_shadow_tel.emit()  # P0-B4 계측(PII 없음) — 노출 필터 반영 후 단일 지점
     try:
         prompt_text, tokens = serialize_with_guard(payload, call_type, reserve_tokens=reserve)
     except TokenBudgetExceeded as exc:

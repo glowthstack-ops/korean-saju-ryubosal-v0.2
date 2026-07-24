@@ -1115,3 +1115,46 @@ taxonomy `EVENT_DOMAIN` 일치 lint(장기적으로 vocab이 관계 키 메타�
   상태로** RiskRelationshipContext 생성 → set_risk_shadow_contexts. write 금지 발화
   (가정·과거·제3자)는 기존 상태 유지. 단일 has_partner로 current_partner 컨텍스트 생성
   금지 — 세분 overview로 role 구분.
+
+### C-8. P0-B4 구현 기록 (2026-07-24 완료)
+
+- **배선**: `apps/api/saju_api/services/relationship_shadow.py` — 확정 순서(parse→대상
+  resolve→temporal/제3자 판정→decide→apply→**이번 turn 반영 후 상태로** 컨텍스트 생성→
+  `set_risk_shadow_contexts`). chat 주 채점 직전 주입, `take_risk_shadow` 직후 해제
+  (싱글턴 잔류·타 요청 오염 방지).
+- **하드 게이트(불변식 1)**: `REL_LIVE_CONTEXT_EXPOSE_ENABLED=False`(P5 승인 전 True
+  전환 금지) + `strip_live_relationship_candidates` — live 컨텍스트 전용 target
+  네임스페이스(relstate-/profile-role:/attached:)로 후보를 결정적 식별해 **위험 모드
+  무관하게** 노출 경로(build_risk_payload 입력)에서 제거. QA·비관계 후보는 보존.
+- **idempotency(불변식 2)**: `store.last_applied_signature`(turn+발화 해시) — 동일 turn
+  재처리 시 state write 0·retry_skipped 계측(컨텍스트는 결정론 재생성).
+- **역할 규칙(C-7 표)**: MARRIED→spouse(별거=relationship_status="separated"·contact
+  추론 금지·대상 제거 금지) / DATING·COMMITMENT·FORMALIZATION→current_partner /
+  CONTACT→dating_partner / **전 연인 role 사전 부재→컨텍스트 미생성+unsupported_role
+  기록(current_partner 대체 금지)** / generic·제3자·다중 대상→생성 금지(다중 대상
+  fail-closed는 신규 write 금지일 뿐 기존 상태 초기화 아님 — 테스트 고정).
+- **소스 3종 분리(자동 병합 금지)**: 발화(relstate- opaque)/프로필 익명 slot
+  (profile-role: — 발화 상태 존재 시 중복 생성 억제)/첨부 칩(attached: —
+  is_question_target=True). 첨부 role 연결은 관계 유형 확정 경로가 있는 spouse/romance
+  한정, 그 외는 P5.
+- **exposure 규칙**: 발화·프로필 확인 관계만 CONFIRMED. financial_tie·
+  shared_responsibility 항상 None(자동 추론 금지 — UNKNOWN≠CONFIRMED 유지).
+- **오류 격리**: 전 단계 예외 → 빈 컨텍스트+resolver_error 계측, 본 응답 비차단.
+- **계측 10+2종**: enum·count·bool·opaque id만(원문·별명·자유 문자열 금지 — 테스트로
+  고정). drop_reason enum 고정(target_ambiguous/multiple_targets/third_party/past_only/
+  hypothetical/planned_only/unsupported_role/missing_target/state_conflict/
+  resolver_error/no_signal/generic_question).
+- **byte-identical 범위(§9 정의 채택)**: EventCandidate·score·confidence·ranking·비shadow
+  LLM 입력·리포트 입력 불변(관계 컨텍스트는 risk shadow 사이드채널만 관여, 노출 경로는
+  하드 게이트로 차단). 변경 허용: ConversationState.relationship_states·state-only
+  facts·shadow 사이드채널·익명 텔레메트리.
+- 검증: 신규 15건 + 관련 105건(chat pipeline·golden questions) + 위험·가드 146건 통과,
+  ruff·mypy clean. user_facts_block의 리포트 경로 공유 여부: report_service는
+  user_facts_block 미사용(채팅 전용 — state-only 필터로 충분) 확인.
+
+### C-9. P0-B 완료 게이트 판정 (2026-07-24)
+
+C-6 게이트 18항 전항 충족 — P0-B1(41be4a9)·P0-B2(8bf931e)·P0-B3(f1ffd32+6c9f0de)·
+P0-B4(본 커밋). **P0 전체 폐쇄. 다음 단계 = P1(7축 효과 벡터 shadow — §4-1 확대
+불변식 적용).** 잔여 메모: 관계 evidence 누적의 user_facts cap 침식 retention 테스트
+(P0-B4 차단점 아님 — P1에서 고정), 첨부 상대 relation_type 자동 해소·소스 간 dedup은 P5.

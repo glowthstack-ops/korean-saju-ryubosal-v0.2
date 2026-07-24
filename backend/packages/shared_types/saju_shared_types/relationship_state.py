@@ -78,6 +78,13 @@ class RelationshipStateStore(BaseModel):
 
     target_states: dict[str, ResolvedRelationshipState] = Field(default_factory=dict)
     last_resolved_turn: int | None = None
+    # 대화 로컬 opaque target 레지스트리(P0-B4) — 실명·역할어 원문을 key/ID로 쓰지 않는다.
+    # registry key는 내부 해소 슬롯("self-reported:partner" 등), 값은 opaque id(relstate-N).
+    # 계정 간 추적 불가·대화 scope 한정. 등록 동반자·프로필 슬롯과 자동 병합 금지.
+    target_registry: dict[str, str] = Field(default_factory=dict)
+    target_seq: int = 0
+    # 동일 turn 재처리 idempotency(P0-B4) — (turn, 발화) 서명이 같으면 재-apply 금지.
+    last_applied_signature: str = ""
 
 
 # 파생 시 "현재 상대 있음"으로 세는 단계(NONE·AWARENESS·CONTACT 제외).
