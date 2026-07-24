@@ -44,41 +44,83 @@ stability
 separation_pressure
 ```
 
-나머지 4축은 **P2에서 수치화·임시 계수 부여 금지**. P3 증거 계약 전까지 기존 상태 유지:
+나머지 4축은 **P2에서 수치화·임시 계수 부여 금지**. P3 증거 계약 전까지 기존 상태 유지.
+현행 구현은 `unevaluated()` = `AxisStatus.INSUFFICIENT_EVIDENCE` + `value=None`이다
+(코드↔문서 일치 — `spouse_palace_activation.unevaluated()`):
 
 ```
-exposure            → status = INSUFFICIENT_EVIDENCE / value = None
-realization         → status = INSUFFICIENT_EVIDENCE / value = None
-experience_valence  → status = INSUFFICIENT_EVIDENCE / value = None
-formalization       → status = INSUFFICIENT_EVIDENCE / value = None
+exposure            → AxisStatus.INSUFFICIENT_EVIDENCE / value = None
+realization         → AxisStatus.INSUFFICIENT_EVIDENCE / value = None
+experience_valence  → AxisStatus.INSUFFICIENT_EVIDENCE / value = None
+formalization       → AxisStatus.INSUFFICIENT_EVIDENCE / value = None
 ```
 
 > P2는 activation·stability·separation_pressure 3축의 캘리브레이션 단계다. 나머지 4축의
 > evidence contract와 수치화는 P3 이후 별도 단계에서 다룬다.
 
+### 계산 파이프라인 (주입 지점 — 실험 harness가 조정할 stage 명시)
+
+```
+S1 evidence_base_strength   base_relation_strength
+                            = kind_base_bonus[kind] × palace.activation_weight
+                              × layer_mult × palace_position_mult
+                            (spouse_palace_activation.py + relation_palace_modifier.json)
+S2 per_root_contribution    activation      = max(kind별 base_strength) + secondary_factor×Σ나머지
+                            stability_support  = Σ(HAP support)
+                            stability_pressure = primary+secondary(pressure weights)
+                            separation         = primary+secondary(sep weights)
+                            (relationship_effect_vector._primary_plus_secondary)
+S3 modifier_application     factor = max(0, 1 − jaenghap_support_weaken × strength)
+                            root.stability_support ×= factor  (쟁합 대상 root만)
+S4 cross_root_aggregation   total_axis = Σ(contributions.axis)  # 서로 다른 root 단순 합산
+S5 band_assignment          band = threshold 비교(activation/separation=_band, stability=signed)
+```
+
+> **주의**: `kind_base_bonus`는 최종 strength가 아니다. S1에서 palace·layer·position 가중을
+> 곱해 `base_relation_strength`가 되고, 그것이 S2 activation에 들어간다. bonus만 조정해도
+> palace 가중을 통해 activation이 변한다(실험 harness는 S1을 건드리는 것임을 인지).
+
 ---
 
-## 3. 조정 가능 파라미터 (현재값 — `_effect_vector.py` SSOT)
+## 3. 조정 가능 파라미터
 
-| ID | 현재값 | 후보 탐색 범위 | 비고 |
-|---|---|---|---|
-| `same_root.secondary_factor` | 0.3 | 0.0 / 0.15 / 0.3 / 0.45 / 0.6 | 같은 root 최강 + 나머지×factor. 적용 **구조 불변** |
-| `activation.band` | strong 20 / mod 12 / weak 6 | profile 안1~4(§C) | raw value와 band **분리**, bump 필수 |
-| `activation.kind_strength` | dict base_bonus(HAP7·CHUNG10·HYEONG8·PA6·HAE4·BOKEUM5) | 감수·민감도 | 순위 바꿔도 activation≠길흉·성사 의미 유지 |
-| `stability.support_weight` | HAP 0.3 | ≥0 | support 방향 고정 |
-| `stability.pressure_weight` | CHUNG1.0·HYEONG0.8·HAE0.6·PA0.6 | ≥0 | pressure 방향 고정, `stability=support−pressure` |
-| `stability.band` | weak≤−0.8 / mod<0.3 / strong | 감수 | signed band |
-| `separation.pressure_weight` | CHUNG1.0·HYEONG0.6·HAE0.55·PA0.55 | ordering 제약(§E) | CHUNG≥나머지 유지 |
-| `separation.band` | strong0.9 / mod0.55 / weak0.3 | 감수 | — |
-| `modifier.jaenghap_support_weaken` | 0.5 | 감수·민감도 | 유일한 수치 modifier(§F) |
-| `cross_root.synthesis` | 단순 합산 | **조건부 검토**(§G) | P2-0 확정 대상 아님 |
+### 현재값 (전량 명시 — 코드 SSOT, drift lint가 일치 강제)
 
-### 활성화 band 후보 profile (§C — 임의 조합 아닌 profile 단위 비교)
 ```
-안 1:  6 / 12 / 20   (현재)
-안 2:  6 / 15 / 24
-안 3:  8 / 16 / 26
-안 4: 10 / 18 / 28
+same_root.secondary_factor        = 0.30
+
+activation.kind_base_bonus:       HAP=7  CHUNG=10  HYEONG=8  PA=6  HAE=4  (BOKEUM=5)
+activation.thresholds:            weak=6   moderate=12   strong=20
+
+stability.support:                HAP=0.3
+stability.pressure:               CHUNG=1.0  HYEONG=0.8  HAE=0.6  PA=0.6
+stability.band:                   weak≤−0.8   moderate<0.3   strong≥0.3
+
+separation.pressure:              CHUNG=1.0  HYEONG=0.6  HAE=0.55  PA=0.55
+separation.thresholds:            weak=0.3   moderate=0.55   strong=0.9
+
+modifier.jaenghap_support_weaken  = 0.50
+```
+
+| parameter_id | stage | affected_axes | 후보 범위 | 비고 |
+|---|---|---|---|---|
+| `same_root.secondary_factor` | S2 | act·stab·sep | 0.0/0.15/0.3/0.45/0.6 | 적용 구조 불변 |
+| `activation.band` | S5 | activation | profile B0~B3 | raw와 band 분리·bump 필수 |
+| `activation.kind_base_bonus` | **S1**(dict) | activation | OAT ±20% | ≠길흉·성사. 충 0 근처 금지 |
+| `stability.support_weight` | S2 | stability | OAT ±20% | ≥0 |
+| `stability.pressure_weight` | S2 | stability | OAT ±20% | ≥0, `stability=support−pressure` |
+| `stability.band` | S5 | stability | 감수 | signed |
+| `separation.pressure_weight` | S2 | separation | OAT ±20% | CHUNG≥나머지 |
+| `separation.band` | S5 | separation | 감수 | 오름차순 |
+| `modifier.jaenghap_support_weaken` | S3 | stability | 0.0/0.25/0.5/0.75 | 유일한 수치 modifier(§F) |
+| `cross_root.synthesis` | S4 | act·stab·sep | 조건부(§G) | P2-0 확정 대상 아님 |
+
+### activation band 후보 profile (§C — profile 단위, weak→moderate→strong)
+```
+B0 = weak  6 / moderate 12 / strong 20   (현재)
+B1 = weak  6 / moderate 15 / strong 24
+B2 = weak  8 / moderate 16 / strong 26
+B3 = weak 10 / moderate 18 / strong 28
 ```
 
 ### secondary_factor 탐색 범위 근거
@@ -256,8 +298,12 @@ production/shadow **후보 승격 구현은 P2-4 이후**.
 [x] calibration/schema bump 규칙(§9)
 [x] P2-1 metric 정의(§7)
 [x] 코드·점수·payload delta 0(문서만)
-[ ] 문서 lint·기존 suite clean(커밋 게이트)
+[x] 명세 검증 — drift lint(`test_calibration_spec_drift.py`): 레지스트리 current↔코드
+    상수·dict 일치, spec_only 상태, 중복 ID 없음, band 오름차순, 필수 필드 전수(9종 통과)
 ```
+
+> **명세 검증은 자동 충족으로 처리하지 않는다(§2-4).** 코드에서 계수가 바뀌면 drift lint가
+> 실패해 명세 갱신을 강제한다 — 명세와 코드가 조용히 어긋나지 않는다.
 
 다음: **P2-1 민감도 분석** — 위 파라미터 조합을 결정적 harness·불변식 fixture에 걸어 §7
 metric을 측정한다(계수 변경은 실험 run으로만, 운영 반영 아님).

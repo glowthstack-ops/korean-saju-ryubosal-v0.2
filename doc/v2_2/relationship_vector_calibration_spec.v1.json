@@ -1,109 +1,158 @@
 {
   "schema_version": "rel.vec.calibration.spec.v1",
   "status": "spec_only",
-  "note": "P2-0 파라미터 레지스트리. runtime loader가 읽지 않는다(spec 전용). 실제 값 변경은 P2-1 이후, 런타임 profile 전환은 P2-4. 계수 SSOT는 relationship_effect_vector.py.",
+  "runtime_loadable": false,
+  "note": "P2-0 파라미터 레지스트리. runtime loader가 읽지 않는다(spec 전용). 실제 값 변경은 P2-1 이후, 런타임 profile 전환은 P2-4. 계수 SSOT는 relationship_effect_vector.py + relation_palace_modifier.json. 값 일치는 test_calibration_spec_drift.py가 강제.",
   "scope_axes": ["activation", "stability", "separation_pressure"],
   "out_of_scope_axes": ["exposure", "realization", "experience_valence", "formalization"],
+  "out_of_scope_axis_state": "AxisStatus.INSUFFICIENT_EVIDENCE, value=None (unevaluated() — P3 증거 계약 전까지 수치화 금지)",
   "calibration_version_current": "cal-2026-07-24.1",
   "schema_version_current": "p1.1",
+  "calculation_pipeline": [
+    {"stage": "S1_evidence_base_strength", "location": "spouse_palace_activation.py + relation_palace_modifier.json", "formula": "base_relation_strength = kind_base_bonus[kind] * palace.activation_weight * layer_mult * palace_position_mult"},
+    {"stage": "S2_per_root_contribution", "location": "relationship_effect_vector._primary_plus_secondary", "formula": "activation = max(base_strength per kind) + secondary_factor * sum(나머지); stability_support = sum(HAP support); stability_pressure/separation = primary+secondary(kind weights)"},
+    {"stage": "S3_modifier_application", "location": "relationship_effect_vector (jaenghap)", "formula": "factor = max(0, 1 - jaenghap_support_weaken * strength); root.stability_support *= factor"},
+    {"stage": "S4_cross_root_aggregation", "location": "relationship_effect_vector", "formula": "total_axis = sum(contributions.axis)  # 서로 다른 root 단순 합산"},
+    {"stage": "S5_band_assignment", "location": "relationship_effect_vector._band + stability/separation band", "formula": "band = threshold 비교(activation/separation는 _band, stability는 signed)"}
+  ],
+  "current_values": {
+    "same_root.secondary_factor": 0.30,
+    "activation.kind_base_bonus": {"HAP": 7, "CHUNG": 10, "HYEONG": 8, "PA": 6, "HAE": 4, "BOKEUM": 5},
+    "activation.thresholds": {"weak": 6, "moderate": 12, "strong": 20},
+    "stability.support": {"HAP": 0.3},
+    "stability.pressure": {"CHUNG": 1.0, "HYEONG": 0.8, "HAE": 0.6, "PA": 0.6},
+    "stability.band": {"weak_max_inclusive": -0.8, "moderate_max_exclusive": 0.3},
+    "separation.pressure": {"CHUNG": 1.0, "HYEONG": 0.6, "HAE": 0.55, "PA": 0.55},
+    "separation.thresholds": {"weak": 0.3, "moderate": 0.55, "strong": 0.9},
+    "modifier.jaenghap_support_weaken": 0.50
+  },
+  "activation_band_profiles": [
+    {"id": "B0_current", "weak": 6, "moderate": 12, "strong": 20},
+    {"id": "B1", "weak": 6, "moderate": 15, "strong": 24},
+    {"id": "B2", "weak": 8, "moderate": 16, "strong": 26},
+    {"id": "B3", "weak": 10, "moderate": 18, "strong": 28}
+  ],
   "parameters": [
     {
-      "id": "same_root.secondary_factor",
+      "parameter_id": "same_root.secondary_factor",
       "source": "relationship_effect_vector._SECONDARY_FACTOR",
-      "current": 0.3,
+      "current_value": 0.30,
+      "calculation_stage": "S2_per_root_contribution",
+      "affected_axes": ["activation", "stability", "separation_pressure"],
       "candidate_values": [0.0, 0.15, 0.3, 0.45, 0.6],
-      "mutable_in_phase": "P2",
-      "requires_calibration_version_bump": true,
-      "invariant": "적용 구조 불변 — 같은 root 최강 + 나머지×factor. 완전 독립 합산·evidence 수를 root 수로 취급·동일 kind 반복 가산 금지."
-    },
-    {
-      "id": "activation.band",
-      "source": "relationship_effect_vector._ACT_BAND",
-      "current": {"strong": 20.0, "moderate": 12.0, "weak": 6.0},
-      "candidate_profiles": [
-        {"name": "안1_current", "strong": 20, "moderate": 12, "weak": 6},
-        {"name": "안2", "strong": 24, "moderate": 15, "weak": 6},
-        {"name": "안3", "strong": 26, "moderate": 16, "weak": 8},
-        {"name": "안4", "strong": 28, "moderate": 18, "weak": 10}
-      ],
-      "mutable_in_phase": "P2",
-      "requires_calibration_version_bump": true,
-      "invariant": "raw/composed activation value와 band 분리. band만 바뀌어도 telemetry 분류·P3 승격 후보군 변화 → bump 필수."
-    },
-    {
-      "id": "activation.kind_strength",
-      "source": "dictionaries/event_engine/relation_palace_modifier.json:relation_types[*].base_event_score_bonus",
-      "current": {"HAP": 7, "CHUNG": 10, "HYEONG": 8, "PA": 6, "HAE": 4, "BOKEUM": 5},
-      "candidate_values": "감수·민감도 결정",
-      "mutable_in_phase": "P2",
-      "requires_calibration_version_bump": true,
-      "invariant": "activation = 관계 영역 활성 정도. ≠ 길흉·성사·결혼 가능성. 충이 activation↑·stability↓ 동시 성립 가능 — 충 activation을 0 근처로 낮추지 않는다."
-    },
-    {
-      "id": "stability.support_weight",
-      "source": "relationship_effect_vector._STAB_SUPPORT",
-      "current": {"HAP": 0.3},
-      "mutable_in_phase": "P2",
-      "requires_calibration_version_bump": true,
-      "invariant": "support ≥ 0. 충을 상황별 support로 자동 전환 금지."
-    },
-    {
-      "id": "stability.pressure_weight",
-      "source": "relationship_effect_vector._STAB_PRESSURE",
-      "current": {"CHUNG": 1.0, "HYEONG": 0.8, "HAE": 0.6, "PA": 0.6},
-      "mutable_in_phase": "P2",
-      "requires_calibration_version_bump": true,
-      "invariant": "pressure ≥ 0. stability = support − pressure. negative relation을 experience negative로 전환 금지."
-    },
-    {
-      "id": "stability.band",
-      "source": "relationship_effect_vector.synthesize (weak<=-0.8 / moderate<0.3 / strong)",
-      "current": {"weak_max": -0.8, "moderate_max": 0.3},
-      "mutable_in_phase": "P2",
-      "requires_calibration_version_bump": true,
-      "invariant": "signed band. net 0(실제 상쇄)은 EVALUATED이지 INSUFFICIENT 아님."
-    },
-    {
-      "id": "separation.pressure_weight",
-      "source": "relationship_effect_vector._SEP_WEIGHT",
-      "current": {"CHUNG": 1.0, "HYEONG": 0.6, "HAE": 0.55, "PA": 0.55},
-      "mutable_in_phase": "P2",
-      "requires_calibration_version_bump": true,
-      "ordering_invariant": ["CHUNG >= HYEONG", "CHUNG >= HAE", "CHUNG >= PA"],
-      "invariant": "HYEONG/HAE/PA 상호 순위는 조정 가능. HAP 단독 → separation = INSUFFICIENT_EVIDENCE(0/low 아님). negative relation 존재 → EVALUATED."
-    },
-    {
-      "id": "separation.band",
-      "source": "relationship_effect_vector.synthesize (strong=0.9 / moderate=0.55 / weak=0.3)",
-      "current": {"strong": 0.9, "moderate": 0.55, "weak": 0.3},
-      "mutable_in_phase": "P2",
+      "hard_constraints": ["적용 구조 불변(max + factor*rest)", "완전 독립 합산 금지", "evidence 수를 root 수로 취급 금지", "동일 kind 반복 가산 금지"],
+      "experiment_only": true,
       "requires_calibration_version_bump": true
     },
     {
-      "id": "modifier.jaenghap_support_weaken",
+      "parameter_id": "activation.band",
+      "source": "relationship_effect_vector._ACT_BAND",
+      "current_value": {"weak": 6, "moderate": 12, "strong": 20},
+      "calculation_stage": "S5_band_assignment",
+      "affected_axes": ["activation"],
+      "candidate_values": "activation_band_profiles B0~B3",
+      "hard_constraints": ["raw value와 band 분리", "weak <= moderate <= strong 오름차순"],
+      "experiment_only": true,
+      "requires_calibration_version_bump": true
+    },
+    {
+      "parameter_id": "activation.kind_base_bonus",
+      "source": "dictionaries/event_engine/relation_palace_modifier.json:relation_types[*].base_event_score_bonus",
+      "current_value": {"HAP": 7, "CHUNG": 10, "HYEONG": 8, "PA": 6, "HAE": 4, "BOKEUM": 5},
+      "calculation_stage": "S1_evidence_base_strength",
+      "affected_axes": ["activation"],
+      "candidate_values": "one-at-a-time -20% / -10% / current / +10% / +20% (P2-1C)",
+      "hard_constraints": ["activation = 관계 영역 활성 정도 (≠ 길흉·성사·결혼 가능성)", "충 activation을 0 근처로 낮추지 않음(충 activation↑·stability↓ 동시 성립)", "bonus는 최종 strength 아님 — S1에서 palace/layer/position 가중을 곱해 base_relation_strength가 된다"],
+      "experiment_only": true,
+      "requires_calibration_version_bump": true
+    },
+    {
+      "parameter_id": "stability.support_weight",
+      "source": "relationship_effect_vector._STAB_SUPPORT",
+      "current_value": {"HAP": 0.3},
+      "calculation_stage": "S2_per_root_contribution",
+      "affected_axes": ["stability"],
+      "candidate_values": "one-at-a-time -20%~+20% (P2-1C)",
+      "hard_constraints": ["support >= 0", "충을 상황별 support로 자동 전환 금지"],
+      "experiment_only": true,
+      "requires_calibration_version_bump": true
+    },
+    {
+      "parameter_id": "stability.pressure_weight",
+      "source": "relationship_effect_vector._STAB_PRESSURE",
+      "current_value": {"CHUNG": 1.0, "HYEONG": 0.8, "HAE": 0.6, "PA": 0.6},
+      "calculation_stage": "S2_per_root_contribution",
+      "affected_axes": ["stability"],
+      "candidate_values": "one-at-a-time -20%~+20% (P2-1C)",
+      "hard_constraints": ["pressure >= 0", "stability = support - pressure", "negative relation을 experience negative로 전환 금지"],
+      "experiment_only": true,
+      "requires_calibration_version_bump": true
+    },
+    {
+      "parameter_id": "stability.band",
+      "source": "relationship_effect_vector.synthesize (weak<=-0.8 / moderate<0.3 / strong)",
+      "current_value": {"weak_max_inclusive": -0.8, "moderate_max_exclusive": 0.3},
+      "calculation_stage": "S5_band_assignment",
+      "affected_axes": ["stability"],
+      "candidate_values": "감수",
+      "hard_constraints": ["signed band", "net 0(실제 상쇄)은 EVALUATED이지 INSUFFICIENT 아님"],
+      "experiment_only": true,
+      "requires_calibration_version_bump": true
+    },
+    {
+      "parameter_id": "separation.pressure_weight",
+      "source": "relationship_effect_vector._SEP_WEIGHT",
+      "current_value": {"CHUNG": 1.0, "HYEONG": 0.6, "HAE": 0.55, "PA": 0.55},
+      "calculation_stage": "S2_per_root_contribution",
+      "affected_axes": ["separation_pressure"],
+      "candidate_values": "one-at-a-time -20%~+20% (P2-1C)",
+      "hard_constraints": ["CHUNG >= HYEONG", "CHUNG >= HAE", "CHUNG >= PA", "HAP 단독 -> separation = INSUFFICIENT_EVIDENCE(0/low 아님)", "negative relation 존재 -> EVALUATED"],
+      "experiment_only": true,
+      "requires_calibration_version_bump": true
+    },
+    {
+      "parameter_id": "separation.band",
+      "source": "relationship_effect_vector.synthesize (strong=0.9 / moderate=0.55 / weak=0.3)",
+      "current_value": {"weak": 0.3, "moderate": 0.55, "strong": 0.9},
+      "calculation_stage": "S5_band_assignment",
+      "affected_axes": ["separation_pressure"],
+      "candidate_values": "감수",
+      "hard_constraints": ["weak <= moderate <= strong 오름차순"],
+      "experiment_only": true,
+      "requires_calibration_version_bump": true
+    },
+    {
+      "parameter_id": "modifier.jaenghap_support_weaken",
       "source": "relationship_effect_vector._SUPPORT_WEAKEN",
-      "current": 0.5,
-      "candidate_values": [0.25, 0.5, 0.75],
-      "mutable_in_phase": "P2",
-      "requires_calibration_version_bump": true,
-      "invariant": "쟁합의 binding support 약화율. 유일한 수치 modifier."
+      "current_value": 0.50,
+      "calculation_stage": "S3_modifier_application",
+      "affected_axes": ["stability"],
+      "candidate_values": [0.0, 0.25, 0.5, 0.75],
+      "hard_constraints": ["쟁합 대상 root support에만 적용", "비대상 root 값 변화 0", "중복 modifier 반복 약화 금지", "유일한 수치 modifier"],
+      "experiment_only": true,
+      "requires_calibration_version_bump": true
     },
     {
-      "id": "modifier.non_numeric",
+      "parameter_id": "modifier.non_numeric",
       "source": "relationship_structure_modifiers",
-      "current": "blocker/metadata only",
-      "mutable_in_phase": "P3",
-      "requires_calibration_version_bump": false,
-      "invariant": "합거·합반·관살혼잡·multi-relation stress는 수치 근거 없음 → 임의 penalty 금지. blocker/metadata 유지(수치화는 P3 증거 계약)."
+      "current_value": "blocker/metadata only",
+      "calculation_stage": "none (수치 미반영)",
+      "affected_axes": [],
+      "candidate_values": "P3 증거 계약",
+      "hard_constraints": ["합거·합반·관살혼잡·multi-relation stress는 수치 근거 없음 -> 임의 penalty 금지", "blocker/metadata 유지"],
+      "experiment_only": false,
+      "requires_calibration_version_bump": false
     },
     {
-      "id": "cross_root.synthesis",
-      "source": "relationship_effect_vector (서로 다른 root 단순 합산)",
-      "current": "sum",
+      "parameter_id": "cross_root.synthesis",
+      "source": "relationship_effect_vector (S4 서로 다른 root 단순 합산)",
+      "current_value": "sum",
+      "calculation_stage": "S4_cross_root_aggregation",
+      "affected_axes": ["activation", "stability", "separation_pressure"],
       "candidate_values": ["sum", "damped_sum", "sum_band_only"],
-      "mutable_in_phase": "P2_conditional",
-      "requires_calibration_version_bump": true,
-      "invariant": "P2-0 확정 대상 아님(조건부 검토). 서로 다른 exact/component root > 동일 root 내 복수 kind. root 증가 시 값 감소 금지."
+      "hard_constraints": ["P2-0 확정 대상 아님(조건부 검토)", "서로 다른 exact/component root > 동일 root 내 복수 kind", "root 증가 시 값 감소 금지"],
+      "experiment_only": true,
+      "requires_calibration_version_bump": true
     }
   ],
   "forbidden_optimization_targets": [
@@ -111,7 +160,8 @@
     "legacy cap +22와 신규 strong band 일치",
     "legacy candidate 생성률에 벡터 분포 맞춤",
     "new_relationship 사각지대 계수 보정",
-    "marriage_signal 양수 delta에 stability 맞춤"
+    "marriage_signal 양수 delta에 stability 맞춤",
+    "family coverage gap을 계수로 메움"
   ],
   "objective_metrics": [
     "의미 단조성",
