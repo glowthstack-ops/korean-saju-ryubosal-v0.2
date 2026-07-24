@@ -1,0 +1,152 @@
+{
+  "experiment_spec_version": "p2.1c1.v1",
+  "baseline_calibration_version": "cal-2026-07-24.1",
+  "lattice_case_count": 6,
+  "invariants": {
+    "violations": [],
+    "passed": true
+  },
+  "axis_factor_sensitivity": {
+    "same_CHUNG_HYEONG": {
+      "d_activation_by_activation_factor": 15.55,
+      "d_stability_by_activation_factor": 0.0,
+      "d_separation_by_activation_factor": 0.0,
+      "d_activation_by_pressure_factor": 0.0,
+      "d_stability_by_pressure_factor": -0.8,
+      "d_separation_by_pressure_factor": 0.6
+    },
+    "cross_CHUNG_HYEONG": {
+      "d_activation_by_activation_factor": 0.0,
+      "d_stability_by_activation_factor": 0.0,
+      "d_separation_by_activation_factor": 0.0,
+      "d_activation_by_pressure_factor": 0.0,
+      "d_stability_by_pressure_factor": 0.0,
+      "d_separation_by_pressure_factor": 0.0
+    },
+    "single_CHUNG": {
+      "d_activation_by_activation_factor": 0.0,
+      "d_stability_by_activation_factor": 0.0,
+      "d_separation_by_activation_factor": 0.0,
+      "d_activation_by_pressure_factor": 0.0,
+      "d_stability_by_pressure_factor": 0.0,
+      "d_separation_by_pressure_factor": 0.0
+    },
+    "single_HYEONG": {
+      "d_activation_by_activation_factor": 0.0,
+      "d_stability_by_activation_factor": 0.0,
+      "d_separation_by_activation_factor": 0.0,
+      "d_activation_by_pressure_factor": 0.0,
+      "d_stability_by_pressure_factor": 0.0,
+      "d_separation_by_pressure_factor": 0.0
+    },
+    "same_HAP_CHUNG": {
+      "d_activation_by_activation_factor": 13.6033,
+      "d_stability_by_activation_factor": 0.0,
+      "d_separation_by_activation_factor": 0.0,
+      "d_activation_by_pressure_factor": 0.0,
+      "d_stability_by_pressure_factor": 0.0,
+      "d_separation_by_pressure_factor": 0.0
+    },
+    "root_3_CHUNG": {
+      "d_activation_by_activation_factor": 0.0,
+      "d_stability_by_activation_factor": 0.0,
+      "d_separation_by_activation_factor": 0.0,
+      "d_activation_by_pressure_factor": 0.0,
+      "d_stability_by_pressure_factor": 0.0,
+      "d_separation_by_pressure_factor": 0.0
+    }
+  },
+  "root_discrimination": {
+    "activation_by_A": [
+      {
+        "factor": 0.0,
+        "same": 19.435,
+        "cross": 34.983,
+        "retention": 0.444
+      },
+      {
+        "factor": 0.15,
+        "same": 21.767,
+        "cross": 34.983,
+        "retention": 0.378
+      },
+      {
+        "factor": 0.3,
+        "same": 24.099,
+        "cross": 34.983,
+        "retention": 0.311
+      },
+      {
+        "factor": 0.45,
+        "same": 26.432,
+        "cross": 34.983,
+        "retention": 0.244
+      },
+      {
+        "factor": 0.6,
+        "same": 28.764,
+        "cross": 34.983,
+        "retention": 0.178
+      }
+    ],
+    "stability_by_P": [
+      {
+        "factor": 0.0,
+        "same": -1.0,
+        "cross": -1.8
+      },
+      {
+        "factor": 0.15,
+        "same": -1.12,
+        "cross": -1.8
+      },
+      {
+        "factor": 0.3,
+        "same": -1.24,
+        "cross": -1.8
+      },
+      {
+        "factor": 0.45,
+        "same": -1.36,
+        "cross": -1.8
+      },
+      {
+        "factor": 0.6,
+        "same": -1.48,
+        "cross": -1.8
+      }
+    ],
+    "separation_by_P": [
+      {
+        "factor": 0.0,
+        "same": 1.0,
+        "cross": 1.6,
+        "retention": 0.375
+      },
+      {
+        "factor": 0.15,
+        "same": 1.09,
+        "cross": 1.6,
+        "retention": 0.319
+      },
+      {
+        "factor": 0.3,
+        "same": 1.18,
+        "cross": 1.6,
+        "retention": 0.263
+      },
+      {
+        "factor": 0.45,
+        "same": 1.27,
+        "cross": 1.6,
+        "retention": 0.206
+      },
+      {
+        "factor": 0.6,
+        "same": 1.36,
+        "cross": 1.6,
+        "retention": 0.15
+      }
+    ]
+  }
+}
