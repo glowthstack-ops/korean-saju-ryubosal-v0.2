@@ -26,6 +26,7 @@
 - **독립 원인 그룹**: DAY_STEM / DAY_BRANCH_RELATION / DAY_HIDDEN_STEMS / MONTH_CONTEXT / YEAR_CONTEXT 5그룹. 그룹당 최강 신호 1개만 독립 원인으로 인정. p≥85는 서로 다른 그룹 ≥2 지지 시에만. p≤10은 강한 contradiction 존재 시에만(없으면 11 상향).
 - **관계 세분화**: 육합 / 반합(삼합 2지, 저가중) / 삼합 완성(월지·세운지지가 제3지 채울 때만) / 충 / 형(자형·子卯형·寅巳申·丑戌未 각각 성립 조건 분리, 삼형 2지=부분 가중) / 파 / 해.
 - **Top5**: `domain_score = max(good) + 0.3·second(good) − 0.5·max(caution)` (사건 개수 비의존, 빈 후보=0). 동점은 결정론 seed.
+  - **연애 Top5 정합(v1.6·beta)**: 연애 도메인은 `domain_score` 정렬 앞에 '오늘의 연애' good 신호 게이트(대표 good 사건 `supporting_groups≥3`, love_line과 동일 판정) 통과 일주를 우선 배치한다. good love_line 이 뜨는데 동반 caution 감점으로 Top5 밖으로 밀리는 불일치를 제거하기 위함(공식·타 도메인 Top5·로또 순위 불변). caution 우세(good-line 아님) 일주는 우선 대상이 아니다.
 - **로또**: 적격 = 금전 순위 ≤10 && 공돈 사건 p≥85 && 손실 신호 약함. 당일 최대 3개 일주, 일주별 date-ordinal 슬롯 규칙으로 주 1회 이하(이력 저장 없이 날짜 산술).
 - **반복 방지**: 영구 usage 원장 없음. ①날짜 기반 결정론 순환(`seed = hash(date|ilju|event_key|content_version)` permutation) ②당일 60건 내부 중복 감사(완전 중복·시작 구문 집중·장소 과다·로또 최대 3건 — 감지 시 seed salt 재선택).
 - **저장** = Redis TTL 캐시만(보드 단위 원자 교체, TTL=운세 날짜 익일 03:00 KST). PostgreSQL 운세 테이블 없음. API는 오늘만 제공(과거·history·archive 금지).

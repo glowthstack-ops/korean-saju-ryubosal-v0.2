@@ -401,16 +401,14 @@ def _headline(
     return " ".join(parts)
 
 
-def _love_line(
-    dicts: DailyFortuneDicts, scored: list[_ScoredEvent], seed_base: str
-) -> str | None:
-    """일일 연애운 한 줄(확장·beta) — 강한 love 전용 신호가 있을 때만 노출.
+def _love_pick(scored: list[_ScoredEvent]) -> tuple[_ScoredEvent | None, str]:
+    """오늘의 연애 대표 신호 선택 + 강한 신호 게이트 — (pick, band).
 
-    대표 love 사건이 서로 다른 독립 원인 그룹 ≥`_LOVE_LINE_MIN_SUPPORT`개의 지지를 받을
-    때만(엔진 p≥85 상한 게이트와 동일한 '독립 원인' 축) 한 줄을 만든다. 그 외에는 총운
-    헤드라인이 이미 그날을 커버하므로 별도 '오늘의 연애' 줄을 만들지 않는다(None). good이
-    우세하면 good 사건, caution만 뚜렷하면 caution 사건으로 서술한다(발생≠확정 — '오늘의
-    연애 흐름'만).
+    good이 우세(good.activation ≥ caution.activation − 0.1)하면 good 사건, caution만
+    뚜렷하면 caution 사건을 대표로 고른다. 대표가 서로 다른 독립 원인 그룹
+    ≥`_LOVE_LINE_MIN_SUPPORT`개의 지지를 받지 못하면 (None, "s3") — 강한 love 전용
+    신호가 아니므로 별도 노출·Top5 우선 대상이 아니다. `_love_line`(문장)과 love Top5
+    우선 정렬이 동일 판정을 쓰도록 한 곳에 둔다(로직 드리프트 방지).
     """
     goods = sorted((s for s in scored if s.domain == "love" and s.valence == "good"),
                    key=lambda s: s.activation, reverse=True)
@@ -427,8 +425,29 @@ def _love_line(
         pick, band = best_good, ("s4" if best_good.activation >= 0.5 else "s3")
     elif best_caution and best_caution.activation >= 0.25:
         pick, band = best_caution, "s1"
-    # 강한 신호 게이트: 독립 원인 그룹 지지가 부족하면 별도 줄을 만들지 않는다.
+    # 강한 신호 게이트: 독립 원인 그룹 지지가 부족하면 대표 신호 없음으로 본다.
     if pick is None or pick.supporting_groups < _LOVE_LINE_MIN_SUPPORT:
+        return None, "s3"
+    return pick, band
+
+
+def _has_good_love_signal(scored: list[_ScoredEvent]) -> bool:
+    """게이트를 통과한 good 오늘의 연애 신호가 있는지 — love Top5 우선 정렬용."""
+    pick, _ = _love_pick(scored)
+    return pick is not None and pick.valence == "good"
+
+
+def _love_line(
+    dicts: DailyFortuneDicts, scored: list[_ScoredEvent], seed_base: str
+) -> str | None:
+    """일일 연애운 한 줄(확장·beta) — 강한 love 전용 신호가 있을 때만 노출.
+
+    대표 신호 선택·게이트는 `_love_pick`에 위임한다. 게이트 미통과면 총운 헤드라인이
+    이미 그날을 커버하므로 별도 '오늘의 연애' 줄을 만들지 않는다(None). 발생≠확정 —
+    '오늘의 연애 흐름'만 서술한다.
+    """
+    pick, band = _love_pick(scored)
+    if pick is None:
         return None
     # 기존 문장 조합 machinery 재사용(스타일·중복 회피 동일). love seed로 분리.
     return _headline(dicts, pick.event_key, band, seed_base + "|love", 0)
@@ -500,10 +519,24 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
             ),
         )
 
+    # 연애 Top5는 '오늘의 연애'(good) 게이트 통과 일주를 우선 배치한다(docs/17 §49).
+    # good love_line 이 뜨는데 동반 caution 감점으로 Top5 밖으로 밀리는 불일치를 제거 —
+    # 그 안·뒤 순서는 종전 domain_score 그대로. domain_score 공식·타 도메인 Top5·로또
+    # 순위는 불변(love 랭킹만 재정렬).
+    def _love_ranked() -> list[dict[str, Any]]:
+        return sorted(
+            per_ilju,
+            key=lambda row: (
+                0 if _has_good_love_signal(row["scored"]) else 1,
+                -_domain_score(row["scored"], "love"),
+                _stable_hash(f"{d.isoformat()}|love|{row['ilju']}") % 9973,
+            ),
+        )
+
     money_ranked = _ranked("money")
     top5 = DailyTop5(
         money=[row["ilju"] for row in money_ranked[:5]],
-        love=[row["ilju"] for row in _ranked("love")[:5]],
+        love=[row["ilju"] for row in _love_ranked()[:5]],
         news=[row["ilju"] for row in _ranked("news")[:5]],
     )
 

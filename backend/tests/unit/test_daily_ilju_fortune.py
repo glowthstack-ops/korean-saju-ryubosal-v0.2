@@ -11,6 +11,7 @@ import pytest
 
 from saju_engines.daily_ilju_fortune import (
     _branch_relations,
+    _has_good_love_signal,
     _score_event,
     build_day_context,
     compute_board,
@@ -200,7 +201,7 @@ def test_distribution_30days(dicts) -> None:
     assert max(top5_money_hits.values()) <= 20, top5_money_hits
 
 
-# ── 일일 연애운(dict.v1.5·beta) — 강한 신호 게이트 ───────────────────────────
+# ── 일일 연애운(dict.v1.6·beta) — 강한 신호 게이트 + Top5 정합 ────────────────
 def test_love_line_gated_and_styled() -> None:
     """love_line 은 강한 love 전용 신호(독립 원인 그룹 ≥3)일 때만 노출 — 상시 아님.
 
@@ -226,6 +227,43 @@ def test_love_line_gated_and_styled() -> None:
     # 결정론 — 같은 날 재계산 시 동일.
     board2 = compute_board(ctx, dicts)
     assert [f.love_line for f in board.fortunes] == [f.love_line for f in board2.fortunes]
+
+
+def test_love_top5_prioritizes_good_love_line() -> None:
+    """good '오늘의 연애' 신호 일주는 연애 Top5에 우선 포함(love_line과 정합).
+
+    이전엔 강한 good 신호라도 동반 caution 감점(domain_score −0.5·worst)으로 Top5 밖
+    으로 밀렸다(무오 사례, 2026-07-25). 이제 good love_line 게이트 통과 일주를 love
+    Top5 앞에 배치한다. caution 우세(good-line 아님) 일주는 강제로 넣지 않는다.
+    """
+    dicts = load_daily_dicts()
+    for offset in range(30):
+        ctx = build_day_context(date(2026, 7, 25) + timedelta(days=offset))
+        board = compute_board(ctx, dicts)
+        by_ilju = {f.ilju: f for f in board.fortunes}
+        # compute_board 와 동일하게 인덱스 순회로 good love_line 게이트 통과 일주 수집.
+        good_line_iljus = []
+        for idx in range(60):
+            stem, branch = ganzi_from_index(idx)
+            scored = [
+                _score_event(k, ev, stem, branch, ctx)
+                for k, ev in dicts.catalog["events"].items()
+            ]
+            if _has_good_love_signal(scored):
+                good_line_iljus.append(f"{stem.value}{branch.value}")
+        # good love_line 이 5개 이하인 날은 전부 Top5에 포함되어야 한다.
+        if len(good_line_iljus) <= 5:
+            for ilju in good_line_iljus:
+                assert ilju in board.top5.love, (
+                    f"{ctx.the_date} {ilju}: good love_line 인데 love Top5 누락"
+                )
+        # love_line 이 뜬 Top5 일주는 반드시 good-line 이어야(caution 강제 진입 금지).
+        good_set = set(good_line_iljus)
+        for ilju in board.top5.love:
+            f = by_ilju[ilju]
+            assert not (f.love_line and ilju not in good_set), (
+                f"{ctx.the_date} {ilju}: caution love_line 이 Top5에 진입"
+            )
 
 
 def test_love_catalog_expanded() -> None:
