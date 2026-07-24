@@ -19,6 +19,7 @@ spec p2.1b.v1 · baseline SF30·JW50 · calibration cal-2026-07-24.1 · band B0 
 | wrong_target | 0.0 | 0.0 | 0.0 | 0.0 | — |
 | multi_root_target | 0.0 | 0.0 | 0.0 | 0.0 | — |
 | boundary_sign_flip | 0.3 | 0.255 | 0.21 | 0.165 | 0.55 |
+| same_root_sf_jw_interaction | 0.3 | 0.255 | 0.21 | 0.165 | 0.55 |
 
 ## 2. stability net 부호 · sign flip(SF30 발췌)
 
@@ -32,23 +33,43 @@ spec p2.1b.v1 · baseline SF30·JW50 · calibration cal-2026-07-24.1 · band B0 
 | wrong_target | pos | pos | pos | pos |
 | multi_root_target | pos | pos | pos | pos |
 | boundary_sign_flip | zero | neg | neg | neg |
+| same_root_sf_jw_interaction | neg | neg | neg | neg |
 
 ## 3. SF × JW 교차표(§8 — 공통 SF 유지 여부 판단 근거·P2-1C)
 
 | SF | JW | stability_negative_rate | sign_flip_count |
 |---|---|--:|--:|
-| SF00 | JW00 | 0.25 | 0 |
-| SF00 | JW25 | 0.375 | 1 |
-| SF00 | JW50 | 0.375 | 1 |
-| SF00 | JW75 | 0.375 | 1 |
-| SF30 | JW00 | 0.25 | 0 |
-| SF30 | JW25 | 0.375 | 1 |
-| SF30 | JW50 | 0.375 | 1 |
-| SF30 | JW75 | 0.375 | 1 |
-| SF60 | JW00 | 0.25 | 0 |
-| SF60 | JW25 | 0.375 | 1 |
-| SF60 | JW50 | 0.375 | 1 |
-| SF60 | JW75 | 0.375 | 1 |
+| SF00 | JW00 | 0.333 | 0 |
+| SF00 | JW25 | 0.444 | 1 |
+| SF00 | JW50 | 0.444 | 1 |
+| SF00 | JW75 | 0.444 | 1 |
+| SF30 | JW00 | 0.333 | 0 |
+| SF30 | JW25 | 0.444 | 1 |
+| SF30 | JW50 | 0.444 | 1 |
+| SF30 | JW75 | 0.444 | 1 |
+| SF60 | JW00 | 0.333 | 0 |
+| SF60 | JW25 | 0.444 | 1 |
+| SF60 | JW50 | 0.444 | 1 |
+| SF60 | JW75 | 0.444 | 1 |
+
+## 3b. SF×JW 상호작용 사례(§7 — 같은 root HAP+CHUNG+HYEONG)
+
+> SF↑는 CHUNG+HYEONG same-root pressure를 키우고, JW↑는 HAP support를 줄인다 — 공유 계수(§3-1)가 stability에 결합하는지 관측.
+
+| SF | JW | support | pressure | net | sign |
+|---|---|--:|--:|--:|---|
+| SF00 | JW00 | 0.3 | 1.0 | -0.7 | neg |
+| SF00 | JW25 | 0.255 | 1.0 | -0.745 | neg |
+| SF00 | JW50 | 0.21 | 1.0 | -0.79 | neg |
+| SF00 | JW75 | 0.165 | 1.0 | -0.835 | neg |
+| SF30 | JW00 | 0.3 | 1.24 | -0.94 | neg |
+| SF30 | JW25 | 0.255 | 1.24 | -0.985 | neg |
+| SF30 | JW50 | 0.21 | 1.24 | -1.03 | neg |
+| SF30 | JW75 | 0.165 | 1.24 | -1.075 | neg |
+| SF60 | JW00 | 0.3 | 1.48 | -1.18 | neg |
+| SF60 | JW25 | 0.255 | 1.48 | -1.225 | neg |
+| SF60 | JW50 | 0.21 | 1.48 | -1.27 | neg |
+| SF60 | JW75 | 0.165 | 1.48 | -1.315 | neg |
 
 ## 4. scope 안전성(§8)
 

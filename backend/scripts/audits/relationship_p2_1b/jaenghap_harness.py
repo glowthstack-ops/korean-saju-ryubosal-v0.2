@@ -137,6 +137,15 @@ def build_cases() -> list[Case]:
     tid = _find(ev, RelationKind.HAP, "未")
     cases.append(Case("boundary_sign_flip", ev, _jaenghap([tid]), frozenset({tid})))
 
+    # 9. SF×JW 상호작용(§7): 같은 root HAP+CHUNG+HYEONG. SF↑→same-root pressure↑
+    #    (CHUNG+HYEONG 복합), JW↑→HAP support↓ 동시 작동 — 공유 계수 영향 관측.
+    ev = _evidences([_hit(RelationKind.HAP, "未"),
+                     _hit(RelationKind.CHUNG, "未", natal="辰"),
+                     _hit(RelationKind.HYEONG, "未", natal="戌")])
+    tid = _find(ev, RelationKind.HAP, "未")
+    cases.append(Case("same_root_sf_jw_interaction", ev, _jaenghap([tid]),
+                      frozenset({tid})))
+
     return cases
 
 
@@ -186,6 +195,8 @@ def measure(cases: list[Case]) -> dict:
                     "nontarget_support": _nontarget_support(r, c.nontarget_evidence_ids),
                     "total_support": round(
                         sum(rc.stability_support for rc in r.root_contributions), 3),
+                    "total_pressure": round(
+                        sum(rc.stability_pressure for rc in r.root_contributions), 3),
                     "stability_net": r.axes.stability.value,
                     "stability_sign": _sign(r.axes.stability.value),
                     "activation": r.axes.activation.value,
@@ -373,6 +384,18 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
     for r in interaction:
         md.append(f"| {r['sf']} | {r['jw']} | {r['stability_negative_rate']} "
                   f"| {r['sign_flip_count']} |")
+
+    md += ["", "## 3b. SF×JW 상호작용 사례(§7 — 같은 root HAP+CHUNG+HYEONG)", "",
+           "> SF↑는 CHUNG+HYEONG same-root pressure를 키우고, JW↑는 HAP support를 "
+           "줄인다 — 공유 계수(§3-1)가 stability에 결합하는지 관측.", "",
+           "| SF | JW | support | pressure | net | sign |", "|---|---|--:|--:|--:|---|"]
+    _ic = "same_root_sf_jw_interaction"
+    for sf_id, _ in _SF:
+        for jw_id, _ in _JW:
+            cell = grid[_ic][f"{sf_id}_{jw_id}"]
+            md.append(f"| {sf_id} | {jw_id} | {cell['total_support']} "
+                      f"| {cell['total_pressure']} | {cell['stability_net']} "
+                      f"| {cell['stability_sign']} |")
 
     md += ["", "## 4. scope 안전성(§8)", "",
            "- 비대상 root support drift·미해소/multi-root 수치 적용: **0**(§0 게이트). "

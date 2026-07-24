@@ -1,7 +1,7 @@
 {
   "experiment_spec_version": "p2.1b.v1",
   "baseline_calibration_version": "cal-2026-07-24.1",
-  "case_count": 8,
+  "case_count": 9,
   "invariants": {
     "violations": [],
     "passed": true
@@ -10,73 +10,73 @@
     {
       "sf": "SF00",
       "jw": "JW00",
-      "stability_negative_rate": 0.25,
+      "stability_negative_rate": 0.333,
       "sign_flip_count": 0
     },
     {
       "sf": "SF00",
       "jw": "JW25",
-      "stability_negative_rate": 0.375,
+      "stability_negative_rate": 0.444,
       "sign_flip_count": 1
     },
     {
       "sf": "SF00",
       "jw": "JW50",
-      "stability_negative_rate": 0.375,
+      "stability_negative_rate": 0.444,
       "sign_flip_count": 1
     },
     {
       "sf": "SF00",
       "jw": "JW75",
-      "stability_negative_rate": 0.375,
+      "stability_negative_rate": 0.444,
       "sign_flip_count": 1
     },
     {
       "sf": "SF30",
       "jw": "JW00",
-      "stability_negative_rate": 0.25,
+      "stability_negative_rate": 0.333,
       "sign_flip_count": 0
     },
     {
       "sf": "SF30",
       "jw": "JW25",
-      "stability_negative_rate": 0.375,
+      "stability_negative_rate": 0.444,
       "sign_flip_count": 1
     },
     {
       "sf": "SF30",
       "jw": "JW50",
-      "stability_negative_rate": 0.375,
+      "stability_negative_rate": 0.444,
       "sign_flip_count": 1
     },
     {
       "sf": "SF30",
       "jw": "JW75",
-      "stability_negative_rate": 0.375,
+      "stability_negative_rate": 0.444,
       "sign_flip_count": 1
     },
     {
       "sf": "SF60",
       "jw": "JW00",
-      "stability_negative_rate": 0.25,
+      "stability_negative_rate": 0.333,
       "sign_flip_count": 0
     },
     {
       "sf": "SF60",
       "jw": "JW25",
-      "stability_negative_rate": 0.375,
+      "stability_negative_rate": 0.444,
       "sign_flip_count": 1
     },
     {
       "sf": "SF60",
       "jw": "JW50",
-      "stability_negative_rate": 0.375,
+      "stability_negative_rate": 0.444,
       "sign_flip_count": 1
     },
     {
       "sf": "SF60",
       "jw": "JW75",
-      "stability_negative_rate": 0.375,
+      "stability_negative_rate": 0.444,
       "sign_flip_count": 1
     }
   ],
