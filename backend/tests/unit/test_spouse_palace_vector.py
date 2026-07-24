@@ -282,9 +282,39 @@ def test_counts_triple_separation() -> None:
         [_hit(RelationKind.HAP, transit="己", component="stem")],
         _DICTS, period_key="2029",
     )
-    assert (r.evidence_count, r.semantic_cause_group_count, r.root_trigger_count) \
+    assert (r.evidence_count, r.semantic_evidence_group_count, r.root_trigger_count) \
         == (1, 1, 1)
     # 잠정 입력(글자 없음) — root 계산 제외 + 미해소 카운트.
     legacy_input = build_spouse_palace_vector([_act(RelationKind.HAP)], _DICTS)
     assert legacy_input.root_trigger_count == 0
     assert legacy_input.unresolved_trigger_evidence_count == 1
+
+
+def test_exact_supersedes_provisional_same_hit() -> None:
+    """사례 C(필수 선행) — 같은 canonical hit가 EXACT·PROVISIONAL 양쪽 입력:
+    유효 evidence 1·축 기여 1회·root 1·unresolved 0·superseded 계측."""
+    exact = _hit(RelationKind.HAP, transit="己", component="stem", natal="丑")
+    r_both = build_spouse_palace_vector(
+        [exact, _act(RelationKind.HAP)], _DICTS, period_key="2029",
+    )
+    r_exact_only = build_spouse_palace_vector([exact], _DICTS, period_key="2029")
+    assert r_both.evidence_count == 1
+    assert r_both.root_trigger_count == 1
+    assert r_both.unresolved_trigger_evidence_count == 0
+    assert r_both.superseded_provisional_count == 1
+    # 축 기여 1회 — EXACT 단독과 동일 값(이중 가산 없음).
+    assert r_both.base_activation_total == r_exact_only.base_activation_total
+    assert r_both.vector.model_dump() == r_exact_only.vector.model_dump()
+
+
+def test_provisional_kept_when_no_exact_counterpart() -> None:
+    """대체 상대가 없는 PROVISIONAL은 유지(관측) — 단 root 계산엔 불포함."""
+    r = build_spouse_palace_vector(
+        [_hit(RelationKind.CHUNG, transit="未", natal="丑"),  # EXACT (충)
+         _act(RelationKind.HAP)],                             # PROVISIONAL (합 — 별개 hit)
+        _DICTS, period_key="2027",
+    )
+    assert r.evidence_count == 2
+    assert r.root_trigger_count == 1  # EXACT 충만
+    assert r.unresolved_trigger_evidence_count == 1
+    assert r.superseded_provisional_count == 0

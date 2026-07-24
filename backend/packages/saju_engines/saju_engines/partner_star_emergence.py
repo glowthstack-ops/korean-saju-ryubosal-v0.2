@@ -21,6 +21,8 @@ from pydantic import BaseModel, Field
 from saju_shared_types.relationship_effect import (
     RelationshipActivationEvidence,
     TriggerPrecision,
+    build_period_trigger_id,
+    build_signal_trigger_id,
 )
 
 from .marriage_emergence_modifier import (
@@ -70,9 +72,9 @@ def build_partner_star_emergence_evidence(
         evidence_id=f"pse:{cause_id}",
         independent_cause_id=cause_id,
         independent_cause_group="partner_star_emergence",
-        period_trigger_id=f"{layer}:{period_key}",
+        period_trigger_id=build_period_trigger_id(layer, period_key),
         # 운 글자 확보 — RelationPalace 동일 글자 파생과 root 1개 판정의 기준(EXACT).
-        signal_trigger_id=f"{layer}:{period_key}:stem:{luck_stem}",
+        signal_trigger_id=build_signal_trigger_id(layer, period_key, "stem", luck_stem),
         trigger_precision=TriggerPrecision.EXACT,
         relation_kind="EMERGENCE",          # 합충형파해가 아닌 투출 회귀
         source_layer=layer,

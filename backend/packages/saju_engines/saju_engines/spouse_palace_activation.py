@@ -34,6 +34,8 @@ from saju_shared_types.relationship_effect import (
     RelationshipAxisValue,
     RelationshipEffectVector,
     TriggerPrecision,
+    build_period_trigger_id,
+    build_signal_trigger_id,
     unevaluated,
 )
 
@@ -90,11 +92,20 @@ class SpousePalaceVectorResult(BaseModel):
     # 제한 의미 — 쟁합·합거·합반(P1-4)이 상쇄·blocker로 재분류할 수 있다.
     stability_support: float = 0.0
     stability_pressure: float = 0.0
-    # 3종 카운트 분리(P1-5 승인 §2) — '독립 원인 수' 단일 압축 금지.
+    # 3종 카운트 분리(P1-5 승인 §2·§4 정의 고정) — '독립 원인 수' 단일 압축 금지.
+    # evidence_count: dedupe+정밀도 우선순위(EXACT>PROVISIONAL 대체) 적용 후 남은
+    #   축 기여 가능 evidence 수. modifier·compound marker·대체된 PROVISIONAL 제외.
+    # semantic_evidence_group_count: 실제 evidence가 존재하는 고유 역할 그룹 수
+    #   (palace_activation 등 — '원인 수'로 읽지 않도록 evidence group으로 명명).
+    # root_trigger_count: precision∈{COMPONENT,EXACT}·signal!=None 고유값만.
+    #   PROVISIONAL·static·compound·derived·duplicate 제외.
     evidence_count: int = 0
-    semantic_cause_group_count: int = 0
-    root_trigger_count: int = 0                 # EXACT/COMPONENT signal 고유값만
+    semantic_evidence_group_count: int = 0
+    root_trigger_count: int = 0
     unresolved_trigger_evidence_count: int = 0  # PROVISIONAL — root 병합·계산 사용 금지
+    # EXACT/COMPONENT가 같은 canonical hit를 설명해 축 계산에서 대체·제거된
+    # PROVISIONAL 수(필수 선행 조건 — 이중 가산 차단 계측).
+    superseded_provisional_count: int = 0
 
 
 class _Dict:
@@ -183,6 +194,22 @@ def build_spouse_palace_vector(
     for h in hits:
         grouped.setdefault(_signature(h), []).append(h)
 
+    # 정밀도 우선순위(P1-5 필수 선행) — EXACT > PROVISIONAL. 같은 canonical hit
+    # (참여자 제외 기본 서명)를 운 글자 있는 hit가 설명하면, 글자 없는 잠정 hit는
+    # 축 기여·카운트에서 대체 제거한다(이중 가산 차단 — superseded 계측만).
+    def _canonical(h: SpousePalaceHit) -> str:
+        return ":".join((h.layer, h.kind.value, h.palace.value, h.position,
+                         h.hap_subtype or "", h.element or ""))
+
+    exact_canonicals = {
+        _canonical(h) for hs in grouped.values() for h in hs if h.transit_participant
+    }
+    superseded_provisional = 0
+    for key in list(grouped):
+        h0 = grouped[key][0]
+        if not h0.transit_participant and _canonical(h0) in exact_canonicals:
+            superseded_provisional += len(grouped.pop(key))
+
     for base_key in sorted(grouped):
         hs = grouped[base_key]
         h = hs[0]
@@ -196,8 +223,10 @@ def build_spouse_palace_vector(
         # 포맷 layer:period:component:글자 — 동일 root 판정 기준), 기간만 있으면
         # signal 미상(PROVISIONAL — root 병합·계산 사용 금지).
         if h.transit_participant and period_key:
-            signal = (f"{h.layer}:{period_key}:"
-                      f"{h.transit_component or 'branch'}:{h.transit_participant}")
+            signal = build_signal_trigger_id(
+                h.layer, period_key, h.transit_component or "branch",
+                h.transit_participant,
+            )
             precision = TriggerPrecision.EXACT
         else:
             signal = None
@@ -206,7 +235,7 @@ def build_spouse_palace_vector(
             evidence_id=f"spa:{base_key}",
             independent_cause_id=base_key,
             independent_cause_group="palace_activation",
-            period_trigger_id=f"{h.layer}:{period_key}" if period_key else h.layer,
+            period_trigger_id=build_period_trigger_id(h.layer, period_key),
             signal_trigger_id=signal,
             trigger_precision=precision,
             duplicate_count=dup,
@@ -292,7 +321,8 @@ def build_spouse_palace_vector(
         stability_support=round(stability_support, 3),
         stability_pressure=round(stability_pressure, 3),
         evidence_count=len(evidences),
-        semantic_cause_group_count=len({e.independent_cause_group for e in evidences}),
+        semantic_evidence_group_count=len({e.independent_cause_group for e in evidences}),
         root_trigger_count=len(resolved_signals),
         unresolved_trigger_evidence_count=unresolved,
+        superseded_provisional_count=superseded_provisional,
     )

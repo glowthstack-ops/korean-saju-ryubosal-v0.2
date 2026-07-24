@@ -29,6 +29,23 @@ class TriggerPrecision(StrEnum):
     EXACT = "exact"              # 실제 운 글자까지 식별
 
 
+def build_period_trigger_id(layer: str, period_key: str) -> str:
+    """period trigger SSOT — 예: sewoon:2029 / wolwoon:2029-04.
+
+    RelationPalace·MT2 등 모든 evidence 생성기가 이 빌더를 공용한다(형식 우연 일치
+    금지 — 층위 확장 시 한 곳만 변경). 사용자 간 전역 telemetry key로 사용 금지
+    (연도·글자는 사용자 간 반복 — 후보 내부 dedupe 전용, 익명 집계는 유형·정밀도만).
+    """
+    return f"{layer}:{period_key}" if period_key else layer
+
+
+def build_signal_trigger_id(
+    layer: str, period_key: str, component: str, ganji_char: str
+) -> str:
+    """signal trigger SSOT — 예: sewoon:2029:stem:己 / wolwoon:2029-04:branch:辰."""
+    return f"{layer}:{period_key}:{component}:{ganji_char}"
+
+
 class AxisStatus(StrEnum):
     """축 평가 상태 — 값 부재의 의미를 보존한다(부록 D-1)."""
 
@@ -114,8 +131,12 @@ class RelationshipActivationEvidence(BaseModel):
     derived_from_evidence_ids: list[str] = Field(default_factory=list)
 
     base_relation_strength: float = 0.0  # 이벤트 무관 기본 강도(cap·×1.2·MT4 미적용)
-    event_adjusted_legacy_strength: float | None = None  # 후보 결합 후에만(어댑터=None)
+    # 실제 legacy 경로에서 적용된 보정만(likely ×1.2 등) — **MT4 shadow 가정치 혼입
+    # 금지**(shadow 계산은 아래 별도 필드). 후보 결합 후에만 채운다(어댑터=None).
+    event_adjusted_legacy_strength: float | None = None
     legacy_delta: float | None = None                    # 후보 결합 후에만(어댑터=None)
     legacy_capped: bool | None = None                    # 후보 결합 후에만(어댑터=None)
+    # MT4 shadow 가정 배수 적용값(진단 전용) — actual legacy pre-cap과 절대 혼합 금지.
+    mt4_shadow_adjusted_strength: float | None = None
 
     reason_codes: list[str] = Field(default_factory=list)
