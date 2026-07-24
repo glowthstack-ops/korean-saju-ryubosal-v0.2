@@ -34,8 +34,10 @@ def test_hap_alone_activation_up_formalization_unevaluated() -> None:
     assert r.vector.formalization.value is None  # 0으로 채우지 않는다
     assert r.vector.exposure.status is AxisStatus.INSUFFICIENT_EVIDENCE
     assert r.vector.realization.status is AxisStatus.INSUFFICIENT_EVIDENCE
-    # 합 단독 — 종료 압력 low(§5 표), 안정성 소폭 상승.
-    assert r.vector.separation_pressure.band == "low"
+    # 합 단독 — 분리 압력은 '낮음' 판정이 아니라 근거 부족(부정 신호 없음≠위험 낮음).
+    assert r.vector.separation_pressure.status is AxisStatus.INSUFFICIENT_EVIDENCE
+    assert r.vector.separation_pressure.value is None
+    # 안정성은 signed 축 — 합은 소폭 양(+)의 안정 순효과.
     assert r.vector.stability.value and r.vector.stability.value > 0
 
 
@@ -69,9 +71,10 @@ def test_double_chung_plus_hyeong_uncapped_structure() -> None:
         _act(RelationKind.HYEONG),
     )
     assert triple.independent_cause_count == 3
-    assert triple.raw_activation_total > single.raw_activation_total  # cap 이전 변별
-    # 기본형 산식(likely ×1.2 제외) 기준: 충 단독은 cap 미도달, 복합은 초과 표시.
-    assert triple.legacy_capped is True and single.legacy_capped is False
+    assert triple.base_activation_total > single.base_activation_total  # cap 이전 변별
+    # 어댑터 단계에서 legacy cap 여부는 미정의(이벤트 결합 후에만) — None 보존.
+    assert all(e.legacy_capped is None and e.event_adjusted_legacy_strength is None
+               and e.legacy_delta is None for e in triple.evidences)
 
 
 def test_same_key_repeat_gets_distinct_cause_ids() -> None:
@@ -125,3 +128,42 @@ def test_adapter_is_pure_no_input_mutation() -> None:
     snapshot = [(a.kind, a.palace, a.layer, a.position) for a in acts]
     _build(*acts)
     assert [(a.kind, a.palace, a.layer, a.position) for a in acts] == snapshot
+
+
+def test_permutation_invariance() -> None:
+    """입력 순서 역전 — evidence ID 집합·원인 수·축 값 전부 동일(보완 §3)."""
+    acts = [
+        _act(RelationKind.CHUNG), _act(RelationKind.HAP),
+        _act(RelationKind.HYEONG, layer=LuckLayer.WOLWOON),
+        _act(RelationKind.CHUNG),  # 동일 서명 반복
+    ]
+    fwd = _build(*acts)
+    rev = _build(*reversed(acts))
+    assert {e.independent_cause_id for e in fwd.evidences} == \
+        {e.independent_cause_id for e in rev.evidences}
+    assert fwd.independent_cause_count == rev.independent_cause_count
+    assert fwd.vector.model_dump() == rev.vector.model_dump()
+
+
+def test_compound_group_linked_on_constituent_evidences() -> None:
+    """compound_group_id가 구성 evidence 각각에 연결(보완 §6) — 우연 공존과 구분 근거."""
+    r = _build(_act(RelationKind.HAP), _act(RelationKind.CHUNG))
+    day = [e for e in r.evidences if e.on_spouse_palace]
+    assert all(e.compound_group_id == "CHUNG+HAP" for e in day)
+    single = _build(_act(RelationKind.CHUNG))
+    assert all(e.compound_group_id is None for e in single.evidences)
+
+
+def test_shared_trigger_id_present_for_synthesizer() -> None:
+    """shared_trigger_id 잠정 서명 존재(§7 — P1-3 MT2와 root trigger 대조용)."""
+    r = _build(_act(RelationKind.HAP))
+    assert all(e.shared_trigger_id for e in r.evidences)
+
+
+def test_base_strength_not_confused_with_legacy_precap() -> None:
+    """base_relation_strength는 이벤트 무관 기본 강도 — legacy pre-cap 필드는 None(보완 §2)."""
+    r = _build(_act(RelationKind.CHUNG))
+    e = r.evidences[0]
+    assert e.base_relation_strength > 0
+    assert e.event_adjusted_legacy_strength is None
+    assert e.legacy_delta is None and e.legacy_capped is None

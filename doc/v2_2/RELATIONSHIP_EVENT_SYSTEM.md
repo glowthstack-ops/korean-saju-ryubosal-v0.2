@@ -1211,6 +1211,19 @@ P1-4 구조 패턴 modifier(쟁합·합거·합반=ambiguity·stability 분리, 
 금지) → P1-5 벡터 합성기(§4 SSOT 준수) → P1-6 shadow 채널·telemetry → P1-7 legacy 비교
 감사.
 
+**P1-2 보완 결정(2026-07-24 리뷰 6항)**: ①강도 필드 의미 분리 —
+`base_relation_strength`(이벤트 무관 기본 강도, cap·likely·MT4 미적용)와
+`event_adjusted_legacy_strength/legacy_delta/legacy_capped`(특정 이벤트 결합 후에만
+정의 — 어댑터 단계 None) ②`independent_cause_id` 입력 순서 불변(전 필드 서명 정렬+
+개수 기반 #k) ③stability=signed 축(음=불안정 압력·양=안정 순효과, separation과 분리 —
+형·해는 안정↓이되 즉시 종료 압력 아님) 명문화 ④**합 단독 separation은 '낮음' 평가가
+아니라 INSUFFICIENT_EVIDENCE**(§5 표의 '낮음'은 직접 근거 아님 — 부정 신호 없음≠분리
+위험 낮음) ⑤`shared_trigger_id` 신설(같은 운 글자 파생 신호의 root 1개 계산 — 어댑터는
+잠정 서명, P1-3에서 운 글자 주입 정밀화) ⑥compound_group_id를 구성 evidence 각각에
+연결+`derived_from_evidence_ids`(구조 패턴 파생 역추적). MT2는 realization을 EVALUATED로
+올리지 않고 보조 evidence만(§8). P1-6 전 폐쇄: provenance 전 변환 경로 단조성(공통
+merge 함수+직렬화 직전 최종 방어선)·telemetry processing key·5-tuple→named 타입.
+
 완료 게이트(2026-07-24 승인안 §14): 7축 AxisStatus 전수 / 근거 없음≠약함 / cap 이전
 원시 구조 보존 / reason 수≠원인 수 / 충·형·파·해의 activation·separation 차등 / 합
 단독으로 formalization 상승 금지 / MT2-RelationPalace 중복 집계 금지 / 도화는 P1 벡터

@@ -4,9 +4,14 @@
 `INSUFFICIENT_EVIDENCE`("약하다"≠"판정할 수 없다"). P1 벡터는 shadow 전용이며 점수·
 랭킹·confidence·timeline·stage·가드 어디에도 관여하지 않는다(부록 D-3 불변식).
 
-축 방향: activation/exposure/realization/stability/formalization/separation_pressure는
-높을수록 그 성질이 강함(단방향). `experience_valence`만 양·음 방향이 있어
-`direction`(positive|mixed|negative)을 별도 보유 — 다른 축의 direction은 None이다.
+축 방향(2026-07-24 명문화):
+- activation/exposure/realization/formalization/separation_pressure: **0 이상 단방향** —
+  높을수록 그 성질이 강함. separation_pressure는 "종료 쪽으로 미는 압력"이다.
+- `stability`: **signed 양방향** — 음수=불안정 압력, 0=중립, 양수=안정 순효과.
+  separation_pressure와 관련되지만 동일하지 않다: 형·해처럼 안정성을 떨어뜨리되 즉시
+  종료까지 밀지는 않는 신호가 두 축을 분리한 의미다.
+- `experience_valence`만 `direction`(positive|mixed|negative)을 별도 보유 — 다른 축의
+  direction은 None이다.
 """
 
 from __future__ import annotations
@@ -58,14 +63,29 @@ class RelationshipActivationEvidence(BaseModel):
     """배우자궁 발동 원시 증거 1건 — cap 이전 구조 보존(부록 D-2).
 
     **reason_codes 개수 ≠ 독립 원인 수**: 독립 원인 수는 `independent_cause_id` 고유값
-    기준으로 계산한다. REL_COMPOUND는 새 원인이 아니라 기존 원인들의 결합 상태
-    (`compound_group_id`)다. legacy 재변환 금지 — raw_strength는 cap(22) 이전 산식값.
+    기준으로 계산한다. REL_COMPOUND는 새 원인이 아니라 기존 원인들의 결합 상태이며,
+    `compound_group_id`는 **구성 evidence 각각에** 연결된다(어떤 원인들이 복합을
+    이뤘는지 합성기가 추적 — 같은 기간의 우연한 공존과 복합 구조를 구분).
+
+    강도 필드 의미 분리(2026-07-24 보완): `base_relation_strength`는 이벤트 키와 무관한
+    궁위 관계의 기본 강도(사전 kind×궁×층위×위치, cap·likely ×1.2·MT4 미적용)다.
+    실제 legacy 후보의 cap 적용 전/후 값은 **특정 이벤트와 결합된 뒤에만 정의**되므로
+    event_adjusted_legacy_strength/legacy_delta/legacy_capped는 어댑터 단계에서 None이고
+    후보 결합 단계(P1-7 비교 감사)에서만 채운다 — base 값을 실제 pre-cap 점수로
+    오해하지 않게 한다.
     """
 
     evidence_id: str
-    independent_cause_id: str           # layer:kind:palace:position(#n) — 결정적
-    # palace_activation | partner_star_emergence | structure_pattern (§7 중복 집계 방지 그룹)
+    # 독립 원인 ID — layer:kind:palace:position(+hap_subtype·element)(#k). 동일 서명 hit
+    # 반복은 정렬 무관 개수 기반 suffix(#k)라 **입력 순서 불변**(permutation invariant).
+    independent_cause_id: str
+    # palace_activation | partner_star_emergence | structure_pattern — 증거의 해석 역할
+    # 그룹(중복 집계 방지 자체는 shared_trigger_id·합성기 소관).
     independent_cause_group: str
+    # 동일 root trigger(같은 운 글자) 파생 신호 식별 — RelationPalace 합과 MT2 재출현이
+    # 같은 글자에서 나왔으면 증거 2종·독립 root 1개로 계산하기 위한 키(§7).
+    # 어댑터 입력에 운 글자가 없으면 확보 가능한 서명으로 잠정 기록(P1-3에서 정밀화).
+    shared_trigger_id: str = ""
 
     relation_kind: str                  # HAP | CHUNG | HYEONG | PA | HAE | BOKEUM
     source_layer: str                   # sewoon | wolwoon | daewoon | ilwoon
@@ -75,9 +95,12 @@ class RelationshipActivationEvidence(BaseModel):
     natal_participant: str = ""         # 피자극 글자(입력에 없으면 빈 값 — 미상)
     transit_participant: str = ""
     compound_group_id: str | None = None
+    # 파생 modifier(구조 패턴 등)가 기저 evidence에서 나온 경우의 역추적(§8).
+    derived_from_evidence_ids: list[str] = Field(default_factory=list)
 
-    raw_strength: float = 0.0           # cap 이전 산식값(사전 kind×궁×층위×위치)
-    legacy_delta: float = 0.0           # 동일 산식의 legacy 기여분(참고 기록)
-    legacy_capped: bool = False         # 그룹 총합이 legacy 상한(22)을 초과했는가
+    base_relation_strength: float = 0.0  # 이벤트 무관 기본 강도(cap·×1.2·MT4 미적용)
+    event_adjusted_legacy_strength: float | None = None  # 후보 결합 후에만(어댑터=None)
+    legacy_delta: float | None = None                    # 후보 결합 후에만(어댑터=None)
+    legacy_capped: bool | None = None                    # 후보 결합 후에만(어댑터=None)
 
     reason_codes: list[str] = Field(default_factory=list)
