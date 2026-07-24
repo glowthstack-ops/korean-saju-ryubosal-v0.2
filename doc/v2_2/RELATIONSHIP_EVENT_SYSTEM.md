@@ -160,19 +160,43 @@ RelationshipEffectVector(
 
 `RelationPalaceEngine`의 합충형파해는 **기존 이벤트 점수에 이미 반영**돼 있다
 (relation delta ≤22). 같은 신호로 신규 벡터를 만들어 다시 후보 승격에 쓰면 충 하나가
-순위를 이중으로 끌어올린다. 초기 운영 강제:
+순위를 이중으로 끌어올린다. P0-A 실측에서 랭킹은 점수보다 **confidence 승격**
+(palace 부여→strong 후보 승격→상위 정렬축)이 지배함이 확인됐으므로, shadow 불변식은
+delta=0만으로 부족하다. 초기 운영 강제(확대판):
 
 ```text
 usage = shadow_explanation_only
-score_delta = 0 / ranking_delta = 0 / confidence_delta = 0
+score_delta = 0
+raw_score_delta = 0
+confidence_delta = 0
+personal_match_delta = 0
+life_fit_delta = 0
+ranking_delta = 0
+candidate_generation = false
+candidate_suppression = false
+```
+
+**P1의 정확한 성격 (2026-07-24 표현 확정)**: P1은 legacy 결함(방향 누수·cap 포화·
+new_relationship 사각지대)을 *수정*하는 단계가 아니라, **결함을 손실 없이 관측하고
+차세대 사건 분류에 필요한 의미 정보를 생성하는 단계**다. 실제 후보 생성·랭킹 수정은
+별도 적용 승인 이후 수행한다. cap 포화 대응으로 벡터 증거는 원시 구조를 보존한다:
+
+```python
+RelationshipActivationEvidence(
+    relation_kinds=["chung", "hyeong"], independent_causes=2,
+    affected_palaces=["day", "year"], compound=True,
+    raw_activation=..., capped_legacy_delta=22,
+)
 ```
 
 이후 기존 relation_delta와 벡터의 관계를 다음 중 하나로 정리(별도 승인):
 1. 기존 가산을 activation으로 흡수하고 기존 가산 제거
-2. 기존 점수 유지 + 신규 벡터는 사건 종류 분류에만 사용
+2. 기존 점수 유지 + 신규 벡터는 사건 종류 분류에만 사용 ← **단기 확정(게이트 ⑤)**
 3. legacy ranking과 차세대 ranking 병렬 검증
 
-처음부터 둘 다 점수에 적용하는 구현은 금지.
+**전환 결정 시점 (옵션 2 영구화 방지)**: P4 shadow episode 검증 완료 후 옵션 1 또는
+옵션 3 중 하나를 선택한다. 결정 없이 legacy 점수와 신규 의미 체계를 장기 이중 유지하지
+않는다. 처음부터 둘 다 점수에 적용하는 구현은 금지.
 
 ### 4-2. D2 병행 해석 병합 규칙 — 신호 계산 1회, 의미 해석만 복수
 
@@ -725,3 +749,168 @@ relationship_narrative_adapter.py     # §10 통합 디렉티브 (P5)
 | Event Graph | 관계 이벤트·근거 경로 연결(어휘는 P0 감사 결과 준수) |
 | context_reducer | 기간 중복 제거·overview 상한 + episode-aware 압축 신규 |
 | 텔레메트리(`marriage_telemetry` 채널) | §P6 익명 계측 재사용 |
+
+---
+
+## 부록 A. P0-A 감사 결과·결정 로그 (2026-07-24)
+
+### A-1. 게이트 판정
+
+| 게이트 항목 | 상태 |
+|---|---|
+| ① REL-EVENT-VOCAB-AUDIT | **완료** — 8계층 실측(A-2) |
+| ② 런타임 MT 프로파일 | **완료** — `production_candidate` 활성(MT1/2/3 ON·MT4 shadow·MT6 ON) 실측 |
+| ③ relation delta 기여 실측 | **완료**(A-3) + 조건부 보완: 남성 명식 1건·월운 경로 1건 교차검증 후 P0-A 최종 폐쇄 |
+| ④ 어휘 결정 | **승인** — canonical=taxonomy_v2 21키, 구키 전부 legacy alias(A-4) |
+| ⑤ 소유권 결정 | **승인** — legacy relation delta=기존 랭킹의 유일한 소유자, 신규 벡터=shadow 분류·설명 전용(§4-1). 전환 결정은 P4 후 |
+
+### A-2. 8계층 어휘 실측 요약
+
+- canonical 어휘는 **taxonomy_v2 21키**로 이미 수렴 중. 정상 계층: EventKeyV2·LLM 후보·
+  Event Graph(`LEGACY_EVENT_KEY_MAP` 리맵)·structure_patterns hints·리포트 필터
+  (`EVENT_DOMAIN` taxonomy_v2). daily catalog는 독립 어휘 C(정책상 분리 유지).
+- 🔴 **결함 1 (B1 대상)**: `precompute._EVENT_DOMAIN`이 로컬 구키 매핑이라 relations.json이
+  내는 21키(`new_relationship`·`relationship_change`·`contract_document`·`health_attention`·
+  `legal_conflict`)의 도메인이 전부 `general`로 오분류 저장. 운영 DB 94 composite 실측:
+  new_relationship 96건·relationship_change 175건 전부 `domain=general`.
+- 🔴 **결함 2 (B1 대상)**: topic_builder 필터가 구키 — M01 `{relationship_start,
+  relationship_end}`·M02 `{marriage, childbirth, family_change}`는 **라이브 0매치(연애·결혼
+  topic findings 상시 빈 결과)**. 건강(health_attention→general)·시험(education 키 부재)도
+  사망, 사업(M14)은 business_start만 부분 동작.
+- 근본 원인: relations.json 21키 마이그레이션을 graph_builder만 흡수, precompute·
+  topic_builder 미갱신.
+
+### A-3. relation delta 실측 핵심 (측정 하네스: 스크래치패드 p0a/, no-op 대조군 +
+`contributions["relation"]` 교차확인 + 유닛 격리 병행, 무발동 대조군 byte 일치 확인)
+
+1. **방향 누수(🔴 B2 대상)**: delta는 중립 활성인데 방향 구분 없이 사전 등재 2키에 균등
+   가산 — 충·형 연도에 `marriage_signal`이 `relationship_change`와 같은 폭(+22)으로 상승해
+   Top5 진입(기신 해 포함). `has_stability_risk`가 `REL_CHUNG_*` 등을 인식 못해 출력 가드
+   미작동.
+2. **new_relationship 사각지대**: `relation_palace_modifier.json`에 미등재 — 배우자궁이
+   어떤 식으로 발동해도 새 인연 후보 0 가산(MT1 천간합 seed가 유일 경로).
+   → legacy 사전에 즉시 추가하지 **않는다**(합의 다의성: 새 접촉/심화/재접촉/기혼 변화/
+   모호한 묶임). P1 activation 벡터 반영 → P3 상태·exposure 분기 → P5 이후 적용 검증.
+3. **cap 22 포화**: 충 단독=충×2+형+COMPOUND=파×2+COMPOUND=전부 +22 — 복합 정보가
+   점수에서 소실(reason에만 잔존). legacy cap은 유지(랭킹 광역 변경 방지), 신규 벡터가
+   원시 구조 보존(§4-1 Evidence).
+4. **confidence 승격이 랭킹 지배**: +11점으로 10위→3위. → shadow 불변식 확대(§4-1).
+5. kind별 순수 delta(50 기준): 충 +22/19 > 형 +19/16 > 육합 +16/16 > 파 +14/12 > 해 +9/8.
+6. 쟁합·관살혼잡 전용 처리 없음 — legacy delta에 추가하지 않고 P1~P3에서 구조 패턴
+   modifier + 궁 활성화 벡터 + 상태 + exposure 합성으로 처리(역할 혼합 방지).
+7. **delta는 후보를 만들지 못함**(십성 신호 없으면 관계 후보 0) — 기존 원칙과 정합.
+   신규 증거 계약에서는 `partner-star-driven` / `palace-activation-driven` 두 생성 경로를
+   구분하되, P1 shadow에서는 후보 생성 없이 관측만.
+
+### A-4. Canonical 21키 매핑표 (게이트 ④ 확정)
+
+| canonical (21키) | domain | legacy aliases |
+|---|---|---|
+| career_change | career | career_change, resignation |
+| job_gain | career | — |
+| promotion | career | promotion |
+| business_start | career | business_start |
+| business_expansion | career | — |
+| wealth_change | wealth | wealth_change, income_change, expense_risk, speculation_risk, asset_volatility |
+| windfall | wealth | windfall |
+| contract_document | career | contract, document |
+| education_admission | education | education_start, exam |
+| education_completion | education | education_complete |
+| relationship_change | relationship | relationship_end, family_change |
+| new_relationship | relationship | relationship_start |
+| marriage_signal | relationship | marriage |
+| childbirth | relationship | childbirth |
+| relocation | relocation | relocation, travel |
+| legal_conflict | career | lawsuit |
+| health_attention | health | health_issue, surgery |
+| social_conflict | career | — |
+| preparation_delay | career | — |
+| creative_output | career | — |
+| public_exposure | career | — |
+
+**주의 — `marriage_signal`의 장래**: 현재 의미가 배우자궁 활성화·성립 가능성·결혼 신호·
+충형 변동을 모두 섞고 있으므로, 신규 관계 taxonomy(§8)에서는 canonical로 유지하지 않고
+`relationship_activation / relationship_commitment / relationship_formalization`으로 분리한
+뒤 legacy alias로 강등하는 것을 전제로 설계한다(P0-B vocab 설계 시 반영).
+
+vocab lint 필수 규칙(P0-B `relationship_event_vocab.json`): alias 순환 금지 / alias 1개가
+복수 canonical 지시 금지 / canonical의 재-alias화 금지 / TopicBuilder·Event Graph·structure
+pattern 참조 키는 vocab에 존재 / daily 전용 키와 개인화 키 namespace 혼용 금지 / 폐기
+키에는 replacement 또는 tombstone 지정. vocab 항목 필수 필드: canonical_key /
+legacy_aliases / owner / event_family / stage_effect / condition_effect /
+personalized_only / daily_allowed.
+
+### A-5. 감사 재현성·fixture 승격
+
+- 재현성 메타데이터(교차검증 보고서에 기록): repository_commit / dictionary·structure_
+  pattern 버전 / ACTIVE_MARRIAGE_PROFILE / runtime·python / timezone / 스크립트 목록 /
+  측정 출력 해시.
+- fixture 승격: 핵심 측정기를 `scripts/audits/relationship_p0a/`로, 핵심 발견 고정은
+  `tests/regression/test_relation_delta_legacy_behavior.py`로 승격(전 스크립트 이관은
+  불필요, 발견 고정 fixture만 필수).
+
+---
+
+## 부록 B. 버그픽스 트랙 B1·B2 계획 (관계 시스템과 독립, 별도 PR)
+
+### 적용 순서 (2026-07-24 확정)
+
+```text
+1. P0-A 결과·게이트 결정 SSOT 반영 (본 부록)
+2. 문서 단독 커밋
+3. B2 방향 누수 가드 핫픽스 → 회귀·기존 출력 안전 감사
+4. B1-a 코드·alias·lint → B1-b composite dry-run·재계산·검증
+5. P0-A 핵심 fixture 재실행
+6. P0-B 착수
+```
+
+B2가 B1보다 먼저인 이유: B1이 죽은 관계 신호를 부활시키면 B2 미적용 상태에서 충 기반
+marriage_signal 노출이 오히려 증가한다. P0-B 병행 금지 이유: P0-B 타입·vocab은 canonical
+어휘 전제 — B1 진행 중 병행하면 alias/canonical 중복 정의·baseline 오염.
+
+### B2 — 방향 누수 출력 가드 (긴급)
+
+문자열 포함 검사 확장이 아니라 **명시적 reason 분류 함수**로 구현:
+
+```python
+_NEGATIVE_RELATION_REASON_PREFIXES = ("REL_CHUNG_", "REL_HYEONG_", "REL_PA_", "REL_HAE_")
+
+def is_relationship_stability_risk(reason_code: str) -> bool:
+    return reason_code.startswith(_NEGATIVE_RELATION_REASON_PREFIXES)
+```
+
+`REL_COMPOUND` 처리: 단독 무조건 위험 분류 금지(합 중심 compound 오분류 방지) —
+구성 reason에 충·형·파·해가 있으면 위험, 판별 불가면 보수적 미판정+감사 로그.
+
+필수 테스트: CHUNG/HYEONG/PA/HAE→True, HAP 단독→False, HAP+CHUNG→True,
+MT2 SPOUSE_PALACE_CLASHED→기존대로 True, 충 기반 marriage_signal 확정·긍정 단정 차단,
+**점수·순위·confidence 완전 불변(출력 가드만 변경)**.
+
+### B1 — topic 어휘 사망 (2단계 분리)
+
+- **B1-a 코드·호환 계층**: `precompute._EVENT_DOMAIN` → taxonomy_v2 `EVENT_DOMAIN` 교체,
+  TopicBuilder 필터 canonical화(M01·M02·건강·시험·사업), legacy key read alias(dual-read),
+  vocab lint.
+- **B1-b 데이터 재계산**: 영향 composite 탐색 → dry-run → before/after diff 기록 →
+  versioned rebuild(`composite_schema_version=taxonomy_v2` 스탬프, 제자리 덮어쓰기 대신
+  버전 기록) → 검증 후 전환, rollback 가능 유지.
+- 재계산 전 확인: 94건의 환경 출처 / 진행 중 report job 참조 여부 / 캐시 키 taxonomy
+  version 포함 여부 / idempotent 여부 / 과거 데이터 읽기 호환.
+- 필수 회귀(전 영향 도메인 — 연애·결혼·건강·시험·사업): 필터 전후 후보 수 / 월별 time
+  series 복구 / 상위 finding 복구 / 무관 도메인 출력 불변 / legacy composite 읽기 성공 /
+  신규 composite canonical 저장.
+
+### P0-B 진입 게이트 (확장판)
+
+```text
+[ ] P0-A canonical 21키 전체 매핑표가 SSOT 부록에 있음 (A-4 ✓)
+[ ] 남성 실전 명식 1건에서 relation delta 의미가 동일함
+[ ] 월운 실전 1건에서 점수·confidence 누수가 동일함
+[ ] B2가 충·형·파·해 기반 결혼 긍정 단정을 차단함
+[ ] B2 적용 전후 점수·랭킹은 byte-identical
+[ ] B1 canonical/alias lint 통과
+[ ] 기존 composite와 taxonomy_v2 composite 모두 읽을 수 있음
+[ ] 재계산된 94건의 before/after diff가 기록됨
+[ ] 무관 도메인 회귀가 없음
+[ ] P0-A 핵심 측정 fixture가 재현 가능하게 저장됨
+```
