@@ -73,6 +73,15 @@ MODULES: dict[str, str] = {
     "M15": "lifestyle",
 }
 
+# B1-a 확정 필터(RELATIONSHIP_EVENT_SYSTEM 부록 B 결정문) — vocab lint가 참조하는
+# 공개 상수. relationship_change는 M01 소유(M02 중복 소비 금지), legacy family_change는
+# M02 호환 전용(M01 배제).
+M01_EVENT_KEYS: frozenset[str] = frozenset({"new_relationship", "relationship_change"})
+M01_LEGACY_EXCLUDE_KEYS: frozenset[str] = frozenset({"family_change"})
+M02_EVENT_KEYS: frozenset[str] = frozenset({"marriage_signal", "childbirth"})
+M02_LEGACY_COMPAT_KEYS: frozenset[str] = frozenset({"family_change"})
+M08_EVENT_KEYS: frozenset[str] = frozenset({"business_start", "contract_document"})
+
 # 빌더 공통 시그니처: (subjects, period, composites, **extras) → TopicContext.
 BuilderFn = Callable[..., TopicContext]
 
@@ -727,8 +736,8 @@ def build_love_context(
     return _domain_topic(
         "M01", subjects, period, composites,
         domains={"relationship"}, label="연애",
-        event_keys={"new_relationship", "relationship_change"},
-        legacy_exclude_keys={"family_change"}, style=_LOVE_STYLE,
+        event_keys=set(M01_EVENT_KEYS),
+        legacy_exclude_keys=set(M01_LEGACY_EXCLUDE_KEYS), style=_LOVE_STYLE,
     )
 
 
@@ -742,8 +751,8 @@ def build_marriage_context(
     return _domain_topic(
         "M02", subjects, period, composites,
         domains={"relationship"}, label="결혼·가정",
-        event_keys={"marriage_signal", "childbirth"},
-        legacy_compat_keys={"family_change"}, style=_MARRIAGE_STYLE,
+        event_keys=set(M02_EVENT_KEYS),
+        legacy_compat_keys=set(M02_LEGACY_COMPAT_KEYS), style=_MARRIAGE_STYLE,
     )
 
 
@@ -797,7 +806,7 @@ def build_business_context(
         # B1-a — 구키 contract/document는 canonical contract_document로 통합
         # (contract_document 도메인은 taxonomy_v2 기준 career — 기존 domains에 포함됨).
         domains={"career", "wealth"}, label="사업",
-        event_keys={"business_start", "contract_document"}, style=_BUSINESS_STYLE,
+        event_keys=set(M08_EVENT_KEYS), style=_BUSINESS_STYLE,
     )
 
 

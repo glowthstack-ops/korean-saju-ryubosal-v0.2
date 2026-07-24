@@ -1,0 +1,230 @@
+{
+  "schema": "relationship_event_vocab.v1",
+  "version": "vocab.v1.0",
+  "notes": [
+    "RELATIONSHIP_EVENT_SYSTEM 부록 A-4·C-5 — canonical 21키 + legacy alias SSOT.",
+    "daily_allowed=false: 개인화 키의 오늘의 운세(비개인화 어휘 C) 유입 금지.",
+    "legacy family_change는 relationship_change의 저장 alias이나 소비 의미는 M02 호환 전용(부록 B 결정문).",
+    "marriage_signal은 신규 관계 taxonomy에서 relationship_activation/commitment/formalization으로 분리 후 alias 강등 예정(A-4)."
+  ],
+  "items": [
+    {
+      "canonical_key": "career_change",
+      "legacy_aliases": [
+        "resignation"
+      ],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "job_gain",
+      "legacy_aliases": [],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "promotion",
+      "legacy_aliases": [],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "business_start",
+      "legacy_aliases": [],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "business_expansion",
+      "legacy_aliases": [],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "wealth_change",
+      "legacy_aliases": [
+        "asset_volatility",
+        "expense_risk",
+        "income_change",
+        "speculation_risk"
+      ],
+      "family": "wealth",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "windfall",
+      "legacy_aliases": [],
+      "family": "wealth",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "contract_document",
+      "legacy_aliases": [
+        "contract",
+        "document"
+      ],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "education_admission",
+      "legacy_aliases": [
+        "education_start",
+        "exam"
+      ],
+      "family": "education",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "education_completion",
+      "legacy_aliases": [
+        "education_complete"
+      ],
+      "family": "education",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "relationship_change",
+      "legacy_aliases": [
+        "family_change",
+        "relationship_end"
+      ],
+      "family": "relationship",
+      "owner": "relationship_event_system",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "new_relationship",
+      "legacy_aliases": [
+        "relationship_start"
+      ],
+      "family": "relationship",
+      "owner": "relationship_event_system",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "marriage_signal",
+      "legacy_aliases": [
+        "marriage"
+      ],
+      "family": "relationship",
+      "owner": "relationship_event_system",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "childbirth",
+      "legacy_aliases": [],
+      "family": "relationship",
+      "owner": "relationship_event_system",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "relocation",
+      "legacy_aliases": [
+        "travel"
+      ],
+      "family": "relocation",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "legal_conflict",
+      "legacy_aliases": [
+        "lawsuit"
+      ],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "health_attention",
+      "legacy_aliases": [
+        "health_issue",
+        "surgery"
+      ],
+      "family": "health",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "social_conflict",
+      "legacy_aliases": [],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "preparation_delay",
+      "legacy_aliases": [],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "creative_output",
+      "legacy_aliases": [],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
+      "canonical_key": "public_exposure",
+      "legacy_aliases": [],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    }
+  ]
+}
