@@ -27,7 +27,9 @@ INSUFFICIENT(**BLOCKED 0건 정상**). shadow 전용(D-3) — 승격류 필드 �
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from enum import StrEnum
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from saju_shared_types.relationship_effect import (
     AxisStatus,
@@ -63,6 +65,28 @@ _SUPPORT_WEAKEN = 0.5
 _ACT_BAND = {"strong": 20.0, "moderate": 12.0, "weak": 6.0}
 
 
+class SecondaryFactorStructure(StrEnum):
+    """same-root 복합 계수 구조(P2-1C §3) — profile 검증으로만 구분, 합성기는 미분기."""
+
+    C0_SHARED = "c0_shared"                    # 세 축 동일 계수(현행 baseline)
+    C1_ACTIVATION_PRESSURE = "c1_activation_pressure"  # activation 독립·pressure 공통
+    C2_AXIS_SPLIT = "c2_axis_split"            # 세 축 독립
+
+
+class SameRootSecondaryFactors(BaseModel):
+    """축별 same-root 복합 계수(P2-1C §3) — 합성기가 항상 이 세 값을 소비한다.
+
+    C0/C1/C2 차이는 값의 동일성 제약으로만 표현(구조 enum이 검증). production
+    BASELINE은 세 값 모두 0.3인 C0.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    activation: float
+    stability_pressure: float
+    separation_pressure: float
+
+
 class RelationshipVectorCalibration(BaseModel):
     """벡터 캘리브레이션 profile(P2-1 §8) — 합성기에 명시 주입한다(전역 monkeypatch 금지).
 
@@ -70,12 +94,21 @@ class RelationshipVectorCalibration(BaseModel):
     전달한다. `profile_id`는 실험 run 구분용이며 **공식 CALIBRATION_VERSION과 별개**
     (실험이 운영 telemetry 버전을 오염시키지 않게 — §8). 필드 기본값 = 현행 상수라
     `RelationshipVectorCalibration()`은 기존 결과와 byte-identical(§9).
+
+    same_root_factors(P2-1C §3): 합성기는 항상 축별 3계수를 읽는다. C0/C1/C2는
+    factor_structure로만 구분하며 model_validator가 값 동일성 제약을 강제한다
+    (C1이라며 세 값이 다른 잘못된 profile 차단). 생성은 `.shared/.activation_pressure_
+    split/.axis_split` factory 권장(§6).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     profile_id: str = "baseline"
-    secondary_factor: float = _SECONDARY_FACTOR
+    factor_structure: SecondaryFactorStructure = SecondaryFactorStructure.C0_SHARED
+    same_root_factors: SameRootSecondaryFactors = Field(
+        default_factory=lambda: SameRootSecondaryFactors(
+            activation=_SECONDARY_FACTOR, stability_pressure=_SECONDARY_FACTOR,
+            separation_pressure=_SECONDARY_FACTOR))
     support_weaken: float = _SUPPORT_WEAKEN
     activation_band: dict[str, float] = Field(
         default_factory=lambda: dict(_ACT_BAND))
@@ -89,6 +122,62 @@ class RelationshipVectorCalibration(BaseModel):
     stability_band: tuple[float, float] = (-0.8, 0.3)
     separation_band: dict[str, float] = Field(
         default_factory=lambda: {"strong": 0.9, "moderate": 0.55, "weak": 0.3})
+
+    @model_validator(mode="after")
+    def _check_factor_structure(self) -> RelationshipVectorCalibration:
+        """factor_structure ↔ same_root_factors 값 동일성 제약(§3)·범위 검증."""
+        f = self.same_root_factors
+        for v in (f.activation, f.stability_pressure, f.separation_pressure):
+            if v < 0.0:
+                raise ValueError("secondary factor는 0 이상")
+        if self.factor_structure is SecondaryFactorStructure.C0_SHARED:
+            if not (f.activation == f.stability_pressure == f.separation_pressure):
+                raise ValueError("C0는 세 축 계수가 동일해야 한다")
+        elif self.factor_structure is SecondaryFactorStructure.C1_ACTIVATION_PRESSURE:
+            if f.stability_pressure != f.separation_pressure:
+                raise ValueError("C1은 stability·separation 계수가 동일해야 한다")
+        # C2: 세 값 독립 — 제약 없음.
+        return self
+
+    @classmethod
+    def shared(cls, *, secondary_factor: float, profile_id: str = "baseline",
+               **kwargs: object) -> RelationshipVectorCalibration:
+        """C0 — 세 축 공유 계수(§6 factory)."""
+        return cls(
+            profile_id=profile_id,
+            factor_structure=SecondaryFactorStructure.C0_SHARED,
+            same_root_factors=SameRootSecondaryFactors(
+                activation=secondary_factor, stability_pressure=secondary_factor,
+                separation_pressure=secondary_factor),
+            **kwargs)
+
+    @classmethod
+    def activation_pressure_split(
+        cls, *, activation: float, pressure: float, profile_id: str = "c1",
+        **kwargs: object,
+    ) -> RelationshipVectorCalibration:
+        """C1 — activation 독립·pressure(stability=separation) 공통(§6 factory)."""
+        return cls(
+            profile_id=profile_id,
+            factor_structure=SecondaryFactorStructure.C1_ACTIVATION_PRESSURE,
+            same_root_factors=SameRootSecondaryFactors(
+                activation=activation, stability_pressure=pressure,
+                separation_pressure=pressure),
+            **kwargs)
+
+    @classmethod
+    def axis_split(
+        cls, *, activation: float, stability_pressure: float,
+        separation_pressure: float, profile_id: str = "c2", **kwargs: object,
+    ) -> RelationshipVectorCalibration:
+        """C2 — 세 축 독립 계수(§6 factory)."""
+        return cls(
+            profile_id=profile_id,
+            factor_structure=SecondaryFactorStructure.C2_AXIS_SPLIT,
+            same_root_factors=SameRootSecondaryFactors(
+                activation=activation, stability_pressure=stability_pressure,
+                separation_pressure=separation_pressure),
+            **kwargs)
 
 
 BASELINE_CALIBRATION = RelationshipVectorCalibration()
@@ -327,15 +416,17 @@ def synthesize_relationship_effect_vector(
             signal_trigger_id=key,
             evidence_ids=[e.evidence_id for e in group],
             activation=round(_primary_plus_secondary(
-                list(act_by_kind.values()), cal.secondary_factor), 3),
+                list(act_by_kind.values()), cal.same_root_factors.activation), 3),
             stability_support=round(
                 sum(cal.stability_support.get(k, 0.0) for k in kinds), 3),
             stability_pressure=round(_primary_plus_secondary(
                 [cal.stability_pressure[k] for k in kinds
-                 if k in cal.stability_pressure], cal.secondary_factor), 3),
+                 if k in cal.stability_pressure],
+                cal.same_root_factors.stability_pressure), 3),
             separation_pressure=round(_primary_plus_secondary(
                 [cal.separation_weight[k] for k in kinds
-                 if k in cal.separation_weight], cal.secondary_factor), 3),
+                 if k in cal.separation_weight],
+                cal.same_root_factors.separation_pressure), 3),
             kinds=kinds,
         ))
 

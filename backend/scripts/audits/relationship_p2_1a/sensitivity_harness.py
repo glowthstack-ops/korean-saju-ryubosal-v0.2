@@ -131,7 +131,7 @@ def build_lattice() -> list[LatticeCase]:
 
 
 def _cal(sf: float, band: dict[str, float]) -> RelationshipVectorCalibration:
-    return RelationshipVectorCalibration(
+    return RelationshipVectorCalibration.shared(
         profile_id=f"P2A_sf{sf}_b{band['strong']}",
         secondary_factor=sf, activation_band=band)
 

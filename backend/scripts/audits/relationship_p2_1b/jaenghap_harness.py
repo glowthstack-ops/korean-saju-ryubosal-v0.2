@@ -150,7 +150,7 @@ def build_cases() -> list[Case]:
 
 
 def _cal(sf: float, jw: float) -> RelationshipVectorCalibration:
-    return RelationshipVectorCalibration(
+    return RelationshipVectorCalibration.shared(
         profile_id=f"P2B_sf{sf}_jw{jw}", secondary_factor=sf,
         support_weaken=jw, activation_band=dict(_B0))
 

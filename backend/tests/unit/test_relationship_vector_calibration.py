@@ -55,10 +55,13 @@ def test_baseline_none_equals_explicit_baseline():
 
 
 def test_baseline_defaults_match_code_constants():
-    """BASELINE_CALIBRATION 기본값 = 현행 상수(단일 source)."""
+    """BASELINE_CALIBRATION 기본값 = 현행 상수(단일 source) — C0 all-0.3."""
     import saju_engines.relationship_effect_vector as V
     cal = BASELINE_CALIBRATION
-    assert cal.secondary_factor == V._SECONDARY_FACTOR
+    assert cal.factor_structure.value == "c0_shared"
+    assert cal.same_root_factors.activation == V._SECONDARY_FACTOR
+    assert cal.same_root_factors.stability_pressure == V._SECONDARY_FACTOR
+    assert cal.same_root_factors.separation_pressure == V._SECONDARY_FACTOR
     assert cal.support_weaken == V._SUPPORT_WEAKEN
     assert cal.activation_band == V._ACT_BAND
     assert cal.stability_support == V._STAB_SUPPORT
@@ -72,7 +75,7 @@ def test_experiment_profile_changes_output():
     base = synthesize_relationship_effect_vector(ev)
     # secondary_factor를 올리면 같은 root의 보조 kind 기여가 커진다.
     exp = synthesize_relationship_effect_vector(
-        ev, calibration=RelationshipVectorCalibration(
+        ev, calibration=RelationshipVectorCalibration.shared(
             profile_id="exp-high-secondary", secondary_factor=0.6))
     assert exp.axes.separation_pressure.value > base.axes.separation_pressure.value
 
@@ -95,7 +98,92 @@ def test_profile_frozen_and_extra_forbid():
     with pytest.raises(pydantic.ValidationError):
         RelationshipVectorCalibration(unknown_field=1)
     with pytest.raises((TypeError, pydantic.ValidationError)):
-        cal.secondary_factor = 0.9  # frozen
+        cal.support_weaken = 0.9  # frozen
+
+
+# ── P2-1C 축별 secondary factor 구조 (C0/C1/C2) ──────────────────────────────
+def test_c0_baseline_byte_identical_to_shared():
+    """BASELINE == .shared(0.3) — C0 정규화 표현이 기존과 동일 출력(§4·§13)."""
+    ev = _same_root_evidences()
+    base = synthesize_relationship_effect_vector(ev)
+    c0 = synthesize_relationship_effect_vector(
+        ev, calibration=RelationshipVectorCalibration.shared(secondary_factor=0.3))
+    assert base.model_dump() == c0.model_dump()
+
+
+def test_c1_activation_independent_of_pressure():
+    """C1: activation factor 변경이 stability·separation에 영향 0(§13)."""
+    ev = _same_root_evidences()
+    ref = synthesize_relationship_effect_vector(
+        ev, calibration=RelationshipVectorCalibration.activation_pressure_split(
+            activation=0.3, pressure=0.3))
+    exp = synthesize_relationship_effect_vector(
+        ev, calibration=RelationshipVectorCalibration.activation_pressure_split(
+            activation=0.6, pressure=0.3))
+    assert exp.axes.activation.value != ref.axes.activation.value    # activation 변함
+    assert exp.axes.stability.value == ref.axes.stability.value      # stability 불변
+    assert (exp.axes.separation_pressure.value
+            == ref.axes.separation_pressure.value)                   # separation 불변
+
+
+def test_c1_pressure_independent_of_activation():
+    """C1: pressure factor 변경이 activation에 영향 0(§13)."""
+    ev = _same_root_evidences()
+    ref = synthesize_relationship_effect_vector(
+        ev, calibration=RelationshipVectorCalibration.activation_pressure_split(
+            activation=0.3, pressure=0.3))
+    exp = synthesize_relationship_effect_vector(
+        ev, calibration=RelationshipVectorCalibration.activation_pressure_split(
+            activation=0.3, pressure=0.6))
+    assert exp.axes.activation.value == ref.axes.activation.value    # activation 불변
+    assert (exp.axes.separation_pressure.value
+            != ref.axes.separation_pressure.value)                   # separation 변함
+
+
+def test_c1_structure_rejects_split_pressure():
+    """C1 구조 검증: stability≠separation factor는 거부(§3)."""
+    import pydantic
+    import pytest
+
+    from saju_engines.relationship_effect_vector import (
+        SameRootSecondaryFactors,
+        SecondaryFactorStructure,
+    )
+    with pytest.raises(pydantic.ValidationError):
+        RelationshipVectorCalibration(
+            factor_structure=SecondaryFactorStructure.C1_ACTIVATION_PRESSURE,
+            same_root_factors=SameRootSecondaryFactors(
+                activation=0.3, stability_pressure=0.1, separation_pressure=0.5))
+
+
+def test_c0_structure_rejects_nonuniform():
+    import pydantic
+    import pytest
+
+    from saju_engines.relationship_effect_vector import (
+        SameRootSecondaryFactors,
+        SecondaryFactorStructure,
+    )
+    with pytest.raises(pydantic.ValidationError):
+        RelationshipVectorCalibration(
+            factor_structure=SecondaryFactorStructure.C0_SHARED,
+            same_root_factors=SameRootSecondaryFactors(
+                activation=0.3, stability_pressure=0.3, separation_pressure=0.5))
+
+
+def test_c2_allows_three_independent():
+    """C2: 세 축 독립 허용."""
+    cal = RelationshipVectorCalibration.axis_split(
+        activation=0.15, stability_pressure=0.3, separation_pressure=0.45)
+    assert cal.same_root_factors.activation == 0.15
+    assert cal.same_root_factors.separation_pressure == 0.45
+
+
+def test_negative_factor_rejected():
+    import pydantic
+    import pytest
+    with pytest.raises(pydantic.ValidationError):
+        RelationshipVectorCalibration.shared(secondary_factor=-0.1)
 
 
 # ── derived modifier 멱등 hardening (§6) ─────────────────────────────────────
