@@ -1,0 +1,46 @@
+{
+  "experiment_spec_version": "p2.1a.v1",
+  "baseline_calibration_version": "cal-2026-07-24.1",
+  "lattice_case_count": 33,
+  "invariants": {
+    "violations": [],
+    "passed": true
+  },
+  "raw_pairwise_inversion": {
+    "SF00": 6,
+    "SF15": 6,
+    "SF30": 0,
+    "SF45": 6,
+    "SF60": 10
+  },
+  "band_distribution": {
+    "B0": {
+      "moderate": 15,
+      "weak": 5,
+      "strong": 13
+    },
+    "B1": {
+      "weak": 8,
+      "moderate": 15,
+      "strong": 10
+    },
+    "B2": {
+      "weak": 10,
+      "moderate": 12,
+      "low": 2,
+      "strong": 9
+    },
+    "B3": {
+      "weak": 10,
+      "moderate": 14,
+      "low": 2,
+      "strong": 7
+    }
+  },
+  "band_reverse_violations": 0,
+  "near_threshold_b0": {
+    "weak": 0,
+    "moderate": 3,
+    "strong": 1
+  }
+}

@@ -1335,4 +1335,23 @@ strong threshold가 바뀌면 P3 후보 승격 조건도 바뀌므로 계수 안
 - **단조성 계약(§5)**: 비감소(non-decreasing)만 고정("반드시 증가"는 secondary_factor=0
   때문에 고정 안 함). legacy 일치는 목적 함수 아님(§1·§4·금지 최적화 목표 명시).
 - **versioning(§9)**: 값·경계=calibration bump / 구조·의미=schema bump. 실험 run은
-  vector_run_id로 분리. **다음 = P2-1 민감도 분석**(§7 metric).
+  vector_run_id로 분리. 다음 = P2-1 민감도 분석(§7 metric).
+
+### D-9. P2-1 foundation + P2-1A (2026-07-24)
+
+- **P2-1 foundation(8b22da7)**: `RelationshipVectorCalibration`(frozen) 합성기 명시
+  주입(전역 monkeypatch 없음)·BASELINE byte-identity(§9). production은 calibration
+  미전달→항상 BASELINE(실험 profile 주입 불가). profile_id ⊥ CALIBRATION_VERSION.
+- **P2-1A(sensitivity_harness)**: secondary_factor(5)×activation band(4) 두 효과
+  **분리** 측정(raw synthesis 축 / band projection 축). lattice 33 case(단일 kind·
+  same/cross root pair·root 1~4). 불변식 게이트 0 위반: baseline P2A_SF30_B0==
+  production BASELINE·band 보수화 역방향 0·single-kind SF 불변·status/count/
+  stability_support SF 불변.
+  - **핵심 발견 1**: secondary_factor는 **공유 계수**(activation·stability_pressure·
+    separation 세 축 same-root 복합에 동일 적용 — spec §3 affected_axes와 일치, 리뷰
+    §10 'activation 전용' 가정과 다름). 축별 분리 여부는 P2-1C 결정.
+  - **핵심 발견 2**: root 구별력(margin=cross_inc−same_inc)이 SF↑에 침식(CHUNG+HYEONG
+    SF00 15.548 → SF60 6.219). same_inc 비감소·cross_inc는 SF 불변.
+  - **핵심 발견 3**: root=1 strong rate가 band 보수화로 급락(B0 0.167→B2 0), root≥2는
+    대부분 1.0.
+  - 자동 최적 profile 선정 없음(§12). 분모 분리(lattice 전용). 다음 = P2-1B(쟁합).
