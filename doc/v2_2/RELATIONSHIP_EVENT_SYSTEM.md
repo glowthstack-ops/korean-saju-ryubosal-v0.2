@@ -1287,4 +1287,32 @@ provenance 흡수 후 차단 유지(e2e)·PII 없는 텔레메트리(allowlist D
   not_observable 분리·전체 vs family 부재 분리·§7 금지 준수)·chat 배선·§5 중립 서술.
 
 **게이트 전항 충족**(감사 16항 + coarse 15항 — HANDOFF §F). P2(캘리브레이션 — HANDOFF
-§C)·P3(증거 계약 — §D)는 각각 별도 승인 착수. legacy cap은 별도 기술 부채(§E).
+§C)·P3(증거 계약 — §D)는 각각 별도 승인 착수. legacy cap은 별도 기술 부채(§E,
+추적 ID `LEGACY-REL-CAP-01`).
+
+### D-7. P1 전체 종료 (2026-07-24) — CLOSED
+
+```
+P1-1 types                    : 완료
+P1-2 RelationPalace adapter   : 완료
+P1-3 MT2 adapter              : 완료
+P1-4 structure modifier       : 완료
+P1-5 vector synthesizer       : 완료
+P1-6 shadow channel·telemetry : 완료
+P1-7 legacy comparison audit  : 완료
+
+P1 status               : CLOSED
+usage                   : shadow_only
+production behavior delta: 0 (score·rank·candidate·Top-N·LLM/report/risk payload 불변)
+```
+
+**P1에서 아직 완료되지 않은 것(명시 분리)**: 벡터 계수의 현실 타당성·strong/moderate
+band 적정성(→P2) / 후보 생성 증거 계약·formalization·realization 축(→P3) / legacy cap
+migration(→`LEGACY-REL-CAP-01`) / production empirical validation(표본 축적 전 —
+coarse aggregate 배선만 검증, 22기간은 분포 근거 아님).
+
+**다음 트랙 = P2 벡터 캘리브레이션 우선**(P3 증거 계약이 P2 계수·band에 의존 —
+strong threshold가 바뀌면 P3 후보 승격 조건도 바뀌므로 계수 안정화 선행). P2 목표는
+**legacy delta 재현이 아니라** 관계 구조가 7축에 일관·비과대 반영되는지 검증과 상대
+강도·band 결정. 순서: P2-0 조정 가능 값·불변식 고정 → P2-1 민감도 → P2-2 의미 단조성
+회귀 → P2-3 경계 사례 감수 → P2-4 calibration version 고정 → P3.
