@@ -177,3 +177,27 @@ def test_telemetry_has_no_raw_text() -> None:
     _, tel = _build("남자친구가 있어", st)
     dumped = repr(tel.__dict__)
     assert "남자친구" not in dumped
+
+
+def test_observation_and_run_id_separation() -> None:
+    """P1-6 §5-2 — 동일 입력 재시도는 같은 observation/run, 버전 변경은 다른 run."""
+    import saju_engines.relationship_effect_vector as vec
+    from saju_api.services.relationship_shadow import (
+        relationship_observation_id,
+        relationship_vector_run_id,
+    )
+
+    obs1 = relationship_observation_id("t1", 5, "남자친구가 있어")
+    obs2 = relationship_observation_id("t1", 5, "남자친구가 있어")
+    assert obs1 == obs2  # 재시도 dedupe 기준
+    assert obs1 != relationship_observation_id("t2", 5, "남자친구가 있어")  # scope-local
+    run1 = relationship_vector_run_id(obs1)
+    assert run1 == relationship_vector_run_id(obs2)
+    orig = vec.RELATIONSHIP_CALIBRATION_VERSION
+    try:
+        vec.RELATIONSHIP_CALIBRATION_VERSION = "cal-test.2"
+        assert relationship_vector_run_id(obs1) != run1  # 새 버전 = 별도 관측
+    finally:
+        vec.RELATIONSHIP_CALIBRATION_VERSION = orig
+    # PII 없음 — 원문이 ID에 노출되지 않는다.
+    assert "남자친구" not in obs1 and len(obs1) == 16

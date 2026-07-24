@@ -51,6 +51,11 @@ _ACTIVATION_KINDS = frozenset(
     {"HAP", "CHUNG", "HYEONG", "PA", "HAE", "BOKEUM", "EMERGENCE"}
 )
 
+# 버전(P1-6 §5-2) — processing key에 포함해 계수 변경 후 재감사가 이전 telemetry와
+# dedupe되지 않게 한다. 계수·band 변경 시 CALIBRATION_VERSION을 반드시 올린다.
+RELATIONSHIP_VECTOR_SCHEMA_VERSION = "p1.1"
+RELATIONSHIP_CALIBRATION_VERSION = "cal-2026-07-24.1"
+
 # provisional calibration(§6) — shadow 감사 후 P3 전 재조정 대상.
 _SECONDARY_FACTOR = 0.3
 _SUPPORT_WEAKEN = 0.5

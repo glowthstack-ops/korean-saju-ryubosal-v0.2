@@ -120,6 +120,28 @@ def _utterance_signature(turn: int, text: str) -> str:
     return hashlib.sha256(f"{turn}:{text.strip()}".encode()).hexdigest()[:16]
 
 
+def relationship_observation_id(thread_id: str, turn: int, text: str) -> str:
+    """동일 사용자 입력의 안정 ID(P1-6 §5-2) — scope-local digest, 원문 미노출.
+
+    재시도 dedupe 기준. 사용자 간 전역 추적 불가(thread scope 포함 해시)."""
+    return hashlib.sha256(
+        f"{thread_id}:{turn}:{text.strip()}".encode()).hexdigest()[:16]
+
+
+def relationship_vector_run_id(observation_id: str) -> str:
+    """계산 런 ID = observation + 벡터 schema/calibration 버전(P1-6 §5-2).
+
+    계수 변경 후 같은 turn 재감사는 별도 run으로 관측되고, 동일 버전 재시도는
+    dedupe된다."""
+    from saju_engines.relationship_effect_vector import (
+        RELATIONSHIP_CALIBRATION_VERSION,
+        RELATIONSHIP_VECTOR_SCHEMA_VERSION,
+    )
+    return hashlib.sha256(
+        f"{observation_id}:{RELATIONSHIP_VECTOR_SCHEMA_VERSION}:"
+        f"{RELATIONSHIP_CALIBRATION_VERSION}".encode()).hexdigest()[:16]
+
+
 def build_relationship_shadow_contexts(
     *,
     question: str,

@@ -349,7 +349,8 @@ def _apply_specificity_suppression(
     # 보안·노출 속성은 그룹 내 OR: 대표의 원래 값으로 덮지 않는다(하드 게이트 우회 방지).
     live_primary_ids = {
         pid for c in cands
-        if id(c) in suppression and c.live_relationship_context_derived
+        if id(c) in suppression and merge_live_relationship_provenance(
+            c.live_relationship_context_derived)
         for pid in (suppression[id(c)][2],)
     }
     out: list[RiskCandidate] = []
@@ -509,6 +510,15 @@ def _resolve_selection_all(
         return [("mismatched", None, None, False,
                  sorted(dict.fromkeys(mismatch_axes)))]
     return [("unknown", None, None, False, [])]
+
+
+def merge_live_relationship_provenance(*values: bool) -> bool:
+    """live provenance OR 병합 SSOT(P1-6 §5-1) — 모든 후보 변환·흡수·대표 선택
+    경로는 이 함수를 사용한다. 불변식: False→True 가능, **True→False 금지**
+    (보안·노출 속성은 그룹 내 하나라도 참이면 참 — 대표의 원래 값으로 덮지 않는다).
+    최종 방어선은 relationship_shadow.strip_live_relationship_candidates
+    (build_risk_payload 직전 flag+namespace 이중 차단)."""
+    return any(values)
 
 
 @dataclass(frozen=True)
@@ -905,14 +915,29 @@ def _resolve_legal_all(
     return out
 
 
+@dataclass(frozen=True)
+class ResolvedRiskRelationship:
+    """관계 축 해소 결과(P1-6 §5-3 — 위치 tuple 폐기, 필드 누락 fail-closed).
+
+    live_state_derived는 기본값 없이 **명시 전달**을 요구한다 — 조용한 False 유입으로
+    하드 게이트가 우회되는 것을 방지한다(외부 저장 payload 역직렬화는 해당 없음 —
+    본 타입은 요청 내 전용)."""
+
+    alignment: str
+    role: str | None
+    target_id: str | None
+    exposure: ExposureStatus
+    live_state_derived: bool
+
+
 def _resolve_relationship(
     item: RiskItem,
     contexts: list[RelationshipContext] | None,
     default_exposure: ExposureStatus,
-) -> tuple[str, str | None, str | None, ExposureStatus, bool]:
-    """관계 축 3상태 + 유효 노출 유도 → (alignment, role, target_id, exposure, live).
+) -> ResolvedRiskRelationship:
+    """관계 축 3상태 + 유효 노출 유도 → ResolvedRiskRelationship.
 
-    live: 선택된 컨텍스트가 live 관계 상태 유래인지(provenance — 하드 게이트 주 판단).
+    live_state_derived: 선택된 컨텍스트가 live 관계 상태 유래인지(하드 게이트 주 판단).
 
     관계 역할·실질 조건이 없는 항목은 관계 축과 무관하다(matched, 전역 노출 사용).
     역할 지정 항목: ①허용 역할의 컨텍스트가 있으면 matched — 가장 확인된 상대 기준
@@ -926,7 +951,8 @@ def _resolve_relationship(
         and (policy.requires_financial_tie or policy.requires_shared_responsibility)
     )
     if not needs_context:
-        return "matched", None, None, default_exposure, False
+        return ResolvedRiskRelationship(
+            "matched", None, None, default_exposure, live_state_derived=False)
     allowed = item.applicable_relationship_roles
     ctxs = contexts or []
     matching = [
@@ -939,11 +965,16 @@ def _resolve_relationship(
             and allowed and c.target_role not in allowed
             for c in ctxs
         ):
-            return "mismatched", None, None, ExposureStatus.UNKNOWN, False
-        return "unknown", None, None, ExposureStatus.UNKNOWN, False
+            return ResolvedRiskRelationship(
+                "mismatched", None, None, ExposureStatus.UNKNOWN,
+                live_state_derived=False)
+        return ResolvedRiskRelationship(
+            "unknown", None, None, ExposureStatus.UNKNOWN, live_state_derived=False)
     scored = [(_effective_ctx_exposure(item, c), c) for c in matching]
     eff, best = max(scored, key=lambda pair: _EXPOSURE_PREFERENCE[pair[0]])
-    return "matched", best.target_role, best.target_id, eff, best.live_state_derived
+    return ResolvedRiskRelationship(
+        "matched", best.target_role, best.target_id, eff,
+        live_state_derived=merge_live_relationship_provenance(best.live_state_derived))
 
 
 @dataclass(frozen=True)
@@ -1155,9 +1186,10 @@ class RiskEngine:
                 continue  # 관측 없음 — 후보 자체를 만들지 않는다.
             # RelationshipContext(감수 16차) — 관계 역할 지정 항목의 유효 노출은 전역
             # 파라미터가 아니라 매칭된 현실 관계에서 유도한다(존재 추론 금지).
-            rel_alignment, rel_role, rel_target_id, rel_exposure, rel_live = (
-                _resolve_relationship(item, relationship_contexts, exposure_status)
-            )
+            rel = _resolve_relationship(item, relationship_contexts, exposure_status)
+            rel_alignment, rel_role = rel.alignment, rel.role
+            rel_target_id, rel_exposure = rel.target_id, rel.exposure
+            rel_live = rel.live_state_derived
             # SelectionContext(감수 14차 → 25차 SEL-e) — episode별 해석 목록:
             # MISMATCHED는 명시적 부적용(BLOCKED — 단, 호환 episode가 있으면 그
             # episode가 우선·mismatch 전파 금지). UNKNOWN은 구조 보존. 단수
