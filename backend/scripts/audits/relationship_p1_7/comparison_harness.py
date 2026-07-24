@@ -219,10 +219,29 @@ def main(out_path: Path = OUT) -> int:
     absent_sub = Counter(
         r.candidate_absent_subclass.value for r in records
         if r.candidate_absent_subclass is not None)
-    # 중첩 독립 finding 카운터(§2·§3) — 합계 ≠ record 수(현상 중첩 보존).
+    # 중첩 독립 finding 카운터(§2·§3) — finding별 값 = **해당 finding을 가진 고유
+    # record 수**(record당 각 finding 최대 1회). finding 간 중첩이 있어 서로 다른
+    # finding 값을 합산하면 안 된다(§2). 별도로 총 발생 수·보유 record 수도 기록.
     finding_dist: Counter = Counter()
+    findings_total = 0
+    records_with_finding = 0
     for r in records:
         finding_dist.update(f.value for f in r.findings)
+        findings_total += len(r.findings)
+        records_with_finding += int(bool(r.findings))
+    # 중첩 공기표(§2) — 어느 finding 쌍이 한 record에 동시 발생하는지(P2/P3 우선순위).
+    _cooccur_pairs = [
+        ("cap_saturated", "negative_stability_with_positive_delta"),
+        ("legacy_event_key_coverage_gap", "cap_saturated"),
+        ("strong_activation", "all_candidates_absent"),
+        ("multi_root", "all_candidates_absent"),
+    ]
+    cooccur: dict[tuple[str, str], int] = {p: 0 for p in _cooccur_pairs}
+    for r in records:
+        fs = {f.value for f in r.findings}
+        for a, b in _cooccur_pairs:
+            if a in fs and b in fs:
+                cooccur[(a, b)] += 1
     # stratification 교차(성별·일간 음양별 class 분포).
     by_gender: dict[str, Counter] = {}
     by_yinyang: dict[str, Counter] = {}
@@ -243,12 +262,23 @@ def main(out_path: Path = OUT) -> int:
     for k, v in absent_sub.most_common():
         md.append(f"| {k} | {v} |")
 
-    md += ["", "### 중첩 독립 finding(§2·§3 — 합계≠record 수, 복합 현상 보존)", "",
-           "> primary_class 하나가 가리는 현상을 독립 카운터로 집계한다. "
-           "strong+multi-root 부재처럼 한 record가 복수 finding을 동시에 갖는다.", "",
-           "| finding | count |", "|---|--:|"]
+    md += ["", "### 중첩 독립 finding(§2·§3 — 세 수치 분리, 합산 금지)", "",
+           "> **세 수치를 구분한다(§2)**: 전체 비교 record 수 · finding별 고유 record 수 "
+           "· 총 발생 수(중첩 포함). finding 간 중첩이 있어 서로 다른 finding 값을 "
+           "합산하면 안 된다(예: cap 53 + direction 88 ≠ 문제 총수).", "",
+           f"- 전체 비교 record: **{n}**",
+           f"- finding ≥1 보유 record: **{records_with_finding}** "
+           f"({n - records_with_finding}건은 finding 없음)",
+           f"- 총 finding 발생 수(중첩 포함 Σ): **{findings_total}**", "",
+           "| finding | 고유 record 수 |", "|---|--:|"]
     for k, v in finding_dist.most_common():
         md.append(f"| {k} | {v} |")
+
+    md += ["", "#### finding 중첩 공기표(§2 — P2/P3 우선순위 판단용)", "",
+           "> 한 record에 두 finding이 동시 발생한 수. 어디를 먼저 다룰지의 근거.", "",
+           "| finding A | finding B | 동시 발생 |", "|---|---|--:|"]
+    for (a, b), c in cooccur.items():
+        md.append(f"| {a} | {b} | {c} |")
 
     md += ["", "## §4 필수 매트릭스", ""]
     md += _md_table("A. Root 수 × legacy cap", _matrix_root_cap(records),

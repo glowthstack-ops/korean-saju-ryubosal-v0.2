@@ -23,11 +23,15 @@ fixture 6종(성별·일간 음양 stratified) · 비교 record 331건. **감사
 | vector_present | 85 |
 | multi_root | 22 |
 
-### 중첩 독립 finding(§2·§3 — 합계≠record 수, 복합 현상 보존)
+### 중첩 독립 finding(§2·§3 — 세 수치 분리, 합산 금지)
 
-> primary_class 하나가 가리는 현상을 독립 카운터로 집계한다. strong+multi-root 부재처럼 한 record가 복수 finding을 동시에 갖는다.
+> **세 수치를 구분한다(§2)**: 전체 비교 record 수 · finding별 고유 record 수 · 총 발생 수(중첩 포함). finding 간 중첩이 있어 서로 다른 finding 값을 합산하면 안 된다(예: cap 53 + direction 88 ≠ 문제 총수).
 
-| finding | count |
+- 전체 비교 record: **331**
+- finding ≥1 보유 record: **269** (62건은 finding 없음)
+- 총 finding 발생 수(중첩 포함 Σ): **513**
+
+| finding | 고유 record 수 |
 |---|--:|
 | legacy_event_key_coverage_gap | 135 |
 | negative_stability_with_positive_delta | 88 |
@@ -38,6 +42,17 @@ fixture 6종(성별·일간 음양 stratified) · 비교 record 331건. **감사
 | strong_activation | 36 |
 | multi_root_candidate_absent | 22 |
 | strong_activation_candidate_absent | 15 |
+
+#### finding 중첩 공기표(§2 — P2/P3 우선순위 판단용)
+
+> 한 record에 두 finding이 동시 발생한 수. 어디를 먼저 다룰지의 근거.
+
+| finding A | finding B | 동시 발생 |
+|---|---|--:|
+| cap_saturated | negative_stability_with_positive_delta | 45 |
+| legacy_event_key_coverage_gap | cap_saturated | 20 |
+| strong_activation | all_candidates_absent | 9 |
+| multi_root | all_candidates_absent | 15 |
 
 ## §4 필수 매트릭스
 

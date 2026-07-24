@@ -22,8 +22,28 @@
 
 ## A. 확정된 구조적 관찰 (deterministic — 재현 가능)
 
-331 record 기준. 중첩 독립 finding은 primary_class 하나가 가리는 복합 현상을 보존한다
-(합계 ≠ record 수).
+331 record 기준. 중첩 독립 finding은 primary_class 하나가 가리는 복합 현상을 보존한다.
+
+> **finding 수치는 세 가지를 구분한다(§2). 서로 다른 finding 값을 합산하지 않는다.**
+> - 전체 비교 record: **331**
+> - finding ≥1 보유 record: **269** (62건은 finding 없음 — 깨끗한 aligned/insufficient)
+> - 총 finding 발생 수(중첩 포함 Σ): **513**
+>
+> 아래 각 finding 수치는 **그 finding을 가진 고유 record 수**다(record당 각 finding 최대
+> 1회). `cap 53 + direction 88 = 문제 총수` 식 합산은 중첩 때문에 오류다.
+
+**finding 중첩 공기(§2 — P2/P3 착수 우선순위 근거)**:
+
+| finding A | finding B | 동시 발생 |
+|---|---|--:|
+| cap_saturated | negative_stability_with_positive_delta | 45 |
+| legacy_event_key_coverage_gap | cap_saturated | 20 |
+| multi_root | all_candidates_absent | 15 |
+| strong_activation | all_candidates_absent | 9 |
+
+> cap 포화 record 53건 중 **45건**이 활성/품질 압축(negative stability + positive delta)을
+> 동반한다 — cap 완화(§E)와 벡터 축 분리(§C)가 같은 사례를 겹쳐 다룬다는 신호. 후보 전체
+> 부재 중 multi-root 15·strong 9는 P3 증거 계약 우선 검토 대상(§D).
 
 ### A-1. legacy cap 포화 — 단일 root부터 압축
 
@@ -83,7 +103,9 @@ exposure·realization·experience_valence·formalization은 P1에서 평가하�
 - 벡터 coverage: activation/stability/separation status·histogram, root bucket, kind combo,
   unresolved bucket
 - 관계 후보 coverage: 전체 유무 + family별(new_relationship·relationship_change·marriage_signal) present/absent
-- P3 우선순위 신호: `vector_present/strong/multi_root_all_candidates_absent`(중첩 카운터)
+- P3 우선순위 신호: `vector_present/strong/multi_root_all_candidates_absent` — **중첩 카운터
+  (§3): strong·multi-root가 한 기간에 동시 성립할 수 있어 세 값의 합이 전체 후보 부재 수보다
+  클 수 있다.** 합산해 부재율로 보고하지 않는다.
 - P2 캘리브레이션 신호: strong 비율·negative stability 비율·separation evaluated 비율·
   OTHER_BOUNDED 비율·unresolved 비율
 
@@ -136,17 +158,28 @@ P3는 **후보 생성 공백과 증거 계약**을 다룬다.
 
 ---
 
-## E. Legacy 별도 기술 부채
+## E. Legacy 별도 기술 부채 — `LEGACY-REL-CAP-01`
 
-cap 자체는 P2 벡터 캘리브레이션·P3 증거 계약만으로 완전히 해결되지 않을 수 있다. 아래는 별도
-migration/compatibility 과제로 표시한다.
+cap 자체는 P2 벡터 캘리브레이션·P3 증거 계약만으로 자동 해결되지 않는다. **P4에 암묵적으로
+섞지 않고 별도 추적 ID로 관리한다.**
 
+**`LEGACY-REL-CAP-01`**
 - `legacy relation cap 22`(`relation_palace_engine._MAX_RELATION_DELTA`) — 구조 정보 소실원
-- event family별 delta 소비 차이(매트릭스 B)
-- legacy 후보 랭킹·점수 호환성 유지 여부(cap 제거 시 회귀 범위)
+  (단일 root부터 포화 — §A-1)
+- event family별 delta 소비 차이(매트릭스 B·§A-2)
+- legacy 후보 랭킹·점수 호환성 유지 여부(cap 완화 시 회귀 범위)
+- 신규 벡터와의 coexistence 기간
 
-> 이 과제는 P1 벡터가 shadow에서 승격되는 시점(P4 이후)에 legacy 파이프라인 변경과 함께
-> 검토한다. P1-7 단계에서는 **관찰만** 기록한다.
+향후 선택지(각각 별도 결정):
+```
+legacy 유지 + 신규 벡터 병행
+legacy cap 완화
+family별 delta 제거
+신규 증거 계약으로 단계적 대체
+```
+
+> P1 벡터가 shadow에서 승격되는 시점(P4 이후)에 legacy 파이프라인 변경과 함께 검토한다.
+> P1-7 단계에서는 **관찰만** 기록한다. P2 계수 조정·P3 증거 계약과 독립 과제다.
 
 ---
 
