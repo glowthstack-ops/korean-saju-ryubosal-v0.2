@@ -126,6 +126,7 @@ from saju_shared_types.topic_context import PeriodSpec
 
 from . import (
     llm_client,
+    relationship_legacy_comparison,
     relationship_shadow,
     relationship_vector_sidecar,
     relationship_vector_telemetry,
@@ -3789,6 +3790,13 @@ def chat(
                 period_failure_counts=_rel_vec_sidecar.period_failure_counts,
             )
             relationship_vector_telemetry.emit_batch(_rel_vec_batch)
+            # P1-7d-lite — legacy 비교 coarse aggregate(관측 전용·delta 없음): 상세
+            # envelope(벡터+audit)에서 후보 coverage·분포만 집계해 emit. 상세 legacy
+            # 비교(cap·blind spot)는 결정적 harness 전담(라이브는 relation_delta None).
+            _rel_cmp_agg = (
+                relationship_legacy_comparison.build_comparison_prod_aggregate(
+                    _rel_envelopes))
+            relationship_legacy_comparison.emit_comparison_prod_aggregate(_rel_cmp_agg)
         except Exception:  # noqa: BLE001 — 관계 벡터 telemetry 실패는 본 응답 비차단
             _logger.exception("relationship_vector telemetry finalize 실패 — 본 응답 비차단")
         finally:

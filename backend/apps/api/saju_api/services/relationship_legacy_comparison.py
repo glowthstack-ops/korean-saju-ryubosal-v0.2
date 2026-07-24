@@ -23,7 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from saju_engines.relationship_effect_vector import (
     RELATIONSHIP_CALIBRATION_VERSION,
@@ -32,14 +32,22 @@ from saju_engines.relationship_effect_vector import (
 from saju_shared_types.relationship_effect import AxisStatus
 
 from .relationship_vector_telemetry import (
+    _ACT_HIST,
+    _SEP_HIST,
     AuditProjectionStatus,
     KindCombo,
+    RelationshipEffectShadowEnvelope,
+    _hist_bucket,
+    _inc,
     _root_bucket,
+    _stability_bucket,
     classify_kind_combo,
 )
 
 # comparison DTO 버전(§11) — P1-6 telemetry schema/calibration과 독립.
 COMPARISON_SCHEMA_VERSION = "cmp.v1"
+# production coarse aggregate DTO 버전(§8) — cmp.v1 상세 record와도 분리.
+COMPARISON_PROD_SCHEMA_VERSION = "cmp.prod.v1"
 
 # 관계 후보 canonical family(P0-A 실측 3종) — 반드시 분리 비교(합산 금지).
 REL_COMPARISON_FAMILIES = ("marriage_signal", "new_relationship", "relationship_change")
@@ -72,11 +80,36 @@ class LegacyVectorComparisonClass(StrEnum):
 
 
 class CandidateAbsentSubclass(StrEnum):
-    """LEGACY_CANDIDATE_ABSENT 세분(§7) — 부재 자체는 오류 아님, P3 검토 신호."""
+    """LEGACY_CANDIDATE_ABSENT 세분(§7) — 부재 자체는 오류 아님, P3 검토 신호.
+
+    상호 배타 아님(§3): strong + multi-root가 동시에 성립할 수 있다. 단일 필드는
+    우선순위(MULTI_ROOT > VECTOR_STRONG > VECTOR_PRESENT)로 대표값만 담으므로,
+    중첩 사실은 record.findings의 독립 flag로 보존한다(집계는 독립 카운터).
+    """
 
     VECTOR_PRESENT = "vector_present"          # 벡터 activation 평가됨, 후보 없음
     VECTOR_STRONG = "vector_strong"            # activation strong band, 후보 없음
     MULTI_ROOT = "multi_root"                  # 독립 root 2+, 후보 없음
+
+
+class LegacyVectorComparisonFinding(StrEnum):
+    """중첩 가능한 독립 관찰(§2·§3) — primary_class 하나가 가리는 복합 현상 보존.
+
+    한 record가 여러 finding을 동시에 가질 수 있다(cap 포화 + 음 stability + family
+    공백 등). 집계는 각 finding을 **독립 카운터**로 세며 합계가 record 수와 같을
+    필요는 없다. §5-2 중립 명명: BLIND_SPOT 대신 COVERAGE_GAP(의도된 사건별 계약인지
+    구현 사각지대인지 P3 판단 — 이름이 결론을 선점하지 않게).
+    """
+
+    CAP_SATURATED = "cap_saturated"
+    LEGACY_EVENT_KEY_COVERAGE_GAP = "legacy_event_key_coverage_gap"
+    ALL_CANDIDATES_ABSENT = "all_candidates_absent"
+    NEGATIVE_STABILITY_WITH_POSITIVE_DELTA = "negative_stability_with_positive_delta"
+    VECTOR_INSUFFICIENT = "vector_insufficient"
+    MULTI_ROOT = "multi_root"
+    STRONG_ACTIVATION = "strong_activation"
+    STRONG_ACTIVATION_CANDIDATE_ABSENT = "strong_activation_candidate_absent"
+    MULTI_ROOT_CANDIDATE_ABSENT = "multi_root_candidate_absent"
 
 
 @dataclass(frozen=True)
@@ -126,6 +159,9 @@ class LegacyVectorComparisonRecord(BaseModel):
 
     comparison_class: LegacyVectorComparisonClass
     candidate_absent_subclass: CandidateAbsentSubclass | None = None
+    # 중첩 가능한 독립 관찰(§2·§3) — primary_class가 가리는 복합 현상 보존.
+    # 정렬 list로 직렬화(결정적). 집계는 각 finding을 독립 카운터로 센다.
+    findings: list[LegacyVectorComparisonFinding] = Field(default_factory=list)
 
     activation_status: AxisStatus
     activation_bucket: str | None
@@ -243,6 +279,42 @@ def _classify_family(
     return (LegacyVectorComparisonClass.ALIGNED, None)
 
 
+def _family_findings(
+    vector: RelationshipEffectVectorResult,
+    obs: FamilyLegacyObservation,
+    *,
+    any_family_absent: bool,
+    all_families_absent: bool,
+) -> list[LegacyVectorComparisonFinding]:
+    """한 record의 중첩 독립 관찰(§2·§3) — primary_class와 별개로 전부 수집."""
+    F = LegacyVectorComparisonFinding
+    v_active = vector.axes.activation.status is AxisStatus.EVALUATED
+    strong = vector.axes.activation.band == "strong"
+    multi_root = vector.independent_root_trigger_count >= 2
+    delta = obs.relation_delta
+    found: list[LegacyVectorComparisonFinding] = []
+    if obs.relation_capped:
+        found.append(F.CAP_SATURATED)
+    if any_family_absent and not all_families_absent:
+        found.append(F.LEGACY_EVENT_KEY_COVERAGE_GAP)
+    if all_families_absent:
+        found.append(F.ALL_CANDIDATES_ABSENT)
+    if (_has_negative_relation(vector) and delta is not None
+            and delta > _DELTA_ZERO_EPS):
+        found.append(F.NEGATIVE_STABILITY_WITH_POSITIVE_DELTA)
+    if not v_active and vector.evidence_count > 0 and obs.candidate_present:
+        found.append(F.VECTOR_INSUFFICIENT)
+    if multi_root:
+        found.append(F.MULTI_ROOT)
+    if strong:
+        found.append(F.STRONG_ACTIVATION)
+    if not obs.candidate_present and v_active and strong:
+        found.append(F.STRONG_ACTIVATION_CANDIDATE_ABSENT)
+    if not obs.candidate_present and v_active and multi_root:
+        found.append(F.MULTI_ROOT_CANDIDATE_ABSENT)
+    return sorted(set(found), key=lambda f: f.value)
+
+
 def _base_record_fields(inp: PeriodComparisonInput) -> dict:
     """벡터 축·root·kind 등 기간 공통 필드(family 무관)."""
     v = inp.vector
@@ -280,10 +352,14 @@ def classify_period(
         o.event_family for o in inp.families
         if o.relation_delta is not None and o.relation_delta > _DELTA_ZERO_EPS
     }
+    # family 공백 판정(§9 — 전체 부재와 family별 부재 분리): 후보 대상 family만 기준.
+    fam_present = {o.event_family for o in inp.families if o.candidate_present}
+    tracked = {o.event_family for o in inp.families}
+    all_families_absent = bool(tracked) and not fam_present
+    any_family_absent = bool(tracked - fam_present)
     out: list[LegacyVectorComparisonRecord] = []
-    any_present = False
+    any_present = bool(fam_present)
     for obs in inp.families:
-        any_present = any_present or obs.candidate_present
         other_positive = bool(positive_families - {obs.event_family})
         result = _classify_family(
             v, obs, any_other_family_positive=other_positive)
@@ -294,6 +370,9 @@ def classify_period(
             **base,
             comparison_class=cls,
             candidate_absent_subclass=subclass,
+            findings=_family_findings(
+                v, obs, any_family_absent=any_family_absent,
+                all_families_absent=all_families_absent),
             legacy_candidate_present=obs.candidate_present,
             legacy_event_family=obs.event_family,
             legacy_relation_delta_bucket=_delta_bucket(obs.relation_delta),
@@ -314,3 +393,152 @@ def classify_period(
             legacy_capped=None,
         ))
     return out
+
+
+# ── P1-7d-lite: production coarse aggregate (cmp.prod.v1) ────────────────────
+# 라이브 경로는 relation_delta=None이라 delta·cap 의존 분류를 만들 수 없다(§7 금지).
+# 확정 가능한 것만: 벡터 coverage 분포 + 관계 후보 유무(family별) + P3 우선순위
+# 신호(강/다중 root인데 후보 전무). deterministic harness의 상세 분석을 대체하지
+# 않고, 거기서 본 현상이 실제 요청에 얼마나 자주 나타나는지의 대리 지표만 관측한다.
+
+import logging  # noqa: E402
+
+logger = logging.getLogger(__name__)
+
+_OBSERVABLE_AUDIT = frozenset({
+    AuditProjectionStatus.SUCCESS, AuditProjectionStatus.NO_CANDIDATE,
+})
+
+
+class ComparisonObservability(StrEnum):
+    """production 비교 관측 등급(§7) — delta 부재라 대부분 COARSE."""
+
+    COARSE = "coarse"           # 유무·coverage·분포만 관측(delta·cap 불가)
+    NOT_ELIGIBLE = "not_eligible"  # audit 결손(JOIN_*/PROJECTION_FAILURE) — 관측 불가
+
+
+def _unresolved_bucket(n: int) -> str:
+    return str(n) if n <= 1 else "2+"
+
+
+class LegacyVectorComparisonProdAggregate(BaseModel):
+    """production coarse aggregate(§8) — delta·cap 의존 분류 없음, allowlist 전용.
+
+    분모 불변식: observed = coarse_audit_eligible + audit_not_observable. family/
+    전체 부재 카운트는 **eligible 기간에서만** 센다(audit 결손을 부재로 넣지 않음, §9).
+    all-absent subclass 3종은 중첩 가능(합계 ≠ 전체 부재 수, §3). 벡터 분포는 전
+    observed 기간 기준(벡터는 audit와 무관하게 유효).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = COMPARISON_PROD_SCHEMA_VERSION
+    calibration_version: str
+    observability: ComparisonObservability = ComparisonObservability.COARSE
+
+    # 기간 분모(§8).
+    observed_period_count: int = 0
+    coarse_audit_eligible_period_count: int = 0
+    audit_not_observable_period_count: int = 0
+
+    # 후보 유무(eligible 기간 — §8·§9: 전체 부재).
+    periods_with_any_relationship_candidate: int = 0
+    periods_without_any_relationship_candidate: int = 0
+
+    # family별 존재/부재(eligible 기간 — §9: family별 부재는 전체 부재와 분리).
+    family_present_counts: dict[str, int] = Field(default_factory=dict)
+    family_absent_counts: dict[str, int] = Field(default_factory=dict)
+
+    # 전체 후보 부재 시 P3 우선순위 신호(§8 — 중첩 카운터, 합계≠전체 부재 수 §3).
+    vector_present_all_candidates_absent: int = 0
+    vector_strong_all_candidates_absent: int = 0
+    multi_root_all_candidates_absent: int = 0
+
+    # 벡터 분포(전 observed 기간 — P2 캘리브레이션 신호).
+    activation_status_counts: dict[str, int] = Field(default_factory=dict)
+    stability_status_counts: dict[str, int] = Field(default_factory=dict)
+    separation_status_counts: dict[str, int] = Field(default_factory=dict)
+    activation_hist_counts: dict[str, int] = Field(default_factory=dict)
+    stability_bucket_counts: dict[str, int] = Field(default_factory=dict)
+    separation_hist_counts: dict[str, int] = Field(default_factory=dict)
+    root_count_bucket_counts: dict[str, int] = Field(default_factory=dict)
+    kind_combo_counts: dict[str, int] = Field(default_factory=dict)
+    unresolved_bucket_counts: dict[str, int] = Field(default_factory=dict)
+
+
+def build_comparison_prod_aggregate(
+    envelopes: list[RelationshipEffectShadowEnvelope],
+) -> LegacyVectorComparisonProdAggregate:
+    """P1-6 finalize envelope → coarse aggregate(§8) — 읽기 전용, delta 미사용.
+
+    envelope는 벡터(draft) + reducer 이후 legacy audit(present family) + audit_status를
+    담는다. present family = candidate_present인 audit의 event_key. absent = 추적 family
+    - present(단, audit 결손이면 부재로 세지 않음 — not_observable).
+    """
+    agg = LegacyVectorComparisonProdAggregate(
+        calibration_version=RELATIONSHIP_CALIBRATION_VERSION)
+    for env in envelopes:
+        v = env.draft.vector
+        agg.observed_period_count += 1
+        # 벡터 분포(전 observed — 벡터는 audit와 무관하게 유효).
+        _inc(agg.activation_status_counts, v.axes.activation.status.value)
+        _inc(agg.stability_status_counts, v.axes.stability.status.value)
+        _inc(agg.separation_status_counts, v.axes.separation_pressure.status.value)
+        _inc(agg.activation_hist_counts, _hist_bucket(
+            v.axes.activation.value
+            if v.axes.activation.status is AxisStatus.EVALUATED else None, _ACT_HIST))
+        _inc(agg.stability_bucket_counts, _stability_bucket(
+            v.axes.stability.status, v.axes.stability.value))
+        _inc(agg.separation_hist_counts, _hist_bucket(
+            v.axes.separation_pressure.value
+            if v.axes.separation_pressure.status is AxisStatus.EVALUATED else None,
+            _SEP_HIST))
+        _inc(agg.root_count_bucket_counts,
+             _root_bucket(v.independent_root_trigger_count))
+        _inc(agg.kind_combo_counts, classify_kind_combo(v).value)
+        _inc(agg.unresolved_bucket_counts,
+             _unresolved_bucket(v.unresolved_trigger_evidence_count))
+
+        # 후보 유무는 audit이 관측 가능할 때만(§9 — 결손을 부재로 넣지 않음).
+        if env.audit_status not in _OBSERVABLE_AUDIT:
+            agg.audit_not_observable_period_count += 1
+            continue
+        agg.coarse_audit_eligible_period_count += 1
+        present = {a.event_key for a in env.legacy_candidate_audits
+                   if a.candidate_present}
+        if present:
+            agg.periods_with_any_relationship_candidate += 1
+        else:
+            agg.periods_without_any_relationship_candidate += 1
+        for fam in REL_COMPARISON_FAMILIES:
+            if fam in present:
+                _inc(agg.family_present_counts, fam)
+            else:
+                _inc(agg.family_absent_counts, fam)
+        # 전체 후보 부재 시 P3 우선순위 신호(중첩 — §3).
+        if not present:
+            v_active = v.axes.activation.status is AxisStatus.EVALUATED
+            if v_active:
+                agg.vector_present_all_candidates_absent += 1
+            if v.axes.activation.band == "strong":
+                agg.vector_strong_all_candidates_absent += 1
+            if v.independent_root_trigger_count >= 2:
+                agg.multi_root_all_candidates_absent += 1
+    return agg
+
+
+def emit_comparison_prod_aggregate(
+    agg: LegacyVectorComparisonProdAggregate,
+) -> None:
+    """PII 없는 1줄 로그(coarse 관측) — 실패는 본 요청 비차단."""
+    try:
+        logger.info(
+            "relationship_comparison_prod observed=%d eligible=%d not_observable=%d "
+            "with_cand=%d without_cand=%d aggregate=%s",
+            agg.observed_period_count, agg.coarse_audit_eligible_period_count,
+            agg.audit_not_observable_period_count,
+            agg.periods_with_any_relationship_candidate,
+            agg.periods_without_any_relationship_candidate,
+            agg.model_dump(mode="json"))
+    except Exception:  # noqa: BLE001 — 감사 telemetry 실패는 본 요청을 막지 않는다
+        logger.warning("relationship_comparison_prod_emit_failed")
