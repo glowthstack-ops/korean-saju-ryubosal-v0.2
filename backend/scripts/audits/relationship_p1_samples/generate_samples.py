@@ -198,6 +198,11 @@ def main() -> None:
     md = ["# P1-5 중간 승인 샘플 (2026-07-24)", "",
           "candidate-linked(22)는 실전 명식 legacy 실측 — 본문 표 참조. "
           "어댑터 단독 사례의 event_adjusted/legacy_delta/legacy_capped는 None(필드 분리).",
+          "",
+          "**해석 주의(승인 §11)**: 표의 activation 값(예: 사례 22의 34.98 strong)은 "
+          "**합성 전 evidence base 진단 총량**이다 — 같은 root(운 글자)에서 파생된 복수 "
+          "kind의 단순 합이 포함될 수 있으며, P1-5 root-normalized 최종 축 값이 아니다. "
+          "최종 band는 root dedupe·modifier 적용 후 합성기가 재산출한다.",
           "", "## 사례 요약표", "",
           "| 사례 | activation | stability(net) | separation | sup/prs | ev | grp | root | 미해소 | 대체 | 비고 |",
           "|---|---|---|---|---|--:|--:|--:|--:|--:|---|"]
