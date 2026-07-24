@@ -1229,3 +1229,41 @@ merge 함수+직렬화 직전 최종 방어선)·telemetry processing key·5-tup
 단독으로 formalization 상승 금지 / MT2-RelationPalace 중복 집계 금지 / 도화는 P1 벡터
 입력 금지 / D-3 불변식 전항 / live provenance 흡수 후 차단 유지 / PII 없는 텔레메트리 /
 ruff·mypy·회귀 clean.
+
+### D-5. P1-6 완료 기록 (2026-07-24)
+
+**P1-6 전 항목 완료** — 3개 커밋으로 마감:
+
+1. **Draft/Envelope 2단 telemetry (553e262)** — `RelationshipEffectShadowDraft`
+   (Top-N 이전·audit 미결)와 `finalize_shadow_envelope`(reducer 이후 결합)를 타입
+   수준으로 분리(미완성 draft는 telemetry DTO 변환 불가). NO_CANDIDATE는 정상
+   관측으로 audit_degraded 분모(eligible)에서 제외, `detailed_` 접두사로 상세
+   선택분만 결합. `select_detailed_drafts`(HMAC 정렬 상위 cap)·§4 불변식
+   (record success+failure=detail_selected, truncated=vector_success-detail_selected).
+   aggregate는 draft(전 성공 기간)에서 직접 누적.
+
+2. **chat 배선 실행 계약 §12 (d31aaae)** — Top-N 이전 Draft 생성 → 전체 aggregate
+   즉시 누적 → 상세 cap개만 bounded 보존 → production reducer(payload) 이후 상세
+   Draft에만 audit/rank 결합 → Envelope finalize → allowlist batch 1회 emit →
+   sidecar 폐기. `EventEngineV2.take_relationship_shadow()`가 채점 중 수집한 불변
+   projection(탐지 재호출·cands 변형 0 — 주 채점 bit 동일 회귀)을 반환하고,
+   `relationship_vector_sidecar`가 어댑터·합성기에 걸어 Draft를 만든다. legacy
+   audit join은 서명 기반 1건만(`candidate_join_signature` — event_key 단독 금지),
+   복수 매치 JOIN_AMBIGUOUS·최종만 존재 JOIN_NOT_FOUND·후보 없음 NO_CANDIDATE
+   fail-closed. pre_reduce_rank=reducer 입력 순서, final_rank=Top-N 순서. 전 구간
+   try/except 격리(관측 전용 — 후보·점수·payload delta 0). 실 chat 스모크 22기간
+   emit 확인.
+
+3. **live provenance 무결성 (65bb050)** — `rebuild_risk_candidate`(주 방어선):
+   RiskCandidate 재구성 SSOT, live provenance=OR(base·sources·update) 단조 보존
+   (True→False 강등 불가). 억제 경로 2개 rebuild site·score_shadow를 helper 경유로
+   전환. 정적 감사 스크립트(`audit_risk_candidate_rebuilds` — AST로 model_copy/
+   model_construct/replace/copy 수집, 미승인 raw 재구성 실패)로 신규 우회 site 유입
+   차단. 2차 fail-safe(namespace 필터)와 독립 — 회귀가 각 층 단독 차단 + 둘 다
+   유실 시 누출(load-bearing)을 검증.
+
+**게이트 판정**: 7축 AxisStatus 전수(P1-5 합성기)·근거 없음≠약함(INSUFFICIENT_
+EVIDENCE)·cap 이전 원시 구조 보존(base_relation_strength)·MT2-RelationPalace 중복
+집계 금지(root 1회+superseded)·D-3 불변식(delta 0 — 주 채점 bit 동일 회귀)·live
+provenance 흡수 후 차단 유지(e2e)·PII 없는 텔레메트리(allowlist DTO + 금지 문자열
+회귀)·ruff·mypy·회귀 clean **전항 충족**. 다음 = P1-7 legacy 비교 감사.
