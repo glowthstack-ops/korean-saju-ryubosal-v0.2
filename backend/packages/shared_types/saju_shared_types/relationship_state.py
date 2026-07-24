@@ -88,11 +88,20 @@ _PARTNERED_STAGES = frozenset({
 
 
 class RelationshipOverview(BaseModel):
-    """읽기 시 파생되는 전역 개괄 — 저장 금지(권위값 아님)."""
+    """읽기 시 파생되는 전역 개괄 — 저장 금지(권위값 아님).
+
+    단일 has_partner 압축 금지(P0-B3 폐쇄 보완 §5) — 법적 배우자·활동 중인 연애 상대·
+    별거 배우자·연락 중인 대상을 구분해야 B4가 위험 컨텍스트 role을 오귀속하지 않는다.
+    """
 
     effective_marital_status: str | None = None   # override > profile
     marital_from_override: bool = False
-    has_current_partner: bool = False             # 파생값
+    has_current_partner: bool = False             # 하위 호환 파생값(세분 값 우선 사용)
+    has_legal_spouse: bool = False                # MARRIED target 존재
+    has_active_romantic_partner: bool = False     # 별거 아닌 연애·혼인 상대
+    has_separated_spouse: bool = False            # MARRIED + SEPARATED(별거)
+    has_current_contact_target: bool = False      # in_contact 대상(전 연인 연락 포함)
+    active_target_count: int = 0
     current_partner_target_ids: list[str] = Field(default_factory=list)
 
 
@@ -102,16 +111,42 @@ def derive_relationship_overview(
 ) -> RelationshipOverview:
     """전역 개괄 파생 — target별 상태·override에서 읽기 시 계산(중복 권위값 저장 금지).
 
-    별거(MARRIED+SEPARATED)는 상대가 존재하므로 has_current_partner=True로 센다.
-    이별(stage=NONE)은 자연히 제외된다.
+    별거(MARRIED+SEPARATED)는 상대가 존재하므로 has_current_partner=True로 세되,
+    has_active_romantic_partner에서는 제외한다(위험 role 구분 근거). 이별(stage=NONE)은
+    자연히 제외된다.
     """
-    partners = [
-        tid for tid, st in store.target_states.items()
-        if st.temporal_status is TemporalStatus.CURRENT and st.stage in _PARTNERED_STAGES
+    current = {
+        tid: st for tid, st in store.target_states.items()
+        if st.temporal_status is TemporalStatus.CURRENT
+    }
+    partners = [t for t, st in current.items() if st.stage in _PARTNERED_STAGES]
+    separated_spouse = any(
+        st.stage is RelationshipStage.MARRIED
+        and st.condition is RelationshipCondition.SEPARATED
+        for st in current.values()
+    )
+    active_romantic = any(
+        st.stage in _PARTNERED_STAGES
+        and not (
+            st.stage is RelationshipStage.MARRIED
+            and st.condition is RelationshipCondition.SEPARATED
+        )
+        for st in current.values()
+    )
+    contact_targets = [
+        t for t, st in current.items() if st.contact_state == "in_contact"
     ]
+    active = sorted(set(partners) | set(contact_targets))
     return RelationshipOverview(
         effective_marital_status=store.marital_status_override or profile_marital_status,
         marital_from_override=store.marital_status_override is not None,
         has_current_partner=bool(partners),
+        has_legal_spouse=any(
+            st.stage is RelationshipStage.MARRIED for st in current.values()
+        ),
+        has_active_romantic_partner=active_romantic,
+        has_separated_spouse=separated_spouse,
+        has_current_contact_target=bool(contact_targets),
+        active_target_count=len(active),
         current_partner_target_ids=sorted(partners),
     )

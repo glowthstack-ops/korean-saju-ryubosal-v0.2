@@ -1090,3 +1090,28 @@ taxonomy `EVENT_DOMAIN` 일치 lint(장기적으로 vocab이 관계 키 메타�
 [ ] 텔레메트리 10종 PII 없음
 [ ] ruff·mypy·관련 회귀 clean
 ```
+
+### C-7. P0-B3 폐쇄 보완 (2026-07-24 리뷰 반영)
+
+- **LLM 노출 실측 결과**: 신규 관계 user_facts 슬롯이 기존 `user_facts_block()`(무필터
+  직렬화)을 통해 LLM에 노출되는 경로가 **실재했음** — "출력 불변·소비 코드 0" 초기 주장
+  은 부정확했다. 보완: `_STATE_ONLY_FACT_KEYS`(relationship_status·marital_correction)를
+  블록 직렬화에서 제외(상태 해소 전용). 무구조 문장 노출은 대상·시간성·정정 상태를
+  잃으므로, LLM 전달은 통합 관계 컨텍스트+안전 가드 준비 후(P0-B4/P5) 별도 경로로만.
+- **다중 상대 evidence 보존**: `relationship_status`를 singleton→누적으로 전환 — 전역
+  singleton이면 현재 연인+전 연인+별거 배우자의 원문이 마지막 발화에 supersede돼 유실.
+  정정 판정은 resolver 소관, ledger는 양쪽 원문 보존(회귀 고정).
+  `marital_correction`은 전역 singleton 유지(혼인 상태 정정은 단일 사실).
+- **다중 절·다중 대상 fail-closed**: 한 발화에 배우자·현재 연인·전 연인 중 2범주 이상
+  상태 서술 공존 시 자동 저장 금지 + `ambiguous_multiple_targets` 사유 계측(정정 발화는
+  같은 대상 재서술이라 제외).
+- **planned 조건 축소**: 막연 계획("언젠가/나중에 결혼할 예정")은 planned 보존만 하고
+  신규 상태(COMMITMENT 함의) 생성 금지. 질문형 미래("결혼할 수 있을까?")는 HYPOTHETICAL.
+- **overview 세분화**: 단일 has_partner 압축 금지 — has_legal_spouse /
+  has_active_romantic_partner / has_separated_spouse / has_current_contact_target /
+  active_target_count 분리 파생(B4 위험 role 오귀속 방지).
+- **P0-B4 실행 순서 확정**: 발화 parse → companion/alias 대상 resolve →
+  temporal/제3자 판정 → decide → ConversationState apply → **갱신된(이번 turn 적용 후)
+  상태로** RiskRelationshipContext 생성 → set_risk_shadow_contexts. write 금지 발화
+  (가정·과거·제3자)는 기존 상태 유지. 단일 has_partner로 current_partner 컨텍스트 생성
+  금지 — 세분 overview로 role 구분.

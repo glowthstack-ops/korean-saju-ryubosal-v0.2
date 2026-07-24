@@ -36,8 +36,13 @@ _THIRD_PARTY_RE = re.compile(
     r"(?:친구|동생|언니|누나|형|오빠|엄마|아빠|어머니|아버지|부모님|동료|지인|딸|아들)"
     rf"(?:의|네)?\s*(?:{_PARTNER_WORDS}|{_SPOUSE_WORDS})"
 )
-# 가정형 — "헤어지면 어떻게 될까", "이혼한다면"
-_HYPOTHETICAL_RE = re.compile(r"(?:[하지]면\s*(?:어떻|어떨|어찌)|다면|가정(?:하면|해서))")
+# 가정형 — "헤어지면 어떻게 될까", "이혼한다면", "결혼할 수 있을까?"(질문형 미래)
+_HYPOTHETICAL_RE = re.compile(
+    r"(?:[하지]면\s*(?:어떻|어떨|어찌)|다면|가정(?:하면|해서)"
+    r"|(?:할|될|있을|가능할)\s*수\s*있을까|(?:할|될|일)까\s*\?)"
+)
+# 막연한 계획("언젠가·나중에 결혼할 예정") — planned 보존은 하되 신규 상태 생성 금지.
+_VAGUE_PLAN_RE = re.compile(r"언젠가|나중에|때가\s*되면|여유가\s*되면")
 # 계획형 — "결혼할 예정", "내년에 결혼하려고" ('준비 중'은 현재형 FORMALIZATION)
 _PLANNED_RE = re.compile(r"(?:예정|하려고|할\s*거(?:야|예요)|하기로\s*했)")
 # 과거형 — "남자친구가 있었어", "사귀었었"
@@ -78,6 +83,11 @@ class RelationshipUtterance(BaseModel):
     temporal_status: TemporalStatus = TemporalStatus.CURRENT
     third_party: bool = False
     correction: bool = False
+    # 한 발화에 서로 다른 대상 범주(배우자+전 연인 등)의 상태 서술이 공존 —
+    # 단일 결과가 다른 대상에 오귀속될 수 있어 fail-closed(폐쇄 보완 §6).
+    multiple_targets: bool = False
+    # 막연한 계획(언젠가·나중에) — planned 보존은 가능하나 신규 상태 생성 금지(§4).
+    planned_vague: bool = False
     target_role_hint: str | None = None
     stage_hint: RelationshipStage | None = None
     condition_hint: RelationshipCondition | None = None
@@ -91,9 +101,11 @@ class StateUpdateDecision(BaseModel):
 
     update: bool
     reason: str  # ok | no_signal | third_party | hypothetical | past | planned_only |
-    #              target_unresolved
+    #              target_unresolved | ambiguous_multiple_targets | marital_override_only
     new_state: ResolvedRelationshipState | None = None
     planned_stage: RelationshipStage | None = None
+    # 막연한 계획이면 planned 보존만 하고 신규 상태(COMMITMENT 함의) 생성 금지(§4).
+    planned_may_create_state: bool = True
     marital_override: str | None = None
 
 
@@ -111,6 +123,23 @@ def parse_relationship_utterance(text: str) -> RelationshipUtterance | None:
         # 마지막 정정 표지 이후 절이 최종 사실이다.
         parts = _CORRECTION_RE.split(text)
         focus = parts[-1]
+
+    # 다중 대상 감지(정정 발화 제외 — 정정은 같은 대상의 재서술) — 배우자·현재 연인·
+    # 전 연인 중 2범주 이상이 상태 서술과 함께 등장하면 fail-closed 대상.
+    if not correction and not third:
+        categories = 0
+        if re.search(rf"{_SPOUSE_WORDS}", text):
+            categories += 1
+        if _EX_RE.search(text):
+            categories += 1
+        # '전 남자친구'의 '남자친구' 중복 매칭 방지 — ex 표현 제거 후 현재 연인 검사.
+        stripped = _EX_RE.sub("", text)
+        if re.search(rf"{_PARTNER_WORDS}", stripped) or re.search(r"만나는\s*사람", stripped):
+            categories += 1
+        if categories >= 2:
+            return RelationshipUtterance(
+                quote=text.strip()[:120], multiple_targets=True,
+            )
 
     is_ex = bool(_EX_RE.search(focus))
     marital: str | None = None
@@ -169,17 +198,20 @@ def parse_relationship_utterance(text: str) -> RelationshipUtterance | None:
         temporal = TemporalStatus.CURRENT
 
     planned: RelationshipStage | None = None
+    planned_vague = False
     if temporal is TemporalStatus.PLANNED:
         # "결혼할 예정" → 현 stage 승격 금지, planned로만 보존(부록 C-3 §7).
         planned = (
             RelationshipStage.MARRIED if re.search(r"결혼|혼인", focus) else stage
         )
         stage = None
+        planned_vague = bool(_VAGUE_PLAN_RE.search(text))
     return RelationshipUtterance(
         quote=text.strip()[:120],
         temporal_status=temporal,
         third_party=third,
         correction=correction,
+        planned_vague=planned_vague,
         target_role_hint=role,
         stage_hint=stage,
         condition_hint=condition,
@@ -204,6 +236,9 @@ def decide_state_update(
         return StateUpdateDecision(update=False, reason="no_signal")
     if parsed.third_party:
         return StateUpdateDecision(update=False, reason="third_party")
+    if parsed.multiple_targets:
+        # 한 발화에 배우자·현재 연인·전 연인 등 복수 대상 서술 — 자동 저장 금지(계측만).
+        return StateUpdateDecision(update=False, reason="ambiguous_multiple_targets")
     if parsed.temporal_status is TemporalStatus.HYPOTHETICAL:
         return StateUpdateDecision(update=False, reason="hypothetical")
     if parsed.temporal_status is TemporalStatus.PAST:
@@ -213,6 +248,7 @@ def decide_state_update(
         return StateUpdateDecision(
             update=False, reason="planned_only",
             planned_stage=parsed.planned_stage_hint,
+            planned_may_create_state=not parsed.planned_vague,
             marital_override=parsed.marital_override_hint,
         )
     if parsed.stage_hint is None and parsed.contact_hint is None:
@@ -267,8 +303,10 @@ def apply_state_update(
         existing = store.target_states.get(target_id)
         if existing is not None:
             existing.planned_stage = decision.planned_stage
-        else:
-            # 계획 발화만 있고 기존 상태 없음 → 약속 존재 함의(COMMITMENT) + planned 보존.
+            store.last_resolved_turn = turn
+        elif decision.planned_may_create_state:
+            # 구체적 계획 + 기존 상태 없음 → 약속 존재 함의(COMMITMENT) + planned 보존.
+            # 막연한 계획("언젠가 결혼할 예정")은 신규 상태를 만들지 않는다(§4).
             store.target_states[target_id] = ResolvedRelationshipState(
                 target_id=target_id, target_role="partner",
                 stage=RelationshipStage.COMMITMENT,
@@ -276,7 +314,7 @@ def apply_state_update(
                 source=RelationshipStateSource.QUESTION_EXPLICIT, source_turn=turn,
                 confidence="medium",
             )
-        store.last_resolved_turn = turn
+            store.last_resolved_turn = turn
     if decision.update and decision.new_state is not None:
         st = decision.new_state
         if profile_marital_status and _conflicts_with_profile(st, profile_marital_status):

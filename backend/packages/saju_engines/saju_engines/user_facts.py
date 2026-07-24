@@ -64,8 +64,10 @@ _FACT_RULES: list[tuple[str, re.Pattern[str], bool]] = [
     ("folk_condition", re.compile(r"손\s*없는\s*날"), True),
     # 관계 현재형 사실(P0-B3, RELATIONSHIP_EVENT_SYSTEM 부록 C-3) — evidence ledger 전용.
     # 해소·상태 저장은 relationship_state_resolver/ConversationState.relationship_states가
-    # 담당(소유권 분리). 단수 supersede로 정정 이력을 보존한다("있는 게 아니라 썸").
-    # scope=global(merge에서 승격) — 주제 전환이 배우자 사실을 지우면 안 된다.
+    # 담당(소유권 분리). **누적 슬롯**(2026-07-24 폐쇄 보완): 전역 singleton이면 다중 상대
+    # (현재 연인+전 연인+별거 배우자)의 원문 evidence가 마지막 발화에 supersede돼 유실된다 —
+    # 정정 판정은 resolver가 하고 ledger는 양쪽 원문을 보존한다.
+    # scope=global(extract에서 지정) — 주제 전환이 배우자 사실을 지우면 안 된다.
     (
         "relationship_status",
         re.compile(
@@ -73,7 +75,7 @@ _FACT_RULES: list[tuple[str, re.Pattern[str], bool]] = [
             r"|사귀고\s*있|연애\s*중|썸|약혼|결혼\s*준비\s*중|별거\s*중"
             r"|(?:남편|아내|와이프|배우자)[^.!?\n]{0,12}?(?:별거|이혼|있)"
         ),
-        True,
+        False,
     ),
     # 혼인 상태 정정 — "기혼이라고 했는데 이혼했어" (단수 supersede)
     ("marital_correction", re.compile(r"이혼했|사별했|재혼했"), True),
@@ -81,6 +83,10 @@ _FACT_RULES: list[tuple[str, re.Pattern[str], bool]] = [
 
 # 관계 슬롯의 제3자 발화 배제 — 친구·가족의 연애 사실을 사용자 원장에 넣지 않는다(C-3).
 _REL_FACT_KEYS = frozenset({"relationship_status", "marital_correction"})
+# state-only 사실(P0-B3 폐쇄 보완, 2026-07-24) — 관계 사실은 상태 해소 전용이며
+# 기존 범용 fact 블록으로 LLM에 노출하지 않는다. 무구조 문장 노출은 대상·시간성·정정
+# 상태를 잃는다 — 통합 관계 컨텍스트+안전 가드가 준비된 뒤(P0-B4/P5)에만 별도 경로로.
+_STATE_ONLY_FACT_KEYS = frozenset({"relationship_status", "marital_correction"})
 _REL_THIRD_PARTY_RE = re.compile(
     r"(?:친구|동생|언니|누나|형|오빠|엄마|아빠|어머니|아버지|부모님|동료|지인|딸|아들)"
     r"(?:의|네)?\s*(?:남자\s*친구|여자\s*친구|남친|여친|애인|연인|남편|아내|와이프|배우자)"
@@ -190,6 +196,9 @@ def user_facts_block(facts: list[UserFact], cap: int = 10) -> str | None:
     사실과 모순되는 서술·이미 밝힌 내용 되묻기를 차단하는 근거 블록이다. 인용 원문을
     그대로 노출하며, 정정된 단수 슬롯은 이전 진술을 함께 표기해 혼동을 막는다.
     """
+    # state-only 사실 제외(P0-B3) — 관계 사실은 relationship_states 해소 전용,
+    # 범용 블록 노출 금지(출력 불변 보장). 통합 관계 컨텍스트(P0-B4/P5)에서만 소비.
+    facts = [f for f in facts if f.key not in _STATE_ONLY_FACT_KEYS]
     if not facts:
         return None
     lines = [

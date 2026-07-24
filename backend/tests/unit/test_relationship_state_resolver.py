@@ -233,3 +233,94 @@ def test_user_facts_excludes_third_party_and_hypothetical() -> None:
 def test_user_facts_marital_correction_slot() -> None:
     facts = extract_user_facts("아까 기혼이라고 했는데 이혼했어", turn=2)
     assert any(f.key == "marital_correction" for f in facts)
+
+
+# ── P0-B3 폐쇄 보완(2026-07-24 리뷰) — LLM 비노출·다중 상대·다중 절·planned 조건 ────
+
+
+def test_state_only_facts_excluded_from_llm_block() -> None:
+    """폐쇄 조건 ①② — 신규 관계 슬롯은 기존 user_facts_block(LLM)에서 제외된다."""
+    from saju_engines.user_facts import user_facts_block
+
+    facts = extract_user_facts("어제 남자친구랑 헤어졌어. 이혼했어.", turn=1)
+    rel_keys = {f.key for f in facts}
+    assert "relationship_status" in rel_keys and "marital_correction" in rel_keys
+    block = user_facts_block(facts)
+    assert block is None  # 관계 사실만 있으면 블록 자체가 없다(출력 불변)
+
+    mixed = facts + extract_user_facts("이미 계약도 끝냈고", turn=1)
+    mixed_block = user_facts_block(mixed)
+    assert mixed_block is not None
+    assert "헤어졌" not in mixed_block and "이혼" not in mixed_block
+    assert "계약" in mixed_block  # 기존 슬롯은 그대로 노출
+
+
+def test_multi_target_evidence_not_lost_in_ledger() -> None:
+    """폐쇄 조건 ③ — 누적 슬롯: 전 상대 발화가 현재 상대 evidence를 지우지 않는다."""
+    from saju_engines.user_facts import merge_user_facts
+    from saju_shared_types.conversation import ConversationState
+
+    st = ConversationState(thread_id="t")
+    st.user_facts = merge_user_facts(
+        st, extract_user_facts("남자친구가 있어", turn=1), topic_reset=False
+    )
+    st.user_facts = merge_user_facts(
+        st, extract_user_facts("별거 중이야", turn=2), topic_reset=False
+    )
+    quotes = [f.quote for f in st.user_facts if f.key == "relationship_status"]
+    assert any("남자친구" in q for q in quotes)  # 현재 상대 사실 보존
+    assert any("별거" in q for q in quotes)
+
+
+def test_multi_clause_multi_target_fail_closed() -> None:
+    """폐쇄 조건 ④ — 복수 대상 서술 발화는 자동 저장 금지 + 사유 계측."""
+    for text in (
+        "남편과는 별거 중이고 전 남자친구와는 연락하지 않아",
+        "지금 만나는 사람은 있지만 전 남자친구와도 가끔 연락해",
+    ):
+        d = _decide(text)
+        assert not d.update and d.reason == "ambiguous_multiple_targets", text
+
+
+def test_correction_single_target_not_multi() -> None:
+    """정정 발화("있는 게 아니라 썸")는 같은 대상 재서술 — 다중 대상 오탐 금지."""
+    d = _decide("남자친구가 있는 게 아니라 썸 타는 사람이야")
+    assert d.update and d.reason == "ok"
+
+
+def test_vague_planned_does_not_create_state() -> None:
+    """'언젠가 결혼할 예정' — planned 신뢰도 낮음: 신규 상태(COMMITMENT 함의) 생성 금지."""
+    store = RelationshipStateStore()
+    d = _decide("남자친구와 언젠가 결혼할 예정이야")
+    assert d.reason == "planned_only" and d.planned_may_create_state is False
+    apply_state_update(store, d, turn=1, target_id="t1")
+    assert "t1" not in store.target_states  # 신규 생성 없음
+    # 기존 상태가 있으면 planned만 붙는다.
+    apply_state_update(store, _decide("남자친구가 있어"), turn=2, target_id="t1")
+    apply_state_update(store, d, turn=3, target_id="t1")
+    st = store.target_states["t1"]
+    assert st.stage is RelationshipStage.DATING
+    assert st.planned_stage is RelationshipStage.MARRIED
+
+
+def test_question_form_marriage_is_hypothetical() -> None:
+    """'내년에 결혼할 수 있을까?' — 질문형 미래: 상태 변경 금지."""
+    d = _decide("내년에 결혼할 수 있을까?")
+    assert not d.update
+    assert d.reason in ("hypothetical", "no_signal")
+    assert d.planned_stage is None
+
+
+def test_overview_distinguishes_partner_kinds() -> None:
+    """폐쇄 보완 §5 — 별거 배우자·활동 연애 상대·연락 대상을 구분 파생한다."""
+    store = RelationshipStateStore()
+    apply_state_update(store, _decide("남편과 별거 중이야", target="sp"), turn=1)
+    apply_state_update(
+        store, _decide("전 남자친구와 다시 연락 중이야", target="ex"), turn=2
+    )
+    ov = derive_relationship_overview("기혼", store)
+    assert ov.has_legal_spouse is True
+    assert ov.has_separated_spouse is True
+    assert ov.has_active_romantic_partner is False  # 별거 배우자는 활동 상대 아님
+    assert ov.has_current_contact_target is True    # 전 연인 연락 중
+    assert ov.active_target_count == 2
