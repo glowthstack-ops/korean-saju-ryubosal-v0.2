@@ -1,0 +1,93 @@
+{
+  "experiment_spec_version": "p2.1b.v1",
+  "baseline_calibration_version": "cal-2026-07-24.1",
+  "case_count": 8,
+  "invariants": {
+    "violations": [],
+    "passed": true
+  },
+  "sf_jw_interaction": [
+    {
+      "sf": "SF00",
+      "jw": "JW00",
+      "stability_negative_rate": 0.25,
+      "sign_flip_count": 0
+    },
+    {
+      "sf": "SF00",
+      "jw": "JW25",
+      "stability_negative_rate": 0.375,
+      "sign_flip_count": 1
+    },
+    {
+      "sf": "SF00",
+      "jw": "JW50",
+      "stability_negative_rate": 0.375,
+      "sign_flip_count": 1
+    },
+    {
+      "sf": "SF00",
+      "jw": "JW75",
+      "stability_negative_rate": 0.375,
+      "sign_flip_count": 1
+    },
+    {
+      "sf": "SF30",
+      "jw": "JW00",
+      "stability_negative_rate": 0.25,
+      "sign_flip_count": 0
+    },
+    {
+      "sf": "SF30",
+      "jw": "JW25",
+      "stability_negative_rate": 0.375,
+      "sign_flip_count": 1
+    },
+    {
+      "sf": "SF30",
+      "jw": "JW50",
+      "stability_negative_rate": 0.375,
+      "sign_flip_count": 1
+    },
+    {
+      "sf": "SF30",
+      "jw": "JW75",
+      "stability_negative_rate": 0.375,
+      "sign_flip_count": 1
+    },
+    {
+      "sf": "SF60",
+      "jw": "JW00",
+      "stability_negative_rate": 0.25,
+      "sign_flip_count": 0
+    },
+    {
+      "sf": "SF60",
+      "jw": "JW25",
+      "stability_negative_rate": 0.375,
+      "sign_flip_count": 1
+    },
+    {
+      "sf": "SF60",
+      "jw": "JW50",
+      "stability_negative_rate": 0.375,
+      "sign_flip_count": 1
+    },
+    {
+      "sf": "SF60",
+      "jw": "JW75",
+      "stability_negative_rate": 0.375,
+      "sign_flip_count": 1
+    }
+  ],
+  "synthesizer_findings": {
+    "duplicate_derived_modifier_idempotent": false,
+    "example": {
+      "case": "duplicate_modifier",
+      "profile": "SF00_JW25",
+      "support_1x": 0.255,
+      "support_2x": 0.217
+    },
+    "note": "derived(transit) modifier가 _merge_modifiers에서 dedup되지 않아 동일 modifier 2회 = support 2회 약화. production은 pattern_id별 1개만 생성(라이브 영향 0). P3/hardening 후보 — P2 수정 대상 아님."
+  }
+}
