@@ -997,3 +997,96 @@ seed"다. 일반적 배우자성 출현 엔진으로 설명 금지, **MT1 미발
 [x] B1-b 무효화·표준 경로 재생성·계측 0 검증 완료
 [x] M08 소유권·contract_document/legal_conflict 도메인 SSOT 대조 완료
 ```
+
+---
+
+## 부록 C. P0-B 구현 명세 (2026-07-24 승인)
+
+구현 순서(각 단계 = 독립 커밋, OFF 상태 출력 불변 통과 후 다음 단계):
+
+```text
+P0-B1  relationship_event_vocab.json + loader + lint
+P0-B2  RelationshipStage + RelationshipCondition + adapter
+P0-B3  관계 상태 해소기 + 현재형 facts
+P0-B4  대상 해소 기반 REL shadow 배선 + 텔레메트리
+```
+
+### C-1. M02 0건의 정확한 기록
+
+M02 소비 경로는 정상화됐지만, 현재 upstream 사전(relations.json)에 `marriage_signal`
+또는 이에 대응하는 결혼 사건 생성 근거가 부족해 실차트 smoke에서 finding이 0건이다.
+**필터 회귀가 아니라 미구현된 증거 계약 범위**다. P3 전까지 M02 복구를 위해
+`relationship_change`를 다시 넣는 것 금지.
+
+### C-2. 3층 타입 원칙 (P0-B2)
+
+- `RelationshipStage` 7단계·`RelationshipCondition` 8종은 §3 확정안 그대로.
+- 어댑터는 **손실 변환임을 이름에 드러낸다**: `relationship_stage_from_marriage_stage(...)`.
+  `family_expansion → MARRIED + family_expansion facet/event`(단계 동일시 금지). 역방향
+  round-trip 미보장을 문서·테스트로 고정.
+- `SEPARATED`는 stage를 자동 `NONE`으로 바꾸는 값이 아니다 — 별거 부부 =
+  `stage=MARRIED + condition=SEPARATED`. 단계·상태는 독립 표현.
+- **E4 단계에서 관계 단계 자동 추론 매핑 금지** — episode 합성 시 사건 키+증거 계약 동반.
+
+### C-3. 관계 상태 해소기 원칙 (P0-B3)
+
+- **전역 singleton 금지**: 전역 저장 가능 값은 혼인 상태·현재 연애 여부 개괄뿐. 상대별
+  관계 상태/연락 상태/시작·종료/질문 대상 여부는 **target-aware**(`ResolvedRelationshipState`
+  — target_id/target_role/stage/condition/contact_state/temporal_status/source/
+  source_turn/confidence).
+- 시간성 4종: CURRENT(갱신 가능) / PAST(현재 갱신 금지) / PLANNED(계획 상태만) /
+  HYPOTHETICAL(갱신 금지). "어제 헤어졌어"=CURRENT 종료 갱신.
+- 출처 우선순위: 현재 질문 명시 > 최근 대화 현재형 confirmed > 저장된 대상별 현재 상태 >
+  2단계 프로필 > unknown. **명식 추론으로 관계 상태 추정 금지.**
+- 정정·부정 fixture 필수: "있는 게 아니라 전 남자친구야" / "기혼이라 했는데 이혼했어" /
+  "연애 중은 아니고 연락만" — corrected·superseded 의미 보존(첫 관계어만 저장 금지).
+- 친구·제3자의 연애 사실을 사용자 상태로 저장 금지.
+
+### C-4. REL shadow 배선 조건 (P0-B4)
+
+- **shadow 불변식**: 이벤트 후보 생성·점수·confidence·랭킹·LLM 입력·리포트/채팅 출력
+  전부 불변. 내부 side channel·텔레메트리만 변경. 기존 위험 엔진 expose 설정과 무관하게
+  P0-B에서 관계 컨텍스트의 LLM payload 유입 0 확인.
+- **fail-closed**: 동명 별칭 2인·"그 사람" 불명·제3자 오인 가능·과거/현재 상대 미구분·
+  일반 질문+다중 등록 상대 → 컨텍스트 미생성, `target_ambiguous=true, context_created=false`
+  계측만.
+- **일반 연애운 질문**("올해 연애운 어때?")에서 임의 spouse/current_partner 컨텍스트 생성
+  금지 — 관계 상태 개괄값만(generic relationship context).
+- **익명 target_id**: 실명·별명 원문 저장 금지 / 동일 대화·프로필 내 안정 동일 / 계정 간
+  연결 불가 / 로그 역추적 불가 / inline·등록 상대 동일 미확정 시 병합 금지.
+- 계측 10종(+디버그 2종): relationship_context_attempted/created/source,
+  target_resolved/ambiguous, temporal_status, profile_fact_conflict, exposure_status,
+  risk_candidate_count, risk_blocked_or_suppressed_count
+  (+context_deduplicated_count, context_drop_reason). 전부 PII 없이 enum·count.
+
+### C-5. relationship_event_vocab.json 규칙 (P0-B1)
+
+항목 필수 필드: canonical_key / legacy_aliases / family / owner / personalized_allowed /
+daily_allowed / deprecated. lint: canonical 중복 금지 / alias 중복·순환·canonical 충돌
+금지 / owner 없는 키 금지 / 개인화 전용 키 daily 사용 금지 / TopicBuilder·structure
+pattern domain_hints·Event Graph event node 참조 키 미등록 금지 / 폐기 키 replacement
+또는 tombstone 필수 / family_change provenance 호환 규칙 회귀 고정 / vocab family와
+taxonomy `EVENT_DOMAIN` 일치 lint(장기적으로 vocab이 관계 키 메타데이터 SSOT).
+
+### C-6. P0-B 완료 게이트
+
+```text
+[ ] 21개 canonical key와 모든 legacy alias가 lint 통과
+[ ] TopicBuilder·Event Graph·structure pattern 참조 정합
+[ ] 신규 RelationshipStage가 기존 MarriageStage를 수정하지 않음
+[ ] adapter의 손실 변환이 문서·테스트로 고정
+[ ] stage와 condition을 독립적으로 표현 가능
+[ ] 현재형·과거형·계획형·가정형 해소 테스트 통과
+[ ] 정정·부정 발화가 이전 사실을 올바르게 supersede
+[ ] 프로필과 최신 사용자 사실 충돌 시 최신 현재형 사실 우선
+[ ] 친구·제3자의 연애 사실을 사용자 상태로 저장하지 않음
+[ ] 다중 상대 target_id 오귀속 0건
+[ ] 애매한 대상은 fail-closed
+[ ] 일반 연애운 질문에서 특정 상대 위험을 생성하지 않음
+[ ] REL shadow context가 live input에서 생성됨
+[ ] REL shadow의 LLM 노출 0건
+[ ] 점수·confidence·랭킹 변화 0건
+[ ] 채팅·리포트 출력 byte-identical
+[ ] 텔레메트리 10종 PII 없음
+[ ] ruff·mypy·관련 회귀 clean
+```
