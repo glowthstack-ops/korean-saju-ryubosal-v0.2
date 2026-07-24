@@ -81,3 +81,29 @@ def test_report_stage_note_present_and_absent() -> None:
     )
     assert _marriage_stage_note(_cand(evidence=["REL_HAP_day_pillar"])) == ""
     assert _marriage_stage_note(_cand(evidence=[])) == ""
+
+
+# ── B2 보강(RELATIONSHIP_EVENT_SYSTEM 부록 B) — stability_risk 전 경로 전달 ────────
+
+
+def test_llm_candidate_stability_risk_from_rel_evidence() -> None:
+    """chat 경로: full evidence_path의 REL_CHUNG_*가 marriage_stability_risk로 보존된다."""
+    c = _cand(evidence=["MT2_EMERGENCE_SAME_STEM", "REL_CHUNG_day_pillar", "REL_COMPOUND"])
+    out = _to_llm_candidate(c, ganji={}, dw_by_year={})
+    assert out.marriage_stability_risk is True
+
+
+def test_llm_candidate_stability_risk_false_for_hap_only() -> None:
+    """합 단독은 위험 아님 — 필드 False(방향 누수 차단은 충·형·파·해 한정)."""
+    c = _cand(evidence=["REL_HAP_day_pillar", "MT3_DIRECTIONAL_DAY_BRANCH"])
+    out = _to_llm_candidate(c, ganji={}, dw_by_year={})
+    assert out.marriage_stability_risk is False
+
+
+def test_llm_candidate_stability_risk_deserialization_default() -> None:
+    """구버전 payload(필드 부재) 역직렬화 호환 — 기본값 False."""
+    c = _cand(evidence=["REL_CHUNG_day_pillar"])
+    data = _to_llm_candidate(c, ganji={}, dw_by_year={}).model_dump()
+    data.pop("marriage_stability_risk")
+    from saju_shared_types.llm_input import LlmEventCandidate
+    assert LlmEventCandidate.model_validate(data).marriage_stability_risk is False

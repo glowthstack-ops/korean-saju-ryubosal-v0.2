@@ -910,6 +910,33 @@ MT2 SPOUSE_PALACE_CLASHED→기존대로 True, 충 기반 marriage_signal 확정
 
 ### B1 — topic 어휘 사망 (2단계 분리)
 
+**M02 이벤트 구성 결정 (2026-07-24 데굴님 확정)**:
+
+> M02의 canonical 이벤트 키는 `marriage_signal`과 `childbirth`로 제한한다.
+> `relationship_change`는 M01이 소유하며 M02와 중복 소비하지 않는다. 기존 composite의
+> `family_change`는 원본 키와 taxonomy version을 보존한 read-adapter를 통해 M02에서만
+> 호환 소비한다. 향후 commitment·formalization·household 증거가 도입되면
+> `relationship_change`의 일부를 키 중복이 아닌 증거 계약으로 M02에 선택적으로 연결한다.
+
+근거: `relationship_change`는 의미 범위가 넓어(연애 갈등·썸 변화 포함) M02가 소비하면
+결혼·가정 섹션 오염 + F-17/Y-08(M01·M02 동시 조립)에서 동일 신호 중복 전달. 저장 키
+alias(`family_change→relationship_change`)는 정규화 정책일 뿐 **소비 모듈 의미 동일을
+뜻하지 않는다**. 장기: taxonomy v2.1에서 `family_household_change` 독립 키 검토(지금은
+21키 재변경 없이 provenance 보존으로 처리).
+
+**dual-read 설계 원칙**: 정규화 시 원본 키를 버리지 않는다 —
+`source_event_key`·`source_taxonomy_version` 보존. 순서: DB 읽기 → source key 보존 →
+canonical 해소 → domain 보정 → TopicBuilder 필터. `general` 도메인 보정은 canonical key가
+EVENT_DOMAIN에 명확할 때만(미지 키는 원 도메인 유지+계측). dual-read 계측
+(legacy_event_key_read_count / legacy_general_domain_repaired_count / unknown_legacy_key_count /
+m01_legacy_signal_count / m02_legacy_family_change_count / canonical_signal_count)으로
+B1-b 재계산 후 어댑터 제거 시점을 판단한다.
+
+**MT1 구조적 비대칭 (P0-A 보조 발견 — P2 배우자성 해소기 필수 반영)**: MT1은 "일간 干合
+상대 글자가 배우자성에 해당하는 일부 명식(남성은 양간 한정)에서만 작동하는 특수 awareness
+seed"다. 일반적 배우자성 출현 엔진으로 설명 금지, **MT1 미발화를 '그 시기 인연 없음'의
+음성 근거로 사용 금지**. 남성 음간·여성 대응 극성 fixture 고정 필요.
+
 - **B1-a 코드·호환 계층**: `precompute._EVENT_DOMAIN` → taxonomy_v2 `EVENT_DOMAIN` 교체,
   TopicBuilder 필터 canonical화(M01·M02·건강·시험·사업), legacy key read alias(dual-read),
   vocab lint.

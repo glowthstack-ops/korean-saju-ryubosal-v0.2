@@ -85,6 +85,11 @@ class DomainSignal(BaseModel):
     event_key: str | None = None
     weight: float  # favorability 보정 완료 가중치
     source_interaction: str  # relationId 역추적용
+    # B1-a(RELATIONSHIP_EVENT_SYSTEM 부록 B) — legacy 정규화 provenance.
+    # 저장 키 alias(family_change→relationship_change)는 소비 의미 동일을 뜻하지
+    # 않으므로 원본 키·taxonomy 세대를 보존한다(M02 호환 소비 등). canonical 저장분은 빈 값.
+    source_event_key: str | None = None
+    source_taxonomy_version: str = ""  # "legacy" | ""(canonical)
 
 
 class CompositeGanji(BaseModel):

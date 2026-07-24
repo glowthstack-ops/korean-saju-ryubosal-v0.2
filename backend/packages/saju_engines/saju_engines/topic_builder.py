@@ -32,7 +32,7 @@ from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import SubjectRef
 from saju_shared_types.llm_input import UsefulGods
 from saju_shared_types.manse_result import ManseV2Result
-from saju_shared_types.precompute import CompositeLevel, LuckComposite
+from saju_shared_types.precompute import CompositeLevel, DomainSignal, LuckComposite
 from saju_shared_types.relocation import RelocationQuery
 from saju_shared_types.topic_context import (
     CalendarContextEntry,
@@ -47,6 +47,7 @@ from saju_shared_types.topic_context import (
 
 from .compatibility_engine import analyze_compatibility
 from .event_engine_v2 import EventEngineV2
+from .event_key_normalizer import NormalizationStats, normalize_domain_signals
 from .llm_guard import CALL_LIMITS
 from .past_validation import ComputeFn, generate_past_candidates
 from .relocation import RelocationResolver
@@ -562,6 +563,31 @@ def _top_keys(dist: dict[str, float], n: int) -> list[str]:
 _LEVELS_YM = {CompositeLevel.YEAR, CompositeLevel.MONTH}
 
 
+def _signal_key_match(
+    s: DomainSignal,
+    event_keys: set[str] | None,
+    legacy_compat_keys: set[str] | None,
+    legacy_exclude_keys: set[str] | None = None,
+) -> bool:
+    """event_key 필터 — canonical 일치 + legacy 호환/배제 예외(B1-a, 부록 B §5).
+
+    - legacy 호환(compat): provenance가 legacy이고 원본 키가 목록에 있을 때만 포함 —
+      canonical `relationship_change`가 M02로 새는 것을 막는다(M02 결정문).
+    - legacy 배제(exclude): canonical 키가 일치해도 원본이 배제 목록(legacy)이면 제외 —
+      legacy family_change가 relationship_change로 정규화돼 M01(연애)로 새는 것을 막는다
+      (가족·가정 변화는 M02 소유).
+    """
+    if s.source_taxonomy_version == "legacy" and legacy_exclude_keys \
+            and s.source_event_key in legacy_exclude_keys:
+        return False
+    if event_keys is None:
+        return True
+    if s.event_key in event_keys:
+        return True
+    return bool(legacy_compat_keys) and s.source_taxonomy_version == "legacy" \
+        and s.source_event_key in (legacy_compat_keys or set())
+
+
 def _domain_series_findings(
     composites: list[LuckComposite],
     period: PeriodSpec,
@@ -570,23 +596,31 @@ def _domain_series_findings(
     label: str,
     event_keys: set[str] | None = None,
     levels: set[CompositeLevel] | None = None,
+    legacy_compat_keys: set[str] | None = None,
+    legacy_exclude_keys: set[str] | None = None,
 ) -> tuple[list[LuckComposite], list[TimeSeriesPoint], list[Finding]]:
     """기간 내 composite에서 도메인(+event_key) 신호를 시계열·findings로 확정(점수 최종).
 
     M07 패턴 공용 — 모듈별로 domain/event_keys/label만 바꿔 호출한다. 모든 수치는 여기서
     확정되며 LLM은 서술만 한다(docs/09 5장).
+
+    B1-a: 필터 전에 read-adapter로 신호를 정규화한다(구키 canonical 해소 + 종전 쓰기
+    결함의 general 도메인 수리). `legacy_compat_keys`는 provenance 기반 호환 소비
+    (M02의 legacy family_change 전용 — 부록 B §5).
     """
     active_levels = levels if levels is not None else _LEVELS_YM
     selected = [
         c for c in composites
         if c.level in active_levels and _in_period(c.period_key, period)
     ]
+    stats = NormalizationStats()
     series: list[TimeSeriesPoint] = []
     findings: list[Finding] = []
     for c in sorted(selected, key=lambda x: x.period_key):
         sigs = [
-            s for s in c.domain_signals
-            if s.domain in domains and (event_keys is None or s.event_key in event_keys)
+            s for s in normalize_domain_signals(c.domain_signals, stats)
+            if s.domain in domains
+            and _signal_key_match(s, event_keys, legacy_compat_keys, legacy_exclude_keys)
         ]
         if not sigs:
             continue
@@ -606,6 +640,7 @@ def _domain_series_findings(
             score=score, event_key=top.event_key, period_key=c.period_key, signals=names,
         ))
     findings.sort(key=lambda f: -f.score)
+    stats.merge_log(label)  # legacy·미지 키 계측(부록 B §8-3 — B1-b 종료 판단 자료)
     return selected, series, findings
 
 
@@ -619,10 +654,13 @@ def _domain_topic(
     label: str,
     style: StyleRules,
     event_keys: set[str] | None = None,
+    legacy_compat_keys: set[str] | None = None,
+    legacy_exclude_keys: set[str] | None = None,
 ) -> TopicContext:
     """도메인 신호형 모듈의 TopicContext 조립(M01/M02/M09/M11/M12 공용)."""
     selected, series, findings = _domain_series_findings(
         composites, period, domains=domains, label=label, event_keys=event_keys,
+        legacy_compat_keys=legacy_compat_keys, legacy_exclude_keys=legacy_exclude_keys,
     )
     return TopicContext(
         module_id=module_id,
@@ -684,10 +722,13 @@ def build_love_context(
     subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
 ) -> TopicContext:
     """M01 love_timing — 연애 시기·재회 (docs/09 4장: relationship 도메인 연애 이벤트)."""
+    # B1-a — canonical 21키(구키 relationship_start/end는 read-adapter가 해소).
+    # relationship_change는 M01 소유 — M02와 중복 소비 금지(부록 B M02 결정문).
     return _domain_topic(
         "M01", subjects, period, composites,
         domains={"relationship"}, label="연애",
-        event_keys={"relationship_start", "relationship_end"}, style=_LOVE_STYLE,
+        event_keys={"new_relationship", "relationship_change"},
+        legacy_exclude_keys={"family_change"}, style=_LOVE_STYLE,
     )
 
 
@@ -695,10 +736,14 @@ def build_marriage_context(
     subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
 ) -> TopicContext:
     """M02 marriage — 결혼/이혼/재혼 (docs/09 4장: relationship 도메인 결혼·가정 이벤트)."""
+    # B1-a — M02 canonical은 {marriage_signal, childbirth}로 제한(2026-07-24 결정문).
+    # 기존 저장분의 family_change만 provenance 기반 호환 소비 — canonical
+    # relationship_change(연애 갈등·썸 변화 포함)가 결혼·가정 섹션으로 새는 것 금지.
     return _domain_topic(
         "M02", subjects, period, composites,
         domains={"relationship"}, label="결혼·가정",
-        event_keys={"marriage", "childbirth", "family_change"}, style=_MARRIAGE_STYLE,
+        event_keys={"marriage_signal", "childbirth"},
+        legacy_compat_keys={"family_change"}, style=_MARRIAGE_STYLE,
     )
 
 
@@ -749,8 +794,10 @@ def build_business_context(
     """M08 business — 창업/사업/동업 (docs/09 4장: 창업 신호 + 사업 계약·재물 흐름)."""
     return _domain_topic(
         "M08", subjects, period, composites,
+        # B1-a — 구키 contract/document는 canonical contract_document로 통합
+        # (contract_document 도메인은 taxonomy_v2 기준 career — 기존 domains에 포함됨).
         domains={"career", "wealth"}, label="사업",
-        event_keys={"business_start", "contract", "document"}, style=_BUSINESS_STYLE,
+        event_keys={"business_start", "contract_document"}, style=_BUSINESS_STYLE,
     )
 
 

@@ -11,16 +11,20 @@
 
 해석 결정(검수 대상, docs에 미정의): ① natal 레코드의 대표 ganji=일주 ② favorability
 단일 값은 레벨 대표 간지의 **천간 오행** 기준(천간=드러남 통설; 지지 분리 평가는 엔진
-LuckPillar에 이미 존재). ③ EventKey→Domain 매핑은 초안 상수(_EVENT_DOMAIN).
+LuckPillar에 이미 존재). ③ EventKey→Domain 매핑은 taxonomy_v2 SSOT(B1-a — 종전 로컬
+구키 상수는 21키 오분류 결함으로 폐기, RELATIONSHIP_EVENT_SYSTEM 부록 B).
 """
 
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from saju_shared_types.constants import STEM_ELEMENT
 from saju_shared_types.enums import Stem
+from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as EVENT_DOMAIN_V2
+from saju_shared_types.event_taxonomy_v2 import LEGACY_EVENT_KEY_MAP
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.precompute import (
@@ -44,19 +48,12 @@ from .interactions import (
     structure_flags,
 )
 
-# EventKey → Domain 초안 매핑 (docs/03 C graphScope 어휘 기준 — 검수 대상).
-_EVENT_DOMAIN: dict[str, str] = {
-    "career_change": "career", "promotion": "career", "resignation": "career",
-    "business_start": "career",
-    "relationship_start": "relationship", "relationship_end": "relationship",
-    "marriage": "relationship", "childbirth": "relationship",
-    "relocation": "relocation", "travel": "relocation",
-    "contract": "wealth", "document": "wealth",
-    "wealth_change": "wealth", "income_change": "wealth", "expense_risk": "wealth",
-    "windfall": "wealth", "speculation_risk": "wealth", "asset_volatility": "wealth",
-    "education_start": "education", "education_complete": "education", "exam": "education",
-    "health_issue": "health", "surgery": "health",
-    "family_change": "relationship", "lawsuit": "general",
+# B1-a(RELATIONSHIP_EVENT_SYSTEM 부록 B) — 도메인 매핑을 taxonomy_v2 SSOT로 교체.
+# 종전 로컬 구키 매핑은 relations.json이 내는 21키(new_relationship 등)를 못 찾아
+# 관계·건강·계약 신호가 전부 domain="general"로 오분류 저장되던 결함(P0-A 실측).
+_CANONICAL_DOMAIN: dict[str, str] = {str(k): v for k, v in EVENT_DOMAIN_V2.items()}
+_LEGACY_TO_CANONICAL: dict[str, str] = {
+    k: v.value for k, v in LEGACY_EVENT_KEY_MAP.items()
 }
 
 _NATAL_SOURCES = (
@@ -331,11 +328,26 @@ class CompositeBuilder:
                 weight = max(hit.base_weight + modifier, 0.0)
                 if hit.partial:
                     weight *= 0.6  # 반합/부분형 감쇠 — 초안 계수(검수 대상)
+                # B1-a — 저장 시점 canonical화 + provenance 보존. 미지 키는 원본
+                # 유지·general·계측(임의 도메인 배정 금지 — 부록 B §8-2).
+                if event in _CANONICAL_DOMAIN:
+                    canonical, provenance = event, None
+                elif event in _LEGACY_TO_CANONICAL:
+                    canonical = _LEGACY_TO_CANONICAL[event]
+                    provenance = event if canonical != event else None
+                else:
+                    canonical, provenance = event, None
+                    logging.getLogger(__name__).info(
+                        "unknown_event_key_at_write relation=%s key=%s",
+                        hit.relation_id, event,
+                    )
                 out.append(DomainSignal(
-                    domain=_EVENT_DOMAIN.get(event, "general"),
-                    event_key=event,
+                    domain=_CANONICAL_DOMAIN.get(canonical, "general"),
+                    event_key=canonical,
                     weight=round(weight, 4),
                     source_interaction=hit.relation_id,
+                    source_event_key=provenance,
+                    source_taxonomy_version="legacy" if provenance else "",
                 ))
         return out
 

@@ -126,3 +126,23 @@ def test_bokeum_activation_detection() -> None:
     other = "寅" if day_branch != "寅" else "卯"
     assert _bokeum_activations(
         r, cast("LuckPillar", SimpleNamespace(branch=other)), LuckLayer.SEWOON) == []
+
+
+# ── B2 보강(RELATIONSHIP_EVENT_SYSTEM 부록 B) — REL_COMPOUND 고아 방지 불변식 ──────
+
+
+def test_compound_always_with_constituent_codes() -> None:
+    """정상 경로에서 REL_COMPOUND는 반드시 구성 REL 코드와 동반한다(고아 금지).
+
+    구성 코드가 제거되면 출력 가드가 COMPOUND 단독을 보수적 미판정해 방향 누수가
+    재발할 수 있으므로, 엔진 산출 불변식으로 고정한다.
+    """
+    e = _eng()
+    act = [
+        RelationActivation(RelationKind.CHUNG, Pillar4.DAY, LuckLayer.SEWOON),
+        RelationActivation(RelationKind.HAP, Pillar4.DAY, LuckLayer.SEWOON),
+    ]
+    out = e.apply([_cand("relationship_change", 50)], act)
+    codes = out[0].reason_codes
+    assert "REL_COMPOUND" in codes  # 합+충 복합 → COMPOUND 발생 전제 확인
+    assert any(c.startswith("REL_") and c != "REL_COMPOUND" for c in codes)

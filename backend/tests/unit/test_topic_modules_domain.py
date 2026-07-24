@@ -38,26 +38,29 @@ def _comp(
 
 
 def test_m01_love_picks_relationship_events_only() -> None:
-    """M01은 연애 이벤트(relationship_start/end)만, 결혼 이벤트는 제외."""
+    """M01은 연애 이벤트(canonical new_relationship/relationship_change)만, 결혼 이벤트 제외.
+
+    B1-a: 구키(relationship_start)는 read-adapter가 canonical로 해소한 뒤 매칭된다.
+    """
     comps = [
-        _comp("2025", "relationship", "relationship_start"),
-        _comp("2026", "relationship", "marriage"),  # M01 제외 대상
+        _comp("2025", "relationship", "relationship_start"),  # legacy → new_relationship
+        _comp("2026", "relationship", "marriage"),  # legacy → marriage_signal, M01 제외
         _comp("2025", "wealth", "wealth_change"),  # 타도메인 제외
     ]
     ctx = build_topic_context("M01", [], _PERIOD, comps)
     assert ctx.module_id == "M01" and ctx.findings
-    assert all(f.event_key == "relationship_start" for f in ctx.findings)
+    assert all(f.event_key == "new_relationship" for f in ctx.findings)
 
 
 def test_m02_marriage_picks_marriage_events_only() -> None:
-    """M02는 결혼·가정 이벤트만, 연애 시작은 제외."""
+    """M02는 canonical {marriage_signal, childbirth}만, 연애 시작은 제외(B1-a 결정문)."""
     comps = [
-        _comp("2026", "relationship", "marriage"),
+        _comp("2026", "relationship", "marriage"),  # legacy → marriage_signal
         _comp("2025", "relationship", "relationship_start"),  # M02 제외
     ]
     ctx = build_topic_context("M02", [], _PERIOD, comps)
     assert ctx.findings and all(
-        f.event_key in ("marriage", "childbirth", "family_change") for f in ctx.findings
+        f.event_key in ("marriage_signal", "childbirth") for f in ctx.findings
     )
 
 
@@ -82,8 +85,9 @@ def test_m11_health_and_m12_education_domains() -> None:
     ]
     h = build_topic_context("M11", [], _PERIOD, comps)
     e = build_topic_context("M12", [], _PERIOD, comps)
-    assert [f.event_key for f in h.findings] == ["health_issue"]
-    assert [f.event_key for f in e.findings] == ["exam"]
+    # B1-a: 구키는 canonical(health_attention/education_admission)로 해소돼 집계된다.
+    assert [f.event_key for f in h.findings] == ["health_attention"]
+    assert [f.event_key for f in e.findings] == ["education_admission"]
 
 
 def test_policy_tone_notes_present() -> None:
@@ -122,7 +126,7 @@ def test_m08_business_combines_business_and_contract() -> None:
     ]
     ctx = build_topic_context("M08", [], _PERIOD, comps)
     assert ctx.findings and all(
-        f.event_key in ("business_start", "contract", "document") for f in ctx.findings
+        f.event_key in ("business_start", "contract_document") for f in ctx.findings
     )
     assert any("동업" in t for t in ctx.style_rules.tone_notes)
 
@@ -189,3 +193,81 @@ def test_m13_bond_compare_two_subjects() -> None:
     assert ctx.module_id == "M13" and ctx.findings
     assert any(f.key == "bond_stability" for f in ctx.findings)
     assert any("끌림" in t for t in ctx.style_rules.tone_notes)
+
+
+# ── B1-a: 어휘 정규화·M01/M02 소유권 매트릭스 (RELATIONSHIP_EVENT_SYSTEM 부록 B §9) ──
+
+
+def _m01_keys(comps: list[LuckComposite]) -> set[str]:
+    return {f.event_key for f in build_topic_context("M01", [], _PERIOD, comps).findings}
+
+
+def _m02_keys(comps: list[LuckComposite]) -> set[str]:
+    return {f.event_key for f in build_topic_context("M02", [], _PERIOD, comps).findings}
+
+
+def test_b1a_canonical_relationship_change_owned_by_m01_only() -> None:
+    """canonical relationship_change → M01 포함·M02 제외(중복 소비 금지 — 결정문)."""
+    comps = [_comp("2025", "relationship", "relationship_change")]
+    assert _m01_keys(comps) == {"relationship_change"}
+    assert _m02_keys(comps) == set()
+
+
+def test_b1a_canonical_new_relationship_m01_only() -> None:
+    comps = [_comp("2025", "relationship", "new_relationship")]
+    assert _m01_keys(comps) == {"new_relationship"}
+    assert _m02_keys(comps) == set()
+
+
+def test_b1a_canonical_marriage_signal_childbirth_m02_only() -> None:
+    comps = [
+        _comp("2025", "relationship", "marriage_signal"),
+        _comp("2026", "relationship", "childbirth"),
+    ]
+    assert _m01_keys(comps) == set()
+    assert _m02_keys(comps) == {"marriage_signal", "childbirth"}
+
+
+def test_b1a_legacy_relationship_end_to_m01() -> None:
+    """legacy relationship_end → canonical relationship_change로 M01 포함·M02 제외."""
+    comps = [_comp("2025", "relationship", "relationship_end")]
+    assert _m01_keys(comps) == {"relationship_change"}
+    assert _m02_keys(comps) == set()
+
+
+def test_b1a_legacy_family_change_m02_compat_only() -> None:
+    """legacy family_change → canonical relationship_change로 정규화되지만
+    provenance 기반으로 M02 호환 포함·M01 배제(결정문 — 가족·가정 변화는 M02 소유)."""
+    comps = [_comp("2025", "relationship", "family_change")]
+    assert _m01_keys(comps) == set()
+    assert _m02_keys(comps) == {"relationship_change"}
+
+
+def test_b1a_unknown_legacy_key_excluded_everywhere() -> None:
+    """미지 legacy 키 — 도메인 임의 배정·소비 금지(원본 유지+계측만)."""
+    comps = [_comp("2025", "relationship", "mystery_event_key")]
+    assert _m01_keys(comps) == set()
+    assert _m02_keys(comps) == set()
+
+
+def test_b1a_general_domain_repaired_for_canonical_keys() -> None:
+    """기존 DB 오분류(domain=general·canonical 키) — read-adapter가 도메인을 수리해
+    M01이 소비한다(P0-A 실측 결함 부활 경로)."""
+    comps = [_comp("2025", "general", "new_relationship")]
+    assert _m01_keys(comps) == {"new_relationship"}
+
+
+def test_b1a_no_duplicate_signal_across_m01_m02() -> None:
+    """F-17/Y-08(M01+M02 동시 조립) 중복 방지 — 동일 신호가 양쪽 findings에 못 들어간다."""
+    comps = [
+        _comp("2025", "relationship", "relationship_change"),  # M01 소유
+        _comp("2026", "relationship", "family_change"),        # M02 호환 소유(legacy)
+        _comp("2027", "relationship", "marriage_signal"),      # M02 소유
+    ]
+    m01_ctx = build_topic_context("M01", [], _PERIOD, comps)
+    m02_ctx = build_topic_context("M02", [], _PERIOD, comps)
+    m01 = {(f.event_key, f.period_key) for f in m01_ctx.findings}
+    m02 = {(f.event_key, f.period_key) for f in m02_ctx.findings}
+    assert m01 == {("relationship_change", "2025")}
+    assert m02 == {("relationship_change", "2026"), ("marriage_signal", "2027")}
+    assert m01.isdisjoint(m02)
