@@ -1266,4 +1266,25 @@ ruff·mypy·회귀 clean.
 EVIDENCE)·cap 이전 원시 구조 보존(base_relation_strength)·MT2-RelationPalace 중복
 집계 금지(root 1회+superseded)·D-3 불변식(delta 0 — 주 채점 bit 동일 회귀)·live
 provenance 흡수 후 차단 유지(e2e)·PII 없는 텔레메트리(allowlist DTO + 금지 문자열
-회귀)·ruff·mypy·회귀 clean **전항 충족**. 다음 = P1-7 legacy 비교 감사.
+회귀)·ruff·mypy·회귀 clean **전항 충족**.
+
+### D-6. P1-7 완료 기록 (2026-07-24) — legacy 비교 감사
+
+**P1-7 종료** — 감사 전용·읽기 전용(score/rank/candidate/payload delta 0). SSOT 요약,
+전체 관찰 지도는 `RELATIONSHIP_P1_7_HANDOFF.md`.
+
+- **P1-7a(a1ea8ec)** — 비교 DTO·고정 enum·분류기: `LegacyVectorComparisonClass` 9종
+  (§6 보수화 `REVIEW_REQUIRED_DIRECTION_MISMATCH` — P1 formalization 미평가라 leakage
+  확정은 P3 이후)·`CandidateAbsentSubclass`(부재는 오류 아님·P3 신호)·비교 3층 분리
+  (family 합산 금지·축 미평가 0 비교 금지·기간)·별도 `cmp.v1` allowlist·delta≠
+  activation 동일 척도 금지.
+- **P1-7b(a716fc1)** — 결정적 harness: `synthesize_period_vector` 공유(production·
+  harness drift 방지)·fixture 6종(성별×음양 decoupled)·legacy precap 재현·§4 매트릭스
+  A/B/C·REPORT.md 331 record. 읽기 전용 회귀(감사 전후 채점 byte 동일).
+- **P1-7d-lite(a9a3fb0)** — 중첩 독립 finding(§2·§3: primary_class가 가리는 복합
+  현상 보존 — cap_saturated finding 53 vs primary 28) + production coarse aggregate
+  (`cmp.prod.v1`: relation_delta 없이 coverage·분포만 — delta·cap class 0·audit 결손
+  not_observable 분리·전체 vs family 부재 분리·§7 금지 준수)·chat 배선·§5 중립 서술.
+
+**게이트 전항 충족**(감사 16항 + coarse 15항 — HANDOFF §F). P2(캘리브레이션 — HANDOFF
+§C)·P3(증거 계약 — §D)는 각각 별도 승인 착수. legacy cap은 별도 기술 부채(§E).
