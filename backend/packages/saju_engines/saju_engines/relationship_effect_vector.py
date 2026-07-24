@@ -90,6 +90,9 @@ class RelationshipEffectVectorResult(BaseModel):
 
     root_contributions: list[RootEffectContribution] = Field(default_factory=list)
     static_context_ids: list[str] = Field(default_factory=list)
+    # 동일 static ID에 상이한 의미 payload(effects·affects 불일치) — 수치 적용 보류
+    # 건수(P1-6 승인 §4: telemetry는 count만, 원문 미기록).
+    static_modifier_conflict_count: int = 0
 
     usage: str = "shadow_only"
 
@@ -114,9 +117,15 @@ def _band(value: float, *, strong: float, moderate: float, weak: float) -> str:
 
 def _merge_modifiers(
     modifiers: list[RelationshipStructureModifier],
-) -> tuple[list[RelationshipStructureModifier], list[str]]:
-    """동일 static ID 병합 — strength=max·union, 입력 순서 불변(결과 정렬)."""
+) -> tuple[list[RelationshipStructureModifier], list[str], int]:
+    """동일 static ID 병합 — strength=max·union, 입력 순서 불변(결과 정렬).
+
+    현 생성기는 같은 static ID에 동일 payload만 생성한다(단일 매핑 테이블 불변식).
+    방어적으로 effects·affects가 불일치하면 static_modifier_conflict로 세고 해당
+    modifier의 **수치 적용은 보류**한다(메타 보존·count만 계측 — P1-6 §4).
+    """
     by_static: dict[str, RelationshipStructureModifier] = {}
+    conflicts: set[str] = set()
     transit: list[RelationshipStructureModifier] = []
     for m in modifiers:
         sid = m.structural_context_id
@@ -127,6 +136,9 @@ def _merge_modifiers(
         if prev is None:
             by_static[sid] = m
         else:
+            if set(prev.effects) != set(m.effects) \
+                    or set(prev.affects_axes) != set(m.affects_axes):
+                conflicts.add(sid)  # 의미 payload 불일치 — 수치 적용 보류 대상
             by_static[sid] = prev.model_copy(update={
                 "strength": max(prev.strength, m.strength),
                 "effects": sorted(set(prev.effects) | set(m.effects)),
@@ -138,7 +150,8 @@ def _merge_modifiers(
             })
     merged = sorted(by_static.values(), key=lambda m: m.structural_context_id or "")
     merged += sorted(transit, key=lambda m: m.pattern_id)
-    return merged, sorted(by_static)
+    # 충돌 static은 수치 적용에서 제외 표시(derived 비우기 — 보류) 대신 별도 집합 반환.
+    return merged, sorted(by_static), len(conflicts)
 
 
 def synthesize_relationship_effect_vector(
@@ -146,6 +159,7 @@ def synthesize_relationship_effect_vector(
     *,
     blockers: list[RelationshipActivationEvidence] | None = None,
     modifiers: list[RelationshipStructureModifier] | None = None,
+    superseded_map: dict[str, str] | None = None,
 ) -> RelationshipEffectVectorResult:
     """evidence·blocker·modifier → root-deduplicated 7축 벡터(shadow).
 
@@ -157,6 +171,16 @@ def synthesize_relationship_effect_vector(
     """
     blockers = blockers or []
     modifiers = modifiers or []
+    superseded_map = superseded_map or {}
+    # modifier의 derived 참조가 대체된 잠정 evidence를 가리키면 canonical(EXACT)로
+    # remap한다(P1-6 §3 — 참조 유실로 인한 적용 보류 방지, 매핑 없으면 기존 보류 원칙).
+    if superseded_map:
+        modifiers = [
+            m.model_copy(update={"derived_from_evidence_ids": sorted(
+                {superseded_map.get(i, i) for i in m.derived_from_evidence_ids}
+            )}) if m.derived_from_evidence_ids else m
+            for m in modifiers
+        ]
     day_evidence = [e for e in evidences if e.on_spouse_palace]
 
     # root 그룹화(폐쇄 §1) — resolved(EXACT/COMPONENT)만 축 숫자에 반영.
@@ -208,7 +232,7 @@ def synthesize_relationship_effect_vector(
     separation_ids = _ids(lambda e: e.relation_kind in _SEP_WEIGHT)
 
     # modifier(폐쇄 §3) — 병합(순서 불변) 후 derived root에만 적용.
-    deduped_modifiers, static_ids = _merge_modifiers(modifiers)
+    deduped_modifiers, static_ids, static_conflicts = _merge_modifiers(modifiers)
     for m in deduped_modifiers:
         if StructureModifierEffect.STABILITY_SUPPORT_WEAKEN not in m.effects \
                 or "stability" not in m.affects_axes:
@@ -280,4 +304,5 @@ def synthesize_relationship_effect_vector(
         unresolved_trigger_evidence_count=len(unresolved),
         root_contributions=contributions,
         static_context_ids=static_ids,
+        static_modifier_conflict_count=static_conflicts,
     )

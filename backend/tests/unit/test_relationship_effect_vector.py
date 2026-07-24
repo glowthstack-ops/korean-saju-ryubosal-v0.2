@@ -306,3 +306,33 @@ def test_static_modifier_merge_order_invariant() -> None:
     r2 = synthesize_relationship_effect_vector([], modifiers=b + a)
     assert r1.modifiers[0].strength == r2.modifiers[0].strength == 0.8
     assert [m.model_dump() for m in r1.modifiers] == [m.model_dump() for m in r2.modifiers]
+
+
+def test_modifier_derived_ref_remapped_after_supersession() -> None:
+    """P1-6 §3 — modifier가 대체된 잠정 evidence를 참조 → EXACT root로 canonical remap.
+
+    축 기여는 EXACT 1회, modifier도 그 root에 1회 적용(참조 유실 보류 방지).
+    """
+    from saju_engines.spouse_palace_activation import build_spouse_palace_vector as bv
+
+    exact = _hit(RelationKind.HAP, transit="己", comp="stem")
+    res = bv([exact, _prov(RelationKind.HAP)], _DICTS, period_key="2029")
+    assert res.superseded_map  # 잠정→EXACT 매핑 존재
+    prov_id = next(iter(res.superseded_map))
+    mods = build_relationship_structure_modifiers(
+        [_pat("JAENGHAP")], derived_from_by_pattern={"JAENGHAP": [prov_id]})
+    plain = synthesize_relationship_effect_vector(res.evidences)
+    remapped = synthesize_relationship_effect_vector(
+        res.evidences, modifiers=mods, superseded_map=res.superseded_map)
+    assert plain.axes.stability.value is not None
+    assert remapped.axes.stability.value is not None
+    assert remapped.axes.stability.value < plain.axes.stability.value  # 적용됨(보류 아님)
+    assert remapped.independent_root_trigger_count == 1  # 축 기여는 여전히 1회
+
+
+def test_static_conflict_counted() -> None:
+    """P1-6 §4 — 동일 static ID에 상이 payload(방어) → conflict count 계측."""
+    a = build_relationship_structure_modifiers([_pat("GWANSAL_HONJAP")])[0]
+    b = a.model_copy(update={"effects": [a.effects[0]], "strength": 0.9})
+    r = synthesize_relationship_effect_vector([], modifiers=[a, b])
+    assert r.static_modifier_conflict_count == 1

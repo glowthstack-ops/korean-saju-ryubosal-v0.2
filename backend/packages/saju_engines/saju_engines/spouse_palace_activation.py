@@ -106,6 +106,9 @@ class SpousePalaceVectorResult(BaseModel):
     # EXACT/COMPONENT가 같은 canonical hit를 설명해 축 계산에서 대체·제거된
     # PROVISIONAL 수(필수 선행 조건 — 이중 가산 차단 계측).
     superseded_provisional_count: int = 0
+    # 대체된 잠정 evidence_id → 대체한 EXACT evidence_id (modifier derived 참조의
+    # canonical remap용 — P1-6 승인 §3: 참조 유실로 인한 적용 보류 방지).
+    superseded_map: dict[str, str] = Field(default_factory=dict)
 
 
 class _Dict:
@@ -201,14 +204,19 @@ def build_spouse_palace_vector(
         return ":".join((h.layer, h.kind.value, h.palace.value, h.position,
                          h.hap_subtype or "", h.element or ""))
 
-    exact_canonicals = {
-        _canonical(h) for hs in grouped.values() for h in hs if h.transit_participant
-    }
+    exact_by_canonical: dict[str, str] = {}
+    for k, hs in grouped.items():
+        for h in hs:
+            if h.transit_participant:
+                exact_by_canonical.setdefault(_canonical(h), f"spa:{k}")
     superseded_provisional = 0
+    superseded_map: dict[str, str] = {}
     for key in list(grouped):
         h0 = grouped[key][0]
-        if not h0.transit_participant and _canonical(h0) in exact_canonicals:
+        canon = _canonical(h0)
+        if not h0.transit_participant and canon in exact_by_canonical:
             superseded_provisional += len(grouped.pop(key))
+            superseded_map[f"spa:{key}"] = exact_by_canonical[canon]
 
     for base_key in sorted(grouped):
         hs = grouped[base_key]
@@ -325,4 +333,5 @@ def build_spouse_palace_vector(
         root_trigger_count=len(resolved_signals),
         unresolved_trigger_evidence_count=unresolved,
         superseded_provisional_count=superseded_provisional,
+        superseded_map=superseded_map,
     )
