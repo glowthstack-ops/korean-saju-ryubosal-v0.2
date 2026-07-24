@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 from dataclasses import dataclass, field
 
 from saju_engines.relationship_state_resolver import (
@@ -46,8 +47,17 @@ from saju_shared_types.risk_engine import ExposureStatus
 
 logger = logging.getLogger(__name__)
 
-# ── 하드 게이트(불변식 1) — P5 승인 전 True 전환 금지 ────────────────────────────
-REL_LIVE_CONTEXT_EXPOSE_ENABLED = False
+# ── 관계 기능 beta 노출 마스터 플래그(테스터 피드백용 — 2026-07-24 사용자 승인) ──────
+# env SAJU_RELATIONSHIP_BETA_EXPOSE=true 로 켠다(기본 off). off면 관계 벡터·위험 노출이
+# 전부 shadow로 복귀해 기존 출력 byte-identical. 캘리브레이션 사람 감수(P2-3) 전이라
+# beta·잠정 라벨로만 노출하며, 미평가 4축·단정·승부/당첨 단정 하드 가드는 유지한다.
+RELATIONSHIP_BETA_EXPOSE = os.getenv(
+    "SAJU_RELATIONSHIP_BETA_EXPOSE", "false").strip().lower() in ("1", "true", "yes")
+
+# ── 하드 게이트(불변식 1) — P5 승인 전 True 전환 금지, 단 beta 노출과 연동 ───────────
+# beta 노출이 켜지면(위 플래그) 관계 위험 라이브 후보 차단을 해제한다(슬라이스 3).
+# 기본(플래그 off)은 항상 False 로 shadow 차단 유지.
+REL_LIVE_CONTEXT_EXPOSE_ENABLED = RELATIONSHIP_BETA_EXPOSE
 
 # live 컨텍스트 전용 target 네임스페이스 — 후보 차단 필터의 결정 기준.
 _LIVE_TARGET_PREFIXES = ("relstate-", "profile-role:", "attached:")

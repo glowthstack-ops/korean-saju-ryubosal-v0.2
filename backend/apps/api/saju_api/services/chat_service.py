@@ -1757,6 +1757,30 @@ def _is_relationship_context(intent: IntentJson, question: str) -> bool:
     return intent.domain is Domain.RELATIONSHIP or any(k in question for k in _RELATIONSHIP_KEYS)
 
 
+# 관계 신호 beta 노출(슬라이스 1) — 3축 라벨·가드 지시문.
+_REL_BETA_ACT = {"strong": "강", "moderate": "중", "weak": "약", "low": "미약"}
+_REL_BETA_STAB = {"favorable": "우호", "neutral": "중립", "adverse": "불리"}
+_RELATIONSHIP_BETA_DIRECTIVE = (
+    "위 [관계 신호(beta)] 블록은 아직 사람 감수 전의 잠정 관측값이다. '활성'은 관계 영역이 "
+    "움직이는 에너지의 세기일 뿐 결혼·이별의 확정이 아니다. 성사 여부·현실 접촉·공식화는 "
+    "아직 판정하지 않으므로 단정하지 말고, 활성·유지 우호도·종료압력 세 흐름만 자연어로 참고해 "
+    "부드럽게 설명한다. 답변 말미에 '※ 관계 신호는 시험(beta) 관측치예요'라고 짧게 밝힌다."
+)
+
+
+def _relationship_beta_block(signals: list) -> str | None:
+    """관계 벡터 3축 요약 → LLM 입력용 beta 블록(평가된 3축만·간지 미노출)."""
+    if not signals:
+        return None
+    lines = ["[관계 신호(beta) — 잠정 관측치, 확정 아님]"]
+    for s in signals:
+        act = _REL_BETA_ACT.get(s.activation_band or "", s.activation_band or "관측")
+        stab = _REL_BETA_STAB.get(s.stability_sign or "", "관측 안 됨")
+        sep = _REL_BETA_ACT.get(s.separation_band or "", "관측 안 됨")
+        lines.append(f"- {s.label}: 관계 활성 {act} · 유지 우호도 {stab} · 종료압력 {sep}")
+    return "\n".join(lines)
+
+
 # 인연 출처 질문 — '주변 사람 vs 새로운 사람' 류(기존 지인이냐 새 인연이냐).
 _PARTNER_SOURCE_KEYS = (
     "주변",
@@ -3124,6 +3148,7 @@ def chat(
     # (Top-N) 확정 이후 단일 지점에서.
     _rel_vec_subject_scope = "self" if subject_id is None else f"companion:{subject_id}"
     _rel_vec_sidecar = None
+    _rel_projections: tuple = ()   # beta 노출(슬라이스 1)에서 재사용 — try 실패 대비 초기화
     try:
         _rel_projections = _get_scorer().take_relationship_shadow()
         if _rel_projections:
@@ -3817,6 +3842,22 @@ def chat(
         # 질문 무관 성격 칭찬 서두 금지 — 상시(2026-07-22, 리포트 공용).
         BARNUM_SUPPRESSION_DIRECTIVE,
     ]
+    # 관계 신호 beta 노출(슬라이스 1 — 테스터 피드백용, RELATIONSHIP_BETA_EXPOSE 플래그).
+    # 플래그 off면 이 분기가 실행되지 않아 기존 출력 byte-identical. 관계·결혼 질문일 때만
+    # 질문 창 기간의 관계 벡터 3축(평가분)을 beta 블록으로 주입 + 단정 금지 가드. 미평가
+    # 4축(성사·공식화 등)은 노출하지 않는다. 실패해도 본 응답 비차단.
+    if (relationship_shadow.RELATIONSHIP_BETA_EXPOSE
+            and _rel_projections and _is_relationship_context(intent, question)):
+        try:
+            _beta_signals = relationship_vector_sidecar.build_relationship_beta_signals(
+                _rel_projections, result, dictionaries_dir=_DICTS,
+                window=default_period)
+            _beta_block = _relationship_beta_block(_beta_signals)
+            if _beta_block:
+                trailing.append(_beta_block)
+                trailing.append(_RELATIONSHIP_BETA_DIRECTIVE)
+        except Exception:  # noqa: BLE001 — beta 노출 실패는 본 응답 비차단
+            _logger.exception("relationship beta 블록 생성 실패 — 본 응답 비차단")
     # 사용자 제공 사실 원장(P0, 2026-07-22) — 이전 턴들에서 사용자가 직접 밝힌 사실을
     # compact 블록으로 주입해 모순 서술·되묻기를 차단한다(원문 전체 상속 없이 연속성 보존.
     # user_explicit만 저장되므로 엔진·LLM 산출물 오염 없음. 상한 20k→22k 상향분이 흡수 —

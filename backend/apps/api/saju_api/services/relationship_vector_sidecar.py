@@ -45,6 +45,7 @@ from saju_engines.structure_patterns import detect_structure_patterns
 from saju_shared_types.event_engine import Pillar4, RelationKind
 from saju_shared_types.events import EventCandidate
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.relationship_effect import AxisStatus
 
 from .relationship_vector_telemetry import (
     AuditProjectionStatus,
@@ -221,6 +222,87 @@ def synthesize_period_vector(
             superseded_map=spa.superseded_map, calibration=calibration)
     except Exception as exc:  # noqa: BLE001
         raise _SynthesisError from exc
+
+
+# ── beta 노출 신호(슬라이스 1 — 테스터용) ────────────────────────────────────
+@dataclass(frozen=True)
+class RelationshipBetaSignal:
+    """한 기간의 관계 벡터 3축 요약(beta 노출 전용) — 평가된 3축만.
+
+    activation/stability/separation만 노출한다. 미평가 4축(exposure·realization·
+    experience·formalization)은 절대 포함하지 않는다(P3 증거 계약 전 — 성사/공식화
+    판정 금지). band·부호 라벨만(원시 계수·간지 미노출).
+    """
+
+    layer: str
+    label: str                          # '2027' / '2027-04'
+    activation_band: str | None         # strong | moderate | weak | low
+    stability_sign: str | None          # favorable | neutral | adverse
+    separation_band: str | None         # strong | moderate | weak | low (미평가 None)
+
+
+def _label_in_window(label: str, window: tuple[str, str] | None) -> bool:
+    if window is None:
+        return True
+    start, end = window
+    y = label[:4]
+    return start[:4] <= y <= end[:4]
+
+
+def build_relationship_beta_signals(
+    projections: tuple[RelationshipShadowProjection, ...],
+    result: ManseV2Result,
+    *,
+    dictionaries_dir: Path,
+    window: tuple[str, str] | None = None,
+    cap: int = 6,
+) -> list[RelationshipBetaSignal]:
+    """질문 창 기간의 관계 벡터 3축 요약(beta 노출). 실패는 빈 목록(비차단).
+
+    production 경로는 이 함수를 RELATIONSHIP_BETA_EXPOSE 플래그가 켜질 때만 호출한다.
+    벡터는 BASELINE 캘리브레이션(사람 감수 전 잠정값)으로 합성한다.
+    """
+    try:
+        natal_mt2 = analyze_marriage_emergence_natal(result)
+        static_modifiers = build_relationship_structure_modifiers(
+            detect_structure_patterns(result, dictionaries_dir=dictionaries_dir))
+    except Exception:  # noqa: BLE001 — beta 노출 실패는 본 응답 비차단
+        logger.exception("relationship beta natal 분석 실패")
+        return []
+    out: list[RelationshipBetaSignal] = []
+    for proj in projections:
+        if not _label_in_window(proj.label, window):
+            continue
+        try:
+            vec = synthesize_period_vector(
+                proj, result, natal_mt2, static_modifiers,
+                dictionaries_dir=dictionaries_dir)
+        except Exception:  # noqa: BLE001 — 기간 실패 스킵
+            continue
+        act = vec.axes.activation
+        if act.status is not AxisStatus.EVALUATED:
+            continue  # 활성 미평가 기간은 노출 안 함(근거 없음≠약함)
+        stab = vec.axes.stability
+        sep = vec.axes.separation_pressure
+        stab_sign = None
+        if stab.status is AxisStatus.EVALUATED and stab.value is not None:
+            stab_sign = ("favorable" if stab.value > 0
+                         else "adverse" if stab.value < 0 else "neutral")
+        out.append(RelationshipBetaSignal(
+            layer=proj.layer, label=proj.label, activation_band=act.band,
+            stability_sign=stab_sign,
+            separation_band=(sep.band if sep.status is AxisStatus.EVALUATED
+                             else None)))
+    # 기간 라벨 정렬 후 중복 라벨 제거(같은 라벨 복수 층 방지) + cap.
+    out.sort(key=lambda s: s.label)
+    seen: set[str] = set()
+    deduped: list[RelationshipBetaSignal] = []
+    for s in out:
+        if s.label in seen:
+            continue
+        seen.add(s.label)
+        deduped.append(s)
+    return deduped[:cap]
 
 
 def _draft_period(draft: RelationshipEffectShadowDraft) -> str:
