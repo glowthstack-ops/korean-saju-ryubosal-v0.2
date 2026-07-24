@@ -1364,5 +1364,25 @@ strong threshold가 바뀌면 P3 후보 승격 조건도 바뀌므로 계수 안
 - **derived modifier 멱등 hardening(e71abb1)**: P2-1B가 드러낸 계약 위반 수복 —
   `_merge_modifiers`가 derived(transit) modifier를 canonical key(pattern_id+evidence
   set)로 dedup, 동일 key·payload 불일치는 derived_modifier_conflict 보류(자동 2회·max
-  금지). production byte-identical·CALIBRATION_VERSION bump 없음. 다음 = P2-1C(C0/C1/C2
-  공유/축별 secondary_factor + kind/stab/sep OAT).
+  금지). production byte-identical·CALIBRATION_VERSION bump 없음.
+
+### D-10. P2-1C ~ P2-3 진행 (2026-07-24)
+
+- **P2-1C 구조 확장(adce913)**: `SameRootSecondaryFactors`(축별 3계수 값객체)+
+  `SecondaryFactorStructure`(C0/C1/C2)+validator. 합성기는 항상 3값 소비·C0/C1/C2 분기
+  없음·BASELINE=C0 all-0.3 byte-identical. factory .shared/.activation_pressure_split/
+  .axis_split. spec v1→v2(scalar→구조, 구 scalar는 extra=forbid fail-fast).
+- **P2-1C-1(e83ae55)**: C0 vs C1 — finite-diff로 C1 분리 실증(same-root activation factor는
+  activation만·dStab/dA=dSep/dA=0). C0 단일 factor는 세 축 동조(15.55/−0.8/0.6).
+- **P2-1C-2(e26c6d3·4485da7)**: weight OAT×3 anchor(S0/S1/S2)·routing cross-check True·
+  14 param coverage matrix(PA·HAE 미커버 발견→same_PA_HAE 추가)·eligible-case 민감도.
+- **P2-1D(48b7c99·693b8c9)**: 7 profile×132기간. 사전 등록 임계값(SSOT §3-3). 전 profile
+  PASS. **D1(구조)·D3(CHUNG bonus) 대조**: 둘 다 root=1 strong 낮추나 D1은 root≥2도 약화
+  (0.526→0.421)·D3는 root≥2 불변 — generic compound vs kind-specific은 다른 문제. 331↔
+  132 매핑 명시. synthesize_period_vector에 calibration·kind_bonus_scale 감사 hook
+  (production 미전달→BASELINE).
+- **P2-2(6bf3369)**: 단조성·불변식 44 정식 회귀(activation/stability/separation 방향·
+  C0/C1/C2 routing·duplicate/permutation/미평가축/상쇄=EVALUATED0/BASELINE byte-identity).
+- **P2-3 템플릿**: `RELATIONSHIP_P2_3_REVIEW_TEMPLATE.md`(블라인드·축 독립 평가·control
+  9~15 추가로 24~30건·C1 채택은 구조군 반복 확인 시만). **다음 = P2-3 사람 감수(C0/C1·
+  weight 결정)→P2-4 version 고정→P3.**
