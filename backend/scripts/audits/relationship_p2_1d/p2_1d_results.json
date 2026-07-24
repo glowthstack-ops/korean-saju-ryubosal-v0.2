@@ -1,0 +1,98 @@
+{
+  "experiment_spec_version": "p2.1d.v1",
+  "baseline_calibration_version": "cal-2026-07-24.1",
+  "period_count": 132,
+  "profile_count": 6,
+  "thresholds": {
+    "collapse_share": 0.85,
+    "collapse_min_n": 20,
+    "overact_abs": 0.1,
+    "underact_abs": 0.2,
+    "underact_ratio": 0.5
+  },
+  "review_flags": {
+    "per_profile": {
+      "D0_baseline": {
+        "status": "PASS",
+        "flags": [],
+        "band_dist": {
+          "low": 9,
+          "weak": 30,
+          "moderate": 35,
+          "strong": 12
+        },
+        "n_eval": 86,
+        "root1_strong_rate": 0.03,
+        "root2plus_strong_rate": 0.526
+      },
+      "D1_C1_act_conservative": {
+        "status": "PASS",
+        "flags": [],
+        "band_dist": {
+          "low": 9,
+          "weak": 31,
+          "moderate": 37,
+          "strong": 9
+        },
+        "n_eval": 86,
+        "root1_strong_rate": 0.015,
+        "root2plus_strong_rate": 0.421
+      },
+      "D2_C1_prs_conservative": {
+        "status": "PASS",
+        "flags": [],
+        "band_dist": {
+          "low": 9,
+          "weak": 30,
+          "moderate": 35,
+          "strong": 12
+        },
+        "n_eval": 86,
+        "root1_strong_rate": 0.03,
+        "root2plus_strong_rate": 0.526
+      },
+      "D4_stab_CHUNG_conservative": {
+        "status": "PASS",
+        "flags": [],
+        "band_dist": {
+          "low": 9,
+          "weak": 30,
+          "moderate": 35,
+          "strong": 12
+        },
+        "n_eval": 86,
+        "root1_strong_rate": 0.03,
+        "root2plus_strong_rate": 0.526
+      },
+      "D5_sep_conservative": {
+        "status": "PASS",
+        "flags": [],
+        "band_dist": {
+          "low": 9,
+          "weak": 30,
+          "moderate": 35,
+          "strong": 12
+        },
+        "n_eval": 86,
+        "root1_strong_rate": 0.03,
+        "root2plus_strong_rate": 0.526
+      },
+      "D6_HAP_support_up": {
+        "status": "PASS",
+        "flags": [],
+        "band_dist": {
+          "low": 9,
+          "weak": 30,
+          "moderate": 35,
+          "strong": 12
+        },
+        "n_eval": 86,
+        "root1_strong_rate": 0.03,
+        "root2plus_strong_rate": 0.526
+      }
+    },
+    "baseline_root1": 0.03,
+    "baseline_root2plus": 0.526
+  },
+  "boundary_case_count": 15
+}

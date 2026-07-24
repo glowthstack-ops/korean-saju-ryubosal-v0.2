@@ -176,6 +176,7 @@ def synthesize_period_vector(
     static_modifiers: list,
     *,
     dictionaries_dir: Path,
+    calibration=None,  # RelationshipVectorCalibration | None
 ) -> RelationshipEffectVectorResult:
     """한 기간 projection → 7축 벡터(어댑터·합성기, 순수). 실패는 단계별 예외.
 
@@ -207,7 +208,7 @@ def synthesize_period_vector(
     try:
         return synthesize_relationship_effect_vector(
             evidences, blockers=blockers, modifiers=static_modifiers,
-            superseded_map=spa.superseded_map)
+            superseded_map=spa.superseded_map, calibration=calibration)
     except Exception as exc:  # noqa: BLE001
         raise _SynthesisError from exc
 

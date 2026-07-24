@@ -172,6 +172,32 @@ B3 = weak 10 / moderate 18 / strong 28
 root가 늘수록 값이 감소하는 결과 금지
 ```
 
+### 3-3. P2-1D review-flag 임계값 (사전 등록 — 결과 관찰 전 고정, 선택 편향 차단)
+
+**자동 탈락이 아니라 감수 대상 표시(review flag) — 한 profile에 중첩 가능.** 분모는
+항상 **해당 축 EVALUATED 사례만**(INSUFFICIENT 제외), dataset는 331 harness(fixture·
+lattice와 미합산).
+
+```
+BAND_COLLAPSE_REVIEW
+  단일 band 점유율 ≥ 85% (전체 evaluated·root=1·root=2·root=3+ 각각 집계)
+  eligible n ≥ 20 → 정식 flag / n < 20 → small_sample_observation
+
+ROOT1_OVERACTIVATION_REVIEW
+  root=1 strong rate ≥ max(baseline_root1_strong × 2, baseline_root1_strong + 0.10)
+  (단순 2배는 baseline≈0에서 취약 → 절대 +10%p 하한 병행)
+
+MULTI_ROOT_UNDERACTIVATION_REVIEW
+  root≥2 strong rate가 baseline 대비 절대 −20%p 이상 OR baseline의 50% 이하로 감소
+  (과도 보수화로 다중 root 신호가 약화되는 profile 포착)
+```
+
+**자동 탈락(FAIL)은 하드 불변식 위반·NOT_ADMISSIBLE 값 사용·root 단조성 위반·same-root>
+cross-root 구조 역전·미평가 축 수치 생성·production delta만.** 분포 기준(위 3종)은
+review flag이며 통계 모양만으로 profile을 제거하지 않는다. profile 상태:
+`PASS / REVIEW_COLLAPSE / REVIEW_OVERACTIVATION / REVIEW_UNDERACTIVATION / FAIL_INVARIANT /
+NOT_ADMISSIBLE`(중첩 가능).
+
 ---
 
 ## 4. 변경 금지 불변식 (P2-0 핵심 산출물)

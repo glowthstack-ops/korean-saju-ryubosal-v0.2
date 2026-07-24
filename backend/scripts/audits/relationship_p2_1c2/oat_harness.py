@@ -364,7 +364,8 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
         for x in inadm[:12]:
             md.append(f"| {x['anchor']} | {x['param']} | {x['perturb']} | {x['reason']} |")
     else:
-        md.append("- 없음.")
+        md.append("- 없음 — 전 perturbation admissible(§1: 모든 sensitivity가 양측 "
+                  "**central finite difference**·one-sided 없음).")
 
     md += ["", "## 6. 구조별 weight 민감도 대비(§8 — S0/S1/S2)", "",
            "> 같은 weight perturbation을 세 anchor에 적용. activation bonus는 S0=S2(pressure "
