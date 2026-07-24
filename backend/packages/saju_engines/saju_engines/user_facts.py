@@ -97,6 +97,7 @@ _REL_HYPOTHETICAL_RE = re.compile(r"(?:[하지]면\s*(?:어떻|어떨|어찌)|�
 _SENT_SPLIT_RE = re.compile(r"[.!?\n]+")
 _MAX_QUOTE = 80
 _MAX_FACTS = 12  # 주입 캡과 별개의 저장 캡 — 오래된 누적 사실부터 밀어낸다.
+_REL_FACT_SUBCAP = 4  # 관계 evidence 전용 sub-cap(P1-0) — 비관계 사실 잠식 방지.
 
 
 def _clause_of(text: str, span_start: int) -> str:
@@ -173,6 +174,14 @@ def merge_user_facts(
         elif any(f.key == nf.key and f.quote == nf.quote for f in kept):
             continue
         kept.append(nf)
+    # 관계 evidence sub-cap(P1-0 retention, RELATIONSHIP_EVENT_SYSTEM) — 누적형 관계
+    # 사실이 전체 원장(cap 12)을 잠식해 이사·계약 등 비관계 사실을 밀어내지 않게
+    # 관계 슬롯만 최근 N건으로 제한한다. 오래된 관계 원문이 잘려도 현재 상태의 SSOT는
+    # relationship_states이므로 상태 손실은 없다(ledger 최소 evidence만 유지).
+    rel_active = [f for f in kept if f.key == "relationship_status"]
+    if len(rel_active) > _REL_FACT_SUBCAP:
+        drop = set(map(id, rel_active[: len(rel_active) - _REL_FACT_SUBCAP]))
+        kept = [f for f in kept if id(f) not in drop]
     if len(kept) > _MAX_FACTS:
         kept = kept[-_MAX_FACTS:]
     return kept

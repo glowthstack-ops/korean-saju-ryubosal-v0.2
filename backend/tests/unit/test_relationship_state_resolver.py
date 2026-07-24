@@ -324,3 +324,36 @@ def test_overview_distinguishes_partner_kinds() -> None:
     assert ov.has_active_romantic_partner is False  # 별거 배우자는 활동 상대 아님
     assert ov.has_current_contact_target is True    # 전 연인 연락 중
     assert ov.active_target_count == 2
+
+
+# ── P1-0: user_facts retention (관계 evidence의 전체 원장 잠식 방지) ──────────────
+
+
+def test_relationship_facts_do_not_evict_other_facts() -> None:
+    """관계 사실 다수 + 비관계 사실(이사·계약·일정) 공존 시 비관계 사실 보존."""
+    from saju_engines.user_facts import merge_user_facts
+    from saju_shared_types.conversation import ConversationState
+
+    st = ConversationState(thread_id="t")
+    base = (
+        "이미 계약도 끝냈고. 잔금만 남았어. 9월 30일에 이사가 예정되어 있어."
+    )
+    st.user_facts = merge_user_facts(st, extract_user_facts(base, 1), topic_reset=False)
+    non_rel_before = {(f.key, f.quote) for f in st.user_facts}
+    assert non_rel_before  # 비관계 사실 존재 전제
+    # 관계 사실을 다수 턴에 걸쳐 누적(전 연인·별거·연애·썸 …).
+    rel_texts = [
+        "남자친구가 있어", "남편과 별거 중이야", "썸 타는 사람이 생겼어",
+        "전 남자친구와 연락 중이야", "약혼했어", "연애 중이야",
+    ]
+    for i, txt in enumerate(rel_texts, start=2):
+        st.user_facts = merge_user_facts(
+            st, extract_user_facts(txt, i), topic_reset=False
+        )
+    kept = {(f.key, f.quote) for f in st.user_facts}
+    # 비관계 사실이 cap 때문에 사라지지 않는다.
+    assert non_rel_before <= kept
+    # 관계 사실은 sub-cap(4) 이내로 최근분만 유지 — 최소 evidence는 보존.
+    rel_kept = [f for f in st.user_facts if f.key == "relationship_status"]
+    assert 1 <= len(rel_kept) <= 4
+    assert any("연애" in f.quote or "약혼" in f.quote for f in rel_kept)  # 최신 유지
