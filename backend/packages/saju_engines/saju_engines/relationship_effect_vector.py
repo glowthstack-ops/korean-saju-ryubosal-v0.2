@@ -98,6 +98,13 @@ class RelationshipEffectVectorResult(BaseModel):
     # 동일 static ID에 상이한 의미 payload(effects·affects 불일치) — 수치 적용 보류
     # 건수(P1-6 승인 §4: telemetry는 count만, 원문 미기록).
     static_modifier_conflict_count: int = 0
+    # supersession 연쇄·순환·유실 계측(P1-6 §1) — 순환·유실은 수치 적용 보류.
+    supersession_cycle_count: int = 0
+    supersession_target_missing_count: int = 0
+    # 복수 root 참조 modifier(P1-6 §2) — root마다 strength 반복 적용 금지: P1은 보류.
+    modifier_multi_root_hold_count: int = 0
+    # 어댑터에서 EXACT로 대체된 잠정 evidence 수(pass-through — superseded_map 크기).
+    superseded_provisional_count: int = 0
 
     usage: str = "shadow_only"
 
@@ -120,9 +127,32 @@ def _band(value: float, *, strong: float, moderate: float, weak: float) -> str:
     return "low"
 
 
+def resolve_canonical_evidence_id(
+    evidence_id: str,
+    superseded_map: dict[str, str],
+    valid_ids: set[str],
+) -> tuple[str | None, str]:
+    """supersession 연쇄를 최종 canonical evidence까지 추적(P1-6 §1).
+
+    Returns:
+        (canonical_id | None, status) — status: ok | cycle | missing.
+        순환·유실(fail-closed)이면 canonical=None(수치 미적용, 계측만).
+    """
+    seen: set[str] = set()
+    cur = evidence_id
+    while cur in superseded_map:
+        if cur in seen:
+            return None, "cycle"
+        seen.add(cur)
+        cur = superseded_map[cur]
+    if cur not in valid_ids:
+        return None, "missing"
+    return cur, "ok"
+
+
 def _merge_modifiers(
     modifiers: list[RelationshipStructureModifier],
-) -> tuple[list[RelationshipStructureModifier], list[str], int]:
+) -> tuple[list[RelationshipStructureModifier], list[str], int, set[str]]:
     """동일 static ID 병합 — strength=max·union, 입력 순서 불변(결과 정렬).
 
     현 생성기는 같은 static ID에 동일 payload만 생성한다(단일 매핑 테이블 불변식).
@@ -155,8 +185,7 @@ def _merge_modifiers(
             })
     merged = sorted(by_static.values(), key=lambda m: m.structural_context_id or "")
     merged += sorted(transit, key=lambda m: m.pattern_id)
-    # 충돌 static은 수치 적용에서 제외 표시(derived 비우기 — 보류) 대신 별도 집합 반환.
-    return merged, sorted(by_static), len(conflicts)
+    return merged, sorted(by_static), len(conflicts), conflicts
 
 
 def synthesize_relationship_effect_vector(
@@ -177,15 +206,30 @@ def synthesize_relationship_effect_vector(
     blockers = blockers or []
     modifiers = modifiers or []
     superseded_map = superseded_map or {}
-    # modifier의 derived 참조가 대체된 잠정 evidence를 가리키면 canonical(EXACT)로
-    # remap한다(P1-6 §3 — 참조 유실로 인한 적용 보류 방지, 매핑 없으면 기존 보류 원칙).
-    if superseded_map:
-        modifiers = [
-            m.model_copy(update={"derived_from_evidence_ids": sorted(
-                {superseded_map.get(i, i) for i in m.derived_from_evidence_ids}
-            )}) if m.derived_from_evidence_ids else m
-            for m in modifiers
-        ]
+    valid_ids = {e.evidence_id for e in evidences}
+    cycle_count = 0
+    missing_count = 0
+    # modifier의 derived 참조를 canonical resolver로 해소(P1-6 §1 — 연쇄 추적·순환/
+    # 유실 fail-closed). 해소 실패 참조는 제거되어 해당 modifier는 자연 보류된다.
+    if modifiers:
+        remapped: list[RelationshipStructureModifier] = []
+        for m in modifiers:
+            if not m.derived_from_evidence_ids:
+                remapped.append(m)
+                continue
+            resolved: set[str] = set()
+            for i in m.derived_from_evidence_ids:
+                canon, status = resolve_canonical_evidence_id(
+                    i, superseded_map, valid_ids)
+                if status == "cycle":
+                    cycle_count += 1
+                elif status == "missing":
+                    missing_count += 1
+                elif canon is not None:
+                    resolved.add(canon)
+            remapped.append(m.model_copy(
+                update={"derived_from_evidence_ids": sorted(resolved)}))
+        modifiers = remapped
     day_evidence = [e for e in evidences if e.on_spouse_palace]
 
     # root 그룹화(폐쇄 §1) — resolved(EXACT/COMPONENT)만 축 숫자에 반영.
@@ -237,18 +281,27 @@ def synthesize_relationship_effect_vector(
     separation_ids = _ids(lambda e: e.relation_kind in _SEP_WEIGHT)
 
     # modifier(폐쇄 §3) — 병합(순서 불변) 후 derived root에만 적용.
-    deduped_modifiers, static_ids, static_conflicts = _merge_modifiers(modifiers)
+    deduped_modifiers, static_ids, static_conflicts, conflicted_sids = (
+        _merge_modifiers(modifiers))
+    multi_root_hold = 0
     for m in deduped_modifiers:
         if StructureModifierEffect.STABILITY_SUPPORT_WEAKEN not in m.effects \
                 or "stability" not in m.affects_axes:
             continue
+        if m.structural_context_id in conflicted_sids:
+            continue  # 의미 payload 충돌 — 데이터 계약 위반: 수치 적용 보류(§3)
         factor = max(0.0, 1.0 - _SUPPORT_WEAKEN * m.strength)
         if m.derived_from_evidence_ids:
             targets = set(m.derived_from_evidence_ids)
-            for c in contributions:
-                if targets & set(c.evidence_ids):
-                    c.stability_support = round(c.stability_support * factor, 3)
-                    stability_ids = sorted(set(stability_ids) | {m.pattern_id})
+            matched = [c for c in contributions if targets & set(c.evidence_ids)]
+            if len(matched) > 1:
+                # 복수 root 참조 — strength를 root마다 반복 적용하면 효과가 배가된다.
+                # P1은 보수적으로 수치 보류(ROOT_SET 메타 보존·계측만 — 승인 §2).
+                multi_root_hold += 1
+                continue
+            for c in matched:
+                c.stability_support = round(c.stability_support * factor, 3)
+                stability_ids = sorted(set(stability_ids) | {m.pattern_id})
         elif m.structural_context_id is not None:
             # 명시적 global(natal static) scope — 전체 support에 적용.
             for c in contributions:
@@ -310,4 +363,8 @@ def synthesize_relationship_effect_vector(
         root_contributions=contributions,
         static_context_ids=static_ids,
         static_modifier_conflict_count=static_conflicts,
+        supersession_cycle_count=cycle_count,
+        supersession_target_missing_count=missing_count,
+        modifier_multi_root_hold_count=multi_root_hold,
+        superseded_provisional_count=len(superseded_map),
     )

@@ -336,3 +336,68 @@ def test_static_conflict_counted() -> None:
     b = a.model_copy(update={"effects": [a.effects[0]], "strength": 0.9})
     r = synthesize_relationship_effect_vector([], modifiers=[a, b])
     assert r.static_modifier_conflict_count == 1
+
+
+# ── P1-6 승인 §1·§2·§3 — resolver 연쇄·순환·유실·multi-root·conflict 보류 ─────────
+
+
+def test_supersession_chain_resolves_to_final_exact() -> None:
+    """§1 — 연쇄 supersession(P→C→E): 최종 canonical까지 추적해 적용."""
+    from saju_engines.relationship_effect_vector import resolve_canonical_evidence_id
+
+    canon, status = resolve_canonical_evidence_id(
+        "P", {"P": "C", "C": "E"}, valid_ids={"E"})
+    assert (canon, status) == ("E", "ok")
+
+
+def test_supersession_cycle_and_missing_fail_closed() -> None:
+    """§1 — 순환·유실은 fail-closed(수치 미적용) + 계측."""
+    from saju_engines.relationship_effect_vector import resolve_canonical_evidence_id
+
+    assert resolve_canonical_evidence_id("P", {"P": "E", "E": "P"}, {"X"})[1] == "cycle"
+    assert resolve_canonical_evidence_id("P", {"P": "X"}, {"E"})[1] == "missing"
+    # 합성기 계측 연결 — 순환 참조 modifier는 적용 보류되고 카운터만 증가.
+    evs = _evidences(_hit(RelationKind.HAP, transit="子"), period="2029")
+    mods = build_relationship_structure_modifiers(
+        [_pat("JAENGHAP")], derived_from_by_pattern={"JAENGHAP": ["P"]})
+    r = synthesize_relationship_effect_vector(
+        evs, modifiers=mods, superseded_map={"P": "Q", "Q": "P"})
+    assert r.supersession_cycle_count == 1
+    plain = synthesize_relationship_effect_vector(evs)
+    assert r.axes.stability.value == plain.axes.stability.value  # 수치 미적용
+
+
+def test_multi_root_modifier_held() -> None:
+    """§2 — 복수 root 참조 modifier: strength 반복 적용 금지 → 보류+계측."""
+    evs = _evidences(
+        _hit(RelationKind.HAP, transit="子"),
+        _hit(RelationKind.HAP, transit="辰", natal="酉"),
+        period="2029",
+    )
+    both = [e.evidence_id for e in evs]
+    mods = build_relationship_structure_modifiers(
+        [_pat("JAENGHAP")], derived_from_by_pattern={"JAENGHAP": both})
+    r = synthesize_relationship_effect_vector(evs, modifiers=mods)
+    plain = synthesize_relationship_effect_vector(evs)
+    assert r.modifier_multi_root_hold_count == 1
+    assert r.axes.stability.value == plain.axes.stability.value  # 어느 root에도 미적용
+
+
+def test_static_conflict_numeric_hold() -> None:
+    """§3 — 의미 payload 충돌 static: 계측+수치 적용 보류(합성 modifier 생성 방지).
+
+    (natal static은 global scope라 base evidence의 support에 적용되는데,
+    충돌 시에는 그 적용 자체가 보류되는지 확인.)
+    """
+    evs = _evidences(_hit(RelationKind.HAP, transit="子"), period="2029")
+    a = build_relationship_structure_modifiers([_pat("GWANSAL_HONJAP")])[0]
+    # 방어 시나리오 — 같은 static ID에 stability 약화 효과가 상이 payload로 유입.
+    from saju_engines.relationship_structure_modifiers import StructureModifierEffect
+    a2 = a.model_copy(update={
+        "effects": [StructureModifierEffect.STABILITY_SUPPORT_WEAKEN],
+        "affects_axes": ["stability"], "strength": 0.9,
+    })
+    plain = synthesize_relationship_effect_vector(evs)
+    r = synthesize_relationship_effect_vector(evs, modifiers=[a, a2])
+    assert r.static_modifier_conflict_count == 1
+    assert r.axes.stability.value == plain.axes.stability.value  # 수치 보류
