@@ -23,7 +23,6 @@ P1-2 평가 범위(부록 D 승인 표):
 from __future__ import annotations
 
 import json
-from collections import Counter
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -34,6 +33,7 @@ from saju_shared_types.relationship_effect import (
     RelationshipActivationEvidence,
     RelationshipAxisValue,
     RelationshipEffectVector,
+    TriggerPrecision,
     unevaluated,
 )
 
@@ -64,6 +64,11 @@ class SpousePalaceVectorResult(BaseModel):
     # 이벤트 무관 기본 강도 합(일지 한정, cap·×1.2·MT4 미적용) — 실제 legacy pre-cap
     # 점수가 아니다(이벤트 결합 후에만 정의 — evidence의 event_adjusted_* 참조).
     base_activation_total: float = 0.0
+    # stability 내부 분해(보완 §5) — 축 value는 net이지만 근거는 support/pressure를
+    # 따로 보존한다. support(+합 결속)는 '장기 안정성 확정'이 아니라 binding support의
+    # 제한 의미 — 쟁합·합거·합반(P1-4)이 상쇄·blocker로 재분류할 수 있다.
+    stability_support: float = 0.0
+    stability_pressure: float = 0.0
 
 
 class _Dict:
@@ -107,16 +112,16 @@ def build_spouse_palace_vector(
     """배우자궁 발동 목록 → 7축 벡터(shadow) + cap 이전 증거.
 
     independent_cause_id = 확보 가능한 전 필드 서명(layer:kind:palace:position:
-    hap_subtype:element)(#k). 처리 전 서명 정렬 + 동일 서명 반복은 개수 기반 suffix라
-    **입력 순서와 무관**(permutation invariant — 2026-07-24 보완). COMPOUND는 원인
-    목록의 결합 상태(compound_group_id — 구성 evidence 각각에 연결)이지 새 원인이
-    아니다(부록 D-2).
+    hap_subtype:element). **완전 동일 서명 반복은 독립 원인이 아니라 evidence 1건 +
+    duplicate_count**(보완 §2 — 실제 별개 source면 상위 생성부가 participant를 채워
+    서명이 갈라진다). 서명 정렬 처리라 입력 순서 무관(permutation invariant).
+    COMPOUND는 원인 목록의 결합 상태(compound_group_id — 구성 evidence 각각에
+    연결)이지 새 원인이 아니다(부록 D-2).
     """
     d = _Dict(dictionaries_dir)
     evidences: list[RelationshipActivationEvidence] = []
     kinds_on_day: list[RelationKind] = []
     base_day_total = 0.0
-    key_seq: Counter[str] = Counter()
     day_kinds_set = {a.kind for a in activations if a.palace is Pillar4.DAY}
     compound_id = (
         "+".join(sorted(k.value for k in day_kinds_set)) if len(day_kinds_set) >= 2
@@ -131,22 +136,33 @@ def build_spouse_palace_vector(
             act.hap_subtype or "", act.element or "",
         ))
 
-    for act in sorted(activations, key=_signature):
-        base_key = _signature(act)
-        key_seq[base_key] += 1
-        cause_id = base_key if key_seq[base_key] == 1 else f"{base_key}#{key_seq[base_key]}"
+    # 완전 동일 typed hit는 별도 독립 원인이 아니다(보완 §2) — 확보 가능한 전 필드
+    # 서명이 같으면 evidence 1건 + duplicate_count로 보존한다. 실제로 서로 다른
+    # source(다른 원국 참여자)라면 상위 생성부가 participant를 채워 서명이 갈라진다.
+    grouped: dict[str, list[RelationActivation]] = {}
+    for act in activations:
+        grouped.setdefault(_signature(act), []).append(act)
+
+    for base_key in sorted(grouped):
+        acts = grouped[base_key]
+        act = acts[0]
+        dup = len(acts)
         on_day = act.palace is Pillar4.DAY
         base = d.raw_strength(act)
         if on_day:
             kinds_on_day.append(act.kind)
-            base_day_total += base
+            base_day_total += base  # 중복 생성분은 강도 합에도 1회만(과대 집계 방지)
         evidences.append(RelationshipActivationEvidence(
-            evidence_id=f"spa:{cause_id}",
-            independent_cause_id=cause_id,
+            evidence_id=f"spa:{base_key}",
+            independent_cause_id=base_key,
             independent_cause_group="palace_activation",
-            # 잠정 root trigger 서명 — 입력에 운 글자가 없어 층위·합화오행으로 근사
-            # (P1-3에서 활성 생성부의 운 글자 주입으로 정밀화 — 부록 D §7).
-            shared_trigger_id=f"{act.layer.value}:{act.element or act.kind.value}",
+            # trigger 2계층(보완 §4) — 입력에 기간·운 글자가 없어 전부 잠정(PROVISIONAL):
+            # 독립 원인·dedupe·고유 집계 계산에 사용 금지, 관측 기록 전용.
+            # P1-3에서 활성 생성부의 기간·운 글자 주입으로 COMPONENT/EXACT 승급.
+            period_trigger_id=act.layer.value,
+            signal_trigger_id=None,
+            trigger_precision=TriggerPrecision.PROVISIONAL,
+            duplicate_count=dup,
             relation_kind=act.kind.value,
             source_layer=act.layer.value,
             affected_palace=act.palace.value,
@@ -162,6 +178,7 @@ def build_spouse_palace_vector(
     day_causes = {e.independent_cause_id for e in evidences if e.on_spouse_palace}
 
     vector = RelationshipEffectVector()
+    stability_support = stability_pressure = 0.0
     if kinds_on_day:
         # activation — 기본 강도 합 기준 밴드(§5: 충 매우 높음 > 합 높음 > 파·해 중간).
         vector.activation = RelationshipAxisValue(
@@ -187,8 +204,13 @@ def build_spouse_palace_vector(
                 status=AxisStatus.INSUFFICIENT_EVIDENCE,
                 evidence_ids=day_evidence_ids,
             )
-        # stability — kind 기여 합의 제한 평가(합 소폭↑, 충·형·해·파↓; 혼재 시 상쇄 보존).
-        stab = sum(_STABILITY_CONTRIB.get(k, 0.0) for k in kinds_on_day)
+        # stability — support(+)와 pressure(−)를 분해 보존하고 축 value는 net(보완 §5).
+        support = sum(v for k in kinds_on_day
+                      if (v := _STABILITY_CONTRIB.get(k, 0.0)) > 0)
+        pressure = sum(-v for k in kinds_on_day
+                       if (v := _STABILITY_CONTRIB.get(k, 0.0)) < 0)
+        stab = support - pressure
+        stability_support, stability_pressure = support, pressure
         vector.stability = RelationshipAxisValue(
             status=AxisStatus.EVALUATED,
             value=round(stab, 3),
@@ -210,4 +232,6 @@ def build_spouse_palace_vector(
         evidences=evidences,
         independent_cause_count=len(day_causes),
         base_activation_total=round(base_day_total, 3),
+        stability_support=round(stability_support, 3),
+        stability_pressure=round(stability_pressure, 3),
     )

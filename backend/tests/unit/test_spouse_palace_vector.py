@@ -77,11 +77,19 @@ def test_double_chung_plus_hyeong_uncapped_structure() -> None:
                and e.legacy_delta is None for e in triple.evidences)
 
 
-def test_same_key_repeat_gets_distinct_cause_ids() -> None:
-    """동일 (layer,kind,palace) 반복 — 결정적 suffix로 독립 원인 구분."""
+def test_identical_hits_dedupe_to_single_cause() -> None:
+    """완전 동일 typed hit 2건 — 독립 원인 1 + duplicate_count 2(보완 §2).
+
+    구분 정보(참여자 등)가 없는 동일 서명 반복은 중복 생성일 수 있으므로 별도
+    원인으로 세지 않는다. 실제 별개 source면 상위 생성부가 서명을 갈라야 한다.
+    """
     r = _build(_act(RelationKind.CHUNG), _act(RelationKind.CHUNG))
-    ids = [e.independent_cause_id for e in r.evidences]
-    assert len(set(ids)) == 2 and ids[1].endswith("#2")
+    assert len(r.evidences) == 1
+    assert r.evidences[0].duplicate_count == 2
+    assert r.independent_cause_count == 1
+    # 강도 합도 1회만(중복 생성 과대 집계 방지).
+    single = _build(_act(RelationKind.CHUNG))
+    assert r.base_activation_total == single.base_activation_total
 
 
 def test_pa_hae_smaller_pressure_than_chung() -> None:
@@ -141,7 +149,7 @@ def test_permutation_invariance() -> None:
     rev = _build(*reversed(acts))
     assert {e.independent_cause_id for e in fwd.evidences} == \
         {e.independent_cause_id for e in rev.evidences}
-    assert fwd.independent_cause_count == rev.independent_cause_count
+    assert fwd.independent_cause_count == rev.independent_cause_count == 3
     assert fwd.vector.model_dump() == rev.vector.model_dump()
 
 
@@ -154,10 +162,16 @@ def test_compound_group_linked_on_constituent_evidences() -> None:
     assert all(e.compound_group_id is None for e in single.evidences)
 
 
-def test_shared_trigger_id_present_for_synthesizer() -> None:
-    """shared_trigger_id 잠정 서명 존재(§7 — P1-3 MT2와 root trigger 대조용)."""
+def test_trigger_tiers_provisional_not_for_counting() -> None:
+    """trigger 2계층 — 어댑터 단계는 전부 PROVISIONAL(원인 계산 사용 금지 표식),
+    signal_trigger_id는 미확보(None)·period는 잠정 서명(보완 §3·§4)."""
+    from saju_shared_types.relationship_effect import TriggerPrecision
+
     r = _build(_act(RelationKind.HAP))
-    assert all(e.shared_trigger_id for e in r.evidences)
+    e = r.evidences[0]
+    assert e.trigger_precision is TriggerPrecision.PROVISIONAL
+    assert e.signal_trigger_id is None
+    assert e.period_trigger_id  # 관측 기록용 잠정 값은 존재
 
 
 def test_base_strength_not_confused_with_legacy_precap() -> None:
@@ -167,3 +181,11 @@ def test_base_strength_not_confused_with_legacy_precap() -> None:
     assert e.base_relation_strength > 0
     assert e.event_adjusted_legacy_strength is None
     assert e.legacy_delta is None and e.legacy_capped is None
+
+
+def test_stability_support_pressure_decomposed() -> None:
+    """stability 내부 분해(보완 §5) — 축 value는 net, support/pressure 별도 보존."""
+    r = _build(_act(RelationKind.HAP), _act(RelationKind.CHUNG))
+    assert r.stability_support == 0.3
+    assert r.stability_pressure == 1.0
+    assert r.vector.stability.value == -0.7  # net = support - pressure

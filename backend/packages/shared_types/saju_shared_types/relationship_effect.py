@@ -21,6 +21,14 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 
+class TriggerPrecision(StrEnum):
+    """trigger ID 정밀도 — PROVISIONAL은 독립 원인·dedupe·집계 계산에 사용 금지."""
+
+    PROVISIONAL = "provisional"  # 근사 서명(운 글자 미확보) — 관측 기록 전용
+    COMPONENT = "component"      # 운 구성요소(천간/지지) 수준 식별
+    EXACT = "exact"              # 실제 운 글자까지 식별
+
+
 class AxisStatus(StrEnum):
     """축 평가 상태 — 값 부재의 의미를 보존한다(부록 D-1)."""
 
@@ -82,10 +90,17 @@ class RelationshipActivationEvidence(BaseModel):
     # palace_activation | partner_star_emergence | structure_pattern — 증거의 해석 역할
     # 그룹(중복 집계 방지 자체는 shared_trigger_id·합성기 소관).
     independent_cause_group: str
-    # 동일 root trigger(같은 운 글자) 파생 신호 식별 — RelationPalace 합과 MT2 재출현이
-    # 같은 글자에서 나왔으면 증거 2종·독립 root 1개로 계산하기 위한 키(§7).
-    # 어댑터 입력에 운 글자가 없으면 확보 가능한 서명으로 잠정 기록(P1-3에서 정밀화).
-    shared_trigger_id: str = ""
+    # root trigger 2계층(2026-07-24 보완 §4) — '같은 기간'과 '같은 실제 운 글자'를
+    # 분리한다. RelationPalace 합과 MT2 재출현이 같은 글자에서 나왔으면 증거 2종·독립
+    # root 1개(signal 기준)로 계산한다. precision=PROVISIONAL이면 **독립 원인 계산·
+    # dedupe·고유 신호 집계에 사용 금지**(관측 기록 전용 — P1-3에서 운 글자 주입).
+    period_trigger_id: str = ""                     # 예: annual:2028
+    signal_trigger_id: str | None = None            # 예: annual:2028:stem:戊
+    trigger_precision: TriggerPrecision = TriggerPrecision.PROVISIONAL
+    # natal 정적 구조(관살혼잡 등) 출처 — 가짜 transit trigger를 만들지 않는다(§9).
+    structural_context_id: str | None = None
+    # 완전 동일 typed hit의 중복 생성 — 별도 독립 원인이 아니라 1건+개수 보존(§2).
+    duplicate_count: int = 1
 
     relation_kind: str                  # HAP | CHUNG | HYEONG | PA | HAE | BOKEUM
     source_layer: str                   # sewoon | wolwoon | daewoon | ilwoon
