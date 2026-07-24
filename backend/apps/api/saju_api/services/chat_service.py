@@ -1781,6 +1781,65 @@ def _relationship_beta_block(signals: list) -> str | None:
     return "\n".join(lines)
 
 
+# 관계 위험 dev beta 노출(슬라이스 3 — RELATIONSHIP_RISK_BETA_EXPOSE) — 도메인·밴드만.
+_REL_RISK_DOMAIN_LABEL = {
+    "finance": "재물",
+    "career": "일·직장",
+    "contract_legal": "계약·법적",
+    "health_safety": "건강·안전",
+    "relationship": "관계",
+    "relocation": "이동·이사",
+    "selection": "선발·경쟁",
+}
+# PRESSURE→주의 에너지, INCIDENT_RISK→사건 가능 신호. VULNERABILITY는 위험 엔진 규격상
+# 사용자에게 별도 사건처럼 노출하지 않으므로 beta 블록에서도 제외한다.
+_REL_RISK_KIND_BAND = {
+    "pressure": "주의 신호",
+    "incident_risk": "사건 가능 신호",
+}
+_RELATIONSHIP_RISK_BETA_DIRECTIVE = (
+    "위 [관계 주의 신호(beta)] 블록은 아직 사람 감수 전의 미검증 잠정 관측값이다(calibration "
+    "감수·증거 계약 미완). '주의 신호'는 그 관계 영역에서 신경 쓸 에너지가 있다는 방향일 뿐 "
+    "사고·갈등·이별의 확정이 절대 아니다. 구체적 사건·날짜·상대에 대한 단정, 불안 조장·과장은 "
+    "금지하고, 미평가 축(성사·공식화 등)은 언급하지 않는다. 도메인·강도 흐름만 부드럽게 참고해 "
+    "예방적·차분한 톤으로만 설명하고, 답변 말미에 '※ 관계 주의 신호는 시험(beta) 관측치예요'라고 "
+    "짧게 밝힌다."
+)
+
+
+def _relationship_risk_beta_block(candidates: list) -> str | None:
+    """live 관계 유래 위험 후보 → dev beta 블록(도메인·밴드만·구체 사건 미노출).
+
+    확률·구체 사고·날짜·상대는 노출하지 않는다. 활성(적격·미억제) 후보 중 PRESSURE·
+    INCIDENT_RISK만 (도메인, 밴드) 단위로 dedup 후 최대 4건. 없으면 None.
+    """
+    seen: set[tuple[str, str]] = set()
+    rows: list[tuple[str, str]] = []
+    for c in candidates:
+        if getattr(c, "suppressed_by_specificity", None):
+            continue
+        if getattr(getattr(c, "eligibility_status", None), "value", "eligible") != "eligible":
+            continue
+        band = _REL_RISK_KIND_BAND.get(getattr(getattr(c, "kind", None), "value", ""))
+        if band is None:  # VULNERABILITY 등 — 사용자 비노출
+            continue
+        dom = _REL_RISK_DOMAIN_LABEL.get(
+            getattr(getattr(c, "domain", None), "value", ""), None)
+        if dom is None:
+            continue
+        key = (dom, band)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(key)
+    if not rows:
+        return None
+    lines = ["[관계 주의 신호(beta) — 미검증 잠정 관측치, 사건 확정 아님]"]
+    for dom, band in rows[:4]:
+        lines.append(f"- {dom} 영역: {band}")
+    return "\n".join(lines)
+
+
 # 인연 출처 질문 — '주변 사람 vs 새로운 사람' 류(기존 지인이냐 새 인연이냐).
 _PARTNER_SOURCE_KEYS = (
     "주변",
@@ -3858,6 +3917,22 @@ def chat(
                 trailing.append(_RELATIONSHIP_BETA_DIRECTIVE)
         except Exception:  # noqa: BLE001 — beta 노출 실패는 본 응답 비차단
             _logger.exception("relationship beta 블록 생성 실패 — 본 응답 비차단")
+    # 관계 위험 dev beta 노출(슬라이스 3 — RELATIONSHIP_RISK_BETA_EXPOSE, dev 전용 우회).
+    # production 위험 노출 파이프라인(RISK_ENGINE_MODE=expose·manifest·HMAC)은 건드리지
+    # 않고, strip이 제거하는 live 관계 유래 위험 후보만 별도로 골라 도메인·밴드 수준 beta
+    # 블록으로 보여준다. 플래그 off면 미실행 → byte-identical. 실패해도 본 응답 비차단.
+    if (relationship_shadow.RELATIONSHIP_RISK_BETA_EXPOSE
+            and _rel_ctxs and _is_relationship_context(intent, question)):
+        try:
+            _rel_risk_cands = (
+                relationship_shadow.select_live_relationship_risk_candidates(
+                    list(_subject_risk_shadow)))
+            _risk_beta_block = _relationship_risk_beta_block(_rel_risk_cands)
+            if _risk_beta_block:
+                trailing.append(_risk_beta_block)
+                trailing.append(_RELATIONSHIP_RISK_BETA_DIRECTIVE)
+        except Exception:  # noqa: BLE001 — beta 노출 실패는 본 응답 비차단
+            _logger.exception("relationship risk beta 블록 생성 실패 — 본 응답 비차단")
     # 사용자 제공 사실 원장(P0, 2026-07-22) — 이전 턴들에서 사용자가 직접 밝힌 사실을
     # compact 블록으로 주입해 모순 서술·되묻기를 차단한다(원문 전체 상속 없이 연속성 보존.
     # user_explicit만 저장되므로 엔진·LLM 산출물 오염 없음. 상한 20k→22k 상향분이 흡수 —

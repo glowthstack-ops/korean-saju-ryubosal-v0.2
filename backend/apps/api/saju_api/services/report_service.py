@@ -1855,6 +1855,18 @@ def build_section_context(
                 lines += ["", *_beta_block]
         except Exception:  # noqa: BLE001 — beta 노출 실패는 섹션 생성 비차단
             _logger.exception("relationship beta 리포트 블록 실패 — 비차단")
+    # 관계 위험 dev beta 노출(슬라이스 3 — RELATIONSHIP_RISK_BETA_EXPOSE, dev 전용 우회).
+    # production 위험 노출 파이프라인 미변경. 관계 도메인 섹션에서 live 관계 유래 위험
+    # 후보만 도메인·밴드 수준으로. 플래그 off면 미실행 → byte-identical. 실패해도 비차단.
+    if (relationship_shadow.RELATIONSHIP_RISK_BETA_EXPOSE
+            and _SECTION_DOMAIN.get(sid) == "relationship"
+            and getattr(data, "risk_shadow", None)):
+        try:
+            _risk_beta_block = _relationship_risk_beta_report_block(data)
+            if _risk_beta_block:
+                lines += ["", *_risk_beta_block]
+        except Exception:  # noqa: BLE001 — beta 노출 실패는 섹션 생성 비차단
+            _logger.exception("relationship risk beta 리포트 블록 실패 — 비차단")
     subject_label = spec.subjects[0].label if spec.subjects else "본인"
     return SectionContext(
         section_id=plan.section_id,
@@ -1896,6 +1908,50 @@ def _relationship_beta_report_block(
         stab = _REL_BETA_STAB_KO.get(s.stability_sign or "", "관측 안 됨")
         sep = _REL_BETA_ACT_KO.get(s.separation_band or "", "관측 안 됨")
         lines.append(f"- {s.label}: 관계 활성 {act} · 유지 우호도 {stab} · 종료압력 {sep}")
+    return lines
+
+
+# 관계 위험 dev beta(슬라이스 3 — RELATIONSHIP_RISK_BETA_EXPOSE) — 도메인·밴드만.
+_REL_RISK_DOMAIN_LABEL_KO = {
+    "finance": "재물", "career": "일·직장", "contract_legal": "계약·법적",
+    "health_safety": "건강·안전", "relationship": "관계", "relocation": "이동·이사",
+    "selection": "선발·경쟁",
+}
+_REL_RISK_KIND_BAND_KO = {"pressure": "주의 신호", "incident_risk": "사건 가능 신호"}
+_RELATIONSHIP_RISK_BETA_REPORT_DIRECTIVE = (
+    "아래 [관계 주의 신호(beta)]는 사람 감수 전의 미검증 잠정 관측치다(calibration 감수·증거 "
+    "계약 미완). '주의 신호'는 그 영역에서 신경 쓸 에너지가 있다는 방향일 뿐 사고·갈등·이별의 "
+    "확정이 아니다. 구체 사건·날짜·상대 단정, 불안 조장·과장, 미평가 축 언급은 금지하고 도메인·"
+    "강도 흐름만 예방적·차분한 톤으로 서술한다. 이 신호가 시험(beta) 관측임을 한 번 짧게 밝힌다."
+)
+
+
+def _relationship_risk_beta_report_block(data: _ReportData) -> list[str]:
+    """관계 도메인 섹션용 live 관계 유래 위험 beta 블록(도메인·밴드만·구체 사건 미노출)."""
+    cands = relationship_shadow.select_live_relationship_risk_candidates(
+        list(getattr(data, "risk_shadow", ()) or ()))
+    seen: set[tuple[str, str]] = set()
+    rows: list[tuple[str, str]] = []
+    for c in cands:
+        if getattr(c, "suppressed_by_specificity", None):
+            continue
+        if getattr(getattr(c, "eligibility_status", None), "value", "eligible") != "eligible":
+            continue
+        band = _REL_RISK_KIND_BAND_KO.get(getattr(getattr(c, "kind", None), "value", ""))
+        dom = _REL_RISK_DOMAIN_LABEL_KO.get(getattr(getattr(c, "domain", None), "value", ""))
+        if band is None or dom is None:  # VULNERABILITY 등 비노출
+            continue
+        key = (dom, band)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(key)
+    if not rows:
+        return []
+    lines = [_RELATIONSHIP_RISK_BETA_REPORT_DIRECTIVE, "",
+             "[관계 주의 신호(beta) — 미검증 잠정 관측치, 사건 확정 아님]"]
+    for dom, band in rows[:4]:
+        lines.append(f"- {dom} 영역: {band}")
     return lines
 
 

@@ -63,6 +63,19 @@ RELATIONSHIP_BETA_EXPOSE = os.getenv(
 # 감수 완료 후 별도로 켠다. 기본 False 유지.
 REL_LIVE_CONTEXT_EXPOSE_ENABLED = False
 
+# ── dev 전용 관계 위험 beta 우회(2026-07-24 사용자 승인 — 테스터 피드백용) ────────────
+# env SAJU_RELATIONSHIP_RISK_BETA_EXPOSE=true 로 켠다(기본 off). **production 위험 노출
+# 파이프라인을 건드리지 않는 별도 dev 경로**다 — RISK_ENGINE_MODE·expose_pipeline.reviewed·
+# HMAC·adapter 어느 것도 바꾸지 않으며 reviewed 위조도 없다. 위 P5 하드 게이트
+# (REL_LIVE_CONTEXT_EXPOSE_ENABLED)와 실 후보 스트림(strip_live_relationship_candidates)은
+# 그대로 유지되고, 이 플래그는 **live-derived 후보를 별도로 골라 beta 블록으로만** 보여준다
+# (슬라이스1·2 벡터 블록과 동일한 sidecar 패턴). calibration 사람 감수(P2-3)·증거 계약
+# (P3/P5) 미완이므로 노출은 도메인·밴드 수준으로 제한하고 단정·미평가 4축·구체 사건은 금지,
+# beta·감수 대상 라벨을 강제한다. dev에서 데이터가 실제로 있으려면 RISK_ENGINE_MODE=shadow
+# (계산만·주입 0)가 함께 필요하다 — expose 모드는 계속 off.
+RELATIONSHIP_RISK_BETA_EXPOSE = os.getenv(
+    "SAJU_RELATIONSHIP_RISK_BETA_EXPOSE", "false").strip().lower() in ("1", "true", "yes")
+
 # live 컨텍스트 전용 target 네임스페이스 — 후보 차단 필터의 결정 기준.
 _LIVE_TARGET_PREFIXES = ("relstate-", "profile-role:", "attached:")
 
@@ -340,3 +353,21 @@ def strip_live_relationship_candidates(candidates: list) -> tuple[list, int]:
             continue
         kept.append(c)
     return kept, removed
+
+
+def select_live_relationship_risk_candidates(candidates: list) -> list:
+    """dev beta 우회 전용 — strip이 제거하는 live 관계 유래 후보만 골라 반환.
+
+    `strip_live_relationship_candidates`의 반대(제거 대상) 집합이다. production 노출
+    경로가 아니라 `RELATIONSHIP_RISK_BETA_EXPOSE` beta 블록에서만 소비하며, 실 후보
+    스트림·P5 하드 게이트에는 영향을 주지 않는다(읽기 전용 선택). provenance 플래그가
+    주 판단, target 네임스페이스가 보조 fail-safe(strip과 동일 식별 기준).
+    """
+    out = []
+    for c in candidates:
+        tid = getattr(c, "relationship_target_id", None) or ""
+        if getattr(c, "live_relationship_context_derived", False) or any(
+            tid.startswith(p) for p in _LIVE_TARGET_PREFIXES
+        ):
+            out.append(c)
+    return out
