@@ -189,6 +189,10 @@ class LlmEventCandidate(BaseModel):
     marriage_base_stage: str = ""  # base E4 환원
     marriage_stage_reason: list[str] = Field(default_factory=list)  # 단계 유발 MT 코드
     marriage_stage_limit: str = ""  # 승급 상한 사유(commitment_marker_absent 등)
+    # B2(RELATIONSHIP_EVENT_SYSTEM 부록 B) — full evidence_path 기준 안정성 위험.
+    # stage_reason은 MT 코드 전용이라 REL_CHUNG_* 등 배우자궁 충·형·파·해가 빠져
+    # 출력 가드가 방향 누수를 못 보던 결함의 보완. 렌더 미노출(출력 가드 판정 전용).
+    marriage_stability_risk: bool = False
 
 
 class LlmEvidence(BaseModel):

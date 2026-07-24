@@ -11,9 +11,12 @@ LLM 프롬프트에만 맡기지 않고, **코드가 무엇을 말할 수 있는
 
 from __future__ import annotations
 
+import logging
 import re
 
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 # 단계·marker와 무관하게 항상 금지(절대원칙 3 — 단정·확률 단정).
 _HARD_BLOCKED: tuple[str, ...] = (
@@ -32,13 +35,51 @@ _OVERCLAIM_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
+# B2(RELATIONSHIP_EVENT_SYSTEM 부록 B, 2026-07-24) — 배우자궁 충·형·파·해 REL reason의
+# 명시적 안정성 위험 분류. P0-A 실측: REL_CHUNG_* 기반 marriage_signal이 리스크 표기 없이
+# Top5에 진입하던 방향 누수를 출력 가드에서 차단한다(점수·순위·confidence 불변).
+_NEGATIVE_RELATION_REASON_PREFIXES: tuple[str, ...] = (
+    "REL_CHUNG_", "REL_HYEONG_", "REL_PA_", "REL_HAE_",
+)
+
+
+def is_relationship_stability_risk(reason_code: str) -> bool:
+    """REL_{kind}_{palace} reason이 안정성 위험(충·형·파·해) 계열인지 명시적으로 분류한다.
+
+    문자열 임의 포함 검사가 아니라 접두사 화이트리스트 — 합(REL_HAP_*)·복음(REL_BOKEUM_*)은
+    위험으로 분류하지 않는다.
+
+    Args:
+        reason_code: 후보 reason 코드 1건(예: 'REL_CHUNG_day_pillar').
+
+    Returns:
+        충·형·파·해 계열이면 True.
+    """
+    return reason_code.startswith(_NEGATIVE_RELATION_REASON_PREFIXES)
+
+
 def has_stability_risk(reason_codes: list[str]) -> bool:
     """배우자궁 충·형·파·해·쟁합·기신 등 안정성 저해 risk 코드 존재 여부.
 
     충+기신 배우자궁 발동은 결혼이 아니라 관계 변화·갈등일 수 있으므로(§12 재분기), 답변에서
     'marriage 긍정 단정'이 아니라 'relationship_change 가능성 병기'를 강제하는 트리거다.
+
+    판정 2계층(B2): ①기존 MT 계열("CLASHED"/"RISK" 포함 — MT2_EMERGENCE_CLASHED·
+    SPOUSE_PALACE_CLASHED·MT1_GISIN_RISK 등) ②REL 계열 명시 분류(충·형·파·해 접두사).
+    REL_COMPOUND 단독(구성 REL 코드 부재 — 이론상 없음)은 합 중심 복합일 수 있어 보수적으로
+    미판정하고 감사 로그만 남긴다.
     """
-    return any("CLASHED" in c or "RISK" in c for c in reason_codes)
+    codes = list(reason_codes)
+    if any("CLASHED" in c or "RISK" in c for c in codes):
+        return True
+    if any(is_relationship_stability_risk(c) for c in codes):
+        return True
+    if "REL_COMPOUND" in codes and not any(
+        c.startswith("REL_") and c != "REL_COMPOUND" for c in codes
+    ):
+        # relation_palace_engine은 구성 REL 코드를 COMPOUND보다 먼저 넣으므로 도달 시 이상 상황.
+        logger.info("REL_COMPOUND 단독 — 구성 코드 부재로 안정성 위험 미판정: %s", codes)
+    return False
 
 
 class MarriageOutputGuard(BaseModel):

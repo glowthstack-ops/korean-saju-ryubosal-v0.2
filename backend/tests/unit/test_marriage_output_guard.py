@@ -10,6 +10,7 @@ from saju_engines.marriage_output_guard import (
     compute_marriage_output_guard,
     detect_marriage_overclaim,
     has_stability_risk,
+    is_relationship_stability_risk,
     marriage_guard_directive,
 )
 
@@ -96,3 +97,61 @@ def test_stability_risk_blocks_discussion_and_branches() -> None:
     assert g.can_say_marriage_discussion is False  # risk가 marker 허용을 덮어씀
     d = marriage_guard_directive(g)
     assert "관계 변화" in d and "병기" in d
+
+
+# ── B2: REL 계열 명시 분류 (RELATIONSHIP_EVENT_SYSTEM 부록 B, 2026-07-24) ─────────
+# P0-A 실측: REL_CHUNG_* 기반 marriage_signal이 리스크 표기 없이 Top5 진입하던
+# 방향 누수 — 충·형·파·해 REL reason을 안정성 위험으로 명시 분류해 출력 가드 연결.
+
+
+def test_rel_negative_kinds_are_stability_risk() -> None:
+    """충·형·파·해 REL reason은 각각 안정성 위험."""
+    assert has_stability_risk(["REL_CHUNG_day_pillar"])
+    assert has_stability_risk(["REL_HYEONG_day_pillar"])
+    assert has_stability_risk(["REL_PA_day_pillar"])
+    assert has_stability_risk(["REL_HAE_day_pillar"])
+
+
+def test_rel_hap_alone_is_not_stability_risk() -> None:
+    """합 단독(REL_HAP_*)은 위험 아님 — 결속·재정의 활성."""
+    assert not has_stability_risk(["REL_HAP_day_pillar"])
+    assert not has_stability_risk(["REL_HAP_day_pillar", "MT3_DIRECTIONAL_DAY_BRANCH"])
+
+
+def test_rel_hap_with_chung_is_stability_risk() -> None:
+    """합+충 복합은 위험(충 구성 코드 기준)."""
+    assert has_stability_risk(["REL_HAP_day_pillar", "REL_CHUNG_day_pillar", "REL_COMPOUND"])
+
+
+def test_rel_compound_alone_conservative_no_risk() -> None:
+    """REL_COMPOUND 단독(구성 코드 부재 — 이론상 없음)은 보수적 미판정."""
+    assert not has_stability_risk(["REL_COMPOUND"])
+
+
+def test_mt2_spouse_palace_clashed_still_risk() -> None:
+    """기존 MT 계열(CLASHED 포함)은 그대로 위험 — 회귀 보존."""
+    assert has_stability_risk(["SPOUSE_PALACE_CLASHED"])
+    assert has_stability_risk(["MT2_EMERGENCE_CLASHED", "REL_HAP_day_pillar"])
+
+
+def test_is_relationship_stability_risk_explicit_classifier() -> None:
+    """명시 분류기 단위 동작 — 접두사 화이트리스트만 매칭."""
+    assert is_relationship_stability_risk("REL_CHUNG_year_pillar")
+    assert not is_relationship_stability_risk("REL_HAP_day_pillar")
+    assert not is_relationship_stability_risk("REL_BOKEUM_day_pillar")
+    assert not is_relationship_stability_risk("REL_COMPOUND")
+
+
+def test_chung_based_marriage_blocks_positive_claims() -> None:
+    """충 기반 marriage_signal → 결혼 확정·논의 차단 + 관계 변화 병기(방향 누수 차단)."""
+    risk = has_stability_risk(["REL_CHUNG_day_pillar", "REL_COMPOUND"])
+    g = compute_marriage_output_guard(
+        "relationship",
+        has_commitment_marker=True,
+        has_formalization_marker=True,
+        stability_risk=risk,
+    )
+    assert g.can_say_marriage_confirmed is False
+    assert g.can_say_marriage_discussion is False
+    d = marriage_guard_directive(g)
+    assert "긍정 단정 금지" in d

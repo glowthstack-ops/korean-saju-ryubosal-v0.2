@@ -1151,6 +1151,9 @@ def _to_llm_candidate(
         marriage_base_stage=_stage.base_stage,
         marriage_stage_reason=_stage.stage_reason,
         marriage_stage_limit=_stage.stage_limit,
+        # B2 — stage_reason(MT 전용)에 없는 REL_CHUNG_* 등 배우자궁 충·형·파·해를
+        # full evidence_path로 판정해 출력 가드에 전달(방향 누수 차단, 점수 불변).
+        marriage_stability_risk=has_stability_risk(list(c.evidence_path)),
     )
 
 
@@ -2016,7 +2019,13 @@ def serialize_llm_input(payload: LlmInput) -> str:
             if _rel_focus:
                 _stages = {c.marriage_stage for c in _mt_cands}
                 _top = "relationship" if "relationship" in _stages else "awareness"
-                _risk = any(has_stability_risk(c.marriage_stage_reason) for c in _mt_cands)
+                # B2 — stage_reason(MT 전용) 판정 + 빌드 시 full evidence_path로 계산한
+                # marriage_stability_risk(REL_CHUNG_* 등) 병합. 충 기반 marriage_signal이
+                # 리스크 병기 없이 서술되던 방향 누수 차단(P0-A 실측).
+                _risk = any(
+                    c.marriage_stability_risk or has_stability_risk(c.marriage_stage_reason)
+                    for c in _mt_cands
+                )
                 _cand_out.append(
                     marriage_guard_directive(
                         compute_marriage_output_guard(_top, stability_risk=_risk)
