@@ -115,10 +115,12 @@ def test_batch_cap_detail_only_aggregate_full() -> None:
             "period_identity": f"sewoon:{y}", "observation_id": obs}))
     batch = build_batch(envs)
     assert batch.evaluated_period_count == 50
-    assert batch.aggregated_period_count == 50          # 집계는 절단 없음
+    assert batch.vector_success_count == 50
+    assert batch.telemetry_record_success_count == 50   # 집계는 절단 없음
     assert batch.detailed_period_count \
         == MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST  # 상세만 cap
-    assert batch.truncated_period_count == 50 - batch.detailed_period_count
+    assert batch.truncated_success_period_count == 50 - batch.detailed_period_count
+    # axis bucket 합계 = telemetry_record_success(§1 분모 불변식).
     assert sum(batch.aggregate.separation_bucket_counts.values()) == 50
     # 입력 순서 불변 + 재실행 동일(HMAC 정렬).
     rev = build_batch(list(reversed(envs)))
@@ -126,18 +128,24 @@ def test_batch_cap_detail_only_aggregate_full() -> None:
         == [r.observation_id for r in rev.records]
 
 
-def test_batch_failure_isolation_and_degraded() -> None:
-    """§6 — 기간 실패는 enum count로 격리, 과반 실패 시 degraded 표시."""
+def test_batch_failure_denominators_separated() -> None:
+    """§1·§2 — evaluated=성공+실패, 계산 실패와 변환 실패·degraded 2축 분리."""
     from saju_api.services.relationship_vector_telemetry import PeriodFailureReason
 
     ok = [_envelope()]
-    batch = build_batch(ok, failure_reason_counts={
-        PeriodFailureReason.PERIOD_ADAPTER_FAILURE.value: 3})
+    batch = build_batch(ok, period_failure_counts={
+        PeriodFailureReason.ADAPTER_FAILURE.value: 3})
+    assert batch.evaluated_period_count == 4
     assert batch.vector_success_count == 1
     assert batch.vector_failure_count == 3
-    assert batch.batch_degraded is True  # 3/4 실패 — 부분 정상 오독 방지
+    assert batch.evaluated_period_count \
+        == batch.vector_success_count + batch.vector_failure_count
+    assert batch.vector_degraded is True   # 계산 과반 실패
+    assert batch.telemetry_degraded is False  # 변환은 정상 — 축 분리
+    # 실패 기간은 어떤 bucket에도 포함되지 않는다(임의 bucket 배정 금지).
+    assert sum(batch.aggregate.separation_bucket_counts.values()) == 1
     ok2 = build_batch(ok)
-    assert ok2.batch_degraded is False
+    assert ok2.vector_degraded is False and ok2.telemetry_degraded is False
 
 
 def test_envelope_not_serializable_into_llm_paths() -> None:
@@ -208,3 +216,35 @@ def test_dto_extra_forbid() -> None:
     t = build_relationship_vector_telemetry(_envelope())
     with pytest.raises(pydantic.ValidationError):
         type(t).model_validate({**t.model_dump(), "freeform": "leak"})
+
+
+def test_detail_sampling_does_not_affect_aggregate() -> None:
+    """§5 — 상세 샘플 선택이 달라져도 aggregate는 완전히 동일(역순 입력 비교)."""
+    envs = []
+    for y in range(2027, 2027 + 40):
+        obs = vector_observation_id(
+            thread_scope="t1", turn=3, subject_scope="self",
+            period_identity=f"sewoon:{y}", input_signature="sig")
+        envs.append(_envelope().model_copy(update={
+            "period_identity": f"sewoon:{y}", "observation_id": obs}))
+    a = build_batch(envs)
+    b = build_batch(list(reversed(envs)))
+    assert a.aggregate.model_dump() == b.aggregate.model_dump()
+
+
+def test_legacy_cap_units_separated() -> None:
+    """§6 — cap 후보 수와 cap 발생 기간 수 분리, 후보 없는 기간도 벡터 정상."""
+    with_caps = _envelope(audits=[
+        LegacyCandidateAudit(event_key="marriage_signal", candidate_present=True,
+                             relation_capped=True),
+        LegacyCandidateAudit(event_key="relationship_change", candidate_present=True,
+                             relation_capped=True),
+        LegacyCandidateAudit(event_key="new_relationship", candidate_present=False,
+                             relation_capped=False),
+    ])
+    no_candidates = _envelope(audits=[])  # 후보 없는 기간 — 벡터는 존재
+    batch = build_batch([with_caps, no_candidates])
+    assert batch.aggregate.legacy_candidate_count == 3
+    assert batch.aggregate.legacy_capped_candidate_count == 2
+    assert batch.aggregate.periods_with_any_legacy_cap == 1
+    assert batch.telemetry_record_success_count == 2  # 후보 없어도 관측됨

@@ -290,12 +290,19 @@ def build_relationship_vector_telemetry(
 
 
 class PeriodFailureReason(StrEnum):
-    """per-period 실패 사유(§6) — enum만(원문 exception 금지)."""
+    """per-period **벡터 계산** 실패 사유(§2) — telemetry 변환 실패와 분리."""
 
-    PERIOD_ADAPTER_FAILURE = "period_adapter_failure"
-    VECTOR_SYNTHESIS_FAILURE = "vector_synthesis_failure"
+    ADAPTER_FAILURE = "adapter_failure"
+    SYNTHESIS_FAILURE = "synthesis_failure"
     LEGACY_AUDIT_PROJECTION_FAILURE = "legacy_audit_projection_failure"
-    TELEMETRY_SERIALIZATION_FAILURE = "telemetry_serialization_failure"
+
+
+class EmitStatus(StrEnum):
+    """batch emit 상태(§2) — emit 실패는 기간 실패가 아니라 batch 실패다."""
+
+    OK = "ok"
+    FAILED = "failed"
+    SKIPPED = "skipped"
 
 
 class RelationshipVectorAggregate(BaseModel):
@@ -313,7 +320,10 @@ class RelationshipVectorAggregate(BaseModel):
     insufficient_activation_count: int = 0
     unresolved_evidence_total: int = 0
     superseded_provisional_total: int = 0
-    legacy_capped_period_count: int = 0
+    # legacy cap 집계 단위 분리(§6) — 후보 개수와 기간 개수는 다른 질문이다.
+    legacy_candidate_count: int = 0
+    legacy_capped_candidate_count: int = 0
+    periods_with_any_legacy_cap: int = 0
 
 
 class RelationshipVectorTelemetryBatch(BaseModel):
@@ -328,16 +338,23 @@ class RelationshipVectorTelemetryBatch(BaseModel):
     records: list[RelationshipVectorTelemetry] = Field(default_factory=list)
     aggregate: RelationshipVectorAggregate = Field(
         default_factory=RelationshipVectorAggregate)
+    # 분모 불변식(§1): evaluated = vector_success + vector_failure.
+    # axis bucket 합계 = telemetry_record_success (직렬화 성공분만 분포에 반영 —
+    # 실패 기간을 임의 bucket에 넣지 않는다). detailed+truncated_success =
+    # 상세 후보가 된 성공 기간 수.
     evaluated_period_count: int = 0
-    aggregated_period_count: int = 0
-    detailed_period_count: int = 0
-    truncated_period_count: int = 0
-    sampling_strategy_version: str = SAMPLING_STRATEGY_VERSION
-    # per-period 실패 격리(§6) — 성공분만 batch 포함, 실패는 enum count.
     vector_success_count: int = 0
     vector_failure_count: int = 0
-    failure_reason_counts: dict[str, int] = Field(default_factory=dict)
-    batch_degraded: bool = False        # 실패 비율 과반 — 부분 정상으로 오독 방지
+    telemetry_record_success_count: int = 0
+    telemetry_record_failure_count: int = 0
+    detailed_period_count: int = 0
+    truncated_success_period_count: int = 0
+    sampling_strategy_version: str = SAMPLING_STRATEGY_VERSION
+    period_failure_counts: dict[str, int] = Field(default_factory=dict)
+    emit_status: str = EmitStatus.SKIPPED.value
+    # degraded 2축(§2) — 계산 실패와 전송 변환 실패는 다른 문제다.
+    vector_degraded: bool = False
+    telemetry_degraded: bool = False
 
 
 def _inc(d: dict[str, int], key: str | None) -> None:
@@ -352,21 +369,26 @@ def _root_bucket(n: int) -> str:
 def build_batch(
     envelopes: list[RelationshipEffectShadowEnvelope],
     *,
-    failure_reason_counts: dict[str, int] | None = None,
+    period_failure_counts: dict[str, int] | None = None,
 ) -> RelationshipVectorTelemetryBatch:
-    """전 기간 aggregate + HMAC 정렬 상위 N 상세 record(§2·§13)."""
-    failure_reason_counts = failure_reason_counts or {}
-    failures = sum(failure_reason_counts.values())
-    total = len(envelopes)
+    """전 기간 aggregate + HMAC 정렬 상위 N 상세 record(§2·§13).
+
+    Args:
+        envelopes: **벡터 계산에 성공한** 기간의 sidecar들.
+        period_failure_counts: 벡터 계산 실패(PeriodFailureReason enum key) 카운트 —
+            배선부가 per-period try/except로 채운다. emit 실패는 여기 아님(batch 수준).
+    """
+    period_failure_counts = dict(period_failure_counts or {})
+    vector_failures = sum(period_failure_counts.values())
+    vector_success = len(envelopes)
     agg = RelationshipVectorAggregate()
-    prebuilt: list[tuple[str, RelationshipEffectShadowEnvelope,
-                         RelationshipVectorTelemetry]] = []
-    ser_fail = 0
+    prebuilt: list[tuple[str, RelationshipVectorTelemetry]] = []
+    record_fail = 0
     for e in envelopes:
         try:
             t = build_relationship_vector_telemetry(e)
-        except Exception:  # noqa: BLE001 — 기간 1건 직렬화 실패가 batch를 막지 않는다
-            ser_fail += 1
+        except Exception:  # noqa: BLE001 — 변환 실패 1건이 batch를 막지 않는다(§2)
+            record_fail += 1
             continue
         _inc(agg.activation_bucket_counts, t.activation_value_bucket)
         _inc(agg.stability_bucket_counts, t.stability_bucket)
@@ -377,30 +399,32 @@ def build_batch(
             agg.insufficient_activation_count += 1
         agg.unresolved_evidence_total += t.unresolved_count
         agg.superseded_provisional_total += int(t.superseded_provisional)
-        agg.legacy_capped_period_count += int(t.legacy_relation_capped)
-        prebuilt.append((_digest("sample", e.observation_id), e, t))
-    if ser_fail:
-        failure_reason_counts = dict(failure_reason_counts)
-        failure_reason_counts[
-            PeriodFailureReason.TELEMETRY_SERIALIZATION_FAILURE.value
-        ] = failure_reason_counts.get(
-            PeriodFailureReason.TELEMETRY_SERIALIZATION_FAILURE.value, 0) + ser_fail
-        failures += ser_fail
-    # 상세 record — HMAC digest 정렬 상위 N(입력 순서 불변·편향 없는 결정적 샘플).
+        agg.legacy_candidate_count += len(e.legacy_candidate_audits)
+        # cap 단위 분리(§6): audit 값이 relation cap 여부를 후보 단위로 든다.
+        capped_here = sum(
+            1 for a in e.legacy_candidate_audits if a.relation_capped)
+        agg.legacy_capped_candidate_count += capped_here
+        agg.periods_with_any_legacy_cap += int(capped_here > 0)
+        prebuilt.append((_digest("sample", e.observation_id), t))
+    # 상세 record — HMAC digest 정렬 상위 N(입력 순서 불변·주기 aliasing 없음).
     prebuilt.sort(key=lambda x: x[0])
     picked = prebuilt[:MAX_RELATIONSHIP_SHADOW_PERIODS_PER_REQUEST]
-    attempted = total + failures
+    record_success = len(prebuilt)
+    evaluated = vector_success + vector_failures
     return RelationshipVectorTelemetryBatch(
-        records=[t for _, _, t in picked],
+        records=[t for _, t in picked],
         aggregate=agg,
-        evaluated_period_count=attempted,
-        aggregated_period_count=len(prebuilt),
+        evaluated_period_count=evaluated,
+        vector_success_count=vector_success,
+        vector_failure_count=vector_failures,
+        telemetry_record_success_count=record_success,
+        telemetry_record_failure_count=record_fail,
         detailed_period_count=len(picked),
-        truncated_period_count=len(prebuilt) - len(picked),
-        vector_success_count=len(prebuilt),
-        vector_failure_count=failures,
-        failure_reason_counts=failure_reason_counts,
-        batch_degraded=bool(attempted and failures * 2 > attempted),
+        truncated_success_period_count=record_success - len(picked),
+        period_failure_counts=period_failure_counts,
+        vector_degraded=bool(evaluated and vector_failures * 2 > evaluated),
+        telemetry_degraded=bool(
+            vector_success and record_fail * 2 > vector_success),
     )
 
 
@@ -414,11 +438,13 @@ def emit_batch(batch: RelationshipVectorTelemetryBatch) -> None:
     global _fail_count
     try:
         logger.info(
-            "relationship_vector_batch evaluated=%d aggregated=%d detailed=%d "
-            "truncated=%d degraded=%s failures=%s aggregate=%s records=%s",
-            batch.evaluated_period_count, batch.aggregated_period_count,
-            batch.detailed_period_count, batch.truncated_period_count,
-            batch.batch_degraded, batch.failure_reason_counts,
+            "relationship_vector_batch evaluated=%d success=%d detailed=%d "
+            "truncated=%d vec_degraded=%s tel_degraded=%s failures=%s "
+            "aggregate=%s records=%s",
+            batch.evaluated_period_count, batch.vector_success_count,
+            batch.detailed_period_count, batch.truncated_success_period_count,
+            batch.vector_degraded, batch.telemetry_degraded,
+            batch.period_failure_counts,
             batch.aggregate.model_dump(mode="json"),
             [r.model_dump(mode="json") for r in batch.records],
         )
