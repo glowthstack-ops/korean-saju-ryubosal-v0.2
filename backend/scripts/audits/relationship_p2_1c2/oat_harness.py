@@ -80,7 +80,15 @@ def build_lattice() -> list[Case]:
         Case("single_CHUNG", "single", _ev([_hit(K.CHUNG, "未")])),
         Case("same_HAP_CHUNG", "same_root",
              _ev([_hit(K.HAP, "未", "丑"), _hit(K.CHUNG, "未", "辰")])),
+        # PA·HAE parameter coverage(§2) — 두 kind 같은 root(activation·pressure·
+        # separation 전 축 자극).
+        Case("same_PA_HAE", "same_root",
+             _ev([_hit(K.PA, "未", "丑"), _hit(K.HAE, "未", "戌")])),
     ]
+
+
+def _kinds_in(case: Case) -> set[str]:
+    return {e.relation_kind for e in case.evidences}
 
 
 def _anchor_cal(anchor: str, **weight_kwargs) -> RelationshipVectorCalibration:
@@ -198,6 +206,46 @@ def weight_oat(params: list[str], axis: str) -> dict:
     return {"grid": out, "inadmissible": inadmissible}
 
 
+# ── parameter coverage matrix (§2) ───────────────────────────────────────────
+def coverage_matrix(cases: list[Case], act_oat: dict, stab_oat: dict,
+                    sep_oat: dict) -> dict:
+    """전체 14 mutable parameter가 자극됐는지 증명(§2) + eligible-case sensitivity(§3).
+
+    exercised = 해당 kind가 존재하는 사례 수. nonzero = 그 사례 중 sensitivity≠0.
+    eligible_mean = kind 존재 사례만의 |wide| 평균(§3 — 전체 평균 희석 배제).
+    """
+    kinds = {c.case_id: _kinds_in(c) for c in cases}
+    rows: dict[str, dict] = {}
+
+    def _eligible(grid_s0: dict, param_key_fn, kind: str) -> dict:
+        present = [c.case_id for c in cases if kind in kinds[c.case_id]]
+        widths = [abs(grid_s0[param_key_fn(cid)]["wide"] or 0.0)
+                  for cid in present if param_key_fn(cid) in grid_s0]
+        nonzero = any(w > 1e-9 for w in widths)
+        return {
+            "exercised_case_count": len(present),
+            "nonzero_observed": nonzero,
+            "eligible_mean_wide": round(sum(widths) / len(widths), 4) if widths else None,
+        }
+
+    for k in _ACT_KINDS:
+        rows[f"activation.{k}"] = _eligible(
+            act_oat["S0"], lambda cid, kk=k: f"{cid}:{kk}", k)
+    for param in _STAB_PARAMS:
+        k = param.split(".")[-1]
+        rows[f"stability.{param}"] = _eligible(
+            stab_oat["grid"]["S0"], lambda cid, pp=param: f"{cid}:{pp}", k)
+    for k in _SEP_PARAMS:
+        rows[f"separation.{k}"] = _eligible(
+            sep_oat["grid"]["S0"], lambda cid, kk=k: f"{cid}:{kk}", k)
+
+    uncovered = [p for p, r in rows.items() if r["exercised_case_count"] < 1]
+    zero_sens = [p for p, r in rows.items()
+                 if r["exercised_case_count"] >= 1 and not r["nonzero_observed"]]
+    return {"rows": rows, "uncovered": uncovered, "zero_sensitivity": zero_sens,
+            "all_covered": not uncovered}
+
+
 # ── 구조 cross-check (§8) ─────────────────────────────────────────────────────
 def structure_cross_check(act_oat: dict, stab_oat: dict) -> dict:
     """activation-only 구조 차(S0 vs S1)는 stability OAT에 무영향 / pressure 구조 차
@@ -259,6 +307,7 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
     stab_oat = weight_oat(_STAB_PARAMS, "stability")
     sep_oat = weight_oat(_SEP_PARAMS, "separation")
     cross = structure_cross_check(act_oat, stab_oat)
+    cov = coverage_matrix(cases, act_oat, stab_oat, sep_oat)
     inv = invariant_checks(cases)
 
     md = ["# P2-1C-2 harness — weight OAT × 구조 anchor(S0/S1/S2)", "",
@@ -266,11 +315,23 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
           f"· lattice {len(cases)} case. **감사 전용·읽기 전용·production delta 0.** OAT "
           "한 번에 하나·자동 clamp 없음(§5). anchor: S0(C0 0.3)·S1(C1 A0.15/P0.30)·"
           "S2(C1 A0.30/P0.15).", "",
-          "## 0. 불변식 게이트(§11)", "",
-          f"- 전체 위반: **{len(inv['violations'])}** "
+          "## 0. 불변식 게이트(§11) + coverage(§2)", "",
+          f"- 불변식 위반: **{len(inv['violations'])}** "
           f"({'PASS' if inv['passed'] else 'FAIL — ' + ', '.join(inv['violations'][:6])})",
           "- 검사: S0 A0.3==BASELINE · weight 하나 변경 시 비대상 축·status·count 불변",
+          f"- **parameter coverage(14종): {'ALL COVERED' if cov['all_covered'] else 'MISSING ' + ', '.join(cov['uncovered'])}**",
+          f"- 자극됐으나 sensitivity 0인 param: "
+          f"{cov['zero_sensitivity'] if cov['zero_sensitivity'] else '없음'}",
           "",
+          "## 0b. parameter coverage matrix(§2·§3)", "",
+          "> 14 mutable parameter가 모두 자극됐는지 증명 + eligible-case(kind 존재) 평균 "
+          "민감도(전체 평균 희석 배제).", "",
+          "| parameter | exercised | nonzero | eligible_mean_|wide| |",
+          "|---|--:|:--:|--:|"]
+    for p, r in cov["rows"].items():
+        md.append(f"| {p} | {r['exercised_case_count']} | "
+                  f"{'✔' if r['nonzero_observed'] else '·'} | {r['eligible_mean_wide']} |")
+    md += [
           "## 1. 구조 cross-check(§8 — factor routing 검증)", "",
           f"- stability OAT가 activation 구조(S0↔S1)에 불변: "
           f"**{cross['stability_oat_invariant_to_activation_structure']}**",
@@ -329,20 +390,22 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
         "lattice_case_count": len(cases),
         "invariants": inv,
         "structure_cross_check": cross,
+        "coverage": cov,
         "inadmissible_separation_count": len(inadm),
     }
     out_md.write_text("\n".join(md) + "\n", encoding="utf-8")
     out_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    passed = inv["passed"] and cov["all_covered"]
     return {"cases": len(cases), "violations": len(inv["violations"]),
-            "invariants_passed": inv["passed"],
+            "invariants_passed": passed, "all_covered": cov["all_covered"],
             "cross_check": cross}
 
 
 def main() -> int:
     r = run()
     print(f"P2-1C-2: {r['cases']} cases · violations {r['violations']} · "
-          f"invariants {'PASS' if r['invariants_passed'] else 'FAIL'} · "
-          f"cross_check {r['cross_check']}")
+          f"gate {'PASS' if r['invariants_passed'] else 'FAIL'} · "
+          f"all_covered {r['all_covered']} · cross_check {r['cross_check']}")
     return 0 if r["invariants_passed"] else 1
 
 

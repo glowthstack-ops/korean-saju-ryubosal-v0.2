@@ -1,7 +1,7 @@
 {
   "experiment_spec_version": "p2.1c2.v1",
   "baseline_calibration_version": "cal-2026-07-24.1",
-  "lattice_case_count": 4,
+  "lattice_case_count": 5,
   "invariants": {
     "violations": [],
     "passed": true
@@ -9,6 +9,83 @@
   "structure_cross_check": {
     "stability_oat_invariant_to_activation_structure": true,
     "activation_oat_invariant_to_pressure_structure": true
+  },
+  "coverage": {
+    "rows": {
+      "activation.HAP": {
+        "exercised_case_count": 1,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 4.08
+      },
+      "activation.CHUNG": {
+        "exercised_case_count": 4,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 19.435
+      },
+      "activation.HYEONG": {
+        "exercised_case_count": 2,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 10.1062
+      },
+      "activation.PA": {
+        "exercised_case_count": 1,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 11.66
+      },
+      "activation.HAE": {
+        "exercised_case_count": 1,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 2.3325
+      },
+      "stability.support.HAP": {
+        "exercised_case_count": 1,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 0.3
+      },
+      "stability.pressure.CHUNG": {
+        "exercised_case_count": 4,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 1.0
+      },
+      "stability.pressure.HYEONG": {
+        "exercised_case_count": 2,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 0.52
+      },
+      "stability.pressure.PA": {
+        "exercised_case_count": 1,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 0.39
+      },
+      "stability.pressure.HAE": {
+        "exercised_case_count": 1,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 0.39
+      },
+      "separation.CHUNG": {
+        "exercised_case_count": 4,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 1.0
+      },
+      "separation.HYEONG": {
+        "exercised_case_count": 2,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 0.39
+      },
+      "separation.PA": {
+        "exercised_case_count": 1,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 0.3575
+      },
+      "separation.HAE": {
+        "exercised_case_count": 1,
+        "nonzero_observed": true,
+        "eligible_mean_wide": 0.3575
+      }
+    },
+    "uncovered": [],
+    "zero_sensitivity": [],
+    "all_covered": true
   },
   "inadmissible_separation_count": 0
 }

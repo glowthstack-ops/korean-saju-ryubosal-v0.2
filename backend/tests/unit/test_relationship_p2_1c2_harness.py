@@ -56,6 +56,35 @@ def test_separation_ordering_admissibility_present():
     assert isinstance(sep["inadmissible"], list)
 
 
+def test_all_14_parameters_covered():
+    """§2 — 14 mutable parameter 전부 자극(exercised≥1·nonzero) 증명."""
+    h = _load()
+    cases = h.build_lattice()
+    act = h.activation_bonus_oat()
+    stab = h.weight_oat(h._STAB_PARAMS, "stability")
+    sep = h.weight_oat(h._SEP_PARAMS, "separation")
+    cov = h.coverage_matrix(cases, act, stab, sep)
+    assert cov["all_covered"], cov["uncovered"]
+    assert len(cov["rows"]) == 14
+    for _p, r in cov["rows"].items():
+        assert r["exercised_case_count"] >= 1
+        assert r["nonzero_observed"] is True
+
+
+def test_eligible_case_sensitivity_not_diluted():
+    """§3 — eligible-case 평균은 kind 존재 사례만(HAP은 1 사례라도 값 존재)."""
+    h = _load()
+    cases = h.build_lattice()
+    act = h.activation_bonus_oat()
+    stab = h.weight_oat(h._STAB_PARAMS, "stability")
+    sep = h.weight_oat(h._SEP_PARAMS, "separation")
+    cov = h.coverage_matrix(cases, act, stab, sep)
+    assert cov["rows"]["stability.support.HAP"]["eligible_mean_wide"] is not None
+    # CHUNG이 HAE보다 activation 민감(핵심 relation).
+    assert (cov["rows"]["activation.CHUNG"]["eligible_mean_wide"]
+            > cov["rows"]["activation.HAE"]["eligible_mean_wide"])
+
+
 def test_run_writes_outputs(tmp_path):
     h = _load()
     md = tmp_path / "r.md"
