@@ -186,7 +186,7 @@ def raw_sweep(cases: list[LatticeCase]) -> dict:
                 bi, bj = baseline[ordered_cases[i]], baseline[ordered_cases[j]]
                 si = raw[ordered_cases[i]][sf_id]
                 sj = raw[ordered_cases[j]][sf_id]
-                if None in (bi, bj, si, sj):
+                if bi is None or bj is None or si is None or sj is None:
                     continue
                 if (bi - bj) * (si - sj) < 0:   # 순서 뒤집힘
                     inv += 1
