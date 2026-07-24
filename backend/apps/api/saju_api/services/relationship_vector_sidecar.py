@@ -30,7 +30,10 @@ from pathlib import Path
 from saju_engines.event_engine_v2 import RelationshipShadowProjection
 from saju_engines.marriage_emergence_modifier import analyze_marriage_emergence_natal
 from saju_engines.partner_star_emergence import build_partner_star_emergence_evidence
-from saju_engines.relationship_effect_vector import synthesize_relationship_effect_vector
+from saju_engines.relationship_effect_vector import (
+    RelationshipEffectVectorResult,
+    synthesize_relationship_effect_vector,
+)
 from saju_engines.relationship_structure_modifiers import (
     build_relationship_structure_modifiers,
 )
@@ -136,33 +139,13 @@ def build_relationship_effect_accumulator(
 
     for proj in projections:
         try:
-            hits = [SpousePalaceHit(
-                kind=RelationKind(a.kind), palace=Pillar4(a.palace),
-                layer=a.layer, position=a.position,
-                hap_subtype=a.hap_subtype, element=a.element,
-                transit_component=a.position,
-                # 운 글자 확보 — EXACT signal trigger(root 1개 판정 기준, P1-5 §1).
-                transit_participant=(
-                    proj.luck_branch if a.position == "branch" else proj.luck_stem),
-                natal_participant=_natal_participant(result, a.palace, a.position),
-            ) for a in proj.activations]
-            spa = build_spouse_palace_vector(
-                hits, dictionaries_dir, period_key=proj.label)
-            evidences = list(spa.evidences)
-            blockers: list = []
-            mt2 = build_partner_star_emergence_evidence(
-                natal_mt2, proj.luck_stem, layer=proj.layer, period_key=proj.label,
-                spouse_palace_clashed=proj.spouse_palace_clashed)
-            evidences += mt2.evidences
-            blockers += mt2.blocker_evidences
-        except Exception:  # noqa: BLE001 — 기간 실패 격리(§2)
+            vec = synthesize_period_vector(
+                proj, result, natal_mt2, static_modifiers,
+                dictionaries_dir=dictionaries_dir)
+        except _AdapterError:
             _fail(PeriodFailureReason.ADAPTER_FAILURE)
             continue
-        try:
-            vec = synthesize_relationship_effect_vector(
-                evidences, blockers=blockers, modifiers=static_modifiers,
-                superseded_map=spa.superseded_map)
-        except Exception:  # noqa: BLE001
+        except _SynthesisError:
             _fail(PeriodFailureReason.SYNTHESIS_FAILURE)
             continue
         period_identity = f"{proj.layer}:{proj.label}"
@@ -176,6 +159,57 @@ def build_relationship_effect_accumulator(
     return SidecarBuildResult(
         accumulator=acc, period_failure_counts=failures,
         build_latency_ms=(time.perf_counter() - t0) * 1000.0)
+
+
+class _AdapterError(Exception):
+    """어댑터 단계(배우자궁·MT2) 실패 — 기간 격리용 내부 신호."""
+
+
+class _SynthesisError(Exception):
+    """합성기 단계 실패 — 기간 격리용 내부 신호."""
+
+
+def synthesize_period_vector(
+    proj: RelationshipShadowProjection,
+    result: ManseV2Result,
+    natal_mt2,  # MarriageEmergenceNatal
+    static_modifiers: list,
+    *,
+    dictionaries_dir: Path,
+) -> RelationshipEffectVectorResult:
+    """한 기간 projection → 7축 벡터(어댑터·합성기, 순수). 실패는 단계별 예외.
+
+    production 누적기와 deterministic 감사 harness가 공유하는 SSOT — 같은 벡터가
+    두 경로에서 동일하게 나오도록 per-period 합성 로직을 한 곳에 둔다.
+    """
+    try:
+        hits = [SpousePalaceHit(
+            kind=RelationKind(a.kind), palace=Pillar4(a.palace),
+            layer=a.layer, position=a.position,
+            hap_subtype=a.hap_subtype, element=a.element,
+            transit_component=a.position,
+            # 운 글자 확보 — EXACT signal trigger(root 1개 판정 기준, P1-5 §1).
+            transit_participant=(
+                proj.luck_branch if a.position == "branch" else proj.luck_stem),
+            natal_participant=_natal_participant(result, a.palace, a.position),
+        ) for a in proj.activations]
+        spa = build_spouse_palace_vector(
+            hits, dictionaries_dir, period_key=proj.label)
+        evidences = list(spa.evidences)
+        blockers: list = []
+        mt2 = build_partner_star_emergence_evidence(
+            natal_mt2, proj.luck_stem, layer=proj.layer, period_key=proj.label,
+            spouse_palace_clashed=proj.spouse_palace_clashed)
+        evidences += mt2.evidences
+        blockers += mt2.blocker_evidences
+    except Exception as exc:  # noqa: BLE001 — 기간 격리(§2)
+        raise _AdapterError from exc
+    try:
+        return synthesize_relationship_effect_vector(
+            evidences, blockers=blockers, modifiers=static_modifiers,
+            superseded_map=spa.superseded_map)
+    except Exception as exc:  # noqa: BLE001
+        raise _SynthesisError from exc
 
 
 def _draft_period(draft: RelationshipEffectShadowDraft) -> str:
