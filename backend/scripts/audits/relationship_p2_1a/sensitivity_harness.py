@@ -169,10 +169,17 @@ def raw_sweep(cases: list[LatticeCase]) -> dict:
             vsame = raw[roles["same"]][sf_id] or 0.0
             vcross = raw[roles["cross"]][sf_id] or 0.0
             vprim = max(va, vb)
+            same_inc = vsame - vprim
+            cross_inc = vcross - vprim
+            margin = cross_inc - same_inc
             row[sf_id] = {
-                "same_inc": round(vsame - vprim, 3),
-                "cross_inc": round(vcross - vprim, 3),
-                "margin": round((vcross - vprim) - (vsame - vprim), 3),
+                "same_inc": round(same_inc, 3),
+                "cross_inc": round(cross_inc, 3),
+                "margin": round(margin, 3),
+                # 정규화 지표(§2) — 절대 margin은 kind 강도에 좌우되므로 비율 병기.
+                "retention": round(margin / cross_inc, 3) if cross_inc else None,
+                "same_cross_ratio": (
+                    round(same_inc / cross_inc, 3) if cross_inc else None),
             }
         increments.append(row)
     # raw pairwise ordering inversion vs baseline SF30(§6).
@@ -193,6 +200,29 @@ def raw_sweep(cases: list[LatticeCase]) -> dict:
         inversions[sf_id] = inv
     return {"raw_by_case": raw, "increments": increments,
             "raw_pairwise_inversion": inversions}
+
+
+def axis_sf_impact(cases: list[LatticeCase]) -> dict:
+    """구조별 SF 영향 축 관측(§4) — SF00↔SF60에서 축 value가 **어느 사례에서든**
+    바뀌면 '있음'(구조 내 OR — 대표 1건이 아니라 구조 전체 기준)."""
+    b0 = dict(_BANDS[0][1])
+    out: dict[str, dict[str, bool]] = {}
+    for c in cases:
+        lo = synthesize_relationship_effect_vector(
+            _evidences(c.hits), calibration=_cal(0.0, b0))
+        hi = synthesize_relationship_effect_vector(
+            _evidences(c.hits), calibration=_cal(0.6, b0))
+        sup_lo = round(sum(r.stability_support for r in lo.root_contributions), 3)
+        sup_hi = round(sum(r.stability_support for r in hi.root_contributions), 3)
+        cur = out.setdefault(c.structure, {
+            "activation": False, "stability_support": False,
+            "stability_net": False, "separation": False})
+        cur["activation"] |= lo.axes.activation.value != hi.axes.activation.value
+        cur["stability_support"] |= sup_lo != sup_hi
+        cur["stability_net"] |= lo.axes.stability.value != hi.axes.stability.value
+        cur["separation"] |= (lo.axes.separation_pressure.value
+                              != hi.axes.separation_pressure.value)
+    return out
 
 
 # ── Band projection 축 (band sweep, SF 고정 baseline) ─────────────────────────
@@ -259,10 +289,17 @@ def band_sweep(cases: list[LatticeCase]) -> dict:
                 f"root_{r}": {"n": len(v), "strong": sum(v),
                               "rate": round(sum(v) / len(v), 3) if v else None}
                 for r, v in sorted(by_root.items())}
+    # band collapse(§3·§4) — 한 band에 몰리는 비율(최대 band share / 전체).
+    collapse: dict[str, float] = {}
+    for b_id, _ in _BANDS:
+        d = dist[b_id]
+        total = sum(d.values())
+        collapse[b_id] = round(max(d.values()) / total, 3) if total else 0.0
     return {"band_of_case": band_of, "band_distribution": dist,
             "band_transitions_vs_b0": transitions,
             "band_reverse_violations": reverse_violations,
-            "near_threshold_b0": near, "strong_rate_grid": strong_rate}
+            "near_threshold_b0": near, "strong_rate_grid": strong_rate,
+            "band_collapse": collapse}
 
 
 # ── 불변식 게이트 (§10·§11·§14) ──────────────────────────────────────────────
@@ -343,12 +380,14 @@ def invariant_checks(cases: list[LatticeCase]) -> dict:
 
 
 def _fmt_increments(increments: list[dict]) -> list[str]:
-    lines = ["| pair | SF | same_inc | cross_inc | margin |", "|---|---|--:|--:|--:|"]
+    lines = ["| pair | SF | same_inc | cross_inc | margin | retention | same/cross |",
+             "|---|---|--:|--:|--:|--:|--:|"]
     for row in increments:
         for sf_id, _ in _SF:
             d = row[sf_id]
-            lines.append(f"| {row['pair']} | {sf_id} | {d['same_inc']} "
-                         f"| {d['cross_inc']} | {d['margin']} |")
+            lines.append(
+                f"| {row['pair']} | {sf_id} | {d['same_inc']} | {d['cross_inc']} "
+                f"| {d['margin']} | {d['retention']} | {d['same_cross_ratio']} |")
     return lines
 
 
@@ -356,6 +395,7 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
     cases = build_lattice()
     raw = raw_sweep(cases)
     band = band_sweep(cases)
+    axis_impact = axis_sf_impact(cases)
     inv = invariant_checks(cases)
 
     md = ["# P2-1A 민감도 harness — secondary_factor × activation band", "",
@@ -371,10 +411,25 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
           f"({'PASS' if inv['passed'] else 'FAIL — ' + ', '.join(inv['violations'][:8])})",
           "",
           "## 1. Raw synthesis 축 (secondary_factor sweep · band 고정 B0)", "",
-          "### same-root / cross-root increment(§4)", "",
-          "> same_inc = V_same − max(V_a,V_b) · cross_inc = V_cross − max(V_a,V_b) · "
-          "margin = cross_inc − same_inc. 기대: same_inc≥0 · cross_inc≥same_inc "
-          "(SF00에서 same_inc=0 정상).", ""]
+          "### 축별 SF 영향(§4 — 구조별 SF00↔SF60 value 변화)", "",
+          "| 구조 | activation | stability_support | stability_net | separation |",
+          "|---|---|---|---|---|"]
+    for struct in ("single", "same_root_pair", "cross_root_pair", "root_n"):
+        if struct in axis_impact:
+            a = axis_impact[struct]
+            md.append(
+                f"| {struct} | {'있음' if a['activation'] else '없음'} "
+                f"| {'있음' if a['stability_support'] else '없음'} "
+                f"| {'있음' if a['stability_net'] else '없음'} "
+                f"| {'있음' if a['separation'] else '없음'} |")
+    md += ["", "> single-kind는 전 축 SF 불변(복합 없음). same-root는 activation·"
+           "stability_net·separation 변동(stability_support는 순수 sum이라 불변). "
+           "cross-root는 서로 다른 root라 SF 미적용.", "",
+           "### same-root / cross-root increment(§4·§2 정규화 병기)", "",
+           "> same_inc = V_same − max(V_a,V_b) · cross_inc = V_cross − max(V_a,V_b) · "
+           "margin = cross−same · retention = margin/cross_inc · "
+           "same/cross = same_inc/cross_inc. 기대: same_inc≥0 · cross_inc≥same_inc "
+           "(SF00에서 same_inc=0). retention↓ = root 구별력 침식.", ""]
     md += _fmt_increments(raw["increments"])
     md += ["", "### raw pairwise ordering inversion vs SF30(§6)", "",
            "> band threshold는 raw ordering을 바꾸지 못한다 — 이 값은 순수 raw 효과.", "",
@@ -383,9 +438,11 @@ def run(out_md: Path = OUT_MD, out_json: Path = OUT_JSON) -> dict:
         md.append(f"| {sf_id} | {raw['raw_pairwise_inversion'][sf_id]} |")
 
     md += ["", "## 2. Band projection 축 (band sweep · SF 고정 0.30)", "",
-           "### band 분포(profile별)", "", "| profile | 분포 |", "|---|---|"]
+           "### band 분포 + collapse(§3·§4 — collapse = 최대 band 점유율)", "",
+           "| profile | 분포 | collapse |", "|---|---|--:|"]
     for b_id, _ in _BANDS:
-        md.append(f"| {b_id} | {json.dumps(band['band_distribution'][b_id], ensure_ascii=False)} |")
+        md.append(f"| {b_id} | {json.dumps(band['band_distribution'][b_id], ensure_ascii=False)} "
+                  f"| {band['band_collapse'][b_id]} |")
     md += ["", "### B0 대비 band transition(§6 — 보수화 방향만 허용)", "",
            "| profile | transition | (역방향 위반은 §0 게이트) |", "|---|---|---|"]
     for b_id, _ in _BANDS:

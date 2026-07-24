@@ -104,7 +104,7 @@ modifier.jaenghap_support_weaken  = 0.50
 
 | parameter_id | stage | affected_axes | 후보 범위 | 비고 |
 |---|---|---|---|---|
-| `same_root.secondary_factor` | S2 | act·stab·sep | 0.0/0.15/0.3/0.45/0.6 | 적용 구조 불변 |
+| `same_root.secondary_factor` | S2 | act·stab·sep | 0.0/0.15/0.3/0.45/0.6 | **공유 계수**(§3-1) |
 | `activation.band` | S5 | activation | profile B0~B3 | raw와 band 분리·bump 필수 |
 | `activation.kind_base_bonus` | **S1**(dict) | activation | OAT ±20% | ≠길흉·성사. 충 0 근처 금지 |
 | `stability.support_weight` | S2 | stability | OAT ±20% | ≥0 |
@@ -114,6 +114,24 @@ modifier.jaenghap_support_weaken  = 0.50
 | `separation.band` | S5 | separation | 감수 | 오름차순 |
 | `modifier.jaenghap_support_weaken` | S3 | stability | 0.0/0.25/0.5/0.75 | 유일한 수치 modifier(§F) |
 | `cross_root.synthesis` | S4 | act·stab·sep | 조건부(§G) | P2-0 확정 대상 아님 |
+
+### 3-1. secondary_factor는 공유 계수 (P2-1A 실측 확정)
+
+> `secondary_factor`는 같은 root에서 복수 relation kind가 발생했을 때 적용되는 공통 복합
+> 계수이며, 해당 축에 둘 이상의 유효 기여가 존재하면 **activation·stability pressure·
+> separation pressure에 각각 적용된다**. (P2-1A lattice 실측: single-kind 불변,
+> same-root pair에서 activation·stability_net·separation 동시 변동, stability_support는
+> 순수 sum이라 불변, cross-root는 서로 다른 root라 미적용.)
+
+**설계상 적절성은 미확정** — P2-1C에서 세 대안을 C0→C1→C2 순으로 비교(추가 자유도가
+실제 설명력을 높일 때만 채택):
+```
+C0  공통 SF 유지(현행)
+C1  activation_secondary_factor / pressure_secondary_factor  (2계수)
+C2  activation / stability / separation 축별 secondary_factor  (3계수)
+```
+평가 기준: root 구별력 개선·단조성 유지·경계 사례 설명력·파라미터 수 대비 실효·stability와
+separation의 불필요한 동조 감소. **C1로 충분하면 C2까지 분리하지 않는다.**
 
 ### activation band 후보 profile (§C — profile 단위, weak→moderate→strong)
 ```

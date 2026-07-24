@@ -10,42 +10,53 @@ spec p2.1a.v1 · baseline calibration cal-2026-07-24.1 · lattice 33 case. **감
 
 ## 1. Raw synthesis 축 (secondary_factor sweep · band 고정 B0)
 
-### same-root / cross-root increment(§4)
+### 축별 SF 영향(§4 — 구조별 SF00↔SF60 value 변화)
 
-> same_inc = V_same − max(V_a,V_b) · cross_inc = V_cross − max(V_a,V_b) · margin = cross_inc − same_inc. 기대: same_inc≥0 · cross_inc≥same_inc (SF00에서 same_inc=0 정상).
+| 구조 | activation | stability_support | stability_net | separation |
+|---|---|---|---|---|
+| single | 없음 | 없음 | 없음 | 없음 |
+| same_root_pair | 있음 | 없음 | 있음 | 있음 |
+| cross_root_pair | 없음 | 없음 | 없음 | 없음 |
+| root_n | 없음 | 없음 | 없음 | 없음 |
 
-| pair | SF | same_inc | cross_inc | margin |
-|---|---|--:|--:|--:|
-| CHUNG+HAE | SF00 | 0.0 | 7.774 | 7.774 |
-| CHUNG+HAE | SF15 | 1.166 | 7.774 | 6.608 |
-| CHUNG+HAE | SF30 | 2.332 | 7.774 | 5.442 |
-| CHUNG+HAE | SF45 | 3.498 | 7.774 | 4.276 |
-| CHUNG+HAE | SF60 | 4.664 | 7.774 | 3.11 |
-| CHUNG+HYEONG | SF00 | 0.0 | 15.548 | 15.548 |
-| CHUNG+HYEONG | SF15 | 2.332 | 15.548 | 13.216 |
-| CHUNG+HYEONG | SF30 | 4.664 | 15.548 | 10.884 |
-| CHUNG+HYEONG | SF45 | 6.997 | 15.548 | 8.551 |
-| CHUNG+HYEONG | SF60 | 9.329 | 15.548 | 6.219 |
-| CHUNG+PA | SF00 | 0.0 | 11.661 | 11.661 |
-| CHUNG+PA | SF15 | 1.749 | 11.661 | 9.912 |
-| CHUNG+PA | SF30 | 3.498 | 11.661 | 8.163 |
-| CHUNG+PA | SF45 | 5.247 | 11.661 | 6.414 |
-| CHUNG+PA | SF60 | 6.997 | 11.661 | 4.664 |
-| HAP+CHUNG | SF00 | 0.0 | 13.604 | 13.604 |
-| HAP+CHUNG | SF15 | 2.041 | 13.604 | 11.563 |
-| HAP+CHUNG | SF30 | 4.081 | 13.604 | 9.523 |
-| HAP+CHUNG | SF45 | 6.122 | 13.604 | 7.482 |
-| HAP+CHUNG | SF60 | 8.162 | 13.604 | 5.442 |
-| HAP+HYEONG | SF00 | 0.0 | 13.604 | 13.604 |
-| HAP+HYEONG | SF15 | 2.041 | 13.604 | 11.563 |
-| HAP+HYEONG | SF30 | 4.081 | 13.604 | 9.523 |
-| HAP+HYEONG | SF45 | 6.122 | 13.604 | 7.482 |
-| HAP+HYEONG | SF60 | 8.162 | 13.604 | 5.442 |
-| HYEONG+PA | SF00 | 0.0 | 11.661 | 11.661 |
-| HYEONG+PA | SF15 | 1.749 | 11.661 | 9.912 |
-| HYEONG+PA | SF30 | 3.498 | 11.661 | 8.163 |
-| HYEONG+PA | SF45 | 5.247 | 11.661 | 6.414 |
-| HYEONG+PA | SF60 | 6.997 | 11.661 | 4.664 |
+> single-kind는 전 축 SF 불변(복합 없음). same-root는 activation·stability_net·separation 변동(stability_support는 순수 sum이라 불변). cross-root는 서로 다른 root라 SF 미적용.
+
+### same-root / cross-root increment(§4·§2 정규화 병기)
+
+> same_inc = V_same − max(V_a,V_b) · cross_inc = V_cross − max(V_a,V_b) · margin = cross−same · retention = margin/cross_inc · same/cross = same_inc/cross_inc. 기대: same_inc≥0 · cross_inc≥same_inc (SF00에서 same_inc=0). retention↓ = root 구별력 침식.
+
+| pair | SF | same_inc | cross_inc | margin | retention | same/cross |
+|---|---|--:|--:|--:|--:|--:|
+| CHUNG+HAE | SF00 | 0.0 | 7.774 | 7.774 | 1.0 | 0.0 |
+| CHUNG+HAE | SF15 | 1.166 | 7.774 | 6.608 | 0.85 | 0.15 |
+| CHUNG+HAE | SF30 | 2.332 | 7.774 | 5.442 | 0.7 | 0.3 |
+| CHUNG+HAE | SF45 | 3.498 | 7.774 | 4.276 | 0.55 | 0.45 |
+| CHUNG+HAE | SF60 | 4.664 | 7.774 | 3.11 | 0.4 | 0.6 |
+| CHUNG+HYEONG | SF00 | 0.0 | 15.548 | 15.548 | 1.0 | 0.0 |
+| CHUNG+HYEONG | SF15 | 2.332 | 15.548 | 13.216 | 0.85 | 0.15 |
+| CHUNG+HYEONG | SF30 | 4.664 | 15.548 | 10.884 | 0.7 | 0.3 |
+| CHUNG+HYEONG | SF45 | 6.997 | 15.548 | 8.551 | 0.55 | 0.45 |
+| CHUNG+HYEONG | SF60 | 9.329 | 15.548 | 6.219 | 0.4 | 0.6 |
+| CHUNG+PA | SF00 | 0.0 | 11.661 | 11.661 | 1.0 | 0.0 |
+| CHUNG+PA | SF15 | 1.749 | 11.661 | 9.912 | 0.85 | 0.15 |
+| CHUNG+PA | SF30 | 3.498 | 11.661 | 8.163 | 0.7 | 0.3 |
+| CHUNG+PA | SF45 | 5.247 | 11.661 | 6.414 | 0.55 | 0.45 |
+| CHUNG+PA | SF60 | 6.997 | 11.661 | 4.664 | 0.4 | 0.6 |
+| HAP+CHUNG | SF00 | 0.0 | 13.604 | 13.604 | 1.0 | 0.0 |
+| HAP+CHUNG | SF15 | 2.041 | 13.604 | 11.563 | 0.85 | 0.15 |
+| HAP+CHUNG | SF30 | 4.081 | 13.604 | 9.523 | 0.7 | 0.3 |
+| HAP+CHUNG | SF45 | 6.122 | 13.604 | 7.482 | 0.55 | 0.45 |
+| HAP+CHUNG | SF60 | 8.162 | 13.604 | 5.442 | 0.4 | 0.6 |
+| HAP+HYEONG | SF00 | 0.0 | 13.604 | 13.604 | 1.0 | 0.0 |
+| HAP+HYEONG | SF15 | 2.041 | 13.604 | 11.563 | 0.85 | 0.15 |
+| HAP+HYEONG | SF30 | 4.081 | 13.604 | 9.523 | 0.7 | 0.3 |
+| HAP+HYEONG | SF45 | 6.122 | 13.604 | 7.482 | 0.55 | 0.45 |
+| HAP+HYEONG | SF60 | 8.162 | 13.604 | 5.442 | 0.4 | 0.6 |
+| HYEONG+PA | SF00 | 0.0 | 11.661 | 11.661 | 1.0 | 0.0 |
+| HYEONG+PA | SF15 | 1.749 | 11.661 | 9.912 | 0.85 | 0.15 |
+| HYEONG+PA | SF30 | 3.498 | 11.661 | 8.163 | 0.7 | 0.3 |
+| HYEONG+PA | SF45 | 5.247 | 11.661 | 6.414 | 0.55 | 0.45 |
+| HYEONG+PA | SF60 | 6.997 | 11.661 | 4.664 | 0.4 | 0.6 |
 
 ### raw pairwise ordering inversion vs SF30(§6)
 
@@ -61,14 +72,14 @@ spec p2.1a.v1 · baseline calibration cal-2026-07-24.1 · lattice 33 case. **감
 
 ## 2. Band projection 축 (band sweep · SF 고정 0.30)
 
-### band 분포(profile별)
+### band 분포 + collapse(§3·§4 — collapse = 최대 band 점유율)
 
-| profile | 분포 |
-|---|---|
-| B0 | {"moderate": 15, "weak": 5, "strong": 13} |
-| B1 | {"weak": 8, "moderate": 15, "strong": 10} |
-| B2 | {"weak": 10, "moderate": 12, "low": 2, "strong": 9} |
-| B3 | {"weak": 10, "moderate": 14, "low": 2, "strong": 7} |
+| profile | 분포 | collapse |
+|---|---|--:|
+| B0 | {"moderate": 15, "weak": 5, "strong": 13} | 0.455 |
+| B1 | {"weak": 8, "moderate": 15, "strong": 10} | 0.455 |
+| B2 | {"weak": 10, "moderate": 12, "low": 2, "strong": 9} | 0.364 |
+| B3 | {"weak": 10, "moderate": 14, "low": 2, "strong": 7} | 0.424 |
 
 ### B0 대비 band transition(§6 — 보수화 방향만 허용)
 
