@@ -163,7 +163,9 @@ def _case_profile_order(case_id: str, names: list[str]) -> list[str]:
 
 def generate() -> dict:
     h = _load_p2_1d()
+    n_raw = len(h.build_period_inputs())          # P2-1D eligible periods
     names, rows = collect(h)
+    n_pool = len({r["case_id"] for r in rows})    # 전 profile 합성 성공·case_id 유일
     picked_dis, picked_ctrl = select(rows, names)
     blind = _blind_map(names)
 
@@ -253,8 +255,13 @@ def generate() -> dict:
     sel = ["# P2-3 표본 선정 보고(숨김 — 감수자 비제공)", "",
            f"unique 감수 사례 {len(picked_dis) + len(picked_ctrl)}건"
            f"(disagreement {len(picked_dis)} + control {len(picked_ctrl)}) "
-           f"+ hidden repeat {len(repeats)} = 감수지 {len(all_cases)} 사례. "
-           f"131 unique period 기준 dedupe(case_id=HMAC).", "",
+           f"+ hidden repeat {len(repeats)} = 감수지 {len(all_cases)} 사례.", "",
+           "## 모집단 매핑(리뷰 보완)", "",
+           f"- P2-1D eligible periods: {n_raw}",
+           f"- P2-3 review-selection pool: {n_pool} (case_id=HMAC dedupe)",
+           (f"- 제외 {n_raw - n_pool}건 사유: 전 profile 합성 실패 또는 case_id "
+            "canonicalization 중복" if n_raw != n_pool
+            else "- 제외 0건 (pool == eligible periods)"), "",
            "## 구조 분포", ""]
     for s, c in struct_dist.most_common():
         sel.append(f"- {s}: {c}")
