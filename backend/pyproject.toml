@@ -80,6 +80,10 @@ src = ["packages/shared_types", "packages/manse_core", "packages/saju_engines", 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+# 감사 하네스(읽기 전용 측정 스크립트) — 측정 라벨·시나리오 문자열이 길다.
+"scripts/audits/**" = ["E501"]
+
 [tool.mypy]
 python_version = "3.12"
 warn_unused_ignores = true

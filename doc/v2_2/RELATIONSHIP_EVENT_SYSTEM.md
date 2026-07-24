@@ -949,17 +949,51 @@ seed"다. 일반적 배우자성 출현 엔진으로 설명 금지, **MT1 미발
   series 복구 / 상위 finding 복구 / 무관 도메인 출력 불변 / legacy composite 읽기 성공 /
   신규 composite canonical 저장.
 
-### P0-B 진입 게이트 (확장판)
+### B1-b 실행 기록 (2026-07-24 완료 — A안)
+
+- 대상: DB `luck_composites` 33행(subject 1건 = **2026-06-11 스케줄러 통합 테스트 잔재**,
+  subject_id_hash `9d0d667c33cf91e5`). **라이브 chat/report는 DB store가 아니라 요청 시
+  `CompositeBuilder` 즉석 실행**(store 소비처는 scheduler·subject_store뿐) — 쓰기 경로
+  수정이 이미 라이브 즉시 반영되는 구조 확인.
+- 실행: 스냅샷 기록(행수·dict 1.0.0·event_key/domain별 신호 수·dry-run 요약) →
+  `invalidate_subject` 33행 삭제 → 실사용 경로(즉석 빌드, 새 쓰기 코드)로 재생성 검증:
+  **591 신호 전부 canonical·SSOT 도메인 정합, normalizer 계측 legacy=0/repaired=0/unknown=0**.
+- smoke: 실차트 M01 연애 findings 5건·M11 건강 4건 **부활 확인**(종전 상시 0매치).
+- **M02 composite 신호 0건은 회귀 아님**: relations.json eventDomains에 결혼 계열
+  (marriage_signal·childbirth) 자체가 미등재(구키 시절에도 0매치) — 사전 공백. 결혼
+  풀이는 MT 레이어·이벤트 엔진 경로가 담당 중이며, M02 확장은 P3 증거 계약
+  (relationship_change의 formalization/household 증거 선택 연결)에서 다룬다. 사전 등재는
+  원칙 5 파이프라인+감수 사안.
+- 확인 2건: 계약·문서 소비 모듈은 **M08 business**(M14=past_validation — 종전 보고
+  표기 실수, 코드·테스트는 정확). `contract_document→career`·`legal_conflict→career`는
+  taxonomy_v2 `EVENT_DOMAIN`(event_taxonomy_v2.py L102·104)의 명시 의도값 — SSOT 대조 완료.
+
+### fixture 승격 (2026-07-24 완료)
+
+- `scripts/audits/relationship_p0a/` — no-op 대조군·명식 fixture·연/월운·contribution·
+  랭킹 리포트 측정기 6종 + README(재현 방법·핵심 결론).
+- `tests/regression/test_relation_delta_legacy_behavior.py` — **characterization**(충의
+  중립 활성 이중 가산·cap 22 포화·충>합 서열·new_relationship 사각지대·무발동 무변경 —
+  legacy 점수 동작 보존, §4-1 소유권 전환 결정으로만 갱신)과 **safety**(충·형·파·해
+  reason→stability_risk 판정·합 단독 비위험·가드의 점수 불간섭 — 결함의 사용자 노출
+  금지)를 분리 고정. 9건.
+- 재실행 검증: 버그픽스(B2·B1-a) 후에도 P0-A 측정값 동일 재현(예: 관살혼잡 2036
+  marriage_signal 83→94·relContrib 22.0 — A-3 표와 일치).
+
+### P0-B 진입 게이트 (확장판 — 2026-07-24 전 항목 충족)
 
 ```text
-[ ] P0-A canonical 21키 전체 매핑표가 SSOT 부록에 있음 (A-4 ✓)
-[ ] 남성 실전 명식 1건에서 relation delta 의미가 동일함
-[ ] 월운 실전 1건에서 점수·confidence 누수가 동일함
-[ ] B2가 충·형·파·해 기반 결혼 긍정 단정을 차단함
-[ ] B2 적용 전후 점수·랭킹은 byte-identical
-[ ] B1 canonical/alias lint 통과
-[ ] 기존 composite와 taxonomy_v2 composite 모두 읽을 수 있음
-[ ] 재계산된 94건의 before/after diff가 기록됨
-[ ] 무관 도메인 회귀가 없음
-[ ] P0-A 핵심 측정 fixture가 재현 가능하게 저장됨
+[x] P0-A canonical 21키 전체 매핑표가 SSOT 부록에 있음 (A-4)
+[x] 남성 실전 명식 1건에서 relation delta 의미가 동일함 (A-6)
+[x] 월운 실전 1건에서 점수·confidence 누수가 동일함 (A-6)
+[x] B2가 충·형·파·해 기반 결혼 긍정 단정을 차단함 (f4ce222 + safety 회귀)
+[x] B2 적용 전후 점수·랭킹은 byte-identical (가드 전용 변경 + 회귀 고정)
+[x] B1 canonical/alias lint 통과 (normalizer·매트릭스 테스트)
+[x] 기존 composite와 taxonomy_v2 composite 모두 읽을 수 있음 (read-adapter)
+[x] 재계산 대상 before/after diff가 기록됨 (dry-run: domain 수리 147건·legacy 0 —
+    실측 시점 33행, 94→33은 캐시 프루닝에 의한 자연 변동)
+[x] 무관 도메인 회귀가 없음 (topic·report scoping·chat pipeline 통과)
+[x] P0-A 핵심 측정 fixture가 재현 가능하게 저장됨 (audits + 회귀 9건)
+[x] B1-b 무효화·표준 경로 재생성·계측 0 검증 완료
+[x] M08 소유권·contract_document/legal_conflict 도메인 SSOT 대조 완료
 ```
