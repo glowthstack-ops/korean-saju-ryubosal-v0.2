@@ -1,22 +1,28 @@
 """7축 관계 효과 벡터 합성기 — P1-5 (RELATIONSHIP_EVENT_SYSTEM §4·부록 D, 2026-07-24 승인).
 
-최우선 규칙(승인 최종 결정): **같은 `signal_trigger_id`에서 파생된 RelationPalace·MT2·
-복수 관계 kind는 모두 evidence로 보존하되, root 축 기여는 한 번만 계산하고 복합성은
-제한된 보정으로만 반영한다.** 어댑터의 base 총량(단순 합)은 진단값일 뿐 최종 축이
-아니다 — 합성기가 root-normalized 값·band를 재산출한다.
+최우선 규칙: **같은 `signal_trigger_id`에서 파생된 RelationPalace·MT2·복수 관계 kind는
+모두 evidence로 보존하되, root 축 기여는 한 번만 계산하고 복합성은 제한 보정으로만
+반영한다.** 어댑터의 base 총량(단순 합)은 진단값일 뿐 최종 축이 아니다.
 
-합성 순서(승인 §4): (정밀도 우선·완전 중복은 어댑터 소관) → root trigger별 그룹화 →
-root별 기본 축 기여(주 기여 + 제한 복합 보정) → 서로 다른 root 합성 → structure
-modifier(affects_axes 한정) → blocker → AxisStatus·value·band 결정.
+명칭 정정(폐쇄 보완 §6): 본 합성은 root-**deduplicated/composed**다 — 같은 root 내
+중복만 제거하고 서로 다른 root 기여는 합산하므로 상한 정규화(normalization)가 아니다.
+band 임계(6/12/20)와 SECONDARY_FACTOR(0.3)는 **provisional calibration 값**이며 P1-6
+telemetry(root 수별 분포·kind 조합·strong 비율·legacy cap 포화 비교)로 감사 후 P3
+사용 전 별도 캘리브레이션한다.
 
-P1 평가 범위(승인 §3): activation·stability·separation_pressure만. exposure·
-formalization·experience_valence는 미평가 유지(충·형≠부정 경험 확정). realization은
-positive base evidence가 없으므로 INSUFFICIENT + blocker 보존 — **P1에서 BLOCKED
-0건이 정상**(억지 상태 생성 금지).
+폐쇄 보완(2026-07-24 §1~§5):
+- PROVISIONAL evidence는 **숫자 축에 가산하지 않는다**(중복 확인 불가 신호를 독립
+  신호로 간주하는 과대 반영 차단) — 보존+unresolved 계측만. resolved root가 없으면
+  축은 INSUFFICIENT_EVIDENCE.
+- AxisStatus는 contributions 존재가 아니라 **축별 적용 가능 evidence 존재**로 결정
+  (MT2 emergence 단독 → activation만 평가, stability·separation은 근거 없음).
+- modifier는 derived root에만 적용(전체 support 일괄 약화 금지). derived도
+  structural_context_id도 없으면 적용 보류(메타 보존만). 동일 static ID는
+  strength=max·effects/affects/derived=union으로 **입력 순서 불변** 병합.
+- 축별 evidence_ids는 실제 기여 evidence만(감사 정확성).
 
-shadow 전용(D-3 확대 불변식): 점수·confidence·랭킹·timeline·stage·가드·LLM/리포트
-입력 어디에도 관여하지 않는다. recommended_event_key·stage 전이·확률류 필드는
-P3/P4 소관이라 결과에 두지 않는다(승인 §9).
+P1 평가 범위: activation·stability·separation만. realization은 blocker 보존+
+INSUFFICIENT(**BLOCKED 0건 정상**). shadow 전용(D-3) — 승격류 필드 없음.
 """
 
 from __future__ import annotations
@@ -37,23 +43,24 @@ from .relationship_structure_modifiers import (
     StructureModifierEffect,
 )
 
-# 부정 kind(분리 압력 평가 대상)와 kind별 압력·안정성 기여 — spouse_palace_activation과
-# 동일 서열(§5 표). EMERGENCE(MT2)는 압력·안정성 기여 없음(보조 evidence).
+# kind별 축 기여 자격(§4 산출 책임) — EMERGENCE(MT2)는 activation만(보조 evidence).
 _SEP_WEIGHT = {"CHUNG": 1.0, "HYEONG": 0.6, "HAE": 0.55, "PA": 0.55}
 _STAB_SUPPORT = {"HAP": 0.3}
 _STAB_PRESSURE = {"CHUNG": 1.0, "HYEONG": 0.8, "HAE": 0.6, "PA": 0.6}
+_ACTIVATION_KINDS = frozenset(
+    {"HAP", "CHUNG", "HYEONG", "PA", "HAE", "BOKEUM", "EMERGENCE"}
+)
 
-# 같은 root 안의 복합 보정 계수(승인 §1-1 — 단순 합산 금지, 초안·shadow 감사 대상):
-# 주 기여(최강) + SECONDARY_FACTOR × 나머지 기여.
+# provisional calibration(§6) — shadow 감사 후 P3 전 재조정 대상.
 _SECONDARY_FACTOR = 0.3
-# 쟁합의 binding support 약화 계수(강도 비례) — P1 초안.
-_JAENGHAP_SUPPORT_WEAKEN = 0.5
+_SUPPORT_WEAKEN = 0.5
+_ACT_BAND = {"strong": 20.0, "moderate": 12.0, "weak": 6.0}
 
 
 class RootEffectContribution(BaseModel):
-    """root(실제 운 신호) 1개의 축 기여 — 승인 §1-1 권장 구조."""
+    """root(실제 운 신호) 1개의 축 기여 — EXACT/COMPONENT signal만 생성된다."""
 
-    signal_trigger_id: str | None       # None = 미해소(PROVISIONAL — root 수 불포함)
+    signal_trigger_id: str
     evidence_ids: list[str] = Field(default_factory=list)
     activation: float = 0.0
     stability_support: float = 0.0
@@ -70,9 +77,14 @@ class RelationshipEffectVectorResult(BaseModel):
     modifiers: list[RelationshipStructureModifier] = Field(default_factory=list)
     blockers: list[RelationshipActivationEvidence] = Field(default_factory=list)
 
+    # 카운트 의미(폐쇄 보완 §4): retained=보존 전체 / contributing=축 숫자에 실제
+    # 기여(일지+resolved) / noncontributing=보존만(비일지·PROVISIONAL). evidence_count는
+    # retained의 별칭(호환) — 사건 승격 근거로는 contributing·root만 사용한다.
     evidence_count: int = 0
+    retained_evidence_count: int = 0
+    contributing_evidence_count: int = 0
+    noncontributing_evidence_count: int = 0
     semantic_evidence_group_count: int = 0
-    # 사건 승격의 '독립 원인 수' 기준(승인 §5) — evidence 수·그룹 수와 혼용 금지.
     independent_root_trigger_count: int = 0
     unresolved_trigger_evidence_count: int = 0
 
@@ -83,7 +95,7 @@ class RelationshipEffectVectorResult(BaseModel):
 
 
 def _primary_plus_secondary(values: list[float]) -> float:
-    """주 기여 + 제한 복합 보정(같은 root 단순 합산 금지 — 승인 §1-1)."""
+    """주 기여 + 제한 복합 보정(같은 root 단순 합산 금지)."""
     if not values:
         return 0.0
     ordered = sorted(values, reverse=True)
@@ -100,119 +112,145 @@ def _band(value: float, *, strong: float, moderate: float, weak: float) -> str:
     return "low"
 
 
+def _merge_modifiers(
+    modifiers: list[RelationshipStructureModifier],
+) -> tuple[list[RelationshipStructureModifier], list[str]]:
+    """동일 static ID 병합 — strength=max·union, 입력 순서 불변(결과 정렬)."""
+    by_static: dict[str, RelationshipStructureModifier] = {}
+    transit: list[RelationshipStructureModifier] = []
+    for m in modifiers:
+        sid = m.structural_context_id
+        if sid is None:
+            transit.append(m)
+            continue
+        prev = by_static.get(sid)
+        if prev is None:
+            by_static[sid] = m
+        else:
+            by_static[sid] = prev.model_copy(update={
+                "strength": max(prev.strength, m.strength),
+                "effects": sorted(set(prev.effects) | set(m.effects)),
+                "affects_axes": sorted(set(prev.affects_axes) | set(m.affects_axes)),
+                "derived_from_evidence_ids": sorted(
+                    set(prev.derived_from_evidence_ids)
+                    | set(m.derived_from_evidence_ids)
+                ),
+            })
+    merged = sorted(by_static.values(), key=lambda m: m.structural_context_id or "")
+    merged += sorted(transit, key=lambda m: m.pattern_id)
+    return merged, sorted(by_static)
+
+
 def synthesize_relationship_effect_vector(
     evidences: list[RelationshipActivationEvidence],
     *,
     blockers: list[RelationshipActivationEvidence] | None = None,
     modifiers: list[RelationshipStructureModifier] | None = None,
 ) -> RelationshipEffectVectorResult:
-    """evidence·blocker·modifier → root-normalized 7축 벡터(shadow).
+    """evidence·blocker·modifier → root-deduplicated 7축 벡터(shadow).
 
     Args:
-        evidences: 어댑터 산출(배우자궁·MT2 — 정밀도 우선·중복 제거 완료본).
-            배우자궁 축 기여는 on_spouse_palace=True인 evidence만 사용한다.
-        blockers: MT2 clashed 등 — realization 축은 positive base 부재로
-            INSUFFICIENT 유지 + blocker_ids 보존(BLOCKED 생성 금지).
-        modifiers: 구조 패턴 — affects_axes 한정 적용(쟁합=support 약화),
-            base evidence 없으면 어떤 축도 새로 평가하지 않는다.
+        evidences: 어댑터 산출(배우자궁·MT2). 축 숫자 기여는 on_spouse_palace=True이며
+            EXACT/COMPONENT signal을 가진 evidence만 — PROVISIONAL은 보존·계측 전용.
+        blockers: MT2 clashed 등 — realization은 INSUFFICIENT+blocker 보존(BLOCKED 금지).
+        modifiers: 구조 패턴 — derived root에만 적용, 동일 static ID는 순서 불변 병합.
     """
     blockers = blockers or []
     modifiers = modifiers or []
     day_evidence = [e for e in evidences if e.on_spouse_palace]
 
-    # root 그룹화 — EXACT/COMPONENT signal별. PROVISIONAL·signal 없음은 각각 미해소
-    # 그룹(축 기여는 보수적으로 개별 산출하되 root 수에는 불포함 — 승인 §3).
-    roots: dict[str | None, list[RelationshipActivationEvidence]] = {}
-    unresolved_keys: list[str] = []
+    # root 그룹화(폐쇄 §1) — resolved(EXACT/COMPONENT)만 축 숫자에 반영.
+    roots: dict[str, list[RelationshipActivationEvidence]] = {}
+    unresolved: list[RelationshipActivationEvidence] = []
     for e in day_evidence:
         if (e.signal_trigger_id is not None
                 and e.trigger_precision is not TriggerPrecision.PROVISIONAL):
             roots.setdefault(e.signal_trigger_id, []).append(e)
         else:
-            ukey: str | None = f"__unresolved__:{e.evidence_id}"
-            unresolved_keys.append(str(ukey))
-            roots.setdefault(ukey, []).append(e)
+            unresolved.append(e)
 
     contributions: list[RootEffectContribution] = []
-    for key in sorted(roots, key=str):
+    for key in sorted(roots):
         group = roots[key]
-        key_str = str(key)
-        # kind 단위 기여(같은 root의 참여자별 중복 kind는 kind 1회 — 같은 글자 하나가
-        # 원국 여러 글자를 친 경우 압력을 원인 2처럼 세지 않는다: 승인 §8).
         kinds = sorted({e.relation_kind for e in group})
         act_by_kind: dict[str, float] = {}
         for e in group:
-            act_by_kind[e.relation_kind] = max(
-                act_by_kind.get(e.relation_kind, 0.0), e.base_relation_strength
-            )
-        activation = _primary_plus_secondary(list(act_by_kind.values()))
-        sep_vals = [_SEP_WEIGHT[k] for k in kinds if k in _SEP_WEIGHT]
-        separation = _primary_plus_secondary(sep_vals)
-        support = sum(_STAB_SUPPORT.get(k, 0.0) for k in kinds)
-        pressure = _primary_plus_secondary(
-            [_STAB_PRESSURE[k] for k in kinds if k in _STAB_PRESSURE]
-        )
+            if e.relation_kind in _ACTIVATION_KINDS:
+                act_by_kind[e.relation_kind] = max(
+                    act_by_kind.get(e.relation_kind, 0.0), e.base_relation_strength
+                )
         contributions.append(RootEffectContribution(
-            signal_trigger_id=None if key_str.startswith("__unresolved__") else key,
+            signal_trigger_id=key,
             evidence_ids=[e.evidence_id for e in group],
-            activation=round(activation, 3),
-            stability_support=round(support, 3),
-            stability_pressure=round(pressure, 3),
-            separation_pressure=round(separation, 3),
+            activation=round(_primary_plus_secondary(list(act_by_kind.values())), 3),
+            stability_support=round(
+                sum(_STAB_SUPPORT.get(k, 0.0) for k in kinds), 3),
+            stability_pressure=round(_primary_plus_secondary(
+                [_STAB_PRESSURE[k] for k in kinds if k in _STAB_PRESSURE]), 3),
+            separation_pressure=round(_primary_plus_secondary(
+                [_SEP_WEIGHT[k] for k in kinds if k in _SEP_WEIGHT]), 3),
             kinds=kinds,
         ))
 
-    # 서로 다른 root 합성(독립 신호 — 합산 허용).
+    # 축별 기여 evidence(폐쇄 §2·§4) — AxisStatus·evidence_ids의 기준.
+    def _ids(pred) -> list[str]:
+        return [e.evidence_id for c in contributions for e in _by_id(c.evidence_ids)
+                if pred(e)]
+
+    id_map = {e.evidence_id: e for e in day_evidence}
+
+    def _by_id(ids: list[str]) -> list[RelationshipActivationEvidence]:
+        return [id_map[i] for i in ids]
+
+    activation_ids = _ids(lambda e: e.relation_kind in _ACTIVATION_KINDS)
+    stability_ids = _ids(
+        lambda e: e.relation_kind in _STAB_SUPPORT or e.relation_kind in _STAB_PRESSURE)
+    separation_ids = _ids(lambda e: e.relation_kind in _SEP_WEIGHT)
+
+    # modifier(폐쇄 §3) — 병합(순서 불변) 후 derived root에만 적용.
+    deduped_modifiers, static_ids = _merge_modifiers(modifiers)
+    for m in deduped_modifiers:
+        if StructureModifierEffect.STABILITY_SUPPORT_WEAKEN not in m.effects \
+                or "stability" not in m.affects_axes:
+            continue
+        factor = max(0.0, 1.0 - _SUPPORT_WEAKEN * m.strength)
+        if m.derived_from_evidence_ids:
+            targets = set(m.derived_from_evidence_ids)
+            for c in contributions:
+                if targets & set(c.evidence_ids):
+                    c.stability_support = round(c.stability_support * factor, 3)
+                    stability_ids = sorted(set(stability_ids) | {m.pattern_id})
+        elif m.structural_context_id is not None:
+            # 명시적 global(natal static) scope — 전체 support에 적용.
+            for c in contributions:
+                c.stability_support = round(c.stability_support * factor, 3)
+        # derived도 static도 없으면 적용 보류(메타 보존만 — 대상 불명).
+
     total_activation = sum(c.activation for c in contributions)
     total_support = sum(c.stability_support for c in contributions)
     total_pressure = sum(c.stability_pressure for c in contributions)
     total_separation = sum(c.separation_pressure for c in contributions)
-    has_negative = any(
-        k in _SEP_WEIGHT for c in contributions for k in c.kinds
-    )
-    ev_ids = [e.evidence_id for e in day_evidence]
-
-    # 구조 modifier — affects_axes 한정, base evidence 없으면 축 평가 생성 금지(승인 §4).
-    static_ids: list[str] = []
-    seen_static: set[str] = set()
-    deduped_modifiers: list[RelationshipStructureModifier] = []
-    for m in modifiers:
-        if m.structural_context_id is not None:
-            # natal 정적 — structural_context_id 기준 dedupe(기간 반복 비누적).
-            if m.structural_context_id in seen_static:
-                continue
-            seen_static.add(m.structural_context_id)
-            static_ids.append(m.structural_context_id)
-        deduped_modifiers.append(m)
-        if contributions and "stability" in m.affects_axes \
-                and StructureModifierEffect.STABILITY_SUPPORT_WEAKEN in m.effects:
-            total_support *= max(0.0, 1.0 - _JAENGHAP_SUPPORT_WEAKEN * m.strength)
 
     axes = RelationshipEffectVector()
-    if contributions:
+    if activation_ids:
         axes.activation = RelationshipAxisValue(
             status=AxisStatus.EVALUATED, value=round(total_activation, 3),
-            band=_band(total_activation, strong=20.0, moderate=12.0, weak=6.0),
-            evidence_ids=ev_ids,
+            band=_band(total_activation, **_ACT_BAND),
+            evidence_ids=sorted(set(activation_ids)),
         )
-        # stability — 상쇄 0(support·pressure 공존)은 EVALUATED, 무근거는 상위 else.
+    if stability_ids:
         net = round(total_support - total_pressure, 3)
         axes.stability = RelationshipAxisValue(
             status=AxisStatus.EVALUATED, value=net,
             band=("weak" if net <= -0.8 else "moderate" if net < 0.3 else "strong"),
-            evidence_ids=ev_ids,
+            evidence_ids=sorted(set(stability_ids)),
         )
-        if has_negative:
-            axes.separation_pressure = RelationshipAxisValue(
-                status=AxisStatus.EVALUATED, value=round(total_separation, 3),
-                band=_band(total_separation, strong=0.9, moderate=0.55, weak=0.3),
-                evidence_ids=ev_ids,
-            )
-        else:
-            # 부정 신호 없음 ≠ 분리 위험 낮음.
-            axes.separation_pressure = RelationshipAxisValue(
-                status=AxisStatus.INSUFFICIENT_EVIDENCE, evidence_ids=ev_ids,
-            )
+    if separation_ids:
+        axes.separation_pressure = RelationshipAxisValue(
+            status=AxisStatus.EVALUATED, value=round(total_separation, 3),
+            band=_band(total_separation, strong=0.9, moderate=0.55, weak=0.3),
+            evidence_ids=sorted(set(separation_ids)),
+        )
     # realization — positive base 부재(P1): blocker가 있어도 BLOCKED 생성 금지.
     axes.realization = RelationshipAxisValue(
         status=AxisStatus.INSUFFICIENT_EVIDENCE,
@@ -225,20 +263,21 @@ def synthesize_relationship_effect_vector(
     axes.formalization = unevaluated()
     axes.experience_valence = unevaluated()
 
-    resolved_roots = {
-        c.signal_trigger_id for c in contributions if c.signal_trigger_id is not None
-    }
+    contributing = {i for c in contributions for i in c.evidence_ids}
     return RelationshipEffectVectorResult(
         axes=axes,
         evidence=list(evidences),
         modifiers=deduped_modifiers,
         blockers=list(blockers),
         evidence_count=len(evidences),
+        retained_evidence_count=len(evidences),
+        contributing_evidence_count=len(contributing),
+        noncontributing_evidence_count=len(evidences) - len(contributing),
         semantic_evidence_group_count=len(
             {e.independent_cause_group for e in evidences}
         ),
-        independent_root_trigger_count=len(resolved_roots),
-        unresolved_trigger_evidence_count=len(unresolved_keys),
+        independent_root_trigger_count=len(contributions),
+        unresolved_trigger_evidence_count=len(unresolved),
         root_contributions=contributions,
         static_context_ids=static_ids,
     )

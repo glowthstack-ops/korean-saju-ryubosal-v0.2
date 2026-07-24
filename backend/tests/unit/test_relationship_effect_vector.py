@@ -37,6 +37,13 @@ def _evidences(*hits: SpousePalaceHit, period: str = "2027"):
     return build_spouse_palace_vector(list(hits), _DICTS, period_key=period).evidences
 
 
+def _prov(kind: RelationKind):
+    from saju_engines.relation_palace_engine import RelationActivation
+    from saju_shared_types.event_engine import LuckLayer
+
+    return RelationActivation(kind, Pillar4.DAY, LuckLayer.SEWOON)
+
+
 def _pat(pid: str, strength: float = 0.6) -> DetectedPattern:
     return DetectedPattern(pattern_id=pid, name_ko=pid, strength=strength,
                            polarity_mode="context_only")
@@ -129,8 +136,8 @@ def test_blocker_only_realization_insufficient_never_blocked() -> None:
     )
 
 
-def test_offsetting_zero_is_evaluated_but_absence_is_none() -> None:
-    """support·pressure 상쇄 0 = EVALUATED value(≈0) / 무근거 = value None."""
+def test_mixed_support_pressure_is_evaluated() -> None:
+    """support·pressure 공존(net 음수) — EVALUATED(값 보존)."""
     evs = _evidences(
         _hit(RelationKind.HAP, transit="子"),
         _hit(RelationKind.PA, transit="戌"),
@@ -138,6 +145,19 @@ def test_offsetting_zero_is_evaluated_but_absence_is_none() -> None:
     r = synthesize_relationship_effect_vector(evs)
     assert r.axes.stability.status is AxisStatus.EVALUATED
     assert r.axes.stability.value is not None
+
+
+def test_true_net_zero_is_evaluated_absence_is_none() -> None:
+    """폐쇄 §5 — 실제 상쇄 net=0(육합 2 root + 파 1 root: 0.3+0.3−0.6)은 EVALUATED
+    value≈0, 무근거는 INSUFFICIENT·value None."""
+    evs = _evidences(
+        _hit(RelationKind.HAP, transit="子"),
+        _hit(RelationKind.HAP, transit="辰", natal="酉"),
+        _hit(RelationKind.PA, transit="戌"),
+    )
+    r = synthesize_relationship_effect_vector(evs)
+    assert r.axes.stability.status is AxisStatus.EVALUATED
+    assert r.axes.stability.value is not None and abs(r.axes.stability.value) < 1e-9
     empty = synthesize_relationship_effect_vector([])
     assert empty.axes.stability.status is AxisStatus.INSUFFICIENT_EVIDENCE
     assert empty.axes.stability.value is None
@@ -160,15 +180,34 @@ def test_modifier_only_no_axis_creation() -> None:
     assert r.modifiers  # 메타 보존
 
 
-def test_jaenghap_weakens_binding_support() -> None:
-    """쟁합 — base evidence의 stability support 약화(affects_axes 한정)."""
+def test_jaenghap_weakens_only_derived_root() -> None:
+    """쟁합 — derived root의 support만 약화, 다른 root는 유지(폐쇄 §3)."""
+    evs = _evidences(
+        _hit(RelationKind.HAP, transit="子"),          # root A(정상 육합)
+        _hit(RelationKind.HAP, transit="辰", natal="酉"),  # root B(쟁합 대상)
+        period="2029",
+    )
+    target_id = next(e.evidence_id for e in evs if e.transit_participant == "辰")
+    mods = build_relationship_structure_modifiers(
+        [_pat("JAENGHAP")], derived_from_by_pattern={"JAENGHAP": [target_id]})
+    plain = synthesize_relationship_effect_vector(evs)
+    weakened = synthesize_relationship_effect_vector(evs, modifiers=mods)
+    p_roots = {c.signal_trigger_id: c for c in plain.root_contributions}
+    w_roots = {c.signal_trigger_id: c for c in weakened.root_contributions}
+    a_key = next(k for k in p_roots if k.endswith("子"))
+    b_key = next(k for k in p_roots if k.endswith("辰"))
+    assert w_roots[a_key].stability_support == p_roots[a_key].stability_support  # A 유지
+    assert w_roots[b_key].stability_support < p_roots[b_key].stability_support  # B 약화
+
+
+def test_unscoped_transit_modifier_held_not_applied() -> None:
+    """derived도 static도 없는 운 파생 modifier — 적용 보류(대상 불명·메타 보존만)."""
     evs = _evidences(_hit(RelationKind.HAP, transit="子"), period="2029")
     plain = synthesize_relationship_effect_vector(evs)
-    weakened = synthesize_relationship_effect_vector(
+    held = synthesize_relationship_effect_vector(
         evs, modifiers=build_relationship_structure_modifiers([_pat("JAENGHAP")]))
-    assert weakened.axes.stability.value is not None
-    assert plain.axes.stability.value is not None
-    assert weakened.axes.stability.value < plain.axes.stability.value
+    assert held.axes.stability.value == plain.axes.stability.value
+    assert held.modifiers  # 메타는 보존
 
 
 def test_result_has_no_promotion_fields() -> None:
@@ -188,3 +227,82 @@ def test_root_normalized_less_than_adapter_diagnostic_total() -> None:
     r = synthesize_relationship_effect_vector(adapter.evidences)
     assert r.axes.activation.value is not None
     assert r.axes.activation.value < adapter.base_activation_total
+
+
+# ── P1-5 폐쇄 보완 회귀(2026-07-24 §1~§4) ─────────────────────────────
+
+
+def test_provisional_not_added_to_axis_numbers() -> None:
+    """폐쇄 §1 — PROVISIONAL evidence는 축 숫자에 미가산(보존+계측만).
+
+    같은 신호일 수 있는 잠정 2건 → unresolved 2·root 0·activation 숫자 없음.
+    """
+    from saju_engines.spouse_palace_activation import build_spouse_palace_vector as bv
+
+    prov_evs = bv([_prov(RelationKind.CHUNG), _prov(RelationKind.HYEONG)], _DICTS).evidences
+    r = synthesize_relationship_effect_vector(prov_evs)
+    assert r.unresolved_trigger_evidence_count == 2
+    assert r.independent_root_trigger_count == 0
+    assert r.axes.activation.status is AxisStatus.INSUFFICIENT_EVIDENCE
+    assert r.axes.activation.value is None
+    assert r.contributing_evidence_count == 0
+    assert r.noncontributing_evidence_count == 2
+
+
+def test_mt2_only_stability_separation_insufficient() -> None:
+    """폐쇄 §2 — MT2 emergence 단독: activation만 평가, stability·separation 근거 없음."""
+    from saju_engines.marriage_emergence_modifier import (
+        EmergedStem,
+        MarriageEmergenceNatal,
+    )
+    from saju_engines.partner_star_emergence import build_partner_star_emergence_evidence
+
+    natal = MarriageEmergenceNatal(
+        day_master="癸",
+        emerged=(EmergedStem(stem="己", element="土", ten_god="편관",
+                             source_pillars=("year",), is_day_master_exposure=False,
+                             is_partner_star=True),),
+        gender="female")
+    mt2 = build_partner_star_emergence_evidence(natal, "己", layer="sewoon",
+                                                period_key="2029")
+    r = synthesize_relationship_effect_vector(mt2.evidences)
+    assert r.axes.activation.status is AxisStatus.EVALUATED
+    assert r.axes.stability.status is AxisStatus.INSUFFICIENT_EVIDENCE
+    assert r.axes.stability.value is None
+    assert r.axes.separation_pressure.status is AxisStatus.INSUFFICIENT_EVIDENCE
+
+
+def test_axis_evidence_ids_are_axis_specific() -> None:
+    """폐쇄 §4 — 축별 evidence_ids 정확성: MT2는 stability·separation에 미표기."""
+    from saju_engines.marriage_emergence_modifier import (
+        EmergedStem,
+        MarriageEmergenceNatal,
+    )
+    from saju_engines.partner_star_emergence import build_partner_star_emergence_evidence
+
+    palace = _evidences(_hit(RelationKind.CHUNG, transit="未"), period="2027")
+    natal = MarriageEmergenceNatal(
+        day_master="癸",
+        emerged=(EmergedStem(stem="己", element="土", ten_god="편관",
+                             source_pillars=("year",), is_day_master_exposure=False,
+                             is_partner_star=True),),
+        gender="female")
+    mt2 = build_partner_star_emergence_evidence(natal, "己", layer="sewoon",
+                                                period_key="2027")
+    r = synthesize_relationship_effect_vector(palace + mt2.evidences)
+    mt2_id = mt2.evidences[0].evidence_id
+    chung_id = palace[0].evidence_id
+    assert mt2_id in r.axes.activation.evidence_ids
+    assert mt2_id not in r.axes.stability.evidence_ids
+    assert mt2_id not in r.axes.separation_pressure.evidence_ids
+    assert chung_id in r.axes.separation_pressure.evidence_ids
+
+
+def test_static_modifier_merge_order_invariant() -> None:
+    """폐쇄 §3 — 동일 static ID 상이 강도: 순서 무관 max·union 병합."""
+    a = build_relationship_structure_modifiers([_pat("GWANSAL_HONJAP", 0.4)])
+    b = build_relationship_structure_modifiers([_pat("GWANSAL_HONJAP", 0.8)])
+    r1 = synthesize_relationship_effect_vector([], modifiers=a + b)
+    r2 = synthesize_relationship_effect_vector([], modifiers=b + a)
+    assert r1.modifiers[0].strength == r2.modifiers[0].strength == 0.8
+    assert [m.model_dump() for m in r1.modifiers] == [m.model_dump() for m in r2.modifiers]
