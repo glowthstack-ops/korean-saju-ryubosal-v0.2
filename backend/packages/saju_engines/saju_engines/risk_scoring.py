@@ -50,7 +50,7 @@ from saju_shared_types.risk_engine import (
     is_exposable,
 )
 
-from .risk_engine import cause_atoms
+from .risk_engine import cause_atoms, rebuild_risk_candidate
 
 # 점수 의미 버전 — 축 정의·가중·매핑이 바뀌면 올린다(엔진 env 버전과 독립).
 RISK_SCORING_VERSION = "risk-score-r1.2.2-shadow"
@@ -308,7 +308,8 @@ def score_shadow(
             + _CONF_PER_EXTRA_CAUSE * max(0, n_causes - 1)
             + (_CONF_LAYER if layer_conv else 0.0)
         )) if n_causes else 0.0
-        out.append(c.model_copy(update={
+        # 점수 채운 사본 — rebuild helper로 live provenance 승계 보존(주 방어선).
+        out.append(rebuild_risk_candidate(c, update={
             "score_components": components,
             "confidence": round(confidence, 6),
             "transition_bonus": transition_bonus,

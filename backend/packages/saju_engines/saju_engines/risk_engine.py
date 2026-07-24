@@ -356,13 +356,16 @@ def _apply_specificity_suppression(
     out: list[RiskCandidate] = []
     for c in cands:
         if id(c) in suppression:
-            out.append(c.model_copy(update={
+            # 흡수 후보 재구성 — rebuild helper가 c의 live provenance를 승계 보존한다
+            # (주 방어선 — 흡수로 flag 유실 방지).
+            out.append(rebuild_risk_candidate(c, update={
                 "suppressed_by_specificity": suppression[id(c)][0],
                 "primary_risk_id": suppression[id(c)][0],
                 "absorbed_role": suppression[id(c)][1],
             }))
         elif id(c) in live_primary_ids and not c.live_relationship_context_derived:
-            out.append(c.model_copy(update={
+            # 대표 후보 — 흡수한 live 후보의 provenance를 OR 승계(True로 승격).
+            out.append(rebuild_risk_candidate(c, update={
                 "live_relationship_context_derived": True,
             }))
         else:
@@ -519,6 +522,38 @@ def merge_live_relationship_provenance(*values: bool) -> bool:
     최종 방어선은 relationship_shadow.strip_live_relationship_candidates
     (build_risk_payload 직전 flag+namespace 이중 차단)."""
     return any(values)
+
+
+def rebuild_risk_candidate(
+    base: RiskCandidate,
+    *provenance_sources: RiskCandidate,
+    update: dict | None = None,
+) -> RiskCandidate:
+    """RiskCandidate 재구성 SSOT(P1-6 provenance 감사 — 주 방어선).
+
+    모든 RiskCandidate model_copy/재구성은 이 helper를 거친다. live provenance는
+    단조 보존된다: live_relationship_context_derived =
+    OR(base, *provenance_sources, update가 명시한 값). **True→False 강등 불가** —
+    update가 그 키를 False로 주더라도 base·source 중 하나라도 True면 True를 유지한다
+    (하드 게이트 우회 차단). 흡수·대표 수렴 등 모든 변환에서 live 유래 표식이 유실되지
+    않게 하는 1차 방어선이며, namespace 필터(strip_live_relationship_candidates)가
+    2차 fail-safe다(둘은 독립 — 어느 한쪽만으로도 차단해야 한다).
+
+    Args:
+        base: 재구성 기준 후보(변경할 필드 외 전부 승계).
+        provenance_sources: 이 변환에 수렴·기여한 다른 후보들(흡수원·대표 등) —
+            live provenance OR 병합 대상.
+        update: base.model_copy(update=...)에 넘길 필드. live provenance 키를
+            직접 넣어도 강등되지 않는다(OR 병합 후 덮어씀).
+    """
+    merged = dict(update or {})
+    live = merge_live_relationship_provenance(
+        base.live_relationship_context_derived,
+        *(s.live_relationship_context_derived for s in provenance_sources),
+        bool(merged.get("live_relationship_context_derived", False)),
+    )
+    merged["live_relationship_context_derived"] = live
+    return base.model_copy(update=merged)  # provenance-audit: helper
 
 
 @dataclass(frozen=True)

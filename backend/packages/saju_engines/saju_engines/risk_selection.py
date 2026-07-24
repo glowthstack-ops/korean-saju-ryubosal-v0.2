@@ -565,6 +565,7 @@ def attach_recovery_windows(
             reasons.append(f"all_primary_causes_quiet:{quiet_span}")
         else:
             reasons.append("right_censored_quiet_span")
+        # provenance-audit: not-risk (RiskEpisode — live provenance 필드 없음)
         out.append(ep.model_copy(update={"recovery_window": RecoveryWindow(
             earliest_relief_window=relief_after[0],
             stable_recovery_window=stable,

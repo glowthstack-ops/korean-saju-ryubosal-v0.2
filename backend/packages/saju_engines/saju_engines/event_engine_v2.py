@@ -562,7 +562,7 @@ class EventEngineV2:
                 f"HWA_길흉_{hwa_el}" if hwa_el
                 else ("制_합거_흉무력화" if stem_bound else "")
             )
-            cands = [
+            cands = [  # provenance-audit: not-risk (EventCandidateV2)
                 c.model_copy(update={
                     "polarity_role": role,
                     **({"reason_codes": [*c.reason_codes, note]} if note else {}),
@@ -637,6 +637,7 @@ class EventEngineV2:
                 boosted.append(c)
                 continue
             delta = round(new_raw - c.raw_score, 2)
+            # provenance-audit: not-risk (EventCandidateV2)
             boosted.append(c.model_copy(update={
                 "raw_score": round(new_raw, 2),
                 "contributions": {**c.contributions, "daewoon_transition": delta},
@@ -1019,7 +1020,7 @@ def _apply_soft_cap(c: EventCandidateV2) -> EventCandidateV2:
             update["reason_codes"] = [*c.reason_codes, "JOBCHANGE_PRESSURE_DRIVEN"]
         elif favorability >= _JOBCHANGE_OPPORTUNITY_TH:
             update["reason_codes"] = [*c.reason_codes, "JOBCHANGE_OPPORTUNITY"]
-    return c.model_copy(update=update)
+    return c.model_copy(update=update)  # provenance-audit: not-risk (EventCandidateV2)
 
 
 def _has_stem_clash(target_stem: str, result: ManseV2Result) -> bool:
@@ -1125,6 +1126,7 @@ def _apply_daewoon_hwa_background(
             out.append(c)
             continue
         new_score = max(0, round(c.score * factor))
+        # provenance-audit: not-risk (EventCandidateV2)
         out.append(c.model_copy(update={
             "score": new_score,
             "reason_codes": [*c.reason_codes, tag],
