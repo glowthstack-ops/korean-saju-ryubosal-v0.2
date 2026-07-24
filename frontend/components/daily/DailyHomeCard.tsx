@@ -72,6 +72,9 @@ export function DailyHomeCard() {
             </li>
           ))}
         </ul>
+        {f.love_line && (
+          <p className="mt-2 text-xs leading-relaxed text-gray-500">💕 오늘의 연애: {f.love_line}</p>
+        )}
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <span className="text-xs text-gray-500">📍 행운의 장소: {f.lucky_place.name}</span>
           <Link href="/daily" className="text-sm text-gray-700 underline">

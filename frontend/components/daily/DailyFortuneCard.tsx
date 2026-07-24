@@ -1,6 +1,6 @@
 "use client";
 
-// 일주 1개의 오늘 운세 카드 — 헤드라인·사건 3개(%게이지)·행운 장소·로또 문구.
+// 일주 1개의 오늘 운세 카드 — 헤드라인·사건 3개(%게이지)·오늘의 연애(강한 신호 시)·행운 장소·로또 문구.
 
 import type { DailyIljuFortune } from "@/lib/daily-fortune";
 
@@ -48,6 +48,11 @@ export function DailyFortuneCard({
         ))}
       </ul>
 
+      {fortune.love_line && (
+        <p className="mt-3 whitespace-pre-line text-xs leading-relaxed text-gray-500">
+          💕 오늘의 연애: {fortune.love_line}
+        </p>
+      )}
       <p className="mt-3 text-xs text-gray-500">📍 행운의 장소: {fortune.lucky_place.name}</p>
       {fortune.lotto_phrase && (
         <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">

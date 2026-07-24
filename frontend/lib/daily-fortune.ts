@@ -26,6 +26,7 @@ export interface DailyIljuFortune {
   events: DailyEventForecast[];
   lucky_place: LuckyPlace;
   lotto_phrase: string | null;
+  love_line: string | null; // 강한 love 전용 신호일 때만(게이트) — 없으면 미표시
   polished: boolean;
 }
 
