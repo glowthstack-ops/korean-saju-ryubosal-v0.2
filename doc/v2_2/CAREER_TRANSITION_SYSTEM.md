@@ -633,17 +633,57 @@ family_cap_collision               # 같은 cap 슬롯 공유로 탈락한 건�
 
 > **작성 원칙**: 이 절은 **수치·명리 매핑의 정답을 고정하지 않는다.** 검증 대상은 **상태·의미·소유권 불변식**이다. 명리 신호별 기대 효과 fixture는 부록 B 감수 진행에 따라 **별도로** 추가한다(감수 전 정답 고정 금지, 리포 규칙 10).
 
-### 13-0. 공통 fixture 스키마
+### 13-0. fixture 유형과 스키마
+
+**원자적 전이 fixture와 다단계 scenario를 분리한다.** 정상 4흐름처럼 여러 단계를 거치는 것은 scenario로 두어 **중간 어느 단계에서 어긋났는지** 드러나게 한다(최종 상태만 검증하면 진단 불가).
+
+```python
+class CareerTransitionFixture:        # 원자적 전이 1건
+    fixture_id
+    initial_state
+    input_fact_or_action
+    expected_transition
+    expected_rejections               # 금지 전이·승격 거부
+    expected_history                  # stage_history 누적 결과
+    expected_links                    # linked_episode_id 등
+    expected_realization_status       # NOT_STARTED / IN_PROGRESS / COMPLETED / CLOSED_UNREALIZED
+
+class CareerTransitionScenario:       # 다단계 흐름
+    scenario_id
+    initial_state
+    steps: list[ScenarioStep]
+    final_assertions
+
+class ScenarioStep:
+    step_id
+    input_fact_or_action
+    expected_transition
+    expected_rejections
+    expected_history_delta            # 누적이 아닌 단계별 증분
+    expected_links
+    expected_realization_status
+```
+
+**배치 원칙**: Kind별 정상 4흐름(외부 이직·무직 취업·퇴사 단독·내부 전보) = **scenario** / 개별 금지 전이·승격 거부 = **원자적 fixture**.
+
+#### 공통 메타데이터 (기계적 감사용)
 
 ```
-fixture_id
-initial_state
-input_fact_or_action
-expected_transition
-expected_rejections           # 금지 전이·승격 거부
-expected_history              # stage_history 누적 결과
-expected_links                # linked_episode_id 등
-expected_realization_status   # NOT_STARTED / IN_PROGRESS / COMPLETED / CLOSED_UNREALIZED
+invariant_refs      # 이 fixture가 검증하는 INV 목록
+decision_refs       # 관련 D 목록
+fixture_class       # semantics / cap / state_machine / lifecycle / safety
+expected_phase      # P0-B / P1 / … (어느 Phase에서 green이어야 하는가)
+```
+
+#### 상태 불변 기대값 (byte 불변 확인용)
+
+변경되어야 하는 값뿐 아니라 **변경되면 안 되는 값**도 적는다. P0-B shadow에서 기존 엔진 불변 확인에 사용한다.
+
+```
+expected_unchanged:
+  - EventCandidateV2.activation
+  - EventCandidateV2.favorability
+  - legacy_serialized_category
 ```
 
 ### 13-1. 의미 해소·category 회귀 fixture
@@ -675,7 +715,7 @@ D21 행렬을 실행 가능한 후보로 옮긴다.
 | 이직 + 취업 | 둘 다 유지 |
 | 이직 + 승진 | 둘 다 유지 |
 | 취업 + 승진 | 둘 다 유지 |
-| 같은 이직의 여러 기간 | 사건 중복 규칙에 따라 축약(§14에서 규칙 확정) |
+| 같은 이직의 여러 기간 | 아래 중복 식별 기준으로 축약 |
 | 이직 + 이사 + 취업 | 세 cap key 모두 유지하되 **career 도메인 총량 상한** 적용 |
 
 **도메인 총량 상한과 사건별 cap을 구분한다.** 총량 때문에 탈락한 항목을 "같은 family라 제거됨"으로 기록하면 안 된다.
@@ -684,29 +724,112 @@ D21 행렬을 실행 가능한 후보로 옮긴다.
 selection_reason ∈ { KEPT, FAMILY_CAP_DEDUP, DOMAIN_TOTAL_CAP, LOW_CONFIDENCE, ... }
 ```
 
+#### 중복 식별 기준 (같은 사건 판정)
+
+```
+duplicate_identity = canonical event_key
+                   + calibration_cap_key
+                   + 대상 Episode(또는 대상 회사)
+                   + 시간창 중첩 여부
+```
+
+- `A사 이직 @2027-03` + `A사 이직 @2027-04` → **같은 Episode의 인접 기간** → 축약 가능.
+- `A사 이직 @2027-03` + `B사 이직 @2027-04` → 같은 `career_transition` cap key라도 **다른 Episode** → **무조건 병합 금지**.
+
+#### 결정적 타이브레이크 (회귀 안정성)
+
+수치 정답은 고정하지 않되 **선택 순서는 결정적**이어야 한다.
+
+```
+activation 높은 후보 → 같으면 confidence → 같으면 시간상 빠른 후보
+→ 같으면 stable candidate id
+```
+
+fixture 필수 필드: `duplicate_identity`, `retained_candidate`, `selection_reason`, `deterministic_tiebreak`.
+
 ### 13-3. 세 트랙 상태 머신 fixture
 
-**정상 흐름 (Kind별)**
+**정상 흐름 (Kind별) — 전부 `CareerTransitionScenario`(다단계)**
 
-| fixture | 흐름 | 특이 계약 |
+| scenario | steps | 특이 계약 |
 |---|---|---|
 | 외부 이직 | 지원→면접→오퍼→수락→퇴사→입사 | required_gates = agreement·exit·entry |
 | 무직 취업 | 지원→오퍼→입사 | **Exit 불필요** |
 | 퇴사 단독 | 통보→인수인계→퇴사 | **Episode 링크 불필요**(`linked_episode_id=None`) |
 | 내부 전보 | 내부 결정→배치 실행 | **퇴사 없음**, `entry_scope=INTERNAL_*` |
 
+각 step마다 `expected_transition`·`expected_history_delta`를 검증해 중간 이탈 지점을 특정한다.
+
 **교차·예외 흐름**
 
 - 오퍼 전에 퇴사(트랙 순서 교차)
 - 수락 후 퇴사 통보 지연
 - 퇴사 후 오퍼 철회 → **이미 EXITED인 Exit 자동 복원 금지**
-- B사 수락 후 C사로 대상 변경 → `linked_episode_id` **변경 이력 보존**(단순 덮어쓰기 금지)
 - 입사일 확정 후 연기
-- 입사 후 **현재 고용 컨텍스트 원자적 승격**(INV-17 — 중간 상태 잔존 금지)
 - 내부 전보인데 **Exit가 생성되지 않음**
 - 복수 Episode에서 **A사 면접·B사 협상이 섞이지 않음**(episode collision 0)
 
-### 13-4. 금지 전이·사실/예측 분리 fixture (안전 회귀)
+#### 교차 트랙 원자성 — 정상 + **실패 롤백** (INV-17)
+
+정상: `Entry.JOINED` 반영 → 기존 current employment archive → 새 current employment 승격.
+
+**실패 케이스 필수**: 2번째·3번째 변경이 실패하면 "이전 고용만 종료되고 새 고용은 없음" 같은 **반쪽 상태가 남지 않아야** 한다.
+
+```
+expected_transaction_result = ROLLED_BACK
+expected_store_unchanged    = True
+```
+
+#### 대상 회사 변경 (B사 수락 → C사 선택)
+
+- Exit 트랙의 **현재 링크는 정확히 하나**
+- 기존 B사 링크는 **이력으로 보존**
+- C사로 링크 변경
+- **B사 Episode의 lifecycle/outcome 처리 명시**(CLOSED + close_reason)
+- 단순 `linked_episode_id` **덮어쓰기 금지**
+
+### 13-4. Episode 수명주기 fixture (재처리·정정·해소·재지원)
+
+실제 대화에서는 같은 사실이 반복되고 정정되며 시간 역순으로 들어온다. §14 현실 캘리브레이션에도 직접 필요하다.
+
+#### (a) 동일 사실 재전송 — idempotent
+
+"오퍼를 받았어요"를 후속 턴에서 다시 말함 → `stage_history` **중복 추가 없음**, 동일 `source_fact_id` **재적용 없음**, 상태·링크 불변.
+
+#### (b) 사실 정정 (supersede / retract)
+
+"오퍼를 받았어요" → "정정할게요. 오퍼가 아니라 리크루터 연락만 왔어요"
+
+- 기존 사실의 **supersede 또는 retract 이력 보존**
+- `OFFER_RECEIVED` 확정 상태 **유지 금지**
+- **단순 불법 상태 후퇴로 처리하지 않음** — `FACT_CORRECTION_RECONCILIATION`과 일반 `STATE_REGRESSION`을 **구분**
+
+#### (c) 과거 사실의 역순 입력
+
+"지난달 입사했고, 그 전주에 퇴사했어요"
+
+- **발생일 기준으로 history 정렬**
+- 현재 상태는 **입사 완료**
+- 뒤늦게 입력된 과거 퇴사 사실이 현재 상태를 **퇴사 단계로 되돌리지 않음**
+
+#### (d) Episode 해소 실패 — 모호한 별칭
+
+A사 면접 중 + B사 협상 중 상태에서 "그 회사는 언제 결과가 나?"
+
+```
+EPISODE_UNRESOLVED
+상태 변경 없음
+forecast 대상 추정 금지
+```
+
+**유일하게 열린 Episode일 때만** "그 회사" 자동 해소 허용.
+
+#### (e) 종료 후 재지원 — `NEW_EPISODE` vs `REOPEN_EPISODE`
+
+- A사 Episode1이 서류 탈락으로 CLOSED → 몇 달 후 A사 **다른 포지션** 재지원 → **기본 `NEW_EPISODE`**(명시적 근거 없이 종료 Episode 재개 금지).
+- 회사가 **같은 채용 건**을 다시 진행한다고 사용자가 밝힌 경우에만 **`REOPEN_EPISODE`** 허용.
+
+### 13-5. 금지 전이·사실/예측 분리 fixture (안전 회귀)
 
 가장 중요한 회귀 묶음이다.
 
@@ -734,6 +857,8 @@ selection_reason ∈ { KEPT, FAMILY_CAP_DEDUP, DOMAIN_TOTAL_CAP, LOW_CONFIDENCE,
 ```
 
 - §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰) · §14 캘리브레이션 축(occurrence/outcome/experience/settlement) · §15 shadow 오류 지표 · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
+
+**§14 착수 기준(예약)**: 캘리브레이션 단위는 "이직 사건 하나"가 아니라 **Episode × 트랙 × 도달 단계**로 잡는다. 예) B사 Episode에서 Opportunity=오퍼 도달 / Exit=통보 안 함 / Entry=미도달 → Opportunity occurrence는 **발생**, Exit는 `NO_ATTEMPT` 또는 `NOT_REACHED`, Entry는 `NOT_REACHED`. **전체 이직을 단순 실패로 저장하지 않는다**(INV-12 축 병합 금지와 정합).
 
 ---
 
