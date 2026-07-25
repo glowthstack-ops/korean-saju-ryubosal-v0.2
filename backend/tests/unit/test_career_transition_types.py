@@ -21,6 +21,7 @@ from saju_shared_types.career_transition import (
     EntryStage,
     ExitStage,
     FactOperationType,
+    FactSourceRef,
     OpportunityStage,
     RealizationStatus,
     StageHistoryItem,
@@ -155,7 +156,8 @@ def test_track_state_separates_lifecycle_reason_history() -> None:
     """단계 / lifecycle / 종료사유 / 이력이 각각 별도 필드다."""
     fields = TrackState.model_fields
     for name in (
-        "current_confirmed_stage",
+        "frontier_stage",
+        "observed_stages",
         "lifecycle_status",
         "close_reason",
         "stage_history",
@@ -182,7 +184,8 @@ def _history_item(**kw: object) -> StageHistoryItem:
         "history_item_id": "h1",
         "track": CareerTrack.OPPORTUNITY,
         "stage": OpportunityStage.OFFER_RECEIVED,
-        "source_fact_id": "f1",
+        "source_ref": FactSourceRef(
+            source_kind="user_confirmed", source_namespace="chat", source_fact_id="f1"),
         "fact_type": "offer_received",
         "operation_type": FactOperationType.ASSERT,
         "recorded_at": "2027-04-10T00:00:00Z",

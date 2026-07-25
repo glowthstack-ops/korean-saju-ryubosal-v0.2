@@ -10,6 +10,8 @@ import pytest
 from pydantic import ValidationError
 
 from saju_shared_types.career_commands import (
+    FACT_STAGE_MAPPING,
+    REOPENABLE_CLOSE_REASONS,
     ApplyCareerFactCommand,
     CareerAuditEvent,
     CareerFactSource,
@@ -23,15 +25,22 @@ from saju_shared_types.career_commands import (
     ReopenReason,
     TransitionResult,
     TransitionStatus,
+    canonical_stage_for,
 )
 from saju_shared_types.career_transition import (
+    AcceptedEpisodeSwitchedJournalItem,
     CareerEpisodeStore,
     CareerStageRef,
     CareerTrack,
     CareerTransitionEpisode,
     CurrentEmploymentContext,
     EmploymentContextSnapshot,
+    EntryStage,
+    EpisodeCreatedJournalItem,
     FactOperationType,
+    FactSourceRef,
+    JournalItemKind,
+    ObservedStageState,
     OpportunityStage,
     StageHistoryItem,
     TrackState,
@@ -51,7 +60,8 @@ def _fact(**kw: object) -> StageHistoryItem:
         "history_item_id": "h1",
         "track": CareerTrack.OPPORTUNITY,
         "stage": OpportunityStage.OFFER_RECEIVED,
-        "source_fact_id": "f1",
+        "source_ref": FactSourceRef(
+            source_kind="user_confirmed", source_namespace="chat", source_fact_id="f1"),
         "target_episode_id": "ep-a",
         "fact_type": CareerFactType.WRITTEN_OFFER_RECEIVED.value,
         "operation_type": FactOperationType.ASSERT,
@@ -97,13 +107,34 @@ def test_reopen_requires_structured_reason() -> None:
 
 
 def test_store_separates_append_only_journal_from_projection() -> None:
-    """물리 append-only journal과 effective projection이 별도 필드다."""
-    assert "fact_journal" in CareerEpisodeStore.model_fields
+    """저장 필드는 통합 journal 하나이고 사실 목록·투영은 파생이다.
+
+    사실만 담는 journal로는 Episode 생성·재개·수락 링크 변경·고용 rollover를 replay할 수
+    없으므로 생명주기 항목까지 하나의 순서 있는 journal에 담는다.
+    """
+    assert "career_journal" in CareerEpisodeStore.model_fields
+    assert "fact_journal" not in CareerEpisodeStore.model_fields  # 파생 뷰
     assert "stage_history" in TrackState.model_fields
-    store = CareerEpisodeStore(fact_journal=(_fact(),))
+    store = CareerEpisodeStore(career_journal=(_fact(),))
     assert isinstance(store.fact_journal, tuple)
     with pytest.raises(AttributeError):
-        store.fact_journal.append(_fact())  # type: ignore[attr-defined]
+        store.career_journal.append(_fact())  # type: ignore[attr-defined]
+
+
+def test_journal_can_replay_episode_lifecycle_not_only_facts() -> None:
+    """생명주기 항목이 journal에 들어가 전체 store replay가 가능해야 한다."""
+    created = EpisodeCreatedJournalItem(
+        journal_item_id="j1", command_id="c1", episode_id="ep-a", recorded_at="t1"
+    )
+    switched = AcceptedEpisodeSwitchedJournalItem(
+        journal_item_id="j2", command_id="c2", recorded_at="t2",
+        to_episode_id="ep-c", supporting_history_item_id="h9",
+    )
+    store = CareerEpisodeStore(career_journal=(created, _fact(), switched))
+    kinds = {i.kind for i in store.career_journal}
+    assert JournalItemKind.EPISODE_CREATED in kinds
+    assert JournalItemKind.ACCEPTED_EPISODE_SWITCHED in kinds
+    assert len(store.fact_journal) == 1  # 사실 뷰는 사실만
 
 
 def test_journal_entry_carries_occurred_and_recorded_time() -> None:
@@ -125,24 +156,27 @@ def test_same_fact_in_other_episode_is_not_idempotent_but_conflicting() -> None:
     a = _fact(target_episode_id="ep-a")
     b = _fact(target_episode_id="ep-b")
     assert a.idempotency_key != b.idempotency_key          # 멱등으로는 안 걸림
-    store = CareerEpisodeStore(fact_journal=(a,))
-    owner_episode, owner_track, owner_type = store.source_fact_ownership["f1"]
+    store = CareerEpisodeStore(career_journal=(a,))
+    identity = ("user_confirmed", "chat", "f1")
+    owner_episode, owner_track, owner_type = store.source_fact_ownership[identity]
     assert owner_episode == "ep-a"                          # 소유권 인덱스가 잡는다
     assert (owner_track, owner_type) == (CareerTrack.OPPORTUNITY, a.fact_type)
 
 
 def test_ownership_index_is_read_only_derived_view() -> None:
     """소유권 인덱스는 journal 파생 읽기 전용 뷰 — 별도 mutable 상태가 아니다."""
-    store = CareerEpisodeStore(fact_journal=(_fact(),))
+    store = CareerEpisodeStore(career_journal=(_fact(),))
     assert "source_fact_ownership" not in CareerEpisodeStore.model_fields
     with pytest.raises(TypeError):
-        store.source_fact_ownership["f2"] = ("ep-b", CareerTrack.EXIT, "x")  # type: ignore[index]
+        store.source_fact_ownership[("k", "n", "f2")] = (  # type: ignore[index]
+            "ep-b", CareerTrack.EXIT, "x")
 
 
 def test_same_text_different_fact_id_stays_distinct() -> None:
     """같은 문장이라도 source_fact_id가 다르면 별개 사실이다(§13-4a)."""
-    a = _fact(source_fact_id="f1")
-    b = _fact(history_item_id="h2", source_fact_id="f2")
+    a = _fact()
+    b = _fact(history_item_id="h2", source_ref=FactSourceRef(
+        source_kind="user_confirmed", source_namespace="chat", source_fact_id="f2"))
     assert a.idempotency_key != b.idempotency_key
 
 
@@ -152,12 +186,14 @@ def test_same_text_different_fact_id_stays_distinct() -> None:
 def test_correction_and_retraction_reference_a_target_item() -> None:
     """정정·철회는 무엇을 대상으로 하는지 참조를 가질 수 있어야 한다."""
     corrected = ApplyCareerFactCommand(
-        command_id="c2", source_fact_id="f2", source_kind=CareerFactSource.USER_CONFIRMED,
+        command_id="c2",
+        source_ref=FactSourceRef(
+            source_kind="user_confirmed", source_namespace="chat", source_fact_id="f2"),
+        source_kind=CareerFactSource.USER_CONFIRMED,
         evidence_class=FactEvidenceClass.OBSERVABLE_HARD_FACT,
         operation_type=FactOperationType.CORRECT,
-        fact_type=CareerFactType.WRITTEN_OFFER_RECEIVED, track=CareerTrack.OPPORTUNITY,
+        fact_type=CareerFactType.WRITTEN_OFFER_RECEIVED,
         recorded_at="t", target_history_item_id="h1",
-        stage_ref=CareerStageRef(track=CareerTrack.OPPORTUNITY, stage=OpportunityStage.CONTACT),
     )
     assert corrected.target_history_item_id == "h1"
     assert FactOperationType.RETRACT in set(FactOperationType)
@@ -269,3 +305,100 @@ def test_episode_unresolved_is_a_rejection_not_a_violation_code() -> None:
     """미해소는 정상 안전 분기다 — 위반 코드와 같은 층위로 두지 않는다."""
     assert RejectionCode.EPISODE_UNRESOLVED.value == "episode_unresolved"
     assert RejectionCode.FACT_OWNERSHIP_CONFLICT.value == "fact_ownership_conflict"
+
+
+# ── 3. fact_type → stage 파생 (단일 SSOT) ──────────────────────────────────
+
+
+def test_stage_is_derived_from_fact_type_not_input() -> None:
+    """호출자가 stage를 넣지 못하므로 유형·단계 불일치가 구조적으로 불가능하다."""
+    assert "stage_ref" not in ApplyCareerFactCommand.model_fields
+    cmd = ApplyCareerFactCommand(
+        command_id="c1",
+        source_ref=FactSourceRef(
+            source_kind="user_confirmed", source_namespace="chat", source_fact_id="f1"),
+        source_kind=CareerFactSource.USER_CONFIRMED,
+        evidence_class=FactEvidenceClass.OBSERVABLE_HARD_FACT,
+        operation_type=FactOperationType.ASSERT,
+        fact_type=CareerFactType.WRITTEN_OFFER_RECEIVED,
+        recorded_at="t",
+    )
+    assert cmd.stage_ref == canonical_stage_for(CareerFactType.WRITTEN_OFFER_RECEIVED)
+    assert cmd.track is CareerTrack.OPPORTUNITY  # track 도 파생
+
+
+def test_fact_stage_mapping_is_single_ssot_and_total() -> None:
+    """모든 사실 유형이 canonical 단계를 가지며 매핑은 한 곳에만 있다."""
+    assert set(FACT_STAGE_MAPPING) == set(CareerFactType)
+    with pytest.raises(TypeError):
+        FACT_STAGE_MAPPING[CareerFactType.JOINED] = None  # type: ignore[index]
+
+
+def test_join_and_exit_facts_map_to_different_tracks() -> None:
+    """한 사실이 다른 트랙 단계를 만들지 않도록 매핑이 트랙을 분리한다."""
+    assert canonical_stage_for(CareerFactType.JOINED).track is CareerTrack.ENTRY
+    assert canonical_stage_for(CareerFactType.EXIT_COMPLETED).track is CareerTrack.EXIT
+    assert canonical_stage_for(CareerFactType.OFFER_ACCEPTED).track is CareerTrack.OPPORTUNITY
+
+
+# ── 6. frontier ≠ observed (sparse forward) ────────────────────────────────
+
+
+def test_frontier_stage_is_separate_from_observed_stages() -> None:
+    """JOINED 직접 입력이 이전 단계 확인을 의미하지 않는다."""
+    joined = CareerStageRef(track=CareerTrack.ENTRY, stage=EntryStage.JOINED)
+    entry = TrackState(
+        track=CareerTrack.ENTRY,
+        frontier_stage=joined,
+        observed_stages=(ObservedStageState(stage=joined, source_history_item_id="h1"),),
+    )
+    assert entry.frontier_stage == joined
+    assert [o.stage for o in entry.observed_stages] == [joined]
+    # 중간 단계는 관찰되지 않았다 — 합성 금지
+    assert all(o.stage.stage is EntryStage.JOINED for o in entry.observed_stages)
+    assert entry.current_confirmed_stage == joined
+
+
+def test_sparse_forward_does_not_synthesise_intermediate_history() -> None:
+    """중간 StageHistoryItem을 만들지 않는다(§13 필수 사례 4)."""
+    joined = CareerStageRef(track=CareerTrack.ENTRY, stage=EntryStage.JOINED)
+    entry = TrackState(
+        track=CareerTrack.ENTRY,
+        frontier_stage=joined,
+        observed_stages=(ObservedStageState(stage=joined, source_history_item_id="h1"),),
+        stage_history=(),
+    )
+    assert entry.stage_history == ()
+    assert len(entry.observed_stages) == 1
+
+
+# ── 재개 가능 종료 사유 · 결정적 정렬 ───────────────────────────────────────
+
+
+def test_completed_join_episode_is_not_reopenable() -> None:
+    """완결된 입사 Episode는 구조화 근거가 있어도 재개 대상이 아니다."""
+    from saju_shared_types.career_transition import CareerTransitionCloseReason
+
+    assert CareerTransitionCloseReason.POSITION_CLOSED in REOPENABLE_CLOSE_REASONS
+    for blocked in (
+        CareerTransitionCloseReason.PROBATION_FAILED,
+        CareerTransitionCloseReason.OTHER_OFFER_CHOSEN,
+        CareerTransitionCloseReason.EARLY_EXIT,
+    ):
+        assert blocked not in REOPENABLE_CLOSE_REASONS
+
+
+def test_journal_sort_key_is_deterministic() -> None:
+    """정렬 tie-break는 occurred_at → recorded_at → journal item id로 고정한다."""
+    a = _fact(history_item_id="h1", occurred_at="2027-01-01T00:00:00Z")
+    b = _fact(history_item_id="h2", occurred_at="2027-01-01T00:00:00Z")
+    assert a.sort_key < b.sort_key
+    assert a.sort_key[0] == "2027-01-01T00:00:00Z"
+
+
+def test_rejection_codes_separate_input_refusal_from_rollback() -> None:
+    """일반 거부와 원자 transaction 롤백을 다른 코드로 구분한다."""
+    codes = {c.name for c in RejectionCode}
+    assert {"EPISODE_UNRESOLVED", "FACT_NOT_AUTHORITATIVE", "FACT_OWNERSHIP_CONFLICT"} <= codes
+    assert {"COMMAND_ID_CONFLICT", "EPISODE_ID_COLLISION", "EPISODE_NOT_REOPENABLE"} <= codes
+    assert "EMPLOYMENT_CONTEXT_CONFLICT" in codes  # ROLLED_BACK 후보

@@ -5,9 +5,11 @@
 다시 여는 일을 막기 위함이다.
 
 ```
-CareerCommand = CreateEpisodeCommand | ReopenEpisodeCommand
-              | ApplyCareerFactCommand | SwitchAcceptedEpisodeCommand
+CareerCommand = CreateEpisodeCommand | ReopenEpisodeCommand | ApplyCareerFactCommand
 ```
+
+수락 대상 Episode 변경은 **외부 명령이 아니라** 확인된 `OFFER_ACCEPTED` 사실에서 reducer가
+파생하는 내부 plan이다 — 독립 명령으로 열어두면 사실 전이를 우회하는 통로가 된다.
 
 **결정론**: reducer와 명령은 `datetime.now()`·`uuid4()`·`random`·프로세스별 `hash()`를
 쓰지 않는다. 모든 ID와 시각은 명령에서 받거나 입력에서 안정적으로 파생한다 — 그래야
@@ -19,17 +21,24 @@ LLM·report 입력과 기존 점수·랭킹은 변하지 않으며 DB·`Conversa
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import StrEnum
+from types import MappingProxyType
 
 from pydantic import BaseModel, ConfigDict
 
 from .career_transition import (
     CareerEpisodeStore,
+    CareerJournalItem,
     CareerStageRef,
     CareerTrack,
     CareerTransitionCloseReason,
+    EntryStage,
+    ExitStage,
     FactOperationType,
+    FactSourceRef,
     OpportunitySource,
+    OpportunityStage,
     StageHistoryItem,
 )
 
@@ -104,14 +113,14 @@ class RejectionCode(StrEnum):
     FACT_OWNERSHIP_CONFLICT = "fact_ownership_conflict"          # episode_collision 후보
     EPISODE_CLOSED = "episode_closed"
     EPISODE_NOT_FOUND = "episode_not_found"
-    DUPLICATE_EPISODE_ID = "duplicate_episode_id"
-    INVALID_EVIDENCE_CLASS = "invalid_evidence_class"
-    MISSING_STAGE_REF = "missing_stage_ref"
-    UNEXPECTED_STAGE_REF = "unexpected_stage_ref"
+    EPISODE_ID_COLLISION = "episode_id_collision"                # 다른 명령이 같은 id 사용
+    COMMAND_ID_CONFLICT = "command_id_conflict"                  # 같은 id·다른 payload
+    EPISODE_NOT_REOPENABLE = "episode_not_reopenable"            # 완결 Episode 재개 시도
+    FACT_NOT_AUTHORITATIVE = "fact_not_authoritative"            # 증거 자격 없음
     MISSING_TARGET_HISTORY_ITEM = "missing_target_history_item"
+    UNEXPECTED_TARGET_HISTORY_ITEM = "unexpected_target_history_item"
     CORRECTION_TARGET_MISSING = "correction_target_missing"
     CORRECTION_TARGET_OTHER_EPISODE = "correction_target_other_episode"
-    REOPEN_REASON_REQUIRED = "reopen_reason_required"
     EMPLOYMENT_CONTEXT_CONFLICT = "employment_context_conflict"
 
 
@@ -169,55 +178,97 @@ class ReopenEpisodeCommand(BaseModel):
     requisition_id: str | None = None
 
 
+#: `fact_type` → canonical 단계. **단일 SSOT**이며 테스트·fixture에서 복제하지 않는다.
+#: 호출자가 stage를 자유 입력하면 `WRITTEN_OFFER_RECEIVED` + `Entry/JOINED` 같은 불일치가
+#: 가능하므로, 명령에서 stage 입력을 제거하고 여기서 파생한다.
+FACT_STAGE_MAPPING: Mapping[CareerFactType, CareerStageRef] = MappingProxyType(
+    {
+        CareerFactType.APPLICATION_SUBMITTED: CareerStageRef(
+            track=CareerTrack.OPPORTUNITY, stage=OpportunityStage.APPLICATION
+        ),
+        CareerFactType.INTERVIEW_COMPLETED: CareerStageRef(
+            track=CareerTrack.OPPORTUNITY, stage=OpportunityStage.INTERVIEW
+        ),
+        CareerFactType.WRITTEN_OFFER_RECEIVED: CareerStageRef(
+            track=CareerTrack.OPPORTUNITY, stage=OpportunityStage.OFFER_RECEIVED
+        ),
+        CareerFactType.OFFER_ACCEPTED: CareerStageRef(
+            track=CareerTrack.OPPORTUNITY, stage=OpportunityStage.AGREEMENT
+        ),
+        CareerFactType.NOTICE_GIVEN: CareerStageRef(
+            track=CareerTrack.EXIT, stage=ExitStage.NOTICE_GIVEN
+        ),
+        CareerFactType.EXIT_COMPLETED: CareerStageRef(
+            track=CareerTrack.EXIT, stage=ExitStage.EXITED
+        ),
+        CareerFactType.JOINED: CareerStageRef(
+            track=CareerTrack.ENTRY, stage=EntryStage.JOINED
+        ),
+        CareerFactType.TRANSFER_COMPLETED: CareerStageRef(
+            track=CareerTrack.ENTRY, stage=EntryStage.JOINED
+        ),
+    }
+)
+
+
+def canonical_stage_for(fact_type: CareerFactType) -> CareerStageRef:
+    """사실 유형의 canonical 단계 — reducer·투영이 공유하는 유일한 파생 경로."""
+    return FACT_STAGE_MAPPING[fact_type]
+
+
+#: 재개 가능한 종료 사유. 구조화된 근거만으로는 부족하며 **어떤 종료 상태를 재개할 수
+#: 있는지**도 제한한다 — 완결된 입사 Episode를 다시 열지 못하게 한다.
+REOPENABLE_CLOSE_REASONS: frozenset[CareerTransitionCloseReason] = frozenset(
+    {
+        CareerTransitionCloseReason.POSITION_CLOSED,
+        CareerTransitionCloseReason.CANDIDATE_WITHDRAWAL,
+        CareerTransitionCloseReason.AGREEMENT_FAILED,
+    }
+)
+
+
 class ApplyCareerFactCommand(BaseModel):
     """단계 사실 적용 — 주장/정정/철회만 담당한다(Episode 생성·재개 불가).
 
+    `stage_ref`를 입력받지 않는다 — 단계는 `fact_type`에서 `canonical_stage_for()`로
+    파생하므로 유형과 단계가 어긋나는 조합이 **구조적으로 불가능**하다.
+
     검증 규칙(operation_type 별):
 
-    | operation | target_history_item_id | stage_ref |
-    |---|---|---|
-    | ASSERT  | 금지 | 필수 |
-    | CORRECT | 필수 | 교정값 필수 |
-    | RETRACT | 필수 | 원칙적으로 없음 |
+    | operation | target_history_item_id |
+    |---|---|
+    | ASSERT  | 금지 |
+    | CORRECT | 필수(교정 fact_type이 새 단계를 결정) |
+    | RETRACT | 필수 |
     """
 
     model_config = ConfigDict(frozen=True)
 
     command_id: str
-    source_fact_id: str
+    source_ref: FactSourceRef
     source_kind: CareerFactSource
     evidence_class: FactEvidenceClass
     operation_type: FactOperationType
     fact_type: CareerFactType
-    track: CareerTrack
     recorded_at: str
     occurred_at: str | None = None
     target_episode_id: str | None = None
     target_history_item_id: str | None = None
-    stage_ref: CareerStageRef | None = None
+
+    @property
+    def stage_ref(self) -> CareerStageRef:
+        """canonical 파생 단계(입력 아님)."""
+        return canonical_stage_for(self.fact_type)
+
+    @property
+    def track(self) -> CareerTrack:
+        return self.stage_ref.track
 
 
-class SwitchAcceptedEpisodeCommand(BaseModel):
-    """수락 대상 Episode 변경(B사 → C사).
-
-    현재 링크는 정확히 하나이며 기존 링크는 이력으로 보존한다 — 단순 덮어쓰기 금지.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    command_id: str
-    new_episode_id: str
-    recorded_at: str
-    source_kind: CareerFactSource
-    previous_episode_close_reason: CareerTransitionCloseReason | None = None
-
-
-CareerCommand = (
-    CreateEpisodeCommand
-    | ReopenEpisodeCommand
-    | ApplyCareerFactCommand
-    | SwitchAcceptedEpisodeCommand
-)
+#: **외부 명령이 아니다.** 수락 대상 Episode 변경은 확인된 `OFFER_ACCEPTED` 사실에서
+#: reducer가 내부적으로 파생하는 plan이며, 독립 명령으로 노출하면 사실 전이를 우회하는
+#: 통로가 된다. 따라서 `CareerCommand` union에 포함하지 않는다.
+CareerCommand = CreateEpisodeCommand | ReopenEpisodeCommand | ApplyCareerFactCommand
 
 
 # ── 결과 ───────────────────────────────────────────────────────────────────
@@ -244,6 +295,7 @@ class TransitionResult(BaseModel):
 
     status: TransitionStatus
     store: CareerEpisodeStore
+    journal_delta: tuple[CareerJournalItem, ...] = ()
     history_delta: tuple[StageHistoryItem, ...] = ()
     audit_events: tuple[CareerAuditEvent, ...] = ()
     rejection_code: RejectionCode | None = None
@@ -257,6 +309,8 @@ class TransitionResult(BaseModel):
 
 
 __all__ = [
+    "FACT_STAGE_MAPPING",
+    "REOPENABLE_CLOSE_REASONS",
     "ApplyCareerFactCommand",
     "CareerAuditEvent",
     "CareerCommand",
@@ -269,7 +323,7 @@ __all__ = [
     "RejectionCode",
     "ReopenEpisodeCommand",
     "ReopenReason",
-    "SwitchAcceptedEpisodeCommand",
     "TransitionResult",
     "TransitionStatus",
+    "canonical_stage_for",
 ]

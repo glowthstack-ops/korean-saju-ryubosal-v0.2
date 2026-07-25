@@ -202,8 +202,37 @@ class TimePrecision(StrEnum):
     UNKNOWN = "unknown"
 
 
+class FactSourceRef(BaseModel):
+    """사실 출처 식별자.
+
+    `source_fact_id` 단독은 전역 유일성을 보장할 수 없다(서로 다른 provider·마이그레이션이
+    같은 문자열을 발급할 수 있다). 따라서 **source 종류 + namespace + id** 를 identity로
+    쓴다 — 멱등 키와 소유권 키 모두 이 identity를 사용한다.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    source_kind: str
+    source_namespace: str
+    source_fact_id: str
+
+    @property
+    def identity(self) -> tuple[str, str, str]:
+        return (self.source_kind, self.source_namespace, self.source_fact_id)
+
+
+class JournalItemKind(StrEnum):
+    """통합 journal 항목 종류 — 사실뿐 아니라 Episode 생명주기도 재생 대상이다."""
+
+    EPISODE_CREATED = "episode_created"
+    EPISODE_REOPENED = "episode_reopened"
+    CAREER_FACT = "career_fact"
+    ACCEPTED_EPISODE_SWITCHED = "accepted_episode_switched"
+    EMPLOYMENT_CONTEXT_ROLLED = "employment_context_rolled"
+
+
 class StageHistoryItem(BaseModel):
-    """사용자 확인 진행 이력 1건.
+    """확인된 단계 사실 1건 — 통합 journal의 `CAREER_FACT` 항목이자 투영 원본.
 
     `stage + timestamp`만으로는 정정·멱등·역순 사실을 표현할 수 없으므로 멱등 키와
     보상 이벤트 메타데이터를 함께 보존한다. 정정·철회는 **물리 삭제가 아니라**
@@ -213,9 +242,11 @@ class StageHistoryItem(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     history_item_id: str
+    kind: JournalItemKind = JournalItemKind.CAREER_FACT
+    command_id: str = ""
     track: CareerTrack
     stage: OpportunityStage | ExitStage | EntryStage
-    source_fact_id: str
+    source_ref: FactSourceRef
     #: 멱등 키의 대상 Episode 성분. 소유 트랙 상태가 자신의 Episode를 알고 채운다.
     target_episode_id: str | None = None
     fact_type: str
@@ -227,13 +258,113 @@ class StageHistoryItem(BaseModel):
     evidence_id: str | None = None
 
     @property
-    def idempotency_key(self) -> tuple[str, str | None, str, FactOperationType]:
+    def source_fact_id(self) -> str:
+        """하위 호환 접근자 — identity는 `source_ref`가 소유한다."""
+        return self.source_ref.source_fact_id
+
+    @property
+    def idempotency_key(self) -> tuple[tuple[str, str, str], str | None, str, FactOperationType]:
         """멱등 키 — 문장 텍스트가 아니다(§13-4a).
 
         같은 문장이라도 대상 Episode가 다르면 별개 사실이다("오퍼를 받았다"—A사 / B사).
-        동일 `source_fact_id` 재전달만 중복 적용하지 않는다.
+        동일 source identity 재전달만 중복 적용하지 않는다.
         """
-        return (self.source_fact_id, self.target_episode_id, self.fact_type, self.operation_type)
+        return (
+            self.source_ref.identity,
+            self.target_episode_id,
+            self.fact_type,
+            self.operation_type,
+        )
+
+    @property
+    def sort_key(self) -> tuple[str, str, str]:
+        """결정적 정렬 tie-break — occurred_at → recorded_at → journal item id."""
+        return (self.occurred_at or self.recorded_at, self.recorded_at, self.history_item_id)
+
+
+class EpisodeCreatedJournalItem(BaseModel):
+    """Episode 생성 journal 항목."""
+
+    model_config = ConfigDict(frozen=True)
+
+    journal_item_id: str
+    kind: JournalItemKind = JournalItemKind.EPISODE_CREATED
+    command_id: str
+    episode_id: str
+    recorded_at: str
+    occurred_at: str | None = None
+    target_company: str | None = None
+    target_role: str | None = None
+    requisition_id: str | None = None
+
+
+class EpisodeReopenedJournalItem(BaseModel):
+    """Episode 재개 journal 항목 — 근거를 함께 보존한다."""
+
+    model_config = ConfigDict(frozen=True)
+
+    journal_item_id: str
+    kind: JournalItemKind = JournalItemKind.EPISODE_REOPENED
+    command_id: str
+    episode_id: str
+    recorded_at: str
+    occurred_at: str | None = None
+    reopen_reason: str
+    requisition_id: str | None = None
+
+
+class AcceptedEpisodeSwitchedJournalItem(BaseModel):
+    """수락 대상 Episode 변경 journal 항목 — 확인된 수락 사실에서 파생된다."""
+
+    model_config = ConfigDict(frozen=True)
+
+    journal_item_id: str
+    kind: JournalItemKind = JournalItemKind.ACCEPTED_EPISODE_SWITCHED
+    command_id: str
+    recorded_at: str
+    occurred_at: str | None = None
+    from_episode_id: str | None = None
+    to_episode_id: str
+    supporting_history_item_id: str
+
+
+class EmploymentContextRolledJournalItem(BaseModel):
+    """고용 맥락 승격(rollover) journal 항목."""
+
+    model_config = ConfigDict(frozen=True)
+
+    journal_item_id: str
+    kind: JournalItemKind = JournalItemKind.EMPLOYMENT_CONTEXT_ROLLED
+    command_id: str
+    recorded_at: str
+    occurred_at: str | None = None
+    archived_context_id: str | None = None
+    new_context_id: str | None = None
+
+
+#: 통합 authoritative journal 항목 — 사실만으로는 Episode 생성·재개·링크 변경·고용
+#: rollover를 재생할 수 없으므로 생명주기 항목까지 하나의 순서 있는 journal에 담는다.
+CareerJournalItem = (
+    EpisodeCreatedJournalItem
+    | EpisodeReopenedJournalItem
+    | StageHistoryItem
+    | AcceptedEpisodeSwitchedJournalItem
+    | EmploymentContextRolledJournalItem
+)
+
+
+class ObservedStageState(BaseModel):
+    """**실제 확인된** 단계 1건.
+
+    `frontier_stage`(진행 위치)와 구분한다 — `JOINED`가 직접 들어와도 그것이 지원·면접·
+    오퍼가 확인됐다는 뜻은 아니다. 관찰되지 않은 중간 단계를 합성하지 않기 위한 축이다.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    stage: CareerStageRef
+    source_history_item_id: str
+    occurred_at: str | None = None
 
 
 # ── 트랙 상태 (D16 — 단일 completed_stage 금지, 이력·lifecycle·사유 분리) ──
@@ -254,13 +385,24 @@ class TrackState(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     track: CareerTrack
-    current_confirmed_stage: CareerStageRef | None = None
+    #: 진행 위치(계산용). `JOINED`가 직접 확인되면 여기까지 전진하지만, 그것이 이전
+    #: 단계가 확인됐다는 뜻은 **아니다** — 확인 사실은 `observed_stages`만이다.
+    frontier_stage: CareerStageRef | None = None
+    #: 실제 확인된 단계만. 관찰되지 않은 중간 단계를 합성하지 않는다.
+    observed_stages: tuple[ObservedStageState, ...] = ()
     lifecycle_status: TrackLifecycleStatus = TrackLifecycleStatus.OPEN
     close_reason: CareerTransitionCloseReason | None = None
     stage_history: tuple[StageHistoryItem, ...] = ()
     last_updated_at: str | None = None
-    source_fact_id: str | None = None
     realization_status: RealizationStatus = RealizationStatus.NOT_STARTED
+
+    @property
+    def current_confirmed_stage(self) -> CareerStageRef | None:
+        """확인된 최고 단계 — frontier와 같지 않을 수 있음을 드러내는 파생 접근자.
+
+        sparse forward reconciliation에서 frontier는 전진하되 확인 사실은 관찰된 것뿐이다.
+        """
+        return self.observed_stages[-1].stage if self.observed_stages else None
 
 
 # ── Episode · 현재 고용 맥락 · 저장소 aggregate ──
@@ -343,10 +485,16 @@ class CareerEpisodeStore(BaseModel):
     current_employment: CurrentEmploymentContext | None = None
     #: 승격으로 교체된 과거 고용 맥락(보존).
     employment_context_history: tuple[EmploymentContextSnapshot, ...] = ()
-    #: **물리 append-only journal** — `recorded_at` 순서로만 쌓이며 기존 항목을 수정·삭제
-    #: 하지 않는다. 정정·철회도 새 항목이다. 현재 상태는 여기서 투영된다(replay).
-    fact_journal: tuple[StageHistoryItem, ...] = ()
+    #: **통합 물리 append-only journal** — 사실뿐 아니라 Episode 생성·재개·수락 링크
+    #: 변경·고용 rollover까지 담는다. 사실만 담으면 전체 store를 replay할 수 없다.
+    #: `recorded_at` 순서로만 쌓이며 기존 항목을 수정·삭제하지 않는다(정정·철회도 새 항목).
+    career_journal: tuple[CareerJournalItem, ...] = ()
     contract_version: str = CAREER_CONTRACT_VERSION
+
+    @property
+    def fact_journal(self) -> tuple[StageHistoryItem, ...]:
+        """통합 journal에서 사실 항목만 뽑은 파생 뷰."""
+        return tuple(i for i in self.career_journal if isinstance(i, StageHistoryItem))
 
     @property
     def by_id(self) -> Mapping[str, CareerTransitionEpisode]:
@@ -354,16 +502,19 @@ class CareerEpisodeStore(BaseModel):
         return MappingProxyType({e.episode_id: e for e in self.episodes})
 
     @property
-    def source_fact_ownership(self) -> Mapping[str, tuple[str | None, CareerTrack, str]]:
-        """`source_fact_id` → (episode_id, track, fact_type) 소유 인덱스.
+    def source_fact_ownership(
+        self,
+    ) -> Mapping[tuple[str, str, str], tuple[str | None, CareerTrack, str]]:
+        """source identity → (episode_id, track, fact_type) 소유 인덱스.
 
         journal에서 **파생하는 읽기 전용 뷰**다(별도 mutable 인덱스를 두지 않는다).
-        같은 `source_fact_id`가 다른 Episode·track·fact_type으로 다시 오면
+        같은 source identity가 다른 Episode·track·fact_type으로 다시 오면
         `FACT_OWNERSHIP_CONFLICT`이며, 이는 멱등(동일 키 재수신)과 별개 검사다.
         """
-        owner: dict[str, tuple[str | None, CareerTrack, str]] = {}
+        owner: dict[tuple[str, str, str], tuple[str | None, CareerTrack, str]] = {}
         for item in self.fact_journal:
             owner.setdefault(
-                item.source_fact_id, (item.target_episode_id, item.track, item.fact_type)
+                item.source_ref.identity,
+                (item.target_episode_id, item.track, item.fact_type),
             )
         return MappingProxyType(owner)
