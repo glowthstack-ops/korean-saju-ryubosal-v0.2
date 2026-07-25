@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict
 
 from saju_shared_types.career_consumer import (
     CareerBlockResult,
+    CareerBlockScope,
     CareerConsumerPayload,
     ClaimScope,
     ConsumerClaim,
@@ -58,6 +59,11 @@ _COUNTERPARTY_OVERCLAIM = re.compile(
     r"|채용(이|을)\s*확정|오퍼\s*예정|내부(적으로)?\s*결정(됐|되었))"
 )
 _FORECAST_AS_FACT = re.compile(r"(확정적으로|틀림없이|반드시)\s*(오퍼|합격|입사|퇴사)")
+#: 사실 없는 일반 전망에서 금지 — 진행 중인 절차·특정 회사를 전제하는 표현.
+_UNFOUNDED_PROGRESS = re.compile(
+    r"(지원(하신|한)\s*(곳|회사)|진행\s*중인\s*(면접|전형|절차)"
+    r"|받으신\s*오퍼|그\s*회사|지금\s*다니(시|고)|현재\s*면접)"
+)
 
 _PROHIBITED_CLAIMS: tuple[str, ...] = (
     "회사가 긍정적으로 보고 있다",
@@ -66,6 +72,16 @@ _PROHIBITED_CLAIMS: tuple[str, ...] = (
     "이직이 성사된다",
     "퇴사하게 된다",
     "입사가 확정된다",
+)
+
+
+#: 일반 전망에서 추가로 금지되는 주장 — 사실이 없는데 진행 중이라고 말하는 것.
+_GENERAL_PROHIBITED_CLAIMS: tuple[str, ...] = (
+    "지금 지원한 곳이 있다",
+    "면접이 진행 중이다",
+    "오퍼를 받은 상태다",
+    "이미 정해진 회사가 있다",
+    "퇴사가 진행 중이다",
 )
 
 
@@ -78,25 +94,59 @@ def resolve_visibility(*, enabled: bool, beta_expose: bool) -> ConsumerVisibilit
     return ConsumerVisibilityDecision.BETA_VISIBLE
 
 
+def _open_episodes(store: CareerEpisodeStore) -> list:
+    return [
+        e for e in store.episodes
+        if e.opportunity.lifecycle_status is not TrackLifecycleStatus.CLOSED
+    ]
+
+
+def resolve_block_scope(
+    store: CareerEpisodeStore,
+    *,
+    query_resolution: CareerQueryResolution,
+    subject_count: int,
+) -> tuple[CareerBlockScope, str | None]:
+    """서술 범위를 정한다 — 사실 유무로 **무엇을 말할 수 있는지**가 갈린다.
+
+    실제 사용의 상당 부분("이직운 어때?")은 확인된 사실이 없다. 그때 블록을 아예 닫으면
+    안전하지만 제품으로는 너무 좁다. 대신 **저장 없는 일반 전망**으로 흐름만 말한다 —
+    사실이 없다고 Episode 를 자동 생성하지 않는다.
+
+    ```
+    열린 Episode 1개      → 해당 Episode 중심 해석
+    0개 + GENERAL_CAREER  → 일시 일반 전망(저장·Episode 생성 없음)
+    2개 이상 + 대상 미지정 → 공통 흐름만(회사별 단계·사실 혼합 금지)
+    ```
+    """
+    if query_resolution is not CareerQueryResolution.GENERAL_CAREER:
+        return CareerBlockScope.NONE, "query_resolution_not_general"
+    if subject_count != 1:
+        return CareerBlockScope.NONE, "multi_subject"
+    count = len(_open_episodes(store))
+    if count == 1:
+        return CareerBlockScope.EPISODE_SPECIFIC, None
+    if count == 0:
+        return CareerBlockScope.GENERAL_FORECAST, None
+    return CareerBlockScope.MULTI_EPISODE_OVERVIEW, None
+
+
 def is_eligible_cohort(
     store: CareerEpisodeStore,
     *,
     query_resolution: CareerQueryResolution,
     subject_count: int,
 ) -> tuple[bool, str | None]:
-    """P4-1 최소 cohort 자격. 실패 사유를 함께 돌려준다."""
-    if query_resolution is not CareerQueryResolution.GENERAL_CAREER:
-        return False, "query_resolution_not_general"
-    if subject_count != 1:
-        return False, "multi_subject"
-    open_eps = [
-        e for e in store.episodes
-        if e.opportunity.lifecycle_status is not TrackLifecycleStatus.CLOSED
-    ]
-    if len(open_eps) != 1:
-        # 0개·2개 이상이면 일반 흐름 합산을 열지 않고 기존 경로만 쓴다.
-        return False, "open_episode_count_not_one"
-    return True, None
+    """Episode 확정 서술 자격 — **확인된 사실 기반 단계 서술**에만 쓴다.
+
+    일반 전망 블록은 이 조건을 쓰지 않는다(`resolve_block_scope` 참조).
+    """
+    scope, reason = resolve_block_scope(
+        store, query_resolution=query_resolution, subject_count=subject_count
+    )
+    if scope is CareerBlockScope.EPISODE_SPECIFIC:
+        return True, None
+    return False, reason or "open_episode_count_not_one"
 
 
 def _relative_threshold(vector) -> float:
@@ -112,6 +162,38 @@ def _relative_threshold(vector) -> float:
     """
     values = [v for _axis, v in vector.axes if v > 0.0]
     return sum(values) / len(values) if values else 0.0
+
+
+def build_general_payload(*, kind, vector, scope: CareerBlockScope) -> CareerConsumerPayload:
+    """사실 없는 일반 전망 payload — **확정 단계·Episode 를 만들지 않는다**.
+
+    `resolved_episode_id` 는 None 이고 `confirmed_track_states` 는 비어 있다. 저장도
+    하지 않는다(journal 미기록). 진행 중인 절차가 있다고 암시할 근거가 전혀 없으므로,
+    말할 수 있는 것은 축의 상대 강약과 병목뿐이다.
+    """
+    bottleneck = assess_bottleneck(kind, vector)
+    supporting, blocking = split_factors(vector, threshold=_relative_threshold(vector))
+    not_evaluable = bottleneck.status is BottleneckStatus.NOT_EVALUABLE
+    return CareerConsumerPayload(
+        query_focus=CareerQueryResolution.GENERAL_CAREER.value,
+        resolved_episode_id=None,
+        confirmed_track_states=(),
+        current_facts=(),
+        forecast_stage_candidates=(
+            () if not_evaluable
+            else ((bottleneck.bottleneck_gate.value, StateLabel.FORECAST),)
+            if bottleneck.bottleneck_gate else ()
+        ),
+        effect_vector=tuple((a.value, v) for a, v in vector.axes),
+        bottleneck=None if not_evaluable else (
+            bottleneck.bottleneck_gate.value if bottleneck.bottleneck_gate else None
+        ),
+        bottleneck_not_evaluable=not_evaluable,
+        scope=scope,
+        blocking_factors=tuple(f.axis.value for f in blocking),
+        supporting_factors=tuple(f.axis.value for f in supporting),
+        prohibited_claims=_PROHIBITED_CLAIMS + _GENERAL_PROHIBITED_CLAIMS,
+    )
 
 
 def build_payload(
@@ -149,6 +231,7 @@ def build_payload(
             bottleneck.bottleneck_gate.value if bottleneck.bottleneck_gate else None
         ),
         bottleneck_not_evaluable=not_evaluable,
+        scope=CareerBlockScope.EPISODE_SPECIFIC,
         blocking_factors=tuple(f.axis.value for f in blocking),
         supporting_factors=tuple(f.axis.value for f in supporting),
         prohibited_claims=_PROHIBITED_CLAIMS,
@@ -165,8 +248,17 @@ def pre_input_audit(
         return InputAuditAction.FALLBACK_TO_LEGACY, (
             ConsumerViolation.CONSUMER_VISIBILITY_VIOLATION,
         )
-    if payload.resolved_episode_id is None:
+    if payload.scope is CareerBlockScope.EPISODE_SPECIFIC and (
+        payload.resolved_episode_id is None
+    ):
         return InputAuditAction.BLOCK_NEW_BLOCK, ()
+    if payload.scope is not CareerBlockScope.EPISODE_SPECIFIC and (
+        payload.confirmed_track_states or payload.current_facts
+    ):
+        # 사실 없는 범위인데 확정 단계가 실려 있으면 계약 위반이다.
+        return InputAuditAction.BLOCK_NEW_BLOCK, (
+            ConsumerViolation.UNFOUNDED_PROGRESS_CLAIM,
+        )
     # 다른 Episode 사실 혼입 검사(단일 Episode cohort이므로 교차 자체가 위반).
     bleed = any(
         state[0] not in {"opportunity", "exit", "entry"}
@@ -253,6 +345,32 @@ def build_block_text(payload: CareerConsumerPayload) -> str:
     return "\n".join([head, meaning, flow, factors, tail])
 
 
+def build_general_block_text(payload: CareerConsumerPayload) -> str:
+    """사실 없는 일반 전망 서술 — 확인된 단계·회사·진행 상황을 말하지 않는다."""
+    head = (
+        "확인된 지원·면접 사실이 없으므로, 지금 진행 중인 절차가 있다고 전제하지 말 것."
+        if payload.scope is CareerBlockScope.GENERAL_FORECAST
+        else "여러 건이 함께 진행 중이라 회사별 단계는 섞지 말고 전체 흐름만 말할 것."
+    )
+    strong = _labels(payload.supporting_factors, _AXIS_LABEL) or "없음"
+    weak = _labels(payload.blocking_factors, _AXIS_LABEL) or "없음"
+    flow = f"이직 환경에서 상대적으로 힘이 실리는 쪽은 {strong}, 약한 쪽은 {weak}입니다."
+    if payload.bottleneck_not_evaluable:
+        gate = "관문별 강약을 판단할 근거가 아직 부족합니다."
+    elif payload.bottleneck:
+        gate = (
+            f"관문 중에서는 {_GATE_LABEL.get(payload.bottleneck, payload.bottleneck)} "
+            "쪽이 상대적으로 가장 약해 보입니다."
+        )
+    else:
+        gate = "관문별 강약을 판단할 근거가 충분하지 않습니다."
+    tail = (
+        "실제로 움직이기로 했다면 그때 확인할 것은 조건·처우 합의, 현 직장 정리 일정, "
+        "입사 시점의 실행 가능성입니다. 특정 회사·합격 여부는 여기서 말하지 않습니다."
+    )
+    return "\n".join([head, flow, gate, tail])
+
+
 def build_claims(payload: CareerConsumerPayload) -> tuple[ConsumerClaim, ...]:
     """claim ledger — 문장별 출처 요구를 기계 검증 가능하게 만든다."""
     claims: list[ConsumerClaim] = []
@@ -294,6 +412,11 @@ def post_output_audit(
     # 출처 없는 상대 의향 claim 금지.
     if any(c.claim_scope is ClaimScope.CONFIRMED_FACT and not c.source_refs for c in claims):
         violations.append(ConsumerViolation.STRUCTURED_NARRATIVE_MISMATCH)
+    # 사실이 없는 일반 전망인데 진행 중인 절차가 있는 것처럼 말하면 안 된다.
+    if payload.scope is not CareerBlockScope.EPISODE_SPECIFIC and _UNFOUNDED_PROGRESS.search(
+        text
+    ):
+        violations.append(ConsumerViolation.UNFOUNDED_PROGRESS_CLAIM)
     if not violations:
         return OutputAuditAction.DELIVER, ()
     return OutputAuditAction.REWRITE, tuple(violations)
@@ -352,17 +475,21 @@ def prepare_career_chat_block(
     if visibility is ConsumerVisibilityDecision.SUPPRESSED:
         return CareerBlockPreparation(skip_reason="flag_off")
 
-    ok, reason = is_eligible_cohort(
+    scope, reason = resolve_block_scope(
         store, query_resolution=query_resolution, subject_count=subject_count
     )
-    if not ok:
+    if scope is CareerBlockScope.NONE:
         return CareerBlockPreparation(skip_reason=reason)
 
-    episode_id = next(
-        e.episode_id for e in store.episodes
-        if e.opportunity.lifecycle_status is not TrackLifecycleStatus.CLOSED
-    )
-    payload = build_payload(store, episode_id=episode_id, kind=kind, vector=vector)
+    if scope is CareerBlockScope.EPISODE_SPECIFIC:
+        episode_id = next(e.episode_id for e in _open_episodes(store))
+        payload = build_payload(store, episode_id=episode_id, kind=kind, vector=vector)
+    else:
+        # 사실 없음·복수 진행 — 저장도 Episode 생성도 하지 않는다(일시 컨텍스트).
+        payload = build_general_payload(kind=kind, vector=vector, scope=scope)
+    if not payload.effect_vector:
+        # 흐름조차 말할 근거가 없으면 기존 경로를 그대로 쓴다(빈 블록 금지).
+        return CareerBlockPreparation(payload=payload, skip_reason="no_effect_signal")
     action, violations = pre_input_audit(payload, visibility)
     if action is not InputAuditAction.ALLOW:
         # 필드가 아니라 블록 전체를 억제한다.
@@ -370,8 +497,13 @@ def prepare_career_chat_block(
             payload=payload, input_action=action, violations=violations,
             skip_reason="pre_input_audit",
         )
+    directive = (
+        build_block_text(payload)
+        if payload.scope is CareerBlockScope.EPISODE_SPECIFIC
+        else build_general_block_text(payload)
+    )
     return CareerBlockPreparation(
-        eligible=True, directive=build_block_text(payload), payload=payload,
+        eligible=True, directive=directive, payload=payload,
         claims=build_claims(payload), input_action=action,
     )
 

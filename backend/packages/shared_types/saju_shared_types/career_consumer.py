@@ -25,6 +25,19 @@ class ConsumerVisibilityDecision(StrEnum):
     SUPPRESSED = "suppressed"
 
 
+class CareerBlockScope(StrEnum):
+    """블록이 무엇을 말하는가 — 사실 유무에 따라 서술 범위가 다르다.
+
+    사실이 없다고 Episode 를 자동 생성하지 않는다. 일반 질문("이직운 어때?")은
+    **저장 없는 일시 컨텍스트**로 흐름만 말하고, 확정 단계를 만들지 않는다.
+    """
+
+    EPISODE_SPECIFIC = "episode_specific"        # 확인된 사실이 있는 단일 Episode
+    GENERAL_FORECAST = "general_forecast"        # 사실 없음 — 저장·Episode 생성 없음
+    MULTI_EPISODE_OVERVIEW = "multi_episode"     # 복수 Episode — 전체 흐름만
+    NONE = "none"
+
+
 class ClaimScope(StrEnum):
     """문장이 무엇을 주장하는가 — 출처 요구가 다르다."""
 
@@ -68,6 +81,8 @@ class ConsumerViolation(StrEnum):
     COUNTERPARTY_OVERCLAIM = "counterparty_overclaim"
     FACT_FORECAST_LANGUAGE_MIXING = "fact_forecast_language_mixing"
     CROSS_EPISODE_FACT_BLEED = "cross_episode_fact_bleed"
+    #: 사실이 없는 일반 질문인데 진행 중인 절차·회사가 있는 것처럼 말함.
+    UNFOUNDED_PROGRESS_CLAIM = "unfounded_progress_claim"
     STRUCTURED_NARRATIVE_MISMATCH = "structured_narrative_mismatch"
     CONSUMER_VISIBILITY_VIOLATION = "consumer_visibility_violation"
     ATOMIC_SECTION_HANDOFF_FAILURE = "atomic_section_handoff_failure"
@@ -108,6 +123,8 @@ class CareerConsumerPayload(BaseModel):
     bottleneck: str | None = None
     #: 병목을 평가할 근거가 부족한 경우 — "가능성이 낮다"로 번역하면 안 된다.
     bottleneck_not_evaluable: bool = False
+    #: 서술 범위 — GENERAL_FORECAST 는 확정 단계·회사·진행 상황을 말하지 않는다.
+    scope: CareerBlockScope = CareerBlockScope.EPISODE_SPECIFIC
     blocking_factors: tuple[str, ...] = ()
     supporting_factors: tuple[str, ...] = ()
     prohibited_claims: tuple[str, ...] = ()
@@ -137,6 +154,7 @@ class CareerBlockResult(BaseModel):
 __all__ = [
     "CONSUMER_CONTRACT_VERSION",
     "CareerBlockResult",
+    "CareerBlockScope",
     "CareerConsumerPayload",
     "ClaimScope",
     "ConsumerClaim",

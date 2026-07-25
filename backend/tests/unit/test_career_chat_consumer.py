@@ -21,6 +21,7 @@ from saju_shared_types.career_commands import (
     FactEvidenceClass,
 )
 from saju_shared_types.career_consumer import (
+    ClaimScope,
     ConsumerViolation,
     ConsumerVisibilityDecision,
     InputAuditAction,
@@ -343,3 +344,90 @@ def test_block_text_has_no_raw_enum_or_numbers() -> None:
                 "opportunity", "interview"):
         assert raw not in r.block_text
     assert not re.search(r"0\.\d+", r.block_text)
+
+
+# ── 사실 없는 일반 이직 질문 (2026-07-26 슬라이스 2) ──────────────────────
+
+
+def _prep(store, **kw):
+    from saju_engines.career_chat_consumer import prepare_career_chat_block
+
+    params = dict(query_resolution=GENERAL, subject_count=1, kind=KIND,
+                  vector=_full_vector(), enabled=True, beta_expose=True)
+    params.update(kw)
+    return prepare_career_chat_block(store, **params)  # type: ignore[arg-type]
+
+
+def test_no_episode_opens_general_forecast_without_creating_one() -> None:
+    """사실이 없어도 흐름은 말한다 — 단 Episode 를 만들지 않는다."""
+    from saju_shared_types.career_consumer import CareerBlockScope
+
+    empty = CareerEpisodeStore()
+    prep = _prep(empty)
+    assert prep.eligible and prep.directive
+    assert prep.payload is not None
+    assert prep.payload.scope is CareerBlockScope.GENERAL_FORECAST
+    assert prep.payload.resolved_episode_id is None
+    assert prep.payload.confirmed_track_states == ()
+    assert prep.payload.current_facts == ()
+    assert empty.career_journal == ()          # 저장·생성 없음
+
+
+def test_general_forecast_never_implies_progress() -> None:
+    """지원 중·특정 회사·면접 진행을 전제하지 않는다."""
+    prep = _prep(CareerEpisodeStore())
+    assert prep.directive is not None
+    for banned in ("지원한 곳", "면접이 진행", "오퍼를 받", "그 회사"):
+        assert banned not in prep.directive
+    assert "확인된 지원·면접 사실이 없" in prep.directive
+    assert prep.payload is not None
+    assert "지금 지원한 곳이 있다" in prep.payload.prohibited_claims
+
+
+def test_general_forecast_claims_are_forecast_only() -> None:
+    """확정 사실 claim 을 만들지 않는다."""
+    prep = _prep(CareerEpisodeStore())
+    assert prep.claims
+    assert all(c.claim_scope is not ClaimScope.CONFIRMED_FACT for c in prep.claims)
+
+
+def test_multiple_episodes_describe_overall_flow_only() -> None:
+    """복수 진행이면 블록을 닫지 않고 전체 흐름만 말한다(회사별 단계 혼합 금지)."""
+    from saju_shared_types.career_consumer import CareerBlockScope
+
+    prep = _prep(_store("ep-a", "ep-b"))
+    assert prep.eligible and prep.directive
+    assert prep.payload is not None
+    assert prep.payload.scope is CareerBlockScope.MULTI_EPISODE_OVERVIEW
+    assert prep.payload.confirmed_track_states == ()
+    assert "회사별 단계는 섞지" in prep.directive
+
+
+def test_general_scope_with_no_signal_falls_back_to_legacy() -> None:
+    """흐름조차 말할 근거가 없으면 빈 블록을 만들지 않는다."""
+    from saju_shared_types.career_effect_vector import CareerEffectVector
+
+    prep = _prep(CareerEpisodeStore(), vector=CareerEffectVector())
+    assert not prep.eligible
+    assert prep.skip_reason == "no_effect_signal"
+
+
+def test_general_scope_output_audit_blocks_progress_language() -> None:
+    """일반 전망 응답이 진행 중인 절차를 말하면 감사가 잡는다."""
+    from saju_engines.career_chat_consumer import audit_career_chat_response
+
+    prep = _prep(CareerEpisodeStore())
+    audit = audit_career_chat_response("지원하신 곳의 전형이 잘 풀립니다.", prep)
+    assert not audit.delivered
+    assert ConsumerViolation.UNFOUNDED_PROGRESS_CLAIM in audit.violations
+
+
+def test_episode_specific_scope_is_unchanged() -> None:
+    """확인된 사실이 있는 단일 Episode 경로는 그대로다."""
+    from saju_shared_types.career_consumer import CareerBlockScope
+
+    prep = _prep(_store("ep-a", facts=(("ep-a", CareerFactType.APPLICATION_SUBMITTED),)))
+    assert prep.eligible and prep.payload is not None
+    assert prep.payload.scope is CareerBlockScope.EPISODE_SPECIFIC
+    assert prep.payload.resolved_episode_id == "ep-a"
+    assert prep.payload.confirmed_track_states
