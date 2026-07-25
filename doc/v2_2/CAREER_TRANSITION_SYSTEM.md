@@ -32,7 +32,7 @@
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
 | D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
-### 22 불변식 (요약)
+### 23 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -53,8 +53,9 @@
 - **INV-18** 신호 ≠ 단계 사실 — 명리 신호는 단계별 forecast·효과 벡터에만 기여하고, 사용자의 지원·오퍼·퇴사·입사 사실이나 상대 회사의 행동을 생성하지 않음(§10 서두)
 - **INV-19** Legacy form non-scoring — 기존 `event_forms`의 확률·가중값은 단계 벡터·병목 성사도·`forecast_completion_readiness`에 입력하지 않음(의미 분류와 shadow 출력 비교에만 사용)
 - **INV-20** Category compatibility — 전환 기간에 기존 `EVENT_CATEGORY`는 **직렬화 호환성**을, 신규 3분리 필드는 **의미 소유권**을 갖는다. 동일 소비자가 legacy category와 신규 필드를 **동시에 집계·가점하지 않는다**(§11)
-- **INV-21** Calibration maturity — 예측 기간이 성숙하지 않았거나 Episode가 진행 중인 사례는 **실패·미도달로 확정하지 않으며** 정확도 지표의 확정 분모에서 제외한다(§14-2·§14-5)
+- **INV-21** Calibration maturity — 예측 기간이 성숙하지 않았거나 Episode가 진행 중인 사례는 **실패·미도달로 확정하지 않으며 모델 품질 지표의 확정 분모에서 제외**한다. **안전·상태 무결성 지표는 성숙을 기다리지 않고 즉시 측정**한다(§14-2·§14-5·§15)
 - **INV-22** Calibration orthogonality — 도달 상태·결말·시간 지연·사용자 체감·정착은 **서로 다른 축이 소유**하며, 하나의 enum 값이 둘 이상의 축을 대체하지 않는다(§14-3)
+- **INV-23** Timing from occurrence — 단계 시점 오차는 **실제 발생 시점(또는 발생 범위)** 으로 계산한다. **관찰·입력 시점으로 대신 계산하지 않는다.** 예측 스냅샷은 불변이며 현재 모델 재계산값을 과거 예측처럼 쓰지 않는다(§14-5)
 
 ---
 
@@ -872,9 +873,11 @@ forecast 대상 추정 금지
 
 ## §14. 캘리브레이션 축
 
-### 14-0. 단위 — Episode × Track × Reached Stage
+### 14-0. 단위 — Episode × Track × Evaluated(Target) Stage
 
-**전체 이직을 한 번에 성공·실패로 평가하지 않는다.** 캘리브레이션 단위는 "이직 사건 하나"가 아니라 **Episode × 트랙 × 도달 단계**다.
+**전체 이직을 한 번에 성공·실패로 평가하지 않는다.** 캘리브레이션 단위는 "이직 사건 하나"가 아니라 **Episode × 트랙 × 평가 대상 단계(`target_stage`)** 다.
+
+"도달 단계(Reached Stage)"는 `reach_status=REACHED`인 경우에만 성립하는 **결과값**이므로 단위 명칭에 쓰지 않는다 — `NOT_REACHED`·`PENDING`·`NOT_APPLICABLE` 레코드를 설명하지 못한다.
 
 예) B사 Episode: Opportunity=오퍼 도달 / Exit=통보 안 함 / Entry=미도달
 → Opportunity occurrence는 **발생**, Exit는 `NO_ATTEMPT`, Entry는 `NOT_REACHED`. **전체를 단순 실패로 저장하지 않는다**(INV-12 축 병합 금지와 정합).
@@ -883,21 +886,40 @@ forecast 대상 추정 금지
 
 ```python
 class CareerCalibrationRecord:
+    calibration_record_id           # 안정적 레코드 ID(revision 참조 대상)
     episode_id
     transition_kind
     track
-    target_stage
-    reach_status                    # 아래 게이트(occurrence보다 앞섬)
+    target_stage                    # 평가 대상 단계
+    reach_status                    # 게이트(occurrence보다 앞섬)
+    reach_resolution_reason         # 왜 그 도달 상태인가(§14-2)
     occurrence
     outcome                         # DELAYED 없음 — timing 축이 소유
     timing_status                   # 별도 축(§14-3)
     experience
     settlement                      # EARLY_EXIT 없음 — lifecycle/Exit 소유
     settlement_reason
+    stage_occurred_at               # 실제 발생 시점(INV-23)
+    occurred_window_start           # 정확히 모를 때의 범위
+    occurred_window_end
+    time_precision                  # EXACT | DAY | MONTH | APPROXIMATE | UNKNOWN
+    observed_at                     # 사용자가 알려준 시점(≠ 발생 시점)
     source_fact_ids
     calibration_semantics_version   # §11-7 버전 있는 해소
-    # 예측 비교·성숙도 참조는 §14-5
+    # 예측 비교·성숙도·revision 참조는 §14-5
 ```
+
+#### 논리 키와 revision 집계 규칙
+
+```python
+logical_calibration_key = episode_id + track + target_stage + prediction_snapshot_id
+record_revision: int
+supersedes_record_id: str | None
+```
+
+> 동일 `logical_calibration_key`에서는 **supersede되지 않은 최신 유효 revision만** 품질 지표에 포함한다. 과거 revision은 **감사 이력으로 보존**하되 분모·분자에 **중복 포함하지 않는다.**
+
+이 규칙이 없으면 사용자가 정정할 때 기존 레코드와 수정 레코드가 모두 집계된다.
 
 ### 14-2. `reach_status` — occurrence보다 앞선 게이트
 
@@ -923,6 +945,27 @@ class ReachStatus(StrEnum):
 | 재직자가 아직 오퍼 전이라 퇴사 검토 안 함 | **`PENDING`**(Episode 진행 중) / Episode 종료 시 `NOT_REACHED` |
 | 오퍼를 받았으나 본인이 퇴사 통보를 하지 않기로 함 | **`NO_ATTEMPT`** |
 | 내부 전보 | 외부 입사·퇴사 = **`NOT_APPLICABLE`** |
+
+#### `reach_resolution_reason` — 왜 그 도달 상태인가
+
+```python
+class ReachResolutionReason(StrEnum):
+    UPSTREAM_STAGE_CLOSED      # 앞 단계에서 Episode가 종료됨
+    USER_DECLINED_ACTION
+    COUNTERPARTY_ENDED
+    WINDOW_EXPIRED
+    KIND_NOT_APPLICABLE
+    INSUFFICIENT_OBSERVATION
+    STILL_OPEN
+    UNKNOWN
+```
+
+**중복 실패 증폭 방지**: 서류에서 종료된 Episode의 오퍼·협상·입사 단계는 모두 `NOT_REACHED`가 되지만 원인은 하나(`UPSTREAM_STAGE_CLOSED`)다. 이를 각각 독립 실패로 세면 **하나의 종료 사건이 여러 거짓 음성으로 증폭**된다. 따라서 §15는 두 집계를 **함께** 보고한다.
+
+```
+stage-level micro metric     # 단계별 성능
+episode-level macro metric   # Episode 하나 기준 성능
+```
 
 ### 14-3. 4축의 소유 의미
 
@@ -993,25 +1036,55 @@ NOT_APPLICABLE   = 구조적으로 질문 대상이 아님
 현실 레이블만으로는 **어느 예측과 비교할지** 알 수 없다. 레코드 본체 또는 별도 envelope에 다음을 둔다.
 
 ```
-calibration_record_id
-prediction_snapshot_id       # 예측 생성 시점·모델·계약 버전·대상 Episode·목표 단계·예측 기간
-observed_at
+prediction_snapshot_id       # 아래 불변 스냅샷
 evaluation_window_status
-record_revision
-supersedes_record_id
 ```
+
+#### 예측 스냅샷 불변성 (INV-23)
+
+`prediction_snapshot_id`가 가리키는 스냅샷은 **불변**이며 최소한 생성 당시의 **모델 버전·계약 버전·대상 Episode·목표 단계·예측 기간·단계 벡터·병목값**을 보존한다. **현재 모델로 재계산한 값을 과거 예측처럼 사용하지 않는다.**
+
+#### 발생 시점 ≠ 관찰 시점 (INV-23)
+
+`stage_timing_error`는 **실제 발생 시점**으로 계산한다. `observed_at`(사용자가 알려준 시점)으로 대체하지 않는다.
+
+```
+실제 오퍼 수령 2027-04-03 → stage_occurred_at
+사용자가 알림   2027-05-10 → observed_at
+```
+
+정확히 모르면 `occurred_window_start`/`occurred_window_end` + `time_precision`(EXACT/DAY/MONTH/APPROXIMATE/UNKNOWN)으로 범위와 정밀도를 표현한다.
+
+#### 관찰 성숙도
 
 ```python
 class EvaluationWindowStatus(StrEnum):
     OPEN             # 아직 결과를 평가하기 이름
     MATURED          # 예측 기간이 끝나 평가 가능
     RIGHT_CENSORED   # 추적 종료·사용자 이탈로 끝까지 관찰하지 못함
-    CANCELLED        # 대상 Episode나 질문 자체가 취소됨
+    CANCELLED        # 예측 대상 자체가 무효화됨(아래 한정)
 ```
 
-> **§15 지표의 확정 분모에는 원칙적으로 `MATURED`만 들어간다**(INV-21). `PENDING`·`OPEN`·`RIGHT_CENSORED`·`NOT_APPLICABLE`을 **실패로 계산하지 않는다**.
+**성숙도 적용 범위는 지표 종류별로 다르다**(INV-21):
 
-캘리브레이션 정정은 기존 레코드를 덮어쓰지 않고 `record_revision`+`supersedes_record_id`로 **이력을 보존**한다(§13 사실 정정 모델과 일관).
+| 지표 부류 | 성숙도 규칙 |
+|---|---|
+| **안전·상태 무결성 지표** (false_stage_advance, completion_overclaim, counterparty_overclaim, forecast_to_confirmed_mutation, episode_collision, track_conflation, double_contribution, atomic_promotion_partial_commit) | **성숙을 기다리지 않고 모든 적용 가능한 shadow 실행에서 즉시 측정.** 예측 기간이 `OPEN`이어도 forecast가 confirmed를 변경했다면 **즉시 오류** |
+| **모델 품질 지표** (stage_precision/recall, stage_timing_error, bottleneck_rank_agreement, settlement_prediction_alignment) | **확정 분모는 `MATURED`만.** `PENDING`·`OPEN`·`RIGHT_CENSORED`·`NOT_APPLICABLE`을 **실패로 계산하지 않음** |
+
+`RIGHT_CENSORED`는 실패가 아니지만 **검열 비율을 반드시 별도 보고**한다 — 검열이 과도하면 정확도가 좋아 보이는 착시가 생긴다.
+
+#### `CANCELLED` 한정
+
+```
+허용: 중복 예측 제거 / Episode 대상 해소 오류 / 사용자 정정으로 예측 대상 자체 무효화
+      / 내부 시스템 계약 오류로 평가 불가능
+금지: 사용자 지원 철회 / 회사 전형 종료 / 오퍼 거절 / 협상 결렬
+```
+
+후자는 **관찰된 현실 Outcome**이므로 `MATURED` 상태에서 `USER_WITHDREW`·`COUNTERPARTY_ENDED`·`MUTUAL_BREAKDOWN`으로 기록한다.
+
+캘리브레이션 정정은 기존 레코드를 덮어쓰지 않고 `record_revision`+`supersedes_record_id`로 **이력을 보존**한다(§13 사실 정정 모델과 일관, 집계 규칙은 §14-1).
 
 ### 14-6. 필수 음성 사례 (구분 회귀)
 
