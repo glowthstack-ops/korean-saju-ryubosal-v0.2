@@ -32,7 +32,7 @@
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
 | D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
-### 23 불변식 (요약)
+### 24 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -56,6 +56,7 @@
 - **INV-21** Calibration maturity — 예측 기간이 성숙하지 않았거나 Episode가 진행 중인 사례는 **실패·미도달로 확정하지 않으며 모델 품질 지표의 확정 분모에서 제외**한다. **안전·상태 무결성 지표는 성숙을 기다리지 않고 즉시 측정**한다(§14-2·§14-5·§15)
 - **INV-22** Calibration orthogonality — 도달 상태·결말·시간 지연·사용자 체감·정착은 **서로 다른 축이 소유**하며, 하나의 enum 값이 둘 이상의 축을 대체하지 않는다(§14-3)
 - **INV-23** Timing from occurrence — 단계 시점 오차는 **실제 발생 시점(또는 발생 범위)** 으로 계산한다. **관찰·입력 시점으로 대신 계산하지 않는다.** 예측 스냅샷은 불변이며 현재 모델 재계산값을 과거 예측처럼 쓰지 않는다(§14-5)
+- **INV-24** Guard success ≠ violation — 안전장치가 정상 작동한 관측(`guard_outcome=BLOCKED`·`ROLLED_BACK` + 권위 상태 불변)은 **위반으로 집계하지 않는다.** 오류는 `VIOLATION`이거나 차단 뒤에도 권위 상태가 변경된 경우다(§15)
 
 ---
 
@@ -1114,15 +1115,131 @@ class EvaluationWindowStatus(StrEnum):
 
 ---
 
-## §12·§15~§17 및 부록 A — 후속 작성 단위
+## §15. shadow 지표
 
-목차 번호는 유지하되 **작성 순서**는 다음으로 한다(소비 배선은 증거·fixture·감사 지표 확정 후에 작성해 과도 노출 방지):
+### 15-0. 공통 envelope — 지표 분류와 관측 종류를 분리
+
+**rollout 텔레메트리·감사 이벤트를 지표 3분류에 억지로 넣지 않는다.** 오류 발생과 안전장치의 정상 작동을 혼동하지 않기 위해 `observation_kind`·`guard_outcome`을 분리한다(INV-24).
+
+```python
+class MetricClass(StrEnum):
+    SAFETY_OVERCLAIM | STATE_INTEGRITY | MODEL_QUALITY
+
+class ObservationKind(StrEnum):
+    METRIC_MEASUREMENT | ROLLOUT_TELEMETRY | AUDIT_EVENT
+
+class GuardOutcome(StrEnum):
+    NOT_APPLICABLE | ALLOWED | BLOCKED | ROLLED_BACK | VIOLATION
+```
 
 ```
-§15 shadow 지표 → §12 소비 배선 → §16 로드맵 → §17 재사용표
+envelope:
+  metric_name | metric_class | observation_kind | guard_outcome
+  episode_id_hash | track | stage
+  contract_version | model_version | resolution_source
+  audit_event | denominator_eligibility
 ```
 
-- §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰) · §15 shadow 오류 지표 · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
+예: `legacy_ambiguous_fallback`은 구 데이터에서 예상되는 **관측값**이지 곧바로 오류가 아니다 / `dual_consume_blocked`는 **가드가 막은 사건**일 수 있다 / `TRANSACTION_ROLLED_BACK`은 원자성 **보호가 작동**했다는 감사 이벤트다 / `INVALID_MISMATCH`는 fail-closed 정상 작동과 실제 데이터 계약 오류를 구분해야 한다.
+
+### 15-1. 지표 계약 (지표마다 필수)
+
+```
+metric_name | metric_class | definition | numerator | denominator
+| exclusions | grouping_dimensions | threshold | promotion_blocking | audit_event
+```
+
+### 15-2. 안전·과장 오류 (`SAFETY_OVERCLAIM`, 0 허용)
+
+성숙을 기다리지 않고 **모든 적용 가능한 shadow 실행에서 즉시 측정**한다(INV-21).
+
+| 지표 | 정의(좁힘) |
+|---|---|
+| `false_stage_advance` | **사용자 사실 또는 허용된 현실 증거 없이** 권위 `current_confirmed_stage`가 전진한 건수. 예측이 오퍼를 높게 봤으나 실제 오퍼가 없었던 것은 **이 지표가 아니라 `stage_precision`** 문제다 |
+| `completion_overclaim` | 2층 측정: **`structured_completion_overclaim`**(구조 데이터가 실제 완료로 잘못 승격) / **`narrative_completion_overclaim`**(구조는 안전하나 LLM이 "성사된다·확정됐다"로 표현). 후자는 §12 소비 배선 이후 측정 가능 → 초기 `NOT_MEASURABLE_YET` 허용 |
+| `counterparty_overclaim` | 회사 관심 추정 / 합격·채용 의사를 숨은 상태로 계산 / 연락·면접 분위기를 오퍼 의향으로 승격 / 명리 신호를 회사 행동으로 서술. **사용자가 밝힌 "서면 오퍼를 받았다"를 출력하는 것은 오류 아님** |
+| `forecast_to_confirmed_mutation` | **forecast 저장·계산 경로가 authoritative fact/state를 변경**한 건수 |
+
+**`forecast_to_confirmed_mutation`(원인) vs `false_stage_advance`(결과)**: 한 사건이 두 지표에 모두 잡힐 수 있다. 중복 집계 자체는 허용하되 **대시보드 총 오류를 단순 합산하지 않는다.**
+
+### 15-3. 상태 무결성 오류 (`STATE_INTEGRITY`, 0 허용)
+
+| 지표 | 계약 |
+|---|---|
+| `episode_collision` | 2분할: **`fact_episode_collision`**(A사 사실이 B사 Episode에 기록) / **`forecast_episode_collision`**(A사 예측 근거가 B사 후보에 합산) |
+| `track_conflation` | 퇴사 완료를 이직 완료로 오인하는 등 트랙 혼동 |
+| `atomic_promotion_partial_commit` | 고용 승격 중간 실패로 반쪽 상태 잔존(INV-17) |
+| `duplicate_fact_application` | 동일 `idempotency_key` 재적용 |
+| `invalid_calibration_combination` | §14-4 유효성 행렬 위반 |
+| `double_contribution` | 아래 중복 식별 키 기준 |
+
+`double_contribution` 중복 식별 키(§10 연결):
+
+```
+prediction_snapshot_id + candidate_id + period + evidence_id
++ target.axis_or_stage + contribution_role
+```
+
+- **허용**: 같은 `signal_ref`가 **서로 다른 검토된 `evidence_id`**를 통해 **서로 다른 축**에 기여.
+- **위반**: 같은 `evidence_id`가 같은 축에 중복 가산 / legacy 점수와 신규 adapter 점수 동시 가산 / `process_activation` **파생값이 다시 원천 기여값으로 합산**.
+
+### 15-4. 모델·품질 지표 (`MODEL_QUALITY`, 임계는 사후 승인)
+
+확정 분모는 `MATURED`만(INV-21). 지표별 분모를 각각 고정한다.
+
+| 지표 | 기본 분모 |
+|---|---|
+| `stage_precision` | 특정 단계를 예측했고 `MATURED`된 대상 |
+| `stage_recall` | 현실에서 해당 단계가 확인되고 **대응 스냅샷이 있는** 대상 |
+| `stage_timing_error` | `REACHED`이고 **발생 시점 정밀도가 허용 수준 이상**인 대상 |
+| `bottleneck_rank_agreement` | 비교 가능한 단계가 **2개 이상**이며 현실 진행 순서가 해소된 Episode |
+| `settlement_prediction_alignment` | Settlement 적용 단계이며 충분한 관찰 기간이 지난 대상 |
+
+`time_precision=UNKNOWN`이나 지나치게 넓은 기간 범위는 `stage_timing_error`에서 **제외하되 제외율을 별도 보고**한다. `RIGHT_CENSORED` 비율도 별도 보고한다(§14-5).
+
+**임계값은 P0-A에서 확정하지 않는다**: shadow baseline 관측 → 분포 확인 → 전문가 감수 표본과 비교 → 임계 제안 → **별도 승인**.
+
+### 15-5. micro / macro 집계와 Kind 층화
+
+```
+micro: 모든 평가 가능 Stage 레코드를 동일 가중
+macro: Episode별로 먼저 집계한 뒤 Episode를 동일 가중
+```
+
+두 집계를 **명시적으로 분리 보고**한다(§14-2 `UPSTREAM_STAGE_CLOSED`로 인한 연쇄 미도달이 거짓 음성으로 증폭되지 않도록).
+
+추가로 **Kind별 층화**가 필요하다 — 전체 평균만 보면 표본이 많은 외부 이직이 나머지 Kind의 결함을 가린다.
+
+```
+EXTERNAL_MOVE | JOB_GAIN_FROM_UNEMPLOYED | RESIGNATION_ONLY | INTERNAL_TRANSFER
+```
+
+### 15-6. 승격 차단 규칙 (0 허용 지표)
+
+```
+현재 candidate build의 적용 가능 실행에서 violation_count > 0
+→ BETA/LIVE 승격 차단
+→ 관련 run_id·fixture_id·audit_event 첨부
+→ 수정 → 전체 fixture + shadow corpus 재측정
+→ 0 확인 후에만 해제
+```
+
+**정상 가드 작동을 violation으로 세지 않는다**(INV-24):
+
+```
+guard_outcome ∈ {BLOCKED, ROLLED_BACK} + authoritative state 불변  → 보호 성공(위반 아님)
+guard_outcome = VIOLATION  또는  차단 뒤에도 권위 상태 변경        → 오류
+```
+
+---
+
+## §12·§16·§17 및 부록 A — 후속 작성 단위
+
+```
+§12 소비 배선 → §16 로드맵 → §17 재사용표
+```
+
+- §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰 예산) · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
 
 ---
 
