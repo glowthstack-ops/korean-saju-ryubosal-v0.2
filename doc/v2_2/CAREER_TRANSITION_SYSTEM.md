@@ -4,7 +4,7 @@
 >
 > **작성 상태 (P0-A 완결)**: §0~§17 + 부록 A(감사)·부록 B(감수 게이트) 작성 완료. **코드 변경 0** — P0-A 완료는 설계·감사 계약의 완결이며 **기능 출시 준비 완료가 아니다**(§16-7). 본 문서에 정의되지 않은 명리 규칙은 §10 증거계약에 **감수 대상**으로만 표기하며 부록 B 경로를 통과하기 전에는 구현·배선하지 않는다(리포 규칙 10).
 >
-> **규격: 불변식 INV-1~INV-34 · 결정 D1~D21.**
+> **규격: 불변식 INV-1~INV-34 · 결정 D1~D22.**
 
 ---
 
@@ -32,6 +32,7 @@
 | D18 | `EntryTrack`은 "새 회사 입사"가 아니라 **목적지 진입**(외부 입사 또는 내부 역할·부서·근무지 실행)이며 `entry_scope`로 구분한다. `INTERNAL_TRANSFER`를 담는다. | §3·§5 |
 | D19 | **P0는 단일 primary employment만 관리**한다. 겸업·복수 고용·법인+개인사업 병행은 별도 확장 범위이며, 감지돼도 단일 Exit로 임의 병합하지 않는다. | §6, 명문화 A |
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
+| D22 | **"내부 검수 후 오픈" 모델을 폐기한다**(2026-07-25). 이 풀이를 내부에서 검토할 수단이 없으므로, 지표 임계 충족을 노출의 **사전 조건으로 쓰지 않는다** — 표본이 없어 영원히 열리지 않기 때문이다. 테스터에게 먼저 제공하고 피드백으로 수정 여부를 정한다. §15·§16 지표는 **오픈 후 운영 증거**로 남되, **안전·무결성 절대 게이트(overclaim·false_stage_advance·forecast_to_confirmed_mutation·저장 실패 시 노출)는 그대로 유지**한다 — 이건 표본이 아니라 코드 불변식이다. | §15·§16 |
 | D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
 ### 35 불변식 (요약)
@@ -1686,8 +1687,21 @@ guard activation rate의 **임계값 자체는 §16에서** 정하되, **측정�
 P0-A CLOSED  88ac10d   문서·감사 계약, 코드 변경 0
 P0-B CLOSED  11bd373   타입·resolver·adapter·side-channel + drift census
 P1   CLOSED  978598f   상태 머신·journal replay·shadow 관측
-P2   NEXT              단계 벡터·병목·support/blocker shadow
+P2   CLOSED  1b308ec   단계 벡터·병목·support/blocker (+a44800e NOT_EVALUABLE)
+P3   CLOSED  ab8bec8   사실 파서·runtime shadow
+     (게이트) 60330e3  reason_codes 결정성 해소 → raw_byte 비교 ACTIVE
+P4-1 ACTIVE  e50e872   최소 cohort 소비 파이프라인
+             40e7e89   chat 배선(prepare/audit 2훅 — LLM 호출 1회 유지)
+             e6b20f8   shadow 원장 영속
+             4317959   orchestration ↔ 영속 연결
+             dc3cd5c   Postgres 저장소(migration 016, CAS, fallback 없음)
+             (이번)    테스터 flag 실제 주입(.env.beta) + /health 노출
 ```
+
+**P4-1 롤아웃 상태**: `Tester rollout: ACTIVE`. flag는 `.env.beta`(gitignore, `dev.sh`가
+기동 시 source)에 두고 `.env`에는 두지 않는다 — flag가 import 시점 상수라 `.env`에 두면
+개발자가 source한 셸의 pytest가 OFF 기준 회귀를 오염시킨다(`.env.risk`와 같은 규약).
+켜졌는지는 `GET /health`의 `beta_flags`로 확인한다.
 
 **P1 종료 시 관측 상태**:
 
@@ -2105,7 +2119,7 @@ P0-A 완료 : SSOT(§0~§17) · 감사(부록 A) · 감수 게이트(부록 B) �
 기능 완료 : P0-B~P5 구현과 각 승격 게이트 통과 — 별개(§16-7)
 ```
 
-**규격: 불변식 INV-1~INV-34 · 결정 D1~D21.**
+**규격: 불변식 INV-1~INV-34 · 결정 D1~D22.**
 
 ---
 
