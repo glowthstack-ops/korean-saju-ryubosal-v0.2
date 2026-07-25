@@ -4285,7 +4285,7 @@ def chat(
     # prepare 는 LLM을 호출하지 않는다 — 기존 단일 generate_reading 호출을 유지한다.
     # flag OFF(기본)면 지시문이 없어 프롬프트·응답이 byte 동일하다.
     _career_prep = _prepare_career_transition_block(
-        question, thread_id=thread_id, subject_id=subject_id
+        question, thread_id=thread_id, subject_id=subject_id, candidates=candidates
     )
     if _career_prep is not None and _career_prep.directive:
         trailing.append(_career_prep.directive)
@@ -4553,7 +4553,9 @@ def _career_shadow_repository():
     return _CAREER_SHADOW_REPO
 
 
-def _prepare_career_transition_block(question, *, thread_id, subject_id):
+def _prepare_career_transition_block(
+    question, *, thread_id, subject_id, candidates=()
+):
     """turn 처리 + 소비 준비. flag OFF·scope 미확정·억제 시 None.
 
     `chat_service`는 repository 세부를 알지 않고 orchestration 결과만 본다.
@@ -4589,7 +4591,7 @@ def _prepare_career_transition_block(question, *, thread_id, subject_id):
             query_resolution=CareerQueryResolution.GENERAL_CAREER,
             subject_count=1,
             kind=CareerTransitionKind.EXTERNAL_MOVE,
-            vector=_career_effect_vector_for(turn.store),
+            vector=_career_effect_vector_for(candidates),
         )
         return prep if prep.eligible else None
     except Exception:  # pragma: no cover - beta 경로가 기존 응답을 깨지 않게
@@ -4602,11 +4604,27 @@ def _stable_turn_id(question: str) -> str:
     return hashlib.sha256(question.encode("utf-8")).hexdigest()[:16]
 
 
-def _career_effect_vector_for(store):
-    """단계 효과 벡터 — P4-1 에서는 빈 벡터(병목 NOT_EVALUABLE)로 둔다."""
+def _career_effect_vector_for(candidates):
+    """단계 효과 벡터 — 이미 계산된 이벤트 후보를 축 기여로 변환한다.
+
+    새 점수를 만들지 않는다(어댑터 변환만). 감사가 깨끗하지 않으면 벡터를 만들지 않고
+    빈 벡터를 돌려준다 — 이중 가산된 값을 조용히 노출하느니 "근거 부족"이 낫다.
+    """
+    from saju_engines.career_effect_adapter import build_career_contributions
+    from saju_engines.career_effect_vector import build_effect_vector
     from saju_shared_types.career_effect_vector import CareerEffectVector
 
-    return CareerEffectVector()
+    contributions = build_career_contributions(candidates or ())
+    if not contributions:
+        return CareerEffectVector()
+    vector, audit = build_effect_vector(contributions)
+    if vector is None:
+        _logger.warning(
+            "career_effect_vector_audit_failed dup=%s derived=%s legacy=%s",
+            audit.duplicates, audit.derived_as_primary, audit.legacy_mixed,
+        )
+        return CareerEffectVector()
+    return vector
 
 
 def _audit_career_transition_answer(

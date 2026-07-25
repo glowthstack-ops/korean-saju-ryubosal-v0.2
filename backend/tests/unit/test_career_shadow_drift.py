@@ -40,6 +40,7 @@ _NEW_MODULES = (
     "saju_engines.career_shadow_metrics",
     "saju_shared_types.career_effect_vector",
     "saju_engines.career_effect_vector",
+    "saju_engines.career_effect_adapter",
     "saju_engines.career_fact_parser",
     "saju_engines.career_state_shadow",
     "saju_shared_types.career_consumer",

@@ -99,6 +99,21 @@ def is_eligible_cohort(
     return True, None
 
 
+def _relative_threshold(vector) -> float:
+    """support/blocker 를 가르는 **상대** 기준 — 그 명식 자신의 평균이다.
+
+    절대 0 을 기준으로 하면 축이 대체로 양수인 명식에서 모든 축이 "보조 요인"으로 몰려
+    변별력이 사라진다(누구에게나 같은 목록). 어댑터가 넘기는 축 값은 아직 캘리브레이션되지
+    않은 상대 지표이므로, 가르는 선도 **자기 자신 대비**로 두는 편이 정직하다.
+
+    평균은 **양수 축만으로** 낸다. 마찰 축은 정의상 음수(막는 힘)라, 함께 평균에 넣으면
+    기준선이 끌려 내려가 다시 모든 양수 축이 보조 요인이 된다. 마찰은 기준선과 무관하게
+    항상 blocking 으로 남는다.
+    """
+    values = [v for _axis, v in vector.axes if v > 0.0]
+    return sum(values) / len(values) if values else 0.0
+
+
 def build_payload(
     store: CareerEpisodeStore, *, episode_id: str, kind, vector
 ) -> CareerConsumerPayload:
@@ -117,7 +132,7 @@ def build_payload(
                 (observed.stage.track.value, observed.stage.stage.value, StateLabel.CONFIRMED)
             )
     bottleneck = assess_bottleneck(kind, vector)
-    supporting, blocking = split_factors(vector)
+    supporting, blocking = split_factors(vector, threshold=_relative_threshold(vector))
     not_evaluable = bottleneck.status is BottleneckStatus.NOT_EVALUABLE
     return CareerConsumerPayload(
         query_focus=CareerQueryResolution.GENERAL_CAREER.value,
@@ -164,9 +179,57 @@ def pre_input_audit(
     return InputAuditAction.ALLOW, ()
 
 
+#: 축·관문의 사용자 노출 이름 — 영문 enum 값을 그대로 내보내지 않는다.
+_AXIS_LABEL: dict[str, str] = {
+    "opportunity_activation": "기회·접촉",
+    "selection_progress": "평가·선발 진행",
+    "agreement_quality": "합의·조건",
+    "exit_pressure": "이탈 압력",
+    "exit_friction": "퇴사 마찰",
+    "entry_realization": "입사·실행",
+    "stabilization": "정착",
+}
+_GATE_LABEL: dict[str, str] = {
+    "opportunity": "기회·접촉",
+    "selection": "평가·선발",
+    "agreement": "합의·조건",
+    "exit": "현 직장 정리",
+    "entry": "입사·실행",
+    "internal_decision": "내부 결정",
+    "assignment_execution": "배치 실행",
+}
+
+
+#: 확인된 단계의 사용자 노출 이름.
+_STAGE_LABEL: dict[str, str] = {
+    "search": "탐색",
+    "application": "지원",
+    "interview": "면접",
+    "offer_received": "오퍼 수령",
+    "negotiation": "조건 협의",
+    "accepted": "수락",
+    "notice_given": "퇴사 통보",
+    "handover": "인수인계",
+    "separated": "퇴사 완료",
+    "joined": "입사",
+    "onboarding": "적응",
+    "settled": "정착",
+}
+
+
+def _labels(keys: tuple[str, ...], table: dict[str, str]) -> str:
+    """노출 이름 목록 — 미등록 키는 원문을 유지한다(조용히 사라지지 않게)."""
+    return ", ".join(table.get(k, k) for k in keys)
+
+
 def build_block_text(payload: CareerConsumerPayload) -> str:
-    """§12-2 고정 5단계 서술(엔진이 뼈대를 만들고 LLM은 문체만 손댄다)."""
-    confirmed = [f"{t}/{s}" for t, s, label in payload.confirmed_track_states
+    """§12-2 고정 5단계 서술(엔진이 뼈대를 만들고 LLM은 문체만 손댄다).
+
+    **수치는 내보내지 않는다** — 축 값은 아직 캘리브레이션되지 않은 상대 지표라,
+    "0.85" 같은 절대값을 노출하면 성사 확률로 읽힌다(절대원칙 3 단정 금지).
+    관문 이름과 상대 순위만 전달한다.
+    """
+    confirmed = [_STAGE_LABEL.get(s, s) for _t, s, label in payload.confirmed_track_states
                  if label is StateLabel.CONFIRMED]
     head = (
         f"현재 확인된 사실은 {', '.join(confirmed)}까지입니다."
@@ -177,15 +240,15 @@ def build_block_text(payload: CareerConsumerPayload) -> str:
         flow = "필수 관문을 평가할 근거가 아직 부족해 다음 단계의 상대 활성도는 판단하지 않습니다."
     elif payload.bottleneck:
         flow = (
-            f"운의 흐름에서는 {payload.bottleneck} 쪽이 상대적으로 병목으로 보이며, "
-            "이것이 특정 회사의 판단이나 합격을 뜻하지는 않습니다."
+            f"운의 흐름에서는 {_GATE_LABEL.get(payload.bottleneck, payload.bottleneck)} "
+            "쪽이 상대적으로 가장 약한 관문으로 보이며, 이것이 특정 회사의 판단이나 "
+            "합격을 뜻하지는 않습니다."
         )
     else:
         flow = "다음 단계의 상대 활성도를 판단할 근거가 충분하지 않습니다."
-    factors = (
-        f"보조 요인은 {', '.join(payload.supporting_factors) or '없음'}, "
-        f"부담 요인은 {', '.join(payload.blocking_factors) or '없음'}입니다."
-    )
+    strong = _labels(payload.supporting_factors, _AXIS_LABEL) or "없음"
+    weak = _labels(payload.blocking_factors, _AXIS_LABEL) or "없음"
+    factors = f"상대적으로 힘이 실리는 쪽은 {strong}, 약한 쪽은 {weak}입니다."
     tail = "실제 진행 여부는 연락·면접 일정·서면 통지로 확인해야 합니다."
     return "\n".join([head, meaning, flow, factors, tail])
 

@@ -272,3 +272,74 @@ def test_post_output_audit_detects_forecast_stated_as_fact() -> None:
     )
     assert action is OutputAuditAction.REWRITE
     assert ConsumerViolation.FACT_FORECAST_LANGUAGE_MIXING in violations
+
+
+# ── 효과 벡터 배선 후 서술 품질 (2026-07-26) ─────────────────────────────
+
+
+def _adapted(*cands):
+    """어댑터를 통과시킨 실제 벡터 — 빈 벡터 대체 이후의 경로."""
+    from saju_engines.career_effect_adapter import build_career_contributions
+
+    vector, audit = build_effect_vector(build_career_contributions(cands))
+    assert audit.is_clean and vector is not None
+    return vector
+
+
+class _C:
+    def __init__(self, key, period="2026", score=0, favorability=0.0):
+        self.event_key, self.period = key, period
+        self.score, self.favorability = score, favorability
+
+
+def test_factors_discriminate_between_charts() -> None:
+    """요인 목록이 명식마다 달라야 한다 — 모두 '보조 요인'이면 정보가 없다."""
+    from saju_shared_types.event_engine import EventKeyV2 as K
+
+    strong_entry = _adapted(
+        _C(K.CAREER_CHANGE, score=90), _C(K.JOB_GAIN, score=95),
+        _C(K.CONTRACT_DOCUMENT, favorability=-0.6), _C(K.PREPARATION_DELAY, score=70),
+    )
+    strong_agreement = _adapted(
+        _C(K.CAREER_CHANGE, score=90), _C(K.JOB_GAIN, score=40),
+        _C(K.CONTRACT_DOCUMENT, favorability=0.9), _C(K.PREPARATION_DELAY, score=70),
+    )
+    a = _run(_store("ep-a"), vector=strong_entry)
+    b = _run(_store("ep-a"), vector=strong_agreement)
+    assert a.payload is not None and b.payload is not None
+    assert a.payload.blocking_factors != b.payload.blocking_factors
+
+
+def test_relative_threshold_excludes_negative_axes() -> None:
+    """마찰(음수) 축이 기준선을 끌어내려 모든 양수 축을 support 로 만들면 안 된다."""
+    from saju_shared_types.event_engine import EventKeyV2 as K
+
+    vector = _adapted(
+        _C(K.CAREER_CHANGE, score=95), _C(K.JOB_GAIN, score=50),
+        _C(K.CONTRACT_DOCUMENT, favorability=0.9), _C(K.PREPARATION_DELAY, score=99),
+    )
+    r = _run(_store("ep-a"), vector=vector)
+    assert r.payload is not None
+    assert r.payload.blocking_factors and r.payload.supporting_factors
+    assert "exit_friction" in r.payload.blocking_factors
+
+
+def test_block_text_has_no_raw_enum_or_numbers() -> None:
+    """축·단계·관문은 한글로, 수치는 노출하지 않는다(절대값이 성사 확률로 읽힌다)."""
+    import re
+
+    from saju_shared_types.event_engine import EventKeyV2 as K
+
+    vector = _adapted(
+        _C(K.CAREER_CHANGE, score=80), _C(K.JOB_GAIN, score=60),
+        _C(K.CONTRACT_DOCUMENT, favorability=0.3),
+    )
+    r = _run(
+        _store("ep-a", facts=(("ep-a", CareerFactType.INTERVIEW_COMPLETED),)),
+        vector=vector,
+    )
+    assert r.delivered and r.block_text
+    for raw in ("agreement_quality", "exit_friction", "entry_realization",
+                "opportunity", "interview"):
+        assert raw not in r.block_text
+    assert not re.search(r"0\.\d+", r.block_text)
