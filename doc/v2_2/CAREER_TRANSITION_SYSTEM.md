@@ -30,8 +30,9 @@
 | D18 | `EntryTrack`은 "새 회사 입사"가 아니라 **목적지 진입**(외부 입사 또는 내부 역할·부서·근무지 실행)이며 `entry_scope`로 구분한다. `INTERNAL_TRANSFER`를 담는다. | §3·§5 |
 | D19 | **P0는 단일 primary employment만 관리**한다. 겸업·복수 고용·법인+개인사업 병행은 별도 확장 범위이며, 감지돼도 단일 Exit로 임의 병합하지 않는다. | §6, 명문화 A |
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
+| D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
-### 19 불변식 (요약)
+### 20 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -51,6 +52,7 @@
 - **INV-17** 고용 컨텍스트 승격 원자성 — 외부 이직 완료 시 기존 종료 + 대상 승격을 하나의 상태 변경으로
 - **INV-18** 신호 ≠ 단계 사실 — 명리 신호는 단계별 forecast·효과 벡터에만 기여하고, 사용자의 지원·오퍼·퇴사·입사 사실이나 상대 회사의 행동을 생성하지 않음(§10 서두)
 - **INV-19** Legacy form non-scoring — 기존 `event_forms`의 확률·가중값은 단계 벡터·병목 성사도·`forecast_completion_readiness`에 입력하지 않음(의미 분류와 shadow 출력 비교에만 사용)
+- **INV-20** Category compatibility — 전환 기간에 기존 `EVENT_CATEGORY`는 **직렬화 호환성**을, 신규 3분리 필드는 **의미 소유권**을 갖는다. 동일 소비자가 legacy category와 신규 필드를 **동시에 집계·가점하지 않는다**(§11)
 
 ---
 
@@ -482,16 +484,161 @@ class CounterpartyEvidence:
 
 ---
 
-## §11~§17 및 부록 A — 후속 작성 단위
+## §11. category 3분리 — 공존·전환 계약
+
+> **INV-20 (Category compatibility)**: 전환 기간에는 기존 `EVENT_CATEGORY`가 **직렬화 호환성**을 소유하고, 신규 3분리 필드가 **의미 소유권**을 갖는다. **동일 소비자가 legacy category와 신규 필드를 동시에 집계·가점하지 않는다.**
+
+본 절은 기존 두 `EVENT_CATEGORY` 정의를 즉시 변경하는 구현안이 **아니다**. 기존 필드와 신규 의미축의 **공존·전환 계약**을 고정한다.
+
+### 11-1. 문제 — 하나의 `category`가 세 역할을 겸함
+
+`career_change`의 `category="move"`가 서로 다른 세 목적에 동시에 쓰인다.
+
+| 목적 | 현재 소비 | 문제 |
+|---|---|---|
+| 라우팅·리포트 도메인 | `EVENT_DOMAIN="career"`(별도, 정상) | — |
+| 이직↔이사 형제 발현 | `manifestation_branch`가 "정확히 2멤버 계열"로 move 사용 | **보존 필요** |
+| 캘리브레이션 집계 | `question_generator` family cap이 raw `category`로 dedup | **이직·이사가 같은 슬롯 공유 → 오염** |
+
+`CATEGORY_TO_CALIB_DOMAIN`은 이미 `move→career`로 접히므로 **도메인 매핑은 정상**이나, family cap은 fold 이전의 raw `category`를 쓰기 때문에 이직과 이사가 서로를 밀어낸다.
+
+### 11-2. 신규 3분리 필드 (의미 소유권)
+
+```python
+event_domain: str        # "career" — 라우팅·리포트·도메인 소유권
+transition_family: str   # "move"   — 이직↔이사 형제 발현 전용
+calibration_domain: str  # "career" — 질문 중복 제거(family cap)·피드백 집계
+```
+
+- **`event_domain="career"`**: 질의 라우팅, 리포트 섹션 귀속, 토픽 빌더 도메인.
+- **`transition_family="move"`**: `manifestation_branch`의 형제 발현 판정 **전용**. 이 축은 캘리브레이션·라우팅에 쓰지 않는다.
+- **`calibration_domain="career"`**: 검증 질문 family cap 키와 피드백 집계 단위. 이직과 이사를 **다른 cap 슬롯**으로 분리한다.
+
+### 11-3. reader별 목표 필드와 전환 Phase
+
+| reader | 현재 소비 | 목표 필드 | 전환 Phase |
+|---|---|---|---|
+| `manifestation_branch` (형제 발현) | `EVENT_CATEGORY`(taxonomy_v2) | `transition_family` | 의미 동일 — 후속(무행동 가능) |
+| `scoring_operational._EVENT_GROUP` (동일 계열 판정) | `EVENT_CATEGORY`(taxonomy_v2) | `transition_family` | 후속(의미 재검증 대상, §17 ③) |
+| `manse_service` (API·직렬화 경계) | `EVENT_CATEGORY` → `CalibrationEventItem.category` | **legacy 유지**(직렬화 호환) | 전환 없음(INV-20) |
+| `question_generator` (family cap·도메인) | `e.category` raw + `CATEGORY_TO_CALIB_DOMAIN` | `calibration_domain` | **오염 해소 대상 — 우선 전환** |
+| `feedback_scorer` (MAJOR_CATEGORIES 가중) | `ev.category` | `calibration_domain` | question_generator와 동시 전환 |
+
+P0에서는 **어떤 reader도 전환하지 않는다**(byte 불변, INV-13). 위 표는 후속 Phase의 목표 상태다.
+
+### 11-4. 의미 해소의 단일 소유자 — `ResolvedEventSemantics`
+
+reader마다 fallback을 각자 구현하면 drift가 생긴다(예: question_generator는 event_key 기준, feedback_scorer는 legacy category 기준). **각 reader는 자체 매핑표를 만들지 않고 공통 resolver만 소비**한다.
+
+```python
+def resolve_event_semantics(event_key, explicit_fields, legacy_category) -> ResolvedEventSemantics: ...
+
+class ResolvedEventSemantics:
+    event_domain: str
+    transition_family: str | None
+    calibration_domain: str
+    resolution_source: ResolutionSource
+    contract_version: str
+
+class ResolutionSource(StrEnum):
+    CANONICAL            # canonical event_key 매핑으로 해소
+    EXPLICIT_VALIDATED   # 신규 필드가 canonical과 일치 검증됨
+    LEGACY_FALLBACK      # event_key 부재로 legacy 보조 사용
+    LEGACY_AMBIGUOUS     # 모호 — fail-closed
+    INVALID_MISMATCH     # 신규 필드가 canonical과 충돌
+```
+
+**권위 규칙**
+- canonical `event_key` 매핑이 **의미 SSOT**다.
+- 신규 필드는 canonical 의미의 **직렬화·전달본**이다.
+- 신규 필드가 canonical 매핑과 충돌하면 그대로 신뢰하지 않는다(`INVALID_MISMATCH`).
+- **legacy category는 신규 의미의 권위 소스가 아니다.**
+- 해소 우선순위: ①canonical event_key SSOT → ②신규 필드가 있으면 canonical과 일치 검증 → ③event_key가 없을 때만 legacy category 보조 → ④legacy category만으로 `transition_family` 확정 금지 → ⑤모호하면 `LEGACY_AMBIGUOUS`로 **fail-closed**.
+
+### 11-5. legacy fallback — `transition_family` 단독 유도 금지
+
+> **`transition_family`는 legacy category에서 단독 유도하지 않는다. canonical `event_key`별 명시 매핑만 허용한다.**
+
+**근거(실측, SHA dbae796)**: canonical `EVENT_CATEGORY`(taxonomy_v2)의 `move`는 **정확히 2멤버**(`career_change`·`relocation`)이며 이것이 `manifestation_branch`의 "정확히 2멤버 계열" 규칙 근거다. 반면 legacy `calibration.py`의 `move`는 **4멤버**(`career_change`·`resignation`·`relocation`·`travel`)다. legacy로 `transition_family`를 유도하면 **여행·퇴사가 이직↔이사 형제 가족에 유입**되어 형제 발현이 깨지고, 이사 피드백이 career calibration으로 다시 접힐 수 있다.
+
+#### canonical event_key별 명시 매핑
+
+| event_key | event_domain | transition_family | calibration_domain |
+|---|---|---|---|
+| `career_change` | career | move | career |
+| `relocation` | relocation | move | relocation |
+| `job_gain` | career | **없음(None)** | career |
+| `promotion` | career | **없음(None)** | career |
+| (legacy `resignation`) | career | **없음** — canonical `career_change`로 정규화 후 해소 | career |
+| (legacy `travel`) | 현행 도메인 유지 | **없음** — legacy `move`라는 이유로 형제 가족에 넣지 않음 | 현행 도메인 |
+
+`transition_family=None`이 기본이며, 형제 발현 대상만 명시적으로 값을 갖는다. canonical `EventKeyV2`에 `travel`은 존재하지 않는다(legacy 문자열 전용).
+
+fallback은 **읽기 전용 해소**이며 신규 필드를 소급 생성·저장하지 않는다.
+
+### 11-6. 이중 소비 금지 (INV-20)
+
+- 한 소비자는 legacy `category` **또는** 신규 필드 중 **하나만** 집계·가점에 쓴다. 혼용 금지.
+- **원자성 단위**: "한 reader의 **한 실행 경로**에서 legacy와 신규 의미를 동시에 집계하지 않는다." 단, rollout 동안 **서로 다른 reader가 서로 다른 Phase에 있는 것은 허용**된다.
+- `manse_service`는 P0에서 **legacy category 직렬화 소유권을 계속 유지**한다. 의미 해소 reader로 전환하지 않으며, **내부 소비자가 `manse_service`의 legacy 직렬화 값을 의미 SSOT로 역사용하는 것을 금지**한다. 신규 필드를 API에 추가할지는 별도 schema-version 결정으로 남긴다.
+
+### 11-7. 캐시·저장·API·LLM 직렬화 호환성
+
+| 표면 | P0 계약 |
+|---|---|
+| API 응답(`CalibrationEventItem.category`) | 값·의미 불변. 신규 필드는 추가 시에도 optional |
+| 프론트 표시 라벨(`EVENT_CATEGORY_LABEL` "이동(이직·이사)") | 불변 |
+| 저장(피드백·검증 응답) | 기존 category 기준 과거 데이터 **재해석 금지**. 단 **어느 의미 계약으로 분류됐는지는 보존** — 신규 데이터에 `calibration_semantics_version` 기록, 또는 조회 시점에 **버전 있는 해소** 수행 |
+| 캐시 키 | 전환 시 `question_generator` 캐시가 이전 family-cap 결과를 유지할 수 있으므로, **캐시 키에 `category_semantics_version` 포함** 또는 전환 시 해당 **캐시 namespace 폐기** 중 하나를 후속 구현 계약에 포함 |
+| LLM 직렬화 | 신규 필드는 P0에서 LLM 입력에 넣지 않음(shadow 계측 전용) |
+
+### 11-8. calibration family-cap 행렬 (§13 executable fixture 후보)
+
+`calibration_domain`을 그대로 cap 키로 쓰면 `career_change`·`job_gain`·`promotion`이 서로를 밀어낸다. **설계 B를 채택한다**(D21).
+
+- **설계 A** `family_cap_key = calibration_domain` — 도메인당 질문 수 제한 우선. 이직·취업·승진 경쟁이 의도된 동작.
+- **설계 B(채택)** 저장 필드를 늘리지 않고 **파생 cap 키**를 둔다:
+  ```
+  calibration_cap_key ∈ { career_transition, employment_entry, promotion, relocation }
+  ```
+  근거: INV-12(캘리브레이션 축 분리·병합 금지)와 정합하며, 같은 커리어 도메인에서도 **사건별 검증을 보존**한다. 질문 수 상한은 cap 키가 아니라 도메인별 총량 제한으로 별도 관리한다.
+
+| 조합 | 기대 결과(설계 B) |
+|---|---|
+| 이직 + 이사 | 다른 `calibration_domain` → **둘 다 유지** |
+| 이직 + 취업 | 다른 cap 키(career_transition / employment_entry) → **둘 다 유지** |
+| 이직 + 승진 | 다른 cap 키 → **둘 다 유지** |
+| 취업 + 승진 | 다른 cap 키 → **둘 다 유지** |
+| 같은 이직의 여러 기간 | 같은 cap 키 → **기간 중복 축약**(대표 1건, 축약 규칙은 §14에서 확정) |
+| 이직 + 이사 + 취업 | 전체 질문 수·정렬 순서를 fixture로 고정 |
+
+형제 발현(`manifestation_branch`)은 신규 필드 도입 후에도 **이직↔이사 형제 관계가 유지**되어야 한다(`transition_family="move"` 보존). 즉 **"형제 발현은 유지 + 캘리브레이션은 분리"** 가 동시에 성립해야 한다.
+
+### 11-9. rollout 불일치 텔레메트리
+
+전환 기간에 다음을 계측한다(§15 shadow 지표에 포함).
+
+```
+semantics_resolution_source        # ResolutionSource 분포
+canonical_explicit_mismatch        # 신규 필드가 canonical과 충돌(INVALID_MISMATCH)
+legacy_ambiguous_fallback          # LEGACY_AMBIGUOUS fail-closed 건수
+dual_consume_blocked               # 한 소비자가 legacy·신규 동시 집계 위반(0이어야 함)
+  └ legacy_vs_new_question_selection_diff   # shadow 비교: 질문 선택 결과 차이(세부 라벨)
+family_cap_collision               # 같은 cap 슬롯 공유로 탈락한 건수
+```
+
+---
+
+## §12~§17 및 부록 A — 후속 작성 단위
 
 목차 번호는 유지하되 **작성 순서**는 다음으로 한다(소비 배선은 증거·fixture·감사 지표 확정 후에 작성해 과도 노출 방지):
 
 ```
-§11 category 3분리 → §13 fixture → §14 캘리브레이션 → §15 shadow 지표
+§13 fixture → §14 캘리브레이션 → §15 shadow 지표
 → §12 소비 배선 → §16 로드맵 → §17 재사용표
 ```
 
-- §11 category 3분리(event_domain/transition_family/calibration_domain, P0 byte 불변) · §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰) · §13 중간 종료·재개·교차 전이 fixture(Opportunity/Exit/Entry 3트랙 + 트랙 간 결합) · §14 캘리브레이션 축(occurrence/outcome/experience/settlement) · §15 shadow 오류 지표 · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
+- §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰) · §13 중간 종료·재개·교차 전이 fixture(Opportunity/Exit/Entry 3트랙 + 트랙 간 결합) · §14 캘리브레이션 축(occurrence/outcome/experience/settlement) · §15 shadow 오류 지표 · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
 
 ---
 
