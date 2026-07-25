@@ -1681,7 +1681,7 @@ guard activation rate의 **임계값 자체는 §16에서** 정하되, **측정�
 - **P4** — entry: P3 exit + 관련 evidence `EXPERT_REVIEWED`+`BETA` / fixtures: §12 소비 계약 / metrics: `narrative_completion_overclaim`=**ACTIVE** + counterparty/completion overclaim=0 / exit: cohort별 게이트 통과
 - **P5** — entry: P4 exit + 품질 임계 별도 승인 / fixtures: 전체 / metrics: 전체 + Kind별 표본 / exit: 승인된 surface 한정 live
 
-#### Phase 진행 상태 (2026-07-25)
+#### Phase 진행 상태 (2026-07-26)
 
 ```
 P0-A CLOSED  88ac10d   문서·감사 계약, 코드 변경 0
@@ -1690,13 +1690,31 @@ P1   CLOSED  978598f   상태 머신·journal replay·shadow 관측
 P2   CLOSED  1b308ec   단계 벡터·병목·support/blocker (+a44800e NOT_EVALUABLE)
 P3   CLOSED  ab8bec8   사실 파서·runtime shadow
      (게이트) 60330e3  reason_codes 결정성 해소 → raw_byte 비교 ACTIVE
-P4-1 ACTIVE  e50e872   최소 cohort 소비 파이프라인
+P4-1 CLOSED  e50e872   최소 cohort 소비 파이프라인
              40e7e89   chat 배선(prepare/audit 2훅 — LLM 호출 1회 유지)
              e6b20f8   shadow 원장 영속
              4317959   orchestration ↔ 영속 연결
              dc3cd5c   Postgres 저장소(migration 016, CAS, fallback 없음)
-             (이번)    테스터 flag 실제 주입(.env.beta) + /health 노출
+             0cfe135   테스터 flag 실제 주입(.env.beta) + /health 노출
+             56822dd   효과 벡터를 기존 신호로 충전 — 병목이 판정된다
+             8edb71d   사실 없는 일반 질문에 저장 없는 전망 블록
+P4-2 ACTIVE  24248eb   직업 테마 리포트에 같은 consumer 배선
 ```
+
+**P4 완료 판정(2026-07-26)**: 아래 4개가 출시 조건이었고 1~3 은 완료됐다.
+
+| 항목 | 상태 |
+|---|---|
+| 효과 벡터 충전(어댑터) | 완료 — 어댑터 누락 0건, 7축 산출, 병목 판정 |
+| 사실 없는 일반 이직 질문 | 완료 — `GENERAL_FORECAST` 저장 없는 일시 컨텍스트 |
+| 리포트 P4-2 | 완료 — chat 과 같은 payload·감사 재사용 |
+| daily 사전 `reviewed:false` 3종 | **분리** — 커리어 완료 조건이 아니다(아래) |
+
+**daily 사전 감수를 커리어 완료 조건에 넣지 않는다.** 별도 릴리즈이며, 60일주 전체
+사용자에게 반복 노출되므로 노출 범위가 커리어 beta 보다 넓다. 빠르게 끝낸다는 이유로
+`reviewed:true` 로 바꾸면 어떤 규칙을 승인했는지 추적할 수 없게 된다. 세 사전은
+`reviewed:false` 를 유지한 채 서비스하며, 구조 검증은 컴파일 파이프라인이 보장한다
+(`compiled/daily_fortune_{DICT_VERSION}.json` 의 `structural_validation`).
 
 **P4-1 롤아웃 상태**: `Tester rollout: ACTIVE`. flag는 `.env.beta`(gitignore, `dev.sh`가
 기동 시 source)에 두고 `.env`에는 두지 않는다 — flag가 import 시점 상수라 `.env`에 두면
