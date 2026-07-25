@@ -42,6 +42,8 @@ _NEW_MODULES = (
     "saju_engines.career_effect_vector",
     "saju_engines.career_fact_parser",
     "saju_engines.career_state_shadow",
+    "saju_shared_types.career_consumer",
+    "saju_engines.career_chat_consumer",
 )
 
 #: census manifest — **분모는 실행 결과가 아니라 독립 고정 manifest에서 나온다.**
