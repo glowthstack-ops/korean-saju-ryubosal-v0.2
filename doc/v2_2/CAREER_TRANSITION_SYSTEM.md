@@ -31,7 +31,7 @@
 | D19 | **P0는 단일 primary employment만 관리**한다. 겸업·복수 고용·법인+개인사업 병행은 별도 확장 범위이며, 감지돼도 단일 Exit로 임의 병합하지 않는다. | §6, 명문화 A |
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
 
-### 17 불변식 (요약)
+### 19 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -49,6 +49,8 @@
 - **INV-15** 사실 완료(`realization_status`) ≠ 예측 성사도(`forecast_completion_readiness`) — 점수·명식·forecast는 실제 완료를 생성·취소하지 않음
 - **INV-16** 교차 트랙 정합 — Entry 진입·Episode 연결·전환 완료에 명시적 교차 트랙 게이트
 - **INV-17** 고용 컨텍스트 승격 원자성 — 외부 이직 완료 시 기존 종료 + 대상 승격을 하나의 상태 변경으로
+- **INV-18** 신호 ≠ 단계 사실 — 명리 신호는 단계별 forecast·효과 벡터에만 기여하고, 사용자의 지원·오퍼·퇴사·입사 사실이나 상대 회사의 행동을 생성하지 않음(§10 서두)
+- **INV-19** Legacy form non-scoring — 기존 `event_forms`의 확률·가중값은 단계 벡터·병목 성사도·`forecast_completion_readiness`에 입력하지 않음(의미 분류와 shadow 출력 비교에만 사용)
 
 ---
 
@@ -389,12 +391,164 @@ class CareerProcessMode(StrEnum):        # 사용자 구직 '태도'만 소유(�
 
 ---
 
-## §10~§17 및 부록 — 후속 작성 단위 (예약)
+## §10. 사건별 증거 계약
 
-§10 사건별 증거 계약(명리 매핑 — 감수 대상) / §11 category 3분리 상세 / §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰 예산) / §13 중간 종료·재개·교차 전이 fixture(Opportunity/Exit/Entry 3트랙 및 트랙 간 결합 결과) / §14 캘리브레이션 축(occurrence/outcome/experience/settlement) / §15 shadow 오류 지표 / §16 로드맵 P0~P5 / §17 모듈 구성·기존 자산 재사용표(3단계 보존 등급) / 부록 A 어휘·런타임 감사 결과 / 부록 B 명리 규칙 감수 목록.
+> **INV-18 (서두 불변식)**: 명리 신호는 **단계별 forecast와 효과 벡터에만** 기여한다. 사용자의 지원·오퍼·퇴사·입사 **사실**이나 상대 회사의 **행동**을 생성하지 않는다. 사실은 `user_facts`/`counterparty_evidence`만 만든다(§7·§8).
 
-**§10 작성 전 반드시 다룰 예약 결정**:
-- **`process_activation` 중복 방지(INV-11)**: `EventCandidateV2.activation`(기존 최상위 불변값)과 단계 벡터의 관계 고정 — 단계 벡터는 `CareerStageAdapter`가 기존 신호를 단계별로 투영한 **shadow 값**, `process_activation`은 그 **파생 요약값**이며 **독립 가점원으로 사용 금지**.
-- **`counterparty_evidence`는 점수 아닌 증거 객체**: `{evidence_type, episode_id, observed_at, source=USER_FACT, strength=HARD|SOFT, temporal_status}`. 회사 숨은 의향은 계산하지 않고 관측된 행동(리크루터 연락·면접 요청·자료 요청·구두/서면 오퍼·내부 승인 대기·오퍼 철회)만 보존.
-- **`event_forms` 9형태 단순 stage 매핑 금지**: `source / kind / cause / stage / outcome`으로 재분류(스카우트=opportunity source, 자발퇴사=exit cause/kind, 권고사직=exit cause, 회사이동=transition kind, 역할변경=internal transition, 휴직=별도 employment state).
-- **§17 재사용 3등급**: ①그대로 보존(activation/favorability·quality/timing·endpoint 불변식·거버닝 스택·기존 출력/키) ②어댑터 뒤 재사용(structure_patterns·user_facts·멀티턴 상속·관계 resolver temporal 규칙·calibration family-cap 패턴) ③**의미 재검증 후 재사용**(manifestation_branch·career_mobility_modifier·addendum_gate_modifier·occupation_taxonomy form bias — 코드 보존과 새 3트랙 모델에 대한 의미적 재사용 승인은 구분).
+### 두 증거 계열은 분리한다 (같은 파이프라인 금지)
+
+| | `CareerEvidenceContract` | `CounterpartyEvidence` |
+|---|---|---|
+| 출처 | 원국·운·구조패턴 등 **엔진 유래** | 사용자가 밝힌 **상대 회사의 관측 행동** |
+| 기여 | forecast·효과 벡터 **only** | **현실 상태 해소**(confirmed/lifecycle) |
+| 감수 | 명리 감수 상태 적용(부록 B) | **명리 감수 상태 미적용** |
+
+두 계열을 하나의 증거 파이프라인에 넣지 않는다.
+
+### 1) CareerEvidenceContract — 명리(엔진 유래) 증거
+
+각 증거는 **감수 대상**이며(리포 규칙 10), 아래로 고정한다. 본 문서는 스키마·소유권·상태만 정의하고, 실제 명리 매핑값·가중치는 부록 B 감수를 통과한 뒤에만 채운다. **효과 방향(`direction`)은 가중치와 달리 감수 계약에 반드시 포함**한다.
+
+```python
+class CareerEvidenceContract:
+    evidence_id: str                 # 이 신호를 '특정 축에 사용하는 계약'의 식별자
+    signal_ref: str                  # 원천 신호 식별자(여러 계약이 공유)
+    source_type: EvidenceSourceType  # ten_god / relation / unseong / structure_pattern / occupation_gate
+    target: EvidenceTarget           # 아래 구조 객체
+    effect: EvidenceEffect           # 아래 구조 객체(방향 포함)
+    allowed_usage: list[str]         # 허용 소비(예: forecast_stage, effect_vector)
+    prohibited_usage: list[str]      # 금지 소비(예: confirmed_stage 승격, employer_interest)
+    applicability_conditions: list[str]
+    exclusion_conditions: list[str]
+    review_status: EvidenceReviewStatus    # 지식 타당성(부록 B)
+    runtime_status: EvidenceRuntimeStatus  # 배포 상태(부록 B) — P0 기본 INERT/SHADOW
+
+class EvidenceTarget:                      # 단계 대상과 축 대상을 구분
+    kind: STAGE | AXIS
+    track: CareerTrack | None              # OPPORTUNITY / EXIT / ENTRY (없으면 트랙 무관)
+    ref: str                               # CareerStageRef 또는 효과 축 이름
+
+class EvidenceEffect:
+    type: ACTIVATION | READINESS | QUALITY | FRICTION | DELAY | STABILITY | FORM_HINT
+    direction: INCREASE | DECREASE | MIXED | NEUTRAL     # 감수 필수
+```
+
+예: `target={kind:AXIS, track:EXIT, ref:"exit_friction"}`, `effect={type:FRICTION, direction:INCREASE}`.
+
+**effect type 의미**: ACTIVATION(사건 형성도) · READINESS(단계 진행 여건) · QUALITY(방향·품질) · FRICTION(마찰) · DELAY(지연 — 실패 아님) · STABILITY(정착) · FORM_HINT(발현 형태 shadow 힌트).
+
+#### 소비 규칙 (스키마 불변식)
+- `effect.type ∈ {ACTIVATION, READINESS, QUALITY, FRICTION, DELAY, STABILITY}` 만 forecast·효과 벡터에 기여. **`current_confirmed_stage`/`realization_status` 승격 금지**(INV-15·18).
+- `FORM_HINT`는 shadow 힌트일 뿐 현실 상태나 `transition_kind`를 확정하지 않는다.
+- 한 `evidence_id`는 하나의 `target.ref`에만 1차 기여(다단계 중복 가점 금지, INV-11). `process_activation`은 단계 벡터의 **파생 요약값**이며 독립 가점원이 아니다.
+- **`signal_ref` ≠ `evidence_id`**: 하나의 원신호(예: `STRUCT_GWAN_IN_SANGSAENG`)가 여러 축에 쓰이면 계약을 나누되 **같은 `signal_ref`를 공유**해 출처 추적·중복 감사를 유지한다. 무관한 증거로 복제하지 않는다.
+
+### 2) CounterpartyEvidence — 현실(사용자 사실) 증거
+
+회사의 **숨은 의향은 계산하지 않고 관측된 외부 행동만 저장**한다(`employer_interest` 산출 금지, INV-7).
+
+```python
+class CounterpartyEvidence:
+    evidence_type: str          # 리크루터 연락 / 면접 요청 / 자료 요청 / 구두·서면 오퍼 /
+                                #  내부 승인 대기 / 오퍼 철회 …
+    episode_id: str
+    observed_at: str
+    temporal_status: CURRENT | PAST | PLANNED | HYPOTHETICAL
+    source_fact_id: str
+    evidence_strength: HARD | SOFT
+```
+
+- 서면 오퍼 = `HARD` / 리크루터 연락 = `SOFT`.
+- "분위기가 좋았다" = 회사 의향 증거가 아닌 **사용자 평가** → confirmed evidence 아님.
+- "회사에서 뽑으려는 것 같다" = **추측** → confirmed evidence 승격 금지.
+
+### 3) `event_forms` 9종 재분류 (legacy 표현 분류 — 증거 아님)
+
+`event_forms`는 증거가 아니라 **legacy 표현 분류**다. 한 형태가 여러 차원을 동시에 소유하지 않도록 `source/kind/cause/form`으로 분해한다.
+
+| 기존 형태 | 신규 의미 |
+|---|---|
+| 스카우트 제의 | `opportunity_source=RECRUITER_OR_SCOUT` |
+| 자발적 퇴사 | `exit_cause=VOLUNTARY` |
+| 권고사직·구조조정 | `exit_cause=EMPLOYER_INITIATED` |
+| 회사 이동 | `transition kind/form` |
+| 역할·직무 변경 | `internal transition form` |
+| 업종 변경 | `transition_form` |
+| 조직개편·배치전환 | `cause/form`, 내부 이동 후보 |
+| 이직 동반 퇴사 | **원자적 FORM_HINT 아님** — Opportunity(외부 이동 Episode) + Exit(해당 Episode 연결 종료)가 함께 성립할 때의 **교차 트랙 렌더링 결과** |
+| 휴직·일시중단 | **3트랙 밖 `ADJACENT_EMPLOYMENT_STATE`** — 직접 매핑 보류 |
+
+> **INV-19 (Legacy form non-scoring)**: 기존 `event_forms`의 확률·가중값은 `CareerStageAdapter`의 단계 벡터, 병목 성사도, `forecast_completion_readiness`에 **입력하지 않는다**. P0-B에서는 **의미 분류와 shadow 출력 비교에만** 사용한다.
+
+---
+
+## §11~§17 및 부록 A — 후속 작성 단위
+
+목차 번호는 유지하되 **작성 순서**는 다음으로 한다(소비 배선은 증거·fixture·감사 지표 확정 후에 작성해 과도 노출 방지):
+
+```
+§11 category 3분리 → §13 fixture → §14 캘리브레이션 → §15 shadow 지표
+→ §12 소비 배선 → §16 로드맵 → §17 재사용표
+```
+
+- §11 category 3분리(event_domain/transition_family/calibration_domain, P0 byte 불변) · §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰) · §13 중간 종료·재개·교차 전이 fixture(Opportunity/Exit/Entry 3트랙 + 트랙 간 결합) · §14 캘리브레이션 축(occurrence/outcome/experience/settlement) · §15 shadow 오류 지표 · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
+
+---
+
+## 부록 B. 명리 규칙 감수 목록 (초안)
+
+각 규칙은 즉시 승인·반려하지 않고 상태 머신으로 추적한다. **지식 타당성(review)과 배포 상태(runtime)는 별도 상태 머신**이며 같은 속도로 움직이지 않는다.
+
+```python
+class EvidenceReviewStatus(StrEnum):     # 지식 타당성만
+    UNREVIEWED          # 등록만
+    SOURCE_DOCUMENTED   # 명리 출처·근거 문서화
+    EXPERT_REVIEWED     # 전문가 감수 통과
+    REJECTED            # 반려
+
+class EvidenceRuntimeStatus(StrEnum):    # 배포 상태만
+    INERT; SHADOW; BETA; LIVE; DISABLED
+```
+
+### 승격 조건 (배포 적격성)
+
+`deployment_eligibility`는 저장 필드가 아니라 아래 조건으로 **계산되는 파생값**으로 다룬다.
+
+```
+SHADOW      : review ≥ SOURCE_DOCUMENTED + 안전상 금지 표현 차단 + 사용자 출력 미노출
+BETA / LIVE : review = EXPERT_REVIEWED + fixture 통과 + shadow 기준 통과 + 별도 노출 승인
+REJECTED    : runtime_status 는 INERT 또는 DISABLED 만 허용
+```
+
+### 상태 전이
+
+```
+Review : UNREVIEWED → SOURCE_DOCUMENTED → EXPERT_REVIEWED
+         (UNREVIEWED / SOURCE_DOCUMENTED / EXPERT_REVIEWED → REJECTED)
+Runtime: INERT → SHADOW → BETA → LIVE     (어느 단계에서든 → DISABLED)
+```
+
+두 상태는 독립적이다. 예: `review=EXPERT_REVIEWED, runtime=INERT`(감수 완료·미구현) / `review=SOURCE_DOCUMENTED, runtime=SHADOW`(최종 감수 전 내부 계측만) / `review=REJECTED, runtime=DISABLED`(사용 금지).
+
+### 감수 무효화 규칙
+
+> 증거의 **의미·적용 조건(`applicability_conditions`/`exclusion_conditions`)·대상 축(`target`)·효과 방향(`effect.direction`)·출처(`source_ref`)** 가 변경되면 이전 `EXPERT_REVIEWED` 상태를 승계하지 않고 최소 `SOURCE_DOCUMENTED`로 되돌린다.
+
+### 감수 대장 컬럼
+
+```
+evidence_id | signal_ref | source_ref | applicability_conditions | exclusion_conditions
+| review_status | review_version | reviewer | reviewed_at
+```
+
+### 감수 우선순위 (위험·오해 순)
+
+| 순위 | 규칙군 | 이유 | 대표 후보(감수 대상 — 미확정) |
+|---|---|---|---|
+| 1 | 퇴사·강제이탈 | 위험 서술 유발 | 천충지충+관성=exit 압력, 식상제관=exit 신호, 권고사직 cause |
+| 2 | 오퍼·합의·입사 | 성사 오해 유발 | 정관+인성=agreement/entry, 관인상생=취업, 완료 단정 위험 |
+| 3 | 구조↔운 활성화 연결 | natal 구조와 시점 활성화 브리지 | 식상제관·상관견관의 단계 전이 연결 |
+| 4 | 합·충·형·파·해 단계 역할 | 변화강도≠결과품질 분리 | 충=면접 변화강도, 합=수렴, 형·파·해=지연·충돌 |
+| 5 | 십성 보조 단계 매핑 | 영향 낮음 | 관/인/재/식의 단계별 보조 기여 |
+
+각 규칙 행은 §10 `CareerEvidenceContract`의 `evidence_id`와 1:1로 연결되고(같은 원신호는 `signal_ref` 공유), review·runtime 두 상태로 각각 관리된다. 명리 매핑값·가중치 채움과 라이브 배선은 감수 통과 후 별도 Phase다. `CounterpartyEvidence`(현실 증거)는 명리 감수 대상이 아니므로 본 대장에 등재하지 않는다.
