@@ -34,7 +34,7 @@
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
 | D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
-### 34 불변식 (요약)
+### 35 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -69,6 +69,7 @@
 - **INV-32** No evidence inheritance — surface·`transition_kind`·query 유형·Episode 다중도·visibility 차원의 **통과가 다른 차원의 통과를 자동 보장하지 않는다.** 새 차원을 열 때 해당 차원을 포함한 **별도 gate evaluation**이 필요하다(§16-4)
 - **INV-33** Violation scope — 위반은 `REQUEST_LOCAL`·`COHORT_LOCAL`·`GLOBAL`로 구분하며, **전역 불변식 위반을 단일 cohort 격리로 종결하지 않는다**(§16-5)
 - **INV-34** Rollback isolation — 롤백은 **감사·현실 사실을 삭제하는 작업이 아니라**, 승인되지 않은 파생 데이터의 **가시성과 신규 쓰기를 차단하고 기존 경로로 소비권을 되돌리는** 작업이다(§16-5)
+- **INV-35** Phase-scoped measurement — 승격은 **그 Phase에 실제 배선된 `ObservationContext`의 전수 측정**을 요구한다. 아직 존재하지 않는 runtime 경로의 미측정은 이전 Phase의 실패가 아니지만, 그 경로를 여는 후속 Phase에서는 **새로운 승격 게이트**가 된다(§15-1·§16-1)
 
 ---
 
@@ -1455,6 +1456,21 @@ AND violation_count = 0
 
 안전·무결성 지표는 **표본 추출이 아니라 적용 가능한 실행 전수 계측**이 원칙이다. **명시된 sampling은 모델 품질 지표에만** 허용한다.
 
+#### `NO_ELIGIBLE_CASES` vs `NOT_MEASURABLE_YET` (INV-35)
+
+```
+NO_ELIGIBLE_CASES   = 경로는 존재하나 이번 관측창에 적용 대상이 0건
+NOT_MEASURABLE_YET  = 해당 runtime 경로 자체가 아직 배선되지 않아 측정 불가
+```
+
+**측정 상태는 지표 하나에 전역으로 두지 않고 관측 맥락별로 기록한다**:
+
+```
+metric_name + observation_context + cohort_id + build/config/contract
+```
+
+예) P1 종료 시점 — FIXTURE는 `ACTIVE`, runtime은 아직 배선 전이므로 `NOT_MEASURABLE_YET`.
+
 **`narrative_completion_overclaim` phase별 필수성**
 
 ```
@@ -1653,6 +1669,51 @@ guard activation rate의 **임계값 자체는 §16에서** 정하되, **측정�
 - **P3** — entry: P2 exit / fixtures: §13-5 안전 회귀 / metrics: `false_stage_advance`·`forecast_to_confirmed_mutation`=0 / exit: 사실/예측 분리 census
 - **P4** — entry: P3 exit + 관련 evidence `EXPERT_REVIEWED`+`BETA` / fixtures: §12 소비 계약 / metrics: `narrative_completion_overclaim`=**ACTIVE** + counterparty/completion overclaim=0 / exit: cohort별 게이트 통과
 - **P5** — entry: P4 exit + 품질 임계 별도 승인 / fixtures: 전체 / metrics: 전체 + Kind별 표본 / exit: 승인된 surface 한정 live
+
+#### Phase 진행 상태 (2026-07-25)
+
+```
+P0-A CLOSED  88ac10d   문서·감사 계약, 코드 변경 0
+P0-B CLOSED  11bd373   타입·resolver·adapter·side-channel + drift census
+P1   CLOSED  978598f   상태 머신·journal replay·shadow 관측
+P2   NEXT              단계 벡터·병목·support/blocker shadow
+```
+
+**P1 종료 시 관측 상태**:
+
+```
+FIXTURE : episode_collision / duplicate_fact_application /
+          employment_context_partial_commit
+          = ACTIVE, census complete, violation 0
+RUNTIME : NOT_MEASURABLE_YET (P3 배선 후 ACTIVE 전환이 P3 승격 게이트)
+forecast_to_confirmed_mutation = NO_ELIGIBLE_CASES (타입 수준 금지 검증됨)
+```
+
+**P2에서도 유지할 회귀 게이트** — 신규 산출물(`stage_vector`·`bottleneck`·
+`supporting_factors`·`blocking_factors`·projection provenance)은 **shadow
+side-channel에만** 존재한다.
+
+```
+기존 score·raw_score·activation·favorability·confidence 변화 0
+기존 ranking 변화 0 | canonical semantic 직렬화 변화 0
+authoritative career state 변화 0 | LLM·report payload 변화 0
+production inbound import 0
+```
+
+`double_contribution` = **P2의 핵심 절대 게이트**(기존 신호를 새 벡터와 기존 점수에 동시 가산 금지).
+
+#### P4 진입 조건 — `reason_codes` 결함 해소
+
+```
+raw_byte_determinism_status = ACTIVE
+reason_codes known issue     = CLOSED
+multi-seed raw serializer 비교 = violation 0
+```
+
+수정 시점은 **P3 종료 후 P4 직전 별도 baseline-hygiene 커밋**이다 — 지금 고치면 기존
+serializer baseline이 바뀌어 P2 변경과 원인 분리가 어렵다. 수정 방식은 serializer에서
+임의 해석하지 말고 **reason code 생성 계약의 의미를 먼저 확인**한 뒤 정한다(순서 무의미면
+안정 정렬, 우선순위 의미가 있으면 생성 지점의 insertion-order dedup).
 
 ### 16-1. 승격 게이트
 
