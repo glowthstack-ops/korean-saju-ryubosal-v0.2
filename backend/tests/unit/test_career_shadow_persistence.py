@@ -10,7 +10,7 @@ from saju_engines.career_shadow_repository import (
     InMemoryCareerShadowRepository,
     scope_key,
 )
-from saju_engines.career_state_shadow import process_career_turn
+from saju_engines.career_state_shadow import PersistenceStatus, process_career_turn
 from saju_engines.career_transition_reducer import reduce_career_command, replay
 from saju_shared_types.career_commands import CareerFactSource, CreateEpisodeCommand
 from saju_shared_types.career_transition import CareerEpisodeStore
@@ -124,7 +124,7 @@ def test_save_failure_keeps_chat_and_suppresses_block() -> None:
     repo.save = failing_save  # type: ignore[method-assign]
     r = _turn(repo, "지원서를 냈다", episode="ep-a")
     assert not r.consumable
-    assert r.suppress_reason == "SAVE_FAILED"
+    assert r.persistence_status is PersistenceStatus.SAVE_FAILED
 
 
 def test_stale_revision_does_not_overwrite() -> None:
@@ -150,7 +150,7 @@ def test_contract_version_mismatch_suppresses_consumption() -> None:
     repo._rows[key] = row.model_copy(update={"semantics_contract_version": "old.v0"})
     r = _turn(repo, "지원서를 냈다", episode="ep-a")
     assert not r.consumable
-    assert r.suppress_reason == "CONTRACT_VERSION_MISMATCH"
+    assert r.persistence_status is PersistenceStatus.CONTRACT_MISMATCH
     assert r.run is None                   # reducer 자체를 돌리지 않는다
 
 

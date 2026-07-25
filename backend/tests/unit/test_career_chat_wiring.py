@@ -24,16 +24,29 @@ def test_flags_default_off() -> None:
     assert career_chat_consumer.CAREER_TRANSITION_CHAT_BETA_EXPOSE is False
 
 
+def _prep(question="A사에 지원했어", *, thread="t1", subject="s1"):
+    return chat_service._prepare_career_transition_block(
+        question, thread_id=thread, subject_id=subject
+    )
+
+
 def test_prepare_returns_none_when_disabled(monkeypatch) -> None:
-    """flag OFF 면 prepare 가 None → trailing 에 지시문이 붙지 않는다."""
+    """flag OFF 면 prepare 가 None → repository 호출 0, 지시문 0."""
     monkeypatch.setattr(career_chat_consumer, "CAREER_TRANSITION_CHAT_ENABLED", False)
-    assert chat_service._prepare_career_transition_block(object(), object()) is None
+    called = {"n": 0}
+    monkeypatch.setattr(
+        chat_service, "_career_shadow_repository",
+        lambda: called.__setitem__("n", called["n"] + 1),
+    )
+    assert _prep() is None
+    assert called["n"] == 0
 
 
-def test_prepare_returns_none_without_shadow_store(monkeypatch) -> None:
-    """flag ON 이어도 shadow store 가 없으면(P3 경계) 지시문 0."""
+def test_scope_incomplete_suppresses_turn(monkeypatch) -> None:
+    """서버 확정 scope 가 없으면 저장·노출하지 않는다(발화에서 추측 금지)."""
     monkeypatch.setattr(career_chat_consumer, "CAREER_TRANSITION_CHAT_ENABLED", True)
-    assert chat_service._prepare_career_transition_block(object(), object()) is None
+    assert _prep(thread=None) is None
+    assert _prep(subject=None) is None
 
 
 def test_prepare_failure_never_breaks_chat(monkeypatch) -> None:
@@ -43,8 +56,78 @@ def test_prepare_failure_never_breaks_chat(monkeypatch) -> None:
     def boom(*a, **k):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(chat_service, "_career_shadow_store_for", boom)
-    assert chat_service._prepare_career_transition_block(object(), object()) is None
+    monkeypatch.setattr(chat_service, "_career_shadow_repository", boom)
+    assert _prep() is None
+
+
+def test_turn_persists_and_next_turn_resolves(monkeypatch) -> None:
+    """첫 turn 저장 → 다음 turn 이 같은 store 를 읽어 해소한다."""
+    from saju_engines.career_shadow_repository import InMemoryCareerShadowRepository
+
+    repo = InMemoryCareerShadowRepository()
+    monkeypatch.setattr(career_chat_consumer, "CAREER_TRANSITION_CHAT_ENABLED", True)
+    monkeypatch.setattr(chat_service, "_career_shadow_repository", lambda: repo)
+    _prep("A사 지원서를 냈다")
+    _prep("어제 면접을 봤다")
+    loaded = repo.load("t1", "s1")
+    kinds = {f.fact_type for f in loaded.store.fact_journal}
+    assert kinds == {"application_submitted", "interview_completed"}
+
+
+def test_retry_of_same_question_does_not_duplicate(monkeypatch) -> None:
+    """동일 요청 재시도 → journal·revision 중복 증가 0(안정 turn id)."""
+    from saju_engines.career_shadow_repository import InMemoryCareerShadowRepository
+
+    repo = InMemoryCareerShadowRepository()
+    monkeypatch.setattr(career_chat_consumer, "CAREER_TRANSITION_CHAT_ENABLED", True)
+    monkeypatch.setattr(chat_service, "_career_shadow_repository", lambda: repo)
+    _prep("A사 지원서를 냈다")
+    first = repo.load("t1", "s1")
+    _prep("A사 지원서를 냈다")
+    second = repo.load("t1", "s1")
+    assert len(second.store.fact_journal) == len(first.store.fact_journal)
+    assert second.revision == first.revision
+
+
+def test_save_failure_suppresses_exposure(monkeypatch) -> None:
+    """저장 실패 시 메모리 store 로 신규 블록을 노출하지 않는다."""
+    from saju_engines.career_shadow_repository import (
+        InMemoryCareerShadowRepository,
+        ShadowWriteOutcome,
+    )
+
+    repo = InMemoryCareerShadowRepository()
+    repo.save = lambda *a, **k: ShadowWriteOutcome(saved=False, reason="SAVE_FAILED")
+    monkeypatch.setattr(career_chat_consumer, "CAREER_TRANSITION_CHAT_ENABLED", True)
+    monkeypatch.setattr(chat_service, "_career_shadow_repository", lambda: repo)
+    assert _prep("A사 지원서를 냈다") is None
+
+
+def test_load_failure_suppresses_exposure(monkeypatch) -> None:
+    """load 실패 시 빈 store 로 진행하지 않고 억제한다."""
+    from saju_engines.career_shadow_repository import InMemoryCareerShadowRepository
+
+    repo = InMemoryCareerShadowRepository()
+
+    def boom(*a, **k):
+        raise RuntimeError("db down")
+
+    repo.load = boom
+    monkeypatch.setattr(career_chat_consumer, "CAREER_TRANSITION_CHAT_ENABLED", True)
+    monkeypatch.setattr(chat_service, "_career_shadow_repository", lambda: repo)
+    assert _prep("A사 지원서를 냈다") is None
+
+
+def test_different_subject_does_not_share_state(monkeypatch) -> None:
+    """다른 subject 의 store 를 쓰지 않는다."""
+    from saju_engines.career_shadow_repository import InMemoryCareerShadowRepository
+
+    repo = InMemoryCareerShadowRepository()
+    monkeypatch.setattr(career_chat_consumer, "CAREER_TRANSITION_CHAT_ENABLED", True)
+    monkeypatch.setattr(chat_service, "_career_shadow_repository", lambda: repo)
+    _prep("A사 지원서를 냈다", subject="s1")
+    other = repo.load("t1", "s2")
+    assert other.store.fact_journal == ()
 
 
 # ── LLM 호출 횟수 ──────────────────────────────────────────────────────────

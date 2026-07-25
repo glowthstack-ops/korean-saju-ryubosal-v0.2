@@ -10,10 +10,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from collections import Counter
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -4279,7 +4280,9 @@ def chat(
     # ── P4-1 커리어 전이 chat beta(최소 cohort) ────────────────────────
     # prepare 는 LLM을 호출하지 않는다 — 기존 단일 generate_reading 호출을 유지한다.
     # flag OFF(기본)면 지시문이 없어 프롬프트·응답이 byte 동일하다.
-    _career_prep = _prepare_career_transition_block(result, intent)
+    _career_prep = _prepare_career_transition_block(
+        question, thread_id=thread_id, subject_id=subject_id
+    )
     if _career_prep is not None and _career_prep.directive:
         trailing.append(_career_prep.directive)
 
@@ -4531,35 +4534,67 @@ def _save_thread(store: ConversationStore | None, state: ConversationState | Non
 # 자격 미달로 None 을 돌려준다 — flag OFF 와 동일하게 프롬프트·응답이 불변이다.
 
 
-def _prepare_career_transition_block(result, intent):
-    """커리어 전이 블록 준비(LLM 호출 없음). 자격 미달·flag OFF 면 None."""
+def _career_shadow_repository():
+    """프로세스 로컬 shadow 저장소(단일 인스턴스) — production 권위 상태와 분리."""
+    global _CAREER_SHADOW_REPO
+    if _CAREER_SHADOW_REPO is None:
+        from saju_engines.career_shadow_repository import InMemoryCareerShadowRepository
+
+        _CAREER_SHADOW_REPO = InMemoryCareerShadowRepository()
+    return _CAREER_SHADOW_REPO
+
+
+def _prepare_career_transition_block(question, *, thread_id, subject_id):
+    """turn 처리 + 소비 준비. flag OFF·scope 미확정·억제 시 None.
+
+    `chat_service`는 repository 세부를 알지 않고 orchestration 결과만 본다.
+    """
     from saju_engines import career_chat_consumer
 
     if not career_chat_consumer.CAREER_TRANSITION_CHAT_ENABLED:
         return None
+    # 서버가 확정한 식별자만 scope 로 쓴다 — 발화에서 추출한 이름·표시명 금지.
+    if not thread_id or not subject_id:
+        return None
     try:
-        store = _career_shadow_store_for(result, intent)
-        if store is None:
+        from saju_engines.career_state_shadow import process_career_turn
+
+        turn = process_career_turn(
+            _career_shadow_repository(),
+            thread_id=thread_id, subject_id=subject_id,
+            conversation_text=question,
+            command_id=f"{thread_id}:{subject_id}:{_stable_turn_id(question)}",
+            source_fact_id=f"{thread_id}:{_stable_turn_id(question)}",
+            recorded_at=datetime.now(UTC).isoformat(),
+        )
+        if turn.telemetry:
+            _logger.info(
+                "career_shadow_turn status=%s telemetry=%s thread=%s",
+                turn.persistence_status.value, list(turn.telemetry), thread_id,
+            )
+        if turn.suppress_exposure:
+            # 저장되지 않은 사실을 노출하지 않는다(다음 turn 에 사라져 모순이 된다).
             return None
-        return career_chat_consumer.prepare_career_chat_block(
-            store,
+        prep = career_chat_consumer.prepare_career_chat_block(
+            turn.store,
             query_resolution=CareerQueryResolution.GENERAL_CAREER,
             subject_count=1,
             kind=CareerTransitionKind.EXTERNAL_MOVE,
-            vector=_career_effect_vector_for(result),
+            vector=_career_effect_vector_for(turn.store),
         )
+        return prep if prep.eligible else None
     except Exception:  # pragma: no cover - beta 경로가 기존 응답을 깨지 않게
         _logger.exception("career_transition_prepare_failed")
         return None
 
 
-def _career_shadow_store_for(result, intent):
-    """대화에 연결된 커리어 shadow store — P4-1 에서는 아직 영속되지 않아 None."""
-    return None
+def _stable_turn_id(question: str) -> str:
+    """발화 기반 안정 id — 동일 요청 재시도 시 journal·revision 중복 증가를 막는다."""
+    return hashlib.sha256(question.encode("utf-8")).hexdigest()[:16]
 
 
-def _career_effect_vector_for(result):
-    """단계 효과 벡터 — P4-1 에서는 shadow store 부재로 호출되지 않는다."""
+def _career_effect_vector_for(store):
+    """단계 효과 벡터 — P4-1 에서는 빈 벡터(병목 NOT_EVALUABLE)로 둔다."""
     from saju_shared_types.career_effect_vector import CareerEffectVector
 
     return CareerEffectVector()
@@ -4586,3 +4621,7 @@ def _audit_career_transition_answer(
         owner_id=owner_id, surface="chat", ref_id=thread_id,
     )
     return _normalize_ganji_gloss(retried)
+
+
+#: shadow 저장소 단일 인스턴스(지연 생성).
+_CAREER_SHADOW_REPO = None
