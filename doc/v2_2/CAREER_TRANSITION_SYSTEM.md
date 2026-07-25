@@ -32,7 +32,7 @@
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
 | D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
-### 20 불변식 (요약)
+### 22 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -53,6 +53,8 @@
 - **INV-18** 신호 ≠ 단계 사실 — 명리 신호는 단계별 forecast·효과 벡터에만 기여하고, 사용자의 지원·오퍼·퇴사·입사 사실이나 상대 회사의 행동을 생성하지 않음(§10 서두)
 - **INV-19** Legacy form non-scoring — 기존 `event_forms`의 확률·가중값은 단계 벡터·병목 성사도·`forecast_completion_readiness`에 입력하지 않음(의미 분류와 shadow 출력 비교에만 사용)
 - **INV-20** Category compatibility — 전환 기간에 기존 `EVENT_CATEGORY`는 **직렬화 호환성**을, 신규 3분리 필드는 **의미 소유권**을 갖는다. 동일 소비자가 legacy category와 신규 필드를 **동시에 집계·가점하지 않는다**(§11)
+- **INV-21** Calibration maturity — 예측 기간이 성숙하지 않았거나 Episode가 진행 중인 사례는 **실패·미도달로 확정하지 않으며** 정확도 지표의 확정 분모에서 제외한다(§14-2·§14-5)
+- **INV-22** Calibration orthogonality — 도달 상태·결말·시간 지연·사용자 체감·정착은 **서로 다른 축이 소유**하며, 하나의 enum 값이 둘 이상의 축을 대체하지 않는다(§14-3)
 
 ---
 
@@ -885,27 +887,40 @@ class CareerCalibrationRecord:
     transition_kind
     track
     target_stage
-    reach_status                    # 아래 게이트
+    reach_status                    # 아래 게이트(occurrence보다 앞섬)
     occurrence
-    outcome
+    outcome                         # DELAYED 없음 — timing 축이 소유
+    timing_status                   # 별도 축(§14-3)
     experience
-    settlement
+    settlement                      # EARLY_EXIT 없음 — lifecycle/Exit 소유
+    settlement_reason
     source_fact_ids
     calibration_semantics_version   # §11-7 버전 있는 해소
+    # 예측 비교·성숙도 참조는 §14-5
 ```
 
 ### 14-2. `reach_status` — occurrence보다 앞선 게이트
 
 해당 단계에 **도달했는지**를 먼저 구분한다. 이 게이트를 거치지 않으면 미도달이 실패로 오염된다.
 
+```python
+class ReachStatus(StrEnum):
+    REACHED          # 해당 목표 단계에 진입함
+    NOT_REACHED      # Episode가 종료됐으며 그 단계까지 가지 못함
+    PENDING          # Episode가 진행 중이라 도달 여부를 확정할 수 없음
+    NO_ATTEMPT       # 사용자가 적용 가능한 행동을 시도하지 않기로 함
+    NOT_APPLICABLE   # 해당 Kind에는 단계 자체가 적용되지 않음
+    UNKNOWN          # 현실 정보를 알 수 없음
 ```
-REACHED | NOT_REACHED | NO_ATTEMPT | NOT_APPLICABLE | UNKNOWN | IN_PROGRESS
-```
+
+`IN_PROGRESS`는 두지 않는다 — 축이 다르다. "면접에 도달했고 결과 대기 중"은 `reach_status=REACHED` + `outcome=ONGOING`이며, 목표가 오퍼 단계인데 면접 진행 중이면 `target_stage=OFFER_RECEIVED` + `reach_status=PENDING`이다.
+
+> **진행 중이라는 이유만으로 `NOT_REACHED`를 기록하지 않는다.** `NOT_REACHED`는 해당 단계에 도달할 기회가 **사실상 종료된 경우에만** 확정한다(INV-21). 이 구분이 없으면 §15에서 진행 중 사례가 `false_stage_advance`의 거짓 음성으로 들어간다.
 
 | 상황 | Exit 트랙 값 |
 |---|---|
 | 무직 취업(`JOB_GAIN_FROM_UNEMPLOYED`) | **`NOT_APPLICABLE`** (실패도 `NO_ATTEMPT`도 아님) |
-| 재직자가 아직 오퍼 전이라 퇴사 검토 안 함 | **`NOT_REACHED`** |
+| 재직자가 아직 오퍼 전이라 퇴사 검토 안 함 | **`PENDING`**(Episode 진행 중) / Episode 종료 시 `NOT_REACHED` |
 | 오퍼를 받았으나 본인이 퇴사 통보를 하지 않기로 함 | **`NO_ATTEMPT`** |
 | 내부 전보 | 외부 입사·퇴사 = **`NOT_APPLICABLE`** |
 
@@ -920,8 +935,16 @@ CONFIRMED | DENIED | UNCLEAR
 #### Outcome — 도달한 단계가 어떤 결론으로 끝났는가
 ```
 SUCCEEDED | COUNTERPARTY_ENDED | USER_WITHDREW | MUTUAL_BREAKDOWN
-| DELAYED | ONGOING | NOT_APPLICABLE | UNKNOWN
+| ONGOING | NOT_APPLICABLE | UNKNOWN
 ```
+**`DELAYED`는 Outcome이 아니다**(INV-22). 지연은 결말과 동시 성립하므로("협상은 지연됐지만 진행 중", "입사일 연기됐지만 결국 입사 성공") 별도 timing 축이 소유한다. 기존 엔진도 quality와 timing을 독립 축으로 보존하므로 여기서 다시 합치지 않는다.
+
+#### Timing — 시간 지연 상태 (별도 축)
+```python
+class CalibrationTimingStatus(StrEnum):
+    ON_TIME | DELAYED | RESCHEDULED | UNKNOWN | NOT_APPLICABLE
+```
+필드를 늘리지 않으려면 Episode·Track의 timing history를 참조해 파생해도 되나, **`outcome`에 `DELAYED`를 두지 않는다.**
 
 #### Experience — 사용자가 그 과정을 어떻게 체감했는가
 ```
@@ -931,12 +954,66 @@ VERY_POSITIVE | POSITIVE | MIXED | NEGATIVE | VERY_NEGATIVE | UNKNOWN
 
 #### Settlement — 해당 단계 이후 현실적으로 안정됐는가
 ```
-STABLE | CONDITIONAL | UNSTABLE | EARLY_EXIT | TOO_EARLY_TO_TELL
-| NOT_APPLICABLE | UNKNOWN
+STABLE | CONDITIONAL | UNSTABLE | TOO_EARLY_TO_TELL | NOT_APPLICABLE | UNKNOWN
 ```
+**`EARLY_EXIT`는 settlement 값이 아니다**(INV-22) — 조기 퇴사 **사건의 소유자는 lifecycle/Exit 트랙**이다. 권위 상태로 중복 저장하지 않고 아래처럼 표현하거나 Episode `close_reason=EARLY_EXIT`에서 파생한다.
+
+```
+settlement        = UNSTABLE
+settlement_reason = EARLY_EXIT     # 또는 close_reason 참조로 파생
+```
+
 **모든 단계에 동일하게 묻지 않는다** — 주로 Entry·내부 배치 후반 단계에 적용한다.
 
-### 14-4. 필수 음성 사례 (구분 회귀)
+### 14-4. `reach_status` × 4축 유효성 행렬
+
+허용 조합을 고정하지 않으면 모순 레코드가 생긴다(`NOT_APPLICABLE`+`CONFIRMED`, `NO_ATTEMPT`+`COUNTERPARTY_ENDED`, `REACHED`+`DENIED` 등).
+
+| reach_status | occurrence | outcome | experience | settlement |
+|---|---|---|---|---|
+| `REACHED` | 보통 `CONFIRMED` | 실제 상태 | 응답 가능 | 적용 단계만 |
+| `PENDING` | `NOT_APPLICABLE` 또는 미확정 | `NOT_APPLICABLE` | 목표 단계 기준 N/A | N/A |
+| `NOT_REACHED` | `NOT_APPLICABLE` | `NOT_APPLICABLE` | `NOT_APPLICABLE` | `NOT_APPLICABLE` |
+| `NO_ATTEMPT` | `NOT_APPLICABLE` | `NOT_APPLICABLE` | 시도하지 않은 체감은 **별도 기록** | N/A |
+| `NOT_APPLICABLE` | 전부 `NOT_APPLICABLE` | N/A | N/A | N/A |
+| `UNKNOWN` | `UNKNOWN` 또는 미응답 | `UNKNOWN` | `UNKNOWN` | `UNKNOWN` |
+
+#### 미응답 · UNKNOWN · NOT_APPLICABLE 3분리
+
+```
+null / absent    = 질문하지 않았거나 답변이 없음(응답률 문제)
+UNKNOWN          = 사용자가 실제로 모른다고 답함(현실 불확실성)
+NOT_APPLICABLE   = 구조적으로 질문 대상이 아님
+```
+
+미응답을 `UNKNOWN`으로 자동 저장하면 **응답률과 현실 불확실성이 섞인다**. 이 행렬은 §14 규격이자 §13 fixture의 검증 계약(`invalid_calibration_combination`)이다.
+
+### 14-5. 예측 스냅샷 · 관찰 성숙도 참조 (§15 연결)
+
+현실 레이블만으로는 **어느 예측과 비교할지** 알 수 없다. 레코드 본체 또는 별도 envelope에 다음을 둔다.
+
+```
+calibration_record_id
+prediction_snapshot_id       # 예측 생성 시점·모델·계약 버전·대상 Episode·목표 단계·예측 기간
+observed_at
+evaluation_window_status
+record_revision
+supersedes_record_id
+```
+
+```python
+class EvaluationWindowStatus(StrEnum):
+    OPEN             # 아직 결과를 평가하기 이름
+    MATURED          # 예측 기간이 끝나 평가 가능
+    RIGHT_CENSORED   # 추적 종료·사용자 이탈로 끝까지 관찰하지 못함
+    CANCELLED        # 대상 Episode나 질문 자체가 취소됨
+```
+
+> **§15 지표의 확정 분모에는 원칙적으로 `MATURED`만 들어간다**(INV-21). `PENDING`·`OPEN`·`RIGHT_CENSORED`·`NOT_APPLICABLE`을 **실패로 계산하지 않는다**.
+
+캘리브레이션 정정은 기존 레코드를 덮어쓰지 않고 `record_revision`+`supersedes_record_id`로 **이력을 보존**한다(§13 사실 정정 모델과 일관).
+
+### 14-6. 필수 음성 사례 (구분 회귀)
 
 | # | 구분해야 할 것 |
 |---|---|
@@ -951,7 +1028,7 @@ STABLE | CONDITIONAL | UNSTABLE | EARLY_EXIT | TOO_EARLY_TO_TELL
 | 9 | 진행 중인 협상을 실패로 **조기 확정하지 않음**(`ONGOING`) |
 | 10 | **사용자 모름(`UNKNOWN`)과 엔진 무신호(`no_signal`)를 같은 값으로 저장하지 않음** |
 
-### 14-5. 캘리브레이션과 규칙 변경의 경계
+### 14-7. 캘리브레이션과 규칙 변경의 경계
 
 **현실 캘리브레이션 데이터가 곧바로 명리 규칙을 변경하지 않는다.**
 
