@@ -207,10 +207,23 @@ def replay(journal: tuple[CareerJournalItem, ...]) -> CareerEpisodeStore:
                 else None
             )
 
-    if exit_facts and current is not None:
-        current = current.model_copy(
-            update={"exit_state": _project_track(CareerTrack.EXIT, tuple(exit_facts))}
+    if exit_facts:
+        # 퇴사 통보 같은 Exit 사실은 고용 맥락이 명시되기 전에도 관찰될 수 있다.
+        # 맥락이 없으면 암묵 맥락을 만들어 투영한다(사실이 유실되지 않도록).
+        # 단, rollover 로 이미 종료(current=None)된 뒤에는 되살리지 않는다.
+        rolled_closed = any(
+            isinstance(i, EmploymentContextRolledJournalItem) and i.new_context_id is None
+            for i in journal
         )
+        if current is None and not rolled_closed:
+            current = CurrentEmploymentContext(
+                employment_context_id="emp-implicit",
+                exit_state=TrackState(track=CareerTrack.EXIT),
+            )
+        if current is not None:
+            current = current.model_copy(
+                update={"exit_state": _project_track(CareerTrack.EXIT, tuple(exit_facts))}
+            )
 
     built = tuple(
         CareerTransitionEpisode(
