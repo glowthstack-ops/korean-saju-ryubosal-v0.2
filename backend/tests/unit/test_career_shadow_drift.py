@@ -281,6 +281,9 @@ _MODIFY_ALLOWLIST = frozenset(
         "backend/packages/saju_engines/saju_engines/ten_god_brancher.py",
         # P4-1 chat beta 배선(2단 flag 뒤, 기본 OFF).
         "backend/apps/api/saju_api/services/chat_service.py",
+        # beta flag 재발 방지(커리어 로직 무관 — flag 목록 문서화·런타임 확인 수단).
+        "backend/.env.example",
+        "backend/apps/api/saju_api/routers/health.py",
     }
 )
 

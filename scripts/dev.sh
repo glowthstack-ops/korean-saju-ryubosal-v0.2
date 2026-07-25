@@ -16,6 +16,12 @@ fi
 if [ -f "$ROOT/.env.risk" ]; then
   set -a; . "$ROOT/.env.risk"; set +a
 fi
+# 테스터 beta 노출 값(.env.beta — gitignore): 같은 이유로 .env와 분리한다.
+# beta flag는 import 시점 상수라 .env에 두면 pytest의 OFF 기준 회귀가 오염된다.
+# 파일 부재=beta 기능 전부 off(기존 출력 byte 유지). 확인: /health 의 beta_flags.
+if [ -f "$ROOT/.env.beta" ]; then
+  set -a; . "$ROOT/.env.beta"; set +a
+fi
 if [ -z "${SAJU_V2_DATABASE_URL:-}" ]; then
   echo "[warn] SAJU_V2_DATABASE_URL 미설정 — DB 엔드포인트가 503을 반환한다. .env 확인 필요." >&2
 fi

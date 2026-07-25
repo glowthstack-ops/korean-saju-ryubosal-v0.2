@@ -18,10 +18,24 @@ _SERVICE = Path(chat_service.__file__)
 # ── flag 불변 ──────────────────────────────────────────────────────────────
 
 
-def test_flags_default_off() -> None:
-    """두 flag 기본 OFF — 배선이 있어도 기존 응답이 바뀌지 않는다."""
-    assert career_chat_consumer.CAREER_TRANSITION_CHAT_ENABLED is False
-    assert career_chat_consumer.CAREER_TRANSITION_CHAT_BETA_EXPOSE is False
+def test_flags_default_off(monkeypatch) -> None:
+    """env 미설정 시 두 flag 기본 OFF — 배선이 있어도 기존 응답이 바뀌지 않는다.
+
+    flag는 import 시점 상수라, `.env.beta`를 source한 셸에서 pytest를 돌리면
+    ambient env가 이 단언을 오염시킨다. env를 비우고 재로드해 **기본값 자체**를
+    검증하고, 끝나면 실행 환경 기준으로 되돌린다.
+    """
+    import importlib
+
+    monkeypatch.delenv("SAJU_CAREER_TRANSITION_CHAT_ENABLED", raising=False)
+    monkeypatch.delenv("SAJU_CAREER_TRANSITION_CHAT_BETA_EXPOSE", raising=False)
+    reloaded = importlib.reload(career_chat_consumer)
+    try:
+        assert reloaded.CAREER_TRANSITION_CHAT_ENABLED is False
+        assert reloaded.CAREER_TRANSITION_CHAT_BETA_EXPOSE is False
+    finally:
+        monkeypatch.undo()
+        importlib.reload(career_chat_consumer)
 
 
 def _prep(question="A사에 지원했어", *, thread="t1", subject="s1"):

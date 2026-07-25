@@ -66,6 +66,8 @@ backend/compiled/risk_adapter_suspensions.json
 # 위험 adapter 런타임 상태 디렉터리(감수 54차 — git 미추적)
 backend/var/
 .env.risk
+# 테스터 beta 노출 활성화 값(dev.sh가 기동 시 source — backend/.env.example에 목록)
+.env.beta
 
 # 오늘의 운세 스레드 업로드용 텍스트(생성 시마다 갱신 — 커밋 제외, 2026-07-23)
 /오늘의운세.txt
