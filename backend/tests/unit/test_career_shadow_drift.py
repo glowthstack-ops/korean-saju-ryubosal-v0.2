@@ -219,17 +219,22 @@ def _imported_modules(path: Path) -> set[str]:
     return names
 
 
-#: P4-1 에서 승인된 소비 배선 지점 — 2단 flag 뒤(기본 OFF)이며 이 파일만 예외다.
+#: 승인된 소비 배선 지점 — 모두 2단 flag 뒤(기본 OFF)다.
+#: P4-1 chat / P4-2 report. 그 외 경로(daily·엔진 점수)는 계속 0이어야 한다.
 _INBOUND_IMPORT_ALLOWLIST = frozenset(
-    {"backend/apps/api/saju_api/services/chat_service.py"}
+    {
+        "backend/apps/api/saju_api/services/chat_service.py",
+        "backend/apps/api/saju_api/services/report_service.py",
+    }
 )
 
 
 def test_no_unapproved_production_inbound_import() -> None:
     """승인된 소비 배선 지점 외에는 커리어 모듈을 import하지 않는다.
 
-    P4-1 이전에는 inbound import 가 0이었고, 지금은 `chat_service` 하나만 허용된다.
-    report·daily·엔진 점수 경로는 계속 0이어야 한다.
+    P4-1 이전에는 inbound import 가 0이었다. 지금은 `chat_service`(P4-1)와
+    `report_service`(P4-2) 두 소비 지점만 허용된다 — 둘 다 같은 consumer 를 쓰며
+    2단 flag 뒤에 있다. daily·엔진 점수 경로는 계속 0이어야 한다.
     """
     offenders: list[str] = []
     for path in _iter_production_py():

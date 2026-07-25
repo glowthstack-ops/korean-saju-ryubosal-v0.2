@@ -405,6 +405,10 @@ _NATAL_SECTIONS = {
 }
 # 부록 점수표 섹션(실제 표 부착).
 _SCORE_TABLE_SECTIONS = {"C-08", "W-09", "J-08", "R-08", "RP-10", "RL-08"}
+
+#: 커리어 전이 블록을 붙일 섹션 — 이직·전환의 **진행 형태와 관문**을 다루는 곳만.
+#: 구조(J-03)·태도(J-02)·점수표(J-08)는 전이 서술 대상이 아니라 제외한다.
+_CAREER_TRANSITION_SECTIONS = {"J-04", "J-05", "J-07", "Y-06", "F-15"}
 # 이사 테마 — 십성 이유분류(reason_profiles) surface 섹션(이사 고도화 R2).
 _RELOCATION_REASON_SECTIONS = {"RL-03"}
 # 선발·배치 보조 부착 섹션(2026-07-14 방안 2, 데굴님 확정 — 목차 불변): 운 신호 섹션에
@@ -1895,6 +1899,18 @@ def build_section_context(
                 lines += ["", *_risk_beta_block]
         except Exception:  # noqa: BLE001 — beta 노출 실패는 섹션 생성 비차단
             _logger.exception("relationship risk beta 리포트 블록 실패 — 비차단")
+    # 커리어 전이 beta(P4-2 — chat 과 **같은** payload·감사·문구 규약을 재사용한다).
+    # report 전용 점수·병목·판정을 새로 만들지 않는다 — 만들면 chat/report 가 서로 다른
+    # 판단을 낸다. flag off 면 미실행 → 기존 리포트 byte-identical.
+    if sid in _CAREER_TRANSITION_SECTIONS:
+        try:
+            _career_block = _career_transition_report_block(data)
+            if _career_block:
+                # 원자적 소유권(INV-29) — 블록이 실제로 만들어졌을 때만 기존 직업 테마
+                # 상세 서술의 소유권을 넘긴다. 실패하면 아무것도 붙이지 않는다.
+                lines += ["", *_career_block]
+        except Exception:  # noqa: BLE001 — beta 노출 실패는 섹션 생성 비차단
+            _logger.exception("career transition 리포트 블록 실패 — 비차단")
     subject_label = spec.subjects[0].label if spec.subjects else "본인"
     return SectionContext(
         section_id=plan.section_id,
@@ -1912,6 +1928,55 @@ def build_section_context(
 # 관계 인사이트 beta(슬라이스 2) — 3축 라벨·가드(채팅 슬라이스1과 동일 규격).
 _REL_BETA_ACT_KO = {"strong": "강", "moderate": "중", "weak": "약", "low": "미약"}
 _REL_BETA_STAB_KO = {"favorable": "우호", "neutral": "중립", "adverse": "불리"}
+def _career_transition_report_block(data) -> list[str]:
+    """직업 테마용 커리어 전이 블록 — chat 과 **같은** consumer 를 쓴다.
+
+    report 전용 해석기·점수·병목·문구 판정을 만들지 않는다. 같은
+    `CareerConsumerPayload` + 효과 벡터 + 병목 + claim ledger + 입력 감사를 통과한
+    결과만 붙이므로, 같은 명식에 대해 chat 과 report 가 다른 판단을 낼 수 없다.
+
+    **범위는 일반 전망이다.** 리포트는 대화 thread 가 아니라 확인된 지원·면접 사실을
+    갖지 않는다. 없는 Episode 를 만들어 "진행 중"처럼 쓰지 않고, 흐름·관문만 말한다.
+
+    Returns:
+        LLM 입력 지시문 목록. flag off·근거 부족·감사 실패면 빈 목록(기존 서술 유지).
+    """
+    from saju_engines import career_chat_consumer
+    from saju_shared_types.career_transition import (
+        CareerEpisodeStore,
+        CareerQueryResolution,
+        CareerTransitionKind,
+    )
+
+    if not (career_chat_consumer.CAREER_TRANSITION_CHAT_ENABLED
+            and career_chat_consumer.CAREER_TRANSITION_CHAT_BETA_EXPOSE):
+        return []
+    from .chat_service import _career_effect_vector_for
+
+    prep = career_chat_consumer.prepare_career_chat_block(
+        CareerEpisodeStore(),
+        query_resolution=CareerQueryResolution.GENERAL_CAREER,
+        subject_count=1,
+        kind=CareerTransitionKind.EXTERNAL_MOVE,
+        vector=_career_effect_vector_for(data.candidates),
+    )
+    if not prep.eligible or not prep.directive:
+        return []
+    return [
+        "[커리어 전이 — 엔진 계산 관문·강약(beta). 아래 범위 안에서만 서술할 것]",
+        *prep.directive.splitlines(),
+        _CAREER_TRANSITION_REPORT_DIRECTIVE,
+    ]
+
+
+#: 리포트 서술 가드 — chat 의 출력 감사와 같은 금지 범위를 문장으로 고정한다.
+_CAREER_TRANSITION_REPORT_DIRECTIVE = (
+    "이 블록이 있으면 이직·전환의 진행 단계와 관문 서술은 위 값만 근거로 하고, "
+    "본문에서 별도 판정을 새로 만들지 말 것. 합격·성사·입사 확정 단정, 상대 회사의 "
+    "의향 추정, 확인되지 않은 진행 상황(지원한 곳·진행 중인 전형) 언급은 금지한다."
+)
+
+
 _RELATIONSHIP_BETA_REPORT_DIRECTIVE = (
     "아래 [관계 인사이트(beta)]는 사람 감수 전 잠정 관측치다. '활성'은 관계 영역이 움직이는 "
     "에너지 세기일 뿐 결혼·이별의 확정이 아니며, 성사·현실 접촉·공식화는 아직 판정하지 않는다. "
