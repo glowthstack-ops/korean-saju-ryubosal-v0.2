@@ -16,6 +16,7 @@ from saju_shared_types.career_effect_vector import (
     AXIS_TRACK,
     REQUIRED_GATES,
     BottleneckAssessment,
+    BottleneckStatus,
     CareerEffectVector,
     CareerGate,
     ContributionRole,
@@ -207,3 +208,37 @@ def test_clean_contributions_produce_vector() -> None:
     vector, _ = build_effect_vector(contribs)
     assert vector is not None
     assert abs(vector.by_axis[EffectAxis.SELECTION_PROGRESS] - 0.5) < 1e-9
+
+
+def test_missing_required_gate_is_not_evaluable_not_zero() -> None:
+    """필수 관문의 축 근거가 없으면 병목을 0이나 1로 추정하지 않는다."""
+    v = _vector(agreement_quality=0.9)   # EXTERNAL_MOVE 는 exit·entry 도 필요
+    a = assess_bottleneck(CareerTransitionKind.EXTERNAL_MOVE, v)
+    assert a.status is BottleneckStatus.NOT_EVALUABLE
+    assert a.forecast_completion_readiness is None      # 0 으로 추정 금지
+    assert a.bottleneck_gate is None
+    assert set(a.missing_gates) == {CareerGate.EXIT, CareerGate.ENTRY}
+    assert all(r.readiness is None for r in a.gate_readiness if r.gate in a.missing_gates)
+
+
+def test_all_gates_present_becomes_evaluable() -> None:
+    """모든 필수 관문에 근거가 있어야 병목이 판정된다."""
+    v = _vector(agreement_quality=0.9, exit_pressure=0.4, entry_realization=0.6)
+    a = assess_bottleneck(CareerTransitionKind.EXTERNAL_MOVE, v)
+    assert a.status is BottleneckStatus.EVALUABLE
+    assert a.missing_gates == ()
+    assert a.forecast_completion_readiness == 0.4
+
+
+def test_derived_contribution_never_enters_vector_or_sum() -> None:
+    """DERIVED 기여는 원시 목록·합산 입력 어디에도 들어가지 못한다."""
+    vector, audit = build_effect_vector(
+        (_c("EV-1", EffectAxis.SELECTION_PROGRESS, 0.5),
+         _c("SUMMARY", EffectAxis.SELECTION_PROGRESS, 9.9, role=ContributionRole.DERIVED))
+    )
+    assert vector is None and not audit.is_clean       # 벡터 자체가 생성되지 않음
+    # DERIVED 를 뺀 입력만 있으면 정상 생성되고 합산에도 9.9 가 섞이지 않는다.
+    clean, ok = build_effect_vector((_c("EV-1", EffectAxis.SELECTION_PROGRESS, 0.5),))
+    assert ok.is_clean and clean is not None
+    assert clean.by_axis[EffectAxis.SELECTION_PROGRESS] == 0.5
+    assert all(c.role is ContributionRole.PRIMARY for c in clean.contributions)

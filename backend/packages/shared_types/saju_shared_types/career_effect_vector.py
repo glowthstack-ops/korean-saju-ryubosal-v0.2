@@ -180,14 +180,21 @@ GATE_AXIS: Mapping[CareerGate, EffectAxis] = MappingProxyType(
 )
 
 
+class BottleneckStatus(StrEnum):
+    """병목 판정 가능 여부 — 근거 없는 축을 0이나 1로 추정하지 않는다."""
+
+    EVALUABLE = "evaluable"
+    NOT_EVALUABLE = "not_evaluable"   # 필수 관문의 축 기여가 없음
+
+
 class GateReadiness(BaseModel):
-    """관문 1개의 여건."""
+    """관문 1개의 여건. `readiness=None`은 **근거 없음**이며 0이 아니다."""
 
     model_config = ConfigDict(frozen=True)
 
     gate: CareerGate
     axis: EffectAxis
-    readiness: float
+    readiness: float | None = None
 
 
 class BottleneckAssessment(BaseModel):
@@ -201,7 +208,9 @@ class BottleneckAssessment(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     kind: CareerTransitionKind
+    status: BottleneckStatus = BottleneckStatus.NOT_EVALUABLE
     gate_readiness: tuple[GateReadiness, ...] = ()
+    missing_gates: tuple[CareerGate, ...] = ()
     bottleneck_gate: CareerGate | None = None
     forecast_completion_readiness: float | None = None
 
@@ -212,6 +221,7 @@ __all__ = [
     "GATE_AXIS",
     "REQUIRED_GATES",
     "BottleneckAssessment",
+    "BottleneckStatus",
     "CareerEffectVector",
     "CareerFactor",
     "CareerGate",

@@ -14,6 +14,7 @@ from saju_shared_types.career_effect_vector import (
     GATE_AXIS,
     REQUIRED_GATES,
     BottleneckAssessment,
+    BottleneckStatus,
     CareerEffectVector,
     CareerFactor,
     CareerGate,
@@ -119,14 +120,22 @@ def assess_bottleneck(
     gates = REQUIRED_GATES[kind]
     by_axis = vector.by_axis
     readiness = tuple(
-        GateReadiness(gate=g, axis=GATE_AXIS[g], readiness=by_axis.get(GATE_AXIS[g], 0.0))
+        GateReadiness(gate=g, axis=GATE_AXIS[g], readiness=by_axis.get(GATE_AXIS[g]))
         for g in gates
     )
-    if not readiness:
-        return BottleneckAssessment(kind=kind)
-    worst = min(readiness, key=lambda r: r.readiness)
+    missing = tuple(r.gate for r in readiness if r.readiness is None)
+    if missing or not readiness:
+        # 근거 없는 관문을 0이나 1로 추정하지 않는다 — 판정 불가로 남긴다.
+        return BottleneckAssessment(
+            kind=kind,
+            status=BottleneckStatus.NOT_EVALUABLE,
+            gate_readiness=readiness,
+            missing_gates=missing,
+        )
+    worst = min(readiness, key=lambda r: r.readiness if r.readiness is not None else 0.0)
     return BottleneckAssessment(
         kind=kind,
+        status=BottleneckStatus.EVALUABLE,
         gate_readiness=readiness,
         bottleneck_gate=worst.gate,
         forecast_completion_readiness=worst.readiness,
