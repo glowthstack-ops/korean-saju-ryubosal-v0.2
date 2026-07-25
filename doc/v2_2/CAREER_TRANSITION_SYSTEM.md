@@ -776,9 +776,12 @@ fixture 필수 필드: `duplicate_identity`, `retained_candidate`, `selection_re
 **실패 케이스 필수**: 2번째·3번째 변경이 실패하면 "이전 고용만 종료되고 새 고용은 없음" 같은 **반쪽 상태가 남지 않아야** 한다.
 
 ```
-expected_transaction_result = ROLLED_BACK
-expected_store_unchanged    = True
+expected_transaction_result           = ROLLED_BACK
+expected_authoritative_state_unchanged = True
+expected_audit_event                   = TRANSACTION_ROLLED_BACK
 ```
+
+> `expected_authoritative_state_unchanged`는 **`CareerEpisodeStore`와 current employment의 권위 상태 투영이 불변**이라는 뜻이다. 감사 로그·오류 텔레메트리·롤백 기록의 **추가까지 금지하는 의미가 아니다**(§15와 충돌 방지).
 
 #### 대상 회사 변경 (B사 수락 → C사 선택)
 
@@ -796,13 +799,22 @@ expected_store_unchanged    = True
 
 "오퍼를 받았어요"를 후속 턴에서 다시 말함 → `stage_history` **중복 추가 없음**, 동일 `source_fact_id` **재적용 없음**, 상태·링크 불변.
 
+**멱등 키는 문장 텍스트가 아니다.** 같은 문장이라도 대상이 다르면 별개 사실이다("오퍼를 받았다"—A사 / "오퍼를 받았다"—B사).
+
+```
+idempotency_key = source_fact_id + target_episode_id + fact_type + operation_type
+```
+
+동일 `source_fact_id`의 재전달만 중복 적용하지 않으며, **다른 사실 ID는 같은 문장이어도 별개로 처리**한다.
+
 #### (b) 사실 정정 (supersede / retract)
 
 "오퍼를 받았어요" → "정정할게요. 오퍼가 아니라 리크루터 연락만 왔어요"
 
-- 기존 사실의 **supersede 또는 retract 이력 보존**
+- 기존 사실의 **supersede 또는 retract 이력 보존**(물리 삭제 금지 — 보상 이벤트로 남김: `OFFER_RECEIVED → FACT_RETRACTED → RECRUITER_CONTACT_CONFIRMED`)
 - `OFFER_RECEIVED` 확정 상태 **유지 금지**
 - **단순 불법 상태 후퇴로 처리하지 않음** — `FACT_CORRECTION_RECONCILIATION`과 일반 `STATE_REGRESSION`을 **구분**
+- **상태 투영은 정정된 단계로 단순 후퇴시키지 않고 `유효한 전체 사실 이력`으로 재계산한다.** 정정 이후 더 강한 현실 사실이 확인됐다면 그것이 우선한다. 예: "오퍼가 아니라 연락만" 정정 → 이후 "실제 입사했다" → 현재 상태는 **`JOINED` 유지**.
 
 #### (c) 과거 사실의 역순 입력
 
@@ -829,6 +841,14 @@ forecast 대상 추정 금지
 - A사 Episode1이 서류 탈락으로 CLOSED → 몇 달 후 A사 **다른 포지션** 재지원 → **기본 `NEW_EPISODE`**(명시적 근거 없이 종료 Episode 재개 금지).
 - 회사가 **같은 채용 건**을 다시 진행한다고 사용자가 밝힌 경우에만 **`REOPEN_EPISODE`** 허용.
 
+**"같은 채용 건" 판정은 회사명만으로 부족하다.** 아래 식별 근거 중 하나가 필요하며, 근거가 부족하면 **항상 `NEW_EPISODE`가 기본**이다(§6 대상 해소와 연결).
+
+```
+채용 공고·requisition 식별자
+동일 직무 + 동일 전형의 명시
+사용자의 "중단됐던 같은 전형이 다시 열렸다" 확인
+```
+
 ### 13-5. 금지 전이·사실/예측 분리 fixture (안전 회귀)
 
 가장 중요한 회귀 묶음이다.
@@ -848,17 +868,111 @@ forecast 대상 추정 금지
 
 ---
 
-## §12·§14~§17 및 부록 A — 후속 작성 단위
+## §14. 캘리브레이션 축
+
+### 14-0. 단위 — Episode × Track × Reached Stage
+
+**전체 이직을 한 번에 성공·실패로 평가하지 않는다.** 캘리브레이션 단위는 "이직 사건 하나"가 아니라 **Episode × 트랙 × 도달 단계**다.
+
+예) B사 Episode: Opportunity=오퍼 도달 / Exit=통보 안 함 / Entry=미도달
+→ Opportunity occurrence는 **발생**, Exit는 `NO_ATTEMPT`, Entry는 `NOT_REACHED`. **전체를 단순 실패로 저장하지 않는다**(INV-12 축 병합 금지와 정합).
+
+### 14-1. 캘리브레이션 레코드
+
+```python
+class CareerCalibrationRecord:
+    episode_id
+    transition_kind
+    track
+    target_stage
+    reach_status                    # 아래 게이트
+    occurrence
+    outcome
+    experience
+    settlement
+    source_fact_ids
+    calibration_semantics_version   # §11-7 버전 있는 해소
+```
+
+### 14-2. `reach_status` — occurrence보다 앞선 게이트
+
+해당 단계에 **도달했는지**를 먼저 구분한다. 이 게이트를 거치지 않으면 미도달이 실패로 오염된다.
+
+```
+REACHED | NOT_REACHED | NO_ATTEMPT | NOT_APPLICABLE | UNKNOWN | IN_PROGRESS
+```
+
+| 상황 | Exit 트랙 값 |
+|---|---|
+| 무직 취업(`JOB_GAIN_FROM_UNEMPLOYED`) | **`NOT_APPLICABLE`** (실패도 `NO_ATTEMPT`도 아님) |
+| 재직자가 아직 오퍼 전이라 퇴사 검토 안 함 | **`NOT_REACHED`** |
+| 오퍼를 받았으나 본인이 퇴사 통보를 하지 않기로 함 | **`NO_ATTEMPT`** |
+| 내부 전보 | 외부 입사·퇴사 = **`NOT_APPLICABLE`** |
+
+### 14-3. 4축의 소유 의미
+
+#### Occurrence — 단계 사건 자체가 실제로 있었는가
+```
+CONFIRMED | DENIED | UNCLEAR
+```
+주로 `reach_status=REACHED`일 때 적용한다. **`NOT_REACHED`를 `DENIED`로 변환하지 않는다.**
+
+#### Outcome — 도달한 단계가 어떤 결론으로 끝났는가
+```
+SUCCEEDED | COUNTERPARTY_ENDED | USER_WITHDREW | MUTUAL_BREAKDOWN
+| DELAYED | ONGOING | NOT_APPLICABLE | UNKNOWN
+```
+
+#### Experience — 사용자가 그 과정을 어떻게 체감했는가
+```
+VERY_POSITIVE | POSITIVE | MIXED | NEGATIVE | VERY_NEGATIVE | UNKNOWN
+```
+사건이 성사돼도 경험은 부정적일 수 있다(입사 성공 + 연봉·업무 부담으로 체감 부정).
+
+#### Settlement — 해당 단계 이후 현실적으로 안정됐는가
+```
+STABLE | CONDITIONAL | UNSTABLE | EARLY_EXIT | TOO_EARLY_TO_TELL
+| NOT_APPLICABLE | UNKNOWN
+```
+**모든 단계에 동일하게 묻지 않는다** — 주로 Entry·내부 배치 후반 단계에 적용한다.
+
+### 14-4. 필수 음성 사례 (구분 회귀)
+
+| # | 구분해야 할 것 |
+|---|---|
+| 1 | 지원하지 않음 ≠ 지원 실패 |
+| 2 | 면접 단계 미도달 ≠ 면접 탈락 |
+| 3 | 오퍼를 거절함(`USER_WITHDREW`) ≠ 회사가 철회함(`COUNTERPARTY_ENDED`) |
+| 4 | 입사 성공 + 체감 부정 **허용** |
+| 5 | 입사 성공 + 조기 퇴사(`EARLY_EXIT`) **허용** |
+| 6 | 퇴사 완료 + 새 회사 미입사 → Exit 발생, Entry `NOT_REACHED` |
+| 7 | 무직 취업 → Exit `NOT_APPLICABLE` |
+| 8 | 내부 전보 → 외부 입사·퇴사 `NOT_APPLICABLE` |
+| 9 | 진행 중인 협상을 실패로 **조기 확정하지 않음**(`ONGOING`) |
+| 10 | **사용자 모름(`UNKNOWN`)과 엔진 무신호(`no_signal`)를 같은 값으로 저장하지 않음** |
+
+### 14-5. 캘리브레이션과 규칙 변경의 경계
+
+**현실 캘리브레이션 데이터가 곧바로 명리 규칙을 변경하지 않는다.**
+
+```
+사용자 피드백 → 현실 레이블 저장 → 집계·감수 자료
+→ 규칙 단위 분석 → 전문가 검토 → 별도 버전에서 조정
+```
+
+한 사용자의 "면접은 됐지만 힘들었다"를 근거로 `favorability`나 특정 evidence contract를 **즉시 바꾸지 않는다**. 발생(occurrence)과 경험(experience)을 분리한 이유가 여기에 있다. 규칙 조정은 부록 B의 `EvidenceReviewStatus` 경로를 거친다.
+
+---
+
+## §12·§15~§17 및 부록 A — 후속 작성 단위
 
 목차 번호는 유지하되 **작성 순서**는 다음으로 한다(소비 배선은 증거·fixture·감사 지표 확정 후에 작성해 과도 노출 방지):
 
 ```
-§14 캘리브레이션 → §15 shadow 지표 → §12 소비 배선 → §16 로드맵 → §17 재사용표
+§15 shadow 지표 → §12 소비 배선 → §16 로드맵 → §17 재사용표
 ```
 
-- §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰) · §14 캘리브레이션 축(occurrence/outcome/experience/settlement) · §15 shadow 오류 지표 · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
-
-**§14 착수 기준(예약)**: 캘리브레이션 단위는 "이직 사건 하나"가 아니라 **Episode × 트랙 × 도달 단계**로 잡는다. 예) B사 Episode에서 Opportunity=오퍼 도달 / Exit=통보 안 함 / Entry=미도달 → Opportunity occurrence는 **발생**, Exit는 `NO_ATTEMPT` 또는 `NOT_REACHED`, Entry는 `NOT_REACHED`. **전체 이직을 단순 실패로 저장하지 않는다**(INV-12 축 병합 금지와 정합).
+- §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰) · §15 shadow 오류 지표 · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
 
 ---
 
