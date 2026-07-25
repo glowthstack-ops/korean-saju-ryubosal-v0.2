@@ -32,7 +32,7 @@
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
 | D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
-### 24 불변식 (요약)
+### 25 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -57,6 +57,7 @@
 - **INV-22** Calibration orthogonality — 도달 상태·결말·시간 지연·사용자 체감·정착은 **서로 다른 축이 소유**하며, 하나의 enum 값이 둘 이상의 축을 대체하지 않는다(§14-3)
 - **INV-23** Timing from occurrence — 단계 시점 오차는 **실제 발생 시점(또는 발생 범위)** 으로 계산한다. **관찰·입력 시점으로 대신 계산하지 않는다.** 예측 스냅샷은 불변이며 현재 모델 재계산값을 과거 예측처럼 쓰지 않는다(§14-5)
 - **INV-24** Guard success ≠ violation — 안전장치가 정상 작동한 관측(`guard_outcome=BLOCKED`·`ROLLED_BACK` + 권위 상태 불변)은 **위반으로 집계하지 않는다.** 오류는 `VIOLATION`이거나 차단 뒤에도 권위 상태가 변경된 경우다(§15)
+- **INV-25** Census before zero — 안전·무결성 지표는 **적용 가능한 실행 전수 계측**이 원칙이며, `violation_count=0`은 `measurement_status=ACTIVE` + `measured_count=eligible_count`일 때만 통과로 인정한다. **계측 누락(`measured_count=0`)은 통과가 아니라 측정 실패**다(§15-1)
 
 ---
 
@@ -1134,19 +1135,75 @@ class GuardOutcome(StrEnum):
 
 ```
 envelope:
-  metric_name | metric_class | observation_kind | guard_outcome
+  observation_id                        # 안정 생성 시 기본 멱등 키
+  metric_name | metric_class | observation_kind
+  guard_outcome | expected_guard_outcome
+  observation_context                   # 아래 enum
   episode_id_hash | track | stage
   contract_version | model_version | resolution_source
+  run_id | request_id | build_sha | config_snapshot_hash | input_digest
+  observed_at
   audit_event | denominator_eligibility
+```
+
+```python
+class ObservationContext(StrEnum):
+    FIXTURE | GOLDEN_CORPUS | SHADOW_TRAFFIC | CANARY | BETA | LIVE
+```
+
+**의도된 fixture와 실제 트래픽 결함을 구분**하기 위해 `observation_context`·`expected_guard_outcome`이 필요하다.
+
+```
+context=FIXTURE, expected=BLOCKED, actual=BLOCKED           → 정상 통과
+context=SHADOW_TRAFFIC, expected=ALLOWED, actual=BLOCKED    → 안전장치는 성공했으나
+                                                              rollout 데이터 계약 결함
+```
+
+**중복 제거 키**(재시도·중복 전송 시 지표 이중 증가 방지):
+
+```
+observation_id                     # 안정적이면 이것을 기본 멱등 키로
+(대체) metric_name + run_id + 대상 episode/track/stage + contract_version + audit_event
 ```
 
 예: `legacy_ambiguous_fallback`은 구 데이터에서 예상되는 **관측값**이지 곧바로 오류가 아니다 / `dual_consume_blocked`는 **가드가 막은 사건**일 수 있다 / `TRANSACTION_ROLLED_BACK`은 원자성 **보호가 작동**했다는 감사 이벤트다 / `INVALID_MISMATCH`는 fail-closed 정상 작동과 실제 데이터 계약 오류를 구분해야 한다.
 
-### 15-1. 지표 계약 (지표마다 필수)
+### 15-1. 지표 계약 · 계측 커버리지 (INV-25)
 
 ```
 metric_name | metric_class | definition | numerator | denominator
 | exclusions | grouping_dimensions | threshold | promotion_blocking | audit_event
+```
+
+**"오류 0"이 아니라 "전수 측정 후 오류 0"이어야 한다.** `violation_count=0`만으로는 계측 누락과 실제 무오류를 구분하지 못한다(`measured_count=0`은 통과가 아니라 **측정 실패**).
+
+```python
+class MetricMeasurementStatus(StrEnum):
+    ACTIVE | NOT_MEASURABLE_YET | INSUFFICIENT_COVERAGE
+    | INSUFFICIENT_SAMPLE | DEGRADED
+```
+
+지표 결과에 필수 포함:
+
+```
+eligible_count | measured_count | excluded_count | coverage_rate | measurement_status
+```
+
+**승격 규칙 (안전·무결성 지표)**
+
+```
+measurement_status = ACTIVE
+AND measured_count = eligible_count
+AND violation_count = 0
+```
+
+안전·무결성 지표는 **표본 추출이 아니라 적용 가능한 실행 전수 계측**이 원칙이다. **명시된 sampling은 모델 품질 지표에만** 허용한다.
+
+**`narrative_completion_overclaim` phase별 필수성**
+
+```
+§12 미배선 단계     → NOT_MEASURABLE_YET 허용
+§12 배선 후 BETA/LIVE → NOT_MEASURABLE_YET 이면 승격 차단
 ```
 
 ### 15-2. 안전·과장 오류 (`SAFETY_OVERCLAIM`, 0 허용)
@@ -1168,10 +1225,27 @@ metric_name | metric_class | definition | numerator | denominator
 |---|---|
 | `episode_collision` | 2분할: **`fact_episode_collision`**(A사 사실이 B사 Episode에 기록) / **`forecast_episode_collision`**(A사 예측 근거가 B사 후보에 합산) |
 | `track_conflation` | 퇴사 완료를 이직 완료로 오인하는 등 트랙 혼동 |
-| `atomic_promotion_partial_commit` | 고용 승격 중간 실패로 반쪽 상태 잔존(INV-17) |
+| `employment_context_partial_commit` | 고용 컨텍스트 승격 중간 실패로 반쪽 상태 잔존(INV-17). *구 명칭 `atomic_promotion_partial_commit`은 승진(promotion) 이벤트와 혼동되어 사용하지 않는다* |
 | `duplicate_fact_application` | 동일 `idempotency_key` 재적용 |
 | `invalid_calibration_combination` | §14-4 유효성 행렬 위반 |
 | `double_contribution` | 아래 중복 식별 키 기준 |
+| `shadow_output_drift` | shadow 경로 활성화 **전후 기존 권위 출력 차이**(아래 phase별 범위) |
+| `prediction_snapshot_mutation` | 과거 스냅샷의 `model_version`·`contract_version`·`target_stage`·`forecast_window`·`stage_vector`·`bottleneck` 중 **생성 후 변경**(INV-23 위반) |
+| `superseded_revision_included` | supersede된 calibration revision이 **분자·분모에 포함**된 건수(§14-1) |
+
+#### `shadow_output_drift` 검사 대상과 phase별 범위
+
+```
+검사 대상: score · raw_score · activation · favorability · confidence
+          · ranking · legacy_serialized_category · 기존 EventCandidateV2 직렬화
+```
+
+| Phase | 불변 범위 |
+|---|---|
+| P0-B | 엔진·직렬화 불변 |
+| P1~P3 | 기존 점수·랭킹·권위 상태 불변 |
+| §12 소비 배선 전 | LLM·리포트 **입력** 불변 |
+| §12 beta 배선 후 | **허용된 신규 블록 외** 기존 본문·필드 불변 |
 
 `double_contribution` 중복 식별 키(§10 연결):
 
@@ -1189,15 +1263,28 @@ prediction_snapshot_id + candidate_id + period + evidence_id
 
 | 지표 | 기본 분모 |
 |---|---|
-| `stage_precision` | 특정 단계를 예측했고 `MATURED`된 대상 |
-| `stage_recall` | 현실에서 해당 단계가 확인되고 **대응 스냅샷이 있는** 대상 |
+| `stage_reach_precision` | 특정 단계를 예측했고 `MATURED`된 대상 |
+| `stage_reach_recall` | 현실에서 해당 단계가 확인되고 **대응 스냅샷이 있는** 대상 |
 | `stage_timing_error` | `REACHED`이고 **발생 시점 정밀도가 허용 수준 이상**인 대상 |
 | `bottleneck_rank_agreement` | 비교 가능한 단계가 **2개 이상**이며 현실 진행 순서가 해소된 Episode |
 | `settlement_prediction_alignment` | Settlement 적용 단계이며 충분한 관찰 기간이 지난 대상 |
 
+`stage_precision`/`stage_recall` 대신 **`stage_reach_precision`/`stage_reach_recall`** 을 쓴다 — 현실 단계 상태 자체가 아니라 **도달 예측**의 정확도임을 명확히 한다.
+
+**분모에서 반드시 제외**: `NOT_APPLICABLE` · `PENDING` · `OPEN` · `RIGHT_CENSORED` · superseded revision · 대상 Episode 미해소.
+
+**`NO_ATTEMPT`는 별도 보고**한다 — 모델이 무엇을 예측하도록 설계됐는지에 따라 다르며, **사용자 행동이 없어서 진행되지 않은 사례를 모델 거짓 음성으로 자동 계산하지 않는다.**
+
 `time_precision=UNKNOWN`이나 지나치게 넓은 기간 범위는 `stage_timing_error`에서 **제외하되 제외율을 별도 보고**한다. `RIGHT_CENSORED` 비율도 별도 보고한다(§14-5).
 
-**임계값은 P0-A에서 확정하지 않는다**: shadow baseline 관측 → 분포 확인 → 전문가 감수 표본과 비교 → 임계 제안 → **별도 승인**.
+**품질 결과 필수 필드** (점 추정치만으로 보고하지 않는다):
+
+```
+sample_count | confidence_interval | excluded_count_by_reason
+| right_censored_rate | unknown_time_precision_rate
+```
+
+**임계값은 P0-A에서 확정하지 않는다**: shadow baseline 관측 → 분포 확인 → 전문가 감수 표본과 비교 → 임계 제안 → **별도 승인**. 임계는 **최소 표본 수를 충족한 Kind에서만** 제안한다 — 표본이 없는 `RESIGNATION_ONLY`·`INTERNAL_TRANSFER`를 전체 평균으로 숨기지 않는다.
 
 ### 15-5. micro / macro 집계와 Kind 층화
 
@@ -1230,6 +1317,25 @@ EXTERNAL_MOVE | JOB_GAIN_FROM_UNEMPLOYED | RESIGNATION_ONLY | INTERNAL_TRANSFER
 guard_outcome ∈ {BLOCKED, ROLLED_BACK} + authoritative state 불변  → 보호 성공(위반 아님)
 guard_outcome = VIOLATION  또는  차단 뒤에도 권위 상태 변경        → 오류
 ```
+
+#### 두 종류의 차단 분리
+
+정상 차단이라도 shadow corpus에서 **반복**되면(`dual_consume_blocked`·`INVALID_MISMATCH`·`TRANSACTION_ROLLED_BACK`·`legacy_ambiguous_fallback`) 사용자 안전은 지켰어도 그 버전은 **배포 준비가 되지 않은 상태**다.
+
+```
+safety_violation_blocking   : violation_count > 0            → 즉시 차단
+rollout_readiness_blocking  : guard activation rate 임계 초과 → 원인 해소 전 승격 차단
+```
+
+| 관측 | 안전 위반 | rollout 준비 |
+|---|---|---|
+| 가드가 forecast→confirmed를 차단 | 아니오 | 낮은 빈도면 정상 |
+| **모든 요청**에서 dual consume 차단 | 아니오 | **준비 미완료** |
+| 권위 상태가 실제 변경됨 | **예** | 즉시 차단 |
+| production shadow에서 canonical mismatch | 안전장치 성공 | **원인 해소 전 승격 차단** |
+| 의도된 음성 fixture가 mismatch를 차단 | 아니오 | 정상 |
+
+guard activation rate의 **임계값 자체는 §16에서** 정하되, **측정·차단 가능성은 §15에서 예약**한다.
 
 ---
 
