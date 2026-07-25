@@ -32,7 +32,7 @@
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
 | D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
-### 29 불변식 (요약)
+### 30 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -62,6 +62,7 @@
 - **INV-27** Consumer visibility — **배포 자격이 없는 evidence·forecast는 사용자용 LLM 입력과 최종 응답에 영향을 주지 않는다.** 소비 자격은 LLM 판단이 아니라 **직렬화 전에 결정**한다(§12-1)
 - **INV-28** Audited delivery — 최종 응답에서 **provenance 혼합·과장 위반**이 발견되면 그대로 전달하지 않으며, **재작성 또는 안전 fallback 후 다시 감사를 통과**해야 한다(§12-6)
 - **INV-29** Atomic section handoff — 신규 전환 섹션의 **전달이 확정되기 전에는 기존 직업운 섹션의 상세 소유권을 축소하지 않는다.** 신규 섹션이 억제·실패·제거되면 **기존 섹션으로 완전히 복귀**한다(§12-4)
+- **INV-30** Manual promotion authority — `SHADOW→BETA`·`BETA→LIVE`·`SOURCE_DOCUMENTED→EXPERT_REVIEWED`·품질 임계 최초 승인·변경은 **자동화하지 않는다.** 각 승격은 승인자·증거 패키지·승인 시점의 `build_sha`·`contract_version`·`config_snapshot_hash`를 기록한다(§16-6)
 
 ---
 
@@ -1588,16 +1589,153 @@ guard activation rate의 **임계값 자체는 §16에서** 정하되, **측정�
 
 ---
 
-## §16·§17 및 부록 A — 후속 작성 단위
+## §16. rollout · 승격 로드맵
+
+### 16-0. 단계 정의
+
+각 단계는 아래 7속성을 갖는다: `entry_conditions` · `implementation_scope` · `required_fixtures` · `required_metrics` · `exit_conditions` · `rollback_target` · `user_visible_change`.
+
+| 단계 | implementation_scope | user_visible_change | rollback_target |
+|---|---|---|---|
+| **P0-A** | 문서·감사 계약 확정, **코드 변경 0** | 없음 | — |
+| **P0-B** | 저장소·adapter·shadow side-channel 스캐폴딩 | 없음 | P0-A |
+| **P1** | 상태 머신·Episode·전이 그래프 shadow | 없음 | P0-B |
+| **P2** | 단계 벡터·병목·support/blocker shadow | 없음 | P1 |
+| **P3** | 사용자 사실 상속·resolver shadow | 없음 | P2 |
+| **P4** | chat/report 소비 **beta** | 신규 블록 제한 노출 | P3(블록 suppress) |
+| **P5** | 캘리브레이션·감수·**제한적 live** | 승인 surface | P4 |
+
+단계별 요건 요약:
+
+- **P0-A** — entry: 없음 / fixtures: 없음(계약만) / metrics: 없음 / exit: §0~§17·부록 확정 + 코드 변경 0 확인
+- **P0-B** — entry: P0-A 완료 / fixtures: §13-1 의미 해소 + `expected_unchanged` / metrics: `shadow_output_drift=0` / exit: 엔진·직렬화 불변 확인
+- **P1** — entry: P0-B exit / fixtures: §13-3 상태 머신 + §13-4 수명주기 / metrics: `episode_collision`·`employment_context_partial_commit`·`duplicate_fact_application`=0 / exit: 전이 그래프 census 충족
+- **P2** — entry: P1 exit / fixtures: §13-2 cap 조합 / metrics: `double_contribution`=0 / exit: 기여값 감사 통과
+- **P3** — entry: P2 exit / fixtures: §13-5 안전 회귀 / metrics: `false_stage_advance`·`forecast_to_confirmed_mutation`=0 / exit: 사실/예측 분리 census
+- **P4** — entry: P3 exit + 관련 evidence `EXPERT_REVIEWED`+`BETA` / fixtures: §12 소비 계약 / metrics: `narrative_completion_overclaim`=**ACTIVE** + counterparty/completion overclaim=0 / exit: cohort별 게이트 통과
+- **P5** — entry: P4 exit + 품질 임계 별도 승인 / fixtures: 전체 / metrics: 전체 + Kind별 표본 / exit: 승인된 surface 한정 live
+
+### 16-1. 승격 게이트
+
+**안전·무결성은 절대 게이트**다.
 
 ```
-§16 rollout·승격 로드맵 → §17 재사용 경계표 → 부록 A 감사 결과 본문화
-→ P0-A 완료 커밋
+measurement_status = ACTIVE
+measured_count = eligible_count
+violation_count = 0
+shadow_output_drift = 0
+prediction_snapshot_mutation = 0
+superseded_revision_included = 0
 ```
 
-- §16 로드맵 P0~P5(guard activation rate 임계 포함) · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
+`NO_ELIGIBLE_CASES`는 **통과가 아니라 해당 cohort에 대한 증거 부재**로 기록한다.
 
-**§16 착수 기준(예약)**: `guard activation rate`의 분모는 **의도된 음성 fixture를 제외한 `eligible user-facing run`** 으로 정의한다(§15-6 `rollout_readiness_blocking` 임계 산정용).
+**모델 품질 지표는 P0-A에서 임계값을 확정하지 않는다**:
+
+```
+baseline 관측 → 표본 수·CI 확인 → Kind별 분포
+→ 전문가 감수 표본 비교 → 임계 제안 → 별도 승인
+```
+
+### 16-2. guard activation rate
+
+```
+guard_activation_rate
+= 비정상 또는 억제 guard가 작동한 eligible user-facing run
+  / 전체 eligible user-facing run
+```
+
+**분모 제외**: 의도된 음성 fixture · 내부 golden corpus의 expected BLOCK · `SHADOW` 내부 관측만 수행한 실행 · feature flag OFF · 구조적으로 신규 블록이 적용되지 않는 질문 · 중복 재시도 관측.
+
+**분자는 원인별로 분해**한다:
+
+```
+pre_input_block_rate | rewrite_rate | safe_fallback_rate | final_block_rate
+| episode_unresolved_rate | invalid_mismatch_rate
+| dual_consume_block_rate | transaction_rollback_rate
+```
+
+정상 차단이라도 빈도가 승인 임계를 넘으면 `rollout_readiness_blocking = true`(§15-6). **수치 임계는 여기서 확정하지 않는다 — `TBD_BY_SHADOW_BASELINE`.**
+
+### 16-3. 단계별 노출 범위
+
+| 단계 | 권위 상태 변경 | 사용자 LLM 입력 | 최종 응답 | 캘리브레이션 |
+|---|---|---|---|---|
+| P0-B~P3 | **금지** | **금지** | 변화 없음 | 저장 금지 또는 내부 fixture만 |
+| P4 canary | 사용자 사실만 허용 | allowlist만 | 신규 블록 제한 노출 | 별도 beta namespace |
+| P4 beta | 허용된 cohort | beta visibility 통과분 | chat/report만 | revision 보존 |
+| P5 live | 승인된 계약만 | live visibility | 승인 surface | 정식 집계 |
+
+**`daily`는 모든 단계에서 미배선 고정**(INV-14).
+
+### 16-4. cohort와 확대 순서
+
+한 번에 전체 질문 유형을 열지 않는다.
+
+```
+1. GENERAL_CAREER, 단일 본인, 단일 Episode
+2. EPISODE_SPECIFIC_RESOLVED, 단일 Episode
+3. 복수 Episode 일반 질문
+4. 퇴사 단독 · 무직 취업 · 내부 전보
+5. report 노출
+6. 복수 Episode 상세 · 후속 대화
+```
+
+`EPISODE_SPECIFIC_UNRESOLVED`는 **기능 확대 cohort가 아니라 항상 안전 분기**다.
+
+**Kind별 표본이 확보되지 않은 상태에서 외부 이직 결과만으로 무직 취업·퇴사 단독·내부 전보까지 승격하지 않는다.**
+
+### 16-5. 실패 · 롤백
+
+```
+안전 violation > 0
+→ 즉시 신규 노출 중단 → legacy 경로 유지
+→ 신규 authoritative write 차단 → 관련 build/config cohort 격리
+```
+
+rollout readiness 문제는 서비스를 멈추지 않는다:
+
+```
+사용자 응답은 fail-closed / 서비스 전체는 계속 운영
+/ 신규 Career Transition 블록만 suppress
+```
+
+**롤백 시에도 보존**: 감사 이벤트 · prediction snapshot · calibration revision · guard 원인 · build/config hash. 단 **이 자료를 이후 사용자 응답에 재사용하지 않는다.**
+
+### 16-6. 승인 권한 (INV-30)
+
+다음 승격은 **자동화하지 않는다**:
+
+```
+SHADOW → BETA
+BETA → LIVE
+SOURCE_DOCUMENTED → EXPERT_REVIEWED
+품질 임계값 최초 승인·변경
+```
+
+각각 **승인자 · 증거 패키지 · 승인 시점의 `build_sha`·`contract_version`·`config_snapshot_hash`** 를 기록한다.
+
+### 16-7. 완료 정의
+
+**P0-A 완료와 기능 출시를 구분한다.**
+
+```
+P0-A 완료 : SSOT·감사·fixture·calibration·metric·consumer·rollout 계약 완결
+            + 코드 변경 0
+기능 완료 : P0-B~P5 구현과 각 승격 게이트 통과
+```
+
+이 구분이 없으면 문서 완료 커밋이 **기능 출시 준비 완료로 오해**될 수 있다.
+
+---
+
+## §17 및 부록 A — 후속 작성 단위
+
+```
+§17 재사용 경계표 → 부록 A 감사 결과 본문화 → P0-A 완료 커밋
+```
+
+- §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
 
 ---
 
