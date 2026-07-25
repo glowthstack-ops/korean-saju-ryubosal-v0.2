@@ -216,3 +216,82 @@ def test_unknown_event_key_is_ignored_not_crashed() -> None:
         favorability = 0.0
 
     assert build_career_contributions([_Weird(), *_external_move_signals()])
+
+
+# ── 병목 간격 가드 (2026-07-26) ──────────────────────────────────────────
+
+
+def _gate_vector(**gate_values: float):
+    """필수 관문 축을 직접 지정한 벡터(간격 시나리오 구성용)."""
+    from saju_shared_types.career_effect_vector import ContributionRole, EffectContribution
+
+    contribs = tuple(
+        EffectContribution(
+            evidence_id=f"ev-{name}", signal_ref=name, axis=EffectAxis(name),
+            value=v, role=ContributionRole.PRIMARY,
+        )
+        for name, v in gate_values.items()
+    )
+    vector, audit = build_effect_vector(contribs)
+    assert audit.is_clean and vector is not None
+    return vector
+
+
+def test_wide_margin_is_distinct_bottleneck() -> None:
+    """간격이 충분하면 단일 병목으로 말해도 된다."""
+    from saju_shared_types.career_effect_vector import BottleneckSharpness
+
+    v = _gate_vector(agreement_quality=0.5, exit_pressure=0.9, entry_realization=0.95)
+    b = assess_bottleneck(CareerTransitionKind.EXTERNAL_MOVE, v)
+    assert b.sharpness is BottleneckSharpness.DISTINCT
+    assert b.bottleneck_margin == pytest.approx(0.4)
+
+
+def test_narrow_margin_reports_tied_gates() -> None:
+    """하위 두 관문이 비슷하면 병렬로 남긴다 — 단일 병목 단정 금지."""
+    from saju_shared_types.career_effect_vector import BottleneckSharpness
+
+    v = _gate_vector(agreement_quality=0.86, exit_pressure=0.91, entry_realization=0.95)
+    b = assess_bottleneck(CareerTransitionKind.EXTERNAL_MOVE, v)
+    assert b.sharpness is BottleneckSharpness.NARROW
+    assert len(b.tied_gates) >= 2
+
+
+def test_flat_margin_denies_single_bottleneck() -> None:
+    """차이가 사실상 없으면 뚜렷한 병목이 아니다."""
+    from saju_shared_types.career_effect_vector import BottleneckSharpness
+
+    v = _gate_vector(agreement_quality=0.96, exit_pressure=0.97, entry_realization=0.98)
+    b = assess_bottleneck(CareerTransitionKind.EXTERNAL_MOVE, v)
+    assert b.sharpness is BottleneckSharpness.FLAT
+
+
+def test_sharpness_does_not_change_the_verdict() -> None:
+    """서술 강도만 바뀔 뿐 병목 판정 자체는 그대로다."""
+    v = _gate_vector(agreement_quality=0.96, exit_pressure=0.97, entry_realization=0.98)
+    b = assess_bottleneck(CareerTransitionKind.EXTERNAL_MOVE, v)
+    assert b.status is BottleneckStatus.EVALUABLE
+    assert b.bottleneck_gate is not None
+    assert b.forecast_completion_readiness == pytest.approx(0.96)
+
+
+def test_single_gate_kind_has_unknown_sharpness() -> None:
+    """관문이 1개면 비교할 대상이 없다 — 간격을 지어내지 않는다."""
+    from saju_shared_types.career_effect_vector import BottleneckSharpness
+
+    v = _gate_vector(exit_pressure=0.7)
+    b = assess_bottleneck(CareerTransitionKind.RESIGNATION_ONLY, v)
+    assert b.sharpness is BottleneckSharpness.UNKNOWN
+    assert b.bottleneck_margin is None
+
+
+def test_axis_saturation_rate_reports_compression() -> None:
+    """포화율은 adapter 매핑·표시 점수 압축 문제를 드러내는 관측값이다."""
+    from saju_engines.career_effect_vector import axis_saturation_rate
+
+    saturated = _gate_vector(agreement_quality=0.96, exit_pressure=0.97,
+                             entry_realization=0.99)
+    spread = _gate_vector(agreement_quality=0.2, exit_pressure=0.5,
+                          entry_realization=0.95)
+    assert axis_saturation_rate(saturated) == pytest.approx(1.0)
+    assert axis_saturation_rate(spread) == pytest.approx(1 / 3)

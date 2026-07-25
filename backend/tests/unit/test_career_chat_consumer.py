@@ -6,7 +6,10 @@
 
 from __future__ import annotations
 
+import pytest
+
 from saju_engines.career_chat_consumer import (
+    audit_career_chat_response,
     post_output_audit,
     resolve_visibility,
     run_career_chat_block,
@@ -431,3 +434,67 @@ def test_episode_specific_scope_is_unchanged() -> None:
     assert prep.payload.scope is CareerBlockScope.EPISODE_SPECIFIC
     assert prep.payload.resolved_episode_id == "ep-a"
     assert prep.payload.confirmed_track_states
+
+
+# ── 이탈 압력 → 퇴사 단정 누수 차단 (2026-07-26) ─────────────────────────
+
+
+@pytest.mark.parametrize("text", [
+    "퇴사 가능성이 높습니다.",
+    "이직 확률이 큽니다.",
+    "합격 가능성이 높습니다.",
+    "결국 직장을 나오게 됩니다.",
+    "언젠가는 회사를 그만두게 됩니다.",
+    "반드시 퇴사하게 됩니다.",
+])
+def test_outcome_probability_and_inevitability_are_blocked(text: str) -> None:
+    """축 값은 성사 확률이 아니다 — 확률·불가피성 어휘로 번역되면 근거가 없어진다.
+
+    "이탈 압력이 강하다"가 "퇴사 가능성이 높다"로 새는 경로를 막는다.
+    """
+    prep = _prep(CareerEpisodeStore())
+    audit = audit_career_chat_response(text, prep)
+    assert not audit.delivered, f"차단되지 않음: {text}"
+
+
+def test_neutral_pressure_wording_passes() -> None:
+    """압박·변화 욕구로 서술하는 것은 허용된다(사건 단정이 아니다)."""
+    prep = _prep(CareerEpisodeStore())
+    ok = audit_career_chat_response(
+        "현재 환경을 바꾸고 싶다는 압박이나 변화 욕구가 커질 수 있습니다.", prep
+    )
+    assert ok.delivered
+
+
+def test_prohibited_claims_name_the_exit_overclaims() -> None:
+    """프롬프트 금지 목록에도 명시해 애초에 생성되지 않게 한다."""
+    prep = _prep(CareerEpisodeStore())
+    assert prep.payload is not None
+    assert "퇴사 가능성이 높다" in prep.payload.prohibited_claims
+
+
+# ── 병목 간격에 따른 서술 강도 (2026-07-26) ──────────────────────────────
+
+
+def test_flat_margin_block_text_denies_single_bottleneck() -> None:
+    """차이가 미미하면 특정 관문을 약점으로 단정하지 않는다."""
+    from saju_shared_types.career_effect_vector import (
+        ContributionRole,
+        EffectAxis,
+        EffectContribution,
+    )
+
+    contribs = tuple(
+        EffectContribution(evidence_id=f"e{i}", signal_ref=n, axis=EffectAxis(n),
+                           value=v, role=ContributionRole.PRIMARY)
+        for i, (n, v) in enumerate(
+            [("agreement_quality", 0.96), ("exit_pressure", 0.97),
+             ("entry_realization", 0.98)]
+        )
+    )
+    vector, audit = build_effect_vector(contribs)
+    assert audit.is_clean and vector is not None
+    prep = _prep(CareerEpisodeStore(), vector=vector)
+    assert prep.directive is not None
+    assert "차이가 크지 않" in prep.directive
+    assert "가장 약한 관문" not in prep.directive

@@ -123,6 +123,12 @@ class CareerConsumerPayload(BaseModel):
     bottleneck: str | None = None
     #: 병목을 평가할 근거가 부족한 경우 — "가능성이 낮다"로 번역하면 안 된다.
     bottleneck_not_evaluable: bool = False
+    #: 병목이 얼마나 뚜렷한가 — 판정이 아니라 **서술 강도**다(distinct/narrow/flat).
+    bottleneck_sharpness: str = "unknown"
+    #: 두 번째로 낮은 관문 − 가장 낮은 관문. 서술에 쓰지 않고 telemetry 로만 본다.
+    bottleneck_margin: float | None = None
+    #: 간격이 좁을 때 함께 낮은 관문들 — 단일 병목으로 단정하지 않기 위해 병렬로 말한다.
+    tied_bottleneck_gates: tuple[str, ...] = ()
     #: 서술 범위 — GENERAL_FORECAST 는 확정 단계·회사·진행 상황을 말하지 않는다.
     scope: CareerBlockScope = CareerBlockScope.EPISODE_SPECIFIC
     blocking_factors: tuple[str, ...] = ()

@@ -32,7 +32,10 @@ from saju_shared_types.career_consumer import (
     OutputAuditAction,
     StateLabel,
 )
-from saju_shared_types.career_effect_vector import BottleneckStatus
+from saju_shared_types.career_effect_vector import (
+    BottleneckSharpness,
+    BottleneckStatus,
+)
 from saju_shared_types.career_transition import (
     CareerEpisodeStore,
     CareerQueryResolution,
@@ -59,6 +62,17 @@ _COUNTERPARTY_OVERCLAIM = re.compile(
     r"|채용(이|을)\s*확정|오퍼\s*예정|내부(적으로)?\s*결정(됐|되었))"
 )
 _FORECAST_AS_FACT = re.compile(r"(확정적으로|틀림없이|반드시)\s*(오퍼|합격|입사|퇴사)")
+#: 결과를 확률로 말하는 표현 — 축 값은 성사 확률이 아니므로 근거가 없다(2026-07-26).
+#: "이탈 압력이 강하다"가 "퇴사 가능성이 높다"로 번역되는 경로를 막는다.
+_OUTCOME_PROBABILITY = re.compile(
+    r"(퇴사|이직|합격|입사|오퍼|취업)\s*(할)?\s*(가능성|확률)(이|은|도)?\s*"
+    r"(높|큽|크|낮|적)"
+)
+#: 결국·언젠가는 류의 불가피성 서술 — 단정의 우회로다.
+_INEVITABILITY = re.compile(
+    r"(결국|어차피|언젠가는|끝내)\s*.{0,15}?"
+    r"(나오게|그만두게|옮기게|떠나게|퇴사|이직)\s*(됩니다|될|하게)"
+)
 #: 사실 없는 일반 전망에서 금지 — 진행 중인 절차·특정 회사를 전제하는 표현.
 _UNFOUNDED_PROGRESS = re.compile(
     r"(지원(하신|한)\s*(곳|회사)|진행\s*중인\s*(면접|전형|절차)"
@@ -72,6 +86,8 @@ _PROHIBITED_CLAIMS: tuple[str, ...] = (
     "이직이 성사된다",
     "퇴사하게 된다",
     "입사가 확정된다",
+    "퇴사 가능성이 높다",
+    "결국 직장을 나오게 된다",
 )
 
 
@@ -189,6 +205,9 @@ def build_general_payload(*, kind, vector, scope: CareerBlockScope) -> CareerCon
             bottleneck.bottleneck_gate.value if bottleneck.bottleneck_gate else None
         ),
         bottleneck_not_evaluable=not_evaluable,
+        bottleneck_sharpness=bottleneck.sharpness.value,
+        bottleneck_margin=bottleneck.bottleneck_margin,
+        tied_bottleneck_gates=tuple(g.value for g in bottleneck.tied_gates),
         scope=scope,
         blocking_factors=tuple(f.axis.value for f in blocking),
         supporting_factors=tuple(f.axis.value for f in supporting),
@@ -231,6 +250,9 @@ def build_payload(
             bottleneck.bottleneck_gate.value if bottleneck.bottleneck_gate else None
         ),
         bottleneck_not_evaluable=not_evaluable,
+        bottleneck_sharpness=bottleneck.sharpness.value,
+        bottleneck_margin=bottleneck.bottleneck_margin,
+        tied_bottleneck_gates=tuple(g.value for g in bottleneck.tied_gates),
         scope=CareerBlockScope.EPISODE_SPECIFIC,
         blocking_factors=tuple(f.axis.value for f in blocking),
         supporting_factors=tuple(f.axis.value for f in supporting),
@@ -314,6 +336,27 @@ def _labels(keys: tuple[str, ...], table: dict[str, str]) -> str:
     return ", ".join(table.get(k, k) for k in keys)
 
 
+def _bottleneck_phrase(payload: CareerConsumerPayload) -> str:
+    """병목 서술 — **간격이 좁으면 단일 병목으로 단정하지 않는다**.
+
+    축이 포화한 구간에서는 0.86 과 0.88 도 최솟값을 만든다. 판정
+    (`bottleneck_gate`)은 그대로 두고 서술 강도만 낮춘다 — 없는 차이를 말로 만들지
+    않기 위함이다.
+    """
+    if payload.bottleneck_not_evaluable or not payload.bottleneck:
+        return "관문별 강약을 판단할 근거가 아직 부족합니다."
+    name = _GATE_LABEL.get(payload.bottleneck, payload.bottleneck)
+    tied = [_GATE_LABEL.get(g, g) for g in payload.tied_bottleneck_gates]
+    if payload.bottleneck_sharpness == BottleneckSharpness.DISTINCT.value:
+        return f"{name} 쪽이 상대적으로 가장 약한 관문으로 보입니다."
+    if payload.bottleneck_sharpness == BottleneckSharpness.NARROW.value and len(tied) >= 2:
+        return f"{', '.join(tied)}이(가) 비슷한 수준으로 낮습니다."
+    return (
+        "뚜렷한 단일 병목이라기보다, 관문 사이의 차이가 크지 않습니다. "
+        "특정 관문 하나를 약점으로 단정하지 말 것."
+    )
+
+
 def build_block_text(payload: CareerConsumerPayload) -> str:
     """§12-2 고정 5단계 서술(엔진이 뼈대를 만들고 LLM은 문체만 손댄다).
 
@@ -328,16 +371,10 @@ def build_block_text(payload: CareerConsumerPayload) -> str:
         if confirmed else "현재 확인된 커리어 사실은 없습니다."
     )
     meaning = "절차상 그 단계에 있으며, 이후 단계는 아직 확인된 사실이 아닙니다."
-    if payload.bottleneck_not_evaluable:
-        flow = "필수 관문을 평가할 근거가 아직 부족해 다음 단계의 상대 활성도는 판단하지 않습니다."
-    elif payload.bottleneck:
-        flow = (
-            f"운의 흐름에서는 {_GATE_LABEL.get(payload.bottleneck, payload.bottleneck)} "
-            "쪽이 상대적으로 가장 약한 관문으로 보이며, 이것이 특정 회사의 판단이나 "
-            "합격을 뜻하지는 않습니다."
-        )
-    else:
-        flow = "다음 단계의 상대 활성도를 판단할 근거가 충분하지 않습니다."
+    flow = (
+        "운의 흐름에서는 " + _bottleneck_phrase(payload)
+        + " 이것이 특정 회사의 판단이나 합격을 뜻하지는 않습니다."
+    )
     strong = _labels(payload.supporting_factors, _AXIS_LABEL) or "없음"
     weak = _labels(payload.blocking_factors, _AXIS_LABEL) or "없음"
     factors = f"상대적으로 힘이 실리는 쪽은 {strong}, 약한 쪽은 {weak}입니다."
@@ -355,15 +392,7 @@ def build_general_block_text(payload: CareerConsumerPayload) -> str:
     strong = _labels(payload.supporting_factors, _AXIS_LABEL) or "없음"
     weak = _labels(payload.blocking_factors, _AXIS_LABEL) or "없음"
     flow = f"이직 환경에서 상대적으로 힘이 실리는 쪽은 {strong}, 약한 쪽은 {weak}입니다."
-    if payload.bottleneck_not_evaluable:
-        gate = "관문별 강약을 판단할 근거가 아직 부족합니다."
-    elif payload.bottleneck:
-        gate = (
-            f"관문 중에서는 {_GATE_LABEL.get(payload.bottleneck, payload.bottleneck)} "
-            "쪽이 상대적으로 가장 약해 보입니다."
-        )
-    else:
-        gate = "관문별 강약을 판단할 근거가 충분하지 않습니다."
+    gate = "관문 중에서는 " + _bottleneck_phrase(payload)
     tail = (
         "실제로 움직이기로 했다면 그때 확인할 것은 조건·처우 합의, 현 직장 정리 일정, "
         "입사 시점의 실행 가능성입니다. 특정 회사·합격 여부는 여기서 말하지 않습니다."
@@ -400,8 +429,11 @@ def post_output_audit(
 ) -> tuple[OutputAuditAction, tuple[ConsumerViolation, ...]]:
     """출력 감사 — 감사 전 원문 전달 금지, overclaim 은 fail-closed."""
     violations: list[ConsumerViolation] = []
-    if _COMPLETION_OVERCLAIM.search(text):
+    if _COMPLETION_OVERCLAIM.search(text) or _INEVITABILITY.search(text):
         violations.append(ConsumerViolation.NARRATIVE_COMPLETION_OVERCLAIM)
+    if _OUTCOME_PROBABILITY.search(text):
+        # 축 값은 확률이 아니다 — 확률 어휘로 번역하면 없는 근거를 만든다.
+        violations.append(ConsumerViolation.FACT_FORECAST_LANGUAGE_MIXING)
     if _COUNTERPARTY_OVERCLAIM.search(text):
         violations.append(ConsumerViolation.COUNTERPARTY_OVERCLAIM)
     if _FORECAST_AS_FACT.search(text):

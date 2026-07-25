@@ -86,6 +86,12 @@ def validate_sources(dictionaries_dir: Path = _DICTS_DEFAULT) -> list[str]:
             errors.append(f"{name}: 'reviewed'(명리 감수 여부) 미선언 — 서비스 사전은 선언 필수")
         elif not isinstance(data["reviewed"], bool):
             errors.append(f"{name}: 'reviewed' 는 boolean 이어야 함")
+        # runtime 사용 여부와 감수 여부를 분리 선언한다 — `reviewed:false` 를
+        # "계산에 쓰지 않는 규칙"으로 오해하면 영향 범위를 잘못 판단하게 된다.
+        if data.get("runtime_status") not in {"ACTIVE", "INACTIVE"}:
+            errors.append(f"{name}: 'runtime_status' 는 ACTIVE|INACTIVE 여야 함")
+        if data.get("review_status") not in {"PENDING", "APPROVED"}:
+            errors.append(f"{name}: 'review_status' 는 PENDING|APPROVED 여야 함")
         if "version" not in data:
             errors.append(f"{name}: 'version' 미선언")
     return errors
@@ -127,6 +133,9 @@ def build_snapshot(
             "version": data.get("version"),
             # 사람 감수 여부 — 파이프라인이 참으로 바꾸지 않는다.
             "reviewed": data.get("reviewed"),
+            # runtime 사용 여부는 감수 여부와 독립이다(미감수여도 ACTIVE 일 수 있다).
+            "runtime_status": data.get("runtime_status"),
+            "review_status": data.get("review_status"),
         }
         payload[key] = data
     return payload

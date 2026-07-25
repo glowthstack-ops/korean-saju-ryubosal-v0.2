@@ -17,10 +17,11 @@ ENGINE_VERSION = "engine.v1"
 # 사전을 고치면 반드시 이 버전을 올린다 — 캐시 키의 일부라, 올리지 않으면 이미 생성된
 # 보드가 옛 문구를 계속 서비스한다. compiled/daily_fortune_{DICT_VERSION}.json 스냅샷이
 # 버전별로 존재하므로, 누락하면 회귀(test_daily_fortune_snapshot)가 잡는다.
+# v1.8: runtime_status(ACTIVE)·review_status(PENDING) 분리 — 미감수 ≠ 계산 미사용
 # v1.7: 사전 3종 검수 상태(reviewed·review_note) 명시 + 컴파일 스냅샷 파이프라인 도입
 # v1.6: 연애 Top5가 good 오늘의연애 신호 일주 우선 정렬(love_line과 정합, beta·감수 대상)
 # v1.5: love_line 강한 신호 게이트(sg≥3)·reunion 문구 여운 중심 수정
-DICT_VERSION = "dict.v1.7"
+DICT_VERSION = "dict.v1.8"
 PROMPT_VERSION = "polish.v1"
 CONTENT_VERSION = f"{ENGINE_VERSION}|{DICT_VERSION}|{PROMPT_VERSION}"
 

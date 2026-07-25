@@ -125,3 +125,23 @@ def test_validation_rejects_undeclared_review_status(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="사전 검증 실패"):
         build_snapshot(DICT_VERSION, tmp_path)
+
+
+def test_runtime_and_review_status_are_separate() -> None:
+    """`review_status=PENDING` 을 '계산 미사용'으로 오해하지 않게 두 축을 분리한다."""
+    for name, _key in SOURCES:
+        data = json.loads((_DICTS / name).read_text(encoding="utf-8"))
+        assert data["runtime_status"] in {"ACTIVE", "INACTIVE"}, name
+        assert data["review_status"] in {"PENDING", "APPROVED"}, name
+        # 미감수여도 runtime 은 ACTIVE 일 수 있다 — 그 조합이 현재 상태다.
+        assert data["runtime_status"] == "ACTIVE", f"{name}: 실제로 서비스 중이다"
+
+
+def test_validation_requires_both_status_fields(tmp_path: Path) -> None:
+    """상태 축이 빠진 사전은 컴파일되지 않는다."""
+    for name, _key in SOURCES:
+        data = json.loads((_DICTS / name).read_text(encoding="utf-8"))
+        data.pop("runtime_status", None)
+        (tmp_path / name).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    errors = validate_sources(tmp_path)
+    assert errors and all("runtime_status" in e for e in errors)

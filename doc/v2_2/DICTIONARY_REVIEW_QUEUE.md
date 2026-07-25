@@ -12,13 +12,51 @@
 - 빠르게 끝낸다는 이유로 `reviewed:true` 로 바꾸지 않는다 — 어떤 규칙을 승인했는지
   추적할 수 없게 된다.
 
-## 오늘의 운세 사전 3종 (2026-07-26 등록)
+## 상태 어휘 (오해 방지)
 
-| 사전 | 버전 | 구조 검증 | 명리 감수 |
-|---|---|---|---|
-| `daily_fortune/daily_event_catalog.json` | dict.v1.7 | passed | **대기** |
-| `daily_fortune/daily_phrase_templates.json` | dict.v1.7 | passed | **대기** |
-| `daily_fortune/daily_lucky_places.json` | dict.v1.7 | passed | **대기** |
+```
+runtime_status = ACTIVE   → 점수·등급 산출에 실제로 쓰인다
+review_status  = PENDING  → 명리 감수 미완료
+```
+
+**`review_status=PENDING` 은 "계산 미사용"이 아니다.** 두 축을 분리해 선언하지 않으면
+나중에 `reviewed:false` 를 비활성 규칙으로 오해해 영향 범위를 잘못 판단하게 된다.
+컴파일 검증이 두 필드의 선언을 강제한다(`validate_sources`).
+
+## 오늘의 운세 사전 3종 (2026-07-26 등록, dict.v1.8)
+
+### `daily_fortune/daily_event_catalog.json`
+
+| 항목 | 내용 |
+|---|---|
+| runtime 사용 | **ACTIVE** — 사건 후보·도메인·확률의 원천 |
+| 점수 영향 범위 | 전면. 60일주 × 3슬롯(good/caution/support) 전부가 이 카탈로그에서 나온다 |
+| 대표 출력 사례 | "오늘 뜻밖의 수입이 생길 확률 62%", 연애 신호(`love_line`) 선정 |
+| 논쟁점 | 일진-사건 매핑의 명리 타당성, 도메인 분류 경계(work↔social), 확률 밴드 폭 |
+| 감수 후 가능한 변경 | 사건 추가·삭제, 도메인 재배정, 슬롯(good/caution) 재분류, 확률 범위 조정 |
+| 관련 fixture | `tests/unit/test_daily_fortune_dicts.py`(카탈로그 수·스키마·caution 전용 슬롯·동의어 그룹) |
+
+### `daily_fortune/daily_phrase_templates.json`
+
+| 항목 | 내용 |
+|---|---|
+| runtime 사용 | **ACTIVE** — 사용자 노출 문장 전부 |
+| 점수 영향 범위 | 없음(문구 전용). 점수는 카탈로그가 정한다 |
+| 대표 출력 사례 | `love_reunion` 여운·정리 문구, 행운의 장소 문장, 로또 문구 |
+| 논쟁점 | 밝은 단정 톤과 절대원칙 3(단정 금지)의 경계, 재회 서술의 기대 조성 수위 |
+| 감수 후 가능한 변경 | 문구 교체·변형 추가, 톤 조정. **사건·확률은 바뀌지 않는다** |
+| 관련 fixture | 같은 파일(커버리지 최소 변형 수·금지 명리 용어·한자 미노출·로또 정책·placeholder) |
+
+### `daily_fortune/daily_lucky_places.json`
+
+| 항목 | 내용 |
+|---|---|
+| runtime 사용 | **ACTIVE** — 행운의 장소 선정 |
+| 점수 영향 범위 | 없음(장소 선정 전용) |
+| 대표 출력 사례 | "동네 서점", "물 가까운 곳" |
+| 논쟁점 | 오행-장소 대응의 자의성. 규격상 "정확성보다 기억성·재미 우선"으로 설계됨 |
+| 감수 후 가능한 변경 | 장소 추가·삭제, 오행 재배정 |
+| 관련 fixture | 같은 파일(`test_places_schema`) |
 
 **우선순위 근거**: 60일주 전체 사용자에게 매일 반복 노출되므로, 잘못된 규칙 하나의
 노출 범위가 커리어 beta 보다 넓다. 다만 커리어 완료 조건은 아니다.
@@ -30,8 +68,9 @@
   (`tests/regression/test_daily_fortune_snapshot.py`)
 - 금지어·한자 노출·로또 정책·커버리지는 `tests/unit/test_daily_fortune_dicts.py`
 
-**감수 후 절차**: 해당 파일의 `reviewed` 를 `true` 로, `review_note` 를 감수자·일자로
-바꾸고 `DICT_VERSION` 을 올린 뒤 `python scripts/build_daily_fortune_snapshot.py` 재실행.
+**감수 후 절차**: 해당 파일의 `reviewed` 를 `true`, `review_status` 를 `APPROVED` 로,
+`review_note` 를 감수자·일자로 바꾸고 `DICT_VERSION` 을 올린 뒤
+`python scripts/build_daily_fortune_snapshot.py` 재실행.
 
 ## 그 외 대기분
 

@@ -2,7 +2,9 @@
   "schema": "daily_event_catalog.v1",
   "version": "dict.v1.3",
   "reviewed": false,
-  "review_note": "명리 감수 대기 — 구조 검증은 컴파일 파이프라인이 보장한다(compiled/daily_fortune_{DICT_VERSION}.json, structural_validation).",
+  "runtime_status": "ACTIVE",
+  "review_status": "PENDING",
+  "review_note": "runtime_status=ACTIVE — 점수·등급 산출에 실제로 쓰인다. review_status=PENDING — 명리 감수 미완료(비활성 규칙이 아니다). 구조 검증은 compiled/daily_fortune_{DICT_VERSION}.json 이 보장. 대기 목록: doc/v2_2/DICTIONARY_REVIEW_QUEUE.md",
   "domains": [
     "money",
     "love",

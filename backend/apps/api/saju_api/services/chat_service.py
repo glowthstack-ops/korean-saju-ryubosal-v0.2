@@ -4586,13 +4586,16 @@ def _prepare_career_transition_block(
         if turn.suppress_exposure:
             # 저장되지 않은 사실을 노출하지 않는다(다음 turn 에 사라져 모순이 된다).
             return None
+        _vector = _career_effect_vector_for(candidates)
         prep = career_chat_consumer.prepare_career_chat_block(
             turn.store,
             query_resolution=CareerQueryResolution.GENERAL_CAREER,
             subject_count=1,
             kind=CareerTransitionKind.EXTERNAL_MOVE,
-            vector=_career_effect_vector_for(candidates),
+            vector=_vector,
         )
+        if prep.eligible:
+            _log_career_vector_telemetry(prep, _vector, thread_id)
         return prep if prep.eligible else None
     except Exception:  # pragma: no cover - beta 경로가 기존 응답을 깨지 않게
         _logger.exception("career_transition_prepare_failed")
@@ -4625,6 +4628,35 @@ def _career_effect_vector_for(candidates):
         )
         return CareerEffectVector()
     return vector
+
+
+def _log_career_vector_telemetry(prep, vector, thread_id) -> None:
+    """효과 벡터 품질 관측 — 축 값이 캘리브레이션되기 전의 유일한 경보다.
+
+    `axis_saturation_rate` 가 지속적으로 높거나 `same_bottleneck` 이 한쪽으로 쏠리면
+    adapter 매핑이나 표시 점수 압축을 의심해야 한다. 값이 아니라 **분포**를 본다.
+    """
+    from saju_engines.career_effect_vector import axis_saturation_rate
+
+    payload = getattr(prep, "payload", None)
+    if payload is None:
+        return
+    from saju_shared_types.career_effect_vector import EffectAxis
+
+    top = max(vector.contributions, key=lambda c: abs(c.value), default=None)
+    _logger.info(
+        "career_vector_telemetry saturation=%.2f margin=%s sharpness=%s bottleneck=%s "
+        "not_evaluable=%s axis_coverage=%d/%d top_source=%s scope=%s thread=%s",
+        axis_saturation_rate(vector),
+        payload.bottleneck_margin,
+        payload.bottleneck_sharpness,
+        payload.bottleneck,
+        payload.bottleneck_not_evaluable,
+        len(vector.axes), len(EffectAxis),
+        top.signal_ref if top is not None else None,
+        payload.scope.value,
+        thread_id,
+    )
 
 
 def _audit_career_transition_answer(

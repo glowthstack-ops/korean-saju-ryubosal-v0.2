@@ -11,9 +11,13 @@
 from __future__ import annotations
 
 from saju_shared_types.career_effect_vector import (
+    AXIS_SATURATION_LEVEL,
+    BOTTLENECK_MARGIN_DISTINCT,
+    BOTTLENECK_MARGIN_NARROW,
     GATE_AXIS,
     REQUIRED_GATES,
     BottleneckAssessment,
+    BottleneckSharpness,
     BottleneckStatus,
     CareerEffectVector,
     CareerFactor,
@@ -132,14 +136,51 @@ def assess_bottleneck(
             gate_readiness=readiness,
             missing_gates=missing,
         )
-    worst = min(readiness, key=lambda r: r.readiness if r.readiness is not None else 0.0)
+    ordered = sorted(
+        readiness, key=lambda r: (r.readiness if r.readiness is not None else 0.0,
+                                  r.gate.value)
+    )
+    worst = ordered[0]
+    margin: float | None = None
+    sharpness = BottleneckSharpness.UNKNOWN
+    tied: tuple[CareerGate, ...] = ()
+    if len(ordered) >= 2:
+        low = worst.readiness or 0.0
+        margin = (ordered[1].readiness or 0.0) - low
+        if margin >= BOTTLENECK_MARGIN_DISTINCT:
+            sharpness = BottleneckSharpness.DISTINCT
+        elif margin >= BOTTLENECK_MARGIN_NARROW:
+            sharpness = BottleneckSharpness.NARROW
+        else:
+            sharpness = BottleneckSharpness.FLAT
+        if sharpness is not BottleneckSharpness.DISTINCT:
+            # 간격이 좁으면 단일 병목으로 단정하지 않고 함께 낮은 관문을 병렬로 남긴다.
+            tied = tuple(
+                r.gate for r in ordered
+                if (r.readiness or 0.0) - low < BOTTLENECK_MARGIN_DISTINCT
+            )
     return BottleneckAssessment(
         kind=kind,
         status=BottleneckStatus.EVALUABLE,
         gate_readiness=readiness,
         bottleneck_gate=worst.gate,
         forecast_completion_readiness=worst.readiness,
+        bottleneck_margin=margin,
+        sharpness=sharpness,
+        tied_gates=tied,
     )
+
+
+def axis_saturation_rate(vector: CareerEffectVector) -> float:
+    """포화 축 비율 — adapter 매핑·표시 점수 압축 문제를 조기에 드러내는 관측값.
+
+    값이 지속적으로 높으면 축이 변별하지 못한다는 뜻이며, 그때 병목은 "가장 약한 곳"이
+    아니라 "반올림 오차가 가장 큰 곳"에 가깝다.
+    """
+    values = [abs(v) for _axis, v in vector.axes]
+    if not values:
+        return 0.0
+    return sum(1 for v in values if v >= AXIS_SATURATION_LEVEL) / len(values)
 
 
 def split_factors(
@@ -168,6 +209,7 @@ __all__ = [
     "CareerGate",
     "ContributionAudit",
     "assess_bottleneck",
+    "axis_saturation_rate",
     "audit_contributions",
     "build_effect_vector",
     "split_factors",

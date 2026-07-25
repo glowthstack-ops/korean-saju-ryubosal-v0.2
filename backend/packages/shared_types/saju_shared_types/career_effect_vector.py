@@ -187,6 +187,29 @@ class BottleneckStatus(StrEnum):
     NOT_EVALUABLE = "not_evaluable"   # 필수 관문의 축 기여가 없음
 
 
+class BottleneckSharpness(StrEnum):
+    """병목이 **뚜렷한가** — 최솟값 선택만으로는 답할 수 없는 질문(2026-07-26).
+
+    축이 0.85~1.0 에 포화한 상태에서는 0.86 과 0.88 의 차이도 최솟값을 만든다.
+    수학적 최솟값을 그대로 "가장 약한 관문"이라 단정하면 없는 차이를 만들어낸다.
+    판정(`bottleneck_gate`)은 바꾸지 않고 **서술 강도만** 이 값으로 조절한다.
+    """
+
+    DISTINCT = "distinct"   # 단일 병목이라 말할 만한 간격
+    NARROW = "narrow"       # 하위 두 관문이 비슷한 수준
+    FLAT = "flat"           # 관문 간 차이가 사실상 없음
+    UNKNOWN = "unknown"     # 비교할 관문이 1개 이하
+
+
+#: 병목 간격 임계 — **잠정값**이다. 축 값이 캘리브레이션되기 전까지의 서술 가드이며,
+#: 실사용 telemetry(bottleneck_margin 분포)로 조정한다. 판정에는 쓰지 않는다.
+BOTTLENECK_MARGIN_DISTINCT = 0.10
+BOTTLENECK_MARGIN_NARROW = 0.03
+
+#: 축이 포화했다고 보는 값 — saturation telemetry 기준.
+AXIS_SATURATION_LEVEL = 0.90
+
+
 class GateReadiness(BaseModel):
     """관문 1개의 여건. `readiness=None`은 **근거 없음**이며 0이 아니다."""
 
@@ -213,14 +236,24 @@ class BottleneckAssessment(BaseModel):
     missing_gates: tuple[CareerGate, ...] = ()
     bottleneck_gate: CareerGate | None = None
     forecast_completion_readiness: float | None = None
+    #: 두 번째로 낮은 필수 관문 − 가장 낮은 관문. 관문이 1개면 None.
+    bottleneck_margin: float | None = None
+    #: 서술 강도 — 판정이 아니라 "얼마나 단정해도 되는가"다.
+    sharpness: BottleneckSharpness = BottleneckSharpness.UNKNOWN
+    #: 간격이 좁을 때 함께 낮은 관문들(서술에서 병렬로 말한다).
+    tied_gates: tuple[CareerGate, ...] = ()
 
 
 __all__ = [
+    "AXIS_SATURATION_LEVEL",
     "AXIS_TRACK",
+    "BOTTLENECK_MARGIN_DISTINCT",
+    "BOTTLENECK_MARGIN_NARROW",
     "EFFECT_VECTOR_CONTRACT_VERSION",
     "GATE_AXIS",
     "REQUIRED_GATES",
     "BottleneckAssessment",
+    "BottleneckSharpness",
     "BottleneckStatus",
     "CareerEffectVector",
     "CareerFactor",

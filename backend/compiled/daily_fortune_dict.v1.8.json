@@ -1,29 +1,37 @@
 {
-  "dict_version": "dict.v1.7",
-  "compiled_at": "2026-07-25T15:11:40.372368+00:00",
+  "dict_version": "dict.v1.8",
+  "compiled_at": "2026-07-25T16:11:29.570116+00:00",
   "structural_validation": "passed",
   "sources": {
     "daily_event_catalog.json": {
-      "sha256": "55c38a972f7d83408e66e747803c374763ea624ad9077140e9c7051528d025c7",
+      "sha256": "944f3a171c2df1fcd514ba46928d077c38133d64ba0f7d06dda2ce55896caf23",
       "version": "dict.v1.3",
-      "reviewed": false
+      "reviewed": false,
+      "runtime_status": "ACTIVE",
+      "review_status": "PENDING"
     },
     "daily_phrase_templates.json": {
-      "sha256": "ae4d4d4bbab446a636de8893e6177860940f69015ed08e67dd816f4a5fe77134",
+      "sha256": "05d26d7744f84d7f7fb801eecbe22e64d926b7b5399a8333f4e79b2e3484bd8d",
       "version": "dict.v1.5",
-      "reviewed": false
+      "reviewed": false,
+      "runtime_status": "ACTIVE",
+      "review_status": "PENDING"
     },
     "daily_lucky_places.json": {
-      "sha256": "11b10ab6cbebb05747e1b915f7da70d5211e67145ad25834687d100376002bd5",
+      "sha256": "8feaf0169951d4a1cb799b1fdde35edf529eb6877a1baf660ceb27d4b3eef5f1",
       "version": "dict.v1.2",
-      "reviewed": false
+      "reviewed": false,
+      "runtime_status": "ACTIVE",
+      "review_status": "PENDING"
     }
   },
   "catalog": {
     "schema": "daily_event_catalog.v1",
     "version": "dict.v1.3",
     "reviewed": false,
-    "review_note": "명리 감수 대기 — 구조 검증은 컴파일 파이프라인이 보장한다(compiled/daily_fortune_{DICT_VERSION}.json, structural_validation).",
+    "runtime_status": "ACTIVE",
+    "review_status": "PENDING",
+    "review_note": "runtime_status=ACTIVE — 점수·등급 산출에 실제로 쓰인다. review_status=PENDING — 명리 감수 미완료(비활성 규칙이 아니다). 구조 검증은 compiled/daily_fortune_{DICT_VERSION}.json 이 보장. 대기 목록: doc/v2_2/DICTIONARY_REVIEW_QUEUE.md",
     "domains": [
       "money",
       "love",
@@ -1496,7 +1504,9 @@
     "schema": "daily_phrase_templates.v1",
     "version": "dict.v1.5",
     "reviewed": false,
-    "review_note": "명리 감수 대기 — 구조 검증은 컴파일 파이프라인이 보장한다(compiled/daily_fortune_{DICT_VERSION}.json, structural_validation).",
+    "runtime_status": "ACTIVE",
+    "review_status": "PENDING",
+    "review_note": "runtime_status=ACTIVE — 점수·등급 산출에 실제로 쓰인다. review_status=PENDING — 명리 감수 미완료(비활성 규칙이 아니다). 구조 검증은 compiled/daily_fortune_{DICT_VERSION}.json 이 보장. 대기 목록: doc/v2_2/DICTIONARY_REVIEW_QUEUE.md",
     "band_guide": {
       "s5": "85%+ 직설적으로 권유·예고",
       "s4": "70~84% 적극적으로 행동 권유",
@@ -2355,7 +2365,9 @@
     "schema": "daily_lucky_places.v1",
     "version": "dict.v1.2",
     "reviewed": false,
-    "review_note": "명리 감수 대기 — 구조 검증은 컴파일 파이프라인이 보장한다(compiled/daily_fortune_{DICT_VERSION}.json, structural_validation).",
+    "runtime_status": "ACTIVE",
+    "review_status": "PENDING",
+    "review_note": "runtime_status=ACTIVE — 점수·등급 산출에 실제로 쓰인다. review_status=PENDING — 명리 감수 미완료(비활성 규칙이 아니다). 구조 검증은 compiled/daily_fortune_{DICT_VERSION}.json 이 보장. 대기 목록: doc/v2_2/DICTIONARY_REVIEW_QUEUE.md",
     "places": {
       "bookstore": {
         "name": "동네 서점",
