@@ -104,4 +104,78 @@ def run_career_state_shadow(
     )
 
 
-__all__ = ["SHADOW_NAMESPACE", "CareerShadowRunResult", "run_career_state_shadow"]
+
+
+class CareerTurnShadowResult(BaseModel):
+    """한 turn의 shadow 처리 결과 — 소비 자격까지 함께 돌려준다."""
+
+    model_config = ConfigDict(frozen=True)
+
+    store: CareerEpisodeStore
+    revision: int = 0
+    run: CareerShadowRunResult | None = None
+    consumable: bool = True
+    suppress_reason: str | None = None
+
+
+def process_career_turn(
+    repository,
+    *,
+    thread_id: str,
+    subject_id: str,
+    conversation_text: str,
+    command_id: str,
+    source_fact_id: str,
+    recorded_at: str,
+    target_episode_id: str | None = None,
+    occurred_at: str | None = None,
+    producer_build_sha: str = "",
+) -> CareerTurnShadowResult:
+    """turn 1건: load → parse → reducer → 성공분만 atomic save → 소비 자격 판정.
+
+    거부·롤백·추측 차단 시에는 기존 store를 덮어쓰지 않는다. 멱등 no-op 은 revision을
+    올리지 않는다. 저장 실패(stale·오류)나 계약 버전 불일치면 신규 블록을 억제하고
+    기존 chat 경로를 유지한다.
+    """
+    loaded = repository.load(thread_id, subject_id)
+    if loaded.contract_mismatch:
+        # 과거 projection 을 그대로 소비하지 않는다(자동 migration 은 후속 과제).
+        return CareerTurnShadowResult(
+            store=loaded.store, revision=loaded.revision, consumable=False,
+            suppress_reason="CONTRACT_VERSION_MISMATCH",
+        )
+
+    run = run_career_state_shadow(
+        conversation_text, loaded.store, command_id=command_id,
+        source_fact_id=source_fact_id, recorded_at=recorded_at,
+        target_episode_id=target_episode_id, occurred_at=occurred_at,
+    )
+    if not run.applied or run.result is None:
+        # 자격 미달·거부·롤백 — 저장하지 않고 기존 store 를 그대로 쓴다.
+        return CareerTurnShadowResult(
+            store=loaded.store, revision=loaded.revision, run=run
+        )
+
+    outcome = repository.save(
+        thread_id, subject_id, run.result.store,
+        expected_revision=loaded.revision, producer_build_sha=producer_build_sha,
+    )
+    if not outcome.saved:
+        # 조용한 lost update 방지 — 최신 상태를 다시 읽고 이번 턴은 신규 블록 억제.
+        latest = repository.load(thread_id, subject_id)
+        return CareerTurnShadowResult(
+            store=latest.store, revision=latest.revision, run=run,
+            consumable=False, suppress_reason=outcome.reason,
+        )
+    return CareerTurnShadowResult(
+        store=run.result.store, revision=outcome.revision, run=run
+    )
+
+
+__all__ = [
+    "SHADOW_NAMESPACE",
+    "CareerShadowRunResult",
+    "CareerTurnShadowResult",
+    "process_career_turn",
+    "run_career_state_shadow",
+]
