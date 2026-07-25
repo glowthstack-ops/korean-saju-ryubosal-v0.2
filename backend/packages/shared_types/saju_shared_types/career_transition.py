@@ -240,7 +240,12 @@ class StageHistoryItem(BaseModel):
 
 
 class TrackState(BaseModel):
-    """트랙 1개의 상태.
+    """트랙 1개의 **effective projection**(현재 상태).
+
+    `stage_history`는 journal 원본이 아니라 supersede/retract를 해소한 **투영 결과**다
+    (물리 append-only 원본은 `CareerEpisodeStore.fact_journal`). 늦게 도착한 과거 사실을
+    `occurred_at` 순서로 재생해야 하므로 두 층을 분리한다 — 하나의 컬렉션에서 둘 다
+    하려면 "삽입인데 append-only"라는 모순이 생긴다.
 
     `resolved_stage`(발화 해석)는 여기 저장하지 않는다 — resolver의 **턴 단위 출력**이며
     적용 게이트를 통과한 뒤에만 `current_confirmed_stage`·`stage_history`가 갱신된다(§7).
@@ -299,6 +304,22 @@ class CurrentEmploymentContext(BaseModel):
     exit_state: TrackState
     linked_accepted_episode_id: str | None = None   # RESIGNATION_ONLY 는 None 허용
     linked_episode_history: tuple[str, ...] = ()     # 대상 변경 이력(덮어쓰기 금지)
+    #: 내부 전보는 고용 관계를 끝내지 않고 역할·부서 revision만 쌓는다.
+    role_revisions: tuple[str, ...] = ()
+
+
+class EmploymentContextSnapshot(BaseModel):
+    """보관된 과거 고용 맥락.
+
+    새 context로 승격할 때 기존 context를 잃으면 안 된다 — "단일 primary current
+    context"(D19)는 유지하면서 과거는 불변 스냅샷으로 보존한다.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    context: CurrentEmploymentContext
+    archived_at: str
+    archived_reason: CareerTransitionCloseReason | None = None
 
 
 class CareerEpisodeStore(BaseModel):
@@ -320,9 +341,29 @@ class CareerEpisodeStore(BaseModel):
 
     episodes: tuple[CareerTransitionEpisode, ...] = ()
     current_employment: CurrentEmploymentContext | None = None
+    #: 승격으로 교체된 과거 고용 맥락(보존).
+    employment_context_history: tuple[EmploymentContextSnapshot, ...] = ()
+    #: **물리 append-only journal** — `recorded_at` 순서로만 쌓이며 기존 항목을 수정·삭제
+    #: 하지 않는다. 정정·철회도 새 항목이다. 현재 상태는 여기서 투영된다(replay).
+    fact_journal: tuple[StageHistoryItem, ...] = ()
     contract_version: str = CAREER_CONTRACT_VERSION
 
     @property
     def by_id(self) -> Mapping[str, CareerTransitionEpisode]:
         """episode_id → Episode 조회(읽기 전용 파생 — 변경 불가)."""
         return MappingProxyType({e.episode_id: e for e in self.episodes})
+
+    @property
+    def source_fact_ownership(self) -> Mapping[str, tuple[str | None, CareerTrack, str]]:
+        """`source_fact_id` → (episode_id, track, fact_type) 소유 인덱스.
+
+        journal에서 **파생하는 읽기 전용 뷰**다(별도 mutable 인덱스를 두지 않는다).
+        같은 `source_fact_id`가 다른 Episode·track·fact_type으로 다시 오면
+        `FACT_OWNERSHIP_CONFLICT`이며, 이는 멱등(동일 키 재수신)과 별개 검사다.
+        """
+        owner: dict[str, tuple[str | None, CareerTrack, str]] = {}
+        for item in self.fact_journal:
+            owner.setdefault(
+                item.source_fact_id, (item.target_episode_id, item.track, item.fact_type)
+            )
+        return MappingProxyType(owner)
