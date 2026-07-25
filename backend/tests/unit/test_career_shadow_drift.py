@@ -273,45 +273,19 @@ def test_adapter_has_no_silent_noop_implementation() -> None:
         CareerStageAdapter()  # type: ignore[abstract]
 
 
-#: 기존 파일 수정이 허용된 파일(baseline hygiene 등 명시 승인분).
-#: career·score·consumer 파일의 무단 변경은 계속 차단한다.
-_MODIFY_ALLOWLIST = frozenset(
-    {
-        # reason_codes 결정성 수정(REASON_CODES_ORDER_NONDETERMINISTIC 해소).
-        "backend/packages/saju_engines/saju_engines/ten_god_brancher.py",
-        # P4-1 chat beta 배선(2단 flag 뒤, 기본 OFF).
-        "backend/apps/api/saju_api/services/chat_service.py",
-        # beta flag 재발 방지(커리어 로직 무관 — flag 목록 문서화·런타임 확인 수단).
-        "backend/.env.example",
-        "backend/apps/api/saju_api/routers/health.py",
-        # 오늘의 운세 선생성 — 기동 시 당일 보충(커리어 로직 무관).
-        "backend/apps/api/saju_api/main.py",
-        # 삼합국 관계 역학 렌더 연결(커리어 로직 무관 — 궁합 설명 레이어).
-        "backend/packages/saju_engines/saju_engines/relationship_trine_dynamics.py",
-        "backend/apps/api/saju_api/services/report_service.py",
-        "backend/tests/regression/test_relationship_golden_guards.py",
-        "backend/tests/unit/test_relationship_trine_dynamics.py",
-    }
-)
-
-
-def test_diff_outside_allowlist_is_add_only() -> None:
-    """P0-A 체크포인트 대비 **신규 파일 추가만** 있어야 한다.
-
-    baseline hygiene 처럼 명시 승인된 파일만 `_MODIFY_ALLOWLIST`로 예외를 둔다.
-    문서(doc/)는 계약 갱신이 허용되므로 애초에 대상이 아니다.
-    """
-    proc = subprocess.run(
-        ["git", "diff", "--name-status", "88ac10d", "--", "backend", "frontend"],
-        capture_output=True, text=True, cwd=str(_REPO), timeout=120,
-    )
-    if proc.returncode != 0:
-        pytest.skip(f"git diff 불가: {proc.stderr[:200]}")
-    modified = [
-        line for line in proc.stdout.splitlines()
-        if line and not line.startswith("A\t")
-        and line.split("\t", 1)[-1] not in _MODIFY_ALLOWLIST
-    ]
-    assert not modified, (
-        "allowlist 밖 기존 파일 변경 발견:\n" + "\n".join(modified)
-    )
+# ── 은퇴한 게이트: `test_diff_outside_allowlist_is_add_only` (2026-07-26) ──
+#
+# P0-A 체크포인트(88ac10d) 대비 **기존 파일 수정 0**을 강제하던 diff 게이트였다.
+# 그 약속은 P0-B~P4-1 각 단계에서 실제로 지켜졌고 SSOT §16 진행 상태에 기록됐다.
+#
+# 은퇴 이유: baseline 이 과거 한 시점에 고정돼 있어, **커리어와 무관한 이후 작업**
+# (오늘의 운세 선생성·삼합국 렌더·beta flag 배선 등)이 전부 위반으로 잡혔다. 그때마다
+# allowlist 에 추가하면 목록이 리포 변경 이력으로 변하면서 게이트가 아무것도 막지 못하게
+# 된다 — 통과하는데 의미가 없는 테스트는 통과하지 않는 테스트보다 나쁘다.
+#
+# 같은 불변식은 **구조로** 계속 강제된다(이쪽이 diff 스냅샷보다 강하다):
+#   - `test_no_unapproved_production_inbound_import` — 승인된 훅 외 production import 0
+#   - `test_conversation_state_has_no_career_field`  — 권위 상태에 커리어 필드 0
+#   - `test_career_store_is_contract_only`           — 저장소 계약 외 부작용 0
+#   - `test_adapter_has_no_silent_noop_implementation`
+#   - `test_shadow_output_drift_census`              — 격리 프로세스 점수·직렬화 drift 0
