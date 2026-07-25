@@ -1698,8 +1698,29 @@ P4-1 CLOSED  e50e872   최소 cohort 소비 파이프라인
              0cfe135   테스터 flag 실제 주입(.env.beta) + /health 노출
              56822dd   효과 벡터를 기존 신호로 충전 — 병목이 판정된다
              8edb71d   사실 없는 일반 질문에 저장 없는 전망 블록
-P4-2 ACTIVE  24248eb   직업 테마 리포트에 같은 consumer 배선
+P4-2 CLOSED  24248eb   직업 테마 리포트에 같은 consumer 배선
+             90c4e6f   병목 간격 가드·확률 어휘 차단·telemetry
 ```
+
+```
+Career transition implementation : CLOSED
+Tester rollout                   : READY  (DB 영속 확인 완료)
+Validation method                : tester usage + feedback
+```
+
+**출시 차단 요소 없음(2026-07-26 확인)**: 테스터 환경이 실제로
+`PostgresCareerShadowStateRepository` 를 쓰고 `career_shadow_state` 테이블에 기록 중이다
+(in-memory 아님). 재시작·다중 worker 에서 대화 상태가 유지된다.
+
+**알려진 제한(피드백으로 개선)**:
+- 효과 벡터 축 값이 포화한다(표시 점수 기반). 상대 비교는 유효하나 절대 수준은
+  캘리브레이션 전이며, 그래서 수치를 LLM 에 전달하지 않는다. `bottleneck_margin` 이
+  좁으면 단일 병목으로 단정하지 않는다.
+- 리포트는 채팅에서 확인된 사실을 승계하지 않는다. 향후 연결이 필요하면 conversation
+  memory 전체가 아니라 **사용자가 리포트 생성 시 선택한 Episode snapshot**
+  (`selected_career_episode_id` · `career_snapshot_revision`)만 명시적으로 전달한다.
+  섹션 제목은 "직업·이직의 전반적 흐름"처럼 두고 "현재 진행 중인 이직 분석" 류로
+  기대를 만들지 않는다.
 
 **P4 완료 판정(2026-07-26)**: 아래 4개가 출시 조건이었고 1~3 은 완료됐다.
 
