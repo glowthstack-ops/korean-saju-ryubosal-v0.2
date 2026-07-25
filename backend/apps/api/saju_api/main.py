@@ -8,7 +8,7 @@ import logging
 import os
 import traceback
 from collections.abc import AsyncIterator
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
@@ -63,14 +63,33 @@ _KST = ZoneInfo("Asia/Seoul")
 
 
 async def _daily_fortune_pregen_loop() -> None:
-    """23:50 KST 에 익일 보드를 선생성·교정한다 (env SAJU_DAILY_FORTUNE_PREGEN=1 전용).
+    """보드를 **사용자 요청과 무관하게** 준비한다 (env SAJU_DAILY_FORTUNE_PREGEN=1 전용).
+
+    23:50 KST 에 익일 보드를 선생성·교정하고, **기동 즉시 당일 누락을 보충**한다.
+    23:50 태스크만 두면 그 시각에 서버가 떠 있지 않았던 경우(배포·재기동·신규 환경)
+    당일 보드가 비어 첫 사용자가 60건 생성 + LLM 교정을 그대로 기다리게 된다.
 
     기본 off — 개발·테스트·임시 서버가 자정마다 LLM 을 호출하지 않도록 운영에서만
-    명시적으로 켠다. 실패·누락은 당일 요청의 lazy 생성이 보완한다(무중단).
+    명시적으로 켠다. 보충은 멱등이다(보드가 이미 있으면 재생성하지 않고, 교정도
+    polish_status 가 RAW 일 때만 수행된다). 실패해도 루프를 유지하며, 최후 보루로
+    당일 요청의 lazy 생성이 남는다(무중단).
     """
     from saju_engines.daily_fortune_cache import default_cache
 
     from .services import daily_fortune_polish
+
+    log = logging.getLogger("saju.daily_fortune")
+
+    async def _ensure(target: date) -> None:
+        try:
+            await asyncio.to_thread(
+                daily_fortune_polish.generate_and_polish, default_cache(), target
+            )
+        except Exception:  # noqa: BLE001 — 루프 유지, 다음 주기 재시도
+            log.exception("보드 선생성 실패 date=%s", target)
+
+    # 기동 즉시 당일 보충 — 지금 접속하는 사용자가 생성을 기다리지 않게 한다.
+    await _ensure(datetime.now(_KST).date())
 
     while True:
         now = datetime.now(_KST)
@@ -78,13 +97,7 @@ async def _daily_fortune_pregen_loop() -> None:
         if run_at <= now:
             run_at += timedelta(days=1)
         await asyncio.sleep((run_at - now).total_seconds())
-        try:
-            target = (datetime.now(_KST) + timedelta(days=1)).date()
-            await asyncio.to_thread(
-                daily_fortune_polish.generate_and_polish, default_cache(), target
-            )
-        except Exception:  # noqa: BLE001 — 루프 유지, 다음 자정 재시도
-            logging.getLogger("saju.daily_fortune").exception("익일 선생성 실패")
+        await _ensure((datetime.now(_KST) + timedelta(days=1)).date())
 
 
 @contextlib.asynccontextmanager

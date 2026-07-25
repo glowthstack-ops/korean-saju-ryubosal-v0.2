@@ -284,6 +284,13 @@ _MODIFY_ALLOWLIST = frozenset(
         # beta flag 재발 방지(커리어 로직 무관 — flag 목록 문서화·런타임 확인 수단).
         "backend/.env.example",
         "backend/apps/api/saju_api/routers/health.py",
+        # 오늘의 운세 선생성 — 기동 시 당일 보충(커리어 로직 무관).
+        "backend/apps/api/saju_api/main.py",
+        # 삼합국 관계 역학 렌더 연결(커리어 로직 무관 — 궁합 설명 레이어).
+        "backend/packages/saju_engines/saju_engines/relationship_trine_dynamics.py",
+        "backend/apps/api/saju_api/services/report_service.py",
+        "backend/tests/regression/test_relationship_golden_guards.py",
+        "backend/tests/unit/test_relationship_trine_dynamics.py",
     }
 )
 
