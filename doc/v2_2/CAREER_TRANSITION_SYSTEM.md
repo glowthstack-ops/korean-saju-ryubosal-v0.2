@@ -1524,16 +1524,26 @@ metric_name + observation_context + cohort_id + build/config/contract
 drift 관측은 무엇을 증명했는지 구분해 기록한다.
 
 ```
-comparison_mode            = CANONICAL_SEMANTIC
-known_baseline_issue       = REASON_CODES_ORDER_NONDETERMINISTIC
-raw_byte_determinism_status = DEGRADED
+comparison_mode             = RAW_BYTE
+known_baseline_issue        = REASON_CODES_ORDER_NONDETERMINISTIC → CLOSED (2026-07-25)
+raw_byte_determinism_status = ACTIVE
 ```
 
 - **증명된 것**: 동일 `PYTHONHASHSEED` + 동일 입력·config + 순서 무의미 컬렉션 canonical
   정렬 조건에서 **treatment-induced drift = 0**.
 - **아직 증명되지 않은 것**: 임의 `PYTHONHASHSEED` 간 **raw serializer byte 동일성**.
 
-**등록된 결함 — `REASON_CODES_ORDER_NONDETERMINISTIC`** (2026-07-25, P0-B census 발견):
+**결함 CLOSED — `REASON_CODES_ORDER_NONDETERMINISTIC`** (발견 2026-07-25 P0-B census, 해소 2026-07-25 baseline hygiene):
+
+원인은 `ten_god_brancher`의 단일 십성 루프가 `set`을 순회한 것이었다(str 해시 무작위화).
+`reason_codes` 순서는 `reason_codes_ko`가 그대로 보존해 **LLM 입력 근거 순서가 되므로
+순서에 의미가 있다** — 정렬로 뭉개지 않고 **canonical 십성 선언 순서로 순회를 고정**했다.
+내용·점수·랭킹은 불변이고 순서만 결정적이 됐다. 회귀는 `PYTHONHASHSEED` 1·17·123·random
+4회 실행의 **raw 직렬화 byte 동일성**을 요구한다(`tests/regression/
+test_reason_code_determinism.py`). P0-B drift census도 정규화·seed 고정 우회를 걷어내고
+raw 비교로 전환했다.
+
+*(원문 기록)* 최초 등록 내용:
 `EventCandidateV2.reason_codes`가 set 순회 + 해시 무작위화로 프로세스마다 순서가 다르다.
 점수·activation·favorability·랭킹은 영향 없다. **P0-B가 만든 drift가 아니라 기존
 baseline 결함**이며, raw byte 불변을 요구하는 **§12 소비 배선(P4) 전에는 반드시 해결**한다.
@@ -1705,12 +1715,12 @@ production inbound import 0
 #### P4 진입 조건 — `reason_codes` 결함 해소
 
 ```
-raw_byte_determinism_status = ACTIVE
-reason_codes known issue     = CLOSED
-multi-seed raw serializer 비교 = violation 0
+raw_byte_determinism_status = ACTIVE   ✔ 충족(2026-07-25)
+reason_codes known issue     = CLOSED   ✔ 충족
+multi-seed raw serializer 비교 = violation 0   ✔ 충족(seed 1·17·123·random)
 ```
 
-수정 시점은 **P3 종료 후 P4 직전 별도 baseline-hygiene 커밋**이다 — 지금 고치면 기존
+*(이력)* 수정 시점은 **P3 종료 후 P4 직전 별도 baseline-hygiene 커밋**으로 계획됐고 그대로 수행됐다 — 지금 고치면 기존
 serializer baseline이 바뀌어 P2 변경과 원인 분리가 어렵다. 수정 방식은 serializer에서
 임의 해석하지 말고 **reason code 생성 계약의 의미를 먼저 확인**한 뒤 정한다(순서 무의미면
 안정 정렬, 우선순위 의미가 있으면 생성 지점의 insertion-order dedup).

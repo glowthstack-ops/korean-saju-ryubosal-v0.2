@@ -99,20 +99,8 @@ for case in payload["cases"]:
     ))
     cands = engine.score(chart, levels={GanjiLevel.YEAR})
 
-    # canonical serialization — 순서가 무의미한 컬렉션을 정규화한다(SSOT 12-7).
-    # reason_codes 는 적용 룰 id 집합이라 순서에 의미가 없고 프로세스마다 달라진다
-    # (set 순회 + PYTHONHASHSEED). 순서를 비교 대상에 두면 점수가 같아도 거짓 drift 가
-    # 잡히므로 정렬한다. 후보 목록 자체의 순서(랭킹)는 그대로 비교한다.
-    def canonical(cand):
-        d = cand.model_dump(mode="json")
-        if isinstance(d.get("reason_codes"), list):
-            d["reason_codes"] = sorted(d["reason_codes"])
-        for key in ("source_layers", "source_ten_gods"):
-            if isinstance(d.get(key), list):
-                d[key] = sorted(d[key], key=str)
-        return d
-
-    # 비교 단위 = 정렬된 후보 목록 전체(랭킹 포함) + 정규화된 직렬화.
+    # raw 직렬화를 그대로 비교한다 — reason_codes 순서 비결정성이 해소된 뒤로는
+    # 정규화 우회가 필요 없다(REASON_CODES_ORDER_NONDETERMINISTIC = CLOSED).
     out[case["case_id"]] = [
         {
             "rank": i,
@@ -124,7 +112,7 @@ for case in payload["cases"]:
             "favorability": c.favorability,
             "confidence_level": str(c.confidence_level),
             "legacy_serialized_category": EVENT_CATEGORY.get(c.event_key),
-            "serialized": canonical(c),
+            "serialized": c.model_dump(mode="json"),
         }
         for i, c in enumerate(cands)
     ]
@@ -134,9 +122,9 @@ print(json.dumps(out, sort_keys=True, ensure_ascii=False))
 
 def _run_arm(arm: str) -> dict[str, list[dict[str, object]]]:
     payload = json.dumps({"dicts": str(_BACKEND / "dictionaries"), "cases": list(_CASES)})
-    # 두 arm에 동일한 해시 시드를 고정한다 — str 해시 무작위화로 생기는 set 순회 차이를
-    # 제거해 control/treatment가 같은 조건에서 비교되도록 한다(canonical 정렬과 병행).
-    env = {**os.environ, "PYTHONHASHSEED": "0"}
+    # 해시 시드를 고정하지 않는다 — 엔진이 seed 무관 결정적이어야 하며, 고정하면 그
+    # 성질을 검증하지 못한다(multi-seed 회귀는 tests/regression 에 별도로 있다).
+    env = dict(os.environ)
     proc = subprocess.run(
         [sys.executable, "-c", _RUNNER, arm, payload],
         capture_output=True, text=True, cwd=str(_REPO), timeout=900, env=env,
@@ -172,10 +160,8 @@ def test_shadow_output_drift_census(arms) -> None:
 
     비교 단위는 개별 필드가 아니라 **정렬된 후보 목록 전체**다(랭킹 포함).
 
-    비교 모드는 `CANONICAL_SEMANTIC`이다 — raw byte 재현성은 기존 baseline 결함
-    (`reason_codes` cross-process 순서 비결정)으로 아직 보장되지 않는다. 여기서
-    증명하는 것은 **신규 모듈 import 여부에 따른 의미·점수·순위·canonical 직렬화
-    차이 0**이며, 임의 seed 간 raw byte 동일성은 별도 과제다.
+    비교 모드는 `RAW_BYTE`다 — `REASON_CODES_ORDER_NONDETERMINISTIC` 해소 후로는
+    정규화 없이 raw 직렬화를 그대로 비교하며 해시 시드도 고정하지 않는다.
     """
     control, treatment = arms
     # 분모는 manifest에서 — 실행 결과에서 얻지 않는다.
@@ -273,10 +259,21 @@ def test_adapter_has_no_silent_noop_implementation() -> None:
         CareerStageAdapter()  # type: ignore[abstract]
 
 
-def test_p0b_diff_is_add_only() -> None:
-    """P0-A 체크포인트 대비 **신규 파일 추가만** 있어야 한다(기존 파일 무수정).
+#: 기존 파일 수정이 허용된 파일(baseline hygiene 등 명시 승인분).
+#: career·score·consumer 파일의 무단 변경은 계속 차단한다.
+_MODIFY_ALLOWLIST = frozenset(
+    {
+        # reason_codes 결정성 수정(REASON_CODES_ORDER_NONDETERMINISTIC 해소).
+        "backend/packages/saju_engines/saju_engines/ten_god_brancher.py",
+    }
+)
 
-    문서(doc/)는 계약 갱신이 허용되므로 제외한다.
+
+def test_diff_outside_allowlist_is_add_only() -> None:
+    """P0-A 체크포인트 대비 **신규 파일 추가만** 있어야 한다.
+
+    baseline hygiene 처럼 명시 승인된 파일만 `_MODIFY_ALLOWLIST`로 예외를 둔다.
+    문서(doc/)는 계약 갱신이 허용되므로 애초에 대상이 아니다.
     """
     proc = subprocess.run(
         ["git", "diff", "--name-status", "88ac10d", "--", "backend", "frontend"],
@@ -287,5 +284,8 @@ def test_p0b_diff_is_add_only() -> None:
     modified = [
         line for line in proc.stdout.splitlines()
         if line and not line.startswith("A\t")
+        and line.split("\t", 1)[-1] not in _MODIFY_ALLOWLIST
     ]
-    assert not modified, "기존 파일 변경 발견(P0-B는 add-only):\n" + "\n".join(modified)
+    assert not modified, (
+        "allowlist 밖 기존 파일 변경 발견:\n" + "\n".join(modified)
+    )

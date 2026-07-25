@@ -28,6 +28,10 @@ from saju_shared_types.luck import LuckPillar
 # ── 사전 로더 모델(lenient — 모델 외 필드는 무시) ─────────────────
 
 
+#: 십성 canonical 선언 순서 — set 순회 대신 이 순서로 고정해 결정론을 보장한다.
+_TEN_GOD_ORDER: dict[TenGod, int] = {g: i for i, g in enumerate(TenGod)}
+
+
 class _BaseEvent(BaseModel):
     model_config = ConfigDict(extra="ignore")
     event: EventKeyV2
@@ -230,8 +234,11 @@ class TenGodEventBrancher:
             a.reasons.append(rule_id)
             a.ten_gods |= gods
 
-        # 단일 십성
-        for god in present_gods:
+        # 단일 십성 — set 순회는 프로세스마다 순서가 달라져 reason_codes 순서가
+        # 비결정적이 된다(str 해시 무작위화). reason_codes 순서는 llm_event_serializer의
+        # reason_codes_ko 가 그대로 보존해 LLM 입력 근거 순서가 되므로, canonical 십성
+        # 선언 순서로 고정한다(내용·점수 불변, 순서만 결정적).
+        for god in sorted(present_gods, key=_TEN_GOD_ORDER.__getitem__):
             srule = self._single.get(god)
             if srule:
                 for ev in srule.base_events:
