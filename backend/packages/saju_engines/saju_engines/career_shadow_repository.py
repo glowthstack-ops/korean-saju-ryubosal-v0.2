@@ -40,7 +40,7 @@ def _deserialize_journal(raw) -> tuple:
         StageHistoryItem,
     )
 
-    by_kind = {
+    by_kind: dict[JournalItemKind, type[BaseModel]] = {
         JournalItemKind.EPISODE_CREATED: EpisodeCreatedJournalItem,
         JournalItemKind.EPISODE_CLOSED: EpisodeClosedJournalItem,
         JournalItemKind.EPISODE_REOPENED: EpisodeReopenedJournalItem,
