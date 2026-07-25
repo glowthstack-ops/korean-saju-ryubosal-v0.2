@@ -2,7 +2,9 @@
 
 > 이 문서는 이직/취업/퇴사/입사/전보를 **하나의 운이 아니라 세 트랙(기회·종료·진입)이 병렬로 움직이는 사건 그래프**로 다루기 위한 단일 진실 원천(SSOT)이다. 관계 도메인의 `RELATIONSHIP_EVENT_SYSTEM.md`와 동일한 절차(SSOT → 어휘·런타임 감사 → 게이트 → shadow 구현 → 캘리브레이션 → beta 노출)를 따른다.
 >
-> **작성 상태**: §0~§9 = 1차 검토 단위(불변식·구조 뼈대). §10~§17 및 부록 = 후속. 본 문서에 정의되지 않은 명리 규칙은 §10 증거계약에서 **감수 대상**으로만 표기하며 감수 전 구현하지 않는다(리포 규칙 10).
+> **작성 상태 (P0-A 완결)**: §0~§17 + 부록 A(감사)·부록 B(감수 게이트) 작성 완료. **코드 변경 0** — P0-A 완료는 설계·감사 계약의 완결이며 **기능 출시 준비 완료가 아니다**(§16-7). 본 문서에 정의되지 않은 명리 규칙은 §10 증거계약에 **감수 대상**으로만 표기하며 부록 B 경로를 통과하기 전에는 구현·배선하지 않는다(리포 규칙 10).
+>
+> **규격: 불변식 INV-1~INV-34 · 결정 D1~D21.**
 
 ---
 
@@ -32,7 +34,7 @@
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
 | D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
-### 30 불변식 (요약)
+### 34 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -63,6 +65,10 @@
 - **INV-28** Audited delivery — 최종 응답에서 **provenance 혼합·과장 위반**이 발견되면 그대로 전달하지 않으며, **재작성 또는 안전 fallback 후 다시 감사를 통과**해야 한다(§12-6)
 - **INV-29** Atomic section handoff — 신규 전환 섹션의 **전달이 확정되기 전에는 기존 직업운 섹션의 상세 소유권을 축소하지 않는다.** 신규 섹션이 억제·실패·제거되면 **기존 섹션으로 완전히 복귀**한다(§12-4)
 - **INV-30** Manual promotion authority — `SHADOW→BETA`·`BETA→LIVE`·`SOURCE_DOCUMENTED→EXPERT_REVIEWED`·품질 임계 최초 승인·변경은 **자동화하지 않는다.** 각 승격은 승인자·증거 패키지·승인 시점의 `build_sha`·`contract_version`·`config_snapshot_hash`를 기록한다(§16-6)
+- **INV-31** Gate identity — 한 승격 평가에서는 **서로 다른 build·config·contract의 관측값을 혼합하지 않으며**, 의미 변경 후에는 **전체 필수 지표를 다시 측정**한다. 기존 `PASS`는 `STALE`이 된다(§16-1)
+- **INV-32** No evidence inheritance — surface·`transition_kind`·query 유형·Episode 다중도·visibility 차원의 **통과가 다른 차원의 통과를 자동 보장하지 않는다.** 새 차원을 열 때 해당 차원을 포함한 **별도 gate evaluation**이 필요하다(§16-4)
+- **INV-33** Violation scope — 위반은 `REQUEST_LOCAL`·`COHORT_LOCAL`·`GLOBAL`로 구분하며, **전역 불변식 위반을 단일 cohort 격리로 종결하지 않는다**(§16-5)
+- **INV-34** Rollback isolation — 롤백은 **감사·현실 사실을 삭제하는 작업이 아니라**, 승인되지 않은 파생 데이터의 **가시성과 신규 쓰기를 차단하고 기존 경로로 소비권을 되돌리는** 작업이다(§16-5)
 
 ---
 
@@ -1628,7 +1634,30 @@ prediction_snapshot_mutation = 0
 superseded_revision_included = 0
 ```
 
-`NO_ELIGIBLE_CASES`는 **통과가 아니라 해당 cohort에 대한 증거 부재**로 기록한다.
+`NO_ELIGIBLE_CASES`는 **통과가 아니라 해당 cohort에 대한 증거 부재**로 기록하며 `gate_status=NOT_EVALUABLE`에 대응한다.
+
+**절대 게이트는 단독 숫자가 아니라 census와 함께 평가한다**(INV-25). 예: P0-B의 `shadow_output_drift=0`은 `eligible_count>0` + `measured_count=eligible_count` + fixture corpus 전수 통과와 함께 확인한다. P4 진입도 `measurement_status=ACTIVE` + `coverage_rate=1.0` + `violation_count=0`을 함께 본다.
+
+#### 승격 평가의 identity (INV-31)
+
+```python
+class RolloutGateEvaluation:
+    phase | cohort_id
+    build_sha | contract_version | config_snapshot_hash
+    evidence_contract_set_hash | fixture_suite_version
+    measurement_window_start | measurement_window_end
+    gate_status
+
+class GateStatus(StrEnum):
+    PASS | FAIL | NOT_EVALUABLE | STALE
+```
+
+아래 변경 중 **하나라도 발생하면 기존 `PASS`는 `STALE`** 이 되고 전체 필수 지표를 다시 측정한다.
+
+```
+코드·빌드 변경 | 계약·불변식 의미 변경 | evidence mapping 변경 | config 변경
+| fixture 추가·수정 | metric 산식·분모 변경 | consumer visibility 정책 변경
+```
 
 **모델 품질 지표는 P0-A에서 임계값을 확정하지 않는다**:
 
@@ -1685,6 +1714,25 @@ pre_input_block_rate | rewrite_rate | safe_fallback_rate | final_block_rate
 
 **Kind별 표본이 확보되지 않은 상태에서 외부 이직 결과만으로 무직 취업·퇴사 단독·내부 전보까지 승격하지 않는다.**
 
+#### 증거 상속 금지 (INV-32)
+
+이전·상위 cohort의 통과가 다음 cohort의 통과를 **자동 보장하지 않는다**.
+
+```
+GENERAL_CAREER 단일 Episode 통과  ≠  복수 Episode 상세 질문 통과
+EXTERNAL_MOVE 통과                ≠  RESIGNATION_ONLY 통과
+chat 통과                         ≠  report 통과
+```
+
+**최소 승격 증거 단위**:
+
+```
+surface + query_resolution + transition_kind
++ episode_cardinality + consumer_visibility + build/config cohort
+```
+
+모든 조합을 처음부터 독립 출시 단위로 만들 필요는 없으나, **새 차원을 열 때는 그 차원을 포함한 별도 gate evaluation**이 필요하다. `NO_ELIGIBLE_CASES`인 Kind는 **다른 Kind의 성공 결과로 승격하지 않는다.**
+
 ### 16-5. 실패 · 롤백
 
 ```
@@ -1700,7 +1748,56 @@ rollout readiness 문제는 서비스를 멈추지 않는다:
 / 신규 Career Transition 블록만 suppress
 ```
 
-**롤백 시에도 보존**: 감사 이벤트 · prediction snapshot · calibration revision · guard 원인 · build/config hash. 단 **이 자료를 이후 사용자 응답에 재사용하지 않는다.**
+#### 위반 범위 (INV-33)
+
+```python
+class ViolationScope(StrEnum):
+    REQUEST_LOCAL | COHORT_LOCAL | GLOBAL
+```
+
+| 위반 | 권장 범위 |
+|---|---|
+| 특정 입력의 Episode 해소 실패 | `REQUEST_LOCAL` |
+| 특정 report serializer에서 과장 발생 | `COHORT_LOCAL` |
+| **forecast가 confirmed store를 변경** | **`GLOBAL`** |
+| **legacy와 adapter 이중 가산** | 일반적으로 **`GLOBAL`** |
+| **prediction snapshot 변조** | **`GLOBAL`** |
+| 특정 Kind 전용 매핑 오류 | `COHORT_LOCAL` 또는 `GLOBAL` 판정 필요 |
+
+```
+REQUEST_LOCAL → 해당 응답 차단·fallback
+COHORT_LOCAL  → 해당 cohort만 suppress·격리
+GLOBAL        → 모든 Career Transition 사용자 노출 중단
+                + 신규 model-derived write 차단
+```
+
+`forecast_to_confirmed_mutation` 같은 **전역 불변식 위반을 단일 cohort 격리만으로 끝내지 않는다** — 다른 cohort에도 같은 결함이 남는다.
+
+#### 롤백 후 데이터 계약 (INV-34)
+
+> 롤백은 **감사·현실 사실을 삭제하는 작업이 아니라**, 승인되지 않은 파생 데이터의 **가시성과 신규 쓰기를 차단하고 기존 경로로 소비권을 되돌리는** 작업이다.
+
+**계속 보존** (기능 롤백 때문에 삭제·되돌림 금지):
+
+```
+사용자가 확인한 현실 사실 | 사실 정정·철회 이력 | 감사 이벤트
+| prediction snapshot | calibration revision | 승인·승격 기록
+```
+
+**사용자 소비에서 격리**:
+
+```
+롤백된 build가 만든 forecast | 미승인 evidence effect
+| beta-only derived stage | 롤백된 consumer claim
+```
+
+격리를 위한 필드:
+
+```
+producer_build_sha | producer_contract_version | visibility_epoch
+```
+
+reader는 **현재 승인된 버전 allowlist에 없는 파생 데이터를 사용자 응답에서 소비하지 않는다.**
 
 ### 16-6. 승인 권한 (INV-30)
 
@@ -1729,13 +1826,114 @@ P0-A 완료 : SSOT·감사·fixture·calibration·metric·consumer·rollout 계�
 
 ---
 
-## §17 및 부록 A — 후속 작성 단위
+## §17. 기존 자산 재사용 경계표
+
+**코드 보존과 새 3트랙 모델에 대한 의미적 재사용 승인은 구분한다.** 아래 3등급으로 나눈다.
+
+### ① 그대로 보존 (변경 금지)
+
+| 자산 | 근거 |
+|---|---|
+| `EventCandidateV2.activation` / `favorability` 이중채널 | 강도/방향 분리 완성(INV-3 상위 요약값) |
+| `quality` / `timing` 독립 축 | 방향과 지연 분리 |
+| endpoint 불변식(`test_event_direction_integrity`) | 회귀로 고정된 근거 무결성 |
+| 거버닝 스택(대운·세운·월운·일운 결합) | 계층 역할 분리 |
+| 기존 출력·키·직렬화 | INV-13·INV-20 |
+
+### ② 어댑터 뒤 재사용 (원본 수정 없이 참조)
+
+| 자산 | 이직 도메인 사용처 |
+|---|---|
+| `structure_patterns`(식신제살·상관견관·재생관·관인상생) | §10 증거 계약의 `signal_ref` — **감수 전 배선 금지** |
+| `user_facts` 원장 | §7 사용자 사실 상속(career 슬롯 신규) |
+| 멀티턴 맥락 상속(`conversation.py`) | Episode 대상 해소 보조 |
+| `relationship_state_resolver`의 **temporal 규칙** | §7 시점 정합(저장 모델은 복제하지 않음) |
+| calibration **family-cap 패턴** | §11-8 `calibration_cap_key`(값은 신규) |
+
+### ③ 의미 재검증 후 재사용 (shadow 적합성 확인 필요)
+
+| 자산 | 재검증 사유 |
+|---|---|
+| `manifestation_branch` | 이직↔이사 형제 발현은 보존 가치가 있으나 **3트랙 단계 서술과 중복 가능** — `transition_family` 전환 후 의미 확인 |
+| `career_mobility_modifier` | `CAREER_EXIT_RISK`·특수직군 길화가 **Exit 트랙 효과축과 이중 반영되지 않는지**(INV-11) |
+| `addendum_gate_modifier` | `occupation_status` 거친 게이트가 **resolver 정밀 상태와 충돌하지 않는지** |
+| `occupation_taxonomy` form bias | §10-3 `event_forms` 재분류와 정합 여부 |
+| **`PredictionEngines`**(dormant) | **재사용 확정 자산 아님** — `CareerStageAdapter` 뒤 shadow 적합성 검증 대상(INV-9) |
+| **`SelectionState`** | **전이 그래프 패턴만** 복제, enum·`ModeGuard`·무작위성 캡 미사용(INV-8) |
+
+---
+
+## 부록 A. 어휘 · 런타임 감사 결과 (P0-A 1단계)
+
+### A-0. 재현 정보
 
 ```
-§17 재사용 경계표 → 부록 A 감사 결과 본문화 → P0-A 완료 커밋
+repository        glowthstack-ops/korean-saju-ryubosal-v0.2
+branch            feat/manse-engine-phase0-1
+full SHA          dbae796db5cc793326f96c58107d17e12137c053
+working tree      clean
+감사일            2026-07-25
+방법              grep + python json 집계(정적 import·identifier 기준)
+                  ※ 동적 import·문자열 기반 호출은 별도 확인 필요 —
+                    grep 0을 런타임 부재로 단정하지 않음
+테스트 기준선     이직 관련 15파일 145 passed / 0 failed / 0 skipped
 ```
 
-- §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
+### A-1. 현행 이직 어휘 8계층 실측
+
+| 계층 | 실측 | 판정 |
+|---|---|---|
+| Canonical key | `CAREER_CHANGE`(단일)·`JOB_GAIN`·`PROMOTION`. 퇴사 별도 키 없음(legacy `resignation → CAREER_CHANGE`) | 보존, 단계는 레이어로(D1) |
+| 분류 | EVENT_TYPE=progress / **EVENT_CATEGORY: career_change=`move`(불일치)**, job_gain·promotion=`career` / EVENT_DOMAIN=career(전부) | §11 3분리 대상 |
+| 방향/강도 | `activation`·`favorability` 이중채널 + `career_mobility_modifier`(`CAREER_EXIT_RISK`·특수직군) + JOBCHANGE_PRESSURE/OPPORTUNITY 사후라벨 | **보존·재사용**(§17 ①) |
+| 신호룰 | `career_change.json` **rule item 17개 / 전체 eventCandidate entry 24개**(career_change 13 · contract_document 7 · promotion 3 · education_admission 1). **career_change candidate polarity**: negative_or_forced 3 · positive 1 · conditional 6 · neutral 3 | 트랙·단계로 재배치 |
+| 발현형태 | `event_forms.json` career_change **9형태** | §10-3 재분류(INV-19) |
+| 구조패턴 | `structure_patterns.json` **고유 pattern 91개 중 career domain_hints 보유 29개**(식신제살·상관견관·재생관·관인상생 포함). *raw grep match 41건은 규칙 수가 아님* | 단계 전이 브리지 신규(감수 대상) |
+| 직군 게이트 | `occupation_taxonomy`(O01~O18) + `user_profile_event_gate` + `addendum_gate_modifier` | §17 ③ 재검증 |
+| 질의·의도 | `query_parser` Domain.CAREER, `intent_seed_corpus`(job_change/employment/promotion), `EVENT_WORDS` | 트랙·단계 감지 확장 |
+
+### A-2. `category=move` 영향 경로 (INV-10·INV-20 근거)
+
+**정의 2곳**:
+
+```
+event_taxonomy_v2.py:73   EventKeyV2 → str   : move = { career_change, relocation }        (2멤버)
+calibration.py:182        legacy str → str   : move = { career_change, resignation,
+                                                        relocation, travel }               (4멤버)
+```
+
+canonical move가 **정확히 2멤버**인 것이 `manifestation_branch`의 "정확히 2멤버 계열" 규칙 근거다. legacy move는 4멤버이므로 **legacy에서 `transition_family`를 유도하면 여행·퇴사가 형제 가족에 유입**된다(§11-5 금지 규칙의 실측 근거).
+
+**Reader 5종**:
+
+| reader | 소비 | 성격 |
+|---|---|---|
+| `manifestation_branch` | `EVENT_CATEGORY`(taxonomy_v2) | 이직↔이사 형제 발현 — **보존 필요** |
+| `scoring_operational._EVENT_GROUP` | 동일 | 동일 계열 판정 |
+| `manse_service:275` | `EVENT_CATEGORY` → `CalibrationEventItem.category` | **직렬화 경계**(전환 없음) |
+| `question_generator:51-58` | `e.category` raw + `CATEGORY_TO_CALIB_DOMAIN` | **family cap 오염점 — 우선 전환** |
+| `feedback_scorer:337` | `ev.category` ∈ `MAJOR_CATEGORIES` | 가중 1.5 |
+
+`CATEGORY_TO_CALIB_DOMAIN`은 `move→career`로 접히므로 **도메인 매핑은 정상**이나, family cap이 fold 이전 raw category를 써서 이직·이사가 서로를 밀어낸다.
+
+### A-3. dormant 자산 (shadow 적합성 검증 대상)
+
+```
+PredictionEngines / build_timeline / ActivationWindow / realization_score
+  apps/ 참조 0 · packages/ 참조 0 · tests 3파일   → dormant 확정
+```
+
+### A-4. 신규 구축 확인 (부재 grep)
+
+`CareerTransitionEpisode` · `CareerEpisodeStore` · `OpportunityStage`/`ExitStage`/`EntryStage` · `CareerStageRef` · `CareerTransitionKind(+required_gates)` · `Outcome` · `CloseReason` · `career_state_resolver` · 단계별 효과 벡터 · 병목 성사도 · 제한형 현실·과정 축 — **전부 부재, 신규**.
+
+### A-5. 테스트·픽스처 기준선 (P5 회귀 비교용)
+
+관련 테스트 **19파일**(핵심 15파일 145 passed 실측), 픽스처 **1개**(`1980_1122_job_report_case.json`).
+
+### A-6. 명리 규칙 감수 대기 (규칙 10)
+
+제안된 단계별 십성 매핑(관성=직책, **식상제관=퇴사**, 충=면접 변화강도 등)은 **미문서 규칙**이므로 §10 증거 계약에 **감수 대상**으로만 표기하고, 부록 B `EvidenceReviewStatus` 경로를 통과하기 전에는 구현·배선하지 않는다.
 
 ---
 
@@ -1796,3 +1994,14 @@ evidence_id | signal_ref | source_ref | applicability_conditions | exclusion_con
 | 5 | 십성 보조 단계 매핑 | 영향 낮음 | 관/인/재/식의 단계별 보조 기여 |
 
 각 규칙 행은 §10 `CareerEvidenceContract`의 `evidence_id`와 1:1로 연결되고(같은 원신호는 `signal_ref` 공유), review·runtime 두 상태로 각각 관리된다. 명리 매핑값·가중치 채움과 라이브 배선은 감수 통과 후 별도 Phase다. `CounterpartyEvidence`(현실 증거)는 명리 감수 대상이 아니므로 본 대장에 등재하지 않는다.
+## P0-A 완료 상태
+
+```
+P0-A 완료 : SSOT(§0~§17) · 감사(부록 A) · 감수 게이트(부록 B) 계약 완결, 코드 변경 0
+기능 완료 : P0-B~P5 구현과 각 승격 게이트 통과 — 별개(§16-7)
+```
+
+**규격: 불변식 INV-1~INV-34 · 결정 D1~D21.**
+
+---
+
