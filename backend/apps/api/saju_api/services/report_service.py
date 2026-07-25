@@ -117,7 +117,12 @@ from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.report import ReportResult, ReportSpec, SectionContext, SectionPlan
 from saju_shared_types.topic_context import PeriodSpec as _TopicPeriodSpec
 
-from . import llm_client, relationship_shadow, relationship_vector_sidecar
+from . import (
+    llm_client,
+    precompute_service,
+    relationship_shadow,
+    relationship_vector_sidecar,
+)
 from .manse_service import calculate, luck_months
 from .personalization import (
     fetch_calibration_expression_hints,
@@ -798,22 +803,42 @@ class _ReportData:
 
     @property
     def composites(self) -> list:
-        """Topic Builder용 LuckComposite(연·월, 지연 빌드·캐시)."""
+        """Topic Builder용 LuckComposite(연·월) — 사전계산 우선, 미적중 시 즉석 빌드.
+
+        cache-aside(CLAUDE.md 원칙 9 배선). 사전계산은 지연·비용 최적화이지 기능 요건이
+        아니므로 저장소가 없거나 비어 있어도 결과는 같아야 한다 — 두 경로의 의미 필드
+        동일성은 `tests/regression/test_precompute_wiring.py` 가 강제한다.
+        """
         if self._composites is None:
-            from saju_engines.precompute import CompositeBuilder
             from saju_shared_types.precompute import CompositeLevel
 
-            try:
-                self._composites = CompositeBuilder(_DICTS).build(
-                    self.result,
-                    "report",
-                    "1.0.0",
-                    f"{self.today.isoformat()}T00:00:00+00:00",
-                    levels={CompositeLevel.YEAR, CompositeLevel.MONTH},
-                )
-            except (ValueError, RuntimeError):
-                self._composites = []
+            levels = {CompositeLevel.YEAR, CompositeLevel.MONTH}
+            cached = precompute_service.read_composites(self.subject_id, levels)
+            if cached is not None:
+                self._composites = cached
+            else:
+                # 이번 응답은 즉석 빌드로 만들고, 경계 보충은 다음 요청을 위해 남긴다.
+                self._composites = self._build_composites(levels)
+                precompute_service.backfill(self.subject_id, self.today)
         return self._composites
+
+    def _build_composites(self, levels: set) -> list:
+        """즉석 빌드 폴백 — 사전계산 미적중·미사용·오류 시 경로.
+
+        저장소와 **같은 dict_version** 을 쓴다 — 다르면 캐시가 영구 미적중이 된다.
+        """
+        from saju_engines.precompute import CompositeBuilder
+
+        try:
+            return CompositeBuilder(_DICTS).build(
+                self.result,
+                self.subject_id or "report",
+                precompute_service.PRECOMPUTE_DICT_VERSION,
+                f"{self.today.isoformat()}T00:00:00+00:00",
+                levels=levels,
+            )
+        except (ValueError, RuntimeError):
+            return []
 
     def topic_module_block(self, module_id: str, spec: ReportSpec) -> list[str]:
         """섹션이 의존하는 Topic Builder 모듈(M01~M15) 실행 → 확정 신호·정책 톤 줄(옵션1).

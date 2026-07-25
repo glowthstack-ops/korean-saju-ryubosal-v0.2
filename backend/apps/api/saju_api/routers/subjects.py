@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import uuid
 from typing import Annotated
 
@@ -18,6 +19,7 @@ from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.subject import SubjectRecord
 
 from ..deps import get_profile_store, get_subject_store, require_owner
+from ..services import precompute_service
 
 router = APIRouter(prefix="/api/v2/subjects", tags=["subjects"])
 
@@ -135,6 +137,8 @@ def create_subject(
         subscribed=body.subscribed,
     )
     store.upsert(record)
+    # T0 사전계산 — 출생정보가 확정된 시점에 운 복합조합을 미리 쌓는다(docs/09).
+    precompute_service.on_subject_upsert(record)
     return _to_summary(record, profiles)
 
 
@@ -158,6 +162,9 @@ def update_subject(
         last_interaction_at=existing.last_interaction_at,
     )
     store.upsert(record)
+    # T0 무효화 + 재계산 — 출생정보가 바뀌었는데 옛 사전계산이 남으면 다른 사람의
+    # 운을 보여주는 것과 같다(docs/09 무효화 규칙).
+    precompute_service.on_subject_upsert(record)
     return _to_summary(record, profiles)
 
 
@@ -166,3 +173,8 @@ def delete_subject(subject_id: str, owner_id: OwnerId, store: Subjects) -> None:
     """사주 삭제(소유자 한정)."""
     _owned(store, subject_id, owner_id)
     store.delete(subject_id)
+    # 삭제된 대상의 사전계산이 남으면 안 된다.
+    _target = precompute_service.store()
+    if _target is not None:
+        with contextlib.suppress(Exception):
+            _target.invalidate_subject(subject_id)
