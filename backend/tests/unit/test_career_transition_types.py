@@ -131,13 +131,14 @@ def test_store_holds_single_primary_employment() -> None:
     """P0는 primary employment를 하나만 관리한다(D19) — 리스트 형태가 아니다."""
     assert "current_employments" not in CareerEpisodeStore.model_fields
     store = CareerEpisodeStore(
-        episodes={"ep-a": _episode("ep-a"), "ep-b": _episode("ep-b")},
+        episodes=(_episode("ep-a"), _episode("ep-b")),
         current_employment=CurrentEmploymentContext(
             employment_context_id="emp-1",
             exit_state=_track(CareerTrack.EXIT),
         ),
     )
     assert len(store.episodes) == 2
+    assert set(store.by_id) == {"ep-a", "ep-b"}
     assert store.current_employment is not None
 
 
@@ -227,6 +228,37 @@ def test_contract_models_are_frozen() -> None:
     ep = _episode()
     with pytest.raises(ValidationError):
         ep.episode_id = "other"  # type: ignore[misc]
+
+
+def test_internal_collections_are_deeply_immutable() -> None:
+    """`frozen=True`는 필드 재할당만 막는다 — 내부 컬렉션 변경도 차단해야 한다.
+
+    Episode 목록·이력·링크 이력이 mutable이면 권위 상태를 우회 수정할 수 있다.
+    """
+    ep = _episode()
+    store = CareerEpisodeStore(
+        episodes=(ep,),
+        current_employment=CurrentEmploymentContext(
+            employment_context_id="emp-1",
+            exit_state=_track(CareerTrack.EXIT),
+            linked_episode_history=("ep-b",),
+        ),
+    )
+    assert isinstance(store.episodes, tuple)
+    assert isinstance(ep.opportunity.stage_history, tuple)
+    assert store.current_employment is not None
+    assert isinstance(store.current_employment.linked_episode_history, tuple)
+    with pytest.raises(TypeError):
+        store.episodes[0] = ep  # type: ignore[index]
+    with pytest.raises(AttributeError):
+        store.episodes.append(ep)  # type: ignore[attr-defined]
+
+
+def test_by_id_view_is_read_only() -> None:
+    """`by_id`는 읽기 전용 파생 뷰 — 여기에 써서 store를 바꿀 수 없다."""
+    store = CareerEpisodeStore(episodes=(_episode("ep-a"),))
+    with pytest.raises(TypeError):
+        store.by_id["ep-b"] = _episode("ep-b")  # type: ignore[index]
 
 
 def test_entry_scope_covers_internal_transfer() -> None:

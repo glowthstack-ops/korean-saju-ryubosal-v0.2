@@ -16,9 +16,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import StrEnum
+from types import MappingProxyType
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 #: 커리어 전이 계약 버전 — 타입·불변식이 바뀌면 올린다.
 CAREER_CONTRACT_VERSION = "career-transition.v1"
@@ -308,10 +310,19 @@ class CareerEpisodeStore(BaseModel):
 
     **P0 범위**: 한 시점에 primary employment는 **하나**만 관리한다(D19). 겸업·복수
     고용·법인+개인사업 병행은 확장 범위이며, 감지돼도 단일 Exit로 임의 병합하지 않는다.
+
+    **깊은 불변성**: `frozen=True`는 필드 재할당만 막고 내부 컬렉션은 막지 못하므로
+    Episode 목록을 tuple로 보관하고 id 조회는 `by_id`로 파생한다(dict을 그대로 두면
+    `store.episodes["x"] = ...` 로 우회 변경이 가능하다).
     """
 
     model_config = ConfigDict(frozen=True)
 
-    episodes: dict[str, CareerTransitionEpisode] = Field(default_factory=dict)
+    episodes: tuple[CareerTransitionEpisode, ...] = ()
     current_employment: CurrentEmploymentContext | None = None
     contract_version: str = CAREER_CONTRACT_VERSION
+
+    @property
+    def by_id(self) -> Mapping[str, CareerTransitionEpisode]:
+        """episode_id → Episode 조회(읽기 전용 파생 — 변경 불가)."""
+        return MappingProxyType({e.episode_id: e for e in self.episodes})

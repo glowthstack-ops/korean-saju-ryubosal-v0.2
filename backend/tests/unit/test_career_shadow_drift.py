@@ -36,6 +36,15 @@ _NEW_MODULES = (
     "saju_engines.career_shadow_observation",
 )
 
+#: census manifest — **분모는 실행 결과가 아니라 독립 고정 manifest에서 나온다.**
+#: 동적으로 로딩된 성공 건수를 분모로 쓰면 fixture가 누락돼도 eligible=measured로
+#: 잘못 통과한다(INV-25).
+_CORPUS_ID = "career-p0b-drift.v1"
+_EXPECTED_CASE_IDS: frozenset[str] = frozenset(
+    {"1980-11-22-m-seoul", "1992-03-05-f-busan", "2001-08-17-m-seoul-late"}
+)
+_EXPECTED_CASE_COUNT = 3
+
 #: drift census 코퍼스 — 고유 case identity(=고유 입력 조합).
 _CASES: tuple[dict[str, str], ...] = (
     {"case_id": "1980-11-22-m-seoul", "birth_date": "1980-11-22", "birth_time": "09:08",
@@ -135,13 +144,34 @@ def arms() -> tuple[dict[str, list[dict[str, object]]], dict[str, list[dict[str,
     return _run_arm("control"), _run_arm("treatment")
 
 
+def test_census_corpus_matches_manifest() -> None:
+    """코퍼스 identity 검증 — manifest와 다르면 violation 0이어도 DEGRADED다.
+
+    분모를 실행 결과에서 얻으면 fixture 누락 시 `eligible=measured=2`로 조용히
+    통과한다. manifest를 독립 고정해 그 사고를 막는다.
+    """
+    loaded = [c["case_id"] for c in _CASES]
+    assert len(loaded) == len(set(loaded)), f"duplicate_case_count > 0: {loaded}"
+    assert set(loaded) == _EXPECTED_CASE_IDS, (
+        f"corpus '{_CORPUS_ID}' 불일치 — missing={sorted(_EXPECTED_CASE_IDS - set(loaded))} "
+        f"unexpected={sorted(set(loaded) - _EXPECTED_CASE_IDS)}"
+    )
+    assert len(loaded) == _EXPECTED_CASE_COUNT
+
+
 def test_shadow_output_drift_census(arms) -> None:
     """P0-B: 신규 모듈 도입이 기존 엔진 출력을 바꾸지 않는다(census 포함).
 
     비교 단위는 개별 필드가 아니라 **정렬된 후보 목록 전체**다(랭킹 포함).
+
+    비교 모드는 `CANONICAL_SEMANTIC`이다 — raw byte 재현성은 기존 baseline 결함
+    (`reason_codes` cross-process 순서 비결정)으로 아직 보장되지 않는다. 여기서
+    증명하는 것은 **신규 모듈 import 여부에 따른 의미·점수·순위·canonical 직렬화
+    차이 0**이며, 임의 seed 간 raw byte 동일성은 별도 과제다.
     """
     control, treatment = arms
-    eligible = {c["case_id"] for c in _CASES}
+    # 분모는 manifest에서 — 실행 결과에서 얻지 않는다.
+    eligible = set(_EXPECTED_CASE_IDS)
     excluded: set[str] = set()  # 명시적 제외 없음
     measured = (eligible - excluded) & set(control) & set(treatment)
     violations = sorted(cid for cid in measured if control[cid] != treatment[cid])
@@ -149,7 +179,8 @@ def test_shadow_output_drift_census(arms) -> None:
     # census — "오류 0"이 아니라 "전수 측정 후 오류 0"(INV-25)
     assert len(eligible) > 0, "eligible_count = 0 → NO_ELIGIBLE_CASES(통과 아님)"
     assert measured == eligible - excluded, (
-        f"불완전 계측: measured={sorted(measured)} eligible={sorted(eligible)}"
+        "measurement_status=DEGRADED — 불완전 계측: "
+        f"measured={sorted(measured)} eligible={sorted(eligible)}"
     )
     assert not violations, f"shadow_output_drift violation: {violations}"
 

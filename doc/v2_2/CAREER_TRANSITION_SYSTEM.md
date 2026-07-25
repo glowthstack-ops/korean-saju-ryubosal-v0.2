@@ -1503,6 +1503,39 @@ AND violation_count = 0
 | §12 소비 배선 전 | LLM·리포트 **입력** 불변 |
 | §12 beta 배선 후 | **허용된 신규 블록 외** 기존 본문·필드 불변 |
 
+#### 비교 모드와 알려진 baseline 결함
+
+drift 관측은 무엇을 증명했는지 구분해 기록한다.
+
+```
+comparison_mode            = CANONICAL_SEMANTIC
+known_baseline_issue       = REASON_CODES_ORDER_NONDETERMINISTIC
+raw_byte_determinism_status = DEGRADED
+```
+
+- **증명된 것**: 동일 `PYTHONHASHSEED` + 동일 입력·config + 순서 무의미 컬렉션 canonical
+  정렬 조건에서 **treatment-induced drift = 0**.
+- **아직 증명되지 않은 것**: 임의 `PYTHONHASHSEED` 간 **raw serializer byte 동일성**.
+
+**등록된 결함 — `REASON_CODES_ORDER_NONDETERMINISTIC`** (2026-07-25, P0-B census 발견):
+`EventCandidateV2.reason_codes`가 set 순회 + 해시 무작위화로 프로세스마다 순서가 다르다.
+점수·activation·favorability·랭킹은 영향 없다. **P0-B가 만든 drift가 아니라 기존
+baseline 결함**이며, raw byte 불변을 요구하는 **§12 소비 배선(P4) 전에는 반드시 해결**한다.
+
+수정 원칙 — 순서에 의미가 있는지에 따라 갈린다.
+
+```python
+# 의미가 집합이면 직렬화 소유 지점에서 안정 정렬
+reason_codes = tuple(sorted(unique_reason_codes))
+# 우선순위가 의미를 가지면 정렬 금지 — 안정적 insertion-order dedup
+reason_codes = tuple(dict.fromkeys(reason_codes))
+```
+
+회귀는 **서로 다른 seed의 subprocess 결과가 raw byte-identical**임을 요구한다
+(`PYTHONHASHSEED` 1·17·123). 이 수정은 기존 raw 출력 순서를 바꿀 수 있으므로 **P1 본
+구현과 섞지 말고 별도 baseline-hygiene 커밋**으로 처리하고, serialization version 판단과
+기준선 재생성을 함께 검토한다.
+
 `double_contribution` 중복 식별 키(§10 연결):
 
 ```
