@@ -629,16 +629,111 @@ family_cap_collision               # 같은 cap 슬롯 공유로 탈락한 건�
 
 ---
 
-## §12~§17 및 부록 A — 후속 작성 단위
+## §13. fixture 계약
+
+> **작성 원칙**: 이 절은 **수치·명리 매핑의 정답을 고정하지 않는다.** 검증 대상은 **상태·의미·소유권 불변식**이다. 명리 신호별 기대 효과 fixture는 부록 B 감수 진행에 따라 **별도로** 추가한다(감수 전 정답 고정 금지, 리포 규칙 10).
+
+### 13-0. 공통 fixture 스키마
+
+```
+fixture_id
+initial_state
+input_fact_or_action
+expected_transition
+expected_rejections           # 금지 전이·승격 거부
+expected_history              # stage_history 누적 결과
+expected_links                # linked_episode_id 등
+expected_realization_status   # NOT_STARTED / IN_PROGRESS / COMPLETED / CLOSED_UNREALIZED
+```
+
+### 13-1. 의미 해소·category 회귀 fixture
+
+`ResolvedEventSemantics`(§11-4) 자체를 검증한다.
+
+| 입력 | 기대 |
+|---|---|
+| `career_change` | domain=career, family=move, cap=`career_transition` |
+| `relocation` | domain=relocation, family=move, cap=`relocation` |
+| `job_gain` | domain=career, family=**None**, cap=`employment_entry` |
+| `promotion` | domain=career, family=**None**, cap=`promotion` |
+| legacy `resignation` | canonical `career_change`로 **정규화 후** 동일 의미(별도 family 멤버 추가 금지) |
+| legacy `travel` (category=move) | family=**None** — 이직↔이사 분기에서 **제외** |
+| explicit field가 canonical과 일치 | `EXPLICIT_VALIDATED` |
+| explicit field가 canonical과 충돌 | `INVALID_MISMATCH`, **fail-closed** |
+| event_key 없이 legacy `move`만 존재 | `LEGACY_AMBIGUOUS`, **family 확정 금지** |
+| `contract_version`/캐시 버전 불일치 | 이전 해소 결과 **재사용 금지**(재해소) |
+
+형제 발현 가족은 canonical **`career_change ↔ relocation` 두 멤버만** 유지되어야 한다(§11-5 근거: canonical move=2멤버 vs legacy move=4멤버).
+
+### 13-2. calibration-cap 조합 fixture
+
+D21 행렬을 실행 가능한 후보로 옮긴다.
+
+| 조합 | 기대 |
+|---|---|
+| 이직 + 이사 | 둘 다 유지 |
+| 이직 + 취업 | 둘 다 유지 |
+| 이직 + 승진 | 둘 다 유지 |
+| 취업 + 승진 | 둘 다 유지 |
+| 같은 이직의 여러 기간 | 사건 중복 규칙에 따라 축약(§14에서 규칙 확정) |
+| 이직 + 이사 + 취업 | 세 cap key 모두 유지하되 **career 도메인 총량 상한** 적용 |
+
+**도메인 총량 상한과 사건별 cap을 구분한다.** 총량 때문에 탈락한 항목을 "같은 family라 제거됨"으로 기록하면 안 된다.
+
+```
+selection_reason ∈ { KEPT, FAMILY_CAP_DEDUP, DOMAIN_TOTAL_CAP, LOW_CONFIDENCE, ... }
+```
+
+### 13-3. 세 트랙 상태 머신 fixture
+
+**정상 흐름 (Kind별)**
+
+| fixture | 흐름 | 특이 계약 |
+|---|---|---|
+| 외부 이직 | 지원→면접→오퍼→수락→퇴사→입사 | required_gates = agreement·exit·entry |
+| 무직 취업 | 지원→오퍼→입사 | **Exit 불필요** |
+| 퇴사 단독 | 통보→인수인계→퇴사 | **Episode 링크 불필요**(`linked_episode_id=None`) |
+| 내부 전보 | 내부 결정→배치 실행 | **퇴사 없음**, `entry_scope=INTERNAL_*` |
+
+**교차·예외 흐름**
+
+- 오퍼 전에 퇴사(트랙 순서 교차)
+- 수락 후 퇴사 통보 지연
+- 퇴사 후 오퍼 철회 → **이미 EXITED인 Exit 자동 복원 금지**
+- B사 수락 후 C사로 대상 변경 → `linked_episode_id` **변경 이력 보존**(단순 덮어쓰기 금지)
+- 입사일 확정 후 연기
+- 입사 후 **현재 고용 컨텍스트 원자적 승격**(INV-17 — 중간 상태 잔존 금지)
+- 내부 전보인데 **Exit가 생성되지 않음**
+- 복수 Episode에서 **A사 면접·B사 협상이 섞이지 않음**(episode collision 0)
+
+### 13-4. 금지 전이·사실/예측 분리 fixture (안전 회귀)
+
+가장 중요한 회귀 묶음이다.
+
+| # | 검증 | 근거 |
+|---|---|---|
+| 1 | forecast `OFFER`가 confirmed `OFFER`를 생성하지 않음 | INV-6·18 |
+| 2 | 높은 병목 성사도가 `COMPLETED`를 생성하지 않음 | INV-15 |
+| 3 | 사용자 입사 확인은 **낮은 운 점수와 무관하게** `COMPLETED` | INV-15 |
+| 4 | 계획형 "지원하려 한다"가 `APPLICATION` 승격되지 않음 | §7 temporal=PLANNED |
+| 5 | 과거형 "작년에 면접 봤다"가 현재 Episode를 덮지 않음 | §7 temporal=PAST |
+| 6 | 추측 "뽑으려는 것 같다"가 **HARD** counterparty evidence가 되지 않음 | §10-2 |
+| 7 | Entry 진입 근거 없이 `JOINED` 전이 금지 | INV-16 |
+| 8 | 오퍼 철회가 이미 완료된 Exit를 자동 복원하지 않음 | INV-16 |
+| 9 | 하나의 `signal_ref`가 동일 축에 중복 기여하지 않음 | INV-11 |
+| 10 | legacy와 신규 의미를 **같은 실행 경로에서 이중 집계하지 않음** | INV-20 |
+
+---
+
+## §12·§14~§17 및 부록 A — 후속 작성 단위
 
 목차 번호는 유지하되 **작성 순서**는 다음으로 한다(소비 배선은 증거·fixture·감사 지표 확정 후에 작성해 과도 노출 방지):
 
 ```
-§13 fixture → §14 캘리브레이션 → §15 shadow 지표
-→ §12 소비 배선 → §16 로드맵 → §17 재사용표
+§14 캘리브레이션 → §15 shadow 지표 → §12 소비 배선 → §16 로드맵 → §17 재사용표
 ```
 
-- §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰) · §13 중간 종료·재개·교차 전이 fixture(Opportunity/Exit/Entry 3트랙 + 트랙 간 결합) · §14 캘리브레이션 축(occurrence/outcome/experience/settlement) · §15 shadow 오류 지표 · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
+- §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰) · §14 캘리브레이션 축(occurrence/outcome/experience/settlement) · §15 shadow 오류 지표 · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
 
 ---
 
