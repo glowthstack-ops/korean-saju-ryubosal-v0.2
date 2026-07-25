@@ -20,7 +20,10 @@ from saju_engines.palace_relationship_network import (
     palace_network_lines,
 )
 from saju_engines.relationship_relative_sinsal import relative_sinsal_lines
-from saju_engines.relationship_trine_dynamics import analyze_trine_dynamics
+from saju_engines.relationship_trine_dynamics import (
+    analyze_trine_dynamics,
+    trine_dynamics_lines,
+)
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import Domain
 
@@ -50,7 +53,8 @@ def _exposed_layers(sample: dict) -> dict[str, list[str]]:
     p4 = compatibility_lines(report) if report is not None else []
     p2 = relative_sinsal_lines(self_chart, partner_chart)
     p3 = palace_network_lines(analyze_palace_network(self_chart), Domain.RELATIONSHIP)
-    return {"p4": p4, "p2": p2, "p3": p3}
+    p1 = trine_dynamics_lines(self_chart, partner_chart)
+    return {"p4": p4, "p2": p2, "p3": p3, "p1": p1}
 
 
 @pytest.fixture(scope="module")
@@ -66,7 +70,7 @@ def test_fixture_loads_20_samples() -> None:
 
 def test_no_banned_words(rendered) -> None:
     for sample, layers in rendered:
-        text = "\n".join(layers["p4"] + layers["p2"] + layers["p3"])
+        text = "\n".join(layers["p4"] + layers["p2"] + layers["p3"] + layers["p1"])
         for banned in _BANNED:
             assert banned not in text, f"[{sample['id']}] 금지어 '{banned}' 노출"
 
@@ -78,17 +82,23 @@ def test_internal_sinsal_not_exposed(rendered) -> None:
             assert internal not in text, f"[{sample['id']}] 내부 신살 '{internal}' 노출"
 
 
-def test_p1_shadow_not_leaked(rendered) -> None:
-    # P1(삼합국 역학)은 shadow — 어떤 노출 레이어에도 그 reading 문구가 새지 않아야 한다.
+def test_p1_trine_exposed_without_ranking(rendered) -> None:
+    # P1(삼합국 역학)은 2026-07-26 렌더 연결 — 노출되되 서열·낙인 어휘가 없어야 한다.
+    # shadow 미유출 가드를 그대로 두면 배선을 되돌리는 셈이라, 같은 안전 의도를
+    # "노출 문구 자체의 중립성"으로 옮긴다.
     for sample, layers in rendered:
         self_chart = calculate(BirthInput(**sample["self"]))
         partner_chart = calculate(BirthInput(**sample["partner"]))
         dyn = analyze_trine_dynamics(self_chart, partner_chart)
         if dyn is None:
+            assert layers["p1"] == []      # 년주 부재면 추측하지 않는다
             continue
-        assert dyn.exposure == "shadow"
-        text = "\n".join(layers["p4"] + layers["p2"] + layers["p3"])
-        assert dyn.reading not in text  # shadow 미유출
+        assert dyn.exposure == "beta"
+        text = "\n".join(layers["p1"])
+        assert dyn.reading in text, f"[{sample['id']}] 삼합국 역학 미노출"
+        for banned in _BANNED:
+            assert banned not in text, f"[{sample['id']}] 금지어 '{banned}' 노출"
+        assert "우열 판정" in text          # 서술 가드가 함께 나가야 한다
 
 
 def test_p3_cross_palace_gated_for_career(rendered) -> None:

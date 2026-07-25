@@ -45,8 +45,8 @@ def test_relation_kinds() -> None:
     assert _relation(Element.WOOD, Element.METAL) == "controlled_by_target"  # 金克木
 
 
-# 3. 두 명식 분석 — self 관점, exposure=shadow.
-def test_analyze_self_perspective_shadow() -> None:
+# 3. 두 명식 분석 — self 관점, exposure=beta(2026-07-26 렌더 연결).
+def test_analyze_self_perspective() -> None:
     a = _chart("1990-05-05")   # 庚午년 → 午=火국
     b = _chart("1992-11-12")   # 壬申년 → 申=水국
     dyn = analyze_trine_dynamics(a, b)
@@ -55,7 +55,7 @@ def test_analyze_self_perspective_shadow() -> None:
     # 火 대비 水: 水克火 → 상대가 나를 극 → controlled_by_target.
     assert dyn.relation == "controlled_by_target"
     assert dyn.dynamics_label == "부담·긴장"
-    assert dyn.exposure == "shadow"
+    assert dyn.exposure == "beta"
 
 
 # 4. 중립성 — 승패·서열·위아래 어휘 미포함.

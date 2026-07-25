@@ -2275,6 +2275,10 @@ def _compat_prompt_block(
     from saju_engines.relationship_relative_sinsal import relative_sinsal_lines
 
     lines += relative_sinsal_lines(result, partner_result, "본인", partner_label)
+    # 삼합국 관계 역학(P1) — 년지 삼합국 오행 생극 경향(설명 레이어, 점수 미개입).
+    from saju_engines.relationship_trine_dynamics import trine_dynamics_lines
+
+    lines += trine_dynamics_lines(result, partner_result, "본인", partner_label)
     lines.append(
         "신호의 방향(보완/마찰)을 그대로 반영하되 '반드시 헤어진다/잘 된다' 류 단정·상대 탓·"
         "운명론은 금지. 마찰은 관리 가능한 영역으로, 극복할 마음가짐·행동도 덧붙일 것."

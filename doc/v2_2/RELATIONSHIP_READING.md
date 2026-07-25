@@ -169,11 +169,14 @@ P4 라벨로 렌더하며 점수 미개입. cross-palace 발현은 **가족(월-
   relation, dynamics_label, reading, exposure }
 ```
 `relation` ∈ `same_group | generates_target | generated_by_target | controls_target |
-controlled_by_target`. `exposure="shadow"`(v1 전부).
+controlled_by_target`. `exposure`는 v1 `"shadow"` → **v2 `"beta"`**(2026-07-26 렌더 연결).
 
-**도입 방식(v1 = shadow-only)**: 우선 **shadow 결과 생성 + 테스트까지만** 한다 — chat/report 렌더
-연결은 하지 않는다(안정/끌림축 점수 미반영). 충분히 안정되면 v2에서 LLM 보조 설명으로 렌더 연결
-검토. 승패·서열·"위/아래·못 이김" 표현은 어떤 형태로도 금지, 소송 우열은 원칙 8 준수.
+**도입 방식**: v1은 shadow 결과 생성 + 테스트까지만 하고 렌더를 연결하지 않았다. **v2에서 궁합
+블록의 LLM 보조 설명으로 렌더를 연결한다** — `trine_dynamics_lines()`가 chat `_compat_prompt_block`
+과 report `compatibility_block`에 P2(12신살 상대위치)와 같은 규약으로 붙는다. **점수는 계속 미반영**
+(안정/끌림축 불변, explanation-first). 승패·서열·"위/아래·못 이김" 표현은 어떤 형태로도 금지하며,
+골든 회귀(`test_p1_trine_exposed_without_ranking`)가 노출 문구의 중립성과 가드 동반을 강제한다.
+소송 우열은 원칙 8 준수.
 
 ## 6. 보류 (초기 릴리즈 제외)
 
@@ -208,7 +211,7 @@ controlled_by_target`. `exposure="shadow"`(v1 전부).
 | P4 | `relationship_relation_labels.py` | — | compatibility·배우자궁(structural_context) | `7ce7145` |
 | P3 | `palace_relationship_network.py` | `palace_network.py` | chat `_structural_context`·report 관계 섹션 | `a7bf957` |
 | P2 | `relationship_relative_sinsal.py` | `relative_sinsal.py` | chat `_compat_prompt_block`·report `compatibility_block` | `fd02671` |
-| P1 | `relationship_trine_dynamics.py` | `trine_dynamics.py` | **미연결(shadow-only)** | `21ca870` |
+| P1 | `relationship_trine_dynamics.py` | `trine_dynamics.py` | chat `_compat_prompt_block`·report `compatibility_block` | `21ca870`(v1) / v2 렌더 연결 2026-07-26 |
 
 **공통 정책(4개 모듈 불변식)**:
 - **explanation-first / inert**: 기존 궁합·사건 `score·confidence·favorability·후보`를 변경하지 않는다

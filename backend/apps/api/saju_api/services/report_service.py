@@ -789,8 +789,11 @@ class _ReportData:
         partner = getattr(self, "partner_result", None)
         if partner is not None:
             from saju_engines.relationship_relative_sinsal import relative_sinsal_lines
+            from saju_engines.relationship_trine_dynamics import trine_dynamics_lines
 
             lines += relative_sinsal_lines(self.result, partner)
+            # 삼합국 관계 역학(P1) — 년지 삼합국 오행 생극 경향(설명 레이어, 점수 미개입).
+            lines += trine_dynamics_lines(self.result, partner)
         return lines
 
     @property
