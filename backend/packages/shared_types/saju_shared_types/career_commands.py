@@ -5,7 +5,9 @@
 다시 여는 일을 막기 위함이다.
 
 ```
-CareerCommand = CreateEpisodeCommand | ReopenEpisodeCommand | ApplyCareerFactCommand
+CareerCommand = (
+    CreateEpisodeCommand | CloseEpisodeCommand | ReopenEpisodeCommand | ApplyCareerFactCommand
+)
 ```
 
 수락 대상 Episode 변경은 **외부 명령이 아니라** 확인된 `OFFER_ACCEPTED` 사실에서 reducer가
@@ -122,6 +124,8 @@ class RejectionCode(StrEnum):
     CORRECTION_TARGET_MISSING = "correction_target_missing"
     CORRECTION_TARGET_OTHER_EPISODE = "correction_target_other_episode"
     EMPLOYMENT_CONTEXT_CONFLICT = "employment_context_conflict"
+    #: 입력 store가 자신의 journal로 설명되지 않음 — 조용한 유실 대신 거부한다.
+    STORE_NOT_JOURNAL_CONSISTENT = "store_not_journal_consistent"
 
 
 class ProjectionMode(StrEnum):
@@ -163,6 +167,18 @@ class CreateEpisodeCommand(BaseModel):
     requisition_id: str | None = None
     opportunity_source: OpportunitySource | None = None
     creation_reason: str | None = None
+
+
+class CloseEpisodeCommand(BaseModel):
+    """Episode 종료 — 사유를 명시한다(단계·lifecycle·사유·결과 4분할)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    command_id: str
+    episode_id: str
+    recorded_at: str
+    source_kind: CareerFactSource
+    close_reason: CareerTransitionCloseReason
 
 
 class ReopenEpisodeCommand(BaseModel):
@@ -268,7 +284,9 @@ class ApplyCareerFactCommand(BaseModel):
 #: **외부 명령이 아니다.** 수락 대상 Episode 변경은 확인된 `OFFER_ACCEPTED` 사실에서
 #: reducer가 내부적으로 파생하는 plan이며, 독립 명령으로 노출하면 사실 전이를 우회하는
 #: 통로가 된다. 따라서 `CareerCommand` union에 포함하지 않는다.
-CareerCommand = CreateEpisodeCommand | ReopenEpisodeCommand | ApplyCareerFactCommand
+CareerCommand = (
+    CreateEpisodeCommand | CloseEpisodeCommand | ReopenEpisodeCommand | ApplyCareerFactCommand
+)
 
 
 # ── 결과 ───────────────────────────────────────────────────────────────────
@@ -316,6 +334,7 @@ __all__ = [
     "CareerCommand",
     "CareerFactSource",
     "CareerFactType",
+    "CloseEpisodeCommand",
     "CreateEpisodeCommand",
     "EpisodeResolutionOutcome",
     "FactEvidenceClass",

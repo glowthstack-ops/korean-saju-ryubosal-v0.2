@@ -81,6 +81,20 @@ class EntryScope(StrEnum):
     INTERNAL_LOCATION = "internal_location"
 
 
+#: 트랙별 단계 진행 순서 — frontier 계산의 유일한 기준(중간 단계 합성과 무관).
+OPPORTUNITY_STAGE_ORDER: tuple[OpportunityStage, ...] = tuple(OpportunityStage)
+EXIT_STAGE_ORDER: tuple[ExitStage, ...] = tuple(ExitStage)
+ENTRY_STAGE_ORDER: tuple[EntryStage, ...] = tuple(EntryStage)
+
+
+def stage_rank(stage: OpportunityStage | ExitStage | EntryStage) -> int:
+    """단계의 진행 순위(트랙 내부) — frontier 비교용."""
+    for order in (OPPORTUNITY_STAGE_ORDER, EXIT_STAGE_ORDER, ENTRY_STAGE_ORDER):
+        if stage in order:
+            return order.index(stage)
+    raise ValueError(f"unknown stage: {stage!r}")
+
+
 class CareerStageRef(BaseModel):
     """트랙 + 단계 쌍. `INTERVIEW → HANDOVER` 같은 트랙 교차 전이를 타입으로 막는다."""
 
@@ -225,6 +239,7 @@ class JournalItemKind(StrEnum):
     """통합 journal 항목 종류 — 사실뿐 아니라 Episode 생명주기도 재생 대상이다."""
 
     EPISODE_CREATED = "episode_created"
+    EPISODE_CLOSED = "episode_closed"
     EPISODE_REOPENED = "episode_reopened"
     CAREER_FACT = "career_fact"
     ACCEPTED_EPISODE_SWITCHED = "accepted_episode_switched"
@@ -244,6 +259,8 @@ class StageHistoryItem(BaseModel):
     history_item_id: str
     kind: JournalItemKind = JournalItemKind.CAREER_FACT
     command_id: str = ""
+    #: 명령 payload 다이제스트 — 같은 command_id 재수신이 멱등인지 충돌인지 가른다.
+    command_digest: str = ""
     track: CareerTrack
     stage: OpportunityStage | ExitStage | EntryStage
     source_ref: FactSourceRef
@@ -290,12 +307,28 @@ class EpisodeCreatedJournalItem(BaseModel):
     journal_item_id: str
     kind: JournalItemKind = JournalItemKind.EPISODE_CREATED
     command_id: str
+    command_digest: str = ""
     episode_id: str
     recorded_at: str
     occurred_at: str | None = None
     target_company: str | None = None
     target_role: str | None = None
     requisition_id: str | None = None
+
+
+class EpisodeClosedJournalItem(BaseModel):
+    """Episode 종료 journal 항목 — 종료 사유를 함께 보존한다(재개 가능 여부의 근거)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    journal_item_id: str
+    kind: JournalItemKind = JournalItemKind.EPISODE_CLOSED
+    command_id: str
+    command_digest: str = ""
+    episode_id: str
+    recorded_at: str
+    occurred_at: str | None = None
+    close_reason: CareerTransitionCloseReason
 
 
 class EpisodeReopenedJournalItem(BaseModel):
@@ -306,6 +339,7 @@ class EpisodeReopenedJournalItem(BaseModel):
     journal_item_id: str
     kind: JournalItemKind = JournalItemKind.EPISODE_REOPENED
     command_id: str
+    command_digest: str = ""
     episode_id: str
     recorded_at: str
     occurred_at: str | None = None
@@ -321,6 +355,7 @@ class AcceptedEpisodeSwitchedJournalItem(BaseModel):
     journal_item_id: str
     kind: JournalItemKind = JournalItemKind.ACCEPTED_EPISODE_SWITCHED
     command_id: str
+    command_digest: str = ""
     recorded_at: str
     occurred_at: str | None = None
     from_episode_id: str | None = None
@@ -336,6 +371,7 @@ class EmploymentContextRolledJournalItem(BaseModel):
     journal_item_id: str
     kind: JournalItemKind = JournalItemKind.EMPLOYMENT_CONTEXT_ROLLED
     command_id: str
+    command_digest: str = ""
     recorded_at: str
     occurred_at: str | None = None
     archived_context_id: str | None = None
@@ -346,6 +382,7 @@ class EmploymentContextRolledJournalItem(BaseModel):
 #: rollover를 재생할 수 없으므로 생명주기 항목까지 하나의 순서 있는 journal에 담는다.
 CareerJournalItem = (
     EpisodeCreatedJournalItem
+    | EpisodeClosedJournalItem
     | EpisodeReopenedJournalItem
     | StageHistoryItem
     | AcceptedEpisodeSwitchedJournalItem

@@ -27,13 +27,16 @@ _TESTS = Path(__file__).resolve().parents[1]
 _BACKEND = _TESTS.parent
 _REPO = _BACKEND.parent
 
-#: P0-B 신규 모듈 — production 경로에서 import되면 안 된다.
+#: 커리어 shadow 신규 모듈(P0-B·P1) — production 경로에서 import되면 안 된다.
+#: 이 목록의 모듈끼리 서로 import하는 것은 허용된다(shadow 내부 의존).
 _NEW_MODULES = (
     "saju_shared_types.career_transition",
+    "saju_shared_types.career_commands",
     "saju_shared_types.event_semantics",
     "saju_engines.event_semantics_resolver",
     "saju_engines.career_stage_adapter",
     "saju_engines.career_shadow_observation",
+    "saju_engines.career_transition_reducer",
 )
 
 #: census manifest — **분모는 실행 결과가 아니라 독립 고정 manifest에서 나온다.**
