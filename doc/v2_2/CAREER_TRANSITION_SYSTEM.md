@@ -32,7 +32,7 @@
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
 | D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
-### 25 불변식 (요약)
+### 26 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -58,6 +58,7 @@
 - **INV-23** Timing from occurrence — 단계 시점 오차는 **실제 발생 시점(또는 발생 범위)** 으로 계산한다. **관찰·입력 시점으로 대신 계산하지 않는다.** 예측 스냅샷은 불변이며 현재 모델 재계산값을 과거 예측처럼 쓰지 않는다(§14-5)
 - **INV-24** Guard success ≠ violation — 안전장치가 정상 작동한 관측(`guard_outcome=BLOCKED`·`ROLLED_BACK` + 권위 상태 불변)은 **위반으로 집계하지 않는다.** 오류는 `VIOLATION`이거나 차단 뒤에도 권위 상태가 변경된 경우다(§15)
 - **INV-25** Census before zero — 안전·무결성 지표는 **적용 가능한 실행 전수 계측**이 원칙이며, `violation_count=0`은 `measurement_status=ACTIVE` + `measured_count=eligible_count`일 때만 통과로 인정한다. **계측 누락(`measured_count=0`)은 통과가 아니라 측정 실패**다(§15-1)
+- **INV-26** Consumer provenance — 사용자에게 전달되는 **단계·사실·forecast·근거 문장은 각각의 소유 출처를 유지**하며, LLM이 출처 간 상태를 **승격하거나 병합하지 않는다**(§12)
 
 ---
 
@@ -634,6 +635,129 @@ family_cap_collision               # 같은 cap 슬롯 공유로 탈락한 건�
 
 ---
 
+## §12. 소비 배선 (chat · report)
+
+### 12-0. 소비 불변식
+
+> **INV-26 (Consumer provenance)**: 전달되는 단계·사실·forecast·근거 문장은 각각의 **소유 출처를 유지**하며, LLM이 출처 간 상태를 **승격하거나 병합하지 않는다.**
+
+- 사실 상태와 forecast를 **동일 문장 층위로 합치지 않는다.**
+- 명리 신호가 **회사 행동·오퍼·합격·퇴사·입사를 생성하지 않는다**(INV-18).
+- Episode를 해소하지 못하면 **특정 회사 단계로 서술하지 않는다.**
+- 한 사건은 **하나의 섹션이 본문 소유권**을 가진다.
+- chat·report 이외의 **daily 경로에는 배선하지 않는다**(INV-14).
+- **LLM 입력 감사와 최종 응답 감사를 모두** 수행한다(§12-6).
+
+### 12-1. Chat 입력 계약
+
+전체 `CareerEpisodeStore`를 그대로 넣지 않고 **질문 관련 축약본**만 전달한다.
+
+```
+query_focus | resolved_episode | confirmed_track_states | current_facts
+| forecast_stage_candidates | effect_vector | bottleneck
+| blocking_factors | supporting_factors | prohibited_claims
+```
+
+각 값은 출처가 구분되어야 한다: `confirmed` / `resolved` / `forecast` / `unknown` / `not_applicable`.
+
+**필드명이 사실처럼 보이지 않아야 한다.**
+
+```
+잘못된 예:  offer_expected = true
+권장:      forecast_target_stage = OFFER
+           forecast_readiness    = ...
+           runtime_status        = SHADOW | BETA
+```
+
+### 12-2. Chat 서술 계약
+
+출력 순서:
+
+1. 사용자가 밝힌 **현재 진행 상태**
+2. **현재 단계의 의미**
+3. **다음 단계**에서 강하거나 약한 흐름
+4. **병목·마찰·지연** 요인
+5. 실제 **확인이 필요한 현실 조건**
+
+허용 표현 예:
+
+```
+현재 확인된 사실은 면접 진행까지입니다.
+명리 신호는 그 이후 단계 중 협상보다 면접 결과 통지 쪽의
+활성도를 상대적으로 높게 평가합니다.
+이는 회사의 합격 의사를 뜻하지 않으며,
+실제 결과와 오퍼 여부는 별도로 확인해야 합니다.
+```
+
+금지 표현:
+
+```
+회사가 긍정적으로 보고 있습니다.
+곧 오퍼가 옵니다.
+이 시기에 퇴사하게 됩니다.
+입사가 확정되는 흐름입니다.
+```
+
+### 12-3. Episode 해소 실패 처리
+
+```
+유일한 열린 Episode        → 자동 해소 허용
+복수 Episode + 명시적 대상  → 해당 Episode 사용
+복수 Episode + 모호한 대상  → EPISODE_UNRESOLVED
+```
+
+`EPISODE_UNRESOLVED`에서는 **특정 회사의 면접·오퍼·입사 단계 추정 금지**, **여러 Episode 점수 합산 금지**, 일반적 이직 흐름 설명 또는 대상 식별 정보 요청, **권위 상태 변경 금지**.
+
+### 12-4. Report 섹션 소유권
+
+| 내용 | 본문 소유 섹션 |
+|---|---|
+| 전반적인 직업 변화 활성도 | 기존 직업운 요약 |
+| 특정 Episode의 단계 진행 | **신규 Career Transition 섹션** |
+| 퇴사 압력·마찰 | Career Transition의 Exit 트랙 |
+| 입사·정착 | Entry · Stabilization |
+| 구조패턴·점수 상세 | 부록 근거 섹션 |
+| 사용자 현실 캘리브레이션 | 별도 현실 확인·피드백 영역 |
+
+**기존 직업운 섹션과 신규 전환 섹션이 같은 이직 후보를 각각 자세히 설명하지 않는다** — 기존 섹션은 **한 줄 요약 + 신규 섹션 참조**만 소유한다.
+
+### 12-5. 토큰 예산과 축약 우선순위
+
+제거 순서(안전한 순):
+
+```
+세부 evidence 설명 → 보조 supporting factor
+→ 낮은 순위 forecast stage → 과거 종료 Episode
+```
+
+**절대 제거 금지**:
+
+```
+confirmed/forecast 구분 | 현재 Episode 식별 | 핵심 bottleneck
+| 금지 표현 지시 | 사실 근거 source
+```
+
+### 12-6. 이중 감사
+
+**A. LLM 입력 전** — 사실/forecast 분리 · Episode 해소 · **토큰 축약 후 필수 가드 잔존** · counterparty 추론 유입 여부.
+
+**B. 최종 응답 후** — completion overclaim · counterparty overclaim · confirmed/forecast 표현 혼합 · **다른 Episode 사실 혼입** · 구조화 값과 서술 불일치.
+
+`narrative_completion_overclaim`은 **B 단계가 배선되는 순간** `NOT_MEASURABLE_YET` → `ACTIVE`로 전환된다(§15-1).
+
+### 12-7. byte 불변 범위
+
+```
+P0-B~P3 shadow : 기존 LLM 입력·최종 응답 변화 0
+P4 beta        : 허용된 Career Transition 블록만 추가 가능,
+                 기존 필드·점수·랭킹·문단 소유 내용 불변
+feature flag OFF: 신규 블록 제거 후 기존 응답과 byte-identical
+```
+
+동적 ID·시간값 때문에 완전한 최종 응답 byte 비교가 어려우면, **비결정 필드를 제거한 canonical serialization**을 비교하도록 규격화한다.
+
+---
+
 ## §13. fixture 계약
 
 > **작성 원칙**: 이 절은 **수치·명리 매핑의 정답을 고정하지 않는다.** 검증 대상은 **상태·의미·소유권 불변식**이다. 명리 신호별 기대 효과 fixture는 부록 B 감수 진행에 따라 **별도로** 추가한다(감수 전 정답 고정 금지, 리포 규칙 10).
@@ -1180,7 +1304,7 @@ metric_name | metric_class | definition | numerator | denominator
 ```python
 class MetricMeasurementStatus(StrEnum):
     ACTIVE | NOT_MEASURABLE_YET | INSUFFICIENT_COVERAGE
-    | INSUFFICIENT_SAMPLE | DEGRADED
+    | INSUFFICIENT_SAMPLE | NO_ELIGIBLE_CASES | DEGRADED
 ```
 
 지표 결과에 필수 포함:
@@ -1188,6 +1312,22 @@ class MetricMeasurementStatus(StrEnum):
 ```
 eligible_count | measured_count | excluded_count | coverage_rate | measurement_status
 ```
+
+**계산식과 경계 판정** (적용 대상 0건 ≠ 측정 실패):
+
+```
+total_observed_count = eligible_count + excluded_count
+coverage_rate        = measured_count / eligible_count      # eligible_count > 0 일 때만 정의
+```
+
+| 조건 | 판정 |
+|---|---|
+| `eligible > 0`, `measured = 0` | **계측 실패 — 승격 차단** |
+| `eligible > measured` | **불완전 계측 — 승격 차단** |
+| `eligible = measured > 0` | **census 충족** |
+| `eligible = 0` | 통과가 아니라 **`NO_ELIGIBLE_CASES`**(또는 `INSUFFICIENT_SAMPLE`) |
+
+최소 표본이 필요한 품질 지표와 Kind별 보고에도 같은 원칙을 적용한다.
 
 **승격 규칙 (안전·무결성 지표)**
 
@@ -1339,13 +1479,14 @@ guard activation rate의 **임계값 자체는 §16에서** 정하되, **측정�
 
 ---
 
-## §12·§16·§17 및 부록 A — 후속 작성 단위
+## §16·§17 및 부록 A — 후속 작성 단위
 
 ```
-§12 소비 배선 → §16 로드맵 → §17 재사용표
+§16 rollout·승격 로드맵 → §17 재사용 경계표 → 부록 A 감사 결과 본문화
+→ P0-A 완료 커밋
 ```
 
-- §12 소비 배선(chat 디렉티브·리포트 섹션 소유권·토큰 예산) · §16 로드맵 P0~P5 · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
+- §16 로드맵 P0~P5(guard activation rate 임계 포함) · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
 
 ---
 
