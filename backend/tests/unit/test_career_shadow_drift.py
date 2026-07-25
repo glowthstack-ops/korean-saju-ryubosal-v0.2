@@ -217,18 +217,29 @@ def _imported_modules(path: Path) -> set[str]:
     return names
 
 
-def test_no_production_inbound_import() -> None:
-    """P0-B 신규 모듈을 production(packages/apps)에서 import하지 않는다.
+#: P4-1 에서 승인된 소비 배선 지점 — 2단 flag 뒤(기본 OFF)이며 이 파일만 예외다.
+_INBOUND_IMPORT_ALLOWLIST = frozenset(
+    {"backend/apps/api/saju_api/services/chat_service.py"}
+)
 
-    inbound import가 0이면 사용자용 LLM·report 입력과 권위 상태 변경 0이 구조적으로
-    보장된다 — "기존 파일 무수정" 원칙을 테스트로 고정한다.
+
+def test_no_unapproved_production_inbound_import() -> None:
+    """승인된 소비 배선 지점 외에는 커리어 모듈을 import하지 않는다.
+
+    P4-1 이전에는 inbound import 가 0이었고, 지금은 `chat_service` 하나만 허용된다.
+    report·daily·엔진 점수 경로는 계속 0이어야 한다.
     """
     offenders: list[str] = []
     for path in _iter_production_py():
+        rel = str(path.relative_to(_REPO))
+        if rel in _INBOUND_IMPORT_ALLOWLIST:
+            continue
         hit = _imported_modules(path) & set(_NEW_MODULES)
         if hit:
-            offenders.append(f"{path.relative_to(_REPO)} → {sorted(hit)}")
-    assert not offenders, "production inbound import 발견:\n" + "\n".join(offenders)
+            offenders.append(f"{rel} → {sorted(hit)}")
+    assert not offenders, (
+        "승인되지 않은 production inbound import:\n" + "\n".join(offenders)
+    )
 
 
 def test_conversation_state_has_no_career_field() -> None:
@@ -267,6 +278,8 @@ _MODIFY_ALLOWLIST = frozenset(
     {
         # reason_codes 결정성 수정(REASON_CODES_ORDER_NONDETERMINISTIC 해소).
         "backend/packages/saju_engines/saju_engines/ten_god_brancher.py",
+        # P4-1 chat beta 배선(2단 flag 뒤, 기본 OFF).
+        "backend/apps/api/saju_api/services/chat_service.py",
     }
 )
 

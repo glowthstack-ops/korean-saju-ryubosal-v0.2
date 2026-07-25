@@ -18,6 +18,8 @@ import os
 import re
 from collections.abc import Callable
 
+from pydantic import BaseModel, ConfigDict
+
 from saju_shared_types.career_consumer import (
     CareerBlockResult,
     CareerConsumerPayload,
@@ -234,6 +236,93 @@ def post_output_audit(
     return OutputAuditAction.REWRITE, tuple(violations)
 
 
+class CareerBlockPreparation(BaseModel):
+    """production 훅 1 — prompt 조립 전까지의 결과.
+
+    **LLM을 호출하지 않는다.** 기존 chat 경로의 단일 LLM 호출을 유지하기 위해
+    prepare(프롬프트 지시문 생성)와 audit(응답 검사)를 분리한다.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    eligible: bool = False
+    directive: str | None = None
+    payload: CareerConsumerPayload | None = None
+    claims: tuple[ConsumerClaim, ...] = ()
+    input_action: InputAuditAction = InputAuditAction.FALLBACK_TO_LEGACY
+    violations: tuple[ConsumerViolation, ...] = ()
+    skip_reason: str | None = None
+
+
+class CareerResponseAudit(BaseModel):
+    """production 훅 2 — 기존 단일 응답에 대한 출력 감사 결과."""
+
+    model_config = ConfigDict(frozen=True)
+
+    action: OutputAuditAction = OutputAuditAction.DELIVER
+    violations: tuple[ConsumerViolation, ...] = ()
+
+    @property
+    def delivered(self) -> bool:
+        return self.action is OutputAuditAction.DELIVER
+
+    @property
+    def reduce_legacy_section(self) -> bool:
+        """기존 직업운 축소 여부 — 전달 확정 시에만 True(INV-29)."""
+        return self.delivered
+
+
+def prepare_career_chat_block(
+    store: CareerEpisodeStore,
+    *,
+    query_resolution: CareerQueryResolution,
+    subject_count: int,
+    kind,
+    vector,
+    enabled: bool | None = None,
+    beta_expose: bool | None = None,
+) -> CareerBlockPreparation:
+    """cohort·visibility·payload·PRE_INPUT_AUDIT 까지만 수행한다(LLM 호출 없음)."""
+    enabled = CAREER_TRANSITION_CHAT_ENABLED if enabled is None else enabled
+    beta_expose = CAREER_TRANSITION_CHAT_BETA_EXPOSE if beta_expose is None else beta_expose
+    visibility = resolve_visibility(enabled=enabled, beta_expose=beta_expose)
+    if visibility is ConsumerVisibilityDecision.SUPPRESSED:
+        return CareerBlockPreparation(skip_reason="flag_off")
+
+    ok, reason = is_eligible_cohort(
+        store, query_resolution=query_resolution, subject_count=subject_count
+    )
+    if not ok:
+        return CareerBlockPreparation(skip_reason=reason)
+
+    episode_id = next(
+        e.episode_id for e in store.episodes
+        if e.opportunity.lifecycle_status is not TrackLifecycleStatus.CLOSED
+    )
+    payload = build_payload(store, episode_id=episode_id, kind=kind, vector=vector)
+    action, violations = pre_input_audit(payload, visibility)
+    if action is not InputAuditAction.ALLOW:
+        # 필드가 아니라 블록 전체를 억제한다.
+        return CareerBlockPreparation(
+            payload=payload, input_action=action, violations=violations,
+            skip_reason="pre_input_audit",
+        )
+    return CareerBlockPreparation(
+        eligible=True, directive=build_block_text(payload), payload=payload,
+        claims=build_claims(payload), input_action=action,
+    )
+
+
+def audit_career_chat_response(
+    answer: str, preparation: CareerBlockPreparation
+) -> CareerResponseAudit:
+    """기존 단일 LLM 응답을 검사한다 — 감사 전 원문 전달 금지(INV-28)."""
+    if not preparation.eligible or preparation.payload is None:
+        return CareerResponseAudit()
+    action, violations = post_output_audit(answer, preparation.claims, preparation.payload)
+    return CareerResponseAudit(action=action, violations=violations)
+
+
 def run_career_chat_block(
     store: CareerEpisodeStore,
     *,
@@ -300,6 +389,10 @@ def run_career_chat_block(
 
 __all__ = [
     "CAREER_TRANSITION_CHAT_BETA_EXPOSE",
+    "CareerBlockPreparation",
+    "CareerResponseAudit",
+    "audit_career_chat_response",
+    "prepare_career_chat_block",
     "CAREER_TRANSITION_CHAT_ENABLED",
     "build_block_text",
     "build_claims",

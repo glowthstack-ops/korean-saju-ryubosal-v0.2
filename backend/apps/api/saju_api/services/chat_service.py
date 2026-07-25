@@ -97,6 +97,7 @@ from saju_engines.user_facts import user_facts_block
 from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.career_transition import CareerQueryResolution, CareerTransitionKind
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef, TimeExclusion
 from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES, EVENT_TYPE
 from saju_shared_types.events import EventKey
@@ -4275,6 +4276,13 @@ def chat(
         if compat:
             trailing.append(compat)
 
+    # ── P4-1 커리어 전이 chat beta(최소 cohort) ────────────────────────
+    # prepare 는 LLM을 호출하지 않는다 — 기존 단일 generate_reading 호출을 유지한다.
+    # flag OFF(기본)면 지시문이 없어 프롬프트·응답이 byte 동일하다.
+    _career_prep = _prepare_career_transition_block(result, intent)
+    if _career_prep is not None and _career_prep.directive:
+        trailing.append(_career_prep.directive)
+
     system = None
     if persona is not None:
         # 호칭 자리({resolvedHonorific})에 대화 기준 사주의 별명을 넣는다(하드코딩 '회원' 제거).
@@ -4479,6 +4487,11 @@ def chat(
             ref_id=thread_id,
         )
         answer = _normalize_ganji_gloss(answer)  # 간지 병기 보정.
+        # P4-1 출력 감사 — 실패하면 커리어 지시문을 뺀 프롬프트로 **1회만** 재생성해
+        # 기존 직업운 경로로 완전 복귀한다(감사 전 원문 전달 금지, 3회 호출 금지).
+        answer = _audit_career_transition_answer(
+            answer, _career_prep, prompt_text, call_type, system, owner_id, thread_id
+        )
     # 총운 커버리지 계측(관측 전용 — 재생성·재호출 없음, 데굴님 확정): 누락 후보를
     # 로그로 남겨 입력 구조 개선(후보 블록 후치 등)의 효과를 실측한다.
     if _overview_mode and payload.event_candidates:
@@ -4510,3 +4523,66 @@ def _save_thread(store: ConversationStore | None, state: ConversationState | Non
     """멀티턴 경로에서만 스레드 상태를 저장한다."""
     if store is not None and state is not None:
         store.save(state)
+
+
+# ── P4-1 커리어 전이 chat beta 훅 ──────────────────────────────────────────
+# 최소 cohort(CHAT + GENERAL_CAREER + 단일 본인 + 열린 Episode 1개) 전용이며 2단 flag
+# 뒤에 있다. shadow store 가 아직 대화에 영속되지 않으므로(P3 경계) production 에서는
+# 자격 미달로 None 을 돌려준다 — flag OFF 와 동일하게 프롬프트·응답이 불변이다.
+
+
+def _prepare_career_transition_block(result, intent):
+    """커리어 전이 블록 준비(LLM 호출 없음). 자격 미달·flag OFF 면 None."""
+    from saju_engines import career_chat_consumer
+
+    if not career_chat_consumer.CAREER_TRANSITION_CHAT_ENABLED:
+        return None
+    try:
+        store = _career_shadow_store_for(result, intent)
+        if store is None:
+            return None
+        return career_chat_consumer.prepare_career_chat_block(
+            store,
+            query_resolution=CareerQueryResolution.GENERAL_CAREER,
+            subject_count=1,
+            kind=CareerTransitionKind.EXTERNAL_MOVE,
+            vector=_career_effect_vector_for(result),
+        )
+    except Exception:  # pragma: no cover - beta 경로가 기존 응답을 깨지 않게
+        _logger.exception("career_transition_prepare_failed")
+        return None
+
+
+def _career_shadow_store_for(result, intent):
+    """대화에 연결된 커리어 shadow store — P4-1 에서는 아직 영속되지 않아 None."""
+    return None
+
+
+def _career_effect_vector_for(result):
+    """단계 효과 벡터 — P4-1 에서는 shadow store 부재로 호출되지 않는다."""
+    from saju_shared_types.career_effect_vector import CareerEffectVector
+
+    return CareerEffectVector()
+
+
+def _audit_career_transition_answer(
+    answer, preparation, prompt_text, call_type, system, owner_id, thread_id
+):
+    """출력 감사 — 위반 시 커리어 지시문을 뺀 프롬프트로 1회만 재생성한다."""
+    if preparation is None or not preparation.eligible:
+        return answer
+    from saju_engines import career_chat_consumer
+
+    audit = career_chat_consumer.audit_career_chat_response(answer, preparation)
+    if audit.delivered:
+        return answer
+    _logger.info(
+        "career_transition_output_audit_fallback violations=%s thread=%s",
+        [v.value for v in audit.violations], thread_id,
+    )
+    legacy_prompt = prompt_text.replace(preparation.directive or "", "").strip()
+    retried = llm_client.generate_reading(
+        legacy_prompt, call_type=call_type, system=system,
+        owner_id=owner_id, surface="chat", ref_id=thread_id,
+    )
+    return _normalize_ganji_gloss(retried)
