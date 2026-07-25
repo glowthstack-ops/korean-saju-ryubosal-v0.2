@@ -1,0 +1,2708 @@
+{
+  "dict_version": "dict.v1.7",
+  "compiled_at": "2026-07-25T15:11:40.372368+00:00",
+  "structural_validation": "passed",
+  "sources": {
+    "daily_event_catalog.json": {
+      "sha256": "55c38a972f7d83408e66e747803c374763ea624ad9077140e9c7051528d025c7",
+      "version": "dict.v1.3",
+      "reviewed": false
+    },
+    "daily_phrase_templates.json": {
+      "sha256": "ae4d4d4bbab446a636de8893e6177860940f69015ed08e67dd816f4a5fe77134",
+      "version": "dict.v1.5",
+      "reviewed": false
+    },
+    "daily_lucky_places.json": {
+      "sha256": "11b10ab6cbebb05747e1b915f7da70d5211e67145ad25834687d100376002bd5",
+      "version": "dict.v1.2",
+      "reviewed": false
+    }
+  },
+  "catalog": {
+    "schema": "daily_event_catalog.v1",
+    "version": "dict.v1.3",
+    "reviewed": false,
+    "review_note": "명리 감수 대기 — 구조 검증은 컴파일 파이프라인이 보장한다(compiled/daily_fortune_{DICT_VERSION}.json, structural_validation).",
+    "domains": [
+      "money",
+      "love",
+      "work",
+      "social",
+      "news",
+      "document",
+      "move",
+      "health",
+      "leisure"
+    ],
+    "relation_keys": [
+      "six_combination",
+      "half_harmony",
+      "three_harmony_complete",
+      "clash",
+      "punishment",
+      "break",
+      "harm"
+    ],
+    "events": {
+      "money_small_gain": {
+        "label": "공돈이 생길 확률",
+        "domain": "money",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": "money_gain",
+        "base_weight": 0.33,
+        "expr_confidence": 1.0,
+        "ten_god_affinity": {
+          "편재": 0.9,
+          "정재": 0.7,
+          "식신": 0.4,
+          "상관": 0.2,
+          "겁재": -0.6,
+          "비견": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": 0.5,
+          "half_harmony": 0.3,
+          "three_harmony_complete": 0.6,
+          "clash": -0.5,
+          "punishment": -0.4,
+          "break": -0.2,
+          "harm": -0.3
+        },
+        "element_affinity": {
+          "金": 0.2,
+          "水": 0.1
+        }
+      },
+      "money_good_deal": {
+        "label": "알뜰한 득템을 할 확률",
+        "domain": "money",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": "money_gain",
+        "base_weight": 0.33,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "정재": 0.8,
+          "편재": 0.5,
+          "식신": 0.4,
+          "상관": 0.3,
+          "겁재": -0.5
+        },
+        "relation_affinity": {
+          "six_combination": 0.4,
+          "half_harmony": 0.2,
+          "three_harmony_complete": 0.5,
+          "clash": -0.4,
+          "punishment": -0.3,
+          "break": -0.2,
+          "harm": -0.2
+        },
+        "element_affinity": {
+          "金": 0.2,
+          "土": 0.1
+        }
+      },
+      "treat_received": {
+        "label": "대접이나 선물을 받을 확률",
+        "domain": "social",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.3,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "정인": 0.6,
+          "편인": 0.4,
+          "편재": 0.4,
+          "정재": 0.3,
+          "식신": 0.3,
+          "편관": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": 0.6,
+          "half_harmony": 0.3,
+          "three_harmony_complete": 0.5,
+          "clash": -0.4,
+          "punishment": -0.3,
+          "break": -0.2,
+          "harm": -0.3
+        },
+        "element_affinity": {
+          "土": 0.2,
+          "火": 0.1
+        }
+      },
+      "meet_helper": {
+        "label": "도움 주는 사람을 만날 확률",
+        "domain": "social",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": "help_flow",
+        "base_weight": 0.33,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "정인": 0.8,
+          "편인": 0.5,
+          "정관": 0.4,
+          "비견": 0.3,
+          "편관": -0.3,
+          "상관": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.6,
+          "half_harmony": 0.3,
+          "three_harmony_complete": 0.6,
+          "clash": -0.4,
+          "punishment": -0.4,
+          "break": -0.2,
+          "harm": -0.4
+        },
+        "element_affinity": {
+          "土": 0.1,
+          "木": 0.1
+        }
+      },
+      "old_contact": {
+        "label": "오래된 인연에게 연락 올 확률",
+        "domain": "news",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": "incoming_news",
+        "base_weight": 0.3,
+        "expr_confidence": 0.9,
+        "ten_god_affinity": {
+          "비견": 0.5,
+          "겁재": 0.3,
+          "정인": 0.4,
+          "식신": 0.3,
+          "편관": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.7,
+          "half_harmony": 0.4,
+          "three_harmony_complete": 0.6,
+          "clash": -0.3,
+          "punishment": -0.3,
+          "break": -0.2,
+          "harm": -0.3
+        },
+        "element_affinity": {
+          "水": 0.2
+        }
+      },
+      "good_news_arrives": {
+        "label": "기다리던 소식이 올 확률",
+        "domain": "news",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": "incoming_news",
+        "base_weight": 0.33,
+        "expr_confidence": 1.0,
+        "ten_god_affinity": {
+          "정인": 0.6,
+          "식신": 0.4,
+          "정관": 0.3,
+          "편인": 0.2,
+          "상관": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.5,
+          "half_harmony": 0.3,
+          "three_harmony_complete": 0.5,
+          "clash": -0.4,
+          "punishment": -0.3,
+          "break": -0.3,
+          "harm": -0.3
+        },
+        "element_affinity": {
+          "水": 0.1,
+          "木": 0.1
+        }
+      },
+      "praise_recognition": {
+        "label": "일에서 인정받을 확률",
+        "domain": "work",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.33,
+        "expr_confidence": 1.0,
+        "ten_god_affinity": {
+          "정관": 0.8,
+          "정인": 0.4,
+          "편관": 0.3,
+          "식신": 0.2,
+          "상관": -0.4,
+          "겁재": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": 0.4,
+          "half_harmony": 0.2,
+          "three_harmony_complete": 0.5,
+          "clash": -0.5,
+          "punishment": -0.5,
+          "break": -0.3,
+          "harm": -0.3
+        },
+        "element_affinity": {
+          "金": 0.1,
+          "火": 0.1
+        }
+      },
+      "love_spark": {
+        "label": "설레는 기류가 생길 확률",
+        "domain": "love",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.3,
+        "expr_confidence": 0.9,
+        "ten_god_affinity": {
+          "식신": 0.5,
+          "상관": 0.5,
+          "정재": 0.4,
+          "정관": 0.4,
+          "편재": 0.3,
+          "편관": 0.2,
+          "편인": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": 0.8,
+          "half_harmony": 0.4,
+          "three_harmony_complete": 0.6,
+          "clash": -0.4,
+          "punishment": -0.4,
+          "break": -0.3,
+          "harm": -0.4
+        },
+        "element_affinity": {
+          "火": 0.2,
+          "水": 0.1
+        }
+      },
+      "pleasant_meeting": {
+        "label": "즐거운 모임이 생길 확률",
+        "domain": "social",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.3,
+        "expr_confidence": 0.9,
+        "ten_god_affinity": {
+          "식신": 0.6,
+          "비견": 0.4,
+          "편재": 0.3,
+          "상관": 0.3,
+          "편관": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": 0.5,
+          "half_harmony": 0.4,
+          "three_harmony_complete": 0.7,
+          "clash": -0.4,
+          "punishment": -0.3,
+          "break": -0.2,
+          "harm": -0.3
+        },
+        "element_affinity": {
+          "火": 0.2
+        }
+      },
+      "document_progress": {
+        "label": "서류·계약이 순조로울 확률",
+        "domain": "document",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.3,
+        "expr_confidence": 1.0,
+        "ten_god_affinity": {
+          "정인": 0.8,
+          "정관": 0.6,
+          "편인": 0.3,
+          "상관": -0.4,
+          "겁재": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.5,
+          "half_harmony": 0.2,
+          "three_harmony_complete": 0.5,
+          "clash": -0.5,
+          "punishment": -0.4,
+          "break": -0.4,
+          "harm": -0.3
+        },
+        "element_affinity": {
+          "土": 0.1,
+          "木": 0.1
+        }
+      },
+      "teamwork_flow": {
+        "label": "부탁과 협업이 잘 풀릴 확률",
+        "domain": "work",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": "help_flow",
+        "base_weight": 0.33,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "비견": 0.6,
+          "정관": 0.4,
+          "정인": 0.3,
+          "식신": 0.3,
+          "겁재": -0.3,
+          "편관": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.5,
+          "half_harmony": 0.3,
+          "three_harmony_complete": 0.6,
+          "clash": -0.4,
+          "punishment": -0.4,
+          "break": -0.3,
+          "harm": -0.4
+        },
+        "element_affinity": {
+          "木": 0.1,
+          "土": 0.1
+        }
+      },
+      "idea_flash": {
+        "label": "좋은 아이디어가 떠오를 확률",
+        "domain": "work",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.3,
+        "expr_confidence": 0.9,
+        "ten_god_affinity": {
+          "식신": 0.7,
+          "상관": 0.7,
+          "편인": 0.5,
+          "정관": -0.2,
+          "편관": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": 0.3,
+          "half_harmony": 0.2,
+          "three_harmony_complete": 0.4,
+          "clash": -0.2,
+          "punishment": -0.3,
+          "break": -0.2,
+          "harm": -0.2
+        },
+        "element_affinity": {
+          "木": 0.2,
+          "火": 0.1
+        }
+      },
+      "overspend_caution": {
+        "label": "충동구매할 확률",
+        "domain": "money",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.18,
+        "expr_confidence": 1.0,
+        "ten_god_affinity": {
+          "겁재": 0.7,
+          "편재": 0.6,
+          "상관": 0.4,
+          "비견": 0.3,
+          "정재": -0.4,
+          "정인": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": -0.2,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.2,
+          "clash": 0.4,
+          "punishment": 0.3,
+          "break": 0.3,
+          "harm": 0.3
+        },
+        "element_affinity": {
+          "火": 0.2
+        }
+      },
+      "lend_money_caution": {
+        "label": "금전 거래로 신경 쓸 확률",
+        "domain": "money",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.15,
+        "expr_confidence": 0.9,
+        "ten_god_affinity": {
+          "겁재": 0.8,
+          "비견": 0.5,
+          "편재": 0.3,
+          "정재": -0.3,
+          "정관": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": -0.2,
+          "half_harmony": 0.1,
+          "three_harmony_complete": 0.0,
+          "clash": 0.3,
+          "punishment": 0.4,
+          "break": 0.3,
+          "harm": 0.3
+        },
+        "element_affinity": {
+          "金": 0.1
+        }
+      },
+      "argument_caution": {
+        "label": "말다툼이 생길 확률",
+        "domain": "social",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "speech_trouble",
+        "base_weight": 0.18,
+        "expr_confidence": 1.0,
+        "ten_god_affinity": {
+          "상관": 0.7,
+          "편관": 0.5,
+          "겁재": 0.4,
+          "정인": -0.4,
+          "식신": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.4,
+          "half_harmony": -0.1,
+          "three_harmony_complete": -0.2,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.3,
+          "harm": 0.5
+        },
+        "element_affinity": {
+          "火": 0.2,
+          "金": 0.1
+        }
+      },
+      "misunderstanding_caution": {
+        "label": "전달이 어긋날 확률",
+        "domain": "news",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "speech_trouble",
+        "base_weight": 0.18,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편인": 0.6,
+          "상관": 0.4,
+          "편관": 0.3,
+          "정인": -0.3,
+          "식신": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": -0.1,
+          "clash": 0.4,
+          "punishment": 0.4,
+          "break": 0.4,
+          "harm": 0.5
+        },
+        "element_affinity": {
+          "水": 0.1
+        }
+      },
+      "rumor_caution": {
+        "label": "구설에 오를 확률",
+        "domain": "social",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "speech_trouble",
+        "base_weight": 0.15,
+        "expr_confidence": 0.9,
+        "ten_god_affinity": {
+          "상관": 0.6,
+          "겁재": 0.4,
+          "편관": 0.4,
+          "정인": -0.4,
+          "정관": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": -0.1,
+          "clash": 0.4,
+          "punishment": 0.5,
+          "break": 0.3,
+          "harm": 0.6
+        },
+        "element_affinity": {
+          "火": 0.1
+        }
+      },
+      "lost_item_caution": {
+        "label": "물건을 깜빡하거나 흘릴 확률",
+        "domain": "move",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "property_security_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.9,
+        "ten_god_affinity": {
+          "편인": 0.4,
+          "겁재": 0.4,
+          "상관": 0.3,
+          "정재": -0.3,
+          "정인": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.2,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.0,
+          "clash": 0.4,
+          "punishment": 0.3,
+          "break": 0.5,
+          "harm": 0.3
+        },
+        "element_affinity": {
+          "水": 0.1
+        }
+      },
+      "traffic_delay_caution": {
+        "label": "이동이 꼬이거나 늦어질 확률",
+        "domain": "move",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "movement_safety_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편관": 0.3,
+          "겁재": 0.3,
+          "상관": 0.2,
+          "정인": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.3,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {
+          "木": 0.1
+        }
+      },
+      "fatigue_caution": {
+        "label": "기운이 빠지고 지칠 확률",
+        "domain": "health",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "recovery_group",
+        "base_weight": 0.18,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편관": 0.7,
+          "편인": 0.4,
+          "정관": 0.3,
+          "상관": 0.3,
+          "정인": -0.3,
+          "비견": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": -0.1,
+          "clash": 0.4,
+          "punishment": 0.4,
+          "break": 0.2,
+          "harm": 0.4
+        },
+        "element_affinity": {
+          "水": 0.1,
+          "土": 0.1
+        }
+      },
+      "careless_injury_caution": {
+        "label": "부주의로 작게 다칠 확률",
+        "domain": "health",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.13,
+        "expr_confidence": 0.85,
+        "ten_god_affinity": {
+          "편관": 0.5,
+          "상관": 0.3,
+          "겁재": 0.3,
+          "정인": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": -0.1,
+          "clash": 0.5,
+          "punishment": 0.6,
+          "break": 0.3,
+          "harm": 0.4
+        },
+        "element_affinity": {
+          "金": 0.2
+        }
+      },
+      "contract_recheck_caution": {
+        "label": "서류를 다시 확인할 확률",
+        "domain": "document",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "contract_recheck_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편인": 0.7,
+          "상관": 0.4,
+          "겁재": 0.2,
+          "정인": -0.3,
+          "정관": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.2,
+          "half_harmony": 0.0,
+          "three_harmony_complete": -0.1,
+          "clash": 0.3,
+          "punishment": 0.4,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {
+          "土": 0.1
+        }
+      },
+      "walk_refresh": {
+        "label": "산책 한 번에 기분이 풀릴 확률",
+        "domain": "leisure",
+        "valence": "good",
+        "slots": [
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.33,
+        "expr_confidence": 0.85,
+        "ten_god_affinity": {
+          "식신": 0.5,
+          "정인": 0.3,
+          "편인": 0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.3,
+          "half_harmony": 0.2,
+          "three_harmony_complete": 0.3,
+          "clash": 0.1,
+          "punishment": 0.0,
+          "break": 0.0,
+          "harm": 0.1
+        },
+        "element_affinity": {
+          "木": 0.2
+        }
+      },
+      "tidy_luck": {
+        "label": "정리하면 일이 풀릴 확률",
+        "domain": "leisure",
+        "valence": "good",
+        "slots": [
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.33,
+        "expr_confidence": 0.85,
+        "ten_god_affinity": {
+          "정인": 0.4,
+          "정재": 0.4,
+          "정관": 0.3,
+          "편인": 0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.2,
+          "half_harmony": 0.1,
+          "three_harmony_complete": 0.2,
+          "clash": 0.2,
+          "punishment": 0.1,
+          "break": 0.2,
+          "harm": 0.1
+        },
+        "element_affinity": {
+          "土": 0.2
+        }
+      },
+      "family_talk": {
+        "label": "가까운 사람과 대화가 잘 통할 확률",
+        "domain": "social",
+        "valence": "good",
+        "slots": [
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.33,
+        "expr_confidence": 0.85,
+        "ten_god_affinity": {
+          "정인": 0.5,
+          "비견": 0.3,
+          "식신": 0.3,
+          "편관": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.4,
+          "half_harmony": 0.2,
+          "three_harmony_complete": 0.4,
+          "clash": -0.3,
+          "punishment": -0.2,
+          "break": -0.1,
+          "harm": -0.2
+        },
+        "element_affinity": {
+          "土": 0.1,
+          "火": 0.1
+        }
+      },
+      "focus_flow": {
+        "label": "집중이 잘 될 확률",
+        "domain": "work",
+        "valence": "good",
+        "slots": [
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.33,
+        "expr_confidence": 0.9,
+        "ten_god_affinity": {
+          "정인": 0.6,
+          "편인": 0.5,
+          "식신": 0.3,
+          "편재": -0.2,
+          "겁재": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.2,
+          "half_harmony": 0.1,
+          "three_harmony_complete": 0.2,
+          "clash": -0.3,
+          "punishment": -0.2,
+          "break": -0.2,
+          "harm": -0.2
+        },
+        "element_affinity": {
+          "水": 0.1,
+          "木": 0.1
+        }
+      },
+      "small_find": {
+        "label": "우연한 발견으로 웃을 확률",
+        "domain": "leisure",
+        "valence": "good",
+        "slots": [
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.3,
+        "expr_confidence": 0.85,
+        "ten_god_affinity": {
+          "편재": 0.4,
+          "식신": 0.4,
+          "편인": 0.3,
+          "상관": 0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.3,
+          "half_harmony": 0.2,
+          "three_harmony_complete": 0.3,
+          "clash": 0.1,
+          "punishment": 0.0,
+          "break": 0.1,
+          "harm": 0.0
+        },
+        "element_affinity": {
+          "火": 0.1,
+          "水": 0.1
+        }
+      },
+      "rest_recharge": {
+        "label": "쉬어가면 좋은 날일 확률",
+        "domain": "health",
+        "valence": "good",
+        "slots": [
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.33,
+        "expr_confidence": 0.85,
+        "ten_god_affinity": {
+          "정인": 0.5,
+          "편인": 0.4,
+          "식신": 0.3,
+          "편관": 0.2,
+          "비견": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.2,
+          "half_harmony": 0.1,
+          "three_harmony_complete": 0.1,
+          "clash": 0.2,
+          "punishment": 0.2,
+          "break": 0.1,
+          "harm": 0.2
+        },
+        "element_affinity": {
+          "水": 0.2,
+          "土": 0.1
+        }
+      },
+      "travel_schedule_caution": {
+        "label": "이동 일정이 어긋날 확률",
+        "domain": "move",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "movement_safety_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편관": 0.3,
+          "겁재": 0.2,
+          "정인": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {}
+      },
+      "fall_slip_caution": {
+        "label": "미끄러지거나 발을 헛디딜 확률",
+        "domain": "health",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "movement_safety_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편관": 0.3,
+          "겁재": 0.3,
+          "정인": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.0,
+          "clash": 0.4,
+          "punishment": 0.6,
+          "break": 0.3,
+          "harm": 0.4
+        },
+        "element_affinity": {}
+      },
+      "cut_burn_tool_caution": {
+        "label": "칼·뜨거운 것에 손을 다칠 확률",
+        "domain": "health",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "movement_safety_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편관": 0.35,
+          "상관": 0.2,
+          "정인": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.0,
+          "clash": 0.4,
+          "punishment": 0.6,
+          "break": 0.3,
+          "harm": 0.4
+        },
+        "element_affinity": {
+          "金": 0.15,
+          "火": 0.15
+        }
+      },
+      "sports_overuse_caution": {
+        "label": "운동하다 몸에 무리가 갈 확률",
+        "domain": "health",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "recovery_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "비견": 0.3,
+          "상관": 0.25,
+          "정인": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.0,
+          "clash": 0.4,
+          "punishment": 0.6,
+          "break": 0.3,
+          "harm": 0.4
+        },
+        "element_affinity": {}
+      },
+      "fire_electric_check_caution": {
+        "label": "불·전기가 말썽을 부릴 확률",
+        "domain": "health",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "home_safety_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편관": 0.3,
+          "상관": 0.2,
+          "정인": -0.15
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {
+          "火": 0.25
+        }
+      },
+      "weather_water_safety_caution": {
+        "label": "궂은 날씨로 곤란을 겪을 확률",
+        "domain": "move",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "home_safety_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편관": 0.25,
+          "겁재": 0.2,
+          "정인": -0.15
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {
+          "水": 0.25
+        }
+      },
+      "belongings_security_caution": {
+        "label": "소지품이 없어져 당황할 확률",
+        "domain": "money",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "property_security_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "겁재": 0.4,
+          "비견": 0.2,
+          "정재": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {}
+      },
+      "document_device_caution": {
+        "label": "서류나 휴대폰을 두고 다닐 확률",
+        "domain": "document",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "property_security_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "겁재": 0.3,
+          "편인": 0.25,
+          "정인": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {}
+      },
+      "account_phishing_caution": {
+        "label": "낯선 연락·링크에 속을 확률",
+        "domain": "money",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "property_security_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "겁재": 0.35,
+          "편인": 0.2,
+          "정재": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.0,
+          "clash": 0.4,
+          "punishment": 0.6,
+          "break": 0.3,
+          "harm": 0.4
+        },
+        "element_affinity": {}
+      },
+      "home_vehicle_lock_caution": {
+        "label": "문단속·차 문을 깜빡할 확률",
+        "domain": "money",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "property_security_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "겁재": 0.3,
+          "편관": 0.2,
+          "정재": -0.15
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {}
+      },
+      "guarantee_stamp_caution": {
+        "label": "보증·도장 부탁으로 곤란해질 확률",
+        "domain": "document",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "contract_recheck_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편재": 0.3,
+          "겁재": 0.25,
+          "정인": -0.25
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.0,
+          "clash": 0.4,
+          "punishment": 0.6,
+          "break": 0.3,
+          "harm": 0.4
+        },
+        "element_affinity": {}
+      },
+      "name_lending_caution": {
+        "label": "명의 부탁으로 난처해질 확률",
+        "domain": "document",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "contract_recheck_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편재": 0.25,
+          "겁재": 0.3,
+          "정인": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.0,
+          "clash": 0.4,
+          "punishment": 0.6,
+          "break": 0.3,
+          "harm": 0.4
+        },
+        "element_affinity": {}
+      },
+      "authorization_scope_caution": {
+        "label": "주고받은 부탁에서 혼선이 생길 확률",
+        "domain": "document",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "contract_recheck_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편인": 0.3,
+          "상관": 0.2,
+          "정인": -0.15
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {}
+      },
+      "contract_clause_caution": {
+        "label": "작은 글씨를 놓쳐 손해 볼 확률",
+        "domain": "document",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "contract_recheck_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편재": 0.25,
+          "편인": 0.25,
+          "정인": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {}
+      },
+      "overexertion_recovery_caution": {
+        "label": "무리한 일정에 방전될 확률",
+        "domain": "health",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "recovery_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편관": 0.3,
+          "상관": 0.25,
+          "정인": -0.25
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.0,
+          "clash": 0.4,
+          "punishment": 0.6,
+          "break": 0.3,
+          "harm": 0.4
+        },
+        "element_affinity": {}
+      },
+      "sleep_recovery_caution": {
+        "label": "잠이 부족해 피곤할 확률",
+        "domain": "health",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "recovery_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편인": 0.3,
+          "상관": 0.25,
+          "정인": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {}
+      },
+      "digestive_rhythm_caution": {
+        "label": "속이 더부룩해질 확률",
+        "domain": "health",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": "recovery_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "ten_god_affinity": {
+          "편관": 0.25,
+          "편인": 0.2,
+          "정인": -0.15
+        },
+        "relation_affinity": {
+          "six_combination": -0.3,
+          "half_harmony": 0.0,
+          "three_harmony_complete": 0.1,
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "element_affinity": {
+          "土": 0.2
+        }
+      },
+      "love_deepening": {
+        "label": "관계가 한 뼘 가까워질 확률",
+        "domain": "love",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.3,
+        "expr_confidence": 0.85,
+        "ten_god_affinity": {
+          "정재": 0.5,
+          "정관": 0.5,
+          "식신": 0.4,
+          "편재": 0.3,
+          "편관": 0.3,
+          "편인": -0.3
+        },
+        "relation_affinity": {
+          "six_combination": 0.8,
+          "half_harmony": 0.5,
+          "three_harmony_complete": 0.6,
+          "clash": -0.4,
+          "punishment": -0.4,
+          "harm": -0.4
+        },
+        "element_affinity": {
+          "土": 0.2,
+          "火": 0.1
+        }
+      },
+      "love_reunion": {
+        "label": "옛 인연에서 연락이 닿을 확률",
+        "domain": "love",
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.25,
+        "expr_confidence": 0.8,
+        "ten_god_affinity": {
+          "편재": 0.5,
+          "상관": 0.4,
+          "편관": 0.4,
+          "정재": 0.3,
+          "정인": 0.2,
+          "겁재": -0.2
+        },
+        "relation_affinity": {
+          "six_combination": 0.6,
+          "half_harmony": 0.5,
+          "three_harmony_complete": 0.5,
+          "clash": 0.3,
+          "punishment": -0.2,
+          "harm": -0.2
+        },
+        "element_affinity": {
+          "水": 0.2,
+          "金": 0.1
+        }
+      },
+      "love_cooldown": {
+        "label": "마음이 잠시 시큰둥해질 확률",
+        "domain": "love",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.28,
+        "expr_confidence": 0.8,
+        "ten_god_affinity": {
+          "편인": 0.5,
+          "겁재": 0.4,
+          "비견": 0.3,
+          "정관": -0.3,
+          "식신": -0.3
+        },
+        "relation_affinity": {
+          "clash": 0.7,
+          "harm": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "six_combination": -0.5,
+          "three_harmony_complete": -0.3
+        },
+        "element_affinity": {
+          "金": 0.2,
+          "水": 0.1
+        }
+      },
+      "love_misread": {
+        "label": "말이 엇갈려 오해가 생길 확률",
+        "domain": "love",
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.26,
+        "expr_confidence": 0.78,
+        "ten_god_affinity": {
+          "상관": 0.5,
+          "겁재": 0.4,
+          "편관": 0.3,
+          "정인": -0.3,
+          "정재": -0.2
+        },
+        "relation_affinity": {
+          "punishment": 0.7,
+          "harm": 0.6,
+          "clash": 0.5,
+          "break": 0.4,
+          "six_combination": -0.4,
+          "half_harmony": -0.3
+        },
+        "element_affinity": {
+          "木": 0.2,
+          "火": 0.1
+        }
+      }
+    }
+  },
+  "templates": {
+    "schema": "daily_phrase_templates.v1",
+    "version": "dict.v1.5",
+    "reviewed": false,
+    "review_note": "명리 감수 대기 — 구조 검증은 컴파일 파이프라인이 보장한다(compiled/daily_fortune_{DICT_VERSION}.json, structural_validation).",
+    "band_guide": {
+      "s5": "85%+ 직설적으로 권유·예고",
+      "s4": "70~84% 적극적으로 행동 권유",
+      "s3": "55~69% 가벼운 기대감",
+      "s2": "40~54% 무난한 흐름·마무리 권유",
+      "s1": "주의 우세 — 주의 사건을 밝고 직접적으로, 행동으로 수습"
+    },
+    "events": {
+      "money_small_gain": {
+        "fragments": [
+          "작은 돈복이 따라붙는 날!",
+          "뜻밖의 공돈에 웃게 될지도 몰라요.",
+          "생각지 못한 곳에서 작은 이득이 굴러올 수 있어요."
+        ],
+        "actions": [
+          "포인트와 환급금을 꼭 확인해 보세요.",
+          "잊고 있던 지갑 구석까지 살펴보세요.",
+          "오늘은 잔돈도 그냥 지나치지 마세요."
+        ],
+        "results": [
+          "가까운 곳에 작은 이득이 숨어 있어요♪",
+          "소소한 기쁨이 하루를 가볍게 만들어요."
+        ]
+      },
+      "money_good_deal": {
+        "fragments": [
+          "쇼핑 운이 좋은 날이에요.",
+          "알뜰한 득템 찬스가 열려요!",
+          "오래 고민한 물건이 눈에 들어오는 날."
+        ],
+        "actions": [
+          "오래 고민한 물건을 다시 살펴보세요.",
+          "할인 소식을 한 번 훑어보세요.",
+          "필요한 것부터 장바구니를 정리해 보세요."
+        ],
+        "results": [
+          "딱 맞는 가격을 만날지도 몰라요♪",
+          "지출이 오히려 기분 좋은 투자가 돼요."
+        ]
+      },
+      "treat_received": {
+        "fragments": [
+          "누군가의 호의가 도착하는 날!",
+          "밥 한 끼, 커피 한 잔이 공짜로 생길지도 몰라요.",
+          "작은 선물이 기다리고 있을 수 있어요."
+        ],
+        "actions": [
+          "호의는 사양 말고 기분 좋게 받으세요.",
+          "고맙다는 말을 아끼지 마세요.",
+          "받은 만큼 다음에 돌려줄 준비만 해두세요."
+        ],
+        "results": [
+          "주고받는 정이 관계를 더 단단하게 해요.",
+          "기분 좋은 하루의 시작이 됩니다♪"
+        ]
+      },
+      "meet_helper": {
+        "fragments": [
+          "귀인이 가까이 있는 날이에요!",
+          "막힌 일을 풀어줄 사람이 나타날 수 있어요.",
+          "혼자 끙끙대던 고민에 답을 주는 사람이 있어요."
+        ],
+        "actions": [
+          "도움이 필요하면 오늘은 솔직하게 말해 보세요.",
+          "조언을 구하는 연락을 먼저 해보세요.",
+          "주변의 제안에 귀를 열어두세요."
+        ],
+        "results": [
+          "생각보다 쉽게 풀려요.",
+          "든든한 지원군이 생길지도 몰라요!"
+        ]
+      },
+      "old_contact": {
+        "fragments": [
+          "오래된 인연이 다시 이어질지도 몰라요!",
+          "그리운 이름이 화면에 뜰 수 있는 날.",
+          "멈춰 있던 대화가 다시 움직이는 날이에요."
+        ],
+        "actions": [
+          "먼저 안부를 건네보세요.",
+          "떠오르는 사람이 있다면 오늘 연락해 보세요.",
+          "받은 메시지는 대충 넘기지 마세요."
+        ],
+        "results": [
+          "새로운 약속으로 이어질 수 있어요♪",
+          "반가움이 하루를 데워줘요."
+        ]
+      },
+      "good_news_arrives": {
+        "fragments": [
+          "기다리던 소식이 문을 두드리는 날!",
+          "반가운 연락이 올 예감이에요.",
+          "궁금하던 결과의 답이 들려올 수 있어요."
+        ],
+        "actions": [
+          "알림을 꼭 확인하세요.",
+          "오전에 온 연락일수록 반갑게 받으세요.",
+          "메일함과 문자함을 한 번 비워두세요."
+        ],
+        "results": [
+          "좋은 흐름의 신호탄이 될 수 있어요!",
+          "기다림이 보상받는 기분을 느껴요."
+        ]
+      },
+      "praise_recognition": {
+        "fragments": [
+          "오늘은 당신의 노력이 눈에 띄는 날!",
+          "일에서 인정받을 기류가 흐르고 있어요.",
+          "성과를 보여주기 좋은 타이밍이에요."
+        ],
+        "actions": [
+          "부탁할 일이 있다면 오전에 꺼내보세요.",
+          "해온 일을 정리해서 보여주세요.",
+          "미뤄둔 보고를 오늘 끝내보세요."
+        ],
+        "results": [
+          "생각보다 반응이 좋을 거예요.",
+          "다음 기회로 이어지는 발판이 돼요!"
+        ]
+      },
+      "love_spark": {
+        "fragments": [
+          "마음이 통하는 사람을 만날지도 몰라요.",
+          "설레는 기류가 스치는 날이에요.",
+          "괜히 눈이 마주치는 순간이 생길 수 있어요."
+        ],
+        "actions": [
+          "먼저 웃으며 인사해 보세요.",
+          "오늘은 거울 한 번 더 보고 나가세요.",
+          "가벼운 대화를 먼저 건네보세요."
+        ],
+        "results": [
+          "좋은 분위기가 만들어질 수 있어요♥",
+          "예상 못한 인연의 시작일지도 몰라요."
+        ]
+      },
+      "pleasant_meeting": {
+        "fragments": [
+          "즐거운 자리가 생길 예감이에요!",
+          "웃음이 많은 하루가 될 수 있어요.",
+          "약속이 갑자기 잡혀도 좋은 날이에요."
+        ],
+        "actions": [
+          "모임 제안이 오면 가볍게 응해보세요.",
+          "먼저 번개를 제안해 봐도 좋아요.",
+          "오늘 만나는 사람에게 집중해 보세요."
+        ],
+        "results": [
+          "기분 전환이 확실하게 됩니다♪",
+          "관계가 한 뼘 가까워져요."
+        ]
+      },
+      "document_progress": {
+        "fragments": [
+          "서류와 계약이 순조로운 날!",
+          "미뤄둔 신청서를 처리하기 좋은 날이에요.",
+          "결재와 승인이 부드럽게 흘러갈 수 있어요."
+        ],
+        "actions": [
+          "미뤄둔 서류를 오늘 제출해 보세요.",
+          "확인 도장이 필요한 일을 먼저 처리하세요.",
+          "계약 조건을 오늘 정리해 두세요."
+        ],
+        "results": [
+          "막힘 없이 착착 진행돼요.",
+          "한 건 끝내면 마음이 확 가벼워져요!"
+        ]
+      },
+      "teamwork_flow": {
+        "fragments": [
+          "오늘은 당신의 말이 잘 통합니다!",
+          "함께하는 일이 술술 풀리는 날이에요.",
+          "부탁이 부담 없이 받아들여질 수 있어요."
+        ],
+        "actions": [
+          "도움이 필요한 일은 오늘 부탁해 보세요.",
+          "역할을 나누자고 먼저 제안해 보세요.",
+          "회의에서 의견을 아끼지 마세요."
+        ],
+        "results": [
+          "혼자보다 두 배 빨리 끝나요.",
+          "협력의 기분 좋은 맛을 느껴요♪"
+        ]
+      },
+      "idea_flash": {
+        "fragments": [
+          "번뜩이는 생각이 스치는 날!",
+          "집중력이 쭉 올라가는 날이에요.",
+          "머릿속이 맑게 정리되는 순간이 와요."
+        ],
+        "actions": [
+          "떠오른 생각은 바로 메모하세요.",
+          "미뤄둔 일을 오늘 한꺼번에 끝내버리세요.",
+          "혼자 생각할 시간을 잠깐 만들어 보세요."
+        ],
+        "results": [
+          "좋은 아이디어가 일을 앞당겨줘요.",
+          "오늘의 메모가 나중에 효자가 됩니다!"
+        ]
+      },
+      "overspend_caution": {
+        "fragments": [
+          "예쁜 것만 보면 지갑이 열릴 수 있어요.",
+          "분위기에 휩쓸려 결제 버튼을 누르기 쉬운 날.",
+          "충동구매의 유혹이 유난히 강한 날이에요."
+        ],
+        "actions": [
+          "결제 버튼은 내일 눌러도 늦지 않아요.",
+          "장바구니에서 하루 재워두세요.",
+          "오늘은 현금 대신 계획으로 쇼핑하세요."
+        ],
+        "results": [
+          "내일 보면 안 사길 잘했다 싶을 거예요.",
+          "지갑을 지키면 마음도 편해져요!"
+        ]
+      },
+      "lend_money_caution": {
+        "fragments": [
+          "돈 얘기가 오가기 쉬운 날이에요.",
+          "금전 거래는 오늘따라 꼬이기 쉬워요.",
+          "빌려주고 빌리는 일에 신경이 쓰일 수 있어요."
+        ],
+        "actions": [
+          "돈 약속은 기록으로 남겨두세요.",
+          "큰 거래는 하루만 미뤄보세요.",
+          "싫은 부탁은 분명하게 거절하세요."
+        ],
+        "results": [
+          "선을 지키면 관계도 돈도 지켜져요.",
+          "내일이면 더 좋은 판단이 섭니다."
+        ]
+      },
+      "argument_caution": {
+        "fragments": [
+          "맞는 말을 하고도 분위기가 싸해질 수 있어요.",
+          "사소한 말이 큰 소리로 번지기 쉬운 날.",
+          "욱하는 순간이 찾아올 수 있어요."
+        ],
+        "actions": [
+          "오늘은 정답보다 표정을 먼저 보세요.",
+          "대답은 한 박자 천천히!",
+          "이기려 하지 말고 들어주세요."
+        ],
+        "results": [
+          "괜한 오해를 피할 수 있어요.",
+          "부드러운 하루로 마무리됩니다."
+        ]
+      },
+      "misunderstanding_caution": {
+        "fragments": [
+          "작은 착각이 문제를 만들 수 있어요.",
+          "말과 글이 어긋나기 쉬운 날이에요.",
+          "전달 과정에서 내용이 샐 수 있어요."
+        ],
+        "actions": [
+          "보내기 전에 한 번 더 확인하세요!",
+          "중요한 내용은 말보다 글로 남기세요.",
+          "애매하면 바로 되물어보세요."
+        ],
+        "results": [
+          "확인 한 번이 하루를 지켜줘요.",
+          "오해 없이 깔끔하게 지나갑니다."
+        ]
+      },
+      "rumor_caution": {
+        "fragments": [
+          "오늘 한 말이 돌아서 들릴 수 있어요.",
+          "가벼운 농담이 무겁게 전해질 수 있는 날.",
+          "뒷말이 오가기 쉬운 분위기예요."
+        ],
+        "actions": [
+          "남 얘기는 오늘 쉬어가세요.",
+          "단체 대화방에서는 한 템포 늦게 반응하세요.",
+          "칭찬만 골라서 말해보세요."
+        ],
+        "results": [
+          "입이 가벼운 날일수록 침묵이 이득이에요.",
+          "조용히 지나가면 평화로운 하루!"
+        ]
+      },
+      "lost_item_caution": {
+        "fragments": [
+          "물건을 깜빡하기 쉬운 날이에요.",
+          "우산, 지갑, 이어폰이 사라지기 좋은 날!",
+          "덜렁거림이 평소보다 커질 수 있어요."
+        ],
+        "actions": [
+          "자리에서 일어날 때 뒤를 한 번 돌아보세요.",
+          "소지품은 한 가방에 모아두세요.",
+          "중요한 물건은 아예 두고 나가는 것도 방법!"
+        ],
+        "results": [
+          "확인 습관이 오늘의 수호천사예요.",
+          "잃어버릴 뻔한 물건을 지켜냅니다."
+        ]
+      },
+      "traffic_delay_caution": {
+        "fragments": [
+          "이동이 꼬이기 쉬운 날이에요.",
+          "차가 막히거나 헛걸음할 수 있어요.",
+          "약속 시간이 아슬아슬해질 수 있는 날."
+        ],
+        "actions": [
+          "10분만 일찍 출발하세요.",
+          "가기 전에 영업시간을 확인해 보세요.",
+          "경로를 미리 한 번 검색해 두세요."
+        ],
+        "results": [
+          "여유가 하루의 짜증을 막아줘요.",
+          "일찍 나선 만큼 마음이 편합니다."
+        ]
+      },
+      "fatigue_caution": {
+        "fragments": [
+          "오후에 기운이 훅 빠질 수 있어요.",
+          "몸이 무겁게 느껴지는 날이에요.",
+          "일이 한꺼번에 몰려 정신없을지도 몰라요."
+        ],
+        "actions": [
+          "혼자 버티지 말고 도움을 요청하세요!",
+          "점심 후 5분이라도 눈을 붙여보세요.",
+          "오늘 저녁 일정은 가볍게 조절하세요."
+        ],
+        "results": [
+          "쉬어가는 만큼 내일이 가벼워져요.",
+          "컨디션을 지키는 게 오늘의 승리예요."
+        ]
+      },
+      "careless_injury_caution": {
+        "fragments": [
+          "서두르다 부딪히기 쉬운 날이에요.",
+          "손끝 발끝이 평소보다 덜렁거릴 수 있어요.",
+          "급할수록 몸이 먼저 나가는 날."
+        ],
+        "actions": [
+          "서두르면 일이 두 번 돼요. 한 박자 천천히!",
+          "계단과 문턱에서 속도를 줄이세요.",
+          "칼질, 운전은 오늘 특히 차분하게."
+        ],
+        "results": [
+          "천천히 가도 충분히 도착해요.",
+          "조심 하나로 하루가 무사히 지나갑니다."
+        ]
+      },
+      "contract_recheck_caution": {
+        "fragments": [
+          "서류의 숫자가 눈을 속일 수 있는 날.",
+          "꼼꼼히 봐야 할 문서가 생길 수 있어요.",
+          "도장 찍기 전에 멈칫해야 하는 순간이 와요."
+        ],
+        "actions": [
+          "서명 전에 처음부터 다시 읽어보세요.",
+          "날짜와 숫자를 소리 내어 확인하세요.",
+          "애매한 조항은 오늘 묻고 넘어가세요."
+        ],
+        "results": [
+          "확인 한 번이 큰 수고를 덜어줘요.",
+          "깔끔한 마무리로 마음이 놓입니다."
+        ]
+      },
+      "walk_refresh": {
+        "fragments": [
+          "몸을 움직이면 운도 움직이는 날!",
+          "바깥 공기가 유난히 달게 느껴질 거예요.",
+          "잠깐의 산책이 보약이 되는 날."
+        ],
+        "actions": [
+          "점심 후 10분만 걸어보세요.",
+          "한 정거장 먼저 내려 걸어보세요.",
+          "저녁 산책으로 하루를 마무리해 보세요."
+        ],
+        "results": [
+          "머리가 맑아지고 기분이 풀려요♪",
+          "오후의 능률이 확 올라갑니다."
+        ]
+      },
+      "tidy_luck": {
+        "fragments": [
+          "오늘은 정리가 곧 행운이에요.",
+          "치우는 만큼 운이 들어오는 날!",
+          "책상 위가 마음 상태를 결정하는 날이에요."
+        ],
+        "actions": [
+          "책상 위부터 가볍게 치워보세요.",
+          "휴대폰 사진첩을 정리해 보세요.",
+          "안 쓰는 물건 하나를 비워보세요."
+        ],
+        "results": [
+          "비운 자리에 새 기운이 들어와요.",
+          "정돈된 공간이 집중력을 높여줘요."
+        ]
+      },
+      "family_talk": {
+        "fragments": [
+          "가까운 사람과 말이 잘 통하는 날이에요.",
+          "집안의 대화가 따뜻해지는 날.",
+          "속마음을 꺼내기 좋은 분위기예요."
+        ],
+        "actions": [
+          "가족에게 안부 전화 한 통 해보세요.",
+          "저녁 한 끼를 같이 해보세요.",
+          "고마웠던 일을 오늘 말로 전해보세요."
+        ],
+        "results": [
+          "마음이 한결 든든해져요.",
+          "가까운 사이가 더 가까워집니다♪"
+        ]
+      },
+      "focus_flow": {
+        "fragments": [
+          "집중이 잘 되는 귀한 날이에요!",
+          "머리가 맑고 손이 빠른 날.",
+          "몰입의 스위치가 켜지기 쉬운 날이에요."
+        ],
+        "actions": [
+          "가장 어려운 일을 오전에 배치하세요.",
+          "알림을 끄고 한 가지에 몰두해 보세요.",
+          "미뤄둔 공부를 오늘 시작해 보세요."
+        ],
+        "results": [
+          "평소의 두 배 속도로 끝나요.",
+          "몰입의 쾌감을 느끼는 하루!"
+        ]
+      },
+      "small_find": {
+        "fragments": [
+          "우연한 발견이 기다리는 날이에요.",
+          "지나치던 곳에서 보물을 찾을지도 몰라요.",
+          "소소한 재미가 곳곳에 숨어 있어요."
+        ],
+        "actions": [
+          "늘 가던 길 대신 한 골목 돌아가 보세요.",
+          "새로 생긴 가게를 구경해 보세요.",
+          "낯선 메뉴에 도전해 보세요."
+        ],
+        "results": [
+          "작은 발견이 하루의 활력이 돼요♪",
+          "일상이 조금 더 재미있어집니다."
+        ]
+      },
+      "rest_recharge": {
+        "fragments": [
+          "오늘은 앞으로 달리기보다 숨을 고를 때예요.",
+          "충전이 필요한 신호가 오는 날.",
+          "느긋함이 오히려 이득인 날이에요."
+        ],
+        "actions": [
+          "좋아하는 음식을 챙겨보세요.",
+          "일찍 잠자리에 들어보세요.",
+          "저녁엔 화면 대신 음악을 틀어보세요."
+        ],
+        "results": [
+          "현상 유지도 충분히 좋은 선택입니다.",
+          "내일의 에너지가 차곡차곡 쌓여요."
+        ]
+      },
+      "travel_schedule_caution": {
+        "fragments": [
+          "이동 일정이 살짝 꼬이기 쉬운 날이에요",
+          "약속 시간이 어긋나기 쉬운 흐름이에요",
+          "길 위에서 변수가 생기기 쉬워요"
+        ],
+        "actions": [
+          "출발을 10분 당겨 보세요",
+          "예비 경로를 하나 생각해 두세요",
+          "약속 전 위치를 한 번 더 확인해 보세요"
+        ],
+        "results": [
+          "여유가 하루를 지켜줘요",
+          "서두르지 않으면 무난히 지나가요"
+        ]
+      },
+      "fall_slip_caution": {
+        "fragments": [
+          "발밑에 신경 쓰면 좋은 날이에요",
+          "계단·바닥에서 서두르기 쉬운 흐름이에요",
+          "몸이 마음보다 급해지기 쉬운 날이에요"
+        ],
+        "actions": [
+          "계단에서는 속도를 줄여 보세요",
+          "젖은 바닥을 피해 걸어 보세요",
+          "편한 신발을 골라 보세요"
+        ],
+        "results": [
+          "한 템포 늦추면 안전해요",
+          "조심한 만큼 편안한 하루가 돼요"
+        ]
+      },
+      "cut_burn_tool_caution": {
+        "fragments": [
+          "손을 쓰는 일에 집중이 필요한 날이에요",
+          "주방·공구 일이 서툴러지기 쉬운 흐름이에요",
+          "뾰족하고 뜨거운 것에 주의가 필요한 날이에요"
+        ],
+        "actions": [
+          "칼질·가위질은 천천히 해 보세요",
+          "뜨거운 것은 장갑을 써 보세요",
+          "작업 전 주변을 정리해 보세요"
+        ],
+        "results": [
+          "집중이 손을 지켜줘요",
+          "정리된 자리가 실수를 줄여줘요"
+        ]
+      },
+      "sports_overuse_caution": {
+        "fragments": [
+          "운동 욕심이 앞서기 쉬운 날이에요",
+          "몸이 풀리기 전에 힘을 쓰기 쉬운 흐름이에요",
+          "평소보다 강도가 세지기 쉬운 날이에요"
+        ],
+        "actions": [
+          "준비운동을 평소보다 길게 해 보세요",
+          "무게·강도를 한 단계 낮춰 보세요",
+          "통증이 느껴지면 바로 쉬어 보세요"
+        ],
+        "results": [
+          "적당함이 실력을 지켜줘요",
+          "쉬는 것도 훈련이 돼요"
+        ]
+      },
+      "fire_electric_check_caution": {
+        "fragments": [
+          "집안 화기를 살피면 좋은 날이에요",
+          "전기·가열 기구가 신경 쓰이는 흐름이에요",
+          "깜빡 끄는 걸 잊기 쉬운 날이에요"
+        ],
+        "actions": [
+          "외출 전 가스·전원을 확인해 보세요",
+          "멀티탭 주변을 정리해 보세요",
+          "오래 쓴 기구는 상태를 살펴 보세요"
+        ],
+        "results": [
+          "확인 한 번이 마음을 놓이게 해요",
+          "점검한 만큼 편안해져요"
+        ]
+      },
+      "weather_water_safety_caution": {
+        "fragments": [
+          "날씨 변수를 살피면 좋은 날이에요",
+          "비·물가 근처 일정에 여유가 필요한 흐름이에요",
+          "우산을 챙기면 든든한 날이에요"
+        ],
+        "actions": [
+          "일기예보를 한 번 더 확인해 보세요",
+          "미끄러운 길은 돌아가 보세요",
+          "물가 활동은 안전 장비를 챙겨 보세요"
+        ],
+        "results": [
+          "대비한 만큼 여유로워져요",
+          "준비가 하루를 부드럽게 해요"
+        ]
+      },
+      "belongings_security_caution": {
+        "fragments": [
+          "소지품이 손을 떠나기 쉬운 날이에요",
+          "지갑·휴대폰을 흘리기 쉬운 흐름이에요",
+          "챙길 게 많아 정신없기 쉬운 날이에요"
+        ],
+        "actions": [
+          "나설 때 소지품을 소리 내어 확인해 보세요",
+          "가방 지퍼를 한 번 더 잠가 보세요",
+          "붐비는 곳에서는 가방을 앞으로 매 보세요"
+        ],
+        "results": [
+          "확인 습관이 물건을 지켜줘요",
+          "차분함이 분실을 막아줘요"
+        ]
+      },
+      "document_device_caution": {
+        "fragments": [
+          "서류·기기를 챙길 일이 많은 날이에요",
+          "중요한 파일이 신경 쓰이는 흐름이에요",
+          "깜빡 두고 오기 쉬운 날이에요"
+        ],
+        "actions": [
+          "중요 파일은 백업해 두세요",
+          "신분증·카드 위치를 확인해 보세요",
+          "자리를 뜰 때 두고 온 게 없는지 살펴 보세요"
+        ],
+        "results": [
+          "백업이 마음을 든든하게 해요",
+          "한 번 더 본 것이 도움이 돼요"
+        ]
+      },
+      "account_phishing_caution": {
+        "fragments": [
+          "낯선 연락이 늘기 쉬운 날이에요",
+          "솔깃한 제안이 들어오기 쉬운 흐름이에요",
+          "급하다는 말에 마음이 흔들리기 쉬운 날이에요"
+        ],
+        "actions": [
+          "모르는 링크는 누르지 말아 보세요",
+          "송금 전에 상대를 다시 확인해 보세요",
+          "비밀번호를 새로 정비해 보세요"
+        ],
+        "results": [
+          "의심 한 번이 지갑을 지켜줘요",
+          "천천히 확인하면 안전해요"
+        ]
+      },
+      "home_vehicle_lock_caution": {
+        "fragments": [
+          "문단속이 신경 쓰이는 날이에요",
+          "집·차 주변을 살피면 좋은 흐름이에요",
+          "잠갔는지 헷갈리기 쉬운 날이에요"
+        ],
+        "actions": [
+          "나설 때 잠금을 확인해 보세요",
+          "차 안에 귀중품을 두지 말아 보세요",
+          "택배·우편함을 정리해 보세요"
+        ],
+        "results": [
+          "확인이 편안함을 만들어줘요",
+          "정돈된 주변이 든든해요"
+        ]
+      },
+      "guarantee_stamp_caution": {
+        "fragments": [
+          "도장 쓸 일은 신중하면 좋은 날이에요",
+          "책임을 떠안기 쉬운 흐름이에요",
+          "부탁을 거절하기 어려운 날이에요"
+        ],
+        "actions": [
+          "보증 부탁은 하루 미뤄 생각해 보세요",
+          "책임 범위를 문서로 확인해 보세요",
+          "상대의 말보다 적힌 내용을 봐 보세요"
+        ],
+        "results": [
+          "신중함이 나를 지켜줘요",
+          "미룬 결정이 더 나은 답을 줘요"
+        ]
+      },
+      "name_lending_caution": {
+        "fragments": [
+          "이름을 빌려줄 일은 조심할 날이에요",
+          "명의 부탁이 들어오기 쉬운 흐름이에요",
+          "정 때문에 승낙하기 쉬운 날이에요"
+        ],
+        "actions": [
+          "명의 부탁은 법적 책임을 먼저 알아보세요",
+          "가족과 상의한 뒤 답해 보세요",
+          "급하게 답하지 말아 보세요"
+        ],
+        "results": [
+          "거리 두기가 관계도 지켜줘요",
+          "신중한 답이 후회를 줄여줘요"
+        ]
+      },
+      "authorization_scope_caution": {
+        "fragments": [
+          "맡긴 일의 범위가 어긋나기 쉬운 날이에요",
+          "권한이 뒤섞이기 쉬운 흐름이에요",
+          "말로만 정한 일이 커지기 쉬운 날이에요"
+        ],
+        "actions": [
+          "맡길 범위를 글로 남겨 보세요",
+          "위임한 일의 진행을 확인해 보세요",
+          "권한 설정을 점검해 보세요"
+        ],
+        "results": [
+          "명확함이 갈등을 줄여줘요",
+          "기록이 서로를 지켜줘요"
+        ]
+      },
+      "contract_clause_caution": {
+        "fragments": [
+          "작은 글씨가 중요한 날이에요",
+          "조건을 대충 넘기기 쉬운 흐름이에요",
+          "구두 약속과 문서가 다르기 쉬운 날이에요"
+        ],
+        "actions": [
+          "특약·예외 조항을 읽어 보세요",
+          "구두 약속은 문자로 남겨 보세요",
+          "이해 안 되는 조항은 물어 보세요"
+        ],
+        "results": [
+          "꼼꼼함이 실속을 지켜줘요",
+          "확인이 다툼을 막아줘요"
+        ]
+      },
+      "overexertion_recovery_caution": {
+        "fragments": [
+          "피로가 쌓이기 쉬운 날이에요",
+          "무리한 일정의 여파가 남기 쉬운 흐름이에요",
+          "몸의 신호를 놓치기 쉬운 날이에요"
+        ],
+        "actions": [
+          "일정 사이에 쉬는 틈을 넣어 보세요",
+          "무거운 약속은 하나 줄여 보세요",
+          "평소 불편한 곳의 변화를 살펴 보세요"
+        ],
+        "results": [
+          "쉼이 내일의 힘이 돼요",
+          "돌본 만큼 가벼워져요"
+        ]
+      },
+      "sleep_recovery_caution": {
+        "fragments": [
+          "잠이 얕아지기 쉬운 날이에요",
+          "늦게까지 깨어 있기 쉬운 흐름이에요",
+          "생각이 많아 뒤척이기 쉬운 날이에요"
+        ],
+        "actions": [
+          "잠들기 전 화면을 멀리해 보세요",
+          "따뜻한 물로 몸을 풀어 보세요",
+          "내일 할 일은 적어 두고 잊어 보세요"
+        ],
+        "results": [
+          "깊은 잠이 컨디션을 살려줘요",
+          "잘 잔 만큼 맑아져요"
+        ]
+      },
+      "digestive_rhythm_caution": {
+        "fragments": [
+          "속이 예민해지기 쉬운 날이에요",
+          "끼니가 불규칙해지기 쉬운 흐름이에요",
+          "급하게 먹기 쉬운 날이에요"
+        ],
+        "actions": [
+          "식사 시간을 지켜 보세요",
+          "자극적인 메뉴는 줄여 보세요",
+          "천천히 꼭꼭 씹어 보세요"
+        ],
+        "results": [
+          "규칙적인 리듬이 속을 편안하게 해요",
+          "가볍게 먹은 만큼 몸도 가벼워요"
+        ]
+      },
+      "love_deepening": {
+        "fragments": [
+          "가까운 사람과 한 뼘 더 가까워질 수 있는 날이에요.",
+          "함께 있는 시간이 유난히 편안하게 느껴질 수 있어요.",
+          "서로를 이해하는 마음이 깊어질 기류예요."
+        ],
+        "actions": [
+          "평소 못 했던 이야기를 살짝 꺼내보세요.",
+          "작은 배려를 먼저 건네보세요.",
+          "오늘은 상대의 말을 끝까지 들어주세요."
+        ],
+        "results": [
+          "마음의 거리가 한결 가까워질 수 있어요♥",
+          "잔잔한 신뢰가 쌓이는 하루가 될 수 있어요."
+        ]
+      },
+      "love_reunion": {
+        "fragments": [
+          "잊고 지내던 인연에게서 소식이 올 수 있어요.",
+          "옛 이름이 문득 떠오르는 날이에요.",
+          "지난 인연의 연락처를 다시 보게 될지도 몰라요."
+        ],
+        "actions": [
+          "반가운 마음이 들면 가볍게 안부만 물어보세요.",
+          "서두르지 말고 오늘은 여운만 즐겨보세요.",
+          "지난 일은 담담히 흘려보내세요."
+        ],
+        "results": [
+          "안부 한마디로 마음이 한결 가벼워질 수 있어요.",
+          "지난 마음을 담담히 정리하는 계기가 될 수 있어요."
+        ]
+      },
+      "love_cooldown": {
+        "fragments": [
+          "평소보다 마음이 시큰둥해질 수 있는 흐름이에요.",
+          "괜히 혼자 있고 싶어지는 날일 수 있어요.",
+          "상대의 연락이 시들하게 느껴질 수 있어요."
+        ],
+        "actions": [
+          "감정을 억지로 끌어올리지 말고 쉬어가세요.",
+          "오늘은 중요한 관계 대화를 미뤄두세요.",
+          "혼자만의 시간을 조금 가져보세요."
+        ],
+        "results": [
+          "잠깐의 거리감이니 며칠 지나면 풀릴 수 있어요.",
+          "무리하지 않으면 관계가 상하지 않아요."
+        ]
+      },
+      "love_misread": {
+        "fragments": [
+          "말이 엇갈려 오해가 생길 수 있는 날이에요.",
+          "농담이 뜻밖에 다르게 전해질 수 있어요.",
+          "짧은 메시지가 서운함을 부를 수 있어요."
+        ],
+        "actions": [
+          "중요한 말은 만나서 차분히 전하세요.",
+          "오해가 느껴지면 바로 한 번 더 확인해 보세요.",
+          "감정적인 답장은 잠시 미뤄두세요."
+        ],
+        "results": [
+          "한 번 더 확인하면 오해가 쉽게 풀려요.",
+          "차분히 말하면 서운함이 오래가지 않아요."
+        ]
+      }
+    },
+    "generic": {
+      "good": {
+        "fragments": [
+          "좋은 흐름이 슬며시 다가오는 날이에요.",
+          "기분 좋은 일이 하나쯤 생길 예감!",
+          "평범한 하루에 반짝이는 순간이 숨어 있어요."
+        ],
+        "actions": [
+          "오늘은 먼저 움직여 보세요.",
+          "떠오르는 일부터 가볍게 시작해 보세요.",
+          "웃는 얼굴로 하루를 열어보세요."
+        ],
+        "results": [
+          "생각보다 쉽게 풀려요.",
+          "작은 시도가 좋은 결과로 이어져요♪"
+        ]
+      },
+      "caution": {
+        "fragments": [
+          "오늘은 페이스 조절이 필요한 날이에요.",
+          "서두를수록 꼬이기 쉬운 날.",
+          "한 번 더 확인하고 싶은 순간이 와요."
+        ],
+        "actions": [
+          "중요한 결정은 내일로 미뤄보세요.",
+          "한 박자 천천히 움직이세요.",
+          "확인, 또 확인! 그거면 충분해요."
+        ],
+        "results": [
+          "차분함이 오늘의 방패가 돼요.",
+          "무사히 지나가면 그게 이득이에요."
+        ]
+      },
+      "support": {
+        "fragments": [
+          "오늘은 새로운 것보다 익숙한 것이 정답!",
+          "조금 느긋하게 가도 괜찮은 날이에요.",
+          "큰 변화는 없어도 마음은 편안한 날."
+        ],
+        "actions": [
+          "하던 일을 깔끔하게 마무리하세요.",
+          "나를 위한 시간을 조금 떼어두세요.",
+          "평소대로만 해도 충분해요."
+        ],
+        "results": [
+          "편안한 하루가 됩니다.",
+          "안정감이 내일의 힘이 돼요."
+        ]
+      }
+    },
+    "place_phrases": [
+      "오늘의 행운은 {place} 근처에 머물러요.",
+      "{place}에서 좋은 기운이 기다리고 있어요.",
+      "지나는 길에 {place}를 들러보세요. 반가운 일이 생길지도!"
+    ],
+    "lotto_phrases": [
+      "작은 돈복이 따라붙는 날! 출퇴근길에 로또 한 장쯤 가볍게 도전해 보세요♪",
+      "재미 삼아 로또 한 장 어때요? 오늘은 기분 좋은 예감이 드는 날이에요.",
+      "복권 한 장으로 소소한 설렘을 챙겨보세요. 부담 없이, 딱 한 장만!"
+    ]
+  },
+  "places": {
+    "schema": "daily_lucky_places.v1",
+    "version": "dict.v1.2",
+    "reviewed": false,
+    "review_note": "명리 감수 대기 — 구조 검증은 컴파일 파이프라인이 보장한다(compiled/daily_fortune_{DICT_VERSION}.json, structural_validation).",
+    "places": {
+      "bookstore": {
+        "name": "동네 서점",
+        "element": "木",
+        "domains": [
+          "news",
+          "work",
+          "leisure"
+        ]
+      },
+      "park": {
+        "name": "집 근처 공원",
+        "element": "木",
+        "domains": [
+          "health",
+          "leisure",
+          "love"
+        ]
+      },
+      "flower_shop": {
+        "name": "꽃집",
+        "element": "木",
+        "domains": [
+          "love",
+          "social"
+        ]
+      },
+      "bakery": {
+        "name": "베이커리",
+        "element": "木",
+        "domains": [
+          "love",
+          "social",
+          "news"
+        ]
+      },
+      "cinema": {
+        "name": "영화관",
+        "element": "火",
+        "domains": [
+          "leisure",
+          "love"
+        ]
+      },
+      "gallery": {
+        "name": "전시 공간",
+        "element": "火",
+        "domains": [
+          "love",
+          "leisure"
+        ]
+      },
+      "busy_street": {
+        "name": "번화한 거리",
+        "element": "火",
+        "domains": [
+          "social",
+          "move"
+        ]
+      },
+      "gym": {
+        "name": "운동하는 곳",
+        "element": "火",
+        "domains": [
+          "health",
+          "work"
+        ]
+      },
+      "traditional_market": {
+        "name": "전통시장",
+        "element": "土",
+        "domains": [
+          "money",
+          "social"
+        ]
+      },
+      "walking_trail": {
+        "name": "산책로",
+        "element": "土",
+        "domains": [
+          "health",
+          "leisure"
+        ]
+      },
+      "cafe_terrace": {
+        "name": "테라스 있는 카페",
+        "element": "土",
+        "domains": [
+          "social",
+          "love",
+          "news"
+        ]
+      },
+      "neighborhood_diner": {
+        "name": "단골 식당",
+        "element": "土",
+        "domains": [
+          "social",
+          "leisure"
+        ]
+      },
+      "bank": {
+        "name": "은행 근처",
+        "element": "金",
+        "domains": [
+          "money",
+          "document"
+        ]
+      },
+      "department_store": {
+        "name": "백화점",
+        "element": "金",
+        "domains": [
+          "money",
+          "love"
+        ]
+      },
+      "convenience_store": {
+        "name": "편의점",
+        "element": "金",
+        "domains": [
+          "money",
+          "move"
+        ]
+      },
+      "hair_salon": {
+        "name": "미용실",
+        "element": "金",
+        "domains": [
+          "love",
+          "social"
+        ]
+      },
+      "cafe_window": {
+        "name": "카페 창가 자리",
+        "element": "水",
+        "domains": [
+          "news",
+          "work",
+          "love"
+        ]
+      },
+      "riverside": {
+        "name": "물가 산책길",
+        "element": "水",
+        "domains": [
+          "health",
+          "leisure"
+        ]
+      },
+      "bath_pool": {
+        "name": "목욕탕·수영장",
+        "element": "水",
+        "domains": [
+          "health",
+          "leisure"
+        ]
+      },
+      "library": {
+        "name": "도서관",
+        "element": "水",
+        "domains": [
+          "work",
+          "document",
+          "news"
+        ]
+      },
+      "garden_center": {
+        "name": "화원·식물원",
+        "element": "木",
+        "domains": [
+          "love",
+          "leisure",
+          "health"
+        ]
+      },
+      "stationery_shop": {
+        "name": "문구점",
+        "element": "木",
+        "domains": [
+          "document",
+          "work",
+          "news"
+        ]
+      },
+      "wood_workshop": {
+        "name": "공방·클래스",
+        "element": "木",
+        "domains": [
+          "work",
+          "leisure",
+          "social"
+        ]
+      },
+      "forest_path": {
+        "name": "숲길·둘레길",
+        "element": "木",
+        "domains": [
+          "health",
+          "leisure",
+          "love"
+        ]
+      },
+      "grill_restaurant": {
+        "name": "구이 맛집",
+        "element": "火",
+        "domains": [
+          "social",
+          "love",
+          "leisure"
+        ]
+      },
+      "concert_hall": {
+        "name": "공연장",
+        "element": "火",
+        "domains": [
+          "leisure",
+          "love",
+          "news"
+        ]
+      },
+      "sunny_plaza": {
+        "name": "햇빛 좋은 광장",
+        "element": "火",
+        "domains": [
+          "social",
+          "news",
+          "health"
+        ]
+      },
+      "night_market": {
+        "name": "야시장",
+        "element": "火",
+        "domains": [
+          "money",
+          "social",
+          "leisure"
+        ]
+      },
+      "pottery_studio": {
+        "name": "도예·공예 공방",
+        "element": "土",
+        "domains": [
+          "leisure",
+          "work",
+          "love"
+        ]
+      },
+      "real_estate_office": {
+        "name": "부동산 상담소",
+        "element": "土",
+        "domains": [
+          "document",
+          "money",
+          "move"
+        ]
+      },
+      "hill_park": {
+        "name": "언덕 공원",
+        "element": "土",
+        "domains": [
+          "health",
+          "leisure",
+          "social"
+        ]
+      },
+      "furniture_store": {
+        "name": "가구·리빙숍",
+        "element": "土",
+        "domains": [
+          "move",
+          "money",
+          "leisure"
+        ]
+      },
+      "jewelry_street": {
+        "name": "금은방 거리",
+        "element": "金",
+        "domains": [
+          "money",
+          "love",
+          "leisure"
+        ]
+      },
+      "hardware_store": {
+        "name": "철물·공구 상가",
+        "element": "金",
+        "domains": [
+          "work",
+          "move",
+          "money"
+        ]
+      },
+      "fitness_center": {
+        "name": "피트니스 센터",
+        "element": "金",
+        "domains": [
+          "health",
+          "work",
+          "social"
+        ]
+      },
+      "electronics_mall": {
+        "name": "전자상가",
+        "element": "金",
+        "domains": [
+          "news",
+          "work",
+          "money"
+        ]
+      },
+      "aquarium": {
+        "name": "아쿠아리움",
+        "element": "水",
+        "domains": [
+          "love",
+          "leisure",
+          "news"
+        ]
+      },
+      "tea_house": {
+        "name": "찻집",
+        "element": "水",
+        "domains": [
+          "social",
+          "love",
+          "health"
+        ]
+      },
+      "harbor_walk": {
+        "name": "물가 산책로",
+        "element": "水",
+        "domains": [
+          "health",
+          "leisure",
+          "move"
+        ]
+      },
+      "spa_sauna": {
+        "name": "스파·사우나",
+        "element": "水",
+        "domains": [
+          "health",
+          "leisure",
+          "social"
+        ]
+      }
+    }
+  }
+}

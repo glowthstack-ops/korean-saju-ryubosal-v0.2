@@ -2,6 +2,7 @@
   "schema": "daily_event_catalog.v1",
   "version": "dict.v1.3",
   "reviewed": false,
+  "review_note": "명리 감수 대기 — 구조 검증은 컴파일 파이프라인이 보장한다(compiled/daily_fortune_{DICT_VERSION}.json, structural_validation).",
   "domains": [
     "money",
     "love",

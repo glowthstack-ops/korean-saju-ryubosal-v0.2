@@ -94,7 +94,7 @@ _REL_STRENGTH = {
 
 @dataclass(frozen=True)
 class DailyFortuneDicts:
-    """사전 3종 묶음 — validate 는 test_daily_fortune_dicts 가 담당."""
+    """사전 3종 묶음 — 깊은 스키마 검증은 test_daily_fortune_dicts 가 담당."""
 
     catalog: dict[str, Any]
     templates: dict[str, Any]
@@ -103,7 +103,28 @@ class DailyFortuneDicts:
 
 @lru_cache(maxsize=2)
 def load_daily_dicts(dictionaries_dir: str | None = None) -> DailyFortuneDicts:
-    """daily_fortune 사전 3종을 로드(캐시)한다."""
+    """daily_fortune 사전 3종을 로드(캐시)한다.
+
+    **컴파일 스냅샷 우선, 없으면 원본 폴백**(CLAUDE.md 원칙 5 — `structure_patterns` 와
+    같은 규약). 스냅샷은 `DICT_VERSION` 별로 존재하므로, 사전을 고치고 버전을 올리지
+    않으면 스냅샷 부재가 되어 회귀가 잡는다. 폴백을 남기는 이유는 사전만 있는 환경
+    (테스트 fixture·신규 클론)에서 서비스가 멈추지 않게 하기 위함이다.
+
+    Args:
+        dictionaries_dir: 원본 디렉터리 지정(테스트용). 지정 시 스냅샷을 쓰지 않는다.
+    """
+    if dictionaries_dir is None:
+        from saju_shared_types.daily_fortune import DICT_VERSION
+
+        from .daily_fortune_snapshot import load_snapshot
+
+        snapshot = load_snapshot(DICT_VERSION)
+        if snapshot is not None:
+            return DailyFortuneDicts(
+                catalog=snapshot["catalog"],
+                templates=snapshot["templates"],
+                places=snapshot["places"],
+            )
     base = Path(dictionaries_dir) if dictionaries_dir else _DICTS_DEFAULT
     def _read(name: str) -> dict[str, Any]:
         return json.loads((base / name).read_text(encoding="utf-8"))

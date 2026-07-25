@@ -1,6 +1,8 @@
 {
   "schema": "daily_phrase_templates.v1",
   "version": "dict.v1.5",
+  "reviewed": false,
+  "review_note": "명리 감수 대기 — 구조 검증은 컴파일 파이프라인이 보장한다(compiled/daily_fortune_{DICT_VERSION}.json, structural_validation).",
   "band_guide": {
     "s5": "85%+ 직설적으로 권유·예고",
     "s4": "70~84% 적극적으로 행동 권유",
