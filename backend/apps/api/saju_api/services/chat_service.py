@@ -4535,12 +4535,17 @@ def _save_thread(store: ConversationStore | None, state: ConversationState | Non
 
 
 def _career_shadow_repository():
-    """프로세스 로컬 shadow 저장소(단일 인스턴스) — production 권위 상태와 분리."""
+    """shadow 저장소 — 기본 Postgres(`CAREER_SHADOW_REPOSITORY=memory` 는 개발 전용).
+
+    DB 오류 시 in-memory 로 **자동 fallback 하지 않는다** — worker 마다 다른 임시 상태가
+    생기면 "전에 지원했다고 했는데 왜 기억 못 하냐" 류의 대화 단절이 발생한다.
+    호출자가 이번 turn 노출을 억제하고 기존 경로를 유지한다.
+    """
     global _CAREER_SHADOW_REPO
     if _CAREER_SHADOW_REPO is None:
-        from saju_engines.career_shadow_repository import InMemoryCareerShadowRepository
+        from saju_engines.career_shadow_repository import build_career_shadow_repository
 
-        _CAREER_SHADOW_REPO = InMemoryCareerShadowRepository()
+        _CAREER_SHADOW_REPO = build_career_shadow_repository()
     return _CAREER_SHADOW_REPO
 
 
