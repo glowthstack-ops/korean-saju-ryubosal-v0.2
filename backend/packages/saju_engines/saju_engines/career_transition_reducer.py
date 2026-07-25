@@ -37,11 +37,13 @@ from saju_shared_types.career_commands import (
     CreateEpisodeCommand,
     EpisodeResolutionOutcome,
     FactEvidenceClass,
+    IntegrityStatus,
     ProjectionMode,
     RejectionCode,
     ReopenEpisodeCommand,
     TransitionResult,
     TransitionStatus,
+    ViolationScope,
     canonical_stage_for,
 )
 from saju_shared_types.career_transition import (
@@ -382,8 +384,22 @@ def _plan_create(
 def _plan_close(
     store: CareerEpisodeStore, command: CloseEpisodeCommand
 ) -> TransitionPlan | TransitionResult:
+    """Episode lifecycle 종료만 수행한다.
+
+    사실 단계(`JOINED`·`EXITED` 등)를 자동 생성하지 않으며, 종료만으로 성공·실패
+    outcome을 만들지도 않는다. 현재 수락 링크가 걸린 Episode를 근거 없이 닫으면
+    dangling accepted link가 남으므로 거부한다 — 링크 해제는 확인된 사실
+    (다른 Episode의 `OFFER_ACCEPTED` 등)로만 이뤄진다.
+    """
     if command.episode_id not in store.by_id:
         return _reject(store, command, RejectionCode.EPISODE_NOT_FOUND)
+    linked = (
+        store.current_employment.linked_accepted_episode_id
+        if store.current_employment
+        else None
+    )
+    if linked == command.episode_id:
+        return _reject(store, command, RejectionCode.ACCEPTED_LINK_STILL_ATTACHED)
     return TransitionPlan(
         journal_delta=(
             EpisodeClosedJournalItem(
@@ -613,7 +629,19 @@ def reduce_career_command(
     # 0. 입력 store 가 자신의 journal 로 설명되는지 — commit 이 전체 replay 이므로,
     #    journal 로 재현되지 않는 상태는 조용히 유실된다. 유실 대신 거부한다.
     if replay(store.career_journal) != store:
-        return _reject(store, command, RejectionCode.STORE_NOT_JOURNAL_CONSISTENT)
+        # 사용자 명령 잘못이 아니라 **권위 aggregate와 journal의 불일치**다.
+        return TransitionResult(
+            status=TransitionStatus.REJECTED,
+            store=store,
+            rejection_code=RejectionCode.STORE_NOT_JOURNAL_CONSISTENT,
+            integrity_status=IntegrityStatus.VIOLATION,
+            violation_scope=ViolationScope.GLOBAL,
+            audit_events=(
+                CareerAuditEvent(
+                    event="STORE_JOURNAL_DIVERGENCE", command_id=command.command_id
+                ),
+            ),
+        )
 
     # 2. 멱등 · command_id 충돌.
     digest = command_digest(command)
@@ -651,6 +679,19 @@ def reduce_career_command(
     # 8. 단일 commit — journal에 append 후 전체 replay로 투영한다.
     new_journal = (*store.career_journal, *plan.journal_delta)
     new_store = replay(new_journal)
+
+    # 9. 증분 결과 == replay 결과 — 어긋나면 전역 무결성 결함이다.
+    if replay(new_store.career_journal) != new_store:
+        return TransitionResult(
+            status=TransitionStatus.ROLLED_BACK,
+            store=store,
+            rejection_code=RejectionCode.STORE_NOT_JOURNAL_CONSISTENT,
+            integrity_status=IntegrityStatus.VIOLATION,
+            violation_scope=ViolationScope.GLOBAL,
+            audit_events=(
+                CareerAuditEvent(event="REPLAY_DIVERGENCE", command_id=command.command_id),
+            ),
+        )
 
     facts = tuple(i for i in plan.journal_delta if isinstance(i, StageHistoryItem))
     changed = new_store.episodes != store.episodes or (

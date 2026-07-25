@@ -124,8 +124,25 @@ class RejectionCode(StrEnum):
     CORRECTION_TARGET_MISSING = "correction_target_missing"
     CORRECTION_TARGET_OTHER_EPISODE = "correction_target_other_episode"
     EMPLOYMENT_CONTEXT_CONFLICT = "employment_context_conflict"
+    #: 수락 링크가 걸린 Episode를 근거 없이 닫으면 dangling link가 남는다.
+    ACCEPTED_LINK_STILL_ATTACHED = "accepted_link_still_attached"
     #: 입력 store가 자신의 journal로 설명되지 않음 — 조용한 유실 대신 거부한다.
     STORE_NOT_JOURNAL_CONSISTENT = "store_not_journal_consistent"
+
+
+class IntegrityStatus(StrEnum):
+    """무결성 판정 — 사용자 명령 거부(정상)와 내부 무결성 결함을 구분한다."""
+
+    OK = "ok"
+    VIOLATION = "violation"
+
+
+class ViolationScope(StrEnum):
+    """위반 영향 범위(§16-5) — 전역 결함을 cohort 격리로 종결하지 않기 위함."""
+
+    REQUEST_LOCAL = "request_local"
+    COHORT_LOCAL = "cohort_local"
+    GLOBAL = "global"
 
 
 class ProjectionMode(StrEnum):
@@ -319,6 +336,9 @@ class TransitionResult(BaseModel):
     rejection_code: RejectionCode | None = None
     resolution: EpisodeResolutionOutcome | None = None
     projection_mode: ProjectionMode | None = None
+    #: 내부 무결성 — `EPISODE_UNRESOLVED` 같은 정상 안전 차단과 섞지 않는다.
+    integrity_status: IntegrityStatus = IntegrityStatus.OK
+    violation_scope: ViolationScope | None = None
 
     @property
     def state_changed(self) -> bool:
@@ -338,6 +358,8 @@ __all__ = [
     "CreateEpisodeCommand",
     "EpisodeResolutionOutcome",
     "FactEvidenceClass",
+    "IntegrityStatus",
+    "ViolationScope",
     "ProjectionMode",
     "RejectionCode",
     "ReopenEpisodeCommand",

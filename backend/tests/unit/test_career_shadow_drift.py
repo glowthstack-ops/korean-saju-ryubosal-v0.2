@@ -37,6 +37,7 @@ _NEW_MODULES = (
     "saju_engines.career_stage_adapter",
     "saju_engines.career_shadow_observation",
     "saju_engines.career_transition_reducer",
+    "saju_engines.career_shadow_metrics",
 )
 
 #: census manifest — **분모는 실행 결과가 아니라 독립 고정 manifest에서 나온다.**
