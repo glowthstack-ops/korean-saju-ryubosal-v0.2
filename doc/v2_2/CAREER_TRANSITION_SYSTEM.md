@@ -32,7 +32,7 @@
 | D20 | **태도 / 절차 단계 / 전환 유형을 서로 다른 필드가 소유**한다. 태도=`CareerProcessMode`(NOT_SEARCHING/PASSIVE_EXPLORATION/ACTIVE_JOB_SEARCH/EXIT_ONLY), 절차 단계=`OpportunityStage` 등(오퍼 검토·협상 포함), 유형=`transition_kind`(해소)·`intended_kind`(목표) **nullable**(UNKNOWN enum 금지). 현재 질문 대상은 비저장 `CareerQueryFocus`. 사주는 유형을 확정하지 않음. | §6·§9 |
 | D21 | 캘리브레이션 family cap은 `calibration_domain`이 아니라 **파생 `calibration_cap_key`**(career_transition/employment_entry/promotion/relocation)를 쓴다(설계 B). 같은 커리어 도메인에서도 사건별 검증을 보존(INV-12 정합). 질문 수 상한은 도메인별 총량으로 별도 관리. | §11-8 |
 
-### 26 불변식 (요약)
+### 29 불변식 (요약)
 - **INV-1** 3 병렬 트랙·순서 교차 허용·`completion` 단일값 금지
 - **INV-2** 회사별 Episode·대상 해소 우선순위
 - **INV-3** 단계별 효과 벡터, activation/favorability는 요약값
@@ -59,6 +59,9 @@
 - **INV-24** Guard success ≠ violation — 안전장치가 정상 작동한 관측(`guard_outcome=BLOCKED`·`ROLLED_BACK` + 권위 상태 불변)은 **위반으로 집계하지 않는다.** 오류는 `VIOLATION`이거나 차단 뒤에도 권위 상태가 변경된 경우다(§15)
 - **INV-25** Census before zero — 안전·무결성 지표는 **적용 가능한 실행 전수 계측**이 원칙이며, `violation_count=0`은 `measurement_status=ACTIVE` + `measured_count=eligible_count`일 때만 통과로 인정한다. **계측 누락(`measured_count=0`)은 통과가 아니라 측정 실패**다(§15-1)
 - **INV-26** Consumer provenance — 사용자에게 전달되는 **단계·사실·forecast·근거 문장은 각각의 소유 출처를 유지**하며, LLM이 출처 간 상태를 **승격하거나 병합하지 않는다**(§12)
+- **INV-27** Consumer visibility — **배포 자격이 없는 evidence·forecast는 사용자용 LLM 입력과 최종 응답에 영향을 주지 않는다.** 소비 자격은 LLM 판단이 아니라 **직렬화 전에 결정**한다(§12-1)
+- **INV-28** Audited delivery — 최종 응답에서 **provenance 혼합·과장 위반**이 발견되면 그대로 전달하지 않으며, **재작성 또는 안전 fallback 후 다시 감사를 통과**해야 한다(§12-6)
+- **INV-29** Atomic section handoff — 신규 전환 섹션의 **전달이 확정되기 전에는 기존 직업운 섹션의 상세 소유권을 축소하지 않는다.** 신규 섹션이 억제·실패·제거되면 **기존 섹션으로 완전히 복귀**한다(§12-4)
 
 ---
 
@@ -666,8 +669,26 @@ query_focus | resolved_episode | confirmed_track_states | current_facts
 잘못된 예:  offer_expected = true
 권장:      forecast_target_stage = OFFER
            forecast_readiness    = ...
-           runtime_status        = SHADOW | BETA
 ```
+
+#### 소비 자격은 직렬화 전에 결정한다 (INV-27)
+
+`runtime_status`를 LLM에게 보여주고 판단시키지 않는다 — **직렬화 전에 소비 자격을 확정**해 자격 없는 항목은 payload에서 제외한다.
+
+```python
+class ConsumerVisibilityDecision(StrEnum):
+    INTERNAL_ONLY | BETA_VISIBLE | LIVE_VISIBLE | SUPPRESSED
+```
+
+| 증거 runtime 상태 | 사용자용 LLM 입력 |
+|---|---|
+| `INERT` | **금지** |
+| `SHADOW` | **금지** — 내부 관측 side-channel만 |
+| `BETA` | allowlist·beta gate 통과 시만 |
+| `LIVE` | deployment eligibility 충족 시 |
+| `DISABLED`·`REJECTED` | **항상 금지** |
+
+> **§10 연결**: `SOURCE_DOCUMENTED + SHADOW`는 내부 평가에 사용할 수 있으나 **사용자용 prompt·report payload에는 포함하지 않는다.** 사용자 서술에 영향을 줄 수 있는 증거는 `EXPERT_REVIEWED` 및 해당 runtime 승격 조건을 충족해야 한다.
 
 ### 12-2. Chat 서술 계약
 
@@ -698,15 +719,31 @@ query_focus | resolved_episode | confirmed_track_states | current_facts
 입사가 확정되는 흐름입니다.
 ```
 
-### 12-3. Episode 해소 실패 처리
+### 12-3. Episode 해소 · query focus 분기
+
+**일반 질문과 "특정 회사를 가리켰으나 해소 실패"를 구분한다.** "올해 전반적인 이직운은?"은 열린 Episode가 여러 개여도 해소 오류가 아니다.
+
+```python
+class CareerQueryResolution(StrEnum):
+    GENERAL_CAREER                 # Episode 비특정 일반 질문
+    EPISODE_SPECIFIC_RESOLVED
+    EPISODE_SPECIFIC_UNRESOLVED
+```
 
 ```
 유일한 열린 Episode        → 자동 해소 허용
-복수 Episode + 명시적 대상  → 해당 Episode 사용
-복수 Episode + 모호한 대상  → EPISODE_UNRESOLVED
+복수 Episode + 명시적 대상  → EPISODE_SPECIFIC_RESOLVED
+복수 Episode + 모호한 대상  → EPISODE_SPECIFIC_UNRESOLVED
+Episode 비특정 일반 질문     → GENERAL_CAREER (해소 오류 아님)
 ```
 
-`EPISODE_UNRESOLVED`에서는 **특정 회사의 면접·오퍼·입사 단계 추정 금지**, **여러 Episode 점수 합산 금지**, 일반적 이직 흐름 설명 또는 대상 식별 정보 요청, **권위 상태 변경 금지**.
+| 분기 | 허용 | 금지 |
+|---|---|---|
+| `GENERAL_CAREER` | Episode 중립적 활성도·병목 구조 설명 | 회사별 사실·면접·오퍼 상태 혼합, **"A사와 B사 중 어디가 된다"류 비교·합성** |
+| `EPISODE_SPECIFIC_RESOLVED` | 해당 Episode의 사실·forecast만 | **다른 Episode evidence 혼입** |
+| `EPISODE_SPECIFIC_UNRESOLVED` | 일반 흐름으로 제한 또는 대상 식별 요청 | 특정 회사 단계 추정, **여러 Episode 점수 합산**, **권위 상태 변경** |
+
+리포트에서도 **복수 Episode를 하나로 합산하지 않는다** — 노출한다면 `Episode별 소구간` 또는 **결정적 Top-N 선택 규칙**을 쓴다.
 
 ### 12-4. Report 섹션 소유권
 
@@ -719,7 +756,22 @@ query_focus | resolved_episode | confirmed_track_states | current_facts
 | 구조패턴·점수 상세 | 부록 근거 섹션 |
 | 사용자 현실 캘리브레이션 | 별도 현실 확인·피드백 영역 |
 
-**기존 직업운 섹션과 신규 전환 섹션이 같은 이직 후보를 각각 자세히 설명하지 않는다** — 기존 섹션은 **한 줄 요약 + 신규 섹션 참조**만 소유한다.
+**기존 직업운 섹션과 신규 전환 섹션이 같은 이직 후보를 각각 자세히 설명하지 않는다.**
+
+#### 소유권 이전은 원자적이다 (INV-29)
+
+축소는 **신규 섹션의 전달이 확정된 경우에만** 적용한다.
+
+```
+Career Transition 블록이 생성됨 + 감사 통과 + 최종 응답에 실제 포함됨
+→ 기존 직업운을 '한 줄 요약 + 신규 섹션 참조'로 축소
+
+그 외(feature flag OFF · Episode 미해소 · 토큰 부족으로 블록 제거
+     · 입력 감사 실패 · 최종 응답 감사 실패 · 신규 섹션 생성 오류)
+→ 기존 직업운의 현재 동작을 그대로 유지(완전 복귀)
+```
+
+이 규칙은 §12-7 byte 불변과 직접 연결된다 — 신규 섹션이 억제되면 기존 응답이 그대로 남아야 한다.
 
 ### 12-5. 토큰 예산과 축약 우선순위
 
@@ -737,13 +789,70 @@ confirmed/forecast 구분 | 현재 Episode 식별 | 핵심 bottleneck
 | 금지 표현 지시 | 사실 근거 source
 ```
 
-### 12-6. 이중 감사
+### 12-6. 이중 감사와 전달 제어 (INV-28)
 
-**A. LLM 입력 전** — 사실/forecast 분리 · Episode 해소 · **토큰 축약 후 필수 가드 잔존** · counterparty 추론 유입 여부.
+감사는 측정에 그치지 않고 **전달 동작**을 결정한다 — 측정만으로는 잘못된 문장이 사용자에게 가는 것을 막지 못한다.
 
-**B. 최종 응답 후** — completion overclaim · counterparty overclaim · confirmed/forecast 표현 혼합 · **다른 Episode 사실 혼입** · 구조화 값과 서술 불일치.
+```
+구조화 입력 생성 → PRE_INPUT_AUDIT → LLM 생성 → POST_OUTPUT_AUDIT
+→ DELIVER | REWRITE | SAFE_FALLBACK | BLOCK
+```
 
-`narrative_completion_overclaim`은 **B 단계가 배선되는 순간** `NOT_MEASURABLE_YET` → `ACTIVE`로 전환된다(§15-1).
+**A. 입력 감사(PRE_INPUT_AUDIT)** — 사실/forecast 분리 · Episode 해소 · **토큰 축약 후 필수 가드 잔존** · counterparty 추론 유입 여부 · 소비 자격(INV-27).
+
+```python
+class InputAuditAction(StrEnum):
+    ALLOW | SUPPRESS_FIELD | BLOCK_NEW_BLOCK | FALLBACK_TO_LEGACY
+```
+
+예: **Episode collision 감지 시 해당 필드만 넘기지 않고 신규 블록 전체를 억제**(`BLOCK_NEW_BLOCK`).
+
+**B. 출력 감사(POST_OUTPUT_AUDIT)** — completion overclaim · counterparty overclaim · confirmed/forecast 표현 혼합 · **다른 Episode 사실 혼입** · 구조화 값과 서술 불일치.
+
+```python
+class OutputAuditAction(StrEnum):
+    DELIVER | REWRITE | SAFE_FALLBACK | BLOCK
+```
+
+필수 규칙:
+- **rewrite 결과도 다시 감사**하며 **최대 rewrite 횟수 제한**
+- 최종 감사 실패 시 **안전 fallback**
+- **감사 전 원문 전달 금지**
+- `counterparty_overclaim`·`completion_overclaim`·Episode 혼입은 **fail-closed**
+- 감사 로그 추가는 허용하되 **권위 상태를 변경하지 않음**
+
+**`narrative_completion_overclaim` 상태 전환**
+
+```
+§12 문서 작성 완료          → 아직 NOT_MEASURABLE_YET
+최종 응답 감사 경로 실제 배선 → ACTIVE
+BETA/LIVE인데 ACTIVE 아님   → 승격 차단
+```
+
+#### claim-level provenance ledger (INV-26 실행 구조)
+
+최종 문장을 기계적으로 감사하려면 근거표가 필요하다.
+
+```python
+class ConsumerClaim:
+    claim_id
+    claim_scope        # CONFIRMED_FACT | USER_REPORTED_INFERENCE
+                       # | FORECAST | GENERAL_GUIDANCE | UNKNOWN
+    episode_id | track | stage
+    source_refs
+    evidence_strength
+    visibility_decision
+```
+
+```
+"현재 면접까지 진행됐습니다."          → CONFIRMED_FACT, source_fact_id 필요
+"오퍼 단계의 활성도가 상대적으로 높습니다." → FORECAST, prediction_snapshot_id 필요
+"회사가 긍정적으로 보고 있습니다."       → 대응 claim 없음 → counterparty_overclaim
+```
+
+ledger로 확인 가능한 것: forecast가 confirmed 문장으로 바뀌지 않았는가 · SOFT 증거가 HARD 사실로 승격되지 않았는가 · 다른 Episode 사실이 섞이지 않았는가 · 사용자 추측이 회사 의향으로 세탁되지 않았는가 · 서술된 단계에 실제 source·snapshot이 있는가.
+
+응답 본문을 장기 저장하지 않으려면 **`claim_id`·source refs·위반 코드·응답 해시만** 감사 기록으로 남긴다.
 
 ### 12-7. byte 불변 범위
 
@@ -1487,6 +1596,8 @@ guard activation rate의 **임계값 자체는 §16에서** 정하되, **측정�
 ```
 
 - §16 로드맵 P0~P5(guard activation rate 임계 포함) · §17 재사용 3등급(①그대로 보존 ②어댑터 뒤 재사용 ③의미 재검증 후 재사용) · 부록 A 어휘·런타임 감사 결과(2026-07-25, SHA dbae796).
+
+**§16 착수 기준(예약)**: `guard activation rate`의 분모는 **의도된 음성 fixture를 제외한 `eligible user-facing run`** 으로 정의한다(§15-6 `rollout_readiness_blocking` 임계 산정용).
 
 ---
 
