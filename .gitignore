@@ -75,3 +75,7 @@ backend/var/
 
 # 안전 재기동 스크립트(scripts/restart_backend.sh)의 백엔드 로그 — 추적 제외.
 /var/
+
+# 플래그 활성화 전 백업(설정 파일 사본 — 추적 금지).
+.env.beta.before-*
+.env.risk.before-*
