@@ -69,6 +69,7 @@ from saju_engines.period_role_summary import build_period_role_summary
 from saju_engines.period_safe_template import build_safe_period_answer
 from saju_engines.persona import PersonaEngine
 from saju_engines.planner import build_execution_plan
+from saju_engines.policy_echo_audit import detect_policy_echo, strip_policy_echo
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.profile_engine import profile_facts_for
 from saju_engines.query_parser import ACCIDENT_SAGO_RE, parse_message
@@ -770,6 +771,23 @@ def _build_period_fortune(
             v2_scoring.coverage.mixed_unallocated_count if v2_scoring else None,
             v2_scoring.invariant_failure_codes if v2_scoring else None,
         )
+        if v2_scoring is not None:
+            # P0.5 shadow — 부정 방향 국소 캡 후보를 계량만 한다(상태 미변경).
+            _shadow = {
+                cat: st.shadow_status.value
+                for cat, st in v2_scoring.slot_status.items()
+                if st.shadow_status is not None
+            }
+            _capped = {
+                cat: st.raw_status.value if st.raw_status else ""
+                for cat, st in v2_scoring.slot_status.items()
+                if st.guard_codes
+            }
+            if _shadow or _capped:
+                _logger.info(
+                    "slot_layer_gate period=%s capped=%s shadow_local_adverse=%s",
+                    start, _capped, _shadow,
+                )
         if v2_scoring is not None and v2_scoring.narrative_eligible:
             hierarchy_lines += render_v2_slot_status(v2_scoring)
     slots = [
@@ -4630,6 +4648,14 @@ def chat(
         # P0 관계 의미 패치(2026-07-27) — 엔진 판정을 뒤집은 서술은 전달 금지.
         # 재호출 없이 해당 문장만 canonical claim으로 교체한다.
         answer = _audit_relation_answer(answer, payload.period_fortune, thread_id)
+        # P0.5 — 내부 서술 정책이 답변에 그대로 노출되면 해당 문장만 제거한다.
+        _echoes = detect_policy_echo(answer)
+        if _echoes:
+            answer, _removed = strip_policy_echo(answer, _echoes)
+            _logger.warning(
+                "policy_echo_stripped count=%d matched=%s thread=%s",
+                _removed, [e.matched for e in _echoes], thread_id,
+            )
     # 총운 커버리지 계측(관측 전용 — 재생성·재호출 없음, 데굴님 확정): 누락 후보를
     # 로그로 남겨 입력 구조 개선(후보 블록 후치 등)의 효과를 실측한다.
     if _overview_mode and payload.event_candidates:

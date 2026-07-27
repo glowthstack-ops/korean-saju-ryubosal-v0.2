@@ -69,6 +69,16 @@ class V2CategoryTotals(BaseModel):
     #: 아니라 **그 카테고리에 실제 긍정 기여가 있었는지**로 본다. 대운이 MIXED여도
     #: 해당 카테고리에 긍정 기여가 있으면 상위 지지로 인정한다.
     positive_by_level: dict[str, float] = Field(default_factory=dict)
+    #: 층위별 부정 기여 — 부정 방향 shadow 판정 근거(대칭 구조).
+    negative_by_level: dict[str, float] = Field(default_factory=dict)
+
+    @property
+    def upper_negative_support(self) -> bool:
+        """대운·세운에 같은 카테고리 부정 기여가 있는가."""
+        return any(
+            self.negative_by_level.get(level, 0.0) > 0
+            for level in ("daewoon", "year")
+        )
 
     @property
     def upper_positive_support(self) -> bool:
@@ -253,6 +263,11 @@ def build_v2_scoring(
                     bucket.negative_total = round(
                         bucket.negative_total + abs(contribution), 6
                     )
+                    level_key = comp.level.value
+                    bucket.negative_by_level[level_key] = round(
+                        bucket.negative_by_level.get(level_key, 0.0)
+                        + abs(contribution), 6
+                    )
 
         slot_status = {
             category: derive_slot_status(
@@ -263,6 +278,7 @@ def build_v2_scoring(
                 mixed_unallocated_signal_count=t.mixed_unallocated_signal_count,
                 signed_signal_count=t.signed_signal_count,
                 upper_positive_support=t.upper_positive_support,
+                upper_negative_support=t.upper_negative_support,
                 source=SlotStatusSource.POLARITY_V2,
             )
             for category, t in totals.items()

@@ -163,10 +163,17 @@ def test_wired_scope_includes_target_period(monkeypatch):
     # 5개 카테고리가 모두 나온다(일진 신호가 빠지면 일부가 사라진다).
     for label in ("의사결정", "건강", "재물", "관계·연애", "일·직업"):
         assert label in body
-    # 변동성만 있는 슬롯을 '신호 없음'으로 서술하지 못하게 막는다.
-    assert "'관련 신호가 없다'고 서술 금지" in body
+    # 사용자 문구 후보와 서술 정책이 **분리된 섹션**으로 나간다(에코 방지).
+    assert "[서술 정책" in body
+    assert "문구 후보:" in body
+    # 변동성만 있는 슬롯을 '신호 없음'으로 서술하지 못하게 막는다(정책 섹션).
+    assert "'관련 신호가 없다'로 서술 금지" in body
     # 우세와 독점을 구분하는 단서가 함께 나간다.
     assert "전적으로 불리·유리'로 단정 금지" in body
+    # 정책 문장은 지시 영역에만 있고 문구 후보 줄에는 섞이지 않는다.
+    hint_lines = [ln for ln in pf.hierarchy_lines if "문구 후보:" in ln]
+    assert hint_lines
+    assert all("금지" not in ln for ln in hint_lines)
 
 
 def test_v2_lines_absent_when_polarity_flag_off(monkeypatch):
@@ -217,3 +224,22 @@ def test_reference_case_keeps_favorable_because_annual_supports(fixture):
     assert work.upper_positive_support is True
     assert work.guard_codes == []
     assert work.status.value == "FAVORABLE_DOMINANT"
+
+
+def test_negative_by_level_mirrors_positive(fixture):
+    """부정 기여도 층위별로 분해해 shadow 판정 근거를 남긴다."""
+    _, hier, scope = fixture
+    result = build_v2_scoring(scope, hier, enabled=True)
+    for category, totals in result.totals.items():
+        expected = any(
+            totals.negative_by_level.get(lv, 0.0) > 0 for lv in ("daewoon", "year")
+        )
+        assert totals.upper_negative_support is expected
+        assert result.slot_status[category].upper_negative_support is expected
+        # 층위 합은 총합과 일치해야 한다(누락 없음).
+        assert sum(totals.negative_by_level.values()) == pytest.approx(
+            totals.negative_total, abs=1e-6
+        )
+        assert sum(totals.positive_by_level.values()) == pytest.approx(
+            totals.positive_total, abs=1e-6
+        )

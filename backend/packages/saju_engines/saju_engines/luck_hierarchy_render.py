@@ -244,11 +244,33 @@ _CATEGORY_KO = {
 }
 
 
-def render_v2_slot_status(scoring) -> list[str]:
-    """분야별 상태 — 우세와 독점을 구분해 '전적으로 불리'를 막는다.
+#: 상태별 사용자 문구 후보 — LLM이 그대로 써도 되는 표현(정책 문장 아님).
+_USER_SUMMARY_HINT = {
+    "FAVORABLE_DOMINANT": "유리한 신호가 우세",
+    "ADVERSE_DOMINANT": "부담이 되는 신호가 우세",
+    "MIXED_BALANCED": "유리·불리가 비슷하게 맞물림",
+    "VOLATILITY_ONLY": "방향보다 변동·기복이 두드러짐",
+    "DIRECTION_UNRESOLVED": "양쪽으로 작용하는 신호가 함께 있음",
+    "LOCAL_FAVORABLE_ONLY": "정리·보완·부담 축소에 상대적으로 유리",
+    "NEUTRAL": "특별히 기울지 않음",
+    "NO_SIGNAL": "관련 신호 없음",
+}
+#: 상태별 서술 정책 — **지시 영역 전용**. 사용자 문장 후보에 넣지 않는다.
+_NARRATIVE_POLICY = {
+    "LOCAL_FAVORABLE_ONLY": (
+        "장기·지배적 호전으로 확대 금지(상위 운의 지지가 없음)"
+    ),
+    "VOLATILITY_ONLY": "'관련 신호가 없다'로 서술 금지",
+    "DIRECTION_UNRESOLVED": "'관련 신호가 없다'로 서술 금지",
+}
 
-    상태 라벨만 주면 ADVERSE_DOMINANT를 '나쁜 신호만 있다'로 서술한다. 반대 방향
-    신호의 존재와 배분 보류 사실을 함께 전달한다(2026-07-27 데굴님 확정).
+
+def render_v2_slot_status(scoring) -> list[str]:
+    """분야별 상태 — 사용자 문구 후보와 서술 정책을 **분리해** 전달한다.
+
+    정책 문장('~ 서술 금지')이 사용자 문구 후보와 같은 줄에 있으면 LLM이 그대로
+    답변에 옮겨 적을 수 있다. 그래서 표시 라벨·문구 후보와 정책을 다른 항목으로
+    나누고, 정책은 대괄호 지시 영역에만 둔다(2026-07-27 데굴님 지적).
     """
     rows = [
         (category, status) for category, status in sorted(scoring.slot_status.items())
@@ -257,21 +279,31 @@ def render_v2_slot_status(scoring) -> list[str]:
     if not rows:
         return []
     lines = [
-        "[분야별 상태 — 엔진 확정값. 상태 코드만 인용하지 말고 아래 단서를 함께 쓸 것]"
+        "[분야별 상태 — 엔진 확정값. 아래 '문구 후보'만 사용자 문장에 쓰고, "
+        "'서술 정책'은 지침일 뿐이니 답변에 옮겨 적지 말 것]"
     ]
+    policies: list[str] = []
     for category, status in rows:
-        label = _SLOT_STATUS_KO.get(status.status.value, status.status.value)
+        key = status.status.value
+        label = _SLOT_STATUS_KO.get(key, key)
+        hint = _USER_SUMMARY_HINT.get(key, "")
         note = f"{_CATEGORY_KO.get(category, category)}: {label}"
+        if hint:
+            note += f" · 문구 후보: {hint}"
         if status.has_opposing_signals:
-            note += " · 반대 방향 신호도 함께 있음('전적으로 불리·유리'로 단정 금지)"
+            note += " · 반대 방향 신호도 함께 있음"
         if status.has_unallocated_opposing_signals:
             note += " · 방향을 수치로 배분하지 않은 혼재 관계 있음"
-        if status.status.value in ("VOLATILITY_ONLY", "DIRECTION_UNRESOLVED"):
-            note += " · '관련 신호가 없다'고 서술 금지"
-        if status.status.value == "LOCAL_FAVORABLE_ONLY":
-            note += (
-                " · 대운·세운의 지지가 없으므로 장기·지배적 호전으로 서술 금지."
-                " 정리·보완·부담 축소에 나은 국면까지만"
-            )
         lines.append(note)
+        policy = _NARRATIVE_POLICY.get(key)
+        if policy:
+            policies.append(f"- {_CATEGORY_KO.get(category, category)}: {policy}")
+        if status.has_opposing_signals:
+            policies.append(
+                f"- {_CATEGORY_KO.get(category, category)}: "
+                "'전적으로 불리·유리'로 단정 금지"
+            )
+    if policies:
+        lines.append("[서술 정책 — 지침. 이 문장들을 답변에 그대로 쓰지 말 것]")
+        lines += policies
     return lines

@@ -343,3 +343,39 @@ def test_cap_does_not_touch_already_lower_grades():
         )
         assert r.status is expected
         assert r.guard_codes == []
+
+
+def test_local_adverse_is_shadow_only():
+    """부정 방향은 후보만 표시하고 production 상태를 바꾸지 않는다."""
+    r = derive_slot_status(
+        positive_total=0.0, negative_total=90.0, neutral_signal_count=0,
+        volatility_signal_count=0, upper_negative_support=False,
+        source=SlotStatusSource.POLARITY_V2,
+    )
+    assert r.status is SlotStatus.ADVERSE_DOMINANT  # production 불변
+    assert r.shadow_status is SlotStatus.LOCAL_ADVERSE_ONLY
+    assert "CANDIDATE_minor_without_upper_adverse_support" in r.shadow_guard_codes
+    assert r.guard_codes == []  # production guard는 비어 있어야 한다
+
+
+def test_no_shadow_when_upper_adverse_support_exists():
+    """상위 부정 지지가 있으면 shadow 후보가 아니다."""
+    r = derive_slot_status(
+        positive_total=0.0, negative_total=90.0, neutral_signal_count=0,
+        volatility_signal_count=0, upper_negative_support=True,
+        source=SlotStatusSource.POLARITY_V2,
+    )
+    assert r.shadow_status is None
+    assert r.shadow_guard_codes == []
+
+
+def test_shadow_only_for_adverse_dominant():
+    """ADVERSE_DOMINANT가 아니면 shadow 후보로 분류하지 않는다."""
+    for pos, neg in ((90.0, 0.0), (10.0, 10.0), (0.0, 0.0)):
+        r = derive_slot_status(
+            positive_total=pos, negative_total=neg, neutral_signal_count=0,
+            volatility_signal_count=0, upper_negative_support=False,
+            source=SlotStatusSource.POLARITY_V2,
+        )
+        if r.raw_status is not SlotStatus.ADVERSE_DOMINANT:
+            assert r.shadow_status is None

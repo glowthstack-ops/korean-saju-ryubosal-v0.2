@@ -119,6 +119,10 @@ class SlotStatus(StrEnum):
     #: 양방향 효과는 있으나 크기를 배분하지 못한 상태(丁壬 쟁합 등). 신호가 없는 것도
     #: 아니고 양쪽이 같다는 근거도 없으므로 NO_SIGNAL·MIXED_BALANCED 어느 쪽도 아니다.
     DIRECTION_UNRESOLVED = "DIRECTION_UNRESOLVED"
+    #: 부정 우세이나 같은 카테고리에서 대운·세운의 **부정** 기여가 0인 상태.
+    #: 현재는 shadow 전용(production 상태를 바꾸지 않는다) — 국소 마찰이 장기 악화로
+    #: 확대되는 사례를 먼저 계량한 뒤 전환 여부를 정한다(2026-07-27 데굴님 확정).
+    LOCAL_ADVERSE_ONLY = "LOCAL_ADVERSE_ONLY"
     #: 유리 신호가 우세하나 **같은 카테고리에서 대운·세운의 긍정 기여가 0**이라
     #: 지배적 유리로 인정하지 않는 상태. 월·일운만으로는 장기 유리를 만들 수 없다.
     #: MIXED_BALANCED로 강등하지 않는 이유는 그것이 '양쪽 크기가 같다'는 별개의
@@ -145,6 +149,10 @@ class SlotStatusResult(BaseModel):
     #: 같은 카테고리에서 대운·세운의 긍정 기여가 있었는가.
     upper_positive_support: bool = True
     guard_codes: list[str] = Field(default_factory=list)
+    #: ── 부정 방향 shadow(production 미적용) ──────────────────────────────────
+    upper_negative_support: bool = True
+    shadow_status: SlotStatus | None = None
+    shadow_guard_codes: list[str] = Field(default_factory=list)
     display_score: int = 0
     display_clamped: bool = False
 

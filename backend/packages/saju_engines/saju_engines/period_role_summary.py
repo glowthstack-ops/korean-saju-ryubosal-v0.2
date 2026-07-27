@@ -194,6 +194,7 @@ def derive_slot_status(
     signed_signal_count: int = 0,
     mixed_unallocated_signal_count: int = 0,
     upper_positive_support: bool = True,
+    upper_negative_support: bool = True,
     display_score: int = 0,
 ) -> SlotStatusResult:
     """슬롯의 의미 상태를 판정한다(화면 clamp와 분리).
@@ -246,8 +247,18 @@ def derive_slot_status(
         status = SlotStatus.LOCAL_FAVORABLE_ONLY
         guard_codes.append("CAP_minor_without_upper_support")
 
+    # 부정 방향은 아직 production 상태를 바꾸지 않는다 — 후보만 표시(shadow).
+    # 긍정 캡의 단순 반대가 아니라 '부정 우세의 근거가 어느 층위에 있는가'를 본다.
+    shadow_status: SlotStatus | None = None
+    shadow_guard_codes: list[str] = []
+    if raw_status is SlotStatus.ADVERSE_DOMINANT and not upper_negative_support:
+        shadow_status = SlotStatus.LOCAL_ADVERSE_ONLY
+        shadow_guard_codes.append("CANDIDATE_minor_without_upper_adverse_support")
+
     return SlotStatusResult(
         status=status, raw_status=raw_status,
+        upper_negative_support=upper_negative_support,
+        shadow_status=shadow_status, shadow_guard_codes=shadow_guard_codes,
         upper_positive_support=upper_positive_support,
         guard_codes=guard_codes, source=source,
         positive_total=positive_total, negative_total=negative_total,
