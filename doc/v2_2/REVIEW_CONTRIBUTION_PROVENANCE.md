@@ -1100,3 +1100,190 @@ A의 의미 안정성  승자 occurrence에 상위 층위 혼입 0건           
 ```
 
 **A를 PROV-4 감수에 올릴 수 있다.**
+
+
+---
+
+## 17. P2-PROV-4 판정 확정 (2026-07-27 데굴님 승인)
+
+### 17-1. 상위 사건 지지 정의 — A 채택
+
+```
+UPPER_SUPPORTED
+  selected base evidence에 대운 또는 세운의 **실제 source occurrence**가
+  하나 이상 포함됨
+
+MINOR_ONLY
+  selected base evidence가 월운·일운 occurrence로만 구성됨
+
+UNKNOWN
+  selected base가 없거나 occurrence를 안정적으로 복원할 수 없음
+```
+
+**`support`는 길흉이 우호적이라는 뜻이 아니다.** 해당 후보가 — 긍정이든 부정이든 —
+상위 층위에서도 생성 근거를 갖는다는 뜻이다.
+
+```
+세운이 부정 사건 후보의 selected base에 포함
+  → 그 부정 사건에 upper support가 있다 (사건이 더 나쁘다는 뜻이 아니다)
+
+세운이 후보를 불리하게 조정했지만 base winner는 아님
+  → upper support가 아니다
+```
+
+이 구분을 놓치면 "상위 지지 = 좋은 일"로 읽혀 부정 사건이 게이트를 잘못 통과한다.
+
+### 17-2. 채택 근거
+
+```
+12명식 전부에서 일운 MINOR_ONLY 관측 (평균 10.6% · 1.0~22.7%)
+career·relationship·health·wealth·education 5개 도메인에 분산
+positive 372 / negative 327 — 양방향 모집단
+UNKNOWN 0 · NO_SELECTED_BASE 0
+최고 MINOR 명식 97건 전수: 승자 occurrence에 상위 층위 혼입 0건
+  그중 51건은 상위 evidence가 평가됐으나 승자가 아니었음
+```
+
+마지막 51건이 결정적이다 — **evaluated union을 상위 근거로 쓰면 안 된다는 실측 증거**다.
+
+### 17-3. 다른 가설의 종결
+
+```
+B = A       daewoon_hwa는 candidate_specific=False · formula_relation=UNRELATED라
+            A를 넓히지 못한다
+C1 · C2     후보별 numeric modifier가 daewoon_hwa 외에 없어 현 구조에서 모집단 없음
+D 배제      occurrence·승자 복원이 안정적
+
+재개 조건   modifier의 입력 구조가 바뀌면 B/C 재감수
+            (`tests/unit/test_modifier_attribution_contract.py`가 강제한다)
+```
+
+### 17-4. UPPER_BACKGROUND_ADJUSTED
+
+```
+미사용:  P2 major-event 자격 판정
+        후보별 LLM layer grounding
+        candidate_source_layers
+        EventScope 판정
+
+보존:    내부 감사 정보
+        {"upper_background_adjusted": true,
+         "background_favorability_effect": "IMPROVES",
+         "candidate_upper_support": false}
+```
+
+향후 사용자에게 쓴다면 개별 후보가 아니라 **기간 공통 배경에서 한 번만**이다.
+
+```
+허용 예   대운 배경은 이 시기의 사건 전반을 다소 부담스럽게 만드는 쪽으로 작용합니다
+금지 예   대운이 이직 사건을 지지합니다 / 대운이 이별 가능성을 강화합니다
+```
+
+현 단계에서는 LLM 전달도 보류한다. D2 리포트·기간 배경 grounding 설계 때 재검토한다.
+
+### 17-5. SSOT 선언
+
+```
+selected base evidence의 occurrence가 상위 사건 지지의 유일한 SSOT다.
+evaluated union(reason_codes · source_ten_gods),
+stack 구성(stack_layers · source_layers),
+배경 보정(upper_background_adjusted)은 모두 근거로 쓰지 않는다.
+```
+
+---
+
+## 18. P2 구현 순서 (확정)
+
+```
+P2-1  EventScope 산출          동작 불변. candidate_source_layers를
+                               selected base occurrence로 채운다
+P2-2  active-process 예외      career Episode · 명시적 현실 진행 사실
+P2-3  Top-N 게이트             기능 플래그 + dual-run
+P2-4  −6 제거                  게이트 작동 확인 후에만
+```
+
+### 18-1. EventScope
+
+```python
+class EventScope(StrEnum):
+    MAJOR_EVENT_ELIGIBLE = "MAJOR_EVENT_ELIGIBLE"
+    ACTIVE_PROCESS_TRIGGER = "ACTIVE_PROCESS_TRIGGER"
+    LOCAL_TRIGGER_ONLY = "LOCAL_TRIGGER_ONLY"
+    UNKNOWN = "UNKNOWN"
+```
+
+```
+UPPER_SUPPORTED → MAJOR_EVENT_ELIGIBLE
+MINOR_ONLY      → LOCAL_TRIGGER_ONLY (P2-2에서 예외 적용)
+UNKNOWN         → UNKNOWN, 기존 동작 유지
+```
+
+### 18-2. active-process 예외
+
+```
+허용   career transition 활성 Episode
+       사용자 원장의 동일 사건 진행 사실
+       (지원 완료 · 면접 진행 · 결과 대기 · 계약 검토 · 대출 심사 ·
+        추첨 대기 · 이사 일정 조율 · 실제 교제·소개 일정)
+
+불허   단순 희망·관심 · "이직하고 싶다"
+       shadow 상태만 있는 selection · marriage_engine_flags만 존재
+       LLM이 추론한 진행 상태 · 다른 도메인 사실
+       종료·취소·거절된 Episode
+```
+
+**도메인 일치만으로 통과시키지 않는다** — `event_key` 또는 사건 family까지 호환돼야 한다.
+
+### 18-3. 월운·일운 표현 구분
+
+`LOCAL_TRIGGER_ONLY`에 월운 후보도 들어가므로 전부 "오늘"로 만들면 안 된다.
+
+```
+local_source_level = MONTH | DAY | MONTH_AND_DAY
+
+MONTH          이번 달의 단기 조정·활성 구간
+DAY            오늘의 접촉·마찰·확인
+MONTH_AND_DAY  이번 달의 흐름이 오늘 더 구체화됨
+```
+
+### 18-4. Top-N 게이트
+
+```
+플래그  SAJU_EVENT_LOCAL_TRIGGER_GATE_ENABLED=false (기본)
+
+ON일 때
+  MAJOR_EVENT_ELIGIBLE     주요 사건 Top-N 허용
+  ACTIVE_PROCESS_TRIGGER   진행 중 사건의 시점 후보로 허용
+                           ⚠ 새로운 사건 발생으로 서술 금지
+  LOCAL_TRIGGER_ONLY       Top-N 제외 · 단기 안내에는 유지
+  UNKNOWN                  기존 동작 유지
+```
+
+후보가 부족해도 `LOCAL_TRIGGER_ONLY`로 Top-N을 채우지 않는다(주요 후보 3개면 3개만).
+
+### 18-5. −6 제거와 dual-run
+
+```
+게이트 작동 확인 후에만 제거. 기존 값은 감사용으로 보존:
+  raw_score / legacy_penalized_score / effective_score
+  event_scope / eligible_for_major_event_rank
+
+⚠ confidence 강등은 이번에 제거하지 않는다 — 의미 혼용을 별도 감사한 뒤 처리한다.
+```
+
+dual-run 지표(729 MINOR 모집단 기준):
+
+```
+legacy Top-N · scoped Top-N · top_n_membership_flip
+제외된 MINOR 수 · 새로 진입한 UPPER 수 · 후보 수 감소
+ACTIVE_PROCESS_TRIGGER 예외 수 · UNKNOWN 수
+
+분해축: 도메인 5종 / 긍부정 / month·day / Episode 유무
+```
+
+**오탐 0이어야 하는 두 가지**
+
+```
+UPPER_SUPPORTED가 LOCAL_TRIGGER_ONLY로 분류됨
+MINOR_ONLY + active process가 주요 진행 trigger에서 제거됨
+```
