@@ -38,6 +38,10 @@ RELATION_SEMANTIC_PATCH_ENABLED: bool = _env_flag("SAJU_RELATION_SEMANTIC_PATCH_
 PERIOD_HIERARCHY_ENABLED: bool = _env_flag("SAJU_PERIOD_HIERARCHY_ENABLED")
 # P3 신호 polarity V2 — 부호를 운주 라벨이 아니라 관계 결과에서 도출.
 PILLAR_POLARITY_V2_ENABLED: bool = _env_flag("SAJU_PILLAR_POLARITY_V2_ENABLED")
+# 부정 방향 국소 캡(P0.5b) — 같은 카테고리에서 대운·세운의 부정 지지가 없으면
+# 월·일운 부정만으로 '불리 우세'에 진입하지 못하게 한다. 판정 로직은 검증을 마쳤고
+# 남은 검증 대상은 LLM 표현 계약이라, 플래그로 분리해 문장 확인 후 켠다.
+LOCAL_ADVERSE_ONLY_ENABLED: bool = _env_flag("SAJU_LOCAL_ADVERSE_ONLY_ENABLED")
 # 패치로도 복구가 안 될 때 엔진 데이터만으로 조립한 안전 템플릿을 쓴다(추가 LLM 호출 없음).
 SAFE_TEMPLATE_FALLBACK_ENABLED: bool = _env_flag("SAJU_SAFE_TEMPLATE_FALLBACK_ENABLED")
 
@@ -98,6 +102,7 @@ def active_versions() -> dict[str, str | bool]:
         "period_hierarchy_enabled": PERIOD_HIERARCHY_ENABLED,
         "pillar_polarity_v2_enabled": PILLAR_POLARITY_V2_ENABLED,
         "safe_template_fallback_enabled": SAFE_TEMPLATE_FALLBACK_ENABLED,
+        "local_adverse_only_enabled": LOCAL_ADVERSE_ONLY_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

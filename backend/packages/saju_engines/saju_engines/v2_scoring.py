@@ -27,6 +27,7 @@ from saju_shared_types.precompute import LuckComposite
 from saju_shared_types.relation_semantics import PolarityState
 
 from .period_role_summary import derive_slot_status
+from .period_v2_config import LOCAL_ADVERSE_ONLY_ENABLED
 from .signal_magnitude import v2_contribution
 from .signal_occurrence import canonical_identity_key
 from .signal_polarity import (
@@ -279,6 +280,7 @@ def build_v2_scoring(
                 signed_signal_count=t.signed_signal_count,
                 upper_positive_support=t.upper_positive_support,
                 upper_negative_support=t.upper_negative_support,
+                local_adverse_cap_enabled=LOCAL_ADVERSE_ONLY_ENABLED,
                 source=SlotStatusSource.POLARITY_V2,
             )
             for category, t in totals.items()

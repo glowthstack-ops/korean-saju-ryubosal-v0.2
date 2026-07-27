@@ -379,3 +379,39 @@ def test_shadow_only_for_adverse_dominant():
         )
         if r.raw_status is not SlotStatus.ADVERSE_DOMINANT:
             assert r.shadow_status is None
+
+
+def test_local_adverse_cap_applies_when_flag_on():
+    """플래그가 켜지면 부정 방향도 production 상태를 바꾼다."""
+    r = derive_slot_status(
+        positive_total=0.0, negative_total=90.0, neutral_signal_count=0,
+        volatility_signal_count=0, upper_negative_support=False,
+        local_adverse_cap_enabled=True, source=SlotStatusSource.POLARITY_V2,
+    )
+    assert r.raw_status is SlotStatus.ADVERSE_DOMINANT
+    assert r.status is SlotStatus.LOCAL_ADVERSE_ONLY
+    assert "CAP_minor_without_upper_adverse_support" in r.guard_codes
+    assert r.shadow_status is None  # 적용됐으므로 shadow 후보가 아니다
+
+
+def test_local_adverse_cap_respects_upper_support_when_flag_on():
+    """플래그가 켜져도 상위 부정 지지가 있으면 완화하지 않는다(통제 사례)."""
+    r = derive_slot_status(
+        positive_total=0.0, negative_total=90.0, neutral_signal_count=0,
+        volatility_signal_count=0, upper_negative_support=True,
+        local_adverse_cap_enabled=True, source=SlotStatusSource.POLARITY_V2,
+    )
+    assert r.status is SlotStatus.ADVERSE_DOMINANT
+    assert r.guard_codes == []
+
+
+def test_local_adverse_flag_off_keeps_shadow_only():
+    """플래그 OFF면 기존대로 shadow 후보만 표시한다."""
+    r = derive_slot_status(
+        positive_total=0.0, negative_total=90.0, neutral_signal_count=0,
+        volatility_signal_count=0, upper_negative_support=False,
+        source=SlotStatusSource.POLARITY_V2,
+    )
+    assert r.status is SlotStatus.ADVERSE_DOMINANT
+    assert r.shadow_status is SlotStatus.LOCAL_ADVERSE_ONLY
+    assert r.guard_codes == []

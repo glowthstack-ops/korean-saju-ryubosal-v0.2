@@ -235,6 +235,7 @@ _SLOT_STATUS_KO = {
     "VOLATILITY_ONLY": "변동성만 있음(길흉 미판정)",
     "DIRECTION_UNRESOLVED": "양방향 효과 있음(크기 배분 보류)",
     "LOCAL_FAVORABLE_ONLY": "국소 유리(상위 운의 지지는 없음)",
+    "LOCAL_ADVERSE_ONLY": "국소 불리(상위 운의 부정 지지는 없음)",
     "NEUTRAL": "중립",
     "NO_SIGNAL": "관련 신호 없음",
 }
@@ -252,6 +253,7 @@ _USER_SUMMARY_HINT = {
     "VOLATILITY_ONLY": "방향보다 변동·기복이 두드러짐",
     "DIRECTION_UNRESOLVED": "양쪽으로 작용하는 신호가 함께 있음",
     "LOCAL_FAVORABLE_ONLY": "정리·보완·부담 축소에 상대적으로 유리",
+    "LOCAL_ADVERSE_ONLY": "국소적인 마찰·조정 사항이 늘어남",
     "NEUTRAL": "특별히 기울지 않음",
     "NO_SIGNAL": "관련 신호 없음",
 }
@@ -260,8 +262,23 @@ _NARRATIVE_POLICY = {
     "LOCAL_FAVORABLE_ONLY": (
         "장기·지배적 호전으로 확대 금지(상위 운의 지지가 없음)"
     ),
+    "LOCAL_ADVERSE_ONLY": (
+        "장기 악화·지배적 불리 흐름으로 확대 금지(상위 운의 부정 지지가 없음). "
+        "다만 주의점을 삭제하지도 말 것 — 범위를 제한하는 것이지 '문제 없음'이 아니다. "
+        "무엇이 불편한가 · 어느 범위까지인가 · 무엇을 확인·조절할 것인가 순으로 서술"
+    ),
     "VOLATILITY_ONLY": "'관련 신호가 없다'로 서술 금지",
     "DIRECTION_UNRESOLVED": "'관련 신호가 없다'로 서술 금지",
+}
+
+
+#: LOCAL_ADVERSE_ONLY의 도메인별 문구 후보 — 관계·직업·판단의 마찰 양상이 다르다.
+_LOCAL_ADVERSE_HINT_BY_CATEGORY = {
+    "relationship": "말의 뉘앙스·기대 차이로 마찰이 생기기 쉬움",
+    "work": "일정·업무 분담·전달 과정에서 부담이 커질 수 있음",
+    "decision": "피로하거나 조건을 일부 놓치기 쉬움",
+    "money": "지출·조건 확인에서 어긋남이 생기기 쉬움",
+    "health": "컨디션 기복과 피로가 두드러질 수 있음",
 }
 
 
@@ -287,6 +304,8 @@ def render_v2_slot_status(scoring) -> list[str]:
         key = status.status.value
         label = _SLOT_STATUS_KO.get(key, key)
         hint = _USER_SUMMARY_HINT.get(key, "")
+        if key == "LOCAL_ADVERSE_ONLY":
+            hint = _LOCAL_ADVERSE_HINT_BY_CATEGORY.get(category, hint)
         note = f"{_CATEGORY_KO.get(category, category)}: {label}"
         if hint:
             note += f" · 문구 후보: {hint}"
