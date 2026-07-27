@@ -5,8 +5,9 @@
 1차 구현에서 이 스텁만 믿었다가 `to_legacy_candidate`가 층위를 떨어뜨리는 것을
 놓쳤으므로, 여기서 통과했다고 운영 배선이 검증됐다고 보면 안 된다.
 
-입력은 `candidate_source_layers`(후보별 기여)다. 운영 엔진은 아직 이를 수집하지
-않으므로 실제 경로에서는 항상 비어 있고 grounding도 None이다(P2-PROV 대기).
+입력은 `candidate_source_layers`(후보별 기여)다. P2-1부터 엔진이 이를 채우지만,
+**노출은 `SAJU_EVENT_LOCAL_TRIGGER_GATE_ENABLED` 뒤에 있다** — 산출과 노출을 분리해
+P2-1이 프롬프트를 바꾸지 않게 했다. 이 파일은 분류 규칙만 보므로 플래그를 켠다.
 """
 
 from __future__ import annotations
@@ -15,7 +16,16 @@ from types import SimpleNamespace
 
 import pytest
 
+from saju_engines import period_v2_config
 from saju_engines.context_reducer import _layer_grounding
+
+
+@pytest.fixture(autouse=True)
+def _gate_on(monkeypatch):
+    """P2-1부터 grounding 노출은 플래그 뒤에 있다 — 분류 규칙 검증은 켠 상태로 한다."""
+    monkeypatch.setattr(
+        period_v2_config, "EVENT_LOCAL_TRIGGER_GATE_ENABLED", True, raising=False
+    )
 
 
 def _c(layers, reasons=()):

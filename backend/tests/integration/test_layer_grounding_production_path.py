@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 from saju_api.services.manse_service import calculate
-from saju_engines import EventEngineV2, GraphIndex, load_event_graph
+from saju_engines import EventEngineV2, GraphIndex, load_event_graph, period_v2_config
 from saju_engines.context_reducer import (
     _to_llm_candidate,
     build_llm_input,
@@ -84,8 +84,17 @@ def test_stack_layers_survive_but_candidate_provenance_stays_empty() -> None:
         [],
     ],
 )
-def test_stack_layers_never_produce_grounding(layers: list[LuckLayer]) -> None:
-    """스택 구성이 무엇이든 후보 지지로 승격되지 않는다 — 오독 차단의 핵심 불변식."""
+def test_stack_layers_never_produce_grounding(
+    layers: list[LuckLayer], monkeypatch
+) -> None:
+    """스택 구성이 무엇이든 후보 지지로 승격되지 않는다 — 오독 차단의 핵심 불변식.
+
+    노출 플래그를 켠 상태에서도 성립해야 한다. `stack_layers`만 있는 후보는
+    `candidate_source_layers`가 비어 판정 불가이므로 grounding이 생기지 않는다.
+    """
+    monkeypatch.setattr(
+        period_v2_config, "EVENT_LOCAL_TRIGGER_GATE_ENABLED", True, raising=False
+    )
     _legacy, llm = _llm(_v2(layers))
     assert llm.layer_grounding is None
 

@@ -21,6 +21,7 @@ from saju_shared_types.event_engine import (
     LUCK_LAYER_ORDER,
     MINOR_LUCK_LAYERS,
     UPPER_LUCK_LAYERS,
+    EventScope,
     LayerEvidenceScope,
 )
 
@@ -62,3 +63,32 @@ def classify_layer_evidence_scope(
     if values <= _MINOR_VALUES:
         return LayerEvidenceScope.MINOR_ONLY
     return LayerEvidenceScope.UNKNOWN
+
+
+def derive_event_scope(
+    candidate_source_layers: Iterable[object],
+    *,
+    active_process: bool = False,
+) -> EventScope:
+    """후보별 기여 층위 → 사건 사용 범위(P2-1).
+
+    점수·등급·순위를 바꾸지 않는다. "어디까지 말할 수 있는가"만 정한다.
+
+    Args:
+        candidate_source_layers: base score를 실제로 결정한 근거의 층위.
+        active_process: 활성 Episode 또는 사용자가 명시한 현실 진행 사실이 있는가.
+            minor-only 후보에만 의미가 있다(P2-2에서 배선).
+
+    Returns:
+        상위 근거가 있으면 `MAJOR_EVENT_ELIGIBLE`, 월·일운만이면 진행 사실 유무에 따라
+        `ACTIVE_PROCESS_TRIGGER` 또는 `LOCAL_TRIGGER_ONLY`, 판정 불가면 `UNKNOWN`.
+    """
+    scope = classify_layer_evidence_scope(candidate_source_layers)
+    if scope is LayerEvidenceScope.UPPER_SUPPORTED:
+        return EventScope.MAJOR_EVENT_ELIGIBLE
+    if scope is LayerEvidenceScope.MINOR_ONLY:
+        return (
+            EventScope.ACTIVE_PROCESS_TRIGGER if active_process
+            else EventScope.LOCAL_TRIGGER_ONLY
+        )
+    return EventScope.UNKNOWN

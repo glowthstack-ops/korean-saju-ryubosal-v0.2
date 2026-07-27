@@ -34,6 +34,7 @@ from .contribution_provenance import (
     evidence_id_of,
     signal_id_of,
 )
+from .layer_evidence_scope import normalize_layers
 
 # ── 사전 로더 모델(lenient — 모델 외 필드는 무시) ─────────────────
 
@@ -156,6 +157,9 @@ class _Acc:
     # P2-PROV shadow — 승자를 나중에 최댓값으로 재계산하면 동점 선착·라운딩·호출 순서
     # 때문에 실제 승자와 달라진다. 승자 갱신 분기에서 직접 기록한다.
     selected_evidence_id: str | None = None
+    # P2-1 — base score를 실제로 결정한 근거의 층위. 상위 사건 지지의 유일한 SSOT다
+    # (PROV-4 §17-5). recorder 유무와 무관하게 항상 채운다 — production 산출물이다.
+    selected_layers: tuple[str, ...] = ()
 
 
 class TenGodEventBrancher:
@@ -301,6 +305,10 @@ class TenGodEventBrancher:
                 a.score = eff
                 a.quality = ev.quality or a.quality
                 a.src_strength = f
+                # 이 룰에 기여한 신호의 층위만 남긴다(패자 층위·스택 구성 제외).
+                a.selected_layers = tuple(normalize_layers(
+                    sig.layer for sig in signals if sig.ten_god in gods
+                ))
             # ⚠ 아래 두 줄은 승패와 무관하게 실행된다 — 그래서 reasons·ten_gods는
             # evaluated union이지 provenance가 아니다(설계 §1-1-b).
             a.reasons.append(rule_id)
@@ -427,6 +435,8 @@ class TenGodEventBrancher:
                 period=period,
                 score=base,  # 십성 base(MAX×출처배율) — 이후 모디파이어가 누적, 최종 soft_cap
                 source_layers=layers,
+                # 승자 근거의 층위 — stack 구성(source_layers)과 의미가 다르다.
+                candidate_source_layers=list(a.selected_layers),
                 source_ten_gods=sorted(a.ten_gods, key=lambda g: list(TenGod).index(g)),
                 reason_codes=reasons,
                 raw_score=float(base),

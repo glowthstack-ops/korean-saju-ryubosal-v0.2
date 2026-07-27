@@ -70,6 +70,7 @@ from saju_shared_types.sinsal import LlmSinsalModifier
 from saju_shared_types.structure_patterns import DetectedPattern
 
 from . import marriage_timing_profile as _mtp
+from . import period_v2_config
 from . import sinsal_modifier_config as _sinsal_cfg
 from .amhap_luck import detect_luck_amhap
 from .chart_interpretation import build_chart_interpretation, incoming_ten_god_note
@@ -81,7 +82,10 @@ from .direction_suggestion import (
 )
 from .event_engine_v2 import EventEngineV2
 from .event_scoring import favorability_map
-from .layer_evidence_scope import classify_layer_evidence_scope, normalize_layers
+from .layer_evidence_scope import (
+    classify_layer_evidence_scope,
+    normalize_layers,
+)
 from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded, estimate_tokens
 from .manifestation_branch import branch_summary
 from .marriage_output_guard import (
@@ -443,6 +447,8 @@ def _layer_grounding(c) -> LlmLayerGrounding | None:
         운영 경로에서는 항상 None이다 — 층위를 지어내는 대신 기존 동작(층위 언급 없음)을
         유지한다. 실제 수집은 P2-PROV 이후.
     """
+    if not period_v2_config.EVENT_LOCAL_TRIGGER_GATE_ENABLED:
+        return None  # P2-1 산출은 되지만 노출은 P2-3 플래그로 연다(프롬프트 불변)
     layers = list(getattr(c, "candidate_source_layers", []) or [])
     scope = classify_layer_evidence_scope(layers)
     if scope is LayerEvidenceScope.UNKNOWN:

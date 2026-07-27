@@ -1456,8 +1456,8 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
         # 기여가 아니라 그 시점 signal stack 전체의 층위다(브랜처가 후보 루프 밖에서
         # 한 번 계산해 전 후보에 같은 값을 넣는다). 이름으로 의미를 고정한다.
         stack_layers=normalize_layers(c.source_layers),
-        # 후보별 기여 층위는 아직 수집되지 않는다 — 지어내지 않고 빈 값을 유지한다.
-        candidate_source_layers=[],
+        # 후보별 기여 층위 — base 승자 근거에서만 온다(PROV-4 §17-5).
+        candidate_source_layers=list(c.candidate_source_layers),
         raw_total=c.raw_score,
         life_fit=c.life_fit,
         personal_match=c.personal_match,

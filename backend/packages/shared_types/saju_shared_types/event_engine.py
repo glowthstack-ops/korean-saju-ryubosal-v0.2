@@ -225,6 +225,19 @@ TWELVE_STAGE_KO_TO_KEY: dict[str, TwelveStage] = {
 }
 
 
+class EventScope(StrEnum):
+    """사건 후보의 사용 범위 — 점수가 아니라 '어디까지 말할 수 있는가'다.
+
+    P2-PROV-4에서 확정한 상위 지지 정의(selected base occurrence)를 소비한다.
+    `UNKNOWN`은 판정 불가이며 소비 측은 기존 동작을 유지해야 한다.
+    """
+
+    MAJOR_EVENT_ELIGIBLE = "MAJOR_EVENT_ELIGIBLE"  # 상위 근거 있음 — 주요 사건 가능
+    ACTIVE_PROCESS_TRIGGER = "ACTIVE_PROCESS_TRIGGER"  # 진행 중 사건의 시점 후보
+    LOCAL_TRIGGER_ONLY = "LOCAL_TRIGGER_ONLY"  # 단기 접촉·조정·확인까지만
+    UNKNOWN = "UNKNOWN"  # 판정 불가 — 기존 동작 유지
+
+
 class EventCandidateV2(BaseModel):
     """재설계 이벤트 후보 (사양 output_contract.event_candidate).
 
@@ -240,7 +253,11 @@ class EventCandidateV2(BaseModel):
     temporal_mode: TemporalMode | None = None
     quality: EventQuality | None = None  # 방향(길흉)만 — 타이밍은 timing으로 분리
     timing: EventTiming = EventTiming.ACTIVE  # 시간 작동 방식(공망·게이트 지연·보류)
+    # ⚠ source_layers는 이름과 달리 **평가 스택 구성**이다(브랜처가 후보 루프 밖에서
+    # 한 번 계산해 전 후보에 같은 값을 넣는다). 상위 지지 판정에 쓰면 안 된다.
     source_layers: list[LuckLayer] = Field(default_factory=list)
+    # base score를 실제로 결정한 근거의 층위 — 상위 사건 지지의 유일한 SSOT(PROV-4 §17-5).
+    candidate_source_layers: list[str] = Field(default_factory=list)
     source_ten_gods: list[TenGod] = Field(default_factory=list)
     polarity_role: PolarityRole = PolarityRole.NEUTRAL
     palace: Pillar4 | None = None  # 발동된 궁성(생활 영역)

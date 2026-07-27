@@ -44,6 +44,10 @@ PILLAR_POLARITY_V2_ENABLED: bool = _env_flag("SAJU_PILLAR_POLARITY_V2_ENABLED")
 LOCAL_ADVERSE_ONLY_ENABLED: bool = _env_flag("SAJU_LOCAL_ADVERSE_ONLY_ENABLED")
 # 패치로도 복구가 안 될 때 엔진 데이터만으로 조립한 안전 템플릿을 쓴다(추가 LLM 호출 없음).
 SAFE_TEMPLATE_FALLBACK_ENABLED: bool = _env_flag("SAJU_SAFE_TEMPLATE_FALLBACK_ENABLED")
+# P2 사건 범위 게이트 — minor-only 후보의 주요 사건 Top-N 제외 + 후보별 층위 grounding 노출.
+# P2-1에서 candidate_source_layers를 채우면 grounding이 곧바로 살아나 프롬프트가 바뀌므로,
+# "산출"과 "노출"을 이 플래그로 분리한다(P2-1은 동작 불변이어야 한다).
+EVENT_LOCAL_TRIGGER_GATE_ENABLED: bool = _env_flag("SAJU_EVENT_LOCAL_TRIGGER_GATE_ENABLED")
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -103,6 +107,7 @@ def active_versions() -> dict[str, str | bool]:
         "pillar_polarity_v2_enabled": PILLAR_POLARITY_V2_ENABLED,
         "safe_template_fallback_enabled": SAFE_TEMPLATE_FALLBACK_ENABLED,
         "local_adverse_only_enabled": LOCAL_ADVERSE_ONLY_ENABLED,
+        "event_local_trigger_gate_enabled": EVENT_LOCAL_TRIGGER_GATE_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }
