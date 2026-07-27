@@ -38,6 +38,17 @@ partial overlap이 존재하는가          ← 조사 목표 아님
 | P4 `partial_overlap` | 실재하나 '중복 과대계상' 미확정 — shadow 계측 우선 |
 | P4-E 표현 압축 | 숫자 불변. role 메타데이터 산출 이후 적용 |
 
+## 2-1. 분석 입력 스냅샷 — 각 신호가 보유해야 할 필드
+
+```
+signal_id · relation_id · source_occurrences · source_layers
+target · effect_family · runtime_polarity · domain/event
+temporal_role · contribution
+```
+
+`runtime_polarity`와 `temporal_role`은 조사 시작 전에 산출돼 있어야 한다. 이 둘이
+없으면 dominance 판정도 반사실 비교도 성립하지 않는다.
+
 ## 3. 불변식 (조사 세션 전체에 적용)
 
 ```
@@ -166,6 +177,33 @@ C. 같은 role의 중첩이 반복적으로 상태·Top-N을 뒤집음
 금지:
   방합과 반합이 겹쳐 火가 두 배로 강해집니다.
   (점수 중복 여부가 아직 검증되지 않았다)
+```
+
+## 9-1. 조사 코드는 production과 분리한다
+
+```
+scripts/audit_evidence_overlap.py    ← 감사 전용. 여기서 먼저 탐색한다
+```
+
+실측 결과가 확인되기 전에는 **production scorer(`v2_scoring.py`)에 dominance 분기를
+추가하지 않는다.** 조사 스크립트가 production 코드를 import해 읽는 것은 되지만,
+그 반대(production이 조사 로직을 참조)는 금지한다.
+
+## 9-2. 종료 판정 4종 — 조사가 끝나면 아래 중 하나로 명확히 닫는다
+
+```
+결과 A  실제 subset dominance 없음
+        → P3-2 미구현 종료. 정적·동적 탐지 fixture만 보존
+
+결과 B  partial overlap은 많지만 상태·Top-N 영향 없음
+        → 숫자 현행 유지. P4-E 표현 압축만 production
+
+결과 C  같은 temporal_role의 중첩이 상태·Top-N을 반복적으로 변경
+        → P4 production 모델을 별도 감수 안건으로. 임의 감쇠계수 사용 금지.
+          shared-source attribution vs strongest-only 의미 모델 비교부터
+
+결과 D  temporal_role이 대부분 다름
+        → 독립 기여로 인정. 감쇠하지 않고 문장에서만 역할을 구분해 압축
 ```
 
 ## 10. 커밋 단위
