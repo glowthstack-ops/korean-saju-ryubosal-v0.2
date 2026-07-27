@@ -75,6 +75,28 @@ _RULES: list[tuple[str, ProcessFamily, ProcessStage, ProcessStatus, re.Pattern[s
         ProcessStatus.ACTIVE,
         re.compile(r"이사(?:업체|짐센터)[^.!?\n]{0,10}?(?:예약|계약)(?:했|완료|됐)"),
     ),
+    # move terminal — SINGLE_ACTIVE_FAMILY라 키 없이도 기존 진행을 닫는다.
+    (
+        "MOVE_CANCELLED",
+        ProcessFamily.MOVE_PROCESS,
+        ProcessStage.CANCELLED,
+        ProcessStatus.TERMINAL,
+        re.compile(r"(?:이사|입주)[^.!?\n]{0,12}?(?:취소|무산|엎어)(?:했|됐|되었|짐)"),
+    ),
+    (
+        "MOVE_ABANDONED",
+        ProcessFamily.MOVE_PROCESS,
+        ProcessStage.ABANDONED,
+        ProcessStatus.TERMINAL,
+        re.compile(r"이사(?:\s*계획)?[^.!?\n]{0,10}?(?:접었|포기했|안\s*하기로\s*했)"),
+    ),
+    (
+        "MOVE_COMPLETED",
+        ProcessFamily.MOVE_PROCESS,
+        ProcessStage.COMPLETED,
+        ProcessStatus.TERMINAL,
+        re.compile(r"이사[^.!?\n]{0,8}?(?:마쳤|끝냈|완료했)"),
+    ),
     # contract — terminal만. 열지 않고 닫는다.
     (
         "CONTRACT_SIGNED",
@@ -123,7 +145,7 @@ def extract_process_facts(
         남겨 오분류를 사후 검증할 수 있게 한다.
     """
     out: list[ExtractedProcessFact] = []
-    for raw in _SENT_SPLIT_RE.split(text):
+    for order, raw in enumerate(_SENT_SPLIT_RE.split(text)):
         clause = _clause(raw)
         if not clause:
             continue
@@ -161,6 +183,7 @@ def extract_process_facts(
                     original_text=clause,
                     rule_id=rule_id,
                     source_turn=turn,
+                    source_order=order,
                     current=is_current,
                 ),
             ))

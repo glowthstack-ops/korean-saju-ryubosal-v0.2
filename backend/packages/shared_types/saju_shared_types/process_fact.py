@@ -147,11 +147,17 @@ class ProcessFact(BaseModel):
     intent_level: IntentLevel = IntentLevel.ACTIVE_PROCESS
     #: 커리어 전용 — 외부 이직과 내부 승진을 가른다(`EntryScope` 값 문자열).
     entry_scope: str | None = None
+    #: 같은 family 안에서 서로 다른 건을 가르는 키(커리어는 episode_id).
+    #: 없으면 terminal이 무엇을 닫을 수 있는지가 정책에 따라 달라진다(SUPERSESSION_POLICY).
+    process_instance_key: str | None = None
 
     evidence_origin: EvidenceOrigin
     original_text: str
     rule_id: str = ""
     source_turn: int | None = None
+    #: 같은 턴 안에서의 절 순서 — "이사를 마쳤어. 다른 집으로 다시 이사 결정했어"에서
+    #: 앞 절의 terminal이 뒤 절의 새 active를 지우지 않게 한다.
+    source_order: int = 0
     source_ledger_key: str | None = None
 
     explicit: bool = True
@@ -308,35 +314,143 @@ class ProcessMatchResult(StrEnum):
         return self is ProcessMatchResult.SOURCE_UNAVAILABLE
 
 
-def supersede(facts: list[ProcessFact]) -> list[ProcessFact]:
-    """같은 (subject, family)에서 최신 terminal 사실이 과거 active 사실을 종료시킨다.
+class SupersessionPolicy(StrEnum):
+    """terminal 사실이 **무엇을 닫을 수 있는가** — 도메인마다 다르다.
 
-    우선순위는 현재 발화 > 원장 > Episode다. 원장에 '대출 심사 중'이 있어도 현재 발화의
-    '대출은 거절됐어'가 이긴다.
-
-    Args:
-        facts: 정규화된 진행 사실 목록(출처 혼재 가능).
-
-    Returns:
-        (subject, family)별로 한 건씩 남긴 목록. 입력 순서는 보존하지 않는다.
+    다중 인스턴스 가능성이 기준이다. 계약은 임대차·인테리어·대출약정·사업계약이 동시에
+    존재할 수 있어, 인스턴스 없는 "계약서 다 썼고"가 전부를 닫으면 안 된다.
     """
-    priority = {
+
+    INSTANCE_REQUIRED = "INSTANCE_REQUIRED"  # 키가 있어야만 닫는다(커리어)
+    SINGLE_ACTIVE_FAMILY = "SINGLE_ACTIVE_FAMILY"  # 키 없어도 family 단위로 닫는다(이사)
+    NO_UNKEYED_SUPERSESSION = "NO_UNKEYED_SUPERSESSION"  # 키 없으면 아무것도 안 닫는다
+
+
+SUPERSESSION_POLICY: dict[ProcessFamily, SupersessionPolicy] = {
+    ProcessFamily.CAREER_OPPORTUNITY: SupersessionPolicy.INSTANCE_REQUIRED,
+    ProcessFamily.CAREER_EXIT: SupersessionPolicy.INSTANCE_REQUIRED,
+    ProcessFamily.CAREER_ENTRY: SupersessionPolicy.INSTANCE_REQUIRED,
+    ProcessFamily.MOVE_PROCESS: SupersessionPolicy.SINGLE_ACTIVE_FAMILY,
+    ProcessFamily.CONTRACT_PROCESS: SupersessionPolicy.NO_UNKEYED_SUPERSESSION,
+    ProcessFamily.LOAN_PROCESS: SupersessionPolicy.NO_UNKEYED_SUPERSESSION,
+    ProcessFamily.RELATIONSHIP_CONTACT: SupersessionPolicy.NO_UNKEYED_SUPERSESSION,
+    ProcessFamily.RELATIONSHIP_DATING: SupersessionPolicy.NO_UNKEYED_SUPERSESSION,
+    ProcessFamily.RELATIONSHIP_COMMITMENT: SupersessionPolicy.NO_UNKEYED_SUPERSESSION,
+    ProcessFamily.SELECTION_PROCESS: SupersessionPolicy.NO_UNKEYED_SUPERSESSION,
+    ProcessFamily.ADMISSION_PROCESS: SupersessionPolicy.NO_UNKEYED_SUPERSESSION,
+}
+
+
+class SupersessionResult(StrEnum):
+    """왜 닫혔는지 / 왜 남았는지 — 나중에 누락 문장이 나왔을 때 원인을 가른다.
+
+    "추출 실패"인지 "인스턴스 매칭 실패"인지 "의도적 보수 정책"인지를 구분할 수 있어야
+    한다. 결과만 남기면 셋이 전부 같은 모습으로 보인다.
+    """
+
+    SUPERSEDED_EXACT_INSTANCE = "SUPERSEDED_EXACT_INSTANCE"
+    SUPERSEDED_SINGLE_ACTIVE_FAMILY = "SUPERSEDED_SINGLE_ACTIVE_FAMILY"
+    PRESERVED_DIFFERENT_INSTANCE = "PRESERVED_DIFFERENT_INSTANCE"
+    PRESERVED_MISSING_INSTANCE_KEY = "PRESERVED_MISSING_INSTANCE_KEY"
+    PRESERVED_DIFFERENT_SUBJECT = "PRESERVED_DIFFERENT_SUBJECT"
+    PRESERVED_DIFFERENT_SCOPE = "PRESERVED_DIFFERENT_SCOPE"
+
+
+#: terminal이 인스턴스 키 없이 닫으려다 보류된 경우의 감사 코드.
+SKIP_TERMINAL_SUPERSESSION_MISSING_INSTANCE_KEY = (
+    "SKIP_TERMINAL_SUPERSESSION_MISSING_INSTANCE_KEY"
+)
+
+
+def _origin_rank(origin: EvidenceOrigin) -> int:
+    """현재 발화 > 원장 > Episode. 엔진 추정·shadow는 맨 뒤."""
+    return {
         EvidenceOrigin.CURRENT_TURN_EXPLICIT: 0,
         EvidenceOrigin.LEDGER_EXPLICIT: 1,
         EvidenceOrigin.CAREER_HARD_FACT_EPISODE: 2,
         EvidenceOrigin.ENGINE_INFERRED: 3,
         EvidenceOrigin.SHADOW: 4,
-    }
-    best: dict[tuple[str | None, ProcessFamily], ProcessFact] = {}
-    ordered = sorted(
-        facts,
-        key=lambda x: (priority.get(x.evidence_origin, 9), -(x.source_turn or 0)),
+    }.get(origin, 9)
+
+
+def _can_close(terminal: ProcessFact, target: ProcessFact) -> SupersessionResult:
+    """terminal 사실이 target active 사실을 닫을 수 있는가(정책 적용).
+
+    Args:
+        terminal: 종료를 주장하는 사실.
+        target: 닫힐 후보인 기존 사실.
+
+    Returns:
+        닫는 경우 `SUPERSEDED_*`, 남기는 경우 `PRESERVED_*`. 사유를 반드시 남긴다.
+    """
+    if terminal.subject_id != target.subject_id:
+        return SupersessionResult.PRESERVED_DIFFERENT_SUBJECT
+    if terminal.entry_scope != target.entry_scope:
+        return SupersessionResult.PRESERVED_DIFFERENT_SCOPE
+    key, target_key = terminal.process_instance_key, target.process_instance_key
+    if key is not None and target_key is not None:
+        return (
+            SupersessionResult.SUPERSEDED_EXACT_INSTANCE if key == target_key
+            else SupersessionResult.PRESERVED_DIFFERENT_INSTANCE
+        )
+    policy = SUPERSESSION_POLICY.get(
+        terminal.process_family, SupersessionPolicy.NO_UNKEYED_SUPERSESSION
     )
+    if policy is SupersessionPolicy.SINGLE_ACTIVE_FAMILY:
+        # 이사는 한 사람에게 동시 2건이 드물고, 추출기가 건 구분 정보를 만들지 못한다.
+        return SupersessionResult.SUPERSEDED_SINGLE_ACTIVE_FAMILY
+    # 커리어(INSTANCE_REQUIRED)와 계약·대출·연애·선발은 키 없이 닫지 않는다 —
+    # 다중 인스턴스가 흔해 "A는 떨어졌지만 B는 대기 중"을 지울 수 있다.
+    return SupersessionResult.PRESERVED_MISSING_INSTANCE_KEY
+
+
+def supersede(
+    facts: list[ProcessFact],
+) -> tuple[list[ProcessFact], list[tuple[ProcessFact, SupersessionResult]]]:
+    """terminal 사실로 기존 active 사실을 정책에 맞게 종료한다.
+
+    우선순위는 현재 발화 > 원장 > Episode다. 다만 **다른 인스턴스·다른 주체·다른
+    entry_scope는 서로를 닫지 않는다** — "A회사에서는 떨어졌지만 다른 회사 결과를
+    기다려"에서 REJECTED가 모든 커리어 기회를 종료하면 안 된다.
+
+    Args:
+        facts: 정규화된 진행 사실(출처 혼재 가능).
+
+    Returns:
+        (살아남은 사실, [(닫힌 사실, 사유)]). terminal 사실 자체는 항상 보존된다 —
+        기록이 사라지면 왜 닫혔는지 추적할 수 없다.
+    """
+    ordered = sorted(
+        facts, key=lambda f: (_origin_rank(f.evidence_origin), -(f.source_turn or 0))
+    )
+    terminals = [f for f in ordered if f.status is ProcessStatus.TERMINAL]
+    survivors: list[ProcessFact] = []
+    closed: list[tuple[ProcessFact, SupersessionResult]] = []
     for fact in ordered:
-        key = (fact.subject_id, fact.process_family)
-        if key not in best:  # 우선순위 높은 출처가 먼저 온다 — 첫 승자를 유지한다
-            best[key] = fact
-    return list(best.values())
+        if fact.status is ProcessStatus.TERMINAL:
+            survivors.append(fact)  # terminal 기록은 유지한다
+            continue
+        verdict: SupersessionResult | None = None
+        for term in terminals:
+            if term.process_family is not fact.process_family:
+                continue
+            # 뒤에 온 active를 앞선 terminal이 지우지 않게 한다(턴 → 절 순서).
+            if (fact.source_turn or 0, fact.source_order) > (
+                term.source_turn or 0, term.source_order
+            ):
+                continue
+            result = _can_close(term, fact)
+            if result in (
+                SupersessionResult.SUPERSEDED_EXACT_INSTANCE,
+                SupersessionResult.SUPERSEDED_SINGLE_ACTIVE_FAMILY,
+            ):
+                verdict = result
+                break
+        if verdict is None:
+            survivors.append(fact)
+        else:
+            closed.append((fact, verdict))
+    return survivors, closed
 
 
 class ExtractedProcessFact(BaseModel):

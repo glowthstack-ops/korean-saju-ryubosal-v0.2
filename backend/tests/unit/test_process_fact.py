@@ -21,6 +21,7 @@ from saju_shared_types.process_fact import (
     ProcessStage,
     ProcessStatus,
     SubjectResolution,
+    SupersessionResult,
     supersede,
 )
 
@@ -98,41 +99,115 @@ def test_stale_fact_does_not_open() -> None:
 # ── terminal supersession ────────────────────────────────────────
 
 
-def test_current_turn_terminal_supersedes_ledger_active() -> None:
-    """원장의 '심사 중'보다 현재 발화의 '거절됐어'가 이긴다."""
+def test_single_active_family_terminal_closes_prior_active() -> None:
+    """이사는 SINGLE_ACTIVE_FAMILY라 키 없이도 현재 취소가 기존 진행을 닫는다."""
     ledger = _fact(
         fact_id="ledger",
+        process_family=ProcessFamily.MOVE_PROCESS,
         evidence_origin=EvidenceOrigin.LEDGER_EXPLICIT,
-        stage=ProcessStage.IN_REVIEW,
+        stage=ProcessStage.IN_PROGRESS,
         status=ProcessStatus.ACTIVE,
-        original_text="대출 심사 중",
+        original_text="이사가 결정되었어",
     )
     now = _fact(
         fact_id="now",
+        process_family=ProcessFamily.MOVE_PROCESS,
         evidence_origin=EvidenceOrigin.CURRENT_TURN_EXPLICIT,
-        stage=ProcessStage.REJECTED,
+        stage=ProcessStage.CANCELLED,
         status=ProcessStatus.TERMINAL,
-        original_text="대출은 거절됐어",
+        original_text="이번 이사는 취소했어",
     )
-    survivors = supersede([ledger, now])
+    survivors, closed = supersede([ledger, now])
 
-    assert len(survivors) == 1
-    assert survivors[0].fact_id == "now"
-    assert not survivors[0].is_usable_exception()
+    assert [f.fact_id for f in survivors] == ["now"]  # terminal 기록은 유지
+    assert closed and closed[0][0].fact_id == "ledger"
+    assert closed[0][1] is SupersessionResult.SUPERSEDED_SINGLE_ACTIVE_FAMILY
+
+
+def test_unkeyed_terminal_does_not_close_multi_instance_domain() -> None:
+    """계약·대출은 동시에 여러 건이 가능하다 — 키 없는 terminal이 전부를 닫지 않는다."""
+    active = _fact(
+        fact_id="active",
+        process_family=ProcessFamily.CONTRACT_PROCESS,
+        evidence_origin=EvidenceOrigin.LEDGER_EXPLICIT,
+        stage=ProcessStage.IN_REVIEW,
+        original_text="계약 검토 중",
+    )
+    done = _fact(
+        fact_id="done",
+        process_family=ProcessFamily.CONTRACT_PROCESS,
+        stage=ProcessStage.COMPLETED,
+        status=ProcessStatus.TERMINAL,
+        original_text="계약서는 이미 다 썼고",
+    )
+    survivors, closed = supersede([active, done])
+
+    assert {f.fact_id for f in survivors} == {"active", "done"}
+    assert closed == []
+
+
+def test_instance_key_closes_only_its_own_instance() -> None:
+    """A회사 거절이 B회사 결과 대기를 닫지 않는다."""
+    a = _fact(
+        fact_id="a", process_family=ProcessFamily.CAREER_OPPORTUNITY,
+        process_instance_key="ep-A", stage=ProcessStage.RESULT_PENDING,
+        evidence_origin=EvidenceOrigin.CAREER_HARD_FACT_EPISODE,
+    )
+    b = _fact(
+        fact_id="b", process_family=ProcessFamily.CAREER_OPPORTUNITY,
+        process_instance_key="ep-B", stage=ProcessStage.RESULT_PENDING,
+        evidence_origin=EvidenceOrigin.CAREER_HARD_FACT_EPISODE,
+    )
+    reject_a = _fact(
+        fact_id="reject-a", process_family=ProcessFamily.CAREER_OPPORTUNITY,
+        process_instance_key="ep-A", stage=ProcessStage.REJECTED,
+        status=ProcessStatus.TERMINAL,
+    )
+    survivors, closed = supersede([a, b, reject_a])
+
+    assert "b" in {f.fact_id for f in survivors}
+    assert [c[0].fact_id for c in closed] == ["a"]
+    assert closed[0][1] is SupersessionResult.SUPERSEDED_EXACT_INSTANCE
+
+
+def test_career_terminal_without_instance_key_preserves_active() -> None:
+    """커리어는 INSTANCE_REQUIRED — 키 없는 terminal은 아무것도 닫지 않는다."""
+    active = _fact(
+        fact_id="active", process_family=ProcessFamily.CAREER_OPPORTUNITY,
+        process_instance_key="ep-A", stage=ProcessStage.RESULT_PENDING,
+    )
+    unkeyed = _fact(
+        fact_id="unkeyed", process_family=ProcessFamily.CAREER_OPPORTUNITY,
+        stage=ProcessStage.REJECTED, status=ProcessStatus.TERMINAL,
+    )
+    survivors, closed = supersede([active, unkeyed])
+
+    assert "active" in {f.fact_id for f in survivors}
+    assert closed == []
 
 
 def test_supersede_keeps_distinct_families() -> None:
     """다른 과정은 서로를 밀어내지 않는다."""
     loan = _fact(fact_id="loan", process_family=ProcessFamily.LOAN_PROCESS)
     move = _fact(fact_id="move", process_family=ProcessFamily.MOVE_PROCESS)
-    assert len(supersede([loan, move])) == 2
+    survivors, _ = supersede([loan, move])
+    assert len(survivors) == 2
 
 
 def test_supersede_separates_subjects() -> None:
-    """동반자 사실이 본인 사실을 덮어쓰지 않는다."""
-    mine = _fact(fact_id="mine", subject_id="self")
-    partner = _fact(fact_id="partner", subject_id="partner-1")
-    assert len(supersede([mine, partner])) == 2
+    """동반자의 이사 취소가 본인 이사 진행을 닫지 않는다."""
+    mine = _fact(
+        fact_id="mine", subject_id="self",
+        process_family=ProcessFamily.MOVE_PROCESS,
+    )
+    partner_cancel = _fact(
+        fact_id="partner", subject_id="partner-1",
+        process_family=ProcessFamily.MOVE_PROCESS,
+        stage=ProcessStage.CANCELLED, status=ProcessStatus.TERMINAL,
+    )
+    survivors, closed = supersede([mine, partner_cancel])
+    assert "mine" in {f.fact_id for f in survivors}
+    assert closed == []
 
 
 # ── 판정 결과의 fail-safe 구분 ───────────────────────────────────
