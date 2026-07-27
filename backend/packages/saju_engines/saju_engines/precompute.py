@@ -47,6 +47,11 @@ from .interactions import (
     natal_structure_flags,
     structure_flags,
 )
+from .signal_magnitude import (
+    MagnitudeUnavailable,
+    derive_unsigned_magnitude_v2,
+)
+from .signal_occurrence import occurrence_id
 
 # B1-a(RELATIONSHIP_EVENT_SYSTEM 부록 B) — 도메인 매핑을 taxonomy_v2 SSOT로 교체.
 # 종전 로컬 구키 매핑은 relations.json이 내는 21키(new_relationship 등)를 못 찾아
@@ -229,6 +234,11 @@ class CompositeBuilder:
     ) -> LuckComposite:
         """운 레벨 레코드 — 이 레벨 소스가 참여한 상호작용만 수록(P02~P11)."""
         source = _LEVEL_SOURCE[level]
+        # 층위별 기간 라벨 — occurrence ID의 결정론적 구성요소. 상위 층위는 기간 키가
+        # 이 시점에 없으므로 부모 간지를 라벨로 쓴다(같은 요청 안에서 유일·재생성 가능).
+        period_by_source = {source.value: period_key}
+        for src, ganji in upper:
+            period_by_source.setdefault(src.value, ganji)
         pool = [
             *natal_entries,
             *[PoolEntry(src, g[0], g[1]) for src, g in upper],
@@ -254,7 +264,7 @@ class CompositeBuilder:
             interactions=hits,
             structure_flags=flags,
             shinsal_active=[s.name for s in pillar.luck_sinsal],
-            domain_signals=self._domain_signals(hits, fav_map),
+            domain_signals=self._domain_signals(hits, fav_map, period_by_source),
             dict_version=dict_version,
             computed_at=computed_at,
         )
@@ -315,7 +325,10 @@ class CompositeBuilder:
         return mapping
 
     def _domain_signals(
-        self, hits: list[InteractionHit], fav_map: dict[str, str]
+        self,
+        hits: list[InteractionHit],
+        fav_map: dict[str, str],
+        period_by_source: dict[str, str] | None = None,
     ) -> list[DomainSignal]:
         """상호작용 → 사전 eventDomains 기반 도메인 신호(favorability 보정 포함)."""
         out: list[DomainSignal] = []
@@ -324,6 +337,18 @@ class CompositeBuilder:
             element = self._relation_element.get(hit.relation_id)
             fav = fav_map.get(element) if element else None
             modifier = self._fav_modifier.get(fav, 0.0) if fav else 0.0
+            # V2 무부호 강도 — 유불리 modifier·clamp **이전**에 파생한다. 신호 생성
+            # 자체가 clamp·필터보다 앞서므로 legacy_weight가 0이어도 V2는 살아남는다.
+            try:
+                magnitude = derive_unsigned_magnitude_v2(
+                    base_weight=hit.base_weight, partial=hit.partial
+                )
+            except MagnitudeUnavailable:
+                magnitude = None
+            occurrences = tuple(
+                occurrence_id(p.source.value, p.ganji, period_by_source)
+                for p in hit.participants
+            )
             for event in self._relation_domains.get(hit.relation_id, []):
                 weight = max(hit.base_weight + modifier, 0.0)
                 if hit.partial:
@@ -348,6 +373,16 @@ class CompositeBuilder:
                     source_interaction=hit.relation_id,
                     source_event_key=provenance,
                     source_taxonomy_version="legacy" if provenance else "",
+                    unsigned_magnitude_v2=(
+                        magnitude.unsigned_magnitude_v2 if magnitude else None
+                    ),
+                    magnitude_formula_id=(
+                        magnitude.magnitude_formula_id if magnitude else ""
+                    ),
+                    participant_occurrence_ids=occurrences,
+                    structural_weight_version=(
+                        magnitude.structural_weight_version if magnitude else ""
+                    ),
                 ))
         return out
 

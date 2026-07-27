@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 from .direction_suggestions import DirectionSuggestion
 from .events import EventKey
 from .intent import IntentJson
+from .luck_hierarchy import LuckHierarchy
+from .relation_semantics import RelationSemantics
 from .sinsal import LlmSinsalModifier
 from .structure_patterns import DetectedPattern
 
@@ -288,6 +290,16 @@ class PeriodFortune(BaseModel):
     sinsal_lines: list[str] = Field(default_factory=list)  # 신살 보조·양면
     gongmang: list[str] = Field(default_factory=list)  # 공망 활성
     slots: list[PeriodFortuneSlot] = Field(default_factory=list)  # 고정 슬롯(기간별)
+    # P0(2026-07-27) — 운 스택이 관여한 합의 구조화 의미. LLM 입력에는 '해석 고정' 줄로
+    # 나가고, 생성 후 감사(relation_claim_audit)가 이 구조로 역전 서술을 판정한다.
+    # 엔진 판정의 재표현일 뿐이며 여기서 계산하지 않는다(절대원칙 1).
+    relation_semantics: list[RelationSemantics] = Field(default_factory=list)
+    # P1(2026-07-27) — 계층형 grounding 3단 뷰. hierarchy_lines가 비어 있지 않으면
+    # relation_lines 대신 **이쪽만** 렌더한다(중복 삽입 금지 — 같은 관계가 두 표현으로
+    # 들어가면 LLM이 서로 다른 사실로 오인한다). luck_hierarchy는 감사 SSOT다.
+    hierarchy_lines: list[str] = Field(default_factory=list)
+    hierarchy_appendix: list[str] = Field(default_factory=list)
+    luck_hierarchy: LuckHierarchy | None = None
 
 
 class DateChoiceRow(BaseModel):

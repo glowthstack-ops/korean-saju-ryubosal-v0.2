@@ -87,6 +87,7 @@ from .marriage_output_guard import (
     marriage_guard_directive,
 )
 from .marriage_telemetry import build_marriage_telemetry, emit_marriage_telemetry
+from .relation_claim_audit import canonical_claim_lines
 from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
 from .structure_patterns import detect_structure_patterns, select_llm_patterns
@@ -161,6 +162,16 @@ _YEARLY_INSTRUCTION = (
     "배경 위에서 세운으로 풀 것. [올해 총운] 블록의 상·하반기 흐름과 분야별(직업/재물/"
     "관계/건강) 기운, 주의 시기·기회 시기(월)를 짚는다. 연 단위라 사건의 방향·가능성·"
     "시기 흐름으로 서술하고 특정 사건을 단정하지 말 것."
+)
+# 계층형 grounding 공통 규칙(P2, 2026-07-27) — 일·월·연·M15가 **같은 SSOT**를 쓴다.
+# 일운 전용 지시문에만 넣으면 월운·연운에서 평면 합산이 다시 나타난다(데굴님 지적).
+_PERIOD_HIERARCHY_INSTRUCTION = (
+    " [계층 규칙] 대상 기간만으로 전체 흐름을 단정하지 말 것. 상위 배경(대운·세운·월운)과 "
+    "대상 기간을 분리해 서술하고, 천간과 지지의 방향이 반대인 층위는 '혼합' 상태를 그대로 "
+    "유지할 것(한쪽으로 축약 금지). 좋은 층위와 나쁜 층위를 평균 내 '중립'·'평범'으로 "
+    "합산하지 말 것 — 배경이 우호적이어도 대상 기간의 마찰은 마찰대로, 배경이 부담이어도 "
+    "대상 기간의 완화는 완화대로 말한다. 분류 코드는 검사용이니 코드명을 그대로 쓰지 말고 "
+    "층별 근거로 서술할 것."
 )
 _PERIOD_FORTUNE_INSTRUCTION = {
     "daily": _DAILY_INSTRUCTION,
@@ -1651,6 +1662,10 @@ def build_llm_input(
             llm_instruction=(
                 _BASE_INSTRUCTION
                 + _PERIOD_FORTUNE_INSTRUCTION.get(period_fortune.fortune_type, "")
+                # 계층형 grounding이 실렸을 때만 공통 계층 규칙을 덧붙인다
+                # (일·월·연·M15 공용 SSOT — 대상 표현만 블록에서 치환된다).
+                + (_PERIOD_HIERARCHY_INSTRUCTION
+                   if period_fortune.hierarchy_lines else "")
                 + (_LUCK_SINSAL_INSTRUCTION if period_fortune.sinsal_lines else "")
                 if period_fortune is not None
                 else _BASE_INSTRUCTION
@@ -2254,14 +2269,24 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(f"{pillar_label}: {pf.pillar_line}")
         if pf.luck_label or pf.luck_summary:
             lines.append(f"운 요약: {pf.luck_label} — {pf.luck_summary}")
-        for rl in pf.relation_lines:
-            lines.append(f"형충회합: {rl}")
+        if pf.hierarchy_lines:
+            # P1 계층형 grounding ON — 관계는 이쪽 하나만 쓴다(기존 형충회합 줄과
+            # 동시 노출 금지: 같은 관계가 두 표현으로 들어가면 사실이 갈라진다).
+            lines += pf.hierarchy_lines
+        else:
+            for rl in pf.relation_lines:
+                lines.append(f"형충회합: {rl}")
         for sl in pf.sinsal_lines:
             lines.append(sl)
         if pf.gongmang:
             lines.append("공망: " + ", ".join(pf.gongmang))
         for slot in pf.slots:
             lines.append(f"· {slot.name}({tone_for_score(slot.score)}): {slot.summary}")
+        # P0(2026-07-27) — 관계 사실을 자유 작문에서 빼고 엔진 확정 문장으로 제공한다.
+        # 금지 문구만 나열하면 LLM이 '寅亥合은 원래 木'이라는 자체 지식으로 엔진의
+        # 化 불성 판정을 덮는다. 확정 문장을 주는 쪽이 최초 오류율을 더 크게 낮춘다.
+        lines += canonical_claim_lines(pf.relation_semantics)
+        lines += pf.hierarchy_appendix
     if payload.date_selection is not None:
         ds = payload.date_selection
         lines.append("")

@@ -38,6 +38,13 @@ def _beta_flag_snapshot() -> dict[str, bool]:
     except Exception:  # noqa: BLE001
         pass
     flags["daily_fortune_pregen"] = os.getenv("SAJU_DAILY_FORTUNE_PREGEN") == "1"
+    try:
+        # 총운 V2(P0~P3) — 어느 논리 버전으로 답변이 나가는지 운영에서 확인 가능해야 한다.
+        from saju_engines import period_v2_config as _p2
+
+        flags.update({k: v for k, v in _p2.active_versions().items() if isinstance(v, bool)})
+    except Exception:  # noqa: BLE001
+        pass
     return flags
 
 

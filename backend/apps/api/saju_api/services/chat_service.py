@@ -21,7 +21,13 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field
 from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
-from saju_engines import EventEngineV2, GraphIndex, filter_year_candidates, load_event_graph
+from saju_engines import (
+    EventEngineV2,
+    GraphIndex,
+    filter_year_candidates,
+    load_event_graph,
+    period_v2_config,
+)
 from saju_engines.chart_interpretation import build_luck_grounding
 from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
@@ -51,12 +57,25 @@ from saju_engines.effective_subjects import AttachedCompanion, build_effective_s
 from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
+from saju_engines.luck_hierarchy import build_luck_hierarchy
+from saju_engines.luck_hierarchy_render import (
+    render_hierarchy_appendix,
+    render_hierarchy_narrative,
+    render_period_role_summary,
+)
 from saju_engines.marriage_timing_profile import marriage_engine_flags
+from saju_engines.period_role_summary import build_period_role_summary
+from saju_engines.period_safe_template import build_safe_period_answer
 from saju_engines.persona import PersonaEngine
 from saju_engines.planner import build_execution_plan
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.profile_engine import profile_facts_for
 from saju_engines.query_parser import ACCIDENT_SAGO_RE, parse_message
+from saju_engines.relation_claim_audit import (
+    audit_relation_claims,
+    patch_relation_claims,
+)
+from saju_engines.relation_semantics import collect_luck_relation_semantics
 from saju_engines.relationship_hints import (
     COMPETITION_SAFETY_GUARDS,
     RANKING_SAFETY_GUARDS,
@@ -685,6 +704,40 @@ def _build_period_fortune(
     # 표현 제한 도메인(Phase 5b-2b) — parser Domain.value(str)만 전달(enum 비종속).
     domain_key = domain_to_expression_key(intent.domain.value)
     grounding = build_luck_grounding(chart, pillar, domain_key=domain_key)
+    # P0(2026-07-27) — 운 스택(대운·세운·월운·해당 기간) 전체가 관여한 합의 구조화 의미.
+    # 단일 pillar만 넘기면 세운 午와 일진 寅의 반합처럼 층간 결합이 통째로 빠진다.
+    _TARGET_LEVEL = {
+        "daily": CompositeLevel.DAY,
+        "monthly": CompositeLevel.MONTH,
+        "yearly": CompositeLevel.YEAR,
+    }
+    relation_semantics = _period_relation_semantics(
+        chart, composites, _TARGET_LEVEL[fortune_type], start, pillar
+    )
+    # P1 계층형 grounding(2026-07-27) — ON이면 관계 렌더를 **이쪽으로 완전히 대체**한다.
+    # 기존 build_luck_grounding의 형충회합 줄과 함께 내보내면 같은 관계가 두 표현으로
+    # 들어가 LLM이 서로 다른 사실로 읽는다.
+    hierarchy_lines: list[str] = []
+    hierarchy_appendix: list[str] = []
+    hierarchy = None
+    if period_v2_config.PERIOD_HIERARCHY_ENABLED:
+        stack_keys = {"year": start[:4]}
+        if fortune_type == "daily" and day_solar_month:
+            stack_keys["month"] = day_solar_month
+        elif fortune_type == "monthly":
+            stack_keys["month"] = start
+        hierarchy = build_luck_hierarchy(
+            composites, _TARGET_LEVEL[fortune_type].value, start,
+            relation_semantics, stack_keys=stack_keys,
+        )
+        # P2 — 연·월·일 역할 요약을 관계 블록 **앞**에 둔다(배경 → 대상 순서).
+        from saju_engines.event_scoring import favorability_map as _fav_map
+        role_summary = build_period_role_summary(hierarchy, _fav_map(chart))
+        hierarchy_lines = (
+            render_period_role_summary(role_summary)
+            + render_hierarchy_narrative(hierarchy)
+        )
+        hierarchy_appendix = render_hierarchy_appendix(hierarchy)
     slots = [
         PeriodFortuneSlot(
             name=f.key.removeprefix("slot:"),
@@ -701,10 +754,51 @@ def _build_period_fortune(
         pillar_line=grounding["pillar_line"],
         luck_label=pillar.luck_label,
         luck_summary=pillar.luck_summary,
-        relation_lines=grounding["relation_lines"],
+        # 계층형 ON이면 관계는 hierarchy_lines 하나만 쓴다(중복 삽입 금지).
+        relation_lines=[] if hierarchy_lines else grounding["relation_lines"],
         sinsal_lines=grounding["sinsal_lines"],
         gongmang=grounding["gongmang"],
         slots=slots,
+        relation_semantics=relation_semantics,
+        hierarchy_lines=hierarchy_lines,
+        hierarchy_appendix=hierarchy_appendix,
+        luck_hierarchy=hierarchy,
+    )
+
+
+def _period_relation_semantics(chart, composites, target_level, target_key, pillar) -> list:
+    """이번 기간의 운 스택이 관여한 합의 구조화 의미(P0).
+
+    운 스택은 **대상 기간 composite 하나**의 `parent_context`(대운·세운·월운)와 그 기간
+    간지로 한정한다 — 사전계산 결과를 그대로 쓰되(절대원칙 9), composite 목록 전체를
+    훑으면 질문과 무관한 연도(예: 2024 甲辰·2031 辛亥)의 간지까지 스택에 섞여
+    `甲己合`·`丙辛合` 같은 허위 관계가 만들어진다.
+
+    Args:
+        chart: 만세 결과.
+        composites: 이 기간에 대해 빌드된 LuckComposite 목록.
+        target_level: 대상 기간의 CompositeLevel(일=DAY / 월=MONTH / 연=YEAR).
+        target_key: 대상 기간 키('2026-07-27' / '2026-07' / '2026').
+        pillar: 해당 기간 LuckPillar(일진/월운/세운).
+
+    Returns:
+        운 관여 합의 RelationSemantics 목록. 두 플래그가 모두 꺼져 있으면 빈 리스트.
+    """
+    if not (period_v2_config.RELATION_SEMANTIC_PATCH_ENABLED
+            or period_v2_config.PERIOD_HIERARCHY_ENABLED):
+        return []
+    target = next(
+        (c for c in composites
+         if c.level is target_level and c.period_key == target_key),
+        None,
+    )
+    ganji_set: list[str] = [pillar.ganji]
+    if target is not None:
+        parent = target.parent_context
+        ganji_set += [g for g in (parent.daewoon, parent.year, parent.month) if g]
+    unique = [g for g in dict.fromkeys(ganji_set) if len(g) >= 2]
+    return collect_luck_relation_semantics(
+        chart, [g[0] for g in unique], [g[1] for g in unique]
     )
 
 
@@ -4499,6 +4593,9 @@ def chat(
         answer = _audit_career_transition_answer(
             answer, _career_prep, prompt_text, call_type, system, owner_id, thread_id
         )
+        # P0 관계 의미 패치(2026-07-27) — 엔진 판정을 뒤집은 서술은 전달 금지.
+        # 재호출 없이 해당 문장만 canonical claim으로 교체한다.
+        answer = _audit_relation_answer(answer, payload.period_fortune, thread_id)
     # 총운 커버리지 계측(관측 전용 — 재생성·재호출 없음, 데굴님 확정): 누락 후보를
     # 로그로 남겨 입력 구조 개선(후보 블록 후치 등)의 효과를 실측한다.
     if _overview_mode and payload.event_candidates:
@@ -4680,6 +4777,61 @@ def _audit_career_transition_answer(
         owner_id=owner_id, surface="chat", ref_id=thread_id,
     )
     return _normalize_ganji_gloss(retried)
+
+
+def _audit_relation_answer(answer, period_fortune, thread_id):
+    """P0 관계 의미 패치 — 엔진 판정 역전 서술을 결정론적으로 교정한다.
+
+    **LLM 재호출은 하지 않는다**(2026-07-27 데굴님 확정 — 재생성 철회). 이 문제는
+    창작이 아니라 엔진 확정값 반영으로 풀리며, 유료 Q&A에서 재생성을 기본 안전장치로
+    두면 사용자 비용과 서버 원가가 함께 늘어난다. 복구 우선순위는
+    ① 결정론적 국소 교정 → ② 엔진 안전 템플릿 조립 순이고, **원문 유지(fail-open)는
+    금지**다(엔진 판정을 뒤집은 답변을 알고도 전달 = 절대원칙 1 위반).
+
+    Args:
+        answer: 정규화까지 마친 답변.
+        period_fortune: 이번 턴 총운 블록(관계 구조화 의미 보유). None이면 통과.
+        thread_id: 스레드 식별자(로깅·참조).
+
+    Returns:
+        패치를 통과했거나 교정된 답변.
+    """
+    if not period_v2_config.RELATION_SEMANTIC_PATCH_ENABLED or period_fortune is None:
+        return answer
+    semantics = period_fortune.relation_semantics
+    if not semantics:
+        return answer
+    violations = audit_relation_claims(answer, semantics)
+    if not violations:
+        _logger.info(
+            "relation_claim_audit result=pass relations=%d thread=%s",
+            len(semantics), thread_id,
+        )
+        return answer
+
+    patched = patch_relation_claims(answer, violations, semantics)
+    _logger.warning(
+        "relation_claim_audit result=violation outcome=%s kinds=%s labels=%s "
+        "patched=%d ambiguous=%d unpatched=%d thread=%s",
+        patched.outcome.value,
+        [v.kind.value for v in violations],
+        sorted({v.relation_label for v in violations}),
+        patched.patched_count, len(patched.ambiguous_sentences),
+        len(patched.unpatched), thread_id,
+    )
+    if patched.fully_repaired:
+        return patched.text
+    # 미교정 위반이 남음(모호하거나 문장 특정 실패) — 추가 LLM 호출 대신 엔진 데이터로
+    # 답변을 조립한다. 어느 관계를 말하는지 확정 못 한 채 임의 문장으로 바꾸지 않는다.
+    if period_v2_config.SAFE_TEMPLATE_FALLBACK_ENABLED:
+        _logger.error("relation_claim_audit result=safe_template outcome=%s thread=%s",
+                      patched.outcome.value, thread_id)
+        return build_safe_period_answer(period_fortune)
+    _logger.error(
+        "relation_claim_audit result=unpatched_delivered thread=%s — "
+        "SAFE_TEMPLATE_FALLBACK이 꺼져 있어 미교정 모순이 전달된다", thread_id,
+    )
+    return patched.text
 
 
 #: shadow 저장소 단일 인스턴스(지연 생성).

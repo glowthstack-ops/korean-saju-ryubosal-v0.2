@@ -90,6 +90,21 @@ class DomainSignal(BaseModel):
     # 않으므로 원본 키·taxonomy 세대를 보존한다(M02 호환 소비 등). canonical 저장분은 빈 값.
     source_event_key: str | None = None
     source_taxonomy_version: str = ""  # "legacy" | ""(canonical)
+    # ── P3(2026-07-27) V2 무부호 강도 ────────────────────────────────────────
+    # weight에는 용희기구한 modifier(±0.2/±0.1)가 이미 섞여 있어, 여기에 부호를 곱하면
+    # "강한 기신 관계일수록 작은 음수"가 되는 역전이 생긴다. 그래서 방향 보정을 뺀
+    # 무부호 강도를 따로 저장한다. **V2 계산은 이 값 하나만 쓴다**(weight·base 재참조 금지).
+    unsigned_magnitude_v2: float | None = None
+    #: 계산 공식 ID. 파생 출처(build/cache/fallback)는 여기 넣지 않는다 — 출처가
+    #: 정체성에 섞이면 저장값과 fallback 값이 별개 신호로 이중 계상된다.
+    magnitude_formula_id: str = ""  # 'base' | 'base_x_partial_v1'
+    structural_weight_version: str = ""
+    #: 참여 글자의 **결정론적 위치 식별자**(엔진 원래 순서 보존).
+    #: 'natal.month.branch:亥' / 'daily:2026-07-27.branch:寅' 형식.
+    #: 이것이 없으면 원국 월지 亥와 일지 亥가 만드는 두 寅亥合을 구분할 수 없다.
+    #: dedupe 시에는 정렬한 canonical key를 쓰되, 이 목록에서 관계의 주체·대상이나
+    #: direction을 다시 추론하면 안 된다(의미는 RelationOccurrence·effects[]에서만).
+    participant_occurrence_ids: tuple[str, ...] | None = None
 
 
 class CompositeGanji(BaseModel):
