@@ -93,14 +93,41 @@ max_only / designated_primary_only 결과는 감사 출력에만 존재한다
 **`current` 재현 불변식** — 조사 시작 전 가장 먼저 확인한다.
 
 ```
-current.raw_status       == production.raw_status
-current.effective_status == production.effective_status
-current.guard_codes      == production.guard_codes
-current.rank             == production.rank
+current.raw_status        == production.raw_status
+current.effective_status  == production.effective_status
+current.guard_codes       == production.guard_codes
+current.rank              == production.rank
+current.top_n_membership  == production.top_n_membership
 ```
 
-하나라도 다르면 overlap 조사보다 **감사 스크립트의 재현 경로가 production과 다르다는
-문제를 먼저 고친다.** 재현이 깨진 상태의 반사실 비교는 의미가 없다.
+`top_n_membership`은 rank와 별개로 확인한다 — 개별 후보의 순위가 같아도 후보 집합
+구성이나 동률 처리 차이로 Top-N 결과가 달라질 수 있다.
+
+**단일 사례가 아니라 감사 대상 전체**에서 확인한다. 불일치는 아래로 분류한다.
+
+```
+STATUS_MISMATCH
+GUARD_MISMATCH
+RANK_MISMATCH
+TOP_N_MEMBERSHIP_MISMATCH
+SIGNAL_SET_MISMATCH
+```
+
+하나라도 발생하면 P3-2·P4 분석으로 진행하지 않고 **재현 경로부터 수정한다.**
+재현이 깨진 상태의 반사실 비교는 의미가 없다.
+
+## 3-1. 조사 세션 중 끝까지 불변으로 유지할 것
+
+```
+production contribution · status · rank
+기존 InteractionCluster의 점수 소비
+API · LLM · 리포트 payload
+운영 플래그
+```
+
+`P4-E`도 조사 결과 전까지는 **메타데이터 준비까지만** 하고, 실제 사용자 문장 변경은
+별도 커밋으로 분리한다 — 역할 분류가 틀리면 숫자는 그대로여도 설명이 실제 계산과
+어긋난다.
 
 ## 4. temporal_role 정의 (명시 산출 — 층위 조합으로 추정 금지)
 
