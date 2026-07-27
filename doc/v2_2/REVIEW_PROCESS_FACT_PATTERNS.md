@@ -96,14 +96,14 @@ intent   PLANNED_OR_INTENDED ("준비하고 있어"는 관측 가능한 단계�
 
 | 구절 | family | stage | intent | 비고 |
 |---|---|---|---|---|
-| 9월 30일에 이사가 결정되었어 | `MOVE_PROCESS` | `SCHEDULED` | ACTIVE | 날짜 확정 = 관측 가능 |
+| 9월 30일에 이사가 결정되었어 | `MOVE_PROCESS` | `IN_PROGRESS` | ACTIVE | §8-3 — 날짜 포함만으로 SCHEDULED 아님 |
 | 계약서는 이미 다 썼고 | `CONTRACT_PROCESS` | `COMPLETED` | **TERMINAL** | 과정 종료 |
 | 8~9월 동안 은행 대출을 진행해야되는데 | `LOAN_PROCESS` | — | PLANNED | "해야되는데" = 미착수 |
 | 주택을 사기 위한 대출 | — | — | — | **목적 설명 · evidence 없음** |
 
 ⚠ 지적하신 대로 **원장 누락 회귀와 P2 예외 자격은 별개다.** 네 문장 모두 원장에는
 저장돼야 하지만(그게 그 회귀의 목적), `ACTIVE_PROCESS_TRIGGER`를 여는 것은
-`이사 SCHEDULED` 하나뿐이다. "계약서 다 썼고"는 오히려 **terminal이라 닫는다.**
+`이사 IN_PROGRESS`(decision_confirmed) 하나뿐이다. "계약서 다 썼고"는 오히려 **terminal이라 닫는다.**
 
 ## 6. 충분성 판정
 
