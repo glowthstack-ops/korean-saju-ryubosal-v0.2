@@ -29,12 +29,27 @@ partial overlap이 존재하는가          ← 조사 목표 아님
 **이 사례를 `subset_pattern_dominance`의 근거로 쓰면 안 된다.** 반합을 방합의 하위
 패턴으로 보고 제거하면 일진 寅이라는 **독립 근거까지 삭제**된다.
 
+## 1-1. 식별자 규약 — 결산 명칭과 로드맵 번호를 섞지 않는다
+
+이번에 **배포된 수정**은 영역 명칭으로 부르고, `P0.5`·`P2`·`P3`·`P4`·`P5`는
+**앞으로의 작업 식별자**로만 쓴다(과거 회고에서 P1~P3를 배포 항목에 붙여 로드맵
+번호와 충돌한 적이 있다).
+
+| 배포된 수정(영역 명칭) | 내용 |
+|---|---|
+| 관계 의미론 | 寅亥合 canonical claim · 결정론적 문장 교체 |
+| 계층형 grounding | 상위 운 결합 · 연·월·일 역할 요약 |
+| 간지 극성 | 천간·지지 polarity 분리 · MIXED 보존 |
+| 기간 위계 | 양방향 local-only 캡 |
+| 출력 안전 | 정책 에코 차단 |
+| 운영 안정 | 재기동 스크립트 |
+
 ## 2. 단계별 상태
 
 | 작업 | 판정 |
 |---|---|
 | P3-1 `exact_evidence_dedup` | **완료** — 이미 동작(실측 33→26, 7건 제거) |
-| P3-2 `subset_pattern_dominance` | 존재 탐색부터. 대표 사례는 근거 아님 |
+| P3-2 `subset_pattern_dominance` | **production 보류** — 대표 사례가 적용 대상이 아님만 확정. 실제 occurrence subset 사례의 존재 여부는 미탐색 |
 | P4 `partial_overlap` | 실재하나 '중복 과대계상' 미확정 — shadow 계측 우선 |
 | P4-E 표현 압축 | 숫자 불변. role 메타데이터 산출 이후 적용 |
 
@@ -69,7 +84,23 @@ P4 반사실은 최종 점수 차감이 아니라 **신호 집합을 바꾼 전�
 
 production 점수·상태·순위 변경 없음. 임의 감쇠계수(0.5배 등) 도입 금지
 표현 클러스터링은 숫자 불변
+
+audit 스크립트는 production scorer의 신호를 **읽기만** 한다(판정 분기 추가 금지)
+audit 결과·shadow 필드는 API·LLM·리포트 입력에 노출하지 않는다
+max_only / designated_primary_only 결과는 감사 출력에만 존재한다
 ```
+
+**`current` 재현 불변식** — 조사 시작 전 가장 먼저 확인한다.
+
+```
+current.raw_status       == production.raw_status
+current.effective_status == production.effective_status
+current.guard_codes      == production.guard_codes
+current.rank             == production.rank
+```
+
+하나라도 다르면 overlap 조사보다 **감사 스크립트의 재현 경로가 production과 다르다는
+문제를 먼저 고친다.** 재현이 깨진 상태의 반사실 비교는 의미가 없다.
 
 ## 4. temporal_role 정의 (명시 산출 — 층위 조합으로 추정 금지)
 
@@ -150,6 +181,10 @@ primary_only       designated primary만 유지
 | `top_n_membership_flip` | overlap이 있는 후보군 |
 | 평균·최대 순위 이동 | 순위가 있는 overlap 후보 |
 
+집계 우선순위는 `top_n_membership_flip` > `effective_status_flip` >
+`raw_status_flip` > 순위 이동 > 점수 차이다. 점수 차이보다 **사용자가 보는 결과가
+바뀌는지**를 먼저 본다.
+
 `top_n_membership_flip`이 단순 순위 이동보다 우선한다 — `rank 2→3`은 사용자 영향이
 없지만 `rank 5→6`은 Top-5 출력을 바꾼다.
 
@@ -206,6 +241,14 @@ scripts/audit_evidence_overlap.py    ← 감사 전용. 여기서 먼저 탐색�
         → 독립 기여로 인정. 감쇠하지 않고 문장에서만 역할을 구분해 압축
 ```
 
+B와 D는 동시에 성립할 수 있다. 하나만 고르지 말고 조합해 보고한다.
+
+```
+주 판정  D — temporal_role이 대부분 달라 독립 기여
+영향 판정 B — 반사실에서도 상태·Top-N 변화가 미미
+조치     숫자 유지 + 표현 클러스터링
+```
+
 ## 10. 커밋 단위
 
 ```
@@ -220,3 +263,25 @@ scripts/audit_evidence_overlap.py    ← 감사 전용. 여기서 먼저 탐색�
 - `saju_engines/luck_hierarchy.py` — `InteractionCluster` primary 선정 규칙
 - `shared_types/luck_hierarchy.py` — `HierarchyInteraction.occurrence_ids`
 - `saju_engines/signal_occurrence.py` — occurrence 식별자 형식·범위 계약
+
+## 12. 선행 배포의 검증 근거 (기간 위계 캡)
+
+`LOCAL_ADVERSE_ONLY` 운영 활성화(2026-07-27)의 근거를 남긴다.
+
+```
+엔진 검증  6명식 636 슬롯 스윕 — 오적용 3종 전부 0건
+           (upper_support 있는데 캡 / 상위 부정 있는데 shadow / ADVERSE 아닌데 후보)
+
+문장 검증  LLM 7건 — 관계·직업 각각의 일운/월운/월+일 조합 + 통제 사례
+           5개 기준 통과: 장기 악화 확대 없음 · 실패 비약 없음 · 주의점 삭제 없음
+                          내부 정보 노출 0건 · 도메인별 문구 반영
+
+통제 사례  명식 E 2026-01-12 (세운에 동일 카테고리 부정 기여 존재)
+           → ADVERSE_DOMINANT 유지 · guard_codes=[] · 오적용 없음
+           → 문장도 상위 근거(사오미 방합)를 인용하며 국소 한정을 넣지 않음
+           재기동 후 스모크에서 재확인
+
+7건 사유   계획 8건 중 decision 경계 사례는 6명식 636슬롯 스윕에서 발생하지 않았다
+           (decision 부정 shadow 후보율 0%). 조건이 관측되지 않아 생략했으며,
+           인위적 사례를 만들지 않았다.
+```
