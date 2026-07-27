@@ -17,9 +17,10 @@
 ```
 A  완비                                    ← 단독 태그
 B  계산은 있으나 LLM grounding 누락          ┐
-C  local scope 누락 — 아래 둘로 세분한다        │ 복수 선택 가능
+C  local scope 누락 — 아래 둘로 세분한다     │ 복수 선택 가능
 D  상위 governing stack 누락                │
 E  Episode·사용자 현실 과정 연동 필요         ┘
+```
 
 `C`는 두 개념이 섞이지 않도록 나눈다.
 
@@ -36,7 +37,6 @@ C2 이벤트형 local scope 없음
 ```
 
 6개 경로의 실질 결함은 **C2**다.
-```
 
 예: 상위 stack 있음 + local 상태 계산됨 + LLM payload 누락 + Episode 필요 → **`B + E`**
 
