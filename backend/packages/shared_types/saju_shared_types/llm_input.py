@@ -147,6 +147,27 @@ class LlmCalendarContext(BaseModel):
     selected_days: list[SelectedDay] = Field(default_factory=list)
 
 
+class LlmLayerGrounding(BaseModel):
+    """사건 후보의 기간 근거 — 어느 층위에서 포착됐는가 (D1-B, 2026-07-27).
+
+    엔진은 `source_layers`와 억제 사유(SUPPRESS_minor_layer_only)를 이미 알고 있지만
+    LLM에는 `confidence` 문자열 하나만 전달돼, "왜 신뢰도가 낮은지"를 모른 채 서술했다.
+    원시 reason_codes를 통째로 넘기지 않고 **allowlist로 정규화한 값만** 전달한다
+    (내부 계산 사유·shadow 코드·토큰만 늘리는 enum 배제).
+
+    이 구조는 **설명 범위 힌트 전용**이다. 후보 자격 판정(Top-N 제외·LOCAL_TRIGGER_ONLY)은
+    엔진이 P2에서 결정하며 LLM에 맡기지 않는다.
+    """
+
+    source_layers: list[str] = Field(default_factory=list)
+    #: 대운·세운에 **실제 기여**가 있었는가. stack_for가 관할 상위 운을 자동으로 붙이므로
+    #: '스택에 상위 운이 있다'와 '상위 운이 이 후보에 기여했다'를 혼동하면 안 된다.
+    has_upper_layer_support: bool = False
+    minor_layer_only: bool = False  # 월·일운에서만 포착
+    confidence_adjusted: bool = False
+    grounding_codes: list[str] = Field(default_factory=list)
+
+
 class LlmEventCandidate(BaseModel):
     """이벤트 후보 — 간지·대운 맥락 **반드시 포함**(LLM 간지 계산 불가 보완)."""
 
@@ -195,6 +216,8 @@ class LlmEventCandidate(BaseModel):
     # stage_reason은 MT 코드 전용이라 REL_CHUNG_* 등 배우자궁 충·형·파·해가 빠져
     # 출력 가드가 방향 누수를 못 보던 결함의 보완. 렌더 미노출(출력 가드 판정 전용).
     marriage_stability_risk: bool = False
+    # D1-B — 기간 근거(층위). 점수·등급·순위는 이 값에 영향받지 않는다.
+    layer_grounding: LlmLayerGrounding | None = None
 
 
 class LlmEvidence(BaseModel):

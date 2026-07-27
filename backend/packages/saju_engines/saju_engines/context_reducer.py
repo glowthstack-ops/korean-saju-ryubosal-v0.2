@@ -31,6 +31,7 @@ from saju_shared_types.constants import (
     ten_god,
 )
 from saju_shared_types.enums import Branch, Element, Stem
+from saju_shared_types.event_engine import LuckLayer
 from saju_shared_types.event_taxonomy_v2 import (
     EVENT_DOMAIN,
     direction_label,
@@ -50,6 +51,7 @@ from saju_shared_types.llm_input import (
     LlmEventCandidate,
     LlmEvidence,
     LlmInput,
+    LlmLayerGrounding,
     LlmStyleRules,
     MonthOverviewRow,
     PeriodFortune,
@@ -411,6 +413,43 @@ _RECOMMENDATION_KO = {"recommended": "추천", "acceptable": "무난", "avoid": 
 def recommendation_ko(value: str) -> str:
     """택일 추천 등급 → 한글(내부 어휘 노출 방지)."""
     return _RECOMMENDATION_KO.get(value, value)
+
+
+#: LLM에 전달할 억제 사유 allowlist — 원시 reason_codes를 통째로 넘기지 않는다.
+#: 내부 계산 사유·shadow 코드·설명 불필요 enum이 프롬프트에 새는 것을 막는다.
+_GROUNDING_CODE_ALLOWLIST: dict[str, str] = {
+    "SUPPRESS_minor_layer_only": "MINOR_LAYER_ONLY",
+}
+#: 단기 층위 — 이 둘로만 구성되면 상위 사건 근거가 없는 후보다.
+_LAYER_KO: dict[str, str] = {
+    "daewoon": "대운", "sewoon": "세운", "wolwoon": "월운", "ilwoon": "일운",
+}
+_MINOR_LAYERS = frozenset({LuckLayer.WOLWOON, LuckLayer.ILWOON})
+_UPPER_LAYERS = frozenset({LuckLayer.DAEWOON, LuckLayer.SEWOON})
+
+
+def _layer_grounding(c) -> LlmLayerGrounding | None:
+    """후보의 기간 근거를 LLM용으로 정규화한다(점수·등급·순위 불변).
+
+    `has_upper_layer_support`는 stack 구성이 아니라 **candidate provenance**로 본다 —
+    stack_for가 관할 상위 운을 자동으로 붙이므로 스택만 보면 전 후보가 상위 지지를
+    가진 것처럼 보인다.
+    """
+    layers = set(getattr(c, "source_layers", []) or [])
+    if not layers:
+        return None  # legacy·미상 — 억지로 지어내지 않는다
+    codes = [
+        _GROUNDING_CODE_ALLOWLIST[r]
+        for r in (getattr(c, "reason_codes", []) or [])
+        if r in _GROUNDING_CODE_ALLOWLIST
+    ]
+    return LlmLayerGrounding(
+        source_layers=sorted(str(x) for x in layers),
+        has_upper_layer_support=bool(layers & _UPPER_LAYERS),
+        minor_layer_only=layers <= _MINOR_LAYERS,
+        confidence_adjusted=bool(codes),
+        grounding_codes=codes,
+    )
 
 
 def _direction_for(c: EventCandidate) -> str:
@@ -1158,6 +1197,7 @@ def _to_llm_candidate(
         favorability_ko=_favorability_ko(c.favorability),
         sinsal_modifiers=list(sinsal_modifiers or []),
         sinsal_channel_note=sinsal_channel_note,
+        layer_grounding=_layer_grounding(c),
         marriage_stage=_stage.stage,
         marriage_base_stage=_stage.base_stage,
         marriage_stage_reason=_stage.stage_reason,
@@ -1973,6 +2013,22 @@ def serialize_llm_input(payload: LlmInput) -> str:
             # 신살 보조 태그(Phase A-1) — 숫자 없는 한글 강도어·효과 태그만. 단독 근거 금지.
             tags = " / ".join(_sinsal_modifier_str(s) for s in c.sinsal_modifiers)
             block.append(f"  신살 보조: {tags}")
+        if with_notes and c.layer_grounding is not None:
+            # D1-B — 기간 근거. 후보 자격 판정이 아니라 **설명 범위 힌트**다.
+            # Top-N 제외·LOCAL_TRIGGER_ONLY 판정은 엔진(P2) 소관이며 LLM에 맡기지 않는다.
+            g = c.layer_grounding
+            layers = " · ".join(_LAYER_KO.get(x, x) for x in g.source_layers)
+            if g.minor_layer_only:
+                block.append(
+                    f"  기간 근거: {layers}에서만 포착 · 대운·세운의 독립 근거 없음 "
+                    "→ 장기 변화·사건 성사로 단정하지 말고 단기 접촉·조정·마찰·확인 "
+                    "가능성으로 서술"
+                )
+            elif g.has_upper_layer_support:
+                block.append(
+                    f"  기간 근거: {layers} · 세운 또는 대운의 지지도 있음 "
+                    "(단기 신호만으로 만들어진 후보가 아님)"
+                )
         if with_notes and c.sinsal_channel_note:
             # 신살 기간 채널 색채(Phase B-2) — 발생 가능성 아님, 완충/리스크/질감 보조.
             block.append(f"  {c.sinsal_channel_note}")
