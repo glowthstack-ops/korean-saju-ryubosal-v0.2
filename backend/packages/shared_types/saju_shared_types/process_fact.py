@@ -177,6 +177,106 @@ class ProcessFact(BaseModel):
         )
 
 
+class ProcessCoverage(StrEnum):
+    """도메인별로 진행 사실을 **얼마나 알 수 있는가**.
+
+    P2 게이트를 적용할지는 후보의 층위가 아니라 이 값이 정한다. 자료가 없는 도메인에서
+    "active를 못 찾았다"를 "진행 중인 게 없다"로 읽으면, 사용자가 명시한 사실이 무시되는
+    회귀가 난다(설계 §8-1).
+    """
+
+    AUTHORITATIVE = "AUTHORITATIVE"  # active 없음을 확정할 수 있다
+    POSITIVE_ONLY = "POSITIVE_ONLY"  # 있을 때만 안다 — 없음은 모른다
+    TERMINAL_ONLY = "TERMINAL_ONLY"  # 닫는 것만 안다
+    UNSUPPORTED = "UNSUPPORTED"  # 판단 근거 없음
+    SOURCE_UNAVAILABLE = "SOURCE_UNAVAILABLE"  # 저장소 장애·파싱 실패
+
+    @property
+    def can_confirm_absence(self) -> bool:
+        """active가 없다는 것을 이 도메인에서 확정할 수 있는가."""
+        return self is ProcessCoverage.AUTHORITATIVE
+
+
+class EventGateAction(StrEnum):
+    """게이트가 이 후보에 무엇을 했는가 — 감사용.
+
+    `BYPASS_*`는 "게이트를 적용하지 않았다"이지 "후보가 정상이다"가 아니다.
+    어느 도메인에서 왜 미적용인지 구분하려고 사유별로 나눈다.
+    """
+
+    ENFORCE_MAJOR = "ENFORCE_MAJOR"
+    ENFORCE_ACTIVE_TRIGGER = "ENFORCE_ACTIVE_TRIGGER"
+    ENFORCE_LOCAL_ONLY = "ENFORCE_LOCAL_ONLY"
+    BYPASS_UNSUPPORTED_PROCESS_COVERAGE = "BYPASS_UNSUPPORTED_PROCESS_COVERAGE"
+    BYPASS_PROCESS_SOURCE_UNAVAILABLE = "BYPASS_PROCESS_SOURCE_UNAVAILABLE"
+
+    @property
+    def is_bypass(self) -> bool:
+        """기존 동작을 유지했는가."""
+        return self.value.startswith("BYPASS_")
+
+
+#: 도메인별 1차 coverage (2026-07-27 데굴님 확정 — 설계 §8-2).
+#: 자료가 확보되면 TERMINAL_ONLY → POSITIVE_ONLY → AUTHORITATIVE로 단계 승격한다.
+PROCESS_COVERAGE: dict[ProcessFamily, ProcessCoverage] = {
+    ProcessFamily.CAREER_OPPORTUNITY: ProcessCoverage.AUTHORITATIVE,
+    ProcessFamily.CAREER_EXIT: ProcessCoverage.AUTHORITATIVE,
+    ProcessFamily.CAREER_ENTRY: ProcessCoverage.AUTHORITATIVE,
+    ProcessFamily.MOVE_PROCESS: ProcessCoverage.POSITIVE_ONLY,
+    ProcessFamily.CONTRACT_PROCESS: ProcessCoverage.TERMINAL_ONLY,
+    ProcessFamily.LOAN_PROCESS: ProcessCoverage.UNSUPPORTED,
+    ProcessFamily.RELATIONSHIP_CONTACT: ProcessCoverage.UNSUPPORTED,
+    ProcessFamily.RELATIONSHIP_DATING: ProcessCoverage.UNSUPPORTED,
+    ProcessFamily.RELATIONSHIP_COMMITMENT: ProcessCoverage.UNSUPPORTED,
+    ProcessFamily.SELECTION_PROCESS: ProcessCoverage.UNSUPPORTED,
+    ProcessFamily.ADMISSION_PROCESS: ProcessCoverage.UNSUPPORTED,
+}
+
+
+def usable_active_facts(
+    facts: list[ProcessFact], *, subject_id: str | None
+) -> list[ProcessFact]:
+    """`has_compatible_active`를 만들 수 있는 후보만 걸러낸다.
+
+    `resolve_gate_action`은 bool을 받으므로, 그 bool이 **아무 active로나** 채워지지
+    않게 하는 것이 이 함수의 책임이다. 출처·주체·현재성·terminal·의향을 여기서 모두
+    통과시키고, 사건 family 호환은 P2-2b가 이어서 판정한다.
+
+    Args:
+        facts: 정규화된 진행 사실.
+        subject_id: 후보의 주체. 불일치 사실은 제외한다.
+
+    Returns:
+        `is_usable_exception()`을 통과하고 주체가 일치하는 사실만.
+    """
+    return [
+        f for f in facts
+        if f.is_usable_exception() and f.subject_id == subject_id
+    ]
+
+
+def resolve_gate_action(
+    coverage: ProcessCoverage, *, has_compatible_active: bool
+) -> EventGateAction:
+    """coverage × active 발견 여부 → 게이트 동작(설계 §8-1 표).
+
+    Args:
+        coverage: 그 후보가 속한 도메인의 진행 사실 관측 수준.
+        has_compatible_active: 호환되는 활성 process를 찾았는가.
+
+    Returns:
+        active를 찾았으면 항상 `ENFORCE_ACTIVE_TRIGGER`. 못 찾은 경우
+        `AUTHORITATIVE`만 `ENFORCE_LOCAL_ONLY`로 강제하고, 나머지는 BYPASS다.
+    """
+    if has_compatible_active:
+        return EventGateAction.ENFORCE_ACTIVE_TRIGGER
+    if coverage is ProcessCoverage.SOURCE_UNAVAILABLE:
+        return EventGateAction.BYPASS_PROCESS_SOURCE_UNAVAILABLE
+    if coverage.can_confirm_absence:
+        return EventGateAction.ENFORCE_LOCAL_ONLY
+    return EventGateAction.BYPASS_UNSUPPORTED_PROCESS_COVERAGE
+
+
 class ProcessMatchResult(StrEnum):
     """후보 하나에 대해 진행 사실이 어떻게 판정됐는가.
 
