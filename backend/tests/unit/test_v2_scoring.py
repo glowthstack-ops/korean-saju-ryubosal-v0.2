@@ -193,3 +193,27 @@ def test_v2_lines_absent_when_polarity_flag_off(monkeypatch):
     body = "\n".join(pf.hierarchy_lines)
     assert "[분야별 상태" not in body  # hierarchy 설명은 유지, 점수만 미노출
     assert "[상위 운 결합" in body
+
+
+def test_upper_support_uses_same_category_contribution(fixture):
+    """상위 지지는 최종 라벨이 아니라 같은 카테고리의 실제 긍정 기여로 판정한다."""
+    _, hier, scope = fixture
+    result = build_v2_scoring(scope, hier, enabled=True)
+    for category, totals in result.totals.items():
+        support = totals.upper_positive_support
+        expected = any(
+            totals.positive_by_level.get(lv, 0.0) > 0 for lv in ("daewoon", "year")
+        )
+        assert support is expected
+        # 다른 카테고리의 상위 지지를 빌려오지 않는다.
+        assert result.slot_status[category].upper_positive_support is support
+
+
+def test_reference_case_keeps_favorable_because_annual_supports(fixture):
+    """2026-07-27은 세운 丙午의 긍정 기여가 있어 캡이 걸리지 않는다."""
+    _, hier, scope = fixture
+    result = build_v2_scoring(scope, hier, enabled=True)
+    work = result.slot_status["work"]
+    assert work.upper_positive_support is True
+    assert work.guard_codes == []
+    assert work.status.value == "FAVORABLE_DOMINANT"

@@ -193,6 +193,7 @@ def derive_slot_status(
     volatility_total: float = 0.0,
     signed_signal_count: int = 0,
     mixed_unallocated_signal_count: int = 0,
+    upper_positive_support: bool = True,
     display_score: int = 0,
 ) -> SlotStatusResult:
     """슬롯의 의미 상태를 판정한다(화면 clamp와 분리).
@@ -235,8 +236,20 @@ def derive_slot_status(
     else:
         status = SlotStatus.ADVERSE_DOMINANT
 
+    # 층위 하드 캡(2026-07-27 데굴님 확정) — 같은 카테고리에서 대운·세운의 긍정
+    # 기여가 하나도 없으면 월·일운 긍정만으로 '유리 우세'에 진입할 수 없다.
+    # 배율·감산 대신 등급 자체를 막는다: -6이나 ×0.7은 원점수가 크면 여전히
+    # 상위 등급에 들어가 불변식을 표현하지 못한다.
+    raw_status = status
+    guard_codes: list[str] = []
+    if status is SlotStatus.FAVORABLE_DOMINANT and not upper_positive_support:
+        status = SlotStatus.LOCAL_FAVORABLE_ONLY
+        guard_codes.append("CAP_minor_without_upper_support")
+
     return SlotStatusResult(
-        status=status, source=source,
+        status=status, raw_status=raw_status,
+        upper_positive_support=upper_positive_support,
+        guard_codes=guard_codes, source=source,
         positive_total=positive_total, negative_total=negative_total,
         net_raw=round(net, 4),
         signed_signal_count=signed_signal_count,

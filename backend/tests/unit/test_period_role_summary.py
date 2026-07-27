@@ -292,3 +292,54 @@ def test_unallocated_flag_survives_alongside_signed_signals():
     assert r.status is SlotStatus.ADVERSE_DOMINANT
     assert r.has_opposing_signals is True
     assert r.has_unallocated_opposing_signals is True
+
+
+def test_cap_blocks_favorable_without_upper_support():
+    """대운·세운 긍정 기여가 없으면 월·일운만으로 '유리 우세'에 들어갈 수 없다."""
+    r = derive_slot_status(
+        positive_total=90.0, negative_total=0.0, neutral_signal_count=0,
+        volatility_signal_count=0, upper_positive_support=False,
+        source=SlotStatusSource.POLARITY_V2,
+    )
+    assert r.raw_status is SlotStatus.FAVORABLE_DOMINANT  # 원판정 보존
+    assert r.status is SlotStatus.LOCAL_FAVORABLE_ONLY  # 등급 자체를 막는다
+    assert "CAP_minor_without_upper_support" in r.guard_codes
+    # MIXED_BALANCED로 강등하지 않는다 — 양쪽 크기가 같다는 별개 주장이 된다.
+    assert r.status is not SlotStatus.MIXED_BALANCED
+
+
+def test_cap_not_applied_when_upper_support_exists():
+    """상위 지지가 있으면 캡을 적용하지 않는다(2026-07-27 사례)."""
+    r = derive_slot_status(
+        positive_total=90.0, negative_total=0.0, neutral_signal_count=0,
+        volatility_signal_count=0, upper_positive_support=True,
+        source=SlotStatusSource.POLARITY_V2,
+    )
+    assert r.status is SlotStatus.FAVORABLE_DOMINANT
+    assert r.guard_codes == []
+
+
+def test_cap_is_one_directional_only():
+    """이번 단계에서는 부정 방향 대칭 캡을 적용하지 않는다."""
+    r = derive_slot_status(
+        positive_total=0.0, negative_total=90.0, neutral_signal_count=0,
+        volatility_signal_count=0, upper_positive_support=False,
+        source=SlotStatusSource.POLARITY_V2,
+    )
+    assert r.status is SlotStatus.ADVERSE_DOMINANT  # 변경 없음
+    assert r.guard_codes == []
+
+
+def test_cap_does_not_touch_already_lower_grades():
+    """이미 유리 우세가 아니면 점수·상태를 바꾸지 않는다."""
+    for pos, neg, expected in (
+        (10.0, 20.0, SlotStatus.ADVERSE_DOMINANT),
+        (10.0, 10.0, SlotStatus.MIXED_BALANCED),
+    ):
+        r = derive_slot_status(
+            positive_total=pos, negative_total=neg, neutral_signal_count=0,
+            volatility_signal_count=0, upper_positive_support=False,
+            source=SlotStatusSource.POLARITY_V2,
+        )
+        assert r.status is expected
+        assert r.guard_codes == []

@@ -234,6 +234,7 @@ _SLOT_STATUS_KO = {
     "MIXED_BALANCED": "유리·불리 균형",
     "VOLATILITY_ONLY": "변동성만 있음(길흉 미판정)",
     "DIRECTION_UNRESOLVED": "양방향 효과 있음(크기 배분 보류)",
+    "LOCAL_FAVORABLE_ONLY": "국소 유리(상위 운의 지지는 없음)",
     "NEUTRAL": "중립",
     "NO_SIGNAL": "관련 신호 없음",
 }
@@ -267,5 +268,10 @@ def render_v2_slot_status(scoring) -> list[str]:
             note += " · 방향을 수치로 배분하지 않은 혼재 관계 있음"
         if status.status.value in ("VOLATILITY_ONLY", "DIRECTION_UNRESOLVED"):
             note += " · '관련 신호가 없다'고 서술 금지"
+        if status.status.value == "LOCAL_FAVORABLE_ONLY":
+            note += (
+                " · 대운·세운의 지지가 없으므로 장기·지배적 호전으로 서술 금지."
+                " 정리·보완·부담 축소에 나은 국면까지만"
+            )
         lines.append(note)
     return lines

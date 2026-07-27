@@ -65,6 +65,18 @@ class V2CategoryTotals(BaseModel):
     neutral_signal_count: int = 0
     volatility_signal_count: int = 0
     mixed_unallocated_signal_count: int = 0
+    #: 층위별 긍정 기여 — 상위 지지 판정의 근거. 최종 라벨(FAVORABLE/MIXED)이
+    #: 아니라 **그 카테고리에 실제 긍정 기여가 있었는지**로 본다. 대운이 MIXED여도
+    #: 해당 카테고리에 긍정 기여가 있으면 상위 지지로 인정한다.
+    positive_by_level: dict[str, float] = Field(default_factory=dict)
+
+    @property
+    def upper_positive_support(self) -> bool:
+        """대운·세운에 같은 카테고리 긍정 기여가 있는가."""
+        return any(
+            self.positive_by_level.get(level, 0.0) > 0
+            for level in ("daewoon", "year")
+        )
 
     @property
     def net_raw(self) -> float:
@@ -233,6 +245,10 @@ def build_v2_scoring(
                     bucket.positive_total = round(
                         bucket.positive_total + contribution, 6
                     )
+                    level_key = comp.level.value
+                    bucket.positive_by_level[level_key] = round(
+                        bucket.positive_by_level.get(level_key, 0.0) + contribution, 6
+                    )
                 else:
                     bucket.negative_total = round(
                         bucket.negative_total + abs(contribution), 6
@@ -246,6 +262,7 @@ def build_v2_scoring(
                 volatility_signal_count=t.volatility_signal_count,
                 mixed_unallocated_signal_count=t.mixed_unallocated_signal_count,
                 signed_signal_count=t.signed_signal_count,
+                upper_positive_support=t.upper_positive_support,
                 source=SlotStatusSource.POLARITY_V2,
             )
             for category, t in totals.items()
