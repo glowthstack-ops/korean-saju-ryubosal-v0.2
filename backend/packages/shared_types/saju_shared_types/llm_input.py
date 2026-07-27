@@ -439,7 +439,11 @@ class LlmInput(BaseModel):
     event_candidates: list[LlmEventCandidate] = Field(default_factory=list)
     # 질문 기간 밖 상위 후보 — 참고 맥락 전용(메인 서술 금지 지시 동반).
     out_of_range_candidates: list[LlmEventCandidate] = Field(default_factory=list)
-    no_candidates_in_period: bool = False  # 기간 내 후보 없음 → 정직한 '신호 없음' 유도
+    no_candidates_in_period: bool = False
+    #: P2 — 후보는 있었으나 상위 근거가 없어 주요 사건 자격에서 제외된 경우.
+    #: `no_candidates_in_period`와 의미가 다르다: 신호가 없는 게 아니라 자격이 없다.
+    #: 둘을 섞으면 "이직운이 없습니다"로 왜곡된다.
+    major_candidates_gated_out: bool = False  # 기간 내 후보 없음 → 정직한 '신호 없음' 유도
     # 총운형 선정 제외 강신호 메타(2026-07-14 not_selected_due_to_limit) — 근-최고점인데
     # 슬롯·개인화 가중에서 밀린 클러스터의 제한 언급용 한 줄들. '신호 없음' 표현 금지의
     # 근거 채널(엔진이 메타를 제공한 경우에만 제한적으로 언급 가능 — 감수 확정 방식).

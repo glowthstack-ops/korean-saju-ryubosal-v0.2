@@ -161,3 +161,74 @@ def test_later_clause_active_survives_earlier_terminal() -> None:
     stages = {f.stage for f in r.facts}
     assert ProcessStage.IN_PROGRESS in stages, "뒤 절의 새 진행이 살아 있어야 한다"
     assert r.usable_for("self"), "예외 근거로도 쓸 수 있어야 한다"
+
+
+# ── 요청 스코프 컨텍스트 (P2-3a) ─────────────────────────────────
+
+
+def test_request_context_is_built_once_and_shared() -> None:
+    """세 원천을 한 번에 읽어 불변 컨텍스트로 만든다."""
+    from saju_engines.process_fact_resolver import build_request_process_context
+    from saju_shared_types.process_fact import (
+        CareerEntryScope,
+        CareerProcessSnapshot,
+    )
+    from saju_shared_types.process_fact import (
+        ProcessFamily as PF,
+    )
+    from saju_shared_types.process_fact import (
+        ProcessStage as PS,
+    )
+
+    ctx = build_request_process_context(
+        subject_id="self",
+        current_turn_text="9월 30일에 이사가 결정되었어.",
+        career_snapshots=[
+            CareerProcessSnapshot(
+                episode_id="ep-A", subject_id="self",
+                process_family=PF.CAREER_OPPORTUNITY, stage=PS.INTERVIEWING,
+                entry_scope=CareerEntryScope.EXTERNAL_EMPLOYER,
+            )
+        ],
+        turn=2,
+    )
+    families = {f.process_family for f in ctx.usable()}
+    assert families == {ProcessFamily.MOVE_PROCESS, ProcessFamily.CAREER_OPPORTUNITY}
+    assert not ctx.source_unavailable
+
+
+def test_request_context_marks_source_unavailable() -> None:
+    """저장소 장애는 '사실 없음'이 아니다 — 컨텍스트가 구분해 전달한다."""
+    from saju_engines.process_fact_resolver import build_request_process_context
+
+    ctx = build_request_process_context(
+        subject_id="self", career_source_unavailable=True
+    )
+    assert ctx.source_unavailable
+    assert ctx.usable() == []
+
+
+def test_snapshot_without_hard_fact_is_not_converted() -> None:
+    """주관적 인상은 스냅샷이어도 변환하지 않는다."""
+    from saju_engines.process_fact_resolver import build_request_process_context
+    from saju_shared_types.process_fact import (
+        CareerProcessSnapshot,
+    )
+    from saju_shared_types.process_fact import (
+        ProcessFamily as PF,
+    )
+    from saju_shared_types.process_fact import (
+        ProcessStage as PS,
+    )
+
+    ctx = build_request_process_context(
+        subject_id="self",
+        career_snapshots=[
+            CareerProcessSnapshot(
+                episode_id="ep-A", subject_id="self",
+                process_family=PF.CAREER_OPPORTUNITY, stage=PS.INTERVIEWING,
+                observable_hard_fact=False,
+            )
+        ],
+    )
+    assert ctx.usable() == []

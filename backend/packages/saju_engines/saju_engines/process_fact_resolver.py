@@ -25,6 +25,7 @@ from saju_shared_types.process_fact import (
     TERMINAL_STAGES,
     CareerProcessSnapshot,
     EvidenceOrigin,
+    ProcessCoverage,
     ProcessFact,
     ProcessFamily,
     ProcessStage,
@@ -215,3 +216,76 @@ def resolve_process_facts(
     facts.extend(career_facts or [])
     survivors, closed = supersede(facts)
     return ResolvedProcessFacts(facts=survivors, closed=closed)
+
+
+@dataclass(frozen=True)
+class RequestProcessContext:
+    """요청 스코프 진행 사실 컨텍스트 — **요청당 1회만 만든다.**
+
+    후보마다 저장소를 다시 조회하면 I/O가 늘 뿐 아니라, 한 요청 안에서 P2 scope 판정
+    시점과 후반 커리어 설명 블록의 Episode 상태가 달라질 수 있다. 그래서 성능이 아니라
+    **일관성**을 위해 한 번만 읽고 공유한다.
+
+    `career_source_status`는 "사실이 없음"과 "읽지 못함"을 가른다 — 후자를 전자로
+    읽으면 진행 중인 사건이 조용히 강등된다.
+    """
+
+    subject_id: str | None
+    resolved_facts: tuple[ProcessFact, ...] = ()
+    career_snapshots: tuple[CareerProcessSnapshot, ...] = ()
+    career_source_status: ProcessCoverage | None = None
+
+    @property
+    def source_unavailable(self) -> bool:
+        """커리어 저장소를 읽지 못했는가."""
+        return self.career_source_status is ProcessCoverage.SOURCE_UNAVAILABLE
+
+    def usable(self) -> list[ProcessFact]:
+        """이 주체의 예외 근거로 쓸 수 있는 사실."""
+        return usable_active_facts(list(self.resolved_facts), subject_id=self.subject_id)
+
+
+def build_request_process_context(
+    *,
+    subject_id: str | None,
+    current_turn_text: str = "",
+    ledger_quotes: list[str] | None = None,
+    career_snapshots: list[CareerProcessSnapshot] | None = None,
+    career_source_unavailable: bool = False,
+    turn: int | None = None,
+) -> RequestProcessContext:
+    """세 원천을 한 번에 읽어 요청 스코프 컨텍스트를 만든다.
+
+    호출 위치는 `subject_id` 확정 직후 · 후보 생성 전이다. 후보 축소가 끝난 뒤에
+    만들면 이미 탈락한 후보를 교정할 수 없다.
+
+    Args:
+        subject_id: 확정된 주체.
+        current_turn_text: 이번 턴 발화.
+        ledger_quotes: 원장 인용문.
+        career_snapshots: 호출자 경계에서 변환한 중립 스냅샷.
+        career_source_unavailable: 저장소 조회 실패 여부.
+        turn: 현재 턴 번호.
+
+    Returns:
+        해소된 사실과 저장소 상태를 담은 불변 컨텍스트.
+    """
+    snapshots = tuple(career_snapshots or ())
+    career_facts = [
+        f for f in (adapt_career_snapshot(s) for s in snapshots) if f is not None
+    ]
+    resolved = resolve_process_facts(
+        current_turn_text=current_turn_text,
+        ledger_quotes=ledger_quotes,
+        career_facts=career_facts,
+        subject_id=subject_id,
+        turn=turn,
+    )
+    return RequestProcessContext(
+        subject_id=subject_id,
+        resolved_facts=tuple(resolved.facts),
+        career_snapshots=snapshots,
+        career_source_status=(
+            ProcessCoverage.SOURCE_UNAVAILABLE if career_source_unavailable else None
+        ),
+    )

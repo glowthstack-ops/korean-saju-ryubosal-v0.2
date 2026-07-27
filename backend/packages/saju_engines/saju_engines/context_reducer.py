@@ -2060,7 +2060,11 @@ def serialize_llm_input(payload: LlmInput) -> str:
     # 밀집)가 후보 조망을 덮는 쏠림을 줄인다. 비총운 질문은 기존 위치 그대로.
     _cand_out: list[str] = [] if payload.overview_mode else lines
     # 이벤트 후보 섹션 — 내용이 있을 때만 출력(구조 질문 등 후보 미산출 시 빈 헤더 노출 방지).
-    if payload.event_candidates or payload.no_candidates_in_period:
+    if (
+        payload.event_candidates
+        or payload.no_candidates_in_period
+        or payload.major_candidates_gated_out
+    ):
         _cand_out.append("")
         _cand_out.append(
             "[이벤트 후보 — 그 기간에 가능성이 상대적으로 높은 사건의 추측 신호. "
@@ -2071,6 +2075,14 @@ def serialize_llm_input(payload: LlmInput) -> str:
             _cand_out.append(
                 "질문 기간 내 해당 도메인 후보 없음 — '해당 기간에는 뚜렷한 신호가 "
                 "없습니다'로 정직하게 안내할 것(추측 금지)."
+            )
+        elif payload.major_candidates_gated_out:
+            # ⚠ 위 문장과 반드시 구분한다. 신호가 없는 게 아니라 **주요 사건 자격**이
+            # 없는 것이다. "이직운이 없습니다"·"아무 변화도 없습니다"로 쓰면 왜곡이다.
+            _cand_out.append(
+                "이 기간에는 대운·세운의 독립 근거를 가진 주요 사건 후보가 확인되지 "
+                "않았다 — 단기(월·일운) 신호는 있으나 주요 사건으로 단정할 근거가 "
+                "부족하다는 뜻이다. '운이 없다'·'아무 일도 없다'로 쓰지 말 것."
             )
         _n_cands = len(payload.event_candidates)
         for _ci, c in enumerate(payload.event_candidates, 1):
