@@ -1,8 +1,12 @@
-"""D1-B 기간 근거 전달 — 계산 불변, 전달만 보강 (2026-07-27 데굴님 확정).
+"""층위 grounding 정규화 단위 테스트 — 분류 규칙만 본다.
 
-엔진은 source_layers와 억제 사유를 이미 알고 있었지만 LLM에는 confidence 문자열
-하나만 갔다. 정규화한 layer_grounding으로 '왜 신뢰도가 낮은지'를 전달한다.
-후보 자격 판정(Top-N 제외·LOCAL_TRIGGER_ONLY)은 하지 않는다 — 그건 P2 소관.
+⚠ 이 파일은 **덕타이핑 스텁**을 쓴다. 실제 DTO 경로 계약은
+`tests/integration/test_layer_grounding_production_path.py`가 담당한다.
+1차 구현에서 이 스텁만 믿었다가 `to_legacy_candidate`가 층위를 떨어뜨리는 것을
+놓쳤으므로, 여기서 통과했다고 운영 배선이 검증됐다고 보면 안 된다.
+
+입력은 `candidate_source_layers`(후보별 기여)다. 운영 엔진은 아직 이를 수집하지
+않으므로 실제 경로에서는 항상 비어 있고 grounding도 None이다(P2-PROV 대기).
 """
 
 from __future__ import annotations
@@ -15,7 +19,10 @@ from saju_engines.context_reducer import _layer_grounding
 
 
 def _c(layers, reasons=()):
-    return SimpleNamespace(source_layers=list(layers), reason_codes=list(reasons))
+    """후보별 기여 층위와 근거 코드만 가진 최소 스텁."""
+    return SimpleNamespace(
+        candidate_source_layers=list(layers), evidence_path=list(reasons)
+    )
 
 
 @pytest.mark.parametrize(
@@ -28,35 +35,42 @@ def _c(layers, reasons=()):
         (["daewoon"], False, True),
     ],
 )
-def test_upper_support_uses_candidate_provenance(layers, minor_only, upper):
-    """stack 구성이 아니라 후보 provenance로 판정한다.
-
-    stack_for가 관할 상위 운을 자동으로 붙이므로, 스택만 보면 전 후보가 상위 지지를
-    가진 것처럼 보인다. source_layers(실제 기여)로 봐야 한다.
-    """
+def test_scope_is_derived_from_candidate_contribution(layers, minor_only, upper) -> None:
+    """상위 지지는 스택 구성이 아니라 후보 기여로 판정한다."""
     g = _layer_grounding(_c(layers))
+    assert g is not None
     assert g.minor_layer_only is minor_only
     assert g.has_upper_layer_support is upper
 
 
-def test_reason_codes_are_allowlisted():
-    """원시 reason_codes를 통째로 넘기지 않는다 — allowlist만."""
+def test_reason_codes_are_allowlisted() -> None:
+    """원시 근거 코드를 통째로 넘기지 않는다 — allowlist만."""
     g = _layer_grounding(_c(
         ["ilwoon"],
         ["SUPPRESS_minor_layer_only", "INTERNAL_SHADOW_XYZ", "SOME_MODIFIER"],
     ))
+    assert g is not None
     assert g.grounding_codes == ["MINOR_LAYER_ONLY"]
     assert g.confidence_adjusted is True
     assert "INTERNAL_SHADOW_XYZ" not in str(g.model_dump())
 
 
-def test_empty_layers_yield_none():
-    """legacy·미상 후보는 근거를 지어내지 않는다."""
+def test_empty_provenance_yields_none() -> None:
+    """후보 기여가 비면 층위를 지어내지 않는다 — 운영 경로의 현재 상태."""
     assert _layer_grounding(_c([])) is None
 
 
-def test_no_adjustment_flag_without_allowlisted_code():
+def test_no_adjustment_flag_without_allowlisted_code() -> None:
     """억제 사유가 없으면 confidence_adjusted는 False다."""
     g = _layer_grounding(_c(["sewoon", "ilwoon"]))
+    assert g is not None
     assert g.confidence_adjusted is False
     assert g.grounding_codes == []
+
+
+def test_stack_layers_are_never_read() -> None:
+    """`stack_layers`만 있는 후보는 상위 지지로 승격되지 않는다 — 오독 차단 불변식."""
+    stub = SimpleNamespace(
+        stack_layers=["daewoon", "sewoon"], candidate_source_layers=[], evidence_path=[]
+    )
+    assert _layer_grounding(stub) is None

@@ -111,6 +111,16 @@ class EventCandidate(BaseModel):
     experience: str | None = None
     signals: list[Signal] = Field(default_factory=list)
     evidence_path: list[str] = Field(default_factory=list)
+    # ── 층위 정보는 두 개다. 섞으면 안 된다(2026-07-27 실측으로 확정) ──
+    # stack_layers: 이 시점에 엔진이 **평가한 전체 signal stack**의 층위. 같은 시점의
+    #   모든 후보가 동일 값을 갖는다(EventCandidateV2.source_layers의 실제 의미).
+    #   ⚠ 이 값으로 "이 후보를 대운·세운이 지지했다"를 판정하면 안 된다 —
+    #   stack_for()가 관할 상위 운을 항상 붙이므로 전 후보가 상위 지지로 보인다.
+    # candidate_source_layers: **이 후보에 실제로 기여한** 층위. 현재 엔진은 기여 시점에
+    #   층위를 기록하지 않아 항상 비어 있다(P2-PROV에서 수집 예정). 빈 값은 "월·일운만"이
+    #   아니라 **판정 불가**이며, 소비 측은 기존 동작을 유지해야 한다.
+    stack_layers: list[str] = Field(default_factory=list)
+    candidate_source_layers: list[str] = Field(default_factory=list)
     # 클램프(0~100) 전 raw 가중 합 — 동점 후보의 우위 변별용(내부 정렬).
     raw_total: float = 0.0
     # Life Event Inference 정렬축 전달(EventCandidateV2→어댑터) — 0이면 기존 score 정렬과 동치.

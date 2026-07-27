@@ -31,7 +31,7 @@ from saju_shared_types.constants import (
     ten_god,
 )
 from saju_shared_types.enums import Branch, Element, Stem
-from saju_shared_types.event_engine import LuckLayer
+from saju_shared_types.event_engine import LayerEvidenceScope
 from saju_shared_types.event_taxonomy_v2 import (
     EVENT_DOMAIN,
     direction_label,
@@ -81,6 +81,7 @@ from .direction_suggestion import (
 )
 from .event_engine_v2 import EventEngineV2
 from .event_scoring import favorability_map
+from .layer_evidence_scope import classify_layer_evidence_scope, normalize_layers
 from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded, estimate_tokens
 from .manifestation_branch import branch_summary
 from .marriage_output_guard import (
@@ -420,33 +421,40 @@ def recommendation_ko(value: str) -> str:
 _GROUNDING_CODE_ALLOWLIST: dict[str, str] = {
     "SUPPRESS_minor_layer_only": "MINOR_LAYER_ONLY",
 }
-#: 단기 층위 — 이 둘로만 구성되면 상위 사건 근거가 없는 후보다.
+#: 층위 한글 라벨(표시 전용) — 상위/하위 구분은 layer_evidence_scope가 단독으로 판정한다.
 _LAYER_KO: dict[str, str] = {
     "daewoon": "대운", "sewoon": "세운", "wolwoon": "월운", "ilwoon": "일운",
 }
-_MINOR_LAYERS = frozenset({LuckLayer.WOLWOON, LuckLayer.ILWOON})
-_UPPER_LAYERS = frozenset({LuckLayer.DAEWOON, LuckLayer.SEWOON})
 
 
 def _layer_grounding(c) -> LlmLayerGrounding | None:
     """후보의 기간 근거를 LLM용으로 정규화한다(점수·등급·순위 불변).
 
-    `has_upper_layer_support`는 stack 구성이 아니라 **candidate provenance**로 본다 —
-    stack_for가 관할 상위 운을 자동으로 붙이므로 스택만 보면 전 후보가 상위 지지를
-    가진 것처럼 보인다.
+    판정은 `classify_layer_evidence_scope` 한 곳에서만 한다 — 여기서 따로 재계산하면
+    P2 랭킹 게이트와 어긋난다. 입력은 `candidate_source_layers`(후보별 기여)이며
+    `stack_layers`(평가 스택 구성)는 읽지 않는다.
+
+    근거 코드는 legacy DTO의 실제 운반 필드인 `evidence_path`에서 읽는다.
+    `reason_codes` 폴백은 V2 후보를 직접 넘기는 호출자를 위한 것이며, 운영 주 경로는
+    `evidence_path`다(to_legacy_candidate가 여기에 옮긴다).
+
+    Returns:
+        후보별 기여 층위가 확인된 경우에만 grounding. 현재 엔진은 이를 수집하지 않으므로
+        운영 경로에서는 항상 None이다 — 층위를 지어내는 대신 기존 동작(층위 언급 없음)을
+        유지한다. 실제 수집은 P2-PROV 이후.
     """
-    layers = set(getattr(c, "source_layers", []) or [])
-    if not layers:
-        return None  # legacy·미상 — 억지로 지어내지 않는다
-    codes = [
-        _GROUNDING_CODE_ALLOWLIST[r]
-        for r in (getattr(c, "reason_codes", []) or [])
-        if r in _GROUNDING_CODE_ALLOWLIST
-    ]
+    layers = list(getattr(c, "candidate_source_layers", []) or [])
+    scope = classify_layer_evidence_scope(layers)
+    if scope is LayerEvidenceScope.UNKNOWN:
+        return None
+    raw_codes = list(getattr(c, "evidence_path", []) or []) or list(
+        getattr(c, "reason_codes", []) or []
+    )
+    codes = [_GROUNDING_CODE_ALLOWLIST[r] for r in raw_codes if r in _GROUNDING_CODE_ALLOWLIST]
     return LlmLayerGrounding(
-        source_layers=sorted(str(x) for x in layers),
-        has_upper_layer_support=bool(layers & _UPPER_LAYERS),
-        minor_layer_only=layers <= _MINOR_LAYERS,
+        source_layers=normalize_layers(layers),
+        has_upper_layer_support=scope is LayerEvidenceScope.UPPER_SUPPORTED,
+        minor_layer_only=scope is LayerEvidenceScope.MINOR_ONLY,
         confidence_adjusted=bool(codes),
         grounding_codes=codes,
     )
@@ -2013,22 +2021,19 @@ def serialize_llm_input(payload: LlmInput) -> str:
             # 신살 보조 태그(Phase A-1) — 숫자 없는 한글 강도어·효과 태그만. 단독 근거 금지.
             tags = " / ".join(_sinsal_modifier_str(s) for s in c.sinsal_modifiers)
             block.append(f"  신살 보조: {tags}")
-        if with_notes and c.layer_grounding is not None:
-            # D1-B — 기간 근거. 후보 자격 판정이 아니라 **설명 범위 힌트**다.
-            # Top-N 제외·LOCAL_TRIGGER_ONLY 판정은 엔진(P2) 소관이며 LLM에 맡기지 않는다.
-            g = c.layer_grounding
-            layers = " · ".join(_LAYER_KO.get(x, x) for x in g.source_layers)
-            if g.minor_layer_only:
-                block.append(
-                    f"  기간 근거: {layers}에서만 포착 · 대운·세운의 독립 근거 없음 "
-                    "→ 장기 변화·사건 성사로 단정하지 말고 단기 접촉·조정·마찰·확인 "
-                    "가능성으로 서술"
-                )
-            elif g.has_upper_layer_support:
-                block.append(
-                    f"  기간 근거: {layers} · 세운 또는 대운의 지지도 있음 "
-                    "(단기 신호만으로 만들어진 후보가 아님)"
-                )
+        if with_notes and c.layer_grounding is not None and c.layer_grounding.minor_layer_only:
+            # D1-B — 후보별 기간 근거. 자격 판정이 아니라 **설명 범위 힌트**다.
+            # 상위 지지 쪽 문장은 두지 않는다: 평가 스택에 대운·세운이 있다는 사실을
+            # "이 후보를 대운·세운이 지지했다"로 확대하는 오독을 만들기 때문이다.
+            # 후보별 provenance(P2-PROV)가 확보되기 전까지 minor-only 쪽만 서술한다.
+            layers = " · ".join(
+                _LAYER_KO.get(x, x) for x in c.layer_grounding.source_layers
+            )
+            block.append(
+                f"  기간 근거: {layers}에서만 포착 · 대운·세운의 독립 근거 없음 "
+                "→ 장기 변화·사건 성사로 단정하지 말고 단기 접촉·조정·마찰·확인 "
+                "가능성으로 서술"
+            )
         if with_notes and c.sinsal_channel_note:
             # 신살 기간 채널 색채(Phase B-2) — 발생 가능성 아님, 완충/리스크/질감 보조.
             block.append(f"  {c.sinsal_channel_note}")

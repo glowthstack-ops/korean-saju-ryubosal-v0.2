@@ -71,6 +71,33 @@ class LuckLayer(StrEnum):
     ILWOON = "ilwoon"
 
 
+# 층위 근거 판정에 쓰는 상위/하위 구분 — LLM grounding(D1-B)과 사건 범위 게이트(P2)가
+# 같은 기준을 봐야 하므로 여기 한 곳에만 둔다.
+UPPER_LUCK_LAYERS: frozenset[LuckLayer] = frozenset({LuckLayer.DAEWOON, LuckLayer.SEWOON})
+MINOR_LUCK_LAYERS: frozenset[LuckLayer] = frozenset({LuckLayer.WOLWOON, LuckLayer.ILWOON})
+
+# 층위 표기 순서 — 로그·스냅샷·프롬프트가 실행마다 달라지지 않게 고정한다.
+LUCK_LAYER_ORDER: dict[str, int] = {
+    LuckLayer.DAEWOON.value: 0,
+    LuckLayer.SEWOON.value: 1,
+    LuckLayer.WOLWOON.value: 2,
+    LuckLayer.ILWOON.value: 3,
+}
+
+
+class LayerEvidenceScope(StrEnum):
+    """후보의 기간 근거가 어느 층위에서 왔는지 — 등급·점수와 무관한 순수 분류.
+
+    `UNKNOWN`은 "판정 불가"이지 "근거 없음"이 아니다. legacy 생성 경로나 provenance가
+    비어 있는 후보를 억지로 억제하지 않기 위한 fail-safe 값이며, 소비 측은 기존 동작을
+    유지해야 한다.
+    """
+
+    UPPER_SUPPORTED = "UPPER_SUPPORTED"  # 대운·세운의 독립 근거 있음
+    MINOR_ONLY = "MINOR_ONLY"  # 월·일운에서만 포착
+    UNKNOWN = "UNKNOWN"  # provenance 없음 — 기존 동작 유지
+
+
 class TemporalMode(StrEnum):
     """사건 시간 성격 (사양 temporal_modes)."""
 

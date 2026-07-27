@@ -65,6 +65,7 @@ from .event_ranker import EventRanker, RankContext
 from .event_scoring import daewoon_transition_boost, favorability_map
 from .exam_outcome_modifier import ExamOutcomeModifier
 from .ganji_calendar import relation_hits
+from .layer_evidence_scope import normalize_layers
 from .layer_flow_modifier import LayerFlowModifier
 from .life_fit_ranker import LifeFitRanker
 from .llm_event_serializer import reason_codes_ko
@@ -1325,6 +1326,12 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
         timing=c.timing.value,  # 타이밍(즉시/지연) 보존
         signals=signals,
         evidence_path=list(c.reason_codes),
+        # 평가 스택 층위 보존 — EventCandidateV2.source_layers는 이름과 달리 후보별
+        # 기여가 아니라 그 시점 signal stack 전체의 층위다(브랜처가 후보 루프 밖에서
+        # 한 번 계산해 전 후보에 같은 값을 넣는다). 이름으로 의미를 고정한다.
+        stack_layers=normalize_layers(c.source_layers),
+        # 후보별 기여 층위는 아직 수집되지 않는다 — 지어내지 않고 빈 값을 유지한다.
+        candidate_source_layers=[],
         raw_total=c.raw_score,
         life_fit=c.life_fit,
         personal_match=c.personal_match,
