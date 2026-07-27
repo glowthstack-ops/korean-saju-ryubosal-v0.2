@@ -224,3 +224,48 @@ def render_period_role_summary(summary) -> list[str]:
         "위 층별 근거를 함께 쓸 것)"
     )
     return lines
+
+
+# ── P3 슬롯 상태 렌더 (V2 ACTIVE일 때만 호출) ────────────────────────────────
+
+_SLOT_STATUS_KO = {
+    "FAVORABLE_DOMINANT": "유리 우세",
+    "ADVERSE_DOMINANT": "불리 우세",
+    "MIXED_BALANCED": "유리·불리 균형",
+    "VOLATILITY_ONLY": "변동성만 있음(길흉 미판정)",
+    "DIRECTION_UNRESOLVED": "양방향 효과 있음(크기 배분 보류)",
+    "NEUTRAL": "중립",
+    "NO_SIGNAL": "관련 신호 없음",
+}
+_CATEGORY_KO = {
+    "work": "일·직업", "money": "재물", "relationship": "관계·연애",
+    "health": "건강", "decision": "의사결정",
+}
+
+
+def render_v2_slot_status(scoring) -> list[str]:
+    """분야별 상태 — 우세와 독점을 구분해 '전적으로 불리'를 막는다.
+
+    상태 라벨만 주면 ADVERSE_DOMINANT를 '나쁜 신호만 있다'로 서술한다. 반대 방향
+    신호의 존재와 배분 보류 사실을 함께 전달한다(2026-07-27 데굴님 확정).
+    """
+    rows = [
+        (category, status) for category, status in sorted(scoring.slot_status.items())
+        if status.narrative_eligible
+    ]
+    if not rows:
+        return []
+    lines = [
+        "[분야별 상태 — 엔진 확정값. 상태 코드만 인용하지 말고 아래 단서를 함께 쓸 것]"
+    ]
+    for category, status in rows:
+        label = _SLOT_STATUS_KO.get(status.status.value, status.status.value)
+        note = f"{_CATEGORY_KO.get(category, category)}: {label}"
+        if status.has_opposing_signals:
+            note += " · 반대 방향 신호도 함께 있음('전적으로 불리·유리'로 단정 금지)"
+        if status.has_unallocated_opposing_signals:
+            note += " · 방향을 수치로 배분하지 않은 혼재 관계 있음"
+        if status.status.value in ("VOLATILITY_ONLY", "DIRECTION_UNRESOLVED"):
+            note += " · '관련 신호가 없다'고 서술 금지"
+        lines.append(note)
+    return lines

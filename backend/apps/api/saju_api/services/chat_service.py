@@ -62,6 +62,7 @@ from saju_engines.luck_hierarchy_render import (
     render_hierarchy_appendix,
     render_hierarchy_narrative,
     render_period_role_summary,
+    render_v2_slot_status,
 )
 from saju_engines.marriage_timing_profile import marriage_engine_flags
 from saju_engines.period_role_summary import build_period_role_summary
@@ -114,6 +115,7 @@ from saju_engines.task_procedures import (
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_lifestyle_context, build_topic_context
 from saju_engines.user_facts import user_facts_block
+from saju_engines.v2_scoring import V2ScoringError, build_v2_scoring
 from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
@@ -738,6 +740,38 @@ def _build_period_fortune(
             + render_hierarchy_narrative(hierarchy)
         )
         hierarchy_appendix = render_hierarchy_appendix(hierarchy)
+        # P3-b dual-run — V2 실패는 V2 결과만 폐기하고 V1 점수를 유지한다.
+        # P1·P2 계층 설명은 그대로 남고, 사용자 요청은 정상 완료된다.
+        # 범위 = 요청 스택 전체(대상 기간 + 상위 층위). stack_keys에는 상위만 있어
+        # start(대상 기간)를 반드시 더해야 한다 — 빠지면 일진 신호가 통째로 누락된다.
+        scope_keys = {*stack_keys.values(), start}
+        scope = [c for c in composites if c.period_key in scope_keys]
+        try:
+            v2_scoring = build_v2_scoring(
+                scope, hierarchy,
+                enabled=period_v2_config.PILLAR_POLARITY_V2_ENABLED,
+            )
+        except V2ScoringError:
+            _logger.exception("v2_scoring_failed period=%s — V1 점수 유지", start)
+            v2_scoring = None
+        _logger.info(
+            "v2_scoring period=%s status=%s raw=%s dedup=%s removed=%s "
+            "coverage_complete=%s unavailable=%s struct=%s conflict=%s mixed=%s "
+            "invariants=%s",
+            start,
+            v2_scoring.activation_status.value if v2_scoring else "ERROR",
+            getattr(v2_scoring, "raw_signal_count", 0),
+            getattr(v2_scoring, "deduplicated_signal_count", 0),
+            getattr(v2_scoring, "duplicate_removed_count", 0),
+            v2_scoring.coverage.complete if v2_scoring else None,
+            v2_scoring.coverage.unavailable_signal_count if v2_scoring else None,
+            v2_scoring.coverage.structural_only_count if v2_scoring else None,
+            v2_scoring.coverage.engine_conflict_count if v2_scoring else None,
+            v2_scoring.coverage.mixed_unallocated_count if v2_scoring else None,
+            v2_scoring.invariant_failure_codes if v2_scoring else None,
+        )
+        if v2_scoring is not None and v2_scoring.narrative_eligible:
+            hierarchy_lines += render_v2_slot_status(v2_scoring)
     slots = [
         PeriodFortuneSlot(
             name=f.key.removeprefix("slot:"),
