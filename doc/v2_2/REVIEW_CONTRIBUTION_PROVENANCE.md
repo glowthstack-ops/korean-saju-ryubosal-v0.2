@@ -1007,3 +1007,96 @@ D 배제        UNKNOWN 0 · NO_SELECTED_BASE 0
 
 남은 감수는 "A를 P2의 상위 사건 지지 정의로 확정할 것인가"와
 "`UPPER_BACKGROUND_ADJUSTED`를 LLM 설명에 쓸 것인가" 두 가지다.
+
+
+---
+
+## 16. P2-PROV-3-lite 실측 (2026-07-27) — 12명식
+
+`scripts/audits/provenance_lite_survey.py` · 전 표본 **동일 full-pipeline 경로**
+(`EventEngineV2.score`)로만 산출했다. §13의 전체 3.6%(스택 재구성)와 섞지 않는다.
+
+```
+차트 12건 · 후보 9493 · MINOR 729
+UNKNOWN 0 · NO_SELECTED_BASE 0
+불변식 upper + minor + unknown == unique candidates → 9493 == 9493 ✓
+```
+
+### 16-1. 레벨별 — 모집단은 일운에 있다
+
+```
+day    MINOR 587 / UPPER 5260
+month  MINOR 142 / UPPER 2002
+year   MINOR   0 / UPPER 1502
+
+day MINOR 비율   1.0% ~ 22.7% (평균 10.6%)
+```
+
+⚠ 편차가 제안 범위(7~15%)보다 넓다. 다만 **12명식 전부에서 MINOR가 관측**됐고
+(최소 차트 09도 8건), 특정 명식 고유 현상이 아니다. 편차 자체는 명식 구조 차이로
+보이며, 이 값을 게이트 임계로 쓰지 않으므로 P2 진행에는 지장이 없다.
+
+### 16-2. 도메인별 — 한 도메인에 몰려 있지 않다
+
+```
+career        360   (day 292)
+relationship  221   (day 174)
+health         55   (day  40)
+wealth         49   (day  38)
+education      44   (day  43)
+```
+
+5개 도메인에 분포한다. career·relationship이 큰 것은 후보 생성량 자체가 많기 때문으로
+보이며, **P2의 사용자 영향은 이직·연애 답변에 가장 크게 나타난다.**
+
+### 16-3. 긍부정 — 양방향 게이트가 필요하다
+
+```
+positive 372 · negative 327 · neutral 30
+```
+
+거의 균형이다. minor-only 부정 후보 327건은 P2가 막아야 할 "일운만 불리 →
+이별·해고·계약 파기" 비약의 실제 모집단이고, 긍정 372건은 "일운만 유리 →
+취업 성사·큰 수익" 비약의 모집단이다. **대칭 적용이 설계가 아니라 실측 요구다.**
+
+### 16-4. 정정 — `fav:WORSENS 100%`는 표본 특성이었다
+
+```
+차트 3건  minor: WORSENS 56 / IMPROVES 0     ← 100%
+차트 12건 minor: WORSENS 56 / IMPROVES 71    ← 양방향
+          upper: WORSENS 635 / IMPROVES 504
+```
+
+§15-2의 100%는 세 명식의 해당 대운이 모두 압력(化神 기·구)이었기 때문이다.
+표본을 넓히자 우호 대운에서 `IMPROVES`가 정상적으로 나온다. **구조적 결과가 아니라
+표본 편중이었다.**
+
+### 16-5. A의 의미 안정성 — 표본 검증 통과
+
+차트 04(MINOR 비율 최고 22.7%)의 일운 MINOR 97건 전수 확인:
+
+```
+승자 occurrence에 대운·세운이 섞인 건수      0   ✓
+상위 evaluated 근거가 있었으나 승자가 아닌 건수  51
+```
+
+51건이 핵심이다 — 대운·세운 근거가 **평가는 됐지만 base 승자가 되지 못했다.**
+evaluated union과 selected base를 나눈 설계가 실제로 작동한 증거다.
+
+```
+표본 2026-06-01 contract_document
+  승자 rule=SINGLE_PIANYIN score=26.0
+       occ=('transit:wolwoon:2026-06:transit:stem:甲:context',)
+  평가 INITIAL_WINNER 26.0 layers=('wolwoon',)
+```
+
+### 16-6. 종료 조건 판정
+
+```
+데이터 안정성    UNKNOWN 0 · NO_SELECTED_BASE 0 · 등식 성립       ✓
+모집단 실재      12명식 전부 · 5개 도메인 · 긍부정 양방향          ✓
+A의 의미 안정성  승자 occurrence에 상위 층위 혼입 0건              ✓
+배경 보정 분리   daewoon_hwa는 base formula·occurrence에 미개입    ✓
+```
+
+**A를 PROV-4 감수에 올릴 수 있다.**
