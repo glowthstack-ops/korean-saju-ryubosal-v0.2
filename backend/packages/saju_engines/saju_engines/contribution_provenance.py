@@ -111,6 +111,103 @@ class EvaluatedEvidence:
     strength_source_signal_ids: tuple[str, ...] = ()
 
 
+# ── modifier 관측 (P2-PROV-2) ────────────────────────────────────────
+
+
+class EvidenceRole(StrEnum):
+    """modifier가 후보에 무엇을 했는지."""
+
+    AMPLIFIER = "AMPLIFIER"
+    ATTENUATOR = "ATTENUATOR"
+    QUALITY_ADJUSTER = "QUALITY_ADJUSTER"
+    POLARITY_ADJUSTER = "POLARITY_ADJUSTER"
+    CONTEXT_MULTIPLIER = "CONTEXT_MULTIPLIER"
+    RANKING_ADJUSTER = "RANKING_ADJUSTER"
+
+
+class OccurrenceAttribution(StrEnum):
+    """근거를 어느 단위로 귀속할 수 있는지 — 상위 지지 자격은 이 축이 결정한다.
+
+    `candidate_specific`이 True여도 귀속이 `CANDIDATE`가 아니면 어떤 가설에도
+    넣을 수 없다(설계 §14-0).
+    """
+
+    CANDIDATE = "CANDIDATE"  # 후보 기여 occurrence를 특정할 수 있다
+    TARGET_LAYER_ONLY = "TARGET_LAYER_ONLY"  # 채점 대상 층위만 — 상위 공급 불가
+    STACK_LEVEL = "STACK_LEVEL"  # 스택 전체로 귀속 — 후보 구분 없음
+    NOT_RECOVERABLE = "NOT_RECOVERABLE"  # 현 구조로 층위 복원 불가
+
+
+class SupportEligibility(StrEnum):
+    """상위 사건 지지 가설에 투입 가능한지."""
+
+    ELIGIBLE = "ELIGIBLE"
+    INELIGIBLE = "INELIGIBLE"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+
+
+class CandidateAlignment(StrEnum):
+    """후보의 발생·강도를 어느 방향으로 움직였는지."""
+
+    SUPPORTS = "SUPPORTS"
+    OPPOSES = "OPPOSES"
+    NEUTRAL = "NEUTRAL"
+    UNKNOWN = "UNKNOWN"
+
+
+class FavorabilityEffect(StrEnum):
+    """결과 유불리를 어느 방향으로 움직였는지 — alignment와 별개 축이다.
+
+    상위 운이 해고 위험 후보를 강화하면 `SUPPORTS`이면서 `WORSENS`다.
+    """
+
+    IMPROVES = "IMPROVES"
+    WORSENS = "WORSENS"
+    NEUTRAL = "NEUTRAL"
+    UNKNOWN = "UNKNOWN"
+
+
+class FormulaRelation(StrEnum):
+    """base 승자 formula와의 관계 — 가설 B의 판정 입력."""
+
+    EXACT_SAME = "EXACT_SAME"
+    SAME_EVENT_FAMILY = "SAME_EVENT_FAMILY"
+    DOMAIN_ONLY = "DOMAIN_ONLY"
+    UNRELATED = "UNRELATED"
+    UNKNOWN = "UNKNOWN"
+
+
+@dataclass(frozen=True)
+class ModifierContributionEvidence:
+    """base 확정 후 수치·품질·극성을 바꾼 근거 1건."""
+
+    modifier_id: str
+    event_key: str
+
+    role: EvidenceRole
+    candidate_specific: bool
+    occurrence_attribution: OccurrenceAttribution
+    support_eligibility: SupportEligibility
+
+    source_occurrence_ids: tuple[str, ...] = ()
+    source_layers: tuple[str, ...] = ()
+    formula_relation: FormulaRelation = FormulaRelation.UNKNOWN
+
+    value_before: float | None = None
+    value_after: float | None = None
+    # 반올림 전 효과. `invoked=True`인데 `numeric_effect=0`인 경우를 "적용 안 됨"으로
+    # 접지 않기 위해 별도로 남긴다(설계 §2-3).
+    pre_quantized_effect: float | None = None
+    numeric_effect: float | None = None
+
+    invoked: bool = False
+    eligible: bool = False
+    changed_numeric_value: bool = False
+
+    candidate_alignment: CandidateAlignment = CandidateAlignment.UNKNOWN
+    favorability_effect: FavorabilityEffect = FavorabilityEffect.UNKNOWN
+
+
 @dataclass(frozen=True)
 class SelectedBaseEvidence:
     """base score를 실제로 결정한 근거 — 후보당 최대 1건."""
@@ -134,6 +231,7 @@ class PeriodProvenance:
     evaluated: list[EvaluatedEvidence] = field(default_factory=list)
     selected: dict[str, SelectedBaseEvidence] = field(default_factory=dict)
     selection_status: dict[str, SelectionStatus] = field(default_factory=dict)
+    modifiers: list[ModifierContributionEvidence] = field(default_factory=list)
 
 
 class ProvenanceRecorder:
@@ -166,6 +264,10 @@ class ProvenanceRecorder:
         p.selected[ev.event_key] = ev
         p.selection_status[ev.event_key] = SelectionStatus.SELECTED
 
+    def record_modifier(self, period: str, ev: ModifierContributionEvidence) -> None:
+        """modifier 기여 1건을 남긴다(계산에 되먹이지 않는다)."""
+        self._period(period).modifiers.append(ev)
+
     def record_no_selection(self, period: str, event_key: str) -> None:
         """한 번도 `>`가 성립하지 않은 후보를 정상 상태로 남긴다."""
         p = self._period(period)
@@ -185,7 +287,9 @@ class ProvenanceRecorder:
         evaluated = sum(len(p.evaluated) for p in self._periods.values())
         selected = sum(len(p.selected) for p in self._periods.values())
         candidates = sum(len(p.selection_status) for p in self._periods.values())
+        modifiers = sum(len(p.modifiers) for p in self._periods.values())
         return {
+            "modifier_evidence_count": modifiers,
             "period_count": len(self._periods),
             "unique_candidate_count": candidates,
             "evaluated_evidence_count": evaluated,

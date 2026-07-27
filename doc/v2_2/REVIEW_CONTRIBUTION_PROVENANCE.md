@@ -914,3 +914,96 @@ EventScope 미산출 · −6 유지
 
 특히 ranker 관측에서 순위가 조금이라도 달라지면 실패다. 기존 정렬 호출의 전후만
 기록하며, 감사 ID나 새 필드가 tie-breaker에 들어가면 안 된다.
+
+
+---
+
+## 15. P2-PROV-2a 실측 (2026-07-27)
+
+### 15-1. 1차 시도는 인공물이었다 — 기록해 둔다
+
+`_apply_daewoon_hwa_background`를 base 직후에 붙여 관측했더니 `eligible=0`이 나왔다.
+원인은 `quality`가 `branch()` 직후에는 전부 `None`이고 파이프라인 후반
+(`_yongi` · `_exam` · `_career_mobility`)에서 채워지기 때문이다.
+
+```
+발견이 아니라 감사 배치가 만든 인공물이었다.
+→ recorder를 score() → _score_impl() → _score_target()으로 배선해
+  실제 파이프라인 위치에서 다시 측정했다.
+```
+
+**교훈**: modifier 관측은 반드시 운영 호출 순서 위에서 해야 한다. 스택을 밖에서
+재구성하는 방식(PROV-1에서 쓴 방식)은 base 단계까지만 유효하다.
+
+### 15-2. 결과 — 분모는 unique MINOR 후보 204
+
+```
+invoked              56   27.5%
+eligible             56   27.5%
+changed_numeric      56   27.5%
+pre_quantized_only    0    0.0%
+no_effect             0    0.0%
+
+align:SUPPORTS       31   (흉 사건 점수 상승)
+align:OPPOSES        25   (길 사건 점수 하락)
+fav:WORSENS          56   (전부)
+```
+
+`fav:WORSENS` 100%는 세 차트의 해당 대운이 모두 압력(化神 기·구)이기 때문이다 —
+길 사건은 낮추고 흉 사건은 올리므로 양쪽 다 결과는 악화다. `candidate_alignment`와
+`favorability_effect`를 나눈 설계가 여기서 실제로 갈린다.
+
+### 15-3. 판정 B — A와 동일하게 유지한다
+
+```
+MINOR 204건 중 대운 배경 보정을 받은 후보   56 (27.5%)
+그중 발생 방향을 지지한 후보                31 (15.2%)
+
+그러나
+  candidate_specific = False       quality군 단위 — event_key로 분기하지 않는다
+  formula_relation   = UNRELATED   base 승자 formula와 무관하게 적용된다
+```
+
+가설 B의 요건(`EXACT_SAME` + `candidate_specific`)을 만족하지 못한다.
+**따라서 B = A이며, 31건을 상위 사건 지지로 승격하지 않는다.**
+
+대신 별도 관찰값으로 남긴다.
+
+```
+UPPER_BACKGROUND_ADJUSTED = 56/204 = 27.5%
+
+의미: 상위 대운 occurrence가 후보의 품질·길흉에 영향을 주었으나
+      사건 발생의 상위 근거로는 인정되지 않음
+용도: LLM 설명에는 유용할 수 있음. P2 major-event 자격에는 미사용
+```
+
+### 15-4. 정정 — 인용해야 할 수치는 레벨별이다
+
+엔진 전 구간 실행으로 바꾸자 세운 표본이 달라졌다.
+
+```
+                   스택 재구성    엔진 실행
+year UPPER            3648          384
+전체 후보             5739         2475
+MINOR_ONLY 비율        3.6%         8.2%
+
+day   MINOR 171 / UPPER 1385   11.0%   ← 동일
+month MINOR  33 / UPPER  502    6.2%   ← 동일
+MINOR 절대수 204                        ← 동일
+```
+
+`idx.sewoon_by_year`가 `luck_cycles.yearly_luck`보다 넓어 세운 분모만 달라졌다.
+**레벨별 수치와 MINOR 절대수는 두 방식에서 동일**하므로, 이후 인용은 전체 비율이
+아니라 레벨별 수치를 쓴다. §13의 3.6%는 세운 분모가 과대한 값이었다.
+
+### 15-5. 종료 판정
+
+```
+A 채택 방향   selected base만으로 day 11.0% / month 6.2%의 모집단이 나온다
+B = A         daewoon_hwa는 quality군 배경이라 B를 A보다 넓히지 못한다
+C1·C2         daewoon_hwa 외에 후보별 numeric modifier가 없어 산출 대상이 없다
+D 배제        UNKNOWN 0 · NO_SELECTED_BASE 0
+```
+
+남은 감수는 "A를 P2의 상위 사건 지지 정의로 확정할 것인가"와
+"`UPPER_BACKGROUND_ADJUSTED`를 LLM 설명에 쓸 것인가" 두 가지다.

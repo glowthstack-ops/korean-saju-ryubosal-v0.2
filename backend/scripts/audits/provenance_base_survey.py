@@ -35,7 +35,9 @@ from saju_engines import EventEngineV2  # noqa: E402
 from saju_engines.contribution_provenance import (  # noqa: E402
     ProvenanceRecorder,
 )
-from saju_engines.event_engine_v2 import _StackIndex  # noqa: E402
+from saju_engines.event_engine_v2 import (  # noqa: E402
+    _StackIndex,
+)
 from saju_engines.layer_evidence_scope import classify_layer_evidence_scope  # noqa: E402
 from saju_shared_types.birth_input import BirthInput  # noqa: E402
 from saju_shared_types.ganji_calendar import GanjiLevel  # noqa: E402
@@ -71,36 +73,28 @@ def _periods(chart, idx: _StackIndex) -> list[tuple[GanjiLevel, str, object]]:
 
 
 def survey_chart(name: str, birth: BirthInput) -> dict[str, Counter]:
-    """한 차트의 selected base 층위 분포를 낸다."""
+    """한 차트를 엔진 전 구간으로 돌려 provenance를 수집한다.
+
+    스택을 밖에서 재구성하면 modifier 순서가 재현되지 않는다 — 1차 시도에서
+    `_apply_daewoon_hwa_background`를 base 직후에 붙였다가 `quality`가 아직 None이라
+    eligible=0이 나왔다. 그건 발견이 아니라 감사 배치가 만든 인공물이었다.
+    그래서 recorder를 엔진에 넘겨 **실제 파이프라인 위치**에서 관측한다.
+    """
     chart = calculate(birth)
     eng = EventEngineV2(_BACKEND / "dictionaries")
-    idx = _StackIndex(chart)
     rec = ProvenanceRecorder()
+    eng.score(
+        chart,
+        levels={GanjiLevel.YEAR, GanjiLevel.MONTH, GanjiLevel.DAY},
+        provenance_recorder=rec,
+    )
 
-    for level, label, target in _periods(chart, idx):
-        stack = idx.stack_for(level, label, target)
-        if not stack:
-            continue
-        target_layer = {
-            GanjiLevel.YEAR: "sewoon", GanjiLevel.MONTH: "wolwoon",
-            GanjiLevel.DAY: "ilwoon",
-        }[level]
-        signals = [
-            s
-            for layer, pillar in stack
-            for s in eng._brancher.collect_from_pillar(
-                pillar, layer, is_target=str(layer) == target_layer
-            )
-        ]
-        if signals:
-            eng._brancher.branch(signals, label, provenance_recorder=rec)
-
-    level_of = {label: level for level, label, _ in _periods(chart, idx)}
-    scope = Counter()
-    status = Counter()
+    scope: Counter = Counter()
+    status: Counter = Counter()
     by_level: Counter = Counter()
+    minor_keys: set[tuple[str, str]] = set()
     for label, period in rec.periods().items():
-        lv = str(level_of.get(label, "?"))
+        lv = "year" if len(label) == 4 else ("month" if len(label) == 7 else "day")
         for event_key, st in period.selection_status.items():
             status[st.value] += 1
             sel = period.selected.get(event_key)
@@ -108,8 +102,32 @@ def survey_chart(name: str, birth: BirthInput) -> dict[str, Counter]:
             verdict = classify_layer_evidence_scope(layers).value
             scope[verdict] += 1
             by_level[f"{lv}:{verdict}"] += 1
+            if verdict == "MINOR_ONLY":
+                minor_keys.add((label, event_key))
+
+    # PROV-2a — 분모는 unique MINOR candidate. 한 후보에서 여러 번 호출돼도 1회만 센다.
+    dw: Counter = Counter()
+    seen: set[tuple[str, str]] = set()
+    for label, period in rec.periods().items():
+        for m in period.modifiers:
+            key = (label, m.event_key)
+            if key not in minor_keys or key in seen:
+                continue
+            seen.add(key)
+            dw["invoked"] += 1
+            if m.eligible:
+                dw["eligible"] += 1
+                if m.changed_numeric_value:
+                    dw["changed_numeric"] += 1
+                elif (m.pre_quantized_effect or 0) != 0:
+                    dw["pre_quantized_only"] += 1
+                else:
+                    dw["no_effect"] += 1
+            dw[f"align:{m.candidate_alignment.value}"] += 1
+            dw[f"fav:{m.favorability_effect.value}"] += 1
+    dw["minor_total"] = len(minor_keys)
     return {"scope": scope, "status": status, "by_level": by_level,
-            "counts": Counter(rec.counts())}
+            "daewoon_hwa": dw, "counts": Counter(rec.counts())}
 
 
 def main() -> None:
@@ -117,6 +135,7 @@ def main() -> None:
     total_scope: Counter = Counter()
     total_counts: Counter = Counter()
     total_by_level: Counter = Counter()
+    total_dw: Counter = Counter()
     print(f"{'차트':<18} {'후보':>6} {'근거':>7} {'승자':>6} "
           f"{'UPPER':>7} {'MINOR':>7} {'UNKNOWN':>8}")
     print("-" * 66)
@@ -126,6 +145,7 @@ def main() -> None:
         total_scope += s
         total_counts += c
         total_by_level.update(r["by_level"])
+        total_dw.update(r["daewoon_hwa"])
         print(f"{name:<18} {c['unique_candidate_count']:>6} "
               f"{c['evaluated_evidence_count']:>7} {c['selected_base_evidence_count']:>6} "
               f"{s['UPPER_SUPPORTED']:>7} {s['MINOR_ONLY']:>7} {s['UNKNOWN']:>8}")
@@ -146,6 +166,15 @@ def main() -> None:
         print("\n레벨별 분해")
         for key in sorted(total_by_level):
             print(f"  {key:<28} {total_by_level[key]:>6}")
+        print("\nPROV-2a — MINOR 후보 대비 대운 합화 배경 보정 (분모=unique MINOR)")
+        mt = total_dw.get("minor_total", 0)
+        for key in ("invoked", "eligible", "changed_numeric",
+                    "pre_quantized_only", "no_effect"):
+            v = total_dw.get(key, 0)
+            pct = f"{v / mt:.1%}" if mt else "-"
+            print(f"  {key:<28} {v:>6}  {pct:>7}")
+        for key in sorted(k for k in total_dw if ":" in k):
+            print(f"  {key:<28} {total_dw[key]:>6}")
 
 
 if __name__ == "__main__":

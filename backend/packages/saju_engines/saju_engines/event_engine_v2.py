@@ -61,6 +61,16 @@ from saju_shared_types.wealth_capacity import WealthCapacity
 from .addendum_gate_modifier import AddendumGateModifier, GateContext
 from .career_mobility_modifier import CareerMobilityContext, CareerMobilityModifier
 from .cohort_calibration import CohortStats
+from .contribution_provenance import (
+    CandidateAlignment,
+    EvidenceRole,
+    FavorabilityEffect,
+    FormulaRelation,
+    ModifierContributionEvidence,
+    OccurrenceAttribution,
+    ProvenanceRecorder,
+    SupportEligibility,
+)
 from .event_ranker import EventRanker, RankContext
 from .event_scoring import daewoon_transition_boost, favorability_map
 from .exam_outcome_modifier import ExamOutcomeModifier
@@ -272,8 +282,12 @@ class EventEngineV2:
         occupation_status: str | None = None,
         relationship_status: str | None = None,
         occupation_category: str | None = None,
+        provenance_recorder: ProvenanceRecorder | None = None,
     ) -> list[EventCandidateV2]:
         """만세 결과의 운을 거버닝 스택으로 스코어링해 EventCandidateV2 목록을 산출한다.
+
+        provenance_recorder는 P2-PROV 감사 전용이다. None이면(운영 기본) 아무것도
+        기록하지 않고 기존 실행 경로·결과와 완전히 동일하다.
 
         위험 shadow는 호출 스레드 로컬 sink에 수집된다(감수 62차 P0③) —
         직후 take_risk_shadow()로 **이 호출분의 불변 tuple**을 얻는다.
@@ -289,7 +303,8 @@ class EventEngineV2:
                 result, levels, fav_override,
                 occupation_status=occupation_status,
                 relationship_status=relationship_status,
-                occupation_category=occupation_category)
+                occupation_category=occupation_category,
+                provenance_recorder=provenance_recorder)
         finally:
             self._risk_tls.sink = None
             self._risk_tls.last = tuple(sink)
@@ -321,6 +336,7 @@ class EventEngineV2:
         occupation_status: str | None = None,
         relationship_status: str | None = None,
         occupation_category: str | None = None,
+        provenance_recorder: ProvenanceRecorder | None = None,
     ) -> list[EventCandidateV2]:
         self.mt4_shadow = []  # MT4 shadow 진단 사이드채널 초기화(이번 호출분만)
         if result.pillars is None or result.luck_cycles is None:
@@ -337,7 +353,7 @@ class EventEngineV2:
                 out += self._score_target(
                     result, GanjiLevel.DAEWOON, label, _daewoon_pillar(dwi), idx, fav_map,
                     occupation_status, relationship_status, capacity, marriage_flow,
-                    occupation_category,
+                    occupation_category, provenance_recorder,
                 )
         for level, pillars in (
             (GanjiLevel.YEAR, result.luck_cycles.yearly_luck),
@@ -349,7 +365,7 @@ class EventEngineV2:
                     out += self._score_target(
                         result, level, p.label, p, idx, fav_map,
                         occupation_status, relationship_status, capacity, marriage_flow,
-                        occupation_category,
+                        occupation_category, provenance_recorder,
                     )
         return sorted(out, key=_rank_key)
 
@@ -468,8 +484,13 @@ class EventEngineV2:
         capacity: WealthCapacity,
         marriage_flow: MarriageFlowNatal,
         occupation_category: str | None = None,
+        provenance_recorder: ProvenanceRecorder | None = None,
     ) -> list[EventCandidateV2]:
-        """거버닝 스택으로 한 시점의 후보를 만들고 6계층 보정을 적용한다."""
+        """거버닝 스택으로 한 시점의 후보를 만들고 6계층 보정을 적용한다.
+
+        provenance_recorder가 있으면 base 기여(brancher)와 대운 합화 배경 보정을
+        **실제 파이프라인 위치에서** 관측한다. 계산에는 개입하지 않는다.
+        """
         stack = idx.stack_for(level, label, target)
         if not stack:
             return []
@@ -490,7 +511,9 @@ class EventEngineV2:
         if not signals:
             return []
         # 사건 '종류'는 십성(세운·월운)이 결정한다 — 합화는 여기(라벨 생성기)에 넣지 않는다.
-        cands = self._brancher.branch(signals, label)
+        cands = self._brancher.branch(
+            signals, label, provenance_recorder=provenance_recorder
+        )
         # MT1 — 일간 干合 배우자성 awareness seed '생성'(modifier 아님, feature flag·기본 OFF).
         # branch 직후 합류시켜 이후 6계층 보정·랭킹·soft_cap을 동일하게 거친다.
         if self._enable_mt1_awareness:
@@ -611,7 +634,10 @@ class EventEngineV2:
             cands = apply_mt3_directional_tags(cands, hits, result, marriage_flow.gender)
         # 대운 합화 체용 배경 — 대운 化神의 용기신 역할로 성패율에 약한 배경 보정(직접 치환 아님).
         cands = _apply_daewoon_hwa_background(
-            cands, _daewoon_hwa_role(stack, result, fav_map)
+            cands, _daewoon_hwa_role(stack, result, fav_map),
+            provenance_recorder=provenance_recorder,
+            period=label,
+            daewoon_occurrence_id=_daewoon_occurrence_id(stack),
         )
         # 증거 등급·충돌 해결(랭커의 등급 보너스도 raw 누적의 일부).
         rank_ctx = _rank_context(
@@ -1105,13 +1131,42 @@ def _daewoon_hwa_role(
     return None
 
 
+def _daewoon_occurrence_id(stack: list[tuple[LuckLayer, LuckPillar]]) -> str:
+    """관측용 대운 식별자 — **request-local**이다.
+
+    `_daewoon_pillar`가 `label=간지`라 기간 표현이 없어 전역 식별자가 되지 못한다.
+    서로 다른 요청의 감사 행을 이 값만으로 합치면 안 된다(설계 §14-7).
+    """
+    for layer, pillar in stack:
+        if layer is LuckLayer.DAEWOON:
+            return f"daewoon:{pillar.ganji}:{pillar.stem}{pillar.branch}"
+    return ""
+
+
 def _apply_daewoon_hwa_background(
-    cands: list[EventCandidateV2], dw_role: PolarityRole | None
+    cands: list[EventCandidateV2],
+    dw_role: PolarityRole | None,
+    *,
+    provenance_recorder: ProvenanceRecorder | None = None,
+    period: str = "",
+    daewoon_occurrence_id: str = "",
 ) -> list[EventCandidateV2]:
     """대운 합화 化神의 용기신 역할로 사건 성패율에 약한 배경 보정(직접 치환 아님).
 
     보강 대운(化神 용·희): 길 사건↑·흉 사건 완화. 압력 대운(化神 기·구): 흉 사건↑·길 사건↓.
     폭은 작고 잠정(체용 배경) — 사건 종류·개수는 불변. 같은 대운 내 길/흉 상대 성패만 미세 조정.
+
+    P2-PROV-2a: 6종 modifier 중 **유일하게 특정 대운 occurrence를 집어낼 수 있어**
+    관측 대상이다. 다만 분기가 `event_key`가 아니라 `quality`(길/흉)군이라, occurrence를
+    특정할 수 있다는 것이 곧 "이 사건의 발생을 대운이 지지했다"는 뜻은 아니다.
+    그래서 `support_eligibility=REVIEW_REQUIRED`로 남기고 승격은 감수에 맡긴다.
+
+    Args:
+        cands: 보정 대상 후보.
+        dw_role: 대운 化神의 용기신 역할(None·NEUTRAL이면 무보정).
+        provenance_recorder: 감사 수집기. None이면 기존 동작과 완전히 동일하다.
+        period: 관측 기록용 시점 라벨(recorder가 있을 때만 사용).
+        daewoon_occurrence_id: 관측 기록용 대운 식별자(request-local).
     """
     if dw_role is None or dw_role is PolarityRole.NEUTRAL:
         return cands
@@ -1124,6 +1179,11 @@ def _apply_daewoon_hwa_background(
         elif c.quality in _BAD_Q:
             factor = 1 - _DAEWOON_HWA_BG if boon else 1 + _DAEWOON_HWA_BG
         else:
+            if provenance_recorder is not None:
+                # 품질 미상 후보는 호출은 됐으나 적용 조건을 만족하지 못했다.
+                provenance_recorder.record_modifier(period, _daewoon_hwa_evidence(
+                    c, None, c.score, daewoon_occurrence_id
+                ))
             out.append(c)
             continue
         new_score = max(0, round(c.score * factor))
@@ -1133,7 +1193,73 @@ def _apply_daewoon_hwa_background(
             "reason_codes": [*c.reason_codes, tag],
             "contributions": {**c.contributions, "daewoon_hwa": float(new_score - c.score)},
         }))
+        if provenance_recorder is not None:
+            provenance_recorder.record_modifier(period, _daewoon_hwa_evidence(
+                c, factor, new_score, daewoon_occurrence_id
+            ))
     return out
+
+
+def _daewoon_hwa_evidence(
+    c: EventCandidateV2,
+    factor: float | None,
+    new_score: int,
+    occurrence_id: str,
+) -> ModifierContributionEvidence:
+    """대운 합화 배경 보정 1건을 관측 레코드로 만든다(계산에 되먹이지 않는다).
+
+    `factor=None`은 품질 미상이라 적용 조건을 만족하지 못한 경우다.
+
+    발생 방향(`candidate_alignment`)과 결과 유불리(`favorability_effect`)를 분리한다 —
+    흉 사건 점수를 올리면 발생은 `SUPPORTS`지만 결과는 `WORSENS`다.
+    """
+    if factor is None:
+        return ModifierContributionEvidence(
+            modifier_id="daewoon_hwa_background",
+            event_key=str(c.event_key),
+            role=EvidenceRole.QUALITY_ADJUSTER,
+            candidate_specific=False,  # quality군 단위 — event_key로 분기하지 않는다
+            occurrence_attribution=OccurrenceAttribution.CANDIDATE,
+            support_eligibility=SupportEligibility.REVIEW_REQUIRED,
+            source_occurrence_ids=(occurrence_id,) if occurrence_id else (),
+            source_layers=(str(LuckLayer.DAEWOON),),
+            formula_relation=FormulaRelation.UNRELATED,
+            value_before=float(c.score),
+            value_after=float(c.score),
+            invoked=True,
+            eligible=False,
+        )
+    pre = c.score * factor - c.score
+    delta = new_score - c.score
+    good = c.quality in _GOOD_Q
+    up = factor > 1.0
+    return ModifierContributionEvidence(
+        modifier_id="daewoon_hwa_background",
+        event_key=str(c.event_key),
+        role=EvidenceRole.QUALITY_ADJUSTER,
+        candidate_specific=False,
+        occurrence_attribution=OccurrenceAttribution.CANDIDATE,
+        support_eligibility=SupportEligibility.REVIEW_REQUIRED,
+        source_occurrence_ids=(occurrence_id,) if occurrence_id else (),
+        source_layers=(str(LuckLayer.DAEWOON),),
+        # base 승자 formula와 무관하게 quality만 보고 적용된다.
+        formula_relation=FormulaRelation.UNRELATED,
+        value_before=float(c.score),
+        value_after=float(new_score),
+        pre_quantized_effect=float(pre),
+        numeric_effect=float(delta),
+        invoked=True,
+        eligible=True,
+        changed_numeric_value=delta != 0,
+        candidate_alignment=(
+            CandidateAlignment.SUPPORTS if up else CandidateAlignment.OPPOSES
+        ),
+        favorability_effect=(
+            (FavorabilityEffect.IMPROVES if up else FavorabilityEffect.WORSENS)
+            if good
+            else (FavorabilityEffect.WORSENS if up else FavorabilityEffect.IMPROVES)
+        ),
+    )
 
 
 def _target_stem_bound(
