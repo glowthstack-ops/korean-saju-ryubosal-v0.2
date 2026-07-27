@@ -138,10 +138,14 @@ def test_career_can_confirm_absence() -> None:
 
 
 def test_move_positive_only_bypasses_when_absent() -> None:
-    """이사는 있을 때만 안다 — 못 찾았다고 강등하지 않는다."""
+    """이사는 있을 때만 안다 — 못 찾았다고 강등하지 않는다.
+
+    사유는 `BYPASS_INCOMPLETE_COVERAGE`다. 자료가 아예 없는 도메인(UNSUPPORTED)과
+    부분 지원 도메인에서 못 찾은 경우를 감사에서 구분한다.
+    """
     assert resolve_gate_action(
         PROCESS_COVERAGE[ProcessFamily.MOVE_PROCESS], has_compatible_active=False
-    ) is EventGateAction.BYPASS_UNSUPPORTED_PROCESS_COVERAGE
+    ) is EventGateAction.BYPASS_INCOMPLETE_COVERAGE
     assert resolve_gate_action(
         PROCESS_COVERAGE[ProcessFamily.MOVE_PROCESS], has_compatible_active=True
     ) is EventGateAction.ENFORCE_ACTIVE_TRIGGER

@@ -44,6 +44,19 @@ class ProcessFamily(StrEnum):
     ADMISSION_PROCESS = "ADMISSION_PROCESS"
 
 
+class CareerEntryScope(StrEnum):
+    """커리어 진입 범위 — 외부 이직과 내부 이동을 가른다.
+
+    `career_transition.EntryScope`의 값을 그대로 미러링한다. 엔진 점수 경로가 커리어
+    모듈을 import할 수 없어(`test_career_shadow_drift`) 중립 enum으로 둔다. 값이
+    같으므로 호출자 경계에서 무손실 변환된다.
+    """
+
+    EXTERNAL_EMPLOYER = "external_employer"
+    INTERNAL_ROLE = "internal_role"
+    INTERNAL_DEPARTMENT = "internal_department"
+
+
 class ProcessStage(StrEnum):
     """과정의 진행 단계. terminal 단계는 `TERMINAL_STAGES`로 따로 묶는다."""
 
@@ -213,6 +226,8 @@ class EventGateAction(StrEnum):
     ENFORCE_MAJOR = "ENFORCE_MAJOR"
     ENFORCE_ACTIVE_TRIGGER = "ENFORCE_ACTIVE_TRIGGER"
     ENFORCE_LOCAL_ONLY = "ENFORCE_LOCAL_ONLY"
+    #: 부분 지원 도메인에서 아무것도 못 찾음 — "없다"가 아니라 "모른다"다.
+    BYPASS_INCOMPLETE_COVERAGE = "BYPASS_INCOMPLETE_COVERAGE"
     BYPASS_UNSUPPORTED_PROCESS_COVERAGE = "BYPASS_UNSUPPORTED_PROCESS_COVERAGE"
     BYPASS_PROCESS_SOURCE_UNAVAILABLE = "BYPASS_PROCESS_SOURCE_UNAVAILABLE"
 
@@ -280,6 +295,9 @@ def resolve_gate_action(
         return EventGateAction.BYPASS_PROCESS_SOURCE_UNAVAILABLE
     if coverage.can_confirm_absence:
         return EventGateAction.ENFORCE_LOCAL_ONLY
+    if coverage in (ProcessCoverage.POSITIVE_ONLY, ProcessCoverage.TERMINAL_ONLY):
+        # 부분 지원 — 못 찾은 것을 "없다"로 읽지 않는다.
+        return EventGateAction.BYPASS_INCOMPLETE_COVERAGE
     return EventGateAction.BYPASS_UNSUPPORTED_PROCESS_COVERAGE
 
 
@@ -451,6 +469,31 @@ def supersede(
         else:
             closed.append((fact, verdict))
     return survivors, closed
+
+
+class CareerProcessSnapshot(BaseModel):
+    """커리어 Episode → events 계층 경계 DTO (중립).
+
+    커리어 타입을 참조하지 않고, 원시 문자열도 받지 않는다. 변환은 커리어를 볼 수 있는
+    서비스 경계(`chat_service`·`report_service`)가 하고, 여기서부터는 중립 모델만 흐른다.
+
+        career domain model
+          → (허용된 호출자 경계에서) CareerProcessSnapshot
+          → adapt_career_snapshot()
+          → ProcessFact
+    """
+
+    episode_id: str
+    subject_id: str | None
+    process_family: ProcessFamily
+    stage: ProcessStage
+    entry_scope: CareerEntryScope | None = None
+    #: `OBSERVABLE_HARD_FACT`를 통과했는가 — 호출자가 판정해 넣는다.
+    observable_hard_fact: bool = True
+    current: bool = True
+    source_turn: int | None = None
+    source_order: int = 0
+    original_text: str = ""
 
 
 class ExtractedProcessFact(BaseModel):

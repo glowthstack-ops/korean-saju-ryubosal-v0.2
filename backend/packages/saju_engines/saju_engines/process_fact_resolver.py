@@ -22,6 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from saju_shared_types.process_fact import (
+    TERMINAL_STAGES,
+    CareerProcessSnapshot,
     EvidenceOrigin,
     ProcessFact,
     ProcessFamily,
@@ -119,6 +121,42 @@ def adapt_career_fact(
         original_text=original_text,
         rule_id=f"CAREER_ADAPT_{fact_type or stage_value}",
         source_turn=source_turn,
+    )
+
+
+def adapt_career_snapshot(snapshot: CareerProcessSnapshot) -> ProcessFact | None:
+    """중립 스냅샷 → 공통 `ProcessFact`. **P2-2c 기본 경로다.**
+
+    `adapt_career_fact`(문자열 입력)는 내부 호환 레이어로 남기고, 서비스 경계는 이
+    함수를 쓴다 — 임의 문자열이 흩어지지 않게 한다.
+
+    Args:
+        snapshot: 커리어를 볼 수 있는 호출자가 만든 중립 스냅샷.
+
+    Returns:
+        `observable_hard_fact`가 아니면 None — 주관적 인상·상대 추측은 변환하지 않는다.
+    """
+    if not snapshot.observable_hard_fact:
+        return None
+    terminal = snapshot.stage in TERMINAL_STAGES
+    return ProcessFact(
+        fact_id=f"career:{snapshot.episode_id}:{snapshot.stage.value}",
+        subject_id=snapshot.subject_id,
+        subject_resolution=(
+            SubjectResolution.RESOLVED if snapshot.subject_id
+            else SubjectResolution.UNKNOWN
+        ),
+        process_family=snapshot.process_family,
+        stage=snapshot.stage,
+        status=ProcessStatus.TERMINAL if terminal else ProcessStatus.ACTIVE,
+        entry_scope=snapshot.entry_scope.value if snapshot.entry_scope else None,
+        process_instance_key=snapshot.episode_id,
+        evidence_origin=EvidenceOrigin.CAREER_HARD_FACT_EPISODE,
+        original_text=snapshot.original_text,
+        rule_id="CAREER_SNAPSHOT",
+        source_turn=snapshot.source_turn,
+        source_order=snapshot.source_order,
+        current=snapshot.current,
     )
 
 
