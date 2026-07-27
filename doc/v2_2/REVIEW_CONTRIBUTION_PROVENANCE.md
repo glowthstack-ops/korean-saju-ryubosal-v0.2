@@ -661,3 +661,60 @@ add()의 비교 연산자 변경(`>` 유지)
 - `saju_engines/layer_flow_modifier.py` — `stack_layers` 소비처(동작 불변 확인 대상)
 - `saju_engines/signal_occurrence.py` — `occurrence_id()` 규약 재사용
 - `saju_engines/layer_evidence_scope.py` — 분류기(입력 준비 전까지 UNKNOWN)
+
+
+---
+
+## 13. P2-PROV-1 실측 (2026-07-27)
+
+`scripts/audits/provenance_base_survey.py` — 차트 3건 × 세운·월운·일운 전 시점.
+selected base evidence(정의 A strict_generator)만으로 분류했다.
+
+```
+차트                     후보      근거     승자   UPPER   MINOR  UNKNOWN
+A 1980-11-22 남         1863    6866   1863    1807      56        0
+B 1992-03-05 여         1976    7139   1976    1905      71        0
+C 2001-08-17 남         1900    6213   1900    1823      77        0
+합계                     5739   20218   5739    5535     204        0
+
+MINOR_ONLY 3.6% · NO_SELECTED_BASE 0 · UNKNOWN 0
+```
+
+### 레벨별 분해 — P2가 관심 갖는 곳에 모집단이 있다
+
+```
+day    MINOR 171 / UPPER 1385   → 11.0%
+month  MINOR  33 / UPPER  502   →  6.2%
+year   MINOR   0 / UPPER 3648   →  0.0%
+```
+
+`year`가 0인 것은 구조상 정상이다 — 세운 채점의 target 자체가 상위 층위라
+base 승자에 항상 상위 occurrence가 들어간다.
+
+**일운 11%가 핵심이다.** P2의 주 관심사(날짜 선택·일반 길일)가 바로 이 레벨이고,
+단계 0 이전 stack 기준 측정에서는 0%였다.
+
+### 종료 판정에 대해 지금 말할 수 있는 것
+
+```
+D 배제됨   UNKNOWN 0 · NO_SELECTED_BASE 0
+           → occurrence·승자 복원이 안정적으로 된다
+
+C 배제 방향 strict generator만으로 UPPER 96.4%지만 100%가 아니다
+           → 모집단이 사라지지 않는다
+
+A 유력     selected base만으로 실사용 가능한 분포가 나온다
+```
+
+**B는 아직 판정할 수 없다.** "modifier를 빼면 상위 근거가 과도하게 누락되는가"는
+MINOR 204건 중 몇 건이 실제로는 상위 modifier의 aligned 지지를 받는지를 봐야 하고,
+그 데이터는 P2-PROV-2에서만 나온다.
+
+### 감사 한계 (다음 감사에서 보완)
+
+```
+차트 3건 — 코호트 대표성 없음
+일운 표본이 차트 생성 범위에 종속(reference_date 기준 창)
+도메인·긍부정별 분해 미실시 → P2-PROV-3
+정의 B·C는 미산출 → P2-PROV-2 이후
+```
