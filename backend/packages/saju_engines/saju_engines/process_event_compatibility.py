@@ -23,14 +23,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from saju_shared_types.event_engine import EventKeyV2
+from saju_shared_types.event_engine import EventKeyV2, EventScope
 from saju_shared_types.process_fact import (
     PROCESS_COVERAGE,
+    EventGateAction,
     ProcessCoverage,
     ProcessFact,
     ProcessFamily,
     ProcessStage,
+    resolve_gate_action,
 )
+
+from .layer_evidence_scope import derive_event_scope
 
 
 class EventProcessAuditStatus(StrEnum):
@@ -257,6 +261,75 @@ def _demote(
     )
 
 
+@dataclass(frozen=True)
+class ActiveProcessMatch:
+    """어떤 현실 사실이 이 후보의 예외를 열었는가 — boolean만 남기지 않는다."""
+
+    process_fact_id: str
+    process_family: ProcessFamily
+    stage: ProcessStage
+    entry_scope: str | None
+    event_key: EventKeyV2
+    compatibility_rule_id: str
+    evidence_origin: str
+
+
+#: 대표 근거 선택 순서 — 임의 선택하지 않고 결정적으로 고른다.
+_ORIGIN_PRIORITY: dict[str, int] = {
+    "CURRENT_TURN_EXPLICIT": 0,
+    "LEDGER_EXPLICIT": 1,
+    "CAREER_HARD_FACT_EPISODE": 2,
+}
+
+
+def _matching_rule_id(process: ProcessFact, event_key: EventKeyV2) -> str:
+    """호환을 성립시킨 규칙 id — 감사에서 근거를 특정한다."""
+    for rule in PROCESS_EVENT_COMPATIBILITY:
+        if (
+            rule.process_family is process.process_family
+            and process.stage in rule.active_stages
+            and (
+                rule.entry_scopes is None
+                or (process.entry_scope or "") in rule.entry_scopes
+            )
+            and event_key in rule.allowed_event_keys
+        ):
+            return rule.rule_id
+    return ""
+
+
+def find_active_process_matches(
+    facts: list[ProcessFact], event_key: EventKeyV2, *, subject_id: str | None
+) -> list[ActiveProcessMatch]:
+    """이 후보를 열 수 있는 진행 사실 전부를 근거와 함께 반환한다.
+
+    여러 사실이 동시에 호환되면 하나를 임의로 고르지 않고 모두 보존한다. 대표 근거가
+    필요하면 현재 발화 > 원장 > Episode > source_order 최신 순으로 정렬된 첫 건을 쓴다.
+    """
+    matches = [
+        ActiveProcessMatch(
+            process_fact_id=f.fact_id,
+            process_family=f.process_family,
+            stage=f.stage,
+            entry_scope=f.entry_scope,
+            event_key=event_key,
+            compatibility_rule_id=_matching_rule_id(f, event_key),
+            evidence_origin=str(f.evidence_origin),
+        )
+        for f in facts
+        if f.subject_id == subject_id
+        and match_process_to_event(f, event_key).opens_exception
+    ]
+    by_id = {f.fact_id: f for f in facts}
+    return sorted(
+        matches,
+        key=lambda m: (
+            _ORIGIN_PRIORITY.get(m.evidence_origin, 9),
+            -(by_id[m.process_fact_id].source_order),
+        ),
+    )
+
+
 def has_compatible_active(
     facts: list[ProcessFact], event_key: EventKeyV2, *, subject_id: str | None
 ) -> bool:
@@ -265,8 +338,85 @@ def has_compatible_active(
     `resolve_gate_action`의 입력이다 — 아무 active로나 채워지지 않도록 주체 일치와
     호환 판정을 모두 통과한 사실만 센다.
     """
-    return any(
-        f.subject_id == subject_id
-        and match_process_to_event(f, event_key).opens_exception
-        for f in facts
+    return bool(find_active_process_matches(facts, event_key, subject_id=subject_id))
+
+
+@dataclass(frozen=True)
+class CandidateProcessScope:
+    """후보 하나의 최종 범위 판정 + 근거 (P2-2c).
+
+    `raw_event_scope`와 `gate_action`을 분리해 보존한다 — 전자는 "층위·진행 사실이
+    말하는 범위", 후자는 "그 범위를 실제로 적용했는가"다. 자료가 없는 도메인에서는
+    범위는 산출되지만 적용은 되지 않는다.
+    """
+
+    raw_event_scope: EventScope
+    gate_action: EventGateAction
+    matches: tuple[ActiveProcessMatch, ...] = ()
+
+    @property
+    def primary_match(self) -> ActiveProcessMatch | None:
+        """대표 근거 — 임의 선택이 아니라 결정적 정렬의 첫 건."""
+        return self.matches[0] if self.matches else None
+
+
+def resolve_candidate_scope(
+    candidate_source_layers: list[str],
+    event_key: EventKeyV2,
+    *,
+    facts: list[ProcessFact],
+    subject_id: str | None,
+    coverage_override: ProcessCoverage | None = None,
+) -> CandidateProcessScope:
+    """후보의 층위 근거 + 진행 사실 → 사용 범위와 게이트 동작.
+
+    Args:
+        candidate_source_layers: selected base occurrence의 층위(상위 지지의 SSOT).
+        event_key: 후보의 사건 키.
+        facts: 해소된 진행 사실 목록.
+        subject_id: 후보의 주체.
+        coverage_override: 저장소 장애 시 `SOURCE_UNAVAILABLE`을 넘긴다 —
+            "사실이 없다"와 "읽지 못했다"를 구분한다.
+
+    Returns:
+        범위·게이트 동작·근거. 점수·순위는 건드리지 않는다.
+    """
+    matches = tuple(
+        find_active_process_matches(facts, event_key, subject_id=subject_id)
     )
+    scope = derive_event_scope(
+        candidate_source_layers, active_process=bool(matches)
+    )
+    if scope is EventScope.MAJOR_EVENT_ELIGIBLE:
+        # 상위 근거가 있으면 진행 사실과 무관하게 주요 사건 자격이다.
+        return CandidateProcessScope(scope, EventGateAction.ENFORCE_MAJOR, matches)
+    if scope is EventScope.UNKNOWN:
+        return CandidateProcessScope(
+            scope, EventGateAction.BYPASS_INCOMPLETE_COVERAGE, matches
+        )
+    coverage = coverage_override or _coverage_for(matches, event_key)
+    action = resolve_gate_action(coverage, has_compatible_active=bool(matches))
+    return CandidateProcessScope(scope, action, matches)
+
+
+def _coverage_for(
+    matches: tuple[ActiveProcessMatch, ...], event_key: EventKeyV2
+) -> ProcessCoverage:
+    """이 후보에 적용할 coverage — 호환 사실이 있으면 그 도메인, 없으면 키 감사 기준.
+
+    호환 사실이 없을 때가 중요하다. 커리어 키는 `AUTHORITATIVE`라 "진행 중인 게 없다"를
+    확정할 수 있지만, 자료가 없는 도메인 키는 확정할 수 없어 bypass여야 한다.
+    """
+    if matches:
+        return PROCESS_COVERAGE.get(
+            matches[0].process_family, ProcessCoverage.UNSUPPORTED
+        )
+    status = EVENT_KEY_PROCESS_AUDIT.get(event_key)
+    if status is EventProcessAuditStatus.ALLOWED_BY_RULE:
+        # 규칙이 있는 키 — 그 규칙 도메인의 coverage를 따른다.
+        for rule in PROCESS_EVENT_COMPATIBILITY:
+            if event_key in rule.allowed_event_keys:
+                return PROCESS_COVERAGE.get(
+                    rule.process_family, ProcessCoverage.UNSUPPORTED
+                )
+    return ProcessCoverage.UNSUPPORTED

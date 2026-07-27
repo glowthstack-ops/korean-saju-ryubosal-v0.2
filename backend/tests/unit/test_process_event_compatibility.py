@@ -190,3 +190,85 @@ def test_has_compatible_active_is_false_for_incompatible_key() -> None:
     assert not has_compatible_active(
         [_p()], EventKeyV2.WINDFALL, subject_id="self"
     )
+
+
+# ── P2-2c: 범위 판정 + 근거 보존 ─────────────────────────────────
+
+
+def _scope(layers, key, facts=(), subject_id="self", coverage_override=None):
+    from saju_engines.process_event_compatibility import resolve_candidate_scope
+
+    return resolve_candidate_scope(
+        list(layers), key, facts=list(facts),
+        subject_id=subject_id, coverage_override=coverage_override,
+    )
+
+
+def test_upper_supported_is_major_regardless_of_process() -> None:
+    """상위 근거가 있으면 진행 사실과 무관하게 주요 사건 자격이다."""
+    from saju_shared_types.event_engine import EventScope
+    from saju_shared_types.process_fact import EventGateAction
+
+    r = _scope(["sewoon"], EventKeyV2.JOB_GAIN)
+    assert r.raw_event_scope is EventScope.MAJOR_EVENT_ELIGIBLE
+    assert r.gate_action is EventGateAction.ENFORCE_MAJOR
+
+
+def test_external_interview_opens_job_gain_as_active_trigger() -> None:
+    """외부 면접 중이면 일운만의 취업 후보도 진행 중 사건의 시점 후보가 된다."""
+    from saju_shared_types.event_engine import EventScope
+    from saju_shared_types.process_fact import EventGateAction
+
+    r = _scope(["ilwoon"], EventKeyV2.JOB_GAIN, facts=[_p()])
+    assert r.raw_event_scope is EventScope.ACTIVE_PROCESS_TRIGGER
+    assert r.gate_action is EventGateAction.ENFORCE_ACTIVE_TRIGGER
+    assert r.primary_match is not None
+    assert r.primary_match.compatibility_rule_id == "CAREER_EXTERNAL_OPPORTUNITY"
+
+
+def test_external_interview_does_not_open_promotion_scope() -> None:
+    """같은 사실이 승진 후보는 열지 않는다 — 커리어는 없음을 확정할 수 있다."""
+    from saju_shared_types.event_engine import EventScope
+    from saju_shared_types.process_fact import EventGateAction
+
+    r = _scope(["ilwoon"], EventKeyV2.PROMOTION, facts=[_p()])
+    assert r.raw_event_scope is EventScope.LOCAL_TRIGGER_ONLY
+    assert r.gate_action is EventGateAction.ENFORCE_LOCAL_ONLY
+    assert r.matches == ()
+
+
+def test_unsupported_domain_key_bypasses_instead_of_enforcing() -> None:
+    """자료 없는 도메인 키는 강등하지 않고 기존 동작을 유지한다."""
+    from saju_shared_types.process_fact import EventGateAction
+
+    r = _scope(["ilwoon"], EventKeyV2.WEALTH_CHANGE)
+    assert r.gate_action.is_bypass
+    assert r.gate_action is EventGateAction.BYPASS_UNSUPPORTED_PROCESS_COVERAGE
+
+
+def test_move_without_match_bypasses_incomplete_coverage() -> None:
+    """이사는 있을 때만 안다 — 못 찾았다고 강등하지 않는다."""
+    from saju_shared_types.process_fact import EventGateAction
+
+    r = _scope(["ilwoon"], EventKeyV2.RELOCATION)
+    assert r.gate_action is EventGateAction.BYPASS_INCOMPLETE_COVERAGE
+
+
+def test_source_unavailable_is_distinguished_from_absence() -> None:
+    """저장소 장애는 '사실 없음'이 아니다."""
+    from saju_shared_types.process_fact import EventGateAction, ProcessCoverage
+
+    r = _scope(
+        ["ilwoon"], EventKeyV2.JOB_GAIN,
+        coverage_override=ProcessCoverage.SOURCE_UNAVAILABLE,
+    )
+    assert r.gate_action is EventGateAction.BYPASS_PROCESS_SOURCE_UNAVAILABLE
+
+
+def test_partner_process_does_not_open_own_candidate_scope() -> None:
+    """동반자 사실이 본인 후보 범위를 바꾸지 않는다."""
+    from saju_shared_types.event_engine import EventScope
+
+    r = _scope(["ilwoon"], EventKeyV2.JOB_GAIN, facts=[_p(subject_id="partner-1")])
+    assert r.raw_event_scope is EventScope.LOCAL_TRIGGER_ONLY
+    assert r.matches == ()
