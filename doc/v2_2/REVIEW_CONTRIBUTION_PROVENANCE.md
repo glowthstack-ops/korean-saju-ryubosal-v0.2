@@ -718,3 +718,199 @@ MINOR 204건 중 몇 건이 실제로는 상위 modifier의 aligned 지지를 �
 도메인·긍부정별 분해 미실시 → P2-PROV-3
 정의 B·C는 미산출 → P2-PROV-2 이후
 ```
+
+
+---
+
+## 14. P2-PROV-2 modifier 역할 매핑안 (2026-07-27)
+
+> 상태: **감수 대기** · 코드 변경 없음
+>
+> 모듈 이름으로 추정하지 않고 6개 modifier를 직접 읽어 5항목(입력 / 변경 대상 /
+> occurrence 특정 가능성 / 후보별 여부 / 발생 근거인가)을 확인했다.
+
+### 14-0. 축을 셋이 아니라 넷으로 나눠야 한다
+
+`role` · `candidate_specific` · `support_eligibility`만으로는 실측을 담지 못한다.
+**효과는 후보별인데 층위 귀속은 스택 기반**인 modifier가 있기 때문이다.
+
+```python
+class OccurrenceAttribution(StrEnum):
+    CANDIDATE = "CANDIDATE"                    # 후보에 기여한 occurrence를 특정 가능
+    TARGET_LAYER_ONLY = "TARGET_LAYER_ONLY"    # 채점 대상 층위만 — 상위 공급 불가
+    STACK_LEVEL = "STACK_LEVEL"                # 스택 전체로 귀속 — 후보 구분 없음
+    NOT_RECOVERABLE = "NOT_RECOVERABLE"        # 현 구조로 층위 복원 불가
+```
+
+상위 지지 자격은 `candidate_specific`이 아니라 **`occurrence_attribution`이 결정한다.**
+`CANDIDATE`가 아니면 어떤 가설에도 넣을 수 없다.
+
+### 14-1. 실사 결과
+
+| Modifier | 입력 | 변경 | occurrence 귀속 | 후보별 | 자격 |
+|---|---|---|---|---|---|
+| `relation` | `_relation_hits(result, level, target)` · `_activations(hits, target_layer)` | score · palace · quality | **TARGET_LAYER_ONLY** | 예(궁성·발동) | 구조상 상위 공급 불가 |
+| `twelve_stage` | `stage_by_layer`(스택 각 층) × `c.source_layers`(=스택) | score · event_phase | **STACK_LEVEL** | 효과만 예 | INELIGIBLE |
+| `layer_flow` | `frozenset(c.source_layers)` · `c.source_ten_gods` | score | **STACK_LEVEL** | 아니오 | INELIGIBLE |
+| `wealth` | `{pillar.branch for _layer, pillar in stack}` | score | **NOT_RECOVERABLE** | 도메인만 | INELIGIBLE |
+| `daewoon_hwa` | `next(p.stem for layer,p in stack if layer is DAEWOON)` | score × factor | **CANDIDATE**(대운 천간 특정) | quality군만 | REVIEW_REQUIRED |
+| `ranker` | conflict rules · evidence grading | score · confidence · 순위 | 후처리 | 후보별이나 사후 | INELIGIBLE |
+
+### 14-2. 근거 인용
+
+```python
+# relation — 관계는 target 기둥 × 원국이다. layer = target_layer 하나뿐.
+hits = self._relation_hits(result, level, target)
+layer = target_layer
+activations = _activations(hits, layer) + _bokeum_activations(result, target, layer)
+→ 일운 후보의 relation occurrence는 항상 ilwoon이다. 대운·세운을 공급할 수 없다.
+
+# twelve_stage — 층위 판정을 c.source_layers(=스택)로 한다.
+for layer in (SEWOON, WOLWOON, DAEWOON, ILWOON):
+    if layer not in c.source_layers or layer not in stage_by_layer:
+        continue
+→ 스택이 전 후보 동일값이므로 층위 루프도 전 후보 동일하다.
+  후보별로 달라지는 것은 event_key의 boost/reduce뿐이다.
+
+# layer_flow — 두 입력 모두 provenance가 아니다.
+mult = self._layer_mult.get(frozenset(c.source_layers), 1.0)   # 스택 구성
+ten_god_repeat = bool(set(c.source_ten_gods) & repeated_gods)  # evaluated union
+
+# wealth — 층위를 집합으로 뭉개 반환값에 남기지 않는다.
+luck_branches = {pillar.branch for _layer, pillar in stack}
+→ 어느 층 지지가 발동시켰는지 복원 불가.
+
+# daewoon_hwa — 유일하게 대운을 명시적으로 특정한다.
+dw_stem = next((p.stem for layer, p in stack if layer is LuckLayer.DAEWOON), None)
+→ 다만 후보별이 아니라 quality(길/흉)군별로 같은 factor를 적용한다.
+```
+
+### 14-3. 판정 B에 대한 사전 신호 (중요)
+
+```
+일운 후보에게 대운·세운 occurrence를 특정해 공급할 수 있는 modifier는
+daewoon_hwa 하나뿐이고, 그마저 후보별이 아니라 quality군(길/흉) 단위다.
+
+relation      target layer only
+twelve_stage  stack level
+layer_flow    stack level
+wealth        복원 불가
+ranker        후처리
+```
+
+즉 **modifier를 포함해도 후보별 상위 지지는 거의 생기지 않을 가능성이 높다.**
+이는 PROV-1의 종료 판정 A(strict generator 유력)를 강화하는 방향이다.
+
+⚠ 다만 이것은 **구조 실사에 의한 예측이지 실측이 아니다.** `daewoon_hwa`가 MINOR
+204건 중 몇 건에 실제로 걸리는지는 세어봐야 한다. 예측으로 B를 닫지 않는다.
+
+### 14-4. 그래서 PROV-2 범위를 줄일 수 있다
+
+원안(2a: relation·twelve_stage·wealth·daewoon_hwa / 2b: layer_flow·ranker)은
+상위 지지 판정에 기여하지 못하는 modifier에 관측 비용을 크게 쓴다.
+
+```
+축소안 PROV-2a  daewoon_hwa만 관측
+                → MINOR 204건 중 대운 배경 보정을 받은 수를 센다
+                → 판정 B를 여는 최소 경로
+
+축소안 PROV-2b  나머지 5종은 '자격 없음 사유'만 정적으로 기록
+                → 관측 코드 대신 이 매핑표를 계약으로 고정
+                → 나중에 입력 의미가 바뀌면 회귀로 잡히게 한다
+```
+
+원안대로 6종 전부 관측할지, 축소안으로 갈지는 감수 대상이다.
+
+### 14-5. 공통 스키마 (원안 유지 + 축 추가)
+
+```python
+@dataclass(frozen=True)
+class ModifierContributionEvidence:
+    modifier_id: str
+    event_key: str
+
+    role: EvidenceRole
+    candidate_specific: bool
+    occurrence_attribution: OccurrenceAttribution   # ← 추가
+    support_eligibility: SupportEligibility
+
+    source_signal_ids: tuple[str, ...]
+    source_occurrence_ids: tuple[str, ...]
+    source_layers: tuple[str, ...]
+
+    formula_id: str | None
+    base_formula_id: str | None
+    formula_relation: FormulaRelation
+
+    value_before: float | int | None
+    value_after: float | int | None
+    pre_quantized_effect: float | None
+    numeric_effect: float | int | None
+
+    invoked: bool
+    eligible: bool
+    changed_numeric_value: bool
+
+    candidate_alignment: CandidateAlignment    # 발생·강도 방향
+    favorability_effect: FavorabilityEffect    # 결과 유불리 방향
+```
+
+`candidate_alignment`와 `favorability_effect`를 나누는 이유: 상위 세운이 해고 위험
+후보 점수를 높이면 발생 근거로는 `SUPPORTS`지만 결과는 `WORSENS`다.
+
+```python
+class FormulaRelation(StrEnum):
+    EXACT_SAME = "EXACT_SAME"
+    SAME_EVENT_FAMILY = "SAME_EVENT_FAMILY"
+    DOMAIN_ONLY = "DOMAIN_ONLY"
+    UNRELATED = "UNRELATED"
+    UNKNOWN = "UNKNOWN"
+```
+
+### 14-6. 가설 정의 (PROV-3 산출)
+
+```
+A   strict generator            selected base에 상위 occurrence 존재
+                                실측: UPPER 96.4% / MINOR 3.6% (일운 11.0%)
+
+B   same-formula effective      A OR (occurrence_attribution=CANDIDATE
+                                     + formula_relation=EXACT_SAME
+                                     + candidate_alignment=SUPPORTS
+                                     + changed_numeric_value=true)
+
+C1  any aligned numeric         A OR (CANDIDATE + 실제 정수 증가)
+
+C2  pre-quantized 포함          C1 OR (정수 동일 + pre_quantized_effect > 0)
+```
+
+모든 가설에서 제외:
+
+```
+occurrence_attribution != CANDIDATE
+support_eligibility = INELIGIBLE
+role = CONTEXT_MULTIPLIER / RANKING_ADJUSTER
+```
+
+### 14-7. 대운 occurrence 보강
+
+`_daewoon_pillar`가 `label=d.ganji`라 `period_key`가 기간이 아니다(`"甲子"`).
+`daewoon_hwa`를 관측하면 대운 occurrence가 직접 등장하므로 보강이 필요하다.
+
+```
+analysis_run_id + layer=daewoon + cycle_index + ganji
+```
+
+`cycle_index`를 현 객체에서 못 얻으면 `analysis_run_id + daewoon + 간지`를
+**request-local identity**로만 쓰고, 전역 집계에서 서로 다른 요청을 합치지 않는다.
+
+### 14-8. PROV-2 완료 불변식
+
+```
+score · quality · polarity · confidence · rank · Top-N 불변
+API · LLM · 리포트 불변
+candidate_source_layers 빈 값 유지 · layer_grounding 비활성 유지
+EventScope 미산출 · −6 유지
+```
+
+특히 ranker 관측에서 순위가 조금이라도 달라지면 실패다. 기존 정렬 호출의 전후만
+기록하며, 감사 ID나 새 필드가 tie-breaker에 들어가면 안 된다.
