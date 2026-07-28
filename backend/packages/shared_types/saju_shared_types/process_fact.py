@@ -55,6 +55,9 @@ class CareerEntryScope(StrEnum):
     EXTERNAL_EMPLOYER = "external_employer"
     INTERNAL_ROLE = "internal_role"
     INTERNAL_DEPARTMENT = "internal_department"
+    #: 내부 지역이동. 호환 규칙이 없어 fail-closed(예외를 열지 않는다)지만, 값 자체는
+    #: 보존한다 — `INTERNAL_ROLE`·`INTERNAL_DEPARTMENT`로 합치면 승진과 전보가 섞인다.
+    INTERNAL_LOCATION = "internal_location"
 
 
 class ProcessStage(StrEnum):
@@ -230,11 +233,50 @@ class EventGateAction(StrEnum):
     BYPASS_INCOMPLETE_COVERAGE = "BYPASS_INCOMPLETE_COVERAGE"
     BYPASS_UNSUPPORTED_PROCESS_COVERAGE = "BYPASS_UNSUPPORTED_PROCESS_COVERAGE"
     BYPASS_PROCESS_SOURCE_UNAVAILABLE = "BYPASS_PROCESS_SOURCE_UNAVAILABLE"
+    #: 계약 버전 불일치 — 저장소는 읽혔지만 과거 projection을 소비하면 안 된다.
+    #: `SOURCE_UNAVAILABLE`과 행동(bypass)은 같지만 원인이 다르므로 감사에서 분리한다.
+    BYPASS_PROCESS_CONTRACT_MISMATCH = "BYPASS_PROCESS_CONTRACT_MISMATCH"
 
     @property
     def is_bypass(self) -> bool:
         """기존 동작을 유지했는가."""
         return self.value.startswith("BYPASS_")
+
+
+class ProcessSourceStatus(StrEnum):
+    """진행 사실 저장소 조회 결과 — **"사실이 없다"와 "읽지 못했다"를 가른다.**
+
+    `LOADED_EMPTY`를 실패와 합치면 진행 중인 사건이 조용히 강등되고, 반대로 실패를
+    빈 결과로 읽으면 "진행 중인 게 없다"를 확정해버린다. 그래서 4상태를 모두 남긴다.
+
+    | 상태 | 게이트 동작 |
+    |---|---|
+    | `LOADED_WITH_FACTS` | 정상 판정 |
+    | `LOADED_EMPTY` | 정상 판정(커리어는 AUTHORITATIVE라 "없음" 확정 가능) |
+    | `LOAD_FAILED` | `BYPASS_PROCESS_SOURCE_UNAVAILABLE` |
+    | `CONTRACT_MISMATCH` | `BYPASS_PROCESS_CONTRACT_MISMATCH` |
+    """
+
+    LOADED_WITH_FACTS = "LOADED_WITH_FACTS"
+    LOADED_EMPTY = "LOADED_EMPTY"
+    LOAD_FAILED = "LOAD_FAILED"
+    CONTRACT_MISMATCH = "CONTRACT_MISMATCH"
+
+    @property
+    def is_readable(self) -> bool:
+        """이 상태의 projection을 소비해도 되는가."""
+        return self in (
+            ProcessSourceStatus.LOADED_WITH_FACTS, ProcessSourceStatus.LOADED_EMPTY
+        )
+
+    @property
+    def bypass_action(self) -> EventGateAction | None:
+        """소비 불가 상태가 유발하는 bypass 사유 — 소비 가능하면 None."""
+        if self is ProcessSourceStatus.LOAD_FAILED:
+            return EventGateAction.BYPASS_PROCESS_SOURCE_UNAVAILABLE
+        if self is ProcessSourceStatus.CONTRACT_MISMATCH:
+            return EventGateAction.BYPASS_PROCESS_CONTRACT_MISMATCH
+        return None
 
 
 #: 도메인별 1차 coverage (2026-07-27 데굴님 확정 — 설계 §8-2).

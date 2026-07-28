@@ -3314,6 +3314,17 @@ def chat(
         subject_id = _primary if (companion_births and _primary in companion_births) else None
         partner_birth = None  # 동반자가 primary — 본인 기준 궁합 오버레이·상대 그룹핑 비활성
 
+    # ── P2-3a 요청 스코프 진행 사실 컨텍스트 ────────────────────────────────
+    # subject_id 확정 직후 · 후보 축소 전에 만든다. 저장소 조회와 발화 파싱은 요청당
+    # 각 1회이며, 뒤의 커리어 지시문 블록이 같은 준비 결과를 재사용한다 — 각자 읽으면
+    # 한 답변 안에서 서로 다른 Episode 상태를 말하게 된다.
+    _career_turn, _process_context = _build_request_process_context(
+        question, thread_id=thread_id, subject_id=subject_id,
+        turn=(state.turn_no if state else None),
+    )
+    #: 후보별 범위 판정 수집처(감사 전용). 선별에는 쓰이지 않는다 — P2-3c 이후.
+    _process_scope_audit: dict = {}
+
     # 만세 계산(캐시) + 스코어링 + 계층 필터.
     chart_birth = birth.model_copy(update={"reference_date": today})
     result = calculate(chart_birth)
@@ -4005,6 +4016,9 @@ def chat(
             subject_id, str(intent.domains[0]) if intent.domains else "general"
         ),
         overview_mode=_overview_mode,
+        # P2-3a — 축소 전에 후보 범위를 산출한다. 플래그 OFF 동안 선별·출력 불변.
+        process_context=_process_context,
+        process_scope_audit=_process_scope_audit,
     )
     call_type = "chat_compare" if plan.per_subject else "chat_single"
 
@@ -4431,7 +4445,8 @@ def chat(
     # prepare 는 LLM을 호출하지 않는다 — 기존 단일 generate_reading 호출을 유지한다.
     # flag OFF(기본)면 지시문이 없어 프롬프트·응답이 byte 동일하다.
     _career_prep = _prepare_career_transition_block(
-        question, thread_id=thread_id, subject_id=subject_id, candidates=candidates
+        question, thread_id=thread_id, subject_id=subject_id, candidates=candidates,
+        prepared=_career_turn,   # P2와 같은 조회·파싱 결과를 쓴다(요청당 1회)
     )
     if _career_prep is not None and _career_prep.directive:
         trailing.append(_career_prep.directive)
@@ -4710,12 +4725,69 @@ def _career_shadow_repository():
     return _CAREER_SHADOW_REPO
 
 
+def _build_request_process_context(question, *, thread_id, subject_id, turn=None):
+    """요청 스코프 진행 사실 컨텍스트 — **저장소 1회 조회 · 발화 1회 파싱**(P2-3a).
+
+    `CAREER_TRANSITION_CHAT_ENABLED`와 **독립**이다. 그 플래그는 커리어 전용 지시문
+    블록의 노출 여부를 정할 뿐이고, 저장소에 hard fact Episode가 있으면 P2는 그것을
+    쓴다. 플래그 OFF를 "진행 사실 없음"으로 읽으면 사용자가 말한 현실이 무시된다.
+
+    조회 실패·계약 불일치는 예외로 흘리지 않고 상태로 전달한다 — 하류에서
+    `BYPASS_PROCESS_SOURCE_UNAVAILABLE` / `BYPASS_PROCESS_CONTRACT_MISMATCH`로 갈린다.
+
+    Args:
+        question: 이번 턴 발화.
+        thread_id: 서버가 확정한 thread.
+        subject_id: 서버가 확정한 주체.
+        turn: 현재 턴 번호.
+
+    Returns:
+        `(PreparedCareerTurn | None, RequestProcessContext | None)`. 실패해도 기존
+        경로를 막지 않는다(둘 다 None → 게이트 미적용).
+    """
+    try:
+        from saju_engines.career_process_adapter import build_career_process_snapshots
+        from saju_engines.career_state_shadow import prepare_career_turn
+        from saju_engines.process_fact_resolver import build_request_process_context
+
+        prepared = prepare_career_turn(
+            _career_shadow_repository(), thread_id=thread_id or "",
+            subject_id=subject_id or "", conversation_text=question,
+        )
+        snapshots = (
+            []
+            if prepared.blocked
+            else list(
+                build_career_process_snapshots(
+                    prepared.store, subject_id=subject_id, source_turn=turn
+                )
+            )
+        )
+        # 4상태를 그대로 전달한다 — bool 하나로 접으면 계약 불일치가 장애로 보인다.
+        context = build_request_process_context(
+            subject_id=subject_id,
+            current_turn_text=question,
+            career_snapshots=snapshots,
+            career_source_unavailable=prepared.blocked,
+            source_status=prepared.source_status,
+            turn=turn,
+        )
+        return prepared, context
+    except Exception:  # pragma: no cover - P2 배선이 기존 응답을 깨지 않게
+        _logger.exception("process_context_build_failed")
+        return None, None
+
+
 def _prepare_career_transition_block(
-    question, *, thread_id, subject_id, candidates=()
+    question, *, thread_id, subject_id, candidates=(), prepared=None
 ):
     """turn 처리 + 소비 준비. flag OFF·scope 미확정·억제 시 None.
 
     `chat_service`는 repository 세부를 알지 않고 orchestration 결과만 본다.
+
+    Args:
+        prepared: 요청 앞단에서 만든 `PreparedCareerTurn`. 실제 chat 경로는 반드시
+            넘긴다 — 넘기지 않으면 저장소를 다시 읽어 요청 내 상태가 갈린다(P2-3a).
     """
     from saju_engines import career_chat_consumer
 
@@ -4734,6 +4806,7 @@ def _prepare_career_transition_block(
             command_id=f"{thread_id}:{subject_id}:{_stable_turn_id(question)}",
             source_fact_id=f"{thread_id}:{_stable_turn_id(question)}",
             recorded_at=datetime.now(UTC).isoformat(),
+            prepared=prepared,   # 요청 앞단의 조회·파싱 결과 재사용(P2-3a)
         )
         if turn.telemetry:
             _logger.info(

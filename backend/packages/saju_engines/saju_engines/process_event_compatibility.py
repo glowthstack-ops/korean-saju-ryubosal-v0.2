@@ -30,6 +30,7 @@ from saju_shared_types.process_fact import (
     ProcessCoverage,
     ProcessFact,
     ProcessFamily,
+    ProcessSourceStatus,
     ProcessStage,
     resolve_gate_action,
 )
@@ -189,6 +190,10 @@ class ProcessCompatibilityResult(StrEnum):
     FAMILY_MISMATCH = "FAMILY_MISMATCH"
     STAGE_MISMATCH = "STAGE_MISMATCH"
     ENTRY_SCOPE_MISMATCH = "ENTRY_SCOPE_MISMATCH"
+    #: 규칙이 scope를 요구하는데 사실에 scope가 **없다**. `MISMATCH`(명시된 scope가
+    #: 규칙과 다름)와 구분한다 — 이건 판정 실패가 아니라 **판정 입력 부재**이므로
+    #: `ENFORCE_LOCAL_ONLY`가 아니라 coverage bypass다(F1 — entry_scope producer 부재).
+    ENTRY_SCOPE_UNAVAILABLE = "ENTRY_SCOPE_UNAVAILABLE"
     EVENT_KEY_NOT_ALLOWED = "EVENT_KEY_NOT_ALLOWED"
     PROCESS_NOT_USABLE = "PROCESS_NOT_USABLE"
     COVERAGE_BYPASS = "COVERAGE_BYPASS"
@@ -197,6 +202,14 @@ class ProcessCompatibilityResult(StrEnum):
     def opens_exception(self) -> bool:
         """이 결과가 minor-only 후보의 예외를 여는가."""
         return self is ProcessCompatibilityResult.COMPATIBLE
+
+    @property
+    def blocks_measurement(self) -> bool:
+        """이 결과가 active-process 판정 자체를 불가능하게 만드는가.
+
+        `0건`(진행 사실이 없었다)과 `측정 불가`(판정 입력이 없었다)를 섞지 않기 위한 축이다.
+        """
+        return self is ProcessCompatibilityResult.ENTRY_SCOPE_UNAVAILABLE
 
 
 def match_process_to_event(
@@ -230,10 +243,14 @@ def match_process_to_event(
         verdict = _demote(verdict, ProcessCompatibilityResult.STAGE_MISMATCH)
         if process.stage not in rule.active_stages:
             continue
+        if rule.entry_scopes is not None and process.entry_scope is None:
+            # 사실이 틀린 게 아니라 scope를 만들어 주는 producer가 없다(F1).
+            verdict = _demote(
+                verdict, ProcessCompatibilityResult.ENTRY_SCOPE_UNAVAILABLE
+            )
+            continue
         verdict = _demote(verdict, ProcessCompatibilityResult.ENTRY_SCOPE_MISMATCH)
-        if rule.entry_scopes is not None and (
-            process.entry_scope is None or process.entry_scope not in rule.entry_scopes
-        ):
+        if rule.entry_scopes is not None and process.entry_scope not in rule.entry_scopes:
             continue
         verdict = _demote(verdict, ProcessCompatibilityResult.EVENT_KEY_NOT_ALLOWED)
         if event_key in rule.allowed_event_keys:
@@ -245,6 +262,9 @@ def match_process_to_event(
 _SPECIFICITY: dict[ProcessCompatibilityResult, int] = {
     ProcessCompatibilityResult.FAMILY_MISMATCH: 0,
     ProcessCompatibilityResult.STAGE_MISMATCH: 1,
+    # 한 사실의 entry_scope는 하나뿐이라 UNAVAILABLE 과 MISMATCH 가 동시에 나오지
+    # 않는다(None 이면 전자만, 값이 있으면 후자만). 같은 깊이로 둔다.
+    ProcessCompatibilityResult.ENTRY_SCOPE_UNAVAILABLE: 2,
     ProcessCompatibilityResult.ENTRY_SCOPE_MISMATCH: 2,
     ProcessCompatibilityResult.EVENT_KEY_NOT_ALLOWED: 3,
 }
@@ -341,6 +361,29 @@ def has_compatible_active(
     return bool(find_active_process_matches(facts, event_key, subject_id=subject_id))
 
 
+def has_unmeasurable_entry_scope(
+    facts: list[ProcessFact], event_key: EventKeyV2, *, subject_id: str | None
+) -> bool:
+    """이 후보의 판정이 `entry_scope` 부재로 **측정 불가**인가.
+
+    사실이 family·stage까지는 규칙에 닿았는데 scope가 없어서 멈춘 경우다. 이때
+    "호환 사실 0건"을 "진행 중인 게 없다"로 읽으면 안 된다 — 자료가 없는 것이다(F1).
+
+    Args:
+        facts: 해소된 진행 사실 목록.
+        event_key: 후보의 사건 키.
+        subject_id: 후보의 주체.
+
+    Returns:
+        scope 부재로 판정이 막힌 사실이 하나라도 있으면 True.
+    """
+    return any(
+        match_process_to_event(f, event_key).blocks_measurement
+        for f in facts
+        if f.subject_id == subject_id
+    )
+
+
 @dataclass(frozen=True)
 class CandidateProcessScope:
     """후보 하나의 최종 범위 판정 + 근거 (P2-2c).
@@ -367,6 +410,7 @@ def resolve_candidate_scope(
     facts: list[ProcessFact],
     subject_id: str | None,
     coverage_override: ProcessCoverage | None = None,
+    source_status: ProcessSourceStatus | None = None,
 ) -> CandidateProcessScope:
     """후보의 층위 근거 + 진행 사실 → 사용 범위와 게이트 동작.
 
@@ -377,6 +421,8 @@ def resolve_candidate_scope(
         subject_id: 후보의 주체.
         coverage_override: 저장소 장애 시 `SOURCE_UNAVAILABLE`을 넘긴다 —
             "사실이 없다"와 "읽지 못했다"를 구분한다.
+        source_status: 저장소 조회 4상태. `LOAD_FAILED`·`CONTRACT_MISMATCH`는
+            사유가 서로 다른 bypass로 갈린다.
 
     Returns:
         범위·게이트 동작·근거. 점수·순위는 건드리지 않는다.
@@ -391,6 +437,18 @@ def resolve_candidate_scope(
         # 상위 근거가 있으면 진행 사실과 무관하게 주요 사건 자격이다.
         return CandidateProcessScope(scope, EventGateAction.ENFORCE_MAJOR, matches)
     if scope is EventScope.UNKNOWN:
+        return CandidateProcessScope(
+            scope, EventGateAction.BYPASS_INCOMPLETE_COVERAGE, matches
+        )
+    # 저장소를 소비할 수 없으면 사실 유무를 논하기 전에 bypass다(사유별로 분리).
+    if source_status is not None and not source_status.is_readable:
+        action = source_status.bypass_action
+        assert action is not None  # is_readable 이 False 면 항상 존재한다
+        return CandidateProcessScope(scope, action, matches)
+    if not matches and has_unmeasurable_entry_scope(
+        facts, event_key, subject_id=subject_id
+    ):
+        # 사실은 있는데 scope producer가 없어 판정이 불가능하다 — "없음" 확정 금지.
         return CandidateProcessScope(
             scope, EventGateAction.BYPASS_INCOMPLETE_COVERAGE, matches
         )

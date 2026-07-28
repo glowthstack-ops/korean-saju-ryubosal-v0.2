@@ -28,6 +28,7 @@ from saju_shared_types.process_fact import (
     ProcessCoverage,
     ProcessFact,
     ProcessFamily,
+    ProcessSourceStatus,
     ProcessStage,
     ProcessStatus,
     SubjectResolution,
@@ -234,6 +235,10 @@ class RequestProcessContext:
     resolved_facts: tuple[ProcessFact, ...] = ()
     career_snapshots: tuple[CareerProcessSnapshot, ...] = ()
     career_source_status: ProcessCoverage | None = None
+    #: 저장소 조회 4상태 — `LOAD_FAILED`와 `CONTRACT_MISMATCH`는 행동은 같지만
+    #: 원인이 다르므로 감사에서 분리한다. `career_source_status`(coverage 축)와
+    #: 별개 축이며, 게이트는 이 값을 본다.
+    source_status: ProcessSourceStatus | None = None
 
     @property
     def source_unavailable(self) -> bool:
@@ -252,6 +257,7 @@ def build_request_process_context(
     ledger_quotes: list[str] | None = None,
     career_snapshots: list[CareerProcessSnapshot] | None = None,
     career_source_unavailable: bool = False,
+    source_status: ProcessSourceStatus | None = None,
     turn: int | None = None,
 ) -> RequestProcessContext:
     """세 원천을 한 번에 읽어 요청 스코프 컨텍스트를 만든다.
@@ -265,6 +271,7 @@ def build_request_process_context(
         ledger_quotes: 원장 인용문.
         career_snapshots: 호출자 경계에서 변환한 중립 스냅샷.
         career_source_unavailable: 저장소 조회 실패 여부.
+        source_status: 저장소 조회 4상태(`LOADED_*`·`LOAD_FAILED`·`CONTRACT_MISMATCH`).
         turn: 현재 턴 번호.
 
     Returns:
@@ -288,4 +295,5 @@ def build_request_process_context(
         career_source_status=(
             ProcessCoverage.SOURCE_UNAVAILABLE if career_source_unavailable else None
         ),
+        source_status=source_status,
     )

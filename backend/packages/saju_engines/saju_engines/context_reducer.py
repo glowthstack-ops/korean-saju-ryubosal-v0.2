@@ -17,6 +17,7 @@ import logging
 import re
 from datetime import date as date_cls
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 from saju_manse_analysis.yongsin.operational_role_config import (
     is_favorable_role,
@@ -32,6 +33,9 @@ from saju_shared_types.constants import (
 )
 from saju_shared_types.enums import Branch, Element, Stem
 from saju_shared_types.event_engine import LayerEvidenceScope
+
+if TYPE_CHECKING:  # 순환 import 방지 — 런타임에는 함수 안에서 지연 import 한다.
+    from .process_event_compatibility import CandidateProcessScope
 from saju_shared_types.event_taxonomy_v2 import (
     EVENT_DOMAIN,
     direction_label,
@@ -464,6 +468,90 @@ def _layer_grounding(c) -> LlmLayerGrounding | None:
         confidence_adjusted=bool(codes),
         grounding_codes=codes,
     )
+
+
+#: P2 범위 판정 관측 로그 — 선별을 바꾸지 않는 동안에도 분포를 남긴다.
+_process_log = logging.getLogger(__name__)
+
+
+def candidate_audit_key(index: int, candidate: EventCandidate, subject_id: str | None) -> str:
+    """후보 1건의 안정적 감사 식별자 (P2-3a).
+
+    `event_key`만으로는 같은 사건의 여러 기간을 구분하지 못한다. 주체·기간을 포함하고,
+    같은 (키·기간) 후보가 둘 이상일 때를 대비해 입력 목록의 위치도 넣는다 — 같은 입력
+    목록에 대해 legacy·scoped 두 선택이 같은 키를 보도록 하는 것이 목적이다.
+
+    Args:
+        index: 축소 **이전** 후보 목록에서의 위치.
+        candidate: 대상 후보.
+        subject_id: 후보의 주체.
+
+    Returns:
+        `subject|index|event_key|period` 형태의 결정적 문자열.
+    """
+    return f"{subject_id or ''}|{index}|{candidate.event_key}|{candidate.period}"
+
+
+def resolve_process_scopes(
+    candidates: list[EventCandidate],
+    *,
+    process_context=None,
+) -> dict[str, CandidateProcessScope]:
+    """후보 전체의 진행-사실 범위를 **축소 전에** 산출한다 (P2-3a).
+
+    Top-N을 뽑은 뒤 붙이면 이미 탈락한 후보를 교정할 수 없다. 그래서 `reduce_*` 호출
+    직전에 전수 계산한다.
+
+    점수·등급·순위·선별을 건드리지 않는다 — 산출물은 감사 채널로만 나간다. 실제 선별
+    반영은 P2-3c(플래그 ON) 이후다.
+
+    Args:
+        candidates: 축소 이전 후보 목록.
+        process_context: `RequestProcessContext`. None이면 빈 결과(기존 동작 유지).
+
+    Returns:
+        `candidate_audit_key` → 범위 판정. context가 없으면 빈 dict.
+    """
+    if process_context is None:
+        return {}
+    from .process_event_compatibility import resolve_candidate_scope
+
+    facts = process_context.usable()
+    subject_id = process_context.subject_id
+    source_status = getattr(process_context, "source_status", None)
+    scopes: dict[str, CandidateProcessScope] = {}
+    for index, candidate in enumerate(candidates):
+        scopes[candidate_audit_key(index, candidate, subject_id)] = (
+            resolve_candidate_scope(
+                list(candidate.candidate_source_layers),
+                candidate.event_key,
+                facts=facts,
+                subject_id=subject_id,
+                source_status=source_status,
+            )
+        )
+    return scopes
+
+
+def summarize_process_scopes(
+    scopes: dict[str, CandidateProcessScope],
+) -> dict[str, int]:
+    """범위 판정 분포 — dual-run 이전 단계의 관측값.
+
+    **`0`과 `측정 불가`를 섞지 않는다.** `entry_scope` producer가 없는 동안
+    `BYPASS_INCOMPLETE_COVERAGE`로 빠진 건수를 따로 세어야, "active process가 없었다"와
+    "판정 입력이 없었다"를 구분할 수 있다(F1).
+
+    Args:
+        scopes: `resolve_process_scopes` 결과.
+
+    Returns:
+        게이트 동작별 건수 + 총계.
+    """
+    counts: dict[str, int] = {"total": len(scopes)}
+    for scope in scopes.values():
+        counts[scope.gate_action.value] = counts.get(scope.gate_action.value, 0) + 1
+    return counts
 
 
 def _direction_for(c: EventCandidate) -> str:
@@ -1477,6 +1565,8 @@ def build_llm_input(
     relationship_context: RelationshipContext | None = None,
     reserved_tokens: int | None = None,
     overview_mode: bool = False,
+    process_context=None,
+    process_scope_audit: dict | None = None,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
 
@@ -1489,6 +1579,11 @@ def build_llm_input(
 
     current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM) — 기준 시점(P6)의 '당월'을
         절기 기준으로 잡도록 build_reference_frame에 전달(미주입 시 양력 폴백).
+
+    process_context: 요청 스코프 진행 사실(`RequestProcessContext`). 후보 축소 **전에**
+        범위를 산출하기 위해 받는다. P2-3a에서는 산출·감사만 하고 선별은 바꾸지 않는다.
+    process_scope_audit: 범위 판정을 담아 갈 dict(호출자 소유). 감사 기록용이며
+        비워 두면 계산 결과가 로그에만 남는다.
     """
     graph_scope = [k for k in [intent.event_key, *intent.event_keys] if k is not None]
     # 다중 도메인 질문(예: '이직, 이사')은 secondary 도메인의 대표 이벤트도 후보 범위에 포함한다
@@ -1510,6 +1605,14 @@ def build_llm_input(
     month_bounds = _month_seolgi_bounds(result)
     recurrence_notes: dict[int, str] = {}
     overview_dropped: list[str] = []
+    # ── P2-3a: 후보 축소 **전에** 범위 산출 ──────────────────────────────────
+    # 여기서 붙여야 탈락 예정 후보까지 판정이 남는다. 선별·점수·순위는 불변이며
+    # 실제 반영은 P2-3c 플래그 이후다.
+    _scopes = resolve_process_scopes(candidates, process_context=process_context)
+    if _scopes:
+        if process_scope_audit is not None:
+            process_scope_audit.update(_scopes)
+        _process_log.info("process_scope_census %s", summarize_process_scopes(_scopes))
     if overview_mode:
         # 총운형(2026-07-14) — 의미 클러스터링 + 품질 게이트 다양화(위 주석 참조).
         # graph_scope 미적용(멀티도메인 조망), 기간 외 참고 상위는 기존 로직 재사용.
