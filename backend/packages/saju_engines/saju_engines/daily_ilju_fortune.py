@@ -633,8 +633,11 @@ def _band(good: _ScoredEvent, caution: _ScoredEvent) -> str:
 #: 버전 문자열인 것은 호환을 위한 것이며, 앞으로 DICT_VERSION 이 올라가도 바뀌지 않는다.
 EVENT_SELECTION_CONTRACT = "event-selection.v1-legacy-frozen"
 EVENT_SELECTION_COMPAT_SALT = "engine.v1|dict.v1.9|polish.v1"
-#: 보드 재배정(domain·event cap) 동점 처리 계약.
-BOARD_REBALANCE_VERSION = "board-rebalance.v1"
+#: 보드 재배정 계약 — 라이브. domain cap만 본다.
+BOARD_REBALANCE_VERSION = "board-rebalance.v1-domain-only"
+#: 보드 재배정 계약 — shadow. domain·event cap을 **동시에** 만족시킨다(OA-6c).
+#: 라이브 상수를 그대로 v2로 바꾸면 캐시·감사 로그에서 두 경로의 의미가 섞인다.
+BOARD_REBALANCE_SHADOW_VERSION = "board-rebalance.v2-domain-event-cap"
 #: 서사 모드·family 선택 계약. 라이브 이력이 없어 처음부터 후보별 안정 해시를 쓴다.
 NARRATIVE_SEED_VERSION = "narrative.v1"
 #: 하위 호환 별칭(구 이름).

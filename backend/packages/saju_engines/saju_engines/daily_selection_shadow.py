@@ -214,3 +214,43 @@ __all__ = [
     "trace_legacy",
     "trace_v2",
 ]
+
+
+def board_candidates_v2(
+    ctx: DayGanjiContext, dicts: DailyFortuneDicts
+) -> tuple[dict[str, Any], dict[str, list[Any]]]:
+    """v2 선택 계약으로 뽑은 원시 승자와 허용 후보 목록 (OA-6c 입력).
+
+    점수·판정을 다시 계산하지 않는다 — 이미 산출된 후보에서 노출 사건만 고른다.
+
+    Args:
+        ctx: 날짜 간지 컨텍스트.
+        dicts: 사전 묶음.
+
+    Returns:
+        `(일주 → 원시 승자, 일주 → 허용 후보 목록)`.
+    """
+    from .daily_board_constraints import HeadlineCandidate
+    from .daily_ilju_fortune import _band, _headline_candidates
+
+    raw: dict[str, Any] = {}
+    cand_map: dict[str, list[Any]] = {}
+    for idx in range(60):
+        stem, branch = ganzi_from_index(idx)
+        ilju = f"{stem.value}{branch.value}"
+        seed_base = f"{ctx.the_date.isoformat()}|{ilju}|{EVENT_SELECTION_COMPAT_SALT}"
+        scored = [
+            _score_event(key, ev, stem, branch, ctx)
+            for key, ev in dicts.catalog["events"].items()
+        ]
+        good, caution, support = _select_slots(
+            scored, seed_base,
+            rank=lambda s, _d=ctx.the_date, _i=ilju: _rank_key_v2(s, _d, _i),
+        )
+        band = _band(good, caution)
+        cands = _headline_candidates(good, support, caution, band)
+        cand_map[ilju] = [
+            HeadlineCandidate(c.event_key, c.domain, c.probability) for c in cands
+        ]
+        raw[ilju] = cand_map[ilju][0]
+    return raw, cand_map
