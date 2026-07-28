@@ -33,6 +33,7 @@ def _deserialize_journal(raw) -> tuple:
     from saju_shared_types.career_transition import (
         AcceptedEpisodeSwitchedJournalItem,
         EmploymentContextRolledJournalItem,
+        EntryScopeDeclaredJournalItem,
         EpisodeClosedJournalItem,
         EpisodeCreatedJournalItem,
         EpisodeReopenedJournalItem,
@@ -47,6 +48,7 @@ def _deserialize_journal(raw) -> tuple:
         JournalItemKind.CAREER_FACT: StageHistoryItem,
         JournalItemKind.ACCEPTED_EPISODE_SWITCHED: AcceptedEpisodeSwitchedJournalItem,
         JournalItemKind.EMPLOYMENT_CONTEXT_ROLLED: EmploymentContextRolledJournalItem,
+        JournalItemKind.ENTRY_SCOPE_DECLARED: EntryScopeDeclaredJournalItem,
     }
     items = []
     for entry in raw or ():

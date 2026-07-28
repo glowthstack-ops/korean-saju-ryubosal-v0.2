@@ -244,6 +244,10 @@ class JournalItemKind(StrEnum):
     CAREER_FACT = "career_fact"
     ACCEPTED_EPISODE_SWITCHED = "accepted_episode_switched"
     EMPLOYMENT_CONTEXT_ROLLED = "employment_context_rolled"
+    #: CARR-SCOPE — 진입 범위 선언. `CAREER_FACT`에 필드를 더하지 않고 **별도 항목**으로
+    #: 둔다. journal digest가 항목 dump 전체로 계산되므로 기존 항목 스키마를 바꾸면
+    #: 저장된 journal이 전부 digest 불일치가 되어 과거 사실을 잃는다(실측 8/8 파손).
+    ENTRY_SCOPE_DECLARED = "entry_scope_declared"
 
 
 class StageHistoryItem(BaseModel):
@@ -378,6 +382,30 @@ class EmploymentContextRolledJournalItem(BaseModel):
     new_context_id: str | None = None
 
 
+class EntryScopeDeclaredJournalItem(BaseModel):
+    """진입 범위 선언 1건 (CARR-SCOPE).
+
+    **단계 사실과 분리한다.** 범위는 `fact_type`에서 파생되지 않는다 — "면접을 봤다"는
+    외부 지원인지 사내 승진인지 말해 주지 않는다. 사용자가 **명시한** 근거에서만 온다.
+
+    `scope_evidence_text`·`scope_rule_id`는 사후 검증용이며 사용자 출력에 노출하지 않는다.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    journal_item_id: str
+    kind: JournalItemKind = JournalItemKind.ENTRY_SCOPE_DECLARED
+    command_id: str
+    command_digest: str = ""
+    recorded_at: str
+    target_episode_id: str | None = None
+    entry_scope: EntryScope
+    scope_rule_id: str = ""
+    scope_evidence_text: str = ""
+    #: 이 선언을 뒷받침한 단계 사실 — 근거 추적용.
+    supporting_history_item_id: str | None = None
+
+
 #: 통합 authoritative journal 항목 — 사실만으로는 Episode 생성·재개·링크 변경·고용
 #: rollover를 재생할 수 없으므로 생명주기 항목까지 하나의 순서 있는 journal에 담는다.
 CareerJournalItem = (
@@ -387,6 +415,7 @@ CareerJournalItem = (
     | StageHistoryItem
     | AcceptedEpisodeSwitchedJournalItem
     | EmploymentContextRolledJournalItem
+    | EntryScopeDeclaredJournalItem
 )
 
 

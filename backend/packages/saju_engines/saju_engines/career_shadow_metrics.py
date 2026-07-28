@@ -27,7 +27,10 @@ from saju_shared_types.career_commands import (
     TransitionResult,
     TransitionStatus,
 )
-from saju_shared_types.career_transition import CareerEpisodeStore
+from saju_shared_types.career_transition import (
+    CareerEpisodeStore,
+    EntryScopeDeclaredJournalItem,
+)
 
 from .career_shadow_observation import (
     GuardOutcome,
@@ -47,6 +50,12 @@ METRIC_REPLAY_DIVERGENCE = "replay_divergence"
 METRIC_OWNERSHIP_BLOCKED = "fact_ownership_conflict_blocked"
 METRIC_DUPLICATE_BLOCKED = "duplicate_fact_blocked"
 METRIC_EPISODE_UNRESOLVED = "episode_unresolved"
+
+# CARR-SCOPE — 범위 채움·충돌·부재. 부재는 결함이 아니라 자료 부재이며, dual-run에서
+# "active process가 없었다"와 절대 섞지 않는다.
+METRIC_ENTRY_SCOPE_FILLED = "entry_scope_filled"
+METRIC_ENTRY_SCOPE_CONFLICT = "entry_scope_conflict"
+METRIC_ENTRY_SCOPE_UNAVAILABLE = "entry_scope_unavailable"
 
 
 def _obs(
@@ -168,7 +177,74 @@ def observe_career_transition(
                 command, context,
             )
         )
+        out.extend(_observe_entry_scope(before_store, command, result, context))
     return tuple(out)
+
+
+def _observe_entry_scope(
+    before_store: CareerEpisodeStore,
+    command: ApplyCareerFactCommand,
+    result: TransitionResult,
+    context: ObservationContext,
+) -> list[ShadowObservation]:
+    """진입 범위 선언의 채움·충돌·부재를 감사에 남긴다 (CARR-SCOPE).
+
+    충돌은 **위반이 아니라 정상 차단**이다(INV-24) — 자동 변경을 막았다는 뜻이므로
+    `BLOCKED`으로 기록한다. 범위 부재도 결함이 아니라 자료 부재이며, dual-run에서
+    "active가 없다"와 섞이지 않도록 별도 지표로 센다.
+
+    Args:
+        before_store: 명령 적용 전 store.
+        command: 적용된 사실 명령.
+        result: 전이 결과.
+        context: 관측 맥락.
+
+    Returns:
+        관측 목록(해당 없으면 빈 목록).
+    """
+    if command.entry_scope is None:
+        return [
+            _obs(
+                METRIC_ENTRY_SCOPE_UNAVAILABLE, MetricClass.MODEL_QUALITY,
+                ObservationKind.ROLLOUT_TELEMETRY, GuardOutcome.NOT_APPLICABLE,
+                command, context,
+            )
+        ]
+    # 대상 Episode 는 명령이 아니라 **reducer 가 해소**한다(`target_episode_id`는 보통
+    # None). 그래서 이번 명령이 남긴 선언 항목에서 실제 귀속 Episode 를 읽는다 —
+    # 명령 필드를 그대로 믿으면 충돌이 조용히 '채움'으로 집계된다.
+    declared = next(
+        (
+            i
+            for i in result.store.career_journal
+            if isinstance(i, EntryScopeDeclaredJournalItem)
+            and i.command_id == command.command_id
+        ),
+        None,
+    )
+    if declared is None:
+        return []
+    episode_id = declared.target_episode_id or ""
+    existing = before_store.by_id.get(episode_id)
+    prior = existing.entry_scope if existing is not None else None
+    if prior is not None and prior is not command.entry_scope:
+        # 기존 A + 새 B — 자동 변경을 막았다. 사실을 지우지도 않는다.
+        return [
+            _obs(
+                METRIC_ENTRY_SCOPE_CONFLICT, MetricClass.STATE_INTEGRITY,
+                ObservationKind.AUDIT_EVENT, GuardOutcome.BLOCKED, command, context,
+                audit_event="ENTRY_SCOPE_CONFLICT_EXISTING_VALUE",
+            )
+        ]
+    if prior is None:
+        return [
+            _obs(
+                METRIC_ENTRY_SCOPE_FILLED, MetricClass.MODEL_QUALITY,
+                ObservationKind.AUDIT_EVENT, GuardOutcome.ALLOWED, command, context,
+                audit_event="ENTRY_SCOPE_FILLED_FROM_EXPLICIT_FACT",
+            )
+        ]
+    return []
 
 
 def run_career_shadow_transition(
@@ -185,6 +261,9 @@ def run_career_shadow_transition(
 
 __all__ = [
     "METRIC_DUPLICATE_FACT",
+    "METRIC_ENTRY_SCOPE_CONFLICT",
+    "METRIC_ENTRY_SCOPE_FILLED",
+    "METRIC_ENTRY_SCOPE_UNAVAILABLE",
     "METRIC_EPISODE_COLLISION",
     "METRIC_PARTIAL_COMMIT",
     "observe_career_transition",

@@ -35,6 +35,7 @@ from .career_transition import (
     CareerStageRef,
     CareerTrack,
     CareerTransitionCloseReason,
+    EntryScope,
     EntryStage,
     ExitStage,
     FactOperationType,
@@ -287,6 +288,14 @@ class ApplyCareerFactCommand(BaseModel):
     occurred_at: str | None = None
     target_episode_id: str | None = None
     target_history_item_id: str | None = None
+    #: 진입 범위 (CARR-SCOPE) — **명시 hard fact에서만** 온다. `fact_type`에서 파생하지
+    #: 않는다("면접을 봤다"는 외부인지 사내인지 말해 주지 않는다). None이면 저장하지
+    #: 않으며 하류는 `ENTRY_SCOPE_UNAVAILABLE` → coverage bypass로 처리한다.
+    entry_scope: EntryScope | None = None
+    #: 어느 규칙이 범위를 판정했는가 — 감사 전용(사용자 출력 금지).
+    scope_rule_id: str | None = None
+    #: 범위 판정의 근거 구절 — 감사 전용(사용자 출력 금지).
+    scope_evidence_text: str | None = None
 
     @property
     def stage_ref(self) -> CareerStageRef:

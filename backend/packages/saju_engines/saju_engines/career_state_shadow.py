@@ -110,6 +110,10 @@ def run_career_state_shadow(
         recorded_at=recorded_at,
         occurred_at=occurred_at,
         target_episode_id=target_episode_id or parsed.episode_target_hint,
+        # CARR-SCOPE — 파서가 **명시 근거에서** 뽑은 범위만 전달한다(추론 없음).
+        entry_scope=parsed.entry_scope,
+        scope_rule_id=parsed.scope_rule_id,
+        scope_evidence_text=parsed.scope_evidence_text,
     )
     result = reduce_career_command(shadow_store, command)
     observations = observe_career_transition(shadow_store, command, result, context)

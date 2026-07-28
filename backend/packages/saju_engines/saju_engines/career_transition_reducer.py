@@ -56,6 +56,8 @@ from saju_shared_types.career_transition import (
     CurrentEmploymentContext,
     EmploymentContextRolledJournalItem,
     EmploymentContextSnapshot,
+    EntryScope,
+    EntryScopeDeclaredJournalItem,
     EpisodeClosedJournalItem,
     EpisodeCreatedJournalItem,
     EpisodeReopenedJournalItem,
@@ -157,6 +159,8 @@ def replay(journal: tuple[CareerJournalItem, ...]) -> CareerEpisodeStore:
     archived: list[EmploymentContextSnapshot] = []
     facts_by_episode: dict[str, list[StageHistoryItem]] = {}
     exit_facts: list[StageHistoryItem] = []
+    #: episode_id → 최초 명시 진입 범위(CARR-SCOPE). 나중 선언은 덮어쓰지 않는다.
+    scope_by_episode: dict[str, EntryScope] = {}
 
     for item in journal:
         if isinstance(item, EpisodeCreatedJournalItem):
@@ -179,6 +183,14 @@ def replay(journal: tuple[CareerJournalItem, ...]) -> CareerEpisodeStore:
                 exit_facts.append(item)
             elif item.target_episode_id:
                 facts_by_episode.setdefault(item.target_episode_id, []).append(item)
+        elif isinstance(item, EntryScopeDeclaredJournalItem):
+            # CARR-SCOPE 투영: **먼저 온 명시 범위가 이긴다.**
+            #   scope 없음 + 새 명시     → 채운다
+            #   기존 A     + 새 A        → 유지(멱등)
+            #   기존 A     + 새 B        → 자동 변경 금지(감사는 metrics가 남긴다)
+            # 자동 덮어쓰기를 허용하면 외부 지원 Episode가 사내 승진으로 조용히 바뀐다.
+            if item.target_episode_id:
+                scope_by_episode.setdefault(item.target_episode_id, item.entry_scope)
         elif isinstance(item, AcceptedEpisodeSwitchedJournalItem):
             base = current or CurrentEmploymentContext(
                 employment_context_id="emp-implicit",
@@ -234,6 +246,7 @@ def replay(journal: tuple[CareerJournalItem, ...]) -> CareerEpisodeStore:
                 CareerTrack.OPPORTUNITY, tuple(facts_by_episode.get(eid, ()))
             ),
             entry=_project_track(CareerTrack.ENTRY, tuple(facts_by_episode.get(eid, ()))),
+            entry_scope=scope_by_episode.get(eid),
             outcome=None,
         ).model_copy(
             update={
@@ -535,6 +548,22 @@ def _plan_fact(
         supersedes_history_item_id=command.target_history_item_id,
     )
     delta: list[CareerJournalItem] = [item]
+    # CARR-SCOPE — 명시된 범위만 별도 항목으로 기록한다. 단계 사실에 필드를 더하지
+    # 않는 이유는 journal digest 호환이다(기존 저장분 파손 방지).
+    if command.entry_scope is not None and episode_id:
+        delta.append(
+            EntryScopeDeclaredJournalItem(
+                journal_item_id=f"{command.command_id}:scope",
+                command_id=command.command_id,
+                command_digest=command_digest(command),
+                recorded_at=command.recorded_at,
+                target_episode_id=episode_id,
+                entry_scope=command.entry_scope,
+                scope_rule_id=command.scope_rule_id or "",
+                scope_evidence_text=command.scope_evidence_text or "",
+                supporting_history_item_id=item.history_item_id,
+            )
+        )
     mode = ProjectionMode.NORMAL_TRANSITION
     if command.operation_type is not FactOperationType.ASSERT:
         mode = ProjectionMode.CORRECTION_REPROJECTION

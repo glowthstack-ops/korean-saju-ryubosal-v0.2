@@ -23,7 +23,11 @@ import re
 from pydantic import BaseModel, ConfigDict
 
 from saju_shared_types.career_commands import CareerFactType, FactEvidenceClass
-from saju_shared_types.career_transition import FactOperationType, TimePrecision
+from saju_shared_types.career_transition import (
+    EntryScope,
+    FactOperationType,
+    TimePrecision,
+)
 
 
 class CareerParsedFact(BaseModel):
@@ -39,6 +43,11 @@ class CareerParsedFact(BaseModel):
     occurred_at: str | None = None
     time_precision: TimePrecision = TimePrecision.UNKNOWN
     correction_target: str | None = None
+    #: 진입 범위 — **명시된 경우에만** 채운다(CARR-SCOPE). None은 "외부 이직"이 아니라
+    #: "판정 자료 없음"이며 하류에서 coverage bypass로 처리된다.
+    entry_scope: EntryScope | None = None
+    scope_rule_id: str | None = None
+    scope_evidence_text: str | None = None
 
     @property
     def is_transition_eligible(self) -> bool:
@@ -72,6 +81,30 @@ _FACT_PATTERNS: tuple[tuple[re.Pattern[str], CareerFactType], ...] = (
      CareerFactType.TRANSFER_COMPLETED),
 )
 
+# ── 진입 범위 표지 (CARR-SCOPE) ────────────────────────────────────────────
+# **명시된 범위만 읽는다.** fact_type·intent·현재 회사 정보에서 추론하지 않는다:
+#   "면접을 봤다" → 외부인지 사내인지 알 수 없다 → None
+#   "입사했다"     → 외부 입사로 단정하지 않는다 → None
+#   "이직하고 싶다" → hard fact 자체가 없다
+# 자료가 없는 것을 추론으로 채우면 F1을 푸는 대신 오귀속을 만든다.
+#
+# 규칙 순서가 곧 우선순위다 — 더 구체적인 표지(지역·부서·승진)를 앞에 둔다.
+# 사내 표지가 있으면 외부 표지보다 먼저 판정한다("사내 공고에 지원").
+_SCOPE_PATTERNS: tuple[tuple[re.Pattern[str], EntryScope, str], ...] = (
+    (re.compile(r"(지점|지사|사업장|근무지|본사|공장).{0,6}(이동|발령|이전|옮)"
+                r"|(서울|부산|대구|인천|광주|대전|울산|세종|제주)\s*(지점|지사|사업장|근무지)"),
+     EntryScope.INTERNAL_LOCATION, "SCOPE_INTERNAL_LOCATION"),
+    (re.compile(r"(다른|타|옆)\s*(부서|팀|본부)|(부서|팀|본부)\s*(이동|전보|발령|옮)"
+                r"|사내\s*(전보|이동)"),
+     EntryScope.INTERNAL_DEPARTMENT, "SCOPE_INTERNAL_DEPARTMENT"),
+    (re.compile(r"(사내|내부|회사 안|같은 회사).{0,8}(승진|승격|공모|공고|지원|면접|심사)"
+                r"|승진\s*(심사|면접|대상|후보|지원)|진급\s*(심사|면접)"),
+     EntryScope.INTERNAL_ROLE, "SCOPE_INTERNAL_ROLE"),
+    (re.compile(r"(다른|타|새|외부|딴)\s*(회사|기업|직장|데)|이직|경력직|헤드헌|스카우"
+                r"|(회사|기업)\s*(면접|지원|공고)"),
+     EntryScope.EXTERNAL_EMPLOYER, "SCOPE_EXTERNAL_EMPLOYER"),
+)
+
 # 발생 시점 힌트(정밀도만 결정 — 실제 날짜 해소는 호출자 몫).
 _TIME_HINTS: tuple[tuple[re.Pattern[str], TimePrecision], ...] = (
     (re.compile(r"(어제|오늘|그저께)"), TimePrecision.DAY),
@@ -88,6 +121,23 @@ def _classify_evidence(text: str) -> FactEvidenceClass:
     if _SPECULATION_RE.search(text):
         return FactEvidenceClass.SUBJECTIVE_IMPRESSION
     return FactEvidenceClass.OBSERVABLE_HARD_FACT
+
+
+def _parse_entry_scope(text: str) -> tuple[EntryScope | None, str | None, str | None]:
+    """명시된 진입 범위만 읽는다 (CARR-SCOPE).
+
+    Args:
+        text: 사용자 발화.
+
+    Returns:
+        `(범위, 규칙 id, 근거 구절)`. 명시가 없으면 `(None, None, None)` —
+        기본값을 정하지 않는다. 근거 구절은 감사 전용이며 사용자에게 노출하지 않는다.
+    """
+    for pattern, scope, rule_id in _SCOPE_PATTERNS:
+        found = pattern.search(text)
+        if found:
+            return scope, rule_id, found.group(0)
+    return None, None, None
 
 
 def _time_precision(text: str) -> TimePrecision:
@@ -114,11 +164,15 @@ def parse_career_fact(text: str) -> CareerParsedFact:
     if planned and evidence is FactEvidenceClass.OBSERVABLE_HARD_FACT:
         # "다음 주 입사 예정"·"퇴사할까 고민 중" 류 — 계획·고민은 확정 사실이 아니다.
         evidence = FactEvidenceClass.SUBJECTIVE_IMPRESSION
+    scope, scope_rule_id, scope_text = _parse_entry_scope(text)
     return CareerParsedFact(
         text=text,
         fact_type=fact_type,
         evidence_class=evidence,
         time_precision=_time_precision(text),
+        entry_scope=scope,
+        scope_rule_id=scope_rule_id,
+        scope_evidence_text=scope_text,
     )
 
 
