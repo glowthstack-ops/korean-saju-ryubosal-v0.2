@@ -48,6 +48,10 @@ SAFE_TEMPLATE_FALLBACK_ENABLED: bool = _env_flag("SAJU_SAFE_TEMPLATE_FALLBACK_EN
 # P2-1에서 candidate_source_layers를 채우면 grounding이 곧바로 살아나 프롬프트가 바뀌므로,
 # "산출"과 "노출"을 이 플래그로 분리한다(P2-1은 동작 불변이어야 한다).
 EVENT_LOCAL_TRIGGER_GATE_ENABLED: bool = _env_flag("SAJU_EVENT_LOCAL_TRIGGER_GATE_ENABLED")
+# P2-3b dual-run — 같은 요청·같은 후보 집합을 reducer 직전에서 legacy·scoped 두 번
+# 선택해 후보 ID로 비교한다. **사용자에게는 legacy 결과만 반환**하며 scoped는 감사
+# 전용이다. 계측 비용(선별 1회 추가)이 있어 기본 OFF이고 측정 환경에서만 켠다.
+EVENT_PROCESS_DUAL_RUN_ENABLED: bool = _env_flag("SAJU_EVENT_PROCESS_DUAL_RUN_ENABLED")
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -108,6 +112,7 @@ def active_versions() -> dict[str, str | bool]:
         "safe_template_fallback_enabled": SAFE_TEMPLATE_FALLBACK_ENABLED,
         "local_adverse_only_enabled": LOCAL_ADVERSE_ONLY_ENABLED,
         "event_local_trigger_gate_enabled": EVENT_LOCAL_TRIGGER_GATE_ENABLED,
+        "event_process_dual_run_enabled": EVENT_PROCESS_DUAL_RUN_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

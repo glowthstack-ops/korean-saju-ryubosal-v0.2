@@ -15,7 +15,9 @@ hard-fact Episode**뿐이다. 엔진이 추정한 상태는 쓰지 않는다 —
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import StrEnum
+from types import MappingProxyType
 
 from pydantic import BaseModel, Field
 
@@ -241,6 +243,81 @@ class EventGateAction(StrEnum):
     def is_bypass(self) -> bool:
         """기존 동작을 유지했는가."""
         return self.value.startswith("BYPASS_")
+
+
+class GateMode(StrEnum):
+    """후보 선별을 어느 규칙으로 돌렸는가 (P2-3b dual-run).
+
+    두 실행은 **같은 후보 스냅샷**에서 출발해야 한다. scoped 실행이 후보의 rank·score·
+    reason_codes를 건드리면 legacy 결과까지 오염되므로 선별기는 순수 함수여야 한다.
+    """
+
+    LEGACY = "LEGACY"   # 기존 규칙 — 사용자에게 반환되는 결과
+    SCOPED = "SCOPED"   # 게이트 적용 — 감사 전용
+
+
+class DualRunComparisonResult(StrEnum):
+    """후보 1건이 legacy·scoped 사이에서 어떻게 갈렸는가.
+
+    `UNEXPECTED_*` 세 값은 **즉시 실패**다 — 게이트가 건드리면 안 되는 것을 건드렸다는
+    뜻이며, 활성화 전 절대 조건(0건)의 대상이다.
+    """
+
+    RETAINED_UPPER_SUPPORTED = "RETAINED_UPPER_SUPPORTED"
+    RETAINED_ACTIVE_TRIGGER = "RETAINED_ACTIVE_TRIGGER"
+
+    EXCLUDED_LOCAL_TRIGGER = "EXCLUDED_LOCAL_TRIGGER"
+    NEWLY_ENTERED_ELIGIBLE = "NEWLY_ENTERED_ELIGIBLE"
+
+    RETAINED_BY_COVERAGE_BYPASS = "RETAINED_BY_COVERAGE_BYPASS"
+    RETAINED_BY_SOURCE_UNAVAILABLE = "RETAINED_BY_SOURCE_UNAVAILABLE"
+    RETAINED_UNKNOWN = "RETAINED_UNKNOWN"
+
+    UNEXPECTED_UPPER_EXCLUSION = "UNEXPECTED_UPPER_EXCLUSION"
+    UNEXPECTED_ACTIVE_EXCLUSION = "UNEXPECTED_ACTIVE_EXCLUSION"
+    UNEXPECTED_BYPASS_CHANGE = "UNEXPECTED_BYPASS_CHANGE"
+
+    #: 두 실행 모두에서 선정되지 않음(점수·기간 필터에서 탈락). 게이트와 무관하므로
+    #: flip 집계에 넣지 않는다 — 넣으면 분모가 부풀어 변화율이 희석된다.
+    NOT_SELECTED_IN_EITHER = "NOT_SELECTED_IN_EITHER"
+
+    @property
+    def is_failure(self) -> bool:
+        """활성화를 막아야 하는 결과인가."""
+        return self in (
+            DualRunComparisonResult.UNEXPECTED_UPPER_EXCLUSION,
+            DualRunComparisonResult.UNEXPECTED_ACTIVE_EXCLUSION,
+            DualRunComparisonResult.UNEXPECTED_BYPASS_CHANGE,
+        )
+
+
+class ProcessMeasurementStatus(StrEnum):
+    """이 경로를 지금 측정할 수 있는가 (P2-3b 보고 축).
+
+    `0건`과 `측정 불가`를 한 칸에 담지 않기 위한 값이다. 자료가 없어 판정하지 못한 것을
+    "진행 중인 게 없었다"로 읽으면 게이트가 안전하다는 잘못된 결론이 나온다.
+    """
+
+    MEASURABLE = "MEASURABLE"
+    #: 사실 taxonomy가 해당 표현을 담지 못함(CARR-FACT-COVERAGE).
+    INCOMPLETE_FACT_COVERAGE = "INCOMPLETE_FACT_COVERAGE"
+    #: `entry_scope` producer 부재로 판정 입력이 없음(F1).
+    BLOCKED_BY_ENTRY_SCOPE_PRODUCER = "BLOCKED_BY_ENTRY_SCOPE_PRODUCER"
+
+
+#: 진입 범위별 측정 가능 여부 — CARR-SCOPE 이후 상태.
+#: 부서·근무지 이동은 범위 판정은 되지만 상위 hard-fact gate가 열리지 않아 경로 자체가
+#: 측정되지 않는다(`start_date_fixed`·`contract_approved` 단계에 producer가 없다).
+ENTRY_SCOPE_MEASUREMENT: Mapping[CareerEntryScope, ProcessMeasurementStatus] = (
+    MappingProxyType({
+        CareerEntryScope.EXTERNAL_EMPLOYER: ProcessMeasurementStatus.MEASURABLE,
+        CareerEntryScope.INTERNAL_ROLE: ProcessMeasurementStatus.MEASURABLE,
+        CareerEntryScope.INTERNAL_DEPARTMENT:
+            ProcessMeasurementStatus.INCOMPLETE_FACT_COVERAGE,
+        CareerEntryScope.INTERNAL_LOCATION:
+            ProcessMeasurementStatus.INCOMPLETE_FACT_COVERAGE,
+    })
+)
 
 
 class ProcessSourceStatus(StrEnum):

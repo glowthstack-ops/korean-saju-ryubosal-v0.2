@@ -409,3 +409,101 @@ producer가 없어 **fail-closed**(스냅샷 미생성)로 둔다.
 | 점수·등급·confidence·rank·Top-N·프롬프트 불변 | ✅ payload JSON 동일 회귀 2종 |
 
 **남은 것**: P2-3b dual-run(§9 형식), 그 전에 `CARR-SCOPE`.
+
+---
+
+# 12. CARR-SCOPE 완료 · CARR-FACT-COVERAGE 분리 (2026-07-28)
+
+## 12-1. enum 명칭 — 개명하지 않는다
+
+실제 코드 enum이 SSOT이며 설계 단계 명칭(`INTERNAL_PROMOTION`·`INTERNAL_TRANSFER`)은
+별칭으로만 남긴다. 개명하면 저장된 journal 값·replay·호환 allowlist·snapshot·
+`ProcessFact`·감사 fixture·직렬화 계약을 모두 건드리면서 기능 이득이 없다.
+
+| enum | 의미 |
+|---|---|
+| `EXTERNAL_EMPLOYER` | 외부 회사로의 이직 |
+| `INTERNAL_ROLE` | 사내 승진·보직 변경(설계 명칭 `INTERNAL_PROMOTION`) |
+| `INTERNAL_DEPARTMENT` | 부서·팀 간 전보(설계 명칭 `INTERNAL_TRANSFER`) |
+| `INTERNAL_LOCATION` | 지점·근무지·지역 이동 |
+
+## 12-2. CARR-FACT-COVERAGE — 확정/완료를 구분하지 못한다
+
+parser 정규식을 넓히기 전에 **기존 fact type이 '확정'과 '완료'를 구분하는지** 실사했다.
+
+```
+fact type 8종 → 생산 가능 단계 7개
+ENTRY  start_date_pending  producer 없음
+       start_date_fixed    producer 없음   ← '확정'
+       contract_approved   producer 없음   ← '확정'
+       joined              producer 있음   ← '완료'
+       probation           producer 없음
+       stabilized          producer 없음
+```
+
+**구분하지 못한다.** 확정 단계는 타입 레이어에 있으나 producer가 없고, ENTRY 트랙은
+`joined`(완료)에만 도달한다. 따라서 계약대로 **정규식을 넓히지 않고** 미측정으로 남긴다.
+
+```
+"전보 발령이 났다"   → 기존 패턴이 TRANSFER_COMPLETED 로 처리(발령=완료로 취급 — 기존 결함)
+"전보를 완료했다"    → TRANSFER_COMPLETED
+"전보가 확정됐다"    → 현재 taxonomy로 표현 불가 → 신규 fact type 검토(보류)
+"부산 지점으로 이동이 결정됐어" → 표현 불가
+```
+
+⚠ 기존 패턴 `(부서|팀|보직).{0,4}(이동|발령).{0,6}(났|됐|…)`가 **발령(확정)을 완료로
+취급**하고 있다. CARR-FACT-COVERAGE에서 함께 다룬다.
+
+### 측정 상태 보고
+
+```
+EXTERNAL_EMPLOYER   MEASURABLE
+INTERNAL_ROLE       MEASURABLE
+INTERNAL_DEPARTMENT INCOMPLETE_FACT_COVERAGE   ← 성공·실패 분모에서 제외
+INTERNAL_LOCATION   INCOMPLETE_FACT_COVERAGE   ← 성공·실패 분모에서 제외
+scope 없음           BLOCKED_BY_ENTRY_SCOPE_PRODUCER
+```
+
+`retained_entry_trigger_count=0`에 섞지 않는다. 코드 SSOT는
+`process_fact.ENTRY_SCOPE_MEASUREMENT` · `process_dual_run.measurement_status_for`.
+
+## 12-3. entry_scope journal 표현
+
+`StageHistoryItem`에 필드를 추가하지 않고 신규 kind `ENTRY_SCOPE_DECLARED`를 append한다.
+
+```
+journal_digest = sha256(모든 항목 model_dump 전체)
+→ 기존 항목에 optional 필드 추가 시 저장분 전부 digest 불일치
+→ CONTRACT_MISMATCH → 과거 사실 유실
+실측: 운영 DB 8행, 필드 추가 시 8/8 파손 / 신규 kind 방식은 8/8 유지
+```
+
+범위는 단계 사실에서 파생되지 않으므로 별도 항목이 도메인상으로도 맞다.
+
+충돌 정책은 **먼저 온 명시 범위가 이긴다**:
+
+```
+없음 + 새 명시 → 채움          ENTRY_SCOPE_FILLED_FROM_EXPLICIT_FACT
+A    + 새 A    → 유지
+A    + 새 B    → 변경 금지      ENTRY_SCOPE_CONFLICT_EXISTING_VALUE (GuardOutcome.BLOCKED)
+없음           → 자료 부재      ENTRY_SCOPE_UNAVAILABLE
+```
+
+기존 Episode의 `entry_scope=None`은 일괄 보정하지 않는다(추론 migration 금지).
+
+## 12-4. P2-3b dual-run
+
+플래그 `SAJU_EVENT_PROCESS_DUAL_RUN_ENABLED`(기본 OFF). 같은 후보 스냅샷에서
+`ENFORCE_LOCAL_ONLY`만 제외해 **같은 선별기**를 다시 돌리고 후보 ID로 비교한다.
+사용자에게는 legacy 결과만 반환한다(payload JSON 동일 회귀로 고정).
+
+활성화 절대 조건(모두 0):
+
+```
+unexpected_upper_exclusion_count
+unexpected_active_exclusion_count
+unexpected_bypass_change_count
+```
+
+`entry_scope_unavailable_count`는 0일 필요가 없다 — 범위가 불명확한 발화는 계속
+bypass되는 것이 정상이다.

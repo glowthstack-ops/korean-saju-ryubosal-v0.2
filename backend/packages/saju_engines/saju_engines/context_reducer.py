@@ -33,6 +33,7 @@ from saju_shared_types.constants import (
 )
 from saju_shared_types.enums import Branch, Element, Stem
 from saju_shared_types.event_engine import LayerEvidenceScope
+from saju_shared_types.process_fact import EventGateAction
 
 if TYPE_CHECKING:  # 순환 import 방지 — 런타임에는 함수 안에서 지연 import 한다.
     from .process_event_compatibility import CandidateProcessScope
@@ -552,6 +553,64 @@ def summarize_process_scopes(
     for scope in scopes.values():
         counts[scope.gate_action.value] = counts.get(scope.gate_action.value, 0) + 1
     return counts
+
+
+def _run_scoped_selection(
+    candidates: list[EventCandidate],
+    keys: list[str],
+    scopes: dict[str, CandidateProcessScope],
+    legacy_selected: list[EventCandidate],
+    *,
+    graph_scope: list,
+    period_start: str | None,
+    period_end: str | None,
+    month_bounds: dict[str, tuple[str, str]] | None,
+    overview_mode: bool,
+):
+    """게이트를 적용한 두 번째 선별 + 비교 (P2-3b, 감사 전용).
+
+    `ENFORCE_LOCAL_ONLY` 후보만 스냅샷에서 빼고 **같은 선별기**를 다시 돌린다. 게이트를
+    선별기 안에 심지 않는 이유는 legacy 경로를 한 줄도 건드리지 않기 위해서다.
+
+    Args:
+        candidates: 축소 이전 후보 목록(두 실행의 공통 출발점).
+        keys: 후보별 안정 ID.
+        scopes: 후보별 범위 판정.
+        legacy_selected: 이미 확정된 legacy 선택 결과.
+        graph_scope: 후보 범위 필터.
+        period_start: 질문 기간 시작.
+        period_end: 질문 기간 끝.
+        month_bounds: 절기 경계.
+        overview_mode: 총운형 선별 여부.
+
+    Returns:
+        `DualRunAudit`.
+    """
+    from .process_dual_run import compare_candidate_selections
+
+    key_of = {id(c): k for c, k in zip(candidates, keys, strict=True)}
+    kept = [
+        c
+        for c, k in zip(candidates, keys, strict=True)
+        if (s := scopes.get(k)) is None
+        or s.gate_action is not EventGateAction.ENFORCE_LOCAL_ONLY
+    ]
+    if overview_mode:
+        scoped_selected, _, _ = reduce_overview_candidates(
+            kept, period_start, period_end, month_bounds=month_bounds
+        )
+        scoped_selected = sorted(scoped_selected, key=lambda c: (-c.score, c.period))
+    else:
+        scoped_selected, _ = reduce_with_context(
+            kept, graph_scope, period_start, period_end, month_bounds=month_bounds
+        )
+    return compare_candidate_selections(
+        keys=keys,
+        candidates=candidates,
+        scopes=scopes,
+        legacy_keys=[key_of[id(c)] for c in legacy_selected if id(c) in key_of],
+        scoped_keys=[key_of[id(c)] for c in scoped_selected if id(c) in key_of],
+    )
 
 
 def _direction_for(c: EventCandidate) -> str:
@@ -1609,6 +1668,8 @@ def build_llm_input(
     # 여기서 붙여야 탈락 예정 후보까지 판정이 남는다. 선별·점수·순위는 불변이며
     # 실제 반영은 P2-3c 플래그 이후다.
     _scopes = resolve_process_scopes(candidates, process_context=process_context)
+    _subject_id = getattr(process_context, "subject_id", None)
+    _keys = [candidate_audit_key(i, c, _subject_id) for i, c in enumerate(candidates)]
     if _scopes:
         if process_scope_audit is not None:
             process_scope_audit.update(_scopes)
@@ -1654,6 +1715,20 @@ def build_llm_input(
             period_end,
             month_bounds=month_bounds,
         )
+    # ── P2-3b: 같은 스냅샷으로 scoped 선택을 한 번 더 — **감사 전용** ────────
+    # 사용자에게는 위 legacy `selected`만 나간다. 두 실행이 같은 후보 객체에서
+    # 출발하고 선별기가 순수 함수라, scoped 실행이 legacy 결과를 오염시키지 않는다.
+    if _scopes and period_v2_config.EVENT_PROCESS_DUAL_RUN_ENABLED:
+        _dual = _run_scoped_selection(
+            candidates, _keys, _scopes, selected,
+            graph_scope=graph_scope or [b.event_key for b in bundles],
+            period_start=period_start, period_end=period_end,
+            month_bounds=month_bounds, overview_mode=overview_mode,
+        )
+        if process_scope_audit is not None:
+            process_scope_audit["__dual_run__"] = _dual
+        _process_log.info("process_dual_run %s", _dual.summary())
+
     dw_by_year = _daewoon_lookup(result)
     ganji = _ganji_lookup(result)
     day_master = result.pillars.day_master if result.pillars else ""
