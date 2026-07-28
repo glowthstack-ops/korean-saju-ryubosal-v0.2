@@ -566,6 +566,7 @@ def _run_scoped_selection(
     period_end: str | None,
     month_bounds: dict[str, tuple[str, str]] | None,
     overview_mode: bool,
+    facts: list | None = None,
 ):
     """게이트를 적용한 두 번째 선별 + 비교 (P2-3b, 감사 전용).
 
@@ -610,6 +611,7 @@ def _run_scoped_selection(
         scopes=scopes,
         legacy_keys=[key_of[id(c)] for c in legacy_selected if id(c) in key_of],
         scoped_keys=[key_of[id(c)] for c in scoped_selected if id(c) in key_of],
+        facts=facts,
     )
 
 
@@ -1626,6 +1628,7 @@ def build_llm_input(
     overview_mode: bool = False,
     process_context=None,
     process_scope_audit: dict | None = None,
+    audit_context=None,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
 
@@ -1643,6 +1646,8 @@ def build_llm_input(
         범위를 산출하기 위해 받는다. P2-3a에서는 산출·감사만 하고 선별은 바꾸지 않는다.
     process_scope_audit: 범위 판정을 담아 갈 dict(호출자 소유). 감사 기록용이며
         비워 두면 계산 결과가 로그에만 남는다.
+    audit_context: `DualRunAuditContext`. 주면 dual-run 결과를 redacted JSONL로
+        적재한다. 질문 원문·프로필은 받지 않으며 식별자는 HMAC으로 치환된다.
     """
     graph_scope = [k for k in [intent.event_key, *intent.event_keys] if k is not None]
     # 다중 도메인 질문(예: '이직, 이사')은 secondary 도메인의 대표 이벤트도 후보 범위에 포함한다
@@ -1719,15 +1724,25 @@ def build_llm_input(
     # 사용자에게는 위 legacy `selected`만 나간다. 두 실행이 같은 후보 객체에서
     # 출발하고 선별기가 순수 함수라, scoped 실행이 legacy 결과를 오염시키지 않는다.
     if _scopes and period_v2_config.EVENT_PROCESS_DUAL_RUN_ENABLED:
-        _dual = _run_scoped_selection(
-            candidates, _keys, _scopes, selected,
-            graph_scope=graph_scope or [b.event_key for b in bundles],
-            period_start=period_start, period_end=period_end,
-            month_bounds=month_bounds, overview_mode=overview_mode,
-        )
-        if process_scope_audit is not None:
-            process_scope_audit["__dual_run__"] = _dual
-        _process_log.info("process_dual_run %s", _dual.summary())
+        try:
+            _dual = _run_scoped_selection(
+                candidates, _keys, _scopes, selected,
+                graph_scope=graph_scope or [b.event_key for b in bundles],
+                period_start=period_start, period_end=period_end,
+                month_bounds=month_bounds, overview_mode=overview_mode,
+                facts=process_context.usable() if process_context else None,
+            )
+            if process_scope_audit is not None:
+                process_scope_audit["__dual_run__"] = _dual
+            _process_log.info("process_dual_run %s", _dual.summary())
+            if audit_context is not None:
+                from .process_dual_run_audit import append_audit
+
+                append_audit(_dual, audit_context)
+        except Exception:  # noqa: BLE001 — 감사 실패가 사용자 응답을 깨지 않는다
+            # dual-run 계산 실패·비교 실패·기록 실패 모두 legacy 반환으로 흡수한다.
+            # 후보 scope·SOURCE_UNAVAILABLE 판정은 이 실패의 영향을 받지 않는다.
+            _process_log.exception("process_dual_run_failed")
 
     dw_by_year = _daewoon_lookup(result)
     ganji = _ganji_lookup(result)

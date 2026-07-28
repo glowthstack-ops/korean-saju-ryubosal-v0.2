@@ -4019,6 +4019,12 @@ def chat(
         # P2-3a — 축소 전에 후보 범위를 산출한다. 플래그 OFF 동안 선별·출력 불변.
         process_context=_process_context,
         process_scope_audit=_process_scope_audit,
+        # P2-3b — dual-run 결과를 redacted JSONL로 적재한다(질문 원문 미저장).
+        audit_context=_dual_run_audit_context(
+            thread_id=thread_id, subject_id=subject_id, question=question,
+            turn=(state.turn_no if state else None), intent=intent,
+            prepared=_career_turn,
+        ),
     )
     call_type = "chat_compare" if plan.per_subject else "chat_single"
 
@@ -4723,6 +4729,48 @@ def _career_shadow_repository():
 
         _CAREER_SHADOW_REPO = build_career_shadow_repository()
     return _CAREER_SHADOW_REPO
+
+
+def _dual_run_audit_context(
+    *, thread_id, subject_id, question, turn, intent, prepared
+):
+    """dual-run 감사 맥락 — **질문 원문·프로필을 담지 않는다**(P2-3b).
+
+    `request_id`는 thread 식별자를 그대로 쓰지 않고 HMAC으로 치환한 뒤 턴 번호와
+    발화 해시를 붙여 만든다. 같은 요청이 재시도돼도 같은 값이라 집계에서 중복 제거된다.
+
+    Args:
+        thread_id: 서버가 확정한 thread.
+        subject_id: 서버가 확정한 주체.
+        question: 이번 턴 발화 — **해시로만 쓰고 저장하지 않는다.**
+        turn: 턴 번호.
+        intent: 파싱된 intent.
+        prepared: `PreparedCareerTurn`(저장소 4상태 출처).
+
+    Returns:
+        `DualRunAuditContext` 또는 실패 시 None(감사만 건너뛴다).
+    """
+    try:
+        from saju_engines.process_dual_run_audit import (
+            DualRunAuditContext,
+            pseudonymize,
+        )
+
+        return DualRunAuditContext(
+            request_id=(
+                f"{pseudonymize(thread_id, prefix='thr')}:{turn or 0}"
+                f":{_stable_turn_id(question)}"
+            ),
+            surface="chat",
+            intent=str(intent.event_key or intent.domain or ""),
+            subject_id=subject_id,
+            process_source_status=(
+                prepared.source_status.value if prepared is not None else ""
+            ),
+        )
+    except Exception:  # pragma: no cover - 감사 맥락 실패가 응답을 막지 않는다
+        _logger.exception("dual_run_audit_context_failed")
+        return None
 
 
 def _build_request_process_context(question, *, thread_id, subject_id, turn=None):

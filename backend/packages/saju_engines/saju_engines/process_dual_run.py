@@ -77,6 +77,7 @@ class DualRunAudit:
     retained_entry_trigger_count: int = 0
     #: 측정 상태별 건수 — `0건`과 `측정 불가`의 분리축.
     entry_scope_unavailable_count: int = 0
+    entry_scope_mismatch_count: int = 0
     incomplete_fact_coverage_count: int = 0
     major_candidates_gated_out: bool = False
     scoped_empty: bool = False
@@ -147,6 +148,36 @@ def _classify(
     return DualRunComparisonResult.UNEXPECTED_BYPASS_CHANGE
 
 
+def _measurement_counts(
+    scopes: dict[str, CandidateProcessScope], facts: list | None
+) -> tuple[int, int]:
+    """진행 사실의 측정 상태 집계 — 후보가 아니라 **사실** 기준이다.
+
+    후보 수로 세면 같은 사실이 후보 개수만큼 중복 계상된다.
+
+    Args:
+        scopes: 후보별 범위 판정(미사용 — 시그니처 대칭을 위해 받는다).
+        facts: 요청 스코프의 사용 가능한 진행 사실.
+
+    Returns:
+        `(entry_scope_mismatch_count, incomplete_fact_coverage_count)`.
+    """
+    mismatch = 0
+    incomplete = 0
+    for fact in facts or ():
+        status = measurement_status_for(getattr(fact, "entry_scope", None))
+        if status is ProcessMeasurementStatus.INCOMPLETE_FACT_COVERAGE:
+            incomplete += 1
+    # scope가 있는데 어떤 후보와도 호환되지 않은 사실 = 명시적 불일치.
+    opened = {
+        m.process_fact_id for s in scopes.values() for m in s.matches
+    }
+    for fact in facts or ():
+        if getattr(fact, "entry_scope", None) and fact.fact_id not in opened:
+            mismatch += 1
+    return mismatch, incomplete
+
+
 def compare_candidate_selections(
     *,
     keys: list[str],
@@ -154,6 +185,7 @@ def compare_candidate_selections(
     scopes: dict[str, CandidateProcessScope],
     legacy_keys: list[str],
     scoped_keys: list[str],
+    facts: list | None = None,
 ) -> DualRunAudit:
     """legacy·scoped 선택을 후보 ID 기준으로 비교한다.
 
@@ -163,6 +195,7 @@ def compare_candidate_selections(
         scopes: `candidate_audit_key` → 범위 판정.
         legacy_keys: legacy 선택 결과의 ID(순위 순).
         scoped_keys: scoped 선택 결과의 ID(순위 순).
+        facts: 요청 스코프 진행 사실 — 측정 상태 집계에만 쓴다.
 
     Returns:
         후보별·요청별 비교 결과.
@@ -244,6 +277,7 @@ def compare_candidate_selections(
 
     flips = set(legacy_rank) ^ set(scoped_rank)
     excluded = counts.get("excluded_local_count", 0)
+    mismatch, incomplete = _measurement_counts(scopes, facts)
     return DualRunAudit(
         legacy_top_n_count=len(legacy_keys),
         scoped_top_n_count=len(scoped_keys),
@@ -266,6 +300,8 @@ def compare_candidate_selections(
         retained_exit_trigger_count=counts.get("retained_exit_trigger_count", 0),
         retained_entry_trigger_count=counts.get("retained_entry_trigger_count", 0),
         entry_scope_unavailable_count=counts.get("entry_scope_unavailable_count", 0),
+        entry_scope_mismatch_count=mismatch,
+        incomplete_fact_coverage_count=incomplete,
         major_candidates_gated_out=excluded > 0 and not scoped_keys,
         scoped_empty=not scoped_keys,
         candidates=tuple(rows),
