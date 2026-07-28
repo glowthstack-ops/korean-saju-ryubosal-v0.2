@@ -538,8 +538,25 @@ def _band(good: _ScoredEvent, caution: _ScoredEvent) -> str:
     return "s2"
 
 
-#: 서사 축 스키마 버전 — 모드·family 선택 seed 성분. 사전 구조가 바뀌면 올린다.
-NARRATIVE_SCHEMA_VERSION = "narrative.v1"
+# ── 선택 계약 네임스페이스 (OA-6d1) ────────────────────────────────────────
+#
+# 선택 seed와 캐시 버전을 분리한다. 예전에는 `CONTENT_VERSION`(= DICT_VERSION 포함)이
+# seed에 들어가 있어서 **문구 오타 하나만 고쳐도 사용자 3.7%의 오늘 사건이 바뀌었다**
+# (실측). 표현을 고칠수록 사건이 흔들리는 구조라 서사 축을 넓힐수록 악화된다.
+#
+#     선택 seed    어떤 동점 후보를 고르는가   ← 선택 계약이 바뀔 때만 변경
+#     캐시 키      현재 사전으로 만든 결과인가  ← DICT_VERSION 유지(무효화용)
+#
+#: 후보 동점 선택 계약. **기존 라이브 결과를 그대로 동결한다** — 값이 과거 콘텐츠
+#: 버전 문자열인 것은 호환을 위한 것이며, 앞으로 DICT_VERSION 이 올라가도 바뀌지 않는다.
+EVENT_SELECTION_CONTRACT = "event-selection.v1-legacy-frozen"
+EVENT_SELECTION_COMPAT_SALT = "engine.v1|dict.v1.9|polish.v1"
+#: 보드 재배정(domain·event cap) 동점 처리 계약.
+BOARD_REBALANCE_VERSION = "board-rebalance.v1"
+#: 서사 모드·family 선택 계약. 라이브 이력이 없어 처음부터 후보별 안정 해시를 쓴다.
+NARRATIVE_SEED_VERSION = "narrative.v1"
+#: 하위 호환 별칭(구 이름).
+NARRATIVE_SCHEMA_VERSION = NARRATIVE_SEED_VERSION
 
 
 def resolve_narrative(
@@ -565,12 +582,22 @@ def resolve_narrative(
     modes = (dicts.catalog["events"].get(event_key) or {}).get("narrative_modes")
     if not modes:
         return "", ""
-    seed = _stable_hash(f"{seed_base}|{event_key}|{NARRATIVE_SCHEMA_VERSION}")
-    chosen = modes[seed % len(modes)]
+
+    def rank(*parts: str) -> int:
+        """후보별 안정 해시 — 배열 순서가 아니라 **후보 정체성**으로 정한다.
+
+        인덱스(`seed % len`)로 고르면 JSON 배열 순서만 바뀌거나 무관한 family 하나가
+        추가돼도 기존 배정이 통째로 재편된다.
+        """
+        return _stable_hash("|".join((seed_base, event_key, *parts, NARRATIVE_SEED_VERSION)))
+
+    chosen = min(modes, key=lambda m: (rank(str(m["mode"])), str(m["mode"])))
+    mode = str(chosen["mode"])
     families = list(chosen.get("template_families") or ())
     if not families:
-        return str(chosen.get("mode", "")), ""
-    return str(chosen["mode"]), families[(seed // 13) % len(families)]
+        return mode, ""
+    family = min(families, key=lambda f: (rank(mode, str(f)), str(f)))
+    return mode, str(family)
 
 
 def _headline(
@@ -786,7 +813,8 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
     order: list[str] = []
     for row in per_ilju:
         ilju = row["ilju"]
-        seed_base = f"{d.isoformat()}|{ilju}|{CONTENT_VERSION}"
+        # 선택 seed 는 콘텐츠 버전과 분리한다(OA-6d1) — 문구 수정이 사건을 흔들지 않게.
+        seed_base = f"{d.isoformat()}|{ilju}|{EVENT_SELECTION_COMPAT_SALT}"
         good, caution, support = _select_slots(row["scored"], seed_base)
         band = _band(good, caution)
         slot_rows[ilju] = (good, caution, support, band)
@@ -803,7 +831,8 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
     place_counts: dict[str, int] = {}
     for row in per_ilju:
         ilju = row["ilju"]
-        seed_base = f"{d.isoformat()}|{ilju}|{CONTENT_VERSION}"
+        # 선택 seed 는 콘텐츠 버전과 분리한다(OA-6d1) — 문구 수정이 사건을 흔들지 않게.
+        seed_base = f"{d.isoformat()}|{ilju}|{EVENT_SELECTION_COMPAT_SALT}"
         good, caution, support, band = slot_rows[ilju]
         raw_event = candidates[ilju][0]
         headline_event = headline_pick[ilju]

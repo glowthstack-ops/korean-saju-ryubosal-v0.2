@@ -1,0 +1,30 @@
+{
+  "audit_id": "OA-8a",
+  "commit": "804f6c6",
+  "dict_version": "dict.v1.10",
+  "event_selection_contract": "event-selection.v1-legacy-frozen",
+  "narrative_seed_version": "narrative.v1",
+  "pilot_event_keys": [
+    "argument_caution",
+    "good_news_arrives",
+    "love_spark",
+    "money_small_gain",
+    "praise_recognition",
+    "rest_recharge",
+    "teamwork_flow",
+    "tidy_luck"
+  ],
+  "narrative_modes": 24,
+  "template_families": 72,
+  "copy_lines": 441,
+  "source_digest": {
+    "daily_event_catalog.json": "d03b55ae45c4192e91bbc05e2fe89a2fffe97c356227d46bf6e0bd7f0bf47cfd",
+    "daily_phrase_templates.json": "1d86978ed1c82a8e6fa3c0396eb8e5c76fb8e97b372d5d08c04c50981577f2d3",
+    "daily_lucky_places.json": "8feaf0169951d4a1cb799b1fdde35edf529eb6877a1baf660ceb27d4b3eef5f1"
+  },
+  "sensitive_copy_review": {
+    "argument_caution": "sample_reviewed",
+    "love_spark": "sample_reviewed"
+  },
+  "note": "문장 원문은 사전이 SSOT이므로 복제하지 않는다. 시드 스크립트는 감수 전 초안으로 되돌릴 위험이 있어 커밋하지 않는다."
+}
