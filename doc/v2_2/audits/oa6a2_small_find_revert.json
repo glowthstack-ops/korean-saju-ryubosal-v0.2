@@ -1,0 +1,46 @@
+{
+  "audit_id": "OA-6a2",
+  "change": "small_find_headline_revert",
+  "generated_from_commit": "c17f6ce",
+  "effective_from": "2026-07-30",
+  "dict_version_before": "dict.v1.10",
+  "dict_version_after": "dict.v1.11",
+  "event_selection_compat_salt": "engine.v1|dict.v1.9|polish.v1 (동결 — 변경 없음)",
+  "window": {
+    "days": 30,
+    "cards": 1800
+  },
+  "event_key_changes_30d": 2,
+  "raw_winner_changes": 0,
+  "domain_cap_unresolved": 0,
+  "small_find_headlines_after": 0,
+  "headline_event_keys": {
+    "before": 23,
+    "after": 22
+  },
+  "changed_cards": [
+    {
+      "date": "2026-07-04",
+      "ilju": "乙酉",
+      "before": "small_find(58p)",
+      "after": "money_small_gain(60p)",
+      "cause": "small_find 헤드라인 자격 제거"
+    },
+    {
+      "date": "2026-07-04",
+      "ilju": "癸巳",
+      "before": "money_good_deal(66p)",
+      "after": "love_spark(64p)",
+      "cause": "같은 날 money 도메인 증가에 따른 domain cap 연쇄"
+    }
+  ],
+  "sink_check": {
+    "rest_recharge": "raw 24 / cap 4 — 변동 없음",
+    "tidy_luck": "raw 10 / cap 12 — 변동 없음",
+    "walk_refresh": "raw 2 / cap 1 — 변동 없음",
+    "verdict": "다른 support 사건이 대체처를 흡수하지 않음"
+  },
+  "narrative_families_preserved": "해당 없음 — small_find 는 OA-8a 파일럿 8종에 포함되지 않아 family 가 없었다",
+  "live_activation": "kst_date_boundary",
+  "rollback": "SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM 를 미래로 미루면 이전 계약 복귀"
+}

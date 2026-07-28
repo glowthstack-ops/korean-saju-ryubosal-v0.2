@@ -45,13 +45,23 @@ def _selection(board):
 
 
 def test_content_version_is_not_in_selection_seed(dicts, monkeypatch) -> None:
-    """`DICT_VERSION` 문자열만 올려도 사건 선택이 그대로여야 한다."""
+    """콘텐츠 버전이 바뀌어도 사건 선택이 그대로여야 한다.
+
+    엔진은 이제 `CONTENT_VERSION` 을 import 조차 하지 않는다 — 보드에 찍는 값은
+    `content_version_for(날짜)` 이며 선택 seed 와 무관하다.
+    """
+    import saju_shared_types.daily_fortune as V
+
     before = [_selection(b) for b in _boards(dicts, 3)]
 
-    monkeypatch.setattr(M, "CONTENT_VERSION", "engine.v9|dict.v9.9|polish.v9")
+    monkeypatch.setattr(
+        M, "content_version_for", lambda _d: "engine.v9|dict.v9.9|polish.v9"
+    )
     after = [_selection(b) for b in _boards(dicts, 3)]
 
     assert before == after, "콘텐츠 버전이 아직 선택 seed에 남아 있다"
+    assert "CONTENT_VERSION" not in M.EVENT_SELECTION_COMPAT_SALT
+    assert V.DICT_VERSION not in M.EVENT_SELECTION_COMPAT_SALT
 
 
 def test_selection_contract_constants_exist() -> None:

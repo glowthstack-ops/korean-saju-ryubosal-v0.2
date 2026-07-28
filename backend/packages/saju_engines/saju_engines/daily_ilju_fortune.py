@@ -42,13 +42,13 @@ from saju_shared_types.constants import (
     ten_god,
 )
 from saju_shared_types.daily_fortune import (
-    CONTENT_VERSION,
     DailyEventForecast,
     DailyFortuneBoard,
     DailyIljuFortune,
     DailyTop5,
     DayGanjiContext,
     LuckyPlace,
+    content_version_for,
 )
 from saju_shared_types.enums import Branch, Stem
 
@@ -132,6 +132,32 @@ def load_daily_dicts(dictionaries_dir: str | None = None) -> DailyFortuneDicts:
         catalog=_read("daily_event_catalog.json"),
         templates=_read("daily_phrase_templates.json"),
         places=_read("daily_lucky_places.json"),
+    )
+
+
+@lru_cache(maxsize=4)
+def load_daily_dicts_for(target_date: date) -> DailyFortuneDicts:
+    """그 날짜의 계약에 맞는 사전을 로드한다 (OA-6a2 날짜 경계 활성화).
+
+    같은 날 결과 불변성을 지키기 위해 **날짜가 계약을 고른다** — 재기동이나 캐시
+    유실이 있어도 과거 날짜는 과거 계약으로 재생된다.
+
+    Args:
+        target_date: 운세 대상 날짜(KST).
+
+    Returns:
+        해당 계약의 사전 묶음. 스냅샷이 없으면 현재 사전으로 폴백한다.
+    """
+    from saju_shared_types.daily_fortune import active_dict_version
+
+    from .daily_fortune_snapshot import load_snapshot
+
+    snapshot = load_snapshot(active_dict_version(target_date))
+    if snapshot is None:
+        return load_daily_dicts()
+    return DailyFortuneDicts(
+        catalog=snapshot["catalog"], templates=snapshot["templates"],
+        places=snapshot["places"],
     )
 
 
@@ -1064,7 +1090,9 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
         fortune_date=d,
         weekday=d.weekday(),
         weekday_ko=_WEEKDAY_KO[d.weekday()],
-        content_version=CONTENT_VERSION,
+        # 보드가 실제로 쓴 계약을 찍는다 — 전역 상수를 찍으면 과거 날짜 보드가
+        # 새 계약으로 만들어진 것처럼 보인다(OA-6a2).
+        content_version=content_version_for(d),
         polish_status="RAW",
         top5=top5,
         fortunes=fortunes,

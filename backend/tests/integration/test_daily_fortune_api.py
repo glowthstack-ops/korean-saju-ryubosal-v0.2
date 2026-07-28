@@ -16,9 +16,11 @@ from saju_api.deps import get_daily_fortune_cache
 from saju_api.main import app
 from saju_api.services import daily_fortune_service
 from saju_engines.daily_fortune_cache import InMemoryDailyFortuneCache
-from saju_shared_types.daily_fortune import CONTENT_VERSION
+from saju_shared_types.daily_fortune import content_version_for
 
 _D = date(2026, 7, 23)
+#: 캐시 키는 **그 날짜의 계약**을 따른다(OA-6a2 날짜 경계 활성화).
+_V = content_version_for(_D)
 
 
 @pytest.fixture()
@@ -39,13 +41,13 @@ def client(cache):
 
 
 def test_lazy_generation_and_cache_hit(cache) -> None:
-    assert cache.load_board(_D, CONTENT_VERSION) is None
+    assert cache.load_board(_D, _V) is None
     board = daily_fortune_service.get_board(cache, _D)
     assert len(board.fortunes) == 60
     # 2회차는 캐시 히트 — 동일 객체 내용
     again = daily_fortune_service.get_board(cache, _D)
     assert again.model_dump() == board.model_dump()
-    assert cache.load_board(_D, CONTENT_VERSION) is not None
+    assert cache.load_board(_D, _V) is not None
 
 
 def test_concurrent_requests_generate_once(cache) -> None:
@@ -68,8 +70,8 @@ def test_concurrent_requests_generate_once(cache) -> None:
 def test_content_version_change_generates_new_board(cache) -> None:
     board = daily_fortune_service.get_board(cache, _D)
     assert cache.load_board(_D, "other.version") is None  # 버전별 독립 키
-    assert cache.load_board(_D, CONTENT_VERSION) is not None
-    assert board.content_version == CONTENT_VERSION
+    assert cache.load_board(_D, _V) is not None
+    assert board.content_version == _V
 
 
 def test_single_lookup_normalization(cache) -> None:
@@ -86,13 +88,13 @@ def test_ttl_positive(cache) -> None:
 
 
 def test_lock_owner_token_semantics(cache) -> None:
-    token = cache.acquire_lock("generate", _D, CONTENT_VERSION, 30)
+    token = cache.acquire_lock("generate", _D, _V, 30)
     assert token is not None
-    assert cache.acquire_lock("generate", _D, CONTENT_VERSION, 30) is None
-    cache.release_lock("generate", _D, CONTENT_VERSION, "타인토큰")  # 무시되어야 함
-    assert cache.acquire_lock("generate", _D, CONTENT_VERSION, 30) is None
-    cache.release_lock("generate", _D, CONTENT_VERSION, token)
-    assert cache.acquire_lock("generate", _D, CONTENT_VERSION, 30) is not None
+    assert cache.acquire_lock("generate", _D, _V, 30) is None
+    cache.release_lock("generate", _D, _V, "타인토큰")  # 무시되어야 함
+    assert cache.acquire_lock("generate", _D, _V, 30) is None
+    cache.release_lock("generate", _D, _V, token)
+    assert cache.acquire_lock("generate", _D, _V, 30) is not None
 
 
 # ── API 계층 ────────────────────────────────────────────────────────────

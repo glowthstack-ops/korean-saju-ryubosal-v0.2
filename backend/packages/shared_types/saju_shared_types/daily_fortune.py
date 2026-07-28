@@ -21,7 +21,7 @@ ENGINE_VERSION = "engine.v1"
 # v1.7: 사전 3종 검수 상태(reviewed·review_note) 명시 + 컴파일 스냅샷 파이프라인 도입
 # v1.6: 연애 Top5가 good 오늘의연애 신호 일주 우선 정렬(love_line과 정합, beta·감수 대상)
 # v1.5: love_line 강한 신호 게이트(sg≥3)·reunion 문구 여운 중심 수정
-DICT_VERSION = "dict.v1.10"
+DICT_VERSION = "dict.v1.11"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -29,6 +29,35 @@ NARRATIVE_ROTATION_VERSION = "narrative-rotation.v1"
 CONTENT_VERSION = (
     f"{ENGINE_VERSION}|{DICT_VERSION}|{PROMPT_VERSION}|{NARRATIVE_ROTATION_VERSION}"
 )
+
+#: `small_find` 헤드라인 자격 철회(OA-6a2) 활성화 기준일 — KST 날짜 경계.
+#: 일부 사용자의 **event_key 가 바뀌므로** 같은 날 결과 불변성을 지키려면 날짜로 계약을
+#: 고른다. 재기동·캐시 유실이 있어도 7/29 는 이전 계약, 7/30 부터 새 계약으로 재생된다.
+SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM = date(2026, 7, 30)
+#: 활성화 이전 계약(스냅샷이 함께 커밋돼 있어야 재현 가능하다).
+PREVIOUS_DICT_VERSION = "dict.v1.10"
+
+
+def active_dict_version(target_date: date) -> str:
+    """그 날짜에 적용할 사전 버전.
+
+    Args:
+        target_date: 운세 대상 날짜(KST 기준).
+
+    Returns:
+        기준일 이전이면 이전 버전, 이후면 현재 `DICT_VERSION`.
+    """
+    if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
+        return PREVIOUS_DICT_VERSION
+    return DICT_VERSION
+
+
+def content_version_for(target_date: date) -> str:
+    """그 날짜의 캐시 namespace — 계약이 다르면 키도 달라야 한다."""
+    return (
+        f"{ENGINE_VERSION}|{active_dict_version(target_date)}"
+        f"|{PROMPT_VERSION}|{NARRATIVE_ROTATION_VERSION}"
+    )
 
 #: 사건 영역 — daily_event_catalog.json 의 domain 과 1:1
 DailyDomain = Literal[

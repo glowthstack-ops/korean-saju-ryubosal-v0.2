@@ -1070,8 +1070,9 @@
         "水": 0.1
       },
       "headline_slots": [
-        "good"
-      ]
+        "support"
+      ],
+      "headline_revert_note": "OA-6a2 — 90일 5,400카드에서 원시 1위 0회·2~3위 0회·base 42(최저)로 비경쟁 filler임이 확인돼 support 전용으로 복귀. narrative family 는 삭제하지 않고 비활성 보존한다 (점수 계약 변경이나 생활형 헤드라인 계층 신설 시 재사용)."
     },
     "rest_recharge": {
       "label": "쉬어가면 좋은 날일 확률",

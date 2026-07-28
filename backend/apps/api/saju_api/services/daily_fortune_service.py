@@ -16,13 +16,13 @@ from saju_engines.daily_fortune_cache import DailyFortuneCache
 from saju_engines.daily_ilju_fortune import (
     build_day_context,
     compute_board,
-    load_daily_dicts,
+    load_daily_dicts_for,
 )
 from saju_shared_types.constants import BRANCH_KO, STEM_KO
 from saju_shared_types.daily_fortune import (
-    CONTENT_VERSION,
     DailyFortuneBoard,
     DailyFortuneSingle,
+    content_version_for,
 )
 
 from .daily_fortune_export import write_threads_export
@@ -66,8 +66,11 @@ def normalize_ilju(raw: str) -> str | None:
 
 
 def _generate(d: date) -> DailyFortuneBoard:
-    """엔진으로 하루치 보드를 생성한다(결정론 — 경합 중복 생성도 동일 결과)."""
-    return compute_board(build_day_context(d), load_daily_dicts())
+    """엔진으로 하루치 보드를 생성한다(결정론 — 경합 중복 생성도 동일 결과).
+
+    사전은 **날짜가 고른다**(OA-6a2) — 과거 날짜는 과거 계약으로 재생돼야 한다.
+    """
+    return compute_board(build_day_context(d), load_daily_dicts_for(d))
 
 
 def get_board(
@@ -79,29 +82,30 @@ def get_board(
     동시 SET 이 일어나도 값은 동일 — 무해).
     """
     d = today or kst_today()
-    board = cache.load_board(d, CONTENT_VERSION)
+    version = content_version_for(d)
+    board = cache.load_board(d, version)
     if board is not None:
         return board
 
-    token = cache.acquire_lock("generate", d, CONTENT_VERSION, _GENERATE_LOCK_TTL)
+    token = cache.acquire_lock("generate", d, version, _GENERATE_LOCK_TTL)
     if token is not None:
         try:
-            board = cache.load_board(d, CONTENT_VERSION)  # 이중 확인
+            board = cache.load_board(d, version)  # 이중 확인
             if board is None:
                 board = _generate(d)
-                cache.save_board(d, CONTENT_VERSION, board, board_ttl_seconds(d))
+                cache.save_board(d, version, board, board_ttl_seconds(d))
                 write_threads_export(board)  # 스레드 업로드용 텍스트 갱신
             return board
         finally:
-            cache.release_lock("generate", d, CONTENT_VERSION, token)
+            cache.release_lock("generate", d, version, token)
 
     for _ in range(_LOCK_WAIT_RETRIES):  # 락 소유자 완료 대기
         time.sleep(_LOCK_WAIT_INTERVAL)
-        board = cache.load_board(d, CONTENT_VERSION)
+        board = cache.load_board(d, version)
         if board is not None:
             return board
     board = _generate(d)
-    cache.save_board(d, CONTENT_VERSION, board, board_ttl_seconds(d))
+    cache.save_board(d, version, board, board_ttl_seconds(d))
     write_threads_export(board)  # 스레드 업로드용 텍스트 갱신
     return board
 
