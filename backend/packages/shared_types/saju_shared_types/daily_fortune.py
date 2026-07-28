@@ -23,7 +23,12 @@ ENGINE_VERSION = "engine.v1"
 # v1.5: love_line 강한 신호 게이트(sg≥3)·reunion 문구 여운 중심 수정
 DICT_VERSION = "dict.v1.10"
 PROMPT_VERSION = "polish.v1"
-CONTENT_VERSION = f"{ENGINE_VERSION}|{DICT_VERSION}|{PROMPT_VERSION}"
+#: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
+#: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
+NARRATIVE_ROTATION_VERSION = "narrative-rotation.v1"
+CONTENT_VERSION = (
+    f"{ENGINE_VERSION}|{DICT_VERSION}|{PROMPT_VERSION}|{NARRATIVE_ROTATION_VERSION}"
+)
 
 #: 사건 영역 — daily_event_catalog.json 의 domain 과 1:1
 DailyDomain = Literal[

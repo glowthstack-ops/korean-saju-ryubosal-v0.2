@@ -640,49 +640,109 @@ BOARD_REBALANCE_VERSION = "board-rebalance.v1-domain-only"
 BOARD_REBALANCE_SHADOW_VERSION = "board-rebalance.v2-domain-event-cap"
 #: 서사 모드·family 선택 계약. 라이브 이력이 없어 처음부터 후보별 안정 해시를 쓴다.
 NARRATIVE_SEED_VERSION = "narrative.v1"
+#: 서사 회전 계약 (OA-8b) — 캐시 키와 같은 출처를 쓴다.
+from saju_shared_types.daily_fortune import (  # noqa: E402
+    NARRATIVE_ROTATION_VERSION,
+)
+
+#: 7일 회피를 날짜 서수만으로 보장하려면 후보가 8개 이상이어야 한다.
+_ROTATION_MIN_RING = 8
 #: 하위 호환 별칭(구 이름).
 NARRATIVE_SCHEMA_VERSION = NARRATIVE_SEED_VERSION
 
 
+def narrative_cycle(
+    dicts: DailyFortuneDicts, event_key: str
+) -> list[tuple[str, str]]:
+    """사건의 `(mode, family)` 후보를 **안정 순서**로 편다 (OA-8b 회전 축).
+
+    같은 mode의 family들이 인접하도록 mode → family 순으로 정렬한다. 회전이 한 칸씩
+    움직이면 먼저 같은 mode 안에서 family가 바뀌고, 그 mode를 소진한 뒤 다음 mode로
+    넘어간다 — "family 우선, mode 나중"이라는 계약이 순서 자체로 표현된다.
+
+    정렬은 배열 순서가 아니라 정체성 해시로 한다(JSON 정렬 변경에 흔들리지 않게).
+    """
+    modes = (dicts.catalog["events"].get(event_key) or {}).get("narrative_modes")
+    if not modes:
+        return []
+
+    def h(*parts: str) -> int:
+        return _stable_hash("|".join((event_key, *parts, NARRATIVE_SEED_VERSION)))
+
+    out: list[tuple[str, str]] = []
+    for m in sorted(modes, key=lambda m: (h(str(m["mode"])), str(m["mode"]))):
+        mode = str(m["mode"])
+        fams = sorted(
+            (str(f) for f in (m.get("template_families") or ())),
+            key=lambda f: (h(mode, f), f),
+        )
+        out.extend((mode, f) for f in fams) if fams else out.append((mode, ""))
+    return out
+
+
 def resolve_narrative(
-    dicts: DailyFortuneDicts, event_key: str, seed_base: str
+    dicts: DailyFortuneDicts, event_key: str, seed_base: str,
+    day_ordinal: int | None = None, rotation_key: str = "",
+    expression_scope: str = "general",
 ) -> tuple[str, str]:
-    """이 카드가 쓸 서사 모드와 템플릿 family를 결정론적으로 고른다 (OA-8a).
+    """이 카드가 쓸 서사 모드와 템플릿 family를 결정론적으로 고른다 (OA-8a·8b).
 
     같은 사건이라도 "무엇이 일어나는가"만 반복하지 않고 **어떤 서사 기능으로 말할지**를
-    돌린다 — 실측에서 사건을 늘려도 문장 재사용률이 80%에서 거의 내려가지 않았고,
-    원인이 사건 수가 아니라 사건당 표현 공간이었기 때문이다.
+    돌린다 — 사건을 늘려도 문장 재사용률이 80%에서 거의 내려가지 않았고, 원인이 사건
+    수가 아니라 사건당 표현 공간이었기 때문이다.
 
-    LLM은 여기에 개입하지 않는다(모드·family 선택은 엔진 소관). 과거 이력도 보지
-    않는다 — 7일 회피는 OA-8b에서 별도로 붙인다.
+    **OA-8b 회전**: `day_ordinal`을 주면 날짜마다 후보를 한 칸씩 밀어 고른다. 같은 일주가
+    같은 사건을 연달아 받아도 family가 달라진다. 과거 이력을 조회하지 않는 이유는 그것이
+    7일치 보드 재계산(약 7배 비용)을 요구하고, 휘발성 불변식(과거 본문 미저장)과도
+    충돌하기 때문이다. 순환은 이력 조회 없이 같은 목적을 달성한다:
+
+        연속 등장  → 다음 칸 → 반드시 다른 family(후보가 2개 이상이면)
+        재등장 주기 → 후보 수만큼 순환 후에야 같은 family 재사용
+
+    출발점은 일주·사건별 안정 해시라 모든 일주가 같은 날 같은 family를 쓰지 않는다.
 
     Args:
         dicts: 사전 묶음.
         event_key: 확정된 사건 키(이 함수가 바꾸지 않는다).
-        seed_base: 날짜·일주·콘텐츠 버전이 섞인 결정론 seed 기반 문자열.
+        seed_base: 날짜·일주·선택 계약이 섞인 결정론 seed 기반 문자열(회전 미사용 시).
+        day_ordinal: 날짜 서수. None이면 회전 없이 OA-8a 방식으로 고른다.
+        rotation_key: **날짜가 들어가지 않는** 회전 출발점(일주). 날짜가 섞이면 출발점이
+            매일 달라져 순환이 무작위 재추첨으로 무너진다.
+        expression_scope: 표현 범위(`general`·`romantic`). 범위별로 순환군을 나눈다.
 
     Returns:
         `(mode, family)`. 서사 축이 없는 사건은 `("", "")` — 기존 평면 템플릿을 쓴다.
     """
-    modes = (dicts.catalog["events"].get(event_key) or {}).get("narrative_modes")
-    if not modes:
+    cycle = narrative_cycle(dicts, event_key)
+    if not cycle:
         return "", ""
+    if day_ordinal is None:
+        offset = _stable_hash(
+            "|".join((seed_base, event_key, NARRATIVE_ROTATION_VERSION))
+        )
+        return cycle[offset % len(cycle)]
+    # 표현 범위별로 순환군을 나눈다 — 일반 관계형 이력이 연애형 선택을 왜곡하면 안 된다.
+    offset = _stable_hash(
+        "|".join(
+            (rotation_key, event_key, expression_scope, NARRATIVE_ROTATION_VERSION)
+        )
+    )
+    return cycle[(day_ordinal + offset) % len(cycle)]
 
-    def rank(*parts: str) -> int:
-        """후보별 안정 해시 — 배열 순서가 아니라 **후보 정체성**으로 정한다.
 
-        인덱스(`seed % len`)로 고르면 JSON 배열 순서만 바뀌거나 무관한 family 하나가
-        추가돼도 기존 배정이 통째로 재편된다.
-        """
-        return _stable_hash("|".join((seed_base, event_key, *parts, NARRATIVE_SEED_VERSION)))
+def rotation_ring_status(dicts: DailyFortuneDicts, event_key: str) -> str:
+    """이 사건이 7일 회피를 날짜 서수만으로 보장할 수 있는가.
 
-    chosen = min(modes, key=lambda m: (rank(str(m["mode"])), str(m["mode"])))
-    mode = str(chosen["mode"])
-    families = list(chosen.get("template_families") or ())
-    if not families:
-        return mode, ""
-    family = min(families, key=lambda f: (rank(mode, str(f)), str(f)))
-    return mode, str(family)
+    후보가 `_ROTATION_MIN_RING` 미만이면 hard guarantee 가 불가능하다 — 숨기지 않고
+    사유를 남긴다(사전에서 family 를 줄이면 여기서 드러난다).
+
+    Returns:
+        보장 가능하면 빈 문자열, 아니면 `insufficient_eligible_families`.
+    """
+    ring = narrative_cycle(dicts, event_key)
+    if not ring:
+        return ""   # 서사 축이 없는 사건은 회전 대상이 아니다
+    return "" if len(ring) >= _ROTATION_MIN_RING else "insufficient_eligible_families"
 
 
 def _headline(
@@ -692,6 +752,8 @@ def _headline(
     seed_base: str,
     salt: int,
     romance_scope: bool = False,
+    rotation_key: str = "",
+    day_ordinal: int | None = None,
 ) -> str:
     """오늘의 한마디 — fragment + action (+ result) 조합, 결정론 seed.
 
@@ -709,7 +771,11 @@ def _headline(
     generic_kind = "caution" if band == "s1" else "good"
     generic = dicts.templates["generic"][generic_kind]
     tpl = dicts.templates["events"].get(event_key) or generic
-    _mode, family = resolve_narrative(dicts, event_key, seed_base)
+    _mode, family = resolve_narrative(
+        dicts, event_key, seed_base,
+        day_ordinal=day_ordinal, rotation_key=rotation_key,
+        expression_scope="romantic" if romance_scope else "general",
+    )
     if family:
         fam = (tpl.get("families") or {}).get(family)
         if fam:
@@ -944,6 +1010,8 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
             headline = _headline(
                 dicts, headline_event.event_key, band, seed_base, salt,
                 romance_scope=romance_scope,
+                # OA-8b 회전 — 날짜 서수로 후보를 한 칸씩 민다(일주가 출발점).
+                rotation_key=ilju, day_ordinal=d.toordinal(),
             )
             if headline not in used_headlines:
                 break
