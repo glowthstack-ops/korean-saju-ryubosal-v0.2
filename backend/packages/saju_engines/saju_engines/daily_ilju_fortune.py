@@ -282,6 +282,10 @@ class _ScoredEvent:
     domain: str
     valence: str
     slots: tuple[str, ...]
+    #: 헤드라인 자격 (OA-6a). `slots`(카드 안 배치 역할)와 **분리**한다 — 두 의미를 한
+    #: 필드가 겸하면 "본문 보조 역할"이 곧 "헤드라인 영구 제외"가 되어, 정리·집중·휴식
+    #: 같은 생활 장면이 구조적으로 노출되지 못한다(실측: 6종 1,800카드 중 헤드라인 0회).
+    headline_slots: tuple[str, ...]
     synonym_group: str | None
     activation: float  # 0..1 (expr_confidence 반영)
     probability: int  # 5..95 (게이트 후처리 반영)
@@ -327,6 +331,8 @@ def _score_event(
         domain=event["domain"],
         valence=event["valence"],
         slots=tuple(event["slots"]),
+        # 미지정 사건은 기존 `slots`로 폴백한다(하위 호환 — 사전 일괄 수정 불필요).
+        headline_slots=tuple(event.get("headline_slots") or event["slots"]),
         synonym_group=event.get("synonym_group"),
         activation=activation,
         probability=p,
@@ -380,6 +386,43 @@ def _select_slots(
         if alt is not None:
             support = alt
     return good, caution, support
+
+
+def _headline_candidates(
+    good: _ScoredEvent, support: _ScoredEvent, caution: _ScoredEvent, band: str
+) -> list[_ScoredEvent]:
+    """이 카드에서 헤드라인이 될 수 있는 사건 — 점수 순.
+
+    카드에 실제로 표시되는 3개 사건 안에서만 고른다. 표시되지 않는 사건을 헤드라인으로
+    쓰면 "본문에 없는 이야기가 제목에 나오는" 불일치가 생긴다.
+
+    `support` 슬롯 사건도 `headline_slots`에 `good`이 있으면 후보다(OA-6a). 슬롯 선발이
+    보조를 가급적 다른 domain에서 뽑으므로, 이 목록은 대개 서로 다른 domain 2개가 된다 —
+    보드 캡의 실질적 대안이 여기서 나온다.
+
+    Args:
+        good: good 슬롯 사건.
+        support: 보조 슬롯 사건.
+        caution: 주의 슬롯 사건.
+        band: 점수 밴드.
+
+    Returns:
+        후보 목록(점수 내림차순). `s1`(최악 밴드)은 기존대로 주의 사건 단독.
+    """
+    if band == "s1":
+        return [caution]   # 위험 우선 — 이번 슬라이스에서 caution 경로는 건드리지 않는다
+    seen: set[str] = set()
+    out: list[_ScoredEvent] = []
+    for cand in (good, support):
+        if cand.valence != "good" or "good" not in cand.headline_slots:
+            continue
+        if cand.event_key in seen:
+            continue
+        seen.add(cand.event_key)
+        out.append(cand)
+    if not out:
+        out = [good]  # 자격 후보가 하나도 없으면 기존 동작 유지
+    return sorted(out, key=lambda s: (-s.probability, s.event_key))
 
 
 def _band(good: _ScoredEvent, caution: _ScoredEvent) -> str:
@@ -583,16 +626,28 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
         ):
             lotto_iljus.add(row["ilju"])
 
-    # 2패스 — 문장 생성 + 당일 중복 감사
+    # 2패스 — 슬롯 선발(전 일주) → 보드 단위 도메인 캡 → 문장 생성
+    # 순서가 중요하다: 60건 후보를 모두 확정한 뒤에 재배정해야 일주 순서 편향이 없다.
+    slot_rows: dict[str, tuple[_ScoredEvent, _ScoredEvent, _ScoredEvent, str]] = {}
+    candidates: dict[str, list[_ScoredEvent]] = {}
+    order: list[str] = []
+    for row in per_ilju:
+        ilju = row["ilju"]
+        seed_base = f"{d.isoformat()}|{ilju}|{CONTENT_VERSION}"
+        good, caution, support = _select_slots(row["scored"], seed_base)
+        band = _band(good, caution)
+        slot_rows[ilju] = (good, caution, support, band)
+        candidates[ilju] = _headline_candidates(good, support, caution, band)
+        order.append(ilju)
+
     fortunes: list[DailyIljuFortune] = []
     used_headlines: set[str] = set()
     place_counts: dict[str, int] = {}
     for row in per_ilju:
         ilju = row["ilju"]
         seed_base = f"{d.isoformat()}|{ilju}|{CONTENT_VERSION}"
-        good, caution, support = _select_slots(row["scored"], seed_base)
-        band = _band(good, caution)
-        headline_event = caution if band == "s1" else good
+        good, caution, support, band = slot_rows[ilju]
+        headline_event = candidates[ilju][0]
 
         headline = ""
         for salt in range(_DUP_RETRY):  # 당일 60건 내 완전 중복 회피

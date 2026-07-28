@@ -5,6 +5,12 @@
   "runtime_status": "ACTIVE",
   "review_status": "PENDING",
   "review_note": "runtime_status=ACTIVE — 점수·등급 산출에 실제로 쓰인다. review_status=PENDING — 명리 감수 미완료(비활성 규칙이 아니다). 구조 검증은 compiled/daily_fortune_{DICT_VERSION}.json 이 보장. 대기 목록: doc/v2_2/DICTIONARY_REVIEW_QUEUE.md",
+  "presentation_policy": {
+    "headline_slots_reviewed": true,
+    "reviewed_at": "2026-07-28",
+    "decision_ref": "docs/17 OA-6a",
+    "note": "support 사건도 헤드라인이 될 수 있다는 **공통 노출 정책**이 승인된 것이다. 개별 사건의 명리 내용이 감수된 것은 아니므로 reviewed 는 false 로 유지한다."
+  },
   "domains": [
     "money",
     "love",
@@ -743,7 +749,10 @@
       },
       "element_affinity": {
         "木": 0.2
-      }
+      },
+      "headline_slots": [
+        "good"
+      ]
     },
     "tidy_luck": {
       "label": "정리하면 일이 풀릴 확률",
@@ -772,7 +781,10 @@
       },
       "element_affinity": {
         "土": 0.2
-      }
+      },
+      "headline_slots": [
+        "good"
+      ]
     },
     "family_talk": {
       "label": "가까운 사람과 대화가 잘 통할 확률",
@@ -802,7 +814,10 @@
       "element_affinity": {
         "土": 0.1,
         "火": 0.1
-      }
+      },
+      "headline_slots": [
+        "good"
+      ]
     },
     "focus_flow": {
       "label": "집중이 잘 될 확률",
@@ -833,7 +848,10 @@
       "element_affinity": {
         "水": 0.1,
         "木": 0.1
-      }
+      },
+      "headline_slots": [
+        "good"
+      ]
     },
     "small_find": {
       "label": "우연한 발견으로 웃을 확률",
@@ -863,7 +881,10 @@
       "element_affinity": {
         "火": 0.1,
         "水": 0.1
-      }
+      },
+      "headline_slots": [
+        "good"
+      ]
     },
     "rest_recharge": {
       "label": "쉬어가면 좋은 날일 확률",
@@ -894,7 +915,10 @@
       "element_affinity": {
         "水": 0.2,
         "土": 0.1
-      }
+      },
+      "headline_slots": [
+        "good"
+      ]
     },
     "travel_schedule_caution": {
       "label": "이동 일정이 어긋날 확률",

@@ -21,7 +21,7 @@ ENGINE_VERSION = "engine.v1"
 # v1.7: 사전 3종 검수 상태(reviewed·review_note) 명시 + 컴파일 스냅샷 파이프라인 도입
 # v1.6: 연애 Top5가 good 오늘의연애 신호 일주 우선 정렬(love_line과 정합, beta·감수 대상)
 # v1.5: love_line 강한 신호 게이트(sg≥3)·reunion 문구 여운 중심 수정
-DICT_VERSION = "dict.v1.8"
+DICT_VERSION = "dict.v1.9"
 PROMPT_VERSION = "polish.v1"
 CONTENT_VERSION = f"{ENGINE_VERSION}|{DICT_VERSION}|{PROMPT_VERSION}"
 
