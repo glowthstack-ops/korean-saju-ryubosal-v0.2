@@ -46,6 +46,8 @@ _NEW_MODULES = (
     "saju_shared_types.career_consumer",
     "saju_engines.career_chat_consumer",
     "saju_engines.career_shadow_repository",
+    # P2-3a — 커리어 타입을 보는 유일한 변환 경계. 이후 계층에는 중립 DTO만 흐른다.
+    "saju_engines.career_process_adapter",
 )
 
 #: census manifest — **분모는 실행 결과가 아니라 독립 고정 manifest에서 나온다.**

@@ -183,3 +183,125 @@ def test_empty_scope_loads_empty_store() -> None:
     loaded = repo.load("t-none", "s-none")
     assert loaded.store == CareerEpisodeStore()
     assert loaded.revision == 0
+
+
+# ── P2-3a: 요청당 1회 조회·1회 파싱 ────────────────────────────────────────
+
+
+class _CountingRepository:
+    """load 횟수를 세는 래퍼 — "1회 조회"를 주장이 아니라 측정으로 확인한다."""
+
+    def __init__(self, inner) -> None:
+        self.inner = inner
+        self.load_calls = 0
+
+    def load(self, thread_id, subject_id):
+        self.load_calls += 1
+        return self.inner.load(thread_id, subject_id)
+
+    def save(self, *args, **kwargs):
+        return self.inner.save(*args, **kwargs)
+
+
+class _FailingRepository:
+    """저장소 장애 — load 가 예외를 던진다(Postgres 구현은 예외를 삼키지 않는다)."""
+
+    def load(self, thread_id, subject_id):
+        raise RuntimeError("db down")
+
+    def save(self, *args, **kwargs):  # pragma: no cover - 호출되면 안 된다
+        raise AssertionError("save 는 호출되지 않아야 한다")
+
+
+def test_prepared_turn_is_not_reloaded() -> None:
+    """준비 결과를 넘기면 `process_career_turn` 이 다시 load 하지 않는다."""
+    from saju_engines.career_state_shadow import prepare_career_turn
+
+    repo = _CountingRepository(InMemoryCareerShadowRepository())
+    _seed_episode(repo.inner, eid="ep-a")
+
+    prepared = prepare_career_turn(
+        repo, thread_id="t1", subject_id="s1", conversation_text="어제 면접 봤어요"
+    )
+    assert repo.load_calls == 1
+
+    process_career_turn(
+        repo, thread_id="t1", subject_id="s1", conversation_text="어제 면접 봤어요",
+        command_id="c-prep", source_fact_id="sf-prep", recorded_at="ts-prep",
+        prepared=prepared,
+    )
+
+    assert repo.load_calls == 1, "요청당 저장소 조회는 1회여야 한다"
+
+
+def test_unprepared_turn_still_works() -> None:
+    """준비 결과 없이 호출하면 기존 동작(자체 load)을 유지한다."""
+    repo = _CountingRepository(InMemoryCareerShadowRepository())
+    _seed_episode(repo.inner, eid="ep-a")
+
+    result = _turn(repo, "어제 면접 봤어요")
+
+    assert repo.load_calls >= 1
+    assert result.persistence_status is PersistenceStatus.SAVED
+
+
+def test_prepare_reports_load_failure_without_raising() -> None:
+    """조회 실패는 예외가 아니라 상태로 전달된다."""
+    from saju_engines.career_state_shadow import prepare_career_turn
+    from saju_shared_types.process_fact import ProcessSourceStatus
+
+    prepared = prepare_career_turn(
+        _FailingRepository(), thread_id="t1", subject_id="s1",
+        conversation_text="어제 면접 봤어요",
+    )
+
+    assert prepared.blocked
+    assert prepared.persistence_status is PersistenceStatus.LOAD_FAILED
+    assert prepared.source_status is ProcessSourceStatus.LOAD_FAILED
+    assert prepared.store == CareerEpisodeStore()
+
+
+def test_prepare_distinguishes_empty_from_failure() -> None:
+    """빈 저장소는 실패가 아니다 — 커리어는 '없음'을 확정할 수 있다."""
+    from saju_engines.career_state_shadow import prepare_career_turn
+    from saju_shared_types.process_fact import ProcessSourceStatus
+
+    prepared = prepare_career_turn(
+        InMemoryCareerShadowRepository(), thread_id="t1", subject_id="s1",
+        conversation_text="이직운 어때요",
+    )
+
+    assert not prepared.blocked
+    assert prepared.source_status is ProcessSourceStatus.LOADED_EMPTY
+
+
+def test_prepare_reports_facts_present() -> None:
+    from saju_engines.career_state_shadow import prepare_career_turn
+    from saju_shared_types.process_fact import ProcessSourceStatus
+
+    repo = InMemoryCareerShadowRepository()
+    _seed_episode(repo, eid="ep-a")
+
+    prepared = prepare_career_turn(
+        repo, thread_id="t1", subject_id="s1", conversation_text="이직운 어때요"
+    )
+
+    assert prepared.source_status is ProcessSourceStatus.LOADED_WITH_FACTS
+
+
+def test_blocked_prepare_suppresses_exposure() -> None:
+    """차단된 준비 결과로 turn 을 돌리면 노출이 억제되고 save 도 없다."""
+    from saju_engines.career_state_shadow import prepare_career_turn
+
+    repo = _FailingRepository()
+    prepared = prepare_career_turn(
+        repo, thread_id="t1", subject_id="s1", conversation_text="어제 면접 봤어요"
+    )
+
+    result = process_career_turn(
+        repo, thread_id="t1", subject_id="s1", conversation_text="어제 면접 봤어요",
+        command_id="c-x", source_fact_id="sf-x", recorded_at="ts-x", prepared=prepared,
+    )
+
+    assert result.suppress_exposure
+    assert result.persistence_status is PersistenceStatus.LOAD_FAILED

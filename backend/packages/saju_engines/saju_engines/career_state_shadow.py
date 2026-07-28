@@ -31,10 +31,12 @@ from saju_shared_types.career_transition import (
     FactSourceRef,
     TrackLifecycleStatus,
 )
+from saju_shared_types.process_fact import ProcessSourceStatus
 
 from .career_fact_parser import CareerParsedFact, parse_career_fact
 from .career_shadow_metrics import observe_career_transition
 from .career_shadow_observation import ObservationContext, ShadowObservation
+from .career_shadow_repository import LoadedShadowState
 from .career_transition_reducer import reduce_career_command
 
 #: shadow 전용 namespace — production 사실 원장과 섞이지 않는다.
@@ -78,13 +80,18 @@ def run_career_state_shadow(
     target_episode_id: str | None = None,
     occurred_at: str | None = None,
     context: ObservationContext = ObservationContext.SHADOW_TRAFFIC,
+    parsed: CareerParsedFact | None = None,
 ) -> CareerShadowRunResult:
     """대화 발화 1건을 shadow 상태 머신에 흘린다(순수 함수).
 
     전이 자격이 없으면 reducer를 호출하지 않고 `skip_reason`만 남긴다 — 추측·전망이
     권위 경로에 닿지 않게 하기 위함(INV-18).
+
+    Args:
+        parsed: 요청 스코프에서 이미 파싱한 결과. 같은 문장을 두 번 파싱하면 P2가 본
+            사실과 저장되는 사실이 갈릴 수 있어 재사용한다(P2-3a).
     """
-    parsed = parse_career_fact(conversation_text)
+    parsed = parsed if parsed is not None else parse_career_fact(conversation_text)
     if not parsed.is_transition_eligible:
         return CareerShadowRunResult(parsed=parsed, skip_reason="not_transition_eligible")
 
@@ -150,6 +157,83 @@ class CareerTurnShadowResult(BaseModel):
         return not self.suppress_exposure
 
 
+class PreparedCareerTurn(BaseModel):
+    """요청 스코프 준비 결과 — **저장소 조회 1회 · 발화 파싱 1회**의 산출물(P2-3a).
+
+    P2 게이트와 후반 커리어 지시문 블록이 **같은 준비 결과를 공유**한다. 각자 load 하면
+    한 요청 안에서 서로 다른 Episode 상태를 보게 되고, 각자 parse 하면 같은 문장에서
+    서로 다른 사실을 얻는다 — 둘 다 같은 답변 안에 모순을 만든다.
+
+    `blocked`가 True면 소비 자격이 없다(저장소 장애·계약 불일치·scope 미확정).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    loaded: LoadedShadowState = LoadedShadowState(store=CareerEpisodeStore())
+    parsed: CareerParsedFact | None = None
+    persistence_status: PersistenceStatus = PersistenceStatus.NOT_ATTEMPTED
+    telemetry: tuple[str, ...] = ()
+    blocked: bool = False
+
+    @property
+    def store(self) -> CareerEpisodeStore:
+        """pre-turn store — 이번 turn 의 사실은 아직 반영되지 않았다."""
+        return self.loaded.store
+
+    @property
+    def source_status(self) -> ProcessSourceStatus:
+        """P2 게이트가 읽는 4상태 — "없음"과 "못 읽음"을 가른다."""
+        if self.persistence_status is PersistenceStatus.LOAD_FAILED:
+            return ProcessSourceStatus.LOAD_FAILED
+        if self.persistence_status is PersistenceStatus.CONTRACT_MISMATCH:
+            return ProcessSourceStatus.CONTRACT_MISMATCH
+        if self.blocked:
+            # scope 미확정 — 주체를 모르면 사실을 귀속시킬 수 없다.
+            return ProcessSourceStatus.LOAD_FAILED
+        if self.loaded.store.episodes or self.loaded.store.current_employment:
+            return ProcessSourceStatus.LOADED_WITH_FACTS
+        return ProcessSourceStatus.LOADED_EMPTY
+
+
+def prepare_career_turn(
+    repository, *, thread_id: str, subject_id: str, conversation_text: str
+) -> PreparedCareerTurn:
+    """요청당 1회: 저장소 조회 + 발화 파싱까지만 수행한다(reducer·save 없음).
+
+    `subject_id` 확정 직후 · 후보 축소 전에 호출한다. 이 시점이어야 P2 scope를 후보가
+    탈락하기 전에 붙일 수 있다.
+
+    Args:
+        repository: shadow 저장소.
+        thread_id: 서버가 확정한 thread.
+        subject_id: 서버가 확정한 주체.
+        conversation_text: 이번 턴 발화.
+
+    Returns:
+        pre-turn store·파싱 결과·소비 자격. 예외를 밖으로 던지지 않는다.
+    """
+    if not thread_id or not subject_id:
+        return PreparedCareerTurn(
+            persistence_status=PersistenceStatus.SCOPE_INCOMPLETE,
+            telemetry=("scope_incomplete",), blocked=True,
+        )
+    try:
+        loaded = repository.load(thread_id, subject_id)
+    except Exception:
+        # 빈 store 로 진행하면 과거 사실이 사라진 채 노출된다.
+        return PreparedCareerTurn(
+            persistence_status=PersistenceStatus.LOAD_FAILED,
+            telemetry=("repository_load_failure",), blocked=True,
+        )
+    if loaded.contract_mismatch:
+        # parse·reducer·save 를 모두 억제한다(과거 projection 소비 금지).
+        return PreparedCareerTurn(
+            loaded=loaded, persistence_status=PersistenceStatus.CONTRACT_MISMATCH,
+            telemetry=("contract_version_mismatch",), blocked=True,
+        )
+    return PreparedCareerTurn(loaded=loaded, parsed=parse_career_fact(conversation_text))
+
+
 def process_career_turn(
     repository,
     *,
@@ -162,41 +246,36 @@ def process_career_turn(
     target_episode_id: str | None = None,
     occurred_at: str | None = None,
     producer_build_sha: str = "",
+    prepared: PreparedCareerTurn | None = None,
 ) -> CareerTurnShadowResult:
     """turn 1건: load → parse → reducer → 성공분만 atomic save → 소비 자격 판정.
 
     거부·롤백·추측 차단 시에는 기존 store를 덮어쓰지 않는다. 멱등 no-op 은 revision을
     올리지 않는다. 저장 실패(stale·오류)나 계약 버전 불일치면 신규 블록을 억제하고
     기존 chat 경로를 유지한다.
+
+    Args:
+        prepared: `prepare_career_turn` 결과. **실제 chat 경로는 반드시 넘긴다** —
+            넘기지 않으면 이 함수가 다시 load·parse 해서 요청당 2회 조회가 된다.
+            None 허용은 다른 호출자(테스트·단독 실행) 호환용이다.
     """
-    if not thread_id or not subject_id:
-        # 서버가 확정한 scope 가 없으면 저장·노출하지 않는다(발화에서 추측 금지).
-        return CareerTurnShadowResult(
-            store=CareerEpisodeStore(),
-            persistence_status=PersistenceStatus.SCOPE_INCOMPLETE,
-            suppress_exposure=True, telemetry=("scope_incomplete",),
+    if prepared is None:
+        prepared = prepare_career_turn(
+            repository, thread_id=thread_id, subject_id=subject_id,
+            conversation_text=conversation_text,
         )
-    try:
-        loaded = repository.load(thread_id, subject_id)
-    except Exception:
-        # 빈 store 로 진행하면 과거 사실이 사라진 채 노출된다 — 이번 turn 을 억제한다.
+    if prepared.blocked:
         return CareerTurnShadowResult(
-            store=CareerEpisodeStore(),
-            persistence_status=PersistenceStatus.LOAD_FAILED,
-            suppress_exposure=True, telemetry=("repository_load_failure",),
+            store=prepared.store, revision=prepared.loaded.revision,
+            persistence_status=prepared.persistence_status,
+            suppress_exposure=True, telemetry=prepared.telemetry,
         )
-    if loaded.contract_mismatch:
-        # parse·reducer·save 를 모두 억제한다(과거 projection 소비 금지).
-        return CareerTurnShadowResult(
-            store=loaded.store, revision=loaded.revision,
-            persistence_status=PersistenceStatus.CONTRACT_MISMATCH,
-            suppress_exposure=True, telemetry=("contract_version_mismatch",),
-        )
+    loaded = prepared.loaded
 
     working = loaded.store
     # 확정 사실이 들어왔는데 열린 Episode 가 없으면 하나를 만든다 — 사실이 해소될
     # 대상이 없어 유실되는 것을 막는다. 추측 발화로는 만들지 않는다(자격 판정 후).
-    parsed_probe = parse_career_fact(conversation_text)
+    parsed_probe = prepared.parsed or parse_career_fact(conversation_text)
     if parsed_probe.is_transition_eligible and not _has_open_episode(working):
         created = reduce_career_command(
             working,
@@ -216,6 +295,7 @@ def process_career_turn(
         conversation_text, working, command_id=command_id,
         source_fact_id=source_fact_id, recorded_at=recorded_at,
         target_episode_id=target_episode_id, occurred_at=occurred_at,
+        parsed=parsed_probe,   # 같은 턴을 두 번 파싱하지 않는다
     )
     if not run.applied or run.result is None:
         # 자격 미달·거부·롤백 — 저장하지 않고 기존 store 를 그대로 쓴다(노출은 가능).
@@ -259,6 +339,8 @@ __all__ = [
     "CareerShadowRunResult",
     "CareerTurnShadowResult",
     "PersistenceStatus",
+    "PreparedCareerTurn",
+    "prepare_career_turn",
     "process_career_turn",
     "run_career_state_shadow",
 ]
