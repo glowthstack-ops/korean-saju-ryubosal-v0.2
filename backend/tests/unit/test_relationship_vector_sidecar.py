@@ -30,7 +30,9 @@ from saju_shared_types.events import (
 )
 from saju_shared_types.ganji_calendar import GanjiLevel
 
-_DICTS = Path("dictionaries").resolve()
+# 실행 위치에 독립적이어야 한다 — 상대 경로를 쓰면 리포 루트에서 돌릴 때만 깨져
+# 코드 결함으로 오진하기 쉽다(실측: 리포 루트 실행 시 9건 실패).
+_DICTS = Path(__file__).resolve().parents[2] / "dictionaries"
 
 
 def _chart():

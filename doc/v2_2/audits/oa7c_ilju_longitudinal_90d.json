@@ -1,0 +1,235 @@
+{
+  "audit_id": "OA-7c-L",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "days": 90,
+  "iljus": 60,
+  "cards": 5400,
+  "layers": {
+    "L0 R0+domain": {
+      "unique_events": {
+        "mean": 14.9,
+        "median": 15.0,
+        "min": 12,
+        "p10": 13
+      },
+      "top_event_share_pct": {
+        "mean": 23.2,
+        "p90": 35.6,
+        "max": 50.0
+      },
+      "money_share_pct": {
+        "mean": 23.2,
+        "p90": 35.6,
+        "max": 50.0
+      },
+      "longest_same_event_streak": {
+        "median": 3.0,
+        "p90": 5,
+        "max": 8
+      },
+      "seven_day_window_repeats_per_ilju": {
+        "ge2": 72.1,
+        "ge3": 20.6,
+        "ge4": 5.8
+      },
+      "narrative": {
+        "longest_same_family_streak_median": 2.0,
+        "longest_same_family_streak_max": 4,
+        "same_event_multi_family_pct": 43.8
+      },
+      "worst_10_iljus": [
+        "壬辰",
+        "壬寅",
+        "壬午",
+        "癸巳",
+        "癸亥",
+        "壬戌",
+        "壬申",
+        "癸酉",
+        "癸未",
+        "壬子"
+      ]
+    },
+    "L1 R2+domain": {
+      "unique_events": {
+        "mean": 16.0,
+        "median": 16.0,
+        "min": 12,
+        "p10": 14
+      },
+      "top_event_share_pct": {
+        "mean": 22.2,
+        "p90": 34.4,
+        "max": 44.4
+      },
+      "money_share_pct": {
+        "mean": 22.1,
+        "p90": 34.4,
+        "max": 44.4
+      },
+      "longest_same_event_streak": {
+        "median": 3.0,
+        "p90": 5,
+        "max": 7
+      },
+      "seven_day_window_repeats_per_ilju": {
+        "ge2": 71.0,
+        "ge3": 19.3,
+        "ge4": 5.0
+      },
+      "narrative": {
+        "longest_same_family_streak_median": 2.0,
+        "longest_same_family_streak_max": 4,
+        "same_event_multi_family_pct": 42.5
+      },
+      "worst_10_iljus": [
+        "壬辰",
+        "壬午",
+        "壬申",
+        "壬戌",
+        "癸酉",
+        "癸巳",
+        "癸亥",
+        "癸未",
+        "壬寅",
+        "甲子"
+      ]
+    },
+    "L2 R3+domain": {
+      "unique_events": {
+        "mean": 16.0,
+        "median": 16.0,
+        "min": 13,
+        "p10": 14
+      },
+      "top_event_share_pct": {
+        "mean": 21.8,
+        "p90": 32.2,
+        "max": 43.3
+      },
+      "money_share_pct": {
+        "mean": 21.5,
+        "p90": 32.2,
+        "max": 43.3
+      },
+      "longest_same_event_streak": {
+        "median": 3.0,
+        "p90": 4,
+        "max": 7
+      },
+      "seven_day_window_repeats_per_ilju": {
+        "ge2": 72,
+        "ge3": 19.0,
+        "ge4": 4.9
+      },
+      "narrative": {
+        "longest_same_family_streak_median": 2.0,
+        "longest_same_family_streak_max": 4,
+        "same_event_multi_family_pct": 42.9
+      },
+      "worst_10_iljus": [
+        "壬辰",
+        "壬午",
+        "癸未",
+        "壬申",
+        "癸巳",
+        "壬寅",
+        "癸酉",
+        "壬戌",
+        "癸亥",
+        "辛卯"
+      ]
+    },
+    "L3 R2+D7": {
+      "unique_events": {
+        "mean": 16.3,
+        "median": 16.0,
+        "min": 13,
+        "p10": 15
+      },
+      "top_event_share_pct": {
+        "mean": 18.3,
+        "p90": 25.6,
+        "max": 35.6
+      },
+      "money_share_pct": {
+        "mean": 17.6,
+        "p90": 25.6,
+        "max": 35.6
+      },
+      "longest_same_event_streak": {
+        "median": 3.0,
+        "p90": 4,
+        "max": 5
+      },
+      "seven_day_window_repeats_per_ilju": {
+        "ge2": 68.7,
+        "ge3": 12.6,
+        "ge4": 2.1
+      },
+      "narrative": {
+        "longest_same_family_streak_median": 2.0,
+        "longest_same_family_streak_max": 4,
+        "same_event_multi_family_pct": 41.8
+      },
+      "worst_10_iljus": [
+        "壬辰",
+        "癸亥",
+        "壬申",
+        "癸酉",
+        "壬午",
+        "癸未",
+        "癸巳",
+        "辛卯",
+        "壬戌",
+        "壬寅"
+      ]
+    },
+    "L4 R3+D7": {
+      "unique_events": {
+        "mean": 16.5,
+        "median": 16.0,
+        "min": 14,
+        "p10": 15
+      },
+      "top_event_share_pct": {
+        "mean": 18.0,
+        "p90": 24.4,
+        "max": 32.2
+      },
+      "money_share_pct": {
+        "mean": 17.1,
+        "p90": 24.4,
+        "max": 32.2
+      },
+      "longest_same_event_streak": {
+        "median": 2.0,
+        "p90": 4,
+        "max": 4
+      },
+      "seven_day_window_repeats_per_ilju": {
+        "ge2": 69.6,
+        "ge3": 13.2,
+        "ge4": 2.1
+      },
+      "narrative": {
+        "longest_same_family_streak_median": 2.0,
+        "longest_same_family_streak_max": 4,
+        "same_event_multi_family_pct": 42.3
+      },
+      "worst_10_iljus": [
+        "壬辰",
+        "壬申",
+        "壬午",
+        "癸未",
+        "壬寅",
+        "癸亥",
+        "癸酉",
+        "癸巳",
+        "壬戌",
+        "辛未"
+      ]
+    }
+  }
+}
