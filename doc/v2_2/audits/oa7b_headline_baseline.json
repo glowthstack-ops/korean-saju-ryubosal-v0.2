@@ -3,6 +3,9 @@
   "generated_from_commit": "a2c6366",
   "dict_version": "dict.v1.9",
   "selector_version": "oa6b_board_domain_cap_v1",
+  "selection_seed_contract": "legacy_content_version_coupled",
+  "cross_dict_version_comparable": false,
+  "note": "이 기준선은 선택 seed에 CONTENT_VERSION(=DICT_VERSION 포함)이 결합된 계약에서 생성됐다. DICT_VERSION 이 오르면 동점 tie-break 이 재배열되어(실측 3.7%) 다른 버전의 결과와 직접 비교할 수 없다. OA-6d 이후 새 기준선을 쓴다.",
   "date_range": {
     "from": "2026-07-01",
     "to": "2026-07-30"

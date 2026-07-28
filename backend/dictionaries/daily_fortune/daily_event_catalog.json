@@ -63,7 +63,34 @@
       "element_affinity": {
         "金": 0.2,
         "水": 0.1
-      }
+      },
+      "narrative_modes": [
+        {
+          "mode": "benefit_discovery",
+          "template_families": [
+            "price_check",
+            "coupon_find",
+            "condition_compare"
+          ]
+        },
+        {
+          "mode": "saving_opportunity",
+          "template_families": [
+            "skip_purchase",
+            "cheaper_option",
+            "budget_margin"
+          ]
+        },
+        {
+          "mode": "resource_recovery",
+          "template_families": [
+            "reuse_owned",
+            "unused_item",
+            "membership_perk"
+          ]
+        }
+      ],
+      "semantic_contract": "허용: 작은 혜택 발견·비용을 덜 쓰는 선택·가진 자원 활용·사소한 보상과 편의. 금지(추가 신호 없이): 뜻밖의 현금 유입·환급금 수령·당첨·투자 수익·타인의 금전 제공·부수입 성사."
     },
     "money_good_deal": {
       "label": "알뜰한 득템을 할 확률",
@@ -224,7 +251,33 @@
       "element_affinity": {
         "水": 0.1,
         "木": 0.1
-      }
+      },
+      "narrative_modes": [
+        {
+          "mode": "information_arrival",
+          "template_families": [
+            "useful_tip",
+            "right_source",
+            "detail_found"
+          ]
+        },
+        {
+          "mode": "waiting_resolved",
+          "template_families": [
+            "reply_comes",
+            "schedule_fixed",
+            "question_answered"
+          ]
+        },
+        {
+          "mode": "next_step_open",
+          "template_families": [
+            "door_opens",
+            "invite_received",
+            "plan_moves"
+          ]
+        }
+      ]
     },
     "praise_recognition": {
       "label": "일에서 인정받을 확률",
@@ -257,7 +310,33 @@
       "element_affinity": {
         "金": 0.1,
         "火": 0.1
-      }
+      },
+      "narrative_modes": [
+        {
+          "mode": "result_harvest",
+          "template_families": [
+            "work_shown",
+            "steady_paid_off",
+            "report_closed"
+          ]
+        },
+        {
+          "mode": "visibility_gain",
+          "template_families": [
+            "speak_up",
+            "share_result",
+            "right_timing"
+          ]
+        },
+        {
+          "mode": "trust_building",
+          "template_families": [
+            "keep_promise",
+            "credit_shared",
+            "modest_tone"
+          ]
+        }
+      ]
     },
     "love_spark": {
       "label": "설레는 기류가 생길 확률",
@@ -291,7 +370,37 @@
       "element_affinity": {
         "火": 0.2,
         "水": 0.1
-      }
+      },
+      "narrative_modes": [
+        {
+          "mode": "relationship_open",
+          "template_families": [
+            "say_hello",
+            "small_talk",
+            "join_the_plan"
+          ]
+        },
+        {
+          "mode": "signal_notice",
+          "template_families": [
+            "they_looked",
+            "kept_message",
+            "remembered_detail"
+          ]
+        },
+        {
+          "mode": "conversation_expand",
+          "template_families": [
+            "ask_back",
+            "share_yours",
+            "next_time_hint"
+          ]
+        }
+      ],
+      "semantic_family": "relationship_connection",
+      "default_expression_scope": "general_relationship",
+      "romance_expression_gate": "strong_romance_signal_only",
+      "semantic_contract": "기본적으로 사람 사이의 대화·호감도·관계 접점이 열리는 장면으로 표현하며, 기존 엔진의 연애 전용 신호가 강한 경우에만 연애 맥락을 명시한다. 상대의 존재·행동·마음·관계 성사를 예측하지 않는다."
     },
     "pleasant_meeting": {
       "label": "즐거운 모임이 생길 확률",
@@ -387,7 +496,33 @@
       "element_affinity": {
         "木": 0.1,
         "土": 0.1
-      }
+      },
+      "narrative_modes": [
+        {
+          "mode": "cooperation_gain",
+          "template_families": [
+            "work_splits",
+            "same_direction",
+            "quick_agreement"
+          ]
+        },
+        {
+          "mode": "role_coordination",
+          "template_families": [
+            "clear_roles",
+            "handover_smooth",
+            "who_does_what"
+          ]
+        },
+        {
+          "mode": "ask_and_receive",
+          "template_families": [
+            "ask_first",
+            "help_offered",
+            "small_favor"
+          ]
+        }
+      ]
     },
     "idea_flash": {
       "label": "좋은 아이디어가 떠오를 확률",
@@ -511,7 +646,33 @@
       "element_affinity": {
         "火": 0.2,
         "金": 0.1
-      }
+      },
+      "narrative_modes": [
+        {
+          "mode": "risk_avoid",
+          "template_families": [
+            "hold_the_reply",
+            "avoid_the_topic",
+            "no_text_now"
+          ]
+        },
+        {
+          "mode": "emotion_regulate",
+          "template_families": [
+            "breathe_first",
+            "not_about_winning",
+            "check_own_mood"
+          ]
+        },
+        {
+          "mode": "damage_limit",
+          "template_families": [
+            "short_apology",
+            "restate_calmly",
+            "end_it_early"
+          ]
+        }
+      ]
     },
     "misunderstanding_caution": {
       "label": "전달이 어긋날 확률",
@@ -784,6 +945,32 @@
       },
       "headline_slots": [
         "good"
+      ],
+      "narrative_modes": [
+        {
+          "mode": "maintenance",
+          "template_families": [
+            "desk_clear",
+            "list_check",
+            "file_sort"
+          ]
+        },
+        {
+          "mode": "space_reset",
+          "template_families": [
+            "one_corner",
+            "throw_one",
+            "rearrange"
+          ]
+        },
+        {
+          "mode": "unfinished_cleanup",
+          "template_families": [
+            "small_leftover",
+            "close_the_loop",
+            "return_it"
+          ]
+        }
       ]
     },
     "family_talk": {
@@ -918,6 +1105,32 @@
       },
       "headline_slots": [
         "good"
+      ],
+      "narrative_modes": [
+        {
+          "mode": "recovery_gain",
+          "template_families": [
+            "energy_restore",
+            "quiet_efficiency",
+            "body_signal"
+          ]
+        },
+        {
+          "mode": "pace_control",
+          "template_families": [
+            "schedule_margin",
+            "slow_is_faster",
+            "priority_reduce"
+          ]
+        },
+        {
+          "mode": "rhythm_reset",
+          "template_families": [
+            "sleep_first",
+            "break_between",
+            "screen_off"
+          ]
+        }
       ]
     },
     "travel_schedule_caution": {
@@ -1495,5 +1708,48 @@
         "火": 0.1
       }
     }
+  },
+  "narrative_modes": {
+    "benefit_discovery": "이미 있는 혜택·조건을 발견한다",
+    "saving_opportunity": "덜 쓰는 선택이 이득이 된다",
+    "resource_recovery": "가진 것을 다시 쓸모 있게 만든다",
+    "result_harvest": "쌓아온 것이 평가로 돌아온다",
+    "visibility_gain": "해온 일이 눈에 띄게 된다",
+    "trust_building": "신뢰가 쌓이는 태도",
+    "information_arrival": "필요한 정보가 도착한다",
+    "waiting_resolved": "기다리던 것이 정리된다",
+    "next_step_open": "다음 단계가 열린다",
+    "cooperation_gain": "함께해서 수월해진다",
+    "role_coordination": "역할을 나눠 정리한다",
+    "ask_and_receive": "부탁이 받아들여진다",
+    "recovery_gain": "회복이 곧 이득이 된다",
+    "pace_control": "속도를 조절해 이긴다",
+    "rhythm_reset": "흐트러진 리듬을 되찾는다",
+    "maintenance": "정리·확인으로 흐름을 만든다",
+    "space_reset": "공간을 바꿔 상태를 바꾼다",
+    "unfinished_cleanup": "미뤄둔 것을 끝낸다",
+    "risk_avoid": "위험한 행동을 미리 피한다",
+    "emotion_regulate": "감정이 판단을 지배하지 않게 한다",
+    "damage_limit": "이미 생긴 문제의 확대를 막는다",
+    "relationship_open": "연락·대화를 늘린다",
+    "signal_notice": "상대의 신호를 알아챈다",
+    "conversation_expand": "대화를 이어 넓힌다"
+  },
+  "presentation_copy_review": {
+    "status": "sample_reviewed",
+    "reviewed_at": "2026-07-28",
+    "decision_ref": "docs/17 OA-8a",
+    "scope": {
+      "argument_caution": {
+        "families_sampled": "all",
+        "automated_checks": "passed"
+      },
+      "love_spark": {
+        "families_sampled": "all",
+        "required_revisions": 3,
+        "semantic_scope": "general_relationship_default"
+      }
+    },
+    "note": "명리 감수(reviewed)와 별개다 — 표현 카피 감수 상태만 뜻한다."
   }
 }

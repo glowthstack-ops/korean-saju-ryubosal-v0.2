@@ -538,17 +538,71 @@ def _band(good: _ScoredEvent, caution: _ScoredEvent) -> str:
     return "s2"
 
 
+#: 서사 축 스키마 버전 — 모드·family 선택 seed 성분. 사전 구조가 바뀌면 올린다.
+NARRATIVE_SCHEMA_VERSION = "narrative.v1"
+
+
+def resolve_narrative(
+    dicts: DailyFortuneDicts, event_key: str, seed_base: str
+) -> tuple[str, str]:
+    """이 카드가 쓸 서사 모드와 템플릿 family를 결정론적으로 고른다 (OA-8a).
+
+    같은 사건이라도 "무엇이 일어나는가"만 반복하지 않고 **어떤 서사 기능으로 말할지**를
+    돌린다 — 실측에서 사건을 늘려도 문장 재사용률이 80%에서 거의 내려가지 않았고,
+    원인이 사건 수가 아니라 사건당 표현 공간이었기 때문이다.
+
+    LLM은 여기에 개입하지 않는다(모드·family 선택은 엔진 소관). 과거 이력도 보지
+    않는다 — 7일 회피는 OA-8b에서 별도로 붙인다.
+
+    Args:
+        dicts: 사전 묶음.
+        event_key: 확정된 사건 키(이 함수가 바꾸지 않는다).
+        seed_base: 날짜·일주·콘텐츠 버전이 섞인 결정론 seed 기반 문자열.
+
+    Returns:
+        `(mode, family)`. 서사 축이 없는 사건은 `("", "")` — 기존 평면 템플릿을 쓴다.
+    """
+    modes = (dicts.catalog["events"].get(event_key) or {}).get("narrative_modes")
+    if not modes:
+        return "", ""
+    seed = _stable_hash(f"{seed_base}|{event_key}|{NARRATIVE_SCHEMA_VERSION}")
+    chosen = modes[seed % len(modes)]
+    families = list(chosen.get("template_families") or ())
+    if not families:
+        return str(chosen.get("mode", "")), ""
+    return str(chosen["mode"]), families[(seed // 13) % len(families)]
+
+
 def _headline(
-    dicts: DailyFortuneDicts, event_key: str, band: str, seed_base: str, salt: int
+    dicts: DailyFortuneDicts,
+    event_key: str,
+    band: str,
+    seed_base: str,
+    salt: int,
+    romance_scope: bool = False,
 ) -> str:
     """오늘의 한마디 — fragment + action (+ result) 조합, 결정론 seed.
 
     당일 중복 감사에서 salt 가 커질수록 범용(generic) 풀을 합쳐 조합 공간을
     넓힌다(같은 사건을 공유하는 일주가 많아도 완전 중복이 나지 않도록).
+
+    서사 family가 있으면 그 family의 문장 풀을 쓴다(OA-8a) — 사건은 그대로 두고
+    장면·행동·결과만 다른 서사 기능으로 바꾼다.
+
+    Args:
+        romance_scope: 연애 전용 신호가 **강할 때만** True. 관계 계열 사건의 기본
+            표현은 일반 관계(대화·접점)이고, 연애 맥락은 이 게이트를 통과한 카드에서만
+            쓴다 — 상대의 존재·행동·마음을 전제하지 않기 위해서다.
     """
     generic_kind = "caution" if band == "s1" else "good"
     generic = dicts.templates["generic"][generic_kind]
     tpl = dicts.templates["events"].get(event_key) or generic
+    _mode, family = resolve_narrative(dicts, event_key, seed_base)
+    if family:
+        fam = (tpl.get("families") or {}).get(family)
+        if fam:
+            # 연애 변형은 게이트를 통과한 카드에만. 없으면 일반 관계형을 그대로 쓴다.
+            tpl = fam.get("romantic") or fam if romance_scope else fam
     fragments = list(tpl["fragments"])
     actions = list(tpl["actions"])
     results = list(tpl["results"])
@@ -768,9 +822,15 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
             )
         )
 
+        # 연애 표현 게이트 — 기존 '오늘의 연애' 신호(독립 원인 그룹 ≥3)를 재사용한다.
+        # 새 점수를 만들지 않고 **표현 범위만** 좁힌다.
+        romance_scope = _has_good_love_signal(row["scored"])
         headline = ""
         for salt in range(_DUP_RETRY):  # 당일 60건 내 완전 중복 회피
-            headline = _headline(dicts, headline_event.event_key, band, seed_base, salt)
+            headline = _headline(
+                dicts, headline_event.event_key, band, seed_base, salt,
+                romance_scope=romance_scope,
+            )
             if headline not in used_headlines:
                 break
         used_headlines.add(headline)
