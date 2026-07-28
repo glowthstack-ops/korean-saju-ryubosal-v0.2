@@ -341,17 +341,99 @@ def _score_event(
     )
 
 
+#: 후보 동점 해소 계약 v2 (OA-6d2, **shadow 전용** — 라이브는 v1 동결).
+EVENT_SELECTION_CONTRACT_V2 = "event-selection.v2-candidate-hash"
+
+
+def event_merit_key(scored: _ScoredEvent) -> tuple[int]:
+    """사건의 **실질 순위**를 정하는 비-seed 항목 (OA-6d2 확정).
+
+    실사 결과 현행 `_rank_key`가 seed 앞에서 비교하는 것은 `probability` 하나뿐이다.
+    `activation`은 probability 산출의 입력일 뿐 독립 순위 항목이 아니다 — 이를 순위에
+    넣는 것은 결함 수정이 아니라 **새 사건 선택 정책**이므로 별도 슬라이스로 분리한다.
+
+    probability는 정수(5~95)라 float 비교·epsilon 처리가 필요 없다.
+
+    Args:
+        scored: 점수 산출된 사건.
+
+    Returns:
+        merit 키. 이 값이 같으면 동점이고, 그때만 tie-break이 개입할 수 있다.
+    """
+    return (scored.probability,)
+
+
+def _tiebreak_v1(scored: _ScoredEvent, seed_base: str) -> int:
+    """v1 동점 해소값 — `% 9973` 축약 포함(동결). 최종 안정 키가 없다."""
+    return _stable_hash(f"{seed_base}|{scored.event_key}") % 9973
+
+
+def _tiebreak_v2(scored: _ScoredEvent, target_date: date, ilju: str) -> int:
+    """v2 동점 해소값 — 축약 없는 전체 해시. 후보 정체성으로만 정해진다."""
+    return _stable_hash(
+        "|".join((target_date.isoformat(), ilju, scored.event_key,
+                  EVENT_SELECTION_CONTRACT_V2))
+    )
+
+
 def _rank_key(scored: _ScoredEvent, seed_base: str) -> tuple[float, int]:
-    """내림차순 정렬 키 — 동률은 결정론 seed 로 해소."""
-    return (-scored.probability, _stable_hash(f"{seed_base}|{scored.event_key}") % 9973)
+    """내림차순 정렬 키 — 동률은 결정론 seed 로 해소(v1 동결, 라이브 경로)."""
+    return (-scored.probability, _tiebreak_v1(scored, seed_base))
+
+
+def _rank_key_v2(
+    scored: _ScoredEvent, target_date: date, ilju: str
+) -> tuple[float, int, str]:
+    """v2 정렬 키 — merit → 전체 해시 → `event_key` 최종 안정 키.
+
+    v1의 두 결함을 함께 고친다:
+      1. `% 9973` 축약 → 49개 사건에서 실측 8건의 해시 충돌
+      2. 최종 안정 키 부재 → 충돌 시 `sorted` 안정성 때문에 **입력 배열 순서**가 승자를
+         정한다(무관한 사건 추가·JSON 정렬 변경에 결과가 흔들린다)
+    """
+    return (-scored.probability, _tiebreak_v2(scored, target_date, ilju), scored.event_key)
+
+
+def select_event_v2(
+    candidates: list[_ScoredEvent], *, target_date: date, ilju: str
+) -> _ScoredEvent:
+    """최고 merit 동치류 안에서만 승자를 고른다 (OA-6d2).
+
+    최상위 동점군을 먼저 분리해 두면 **낮은 probability 후보가 해시값과 무관하게 절대
+    선택되지 않는다는 사실이 코드 구조로 보장**된다.
+
+    Args:
+        candidates: 후보 목록(비어 있으면 안 된다).
+        target_date: 대상 날짜.
+        ilju: 일주 간지.
+
+    Returns:
+        승자 후보.
+
+    Raises:
+        ValueError: 후보가 비었을 때.
+    """
+    if not candidates:
+        raise ValueError("candidates must not be empty")
+    best = max(event_merit_key(c) for c in candidates)
+    top_group = [c for c in candidates if event_merit_key(c) == best]
+    return min(
+        top_group,
+        key=lambda c: (_tiebreak_v2(c, target_date, ilju), c.event_key),
+    )
 
 
 def _select_slots(
-    scored: list[_ScoredEvent], seed_base: str
+    scored: list[_ScoredEvent], seed_base: str, rank: Any = None
 ) -> tuple[_ScoredEvent, _ScoredEvent, _ScoredEvent]:
     """슬롯 선발 + 완화 사다리 — 불변식: 항상 3개, 최소 2 domain,
-    event_key 중복 금지, 동의어 그룹 동시 노출 금지."""
-    ordered = sorted(scored, key=lambda s: _rank_key(s, seed_base))
+    event_key 중복 금지, 동의어 그룹 동시 노출 금지.
+
+    Args:
+        rank: 정렬 키 함수. None이면 v1(라이브 동결). shadow 비교에서만 v2를 넘긴다.
+    """
+    key = rank or (lambda s: _rank_key(s, seed_base))
+    ordered = sorted(scored, key=key)
 
     goods = [s for s in ordered if s.valence == "good" and "good" in s.slots]
     cautions = [s for s in ordered if s.valence == "caution"]

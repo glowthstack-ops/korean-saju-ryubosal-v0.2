@@ -1,0 +1,36 @@
+{
+  "audit_id": "OA-6d2",
+  "generated_from_commit": "1abe08a",
+  "dict_version": "dict.v1.10",
+  "event_selection_contract": "event-selection.v1-legacy-frozen",
+  "event_selection_contract_shadow": "event-selection.v2-candidate-hash",
+  "board_rebalance_version": "board-rebalance.v1",
+  "narrative_seed_version": "narrative.v1",
+  "selection_seed_contract": "content_version_decoupled",
+  "cross_content_version_comparable": true,
+  "date_range": {
+    "from": "2026-07-01",
+    "to": "2026-07-30"
+  },
+  "cards": 1800,
+  "source_digest": {
+    "daily_event_catalog.json": "d03b55ae45c4192e91bbc05e2fe89a2fffe97c356227d46bf6e0bd7f0bf47cfd",
+    "daily_phrase_templates.json": "1d86978ed1c82a8e6fa3c0396eb8e5c76fb8e97b372d5d08c04c50981577f2d3",
+    "daily_lucky_places.json": "8feaf0169951d4a1cb799b1fdde35edf529eb6877a1baf660ceb27d4b3eef5f1"
+  },
+  "live_baseline": {
+    "unique_headlines": 711,
+    "headline_reuse_pct": 60.5,
+    "headline_event_keys": 23,
+    "top_event": "money_small_gain",
+    "top_event_share_pct": 22.9
+  },
+  "v2_shadow": {
+    "changed": 112,
+    "changed_pct": 6.2,
+    "changed_by_contract": 112,
+    "changed_by_legacy_collision_fix": 0,
+    "non_tied_violations": 0,
+    "note": "%9973 축약 충돌은 전 후보 기준 8건 존재하나 이 창에서는 good 슬롯 승자를 정한 동치류에 걸리지 않아 0건으로 집계된다. v2의 축약 제거는 잠재 배열 의존을 없애는 조치이며 이 창에서의 실측 효과는 0이다."
+  }
+}
