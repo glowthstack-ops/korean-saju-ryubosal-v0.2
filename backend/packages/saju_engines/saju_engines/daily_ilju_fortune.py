@@ -388,6 +388,14 @@ def _select_slots(
     return good, caution, support
 
 
+#: 같은 날 보드에서 한 도메인이 차지할 수 있는 good 헤드라인 상한(OA-6b).
+#: **균등화가 아니다** — 유효한 대안이 있을 때만 독점을 완화한다.
+_DOMAIN_HEADLINE_CAP = 0.30
+
+#: 선택기 버전 — 결정론적 동점 처리의 마지막 tie-break 성분.
+SELECTOR_VERSION = "oa6b_board_domain_cap_v1"
+
+
 def _headline_candidates(
     good: _ScoredEvent, support: _ScoredEvent, caution: _ScoredEvent, band: str
 ) -> list[_ScoredEvent]:
@@ -423,6 +431,97 @@ def _headline_candidates(
     if not out:
         out = [good]  # 자격 후보가 하나도 없으면 기존 동작 유지
     return sorted(out, key=lambda s: (-s.probability, s.event_key))
+
+
+@dataclass(frozen=True)
+class HeadlineDecision:
+    """헤드라인 1건의 원시 선택과 최종 선택 — 감사 전용 기록(OA-7a)."""
+
+    ilju: str
+    band: str
+    raw_event_key: str
+    raw_domain: str
+    raw_score: int
+    selected_event_key: str
+    selected_domain: str
+    selected_score: int
+    eligible_good_count: int
+    eligible_cross_domain_count: int
+    selection_reason: str = "raw_top"
+    slot_source: str = "headline_slots"
+
+    @property
+    def displacement_cost(self) -> int:
+        """교체로 잃은 점수 — 낮을수록 해석 적합성 희생이 적다."""
+        return self.raw_score - self.selected_score
+
+
+def _rebalance_headlines(
+    decisions: dict[str, list[_ScoredEvent]], order: list[str], cap: float
+) -> tuple[dict[str, _ScoredEvent], dict[str, str], int]:
+    """보드 60건을 한 번에 보고 도메인 독점을 완화한다 (OA-6b).
+
+    일주를 순서대로 훑으며 상한에 도달하면 이후를 막는 방식은 쓰지 않는다 — 갑자·을축처럼
+    처리 순서가 빠른 일주가 좋은 후보를 선점하는 **일주 순서 편향**이 생긴다. 그래서
+    전체 원시 선택을 먼저 확정한 뒤, **대체 비용이 가장 낮은 카드부터** 교체한다.
+
+    유효한 대안이 없으면 상한을 넘겨도 그대로 둔다(조건부 제약). 다양성을 위해 근거가
+    약한 사건을 억지로 올리지 않는다.
+
+    Args:
+        decisions: 일주 → 헤드라인 후보 목록(점수 순).
+        order: 일주 처리 순서(결정론 고정용).
+        cap: 도메인 점유 상한 비율.
+
+    Returns:
+        `(일주 → 최종 사건, 일주 → 교체 사유, 미해결 초과 건수)`.
+    """
+    selected = {ilju: cands[0] for ilju, cands in decisions.items()}
+    reasons: dict[str, str] = {}
+    limit = max(1, int(len(order) * cap))
+    moved: set[str] = set()   # 한 번 옮긴 카드는 다시 옮기지 않는다(왕복 방지)
+    guard = 0
+    while guard < len(order):
+        guard += 1
+        counts: dict[str, int] = {}
+        for ilju in order:
+            dom = selected[ilju].domain
+            counts[dom] = counts.get(dom, 0) + 1
+        over = [(n - limit, dom) for dom, n in counts.items() if n > limit]
+        if not over:
+            break
+        # 가장 많이 초과한 도메인부터(동수는 이름순 — 결정론).
+        _, domain = max(over, key=lambda t: (t[0], t[1]))
+        moves: list[tuple[int, str, str, _ScoredEvent]] = []
+        for ilju in order:
+            cur = selected[ilju]
+            if cur.domain != domain or ilju in moved:
+                continue
+            # 목적지에 여유가 있는 후보만 — 옮긴 도메인이 다시 초과하면 두 도메인
+            # 사이를 왕복하다 guard 에 걸려 "옮길 수 있는데 방치"가 된다.
+            alt = next(
+                (
+                    c for c in decisions[ilju]
+                    if c.domain != domain and counts.get(c.domain, 0) + 1 <= limit
+                ),
+                None,
+            )
+            if alt is None:
+                continue
+            # 점수 손실 → 일주 → event_key → selector_version 순 결정론 정렬.
+            moves.append((cur.probability - alt.probability, ilju, alt.event_key, alt))
+        if not moves:
+            break   # 유효 대안 없음 — 초과를 허용하고 사유를 남긴다
+        _, ilju, _, alt = min(moves, key=lambda m: (m[0], m[1], m[2], SELECTOR_VERSION))
+        selected[ilju] = alt
+        reasons[ilju] = "board_domain_cap"
+        moved.add(ilju)
+    counts_final: dict[str, int] = {}
+    for ilju in order:
+        dom = selected[ilju].domain
+        counts_final[dom] = counts_final.get(dom, 0) + 1
+    unresolved = sum(max(0, n - limit) for n in counts_final.values())
+    return selected, reasons, unresolved
 
 
 def _band(good: _ScoredEvent, caution: _ScoredEvent) -> str:
@@ -640,6 +739,11 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
         candidates[ilju] = _headline_candidates(good, support, caution, band)
         order.append(ilju)
 
+    headline_pick, cap_reasons, cap_unresolved = _rebalance_headlines(
+        candidates, order, _DOMAIN_HEADLINE_CAP
+    )
+    headline_audit: list[HeadlineDecision] = []
+
     fortunes: list[DailyIljuFortune] = []
     used_headlines: set[str] = set()
     place_counts: dict[str, int] = {}
@@ -647,7 +751,22 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
         ilju = row["ilju"]
         seed_base = f"{d.isoformat()}|{ilju}|{CONTENT_VERSION}"
         good, caution, support, band = slot_rows[ilju]
-        headline_event = candidates[ilju][0]
+        raw_event = candidates[ilju][0]
+        headline_event = headline_pick[ilju]
+        cross = {c.domain for c in candidates[ilju]} - {raw_event.domain}
+        headline_audit.append(
+            HeadlineDecision(
+                ilju=ilju, band=band,
+                raw_event_key=raw_event.event_key, raw_domain=raw_event.domain,
+                raw_score=raw_event.probability,
+                selected_event_key=headline_event.event_key,
+                selected_domain=headline_event.domain,
+                selected_score=headline_event.probability,
+                eligible_good_count=len(candidates[ilju]),
+                eligible_cross_domain_count=len(cross),
+                selection_reason=cap_reasons.get(ilju, "raw_top"),
+            )
+        )
 
         headline = ""
         for salt in range(_DUP_RETRY):  # 당일 60건 내 완전 중복 회피
@@ -699,7 +818,7 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
             )
         )
 
-    return DailyFortuneBoard(
+    board = DailyFortuneBoard(
         fortune_date=d,
         weekday=d.weekday(),
         weekday_ko=_WEEKDAY_KO[d.weekday()],
@@ -708,3 +827,7 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
         top5=top5,
         fortunes=fortunes,
     )
+    # 감사 기록은 응답 모델을 바꾸지 않는다 — 캐시·API 계약 불변(OA-7a).
+    object.__setattr__(board, "_headline_audit", tuple(headline_audit))
+    object.__setattr__(board, "_cap_unresolved", cap_unresolved)
+    return board
