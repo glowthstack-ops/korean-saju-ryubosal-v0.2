@@ -305,3 +305,27 @@ def test_blocked_prepare_suppresses_exposure() -> None:
 
     assert result.suppress_exposure
     assert result.persistence_status is PersistenceStatus.LOAD_FAILED
+
+
+def test_scope_incomplete_is_not_reported_as_failure() -> None:
+    """주체 미확정은 저장소 장애가 아니다 — 합치면 장애 건수가 일상 트래픽으로 부푼다."""
+    from saju_engines.career_state_shadow import prepare_career_turn
+    from saju_shared_types.process_fact import (
+        EventGateAction,
+        ProcessSourceStatus,
+    )
+
+    prepared = prepare_career_turn(
+        InMemoryCareerShadowRepository(), thread_id="t1", subject_id="",
+        conversation_text="이직운 어때요",
+    )
+
+    assert prepared.blocked
+    assert prepared.persistence_status is PersistenceStatus.SCOPE_INCOMPLETE
+    assert prepared.source_status is ProcessSourceStatus.SCOPE_INCOMPLETE
+    assert prepared.source_status is not ProcessSourceStatus.LOAD_FAILED
+    # 게이트 동작은 여전히 bypass다(주체를 모르면 '없음'을 확정할 수 없다).
+    assert (
+        prepared.source_status.bypass_action
+        is EventGateAction.BYPASS_INCOMPLETE_COVERAGE
+    )

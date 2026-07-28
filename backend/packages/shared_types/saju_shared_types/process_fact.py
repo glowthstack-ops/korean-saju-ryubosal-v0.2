@@ -332,12 +332,19 @@ class ProcessSourceStatus(StrEnum):
     | `LOADED_EMPTY` | 정상 판정(커리어는 AUTHORITATIVE라 "없음" 확정 가능) |
     | `LOAD_FAILED` | `BYPASS_PROCESS_SOURCE_UNAVAILABLE` |
     | `CONTRACT_MISMATCH` | `BYPASS_PROCESS_CONTRACT_MISMATCH` |
+    | `SCOPE_INCOMPLETE` | `BYPASS_INCOMPLETE_COVERAGE` |
+
+    `SCOPE_INCOMPLETE`(주체 미확정)를 `LOAD_FAILED`에 합치지 않는다 — 비로그인·미등록
+    요청은 **정상 상태**인데 저장소 장애로 집계되면 dual-run 보고서의 장애 건수가
+    일상 트래픽으로 부풀어 실제 장애를 덮는다(라이브 첫 행에서 실측된 결함).
     """
 
     LOADED_WITH_FACTS = "LOADED_WITH_FACTS"
     LOADED_EMPTY = "LOADED_EMPTY"
     LOAD_FAILED = "LOAD_FAILED"
     CONTRACT_MISMATCH = "CONTRACT_MISMATCH"
+    #: 서버가 주체를 확정하지 못함(비로그인·미등록). 장애가 아니라 귀속 불가다.
+    SCOPE_INCOMPLETE = "SCOPE_INCOMPLETE"
 
     @property
     def is_readable(self) -> bool:
@@ -353,6 +360,9 @@ class ProcessSourceStatus(StrEnum):
             return EventGateAction.BYPASS_PROCESS_SOURCE_UNAVAILABLE
         if self is ProcessSourceStatus.CONTRACT_MISMATCH:
             return EventGateAction.BYPASS_PROCESS_CONTRACT_MISMATCH
+        if self is ProcessSourceStatus.SCOPE_INCOMPLETE:
+            # 주체를 모르면 "진행 중인 게 없다"를 확정할 수 없다 — 자료 부족 bypass.
+            return EventGateAction.BYPASS_INCOMPLETE_COVERAGE
         return None
 
 

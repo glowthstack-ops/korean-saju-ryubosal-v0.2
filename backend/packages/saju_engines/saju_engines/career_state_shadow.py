@@ -191,8 +191,11 @@ class PreparedCareerTurn(BaseModel):
             return ProcessSourceStatus.LOAD_FAILED
         if self.persistence_status is PersistenceStatus.CONTRACT_MISMATCH:
             return ProcessSourceStatus.CONTRACT_MISMATCH
+        if self.persistence_status is PersistenceStatus.SCOPE_INCOMPLETE:
+            # 주체 미확정(비로그인·미등록)은 **장애가 아니다.** 저장소 실패로 집계하면
+            # 일상 트래픽이 장애 건수를 부풀려 실제 장애를 덮는다.
+            return ProcessSourceStatus.SCOPE_INCOMPLETE
         if self.blocked:
-            # scope 미확정 — 주체를 모르면 사실을 귀속시킬 수 없다.
             return ProcessSourceStatus.LOAD_FAILED
         if self.loaded.store.episodes or self.loaded.store.current_employment:
             return ProcessSourceStatus.LOADED_WITH_FACTS
