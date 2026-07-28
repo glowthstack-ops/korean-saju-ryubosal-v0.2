@@ -36,7 +36,13 @@
       "narrative": {
         "longest_same_family_streak_median": 2.0,
         "longest_same_family_streak_max": 4,
-        "same_event_multi_family_pct": 43.8
+        "same_event_multi_family_pct": 90.4,
+        "pilot_only": {
+          "repeat_pairs": 3084,
+          "different_family_pct": 87.6,
+          "family_streak_median": 1.0,
+          "family_streak_max": 1
+        }
       },
       "worst_10_iljus": [
         "壬辰",
@@ -81,7 +87,13 @@
       "narrative": {
         "longest_same_family_streak_median": 2.0,
         "longest_same_family_streak_max": 4,
-        "same_event_multi_family_pct": 42.5
+        "same_event_multi_family_pct": 89.3,
+        "pilot_only": {
+          "repeat_pairs": 3086,
+          "different_family_pct": 88.7,
+          "family_streak_median": 1.0,
+          "family_streak_max": 1
+        }
       },
       "worst_10_iljus": [
         "壬辰",
@@ -126,7 +138,13 @@
       "narrative": {
         "longest_same_family_streak_median": 2.0,
         "longest_same_family_streak_max": 4,
-        "same_event_multi_family_pct": 42.9
+        "same_event_multi_family_pct": 89.3,
+        "pilot_only": {
+          "repeat_pairs": 3152,
+          "different_family_pct": 89.1,
+          "family_streak_median": 1.0,
+          "family_streak_max": 1
+        }
       },
       "worst_10_iljus": [
         "壬辰",
@@ -171,7 +189,13 @@
       "narrative": {
         "longest_same_family_streak_median": 2.0,
         "longest_same_family_streak_max": 4,
-        "same_event_multi_family_pct": 41.8
+        "same_event_multi_family_pct": 89.6,
+        "pilot_only": {
+          "repeat_pairs": 2968,
+          "different_family_pct": 86.5,
+          "family_streak_median": 1.0,
+          "family_streak_max": 1
+        }
       },
       "worst_10_iljus": [
         "壬辰",
@@ -216,7 +240,13 @@
       "narrative": {
         "longest_same_family_streak_median": 2.0,
         "longest_same_family_streak_max": 4,
-        "same_event_multi_family_pct": 42.3
+        "same_event_multi_family_pct": 91.0,
+        "pilot_only": {
+          "repeat_pairs": 3032,
+          "different_family_pct": 87.0,
+          "family_streak_median": 1.0,
+          "family_streak_max": 1
+        }
       },
       "worst_10_iljus": [
         "壬辰",

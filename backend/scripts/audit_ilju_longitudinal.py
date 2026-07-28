@@ -30,6 +30,8 @@ import saju_engines.daily_ilju_fortune as M  # noqa: E402
 from saju_engines.daily_board_constraints import (  # noqa: E402
     HeadlineCandidate,
     cap_count,
+)
+from saju_engines.daily_board_constraints import (  # noqa: E402
     rebalance_headlines_with_constraints as rebalance,
 )
 from saju_engines.daily_relation_shadow import score_event_with_relation  # noqa: E402
@@ -106,7 +108,10 @@ def run() -> dict:
             )
             for ilju, chosen in r.selections.items():
                 series[name][ilju].append(chosen.event_key)
-                _mode, fam = M.resolve_narrative(dicts, chosen.event_key, seeds[ilju])
+                _mode, fam = M.resolve_narrative(
+                    dicts, chosen.event_key, seeds[ilju],
+                    day_ordinal=ctx.the_date.toordinal(), rotation_key=ilju,
+                )
                 fam_series[name][ilju].append(f"{chosen.event_key}|{fam}")
 
     report = {}
@@ -121,13 +126,28 @@ def run() -> dict:
         streaks = [_streak(v) for v in per.values()]
         wins = [_window_repeats(v) for v in per.values()]
         fam_streaks = [_streak(v) for v in fam_series[name].values()]
-        diff_fam = []
+        # 서사 축은 파일럿 8종에만 있다. 전체로 재면 family 없는 41종에 희석돼
+        # 회전 효과가 보이지 않는다(측정 설계 오류로 실제 오독했다).
+        pilot = {k for k, e in dicts.catalog["events"].items() if e.get("narrative_modes")}
+        diff_fam, repeat_pairs, diff_pairs, pilot_streaks = [], 0, 0, []
         for ilju, keys in per.items():
             fams = fam_series[name][ilju]
+            last: dict[str, str] = {}
+            for k, f in zip(keys, fams, strict=True):
+                if k not in pilot:
+                    continue
+                if k in last:
+                    repeat_pairs += 1
+                    if last[k] != f:
+                        diff_pairs += 1
+                last[k] = f
+            seq = [f for k, f in zip(keys, fams, strict=True) if k in pilot]
+            pilot_streaks.append(_streak(seq))
             pairs = collections.defaultdict(set)
             for k, f in zip(keys, fams, strict=True):
-                pairs[k].add(f)
-            multi = sum(1 for k, fs in pairs.items() if len(fs) > 1)
+                if k in pilot:
+                    pairs[k].add(f)
+            multi = sum(1 for _k, fs in pairs.items() if len(fs) > 1)
             diff_fam.append(multi / max(1, len(pairs)) * 100)
         worst = sorted(
             per, key=lambda i: -collections.Counter(per[i]).most_common(1)[0][1]
@@ -162,6 +182,12 @@ def run() -> dict:
                 "longest_same_family_streak_median": statistics.median(fam_streaks),
                 "longest_same_family_streak_max": max(fam_streaks),
                 "same_event_multi_family_pct": round(statistics.mean(diff_fam), 1),
+                "pilot_only": {
+                    "repeat_pairs": repeat_pairs,
+                    "different_family_pct": round(diff_pairs / max(1, repeat_pairs) * 100, 1),
+                    "family_streak_median": statistics.median(pilot_streaks),
+                    "family_streak_max": max(pilot_streaks),
+                },
             },
             "worst_10_iljus": worst,
         }

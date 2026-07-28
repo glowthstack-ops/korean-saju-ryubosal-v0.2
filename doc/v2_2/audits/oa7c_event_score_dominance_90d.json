@@ -1,0 +1,224 @@
+{
+  "audit_id": "OA-7c-S",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "days": 90,
+  "cards": 5400,
+  "events": {
+    "money_small_gain": {
+      "domain": "money",
+      "base_weight": 0.33,
+      "expr_confidence": 1.0,
+      "has_ten_god_affinity": true,
+      "has_relation_affinity": true,
+      "mean_probability": 59.7,
+      "p90_probability": 78,
+      "base_only_probability": 51,
+      "ten_god_effect_mean": 9.0,
+      "relation_effect_mean": 2.7,
+      "good_slot_wins": 1585,
+      "win_rate_pct": 29.4,
+      "mean_gap_to_second": 4.68,
+      "rank_distribution": {
+        "4-10": 1325,
+        "11+": 2092,
+        "1": 1388,
+        "2-3": 595
+      },
+      "clamp_hits": 25
+    },
+    "money_good_deal": {
+      "domain": "money",
+      "base_weight": 0.33,
+      "expr_confidence": 0.95,
+      "has_ten_god_affinity": true,
+      "has_relation_affinity": true,
+      "mean_probability": 58.3,
+      "p90_probability": 72,
+      "base_only_probability": 49,
+      "ten_god_effect_mean": 9.5,
+      "relation_effect_mean": 3.1,
+      "good_slot_wins": 190,
+      "win_rate_pct": 3.5,
+      "mean_gap_to_second": 1.94,
+      "rank_distribution": {
+        "4-10": 1694,
+        "11+": 2452,
+        "2-3": 1162,
+        "1": 92
+      },
+      "clamp_hits": 2
+    },
+    "praise_recognition": {
+      "domain": "work",
+      "base_weight": 0.33,
+      "expr_confidence": 1.0,
+      "has_ten_god_affinity": true,
+      "has_relation_affinity": true,
+      "mean_probability": 56.5,
+      "p90_probability": 73,
+      "base_only_probability": 51,
+      "ten_god_effect_mean": 7.7,
+      "relation_effect_mean": 0.6,
+      "good_slot_wins": 785,
+      "win_rate_pct": 14.5,
+      "mean_gap_to_second": 4.1,
+      "rank_distribution": {
+        "11+": 2675,
+        "4-10": 1614,
+        "2-3": 489,
+        "1": 622
+      },
+      "clamp_hits": 16
+    },
+    "good_news_arrives": {
+      "domain": "news",
+      "base_weight": 0.33,
+      "expr_confidence": 1.0,
+      "has_ten_god_affinity": true,
+      "has_relation_affinity": true,
+      "mean_probability": 60.1,
+      "p90_probability": 73,
+      "base_only_probability": 51,
+      "ten_god_effect_mean": 8.8,
+      "relation_effect_mean": 2.9,
+      "good_slot_wins": 344,
+      "win_rate_pct": 6.4,
+      "mean_gap_to_second": 1.79,
+      "rank_distribution": {
+        "1": 268,
+        "4-10": 2573,
+        "11+": 1589,
+        "2-3": 970
+      },
+      "clamp_hits": 0
+    },
+    "teamwork_flow": {
+      "domain": "work",
+      "base_weight": 0.33,
+      "expr_confidence": 0.95,
+      "has_ten_god_affinity": true,
+      "has_relation_affinity": true,
+      "mean_probability": 55.7,
+      "p90_probability": 70,
+      "base_only_probability": 49,
+      "ten_god_effect_mean": 7.5,
+      "relation_effect_mean": 1.7,
+      "good_slot_wins": 444,
+      "win_rate_pct": 8.2,
+      "mean_gap_to_second": 3.43,
+      "rank_distribution": {
+        "2-3": 202,
+        "11+": 3011,
+        "1": 375,
+        "4-10": 1812
+      },
+      "clamp_hits": 3
+    },
+    "meet_helper": {
+      "domain": "social",
+      "base_weight": 0.33,
+      "expr_confidence": 0.95,
+      "has_ten_god_affinity": true,
+      "has_relation_affinity": true,
+      "mean_probability": 58.5,
+      "p90_probability": 73,
+      "base_only_probability": 49,
+      "ten_god_effect_mean": 9.6,
+      "relation_effect_mean": 3.2,
+      "good_slot_wins": 617,
+      "win_rate_pct": 11.4,
+      "mean_gap_to_second": 2.05,
+      "rank_distribution": {
+        "4-10": 1664,
+        "2-3": 954,
+        "11+": 2283,
+        "1": 499
+      },
+      "clamp_hits": 3
+    },
+    "love_spark": {
+      "domain": "love",
+      "base_weight": 0.3,
+      "expr_confidence": 0.9,
+      "has_ten_god_affinity": true,
+      "has_relation_affinity": true,
+      "mean_probability": 57.6,
+      "p90_probability": 71,
+      "base_only_probability": 44,
+      "ten_god_effect_mean": 12.9,
+      "relation_effect_mean": 5.1,
+      "good_slot_wins": 226,
+      "win_rate_pct": 4.2,
+      "mean_gap_to_second": 2.23,
+      "rank_distribution": {
+        "11+": 2259,
+        "1": 124,
+        "4-10": 2323,
+        "2-3": 694
+      },
+      "clamp_hits": 4
+    },
+    "focus_flow": {
+      "domain": "work",
+      "base_weight": 0.33,
+      "expr_confidence": 0.9,
+      "has_ten_god_affinity": true,
+      "has_relation_affinity": true,
+      "mean_probability": 52.0,
+      "p90_probability": 64,
+      "base_only_probability": 47,
+      "ten_god_effect_mean": 6.4,
+      "relation_effect_mean": 1.2,
+      "good_slot_wins": 0,
+      "win_rate_pct": 0.0,
+      "mean_gap_to_second": null,
+      "rank_distribution": {
+        "4-10": 1055,
+        "11+": 4328,
+        "2-3": 17
+      },
+      "clamp_hits": 0
+    },
+    "family_talk": {
+      "domain": "social",
+      "base_weight": 0.33,
+      "expr_confidence": 0.85,
+      "has_ten_god_affinity": true,
+      "has_relation_affinity": true,
+      "mean_probability": 50.5,
+      "p90_probability": 60,
+      "base_only_probability": 44,
+      "ten_god_effect_mean": 5.5,
+      "relation_effect_mean": 2.6,
+      "good_slot_wins": 0,
+      "win_rate_pct": 0.0,
+      "mean_gap_to_second": null,
+      "rank_distribution": {
+        "11+": 4969,
+        "4-10": 431
+      },
+      "clamp_hits": 0
+    },
+    "small_find": {
+      "domain": "leisure",
+      "base_weight": 0.3,
+      "expr_confidence": 0.85,
+      "has_ten_god_affinity": true,
+      "has_relation_affinity": true,
+      "mean_probability": 52.8,
+      "p90_probability": 60,
+      "base_only_probability": 42,
+      "ten_god_effect_mean": 7.3,
+      "relation_effect_mean": 5.5,
+      "good_slot_wins": 0,
+      "win_rate_pct": 0.0,
+      "mean_gap_to_second": null,
+      "rank_distribution": {
+        "11+": 5020,
+        "4-10": 380
+      },
+      "clamp_hits": 0
+    }
+  }
+}

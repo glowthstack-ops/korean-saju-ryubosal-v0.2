@@ -9,10 +9,11 @@ import collections
 import datetime as dt
 import json
 import statistics
+
 import saju_engines.daily_ilju_fortune as M
+from saju_engines.daily_board_constraints import HeadlineCandidate, cap_count
+from saju_engines.daily_board_constraints import rebalance_headlines_with_constraints as rebalance
 from saju_engines.daily_relation_shadow import RELATION_VARIANTS, score_event_with_relation
-from saju_engines.daily_board_constraints import HeadlineCandidate, cap_count, \
-    rebalance_headlines_with_constraints as rebalance
 from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index
 
 dicts = M.load_daily_dicts()
