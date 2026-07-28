@@ -1,0 +1,122 @@
+{
+  "audit_id": "OA-6e relation shadow",
+  "generated_from_commit": "6860ed7",
+  "dict_version": "dict.v1.10",
+  "event_selection_contract": "event-selection.v1-legacy-frozen",
+  "board_rebalance_version": "board-rebalance.v1-domain-only",
+  "board_rebalance_shadow_version": "board-rebalance.v2-domain-event-cap",
+  "date_range": {
+    "from": "2026-07-01",
+    "days": 90,
+    "cards": 5400
+  },
+  "source_digest": {
+    "daily_event_catalog.json": "d03b55ae45c4192e91bbc05e2fe89a2fffe97c356227d46bf6e0bd7f0bf47cfd",
+    "daily_phrase_templates.json": "1d86978ed1c82a8e6fa3c0396eb8e5c76fb8e97b372d5d08c04c50981577f2d3",
+    "daily_lucky_places.json": "8feaf0169951d4a1cb799b1fdde35edf529eb6877a1baf660ceb27d4b3eef5f1"
+  },
+  "policy_status": "shadow_only",
+  "selected_relation_variant": null,
+  "selected_event_cap": null,
+  "decision": "deferred_pending_event_score_dominance_audit",
+  "live_behavior_changed": false,
+  "generation_command": "python scripts/audit_relation_shadow.py",
+  "variants": {
+    "R0": {
+      "multiplier": 1.0,
+      "raw_money_pct": 27.0,
+      "cap_money_pct": 23.2,
+      "stem_collapse_pct": 38.4,
+      "headline_keys": 14,
+      "uniq_events_per_day": 10.6,
+      "top1_top2_gap": 3.3,
+      "rare_top3_per_card": 0.003,
+      "segments": {
+        "seg1(1-30)": {
+          "raw_money_pct": 27.9,
+          "collapse_pct": 36.7
+        },
+        "seg2(31-60)": {
+          "raw_money_pct": 26.3,
+          "collapse_pct": 42.0
+        },
+        "seg3(61-90)": {
+          "raw_money_pct": 26.8,
+          "collapse_pct": 36.7
+        }
+      }
+    },
+    "R1": {
+      "multiplier": 1.25,
+      "raw_money_pct": 26.6,
+      "cap_money_pct": 22.6,
+      "stem_collapse_pct": 28.0,
+      "headline_keys": 14,
+      "uniq_events_per_day": 10.9,
+      "top1_top2_gap": 3.27,
+      "rare_top3_per_card": 0.003,
+      "segments": {
+        "seg1(1-30)": {
+          "raw_money_pct": 27.1,
+          "collapse_pct": 23.7
+        },
+        "seg2(31-60)": {
+          "raw_money_pct": 26.5,
+          "collapse_pct": 33.0
+        },
+        "seg3(61-90)": {
+          "raw_money_pct": 26.3,
+          "collapse_pct": 27.3
+        }
+      }
+    },
+    "R2": {
+      "multiplier": 1.5,
+      "raw_money_pct": 26.2,
+      "cap_money_pct": 22.1,
+      "stem_collapse_pct": 20.0,
+      "headline_keys": 14,
+      "uniq_events_per_day": 11.0,
+      "top1_top2_gap": 3.18,
+      "rare_top3_per_card": 0.002,
+      "segments": {
+        "seg1(1-30)": {
+          "raw_money_pct": 26.6,
+          "collapse_pct": 16.7
+        },
+        "seg2(31-60)": {
+          "raw_money_pct": 26.3,
+          "collapse_pct": 23.7
+        },
+        "seg3(61-90)": {
+          "raw_money_pct": 25.8,
+          "collapse_pct": 19.7
+        }
+      }
+    },
+    "R3": {
+      "multiplier": 1.75,
+      "raw_money_pct": 26.3,
+      "cap_money_pct": 21.5,
+      "stem_collapse_pct": 14.0,
+      "headline_keys": 14,
+      "uniq_events_per_day": 11.1,
+      "top1_top2_gap": 3.14,
+      "rare_top3_per_card": 0.002,
+      "segments": {
+        "seg1(1-30)": {
+          "raw_money_pct": 26.6,
+          "collapse_pct": 12.3
+        },
+        "seg2(31-60)": {
+          "raw_money_pct": 26.3,
+          "collapse_pct": 16.3
+        },
+        "seg3(61-90)": {
+          "raw_money_pct": 26.1,
+          "collapse_pct": 13.3
+        }
+      }
+    }
+  }
+}

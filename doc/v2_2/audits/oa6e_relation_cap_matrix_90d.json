@@ -1,0 +1,250 @@
+{
+  "audit_id": "OA-6e relation × cap matrix",
+  "generated_from_commit": "6860ed7",
+  "dict_version": "dict.v1.10",
+  "event_selection_contract": "event-selection.v1-legacy-frozen",
+  "board_rebalance_version": "board-rebalance.v1-domain-only",
+  "board_rebalance_shadow_version": "board-rebalance.v2-domain-event-cap",
+  "date_range": {
+    "from": "2026-07-01",
+    "days": 90,
+    "cards": 5400
+  },
+  "source_digest": {
+    "daily_event_catalog.json": "d03b55ae45c4192e91bbc05e2fe89a2fffe97c356227d46bf6e0bd7f0bf47cfd",
+    "daily_phrase_templates.json": "1d86978ed1c82a8e6fa3c0396eb8e5c76fb8e97b372d5d08c04c50981577f2d3",
+    "daily_lucky_places.json": "8feaf0169951d4a1cb799b1fdde35edf529eb6877a1baf660ceb27d4b3eef5f1"
+  },
+  "policy_status": "shadow_only",
+  "selected_relation_variant": null,
+  "selected_event_cap": null,
+  "decision": "deferred_pending_event_score_dominance_audit",
+  "live_behavior_changed": false,
+  "generation_command": "python scripts/audit_relation_cap_matrix.py",
+  "approval_criteria": {
+    "le10_days_min": 72,
+    "ge13_days_max": 0,
+    "result": "no combination passed — 사후 완화하지 않는다",
+    "closest": "R3+D7 (le10=70, ge13=1)"
+  },
+  "combinations": {
+    "R0+D6": {
+      "le10": 47,
+      "eq11": 6,
+      "eq12": 14,
+      "ge13": 23,
+      "max_observed": 18,
+      "mean_max": 11.4,
+      "p90_max": 14,
+      "moves": 549,
+      "cost_mean": 2.64,
+      "cost_p90": 5,
+      "cost_max": 6,
+      "cost_budget_exceeded": 508,
+      "money_top_days": 76,
+      "event_cap_unresolved_days": 43,
+      "domain_cap_unresolved_days": 6,
+      "overrides": {
+        "destination_domain_full": 50,
+        "cost_budget_exceeded": 508,
+        "no_cross_event_alternative": 20,
+        "combined_constraints_infeasible": 6,
+        "destination_event_full": 2
+      },
+      "segments": {
+        "seg1": {
+          "≤10": 19,
+          "13+": 6,
+          "12": 4,
+          "11": 1
+        },
+        "seg2": {
+          "13+": 9,
+          "≤10": 13,
+          "11": 3,
+          "12": 5
+        },
+        "seg3": {
+          "≤10": 15,
+          "13+": 8,
+          "12": 5,
+          "11": 2
+        }
+      }
+    },
+    "R2+D6": {
+      "le10": 56,
+      "eq11": 13,
+      "eq12": 11,
+      "ge13": 10,
+      "max_observed": 18,
+      "mean_max": 10.82,
+      "p90_max": 13,
+      "moves": 451,
+      "cost_mean": 2.48,
+      "cost_p90": 5,
+      "cost_max": 6,
+      "cost_budget_exceeded": 368,
+      "money_top_days": 85,
+      "event_cap_unresolved_days": 34,
+      "domain_cap_unresolved_days": 6,
+      "overrides": {
+        "destination_domain_full": 37,
+        "cost_budget_exceeded": 368,
+        "no_cross_event_alternative": 38,
+        "combined_constraints_infeasible": 6,
+        "destination_event_full": 1
+      },
+      "segments": {
+        "seg1": {
+          "≤10": 19,
+          "13+": 3,
+          "11": 6,
+          "12": 2
+        },
+        "seg2": {
+          "12": 6,
+          "≤10": 16,
+          "13+": 5,
+          "11": 3
+        },
+        "seg3": {
+          "≤10": 21,
+          "13+": 2,
+          "11": 4,
+          "12": 3
+        }
+      }
+    },
+    "R3+D6": {
+      "le10": 64,
+      "eq11": 12,
+      "eq12": 8,
+      "ge13": 6,
+      "max_observed": 18,
+      "mean_max": 10.56,
+      "p90_max": 12,
+      "moves": 455,
+      "cost_mean": 2.44,
+      "cost_p90": 5,
+      "cost_max": 6,
+      "cost_budget_exceeded": 244,
+      "money_top_days": 77,
+      "event_cap_unresolved_days": 26,
+      "domain_cap_unresolved_days": 3,
+      "overrides": {
+        "destination_domain_full": 15,
+        "cost_budget_exceeded": 244,
+        "no_cross_event_alternative": 69,
+        "combined_constraints_infeasible": 3,
+        "destination_event_full": 1
+      },
+      "segments": {
+        "seg1": {
+          "≤10": 23,
+          "12": 1,
+          "11": 4,
+          "13+": 2
+        },
+        "seg2": {
+          "11": 3,
+          "≤10": 19,
+          "13+": 3,
+          "12": 5
+        },
+        "seg3": {
+          "≤10": 22,
+          "11": 5,
+          "12": 2,
+          "13+": 1
+        }
+      }
+    },
+    "R2+D7": {
+      "le10": 65,
+      "eq11": 8,
+      "eq12": 11,
+      "ge13": 6,
+      "max_observed": 16,
+      "mean_max": 10.57,
+      "p90_max": 12,
+      "moves": 473,
+      "cost_mean": 2.71,
+      "cost_p90": 6,
+      "cost_max": 7,
+      "cost_budget_exceeded": 261,
+      "money_top_days": 83,
+      "event_cap_unresolved_days": 25,
+      "domain_cap_unresolved_days": 1,
+      "overrides": {
+        "destination_domain_full": 30,
+        "cost_budget_exceeded": 261,
+        "no_cross_event_alternative": 16,
+        "combined_constraints_infeasible": 1,
+        "destination_event_full": 1
+      },
+      "segments": {
+        "seg1": {
+          "≤10": 24,
+          "12": 1,
+          "11": 3,
+          "13+": 2
+        },
+        "seg2": {
+          "12": 7,
+          "≤10": 17,
+          "11": 3,
+          "13+": 3
+        },
+        "seg3": {
+          "≤10": 24,
+          "12": 3,
+          "11": 2,
+          "13+": 1
+        }
+      }
+    },
+    "R3+D7": {
+      "le10": 70,
+      "eq11": 12,
+      "eq12": 7,
+      "ge13": 1,
+      "max_observed": 14,
+      "mean_max": 10.31,
+      "p90_max": 11,
+      "moves": 477,
+      "cost_mean": 2.65,
+      "cost_p90": 6,
+      "cost_max": 7,
+      "cost_budget_exceeded": 160,
+      "money_top_days": 75,
+      "event_cap_unresolved_days": 20,
+      "domain_cap_unresolved_days": 1,
+      "overrides": {
+        "destination_domain_full": 16,
+        "cost_budget_exceeded": 160,
+        "no_cross_event_alternative": 60,
+        "destination_event_full": 2,
+        "combined_constraints_infeasible": 1
+      },
+      "segments": {
+        "seg1": {
+          "≤10": 24,
+          "12": 3,
+          "11": 3
+        },
+        "seg2": {
+          "11": 5,
+          "≤10": 21,
+          "12": 3,
+          "13+": 1
+        },
+        "seg3": {
+          "≤10": 25,
+          "11": 4,
+          "12": 1
+        }
+      }
+    }
+  }
+}
