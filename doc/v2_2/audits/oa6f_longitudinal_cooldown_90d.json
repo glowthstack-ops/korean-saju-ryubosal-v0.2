@@ -22,8 +22,21 @@
         "moved_pct": 6.3,
         "mean_probability_loss": 0.0,
         "p90_probability_loss": 0,
+        "cooldown_triggered_cards": 0,
+        "cooldown_moved_cards": 0,
         "cooldown_unresolved_cards": 0,
-        "cooldown_unresolved_pct": 0.0,
+        "cap_only_moves": 0,
+        "not_triggered_cards": 5400,
+        "partition_holds": true,
+        "unresolved_rate_of_all_cards": 0.0,
+        "unresolved_rate_of_triggered_cards": 0.0,
+        "unresolved_reasons": {},
+        "required_uplift_distribution": {},
+        "recoverable_within_3p_alternatives": {},
+        "candidate_depth": {
+          "eligible_unique_p10": 0,
+          "within_budget_unique_p10": 0
+        },
         "codes": {},
         "same_domain_move": 0,
         "cross_domain_move": 0,
@@ -81,12 +94,23 @@
         "moved_pct": 10.1,
         "mean_probability_loss": 2.68,
         "p90_probability_loss": 6,
+        "cooldown_triggered_cards": 0,
+        "cooldown_moved_cards": 0,
         "cooldown_unresolved_cards": 0,
-        "cooldown_unresolved_pct": 0.0,
+        "cap_only_moves": 547,
+        "not_triggered_cards": 5400,
+        "partition_holds": true,
+        "unresolved_rate_of_all_cards": 0.0,
+        "unresolved_rate_of_triggered_cards": 0.0,
+        "unresolved_reasons": {},
+        "required_uplift_distribution": {},
+        "recoverable_within_3p_alternatives": {},
+        "candidate_depth": {
+          "eligible_unique_p10": 17,
+          "within_budget_unique_p10": 16
+        },
         "codes": {
-          "COOLDOWN_UNRESOLVED_LOSS_BUDGET": 1018,
-          "COOLDOWN_ALTERNATIVE_SELECTED": 547,
-          "COOLDOWN_UNRESOLVED_NO_CANDIDATE": 312
+          "CAP_ALTERNATIVE_SELECTED": 547
         },
         "same_domain_move": 0,
         "cross_domain_move": 547,
@@ -153,12 +177,23 @@
         "moved_pct": 10.8,
         "mean_probability_loss": 2.98,
         "p90_probability_loss": 6,
+        "cooldown_triggered_cards": 0,
+        "cooldown_moved_cards": 0,
         "cooldown_unresolved_cards": 0,
-        "cooldown_unresolved_pct": 0.0,
+        "cap_only_moves": 584,
+        "not_triggered_cards": 5400,
+        "partition_holds": true,
+        "unresolved_rate_of_all_cards": 0.0,
+        "unresolved_rate_of_triggered_cards": 0.0,
+        "unresolved_reasons": {},
+        "required_uplift_distribution": {},
+        "recoverable_within_3p_alternatives": {},
+        "candidate_depth": {
+          "eligible_unique_p10": 17,
+          "within_budget_unique_p10": 16
+        },
         "codes": {
-          "COOLDOWN_UNRESOLVED_LOSS_BUDGET": 845,
-          "COOLDOWN_ALTERNATIVE_SELECTED": 584,
-          "COOLDOWN_UNRESOLVED_NO_CANDIDATE": 323
+          "CAP_ALTERNATIVE_SELECTED": 584
         },
         "same_domain_move": 0,
         "cross_domain_move": 584,
@@ -225,12 +260,50 @@
         "moved_pct": 11.9,
         "mean_probability_loss": 2.46,
         "p90_probability_loss": 5,
+        "cooldown_triggered_cards": 1133,
+        "cooldown_moved_cards": 474,
         "cooldown_unresolved_cards": 659,
-        "cooldown_unresolved_pct": 12.2,
+        "cap_only_moves": 170,
+        "not_triggered_cards": 4267,
+        "partition_holds": true,
+        "unresolved_rate_of_all_cards": 12.2,
+        "unresolved_rate_of_triggered_cards": 58.2,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 496,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 67,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 66,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 30
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 221,
+          "+4~5p": 97,
+          "+1p 이내": 71,
+          "+2p 이내": 54,
+          "+3p 이내": 53
+        },
+        "recoverable_within_3p_alternatives": {
+          "treat_received": 44,
+          "love_spark": 38,
+          "document_progress": 33,
+          "good_news_arrives": 18,
+          "tidy_luck": 12,
+          "praise_recognition": 7,
+          "love_deepening": 6,
+          "idea_flash": 4,
+          "rest_recharge": 3,
+          "meet_helper": 3
+        },
+        "candidate_depth": {
+          "eligible_unique_p10": 17,
+          "within_budget_unique_p10": 16
+        },
         "codes": {
-          "COOLDOWN_UNRESOLVED_LOSS_BUDGET": 1123,
-          "COOLDOWN_ALTERNATIVE_SELECTED": 644,
-          "COOLDOWN_UNRESOLVED_NO_CANDIDATE": 366
+          "LOSS_BUDGET_EXCEEDED": 496,
+          "COOLDOWN_ALTERNATIVE_SELECTED": 474,
+          "CAP_ALTERNATIVE_SELECTED": 170,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 67,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 66,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 30
         },
         "same_domain_move": 0,
         "cross_domain_move": 644,
@@ -297,12 +370,50 @@
         "moved_pct": 13.4,
         "mean_probability_loss": 2.9,
         "p90_probability_loss": 6,
+        "cooldown_triggered_cards": 1121,
+        "cooldown_moved_cards": 546,
         "cooldown_unresolved_cards": 575,
-        "cooldown_unresolved_pct": 10.6,
+        "cap_only_moves": 175,
+        "not_triggered_cards": 4279,
+        "partition_holds": true,
+        "unresolved_rate_of_all_cards": 10.6,
+        "unresolved_rate_of_triggered_cards": 51.3,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 413,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 69,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 66,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 179,
+          "+4~5p": 78,
+          "+2p 이내": 53,
+          "+3p 이내": 52,
+          "+1p 이내": 51
+        },
+        "recoverable_within_3p_alternatives": {
+          "love_spark": 40,
+          "treat_received": 40,
+          "document_progress": 26,
+          "tidy_luck": 14,
+          "good_news_arrives": 13,
+          "love_deepening": 7,
+          "meet_helper": 3,
+          "rest_recharge": 3,
+          "teamwork_flow": 2,
+          "love_reunion": 2
+        },
+        "candidate_depth": {
+          "eligible_unique_p10": 17,
+          "within_budget_unique_p10": 16
+        },
         "codes": {
-          "COOLDOWN_UNRESOLVED_LOSS_BUDGET": 900,
-          "COOLDOWN_ALTERNATIVE_SELECTED": 721,
-          "COOLDOWN_UNRESOLVED_NO_CANDIDATE": 390
+          "COOLDOWN_ALTERNATIVE_SELECTED": 546,
+          "LOSS_BUDGET_EXCEEDED": 413,
+          "CAP_ALTERNATIVE_SELECTED": 175,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 69,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 66,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27
         },
         "same_domain_move": 0,
         "cross_domain_move": 721,
@@ -369,12 +480,50 @@
         "moved_pct": 14.1,
         "mean_probability_loss": 3.19,
         "p90_probability_loss": 6,
+        "cooldown_triggered_cards": 1114,
+        "cooldown_moved_cards": 601,
         "cooldown_unresolved_cards": 513,
-        "cooldown_unresolved_pct": 9.5,
+        "cap_only_moves": 163,
+        "not_triggered_cards": 4286,
+        "partition_holds": true,
+        "unresolved_rate_of_all_cards": 9.5,
+        "unresolved_rate_of_triggered_cards": 46.1,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 354,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 69,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 63,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 137,
+          "+4~5p": 69,
+          "+2p 이내": 53,
+          "+1p 이내": 52,
+          "+3p 이내": 43
+        },
+        "recoverable_within_3p_alternatives": {
+          "treat_received": 40,
+          "love_spark": 38,
+          "document_progress": 25,
+          "tidy_luck": 12,
+          "good_news_arrives": 12,
+          "love_deepening": 6,
+          "love_reunion": 4,
+          "praise_recognition": 3,
+          "meet_helper": 2,
+          "pleasant_meeting": 2
+        },
+        "candidate_depth": {
+          "eligible_unique_p10": 17,
+          "within_budget_unique_p10": 16
+        },
         "codes": {
-          "COOLDOWN_ALTERNATIVE_SELECTED": 764,
-          "COOLDOWN_UNRESOLVED_LOSS_BUDGET": 729,
-          "COOLDOWN_UNRESOLVED_NO_CANDIDATE": 408
+          "COOLDOWN_ALTERNATIVE_SELECTED": 601,
+          "LOSS_BUDGET_EXCEEDED": 354,
+          "CAP_ALTERNATIVE_SELECTED": 163,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 69,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 63,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27
         },
         "same_domain_move": 0,
         "cross_domain_move": 764,
@@ -441,12 +590,52 @@
         "moved_pct": 12.7,
         "mean_probability_loss": 2.57,
         "p90_probability_loss": 5,
+        "cooldown_triggered_cards": 1110,
+        "cooldown_moved_cards": 479,
         "cooldown_unresolved_cards": 631,
-        "cooldown_unresolved_pct": 11.7,
+        "cap_only_moves": 209,
+        "not_triggered_cards": 4290,
+        "partition_holds": true,
+        "unresolved_rate_of_all_cards": 11.7,
+        "unresolved_rate_of_triggered_cards": 56.8,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 477,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 73,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 42,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 29,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 10
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 209,
+          "+4~5p": 91,
+          "+1p 이내": 74,
+          "+3p 이내": 55,
+          "+2p 이내": 48
+        },
+        "recoverable_within_3p_alternatives": {
+          "love_spark": 40,
+          "treat_received": 39,
+          "document_progress": 34,
+          "good_news_arrives": 12,
+          "tidy_luck": 11,
+          "praise_recognition": 10,
+          "love_deepening": 6,
+          "idea_flash": 5,
+          "money_good_deal": 3,
+          "rest_recharge": 3
+        },
+        "candidate_depth": {
+          "eligible_unique_p10": 17,
+          "within_budget_unique_p10": 16
+        },
         "codes": {
-          "COOLDOWN_UNRESOLVED_LOSS_BUDGET": 1138,
-          "COOLDOWN_ALTERNATIVE_SELECTED": 688,
-          "COOLDOWN_UNRESOLVED_NO_CANDIDATE": 317
+          "COOLDOWN_ALTERNATIVE_SELECTED": 479,
+          "LOSS_BUDGET_EXCEEDED": 477,
+          "CAP_ALTERNATIVE_SELECTED": 209,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 73,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 42,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 29,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 10
         },
         "same_domain_move": 0,
         "cross_domain_move": 688,
@@ -513,12 +702,52 @@
         "moved_pct": 14.6,
         "mean_probability_loss": 3.03,
         "p90_probability_loss": 6,
+        "cooldown_triggered_cards": 1091,
+        "cooldown_moved_cards": 551,
         "cooldown_unresolved_cards": 540,
-        "cooldown_unresolved_pct": 10.0,
+        "cap_only_moves": 236,
+        "not_triggered_cards": 4309,
+        "partition_holds": true,
+        "unresolved_rate_of_all_cards": 10.0,
+        "unresolved_rate_of_triggered_cards": 49.5,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 391,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 69,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 41,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 12
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 172,
+          "+4~5p": 73,
+          "+2p 이내": 54,
+          "+1p 이내": 48,
+          "+3p 이내": 44
+        },
+        "recoverable_within_3p_alternatives": {
+          "love_spark": 42,
+          "treat_received": 34,
+          "document_progress": 27,
+          "tidy_luck": 13,
+          "love_deepening": 7,
+          "good_news_arrives": 6,
+          "meet_helper": 3,
+          "praise_recognition": 3,
+          "rest_recharge": 3,
+          "teamwork_flow": 2
+        },
+        "candidate_depth": {
+          "eligible_unique_p10": 17,
+          "within_budget_unique_p10": 16
+        },
         "codes": {
-          "COOLDOWN_UNRESOLVED_LOSS_BUDGET": 944,
-          "COOLDOWN_ALTERNATIVE_SELECTED": 787,
-          "COOLDOWN_UNRESOLVED_NO_CANDIDATE": 337
+          "COOLDOWN_ALTERNATIVE_SELECTED": 551,
+          "LOSS_BUDGET_EXCEEDED": 391,
+          "CAP_ALTERNATIVE_SELECTED": 236,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 69,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 41,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 12
         },
         "same_domain_move": 0,
         "cross_domain_move": 787,
@@ -585,12 +814,52 @@
         "moved_pct": 15.9,
         "mean_probability_loss": 3.37,
         "p90_probability_loss": 6,
+        "cooldown_triggered_cards": 1075,
+        "cooldown_moved_cards": 597,
         "cooldown_unresolved_cards": 478,
-        "cooldown_unresolved_pct": 8.9,
+        "cap_only_moves": 260,
+        "not_triggered_cards": 4325,
+        "partition_holds": true,
+        "unresolved_rate_of_all_cards": 8.9,
+        "unresolved_rate_of_triggered_cards": 44.5,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 328,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 67,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 43,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 13
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 132,
+          "+4~5p": 62,
+          "+1p 이내": 53,
+          "+2p 이내": 41,
+          "+3p 이내": 40
+        },
+        "recoverable_within_3p_alternatives": {
+          "love_spark": 35,
+          "treat_received": 32,
+          "document_progress": 27,
+          "tidy_luck": 12,
+          "love_deepening": 7,
+          "good_news_arrives": 6,
+          "love_reunion": 4,
+          "praise_recognition": 4,
+          "meet_helper": 2,
+          "pleasant_meeting": 2
+        },
+        "candidate_depth": {
+          "eligible_unique_p10": 17,
+          "within_budget_unique_p10": 16
+        },
         "codes": {
-          "COOLDOWN_ALTERNATIVE_SELECTED": 857,
-          "COOLDOWN_UNRESOLVED_LOSS_BUDGET": 792,
-          "COOLDOWN_UNRESOLVED_NO_CANDIDATE": 363
+          "COOLDOWN_ALTERNATIVE_SELECTED": 597,
+          "LOSS_BUDGET_EXCEEDED": 328,
+          "CAP_ALTERNATIVE_SELECTED": 260,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 67,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 43,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 13
         },
         "same_domain_move": 0,
         "cross_domain_move": 857,

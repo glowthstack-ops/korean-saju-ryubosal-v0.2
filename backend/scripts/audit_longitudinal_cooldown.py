@@ -38,6 +38,7 @@ import saju_engines.daily_ilju_fortune as M  # noqa: E402
 from saju_engines.daily_board_constraints import HeadlineCandidate, cap_count  # noqa: E402
 from saju_engines.daily_cooldown_shadow import (  # noqa: E402
     COOLDOWN_WINDOW,
+    LOSS_BUDGET_EXCEEDED,
     rebalance_with_cooldown,
 )
 from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index  # noqa: E402
@@ -73,7 +74,17 @@ class _Acc:
         self.moves = 0
         self.costs: list[int] = []
         self.codes = collections.Counter()
+        # 상호 배타적 카드 분할 — 분모를 섞지 않는다.
+        self.cooldown_triggered = 0
+        self.cooldown_moved = 0
         self.unresolved = 0
+        self.unresolved_reasons = collections.Counter()
+        self.cap_only_moves = 0
+        self.uplift_hist = collections.Counter()
+        self.uplift_alternatives = collections.Counter()
+        # 후보 깊이 — 일주별 90일 누적
+        self.eligible_keys: dict[str, set[str]] = collections.defaultdict(set)
+        self.within_budget_keys: dict[str, set[str]] = collections.defaultdict(set)
         self.replacement = collections.Counter()
         self.support_origin_promoted = 0
         self.caution_origin_promoted = 0
@@ -199,9 +210,29 @@ def run() -> dict[str, Any]:
             )
             a.domain_overflow += r.domain_overflow
             a.event_overflow += r.event_overflow
+            a.cooldown_triggered += r.cooldown_triggered
+            a.cooldown_moved += r.cooldown_moved
             a.unresolved += r.cooldown_unresolved
+            a.cap_only_moves += r.cap_only_moves
+            for u in r.unresolved_cards:
+                a.unresolved_reasons[u.reason] += 1
+                if u.reason == LOSS_BUDGET_EXCEEDED and u.required_uplift_to_fit is not None:
+                    up = u.required_uplift_to_fit
+                    bucket = ("+1p 이내" if up <= 1 else "+2p 이내" if up <= 2
+                              else "+3p 이내" if up <= 3 else "+4~5p" if up <= 5
+                              else "+6p 이상")
+                    a.uplift_hist[bucket] += 1
+                    if up <= 3 and u.best_alternative_event_key:
+                        a.uplift_alternatives[u.best_alternative_event_key] += 1
             for code, n in collections.Counter(r.codes.values()).items():
                 a.codes[code] += n
+            # 후보 깊이 — 카드에 실제 등장한 헤드라인 후보 전체 대 예산 안 후보
+            for ilju, cands in cmap.items():
+                top = cands[0].probability
+                for c in cands:
+                    a.eligible_keys[ilju].add(c.event_key)
+                    if top - c.probability <= budget:
+                        a.within_budget_keys[ilju].add(c.event_key)
             for m in r.moves:
                 a.moves += 1
                 a.costs.append(m.displacement_cost)
@@ -243,8 +274,29 @@ def run() -> dict[str, Any]:
             "mean_probability_loss": round(statistics.mean(a.costs), 2) if a.costs else 0.0,
             "p90_probability_loss": sorted(a.costs)[int(len(a.costs) * 0.9) - 1]
             if a.costs else 0,
+            "cooldown_triggered_cards": a.cooldown_triggered,
+            "cooldown_moved_cards": a.cooldown_moved,
             "cooldown_unresolved_cards": a.unresolved,
-            "cooldown_unresolved_pct": round(a.unresolved / (DAYS * 60) * 100, 1),
+            "cap_only_moves": a.cap_only_moves,
+            "not_triggered_cards": DAYS * 60 - a.cooldown_triggered,
+            "partition_holds": (
+                a.cooldown_moved + a.unresolved == a.cooldown_triggered
+            ),
+            "unresolved_rate_of_all_cards": round(a.unresolved / (DAYS * 60) * 100, 1),
+            "unresolved_rate_of_triggered_cards": round(
+                a.unresolved / max(1, a.cooldown_triggered) * 100, 1),
+            "unresolved_reasons": dict(a.unresolved_reasons.most_common()),
+            "required_uplift_distribution": dict(a.uplift_hist.most_common()),
+            "recoverable_within_3p_alternatives": dict(
+                a.uplift_alternatives.most_common(10)),
+            "candidate_depth": {
+                "eligible_unique_p10": sorted(
+                    len(v) for v in a.eligible_keys.values()
+                )[max(0, len(a.eligible_keys) // 10 - 1)] if a.eligible_keys else 0,
+                "within_budget_unique_p10": sorted(
+                    len(v) for v in a.within_budget_keys.values()
+                )[max(0, len(a.within_budget_keys) // 10 - 1)] if a.within_budget_keys else 0,
+            },
             "codes": dict(a.codes.most_common()),
             "same_domain_move": a.same_domain_move,
             "cross_domain_move": a.cross_domain_move,
@@ -294,4 +346,6 @@ if __name__ == "__main__":
     for name, v in result["variants"].items():
         print(f"  {name:32} p90={v['final_headline_p90_pct']:5}% "
               f"7일3회={v['window7_repeat3_pct']:5}% 이동={v['moves']:5} "
-              f"미해소={v['cooldown_unresolved_pct']:4}% gate={v['release_gate_passed']}")
+              f"트리거={v['cooldown_triggered_cards']:5} "
+              f"미해소={v['unresolved_rate_of_triggered_cards']:5}%(트리거기준) "
+              f"gate={v['release_gate_passed']}")

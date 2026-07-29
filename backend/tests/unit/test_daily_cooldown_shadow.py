@@ -17,10 +17,11 @@ import pytest
 
 from saju_engines.daily_board_constraints import HeadlineCandidate
 from saju_engines.daily_cooldown_shadow import (
+    ALL_CANDIDATES_COOLDOWN_BLOCKED,
     CONSECUTIVE_EVENT_REPEAT,
     COOLDOWN_ALTERNATIVE_SELECTED,
-    COOLDOWN_UNRESOLVED_LOSS_BUDGET,
-    COOLDOWN_UNRESOLVED_NO_CANDIDATE,
+    LOSS_BUDGET_EXCEEDED,
+    NO_ELIGIBLE_HEADLINE_EVENT,
     ROLLING_7D_THIRD_OCCURRENCE,
     cooldown_violation,
     rebalance_with_cooldown,
@@ -86,7 +87,7 @@ def test_loss_budget_keeps_the_original_event() -> None:
         raw, cands, {"甲子": ["money"]}, domain_cap=_BIG, max_displacement_cost=7
     )
     assert r.selections["甲子"].event_key == "money"
-    assert r.codes["甲子"] == COOLDOWN_UNRESOLVED_LOSS_BUDGET
+    assert r.codes["甲子"] == LOSS_BUDGET_EXCEEDED
     assert r.cooldown_unresolved == 1
 
 
@@ -96,7 +97,7 @@ def test_no_candidate_is_reported_not_invented() -> None:
     cands = {"甲子": [_c("money", "money", 80)]}
     r = rebalance_with_cooldown(raw, cands, {"甲子": ["money"]}, domain_cap=_BIG)
     assert r.selections["甲子"].event_key == "money"
-    assert r.codes["甲子"] == COOLDOWN_UNRESOLVED_NO_CANDIDATE
+    assert r.codes["甲子"] == NO_ELIGIBLE_HEADLINE_EVENT
 
 
 def test_replacement_must_itself_be_clean() -> None:
@@ -108,7 +109,7 @@ def test_replacement_must_itself_be_clean() -> None:
         raw, cands, {"甲子": ["rest", "rest", "money"]}, domain_cap=_BIG
     )
     assert r.selections["甲子"].event_key == "money"
-    assert r.codes["甲子"] == COOLDOWN_UNRESOLVED_NO_CANDIDATE
+    assert r.codes["甲子"] == ALL_CANDIDATES_COOLDOWN_BLOCKED
 
 
 def test_two_occurrences_in_the_window_are_allowed() -> None:
@@ -225,3 +226,78 @@ def test_displacement_never_exceeds_budget(budget: int) -> None:
         raw, cands, hist, domain_cap=_BIG, max_displacement_cost=budget
     )
     assert all(m.displacement_cost <= budget for m in r.moves)
+
+
+# ── 분모 분할 (OA-6f 정정) ─────────────────────────────────────────────────
+
+
+def test_card_partition_is_mutually_exclusive() -> None:
+    """cooldown 트리거 = 대체 성공 + 미해소(전 사유). 캡 이동은 섞이지 않는다.
+
+    이 동치가 깨지면 "미해소 8.9%"와 "미해소 21.4%"가 동시에 나온다(실제로 겪었다).
+    """
+    raw = {f"I{i}": _c("money", "money", 80) for i in range(10)}
+    cands = {}
+    for i in range(10):
+        alts = [_c("money", "money", 80)]
+        if i % 2 == 0:
+            alts.append(_c(f"alt{i}", "health", 79 - i))
+        cands[f"I{i}"] = alts
+    hist = {f"I{i}": ["money"] for i in range(0, 8)}  # 8장만 반복 위반
+
+    r = rebalance_with_cooldown(
+        raw, cands, hist, domain_cap=6, event_cap=6, max_displacement_cost=5
+    )
+    assert r.cooldown_triggered == 8
+    assert r.cooldown_moved + r.cooldown_unresolved == r.cooldown_triggered
+    assert (
+        r.unresolved_by_absence + r.unresolved_by_constraint + r.unresolved_by_budget
+        == r.cooldown_unresolved
+    )
+
+
+def test_cap_only_moves_are_not_counted_as_cooldown() -> None:
+    """캡 때문에 옮긴 카드는 cooldown 분모 밖이다."""
+    raw = {f"I{i}": _c("money", "money", 80) for i in range(6)}
+    cands = {
+        f"I{i}": [_c("money", "money", 80), _c(f"alt{i}", "health", 78)]
+        for i in range(6)
+    }
+    r = rebalance_with_cooldown(
+        raw, cands, {}, domain_cap=3, event_cap=3, max_displacement_cost=5
+    )
+    assert r.cooldown_triggered == 0
+    assert r.cooldown_unresolved == 0
+    assert r.cap_only_moves == len(r.moves)
+
+
+def test_loss_budget_card_reports_required_uplift() -> None:
+    """예산만 모자란 카드는 '몇 점이 더 있으면 되는가'를 남긴다 — G2 의 표적."""
+    raw = {"甲子": _c("money", "money", 80)}
+    cands = {"甲子": [_c("money", "money", 80), _c("rest", "health", 70)]}
+    r = rebalance_with_cooldown(
+        raw, cands, {"甲子": ["money"]}, domain_cap=_BIG, max_displacement_cost=7
+    )
+    (card,) = r.unresolved_cards
+    assert card.reason == LOSS_BUDGET_EXCEEDED
+    assert card.best_alternative_event_key == "rest"
+    assert card.probability_gap == 10
+    assert card.required_uplift_to_fit == 3
+
+
+def test_absence_and_constraint_reasons_are_separated() -> None:
+    """'사건이 없다'와 '제약으로 막혔다'를 같은 코드로 묶지 않는다."""
+    absent = rebalance_with_cooldown(
+        {"A": _c("money", "money", 80)}, {"A": [_c("money", "money", 80)]},
+        {"A": ["money"]}, domain_cap=_BIG,
+    )
+    assert absent.unresolved_by_absence == 1
+    assert absent.unresolved_by_constraint == 0
+
+    blockedr = rebalance_with_cooldown(
+        {"A": _c("money", "money", 80)},
+        {"A": [_c("money", "money", 80), _c("rest", "health", 79)]},
+        {"A": ["rest", "rest", "money"]}, domain_cap=_BIG,
+    )
+    assert blockedr.unresolved_by_constraint == 1
+    assert blockedr.unresolved_by_absence == 0

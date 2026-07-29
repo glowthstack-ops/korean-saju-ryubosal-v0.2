@@ -41,10 +41,49 @@ CONSECUTIVE_EVENT_REPEAT = "CONSECUTIVE_EVENT_REPEAT"
 ROLLING_7D_THIRD_OCCURRENCE = "ROLLING_7D_THIRD_OCCURRENCE"
 
 # ── 처리 코드 ──────────────────────────────────────────────────────────────
+#
+# 분모를 섞지 않는다. cooldown 지표는 **cooldown 이 트리거된 카드**만 분모로 삼고,
+# 캡(도메인·사건) 때문에 이동한/막힌 카드는 별도로 센다. 두 축을 한 코드 집합에
+# 담으면 "미해소 8.9%"와 "미해소 21.4%"가 동시에 나오는 일이 생긴다(실제로 겪었다).
 
 COOLDOWN_ALTERNATIVE_SELECTED = "COOLDOWN_ALTERNATIVE_SELECTED"
-COOLDOWN_UNRESOLVED_NO_CANDIDATE = "COOLDOWN_UNRESOLVED_NO_CANDIDATE"
-COOLDOWN_UNRESOLVED_LOSS_BUDGET = "COOLDOWN_UNRESOLVED_LOSS_BUDGET"
+#: 캡만으로 이동한 카드 — cooldown 트리거가 아니었다.
+CAP_ALTERNATIVE_SELECTED = "CAP_ALTERNATIVE_SELECTED"
+
+#: 미해소 사유 — "사건이 없다"와 "제약으로 막혔다"와 "예산 밖이다"를 분리한다.
+NO_ELIGIBLE_HEADLINE_EVENT = "NO_ELIGIBLE_HEADLINE_EVENT"
+ALL_CANDIDATES_COOLDOWN_BLOCKED = "ALL_CANDIDATES_COOLDOWN_BLOCKED"
+ALL_CANDIDATES_DOMAIN_CAP_BLOCKED = "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED"
+ALL_CANDIDATES_EVENT_CAP_BLOCKED = "ALL_CANDIDATES_EVENT_CAP_BLOCKED"
+ONLY_CAUTION_CANDIDATES = "ONLY_CAUTION_CANDIDATES"
+LOSS_BUDGET_EXCEEDED = "LOSS_BUDGET_EXCEEDED"
+
+#: 사건 자체가 없어서 못 바꾼 사유(신규 사건 설계의 근거).
+_ABSENCE_REASONS = (NO_ELIGIBLE_HEADLINE_EVENT, ONLY_CAUTION_CANDIDATES)
+#: 선택 제약으로 막힌 사유(정책 조정의 대상).
+_CONSTRAINT_REASONS = (
+    ALL_CANDIDATES_COOLDOWN_BLOCKED,
+    ALL_CANDIDATES_DOMAIN_CAP_BLOCKED,
+    ALL_CANDIDATES_EVENT_CAP_BLOCKED,
+)
+
+
+@dataclass(frozen=True)
+class UnresolvedCard:
+    """대체하지 못한 카드 1건 — G2 가 무엇을 회복해야 하는지의 원자료."""
+
+    ilju: str
+    reason: str
+    original_event_key: str
+    original_domain: str
+    original_probability: int
+    #: 예산만 아니면 쓸 수 있었던 최선 대안(없으면 None).
+    best_alternative_event_key: str | None = None
+    best_alternative_domain: str | None = None
+    #: 현재 승자와의 점수 차(양수 = 대안이 낮다).
+    probability_gap: int | None = None
+    #: 이 대안이 예산 안으로 들어오려면 몇 점을 더 받아야 하는가.
+    required_uplift_to_fit: int | None = None
 
 
 def cooldown_violation(history: Sequence[str], event_key: str) -> tuple[str, ...]:
@@ -68,30 +107,115 @@ def cooldown_violation(history: Sequence[str], event_key: str) -> tuple[str, ...
 
 @dataclass
 class CooldownResult:
-    """재배정 결과 + 감사."""
+    """재배정 결과 + 감사.
+
+    카드 분할은 **상호 배타적**이다:
+
+        cooldown_triggered = cooldown_moved + unresolved(전 사유)
+        total_cards        = cooldown_triggered + not_triggered
+    """
 
     selections: dict[str, HeadlineCandidate] = field(default_factory=dict)
     moves: list[Move] = field(default_factory=list)
     #: 일주 → 처리 코드(대체 성공/미해소 사유)
     codes: dict[str, str] = field(default_factory=dict)
-    #: 일주 → 원래 승자가 어긴 반복 규칙
+    #: 일주 → 원래 승자가 어긴 반복 규칙(트리거된 카드)
     violations: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    #: cooldown 이 트리거됐으나 대체하지 못한 카드의 원자료
+    unresolved_cards: list[UnresolvedCard] = field(default_factory=list)
+    #: 캡만으로 이동한 카드(cooldown 분모에 넣지 않는다)
+    cap_only_moves: int = 0
     domain_cap_count: int = 0
     event_cap_count: int = 0
     domain_overflow: int = 0
     event_overflow: int = 0
-    cooldown_unresolved: int = 0
     contract: str = COOLDOWN_CONTRACT_VERSION
 
     @property
     def moved_iljus(self) -> set[str]:
         return {m.ilju for m in self.moves}
 
+    @property
+    def cooldown_triggered(self) -> int:
+        """원시 승자가 반복 규칙을 어긴 카드 수 — cooldown 지표의 유일한 분모."""
+        return len(self.violations)
+
+    @property
+    def cooldown_moved(self) -> int:
+        return sum(
+            1 for ilju in self.violations
+            if self.codes.get(ilju) == COOLDOWN_ALTERNATIVE_SELECTED
+        )
+
+    @property
+    def cooldown_unresolved(self) -> int:
+        return len(self.unresolved_cards)
+
+    @property
+    def unresolved_by_absence(self) -> int:
+        return sum(1 for u in self.unresolved_cards if u.reason in _ABSENCE_REASONS)
+
+    @property
+    def unresolved_by_constraint(self) -> int:
+        return sum(1 for u in self.unresolved_cards if u.reason in _CONSTRAINT_REASONS)
+
+    @property
+    def unresolved_by_budget(self) -> int:
+        return sum(1 for u in self.unresolved_cards if u.reason == LOSS_BUDGET_EXCEEDED)
+
 
 def _counts(selections: Mapping[str, HeadlineCandidate]):
     events = collections.Counter(c.event_key for c in selections.values())
     domains = collections.Counter(c.domain for c in selections.values())
     return events, domains
+
+
+
+def _diagnose(
+    ilju: str, cur: HeadlineCandidate, alts: Sequence[HeadlineCandidate],
+    blocked: Mapping[str, int], budget_best: tuple[int, HeadlineCandidate] | None,
+    budget: int | None,
+) -> UnresolvedCard:
+    """대체 실패 사유를 하나로 확정한다.
+
+    우선순위는 **처방이 갈리는 순서**다 — 사건이 아예 없다(신규 설계) > 점수만
+    모자라다(조건부 라우팅) > 선택 제약(정책 조정). 예산만 모자란 경우에는 최선
+    대안과 필요한 추가 점수를 함께 남겨, G2 가 회복 가능 규모를 셀 수 있게 한다.
+
+    Args:
+        ilju: 일주.
+        cur: 현재 승자.
+        alts: 현재 승자를 제외한 카드 내 후보.
+        blocked: 사유별 차단 횟수.
+        budget_best: 예산만 아니면 쓸 수 있던 최선 대안 (비용, 후보).
+        budget: 허용 손실 상한.
+
+    Returns:
+        미해소 카드 1건.
+    """
+    if not alts:
+        reason = NO_ELIGIBLE_HEADLINE_EVENT
+    elif budget_best is not None:
+        cost, alt = budget_best
+        return UnresolvedCard(
+            ilju=ilju, reason=LOSS_BUDGET_EXCEEDED,
+            original_event_key=cur.event_key, original_domain=cur.domain,
+            original_probability=cur.probability,
+            best_alternative_event_key=alt.event_key,
+            best_alternative_domain=alt.domain,
+            probability_gap=cost,
+            required_uplift_to_fit=cost - (budget if budget is not None else cost),
+        )
+    elif blocked:
+        reason = blocked.most_common(1)[0][0] if isinstance(
+            blocked, collections.Counter
+        ) else next(iter(blocked))
+    else:
+        reason = NO_ELIGIBLE_HEADLINE_EVENT
+    return UnresolvedCard(
+        ilju=ilju, reason=reason, original_event_key=cur.event_key,
+        original_domain=cur.domain, original_probability=cur.probability,
+    )
 
 
 def rebalance_with_cooldown(
@@ -108,8 +232,9 @@ def rebalance_with_cooldown(
 
     대체 후보는 **그 카드에 실제 표시되는 사건**(`_headline_candidates` 결과)뿐이다.
     본문에 없는 이야기를 제목으로 올리면 카드가 자기모순이 되기 때문이다. 그래서
-    후보층이 얕으면 `COOLDOWN_UNRESOLVED_NO_CANDIDATE` 가 남는다 — 이 값이 곧
-    "비금전 good 사건이 부족한가"(G2 필요성)의 직접 측정치다.
+    대체하지 못한 카드는 사유를 나눠 남긴다 — "사건이 아예 없다"(신규 설계 근거)와
+    "선택 제약으로 막혔다"(정책 조정 대상)와 "예산 밖이다"(조건부 라우팅 대상)는
+    서로 다른 처방을 요구하기 때문이다.
 
     Args:
         raw_selections: 일주 → 원시 승자(보드 캡 이전).
@@ -128,6 +253,7 @@ def rebalance_with_cooldown(
         domain_cap_count=domain_cap, event_cap_count=event_cap or 0, contract=contract
     )
     moved: set[str] = set()
+    last_pending: dict[str, UnresolvedCard] = {}
     effective_event_cap = event_cap if event_cap is not None else len(selections)
 
     for ilju, cur in selections.items():
@@ -147,6 +273,7 @@ def rebalance_with_cooldown(
             break
 
         moves: list[Move] = []
+        pending: dict[str, UnresolvedCard] = {}
         for ilju, cur in selections.items():
             if ilju in moved:
                 continue
@@ -159,20 +286,24 @@ def rebalance_with_cooldown(
                 continue
             past = history.get(ilju, ())
             alts = [c for c in candidate_map.get(ilju, ()) if c.event_key != cur.event_key]
-            if not alts:
-                result.codes.setdefault(ilju, COOLDOWN_UNRESOLVED_NO_CANDIDATE)
-                continue
-            budget_blocked = False
+            blocked: collections.Counter[str] = collections.Counter()
+            budget_best: tuple[int, HeadlineCandidate] | None = None
             for alt in alts:
                 cost = cur.probability - alt.probability
-                if max_displacement_cost is not None and cost > max_displacement_cost:
-                    budget_blocked = True
-                    continue
                 if cooldown_violation(past, alt.event_key):
-                    continue  # 반복을 반복으로 바꾸지 않는다
+                    blocked[ALL_CANDIDATES_COOLDOWN_BLOCKED] += 1
+                    continue
                 if events.get(alt.event_key, 0) + 1 > effective_event_cap:
+                    blocked[ALL_CANDIDATES_EVENT_CAP_BLOCKED] += 1
                     continue
                 if alt.domain != cur.domain and domains.get(alt.domain, 0) + 1 > domain_cap:
+                    blocked[ALL_CANDIDATES_DOMAIN_CAP_BLOCKED] += 1
+                    continue
+                if max_displacement_cost is not None and cost > max_displacement_cost:
+                    # 다른 제약은 모두 통과했고 **점수만** 모자란다 — G2 의 표적이다.
+                    blocked[LOSS_BUDGET_EXCEEDED] += 1
+                    if budget_best is None or cost < budget_best[0]:
+                        budget_best = (cost, alt)
                     continue
                 relief = (
                     int(cur.event_key in over_event)
@@ -185,11 +316,13 @@ def rebalance_with_cooldown(
                     displacement_cost=cost, constraint_relief=relief,
                 ))
             if not any(m.ilju == ilju for m in moves):
-                result.codes.setdefault(
-                    ilju,
-                    COOLDOWN_UNRESOLVED_LOSS_BUDGET if budget_blocked
-                    else COOLDOWN_UNRESOLVED_NO_CANDIDATE,
+                pending[ilju] = _diagnose(
+                    ilju, cur, alts, blocked, budget_best, max_displacement_cost
                 )
+
+        # 마지막으로 본 진단을 남긴다 — 이동이 없어 루프가 끝나는 경로에서도
+        # 사유가 유실되면 안 된다(그러면 전부 NO_ELIGIBLE_HEADLINE_EVENT 로 뭉개진다).
+        last_pending = pending
 
         if not moves:
             break
@@ -207,7 +340,10 @@ def rebalance_with_cooldown(
         selections[best.ilju] = chosen
         moved.add(best.ilju)
         result.moves.append(best)
-        result.codes[best.ilju] = COOLDOWN_ALTERNATIVE_SELECTED
+        result.codes[best.ilju] = (
+            COOLDOWN_ALTERNATIVE_SELECTED if best.ilju in result.violations
+            else CAP_ALTERNATIVE_SELECTED
+        )
 
     events, domains = _counts(selections)
     result.selections = selections
@@ -215,8 +351,21 @@ def rebalance_with_cooldown(
         max(0, n - effective_event_cap) for n in events.values()
     ) if event_cap is not None else 0
     result.domain_overflow = sum(max(0, n - domain_cap) for n in domains.values())
-    result.cooldown_unresolved = sum(
-        1 for ilju, cur in selections.items()
-        if cooldown_violation(history.get(ilju, ()), cur.event_key)
+    result.cap_only_moves = sum(
+        1 for m in result.moves if m.ilju not in result.violations
     )
+    # 미해소는 **cooldown 이 트리거된 카드**만 센다 — 캡 때문에 막힌 카드를 섞지 않는다.
+    for ilju in result.violations:
+        if result.codes.get(ilju) == COOLDOWN_ALTERNATIVE_SELECTED:
+            continue
+        card = last_pending.get(ilju)
+        if card is None:
+            cur = selections[ilju]
+            card = UnresolvedCard(
+                ilju=ilju, reason=NO_ELIGIBLE_HEADLINE_EVENT,
+                original_event_key=cur.event_key, original_domain=cur.domain,
+                original_probability=cur.probability,
+            )
+        result.unresolved_cards.append(card)
+        result.codes[ilju] = card.reason
     return result
