@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 from pathlib import Path
@@ -14,11 +15,13 @@ import pytest
 
 from saju_engines.daily_audit_output import (
     EVIDENCE_RELATIVE_PATHS,
+    AuditDirectorySyncError,
     AuditEvidenceOverwriteError,
     CanonicalExpectation,
     CanonicalWriteClaim,
     assert_may_write_evidence,
     atomic_write_json,
+    fingerprint_public_payload,
     is_evidence_path,
     write_audit_output,
 )
@@ -41,6 +44,19 @@ _EXPECTED = CanonicalExpectation(
 )
 
 
+def _payload() -> dict:
+    """공개 결과 모사 — 키 순서도 계약의 일부다."""
+    return {
+        "summary": {"total_anchors": 730},
+        "daily": [{"anchor_date": "2026-01-01", "key_p10": 15, "passes": True}],
+        "episodes": [{"episode_start": "2026-06-01", "duration_days": 131}],
+        "repeatedly_below_iljus": {"戊辰": 309, "庚戌": 268},
+    }
+
+
+_PAYLOAD = _payload()
+
+
 def _claim(**over) -> CanonicalWriteClaim:
     base = {
         "contract_mode": CONTRACT_MODE_CANONICAL,
@@ -50,6 +66,8 @@ def _claim(**over) -> CanonicalWriteClaim:
         "anchor_fingerprint": "a" * 64,
         "episode_fingerprint": "b" * 64,
         "projection_verified": True,
+        "public_schema_version": "oa10b-public.v1",
+        "public_payload_sha256": fingerprint_public_payload(_PAYLOAD),
     }
     base.update(over)
     return CanonicalWriteClaim(**base)
@@ -222,18 +240,131 @@ def test_unsupported_directory_fsync_is_tolerated(tmp_path, monkeypatch) -> None
     assert json.loads(target.read_text(encoding="utf-8")) == {"a": 1}
 
 
+def _fail_directory_fsync_only(monkeypatch, errno_code: int) -> None:
+    """**디렉터리** fsync 만 실패시킨다.
+
+    파일 fsync 까지 막으면 `os.replace` 전에 터져 다른 경로를 검사하게 된다 —
+    실제로 그렇게 잘못된 이유로 통과한 적이 있다.
+    """
+    import os as _os
+    import stat as _stat
+
+    from saju_engines import daily_audit_output as mod
+
+    real = _os.fsync
+
+    def selective(fd):
+        if _stat.S_ISDIR(_os.fstat(fd).st_mode):
+            raise OSError(errno_code, "disk failure")
+        return real(fd)
+
+    monkeypatch.setattr(mod.os, "fsync", selective)
+
+
 def test_real_io_error_on_directory_fsync_propagates(tmp_path, monkeypatch) -> None:
     """EIO 는 숨기지 않는다."""
     import errno as _errno
 
-    from saju_engines import daily_audit_output as mod
-
-    def boom(fd):
-        raise OSError(_errno.EIO, "disk failure")
-
     target = tmp_path / "out.json"
     atomic_write_json(target, {"a": 1})
-    monkeypatch.setattr(mod.os, "fsync", boom)
+    _fail_directory_fsync_only(monkeypatch, _errno.EIO)
     with pytest.raises(OSError) as exc:
         atomic_write_json(target, {"a": 2})
     assert exc.value.errno == _errno.EIO
+
+
+# ── claim 은 payload 에 결박된다 ──────────────────────────────────────────
+#
+# `projection_verified=True` boolean 하나만 믿으면, 자격을 받은 뒤 결과를 바꿔치고
+# 그대로 증거 경로에 기록할 수 있다. 쓰기 직전에 실제 payload 를 다시 지문낸다.
+
+
+def _write(payload: dict, claim=None):
+    target = _REPO / EVIDENCE_RELATIVE_PATHS[0]
+    return write_audit_output(
+        target, {"result": payload}, repo_root=_REPO,
+        claim=claim or _claim(), expected=_EXPECTED, public_payload=payload,
+    )
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(lambda p: p["daily"][0].__setitem__("passes", False),
+                     id="daily 값"),
+        pytest.param(lambda p: p["episodes"][0].__setitem__("duration_days", 1),
+                     id="episode 값"),
+        pytest.param(lambda p: p["repeatedly_below_iljus"].__setitem__("戊辰", 1),
+                     id="repeatedly_below 값"),
+        pytest.param(lambda p: p.__setitem__("extra", 1), id="최상위 키 추가"),
+        pytest.param(lambda p: p.pop("episodes"), id="최상위 키 삭제"),
+    ],
+)
+def test_payload_changed_after_the_claim_is_blocked(mutate) -> None:
+    target = _REPO / EVIDENCE_RELATIVE_PATHS[0]
+    before = target.read_bytes()
+    payload = _payload()
+    claim = _claim()                       # 원본 payload 로 발급된 자격
+    mutate(payload)
+    with pytest.raises(AuditEvidenceOverwriteError, match="달라졌다"):
+        _write(payload, claim)
+    assert target.read_bytes() == before
+
+
+def test_top_level_key_order_change_is_blocked() -> None:
+    """키 순서도 공개 계약이다."""
+    target = _REPO / EVIDENCE_RELATIVE_PATHS[0]
+    before = target.read_bytes()
+    original = _payload()
+    reordered = {k: original[k] for k in reversed(list(original))}
+    with pytest.raises(AuditEvidenceOverwriteError, match="달라졌다"):
+        _write(reordered, _claim())
+    assert target.read_bytes() == before
+
+
+def test_claim_from_another_run_is_rejected() -> None:
+    """다른 실행에서 얻은 자격을 재사용할 수 없다."""
+    other = _payload()
+    other["summary"]["total_anchors"] = 729
+    foreign = _claim(public_payload_sha256=fingerprint_public_payload(other))
+    with pytest.raises(AuditEvidenceOverwriteError, match="달라졌다"):
+        _write(_payload(), foreign)
+
+
+def test_claim_without_a_payload_digest_is_rejected() -> None:
+    with pytest.raises(AuditEvidenceOverwriteError, match="public_payload_sha256"):
+        assert_may_write_evidence(_claim(public_payload_sha256=""), _EXPECTED)
+
+
+def test_unchanged_payload_passes_the_binding_check() -> None:
+    """결박이 정상 경로를 막지는 않는다."""
+    payload = _payload()
+    claim = _claim()
+    assert_may_write_evidence(claim, _EXPECTED)
+    assert fingerprint_public_payload(payload) == claim.public_payload_sha256
+
+
+def test_claim_is_frozen() -> None:
+    claim = _claim()
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        claim.anchor_days = 5           # type: ignore[misc]
+
+
+# ── 디렉터리 sync 실패는 상태가 드러나야 한다 ────────────────────────────
+
+
+def test_directory_sync_failure_reports_that_replace_committed(
+    tmp_path, monkeypatch
+) -> None:
+    """일반 쓰기 실패로 오인해 재시도하면 안 된다 — 파일은 이미 새 바이트다."""
+    import errno as _errno
+
+    target = tmp_path / "out.json"
+    atomic_write_json(target, {"a": 1})
+    _fail_directory_fsync_only(monkeypatch, _errno.EIO)
+    with pytest.raises(AuditDirectorySyncError) as exc:
+        atomic_write_json(target, {"a": 2})
+    assert exc.value.replace_committed is True
+    assert "교체는 완료" in str(exc.value)
+    assert json.loads(target.read_text(encoding="utf-8")) == {"a": 2}
+    assert list(tmp_path.iterdir()) == [target]

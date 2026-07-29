@@ -25,6 +25,7 @@ import functools
 import hashlib
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,7 @@ import saju_engines.daily_ilju_fortune as M  # noqa: E402
 from saju_engines.daily_audit_output import (  # noqa: E402
     CanonicalExpectation,
     CanonicalWriteClaim,
+    fingerprint_public_payload,
     write_audit_output,
 )
 from saju_engines.daily_board_constraints import cap_count  # noqa: E402
@@ -49,6 +51,7 @@ from saju_engines.daily_rolling_audit_aggregate import (  # noqa: E402
     derive_diagnostic_contract,
 )
 from saju_engines.daily_rolling_audit_public_adapter import (  # noqa: E402
+    OA10B_PUBLIC_SCHEMA_VERSION,
     project_to_oa10b_public_v1,
 )
 from saju_engines.daily_schedule_runner import (  # noqa: E402
@@ -130,9 +133,20 @@ def _frozen_meta() -> dict[str, Any]:
     )
 
 
-def run(
-    *, anchor_days: int = ANCHOR_DAYS
-) -> tuple[dict[str, Any], CanonicalWriteClaim]:
+@dataclass(frozen=True)
+class AuditExecution:
+    """한 번의 감사 실행 — 공개 결과와 그 결과에 결박된 쓰기 자격."""
+
+    public_result: dict[str, Any]
+    write_claim: CanonicalWriteClaim
+
+
+def run(*, anchor_days: int = ANCHOR_DAYS) -> dict[str, Any]:
+    """감사 결과만 낸다 — 기존 계산 API 계약을 보존한다."""
+    return execute_audit(anchor_days=anchor_days).public_result
+
+
+def execute_audit(*, anchor_days: int = ANCHOR_DAYS) -> AuditExecution:
     """감사 결과와 **증거 쓰기 자격**을 함께 낸다.
 
     파일은 쓰지 않는다 — 쓰기는 호출부가 결정한다. 자격은 여기서 만든다. 호출부가
@@ -214,8 +228,11 @@ def run(
         anchor_fingerprint=_anchor_fingerprint(aggregates),
         episode_fingerprint=_episode_fingerprint(aggregates),
         projection_verified=True,       # projection 이 예외 없이 끝났다
+        # 자격을 **이 정확한 공개 payload** 에 결박한다.
+        public_schema_version=OA10B_PUBLIC_SCHEMA_VERSION,
+        public_payload_sha256=fingerprint_public_payload(result),
     )
-    return result, claim
+    return AuditExecution(public_result=result, write_claim=claim)
 
 
 def _frozen_expectation() -> CanonicalExpectation:
@@ -246,7 +263,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    result, claim = run(anchor_days=args.anchor_days)
+    execution = execute_audit(anchor_days=args.anchor_days)
+    result, claim = execution.public_result, execution.write_claim
     data = {
         "audit_id": "OA-10b",
         "policy_status": "measurement_only",
@@ -262,6 +280,7 @@ if __name__ == "__main__":
             out, data, repo_root=_ROOT,
             claim=claim,
             expected=_frozen_expectation(),
+            public_payload=result,
         )
         print("[ok]", out.name)
     s = result["summary"]

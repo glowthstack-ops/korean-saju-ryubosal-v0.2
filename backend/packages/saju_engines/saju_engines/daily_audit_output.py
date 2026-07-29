@@ -16,6 +16,8 @@
 from __future__ import annotations
 
 import errno
+import hashlib
+import hmac
 import json
 import os
 import tempfile
@@ -42,6 +44,16 @@ class AuditEvidenceOverwriteError(RuntimeError):
     """비공식 실행이 동결 증거 경로에 쓰려 했다."""
 
 
+class AuditDirectorySyncError(OSError):
+    """파일 교체는 **완료됐고** 상위 디렉터리 내구성 동기화만 실패했다.
+
+    일반 쓰기 실패로 오인해 재시도하면 안 된다 — 최종 파일은 이미 새 바이트다.
+    """
+
+    #: 이 예외가 던져진 시점에 `os.replace` 는 이미 커밋됐다.
+    replace_committed = True
+
+
 @dataclass(frozen=True)
 class CanonicalWriteClaim:
     """증거 경로에 쓸 자격 — 전부 만족해야 한다.
@@ -63,6 +75,10 @@ class CanonicalWriteClaim:
     anchor_fingerprint: str
     episode_fingerprint: str
     projection_verified: bool
+    #: 이 자격이 **어느 공개 payload** 에서 나왔는지. boolean 하나만 믿으면 claim
+    #: 생성 뒤 결과를 바꿔치고 그대로 기록할 수 있다.
+    public_schema_version: str = ""
+    public_payload_sha256: str = ""
 
 
 @dataclass(frozen=True)
@@ -74,6 +90,18 @@ class CanonicalExpectation:
     last_anchor: str
     anchor_fingerprint: str
     episode_fingerprint: str
+
+
+def fingerprint_public_payload(payload: Mapping[str, Any]) -> str:
+    """공개 결과의 정규 지문 — 키 순서까지 포함한다.
+
+    공개 계약은 키 **순서**도 포함하므로 `sort_keys` 를 쓰지 않는다. 순서가 바뀌면
+    지문이 달라져야 한다.
+    """
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=False,
+                   separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 def is_evidence_path(candidate: Path, repo_root: Path) -> bool:
@@ -112,6 +140,8 @@ def assert_may_write_evidence(
         problems.append(f"episode_fp={claim.episode_fingerprint[:16]}…")
     if not claim.projection_verified:
         problems.append("projection_verified=False")
+    if len(claim.public_payload_sha256) != 64:
+        problems.append("public_payload_sha256 미설정")
     if problems:
         raise AuditEvidenceOverwriteError(
             "동결 증거 경로에 쓸 수 없다 — " + " · ".join(problems)
@@ -164,7 +194,13 @@ def _fsync_directory(directory: Path) -> None:
         os.fsync(dir_fd)
     except OSError as exc:
         if exc.errno not in _UNSUPPORTED_ERRNOS:
-            raise                   # EIO 등 — 숨기지 않는다
+            # 교체는 이미 끝났다 — 일반 쓰기 실패로 오인해 재시도하지 않도록
+            # 상태가 드러나는 예외로 감싼다.
+            raise AuditDirectorySyncError(
+                exc.errno,
+                "파일 교체는 완료됐으나 상위 디렉터리 내구성 동기화에 실패했다: "
+                f"{exc.strerror}",
+            ) from exc
     finally:
         os.close(dir_fd)
 
@@ -176,6 +212,7 @@ def write_audit_output(
     repo_root: Path,
     claim: CanonicalWriteClaim | None = None,
     expected: CanonicalExpectation | None = None,
+    public_payload: Mapping[str, Any] | None = None,
 ) -> None:
     """감사 결과를 쓴다. 증거 경로라면 자격을 먼저 증명한다.
 
@@ -190,9 +227,18 @@ def write_audit_output(
         AuditEvidenceOverwriteError: 증거 경로인데 자격이 없을 때.
     """
     if is_evidence_path(path, repo_root):
-        if claim is None or expected is None:
+        if claim is None or expected is None or public_payload is None:
             raise AuditEvidenceOverwriteError(
                 f"{path} 는 동결 증거다 — canonical 자격 없이 쓸 수 없다"
             )
         assert_may_write_evidence(claim, expected)
+        # 자격은 "이 계산이 canonical 이었다" 가 아니라 "**이 정확한 payload** 가
+        # 그 계산에서 나왔다" 를 증명해야 한다. 쓰기 직전에 다시 검증한다.
+        actual = fingerprint_public_payload(public_payload)
+        if not hmac.compare_digest(actual, claim.public_payload_sha256):
+            raise AuditEvidenceOverwriteError(
+                "공개 payload 가 자격 발급 이후 달라졌다 — "
+                f"claim={claim.public_payload_sha256[:16]}… "
+                f"actual={actual[:16]}…"
+            )
     atomic_write_json(path, payload)

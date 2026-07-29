@@ -32,7 +32,8 @@ def counters(monkeypatch) -> dict[str, int]:
     import legacy_oa10b_runner as LEGACY
 
     seen = dict.fromkeys(
-        ("legacy", "wrapper", "schedule", "aggregate", "projection", "writer"), 0
+        ("legacy", "wrapper", "schedule", "aggregate", "projection", "writer",
+         "execute"), 0
     )
 
     def spy_on(module, name, key):
@@ -49,22 +50,25 @@ def counters(monkeypatch) -> dict[str, int]:
     spy_on(OA, "build_rolling_audit_schedule", "schedule")
     spy_on(OA, "build_rolling_audit_aggregates", "aggregate")
     spy_on(OA, "project_to_oa10b_public_v1", "projection")
+    spy_on(OA, "execute_audit", "execute")
     spy_on(OA, "write_audit_output", "writer")
     return seen
 
 
 def test_run_uses_shared_builders_and_writes_nothing(counters) -> None:
     """`run()` 은 계산만 한다 — 저장은 호출부 몫이다."""
-    OA.run(anchor_days=_ANCHORS)
+    OA.execute_audit(anchor_days=_ANCHORS)
     assert counters == {
         "legacy": 0, "wrapper": 0,
         "schedule": 1, "aggregate": 1, "projection": 1,
-        "writer": 0,
+        "writer": 0, "execute": 1,
     }
 
 
-def test_run_does_not_touch_the_filesystem(counters, tmp_path) -> None:
-    result, _claim = OA.run(anchor_days=_ANCHORS)
+def test_run_preserves_the_dict_only_return_contract(counters, tmp_path) -> None:
+    """`run()` 은 계속 결과 dict 만 낸다 — 자격이 필요한 쪽은 execute_audit() 이다."""
+    result = OA.run(anchor_days=_ANCHORS)
+    assert isinstance(result, dict)
     assert result["summary"]["total_anchors"] == _ANCHORS
     assert counters["writer"] == 0
     assert list(tmp_path.iterdir()) == []
@@ -75,7 +79,7 @@ def test_run_does_not_touch_the_filesystem(counters, tmp_path) -> None:
 
 @pytest.fixture(scope="module")
 def public() -> tuple[list[dict], list[dict]]:
-    result, _claim = OA.run(anchor_days=_ANCHORS)
+    result = OA.run(anchor_days=_ANCHORS)
     return result["daily"], result["episodes"]
 
 
@@ -134,3 +138,23 @@ def test_projection_fails_closed_on_missing_fields() -> None:
         project_to_oa10b_public_v1(
             {"anchors": [{"anchor_date": "2026-01-01"}], "episodes": []}
         )
+
+
+def test_execute_audit_binds_the_claim_to_its_own_payload() -> None:
+    """자격은 "이 계산이 canonical 이었다" 가 아니라 "이 payload 가 그 계산에서
+    나왔다" 를 증명해야 한다."""
+    from saju_engines.daily_audit_output import fingerprint_public_payload
+
+    execution = OA.execute_audit(anchor_days=_ANCHORS)
+    assert execution.write_claim.public_payload_sha256 == (
+        fingerprint_public_payload(execution.public_result)
+    )
+    assert execution.write_claim.public_schema_version == "oa10b-public.v1"
+
+
+def test_claim_is_not_exposed_in_the_public_result() -> None:
+    """자격 증명은 OA-10b 결과의 일부가 아니다."""
+    result = OA.run(anchor_days=_ANCHORS)
+    for leaked in ("public_schema_version", "public_payload_sha256",
+                   "write_claim", "contract_mode"):
+        assert leaked not in result
