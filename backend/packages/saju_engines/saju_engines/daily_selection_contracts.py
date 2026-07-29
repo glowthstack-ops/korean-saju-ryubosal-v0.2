@@ -35,6 +35,13 @@ HISTORY_CONTRACT_COMPATIBILITY: dict[str, frozenset[str]] = {
     "daily-selection-history.v1": frozenset({"daily-selection-history.v1"}),
 }
 
+#: 각 이력 계약이 요구하는 lookback 길이(일). **DB 가 아니라 코드가 SSOT** 다.
+#: DB 는 "기록된 기간과 날짜 범위가 서로 일치하는가"만 보고, "그 계약이 정확히
+#: 90일인가"는 여기서 강제한다.
+HISTORY_CONTRACT_LOOKBACK_DAYS: dict[str, int] = {
+    "daily-selection-history.v1": 90,   # D-90 ~ D-1, 양끝 포함
+}
+
 #: taxonomy 호환 registry. `semantic_family` 가 정책 입력이 된 이상 SSOT 다.
 TAXONOMY_COMPATIBILITY: dict[str, frozenset[str]] = {
     "taxonomy.v1": frozenset({"taxonomy.v1"}),
@@ -63,6 +70,7 @@ def classify_history_compatibility(
     source_taxonomy_version: str,
     target_history_contract: str,
     target_taxonomy_version: str,
+    source_lookback_days: int | None = None,
 ) -> HistoryCompatibility:
     """과거 generation 의 이력을 현재 정책 입력으로 쓸 수 있는지 판정한다.
 
@@ -74,6 +82,8 @@ def classify_history_compatibility(
         source_taxonomy_version: 과거 generation 의 taxonomy 버전.
         target_history_contract: 현재 정책의 이력 계약.
         target_taxonomy_version: 현재 taxonomy 버전.
+        source_lookback_days: 과거 generation 이 실제로 읽은 이력 길이. 계약이
+            요구하는 길이와 다르면 호환이 아니다(89일 이력을 90일 계약으로 읽을 수 없다).
 
     Returns:
         판정. registry 에 없으면 `UNKNOWN`(호환 아님).
@@ -84,6 +94,12 @@ def classify_history_compatibility(
         return HistoryCompatibility.UNKNOWN
     if source_history_contract not in allowed or source_taxonomy_version not in tax_allowed:
         return HistoryCompatibility.INCOMPATIBLE
+    if source_lookback_days is not None:
+        expected = HISTORY_CONTRACT_LOOKBACK_DAYS.get(source_history_contract)
+        if expected is None:
+            return HistoryCompatibility.UNKNOWN
+        if source_lookback_days != expected:
+            return HistoryCompatibility.INCOMPATIBLE
     if (
         source_history_contract == target_history_contract
         and source_taxonomy_version == target_taxonomy_version
@@ -120,6 +136,15 @@ def _sha(parts: Sequence[str]) -> str:
     return h.hexdigest()
 
 
+def required_lookback_days(history_contract_version: str) -> int:
+    """그 이력 계약이 요구하는 lookback 길이.
+
+    Raises:
+        KeyError: registry 에 없는 계약(fail-closed — 추측하지 않는다).
+    """
+    return HISTORY_CONTRACT_LOOKBACK_DAYS[history_contract_version]
+
+
 @dataclass(frozen=True)
 class HistoryDay:
     """이력 한 날의 정체성 — active pointer 가 바뀌면 이 값이 바뀐다."""
@@ -131,7 +156,9 @@ class HistoryDay:
     taxonomy_version: str
 
 
-def history_set_fingerprint(days: Sequence[HistoryDay]) -> str:
+def history_set_fingerprint(
+    days: Sequence[HistoryDay], *, lookback_days: int
+) -> str:
     """읽은 이력 집합의 지문.
 
     단순 날짜 범위 해시가 아니다 — **날짜순 활성 결과의 정체성**을 포함한다.
@@ -140,11 +167,13 @@ def history_set_fingerprint(days: Sequence[HistoryDay]) -> str:
 
     Args:
         days: 이력 날짜들(정렬 여부 무관 — 내부에서 날짜순 정렬한다).
+        lookback_days: 이 이력이 몇 일 계약인가. 89일과 90일 이력을 같은 지문으로
+            보면 계약 정정이 재사용 판정에 드러나지 않는다.
 
     Returns:
         sha256 hex.
     """
-    parts: list[str] = []
+    parts: list[str] = [f"lookback={lookback_days}"]
     for d in sorted(days, key=lambda x: x.fortune_date):
         parts += [
             d.fortune_date.isoformat(), d.active_generation_id,
@@ -162,6 +191,7 @@ def engine_input_fingerprint(
     display_selection_policy_version: str,
     taxonomy_version: str,
     board_rebalance_version: str,
+    history_lookback_days: int,
     feature_flags: dict[str, str] | None = None,
 ) -> str:
     """엔진 입력의 지문 — 이 값이 같으면 같은 결과가 나와야 한다.
@@ -176,6 +206,7 @@ def engine_input_fingerprint(
         display_selection_policy_version: 표시 정책 버전.
         taxonomy_version: taxonomy 버전.
         board_rebalance_version: 보드 재배정 계약.
+        history_lookback_days: 이력 계약 길이(일).
         feature_flags: 결과에 영향을 주는 플래그(키 정렬해 포함).
 
     Returns:
@@ -184,7 +215,7 @@ def engine_input_fingerprint(
     parts = [
         fortune_date.isoformat(), active_dict_version, content_version,
         event_selection_contract, display_selection_policy_version,
-        taxonomy_version, board_rebalance_version,
+        taxonomy_version, board_rebalance_version, str(history_lookback_days),
     ]
     for key in sorted(feature_flags or {}):
         parts += [key, (feature_flags or {})[key]]

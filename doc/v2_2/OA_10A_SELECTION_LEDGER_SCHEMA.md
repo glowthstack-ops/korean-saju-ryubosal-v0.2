@@ -559,12 +559,62 @@ history replay 가 실패해 `legacy-v0` 로 fail-closed 한 날짜도 원장에
 복구 후 몰래 C10 결과로 교체하지 않는다 — 과거 active pointer 교체는 명시적
 `BACKFILL_REPLACEMENT` 절차와 운영 판단이 있을 때만 가능하다.
 
-## 16. 구현 노트 — SQL 에 복제하지 않은 것
+## 16. lookback 계약 — 89 → 90 정정
 
-`history_start_date = fortune_date - N` 을 CHECK 에 넣지 않았다. lookback 길이는
-`LONGTERM_LOOKBACK_DAYS`(현재 89, D-89~D-1) 코드 상수이고, SQL 에 숫자를 복제하면
-두 곳이 조용히 어긋난다. DDL 은 **끝점만** 강제하고(`history_end_date =
-fortune_date - 1`) 길이는 서비스와 회귀가 지킨다.
+```
+target_date = D
+history     = D-90 ~ D-1, 양끝 포함 = **90일**
+```
 
-> 참고: 승인 지시에는 `fortune_date - 90` 이 예시로 있었으나 현행 정책 상수는 89 다
-> (D-89 ~ D-1). 값을 임의로 바꾸지 않고 코드 상수를 SSOT 로 두었다.
+초안의 `D-89 ~ D-1` 은 포함 일수로 89일이라 "최근 90일" 계약과 어긋났다(산술 오류).
+C10 이 아직 라이브가 아니라 호환성을 깰 기존 원장이 없으므로,
+`history_contract_version` 은 `daily-selection-history.v1` 그대로 두고 **값만 90 으로
+확정**한다.
+
+    LONGITUDINAL_HISTORY_LOOKBACK_DAYS = 90
+    HISTORY_CONTRACT_LOOKBACK_DAYS["daily-selection-history.v1"] = 90
+
+### SSOT 를 나눈다
+
+숫자 90 을 SQL 에 복제하지 않는다. 대신 역할을 나눈다:
+
+| 층 | 검증 |
+|---|---|
+| DB | 기록된 기간과 날짜 범위가 **서로 일치**하는가 |
+| 코드 registry | 그 계약이 **정확히 90일**인가 |
+
+```sql
+history_lookback_days SMALLINT
+CHECK (history_lookback_days IS NULL OR history_lookback_days BETWEEN 1 AND 365)
+CHECK (history_start_date IS NULL OR history_lookback_days IS NULL
+       OR history_start_date = fortune_date - history_lookback_days)
+CHECK (history_end_date IS NULL OR history_end_date = fortune_date - 1)
+```
+
+`history_lookback_days` 는 `history_set_fingerprint` · `engine_input_fingerprint` ·
+호환성 판정 입력에도 들어간다. 89일 이력과 90일 이력이 같은 지문이면 계약 정정이
+재사용 판정에 드러나지 않기 때문이다.
+`classify_history_compatibility(source_lookback_days=89)` 는 `INCOMPATIBLE` 이다.
+
+### 재측정 결과 (90일 계약)
+
+C10 은 90일 계약에서도 출시 기준 6종·품질 가드 14종을 **전부 통과**한다.
+
+| 지표 | 89일 | **90일** |
+|---|---:|---:|
+| key p10 / family p10 / domain p10 | 15 / 15 / 6 | **15 / 15 / 6** |
+| 최빈 p90 / 최대 | 23.3% / 26.7% | **23.3% / 26.7%** |
+| 최장 연속 | 4일 | **4일** |
+| 7일 3회 | 5.6% | **5.7%** |
+| 평균 / p90 손실 | 3.15p / 6p | **3.11p / 6p** |
+| 하위 일주 상승 | 11/11 | **11/11** |
+| Top-5 | 51.7% | **51.7%** |
+| s5 하락 | 0 | **0** |
+| authorized override | 1 (2026-07-30) | **1 (2026-07-30)** |
+| 270일 key/family p10 | 17 / 17 | **17 / 17** |
+
+밴드 하락은 237 → 233 으로 소폭 줄었고 대체 점수 평균 75.1 · 60점 미만 0 은 그대로다.
+불가능성 증명(2026-07-30)도 동일하게 재현된다 — 탈출 후보 0,
+`LOSS_BUDGET_EXCEEDED` 11 · `COOLDOWN_VIOLATION` 7.
+
+따라서 `APPROVED_RELEASE_CANDIDATE` 상태를 유지한다.

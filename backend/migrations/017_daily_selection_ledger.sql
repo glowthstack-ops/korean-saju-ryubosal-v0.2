@@ -11,6 +11,9 @@
 -- 계약을 코드에만 두지 않는다. 미래 누수·손실 예산·s5 보호·2단계 밴드 하락·설명되지
 -- 않은 domain 초과는 CHECK 로 내려, 잘못된 행은 **저장 자체가 실패**하게 한다.
 --
+-- 다만 정책 길이(90일)의 숫자는 SQL 에 복제하지 않는다 — DB 는 기록된 기간과 날짜
+-- 범위의 **상호 일치**만 보고, 그 계약이 90일인지는 코드 registry 가 강제한다.
+--
 -- 개인정보를 저장하지 않는다 — 일주별 공통 보드 이력이며 subject/account/조회 여부/
 -- 카드 본문을 담지 않는다. 따라서 TTL 파기 대상이 아니고 장기 보존한다.
 
@@ -59,6 +62,9 @@ CREATE TABLE IF NOT EXISTS daily_fortune_board_generation (
     -- 어떤 이력을 읽고 만들었는가
     history_start_date           DATE,
     history_end_date             DATE,
+    -- 기록된 기간. DB 는 **날짜 범위와 이 값이 서로 맞는지**만 본다.
+    -- "그 계약이 정확히 90일인가"는 코드 registry 가 강제한다(SSOT 분리).
+    history_lookback_days        SMALLINT,
     history_set_fingerprint      TEXT NOT NULL,
     engine_input_fingerprint     TEXT NOT NULL,
     board_result_fingerprint     TEXT,
@@ -81,6 +87,18 @@ CREATE TABLE IF NOT EXISTS daily_fortune_board_generation (
         history_start_date IS NULL OR history_end_date IS NULL
         OR history_start_date <= history_end_date
     ),
+    CONSTRAINT dfbg_lookback_sane CHECK (
+        history_lookback_days IS NULL OR history_lookback_days BETWEEN 1 AND 365
+    ),
+    -- 기록된 기간과 날짜 범위가 일치한다. D-90 ~ D-1 양끝 포함이면
+    -- start = date - 90 · end = date - 1 이다.
+    CONSTRAINT dfbg_lookback_matches_range CHECK (
+        history_start_date IS NULL OR history_lookback_days IS NULL
+        OR history_start_date = fortune_date - history_lookback_days
+    ),
+    CONSTRAINT dfbg_history_ends_yesterday CHECK (
+        history_end_date IS NULL OR history_end_date = fortune_date - 1
+    ),
     -- C10 은 history 없이 실행될 수 없다. 빈 이력으로 돌리면 전 사건이
     -- "90일 미사용" 으로 인식돼 결과가 크게 흔들린다(legacy 정책은 NULL 허용).
     -- 구간 길이(LONGTERM_LOOKBACK_DAYS)는 코드 상수라 SQL 에 복제하지 않는다 —
@@ -90,7 +108,7 @@ CREATE TABLE IF NOT EXISTS daily_fortune_board_generation (
         OR (
             history_start_date IS NOT NULL
             AND history_end_date IS NOT NULL
-            AND history_end_date = fortune_date - 1
+            AND history_lookback_days IS NOT NULL
         )
     ),
     -- COMMITTED 는 결과 지문과 시각을 반드시 갖는다.

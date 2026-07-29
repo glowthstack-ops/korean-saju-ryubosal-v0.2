@@ -190,8 +190,13 @@ class GoodRepresentative:
     required_uplift_to_fit: int | None = None
 
 
-#: 장기 다양성 lookback — 지시 규격 D-89 ~ D-1.
-LONGTERM_LOOKBACK_DAYS = 89
+#: 장기 다양성 lookback — **D-90 ~ D-1, 양끝 포함 = 90일**.
+#: 초안의 `D-89 ~ D-1` 은 포함 일수로 89일이라 "최근 90일" 계약과 어긋났다(산술 오류).
+#: 계약 이름(`daily-selection-history.v1`)은 그대로 두고 값만 90 으로 확정한다 —
+#: C10 이 아직 라이브가 아니라 호환성을 깰 기존 원장이 없다.
+LONGITUDINAL_HISTORY_LOOKBACK_DAYS = 90
+#: 하위 호환 별칭(기존 참조용). 새 코드는 위 이름을 쓴다.
+LONGTERM_LOOKBACK_DAYS = LONGITUDINAL_HISTORY_LOOKBACK_DAYS
 
 # ── P4-LC 제품 정책 상수 ───────────────────────────────────────────────────
 #
@@ -306,7 +311,7 @@ def select_good_representative(
     band_protection = policy.band_protection
     in_recovery = False
     fam = family_of or {}
-    look = LONGTERM_LOOKBACK_DAYS
+    look = LONGITUDINAL_HISTORY_LOOKBACK_DAYS
     headline_recent = tuple(headline_history[-look:])
     good_recent = tuple(history[-look:])
     headline_counts = collections.Counter(headline_recent)

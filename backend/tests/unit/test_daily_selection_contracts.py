@@ -19,6 +19,7 @@ from saju_engines.daily_selection_contracts import (
     DISPLAY_SELECTION_POLICY_C10_V1,
     DISPLAY_SELECTION_POLICY_LEGACY_V0,
     HISTORY_CONTRACT_COMPATIBILITY,
+    HISTORY_CONTRACT_LOOKBACK_DAYS,
     HISTORY_CONTRACT_VERSION,
     TAXONOMY_COMPATIBILITY,
     USABLE_COMPATIBILITY,
@@ -44,6 +45,7 @@ def _engine_kwargs(**over):
         display_selection_policy_version=DISPLAY_SELECTION_POLICY_C10_V1,
         taxonomy_version="taxonomy.v1",
         board_rebalance_version="oa6b_board_domain_cap_v1",
+        history_lookback_days=90,
     )
     base.update(over)
     return base
@@ -128,27 +130,32 @@ def test_policy_versions_are_distinct_axes() -> None:
 
 def test_history_fingerprint_is_order_independent() -> None:
     days = [_day(i) for i in range(1, 6)]
-    assert history_set_fingerprint(days) == history_set_fingerprint(list(reversed(days)))
+    fp = history_set_fingerprint(days, lookback_days=90)
+    assert fp == history_set_fingerprint(list(reversed(days)), lookback_days=90)
 
 
 def test_history_fingerprint_changes_when_active_pointer_moves() -> None:
     """어느 하루의 active generation 이 바뀌면 지문도 반드시 달라진다."""
     base = [_day(i) for i in range(1, 6)]
     moved = [*base[:2], _day(3, active_generation_id="g3b"), *base[3:]]
-    assert history_set_fingerprint(base) != history_set_fingerprint(moved)
+    assert history_set_fingerprint(base, lookback_days=90) != history_set_fingerprint(
+        moved, lookback_days=90
+    )
 
 
 def test_history_fingerprint_changes_when_result_changes() -> None:
     base = [_day(i) for i in range(1, 6)]
     changed = [*base[:4], _day(5, board_result_fingerprint="b5b")]
-    assert history_set_fingerprint(base) != history_set_fingerprint(changed)
+    assert history_set_fingerprint(base, lookback_days=90) != history_set_fingerprint(
+        changed, lookback_days=90
+    )
 
 
 def test_history_fingerprint_covers_contract_versions() -> None:
     base = [_day(1)]
-    assert history_set_fingerprint(base) != history_set_fingerprint(
+    assert history_set_fingerprint(base, lookback_days=90) != history_set_fingerprint(
         [_day(1, taxonomy_version="taxonomy.v2")]
-    )
+    , lookback_days=90)
 
 
 # ── engine 입력 지문 ──────────────────────────────────────────────────────
@@ -162,6 +169,7 @@ def test_history_fingerprint_covers_contract_versions() -> None:
     ("taxonomy_version", "taxonomy.v2"),
     ("board_rebalance_version", "other"),
     ("fortune_date", dt.date(2026, 8, 2)),
+    ("history_lookback_days", 89),
 ])
 def test_engine_fingerprint_covers_every_result_changing_input(field, value) -> None:
     """결과를 바꾸는 입력이 하나라도 빠지면 다른 결과를 같은 것으로 재사용한다."""
@@ -273,3 +281,56 @@ def test_advisory_lock_key_separates_date_and_policy() -> None:
         fortune_date=_D,
         display_selection_policy_version=DISPLAY_SELECTION_POLICY_LEGACY_V0,
     )
+
+
+# ── lookback 계약 (89 → 90 정정) ──────────────────────────────────────────
+
+
+def test_lookback_contract_is_ninety_days() -> None:
+    """D-90 ~ D-1 양끝 포함 = 90일. 초안의 89 는 산술 오류였다."""
+    from saju_engines.daily_selection_contracts import required_lookback_days
+    from saju_engines.daily_selection_policy_shadow import (
+        LONGITUDINAL_HISTORY_LOOKBACK_DAYS,
+    )
+
+    assert LONGITUDINAL_HISTORY_LOOKBACK_DAYS == 90
+    assert required_lookback_days(HISTORY_CONTRACT_VERSION) == 90
+    assert HISTORY_CONTRACT_LOOKBACK_DAYS[HISTORY_CONTRACT_VERSION] == 90
+
+
+def test_history_range_is_inclusive_of_both_ends() -> None:
+    """start = D-90 · end = D-1 이면 포함 일수가 정확히 90이다."""
+    d = dt.date(2026, 8, 1)
+    start, end = d - dt.timedelta(days=90), d - dt.timedelta(days=1)
+    assert (end - start).days + 1 == 90
+
+
+def test_lookback_length_is_in_the_history_fingerprint() -> None:
+    """89일 이력과 90일 이력이 같은 지문이면 계약 정정이 드러나지 않는다."""
+    days = [_day(i) for i in range(1, 6)]
+    assert history_set_fingerprint(days, lookback_days=90) != history_set_fingerprint(
+        days, lookback_days=89
+    )
+
+
+def test_wrong_lookback_source_is_incompatible() -> None:
+    """89일로 만든 이력을 90일 계약으로 읽을 수 없다."""
+    v = classify_history_compatibility(
+        source_history_contract=HISTORY_CONTRACT_VERSION,
+        source_taxonomy_version="taxonomy.v1",
+        target_history_contract=HISTORY_CONTRACT_VERSION,
+        target_taxonomy_version="taxonomy.v1",
+        source_lookback_days=89,
+    )
+    assert v is HistoryCompatibility.INCOMPATIBLE
+    assert v not in USABLE_COMPATIBILITY
+
+
+def test_matching_lookback_source_is_exact() -> None:
+    assert classify_history_compatibility(
+        source_history_contract=HISTORY_CONTRACT_VERSION,
+        source_taxonomy_version="taxonomy.v1",
+        target_history_contract=HISTORY_CONTRACT_VERSION,
+        target_taxonomy_version="taxonomy.v1",
+        source_lookback_days=90,
+    ) is HistoryCompatibility.EXACT
