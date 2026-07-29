@@ -34,6 +34,10 @@ from saju_engines.daily_beta_pool import (
 _POOL = "beta-daily-pool.c10.v2"
 _ANCHOR = dt.date(2026, 7, 30)
 _UNTIL = dt.date(2026, 8, 28)
+#: 지문은 접두사가 아니라 **전체 digest** 로 고정한다 — 접두사만 보면 우연한 충돌이나
+#: 잘못된 파일 교체를 완전히 차단하지 못한다.
+_POOL_FP = "f0ce1e0c20c80d892d6a28ac1a286bc2c2cf61fcac0d2209424b6c35f3414f68"
+_BOOTSTRAP_FP = "a499f3424dea1ead18c1f6cbe40f05012e53d9b8d314c025dd6b0951408e53e7"
 _COMPILED = Path(svc.__file__).resolve().parents[4] / "compiled"
 
 
@@ -45,8 +49,8 @@ def _env(monkeypatch, **over) -> None:
         "DAILY_BETA_AUDIENCE": "deployment",
         "DAILY_BETA_POOL_EFFECTIVE_FROM": _ANCHOR.isoformat(),
         "DAILY_BETA_POOL_EFFECTIVE_UNTIL": _UNTIL.isoformat(),
-        "DAILY_BETA_EXPECTED_POOL_FP": "f0ce1e0c",
-        "DAILY_BETA_EXPECTED_BOOTSTRAP_FP": "a499f342",
+        "DAILY_BETA_EXPECTED_POOL_FP": _POOL_FP,
+        "DAILY_BETA_EXPECTED_BOOTSTRAP_FP": _BOOTSTRAP_FP,
     }
     base.update(over)
     for k, v in base.items():
@@ -99,7 +103,25 @@ def test_audience_must_be_deployment(monkeypatch) -> None:
 
 def test_fingerprint_mismatch_blocks_startup(monkeypatch) -> None:
     """버전만 맞고 지문이 다르면 활성화하지 않는다."""
-    _env(monkeypatch, DAILY_BETA_EXPECTED_POOL_FP="deadbeef")
+    _env(monkeypatch, DAILY_BETA_EXPECTED_POOL_FP="d" * 64)
+    with pytest.raises(BetaPoolError) as e:
+        build_registry()
+    assert e.value.code == BETA_POOL_FINGERPRINT_MISMATCH
+
+
+def test_prefix_fingerprint_is_rejected(monkeypatch) -> None:
+    """접두사 지정은 허용하지 않는다 — 맞는 접두사여도 거부한다."""
+    _env(monkeypatch, DAILY_BETA_EXPECTED_POOL_FP=_POOL_FP[:8])
+    with pytest.raises(BetaPoolError) as e:
+        build_registry()
+    assert e.value.code == BETA_POOL_FINGERPRINT_MISMATCH
+    assert "전체 digest" in str(e.value)
+
+
+def test_one_character_change_is_caught(monkeypatch) -> None:
+    """전체 비교이므로 끝 한 글자 차이도 걸린다."""
+    flipped = _POOL_FP[:-1] + ("0" if _POOL_FP[-1] != "0" else "1")
+    _env(monkeypatch, DAILY_BETA_EXPECTED_POOL_FP=flipped)
     with pytest.raises(BetaPoolError) as e:
         build_registry()
     assert e.value.code == BETA_POOL_FINGERPRINT_MISMATCH

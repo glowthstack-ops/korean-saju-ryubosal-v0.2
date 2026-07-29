@@ -26,8 +26,8 @@ import urllib.request
 
 KST = dt.timezone(dt.timedelta(hours=9))
 ANCHOR = dt.date(2026, 7, 30)
-POOL_FP = "f0ce1e0c"
-BOOTSTRAP_FP = "a499f342"
+POOL_FP = "f0ce1e0c20c80d892d6a28ac1a286bc2c2cf61fcac0d2209424b6c35f3414f68"
+BOOTSTRAP_FP = "a499f3424dea1ead18c1f6cbe40f05012e53d9b8d314c025dd6b0951408e53e7"
 RENDERER_CONTRACT = "daily-beta-render.c10.v1"
 
 
@@ -100,6 +100,8 @@ def phase_pre(base: str, token: str | None, r: Result) -> None:
         "차단 응답은 캐시되지 않는다",
         headers.get("cache-control", "(없음)"),
     )
+    # 공개 경로에는 날짜 선택자가 없다 — 파라미터를 붙여도 미래가 열리지 않는다.
+    _future_check(base, r)
     if token:
         _admin_checks(base, token, r)
 
@@ -152,14 +154,14 @@ def _admin_checks(base: str, token: str, r: Result) -> None:
     if not (ok and meta):
         return
     r.check(
-        meta["pool_result_fingerprint"].startswith(POOL_FP),
-        "pool fingerprint 일치",
-        meta["pool_result_fingerprint"][:16],
+        meta["pool_result_fingerprint"] == POOL_FP,
+        "pool fingerprint 전체 일치",
+        meta["pool_result_fingerprint"][:16] + "…",
     )
     r.check(
-        meta["bootstrap_fingerprint"].startswith(BOOTSTRAP_FP),
-        "bootstrap fingerprint 일치",
-        meta["bootstrap_fingerprint"][:16],
+        meta["bootstrap_fingerprint"] == BOOTSTRAP_FP,
+        "bootstrap fingerprint 전체 일치",
+        meta["bootstrap_fingerprint"][:16] + "…",
     )
     r.check(
         meta["renderer_contract_version"] == RENDERER_CONTRACT,

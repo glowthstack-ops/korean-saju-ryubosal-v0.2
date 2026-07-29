@@ -228,8 +228,29 @@
 | `DAILY_BETA_POOL_VERSION` | `beta-daily-pool.c10.v2` | 활성 풀 |
 | `DAILY_BETA_AUDIENCE` | `deployment` | 현재 이 값만 허용 |
 | `DAILY_BETA_POOL_EFFECTIVE_FROM` / `_UNTIL` | `2026-07-30` / `2026-08-28` | 공개 창 |
-| `DAILY_BETA_EXPECTED_POOL_FP` | `f0ce1e0c…` | 지문 고정(버전만 맞고 내용이 다르면 차단) |
-| `DAILY_BETA_EXPECTED_BOOTSTRAP_FP` | `a499f342…` | 〃 |
+| `DAILY_BETA_EXPECTED_POOL_FP` | **전체 64자 digest** | 지문 고정(버전만 맞고 내용이 다르면 차단) |
+| `DAILY_BETA_EXPECTED_BOOTSTRAP_FP` | **전체 64자 digest** | 〃 |
+
+지문은 **접두사가 아니라 전체 digest 완전 일치**를 요구한다. 접두사만 허용하면 우연한
+충돌이나 잘못된 파일 교체를 완전히 차단하지 못한다. 64자가 아니면 그 자체로 기동을
+막는다(오타·잘라 넣기 방지).
+
+```text
+DAILY_BETA_EXPECTED_POOL_FP=f0ce1e0c20c80d892d6a28ac1a286bc2c2cf61fcac0d2209424b6c35f3414f68
+DAILY_BETA_EXPECTED_BOOTSTRAP_FP=a499f3424dea1ead18c1f6cbe40f05012e53d9b8d314c025dd6b0951408e53e7
+```
+
+### 21-0. 풀 버전 이력
+
+| 버전 | 상태 | 사유 |
+|---|---|---|
+| `beta-daily-pool.c10.v1` | `WITHDRAWN_BEFORE_DEPLOYMENT` | displacement-loss 기준선 오류(헤드라인 자격 pool 의 1위를 기준으로 삼음). 테스터에게 배포된 적 없음 |
+| `beta-daily-pool.c10.v2` | `APPROVED_FOR_BETA_DEPLOYMENT` | 기준선을 good 슬롯 pool 1위로 수정, 의도/실현 대표 분리 |
+
+배포된 pool version 의 내용은 어떤 후속 결과가 나오든 중간 변경하지 않는다. 수정본은
+새 버전과 새 지문으로 분리한다(예: `beta-daily-pool.c11.v3`). renderer 계약
+(`daily-beta-render.c10.v1`)은 의미 계약이 바뀌지 않는 한 pool 버전과 함께 올릴
+필요가 없다.
 | `DAILY_BETA_POOL_PATH` | (선택) | snapshot 디렉터리 재지정 |
 
 ### 21-2. fail-closed

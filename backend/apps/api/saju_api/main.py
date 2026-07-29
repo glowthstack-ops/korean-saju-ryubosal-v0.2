@@ -125,8 +125,14 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     beta_preflight()
 
     pregen_task: asyncio.Task[None] | None = None
-    if os.getenv("SAJU_DAILY_FORTUNE_PREGEN") == "1" and not beta_enabled():
-        pregen_task = asyncio.create_task(_daily_fortune_pregen_loop())
+    if os.getenv("SAJU_DAILY_FORTUNE_PREGEN") == "1":
+        if beta_enabled():
+            # legacy 보드를 만들 이유가 없다 — 스냅샷이 SSOT 이고 사후 교정도 돌지 않는다.
+            logging.getLogger("saju_api.daily_beta").info(
+                "베타 배포 — legacy 선생성 루프와 사후 교정을 기동하지 않는다"
+            )
+        else:
+            pregen_task = asyncio.create_task(_daily_fortune_pregen_loop())
     yield
     if pregen_task is not None:
         pregen_task.cancel()

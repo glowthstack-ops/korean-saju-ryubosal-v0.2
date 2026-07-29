@@ -14,6 +14,8 @@ ready 로 올리지 않고, 런타임 손상이면 베타 일운 API 만 `BETA_P
 
 from __future__ import annotations
 
+import hmac
+import logging
 import os
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -35,6 +37,11 @@ from saju_shared_types.daily_fortune import DailyFortuneBoard
 #: 베타 기간 밖 — legacy 로 내려가지 않는다. 테스터는 한 풀만 본다.
 BETA_POOL_NOT_YET_EFFECTIVE = "BETA_POOL_NOT_YET_EFFECTIVE"
 BETA_POOL_EXPIRED = "BETA_POOL_EXPIRED"
+
+#: sha256 hex digest 길이 — 접두사 지정을 거부하기 위해 명시한다.
+_DIGEST_LENGTH = 64
+
+_log = logging.getLogger("saju_api.daily_beta")
 
 
 def _flag(name: str, default: str = "") -> str:
@@ -159,14 +166,24 @@ def build_registry(config: BetaPoolConfig | None = None) -> BetaDailyPoolRegistr
             f"이번 단계는 배포 전체 적용만 지원한다: {cfg.audience}",
         )
     meta = pool_metadata(cfg.pool_version, cfg.compiled_dir)
-    # 버전만 맞고 지문이 다르면 활성화하지 않는다.
+    # 버전만 맞고 지문이 다르면 활성화하지 않는다. **접두사가 아니라 전체 digest 완전
+    # 일치**를 요구한다 — 접두사만 보면 우연한 충돌이나 잘못된 파일 교체를 완전히
+    # 차단하지 못한다.
     for expected, key in (
         (cfg.expected_pool_fingerprint, "pool_result_fingerprint"),
         (cfg.expected_bootstrap_fingerprint, "bootstrap_fingerprint"),
     ):
-        if expected and not meta[key].startswith(expected):
+        if not expected:
+            continue
+        if len(expected) != _DIGEST_LENGTH:
             raise BetaPoolError(
-                BETA_POOL_FINGERPRINT_MISMATCH, f"{key}: {meta[key][:16]} != {expected}"
+                BETA_POOL_FINGERPRINT_MISMATCH,
+                f"{key}: 전체 digest({_DIGEST_LENGTH}자)를 넣어야 한다 — "
+                f"{len(expected)}자를 받았다",
+            )
+        if not hmac.compare_digest(expected, meta[key]):
+            raise BetaPoolError(
+                BETA_POOL_FINGERPRINT_MISMATCH, f"{key}: {meta[key]} != {expected}"
             )
     if meta["display_selection_policy_version"] != (
         "display-selection.p4-lc.c10.v1"
@@ -176,6 +193,14 @@ def build_registry(config: BetaPoolConfig | None = None) -> BetaDailyPoolRegistr
     selections = {
         k: v for k, v in validate_pool(cfg.pool_version, cfg.compiled_dir).items()
     }
+    # 배포 후 로그만으로 preflight 결과를 확인할 수 있게 한 줄로 남긴다.
+    _log.info(
+        "베타 일운 preflight 통과 pool=%s cards=%d/%d pool_fp=%s bootstrap_fp=%s "
+        "renderer=%s window=%s~%s",
+        meta["pool_version"], len(selections), meta["public_days"] * 60,
+        meta["pool_result_fingerprint"][:16], meta["bootstrap_fingerprint"][:16],
+        cfg.renderer_contract, cfg.effective_from, cfg.effective_until,
+    )
     return BetaDailyPoolRegistry(config=cfg, metadata=meta, selections=selections)
 
 
