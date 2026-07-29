@@ -18,6 +18,7 @@ anchor 마다 상태를 초기화하지 않는다 — **하나의 날짜순 cano
 
 from __future__ import annotations
 
+import argparse
 import collections
 import datetime as dt
 import json
@@ -32,8 +33,17 @@ for _p in (_BACKEND / "packages" / "saju_engines", _BACKEND / "packages" / "shar
         sys.path.insert(0, str(_p))
 
 import saju_engines.daily_ilju_fortune as M  # noqa: E402
+from saju_engines.daily_audit_output import (  # noqa: E402
+    CanonicalExpectation,
+    CanonicalWriteClaim,
+    write_audit_output,
+)
 from saju_engines.daily_board_constraints import HeadlineCandidate, cap_count  # noqa: E402
 from saju_engines.daily_canonical_bootstrap import C10_POLICY  # noqa: E402
+from saju_engines.daily_rolling_audit_aggregate import (  # noqa: E402
+    CONTRACT_MODE_CANONICAL,
+    CONTRACT_MODE_DIAGNOSTIC,
+)
 from saju_engines.daily_selection_policy_shadow import (  # noqa: E402
     LONGITUDINAL_HISTORY_LOOKBACK_DAYS,
     SelectionPolicy,
@@ -45,7 +55,7 @@ from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index  # noqa: 
 WARMUP_DAYS = 180
 WINDOW = LONGITUDINAL_HISTORY_LOOKBACK_DAYS          # 90
 FIRST_ANCHOR = dt.date(2026, 1, 1)
-ANCHOR_DAYS = int(sys.argv[1]) if len(sys.argv) > 1 else 730
+ANCHOR_DAYS = 730
 _BOARD = SelectionPolicy(global_swap=True, severity_tiers=True, recency_rotation=True)
 _DOMAIN_CAP, _EVENT_CAP, _BUDGET = cap_count(60, 0.35), 10, 7
 _P10 = 5                                              # 60개 중 6번째로 작은 값
@@ -59,7 +69,9 @@ def _schedule_start() -> dt.date:
     return FIRST_ANCHOR - dt.timedelta(days=WARMUP_DAYS + WINDOW)
 
 
-def build_schedule(family_of: dict[str, str]) -> dict[str, list[str]]:
+def build_schedule(
+    family_of: dict[str, str], *, anchor_days: int = ANCHOR_DAYS
+) -> dict[str, list[str]]:
     """연속 canonical schedule 을 날짜순으로 생성한다.
 
     Returns:
@@ -70,7 +82,7 @@ def build_schedule(family_of: dict[str, str]) -> dict[str, list[str]]:
     headline_history: dict[str, list[str]] = collections.defaultdict(list)
     good_history: dict[str, list[str]] = collections.defaultdict(list)
 
-    total = WARMUP_DAYS + WINDOW + ANCHOR_DAYS
+    total = WARMUP_DAYS + WINDOW + anchor_days
     day = _schedule_start()
     for _ in range(total):
         ctx = M.build_day_context(day)
@@ -118,7 +130,8 @@ def _expiry_profile(window: list[str], family_of: dict[str, str]) -> dict[str, i
     return last_seen
 
 
-def run() -> dict[str, Any]:
+def run(*, anchor_days: int = ANCHOR_DAYS) -> dict[str, Any]:
+    """감사 결과를 계산한다. **파일을 쓰지 않는다** — 쓰기는 호출부가 결정한다."""
     taxonomy = json.loads(
         (_BACKEND / "dictionaries" / "daily_fortune" / "daily_event_taxonomy.json")
         .read_text(encoding="utf-8")
@@ -126,14 +139,14 @@ def run() -> dict[str, Any]:
     family_of = {k: t["semantic_family"] for k, t in taxonomy.items()}
     events = M.load_daily_dicts().catalog["events"]
 
-    schedule = build_schedule(family_of)
+    schedule = build_schedule(family_of, anchor_days=anchor_days)
     offset = WARMUP_DAYS          # 첫 anchor 창(D-90)의 시작 인덱스
     daily: list[dict[str, Any]] = []
     below_counter = collections.Counter()
     expiry_at_risk = 0
     expired_without_replacement = 0
 
-    for a in range(ANCHOR_DAYS):
+    for a in range(anchor_days):
         anchor = FIRST_ANCHOR + dt.timedelta(days=a)
         lo, hi = offset + a, offset + a + WINDOW
         keys, fams, doms = [], [], []
@@ -204,7 +217,7 @@ def run() -> dict[str, Any]:
         "protocol": {
             "warmup_days": WARMUP_DAYS, "window_days": WINDOW,
             "first_anchor": FIRST_ANCHOR.isoformat(),
-            "anchor_days": ANCHOR_DAYS,
+            "anchor_days": anchor_days,
             "schedule_start": _schedule_start().isoformat(),
             "note": "anchor 마다 초기화하지 않고 하나의 연속 schedule 을 재생한다.",
         },
@@ -230,8 +243,58 @@ def run() -> dict[str, Any]:
     }
 
 
+def _canonical_claim(result: dict[str, Any], anchor_days: int) -> CanonicalWriteClaim:
+    """이 실행이 동결 증거를 덮어쓸 자격이 있는가.
+
+    legacy inline 경로는 anchor·episode 지문을 만들지 않으므로 빈 값을 넘긴다 —
+    따라서 증거 경로 쓰기는 차단된다. 의도된 결과다. 증거 재생성은 지문을 증명할 수
+    있는 canonical 경로에서만 해야 한다.
+    """
+    daily = result["daily"]
+    return CanonicalWriteClaim(
+        contract_mode=(
+            CONTRACT_MODE_CANONICAL if anchor_days == ANCHOR_DAYS
+            else CONTRACT_MODE_DIAGNOSTIC
+        ),
+        anchor_days=anchor_days,
+        first_anchor=daily[0]["anchor_date"] if daily else "",
+        last_anchor=daily[-1]["anchor_date"] if daily else "",
+        anchor_fingerprint="",          # legacy 경로는 산출하지 않는다
+        episode_fingerprint="",
+        projection_verified=False,
+    )
+
+
+def _frozen_expectation() -> CanonicalExpectation:
+    """동결 aggregate artifact 가 기대하는 값."""
+    frozen = json.loads(
+        (_BACKEND / "compiled" / "oa10b_anchor_aggregates.json")
+        .read_text(encoding="utf-8")
+    )
+    return CanonicalExpectation(
+        anchor_days=frozen["official_anchor_count"],
+        first_anchor=frozen["official_anchor_first"],
+        last_anchor=frozen["official_anchor_last"],
+        anchor_fingerprint=frozen["anchor_aggregate_fingerprint"],
+        episode_fingerprint=frozen["episode_fingerprint"],
+    )
+
+
 if __name__ == "__main__":
-    result = run()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("anchor_days", nargs="?", type=int, default=ANCHOR_DAYS)
+    parser.add_argument(
+        "--output", type=Path, default=None,
+        help="출력 경로. 미지정 시 기존 공식 경로.",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="계산만 하고 파일을 쓰지 않는다(짧은 진단 실행용).",
+    )
+    args = parser.parse_args()
+    ANCHOR_DAYS = args.anchor_days
+
+    result = run(anchor_days=args.anchor_days)
     data = {
         "audit_id": "OA-10b",
         "policy_status": "measurement_only",
@@ -239,9 +302,16 @@ if __name__ == "__main__":
         "measurement_stage": "display_pipeline",
         "result": result,
     }
-    out = _ROOT / "doc" / "v2_2" / "audits" / "oa10b_rolling_window.json"
-    out.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print("[ok]", out.name)
+    out = args.output or (_ROOT / "doc" / "v2_2" / "audits" / "oa10b_rolling_window.json")
+    if args.dry_run:
+        print("[dry-run] 파일을 쓰지 않았다 ·", out.name)
+    else:
+        write_audit_output(
+            out, data, repo_root=_ROOT,
+            claim=_canonical_claim(result, args.anchor_days),
+            expected=_frozen_expectation(),
+        )
+        print("[ok]", out.name)
     s = result["summary"]
     print(f"  anchor {s['total_anchors']} · 통과 {s['passing_anchors']} "
           f"({s['pass_rate_pct']}%) · 최악 key p10 {s['worst_key_p10']}")

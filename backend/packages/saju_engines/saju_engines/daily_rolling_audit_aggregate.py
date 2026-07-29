@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Any
 
@@ -63,6 +63,45 @@ class RollingAuditAggregateContract:
 
 
 ROLLING_AUDIT_AGGREGATE_CONTRACT_V1 = RollingAuditAggregateContract()
+
+#: 공식 v1 계약으로 낸 결과인지, 짧은 진단 실행인지 구분한다. canonical 결과만
+#: 동결 증거 경로에 쓸 수 있다.
+CONTRACT_MODE_CANONICAL = "CANONICAL"
+CONTRACT_MODE_DIAGNOSTIC = "NONCANONICAL_DIAGNOSTIC"
+
+
+def contract_mode(contract: RollingAuditAggregateContract) -> str:
+    """이 계약이 공식 v1 인가."""
+    return (
+        CONTRACT_MODE_CANONICAL
+        if contract == ROLLING_AUDIT_AGGREGATE_CONTRACT_V1
+        else CONTRACT_MODE_DIAGNOSTIC
+    )
+
+
+def derive_diagnostic_contract(
+    *,
+    base: RollingAuditAggregateContract = ROLLING_AUDIT_AGGREGATE_CONTRACT_V1,
+    anchor_days: int,
+) -> RollingAuditAggregateContract:
+    """짧은 진단 실행용 계약 — **anchor 일수만** 바꾼다.
+
+    호출부가 `replace()` 를 무제한으로 쓰면 cap 이나 의미 축까지 조용히 달라질 수
+    있다. 여기서 바꿀 수 있는 것을 하나로 묶는다.
+
+    Args:
+        base: 기준 계약.
+        anchor_days: 진단 실행의 anchor 수.
+
+    Returns:
+        anchor 수만 다른 계약. 결과는 canonical 이 아니다.
+
+    Raises:
+        ValueError: anchor 수가 1 미만일 때.
+    """
+    if anchor_days < 1:
+        raise ValueError(f"anchor_days 는 1 이상이어야 한다: {anchor_days}")
+    return replace(base, anchor_days=anchor_days)
 
 
 def validate_rows(

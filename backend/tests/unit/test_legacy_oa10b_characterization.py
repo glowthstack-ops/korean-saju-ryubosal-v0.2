@@ -29,12 +29,15 @@ def family_of() -> dict[str, str]:
     return L.load_family_map()
 
 
-def test_frozen_runner_matches_the_original(family_of, monkeypatch) -> None:
-    """동결본은 원본을 그대로 옮긴 것이다 — 결과가 갈리면 기준선이 아니다."""
-    monkeypatch.setattr(sys, "argv", ["x", "30"])
+def test_frozen_runner_matches_the_original(family_of) -> None:
+    """동결본은 원본을 그대로 옮긴 것이다 — 결과가 갈리면 기준선이 아니다.
+
+    D1 에서 원본이 shared wrapper 로 바뀌면 이 비교는 독립 기준선이 아니게 되므로
+    그때 제거하고 frozen artifact 비교로 대체한다.
+    """
     import audit_rolling_window as original
 
-    assert original.build_schedule(family_of) == (
+    assert original.build_schedule(family_of, anchor_days=30) == (
         L.build_schedule_observed(family_of, days=_DAYS).headline_history
     )
 
