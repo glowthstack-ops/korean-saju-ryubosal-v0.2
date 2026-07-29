@@ -137,6 +137,10 @@ class _Acc:
         self.caution_promoted = 0
         self.valence_changed = 0
         self.domain_overflow = 0
+        self.domain_hard_violation = 0
+        self.domain_authorized_override = 0
+        self.override_days = 0
+        self.override_dates: list[str] = []
         self.event_overflow = 0
         self.replacement = collections.Counter()
 
@@ -266,6 +270,11 @@ def run() -> dict[str, Any]:
             )
             if measured:
                 a.domain_overflow += r.domain_overflow
+                a.domain_hard_violation += r.domain_cap_hard_violation
+                a.domain_authorized_override += r.domain_cap_authorized_override
+                if r.domain_overflow:
+                    a.override_days += 1
+                    a.override_dates.append(day.isoformat())
                 a.event_overflow += r.event_overflow
                 for m in r.moves:
                     a.moves += 1
@@ -353,7 +362,16 @@ def run() -> dict[str, Any]:
             "single_replacement_le_20pct": top_move[1] / max(1, a.moves) <= 0.20,
             # 정정: 절대 52% 대신 warm-up L0 대비 비퇴행.
             "top5_not_worse_than_warmup_L0": short["top5_cumulative_pct"] <= base_top5_90,
-            "no_domain_overflow": a.domain_overflow == 0,
+            # 정정: 절대 0 이 아니라 **설명되지 않은 위반이 0** 인지를 본다.
+            # 선택기 계약이 infeasible override 를 명시적으로 허용하기 때문이다.
+            "no_unauthorized_domain_overflow": a.domain_hard_violation == 0,
+            "no_multi_overflow_board": a.domain_overflow <= a.override_days,
+            "authorized_override_rate_le_0_01pct": (
+                a.domain_authorized_override / max(1, LONG_DAYS * 60) <= 0.0001),
+            "no_consecutive_override_days": all(
+                (dt.date.fromisoformat(b) - dt.date.fromisoformat(a_)).days > 1
+                for a_, b in zip(a.override_dates, a.override_dates[1:], strict=False)
+            ),
             "unique_domain_p10_ge_6": short["unique_domain_count_p10"] >= 6,
         }
         out[name] = {
@@ -373,6 +391,11 @@ def run() -> dict[str, Any]:
             },
             "board_overflow": {
                 "domain_overflow": a.domain_overflow,
+                "domain_cap_hard_violation": a.domain_hard_violation,
+                "domain_cap_authorized_override": a.domain_authorized_override,
+                "override_rate_pct": round(
+                    a.domain_authorized_override / max(1, LONG_DAYS * 60) * 100, 4),
+                "override_dates": a.override_dates,
                 "event_overflow": a.event_overflow,
                 "moves": a.moves,
             },

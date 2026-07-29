@@ -1,0 +1,45 @@
+{
+  "audit_id": "P4-LC-C10-INFEASIBILITY",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "fixture": true,
+  "verdict": {
+    "authorized": true
+  },
+  "result": {
+    "target_date": "2026-07-30",
+    "domain_cap": 21,
+    "event_cap": 10,
+    "loss_budget": 7,
+    "final_domain_counts": {
+      "money": 22,
+      "work": 13,
+      "document": 9,
+      "social": 7,
+      "love": 5,
+      "news": 3,
+      "health": 1
+    },
+    "over_domain": "money",
+    "over_by": 1,
+    "domain_cap_hard_violation": 0,
+    "domain_cap_authorized_override": 1,
+    "constraint_override_reason": "DOMAIN_CAP_INFEASIBLE_AFTER_EVENT_CAP_RELAXATION",
+    "cards_in_over_domain": 22,
+    "cards_with_no_cross_domain_candidate": 4,
+    "escape_options_within_budget": [],
+    "s5_blocked_cards": {
+      "丁丑": "treat_received"
+    },
+    "proof": {
+      "claim": "valence·자격·s5 보호·7p 예산·domain cap 을 모두 만족하는 전역 배치가 없고, event cap 을 완전히 풀어도 해결되지 않는다",
+      "method": "초과 도메인의 모든 카드에 대해 카드 내 후보를 완전 탐색",
+      "escape_option_count": 0,
+      "rejected_escape_reasons": {
+        "LOSS_BUDGET_EXCEEDED": 11,
+        "COOLDOWN_VIOLATION": 7
+      },
+      "infeasible": true
+    }
+  }
+}

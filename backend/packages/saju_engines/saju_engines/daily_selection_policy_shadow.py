@@ -149,6 +149,23 @@ LONGITUDINAL_ONE_BAND_DOWNGRADE_SELECTED = "LONGITUDINAL_ONE_BAND_DOWNGRADE_SELE
 #: 하드 차단하지 않고 기록만 하는 관찰 코드 — 출시 canary 표본 감수 대상.
 STRONG_EVIDENCE_ASYMMETRY = "STRONG_EVIDENCE_ASYMMETRY"
 
+# ── 제약 충돌 시 완화 순서 ────────────────────────────────────────────────
+#
+#   절대 유지     valence · headline 자격 · s5 보호 · 7p 손실 예산
+#   가능하면 유지 domain cap
+#   그다음        event cap
+#   마지막 수단   domain cap authorized override
+#
+# domain overflow 는 사용자에게 **생활영역 편중**을 만들고 event overflow 는 같은
+# 사건의 보드 내 반복을 만든다. 전자가 더 넓게 체감되므로 event cap 을 먼저 푼다.
+
+#: domain cap 을 지키기 위해 event cap 을 완화했다.
+EVENT_CAP_RELAXED_TO_PROTECT_DOMAIN = "EVENT_CAP_RELAXED_TO_PROTECT_DOMAIN"
+#: event cap 을 완전히 풀어도 domain cap 을 지킬 배치가 없다 — 승인된 override.
+DOMAIN_CAP_INFEASIBLE_AFTER_EVENT_CAP_RELAXATION = (
+    "DOMAIN_CAP_INFEASIBLE_AFTER_EVENT_CAP_RELAXATION"
+)
+
 #: 예외 보호 밴드(s5). 이 밴드의 원시 승자는 어떤 경우에도 하위 밴드로 낮추지 않는다.
 EXCEPTIONAL_BAND = 4
 #: 예외 밴드가 아닌 경우의 차단(두 단계 이상 하락 등).
@@ -413,6 +430,12 @@ class PolicyResult:
     event_overflow: int = 0
     #: 강도 계층 허용으로 남은 약한 반복(P2)
     accepted_weaker_repeat: int = 0
+    #: 사유 없이 남은 domain 초과 — **항상 0이어야 한다**(출시 차단 조건).
+    domain_cap_hard_violation: int = 0
+    #: 불가능성이 증명된 domain 초과(event cap 을 완전히 풀어도 해결 불가).
+    domain_cap_authorized_override: int = 0
+    #: 제약 완화 사유 코드.
+    constraint_override_reason: str = ""
     contract: str = SELECTION_POLICY_VERSION
 
     @property
@@ -554,6 +577,50 @@ def _find_chain(
 
 
 def select_board(
+    raw_selections: Mapping[str, HeadlineCandidate],
+    candidate_map: Mapping[str, Sequence[HeadlineCandidate]],
+    history: Mapping[str, Sequence[str]],
+    *,
+    domain_cap: int,
+    event_cap: int | None = None,
+    max_displacement_cost: int | None = None,
+    policy: SelectionPolicy = BASELINE_POLICY,
+    today: int = 0,
+    relax_event_cap_first: bool = True,
+) -> PolicyResult:
+    """domain cap 을 지키기 위해 event cap 을 먼저 완화한 뒤 배정한다.
+
+    `relax_event_cap_first` 가 켜져 있고 domain 초과가 남으면, event cap 을 완전히
+    푼 배치를 시도한다. 그것으로 해결되면 그 결과를 쓰고(EVENT_CAP_RELAXED_...),
+    그래도 해결되지 않으면 **불가능성이 증명된** authorized override 로 기록한다.
+    사유 없이 남는 domain 초과는 `domain_cap_hard_violation` 으로 분리해 센다.
+    """
+    result = _select_board_once(
+        raw_selections, candidate_map, history, domain_cap=domain_cap,
+        event_cap=event_cap, max_displacement_cost=max_displacement_cost,
+        policy=policy, today=today,
+    )
+    if not (relax_event_cap_first and result.domain_overflow and event_cap is not None):
+        result.domain_cap_hard_violation = result.domain_overflow
+        return result
+
+    relaxed = _select_board_once(
+        raw_selections, candidate_map, history, domain_cap=domain_cap,
+        event_cap=None, max_displacement_cost=max_displacement_cost,
+        policy=policy, today=today,
+    )
+    if relaxed.domain_overflow == 0:
+        relaxed.constraint_override_reason = EVENT_CAP_RELAXED_TO_PROTECT_DOMAIN
+        return relaxed
+    # event cap 을 완전히 풀어도 domain cap 을 지킬 배치가 없다.
+    result.domain_cap_authorized_override = result.domain_overflow
+    result.constraint_override_reason = (
+        DOMAIN_CAP_INFEASIBLE_AFTER_EVENT_CAP_RELAXATION
+    )
+    return result
+
+
+def _select_board_once(
     raw_selections: Mapping[str, HeadlineCandidate],
     candidate_map: Mapping[str, Sequence[HeadlineCandidate]],
     history: Mapping[str, Sequence[str]],

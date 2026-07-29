@@ -84,6 +84,10 @@
         },
         "board_overflow": {
           "domain_overflow": 0,
+          "domain_cap_hard_violation": 0,
+          "domain_cap_authorized_override": 0,
+          "override_rate_pct": 0.0,
+          "override_dates": [],
           "event_overflow": 47,
           "moves": 2470
         },
@@ -157,7 +161,10 @@
           "support_origin_le_10pct": true,
           "single_replacement_le_20pct": true,
           "top5_not_worse_than_warmup_L0": true,
-          "no_domain_overflow": true,
+          "no_unauthorized_domain_overflow": true,
+          "no_multi_overflow_board": true,
+          "authorized_override_rate_le_0_01pct": true,
+          "no_consecutive_override_days": true,
           "unique_domain_p10_ge_6": true
         },
         "quality_guard_passed": true
@@ -205,6 +212,10 @@
         },
         "board_overflow": {
           "domain_overflow": 0,
+          "domain_cap_hard_violation": 0,
+          "domain_cap_authorized_override": 0,
+          "override_rate_pct": 0.0,
+          "override_dates": [],
           "event_overflow": 43,
           "moves": 2506
         },
@@ -278,7 +289,10 @@
           "support_origin_le_10pct": true,
           "single_replacement_le_20pct": true,
           "top5_not_worse_than_warmup_L0": true,
-          "no_domain_overflow": true,
+          "no_unauthorized_domain_overflow": true,
+          "no_multi_overflow_board": true,
+          "authorized_override_rate_le_0_01pct": true,
+          "no_consecutive_override_days": true,
           "unique_domain_p10_ge_6": true
         },
         "quality_guard_passed": false
@@ -326,6 +340,10 @@
         },
         "board_overflow": {
           "domain_overflow": 0,
+          "domain_cap_hard_violation": 0,
+          "domain_cap_authorized_override": 0,
+          "override_rate_pct": 0.0,
+          "override_dates": [],
           "event_overflow": 83,
           "moves": 2540
         },
@@ -399,7 +417,10 @@
           "support_origin_le_10pct": true,
           "single_replacement_le_20pct": true,
           "top5_not_worse_than_warmup_L0": true,
-          "no_domain_overflow": true,
+          "no_unauthorized_domain_overflow": true,
+          "no_multi_overflow_board": true,
+          "authorized_override_rate_le_0_01pct": true,
+          "no_consecutive_override_days": true,
           "unique_domain_p10_ge_6": true
         },
         "quality_guard_passed": true
@@ -447,6 +468,10 @@
         },
         "board_overflow": {
           "domain_overflow": 0,
+          "domain_cap_hard_violation": 0,
+          "domain_cap_authorized_override": 0,
+          "override_rate_pct": 0.0,
+          "override_dates": [],
           "event_overflow": 84,
           "moves": 2543
         },
@@ -520,7 +545,10 @@
           "support_origin_le_10pct": true,
           "single_replacement_le_20pct": true,
           "top5_not_worse_than_warmup_L0": true,
-          "no_domain_overflow": true,
+          "no_unauthorized_domain_overflow": true,
+          "no_multi_overflow_board": true,
+          "authorized_override_rate_le_0_01pct": true,
+          "no_consecutive_override_days": true,
           "unique_domain_p10_ge_6": true
         },
         "quality_guard_passed": true
@@ -568,6 +596,10 @@
         },
         "board_overflow": {
           "domain_overflow": 0,
+          "domain_cap_hard_violation": 0,
+          "domain_cap_authorized_override": 0,
+          "override_rate_pct": 0.0,
+          "override_dates": [],
           "event_overflow": 64,
           "moves": 2544
         },
@@ -641,7 +673,10 @@
           "support_origin_le_10pct": true,
           "single_replacement_le_20pct": true,
           "top5_not_worse_than_warmup_L0": true,
-          "no_domain_overflow": true,
+          "no_unauthorized_domain_overflow": true,
+          "no_multi_overflow_board": true,
+          "authorized_override_rate_le_0_01pct": true,
+          "no_consecutive_override_days": true,
           "unique_domain_p10_ge_6": true
         },
         "quality_guard_passed": true
@@ -689,6 +724,10 @@
         },
         "board_overflow": {
           "domain_overflow": 0,
+          "domain_cap_hard_violation": 0,
+          "domain_cap_authorized_override": 0,
+          "override_rate_pct": 0.0,
+          "override_dates": [],
           "event_overflow": 53,
           "moves": 2507
         },
@@ -762,7 +801,10 @@
           "support_origin_le_10pct": true,
           "single_replacement_le_20pct": true,
           "top5_not_worse_than_warmup_L0": true,
-          "no_domain_overflow": true,
+          "no_unauthorized_domain_overflow": true,
+          "no_multi_overflow_board": true,
+          "authorized_override_rate_le_0_01pct": true,
+          "no_consecutive_override_days": true,
           "unique_domain_p10_ge_6": true
         },
         "quality_guard_passed": false
@@ -810,6 +852,12 @@
         },
         "board_overflow": {
           "domain_overflow": 1,
+          "domain_cap_hard_violation": 0,
+          "domain_cap_authorized_override": 1,
+          "override_rate_pct": 0.0062,
+          "override_dates": [
+            "2026-07-30"
+          ],
           "event_overflow": 73,
           "moves": 2582
         },
@@ -883,10 +931,13 @@
           "support_origin_le_10pct": true,
           "single_replacement_le_20pct": true,
           "top5_not_worse_than_warmup_L0": true,
-          "no_domain_overflow": false,
+          "no_unauthorized_domain_overflow": true,
+          "no_multi_overflow_board": true,
+          "authorized_override_rate_le_0_01pct": true,
+          "no_consecutive_override_days": true,
           "unique_domain_p10_ge_6": true
         },
-        "quality_guard_passed": false
+        "quality_guard_passed": true
       }
     }
   }
