@@ -51,7 +51,10 @@ from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index  # noqa: 
 
 LOOKBACK, BUDGET, TARGET, FLOOR = 90, 7, 15, 16
 QUALIFY_MIN = 55
-WARMUP = 90
+#: 측정 창(직전 90일) **앞에** 두는 예열 기간. OA-10b 와 같은 180일이다.
+#: 창을 예열로 겸하면 anchor 의 90일이 곧 빈 history 직후 구간이라 cold start 편향이
+#: 생긴다(초판 OA-11d 가 그랬다 — 2026-04-02 S0 p10 이 15 가 아니라 14 로 나왔다).
+WARMUP = 180
 _DOMAIN_CAP, _EVENT_CAP = 0.30, 0.25
 #: 라이브 board 정책과 동일(OA-10b 와 같은 값).
 _BOARD = SelectionPolicy(global_swap=True, severity_tiers=True,
@@ -167,7 +170,7 @@ def run(anchors: list[dt.date]) -> dict[str, Any]:
     )["events"]
     family_of = {k: t["semantic_family"] for k, t in tax.items()}
 
-    start = min(anchors) - dt.timedelta(days=WARMUP)
+    start = min(anchors) - dt.timedelta(days=WARMUP + LOOKBACK)
     end = max(anchors) + dt.timedelta(days=89)
     states = {n: PolicyState(n) for n in ("S0", "S1", "S2")}
     snaps: dict[str, dict[str, dict[str, int]]] = collections.defaultdict(dict)

@@ -7,19 +7,19 @@
     "anchors": {
       "2026-04-02": {
         "S0": {
-          "qualifying_iljus": 47,
+          "qualifying_iljus": 45,
           "family_p10": 14,
           "family_min": 13
         },
         "S1": {
-          "qualifying_iljus": 59,
+          "qualifying_iljus": 57,
           "family_p10": 15,
-          "family_min": 14
+          "family_min": 13
         },
         "S2": {
-          "qualifying_iljus": 59,
+          "qualifying_iljus": 57,
           "family_p10": 15,
-          "family_min": 14
+          "family_min": 13
         }
       },
       "2027-03-03": {
@@ -93,54 +93,54 @@
     },
     "policy_summary": {
       "S0": {
-        "representative_change_rate_pct": 20.07,
-        "realized_loss_mean": 0.624,
+        "representative_change_rate_pct": 19.99,
+        "realized_loss_mean": 0.619,
         "realized_loss_p90": 3,
-        "band_downgrades": 2171,
+        "band_downgrades": 2689,
         "s5_drops": 0,
         "gains_realized": 0,
         "gains_lost_at_board": 0,
         "block_reasons": {
-          "NO_REALIZED_NEW_FAMILY_CANDIDATE": 26375,
-          "RECOVERY_NOT_ACTIVE": 14577,
-          "INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE": 3740,
-          "RAW_TOP_CLEAN_SHORT_CIRCUIT": 1774,
-          "GAIN_REALIZED": 1144,
-          "NEW_FAMILY_AVAILABLE_BUT_NOT_SELECTED": 230
+          "NO_REALIZED_NEW_FAMILY_CANDIDATE": 32759,
+          "RECOVERY_NOT_ACTIVE": 18501,
+          "INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE": 4722,
+          "RAW_TOP_CLEAN_SHORT_CIRCUIT": 2162,
+          "GAIN_REALIZED": 1214,
+          "NEW_FAMILY_AVAILABLE_BUT_NOT_SELECTED": 264
         }
       },
       "S1": {
-        "representative_change_rate_pct": 20.69,
-        "realized_loss_mean": 0.537,
+        "representative_change_rate_pct": 20.58,
+        "realized_loss_mean": 0.526,
         "realized_loss_p90": 2,
-        "band_downgrades": 1887,
+        "band_downgrades": 2314,
         "s5_drops": 0,
-        "gains_realized": 1063,
-        "gains_lost_at_board": 8,
+        "gains_realized": 1260,
+        "gains_lost_at_board": 6,
         "block_reasons": {
-          "RECOVERY_NOT_ACTIVE": 27184,
-          "NO_REALIZED_NEW_FAMILY_CANDIDATE": 15195,
-          "INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE": 3162,
-          "GAIN_REALIZED": 1071,
-          "CARD_TOP1_DID_NOT_ADD_FAMILY": 650,
-          "BOARD_REBALANCE_REMOVED_GAIN": 8
+          "RECOVERY_NOT_ACTIVE": 34577,
+          "NO_REALIZED_NEW_FAMILY_CANDIDATE": 18387,
+          "INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE": 3993,
+          "GAIN_REALIZED": 1266,
+          "CARD_TOP1_DID_NOT_ADD_FAMILY": 670,
+          "BOARD_REBALANCE_REMOVED_GAIN": 6
         }
       },
       "S2": {
-        "representative_change_rate_pct": 20.69,
-        "realized_loss_mean": 0.537,
+        "representative_change_rate_pct": 20.58,
+        "realized_loss_mean": 0.526,
         "realized_loss_p90": 2,
-        "band_downgrades": 1887,
+        "band_downgrades": 2314,
         "s5_drops": 0,
-        "gains_realized": 1063,
-        "gains_lost_at_board": 8,
+        "gains_realized": 1260,
+        "gains_lost_at_board": 6,
         "block_reasons": {
-          "RECOVERY_NOT_ACTIVE": 27184,
-          "NO_REALIZED_NEW_FAMILY_CANDIDATE": 15195,
-          "INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE": 3162,
-          "GAIN_REALIZED": 1071,
-          "CARD_TOP1_DID_NOT_ADD_FAMILY": 650,
-          "BOARD_REBALANCE_REMOVED_GAIN": 8
+          "RECOVERY_NOT_ACTIVE": 34577,
+          "NO_REALIZED_NEW_FAMILY_CANDIDATE": 18387,
+          "INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE": 3993,
+          "GAIN_REALIZED": 1266,
+          "CARD_TOP1_DID_NOT_ADD_FAMILY": 670,
+          "BOARD_REBALANCE_REMOVED_GAIN": 6
         }
       }
     }

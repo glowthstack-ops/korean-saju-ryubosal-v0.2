@@ -267,3 +267,12 @@ def advisory_lock_key(
         f"{fortune_date.isoformat()}|{display_selection_policy_version}".encode()
     ).digest()
     return int.from_bytes(digest[:8], "big", signed=True)
+
+
+#: 날짜순 schedule 의 **고정 원점**. 테스트 편의값이 아니라 순차 상태 결과를 결정하는
+#: 계약이다 — anchor 집합에 따라 시작점이 움직이면 같은 규칙이라도 누적 history 가
+#: 달라져 결과가 갈린다(OA-11d harness drift 의 실제 원인 중 하나).
+DAILY_CANONICAL_SCHEDULE_ORIGIN = date(2025, 4, 6)
+DAILY_SCHEDULE_CONTRACT_VERSION = "daily-schedule.v1"
+#: 원점 이후 첫 anchor 까지의 예열(180) + 측정 창(90).
+DAILY_SCHEDULE_WARMUP_DAYS = 180

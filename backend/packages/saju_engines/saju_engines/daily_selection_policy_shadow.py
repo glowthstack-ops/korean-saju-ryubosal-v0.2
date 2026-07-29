@@ -596,6 +596,40 @@ def _find_chain(
     return None
 
 
+#: board cap 인자는 **비율이 아니라 개수**다. 비율(0.30)을 그대로 넘겨도 파이썬은
+#: 받아들이고, cap=0 으로 해석돼 조용히 전혀 다른 제약이 된다(OA-11d harness drift 의
+#: 실제 원인 중 하나). 호출부에서 `cap_count(60, ratio)` 로 환산해 넘긴다.
+#: 보드는 60일주 고정이다. 상한을 그날 카드 수로 잡으면 "사실상 무제한"을 뜻하는
+#: `domain_cap=60` 관용구가 작은 보드에서 오류가 된다(테스트·부분 보드).
+_MAX_CAP_COUNT = 60
+
+
+def _require_cap_count(name: str, value: object) -> int:
+    """cap 인자가 개수인지 검증한다.
+
+    Args:
+        name: 인자 이름(오류 메시지용).
+        value: 검증할 값.
+
+    Returns:
+        검증된 개수.
+
+    Raises:
+        TypeError: bool 또는 정수가 아닌 값(비율 float 포함).
+        ValueError: 0 이하이거나 60 을 넘는 값.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(
+            f"{name} 는 개수(int)여야 한다 — 비율을 넘긴 것 같다: {value!r}. "
+            f"cap_count(60, ratio) 로 환산하라."
+        )
+    if value <= 0:
+        raise ValueError(f"{name} 는 1 이상이어야 한다: {value}")
+    if value > _MAX_CAP_COUNT:
+        raise ValueError(f"{name} 가 상한을 넘는다: {value} > {_MAX_CAP_COUNT}")
+    return value
+
+
 def select_board(
     raw_selections: Mapping[str, HeadlineCandidate],
     candidate_map: Mapping[str, Sequence[HeadlineCandidate]],
@@ -615,6 +649,9 @@ def select_board(
     그래도 해결되지 않으면 **불가능성이 증명된** authorized override 로 기록한다.
     사유 없이 남는 domain 초과는 `domain_cap_hard_violation` 으로 분리해 센다.
     """
+    _require_cap_count("domain_cap", domain_cap)
+    if event_cap is not None:
+        _require_cap_count("event_cap", event_cap)
     result = _select_board_once(
         raw_selections, candidate_map, history, domain_cap=domain_cap,
         event_cap=event_cap, max_displacement_cost=max_displacement_cost,
