@@ -1,7 +1,16 @@
 # OA-10a — 일별 선택 원장 스키마 설계안
 
-> **상태: 설계안 (구현 전).** migration·서비스 계층은 이 문서 승인 후 착수한다.
-> taxonomy 병합 · G0 활성화 · `DICT_VERSION` 승격은 계속 보류.
+> **상태: 조건부 승인 → 구현 착수.** 아래 세 결정이 반영됐다.
+> taxonomy 병합 · G0 활성화 · `DICT_VERSION` 승격 · C10 라이브 활성화는 계속 보류.
+>
+> | 결정 | 확정 |
+> |---|---|
+> | `history_contract_version` 호환성 | **코드 상수 registry** — DB 테이블 없음 |
+> | 과거 90일 | **`CONTRACT_REPLAY`** — `LIVE_COMMITTED` 표기 금지 |
+> | 과거 표시 정책 | **`display-selection.legacy-v0`** (별도 고정 adapter) |
+>
+> 구현 위치: `backend/migrations/017_daily_selection_ledger.sql` ·
+> `saju_engines/daily_selection_contracts.py`
 
 C10(`P4_LC_C10`)은 이전 날짜의 선택 결과에 의존한다. 메모리 내 순차 재생만으로는
 운영할 수 없으므로, **DB 원자성이 최종 SSOT**이고 Redis는 보조 캐시가 되는 3계층
@@ -467,14 +476,95 @@ subject_id · account_id · 생년월일 · 출생지 · 이름
 
 ---
 
-## 미결 — 승인 시 확인 필요
+## 13. 확정된 세 결정
 
-1. **`history_contract_version` 호환 판정 규칙**을 코드 상수로 둘지 DB 테이블로 둘지.
-   현재는 상수를 제안한다(값이 드물게 바뀌고, 판정 로직이 코드에 있어야 테스트가 쉽다).
-2. **`CONTRACT_REPLAY` 로 재현할 90일의 시작일**. C10 활성화일 기준 D-90 이지만,
-   그 구간에 `dict.v1.10 → v1.11` 경계(2026-07-30)가 걸리면 날짜별로 다른 사전을
-   써야 한다. `load_daily_dicts_for(day)` 가 이미 그 경로를 갖고 있어 가능하나,
-   **재현 결과를 `LIVE_COMMITTED` 로 표기하지 않는다**는 점을 재확인받고자 한다.
-3. **`display-selection.legacy-v0` 의 정의를 코드로 고정**할지. 현재 라이브는 별도
-   표시 정책이 없는 상태이므로, fallback 경로를 위해 "현행 동작"에 명시적 이름을
-   붙여야 한다.
+### 13-1. 호환성은 코드 상수 registry
+
+DB 호환성 테이블은 만들지 않는다. 운영 중 데이터만 고쳐 과거 이력의 해석 계약을
+바꿀 수 있게 되면 재현성이 깨진다. 호환 범위 확대는 코드 리뷰·fixture·과거 원장
+replay 테스트·배포를 모두 거친다.
+
+판정은 **두 축을 함께** 본다 — 이력 계약과 taxonomy. `semantic_family` 매핑이
+달라지면 같은 `event_key` 도 다른 의미 장면이 되기 때문이다.
+
+    EXACT · EXPLICIT_COMPAT_MAPPING · INCOMPATIBLE · UNKNOWN
+
+`UNKNOWN` 은 **호환으로 간주하지 않고 fail-closed** 한다.
+
+### 13-2. 과거 90일은 `CONTRACT_REPLAY`
+
+    generation_source        = CONTRACT_REPLAY
+    selection_policy_version = display-selection.legacy-v0
+    replay_fidelity          = EXACT_CONTRACT_REPLAY
+
+`PARTIAL` 재생 결과는 C10 history 로 쓸 수 없다. 옛 계약을 정확히 재현할 수 없으면
+현재 코드로 비슷하게 만들지 않고 `CONTRACT_REPLAY_INCOMPLETE` 로 실패시켜 C10 전환을
+중단한다.
+
+날짜별로 당시 값을 쓴다 — `2026-07-29` 까지 `dict.v1.10`, `2026-07-30` 부터
+`dict.v1.11`. 과거 표시 결과는
+
+    display_good_representative = raw_good_winner
+    good_selection_reason       = RAW_GOOD_WINNER_SELECTED
+    display_displacement_loss   = 0
+
+이지만, **`final_headline` 은 당시 보드 재배정 결과까지 포함**한다. 과거 정책에
+장기 선택이 없었다는 이유로 보드 cap 을 생략하지 않는다.
+
+### 13-3. `display-selection.legacy-v0` 는 고정 adapter
+
+"현재 코드에서 C10 플래그만 끈 상태"로 정의하지 않는다 — 이후 코드가 변하면 legacy 도
+함께 변해 과거 재현이 무너진다. 별도 순수 함수로 고정한다.
+
+    장기 history 참조 없음
+    raw good winner 를 display good representative 로 사용
+    support·caution 은 당시 `_select_slots` 계약으로 선발
+    headline 은 당시 band 계약으로 결정
+    board rebalance 는 날짜별 당시 계약 적용
+    good_selection_reason = RAW_GOOD_WINNER_SELECTED · loss = 0
+
+golden fixture 경계: OA-6a/6b 전후 · OA-8a/8b 전후 · `dict.v1.10 → v1.11` ·
+2026-07-30 날짜 경계 · domain authorized override 날짜(2026-07-30).
+
+## 14. 첫 C10 전환 history
+
+과거 90일 동안 대표가 바뀌지 않은 것은 결함이 아니라 **실제 과거 표시 정책**이다.
+C10 은 이 history 를 그대로 받는다.
+
+    D-90 ~ D-1   legacy-v0 CONTRACT_REPLAY
+    D            C10 최초 적용
+
+**C10 을 과거에 소급 적용해 self-warmup 을 만드는 것은 금지한다** — 사용자가 보지
+않은 사건을 본 것으로 간주하게 된다. 따라서 감사를 둘로 나눈다:
+
+| 감사 | 입력 | 용도 |
+|---|---|---|
+| 안정 상태 | C10 90일 warm-up → C10 90일 | 이미 통과한 C10 자체 성능 |
+| **실제 전환** | legacy-v0 재생 90일 → C10 90일 | **출시 판단 기준** |
+
+전환 후 첫 7일 · 첫 30일 · 전체 90일을 구간별로 측정한다 — 표시 대표 변경률 ·
+평균·p90 손실 · key/family coverage · 7일 반복 · Top-5 집중도 ·
+authorized override · 특정 사건의 초기 급증.
+
+## 15. legacy fallback 기록
+
+history replay 가 실패해 `legacy-v0` 로 fail-closed 한 날짜도 원장에 기록한다.
+
+    selection_policy_version  = display-selection.legacy-v0
+    generation_source         = LIVE_PREGEN | LIVE_ON_DEMAND
+    good_selection_reason     = RAW_GOOD_WINNER_SELECTED
+    selection_reason_codes   += HISTORY_INCOMPLETE_FAIL_CLOSED_TO_LEGACY
+
+이 날짜는 **실제 게시 결과**이므로 이후 history 에 포함된다. 다만 이미 게시된 날짜를
+복구 후 몰래 C10 결과로 교체하지 않는다 — 과거 active pointer 교체는 명시적
+`BACKFILL_REPLACEMENT` 절차와 운영 판단이 있을 때만 가능하다.
+
+## 16. 구현 노트 — SQL 에 복제하지 않은 것
+
+`history_start_date = fortune_date - N` 을 CHECK 에 넣지 않았다. lookback 길이는
+`LONGTERM_LOOKBACK_DAYS`(현재 89, D-89~D-1) 코드 상수이고, SQL 에 숫자를 복제하면
+두 곳이 조용히 어긋난다. DDL 은 **끝점만** 강제하고(`history_end_date =
+fortune_date - 1`) 길이는 서비스와 회귀가 지킨다.
+
+> 참고: 승인 지시에는 `fortune_date - 90` 이 예시로 있었으나 현행 정책 상수는 89 다
+> (D-89 ~ D-1). 값을 임의로 바꾸지 않고 코드 상수를 SSOT 로 두었다.
