@@ -7,13 +7,15 @@
 
 from __future__ import annotations
 
+import datetime as dt
+
 import pytest
 
 from saju_engines.daily_board_constraints import cap_count
 from saju_engines.daily_selection_contracts import (
-    DAILY_CANONICAL_SCHEDULE_ORIGIN,
-    DAILY_SCHEDULE_CONTRACT_VERSION,
-    DAILY_SCHEDULE_WARMUP_DAYS,
+    DAILY_ROLLING_AUDIT_CONTRACT_VERSION,
+    DAILY_ROLLING_AUDIT_ORIGIN,
+    DAILY_ROLLING_AUDIT_WARMUP_DAYS,
 )
 from saju_engines.daily_selection_policy_shadow import (
     HeadlineCandidate,
@@ -85,8 +87,59 @@ def test_cap_count_converts_ratio_at_one_place() -> None:
     assert cap_count(60, 0.30) == 18
 
 
-def test_schedule_origin_is_a_declared_contract() -> None:
+def test_rolling_audit_origin_is_a_declared_contract() -> None:
     """원점은 테스트 편의값이 아니라 순차 상태를 결정하는 계약이다."""
-    assert DAILY_CANONICAL_SCHEDULE_ORIGIN.isoformat() == "2025-04-06"
-    assert DAILY_SCHEDULE_CONTRACT_VERSION == "daily-schedule.v1"
-    assert DAILY_SCHEDULE_WARMUP_DAYS == 180
+    assert DAILY_ROLLING_AUDIT_ORIGIN.isoformat() == "2025-04-06"
+    assert DAILY_ROLLING_AUDIT_CONTRACT_VERSION == "daily-rolling-audit.v1"
+    assert DAILY_ROLLING_AUDIT_WARMUP_DAYS == 180
+
+
+def test_rolling_audit_contract_is_separate_from_beta_bootstrap() -> None:
+    """감사 원점과 베타 풀 bootstrap 은 **다른 계약**이다.
+
+    이름을 겸용하면 누군가 v2 풀을 2025-04-06 부터 재생성해야 한다고 오해한다.
+    """
+    from saju_engines.daily_beta_pool import pool_metadata
+
+    meta = pool_metadata("beta-daily-pool.c10.v2")
+    # 베타 bootstrap 은 anchor 기준이고 감사 원점과 무관하다.
+    assert meta["bootstrap_start"] == "2026-01-31"
+    assert meta["bootstrap_warmup_days"] == 90
+    assert meta["history_lookback_days"] == 90
+    assert dt.date.fromisoformat(meta["bootstrap_start"]) != DAILY_ROLLING_AUDIT_ORIGIN
+    assert meta["bootstrap_contract_version"] == "daily-selection-bootstrap.v1"
+    assert meta["bootstrap_contract_version"] != DAILY_ROLLING_AUDIT_CONTRACT_VERSION
+
+
+def test_v2_pool_fingerprints_do_not_depend_on_the_audit_contract() -> None:
+    """감사 계약을 바꿔도 이미 동결한 v2 지문은 움직이지 않아야 한다."""
+    from saju_engines.daily_beta_pool import pool_metadata
+
+    meta = pool_metadata("beta-daily-pool.c10.v2")
+    assert meta["pool_result_fingerprint"] == (
+        "f0ce1e0c20c80d892d6a28ac1a286bc2c2cf61fcac0d2209424b6c35f3414f68"
+    )
+    assert meta["bootstrap_fingerprint"] == (
+        "a499f3424dea1ead18c1f6cbe40f05012e53d9b8d314c025dd6b0951408e53e7"
+    )
+
+
+# ── 정수 스칼라 계약 (SciPy·NumPy oracle 경로) ────────────────────────────
+
+
+def test_numpy_integer_is_accepted_and_normalized() -> None:
+    """MILP·oracle 경로에서 numpy 정수 스칼라가 들어올 수 있다."""
+    np = pytest.importorskip("numpy")
+    assert _call(domain_cap=np.int64(2), event_cap=np.int64(2)).selections
+
+
+def test_numpy_float_is_rejected() -> None:
+    """`np.float64(21.0)` 은 정수처럼 보여도 비율 오입력 경로다."""
+    np = pytest.importorskip("numpy")
+    with pytest.raises(TypeError):
+        _call(domain_cap=np.float64(21.0))
+
+
+def test_python_float_with_integral_value_is_rejected() -> None:
+    with pytest.raises(TypeError):
+        _call(domain_cap=2.0)

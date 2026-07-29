@@ -144,5 +144,17 @@
         }
       }
     }
+  },
+  "status": "INVALID_UNRECONCILED_HARNESS",
+  "invalidation": {
+    "reason": "OA-10b 와 행 단위 재현이 닫히지 않았다 — 판정 근거로 쓰지 않는다.",
+    "known_differences": [
+      "good_history 에 intended 대표가 아니라 realized 대표를 기록했다",
+      "board cap 에 비율(0.30/0.25)을 넘겼다 — 개수(21/10)여야 한다",
+      "schedule 원점이 anchor 집합에 따라 움직였다 — 고정 원점이어야 한다",
+      "초판은 측정 창 앞 예열이 0일이었다(2판에서 180일로 수정했으나 여전히 불일치)"
+    ],
+    "official_baseline": "OA-10b (doc/v2_2/audits/oa10b_rolling_window.json)",
+    "retained_use": "원인 추적 참고값"
   }
 }

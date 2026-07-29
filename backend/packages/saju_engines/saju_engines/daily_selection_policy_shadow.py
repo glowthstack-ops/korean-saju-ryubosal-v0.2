@@ -29,6 +29,7 @@ P1 이 푸는 것 — 순차 처리의 선점 문제:
 from __future__ import annotations
 
 import collections
+import numbers
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
@@ -618,11 +619,14 @@ def _require_cap_count(name: str, value: object) -> int:
         TypeError: bool 또는 정수가 아닌 값(비율 float 포함).
         ValueError: 0 이하이거나 60 을 넘는 값.
     """
-    if isinstance(value, bool) or not isinstance(value, int):
+    # numpy 정수 스칼라(oracle·MILP 경로)는 허용하고 int 로 정규화한다. bool 은
+    # int 의 부분형이라 1 로 통과해버리므로 먼저 거부한다. 비율 float 는 거부다.
+    if isinstance(value, bool) or not isinstance(value, numbers.Integral):
         raise TypeError(
-            f"{name} 는 개수(int)여야 한다 — 비율을 넘긴 것 같다: {value!r}. "
+            f"{name} 는 개수(정수)여야 한다 — 비율을 넘긴 것 같다: {value!r}. "
             f"cap_count(60, ratio) 로 환산하라."
         )
+    value = int(value)
     if value <= 0:
         raise ValueError(f"{name} 는 1 이상이어야 한다: {value}")
     if value > _MAX_CAP_COUNT:

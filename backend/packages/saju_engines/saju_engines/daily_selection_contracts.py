@@ -269,10 +269,17 @@ def advisory_lock_key(
     return int.from_bytes(digest[:8], "big", signed=True)
 
 
-#: 날짜순 schedule 의 **고정 원점**. 테스트 편의값이 아니라 순차 상태 결과를 결정하는
-#: 계약이다 — anchor 집합에 따라 시작점이 움직이면 같은 규칙이라도 누적 history 가
-#: 달라져 결과가 갈린다(OA-11d harness drift 의 실제 원인 중 하나).
-DAILY_CANONICAL_SCHEDULE_ORIGIN = date(2025, 4, 6)
-DAILY_SCHEDULE_CONTRACT_VERSION = "daily-schedule.v1"
-#: 원점 이후 첫 anchor 까지의 예열(180) + 측정 창(90).
-DAILY_SCHEDULE_WARMUP_DAYS = 180
+# ── 장기 rolling **감사** 시간 계약 ────────────────────────────────────────
+#
+# 이 값들은 730-anchor 감사 · S0/S1/S2 정책 비교 · episode 산출에만 쓴다.
+# **베타 풀 bootstrap 과는 다른 계약이다** — 이름을 겸용하면 누군가 v2 풀을
+# 2025-04-06 부터 재생성해야 한다고 오해한다. 베타 쪽은
+# `daily_canonical_bootstrap` 의 anchor 기준(warm-up 90 + lookback 90 = 180)이다.
+#
+# 원점은 테스트 편의값이 아니라 순차 상태 결과를 결정하는 계약이다 — anchor 집합에
+# 따라 시작점이 움직이면 같은 규칙이라도 누적 history 가 달라져 결과가 갈린다
+# (OA-11d harness drift 의 실제 원인 중 하나).
+DAILY_ROLLING_AUDIT_ORIGIN = date(2025, 4, 6)
+DAILY_ROLLING_AUDIT_CONTRACT_VERSION = "daily-rolling-audit.v1"
+#: 원점 이후 첫 anchor 의 측정 창(90일) **앞에** 두는 예열.
+DAILY_ROLLING_AUDIT_WARMUP_DAYS = 180
