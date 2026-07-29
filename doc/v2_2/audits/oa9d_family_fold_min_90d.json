@@ -1,0 +1,114 @@
+{
+  "audit_id": "OA-9d-min",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "days": 90,
+  "verdict": {
+    "hypothesis": "같은 evidence family 의 sibling 이 표시 단계에서 독립적으로 표를 얻는다",
+    "final_headline_changed": 57,
+    "delta_final_headline_p90_pp": 0.0,
+    "delta_window7_repeat3_pp": 1.0,
+    "status": "REJECTED_BY_DISPLAY_PIPELINE_EVIDENCE",
+    "reason": "sibling candidates do not independently acquire display tickets",
+    "note": "접기를 **완전 제거** 형태로 돌린 상한 측정이다 — 더 약한 형태(good 슬롯 자격만 제한)는 이보다 변화가 작을 수밖에 없다."
+  },
+  "result": {
+    "cards": 5400,
+    "measurement_stage": "display_pipeline",
+    "fold_groups": {
+      "FOLD_STRICT": {
+        "money_opportunity|재성": [
+          "money_good_deal",
+          "money_small_gain"
+        ],
+        "social_favor|인성": [
+          "meet_helper",
+          "treat_received"
+        ]
+      },
+      "FOLD_WIDE": {
+        "비겁": [
+          "old_contact",
+          "teamwork_flow"
+        ],
+        "식상": [
+          "idea_flash",
+          "love_spark",
+          "pleasant_meeting",
+          "walk_refresh"
+        ],
+        "인성": [
+          "document_progress",
+          "family_talk",
+          "focus_flow",
+          "good_news_arrives",
+          "meet_helper",
+          "rest_recharge",
+          "tidy_luck",
+          "treat_received"
+        ],
+        "재성": [
+          "love_deepening",
+          "love_reunion",
+          "money_good_deal",
+          "money_small_gain"
+        ]
+      }
+    },
+    "F0_baseline": {
+      "final_headline_p90_pct": 36.7,
+      "final_headline_max_pct": 50.0,
+      "window7_repeat3_pct": 24.4,
+      "distinct_event_keys_p10": 13
+    },
+    "variants": {
+      "FOLD_STRICT": {
+        "contested_cards": 5400,
+        "contested_pct": 100.0,
+        "changed_slot_good_selected": 76,
+        "changed_raw_headline": 67,
+        "changed_final_headline": 57,
+        "changed_final_headline_pct": 1.06,
+        "replacement_final_headline": {
+          "money_small_gain": 48,
+          "treat_received": 7,
+          "rest_recharge": 1,
+          "old_contact": 1
+        },
+        "mean_probability_loss": 0,
+        "final_headline_p90_pct": 36.7,
+        "final_headline_max_pct": 50.0,
+        "window7_repeat3_pct": 25.4,
+        "distinct_event_keys_p10": 13,
+        "delta_final_headline_p90_pp": 0.0,
+        "delta_window7_repeat3_pp": 1.0
+      },
+      "FOLD_WIDE": {
+        "contested_cards": 5400,
+        "contested_pct": 100.0,
+        "changed_slot_good_selected": 291,
+        "changed_raw_headline": 295,
+        "changed_final_headline": 396,
+        "changed_final_headline_pct": 7.33,
+        "replacement_final_headline": {
+          "meet_helper": 98,
+          "money_small_gain": 66,
+          "good_news_arrives": 35,
+          "love_spark": 33,
+          "idea_flash": 27,
+          "argument_caution": 23,
+          "teamwork_flow": 19,
+          "treat_received": 17
+        },
+        "mean_probability_loss": -0.3,
+        "final_headline_p90_pct": 35.6,
+        "final_headline_max_pct": 51.1,
+        "window7_repeat3_pct": 26.1,
+        "distinct_event_keys_p10": 13,
+        "delta_final_headline_p90_pp": -1.1,
+        "delta_window7_repeat3_pp": 1.7
+      }
+    }
+  }
+}
