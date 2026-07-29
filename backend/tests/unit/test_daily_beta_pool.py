@@ -15,14 +15,19 @@ import datetime as dt
 import pytest
 
 from saju_engines.daily_beta_pool import (
+    BETA_POOL_SELECTION_DRIFT,
     DATE_AFTER_POOL,
     DATE_BEFORE_POOL,
     FUTURE_DATE_NOT_PUBLISHABLE,
     KST,
+    RENDERER_CONTRACT_VERSION,
     BetaPoolError,
     load_day,
     pool_metadata,
+    render_board,
+    render_result_fingerprint,
     today_kst,
+    validate_pool,
 )
 from saju_engines.daily_selection_contracts import (
     DISPLAY_SELECTION_POLICY_C10_V1,
@@ -175,3 +180,106 @@ def test_loss_budget_and_s5_protection_hold() -> None:
             assert 0 <= c["display_displacement_loss"] <= 7
             if c["raw_good_winner"] == c["display_good_representative"]:
                 assert c["display_displacement_loss"] == 0
+
+
+# ── 시작 시 전수 검증 ─────────────────────────────────────────────────────
+
+
+def test_startup_validation_passes() -> None:
+    """하나라도 실패하면 베타 pool 을 활성 상태로 올리지 않는다."""
+    index = validate_pool(_POOL)
+    assert len(index) == 30 * 60
+    assert len({d for d, _i in index}) == 30
+    assert len({i for _d, i in index}) == 60
+
+
+def test_realized_representative_is_recorded_not_intent() -> None:
+    """`_select_slots` 는 good 후보를 `slots` 로 고른다 — 의도가 아니라 **실현**을 담는다.
+
+    의도를 담으면 snapshot 이 실제 카드와 어긋난다(초판에서 96/1800 슬롯 중복).
+    """
+    day = load_day(_POOL, _ANCHOR, now=_now(_ANCHOR))
+    for c in day.cards:
+        assert "intended_good_representative" in c
+        assert "representative_realized" in c
+        if c["representative_realized"]:
+            assert c["display_good_representative"] == c["intended_good_representative"]
+    unrealized = [c for c in day.cards if not c["representative_realized"]]
+    assert unrealized, "미실현 사례가 없으면 이 회귀가 아무것도 검증하지 못한다"
+
+
+def test_loss_baseline_is_the_good_slot_pool_top() -> None:
+    """손실 기준선은 헤드라인 자격 pool 이 아니라 good 슬롯 pool 의 1위다."""
+    day = load_day(_POOL, _ANCHOR, now=_now(_ANCHOR))
+    for c in day.cards:
+        assert 0 <= c["display_displacement_loss"] <= 7
+        if c["display_good_representative"] == c["raw_good_winner"]:
+            assert c["display_displacement_loss"] == 0
+
+
+# ── 렌더링: snapshot 이 SSOT ──────────────────────────────────────────────
+
+
+def test_render_matches_the_snapshot_selection() -> None:
+    board = render_board(_POOL, _ANCHOR, now=_now(_ANCHOR))
+    day = load_day(_POOL, _ANCHOR, now=_now(_ANCHOR))
+    by_ilju = {c["ilju"]: c for c in day.cards}
+    assert len(board.fortunes) == 60
+    for f in board.fortunes:
+        c = by_ilju[f.ilju]
+        assert [e.event_key for e in f.events] == [
+            c["display_good_representative"], c["caution_event"], c["support_event"]
+        ]
+        assert str(f.headline_event_key) == c["final_headline"]
+
+
+def test_render_is_deterministic() -> None:
+    """같은 카드를 다시 열면 문장까지 같아야 한다."""
+    a = render_board(_POOL, _ANCHOR, now=_now(_ANCHOR))
+    b = render_board(_POOL, _ANCHOR, now=_now(_ANCHOR))
+    assert render_result_fingerprint(a) == render_result_fingerprint(b)
+    assert [f.headline for f in a.fortunes] == [f.headline for f in b.fortunes]
+
+
+def test_beta_path_never_calls_selection_functions(monkeypatch) -> None:
+    """베타 경로에서 선택 함수가 호출되면 snapshot 이 SSOT 가 아니게 된다."""
+    import saju_engines.daily_ilju_fortune as engine
+
+    called: list[str] = []
+    for name in ("_select_slots", "_headline_candidates", "_rebalance_headlines"):
+        original = getattr(engine, name)
+
+        def spy(*a, _n=name, _o=original, **kw):
+            called.append(_n)
+            return _o(*a, **kw)
+
+        monkeypatch.setattr(engine, name, spy)
+
+    render_board(_POOL, _ANCHOR, now=_now(_ANCHOR))
+    assert called == [], f"베타 경로가 선택 함수를 호출했다: {sorted(set(called))}"
+
+
+def test_render_refuses_future_dates() -> None:
+    with pytest.raises(BetaPoolError) as e:
+        render_board(_POOL, _ANCHOR + dt.timedelta(days=3), now=_now(_ANCHOR))
+    assert e.value.code == FUTURE_DATE_NOT_PUBLISHABLE
+
+
+def test_renderer_contract_is_declared() -> None:
+    assert RENDERER_CONTRACT_VERSION == "daily-beta-render.c10.v1"
+    assert BETA_POOL_SELECTION_DRIFT == "BETA_POOL_SELECTION_DRIFT"
+
+
+# ── 라이브 경로 불변 ──────────────────────────────────────────────────────
+
+
+def test_live_path_is_unchanged_without_override() -> None:
+    """`selection_override=None` 이면 라이브 보드가 바이트 단위로 같다."""
+    import saju_engines.daily_ilju_fortune as engine
+
+    day = dt.date(2026, 8, 3)
+    dicts = engine.load_daily_dicts_for(day)
+    ctx = engine.build_day_context(day)
+    a = engine.compute_board(ctx, dicts)
+    b = engine.compute_board(ctx, dicts, selection_override=None)
+    assert a.model_dump() == b.model_dump()

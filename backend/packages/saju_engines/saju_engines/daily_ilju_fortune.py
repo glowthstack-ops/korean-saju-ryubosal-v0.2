@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
@@ -917,11 +918,21 @@ def _lotto_slot_open(d: date, ilju_index: int) -> bool:
     return (d.toordinal() + ilju_index) % 7 == 0
 
 
-def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortuneBoard:
+def compute_board(
+    ctx: DayGanjiContext, dicts: DailyFortuneDicts,
+    selection_override: Mapping[str, Mapping[str, str]] | None = None,
+) -> DailyFortuneBoard:
     """60일주 전체 보드를 산출한다(결정론 — 동일 입력이면 동일 출력).
 
     1패스: 일주별 사건 점수·도메인 점수 → Top5·금전 순위 확정.
     2패스: 로또 게이트·문장 조합·당일 중복 감사.
+
+    Args:
+        selection_override: 일주 → {"good","support","caution","final_headline"}.
+            주어지면 **슬롯 선발과 보드 재배정을 건너뛰고** 그 선택을 그대로 쓴다
+            (`_select_slots`·`_headline_candidates`·`_rebalance_headlines` 미호출).
+            베타 pool snapshot 을 선택의 SSOT 로 쓰는 렌더링 경로 전용이며,
+            None 이면 라이브 거동이 바이트 단위로 동일하다.
     """
     d = ctx.the_date
     per_ilju: list[dict[str, Any]] = []
@@ -1001,15 +1012,31 @@ def compute_board(ctx: DayGanjiContext, dicts: DailyFortuneDicts) -> DailyFortun
         ilju = row["ilju"]
         # 선택 seed 는 콘텐츠 버전과 분리한다(OA-6d1) — 문구 수정이 사건을 흔들지 않게.
         seed_base = f"{d.isoformat()}|{ilju}|{EVENT_SELECTION_COMPAT_SALT}"
-        good, caution, support = _select_slots(row["scored"], seed_base)
-        band = _band(good, caution)
-        slot_rows[ilju] = (good, caution, support, band)
-        candidates[ilju] = _headline_candidates(good, support, caution, band)
+        if selection_override is not None:
+            by_key = {s.event_key: s for s in row["scored"]}
+            pick = selection_override[ilju]
+            good = by_key[pick["good"]]
+            support = by_key[pick["support"]]
+            caution = by_key[pick["caution"]]
+            band = pick.get("band") or _band(good, caution)
+            slot_rows[ilju] = (good, caution, support, band)
+            candidates[ilju] = [by_key[pick["final_headline"]]]
+        else:
+            good, caution, support = _select_slots(row["scored"], seed_base)
+            band = _band(good, caution)
+            slot_rows[ilju] = (good, caution, support, band)
+            candidates[ilju] = _headline_candidates(good, support, caution, band)
         order.append(ilju)
 
-    headline_pick, cap_reasons, cap_unresolved = _rebalance_headlines(
-        candidates, order, _DOMAIN_HEADLINE_CAP
-    )
+    if selection_override is not None:
+        # 보드 재배정을 실행하지 않는다 — snapshot 이 이미 최종 헤드라인을 정했다.
+        headline_pick = {k: v[0] for k, v in candidates.items()}
+        cap_reasons: dict[str, str] = {}
+        cap_unresolved = 0
+    else:
+        headline_pick, cap_reasons, cap_unresolved = _rebalance_headlines(
+            candidates, order, _DOMAIN_HEADLINE_CAP
+        )
     headline_audit: list[HeadlineDecision] = []
 
     fortunes: list[DailyIljuFortune] = []

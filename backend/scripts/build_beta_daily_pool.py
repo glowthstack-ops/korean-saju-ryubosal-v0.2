@@ -125,6 +125,9 @@ def build() -> dict[str, Any]:
                 goods, good_history[ilju], _BUDGET, policy=C10_POLICY,
                 family_of=family_of, headline_history=headline_history.get(ilju, []),
             )
+            # 손실 기준선은 **good 슬롯 pool 의 1위**여야 한다. `rep.raw_good_*` 는
+            # 헤드라인 자격 pool(더 넓다) 기준이라 두 pool 의 top 이 다를 수 있다.
+            base_good, _bc, _bs = M._select_slots(scored, seed)
             good, caution, support = M._select_slots(
                 scored, seed, good_override=rep.display_good_representative
             )
@@ -133,22 +136,30 @@ def build() -> dict[str, Any]:
                 HeadlineCandidate(x.event_key, x.domain, x.probability) for x in cands
             ]
             raw[ilju] = cmap[ilju][0]
+            # **실현된** good 슬롯을 기록한다. `rep` 은 의도일 뿐이며,
+            # `_select_slots` 는 good 슬롯 후보를 `slots`(본문 배치)로 고르므로
+            # support 역할 사건(rest_recharge·tidy_luck 등)은 good 이 될 수 없다.
+            # 의도를 기록하면 snapshot 이 실제 카드와 어긋난다(96/1800 실측).
             card[ilju] = {
                 "ilju": ilju,
-                "raw_good_winner": rep.raw_good_winner,
-                "display_good_representative": rep.display_good_representative,
-                "display_good_probability": rep.display_good_probability,
-                "display_good_band": _BAND_NAMES[
-                    strength_band(rep.display_good_probability)
-                ],
-                "display_good_semantic_family": family_of.get(
-                    rep.display_good_representative, ""
+                "raw_good_winner": base_good.event_key,
+                "headline_pool_raw_winner": rep.raw_good_winner,
+                "intended_good_representative": rep.display_good_representative,
+                "display_good_representative": good.event_key,
+                "display_good_probability": good.probability,
+                "display_good_band": _BAND_NAMES[strength_band(good.probability)],
+                "display_good_semantic_family": family_of.get(good.event_key, ""),
+                "representative_realized": (
+                    good.event_key == rep.display_good_representative
                 ),
                 "support_event": support.event_key,
                 "caution_event": caution.event_key,
                 "band": M._band(good, caution),
                 "good_selection_reason": rep.good_selection_reason,
-                "display_displacement_loss": rep.display_displacement_loss,
+                # 손실 = good 슬롯 1위 − 실현된 good.
+                "display_displacement_loss": max(
+                    0, base_good.probability - good.probability
+                ),
             }
             good_history[ilju].append(rep.display_good_representative)
 

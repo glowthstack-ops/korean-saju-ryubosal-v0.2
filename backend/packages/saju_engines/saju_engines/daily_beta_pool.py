@@ -16,6 +16,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from saju_shared_types.daily_fortune import DailyFortuneBoard
+
 _COMPILED = Path(__file__).resolve().parents[3] / "compiled"
 
 #: 한국 표준시. 보드 경계는 KST 자정이다.
@@ -35,6 +37,14 @@ DATE_BEFORE_POOL = "DATE_BEFORE_POOL"
 DATE_AFTER_POOL = "DATE_AFTER_POOL"
 #: 아직 오지 않은 날짜 — 선생성돼 있어도 열지 않는다.
 FUTURE_DATE_NOT_PUBLISHABLE = "FUTURE_DATE_NOT_PUBLISHABLE"
+#: snapshot 이 없거나 손상됐다 — legacy 로 조용히 대체하지 않는다.
+BETA_POOL_UNAVAILABLE = "BETA_POOL_UNAVAILABLE"
+BETA_POOL_FINGERPRINT_MISMATCH = "BETA_POOL_FINGERPRINT_MISMATCH"
+#: 렌더 결과가 snapshot 선택과 다르다.
+BETA_POOL_SELECTION_DRIFT = "BETA_POOL_SELECTION_DRIFT"
+
+#: 렌더링 계약 — 문장까지 동결한다. 선택만 고정해서는 테스터가 보는 것이 안 고정된다.
+RENDERER_CONTRACT_VERSION = "daily-beta-render.c10.v1"
 
 
 @dataclass(frozen=True)
@@ -120,3 +130,145 @@ def pool_metadata(pool_version: str, compiled_dir: Path = _COMPILED) -> dict[str
     """계약·지문만 — 카드는 담지 않는다(감사·표시용)."""
     pool = load_pool(pool_version, compiled_dir)
     return {k: v for k, v in pool.items() if k != "days"}
+
+
+# ── 렌더링 — snapshot 이 선택의 SSOT 다 ───────────────────────────────────
+
+
+def validate_pool(
+    pool_version: str, compiled_dir: Path = _COMPILED
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """서버 시작 시 1회 전수 검증. 하나라도 실패하면 활성화하지 않는다.
+
+    Returns:
+        (date, ilju) → 선택 인덱스.
+
+    Raises:
+        BetaPoolError: 구조·계약·불변식 위반.
+    """
+    from saju_engines.daily_ilju_fortune import load_daily_dicts_for
+
+    try:
+        pool = load_pool(pool_version, compiled_dir)
+    except BetaPoolError:
+        raise
+    except Exception as exc:                       # noqa: BLE001 — 손상 파일
+        raise BetaPoolError(BETA_POOL_UNAVAILABLE, str(exc)) from exc
+
+    days = pool.get("days") or []
+    if len(days) != pool.get("public_days"):
+        raise BetaPoolError(
+            BETA_POOL_UNAVAILABLE, f"날짜 {len(days)} != {pool.get('public_days')}"
+        )
+    index: dict[tuple[str, str], dict[str, Any]] = {}
+    for day in days:
+        cards = day.get("cards") or []
+        if len(cards) != 60:
+            raise BetaPoolError(
+                BETA_POOL_UNAVAILABLE, f"{day['fortune_date']}: 카드 {len(cards)} != 60"
+            )
+        catalog = load_daily_dicts_for(
+            date.fromisoformat(day["fortune_date"])
+        ).catalog["events"]
+        for c in cards:
+            key = (day["fortune_date"], c["ilju"])
+            if key in index:
+                raise BetaPoolError(BETA_POOL_UNAVAILABLE, f"중복 {key}")
+            slots = {
+                c["display_good_representative"], c["support_event"], c["caution_event"]
+            }
+            if len(slots) != 3:
+                raise BetaPoolError(BETA_POOL_UNAVAILABLE, f"{key}: 슬롯 중복")
+            for event_key in (*slots, c["raw_good_winner"]):
+                if event_key not in catalog:
+                    raise BetaPoolError(
+                        BETA_POOL_UNAVAILABLE, f"{key}: 미지의 사건 {event_key}"
+                    )
+            if c["final_headline"] not in slots:
+                raise BetaPoolError(
+                    BETA_POOL_SELECTION_DRIFT, f"{key}: 헤드라인이 표시 사건 밖"
+                )
+            if not 0 <= c["display_displacement_loss"] <= 7:
+                raise BetaPoolError(BETA_POOL_UNAVAILABLE, f"{key}: 손실 예산 초과")
+            if c["raw_good_winner"] == c["display_good_representative"] and (
+                c["display_displacement_loss"] != 0
+            ):
+                raise BetaPoolError(BETA_POOL_UNAVAILABLE, f"{key}: 손실 불일치")
+            index[key] = c
+        if day.get("domain_cap_hard_violation"):
+            raise BetaPoolError(
+                BETA_POOL_UNAVAILABLE, f"{day['fortune_date']}: 설명되지 않은 domain 초과"
+            )
+    if len(index) != pool["public_days"] * 60:
+        raise BetaPoolError(BETA_POOL_UNAVAILABLE, f"카드 총계 {len(index)}")
+    return index
+
+
+def render_board(
+    pool_version: str,
+    target_date: date,
+    *,
+    now: datetime | None = None,
+    allow_future: bool = False,
+    compiled_dir: Path = _COMPILED,
+) -> DailyFortuneBoard:
+    """snapshot 의 선택을 그대로 써서 문장만 렌더링한다.
+
+    선택을 다시 하지 않는다 — `compute_board(selection_override=...)` 가
+    `_select_slots`·`_headline_candidates`·`_rebalance_headlines` 를 건너뛴다.
+
+    Raises:
+        BetaPoolError: 날짜 게이트·구조 위반. **legacy 로 조용히 내려가지 않는다.**
+    """
+    from saju_engines.daily_ilju_fortune import (
+        build_day_context,
+        compute_board,
+        load_daily_dicts_for,
+    )
+
+    day = load_day(
+        pool_version, target_date, now=now, allow_future=allow_future,
+        compiled_dir=compiled_dir,
+    )
+    override = {
+        c["ilju"]: {
+            "good": c["display_good_representative"],
+            "support": c["support_event"],
+            "caution": c["caution_event"],
+            "final_headline": c["final_headline"],
+            "band": c["band"],
+        }
+        for c in day.cards
+    }
+    board = compute_board(
+        build_day_context(target_date), load_daily_dicts_for(target_date),
+        selection_override=override,
+    )
+    # 렌더 결과가 snapshot 선택과 어긋나면 차단한다(조용한 드리프트 금지).
+    for f in board.fortunes:
+        want = override[f.ilju]
+        got = [e.event_key for e in f.events]
+        if got != [want["good"], want["caution"], want["support"]]:
+            raise BetaPoolError(
+                BETA_POOL_SELECTION_DRIFT, f"{target_date} {f.ilju}: 슬롯 불일치 {got}"
+            )
+        if str(f.headline_event_key) != want["final_headline"]:
+            raise BetaPoolError(
+                BETA_POOL_SELECTION_DRIFT,
+                f"{target_date} {f.ilju}: 헤드라인 {f.headline_event_key}",
+            )
+    return board
+
+
+def render_result_fingerprint(board: DailyFortuneBoard) -> str:
+    """사용자 가시 결과의 지문 — 같은 카드를 다시 열면 문장까지 같아야 한다."""
+    import hashlib
+
+    h = hashlib.sha256()
+    for f in board.fortunes:
+        h.update(f"{f.ilju}|{f.headline}|{f.lucky_place.name}|{f.love_line or ''}"
+                 f"|{f.lotto_phrase or ''}".encode())
+        for e in f.events:
+            h.update(f"|{e.slot}:{e.event_key}:{e.probability}:{e.phrase}".encode())
+        h.update(b"\x1e")
+    return h.hexdigest()
