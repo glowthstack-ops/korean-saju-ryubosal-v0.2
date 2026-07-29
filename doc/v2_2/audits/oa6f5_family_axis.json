@@ -1,0 +1,164 @@
+{
+  "audit_id": "OA-6f5",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "result": {
+    "measurement_stage": "display_pipeline",
+    "protocol": {
+      "warmup_days": 180,
+      "window_days": 90,
+      "anchor_days": 365,
+      "first_anchor": "2026-01-01"
+    },
+    "axis_finding": "coverage 는 final headline family 로 세지만 미사용 판정은 good 대표 이력을 섞는다. good 에서 새 family 였다가 보드 재배정에서 밀린 사건이 '사용됨'으로 표시돼 다시 우선되지 않는다.",
+    "variants": {
+      "C10_mixed_axis": {
+        "anchors": 365,
+        "passing": 191,
+        "pass_rate_pct": 52.3,
+        "worst_key_p10": 14,
+        "worst_family_p10": 14,
+        "axis_gap_mean": -1.77,
+        "axis_gap_max": 3,
+        "below_target_but_display_ok": 533,
+        "new_family_lost_to_board_total": 1192,
+        "watch_iljus": {
+          "戊辰": {
+            "final_family_90d": 16,
+            "display_family_90d": 15,
+            "board_displaced_days": 97,
+            "new_family_lost_to_board": 23
+          },
+          "庚戌": {
+            "final_family_90d": 15,
+            "display_family_90d": 14,
+            "board_displaced_days": 124,
+            "new_family_lost_to_board": 26
+          },
+          "丙辰": {
+            "final_family_90d": 16,
+            "display_family_90d": 15,
+            "board_displaced_days": 101,
+            "new_family_lost_to_board": 28
+          },
+          "乙亥": {
+            "final_family_90d": 15,
+            "display_family_90d": 13,
+            "board_displaced_days": 134,
+            "new_family_lost_to_board": 17
+          },
+          "癸酉": {
+            "final_family_90d": 15,
+            "display_family_90d": 16,
+            "board_displaced_days": 95,
+            "new_family_lost_to_board": 45
+          },
+          "甲午": {
+            "final_family_90d": 14,
+            "display_family_90d": 16,
+            "board_displaced_days": 122,
+            "new_family_lost_to_board": 28
+          },
+          "辛亥": {
+            "final_family_90d": 16,
+            "display_family_90d": 14,
+            "board_displaced_days": 90,
+            "new_family_lost_to_board": 15
+          },
+          "甲子": {
+            "final_family_90d": 15,
+            "display_family_90d": 14,
+            "board_displaced_days": 137,
+            "new_family_lost_to_board": 28
+          },
+          "乙丑": {
+            "final_family_90d": 18,
+            "display_family_90d": 15,
+            "board_displaced_days": 177,
+            "new_family_lost_to_board": 31
+          },
+          "丙寅": {
+            "final_family_90d": 16,
+            "display_family_90d": 13,
+            "board_displaced_days": 147,
+            "new_family_lost_to_board": 6
+          }
+        }
+      },
+      "C11_final_axis": {
+        "anchors": 365,
+        "passing": 191,
+        "pass_rate_pct": 52.3,
+        "worst_key_p10": 14,
+        "worst_family_p10": 14,
+        "axis_gap_mean": -1.75,
+        "axis_gap_max": 3,
+        "below_target_but_display_ok": 528,
+        "new_family_lost_to_board_total": 1202,
+        "watch_iljus": {
+          "戊辰": {
+            "final_family_90d": 16,
+            "display_family_90d": 15,
+            "board_displaced_days": 97,
+            "new_family_lost_to_board": 23
+          },
+          "庚戌": {
+            "final_family_90d": 15,
+            "display_family_90d": 14,
+            "board_displaced_days": 124,
+            "new_family_lost_to_board": 26
+          },
+          "丙辰": {
+            "final_family_90d": 16,
+            "display_family_90d": 15,
+            "board_displaced_days": 101,
+            "new_family_lost_to_board": 28
+          },
+          "乙亥": {
+            "final_family_90d": 15,
+            "display_family_90d": 13,
+            "board_displaced_days": 134,
+            "new_family_lost_to_board": 17
+          },
+          "癸酉": {
+            "final_family_90d": 15,
+            "display_family_90d": 16,
+            "board_displaced_days": 95,
+            "new_family_lost_to_board": 45
+          },
+          "甲午": {
+            "final_family_90d": 15,
+            "display_family_90d": 16,
+            "board_displaced_days": 120,
+            "new_family_lost_to_board": 28
+          },
+          "辛亥": {
+            "final_family_90d": 16,
+            "display_family_90d": 14,
+            "board_displaced_days": 90,
+            "new_family_lost_to_board": 15
+          },
+          "甲子": {
+            "final_family_90d": 15,
+            "display_family_90d": 14,
+            "board_displaced_days": 137,
+            "new_family_lost_to_board": 28
+          },
+          "乙丑": {
+            "final_family_90d": 18,
+            "display_family_90d": 15,
+            "board_displaced_days": 177,
+            "new_family_lost_to_board": 31
+          },
+          "丙寅": {
+            "final_family_90d": 16,
+            "display_family_90d": 13,
+            "board_displaced_days": 147,
+            "new_family_lost_to_board": 6
+          }
+        }
+      }
+    }
+  }
+}

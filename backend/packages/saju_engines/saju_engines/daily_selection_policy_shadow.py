@@ -235,6 +235,12 @@ class LongTermPolicy:
     #: 회복 모드에서 0~normal 구간을 먼저 소진할지. False 면 회복 예산 전 구간에서
     #: 미사용을 동등하게 우선한다(부족한 일주에 한해 C1 과 같은 강도).
     recovery_prefers_low_loss: bool = True
+    #: C11-FINAL — 미사용 판정을 **출시 지표와 같은 축**(final headline)으로 통일한다.
+    #: C10 은 coverage 는 final headline 으로 세면서 미사용 판정에는 good 대표 이력을
+    #: 섞었다. 그래서 good 으로 뽑혔다가 보드 재배정에서 밀려 final 에 못 든 family 가
+    #: "사용됨"으로 표시돼 다시 우선되지 않는다 — 출시 지표는 여전히 그 family 를
+    #: 갖지 못하는데도.
+    unused_axis_final_only: bool = False
     #: 계층형 밴드 보호(C10). 절대점수 가드가 아니다:
     #:   s5 → 하위 밴드   절대 차단(예외적으로 강한 신호)
     #:   s4 → s3         **의미 회복 상태에서만** 허용(한 단계)
@@ -268,7 +274,7 @@ def _longterm_key(
         rank.append(0 if family not in family_recent else 1)
     if policy.unused_event_key:
         rank.append(0 if key not in headline_recent else 1)
-        rank.append(0 if key not in good_recent else 1)
+        rank.append(0 if key not in good_recent else 1)  # 축 통일 시 headline 과 동일
     rank.append(headline_counts.get(key, 0))
     rank.append(good_counts.get(key, 0))
     return (*rank, loss, key)
@@ -316,7 +322,15 @@ def select_good_representative(
     good_recent = tuple(history[-look:])
     headline_counts = collections.Counter(headline_recent)
     good_counts = collections.Counter(good_recent)
-    family_recent = frozenset(fam.get(k, k) for k in (*headline_recent, *good_recent))
+    if policy.unused_axis_final_only:
+        # 출시 지표와 같은 축만 본다.
+        family_recent = frozenset(fam.get(k, k) for k in headline_recent)
+        unused_scope: tuple[str, ...] = headline_recent
+    else:
+        family_recent = frozenset(
+            fam.get(k, k) for k in (*headline_recent, *good_recent)
+        )
+        unused_scope = good_recent
 
     effective = policy
     effective_budget = budget
@@ -331,6 +345,7 @@ def select_good_representative(
             effective = LongTermPolicy(
                 unused_event_key=policy.unused_event_key,
                 unused_semantic_family=policy.unused_semantic_family,
+                unused_axis_final_only=policy.unused_axis_final_only,
                 # 0~4p 후보를 먼저 소진할지, 회복 예산 전 구간을 동등하게 볼지.
                 loss_band=(policy.normal_loss_budget
                            if policy.recovery_prefers_low_loss else None),
@@ -367,7 +382,7 @@ def select_good_representative(
             affordable,
             key=lambda kp: _longterm_key(
                 kp[0], top_p - kp[1], policy=policy, family=fam.get(kp[0], kp[0]),
-                headline_recent=headline_recent, good_recent=good_recent,
+                headline_recent=headline_recent, good_recent=unused_scope,
                 headline_counts=headline_counts, good_counts=good_counts,
                 family_recent=family_recent,
             ),
