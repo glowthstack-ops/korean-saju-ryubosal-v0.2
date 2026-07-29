@@ -1,0 +1,62 @@
+{
+  "audit_id": "OA-11e",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "baseline": {
+    "legacy_runner_source_sha256": "artifact 참조",
+    "audit_contract": "daily-rolling-audit.v1",
+    "origin": "2025-04-06"
+  },
+  "compared_row_fields": [
+    "fortune_date",
+    "ilju",
+    "raw_good_winner",
+    "intended_good_representative",
+    "realized_good_event",
+    "support_event",
+    "caution_event",
+    "raw_headline",
+    "final_headline",
+    "final_headline_family",
+    "selection_reason_codes",
+    "display_displacement_loss"
+  ],
+  "results": [
+    {
+      "span_days": 1,
+      "daily_state_before_mismatch": null,
+      "daily_state_after_mismatch": null,
+      "final_state_mismatch": null,
+      "legacy_rows": 60,
+      "shared_rows": 60,
+      "row_mismatch": null,
+      "board_fingerprint_mismatch": null,
+      "eviction_mismatch": null,
+      "verdict": "PARITY_OK"
+    },
+    {
+      "span_days": 91,
+      "daily_state_before_mismatch": null,
+      "daily_state_after_mismatch": null,
+      "final_state_mismatch": null,
+      "legacy_rows": 5460,
+      "shared_rows": 5460,
+      "row_mismatch": null,
+      "board_fingerprint_mismatch": null,
+      "eviction_mismatch": null,
+      "verdict": "PARITY_OK"
+    },
+    {
+      "span_days": 181,
+      "daily_state_before_mismatch": null,
+      "daily_state_after_mismatch": null,
+      "final_state_mismatch": null,
+      "legacy_rows": 10860,
+      "shared_rows": 10860,
+      "row_mismatch": null,
+      "board_fingerprint_mismatch": null,
+      "eviction_mismatch": null,
+      "verdict": "PARITY_OK"
+    }
+  ]
+}
