@@ -51,6 +51,45 @@ def test_frozen_contract_values_are_pinned(family_of) -> None:
     assert (L._DOMAIN_CAP, L._EVENT_CAP, L._BUDGET) == (21, 10, 7)
 
 
+def test_artifact_is_bound_to_the_frozen_source(family_of) -> None:
+    """동결본을 고쳤는데 artifact 를 재생성하지 않으면 기준선이 어긋난다.
+
+    `source_commit` 은 생성 시점 기록이라 커밋 순서에 따라 한 칸 앞설 수 있다.
+    파일 바이트 digest 가 실제 구속력을 가진다.
+    """
+    import hashlib
+    import json
+
+    artifact = json.loads(
+        (Path(__file__).resolve().parents[3] / "doc" / "v2_2" / "audits"
+         / "oa10b_characterization.json").read_text(encoding="utf-8")
+    )
+    digest = hashlib.sha256(
+        (_SCRIPTS / "legacy_oa10b_runner.py").read_bytes()
+    ).hexdigest()
+    assert artifact["contract"]["legacy_runner_source_sha256"] == digest, (
+        "동결본이 바뀌었다 — `python3 scripts/legacy_oa10b_runner.py 1000` 으로 "
+        "artifact 를 재생성하라."
+    )
+
+
+def test_artifact_scope_and_counts_are_declared(family_of) -> None:
+    """범위 의미가 모호하면 shared runner 가 다른 구간을 비교하게 된다."""
+    import json
+
+    c = json.loads(
+        (Path(__file__).resolve().parents[3] / "doc" / "v2_2" / "audits"
+         / "oa10b_characterization.json").read_text(encoding="utf-8")
+    )["contract"]
+    assert c["row_scope"] == "ALL_GENERATED_DAYS_INCLUDING_WARMUP"
+    assert c["row_count"] == c["day_count"] * 60
+    assert c["board_count"] == c["day_count"]
+    assert c["repeat_history_source"] == "INTENDED_GOOD"
+    assert c["display_displacement_loss_semantics"] == (
+        "INTENDED_REPRESENTATIVE_LOSS_LEGACY_NAME"
+    )
+
+
 def test_rerun_is_deterministic(family_of) -> None:
     """같은 입력 두 번 실행 → 전체 행 동일(상태 누수 없음)."""
     a = L.build_schedule_observed(family_of, days=60)

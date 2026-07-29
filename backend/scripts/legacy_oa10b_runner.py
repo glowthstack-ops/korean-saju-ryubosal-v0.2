@@ -63,7 +63,7 @@ class LegacyObservation:
     """관측 결과 — 선택 거동에 영향을 주지 않는다."""
 
     rows: list[dict[str, Any]] = field(default_factory=list)
-    daily_state: list[dict[str, str]] = field(default_factory=list)
+    daily_state: list[dict[str, Any]] = field(default_factory=list)
     headline_history: dict[str, list[str]] = field(default_factory=dict)
 
 
@@ -72,6 +72,27 @@ def _fp(payload: Any) -> str:
         json.dumps(payload, ensure_ascii=False, sort_keys=False,
                    separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+
+
+def _eviction_summary(
+    intended: dict[str, list[str]],
+    realized: dict[str, list[str]],
+    family: dict[str, list[str]],
+) -> dict[str, Any]:
+    """창 밖으로 밀려난 값 — observer 계산이며 선택에 영향을 주지 않는다.
+
+    `_longterm_key` 와 coverage 는 마지막 90일만 본다. 어떤 값이 창을 벗어나는지가
+    다음 날 회복 모드 진입을 좌우하므로 parity 비교 대상이다.
+    """
+    out: dict[str, Any] = {}
+    for name, hist in (("intended", intended), ("realized", realized),
+                       ("final_family", family)):
+        evicted = {k: v[-WINDOW - 1] for k, v in hist.items() if len(v) > WINDOW}
+        out[f"{name}_window_size"] = max(
+            (len(v[-WINDOW:]) for v in hist.values()), default=0
+        )
+        out[f"{name}_eviction_fp"] = _fp({k: evicted[k] for k in sorted(evicted)})
+    return out
 
 
 def build_schedule_observed(
@@ -92,6 +113,9 @@ def build_schedule_observed(
     headline_history: dict[str, list[str]] = collections.defaultdict(list)
     good_history: dict[str, list[str]] = collections.defaultdict(list)
     obs = LegacyObservation()
+    # observer 전용 그림자 이력 — legacy 선택 로직은 이것을 읽지 않는다.
+    observed_realized: dict[str, list[str]] = collections.defaultdict(list)
+    observed_family: dict[str, list[str]] = collections.defaultdict(list)
 
     day = schedule_start()
     for _ in range(days):
@@ -150,7 +174,13 @@ def build_schedule_observed(
                     sel.event_key, sel.event_key
                 )
                 obs.rows.append(row)
+                # observer 전용 — legacy 정책은 이 이력을 읽지 않는다.
+                observed_realized[ilju].append(row["realized_good_event"])
+                observed_family[ilju].append(row["final_headline_family"])
         if observe:
+            evicted = _eviction_summary(
+                good_history, observed_realized, observed_family
+            )
             obs.daily_state.append({
                 "fortune_date": day.isoformat(),
                 "intended_history_fp": _fp(
@@ -162,6 +192,14 @@ def build_schedule_observed(
                 "board_fp": _fp(
                     [[i, r.selections[i].event_key] for i in sorted(r.selections)]
                 ),
+                # observer 전용 관측 — 정책 입력으로 되돌아가지 않는다.
+                "observed_realized_history_fp": _fp(
+                    {k: observed_realized[k] for k in sorted(observed_realized)}
+                ),
+                "observed_final_family_history_fp": _fp(
+                    {k: observed_family[k] for k in sorted(observed_family)}
+                ),
+                **evicted,
             })
         day += dt.timedelta(days=1)
     obs.headline_history = dict(headline_history)
@@ -185,11 +223,33 @@ def load_family_map() -> dict[str, str]:
     return {k: t["semantic_family"] for k, t in tax.items()}
 
 
+def _source_digest() -> str:
+    """이 파일 자체의 digest — artifact 가 어느 코드에서 나왔는지 고정한다."""
+    return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+
+
+def _git_commit() -> str:
+    import subprocess
+
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=_ROOT, capture_output=True,
+            text=True, check=True,
+        ).stdout.strip()
+    except Exception:                                  # noqa: BLE001 — 기록용
+        return "UNKNOWN"
+
+
 if __name__ == "__main__":
     days = int(sys.argv[1]) if len(sys.argv) > 1 else WARMUP_DAYS + WINDOW + 90
     family_of = load_family_map()
     obs = build_schedule_observed(family_of, days=days)
-    payload = {
+    tax_version = json.loads(
+        (_BACKEND / "dictionaries" / "daily_fortune" / "daily_event_taxonomy.json")
+        .read_text(encoding="utf-8")
+    ).get("version", "taxonomy.v1")
+    start = schedule_start()
+    body = {
         "audit_id": "OA-10b-characterization",
         "status": "FROZEN_BASELINE",
         "note": (
@@ -197,16 +257,32 @@ if __name__ == "__main__":
             "코드를 공유하지 않는다."
         ),
         "contract": {
-            "origin": schedule_start().isoformat(),
+            "source_commit": _git_commit(),
+            "legacy_runner_source_sha256": _source_digest(),
+            "audit_contract_version": "daily-rolling-audit.v1",
+            "schedule_origin": start.isoformat(),
+            "schedule_start_date": start.isoformat(),
+            "schedule_end_date": (
+                start + dt.timedelta(days=days - 1)
+            ).isoformat(),
             "warmup_days": WARMUP_DAYS,
-            "window": WINDOW,
+            "lookback_days": WINDOW,
             "domain_cap_count": _DOMAIN_CAP,
             "event_cap_count": _EVENT_CAP,
-            "budget": _BUDGET,
+            "loss_budget": _BUDGET,
+            "policy_version": "display-selection.p4-lc.c10.v1",
+            "taxonomy_version": tax_version,
             "repeat_history_source": "INTENDED_GOOD",
-            "days_generated": days,
+            # 범위 의미를 모호하게 두지 않는다 — shared runner 가 같은 범위를 본다.
+            "row_scope": "ALL_GENERATED_DAYS_INCLUDING_WARMUP",
+            "day_count": days,
+            "row_count": len(obs.rows),
+            "board_count": len(obs.daily_state),
+            # legacy 필드명은 parity 중 바꾸지 않는다. 의미만 명시한다.
+            "display_displacement_loss_semantics": (
+                "INTENDED_REPRESENTATIVE_LOSS_LEGACY_NAME"
+            ),
         },
-        "row_count": len(obs.rows),
         "rows_fingerprint": _fp(obs.rows),
         "daily_state_fingerprint": _fp(obs.daily_state),
         "final_state_fingerprint": _fp(
@@ -214,6 +290,9 @@ if __name__ == "__main__":
         ),
         "daily_state": obs.daily_state,
     }
+    # generated_at 은 지문 계산 뒤에 붙인다 — 지문에 섞이면 재현이 깨진다.
+    payload = {**body, "artifact_sha256": _fp(body),
+               "generated_at": dt.datetime.now(dt.UTC).isoformat()}
     out = _ROOT / "doc" / "v2_2" / "audits" / "oa10b_characterization.json"
     out.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -224,6 +303,7 @@ if __name__ == "__main__":
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
     print("[ok]", out.name, "·", rows_out.name)
     print(f"  행 {len(obs.rows)} · 날짜 {len(obs.daily_state)}")
+    print(f"  artifact_sha   {payload['artifact_sha256'][:16]}")
     print(f"  rows_fp        {payload['rows_fingerprint'][:16]}")
     print(f"  daily_state_fp {payload['daily_state_fingerprint'][:16]}")
     print(f"  final_state_fp {payload['final_state_fingerprint'][:16]}")
