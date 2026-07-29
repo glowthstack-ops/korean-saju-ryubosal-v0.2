@@ -1,0 +1,1843 @@
+{
+  "audit_id": "OA-9a",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "days": 90,
+  "verdict": {
+    "fanout_confirmed": true,
+    "fanout_evidence": "편재 카드의 상위 3칸 중 평균 2.13칸이 money 이고 25.6% 는 3칸 전부 money 다. 편재 조건에서 money_small_gain 93.9% · money_good_deal 69.3% · overspend_caution 48.0% 가 동시에 Top-3 에 든다 — 같은 신호가 세 장의 표를 만든다.",
+    "collapse_evidence": "편재 조건에서 1위를 차지한 사건은 540카드 통틀어 2종뿐이다(money_small_gain 447 · overspend_caution 93). 정인 15종 · 식신 17종과 대비된다.",
+    "polarity_gate_missing": true,
+    "polarity_evidence": "불리 관계(충·형·파·해)가 하나도 없는 편재 카드 421건에서 overspend_caution 이 주의 슬롯을 100% 차지한다. 같은 코호트에서 편재 기여만 제거하면 5.0% 로 떨어지고 평균 확률도 65.1 → 41.7 로 내려간다 — 다른 주의 사건이 함께 억제된 탓이 아니라 편재 단독 부양이다. 전체 기준으로도 편재 제거(-52%)가 불리 관계 제거(-28%)보다 주의 슬롯 승률을 더 크게 낮춘다.",
+    "polarity_conclusion": "편재의 '활성'과 편재의 '과잉·손실 발현'이 사전 스키마에서 구분되지 않는다. affinity 수치 조정이 아니라 발현 조건 분기가 필요하다.",
+    "headline_ticket_starvation": "move 도메인은 전 십성을 통틀어 effective_ticket_count 가 0 이다 — 어떤 신호로도 good 헤드라인 후보가 되지 못한다. document 3 · health 4 로 뒤를 잇는다. S3b 의 move Top1 0.0% 는 affinity 가 낮아서가 아니라 표가 없어서다.",
+    "mass_is_not_the_whole_story": "social 은 activation_mass 9.04 · ticket 16 으로 money(9.11 · 8)와 질량이 거의 같지만 Top1 은 낮다. 차이는 질량이 아니라 단일 최댓값(편재 0.9)과 한 도메인 집중도(편재 money 45.6% · 정재 money 46.9%)에서 온다.",
+    "live_behavior_changed": false
+  },
+  "result": {
+    "cards": 5400,
+    "A_static_fanout": {
+      "by_ten_god": {
+        "상관": {
+          "fanout": 23,
+          "effective_ticket_count": 6,
+          "activation_mass": 7.398,
+          "affinity_max": 0.7,
+          "domains": 9,
+          "good_active": 7,
+          "caution_active": 16,
+          "bipolar_domains": [
+            "love",
+            "money",
+            "social"
+          ],
+          "top_domain": "health",
+          "top_domain_mass_share_pct": 22.1
+        },
+        "편인": {
+          "fanout": 21,
+          "effective_ticket_count": 9,
+          "activation_mass": 6.99,
+          "affinity_max": 0.7,
+          "domains": 9,
+          "good_active": 10,
+          "caution_active": 11,
+          "bipolar_domains": [
+            "document",
+            "health",
+            "news"
+          ],
+          "top_domain": "document",
+          "top_domain_mass_share_pct": 24.7
+        },
+        "겁재": {
+          "fanout": 20,
+          "effective_ticket_count": 1,
+          "activation_mass": 6.641,
+          "affinity_max": 0.8,
+          "domains": 7,
+          "good_active": 1,
+          "caution_active": 19,
+          "bipolar_domains": [],
+          "top_domain": "money",
+          "top_domain_mass_share_pct": 36.4
+        },
+        "편관": {
+          "fanout": 20,
+          "effective_ticket_count": 5,
+          "activation_mass": 6.116,
+          "affinity_max": 0.7,
+          "domains": 7,
+          "good_active": 5,
+          "caution_active": 15,
+          "bipolar_domains": [
+            "health",
+            "love"
+          ],
+          "top_domain": "health",
+          "top_domain_mass_share_pct": 43.9
+        },
+        "정인": {
+          "fanout": 13,
+          "effective_ticket_count": 13,
+          "activation_mass": 5.92,
+          "affinity_max": 0.8,
+          "domains": 7,
+          "good_active": 13,
+          "caution_active": 0,
+          "bipolar_domains": [],
+          "top_domain": "social",
+          "top_domain_mass_share_pct": 29.6
+        },
+        "식신": {
+          "fanout": 16,
+          "effective_ticket_count": 15,
+          "activation_mass": 5.725,
+          "affinity_max": 0.7,
+          "domains": 7,
+          "good_active": 16,
+          "caution_active": 0,
+          "bipolar_domains": [],
+          "top_domain": "work",
+          "top_domain_mass_share_pct": 24.2
+        },
+        "편재": {
+          "fanout": 13,
+          "effective_ticket_count": 7,
+          "activation_mass": 4.92,
+          "affinity_max": 0.9,
+          "domains": 5,
+          "good_active": 8,
+          "caution_active": 5,
+          "bipolar_domains": [
+            "money"
+          ],
+          "top_domain": "money",
+          "top_domain_mass_share_pct": 45.6
+        },
+        "정관": {
+          "fanout": 9,
+          "effective_ticket_count": 8,
+          "activation_mass": 3.785,
+          "affinity_max": 0.8,
+          "domains": 7,
+          "good_active": 8,
+          "caution_active": 1,
+          "bipolar_domains": [],
+          "top_domain": "work",
+          "top_domain_mass_share_pct": 31.2
+        },
+        "비견": {
+          "fanout": 10,
+          "effective_ticket_count": 5,
+          "activation_mass": 3.385,
+          "affinity_max": 0.6,
+          "domains": 6,
+          "good_active": 5,
+          "caution_active": 5,
+          "bipolar_domains": [],
+          "top_domain": "money",
+          "top_domain_mass_share_pct": 27.8
+        },
+        "정재": {
+          "fanout": 7,
+          "effective_ticket_count": 7,
+          "activation_mass": 3.11,
+          "affinity_max": 0.8,
+          "domains": 4,
+          "good_active": 7,
+          "caution_active": 0,
+          "bipolar_domains": [],
+          "top_domain": "money",
+          "top_domain_mass_share_pct": 46.9
+        }
+      },
+      "matrix": {
+        "겁재": {
+          "money": {
+            "fanout": 5,
+            "effective_ticket_count": 0,
+            "activation_mass": 2.417,
+            "affinity_sum": 2.55,
+            "affinity_max": 0.8,
+            "good_active": 0,
+            "caution_active": 5,
+            "events": [
+              "account_phishing_caution(0.35)",
+              "belongings_security_caution(0.4)",
+              "home_vehicle_lock_caution(0.3)",
+              "lend_money_caution(0.8)",
+              "overspend_caution(0.7)"
+            ]
+          },
+          "move": {
+            "fanout": 4,
+            "effective_ticket_count": 0,
+            "activation_mass": 1.025,
+            "affinity_sum": 1.1,
+            "affinity_max": 0.4,
+            "good_active": 0,
+            "caution_active": 4,
+            "events": [
+              "lost_item_caution(0.4)",
+              "traffic_delay_caution(0.3)",
+              "travel_schedule_caution(0.2)",
+              "weather_water_safety_caution(0.2)"
+            ]
+          },
+          "document": {
+            "fanout": 4,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.997,
+            "affinity_sum": 1.05,
+            "affinity_max": 0.3,
+            "good_active": 0,
+            "caution_active": 4,
+            "events": [
+              "contract_recheck_caution(0.2)",
+              "document_device_caution(0.3)",
+              "guarantee_stamp_caution(0.25)",
+              "name_lending_caution(0.3)"
+            ]
+          },
+          "social": {
+            "fanout": 2,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.76,
+            "affinity_sum": 0.8,
+            "affinity_max": 0.4,
+            "good_active": 0,
+            "caution_active": 2,
+            "events": [
+              "argument_caution(0.4)",
+              "rumor_caution(0.4)"
+            ]
+          },
+          "love": {
+            "fanout": 2,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.632,
+            "affinity_sum": 0.8,
+            "affinity_max": 0.4,
+            "good_active": 0,
+            "caution_active": 2,
+            "events": [
+              "love_cooldown(0.4)",
+              "love_misread(0.4)"
+            ]
+          },
+          "health": {
+            "fanout": 2,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.54,
+            "affinity_sum": 0.6,
+            "affinity_max": 0.3,
+            "good_active": 0,
+            "caution_active": 2,
+            "events": [
+              "careless_injury_caution(0.3)",
+              "fall_slip_caution(0.3)"
+            ]
+          },
+          "news": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.27,
+            "affinity_sum": 0.3,
+            "affinity_max": 0.3,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "old_contact(0.3)"
+            ]
+          }
+        },
+        "비견": {
+          "money": {
+            "fanout": 3,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.94,
+            "affinity_sum": 1.0,
+            "affinity_max": 0.5,
+            "good_active": 0,
+            "caution_active": 3,
+            "events": [
+              "belongings_security_caution(0.2)",
+              "lend_money_caution(0.5)",
+              "overspend_caution(0.3)"
+            ]
+          },
+          "social": {
+            "fanout": 3,
+            "effective_ticket_count": 3,
+            "activation_mass": 0.9,
+            "affinity_sum": 1.0,
+            "affinity_max": 0.4,
+            "good_active": 3,
+            "caution_active": 0,
+            "events": [
+              "family_talk(0.3)",
+              "meet_helper(0.3)",
+              "pleasant_meeting(0.4)"
+            ]
+          },
+          "work": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.57,
+            "affinity_sum": 0.6,
+            "affinity_max": 0.6,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "teamwork_flow(0.6)"
+            ]
+          },
+          "news": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.45,
+            "affinity_sum": 0.5,
+            "affinity_max": 0.5,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "old_contact(0.5)"
+            ]
+          },
+          "health": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.285,
+            "affinity_sum": 0.3,
+            "affinity_max": 0.3,
+            "good_active": 0,
+            "caution_active": 1,
+            "events": [
+              "sports_overuse_caution(0.3)"
+            ]
+          },
+          "love": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.24,
+            "affinity_sum": 0.3,
+            "affinity_max": 0.3,
+            "good_active": 0,
+            "caution_active": 1,
+            "events": [
+              "love_cooldown(0.3)"
+            ]
+          }
+        },
+        "상관": {
+          "health": {
+            "fanout": 7,
+            "effective_ticket_count": 0,
+            "activation_mass": 1.633,
+            "affinity_sum": 1.75,
+            "affinity_max": 0.3,
+            "good_active": 0,
+            "caution_active": 7,
+            "events": [
+              "careless_injury_caution(0.3)",
+              "cut_burn_tool_caution(0.2)",
+              "fatigue_caution(0.3)",
+              "fire_electric_check_caution(0.2)",
+              "overexertion_recovery_caution(0.25)",
+              "sleep_recovery_caution(0.25)",
+              "sports_overuse_caution(0.25)"
+            ]
+          },
+          "social": {
+            "fanout": 3,
+            "effective_ticket_count": 1,
+            "activation_mass": 1.51,
+            "affinity_sum": 1.6,
+            "affinity_max": 0.7,
+            "good_active": 1,
+            "caution_active": 2,
+            "events": [
+              "argument_caution(0.7)",
+              "pleasant_meeting(0.3)",
+              "rumor_caution(0.6)"
+            ]
+          },
+          "love": {
+            "fanout": 3,
+            "effective_ticket_count": 2,
+            "activation_mass": 1.16,
+            "affinity_sum": 1.4,
+            "affinity_max": 0.5,
+            "good_active": 2,
+            "caution_active": 1,
+            "events": [
+              "love_misread(0.5)",
+              "love_reunion(0.4)",
+              "love_spark(0.5)"
+            ]
+          },
+          "money": {
+            "fanout": 3,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.885,
+            "affinity_sum": 0.9,
+            "affinity_max": 0.4,
+            "good_active": 2,
+            "caution_active": 1,
+            "events": [
+              "money_good_deal(0.3)",
+              "money_small_gain(0.2)",
+              "overspend_caution(0.4)"
+            ]
+          },
+          "work": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.63,
+            "affinity_sum": 0.7,
+            "affinity_max": 0.7,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "idea_flash(0.7)"
+            ]
+          },
+          "document": {
+            "fanout": 2,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.57,
+            "affinity_sum": 0.6,
+            "affinity_max": 0.4,
+            "good_active": 0,
+            "caution_active": 2,
+            "events": [
+              "authorization_scope_caution(0.2)",
+              "contract_recheck_caution(0.4)"
+            ]
+          },
+          "move": {
+            "fanout": 2,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.46,
+            "affinity_sum": 0.5,
+            "affinity_max": 0.3,
+            "good_active": 0,
+            "caution_active": 2,
+            "events": [
+              "lost_item_caution(0.3)",
+              "traffic_delay_caution(0.2)"
+            ]
+          },
+          "news": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.38,
+            "affinity_sum": 0.4,
+            "affinity_max": 0.4,
+            "good_active": 0,
+            "caution_active": 1,
+            "events": [
+              "misunderstanding_caution(0.4)"
+            ]
+          },
+          "leisure": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.17,
+            "affinity_sum": 0.2,
+            "affinity_max": 0.2,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "small_find(0.2)"
+            ]
+          }
+        },
+        "식신": {
+          "work": {
+            "fanout": 4,
+            "effective_ticket_count": 4,
+            "activation_mass": 1.385,
+            "affinity_sum": 1.5,
+            "affinity_max": 0.7,
+            "good_active": 4,
+            "caution_active": 0,
+            "events": [
+              "focus_flow(0.3)",
+              "idea_flash(0.7)",
+              "praise_recognition(0.2)",
+              "teamwork_flow(0.3)"
+            ]
+          },
+          "social": {
+            "fanout": 3,
+            "effective_ticket_count": 3,
+            "activation_mass": 1.08,
+            "affinity_sum": 1.2,
+            "affinity_max": 0.6,
+            "good_active": 3,
+            "caution_active": 0,
+            "events": [
+              "family_talk(0.3)",
+              "pleasant_meeting(0.6)",
+              "treat_received(0.3)"
+            ]
+          },
+          "love": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.79,
+            "affinity_sum": 0.9,
+            "affinity_max": 0.5,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "love_deepening(0.4)",
+              "love_spark(0.5)"
+            ]
+          },
+          "money": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.78,
+            "affinity_sum": 0.8,
+            "affinity_max": 0.4,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "money_good_deal(0.4)",
+              "money_small_gain(0.4)"
+            ]
+          },
+          "leisure": {
+            "fanout": 2,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.765,
+            "affinity_sum": 0.9,
+            "affinity_max": 0.5,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "small_find(0.4)",
+              "walk_refresh(0.5)"
+            ]
+          },
+          "news": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.67,
+            "affinity_sum": 0.7,
+            "affinity_max": 0.4,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "good_news_arrives(0.4)",
+              "old_contact(0.3)"
+            ]
+          },
+          "health": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.255,
+            "affinity_sum": 0.3,
+            "affinity_max": 0.3,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "rest_recharge(0.3)"
+            ]
+          }
+        },
+        "정관": {
+          "work": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 1.18,
+            "affinity_sum": 1.2,
+            "affinity_max": 0.8,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "praise_recognition(0.8)",
+              "teamwork_flow(0.4)"
+            ]
+          },
+          "love": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.785,
+            "affinity_sum": 0.9,
+            "affinity_max": 0.5,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "love_deepening(0.5)",
+              "love_spark(0.4)"
+            ]
+          },
+          "document": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.6,
+            "affinity_sum": 0.6,
+            "affinity_max": 0.6,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "document_progress(0.6)"
+            ]
+          },
+          "social": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.38,
+            "affinity_sum": 0.4,
+            "affinity_max": 0.4,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "meet_helper(0.4)"
+            ]
+          },
+          "news": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.3,
+            "affinity_sum": 0.3,
+            "affinity_max": 0.3,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "good_news_arrives(0.3)"
+            ]
+          },
+          "health": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.285,
+            "affinity_sum": 0.3,
+            "affinity_max": 0.3,
+            "good_active": 0,
+            "caution_active": 1,
+            "events": [
+              "fatigue_caution(0.3)"
+            ]
+          },
+          "leisure": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.255,
+            "affinity_sum": 0.3,
+            "affinity_max": 0.3,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "tidy_luck(0.3)"
+            ]
+          }
+        },
+        "정인": {
+          "social": {
+            "fanout": 3,
+            "effective_ticket_count": 3,
+            "activation_mass": 1.755,
+            "affinity_sum": 1.9,
+            "affinity_max": 0.8,
+            "good_active": 3,
+            "caution_active": 0,
+            "events": [
+              "family_talk(0.5)",
+              "meet_helper(0.8)",
+              "treat_received(0.6)"
+            ]
+          },
+          "work": {
+            "fanout": 3,
+            "effective_ticket_count": 3,
+            "activation_mass": 1.225,
+            "affinity_sum": 1.3,
+            "affinity_max": 0.6,
+            "good_active": 3,
+            "caution_active": 0,
+            "events": [
+              "focus_flow(0.6)",
+              "praise_recognition(0.4)",
+              "teamwork_flow(0.3)"
+            ]
+          },
+          "news": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.96,
+            "affinity_sum": 1.0,
+            "affinity_max": 0.6,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "good_news_arrives(0.6)",
+              "old_contact(0.4)"
+            ]
+          },
+          "document": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.8,
+            "affinity_sum": 0.8,
+            "affinity_max": 0.8,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "document_progress(0.8)"
+            ]
+          },
+          "leisure": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.595,
+            "affinity_sum": 0.7,
+            "affinity_max": 0.4,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "tidy_luck(0.4)",
+              "walk_refresh(0.3)"
+            ]
+          },
+          "health": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.425,
+            "affinity_sum": 0.5,
+            "affinity_max": 0.5,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "rest_recharge(0.5)"
+            ]
+          },
+          "love": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.16,
+            "affinity_sum": 0.2,
+            "affinity_max": 0.2,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "love_reunion(0.2)"
+            ]
+          }
+        },
+        "정재": {
+          "money": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 1.46,
+            "affinity_sum": 1.5,
+            "affinity_max": 0.8,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "money_good_deal(0.8)",
+              "money_small_gain(0.7)"
+            ]
+          },
+          "love": {
+            "fanout": 3,
+            "effective_ticket_count": 3,
+            "activation_mass": 1.025,
+            "affinity_sum": 1.2,
+            "affinity_max": 0.5,
+            "good_active": 3,
+            "caution_active": 0,
+            "events": [
+              "love_deepening(0.5)",
+              "love_reunion(0.3)",
+              "love_spark(0.4)"
+            ]
+          },
+          "leisure": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.34,
+            "affinity_sum": 0.4,
+            "affinity_max": 0.4,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "tidy_luck(0.4)"
+            ]
+          },
+          "social": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.285,
+            "affinity_sum": 0.3,
+            "affinity_max": 0.3,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "treat_received(0.3)"
+            ]
+          }
+        },
+        "편관": {
+          "health": {
+            "fanout": 8,
+            "effective_ticket_count": 1,
+            "activation_mass": 2.685,
+            "affinity_sum": 2.9,
+            "affinity_max": 0.7,
+            "good_active": 1,
+            "caution_active": 7,
+            "events": [
+              "careless_injury_caution(0.5)",
+              "cut_burn_tool_caution(0.35)",
+              "digestive_rhythm_caution(0.25)",
+              "fall_slip_caution(0.3)",
+              "fatigue_caution(0.7)",
+              "fire_electric_check_caution(0.3)",
+              "overexertion_recovery_caution(0.3)",
+              "rest_recharge(0.2)"
+            ]
+          },
+          "love": {
+            "fanout": 4,
+            "effective_ticket_count": 3,
+            "activation_mass": 0.989,
+            "affinity_sum": 1.2,
+            "affinity_max": 0.4,
+            "good_active": 3,
+            "caution_active": 1,
+            "events": [
+              "love_deepening(0.3)",
+              "love_misread(0.3)",
+              "love_reunion(0.4)",
+              "love_spark(0.2)"
+            ]
+          },
+          "social": {
+            "fanout": 2,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.86,
+            "affinity_sum": 0.9,
+            "affinity_max": 0.5,
+            "good_active": 0,
+            "caution_active": 2,
+            "events": [
+              "argument_caution(0.5)",
+              "rumor_caution(0.4)"
+            ]
+          },
+          "move": {
+            "fanout": 3,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.807,
+            "affinity_sum": 0.85,
+            "affinity_max": 0.3,
+            "good_active": 0,
+            "caution_active": 3,
+            "events": [
+              "traffic_delay_caution(0.3)",
+              "travel_schedule_caution(0.3)",
+              "weather_water_safety_caution(0.25)"
+            ]
+          },
+          "work": {
+            "fanout": 1,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.3,
+            "affinity_sum": 0.3,
+            "affinity_max": 0.3,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "praise_recognition(0.3)"
+            ]
+          },
+          "news": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.285,
+            "affinity_sum": 0.3,
+            "affinity_max": 0.3,
+            "good_active": 0,
+            "caution_active": 1,
+            "events": [
+              "misunderstanding_caution(0.3)"
+            ]
+          },
+          "money": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.19,
+            "affinity_sum": 0.2,
+            "affinity_max": 0.2,
+            "good_active": 0,
+            "caution_active": 1,
+            "events": [
+              "home_vehicle_lock_caution(0.2)"
+            ]
+          }
+        },
+        "편인": {
+          "document": {
+            "fanout": 5,
+            "effective_ticket_count": 1,
+            "activation_mass": 1.725,
+            "affinity_sum": 1.8,
+            "affinity_max": 0.7,
+            "good_active": 1,
+            "caution_active": 4,
+            "events": [
+              "authorization_scope_caution(0.3)",
+              "contract_clause_caution(0.25)",
+              "contract_recheck_caution(0.7)",
+              "document_device_caution(0.25)",
+              "document_progress(0.3)"
+            ]
+          },
+          "health": {
+            "fanout": 4,
+            "effective_ticket_count": 1,
+            "activation_mass": 1.195,
+            "affinity_sum": 1.3,
+            "affinity_max": 0.4,
+            "good_active": 1,
+            "caution_active": 3,
+            "events": [
+              "digestive_rhythm_caution(0.2)",
+              "fatigue_caution(0.4)",
+              "rest_recharge(0.4)",
+              "sleep_recovery_caution(0.3)"
+            ]
+          },
+          "work": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.9,
+            "affinity_sum": 1.0,
+            "affinity_max": 0.5,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "focus_flow(0.5)",
+              "idea_flash(0.5)"
+            ]
+          },
+          "social": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.855,
+            "affinity_sum": 0.9,
+            "affinity_max": 0.5,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "meet_helper(0.5)",
+              "treat_received(0.4)"
+            ]
+          },
+          "news": {
+            "fanout": 2,
+            "effective_ticket_count": 1,
+            "activation_mass": 0.77,
+            "affinity_sum": 0.8,
+            "affinity_max": 0.6,
+            "good_active": 1,
+            "caution_active": 1,
+            "events": [
+              "good_news_arrives(0.2)",
+              "misunderstanding_caution(0.6)"
+            ]
+          },
+          "leisure": {
+            "fanout": 3,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.595,
+            "affinity_sum": 0.7,
+            "affinity_max": 0.3,
+            "good_active": 3,
+            "caution_active": 0,
+            "events": [
+              "small_find(0.3)",
+              "tidy_luck(0.2)",
+              "walk_refresh(0.2)"
+            ]
+          },
+          "love": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.4,
+            "affinity_sum": 0.5,
+            "affinity_max": 0.5,
+            "good_active": 0,
+            "caution_active": 1,
+            "events": [
+              "love_cooldown(0.5)"
+            ]
+          },
+          "move": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.36,
+            "affinity_sum": 0.4,
+            "affinity_max": 0.4,
+            "good_active": 0,
+            "caution_active": 1,
+            "events": [
+              "lost_item_caution(0.4)"
+            ]
+          },
+          "money": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.19,
+            "affinity_sum": 0.2,
+            "affinity_max": 0.2,
+            "good_active": 0,
+            "caution_active": 1,
+            "events": [
+              "account_phishing_caution(0.2)"
+            ]
+          }
+        },
+        "편재": {
+          "money": {
+            "fanout": 4,
+            "effective_ticket_count": 2,
+            "activation_mass": 2.245,
+            "affinity_sum": 2.3,
+            "affinity_max": 0.9,
+            "good_active": 2,
+            "caution_active": 2,
+            "events": [
+              "lend_money_caution(0.3)",
+              "money_good_deal(0.5)",
+              "money_small_gain(0.9)",
+              "overspend_caution(0.6)"
+            ]
+          },
+          "love": {
+            "fanout": 3,
+            "effective_ticket_count": 3,
+            "activation_mass": 0.925,
+            "affinity_sum": 1.1,
+            "affinity_max": 0.5,
+            "good_active": 3,
+            "caution_active": 0,
+            "events": [
+              "love_deepening(0.3)",
+              "love_reunion(0.5)",
+              "love_spark(0.3)"
+            ]
+          },
+          "document": {
+            "fanout": 3,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.76,
+            "affinity_sum": 0.8,
+            "affinity_max": 0.3,
+            "good_active": 0,
+            "caution_active": 3,
+            "events": [
+              "contract_clause_caution(0.25)",
+              "guarantee_stamp_caution(0.3)",
+              "name_lending_caution(0.25)"
+            ]
+          },
+          "social": {
+            "fanout": 2,
+            "effective_ticket_count": 2,
+            "activation_mass": 0.65,
+            "affinity_sum": 0.7,
+            "affinity_max": 0.4,
+            "good_active": 2,
+            "caution_active": 0,
+            "events": [
+              "pleasant_meeting(0.3)",
+              "treat_received(0.4)"
+            ]
+          },
+          "leisure": {
+            "fanout": 1,
+            "effective_ticket_count": 0,
+            "activation_mass": 0.34,
+            "affinity_sum": 0.4,
+            "affinity_max": 0.4,
+            "good_active": 1,
+            "caution_active": 0,
+            "events": [
+              "small_find(0.4)"
+            ]
+          }
+        }
+      }
+    },
+    "B_runtime_conversion": {
+      "식신": {
+        "cards": 540,
+        "distinct_top3_events": 26,
+        "distinct_top1_events": 17,
+        "top3_domains": {
+          "money": 527,
+          "news": 388,
+          "work": 278,
+          "social": 222,
+          "love": 114,
+          "health": 43,
+          "document": 21,
+          "leisure": 14,
+          "move": 13
+        },
+        "top3_domain_share_pct": 32.5,
+        "top1_events": {
+          "money_small_gain": 236,
+          "good_news_arrives": 160,
+          "idea_flash": 51,
+          "argument_caution": 33,
+          "pleasant_meeting": 14
+        }
+      },
+      "상관": {
+        "cards": 540,
+        "distinct_top3_events": 23,
+        "distinct_top1_events": 9,
+        "top3_domains": {
+          "social": 485,
+          "money": 473,
+          "love": 243,
+          "work": 220,
+          "news": 152,
+          "document": 31,
+          "health": 15,
+          "leisure": 1
+        },
+        "top3_domain_share_pct": 29.9,
+        "top1_events": {
+          "argument_caution": 266,
+          "money_small_gain": 92,
+          "love_spark": 82,
+          "idea_flash": 66,
+          "overspend_caution": 16
+        }
+      },
+      "비견": {
+        "cards": 540,
+        "distinct_top3_events": 23,
+        "distinct_top1_events": 9,
+        "top3_domains": {
+          "work": 501,
+          "social": 485,
+          "news": 305,
+          "money": 285,
+          "love": 22,
+          "health": 15,
+          "move": 5,
+          "document": 2
+        },
+        "top3_domain_share_pct": 30.9,
+        "top1_events": {
+          "teamwork_flow": 375,
+          "overspend_caution": 58,
+          "argument_caution": 35,
+          "meet_helper": 22,
+          "old_contact": 21
+        }
+      },
+      "겁재": {
+        "cards": 540,
+        "distinct_top3_events": 25,
+        "distinct_top1_events": 12,
+        "top3_domains": {
+          "money": 769,
+          "social": 498,
+          "news": 219,
+          "love": 66,
+          "work": 25,
+          "document": 23,
+          "move": 15,
+          "health": 4,
+          "leisure": 1
+        },
+        "top3_domain_share_pct": 47.5,
+        "top1_events": {
+          "overspend_caution": 355,
+          "argument_caution": 74,
+          "meet_helper": 31,
+          "good_news_arrives": 20,
+          "love_spark": 20
+        }
+      },
+      "편인": {
+        "cards": 540,
+        "distinct_top3_events": 20,
+        "distinct_top1_events": 12,
+        "top3_domains": {
+          "social": 706,
+          "news": 309,
+          "document": 195,
+          "money": 159,
+          "work": 158,
+          "health": 86,
+          "love": 7
+        },
+        "top3_domain_share_pct": 43.6,
+        "top1_events": {
+          "meet_helper": 244,
+          "misunderstanding_caution": 83,
+          "money_small_gain": 76,
+          "idea_flash": 52,
+          "treat_received": 28
+        }
+      },
+      "정인": {
+        "cards": 540,
+        "distinct_top3_events": 22,
+        "distinct_top1_events": 15,
+        "top3_domains": {
+          "social": 592,
+          "document": 455,
+          "news": 410,
+          "work": 58,
+          "money": 52,
+          "health": 36,
+          "leisure": 11,
+          "love": 6
+        },
+        "top3_domain_share_pct": 36.5,
+        "top1_events": {
+          "document_progress": 227,
+          "meet_helper": 184,
+          "good_news_arrives": 59,
+          "argument_caution": 26,
+          "money_small_gain": 15
+        }
+      },
+      "편관": {
+        "cards": 540,
+        "distinct_top3_events": 23,
+        "distinct_top1_events": 9,
+        "top3_domains": {
+          "work": 372,
+          "health": 354,
+          "social": 285,
+          "money": 243,
+          "news": 159,
+          "love": 130,
+          "document": 47,
+          "move": 30
+        },
+        "top3_domain_share_pct": 23.0,
+        "top1_events": {
+          "praise_recognition": 179,
+          "argument_caution": 173,
+          "money_small_gain": 89,
+          "fatigue_caution": 57,
+          "good_news_arrives": 21
+        }
+      },
+      "정관": {
+        "cards": 540,
+        "distinct_top3_events": 24,
+        "distinct_top1_events": 9,
+        "top3_domains": {
+          "work": 556,
+          "document": 389,
+          "social": 321,
+          "love": 112,
+          "health": 92,
+          "money": 79,
+          "news": 64,
+          "leisure": 6,
+          "move": 1
+        },
+        "top3_domain_share_pct": 34.3,
+        "top1_events": {
+          "praise_recognition": 415,
+          "argument_caution": 48,
+          "document_progress": 39,
+          "meet_helper": 12,
+          "fatigue_caution": 10
+        }
+      },
+      "편재": {
+        "cards": 540,
+        "distinct_top3_events": 21,
+        "distinct_top1_events": 2,
+        "top3_domains": {
+          "money": 1148,
+          "social": 344,
+          "document": 40,
+          "love": 39,
+          "work": 30,
+          "news": 9,
+          "health": 7,
+          "move": 3
+        },
+        "top3_domain_share_pct": 70.9,
+        "top1_events": {
+          "money_small_gain": 447,
+          "overspend_caution": 93
+        }
+      },
+      "정재": {
+        "cards": 540,
+        "distinct_top3_events": 26,
+        "distinct_top1_events": 10,
+        "top3_domains": {
+          "money": 1002,
+          "social": 241,
+          "love": 212,
+          "leisure": 63,
+          "health": 31,
+          "work": 30,
+          "news": 24,
+          "document": 15,
+          "move": 2
+        },
+        "top3_domain_share_pct": 61.9,
+        "top1_events": {
+          "money_small_gain": 402,
+          "money_good_deal": 77,
+          "argument_caution": 49,
+          "tidy_luck": 4,
+          "fatigue_caution": 2
+        }
+      }
+    },
+    "C_money_events": {
+      "account_phishing_caution": {
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "headline_slots": [
+          "caution"
+        ],
+        "synonym_group": "property_security_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "pyeonjae_affinity": 0.0,
+        "adverse_relation_affinity": {
+          "clash": 0.4,
+          "punishment": 0.6,
+          "break": 0.3,
+          "harm": 0.4
+        },
+        "top3_pct_overall": 0.6,
+        "by_ten_god": {
+          "겁재": {
+            "mean_probability": 52.3,
+            "top3_pct": 3.5
+          },
+          "비견": {
+            "mean_probability": 37.5,
+            "top3_pct": 0.0
+          },
+          "상관": {
+            "mean_probability": 38.8,
+            "top3_pct": 0.0
+          },
+          "식신": {
+            "mean_probability": 37.8,
+            "top3_pct": 0.0
+          },
+          "정관": {
+            "mean_probability": 39.2,
+            "top3_pct": 0.4
+          },
+          "정인": {
+            "mean_probability": 38.9,
+            "top3_pct": 1.7
+          },
+          "정재": {
+            "mean_probability": 33.3,
+            "top3_pct": 0.0
+          },
+          "편관": {
+            "mean_probability": 38.1,
+            "top3_pct": 0.0
+          },
+          "편인": {
+            "mean_probability": 45.7,
+            "top3_pct": 0.0
+          },
+          "편재": {
+            "mean_probability": 38.1,
+            "top3_pct": 0.0
+          }
+        }
+      },
+      "belongings_security_caution": {
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "headline_slots": [
+          "caution"
+        ],
+        "synonym_group": "property_security_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "pyeonjae_affinity": 0.0,
+        "adverse_relation_affinity": {
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "top3_pct_overall": 1.3,
+        "by_ten_god": {
+          "겁재": {
+            "mean_probability": 53.7,
+            "top3_pct": 3.7
+          },
+          "비견": {
+            "mean_probability": 46.8,
+            "top3_pct": 5.9
+          },
+          "상관": {
+            "mean_probability": 38.7,
+            "top3_pct": 0.0
+          },
+          "식신": {
+            "mean_probability": 39.1,
+            "top3_pct": 1.5
+          },
+          "정관": {
+            "mean_probability": 39.3,
+            "top3_pct": 0.6
+          },
+          "정인": {
+            "mean_probability": 39.1,
+            "top3_pct": 0.9
+          },
+          "정재": {
+            "mean_probability": 33.4,
+            "top3_pct": 0.0
+          },
+          "편관": {
+            "mean_probability": 39.6,
+            "top3_pct": 0.0
+          },
+          "편인": {
+            "mean_probability": 39.4,
+            "top3_pct": 0.0
+          },
+          "편재": {
+            "mean_probability": 39.7,
+            "top3_pct": 0.0
+          }
+        }
+      },
+      "home_vehicle_lock_caution": {
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "headline_slots": [
+          "caution"
+        ],
+        "synonym_group": "property_security_group",
+        "base_weight": 0.15,
+        "expr_confidence": 0.95,
+        "pyeonjae_affinity": 0.0,
+        "adverse_relation_affinity": {
+          "clash": 0.6,
+          "punishment": 0.5,
+          "break": 0.4,
+          "harm": 0.3
+        },
+        "top3_pct_overall": 0.0,
+        "by_ten_god": {
+          "겁재": {
+            "mean_probability": 49.9,
+            "top3_pct": 0.0
+          },
+          "비견": {
+            "mean_probability": 39.0,
+            "top3_pct": 0.0
+          },
+          "상관": {
+            "mean_probability": 38.6,
+            "top3_pct": 0.0
+          },
+          "식신": {
+            "mean_probability": 39.1,
+            "top3_pct": 0.0
+          },
+          "정관": {
+            "mean_probability": 38.8,
+            "top3_pct": 0.0
+          },
+          "정인": {
+            "mean_probability": 38.7,
+            "top3_pct": 0.2
+          },
+          "정재": {
+            "mean_probability": 34.4,
+            "top3_pct": 0.0
+          },
+          "편관": {
+            "mean_probability": 46.9,
+            "top3_pct": 0.0
+          },
+          "편인": {
+            "mean_probability": 39.0,
+            "top3_pct": 0.0
+          },
+          "편재": {
+            "mean_probability": 39.4,
+            "top3_pct": 0.0
+          }
+        }
+      },
+      "lend_money_caution": {
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "headline_slots": [
+          "caution"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.15,
+        "expr_confidence": 0.9,
+        "pyeonjae_affinity": 0.3,
+        "adverse_relation_affinity": {
+          "clash": 0.3,
+          "punishment": 0.4,
+          "break": 0.3,
+          "harm": 0.3
+        },
+        "top3_pct_overall": 5.0,
+        "by_ten_god": {
+          "겁재": {
+            "mean_probability": 62.2,
+            "top3_pct": 43.3
+          },
+          "비견": {
+            "mean_probability": 55.6,
+            "top3_pct": 4.6
+          },
+          "상관": {
+            "mean_probability": 38.9,
+            "top3_pct": 0.0
+          },
+          "식신": {
+            "mean_probability": 39.4,
+            "top3_pct": 0.0
+          },
+          "정관": {
+            "mean_probability": 31.7,
+            "top3_pct": 0.0
+          },
+          "정인": {
+            "mean_probability": 39.9,
+            "top3_pct": 0.9
+          },
+          "정재": {
+            "mean_probability": 31.5,
+            "top3_pct": 0.0
+          },
+          "편관": {
+            "mean_probability": 40.3,
+            "top3_pct": 0.0
+          },
+          "편인": {
+            "mean_probability": 40.2,
+            "top3_pct": 0.0
+          },
+          "편재": {
+            "mean_probability": 50.2,
+            "top3_pct": 1.5
+          }
+        }
+      },
+      "money_good_deal": {
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "headline_slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": "money_gain",
+        "base_weight": 0.33,
+        "expr_confidence": 0.95,
+        "pyeonjae_affinity": 0.5,
+        "adverse_relation_affinity": {
+          "clash": -0.4,
+          "punishment": -0.3,
+          "break": -0.2,
+          "harm": -0.2
+        },
+        "top3_pct_overall": 23.2,
+        "by_ten_god": {
+          "겁재": {
+            "mean_probability": 42.5,
+            "top3_pct": 1.7
+          },
+          "비견": {
+            "mean_probability": 55.6,
+            "top3_pct": 7.6
+          },
+          "상관": {
+            "mean_probability": 62.0,
+            "top3_pct": 22.2
+          },
+          "식신": {
+            "mean_probability": 65.6,
+            "top3_pct": 29.3
+          },
+          "정관": {
+            "mean_probability": 53.6,
+            "top3_pct": 0.4
+          },
+          "정인": {
+            "mean_probability": 54.4,
+            "top3_pct": 0.0
+          },
+          "정재": {
+            "mean_probability": 71.6,
+            "top3_pct": 94.1
+          },
+          "편관": {
+            "mean_probability": 54.8,
+            "top3_pct": 6.3
+          },
+          "편인": {
+            "mean_probability": 55.5,
+            "top3_pct": 1.5
+          },
+          "편재": {
+            "mean_probability": 67.0,
+            "top3_pct": 69.3
+          }
+        }
+      },
+      "money_small_gain": {
+        "valence": "good",
+        "slots": [
+          "good",
+          "support"
+        ],
+        "headline_slots": [
+          "good",
+          "support"
+        ],
+        "synonym_group": "money_gain",
+        "base_weight": 0.33,
+        "expr_confidence": 1.0,
+        "pyeonjae_affinity": 0.9,
+        "adverse_relation_affinity": {
+          "clash": -0.5,
+          "punishment": -0.4,
+          "break": -0.2,
+          "harm": -0.3
+        },
+        "top3_pct_overall": 36.7,
+        "by_ten_god": {
+          "겁재": {
+            "mean_probability": 40.4,
+            "top3_pct": 6.3
+          },
+          "비견": {
+            "mean_probability": 51.2,
+            "top3_pct": 11.3
+          },
+          "상관": {
+            "mean_probability": 61.5,
+            "top3_pct": 35.6
+          },
+          "식신": {
+            "mean_probability": 68.9,
+            "top3_pct": 60.9
+          },
+          "정관": {
+            "mean_probability": 54.8,
+            "top3_pct": 6.9
+          },
+          "정인": {
+            "mean_probability": 55.8,
+            "top3_pct": 4.1
+          },
+          "정재": {
+            "mean_probability": 72.8,
+            "top3_pct": 91.1
+          },
+          "편관": {
+            "mean_probability": 56.8,
+            "top3_pct": 33.3
+          },
+          "편인": {
+            "mean_probability": 57.9,
+            "top3_pct": 23.9
+          },
+          "편재": {
+            "mean_probability": 77.1,
+            "top3_pct": 93.9
+          }
+        }
+      },
+      "overspend_caution": {
+        "valence": "caution",
+        "slots": [
+          "caution"
+        ],
+        "headline_slots": [
+          "caution"
+        ],
+        "synonym_group": null,
+        "base_weight": 0.18,
+        "expr_confidence": 1.0,
+        "pyeonjae_affinity": 0.6,
+        "adverse_relation_affinity": {
+          "clash": 0.4,
+          "punishment": 0.3,
+          "break": 0.3,
+          "harm": 0.3
+        },
+        "top3_pct_overall": 20.9,
+        "by_ten_god": {
+          "겁재": {
+            "mean_probability": 69.2,
+            "top3_pct": 83.9
+          },
+          "비견": {
+            "mean_probability": 58.2,
+            "top3_pct": 23.3
+          },
+          "상관": {
+            "mean_probability": 61.5,
+            "top3_pct": 29.8
+          },
+          "식신": {
+            "mean_probability": 47.6,
+            "top3_pct": 5.9
+          },
+          "정관": {
+            "mean_probability": 48.4,
+            "top3_pct": 6.5
+          },
+          "정인": {
+            "mean_probability": 39.8,
+            "top3_pct": 1.9
+          },
+          "정재": {
+            "mean_probability": 35.8,
+            "top3_pct": 0.4
+          },
+          "편관": {
+            "mean_probability": 48.4,
+            "top3_pct": 5.4
+          },
+          "편인": {
+            "mean_probability": 48.7,
+            "top3_pct": 4.1
+          },
+          "편재": {
+            "mean_probability": 67.3,
+            "top3_pct": 48.0
+          }
+        }
+      }
+    },
+    "C_polarity_gate": {
+      "target": "overspend_caution",
+      "question": "편재라는 이유만으로 상승하는가, 별도 과다·충돌 조건이 필요한가",
+      "variants": {
+        "Z0_baseline": {
+          "mean_probability": 52.47,
+          "top3_cards": 1129,
+          "top3_pct": 20.9,
+          "caution_slot_wins": 1877,
+          "caution_win_pct": 34.8
+        },
+        "Z1_no_pyeonjae": {
+          "mean_probability": 47.81,
+          "top3_cards": 713,
+          "top3_pct": 13.2,
+          "caution_slot_wins": 907,
+          "caution_win_pct": 16.8
+        },
+        "Z2_no_adverse_relation": {
+          "mean_probability": 46.74,
+          "top3_cards": 566,
+          "top3_pct": 10.5,
+          "caution_slot_wins": 1351,
+          "caution_win_pct": 25.0
+        }
+      },
+      "pure_pyeonjae_no_adverse": {
+        "cards": 421,
+        "mean_probability": 65.1,
+        "top3_cards": 146,
+        "top3_pct": 34.7,
+        "caution_slot_wins": 421,
+        "caution_win_pct": 100.0,
+        "note": "불리 관계(충·형·파·해)가 하나도 없는 편재 카드. 여기서 상위권에 들면 '편재 활성'과 '편재 과잉·손실 발현'이 구분되지 않는다는 뜻이다."
+      },
+      "pure_cohort_without_pyeonjae": {
+        "cards": 421,
+        "mean_probability": 41.7,
+        "caution_slot_wins": 21,
+        "caution_win_pct": 5.0,
+        "replaced_by": {
+          "lend_money_caution": 223,
+          "fatigue_caution": 48,
+          "guarantee_stamp_caution": 41,
+          "argument_caution": 38,
+          "contract_clause_caution": 26
+        },
+        "note": "같은 코호트에서 편재 기여만 제거한 대조군. 승률이 크게 떨어지면 100% 승리는 '다른 주의 사건이 함께 억제된 탓'이 아니라 편재 단독 부양이다."
+      }
+    },
+    "C_money_slot_occupancy": {
+      "편재": {
+        "mean_money_slots_in_top3": 2.13,
+        "cards_with_all_three_money_pct": 25.6
+      },
+      "정재": {
+        "mean_money_slots_in_top3": 1.86,
+        "cards_with_all_three_money_pct": 0.2
+      },
+      "겁재": {
+        "mean_money_slots_in_top3": 1.42,
+        "cards_with_all_three_money_pct": 3.1
+      },
+      "식신": {
+        "mean_money_slots_in_top3": 0.98,
+        "cards_with_all_three_money_pct": 0.2
+      },
+      "상관": {
+        "mean_money_slots_in_top3": 0.88,
+        "cards_with_all_three_money_pct": 0.6
+      },
+      "비견": {
+        "mean_money_slots_in_top3": 0.53,
+        "cards_with_all_three_money_pct": 0.4
+      },
+      "편관": {
+        "mean_money_slots_in_top3": 0.45,
+        "cards_with_all_three_money_pct": 0.0
+      },
+      "편인": {
+        "mean_money_slots_in_top3": 0.29,
+        "cards_with_all_three_money_pct": 0.0
+      },
+      "정관": {
+        "mean_money_slots_in_top3": 0.15,
+        "cards_with_all_three_money_pct": 0.0
+      },
+      "정인": {
+        "mean_money_slots_in_top3": 0.1,
+        "cards_with_all_three_money_pct": 0.0
+      }
+    }
+  }
+}
