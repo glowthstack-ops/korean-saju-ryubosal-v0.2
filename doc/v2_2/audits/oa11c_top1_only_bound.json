@@ -1,0 +1,512 @@
+{
+  "audit_id": "OA-11c",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "final_headline",
+  "results": [
+    {
+      "anchor": "2027-03-03",
+      "ub0": {
+        "qualifying_iljus": 60,
+        "family_p10": 18,
+        "family_min": 17,
+        "realized_loss_mean": 0.23
+      },
+      "top1_only": {
+        "qualifying_iljus": 58,
+        "family_p10": 15,
+        "family_min": 14,
+        "realized_loss_mean": 0.3
+      },
+      "ub0_target_rank_distribution_all": {
+        "rank_0": 4883,
+        "rank_1": 517
+      },
+      "ub0_target_rank_by_change_class": {
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": {
+          "rank_1": 69,
+          "rank_0": 22
+        },
+        "RELAXED_TARGET_FAMILY_GAIN_LOST": {
+          "rank_0": 12,
+          "rank_1": 227
+        },
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE": {
+          "rank_1": 197,
+          "rank_0": 274
+        }
+      },
+      "live_chosen_rank_by_change_class": {
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": {
+          "rank_0": 69,
+          "rank_1": 22
+        },
+        "RELAXED_TARGET_FAMILY_GAIN_LOST": {
+          "rank_1": 12,
+          "rank_0": 227
+        },
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE": {
+          "rank_0": 197,
+          "rank_1": 274
+        }
+      },
+      "change_detail_means": {
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|band_drop": 0.343,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|live_family_already_used": 1.0,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|prob_gap": -5.293,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|support_gap": -0.13,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|target_family_unused": 1.0,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|band_drop": 0.028,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|live_family_already_used": 0.856,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|prob_gap": -0.316,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|support_gap": -0.085,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|target_family_unused": 0.0,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|band_drop": 0.143,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|live_family_already_used": 0.0,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|prob_gap": -2.297,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|support_gap": 0.033,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|target_family_unused": 1.0
+      },
+      "changed_total": 801,
+      "changed_same_valence": 801,
+      "changed_target_headline_eligible": 0,
+      "watch_families": {
+        "close_conversation": {
+          "iljus_reachable_ub0": 0,
+          "iljus_reachable_top1": 0
+        },
+        "concentration": {
+          "iljus_reachable_ub0": 32,
+          "iljus_reachable_top1": 20
+        },
+        "rest": {
+          "iljus_reachable_ub0": 59,
+          "iljus_reachable_top1": 42
+        },
+        "tidying": {
+          "iljus_reachable_ub0": 60,
+          "iljus_reachable_top1": 29
+        },
+        "walk": {
+          "iljus_reachable_ub0": 25,
+          "iljus_reachable_top1": 11
+        }
+      },
+      "families_reachable_only_with_rank_gt0": [
+        "concentration",
+        "deepening",
+        "enjoyable_meeting",
+        "loss_or_leakage",
+        "miscommunication",
+        "resource_received",
+        "rest",
+        "tidying",
+        "walk"
+      ],
+      "verdict": "GOOD_REPRESENTATIVE_ALLOCATION_GAP"
+    },
+    {
+      "anchor": "2027-06-01",
+      "ub0": {
+        "qualifying_iljus": 60,
+        "family_p10": 17,
+        "family_min": 15,
+        "realized_loss_mean": 0.2
+      },
+      "top1_only": {
+        "qualifying_iljus": 56,
+        "family_p10": 15,
+        "family_min": 13,
+        "realized_loss_mean": 0.29
+      },
+      "ub0_target_rank_distribution_all": {
+        "rank_0": 4871,
+        "rank_1": 529
+      },
+      "ub0_target_rank_by_change_class": {
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": {
+          "rank_0": 29,
+          "rank_1": 65
+        },
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE": {
+          "rank_1": 195,
+          "rank_0": 292
+        },
+        "RELAXED_TARGET_FAMILY_GAIN_LOST": {
+          "rank_1": 225,
+          "rank_0": 16
+        }
+      },
+      "live_chosen_rank_by_change_class": {
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": {
+          "rank_1": 29,
+          "rank_0": 65
+        },
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE": {
+          "rank_0": 195,
+          "rank_1": 292
+        },
+        "RELAXED_TARGET_FAMILY_GAIN_LOST": {
+          "rank_0": 225,
+          "rank_1": 16
+        }
+      },
+      "change_detail_means": {
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|band_drop": 0.407,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|live_family_already_used": 1.0,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|prob_gap": -5.307,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|support_gap": -0.336,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|target_family_unused": 1.0,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|band_drop": 0.008,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|live_family_already_used": 0.84,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|prob_gap": -0.324,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|support_gap": -0.031,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|target_family_unused": 0.0,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|band_drop": 0.202,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|live_family_already_used": 0.0,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|prob_gap": -3.128,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|support_gap": -0.149,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|target_family_unused": 1.0
+      },
+      "changed_total": 822,
+      "changed_same_valence": 822,
+      "changed_target_headline_eligible": 0,
+      "watch_families": {
+        "close_conversation": {
+          "iljus_reachable_ub0": 0,
+          "iljus_reachable_top1": 0
+        },
+        "concentration": {
+          "iljus_reachable_ub0": 40,
+          "iljus_reachable_top1": 22
+        },
+        "rest": {
+          "iljus_reachable_ub0": 57,
+          "iljus_reachable_top1": 44
+        },
+        "tidying": {
+          "iljus_reachable_ub0": 59,
+          "iljus_reachable_top1": 38
+        },
+        "walk": {
+          "iljus_reachable_ub0": 21,
+          "iljus_reachable_top1": 11
+        }
+      },
+      "families_reachable_only_with_rank_gt0": [
+        "concentration",
+        "deepening",
+        "energy_drain",
+        "enjoyable_meeting",
+        "miscommunication",
+        "resource_received",
+        "rest",
+        "tidying",
+        "walk"
+      ],
+      "verdict": "GOOD_REPRESENTATIVE_ALLOCATION_GAP"
+    },
+    {
+      "anchor": "2027-08-05",
+      "ub0": {
+        "qualifying_iljus": 60,
+        "family_p10": 17,
+        "family_min": 17,
+        "realized_loss_mean": 0.28
+      },
+      "top1_only": {
+        "qualifying_iljus": 58,
+        "family_p10": 15,
+        "family_min": 14,
+        "realized_loss_mean": 0.31
+      },
+      "ub0_target_rank_distribution_all": {
+        "rank_0": 4857,
+        "rank_1": 543
+      },
+      "ub0_target_rank_by_change_class": {
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": {
+          "rank_0": 27,
+          "rank_1": 63
+        },
+        "RELAXED_TARGET_FAMILY_GAIN_LOST": {
+          "rank_0": 12,
+          "rank_1": 230
+        },
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE": {
+          "rank_1": 198,
+          "rank_0": 269
+        }
+      },
+      "live_chosen_rank_by_change_class": {
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": {
+          "rank_1": 27,
+          "rank_0": 63
+        },
+        "RELAXED_TARGET_FAMILY_GAIN_LOST": {
+          "rank_1": 12,
+          "rank_0": 230
+        },
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE": {
+          "rank_0": 198,
+          "rank_1": 269
+        }
+      },
+      "change_detail_means": {
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|band_drop": 0.314,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|live_family_already_used": 1.0,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|prob_gap": -5.107,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|support_gap": -0.169,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|target_family_unused": 1.0,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|band_drop": 0.03,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|live_family_already_used": 0.837,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|prob_gap": -0.683,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|support_gap": -0.075,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|target_family_unused": 0.0,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|band_drop": 0.089,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|live_family_already_used": 0.0,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|prob_gap": -2.067,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|support_gap": -0.067,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|target_family_unused": 1.0
+      },
+      "changed_total": 799,
+      "changed_same_valence": 799,
+      "changed_target_headline_eligible": 0,
+      "watch_families": {
+        "close_conversation": {
+          "iljus_reachable_ub0": 0,
+          "iljus_reachable_top1": 0
+        },
+        "concentration": {
+          "iljus_reachable_ub0": 35,
+          "iljus_reachable_top1": 19
+        },
+        "rest": {
+          "iljus_reachable_ub0": 59,
+          "iljus_reachable_top1": 41
+        },
+        "tidying": {
+          "iljus_reachable_ub0": 60,
+          "iljus_reachable_top1": 35
+        },
+        "walk": {
+          "iljus_reachable_ub0": 20,
+          "iljus_reachable_top1": 7
+        }
+      },
+      "families_reachable_only_with_rank_gt0": [
+        "concentration",
+        "deepening",
+        "enjoyable_meeting",
+        "miscommunication",
+        "recheck",
+        "resource_received",
+        "rest",
+        "tidying",
+        "walk"
+      ],
+      "verdict": "GOOD_REPRESENTATIVE_ALLOCATION_GAP"
+    },
+    {
+      "anchor": "2027-10-09",
+      "ub0": {
+        "qualifying_iljus": 60,
+        "family_p10": 18,
+        "family_min": 16,
+        "realized_loss_mean": 0.23
+      },
+      "top1_only": {
+        "qualifying_iljus": 58,
+        "family_p10": 15,
+        "family_min": 14,
+        "realized_loss_mean": 0.32
+      },
+      "ub0_target_rank_distribution_all": {
+        "rank_0": 4865,
+        "rank_1": 535
+      },
+      "ub0_target_rank_by_change_class": {
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": {
+          "rank_0": 22,
+          "rank_1": 67
+        },
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE": {
+          "rank_0": 283,
+          "rank_1": 204
+        },
+        "RELAXED_TARGET_FAMILY_GAIN_LOST": {
+          "rank_0": 18,
+          "rank_1": 236
+        }
+      },
+      "live_chosen_rank_by_change_class": {
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": {
+          "rank_1": 22,
+          "rank_0": 67
+        },
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE": {
+          "rank_1": 283,
+          "rank_0": 204
+        },
+        "RELAXED_TARGET_FAMILY_GAIN_LOST": {
+          "rank_1": 18,
+          "rank_0": 236
+        }
+      },
+      "change_detail_means": {
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|band_drop": 0.28,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|live_family_already_used": 1.0,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|prob_gap": -4.858,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|support_gap": -0.287,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|target_family_unused": 1.0,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|band_drop": 0.051,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|live_family_already_used": 0.864,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|prob_gap": -0.988,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|support_gap": -0.047,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|target_family_unused": 0.0,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|band_drop": 0.09,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|live_family_already_used": 0.0,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|prob_gap": -2.135,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|support_gap": -0.011,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|target_family_unused": 1.0
+      },
+      "changed_total": 830,
+      "changed_same_valence": 830,
+      "changed_target_headline_eligible": 0,
+      "watch_families": {
+        "close_conversation": {
+          "iljus_reachable_ub0": 0,
+          "iljus_reachable_top1": 0
+        },
+        "concentration": {
+          "iljus_reachable_ub0": 33,
+          "iljus_reachable_top1": 19
+        },
+        "rest": {
+          "iljus_reachable_ub0": 54,
+          "iljus_reachable_top1": 44
+        },
+        "tidying": {
+          "iljus_reachable_ub0": 60,
+          "iljus_reachable_top1": 32
+        },
+        "walk": {
+          "iljus_reachable_ub0": 31,
+          "iljus_reachable_top1": 13
+        }
+      },
+      "families_reachable_only_with_rank_gt0": [
+        "concentration",
+        "deepening",
+        "energy_drain",
+        "enjoyable_meeting",
+        "rest",
+        "tidying",
+        "walk"
+      ],
+      "verdict": "GOOD_REPRESENTATIVE_ALLOCATION_GAP"
+    },
+    {
+      "anchor": "2026-04-02",
+      "ub0": {
+        "qualifying_iljus": 60,
+        "family_p10": 17,
+        "family_min": 16,
+        "realized_loss_mean": 0.22
+      },
+      "top1_only": {
+        "qualifying_iljus": 59,
+        "family_p10": 16,
+        "family_min": 14,
+        "realized_loss_mean": 0.3
+      },
+      "ub0_target_rank_distribution_all": {
+        "rank_1": 541,
+        "rank_0": 4859
+      },
+      "ub0_target_rank_by_change_class": {
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": {
+          "rank_1": 73,
+          "rank_0": 30
+        },
+        "RELAXED_TARGET_FAMILY_GAIN_LOST": {
+          "rank_1": 229,
+          "rank_0": 11
+        },
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE": {
+          "rank_0": 270,
+          "rank_1": 202
+        }
+      },
+      "live_chosen_rank_by_change_class": {
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": {
+          "rank_0": 73,
+          "rank_1": 30
+        },
+        "RELAXED_TARGET_FAMILY_GAIN_LOST": {
+          "rank_0": 229,
+          "rank_1": 11
+        },
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE": {
+          "rank_1": 270,
+          "rank_0": 202
+        }
+      },
+      "change_detail_means": {
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|band_drop": 0.354,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|live_family_already_used": 1.0,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|prob_gap": -5.733,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|support_gap": -0.183,
+        "RELAXED_TARGET_FAMILY_GAIN_LOST|target_family_unused": 1.0,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|band_drop": 0.036,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|live_family_already_used": 0.826,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|prob_gap": -0.693,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|support_gap": -0.059,
+        "RELAXED_TARGET_NOT_GREEDY_REACHABLE|target_family_unused": 0.0,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|band_drop": 0.165,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|live_family_already_used": 0.0,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|prob_gap": -2.447,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|support_gap": -0.039,
+        "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY|target_family_unused": 1.0
+      },
+      "changed_total": 815,
+      "changed_same_valence": 815,
+      "changed_target_headline_eligible": 0,
+      "watch_families": {
+        "close_conversation": {
+          "iljus_reachable_ub0": 0,
+          "iljus_reachable_top1": 0
+        },
+        "concentration": {
+          "iljus_reachable_ub0": 34,
+          "iljus_reachable_top1": 22
+        },
+        "rest": {
+          "iljus_reachable_ub0": 56,
+          "iljus_reachable_top1": 41
+        },
+        "tidying": {
+          "iljus_reachable_ub0": 58,
+          "iljus_reachable_top1": 26
+        },
+        "walk": {
+          "iljus_reachable_ub0": 26,
+          "iljus_reachable_top1": 11
+        }
+      },
+      "families_reachable_only_with_rank_gt0": [
+        "concentration",
+        "deepening",
+        "enjoyable_meeting",
+        "lending_or_collection",
+        "miscommunication",
+        "recheck",
+        "resource_received",
+        "rest",
+        "tidying",
+        "walk"
+      ],
+      "verdict": "GOOD_REPRESENTATIVE_ALLOCATION_GAP"
+    }
+  ]
+}
