@@ -1,0 +1,202 @@
+{
+  "audit_id": "OA-6f6",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "result": {
+    "measurement_stage": "display_pipeline",
+    "taxonomy_census": {
+      "taxonomy_total_families": 38,
+      "headline_eligible_families": 37,
+      "good_headline_families": 18,
+      "caution_headline_families": 19,
+      "support_only_families": 1,
+      "multi_event_families": [
+        "loss_or_leakage",
+        "minor_injury",
+        "miscommunication",
+        "overexertion",
+        "renewed_contact",
+        "schedule_disruption",
+        "third_party_request"
+      ],
+      "singleton_families": 31,
+      "good_headline_family_list": [
+        "acknowledgement",
+        "awaited_news",
+        "close_conversation",
+        "concentration",
+        "cooperation",
+        "deepening",
+        "enjoyable_meeting",
+        "favorable_transaction",
+        "idea",
+        "renewed_contact",
+        "resource_received",
+        "rest",
+        "small_benefit",
+        "smooth_process",
+        "spark",
+        "support_person",
+        "tidying",
+        "walk"
+      ]
+    },
+    "windows": {
+      "failing_2027-06-01": {
+        "window_start": "2027-03-03",
+        "reachability": {
+          "R0_p10": 18,
+          "R0_min": 18,
+          "R0_median": 18,
+          "R0_max": 18,
+          "R1_p10": 17,
+          "R1_min": 17,
+          "R1_median": 17,
+          "R1_max": 18,
+          "R0_below_target": 0,
+          "R1_below_target": 0,
+          "watch": {
+            "戊辰": {
+              "R0": 18,
+              "R1": 17
+            },
+            "庚戌": {
+              "R0": 18,
+              "R1": 17
+            },
+            "丙辰": {
+              "R0": 18,
+              "R1": 17
+            },
+            "乙亥": {
+              "R0": 18,
+              "R1": 18
+            },
+            "癸酉": {
+              "R0": 18,
+              "R1": 17
+            },
+            "甲午": {
+              "R0": 18,
+              "R1": 18
+            },
+            "辛亥": {
+              "R0": 18,
+              "R1": 17
+            },
+            "甲子": {
+              "R0": 18,
+              "R1": 18
+            },
+            "乙丑": {
+              "R0": 18,
+              "R1": 18
+            },
+            "丙寅": {
+              "R0": 18,
+              "R1": 17
+            }
+          }
+        },
+        "deficit_breakdown": {
+          "coverage_deficit_ilju_days": 1740,
+          "reasons": {
+            "NO_UNUSED_FAMILY_IN_BUDGET": 1091,
+            "UNUSED_FAMILY_AVAILABLE_BUT_NOT_CHOSEN": 511,
+            "UNUSED_FAMILY_SELECTED_AS_GOOD": 137,
+            "UNUSED_FAMILY_BAND_BLOCKED": 1
+          },
+          "reason_pct": {
+            "NO_UNUSED_FAMILY_IN_BUDGET": 62.7,
+            "UNUSED_FAMILY_AVAILABLE_BUT_NOT_CHOSEN": 29.4,
+            "UNUSED_FAMILY_SELECTED_AS_GOOD": 7.9,
+            "UNUSED_FAMILY_BAND_BLOCKED": 0.1
+          },
+          "board_families_per_day": {
+            "mean": 13.9,
+            "min": 10,
+            "max": 17
+          }
+        }
+      },
+      "passing_2026-07-01": {
+        "window_start": "2026-04-02",
+        "reachability": {
+          "R0_p10": 18,
+          "R0_min": 18,
+          "R0_median": 18,
+          "R0_max": 18,
+          "R1_p10": 17,
+          "R1_min": 17,
+          "R1_median": 17,
+          "R1_max": 18,
+          "R0_below_target": 0,
+          "R1_below_target": 0,
+          "watch": {
+            "戊辰": {
+              "R0": 18,
+              "R1": 17
+            },
+            "庚戌": {
+              "R0": 18,
+              "R1": 18
+            },
+            "丙辰": {
+              "R0": 18,
+              "R1": 17
+            },
+            "乙亥": {
+              "R0": 18,
+              "R1": 18
+            },
+            "癸酉": {
+              "R0": 18,
+              "R1": 17
+            },
+            "甲午": {
+              "R0": 18,
+              "R1": 17
+            },
+            "辛亥": {
+              "R0": 18,
+              "R1": 17
+            },
+            "甲子": {
+              "R0": 18,
+              "R1": 17
+            },
+            "乙丑": {
+              "R0": 18,
+              "R1": 17
+            },
+            "丙寅": {
+              "R0": 18,
+              "R1": 17
+            }
+          }
+        },
+        "deficit_breakdown": {
+          "coverage_deficit_ilju_days": 1424,
+          "reasons": {
+            "NO_UNUSED_FAMILY_IN_BUDGET": 869,
+            "UNUSED_FAMILY_AVAILABLE_BUT_NOT_CHOSEN": 439,
+            "UNUSED_FAMILY_SELECTED_AS_GOOD": 115,
+            "UNUSED_FAMILY_BAND_BLOCKED": 1
+          },
+          "reason_pct": {
+            "NO_UNUSED_FAMILY_IN_BUDGET": 61.0,
+            "UNUSED_FAMILY_AVAILABLE_BUT_NOT_CHOSEN": 30.8,
+            "UNUSED_FAMILY_SELECTED_AS_GOOD": 8.1,
+            "UNUSED_FAMILY_BAND_BLOCKED": 0.1
+          },
+          "board_families_per_day": {
+            "mean": 14.1,
+            "min": 11,
+            "max": 17
+          }
+        }
+      }
+    }
+  }
+}
