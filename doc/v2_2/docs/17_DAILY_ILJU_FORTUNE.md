@@ -211,3 +211,59 @@
 8. 로또 같은 강한 후킹 문구는 희소하게 사용한다.
 9. 행운의 장소는 정확성보다 기억성과 재미를 우선한다.
 10. 일주별 운세와 개인화 사주 운세의 역할을 분리한다.
+
+---
+
+## 21. 베타 풀 배포 (C10 테스터 평가)
+
+### 21-1. 대상 판정
+
+베타 대상은 **배포 환경 전체**다. 계정 플래그·요청 헤더·query parameter·프런트엔드
+토글로 legacy/C10 을 고르는 통로는 만들지 않는다 — 사용자마다 다른 풀을 보면
+피드백이 무엇을 대상으로 한 것인지 알 수 없고, 헤더는 위조할 수 있다.
+
+| env | 값 | 뜻 |
+|---|---|---|
+| `DAILY_BETA_POOL_ENABLED` | `true` / `false` | 이 배포가 베타 배포인가 |
+| `DAILY_BETA_POOL_VERSION` | `beta-daily-pool.c10.v2` | 활성 풀 |
+| `DAILY_BETA_AUDIENCE` | `deployment` | 현재 이 값만 허용 |
+| `DAILY_BETA_POOL_EFFECTIVE_FROM` / `_UNTIL` | `2026-07-30` / `2026-08-28` | 공개 창 |
+| `DAILY_BETA_EXPECTED_POOL_FP` | `f0ce1e0c…` | 지문 고정(버전만 맞고 내용이 다르면 차단) |
+| `DAILY_BETA_EXPECTED_BOOTSTRAP_FP` | `a499f342…` | 〃 |
+| `DAILY_BETA_POOL_PATH` | (선택) | snapshot 디렉터리 재지정 |
+
+### 21-2. fail-closed
+
+| 시점 | 사건 | 동작 |
+|---|---|---|
+| 기동 | preflight 실패(파일 없음·지문 불일치·구조 위반·정책 버전 불일치) | 예외를 억제하지 않는다 → 새 프로세스가 ready 로 진입하지 못하고 기존 프로세스도 교체되지 않는다 |
+| 런타임 | snapshot 손상·registry 유실 | 베타 일운 API 만 `503 BETA_POOL_UNAVAILABLE`(`Cache-Control: no-store`). 다른 API 는 영향 없음 |
+| 런타임 | 공개 창 밖 날짜 | `BETA_POOL_NOT_YET_EFFECTIVE` / `BETA_POOL_EXPIRED` |
+| 런타임 | 렌더 결과가 snapshot 선택과 불일치 | `BETA_POOL_SELECTION_DRIFT` |
+
+**어느 경우에도 legacy 로 조용히 내려가지 않는다.** 내려가면 테스터 일부가 legacy 를
+보고 C10 피드백을 준다.
+
+### 21-3. 경로 분리
+
+- 공개 `GET /api/v2/daily-fortune/today[/{ilju}]` — KST 오늘까지만. `allow_future`
+  통로가 **존재하지 않는다**(query·헤더 모두).
+- 관리자 `GET /api/v2/admin/daily-beta/pool` · `/day/{date}` — `require_admin`,
+  미래 날짜 조회와 감사 메타데이터는 여기서만 나간다.
+
+베타 배포에서는 캐시 dep 이 `None` 이고(스냅샷은 Redis 를 쓰지 않는다), 사후 LLM
+교정(polish)도 돌지 않는다 — 문장까지 동결돼 있어 교정이 돌면 테스터가 본 카드가
+나중에 바뀐다. 선생성 루프(`SAJU_DAILY_FORTUNE_PREGEN`)도 함께 꺼진다.
+
+### 21-4. 손실 지표 명명
+
+| 필드 | 뜻 |
+|---|---|
+| `intended_good_representative` | C10 이 고르려 한 good 대표 |
+| `realized_good_event` | 실제로 표시된 good 슬롯 |
+| `representative_realized` | 둘이 같은가 |
+| `realized_display_displacement_loss` | **실현** 기준 손실 — 공식 품질 가드는 이것만 쓴다 |
+
+`_select_slots` 는 good 후보를 `headline_slots` 가 아니라 `slots` 로 고른다. 의도한
+대표가 슬롯 자격이 없으면 무효화되므로(`INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE`,
+v2 풀 기준 125/1800 = 6.9%), 의도와 실현을 한 필드에 섞으면 이후 감사가 다시 왜곡된다.

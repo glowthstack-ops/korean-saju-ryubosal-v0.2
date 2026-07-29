@@ -23,6 +23,7 @@ from .routers import (
     auth,
     calendar,
     chat,
+    daily_beta_admin,
     daily_fortune,
     health,
     manse,
@@ -116,8 +117,15 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
             bootstrap_risk_exposure,
         )
         bootstrap_risk_exposure()
+    # 베타 일운 풀 preflight — **suppress 하지 않는다.** 검증에 실패하면 예외가 그대로
+    # 올라가 이 프로세스는 ready 로 진입하지 못하고, 기존 프로세스도 교체되지 않는다.
+    # legacy 로 조용히 내려가면 테스터 일부가 legacy 를 보고 C10 피드백을 준다.
+    from .services.daily_fortune_service import beta_enabled, beta_preflight
+
+    beta_preflight()
+
     pregen_task: asyncio.Task[None] | None = None
-    if os.getenv("SAJU_DAILY_FORTUNE_PREGEN") == "1":
+    if os.getenv("SAJU_DAILY_FORTUNE_PREGEN") == "1" and not beta_enabled():
         pregen_task = asyncio.create_task(_daily_fortune_pregen_loop())
     yield
     if pregen_task is not None:
@@ -145,6 +153,7 @@ app.include_router(account.router)
 app.include_router(manse.router)
 app.include_router(calendar.router)
 app.include_router(daily_fortune.router)
+app.include_router(daily_beta_admin.router)
 app.include_router(chat.router)
 app.include_router(past_validation.router)
 app.include_router(reality_calibration.router)

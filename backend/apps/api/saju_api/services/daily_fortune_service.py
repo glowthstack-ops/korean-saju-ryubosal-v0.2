@@ -25,9 +25,41 @@ from saju_shared_types.daily_fortune import (
     content_version_for,
 )
 
+from .daily_beta_registry import (
+    BetaDailyPoolRegistry,
+    BetaPoolConfig,
+    build_registry,
+)
+from .daily_beta_registry import render as render_beta
 from .daily_fortune_export import write_threads_export
 
 _KST = ZoneInfo("Asia/Seoul")
+
+#: 시작 preflight 로 구성되는 불변 registry. 요청마다 파일을 다시 읽지 않는다.
+_BETA_REGISTRY: BetaDailyPoolRegistry | None = None
+
+
+def beta_enabled() -> bool:
+    """이 배포가 베타 풀 배포인가 — 계정·헤더가 아니라 **배포 단위**로 정한다."""
+    return BetaPoolConfig.from_env().enabled
+
+
+def beta_preflight() -> BetaDailyPoolRegistry | None:
+    """앱 시작 시 1회. 실패하면 예외를 그대로 올려 ready 진입을 막는다.
+
+    검증 실패에 legacy 로 조용히 내려가지 않는다 — 테스터 일부가 legacy 를 보고도
+    C10 을 본 것으로 피드백하게 된다.
+    """
+    global _BETA_REGISTRY
+    if not beta_enabled():
+        _BETA_REGISTRY = None
+        return None
+    _BETA_REGISTRY = build_registry()
+    return _BETA_REGISTRY
+
+
+def beta_registry() -> BetaDailyPoolRegistry | None:
+    return _BETA_REGISTRY
 _GENERATE_LOCK_TTL = 60  # 초 — 엔진 생성은 1초 미만이라 넉넉한 안전 상한
 _LOCK_WAIT_RETRIES = 20
 _LOCK_WAIT_INTERVAL = 0.25
@@ -74,7 +106,7 @@ def _generate(d: date) -> DailyFortuneBoard:
 
 
 def get_board(
-    cache: DailyFortuneCache, today: date | None = None
+    cache: DailyFortuneCache | None, today: date | None = None
 ) -> DailyFortuneBoard:
     """오늘자 보드 반환 — 캐시 미스면 생성 락 후 lazy 생성.
 
@@ -82,6 +114,13 @@ def get_board(
     동시 SET 이 일어나도 값은 동일 — 무해).
     """
     d = today or kst_today()
+    registry = beta_registry()
+    if registry is not None:
+        # 베타 배포 — snapshot 이 선택의 SSOT 다. 캐시·락·lazy 생성을 타지 않는다.
+        board, _audit = render_beta(registry, d)
+        return board
+    if cache is None:                       # legacy 경로는 캐시가 반드시 있어야 한다
+        raise RuntimeError("일운 캐시 미설정")
     version = content_version_for(d)
     board = cache.load_board(d, version)
     if board is not None:
@@ -111,7 +150,7 @@ def get_board(
 
 
 def get_single(
-    cache: DailyFortuneCache, ilju_raw: str, today: date | None = None
+    cache: DailyFortuneCache | None, ilju_raw: str, today: date | None = None
 ) -> DailyFortuneSingle | None:
     """일주 단건(메인 카드용) — 표기 무효면 None."""
     ilju = normalize_ilju(ilju_raw)

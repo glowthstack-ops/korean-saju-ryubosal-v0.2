@@ -1,4 +1,8 @@
-"""`beta-daily-pool.c10.v1` — 테스터 공개용 불변 snapshot 생성.
+"""`beta-daily-pool.c10.v2` — 테스터 공개용 불변 snapshot 생성.
+
+v1 은 **의도한** good 대표를 기록해 실제 카드와 어긋났다(96/1800 슬롯 중복).
+같은 이름 아래 파일만 바꾸면 혼동되므로 공개 전에 v2 로 올린다.
+    beta-daily-pool.c10.v1@2552cce…  SUPERSEDED_BY_REALIZED_SELECTION_SNAPSHOT
 
 원장·CAS 없이도 테스터에게 지금의 완성 후보 풀을 제시할 수 있다. canonical bootstrap
 으로 C10 을 안정 상태로 만든 뒤 공개 기간 30일을 선생성해 **불변 snapshot** 으로 고정
@@ -59,7 +63,7 @@ from saju_engines.daily_selection_policy_shadow import (  # noqa: E402
 from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index  # noqa: E402
 from saju_shared_types.daily_fortune import active_dict_version, content_version_for  # noqa: E402
 
-POOL_VERSION = "beta-daily-pool.c10.v1"
+POOL_VERSION = "beta-daily-pool.c10.v2"
 ANCHOR = dt.date(2026, 7, 30)
 PUBLIC_DAYS = 30
 TAXONOMY_VERSION = "taxonomy.v1"

@@ -12,7 +12,7 @@ from datetime import date
 import pytest
 from fastapi.testclient import TestClient
 
-from saju_api.deps import get_daily_fortune_cache
+from saju_api.deps import get_daily_fortune_cache_or_beta
 from saju_api.main import app
 from saju_api.services import daily_fortune_service
 from saju_engines.daily_fortune_cache import InMemoryDailyFortuneCache
@@ -30,11 +30,11 @@ def cache():
 
 @pytest.fixture()
 def client(cache):
-    app.dependency_overrides[get_daily_fortune_cache] = lambda: cache
+    app.dependency_overrides[get_daily_fortune_cache_or_beta] = lambda: cache
     try:
         yield TestClient(app)
     finally:
-        app.dependency_overrides.pop(get_daily_fortune_cache, None)
+        app.dependency_overrides.pop(get_daily_fortune_cache_or_beta, None)
 
 
 # ── 서비스 계층 ─────────────────────────────────────────────────────────

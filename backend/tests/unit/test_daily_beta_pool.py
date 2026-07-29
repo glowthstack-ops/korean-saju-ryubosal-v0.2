@@ -1,4 +1,4 @@
-"""`beta-daily-pool.c10.v1` — 계약 동결과 날짜 게이트.
+"""`beta-daily-pool.c10.v2` — 계약 동결과 날짜 게이트.
 
 풀은 테스터에게 "지금 우리가 만든 완성 후보"를 보여주기 위한 **불변 snapshot** 이다.
 두 가지를 지킨다.
@@ -34,7 +34,7 @@ from saju_engines.daily_selection_contracts import (
     HISTORY_CONTRACT_VERSION,
 )
 
-_POOL = "beta-daily-pool.c10.v1"
+_POOL = "beta-daily-pool.c10.v2"
 _ANCHOR = dt.date(2026, 7, 30)
 
 

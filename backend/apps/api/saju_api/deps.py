@@ -48,6 +48,20 @@ def get_daily_fortune_cache() -> DailyFortuneCache:
     return _store(default_cache)
 
 
+def get_daily_fortune_cache_or_beta() -> DailyFortuneCache | None:
+    """일운 캐시 — **베타 배포에서는 None.**
+
+    베타 경로는 불변 snapshot 만 읽으므로 Redis 가 필요 없다. 그런데도 캐시 dep 이
+    먼저 503 을 던지면, 저장소 장애 하나로 스냅샷을 그대로 낼 수 있는 요청까지 함께
+    죽는다.
+    """
+    from .services.daily_fortune_service import beta_enabled
+
+    if beta_enabled():
+        return None
+    return _store(default_cache)
+
+
 def get_subject_store() -> SubjectStore:
     """subjects 저장소."""
     return _store(SubjectStore)

@@ -1,5 +1,5 @@
 {
-  "pool_version": "beta-daily-pool.c10.v1",
+  "pool_version": "beta-daily-pool.c10.v2",
   "anchor_date": "2026-07-30",
   "public_start": "2026-07-30",
   "public_end": "2026-08-28",
@@ -34493,5 +34493,6 @@
       ]
     }
   ],
-  "generated_at": "2026-07-29T06:50:08.932548+00:00"
+  "generated_at": "2026-07-29T06:50:08.932548+00:00",
+  "supersedes": "beta-daily-pool.c10.v1@2552ccecbf4cc181"
 }
