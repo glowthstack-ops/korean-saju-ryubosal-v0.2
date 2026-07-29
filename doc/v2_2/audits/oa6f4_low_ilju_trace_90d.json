@@ -1,0 +1,1360 @@
+{
+  "audit_id": "OA-6f4",
+  "aka": "지시의 'OA-6f3 하위 일주 trace' (oa6f3 파일명은 잔여 재집계가 선점)",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "days": 90,
+  "result": {
+    "cards": 5400,
+    "measurement_stage": "display_pipeline",
+    "baseline": "P4_good_slot_cooldown",
+    "p10_definition": "60개 일주 중 6번째로 작은 값 — 15 미만 일주가 5개 이하면 통과",
+    "diversity_metrics": {
+      "unique_event_key_p10": 14,
+      "unique_semantic_family_p10": 14,
+      "unique_domain_count_p10": 6,
+      "unique_event_key_median": 16.0
+    },
+    "ilju_buckets": {
+      ">15": 31,
+      "=15": 14,
+      "<15": 15
+    },
+    "count_below_15": 15,
+    "count_equal_14": 13,
+    "required_ilju_lifts_to_pass": 10,
+    "branch_verdict": {
+      "A_already_within_7p": 15
+    },
+    "lift_source_events": {
+      "treat_received": 6,
+      "old_contact": 3,
+      "love_deepening": 2,
+      "tidy_luck": 2,
+      "rest_recharge": 1,
+      "pleasant_meeting": 1
+    },
+    "document_progress_coverage": {
+      "below_15_iljus_with_candidate": 0,
+      "below_15_iljus_already_within_7p": 0,
+      "required_uplift_distribution": {},
+      "iljus_lifted_14_to_15_if_selected_once": 0
+    },
+    "residual_stage_overlap": {
+      "unique_residual_cards": 153,
+      "by_stage": {
+        "both_stages": 139,
+        "good_representative_only": 13,
+        "headline_only": 1
+      },
+      "unique_recoverable_within_3p": 112,
+      "note": "앞서 보고한 292·178 은 **단계 행 수**였다. 고유 카드 기준은 이 값이다."
+    },
+    "traces": [
+      {
+        "ilju": "丙辰",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 7,
+        "unused_candidates": [
+          {
+            "event_key": "treat_received",
+            "eligible_days": 90,
+            "within_7p_days": 31,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "resource_received",
+            "domain": "social",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "love_deepening",
+            "eligible_days": 90,
+            "within_7p_days": 12,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "deepening",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "관성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 11,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "focus_flow",
+            "eligible_days": 90,
+            "within_7p_days": 8,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "concentration",
+            "domain": "work",
+            "routing_evidence": [
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "walk_refresh",
+            "eligible_days": 90,
+            "within_7p_days": 6,
+            "min_required_uplift": 0,
+            "min_gap": 4,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "walk",
+            "domain": "leisure",
+            "routing_evidence": [
+              "식상",
+              "인성"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "乙亥",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 6,
+        "unused_candidates": [
+          {
+            "event_key": "love_deepening",
+            "eligible_days": 90,
+            "within_7p_days": 14,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "deepening",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "관성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "rest_recharge",
+            "eligible_days": 90,
+            "within_7p_days": 10,
+            "min_required_uplift": 0,
+            "min_gap": 1,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "rest",
+            "domain": "health",
+            "routing_evidence": [
+              "인성",
+              "식상",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 9,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "focus_flow",
+            "eligible_days": 90,
+            "within_7p_days": 6,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "concentration",
+            "domain": "work",
+            "routing_evidence": [
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "love_reunion",
+            "eligible_days": 90,
+            "within_7p_days": 6,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "식상",
+              "관성"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "乙酉",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 6,
+        "unused_candidates": [
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 11,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "rest_recharge",
+            "eligible_days": 90,
+            "within_7p_days": 11,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "rest",
+            "domain": "health",
+            "routing_evidence": [
+              "인성",
+              "식상",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "love_deepening",
+            "eligible_days": 90,
+            "within_7p_days": 10,
+            "min_required_uplift": 0,
+            "min_gap": 4,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "deepening",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "관성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "walk_refresh",
+            "eligible_days": 90,
+            "within_7p_days": 9,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "walk",
+            "domain": "leisure",
+            "routing_evidence": [
+              "식상",
+              "인성"
+            ]
+          },
+          {
+            "event_key": "focus_flow",
+            "eligible_days": 90,
+            "within_7p_days": 8,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "concentration",
+            "domain": "work",
+            "routing_evidence": [
+              "인성",
+              "식상"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "壬午",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 7,
+        "unused_candidates": [
+          {
+            "event_key": "love_deepening",
+            "eligible_days": 90,
+            "within_7p_days": 12,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "deepening",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "관성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "pleasant_meeting",
+            "eligible_days": 90,
+            "within_7p_days": 11,
+            "min_required_uplift": 0,
+            "min_gap": 1,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "enjoyable_meeting",
+            "domain": "social",
+            "routing_evidence": [
+              "식상",
+              "비겁",
+              "재성"
+            ]
+          },
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 10,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "focus_flow",
+            "eligible_days": 90,
+            "within_7p_days": 8,
+            "min_required_uplift": 0,
+            "min_gap": 1,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "concentration",
+            "domain": "work",
+            "routing_evidence": [
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "love_reunion",
+            "eligible_days": 90,
+            "within_7p_days": 6,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "식상",
+              "관성"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "壬戌",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 7,
+        "unused_candidates": [
+          {
+            "event_key": "treat_received",
+            "eligible_days": 90,
+            "within_7p_days": 23,
+            "min_required_uplift": 0,
+            "min_gap": 1,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "resource_received",
+            "domain": "social",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 21,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "pleasant_meeting",
+            "eligible_days": 90,
+            "within_7p_days": 15,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "enjoyable_meeting",
+            "domain": "social",
+            "routing_evidence": [
+              "식상",
+              "비겁",
+              "재성"
+            ]
+          },
+          {
+            "event_key": "love_reunion",
+            "eligible_days": 90,
+            "within_7p_days": 10,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "식상",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "walk_refresh",
+            "eligible_days": 90,
+            "within_7p_days": 7,
+            "min_required_uplift": 0,
+            "min_gap": 1,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "walk",
+            "domain": "leisure",
+            "routing_evidence": [
+              "식상",
+              "인성"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "庚午",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 6,
+        "unused_candidates": [
+          {
+            "event_key": "old_contact",
+            "eligible_days": 90,
+            "within_7p_days": 16,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "news",
+            "routing_evidence": [
+              "비겁",
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 16,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "rest_recharge",
+            "eligible_days": 90,
+            "within_7p_days": 15,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "rest",
+            "domain": "health",
+            "routing_evidence": [
+              "인성",
+              "식상",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "walk_refresh",
+            "eligible_days": 90,
+            "within_7p_days": 7,
+            "min_required_uplift": 0,
+            "min_gap": 5,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "walk",
+            "domain": "leisure",
+            "routing_evidence": [
+              "식상",
+              "인성"
+            ]
+          },
+          {
+            "event_key": "focus_flow",
+            "eligible_days": 90,
+            "within_7p_days": 4,
+            "min_required_uplift": 0,
+            "min_gap": 1,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "concentration",
+            "domain": "work",
+            "routing_evidence": [
+              "인성",
+              "식상"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "庚戌",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 8,
+        "unused_candidates": [
+          {
+            "event_key": "treat_received",
+            "eligible_days": 90,
+            "within_7p_days": 18,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "resource_received",
+            "domain": "social",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "old_contact",
+            "eligible_days": 90,
+            "within_7p_days": 16,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "news",
+            "routing_evidence": [
+              "비겁",
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "pleasant_meeting",
+            "eligible_days": 90,
+            "within_7p_days": 13,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "enjoyable_meeting",
+            "domain": "social",
+            "routing_evidence": [
+              "식상",
+              "비겁",
+              "재성"
+            ]
+          },
+          {
+            "event_key": "love_deepening",
+            "eligible_days": 90,
+            "within_7p_days": 12,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "deepening",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "관성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "focus_flow",
+            "eligible_days": 90,
+            "within_7p_days": 10,
+            "min_required_uplift": 0,
+            "min_gap": 4,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "concentration",
+            "domain": "work",
+            "routing_evidence": [
+              "인성",
+              "식상"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "戊子",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 8,
+        "unused_candidates": [
+          {
+            "event_key": "treat_received",
+            "eligible_days": 90,
+            "within_7p_days": 27,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "resource_received",
+            "domain": "social",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "focus_flow",
+            "eligible_days": 90,
+            "within_7p_days": 12,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "concentration",
+            "domain": "work",
+            "routing_evidence": [
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "pleasant_meeting",
+            "eligible_days": 90,
+            "within_7p_days": 10,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "enjoyable_meeting",
+            "domain": "social",
+            "routing_evidence": [
+              "식상",
+              "비겁",
+              "재성"
+            ]
+          },
+          {
+            "event_key": "walk_refresh",
+            "eligible_days": 90,
+            "within_7p_days": 9,
+            "min_required_uplift": 0,
+            "min_gap": 4,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "walk",
+            "domain": "leisure",
+            "routing_evidence": [
+              "식상",
+              "인성"
+            ]
+          },
+          {
+            "event_key": "love_deepening",
+            "eligible_days": 90,
+            "within_7p_days": 8,
+            "min_required_uplift": 0,
+            "min_gap": 5,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "deepening",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "관성",
+              "식상"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "戊戌",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 7,
+        "unused_candidates": [
+          {
+            "event_key": "rest_recharge",
+            "eligible_days": 90,
+            "within_7p_days": 26,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "rest",
+            "domain": "health",
+            "routing_evidence": [
+              "인성",
+              "식상",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "old_contact",
+            "eligible_days": 90,
+            "within_7p_days": 18,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "news",
+            "routing_evidence": [
+              "비겁",
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "focus_flow",
+            "eligible_days": 90,
+            "within_7p_days": 13,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "concentration",
+            "domain": "work",
+            "routing_evidence": [
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "pleasant_meeting",
+            "eligible_days": 90,
+            "within_7p_days": 12,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "enjoyable_meeting",
+            "domain": "social",
+            "routing_evidence": [
+              "식상",
+              "비겁",
+              "재성"
+            ]
+          },
+          {
+            "event_key": "love_deepening",
+            "eligible_days": 90,
+            "within_7p_days": 6,
+            "min_required_uplift": 0,
+            "min_gap": 4,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "deepening",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "관성",
+              "식상"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "戊辰",
+        "selected_unique": 11,
+        "unique_semantic_family": 11,
+        "unique_domain": 6,
+        "unused_candidates": [
+          {
+            "event_key": "treat_received",
+            "eligible_days": 90,
+            "within_7p_days": 35,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "resource_received",
+            "domain": "social",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "old_contact",
+            "eligible_days": 90,
+            "within_7p_days": 17,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "news",
+            "routing_evidence": [
+              "비겁",
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 15,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "rest_recharge",
+            "eligible_days": 90,
+            "within_7p_days": 14,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "rest",
+            "domain": "health",
+            "routing_evidence": [
+              "인성",
+              "식상",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "pleasant_meeting",
+            "eligible_days": 90,
+            "within_7p_days": 11,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "enjoyable_meeting",
+            "domain": "social",
+            "routing_evidence": [
+              "식상",
+              "비겁",
+              "재성"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "甲午",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 7,
+        "unused_candidates": [
+          {
+            "event_key": "pleasant_meeting",
+            "eligible_days": 90,
+            "within_7p_days": 22,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "enjoyable_meeting",
+            "domain": "social",
+            "routing_evidence": [
+              "식상",
+              "비겁",
+              "재성"
+            ]
+          },
+          {
+            "event_key": "rest_recharge",
+            "eligible_days": 90,
+            "within_7p_days": 16,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "rest",
+            "domain": "health",
+            "routing_evidence": [
+              "인성",
+              "식상",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "love_deepening",
+            "eligible_days": 90,
+            "within_7p_days": 15,
+            "min_required_uplift": 0,
+            "min_gap": 1,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "deepening",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "관성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "walk_refresh",
+            "eligible_days": 90,
+            "within_7p_days": 8,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "walk",
+            "domain": "leisure",
+            "routing_evidence": [
+              "식상",
+              "인성"
+            ]
+          },
+          {
+            "event_key": "love_reunion",
+            "eligible_days": 90,
+            "within_7p_days": 6,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "식상",
+              "관성"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "癸酉",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 6,
+        "unused_candidates": [
+          {
+            "event_key": "old_contact",
+            "eligible_days": 90,
+            "within_7p_days": 16,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "news",
+            "routing_evidence": [
+              "비겁",
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "rest_recharge",
+            "eligible_days": 90,
+            "within_7p_days": 15,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "rest",
+            "domain": "health",
+            "routing_evidence": [
+              "인성",
+              "식상",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 11,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "focus_flow",
+            "eligible_days": 90,
+            "within_7p_days": 8,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "concentration",
+            "domain": "work",
+            "routing_evidence": [
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "walk_refresh",
+            "eligible_days": 90,
+            "within_7p_days": 7,
+            "min_required_uplift": 0,
+            "min_gap": 4,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "walk",
+            "domain": "leisure",
+            "routing_evidence": [
+              "식상",
+              "인성"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "辛亥",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 6,
+        "unused_candidates": [
+          {
+            "event_key": "old_contact",
+            "eligible_days": 90,
+            "within_7p_days": 15,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "news",
+            "routing_evidence": [
+              "비겁",
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "pleasant_meeting",
+            "eligible_days": 90,
+            "within_7p_days": 12,
+            "min_required_uplift": 0,
+            "min_gap": 1,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "enjoyable_meeting",
+            "domain": "social",
+            "routing_evidence": [
+              "식상",
+              "비겁",
+              "재성"
+            ]
+          },
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 11,
+            "min_required_uplift": 0,
+            "min_gap": 1,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "rest_recharge",
+            "eligible_days": 90,
+            "within_7p_days": 11,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "rest",
+            "domain": "health",
+            "routing_evidence": [
+              "인성",
+              "식상",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "walk_refresh",
+            "eligible_days": 90,
+            "within_7p_days": 6,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "walk",
+            "domain": "leisure",
+            "routing_evidence": [
+              "식상",
+              "인성"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "辛卯",
+        "selected_unique": 14,
+        "unique_semantic_family": 14,
+        "unique_domain": 8,
+        "unused_candidates": [
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 17,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "old_contact",
+            "eligible_days": 90,
+            "within_7p_days": 15,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "news",
+            "routing_evidence": [
+              "비겁",
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "love_deepening",
+            "eligible_days": 90,
+            "within_7p_days": 10,
+            "min_required_uplift": 0,
+            "min_gap": 3,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "deepening",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "관성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "pleasant_meeting",
+            "eligible_days": 90,
+            "within_7p_days": 7,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "enjoyable_meeting",
+            "domain": "social",
+            "routing_evidence": [
+              "식상",
+              "비겁",
+              "재성"
+            ]
+          },
+          {
+            "event_key": "love_reunion",
+            "eligible_days": 90,
+            "within_7p_days": 6,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "식상",
+              "관성"
+            ]
+          }
+        ]
+      },
+      {
+        "ilju": "辛酉",
+        "selected_unique": 12,
+        "unique_semantic_family": 12,
+        "unique_domain": 7,
+        "unused_candidates": [
+          {
+            "event_key": "treat_received",
+            "eligible_days": 90,
+            "within_7p_days": 24,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "resource_received",
+            "domain": "social",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "old_contact",
+            "eligible_days": 90,
+            "within_7p_days": 15,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "renewed_contact",
+            "domain": "news",
+            "routing_evidence": [
+              "비겁",
+              "인성",
+              "식상"
+            ]
+          },
+          {
+            "event_key": "tidy_luck",
+            "eligible_days": 90,
+            "within_7p_days": 14,
+            "min_required_uplift": 0,
+            "min_gap": 0,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "tidying",
+            "domain": "leisure",
+            "routing_evidence": [
+              "인성",
+              "재성",
+              "관성"
+            ]
+          },
+          {
+            "event_key": "pleasant_meeting",
+            "eligible_days": 90,
+            "within_7p_days": 11,
+            "min_required_uplift": 0,
+            "min_gap": 1,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "enjoyable_meeting",
+            "domain": "social",
+            "routing_evidence": [
+              "식상",
+              "비겁",
+              "재성"
+            ]
+          },
+          {
+            "event_key": "love_deepening",
+            "eligible_days": 90,
+            "within_7p_days": 8,
+            "min_required_uplift": 0,
+            "min_gap": 2,
+            "blocking_stage": "HIGHER_CLEAN_CANDIDATE_PREFERRED",
+            "previous_selection_count": 0,
+            "semantic_family": "deepening",
+            "domain": "love",
+            "routing_evidence": [
+              "재성",
+              "관성",
+              "식상"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
