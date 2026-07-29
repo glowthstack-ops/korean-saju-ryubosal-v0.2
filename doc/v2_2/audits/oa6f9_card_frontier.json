@@ -1,0 +1,97 @@
+{
+  "audit_id": "OA-6f9",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "result": {
+    "measurement_stage": "display_pipeline",
+    "note": "`_select_slots` 가 support·caution 을 good 의 함수로 정하므로 카드 결과의 자유도는 good 대표 하나다. good 슬롯 자격은 `slots` 로 판정한다 — 사전과 slot 계약을 전혀 바꾸지 않았다.",
+    "windows": {
+      "failing_2027-06-01": {
+        "window_start": "2027-03-03",
+        "frontier_rows_per_card": {
+          "mean": 1.57,
+          "min": 1,
+          "max": 4
+        },
+        "individual_exact_oracle": {
+          "p10": 15,
+          "min": 14,
+          "median": 17,
+          "max": 21,
+          "below_target": 2
+        },
+        "support_headline_reachable_days": {
+          "mean_per_ilju": 23.9,
+          "iljus_with_none": 0
+        },
+        "support_role_family_reach": {
+          "close_conversation": {
+            "iljus_reachable": 0,
+            "mean_days_per_reachable_ilju": 0.0
+          },
+          "concentration": {
+            "iljus_reachable": 20,
+            "mean_days_per_reachable_ilju": 1.1
+          },
+          "rest": {
+            "iljus_reachable": 42,
+            "mean_days_per_reachable_ilju": 1.8
+          },
+          "tidying": {
+            "iljus_reachable": 29,
+            "mean_days_per_reachable_ilju": 1.4
+          },
+          "walk": {
+            "iljus_reachable": 12,
+            "mean_days_per_reachable_ilju": 1.1
+          }
+        },
+        "verdict": "CARD_LEVEL_FEASIBLE"
+      },
+      "passing_2026-07-01": {
+        "window_start": "2026-04-02",
+        "frontier_rows_per_card": {
+          "mean": 1.56,
+          "min": 1,
+          "max": 4
+        },
+        "individual_exact_oracle": {
+          "p10": 16,
+          "min": 14,
+          "median": 17,
+          "max": 20,
+          "below_target": 1
+        },
+        "support_headline_reachable_days": {
+          "mean_per_ilju": 23.3,
+          "iljus_with_none": 0
+        },
+        "support_role_family_reach": {
+          "close_conversation": {
+            "iljus_reachable": 0,
+            "mean_days_per_reachable_ilju": 0.0
+          },
+          "concentration": {
+            "iljus_reachable": 22,
+            "mean_days_per_reachable_ilju": 1.5
+          },
+          "rest": {
+            "iljus_reachable": 42,
+            "mean_days_per_reachable_ilju": 1.9
+          },
+          "tidying": {
+            "iljus_reachable": 28,
+            "mean_days_per_reachable_ilju": 1.5
+          },
+          "walk": {
+            "iljus_reachable": 11,
+            "mean_days_per_reachable_ilju": 1.2
+          }
+        },
+        "verdict": "CARD_LEVEL_FEASIBLE"
+      }
+    },
+    "verdict_note": "판정식을 정정했다 — 출시 기준은 p10 >= 15(15 미만 일주 5개 이하)이지 전 일주 15 이상이 아니다. 원자료(p10·below_target)는 그대로다."
+  }
+}
