@@ -1,0 +1,133 @@
+{
+  "audit_id": "OA-7c-S2",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "days": 90,
+  "result": {
+    "cards": 5400,
+    "stages": {
+      "money_small_gain": {
+        "rank1": 1388,
+        "top3": 1983,
+        "top5": 2409,
+        "good_slot": 1460,
+        "support_slot": 208,
+        "caution_slot": 0,
+        "raw_headline": 1434,
+        "final_headline": 1250,
+        "cap_displaced": 187,
+        "cap_promoted": 3
+      },
+      "good_news_arrives": {
+        "rank1": 268,
+        "top3": 1238,
+        "top5": 2364,
+        "good_slot": 353,
+        "support_slot": 626,
+        "caution_slot": 0,
+        "raw_headline": 358,
+        "final_headline": 402,
+        "cap_promoted": 44
+      },
+      "focus_flow": {
+        "rank1": 0,
+        "top3": 17,
+        "top5": 214,
+        "good_slot": 0,
+        "support_slot": 46,
+        "caution_slot": 0,
+        "raw_headline": 1,
+        "final_headline": 0,
+        "cap_displaced": 1
+      }
+    },
+    "exit_reasons": {
+      "money_small_gain": {
+        "GOOD_SLOT_ALREADY_FILLED": 3050,
+        "FINAL_SELECTED": 1250,
+        "S1_BAND_USES_CAUTION": 478,
+        "SYNONYM_GROUP_CONFLICT": 220,
+        "LOWER_CANDIDATE_SCORE": 215,
+        "BOARD_DOMAIN_CAP_DISPLACED": 187
+      },
+      "good_news_arrives": {
+        "GOOD_SLOT_ALREADY_FILLED": 3847,
+        "LOWER_CANDIDATE_SCORE": 560,
+        "S1_BAND_USES_CAUTION": 478,
+        "FINAL_SELECTED": 402,
+        "SYNONYM_GROUP_CONFLICT": 113
+      },
+      "focus_flow": {
+        "NOT_GOOD_SLOT_EVENT": 4877,
+        "S1_BAND_USES_CAUTION": 478,
+        "LOWER_CANDIDATE_SCORE": 44,
+        "BOARD_DOMAIN_CAP_DISPLACED": 1
+      }
+    },
+    "money_vs_news_conditional": {
+      "money_wins": {
+        "cards": 2528,
+        "winner_rank1": 1368,
+        "winner_top3": 1846,
+        "winner_rank4plus": 682,
+        "winner_final_headline": 1250
+      },
+      "news_wins": {
+        "cards": 2745,
+        "winner_rank1": 268,
+        "winner_top3": 1023,
+        "winner_rank4plus": 1722,
+        "winner_final_headline": 351
+      }
+    },
+    "news_blockers": [
+      {
+        "event_key": "praise_recognition",
+        "count": 501,
+        "mean_gap": 8.22
+      },
+      {
+        "event_key": "meet_helper",
+        "count": 446,
+        "mean_gap": 4.06
+      },
+      {
+        "event_key": "overspend_caution",
+        "count": 322,
+        "mean_gap": 20.34
+      },
+      {
+        "event_key": "argument_caution",
+        "count": 301,
+        "mean_gap": 24.75
+      },
+      {
+        "event_key": "document_progress",
+        "count": 264,
+        "mean_gap": 3.73
+      },
+      {
+        "event_key": "teamwork_flow",
+        "count": 246,
+        "mean_gap": 10.33
+      },
+      {
+        "event_key": "idea_flash",
+        "count": 67,
+        "mean_gap": 4.73
+      },
+      {
+        "event_key": "misunderstanding_caution",
+        "count": 61,
+        "mean_gap": 20.31
+      }
+    ],
+    "focus_flow_when_work_top": {
+      "cards": 1206,
+      "global_rank1": 0,
+      "global_top3": 17,
+      "good_slot": 0,
+      "raw_headline": 1
+    }
+  }
+}

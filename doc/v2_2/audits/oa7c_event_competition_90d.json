@@ -1,0 +1,123 @@
+{
+  "audit_id": "OA-7c-S2",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "days": 90,
+  "result": {
+    "cards": 5400,
+    "money_vs_news": {
+      "both_eligible": 5400,
+      "money_only_eligible": 0,
+      "news_only_eligible": 0,
+      "money_wins": 2528,
+      "news_wins": 2745,
+      "ties": 127,
+      "money_win_rate_pct": 46.8,
+      "mean_abs_gap": 11.92,
+      "gap_0_2": 628,
+      "gap_3_5": 818,
+      "gap_6plus": 3954
+    },
+    "focus_flow": {
+      "rank_in_work3": {
+        "focus_flow": {
+          "1": 1206,
+          "2": 1224,
+          "3": 2970
+        },
+        "praise_recognition": {
+          "1": 2427,
+          "2": 1747,
+          "3": 1226
+        },
+        "teamwork_flow": {
+          "1": 1767,
+          "2": 2429,
+          "3": 1204
+        }
+      },
+      "mean_gap_to_work_top": 9.33,
+      "counterfactual": {
+        "conf_1.0": {
+          "mean_delta": 5.23,
+          "would_reach_work_top": 2302,
+          "would_reach_pct": 42.6
+        },
+        "base_+0.02": {
+          "mean_delta": 1.46,
+          "would_reach_work_top": 1609,
+          "would_reach_pct": 29.8
+        },
+        "both": {
+          "mean_delta": 6.85,
+          "would_reach_work_top": 2626,
+          "would_reach_pct": 48.6
+        }
+      }
+    },
+    "family_talk": {
+      "funnel": {
+        "evaluated": 5400,
+        "any_day_branch_relation": 2850,
+        "positive_relation_contribution": 5400,
+        "good_candidate": 5400,
+        "top10": 431,
+        "top3": 0,
+        "top1": 0
+      },
+      "day_branch_relation_hits": {
+        "half_harmony": 755,
+        "punishment": 675,
+        "six_combination": 450,
+        "clash": 450,
+        "harm": 450,
+        "break": 450,
+        "three_harmony_complete": 145
+      },
+      "relation_affinity": {
+        "six_combination": 0.4,
+        "half_harmony": 0.2,
+        "three_harmony_complete": 0.4,
+        "clash": -0.3,
+        "punishment": -0.2,
+        "break": -0.1,
+        "harm": -0.2
+      },
+      "ten_god_affinity": {
+        "정인": 0.5,
+        "비견": 0.3,
+        "식신": 0.3,
+        "편관": -0.2
+      },
+      "base_weight": 0.33,
+      "expr_confidence": 0.85
+    }
+  },
+  "interim_conclusions": {
+    "family_talk": {
+      "verdict": "support_by_design",
+      "evidence": {
+        "positive_relation_contribution_pct": 100.0,
+        "good_candidate_pct": 100.0,
+        "day_branch_relation_hit_pct": 52.8,
+        "top10_pct": 8.0,
+        "top3_pct": 0.0,
+        "top1_pct": 0.0,
+        "expr_confidence": 0.85,
+        "ten_god_affinity_defined": 4,
+        "note": "10 십성 중 6개 미정의 — 신호 부족이 아니라 점수 축이 얕다"
+      },
+      "decision": "가족 관련 support 사건으로 유지한다. 헤드라인 노출을 목표로 점수를 올리지 않는다. 일반 관계 사건 확장이나 가족 overlay 분리의 근거도 현재는 없다 — 가족 대화라는 소재가 모든 사용자에게 매일 독립 헤드라인이 될 필요는 없다.",
+      "headline_slot_revocation": "보류 — 전체 선택 깔때기(OA-7c-S2) 결과 후 별도 결정"
+    },
+    "money_vs_news_m2_retracted": {
+      "previous": "M2(경쟁 사건이 낮다)",
+      "status": "retracted",
+      "reason": "직접 대결에서는 good_news_arrives 가 53.2% 로 오히려 이긴다(5,400건 전부 동시 후보). 전체 평균만으로 M2 로 판정한 것은 조건부 비교를 생략한 오류다. 다만 pairwise 우세만으로 '슬롯 이후 탈락'을 확정할 수도 없다 — 제3 사건이 둘 다 누를 수 있다. OA-7c-S2 단계별 trace 로 닫는다."
+    },
+    "focus_flow": {
+      "status": "pending_funnel",
+      "note": "work 3종 중 1위가 22%(1,206건)인데 전체 헤드라인 0회. confidence 1.0 반사실은 평균 +5.23p 지만 전체 헤드라인 진입 여부는 미확인. +5.23p 는 보정이 아니라 큰 판정 변경이므로 깔때기 결과 전에는 올리지 않는다."
+    }
+  }
+}
