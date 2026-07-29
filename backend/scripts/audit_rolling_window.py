@@ -21,6 +21,8 @@ from __future__ import annotations
 import argparse
 import collections
 import datetime as dt
+import functools
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -38,19 +40,24 @@ from saju_engines.daily_audit_output import (  # noqa: E402
     CanonicalWriteClaim,
     write_audit_output,
 )
-from saju_engines.daily_board_constraints import HeadlineCandidate, cap_count  # noqa: E402
+from saju_engines.daily_board_constraints import cap_count  # noqa: E402
 from saju_engines.daily_canonical_bootstrap import C10_POLICY  # noqa: E402
 from saju_engines.daily_rolling_audit_aggregate import (  # noqa: E402
-    CONTRACT_MODE_CANONICAL,
-    CONTRACT_MODE_DIAGNOSTIC,
+    ROLLING_AUDIT_AGGREGATE_CONTRACT_V1,
+    build_rolling_audit_aggregates,
+    contract_mode,
+    derive_diagnostic_contract,
+)
+from saju_engines.daily_rolling_audit_public_adapter import (  # noqa: E402
+    project_to_oa10b_public_v1,
+)
+from saju_engines.daily_schedule_runner import (  # noqa: E402
+    build_rolling_audit_schedule,
 )
 from saju_engines.daily_selection_policy_shadow import (  # noqa: E402
     LONGITUDINAL_HISTORY_LOOKBACK_DAYS,
     SelectionPolicy,
-    select_board,
-    select_good_representative,
 )
-from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index  # noqa: E402
 
 WARMUP_DAYS = 180
 WINDOW = LONGITUDINAL_HISTORY_LOOKBACK_DAYS          # 90
@@ -72,66 +79,65 @@ def _schedule_start() -> dt.date:
 def build_schedule(
     family_of: dict[str, str], *, anchor_days: int = ANCHOR_DAYS
 ) -> dict[str, list[str]]:
-    """연속 canonical schedule 을 날짜순으로 생성한다.
+    """호환 wrapper — 공용 runner 로 얇게 전달만 한다.
 
-    Returns:
-        일주 → 날짜순 final headline 목록(생성 시작일부터).
+    공식 `run()` 은 이 함수를 쓰지 않는다. 기본값·인자 변환·출력 변환·legacy state
+    재구성·aggregate 호출을 여기에 추가하지 않는다. D2 이후 사용처를 전수 확인하고
+    제거한다.
     """
-    dicts = M.load_daily_dicts()
-    events = dicts.catalog["events"]
-    headline_history: dict[str, list[str]] = collections.defaultdict(list)
-    good_history: dict[str, list[str]] = collections.defaultdict(list)
-
-    total = WARMUP_DAYS + WINDOW + anchor_days
-    day = _schedule_start()
-    for _ in range(total):
-        ctx = M.build_day_context(day)
-        raw: dict[str, HeadlineCandidate] = {}
-        cmap: dict[str, list[HeadlineCandidate]] = {}
-        for idx in range(60):
-            stem, branch = ganzi_from_index(idx)
-            ilju = f"{stem.value}{branch.value}"
-            seed = f"{day.isoformat()}|{ilju}|{M.EVENT_SELECTION_COMPAT_SALT}"
-            scored = [M._score_event(k, e, stem, branch, ctx) for k, e in events.items()]
-            goods = [
-                (s.event_key, s.probability) for s in scored
-                if s.valence == "good"
-                and "good" in (events[s.event_key].get("headline_slots")
-                               or events[s.event_key]["slots"])
-            ]
-            rep = select_good_representative(
-                goods, good_history[ilju], _BUDGET, policy=C10_POLICY,
-                family_of=family_of, headline_history=headline_history[ilju],
-            )
-            g, c, s = M._select_slots(
-                scored, seed, good_override=rep.display_good_representative
-            )
-            cands = M._headline_candidates(g, s, c, M._band(g, c))
-            cmap[ilju] = [
-                HeadlineCandidate(x.event_key, x.domain, x.probability) for x in cands
-            ]
-            raw[ilju] = cmap[ilju][0]
-            good_history[ilju].append(rep.display_good_representative)
-        r = select_board(
-            raw, cmap, headline_history, domain_cap=_DOMAIN_CAP, event_cap=_EVENT_CAP,
-            max_displacement_cost=_BUDGET, policy=_BOARD, today=day.toordinal(),
-        )
-        for ilju, sel in r.selections.items():
-            headline_history[ilju].append(sel.event_key)
-        day += dt.timedelta(days=1)
-    return dict(headline_history)
+    steps, _state = build_rolling_audit_schedule(
+        days=WARMUP_DAYS + WINDOW + anchor_days, policy=C10_POLICY,
+        board_policy=_BOARD, family_of=family_of,
+    )
+    history: dict[str, list[str]] = {}
+    for step in steps:
+        for row in step.rows:
+            history.setdefault(row["ilju"], []).append(row["final_headline"])
+    return history
 
 
-def _expiry_profile(window: list[str], family_of: dict[str, str]) -> dict[str, int]:
-    """창 안 family 의 만료 예정. index 0 = 가장 오래된 날(D-90)."""
-    last_seen: dict[str, int] = {}
-    for i, key in enumerate(window):
-        last_seen[family_of.get(key, key)] = i
-    return last_seen
+def _fp(payload: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=False,
+                   separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
-def run(*, anchor_days: int = ANCHOR_DAYS) -> dict[str, Any]:
-    """감사 결과를 계산한다. **파일을 쓰지 않는다** — 쓰기는 호출부가 결정한다."""
+def _anchor_fingerprint(aggregates: dict[str, Any]) -> str:
+    """동결 aggregate artifact 와 같은 규약으로 계산한다."""
+    frozen = _frozen_meta()
+    return _fp({
+        "schema": frozen["aggregate_schema_version"],
+        "range": [frozen["official_anchor_first"], frozen["official_anchor_last"]],
+        "count": frozen["official_anchor_count"],
+        "gates": frozen["gate_thresholds"],
+        "anchors": aggregates["anchors"],
+    })
+
+
+def _episode_fingerprint(aggregates: dict[str, Any]) -> str:
+    return _fp({
+        "schema": _frozen_meta()["episode_schema_version"],
+        "episodes": aggregates["episodes"],
+    })
+
+
+@functools.cache
+def _frozen_meta() -> dict[str, Any]:
+    return json.loads(
+        (_BACKEND / "compiled" / "oa10b_anchor_aggregates.json")
+        .read_text(encoding="utf-8")
+    )
+
+
+def run(
+    *, anchor_days: int = ANCHOR_DAYS
+) -> tuple[dict[str, Any], CanonicalWriteClaim]:
+    """감사 결과와 **증거 쓰기 자격**을 함께 낸다.
+
+    파일은 쓰지 않는다 — 쓰기는 호출부가 결정한다. 자격은 여기서 만든다. 호출부가
+    지문을 다시 계산하면 계산 경로와 자격 증명이 갈릴 수 있다.
+    """
     taxonomy = json.loads(
         (_BACKEND / "dictionaries" / "daily_fortune" / "daily_event_taxonomy.json")
         .read_text(encoding="utf-8")
@@ -139,70 +145,29 @@ def run(*, anchor_days: int = ANCHOR_DAYS) -> dict[str, Any]:
     family_of = {k: t["semantic_family"] for k, t in taxonomy.items()}
     events = M.load_daily_dicts().catalog["events"]
 
-    schedule = build_schedule(family_of, anchor_days=anchor_days)
-    offset = WARMUP_DAYS          # 첫 anchor 창(D-90)의 시작 인덱스
-    daily: list[dict[str, Any]] = []
-    below_counter = collections.Counter()
-    expiry_at_risk = 0
+    # 공용 schedule 을 **한 번만** 만들고, 같은 rows 로 집계·episode 를 낸다.
+    steps, _state = build_rolling_audit_schedule(
+        days=WARMUP_DAYS + WINDOW + anchor_days, policy=C10_POLICY,
+        board_policy=_BOARD, family_of=family_of,
+    )
+    rows = [dict(row) for step in steps for row in step.rows]
+    contract = (
+        ROLLING_AUDIT_AGGREGATE_CONTRACT_V1 if anchor_days == ANCHOR_DAYS
+        else derive_diagnostic_contract(anchor_days=anchor_days)
+    )
+    aggregates = build_rolling_audit_aggregates(
+        rows, family_of, {k: e["domain"] for k, e in events.items()}, contract
+    )
+    # 공개 JSON 은 legacy 필드만 노출한다 — 확장 필드는 내부에만 남는다.
+    daily, episode_rows = project_to_oa10b_public_v1(aggregates)
+
+    below_counter: collections.Counter = collections.Counter()
+    for iljus in aggregates["below_iljus_by_anchor"].values():
+        below_counter.update(iljus)
+    expiry_at_risk = sum(a["expiry_at_risk_iljus"] for a in aggregates["anchors"])
     expired_without_replacement = 0
 
-    for a in range(anchor_days):
-        anchor = FIRST_ANCHOR + dt.timedelta(days=a)
-        lo, hi = offset + a, offset + a + WINDOW
-        keys, fams, doms = [], [], []
-        below: list[str] = []
-        risk = 0
-        for ilju, series in schedule.items():
-            w = series[lo:hi]
-            uk = len(set(w))
-            uf = len({family_of.get(e, e) for e in set(w)})
-            keys.append(uk)
-            fams.append(uf)
-            doms.append(len({events[e]["domain"] for e in set(w)}))
-            if uk < _TARGET:
-                below.append(ilju)
-                below_counter[ilju] += 1
-            # 만료 위험: 오늘 coverage 는 문턱 이상이나 7일 내 만료로 목표 아래가 된다
-            last_seen = _expiry_profile(w, family_of)
-            projected = sum(1 for v in last_seen.values() if v >= 7)
-            if uf >= _RECOVERY_TARGET and projected < _TARGET:
-                risk += 1
-        expiry_at_risk += risk
-        kp, fp, dp = sorted(keys)[_P10], sorted(fams)[_P10], sorted(doms)[_P10]
-        daily.append({
-            "anchor_date": anchor.isoformat(),
-            "key_p10": kp, "family_p10": fp, "domain_p10": dp,
-            "count_below_15": len(below),
-            "count_equal_14": sum(1 for k in keys if k == 14),
-            "bottom_6_iljus": sorted(below)[:6],
-            "expiry_at_risk_iljus": risk,
-            "passes": kp >= _TARGET and fp >= _TARGET,
-        })
-
     passing = [d for d in daily if d["passes"]]
-    # 연속 실패 episode
-    episodes: list[dict[str, Any]] = []
-    cur: list[dict[str, Any]] = []
-    for d in daily:
-        if d["passes"]:
-            if cur:
-                episodes.append(cur)
-                cur = []
-        else:
-            cur.append(d)
-    if cur:
-        episodes.append(cur)
-
-    episode_rows = [
-        {
-            "episode_start": e[0]["anchor_date"],
-            "episode_end": e[-1]["anchor_date"],
-            "duration_days": len(e),
-            "minimum_key_p10": min(x["key_p10"] for x in e),
-            "affected_iljus": sorted({i for x in e for i in x["bottom_6_iljus"]}),
-        }
-        for e in episodes
-    ]
     # 14 → 15 → 14 진동
     seq = [d["key_p10"] for d in daily]
     oscillation = sum(
@@ -212,7 +177,7 @@ def run(*, anchor_days: int = ANCHOR_DAYS) -> dict[str, Any]:
     by_month = collections.Counter(
         d["anchor_date"][:7] for d in daily if not d["passes"]
     )
-    return {
+    result = {
         "measurement_stage": "display_pipeline",
         "protocol": {
             "warmup_days": WARMUP_DAYS, "window_days": WINDOW,
@@ -241,28 +206,16 @@ def run(*, anchor_days: int = ANCHOR_DAYS) -> dict[str, Any]:
         "episodes": episode_rows[:20],
         "daily": daily,
     }
-
-
-def _canonical_claim(result: dict[str, Any], anchor_days: int) -> CanonicalWriteClaim:
-    """이 실행이 동결 증거를 덮어쓸 자격이 있는가.
-
-    legacy inline 경로는 anchor·episode 지문을 만들지 않으므로 빈 값을 넘긴다 —
-    따라서 증거 경로 쓰기는 차단된다. 의도된 결과다. 증거 재생성은 지문을 증명할 수
-    있는 canonical 경로에서만 해야 한다.
-    """
-    daily = result["daily"]
-    return CanonicalWriteClaim(
-        contract_mode=(
-            CONTRACT_MODE_CANONICAL if anchor_days == ANCHOR_DAYS
-            else CONTRACT_MODE_DIAGNOSTIC
-        ),
+    claim = CanonicalWriteClaim(
+        contract_mode=contract_mode(contract),
         anchor_days=anchor_days,
         first_anchor=daily[0]["anchor_date"] if daily else "",
         last_anchor=daily[-1]["anchor_date"] if daily else "",
-        anchor_fingerprint="",          # legacy 경로는 산출하지 않는다
-        episode_fingerprint="",
-        projection_verified=False,
+        anchor_fingerprint=_anchor_fingerprint(aggregates),
+        episode_fingerprint=_episode_fingerprint(aggregates),
+        projection_verified=True,       # projection 이 예외 없이 끝났다
     )
+    return result, claim
 
 
 def _frozen_expectation() -> CanonicalExpectation:
@@ -292,9 +245,8 @@ if __name__ == "__main__":
         help="계산만 하고 파일을 쓰지 않는다(짧은 진단 실행용).",
     )
     args = parser.parse_args()
-    ANCHOR_DAYS = args.anchor_days
 
-    result = run(anchor_days=args.anchor_days)
+    result, claim = run(anchor_days=args.anchor_days)
     data = {
         "audit_id": "OA-10b",
         "policy_status": "measurement_only",
@@ -308,7 +260,7 @@ if __name__ == "__main__":
     else:
         write_audit_output(
             out, data, repo_root=_ROOT,
-            claim=_canonical_claim(result, args.anchor_days),
+            claim=claim,
             expected=_frozen_expectation(),
         )
         print("[ok]", out.name)

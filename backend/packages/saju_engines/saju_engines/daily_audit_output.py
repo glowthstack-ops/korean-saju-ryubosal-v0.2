@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import tempfile
@@ -27,6 +28,14 @@ from typing import Any
 EVIDENCE_RELATIVE_PATHS = (
     "doc/v2_2/audits/oa10b_rolling_window.json",
 )
+
+
+#: "이 플랫폼·파일시스템은 디렉터리 fsync 를 지원하지 않는다" 에 해당하는 errno.
+#: 그 밖의 오류(EIO 등)는 삼키지 않는다.
+_UNSUPPORTED_ERRNOS = frozenset({
+    errno.EINVAL, errno.EACCES, errno.EPERM, errno.EISDIR, errno.ENOSYS,
+    getattr(errno, "ENOTSUP", errno.EOPNOTSUPP), errno.EOPNOTSUPP,
+})
 
 
 class AuditEvidenceOverwriteError(RuntimeError):
@@ -134,14 +143,28 @@ def atomic_write_json(path: Path, payload: Mapping[str, Any]) -> None:
         tmp.unlink(missing_ok=True)
         raise
     # 여기부터는 교체가 끝났다 — 아래 실패로 롤백하지 않는다.
+    _fsync_directory(path.parent)
+
+
+def _fsync_directory(directory: Path) -> None:
+    """디렉터리 항목까지 내려쓴다 — **내구성 보강**이다.
+
+    이미 `os.replace` 가 끝난 뒤라 여기서 실패해도 롤백하지 않는다. 다만
+    `except OSError: pass` 로 뭉뚱그리면 EIO 같은 실제 I/O 오류까지 숨는다.
+    플랫폼·파일시스템이 지원하지 않는 경우만 조용히 넘기고, 그 밖의 오류는
+    전파한다.
+    """
     try:
-        dir_fd = os.open(str(path.parent), os.O_RDONLY)
-    except (OSError, AttributeError):
-        return                      # 플랫폼 미지원 — 보강 생략
+        dir_fd = os.open(str(directory), os.O_RDONLY)
+    except OSError as exc:
+        if exc.errno in _UNSUPPORTED_ERRNOS:
+            return                  # Windows 등 — 디렉터리 fd 열기 미지원
+        raise
     try:
         os.fsync(dir_fd)
-    except OSError:
-        pass                        # 디렉터리 fsync 미지원 파일시스템
+    except OSError as exc:
+        if exc.errno not in _UNSUPPORTED_ERRNOS:
+            raise                   # EIO 등 — 숨기지 않는다
     finally:
         os.close(dir_fd)
 

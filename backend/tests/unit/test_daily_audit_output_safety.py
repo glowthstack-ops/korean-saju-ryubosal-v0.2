@@ -195,3 +195,45 @@ def test_diagnostic_contract_is_not_canonical() -> None:
 def test_diagnostic_contract_rejects_nonpositive_anchor_days() -> None:
     with pytest.raises(ValueError):
         derive_diagnostic_contract(anchor_days=0)
+
+
+# ── directory fsync 예외 범위 ─────────────────────────────────────────────
+#
+# `except OSError: pass` 로 뭉뚱그리면 EIO 같은 실제 I/O 오류가 숨는다.
+
+
+def test_unsupported_directory_fsync_is_tolerated(tmp_path, monkeypatch) -> None:
+    """Windows 등 디렉터리 fd 열기 미지원 — 이미 끝난 교체를 실패로 만들지 않는다."""
+    import errno as _errno
+    import os as _os
+
+    from saju_engines import daily_audit_output as mod
+
+    real_open = _os.open
+
+    def fake_open(path, flags, *a, **kw):
+        if flags == _os.O_RDONLY and Path(path).is_dir():
+            raise OSError(_errno.EACCES, "not supported")
+        return real_open(path, flags, *a, **kw)
+
+    monkeypatch.setattr(mod.os, "open", fake_open)
+    target = tmp_path / "out.json"
+    atomic_write_json(target, {"a": 1})
+    assert json.loads(target.read_text(encoding="utf-8")) == {"a": 1}
+
+
+def test_real_io_error_on_directory_fsync_propagates(tmp_path, monkeypatch) -> None:
+    """EIO 는 숨기지 않는다."""
+    import errno as _errno
+
+    from saju_engines import daily_audit_output as mod
+
+    def boom(fd):
+        raise OSError(_errno.EIO, "disk failure")
+
+    target = tmp_path / "out.json"
+    atomic_write_json(target, {"a": 1})
+    monkeypatch.setattr(mod.os, "fsync", boom)
+    with pytest.raises(OSError) as exc:
+        atomic_write_json(target, {"a": 2})
+    assert exc.value.errno == _errno.EIO
