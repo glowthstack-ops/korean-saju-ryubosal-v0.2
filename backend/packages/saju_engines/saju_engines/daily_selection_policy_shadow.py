@@ -32,6 +32,7 @@ import collections
 import numbers
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 
 from .daily_board_constraints import HeadlineCandidate, Move
 from .daily_cooldown_shadow import (
@@ -69,6 +70,52 @@ SEVERITY_NAMES = {
     SEVERITY_FOURTH_OR_MORE: "ROLLING_7D_FOURTH_OR_MORE_BLOCKED",
     SEVERITY_CONSECUTIVE: "CONSECUTIVE_REPEAT_BLOCKED",
 }
+
+
+# ── OA-11d S1 (shadow) 관측 코드 ──────────────────────────────────────────
+#
+# 진입 조건은 **과거 이력과 현재 후보만** 쓴다. board 이후의 실현 여부는 정책 입력이
+# 아니라 사후 평가값이다 — 진입 조건에 쓰면 미래 결과를 미리 본 정책이 된다.
+FAMILY_DEFICIT_CLEAN_SHORT_CIRCUIT_BYPASSED = (
+    "FAMILY_DEFICIT_CLEAN_SHORT_CIRCUIT_BYPASSED"
+)
+#: 우회하지 **않은** 관측 코드다. 성공으로 계산하면 안 된다.
+FAMILY_DEFICIT_NO_NEW_TOP1_FAMILY = "FAMILY_DEFICIT_NO_NEW_TOP1_FAMILY"
+FAMILY_DEFICIT_TOP1_PROJECTION_UNAVAILABLE = (
+    "FAMILY_DEFICIT_TOP1_PROJECTION_UNAVAILABLE"
+)
+FAMILY_DEFICIT_TOP1_PROJECTION_EVENT_MISMATCH = (
+    "FAMILY_DEFICIT_TOP1_PROJECTION_EVENT_MISMATCH"
+)
+
+
+class ProjectionStatus(StrEnum):
+    """projection 산출 상태."""
+
+    PROJECTED = "PROJECTED"
+    #: projection 계산 자체가 불가능했다.
+    UNAVAILABLE = "UNAVAILABLE"
+    #: 복수 family 가 동률이라 단일 투영으로 확정할 수 없다. 정책 판단은
+    #: UNAVAILABLE 과 같게 취급하되 trace 에서는 구분해 남긴다.
+    AMBIGUOUS = "AMBIGUOUS"
+
+
+@dataclass(frozen=True)
+class Top1FamilyProjection:
+    """**원시 1위 사건에 결박된** projection.
+
+    문자열만 넘기면 다른 후보에서 계산된 family 가 실수로 연결돼도 알아낼 수 없다.
+    그래서 어느 사건에 대한 projection 인지 함께 들고 다닌다.
+
+    Attributes:
+        event_key: 이 projection 이 가리키는 사건. 원시 1위와 같아야 한다.
+        family: board **이전** 카드 top-1 헤드라인이 낼 family.
+        status: 산출 상태.
+    """
+
+    event_key: str
+    family: str
+    status: ProjectionStatus = ProjectionStatus.PROJECTED
 
 
 def strength_band(probability: int) -> int:
@@ -248,6 +295,15 @@ class LongTermPolicy:
     #:   두 단계 이상     차단
     #: 전면 차단(C6)은 s4→s3 통로까지 없애 고유 p10 이 14 로 내려앉는다.
     band_protection: bool = False
+    #: OA-11d S1 (shadow) — family 부족 상태에서 **CLEAN short-circuit 만** 우회한다.
+    #:
+    #: C10 은 원시 1위 good 사건이 그 자체로 반복이 아니면 즉시 반환한다. coverage 가
+    #: floor 아래여도, 신규 family 를 낼 합법 후보가 있어도 보지 않는다 — family
+    #: 회복이 "동일 사건 반복 방지" 뒤의 보조 로직으로 놓여 있다.
+    #:
+    #: 이 플래그는 신규 알고리즘이 아니다. **기존 diversity 경로에 진입할 기회를
+    #: 여는 것**뿐이며, 후보 생성·순서·stable hash·예산·밴드 보호·board 는 그대로다.
+    family_deficit_clean_bypass: bool = False
 
 
 L0_POLICY = LongTermPolicy()
@@ -281,12 +337,59 @@ def _longterm_key(
     return (*rank, loss, key)
 
 
+def _family_deficit_clean_bypass(
+    *,
+    policy: LongTermPolicy,
+    family_of: Mapping[str, str],
+    headline_history: Sequence[str],
+    raw_top_key: str,
+    projection: Top1FamilyProjection | None,
+) -> tuple[bool, str | None]:
+    """CLEAN short-circuit 을 우회할지 — **과거 이력과 현재 후보만** 본다.
+
+    fail-closed 다. projection 이 없거나 계산 실패거나 다른 사건을 가리키거나
+    family 가 확정되지 않으면 열지 않는다.
+
+    Args:
+        policy: 장기 다양성 정책.
+        family_of: event_key → semantic family.
+        headline_history: 그 일주의 과거 최종 헤드라인 이력(오래된 순).
+        raw_top_key: 원시 1위 사건.
+        projection: 그 원시 1위에 결박된 projection.
+
+    Returns:
+        (우회 여부, 우회하지 않은 관측 코드 또는 None).
+    """
+    if not policy.family_deficit_clean_bypass or policy.coverage_floor is None:
+        return False, None
+    if projection is None or projection.status is not ProjectionStatus.PROJECTED:
+        # 정책 판단은 둘을 같게 취급하지만, `oa11d_trace` 는 원래 status 를 그대로
+        # 보존해야 한다 — "계산 자체가 불가능" 과 "복수 family 로 단일 투영 불가" 를
+        # 5-anchor 결과에서 분리해야 병목을 가릴 수 있다.
+        return False, FAMILY_DEFICIT_TOP1_PROJECTION_UNAVAILABLE
+    if projection.event_key != raw_top_key:
+        # 다른 후보에서 계산된 projection 이 연결됐다 — 열지 않는다.
+        return False, FAMILY_DEFICIT_TOP1_PROJECTION_EVENT_MISMATCH
+    if not projection.family:
+        return False, FAMILY_DEFICIT_TOP1_PROJECTION_UNAVAILABLE
+    look = LONGITUDINAL_HISTORY_LOOKBACK_DAYS
+    families = {
+        family_of.get(k, k) for k in tuple(headline_history[-look:])
+    }
+    if len(families) >= policy.coverage_floor:
+        return False, None          # family deficit 아님
+    if projection.family in families:
+        return False, FAMILY_DEFICIT_NO_NEW_TOP1_FAMILY
+    return True, None
+
+
 def select_good_representative(
     goods: Sequence[tuple[str, int]], history: Sequence[str], budget: int,
     *,
     policy: LongTermPolicy = L0_POLICY,
     family_of: Mapping[str, str] | None = None,
     headline_history: Sequence[str] = (),
+    top1_projection: Top1FamilyProjection | None = None,
 ) -> GoodRepresentative:
     """반복을 피하는 good 표시 대표를 고른다.
 
@@ -308,12 +411,19 @@ def select_good_representative(
     ranked = sorted(goods, key=lambda x: (-x[1], x[0]))
     top_key, top_p = ranked[0]
     if repeat_severity(history, top_key) == SEVERITY_CLEAN:
-        return GoodRepresentative(
-            raw_good_winner=top_key, raw_good_probability=top_p,
-            display_good_representative=top_key, display_good_probability=top_p,
-            good_selection_reason=RAW_GOOD_WINNER_SELECTED,
-            display_displacement_loss=0,
+        # S1 (shadow) 은 이 한 분기만 바꾼다. 조건을 못 채우면 C10 과 동일하다.
+        bypass, _observed = _family_deficit_clean_bypass(
+            policy=policy, family_of=family_of or {},
+            headline_history=headline_history, raw_top_key=top_key,
+            projection=top1_projection,
         )
+        if not bypass:
+            return GoodRepresentative(
+                raw_good_winner=top_key, raw_good_probability=top_p,
+                display_good_representative=top_key, display_good_probability=top_p,
+                good_selection_reason=RAW_GOOD_WINNER_SELECTED,
+                display_displacement_loss=0,
+            )
 
     band_protection = policy.band_protection
     in_recovery = False
