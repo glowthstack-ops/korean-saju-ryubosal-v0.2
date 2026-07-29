@@ -267,3 +267,52 @@
 `_select_slots` 는 good 후보를 `headline_slots` 가 아니라 `slots` 로 고른다. 의도한
 대표가 슬롯 자격이 없으면 무효화되므로(`INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE`,
 v2 풀 기준 125/1800 = 6.9%), 의도와 실현을 한 필드에 섞으면 이후 감사가 다시 왜곡된다.
+
+기존 감사값 `3.11p` 는 **폐기하지 않고 이름만 바꿔 보존**한다.
+
+| 지표 | 값 | 지위 |
+|---|---|---|
+| `intended_representative_loss` | 평균 3.11p | 진단값(의도 기준). 공식 가드 아님 |
+| `realized_display_displacement_loss` | 평균 0.34p / 최대 7p | **공식 품질 지표** |
+
+### 21-5. 문장 동결 계약
+
+사용자 가시 문장은 다음 조합에 대해 동결된다.
+
+```text
+pool fingerprint + commit + renderer contract + content/template/narrative version
+```
+
+테스트 기간에 renderer·template·narrative 코드를 **같은 pool version 아래에서 조용히
+수정하면 안 된다.** 사건 선택이 같아도 문장이 바뀌면 테스터가 평가하는 제품이 달라진다.
+
+문장 패치가 필요하면:
+
+```text
+renderer contract 버전 상승 → 1,800장 전수 재렌더 → render fingerprint 재검증
+→ 새 pool version
+```
+
+이 계약은 두 겹으로 강제된다.
+
+1. **preflight 코드 드리프트 검사** — 풀에 기록된 `content_version` ·
+   `event_selection_contract` · `board_rebalance_version`(값은 `SELECTOR_VERSION`) ·
+   `renderer_contract_version` 을 지금 프로세스의 런타임 값과 대조한다. 다르면
+   `BETA_POOL_CODE_CONTRACT_DRIFT` 로 기동을 막는다.
+2. **golden render fingerprint 회귀** — 공개 창의 3개 날짜(첫날·중간·마지막)에 대해
+   `render_result_fingerprint` 를 테스트에 고정한다. 문장이 바뀌면 즉시 실패한다.
+   실패했을 때 고정값을 갱신하는 것이 아니라, 새 pool version 으로 올린다.
+
+### 21-6. 배포 smoke
+
+`scripts/smoke_daily_beta.py` — 공개 경계(2026-07-30 00:00 KST) 전후를 나눈다. 한 벌로
+합치면 "아직 안 열림"과 "고장"을 구분하지 못한다.
+
+```bash
+# 배포 직후(경계 전)
+python3 scripts/smoke_daily_beta.py --base-url https://beta.example.com --phase pre
+
+# 자정 이후(경계 후)
+python3 scripts/smoke_daily_beta.py --base-url https://beta.example.com --phase post \
+    --admin-token "$TOKEN"
+```

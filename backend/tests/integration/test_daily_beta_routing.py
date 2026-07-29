@@ -327,3 +327,48 @@ def test_pregen_loop_is_off_on_beta_deployments(monkeypatch) -> None:
     """legacy 보드를 만들어 캐시에 쌓을 이유가 없다."""
     _env(monkeypatch)
     assert svc.beta_enabled() is True
+
+
+# ── 문장 동결 ─────────────────────────────────────────────────────────────
+#
+# 선택만 동결해서는 부족하다. 사용자 가시 문장은 renderer·template·narrative
+# 코드에서 나오므로, 같은 pool version 아래에서 이들을 조용히 고치면 테스터가
+# 평가하는 제품이 달라진다. 문장 패치가 필요하면 renderer contract 상승 →
+# 1,800장 전수 재렌더 → 새 pool version 으로 분리한다.
+
+#: `beta-daily-pool.c10.v2` + commit 40ac44d 기준 사용자 가시 결과 지문.
+_GOLDEN_RENDER = {
+    "2026-07-30": "7923de56f07b7034dc4c6a04b25d4b22419fac56af868e1d28574f6cc3058f21",
+    "2026-08-06": "833e29c0ef9073617d68fe730b3a0684b00f4207d5feb2ab5192d1dd6ca9ae2a",
+    "2026-08-28": "0fca984138dfa43432273f33992c8cb6e34126e4f8730adad254de56479bd06d",
+}
+
+
+@pytest.mark.parametrize("day", sorted(_GOLDEN_RENDER))
+def test_user_visible_sentences_are_frozen(registry, day) -> None:
+    """실패했다면 문장이 바뀐 것이다 — 고치지 말고 새 pool version 으로 올린다."""
+    target = dt.date.fromisoformat(day)
+    _board, audit = render(registry, target, now=_now(target), allow_future=True)
+    assert audit["render_result_fingerprint"] == _GOLDEN_RENDER[day]
+
+
+def test_code_contract_drift_blocks_startup(registry, monkeypatch) -> None:
+    """풀을 만든 코드와 지금 코드가 다르면 기동하지 않는다."""
+    from saju_api.services import daily_beta_registry as mod
+
+    monkeypatch.setattr(
+        "saju_engines.daily_ilju_fortune.EVENT_SELECTION_COMPAT_SALT", "engine.v2|x|y"
+    )
+    with pytest.raises(BetaPoolError) as e:
+        build_registry()
+    assert e.value.code == mod.BETA_POOL_CODE_CONTRACT_DRIFT
+
+
+def test_renderer_contract_pin_is_enforced(monkeypatch) -> None:
+    """env 로 고정한 renderer contract 와 코드가 어긋나면 기동하지 않는다."""
+    from saju_api.services import daily_beta_registry as mod
+
+    _env(monkeypatch, DAILY_BETA_RENDERER_CONTRACT="daily-beta-render.c10.v0")
+    with pytest.raises(BetaPoolError) as e:
+        build_registry()
+    assert e.value.code == mod.BETA_POOL_CODE_CONTRACT_DRIFT

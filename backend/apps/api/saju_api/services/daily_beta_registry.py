@@ -102,6 +102,48 @@ class BetaDailyPoolRegistry:
         return self.metadata["pool_version"]
 
 
+#: 문장 생성 코드가 풀을 만들 때와 달라졌다 — 같은 pool version 아래에서 테스터가
+#: 보는 제품이 바뀐다.
+BETA_POOL_CODE_CONTRACT_DRIFT = "BETA_POOL_CODE_CONTRACT_DRIFT"
+
+
+def _assert_code_matches_pool(meta: dict[str, Any], cfg: BetaPoolConfig) -> None:
+    """풀이 만들어질 때의 계약과 **지금 이 프로세스의 코드**가 같은지 확인한다.
+
+    선택만 동결해서는 부족하다. 사용자 가시 문장은 renderer·template·narrative
+    코드에서 나오므로, 같은 pool version 아래에서 이들을 조용히 고치면 테스터가
+    평가하는 제품이 달라진다. 여기서 막아 새 pool version 을 강제한다.
+
+    Raises:
+        BetaPoolError: 코드 계약이 풀 기록과 다를 때.
+    """
+    from saju_engines.daily_ilju_fortune import (
+        EVENT_SELECTION_COMPAT_SALT,
+        SELECTOR_VERSION,
+    )
+    from saju_shared_types.daily_fortune import content_version_for
+
+    anchor = date.fromisoformat(meta["anchor_date"])
+    checks = (
+        ("content_version", meta["content_version"], content_version_for(anchor)),
+        (
+            "event_selection_contract",
+            meta["event_selection_contract"],
+            EVENT_SELECTION_COMPAT_SALT,
+        ),
+        # 스냅샷 키 이름은 구형이지만 값은 SELECTOR_VERSION 이다.
+        ("board_rebalance_version", meta["board_rebalance_version"], SELECTOR_VERSION),
+        (
+            "renderer_contract_version",
+            cfg.renderer_contract,
+            RENDERER_CONTRACT_VERSION,
+        ),
+    )
+    drift = [f"{n}: pool={p} != code={c}" for n, p, c in checks if p != c]
+    if drift:
+        raise BetaPoolError(BETA_POOL_CODE_CONTRACT_DRIFT, "; ".join(drift))
+
+
 def build_registry(config: BetaPoolConfig | None = None) -> BetaDailyPoolRegistry:
     """preflight — 실패하면 예외를 던진다(프로세스를 ready 로 올리지 않는다).
 
@@ -130,6 +172,7 @@ def build_registry(config: BetaPoolConfig | None = None) -> BetaDailyPoolRegistr
         "display-selection.p4-lc.c10.v1"
     ):
         raise BetaPoolError(BETA_POOL_UNAVAILABLE, "표시 정책 버전 불일치")
+    _assert_code_matches_pool(meta, cfg)
     selections = {
         k: v for k, v in validate_pool(cfg.pool_version, cfg.compiled_dir).items()
     }
