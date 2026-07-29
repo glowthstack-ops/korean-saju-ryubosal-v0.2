@@ -1,0 +1,61 @@
+{
+  "audit_id": "OA-7c-S3",
+  "closed_on": "2026-07-29",
+  "policy_status": "diagnosis_closed",
+  "live_behavior_changed": false,
+  "money_small_gain_adjustment": "rejected",
+  "reason": "insufficient_effect_and_same_domain_substitution",
+  "dominance_root": [
+    "same_signal_multi_event_fanout",
+    "non_money_routing_underpowered"
+  ],
+  "next_phase": "signal_to_event_routing_design",
+  "rejected_counterfactual_baselines": {
+    "note": "제품 후보가 아니라 '효과 없음'을 남기는 기준선이다. 다시 제안될 때 재측정 없이 기각 근거로 쓴다.",
+    "variants": [
+      {"id": "M-A1", "pyeonjae_affinity": 0.85, "pyeonjae_rank1_pct": 81.5, "gap": 7.24, "longitudinal_p90": 38.9, "displaced": {"overspend_caution": 100}},
+      {"id": "M-A2", "pyeonjae_affinity": 0.80, "pyeonjae_rank1_pct": 80.2, "gap": 6.55, "longitudinal_p90": 36.7, "displaced": {"overspend_caution": 107}},
+      {"id": "M-A3", "pyeonjae_affinity": 0.75, "pyeonjae_rank1_pct": 77.4, "gap": 5.95, "longitudinal_p90": 36.7, "displaced": {"overspend_caution": 119, "treat_received": 2, "praise_recognition": 1}}
+    ],
+    "baseline_M0": {"pyeonjae_affinity": 0.90, "pyeonjae_rank1_pct": 82.8, "gap": 7.84, "longitudinal_p90": 38.9},
+    "verdict": "17% 인하(0.90→0.75)에도 편재 1위율은 5.4%p 만 내려가고, 비워진 자리는 같은 money 도메인의 overspend_caution 이 채운다. 독점자 교체이지 다양화가 아니다."
+  },
+  "why_max_affinity_alone_is_insufficient": {
+    "observation": "work 0.68 · social 0.63 은 money 0.61 보다 최대 affinity 가 낮지 않은데도 money 가 독점한다.",
+    "structure": [
+      "최대 affinity",
+      "같은 신호가 동시에 올리는 사건 수(fan-out)",
+      "사건별 base_weight 와 expression_confidence",
+      "good/caution 헤드라인 슬롯 구성",
+      "동일 도메인 후보의 동시 활성"
+    ],
+    "conclusion": "같은 명리 신호가 money 도메인의 여러 사건에 복제되어 여러 장의 후보표를 만든다. 비금전 도메인은 강한 사건으로 변환되는 경로가 상대적으로 적다."
+  },
+  "rejected_next_step": {
+    "id": "비금전 affinity 일괄 상향",
+    "status": "rejected_as_first_move",
+    "reason": "money 제거 반사실에서 새 승자 상위 5종이 80.4% 를 차지했다. 낮은 도메인에 점수만 더하면 독점자가 교체될 가능성이 크다."
+  },
+  "event_positioning": {
+    "focus_flow": {
+      "decision": "비금전 라우팅 보강의 첫 파일럿 후보",
+      "constraint": "전 카드 confidence 상향(0.90→0.95) 금지. 집중·실행 보조 신호가 있는 카드에서만 조건부 보강을 shadow 로 검토한다."
+    },
+    "family_talk": {
+      "decision": "support 유지 — 단독 헤드라인 경쟁력 근거 약함",
+      "constraint": "점수 상향 없음. 헤드라인 자격 철회는 small_find 방식으로 별도 영향 감사 후 결정한다."
+    }
+  },
+  "next_audits": [
+    "OA-9a: 십성×도메인 fan-out / polarity gate 감사 (effective_ticket_count, activation_mass)",
+    "G1: 동일 신호 sibling 경쟁 shadow",
+    "G2: 비금전 대표 사건 조건부 라우팅 shadow",
+    "G3: G1+G2 결합 90일·종단 감사",
+    "이후 relation / event cooldown / board cap 필요 강도 재측정"
+  ],
+  "source_audits": [
+    "oa7c_money_ten_god_90d.json",
+    "oa7c_money_affinity_curve_90d.json",
+    "oa7c_domain_coverage_90d.json"
+  ]
+}

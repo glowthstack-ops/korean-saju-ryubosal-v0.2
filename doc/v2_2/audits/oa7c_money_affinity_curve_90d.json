@@ -1,0 +1,110 @@
+{
+  "audit_id": "OA-7c-S3a",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "days": 90,
+  "variants": {
+    "M0": {
+      "pyeonjae_affinity": 0.9,
+      "pyeonjae": {
+        "cards": 540,
+        "rank1": 447,
+        "rank1_pct": 82.8,
+        "top3_pct": 93.9,
+        "mean_probability": 77.1,
+        "mean_gap_when_rank1": 7.84,
+        "displaced_winners": {
+          "overspend_caution": 93
+        }
+      },
+      "all_cards": {
+        "rank1": 1388,
+        "rank1_pct": 25.7,
+        "top3_pct": 36.7,
+        "mean_probability": 59.7
+      },
+      "longitudinal": {
+        "top_event_share_mean": 25.9,
+        "top_event_share_p90": 38.9,
+        "top_event_share_max": 48.9
+      }
+    },
+    "M-A1": {
+      "pyeonjae_affinity": 0.85,
+      "pyeonjae": {
+        "cards": 540,
+        "rank1": 440,
+        "rank1_pct": 81.5,
+        "top3_pct": 92.4,
+        "mean_probability": 76.3,
+        "mean_gap_when_rank1": 7.24,
+        "displaced_winners": {
+          "overspend_caution": 100
+        }
+      },
+      "all_cards": {
+        "rank1": 1348,
+        "rank1_pct": 25.0,
+        "top3_pct": 35.9,
+        "mean_probability": 59.5
+      },
+      "longitudinal": {
+        "top_event_share_mean": 25.2,
+        "top_event_share_p90": 38.9,
+        "top_event_share_max": 47.8
+      }
+    },
+    "M-A2": {
+      "pyeonjae_affinity": 0.8,
+      "pyeonjae": {
+        "cards": 540,
+        "rank1": 433,
+        "rank1_pct": 80.2,
+        "top3_pct": 91.3,
+        "mean_probability": 75.4,
+        "mean_gap_when_rank1": 6.55,
+        "displaced_winners": {
+          "overspend_caution": 107
+        }
+      },
+      "all_cards": {
+        "rank1": 1310,
+        "rank1_pct": 24.3,
+        "top3_pct": 35.3,
+        "mean_probability": 59.2
+      },
+      "longitudinal": {
+        "top_event_share_mean": 24.6,
+        "top_event_share_p90": 36.7,
+        "top_event_share_max": 45.6
+      }
+    },
+    "M-A3": {
+      "pyeonjae_affinity": 0.75,
+      "pyeonjae": {
+        "cards": 540,
+        "rank1": 418,
+        "rank1_pct": 77.4,
+        "top3_pct": 90.4,
+        "mean_probability": 74.4,
+        "mean_gap_when_rank1": 5.95,
+        "displaced_winners": {
+          "overspend_caution": 119,
+          "treat_received": 2,
+          "praise_recognition": 1
+        }
+      },
+      "all_cards": {
+        "rank1": 1264,
+        "rank1_pct": 23.4,
+        "top3_pct": 34.7,
+        "mean_probability": 59.0
+      },
+      "longitudinal": {
+        "top_event_share_mean": 23.8,
+        "top_event_share_p90": 36.7,
+        "top_event_share_max": 43.3
+      }
+    }
+  }
+}
