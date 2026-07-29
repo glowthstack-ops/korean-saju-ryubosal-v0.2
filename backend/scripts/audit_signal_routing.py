@@ -181,10 +181,14 @@ def run() -> dict[str, Any]:
     var_prob: dict[str, list[int]] = {v: [] for v in variants}
     var_top3: collections.Counter = collections.Counter()
     var_caution_win: collections.Counter = collections.Counter()
+    #: 실제 카드에 표시된 주의 사건(슬롯 선발 결과) — 원시 1위와 반드시 구분한다.
+    var_displayed: collections.Counter = collections.Counter()
     # 편재만 있고 불리 신호가 전혀 없는 카드에서의 거동
     pure_pyeonjae_cards = 0
     pure_pyeonjae_top3 = 0
     pure_pyeonjae_caution_win = 0
+    pure_pyeonjae_displayed = 0
+    pure_displayed_caution: collections.Counter = collections.Counter()
     pure_pyeonjae_prob: list[int] = []
     #: 같은 코호트에서 편재 기여만 뺐을 때 — 100% 승리가 '불리 게이트 사건이 함께
     #: 억제된 탓'인지 '편재 단독 부양' 탓인지 가르는 유일한 대조군이다.
@@ -224,15 +228,24 @@ def run() -> dict[str, Any]:
             rel = M._branch_relations(day_branch, branch, (month_branch, year_branch))
             adverse = any(rel.get(r, 0.0) for r in _ADVERSE_RELATIONS)
             cautions = [s for s in order if s.valence == "caution"]
-            caution_winner = cautions[0].event_key if cautions else None
+            #: **원시 주의 1위** — 점수만으로 매긴 순위다. 실제 카드에 표시되는 주의
+            #: 사건과 다르다: `_select_slots` 는 주의를 가급적 good 과 **다른 도메인**
+            #: 에서 뽑기 때문에, good 이 money 인 카드에서는 money 주의가 밀려난다.
+            #: 두 값을 함께 내야 "점수 구조의 문제"와 "노출의 문제"가 섞이지 않는다.
+            caution_rank1 = cautions[0].event_key if cautions else None
+            seed = (f"{ctx.the_date.isoformat()}|{stem.value}{branch.value}"
+                    f"|{M.EVENT_SELECTION_COMPAT_SALT}")  # 라이브와 동일 seed
+            displayed_caution = M._select_slots(list(scored.values()), seed)[1].event_key
 
             for name, ev in variants.items():
                 p = M._score_event(_POLARITY_TARGET, ev, stem, branch, ctx).probability
                 var_prob[name].append(p)
             if _POLARITY_TARGET in top3_keys:
                 var_top3["Z0_baseline"] += 1
-            if caution_winner == _POLARITY_TARGET:
+            if caution_rank1 == _POLARITY_TARGET:
                 var_caution_win["Z0_baseline"] += 1
+            if displayed_caution == _POLARITY_TARGET:
+                var_displayed["Z0_baseline"] += 1
 
             # 변형 사전으로 재정렬해 실제 순위 변화를 본다
             for name in ("Z1_no_pyeonjae", "Z2_no_adverse_relation"):
@@ -254,8 +267,11 @@ def run() -> dict[str, Any]:
                 pure_pyeonjae_prob.append(scored[_POLARITY_TARGET].probability)
                 if _POLARITY_TARGET in top3_keys:
                     pure_pyeonjae_top3 += 1
-                if caution_winner == _POLARITY_TARGET:
+                if caution_rank1 == _POLARITY_TARGET:
                     pure_pyeonjae_caution_win += 1
+                if displayed_caution == _POLARITY_TARGET:
+                    pure_pyeonjae_displayed += 1
+                pure_displayed_caution[displayed_caution] += 1
                 z1 = M._score_event(
                     _POLARITY_TARGET, variants["Z1_no_pyeonjae"], stem, branch, ctx)
                 pure_z1_prob.append(z1.probability)
@@ -318,8 +334,9 @@ def run() -> dict[str, Any]:
                 "mean_probability": round(statistics.mean(ps), 2),
                 "top3_cards": var_top3[name],
                 "top3_pct": round(var_top3[name] / cards * 100, 1),
-                "caution_slot_wins": var_caution_win[name],
-                "caution_win_pct": round(var_caution_win[name] / cards * 100, 1),
+                "raw_caution_rank1_cards": var_caution_win[name],
+                "raw_caution_rank1_pct": round(var_caution_win[name] / cards * 100, 1),
+                "displayed_caution_cards": var_displayed[name] or None,
             }
             for name, ps in var_prob.items()
         },
@@ -330,19 +347,27 @@ def run() -> dict[str, Any]:
             "top3_cards": pure_pyeonjae_top3,
             "top3_pct": round(pure_pyeonjae_top3 / pure_pyeonjae_cards * 100, 1)
             if pure_pyeonjae_cards else 0.0,
-            "caution_slot_wins": pure_pyeonjae_caution_win,
-            "caution_win_pct": round(
+            "raw_caution_rank1_cards": pure_pyeonjae_caution_win,
+            "raw_caution_rank1_pct": round(
                 pure_pyeonjae_caution_win / pure_pyeonjae_cards * 100, 1)
             if pure_pyeonjae_cards else 0.0,
-            "note": "불리 관계(충·형·파·해)가 하나도 없는 편재 카드. 여기서 상위권에 들면 "
-                    "'편재 활성'과 '편재 과잉·손실 발현'이 구분되지 않는다는 뜻이다.",
+            "displayed_caution_cards": pure_pyeonjae_displayed,
+            "displayed_caution_winners": dict(pure_displayed_caution.most_common(6)),
+            "note": "일지 기준 불리 관계(충·형·파·해)가 없는 편재 카드. **원시 주의 1위**와 "
+                    "**실제 표시된 주의**는 다르다 — 슬롯 선발이 주의를 good 과 다른 "
+                    "도메인에서 뽑으므로, good 이 money 인 카드에서는 money 주의가 표시되지 "
+                    "않는다. 점수 구조의 문제(원시 1위)와 노출의 문제(표시)를 섞지 말 것. "
+                    "또한 이 코호트는 '불리 근거가 전혀 없는' 집합이 아니다 — 비겁이나 "
+                    "월지·연지발 충형은 여기서 걸러지지 않는다(OA-9c 에서 392/421 이 "
+                    "독립 근거 보유로 확인됐다).",
         },
         "pure_cohort_without_pyeonjae": {
             "cards": pure_pyeonjae_cards,
             "mean_probability": round(statistics.mean(pure_z1_prob), 1)
             if pure_z1_prob else None,
-            "caution_slot_wins": pure_z1_caution_win,
-            "caution_win_pct": round(pure_z1_caution_win / pure_pyeonjae_cards * 100, 1)
+            "raw_caution_rank1_cards": pure_z1_caution_win,
+            "raw_caution_rank1_pct": round(
+                pure_z1_caution_win / pure_pyeonjae_cards * 100, 1)
             if pure_pyeonjae_cards else 0.0,
             "replaced_by": dict(pure_z1_replacement.most_common(5)),
             "note": "같은 코호트에서 편재 기여만 제거한 대조군. 승률이 크게 떨어지면 "
@@ -386,11 +411,19 @@ _VERDICT = {
     ),
     "polarity_gate_missing": True,
     "polarity_evidence": (
-        "불리 관계(충·형·파·해)가 하나도 없는 편재 카드 421건에서 overspend_caution 이 "
-        "주의 슬롯을 100% 차지한다. 같은 코호트에서 편재 기여만 제거하면 5.0% 로 떨어지고 "
-        "평균 확률도 65.1 → 41.7 로 내려간다 — 다른 주의 사건이 함께 억제된 탓이 아니라 "
-        "편재 단독 부양이다. 전체 기준으로도 편재 제거(-52%)가 불리 관계 제거(-28%)보다 "
-        "주의 슬롯 승률을 더 크게 낮춘다."
+        "일지 불리 관계(충·형·파·해)가 없는 편재 카드 421건에서 overspend_caution 이 "
+        "**원시 주의 1위**를 100% 차지한다. 같은 코호트에서 편재 기여만 제거하면 5.0% 로 "
+        "떨어지고 평균 확률도 65.1 → 41.7 로 내려간다 — 다른 주의 사건이 함께 억제된 탓이 "
+        "아니라 편재 단독 부양이다. 전체 기준으로도 편재 제거(34.8→16.8%)가 불리 관계 "
+        "제거(34.8→25.0%)보다 원시 주의 1위율을 더 크게 낮춘다."
+    ),
+    "polarity_scope_correction": (
+        "원시 1위 != 사용자에게 표시된 주의다. 슬롯 선발이 주의를 good 과 다른 도메인에서 "
+        "뽑으므로, good 이 money 인 카드에서는 money 주의가 밀려난다. 실측: 421건에서 "
+        "**표시된 overspend_caution 은 0건**이고 자리는 guarantee_stamp_caution 등이 "
+        "가져갔다. 이 코호트도 '불리 근거가 전혀 없는' 집합이 아니다 — 비겁·월지·연지발 "
+        "충형은 걸러지지 않으며 OA-9c 에서 392/421 이 독립 근거 보유로 확인됐다. "
+        "따라서 이 절의 수치는 **점수 구조의 결손**을 증명하되 노출 규모를 뜻하지 않는다."
     ),
     "polarity_conclusion": (
         "편재의 '활성'과 편재의 '과잉·손실 발현'이 사전 스키마에서 구분되지 않는다. "

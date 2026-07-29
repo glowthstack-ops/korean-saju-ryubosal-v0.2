@@ -24,7 +24,7 @@
       "support_only": "본문 보조 전용 — 헤드라인 자격 없음",
       "caution_only": "주의 슬롯 전용"
     },
-    "g0_scope": {
+    "g0_rollout_scope": {
       "money_slice": "G0 1차 적용 대상(승인 범위).",
       "deferred_document": "재성 양수를 받는 caution 이지만 money 도메인이 아니다 — 별도 승인 전까지 적용하지 않는다.",
       "not_applicable": "재성 양수 기여가 없다."
@@ -50,7 +50,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "편재 0.9 — 전 사건 중 단일 최대 affinity. money_good_deal 과 같은 semantic_group·같은 primary evidence 를 공유하므로 G1 sibling 경쟁의 1순위 쌍이다."
     },
     "money_good_deal": {
@@ -64,7 +64,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "money_small_gain 과 synonym_group(money_gain) 을 공유해 같은 카드 동시 노출은 이미 막혀 있으나, 상위권 후보표는 두 장 그대로 생성된다."
     },
     "overspend_caution": {
@@ -78,7 +78,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": true,
-      "g0_scope": "money_slice",
+      "g0_rollout_scope": "money_slice",
       "note": "OA-9a 핵심 사례. 편재 0.6 이 주제 활성과 불리 발현을 동시에 충족시켜, 불리 관계가 전혀 없는 편재 카드 421건에서 주의 슬롯 100% 를 차지한다(편재만 제거하면 5.0%)."
     },
     "lend_money_caution": {
@@ -92,7 +92,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": true,
-      "g0_scope": "money_slice",
+      "g0_rollout_scope": "money_slice",
       "note": "편재 0.3. OA-9a 대조군에서 overspend_caution 의 편재를 제거하자 주의 슬롯을 223건 이어받았다 — G0 를 단건에만 적용하면 그대로 대체된다."
     },
     "belongings_security_caution": {
@@ -106,7 +106,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "재성 양수 기여가 없다 — 이미 극성 게이트가 성립한 형태다. G0 목표 상태의 참조 사례."
     },
     "account_phishing_caution": {
@@ -120,7 +120,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "편인 0.2 는 왜곡·오인 근거로 쓰인다."
     },
     "home_vehicle_lock_caution": {
@@ -134,7 +134,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "treat_received": {
@@ -148,7 +148,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "money 제거 반사실에서 새 1위 539건(31%)으로 최다 — 재성(편재 0.4)도 함께 받는 사건이라, money 사건군과 같은 증거를 일부 공유한다."
     },
     "meet_helper": {
@@ -162,7 +162,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "teamwork_flow 와 synonym_group(help_flow)을 공유하지만 domain 이 다르다(social/work)."
     },
     "pleasant_meeting": {
@@ -176,7 +176,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "family_talk": {
@@ -190,7 +190,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "본문 배치는 support 이나 헤드라인 자격은 열려 있다(OA-6a). OA-7c-S3 결정: 점수 상향 없음, 자격 철회는 별도 영향 감사 후 판단."
     },
     "argument_caution": {
@@ -204,7 +204,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "상관이 주제(말·표현)와 불리 발현(구설·마찰)을 겸한다 — 구조상 overspend_caution 과 같은 형태이나, 상관 자체가 '말이 새어나가는' 부정 방향 신호라 재성 사례와 성격이 다르다. 감수 대상."
     },
     "rumor_caution": {
@@ -218,7 +218,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "argument_caution 과 semantic_group·primary evidence 를 공유하는 sibling(synonym_group speech_trouble)."
     },
     "old_contact": {
@@ -232,7 +232,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "love_reunion 과 의미가 인접하나 domain·polarity 근거가 다르다(비겁 대 재성)."
     },
     "good_news_arrives": {
@@ -246,7 +246,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "old_contact 와 synonym_group(incoming_news) 공유 — G1 sibling 후보."
     },
     "misunderstanding_caution": {
@@ -260,7 +260,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "편인 0.6 을 왜곡·오해 근거로 쓴다(정인이 아니라 편인만 양수)."
     },
     "praise_recognition": {
@@ -274,7 +274,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "정관 0.8 — work 도메인의 최대 단일 경로."
     },
     "teamwork_flow": {
@@ -288,7 +288,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "idea_flash": {
@@ -302,7 +302,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "불리 관계 계수가 전 사건 중 가장 얕다(clash -0.2) — 충이 있어도 잘 꺾이지 않는다."
     },
     "focus_flow": {
@@ -316,7 +316,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "G2 조건부 라우팅 파일럿 후보. 전역 confidence 상향(0.90→0.95)은 미승인 — 집중·실행 보조 신호가 있는 카드에서만 추가 기여를 검토한다."
     },
     "love_spark": {
@@ -330,7 +330,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "money 제거 반사실에서 새 1위 420건(24%)으로 2위. 재성(편재 0.3)을 공유한다."
     },
     "love_deepening": {
@@ -344,7 +344,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "정재 0.5·정관 0.5 동률 — primary 판정은 감수 대상."
     },
     "love_reunion": {
@@ -358,7 +358,7 @@
       "manifestation_condition": "mixed_trigger",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "길 사건인데 clash 가 +0.3 이다 — 충을 재회의 방아쇠로 쓴다. 극성 게이트 관점에서 G0 의 거울 사례이며, good 사건이라 이번 슬라이스 범위 밖이다."
     },
     "love_cooldown": {
@@ -372,7 +372,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "clash 0.7 — 전 사건 중 최대 충 계수. 재성 양수 기여가 없어 극성 게이트가 이미 성립한다."
     },
     "love_misread": {
@@ -386,7 +386,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "love_cooldown 과 semantic_group 을 공유하는 sibling."
     },
     "document_progress": {
@@ -400,7 +400,7 @@
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "document 도메인의 유일한 good 사건 — 이 도메인 effective_ticket_count 3 의 실체다. G2 대표 사건 후보."
     },
     "contract_recheck_caution": {
@@ -414,7 +414,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "편인 0.7 이 문서 주제와 재확인 필요를 겸한다 — misunderstanding_caution 과 같은 형태."
     },
     "guarantee_stamp_caution": {
@@ -428,7 +428,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": true,
-      "g0_scope": "deferred_document",
+      "g0_rollout_scope": "deferred_document",
       "note": "편재 0.3 양수 — overspend_caution 과 같은 극성 게이트 결손이나 money 도메인이 아니다. G0 1차 범위에서 제외하고 별도 승인을 받는다."
     },
     "name_lending_caution": {
@@ -442,7 +442,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": true,
-      "g0_scope": "deferred_document",
+      "g0_rollout_scope": "deferred_document",
       "note": "편재 0.25. guarantee_stamp_caution 과 semantic_family 를 공유하는 sibling."
     },
     "contract_clause_caution": {
@@ -456,7 +456,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": true,
-      "g0_scope": "deferred_document",
+      "g0_rollout_scope": "deferred_document",
       "note": "편재 0.25 — 손해 주제를 재성으로 잡고 있다."
     },
     "authorization_scope_caution": {
@@ -470,7 +470,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "document_device_caution": {
@@ -484,7 +484,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "fatigue_caution": {
@@ -498,7 +498,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "편관 0.7 — health 도메인 최대 단일 경로. rest_recharge 와 극성이 반대인 짝이다."
     },
     "careless_injury_caution": {
@@ -512,7 +512,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "fall_slip_caution": {
@@ -526,7 +526,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "cut_burn_tool_caution": {
@@ -540,7 +540,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "careless_injury_caution·fall_slip_caution 과 semantic_family 3종 sibling."
     },
     "sports_overuse_caution": {
@@ -554,7 +554,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "overexertion_recovery_caution": {
@@ -568,7 +568,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "sleep_recovery_caution": {
@@ -582,7 +582,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "digestive_rhythm_caution": {
@@ -596,7 +596,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "fire_electric_check_caution": {
@@ -610,7 +610,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "rest_recharge": {
@@ -624,7 +624,7 @@
       "manifestation_condition": "mixed_trigger",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "health 도메인의 유일한 good 사건. clash/punishment 가 약한 양수(0.2)라 '충이 있으니 쉬어가라'는 방아쇠 구조다. G2 대표 사건 후보 — 건강 결과 예측이 아니라 리듬 조절 장면으로 한정한다."
     },
     "walk_refresh": {
@@ -638,7 +638,7 @@
       "manifestation_condition": "mixed_trigger",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "clash 0.1·harm 0.1 의 약한 양수 방아쇠."
     },
     "tidy_luck": {
@@ -652,7 +652,7 @@
       "manifestation_condition": "mixed_trigger",
       "headline_role": "full",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "정인 0.4·정재 0.4 동률 — primary 판정은 '정리·정돈은 인성 계열'이라는 명리 판단이며 감수 대상이다. money 제거 반사실에서 support 전용 승격 141건으로 최다."
     },
     "small_find": {
@@ -666,7 +666,7 @@
       "manifestation_condition": "mixed_trigger",
       "headline_role": "support_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "OA-6a2 에서 헤드라인 자격 철회(2026-07-30 발효). 편재 0.4 를 받아 money 사건과 증거를 공유하는 leisure 사건이다."
     },
     "lost_item_caution": {
@@ -680,7 +680,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "traffic_delay_caution": {
@@ -694,7 +694,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     },
     "travel_schedule_caution": {
@@ -708,7 +708,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": "traffic_delay_caution 과 semantic_family sibling(synonym_group movement_safety_group)."
     },
     "weather_water_safety_caution": {
@@ -722,7 +722,7 @@
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
-      "g0_scope": "not_applicable",
+      "g0_rollout_scope": "not_applicable",
       "note": ""
     }
   },

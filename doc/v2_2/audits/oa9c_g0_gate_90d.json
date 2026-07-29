@@ -1,0 +1,166 @@
+{
+  "audit_id": "OA-9c",
+  "policy_status": "shadow_only",
+  "live_behavior_changed": false,
+  "days": 90,
+  "result": {
+    "cards": 5400,
+    "contract_version": "g0.v1-money-slice",
+    "gated_events": [
+      "lend_money_caution",
+      "overspend_caution"
+    ],
+    "A_semantic_accuracy": {
+      "selected_without_adverse_provenance": 0,
+      "eligible_without_provenance": 0,
+      "cause_group_outside_contract": 0,
+      "cross_domain_evidence": 0,
+      "baseline_selections_without_adverse": 7,
+      "note": "앞의 네 값은 모두 0 이어야 한다. 마지막 값은 게이트 이전 기준선 — 독립 근거 없이 노출되던 카드 수이며 이번 슬라이스가 없애려는 대상이다."
+    },
+    "B_cohort_no_adverse_relation": {
+      "cards": 421,
+      "raw_probability_preserved": true,
+      "eligibility": {
+        "lend_money_caution:blocked": 29,
+        "lend_money_caution:eligible": 392,
+        "overspend_caution:blocked": 29,
+        "overspend_caution:eligible": 392
+      },
+      "baseline_caution_winners": {
+        "guarantee_stamp_caution": 157,
+        "contract_clause_caution": 64,
+        "argument_caution": 61,
+        "love_cooldown": 61,
+        "fatigue_caution": 60,
+        "misunderstanding_caution": 11,
+        "contract_recheck_caution": 5,
+        "name_lending_caution": 2
+      },
+      "gated_caution_winners": {
+        "guarantee_stamp_caution": 157,
+        "contract_clause_caution": 64,
+        "argument_caution": 61,
+        "love_cooldown": 61,
+        "fatigue_caution": 60,
+        "misunderstanding_caution": 11,
+        "contract_recheck_caution": 5,
+        "name_lending_caution": 2
+      }
+    },
+    "C_preservation": {
+      "lend_money_caution": {
+        "cards_with_independent_adverse": 4507,
+        "kept_in_caution_slot": 162,
+        "blocked_cards": 293,
+        "raw_top3": 272,
+        "effective_caution_slot": 211,
+        "raw_headline": 0,
+        "effective_headline": 0
+      },
+      "overspend_caution": {
+        "cards_with_independent_adverse": 4507,
+        "kept_in_caution_slot": 903,
+        "blocked_cards": 293,
+        "raw_top3": 1129,
+        "effective_caution_slot": 1040,
+        "raw_headline": 156,
+        "effective_headline": 156
+      }
+    },
+    "C_gate_codes": {
+      "ELIGIBLE": 9014,
+      "SUBJECT_NOT_ACTIVATED": 1200,
+      "ADVERSE_MANIFESTATION_NOT_ESTABLISHED": 586
+    },
+    "D_structure": {
+      "caution_domain_base": {
+        "social": 1398,
+        "money": 1303,
+        "health": 1164,
+        "document": 706,
+        "love": 586,
+        "news": 229,
+        "move": 14
+      },
+      "caution_domain_gated": {
+        "social": 1398,
+        "money": 1296,
+        "health": 1165,
+        "document": 706,
+        "love": 592,
+        "news": 229,
+        "move": 14
+      },
+      "caution_event_base": {
+        "argument_caution": 1396,
+        "fatigue_caution": 1133,
+        "overspend_caution": 1046,
+        "love_cooldown": 543,
+        "contract_recheck_caution": 373,
+        "misunderstanding_caution": 229,
+        "lend_money_caution": 212,
+        "guarantee_stamp_caution": 191
+      },
+      "caution_event_gated": {
+        "argument_caution": 1396,
+        "fatigue_caution": 1133,
+        "overspend_caution": 1040,
+        "love_cooldown": 546,
+        "contract_recheck_caution": 373,
+        "misunderstanding_caution": 229,
+        "lend_money_caution": 211,
+        "guarantee_stamp_caution": 191
+      },
+      "distinct_caution_events_base": 25,
+      "distinct_caution_events_gated": 25,
+      "headline_domain_base": {
+        "money": 1567,
+        "work": 1495,
+        "social": 879,
+        "news": 548,
+        "document": 417,
+        "love": 351,
+        "health": 77,
+        "leisure": 66
+      },
+      "headline_domain_gated": {
+        "money": 1567,
+        "work": 1495,
+        "social": 879,
+        "news": 548,
+        "document": 417,
+        "love": 351,
+        "health": 77,
+        "leisure": 66
+      },
+      "distinct_headline_events_base": 24,
+      "distinct_headline_events_gated": 24,
+      "pyeonjae_cards": 540,
+      "pyeonjae_all_money_top3_base_pct": 25.6,
+      "pyeonjae_all_money_top3_gated_pct": 25.4,
+      "no_eligible_caution_cards": 0,
+      "support_fallback_cards": 0,
+      "longitudinal_headline_base": {
+        "p90_pct": 36.7,
+        "max_pct": 50.0,
+        "mean_pct": 23.3
+      },
+      "longitudinal_headline_gated": {
+        "p90_pct": 36.7,
+        "max_pct": 50.0,
+        "mean_pct": 23.3
+      }
+    },
+    "E_displacement": {
+      "replacements": {
+        "love_cooldown": 3,
+        "love_misread": 3,
+        "digestive_rhythm_caution": 1
+      },
+      "money_domain_replacements": {},
+      "wealth_lifted_replacements": {},
+      "note": "wealth_lifted_replacements 는 재성 양수를 받는 caution(= 구조상 G0 대상)이 자리를 이어받은 수다. 여기 document 3종이 크게 나오면 deferred 범위가 효과를 흡수하고 있다는 뜻이다."
+    }
+  }
+}

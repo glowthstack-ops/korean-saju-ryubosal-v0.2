@@ -83,7 +83,7 @@ def test_vocabulary_is_closed(taxonomy) -> None:
     for key, t in taxonomy["events"].items():
         assert t["manifestation_condition"] in _CONDITIONS, key
         assert t["headline_role"] in _ROLES, key
-        assert t["g0_scope"] in _G0_SCOPES, key
+        assert t["g0_rollout_scope"] in _G0_SCOPES, key
         for field in ("subject_evidence", "adverse_evidence"):
             unknown = set(t[field]) - _EVIDENCE_FAMILIES
             assert not unknown, f"{key}.{field}: {unknown}"
@@ -156,10 +156,10 @@ def test_g0_candidates_have_independent_adverse_evidence(taxonomy) -> None:
 
 def test_g0_scope_is_money_only_for_now(taxonomy) -> None:
     """1차 적용 범위는 money 도메인으로 승인됐다 — 조용히 넓어지면 안 된다."""
-    scoped = {k for k, t in taxonomy["events"].items() if t["g0_scope"] == "money_slice"}
+    scoped = {k for k, t in taxonomy["events"].items() if t["g0_rollout_scope"] == "money_slice"}
     assert scoped == {"overspend_caution", "lend_money_caution"}
     for key, t in taxonomy["events"].items():
-        if t["g0_scope"] != "not_applicable":
+        if t["g0_rollout_scope"] != "not_applicable":
             assert t["g0_candidate"], key
 
 

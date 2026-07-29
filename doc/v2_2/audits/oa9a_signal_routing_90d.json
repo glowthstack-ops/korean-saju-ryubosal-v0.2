@@ -8,7 +8,8 @@
     "fanout_evidence": "편재 카드의 상위 3칸 중 평균 2.13칸이 money 이고 25.6% 는 3칸 전부 money 다. 편재 조건에서 money_small_gain 93.9% · money_good_deal 69.3% · overspend_caution 48.0% 가 동시에 Top-3 에 든다 — 같은 신호가 세 장의 표를 만든다.",
     "collapse_evidence": "편재 조건에서 1위를 차지한 사건은 540카드 통틀어 2종뿐이다(money_small_gain 447 · overspend_caution 93). 정인 15종 · 식신 17종과 대비된다.",
     "polarity_gate_missing": true,
-    "polarity_evidence": "불리 관계(충·형·파·해)가 하나도 없는 편재 카드 421건에서 overspend_caution 이 주의 슬롯을 100% 차지한다. 같은 코호트에서 편재 기여만 제거하면 5.0% 로 떨어지고 평균 확률도 65.1 → 41.7 로 내려간다 — 다른 주의 사건이 함께 억제된 탓이 아니라 편재 단독 부양이다. 전체 기준으로도 편재 제거(-52%)가 불리 관계 제거(-28%)보다 주의 슬롯 승률을 더 크게 낮춘다.",
+    "polarity_evidence": "일지 불리 관계(충·형·파·해)가 없는 편재 카드 421건에서 overspend_caution 이 **원시 주의 1위**를 100% 차지한다. 같은 코호트에서 편재 기여만 제거하면 5.0% 로 떨어지고 평균 확률도 65.1 → 41.7 로 내려간다 — 다른 주의 사건이 함께 억제된 탓이 아니라 편재 단독 부양이다. 전체 기준으로도 편재 제거(34.8→16.8%)가 불리 관계 제거(34.8→25.0%)보다 원시 주의 1위율을 더 크게 낮춘다.",
+    "polarity_scope_correction": "원시 1위 != 사용자에게 표시된 주의다. 슬롯 선발이 주의를 good 과 다른 도메인에서 뽑으므로, good 이 money 인 카드에서는 money 주의가 밀려난다. 실측: 421건에서 **표시된 overspend_caution 은 0건**이고 자리는 guarantee_stamp_caution 등이 가져갔다. 이 코호트도 '불리 근거가 전혀 없는' 집합이 아니다 — 비겁·월지·연지발 충형은 걸러지지 않으며 OA-9c 에서 392/421 이 독립 근거 보유로 확인됐다. 따라서 이 절의 수치는 **점수 구조의 결손**을 증명하되 노출 규모를 뜻하지 않는다.",
     "polarity_conclusion": "편재의 '활성'과 편재의 '과잉·손실 발현'이 사전 스키마에서 구분되지 않는다. affinity 수치 조정이 아니라 발현 조건 분기가 필요하다.",
     "headline_ticket_starvation": "move 도메인은 전 십성을 통틀어 effective_ticket_count 가 0 이다 — 어떤 신호로도 good 헤드라인 후보가 되지 못한다. document 3 · health 4 로 뒤를 잇는다. S3b 의 move Top1 0.0% 는 affinity 가 낮아서가 아니라 표가 없어서다.",
     "mass_is_not_the_whole_story": "social 은 activation_mass 9.04 · ticket 16 으로 money(9.11 · 8)와 질량이 거의 같지만 Top1 은 낮다. 차이는 질량이 아니라 단일 최댓값(편재 0.9)과 한 도메인 집중도(편재 money 45.6% · 정재 money 46.9%)에서 온다.",
@@ -1755,22 +1756,25 @@
           "mean_probability": 52.47,
           "top3_cards": 1129,
           "top3_pct": 20.9,
-          "caution_slot_wins": 1877,
-          "caution_win_pct": 34.8
+          "raw_caution_rank1_cards": 1877,
+          "raw_caution_rank1_pct": 34.8,
+          "displayed_caution_cards": 1046
         },
         "Z1_no_pyeonjae": {
           "mean_probability": 47.81,
           "top3_cards": 713,
           "top3_pct": 13.2,
-          "caution_slot_wins": 907,
-          "caution_win_pct": 16.8
+          "raw_caution_rank1_cards": 907,
+          "raw_caution_rank1_pct": 16.8,
+          "displayed_caution_cards": null
         },
         "Z2_no_adverse_relation": {
           "mean_probability": 46.74,
           "top3_cards": 566,
           "top3_pct": 10.5,
-          "caution_slot_wins": 1351,
-          "caution_win_pct": 25.0
+          "raw_caution_rank1_cards": 1351,
+          "raw_caution_rank1_pct": 25.0,
+          "displayed_caution_cards": null
         }
       },
       "pure_pyeonjae_no_adverse": {
@@ -1778,15 +1782,24 @@
         "mean_probability": 65.1,
         "top3_cards": 146,
         "top3_pct": 34.7,
-        "caution_slot_wins": 421,
-        "caution_win_pct": 100.0,
-        "note": "불리 관계(충·형·파·해)가 하나도 없는 편재 카드. 여기서 상위권에 들면 '편재 활성'과 '편재 과잉·손실 발현'이 구분되지 않는다는 뜻이다."
+        "raw_caution_rank1_cards": 421,
+        "raw_caution_rank1_pct": 100.0,
+        "displayed_caution_cards": 0,
+        "displayed_caution_winners": {
+          "guarantee_stamp_caution": 157,
+          "contract_clause_caution": 64,
+          "argument_caution": 61,
+          "love_cooldown": 61,
+          "fatigue_caution": 60,
+          "misunderstanding_caution": 11
+        },
+        "note": "일지 기준 불리 관계(충·형·파·해)가 없는 편재 카드. **원시 주의 1위**와 **실제 표시된 주의**는 다르다 — 슬롯 선발이 주의를 good 과 다른 도메인에서 뽑으므로, good 이 money 인 카드에서는 money 주의가 표시되지 않는다. 점수 구조의 문제(원시 1위)와 노출의 문제(표시)를 섞지 말 것. 또한 이 코호트는 '불리 근거가 전혀 없는' 집합이 아니다 — 비겁이나 월지·연지발 충형은 여기서 걸러지지 않는다(OA-9c 에서 392/421 이 독립 근거 보유로 확인됐다)."
       },
       "pure_cohort_without_pyeonjae": {
         "cards": 421,
         "mean_probability": 41.7,
-        "caution_slot_wins": 21,
-        "caution_win_pct": 5.0,
+        "raw_caution_rank1_cards": 21,
+        "raw_caution_rank1_pct": 5.0,
         "replaced_by": {
           "lend_money_caution": 223,
           "fatigue_caution": 48,
