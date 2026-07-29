@@ -1,0 +1,148 @@
+{
+  "audit_id": "OA-11d",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "final_headline",
+  "result": {
+    "anchors": {
+      "2026-04-02": {
+        "S0": {
+          "qualifying_iljus": 47,
+          "family_p10": 14,
+          "family_min": 13
+        },
+        "S1": {
+          "qualifying_iljus": 59,
+          "family_p10": 15,
+          "family_min": 14
+        },
+        "S2": {
+          "qualifying_iljus": 59,
+          "family_p10": 15,
+          "family_min": 14
+        }
+      },
+      "2027-03-03": {
+        "S0": {
+          "qualifying_iljus": 38,
+          "family_p10": 14,
+          "family_min": 12
+        },
+        "S1": {
+          "qualifying_iljus": 58,
+          "family_p10": 15,
+          "family_min": 13
+        },
+        "S2": {
+          "qualifying_iljus": 58,
+          "family_p10": 15,
+          "family_min": 13
+        }
+      },
+      "2027-06-01": {
+        "S0": {
+          "qualifying_iljus": 33,
+          "family_p10": 13,
+          "family_min": 13
+        },
+        "S1": {
+          "qualifying_iljus": 54,
+          "family_p10": 14,
+          "family_min": 13
+        },
+        "S2": {
+          "qualifying_iljus": 54,
+          "family_p10": 14,
+          "family_min": 13
+        }
+      },
+      "2027-08-05": {
+        "S0": {
+          "qualifying_iljus": 35,
+          "family_p10": 13,
+          "family_min": 12
+        },
+        "S1": {
+          "qualifying_iljus": 49,
+          "family_p10": 14,
+          "family_min": 12
+        },
+        "S2": {
+          "qualifying_iljus": 49,
+          "family_p10": 14,
+          "family_min": 12
+        }
+      },
+      "2027-10-09": {
+        "S0": {
+          "qualifying_iljus": 35,
+          "family_p10": 13,
+          "family_min": 12
+        },
+        "S1": {
+          "qualifying_iljus": 53,
+          "family_p10": 14,
+          "family_min": 13
+        },
+        "S2": {
+          "qualifying_iljus": 53,
+          "family_p10": 14,
+          "family_min": 13
+        }
+      }
+    },
+    "policy_summary": {
+      "S0": {
+        "representative_change_rate_pct": 20.07,
+        "realized_loss_mean": 0.624,
+        "realized_loss_p90": 3,
+        "band_downgrades": 2171,
+        "s5_drops": 0,
+        "gains_realized": 0,
+        "gains_lost_at_board": 0,
+        "block_reasons": {
+          "NO_REALIZED_NEW_FAMILY_CANDIDATE": 26375,
+          "RECOVERY_NOT_ACTIVE": 14577,
+          "INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE": 3740,
+          "RAW_TOP_CLEAN_SHORT_CIRCUIT": 1774,
+          "GAIN_REALIZED": 1144,
+          "NEW_FAMILY_AVAILABLE_BUT_NOT_SELECTED": 230
+        }
+      },
+      "S1": {
+        "representative_change_rate_pct": 20.69,
+        "realized_loss_mean": 0.537,
+        "realized_loss_p90": 2,
+        "band_downgrades": 1887,
+        "s5_drops": 0,
+        "gains_realized": 1063,
+        "gains_lost_at_board": 8,
+        "block_reasons": {
+          "RECOVERY_NOT_ACTIVE": 27184,
+          "NO_REALIZED_NEW_FAMILY_CANDIDATE": 15195,
+          "INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE": 3162,
+          "GAIN_REALIZED": 1071,
+          "CARD_TOP1_DID_NOT_ADD_FAMILY": 650,
+          "BOARD_REBALANCE_REMOVED_GAIN": 8
+        }
+      },
+      "S2": {
+        "representative_change_rate_pct": 20.69,
+        "realized_loss_mean": 0.537,
+        "realized_loss_p90": 2,
+        "band_downgrades": 1887,
+        "s5_drops": 0,
+        "gains_realized": 1063,
+        "gains_lost_at_board": 8,
+        "block_reasons": {
+          "RECOVERY_NOT_ACTIVE": 27184,
+          "NO_REALIZED_NEW_FAMILY_CANDIDATE": 15195,
+          "INTENDED_REPRESENTATIVE_NOT_SLOT_FEASIBLE": 3162,
+          "GAIN_REALIZED": 1071,
+          "CARD_TOP1_DID_NOT_ADD_FAMILY": 650,
+          "BOARD_REBALANCE_REMOVED_GAIN": 8
+        }
+      }
+    }
+  }
+}
