@@ -1,0 +1,742 @@
+{
+  "audit_id": "P4-LC",
+  "policy_status": "shadow_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "result": {
+    "measurement_stage": "display_pipeline",
+    "protocol": {
+      "warmup_days": 90,
+      "measured_days": 270,
+      "short_window": 90,
+      "lookback_rule": "D-89 ~ D-1",
+      "note": "warm-up 을 공식 평가 프로토콜로 고정한다. cold-start 90일은 초기 서비스 canary 로만 보존한다."
+    },
+    "policy_constants": {
+      "LONGITUDINAL_SEMANTIC_COVERAGE_FLOOR": 15,
+      "LONGITUDINAL_NORMAL_LOSS_BUDGET": 4,
+      "LONGITUDINAL_RECOVERY_LOSS_BUDGET": 7
+    },
+    "guard_revisions": {
+      "raw_good_kept_ge_80pct": "폐기 — P4-L 목적과 충돌. 참고 지표로만 남긴다.",
+      "top5_absolute_52pct": "폐기 — warm-up L0 대비 비퇴행으로 대체",
+      "single_lift_event_majority": "판정 보류 — 상승 기여율이 아니라 노출 점유로 본다"
+    },
+    "low_iljus_from_C0": [
+      "丙辰",
+      "乙亥",
+      "乙酉",
+      "壬午",
+      "壬戌",
+      "庚午",
+      "庚寅",
+      "庚戌",
+      "戊子",
+      "戊戌",
+      "戊辰",
+      "甲午",
+      "癸酉",
+      "辛亥",
+      "辛卯",
+      "辛酉"
+    ],
+    "variants": {
+      "C0_warmup_p4": {
+        "window_90d": {
+          "unique_event_key_p10": 14,
+          "unique_semantic_family_p10": 14,
+          "unique_domain_count_p10": 6,
+          "iljus_below_15": 16,
+          "p90_pct": 22.2,
+          "max_pct": 25.6,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 4.4,
+          "top5_cumulative_pct": 52.4
+        },
+        "window_270d": {
+          "unique_event_key_p10": 17,
+          "unique_semantic_family_p10": 16,
+          "unique_domain_count_p10": 7,
+          "iljus_below_15": 0,
+          "p90_pct": 18.9,
+          "max_pct": 22.2,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 2.9,
+          "top5_cumulative_pct": 52.5
+        },
+        "display_good": {
+          "raw_good_winner_kept_pct": 78.5,
+          "representative_changed_pct": 17.9,
+          "mean_display_loss": 3.07,
+          "median_display_loss": 3.0,
+          "p75_display_loss": 5,
+          "p90_display_loss": 6,
+          "max_display_loss": 7,
+          "loss_buckets": {
+            "0~3p": 1745,
+            "4p": 413,
+            "5p": 330,
+            "6p": 231,
+            "7p": 175
+          },
+          "changes_on_strong_raw_ge70": 1959,
+          "changes_to_weak_alt_lt60": 251
+        },
+        "low_ilju_recovery_90d": {
+          "tracked": 16,
+          "lifted": 0,
+          "required": 11
+        },
+        "watch_event_90d": {
+          "event": "love_deepening",
+          "window_days": 90,
+          "iljus_with_exposure": 23,
+          "total_exposure": 46,
+          "baseline_exposure": 46,
+          "exposure_delta": 0,
+          "share_of_all_headlines_pct": 0.85,
+          "max_per_ilju_share_pct": 5.6,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 1,
+          "reselect_within_30d": 17,
+          "reselect_within_90d": 23,
+          "gap_distribution": {
+            "8~30일": 16,
+            "31~89일": 6,
+            "1~7일": 1
+          },
+          "median_gap_days": 24,
+          "semantic_family_share_pct": 0.85
+        },
+        "watch_event_270d": {
+          "event": "love_deepening",
+          "window_days": 270,
+          "iljus_with_exposure": 49,
+          "total_exposure": 145,
+          "baseline_exposure": 145,
+          "exposure_delta": 0,
+          "share_of_all_headlines_pct": 0.9,
+          "max_per_ilju_share_pct": 3.7,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 5,
+          "reselect_within_30d": 40,
+          "reselect_within_90d": 84,
+          "gap_distribution": {
+            "31~89일": 42,
+            "8~30일": 35,
+            "100일+": 12,
+            "1~7일": 5,
+            "90~99일": 2
+          },
+          "median_gap_days": 39.5,
+          "semantic_family_share_pct": 0.9
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": false,
+          "unique_semantic_family_p10_ge_15": false,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "display_good_change_le_20pct": true,
+          "mean_display_loss_le_3_5": true,
+          "p90_display_loss_le_7": true,
+          "no_over_budget_change": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "support_origin_le_10pct": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_warmup_L0": true,
+          "no_domain_overflow": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": true
+      },
+      "C1_full_unused_priority": {
+        "window_90d": {
+          "unique_event_key_p10": 15,
+          "unique_semantic_family_p10": 15,
+          "unique_domain_count_p10": 6,
+          "iljus_below_15": 3,
+          "p90_pct": 21.1,
+          "max_pct": 26.7,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 4.4,
+          "top5_cumulative_pct": 50.4
+        },
+        "window_270d": {
+          "unique_event_key_p10": 17,
+          "unique_semantic_family_p10": 17,
+          "unique_domain_count_p10": 7,
+          "iljus_below_15": 0,
+          "p90_pct": 18.1,
+          "max_pct": 22.6,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 2.9,
+          "top5_cumulative_pct": 50.4
+        },
+        "display_good": {
+          "raw_good_winner_kept_pct": 79.4,
+          "representative_changed_pct": 17.0,
+          "mean_display_loss": 4.7,
+          "median_display_loss": 5.0,
+          "p75_display_loss": 6,
+          "p90_display_loss": 7,
+          "max_display_loss": 7,
+          "loss_buckets": {
+            "0~3p": 767,
+            "4p": 373,
+            "5p": 476,
+            "6p": 530,
+            "7p": 616
+          },
+          "changes_on_strong_raw_ge70": 1857,
+          "changes_to_weak_alt_lt60": 390
+        },
+        "low_ilju_recovery_90d": {
+          "tracked": 16,
+          "lifted": 13,
+          "required": 11
+        },
+        "watch_event_90d": {
+          "event": "love_deepening",
+          "window_days": 90,
+          "iljus_with_exposure": 52,
+          "total_exposure": 106,
+          "baseline_exposure": 46,
+          "exposure_delta": 60,
+          "share_of_all_headlines_pct": 1.96,
+          "max_per_ilju_share_pct": 6.7,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 8,
+          "reselect_within_30d": 40,
+          "reselect_within_90d": 54,
+          "gap_distribution": {
+            "8~30일": 32,
+            "31~89일": 14,
+            "1~7일": 8
+          },
+          "median_gap_days": 20.0,
+          "semantic_family_share_pct": 1.96
+        },
+        "watch_event_270d": {
+          "event": "love_deepening",
+          "window_days": 270,
+          "iljus_with_exposure": 60,
+          "total_exposure": 311,
+          "baseline_exposure": 145,
+          "exposure_delta": 166,
+          "share_of_all_headlines_pct": 1.92,
+          "max_per_ilju_share_pct": 4.1,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 15,
+          "reselect_within_30d": 131,
+          "reselect_within_90d": 224,
+          "gap_distribution": {
+            "8~30일": 116,
+            "31~89일": 89,
+            "100일+": 24,
+            "1~7일": 15,
+            "90~99일": 7
+          },
+          "median_gap_days": 30,
+          "semantic_family_share_pct": 1.92
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": true,
+          "unique_semantic_family_p10_ge_15": true,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": true,
+        "quality_guard": {
+          "display_good_change_le_20pct": true,
+          "mean_display_loss_le_3_5": false,
+          "p90_display_loss_le_7": true,
+          "no_over_budget_change": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "support_origin_le_10pct": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_warmup_L0": true,
+          "no_domain_overflow": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": false
+      },
+      "C2_coverage_floor": {
+        "window_90d": {
+          "unique_event_key_p10": 14,
+          "unique_semantic_family_p10": 14,
+          "unique_domain_count_p10": 6,
+          "iljus_below_15": 8,
+          "p90_pct": 23.3,
+          "max_pct": 26.7,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 5.8,
+          "top5_cumulative_pct": 52.3
+        },
+        "window_270d": {
+          "unique_event_key_p10": 17,
+          "unique_semantic_family_p10": 16,
+          "unique_domain_count_p10": 7,
+          "iljus_below_15": 0,
+          "p90_pct": 19.3,
+          "max_pct": 22.2,
+          "max_consecutive_days": 5,
+          "window7_repeat3_pct": 4.5,
+          "top5_cumulative_pct": 52.4
+        },
+        "display_good": {
+          "raw_good_winner_kept_pct": 77.9,
+          "representative_changed_pct": 14.5,
+          "mean_display_loss": 2.41,
+          "median_display_loss": 2.0,
+          "p75_display_loss": 4,
+          "p90_display_loss": 4,
+          "max_display_loss": 7,
+          "loss_buckets": {
+            "0~3p": 1742,
+            "4p": 481,
+            "5p": 54,
+            "6p": 40,
+            "7p": 27
+          },
+          "changes_on_strong_raw_ge70": 1514,
+          "changes_to_weak_alt_lt60": 211
+        },
+        "low_ilju_recovery_90d": {
+          "tracked": 16,
+          "lifted": 9,
+          "required": 11
+        },
+        "watch_event_90d": {
+          "event": "love_deepening",
+          "window_days": 90,
+          "iljus_with_exposure": 31,
+          "total_exposure": 51,
+          "baseline_exposure": 46,
+          "exposure_delta": 5,
+          "share_of_all_headlines_pct": 0.94,
+          "max_per_ilju_share_pct": 6.7,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 2,
+          "reselect_within_30d": 15,
+          "reselect_within_90d": 20,
+          "gap_distribution": {
+            "8~30일": 13,
+            "31~89일": 5,
+            "1~7일": 2
+          },
+          "median_gap_days": 24.0,
+          "semantic_family_share_pct": 0.94
+        },
+        "watch_event_270d": {
+          "event": "love_deepening",
+          "window_days": 270,
+          "iljus_with_exposure": 49,
+          "total_exposure": 157,
+          "baseline_exposure": 145,
+          "exposure_delta": 12,
+          "share_of_all_headlines_pct": 0.97,
+          "max_per_ilju_share_pct": 4.1,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 7,
+          "reselect_within_30d": 46,
+          "reselect_within_90d": 87,
+          "gap_distribution": {
+            "31~89일": 40,
+            "8~30일": 39,
+            "100일+": 21,
+            "1~7일": 7,
+            "90~99일": 1
+          },
+          "median_gap_days": 39.5,
+          "semantic_family_share_pct": 0.97
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": false,
+          "unique_semantic_family_p10_ge_15": false,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "display_good_change_le_20pct": true,
+          "mean_display_loss_le_3_5": true,
+          "p90_display_loss_le_7": true,
+          "no_over_budget_change": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "support_origin_le_10pct": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_warmup_L0": true,
+          "no_domain_overflow": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": true
+      },
+      "C3_coverage_floor_wide_recovery": {
+        "window_90d": {
+          "unique_event_key_p10": 14,
+          "unique_semantic_family_p10": 14,
+          "unique_domain_count_p10": 6,
+          "iljus_below_15": 6,
+          "p90_pct": 23.3,
+          "max_pct": 27.8,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 5.9,
+          "top5_cumulative_pct": 52.1
+        },
+        "window_270d": {
+          "unique_event_key_p10": 17,
+          "unique_semantic_family_p10": 17,
+          "unique_domain_count_p10": 7,
+          "iljus_below_15": 0,
+          "p90_pct": 19.3,
+          "max_pct": 22.6,
+          "max_consecutive_days": 5,
+          "window7_repeat3_pct": 4.4,
+          "top5_cumulative_pct": 52.4
+        },
+        "display_good": {
+          "raw_good_winner_kept_pct": 77.9,
+          "representative_changed_pct": 14.3,
+          "mean_display_loss": 2.53,
+          "median_display_loss": 2.0,
+          "p75_display_loss": 4,
+          "p90_display_loss": 4,
+          "max_display_loss": 7,
+          "loss_buckets": {
+            "0~3p": 1678,
+            "4p": 425,
+            "5p": 73,
+            "6p": 74,
+            "7p": 66
+          },
+          "changes_on_strong_raw_ge70": 1496,
+          "changes_to_weak_alt_lt60": 216
+        },
+        "low_ilju_recovery_90d": {
+          "tracked": 16,
+          "lifted": 11,
+          "required": 11
+        },
+        "watch_event_90d": {
+          "event": "love_deepening",
+          "window_days": 90,
+          "iljus_with_exposure": 32,
+          "total_exposure": 52,
+          "baseline_exposure": 46,
+          "exposure_delta": 6,
+          "share_of_all_headlines_pct": 0.96,
+          "max_per_ilju_share_pct": 5.6,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 3,
+          "reselect_within_30d": 15,
+          "reselect_within_90d": 20,
+          "gap_distribution": {
+            "8~30일": 12,
+            "31~89일": 5,
+            "1~7일": 3
+          },
+          "median_gap_days": 24.0,
+          "semantic_family_share_pct": 0.96
+        },
+        "watch_event_270d": {
+          "event": "love_deepening",
+          "window_days": 270,
+          "iljus_with_exposure": 53,
+          "total_exposure": 166,
+          "baseline_exposure": 145,
+          "exposure_delta": 21,
+          "share_of_all_headlines_pct": 1.02,
+          "max_per_ilju_share_pct": 3.7,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 9,
+          "reselect_within_30d": 46,
+          "reselect_within_90d": 90,
+          "gap_distribution": {
+            "31~89일": 42,
+            "8~30일": 37,
+            "100일+": 22,
+            "1~7일": 9,
+            "90~99일": 3
+          },
+          "median_gap_days": 40,
+          "semantic_family_share_pct": 1.02
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": false,
+          "unique_semantic_family_p10_ge_15": false,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "display_good_change_le_20pct": true,
+          "mean_display_loss_le_3_5": true,
+          "p90_display_loss_le_7": true,
+          "no_over_budget_change": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "support_origin_le_10pct": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_warmup_L0": true,
+          "no_domain_overflow": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": true
+      },
+      "C4_floor16_wide_recovery": {
+        "window_90d": {
+          "unique_event_key_p10": 15,
+          "unique_semantic_family_p10": 15,
+          "unique_domain_count_p10": 6,
+          "iljus_below_15": 5,
+          "p90_pct": 22.2,
+          "max_pct": 26.7,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 5.3,
+          "top5_cumulative_pct": 51.6
+        },
+        "window_270d": {
+          "unique_event_key_p10": 17,
+          "unique_semantic_family_p10": 17,
+          "unique_domain_count_p10": 7,
+          "iljus_below_15": 0,
+          "p90_pct": 18.5,
+          "max_pct": 22.6,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 3.9,
+          "top5_cumulative_pct": 51.9
+        },
+        "display_good": {
+          "raw_good_winner_kept_pct": 78.2,
+          "representative_changed_pct": 15.0,
+          "mean_display_loss": 3.15,
+          "median_display_loss": 3,
+          "p75_display_loss": 4,
+          "p90_display_loss": 6,
+          "max_display_loss": 7,
+          "loss_buckets": {
+            "0~3p": 1451,
+            "4p": 407,
+            "5p": 173,
+            "6p": 198,
+            "7p": 204
+          },
+          "changes_on_strong_raw_ge70": 1590,
+          "changes_to_weak_alt_lt60": 251
+        },
+        "low_ilju_recovery_90d": {
+          "tracked": 16,
+          "lifted": 11,
+          "required": 11
+        },
+        "watch_event_90d": {
+          "event": "love_deepening",
+          "window_days": 90,
+          "iljus_with_exposure": 41,
+          "total_exposure": 72,
+          "baseline_exposure": 46,
+          "exposure_delta": 26,
+          "share_of_all_headlines_pct": 1.33,
+          "max_per_ilju_share_pct": 5.6,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 3,
+          "reselect_within_30d": 25,
+          "reselect_within_90d": 31,
+          "gap_distribution": {
+            "8~30일": 22,
+            "31~89일": 6,
+            "1~7일": 3
+          },
+          "median_gap_days": 20,
+          "semantic_family_share_pct": 1.33
+        },
+        "watch_event_270d": {
+          "event": "love_deepening",
+          "window_days": 270,
+          "iljus_with_exposure": 58,
+          "total_exposure": 203,
+          "baseline_exposure": 145,
+          "exposure_delta": 58,
+          "share_of_all_headlines_pct": 1.25,
+          "max_per_ilju_share_pct": 3.7,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 11,
+          "reselect_within_30d": 64,
+          "reselect_within_90d": 124,
+          "gap_distribution": {
+            "31~89일": 57,
+            "8~30일": 53,
+            "100일+": 19,
+            "1~7일": 11,
+            "90~99일": 5
+          },
+          "median_gap_days": 36,
+          "semantic_family_share_pct": 1.25
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": true,
+          "unique_semantic_family_p10_ge_15": true,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": true,
+        "quality_guard": {
+          "display_good_change_le_20pct": true,
+          "mean_display_loss_le_3_5": true,
+          "p90_display_loss_le_7": true,
+          "no_over_budget_change": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "support_origin_le_10pct": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_warmup_L0": true,
+          "no_domain_overflow": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": true
+      },
+      "C5_floor17_wide_recovery": {
+        "window_90d": {
+          "unique_event_key_p10": 15,
+          "unique_semantic_family_p10": 15,
+          "unique_domain_count_p10": 6,
+          "iljus_below_15": 5,
+          "p90_pct": 22.2,
+          "max_pct": 26.7,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 5.3,
+          "top5_cumulative_pct": 51.2
+        },
+        "window_270d": {
+          "unique_event_key_p10": 17,
+          "unique_semantic_family_p10": 17,
+          "unique_domain_count_p10": 7,
+          "iljus_below_15": 0,
+          "p90_pct": 18.1,
+          "max_pct": 22.6,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 3.8,
+          "top5_cumulative_pct": 51.3
+        },
+        "display_good": {
+          "raw_good_winner_kept_pct": 78.7,
+          "representative_changed_pct": 15.8,
+          "mean_display_loss": 3.85,
+          "median_display_loss": 4,
+          "p75_display_loss": 6,
+          "p90_display_loss": 7,
+          "max_display_loss": 7,
+          "loss_buckets": {
+            "0~3p": 1175,
+            "4p": 385,
+            "5p": 273,
+            "6p": 347,
+            "7p": 379
+          },
+          "changes_on_strong_raw_ge70": 1688,
+          "changes_to_weak_alt_lt60": 313
+        },
+        "low_ilju_recovery_90d": {
+          "tracked": 16,
+          "lifted": 11,
+          "required": 11
+        },
+        "watch_event_90d": {
+          "event": "love_deepening",
+          "window_days": 90,
+          "iljus_with_exposure": 45,
+          "total_exposure": 82,
+          "baseline_exposure": 46,
+          "exposure_delta": 36,
+          "share_of_all_headlines_pct": 1.52,
+          "max_per_ilju_share_pct": 6.7,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 5,
+          "reselect_within_30d": 25,
+          "reselect_within_90d": 37,
+          "gap_distribution": {
+            "8~30일": 20,
+            "31~89일": 12,
+            "1~7일": 5
+          },
+          "median_gap_days": 24,
+          "semantic_family_share_pct": 1.52
+        },
+        "watch_event_270d": {
+          "event": "love_deepening",
+          "window_days": 270,
+          "iljus_with_exposure": 59,
+          "total_exposure": 245,
+          "baseline_exposure": 145,
+          "exposure_delta": 100,
+          "share_of_all_headlines_pct": 1.51,
+          "max_per_ilju_share_pct": 4.1,
+          "iljus_where_modal": 0,
+          "max_streak": 1,
+          "reselect_within_7d": 11,
+          "reselect_within_30d": 80,
+          "reselect_within_90d": 163,
+          "gap_distribution": {
+            "31~89일": 80,
+            "8~30일": 69,
+            "100일+": 21,
+            "1~7일": 11,
+            "90~99일": 5
+          },
+          "median_gap_days": 40.0,
+          "semantic_family_share_pct": 1.51
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": true,
+          "unique_semantic_family_p10_ge_15": true,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": true,
+        "quality_guard": {
+          "display_good_change_le_20pct": true,
+          "mean_display_loss_le_3_5": false,
+          "p90_display_loss_le_7": true,
+          "no_over_budget_change": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "support_origin_le_10pct": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_warmup_L0": true,
+          "no_domain_overflow": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": false
+      }
+    }
+  }
+}

@@ -125,14 +125,27 @@ class GoodRepresentative:
 #: 장기 다양성 lookback — 지시 규격 D-89 ~ D-1.
 LONGTERM_LOOKBACK_DAYS = 89
 
+# ── P4-LC 제품 정책 상수 ───────────────────────────────────────────────────
+#
+# "90일 동안 최소 15개 의미 장면을 제공한다"는 **제품 약속**이다. 출시 지표를 맞추기
+# 위한 튜닝값이 아니라 정책 자체이므로 이름과 버전으로 고정한다.
+#
+# 전면 미사용 우선(L1~L3)은 다양성 기준을 통과하지만 평균 표시 손실이 3.04 → 4.71p
+# 로 오른다. 이미 15개 의미를 확보한 일주까지 넓은 예산을 쓰기 때문이다. 반대로 전역
+# 손실 band(L4/L5)는 손실은 잡지만 필요한 하위 일주 상승까지 막는다.
+# coverage floor 는 **부족한 일주에만** 넓은 예산을 연다.
+
+LONGITUDINAL_SEMANTIC_COVERAGE_FLOOR = 15
+LONGITUDINAL_NORMAL_LOSS_BUDGET = 4
+LONGITUDINAL_RECOVERY_LOSS_BUDGET = 7
+
 
 @dataclass(frozen=True)
 class LongTermPolicy:
     """P4-L — 장기 미사용 후보 우선 정책.
 
     적용 범위는 **원시 1위가 반복 제약을 어긴 경우로 한정**한다. 그렇지 않은 날은
-    원시 1위를 그대로 쓴다(현재 82.2%). 다양성 때문에 매일 1위를 바꾸는 정책이
-    아니다.
+    원시 1위를 그대로 쓴다(약 80%). 다양성 때문에 매일 1위를 바꾸는 정책이 아니다.
     """
 
     unused_event_key: bool = False
@@ -140,6 +153,15 @@ class LongTermPolicy:
     #: 미사용 우선을 적용할 손실 구간 상한. None 이면 전 구간.
     #: 값이 있으면 그 구간 안에서만 미사용을 우선하고, 밖에서는 점수 순을 지킨다.
     loss_band: int | None = None
+    #: P4-LC — 최근 90일 의미 장면 수가 이 값 미만인 일주에만 미사용 우선과 넓은
+    #: 예산을 적용한다. None 이면 coverage 조건 없이 위 플래그대로 동작한다.
+    coverage_floor: int | None = None
+    #: coverage 충족 시 예산(좁게)과 미충족 시 예산(넓게).
+    normal_loss_budget: int = LONGITUDINAL_NORMAL_LOSS_BUDGET
+    recovery_loss_budget: int = LONGITUDINAL_RECOVERY_LOSS_BUDGET
+    #: 회복 모드에서 0~normal 구간을 먼저 소진할지. False 면 회복 예산 전 구간에서
+    #: 미사용을 동등하게 우선한다(부족한 일주에 한해 C1 과 같은 강도).
+    recovery_prefers_low_loss: bool = True
 
 
 L0_POLICY = LongTermPolicy()
@@ -215,11 +237,30 @@ def select_good_representative(
     good_counts = collections.Counter(good_recent)
     family_recent = frozenset(fam.get(k, k) for k in (*headline_recent, *good_recent))
 
+    effective = policy
+    effective_budget = budget
+    if policy.coverage_floor is not None:
+        # 사용자 최종 노출 기준 의미 장면 수 — 부족할 때만 회복 모드로 넓힌다.
+        coverage = len({fam.get(k, k) for k in headline_recent})
+        if coverage >= policy.coverage_floor:
+            effective = LongTermPolicy()          # 기존 P4 — 손실 최소 우선
+            effective_budget = min(budget, policy.normal_loss_budget)
+        else:
+            effective = LongTermPolicy(
+                unused_event_key=policy.unused_event_key,
+                unused_semantic_family=policy.unused_semantic_family,
+                # 0~4p 후보를 먼저 소진할지, 회복 예산 전 구간을 동등하게 볼지.
+                loss_band=(policy.normal_loss_budget
+                           if policy.recovery_prefers_low_loss else None),
+            )
+            effective_budget = min(budget, policy.recovery_loss_budget)
+        policy = effective
+
     clean = [
         (key, p) for key, p in ranked[1:]
         if repeat_severity(history, key) == SEVERITY_CLEAN
     ]
-    affordable = [(key, p) for key, p in clean if top_p - p <= budget]
+    affordable = [(key, p) for key, p in clean if top_p - p <= effective_budget]
     if affordable:
         chosen = min(
             affordable,
