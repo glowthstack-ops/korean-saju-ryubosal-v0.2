@@ -1,0 +1,77 @@
+{
+  "audit_id": "OA-6f8",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "result": {
+    "measurement_stage": "display_pipeline",
+    "generation_source": "AUDIT_ORACLE_WITNESS",
+    "publishable": false,
+    "future_aware": true,
+    "qualifying_iljus_required": 55,
+    "windows": {
+      "failing_2027-06-01": {
+        "window_start": "2027-03-03",
+        "qualifying_iljus": 46,
+        "family_p10": 14,
+        "family_min": 13,
+        "family_median": 16,
+        "key_p10": 14,
+        "mean_loss": 3.01,
+        "p90_loss": 6,
+        "raw_winner_kept_pct": 65.5,
+        "band_downgrades": 384,
+        "s5_downgrades": 0,
+        "valence_changed": 0,
+        "domain_cap_hard_violation": 0,
+        "domain_cap_authorized_override": 0,
+        "stage_reasons": {
+          "WITNESS_FAMILY_ALREADY_PRESENT": 4110,
+          "WITNESS_REPLAY_REALIZED": 521,
+          "WITNESS_FAMILY_LOST_AT_CARD_HEADLINE": 399,
+          "WITNESS_CANDIDATE_NOT_SLOT_FEASIBLE": 358,
+          "WITNESS_FAMILY_LOST_AT_BOARD_REBALANCE": 12
+        },
+        "stage_reason_pct": {
+          "WITNESS_FAMILY_ALREADY_PRESENT": 76.1,
+          "WITNESS_REPLAY_REALIZED": 9.6,
+          "WITNESS_FAMILY_LOST_AT_CARD_HEADLINE": 7.4,
+          "WITNESS_CANDIDATE_NOT_SLOT_FEASIBLE": 6.6,
+          "WITNESS_FAMILY_LOST_AT_BOARD_REBALANCE": 0.2
+        },
+        "verdict": "CARD_STAGE_MODEL_TOO_OPTIMISTIC"
+      },
+      "passing_2026-07-01": {
+        "window_start": "2026-04-02",
+        "qualifying_iljus": 49,
+        "family_p10": 14,
+        "family_min": 12,
+        "family_median": 16,
+        "key_p10": 14,
+        "mean_loss": 3.11,
+        "p90_loss": 7,
+        "raw_winner_kept_pct": 66.8,
+        "band_downgrades": 363,
+        "s5_downgrades": 0,
+        "valence_changed": 0,
+        "domain_cap_hard_violation": 0,
+        "domain_cap_authorized_override": 0,
+        "stage_reasons": {
+          "WITNESS_FAMILY_ALREADY_PRESENT": 4117,
+          "WITNESS_REPLAY_REALIZED": 520,
+          "WITNESS_CANDIDATE_NOT_SLOT_FEASIBLE": 381,
+          "WITNESS_FAMILY_LOST_AT_CARD_HEADLINE": 348,
+          "WITNESS_FAMILY_LOST_AT_BOARD_REBALANCE": 34
+        },
+        "stage_reason_pct": {
+          "WITNESS_FAMILY_ALREADY_PRESENT": 76.2,
+          "WITNESS_REPLAY_REALIZED": 9.6,
+          "WITNESS_CANDIDATE_NOT_SLOT_FEASIBLE": 7.1,
+          "WITNESS_FAMILY_LOST_AT_CARD_HEADLINE": 6.4,
+          "WITNESS_FAMILY_LOST_AT_BOARD_REBALANCE": 0.6
+        },
+        "verdict": "CARD_STAGE_MODEL_TOO_OPTIMISTIC"
+      }
+    }
+  }
+}
