@@ -12,29 +12,125 @@
   },
   "results": [
     {
-      "anchor": "2027-03-03",
+      "anchor": "2027-06-01",
+      "window_days": 90,
+      "ub0": {
+        "method": "exact_bipartite_matching_no_board_constraints",
+        "qualifying_iljus": 60,
+        "family_p10": 17,
+        "family_min": 15,
+        "family_median": 19,
+        "realized_loss_mean": 0.27,
+        "realized_loss_p90": 0
+      },
+      "witness_live_replay": {
+        "qualifying_iljus": 43,
+        "family_p10": 13,
+        "family_min": 12,
+        "family_median": 15,
+        "realized_loss_mean": 0.27,
+        "realized_loss_p90": 0,
+        "relaxed_target_changed": 846,
+        "change_reasons": {
+          "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": 76,
+          "RELAXED_TARGET_FAMILY_GAIN_LOST": 248,
+          "RELAXED_TARGET_NOT_GREEDY_REACHABLE": 522
+        },
+        "overflow_days": 0
+      },
+      "cut_iterations": 0,
+      "solver_status": "EXACT_BY_CONSTRUCTION_NO_MILP",
+      "mip_gap": 0.0,
+      "verdict": "SEQUENTIAL_POLICY_GAP"
+    },
+    {
+      "anchor": "2027-08-05",
+      "window_days": 90,
+      "ub0": {
+        "method": "exact_bipartite_matching_no_board_constraints",
+        "qualifying_iljus": 60,
+        "family_p10": 17,
+        "family_min": 17,
+        "family_median": 19,
+        "realized_loss_mean": 0.25,
+        "realized_loss_p90": 0
+      },
+      "witness_live_replay": {
+        "qualifying_iljus": 40,
+        "family_p10": 13,
+        "family_min": 11,
+        "family_median": 15,
+        "realized_loss_mean": 0.25,
+        "realized_loss_p90": 0,
+        "relaxed_target_changed": 870,
+        "change_reasons": {
+          "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": 65,
+          "RELAXED_TARGET_FAMILY_GAIN_LOST": 259,
+          "RELAXED_TARGET_NOT_GREEDY_REACHABLE": 546
+        },
+        "overflow_days": 0
+      },
+      "cut_iterations": 0,
+      "solver_status": "EXACT_BY_CONSTRUCTION_NO_MILP",
+      "mip_gap": 0.0,
+      "verdict": "SEQUENTIAL_POLICY_GAP"
+    },
+    {
+      "anchor": "2027-10-09",
       "window_days": 90,
       "ub0": {
         "method": "exact_bipartite_matching_no_board_constraints",
         "qualifying_iljus": 60,
         "family_p10": 18,
-        "family_min": 17,
+        "family_min": 16,
         "family_median": 19,
-        "realized_loss_mean": 0.2,
+        "realized_loss_mean": 0.27,
         "realized_loss_p90": 0
       },
       "witness_live_replay": {
-        "qualifying_iljus": 44,
-        "family_p10": 14,
+        "qualifying_iljus": 37,
+        "family_p10": 13,
+        "family_min": 12,
+        "family_median": 15,
+        "realized_loss_mean": 0.27,
+        "realized_loss_p90": 0,
+        "relaxed_target_changed": 853,
+        "change_reasons": {
+          "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": 46,
+          "RELAXED_TARGET_NOT_GREEDY_REACHABLE": 539,
+          "RELAXED_TARGET_FAMILY_GAIN_LOST": 268
+        },
+        "overflow_days": 0
+      },
+      "cut_iterations": 0,
+      "solver_status": "EXACT_BY_CONSTRUCTION_NO_MILP",
+      "mip_gap": 0.0,
+      "verdict": "SEQUENTIAL_POLICY_GAP"
+    },
+    {
+      "anchor": "2026-04-02",
+      "window_days": 90,
+      "ub0": {
+        "method": "exact_bipartite_matching_no_board_constraints",
+        "qualifying_iljus": 60,
+        "family_p10": 17,
+        "family_min": 16,
+        "family_median": 19,
+        "realized_loss_mean": 0.25,
+        "realized_loss_p90": 0
+      },
+      "witness_live_replay": {
+        "qualifying_iljus": 45,
+        "family_p10": 13,
         "family_min": 12,
         "family_median": 16,
-        "realized_loss_mean": 0.2,
+        "realized_loss_mean": 0.25,
         "realized_loss_p90": 0,
-        "relaxed_target_changed": 792,
+        "relaxed_target_changed": 804,
         "change_reasons": {
-          "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": 66,
-          "RELAXED_TARGET_FAMILY_GAIN_LOST": 254,
-          "RELAXED_TARGET_NOT_GREEDY_REACHABLE": 472
+          "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": 79,
+          "RELAXED_TARGET_NOT_GREEDY_REACHABLE": 471,
+          "RELAXED_TARGET_FAMILY_GAIN_LOST": 254
         },
         "overflow_days": 0
       },
