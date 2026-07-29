@@ -66,6 +66,10 @@ backend/compiled/risk_adapter_suspensions.json
 # oa10b_characterization.json 에 커밋되며, 재생성은
 # `python3 scripts/legacy_oa10b_runner.py 1000` 이다.
 backend/compiled/oa10b_characterization_rows.jsonl
+# OA-10b aggregate·episode characterization(730 anchor · 30 episode). 지문은
+# tests/unit/test_oa10b_aggregate_characterization.py 에 64자리로 고정되며,
+# 재생성은 `python3 scripts/legacy_oa10b_aggregate.py` 다.
+backend/compiled/oa10b_anchor_aggregates.json
 
 # 위험 adapter 런타임 상태 디렉터리(감수 54차 — git 미추적)
 backend/var/
