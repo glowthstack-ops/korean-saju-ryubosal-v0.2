@@ -1,0 +1,598 @@
+{
+  "audit_id": "OA-6f2",
+  "policy_status": "shadow_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "days": 90,
+  "result": {
+    "cards": 5400,
+    "measurement_stage": "display_pipeline",
+    "fixed_baseline": {
+      "relation": "R0",
+      "candidate_hash": "live v1 frozen",
+      "OA-8b": "ON",
+      "G0": "OFF",
+      "domain_cap": 21,
+      "event_cap": 10,
+      "loss_budget": 7
+    },
+    "variants": {
+      "P0_f4_greedy": {
+        "cooldown_triggered_cards": 1075,
+        "cooldown_moved_cards": 597,
+        "cooldown_unresolved_cards": 478,
+        "partition_holds": true,
+        "unresolved_rate_of_triggered_cards": 44.5,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 328,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 67,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 43,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27,
+          "ALL_CANDIDATES_DOMAIN_CAP_BLOCKED": 13
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 132,
+          "+4~5p": 62,
+          "+1p 이내": 53,
+          "+2p 이내": 41,
+          "+3p 이내": 40
+        },
+        "recoverable_within_3p_alternatives": {
+          "love_spark": 35,
+          "treat_received": 32,
+          "document_progress": 27,
+          "tidy_luck": 12,
+          "love_deepening": 7,
+          "good_news_arrives": 6,
+          "love_reunion": 4,
+          "praise_recognition": 4
+        },
+        "moves": 857,
+        "chain_displaced_cards": 0,
+        "accepted_weaker_repeat": 0,
+        "mean_probability_loss": 3.37,
+        "p90_probability_loss": 6,
+        "severity_distribution": {
+          "CLEAN": 4922,
+          "CONSECUTIVE_REPEAT_BLOCKED": 420,
+          "ROLLING_7D_THIRD_OCCURRENCE_BLOCKED": 45,
+          "ROLLING_7D_FOURTH_OR_MORE_BLOCKED": 13
+        },
+        "candidate_utilization": {
+          "eligible_unique_keys": 25,
+          "within_budget_unique_keys": 25,
+          "actually_selected_keys": 25,
+          "never_selected_within_budget": [],
+          "utilization_pct": 100.0
+        },
+        "final_headline_top10": {
+          "money_small_gain": 966,
+          "praise_recognition": 608,
+          "document_progress": 513,
+          "good_news_arrives": 481,
+          "teamwork_flow": 446,
+          "idea_flash": 419,
+          "meet_helper": 414,
+          "love_spark": 358,
+          "argument_caution": 293,
+          "money_good_deal": 201
+        },
+        "final_headline_top5_cumulative_pct": 55.8,
+        "final_headline_domain": {
+          "work": 1480,
+          "money": 1323,
+          "social": 879,
+          "news": 620,
+          "document": 519,
+          "love": 420,
+          "health": 93,
+          "leisure": 66
+        },
+        "replacement_top8": {
+          "love_spark": 160,
+          "good_news_arrives": 151,
+          "document_progress": 127,
+          "treat_received": 83,
+          "idea_flash": 68,
+          "praise_recognition": 59,
+          "meet_helper": 38,
+          "tidy_luck": 29
+        },
+        "largest_single_replacement_pct": 18.7,
+        "support_origin_promoted_pct": 7.7,
+        "caution_promoted": 0,
+        "valence_changed_moves": 0,
+        "domain_overflow": 0,
+        "event_overflow": 100,
+        "final_headline_p90_pct": 27.8,
+        "final_headline_max_pct": 31.1,
+        "iljus_over_30pct": 2,
+        "selected_unique_p10": 14,
+        "selected_unique_median": 16,
+        "max_consecutive_days": 4,
+        "window7_repeat3_pct": 11.1,
+        "selection_entropy_mean": 0.898,
+        "delta_p90_pp": 0.0,
+        "delta_selected_unique_p10": 0,
+        "release_gate": {
+          "selected_unique_p10_ge_15": false,
+          "p90_le_25pct": false,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_15pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "mean_loss_not_worse_than_p0": true,
+          "p90_loss_le_7": true,
+          "support_promoted_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_f0": true,
+          "no_cap_overflow": false
+        }
+      },
+      "P1_global_swap": {
+        "cooldown_triggered_cards": 1032,
+        "cooldown_moved_cards": 608,
+        "cooldown_unresolved_cards": 424,
+        "partition_holds": true,
+        "unresolved_rate_of_triggered_cards": 41.1,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 309,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 72,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 16
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 121,
+          "+4~5p": 58,
+          "+1p 이내": 52,
+          "+2p 이내": 42,
+          "+3p 이내": 36
+        },
+        "recoverable_within_3p_alternatives": {
+          "love_spark": 33,
+          "treat_received": 31,
+          "document_progress": 25,
+          "tidy_luck": 12,
+          "good_news_arrives": 8,
+          "love_deepening": 7,
+          "praise_recognition": 4,
+          "love_reunion": 3
+        },
+        "moves": 1031,
+        "chain_displaced_cards": 53,
+        "accepted_weaker_repeat": 0,
+        "mean_probability_loss": 3.46,
+        "p90_probability_loss": 6,
+        "severity_distribution": {
+          "CLEAN": 4976,
+          "CONSECUTIVE_REPEAT_BLOCKED": 375,
+          "ROLLING_7D_THIRD_OCCURRENCE_BLOCKED": 34,
+          "ROLLING_7D_FOURTH_OR_MORE_BLOCKED": 15
+        },
+        "candidate_utilization": {
+          "eligible_unique_keys": 25,
+          "within_budget_unique_keys": 25,
+          "actually_selected_keys": 25,
+          "never_selected_within_budget": [],
+          "utilization_pct": 100.0
+        },
+        "final_headline_top10": {
+          "money_small_gain": 915,
+          "praise_recognition": 598,
+          "document_progress": 518,
+          "good_news_arrives": 480,
+          "teamwork_flow": 433,
+          "idea_flash": 422,
+          "meet_helper": 411,
+          "love_spark": 375,
+          "argument_caution": 293,
+          "money_good_deal": 191
+        },
+        "final_headline_top5_cumulative_pct": 54.5,
+        "final_headline_domain": {
+          "work": 1460,
+          "money": 1262,
+          "social": 904,
+          "news": 632,
+          "document": 524,
+          "love": 446,
+          "health": 93,
+          "leisure": 79
+        },
+        "replacement_top8": {
+          "love_spark": 179,
+          "good_news_arrives": 173,
+          "document_progress": 137,
+          "treat_received": 107,
+          "idea_flash": 87,
+          "praise_recognition": 70,
+          "meet_helper": 47,
+          "tidy_luck": 41
+        },
+        "largest_single_replacement_pct": 17.4,
+        "support_origin_promoted_pct": 7.7,
+        "caution_promoted": 0,
+        "valence_changed_moves": 0,
+        "domain_overflow": 0,
+        "event_overflow": 90,
+        "final_headline_p90_pct": 26.7,
+        "final_headline_max_pct": 31.1,
+        "iljus_over_30pct": 1,
+        "selected_unique_p10": 14,
+        "selected_unique_median": 16,
+        "max_consecutive_days": 4,
+        "window7_repeat3_pct": 9.9,
+        "selection_entropy_mean": 0.901,
+        "delta_p90_pp": -1.1,
+        "delta_selected_unique_p10": 0,
+        "release_gate": {
+          "selected_unique_p10_ge_15": false,
+          "p90_le_25pct": false,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_15pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "mean_loss_not_worse_than_p0": false,
+          "p90_loss_le_7": true,
+          "support_promoted_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_f0": true,
+          "no_cap_overflow": false
+        }
+      },
+      "P2_severity_tiers": {
+        "cooldown_triggered_cards": 1031,
+        "cooldown_moved_cards": 624,
+        "cooldown_unresolved_cards": 407,
+        "partition_holds": true,
+        "unresolved_rate_of_triggered_cards": 39.5,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 316,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 35,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 29,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 122,
+          "+4~5p": 60,
+          "+1p 이내": 53,
+          "+2p 이내": 43,
+          "+3p 이내": 38
+        },
+        "recoverable_within_3p_alternatives": {
+          "love_spark": 36,
+          "treat_received": 31,
+          "document_progress": 25,
+          "tidy_luck": 12,
+          "good_news_arrives": 8,
+          "love_deepening": 7,
+          "praise_recognition": 4,
+          "love_reunion": 3
+        },
+        "moves": 1054,
+        "chain_displaced_cards": 61,
+        "accepted_weaker_repeat": 17,
+        "mean_probability_loss": 3.46,
+        "p90_probability_loss": 6,
+        "severity_distribution": {
+          "CLEAN": 4976,
+          "CONSECUTIVE_REPEAT_BLOCKED": 357,
+          "ROLLING_7D_THIRD_OCCURRENCE_BLOCKED": 48,
+          "ROLLING_7D_FOURTH_OR_MORE_BLOCKED": 19
+        },
+        "candidate_utilization": {
+          "eligible_unique_keys": 25,
+          "within_budget_unique_keys": 25,
+          "actually_selected_keys": 25,
+          "never_selected_within_budget": [],
+          "utilization_pct": 100.0
+        },
+        "final_headline_top10": {
+          "money_small_gain": 913,
+          "praise_recognition": 592,
+          "document_progress": 519,
+          "good_news_arrives": 482,
+          "teamwork_flow": 433,
+          "idea_flash": 422,
+          "meet_helper": 409,
+          "love_spark": 378,
+          "argument_caution": 293,
+          "money_good_deal": 191
+        },
+        "final_headline_top5_cumulative_pct": 54.4,
+        "final_headline_domain": {
+          "work": 1454,
+          "money": 1260,
+          "social": 906,
+          "news": 634,
+          "document": 525,
+          "love": 449,
+          "health": 93,
+          "leisure": 79
+        },
+        "replacement_top8": {
+          "love_spark": 185,
+          "good_news_arrives": 176,
+          "document_progress": 138,
+          "treat_received": 111,
+          "idea_flash": 87,
+          "praise_recognition": 71,
+          "meet_helper": 47,
+          "tidy_luck": 41
+        },
+        "largest_single_replacement_pct": 17.6,
+        "support_origin_promoted_pct": 7.5,
+        "caution_promoted": 0,
+        "valence_changed_moves": 0,
+        "domain_overflow": 0,
+        "event_overflow": 89,
+        "final_headline_p90_pct": 26.7,
+        "final_headline_max_pct": 31.1,
+        "iljus_over_30pct": 1,
+        "selected_unique_p10": 14,
+        "selected_unique_median": 16,
+        "max_consecutive_days": 4,
+        "window7_repeat3_pct": 10.2,
+        "selection_entropy_mean": 0.901,
+        "delta_p90_pp": -1.1,
+        "delta_selected_unique_p10": 0,
+        "release_gate": {
+          "selected_unique_p10_ge_15": false,
+          "p90_le_25pct": false,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_15pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "mean_loss_not_worse_than_p0": false,
+          "p90_loss_le_7": true,
+          "support_promoted_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_f0": true,
+          "no_cap_overflow": false
+        }
+      },
+      "P3_recency_rotation": {
+        "cooldown_triggered_cards": 1031,
+        "cooldown_moved_cards": 624,
+        "cooldown_unresolved_cards": 407,
+        "partition_holds": true,
+        "unresolved_rate_of_triggered_cards": 39.5,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 316,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 35,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 29,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 27
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 122,
+          "+4~5p": 60,
+          "+1p 이내": 53,
+          "+2p 이내": 43,
+          "+3p 이내": 38
+        },
+        "recoverable_within_3p_alternatives": {
+          "love_spark": 36,
+          "treat_received": 31,
+          "document_progress": 25,
+          "tidy_luck": 12,
+          "good_news_arrives": 8,
+          "love_deepening": 7,
+          "praise_recognition": 4,
+          "love_reunion": 3
+        },
+        "moves": 1054,
+        "chain_displaced_cards": 61,
+        "accepted_weaker_repeat": 17,
+        "mean_probability_loss": 3.46,
+        "p90_probability_loss": 6,
+        "severity_distribution": {
+          "CLEAN": 4976,
+          "CONSECUTIVE_REPEAT_BLOCKED": 357,
+          "ROLLING_7D_THIRD_OCCURRENCE_BLOCKED": 48,
+          "ROLLING_7D_FOURTH_OR_MORE_BLOCKED": 19
+        },
+        "candidate_utilization": {
+          "eligible_unique_keys": 25,
+          "within_budget_unique_keys": 25,
+          "actually_selected_keys": 25,
+          "never_selected_within_budget": [],
+          "utilization_pct": 100.0
+        },
+        "final_headline_top10": {
+          "money_small_gain": 913,
+          "praise_recognition": 592,
+          "document_progress": 519,
+          "good_news_arrives": 482,
+          "teamwork_flow": 433,
+          "idea_flash": 422,
+          "meet_helper": 409,
+          "love_spark": 378,
+          "argument_caution": 293,
+          "money_good_deal": 191
+        },
+        "final_headline_top5_cumulative_pct": 54.4,
+        "final_headline_domain": {
+          "work": 1454,
+          "money": 1260,
+          "social": 906,
+          "news": 634,
+          "document": 525,
+          "love": 449,
+          "health": 93,
+          "leisure": 79
+        },
+        "replacement_top8": {
+          "love_spark": 185,
+          "good_news_arrives": 176,
+          "document_progress": 138,
+          "treat_received": 111,
+          "idea_flash": 87,
+          "praise_recognition": 71,
+          "meet_helper": 47,
+          "tidy_luck": 41
+        },
+        "largest_single_replacement_pct": 17.6,
+        "support_origin_promoted_pct": 7.5,
+        "caution_promoted": 0,
+        "valence_changed_moves": 0,
+        "domain_overflow": 0,
+        "event_overflow": 89,
+        "final_headline_p90_pct": 26.7,
+        "final_headline_max_pct": 31.1,
+        "iljus_over_30pct": 1,
+        "selected_unique_p10": 14,
+        "selected_unique_median": 16,
+        "max_consecutive_days": 4,
+        "window7_repeat3_pct": 10.2,
+        "selection_entropy_mean": 0.901,
+        "delta_p90_pp": -1.1,
+        "delta_selected_unique_p10": 0,
+        "release_gate": {
+          "selected_unique_p10_ge_15": false,
+          "p90_le_25pct": false,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_15pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "mean_loss_not_worse_than_p0": false,
+          "p90_loss_le_7": true,
+          "support_promoted_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_f0": true,
+          "no_cap_overflow": false
+        }
+      },
+      "P4_good_slot_cooldown": {
+        "cooldown_triggered_cards": 643,
+        "cooldown_moved_cards": 449,
+        "cooldown_unresolved_cards": 194,
+        "partition_holds": true,
+        "unresolved_rate_of_triggered_cards": 30.2,
+        "unresolved_reasons": {
+          "LOSS_BUDGET_EXCEEDED": 154,
+          "NO_ELIGIBLE_HEADLINE_EVENT": 28,
+          "ALL_CANDIDATES_EVENT_CAP_BLOCKED": 8,
+          "ALL_CANDIDATES_COOLDOWN_BLOCKED": 4
+        },
+        "required_uplift_distribution": {
+          "+6p 이상": 59,
+          "+1p 이내": 28,
+          "+4~5p": 25,
+          "+2p 이내": 23,
+          "+3p 이내": 19
+        },
+        "recoverable_within_3p_alternatives": {
+          "document_progress": 21,
+          "treat_received": 14,
+          "love_spark": 12,
+          "good_news_arrives": 5,
+          "tidy_luck": 4,
+          "love_deepening": 4,
+          "love_reunion": 3,
+          "praise_recognition": 3
+        },
+        "moves": 825,
+        "chain_displaced_cards": 52,
+        "accepted_weaker_repeat": 4,
+        "mean_probability_loss": 3.27,
+        "p90_probability_loss": 6,
+        "severity_distribution": {
+          "CLEAN": 5202,
+          "CONSECUTIVE_REPEAT_BLOCKED": 154,
+          "ROLLING_7D_THIRD_OCCURRENCE_BLOCKED": 40,
+          "ROLLING_7D_FOURTH_OR_MORE_BLOCKED": 4
+        },
+        "candidate_utilization": {
+          "eligible_unique_keys": 25,
+          "within_budget_unique_keys": 25,
+          "actually_selected_keys": 25,
+          "never_selected_within_budget": [],
+          "utilization_pct": 100.0
+        },
+        "final_headline_top10": {
+          "money_small_gain": 839,
+          "praise_recognition": 568,
+          "document_progress": 497,
+          "good_news_arrives": 463,
+          "teamwork_flow": 441,
+          "idea_flash": 407,
+          "money_good_deal": 407,
+          "meet_helper": 395,
+          "love_spark": 359,
+          "argument_caution": 295
+        },
+        "final_headline_top5_cumulative_pct": 52.0,
+        "final_headline_domain": {
+          "work": 1422,
+          "money": 1408,
+          "social": 888,
+          "news": 621,
+          "document": 503,
+          "love": 412,
+          "health": 85,
+          "leisure": 61
+        },
+        "replacement_top8": {
+          "love_spark": 151,
+          "good_news_arrives": 143,
+          "document_progress": 120,
+          "treat_received": 66,
+          "idea_flash": 62,
+          "praise_recognition": 55,
+          "meet_helper": 40,
+          "money_small_gain": 36
+        },
+        "largest_single_replacement_pct": 18.3,
+        "support_origin_promoted_pct": 5.6,
+        "caution_promoted": 0,
+        "valence_changed_moves": 0,
+        "domain_overflow": 0,
+        "event_overflow": 13,
+        "final_headline_p90_pct": 23.3,
+        "final_headline_max_pct": 25.6,
+        "iljus_over_30pct": 0,
+        "selected_unique_p10": 14,
+        "selected_unique_median": 16,
+        "max_consecutive_days": 4,
+        "window7_repeat3_pct": 4.1,
+        "selection_entropy_mean": 0.911,
+        "delta_p90_pp": -4.5,
+        "delta_selected_unique_p10": 0,
+        "release_gate": {
+          "selected_unique_p10_ge_15": false,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_15pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "mean_loss_not_worse_than_p0": true,
+          "p90_loss_le_7": true,
+          "support_promoted_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_not_worse_than_f0": true,
+          "no_cap_overflow": false
+        }
+      }
+    }
+  }
+}

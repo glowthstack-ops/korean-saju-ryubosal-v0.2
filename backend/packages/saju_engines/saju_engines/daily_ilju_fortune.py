@@ -450,13 +450,17 @@ def select_event_v2(
 
 
 def _select_slots(
-    scored: list[_ScoredEvent], seed_base: str, rank: Any = None
+    scored: list[_ScoredEvent], seed_base: str, rank: Any = None,
+    good_override: str | None = None,
 ) -> tuple[_ScoredEvent, _ScoredEvent, _ScoredEvent]:
     """슬롯 선발 + 완화 사다리 — 불변식: 항상 3개, 최소 2 domain,
     event_key 중복 금지, 동의어 그룹 동시 노출 금지.
 
     Args:
         rank: 정렬 키 함수. None이면 v1(라이브 동결). shadow 비교에서만 v2를 넘긴다.
+        good_override: good 슬롯에 세울 event_key. **shadow 전용** — 라이브는 None
+            이라 거동이 바뀌지 않는다(OA-6f2 P4). 후보 목록에 없거나 good 자격이
+            없으면 무시하고 기존 1순위를 쓴다. 점수·순위·나머지 슬롯 규칙은 불변이다.
     """
     key = rank or (lambda s: _rank_key(s, seed_base))
     ordered = sorted(scored, key=key)
@@ -464,6 +468,8 @@ def _select_slots(
     goods = [s for s in ordered if s.valence == "good" and "good" in s.slots]
     cautions = [s for s in ordered if s.valence == "caution"]
     good = goods[0]
+    if good_override is not None:
+        good = next((s for s in goods if s.event_key == good_override), good)
 
     def _ok(cand: _ScoredEvent, taken: list[_ScoredEvent], distinct_domain: bool) -> bool:
         if any(cand.event_key == t.event_key for t in taken):
