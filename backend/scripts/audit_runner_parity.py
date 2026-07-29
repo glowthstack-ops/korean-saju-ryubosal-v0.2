@@ -33,7 +33,6 @@ from saju_engines.daily_schedule_runner import (  # noqa: E402
     DAILY_HISTORY_CONTRACT_V1,
     DAILY_ROLLING_AUDIT_CONTRACT_V1,
     DailyScheduleState,
-    _append_window,
     build_rolling_audit_schedule,
 )
 from saju_engines.daily_selection_policy_shadow import SelectionPolicy  # noqa: E402
@@ -76,37 +75,52 @@ def _first_row_mismatch(
     return None
 
 
-def _reconstruct_state(
+def reconstruct_expected_rolling_state_from_frozen_rows(
     rows_by_day: list[list[dict[str, Any]]], keep: int
-) -> list[str]:
-    """legacy 행에서 기대 state 지문을 **shared 와 같은 규약으로** 재구성한다.
+) -> tuple[list[str], list[dict[str, list[str]]]]:
+    """동결 행만으로 기대 rolling state 를 **독립 계산**한다.
 
     legacy observer 는 잘라내지 않은 전체 이력의 지문을 들고 있어 shared 의 90일
-    창 지문과 직접 비교되지 않는다. 행 결과가 같아도 내부 이력이 갈리면 며칠 뒤
-    결과가 달라지므로, 같은 규약으로 다시 만들어 비교한다.
+    창 지문과 직접 비교되지 않는다. 그래서 다시 만든다 — 다만 **shared runner 의
+    windowing helper 를 쓰지 않는다.** 어떤 값을 창에 넣고 어떤 날짜를 빼는지를
+    공유하면 같은 결함을 양쪽이 나눠 갖는 자기비교가 된다. 직렬화 규약
+    (`DailyScheduleState.fingerprint`)만 공유한다.
+
+    Returns:
+        (날짜별 기대 state 지문, 날짜별 창 길이 요약).
     """
-    state = DailyScheduleState({}, {}, {}, {})
-    out: list[str] = []
+    hist: dict[str, dict[str, list[str]]] = {
+        axis: {} for axis in ("intended", "realized", "family", "headline")
+    }
+    field = {
+        "intended": "intended_good_representative",
+        "realized": "realized_good_event",
+        "family": "final_headline_family",
+        "headline": "final_headline",
+    }
+    fps: list[str] = []
+    sizes: list[dict[str, list[str]]] = []
     for day_rows in rows_by_day:
-        intended, _ = _append_window(
-            state.intended_good_history,
-            {r["ilju"]: r["intended_good_representative"] for r in day_rows}, keep,
+        for axis, key in field.items():
+            table = hist[axis]
+            for r in day_rows:
+                seq = table.setdefault(r["ilju"], [])
+                seq.append(r[key])
+                # 독립 구현: append 후 창을 넘으면 가장 오래된 하나를 뺀다.
+                while len(seq) > keep:
+                    seq.pop(0)
+        state = DailyScheduleState(
+            {k: tuple(v) for k, v in hist["intended"].items()},
+            {k: tuple(v) for k, v in hist["realized"].items()},
+            {k: tuple(v) for k, v in hist["family"].items()},
+            {k: tuple(v) for k, v in hist["headline"].items()},
         )
-        realized, _ = _append_window(
-            state.realized_good_history,
-            {r["ilju"]: r["realized_good_event"] for r in day_rows}, keep,
-        )
-        family, _ = _append_window(
-            state.final_headline_family_history,
-            {r["ilju"]: r["final_headline_family"] for r in day_rows}, keep,
-        )
-        headline, _ = _append_window(
-            state.final_headline_history,
-            {r["ilju"]: r["final_headline"] for r in day_rows}, keep,
-        )
-        state = DailyScheduleState(intended, realized, family, headline)
-        out.append(state.fingerprint())
-    return out
+        fps.append(state.fingerprint())
+        sizes.append({
+            axis: sorted({len(v) for v in hist[axis].values()})
+            for axis in hist
+        })
+    return fps, sizes
 
 
 def run(span: int) -> dict[str, Any]:
@@ -162,7 +176,18 @@ def run(span: int) -> dict[str, Any]:
     # 내부 이력이 갈렸는데 당일 출력과 eviction 이 우연히 같은 경우를 잡는다.
     keep = DAILY_HISTORY_CONTRACT_V1.lookback_days
     by_day = [legacy.rows[i * 60:(i + 1) * 60] for i in range(span)]
-    expected_after = _reconstruct_state(by_day, keep)
+    expected_after, window_sizes = (
+        reconstruct_expected_rolling_state_from_frozen_rows(by_day, keep)
+    )
+    # 창 길이 자체도 본다 — 직렬화가 우연히 같은 오류를 공유하는 경우까지 막는다.
+    size_bad = next(
+        (
+            {"day_index": i + 1, "window_sizes": sizes}
+            for i, sizes in enumerate(window_sizes)
+            if any(s != [min(i + 1, keep)] for s in sizes.values())
+        ),
+        None,
+    )
     state_bad = next(
         (
             {
@@ -197,6 +222,7 @@ def run(span: int) -> dict[str, Any]:
     )
     return {
         "span_days": span,
+        "window_size_mismatch": size_bad,
         "daily_state_before_mismatch": before_bad,
         "daily_state_after_mismatch": state_bad,
         "final_state_mismatch": final_bad,
@@ -208,7 +234,7 @@ def run(span: int) -> dict[str, Any]:
         "verdict": (
             "PARITY_OK"
             if not any((row_bad, board_bad, evict_bad, state_bad, before_bad,
-                        final_bad))
+                        final_bad, size_bad))
             else "PARITY_FAILED"
         ),
     }
@@ -225,13 +251,16 @@ if __name__ == "__main__":
         if r["verdict"] != "PARITY_OK":
             bad = (r["row_mismatch"] or r["board_fingerprint_mismatch"]
                    or r["eviction_mismatch"] or r["daily_state_before_mismatch"]
-                   or r["daily_state_after_mismatch"] or r["final_state_mismatch"])
+                   or r["daily_state_after_mismatch"] or r["final_state_mismatch"]
+                   or r["window_size_mismatch"])
             print("    최초 불일치:")
             for k, v in (bad or {}).items():
                 if k not in ("legacy_row", "shared_row"):
                     print(f"      {k}: {v}")
             break        # 최초 실패에서 멈춘다 — 다음 구간은 의미가 없다
-    out = _ROOT / "doc" / "v2_2" / "audits" / "oa11e_runner_parity.json"
+    tag = "-".join(str(x) for x in spans)
+    out = (_ROOT / "doc" / "v2_2" / "audits"
+           / f"oa11e_runner_parity_{tag}.json")
     out.write_text(
         json.dumps({
             "audit_id": "OA-11e",
@@ -242,6 +271,12 @@ if __name__ == "__main__":
                 "audit_contract": DAILY_ROLLING_AUDIT_CONTRACT_V1.version,
                 "origin": DAILY_ROLLING_AUDIT_CONTRACT_V1.origin.isoformat(),
             },
+            "expected_state_source": "INDEPENDENT_RECONSTRUCTION_FROM_FROZEN_ROWS",
+            "execution_isolation": "SEQUENTIAL_WITH_CACHE_RESET",
+            "cache_independence_evidence": (
+                "tests/unit/test_daily_schedule_cache_independence.py — 실행 순서 "
+                "무관·반복 안정·사전 입력 무변경·cold/warm 일치"
+            ),
             "compared_row_fields": list(_ROW_FIELDS),
             "results": results,
         }, ensure_ascii=False, indent=2, default=str) + "\n",

@@ -1,0 +1,42 @@
+{
+  "audit_id": "OA-11e",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "baseline": {
+    "legacy_runner_source_sha256": "artifact 참조",
+    "audit_contract": "daily-rolling-audit.v1",
+    "origin": "2025-04-06"
+  },
+  "compared_row_fields": [
+    "fortune_date",
+    "ilju",
+    "raw_good_winner",
+    "intended_good_representative",
+    "realized_good_event",
+    "support_event",
+    "caution_event",
+    "raw_headline",
+    "final_headline",
+    "final_headline_family",
+    "selection_reason_codes",
+    "display_displacement_loss"
+  ],
+  "results": [
+    {
+      "span_days": 300,
+      "window_size_mismatch": null,
+      "daily_state_before_mismatch": null,
+      "daily_state_after_mismatch": null,
+      "final_state_mismatch": null,
+      "legacy_rows": 18000,
+      "shared_rows": 18000,
+      "row_mismatch": null,
+      "board_fingerprint_mismatch": null,
+      "eviction_mismatch": null,
+      "verdict": "PARITY_OK"
+    }
+  ],
+  "expected_state_source": "INDEPENDENT_RECONSTRUCTION_FROM_FROZEN_ROWS",
+  "execution_isolation": "SEQUENTIAL_WITH_CACHE_RESET",
+  "cache_independence_evidence": "tests/unit/test_daily_schedule_cache_independence.py — 실행 순서 무관·반복 안정·사전 입력 무변경·cold/warm 일치"
+}

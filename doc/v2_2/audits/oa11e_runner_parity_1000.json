@@ -1,0 +1,65 @@
+{
+  "audit_id": "OA-11e",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "baseline": {
+    "legacy_runner_source_sha256": "artifact 참조",
+    "audit_contract": "daily-rolling-audit.v1",
+    "origin": "2025-04-06"
+  },
+  "expected_state_source": "INDEPENDENT_RECONSTRUCTION_FROM_FROZEN_ROWS",
+  "execution_isolation": "SEQUENTIAL_WITH_CACHE_RESET",
+  "cache_independence_evidence": "tests/unit/test_daily_schedule_cache_independence.py — 실행 순서 무관·반복 안정·사전 입력 무변경·cold/warm 일치",
+  "compared_row_fields": [
+    "fortune_date",
+    "ilju",
+    "raw_good_winner",
+    "intended_good_representative",
+    "realized_good_event",
+    "support_event",
+    "caution_event",
+    "raw_headline",
+    "final_headline",
+    "final_headline_family",
+    "selection_reason_codes",
+    "display_displacement_loss"
+  ],
+  "results": [
+    {
+      "span_days": 1000,
+      "window_size_mismatch": null,
+      "daily_state_before_mismatch": null,
+      "daily_state_after_mismatch": null,
+      "final_state_mismatch": null,
+      "legacy_rows": 60000,
+      "shared_rows": 60000,
+      "row_mismatch": null,
+      "board_fingerprint_mismatch": null,
+      "eviction_mismatch": null,
+      "verdict": "PARITY_OK"
+    }
+  ],
+  "generated_days": 1000,
+  "generated_rows": 60000,
+  "generated_boards": 1000,
+  "cache_independence": "VERIFIED",
+  "scope": {
+    "note": "runner parity 전용 — anchor aggregate·episode parity 는 별개다.",
+    "generated_first": "2025-04-06",
+    "generated_last": "2027-12-31",
+    "generated_days": 1000,
+    "days_before_first_official_anchor": 270,
+    "days_before_breakdown": {
+      "rolling_audit_warmup_days": 180,
+      "first_anchor_lookback_days": 90,
+      "note": "180일은 정책 상태 안정화 구간이고, 90일은 첫 공식 anchor 가 실제로 읽을 과거 history 를 구성하는 구간이다. 창 길이를 한 번 더 빼는 편의 산식이 아니라 두 사전 구간을 분리한 결과다."
+    },
+    "official_anchor_first": "2026-01-01",
+    "official_anchor_last": "2027-12-31",
+    "official_anchor_count": 730,
+    "first_anchor_history_range": "2025-10-03 ~ 2025-12-31 (90일)",
+    "last_anchor_history_range": "2027-10-02 ~ 2027-12-30 (90일)",
+    "denominator": "1000 - 270 = 730"
+  },
+  "status": "SHARED_RUNNER_PARITY_VERIFIED"
+}

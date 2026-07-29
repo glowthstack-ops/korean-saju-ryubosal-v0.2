@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import datetime as _dt
 import subprocess
 import sys
 
@@ -86,3 +87,88 @@ def test_empty_state_is_fresh_each_call() -> None:
     assert a is not b
     assert a.intended_good_history is not b.intended_good_history
     assert a.fingerprint() == b.fingerprint()
+
+
+# ── rolling window 날짜 범위 (지문 일치와 별개로 직접 검사) ────────────────
+#
+# fingerprint 직렬화가 우연히 같은 오류를 공유하는 경우까지 막는다.
+
+
+def _window_lengths(days: int) -> tuple[list[int], list[int]]:
+    """(선택 전 창 길이, commit 후 창 길이) — 한 일주 기준."""
+    from saju_engines.daily_schedule_runner import _append_window
+
+    keep = DAILY_HISTORY_CONTRACT_V1.lookback_days
+    hist: dict[str, tuple[str, ...]] = {}
+    before, after = [], []
+    for d in range(days):
+        before.append(len(hist.get("甲子", ())))
+        hist, _ev = _append_window(hist, {"甲子": f"e{d}"}, keep)
+        after.append(len(hist["甲子"]))
+    return before, after
+
+
+def test_window_ranges_at_the_boundaries() -> None:
+    """D일 선택은 D-90~D-1 을 읽고, commit 후에는 D-89~D 다."""
+    before, after = _window_lengths(181)
+    keep = DAILY_HISTORY_CONTRACT_V1.lookback_days
+    assert (before[0], after[0]) == (0, 1)          # 1일째
+    assert (before[89], after[89]) == (89, 90)      # 90일째
+    assert (before[90], after[90]) == (90, 90)      # 91일째 — 최초 eviction
+    assert (before[180], after[180]) == (90, 90)    # 181일째
+    assert max(after) == keep
+
+
+def test_eviction_starts_exactly_at_day_91() -> None:
+    """90일째까지는 밀려나는 값이 없어야 한다."""
+    from saju_engines.daily_schedule_runner import _append_window
+
+    keep = DAILY_HISTORY_CONTRACT_V1.lookback_days
+    hist: dict[str, tuple[str, ...]] = {}
+    first_evicted_day = None
+    for d in range(120):
+        hist, ev = _append_window(hist, {"甲子": f"e{d}"}, keep)
+        if ev["甲子"] is not None and first_evicted_day is None:
+            first_evicted_day = d + 1
+            assert ev["甲子"] == "e0"
+    assert first_evicted_day == keep + 1
+
+
+def test_no_eviction_is_recorded_as_explicit_none() -> None:
+    """필드 누락·빈 문자열로 표현하면 fingerprint 가 불안정해진다."""
+    from saju_engines.daily_schedule_runner import _append_window
+
+    _hist, ev = _append_window({}, {"甲子": "a"}, 90)
+    assert ev == {"甲子": None}
+
+
+# ── 공식 anchor 날짜 범위 (분모 계약) ─────────────────────────────────────
+#
+# `1000 - 180 = 820` 으로 연결하면 틀린다. warm-up 뒤에 **첫 anchor 의 측정 창
+# 90일**이 한 번 더 들어간다. 산술이 아니라 날짜를 직접 고정한다.
+
+OFFICIAL_FIRST_ANCHOR = _dt.date(2026, 1, 1)
+OFFICIAL_LAST_ANCHOR = _dt.date(2027, 12, 31)
+OFFICIAL_ANCHOR_COUNT = 730
+GENERATED_DAYS = 1000
+
+
+def test_official_anchor_range_is_pinned_by_date_not_arithmetic() -> None:
+    origin = DAILY_ROLLING_AUDIT_CONTRACT_V1.origin
+    warmup = DAILY_ROLLING_AUDIT_CONTRACT_V1.warmup_days
+    window = DAILY_HISTORY_CONTRACT_V1.lookback_days
+
+    assert (OFFICIAL_FIRST_ANCHOR - origin).days == warmup + window == 270
+    assert (OFFICIAL_LAST_ANCHOR - OFFICIAL_FIRST_ANCHOR).days + 1 == (
+        OFFICIAL_ANCHOR_COUNT
+    )
+    assert warmup + window + OFFICIAL_ANCHOR_COUNT == GENERATED_DAYS
+    # 흔한 오해를 명시적으로 부정한다.
+    assert GENERATED_DAYS - warmup != OFFICIAL_ANCHOR_COUNT
+
+
+def test_2025_dates_are_outside_the_official_denominator() -> None:
+    """2025년 날짜는 history 안정화에만 쓰이고 anchor 통계에는 안 들어간다."""
+    assert DAILY_ROLLING_AUDIT_CONTRACT_V1.origin.year == 2025
+    assert OFFICIAL_FIRST_ANCHOR.year == 2026
+    assert DAILY_ROLLING_AUDIT_CONTRACT_V1.origin < OFFICIAL_FIRST_ANCHOR

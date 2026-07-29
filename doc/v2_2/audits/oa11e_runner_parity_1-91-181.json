@@ -24,6 +24,7 @@
   "results": [
     {
       "span_days": 1,
+      "window_size_mismatch": null,
       "daily_state_before_mismatch": null,
       "daily_state_after_mismatch": null,
       "final_state_mismatch": null,
@@ -36,6 +37,7 @@
     },
     {
       "span_days": 91,
+      "window_size_mismatch": null,
       "daily_state_before_mismatch": null,
       "daily_state_after_mismatch": null,
       "final_state_mismatch": null,
@@ -48,6 +50,7 @@
     },
     {
       "span_days": 181,
+      "window_size_mismatch": null,
       "daily_state_before_mismatch": null,
       "daily_state_after_mismatch": null,
       "final_state_mismatch": null,
