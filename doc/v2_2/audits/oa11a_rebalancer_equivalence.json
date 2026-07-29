@@ -1,0 +1,162 @@
+{
+  "audit_id": "OA-11a",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "final_headline",
+  "result": {
+    "days": [
+      {
+        "date": "2026-07-30",
+        "domain_limit": 18,
+        "options_per_card_mean": 3.42,
+        "options_per_card_max": 7,
+        "cards_with_single_option": 6,
+        "live_unresolved_overflow": 0,
+        "live_board_is_milp_feasible": true,
+        "live_feasible_top_only_model_infeasible": 1,
+        "live_cap_excess": 0,
+        "top_only_model_feasible": false,
+        "milp_feasible": true,
+        "final_headline_mismatch": 28,
+        "mismatch_iljus": [
+          "乙丑",
+          "丙寅",
+          "癸酉",
+          "戊寅",
+          "己卯"
+        ],
+        "replay_unresolved": 0,
+        "milp_loss_sum": 0,
+        "event_cap_relaxation_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER",
+        "authorized_override_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER"
+      },
+      {
+        "date": "2026-08-03",
+        "domain_limit": 18,
+        "options_per_card_mean": 3.82,
+        "options_per_card_max": 8,
+        "cards_with_single_option": 5,
+        "live_unresolved_overflow": 0,
+        "live_board_is_milp_feasible": true,
+        "live_feasible_top_only_model_infeasible": 0,
+        "live_cap_excess": 0,
+        "top_only_model_feasible": true,
+        "milp_feasible": true,
+        "final_headline_mismatch": 15,
+        "mismatch_iljus": [
+          "丁卯",
+          "壬申",
+          "癸酉",
+          "丙子",
+          "戊寅"
+        ],
+        "replay_unresolved": 0,
+        "milp_loss_sum": 0,
+        "event_cap_relaxation_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER",
+        "authorized_override_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER"
+      },
+      {
+        "date": "2026-08-12",
+        "domain_limit": 18,
+        "options_per_card_mean": 3.4,
+        "options_per_card_max": 8,
+        "cards_with_single_option": 14,
+        "live_unresolved_overflow": 0,
+        "live_board_is_milp_feasible": true,
+        "live_feasible_top_only_model_infeasible": 1,
+        "live_cap_excess": 0,
+        "top_only_model_feasible": false,
+        "milp_feasible": true,
+        "final_headline_mismatch": 24,
+        "mismatch_iljus": [
+          "丙寅",
+          "戊辰",
+          "己巳",
+          "乙亥",
+          "己卯"
+        ],
+        "replay_unresolved": 0,
+        "milp_loss_sum": 0,
+        "event_cap_relaxation_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER",
+        "authorized_override_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER"
+      },
+      {
+        "date": "2026-08-28",
+        "domain_limit": 18,
+        "options_per_card_mean": 4.47,
+        "options_per_card_max": 11,
+        "cards_with_single_option": 10,
+        "live_unresolved_overflow": 0,
+        "live_board_is_milp_feasible": true,
+        "live_feasible_top_only_model_infeasible": 0,
+        "live_cap_excess": 0,
+        "top_only_model_feasible": true,
+        "milp_feasible": true,
+        "final_headline_mismatch": 25,
+        "mismatch_iljus": [
+          "丙寅",
+          "丁卯",
+          "甲戌",
+          "乙亥",
+          "丁丑"
+        ],
+        "replay_unresolved": 0,
+        "milp_loss_sum": 0,
+        "event_cap_relaxation_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER",
+        "authorized_override_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER"
+      },
+      {
+        "date": "2027-03-03",
+        "domain_limit": 18,
+        "options_per_card_mean": 4.22,
+        "options_per_card_max": 8,
+        "cards_with_single_option": 6,
+        "live_unresolved_overflow": 0,
+        "live_board_is_milp_feasible": true,
+        "live_feasible_top_only_model_infeasible": 0,
+        "live_cap_excess": 0,
+        "top_only_model_feasible": true,
+        "milp_feasible": true,
+        "final_headline_mismatch": 24,
+        "mismatch_iljus": [
+          "甲子",
+          "乙丑",
+          "丙寅",
+          "辛未",
+          "癸酉"
+        ],
+        "replay_unresolved": 0,
+        "milp_loss_sum": 0,
+        "event_cap_relaxation_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER",
+        "authorized_override_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER"
+      },
+      {
+        "date": "2026-04-02",
+        "domain_limit": 18,
+        "options_per_card_mean": 3.0,
+        "options_per_card_max": 8,
+        "cards_with_single_option": 16,
+        "live_unresolved_overflow": 0,
+        "live_board_is_milp_feasible": true,
+        "live_feasible_top_only_model_infeasible": 0,
+        "live_cap_excess": 0,
+        "top_only_model_feasible": true,
+        "milp_feasible": true,
+        "final_headline_mismatch": 32,
+        "mismatch_iljus": [
+          "甲子",
+          "丙寅",
+          "戊辰",
+          "己巳",
+          "乙亥"
+        ],
+        "replay_unresolved": 0,
+        "milp_loss_sum": 0,
+        "event_cap_relaxation_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER",
+        "authorized_override_mismatch": "NOT_APPLICABLE_AT_THIS_LAYER"
+      }
+    ],
+    "verdict": "CAP_CONSTRAINED_RELAXED_ORACLE",
+    "note": "`_rebalance_headlines` 는 domain cap 만 다루며, 유효 대안이 없으면 초과를 허용한다(조건부 제약). event cap 완화·authorized domain override 는 C10 선택 정책 계층의 개념이라 이 감사에서 측정 대상이 아니다."
+  }
+}
