@@ -1,0 +1,115 @@
+{
+  "audit_id": "OA-11d-R0",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "note": "S0 재현 전용 — S1/S2 는 배선하지 않았다.",
+  "policy_fingerprint": {
+    "policy": "CURRENT_C10",
+    "repeat_history_source": "INTENDED_GOOD",
+    "rolling_contract": "daily-rolling-audit.v1",
+    "aggregate_contract": "daily-rolling-audit-aggregate.v1",
+    "aggregate_contract_mode": "CANONICAL",
+    "domain_cap_count": 21,
+    "event_cap_count": 10,
+    "schedule_origin": "2025-04-06",
+    "history_contract": "daily-selection-history.v1",
+    "board_contract": "daily-board.v1"
+  },
+  "anchors": [
+    "2026-04-02",
+    "2027-03-03",
+    "2027-06-01",
+    "2027-08-05",
+    "2027-10-09"
+  ],
+  "rows_compared": 300,
+  "row_mismatch": null,
+  "board_fingerprint_mismatch": null,
+  "anchor_aggregate_mismatch": null,
+  "anchor_snapshot": {
+    "2026-04-02": {
+      "key_p10": 15,
+      "family_p10": 15,
+      "domain_p10": 7,
+      "count_below_15": 1,
+      "count_equal_14": 1,
+      "bottom_6_iljus": [
+        "壬戌"
+      ],
+      "passes": true
+    },
+    "2027-03-03": {
+      "key_p10": 15,
+      "family_p10": 14,
+      "domain_p10": 6,
+      "count_below_15": 5,
+      "count_equal_14": 4,
+      "bottom_6_iljus": [
+        "庚辰",
+        "戊辰",
+        "甲辰",
+        "癸亥",
+        "辛酉"
+      ],
+      "passes": false
+    },
+    "2027-06-01": {
+      "key_p10": 14,
+      "family_p10": 14,
+      "domain_p10": 7,
+      "count_below_15": 6,
+      "count_equal_14": 5,
+      "bottom_6_iljus": [
+        "乙亥",
+        "乙酉",
+        "庚午",
+        "戊子",
+        "戊辰",
+        "辛巳"
+      ],
+      "passes": false
+    },
+    "2027-08-05": {
+      "key_p10": 14,
+      "family_p10": 14,
+      "domain_p10": 6,
+      "count_below_15": 8,
+      "count_equal_14": 8,
+      "bottom_6_iljus": [
+        "乙亥",
+        "乙酉",
+        "庚戌",
+        "戊辰",
+        "甲申",
+        "癸酉"
+      ],
+      "passes": false
+    },
+    "2027-10-09": {
+      "key_p10": 15,
+      "family_p10": 14,
+      "domain_p10": 6,
+      "count_below_15": 5,
+      "count_equal_14": 4,
+      "bottom_6_iljus": [
+        "乙亥",
+        "壬子",
+        "庚戌",
+        "庚辰",
+        "戊寅"
+      ],
+      "passes": false
+    }
+  },
+  "verdict": "S0_REPRODUCED",
+  "state_parity": {
+    "status": "INHERITED_FROM_OA11E_VERIFIED_BASELINE",
+    "direct_r0_comparison": false,
+    "oa11e_full_range_state_parity": true,
+    "note": "동결 characterization 은 전체 이력 지문, shared runner 는 90일 창 지문이라 직접 대조가 불가능하다. OA-11e 가 독립 재구성으로 1,000일 전 구간 state parity 를 통과했다."
+  },
+  "relabeled_without_recomputation": "state_mismatch 표기만 정정했다 — 측정값은 재계산하지 않았다.",
+  "superseded_measurements": {
+    "oa11d_initial": "INVALIDATED_BY_HARNESS_DRIFT · NOT_COMPARABLE_TO_RECONCILED_R0"
+  }
+}

@@ -5,7 +5,7 @@
   "aggregate_contract_version": "daily-rolling-audit-aggregate.v1",
   "aggregate_schema_version": "oa10b-anchor-aggregate.v1",
   "episode_schema_version": "oa10b-failure-episode.v1",
-  "shared_aggregate_builder_source_sha256": "30ed978499bea6aad60aa4616725bdf4342f5999024a744afb90da45ba7d535c",
+  "shared_aggregate_builder_source_sha256": "e509d926ce7d4edfb3b33e02b3ce84364cb39f684994cecbd952dbc7e2bb8178",
   "frozen_artifact_sha256": "889f0eeeb178fe1fba679f100a407b3b7f8310bb14e559f3c364a9b2e2aa5a47",
   "frozen_rows_artifact_sha256": "4d6439bccaf425497ab3f4ea0eba40fa62361af770a8ae2573b9cb94c0597a34",
   "frozen_legacy_builder_sha256": "0a0919808c7e9960b08c2bff77564f233e70cf5e0a92ccf45b57454d1e0e5077",

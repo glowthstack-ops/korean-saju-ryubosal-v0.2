@@ -81,3 +81,66 @@ def test_diagnostic_is_outside_the_fingerprinted_payload(result) -> None:
     assert "below_iljus" not in result["anchors"][0]
     assert all("below_iljus" not in e for e in result["episodes"])
     assert "below_iljus_by_anchor" in result
+
+
+# ── family 축 진단 ────────────────────────────────────────────────────────
+#
+# legacy 의 `count_below_15` · `qualifying_ilju_count` 는 둘 다 **key** 축이다.
+# S1 의 성패는 family 축에서 판정하므로 별도 진단이 필요하다.
+
+
+def test_family_dates_match_the_anchor_set(result) -> None:
+    below = result["family_below_iljus_by_anchor"]
+    counts = result["family_qualifying_count_by_anchor"]
+    anchors = {a["anchor_date"] for a in result["anchors"]}
+    assert len(below) == len(counts) == 730
+    assert set(below) == set(counts) == anchors
+
+
+def test_family_counts_sum_to_the_board_size(result) -> None:
+    below = result["family_below_iljus_by_anchor"]
+    counts = result["family_qualifying_count_by_anchor"]
+    for iso, iljus in below.items():
+        assert len(iljus) + counts[iso] == 60
+        assert len(set(iljus)) == len(iljus)          # 중복 없음
+
+
+def test_family_p10_and_qualifying_count_are_equivalent(result) -> None:
+    """p10 >= 15 ⇔ 미달 <= 5 ⇔ 자격 >= 55. 세 표현이 동시에 성립해야 한다."""
+    below = result["family_below_iljus_by_anchor"]
+    counts = result["family_qualifying_count_by_anchor"]
+    for anchor in result["anchors"]:
+        iso = anchor["anchor_date"]
+        passes = anchor["family_p10"] >= 15
+        assert passes == (len(below[iso]) <= 5), iso
+        assert passes == (counts[iso] >= 55), iso
+        if not passes:
+            assert len(below[iso]) >= 6 and counts[iso] <= 54, iso
+
+
+def test_family_axis_differs_from_the_key_axis(result) -> None:
+    """두 축이 실제로 다르다 — 같다면 진단을 추가할 이유가 없었다."""
+    key_below = result["below_iljus_by_anchor"]
+    fam_below = result["family_below_iljus_by_anchor"]
+    assert any(key_below[iso] != fam_below[iso] for iso in key_below)
+
+
+def test_family_below_keeps_board_order(result) -> None:
+    """새로 정렬하지 않는다 — 공식 60갑자 board 순서를 유지한다."""
+    from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index
+
+    order = [
+        f"{ganzi_from_index(i)[0].value}{ganzi_from_index(i)[1].value}"
+        for i in range(60)
+    ]
+    index = {ilju: n for n, ilju in enumerate(order)}
+    for iljus in result["family_below_iljus_by_anchor"].values():
+        positions = [index[i] for i in iljus]
+        assert positions == sorted(positions)
+
+
+def test_family_diagnostics_are_outside_the_fingerprinted_payload(result) -> None:
+    for hidden in ("family_below_iljus", "family_qualifying_count"):
+        assert all(hidden not in row for row in result["anchors"])
+    assert "family_below_iljus_by_anchor" in result
+    assert "family_qualifying_count_by_anchor" in result

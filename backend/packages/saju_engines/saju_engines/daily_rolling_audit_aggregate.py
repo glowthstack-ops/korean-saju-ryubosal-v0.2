@@ -216,6 +216,10 @@ def build_rolling_audit_aggregates(
     # 잘리지 않은 below 목록. `anchors` **바깥**에 둔다 — anchor 지문은 anchors
     # payload 만 덮으므로, 진단용 필드를 안에 넣으면 지문이 움직인다.
     below_by_anchor: dict[str, list[str]] = {}
+    #: family 축 진단. legacy 의 `below`·`qualifying_ilju_count` 는 둘 다 **key**
+    #: 축이라 family 축 판정에 쓸 수 없다. 같은 family coverage 벡터에서 한 번에
+    #: 파생하고, 순서는 공식 60갑자 board 순서를 유지한다.
+    family_below_by_anchor: dict[str, list[str]] = {}
 
     for step in range(contract.anchor_days):
         lo = contract.warmup_days + step
@@ -225,6 +229,7 @@ def build_rolling_audit_aggregates(
         fams: list[int] = []
         doms: list[int] = []
         below: list[str] = []
+        family_below: list[str] = []
         at_risk = 0
         for ilju in order:
             window = series[ilju][lo:hi]
@@ -236,6 +241,8 @@ def build_rolling_audit_aggregates(
             doms.append(len({domain_of[e] for e in distinct}))
             if key_cov < contract.bottom_ilju_threshold:
                 below.append(ilju)
+            if fam_cov < contract.pass_threshold:
+                family_below.append(ilju)
             # 창 안에서 각 family 를 마지막으로 본 위치(0 = 가장 오래된 날).
             last_seen: dict[str, int] = {}
             for offset, event in enumerate(window):
@@ -264,6 +271,7 @@ def build_rolling_audit_aggregates(
             "qualifying_ilju_count": len([v for v in keys if v >= target]),
         })
         below_by_anchor[anchor.isoformat()] = list(below)
+        family_below_by_anchor[anchor.isoformat()] = list(family_below)
 
     return {
         "contract_version": contract.version,
@@ -285,6 +293,13 @@ def build_rolling_audit_aggregates(
             ),
         },
         "board_size": size,
+        # family 축 진단 — 지문 대상이 아니다. 정책이 읽어서는 안 된다(정책은 각
+        # 일주의 과거 이력만 보고, 이 값은 사후 평가용이다).
+        "family_below_iljus_by_anchor": family_below_by_anchor,
+        "family_qualifying_count_by_anchor": {
+            iso: contract.board_size - len(iljus)
+            for iso, iljus in family_below_by_anchor.items()
+        },
         # NON_FINGERPRINTED_CALLER_DIAGNOSTIC — 새 canonical 결과 축이 아니다.
         # 키는 공식 anchor 날짜 730개, 값은 bottom_6 절단 **이전**의 전체 목록이며
         # 순서는 legacy below 누적 순서 그대로다. 호출부가
