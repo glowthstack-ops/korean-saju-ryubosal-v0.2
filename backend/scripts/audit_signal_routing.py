@@ -442,11 +442,37 @@ _VERDICT = {
     "live_behavior_changed": False,
 }
 
+#: 명시적 정정 기록 — 원자료를 덮어쓰지 않고 무엇이 틀렸는지 남긴다(OA-9r 로 대체).
+_CORRECTION = {
+    "supersedes": "OA-9a caution exposure interpretation",
+    "original_metric": "cautions[0]",
+    "correct_metric_name": "raw_caution_rank1",
+    "actual_display_metric": "slot_caution_selected",
+    "raw_overspend_rate": 1.0,
+    "displayed_overspend_rate": 0.0,
+    "original_no_adverse_cohort": 421,
+    "actual_no_adverse_count": 29,
+    "still_valid": [
+        "raw 후보 구조 진단(fan-out·activation_mass·effective_ticket_count)",
+        "편재 단독 부양 — 편재 제거 시 원시 주의 1위 100% → 5.0%",
+        "move 도메인 effective_ticket_count 0",
+    ],
+    "retracted": [
+        "'overspend_caution 이 주의 슬롯을 100% 차지한다'는 노출 해석",
+        "'421 건이 불리 근거가 전혀 없는 카드'라는 코호트 서술",
+    ],
+    "superseded_by": "OA-9r (measurement_stage=display_pipeline)",
+}
+
+
 if __name__ == "__main__":
     data = {
         "audit_id": "OA-9a",
         "policy_status": "measurement_only",
         "live_behavior_changed": False,
+        # 이 감사의 수치는 **후보 점수 순위** 단계다. 사용자 노출은 OA-9r 을 볼 것.
+        "measurement_stage": "raw_candidate_ranking",
+        "correction": _CORRECTION,
         "days": DAYS,
         "verdict": _VERDICT,
         "result": run(),

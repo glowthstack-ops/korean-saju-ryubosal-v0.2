@@ -1,6 +1,19 @@
 {
   "audit_id": "OA-9c",
   "policy_status": "shadow_only",
+  "measurement_stage": "display_pipeline",
+  "semantic_status": "APPROVED",
+  "diversity_effect": "NONE",
+  "release_status": "APPROVED_PENDING_BUNDLE",
+  "release_note": "dict.v1.11 날짜 경계 전환 직후 다시 사전 버전을 올려 전체 캐시·ETag 를 무효화할 긴급성은 없다(표시 오류 5,400장 중 7건). 다음 실질 사전 릴리즈에 묶어 반영한다. G1 이 장기 shadow 로 남으면 G0 만 dict.v1.12 로 분리 가능하며, G1 결과에 종속시키지 않는다 — 의미론적 승인은 끝났다.",
+  "guarantees": [
+    "재성 활성 != 재물 손실·과소비의 불리 발현",
+    "독립 adverse 근거 없는 노출 7건 제거",
+    "정상 경고 보존(과잉 차단 0)",
+    "money caution 간 연쇄 대체 0",
+    "다른 도메인 adverse 오염 0",
+    "raw score·affinity 불변, 라이브 선택 계약 불변"
+  ],
   "live_behavior_changed": false,
   "days": 90,
   "result": {

@@ -1,5 +1,7 @@
 {
   "audit_id": "OA-7c-S3",
+  "measurement_stage": "raw_candidate_ranking",
+  "superseded_by": "OA-9r (노출 해석 한정 — raw 구조 진단은 유효)",
   "policy_status": "measurement_only",
   "live_behavior_changed": false,
   "days": 90,
@@ -151,23 +153,5 @@
         "ten_god_affinity": 0.0
       }
     }
-  },
-  "verdict": {
-    "money_small_gain_dominance_type": "T1_specific_ten_god_affinity",
-    "dominant_affinity": {
-      "ten_god": "편재",
-      "value": 0.9
-    },
-    "base_confidence_excess": false,
-    "evidence": {
-      "rank1_concentration": "1,388회 중 849회(61%)가 편재·정재",
-      "pyeonjae_rank1_pct": 82.8,
-      "pyeonjae_gap_when_rank1": 7.84,
-      "no_ten_god_rank1_pct_all": 0.0,
-      "base_normalized_pyeonjae_rank1_pct": 79.4,
-      "note": "십성 기여를 제거하면 전 십성에서 1위율이 0.0% 로 붕괴한다 — money 의 1위는 전적으로 ten_god 기여로 만들어진다. 반대로 base/conf 를 비교군 수준으로 정규화해도 편재 1위율은 82.8→79.4% 로 거의 유지되므로 T2 는 기각이다.",
-      "asymmetry": "base 정규화 시 편재는 79.4% 유지, 정재는 74.4→35.6% 로 절반 이하. 편재 0.9 는 단독으로 1위를 만들 만큼 강하지만 정재 0.7 은 base 도움을 함께 받는다."
-    },
-    "live_behavior_changed": false
   }
 }

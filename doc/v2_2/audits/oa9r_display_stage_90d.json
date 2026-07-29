@@ -1,0 +1,290 @@
+{
+  "audit_id": "OA-9r",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "dictionary_contract": "dict.v1.11 uniform",
+  "supersedes": "OA-7c-S3a/S3b/S3c 의 노출 해석(raw 단계 기준이었다)",
+  "days": 90,
+  "result": {
+    "cards": 5400,
+    "measurement_stage": "display_pipeline",
+    "live_board_verified_days": 90,
+    "days": 90,
+    "A_ma_curve_display": {
+      "M0": {
+        "pyeonjae_affinity": 0.9,
+        "raw_rank1_cards": 1388,
+        "slot_good_selected_cards": 1460,
+        "raw_headline_cards": 1434,
+        "final_headline_cards": 1251,
+        "final_headline_money_share_pct": 29.0,
+        "board_cap_displaced_cards": 341,
+        "pyeonjae_slot_good_money_share_pct": 99.4,
+        "pyeonjae_final_headline_money_share_pct": 96.5,
+        "pyeonjae_cards": 540,
+        "changed_final_headline_cards": 0,
+        "replacement_final_headline": {},
+        "displaced_from": {},
+        "final_headline_p90_pct": 36.7,
+        "final_headline_max_pct": 50.0,
+        "final_headline_mean_pct": 23.3,
+        "window7_repeat3_pct": 24.4
+      },
+      "M-A1": {
+        "pyeonjae_affinity": 0.85,
+        "raw_rank1_cards": 1348,
+        "slot_good_selected_cards": 1418,
+        "raw_headline_cards": 1388,
+        "final_headline_cards": 1227,
+        "final_headline_money_share_pct": 28.8,
+        "board_cap_displaced_cards": 326,
+        "pyeonjae_slot_good_money_share_pct": 98.9,
+        "pyeonjae_final_headline_money_share_pct": 94.3,
+        "pyeonjae_cards": 540,
+        "changed_final_headline_cards": 90,
+        "replacement_final_headline": {
+          "money_small_gain": 23,
+          "love_spark": 10,
+          "money_good_deal": 10,
+          "treat_received": 6,
+          "teamwork_flow": 6,
+          "idea_flash": 6
+        },
+        "displaced_from": {
+          "money_small_gain": 47,
+          "idea_flash": 7,
+          "tidy_luck": 7,
+          "good_news_arrives": 6,
+          "praise_recognition": 5,
+          "love_spark": 5
+        },
+        "final_headline_p90_pct": 35.6,
+        "final_headline_max_pct": 50.0,
+        "final_headline_mean_pct": 22.8,
+        "window7_repeat3_pct": 24.1
+      },
+      "M-A2": {
+        "pyeonjae_affinity": 0.8,
+        "raw_rank1_cards": 1310,
+        "slot_good_selected_cards": 1375,
+        "raw_headline_cards": 1338,
+        "final_headline_cards": 1207,
+        "final_headline_money_share_pct": 28.7,
+        "board_cap_displaced_cards": 302,
+        "pyeonjae_slot_good_money_share_pct": 97.2,
+        "pyeonjae_final_headline_money_share_pct": 92.6,
+        "pyeonjae_cards": 540,
+        "changed_final_headline_cards": 154,
+        "replacement_final_headline": {
+          "money_small_gain": 36,
+          "money_good_deal": 19,
+          "treat_received": 13,
+          "love_spark": 13,
+          "overspend_caution": 10,
+          "praise_recognition": 9
+        },
+        "displaced_from": {
+          "money_small_gain": 80,
+          "love_spark": 14,
+          "praise_recognition": 9,
+          "good_news_arrives": 9,
+          "idea_flash": 8,
+          "tidy_luck": 8
+        },
+        "final_headline_p90_pct": 33.3,
+        "final_headline_max_pct": 50.0,
+        "final_headline_mean_pct": 22.5,
+        "window7_repeat3_pct": 24.1
+      },
+      "M-A3": {
+        "pyeonjae_affinity": 0.75,
+        "raw_rank1_cards": 1264,
+        "slot_good_selected_cards": 1326,
+        "raw_headline_cards": 1300,
+        "final_headline_cards": 1182,
+        "final_headline_money_share_pct": 28.6,
+        "board_cap_displaced_cards": 296,
+        "pyeonjae_slot_good_money_share_pct": 95.7,
+        "pyeonjae_final_headline_money_share_pct": 93.3,
+        "pyeonjae_cards": 540,
+        "changed_final_headline_cards": 203,
+        "replacement_final_headline": {
+          "money_small_gain": 40,
+          "money_good_deal": 29,
+          "love_spark": 18,
+          "overspend_caution": 17,
+          "treat_received": 16,
+          "praise_recognition": 15
+        },
+        "displaced_from": {
+          "money_small_gain": 109,
+          "love_spark": 15,
+          "praise_recognition": 15,
+          "good_news_arrives": 13,
+          "idea_flash": 12,
+          "tidy_luck": 11
+        },
+        "final_headline_p90_pct": 33.3,
+        "final_headline_max_pct": 48.9,
+        "final_headline_mean_pct": 22.1,
+        "window7_repeat3_pct": 23.2
+      }
+    },
+    "B_domain_exposure": {
+      "money": {
+        "raw_top3_slots": 4737,
+        "slot_good_selected": 1704,
+        "slot_support_selected": 272,
+        "slot_caution_selected": 1303,
+        "raw_headline": 1789,
+        "final_headline": 1567,
+        "final_headline_pct": 29.02,
+        "good_events": 2,
+        "headline_eligible_events": 2
+      },
+      "work": {
+        "raw_top3_slots": 2228,
+        "slot_good_selected": 1751,
+        "slot_support_selected": 736,
+        "slot_caution_selected": 0,
+        "raw_headline": 1552,
+        "final_headline": 1495,
+        "final_headline_pct": 27.69,
+        "good_events": 4,
+        "headline_eligible_events": 4
+      },
+      "social": {
+        "raw_top3_slots": 4179,
+        "slot_good_selected": 660,
+        "slot_support_selected": 1095,
+        "slot_caution_selected": 1398,
+        "raw_headline": 838,
+        "final_headline": 879,
+        "final_headline_pct": 16.28,
+        "good_events": 4,
+        "headline_eligible_events": 4
+      },
+      "news": {
+        "raw_top3_slots": 2039,
+        "slot_good_selected": 583,
+        "slot_support_selected": 965,
+        "slot_caution_selected": 229,
+        "raw_headline": 487,
+        "final_headline": 548,
+        "final_headline_pct": 10.15,
+        "good_events": 2,
+        "headline_eligible_events": 2
+      },
+      "document": {
+        "raw_top3_slots": 1218,
+        "slot_good_selected": 332,
+        "slot_support_selected": 596,
+        "slot_caution_selected": 706,
+        "raw_headline": 401,
+        "final_headline": 417,
+        "final_headline_pct": 7.72,
+        "good_events": 1,
+        "headline_eligible_events": 1
+      },
+      "love": {
+        "raw_top3_slots": 951,
+        "slot_good_selected": 370,
+        "slot_support_selected": 869,
+        "slot_caution_selected": 586,
+        "raw_headline": 234,
+        "final_headline": 351,
+        "final_headline_pct": 6.5,
+        "good_events": 3,
+        "headline_eligible_events": 3
+      },
+      "health": {
+        "raw_top3_slots": 683,
+        "slot_good_selected": 0,
+        "slot_support_selected": 430,
+        "slot_caution_selected": 1164,
+        "raw_headline": 66,
+        "final_headline": 77,
+        "final_headline_pct": 1.43,
+        "good_events": 1,
+        "headline_eligible_events": 1
+      },
+      "leisure": {
+        "raw_top3_slots": 96,
+        "slot_good_selected": 0,
+        "slot_support_selected": 437,
+        "slot_caution_selected": 0,
+        "raw_headline": 33,
+        "final_headline": 66,
+        "final_headline_pct": 1.22,
+        "good_events": 3,
+        "headline_eligible_events": 2
+      },
+      "move": {
+        "raw_top3_slots": 69,
+        "slot_good_selected": 0,
+        "slot_support_selected": 0,
+        "slot_caution_selected": 14,
+        "raw_headline": 0,
+        "final_headline": 0,
+        "final_headline_pct": 0.0,
+        "good_events": 0,
+        "headline_eligible_events": 0
+      }
+    },
+    "C_money_removed_display": {
+      "changed_final_headline_cards": 1755,
+      "distinct_final_headline_replacements": 25,
+      "final_headline_replacements": {
+        "treat_received": 438,
+        "love_spark": 386,
+        "good_news_arrives": 166,
+        "argument_caution": 138,
+        "tidy_luck": 125,
+        "praise_recognition": 92,
+        "love_deepening": 62,
+        "idea_flash": 56,
+        "pleasant_meeting": 53,
+        "love_reunion": 52,
+        "old_contact": 51,
+        "document_progress": 40
+      },
+      "top5_cumulative_pct": 71.4,
+      "support_only_promoted_to_final_headline": {
+        "argument_caution": 138,
+        "tidy_luck": 125,
+        "rest_recharge": 14,
+        "contract_clause_caution": 9,
+        "name_lending_caution": 4,
+        "walk_refresh": 4
+      },
+      "mean_final_probability_drop": 7.11,
+      "board_cap_displaced_cards": 314,
+      "board_cap_displaced_cards_base": 341,
+      "final_headline_domain": {
+        "work": 1579,
+        "social": 1466,
+        "love": 845,
+        "news": 768,
+        "document": 470,
+        "leisure": 182,
+        "health": 90
+      },
+      "final_headline_p90_pct": 22.2,
+      "final_headline_max_pct": 26.7,
+      "final_headline_mean_pct": 17.8,
+      "window7_repeat3_pct": 15.0
+    },
+    "G1_baseline_observations": {
+      "pyeonjae_cards": 540,
+      "slot_good_money_share_pct": 99.4,
+      "final_headline_money_share_pct": 96.5,
+      "slot_good_selected_by_money_event": {
+        "money_good_deal": 0,
+        "money_small_gain": 537
+      },
+      "raw_top3_all_money_pct": null,
+      "note": "family 접기 반사실은 OA-9d(G1) shadow 에서 측정한다 — 여기서는 관측값만 낸다."
+    }
+  }
+}

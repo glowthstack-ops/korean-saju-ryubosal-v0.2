@@ -92,32 +92,5 @@
       "base_weight": 0.33,
       "expr_confidence": 0.85
     }
-  },
-  "interim_conclusions": {
-    "family_talk": {
-      "verdict": "support_by_design",
-      "evidence": {
-        "positive_relation_contribution_pct": 100.0,
-        "good_candidate_pct": 100.0,
-        "day_branch_relation_hit_pct": 52.8,
-        "top10_pct": 8.0,
-        "top3_pct": 0.0,
-        "top1_pct": 0.0,
-        "expr_confidence": 0.85,
-        "ten_god_affinity_defined": 4,
-        "note": "10 십성 중 6개 미정의 — 신호 부족이 아니라 점수 축이 얕다"
-      },
-      "decision": "가족 관련 support 사건으로 유지한다. 헤드라인 노출을 목표로 점수를 올리지 않는다. 일반 관계 사건 확장이나 가족 overlay 분리의 근거도 현재는 없다 — 가족 대화라는 소재가 모든 사용자에게 매일 독립 헤드라인이 될 필요는 없다.",
-      "headline_slot_revocation": "보류 — 전체 선택 깔때기(OA-7c-S2) 결과 후 별도 결정"
-    },
-    "money_vs_news_m2_retracted": {
-      "previous": "M2(경쟁 사건이 낮다)",
-      "status": "retracted",
-      "reason": "직접 대결에서는 good_news_arrives 가 53.2% 로 오히려 이긴다(5,400건 전부 동시 후보). 전체 평균만으로 M2 로 판정한 것은 조건부 비교를 생략한 오류다. 다만 pairwise 우세만으로 '슬롯 이후 탈락'을 확정할 수도 없다 — 제3 사건이 둘 다 누를 수 있다. OA-7c-S2 단계별 trace 로 닫는다."
-    },
-    "focus_flow": {
-      "status": "pending_funnel",
-      "note": "work 3종 중 1위가 22%(1,206건)인데 전체 헤드라인 0회. confidence 1.0 반사실은 평균 +5.23p 지만 전체 헤드라인 진입 여부는 미확인. +5.23p 는 보정이 아니라 큰 판정 변경이므로 깔때기 결과 전에는 올리지 않는다."
-    }
   }
 }

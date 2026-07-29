@@ -156,7 +156,10 @@ def run() -> dict:
 
 
 if __name__ == "__main__":
-    data = {"audit_id": "OA-7c-S3b/S3c", "policy_status": "measurement_only",
+    data = {"audit_id": "OA-7c-S3b/S3c",
+            "measurement_stage": "raw_candidate_ranking",
+            "superseded_by": "OA-9r (노출 해석 한정 — raw 구조 진단은 유효)",
+            "policy_status": "measurement_only",
             "live_behavior_changed": False, "days": DAYS, "result": run()}
     out = _ROOT / "doc" / "v2_2" / "audits" / "oa7c_domain_coverage_90d.json"
     out.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

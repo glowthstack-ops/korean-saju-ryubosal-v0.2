@@ -76,7 +76,6 @@ def run() -> dict:
         d = START + dt.timedelta(days=i)
         ctx = M.build_day_context(d)
         board = M.compute_board(ctx, M.load_daily_dicts_for(d))
-        finals = {f.ilju: f for f in board.fortunes}
         audits = {a.ilju: a for a in board._headline_audit}
 
         for idx in range(60):

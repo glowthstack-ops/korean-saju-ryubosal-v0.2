@@ -29,6 +29,7 @@ for _p in (_BACKEND / "packages" / "saju_engines", _BACKEND / "packages" / "shar
 
 import saju_engines.daily_g0_shadow as G  # noqa: E402
 import saju_engines.daily_ilju_fortune as M  # noqa: E402
+from saju_engines.daily_board_trace import trace_board  # noqa: E402
 from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index  # noqa: E402
 from saju_shared_types.constants import ten_god  # noqa: E402
 from saju_shared_types.enums import Branch, Stem  # noqa: E402
@@ -39,22 +40,6 @@ _TARGETS = G.g0_target_keys()
 
 def _tg_name(a: Stem, b: Stem) -> str:
     return "비견" if a == b else ten_god(a, b).value
-
-
-def _board_pass(scored_by_ilju: dict[str, list], day: dt.date) -> dict[str, Any]:
-    """라이브 2패스(슬롯 선발 → 보드 캡)를 그대로 재현한다."""
-    slot_rows, candidates, order = {}, {}, []
-    for ilju, scored in scored_by_ilju.items():
-        seed = f"{day.isoformat()}|{ilju}|{M.EVENT_SELECTION_COMPAT_SALT}"
-        good, caution, support = M._select_slots(scored, seed)
-        band = M._band(good, caution)
-        slot_rows[ilju] = (good, caution, support, band)
-        candidates[ilju] = M._headline_candidates(good, support, caution, band)
-        order.append(ilju)
-    headline_pick, _reasons, _unresolved = M._rebalance_headlines(
-        candidates, order, M._DOMAIN_HEADLINE_CAP
-    )
-    return {"slots": slot_rows, "headline": headline_pick}
 
 
 def run() -> dict[str, Any]:
@@ -160,66 +145,68 @@ def run() -> dict[str, Any]:
                 if key in top3:
                     raw_top3[key] += 1
 
-        base = _board_pass(base_scored, day)
-        gate = _board_pass(gate_scored, day)
+        # 감사가 선택 로직을 흉내 내지 않는다 — 라이브 순수 함수를 그대로 호출한다.
+        base = trace_board(base_scored, day)
+        gate = trace_board(gate_scored, day)
 
         for ilju, card in per_card.items():
-            b_good, b_caution, b_support, _bb = base["slots"][ilju]
-            g_good, g_caution, g_support, _gb = gate["slots"][ilju]
-            b_head = base["headline"][ilju]
-            g_head = gate["headline"][ilju]
+            bt, gt = base[ilju], gate[ilju]
+            b_caution, b_caution_domain = bt.slot_caution_selected, bt.slot_caution_domain
+            g_caution, g_caution_domain = gt.slot_caution_selected, gt.slot_caution_domain
+            b_head, b_head_domain = bt.final_headline, bt.final_headline_domain
+            g_head, g_head_domain = gt.final_headline, gt.final_headline_domain
             decisions = card["decisions"]
             provenance = card["provenance"]
 
-            base_caution_domain[b_caution.domain] += 1
-            gate_caution_domain[g_caution.domain] += 1
-            base_caution_event[b_caution.event_key] += 1
-            gate_caution_event[g_caution.event_key] += 1
-            base_headline_event[b_head.event_key] += 1
-            gate_headline_event[g_head.event_key] += 1
-            base_headline_domain[b_head.domain] += 1
-            gate_headline_domain[g_head.domain] += 1
-            base_hist[ilju][b_head.event_key] += 1
-            gate_hist[ilju][g_head.event_key] += 1
+            base_caution_domain[b_caution_domain] += 1
+            gate_caution_domain[g_caution_domain] += 1
+            base_caution_event[b_caution] += 1
+            gate_caution_event[g_caution] += 1
+            base_headline_event[b_head] += 1
+            gate_headline_event[g_head] += 1
+            base_headline_domain[b_head_domain] += 1
+            gate_headline_domain[g_head_domain] += 1
+            base_hist[ilju][b_head] += 1
+            gate_hist[ilju][g_head] += 1
 
             for key in _TARGETS:
-                if b_caution.event_key == key:
+                if b_caution == key:
                     if not provenance:
                         ungated_selection_without_adverse += 1
-                if g_caution.event_key == key:
+                if g_caution == key:
                     eff_top3[key] += 1
                     if not provenance:
                         selected_without_provenance += 1
-                if g_head.event_key == key:
+                if g_head == key:
                     eff_headline[key] += 1
-                if b_head.event_key == key:
+                if b_head == key:
                     raw_headline[key] += 1
 
             # C 보존율 — 독립 근거가 있던 카드에서 유지되는가
             for key, d in decisions.items():
                 if d.subject_activated and provenance:
                     with_adverse_cards[key] += 1
-                    if g_caution.event_key == key:
+                    if g_caution == key:
                         kept_caution[key] += 1
 
             # 대체 추적 — 막혔고 실제로 기준 보드에서 그 사건이 주의 슬롯이었던 경우
             blocked_now = {k for k, d in decisions.items() if not d.caution_slot_eligible}
-            if b_caution.event_key in blocked_now and g_caution.event_key != b_caution.event_key:
-                replacement[g_caution.event_key] += 1
-                if g_caution.domain == "money":
-                    replacement_money[g_caution.event_key] += 1
-                if g_caution.event_key in wealth_lifted_cautions:
-                    replacement_wealth_lifted[g_caution.event_key] += 1
+            if b_caution in blocked_now and g_caution != b_caution:
+                replacement[g_caution] += 1
+                if g_caution_domain == "money":
+                    replacement_money[g_caution] += 1
+                if g_caution in wealth_lifted_cautions:
+                    replacement_wealth_lifted[g_caution] += 1
             if not any(s.valence == "caution" for s in gate_scored[ilju]):
                 no_eligible_caution += 1
-            if g_caution.valence != "caution":
+            if events[g_caution]["valence"] != "caution":
                 support_fallback += 1
 
             # B 421장 코호트
             if card["tg"] == "편재" and not card["adverse_rel"]:
                 cohort_cards += 1
-                cohort_raw_caution[b_caution.event_key] += 1
-                cohort_new_caution[g_caution.event_key] += 1
+                cohort_raw_caution[b_caution] += 1
+                cohort_new_caution[g_caution] += 1
                 for key, d in decisions.items():
                     cohort_eligibility[
                         f"{key}:{'eligible' if d.caution_slot_eligible else 'blocked'}"
@@ -319,6 +306,25 @@ if __name__ == "__main__":
     data = {
         "audit_id": "OA-9c",
         "policy_status": "shadow_only",
+        "measurement_stage": "display_pipeline",
+        # 사용자 승인 기록 — 정확성 패치이며 다양성 패치가 아니다.
+        "semantic_status": "APPROVED",
+        "diversity_effect": "NONE",
+        "release_status": "APPROVED_PENDING_BUNDLE",
+        "release_note": (
+            "dict.v1.11 날짜 경계 전환 직후 다시 사전 버전을 올려 전체 캐시·ETag 를 "
+            "무효화할 긴급성은 없다(표시 오류 5,400장 중 7건). 다음 실질 사전 릴리즈에 "
+            "묶어 반영한다. G1 이 장기 shadow 로 남으면 G0 만 dict.v1.12 로 분리 가능하며, "
+            "G1 결과에 종속시키지 않는다 — 의미론적 승인은 끝났다."
+        ),
+        "guarantees": [
+            "재성 활성 != 재물 손실·과소비의 불리 발현",
+            "독립 adverse 근거 없는 노출 7건 제거",
+            "정상 경고 보존(과잉 차단 0)",
+            "money caution 간 연쇄 대체 0",
+            "다른 도메인 adverse 오염 0",
+            "raw score·affinity 불변, 라이브 선택 계약 불변",
+        ],
         "live_behavior_changed": False,
         "days": DAYS,
         "result": run(),

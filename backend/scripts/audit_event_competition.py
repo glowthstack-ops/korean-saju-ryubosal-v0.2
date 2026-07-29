@@ -113,7 +113,6 @@ def run() -> dict:
 
             # ── ③ family_talk 신호 깔때기 ──
             funnel["evaluated"] += 1
-            fam = scored[FAMILY]
             no_rel = _score(events[FAMILY], FAMILY, stem, branch, ctx)
             rel_only = _finalize(
                 events[FAMILY],

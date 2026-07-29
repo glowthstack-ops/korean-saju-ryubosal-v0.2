@@ -1,5 +1,7 @@
 {
   "audit_id": "OA-7c-S3a",
+  "measurement_stage": "raw_candidate_ranking",
+  "superseded_by": "OA-9r (노출 해석 한정 — raw 구조 진단은 유효)",
   "policy_status": "measurement_only",
   "live_behavior_changed": false,
   "days": 90,
