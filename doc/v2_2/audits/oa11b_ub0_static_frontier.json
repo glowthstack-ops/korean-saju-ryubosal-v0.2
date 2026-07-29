@@ -1,0 +1,47 @@
+{
+  "audit_id": "OA-11b",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "final_headline",
+  "model_name": "FULL_PIPELINE_STATIC_FRONTIER_UPPER_BOUND",
+  "contract": {
+    "board_domain_cap": "NOT_ENFORCED",
+    "recovery": "ALWAYS_ALLOWED",
+    "event_cap_layer": "ABSENT",
+    "note": "라이브가 허용하는 조건부 overflow 를 모델이 제외하지 않도록 board 제약을 아예 넣지 않았다. 그래서 Sigma z < 55 는 유효한 불가능 증명이고, Sigma z >= 55 는 가능성 증명이 아니다."
+  },
+  "results": [
+    {
+      "anchor": "2027-03-03",
+      "window_days": 90,
+      "ub0": {
+        "method": "exact_bipartite_matching_no_board_constraints",
+        "qualifying_iljus": 60,
+        "family_p10": 18,
+        "family_min": 17,
+        "family_median": 19,
+        "realized_loss_mean": 0.2,
+        "realized_loss_p90": 0
+      },
+      "witness_live_replay": {
+        "qualifying_iljus": 44,
+        "family_p10": 14,
+        "family_min": 12,
+        "family_median": 16,
+        "realized_loss_mean": 0.2,
+        "realized_loss_p90": 0,
+        "relaxed_target_changed": 792,
+        "change_reasons": {
+          "RELAXED_TARGET_REPLACED_BY_OTHER_NEW_FAMILY": 66,
+          "RELAXED_TARGET_FAMILY_GAIN_LOST": 254,
+          "RELAXED_TARGET_NOT_GREEDY_REACHABLE": 472
+        },
+        "overflow_days": 0
+      },
+      "cut_iterations": 0,
+      "solver_status": "EXACT_BY_CONSTRUCTION_NO_MILP",
+      "mip_gap": 0.0,
+      "verdict": "SEQUENTIAL_POLICY_GAP"
+    }
+  ]
+}
