@@ -1,0 +1,79 @@
+{
+  "audit_id": "OA-10a-BOOTSTRAP",
+  "policy_status": "shadow_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "result": {
+    "measurement_stage": "display_pipeline",
+    "bootstrap": {
+      "contract_version": "daily-selection-bootstrap.v1",
+      "anchor_date": "2026-07-30",
+      "start_date": "2026-01-31",
+      "canonical_start": "2026-05-01",
+      "end_date": "2026-07-29",
+      "warmup_days": 90,
+      "lookback_days": 90,
+      "total_days": 180,
+      "rows": 10800,
+      "canonical_rows": 5400,
+      "is_published": false
+    },
+    "measured_window": {
+      "days": 90,
+      "cards": 5400,
+      "unique_event_key_p10": 14,
+      "unique_semantic_family_p10": 14,
+      "unique_domain_count_p10": 6,
+      "final_headline_p90_pct": 22.2,
+      "final_headline_max_pct": 24.4,
+      "max_consecutive_days": 4,
+      "window7_repeat3_pct": 4.3,
+      "top5_cumulative_pct": 52.3
+    },
+    "onboarding": {
+      "first_7d": {
+        "unique_event_key_p10": 5,
+        "unique_semantic_family_p10": 5,
+        "unique_domain_count_p10": 3,
+        "final_headline_p90_pct": 28.6,
+        "final_headline_max_pct": 42.9,
+        "max_consecutive_days": 3,
+        "window7_repeat3_pct": 5.0
+      },
+      "first_30d": {
+        "unique_event_key_p10": 11,
+        "unique_semantic_family_p10": 11,
+        "unique_domain_count_p10": 6,
+        "final_headline_p90_pct": 23.3,
+        "final_headline_max_pct": 30.0,
+        "max_consecutive_days": 4,
+        "window7_repeat3_pct": 3.9
+      },
+      "representative_changed_pct": 14.2,
+      "raw_good_kept_pct": 77.5
+    },
+    "display_good": {
+      "mean_display_loss": 3.19,
+      "p90_display_loss": 6,
+      "band_downgrades": 93,
+      "s5_downgrades": 0
+    },
+    "board_overflow": {
+      "domain_cap_hard_violation": 0,
+      "domain_cap_authorized_override": 1
+    },
+    "release_gate": {
+      "unique_event_key_p10_ge_15": false,
+      "unique_semantic_family_p10_ge_15": false,
+      "unique_domain_p10_ge_6": true,
+      "p90_le_25pct": true,
+      "max_le_33_3pct": true,
+      "max_streak_le_4": true,
+      "window7_repeat3_le_10pct": true,
+      "mean_loss_le_3_5": true,
+      "no_s5_downgrade": true,
+      "no_unauthorized_overflow": true
+    },
+    "release_gate_passed": false
+  }
+}
