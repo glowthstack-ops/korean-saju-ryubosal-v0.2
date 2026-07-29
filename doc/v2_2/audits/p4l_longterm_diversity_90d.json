@@ -1,0 +1,476 @@
+{
+  "audit_id": "P4-L",
+  "policy_status": "shadow_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "days": 90,
+  "result": {
+    "cards": 5400,
+    "measurement_stage": "display_pipeline",
+    "warmup_days": 90,
+    "measured_window": [
+      "2026-07-01",
+      "2026-09-28"
+    ],
+    "lookback_rule": "D-89 ~ D-1 (미래 정보 미사용)",
+    "low_iljus_from_L0": [
+      "丙辰",
+      "乙亥",
+      "乙酉",
+      "壬午",
+      "壬戌",
+      "庚午",
+      "庚寅",
+      "庚戌",
+      "戊子",
+      "戊戌",
+      "戊辰",
+      "甲午",
+      "癸酉",
+      "辛亥",
+      "辛卯",
+      "辛酉"
+    ],
+    "variants": {
+      "L0_p4": {
+        "final_headline": {
+          "unique_event_key_p10": 14,
+          "unique_semantic_family_p10": 14,
+          "unique_domain_count_p10": 6,
+          "unique_event_key_median": 16.0,
+          "iljus_below_15": 16,
+          "p90_pct": 22.2,
+          "max_pct": 25.6,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 4.4
+        },
+        "display_good_representative": {
+          "unique_event_key_p10": 13,
+          "unique_semantic_family_p10": 12,
+          "raw_good_winner_kept_pct": 79.3,
+          "representative_changed_pct": 17.2,
+          "mean_display_loss": 3.04,
+          "p90_display_loss": 6
+        },
+        "low_ilju_recovery": {
+          "tracked_iljus": 16,
+          "lifted_to_15_or_more": 0,
+          "required": 11,
+          "lift_events": {},
+          "lift_semantic_families": {},
+          "largest_lift_event_share_pct": 0.0,
+          "lifted_with_new_family": 0
+        },
+        "board": {
+          "moves": 780,
+          "mean_move_loss": 3.19,
+          "support_origin_promoted_pct": 5.6,
+          "largest_single_replacement_pct": 17.8,
+          "top5_cumulative_pct": 52.4,
+          "domain_overflow": 0,
+          "event_overflow": 13
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": false,
+          "unique_semantic_family_p10_ge_15": false,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "mean_display_loss_le_3_5": true,
+          "p90_display_loss_le_7": true,
+          "raw_good_kept_ge_80pct": false,
+          "support_origin_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_le_52pct": false,
+          "no_domain_overflow": true,
+          "event_overflow_not_worse": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": false
+      },
+      "L1_unused_event_key": {
+        "final_headline": {
+          "unique_event_key_p10": 15,
+          "unique_semantic_family_p10": 15,
+          "unique_domain_count_p10": 6,
+          "unique_event_key_median": 17.0,
+          "iljus_below_15": 3,
+          "p90_pct": 21.1,
+          "max_pct": 26.7,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 4.4
+        },
+        "display_good_representative": {
+          "unique_event_key_p10": 15,
+          "unique_semantic_family_p10": 14,
+          "raw_good_winner_kept_pct": 79.9,
+          "representative_changed_pct": 16.7,
+          "mean_display_loss": 4.71,
+          "p90_display_loss": 7
+        },
+        "low_ilju_recovery": {
+          "tracked_iljus": 16,
+          "lifted_to_15_or_more": 13,
+          "required": 11,
+          "lift_events": {
+            "love_deepening": 9,
+            "love_reunion": 5,
+            "treat_received": 4,
+            "tidy_luck": 3,
+            "pleasant_meeting": 2,
+            "walk_refresh": 1,
+            "rest_recharge": 1,
+            "old_contact": 1
+          },
+          "lift_semantic_families": {
+            "deepening": 9,
+            "renewed_contact": 6,
+            "resource_received": 4,
+            "tidying": 3,
+            "enjoyable_meeting": 2,
+            "walk": 1,
+            "rest": 1
+          },
+          "largest_lift_event_share_pct": 69.2,
+          "lifted_with_new_family": 13
+        },
+        "board": {
+          "moves": 805,
+          "mean_move_loss": 4.1,
+          "support_origin_promoted_pct": 7.6,
+          "largest_single_replacement_pct": 15.7,
+          "top5_cumulative_pct": 50.4,
+          "domain_overflow": 0,
+          "event_overflow": 10
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": true,
+          "unique_semantic_family_p10_ge_15": true,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": true,
+        "quality_guard": {
+          "mean_display_loss_le_3_5": false,
+          "p90_display_loss_le_7": true,
+          "raw_good_kept_ge_80pct": false,
+          "support_origin_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_le_52pct": true,
+          "no_domain_overflow": true,
+          "event_overflow_not_worse": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": false
+      },
+      "L2_unused_semantic_family": {
+        "final_headline": {
+          "unique_event_key_p10": 15,
+          "unique_semantic_family_p10": 15,
+          "unique_domain_count_p10": 6,
+          "unique_event_key_median": 17.0,
+          "iljus_below_15": 3,
+          "p90_pct": 21.1,
+          "max_pct": 26.7,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 4.4
+        },
+        "display_good_representative": {
+          "unique_event_key_p10": 15,
+          "unique_semantic_family_p10": 14,
+          "raw_good_winner_kept_pct": 79.9,
+          "representative_changed_pct": 16.7,
+          "mean_display_loss": 4.72,
+          "p90_display_loss": 7
+        },
+        "low_ilju_recovery": {
+          "tracked_iljus": 16,
+          "lifted_to_15_or_more": 13,
+          "required": 11,
+          "lift_events": {
+            "love_deepening": 9,
+            "love_reunion": 5,
+            "treat_received": 4,
+            "tidy_luck": 3,
+            "pleasant_meeting": 2,
+            "walk_refresh": 1,
+            "rest_recharge": 1,
+            "old_contact": 1
+          },
+          "lift_semantic_families": {
+            "deepening": 9,
+            "renewed_contact": 6,
+            "resource_received": 4,
+            "tidying": 3,
+            "enjoyable_meeting": 2,
+            "walk": 1,
+            "rest": 1
+          },
+          "largest_lift_event_share_pct": 69.2,
+          "lifted_with_new_family": 13
+        },
+        "board": {
+          "moves": 805,
+          "mean_move_loss": 4.11,
+          "support_origin_promoted_pct": 7.6,
+          "largest_single_replacement_pct": 15.8,
+          "top5_cumulative_pct": 50.4,
+          "domain_overflow": 0,
+          "event_overflow": 10
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": true,
+          "unique_semantic_family_p10_ge_15": true,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": true,
+        "quality_guard": {
+          "mean_display_loss_le_3_5": false,
+          "p90_display_loss_le_7": true,
+          "raw_good_kept_ge_80pct": false,
+          "support_origin_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_le_52pct": true,
+          "no_domain_overflow": true,
+          "event_overflow_not_worse": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": false
+      },
+      "L3_family_then_key": {
+        "final_headline": {
+          "unique_event_key_p10": 15,
+          "unique_semantic_family_p10": 15,
+          "unique_domain_count_p10": 6,
+          "unique_event_key_median": 17.0,
+          "iljus_below_15": 3,
+          "p90_pct": 21.1,
+          "max_pct": 26.7,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 4.4
+        },
+        "display_good_representative": {
+          "unique_event_key_p10": 15,
+          "unique_semantic_family_p10": 14,
+          "raw_good_winner_kept_pct": 79.9,
+          "representative_changed_pct": 16.7,
+          "mean_display_loss": 4.71,
+          "p90_display_loss": 7
+        },
+        "low_ilju_recovery": {
+          "tracked_iljus": 16,
+          "lifted_to_15_or_more": 13,
+          "required": 11,
+          "lift_events": {
+            "love_deepening": 9,
+            "love_reunion": 5,
+            "treat_received": 4,
+            "tidy_luck": 3,
+            "pleasant_meeting": 2,
+            "walk_refresh": 1,
+            "rest_recharge": 1,
+            "old_contact": 1
+          },
+          "lift_semantic_families": {
+            "deepening": 9,
+            "renewed_contact": 6,
+            "resource_received": 4,
+            "tidying": 3,
+            "enjoyable_meeting": 2,
+            "walk": 1,
+            "rest": 1
+          },
+          "largest_lift_event_share_pct": 69.2,
+          "lifted_with_new_family": 13
+        },
+        "board": {
+          "moves": 805,
+          "mean_move_loss": 4.1,
+          "support_origin_promoted_pct": 7.6,
+          "largest_single_replacement_pct": 15.7,
+          "top5_cumulative_pct": 50.4,
+          "domain_overflow": 0,
+          "event_overflow": 10
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": true,
+          "unique_semantic_family_p10_ge_15": true,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": true,
+        "quality_guard": {
+          "mean_display_loss_le_3_5": false,
+          "p90_display_loss_le_7": true,
+          "raw_good_kept_ge_80pct": false,
+          "support_origin_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_le_52pct": true,
+          "no_domain_overflow": true,
+          "event_overflow_not_worse": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": false
+      },
+      "L4_band3_family_then_key": {
+        "final_headline": {
+          "unique_event_key_p10": 14,
+          "unique_semantic_family_p10": 14,
+          "unique_domain_count_p10": 6,
+          "unique_event_key_median": 16.0,
+          "iljus_below_15": 14,
+          "p90_pct": 21.1,
+          "max_pct": 26.7,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 4.4
+        },
+        "display_good_representative": {
+          "unique_event_key_p10": 13,
+          "unique_semantic_family_p10": 13,
+          "raw_good_winner_kept_pct": 79.5,
+          "representative_changed_pct": 17.1,
+          "mean_display_loss": 3.22,
+          "p90_display_loss": 6
+        },
+        "low_ilju_recovery": {
+          "tracked_iljus": 16,
+          "lifted_to_15_or_more": 2,
+          "required": 11,
+          "lift_events": {
+            "love_deepening": 1,
+            "tidy_luck": 1
+          },
+          "lift_semantic_families": {
+            "deepening": 1,
+            "tidying": 1
+          },
+          "largest_lift_event_share_pct": 50.0,
+          "lifted_with_new_family": 2
+        },
+        "board": {
+          "moves": 759,
+          "mean_move_loss": 3.35,
+          "support_origin_promoted_pct": 5.9,
+          "largest_single_replacement_pct": 17.1,
+          "top5_cumulative_pct": 51.9,
+          "domain_overflow": 0,
+          "event_overflow": 12
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": false,
+          "unique_semantic_family_p10_ge_15": false,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "mean_display_loss_le_3_5": true,
+          "p90_display_loss_le_7": true,
+          "raw_good_kept_ge_80pct": false,
+          "support_origin_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_le_52pct": true,
+          "no_domain_overflow": true,
+          "event_overflow_not_worse": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": false
+      },
+      "L5_band4_family_then_key": {
+        "final_headline": {
+          "unique_event_key_p10": 14,
+          "unique_semantic_family_p10": 14,
+          "unique_domain_count_p10": 6,
+          "unique_event_key_median": 16.0,
+          "iljus_below_15": 9,
+          "p90_pct": 21.1,
+          "max_pct": 26.7,
+          "max_consecutive_days": 4,
+          "window7_repeat3_pct": 4.4
+        },
+        "display_good_representative": {
+          "unique_event_key_p10": 13,
+          "unique_semantic_family_p10": 13,
+          "raw_good_winner_kept_pct": 79.8,
+          "representative_changed_pct": 16.8,
+          "mean_display_loss": 3.49,
+          "p90_display_loss": 6
+        },
+        "low_ilju_recovery": {
+          "tracked_iljus": 16,
+          "lifted_to_15_or_more": 7,
+          "required": 11,
+          "lift_events": {
+            "love_deepening": 4,
+            "treat_received": 3,
+            "tidy_luck": 1,
+            "love_reunion": 1
+          },
+          "lift_semantic_families": {
+            "deepening": 4,
+            "resource_received": 3,
+            "tidying": 1,
+            "renewed_contact": 1
+          },
+          "largest_lift_event_share_pct": 57.1,
+          "lifted_with_new_family": 7
+        },
+        "board": {
+          "moves": 756,
+          "mean_move_loss": 3.48,
+          "support_origin_promoted_pct": 6.2,
+          "largest_single_replacement_pct": 17.3,
+          "top5_cumulative_pct": 51.3,
+          "domain_overflow": 0,
+          "event_overflow": 12
+        },
+        "release_gate": {
+          "unique_event_key_p10_ge_15": false,
+          "unique_semantic_family_p10_ge_15": false,
+          "p90_le_25pct": true,
+          "max_le_33_3pct": true,
+          "max_streak_le_4": true,
+          "window7_repeat3_le_10pct": true
+        },
+        "release_gate_passed": false,
+        "quality_guard": {
+          "mean_display_loss_le_3_5": true,
+          "p90_display_loss_le_7": true,
+          "raw_good_kept_ge_80pct": false,
+          "support_origin_le_10pct": true,
+          "no_caution_promotion": true,
+          "no_valence_change": true,
+          "single_replacement_le_20pct": true,
+          "top5_le_52pct": true,
+          "no_domain_overflow": true,
+          "event_overflow_not_worse": true,
+          "unique_domain_p10_ge_6": true
+        },
+        "quality_guard_passed": false
+      }
+    }
+  }
+}

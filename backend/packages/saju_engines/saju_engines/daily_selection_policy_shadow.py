@@ -122,8 +122,63 @@ class GoodRepresentative:
     required_uplift_to_fit: int | None = None
 
 
+#: 장기 다양성 lookback — 지시 규격 D-89 ~ D-1.
+LONGTERM_LOOKBACK_DAYS = 89
+
+
+@dataclass(frozen=True)
+class LongTermPolicy:
+    """P4-L — 장기 미사용 후보 우선 정책.
+
+    적용 범위는 **원시 1위가 반복 제약을 어긴 경우로 한정**한다. 그렇지 않은 날은
+    원시 1위를 그대로 쓴다(현재 82.2%). 다양성 때문에 매일 1위를 바꾸는 정책이
+    아니다.
+    """
+
+    unused_event_key: bool = False
+    unused_semantic_family: bool = False
+    #: 미사용 우선을 적용할 손실 구간 상한. None 이면 전 구간.
+    #: 값이 있으면 그 구간 안에서만 미사용을 우선하고, 밖에서는 점수 순을 지킨다.
+    loss_band: int | None = None
+
+
+L0_POLICY = LongTermPolicy()
+
+
+def _longterm_key(
+    key: str, loss: int, *, policy: LongTermPolicy, family: str,
+    headline_recent: Sequence[str], good_recent: Sequence[str],
+    headline_counts: Mapping[str, int], good_counts: Mapping[str, int],
+    family_recent: frozenset[str],
+) -> tuple:
+    """장기 다양성 우선순위 — 낮을수록 먼저 고른다.
+
+    사용자 최종 노출(`final_headline`)을 1차로 보고, good 슬롯 본문 반복을 막기 위해
+    표시 대표 이력을 보조로 본다.
+    """
+    if not (policy.unused_event_key or policy.unused_semantic_family):
+        # L0 = 기존 P4 — 반복만 피하고 **점수 손실이 가장 작은** 후보를 쓴다.
+        return (loss, key)
+    if policy.loss_band is not None and loss > policy.loss_band:
+        # 지정 구간 바깥은 기존 P4 순위(점수 우선)를 지킨다.
+        return (1, loss, key)
+    rank: list[int] = [0]
+    if policy.unused_semantic_family:
+        rank.append(0 if family not in family_recent else 1)
+    if policy.unused_event_key:
+        rank.append(0 if key not in headline_recent else 1)
+        rank.append(0 if key not in good_recent else 1)
+    rank.append(headline_counts.get(key, 0))
+    rank.append(good_counts.get(key, 0))
+    return (*rank, loss, key)
+
+
 def select_good_representative(
     goods: Sequence[tuple[str, int]], history: Sequence[str], budget: int,
+    *,
+    policy: LongTermPolicy = L0_POLICY,
+    family_of: Mapping[str, str] | None = None,
+    headline_history: Sequence[str] = (),
 ) -> GoodRepresentative:
     """반복을 피하는 good 표시 대표를 고른다.
 
@@ -133,8 +188,11 @@ def select_good_representative(
 
     Args:
         goods: (event_key, probability) 목록. 점수 내림차순일 필요는 없다.
-        history: 그 일주의 과거 표시 대표(오래된 순).
+        history: 그 일주의 과거 **표시 대표** 이력(오래된 순).
         budget: 허용 점수 손실 상한.
+        policy: 장기 다양성 정책(P4-L). 기본은 기존 P4 거동.
+        family_of: event_key → semantic_family. L2/L3 에서 필요하다.
+        headline_history: 그 일주의 과거 **최종 헤드라인** 이력(오래된 순).
 
     Returns:
         표시 대표 + 선택 사유 + 손실.
@@ -149,18 +207,39 @@ def select_good_representative(
             display_displacement_loss=0,
         )
 
+    fam = family_of or {}
+    look = LONGTERM_LOOKBACK_DAYS
+    headline_recent = tuple(headline_history[-look:])
+    good_recent = tuple(history[-look:])
+    headline_counts = collections.Counter(headline_recent)
+    good_counts = collections.Counter(good_recent)
+    family_recent = frozenset(fam.get(k, k) for k in (*headline_recent, *good_recent))
+
+    clean = [
+        (key, p) for key, p in ranked[1:]
+        if repeat_severity(history, key) == SEVERITY_CLEAN
+    ]
+    affordable = [(key, p) for key, p in clean if top_p - p <= budget]
+    if affordable:
+        chosen = min(
+            affordable,
+            key=lambda kp: _longterm_key(
+                kp[0], top_p - kp[1], policy=policy, family=fam.get(kp[0], kp[0]),
+                headline_recent=headline_recent, good_recent=good_recent,
+                headline_counts=headline_counts, good_counts=good_counts,
+                family_recent=family_recent,
+            ),
+        )
+        return GoodRepresentative(
+            raw_good_winner=top_key, raw_good_probability=top_p,
+            display_good_representative=chosen[0], display_good_probability=chosen[1],
+            good_selection_reason=LONGITUDINAL_ALTERNATIVE_SELECTED,
+            display_displacement_loss=top_p - chosen[1],
+        )
+
     blocked_best: tuple[int, str] | None = None
-    for key, p in ranked[1:]:
-        if repeat_severity(history, key) != SEVERITY_CLEAN:
-            continue
+    for key, p in clean:
         loss = top_p - p
-        if loss <= budget:
-            return GoodRepresentative(
-                raw_good_winner=top_key, raw_good_probability=top_p,
-                display_good_representative=key, display_good_probability=p,
-                good_selection_reason=LONGITUDINAL_ALTERNATIVE_SELECTED,
-                display_displacement_loss=loss,
-            )
         if blocked_best is None or loss < blocked_best[0]:
             blocked_best = (loss, key)
 
