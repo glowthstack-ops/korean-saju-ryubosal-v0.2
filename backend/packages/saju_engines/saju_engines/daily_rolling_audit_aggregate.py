@@ -174,6 +174,9 @@ def build_rolling_audit_aggregates(
     target = contract.pass_threshold
     horizon = contract.expiry_horizon_days
     anchors: list[dict[str, Any]] = []
+    # 잘리지 않은 below 목록. `anchors` **바깥**에 둔다 — anchor 지문은 anchors
+    # payload 만 덮으므로, 진단용 필드를 안에 넣으면 지문이 움직인다.
+    below_by_anchor: dict[str, list[str]] = {}
 
     for step in range(contract.anchor_days):
         lo = contract.warmup_days + step
@@ -221,6 +224,7 @@ def build_rolling_audit_aggregates(
             "domain_min": min(doms),
             "qualifying_ilju_count": len([v for v in keys if v >= target]),
         })
+        below_by_anchor[anchor.isoformat()] = list(below)
 
     return {
         "contract_version": contract.version,
@@ -242,6 +246,11 @@ def build_rolling_audit_aggregates(
             ),
         },
         "board_size": size,
+        # NON_FINGERPRINTED_CALLER_DIAGNOSTIC — 새 canonical 결과 축이 아니다.
+        # 키는 공식 anchor 날짜 730개, 값은 bottom_6 절단 **이전**의 전체 목록이며
+        # 순서는 legacy below 누적 순서 그대로다. 호출부가
+        # `repeatedly_below_iljus` 를 만들 때만 쓴다.
+        "below_iljus_by_anchor": below_by_anchor,
     }
 
 
