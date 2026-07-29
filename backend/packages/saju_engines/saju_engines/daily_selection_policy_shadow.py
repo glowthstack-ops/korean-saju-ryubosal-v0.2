@@ -91,6 +91,96 @@ def repeat_severity(history: Sequence[str], event_key: str) -> int:
     return SEVERITY_CLEAN
 
 
+# ── good 슬롯 표시 대표 선택 (P4) ──────────────────────────────────────────
+#
+# 이것은 **원판정을 덮어쓰는 것이 아니다.** 후보는 전부 기존 명리 점수로 산출된
+# good 헤드라인 자격 사건이고, 같은 valence 이며, 손실 예산 안에 있다. 바뀌는 것은
+# "원시 1위를 공개한다"에서 "충분히 강한 good 후보 중 오늘 보여줄 대표 장면을
+# 고른다"로의 **슬롯 의미 정의**다.
+#
+# 그래서 사용자 노출 문구에서 '오늘 가장 강한 사건'·'1위'·'점수가 가장 높은' 같은
+# 표현을 쓰면 안 된다. 감사 데이터에는 원시 1위와 표시 대표를 **분리해** 남긴다.
+
+RAW_GOOD_WINNER_SELECTED = "RAW_GOOD_WINNER_SELECTED"
+LONGITUDINAL_ALTERNATIVE_SELECTED = "LONGITUDINAL_ALTERNATIVE_SELECTED"
+NO_VALID_LONGITUDINAL_ALTERNATIVE = "NO_VALID_LONGITUDINAL_ALTERNATIVE"
+GOOD_LOSS_BUDGET_EXCEEDED = "LOSS_BUDGET_EXCEEDED"
+
+
+@dataclass(frozen=True)
+class GoodRepresentative:
+    """good 슬롯 표시 대표 1건 — 원시 1위와 표시 선택을 분리해 남긴다."""
+
+    raw_good_winner: str
+    raw_good_probability: int
+    display_good_representative: str
+    display_good_probability: int
+    good_selection_reason: str
+    display_displacement_loss: int
+    #: 예산만 아니면 쓸 수 있었던 최선 대안(G2 표적 산정용).
+    best_blocked_alternative: str | None = None
+    required_uplift_to_fit: int | None = None
+
+
+def select_good_representative(
+    goods: Sequence[tuple[str, int]], history: Sequence[str], budget: int,
+) -> GoodRepresentative:
+    """반복을 피하는 good 표시 대표를 고른다.
+
+    후보를 만들지 않는다 — 넘겨받은 good 자격 사건 안에서만 고른다. 반복을 피할 수
+    있는 후보가 예산 안에 없으면 **원시 1위를 그대로 쓴다**(억지로 낮은 사건을
+    올리지 않는다).
+
+    Args:
+        goods: (event_key, probability) 목록. 점수 내림차순일 필요는 없다.
+        history: 그 일주의 과거 표시 대표(오래된 순).
+        budget: 허용 점수 손실 상한.
+
+    Returns:
+        표시 대표 + 선택 사유 + 손실.
+    """
+    ranked = sorted(goods, key=lambda x: (-x[1], x[0]))
+    top_key, top_p = ranked[0]
+    if repeat_severity(history, top_key) == SEVERITY_CLEAN:
+        return GoodRepresentative(
+            raw_good_winner=top_key, raw_good_probability=top_p,
+            display_good_representative=top_key, display_good_probability=top_p,
+            good_selection_reason=RAW_GOOD_WINNER_SELECTED,
+            display_displacement_loss=0,
+        )
+
+    blocked_best: tuple[int, str] | None = None
+    for key, p in ranked[1:]:
+        if repeat_severity(history, key) != SEVERITY_CLEAN:
+            continue
+        loss = top_p - p
+        if loss <= budget:
+            return GoodRepresentative(
+                raw_good_winner=top_key, raw_good_probability=top_p,
+                display_good_representative=key, display_good_probability=p,
+                good_selection_reason=LONGITUDINAL_ALTERNATIVE_SELECTED,
+                display_displacement_loss=loss,
+            )
+        if blocked_best is None or loss < blocked_best[0]:
+            blocked_best = (loss, key)
+
+    if blocked_best is not None:
+        loss, key = blocked_best
+        return GoodRepresentative(
+            raw_good_winner=top_key, raw_good_probability=top_p,
+            display_good_representative=top_key, display_good_probability=top_p,
+            good_selection_reason=GOOD_LOSS_BUDGET_EXCEEDED,
+            display_displacement_loss=0,
+            best_blocked_alternative=key, required_uplift_to_fit=loss - budget,
+        )
+    return GoodRepresentative(
+        raw_good_winner=top_key, raw_good_probability=top_p,
+        display_good_representative=top_key, display_good_probability=top_p,
+        good_selection_reason=NO_VALID_LONGITUDINAL_ALTERNATIVE,
+        display_displacement_loss=0,
+    )
+
+
 @dataclass(frozen=True)
 class SelectionPolicy:
     """OA-6f2 실험군 — 세 축을 독립으로 켠다."""

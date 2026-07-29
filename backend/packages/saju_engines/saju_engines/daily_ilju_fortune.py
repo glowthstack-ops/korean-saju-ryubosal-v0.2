@@ -458,9 +458,12 @@ def _select_slots(
 
     Args:
         rank: 정렬 키 함수. None이면 v1(라이브 동결). shadow 비교에서만 v2를 넘긴다.
-        good_override: good 슬롯에 세울 event_key. **shadow 전용** — 라이브는 None
-            이라 거동이 바뀌지 않는다(OA-6f2 P4). 후보 목록에 없거나 good 자격이
-            없으면 무시하고 기존 1순위를 쓴다. 점수·순위·나머지 슬롯 규칙은 불변이다.
+        good_override: good 슬롯의 **표시 대표**로 세울 event_key(OA-6f2 P4).
+            원판정을 덮어쓰는 것이 아니라, 이미 good 자격이 있고 같은 valence 인
+            후보 중 표시할 장면을 고르는 것이다 — 점수·순위는 그대로다. 후보 목록에
+            없거나 good 자격이 없으면 무시하고 원시 1위를 쓴다. support·caution 은
+            **바뀐 good 을 기준으로 다시 선발**되므로 도메인·동의어 불변식이 유지된다.
+            **shadow 전용** — 라이브는 None 이라 거동이 바뀌지 않는다.
     """
     key = rank or (lambda s: _rank_key(s, seed_base))
     ordered = sorted(scored, key=key)

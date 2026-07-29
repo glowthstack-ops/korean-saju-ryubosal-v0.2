@@ -1,0 +1,362 @@
+{
+  "audit_id": "OA-6f3",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "days": 90,
+  "result": {
+    "cards": 5400,
+    "measurement_stage": "display_pipeline",
+    "baseline": "P4_good_slot_cooldown",
+    "good_representative_reasons": {
+      "RAW_GOOD_WINNER_SELECTED": 4437,
+      "LONGITUDINAL_ALTERNATIVE_SELECTED": 811,
+      "LOSS_BUDGET_EXCEEDED": 152
+    },
+    "good_representative_mean_display_loss": 3.03,
+    "stage_good_representative": {
+      "cards": 152,
+      "required_uplift_distribution": {
+        "+1p 이내": 49,
+        "+2p 이내": 39,
+        "+4~5p": 24,
+        "+3p 이내": 23,
+        "+6p 이상": 17
+      },
+      "recoverable_within_3p": 111,
+      "recoverable_alternatives": {
+        "money_good_deal": 48,
+        "document_progress": 23,
+        "treat_received": 11,
+        "love_spark": 10,
+        "good_news_arrives": 5,
+        "love_deepening": 5,
+        "tidy_luck": 2,
+        "love_reunion": 2,
+        "rest_recharge": 2,
+        "praise_recognition": 2
+      },
+      "recoverable_domains": {
+        "money": 49,
+        "document": 23,
+        "love": 17,
+        "social": 11,
+        "news": 5,
+        "leisure": 2,
+        "health": 2,
+        "work": 2
+      },
+      "recoverable_semantic_families": {
+        "favorable_transaction": 48,
+        "smooth_process": 23,
+        "resource_received": 11,
+        "spark": 10,
+        "awaited_news": 5,
+        "deepening": 5,
+        "tidying": 2,
+        "renewed_contact": 2
+      },
+      "mean_required_uplift": 2.83
+    },
+    "stage_headline": {
+      "cards": 140,
+      "required_uplift_distribution": {
+        "+6p 이상": 52,
+        "+1p 이내": 26,
+        "+2p 이내": 21,
+        "+4~5p": 21,
+        "+3p 이내": 20
+      },
+      "recoverable_within_3p": 67,
+      "recoverable_alternatives": {
+        "document_progress": 19,
+        "treat_received": 14,
+        "love_spark": 12,
+        "good_news_arrives": 5,
+        "tidy_luck": 4,
+        "love_deepening": 4,
+        "praise_recognition": 3,
+        "love_reunion": 2,
+        "pleasant_meeting": 2,
+        "money_good_deal": 1
+      },
+      "recoverable_domains": {
+        "document": 19,
+        "love": 18,
+        "social": 16,
+        "news": 5,
+        "leisure": 4,
+        "work": 3,
+        "money": 2
+      },
+      "recoverable_semantic_families": {
+        "smooth_process": 19,
+        "resource_received": 14,
+        "spark": 12,
+        "awaited_news": 5,
+        "tidying": 4,
+        "deepening": 4,
+        "acknowledgement": 3,
+        "renewed_contact": 2
+      },
+      "mean_required_uplift": 4.73
+    },
+    "combined": {
+      "cards": 292,
+      "required_uplift_distribution": {
+        "+1p 이내": 75,
+        "+6p 이상": 69,
+        "+2p 이내": 60,
+        "+4~5p": 45,
+        "+3p 이내": 43
+      },
+      "recoverable_within_3p": 178,
+      "recoverable_alternatives": {
+        "money_good_deal": 49,
+        "document_progress": 42,
+        "treat_received": 25,
+        "love_spark": 22,
+        "good_news_arrives": 10,
+        "love_deepening": 9,
+        "tidy_luck": 6,
+        "praise_recognition": 5,
+        "love_reunion": 4,
+        "rest_recharge": 2
+      },
+      "recoverable_domains": {
+        "money": 51,
+        "document": 42,
+        "love": 35,
+        "social": 27,
+        "news": 10,
+        "leisure": 6,
+        "work": 5,
+        "health": 2
+      },
+      "recoverable_semantic_families": {
+        "favorable_transaction": 49,
+        "smooth_process": 42,
+        "resource_received": 25,
+        "spark": 22,
+        "awaited_news": 10,
+        "deepening": 9,
+        "tidying": 6,
+        "acknowledgement": 5
+      },
+      "mean_required_uplift": 3.74
+    },
+    "sample_rows": [
+      {
+        "stage": "good_representative",
+        "ilju": "癸巳",
+        "raw_good_winner": "money_small_gain",
+        "blocked_alternative": "money_good_deal",
+        "alternative_domain": "money",
+        "alternative_semantic_family": "favorable_transaction",
+        "routing_evidence": [
+          "재성",
+          "식상"
+        ],
+        "probability_gap": 10,
+        "required_uplift_to_fit": 3,
+        "recent7": [
+          [
+            "money_small_gain",
+            1
+          ]
+        ],
+        "recent30_alt_count": 0
+      },
+      {
+        "stage": "good_representative",
+        "ilju": "癸丑",
+        "raw_good_winner": "money_small_gain",
+        "blocked_alternative": "money_good_deal",
+        "alternative_domain": "money",
+        "alternative_semantic_family": "favorable_transaction",
+        "routing_evidence": [
+          "재성",
+          "식상"
+        ],
+        "probability_gap": 10,
+        "required_uplift_to_fit": 3,
+        "recent7": [
+          [
+            "money_small_gain",
+            1
+          ]
+        ],
+        "recent30_alt_count": 0
+      },
+      {
+        "stage": "good_representative",
+        "ilju": "癸亥",
+        "raw_good_winner": "money_small_gain",
+        "blocked_alternative": "money_good_deal",
+        "alternative_domain": "money",
+        "alternative_semantic_family": "favorable_transaction",
+        "routing_evidence": [
+          "재성",
+          "식상"
+        ],
+        "probability_gap": 9,
+        "required_uplift_to_fit": 2,
+        "recent7": [
+          [
+            "money_small_gain",
+            1
+          ]
+        ],
+        "recent30_alt_count": 0
+      },
+      {
+        "stage": "good_representative",
+        "ilju": "辛未",
+        "raw_good_winner": "money_small_gain",
+        "blocked_alternative": "good_news_arrives",
+        "alternative_domain": "news",
+        "alternative_semantic_family": "awaited_news",
+        "routing_evidence": [
+          "인성",
+          "식상",
+          "관성"
+        ],
+        "probability_gap": 9,
+        "required_uplift_to_fit": 2,
+        "recent7": [
+          [
+            "money_small_gain",
+            2
+          ],
+          [
+            "praise_recognition",
+            1
+          ],
+          [
+            "argument_caution",
+            1
+          ]
+        ],
+        "recent30_alt_count": 0
+      },
+      {
+        "stage": "good_representative",
+        "ilju": "辛巳",
+        "raw_good_winner": "money_small_gain",
+        "blocked_alternative": "good_news_arrives",
+        "alternative_domain": "news",
+        "alternative_semantic_family": "awaited_news",
+        "routing_evidence": [
+          "인성",
+          "식상",
+          "관성"
+        ],
+        "probability_gap": 8,
+        "required_uplift_to_fit": 1,
+        "recent7": [
+          [
+            "praise_recognition",
+            2
+          ],
+          [
+            "document_progress",
+            1
+          ],
+          [
+            "treat_received",
+            1
+          ]
+        ],
+        "recent30_alt_count": 1
+      },
+      {
+        "stage": "good_representative",
+        "ilju": "己酉",
+        "raw_good_winner": "money_small_gain",
+        "blocked_alternative": "money_good_deal",
+        "alternative_domain": "money",
+        "alternative_semantic_family": "favorable_transaction",
+        "routing_evidence": [
+          "재성",
+          "식상"
+        ],
+        "probability_gap": 9,
+        "required_uplift_to_fit": 2,
+        "recent7": [
+          [
+            "document_progress",
+            2
+          ],
+          [
+            "meet_helper",
+            1
+          ],
+          [
+            "teamwork_flow",
+            1
+          ]
+        ],
+        "recent30_alt_count": 0
+      },
+      {
+        "stage": "good_representative",
+        "ilju": "辛酉",
+        "raw_good_winner": "money_small_gain",
+        "blocked_alternative": "good_news_arrives",
+        "alternative_domain": "news",
+        "alternative_semantic_family": "awaited_news",
+        "routing_evidence": [
+          "인성",
+          "식상",
+          "관성"
+        ],
+        "probability_gap": 8,
+        "required_uplift_to_fit": 1,
+        "recent7": [
+          [
+            "praise_recognition",
+            2
+          ],
+          [
+            "money_small_gain",
+            2
+          ],
+          [
+            "document_progress",
+            1
+          ]
+        ],
+        "recent30_alt_count": 1
+      },
+      {
+        "stage": "good_representative",
+        "ilju": "庚戌",
+        "raw_good_winner": "money_small_gain",
+        "blocked_alternative": "money_good_deal",
+        "alternative_domain": "money",
+        "alternative_semantic_family": "favorable_transaction",
+        "routing_evidence": [
+          "재성",
+          "식상"
+        ],
+        "probability_gap": 8,
+        "required_uplift_to_fit": 1,
+        "recent7": [
+          [
+            "document_progress",
+            2
+          ],
+          [
+            "money_small_gain",
+            2
+          ],
+          [
+            "teamwork_flow",
+            1
+          ]
+        ],
+        "recent30_alt_count": 0
+      }
+    ]
+  }
+}
