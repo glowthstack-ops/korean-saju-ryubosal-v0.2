@@ -70,6 +70,24 @@ SEVERITY_NAMES = {
 }
 
 
+def strength_band(probability: int) -> int:
+    """문장 강도 밴드 — 엔진 `_band` 와 같은 임계값(높을수록 강하다).
+
+    Args:
+        probability: 사건 확률(5~95).
+
+    Returns:
+        4(>=85) · 3(>=70) · 2(>=55) · 1(그 미만).
+    """
+    if probability >= 85:
+        return 4
+    if probability >= 70:
+        return 3
+    if probability >= 55:
+        return 2
+    return 1
+
+
 def repeat_severity(history: Sequence[str], event_key: str) -> int:
     """이 사건을 오늘 고를 때의 반복 강도. 높을수록 나쁘다.
 
@@ -102,6 +120,8 @@ def repeat_severity(history: Sequence[str], event_key: str) -> int:
 # 표현을 쓰면 안 된다. 감사 데이터에는 원시 1위와 표시 대표를 **분리해** 남긴다.
 
 RAW_GOOD_WINNER_SELECTED = "RAW_GOOD_WINNER_SELECTED"
+#: 대체 후보가 더 낮은 문장 강도 밴드로 떨어져 원시 사건을 유지했다.
+STRONG_SIGNAL_BAND_DOWNGRADE_BLOCKED = "STRONG_SIGNAL_BAND_DOWNGRADE_BLOCKED"
 LONGITUDINAL_ALTERNATIVE_SELECTED = "LONGITUDINAL_ALTERNATIVE_SELECTED"
 NO_VALID_LONGITUDINAL_ALTERNATIVE = "NO_VALID_LONGITUDINAL_ALTERNATIVE"
 GOOD_LOSS_BUDGET_EXCEEDED = "LOSS_BUDGET_EXCEEDED"
@@ -162,6 +182,10 @@ class LongTermPolicy:
     #: 회복 모드에서 0~normal 구간을 먼저 소진할지. False 면 회복 예산 전 구간에서
     #: 미사용을 동등하게 우선한다(부족한 일주에 한해 C1 과 같은 강도).
     recovery_prefers_low_loss: bool = True
+    #: 문장 강도 밴드가 내려가는 대체를 막는다. 절대점수(70점) 기준이 아니라
+    #: **엔진이 이미 쓰는 문장 강도 축**을 지킨다 — 강한 카드가 약한 문장으로
+    #: 바뀌는 것만 차단하고, 같은 밴드 안의 교체는 허용한다.
+    block_band_downgrade: bool = False
 
 
 L0_POLICY = LongTermPolicy()
@@ -229,6 +253,7 @@ def select_good_representative(
             display_displacement_loss=0,
         )
 
+    block_band_downgrade = policy.block_band_downgrade
     fam = family_of or {}
     look = LONGTERM_LOOKBACK_DAYS
     headline_recent = tuple(headline_history[-look:])
@@ -261,6 +286,20 @@ def select_good_representative(
         if repeat_severity(history, key) == SEVERITY_CLEAN
     ]
     affordable = [(key, p) for key, p in clean if top_p - p <= effective_budget]
+    if block_band_downgrade:
+        top_band = strength_band(top_p)
+        kept = [(key, p) for key, p in affordable if strength_band(p) >= top_band]
+        if affordable and not kept:
+            # 예산 안 후보가 전부 약한 문장 밴드로 떨어진다 — 원시 사건을 유지한다.
+            return GoodRepresentative(
+                raw_good_winner=top_key, raw_good_probability=top_p,
+                display_good_representative=top_key, display_good_probability=top_p,
+                good_selection_reason=STRONG_SIGNAL_BAND_DOWNGRADE_BLOCKED,
+                display_displacement_loss=0,
+                best_blocked_alternative=affordable[0][0],
+                required_uplift_to_fit=0,
+            )
+        affordable = kept
     if affordable:
         chosen = min(
             affordable,

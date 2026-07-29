@@ -85,6 +85,29 @@ _VARIANTS: dict[str, LongTermPolicy] = {
         unused_semantic_family=True, unused_event_key=True,
         coverage_floor=17, recovery_prefers_low_loss=False,
     ),
+    # 강한 신호 감사에서 밴드 하락 437건(강한 변경의 17.5%)이 확인됐다.
+    # 절대 70점 가드가 아니라 **문장 강도 밴드 유지**로 보호한 뒤 다시 잰다.
+    "C6_floor16_band_guard": LongTermPolicy(
+        unused_semantic_family=True, unused_event_key=True,
+        coverage_floor=16, recovery_prefers_low_loss=False,
+        block_band_downgrade=True,
+    ),
+    "C7_floor17_band_guard": LongTermPolicy(
+        unused_semantic_family=True, unused_event_key=True,
+        coverage_floor=17, recovery_prefers_low_loss=False,
+        block_band_downgrade=True,
+    ),
+    # 밴드 보호가 대체 후보를 줄이므로 회복 기회를 더 자주 열어 벌충되는지 본다.
+    "C8_floor18_band_guard": LongTermPolicy(
+        unused_semantic_family=True, unused_event_key=True,
+        coverage_floor=18, recovery_prefers_low_loss=False,
+        block_band_downgrade=True,
+    ),
+    "C9_floor20_band_guard": LongTermPolicy(
+        unused_semantic_family=True, unused_event_key=True,
+        coverage_floor=20, recovery_prefers_low_loss=False,
+        block_band_downgrade=True,
+    ),
 }
 _SUPPORT_ORIGIN = ("tidy_luck", "rest_recharge", "walk_refresh", "focus_flow", "family_talk")
 
