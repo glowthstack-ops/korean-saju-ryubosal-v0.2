@@ -85,28 +85,12 @@ _VARIANTS: dict[str, LongTermPolicy] = {
         unused_semantic_family=True, unused_event_key=True,
         coverage_floor=17, recovery_prefers_low_loss=False,
     ),
-    # 강한 신호 감사에서 밴드 하락 437건(강한 변경의 17.5%)이 확인됐다.
-    # 절대 70점 가드가 아니라 **문장 강도 밴드 유지**로 보호한 뒤 다시 잰다.
-    "C6_floor16_band_guard": LongTermPolicy(
+    # C10 — 승인된 계층형 밴드 보호. s5 절대 차단 · s4→s3 은 회복 상태에서만 ·
+    # 두 단계 이상 하락 차단. C6~C9(전면 차단)는 s4→s3 통로까지 없애 기각됐다.
+    "C10_tiered_band_protection": LongTermPolicy(
         unused_semantic_family=True, unused_event_key=True,
         coverage_floor=16, recovery_prefers_low_loss=False,
-        block_band_downgrade=True,
-    ),
-    "C7_floor17_band_guard": LongTermPolicy(
-        unused_semantic_family=True, unused_event_key=True,
-        coverage_floor=17, recovery_prefers_low_loss=False,
-        block_band_downgrade=True,
-    ),
-    # 밴드 보호가 대체 후보를 줄이므로 회복 기회를 더 자주 열어 벌충되는지 본다.
-    "C8_floor18_band_guard": LongTermPolicy(
-        unused_semantic_family=True, unused_event_key=True,
-        coverage_floor=18, recovery_prefers_low_loss=False,
-        block_band_downgrade=True,
-    ),
-    "C9_floor20_band_guard": LongTermPolicy(
-        unused_semantic_family=True, unused_event_key=True,
-        coverage_floor=20, recovery_prefers_low_loss=False,
-        block_band_downgrade=True,
+        band_protection=True,
     ),
 }
 _SUPPORT_ORIGIN = ("tidy_luck", "rest_recharge", "walk_refresh", "focus_flow", "family_talk")
@@ -386,6 +370,11 @@ def run() -> dict[str, Any]:
                 "loss_buckets": dict(sorted(buckets.items())),
                 "changes_on_strong_raw_ge70": len(strong),
                 "changes_to_weak_alt_lt60": len(weak_alt),
+            },
+            "board_overflow": {
+                "domain_overflow": a.domain_overflow,
+                "event_overflow": a.event_overflow,
+                "moves": a.moves,
             },
             "low_ilju_recovery_90d": {
                 "tracked": len(low),

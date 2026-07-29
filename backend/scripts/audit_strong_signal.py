@@ -46,10 +46,11 @@ START = MEASURE_START - dt.timedelta(days=WARMUP)
 DOMAIN_CAP = cap_count(60, 0.35)
 EVENT_CAP, BUDGET = 10, 7
 _BOARD = SelectionPolicy(global_swap=True, severity_tiers=True, recency_rotation=True)
-#: 승인된 출시 후보 C4.
+#: 승인된 출시 후보 C10 — 계층형 밴드 보호 포함.
 _C4 = LongTermPolicy(
     unused_semantic_family=True, unused_event_key=True,
     coverage_floor=16, recovery_prefers_low_loss=False,
+    band_protection=True,
 )
 _STRONG = 70
 

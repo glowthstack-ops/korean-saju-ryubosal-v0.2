@@ -88,6 +88,26 @@ def strength_band(probability: int) -> int:
     return 1
 
 
+def _band_allowed(top_band: int, alt_band: int, *, in_recovery: bool) -> bool:
+    """이 대체를 문장 강도 관점에서 허용할 수 있는가(C10 계약).
+
+    Args:
+        top_band: 원시 승자의 강도 밴드.
+        alt_band: 대체 후보의 강도 밴드.
+        in_recovery: 최근 90일 의미 장면이 부족해 회복 모드인가.
+
+    Returns:
+        허용 여부. s5 는 절대, 두 단계 하락도 절대 막는다. s4→s3 은 회복 시에만.
+    """
+    if alt_band >= top_band:
+        return True
+    if top_band == EXCEPTIONAL_BAND:
+        return False                      # s5 → 하위 밴드 절대 차단
+    if top_band - alt_band >= 2:
+        return False                      # 두 단계 이상 하락 차단
+    return in_recovery                    # s4 → s3 은 의미 회복 상태에서만
+
+
 def repeat_severity(history: Sequence[str], event_key: str) -> int:
     """이 사건을 오늘 고를 때의 반복 강도. 높을수록 나쁘다.
 
@@ -120,7 +140,18 @@ def repeat_severity(history: Sequence[str], event_key: str) -> int:
 # 표현을 쓰면 안 된다. 감사 데이터에는 원시 1위와 표시 대표를 **분리해** 남긴다.
 
 RAW_GOOD_WINNER_SELECTED = "RAW_GOOD_WINNER_SELECTED"
-#: 대체 후보가 더 낮은 문장 강도 밴드로 떨어져 원시 사건을 유지했다.
+#: **예외적으로 강한** s5 신호는 하위 밴드 대표로 대체하지 않는다.
+#: 이전의 `STRONG_SIGNAL_BAND_DOWNGRADE_BLOCKED` 는 s4 까지 싸잡아 막아 의미 다양성
+#: 통로를 없앴다(C6 에서 실측). 예외 보호와 일반 보호를 이름부터 분리한다.
+EXCEPTIONAL_SIGNAL_BAND_DOWNGRADE_BLOCKED = "EXCEPTIONAL_SIGNAL_BAND_DOWNGRADE_BLOCKED"
+#: s4 → s3 을 한 단계 낮춰 표시했다(의미 다양성 회복 상태에서만 허용).
+LONGITUDINAL_ONE_BAND_DOWNGRADE_SELECTED = "LONGITUDINAL_ONE_BAND_DOWNGRADE_SELECTED"
+#: 하드 차단하지 않고 기록만 하는 관찰 코드 — 출시 canary 표본 감수 대상.
+STRONG_EVIDENCE_ASYMMETRY = "STRONG_EVIDENCE_ASYMMETRY"
+
+#: 예외 보호 밴드(s5). 이 밴드의 원시 승자는 어떤 경우에도 하위 밴드로 낮추지 않는다.
+EXCEPTIONAL_BAND = 4
+#: 예외 밴드가 아닌 경우의 차단(두 단계 이상 하락 등).
 STRONG_SIGNAL_BAND_DOWNGRADE_BLOCKED = "STRONG_SIGNAL_BAND_DOWNGRADE_BLOCKED"
 LONGITUDINAL_ALTERNATIVE_SELECTED = "LONGITUDINAL_ALTERNATIVE_SELECTED"
 NO_VALID_LONGITUDINAL_ALTERNATIVE = "NO_VALID_LONGITUDINAL_ALTERNATIVE"
@@ -182,10 +213,12 @@ class LongTermPolicy:
     #: 회복 모드에서 0~normal 구간을 먼저 소진할지. False 면 회복 예산 전 구간에서
     #: 미사용을 동등하게 우선한다(부족한 일주에 한해 C1 과 같은 강도).
     recovery_prefers_low_loss: bool = True
-    #: 문장 강도 밴드가 내려가는 대체를 막는다. 절대점수(70점) 기준이 아니라
-    #: **엔진이 이미 쓰는 문장 강도 축**을 지킨다 — 강한 카드가 약한 문장으로
-    #: 바뀌는 것만 차단하고, 같은 밴드 안의 교체는 허용한다.
-    block_band_downgrade: bool = False
+    #: 계층형 밴드 보호(C10). 절대점수 가드가 아니다:
+    #:   s5 → 하위 밴드   절대 차단(예외적으로 강한 신호)
+    #:   s4 → s3         **의미 회복 상태에서만** 허용(한 단계)
+    #:   두 단계 이상     차단
+    #: 전면 차단(C6)은 s4→s3 통로까지 없애 고유 p10 이 14 로 내려앉는다.
+    band_protection: bool = False
 
 
 L0_POLICY = LongTermPolicy()
@@ -253,7 +286,8 @@ def select_good_representative(
             display_displacement_loss=0,
         )
 
-    block_band_downgrade = policy.block_band_downgrade
+    band_protection = policy.band_protection
+    in_recovery = False
     fam = family_of or {}
     look = LONGTERM_LOOKBACK_DAYS
     headline_recent = tuple(headline_history[-look:])
@@ -267,7 +301,8 @@ def select_good_representative(
     if policy.coverage_floor is not None:
         # 사용자 최종 노출 기준 의미 장면 수 — 부족할 때만 회복 모드로 넓힌다.
         coverage = len({fam.get(k, k) for k in headline_recent})
-        if coverage >= policy.coverage_floor:
+        in_recovery = coverage < policy.coverage_floor
+        if not in_recovery:
             effective = LongTermPolicy()          # 기존 P4 — 손실 최소 우선
             effective_budget = min(budget, policy.normal_loss_budget)
         else:
@@ -286,18 +321,23 @@ def select_good_representative(
         if repeat_severity(history, key) == SEVERITY_CLEAN
     ]
     affordable = [(key, p) for key, p in clean if top_p - p <= effective_budget]
-    if block_band_downgrade:
-        top_band = strength_band(top_p)
-        kept = [(key, p) for key, p in affordable if strength_band(p) >= top_band]
+    top_band = strength_band(top_p)
+    if band_protection:
+        kept = [
+            (key, p) for key, p in affordable
+            if _band_allowed(top_band, strength_band(p), in_recovery=in_recovery)
+        ]
         if affordable and not kept:
-            # 예산 안 후보가 전부 약한 문장 밴드로 떨어진다 — 원시 사건을 유지한다.
+            reason = (
+                EXCEPTIONAL_SIGNAL_BAND_DOWNGRADE_BLOCKED
+                if top_band == EXCEPTIONAL_BAND
+                else STRONG_SIGNAL_BAND_DOWNGRADE_BLOCKED
+            )
             return GoodRepresentative(
                 raw_good_winner=top_key, raw_good_probability=top_p,
                 display_good_representative=top_key, display_good_probability=top_p,
-                good_selection_reason=STRONG_SIGNAL_BAND_DOWNGRADE_BLOCKED,
-                display_displacement_loss=0,
-                best_blocked_alternative=affordable[0][0],
-                required_uplift_to_fit=0,
+                good_selection_reason=reason, display_displacement_loss=0,
+                best_blocked_alternative=affordable[0][0], required_uplift_to_fit=0,
             )
         affordable = kept
     if affordable:
@@ -310,10 +350,14 @@ def select_good_representative(
                 family_recent=family_recent,
             ),
         )
+        downgraded = strength_band(chosen[1]) < top_band
         return GoodRepresentative(
             raw_good_winner=top_key, raw_good_probability=top_p,
             display_good_representative=chosen[0], display_good_probability=chosen[1],
-            good_selection_reason=LONGITUDINAL_ALTERNATIVE_SELECTED,
+            good_selection_reason=(
+                LONGITUDINAL_ONE_BAND_DOWNGRADE_SELECTED if downgraded
+                else LONGITUDINAL_ALTERNATIVE_SELECTED
+            ),
             display_displacement_loss=top_p - chosen[1],
         )
 

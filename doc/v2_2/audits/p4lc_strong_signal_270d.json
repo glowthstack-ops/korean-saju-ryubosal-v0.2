@@ -15,67 +15,66 @@
       "strong_threshold": 70
     },
     "band_definition": "엔진 `_band` 와 동일 — s5>=85 · s4>=70 · s3>=55 · s2<55",
-    "changed_cards_total": 3525,
-    "changed_cards_with_strong_raw": 2501,
-    "strong_share_of_changes_pct": 71.0,
+    "changed_cards_total": 3544,
+    "changed_cards_with_strong_raw": 2521,
+    "strong_share_of_changes_pct": 71.1,
     "raw_probability_buckets": {
-      "70-74": 921,
-      "75-79": 823,
-      "80+": 757
+      "70-74": 928,
+      "75-79": 829,
+      "80+": 764
     },
     "loss_buckets": {
-      "0-3p": 1832,
-      "4-5p": 404,
-      "6-7p": 265
+      "0-3p": 1934,
+      "4-5p": 336,
+      "6-7p": 251
     },
     "alt_probability": {
-      "mean": 74.8,
+      "mean": 75.0,
       "min": 63,
-      "below_70": 392,
+      "below_70": 237,
       "below_60": 0
     },
     "band_transitions": {
-      "s4→s4": 1959,
-      "s4→s3": 392,
-      "s5→s5": 105,
-      "s5→s4": 45
+      "s4→s4": 2130,
+      "s4→s3": 237,
+      "s5→s5": 154
     },
-    "band_downgrades": 437,
-    "band_downgrade_pct": 17.5,
-    "band_kept_or_raised": 2064,
+    "band_downgrades": 237,
+    "band_downgrade_pct": 9.4,
+    "band_kept_or_raised": 2284,
     "supporting_groups": {
       "raw_mean": 1.8,
-      "alt_mean": 1.71,
-      "raw_ge2": 1645,
-      "alt_ge2": 1503,
-      "alt_zero": 77
+      "alt_mean": 1.73,
+      "raw_ge2": 1662,
+      "alt_ge2": 1533,
+      "alt_zero": 74
     },
-    "final_headline_changed": 1710,
-    "final_headline_kept_raw": 791,
+    "final_headline_changed": 1665,
+    "final_headline_kept_raw": 856,
     "most_displaced_raw_events": {
-      "money_small_gain": 1612,
-      "praise_recognition": 444,
-      "meet_helper": 214,
-      "idea_flash": 71,
-      "good_news_arrives": 65,
-      "document_progress": 54,
+      "money_small_gain": 1642,
+      "praise_recognition": 440,
+      "meet_helper": 213,
+      "idea_flash": 72,
+      "good_news_arrives": 63,
+      "document_progress": 51,
       "love_spark": 15,
       "money_good_deal": 11
     },
     "most_used_alternatives": {
-      "money_small_gain": 715,
-      "money_good_deal": 572,
-      "praise_recognition": 225,
-      "treat_received": 202,
-      "document_progress": 187,
-      "good_news_arrives": 132,
-      "love_spark": 99,
-      "meet_helper": 96
+      "money_small_gain": 816,
+      "money_good_deal": 520,
+      "praise_recognition": 268,
+      "treat_received": 194,
+      "document_progress": 167,
+      "good_news_arrives": 109,
+      "meet_helper": 102,
+      "love_spark": 81
     },
     "hard_guard_candidates": {
-      "count": 71,
+      "count": 72,
       "criteria": "raw>=75 AND loss>=5 AND raw 독립근거>=2 AND alt 독립근거<2",
-      "share_of_strong_changes_pct": 2.8,
+      "share_of_strong_changes_pct": 2.9,
       "examples": [
         {
           "raw_event": "money_small_gain",
@@ -118,19 +117,6 @@
         },
         {
           "raw_event": "money_small_gain",
-          "raw_probability": 76,
-          "raw_band": "s4",
-          "raw_supporting_groups": 2,
-          "alt_event": "money_good_deal",
-          "alt_probability": 70,
-          "alt_band": "s4",
-          "alt_supporting_groups": 1,
-          "loss": 6,
-          "final_headline": "money_good_deal",
-          "final_headline_changed": true
-        },
-        {
-          "raw_event": "money_small_gain",
           "raw_probability": 75,
           "raw_band": "s4",
           "raw_supporting_groups": 2,
@@ -141,36 +127,23 @@
           "loss": 6,
           "final_headline": "love_spark",
           "final_headline_changed": true
+        },
+        {
+          "raw_event": "money_small_gain",
+          "raw_probability": 78,
+          "raw_band": "s4",
+          "raw_supporting_groups": 2,
+          "alt_event": "money_good_deal",
+          "alt_probability": 72,
+          "alt_band": "s4",
+          "alt_supporting_groups": 1,
+          "loss": 6,
+          "final_headline": "money_good_deal",
+          "final_headline_changed": true
         }
       ]
     },
     "downgrade_examples": [
-      {
-        "raw_event": "praise_recognition",
-        "raw_probability": 71,
-        "raw_band": "s4",
-        "raw_supporting_groups": 1,
-        "alt_event": "love_deepening",
-        "alt_probability": 66,
-        "alt_band": "s3",
-        "alt_supporting_groups": 1,
-        "loss": 5,
-        "final_headline": "love_deepening",
-        "final_headline_changed": true
-      },
-      {
-        "raw_event": "money_small_gain",
-        "raw_probability": 72,
-        "raw_band": "s4",
-        "raw_supporting_groups": 2,
-        "alt_event": "money_good_deal",
-        "alt_probability": 69,
-        "alt_band": "s3",
-        "alt_supporting_groups": 1,
-        "loss": 3,
-        "final_headline": "money_good_deal",
-        "final_headline_changed": true
-      },
       {
         "raw_event": "praise_recognition",
         "raw_probability": 71,
@@ -194,8 +167,8 @@
         "alt_band": "s3",
         "alt_supporting_groups": 1,
         "loss": 6,
-        "final_headline": "money_small_gain",
-        "final_headline_changed": false
+        "final_headline": "treat_received",
+        "final_headline_changed": true
       },
       {
         "raw_event": "money_small_gain",
@@ -204,19 +177,6 @@
         "raw_supporting_groups": 1,
         "alt_event": "treat_received",
         "alt_probability": 68,
-        "alt_band": "s3",
-        "alt_supporting_groups": 2,
-        "loss": 3,
-        "final_headline": "treat_received",
-        "final_headline_changed": true
-      },
-      {
-        "raw_event": "money_small_gain",
-        "raw_probability": 70,
-        "raw_band": "s4",
-        "raw_supporting_groups": 1,
-        "alt_event": "treat_received",
-        "alt_probability": 67,
         "alt_band": "s3",
         "alt_supporting_groups": 2,
         "loss": 3,
@@ -247,6 +207,45 @@
         "alt_supporting_groups": 2,
         "loss": 5,
         "final_headline": "pleasant_meeting",
+        "final_headline_changed": true
+      },
+      {
+        "raw_event": "praise_recognition",
+        "raw_probability": 72,
+        "raw_band": "s4",
+        "raw_supporting_groups": 1,
+        "alt_event": "good_news_arrives",
+        "alt_probability": 66,
+        "alt_band": "s3",
+        "alt_supporting_groups": 0,
+        "loss": 6,
+        "final_headline": "good_news_arrives",
+        "final_headline_changed": true
+      },
+      {
+        "raw_event": "praise_recognition",
+        "raw_probability": 74,
+        "raw_band": "s4",
+        "raw_supporting_groups": 1,
+        "alt_event": "document_progress",
+        "alt_probability": 67,
+        "alt_band": "s3",
+        "alt_supporting_groups": 1,
+        "loss": 7,
+        "final_headline": "document_progress",
+        "final_headline_changed": true
+      },
+      {
+        "raw_event": "praise_recognition",
+        "raw_probability": 72,
+        "raw_band": "s4",
+        "raw_supporting_groups": 0,
+        "alt_event": "love_deepening",
+        "alt_probability": 67,
+        "alt_band": "s3",
+        "alt_supporting_groups": 1,
+        "loss": 5,
+        "final_headline": "love_deepening",
         "final_headline_changed": true
       }
     ]
