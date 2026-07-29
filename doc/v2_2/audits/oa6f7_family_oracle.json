@@ -1,0 +1,74 @@
+{
+  "audit_id": "OA-6f7",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "measurement_stage": "display_pipeline",
+  "result": {
+    "measurement_stage": "display_pipeline",
+    "target_family_count": 15,
+    "qualifying_iljus_required": 55,
+    "caveat": "global 은 deficit-first 탐욕의 **하한**이다. good 후보 위에서 직접 배정하므로 라이브 파이프라인(_select_slots → _headline_candidates → _rebalance_headlines)을 통과한 witness 가 아니다. '달성 가능' 확정에는 witness 의 라이브 재생이 남는다.",
+    "windows": {
+      "failing_2027-06-01": {
+        "window_start": "2027-03-03",
+        "individual_oracle": {
+          "p10": 17,
+          "min": 17,
+          "median": 17,
+          "max": 18,
+          "below_target": 0,
+          "watch": {
+            "戊辰": 17,
+            "庚戌": 17,
+            "丙辰": 17,
+            "乙亥": 18,
+            "癸酉": 17,
+            "甲午": 18,
+            "辛亥": 17,
+            "甲子": 18,
+            "乙丑": 18,
+            "丙寅": 17
+          }
+        },
+        "global_greedy_lower_bound": {
+          "qualifying_iljus": 60,
+          "family_p10": 17,
+          "family_min": 16,
+          "family_median": 17,
+          "mean_loss": 0.9
+        },
+        "verdict": "SELECTION_ALLOCATION_GAP"
+      },
+      "passing_2026-07-01": {
+        "window_start": "2026-04-02",
+        "individual_oracle": {
+          "p10": 17,
+          "min": 17,
+          "median": 17,
+          "max": 18,
+          "below_target": 0,
+          "watch": {
+            "戊辰": 17,
+            "庚戌": 18,
+            "丙辰": 17,
+            "乙亥": 18,
+            "癸酉": 17,
+            "甲午": 17,
+            "辛亥": 17,
+            "甲子": 17,
+            "乙丑": 17,
+            "丙寅": 17
+          }
+        },
+        "global_greedy_lower_bound": {
+          "qualifying_iljus": 60,
+          "family_p10": 17,
+          "family_min": 17,
+          "family_median": 17,
+          "mean_loss": 0.95
+        },
+        "verdict": "SELECTION_ALLOCATION_GAP"
+      }
+    }
+  }
+}
