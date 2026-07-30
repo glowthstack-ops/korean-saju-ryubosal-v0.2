@@ -77,7 +77,7 @@ export default function HomePage() {
         ))}
       </Section>
 
-      <Section title="로그인 전용" subtitle="여러 사주 저장 · 유료 풀이">
+      <Section title="로그인 전용" subtitle="여러 사주 저장 · 테마사주 · AI상담">
         {PAID.map((s) => (
           <ServiceCard key={s.href} service={s} locked={!isLoggedIn} />
         ))}
