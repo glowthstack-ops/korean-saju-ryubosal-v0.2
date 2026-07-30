@@ -24,8 +24,10 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 from saju_engines.event_engine_v2 import RelationshipShadowProjection
 from saju_engines.marriage_emergence_modifier import analyze_marriage_emergence_natal
@@ -310,13 +312,32 @@ def _draft_period(draft: RelationshipEffectShadowDraft) -> str:
     return draft.period_identity.split(":", 1)[1]
 
 
+class PeriodKeyedCandidate(Protocol):
+    """rank 조회에 필요한 최소 계약 — `period` 와 `event_key` 뿐.
+
+    `final_candidates` 는 실제로 이 두 필드만 읽는다(§7 읽기 전용). 그런데 호출부는
+    reducer 이후 LLM payload(`LlmEventCandidate`)를 넘기고 여기 서명은 채점 DTO
+    (`EventCandidate`)를 요구해 경계가 어긋나 있었다. 두 타입은 책임이 다르므로
+    union 이나 `cast()` 로 봉합하지 않고, 이 함수가 실제로 요구하는 구조만 선언한다.
+
+    읽기 전용 property 로 두어 공변이다 — `event_key` 가 StrEnum 이든 문자열이든
+    `str` 계약을 만족한다(가변 속성으로 두면 불변성 때문에 둘 다 거부된다).
+    """
+
+    @property
+    def period(self) -> str: ...
+
+    @property
+    def event_key(self) -> str: ...
+
+
 def finalize_relationship_envelopes(
     detailed_drafts: list[RelationshipEffectShadowDraft],
     *,
     subject_scope: str,
     all_scored: list[EventCandidate],
     pre_reduce_candidates: list[EventCandidate],
-    final_candidates: list[EventCandidate],
+    final_candidates: Sequence[PeriodKeyedCandidate],
 ) -> list[RelationshipEffectShadowEnvelope]:
     """reducer **이후** 상세 draft에만 legacy audit/rank를 결합해 finalize(§2·§3).
 

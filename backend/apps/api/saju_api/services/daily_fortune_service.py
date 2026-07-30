@@ -117,8 +117,10 @@ def get_board(
     registry = beta_registry()
     if registry is not None:
         # 베타 배포 — snapshot 이 선택의 SSOT 다. 캐시·락·lazy 생성을 타지 않는다.
-        board, _audit = render_beta(registry, d)
-        return board
+        # 이 경로는 즉시 반환하므로 아래 캐시 경로와 변수를 공유하지 않는다 — 공유하면
+        # 첫 대입(비-Optional)으로 타입이 좁혀져 캐시의 `| None` 이 어긋난다.
+        beta_board, _audit = render_beta(registry, d)
+        return beta_board
     if cache is None:                       # legacy 경로는 캐시가 반드시 있어야 한다
         raise RuntimeError("일운 캐시 미설정")
     version = content_version_for(d)

@@ -141,11 +141,14 @@ def parse_time(
         band = m.group(2)
         lo_off, hi_off = {"초반": (0, 3), "중반": (4, 6),
                           "후반": (7, 9)}.get(band, (0, 9))
-        age = AgeRange(from_age=base + lo_off, to_age=base + hi_off)
+        # 경계를 지역변수로 유지한다 — AgeRange 의 두 경계는 optional 이고('20살
+        # 전까지' 처럼 한쪽만 오는 질의 때문), 모델에서 되읽으면 None 가능성이 붙는다.
+        lo_age, hi_age = base + lo_off, base + hi_off
+        age = AgeRange(from_age=lo_age, to_age=hi_age)
         start = end = None
         if birth_year is not None:
-            start = str(birth_year + age.from_age)
-            end = str(birth_year + age.to_age)
+            start = str(birth_year + lo_age)
+            end = str(birth_year + hi_age)
         return TimeRange(
             type="age_based", granularity=Granularity.YEAR, age=age,
             start=start, end=end, urgency=urgency,
@@ -158,11 +161,12 @@ def parse_time(
         age_num = int(m.group(1))
         approx = m.group(2) is not None
         pad = 1 if approx else 0
-        age = AgeRange(from_age=max(0, age_num - pad), to_age=age_num + pad)
+        lo_age, hi_age = max(0, age_num - pad), age_num + pad
+        age = AgeRange(from_age=lo_age, to_age=hi_age)
         start = end = None
         if birth_year is not None:
-            start = str(birth_year + age.from_age)
-            end = str(birth_year + age.to_age)
+            start = str(birth_year + lo_age)
+            end = str(birth_year + hi_age)
         return TimeRange(
             type="age_based", granularity=Granularity.YEAR, age=age,
             start=start, end=end, urgency=urgency,
@@ -174,11 +178,12 @@ def parse_time(
                    "팔순": 80, "구순": 90}
     for word, hanja_age in _HANJA_AGES.items():
         if word in text:
-            age = AgeRange(from_age=hanja_age - 1, to_age=hanja_age + 1)
+            lo_age, hi_age = hanja_age - 1, hanja_age + 1
+            age = AgeRange(from_age=lo_age, to_age=hi_age)
             start = end = None
             if birth_year is not None:
-                start = str(birth_year + age.from_age)
-                end = str(birth_year + age.to_age)
+                start = str(birth_year + lo_age)
+                end = str(birth_year + hi_age)
             return TimeRange(
                 type="age_based", granularity=Granularity.YEAR, age=age,
                 start=start, end=end, urgency=urgency,

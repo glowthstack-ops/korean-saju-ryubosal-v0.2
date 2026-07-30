@@ -258,8 +258,10 @@ def money_adverse_evidence(
             b for b in (day_branch, month_branch, year_branch) if b is not transit
         )
         hits = _branch_relations(transit, ilju_branch, helpers)
-        for kind in ADVERSE_RELATIONS:
-            strength = hits.get(kind, 0.0)
+        # `relation` 은 관계 종류(충·형·파·해) 문자열이다. 위 장간 루프의 `kind`
+        # (HiddenStemType)와 의미가 달라 같은 이름을 쓰면 타입 계약이 어긋난다.
+        for relation in ADVERSE_RELATIONS:
+            strength = hits.get(relation, 0.0)
             if strength <= 0:
                 continue
             # 충돌하는 두 자리 중 하나가 재물 자리여야 재물 관련성이 성립한다.
@@ -271,11 +273,11 @@ def money_adverse_evidence(
                 continue
             found.append(AdverseEvidence(
                 cause_group=WEALTH_BRANCH_CONFLICT,
-                evidence_id=f"{pos}:{kind}:{'+'.join(wealth_side)}",
+                evidence_id=f"{pos}:{relation}:{'+'.join(wealth_side)}",
                 evidence_role="independent_adverse_manifestation",
                 domain_relevance="money",
-                source_relation=kind,
-                source_pattern=f"재성 지지 {kind} — 재물 자리 손상",
+                source_relation=relation,
+                source_pattern=f"재성 지지 {relation} — 재물 자리 손상",
                 strength=round(strength, 2),
             ))
 
