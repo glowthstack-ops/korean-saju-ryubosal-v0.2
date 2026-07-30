@@ -1,0 +1,3546 @@
+{
+  "audit_id": "WC-SIG-2",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "target_event_key": "wealth_change",
+  "supersedes": "WC-SIG (어휘 매칭 기반 — 폐기)",
+  "note": "3축 분리: semantic(quality+materialization 방향) / activation(timing+공망·관계발동·혼합·역행) / context_locus(궁위 — 의미 결정에 쓰지 않음). provenance(detector·stack·source layer·evidence path)는 군집 키에서 제외했다. 궁위는 bridge evidence 없이 배우자 재정·부동산·이사로 확장하지 않는다(context_only).",
+  "total_candidates": 72,
+  "semantic_distribution": {
+    "loss_outflow": 22,
+    "opportunity_inflow": 46,
+    "pressure": 4
+  },
+  "activation_distribution": {
+    "active+conflicted+mixed": 7,
+    "conflicted+delayed+mixed": 2,
+    "active+conflicted": 14,
+    "conflicted+delayed": 17,
+    "active": 8,
+    "active+conflicted+reversed": 2,
+    "active+conflicted+mixed+reversed": 1,
+    "delayed": 14,
+    "active+mixed": 1,
+    "delayed+mixed": 1,
+    "delayed+reversed": 2,
+    "conflicted+delayed+reversed": 2,
+    "active+reversed": 1
+  },
+  "semantic_x_activation": {
+    "opportunity_inflow × active+conflicted": 10,
+    "opportunity_inflow × conflicted+delayed": 10,
+    "opportunity_inflow × delayed": 10,
+    "loss_outflow × conflicted+delayed": 6,
+    "opportunity_inflow × active": 5,
+    "loss_outflow × active+conflicted+mixed": 4,
+    "loss_outflow × active+conflicted": 4,
+    "opportunity_inflow × active+conflicted+mixed": 3,
+    "loss_outflow × active": 3,
+    "opportunity_inflow × active+conflicted+reversed": 2,
+    "loss_outflow × delayed": 2,
+    "opportunity_inflow × delayed+reversed": 2,
+    "pressure × delayed": 2,
+    "loss_outflow × conflicted+delayed+mixed": 1,
+    "opportunity_inflow × conflicted+delayed+mixed": 1,
+    "opportunity_inflow × active+conflicted+mixed+reversed": 1,
+    "pressure × conflicted+delayed": 1,
+    "loss_outflow × active+mixed": 1,
+    "pressure × delayed+mixed": 1,
+    "opportunity_inflow × conflicted+delayed+reversed": 1,
+    "loss_outflow × conflicted+delayed+reversed": 1,
+    "opportunity_inflow × active+reversed": 1
+  },
+  "semantic_x_context_locus": {
+    "opportunity_inflow × residence_context+spouse_palace": 28,
+    "opportunity_inflow × UNKNOWN": 18,
+    "loss_outflow × residence_context+spouse_palace": 16,
+    "loss_outflow × UNKNOWN": 6,
+    "pressure × UNKNOWN": 3,
+    "pressure × residence_context+spouse_palace": 1
+  },
+  "polarity_by_semantic": {
+    "loss_outflow": {
+      "negative_or_forced": 22
+    },
+    "opportunity_inflow": {
+      "positive": 46
+    },
+    "pressure": {
+      "negative_or_forced": 4
+    }
+  },
+  "semantic_conflict_count": 0,
+  "quality_missing_count": 0,
+  "materialization_direction_missing_count": 4,
+  "semantic_unknown_count": 0,
+  "semantic_unknown_share": 0.0,
+  "representative_periods": [
+    "2027-12",
+    "2028-11",
+    "2028-12",
+    "2030-07",
+    "2027-02",
+    "2028-01",
+    "2029-10",
+    "2030-08"
+  ],
+  "representative_semantic_distribution": {
+    "loss_outflow": 6,
+    "opportunity_inflow": 2
+  },
+  "representative_activation_distribution": {
+    "active+conflicted+mixed": 4,
+    "conflicted+delayed+mixed": 1,
+    "active+conflicted": 1,
+    "conflicted+delayed": 2
+  },
+  "representative_table": [
+    {
+      "period": "2027-02",
+      "semantic": "loss_outflow",
+      "activation": "active+conflicted",
+      "context": "residence_context+spouse_palace"
+    },
+    {
+      "period": "2027-12",
+      "semantic": "loss_outflow",
+      "activation": "active+conflicted+mixed",
+      "context": "residence_context+spouse_palace"
+    },
+    {
+      "period": "2028-01",
+      "semantic": "opportunity_inflow",
+      "activation": "active+conflicted+mixed",
+      "context": "residence_context+spouse_palace"
+    },
+    {
+      "period": "2028-11",
+      "semantic": "loss_outflow",
+      "activation": "conflicted+delayed+mixed",
+      "context": "residence_context+spouse_palace"
+    },
+    {
+      "period": "2028-12",
+      "semantic": "loss_outflow",
+      "activation": "active+conflicted+mixed",
+      "context": "residence_context+spouse_palace"
+    },
+    {
+      "period": "2029-10",
+      "semantic": "loss_outflow",
+      "activation": "conflicted+delayed",
+      "context": "residence_context+spouse_palace"
+    },
+    {
+      "period": "2030-07",
+      "semantic": "opportunity_inflow",
+      "activation": "active+conflicted+mixed",
+      "context": "residence_context+spouse_palace"
+    },
+    {
+      "period": "2030-08",
+      "semantic": "loss_outflow",
+      "activation": "conflicted+delayed",
+      "context": "residence_context+spouse_palace"
+    }
+  ],
+  "context_label_coverage": "45/72",
+  "context_locus_semantically_non_discriminative": true,
+  "context_label_present_in_representatives": 8,
+  "rank_enrichment_probe": {
+    "pool_share": {
+      "loss_outflow": 0.3056,
+      "opportunity_inflow": 0.6389,
+      "pressure": 0.0556
+    },
+    "representative_share": {
+      "loss_outflow": 0.75,
+      "opportunity_inflow": 0.25
+    },
+    "score_histogram_by_semantic": {
+      "loss_outflow": {
+        "99": 3,
+        "98": 3,
+        "97": 8,
+        "96": 1,
+        "95": 1,
+        "94": 2,
+        "92": 1,
+        "90": 2,
+        "87": 1
+      },
+      "opportunity_inflow": {
+        "99": 1,
+        "98": 2,
+        "97": 3,
+        "96": 12,
+        "95": 3,
+        "94": 5,
+        "93": 5,
+        "92": 3,
+        "90": 3,
+        "89": 2,
+        "88": 1,
+        "87": 1,
+        "85": 1,
+        "83": 1,
+        "81": 1,
+        "80": 1,
+        "77": 1
+      },
+      "pressure": {
+        "95": 1,
+        "94": 1,
+        "93": 2
+      }
+    },
+    "score_mean_by_semantic": {
+      "loss_outflow": 95.682,
+      "opportunity_inflow": 92.674,
+      "pressure": 93.75
+    },
+    "top_score_composition": {
+      "loss_outflow": 3,
+      "opportunity_inflow": 1
+    },
+    "life_fit_all_zero": true,
+    "personal_match_all_zero": true,
+    "tie_break_note": "life_fit·personal_match 가 전건 0 이면 _CANDIDATE_RANK_KEY 의 1·2축이 무력하고 score 만으로 정렬된다. score 가 포화(98~99)면 동점 구간의 순서는 풀 입력 순서가 결정한다 — 랭킹 규칙이 손실을 우대한다는 인과는 이 관측만으로 확정되지 않는다."
+  },
+  "context_locus_discriminative": true,
+  "context_locus_note": "후보별로 다름 — 맥락 축으로 유효",
+  "context_source": "per_candidate",
+  "cluster_tiers": {
+    "major": {
+      "loss_outflow": 22,
+      "opportunity_inflow": 46
+    },
+    "minor": {
+      "pressure": 4
+    },
+    "note": "주요 군집은 production subtype 후보 판단용 임계(5건 이상)다. 세 번째 이후 군집까지 모두 5건 이상이어야 하는 것은 아니다. minor 군집은 umbrella wealth_change 에 유지하고 승격을 보류한다."
+  },
+  "representative_ranking_table": [
+    {
+      "period": "2027-02",
+      "semantic": "loss_outflow",
+      "activation": "active+conflicted",
+      "polarity": "negative_or_forced",
+      "score": 98,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -1.0,
+      "rank": 5
+    },
+    {
+      "period": "2027-12",
+      "semantic": "loss_outflow",
+      "activation": "active+conflicted+mixed",
+      "polarity": "negative_or_forced",
+      "score": 99,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -1.0,
+      "rank": 1
+    },
+    {
+      "period": "2028-01",
+      "semantic": "opportunity_inflow",
+      "activation": "active+conflicted+mixed",
+      "polarity": "positive",
+      "score": 98,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "rank": 6
+    },
+    {
+      "period": "2028-11",
+      "semantic": "loss_outflow",
+      "activation": "conflicted+delayed+mixed",
+      "polarity": "negative_or_forced",
+      "score": 99,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "rank": 2
+    },
+    {
+      "period": "2028-12",
+      "semantic": "loss_outflow",
+      "activation": "active+conflicted+mixed",
+      "polarity": "negative_or_forced",
+      "score": 99,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -1.0,
+      "rank": 3
+    },
+    {
+      "period": "2029-10",
+      "semantic": "loss_outflow",
+      "activation": "conflicted+delayed",
+      "polarity": "negative_or_forced",
+      "score": 98,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "rank": 7
+    },
+    {
+      "period": "2030-07",
+      "semantic": "opportunity_inflow",
+      "activation": "active+conflicted+mixed",
+      "polarity": "positive",
+      "score": 99,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "rank": 4
+    },
+    {
+      "period": "2030-08",
+      "semantic": "loss_outflow",
+      "activation": "conflicted+delayed",
+      "polarity": "negative_or_forced",
+      "score": 98,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "rank": 8
+    }
+  ],
+  "manual_review_sample": [
+    {
+      "rank": 1,
+      "period": "2027-12",
+      "score": 99,
+      "raw_total": 153.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -1.0,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true,
+      "review_reasons": [
+        "loss_outflow_cluster_representative",
+        "display_representative_period",
+        "loss_outflow_activation_boundary"
+      ]
+    },
+    {
+      "rank": 2,
+      "period": "2028-11",
+      "score": 99,
+      "raw_total": 148.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true,
+      "review_reasons": [
+        "loss_outflow_cluster_representative",
+        "display_representative_period",
+        "loss_outflow_activation_boundary"
+      ]
+    },
+    {
+      "rank": 3,
+      "period": "2028-12",
+      "score": 99,
+      "raw_total": 146.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -1.0,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true,
+      "review_reasons": [
+        "display_representative_period"
+      ]
+    },
+    {
+      "rank": 4,
+      "period": "2030-07",
+      "score": 99,
+      "raw_total": 144.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true,
+      "review_reasons": [
+        "opportunity_inflow_cluster_representative",
+        "display_representative_period",
+        "opportunity_inflow_activation_boundary"
+      ]
+    },
+    {
+      "rank": 5,
+      "period": "2027-02",
+      "score": 98,
+      "raw_total": 133.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -1.0,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true,
+      "review_reasons": [
+        "display_representative_period"
+      ]
+    },
+    {
+      "rank": 6,
+      "period": "2028-01",
+      "score": 98,
+      "raw_total": 131.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true,
+      "review_reasons": [
+        "opportunity_inflow_cluster_representative",
+        "display_representative_period"
+      ]
+    },
+    {
+      "rank": 7,
+      "period": "2029-10",
+      "score": 98,
+      "raw_total": 131.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true,
+      "review_reasons": [
+        "display_representative_period"
+      ]
+    },
+    {
+      "rank": 8,
+      "period": "2030-08",
+      "score": 98,
+      "raw_total": 133.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true,
+      "review_reasons": [
+        "display_representative_period"
+      ]
+    },
+    {
+      "rank": 9,
+      "period": "2031-05",
+      "score": 98,
+      "raw_total": 131.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false,
+      "review_reasons": [
+        "opportunity_inflow_activation_boundary"
+      ]
+    },
+    {
+      "rank": 35,
+      "period": "2028-08",
+      "score": 95,
+      "raw_total": 112.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.3,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "pressure",
+      "timing": "delay",
+      "semantic_axis": "pressure",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility",
+        "압박·부담"
+      ],
+      "semantic_sources": [
+        "quality"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false,
+      "review_reasons": [
+        "pressure_all_cases",
+        "weak_direction_evidence"
+      ]
+    },
+    {
+      "rank": 45,
+      "period": "2029-09",
+      "score": 94,
+      "raw_total": 109.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.3,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "pressure",
+      "timing": "delay",
+      "semantic_axis": "pressure",
+      "activation_axis": [
+        "delayed",
+        "mixed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "new_start",
+        "압박·부담"
+      ],
+      "semantic_sources": [
+        "quality"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false,
+      "review_reasons": [
+        "pressure_all_cases",
+        "weak_direction_evidence"
+      ]
+    },
+    {
+      "rank": 51,
+      "period": "2028-09",
+      "score": 93,
+      "raw_total": 105.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.3,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "pressure",
+      "timing": "delay",
+      "semantic_axis": "pressure",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "exposure_volatility",
+        "압박·부담"
+      ],
+      "semantic_sources": [
+        "quality"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false,
+      "review_reasons": [
+        "pressure_all_cases"
+      ]
+    },
+    {
+      "rank": 53,
+      "period": "2030-09",
+      "score": 93,
+      "raw_total": 103.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.3,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "pressure",
+      "timing": "delay",
+      "semantic_axis": "pressure",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "nurturing_preparation",
+        "압박·부담"
+      ],
+      "semantic_sources": [
+        "quality"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false,
+      "review_reasons": [
+        "pressure_all_cases"
+      ]
+    }
+  ],
+  "manual_review_sample_size": 13,
+  "autochecks": {
+    "at_least_two_named_semantic_clusters": true,
+    "major_clusters_have_five_or_more": true,
+    "representatives_span_two_or_more": true,
+    "semantic_unknown_below_half": true
+  },
+  "verdict": "TYPE_A_CANDIDATE_AUTOCHECKS_PASS",
+  "manual_review_status": "PENDING",
+  "rows": [
+    {
+      "rank": 1,
+      "period": "2027-12",
+      "score": 99,
+      "raw_total": 153.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -1.0,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true
+    },
+    {
+      "rank": 2,
+      "period": "2028-11",
+      "score": 99,
+      "raw_total": 148.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true
+    },
+    {
+      "rank": 3,
+      "period": "2028-12",
+      "score": 99,
+      "raw_total": 146.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -1.0,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true
+    },
+    {
+      "rank": 4,
+      "period": "2030-07",
+      "score": 99,
+      "raw_total": 144.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true
+    },
+    {
+      "rank": 5,
+      "period": "2027-02",
+      "score": 98,
+      "raw_total": 133.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -1.0,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true
+    },
+    {
+      "rank": 6,
+      "period": "2028-01",
+      "score": 98,
+      "raw_total": 131.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true
+    },
+    {
+      "rank": 7,
+      "period": "2029-10",
+      "score": 98,
+      "raw_total": 131.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true
+    },
+    {
+      "rank": 8,
+      "period": "2030-08",
+      "score": 98,
+      "raw_total": 133.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": true
+    },
+    {
+      "rank": 9,
+      "period": "2031-05",
+      "score": 98,
+      "raw_total": 131.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 10,
+      "period": "2026-12",
+      "score": 97,
+      "raw_total": 128.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "관계 발동",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "stabilization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 11,
+      "period": "2027-01",
+      "score": 97,
+      "raw_total": 128.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 12,
+      "period": "2027-11",
+      "score": 97,
+      "raw_total": 128.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 13,
+      "period": "2028-02",
+      "score": 97,
+      "raw_total": 129.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -1.0,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 14,
+      "period": "2028-07",
+      "score": 97,
+      "raw_total": 127.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 1.0,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 15,
+      "period": "2029-11",
+      "score": 97,
+      "raw_total": 122.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 16,
+      "period": "2030-05",
+      "score": 97,
+      "raw_total": 126.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 17,
+      "period": "2031-02",
+      "score": 97,
+      "raw_total": 122.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 18,
+      "period": "2031-06",
+      "score": 97,
+      "raw_total": 123.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 19,
+      "period": "2031-12",
+      "score": 97,
+      "raw_total": 128.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 20,
+      "period": "2030-06",
+      "score": 97,
+      "raw_total": 123.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 21,
+      "period": "2026-11",
+      "score": 96,
+      "raw_total": 118.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "stabilization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 22,
+      "period": "2027-07",
+      "score": 96,
+      "raw_total": 116.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 23,
+      "period": "2028-05",
+      "score": 96,
+      "raw_total": 117.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 24,
+      "period": "2029-01",
+      "score": 96,
+      "raw_total": 117.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 25,
+      "period": "2029-05",
+      "score": 96,
+      "raw_total": 119.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 26,
+      "period": "2029-07",
+      "score": 96,
+      "raw_total": 120.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 27,
+      "period": "2029-08",
+      "score": 96,
+      "raw_total": 118.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "복수 가능성",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 28,
+      "period": "2030-01",
+      "score": 96,
+      "raw_total": 119.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 29,
+      "period": "2030-02",
+      "score": 96,
+      "raw_total": 118.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "역행 흐름",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "reversed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 30,
+      "period": "2030-11",
+      "score": 96,
+      "raw_total": 118.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 31,
+      "period": "2030-12",
+      "score": 96,
+      "raw_total": 119.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "역행 흐름",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed",
+        "reversed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 32,
+      "period": "2031-07",
+      "score": 96,
+      "raw_total": 120.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 33,
+      "period": "2026-10",
+      "score": 96,
+      "raw_total": 120.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 1.0,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "stabilization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 34,
+      "period": "2027-08",
+      "score": 95,
+      "raw_total": 113.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 35,
+      "period": "2028-08",
+      "score": 95,
+      "raw_total": 112.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.3,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "pressure",
+      "timing": "delay",
+      "semantic_axis": "pressure",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility",
+        "압박·부담"
+      ],
+      "semantic_sources": [
+        "quality"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 36,
+      "period": "2029-12",
+      "score": 95,
+      "raw_total": 111.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "관계 발동",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "mixed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 37,
+      "period": "2028-06",
+      "score": 95,
+      "raw_total": 111.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 38,
+      "period": "2028-10",
+      "score": 95,
+      "raw_total": 111.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "복수 가능성",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 39,
+      "period": "2026-07",
+      "score": 94,
+      "raw_total": 109.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "관계 발동",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "stabilization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 40,
+      "period": "2026-08",
+      "score": 94,
+      "raw_total": 108.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "stabilization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 41,
+      "period": "2027-04",
+      "score": 94,
+      "raw_total": 110.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 42,
+      "period": "2027-05",
+      "score": 94,
+      "raw_total": 106.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 43,
+      "period": "2031-01",
+      "score": 94,
+      "raw_total": 110.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 1.0,
+      "reason_signals": [
+        "관계 발동",
+        "반복 강화",
+        "역행 흐름",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted",
+        "reversed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 44,
+      "period": "2027-03",
+      "score": 94,
+      "raw_total": 109.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "반복 강화",
+        "복수 가능성",
+        "용기신 품질",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active",
+        "mixed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 45,
+      "period": "2029-09",
+      "score": 94,
+      "raw_total": 109.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.3,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "혼합 신호"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "pressure",
+      "timing": "delay",
+      "semantic_axis": "pressure",
+      "activation_axis": [
+        "delayed",
+        "mixed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "new_start",
+        "압박·부담"
+      ],
+      "semantic_sources": [
+        "quality"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 46,
+      "period": "2031-10",
+      "score": 94,
+      "raw_total": 106.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 1.0,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "복수 가능성",
+        "역행 흐름",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed",
+        "reversed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 47,
+      "period": "2029-02",
+      "score": 93,
+      "raw_total": 105.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "관계 발동",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 48,
+      "period": "2031-11",
+      "score": 93,
+      "raw_total": 103.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "역행 흐름",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed",
+        "reversed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 49,
+      "period": "2027-06",
+      "score": 93,
+      "raw_total": 104.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 50,
+      "period": "2027-10",
+      "score": 93,
+      "raw_total": 103.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 51,
+      "period": "2028-09",
+      "score": 93,
+      "raw_total": 105.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.3,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "pressure",
+      "timing": "delay",
+      "semantic_axis": "pressure",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "exposure_volatility",
+        "압박·부담"
+      ],
+      "semantic_sources": [
+        "quality"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 52,
+      "period": "2029-04",
+      "score": 93,
+      "raw_total": 104.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 1.0,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "복수 가능성",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 53,
+      "period": "2030-09",
+      "score": 93,
+      "raw_total": 103.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.3,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "pressure",
+      "timing": "delay",
+      "semantic_axis": "pressure",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "nurturing_preparation",
+        "압박·부담"
+      ],
+      "semantic_sources": [
+        "quality"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 54,
+      "period": "2027",
+      "score": 92,
+      "raw_total": 101.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "관계 발동",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "conflicted"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 55,
+      "period": "2028",
+      "score": 92,
+      "raw_total": 102.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 56,
+      "period": "2031",
+      "score": 92,
+      "raw_total": 101.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "역행 흐름",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed",
+        "reversed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 57,
+      "period": "2031-08",
+      "score": 92,
+      "raw_total": 102.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "관계 발동",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "conflicted",
+        "delayed"
+      ],
+      "context_loci": [
+        "residence_context",
+        "spouse_palace"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [
+        "materialization_palace_label"
+      ],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 58,
+      "period": "2027-09",
+      "score": 90,
+      "raw_total": 94.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "formalization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 59,
+      "period": "2028-03",
+      "score": 90,
+      "raw_total": 96.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "반복 강화",
+        "복수 가능성",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 60,
+      "period": "2029-06",
+      "score": 90,
+      "raw_total": 95.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 61,
+      "period": "2030-10",
+      "score": 90,
+      "raw_total": 96.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 62,
+      "period": "2031-03",
+      "score": 90,
+      "raw_total": 94.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "반복 강화",
+        "복수 가능성",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "active",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "active"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 63,
+      "period": "2026-09",
+      "score": 89,
+      "raw_total": 93.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "복수 가능성",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "stabilization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 64,
+      "period": "2030-04",
+      "score": 89,
+      "raw_total": 92.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "복수 가능성",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 65,
+      "period": "2031-09",
+      "score": 88,
+      "raw_total": 91.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 66,
+      "period": "2026",
+      "score": 87,
+      "raw_total": 88.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "복수 가능성",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "stabilization"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 67,
+      "period": "2031-04",
+      "score": 87,
+      "raw_total": 88.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": -0.7,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "negative_or_forced",
+      "quality": "loss",
+      "timing": "delay",
+      "semantic_axis": "loss_outflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "conception_planning"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 68,
+      "period": "2030-03",
+      "score": 85,
+      "raw_total": 85.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "반복 강화",
+        "역행 흐름",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active",
+        "reversed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 69,
+      "period": "2028-04",
+      "score": 83,
+      "raw_total": 83.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "exposure_volatility"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 70,
+      "period": "2030",
+      "score": 81,
+      "raw_total": 81.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "공망 지연",
+        "반복 강화",
+        "역행 흐름",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed",
+        "reversed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "nurturing_preparation"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 71,
+      "period": "2029-03",
+      "score": 80,
+      "raw_total": 80.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.5,
+      "reason_signals": [
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "active",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "active"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    },
+    {
+      "rank": 72,
+      "period": "2029",
+      "score": 77,
+      "raw_total": 77.0,
+      "life_fit": 0.0,
+      "personal_match": 0.0,
+      "favorability": 0.7,
+      "reason_signals": [
+        "공망 지연",
+        "용기신 품질"
+      ],
+      "polarity": "positive",
+      "quality": "opportunity",
+      "timing": "delay",
+      "semantic_axis": "opportunity_inflow",
+      "activation_axis": [
+        "delayed"
+      ],
+      "context_loci": [
+        "UNKNOWN"
+      ],
+      "process_stages": [
+        "new_start"
+      ],
+      "semantic_sources": [
+        "quality",
+        "materialization_direction"
+      ],
+      "context_sources": [],
+      "semantic_conflict": false,
+      "is_representative_period": false
+    }
+  ]
+}
