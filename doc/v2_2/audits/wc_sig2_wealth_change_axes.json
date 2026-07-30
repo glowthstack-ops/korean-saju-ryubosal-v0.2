@@ -6,7 +6,7 @@
   "supersedes": "WC-SIG (어휘 매칭 기반 — 폐기)",
   "note": "3축 분리: semantic(quality+materialization 방향) / activation(timing+공망·관계발동·혼합·역행) / context_locus(궁위 — 의미 결정에 쓰지 않음). provenance(detector·stack·source layer·evidence path)는 군집 키에서 제외했다. 궁위는 bridge evidence 없이 배우자 재정·부동산·이사로 확장하지 않는다(context_only).",
   "total_candidates": 72,
-  "semantic_distribution": {
+  "outcome_quality_distribution": {
     "loss_outflow": 22,
     "opportunity_inflow": 46,
     "pressure": 4
@@ -26,7 +26,7 @@
     "conflicted+delayed+reversed": 2,
     "active+reversed": 1
   },
-  "semantic_x_activation": {
+  "outcome_quality_x_activation": {
     "opportunity_inflow × active+conflicted": 10,
     "opportunity_inflow × conflicted+delayed": 10,
     "opportunity_inflow × delayed": 10,
@@ -50,7 +50,7 @@
     "loss_outflow × conflicted+delayed+reversed": 1,
     "opportunity_inflow × active+reversed": 1
   },
-  "semantic_x_context_locus": {
+  "outcome_quality_x_context_locus": {
     "opportunity_inflow × residence_context+spouse_palace": 28,
     "opportunity_inflow × UNKNOWN": 18,
     "loss_outflow × residence_context+spouse_palace": 16,
@@ -58,7 +58,7 @@
     "pressure × UNKNOWN": 3,
     "pressure × residence_context+spouse_palace": 1
   },
-  "polarity_by_semantic": {
+  "polarity_by_outcome_quality": {
     "loss_outflow": {
       "negative_or_forced": 22
     },
@@ -69,11 +69,11 @@
       "negative_or_forced": 4
     }
   },
-  "semantic_conflict_count": 0,
+  "outcome_quality_conflict_count": 0,
   "quality_missing_count": 0,
   "materialization_direction_missing_count": 0,
-  "semantic_unknown_count": 0,
-  "semantic_unknown_share": 0.0,
+  "outcome_quality_unknown_count": 0,
+  "outcome_quality_unknown_share": 0.0,
   "representative_periods": [
     "2027-12",
     "2028-11",
@@ -84,7 +84,7 @@
     "2029-10",
     "2030-08"
   ],
-  "representative_semantic_distribution": {
+  "representative_outcome_quality_distribution": {
     "loss_outflow": 6,
     "opportunity_inflow": 2
   },
@@ -97,49 +97,49 @@
   "representative_table": [
     {
       "period": "2027-02",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "active+conflicted",
       "context": "residence_context+spouse_palace"
     },
     {
       "period": "2027-12",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "active+conflicted+mixed",
       "context": "residence_context+spouse_palace"
     },
     {
       "period": "2028-01",
-      "semantic": "opportunity_inflow",
+      "outcome_quality": "opportunity_inflow",
       "activation": "active+conflicted+mixed",
       "context": "residence_context+spouse_palace"
     },
     {
       "period": "2028-11",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "conflicted+delayed+mixed",
       "context": "residence_context+spouse_palace"
     },
     {
       "period": "2028-12",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "active+conflicted+mixed",
       "context": "residence_context+spouse_palace"
     },
     {
       "period": "2029-10",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "conflicted+delayed",
       "context": "residence_context+spouse_palace"
     },
     {
       "period": "2030-07",
-      "semantic": "opportunity_inflow",
+      "outcome_quality": "opportunity_inflow",
       "activation": "active+conflicted+mixed",
       "context": "residence_context+spouse_palace"
     },
     {
       "period": "2030-08",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "conflicted+delayed",
       "context": "residence_context+spouse_palace"
     }
@@ -157,7 +157,7 @@
       "loss_outflow": 0.75,
       "opportunity_inflow": 0.25
     },
-    "score_histogram_by_semantic": {
+    "score_histogram_by_axisantic": {
       "loss_outflow": {
         "99": 3,
         "98": 3,
@@ -194,7 +194,7 @@
         "93": 2
       }
     },
-    "score_mean_by_semantic": {
+    "score_mean_by_axisantic": {
       "loss_outflow": 95.682,
       "opportunity_inflow": 92.674,
       "pressure": 93.75
@@ -223,7 +223,7 @@
   "representative_ranking_table": [
     {
       "period": "2027-02",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "active+conflicted",
       "polarity": "negative_or_forced",
       "score": 98,
@@ -234,7 +234,7 @@
     },
     {
       "period": "2027-12",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "active+conflicted+mixed",
       "polarity": "negative_or_forced",
       "score": 99,
@@ -245,7 +245,7 @@
     },
     {
       "period": "2028-01",
-      "semantic": "opportunity_inflow",
+      "outcome_quality": "opportunity_inflow",
       "activation": "active+conflicted+mixed",
       "polarity": "positive",
       "score": 98,
@@ -256,7 +256,7 @@
     },
     {
       "period": "2028-11",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "conflicted+delayed+mixed",
       "polarity": "negative_or_forced",
       "score": 99,
@@ -267,7 +267,7 @@
     },
     {
       "period": "2028-12",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "active+conflicted+mixed",
       "polarity": "negative_or_forced",
       "score": 99,
@@ -278,7 +278,7 @@
     },
     {
       "period": "2029-10",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "conflicted+delayed",
       "polarity": "negative_or_forced",
       "score": 98,
@@ -289,7 +289,7 @@
     },
     {
       "period": "2030-07",
-      "semantic": "opportunity_inflow",
+      "outcome_quality": "opportunity_inflow",
       "activation": "active+conflicted+mixed",
       "polarity": "positive",
       "score": 99,
@@ -300,7 +300,7 @@
     },
     {
       "period": "2030-08",
-      "semantic": "loss_outflow",
+      "outcome_quality": "loss_outflow",
       "activation": "conflicted+delayed",
       "polarity": "negative_or_forced",
       "score": 98,
@@ -328,7 +328,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -341,14 +341,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true,
       "review_reasons": [
         "loss_outflow_cluster_representative",
@@ -374,7 +374,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed",
@@ -387,14 +387,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true,
       "review_reasons": [
         "loss_outflow_cluster_representative",
@@ -419,7 +419,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -432,14 +432,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true,
       "review_reasons": [
         "display_representative_period"
@@ -462,7 +462,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -475,14 +475,14 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true,
       "review_reasons": [
         "opportunity_inflow_cluster_representative",
@@ -506,7 +506,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -518,14 +518,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true,
       "review_reasons": [
         "display_representative_period"
@@ -548,7 +548,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -561,14 +561,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true,
       "review_reasons": [
         "opportunity_inflow_cluster_representative",
@@ -592,7 +592,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -604,14 +604,14 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true,
       "review_reasons": [
         "display_representative_period"
@@ -634,7 +634,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -646,14 +646,14 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true,
       "review_reasons": [
         "display_representative_period"
@@ -677,7 +677,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed",
@@ -690,14 +690,14 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false,
       "review_reasons": [
         "opportunity_inflow_activation_boundary"
@@ -719,7 +719,7 @@
       "polarity": "negative_or_forced",
       "quality": "pressure",
       "timing": "delay",
-      "semantic_axis": "pressure",
+      "outcome_quality_axis": "pressure",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -731,14 +731,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false,
       "review_reasons": [
         "pressure_all_cases"
@@ -760,7 +760,7 @@
       "polarity": "negative_or_forced",
       "quality": "pressure",
       "timing": "delay",
-      "semantic_axis": "pressure",
+      "outcome_quality_axis": "pressure",
       "activation_axis": [
         "delayed",
         "mixed"
@@ -771,12 +771,12 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false,
       "review_reasons": [
         "pressure_all_cases"
@@ -797,7 +797,7 @@
       "polarity": "negative_or_forced",
       "quality": "pressure",
       "timing": "delay",
-      "semantic_axis": "pressure",
+      "outcome_quality_axis": "pressure",
       "activation_axis": [
         "delayed"
       ],
@@ -807,12 +807,12 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false,
       "review_reasons": [
         "pressure_all_cases"
@@ -833,7 +833,7 @@
       "polarity": "negative_or_forced",
       "quality": "pressure",
       "timing": "delay",
-      "semantic_axis": "pressure",
+      "outcome_quality_axis": "pressure",
       "activation_axis": [
         "delayed"
       ],
@@ -843,12 +843,12 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false,
       "review_reasons": [
         "pressure_all_cases"
@@ -857,33 +857,55 @@
   ],
   "manual_review_sample_size": 13,
   "status_flags": [
-    "TYPE_A_CANDIDATE_AUTOCHECKS_PASS",
+    "TYPE_A_REJECTED",
+    "OUTCOME_QUALITY_AXIS_CONFIRMED",
+    "SEMANTIC_SUBTYPE_UNAVAILABLE",
+    "ACTIVATION_AXIS_CONFIRMED",
+    "WEALTH_CHANGE_TAXONOMY_GAP_CONFIRMED",
     "OVERSEGMENTATION_RESOLVED",
     "PRESSURE_DIRECTION_CONFIRMED",
-    "PRESSURE_INDEPENDENT_SEMANTIC_CANDIDATE",
-    "PRESSURE_MINOR_CLUSTER",
-    "CONTEXT_LOCUS_SEMANTICALLY_NON_DISCRIMINATIVE",
+    "CONTEXT_LOCUS_NON_DISCRIMINATIVE",
     "LOSS_OUTFLOW_RANK_ENRICHMENT_OBSERVED",
-    "MANUAL_REVIEW_PENDING",
     "PRODUCTION_UNCHANGED"
   ],
   "retired_status_flags": [
-    "PRESSURE_MINOR_CLUSTER_DIRECTION_MISSING"
+    "PRESSURE_MINOR_CLUSTER_DIRECTION_MISSING",
+    "TYPE_A_CANDIDATE_AUTOCHECKS_PASS",
+    "PRESSURE_INDEPENDENT_SEMANTIC_CANDIDATE",
+    "CONTEXT_LOCUS_SEMANTICALLY_NON_DISCRIMINATIVE",
+    "MANUAL_REVIEW_PENDING"
   ],
-  "semantic_source_agreement": {
+  "semantic_subtype": "UNAVAILABLE",
+  "semantic_subtype_note": "엔진에 재물 사건 **종류** 분류가 없다. opportunity/loss/pressure 는 용기신 역할에서 나온 길흉 방향이며, 수입·지출·정산·자산이동 구분은 taxonomy·detector 신설 없이 만들 수 없다.",
+  "quality_derivation_lineage": {
+    "origin": "polarity_role (용신·희신·기신·한신)",
+    "assigns_quality": "yongi_quality_engine.YongiQualityEngine.apply",
+    "quality_inputs": [
+      "polarity_role",
+      "event_key"
+    ],
+    "gi_quality_fn": "_gi_quality(event_key) → LOSS/CONFLICT/PRESSURE",
+    "yong_quality_fn": "_yong_quality(event_key) → ACHIEVEMENT/OPPORTUNITY",
+    "polarity_derived_from_quality": "event_engine_v2._QUALITY_TO_POLARITY",
+    "materialization_direction_is_quality_string": true,
+    "independent_semantic_evidence_in_quality_inputs": false,
+    "schema_docstring": "EventQuality — \"사건 '방향'(길흉) 품질 … 방향 전용이다\""
+  },
+  "manual_review_terminated": "TYPE_A 의미 군집 검증 목적은 종료했다 — 코드 계보가 세 값이 결과 품질임을 결정적으로 보여줬다. 표본 13건은 향후 outcome-quality 표현 감수에 재사용할 수 있으나 이번 판정의 필수 단계가 아니다.",
+  "outcome_quality_source_agreement": {
     "quality_x_direction_agree": 72,
     "direction_missing": 0,
     "direction_conflict": 0,
     "quality_missing": 0
   },
   "autochecks": {
-    "at_least_two_named_semantic_clusters": true,
+    "at_least_two_named_axisantic_clusters": true,
     "major_clusters_have_five_or_more": true,
     "representatives_span_two_or_more": true,
     "semantic_unknown_below_half": true
   },
-  "verdict": "TYPE_A_CANDIDATE_AUTOCHECKS_PASS",
-  "manual_review_status": "PENDING",
+  "verdict": "TYPE_A_REJECTED_OUTCOME_QUALITY_AXIS",
+  "manual_review_status": "TERMINATED_NOT_REQUIRED",
   "rows": [
     {
       "rank": 1,
@@ -902,7 +924,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -915,14 +937,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true
     },
     {
@@ -943,7 +965,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed",
@@ -956,14 +978,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true
     },
     {
@@ -983,7 +1005,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -996,14 +1018,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true
     },
     {
@@ -1023,7 +1045,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -1036,14 +1058,14 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true
     },
     {
@@ -1062,7 +1084,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -1074,14 +1096,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true
     },
     {
@@ -1101,7 +1123,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -1114,14 +1136,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true
     },
     {
@@ -1141,7 +1163,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -1153,14 +1175,14 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true
     },
     {
@@ -1180,7 +1202,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -1192,14 +1214,14 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": true
     },
     {
@@ -1220,7 +1242,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed",
@@ -1233,14 +1255,14 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1259,7 +1281,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -1272,14 +1294,14 @@
       "process_stages": [
         "stabilization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1298,7 +1320,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -1310,14 +1332,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1337,7 +1359,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -1349,14 +1371,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1375,7 +1397,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -1387,14 +1409,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1413,7 +1435,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -1425,14 +1447,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1452,7 +1474,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -1464,14 +1486,14 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1491,7 +1513,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -1503,14 +1525,14 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1529,7 +1551,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -1541,14 +1563,14 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1567,7 +1589,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -1579,14 +1601,14 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1606,7 +1628,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -1619,14 +1641,14 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1644,7 +1666,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active"
       ],
@@ -1654,12 +1676,12 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1679,7 +1701,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -1691,14 +1713,14 @@
       "process_stages": [
         "stabilization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1717,7 +1739,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -1729,14 +1751,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1756,7 +1778,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -1768,14 +1790,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1794,7 +1816,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -1806,14 +1828,14 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1833,7 +1855,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -1845,14 +1867,14 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1871,7 +1893,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -1883,14 +1905,14 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1911,7 +1933,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -1923,14 +1945,14 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1949,7 +1971,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -1961,14 +1983,14 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -1988,7 +2010,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -2001,14 +2023,14 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2028,7 +2050,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -2040,14 +2062,14 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2068,7 +2090,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -2082,14 +2104,14 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2108,7 +2130,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -2120,14 +2142,14 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2146,7 +2168,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed"
       ],
@@ -2156,12 +2178,12 @@
       "process_stages": [
         "stabilization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2181,7 +2203,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -2193,14 +2215,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2219,7 +2241,7 @@
       "polarity": "negative_or_forced",
       "quality": "pressure",
       "timing": "delay",
-      "semantic_axis": "pressure",
+      "outcome_quality_axis": "pressure",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -2231,14 +2253,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2257,7 +2279,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -2270,14 +2292,14 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2295,7 +2317,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active"
       ],
@@ -2305,12 +2327,12 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2330,7 +2352,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "delayed"
       ],
@@ -2340,12 +2362,12 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2363,7 +2385,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -2375,14 +2397,14 @@
       "process_stages": [
         "stabilization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2402,7 +2424,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -2414,14 +2436,14 @@
       "process_stages": [
         "stabilization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2441,7 +2463,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -2453,14 +2475,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2479,7 +2501,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -2491,14 +2513,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2518,7 +2540,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted",
@@ -2531,14 +2553,14 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2558,7 +2580,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active",
         "mixed"
@@ -2569,12 +2591,12 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2593,7 +2615,7 @@
       "polarity": "negative_or_forced",
       "quality": "pressure",
       "timing": "delay",
-      "semantic_axis": "pressure",
+      "outcome_quality_axis": "pressure",
       "activation_axis": [
         "delayed",
         "mixed"
@@ -2604,12 +2626,12 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2630,7 +2652,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed",
         "reversed"
@@ -2641,12 +2663,12 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2664,7 +2686,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -2676,14 +2698,14 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2704,7 +2726,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed",
@@ -2717,14 +2739,14 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2742,7 +2764,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active"
       ],
@@ -2752,12 +2774,12 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2776,7 +2798,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed"
       ],
@@ -2786,12 +2808,12 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2809,7 +2831,7 @@
       "polarity": "negative_or_forced",
       "quality": "pressure",
       "timing": "delay",
-      "semantic_axis": "pressure",
+      "outcome_quality_axis": "pressure",
       "activation_axis": [
         "delayed"
       ],
@@ -2819,12 +2841,12 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2844,7 +2866,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed"
       ],
@@ -2854,12 +2876,12 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2877,7 +2899,7 @@
       "polarity": "negative_or_forced",
       "quality": "pressure",
       "timing": "delay",
-      "semantic_axis": "pressure",
+      "outcome_quality_axis": "pressure",
       "activation_axis": [
         "delayed"
       ],
@@ -2887,12 +2909,12 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2910,7 +2932,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "conflicted"
@@ -2922,14 +2944,14 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2949,7 +2971,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -2961,14 +2983,14 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -2989,7 +3011,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "conflicted",
         "delayed",
@@ -3002,14 +3024,14 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3029,7 +3051,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "conflicted",
         "delayed"
@@ -3041,14 +3063,14 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
       ],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3067,7 +3089,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed"
       ],
@@ -3077,12 +3099,12 @@
       "process_stages": [
         "formalization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3101,7 +3123,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active"
       ],
@@ -3111,12 +3133,12 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3133,7 +3155,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active"
       ],
@@ -3143,12 +3165,12 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3167,7 +3189,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed"
       ],
@@ -3177,12 +3199,12 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3201,7 +3223,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "active",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "active"
       ],
@@ -3211,12 +3233,12 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3236,7 +3258,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed"
       ],
@@ -3246,12 +3268,12 @@
       "process_stages": [
         "stabilization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3271,7 +3293,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed"
       ],
@@ -3281,12 +3303,12 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3305,7 +3327,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed"
       ],
@@ -3315,12 +3337,12 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3338,7 +3360,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active"
       ],
@@ -3348,12 +3370,12 @@
       "process_stages": [
         "stabilization"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3372,7 +3394,7 @@
       "polarity": "negative_or_forced",
       "quality": "loss",
       "timing": "delay",
-      "semantic_axis": "loss_outflow",
+      "outcome_quality_axis": "loss_outflow",
       "activation_axis": [
         "delayed"
       ],
@@ -3382,12 +3404,12 @@
       "process_stages": [
         "conception_planning"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3406,7 +3428,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active",
         "reversed"
@@ -3417,12 +3439,12 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3441,7 +3463,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed"
       ],
@@ -3451,12 +3473,12 @@
       "process_stages": [
         "exposure_volatility"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3476,7 +3498,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed",
         "reversed"
@@ -3487,12 +3509,12 @@
       "process_stages": [
         "nurturing_preparation"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3509,7 +3531,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "active",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "active"
       ],
@@ -3519,12 +3541,12 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     },
     {
@@ -3542,7 +3564,7 @@
       "polarity": "positive",
       "quality": "opportunity",
       "timing": "delay",
-      "semantic_axis": "opportunity_inflow",
+      "outcome_quality_axis": "opportunity_inflow",
       "activation_axis": [
         "delayed"
       ],
@@ -3552,12 +3574,12 @@
       "process_stages": [
         "new_start"
       ],
-      "semantic_sources": [
+      "outcome_quality_sources": [
         "quality",
         "materialization_direction"
       ],
       "context_sources": [],
-      "semantic_conflict": false,
+      "outcome_quality_conflict": false,
       "is_representative_period": false
     }
   ]

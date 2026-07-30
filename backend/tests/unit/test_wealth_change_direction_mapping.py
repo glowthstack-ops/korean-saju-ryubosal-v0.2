@@ -1,4 +1,8 @@
-"""`wealth_change` 방향 매핑 회귀 (2026-07-30 수동 검토 중 발견).
+"""`wealth_change` 결과 품질 방향 매핑 회귀 (2026-07-30).
+
+축 이름은 `outcome_quality` 다 — opportunity/loss/pressure 는 사건 종류가 아니라
+용기신 역할에서 나온 길흉 방향이다(코드 계보로 확정). 초기 측정이 이를 `semantic` 으로
+잘못 명명했고, 그 명칭이 남으면 사건 subtype 근거로 오용될 수 있다.
 
 초기 감사 매핑에 `압박·부담` 이 빠져 있어 그 4건이 **방향 결측**으로 관측됐다. 실제
 데이터 결측이 아니라 감사 매핑 누락이었고, 그 상태로 판정하면 pressure 를 "upstream
@@ -49,20 +53,24 @@ def _cand(quality: str, effect: str, timing: str = "active") -> EventCandidate:
 @pytest.mark.parametrize(
     ("quality", "direction", "expected"),
     [
-        ("opportunity", "기회·유입", A.SEMANTIC_OPPORTUNITY),
-        ("loss", "손실·지출", A.SEMANTIC_LOSS),
-        ("pressure", "압박·부담", A.SEMANTIC_PRESSURE),
+        ("opportunity", "기회·유입", A.QUALITY_OPPORTUNITY),
+        ("loss", "손실·지출", A.QUALITY_LOSS),
+        ("pressure", "압박·부담", A.QUALITY_PRESSURE),
     ],
 )
 def test_three_directions_map_and_agree_with_quality(
     quality: str, direction: str, expected: str
 ) -> None:
-    """세 방향 모두 인식되고 quality 와 일치해야 한다."""
+    """세 방향 모두 인식되고 quality 와 일치해야 한다.
+
+    일치 자체는 독립 근거의 합치가 아니다 — materialization 방향은 quality 를 문자열로
+    옮긴 것이라 1:1 이다. 여기서 고정하는 것은 **매핑 누락이 없다**는 것뿐이다.
+    """
     r = A.read_axes(_cand(quality, f"강한 사건 후보 · {direction} · new_start"))
-    assert r.semantic_axis == expected
-    assert set(r.semantic_sources) == {"quality", "materialization_direction"}
+    assert r.outcome_quality_axis == expected
+    assert set(r.outcome_quality_sources) == {"quality", "materialization_direction"}
     assert not r.direction_missing
-    assert not r.semantic_conflict
+    assert not r.outcome_quality_conflict
 
 
 def test_pressure_direction_is_not_swallowed_as_a_process_stage() -> None:
@@ -77,15 +85,15 @@ def test_pressure_direction_is_not_swallowed_as_a_process_stage() -> None:
 def test_unregistered_direction_stays_unknown() -> None:
     """미등록 표현은 임의 편입하지 않는다(fail-closed)."""
     r = A.read_axes(_cand("", "강한 사건 후보 · 새로운·표현 · new_start"))
-    assert r.semantic_axis == A.UNKNOWN
+    assert r.outcome_quality_axis == A.UNKNOWN
     assert r.direction_missing and r.quality_missing
 
 
 def test_conflicting_sources_yield_unknown_not_a_merge() -> None:
     """quality 와 방향이 어긋나면 억지로 합치지 않는다."""
     r = A.read_axes(_cand("opportunity", "강한 사건 후보 · 손실·지출 · new_start"))
-    assert r.semantic_axis == A.UNKNOWN
-    assert r.semantic_conflict
+    assert r.outcome_quality_axis == A.UNKNOWN
+    assert r.outcome_quality_conflict
 
 
 def test_palace_label_is_context_not_semantic_or_stage() -> None:
@@ -93,7 +101,7 @@ def test_palace_label_is_context_not_semantic_or_stage() -> None:
     r = A.read_axes(
         _cand("loss", "강한 사건 후보 · 손실·지출 · 일주(배우자·거처) · formalization")
     )
-    assert r.semantic_axis == A.SEMANTIC_LOSS
+    assert r.outcome_quality_axis == A.QUALITY_LOSS
     assert set(r.context_loci) == {"spouse_palace", "residence_context"}
     assert r.process_stages == ("formalization",)
     assert r.context_sources == ("materialization_palace_label",)
