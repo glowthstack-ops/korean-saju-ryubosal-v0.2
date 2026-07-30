@@ -1,0 +1,253 @@
+{
+  "audit_id": "OA-11f-F",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "anchor": "2026-04-02",
+  "window": "2026-01-02 ~ 2026-04-01",
+  "interventions": {
+    "S0": 0,
+    "R6": 236,
+    "R7": 271
+  },
+  "first_selection_divergence": {
+    "R6": "2025-04-08",
+    "R7": "2025-04-08"
+  },
+  "threshold_crossings": {
+    "R6": {
+      "family_dropped_below_15": [
+        {
+          "ilju": "丙辰",
+          "s0": {
+            "key": 15,
+            "family": 15
+          },
+          "r6": {
+            "key": 14,
+            "family": 14
+          }
+        }
+      ],
+      "family_rose_to_15": [],
+      "key_dropped_below_15": [
+        {
+          "ilju": "丙辰",
+          "s0": {
+            "key": 15,
+            "family": 15
+          },
+          "r6": {
+            "key": 14,
+            "family": 14
+          }
+        }
+      ],
+      "key_rose_to_15": []
+    },
+    "R7": {
+      "family_dropped_below_15": [
+        {
+          "ilju": "丙辰",
+          "s0": {
+            "key": 15,
+            "family": 15
+          },
+          "r7": {
+            "key": 14,
+            "family": 14
+          }
+        }
+      ],
+      "family_rose_to_15": [
+        {
+          "ilju": "壬戌",
+          "s0": {
+            "key": 14,
+            "family": 14
+          },
+          "r7": {
+            "key": 15,
+            "family": 15
+          }
+        }
+      ],
+      "key_dropped_below_15": [
+        {
+          "ilju": "丙辰",
+          "s0": {
+            "key": 15,
+            "family": 15
+          },
+          "r7": {
+            "key": 14,
+            "family": 14
+          }
+        }
+      ],
+      "key_rose_to_15": [
+        {
+          "ilju": "壬戌",
+          "s0": {
+            "key": 14,
+            "family": 14
+          },
+          "r7": {
+            "key": 15,
+            "family": 15
+          }
+        }
+      ]
+    }
+  },
+  "affected_iljus": [
+    "丙辰"
+  ],
+  "affected_lineage": {
+    "丙辰": {
+      "R6": [
+        {
+          "date": "2025-04-18",
+          "selection": "meet_helper",
+          "rank": 4,
+          "loss": 5,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 0,
+          "key_qual_delta": 0
+        },
+        {
+          "date": "2025-04-19",
+          "selection": "good_news_arrives",
+          "rank": 2,
+          "loss": 1,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 0,
+          "key_qual_delta": 0
+        },
+        {
+          "date": "2025-08-06",
+          "selection": "treat_received",
+          "rank": 6,
+          "loss": 5,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 0,
+          "key_qual_delta": 0
+        },
+        {
+          "date": "2026-02-12",
+          "selection": "meet_helper",
+          "rank": 3,
+          "loss": 4,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 0,
+          "key_qual_delta": 0
+        },
+        {
+          "date": "2026-03-14",
+          "selection": "old_contact",
+          "rank": 2,
+          "loss": 1,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 1,
+          "key_qual_delta": 1
+        }
+      ],
+      "R7": [
+        {
+          "date": "2025-04-18",
+          "selection": "meet_helper",
+          "rank": 4,
+          "loss": 5,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 0,
+          "key_qual_delta": 0
+        },
+        {
+          "date": "2025-04-19",
+          "selection": "good_news_arrives",
+          "rank": 2,
+          "loss": 1,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 0,
+          "key_qual_delta": 0
+        },
+        {
+          "date": "2025-06-14",
+          "selection": "treat_received",
+          "rank": 6,
+          "loss": 7,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 0,
+          "key_qual_delta": 0
+        },
+        {
+          "date": "2025-08-06",
+          "selection": "treat_received",
+          "rank": 6,
+          "loss": 5,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 0,
+          "key_qual_delta": 0
+        },
+        {
+          "date": "2025-09-18",
+          "selection": "treat_received",
+          "rank": 2,
+          "loss": 7,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 1,
+          "key_qual_delta": 1
+        },
+        {
+          "date": "2026-02-12",
+          "selection": "meet_helper",
+          "rank": 3,
+          "loss": 4,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 0,
+          "key_qual_delta": 0
+        },
+        {
+          "date": "2026-03-14",
+          "selection": "old_contact",
+          "rank": 2,
+          "loss": 1,
+          "family_delta": 1,
+          "key_delta": 1,
+          "family_qual_delta": 1,
+          "key_qual_delta": 1
+        }
+      ]
+    }
+  },
+  "correction": {
+    "previous_statement": "R7 had no regression at 2026-04-02",
+    "correction": "R7 contained a 丙辰 downcross masked by a 壬戌 upcross — 일주 단위로는 R7 도 같은 일주를 15→14 로 내렸다.",
+    "R7_aggregate_nonregression": "PASS",
+    "R7_per_ilju_nonregression": "FAIL",
+    "R6_aggregate_nonregression": "FAIL",
+    "R6_per_ilju_nonregression": "FAIL"
+  },
+  "acceptance_criterion_defect": {
+    "criterion": "anchor family qualifying 감소 = 0",
+    "defect": "anchor 수준 **순합** 지표라 상승 일주가 하락 일주를 상쇄한다. '기존에 통과한 일주를 문턱 아래로 내리지 않는다' 는 목적을 보장하지 못한다.",
+    "reinforcement": [
+      "family_downcross_count = 0",
+      "key_downcross_count = 0",
+      "(기존 aggregate 조건도 유지)"
+    ],
+    "note": "결과를 본 뒤 임의로 강화한 것이 아니라, 기존 안전장치가 의도했던 목적을 정확히 측정하도록 정의를 고친 것이다."
+  },
+  "forensic_gap": "affected_iljus 를 하락 일주만으로 구성해 壬戌 lineage 를 수집하지 못했다. 상승 일주를 포함해 재실행해야 한다.",
+  "scope_note": "이 구간(원점~2026-04-01)의 개입 수 R6 236 · R7 271 은 917일 전체의 422 · 503 과 다른 분모다."
+}

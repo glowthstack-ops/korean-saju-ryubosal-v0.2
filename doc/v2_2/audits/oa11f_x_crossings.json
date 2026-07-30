@@ -1,0 +1,733 @@
+{
+  "audit_id": "OA-11f-X",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "threshold": 15,
+  "interventions_to_last_anchor": {
+    "R6": 422,
+    "R7": 503
+  },
+  "reinforced_criterion": [
+    "family_downcross_count = 0",
+    "key_downcross_count = 0",
+    "family qualifying 감소 = 0",
+    "key below_15 증가 = 0"
+  ],
+  "totals": {
+    "R6_family_downcross": 1,
+    "R6_key_downcross": 1,
+    "R7_family_downcross": 1,
+    "R7_key_downcross": 1,
+    "R7_family_upcross": 15,
+    "R7_key_upcross": 15,
+    "R6_family_upcross": 10,
+    "R6_key_upcross": 11
+  },
+  "per_anchor_crossings": {
+    "2026-04-02": [
+      {
+        "ilju": "丙辰",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "downcross",
+        "s0": 15,
+        "variant_value": 14,
+        "crossing_margin": -1,
+        "coverage_delta": -1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "丙辰",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "downcross",
+        "s0": 15,
+        "variant_value": 14,
+        "crossing_margin": -1,
+        "coverage_delta": -1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "丙辰",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "downcross",
+        "s0": 15,
+        "variant_value": 14,
+        "crossing_margin": -1,
+        "coverage_delta": -1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "丙辰",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "downcross",
+        "s0": 15,
+        "variant_value": 14,
+        "crossing_margin": -1,
+        "coverage_delta": -1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "壬戌",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "壬戌",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      }
+    ],
+    "2027-03-03": [
+      {
+        "ilju": "庚辰",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "庚辰",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "甲辰",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "甲辰",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "甲辰",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "甲辰",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛酉",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛酉",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛酉",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛酉",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "癸亥",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "癸亥",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      }
+    ],
+    "2027-06-01": [
+      {
+        "ilju": "戊辰",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "戊辰",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "庚午",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "庚午",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "乙酉",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "乙酉",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "乙酉",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "乙酉",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "戊子",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "戊子",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "戊子",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "戊子",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      }
+    ],
+    "2027-08-05": [
+      {
+        "ilju": "癸酉",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "癸酉",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "癸酉",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "癸酉",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛巳",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 13,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 3,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛巳",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛巳",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 13,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 3,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛巳",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "乙酉",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "乙酉",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 13,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 2,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "乙酉",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛亥",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛亥",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛亥",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "辛亥",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      }
+    ],
+    "2027-10-09": [
+      {
+        "ilju": "戊寅",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "戊寅",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "戊寅",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "戊寅",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 2,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "庚辰",
+        "variant": "R6",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "庚辰",
+        "variant": "R6",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "庚辰",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "庚辰",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 14,
+        "variant_value": 15,
+        "crossing_margin": 0,
+        "coverage_delta": 1,
+        "shared_outcome": true,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "庚戌",
+        "variant": "R7",
+        "axis": "family",
+        "direction": "upcross",
+        "s0": 13,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 3,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      },
+      {
+        "ilju": "庚戌",
+        "variant": "R7",
+        "axis": "key",
+        "direction": "upcross",
+        "s0": 13,
+        "variant_value": 16,
+        "crossing_margin": 1,
+        "coverage_delta": 3,
+        "shared_outcome": false,
+        "shared_causal_lineage": "unresolved"
+      }
+    ]
+  },
+  "shared_downcross_outcomes": [
+    [
+      "丙辰",
+      "family"
+    ],
+    [
+      "丙辰",
+      "key"
+    ]
+  ],
+  "backfilled_without_rerun": "crossing_margin · coverage_delta · shared_outcome 은 기존 원시 값에서 결정적으로 유도했다 — 전수 감사를 다시 돌리지 않았다.",
+  "record_semantics": {
+    "downcross_4_at_2026-04-02": "별도 일주 4개가 아니라 R6 family · R6 key · R7 family · R7 key 의 네 축별 레코드다. 실제 일주는 丙辰 하나다.",
+    "shared_outcome": "동일 anchor·ilju·axis 에서 R6·R7 모두 downcross 한 결과",
+    "not_implied": "COMMON_CAUSE 가 아니다 — 원인 공통은 ledger·ablation 후 확정"
+  },
+  "status": {
+    "CROSSING_AUDIT": "VALID_COMPLETED",
+    "STRUCTURAL_THRESHOLD_EROSION": "REJECTED",
+    "ISOLATED_DOWNCROSS": {
+      "confirmed": true,
+      "anchor": "2026-04-02",
+      "ilju": "丙辰",
+      "family": "15 → 14",
+      "key": "15 → 14",
+      "variants": [
+        "R6",
+        "R7"
+      ]
+    },
+    "COMMERCIAL_QUALIFICATION": "BLOCKED",
+    "丙辰_CAUSAL_CLASSIFICATION": "PENDING_LEDGER_AND_ABLATION",
+    "壬戌_COMPENSATING_UPCROSS": "DEFERRED_UNTIL_丙辰_ROOT_CAUSE",
+    "730_ANCHOR_VALIDATION": "BLOCKED"
+  }
+}

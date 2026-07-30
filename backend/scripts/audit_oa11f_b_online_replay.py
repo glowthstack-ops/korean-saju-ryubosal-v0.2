@@ -24,6 +24,7 @@ import collections
 import datetime as dt
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -66,9 +67,15 @@ _ILJUS = [
 ANCHORS = ("2026-04-02", "2027-03-03", "2027-06-01", "2027-08-05", "2027-10-09")
 _LAST = dt.date(2027, 10, 9)
 _LOOKBACK = DAILY_HISTORY_CONTRACT_V1.lookback_days
+#: 전역 안전 예산 — 강한 사건 구제·위험 차단용 상한이다. 바꾸지 않는다.
 _BUDGET = DAILY_BOARD_CONTRACT_V1.displacement_loss_budget
+#: 이 diversity 보조 정책의 **실효** 상한. 보조 정책이 전역 예산을 전부 쓰게 두지
+#: 않는다(R7 측정에서 개입의 17.9%가 7p 를 소진했다). 집계 상한은 온라인 선택
+#: 시점에 적용할 수 없으므로 각 행에서 판정 가능한 로컬 계약으로 둔다.
+_DIVERSITY_LOSS_LIMIT = 6
 _QUALIFY = 15
 MODES = ("S0", "B1", "B2", "B3")
+SELECTOR_ID = "FIRST_SAFE_POSITIVE_MARGINAL_CANDIDATE_R6"
 
 
 def _next_counts(window: tuple[str, ...], addition: str, family_of) -> tuple[int, int]:
@@ -78,54 +85,214 @@ def _next_counts(window: tuple[str, ...], addition: str, family_of) -> tuple[int
     return len(set(merged)), len({family_of.get(k, k) for k in merged})
 
 
-def _safe_candidates(
-    scored, seed, events, ranked, raw_key, raw_p, window, family_of
-) -> list[dict[str, Any]]:
-    """기존 후보열 중 안전 가드를 모두 통과한 후보의 한계효과."""
+#: 후보가 탈락한 단계. 선언 순서 = 실제 평가 순서이며, `None` 이면 selector 자격
+#: 획득이다. 진단(probe)과 selector 가 같은 라벨을 읽어야 하므로 여기서만 정의한다.
+MARGINAL_STAGES = (
+    "SAFETY", "SLOT_FEASIBILITY", "PROJECTION", "FAMILY_MARGINAL", "KEY_MARGINAL",
+)
+#: `rejected_at_stage` → causal pathway 상위 라벨.
+STAGE_TO_MEDIATION = {
+    "SAFETY": "SAFETY_MEDIATION",
+    "SLOT_FEASIBILITY": "SLOT_FEASIBILITY_MEDIATION",
+    "PROJECTION": "PROJECTION_MEDIATION",
+    "FAMILY_MARGINAL": "FAMILY_MARGINAL_MEDIATION",
+    "KEY_MARGINAL": "KEY_MARGINAL_MEDIATION",
+}
+
+
+@dataclass(frozen=True)
+class MarginalBaseline:
+    """행 단위 기준선 — 원시 1위를 commit 했을 때의 다음 창(같은 D-90 eviction)."""
+
+    available: bool
+    base_key_coverage: int | None
+    base_family_coverage: int | None
+    raw_top_band: int | None
+    raw_probability: int | None
+    loss_limit: int
+    #: 기준선과 후보가 **같은 D-90 창**을 쓰도록 창을 결과에 결박한다.
+    window: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class MarginalCandidateEvaluation:
+    """후보 1건의 한계효과 평가 결과 — selector 와 probe 의 **공용 SSOT**.
+
+    두 호출자가 이 immutable 결과만 읽는다. 평가 로직을 복제하면 drift 가 나므로
+    (실제로 focus probe 초안에서 발생했다) 계산은 여기 한 곳에만 둔다.
+    """
+
+    event_key: str
+    rank: int
+    probability: int
+    loss: int
+    safety_result: str
+    slot_feasible: bool | None
+    projection_status: str | None
+    projected_family: str | None
+    preboard_event_key: str | None
+    family_coverage_delta_vs_raw: int | None
+    key_coverage_delta_vs_raw: int | None
+    family_qualifying_delta_vs_raw: int | None
+    key_qualifying_delta_vs_raw: int | None
+    selector_eligible: bool
+    rejected_at_stage: str | None
+    slots: Any = None
+    cands: Any = None
+
+    @property
+    def mediation(self) -> str | None:
+        """탈락 단계의 causal pathway 라벨(자격 획득 시 `None`)."""
+        return STAGE_TO_MEDIATION.get(self.rejected_at_stage or "")
+
+    def as_record(self) -> dict[str, Any]:
+        """artifact 직렬화용 — 비직렬화 slot/candidate 객체는 제외한다."""
+        return {
+            k: v for k, v in self.__dict__.items() if k not in ("slots", "cands")
+        } | {"mediation": self.mediation}
+
+
+def marginal_baseline(
+    scored, seed, raw_key, raw_p, window, family_of, loss_limit: int | None = None,
+) -> MarginalBaseline:
+    """원시 1위 기준선을 계산한다. 원시 1위 카드가 없으면 `available=False`."""
+    limit = _DIVERSITY_LOSS_LIMIT if loss_limit is None else loss_limit
     rg, rc, rs = M._select_slots(scored, seed, good_override=raw_key)
     if rg.event_key != raw_key:
-        return []
+        return MarginalBaseline(False, None, None, None, None, limit, tuple(window))
     rcands = M._headline_candidates(rg, rs, rc, M._band(rg, rc))
     base_key, base_fam = _next_counts(window, rcands[0].event_key, family_of)
-    top_band = strength_band(raw_p)
-    out: list[dict[str, Any]] = []
-    for rank, (key, prob) in enumerate(ranked, start=1):
-        if key == raw_key:
-            continue
-        loss = raw_p - prob
-        band = strength_band(prob)
-        if loss > _BUDGET or (top_band == 4 and band < top_band) or (
-            top_band - band >= 2
-        ):
-            continue                              # SAFETY_BLOCKED — 쓰지 않는다
-        g, c, s = M._select_slots(scored, seed, good_override=key)
-        if g.event_key != key:
-            continue
-        cands = M._headline_candidates(g, s, c, M._band(g, c))
-        projection = derive_top1_family_projection(
-            raw_top_event_key=key,
-            card_candidates=CardCandidateBundle(
-                good_event_key=g.event_key, slots=(g, c, s),
-                headline_candidates=tuple(cands),
-            ),
-            family_of=family_of,
+    return MarginalBaseline(
+        True, base_key, base_fam, strength_band(raw_p), raw_p, limit, tuple(window)
+    )
+
+
+def evaluate_marginal_candidate(
+    *, scored, seed, family_of, baseline: MarginalBaseline,
+    event_key: str, rank: int, probability: int,
+) -> MarginalCandidateEvaluation:
+    """후보 1건을 실제 평가 순서대로 판정하고, **최초 실패 단계**를 기록한다.
+
+    단계 순서는 라이브 계약 그대로다 — safety 가 slot 구성보다 앞이므로 안전 차단
+    후보에 대해서는 `_select_slots` 를 호출하지 않는다(호출 수도 계약의 일부).
+    """
+    loss = (baseline.raw_probability or 0) - probability
+    band = strength_band(probability)
+    top_band = baseline.raw_top_band or 0
+    safety = (
+        "LOSS_OVER_LIMIT" if loss > baseline.loss_limit
+        else "S5_PROTECTION" if top_band == 4 and band < top_band
+        else "TWO_BAND_DROP" if top_band - band >= 2
+        else "PASS"
+    )
+    def _out(
+        *, stage: str | None, slot_feasible: bool | None = None,
+        projection_status: str | None = None, projected_family: str | None = None,
+        preboard_event_key: str | None = None, fam_cov: int | None = None,
+        key_cov: int | None = None, fam_qual: int | None = None,
+        key_qual: int | None = None, eligible: bool = False,
+        slots: Any = None, cands: Any = None,
+    ) -> MarginalCandidateEvaluation:
+        return MarginalCandidateEvaluation(
+            event_key=event_key, rank=rank, probability=probability, loss=loss,
+            safety_result=safety, slot_feasible=slot_feasible,
+            projection_status=projection_status, projected_family=projected_family,
+            preboard_event_key=preboard_event_key,
+            family_coverage_delta_vs_raw=fam_cov,
+            key_coverage_delta_vs_raw=key_cov,
+            family_qualifying_delta_vs_raw=fam_qual,
+            key_qualifying_delta_vs_raw=key_qual,
+            selector_eligible=eligible, rejected_at_stage=stage,
+            slots=slots, cands=cands,
         )
-        if projection.status is not ProjectionStatus.PROJECTED:
-            continue
-        cand_key, cand_fam = _next_counts(window, cands[0].event_key, family_of)
-        fam_qual = int(cand_fam >= _QUALIFY) - int(base_fam >= _QUALIFY)
-        key_qual = int(cand_key >= _QUALIFY) - int(base_key >= _QUALIFY)
-        fam_cov = cand_fam - base_fam
-        key_cov = cand_key - base_key
-        if fam_cov <= 0 or key_cov < 0 or key_qual < 0:
-            continue                              # 순이득 없거나 key 위험
-        out.append({
-            "rank": rank, "event_key": key, "slots": (g, c, s), "cands": cands,
-            "fam_qual": fam_qual, "fam_cov": fam_cov,
-            "key_qual": key_qual, "key_cov": key_cov, "loss": loss,
-            "preboard_family": projection.family,
-        })
-    return out
+
+    if safety != "PASS":
+        return _out(stage="SAFETY")
+    g, c, s = M._select_slots(scored, seed, good_override=event_key)
+    if g.event_key != event_key:
+        return _out(stage="SLOT_FEASIBILITY", slot_feasible=False)
+    cands = M._headline_candidates(g, s, c, M._band(g, c))
+    projection = derive_top1_family_projection(
+        raw_top_event_key=event_key,
+        card_candidates=CardCandidateBundle(
+            good_event_key=g.event_key, slots=(g, c, s),
+            headline_candidates=tuple(cands),
+        ),
+        family_of=family_of,
+    )
+    status, family = projection.status.value, projection.family
+    preboard = cands[0].event_key
+    if projection.status is not ProjectionStatus.PROJECTED:
+        return _out(
+            stage="PROJECTION", slot_feasible=True, projection_status=status,
+            projected_family=family, preboard_event_key=preboard,
+        )
+    base_fam = baseline.base_family_coverage or 0
+    base_key = baseline.base_key_coverage or 0
+    cand_key, cand_fam = _next_counts(baseline.window, preboard, family_of)
+    fam_cov, key_cov = cand_fam - base_fam, cand_key - base_key
+    fam_qual = int(cand_fam >= _QUALIFY) - int(base_fam >= _QUALIFY)
+    key_qual = int(cand_key >= _QUALIFY) - int(base_key >= _QUALIFY)
+    stage = (
+        "FAMILY_MARGINAL" if fam_cov <= 0
+        else "KEY_MARGINAL" if key_cov < 0 or key_qual < 0
+        else None
+    )
+    return _out(
+        stage=stage, slot_feasible=True, projection_status=status,
+        projected_family=family, preboard_event_key=preboard, fam_cov=fam_cov,
+        key_cov=key_cov, fam_qual=fam_qual, key_qual=key_qual,
+        eligible=stage is None, slots=(g, c, s), cands=cands,
+    )
+
+
+def _safe_candidates(
+    scored, seed, events, ranked, raw_key, raw_p, window, family_of,
+    loss_limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """기존 후보열 중 안전 가드를 모두 통과한 후보의 한계효과.
+
+    `loss_limit` 은 이 diversity 보조 정책의 실효 상한이다(R6=6, R7=7). 전역 안전
+    예산 `_BUDGET` 을 바꾸는 것이 아니다 — 포렌식에서 두 변형을 나란히 재생하기
+    위해 인자로 받는다.
+
+    판정은 `evaluate_marginal_candidate` 에 위임한다 — probe 와 같은 SSOT.
+    """
+    evals = evaluate_candidate_bundle(
+        scored=scored, seed=seed, ranked=ranked, raw_key=raw_key, raw_p=raw_p,
+        window=window, family_of=family_of, loss_limit=loss_limit,
+    )
+    return [
+        {
+            "rank": e.rank, "event_key": e.event_key, "slots": e.slots,
+            "cands": e.cands, "fam_qual": e.family_qualifying_delta_vs_raw,
+            "fam_cov": e.family_coverage_delta_vs_raw,
+            "key_qual": e.key_qualifying_delta_vs_raw,
+            "key_cov": e.key_coverage_delta_vs_raw, "loss": e.loss,
+            "preboard_family": e.projected_family,
+        }
+        for e in evals if e.selector_eligible
+    ]
+
+
+def evaluate_candidate_bundle(
+    *, scored, seed, ranked, raw_key, raw_p, window, family_of,
+    loss_limit: int | None = None,
+) -> list[MarginalCandidateEvaluation]:
+    """정렬된 후보열 전체를 SSOT 평가자로 판정한다(원시 1위는 제외)."""
+    baseline = marginal_baseline(
+        scored, seed, raw_key, raw_p, window, family_of, loss_limit=loss_limit
+    )
+    if not baseline.available:
+        return []
+    return [
+        evaluate_marginal_candidate(
+            scored=scored, seed=seed, family_of=family_of, baseline=baseline,
+            event_key=key, rank=rank, probability=prob,
+        )
+        for rank, (key, prob) in enumerate(ranked, start=1)
+        if key != raw_key
+    ]
 
 
 def _pick(mode: str, options: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -294,6 +461,12 @@ def run() -> dict[str, Any]:
         "audit_id": "OA-11f-B",
         "policy_status": "measurement_only",
         "live_behavior_changed": False,
+        "selector_id": SELECTOR_ID,
+        "loss_contract": {
+            "global_loss_budget": _BUDGET,
+            "marginal_diversity_loss_limit": _DIVERSITY_LOSS_LIMIT,
+            "single_change_from_r7": "loss <= 7 → loss <= 6 (그 외 전부 동일)",
+        },
         "note": (
             "SAFETY_BLOCKED 후보는 어떤 모드에서도 쓰지 않는다. B3 는 lookahead 를 "
             "쓰지 않으므로 참 상한이 아니라 로컬 낙관 경계다."
@@ -305,7 +478,7 @@ def run() -> dict[str, Any]:
 
 if __name__ == "__main__":
     r = run()
-    out = _ROOT / "doc" / "v2_2" / "audits" / "oa11f_b_online_replay.json"
+    out = _ROOT / "doc" / "v2_2" / "audits" / "oa11f_b_online_replay_r6.json"
     out.write_text(
         json.dumps(r, ensure_ascii=False, indent=2, default=str) + "\n",
         encoding="utf-8",

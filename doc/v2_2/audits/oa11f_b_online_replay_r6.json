@@ -1,0 +1,209 @@
+{
+  "audit_id": "OA-11f-B",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "selector_id": "FIRST_SAFE_POSITIVE_MARGINAL_CANDIDATE_R6",
+  "loss_contract": {
+    "global_loss_budget": 7,
+    "marginal_diversity_loss_limit": 6,
+    "single_change_from_r7": "loss <= 7 → loss <= 6 (그 외 전부 동일)"
+  },
+  "note": "SAFETY_BLOCKED 후보는 어떤 모드에서도 쓰지 않는다. B3 는 lookahead 를 쓰지 않으므로 참 상한이 아니라 로컬 낙관 경계다.",
+  "modes": {
+    "S0": {
+      "stats": {},
+      "anchors": {
+        "2026-04-02": {
+          "family_p10": 15,
+          "family_qualifying": 59,
+          "key_p10": 15,
+          "key_below_15": 1,
+          "domain_p10": 7
+        },
+        "2027-03-03": {
+          "family_p10": 14,
+          "family_qualifying": 54,
+          "key_p10": 15,
+          "key_below_15": 5,
+          "domain_p10": 6
+        },
+        "2027-06-01": {
+          "family_p10": 14,
+          "family_qualifying": 54,
+          "key_p10": 14,
+          "key_below_15": 6,
+          "domain_p10": 7
+        },
+        "2027-08-05": {
+          "family_p10": 14,
+          "family_qualifying": 52,
+          "key_p10": 14,
+          "key_below_15": 8,
+          "domain_p10": 6
+        },
+        "2027-10-09": {
+          "family_p10": 14,
+          "family_qualifying": 54,
+          "key_p10": 15,
+          "key_below_15": 5,
+          "domain_p10": 6
+        }
+      }
+    },
+    "B1": {
+      "stats": {
+        "rows_with_options": 422,
+        "selected": 422,
+        "immediate_threshold_gain": 104,
+        "coverage_only_gain": 318,
+        "board_erased_gain": 2,
+        "threshold_gain_survived_board": 104
+      },
+      "anchors": {
+        "2026-04-02": {
+          "family_p10": 16,
+          "family_qualifying": 58,
+          "key_p10": 16,
+          "key_below_15": 2,
+          "domain_p10": 7
+        },
+        "2027-03-03": {
+          "family_p10": 15,
+          "family_qualifying": 56,
+          "key_p10": 15,
+          "key_below_15": 3,
+          "domain_p10": 6
+        },
+        "2027-06-01": {
+          "family_p10": 15,
+          "family_qualifying": 57,
+          "key_p10": 15,
+          "key_below_15": 3,
+          "domain_p10": 7
+        },
+        "2027-08-05": {
+          "family_p10": 15,
+          "family_qualifying": 55,
+          "key_p10": 15,
+          "key_below_15": 4,
+          "domain_p10": 6
+        },
+        "2027-10-09": {
+          "family_p10": 15,
+          "family_qualifying": 56,
+          "key_p10": 15,
+          "key_below_15": 3,
+          "domain_p10": 6
+        }
+      }
+    },
+    "B2": {
+      "stats": {
+        "rows_with_options": 422,
+        "selected": 422,
+        "immediate_threshold_gain": 104,
+        "coverage_only_gain": 318,
+        "board_erased_gain": 2,
+        "threshold_gain_survived_board": 104
+      },
+      "anchors": {
+        "2026-04-02": {
+          "family_p10": 16,
+          "family_qualifying": 58,
+          "key_p10": 16,
+          "key_below_15": 2,
+          "domain_p10": 7
+        },
+        "2027-03-03": {
+          "family_p10": 15,
+          "family_qualifying": 56,
+          "key_p10": 15,
+          "key_below_15": 3,
+          "domain_p10": 6
+        },
+        "2027-06-01": {
+          "family_p10": 15,
+          "family_qualifying": 57,
+          "key_p10": 15,
+          "key_below_15": 3,
+          "domain_p10": 7
+        },
+        "2027-08-05": {
+          "family_p10": 15,
+          "family_qualifying": 55,
+          "key_p10": 15,
+          "key_below_15": 4,
+          "domain_p10": 6
+        },
+        "2027-10-09": {
+          "family_p10": 15,
+          "family_qualifying": 56,
+          "key_p10": 15,
+          "key_below_15": 3,
+          "domain_p10": 6
+        }
+      }
+    },
+    "B3": {
+      "stats": {
+        "rows_with_options": 422,
+        "selected": 422,
+        "immediate_threshold_gain": 104,
+        "coverage_only_gain": 318,
+        "board_erased_gain": 2,
+        "threshold_gain_survived_board": 104
+      },
+      "anchors": {
+        "2026-04-02": {
+          "family_p10": 16,
+          "family_qualifying": 58,
+          "key_p10": 16,
+          "key_below_15": 2,
+          "domain_p10": 7
+        },
+        "2027-03-03": {
+          "family_p10": 15,
+          "family_qualifying": 56,
+          "key_p10": 15,
+          "key_below_15": 3,
+          "domain_p10": 6
+        },
+        "2027-06-01": {
+          "family_p10": 15,
+          "family_qualifying": 57,
+          "key_p10": 15,
+          "key_below_15": 3,
+          "domain_p10": 7
+        },
+        "2027-08-05": {
+          "family_p10": 15,
+          "family_qualifying": 55,
+          "key_p10": 15,
+          "key_below_15": 4,
+          "domain_p10": 6
+        },
+        "2027-10-09": {
+          "family_p10": 15,
+          "family_qualifying": 56,
+          "key_p10": 15,
+          "key_below_15": 3,
+          "domain_p10": 6
+        }
+      }
+    }
+  },
+  "verdict": {
+    "B1": {
+      "family_gate_all": true,
+      "no_regression": false
+    },
+    "B2": {
+      "family_gate_all": true,
+      "no_regression": false
+    },
+    "B3": {
+      "family_gate_all": true,
+      "no_regression": false
+    }
+  }
+}

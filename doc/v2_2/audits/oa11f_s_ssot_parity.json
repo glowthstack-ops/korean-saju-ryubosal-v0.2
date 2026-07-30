@@ -1,0 +1,29 @@
+{
+  "audit_id": "OA-11f-S",
+  "purpose": "SSOT 추출의 동작 보존 + probe/selector 동일 구현 증명",
+  "frozen_baseline": "PREREFACTOR_FROZEN_NOT_AUTHORITATIVE",
+  "range": "2025-04-06 ~ 2026-04-02",
+  "loss_limit": 6,
+  "execution_proof": {
+    "rows_selector_consulted": 5464,
+    "candidate_lists_compared": 5464,
+    "candidates_compared": 365,
+    "candidate_evaluations": 91134,
+    "interventions": 236
+  },
+  "mismatch_count": 0,
+  "mismatches": [],
+  "stage_coverage": {
+    "FAMILY_MARGINAL": 11635,
+    "SAFETY": 76826,
+    "PROJECTION": 825,
+    "SLOT_FEASIBILITY": 1483,
+    "ELIGIBLE": 365
+  },
+  "stages_never_observed": [
+    "KEY_MARGINAL"
+  ],
+  "probe_selector_shared_ssot": "evaluate_marginal_candidate",
+  "probe_reimplements_marginal_delta": false,
+  "verdict": "BEHAVIOR_PRESERVED"
+}

@@ -1,0 +1,316 @@
+{
+  "audit_id": "OA-11f-A2",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "target_ilju": "丙辰",
+  "anchor": "2026-04-02",
+  "variant": "R6 (loss <= 6)",
+  "note": "의심 개입을 S0 선택으로 치환하고 anchor 까지 downstream 전체를 다시 재생했다 — 순차 정책이라 해당 행만 바꾸고 끝낼 수 없다.",
+  "results": {
+    "none": {
+      "interventions": 236,
+      "suppressed": 0,
+      "reached_dates": [],
+      "suppressed_dates": [],
+      "target": {
+        "key": 14,
+        "family": 14
+      },
+      "family_below_15": 2,
+      "key_below_15": 2,
+      "family_p10": 16,
+      "key_p10": 16,
+      "execution_proof_row": {
+        "requested_target_ids": 0,
+        "reached_target_ids": 0,
+        "suppressed_target_ids": 0,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 0,
+        "downstream_intervention_delta": 0
+      },
+      "target_recovered": false,
+      "family_below_delta_vs_r6": 0
+    },
+    "drop_2025-04-18": {
+      "interventions": 235,
+      "suppressed": 1,
+      "reached_dates": [
+        "2025-04-18"
+      ],
+      "suppressed_dates": [
+        "2025-04-18"
+      ],
+      "target": {
+        "key": 14,
+        "family": 14
+      },
+      "family_below_15": 2,
+      "key_below_15": 2,
+      "family_p10": 16,
+      "key_p10": 16,
+      "execution_proof_row": {
+        "requested_target_ids": 1,
+        "reached_target_ids": 1,
+        "suppressed_target_ids": 1,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 1,
+        "downstream_intervention_delta": 0
+      },
+      "target_recovered": false,
+      "family_below_delta_vs_r6": 0
+    },
+    "drop_2025-04-19": {
+      "interventions": 235,
+      "suppressed": 1,
+      "reached_dates": [
+        "2025-04-19"
+      ],
+      "suppressed_dates": [
+        "2025-04-19"
+      ],
+      "target": {
+        "key": 14,
+        "family": 14
+      },
+      "family_below_15": 2,
+      "key_below_15": 2,
+      "family_p10": 16,
+      "key_p10": 16,
+      "execution_proof_row": {
+        "requested_target_ids": 1,
+        "reached_target_ids": 1,
+        "suppressed_target_ids": 1,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 1,
+        "downstream_intervention_delta": 0
+      },
+      "target_recovered": false,
+      "family_below_delta_vs_r6": 0
+    },
+    "drop_2025-08-06": {
+      "interventions": 235,
+      "suppressed": 1,
+      "reached_dates": [
+        "2025-08-06"
+      ],
+      "suppressed_dates": [
+        "2025-08-06"
+      ],
+      "target": {
+        "key": 14,
+        "family": 14
+      },
+      "family_below_15": 2,
+      "key_below_15": 2,
+      "family_p10": 16,
+      "key_p10": 16,
+      "execution_proof_row": {
+        "requested_target_ids": 1,
+        "reached_target_ids": 1,
+        "suppressed_target_ids": 1,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 1,
+        "downstream_intervention_delta": 0
+      },
+      "target_recovered": false,
+      "family_below_delta_vs_r6": 0
+    },
+    "drop_2026-02-12": {
+      "interventions": 234,
+      "suppressed": 1,
+      "reached_dates": [
+        "2026-02-12"
+      ],
+      "suppressed_dates": [
+        "2026-02-12"
+      ],
+      "target": {
+        "key": 15,
+        "family": 15
+      },
+      "family_below_15": 1,
+      "key_below_15": 1,
+      "family_p10": 16,
+      "key_p10": 16,
+      "execution_proof_row": {
+        "requested_target_ids": 1,
+        "reached_target_ids": 1,
+        "suppressed_target_ids": 1,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 1,
+        "downstream_intervention_delta": -1
+      },
+      "target_recovered": true,
+      "family_below_delta_vs_r6": -1
+    },
+    "drop_2026-03-14": {
+      "interventions": 236,
+      "suppressed": 1,
+      "reached_dates": [
+        "2026-03-14"
+      ],
+      "suppressed_dates": [
+        "2026-03-14"
+      ],
+      "target": {
+        "key": 15,
+        "family": 15
+      },
+      "family_below_15": 1,
+      "key_below_15": 1,
+      "family_p10": 16,
+      "key_p10": 16,
+      "execution_proof_row": {
+        "requested_target_ids": 1,
+        "reached_target_ids": 1,
+        "suppressed_target_ids": 1,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 1,
+        "downstream_intervention_delta": 1
+      },
+      "target_recovered": true,
+      "family_below_delta_vs_r6": -1
+    },
+    "drop_all_target": {
+      "interventions": 232,
+      "suppressed": 3,
+      "reached_dates": [
+        "2025-04-18",
+        "2025-04-19",
+        "2026-02-12"
+      ],
+      "suppressed_dates": [
+        "2025-04-18",
+        "2025-04-19",
+        "2026-02-12"
+      ],
+      "target": {
+        "key": 15,
+        "family": 15
+      },
+      "family_below_15": 1,
+      "key_below_15": 1,
+      "family_p10": 16,
+      "key_p10": 16,
+      "execution_proof_row": {
+        "requested_target_ids": 5,
+        "reached_target_ids": 3,
+        "suppressed_target_ids": 3,
+        "unreachable_after_path_change": [
+          "2025-08-06",
+          "2026-03-14"
+        ],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 3,
+        "downstream_intervention_delta": -1
+      },
+      "target_recovered": true,
+      "family_below_delta_vs_r6": -1
+    }
+  },
+  "execution_proof": {
+    "requested_ablations": {
+      "none": [],
+      "drop_2025-04-18": [
+        "2025-04-18"
+      ],
+      "drop_2025-04-19": [
+        "2025-04-19"
+      ],
+      "drop_2025-08-06": [
+        "2025-08-06"
+      ],
+      "drop_2026-02-12": [
+        "2026-02-12"
+      ],
+      "drop_2026-03-14": [
+        "2026-03-14"
+      ],
+      "drop_all_target": [
+        "2025-04-18",
+        "2025-04-19",
+        "2025-08-06",
+        "2026-02-12",
+        "2026-03-14"
+      ]
+    },
+    "per_run": {
+      "none": {
+        "requested_target_ids": 0,
+        "reached_target_ids": 0,
+        "suppressed_target_ids": 0,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 0,
+        "downstream_intervention_delta": 0
+      },
+      "drop_2025-04-18": {
+        "requested_target_ids": 1,
+        "reached_target_ids": 1,
+        "suppressed_target_ids": 1,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 1,
+        "downstream_intervention_delta": 0
+      },
+      "drop_2025-04-19": {
+        "requested_target_ids": 1,
+        "reached_target_ids": 1,
+        "suppressed_target_ids": 1,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 1,
+        "downstream_intervention_delta": 0
+      },
+      "drop_2025-08-06": {
+        "requested_target_ids": 1,
+        "reached_target_ids": 1,
+        "suppressed_target_ids": 1,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 1,
+        "downstream_intervention_delta": 0
+      },
+      "drop_2026-02-12": {
+        "requested_target_ids": 1,
+        "reached_target_ids": 1,
+        "suppressed_target_ids": 1,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 1,
+        "downstream_intervention_delta": -1
+      },
+      "drop_2026-03-14": {
+        "requested_target_ids": 1,
+        "reached_target_ids": 1,
+        "suppressed_target_ids": 1,
+        "unreachable_after_path_change": [],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 1,
+        "downstream_intervention_delta": 1
+      },
+      "drop_all_target": {
+        "requested_target_ids": 5,
+        "reached_target_ids": 3,
+        "suppressed_target_ids": 3,
+        "unreachable_after_path_change": [
+          "2025-08-06",
+          "2026-03-14"
+        ],
+        "all_reached_targets_suppressed": true,
+        "direct_suppression": 3,
+        "downstream_intervention_delta": -1
+      }
+    },
+    "all_reached_targets_suppressed": true,
+    "single_ablations_fully_reached": true,
+    "downstream_replay_days": 362,
+    "note": "단일 제거로 복원된다는 것은 그 개입이 단독으로 하락을 일으키기에 **충분**했다는 뜻이 아니다 — 제거하면 downstream 경로가 바뀌어 최종 하락이 사라진다는 뜻이다."
+  }
+}

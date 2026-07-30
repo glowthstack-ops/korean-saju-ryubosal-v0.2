@@ -1,0 +1,156 @@
+{
+  "audit_id": "OA-11f-D",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "target_ilju": "丙辰",
+  "anchor": "2026-04-02",
+  "coverage_window": "2026-01-03 ~ 2026-04-02",
+  "set_cardinality_note": "coverage 차이 1 은 |S0\\V| - |V\\S0| = 1 일 뿐이다 — 단일 누락 값을 뜻하지 않으므로 양방향을 모두 낸다.",
+  "pairwise_diff": {
+    "S0_vs_R6": {
+      "key": {
+        "only_s0": [
+          {
+            "value": "love_deepening",
+            "refcount": 1,
+            "dates": [
+              "2026-03-15"
+            ]
+          }
+        ],
+        "only_r6": [],
+        "coverage": {
+          "S0": 15,
+          "R6": 14
+        },
+        "identical_sets": false
+      },
+      "family": {
+        "only_s0": [
+          {
+            "value": "deepening",
+            "refcount": 1,
+            "dates": [
+              "2026-03-15"
+            ]
+          }
+        ],
+        "only_r6": [],
+        "coverage": {
+          "S0": 15,
+          "R6": 14
+        },
+        "identical_sets": false
+      }
+    },
+    "S0_vs_R7": {
+      "key": {
+        "only_s0": [
+          {
+            "value": "love_deepening",
+            "refcount": 1,
+            "dates": [
+              "2026-03-15"
+            ]
+          }
+        ],
+        "only_r7": [],
+        "coverage": {
+          "S0": 15,
+          "R7": 14
+        },
+        "identical_sets": false
+      },
+      "family": {
+        "only_s0": [
+          {
+            "value": "deepening",
+            "refcount": 1,
+            "dates": [
+              "2026-03-15"
+            ]
+          }
+        ],
+        "only_r7": [],
+        "coverage": {
+          "S0": 15,
+          "R7": 14
+        },
+        "identical_sets": false
+      }
+    },
+    "R6_vs_R7": {
+      "key": {
+        "only_r6": [],
+        "only_r7": [],
+        "coverage": {
+          "R6": 14,
+          "R7": 14
+        },
+        "identical_sets": true
+      },
+      "family": {
+        "only_r6": [],
+        "only_r7": [],
+        "coverage": {
+          "R6": 14,
+          "R7": 14
+        },
+        "identical_sets": true
+      }
+    }
+  },
+  "divergence": {
+    "R6": {
+      "first_committed_value_divergence": {
+        "date": "2025-04-18",
+        "s0_preboard": "old_contact",
+        "s0_committed": "old_contact",
+        "variant_preboard": "overspend_caution",
+        "variant_committed": "overspend_caution",
+        "preboard_same": false,
+        "s0_board_displaced": false,
+        "variant_board_displaced": false,
+        "variant_intervened": true,
+        "other_iljus_intervened": 7,
+        "classification_hint": "SELECTOR_OR_AVAILABILITY_DIVERGENCE"
+      },
+      "first_unique_set_divergence": "2025-04-18"
+    },
+    "R7": {
+      "first_committed_value_divergence": {
+        "date": "2025-04-10",
+        "s0_preboard": "money_good_deal",
+        "s0_committed": "love_spark",
+        "variant_preboard": "money_good_deal",
+        "variant_committed": "money_good_deal",
+        "preboard_same": true,
+        "s0_board_displaced": true,
+        "variant_board_displaced": false,
+        "variant_intervened": false,
+        "other_iljus_intervened": 2,
+        "classification_hint": "CROSS_ILJU_BOARD_COUPLING"
+      },
+      "first_unique_set_divergence": "2025-04-10"
+    }
+  },
+  "target_intervention_dates": {
+    "S0": [],
+    "R6": [
+      "2025-04-18",
+      "2025-04-19",
+      "2025-08-06",
+      "2026-02-12",
+      "2026-03-14"
+    ],
+    "R7": [
+      "2025-04-18",
+      "2025-04-19",
+      "2025-06-14",
+      "2025-08-06",
+      "2025-09-18",
+      "2026-02-12",
+      "2026-03-14"
+    ]
+  }
+}
