@@ -1,0 +1,50 @@
+{
+  "audit_id": "OA-11d-trace-inertness",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "range": {
+    "origin": "2025-04-06",
+    "last_anchor": "2027-10-09",
+    "days": 917,
+    "rows": 55020
+  },
+  "first_row_mismatch": null,
+  "first_board_fingerprint_mismatch": null,
+  "first_state_fingerprint_mismatch": null,
+  "trace_leaked_into_trace_off_run": 0,
+  "projection_event_mismatch": 0,
+  "counterfactual_call_violation": 0,
+  "anchor_aggregate_mismatch": [],
+  "trace_totals": {
+    "rows": 55020,
+    "status": {
+      "PROJECTED": 47452,
+      "UNAVAILABLE": 3512,
+      "AMBIGUOUS": 4056
+    },
+    "source": {
+      "REUSED_ACTUAL_CARD": 47422,
+      "COUNTERFACTUAL_RAW_TOP_CARD": 7598
+    },
+    "unavailable_reason": {
+      "RAW_TOP_CARD_NOT_AVAILABLE": 3512
+    },
+    "status_sums_to_rows": true,
+    "source_sums_to_rows": true
+  },
+  "verdict": "TRACE_INERT",
+  "superseded_measurements": {
+    "272d_16320row_spot_check": "SUPERSEDED_BY_CONTINUOUS_917D_AUDIT"
+  },
+  "official_totals": {
+    "range": "2025-04-06 ~ 2027-10-09",
+    "days": 917,
+    "rows": 55020,
+    "PROJECTED": 47452,
+    "AMBIGUOUS": 4056,
+    "UNAVAILABLE": 3512,
+    "COUNTERFACTUAL_RAW_TOP_CARD": 7598,
+    "PROJECTION_EVENT_MISMATCH": 0
+  },
+  "s1_denominator_note": "전체 UNAVAILABLE 6.4% 를 S1 개선 불가 비율로 해석하면 안 된다. S1 분모는 `family deficit active AND raw top CLEAN` 조건부이며, 그 안에서 RAW_TOP_CARD_NOT_AVAILABLE · AMBIGUOUS 를 anchor 별로 따로 센다."
+}

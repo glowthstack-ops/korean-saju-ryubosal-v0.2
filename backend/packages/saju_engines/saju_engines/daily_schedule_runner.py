@@ -33,7 +33,9 @@ from saju_engines.daily_selection_contracts import (
 from saju_engines.daily_selection_policy_shadow import (
     LONGITUDINAL_HISTORY_LOOKBACK_DAYS,
     LongTermPolicy,
+    ProjectionStatus,
     SelectionPolicy,
+    Top1FamilyProjection,
     select_board,
     select_good_representative,
 )
@@ -217,6 +219,98 @@ class DailyScheduleStep:
     eviction_summary: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class CardCandidateBundle:
+    """한 카드의 완성된 후보 자료.
+
+    실제 선택과 projection 계산이 **같은 자료**를 쓴다. projection 을 위해 후보
+    생성부터 다시 하면 두 경로가 향후 조건·사전·정렬 변경에서 갈라질 수 있다.
+    """
+
+    good_event_key: str
+    slots: tuple[Any, ...]              # (good, caution, support)
+    headline_candidates: tuple[Any, ...]
+
+    @property
+    def card_top1_event_key(self) -> str:
+        return str(self.headline_candidates[0].event_key)
+
+
+#: `UNAVAILABLE` 세부 원인. 정책은 구분하지 않고 모두 우회하지 않는다.
+UNAVAILABLE_RAW_TOP_CARD_NOT_AVAILABLE = "RAW_TOP_CARD_NOT_AVAILABLE"
+UNAVAILABLE_NO_HEADLINE_CANDIDATE = "NO_HEADLINE_CANDIDATE"
+UNAVAILABLE_EMPTY_FAMILY = "EMPTY_FAMILY"
+
+
+def unavailable_reason(
+    *, raw_top_event_key: str, card_candidates: CardCandidateBundle,
+    family_of: Mapping[str, str],
+) -> str | None:
+    """`UNAVAILABLE` 이라면 그 원인 — 측정 전용이다."""
+    if card_candidates.good_event_key != raw_top_event_key:
+        return UNAVAILABLE_RAW_TOP_CARD_NOT_AVAILABLE
+    if not card_candidates.headline_candidates:
+        return UNAVAILABLE_NO_HEADLINE_CANDIDATE
+    top1 = card_candidates.headline_candidates[0]
+    if not family_of.get(top1.event_key, ""):
+        return UNAVAILABLE_EMPTY_FAMILY
+    return None
+
+
+def derive_top1_family_projection(
+    *,
+    raw_top_event_key: str,
+    card_candidates: CardCandidateBundle,
+    family_of: Mapping[str, str],
+) -> Top1FamilyProjection:
+    """원시 1위 카드가 **board 적용 전에** 낼 headline family.
+
+    board cap·rebalance·다른 일주 결과·당일 최종 headline·history 갱신·사후
+    realized family 는 들어가지 않는다. 부작용도 없다 — 완성된 bundle 만 읽는다.
+
+    Args:
+        raw_top_event_key: 원시 good 1위 사건.
+        card_candidates: 그 사건을 good 으로 둔 카드의 완성된 후보 자료.
+        family_of: event_key → semantic family.
+
+    Returns:
+        결박된 projection. 예외나 빈 값을 억지로 PROJECTED 로 만들지 않는다.
+    """
+    if card_candidates.good_event_key != raw_top_event_key:
+        return Top1FamilyProjection(
+            event_key=raw_top_event_key, family="",
+            status=ProjectionStatus.UNAVAILABLE,
+        )
+    if not card_candidates.headline_candidates:
+        return Top1FamilyProjection(
+            event_key=raw_top_event_key, family="",
+            status=ProjectionStatus.UNAVAILABLE,
+        )
+    # 아래 세 원인은 정책상 모두 fail-closed 로 같지만, 측정에서는 구분할 가치가
+    # 있다 — funnel 에서 병목이 helper 문제인지 카드 구성 문제인지 갈린다.
+    top1 = card_candidates.headline_candidates[0]
+    family = family_of.get(top1.event_key, "")
+    if not family:
+        return Top1FamilyProjection(
+            event_key=raw_top_event_key, family="",
+            status=ProjectionStatus.UNAVAILABLE,
+        )
+    # 동률 top-1 이 서로 다른 family 면 단일 투영으로 확정할 수 없다.
+    tied = [
+        c for c in card_candidates.headline_candidates
+        if c.probability == top1.probability
+    ]
+    if len({family_of.get(c.event_key, "") for c in tied}) > 1:
+        return Top1FamilyProjection(
+            event_key=raw_top_event_key, family=family,
+            status=ProjectionStatus.AMBIGUOUS,
+        )
+    return Top1FamilyProjection(
+        event_key=raw_top_event_key, family=family,
+        status=ProjectionStatus.PROJECTED,
+    )
+
+
 def _append_window(
     hist: Mapping[str, tuple[str, ...]], additions: Mapping[str, str], keep: int
 ) -> tuple[dict[str, tuple[str, ...]], dict[str, str | None]]:
@@ -253,6 +347,7 @@ def advance_daily_schedule(
     history_contract: DailyHistoryContract,
     family_of: Mapping[str, str],
     iljus: Sequence[str],
+    compute_projection_trace: bool = False,
 ) -> tuple[DailyScheduleStep, DailyScheduleState]:
     """하루 전이 — 입력 state 를 바꾸지 않고 새 state 를 돌려준다.
 
@@ -302,16 +397,46 @@ def advance_daily_schedule(
         headline_hist = state.final_headline_history.get(ilju, ())
         # 60일주가 모두 같은 state 를 읽었는지 확인할 수 있게 지문을 모은다.
         read_fps.add(before_fp)
+
+        # projection 은 **측정 모드에서만** 계산한다. production 경로에서는 반사실
+        # 카드 구성이 아예 일어나지 않아 C10 의 비용·결과가 완전히 불변이다.
+        raw_top_key = sorted(goods, key=lambda x: (-x[1], x[0]))[0][0]
+        projection = None
+        raw_top_bundle: tuple[Any, Any, Any, Any] | None = None
+        if compute_projection_trace:
+            rg, rc, rs = M._select_slots(scored, seed, good_override=raw_top_key)
+            rcands = M._headline_candidates(rg, rs, rc, M._band(rg, rc))
+            raw_top_bundle = (rg, rc, rs, rcands)
+            bundle = CardCandidateBundle(
+                good_event_key=rg.event_key, slots=(rg, rc, rs),
+                headline_candidates=tuple(rcands),
+            )
+            projection = derive_top1_family_projection(
+                raw_top_event_key=raw_top_key, card_candidates=bundle,
+                family_of=family_of,
+            )
+            projection_reason = unavailable_reason(
+                raw_top_event_key=raw_top_key, card_candidates=bundle,
+                family_of=family_of,
+            )
+
         rep = select_good_representative(
             list(goods), list(repeat_hist),
             board_contract.displacement_loss_budget,
             policy=policy, family_of=family_of,
             headline_history=list(headline_hist),
+            top1_projection=projection,
         )
-        g, c, s = M._select_slots(
-            scored, seed, good_override=rep.display_good_representative
-        )
-        cands = M._headline_candidates(g, s, c, M._band(g, c))
+        if raw_top_bundle is not None and (
+            rep.display_good_representative == raw_top_key
+        ):
+            # 실제 대표가 원시 1위다 — 이미 만든 bundle 을 재사용한다(추가 호출 0).
+            g, c, s, cands = raw_top_bundle
+        else:
+            g, c, s = M._select_slots(
+                scored, seed, good_override=rep.display_good_representative
+            )
+            cands = M._headline_candidates(g, s, c, M._band(g, c))
         cmap[ilju] = [
             HeadlineCandidate(x.event_key, x.domain, x.probability) for x in cands
         ]
@@ -329,6 +454,24 @@ def advance_daily_schedule(
             # legacy 필드명 유지 — 의미는 의도 대표 기준 손실이다.
             "display_displacement_loss": rep.display_displacement_loss,
         }
+        if compute_projection_trace and projection is not None:
+            # 측정 전용 trace — selection reason code 와 섞지 않는다.
+            reused = rep.display_good_representative == raw_top_key
+            pending[ilju]["oa11d_trace"] = {
+                "raw_top_event_key": raw_top_key,
+                "projected_top1_event_key": projection.event_key,
+                "projected_top1_family": projection.family,
+                "projection_status": projection.status.value,
+                "projection_source": (
+                    "REUSED_ACTUAL_CARD" if reused
+                    else "COUNTERFACTUAL_RAW_TOP_CARD"
+                ),
+                "counterfactual_select_slots_calls": 0 if reused else 1,
+                "unavailable_reason": (
+                    projection_reason
+                    if projection.status is ProjectionStatus.UNAVAILABLE else None
+                ),
+            }
 
     if len(read_fps) != 1:
         raise DailyScheduleStateLeakError(
@@ -407,6 +550,7 @@ def build_daily_schedule(
     history_contract: DailyHistoryContract,
     family_of: Mapping[str, str],
     initial_state_factory: Callable[[], DailyScheduleState] = empty_state,
+    compute_projection_trace: bool = False,
 ) -> tuple[list[DailyScheduleStep], DailyScheduleState]:
     """날짜순 반복만 담당한다.
 
@@ -427,6 +571,7 @@ def build_daily_schedule(
             state=state, policy=policy, board_policy=board_policy,
             board_contract=board_contract, history_contract=history_contract,
             family_of=family_of, iljus=iljus,
+            compute_projection_trace=compute_projection_trace,
         )
         steps.append(step)
     return steps, state
@@ -439,6 +584,7 @@ def build_rolling_audit_schedule(
     board_policy: SelectionPolicy,
     family_of: Mapping[str, str],
     audit_contract: DailyRollingAuditContract = DAILY_ROLLING_AUDIT_CONTRACT_V1,
+    compute_projection_trace: bool = False,
 ) -> tuple[list[DailyScheduleStep], DailyScheduleState]:
     """감사 계약을 고정한 진입점 — 호출부가 원점·cap·예열을 조립하지 않는다."""
     return build_daily_schedule(
@@ -449,4 +595,5 @@ def build_rolling_audit_schedule(
         board_contract=DAILY_BOARD_CONTRACT_V1,
         history_contract=DAILY_HISTORY_CONTRACT_V1,
         family_of=family_of,
+        compute_projection_trace=compute_projection_trace,
     )
