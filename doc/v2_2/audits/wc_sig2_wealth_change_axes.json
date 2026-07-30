@@ -71,7 +71,7 @@
   },
   "semantic_conflict_count": 0,
   "quality_missing_count": 0,
-  "materialization_direction_missing_count": 4,
+  "materialization_direction_missing_count": 0,
   "semantic_unknown_count": 0,
   "semantic_unknown_share": 0.0,
   "representative_periods": [
@@ -729,11 +729,11 @@
         "spouse_palace"
       ],
       "process_stages": [
-        "exposure_volatility",
-        "압박·부담"
+        "exposure_volatility"
       ],
       "semantic_sources": [
-        "quality"
+        "quality",
+        "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
@@ -741,8 +741,7 @@
       "semantic_conflict": false,
       "is_representative_period": false,
       "review_reasons": [
-        "pressure_all_cases",
-        "weak_direction_evidence"
+        "pressure_all_cases"
       ]
     },
     {
@@ -770,18 +769,17 @@
         "UNKNOWN"
       ],
       "process_stages": [
-        "new_start",
-        "압박·부담"
+        "new_start"
       ],
       "semantic_sources": [
-        "quality"
+        "quality",
+        "materialization_direction"
       ],
       "context_sources": [],
       "semantic_conflict": false,
       "is_representative_period": false,
       "review_reasons": [
-        "pressure_all_cases",
-        "weak_direction_evidence"
+        "pressure_all_cases"
       ]
     },
     {
@@ -807,11 +805,11 @@
         "UNKNOWN"
       ],
       "process_stages": [
-        "exposure_volatility",
-        "압박·부담"
+        "exposure_volatility"
       ],
       "semantic_sources": [
-        "quality"
+        "quality",
+        "materialization_direction"
       ],
       "context_sources": [],
       "semantic_conflict": false,
@@ -843,11 +841,11 @@
         "UNKNOWN"
       ],
       "process_stages": [
-        "nurturing_preparation",
-        "압박·부담"
+        "nurturing_preparation"
       ],
       "semantic_sources": [
-        "quality"
+        "quality",
+        "materialization_direction"
       ],
       "context_sources": [],
       "semantic_conflict": false,
@@ -858,6 +856,26 @@
     }
   ],
   "manual_review_sample_size": 13,
+  "status_flags": [
+    "TYPE_A_CANDIDATE_AUTOCHECKS_PASS",
+    "OVERSEGMENTATION_RESOLVED",
+    "PRESSURE_DIRECTION_CONFIRMED",
+    "PRESSURE_INDEPENDENT_SEMANTIC_CANDIDATE",
+    "PRESSURE_MINOR_CLUSTER",
+    "CONTEXT_LOCUS_SEMANTICALLY_NON_DISCRIMINATIVE",
+    "LOSS_OUTFLOW_RANK_ENRICHMENT_OBSERVED",
+    "MANUAL_REVIEW_PENDING",
+    "PRODUCTION_UNCHANGED"
+  ],
+  "retired_status_flags": [
+    "PRESSURE_MINOR_CLUSTER_DIRECTION_MISSING"
+  ],
+  "semantic_source_agreement": {
+    "quality_x_direction_agree": 72,
+    "direction_missing": 0,
+    "direction_conflict": 0,
+    "quality_missing": 0
+  },
   "autochecks": {
     "at_least_two_named_semantic_clusters": true,
     "major_clusters_have_five_or_more": true,
@@ -2211,11 +2229,11 @@
         "spouse_palace"
       ],
       "process_stages": [
-        "exposure_volatility",
-        "압박·부담"
+        "exposure_volatility"
       ],
       "semantic_sources": [
-        "quality"
+        "quality",
+        "materialization_direction"
       ],
       "context_sources": [
         "materialization_palace_label"
@@ -2584,11 +2602,11 @@
         "UNKNOWN"
       ],
       "process_stages": [
-        "new_start",
-        "압박·부담"
+        "new_start"
       ],
       "semantic_sources": [
-        "quality"
+        "quality",
+        "materialization_direction"
       ],
       "context_sources": [],
       "semantic_conflict": false,
@@ -2799,11 +2817,11 @@
         "UNKNOWN"
       ],
       "process_stages": [
-        "exposure_volatility",
-        "압박·부담"
+        "exposure_volatility"
       ],
       "semantic_sources": [
-        "quality"
+        "quality",
+        "materialization_direction"
       ],
       "context_sources": [],
       "semantic_conflict": false,
@@ -2867,11 +2885,11 @@
         "UNKNOWN"
       ],
       "process_stages": [
-        "nurturing_preparation",
-        "압박·부담"
+        "nurturing_preparation"
       ],
       "semantic_sources": [
-        "quality"
+        "quality",
+        "materialization_direction"
       ],
       "context_sources": [],
       "semantic_conflict": false,

@@ -65,9 +65,15 @@ SEMANTIC_LOSS = "loss_outflow"
 SEMANTIC_PRESSURE = "pressure"
 
 #: materialization 문자열의 방향 표현 → 의미 축. 궁위·단계는 여기서 읽지 않는다.
+#:
+#: 방향은 **3종**이며 `quality` 3값과 1:1 대응한다. 초기 매핑에 `압박·부담` 이 빠져
+#: 있어 그 4건이 방향 결측으로 관측됐다(2026-07-30 수동 검토에서 발견). 실제 데이터
+#: 결측이 아니라 감사 매핑 누락이었다 — 미등록 표현은 계속 UNKNOWN 으로 fail-closed
+#: 하되, 알려진 표현을 빠뜨리면 없는 결측을 만들어 낸다.
 _DIRECTION_TO_SEMANTIC = {
     "기회·유입": SEMANTIC_OPPORTUNITY,
     "손실·지출": SEMANTIC_LOSS,
+    "압박·부담": SEMANTIC_PRESSURE,
 }
 #: quality → 의미 축.
 _QUALITY_TO_SEMANTIC = {
@@ -130,6 +136,7 @@ def read_axes(cand: EventCandidate) -> SemanticReading:
     stages: set[str] = set()
     for parts in _materialization_parts(cand):
         for part in parts:
+            # 방향 판정이 **먼저**다 — 뒤로 밀면 방향 표현이 process 단계로 흘러간다.
             if part in _DIRECTION_TO_SEMANTIC:
                 directions.add(_DIRECTION_TO_SEMANTIC[part])
             elif any(tok in part for tok in _LOCUS_TOKENS):
@@ -417,6 +424,26 @@ def run() -> dict[str, Any]:
             picked[k] for k in sorted(picked)
         ],
         "manual_review_sample_size": len(picked),
+        "status_flags": [
+            "TYPE_A_CANDIDATE_AUTOCHECKS_PASS",
+            "OVERSEGMENTATION_RESOLVED",
+            "PRESSURE_DIRECTION_CONFIRMED",
+            "PRESSURE_INDEPENDENT_SEMANTIC_CANDIDATE",
+            "PRESSURE_MINOR_CLUSTER",
+            "CONTEXT_LOCUS_SEMANTICALLY_NON_DISCRIMINATIVE",
+            "LOSS_OUTFLOW_RANK_ENRICHMENT_OBSERVED",
+            "MANUAL_REVIEW_PENDING",
+            "PRODUCTION_UNCHANGED",
+        ],
+        "retired_status_flags": [
+            "PRESSURE_MINOR_CLUSTER_DIRECTION_MISSING",
+        ],
+        "semantic_source_agreement": {
+            "quality_x_direction_agree": total - conflicts - q_missing - d_missing,
+            "direction_missing": d_missing,
+            "direction_conflict": conflicts,
+            "quality_missing": q_missing,
+        },
         "autochecks": checks,
         "verdict": verdict,
         "manual_review_status": "PENDING",
