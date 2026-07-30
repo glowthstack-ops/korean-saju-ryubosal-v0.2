@@ -130,13 +130,22 @@ def split_sentences(text: str) -> list[_Sentence]:
     return out
 
 
-def _claimed(pattern: re.Pattern[str], sentence: str) -> bool:
-    """문장에 그 주장이 있는가 — 직후 부정 표현이 붙으면 주장으로 보지 않는다."""
+def sentence_asserts(pattern: re.Pattern[str], sentence: str) -> bool:
+    """문장에 그 주장이 있는가 — 직후 부정 표현이 붙으면 주장으로 보지 않는다.
+
+    '수입 증가로 단정할 수 **없다**' 처럼 부정하는 문장을 위반으로 잡지 않기 위한
+    검증된 기계다. 다른 감사기가 같은 판정을 복제하지 않도록 공개한다
+    (2026-07-30 — 섹션 claim 감사가 재사용).
+    """
     for m in pattern.finditer(sentence):
         tail = sentence[m.end() : m.end() + _NEGATION_WINDOW]
         if not _NEGATION.search(tail):
             return True
     return False
+
+
+#: 하위호환 별칭 — 모듈 내부 호출부가 그대로 쓰던 이름.
+_claimed = sentence_asserts
 
 
 def _mentions_char(window: str, char: str) -> bool:
