@@ -115,6 +115,95 @@ EVENT_DOMAIN: dict[EventKeyV2, str] = {
     EventKeyV2.HEALTH_ATTENTION: "health",
 }
 
+# ── 채널 중립 의미 facet (2026-07-30 데굴님 확정 — 가′) ──────────────
+#
+# 리포트 섹션이 사건을 라우팅할 때 쓰는 **의미 속성**이다. `event_key` 를 보고 섹션
+# 계층이 단계를 재추론하면 drift 가 생기므로, 여기서만 정의하고 대화·리포트·후보
+# 감사가 공유한다. 출력 채널에 종속되지 않는다.
+#
+# 불변식:
+#   - 점수·favorable/adverse·confidence·성사 판정에 관여하지 않는다(라우팅 메타데이터).
+#   - 모르는 축은 `UNKNOWN` 으로 두고 fail-closed 한다 — 넓은 사건군에 임의 편입 금지.
+#   - fail-closed 는 **축 단위**다. `WEALTH_CHANGE` 는 family 는 알지만 subtype 은
+#     모르므로 family 만 쓰고 subtype 은 UNKNOWN 이다.
+#   - `stage_tags` 는 기존 SSOT(관계 로드맵·커리어 트랙)가 부여한 값만 쓴다. 이름만
+#     보고 추론하지 않는다 — 현재 리포에 확정 매핑이 없으므로 전부 비어 있다.
+FACET_UNKNOWN = "UNKNOWN"
+
+#: 무엇에 관한 사건인가.
+EVENT_FAMILY: dict[EventKeyV2, str] = {
+    EventKeyV2.WEALTH_CHANGE: "wealth_change",
+    EventKeyV2.WINDFALL: "windfall",
+    EventKeyV2.CAREER_CHANGE: "career_transition",
+    EventKeyV2.JOB_GAIN: "employment",
+    EventKeyV2.PROMOTION: "advancement",
+    EventKeyV2.BUSINESS_START: "entrepreneurship",
+    EventKeyV2.BUSINESS_EXPANSION: "entrepreneurship",
+    EventKeyV2.CONTRACT_DOCUMENT: "contract_document",
+    EventKeyV2.PREPARATION_DELAY: "delay",
+    EventKeyV2.LEGAL_CONFLICT: "legal_dispute",
+    EventKeyV2.SOCIAL_CONFLICT: "social_conflict",
+    EventKeyV2.CREATIVE_OUTPUT: "creative_output",
+    EventKeyV2.PUBLIC_EXPOSURE: "visibility",
+    EventKeyV2.NEW_RELATIONSHIP: "new_relationship",
+    EventKeyV2.RELATIONSHIP_CHANGE: "relationship_change",
+    EventKeyV2.MARRIAGE_SIGNAL: "marriage_signal",
+    EventKeyV2.RELOCATION: "relocation",
+}
+
+#: 과정에서 어떤 역할인가. 확정되지 않은 키는 `UNKNOWN`.
+EVENT_PROCESS_ROLE: dict[EventKeyV2, str] = {
+    EventKeyV2.WEALTH_CHANGE: FACET_UNKNOWN,   # 수입·지출·정산·자산이동 미분화
+    EventKeyV2.WINDFALL: "unexpected_gain",
+    EventKeyV2.CAREER_CHANGE: "transition",
+    EventKeyV2.JOB_GAIN: "entry",
+    EventKeyV2.PROMOTION: "advancement",
+    EventKeyV2.BUSINESS_START: "initiation",
+    EventKeyV2.BUSINESS_EXPANSION: "expansion",
+    EventKeyV2.CONTRACT_DOCUMENT: "agreement",
+    EventKeyV2.PREPARATION_DELAY: "delay",
+    EventKeyV2.LEGAL_CONFLICT: "conflict",
+    EventKeyV2.SOCIAL_CONFLICT: "conflict",
+    EventKeyV2.CREATIVE_OUTPUT: "production",
+    EventKeyV2.PUBLIC_EXPOSURE: "exposure",
+    EventKeyV2.NEW_RELATIONSHIP: "initiation",
+    EventKeyV2.RELATIONSHIP_CHANGE: "transition",
+    EventKeyV2.MARRIAGE_SIGNAL: FACET_UNKNOWN,  # 공식화 단계 확정 매핑 부재
+    EventKeyV2.RELOCATION: "movement",
+}
+
+#: 로드맵 단계. 기존 SSOT 가 부여한 값만 담는다 — 현재 확정 매핑이 없어 비어 있다.
+#: 비워 두는 것이 계약이다. 세 관계 키를 6단계에 강제 배분하지 않는다.
+EVENT_STAGE_TAGS: dict[EventKeyV2, tuple[str, ...]] = {}
+
+
+#: 문자열 키 조회용 미러(EventKeyV2 는 StrEnum 이지만 타입 검사를 위해 분리).
+_FAMILY_BY_STR: dict[str, str] = {str(k): v for k, v in EVENT_FAMILY.items()}
+_ROLE_BY_STR: dict[str, str] = {str(k): v for k, v in EVENT_PROCESS_ROLE.items()}
+_STAGE_BY_STR: dict[str, tuple[str, ...]] = {
+    str(k): v for k, v in EVENT_STAGE_TAGS.items()
+}
+
+
+def event_facets(event_key: str) -> dict[str, object]:
+    """사건 1건의 채널 중립 facet. 모르는 축은 `UNKNOWN`/빈 튜플로 낸다.
+
+    Args:
+        event_key: canonical event key 문자열.
+
+    Returns:
+        `event_family` · `process_role` · `stage_tags` · `subtype`.
+        미등록 키는 family 까지 UNKNOWN 이므로 세부 라우팅에서 제외된다.
+    """
+    return {
+        "event_family": _FAMILY_BY_STR.get(event_key, FACET_UNKNOWN),
+        "process_role": _ROLE_BY_STR.get(event_key, FACET_UNKNOWN),
+        "stage_tags": _STAGE_BY_STR.get(event_key, ()),
+        # 세부 유형은 이번 배포에서 만들지 않는다(사전 분화는 별건).
+        "subtype": FACET_UNKNOWN,
+    }
+
+
 # ── 구 EventKey(25종) → 신 EventKeyV2(21종) 매핑 (2026-06-13 사용자 확정) ──
 # 저장된 검증/대화 데이터의 구키를 신키로 옮길 때 사용한다(손실성 매핑은 quality로 의미 보존).
 LEGACY_EVENT_KEY_MAP: dict[str, EventKeyV2] = {
