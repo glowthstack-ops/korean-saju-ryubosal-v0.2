@@ -1,0 +1,84 @@
+{
+  "audit_id": "OA-11f-Q",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "selector": "UNCHANGED_FROM_OA11F_B (B1)",
+  "denominator_scope": "full_917_day_canonical_replay",
+  "selector_order_sensitivity": "NOT_OBSERVED_IN_70_MULTI_CANDIDATE_SAMPLE",
+  "intervention": {
+    "total_rows": 55020,
+    "deficit_and_clean_rows": 11398,
+    "candidate_available_rows": 503,
+    "intervention_rows": 503,
+    "intervention_rate_all_pct": 0.914,
+    "candidate_available_rate_pct": 4.41,
+    "intervention_rate_when_available_pct": 100.0,
+    "invariant_available_equals_intervention": true
+  },
+  "original_candidate_rank": {
+    "rank_2": 152,
+    "rank_3": 109,
+    "rank_4": 84,
+    "rank_5": 62,
+    "rank_gt_5": 96
+  },
+  "safe_frontier_rank": {
+    "rank_1": 503
+  },
+  "display_displacement_loss": {
+    "n": 503,
+    "p50": 5,
+    "p75": 6,
+    "p90": 7,
+    "p95": 7,
+    "p99": 7,
+    "max": 7,
+    "mean": 4.332,
+    "budget": 7,
+    "at_budget": 90,
+    "near_budget": 88,
+    "loss_budget_violation": 0,
+    "representation": "integer probability points (정수 — tolerance 불필요)"
+  },
+  "safety_violations": {
+    "s5_protection": 0,
+    "two_band_drop": 0,
+    "loss_budget": 0,
+    "key_guard": 0
+  },
+  "scope_leakage": {
+    "total": 0,
+    "note": "한 행이 여러 조건에 해당할 수 있어 개별 수의 합을 전체 행 수로 표현하지 않는다. 최초 분기 이전 구간에서만 판정한다."
+  },
+  "gain_offsets": {
+    "GAIN_SURVIVED_SAME_DAY_BOARD": 498,
+    "GAIN_ERASED_BY_BOARD": 5,
+    "UNRESOLVED_DOWNSTREAM_OFFSET": "eviction·downstream 상쇄는 억지로 분리하지 않는다 — 순효과는 730-anchor 집계에서 본다"
+  },
+  "selector_variant": "FIRST_SAFE_POSITIVE_MARGINAL_CANDIDATE_R7 (loss <= 7)",
+  "verdict": {
+    "measurement_status": "VALID_COMPLETED",
+    "SAFETY": "PASS",
+    "SCOPE_CONTROL": "PASS",
+    "BOARD_STABILITY": "PASS",
+    "COMMERCIAL_QUALITY": "PASS_WITH_RESERVATION",
+    "QUALITY_RESERVATION": "LOSS_BUDGET_HEADROOM_NONE",
+    "note": "폐기하지 않는다 — 후보 풀이 온라인으로 게이트를 닫을 수 있다는 용량 증거다. 다만 상용 shadow 정책 자격을 얻은 것은 아니다."
+  },
+  "loss_policy_decision": {
+    "global_loss_budget": 7,
+    "marginal_diversity_loss_limit": 6,
+    "rationale": "이 정책은 강한 사건 구제나 위험 차단이 아니라 반복 완화용 **보조** 정책이다. 보조 정책이 전역 손실 예산을 전부 쓰게 두지 않는다. 집계 상한(at_budget <= 10%)은 온라인 선택 시점에 적용할 수 없고 기간에 따라 달라지므로, 각 행에서 판정 가능한 로컬 계약(loss <= 6)을 쓴다."
+  },
+  "rank_policy_decision": {
+    "role": "QUALITY_DIAGNOSTIC",
+    "hard_eligibility_gate": false,
+    "rationale": "rank 는 상대 순서일 뿐 점수 차이를 표현하지 않는다 — rank 7·loss 2 가 rank 3·loss 6 보다 안전할 수 있다. rank_1 부재는 원시 선택이 기준선이라 계약상 정상이다.",
+    "combined_indicators_to_track": [
+      "rank > 5 AND loss >= 6",
+      "rank > 5 AND s5 candidate",
+      "rank > 5 AND board-erased"
+    ],
+    "collected_in_r7": false
+  }
+}
