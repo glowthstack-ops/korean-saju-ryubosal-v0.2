@@ -1,0 +1,1863 @@
+{
+  "audit_id": "OA-11g",
+  "policy_id": "oa11g-d1-raw-winner-streak-preservation-shadow.v1",
+  "policy_status": "shadow_measurement_only",
+  "live_behavior_changed": false,
+  "production_policy": "C10_UNCHANGED",
+  "base_selector": "FIRST_SAFE_POSITIVE_MARGINAL_CANDIDATE_R6",
+  "r7_role": "COMPARISON_ONLY_NOT_A_POLICY_BASE",
+  "r6_r7_status": "INERT_REJECTED",
+  "lookahead_contract": {
+    "policy_id": "oa11g-d1-raw-winner-streak-preservation-shadow.v1",
+    "base_selector": "FIRST_SAFE_POSITIVE_MARGINAL_CANDIDATE_R6",
+    "effective_display_loss_limit": 6,
+    "global_hard_loss_budget": 7,
+    "lookahead_source": "RAW_SCORER_ONLY",
+    "lookahead_horizon_days": 1,
+    "compares": "event_key",
+    "runtime_behavior": "READ_ONLY_LOOKUP",
+    "unavailable_action": "FAIL_CLOSED_TO_C10",
+    "reads_history": false,
+    "reads_c10_representative": false,
+    "reads_repeat_severity": false,
+    "reads_deficit_state": false,
+    "reads_marginal_selector": false,
+    "reads_board": false,
+    "reads_realized_headline": false
+  },
+  "oracle": {
+    "config": {
+      "raw_scorer_contract_version": "daily-raw-good-winner.v1",
+      "tie_break_contract_version": "desc-probability-then-event-key.v1",
+      "event_catalog_fingerprint": "56078698a606442fc3339d9b4abc587546467a8ec9216748f52720b13f17df07",
+      "selection_salt_fingerprint": "7193073896cf400698801ff88a6aa7ecaa0ff7fa2f450871eb2e94cdd9ea8498",
+      "raw_winner_oracle_config_fp": "ecce4694c03b4b1cb6de5d3d501c6c0bc0a44ca670438373e67b27f63d1ec4f0"
+    },
+    "generation_range": "2025-04-07 ~ 2027-10-10",
+    "cardinality": {
+      "expected_dates": 917,
+      "expected_iljus_per_date": 60,
+      "expected_keys": 55020,
+      "actual_unique_keys": 55020,
+      "duplicate_key_overwrites": 0,
+      "missing_keys": 0,
+      "extra_keys": 0,
+      "actual_dates": 917,
+      "dates_without_exactly_60_keys": {},
+      "extra_dates": [],
+      "first_date": "2025-04-07",
+      "last_date": "2027-10-10",
+      "complete": true
+    },
+    "physical_execution_unit": "PER_DATE_ILJU",
+    "physical_scorer_invocations": 55020,
+    "scored_date_ilju_pairs": 55020,
+    "content_fingerprint": "da4034f2016276923d726f4bb1e363a43fa6a279b01ae389db3ac892abda3a0a",
+    "build_seconds": 3886.803,
+    "runtime_behavior": "READ_ONLY_LOOKUP",
+    "purity": {
+      "size_before": 55020,
+      "size_after": 55020,
+      "size_unchanged": true,
+      "content_fp_unchanged": true,
+      "content_fp_matches_build": true,
+      "rng_state_unchanged": true,
+      "repeated_lookup_value_equal": true,
+      "repeated_lookup_no_table_growth": true,
+      "probe_key": [
+        "2025-04-07",
+        "甲子"
+      ],
+      "scorer_reexecution_during_replay": 0,
+      "holds": true
+    },
+    "inline_sample_parity": {
+      "scope": "FIXED_SAMPLE_NOT_EXHAUSTIVE",
+      "release_blocker": false,
+      "sealed_by": [
+        "oracle calls the same raw scorer directly",
+        "raw_winner_oracle_config_fp",
+        "2026-03-14 causal fixture",
+        "these fixed samples"
+      ],
+      "checked": 6,
+      "disagreements": 0,
+      "rows": [
+        {
+          "date": "2026-03-14",
+          "ilju": "丙辰",
+          "inline": "good_news_arrives",
+          "oracle": "good_news_arrives",
+          "agrees": true
+        },
+        {
+          "date": "2026-03-15",
+          "ilju": "丙辰",
+          "inline": "good_news_arrives",
+          "oracle": "good_news_arrives",
+          "agrees": true
+        },
+        {
+          "date": "2025-04-07",
+          "ilju": "甲子",
+          "inline": "idea_flash",
+          "oracle": "idea_flash",
+          "agrees": true
+        },
+        {
+          "date": "2027-10-10",
+          "ilju": "癸亥",
+          "inline": "document_progress",
+          "oracle": "document_progress",
+          "agrees": true
+        },
+        {
+          "date": "2026-02-12",
+          "ilju": "丙辰",
+          "inline": "old_contact",
+          "oracle": "old_contact",
+          "agrees": true
+        },
+        {
+          "date": "2027-03-03",
+          "ilju": "甲午",
+          "inline": "praise_recognition",
+          "oracle": "praise_recognition",
+          "agrees": true
+        }
+      ],
+      "verdict": "SAMPLE_PARITY_OK"
+    }
+  },
+  "boundary_contract": {
+    "evaluation_range": "2025-04-06 ~ 2027-10-09",
+    "oracle_touches_through": "2027-10-10",
+    "padding_excluded_from": [
+      "public_row",
+      "board",
+      "history_commit",
+      "anchor_aggregate",
+      "episode"
+    ],
+    "last_committed_day": "2027-10-09",
+    "days_committed": 917,
+    "padding_day_committed": false,
+    "rows_beyond_evaluation_last": 0
+  },
+  "purity": {
+    "S0": {
+      "ledger": {
+        "not_eligible_rows": 0,
+        "guard_eligible_rows": 0,
+        "logical_lookahead_queries": 0,
+        "oracle_cache_hits": 0,
+        "unique_oracle_keys": 0,
+        "recursive_lookahead_calls": 0,
+        "reasons": {},
+        "logical_query_count": 0,
+        "unique_logical_query_keys": 0,
+        "repeated_logical_queries": 0,
+        "eligible_partition_sum": 0,
+        "eligible_partition_holds": true,
+        "not_eligible_consumed_zero_lookups": true,
+        "lookup_latency_us_p50": null,
+        "lookup_latency_us_p95": null,
+        "one_logical_query_per_eligible_row": true
+      },
+      "recursive_lookahead_calls": 0,
+      "one_logical_query_per_eligible_row": true
+    },
+    "R6": {
+      "ledger": {
+        "not_eligible_rows": 0,
+        "guard_eligible_rows": 0,
+        "logical_lookahead_queries": 0,
+        "oracle_cache_hits": 0,
+        "unique_oracle_keys": 0,
+        "recursive_lookahead_calls": 0,
+        "reasons": {},
+        "logical_query_count": 0,
+        "unique_logical_query_keys": 0,
+        "repeated_logical_queries": 0,
+        "eligible_partition_sum": 0,
+        "eligible_partition_holds": true,
+        "not_eligible_consumed_zero_lookups": true,
+        "lookup_latency_us_p50": null,
+        "lookup_latency_us_p95": null,
+        "one_logical_query_per_eligible_row": true
+      },
+      "recursive_lookahead_calls": 0,
+      "one_logical_query_per_eligible_row": true
+    },
+    "R6G": {
+      "ledger": {
+        "not_eligible_rows": 0,
+        "guard_eligible_rows": 439,
+        "logical_lookahead_queries": 439,
+        "oracle_cache_hits": 439,
+        "unique_oracle_keys": 439,
+        "recursive_lookahead_calls": 0,
+        "reasons": {
+          "D1_RAW_WINNER_DIFFERENT": 364,
+          "D1_RAW_WINNER_STREAK_PRESERVED": 75
+        },
+        "logical_query_count": 439,
+        "unique_logical_query_keys": 439,
+        "repeated_logical_queries": 0,
+        "eligible_partition_sum": 439,
+        "eligible_partition_holds": true,
+        "not_eligible_consumed_zero_lookups": true,
+        "lookup_latency_us_p50": 11.833,
+        "lookup_latency_us_p95": 14.861,
+        "one_logical_query_per_eligible_row": true
+      },
+      "recursive_lookahead_calls": 0,
+      "one_logical_query_per_eligible_row": true
+    }
+  },
+  "cost": {
+    "logical_query_count": 439,
+    "unique_logical_query_keys": 439,
+    "repeated_logical_queries": 0,
+    "oracle_cache_hits": 439,
+    "physical_scorer_invocations": 55020,
+    "scored_date_ilju_pairs": 55020,
+    "extra_candidates_scored": 2695980,
+    "candidate_accounting": {
+      "catalog_size": 49,
+      "min_candidates_per_pair": 49,
+      "max_candidates_per_pair": 49,
+      "mean_candidates_per_pair": 49.0,
+      "candidate_count_total": 2695980,
+      "candidate_count_is_constant": true,
+      "matches_pairs_times_catalog": true
+    },
+    "unused_oracle_keys": 54581,
+    "oracle_storage_fill_ratio": 1.0,
+    "oracle_query_overbuild_ratio": 125.33,
+    "oracle_build_cost_seconds": 3886.803,
+    "runtime_lookup_latency_us_p50": 11.833,
+    "runtime_lookup_latency_us_p95": 14.861,
+    "replay_seconds": {
+      "S0": 121.455,
+      "R6": 124.887,
+      "R6G": 125.133
+    },
+    "replay_wall_time_multiplier_vs_r6": 1.002,
+    "note": "전 구간 사전 생성이므로 물리 실행이 논리 조회보다 훨씬 많다 — overbuild 비율을 함께 남긴다. 상용화 판단에는 oracle_build_cost 와 runtime_lookup_cost 를 합친 요청당 모델이 필요하다."
+  },
+  "blocked_cost": {
+    "blocked_local_gain_count": 20,
+    "blocked_interventions": 75,
+    "blocked_coverage_only_gain": 55,
+    "per_anchor_family_qualifying_delta_vs_r6": {
+      "2026-04-02": 1,
+      "2027-03-03": 0,
+      "2027-06-01": -1,
+      "2027-08-05": 0,
+      "2027-10-09": 0
+    },
+    "gross_anchor_gain_lost": 1,
+    "downstream_gain_recovered": 1,
+    "net_anchor_effect": 0,
+    "note": "차단 후보의 로컬 delta 를 합산하지 않는다 — 순차 history 가 바뀌므로 R6 와 OA-11g 두 replay 의 anchor 결과 차이로만 판정한다."
+  },
+  "causal_fixture": {
+    "target_ilju": "丙辰",
+    "block_date": "2026-03-14",
+    "effect_date": "2026-03-15",
+    "anchor": "2026-04-02",
+    "guard_row": {
+      "date": "2026-03-14",
+      "ilju": "丙辰",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "good_news_arrives",
+      "d1_raw_winner": "good_news_arrives",
+      "c10_fallback": "good_news_arrives",
+      "blocked_event": "old_contact",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    "trace": {
+      "S0": {
+        "2026-03-14": {
+          "raw_good_winner": "good_news_arrives",
+          "repeat_severity_of_raw_top": 0,
+          "family_deficit_active": true,
+          "marginal_candidate_exists": false,
+          "c10_consulted": true,
+          "c10_representative": "good_news_arrives",
+          "c10_kept_raw_top": true,
+          "selector_intervened": false,
+          "guard_reason": null,
+          "intended_committed": "good_news_arrives",
+          "board_realized": "good_news_arrives",
+          "history_committed": "good_news_arrives",
+          "history_committed_family": "awaited_news"
+        },
+        "2026-03-15": {
+          "raw_good_winner": "good_news_arrives",
+          "repeat_severity_of_raw_top": 3,
+          "family_deficit_active": true,
+          "marginal_candidate_exists": false,
+          "c10_consulted": true,
+          "c10_representative": "love_deepening",
+          "c10_kept_raw_top": false,
+          "selector_intervened": false,
+          "guard_reason": null,
+          "intended_committed": "love_deepening",
+          "board_realized": "love_deepening",
+          "history_committed": "love_deepening",
+          "history_committed_family": "deepening"
+        }
+      },
+      "R6": {
+        "2026-03-14": {
+          "raw_good_winner": "good_news_arrives",
+          "repeat_severity_of_raw_top": 0,
+          "family_deficit_active": true,
+          "marginal_candidate_exists": true,
+          "c10_consulted": true,
+          "c10_representative": "good_news_arrives",
+          "c10_kept_raw_top": true,
+          "selector_intervened": true,
+          "guard_reason": null,
+          "intended_committed": "old_contact",
+          "board_realized": "old_contact",
+          "history_committed": "old_contact",
+          "history_committed_family": "renewed_contact"
+        },
+        "2026-03-15": {
+          "raw_good_winner": "good_news_arrives",
+          "repeat_severity_of_raw_top": 0,
+          "family_deficit_active": true,
+          "marginal_candidate_exists": true,
+          "c10_consulted": true,
+          "c10_representative": "good_news_arrives",
+          "c10_kept_raw_top": true,
+          "selector_intervened": false,
+          "guard_reason": null,
+          "intended_committed": "good_news_arrives",
+          "board_realized": "good_news_arrives",
+          "history_committed": "good_news_arrives",
+          "history_committed_family": "awaited_news"
+        }
+      },
+      "R6G": {
+        "2026-03-14": {
+          "raw_good_winner": "good_news_arrives",
+          "repeat_severity_of_raw_top": 0,
+          "family_deficit_active": true,
+          "marginal_candidate_exists": true,
+          "c10_consulted": true,
+          "c10_representative": "good_news_arrives",
+          "c10_kept_raw_top": true,
+          "selector_intervened": false,
+          "guard_reason": "D1_RAW_WINNER_STREAK_PRESERVED",
+          "intended_committed": "good_news_arrives",
+          "board_realized": "good_news_arrives",
+          "history_committed": "good_news_arrives",
+          "history_committed_family": "awaited_news"
+        },
+        "2026-03-15": {
+          "raw_good_winner": "good_news_arrives",
+          "repeat_severity_of_raw_top": 3,
+          "family_deficit_active": true,
+          "marginal_candidate_exists": false,
+          "c10_consulted": true,
+          "c10_representative": "love_deepening",
+          "c10_kept_raw_top": false,
+          "selector_intervened": false,
+          "guard_reason": null,
+          "intended_committed": "love_deepening",
+          "board_realized": "love_deepening",
+          "history_committed": "love_deepening",
+          "history_committed_family": "deepening"
+        }
+      }
+    },
+    "steps": {
+      "0314_r6_would_intervene": true,
+      "0314_d_raw_winner_is_good_news": true,
+      "0314_guard_consulted": true,
+      "0314_guard_triggered": true,
+      "0314_d1_matches_d": true,
+      "0314_intervention_blocked": true,
+      "0314_history_committed_raw_winner": true,
+      "0315_severity_consecutive": true,
+      "0315_c10_avoidance_fired": true,
+      "0315_representative_matches_s0": true,
+      "0315_board_realized_matches_s0": true,
+      "0315_history_committed_matches_s0": true,
+      "anchor_family_not_below": true,
+      "anchor_key_not_below": true
+    },
+    "chain_fully_restored": true,
+    "failed_steps": [],
+    "counter_fixture_d1_different": {
+      "observed_rows": 364,
+      "sample": [
+        "2025-04-08|甲申",
+        "2025-04-08|癸丑",
+        "2025-04-08|甲寅",
+        "2025-04-10|乙卯",
+        "2025-04-11|甲子"
+      ],
+      "none_of_them_blocked": true,
+      "intervention_survived": true
+    }
+  },
+  "baseline_drift_check": {
+    "artifact_present": true,
+    "compared_pairs": [
+      "S0==S0",
+      "R6==B1"
+    ],
+    "mismatch_count": 0,
+    "mismatches": [],
+    "verdict": "NO_DRIFT"
+  },
+  "stats": {
+    "S0": {
+      "primary_scoring_calls": 55020,
+      "domain_cap_hard_violation": 0,
+      "domain_cap_authorized_override": 5,
+      "domain_overflow": 5,
+      "event_overflow": 255
+    },
+    "R6": {
+      "primary_scoring_calls": 55020,
+      "rows_with_options": 422,
+      "domain_cap_hard_violation": 0,
+      "domain_cap_authorized_override": 4,
+      "domain_overflow": 4,
+      "event_overflow": 276,
+      "selected": 422,
+      "immediate_threshold_gain": 104
+    },
+    "R6G": {
+      "primary_scoring_calls": 55020,
+      "rows_with_options": 439,
+      "domain_cap_hard_violation": 0,
+      "domain_cap_authorized_override": 4,
+      "domain_overflow": 4,
+      "event_overflow": 276,
+      "selected": 364,
+      "immediate_threshold_gain": 92,
+      "blocked_by_streak_preservation": 75,
+      "blocked_interventions": 75,
+      "blocked_immediate_gain": 20,
+      "blocked_coverage_only_gain": 55
+    }
+  },
+  "anchors": {
+    "S0": {
+      "2026-04-02": {
+        "family_p10": 15,
+        "family_qualifying": 59,
+        "key_p10": 15,
+        "key_below_15": 1,
+        "domain_p10": 7,
+        "family_below_iljus": [
+          "壬戌"
+        ],
+        "key_below_iljus": [
+          "壬戌"
+        ]
+      },
+      "2027-03-03": {
+        "family_p10": 14,
+        "family_qualifying": 54,
+        "key_p10": 15,
+        "key_below_15": 5,
+        "domain_p10": 6,
+        "family_below_iljus": [
+          "丙子",
+          "庚辰",
+          "戊辰",
+          "甲辰",
+          "癸亥",
+          "辛酉"
+        ],
+        "key_below_iljus": [
+          "庚辰",
+          "戊辰",
+          "甲辰",
+          "癸亥",
+          "辛酉"
+        ]
+      },
+      "2027-06-01": {
+        "family_p10": 14,
+        "family_qualifying": 54,
+        "key_p10": 14,
+        "key_below_15": 6,
+        "domain_p10": 7,
+        "family_below_iljus": [
+          "乙亥",
+          "乙酉",
+          "庚午",
+          "戊子",
+          "戊辰",
+          "辛巳"
+        ],
+        "key_below_iljus": [
+          "乙亥",
+          "乙酉",
+          "庚午",
+          "戊子",
+          "戊辰",
+          "辛巳"
+        ]
+      },
+      "2027-08-05": {
+        "family_p10": 14,
+        "family_qualifying": 52,
+        "key_p10": 14,
+        "key_below_15": 8,
+        "domain_p10": 6,
+        "family_below_iljus": [
+          "乙亥",
+          "乙酉",
+          "庚戌",
+          "戊辰",
+          "甲申",
+          "癸酉",
+          "辛亥",
+          "辛巳"
+        ],
+        "key_below_iljus": [
+          "乙亥",
+          "乙酉",
+          "庚戌",
+          "戊辰",
+          "甲申",
+          "癸酉",
+          "辛亥",
+          "辛巳"
+        ]
+      },
+      "2027-10-09": {
+        "family_p10": 14,
+        "family_qualifying": 54,
+        "key_p10": 15,
+        "key_below_15": 5,
+        "domain_p10": 6,
+        "family_below_iljus": [
+          "乙亥",
+          "壬子",
+          "庚戌",
+          "庚辰",
+          "戊午",
+          "戊寅"
+        ],
+        "key_below_iljus": [
+          "乙亥",
+          "壬子",
+          "庚戌",
+          "庚辰",
+          "戊寅"
+        ]
+      }
+    },
+    "R6": {
+      "2026-04-02": {
+        "family_p10": 16,
+        "family_qualifying": 58,
+        "key_p10": 16,
+        "key_below_15": 2,
+        "domain_p10": 7,
+        "family_below_iljus": [
+          "丙辰",
+          "壬戌"
+        ],
+        "key_below_iljus": [
+          "丙辰",
+          "壬戌"
+        ]
+      },
+      "2027-03-03": {
+        "family_p10": 15,
+        "family_qualifying": 56,
+        "key_p10": 15,
+        "key_below_15": 3,
+        "domain_p10": 6,
+        "family_below_iljus": [
+          "丙子",
+          "庚辰",
+          "戊辰",
+          "癸亥"
+        ],
+        "key_below_iljus": [
+          "庚辰",
+          "戊辰",
+          "癸亥"
+        ]
+      },
+      "2027-06-01": {
+        "family_p10": 15,
+        "family_qualifying": 57,
+        "key_p10": 15,
+        "key_below_15": 3,
+        "domain_p10": 7,
+        "family_below_iljus": [
+          "乙亥",
+          "戊辰",
+          "辛巳"
+        ],
+        "key_below_iljus": [
+          "乙亥",
+          "戊辰",
+          "辛巳"
+        ]
+      },
+      "2027-08-05": {
+        "family_p10": 15,
+        "family_qualifying": 55,
+        "key_p10": 15,
+        "key_below_15": 4,
+        "domain_p10": 6,
+        "family_below_iljus": [
+          "乙亥",
+          "乙酉",
+          "庚戌",
+          "戊辰",
+          "甲申"
+        ],
+        "key_below_iljus": [
+          "乙亥",
+          "庚戌",
+          "戊辰",
+          "甲申"
+        ]
+      },
+      "2027-10-09": {
+        "family_p10": 15,
+        "family_qualifying": 56,
+        "key_p10": 15,
+        "key_below_15": 3,
+        "domain_p10": 6,
+        "family_below_iljus": [
+          "乙亥",
+          "壬子",
+          "庚戌",
+          "戊午"
+        ],
+        "key_below_iljus": [
+          "乙亥",
+          "壬子",
+          "庚戌"
+        ]
+      }
+    },
+    "R6G": {
+      "2026-04-02": {
+        "family_p10": 16,
+        "family_qualifying": 59,
+        "key_p10": 16,
+        "key_below_15": 1,
+        "domain_p10": 7,
+        "family_below_iljus": [
+          "壬戌"
+        ],
+        "key_below_iljus": [
+          "壬戌"
+        ]
+      },
+      "2027-03-03": {
+        "family_p10": 15,
+        "family_qualifying": 56,
+        "key_p10": 15,
+        "key_below_15": 3,
+        "domain_p10": 6,
+        "family_below_iljus": [
+          "丙子",
+          "庚辰",
+          "戊辰",
+          "癸亥"
+        ],
+        "key_below_iljus": [
+          "庚辰",
+          "戊辰",
+          "癸亥"
+        ]
+      },
+      "2027-06-01": {
+        "family_p10": 15,
+        "family_qualifying": 56,
+        "key_p10": 15,
+        "key_below_15": 4,
+        "domain_p10": 7,
+        "family_below_iljus": [
+          "乙亥",
+          "乙酉",
+          "戊辰",
+          "辛巳"
+        ],
+        "key_below_iljus": [
+          "乙亥",
+          "乙酉",
+          "戊辰",
+          "辛巳"
+        ]
+      },
+      "2027-08-05": {
+        "family_p10": 15,
+        "family_qualifying": 55,
+        "key_p10": 15,
+        "key_below_15": 4,
+        "domain_p10": 6,
+        "family_below_iljus": [
+          "乙亥",
+          "乙酉",
+          "庚戌",
+          "戊辰",
+          "甲申"
+        ],
+        "key_below_iljus": [
+          "乙亥",
+          "庚戌",
+          "戊辰",
+          "甲申"
+        ]
+      },
+      "2027-10-09": {
+        "family_p10": 15,
+        "family_qualifying": 56,
+        "key_p10": 15,
+        "key_below_15": 3,
+        "domain_p10": 6,
+        "family_below_iljus": [
+          "乙亥",
+          "壬子",
+          "庚戌",
+          "戊午"
+        ],
+        "key_below_iljus": [
+          "乙亥",
+          "壬子",
+          "庚戌"
+        ]
+      }
+    }
+  },
+  "verdict": {
+    "R6": {
+      "family_gate_pass_anchors": 5,
+      "family_qualifying_regression_anchors": [
+        "2026-04-02"
+      ],
+      "key_below_increase_anchors": [
+        "2026-04-02"
+      ],
+      "domain_regression_anchors": [],
+      "family_downcross_count": 1,
+      "key_downcross_count": 1,
+      "crossings": {
+        "2026-04-02": {
+          "family_downcross": [
+            "丙辰"
+          ],
+          "key_downcross": [
+            "丙辰"
+          ],
+          "family_upcross": []
+        },
+        "2027-03-03": {
+          "family_downcross": [],
+          "key_downcross": [],
+          "family_upcross": [
+            "甲辰",
+            "辛酉"
+          ]
+        },
+        "2027-06-01": {
+          "family_downcross": [],
+          "key_downcross": [],
+          "family_upcross": [
+            "乙酉",
+            "庚午",
+            "戊子"
+          ]
+        },
+        "2027-08-05": {
+          "family_downcross": [],
+          "key_downcross": [],
+          "family_upcross": [
+            "癸酉",
+            "辛亥",
+            "辛巳"
+          ]
+        },
+        "2027-10-09": {
+          "family_downcross": [],
+          "key_downcross": [],
+          "family_upcross": [
+            "庚辰",
+            "戊寅"
+          ]
+        }
+      },
+      "strong_signal_violation": 0,
+      "two_band_violation": 0,
+      "loss_violation": 0,
+      "cap_violation": 0,
+      "override_delta": -1,
+      "display_loss_max": 6,
+      "global_budget_loss_interventions": 0,
+      "lookahead_unavailable": 0,
+      "scope_leakage": 0,
+      "fully_nonregressive": false,
+      "criteria": {
+        "family_gate": true,
+        "family_qualifying_regression": false,
+        "key_below_increase": false,
+        "domain_regression": true,
+        "family_downcross": false,
+        "key_downcross": false,
+        "strong_signal": true,
+        "two_band": true,
+        "loss": true,
+        "cap_hard_violation": true,
+        "authorized_override_not_increased": true,
+        "scope_leakage": true,
+        "display_loss_max": true,
+        "global_budget_interventions": true,
+        "lookahead_available": true
+      },
+      "failed_criteria": [
+        "family_qualifying_regression",
+        "key_below_increase",
+        "family_downcross",
+        "key_downcross"
+      ],
+      "authorized_overrides": 4,
+      "s0_authorized_overrides": 5,
+      "new_override_introduced": false
+    },
+    "R6G": {
+      "family_gate_pass_anchors": 5,
+      "family_qualifying_regression_anchors": [],
+      "key_below_increase_anchors": [],
+      "domain_regression_anchors": [],
+      "family_downcross_count": 0,
+      "key_downcross_count": 0,
+      "crossings": {
+        "2026-04-02": {
+          "family_downcross": [],
+          "key_downcross": [],
+          "family_upcross": []
+        },
+        "2027-03-03": {
+          "family_downcross": [],
+          "key_downcross": [],
+          "family_upcross": [
+            "甲辰",
+            "辛酉"
+          ]
+        },
+        "2027-06-01": {
+          "family_downcross": [],
+          "key_downcross": [],
+          "family_upcross": [
+            "庚午",
+            "戊子"
+          ]
+        },
+        "2027-08-05": {
+          "family_downcross": [],
+          "key_downcross": [],
+          "family_upcross": [
+            "癸酉",
+            "辛亥",
+            "辛巳"
+          ]
+        },
+        "2027-10-09": {
+          "family_downcross": [],
+          "key_downcross": [],
+          "family_upcross": [
+            "庚辰",
+            "戊寅"
+          ]
+        }
+      },
+      "strong_signal_violation": 0,
+      "two_band_violation": 0,
+      "loss_violation": 0,
+      "cap_violation": 0,
+      "override_delta": -1,
+      "display_loss_max": 6,
+      "global_budget_loss_interventions": 0,
+      "lookahead_unavailable": 0,
+      "scope_leakage": 0,
+      "fully_nonregressive": true,
+      "criteria": {
+        "family_gate": true,
+        "family_qualifying_regression": true,
+        "key_below_increase": true,
+        "domain_regression": true,
+        "family_downcross": true,
+        "key_downcross": true,
+        "strong_signal": true,
+        "two_band": true,
+        "loss": true,
+        "cap_hard_violation": true,
+        "authorized_override_not_increased": true,
+        "scope_leakage": true,
+        "display_loss_max": true,
+        "global_budget_interventions": true,
+        "lookahead_available": true
+      },
+      "failed_criteria": [],
+      "authorized_overrides": 4,
+      "s0_authorized_overrides": 5,
+      "new_override_introduced": false
+    }
+  },
+  "conclusion": "ONLINE_CAUSAL_CLOSABILITY_PROVEN_ON_FIVE_ANCHORS",
+  "guard_rows": [
+    {
+      "date": "2025-04-15",
+      "ilju": "辛未",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 2
+    },
+    {
+      "date": "2025-04-15",
+      "ilju": "辛卯",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 2
+    },
+    {
+      "date": "2025-04-15",
+      "ilju": "辛丑",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 2
+    },
+    {
+      "date": "2025-04-15",
+      "ilju": "辛亥",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2025-04-15",
+      "ilju": "辛酉",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2025-04-17",
+      "ilju": "戊辰",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2025-04-17",
+      "ilju": "癸未",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2025-04-17",
+      "ilju": "癸亥",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2025-04-18",
+      "ilju": "己巳",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2025-04-18",
+      "ilju": "己未",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2025-04-20",
+      "ilju": "丁卯",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2025-04-21",
+      "ilju": "甲戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "praise_recognition",
+      "d1_raw_winner": "praise_recognition",
+      "c10_fallback": "praise_recognition",
+      "blocked_event": "love_reunion",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2025-04-21",
+      "ilju": "戊戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "idea_flash",
+      "d1_raw_winner": "idea_flash",
+      "c10_fallback": "idea_flash",
+      "blocked_event": "teamwork_flow",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2025-04-21",
+      "ilju": "辛酉",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "old_contact",
+      "d1_raw_winner": "old_contact",
+      "c10_fallback": "old_contact",
+      "blocked_event": "meet_helper",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 5
+    },
+    {
+      "date": "2025-04-24",
+      "ilju": "乙亥",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2025-04-24",
+      "ilju": "甲寅",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2025-04-27",
+      "ilju": "癸酉",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 2
+    },
+    {
+      "date": "2025-04-27",
+      "ilju": "癸未",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2025-04-27",
+      "ilju": "癸亥",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2025-04-29",
+      "ilju": "壬午",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "praise_recognition",
+      "d1_raw_winner": "praise_recognition",
+      "c10_fallback": "praise_recognition",
+      "blocked_event": "love_spark",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2025-04-29",
+      "ilju": "壬寅",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "praise_recognition",
+      "d1_raw_winner": "praise_recognition",
+      "c10_fallback": "praise_recognition",
+      "blocked_event": "love_spark",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2025-04-29",
+      "ilju": "庚申",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2025-04-30",
+      "ilju": "戊子",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "good_news_arrives",
+      "d1_raw_winner": "good_news_arrives",
+      "c10_fallback": "good_news_arrives",
+      "blocked_event": "old_contact",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2025-05-05",
+      "ilju": "辛未",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 2
+    },
+    {
+      "date": "2025-05-05",
+      "ilju": "癸巳",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "idea_flash",
+      "d1_raw_winner": "idea_flash",
+      "c10_fallback": "idea_flash",
+      "blocked_event": "praise_recognition",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2025-05-13",
+      "ilju": "戊午",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 5
+    },
+    {
+      "date": "2025-05-15",
+      "ilju": "己巳",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "love_spark",
+      "d1_raw_winner": "love_spark",
+      "c10_fallback": "love_spark",
+      "blocked_event": "love_deepening",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2025-05-19",
+      "ilju": "甲子",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2025-05-19",
+      "ilju": "甲申",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2025-05-19",
+      "ilju": "甲辰",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 5
+    },
+    {
+      "date": "2025-05-19",
+      "ilju": "甲寅",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 5
+    },
+    {
+      "date": "2025-06-02",
+      "ilju": "乙亥",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2025-06-02",
+      "ilju": "己亥",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2025-08-10",
+      "ilju": "庚辰",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "pleasant_meeting",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2025-08-10",
+      "ilju": "庚子",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "pleasant_meeting",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2025-08-11",
+      "ilju": "丙午",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "praise_recognition",
+      "d1_raw_winner": "praise_recognition",
+      "c10_fallback": "praise_recognition",
+      "blocked_event": "love_reunion",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2025-09-05",
+      "ilju": "甲子",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "love_spark",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2025-11-09",
+      "ilju": "戊辰",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2025-11-11",
+      "ilju": "丙子",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 2
+    },
+    {
+      "date": "2025-11-16",
+      "ilju": "戊子",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "good_news_arrives",
+      "d1_raw_winner": "good_news_arrives",
+      "c10_fallback": "good_news_arrives",
+      "blocked_event": "old_contact",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 0
+    },
+    {
+      "date": "2026-01-08",
+      "ilju": "戊午",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2026-01-20",
+      "ilju": "辛丑",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2026-02-09",
+      "ilju": "丙午",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2026-02-11",
+      "ilju": "戊辰",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2026-02-15",
+      "ilju": "甲申",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "praise_recognition",
+      "d1_raw_winner": "praise_recognition",
+      "c10_fallback": "praise_recognition",
+      "blocked_event": "love_reunion",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2026-02-15",
+      "ilju": "壬子",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2026-03-14",
+      "ilju": "丙辰",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "good_news_arrives",
+      "d1_raw_winner": "good_news_arrives",
+      "c10_fallback": "good_news_arrives",
+      "blocked_event": "old_contact",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2026-03-15",
+      "ilju": "癸酉",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "praise_recognition",
+      "d1_raw_winner": "praise_recognition",
+      "c10_fallback": "praise_recognition",
+      "blocked_event": "teamwork_flow",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2026-04-06",
+      "ilju": "戊戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "pleasant_meeting",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2026-04-06",
+      "ilju": "戊午",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "pleasant_meeting",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2026-04-06",
+      "ilju": "壬戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2026-04-12",
+      "ilju": "戊午",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2026-04-16",
+      "ilju": "甲戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "praise_recognition",
+      "d1_raw_winner": "praise_recognition",
+      "c10_fallback": "praise_recognition",
+      "blocked_event": "money_small_gain",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2026-04-19",
+      "ilju": "乙丑",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2026-05-03",
+      "ilju": "己亥",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2026-05-08",
+      "ilju": "戊午",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2026-06-03",
+      "ilju": "庚子",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "teamwork_flow",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2026-06-29",
+      "ilju": "乙巳",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "old_contact",
+      "d1_raw_winner": "old_contact",
+      "c10_fallback": "old_contact",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 5
+    },
+    {
+      "date": "2026-08-11",
+      "ilju": "己亥",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2026-08-18",
+      "ilju": "壬申",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "pleasant_meeting",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2026-09-27",
+      "ilju": "壬戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "idea_flash",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2026-12-17",
+      "ilju": "甲戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "good_news_arrives",
+      "d1_raw_winner": "good_news_arrives",
+      "c10_fallback": "good_news_arrives",
+      "blocked_event": "old_contact",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2027-01-27",
+      "ilju": "戊辰",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2027-02-12",
+      "ilju": "甲子",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2027-02-12",
+      "ilju": "甲戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2027-03-05",
+      "ilju": "乙未",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2027-03-10",
+      "ilju": "甲申",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 2
+    },
+    {
+      "date": "2027-04-05",
+      "ilju": "乙酉",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "old_contact",
+      "d1_raw_winner": "old_contact",
+      "c10_fallback": "old_contact",
+      "blocked_event": "good_news_arrives",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    },
+    {
+      "date": "2027-04-28",
+      "ilju": "甲子",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "money_good_deal",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 3
+    },
+    {
+      "date": "2027-06-12",
+      "ilju": "戊戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2027-06-12",
+      "ilju": "戊午",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 1,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 4
+    },
+    {
+      "date": "2027-06-14",
+      "ilju": "壬申",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "money_small_gain",
+      "d1_raw_winner": "money_small_gain",
+      "c10_fallback": "money_small_gain",
+      "blocked_event": "pleasant_meeting",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 5
+    },
+    {
+      "date": "2027-06-26",
+      "ilju": "戊戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 1
+    },
+    {
+      "date": "2027-07-04",
+      "ilju": "丙戌",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "meet_helper",
+      "d1_raw_winner": "meet_helper",
+      "c10_fallback": "meet_helper",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 2
+    },
+    {
+      "date": "2027-10-08",
+      "ilju": "辛巳",
+      "reason_code": "D1_RAW_WINNER_STREAK_PRESERVED",
+      "d_raw_winner": "old_contact",
+      "d1_raw_winner": "old_contact",
+      "c10_fallback": "old_contact",
+      "blocked_event": "treat_received",
+      "blocked_fam_qual": 0,
+      "blocked_fam_cov": 1,
+      "blocked_loss": 6
+    }
+  ],
+  "reason_code_totals": {
+    "D1_RAW_WINNER_DIFFERENT": 364,
+    "D1_RAW_WINNER_STREAK_PRESERVED": 75
+  },
+  "effect": {
+    "anchor_count": 5,
+    "s0_passing_anchors": 1,
+    "r6_passing_anchors": 5,
+    "r6g_passing_anchors": 5,
+    "net_passing_anchor_gain": 4
+  },
+  "erratum": {
+    "id": "OA11G-ERRATUM-1",
+    "previous_check": "override_delta == 0",
+    "defect": "감소까지 실패로 처리해 '추가 override 없음' 이라는 의도와 불일치",
+    "corrected_check": "override_delta <= 0",
+    "policy_behavior_changed": false,
+    "measurement_rows_changed": false,
+    "selection_changed": false,
+    "acceptance_semantics_corrected": true,
+    "rejudged_without_replay": true,
+    "observed": {
+      "s0_authorized_overrides": 5,
+      "r6g_authorized_overrides": 4,
+      "override_delta": -1,
+      "new_override_introduced": false,
+      "domain_cap_hard_violation": {
+        "S0": 0,
+        "R6": 0,
+        "R6G": 0
+      }
+    }
+  },
+  "previous_conclusion": "NONREGRESSION_INSUFFICIENT",
+  "status_flags": {
+    "OA11G_FIVE_ANCHOR_STATUS": "PASS_READY_FOR_730_ANCHOR_VALIDATION",
+    "PER_ILJU_NONREGRESSION": "PASS",
+    "ONLINE_CAUSAL_CLOSABILITY": "PROVEN_ON_FIVE_ANCHORS",
+    "production": "C10_UNCHANGED",
+    "current_oracle_implementation": "AUDIT_ONLY_NOT_PRODUCTION_READY"
+  }
+}
