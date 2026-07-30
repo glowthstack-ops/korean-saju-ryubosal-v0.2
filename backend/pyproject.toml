@@ -89,3 +89,25 @@ python_version = "3.12"
 warn_unused_ignores = true
 ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
+# 검사 범위 SSOT — production 패키지만이 blocking 게이트다. CI·문서는 경로를 다시
+# 나열하지 않고 scripts/typecheck.sh 를 호출한다(범위 변경은 여기 한 곳에서만).
+#
+# tests/ 와 scripts/ 는 blocking 대상이 아니다. 기존 부채가 있고(2026-07-30 기준
+# full-tree 312건 = tests 51 + scripts 261 + production 0), 그 정리는 별도 작업이다.
+# 진단은 `python -m mypy --no-incremental .` 로 따로 돌린다.
+mypy_path = [
+    "apps/api",
+    "packages/saju_engines",
+    "packages/shared_types",
+    "packages/manse_core",
+    "packages/manse_analysis",
+    "packages/manse_calibration",
+]
+packages = [
+    "saju_api",
+    "saju_engines",
+    "saju_shared_types",
+    "saju_manse_core",
+    "saju_manse_analysis",
+    "saju_manse_calibration",
+]

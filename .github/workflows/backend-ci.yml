@@ -29,7 +29,10 @@ jobs:
         run: python scripts/validate_dictionaries.py
       - name: Ruff
         run: ruff check .
-      - name: Mypy
-        run: mypy .
+      # Production 타입 게이트 — 범위는 backend/pyproject.toml 의 packages 가 SSOT.
+      # 여기서 패키지 경로를 다시 나열하지 않는다. `mypy .` 는 tests/scripts 의 기존
+      # 부채(2026-07-30 기준 312건) 때문에 blocking 게이트가 될 수 없다.
+      - name: Mypy (production gate)
+        run: ../scripts/typecheck.sh
       - name: Pytest (회귀 포함)
         run: pytest -q

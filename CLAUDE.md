@@ -59,7 +59,11 @@ LLM이 사주를 계산·추론하지 않는다. **만세력 엔진이 계산하
 - **frontend (TypeScript)**: strict mode 유지.
 - 사전 데이터는 UTF-8(BOM 없음) JSON. 사례 데이터는 JSONL.
 - 한자 간지(甲, 亥 등)는 데이터/키에 사용하고, 사용자 노출 문자열은 한글 병기.
-- **검증 게이트**: backend `pytest` + `ruff` + `mypy` clean / frontend `tsc` + production build 통과 후 완료 선언.
+- **검증 게이트**: backend `pytest` + `ruff` + **production mypy gate** / frontend `tsc` + production build 통과 후 완료 선언.
+  - production mypy gate = `./scripts/typecheck.sh` (검사 범위 SSOT는 `backend/pyproject.toml` 의 `[tool.mypy] packages` — CI·문서에 경로를 다시 나열하지 않는다)
+  - `mypy clean` 이라는 표현은 쓰지 않는다. 호출 파일 목록에 따라 결과가 달라져 통과하기 쉬운 명령을 고를 수 있기 때문이다(2026-07-30 실측: 같은 코드가 파일 1~2개 0건 / 3-root 7건 / production 9건 / full-tree 331건).
+  - 비차단 진단: `cd backend && python -m mypy --no-incremental .` — 2026-07-30 기준 312건(tests 51 · scripts 261 · production 0). 기존 부채이며 blocking 조건이 아니다. 이 숫자는 파일 정리·mypy 버전으로 변할 수 있어 게이트로 쓰지 않는다.
+  - 보고 표현은 `production mypy gate clean` 과 `full-tree mypy audit: N건` 두 가지만 쓴다.
 
 ## 7. 디렉토리 구조 (목표 — Python 번역)
 
