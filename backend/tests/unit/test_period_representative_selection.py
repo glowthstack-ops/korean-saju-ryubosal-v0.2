@@ -30,6 +30,27 @@ for _p in (
         sys.path.insert(0, str(_p))
 
 from saju_api.services import report_service as R  # noqa: E402
+from saju_shared_types.event_engine import EventKeyV2  # noqa: E402
+from saju_shared_types.events import (  # noqa: E402
+    Confidence,
+    EventCandidate,
+    EventPolarity,
+    EventType,
+)
+
+
+def _real(period: str, event_key: str, score: int, life_fit: float = 0.0
+          ) -> EventCandidate:
+    """실제 후보 DTO — `PeriodGroup`·`period_groups` 는 이 타입을 하류로 전달한다.
+
+    선별 헬퍼는 제네릭이라 스텁으로 시험할 수 있지만, 컨테이너는 실제 계약을 유지해야
+    하므로(하류 `luck_block` 이 전체 DTO 를 요구) 여기서는 진짜 DTO 를 쓴다.
+    """
+    return EventCandidate(
+        event_key=EventKeyV2(event_key), event_type=EventType.PROGRESS,
+        period=period, score=score, confidence=Confidence.MEDIUM,
+        polarity=EventPolarity.POSITIVE, life_fit=life_fit,
+    )
 
 
 @dataclass
@@ -119,7 +140,8 @@ def test_short_pool_is_not_padded_with_duplicate_periods() -> None:
 
 
 def test_empty_pool_yields_empty_result() -> None:
-    reps, groups = R._period_representatives([], 8, R._CANDIDATE_RANK_KEY)
+    empty: list[_Cand] = []          # 빈 리스트는 제네릭이 해소되지 않으므로 명시한다
+    reps, groups = R._period_representatives(empty, 8, R._CANDIDATE_RANK_KEY)
     assert reps == [] and groups == {}
 
 
@@ -155,14 +177,14 @@ def test_members_are_preserved_while_prompt_delivery_is_capped() -> None:
 def test_co_signal_lines_dedupe_by_event_key_and_respect_the_cap() -> None:
     """같은 event_key 중복 후보를 다시 나열하지 않고 상한을 지킨다."""
     data = R._ReportData.__new__(R._ReportData)   # 엔진 실행 없이 렌더링만 시험
-    rep = _Cand("2027-02", "rep", 99)
+    rep = _real("2027-02", "career_change", 99)
     data.period_groups = {
         "2027-02": [
             rep,
-            _Cand("2027-02", "dup", 90),
-            _Cand("2027-02", "dup", 89),      # 같은 키 — 한 번만
-            _Cand("2027-02", "other", 88),
-            _Cand("2027-02", "third", 87),    # 상한 초과 — 전달 제외
+            _real("2027-02", "promotion", 90),
+            _real("2027-02", "promotion", 89),     # 같은 키 — 한 번만
+            _real("2027-02", "job_gain", 88),
+            _real("2027-02", "contract_document", 87),  # 상한 초과 — 전달 제외
         ]
     }
     data._domain_period_groups = {}
@@ -170,9 +192,9 @@ def test_co_signal_lines_dedupe_by_event_key_and_respect_the_cap() -> None:
     assert len(lines) == 1
     assert lines[0].startswith("2027-02: ")
     names = lines[0].split(": ", 1)[1].split(", ")
-    assert names == ["dup", "other"]
-    assert "third" not in names
-    assert "rep" not in names
+    assert names == ["promotion", "job_gain"]
+    assert "contract_document" not in names
+    assert "career_change" not in names
 
 
 # ── 다중 view 병합 후 companion 재압축 ───────────────────────────────────
@@ -192,13 +214,13 @@ def _view(view_id: str, groups) -> R.PeriodView:
 
 def test_multi_view_merge_recompresses_companions() -> None:
     """병합 전 4건·대표 중복 1·키 중복 1쌍 → 표시 2건, 감사에는 전부 보존."""
-    rep_a = _Cand("2027-02", "career_change", 90, life_fit=9.0)
-    rep_b = _Cand("2027-02", "contract_document", 80, life_fit=8.0)
+    rep_a = _real("2027-02", "career_change", 90, life_fit=9.0)
+    rep_b = _real("2027-02", "contract_document", 80, life_fit=8.0)
     # companion 4건: 대표와 같은 키 1건 + 서로 같은 키 1쌍 + 고유 2건
-    dup_of_rep = _Cand("2027-02", "career_change", 70, life_fit=7.0)
-    pair_1 = _Cand("2027-02", "promotion", 69, life_fit=6.9)
-    pair_2 = _Cand("2027-02", "promotion", 68, life_fit=6.8)
-    unique = _Cand("2027-02", "job_gain", 60, life_fit=6.0)
+    dup_of_rep = _real("2027-02", "career_change", 70, life_fit=7.0)
+    pair_1 = _real("2027-02", "promotion", 69, life_fit=6.9)
+    pair_2 = _real("2027-02", "promotion", 68, life_fit=6.8)
+    unique = _real("2027-02", "job_gain", 60, life_fit=6.0)
     ga = R.PeriodGroup("2027-02", rep_a, (rep_a, dup_of_rep, pair_1),
                        (dup_of_rep, pair_1))
     gb = R.PeriodGroup("2027-02", rep_b, (rep_b, pair_2, unique),
@@ -223,8 +245,8 @@ def test_multi_view_merge_recompresses_companions() -> None:
 
 def test_rank_key_is_ascending_because_it_returns_negated_values() -> None:
     """`_CANDIDATE_RANK_KEY` 는 음수를 반환한다 — `reverse=True` 를 쓰면 최하위가 앞에 온다."""
-    strong = _Cand("2027-02", "a", 99, life_fit=9.0)
-    weak = _Cand("2027-02", "b", 10, life_fit=0.0)
+    strong = _real("2027-02", "career_change", 99, life_fit=9.0)
+    weak = _real("2027-02", "job_gain", 10, life_fit=0.0)
     assert R._CANDIDATE_RANK_KEY(strong) < R._CANDIDATE_RANK_KEY(weak)
     assert sorted([weak, strong], key=R._CANDIDATE_RANK_KEY)[0] is strong
     picked = R._compress_cluster_companions((), (weak, strong))

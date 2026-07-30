@@ -115,7 +115,7 @@ def test_unapproved_keys_stay_unmapped_and_are_excluded(event_key: str) -> None:
 
 def test_approved_facet_scope_matches_the_inventory() -> None:
     """facet 테이블이 승인 범위(17종)에서 벗어나면 드러난다."""
-    assert set(EVENT_FAMILY) == {  # type: ignore[comparison-overlap]
+    assert set(EVENT_FAMILY) == {
         k for k in EVENT_DOMAIN if str(k) in THEME_POOL_KEYS
     }
 

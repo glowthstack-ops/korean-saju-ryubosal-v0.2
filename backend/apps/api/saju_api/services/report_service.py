@@ -18,7 +18,7 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Protocol
 
 from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
@@ -148,6 +148,19 @@ _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
 _SCORE_LEVELS = {GanjiLevel.YEAR, GanjiLevel.MONTH}
 _TOP_CANDIDATES = 8
+#: 순수 선별 헬퍼는 받은 후보 타입을 그대로 돌려준다 — `EventCandidate` 로 고정하면
+#: 테스트 스텁이 계약을 못 맞추고, 반대로 하류(`luck_block`)는 실제 DTO 를 요구한다.
+#: 그래서 헬퍼만 제네릭으로 두고 컨테이너(`PeriodGroup`)는 실제 타입을 유지한다.
+
+
+class PeriodCandidate(Protocol):
+    """시점 선별 헬퍼가 요구하는 최소 계약 — 표시 기간뿐.
+
+    순위는 호출부가 넘기는 `rank_key` 가 읽으므로 여기서 요구하지 않는다.
+    """
+
+    @property
+    def period(self) -> str: ...
 #: 후보 원순위 — LEI 정렬축(현실적합>과거유사>점수). 그룹 대표 선정도 **이 키를 그대로**
 #: 쓴다. 대표 선정에 새 점수나 타이브레이크를 만들면 점수 의미론이 바뀐다.
 _CANDIDATE_RANK_KEY = lambda c: (-c.life_fit, -c.personal_match, -c.score)  # noqa: E731
@@ -156,9 +169,9 @@ _CANDIDATE_RANK_KEY = lambda c: (-c.life_fit, -c.personal_match, -c.score)  # no
 _PROMPT_COMPANIONS_PER_PERIOD = 2
 
 
-def _period_representatives(
-    pool: list[EventCandidate], limit: int, rank_key
-) -> tuple[list[EventCandidate], dict[str, list[EventCandidate]]]:
+def _period_representatives[CandT: PeriodCandidate](
+    pool: list[CandT], limit: int, rank_key
+) -> tuple[list[CandT], dict[str, list[CandT]]]:
     """시점 그룹화 → 대표 선정 → **고유 시점** 기준 top-K.
 
     사건 행을 먼저 자르면 같은 달이 슬롯을 독점한다. 그래서 절단 전에 전체 풀을 표시
@@ -174,7 +187,7 @@ def _period_representatives(
         (대표 후보 리스트(시점 순위 순), 선정된 시점의 전체 구성원 그룹).
         구성원은 삭제하지 않는다 — 같은 달의 부수 사건을 보조 근거로 보존한다.
     """
-    groups: dict[str, list[EventCandidate]] = {}
+    groups: dict[str, list[CandT]] = {}
     for c in pool:
         groups.setdefault(c.period, []).append(c)
     # pool 이 이미 순위순이라 dict 삽입 순서 = 그룹 최고 순위 순서. 대표는 순위 키로
