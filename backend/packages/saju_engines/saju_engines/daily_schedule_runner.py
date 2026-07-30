@@ -32,10 +32,12 @@ from saju_engines.daily_selection_contracts import (
 )
 from saju_engines.daily_selection_policy_shadow import (
     LONGITUDINAL_HISTORY_LOOKBACK_DAYS,
+    SEVERITY_CLEAN,
     LongTermPolicy,
     ProjectionStatus,
     SelectionPolicy,
     Top1FamilyProjection,
+    repeat_severity,
     select_board,
     select_good_representative,
 )
@@ -457,6 +459,22 @@ def advance_daily_schedule(
         if compute_projection_trace and projection is not None:
             # 측정 전용 trace — selection reason code 와 섞지 않는다.
             reused = rep.display_good_representative == raw_top_key
+            # 선택된 카드의 **board 이전** family. 추가 _select_slots 호출 없이
+            # 방금 만든 bundle 에서 읽는다. 단일 확정이 안 되면 추정하지 않는다.
+            selected_bundle = CardCandidateBundle(
+                good_event_key=g.event_key, slots=(g, c, s),
+                headline_candidates=tuple(cands),
+            )
+            selected_projection = derive_top1_family_projection(
+                raw_top_event_key=g.event_key,
+                card_candidates=selected_bundle, family_of=family_of,
+            )
+            # "신규" 기준은 **당일 선택 전** 이력뿐이다 — 같은 날 앞쪽 일주 결과나
+            # board 확정 후 이력, anchor 전체 분포를 쓰면 안 된다.
+            pre_day_families = {
+                family_of.get(k, k)
+                for k in tuple(headline_hist[-history_contract.lookback_days:])
+            }
             pending[ilju]["oa11d_trace"] = {
                 "raw_top_event_key": raw_top_key,
                 "projected_top1_event_key": projection.event_key,
@@ -471,6 +489,37 @@ def advance_daily_schedule(
                     projection_reason
                     if projection.status is ProjectionStatus.UNAVAILABLE else None
                 ),
+                # 당일 선택 전 이력 기준 상태.
+                # cold-start 행을 공식 수치에서 배제하려면 이력 길이가 필요하다.
+                "state_before_history_len": len(headline_hist),
+                "preday_family_coverage": len(pre_day_families),
+                "family_deficit_active": (
+                    policy.coverage_floor is not None
+                    and len(pre_day_families) < policy.coverage_floor
+                ),
+                "projected_family_is_new": (
+                    projection.status is ProjectionStatus.PROJECTED
+                    and projection.family not in pre_day_families
+                ),
+                "raw_top_repeat_clean": (
+                    repeat_severity(list(repeat_hist), raw_top_key)
+                    == SEVERITY_CLEAN
+                ),
+                # 선택 결과 — board 이전.
+                "selected_event_key": g.event_key,
+                "selected_preboard_top1_event_key": (
+                    selected_bundle.card_top1_event_key
+                ),
+                "selected_preboard_family": selected_projection.family or None,
+                "selected_preboard_family_status": (
+                    selected_projection.status.value
+                ),
+                "selected_preboard_family_is_new": (
+                    selected_projection.status is ProjectionStatus.PROJECTED
+                    and selected_projection.family not in pre_day_families
+                ),
+                "selection_changed_from_raw_top": not reused,
+                "good_selection_reason": rep.good_selection_reason,
             }
 
     if len(read_fps) != 1:
@@ -497,6 +546,10 @@ def advance_daily_schedule(
         row = dict(pending[ilju])
         row["final_headline"] = sel.event_key
         row["final_headline_family"] = family_of.get(sel.event_key, sel.event_key)
+        if "oa11d_trace" in row:
+            row["oa11d_trace"]["realized_final_family"] = (
+                row["final_headline_family"]
+            )
         rows.append(row)
         add_intended[ilju] = row["intended_good_representative"]
         add_realized[ilju] = row["realized_good_event"]

@@ -1,0 +1,185 @@
+{
+  "audit_id": "OA-11d-S1",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "protocol": {
+    "schedule_origin": "2025-04-06",
+    "days": 917,
+    "s0": "trace ON + bypass OFF",
+    "s1": "trace ON + bypass ON",
+    "note": "같은 canonical 연속 schedule · bypass flag 하나만 다르다."
+  },
+  "s0_baseline_row_mismatch": 0,
+  "window_rows_with_short_history": 0,
+  "funnel_scope": "ANCHOR_MEASUREMENT_WINDOW_D_MINUS_90_TO_D_MINUS_1",
+  "first_divergence_date": "2025-04-07",
+  "scope_leak_judged_days": 1,
+  "scope_leak_rows": 0,
+  "funnel_invariant_violations": [],
+  "anchor_funnel": {
+    "2026-04-02": {
+      "PROJECTED_FAMILY_ALREADY_SEEN": 1126,
+      "NO_FAMILY_DEFICIT": 3645,
+      "NOT_CLEAN": 392,
+      "AMBIGUOUS": 116,
+      "RAW_TOP_CARD_NOT_AVAILABLE": 116,
+      "NEW_FAMILY_REALIZED": 4,
+      "SELECTION_CHANGED_TO_NON_NEW_FAMILY": 1,
+      "BYPASSED_TOTAL": 5
+    },
+    "2027-03-03": {
+      "PROJECTED_FAMILY_ALREADY_SEEN": 1230,
+      "NO_FAMILY_DEFICIT": 3567,
+      "NOT_CLEAN": 367,
+      "RAW_TOP_CARD_NOT_AVAILABLE": 102,
+      "BYPASS_NO_SELECTION_CHANGE": 1,
+      "AMBIGUOUS": 117,
+      "SELECTION_CHANGED_TO_NON_NEW_FAMILY": 6,
+      "NEW_FAMILY_REALIZED": 10,
+      "BYPASSED_TOTAL": 17
+    },
+    "2027-06-01": {
+      "PROJECTED_FAMILY_ALREADY_SEEN": 1162,
+      "NO_FAMILY_DEFICIT": 3646,
+      "NOT_CLEAN": 364,
+      "RAW_TOP_CARD_NOT_AVAILABLE": 96,
+      "AMBIGUOUS": 122,
+      "NEW_FAMILY_REALIZED": 9,
+      "SELECTION_CHANGED_TO_NON_NEW_FAMILY": 1,
+      "BYPASSED_TOTAL": 10
+    },
+    "2027-08-05": {
+      "PROJECTED_FAMILY_ALREADY_SEEN": 1296,
+      "NO_FAMILY_DEFICIT": 3402,
+      "NOT_CLEAN": 475,
+      "AMBIGUOUS": 124,
+      "NEW_FAMILY_REALIZED": 5,
+      "RAW_TOP_CARD_NOT_AVAILABLE": 98,
+      "BYPASSED_TOTAL": 5
+    },
+    "2027-10-09": {
+      "NO_FAMILY_DEFICIT": 3553,
+      "PROJECTED_FAMILY_ALREADY_SEEN": 1173,
+      "NOT_CLEAN": 455,
+      "RAW_TOP_CARD_NOT_AVAILABLE": 105,
+      "AMBIGUOUS": 104,
+      "NEW_FAMILY_REALIZED": 6,
+      "SELECTION_CHANGED_TO_NON_NEW_FAMILY": 4,
+      "BYPASSED_TOTAL": 10
+    }
+  },
+  "anchor_table": {
+    "2026-04-02": {
+      "s0_family_p10": 15,
+      "s1_family_p10": 15,
+      "s0_family_qualifying": 59,
+      "s1_family_qualifying": 59,
+      "family_qualifying_delta": 0,
+      "s0_key_p10": 15,
+      "s1_key_p10": 15,
+      "s0_key_below_15": 1,
+      "s1_key_below_15": 1,
+      "s0_domain_p10": 7,
+      "s1_domain_p10": 7
+    },
+    "2027-03-03": {
+      "s0_family_p10": 14,
+      "s1_family_p10": 14,
+      "s0_family_qualifying": 54,
+      "s1_family_qualifying": 54,
+      "family_qualifying_delta": 0,
+      "s0_key_p10": 15,
+      "s1_key_p10": 15,
+      "s0_key_below_15": 5,
+      "s1_key_below_15": 5,
+      "s0_domain_p10": 6,
+      "s1_domain_p10": 6
+    },
+    "2027-06-01": {
+      "s0_family_p10": 14,
+      "s1_family_p10": 14,
+      "s0_family_qualifying": 54,
+      "s1_family_qualifying": 54,
+      "family_qualifying_delta": 0,
+      "s0_key_p10": 14,
+      "s1_key_p10": 14,
+      "s0_key_below_15": 6,
+      "s1_key_below_15": 6,
+      "s0_domain_p10": 7,
+      "s1_domain_p10": 7
+    },
+    "2027-08-05": {
+      "s0_family_p10": 14,
+      "s1_family_p10": 14,
+      "s0_family_qualifying": 52,
+      "s1_family_qualifying": 53,
+      "family_qualifying_delta": 1,
+      "s0_key_p10": 14,
+      "s1_key_p10": 14,
+      "s0_key_below_15": 8,
+      "s1_key_below_15": 7,
+      "s0_domain_p10": 6,
+      "s1_domain_p10": 6
+    },
+    "2027-10-09": {
+      "s0_family_p10": 14,
+      "s1_family_p10": 14,
+      "s0_family_qualifying": 54,
+      "s1_family_qualifying": 53,
+      "family_qualifying_delta": -1,
+      "s0_key_p10": 15,
+      "s1_key_p10": 14,
+      "s0_key_below_15": 5,
+      "s1_key_below_15": 6,
+      "s0_domain_p10": 6,
+      "s1_domain_p10": 6
+    }
+  },
+  "verdict": {
+    "FAMILY_CAUSAL_CLOSABILITY": "FAIL",
+    "family_gate_all_anchors": false,
+    "no_regression": false,
+    "OVERALL_LEGACY_GATE_PASS": {
+      "2026-04-02": true,
+      "2027-03-03": false,
+      "2027-06-01": false,
+      "2027-08-05": false,
+      "2027-10-09": false
+    }
+  },
+  "policy_identity": {
+    "policy_id": "oa11d-s1-causal-family-deficit-shadow.v1",
+    "measurement_status": "VALID_COMPLETED",
+    "policy_result": "REJECTED_INSUFFICIENT_EFFECT",
+    "production_status": "INERT_REJECTED",
+    "failure_reasons": [
+      "FAMILY_GATE_CLOSED_ON_ONLY_1_OF_5_ANCHORS",
+      "FAMILY_QUALIFYING_REGRESSION_ON_2027-10-09",
+      "KEY_P10_REGRESSION_ON_2027-10-09",
+      "RAW_TOP_NEW_FAMILY_REACH_TOO_LOW"
+    ]
+  },
+  "totals": {
+    "bypass_total": 47,
+    "new_family_realized_total": 34,
+    "realization_rate_pct": 72.3,
+    "family_qualifying_sum_s0": 273,
+    "family_qualifying_sum_s1": 273,
+    "family_qualifying_net_delta": 0,
+    "note": "신규 family 실현과 anchor 품질 개선은 동치가 아니다 — 실현 34건인데 family qualifying 순증가는 0 이다. 같은 commit 에서 오래된 family 가 창 밖으로 빠지거나 key 를 잃으면 순효과가 상쇄된다."
+  },
+  "s2_decision": {
+    "S2_BOARD_AWARE": "REJECTED_NOT_CAUSALLY_JUSTIFIED",
+    "primary_cause": "PROJECTED_FAMILY_ALREADY_SEEN",
+    "secondary_causes": [
+      "RAW_TOP_CARD_NOT_AVAILABLE",
+      "AMBIGUOUS"
+    ],
+    "board_non_realization": "MINORITY"
+  },
+  "superseded_measurements": {
+    "anchor_day_only_funnel": "INVALID_WRONG_MEASUREMENT_WINDOW",
+    "scope_leak_422": "MISJUDGED_LEGITIMATE_DOWNSTREAM_PROPAGATION",
+    "300d_noncanonical_scan": "PRELIMINARY_NONCANONICAL_COLD_START"
+  }
+}
