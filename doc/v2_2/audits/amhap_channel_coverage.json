@@ -1,0 +1,4152 @@
+{
+  "audit_id": "AMHAP-COV",
+  "policy_status": "measurement_only",
+  "live_behavior_changed": false,
+  "supersedes": "AMHAP_CANDIDATE_RECOVERY_SHADOW_EXPERIMENT — 취소(전제 오류: 암합은 미구현이 아니라 채팅 전용 보조 서술 evidence 다)",
+  "status_flags": [
+    "AMHAP_DETECTOR_IMPLEMENTED",
+    "CHAT_LUCK_NARRATIVE_WIRED",
+    "THEME_REPORT_UNWIRED",
+    "DAILY_FORTUNE_UNWIRED",
+    "EVENT_GRAPH_INTENTIONALLY_DISABLED",
+    "CANDIDATE_RECOVERY_EXPERIMENT_NOT_APPLICABLE",
+    "AMHAP_DETECTION_SATURATED_ON_AUDITED_RANGE",
+    "AMHAP_DISCRIMINATIVE_VALUE_NOT_DEMONSTRATED",
+    "AMHAP_RAW_DETECTION_FREQUENCY_HOUR_HEAVY",
+    "PALACE_PRIORITY_ORDERING_CONTRACT_CONFIRMED",
+    "CHAT_TRUNCATION_LOSS_OBSERVED",
+    "THEME_REPORT_UNDOCUMENTED_EVIDENCE_GAP",
+    "DAILY_FORTUNE_NOT_APPLICABLE_BY_INPUT_CONTRACT",
+    "REPORT_WIRING_WITHHELD_PENDING_DETECTOR_REVIEW",
+    "PRODUCTION_UNCHANGED"
+  ],
+  "retired_status_flags": [
+    "AMHAP_PALACE_WEIGHT_MISMATCH",
+    "CHAT_TRUNCATION_LOSS_57PCT"
+  ],
+  "wiring": {
+    "detector": "amhap_luck.detect_luck_amhap",
+    "chat_luck_narrative": true,
+    "natal_narrative": true,
+    "theme_report": false,
+    "daily_fortune": false,
+    "daily_files_scanned": 23,
+    "event_graph": "INTENTIONALLY_DISABLED",
+    "candidate_scoring": false
+  },
+  "ordering_contract": {
+    "docstring_claim": "일지 우선 정렬",
+    "loop_order": [
+      "year",
+      "month",
+      "day",
+      "hour"
+    ],
+    "explicit_sort_present": true,
+    "sort_key": "(-weight, kind != 'myeong')",
+    "palace_weights": {
+      "day": 1.0,
+      "month": 0.8,
+      "hour": 0.7,
+      "year": 0.6
+    },
+    "stable_deterministic": true,
+    "note": "루프는 year→month→day→hour 이지만 반환 직전 weight 내림차순으로 정렬한다 — day(1.0) 가 앞에 오므로 docstring 주장과 결과가 일치한다. 동일 weight 내에서는 명암합이 먼저이고, 그 뒤는 루프 삽입 순서(안정 정렬)다."
+  },
+  "detection": {
+    "periods_scanned": 82,
+    "periods_with_amhap": 82,
+    "detection_rate": 1.0,
+    "detected_total": 360,
+    "max_per_period": 10,
+    "palace_distribution": {
+      "hour": 107,
+      "year": 85,
+      "day": 84,
+      "month": 84
+    },
+    "kind_distribution": {
+      "myeong": 97,
+      "jijang": 263
+    },
+    "ten_god_distribution": {
+      "편관": 30,
+      "편재": 50,
+      "상관": 29,
+      "겁재": 108,
+      "정관": 56,
+      "정재": 87
+    },
+    "distinct_amhap_pairs": 51,
+    "most_repeated_pairs": [
+      {
+        "pair": [
+          "myeong",
+          "hour",
+          "庚",
+          "乙"
+        ],
+        "periods": 9
+      },
+      {
+        "pair": [
+          "myeong",
+          "day",
+          "癸",
+          "戊"
+        ],
+        "periods": 8
+      },
+      {
+        "pair": [
+          "myeong",
+          "month",
+          "癸",
+          "戊"
+        ],
+        "periods": 8
+      },
+      {
+        "pair": [
+          "myeong",
+          "hour",
+          "癸",
+          "戊"
+        ],
+        "periods": 8
+      },
+      {
+        "pair": [
+          "myeong",
+          "year",
+          "癸",
+          "戊"
+        ],
+        "periods": 8
+      }
+    ]
+  },
+  "chat_injection": {
+    "cap": 2,
+    "injected_total": 155,
+    "truncated_total": 205,
+    "periods_truncated": 62,
+    "truncation_drops_distinct_palace": 57,
+    "verdict": "TRUNCATION_LOSS_OBSERVED"
+  },
+  "derived_observations": {
+    "detections_per_period": 4.39,
+    "saturation_note": "감사 구간 전 기간에서 탐지됐다. 암합의 의미가 '드러나지 않은 결합' 인데 전 기간에 걸리면 변별력이 없다. 다만 이번 명식·기간 하나의 결과이므로 탐지 조건이 넓은 것인지 실제로 흔한 현상인지는 구분되지 않는다 — 복수 명식과 음성 대조군이 필요하다.",
+    "hour_heavy_note": "raw 탐지는 hour 최다이고 궁위 weight 는 day 최대(1.0)다. 두 값은 다른 축이므로 계약 위반이 아니다(weight=정렬 우선순위, 건수=조합 가능 수). hour 편중 원인은 후속 탐지기 감사 대상이다.",
+    "cap_note": "cap 2 로 상당량이 절단되고 일부 기간에서 다른 궁위 정보가 빠진다. 정보 손실은 확정이지만 cap 2 가 잘못인지는 미확정이다 — 탐지가 포화된 상태에서는 cap 이 노이즈를 억제하고 있을 수 있으므로 포화 해소 전에 cap 을 늘리면 안 된다.",
+    "priority_conclusion": "리포트 미배선보다 탐지 포화가 선행 문제다. 포화된 evidence 를 그대로 리포트에 추가하면 채널 정합성은 높아져도 설명 품질이 낮아질 수 있다."
+  },
+  "theme_report_applicability": {
+    "report_uses_context_reducer_candidate_block": null,
+    "report_has_amhap_reference": false,
+    "same_inputs_available": true,
+    "verdict": "UNDOCUMENTED_EVIDENCE_GAP",
+    "reason": "리포트는 채팅과 동일한 원국·기간을 다루고 입력도 갖추고 있으나 amhap 참조가 0건이다. 비적용 근거가 코드·문서에 없어 의도된 채널 차이인지 확인되지 않는다 — 같은 질문을 채팅으로 하면 물밑 신호를 보고 리포트로 받으면 못 보는 상태다. 배선 여부는 설계 승인 대상이며 이 감사에서 바꾸지 않는다."
+  },
+  "daily_fortune_applicability": {
+    "detector_requires": [
+      "pillars.year/month/day/hour.branch (원국 4지지 지장간)",
+      "pillars.day_master (십성 산출용 일간)"
+    ],
+    "daily_scoring_inputs": [
+      "ctx",
+      "event",
+      "ilju_branch",
+      "ilju_stem",
+      "key"
+    ],
+    "daily_has_natal_pillars": false,
+    "verdict": "NOT_APPLICABLE_BY_INPUT_CONTRACT",
+    "reason": "일주별 오늘의 운세는 60갑자 일주(일간·일지)만 입력이고 개인 원국의 연·월·시 지지가 없다. `detect_luck_amhap` 은 원국 4지지의 지장간을 요구하므로 같은 계산을 적용할 수 없다 — 채널 누락이 아니라 입력 모델 차이에 따른 비적용이다. 일주만으로 계산하면 60개 고정 결과가 되어 개인 명식 없는 무료 콘텐츠의 성격과도 맞지 않는다."
+  },
+  "channel_verdicts": {
+    "CHAT": "TRUNCATION_LOSS_OBSERVED",
+    "THEME_REPORT": "UNDOCUMENTED_EVIDENCE_GAP",
+    "DAILY_FORTUNE": "NOT_APPLICABLE_BY_INPUT_CONTRACT"
+  },
+  "rows": [
+    {
+      "period": "2026-02",
+      "ganji": "庚寅",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "庚",
+          "natal_hidden": "乙",
+          "weight": 0.7,
+          "describe": "庚↔乙 암합(편관) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "寅",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "寅↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2026-03",
+      "ganji": "辛卯",
+      "detected": 1,
+      "injected": 1,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "卯",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "卯↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2026-04",
+      "ganji": "壬辰",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "辰↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "辰↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "辰",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "辰",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "辰↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "辰↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2026-05",
+      "ganji": "癸巳",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 1.0,
+          "describe": "癸↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "癸↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.7,
+          "describe": "癸↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.6,
+          "describe": "癸↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "巳",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "巳",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2026-06",
+      "ganji": "甲午",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "午↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "午↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "午↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "午↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "午↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2026-07",
+      "ganji": "乙未",
+      "detected": 7,
+      "injected": 2,
+      "truncated": 5,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "未↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "未↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "未↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "未↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "乙",
+          "natal_hidden": "庚",
+          "weight": 0.6,
+          "describe": "乙↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "未↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "未",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "未↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2026-08",
+      "ganji": "丙申",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "申",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "申↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "申",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "申↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2026-09",
+      "ganji": "丁酉",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 1.0,
+          "describe": "丁↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "丁↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.6,
+          "describe": "丁↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "酉",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "酉↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2026-10",
+      "ganji": "戊戌",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "戌↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戊",
+          "natal_hidden": "癸",
+          "weight": 0.7,
+          "describe": "戊↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "戌↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戌",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "戌↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "戌↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2026-11",
+      "ganji": "己亥",
+      "detected": 3,
+      "injected": 2,
+      "truncated": 1,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 1.0,
+          "describe": "己↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "己↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "亥",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "亥↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2026-12",
+      "ganji": "庚子",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "子↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "庚",
+          "natal_hidden": "乙",
+          "weight": 0.7,
+          "describe": "庚↔乙 암합(편관) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "子↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "子↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "子↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2027-01",
+      "ganji": "辛丑",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "丑↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "丑↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "丑↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "丑↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2027-02",
+      "ganji": "壬寅",
+      "detected": 1,
+      "injected": 1,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "寅",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "寅↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2027-03",
+      "ganji": "癸卯",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 1.0,
+          "describe": "癸↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "癸↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.7,
+          "describe": "癸↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.6,
+          "describe": "癸↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "卯",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "卯↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2027-04",
+      "ganji": "甲辰",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "辰↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "辰↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "辰",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "辰",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "辰↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "辰↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2027-05",
+      "ganji": "乙巳",
+      "detected": 3,
+      "injected": 2,
+      "truncated": 1,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "乙",
+          "natal_hidden": "庚",
+          "weight": 0.6,
+          "describe": "乙↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "巳",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "巳",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2027-06",
+      "ganji": "丙午",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "午↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "午↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "午↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "午↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "午↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2027-07",
+      "ganji": "丁未",
+      "detected": 9,
+      "injected": 2,
+      "truncated": 7,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 1.0,
+          "describe": "丁↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "丁↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "未↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "未↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "未↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "未↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.6,
+          "describe": "丁↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "未↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "未",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "未↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2027-08",
+      "ganji": "戊申",
+      "detected": 3,
+      "injected": 2,
+      "truncated": 1,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戊",
+          "natal_hidden": "癸",
+          "weight": 0.7,
+          "describe": "戊↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "申",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "申↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "申",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "申↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2027-09",
+      "ganji": "己酉",
+      "detected": 3,
+      "injected": 2,
+      "truncated": 1,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 1.0,
+          "describe": "己↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "己↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "酉",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "酉↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2027-10",
+      "ganji": "庚戌",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "戌↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "庚",
+          "natal_hidden": "乙",
+          "weight": 0.7,
+          "describe": "庚↔乙 암합(편관) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "戌↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戌",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "戌↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "戌↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2027-11",
+      "ganji": "辛亥",
+      "detected": 1,
+      "injected": 1,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "亥",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "亥↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2027-12",
+      "ganji": "壬子",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "子↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "子↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "子↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "子↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2028-01",
+      "ganji": "癸丑",
+      "detected": 10,
+      "injected": 2,
+      "truncated": 8,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 1.0,
+          "describe": "癸↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "癸↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "丑↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "丑↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.7,
+          "describe": "癸↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.6,
+          "describe": "癸↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "丑↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "丑↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2028-02",
+      "ganji": "甲寅",
+      "detected": 1,
+      "injected": 1,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "寅",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "寅↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2028-03",
+      "ganji": "乙卯",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "乙",
+          "natal_hidden": "庚",
+          "weight": 0.6,
+          "describe": "乙↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "卯",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "卯↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2028-04",
+      "ganji": "丙辰",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "辰↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "辰↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "辰",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "辰",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "辰↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "辰↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2028-05",
+      "ganji": "丁巳",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 1.0,
+          "describe": "丁↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "丁↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.6,
+          "describe": "丁↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "巳",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "巳",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2028-06",
+      "ganji": "戊午",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "午↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "午↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戊",
+          "natal_hidden": "癸",
+          "weight": 0.7,
+          "describe": "戊↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "午↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "午↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "午↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2028-07",
+      "ganji": "己未",
+      "detected": 8,
+      "injected": 2,
+      "truncated": 6,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 1.0,
+          "describe": "己↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "己↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "未↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "未↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "未↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "未↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "未↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "未",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "未↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2028-08",
+      "ganji": "庚申",
+      "detected": 3,
+      "injected": 2,
+      "truncated": 1,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "庚",
+          "natal_hidden": "乙",
+          "weight": 0.7,
+          "describe": "庚↔乙 암합(편관) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "申",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "申↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "申",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "申↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2028-09",
+      "ganji": "辛酉",
+      "detected": 1,
+      "injected": 1,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "酉",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "酉↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2028-10",
+      "ganji": "壬戌",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "戌↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "戌↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戌",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "戌↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "戌↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2028-11",
+      "ganji": "癸亥",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 1.0,
+          "describe": "癸↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "癸↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.7,
+          "describe": "癸↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.6,
+          "describe": "癸↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "亥",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "亥↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2028-12",
+      "ganji": "甲子",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "子↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "子↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "子↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "子↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2029-01",
+      "ganji": "乙丑",
+      "detected": 7,
+      "injected": 2,
+      "truncated": 5,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "丑↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "丑↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "乙",
+          "natal_hidden": "庚",
+          "weight": 0.6,
+          "describe": "乙↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "丑↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "丑↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2029-02",
+      "ganji": "丙寅",
+      "detected": 1,
+      "injected": 1,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "寅",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "寅↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2029-03",
+      "ganji": "丁卯",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 1.0,
+          "describe": "丁↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "丁↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.6,
+          "describe": "丁↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "卯",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "卯↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2029-04",
+      "ganji": "戊辰",
+      "detected": 7,
+      "injected": 2,
+      "truncated": 5,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "辰↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戊",
+          "natal_hidden": "癸",
+          "weight": 0.7,
+          "describe": "戊↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "辰↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "辰",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "辰",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "辰↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "辰↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2029-05",
+      "ganji": "己巳",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 1.0,
+          "describe": "己↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "己↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "巳",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "巳",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2029-06",
+      "ganji": "庚午",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "午↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "午↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "庚",
+          "natal_hidden": "乙",
+          "weight": 0.7,
+          "describe": "庚↔乙 암합(편관) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "午↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "午↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "午↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2029-07",
+      "ganji": "辛未",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "未↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "未↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "未↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "未↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "未↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "未",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "未↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2029-08",
+      "ganji": "壬申",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "申",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "申↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "申",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "申↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2029-09",
+      "ganji": "癸酉",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 1.0,
+          "describe": "癸↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "癸↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.7,
+          "describe": "癸↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.6,
+          "describe": "癸↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "酉",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "酉↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2029-10",
+      "ganji": "甲戌",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "戌↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "戌↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戌",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "戌↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "戌↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2029-11",
+      "ganji": "乙亥",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "乙",
+          "natal_hidden": "庚",
+          "weight": 0.6,
+          "describe": "乙↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "亥",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "亥↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2029-12",
+      "ganji": "丙子",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "子↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "子↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "子↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "子↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2030-01",
+      "ganji": "丁丑",
+      "detected": 9,
+      "injected": 2,
+      "truncated": 7,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 1.0,
+          "describe": "丁↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "丁↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "丑↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "丑↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.6,
+          "describe": "丁↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "丑↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "丑↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2030-02",
+      "ganji": "戊寅",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戊",
+          "natal_hidden": "癸",
+          "weight": 0.7,
+          "describe": "戊↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "寅",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "寅↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2030-03",
+      "ganji": "己卯",
+      "detected": 3,
+      "injected": 2,
+      "truncated": 1,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 1.0,
+          "describe": "己↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "己↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "卯",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "卯↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2030-04",
+      "ganji": "庚辰",
+      "detected": 7,
+      "injected": 2,
+      "truncated": 5,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "辰↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "庚",
+          "natal_hidden": "乙",
+          "weight": 0.7,
+          "describe": "庚↔乙 암합(편관) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "辰↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "辰",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "辰",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "辰↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "辰↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2030-05",
+      "ganji": "辛巳",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "巳",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "巳",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2030-06",
+      "ganji": "壬午",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "午↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "午↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "午↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "午↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "午↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2030-07",
+      "ganji": "癸未",
+      "detected": 10,
+      "injected": 2,
+      "truncated": 8,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 1.0,
+          "describe": "癸↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "癸↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "未↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "未↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.7,
+          "describe": "癸↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "未↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "未↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.6,
+          "describe": "癸↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "未↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "未",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "未↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2030-08",
+      "ganji": "甲申",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "申",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "申↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "申",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "申↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2030-09",
+      "ganji": "乙酉",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "乙",
+          "natal_hidden": "庚",
+          "weight": 0.6,
+          "describe": "乙↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "酉",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "酉↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2030-10",
+      "ganji": "丙戌",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "戌↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "戌↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戌",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "戌↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "戌↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2030-11",
+      "ganji": "丁亥",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 1.0,
+          "describe": "丁↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "丁↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.6,
+          "describe": "丁↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "亥",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "亥↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2030-12",
+      "ganji": "戊子",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "子↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戊",
+          "natal_hidden": "癸",
+          "weight": 0.7,
+          "describe": "戊↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "子↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "子↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "子↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2031-01",
+      "ganji": "己丑",
+      "detected": 8,
+      "injected": 2,
+      "truncated": 6,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 1.0,
+          "describe": "己↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "己↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "丑↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "丑↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "丑↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "丑↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2031-02",
+      "ganji": "庚寅",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "庚",
+          "natal_hidden": "乙",
+          "weight": 0.7,
+          "describe": "庚↔乙 암합(편관) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "寅",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "寅↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2031-03",
+      "ganji": "辛卯",
+      "detected": 1,
+      "injected": 1,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "卯",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "卯↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2031-04",
+      "ganji": "壬辰",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "辰↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "辰↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "辰",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "辰",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "辰↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "辰↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2031-05",
+      "ganji": "癸巳",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 1.0,
+          "describe": "癸↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "癸↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.7,
+          "describe": "癸↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.6,
+          "describe": "癸↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "巳",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "巳",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2031-06",
+      "ganji": "甲午",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "午↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "午↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "午↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "午↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "午↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2031-07",
+      "ganji": "乙未",
+      "detected": 7,
+      "injected": 2,
+      "truncated": 5,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "未↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "未↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "未↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "未↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "乙",
+          "natal_hidden": "庚",
+          "weight": 0.6,
+          "describe": "乙↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "未↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "未",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "未↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2031-08",
+      "ganji": "丙申",
+      "detected": 2,
+      "injected": 2,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "申",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "申↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "申",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "申↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2031-09",
+      "ganji": "丁酉",
+      "detected": 4,
+      "injected": 2,
+      "truncated": 2,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 1.0,
+          "describe": "丁↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "丁↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.6,
+          "describe": "丁↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "酉",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "酉↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2031-10",
+      "ganji": "戊戌",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "戌↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戊",
+          "natal_hidden": "癸",
+          "weight": 0.7,
+          "describe": "戊↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "戌↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戌",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "戌↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "戌↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2031-11",
+      "ganji": "己亥",
+      "detected": 3,
+      "injected": 2,
+      "truncated": 1,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 1.0,
+          "describe": "己↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "己↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "亥",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "亥↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2031-12",
+      "ganji": "庚子",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "子↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "庚",
+          "natal_hidden": "乙",
+          "weight": 0.7,
+          "describe": "庚↔乙 암합(편관) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "子↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "子↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "子",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "子↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2032-01",
+      "ganji": "辛丑",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "丑↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "丑↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "丑",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "丑↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "丑↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "丑",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "丑↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2022",
+      "ganji": "壬寅",
+      "detected": 1,
+      "injected": 1,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "寅",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "寅↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2023",
+      "ganji": "癸卯",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 1.0,
+          "describe": "癸↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "癸↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.7,
+          "describe": "癸↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "癸",
+          "natal_hidden": "戊",
+          "weight": 0.6,
+          "describe": "癸↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "卯",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "卯↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2024",
+      "ganji": "甲辰",
+      "detected": 6,
+      "injected": 2,
+      "truncated": 4,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.8,
+          "describe": "辰↔戊 암합(겁재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.6400000000000001,
+          "describe": "辰↔戊 암합(겁재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔戊 암합(겁재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "辰",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "辰↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "辰",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "辰↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "겁재",
+          "luck_char": "辰",
+          "natal_hidden": "戊",
+          "weight": 0.48,
+          "describe": "辰↔戊 암합(겁재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2025",
+      "ganji": "乙巳",
+      "detected": 3,
+      "injected": 2,
+      "truncated": 1,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "乙",
+          "natal_hidden": "庚",
+          "weight": 0.6,
+          "describe": "乙↔庚 암합(상관) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "巳",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "巳",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "巳↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2026",
+      "ganji": "丙午",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "午↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "午↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "午",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "午↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "午↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "午",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "午↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2027",
+      "ganji": "丁未",
+      "detected": 9,
+      "injected": 2,
+      "truncated": 7,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 1.0,
+          "describe": "丁↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "丁↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "未↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "未↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "未↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "未",
+          "natal_hidden": "甲",
+          "weight": 0.6400000000000001,
+          "describe": "未↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "myeong",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "丁",
+          "natal_hidden": "壬",
+          "weight": 0.6,
+          "describe": "丁↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "未",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "未↔壬 암합(정재) · 연지(대외·먼 배경)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "상관",
+          "luck_char": "未",
+          "natal_hidden": "庚",
+          "weight": 0.48,
+          "describe": "未↔庚 암합(상관) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2028",
+      "ganji": "戊申",
+      "detected": 3,
+      "injected": 2,
+      "truncated": 1,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戊",
+          "natal_hidden": "癸",
+          "weight": 0.7,
+          "describe": "戊↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "申",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "申↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "申",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "申↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2029",
+      "ganji": "己酉",
+      "detected": 3,
+      "injected": 2,
+      "truncated": 1,
+      "hits": [
+        {
+          "kind": "myeong",
+          "palace": "day",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 1.0,
+          "describe": "己↔甲 암합(정관) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "month",
+          "ten_god": "정관",
+          "luck_char": "己",
+          "natal_hidden": "甲",
+          "weight": 0.8,
+          "describe": "己↔甲 암합(정관) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "酉",
+          "natal_hidden": "乙",
+          "weight": 0.5599999999999999,
+          "describe": "酉↔乙 암합(편관) · 시지(취미·자식·투자)"
+        }
+      ]
+    },
+    {
+      "period": "2030",
+      "ganji": "庚戌",
+      "detected": 5,
+      "injected": 2,
+      "truncated": 3,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "day",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.8,
+          "describe": "戌↔壬 암합(정재) · 일지(사생활·배우자) — 비중 가장 큼"
+        },
+        {
+          "kind": "myeong",
+          "palace": "hour",
+          "ten_god": "편관",
+          "luck_char": "庚",
+          "natal_hidden": "乙",
+          "weight": 0.7,
+          "describe": "庚↔乙 암합(편관) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "month",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.6400000000000001,
+          "describe": "戌↔壬 암합(정재) · 월지(사회·직장·부모형제)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "戌",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "戌↔癸 암합(편재) · 시지(취미·자식·투자)"
+        },
+        {
+          "kind": "jijang",
+          "palace": "year",
+          "ten_god": "정재",
+          "luck_char": "戌",
+          "natal_hidden": "壬",
+          "weight": 0.48,
+          "describe": "戌↔壬 암합(정재) · 연지(대외·먼 배경)"
+        }
+      ]
+    },
+    {
+      "period": "2031",
+      "ganji": "辛亥",
+      "detected": 1,
+      "injected": 1,
+      "truncated": 0,
+      "hits": [
+        {
+          "kind": "jijang",
+          "palace": "hour",
+          "ten_god": "편재",
+          "luck_char": "亥",
+          "natal_hidden": "癸",
+          "weight": 0.5599999999999999,
+          "describe": "亥↔癸 암합(편재) · 시지(취미·자식·투자)"
+        }
+      ]
+    }
+  ]
+}
