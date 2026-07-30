@@ -12,10 +12,12 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from saju_manse_analysis.luck.luck_calendar import luck_month_label
@@ -61,6 +63,15 @@ from saju_engines.report_event_input import (
     year_spectrum_lines,
 )
 from saju_engines.report_plan import YONGSIN_SECTIONS, build_section_plans
+from saju_engines.section_claim_audit import (
+    CLAIM_POLICY_RELOCATION_CHECK,
+    CLAIM_POLICY_WEALTH_BROAD,
+    CLAIM_POLICY_WINDFALL_ONLY,
+    SECTION_CLAIM_POLICIES,
+    SectionClaimPolicy,
+    audit_and_patch_generated_section,
+    claim_directive,
+)
 from saju_engines.structural_context import (
     AVOID_DATE_CERTAINTY_DIRECTIVE,
     BARNUM_SUPPRESSION_DIRECTIVE,
@@ -110,6 +121,7 @@ from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.constants import BRANCH_KO, STEM_KO
 from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as _EVENT_DOMAIN_V2
+from saju_shared_types.event_taxonomy_v2 import event_facets
 from saju_shared_types.events import EventCandidate, EventPolarity
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectKind
@@ -136,6 +148,40 @@ _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
 _SCORE_LEVELS = {GanjiLevel.YEAR, GanjiLevel.MONTH}
 _TOP_CANDIDATES = 8
+#: 후보 원순위 — LEI 정렬축(현실적합>과거유사>점수). 그룹 대표 선정도 **이 키를 그대로**
+#: 쓴다. 대표 선정에 새 점수나 타이브레이크를 만들면 점수 의미론이 바뀐다.
+_CANDIDATE_RANK_KEY = lambda c: (-c.life_fit, -c.personal_match, -c.score)  # noqa: E731
+#: 시점당 프롬프트에 병기할 부수 사건 상한. 그룹 구성원 보존과 별개인 **전달 압축**
+#: 이며 점수·사건 선택 의미를 바꾸지 않는다.
+_PROMPT_COMPANIONS_PER_PERIOD = 2
+
+
+def _period_representatives(
+    pool: list[EventCandidate], limit: int, rank_key
+) -> tuple[list[EventCandidate], dict[str, list[EventCandidate]]]:
+    """시점 그룹화 → 대표 선정 → **고유 시점** 기준 top-K.
+
+    사건 행을 먼저 자르면 같은 달이 슬롯을 독점한다. 그래서 절단 전에 전체 풀을 표시
+    시점으로 묶고, 각 그룹에서 기존 순위 1위를 대표로 뽑은 뒤 고유 시점으로 K개를
+    고른다. 고유 시점이 K개보다 적으면 중복으로 억지 충원하지 않고 실제 개수만 낸다.
+
+    Args:
+        pool: 기존 순위로 정렬된 전체 후보 풀(절단 전).
+        limit: 고유 시점 상한.
+        rank_key: 기존 후보 순위 키. 대표 선정에 그대로 쓴다.
+
+    Returns:
+        (대표 후보 리스트(시점 순위 순), 선정된 시점의 전체 구성원 그룹).
+        구성원은 삭제하지 않는다 — 같은 달의 부수 사건을 보조 근거로 보존한다.
+    """
+    groups: dict[str, list[EventCandidate]] = {}
+    for c in pool:
+        groups.setdefault(c.period, []).append(c)
+    # pool 이 이미 순위순이라 dict 삽입 순서 = 그룹 최고 순위 순서. 대표는 순위 키로
+    # 명시 선정한다(입력 배열 순서에 의존해 마지막 원소가 남는 사고 방지).
+    picked = list(groups.items())[:limit]
+    reps = [min(members, key=rank_key) for _, members in picked]
+    return reps, {period: list(members) for period, members in picked}
 # Context Reduction(report 경로, docs/09 L333) 최대 단계 — 1=다년 월별 흐름 ★주목 축소,
 # 2=연도별 흐름도 ★주목 축소. 섹션 입력이 토큰 상한을 넘을 때만 단계가 올라간다(상한 내=0단계).
 _MAX_REPORT_REDUCTION = 2
@@ -650,7 +696,14 @@ class _ReportData:
         if spec.product_code == "RPT_FOCUS" and spec.topic in _TOPIC_DOMAINS:
             domain_pool = [c for c in pool if _EVENT_DOMAIN.get(str(c.event_key)) == spec.topic]
             pool = domain_pool or pool
-        self.candidates: list[EventCandidate] = pool[:_TOP_CANDIDATES]
+        # 시점 슬롯 계상 교정(2026-07-30 데굴님 지적) — 사건 행을 top-8 로 먼저 자르면
+        # 같은 달의 사건들이 슬롯을 독점해 '몇 개 달만 돌려쓰는' 결과가 된다(실측:
+        # career top-8 의 고유 시점이 4개, 2027-02 가 5슬롯 점유). 그래서 **절단 전에**
+        # 전체 풀을 시점으로 그룹화하고, 그룹 대표를 기존 순위 그대로 뽑은 뒤 고유 시점
+        # 기준으로 top-K 를 고른다. 그룹의 나머지 사건은 버리지 않고 보조 근거로 남긴다.
+        self.candidates, self.period_groups = _period_representatives(
+            pool, _TOP_CANDIDATES, _CANDIDATE_RANK_KEY
+        )
         # 부록 점수표용 전체 풀(P3, 2026-07-22) — 표 선별은 점수순 절단이 아니라 계층
         # 선별(중복 제거·방향별 대표)을 거친다. 본문 후보(self.candidates)는 불변.
         self.candidate_pool: list[EventCandidate] = pool
@@ -658,6 +711,15 @@ class _ReportData:
         # 기간 연도 경계(섹션별 도메인 후보 스코핑용) — 후보 필터와 동일 기준.
         self._yr_lo = spec.period.start[:4]
         self._yr_hi = spec.period.end[:4]
+        # 섹션 도메인 후보의 시점 그룹(보조 근거 보존용) — domain_candidates 가 채운다.
+        self._domain_period_groups: dict[str, dict[str, list[EventCandidate]]] = {}
+        # 테마 증거 번들 — 실행당 1회. 테마 FOCUS 가 아니면 None(기존 경로 유지).
+        self.evidence_bundle: ThemeEvidenceBundle | None = (
+            build_theme_evidence_bundle(pool, spec.topic)
+            if spec.product_code == "RPT_FOCUS"
+            and spec.topic in _THEME_SECTION_VIEWS
+            else None
+        )
         self.summary = build_birth_summary(self.result)
         self.detected_patterns = detect_structure_patterns(self.result)  # 구조 패턴(섹션별 선별)
         # 능동 제안(docs/15) — 재물·직업 도메인 섹션에 도메인 우선 top-2 주입.
@@ -917,17 +979,20 @@ class _ReportData:
         사용자 확정)를 막는다. self.scored(필터 전 전체)에서 도메인·기간으로 좁히고, 같은 시점은
         최고 점수 1건으로 병합한다. 좋은 운에 편중되지 않도록 주의(흉)운을 최대 2건까지 보장한다.
         """
-        merged: dict[str, EventCandidate] = {}
-        for c in self.scored:
-            if _EVENT_DOMAIN.get(str(c.event_key)) != domain:
-                continue
-            if not (self._yr_lo <= c.period[:4] <= self._yr_hi):
-                continue
-            cur = merged.get(c.period)
-            if cur is None or c.score > cur.score:
-                merged[c.period] = c
-        pool = list(merged.values())
-        salience = lambda c: (-c.life_fit, -c.personal_match, -c.score)  # noqa: E731
+        scoped = sorted(
+            (
+                c for c in self.scored
+                if _EVENT_DOMAIN.get(str(c.event_key)) == domain
+                and self._yr_lo <= c.period[:4] <= self._yr_hi
+            ),
+            key=_CANDIDATE_RANK_KEY,
+        )
+        # 전역 경로와 같은 헬퍼로 시점 대표를 뽑는다 — 이전에는 여기만 `score` 로
+        # 병합해 전역 경로와 기준이 달랐다(같은 판정을 두 곳에서 계산하던 drift).
+        # 극성 예비분을 확보해야 하므로 상한을 넉넉히 주고 아래에서 n 으로 자른다.
+        pool, groups = _period_representatives(scoped, max(n * 4, n), _CANDIDATE_RANK_KEY)
+        self._domain_period_groups[domain] = groups
+        salience = _CANDIDATE_RANK_KEY
         cautions = sorted(
             (c for c in pool if str(c.polarity) == EventPolarity.NEGATIVE_OR_FORCED),
             key=salience,
@@ -1278,7 +1343,8 @@ class _ReportData:
         return luck_hap_mode_lines(self.result, sorted(stems), sorted(branches))
 
     def luck_block(
-        self, candidates: list[EventCandidate] | None = None, *, daewoon_only: bool = False
+        self, candidates: list[EventCandidate] | None = None, *, daewoon_only: bool = False,
+        include_event_candidates: bool = True,
     ) -> list[str]:
         """[대운표]+[이벤트 후보] — 운 관련 섹션의 데이터 블록.
 
@@ -1311,16 +1377,31 @@ class _ReportData:
                 )
         if daewoon_only:
             return lines  # 미래 이벤트 후보 4블록 생략(과거·메타 섹션 — 시간범위 정합)
-        lines.append("")
-        lines.append(
-            "[이벤트 후보 — 시점 클러스터·정밀 십성/관계. 점수는 확정값, 재계산 금지. "
-            "아래 십성·관계 라벨만 사용하고 '재성 지지 충' 같은 임의 표현을 만들지 말 것]"
-        )
-        clusters = precise_candidate_clusters(self.result, cands)
-        if clusters:
-            lines += clusters
-        else:
-            lines.append("이 도메인의 두드러진 후보 신호는 약함 — 원국 구조 중심으로 서술.")
+        # P1 정책 경로는 이벤트 후보를 named view 로 따로 낸다 — 이 legacy 전역 블록만
+        # 끄고 합작용·발현분기·내부근거는 **같은 후보 범위로** 유지한다(2026-07-30).
+        if include_event_candidates:
+            lines.append("")
+            lines.append(
+                "[이벤트 후보 — 시점 클러스터·정밀 십성/관계. 점수는 확정값, 재계산 금지. "
+                "아래 십성·관계 라벨만 사용하고 '재성 지지 충' 같은 임의 표현을 만들지 말 것]"
+            )
+            clusters = precise_candidate_clusters(self.result, cands)
+            if clusters:
+                lines += clusters
+            else:
+                lines.append("이 도메인의 두드러진 후보 신호는 약함 — 원국 구조 중심으로 서술.")
+        # 같은 시점의 부수 사건(그룹 구성원) — 시점 슬롯은 대표 1건이 차지하지만 같은
+        # 달의 다른 신호를 삭제하지 않는다(2026-07-30 교정). 새 판정이 아니라 이미
+        # 점수화된 사건의 이름만 병기한다.
+        co = self._co_signal_lines(cands) if include_event_candidates else []
+        if co:
+            lines.append("")
+            lines.append(
+                "[같은 시점의 함께 나타나는 신호 — 위 대표 신호와 같은 달에 걸린 다른 "
+                "사건이다. 대표 신호를 중심으로 서술하되, 그 달을 다룰 때 이 신호들을 "
+                "함께 얽어 한 달의 성격을 두텁게 설명할 것. 새 사건을 만들지 말 것]"
+            )
+            lines += co
         hap_lines = self.luck_hap_lines(cands)
         if hap_lines:
             lines.append("")
@@ -1350,6 +1431,39 @@ class _ReportData:
             )
             lines += paths
         return lines
+
+    def _co_signal_lines(self, cands: list[EventCandidate]) -> list[str]:
+        """대표 후보와 같은 시점에 걸린 부수 사건(프롬프트 전달분).
+
+        **저장과 전달을 분리한다.** 그룹 구성원 전체는 `period_groups` 에 남기고(감사·
+        디버깅), 프롬프트에는 시점당 `_PROMPT_COMPANIONS_PER_PERIOD` 건만 보낸다 —
+        전부 넣으면 토큰이 늘고 중요 신호와 약한 신호의 경계가 흐려지며 LLM 이 부수
+        사건을 중심처럼 확대할 수 있다(실측: career 62건 보존).
+
+        같은 `event_key` 는 다시 나열하지 않는다. 순서는 기존 후보 순위 그대로이며
+        새 점수·타이브레이크를 만들지 않는다.
+        """
+        reps = {c.period: str(c.event_key) for c in cands}
+        pools: list[dict[str, list[EventCandidate]]] = [self.period_groups]
+        pools += list(self._domain_period_groups.values())
+        out: list[str] = []
+        for period in sorted(reps):
+            seen: list[EventCandidate] = []
+            for groups in pools:
+                for member in groups.get(period, []):
+                    key = str(member.event_key)
+                    if key == reps[period]:
+                        continue
+                    if any(str(x.event_key) == key for x in seen):
+                        continue      # 같은 event_key 중복 후보는 한 번만
+                    seen.append(member)
+            companions = sorted(seen, key=_CANDIDATE_RANK_KEY)[
+                :_PROMPT_COMPANIONS_PER_PERIOD
+            ]
+            if companions:
+                names = ", ".join(str(c.event_key) for c in companions)
+                out.append(f"{period}: {names}")
+        return out
 
     def terminology_block(self) -> list[str]:
         """[용어 사전] — terminology.json 정의를 주입(용어 해설을 사전 기준으로, 임의 정의 금지).
@@ -1641,6 +1755,519 @@ def _region_report_block(data: _ReportData, spec: ReportSpec) -> list[str]:
 _REGION_REPORT_SECTIONS = {"F-20", "RL-04"}
 
 
+# ── P1 섹션 증거 라우팅 (2026-07-30 데굴님 확정 — 가′) ──────────────────
+#
+# 문제: 여러 섹션이 같은 전역/도메인 후보열을 각각 다시 출력해 '몇 개 달만 돌려쓰는'
+# 결과가 됐다(실측: wealth 7섹션·career 6섹션이 후보열 완전 동일).
+#
+# 해법: 테마마다 증거 번들을 **한 번만** 만들고, 섹션은 named view 를 읽는다.
+# 섹션이 후보를 다시 고르지 않으므로 같은 목록이 반복 출력되지 않는다.
+#
+# 불변식:
+#   - `TIMING` 섹션은 테마당 정확히 1개(전체 대표 시점 목록의 유일한 출력 위치).
+#   - `SUMMARY`·`REUSE` 는 view 를 **읽기만** 한다(재선택·재정렬 금지).
+#   - `DIRECT` 는 **필터 → A′ 그룹화 → 대표 선정** 순서다. 전체 top-K 의 부분집합을
+#     추출하는 방식이면 전체 순위에서 밀린 promotion·contract_document 가 자기
+#     섹션에도 나타나지 못한다.
+#   - companion 은 그 view **내부** 후보만 쓴다(W-04 에 windfall 이 섞이면 W-05 의
+#     역할과 경계가 무너진다).
+#   - facet 이 UNKNOWN 인 축으로는 세부 라우팅하지 않는다(fail-closed).
+MODE_NONE = "NONE"
+MODE_DIRECT = "DIRECT"
+MODE_TIMING = "TIMING"
+MODE_SUMMARY = "SUMMARY"
+MODE_REUSE = "REUSE"
+MODE_DAEWOON_ONLY = "DAEWOON_ONLY"
+
+#: 서술 형식 — 같은 view 를 같은 포맷으로 두 번 렌더링하지 않기 위한 명시 축.
+NARRATIVE_HEADLINE = "headline_summary"
+NARRATIVE_PERIOD_FLOW = "period_flow_summary"
+NARRATIVE_TIMING_LIST = "timing_list"
+
+
+@dataclass(frozen=True)
+class PeriodGroup:
+    """한 시점의 그룹 — 대표 1건 + 전체 구성원 + **그 view 안에서** 압축한 전달분.
+
+    `members` 는 감사·디버깅용 전체 보존이고 `companions` 는 프롬프트 전달분이다.
+    companion 을 view 밖에서 뽑으면 섹션 의미 경계가 무너진다(W-04 에 windfall 혼입).
+    """
+
+    period: str
+    representative: EventCandidate
+    members: tuple[EventCandidate, ...]
+    companions: tuple[EventCandidate, ...]
+
+
+@dataclass(frozen=True)
+class PeriodView:
+    """한 관점의 시점 뷰 — 왜 이 시점이 뽑혔는지까지 보존한다(감사 가능성).
+
+    내부를 전부 불변 컨테이너로 둔다. `frozen=True` 만으로는 dict·list 내부가 섹션
+    렌더링 중 바뀔 수 있어 '실행당 1회 생성되는 SSOT' 계약이 코드로 보장되지 않는다.
+    """
+
+    view_id: str
+    representatives: tuple[EventCandidate, ...]
+    groups: tuple[PeriodGroup, ...]
+    qualifying_event_keys: frozenset[str]
+    qualifying_families: frozenset[str]
+    polarity_filter: frozenset[str] | None
+
+    def group_for(self, period: str) -> PeriodGroup | None:
+        """시점의 그룹 조회."""
+        return next((g for g in self.groups if g.period == period), None)
+
+
+@dataclass(frozen=True)
+class SectionPeriodCluster:
+    """한 섹션이 표시할 기간 묶음 — 여러 view 가 같은 달을 가리킬 때 병합한다.
+
+    표시 조립 단계이며 **점수 합산·대표 교체·view 우선순위를 만들지 않는다.** 같은
+    기간의 출처(`source_view_ids`)만 병합한다. 이 단계가 없으면 J-04 처럼 두 view 를
+    쓰는 섹션에서 같은 달이 한 섹션 안에 두세 번 출력된다.
+    """
+
+    period: str
+    source_view_ids: tuple[str, ...]
+    representatives: tuple[EventCandidate, ...]
+    #: 프롬프트 전달용 — 병합 후 재압축된 최대 `_PROMPT_COMPANIONS_PER_PERIOD` 건.
+    companions: tuple[EventCandidate, ...]
+    #: 감사용 — 병합 전 view 별 companion 전체(압축 이전). 표시에는 쓰지 않는다.
+    audit_companions: tuple[EventCandidate, ...] = ()
+
+
+@dataclass(frozen=True)
+class ThemeEvidenceBundle:
+    """테마 증거 SSOT — 리포트 실행당 1회 생성, 이후 불변."""
+
+    timing_overview: PeriodView
+    opportunity: PeriodView
+    risk: PeriodView
+    section_views: Mapping[str, PeriodView]
+
+    def view(self, view_id: str) -> PeriodView | None:
+        """named view 조회. 없으면 `None` — 호출부는 전역 후보로 대체하지 않는다."""
+        if view_id == "timing_overview":
+            return self.timing_overview
+        if view_id == "opportunity":
+            return self.opportunity
+        if view_id == "risk":
+            return self.risk
+        return self.section_views.get(view_id)
+
+
+def _compress_cluster_companions(
+    representatives, companions
+) -> tuple[EventCandidate, ...]:
+    """다중 view 병합 후 companion 재압축.
+
+    view 내부에서는 상한·중복 제거를 지키지만, 같은 달을 가리키는 두 view 를 이어
+    붙이면 2+2 가 되고 같은 `event_key` 가 겹친다(실측: 상한초과 1 · 중복 1).
+
+    정렬은 기존 `_CANDIDATE_RANK_KEY` 오름차순이다 — 이 키는 음수를 반환하므로
+    오름차순이 상위다(`reverse=True` 를 쓰면 최하위가 앞에 온다).
+    """
+    rep_ids = {id(c) for c in representatives}
+    rep_keys = {str(c.event_key) for c in representatives}
+    out: list[EventCandidate] = []
+    seen_ids: set[int] = set()
+    seen_keys: set[str] = set()
+    for c in sorted(companions, key=_CANDIDATE_RANK_KEY):
+        cid, key = id(c), str(c.event_key)
+        if cid in rep_ids or key in rep_keys:
+            continue                       # 대표와 겹치는 것은 부수로 내지 않는다
+        if cid in seen_ids or key in seen_keys:
+            continue
+        out.append(c)
+        seen_ids.add(cid)
+        seen_keys.add(key)
+        if len(out) >= _PROMPT_COMPANIONS_PER_PERIOD:
+            break
+    return tuple(out)
+
+
+def _section_period_clusters(
+    views: tuple[PeriodView, ...]
+) -> tuple[SectionPeriodCluster, ...]:
+    """여러 view 를 기간별로 묶는다(재선택·재순위 없음, 출처만 병합)."""
+    order: list[str] = []
+    acc: dict[str, dict[str, list]] = {}
+    for view in views:
+        for g in view.groups:
+            if g.period not in acc:
+                acc[g.period] = {"views": [], "reps": [], "cos": []}
+                order.append(g.period)
+            slot = acc[g.period]
+            if view.view_id not in slot["views"]:
+                slot["views"].append(view.view_id)
+            slot["reps"].append(g.representative)
+            slot["cos"].extend(g.companions)
+    return tuple(
+        SectionPeriodCluster(
+            period=period,
+            source_view_ids=tuple(acc[period]["views"]),
+            representatives=tuple(acc[period]["reps"]),
+            companions=_compress_cluster_companions(
+                acc[period]["reps"], acc[period]["cos"]
+            ),
+            audit_companions=tuple(acc[period]["cos"]),
+        )
+        for period in sorted(order)
+    )
+
+
+@dataclass(frozen=True)
+class SectionEvidencePolicy:
+    """섹션이 증거를 **어떻게 소비하는지**. 사건 판정 규칙이 아니다."""
+
+    mode: str
+    view_ids: tuple[str, ...] = ()
+    narrative_mode: str | None = None
+    #: `broad_only` — facet 이 미확정이라 넓은 의미까지만 서술한다.
+    detail_level: str | None = None
+    #: claim 정책 ID. **claim 문자열은 여기 두지 않는다** — 이름이 두 곳에 있으면
+    #: drift 가 난다. 실제 허용·금지 목록은 SECTION_CLAIM_POLICIES 가 SSOT.
+    claim_policy_id: str | None = None
+
+
+def _filter_pool(
+    pool: list[EventCandidate],
+    *,
+    event_keys: frozenset[str] | None = None,
+    polarities: tuple[str, ...] | None = None,
+) -> list[EventCandidate]:
+    """섹션 조건으로 canonical 풀을 좁힌다. 정렬은 입력 순서(기존 순위)를 유지한다."""
+    out = pool
+    if event_keys is not None:
+        out = [c for c in out if str(c.event_key) in event_keys]
+    if polarities is not None:
+        out = [c for c in out if str(c.polarity) in polarities]
+    return out
+
+
+def _build_period_view(
+    pool: list[EventCandidate],
+    *,
+    view_id: str,
+    event_keys: frozenset[str] | None = None,
+    polarities: tuple[str, ...] | None = None,
+    limit: int = _TOP_CANDIDATES,
+) -> PeriodView:
+    """**필터 → A′ 시점 그룹화 → 대표 선정** 순서로 뷰를 만든다.
+
+    전체 top-K 의 부분집합을 뽑는 방식이 아니다 — 그렇게 하면 전체 순위에서 밀린
+    후보가 자기 섹션에서도 대표가 되지 못한다.
+    """
+    scoped = _filter_pool(pool, event_keys=event_keys, polarities=polarities)
+    reps, groups = _period_representatives(scoped, limit, _CANDIDATE_RANK_KEY)
+    by_period = {c.period: c for c in reps}
+    built: list[PeriodGroup] = []
+    for period, members in groups.items():
+        rep = by_period[period]
+        # companion 압축은 **이 view 안에서** 한다 — 같은 event_key 중복은 한 번만.
+        seen: list[EventCandidate] = []
+        for m in sorted(members, key=_CANDIDATE_RANK_KEY):
+            key = str(m.event_key)
+            if key == str(rep.event_key):
+                continue
+            if any(str(x.event_key) == key for x in seen):
+                continue
+            seen.append(m)
+        built.append(PeriodGroup(
+            period=period, representative=rep, members=tuple(members),
+            companions=tuple(seen[:_PROMPT_COMPANIONS_PER_PERIOD]),
+        ))
+    fams = {str(event_facets(str(c.event_key))["event_family"]) for c in scoped}
+    return PeriodView(
+        view_id=view_id,
+        representatives=tuple(reps),
+        groups=tuple(built),
+        qualifying_event_keys=frozenset(str(c.event_key) for c in scoped),
+        qualifying_families=frozenset(fams),
+        polarity_filter=frozenset(polarities) if polarities else None,
+    )
+
+
+#: 테마별 섹션 view 정의 — 의미가 확정된 event_key 만 연결한다(가′).
+_THEME_SECTION_VIEWS: dict[str, dict[str, frozenset[str]]] = {
+    "wealth": {
+        # facet subtype 미확정 — 넓은 '재물 변화' 까지만(W-04 broad_only).
+        "wealth_change": frozenset({"wealth_change"}),
+        "windfall": frozenset({"windfall"}),
+    },
+    "career": {
+        "career_transition": frozenset({
+            "career_change", "job_gain", "promotion",
+            "business_start", "business_expansion",
+        }),
+        "contract_document": frozenset({"contract_document"}),
+        "career_risk": frozenset({
+            "legal_conflict", "social_conflict", "preparation_delay",
+        }),
+    },
+    "relationship": {
+        # marriage_signal 은 공식화 성격이라 '인연 변화' 에 자동 포함하지 않는다.
+        "relationship_shift": frozenset({"new_relationship", "relationship_change"}),
+    },
+    "relocation": {
+        "relocation_signal": frozenset({"relocation"}),
+    },
+}
+
+_FAVORABLE = (str(EventPolarity.POSITIVE),)
+_ADVERSE_MIXED = (
+    str(EventPolarity.NEGATIVE_OR_FORCED), str(EventPolarity.CONDITIONAL),
+)
+
+#: 섹션 증거 정책. 테마당 TIMING 1개(계약 테스트가 고정).
+_SECTION_EVIDENCE_POLICY: dict[str, SectionEvidencePolicy] = {
+    # ── 재물 ──
+    "W-01": SectionEvidencePolicy(
+        MODE_SUMMARY, ("timing_overview",), NARRATIVE_HEADLINE),
+    "W-02": SectionEvidencePolicy(MODE_NONE),
+    "W-03": SectionEvidencePolicy(MODE_NONE),
+    "W-04": SectionEvidencePolicy(
+        MODE_DIRECT, ("wealth_change",), detail_level="broad_only",
+        claim_policy_id=CLAIM_POLICY_WEALTH_BROAD,
+    ),
+    "W-05": SectionEvidencePolicy(
+        MODE_DIRECT, ("windfall",), claim_policy_id=CLAIM_POLICY_WINDFALL_ONLY),
+    "W-06": SectionEvidencePolicy(
+        MODE_SUMMARY, ("timing_overview",), NARRATIVE_PERIOD_FLOW),
+    "W-07": SectionEvidencePolicy(
+        MODE_TIMING, ("timing_overview",), NARRATIVE_TIMING_LIST),
+    "W-08": SectionEvidencePolicy(
+        MODE_REUSE, ("timing_overview", "wealth_change", "windfall")),
+    "W-09": SectionEvidencePolicy(MODE_NONE),
+    # ── 직업 ──
+    "J-01": SectionEvidencePolicy(
+        MODE_SUMMARY, ("timing_overview",), NARRATIVE_HEADLINE),
+    "J-02": SectionEvidencePolicy(MODE_NONE),
+    "J-03": SectionEvidencePolicy(MODE_NONE),
+    "J-04": SectionEvidencePolicy(
+        MODE_DIRECT, ("career_transition", "contract_document")),
+    "J-05": SectionEvidencePolicy(
+        MODE_SUMMARY, ("timing_overview",), NARRATIVE_PERIOD_FLOW),
+    "J-06": SectionEvidencePolicy(
+        MODE_TIMING, ("timing_overview",), NARRATIVE_TIMING_LIST),
+    "J-07": SectionEvidencePolicy(
+        MODE_REUSE, ("timing_overview", "career_transition", "career_risk")),
+    "J-08": SectionEvidencePolicy(MODE_NONE),
+    # ── 애정 ──
+    "R-01": SectionEvidencePolicy(
+        MODE_SUMMARY, ("timing_overview",), NARRATIVE_HEADLINE),
+    "R-02": SectionEvidencePolicy(MODE_NONE),
+    "R-03": SectionEvidencePolicy(MODE_NONE),
+    "R-04": SectionEvidencePolicy(MODE_DIRECT, ("relationship_shift",)),
+    "R-05": SectionEvidencePolicy(
+        MODE_SUMMARY, ("timing_overview",), NARRATIVE_PERIOD_FLOW),
+    "R-06": SectionEvidencePolicy(
+        MODE_TIMING, ("timing_overview",), NARRATIVE_TIMING_LIST),
+    "R-07": SectionEvidencePolicy(
+        MODE_REUSE, ("timing_overview", "relationship_shift")),
+    "R-08": SectionEvidencePolicy(MODE_NONE),
+    # ── 궁합 ──
+    "RP-01": SectionEvidencePolicy(MODE_NONE),
+    "RP-02": SectionEvidencePolicy(MODE_NONE),
+    "RP-03": SectionEvidencePolicy(MODE_NONE),
+    "RP-04": SectionEvidencePolicy(MODE_NONE),
+    "RP-05": SectionEvidencePolicy(MODE_NONE),
+    "RP-06": SectionEvidencePolicy(
+        MODE_SUMMARY, ("timing_overview",), NARRATIVE_PERIOD_FLOW),
+    "RP-07": SectionEvidencePolicy(
+        MODE_TIMING, ("timing_overview",), NARRATIVE_TIMING_LIST),
+    "RP-08": SectionEvidencePolicy(MODE_REUSE, ("risk",)),
+    "RP-09": SectionEvidencePolicy(
+        MODE_REUSE, ("timing_overview", "opportunity")),
+    # ── 이사 ──
+    "RL-01": SectionEvidencePolicy(
+        MODE_SUMMARY, ("timing_overview",), NARRATIVE_HEADLINE),
+    "RL-02": SectionEvidencePolicy(MODE_NONE),
+    "RL-03": SectionEvidencePolicy(MODE_NONE),
+    "RL-04": SectionEvidencePolicy(MODE_DIRECT, ("relocation_signal",)),
+    # 계약 후보가 relocation 풀에 0건이라 DIRECT 로 두면 항상 비거나 career 풀을
+    # 끌어오게 된다 — REUSE 로 바꾸고 계약 문제 발생 단정을 금지한다.
+    "RL-05": SectionEvidencePolicy(
+        MODE_REUSE, ("risk",), claim_policy_id=CLAIM_POLICY_RELOCATION_CHECK),
+    "RL-06": SectionEvidencePolicy(
+        MODE_TIMING, ("timing_overview",), NARRATIVE_TIMING_LIST),
+    "RL-07": SectionEvidencePolicy(
+        MODE_REUSE, ("relocation_signal", "risk", "timing_overview")),
+    "RL-08": SectionEvidencePolicy(MODE_NONE),
+}
+
+
+def build_theme_evidence_bundle(
+    pool: list[EventCandidate], topic: str | None
+) -> ThemeEvidenceBundle:
+    """테마 증거 번들 — 리포트 실행당 **1회** 생성한다.
+
+    각 view 는 canonical 풀에서 자기 조건으로 필터한 뒤 A′ 그룹화를 거친다. 전체
+    top-K 의 부분집합을 추출하는 방식이 아니므로, 전체 순위에서 밀린 후보도 자기
+    섹션에서는 대표가 될 수 있다.
+    """
+    views = {
+        vid: _build_period_view(pool, view_id=vid, event_keys=keys)
+        for vid, keys in _THEME_SECTION_VIEWS.get(topic or "", {}).items()
+    }
+    return ThemeEvidenceBundle(
+        timing_overview=_build_period_view(pool, view_id="timing_overview"),
+        opportunity=_build_period_view(
+            pool, view_id="opportunity", polarities=_FAVORABLE
+        ),
+        risk=_build_period_view(pool, view_id="risk", polarities=_ADVERSE_MIXED),
+        # frozen 만으로는 내부 dict 가 렌더링 중 바뀔 수 있다 — 복사 후 읽기 전용.
+        section_views=MappingProxyType(dict(views)),
+    )
+
+
+#: 모드별 표시 기간 상한. TIMING 만 전체를 낸다 — '테마당 전체 목록 1개' 불변식이
+#: 형식상만 성립하지 않게 하려면 DIRECT·REUSE 도 표현을 좁혀야 한다. 기존 view 순서
+#: 상위를 쓰므로 새 점수·타이브레이크가 아니다.
+_MODE_PERIOD_LIMIT: dict[str, int | None] = {
+    MODE_TIMING: None,      # 전체
+    MODE_DIRECT: 2,
+    MODE_REUSE: 2,
+    MODE_SUMMARY: 0,        # 개별 달 나열 금지
+}
+
+
+def section_claim_policy(
+    policy: SectionEvidencePolicy,
+) -> SectionClaimPolicy | None:
+    """evidence 정책의 claim 정책 ID 를 실제 정책으로 해소한다.
+
+    ID 가 없으면 `None`(claim 제한 없는 섹션). ID 가 있는데 등록돼 있지 않으면
+    조용히 통과시키지 않고 예외로 드러낸다 — fail closed.
+    """
+    if policy.claim_policy_id is None:
+        return None
+    resolved = SECTION_CLAIM_POLICIES.get(policy.claim_policy_id)
+    if resolved is None:
+        raise KeyError(
+            f"UNKNOWN_CLAIM_POLICY_ID: {policy.claim_policy_id}"
+        )
+    return resolved
+
+
+def _dedupe_candidates(items) -> tuple[EventCandidate, ...]:
+    """같은 후보 객체를 한 번만 남긴다. `EventCandidate` 는 해시 불가라 동일성 기준.
+
+    `(period, event_key)` 를 키로 쓰지 않는다 — 같은 달·같은 키에 신호원이 다른 여러
+    후보가 있을 수 있어 선택하지 않은 후보의 근거까지 끌려온다.
+    """
+    out: list[EventCandidate] = []
+    seen: set[int] = set()
+    for c in items:
+        if id(c) not in seen:
+            seen.add(id(c))
+            out.append(c)
+    return tuple(out)
+
+
+@dataclass(frozen=True)
+class PolicyEvidenceResult:
+    """정책 렌더링 결과 — 표시 내용과 근거 범위를 **일치**시키기 위한 반환값.
+
+    `support_candidates` 는 실제로 렌더링된 기간을 뒷받침하는 후보만 담는다. view 의
+    전체 그룹을 근거 블록에 넘기면 사용자에게 보이지 않는 후보 반복과 토큰 증가가 남는다.
+    """
+
+    lines: tuple[str, ...]
+    period_clusters: tuple[SectionPeriodCluster, ...]
+    support_candidates: tuple[EventCandidate, ...]
+
+
+def _policy_evidence(
+    data: _ReportData, policy: SectionEvidencePolicy
+) -> PolicyEvidenceResult:
+    """정책이 지정한 named view 로 표시 lines·기간 클러스터·근거 범위를 만든다."""
+    bundle = data.evidence_bundle
+    if bundle is None:
+        return PolicyEvidenceResult((), (), ())
+    resolved = tuple(
+        v for v in (bundle.view(vid) for vid in policy.view_ids) if v is not None
+    )
+    present = tuple(v for v in resolved if v.groups)
+    if not present:
+        return PolicyEvidenceResult(
+            (
+                "",
+                "[시점 근거 없음 — 이 섹션 조건에 해당하는 운 후보가 없다. 특정 달·"
+                "연도를 지목하지 말고 원국 구조와 일반 대응으로만 서술할 것. 다른 "
+                "사건군의 시점을 끌어와 채우지 말 것]",
+            ), (), (),
+        )
+    clusters = _section_period_clusters(present)
+    limit = _MODE_PERIOD_LIMIT.get(policy.mode)
+    shown = clusters if limit is None else clusters[:limit]
+    support = _dedupe_candidates(
+        [c for cl in shown for c in cl.representatives]
+        + [c for cl in shown for c in cl.companions]
+    )
+    lines: list[str] = [""]
+    if policy.mode == MODE_SUMMARY:
+        # 개별 달을 내지 않는다 — 연도 축으로만 압축한다.
+        years = sorted({cl.period[:4] for cl in clusters})
+        lines.append(
+            "[흐름 요약용 근거 — 개별 달을 나열하지 말 것. 신호가 걸린 해: "
+            + ", ".join(years)
+            + f" (총 {len(clusters)}개 시점). 연도·구간 흐름으로만 압축해 서술할 것]"
+        )
+        # 요약을 뒷받침하는 범위만 근거로 쓴다(상위 2개).
+        support = _dedupe_candidates(
+            c for cl in clusters[:2] for c in cl.representatives
+        )
+    else:
+        label = {
+            MODE_TIMING: "[주목할 시점 — 이 테마의 대표 시점 전체 목록]",
+            MODE_DIRECT: (
+                "[이 섹션 조건의 핵심 시기 — 전체 목록이 아니다. 나머지 후보는 "
+                "'그 밖에도 약한 신호가 분산됨' 정도로만 요약할 것]"
+            ),
+            MODE_REUSE: (
+                "[앞서 확정된 근거 재사용 — 새 시점 목록을 만들지 말 것. 아래 기간에 "
+                "대한 대응·주의로만 서술할 것]"
+            ),
+        }.get(policy.mode, "[시점 근거]")
+        lines.append(label)
+        for cl in shown:
+            reps = ", ".join(
+                dict.fromkeys(str(c.event_key) for c in cl.representatives)
+            )
+            line = f"{cl.period}: {reps} (근거 관점 {', '.join(cl.source_view_ids)})"
+            if cl.companions:
+                cos = ", ".join(
+                    dict.fromkeys(str(c.event_key) for c in cl.companions)
+                )
+                line += f" / 같은 시점 함께 나타나는 신호: {cos}"
+            lines.append(line)
+        if limit is not None and len(clusters) > limit:
+            lines.append(
+                f"(이 섹션은 핵심 {limit}개만 다룬다. 나머지 {len(clusters) - limit}개 "
+                "시점은 전체 목록 섹션에서 다루므로 여기서 나열하지 말 것)"
+            )
+    if policy.detail_level == "broad_only":
+        lines.append(
+            "이 사건은 '변화가 두드러지는 시기' 까지만 보장한다 — 변화의 세부 형태·"
+            "방향을 단정하지 말 것."
+        )
+    claim_pol = section_claim_policy(policy)
+    if claim_pol is not None:
+        directive = claim_directive(claim_pol)
+        if directive:
+            lines.append(directive)
+    return PolicyEvidenceResult(tuple(lines), shown, support)
+
+
+def _policy_evidence_lines(
+    data: _ReportData, policy: SectionEvidencePolicy
+) -> list[str]:
+    """`_policy_evidence` 의 lines 만 반환하는 호환 래퍼(진단·테스트용)."""
+    return list(_policy_evidence(data, policy).lines)
+
+
 def build_section_context(
     plan: SectionPlan, spec: ReportSpec, data: _ReportData, *, reduction_level: int = 0
 ) -> SectionContext:
@@ -1759,8 +2386,26 @@ def build_section_context(
             if sid in _DATE_CERTAINTY_SECTIONS:
                 lines.append(AVOID_DATE_CERTAINTY_DIRECTIVE)
             lines.append("")
+        # P1 — 정책 등록 섹션은 named view 만 쓴다. 전역 top-8 fallback 을 타지 않는다.
+        policy = (
+            _SECTION_EVIDENCE_POLICY.get(sid)
+            if data.evidence_bundle is not None else None
+        )
+        if policy is not None:
+            if policy.mode == MODE_DAEWOON_ONLY:
+                lines += data.luck_block(daewoon_only=True)
+            elif policy.mode != MODE_NONE:
+                res = _policy_evidence(data, policy)
+                # legacy 전역 이벤트 후보 블록만 끄고, 합작용·발현분기·내부근거는
+                # **렌더링된 기간을 뒷받침하는 후보 범위로** 복구한다(2026-07-30).
+                lines += data.luck_block(
+                    list(res.support_candidates), include_event_candidates=False
+                )
+                lines += list(res.lines)
+            if policy.narrative_mode:
+                lines.append(f"[서술 형식: {policy.narrative_mode}]")
         # 후보 상세 — 도메인 스코프면 자기 도메인 후보(길·흉 포함), 아니면 전역 top 후보.
-        if section_domain is not None:
+        elif section_domain is not None:
             lines += data.luck_block(data.domain_candidates(section_domain))
         else:
             # 2부 과거·메타 섹션은 [대운표]만 — 미래 이벤트 후보가 섞이는 시간범위 불일치 차단.
@@ -2251,6 +2896,31 @@ def _try_risk_exposed_section(
         return None, body_prompt
 
 
+def _audit_section_text(section_id: str, text: str) -> str:
+    """섹션 본문의 금지 주장 감사·교체. 정책이 없으면 원문 그대로.
+
+    새 LLM 호출을 만들지 않는다. patch 로 해결되지 않으면 그 섹션만 안전 문구가 된다.
+    """
+    policy = _SECTION_EVIDENCE_POLICY.get(section_id)
+    if policy is None or policy.claim_policy_id is None:
+        return text
+    claim_pol = section_claim_policy(policy)
+    if claim_pol is None:
+        return text
+    outcome = audit_and_patch_generated_section(
+        text, claim_pol, policy_id=policy.claim_policy_id
+    )
+    if outcome.violations:
+        _logger.warning(
+            "섹션 금지 주장 감사: section=%s 위반=%s patch=%s fallback=%s",
+            section_id,
+            [v.claim_id for v in outcome.violations],
+            outcome.patched,
+            outcome.fell_back,
+        )
+    return outcome.text
+
+
 def generate_report(
     birth: BirthInput,
     spec: ReportSpec,
@@ -2353,6 +3023,10 @@ def generate_report(
                         reduction_level,
                     )
                 text = _tighten(text)  # 지면 낭비 정규화(공백수정)
+                # 섹션 claim 감사 — 생성 직후, **이 섹션 범위**에서만. 전체 문서
+                # 오프셋 변환이 필요 없고 W-05 정책이 W-03 문장에 적용될 여지도 없다.
+                # 위반 → 결정적 patch → 재감사 → 남으면 이 섹션만 안전 문구로 대체.
+                text = _audit_section_text(plan.section_id, text)
                 data.record_opening(text)  # 다음 섹션의 '서두 반복 금지' 재료(순차 생성)
                 return text, 0, len(text)  # 토큰은 llm_client 장부가 집계(cached 포함)
             except TokenBudgetExceeded as exc:
