@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import pytest
+
 from saju_engines.effective_subjects import (
     AttachedCompanion,
     build_effective_subjects,
@@ -30,6 +31,12 @@ from saju_shared_types.intent import SubjectMode
 
 RECIPROCAL = [
     "헤어진 전남친과 다시 만날 수 있을까?",
+    # 우회 어미 — 종결형만 잡으면 '잘될까'는 걸리는데 '잘될 수 있을까'가 빠진다
+    # (실로그 '남자1과 잘될 수 있을까?'가 too_broad 로 차단됐다).
+    "남자1과 잘될 수 있을까?",
+    "남자1과 앞으로 잘될 수 있을까?",
+    "잘 될 수 있을지 궁금해",
+    "우리 잘될는지 봐줘",
     "전남친한테 연락 올까?",
     "우리 다시 잘될까?",
     "재회 가능성 있어?",
@@ -44,6 +51,8 @@ RECIPROCAL = [
 #: 상대 **단독** 질문. 여기까지 본인을 끌어오면 대상이 뒤바뀐다.
 SOLO = [
     "엄마 사주만 봐줘",
+    # 상대가 언급돼도 술어가 상호적이지 않으면 단독 질문이다.
+    "남자1 요즘 어때?",
     "전남친 요즘 어때?",
     "남편 올해 재물운 어때",
     "동생 취업운 봐줘",
@@ -150,3 +159,63 @@ def test_pairwise_injection_requires_relationship_context() -> None:
     assert mode == "pairwise"
     assert inj.requires_relationship_context
     assert inj.primary_subject_id == "me"  # 본인이 서술 기준 — 상대가 아니다
+
+
+# ── too_broad 차단 회귀 ──────────────────────────────────────────────────
+
+
+def _turn(question: str) -> tuple[str, str, str]:
+    """등록 동반자 1명이 있는 스레드에서 한 턴을 처리해 (모드, 질문유형, 판정)."""
+    from datetime import date
+
+    from saju_engines.companion_alias import AliasEntry
+    from saju_engines.conversation import ConversationEngine
+    from saju_engines.rewriter import assess
+    from saju_shared_types.conversation import ConversationState
+
+    engine = ConversationEngine(alias_index={
+        "남자1": [AliasEntry(
+            subject_id="c1", label="남자1", relation_to_user=None, source="label",
+        )],
+    })
+    parsed, _state, resolution, _link = engine.process_turn(
+        ConversationState(thread_id="t1"), question, date(2026, 7, 31),
+    )
+    intent = parsed.intents[0]
+    return (
+        resolution.subject_mode.value,
+        intent.query_type.value,
+        assess(intent, question).status,
+    )
+
+
+@pytest.mark.parametrize("question", [
+    "남자1과 잘될 수 있을까?",
+    "남자1과 앞으로 잘될 수 있을까?",
+    "남자1과 다시 만날 수 있을까?",
+])
+def test_reciprocal_question_is_not_blocked_as_too_broad(question: str) -> None:
+    """궁합 질문이 '질문 범위가 넓어요'로 차단되면 안 된다.
+
+    PAIRWISE 로 올라가면 query_type 이 COMPARISON 으로 승격되고, assess 는 비교/궁합을
+    시점·분야 없이도 통과시킨다 — 무엇을 비교할지가 곧 분석 대상이기 때문이다.
+    도메인 어휘를 건드리지 않고도 관문이 열린다.
+    """
+    mode, qtype, status = _turn(question)
+    assert mode == "pairwise"
+    assert qtype == "comparison"
+    assert status != "too_broad"
+
+
+def test_domain_question_without_companion_keeps_its_domain() -> None:
+    """'사업 잘될 수 있을까?'는 같은 술어지만 관계 질문이 아니다 — 과검출 경계."""
+    mode, _qtype, status = _turn("사업 잘될 수 있을까?")
+    assert mode != "pairwise"
+    assert status != "too_broad"  # career 도메인이 잡혀 기본 기간이 붙는다
+
+
+def test_solo_companion_question_still_narrows() -> None:
+    """상대 단독·무분야 질문은 여전히 범위를 좁힌다 — 기존 동작 보존."""
+    mode, _qtype, status = _turn("남자1 요즘 어때?")
+    assert mode != "pairwise"
+    assert status == "too_broad"
