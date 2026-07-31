@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import pytest
+
 from saju_engines.luck_relation_graph import (
     LINK_COMPETES_FOR_DIRECTION,
     LINK_POTENTIALLY_BLOCKED_BY,
@@ -232,3 +233,113 @@ def test_metrics_summarize_without_leaking_characters(graph) -> None:
     assert m["potential_block_count"] == 3
     assert m["distinct_placement_family_count"] == 1
     assert all(isinstance(v, int) for v in m.values())
+
+
+# ── 어댑터 (P1-b0) ───────────────────────────────────────────────────────
+
+
+class _FakeHap:
+    """resolve_branch_hap 결과의 최소 형태."""
+
+    def __init__(self, kind, members, positions, tier, mode, target):
+        self.kind = kind
+        self.members = members
+        self.positions = positions
+        self.transform_tier = tier
+        self.hap_mode = mode
+        self.transform_element = target
+
+
+_INDEX = {
+    ("year", "卯"): "natal.year.branch:卯",
+    ("month", "未"): "natal.month.branch:未",
+    ("day", "戌"): "natal.day.branch:戌",
+    ("hour", "戌"): "natal.hour.branch:戌",
+    ("luck", "酉"): "daewoon.branch:酉",
+    ("luck", "未"): "sewoon.branch:未",
+}
+
+
+def test_adapter_uses_positions_not_character_guessing() -> None:
+    """자리로 노드를 고른다 — 글자만 보면 두 戌 이 하나로 뭉개진다."""
+    from saju_engines.luck_relation_graph import adapt_branch_hap_results
+
+    day, hour = adapt_branch_hap_results(
+        resolver_results=[
+            _FakeHap("six", ("卯", "戌"), ("year", "day"), "conditional", "bind", "火"),
+            _FakeHap("six", ("卯", "戌"), ("year", "hour"), "conditional", "bind", "火"),
+        ],
+        node_index=_INDEX,
+    )
+    assert "natal.hour.branch:戌" not in day.member_node_ids
+    assert "natal.day.branch:戌" not in hour.member_node_ids
+
+
+def test_adapter_handles_members_positions_length_mismatch() -> None:
+    """`members` 는 글자쌍, `positions` 는 참여 자리다 — 길이가 다른 것이 정상이다.
+
+    半合 卯未 는 원국 未 와 운 未 가 모두 참여해 members 2 / positions 3 이 된다.
+    zip 으로 짝지으면 ValueError 가 났다(실측).
+    """
+    from saju_engines.luck_relation_graph import adapt_branch_hap_results
+
+    (edge,) = adapt_branch_hap_results(
+        resolver_results=[
+            _FakeHap("half", ("卯", "未"), ("year", "month", "luck"),
+                     "none", "partial", "木"),
+        ],
+        node_index=_INDEX,
+    )
+    assert set(edge.member_node_ids) == {
+        "natal.year.branch:卯", "natal.month.branch:未", "sewoon.branch:未",
+    }
+
+
+def test_adapter_preserves_raw_tier_and_mode() -> None:
+    """어댑터는 판정하지 않는다 — 원시 의미를 그대로 옮긴다."""
+    from saju_engines.luck_relation_graph import adapt_branch_hap_results
+
+    (edge,) = adapt_branch_hap_results(
+        resolver_results=[
+            _FakeHap("three_harmony", ("卯", "未"), ("year", "month"),
+                     "none", "transform", "木"),
+        ],
+        node_index=_INDEX,
+    )
+    assert edge.existing_tier == "none"
+    assert edge.existing_mode == "transform"
+    assert edge.normalized_observation["semantic_conflict"] is True
+
+
+def test_adapter_raises_on_unknown_position() -> None:
+    """자리 매칭 실패는 인덱스 구성 오류다 — 조용히 건너뛰면 관계가 사라진다."""
+    import pytest as _pytest
+
+    from saju_engines.luck_relation_graph import adapt_branch_hap_results
+
+    with _pytest.raises(ValueError, match="node_index"):
+        adapt_branch_hap_results(
+            resolver_results=[
+                _FakeHap("six", ("子", "丑"), ("year", "day"), "none", "bind", "土"),
+            ],
+            node_index=_INDEX,
+        )
+
+
+def test_non_breaking_relations_do_not_create_block_links() -> None:
+    """형·파·해는 수집돼도 차단 링크를 만들지 않는다.
+
+    분리하지 않으면 사례 A 에서 차단 링크가 4건 → 20건으로 불어난다(실측).
+    """
+    from saju_engines.branch_relation_collector import collect_branch_relation_instances
+    from saju_engines.luck_relation_graph import edges_from_branch_relations
+
+    instances = collect_branch_relation_instances(nodes=_NODES)
+    disruptive = edges_from_branch_relations(instances)
+    g = build_relation_dependency_graph(
+        nodes=_NODES, resolved_relations=_RESOLVED, disruptive_relations=disruptive,
+    )
+    blocked = _links(g, LINK_POTENTIALLY_BLOCKED_BY)
+    assert blocked, "충에 대한 차단 링크는 있어야 한다"
+    for dep in blocked:
+        assert dep.relation_ids[1].startswith("clash:")

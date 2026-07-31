@@ -27,8 +27,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Protocol
 
 # ── 링크 종류 ────────────────────────────────────────────────────────────
 #
@@ -40,6 +41,40 @@ LINK_POTENTIALLY_DISRUPTED_BY = "POTENTIALLY_DISRUPTED_BY"
 #: 같은 관계 가족이지만 자리가 다른 별개 인스턴스(예: 卯↔일지戌, 卯↔시지戌).
 #: `DUPLICATE_*` 로 부르지 않는다 — 중복 제거 대상으로 오해된다.
 LINK_SAME_FAMILY_DISTINCT_PLACEMENT = "SAME_FAMILY_DISTINCT_PLACEMENT"
+
+class BranchHapLike(Protocol):
+    """`resolve_branch_hap` 결과가 만족해야 하는 최소 계약.
+
+    구체 타입을 import 하면 saju_engines → manse_analysis 방향 의존이 생긴다. 어댑터가
+    실제로 읽는 필드만 Protocol 로 고정한다.
+    """
+
+    @property
+    def kind(self) -> str: ...
+    @property
+    def members(self) -> tuple[str, ...]: ...
+    @property
+    def positions(self) -> tuple[str, ...]: ...
+    @property
+    def transform_element(self) -> str | None: ...
+    @property
+    def transform_tier(self) -> str: ...
+    @property
+    def hap_mode(self) -> str: ...
+
+
+class BranchRelationLike(Protocol):
+    """파괴 관계 인스턴스의 최소 계약."""
+
+    @property
+    def relation_id(self) -> str: ...
+    @property
+    def relation_family(self) -> str: ...
+    @property
+    def kind(self) -> object: ...
+    @property
+    def member_node_ids(self) -> tuple[str, ...]: ...
+
 
 #: 기존 결합을 깨뜨릴 수 있는 관계 종류. 여기 속하면 차단/교란 링크의 **원인 쪽**이 된다.
 DISRUPTIVE_TYPES = frozenset({"clash", "punishment", "break", "harm"})
@@ -156,6 +191,89 @@ def edge_from_resolution(
     )
 
 
+def adapt_branch_hap_results(
+    *,
+    resolver_results: Sequence[BranchHapLike],
+    node_index: Mapping[tuple[str, str], str],
+    source_resolver: str = "branch_hap",
+) -> tuple[RelationEdge, ...]:
+    """기존 `resolve_branch_hap` 결과 → 엣지. **순수 함수이며 플래그를 모른다.**
+
+    어댑터는 원시 의미를 그대로 옮긴다. 다음은 하지 않는다.
+
+        tier=none + mode=transform 을 TRANSFORMED 로 확정
+        충 때문에 어떤 합이 차단됐다고 확정
+        경쟁 관계의 승자 결정
+        기존 resolver 결과 수정
+
+    자리는 **추측하지 않는다.** resolver 의 `positions` 와 `members` 를 짝지어
+    `node_index[(position, character)]` 로 조회한다. 글자만 보고 노드를 고르면 원국에 戌 이
+    둘일 때 두 관계가 허위로 붙는다(P1-a 실측: 링크 9건 → 자리 반영 후 7건).
+
+    Args:
+        resolver_results: `resolve_branch_hap` 반환값.
+        node_index: (자리, 글자) → node_id. 자리는 resolver 의 positions 어휘를 쓴다
+            ('year'|'month'|'day'|'hour'|'luck').
+        source_resolver: 출처 표기.
+
+    Returns:
+        엣지 목록. 조회 실패한 관계는 **조용히 건너뛰지 않고** 제외 사유를 남길 수 없으므로
+        ValueError 를 던진다 — 자리 매칭 실패는 인덱스 구성 오류이지 정상 상태가 아니다.
+
+    Raises:
+        ValueError: positions/members 길이가 다르거나 인덱스에 없는 자리·글자.
+    """
+    edges: list[RelationEdge] = []
+    for res in resolver_results:
+        positions = tuple(res.positions)
+        members = tuple(res.members)
+        # `members` 는 관계를 이루는 **글자쌍**, `positions` 는 실제로 참여한 **자리**다.
+        # 길이가 다른 것이 정상이다 — 半合 卯未 는 원국 未·운 未 가 모두 참여해
+        # members 2 / positions 3 이 된다. 짝지어 zip 하면 안 된다.
+        member_ids: list[str] = []
+        for pos in positions:
+            hit = [node_index[(pos, ch)] for ch in members if (pos, ch) in node_index]
+            if not hit:
+                raise ValueError(
+                    f"node_index 에 없는 자리: {pos!r} (members={members})"
+                )
+            member_ids.extend(hit)
+        member_ids = sorted(set(member_ids))
+        family = f"{res.kind}:{''.join(members)}"
+        edges.append(edge_from_resolution(
+            relation_id=f"{family}@{'+'.join(positions)}",
+            relation_family=family, relation_type=str(res.kind),
+            member_node_ids=member_ids, tier=res.transform_tier,
+            mode=res.hap_mode, target_element=res.transform_element,
+            source_resolver=source_resolver,
+        ))
+    return tuple(sorted(edges, key=lambda e: e.relation_id))
+
+
+def edges_from_branch_relations(
+    instances: Sequence[BranchRelationLike],
+) -> tuple[RelationEdge, ...]:
+    """`BranchRelationInstance` → 엣지(파괴 관계 쪽)."""
+    return tuple(sorted(
+        (
+            RelationEdge(
+                relation_id=str(i.relation_id), relation_family=str(i.relation_family),
+                relation_type=str(i.kind), member_node_ids=tuple(i.member_node_ids),
+                existing_tier=None, existing_mode=None, target_element=None,
+                source_resolver="branch_relation_collector",
+                # 탐지와 효과를 분리한다 — 형·파·해는 수집하되 변환 해제 후보가 아니다.
+                normalized_observation={
+                    "breaks_transformation": bool(
+                        getattr(i, "breaks_transformation", False)
+                    )
+                },
+            )
+            for i in instances
+        ),
+        key=lambda e: e.relation_id,
+    ))
+
+
 def build_relation_dependency_graph(
     *,
     nodes: Sequence[RelationNode],
@@ -214,6 +332,11 @@ def build_relation_dependency_graph(
     # 결합 ← 파괴 관계. 방향을 고정한다: source 가 방해받는 쪽이다.
     for res in resolved:
         for dis in disruptive:
+            # 형·파·해는 **구조 정보만** 남긴다. '형·파·해가 있으면 합화가 풀린다' 는
+            # 일반화를 하지 않는다 — 근거가 확인된 것은 충뿐이다(巳亥冲·卯酉冲).
+            # 그렇지 않으면 사례 A 에서 링크가 20건으로 불어난다(실측).
+            if not dis.normalized_observation.get("breaks_transformation", True):
+                continue
             shared = set(res.member_node_ids) & set(dis.member_node_ids)
             if not shared:
                 continue
