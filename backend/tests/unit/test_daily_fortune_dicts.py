@@ -185,5 +185,7 @@ def test_threads_export_writes_date_header(tmp_path) -> None:
     assert "2026-07-23" in first and "오늘의 운세" in first  # 대상 날짜 최상단
     assert text.count("일주") >= 60
     out = tmp_path / "오늘의운세.txt"
-    assert write_threads_export(board, out) is True
+    # export 는 **오늘 보드일 때만** 쓴다(2026-08-01 사고 — 미래 보드가 파일을 덮었다).
+    # 이 테스트의 관심사는 렌더 내용이므로 고정 날짜를 기준일로 함께 주입한다.
+    assert write_threads_export(board, out, today=_date(2026, 7, 23)) is True
     assert out.read_text(encoding="utf-8").startswith("[오늘의 운세 — 2026-07-23")

@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import logging
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from saju_shared_types.daily_fortune import DailyFortuneBoard, DailyIljuFortune
 
@@ -17,6 +19,8 @@ logger = logging.getLogger(__name__)
 # 리포 최상위 고정 파일명 — 날짜가 바뀌어도 같은 파일을 덮어쓴다.
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 THREADS_EXPORT_PATH = _REPO_ROOT / "오늘의운세.txt"
+
+_KST = ZoneInfo("Asia/Seoul")
 
 _MEDALS = ("🥇", "🥈", "🥉", "🏅", "🏅")
 _SLOT_LABEL = {"good": "좋은 흐름", "caution": "주의", "support": "도움"}
@@ -91,9 +95,34 @@ def render_threads_text(board: DailyFortuneBoard) -> str:
 
 
 def write_threads_export(
-    board: DailyFortuneBoard, path: Path = THREADS_EXPORT_PATH
+    board: DailyFortuneBoard, path: Path = THREADS_EXPORT_PATH,
+    *, today: date | None = None,
 ) -> bool:
-    """스레드용 텍스트 파일 갱신(원자적 교체). 실패해도 예외를 전파하지 않는다."""
+    """스레드용 텍스트 파일 갱신(원자적 교체). 실패해도 예외를 전파하지 않는다.
+
+    **오늘 보드일 때만 쓴다.** 이 파일은 날짜가 바뀌어도 같은 경로를 덮어쓰는데,
+    `get_board`·`polish_board` 는 임의 날짜로 호출될 수 있다(사전생성·관리자 수동
+    실행·과거 재생). 가드가 없으면 그 날짜 보드가 '오늘' 파일을 덮는다.
+
+    실제로 2026-08-01 00:02 에 8/2 보드가 이 파일을 덮어 토요일에 일요일 운세가
+    올라갔다. 가드를 호출부마다 두지 않고 여기 둔 이유는, 새 호출부가 생겼을 때
+    빠뜨리면 같은 사고가 반복되기 때문이다.
+
+    Args:
+        board: 기록할 보드.
+        path: 대상 경로.
+        today: 기준 날짜(테스트 주입용). None이면 KST 오늘.
+
+    Returns:
+        실제로 파일을 쓴 경우에만 True. 날짜 불일치로 건너뛰면 False.
+    """
+    ref = today or datetime.now(_KST).date()
+    if board.fortune_date != ref:
+        logger.info(
+            "오늘의 운세 export 건너뜀 — 오늘(%s) 보드가 아니다: %s", ref,
+            board.fortune_date,
+        )
+        return False
     try:
         tmp = path.with_suffix(".txt.tmp")
         tmp.write_text(render_threads_text(board), encoding="utf-8")

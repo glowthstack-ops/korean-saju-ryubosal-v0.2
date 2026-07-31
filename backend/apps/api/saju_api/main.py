@@ -97,8 +97,14 @@ async def _daily_fortune_pregen_loop() -> None:
         run_at = now.replace(hour=23, minute=50, second=0, microsecond=0)
         if run_at <= now:
             run_at += timedelta(days=1)
+        # 목표 날짜를 **sleep 전에** 고정한다. 뒤에서 다시 now 를 읽으면, sleep 이
+        # 자정을 넘겨 깨어났을 때(직전 _ensure 가 60건 생성+LLM 교정으로 10분 넘게
+        # 걸리는 경우가 있다) +1 이 하루를 건너뛴 날짜가 된다. 실제로 그렇게 만들어진
+        # 미래 보드가 스레드 export 파일을 덮어 토요일에 일요일 운세가 올라갔다
+        # (2026-08-01).
+        target = (run_at + timedelta(days=1)).date()
         await asyncio.sleep((run_at - now).total_seconds())
-        await _ensure((datetime.now(_KST) + timedelta(days=1)).date())
+        await _ensure(target)
 
 
 @contextlib.asynccontextmanager
