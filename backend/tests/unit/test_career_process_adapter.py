@@ -41,7 +41,7 @@ def _track(
     close_reason: CareerTransitionCloseReason | None = None,
 ) -> TrackState:
     """관찰 단계·frontier·lifecycle을 따로 지정할 수 있는 트랙 상태."""
-    observed = ()
+    observed: tuple[ObservedStageState, ...] = ()
     if stage is not None:
         observed = (
             ObservedStageState(
@@ -100,10 +100,14 @@ def _episode(
 )
 def test_confirmed_stage_maps_to_neutral_stage(track, stage, expected) -> None:
     """확정된 변환표대로 매핑된다."""
-    kwargs = {"opportunity" if track is CareerTrack.OPPORTUNITY else "entry": _track(
-        track, stage
-    )}
-    store = CareerEpisodeStore(episodes=(_episode(**kwargs),))
+    # 트랙에 따라 채울 필드가 달라진다 — dict 로 만들어 펼치면 값 타입이 합쳐져
+    # 파라미터마다 오류가 난다. 두 갈래를 그대로 쓴다.
+    ts = _track(track, stage)
+    episode = (
+        _episode(opportunity=ts) if track is CareerTrack.OPPORTUNITY
+        else _episode(entry=ts)
+    )
+    store = CareerEpisodeStore(episodes=(episode,))
 
     snapshots = build_career_process_snapshots(store, subject_id="self")
 

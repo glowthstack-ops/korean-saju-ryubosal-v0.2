@@ -74,7 +74,7 @@ def test_hierarchy_without_patch_only_warns(monkeypatch: pytest.MonkeyPatch) -> 
     logger = logging.getLogger(period_v2_config.__name__)
     records: list[logging.LogRecord] = []
     handler = logging.Handler()
-    handler.emit = records.append  # type: ignore[method-assign]
+    handler.emit = records.append  # type: ignore[method-assign,assignment]
     prev_level = logger.level
     logger.addHandler(handler)
     logger.setLevel(logging.WARNING)

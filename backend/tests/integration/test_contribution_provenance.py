@@ -136,10 +136,12 @@ def test_losers_are_recorded_as_evaluated_not_selected(brancher, chart) -> None:
         assert sel.evidence_id in {e.evidence_id for e in same}
     losers = [e for e in p.evaluated if not e.selected_at_evaluation]
     for lo in losers:
-        sel = p.selected.get(lo.event_key)
+        # 위 루프의 `sel` 과 이름을 나눈다 — 여기서는 '이 패자의 event_key 에 승자가
+        # 있는가' 를 묻는 것이라 없을 수도 있다.
+        winner = p.selected.get(lo.event_key)
         # 패자는 그 후보의 최종 승자가 될 수 없다.
-        if sel is not None:
-            assert sel.evidence_id != lo.evidence_id or lo.selection_reason in (
+        if winner is not None:
+            assert winner.evidence_id != lo.evidence_id or lo.selection_reason in (
                 SelectionReason.NOT_SELECTED_EQUAL_SCORE,
                 SelectionReason.NOT_SELECTED_LOWER_SCORE,
             )

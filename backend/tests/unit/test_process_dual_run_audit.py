@@ -216,7 +216,8 @@ def test_build_failure_does_not_raise(tmp_path, monkeypatch) -> None:
         def __getattr__(self, name):
             raise RuntimeError("boom")
 
-    assert append_audit(_Bad(), _context(), now=_NOW) is False
+    # 속성 접근이 터지는 객체를 넣어 방어 경로를 확인한다 — 타입이 맞지 않는 것이 의도다.
+    assert append_audit(_Bad(), _context(), now=_NOW) is False  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("bad_key", ["", "not-base64!!", "c2hvcnQ="])
@@ -224,4 +225,5 @@ def test_invalid_hmac_key_falls_back(monkeypatch, bad_key) -> None:
     """비정상 키로 감사가 멈추지 않는다(개발 기본키로 폴백)."""
     monkeypatch.setenv("P2_AUDIT_HMAC_KEY_B64", bad_key)
 
-    assert pseudonymize("subject-42", prefix="hmac").startswith("hmac:")
+    pseudo = pseudonymize("subject-42", prefix="hmac")
+    assert pseudo is not None and pseudo.startswith("hmac:")

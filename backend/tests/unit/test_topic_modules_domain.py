@@ -199,11 +199,14 @@ def test_m13_bond_compare_two_subjects() -> None:
 
 
 def _m01_keys(comps: list[LuckComposite]) -> set[str]:
-    return {f.event_key for f in build_topic_context("M01", [], _PERIOD, comps).findings}
+    findings = build_topic_context("M01", [], _PERIOD, comps).findings
+    # event_key 는 Optional 이다 — 키 비교가 목적이라 미지정 항목은 제외한다.
+    return {f.event_key for f in findings if f.event_key}
 
 
 def _m02_keys(comps: list[LuckComposite]) -> set[str]:
-    return {f.event_key for f in build_topic_context("M02", [], _PERIOD, comps).findings}
+    findings = build_topic_context("M02", [], _PERIOD, comps).findings
+    return {f.event_key for f in findings if f.event_key}
 
 
 def test_b1a_canonical_relationship_change_owned_by_m01_only() -> None:

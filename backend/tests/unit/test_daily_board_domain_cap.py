@@ -51,7 +51,10 @@ def test_no_ilju_order_bias(dicts) -> None:
     선점한다. 보드 전체를 본 뒤 재배정하므로 입력 순서를 뒤집어도 결과가 같아야 한다.
     """
     board = M.compute_board(M.build_day_context(_START), dicts)
-    order = [a.ilju for a in board._headline_audit]
+    # `_headline_audit` 는 object.__setattr__ 로 붙는 감사 sidecar 다(모델 필드가
+    # 아니다 — 선언하면 production 직렬화가 바뀐다). getattr 로 동적 접근을 명시한다.
+    headline_audit = getattr(board, "_headline_audit")
+    order = [a.ilju for a in headline_audit]
     # 재배정 입력을 그대로 재구성한다(후보 목록은 카드의 표시 사건에서 복원).
     decisions = {
         a.ilju: [
@@ -64,7 +67,7 @@ def test_no_ilju_order_bias(dicts) -> None:
                 ),
             )
         ]
-        for a in board._headline_audit
+        for a in headline_audit
     }
     forward, _, _ = M._rebalance_headlines(decisions, order, M._DOMAIN_HEADLINE_CAP)
     reverse, _, _ = M._rebalance_headlines(

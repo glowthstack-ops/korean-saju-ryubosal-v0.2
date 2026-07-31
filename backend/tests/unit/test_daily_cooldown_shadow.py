@@ -17,6 +17,7 @@ import pytest
 
 from saju_engines.daily_board_constraints import HeadlineCandidate
 from saju_engines.daily_cooldown_shadow import (
+    CooldownResult,
     ALL_CANDIDATES_COOLDOWN_BLOCKED,
     CONSECUTIVE_EVENT_REPEAT,
     COOLDOWN_ALTERNATIVE_SELECTED,
@@ -194,9 +195,15 @@ def test_result_is_deterministic() -> None:
         for i in range(8)
     }
     hist = {f"I{i}": ["money"] for i in range(8)}
-    kwargs = dict(domain_cap=4, event_cap=4, max_displacement_cost=5)
-    a = rebalance_with_cooldown(raw, cands, hist, **kwargs)
-    b = rebalance_with_cooldown(raw, cands, hist, **kwargs)
+    # 같은 인자로 두 번 호출하는 것이 요점이라 헬퍼가 의도를 드러낸다(dict 전개는
+    # 값 타입이 합쳐져 파라미터마다 오류가 난다).
+    def run() -> CooldownResult:
+        return rebalance_with_cooldown(
+            raw, cands, hist, domain_cap=4, event_cap=4, max_displacement_cost=5,
+        )
+
+    a = run()
+    b = run()
     assert {k: v.event_key for k, v in a.selections.items()} == {
         k: v.event_key for k, v in b.selections.items()
     }

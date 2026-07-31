@@ -70,7 +70,8 @@ def _claim(**over) -> CanonicalWriteClaim:
         "public_payload_sha256": fingerprint_public_payload(_PAYLOAD),
     }
     base.update(over)
-    return CanonicalWriteClaim(**base)
+    # 임의 키 오버라이드가 이 빌더의 계약이라 값 타입을 좁힐 수 없다.
+    return CanonicalWriteClaim(**base)  # type: ignore[arg-type]
 
 
 # ── 경로 판정은 정규화된 실제 경로로 ──────────────────────────────────────

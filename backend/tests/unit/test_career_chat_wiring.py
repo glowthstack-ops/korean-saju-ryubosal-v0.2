@@ -111,7 +111,9 @@ def test_save_failure_suppresses_exposure(monkeypatch) -> None:
     )
 
     repo = InMemoryCareerShadowRepository()
-    repo.save = lambda *a, **k: ShadowWriteOutcome(saved=False, reason="SAVE_FAILED")
+    # 저장 실패 주입 — 메서드 교체는 mypy 가 금지하지만 이 테스트의 수단 자체다.
+    repo.save = lambda *a, **k: ShadowWriteOutcome(  # type: ignore[method-assign]
+        saved=False, reason="SAVE_FAILED")
     monkeypatch.setattr(career_chat_consumer, "CAREER_TRANSITION_CHAT_ENABLED", True)
     monkeypatch.setattr(chat_service, "_career_shadow_repository", lambda: repo)
     assert _prep("A사 지원서를 냈다") is None
@@ -126,7 +128,7 @@ def test_load_failure_suppresses_exposure(monkeypatch) -> None:
     def boom(*a, **k):
         raise RuntimeError("db down")
 
-    repo.load = boom
+    repo.load = boom  # type: ignore[method-assign]
     monkeypatch.setattr(career_chat_consumer, "CAREER_TRANSITION_CHAT_ENABLED", True)
     monkeypatch.setattr(chat_service, "_career_shadow_repository", lambda: repo)
     assert _prep("A사 지원서를 냈다") is None
@@ -150,9 +152,13 @@ def test_different_subject_does_not_share_state(monkeypatch) -> None:
 def test_audit_makes_no_extra_call_when_clean(monkeypatch) -> None:
     """감사 통과 시 추가 LLM 호출 0."""
     calls = {"n": 0}
+
+    def counting_generate(*_a: object, **_k: object) -> str:
+        calls["n"] += 1
+        return "x"
+
     monkeypatch.setattr(
-        chat_service.llm_client, "generate_reading",
-        lambda *a, **k: (calls.__setitem__("n", calls["n"] + 1), "x")[1],
+        chat_service.llm_client, "generate_reading", counting_generate,
     )
     prep = career_chat_consumer.CareerBlockPreparation(eligible=False)
     out = chat_service._audit_career_transition_answer(
