@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from saju_engines import event_engine_config as C
@@ -23,7 +25,9 @@ from saju_engines.event_engine_config import (
     parse_daewoon_hwa_mode,
 )
 
-_DICTS_MARKER = "dictionaries"
+#: 팩토리에 넘길 사전 경로. 실제 로드는 하지 않지만(가짜 엔진) 타입 계약은 Path 다.
+#: cwd 상대 경로를 쓰면 실행 위치에 따라 의미가 달라진다(test_path_hygiene 가 차단).
+_DICTS_MARKER = Path(__file__).resolve().parents[2] / "dictionaries"
 
 
 # ── 환경변수 해석 ────────────────────────────────────────────────────────
@@ -131,8 +135,6 @@ def test_services_use_the_shared_factory() -> None:
     팩토리 호출 여부를 소스에서 고정한다 — 런타임 확인은 사전 로드를 요구해 무겁고,
     회귀가 잡아야 할 것은 '누가 엔진을 만드는가'라는 구조다.
     """
-    from pathlib import Path
-
     api = Path(__file__).resolve().parents[2] / "apps" / "api" / "saju_api" / "services"
     for name in ("chat_service.py", "report_service.py"):
         source = (api / name).read_text(encoding="utf-8")

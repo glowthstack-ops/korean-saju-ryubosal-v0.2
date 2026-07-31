@@ -64,16 +64,21 @@ def _envelope(vector=None, audits=None, status=None):
 
 def test_observation_id_includes_period_and_subject() -> None:
     """§4 — 기간·대상이 다르면 관측 ID가 갈라진다(다기간·동반자 충돌 방지)."""
-    base = dict(thread_scope="t1", turn=3, subject_scope="self",
-                input_signature="sig")
-    a = vector_observation_id(**base, period_identity="sewoon:2027")
-    b = vector_observation_id(**base, period_identity="sewoon:2028")
-    c = vector_observation_id(thread_scope="t1", turn=3,
-                              subject_scope="companion:rel-1",
-                              period_identity="sewoon:2027", input_signature="sig")
+    # dict 를 만들어 ** 로 펼치면 값 타입이 object 로 합쳐져 파라미터마다 타입 오류가
+    # 난다(한 호출에 4건). 고정 인자는 헬퍼에 두고 변수만 노출한다 — 무엇이 다른지도
+    # 더 잘 보인다.
+    def obs(period_identity: str, subject_scope: str = "self") -> str:
+        return vector_observation_id(
+            thread_scope="t1", turn=3, subject_scope=subject_scope,
+            period_identity=period_identity, input_signature="sig",
+        )
+
+    a = obs("sewoon:2027")
+    b = obs("sewoon:2028")
+    c = obs("sewoon:2027", subject_scope="companion:rel-1")
     assert len({a, b, c}) == 3
     # 재실행 안정(HMAC 고정 키 — 프로세스 무관 dedupe).
-    assert a == vector_observation_id(**base, period_identity="sewoon:2027")
+    assert a == obs("sewoon:2027")
 
 
 def test_no_forbidden_strings_in_nested_telemetry_payload() -> None:
@@ -226,7 +231,11 @@ def test_dto_extra_forbid() -> None:
     import pytest
 
     with pytest.raises(pydantic.ValidationError):
-        LegacyCandidateAudit(event_key="x", candidate_present=False, rank=1)
+        # extra="forbid" 를 확인하는 **의도된** 미지 인자다 — mypy 는 이 의도를 알 수
+        # 없어 call-arg 로 잡는다(런타임 ValidationError 가 곧 이 테스트의 통과 조건).
+        LegacyCandidateAudit(  # type: ignore[call-arg]
+            event_key="x", candidate_present=False, rank=1,
+        )
     t = build_relationship_vector_telemetry(_envelope())
     with pytest.raises(pydantic.ValidationError):
         type(t).model_validate({**t.model_dump(), "freeform": "leak"})
