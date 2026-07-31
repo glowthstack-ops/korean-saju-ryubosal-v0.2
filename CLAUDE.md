@@ -59,7 +59,22 @@ LLM이 사주를 계산·추론하지 않는다. **만세력 엔진이 계산하
 - **frontend (TypeScript)**: strict mode 유지.
 - 사전 데이터는 UTF-8(BOM 없음) JSON. 사례 데이터는 JSONL.
 - 한자 간지(甲, 亥 등)는 데이터/키에 사용하고, 사용자 노출 문자열은 한글 병기.
-- **검증 게이트**: backend `pytest` + `ruff` + **production mypy gate** / frontend `tsc` + production build 통과 후 완료 선언.
+- **검증 게이트**: backend 전체 pytest + `ruff` + **production mypy gate** / frontend `tsc` + production build 통과 후 완료 선언.
+
+  | 게이트 | 명령 | 통과 표현 |
+  |---|---|---|
+  | 전체 pytest | `./scripts/run_suite.sh` | `VALID_SUITE_PASS` |
+  | 정적 검사 | `ruff check .` | `All checks passed` |
+  | production 타입 | `./scripts/typecheck.sh` | `production mypy gate clean` |
+  | full-tree mypy | `python -m mypy --no-incremental .` | 비차단 부채 감사 — production gate와 혼용 금지 |
+
+  - **전체 pytest 스위트는 반드시 `./scripts/run_suite.sh`로 실행한다.** pytest exit code가 0이어도 실행 중 저장소 내용이 변경되면 결과는 유효하지 않다. 유효한 전체 스위트 통과는 다음을 **모두** 만족해야 한다.
+    - `test_exit_code = 0`
+    - `start_head = end_head`
+    - `start_fingerprint = end_fingerprint`
+    - `verdict = VALID_SUITE_PASS`
+  - `SOURCE_CHANGED_DURING_RUN`은 테스트 성공 여부와 무관하게 무효이며 exit 65로 종료한다. 실제로 스위트 실행 중 설정 파일과 그 회귀를 고쳐 결과가 무효화된 사고가 있었고, 그때 `git status` 문자열은 시작·종료가 동일해 상태 비교로는 잡히지 않았다(2026-07-31).
+  - worktree가 clean일 필요는 없다. 더러운 채로 시작해도 시작·종료 지문이 같으면 유효한 실행이다.
   - production mypy gate = `./scripts/typecheck.sh` (검사 범위 SSOT는 `backend/pyproject.toml` 의 `[tool.mypy] packages` — CI·문서에 경로를 다시 나열하지 않는다)
   - `mypy clean` 이라는 표현은 쓰지 않는다. 호출 파일 목록에 따라 결과가 달라져 통과하기 쉬운 명령을 고를 수 있기 때문이다(2026-07-30 실측: 같은 코드가 파일 1~2개 0건 / 3-root 7건 / production 9건 / full-tree 331건).
   - 비차단 진단: `cd backend && python -m mypy --no-incremental .` — 2026-07-30 기준 312건(tests 51 · scripts 261 · production 0). 기존 부채이며 blocking 조건이 아니다. 이 숫자는 파일 정리·mypy 버전으로 변할 수 있어 게이트로 쓰지 않는다.
