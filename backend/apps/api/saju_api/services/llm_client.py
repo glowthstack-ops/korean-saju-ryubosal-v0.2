@@ -26,6 +26,7 @@ from typing import Any
 import httpx
 
 from saju_engines.llm_guard import LLMCallGuard, LLMCostLedger
+from saju_engines.report_builder import load_model_prices
 from saju_shared_types.constants import BRANCH_KO, STEM_KO
 
 _BACKEND = Path(__file__).resolve().parents[4]
@@ -105,6 +106,42 @@ def load_config(force: bool = False) -> dict:
     if _config_cache is None or force:
         _config_cache = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
     return _config_cache
+
+
+#: 모델을 지정하는 설정 역할. `note`·`options` 는 프로필이 아니다.
+#:
+#: **런타임 활성 여부는 검사 대상을 결정하지 않는다.** parser 는 현재 비활성이지만
+#: (절대원칙 9, v2.2.1) 설정에는 유효한 모델이 있다. 지금은 primary 와 같은 값이라
+#: 결과가 같지만, 나중에 갈라진 뒤 parser 만 재활성화되면 활성 경로만 보는 검사는
+#: 가격 누락을 배포 전에 잡지 못한다. 그래서 '구성된 역할' 전체를 검사한다.
+MODEL_ROLES: tuple[str, ...] = ("primary", "fallback", "parser")
+
+
+def configured_models() -> list[str]:
+    """설정된 역할들의 모델명(정렬·중복 제거). 모델명이 빈 역할은 제외한다."""
+    cfg = load_config()
+    names = {
+        model
+        for role in MODEL_ROLES
+        if isinstance(profile := cfg.get(role), dict)
+        and isinstance(model := profile.get("model"), str)
+        and model.strip()
+    }
+    return sorted(names)
+
+
+def missing_price_models() -> list[str]:
+    """가격표에 없는 설정 모델명(정렬·중복 제거). 예외를 던지지 않는다.
+
+    `estimate_cost_usd()` 는 미등록 모델을 **경고 없이 0.0** 으로 집계한다. 그래서
+    원가 누락은 대시보드 값이 낮게 나올 뿐 틀린 티가 나지 않고, 실제로 `gpt-5.4-mini`
+    가 등록되지 않은 채 계속 지나갔다.
+
+    그 0.0 계약은 유지한다 — 가격표 누락 때문에 운영 중 LLM 응답을 막는 것은 과하다.
+    대신 이 함수를 **배포 전 게이트**에서 실패시켜 누락이 배포에 닿지 않게 한다.
+    """
+    prices = load_model_prices()
+    return [m for m in configured_models() if m not in prices]
 
 
 def _api_key(profile: dict) -> str | None:
