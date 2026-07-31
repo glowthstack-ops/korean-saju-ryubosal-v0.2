@@ -20,6 +20,7 @@ deterministic patch → safe fallback 경로가 처리하게 한다.
 from __future__ import annotations
 
 import re
+import threading as _threading
 from dataclasses import dataclass
 
 from .relation_claim_audit import split_sentences
@@ -36,11 +37,38 @@ CLAIM_ASSET_ACQUISITION_TIMING = "asset_acquisition_timing"
 CLAIM_SETTLEMENT_TIMING = "settlement_timing"
 CLAIM_DEBT_REPAYMENT_TIMING = "debt_repayment_timing"
 
+# 대운 합화 배경 claim(2026-07-31) — 배경은 **이미 선택된** 사건의 체감 서술이다.
+# 감사(DW-HWA)에서 발생·선정 관여 근거가 입증되지 않았으므로, 배경을 발생·순위·시점
+# 선정·성사와 연결하는 서술은 근거 없는 인과 주장이 된다.
+CLAIM_BG_OCCURRENCE_SUPPORT = "occurrence_support"
+CLAIM_BG_OCCURRENCE_CAUSE = "occurrence_cause"
+CLAIM_BG_RANKING_CAUSE = "ranking_cause"
+CLAIM_BG_TIMING_SELECTION_CAUSE = "timing_selection_cause"
+CLAIM_BG_EVENT_FAMILY_SUPPORT = "event_family_support"
+
+#: 대운 배경 관련 금지 claim 묶음.
+DAEWOON_HWA_FORBIDDEN_CLAIMS = frozenset({
+    CLAIM_BG_OCCURRENCE_SUPPORT, CLAIM_BG_OCCURRENCE_CAUSE,
+    CLAIM_BG_RANKING_CAUSE, CLAIM_BG_TIMING_SELECTION_CAUSE,
+    CLAIM_BG_EVENT_FAMILY_SUPPORT,
+})
+
+#: 허용 claim — 차단 대상이 아니라 **대조군**이다. 판정기가 이쪽을 잡으면 오탐이다.
+#: (체감 부담·완화·장기 배경 서술)
+CLAIM_BG_EXPERIENCED_PRESSURE = "experienced_pressure"
+CLAIM_BG_EXPERIENCED_MITIGATION = "experienced_mitigation"
+CLAIM_BG_LONG_TERM_BACKGROUND = "long_term_background"
+DAEWOON_HWA_ALLOWED_CLAIMS = frozenset({
+    CLAIM_BG_EXPERIENCED_PRESSURE, CLAIM_BG_EXPERIENCED_MITIGATION,
+    CLAIM_BG_LONG_TERM_BACKGROUND,
+})
+
 #: 이번 배포에서 **결정적으로** 차단하는 claim.
 HARD_BLOCKED_CLAIMS = frozenset({
     CLAIM_INHERITANCE_TIMING, CLAIM_INHERITANCE_OCCURRENCE,
     CLAIM_CONTRACT_DEFECT_OCCURRENCE,
     CLAIM_LEGAL_DISPUTE_TIMING, CLAIM_LEGAL_DISPUTE_OCCURRENCE,
+    *DAEWOON_HWA_FORBIDDEN_CLAIMS,
 })
 #: 탐지 정확도가 확보되지 않아 **프롬프트 지시만** 하는 claim. 억지 정규식을 만들어
 #: 안전 문장을 오탐하는 것보다 낫다 — 상태를 숨기지 않고 분리해 둔다.
@@ -85,6 +113,65 @@ _OCCURRENCE_CLAIMS: dict[str, re.Pattern[str]] = {
     CLAIM_CONTRACT_DEFECT_OCCURRENCE: _EVENT_CONTRACT_DEFECT,
     CLAIM_LEGAL_DISPUTE_OCCURRENCE: _EVENT_LEGAL_DISPUTE,
 }
+# ── 대운 배경 claim(2026-07-31) ─────────────────────────────────────────
+#
+# "대운이 좋다/나쁘다" 같은 일반 서술은 막지 않는다. 배경을 **발생·선정·성사와 연결하는
+# 인과 술어**만 잡는다 — 넓게 잡으면 허용된 체감 서술("부담을 키우는 배경")까지 걸린다.
+# 그래서 모든 패턴이 '배경 주어 + 인과/선정 술어' 두 조건을 함께 요구한다.
+
+#: 배경 주어 — 이 말이 없으면 배경에 대한 주장이 아니다.
+_BG_SUBJECT = re.compile(r"대운|化神|화신|장기\s*배경|이\s*배경|배경\s*때문")
+
+#: 인과 연결.
+_CAUSAL = re.compile(r"때문|탓에|덕분|으로\s*인해|로\s*인해|영향으로|영향\s*때문")
+#: 지지·뒷받침.
+_SUPPORTS = re.compile(r"지지|뒷받침|받쳐\s*주|근거가\s*된|힘을\s*실")
+#: 대표 선정·순위.
+_SELECTION = re.compile(
+    # '대표 시점으로 끌어올렸다' 처럼 사이에 말이 끼는 형태까지 — 다만 문장을 건너뛰지
+    # 않도록 짧은 창으로 제한한다.
+    r"대표[^.\n]{0,12}?(?:끌어\s*올|선정|선택|뽑|골라|꼽|올렸|올라)"
+    r"|(?:달|시기|시점|월)이\s*(?:대표|선정|선택)"
+    r"|순위를?\s*(?:끌어|올|높)"
+    r"|우선순위"
+)
+#: 성사 가능성.
+_LIKELIHOOD = re.compile(r"(?:가능성|확률)을?\s*(?:높|키우|올리|끌어)|성사\s*(?:가능성|확률)")
+#: 사건 종류.
+_EVENT_FAMILY = re.compile(r"사건\s*(?:종류|유형)|이런\s*(?:종류의\s*)?사건|이\s*유형의")
+
+#: 배경 전용 발생 술어 — 기존 `_OCCURS`(상속·분쟁 claim 공용)는 건드리지 않는다.
+#: 거기에 '나타나' 를 더하면 "상속 구조가 나타납니다" 같은 구조 설명까지 발생 단정이 된다.
+_BG_OCCURS = re.compile(_OCCURS.pattern + r"|나타나|나타날|나타납|불러오|초래")
+
+
+def _bg_claim(sentence: str, *others: re.Pattern[str]) -> bool:
+    """배경 주어 + 나머지 조건이 **모두** 한 문장에 있고 부정되지 않았는가."""
+    if not _BG_SUBJECT.search(sentence):
+        return False
+    return all(_asserted(p, sentence) for p in others)
+
+
+def _detect_daewoon_hwa_claims(sentence: str) -> list[str]:
+    """문장에서 금지 배경 claim 을 찾는다. 허용 서술은 걸리지 않아야 한다."""
+    out: list[str] = []
+    if _bg_claim(sentence, _SUPPORTS, _BG_OCCURS):
+        out.append(CLAIM_BG_OCCURRENCE_SUPPORT)
+    if _bg_claim(sentence, _CAUSAL, _BG_OCCURS):
+        out.append(CLAIM_BG_OCCURRENCE_CAUSE)
+    if _bg_claim(sentence, _SELECTION):
+        # 순위·대표 선정 — 시점 표현이 함께면 시점 선정으로 본다.
+        out.append(
+            CLAIM_BG_TIMING_SELECTION_CAUSE if _TIMING.search(sentence)
+            else CLAIM_BG_RANKING_CAUSE
+        )
+    if _bg_claim(sentence, _LIKELIHOOD):
+        out.append(CLAIM_BG_OCCURRENCE_SUPPORT)
+    if _bg_claim(sentence, _EVENT_FAMILY, _SUPPORTS):
+        out.append(CLAIM_BG_EVENT_FAMILY_SUPPORT)
+    return out
+
+
 _CLAIM_PATTERNS: dict[str, re.Pattern[str]] = {**_TIMING_CLAIMS, **_OCCURRENCE_CLAIMS}
 
 
@@ -151,9 +238,18 @@ def audit_section_claims(
     if not blocked or not text.strip():
         return ()
     out: list[ClaimViolation] = []
+    bg_blocked = blocked & DAEWOON_HWA_FORBIDDEN_CLAIMS
     for sent in split_sentences(text):
         has_timing = bool(_TIMING.search(sent.text))
-        for claim_id in sorted(blocked):
+        # 대운 배경 claim 은 사건 어휘가 아니라 '배경 주어 + 인과/선정 술어' 조합으로
+        # 판정하므로 `_CLAIM_PATTERNS` 단일 정규식 경로에 들어가지 않는다.
+        if bg_blocked:
+            for claim_id in sorted(set(_detect_daewoon_hwa_claims(sent.text)) & bg_blocked):
+                out.append(ClaimViolation(
+                    claim_id=claim_id, sentence_index=sent.index,
+                    start=sent.start, end=sent.end, sentence=sent.text.strip(),
+                ))
+        for claim_id in sorted(blocked - DAEWOON_HWA_FORBIDDEN_CLAIMS):
             pattern = _CLAIM_PATTERNS[claim_id]
             if claim_id in _TIMING_CLAIMS:
                 # 시기 단정 — 사건 어휘와 시기 표현이 **같은 문장**에 있어야 한다.
@@ -227,7 +323,26 @@ def claim_directive(policy: SectionClaimPolicy) -> str:
 
 
 #: 위반 문장을 대체하는 안전 문장. 새 사건 판정을 만들지 않고 근거 한계만 말한다.
+#: 대운 배경 위반의 대체 문장 — **배경이 실제로 제공된 섹션에서만** 쓴다. 배경 자체는
+#: 유효한 구조 입력이라 통째로 삭제하면 서술이 근거를 잃는다. 바꾸는 것은 '발생·선정을
+#: 설명한다'는 인과 주장뿐이다.
+_BG_SAFE_WITH_BACKGROUND = (
+    "장기 대운 배경은 이미 선택된 흐름의 체감을 설명하는 참고일 뿐, 사건의 발생이나 "
+    "이 시기가 선택된 이유를 뜻하지는 않습니다."
+)
+#: 배경이 **제공되지 않은** 섹션용. 위 문장을 쓰면 주지도 않은 배경을 새로 만들어 낸다 —
+#: 전 섹션을 감사하므로 배경 블록 없는 섹션에서도 금지 문장이 나올 수 있다.
+_BG_SAFE_WITHOUT_BACKGROUND = (
+    "이 시기가 선택된 이유나 사건의 발생 여부를 여기서 단정할 근거는 없습니다."
+)
+_BG_SAFE = _BG_SAFE_WITH_BACKGROUND
+
 _SAFE_SENTENCE: dict[str, str] = {
+    CLAIM_BG_OCCURRENCE_SUPPORT: _BG_SAFE,
+    CLAIM_BG_OCCURRENCE_CAUSE: _BG_SAFE,
+    CLAIM_BG_RANKING_CAUSE: _BG_SAFE,
+    CLAIM_BG_TIMING_SELECTION_CAUSE: _BG_SAFE,
+    CLAIM_BG_EVENT_FAMILY_SUPPORT: _BG_SAFE,
     CLAIM_INHERITANCE_TIMING: (
         "이 항목에서는 횡재성 신호의 강약까지만 참고할 수 있고, 상속의 시기를 "
         "판단할 근거로는 쓰지 않습니다."
@@ -314,3 +429,108 @@ def audit_and_patch_generated_section(
     if fb is None:
         return SectionAuditOutcome(patched_text, found, remaining, True, False)
     return SectionAuditOutcome(fb, found, remaining, True, True)
+
+
+# ── 대운 배경 감사 orchestration (2026-07-31) ────────────────────────────
+#
+# 기존 `audit_and_patch_generated_section` 은 섹션별 evidence 정책이 있을 때만 돈다.
+# 배경 claim 은 **전 섹션** 대상이라 별도 경로가 필요하다. 다만 enforcement 는
+# post_selection 모드에서만 — current 모드는 탐지·계수만 하고 출력을 건드리지 않는다.
+
+_BG_ALL_POLICY = SectionClaimPolicy(
+    section_id="*", forbidden_claims=frozenset(DAEWOON_HWA_FORBIDDEN_CLAIMS),
+)
+
+#: 요청 로컬 shadow 관측 — 싱글턴에 남기면 요청 간 계수가 섞여 승격 판단이 왜곡된다.
+#: background store 와 같은 take-and-reset 계약이다.
+_bg_audit_tls = _threading.local()
+
+
+@dataclass(frozen=True)
+class DaewoonHwaAuditOutcome:
+    """배경 claim 감사 1건 — 모드와 무관하게 관측치는 남긴다."""
+
+    text: str
+    violations: tuple[ClaimViolation, ...]
+    remaining: tuple[ClaimViolation, ...]
+    patched: bool
+    fell_back: bool
+    background_present: bool
+    enforced: bool
+
+
+def audit_daewoon_hwa_claims(
+    section_id: str,
+    text: str,
+    *,
+    enforce: bool,
+    background_present: bool,
+    fallback_text: str | None = None,
+) -> DaewoonHwaAuditOutcome:
+    """전 섹션 배경 claim 감사. **모드 분기는 patch 호출 이전**에 있다.
+
+    `enforce=False`(current) 면 탐지·계수만 하고 원문을 그대로 돌려준다 — patch 도
+    fallback 도 실행하지 않는다. fallback 만 모드로 나누고 patch 를 공통 실행하면
+    current 모드 출력이 조용히 달라진다.
+
+    Args:
+        section_id: 관측 기록용.
+        text: 생성된 섹션 본문.
+        enforce: post_selection 모드인가.
+        background_present: 이 섹션에 배경 evidence 가 실제로 주입됐는가.
+        fallback_text: 재감사 잔존 시 이 섹션을 대체할 문구. None 이면 폴백하지 않는다.
+
+    Returns:
+        감사 결과. `text` 는 enforce=False 면 항상 원문과 동일하다.
+    """
+    violations = audit_section_claims(text, _BG_ALL_POLICY)
+    outcome_text, patched, fell_back = text, False, False
+    remaining: tuple[ClaimViolation, ...] = violations
+    if enforce and violations:
+        safe = (
+            _BG_SAFE_WITH_BACKGROUND if background_present
+            else _BG_SAFE_WITHOUT_BACKGROUND
+        )
+        outcome_text = _patch_with(text, violations, safe)
+        patched = True
+        remaining = audit_section_claims(outcome_text, _BG_ALL_POLICY)
+        if remaining and fallback_text is not None:
+            outcome_text, fell_back = fallback_text, True
+            remaining = audit_section_claims(outcome_text, _BG_ALL_POLICY)
+    out = DaewoonHwaAuditOutcome(
+        text=outcome_text, violations=violations, remaining=remaining,
+        patched=patched, fell_back=fell_back,
+        background_present=background_present, enforced=enforce,
+    )
+    sink = getattr(_bg_audit_tls, "sink", None)
+    if sink is not None:
+        sink.append((section_id, out))
+    return out
+
+
+def _patch_with(
+    text: str, violations: tuple[ClaimViolation, ...], safe: str
+) -> str:
+    """위반 문장을 주어진 안전 문장으로 교체(뒤에서부터 — 오프셋 보존)."""
+    by_sentence: dict[int, ClaimViolation] = {}
+    for v in violations:
+        by_sentence.setdefault(v.sentence_index, v)
+    out = text
+    for v in sorted(by_sentence.values(), key=lambda x: -x.start):
+        out = out[: v.start] + safe + out[v.end :]
+    return out
+
+
+def start_daewoon_hwa_audit_collection() -> None:
+    """요청 시작 시 관측 sink 를 연다."""
+    _bg_audit_tls.sink = []
+
+
+def take_daewoon_hwa_audit() -> tuple[tuple[str, DaewoonHwaAuditOutcome], ...]:
+    """이번 요청의 배경 감사 관측 — **소비하면 비운다.**
+
+    생성이 생략된 다음 요청이 직전 요청의 계수를 보면 승격 판단이 왜곡된다.
+    """
+    out = tuple(getattr(_bg_audit_tls, "sink", None) or ())
+    _bg_audit_tls.sink = None
+    return out

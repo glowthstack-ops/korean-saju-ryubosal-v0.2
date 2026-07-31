@@ -32,6 +32,10 @@ from saju_engines.context_reducer import (
     first_sentence,
     serialize_chart_prefix,
 )
+from saju_engines.daewoon_background import (
+    DaewoonHwaBackground,
+    background_evidence_block,
+)
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.direction_suggestion import (
     DIRECTION_SUGGESTION_INSTRUCTION,
@@ -39,7 +43,11 @@ from saju_engines.direction_suggestion import (
     format_direction_suggestion_lines,
     select_direction_suggestions,
 )
-from saju_engines.event_engine_config import build_event_engine_v2
+from saju_engines.event_engine_config import (
+    DaewoonHwaMode,
+    active_event_engine_flags,
+    build_event_engine_v2,
+)
 from saju_engines.event_scoring import confirmed_yongsin_note, favorability_map
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
@@ -69,6 +77,7 @@ from saju_engines.section_claim_audit import (
     SECTION_CLAIM_POLICIES,
     SectionClaimPolicy,
     audit_and_patch_generated_section,
+    audit_daewoon_hwa_claims,
     claim_directive,
 )
 from saju_engines.structural_context import (
@@ -653,6 +662,13 @@ class _ReportData:
                 lc.monthly_luck = deduped
         # 공통 팩토리 — 채팅과 동일 모드로 생성된다(event_engine_config).
         self.scorer = build_event_engine_v2(_DICTS)
+        #: 시점 배경 맵(대표 선정 이후 서사 전용). score() 직후 소비해 채운다.
+        self.daewoon_backgrounds: dict[str, DaewoonHwaBackground] = {}
+        #: 요청 로컬 배경 중복 방지 — (시점, 방향). `_ReportData` 가 리포트 1건(=테마
+        #: 1개)당 하나이므로 이 집합이 곧 '테마 identity + 시점 + 방향' 키다.
+        self._bg_described: set[tuple[str, str]] = set()
+        #: 배경 블록이 실제로 들어간 섹션 — 감사 안전 문장 분기에 쓴다.
+        self.bg_injected_sections: set[str] = set()
         # 개인화(저장된 subject 한정): 현실 신호 시그니처 + 활성 코호트 → LEI 정렬축.
         # 미설정·실패 시 무개인화 폴백(규칙11).
         sig, cohort = fetch_personal_inputs(owner_id, subject_id, self.result)
@@ -721,6 +737,9 @@ class _ReportData:
         # 선별(중복 제거·방향별 대표)을 거친다. 본문 후보(self.candidates)는 불변.
         self.candidate_pool: list[EventCandidate] = pool
         self.scored = scored  # 전체 점수화(필터 전) — 발현 분기·섹션별 도메인 후보 산출용.
+        # 시점 배경 — 채점 직후 소비한다(take-and-reset). 랭킹·선정 경로는 이 값을
+        # 보지 않는다. 대표 선정이 끝난 뒤 섹션 evidence 에서만 조회한다.
+        self.daewoon_backgrounds = dict(self.scorer.take_daewoon_hwa_backgrounds())
         # 기간 연도 경계(섹션별 도메인 후보 스코핑용) — 후보 필터와 동일 기준.
         self._yr_lo = spec.period.start[:4]
         self._yr_hi = spec.period.end[:4]
@@ -2193,9 +2212,12 @@ class PolicyEvidenceResult:
 
 
 def _policy_evidence(
-    data: _ReportData, policy: SectionEvidencePolicy
+    data: _ReportData, policy: SectionEvidencePolicy, section_id: str = ""
 ) -> PolicyEvidenceResult:
-    """정책이 지정한 named view 로 표시 lines·기간 클러스터·근거 범위를 만든다."""
+    """정책이 지정한 named view 로 표시 lines·기간 클러스터·근거 범위를 만든다.
+
+    section_id 는 배경 evidence 주입 기록용이다(감사 안전 문장 분기).
+    """
     bundle = data.evidence_bundle
     if bundle is None:
         return PolicyEvidenceResult((), (), ())
@@ -2261,6 +2283,28 @@ def _policy_evidence(
                 f"(이 섹션은 핵심 {limit}개만 다룬다. 나머지 {len(clusters) - limit}개 "
                 "시점은 전체 목록 섹션에서 다루므로 여기서 나열하지 말 것)"
             )
+    # 장기 대운 배경 — **이 섹션이 실제로 고른 시점**만. 본문에서 시점 문자열을 되짚지
+    # 않고 클러스터의 canonical period key 로만 조회한다. SUMMARY 는 개별 달을 내지
+    # 않으므로 배경도 붙이지 않는다(연도 축 압축과 층이 맞지 않는다).
+    # **주입도 모드로 막는다.** current 에서 블록만 넣어도 LLM 입력이 달라져 출력이
+    # 바뀐다 — 'current 모드 출력 불변'은 patch 를 끄는 것만으로는 지켜지지 않는다.
+    if (
+        active_event_engine_flags().daewoon_hwa_mode is DaewoonHwaMode.POST_SELECTION
+        and policy.mode != MODE_SUMMARY
+        and data.daewoon_backgrounds
+    ):
+        bg_lines = background_evidence_block(
+            [cl.period for cl in shown],
+            data.daewoon_backgrounds,
+            # _ReportData 는 리포트 1건(=테마 1개)당 하나라 요청 로컬 집합이 곧
+            # '테마 identity + 시점 + 방향' 키다. 같은 배경을 여러 섹션이 반복
+            # 서술하면 실제보다 강한 신호처럼 읽힌다.
+            already_described=data._bg_described,
+        )
+        if bg_lines:
+            lines += bg_lines
+            if section_id:
+                data.bg_injected_sections.add(section_id)
     if policy.detail_level == "broad_only":
         lines.append(
             "이 사건은 '변화가 두드러지는 시기' 까지만 보장한다 — 변화의 세부 형태·"
@@ -2408,7 +2452,7 @@ def build_section_context(
             if policy.mode == MODE_DAEWOON_ONLY:
                 lines += data.luck_block(daewoon_only=True)
             elif policy.mode != MODE_NONE:
-                res = _policy_evidence(data, policy)
+                res = _policy_evidence(data, policy, sid)
                 # legacy 전역 이벤트 후보 블록만 끄고, 합작용·발현분기·내부근거는
                 # **렌더링된 기간을 뒷받침하는 후보 범위로** 복구한다(2026-07-30).
                 lines += data.luck_block(
@@ -2909,11 +2953,41 @@ def _try_risk_exposed_section(
         return None, body_prompt
 
 
-def _audit_section_text(section_id: str, text: str) -> str:
+#: 배경 claim 재감사 잔존 시 이 섹션을 대체할 문구(새 LLM 호출 없음).
+_BG_SECTION_FALLBACK = (
+    "이 시기의 장기 대운 배경은 이미 선택된 흐름의 체감을 이해하는 참고로만 씁니다. "
+    "사건의 발생 여부나 이 시기가 선택된 이유를 여기서 단정하지 않습니다."
+)
+
+
+def _audit_section_text(
+    section_id: str, text: str, *, background_present: bool = False
+) -> str:
     """섹션 본문의 금지 주장 감사·교체. 정책이 없으면 원문 그대로.
 
     새 LLM 호출을 만들지 않는다. patch 로 해결되지 않으면 그 섹션만 안전 문구가 된다.
+
+    대운 배경 claim 은 **전 섹션** 대상이라 evidence 정책과 무관하게 먼저 감사한다.
+    다만 enforcement 는 `post_selection` 모드에서만 — current 모드는 탐지·계수만 하고
+    출력을 건드리지 않는다(모드 분기가 patch 호출 이전에 있다).
     """
+    enforce = (
+        active_event_engine_flags().daewoon_hwa_mode is DaewoonHwaMode.POST_SELECTION
+    )
+    bg = audit_daewoon_hwa_claims(
+        section_id, text, enforce=enforce,
+        background_present=background_present,
+        fallback_text=_BG_SECTION_FALLBACK if enforce else None,
+    )
+    if bg.violations:
+        _logger.warning(
+            "대운 배경 claim 감사: section=%s 위반=%s 배경=%s enforce=%s "
+            "patch=%s 잔존=%s fallback=%s",
+            section_id, [v.claim_id for v in bg.violations],
+            background_present, enforce, bg.patched,
+            [v.claim_id for v in bg.remaining], bg.fell_back,
+        )
+    text = bg.text
     policy = _SECTION_EVIDENCE_POLICY.get(section_id)
     if policy is None or policy.claim_policy_id is None:
         return text
@@ -3039,7 +3113,10 @@ def generate_report(
                 # 섹션 claim 감사 — 생성 직후, **이 섹션 범위**에서만. 전체 문서
                 # 오프셋 변환이 필요 없고 W-05 정책이 W-03 문장에 적용될 여지도 없다.
                 # 위반 → 결정적 patch → 재감사 → 남으면 이 섹션만 안전 문구로 대체.
-                text = _audit_section_text(plan.section_id, text)
+                text = _audit_section_text(
+                    plan.section_id, text,
+                    background_present=plan.section_id in data.bg_injected_sections,
+                )
                 data.record_opening(text)  # 다음 섹션의 '서두 반복 금지' 재료(순차 생성)
                 return text, 0, len(text)  # 토큰은 llm_client 장부가 집계(cached 포함)
             except TokenBudgetExceeded as exc:

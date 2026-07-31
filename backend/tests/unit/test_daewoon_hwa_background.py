@@ -323,3 +323,80 @@ def test_concurrent_requests_do_not_mix() -> None:
 def test_take_without_any_scoring_returns_empty() -> None:
     """한 번도 채점하지 않은 스코어러는 빈 맵을 준다."""
     assert _scorer().take_daewoon_hwa_backgrounds() == {}
+
+
+# ── 전 섹션 claim 감사 · 모드별 enforcement ──────────────────────────────
+
+
+_BAD_SENTENCE = "대운 배경이 2028년 3월을 대표 시점으로 끌어올렸어요."
+_TAIL = " 나머지 서술은 그대로입니다."
+
+
+def _audit(*, enforce: bool, background_present: bool, text: str = _BAD_SENTENCE + _TAIL):
+    from saju_engines.section_claim_audit import audit_daewoon_hwa_claims
+
+    return audit_daewoon_hwa_claims(
+        "W-04", text, enforce=enforce, background_present=background_present,
+        fallback_text="폴백 문구." if enforce else None,
+    )
+
+
+def test_current_mode_detects_but_leaves_output_identical() -> None:
+    """current 모드에서 금지 문장을 탐지해도 출력은 완전히 동일하다.
+
+    fallback 만 모드로 나누고 patch 를 공통 실행하면 current 출력이 조용히 달라진다 —
+    분기는 patch 호출 **이전**에 있어야 한다.
+    """
+    text = _BAD_SENTENCE + _TAIL
+    out = _audit(enforce=False, background_present=True, text=text)
+    assert out.violations          # 탐지는 된다
+    assert out.text == text        # 출력은 그대로
+    assert not out.patched and not out.fell_back
+
+
+def test_section_without_background_does_not_invent_one() -> None:
+    """배경이 제공되지 않은 섹션에 배경 문장을 새로 만들지 않는다.
+
+    전 섹션을 감사하므로 배경 블록 없는 섹션에서도 금지 문장이 나올 수 있다. 이때
+    '장기 대운 배경은…' 으로 치환하면 주지도 않은 배경을 생성하게 된다.
+    """
+    out = _audit(enforce=True, background_present=False)
+    assert out.patched
+    assert "대운 배경" not in out.text
+    assert not out.remaining
+
+
+def test_section_with_background_keeps_background_framing() -> None:
+    """배경이 있는 섹션은 배경을 지우지 않고 허용 범위로 되돌린다."""
+    out = _audit(enforce=True, background_present=True)
+    assert "대운 배경" in out.text
+    assert not out.remaining
+
+
+def test_unpatchable_variant_falls_back_to_section_text() -> None:
+    """patch 로 해결되지 않으면 그 섹션만 폴백한다 — 새 LLM 호출은 없다."""
+    from saju_engines import section_claim_audit as S
+
+    # 안전 문장 자체가 위반으로 남는 상황을 만들어 재감사 실패를 강제한다.
+    original = S._BG_SAFE_WITH_BACKGROUND
+    try:
+        S._BG_SAFE_WITH_BACKGROUND = _BAD_SENTENCE
+        out = _audit(enforce=True, background_present=True)
+    finally:
+        S._BG_SAFE_WITH_BACKGROUND = original
+    assert out.fell_back
+    assert out.text == "폴백 문구."
+    assert not out.remaining
+
+
+def test_audit_observations_are_request_scoped() -> None:
+    """관측 계수가 요청 간 섞이면 승격 판단이 왜곡된다."""
+    from saju_engines.section_claim_audit import (
+        start_daewoon_hwa_audit_collection,
+        take_daewoon_hwa_audit,
+    )
+
+    start_daewoon_hwa_audit_collection()
+    _audit(enforce=True, background_present=True)
+    assert len(take_daewoon_hwa_audit()) == 1
+    assert take_daewoon_hwa_audit() == ()

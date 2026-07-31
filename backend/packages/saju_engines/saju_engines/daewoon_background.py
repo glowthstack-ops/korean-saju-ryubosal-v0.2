@@ -185,3 +185,58 @@ def background_narrative_block(
         seen.add(marker)
         lines.append(f"{period}: {frame}")
     return lines
+
+
+#: state → 사람이 읽는 방향 표기.
+_STATE_KO = {"supportive": "보강(supportive)", "pressuring": "압력(pressuring)"}
+
+
+def background_evidence_block(
+    periods: Sequence[str],
+    backgrounds: Mapping[str, DaewoonHwaBackground],
+    *,
+    already_described: MutableSet[tuple[str, str]] | None = None,
+) -> list[str]:
+    """LLM 입력용 **사실 블록**. 완성 문장이 아니라 구조화 사실 + 사용 계약을 준다.
+
+    완성 문장을 답변에 덧붙이면 문맥과 겉돈다. 사실만 주고 서술은 LLM 이 문맥에 맞게
+    하되, 허용 범위를 블록 안에 명시해 감사가 걷어낼 일을 줄인다.
+
+    `legacy_score_coefficient` 는 넣지 않는다 — 검증된 체감 강도가 아니라 옛 랭킹
+    계수이고, 숫자가 보이면 LLM 이 강약 근거로 쓴다.
+
+    Args:
+        periods: **이 섹션이 실제로 선택한** 시점만. 전역 목록을 넘기면 섹션이 쓰지도
+            않는 시점의 배경이 노출된다.
+        backgrounds: 시점 배경 맵.
+        already_described: 요청 단위 중복 방지 집합. 같은 (시점, 방향)은 한 테마에서
+            한 번만 상세 제공한다.
+
+    Returns:
+        블록 줄 목록. 붙일 배경이 없으면 **빈 목록**(머리글도 만들지 않는다).
+    """
+    seen: MutableSet[tuple[str, str]] = (
+        already_described if already_described is not None else set()
+    )
+    rows: list[str] = []
+    for period in periods:
+        bg = backgrounds.get(period)
+        if bg is None or not bg.applicable:
+            continue  # not_applicable·neutral 은 블록을 만들지 않는다
+        marker = (period, bg.state)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        rows.append(f"- {period}: {_STATE_KO.get(bg.state, bg.state)}")
+        if bg.evidence_code:
+            rows.append(f"  근거: {bg.evidence_code}")
+        rows.append(f"  사용: {bg.usage}")
+    if not rows:
+        return []
+    return [
+        "",
+        "[장기 대운 배경 — 서사 참고 전용]",
+        "(이미 선택된 흐름의 체감을 설명할 때만 쓴다. 사건의 발생·성사·시점 선정·대표 "
+        "순위의 근거로 쓰지 말 것 — 이 값은 그런 근거가 아니다.)",
+        *rows,
+    ]
