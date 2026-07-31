@@ -1,0 +1,98 @@
+schema: luck_operability_observation.v1
+case_id: CASE_A_1987_08_05_2100_SEOUL
+status: observation_only
+reviewed: false
+production_effect: none
+executable_assertions: []
+
+# 실행 테스트가 아니다. `tests/fixtures` 아래에 두지 않은 이유는 로더·스냅숏 수집기가
+# 자동 편입할 수 있기 때문이다. 감사 자료로만 보존하고, 승격 시점에 fixture 로 옮긴다.
+
+measured_at_commit: a9d037b9cd935535c8b6c5b4f707051812003cf3
+measured_flags:
+  DAEWOON_HWA_MODE: current      # 미설정 기본값
+  RISK_ENGINE_MODE: "off"        # 미설정 기본값
+
+input:
+  datetime: "1987-08-05T21:00:00+09:00"
+  location: Seoul
+  # 명세는 명식만 주어 생년월일시를 역산했다. 21:00 이어야 시주가 戊戌 이며,
+  # 19:00~20:30 은 丁酉 가 된다.
+  pillars:
+    year: 丁卯
+    month: 丁未
+    day: 丙戌
+    hour: 戊戌
+
+source_claim:
+  origin: 영상 전문가 해석(개발 전달안 §2 사례 A)
+  structure: strong_output          # 신왕식왕
+  follow_structure: false
+  roles:
+    WATER: YONG
+    METAL: HUI
+    WOOD: HAN
+    FIRE: GU
+    EARTH: GI
+
+engine_native:
+  strength_score: 56.2
+  strength_band: 中和身强
+  borderline: true
+  confidence: 0.1535
+  requires_validation: true
+  follow_structure: false
+  selected_model: eokbu_normal
+  five_element_distribution:
+    EARTH: 39.1
+    FIRE: 37.3
+    WOOD: 18.2
+    METAL: 5.5
+    WATER: 0.0
+  roles:
+    EARTH: YONG
+    METAL: HUI
+    WOOD: GI
+    FIRE: GU
+    WATER: HAN
+
+model_competition:
+  eokbu:
+    candidate: EARTH
+    score: 0.1508
+  pattern:
+    candidate: WATER
+    score: 0.1400
+  margin: 0.0108
+
+comparison:
+  METAL_HUI: MATCH
+  FIRE_GU: MATCH
+  follow_structure: MATCH
+  WATER_role: MISMATCH        # source YONG / engine HAN
+  EARTH_role: MISMATCH        # source GI  / engine YONG
+  WOOD_role: MISMATCH         # source HAN / engine GI
+  structure_label: NOT_EXPRESSED   # '신왕식왕' 구조 라벨이 엔진에 없다
+
+classification:
+  canonical_role_difference: MODEL_SELECTION_DIFFERENCE
+  likely_cause: EOKBU_VS_STRONG_OUTPUT_INTERPRETATION
+  school_difference: POSSIBLE_NOT_CONFIRMED
+  engine_defect: false
+
+development_policy:
+  source_claim_overrides_production: false
+  blocks_operability_development: false
+  register_for_role_selection_review: true
+
+notes:
+  - >-
+    엔진이 임의로 어긋난 것이 아니다. 경합을 스스로 인지해 requires_validation 을 세웠고
+    warnings 에 '중화 구간 경쟁 모델 동시 제시'·'상위 후보 점수 차가 작아 사용자 검증 필요'
+    를 남겼다. 두 축의 차이가 0.0108 이다.
+  - >-
+    출처가 우리 엔진의 pattern axis 와 동일한 계산법을 썼다고 확인된 바 없다. 그래서
+    school_difference 를 CONFIRMED 가 아니라 POSSIBLE_NOT_CONFIRMED 로 둔다.
+  - >-
+    후속 실현도 fixture 는 이 source_claim 역할 지도를 **test-only** 로 주입해 검증한다.
+    생산 판정을 덮지 않는다.
