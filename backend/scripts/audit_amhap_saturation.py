@@ -24,6 +24,11 @@
 두 가설은 관측이 정반대다. 반복이면 top-N 조합 점유율이 높고 동일 조합이 연속으로
 이어진다. 조합 폭발이면 고유 조합이 많고 매 기간 다른 쌍이 잡힌다.
 
+두 지표의 성질이 다르다는 점에 주의한다.
+
+    top3_share           조합 점유율 — **배열 순서와 무관**. 기각의 주 근거.
+    max_consecutive_run  연속 길이 — 60갑자 배열 순서에 의존. 보조 근거로만 쓴다.
+
 **월운 12기간만 보면 표본이 얇아** 운 간지 60갑자를 전수 대입한다. 실제 달력이 주는
 기간 집합과 무관하게 "어떤 운이 와도 잡히는가" 를 직접 묻는 방식이다.
 
@@ -122,7 +127,11 @@ def audit_chart(label: str, y: int, m: int, d: int, t: str, g: str) -> dict[str,
             gods[h.ten_god] += 1
         signatures.append(",".join(sorted(f"{h.luck_char}{h.natal_hidden}" for h in hits)))
 
-    # 동일 조합 연속 반복 길이 — PAIR_RECURRENCE 가설의 직접 지표.
+    # 동일 조합 연속 반복 길이 — PAIR_RECURRENCE 가설의 **보조** 지표다.
+    #
+    # 60갑자는 관례적 배열이고 실제 운의 시간 순서가 아니므로 이 값은 **배열 순서에
+    # 의존한다** — 배열을 바꾸면 달라질 수 있다. 반복 가설 기각의 주 근거는 순서에
+    # 의존하지 않는 `top3_share`(조합 점유율)이고, 이 값은 그 결론을 보강할 뿐이다.
     run = best = 1
     for i in range(1, len(signatures)):
         if signatures[i] and signatures[i] == signatures[i - 1]:
