@@ -353,6 +353,13 @@ class EventEngineV2:
         """직전 score() 호출(같은 스레드)의 위험 shadow — 불변 tuple.
 
         요청 로컬 subject_id→risk 결과 맵 구성 전용(감수 62차 P0③).
+
+        **`take_` 라는 이름과 달리 소비하지 않는다(peek).** 저장값을 비우지 않으므로
+        반복 호출은 같은 snapshot 을 돌려준다. 2026-07-31 저장소 계약 감사에서 확인:
+        production 호출부는 전부 같은 함수 안에서 score() 뒤 직선으로 오고 요청당
+        1회만 호출해, score 없는 후속 take 로 이전 요청 값을 읽는 경로가 없다.
+        EXPOSE 파이프라인 회귀 범위가 넓어 consume 전환은 하지 않았다 — 관측 이름을
+        위해 동작 계약을 바꾸는 일이 되기 때문이다.
         """
         return tuple(getattr(self._risk_tls, "last", ()) or ())
 
@@ -360,6 +367,10 @@ class EventEngineV2:
         """직전 score() 호출(같은 스레드)의 관계 탐지 불변 projection(P1-6 §12).
 
         관계 벡터 sidecar 전용 — 후보·점수·LLM 입력 경로에서 읽지 않는다.
+
+        **`take_` 라는 이름과 달리 소비하지 않는다(peek).** `take_risk_shadow` 와 같은
+        계약이며 같은 감사에서 확인했다. sidecar 는 요청당 1회만 조회하고 take 이후
+        재조회하지 않는다.
         """
         return tuple(getattr(self._rel_shadow_tls, "last", ()) or ())
 
