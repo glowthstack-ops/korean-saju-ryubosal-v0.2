@@ -64,4 +64,12 @@ async def health() -> dict[str, object]:
         pass
     # beta flag는 gitignore된 .env.beta에만 있어 켜졌는지 확인할 수단이 없었다.
     out["beta_flags"] = _beta_flag_snapshot()
+    # 이벤트 엔진 실효 모드 — 선정 모드가 채널 간 갈리면 같은 질문에서 대표 시점이
+    # 달라진다. env 가 아니라 실제로 쓰이는 값을 보여준다.
+    try:
+        from saju_engines.event_engine_config import event_engine_flag_snapshot
+
+        out["event_engine_flags"] = event_engine_flag_snapshot()
+    except Exception:  # noqa: BLE001 — 관측 실패가 health를 막지 않는다
+        pass
     return out

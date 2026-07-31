@@ -54,6 +54,7 @@ from saju_engines.counterfactual_context import (
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
+from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
@@ -64,7 +65,6 @@ from saju_engines.luck_hierarchy_render import (
     render_period_role_summary,
     render_v2_slot_status,
 )
-from saju_engines.marriage_timing_profile import marriage_engine_flags
 from saju_engines.period_role_summary import build_period_role_summary
 from saju_engines.period_safe_template import build_safe_period_answer
 from saju_engines.persona import PersonaEngine
@@ -506,7 +506,9 @@ class ChatResponse(BaseModel):
 def _get_scorer() -> EventEngineV2:
     global _scorer
     if _scorer is None:
-        _scorer = EventEngineV2(_DICTS, **marriage_engine_flags())
+        # 공통 팩토리 — 채널 간 선정 모드가 갈리면 같은 명식·질문에서 대표 시점이
+        # 달라진다(event_engine_config: chat mode == report mode).
+        _scorer = build_event_engine_v2(_DICTS)
     return _scorer
 
 

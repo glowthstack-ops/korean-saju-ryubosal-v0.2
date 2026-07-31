@@ -39,14 +39,13 @@ from saju_engines.direction_suggestion import (
     format_direction_suggestion_lines,
     select_direction_suggestions,
 )
-from saju_engines.event_engine_v2 import EventEngineV2
+from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_scoring import confirmed_yongsin_note, favorability_map
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
-from saju_engines.marriage_timing_profile import marriage_engine_flags
 from saju_engines.palace_relationship_network import (
     analyze_palace_network,
     palace_network_lines,
@@ -652,7 +651,8 @@ class _ReportData:
                         seen.add(p.label)
                         deduped.append(p)
                 lc.monthly_luck = deduped
-        self.scorer = EventEngineV2(_DICTS, **marriage_engine_flags())
+        # 공통 팩토리 — 채팅과 동일 모드로 생성된다(event_engine_config).
+        self.scorer = build_event_engine_v2(_DICTS)
         # 개인화(저장된 subject 한정): 현실 신호 시그니처 + 활성 코호트 → LEI 정렬축.
         # 미설정·실패 시 무개인화 폴백(규칙11).
         sig, cohort = fetch_personal_inputs(owner_id, subject_id, self.result)
