@@ -1,5 +1,5 @@
 {
-  "note": "LLM 운영 설정 — 단일 관리 파일. 모델·폴백·키 env 이름·생성 옵션을 여기서만 변경한다(코드 수정 불요). thinking은 절대 원칙 9(v2.2.1)에 따라 low 이하 — 통변 호출은 thinkingLevel LOW 고정, Query Parser는 MINIMAL(비활성 상당) 유지. [2026-06-14: 통변 primary를 gemini-3-flash-preview로 원복(사용자 지시 — 3 flash 고정). 프리뷰 503/행 장애 재발 시 폴백 전환됨.] [2026-06-18: 폴백 모델 gpt-5-mini → gpt-5.4-mini 교체(사용자 지시).] [2026-07-21: timeout 60→90초 — Gemini가 60초 초과 생성 시 완성 응답이 버려지고(과금 낭비) 폴백 재생성으로 다른 답이 전달되던 실사례 교정.] [2026-07-17: primary에 context_limit 추가 — risk EXPOSE 게이트 예산 산정용(부재·0=BYPASS). OFF/SHADOW 경로 무관.]",
+  "note": "LLM 운영 설정 — 단일 관리 파일. 모델·폴백·키 env 이름·생성 옵션을 여기서만 변경한다(코드 수정 불요). thinking은 절대 원칙 9(v2.2.1)에 따라 low 이하 — 통변 호출은 thinkingLevel LOW 고정, Query Parser는 MINIMAL(비활성 상당) 유지. [2026-06-14: 통변 primary를 gemini-3-flash-preview로 원복(사용자 지시 — 3 flash 고정). 프리뷰 503/행 장애 재발 시 폴백 전환됨.] [2026-06-18: 폴백 모델 gpt-5-mini → gpt-5.4-mini 교체(사용자 지시).] [2026-07-21: timeout 60→90초 — Gemini가 60초 초과 생성 시 완성 응답이 버려지고(과금 낭비) 폴백 재생성으로 다른 답이 전달되던 실사례 교정.] [2026-07-17: primary에 context_limit 추가 — risk EXPOSE 게이트 예산 산정용(부재·0=BYPASS). OFF/SHADOW 경로 무관.] [2026-07-31: 폴백 모델 gpt-5.4-mini → gpt-5.6-luna 교체(사용자 지시).]",
   "primary": {
     "provider": "gemini",
     "model": "gemini-3-flash-preview",
@@ -13,7 +13,7 @@
   },
   "fallback": {
     "provider": "openai",
-    "model": "gpt-5.4-mini",
+    "model": "gpt-5.6-luna",
     "api_key_env": "OPENAI_API_KEY",
     "generation_extras": {
       "reasoning_effort": "low"

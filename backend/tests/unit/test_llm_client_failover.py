@@ -25,7 +25,7 @@ def test_config_single_file_drives_models() -> None:
     # 전환) — 테스트는 '단일 파일이 모델을 결정'하는 계약만 고정한다.
     assert cfg["primary"]["model"].startswith("gemini-")
     assert cfg["fallback"]["provider"] == "openai"
-    assert cfg["fallback"]["model"] == "gpt-5.4-mini"
+    assert cfg["fallback"]["model"] == "gpt-5.6-luna"
     assert llm_client.reading_model() == cfg["primary"]["model"]
     assert llm_client.is_available() is True
 
