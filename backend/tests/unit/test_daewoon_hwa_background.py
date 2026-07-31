@@ -220,3 +220,106 @@ def test_not_applicable_period_yields_no_line() -> None:
 def test_unknown_period_is_skipped() -> None:
     """맵에 없는 시점은 조용히 건너뛴다 — 없는 배경을 지어내지 않는다."""
     assert background_narrative_block([("2099-12", EventQuality.LOSS)], _bg_map()) == []
+
+
+# ── 요청 로컬 수집 계약 ──────────────────────────────────────────────────
+#
+# chat_service 의 scorer 는 모듈 싱글턴이고 워커 스레드는 재사용된다. 배경 맵은 (감사용
+# risk_shadow 와 달리) 서사 렌더러가 실제로 읽을 값이라, 요청 경계가 새면 다른 사람의
+# 대운 배경이 답변에 섞인다.
+
+
+def _scorer(mode: str = "post_selection"):
+    """사전 로드 없이 수집 계약만 시험할 최소 스코어러."""
+    from pathlib import Path
+
+    from saju_engines.event_engine_v2 import EventEngineV2
+
+    dicts = Path(__file__).resolve().parents[2] / "dictionaries"
+    return EventEngineV2(dicts, daewoon_hwa_mode=mode)
+
+
+def _fill(scorer, periods: dict[str, PolarityRole | None]) -> None:
+    """score() 가 하는 수집만 흉내낸다(만세 계산 없이 sink 계약만 본다)."""
+    sink: dict[str, object] = {}
+    scorer._dw_bg_tls.sink = sink
+    try:
+        for label, role in periods.items():
+            sink[label] = derive_daewoon_hwa_background(role)
+    finally:
+        from types import MappingProxyType
+
+        scorer._dw_bg_tls.sink = None
+        scorer._dw_bg_tls.last = MappingProxyType(dict(sink))
+
+
+def test_take_clears_the_store() -> None:
+    """소비하면 비운다 — 남겨두면 조기 반환 요청이 직전 요청 배경을 본다.
+
+    실측으로 재현했던 결함이다: 요청 A 채점 후 123건, score() 를 부르지 않은 다음
+    take 에서도 같은 123건이 나왔다.
+    """
+    s = _scorer()
+    _fill(s, {"2027-03": PolarityRole.GI})
+    assert len(s.take_daewoon_hwa_backgrounds()) == 1
+    assert len(s.take_daewoon_hwa_backgrounds()) == 0
+
+
+def test_next_request_does_not_see_previous_values() -> None:
+    """다음 요청은 이전 요청 값을 보지 않는다."""
+    s = _scorer()
+    _fill(s, {"2027-03": PolarityRole.GI})
+    _fill(s, {"2029-01": None})
+    got = s.take_daewoon_hwa_backgrounds()
+    assert set(got) == {"2029-01"}
+    assert not any(v.applicable for v in got.values())
+
+
+def test_exception_during_scoring_leaves_no_stale_value() -> None:
+    """예외가 나도 직전 요청 값이 잔류하지 않는다."""
+    s = _scorer()
+    _fill(s, {"2027-03": PolarityRole.GI})
+
+    class _Boom(Exception):
+        pass
+
+    sink: dict[str, object] = {}
+    s._dw_bg_tls.sink = sink
+    try:
+        raise _Boom
+    except _Boom:
+        pass
+    finally:
+        from types import MappingProxyType
+
+        s._dw_bg_tls.sink = None
+        s._dw_bg_tls.last = MappingProxyType(dict(sink))
+    assert s.take_daewoon_hwa_backgrounds() == {}
+
+
+def test_concurrent_requests_do_not_mix() -> None:
+    """동시 요청의 배경 맵이 섞이지 않는다 — thread-local 이어야 하는 이유."""
+    import threading
+
+    s = _scorer()
+    seen: dict[str, set[str]] = {}
+
+    def worker(name: str, periods: dict[str, PolarityRole | None]) -> None:
+        _fill(s, periods)
+        seen[name] = set(s.take_daewoon_hwa_backgrounds())
+
+    threads = [
+        threading.Thread(target=worker, args=("a", {"2027-03": PolarityRole.GI})),
+        threading.Thread(target=worker, args=("b", {"2029-01": PolarityRole.YONG})),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert seen["a"] == {"2027-03"}
+    assert seen["b"] == {"2029-01"}
+
+
+def test_take_without_any_scoring_returns_empty() -> None:
+    """한 번도 채점하지 않은 스코어러는 빈 맵을 준다."""
+    assert _scorer().take_daewoon_hwa_backgrounds() == {}

@@ -333,12 +333,21 @@ class EventEngineV2:
         return out
 
     def take_daewoon_hwa_backgrounds(self) -> Mapping[str, DaewoonHwaBackground]:
-        """직전 score() 호출(같은 스레드)의 시점 배경 맵 — 불변.
+        """직전 score() 호출(같은 스레드)의 시점 배경 맵 — 불변. **소비하면 비운다.**
 
         **대표 선정 이후 서사 렌더러 전용.** 후보에 필드로 달지 않았으므로
         `_CANDIDATE_RANK_KEY`·eligibility·period grouping 은 이 값에 접근할 수 없다.
+
+        take 즉시 비우는 것이 계약이다. chat_service 의 scorer 는 모듈 싱글턴이고 워커
+        스레드는 재사용되므로, 남겨두면 **score() 를 부르지 않는 조기 반환 요청**
+        (need_subject·too_broad·정책 응답)이 직전 요청의 배경 맵을 그대로 본다. 실측으로
+        재현했다 — 요청 A 채점 후 123건, score 를 부르지 않은 다음 take 에서도 123건.
         """
-        return getattr(self._dw_bg_tls, "last", None) or MappingProxyType({})
+        # take-and-reset — 읽기와 비우기 사이에 다른 소비자가 끼어들 여지를 두지 않는다.
+        empty: Mapping[str, DaewoonHwaBackground] = MappingProxyType({})
+        out = getattr(self._dw_bg_tls, "last", None) or empty
+        self._dw_bg_tls.last = empty
+        return out
 
     def take_risk_shadow(self) -> tuple[RiskCandidate, ...]:
         """직전 score() 호출(같은 스레드)의 위험 shadow — 불변 tuple.

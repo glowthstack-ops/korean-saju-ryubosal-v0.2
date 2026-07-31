@@ -192,13 +192,19 @@ def run() -> dict[str, Any]:
     for f in fails:
         print(f"  ✗ {f}")
     if not fails:
+        # 상태명에 적용 범위를 드러낸다 — 서사는 아직 production 에 배선되지 않았고,
+        # reason code 제거는 post_selection 모드 한정이다. 범위를 감춘 이름은 다음 사이클에
+        # "이미 켜져 있다" 로 오독된다.
         print("\nDAEWOON_HWA_RANKING_EFFECT_REMOVED_IN_SHADOW")
         print("DAEWOON_HWA_PERIOD_BACKGROUND_MAP_ADDED")
-        print("DAEWOON_HWA_POST_SELECTION_NARRATIVE_ONLY")
-        print("DAEWOON_HWA_OCCURRENCE_EVIDENCE_REMOVED")
+        print("DAEWOON_HWA_POST_SELECTION_NARRATIVE_ONLY_IN_SHADOW")
+        print("DAEWOON_HWA_OCCURRENCE_EVIDENCE_REMOVED_IN_POST_SELECTION_MODE")
+        print("DAEWOON_HWA_BACKGROUND_STORE_TAKE_CLEARS_STATE")
+        print("DAEWOON_HWA_CROSS_REQUEST_LEAKAGE_PREVENTED")
         print("CANONICAL_QUALITY_UNCHANGED")
         print("REPRESENTATIVE_SELECTION_MATCHES_NO_HWA_BASELINE")
-        print("PRODUCTION_FLAG_UNCHANGED")
+        print("PRODUCTION_DEFAULT_MODE_CURRENT")
+        print("PRODUCTION_NARRATIVE_WIRING_UNCHANGED")
     return findings
 
 
