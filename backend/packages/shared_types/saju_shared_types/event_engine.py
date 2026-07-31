@@ -264,6 +264,10 @@ class EventCandidateV2(BaseModel):
     twelve_stage: TwelveStage | None = None  # 사건 상태를 정한 12운성
     event_phase: str | None = None  # 12운성이 부여한 발현 단계(formalization/peak/cut 등)
     reason_codes: list[str] = Field(default_factory=list)  # 적용 룰 id 추적
+    # 감사·디버깅 전용 병렬 provenance(2026-07-31). `reason_codes` 는 값·순서·중복이
+    # 모두 불변이며, 이 필드는 그중 관계 발동 항목에 어느 운 층위·글자가 대응하는지를
+    # 담는다. 사용자 출력·LLM 입력에 연결하지 않는다(첫 릴리즈 계약).
+    reason_instances: list[dict] = Field(default_factory=list)
     raw_score: float = 0.0  # soft_cap 전 누적 raw(정렬·디버그) — 최종 단계에서 채움
     # 단계별 점수 기여(base/stage/flow/gate/relation/yongi/wealth_act) — 포화 진단·2차
     # 계열 인지 감쇠 전환용 계측. 표시·판정엔 쓰지 않는다(내부 로그).

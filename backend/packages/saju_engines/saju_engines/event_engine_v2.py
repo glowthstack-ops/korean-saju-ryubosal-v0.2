@@ -968,6 +968,13 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
                 out.append(RelationActivation(
                     RelationKind(kind), palace, layer, position=position,
                     hap_subtype=subtype, element=hit.element,
+                    # 관측 가능성 — 어느 운 글자가 어느 원국 글자를 건드렸는지.
+                    # 점수·reason_codes 에는 영향이 없다(2026-07-31).
+                    relation_id=hit.relation_id,
+                    luck_stem=hit.luck_ref.stem or "",
+                    luck_branch=hit.luck_ref.branch or "",
+                    natal_stem=ref.stem or "",
+                    natal_branch=ref.branch or "",
                 ))
     return out
 
@@ -993,7 +1000,12 @@ def _bokeum_activations(
     if result.pillars is None or result.pillars.day is None:
         return []
     if target.branch and target.branch == result.pillars.day.branch:
-        return [RelationActivation(RelationKind.BOKEUM, Pillar4.DAY, layer, position="branch")]
+        return [RelationActivation(
+            RelationKind.BOKEUM, Pillar4.DAY, layer, position="branch",
+            relation_id="bokeum_day_branch",
+            luck_branch=target.branch or "",
+            natal_branch=result.pillars.day.branch or "",
+        )]
     return []
 
 

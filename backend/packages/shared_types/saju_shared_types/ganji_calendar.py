@@ -11,7 +11,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import StrEnum
+from types import MappingProxyType
 
 from pydantic import BaseModel, Field
 
@@ -46,6 +48,44 @@ class RelationType(StrEnum):
     VOID_FILL = "void_fill"  # 공망전실
     VOID_TRIGGER_CLASH = "void_trigger_clash"  # 공망발동(충)
     VOID_RELEASE_COMBINE = "void_release_combine"  # 공망해소(합)
+
+
+class RelationIdShape(StrEnum):
+    """`RelationHit.relation_id` 의 피연산자 구성 형태.
+
+    relation_id 는 `rel_{종류}_{운}_{원국}` 이지만 **두 번째 피연산자의 의미가 종류마다
+    다르다** — 원국 글자이기도 하고, 완성 오행이기도 하고, 다중 지지 연결이기도 하고,
+    아예 없기도 하다. 발동 provenance 의 피연산자 정합을 검사하려면 종류별로 비교
+    규칙이 달라야 한다. 순서는 항상 `운 → 원국` 으로 고정된다(방향성 보존).
+    """
+
+    STEM_PAIR = "stem_pair"      # (운 천간, 원국 천간) — 순서까지 일치
+    BRANCH_PAIR = "branch_pair"  # (운 지지, 원국 지지) — 순서까지 일치
+    MULTI_NATAL = "multi_natal"  # (운 지지, 원국 지지들 연결) — 원국은 포함 관계
+    ELEMENT = "element"          # (운 지지, 완성 오행) — 두 번째는 글자가 아니다
+    SINGLE = "single"            # (지지,) — 운·원국이 같은 글자(자형)
+
+
+#: 관계 종류 → relation_id 피연산자 형태. 생성 규칙 SSOT 는 `ganji_calendar._relation_hit`.
+#:
+#: **RelationType 전 항목을 덮어야 한다.** 새 종류를 추가하고 여기를 빠뜨리면 정합 검사가
+#: 통과가 아니라 실패로 떨어진다(fail-closed) — 형태표 갱신 누락이 조용히 지나가면
+#: 피연산자 검증이 그 종류만 무력화되기 때문이다.
+RELATION_ID_SHAPE: Mapping[RelationType, RelationIdShape] = MappingProxyType({
+    RelationType.STEM_COMBINATION: RelationIdShape.STEM_PAIR,
+    RelationType.BRANCH_CLASH: RelationIdShape.BRANCH_PAIR,
+    RelationType.SIX_COMBINATION: RelationIdShape.BRANCH_PAIR,
+    RelationType.BRANCH_BREAK: RelationIdShape.BRANCH_PAIR,
+    RelationType.HARM: RelationIdShape.BRANCH_PAIR,
+    RelationType.PUNISHMENT_MUTUAL: RelationIdShape.BRANCH_PAIR,
+    RelationType.VOID_FILL: RelationIdShape.BRANCH_PAIR,
+    RelationType.VOID_TRIGGER_CLASH: RelationIdShape.BRANCH_PAIR,
+    RelationType.VOID_RELEASE_COMBINE: RelationIdShape.BRANCH_PAIR,
+    RelationType.THREE_HARMONY_CONTRIB: RelationIdShape.ELEMENT,
+    RelationType.DIRECTIONAL_CONTRIB: RelationIdShape.ELEMENT,
+    RelationType.PUNISHMENT_TRIPLE: RelationIdShape.MULTI_NATAL,
+    RelationType.SELF_PUNISHMENT: RelationIdShape.SINGLE,
+})
 
 
 class GanjiRef(BaseModel):
