@@ -27,6 +27,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -150,6 +152,76 @@ class RelationDependencyGraph:
                 LINK_SAME_FAMILY_DISTINCT_PLACEMENT, 0
             ),
         }
+
+
+#: 지문 payload 버전. 대상 필드나 정규화 규칙을 바꾸면 v2 로 올린다 — 정의를 조용히
+#: 바꾸면 과거 snapshot 과 현재 snapshot 을 비교할 수 없게 된다.
+FINGERPRINT_SCHEMA = "luck_relation_graph_fingerprint.v1"
+
+
+def relation_graph_fingerprint_payload(
+    graph: RelationDependencyGraph,
+) -> dict[str, object]:
+    """지문 계산용 **정규 의미 투영본**.
+
+    DTO 를 통째로 직렬화하지 않는다. 그러면 디버그 필드 추가·메트릭·사람이 읽는 문구 수정·
+    필드 순서 변경만으로도 지문이 불필요하게 바뀐다. 반대로 ID 목록만 해시하면 같은 ID 에
+    `tier=confirmed/none` 처럼 **상태를 가르는 차이**를 감지하지 못한다.
+
+    그래서 상태 산출에 실제로 영향을 주는 필드만 담는다. `normalized_observation` 은
+    tier/mode 에서 파생된 값이라 넣지 않는다(중복이며, 파생 규칙이 바뀌면 이유 없이 지문이
+    흔들린다). `evidence` 는 설명 문자열이라 제외한다.
+
+    배열은 명시적으로 정렬한다 — `sort_keys=True` 만으로는 재현되지 않는다. 다만
+    `relation_ids` 는 정렬하지 않는다: `POTENTIALLY_BLOCKED_BY` 는 (방해받는 쪽, 방해하는 쪽)
+    순서가 곧 의미라서 정렬하면 인과가 사라진다. 대칭인 `COMPETES_FOR_DIRECTION` 은 생성
+    시점에 이미 정렬돼 들어온다.
+    """
+    return {
+        "schema": FINGERPRINT_SCHEMA,
+        "nodes": [
+            {
+                "node_id": n.node_id, "layer": n.layer,
+                "pillar_position": n.pillar_position, "component": n.component,
+                "character": n.character, "original_element": n.original_element,
+            }
+            for n in sorted(graph.nodes, key=lambda x: x.node_id)
+        ],
+        "edges": [
+            {
+                "relation_id": e.relation_id, "relation_family": e.relation_family,
+                "relation_type": e.relation_type,
+                "member_node_ids": sorted(e.member_node_ids),
+                "existing_tier": e.existing_tier, "existing_mode": e.existing_mode,
+                "target_element": e.target_element,
+                "source_resolver": e.source_resolver,
+            }
+            for e in sorted(graph.edges, key=lambda x: x.relation_id)
+        ],
+        "dependencies": [
+            {
+                "dependency_id": d.dependency_id,
+                "relation_ids": list(d.relation_ids),   # 방향 보존 — 정렬 금지
+                "link_type": d.link_type,
+                "shared_node_ids": sorted(d.shared_node_ids),
+                "target_elements": sorted(d.target_elements),
+            }
+            for d in sorted(graph.relation_dependencies, key=lambda x: x.dependency_id)
+        ],
+    }
+
+
+def fingerprint_relation_dependency_graph(graph: RelationDependencyGraph) -> str:
+    """정규 payload 의 SHA-256 **전체 64자**.
+
+    Python `hash()` 나 dataclass 기본 해시는 프로세스 간 안정성이 없어 쓰지 않는다.
+    축약값은 로그 표시용일 뿐 식별자로 쓰지 않는다.
+    """
+    payload = relation_graph_fingerprint_payload(graph)
+    canonical = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _dep_id(link_type: str, relation_ids: Sequence[str]) -> str:
