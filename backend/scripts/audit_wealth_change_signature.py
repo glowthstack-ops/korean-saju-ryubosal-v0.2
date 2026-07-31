@@ -231,10 +231,10 @@ def run() -> dict[str, Any]:
     rep_periods = [g.period for g in view.groups] if view is not None else []
 
     rows: list[dict[str, Any]] = []
-    axis_counts = collections.Counter()
-    act = collections.Counter()
-    cross = collections.Counter()
-    locus = collections.Counter()
+    axis_counts: collections.Counter[str] = collections.Counter()
+    act: collections.Counter[str] = collections.Counter()
+    cross: collections.Counter[tuple[str, str]] = collections.Counter()
+    locus: collections.Counter[tuple[str, str]] = collections.Counter()
     pol_by_axis: dict[str, collections.Counter] = collections.defaultdict(
         collections.Counter
     )
@@ -242,15 +242,17 @@ def run() -> dict[str, Any]:
     q_missing = 0
     d_missing = 0
     for rank, c in enumerate(pool, start=1):
-        r = read_axes(c)
-        axis_counts[r.outcome_quality_axis] += 1
-        act["+".join(r.activation_axis)] += 1
-        cross[(r.outcome_quality_axis, "+".join(r.activation_axis))] += 1
-        locus[(r.outcome_quality_axis, "+".join(r.context_loci))] += 1
-        pol_by_axis[r.outcome_quality_axis][str(c.polarity)] += 1
-        conflicts += r.outcome_quality_conflict
-        q_missing += r.quality_missing
-        d_missing += r.direction_missing
+        # 아래 집계 루프의 `r`(행 dict) 과 타입이 달라 이름을 나눈다 — 같은 이름이면
+        # 먼저 나온 바인딩이 함수 전체의 타입을 고정해 뒤가 전부 어긋난다.
+        reading = read_axes(c)
+        axis_counts[reading.outcome_quality_axis] += 1
+        act["+".join(reading.activation_axis)] += 1
+        cross[(reading.outcome_quality_axis, "+".join(reading.activation_axis))] += 1
+        locus[(reading.outcome_quality_axis, "+".join(reading.context_loci))] += 1
+        pol_by_axis[reading.outcome_quality_axis][str(c.polarity)] += 1
+        conflicts += reading.outcome_quality_conflict
+        q_missing += reading.quality_missing
+        d_missing += reading.direction_missing
         rows.append({
             "rank": rank, "period": c.period, "score": c.score,
             "raw_total": c.raw_total, "life_fit": c.life_fit,
@@ -259,13 +261,13 @@ def run() -> dict[str, Any]:
                 s.name for s in c.signals if s.type == "reason"
             }),
             "polarity": str(c.polarity), "quality": c.quality, "timing": c.timing,
-            "outcome_quality_axis": r.outcome_quality_axis,
-            "activation_axis": list(r.activation_axis),
-            "context_loci": list(r.context_loci),
-            "process_stages": list(r.process_stages),
-            "outcome_quality_sources": list(r.outcome_quality_sources),
-            "context_sources": list(r.context_sources),
-            "outcome_quality_conflict": r.outcome_quality_conflict,
+            "outcome_quality_axis": reading.outcome_quality_axis,
+            "activation_axis": list(reading.activation_axis),
+            "context_loci": list(reading.context_loci),
+            "process_stages": list(reading.process_stages),
+            "outcome_quality_sources": list(reading.outcome_quality_sources),
+            "context_sources": list(reading.context_sources),
+            "outcome_quality_conflict": reading.outcome_quality_conflict,
             "is_representative_period": c.period in rep_periods,
         })
 

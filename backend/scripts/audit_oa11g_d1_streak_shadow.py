@@ -549,7 +549,9 @@ def replay(
             stats["primary_scoring_calls"] += 1
             window = tuple(hh[ilju][-B._LOOKBACK:])
             families = {family_of.get(k, k) for k in window}
-            deficit = len(families) < C10_POLICY.coverage_floor
+            # coverage_floor 는 Optional — production 도 None 을 먼저 확인한다.
+            _floor = C10_POLICY.coverage_floor
+            deficit = _floor is not None and len(families) < _floor
             clean = repeat_severity(gh[ilju], raw_key) == SEVERITY_CLEAN
             chosen = None
             if mode != "S0" and deficit and clean:
