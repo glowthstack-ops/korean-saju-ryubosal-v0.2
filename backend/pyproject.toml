@@ -96,6 +96,11 @@ plugins = ["pydantic.mypy"]
 # full-tree 312건 = tests 51 + scripts 261 + production 0), 그 정리는 별도 작업이다.
 # 진단은 `python -m mypy --no-incremental .` 로 따로 돌린다.
 mypy_path = [
+    # 테스트가 import 하는 스크립트까지 추적한다(2026-07-31). scripts 전체를 검사하는
+    # 것이 아니라 **실제 import 된 모듈만** follow 된다 — 현재 5파일이 들어오고,
+    # 나머지 41파일의 부채는 계속 비차단이다. 이 경로가 없으면 tests 게이트가 테스트가
+    # 실제로 의존하는 코드를 검사하지 않는다.
+    "scripts",
     "apps/api",
     "packages/saju_engines",
     "packages/shared_types",
