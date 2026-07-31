@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import math
 import threading as _threading
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from types import MappingProxyType
 
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
 from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_role
@@ -70,6 +72,10 @@ from .contribution_provenance import (
     OccurrenceAttribution,
     ProvenanceRecorder,
     SupportEligibility,
+)
+from .daewoon_background import (
+    DaewoonHwaBackground,
+    derive_daewoon_hwa_background,
 )
 from .event_ranker import EventRanker, RankContext
 from .event_scoring import daewoon_transition_boost, favorability_map
@@ -208,6 +214,7 @@ class EventEngineV2:
         enable_mt3_directional: bool = False,
         enable_mt4_subtype: str = "off",
         risk_mode: str | None = None,
+        daewoon_hwa_mode: str = "current",
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -225,6 +232,9 @@ class EventEngineV2:
             risk_mode: 위험 엔진 모드 강제("off"/"shadow"/"expose", RISK_ENGINE.md). None(기본)
                 이면 risk_engine_config.RISK_ENGINE_MODE를 score() 호출 시점에 읽는다(테스트
                 monkeypatch 가능). off면 위험 계산을 전혀 하지 않아 기존 출력이 byte-identical.
+            daewoon_hwa_mode: 대운 합화 배경 처리(기본 'current' — 기존 ±3% 랭킹 반영).
+                'post_selection'이면 점수·reason_codes를 건드리지 않고 시점 배경 맵만
+                채운다(DW-HWA 감사 판정 반영). 기본값이 'current'라 production 불변.
         """
         self._enable_mt1_awareness = enable_mt1_awareness
         self._enable_mt2_emergence = enable_mt2_emergence
@@ -240,6 +250,11 @@ class EventEngineV2:
         # 스레드 interleaving 오귀속 차단): score() 동안 thread-local에
         # 수집하고, EXPOSE 경로는 take_risk_shadow()(불변 tuple)만 읽는다.
         # self.risk_shadow는 레거시 QA 사이드채널로만 유지(EXPOSE 사용 금지).
+        self._daewoon_hwa_mode = daewoon_hwa_mode
+        # 대운 합화 시점 배경 sink — risk_shadow와 동일한 요청 로컬 패턴.
+        # 싱글턴 필드로 두면 동시 요청에서 마지막 호출분에 덮인다. 이 맵은 (랭킹이 아니라)
+        # 서사 렌더러가 실제로 읽을 값이므로 요청 로컬이어야 한다.
+        self._dw_bg_tls = _threading.local()
         self._risk_tls = _threading.local()
         # 관계 벡터 shadow projection sink(P1-6 §12) — risk_shadow와 동일한 요청
         # 로컬 패턴: score() 동안 thread-local에 수집, take_relationship_shadow()로
@@ -296,8 +311,10 @@ class EventEngineV2:
         """
         sink: list[RiskCandidate] = []
         rel_sink: list[RelationshipShadowProjection] = []
+        dw_bg_sink: dict[str, DaewoonHwaBackground] = {}
         self._risk_tls.sink = sink
         self._rel_shadow_tls.sink = rel_sink
+        self._dw_bg_tls.sink = dw_bg_sink
         try:
             out = self._score_impl(
                 result, levels, fav_override,
@@ -311,7 +328,17 @@ class EventEngineV2:
             self.risk_shadow = sink  # 레거시 QA 사이드채널(EXPOSE 금지)
             self._rel_shadow_tls.sink = None
             self._rel_shadow_tls.last = tuple(rel_sink)
+            self._dw_bg_tls.sink = None
+            self._dw_bg_tls.last = MappingProxyType(dict(dw_bg_sink))
         return out
+
+    def take_daewoon_hwa_backgrounds(self) -> Mapping[str, DaewoonHwaBackground]:
+        """직전 score() 호출(같은 스레드)의 시점 배경 맵 — 불변.
+
+        **대표 선정 이후 서사 렌더러 전용.** 후보에 필드로 달지 않았으므로
+        `_CANDIDATE_RANK_KEY`·eligibility·period grouping 은 이 값에 접근할 수 없다.
+        """
+        return getattr(self._dw_bg_tls, "last", None) or MappingProxyType({})
 
     def take_risk_shadow(self) -> tuple[RiskCandidate, ...]:
         """직전 score() 호출(같은 스레드)의 위험 shadow — 불변 tuple.
@@ -633,11 +660,18 @@ class EventEngineV2:
         if self._enable_mt3_directional:
             cands = apply_mt3_directional_tags(cands, hits, result, marriage_flow.gender)
         # 대운 합화 체용 배경 — 대운 化神의 용기신 역할로 성패율에 약한 배경 보정(직접 치환 아님).
+        dw_role = _daewoon_hwa_role(stack, result, fav_map)
+        # 시점 배경 수집 — 모드와 무관하게 채운다. 맵 계산이 대표 선정 전이어도 무방하며,
+        # 중요한 것은 **소비가 선정 이후에만 가능하고 선별 경로로 전달되지 않는 것**이다.
+        _dw_sink = getattr(self._dw_bg_tls, "sink", None)
+        if _dw_sink is not None:
+            _dw_sink[label] = derive_daewoon_hwa_background(dw_role)
         cands = _apply_daewoon_hwa_background(
-            cands, _daewoon_hwa_role(stack, result, fav_map),
+            cands, dw_role,
             provenance_recorder=provenance_recorder,
             period=label,
             daewoon_occurrence_id=_daewoon_occurrence_id(stack),
+            mode=self._daewoon_hwa_mode,
         )
         # 증거 등급·충돌 해결(랭커의 등급 보너스도 raw 누적의 일부).
         rank_ctx = _rank_context(
@@ -1162,6 +1196,7 @@ def _apply_daewoon_hwa_background(
     provenance_recorder: ProvenanceRecorder | None = None,
     period: str = "",
     daewoon_occurrence_id: str = "",
+    mode: str = "current",
 ) -> list[EventCandidateV2]:
     """대운 합화 化神의 용기신 역할로 사건 성패율에 약한 배경 보정(직접 치환 아님).
 
@@ -1173,14 +1208,33 @@ def _apply_daewoon_hwa_background(
     특정할 수 있다는 것이 곧 "이 사건의 발생을 대운이 지지했다"는 뜻은 아니다.
     그래서 `support_eligibility=REVIEW_REQUIRED`로 남기고 승격은 감수에 맡긴다.
 
+    감사(DW-HWA, 2026-07-31)가 그 감수였고 정합은 입증되지 않았다. `mode='post_selection'`
+    이 그 결론을 반영한 경로다 — 점수·reason 을 건드리지 않고 배경은 `daewoon_background`
+    의 시점 맵으로 옮긴다. 기본값은 `'current'`(기존 동작)라 production 은 불변이다.
+
     Args:
         cands: 보정 대상 후보.
         dw_role: 대운 化神의 용기신 역할(None·NEUTRAL이면 무보정).
         provenance_recorder: 감사 수집기. None이면 기존 동작과 완전히 동일하다.
         period: 관측 기록용 시점 라벨(recorder가 있을 때만 사용).
         daewoon_occurrence_id: 관측 기록용 대운 식별자(request-local).
+        mode: 'current'(기본 — 점수 ±3% 반영) | 'post_selection'(점수·reason 불변).
     """
     if dw_role is None or dw_role is PolarityRole.NEUTRAL:
+        return cands
+    if mode == "post_selection":
+        # 감사 판정(DAEWOON_HWA_RANKING_EFFECT_NOT_JUSTIFIED_ON_AUDITED_FIXTURES) 반영 —
+        # 점수도 reason_codes 도 건드리지 않는다. 배경은 `daewoon_background` 의 시점 맵이
+        # 담고 대표 선정 이후 서사에서만 소비된다.
+        #
+        # `reason_codes` 에 태그만 남기고 기여를 0 으로 두는 방식은 채택하지 않았다 —
+        # 점수에 영향이 없어도 근거 목록을 읽는 guard·리포트·감사가 여전히 occurrence
+        # evidence 로 오독한다. 문자열 계약은 `DaewoonHwaBackground.evidence_code` 가 잇는다.
+        if provenance_recorder is not None:
+            for c in cands:
+                provenance_recorder.record_modifier(period, _daewoon_hwa_evidence(
+                    c, None, c.score, daewoon_occurrence_id
+                ))
         return cands
     boon = dw_role in (PolarityRole.YONG, PolarityRole.HEE)
     tag = f"DAEWOON_HWA_BG_{'보강' if boon else '압력'}"
