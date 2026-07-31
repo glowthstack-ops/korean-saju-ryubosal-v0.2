@@ -21,7 +21,9 @@ from saju_engines.process_event_compatibility import CandidateProcessScope
 from saju_engines.process_fact_resolver import build_request_process_context
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.event_engine import EventScope
-from saju_shared_types.events import EventKey
+from saju_shared_types.events import EventCandidate, EventKey
+from saju_shared_types.graph import EvidenceBundle
+from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import Domain, IntentJson, QueryType, TimeScope
 from saju_shared_types.process_fact import (
@@ -41,7 +43,7 @@ _R = DualRunComparisonResult
 
 
 @pytest.fixture(scope="module")
-def chart():
+def chart() -> ManseV2Result:
     return calculate(BirthInput(
         calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
         birth_place_name="서울", gender="male", reference_date=date(2026, 6, 11),
@@ -54,18 +56,18 @@ def scorer() -> EventEngineV2:
 
 
 @pytest.fixture(scope="module")
-def candidates(chart, scorer):
+def candidates(chart: ManseV2Result, scorer: EventEngineV2) -> list[EventCandidate]:
     return scorer.score_legacy(chart, levels={GanjiLevel.YEAR})
 
 
 @pytest.fixture(scope="module")
-def bundles():
+def bundles() -> list[EvidenceBundle]:
     graph = load_event_graph(_BACKEND / "compiled" / "event_graph_v1.1.0.json")
     return GraphIndex(graph).retrieve([EventKey.CAREER_CHANGE])
 
 
 @pytest.fixture
-def dual_run_on(monkeypatch):
+def dual_run_on(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(period_v2_config, "EVENT_PROCESS_DUAL_RUN_ENABLED", True)
 
 
@@ -269,7 +271,10 @@ def test_dual_run_does_not_change_payload(chart, candidates, bundles, scorer, du
     assert with_dual.model_dump_json() == baseline.model_dump_json()
 
 
-def test_dual_run_is_recorded_in_audit(chart, candidates, bundles, scorer, dual_run_on):
+def test_dual_run_is_recorded_in_audit(
+    chart: ManseV2Result, candidates: list[EventCandidate],
+    bundles: list[EvidenceBundle], scorer: EventEngineV2, dual_run_on: None,
+) -> None:
     """비교 결과가 감사 채널에 남는다."""
     audit: dict = {}
     build_llm_input(
@@ -283,7 +288,10 @@ def test_dual_run_is_recorded_in_audit(chart, candidates, bundles, scorer, dual_
     assert not dual.has_failure, "기준선에서 예상 밖 제외가 나오면 안 된다"
 
 
-def test_dual_run_is_off_by_default(chart, candidates, bundles, scorer):
+def test_dual_run_is_off_by_default(
+    chart: ManseV2Result, candidates: list[EventCandidate],
+    bundles: list[EvidenceBundle], scorer: EventEngineV2,
+) -> None:
     """플래그 OFF면 두 번째 선별을 돌리지 않는다(계측 비용 0)."""
     audit: dict = {}
     build_llm_input(
@@ -295,8 +303,9 @@ def test_dual_run_is_off_by_default(chart, candidates, bundles, scorer):
 
 
 def test_upper_supported_candidates_are_never_excluded(
-    chart, candidates, bundles, scorer, dual_run_on
-):
+    chart: ManseV2Result, candidates: list[EventCandidate],
+    bundles: list[EvidenceBundle], scorer: EventEngineV2, dual_run_on: None,
+) -> None:
     """세운 지지 후보는 게이트와 무관하게 유지된다 — 활성화 절대 조건."""
     audit: dict = {}
     build_llm_input(

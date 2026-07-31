@@ -21,7 +21,9 @@ from saju_engines.context_reducer import (
 )
 from saju_engines.process_fact_resolver import build_request_process_context
 from saju_shared_types.birth_input import BirthInput
-from saju_shared_types.events import EventKey
+from saju_shared_types.events import EventCandidate, EventKey
+from saju_shared_types.graph import EvidenceBundle
+from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import Domain, IntentJson, QueryType, TimeScope
 from saju_shared_types.process_fact import (
@@ -38,7 +40,7 @@ _DICTS = _BACKEND / "dictionaries"
 
 
 @pytest.fixture(scope="module")
-def chart():
+def chart() -> ManseV2Result:
     return calculate(BirthInput(
         calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
         birth_place_name="서울", gender="male", reference_date=date(2026, 6, 11),
@@ -51,12 +53,12 @@ def scorer() -> EventEngineV2:
 
 
 @pytest.fixture(scope="module")
-def candidates(chart, scorer):
+def candidates(chart: ManseV2Result, scorer: EventEngineV2) -> list[EventCandidate]:
     return scorer.score_legacy(chart, levels={GanjiLevel.YEAR})
 
 
 @pytest.fixture(scope="module")
-def bundles():
+def bundles() -> list[EvidenceBundle]:
     graph = load_event_graph(_BACKEND / "compiled" / "event_graph_v1.1.0.json")
     return GraphIndex(graph).retrieve([EventKey.CAREER_CHANGE])
 
@@ -135,8 +137,9 @@ def test_payload_unchanged_even_when_gate_would_exclude(
 
 
 def test_scope_is_resolved_for_every_candidate_before_reduction(
-    chart, candidates, bundles, scorer
-):
+    chart: ManseV2Result, candidates: list[EventCandidate],
+    bundles: list[EvidenceBundle], scorer: EventEngineV2,
+) -> None:
     """Top-N이 아니라 **전 후보**에 범위가 붙는다(탈락 예정 후보 포함)."""
     audit: dict = {}
     payload = build_llm_input(
