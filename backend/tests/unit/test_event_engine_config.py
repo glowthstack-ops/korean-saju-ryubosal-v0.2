@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import pytest
+
 from saju_engines import event_engine_config as C
 from saju_engines.event_engine_config import (
     DaewoonHwaMode,
