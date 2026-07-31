@@ -83,7 +83,7 @@ class _Recorder:
         return self
 
     def __exit__(self, *exc: object) -> None:
-        httpx.post = self._orig  # type: ignore[assignment]
+        httpx.post = self._orig
 
 
 def _classify_http_error(body: dict[str, Any] | None, status: int | None) -> str:

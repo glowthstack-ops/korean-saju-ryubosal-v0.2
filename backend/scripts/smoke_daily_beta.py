@@ -125,7 +125,9 @@ def phase_post(base: str, token: str | None, r: Result) -> None:
             f"{base}/api/v2/daily-fortune/today/{first['ilju']}"
         )
         r.check(
-            bool(single) and single["fortune"]["headline"] == first["headline"],
+            # `bool(x) and x[...]` 는 mypy 가 좁히지 못한다. 진리값 검사를 그대로 두면
+            # (빈 dict = 실패라는 기존 의미 유지) 좁혀지고, bool() 은 바깥에서 감싼다.
+            bool(single and single["fortune"]["headline"] == first["headline"]),
             "단건 응답이 보드와 일치",
         )
 
@@ -172,12 +174,12 @@ def _admin_checks(base: str, token: str, r: Result) -> None:
 
     status, audit, _h = _get(f"{base}/api/v2/admin/daily-beta/day/{ANCHOR}", token)
     r.check(
-        status == 200 and bool(audit) and len(audit["cards"]) == 60,
+        bool(status == 200 and audit and len(audit["cards"]) == 60),
         f"관리자 {ANCHOR} 렌더 정상",
         f"status={status}",
     )
     r.check(
-        bool(audit) and len(audit["render_result_fingerprint"]) == 64,
+        bool(audit and len(audit["render_result_fingerprint"]) == 64),
         "render fingerprint 산출",
     )
 
