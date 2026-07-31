@@ -469,8 +469,8 @@ export default function ChatPage() {
               </summary>
               <div className="mt-3">
                 <InlinePartnerForm
-                  onSubmit={(label, birth) => {
-                    attachPartner({ mode: "inline", label, birth });
+                  onSubmit={(label, birth, relationType) => {
+                    attachPartner({ mode: "inline", label, birth, relationType });
                     setShowPartner(false);
                   }}
                 />

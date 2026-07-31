@@ -190,9 +190,16 @@ export interface InlineBirthDTO {
 }
 
 // 채팅 궁합 상대(첨부) — 등록 동반자 또는 즉석 입력.
+// relationType: 기준(본인)과의 관계 — RELATION_OPTIONS 값. 연인·배우자 등 대인 관계면
+// 발화에 '나'가 없어도 두 사람을 함께 본다(궁합). 미지정이면 발화의 상호 술어로만 판단.
 export type ChatPartner =
-  | { mode: "registered"; subjectId: string; label: string }
-  | { mode: "inline"; label: string; birth: InlineBirthDTO };
+  | { mode: "registered"; subjectId: string; label: string; relationType?: string | null }
+  | {
+      mode: "inline";
+      label: string;
+      birth: InlineBirthDTO;
+      relationType?: string | null;
+    };
 
 // 리포트(테마사주) — report 라우터.
 export interface SubjectRef {

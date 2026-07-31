@@ -18,6 +18,7 @@ from saju_shared_types.execution_plan import (
 from saju_shared_types.intent import SubjectKind, SubjectMode, SubjectRef
 
 from .companion_alias import AliasEntry
+from .query_parser import INTERPERSONAL_RELATIONS
 
 _INJECTION_REASON = "P1 shadow only; P2 will enable subject_blocks"
 
@@ -56,6 +57,7 @@ def build_effective_subjects(
     base_label: str = "본인",
     attached: list[AttachedCompanion] | None = None,
     companion_meta: dict[str, AliasEntry] | None = None,
+    self_implied: bool = False,
 ) -> tuple[list[EffectiveSubject], CompanionReadMode, SubjectInjectionPolicy]:
     """해소된 대상 + 첨부 동반자 → (effective_subjects, mode, injection). 중복은 subject_id로 제거.
 
@@ -66,6 +68,10 @@ def build_effective_subjects(
         base_label: 본인 표시명.
         attached: FE 칩으로 첨부된 동반자(텍스트에 없어도 병합).
         companion_meta: subject_id → AliasEntry(관계·매칭 별칭 보강, 있으면).
+        self_implied: 발화의 상호 술어로 본인이 암묵 포함되는가(query_parser.
+            implies_self_counterpart). 칩으로만 첨부돼 발화에 상대 언급이 없으면
+            _subject_mode가 동반자를 0명으로 보아 PAIRWISE로 올리지 못한다 — 그 경우를
+            여기서 받는다.
 
     Returns:
         (effective_subjects, companion_read_mode, subject_injection). injection.execution_enabled은
@@ -109,8 +115,19 @@ def build_effective_subjects(
 
     companions = [e for e in eff if e.role != "self"]
     self_present = any(e.role == "self" for e in eff)
+    # 관계 유형이 대인 관계(연인·배우자 등)면 그 관계 자체가 '본인과의' 관계다 — 발화에
+    # 상호 술어가 없어도 본인을 함께 봐야 한다. 칩으로만 첨부돼 텍스트에 언급이 없는 경우
+    # (_subject_mode는 발화만 본다)를 여기서 받는다. 직장 관계는 제외 — 상대 단독 질문일
+    # 수 있어 self를 끌어오면 대상이 뒤바뀐다.
+    _relational = (
+        len(companions) == 1
+        and companions[0].relation_to_user in INTERPERSONAL_RELATIONS
+    )
     # PAIRWISE + 동반자 1명은 본인↔동반자 — self를 암묵 포함(궁합). 2명 이상은 동반자끼리라 제외.
-    if subject_mode is SubjectMode.PAIRWISE and not self_present and len(companions) == 1:
+    if (
+        (subject_mode is SubjectMode.PAIRWISE or _relational or self_implied)
+        and not self_present and len(companions) == 1
+    ):
         eff.insert(0, EffectiveSubject(
             subject_id=self_id, role="self", label=base_label or "본인", source="base",
         ))

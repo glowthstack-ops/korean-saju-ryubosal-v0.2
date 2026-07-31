@@ -7,16 +7,22 @@
 
 import { useMemo, useState } from "react";
 import { searchLocations } from "@/lib/locations";
+import { RELATION_OPTIONS } from "@/lib/themes";
 import type { InlineBirthDTO, SajuLocation } from "@/lib/types";
 
 interface Props {
-  onSubmit: (label: string, birth: InlineBirthDTO) => void;
+  onSubmit: (label: string, birth: InlineBirthDTO, relationType: string | null) => void;
+  // 관계 입력 노출 여부. SubjectGateway는 등록 동반자와 즉석 상대를 함께 다루느라 폼
+  // 바깥에 관계 셀렉트를 두므로 false로 끈다(이중 입력 방지). 채팅처럼 폼만 쓰는 화면은
+  // 기본값 true — 이게 없어서 채팅에서만 관계가 통째로 빠져 있었다(2026-07-31).
+  showRelation?: boolean;
 }
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
-export function InlinePartnerForm({ onSubmit }: Props) {
+export function InlinePartnerForm({ onSubmit, showRelation = true }: Props) {
   const [label, setLabel] = useState("");
+  const [relationType, setRelationType] = useState<string | null>(null);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [timeUnknown, setTimeUnknown] = useState(false);
@@ -34,20 +40,43 @@ export function InlinePartnerForm({ onSubmit }: Props) {
 
   function submit() {
     if (!valid) return;
-    onSubmit(label.trim() || "상대", {
-      date,
-      time: timeUnknown ? null : time,
-      calendar_type: calendar,
-      gender,
-      birthplace: place?.name ?? null,
-      latitude: place?.lat ?? null,
-      longitude: place?.lon ?? null,
-      timezone: place?.tz ?? null,
-    });
+    onSubmit(
+      label.trim() || "상대",
+      {
+        date,
+        time: timeUnknown ? null : time,
+        calendar_type: calendar,
+        gender,
+        birthplace: place?.name ?? null,
+        latitude: place?.lat ?? null,
+        longitude: place?.lon ?? null,
+        timezone: place?.tz ?? null,
+      },
+      relationType,
+    );
   }
 
   return (
     <div className="space-y-2.5 text-sm">
+      {/* 나와의 관계 — 관계를 알아야 두 사람을 함께 볼지(궁합), 상대만 볼지가 갈린다.
+          미선택이면 발화의 상호 술어로만 판단한다. */}
+      {showRelation && (
+        <label className="block">
+          <span className="text-xs text-gray-500">나와의 관계(선택)</span>
+          <select
+            value={relationType ?? ""}
+            onChange={(e) => setRelationType(e.target.value || null)}
+            className="mt-0.5 w-full rounded border px-2 py-1.5"
+          >
+            <option value="">선택 안 함</option>
+            {RELATION_OPTIONS.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="block">
           <span className="text-xs text-gray-500">호칭(선택)</span>

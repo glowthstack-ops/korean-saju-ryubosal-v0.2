@@ -48,6 +48,7 @@ from .query_parser import (
     INCLUSIVE_WE_RE,
     _detect_domains,
     _parse_inline_births,
+    implies_self_counterpart,
     parse_message,
     strip_parenthetical,
 )
@@ -574,6 +575,10 @@ class ConversationEngine:
             return SubjectMode.RANKING
         # 본인 vs 동반자 1명 경쟁/비교 — self-ref면 pairwise(build_effective_subjects가 self 삽입).
         if _self_ref and len(_companions) == 1 and (_compet_kw or _compare_kw):
+            return SubjectMode.PAIRWISE
+        # 상호 술어는 1인칭 생략을 허용한다 — '전남친과 다시 만날 수 있을까'에는 '나'가 없지만
+        # 만나는 주체는 둘이다. _self_ref(명시적 1인칭)만 보면 이 부류를 통째로 놓친다.
+        if len(_non_self) == 1 and implies_self_counterpart(text):
             return SubjectMode.PAIRWISE
         # 동반자 2명(본인 미포함) 비교/경쟁 → 동반자끼리(본인 제외). '궁합/누가 이길' 등.
         if len(_companions) == 2 and not _has_self and (_compare_kw or _compet_kw):

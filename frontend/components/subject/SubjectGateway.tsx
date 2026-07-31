@@ -148,6 +148,7 @@ export function SubjectGateway({
           </summary>
           <div className="mt-3">
             <InlinePartnerForm
+              showRelation={false}
               onSubmit={(label, birth) => {
                 setCompanion(null);
                 onResolved(primary, { mode: "inline", label, birth, relationType });

@@ -158,6 +158,58 @@ INCLUSIVE_WE_RE = re.compile(
     r"|저희(?:가|는|도|를|한테|에게)"
 )
 
+# 상호 술어(2026-07-31) — 한국어는 1인칭 주어를 자주 생략하고, 재회·연락 같은 술어는
+# **행위자가 둘**이라 "나와" 가 자명하다. '전남친과 다시 만날 수 있을까'에는 '나/내가'가
+# 없어 self 참조 판정이 실패했고, 그 결과 대상 모드가 companion_only 로 떨어져 궁합
+# 오버레이가 꺼진 채 상대만 풀이됐다(실로그 '나 × 전남친').
+#
+# 목록은 **상호성이 문법적으로 명확한 것만** 담는다. '전남친 요즘 어때?' 처럼 정말로 상대
+# 단독을 묻는 질문까지 끌어오면 반대 방향 오류가 난다 — 그쪽은 술어가 상호적이지 않다.
+RECIPROCAL_PREDICATE_RE = re.compile(
+    r"재회"
+    r"|다시\s*(?:만|보|사귀|시작|연락|잘)"
+    r"|연락\s*(?:이\s*)?(?:올|와|하|할|될|될까|옴)"
+    r"|헤어(?:졌|지|질)"
+    r"|화해"
+    r"|이어질까|이어갈|이어질"
+    r"|사귈까|사귀게|사귈\s*수"
+    r"|만날\s*수\s*있|만나게\s*될|만나질"
+    r"|잘\s*될까|잘\s*풀릴까|잘\s*지낼"
+    r"|돌아올까|돌아와|돌아올\s*수"
+    r"|결혼(?:할\s*수|하게|까지)"
+    r"|재결합|복연|복합"
+)
+
+#: 상호 술어 없이도 본인이 함께 봐야 하는 관계 유형(RELATION_OPTIONS 값).
+#: 직장 관계(coworker/boss/subordinate)는 제외한다 — '상사 사주 좀 봐줘'는 상대 단독
+#: 질문일 수 있어 self 를 끌어오면 대상이 뒤바뀐다.
+INTERPERSONAL_RELATIONS = frozenset({
+    "crush", "romance", "fiance", "spouse", "divorcing", "affair",
+})
+
+
+def implies_self_counterpart(
+    text: str, relation_to_user: str | None = None
+) -> bool:
+    """동반자 1명 질문에서 **본인이 암묵적으로 포함**되는가.
+
+    두 가지 독립 근거 중 하나면 성립한다.
+
+        상호 술어    '다시 만날 수 있을까' — 행위자가 둘이라 '나와'가 자명
+        관계 유형    연인·배우자 등 — 그 관계 자체가 본인과의 관계다
+
+    Args:
+        text: 사용자 발화.
+        relation_to_user: 상대의 본인 기준 관계(RELATION_OPTIONS 값). 미입력이면 None.
+
+    Returns:
+        본인을 대상에 암묵 포함해야 하면 True.
+    """
+    if relation_to_user in INTERPERSONAL_RELATIONS:
+        return True
+    return bool(RECIPROCAL_PREDICATE_RE.search(text))
+
+
 # '사이' 경계 가드(2026-07-22) — '사이드프로젝트/사이트/사이즈' 등 외래어 속 부분문자열이
 # 관계 도메인으로 오검출돼 스레드 도메인을 오염시키던 결함(too_broad 제안이 '연애운'으로 빠짐).
 # '사이' 뒤가 문말·비한글(공백/문장부호)·조사류·'좋'일 때만 관계어로 인정한다

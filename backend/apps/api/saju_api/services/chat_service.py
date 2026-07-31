@@ -72,7 +72,11 @@ from saju_engines.planner import build_execution_plan
 from saju_engines.policy_echo_audit import detect_policy_echo, strip_policy_echo
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.profile_engine import profile_facts_for
-from saju_engines.query_parser import ACCIDENT_SAGO_RE, parse_message
+from saju_engines.query_parser import (
+    ACCIDENT_SAGO_RE,
+    implies_self_counterpart,
+    parse_message,
+)
 from saju_engines.relation_claim_audit import (
     audit_relation_claims,
     patch_relation_claims,
@@ -2956,11 +2960,16 @@ def _attach_subject_plan(
     base_label: str,
     partner_ref: dict | None,
     alias_index: dict[str, list[AliasEntry]] | None,
+    question: str = "",
 ) -> ExecutionPlan:
     """P1 — 대상 조합(effective_subjects/mode/injection)을 계산해 plan에 shadow로 싣는다.
 
     per_subject 등 실행 분기는 바꾸지 않는다(계산/실행 분리). P0 해소 대상(intent.subjects)과
     FE 칩 첨부 동반자(partner_ref)를 병합하며, alias_index로 관계·매칭 별칭을 보강한다.
+
+    question은 상호 술어 판정에만 쓴다 — 칩으로만 첨부돼 발화에 상대 언급이 없으면
+    intent.subject_mode가 동반자를 세지 못해 '다시 만날 수 있을까'류가 companion_only로
+    떨어진다(2026-07-31 실로그 '나 × 전남친': 궁합인데 상대 명식만 풀이).
     """
     companion_meta: dict[str, AliasEntry] = {}
     for entries in (alias_index or {}).values():
@@ -2975,7 +2984,13 @@ def _attach_subject_plan(
             rel = companion_meta[sid].relation_to_user if sid in companion_meta else None
             attached.append(AttachedCompanion(subject_id=sid, label=label, relation_to_user=rel))
         elif partner_ref.get("mode") == "inline":
-            attached.append(AttachedCompanion(subject_id="inline:partner", label=label))
+            # 즉석 상대도 관계를 싣는다 — 등록 동반자만 관계가 전달되던 결함(2026-07-31).
+            # 관계가 빠지면 대인 관계 근거로 본인을 함께 볼 수 없어 companion_only 로
+            # 떨어지고, 궁합인데 상대 명식만 풀이된다.
+            attached.append(AttachedCompanion(
+                subject_id="inline:partner", label=label,
+                relation_to_user=partner_ref.get("relationType") or None,
+            ))
 
     eff, mode, injection = build_effective_subjects(
         intent.subjects,
@@ -2984,6 +2999,7 @@ def _attach_subject_plan(
         base_label=base_label,
         attached=attached,
         companion_meta=companion_meta,
+        self_implied=implies_self_counterpart(question),
     )
     return plan.model_copy(
         update={
@@ -3200,6 +3216,7 @@ def chat(
         subject_label,
         partner_ref,
         companion_alias_index,
+        question=question,
     )
 
     # 능력 탐문('너 집 계약 절차 알아?')·절차 질문('계약 순서가 어떻게 돼?') — 사주 질문이
