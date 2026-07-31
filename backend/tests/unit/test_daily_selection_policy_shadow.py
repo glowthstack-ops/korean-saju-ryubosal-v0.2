@@ -15,6 +15,7 @@ from saju_engines.daily_selection_policy_shadow import (
     SEVERITY_CONSECUTIVE,
     SEVERITY_FOURTH_OR_MORE,
     SEVERITY_THIRD_IN_WINDOW,
+    PolicyResult,
     SelectionPolicy,
     repeat_severity,
     select_board,
@@ -131,9 +132,16 @@ def test_policy_is_deterministic() -> None:
         for i in range(8)
     }
     hist = {f"I{i}": ["m"] for i in range(8)}
-    kw = dict(domain_cap=4, event_cap=4, max_displacement_cost=7, policy=_TIERS)
-    a = select_board(raw, cands, hist, **kw)
-    b = select_board(raw, cands, hist, **kw)
+    # dict 를 ** 로 펼치면 값 타입이 object 로 합쳐져 파라미터마다 오류가 난다(호출당 4건).
+    # 이 테스트의 요점은 '같은 인자로 두 번' 이므로 헬퍼가 의도도 더 잘 드러낸다.
+    def run_board() -> PolicyResult:
+        return select_board(
+            raw, cands, hist, domain_cap=4, event_cap=4,
+            max_displacement_cost=7, policy=_TIERS,
+        )
+
+    a = run_board()
+    b = run_board()
     assert {k: v.event_key for k, v in a.selections.items()} == {
         k: v.event_key for k, v in b.selections.items()
     }

@@ -85,7 +85,7 @@ def test_multi_seed_raw_serialization_is_byte_identical(runs) -> None:
 def test_reason_codes_order_is_stable_across_seeds(runs) -> None:
     """reason_codes 순서 자체가 seed 간 동일하다(결함의 직접 회귀)."""
     per_seed = {
-        seed: [c["reason_codes"] for c in run["candidates"]]  # type: ignore[index]
+        seed: [c["reason_codes"] for c in run["candidates"]]
         for seed, run in runs.items()
     }
     baseline = per_seed["1"]
@@ -102,4 +102,4 @@ def test_llm_evidence_order_is_stable(runs) -> None:
 
 def test_corpus_is_not_empty(runs) -> None:
     """빈 결과로 통과하는 착시 방지."""
-    assert int(runs["1"]["count"]) > 0  # type: ignore[arg-type]
+    assert int(runs["1"]["count"]) > 0

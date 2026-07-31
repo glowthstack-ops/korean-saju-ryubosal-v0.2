@@ -68,7 +68,7 @@ def _fact(**kw: object) -> StageHistoryItem:
         "recorded_at": "2027-04-10T00:00:00Z",
     }
     base.update(kw)
-    return StageHistoryItem(**base)  # type: ignore[arg-type]
+    return StageHistoryItem(**base)
 
 
 # ── 1. 명령 분리 (Episode 생명주기 ≠ 사실 적용) ─────────────────────────────

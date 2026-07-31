@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Any
 
 import pytest
 
@@ -51,8 +52,10 @@ def _engine_kwargs(**over):
     return base
 
 
-def _day(n: int, **over) -> HistoryDay:
-    base = dict(
+def _day(n: int, **over: Any) -> HistoryDay:
+    # 임의 키 오버라이드가 이 헬퍼의 계약이라 값 타입을 좁힐 수 없다. dict[str, object]
+    # 로 추론되면 ** 전개에서 파라미터마다 오류가 나므로 Any 로 명시한다.
+    base: dict[str, Any] = dict(
         fortune_date=_D - dt.timedelta(days=n), active_generation_id=f"g{n}",
         board_result_fingerprint=f"b{n}",
         history_contract_version=HISTORY_CONTRACT_VERSION,
@@ -251,11 +254,15 @@ def test_cache_key_pins_the_ledger_result() -> None:
 
 
 def test_cache_key_separates_policy_versions() -> None:
-    common = dict(fortune_date=_D, content_version="cv", board_result_fingerprint_="fp")
-    assert board_cache_key(
-        display_selection_policy_version=DISPLAY_SELECTION_POLICY_C10_V1, **common
-    ) != board_cache_key(
-        display_selection_policy_version=DISPLAY_SELECTION_POLICY_LEGACY_V0, **common
+    def key(policy_version: str) -> str:
+        return board_cache_key(
+            fortune_date=_D, content_version="cv",
+            board_result_fingerprint_="fp",
+            display_selection_policy_version=policy_version,
+        )
+
+    assert key(DISPLAY_SELECTION_POLICY_C10_V1) != key(
+        DISPLAY_SELECTION_POLICY_LEGACY_V0
     )
 
 

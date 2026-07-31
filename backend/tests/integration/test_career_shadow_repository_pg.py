@@ -193,7 +193,7 @@ def test_load_failure_suppresses_without_memory_fallback(repo) -> None:
     def boom(*a, **k):
         raise RuntimeError("db down")
 
-    repo.load = boom  # type: ignore[method-assign]
+    repo.load = boom
     result = _turn(repo, "A사 지원서를 냈다")
     assert result.persistence_status is PersistenceStatus.LOAD_FAILED
     assert result.suppress_exposure is True
@@ -207,9 +207,9 @@ def test_save_failure_suppresses_exposure(repo) -> None:
     def boom(*a, **k):
         raise RuntimeError("write failed")
 
-    repo.save = boom  # type: ignore[method-assign]
+    repo.save = boom
     result = _turn(repo, "A사 지원서를 냈다")
-    repo.save = original  # type: ignore[method-assign]
+    repo.save = original
     assert result.persistence_status is PersistenceStatus.SAVE_FAILED
     assert result.suppress_exposure is True
 

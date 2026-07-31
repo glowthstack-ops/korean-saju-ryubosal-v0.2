@@ -74,7 +74,7 @@ def test_stage_ref_rejects_cross_track_stage() -> None:
     ok = CareerStageRef(track=CareerTrack.OPPORTUNITY, stage=OpportunityStage.INTERVIEW)
     assert ok.stage is OpportunityStage.INTERVIEW
     with pytest.raises(ValidationError):
-        CareerStageRef(track=CareerTrack.EXIT, stage="handover_typo")  # type: ignore[arg-type]
+        CareerStageRef(track=CareerTrack.EXIT, stage="handover_typo")
 
 
 def test_all_three_track_stage_enums_are_disjoint() -> None:
@@ -191,7 +191,7 @@ def _history_item(**kw: object) -> StageHistoryItem:
         "recorded_at": "2027-04-10T00:00:00Z",
     }
     base.update(kw)
-    return StageHistoryItem(**base)  # type: ignore[arg-type]
+    return StageHistoryItem(**base)
 
 
 def test_idempotency_key_is_not_text_based() -> None:

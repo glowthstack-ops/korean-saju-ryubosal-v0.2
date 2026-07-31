@@ -98,7 +98,7 @@ def _run(store, **kw):
         enabled=True, beta_expose=True,
     )
     params.update(kw)
-    return run_career_chat_block(store, **params)  # type: ignore[arg-type]
+    return run_career_chat_block(store, **params)
 
 
 # ── 1~2. flag 단계 ─────────────────────────────────────────────────────────
@@ -358,7 +358,7 @@ def _prep(store, **kw):
     params = dict(query_resolution=GENERAL, subject_count=1, kind=KIND,
                   vector=_full_vector(), enabled=True, beta_expose=True)
     params.update(kw)
-    return prepare_career_chat_block(store, **params)  # type: ignore[arg-type]
+    return prepare_career_chat_block(store, **params)
 
 
 def test_no_episode_opens_general_forecast_without_creating_one() -> None:
