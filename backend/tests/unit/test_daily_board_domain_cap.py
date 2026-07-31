@@ -52,8 +52,9 @@ def test_no_ilju_order_bias(dicts) -> None:
     """
     board = M.compute_board(M.build_day_context(_START), dicts)
     # `_headline_audit` 는 object.__setattr__ 로 붙는 감사 sidecar 다(모델 필드가
-    # 아니다 — 선언하면 production 직렬화가 바뀐다). getattr 로 동적 접근을 명시한다.
-    headline_audit = getattr(board, "_headline_audit")
+    # 아니다 — 선언하면 production 직렬화가 바뀐다). 상수 getattr 는 ruff B009 가 막고
+    # 직접 접근은 mypy 가 막으므로, 사유를 적은 targeted ignore 로 동적임을 드러낸다.
+    headline_audit = board._headline_audit  # type: ignore[attr-defined]
     order = [a.ilju for a in headline_audit]
     # 재배정 입력을 그대로 재구성한다(후보 목록은 카드의 표시 사건에서 복원).
     decisions = {

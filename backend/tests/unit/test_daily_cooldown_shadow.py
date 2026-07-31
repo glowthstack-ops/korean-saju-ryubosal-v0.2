@@ -17,13 +17,13 @@ import pytest
 
 from saju_engines.daily_board_constraints import HeadlineCandidate
 from saju_engines.daily_cooldown_shadow import (
-    CooldownResult,
     ALL_CANDIDATES_COOLDOWN_BLOCKED,
     CONSECUTIVE_EVENT_REPEAT,
     COOLDOWN_ALTERNATIVE_SELECTED,
     LOSS_BUDGET_EXCEEDED,
     NO_ELIGIBLE_HEADLINE_EVENT,
     ROLLING_7D_THIRD_OCCURRENCE,
+    CooldownResult,
     cooldown_violation,
     rebalance_with_cooldown,
 )

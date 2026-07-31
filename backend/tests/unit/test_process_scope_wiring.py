@@ -22,10 +22,10 @@ from saju_engines.context_reducer import (
 from saju_engines.process_fact_resolver import build_request_process_context
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.events import EventCandidate, EventKey
-from saju_shared_types.graph import EvidenceBundle
-from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.ganji_calendar import GanjiLevel
+from saju_shared_types.graph import EvidenceBundle
 from saju_shared_types.intent import Domain, IntentJson, QueryType, TimeScope
+from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.process_fact import (
     CareerEntryScope,
     CareerProcessSnapshot,

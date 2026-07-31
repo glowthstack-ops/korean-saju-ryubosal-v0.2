@@ -66,6 +66,7 @@ LLM이 사주를 계산·추론하지 않는다. **만세력 엔진이 계산하
   | 전체 pytest | `./scripts/run_suite.sh` | `VALID_SUITE_PASS` |
   | 정적 검사 | `ruff check .` | `All checks passed` |
   | production 타입 | `./scripts/typecheck.sh` | `production mypy gate clean` |
+  | 유지 스크립트 타입 | `./scripts/typecheck_maintained_scripts.sh` | `maintained scripts mypy gate clean` |
   | full-tree mypy | `python -m mypy --no-incremental .` | 비차단 부채 감사 — production gate와 혼용 금지 |
 
   - **전체 pytest 스위트는 반드시 `./scripts/run_suite.sh`로 실행한다.** pytest exit code가 0이어도 실행 중 저장소 내용이 변경되면 결과는 유효하지 않다. 유효한 전체 스위트 통과는 다음을 **모두** 만족해야 한다.
@@ -77,8 +78,9 @@ LLM이 사주를 계산·추론하지 않는다. **만세력 엔진이 계산하
   - worktree가 clean일 필요는 없다. 더러운 채로 시작해도 시작·종료 지문이 같으면 유효한 실행이다.
   - production mypy gate = `./scripts/typecheck.sh` (검사 범위 SSOT는 `backend/pyproject.toml` 의 `[tool.mypy] packages` — CI·문서에 경로를 다시 나열하지 않는다)
   - `mypy clean` 이라는 표현은 쓰지 않는다. 호출 파일 목록에 따라 결과가 달라져 통과하기 쉬운 명령을 고를 수 있기 때문이다(2026-07-30 실측: 같은 코드가 파일 1~2개 0건 / 3-root 7건 / production 9건 / full-tree 331건).
-  - 비차단 진단: `cd backend && python -m mypy --no-incremental .` — 2026-07-30 기준 312건(tests 51 · scripts 261 · production 0). 기존 부채이며 blocking 조건이 아니다. 이 숫자는 파일 정리·mypy 버전으로 변할 수 있어 게이트로 쓰지 않는다.
-  - 보고 표현은 `production mypy gate clean` 과 `full-tree mypy audit: N건` 두 가지만 쓴다.
+  - 비차단 진단: `cd backend && python -m mypy --no-incremental .` — 2026-07-31 기준 279건(tests 0 · scripts 279 · production 0). 기존 부채이며 blocking 조건이 아니다. 이 숫자는 파일 정리·mypy 버전으로 변할 수 있어 게이트로 쓰지 않는다. **건수는 독립 결함 수가 아니다** — scripts 부채의 66%가 무주석 컬렉션 하나에서 파생된 `var-annotated`/`index` 연쇄다.
+  - **유지 스크립트 게이트**: `backend/scripts/` 전체는 기존 부채(2026-07-31 기준 279건/46파일 — 감사 241 · 포렌식 38)를 안고 있고 운영 경로에는 없다. 전량 정리는 추진하지 않는다. 대신 **재실행 가치가 있는 것만** allowlist(`scripts/typecheck_maintained_scripts.sh`)에 넣어 0건으로 지킨다. 편입 기준 = 운영 smoke 사용 / 설계 변경 전후 동일 모집단 재현 / 판정 기준선·재현 지문 생성 / 실제 재실행 계획. 일회성 포렌식은 넣지 않으며, 승격 시점부터 0건을 요구한다.
+  - 보고 표현은 `production mypy gate clean` · `maintained scripts mypy gate clean` · `full-tree mypy audit: N건` 세 가지만 쓴다. tests 트리는 `tests-tree mypy audit: N건`으로 따로 적는다.
 
 ## 7. 디렉토리 구조 (목표 — Python 번역)
 
