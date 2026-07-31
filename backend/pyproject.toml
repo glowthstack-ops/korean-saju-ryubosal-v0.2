@@ -111,3 +111,34 @@ packages = [
     "saju_manse_analysis",
     "saju_manse_calibration",
 ]
+
+# ── 내부 import 해석 강제 (2026-07-31) ──────────────────────────────────
+#
+# 전역 `ignore_missing_imports = true` 는 stub 없는 외부 패키지 때문에 유지한다. 다만
+# 그 설정이 **내부 모듈 오타까지 Any 로 흡수**해 mypy 가 `Success` 를 내는 사례가 실제로
+# 있었다(없는 모듈 경로로 타입 주석을 달았는데 통과했고, 런타임 pytest 가 잡았다).
+#
+# 그래서 내부 package 에서는 미해석 import 를 차단한다. 실측상 production 6 package 의
+# 내부 모듈 누락은 0건이라 즉시 적용 가능하다.
+[[tool.mypy.overrides]]
+module = [
+    "saju_api.*",
+    "saju_engines.*",
+    "saju_shared_types.*",
+    "saju_manse_core.*",
+    "saju_manse_analysis.*",
+    "saju_manse_calibration.*",
+]
+ignore_missing_imports = false
+
+# 외부 패키지 예외 — 구현은 존재하지만 현재 환경에서 타입 정보가 제공되지 않는다.
+# **내부 import 누락을 숨기기 위한 예외가 아니다.** 좁게, 패키지별로만 둔다.
+[[tool.mypy.overrides]]
+module = [
+    "tokenizers.*",
+    "onnxruntime.*",
+    "korean_lunar_calendar.*",
+    "geopandas.*",
+]
+ignore_missing_imports = true
+
