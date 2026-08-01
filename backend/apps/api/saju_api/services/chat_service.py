@@ -82,6 +82,8 @@ from saju_engines.relation_claim_audit import (
     patch_relation_claims,
 )
 from saju_engines.relation_semantics import collect_luck_relation_semantics
+from saju_engines.relation_shadow_config import should_build_relation_state_chain
+from saju_engines.relation_state_chain import relation_state_chain_shadow
 from saju_engines.relationship_hints import (
     COMPETITION_SAFETY_GUARDS,
     RANKING_SAFETY_GUARDS,
@@ -855,8 +857,51 @@ def _period_relation_semantics(chart, composites, target_level, target_key, pill
         parent = target.parent_context
         ganji_set += [g for g in (parent.daewoon, parent.year, parent.month) if g]
     unique = [g for g in dict.fromkeys(ganji_set) if len(g) >= 2]
-    return collect_luck_relation_semantics(
+    semantics = collect_luck_relation_semantics(
         chart, [g[0] for g in unique], [g[1] for g in unique]
+    )
+    # 운 관계 상태 shadow (P1-b2) — 플래그 OFF 가 기본이고, ON 이어도 반환값에 손대지 않는다.
+    # 실패해도 위 semantics 는 그대로 나간다.
+    _build_relation_state_shadow(chart, target, target_key)
+    return semantics
+
+
+def _build_relation_state_shadow(chart, target, target_key: str) -> None:
+    """운 관계 상태 체인을 shadow 로 조립한다. **반환값도 응답도 바꾸지 않는다.**
+
+    플래그가 꺼져 있으면 wrapper 가 즉시 None 을 돌려주므로 노드 생성조차 하지 않는다.
+    조립이 실패해도 예외를 밖으로 내보내지 않는다 — shadow 가 생산 요청을 실패시키면 안 된다.
+    """
+    if not should_build_relation_state_chain():
+        return
+    if chart.pillars is None or target is None:
+        return
+    # 지역 import — OFF 경로에서는 import 비용도 들지 않는다(모듈 상단 관례와 동일).
+    from saju_manse_analysis.relations.hap_modes import resolve_branch_hap
+
+    from saju_engines.event_scoring import favorability_map
+
+    parent = target.parent_context
+    daewoon = parent.daewoon[1] if parent.daewoon and len(parent.daewoon) >= 2 else None
+    sewoon = parent.year[1] if parent.year and len(parent.year) >= 2 else None
+    pillars = chart.pillars
+    natal = [
+        (pos, getattr(pillars, pos).branch)
+        for pos in ("year", "month", "day", "hour")
+        if getattr(pillars, pos, None) is not None
+    ]
+
+    def _call(luck_branches=None):
+        return resolve_branch_hap(
+            pillars, favorability=favorability_map(chart),
+            luck_branches=list(luck_branches or []),
+        )
+
+    relation_state_chain_shadow(
+        natal_branches=natal, daewoon_branch=daewoon, sewoon_branch=sewoon,
+        resolve_branch_hap=_call,
+        period_keys={"natal": "natal", "daewoon": parent.daewoon or "daewoon",
+                     "sewoon": target_key},
     )
 
 

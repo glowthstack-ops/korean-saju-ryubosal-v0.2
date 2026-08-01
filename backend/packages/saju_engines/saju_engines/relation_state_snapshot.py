@@ -78,11 +78,17 @@ class RelationStateSnapshot:
 
 
 def _is_confirmed_transform(edge: RelationEdge) -> bool:
-    """확정 변환인가 — 세 조건을 **모두** 만족해야 한다."""
+    """확정 변환인가 — 네 조건을 **모두** 만족해야 한다.
+
+    자리 바인딩이 확정되지 않은 엣지(P1-b2 `position_binding=unconfirmed`)는 성립 여부와
+    무관하게 확정 변환이 아니다. 어느 자리의 글자가 참여했는지 모르는 채로 오행 정체성을
+    바꾸면, 그 오류가 층 승계와 환원 판정까지 그대로 간다.
+    """
     return (
         edge.existing_tier == "confirmed"
         and edge.existing_mode == "transform"
         and bool(edge.target_element)
+        and edge.normalized_observation.get("position_binding") != "unconfirmed"
     )
 
 
