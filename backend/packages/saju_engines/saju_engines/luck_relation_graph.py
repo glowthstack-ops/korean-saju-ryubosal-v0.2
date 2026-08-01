@@ -263,6 +263,49 @@ def edge_from_resolution(
     )
 
 
+def build_luck_node_index(
+    nodes: Sequence[RelationNode],
+) -> dict[tuple[str, str], str]:
+    """`adapt_branch_hap_results` 용 (자리, 글자) → node_id 인덱스. **모호하면 던진다.**
+
+    이 인덱스를 호출부가 dict 리터럴로 손수 만들면 키 충돌이 조용한 덮어쓰기가 된다.
+    P1-b1.5 실측에서 그게 드러났다.
+
+        resolve_branch_hap 은 대운·세운·월운을 모두 `'luck'` 한 자리로 표기한다.
+        대운 未 와 세운 未 가 함께 오면 ('luck', '未') 키가 겹치고, 나중 것이 앞 것을
+        덮어써 **대운 未 의 참여가 세운 未 로 기록된다.**
+
+    글자만 같고 자리가 다른 노드를 혼동하지 않는 것이 P1-a 이후 이 계층의 전제다. 층 사이
+    상태 승계(P1-b2)와 환원 판정(P1-c)은 이전 층의 글자를 node_id 로 다시 찾으므로, 여기서
+    한 번 잘못 붙으면 그 오류가 그대로 승계된다.
+
+    resolver 어휘에 층 구분이 없어 키를 더 쪼갤 방법이 없다. 그래서 **조용히 하나를 고르지
+    않고 예외를 던진다.** 어느 쪽을 버릴지는 이 함수가 정할 문제가 아니다.
+
+    Args:
+        nodes: 참여 가능한 자리 전체. 원국은 `pillar_position`, 운은 `'luck'` 로 키를 만든다.
+
+    Returns:
+        (자리, 글자) → node_id.
+
+    Raises:
+        ValueError: 같은 키에 서로 다른 node_id 가 오는 경우.
+    """
+    index: dict[tuple[str, str], str] = {}
+    for node in sorted(nodes, key=lambda n: n.node_id):
+        if node.component != "branch":
+            continue
+        key = (node.pillar_position if node.layer == "natal" else "luck", node.character)
+        existing = index.get(key)
+        if existing is not None and existing != node.node_id:
+            raise ValueError(
+                f"자리·글자 키가 겹친다: {key!r} → {existing!r} / {node.node_id!r}. "
+                "resolver 의 positions 어휘에 층 구분이 없어 구별할 수 없다."
+            )
+        index[key] = node.node_id
+    return index
+
+
 def adapt_branch_hap_results(
     *,
     resolver_results: Sequence[BranchHapLike],
