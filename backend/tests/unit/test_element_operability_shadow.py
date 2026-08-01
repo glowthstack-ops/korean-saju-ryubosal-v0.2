@@ -143,7 +143,12 @@ def test_reverted_branch_is_evaluated_as_its_original_element() -> None:
     assert branch.evaluation.status is not OperabilityStatus.UNKNOWN
 
 
-def test_unconfirmed_branch_is_unknown() -> None:
+def test_unconfirmed_candidate_does_not_make_the_branch_unknown() -> None:
+    """미완성 합 후보가 있다고 오행 정체성까지 UNKNOWN 이 되지 않는다.
+
+    P2-4 실측에서 드러난 과잉 전파를 막는 계약이다 — 관계의 불확실성과 오행 정체성의
+    불확실성은 다르다.
+    """
     class _Hap:
         kind = "three_harmony"
         members = ("卯", "亥", "未")
@@ -162,8 +167,22 @@ def test_unconfirmed_branch_is_unknown() -> None:
         chain=chain, luck_stems={"daewoon": "己"}, roles_by_element=_ROLES,
         pillar_branches={("daewoon", ""): "未"})
     branch = next(t for t in bundle.targets if t.node_id == "daewoon.branch:未")
-    assert branch.resolved_element is None
-    assert branch.evaluation.status is OperabilityStatus.UNKNOWN
+    assert branch.resolved_element == "土"
+    assert branch.evaluation.status is not OperabilityStatus.UNKNOWN
+    # 후보는 관계 원장에 남는다.
+    assert chain.terminal_frame.snapshot.unresolved_relation_ids
+
+
+def test_disruption_alone_does_not_make_a_node_unknown() -> None:
+    """卯酉冲만으로 酉의 정체성이 사라지지 않는다 — 충은 오행을 바꾸지 않는다."""
+    states = {
+        s.node_id: s for s in _chain().terminal_frame.snapshot.element_states}
+    yu = states["daewoon.branch:酉"]
+    assert yu.resolved_element == "金"
+    assert yu.evidence_ids            # 충은 근거로 보존된다
+    bundle = _bundle()
+    assert all(
+        t.evaluation.status is not OperabilityStatus.UNKNOWN for t in bundle.targets)
 
 
 # ── 구성요소별 적용 ──────────────────────────────────────────────────────

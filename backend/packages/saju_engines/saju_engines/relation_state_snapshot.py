@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from .luck_relation_graph import (
-    LINK_COMPETES_FOR_DIRECTION,
+    DISRUPTIVE_TYPES,
     RelationDependencyGraph,
     RelationEdge,
     fingerprint_relation_dependency_graph,
@@ -92,18 +92,22 @@ def _is_confirmed_transform(edge: RelationEdge) -> bool:
     )
 
 
-def _competing_nodes(graph: RelationDependencyGraph) -> set[str]:
-    """경쟁 링크에 얽힌 노드 — 여기 속하면 확정하지 않는다.
+def _previous_transform_lost(
+    previous: ElementResolutionState | None, edges: Sequence[RelationEdge],
+) -> bool:
+    """과거 확정 변환의 근거가 현재 층에서 사라졌는가.
 
-    P1-b1 은 승자를 정하지 않는다. 같은 노드에 서로 다른 target 이 걸려 있으면 단일 최종
-    상태를 확정할 근거가 없다는 뜻이므로 UNCONFIRMED 로 낮춘다. resolver 판정을 뒤집는 것이
-    아니라 **원장이 확정할 수 없음을 기록**하는 것이다.
+    이것만이 '미완성 후보가 있다' 와 구분되는 **진짜 정체성 불확정**이다. 근거가 사라졌는데
+    P1-c 가 인정하는 환원으로도 설명되지 않으면 지금 무엇인지 말할 수 없다.
     """
-    out: set[str] = set()
-    for dep in graph.relation_dependencies:
-        if dep.link_type == LINK_COMPETES_FOR_DIRECTION:
-            out.update(dep.shared_node_ids)
-    return out
+    if previous is None or previous.resolution_status is not ResolutionStatus.TRANSFORMED:
+        return False
+    if not previous.governing_relation_ids:
+        return False
+    still_confirmed = {
+        e.relation_id for e in edges if _is_confirmed_transform(e)
+    }
+    return not (set(previous.governing_relation_ids) & still_confirmed)
 
 
 def compute_snapshot_id(
@@ -176,41 +180,64 @@ def build_relation_state_snapshot(
             )
         parent_id = previous_snapshot.snapshot_id
 
-    competing = _competing_nodes(graph)
     by_node: dict[str, list[RelationEdge]] = {}
     for edge in graph.edges:
         for nid in edge.member_node_ids:
             by_node.setdefault(nid, []).append(edge)
+    previous_states = {
+        s.node_id: s for s in (
+            previous_snapshot.element_states if previous_snapshot else ()
+        )
+    }
 
     states: list[ElementResolutionState] = []
     unresolved: set[str] = set()
     for node in sorted(graph.nodes, key=lambda n: n.node_id):
         edges = by_node.get(node.node_id, [])
-        rel_ids = tuple(sorted(e.relation_id for e in edges))
-        if not edges:
-            states.append(ElementResolutionState(
-                node.node_id, node.original_element, node.original_element,
-                ResolutionStatus.ORIGINAL, (),
-            ))
-            continue
+        previous = previous_states.get(node.node_id)
 
         confirmed = [e for e in edges if _is_confirmed_transform(e)]
         targets = {e.target_element for e in confirmed if e.target_element}
-        if node.node_id in competing or len(targets) > 1:
-            # 경쟁 중이거나 확정 target 이 여럿 — 단일 상태를 정할 근거가 없다.
+        # 변환 의도는 있으나 완성이 확인되지 않은 관계. **정체성을 빼앗지 않는다** —
+        # 관계 원장(unresolved)에만 남는다.
+        candidates = tuple(sorted(
+            e.relation_id for e in edges
+            if e not in confirmed and e.relation_type not in DISRUPTIVE_TYPES
+            and e.existing_mode != "bind"
+        ))
+        # 충·형·파·해는 그 자체로 오행을 바꾸지 않는다. 근거로만 남긴다.
+        disruptions = tuple(sorted(
+            e.relation_id for e in edges if e.relation_type in DISRUPTIVE_TYPES
+        ))
+        governing = tuple(sorted(e.relation_id for e in confirmed))
+        unresolved.update(candidates)
+
+        if len(targets) > 1:
+            # 서로 다른 확정 target 이 한 노드를 지배한다 — 실제로 정체성을 하나로 정할 수 없다.
             status, resolved = ResolutionStatus.UNCONFIRMED, None
-            unresolved.update(rel_ids)
+            governing = tuple(sorted(e.relation_id for e in confirmed))
+            unresolved.update(governing)
         elif len(targets) == 1:
             status, resolved = ResolutionStatus.TRANSFORMED, next(iter(targets))
+        elif _previous_transform_lost(previous, edges):
+            # 과거 확정 변환의 근거가 현재 층에서 사라졌는데 환원 규칙으로도 설명되지 않는다.
+            # 이것만이 '미완성 후보' 와 구분되는 진짜 정체성 불확정이다.
+            status, resolved = ResolutionStatus.UNCONFIRMED, None
+            unresolved.update(previous.governing_relation_ids if previous else ())
+        elif previous is not None and previous.resolution_status is (
+            ResolutionStatus.TRANSFORMED
+        ):
+            # 이전 층의 확정 변환을 그대로 승계한다. bind 가 새로 붙어도 덮지 않는다.
+            status, resolved = previous.resolution_status, previous.resolved_element
+            governing = previous.governing_relation_ids
         elif any(e.existing_mode == "bind" for e in edges):
-            # 묶였으나 변하지 않음 — 원래 오행을 유지한다.
             status, resolved = ResolutionStatus.BOUND, node.original_element
         else:
-            # partial · conditional · tier=none+mode=transform 등.
-            status, resolved = ResolutionStatus.UNCONFIRMED, None
-            unresolved.update(rel_ids)
+            # 파괴 관계만 있거나, 미완성 후보만 있거나, 아무 관계도 없다 — 원래 오행이다.
+            status, resolved = ResolutionStatus.ORIGINAL, node.original_element
         states.append(ElementResolutionState(
-            node.node_id, node.original_element, resolved, status, rel_ids,
+            node.node_id, node.original_element, resolved, status, governing,
+            evidence_ids=disruptions,
         ))
 
     graph_fp = fingerprint_relation_dependency_graph(graph)

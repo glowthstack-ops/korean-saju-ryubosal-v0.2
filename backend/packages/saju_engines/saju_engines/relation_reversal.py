@@ -136,6 +136,23 @@ def _disrupted_links(graph: RelationDependencyGraph) -> list[tuple[str, str]]:
     ]
 
 
+def _has_unconfirmed_transform_candidate(
+    graph: RelationDependencyGraph, node_id: str,
+) -> bool:
+    """이 자리에 **완성되지 않은 변환 후보**가 있는가.
+
+    상태만 보면 안 된다. 관계 불확실성을 정체성에서 분리한 뒤로 미완성 후보를 가진 노드도
+    ORIGINAL 이기 때문이다.
+    """
+    return any(
+        node_id in e.member_node_ids
+        and e.relation_type not in REVERSAL_CAUSE_KINDS
+        and e.existing_mode in ("transform", "partial")
+        and e.existing_tier != "confirmed"
+        for e in graph.edges
+    )
+
+
 def _governing_targets(
     graph: RelationDependencyGraph, relation_ids: tuple[str, ...]
 ) -> set[str]:
@@ -218,7 +235,11 @@ def detect_reversal_candidates(
 
         if state.resolution_status is not ResolutionStatus.TRANSFORMED:
             # R1 불충족 — 미완성 변환에 충이 온 것은 '방해' 이지 '환원' 이 아니다.
-            if hits_t and state.resolution_status is ResolutionStatus.UNCONFIRMED:
+            # 상태는 ORIGINAL 일 수 있다(관계 불확실성이 정체성을 빼앗지 않으므로).
+            # 그래서 상태가 아니라 **미완성 변환 후보의 존재**로 판정한다.
+            if hits_t and _has_unconfirmed_transform_candidate(
+                previous_graph, state.node_id
+            ):
                 rejections.append(_prevented(state, hits_t))
             continue
 

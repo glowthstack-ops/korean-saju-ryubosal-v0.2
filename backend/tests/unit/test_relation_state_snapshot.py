@@ -169,22 +169,32 @@ def test_confirmed_transform_is_reflected() -> None:
     assert s.original_element == "木"
 
 
-def test_tier_none_with_mode_transform_stays_unconfirmed() -> None:
-    """0B 에서 실제로 나온 상태다 — 두 필드가 반대를 가리킬 때 확정하면 안 된다."""
+def test_tier_none_with_mode_transform_keeps_the_original_element() -> None:
+    """0B 에서 실제로 나온 상태다 — 두 필드가 반대를 가리킬 때 **변환을 확정하지 않는다.**
+
+    다만 미완성 후보가 있다는 이유로 오행 정체성까지 빼앗지 않는다. 관계의 불확실성과
+    오행 정체성의 불확실성은 다른 것이고, 섞으면 관계에 얽힌 모든 글자가 UNKNOWN 이 된다
+    (P2-4 실측).
+    """
     g = _graph(_edge("t", "三:卯未亥", ("natal.year.branch:卯",),
                      "none", "transform", "木", rtype="three_harmony"))
-    s = _state(_snap(g), "natal.year.branch:卯")
-    assert s.resolution_status is ResolutionStatus.UNCONFIRMED
-    assert s.resolved_element is None
+    snap = _snap(g)
+    s = _state(snap, "natal.year.branch:卯")
+    assert s.resolution_status is ResolutionStatus.ORIGINAL
+    assert s.resolved_element == "木"          # 원래 오행 — 변환된 것이 아니다
+    assert "t" in snap.unresolved_relation_ids   # 후보는 관계 원장에 남는다
 
 
 @pytest.mark.parametrize("tier,mode", [("none", "partial"), ("conditional", "partial")])
-def test_partial_and_conditional_stay_unconfirmed(tier, mode) -> None:
+def test_partial_and_conditional_do_not_transform(tier, mode) -> None:
+    """반합·조건부는 변환을 확정하지 않지만 원래 오행을 빼앗지도 않는다."""
     g = _graph(_edge("p", "半:卯未", ("natal.year.branch:卯",), tier, mode, "木",
                      rtype="half"))
-    s = _state(_snap(g), "natal.year.branch:卯")
-    assert s.resolution_status is ResolutionStatus.UNCONFIRMED
-    assert s.resolved_element is None
+    snap = _snap(g)
+    s = _state(snap, "natal.year.branch:卯")
+    assert s.resolution_status is ResolutionStatus.ORIGINAL
+    assert s.resolved_element == "木"
+    assert "p" in snap.unresolved_relation_ids
 
 
 def test_bind_preserves_original_element() -> None:
