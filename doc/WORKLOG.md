@@ -9163,3 +9163,18 @@ pytest 2309 passed·ruff·mypy clean. 후속 보류: 사건 의미축 완전 분
 - **운영 fail-loud**: health에 risk_exposure_readiness 분리, 최초 BYPASS_
   UNVALIDATED/SUSPENDED 고우선 적재+5분 창 incident 승격, 요청 config snapshot.
 - 게이트: risk 전체 회귀+신규 40여 종(테스트 게이트 5종 포함) 통과.
+
+## 2026-08-02 — 백엔드 재기동 (오늘의 운세 export 시각 수정 반영)
+
+- **대상**: `d271535` / PID 302266(Jul 29 기동, 구 코드) → 1815305
+- **경로**: `./scripts/restart_backend.sh` — env 로드·플래그 검증·graceful stop·포트 해제
+  대기·기동·health 순.
+- **검증**:
+  - 내부 health 200 (`service_readiness=READY`)
+  - 외부 tunnel root 200 (`/health`는 404 — 터널이 프런트로 향해 있어 정상)
+  - 오늘의 운세 파일 기준일 `2026-08-02` — 기동 시 `_export(today)` 가 재작성(08:34)
+- **확인된 동작**: 사전생성(23:50)과 export(00:05)가 자정을 사이에 두고 분리됐다.
+  이전에는 생성 시점에만 export 를 불러 가드가 100% 건너뛰었다.
+- **미해결(사전 존재)**: `risk_exposure_readiness=DEGRADED`,
+  `risk_bootstrap_reason=RISK_BOOTSTRAP_LEASE_INVALID`. 위험 엔진 lease 가 만료 상태다.
+  이번 재기동으로 생긴 것이 아니라 주간 재검증 루틴 미실행 건이며 별도 처리가 필요하다.
