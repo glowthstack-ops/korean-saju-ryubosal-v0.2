@@ -106,7 +106,7 @@ def _competing_nodes(graph: RelationDependencyGraph) -> set[str]:
     return out
 
 
-def _snapshot_id(
+def compute_snapshot_id(
     *, layer: str, period_key: str, parent_id: str | None, graph_fp: str,
     states: Sequence[ElementResolutionState],
     active: Sequence[str], unresolved: Sequence[str],
@@ -217,7 +217,7 @@ def build_relation_state_snapshot(
     active = tuple(sorted(e.relation_id for e in graph.edges))
     unresolved_ids = tuple(sorted(unresolved))
     return RelationStateSnapshot(
-        snapshot_id=_snapshot_id(
+        snapshot_id=compute_snapshot_id(
             layer=layer, period_key=period_key, parent_id=parent_id,
             graph_fp=graph_fp, states=states, active=active,
             unresolved=unresolved_ids,
