@@ -23,8 +23,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
+from .luck_relation_graph import RelationDependencyGraph
 from .relation_reversal import EvidencePath, ReversalCandidate
-from .relation_state_chain import RelationStateFrame
 from .relation_state_snapshot import (
     ElementResolutionState,
     RelationStateSnapshot,
@@ -95,7 +95,8 @@ def _sort_key(candidate: ReversalCandidate) -> tuple[str, str, str]:
 
 
 def _confirmed_targets_now(
-    frame: RelationStateFrame, node_id: str, exclude: frozenset[str] = frozenset(),
+    graph: RelationDependencyGraph, node_id: str,
+    exclude: frozenset[str] = frozenset(),
 ) -> set[str]:
     """현재 그래프에서 이 노드를 확정 변환시키는 target 들.
 
@@ -104,7 +105,7 @@ def _confirmed_targets_now(
     관계가 같은 노드를 다시 변환시킬 때의 이야기다.
     """
     return {
-        e.target_element for e in frame.graph.edges
+        e.target_element for e in graph.edges
         if e.relation_id not in exclude
         and node_id in e.member_node_ids
         and e.existing_tier == "confirmed"
@@ -116,19 +117,20 @@ def _confirmed_targets_now(
 
 def _validate(
     candidate: ReversalCandidate,
-    previous_frame: RelationStateFrame,
-    current_frame: RelationStateFrame,
+    previous_snapshot: RelationStateSnapshot,
+    current_snapshot: RelationStateSnapshot,
+    current_graph: RelationDependencyGraph,
 ) -> tuple[str, ...]:
     """적용 전제 재검증. 사유 목록이 비어 있으면 적용 가능하다."""
     reasons: list[str] = []
-    if candidate.previous_snapshot_id != previous_frame.snapshot.snapshot_id:
+    if candidate.previous_snapshot_id != previous_snapshot.snapshot_id:
         reasons.append(TransitionRejectionReason.SOURCE_SNAPSHOT_MISMATCH.value)
-    if candidate.current_snapshot_id != current_frame.snapshot.snapshot_id:
+    if candidate.current_snapshot_id != current_snapshot.snapshot_id:
         reasons.append(TransitionRejectionReason.STALE_REVERSAL_CANDIDATE.value)
-    if candidate.current_graph_fingerprint != current_frame.snapshot.graph_fingerprint:
+    if candidate.current_graph_fingerprint != current_snapshot.graph_fingerprint:
         reasons.append(TransitionRejectionReason.GRAPH_FINGERPRINT_MISMATCH.value)
     prev = next(
-        (s for s in previous_frame.snapshot.element_states
+        (s for s in previous_snapshot.element_states
          if s.node_id == candidate.node_id), None,
     )
     if prev is None:
@@ -141,11 +143,11 @@ def _validate(
         if prev.original_element != candidate.to_element:
             reasons.append(TransitionRejectionReason.PREVIOUS_STATE_MISMATCH.value)
     if not any(
-        e.relation_id == candidate.cause_relation_id for e in current_frame.graph.edges
+        e.relation_id == candidate.cause_relation_id for e in current_graph.edges
     ):
         reasons.append(TransitionRejectionReason.AFFECTING_RELATION_MISSING.value)
     if _confirmed_targets_now(
-        current_frame, candidate.node_id,
+        current_graph, candidate.node_id,
         frozenset(candidate.disrupted_relation_ids) | frozenset(
             candidate.governing_relation_ids),
     ):
@@ -158,7 +160,7 @@ def _validate(
 def _reevaluate_indirect(
     state: ElementResolutionState,
     disrupted: set[str],
-    current_frame: RelationStateFrame,
+    current_graph: RelationDependencyGraph,
 ) -> ElementResolutionState:
     """비직접 참여 노드 재평가. **자동 환원하지 않는다.**
 
@@ -174,7 +176,7 @@ def _reevaluate_indirect(
     if state.resolved_element == state.original_element:
         # 원래 오행과 변환 목표가 같다 — 되돌릴 원소가 없다.
         return dataclasses.replace(state, governing_relation_ids=remaining)
-    if _confirmed_targets_now(current_frame, state.node_id, frozenset(disrupted)):
+    if _confirmed_targets_now(current_graph, state.node_id, frozenset(disrupted)):
         return dataclasses.replace(state, governing_relation_ids=remaining)
     return dataclasses.replace(
         state, governing_relation_ids=remaining,
@@ -184,8 +186,9 @@ def _reevaluate_indirect(
 
 def apply_reversal_transitions(
     *,
-    previous_frame: RelationStateFrame,
-    current_frame: RelationStateFrame,
+    previous_snapshot: RelationStateSnapshot,
+    current_snapshot: RelationStateSnapshot,
+    current_graph: RelationDependencyGraph,
     candidates: Sequence[ReversalCandidate],
 ) -> TransitionApplicationResult:
     """환원 후보를 현재 snapshot 에 적용한다.
@@ -196,20 +199,21 @@ def apply_reversal_transitions(
     하나 더 생긴다.
 
     Args:
-        previous_frame: 이전 층 frame.
-        current_frame: 현재 층 frame. 여기 snapshot 이 적용 대상이다.
+        previous_snapshot: 이전 층 최종 snapshot.
+        current_snapshot: 현재 층 base snapshot. 적용 대상이다.
+        current_graph: 현재 층 graph.
         candidates: `detect_reversal_candidates` 산출 후보.
 
     Returns:
-        적용 결과. 입력 frame·snapshot 은 변경하지 않는다.
+        적용 결과. 입력 snapshot 은 변경하지 않는다.
 
     Raises:
-        ValueError: 두 frame 이 부모–자식이 아닌 경우.
+        ValueError: 두 snapshot 이 부모–자식이 아닌 경우.
     """
-    if current_frame.snapshot.parent_snapshot_id != previous_frame.snapshot.snapshot_id:
+    if current_snapshot.parent_snapshot_id != previous_snapshot.snapshot_id:
         raise ValueError(
-            "부모–자식 frame 이 아니다: "
-            f"{previous_frame.layer!r} → {current_frame.layer!r}"
+            "부모–자식 snapshot 이 아니다: "
+            f"{previous_snapshot.layer!r} → {current_snapshot.layer!r}"
         )
 
     by_node: dict[str, list[ReversalCandidate]] = {}
@@ -231,7 +235,7 @@ def apply_reversal_transitions(
                 ))
             continue
         cand = cands[0]
-        reasons = _validate(cand, previous_frame, current_frame)
+        reasons = _validate(cand, previous_snapshot, current_snapshot, current_graph)
         if reasons:
             rejected.append(TransitionApplicationRejection(
                 cand.candidate_id, node_id, reasons))
@@ -243,12 +247,12 @@ def apply_reversal_transitions(
         disrupted.update(cand.disrupted_relation_ids)
 
     states: list[ElementResolutionState] = []
-    for state in current_frame.snapshot.element_states:
+    for state in current_snapshot.element_states:
         applied_here = reverted.get(state.node_id)
         if applied_here is not None:
             cand = applied_here
             previous_status = next(
-                s.resolution_status for s in previous_frame.snapshot.element_states
+                s.resolution_status for s in previous_snapshot.element_states
                 if s.node_id == state.node_id
             )
             states.append(dataclasses.replace(
@@ -269,28 +273,28 @@ def apply_reversal_transitions(
                 evidence_path=cand.evidence_path, reason_codes=cand.reason_codes,
             ))
             continue
-        states.append(_reevaluate_indirect(state, disrupted, current_frame))
+        states.append(_reevaluate_indirect(state, disrupted, current_graph))
 
     active = tuple(
-        r for r in current_frame.snapshot.active_relation_ids if r not in disrupted
+        r for r in current_snapshot.active_relation_ids if r not in disrupted
     )
     unresolved = tuple(sorted(
-        set(current_frame.snapshot.unresolved_relation_ids) | disrupted
+        set(current_snapshot.unresolved_relation_ids) | disrupted
     ))
     result = dataclasses.replace(
-        current_frame.snapshot,
+        current_snapshot,
         snapshot_id=compute_snapshot_id(
-            layer=current_frame.snapshot.layer,
-            period_key=current_frame.snapshot.period_key,
-            parent_id=current_frame.snapshot.parent_snapshot_id,
-            graph_fp=current_frame.snapshot.graph_fingerprint,
+            layer=current_snapshot.layer,
+            period_key=current_snapshot.period_key,
+            parent_id=current_snapshot.parent_snapshot_id,
+            graph_fp=current_snapshot.graph_fingerprint,
             states=states, active=active, unresolved=unresolved,
         ),
         element_states=tuple(states), active_relation_ids=active,
         unresolved_relation_ids=unresolved,
     )
     return TransitionApplicationResult(
-        base_snapshot_id=current_frame.snapshot.snapshot_id,
+        base_snapshot_id=current_snapshot.snapshot_id,
         result_snapshot=result,
         applied_transitions=tuple(
             sorted(applied, key=lambda t: t.transition_id)),

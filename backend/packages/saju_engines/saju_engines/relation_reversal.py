@@ -32,9 +32,16 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from .branch_relation_collector import BranchRelationKind
-from .luck_relation_graph import LINK_POTENTIALLY_DISRUPTED_BY, RelationEdge
-from .relation_state_chain import RelationStateFrame
-from .relation_state_snapshot import ElementResolutionState, ResolutionStatus
+from .luck_relation_graph import (
+    LINK_POTENTIALLY_DISRUPTED_BY,
+    RelationDependencyGraph,
+    RelationEdge,
+)
+from .relation_state_snapshot import (
+    ElementResolutionState,
+    RelationStateSnapshot,
+    ResolutionStatus,
+)
 
 #: 환원 원인으로 인정하는 관계. 형·파·해는 여기 없다.
 REVERSAL_CAUSE_KINDS: frozenset[str] = frozenset({BranchRelationKind.CLASH.value})
@@ -116,28 +123,26 @@ class ReversalDetection:
         }
 
 
-def _clash_edges(frame: RelationStateFrame) -> tuple[RelationEdge, ...]:
-    return tuple(
-        e for e in frame.graph.edges if e.relation_type in REVERSAL_CAUSE_KINDS
-    )
+def _clash_edges(graph: RelationDependencyGraph) -> tuple[RelationEdge, ...]:
+    return tuple(e for e in graph.edges if e.relation_type in REVERSAL_CAUSE_KINDS)
 
 
-def _disrupted_links(frame: RelationStateFrame) -> list[tuple[str, str]]:
+def _disrupted_links(graph: RelationDependencyGraph) -> list[tuple[str, str]]:
     """(방해받는 관계, 방해하는 관계). 링크 방향은 P1-a 가 고정한 불변이다."""
     return [
         (d.relation_ids[0], d.relation_ids[1])
-        for d in frame.graph.relation_dependencies
+        for d in graph.relation_dependencies
         if d.link_type == LINK_POTENTIALLY_DISRUPTED_BY and len(d.relation_ids) == 2
     ]
 
 
 def _governing_targets(
-    frame: RelationStateFrame, relation_ids: tuple[str, ...]
+    graph: RelationDependencyGraph, relation_ids: tuple[str, ...]
 ) -> set[str]:
     """근거 관계들이 가리키는 변환 오행 집합."""
     wanted = set(relation_ids)
     return {
-        e.target_element for e in frame.graph.edges
+        e.target_element for e in graph.edges
         if e.relation_id in wanted and e.target_element
     }
 
@@ -154,13 +159,23 @@ def _prevented(
 
 
 def detect_reversal_candidates(
-    *, previous_frame: RelationStateFrame, current_frame: RelationStateFrame
+    *,
+    previous_snapshot: RelationStateSnapshot,
+    previous_graph: RelationDependencyGraph,
+    current_snapshot: RelationStateSnapshot,
+    current_graph: RelationDependencyGraph,
 ) -> ReversalDetection:
     """환원 후보와 기각 사유를 낸다. **상태를 바꾸지 않는다.**
 
+    frame 이 아니라 snapshot·graph 를 직접 받는다 — frame 을 받으면 조립기와 순환 import 가
+    생긴다. `previous_graph` 가 따로 필요한 이유는 R7(이전 층에 없던 충)·R9(상충 근거)가
+    이전 층의 **엣지**를 봐야 하기 때문이다. snapshot 만으로는 관계 종류와 target 을 알 수 없다.
+
     Args:
-        previous_frame: 이전 층 frame(graph + snapshot).
-        current_frame: 현재 층 frame. 부모가 `previous_frame` 이어야 한다.
+        previous_snapshot: 이전 층 최종 snapshot.
+        previous_graph: 이전 층 graph.
+        current_snapshot: 현재 층 snapshot. 부모가 `previous_snapshot` 이어야 한다.
+        current_graph: 현재 층 graph.
 
     Returns:
         후보·기각 목록. 결정적이며 입력 순서에 의존하지 않는다.
@@ -169,23 +184,23 @@ def detect_reversal_candidates(
         ValueError: 두 frame 이 부모–자식 관계가 아닌 경우. 엉뚱한 층을 비교하면 '새로 들어온
             충' 판정이 통째로 무의미해진다.
     """
-    if current_frame.snapshot.parent_snapshot_id != previous_frame.snapshot.snapshot_id:
+    if current_snapshot.parent_snapshot_id != previous_snapshot.snapshot_id:
         raise ValueError(
-            "부모–자식 frame 이 아니다: "
-            f"{previous_frame.layer!r} → {current_frame.layer!r}"
+            "부모–자식 snapshot 이 아니다: "
+            f"{previous_snapshot.layer!r} → {current_snapshot.layer!r}"
         )
 
-    previous_clash_ids = {e.relation_id for e in _clash_edges(previous_frame)}
-    previous_node_ids = {n.node_id for n in previous_frame.graph.nodes}
-    current_clashes = _clash_edges(current_frame)
-    disrupted = _disrupted_links(current_frame)
-    active_before = set(previous_frame.snapshot.active_relation_ids)
+    previous_clash_ids = {e.relation_id for e in _clash_edges(previous_graph)}
+    previous_node_ids = {n.node_id for n in previous_graph.nodes}
+    current_clashes = _clash_edges(current_graph)
+    disrupted = _disrupted_links(current_graph)
+    active_before = set(previous_snapshot.active_relation_ids)
 
     candidates: list[ReversalCandidate] = []
     rejections: list[ReversalRejection] = []
 
     for state in sorted(
-        previous_frame.snapshot.element_states, key=lambda s: s.node_id
+        previous_snapshot.element_states, key=lambda s: s.node_id
     ):
         # R5·R6·R7 — 같은 자리를 직접 치는, 새 노드가 낀, 이전에 없던 충.
         hits: list[str] = []
@@ -229,7 +244,7 @@ def detect_reversal_candidates(
                 state.node_id, (ReversalReason.GOVERNING_RELATION_NOT_ACTIVE.value,),
                 state.governing_relation_ids))
             continue
-        if len(_governing_targets(previous_frame, state.governing_relation_ids)) > 1:
+        if len(_governing_targets(previous_graph, state.governing_relation_ids)) > 1:
             # R9 — 서로 다른 target 이 이 노드를 지배하면 무엇이 환원되는지 정할 수 없다.
             rejections.append(ReversalRejection(
                 state.node_id, (ReversalReason.REVERSAL_UNCONFIRMED.value,),
@@ -267,9 +282,9 @@ def detect_reversal_candidates(
             candidates.append(ReversalCandidate(
                 candidate_id=f"reversal:{state.node_id}|{cause}",
                 node_id=state.node_id,
-                previous_snapshot_id=previous_frame.snapshot.snapshot_id,
-                current_snapshot_id=current_frame.snapshot.snapshot_id,
-                current_graph_fingerprint=current_frame.snapshot.graph_fingerprint,
+                previous_snapshot_id=previous_snapshot.snapshot_id,
+                current_snapshot_id=current_snapshot.snapshot_id,
+                current_graph_fingerprint=current_snapshot.graph_fingerprint,
                 original_element=state.original_element,
                 # 환원은 원래 오행으로 돌아가는 것이다. 새 오행을 계산하지 않는다.
                 from_element=state.resolved_element or state.original_element,
@@ -281,8 +296,8 @@ def detect_reversal_candidates(
             ))
 
     return ReversalDetection(
-        previous_snapshot_id=previous_frame.snapshot.snapshot_id,
-        current_snapshot_id=current_frame.snapshot.snapshot_id,
+        previous_snapshot_id=previous_snapshot.snapshot_id,
+        current_snapshot_id=current_snapshot.snapshot_id,
         candidates=tuple(sorted(candidates, key=lambda c: c.candidate_id)),
         rejections=tuple(sorted(rejections, key=lambda r: (r.node_id, r.reason_codes))),
     )

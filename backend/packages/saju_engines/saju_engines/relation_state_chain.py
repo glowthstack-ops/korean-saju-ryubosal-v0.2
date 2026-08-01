@@ -47,10 +47,20 @@ from .relation_projection import (
     build_layer_projections,
     enumerate_cross_layer_harmony_candidates,
 )
+from .relation_reversal import (
+    EvidencePath,
+    ReversalDetection,
+    detect_reversal_candidates,
+)
 from .relation_shadow_config import should_build_relation_state_chain
 from .relation_state_snapshot import (
     RelationStateSnapshot,
     build_relation_state_snapshot,
+)
+from .relation_transition import (
+    RelationStateTransition,
+    TransitionApplicationRejection,
+    apply_reversal_transitions,
 )
 
 _logger = logging.getLogger(__name__)
@@ -60,6 +70,7 @@ class ShadowFailureKind(StrEnum):
     """shadow 실패 분류. 운영 로그에는 이 코드와 수량만 남긴다(간지·생년월일 금지)."""
 
     NODE_INDEX_COLLISION = "node_index_collision"
+    TRANSITION_STAGE_FAILURE = "transition_stage_failure"
     AMBIGUOUS_POSITION_BINDING = "ambiguous_position_binding"
     UNSUPPORTED_CROSS_LAYER_RELATION = "unsupported_cross_layer_relation"
     SNAPSHOT_BUILD_FAILURE = "snapshot_build_failure"
@@ -88,6 +99,11 @@ class RelationFrameBuildMetrics:
     ambiguous_position_binding_count: int = 0
     cross_layer_harmony_candidate_count: int = 0
     duplicate_edge_merge_count: int = 0
+    reversal_candidate_count: int = 0
+    reversal_applied_count: int = 0
+    reversal_rejected_count: int = 0
+    reversal_dependency_path_count: int = 0
+    reversal_fallback_path_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -101,8 +117,15 @@ class RelationStateFrame:
     layer: str
     period_key: str
     graph: RelationDependencyGraph
+    #: 전이 적용 **후** 최종 상태. 다음 층이 이걸 부모로 받는다.
     snapshot: RelationStateSnapshot
     metrics: RelationFrameBuildMetrics
+    #: 전이 적용 **전** snapshot. 전이가 없으면 `snapshot.snapshot_id` 와 같다.
+    base_snapshot_id: str = ""
+    #: **적용된** 전이만. 기각·충돌은 여기 섞지 않는다.
+    transitions: tuple[RelationStateTransition, ...] = ()
+    #: 내부 진단 전용 — 응답·LLM 입력에 노출하지 않는다.
+    transition_rejections: tuple[TransitionApplicationRejection, ...] = ()
     #: (relation_id, projection_id 들) — 같은 관계가 여러 범위에서 발견된 내력.
     #: 기존 `RelationEdge` DTO 를 건드리지 않으려고 정규화 단계에만 둔다.
     edge_provenance: tuple[tuple[str, tuple[str, ...]], ...] = ()
@@ -126,6 +149,9 @@ class RelationStateChain:
             "projection_count", "resolver_call_count", "node_count", "edge_count",
             "dependency_count", "ambiguous_position_binding_count",
             "cross_layer_harmony_candidate_count", "duplicate_edge_merge_count",
+            "reversal_candidate_count", "reversal_applied_count",
+            "reversal_rejected_count", "reversal_dependency_path_count",
+            "reversal_fallback_path_count",
         )
         out = {k: 0 for k in keys}
         for frame in self.frames:
@@ -353,7 +379,10 @@ def assemble_relation_state_chain(
         cross = enumerate_cross_layer_harmony_candidates(all_nodes)
 
         frames: list[RelationStateFrame] = []
+        # 다음 층이 받는 것은 **전이 적용 후** snapshot 이다. 적용 전 base 를 부모로 넘기면
+        # 환원이 해당 frame 내부 기록에만 남고 계층 상태에는 반영되지 않는다.
         parent: RelationStateSnapshot | None = None
+        parent_graph: RelationDependencyGraph | None = None
         visible: list[RelationNode] = []
         for layer in (NATAL, "daewoon", "sewoon"):
             layer_nodes = {
@@ -414,7 +443,7 @@ def assemble_relation_state_chain(
                 ),
             )
             try:
-                snapshot = build_relation_state_snapshot(
+                base = build_relation_state_snapshot(
                     graph=graph, layer=layer,
                     period_key=period_keys.get(layer, layer),
                     previous_snapshot=parent,
@@ -423,10 +452,41 @@ def assemble_relation_state_chain(
                 raise RelationStateAssemblyError(
                     ShadowFailureKind.SNAPSHOT_BUILD_FAILURE, str(exc)
                 ) from exc
-            parent = snapshot
+
+            # 환원 탐지·적용. 실패하면 체인 전체를 무효로 본다 — 적용 전 상태로 조용히
+            # 이어가면 하위 층이 잘못된 부모를 받아 의미상 유효하지 않은 결과가 나온다.
+            # production 은 fail-open, shadow 의미론은 fail-closed 다.
+            snapshot = base
+            transitions: tuple[RelationStateTransition, ...] = ()
+            rejections: tuple[TransitionApplicationRejection, ...] = ()
+            detection: ReversalDetection | None = None
+            if parent is not None and parent_graph is not None:
+                try:
+                    detection = detect_reversal_candidates(
+                        previous_snapshot=parent, previous_graph=parent_graph,
+                        current_snapshot=base, current_graph=graph,
+                    )
+                    applied = apply_reversal_transitions(
+                        previous_snapshot=parent, current_snapshot=base,
+                        current_graph=graph, candidates=detection.candidates,
+                    )
+                except Exception as exc:  # noqa: BLE001 - 분류해서 다시 던진다
+                    raise RelationStateAssemblyError(
+                        ShadowFailureKind.TRANSITION_STAGE_FAILURE, repr(exc)
+                    ) from exc
+                transitions = applied.applied_transitions
+                rejections = applied.rejected_candidates
+                # 적용된 전이가 없으면 base 를 그대로 쓴다. 기각이 있었다는 이유만으로
+                # snapshot ID 를 바꾸면 환원과 무관한 시기마다 ID 가 흔들린다.
+                if transitions:
+                    snapshot = applied.result_snapshot
+
+            parent, parent_graph = snapshot, graph
             frames.append(RelationStateFrame(
                 layer=layer, period_key=snapshot.period_key, graph=graph,
                 snapshot=snapshot, edge_provenance=provenance,
+                base_snapshot_id=base.snapshot_id, transitions=transitions,
+                transition_rejections=rejections,
                 metrics=RelationFrameBuildMetrics(
                     layer=layer, projection_count=len(projs),
                     resolver_call_count=calls, node_count=len(graph.nodes),
@@ -435,6 +495,16 @@ def assemble_relation_state_chain(
                     ambiguous_position_binding_count=ambiguous,
                     cross_layer_harmony_candidate_count=len(layer_cross),
                     duplicate_edge_merge_count=merged_count,
+                    reversal_candidate_count=(
+                        len(detection.candidates) if detection else 0),
+                    reversal_applied_count=len(transitions),
+                    reversal_rejected_count=len(rejections),
+                    reversal_dependency_path_count=sum(
+                        1 for t in transitions
+                        if t.evidence_path is EvidencePath.DEPENDENCY_LINK),
+                    reversal_fallback_path_count=sum(
+                        1 for t in transitions
+                        if t.evidence_path is EvidencePath.NODE_INTERSECTION_FALLBACK),
                 ),
             ))
         return RelationStateChain(

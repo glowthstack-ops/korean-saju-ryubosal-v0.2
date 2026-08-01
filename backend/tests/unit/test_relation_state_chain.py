@@ -13,6 +13,7 @@ P1-b1.5 가 남긴 두 계약을 지킨다.
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import date
 
 import pytest
@@ -435,3 +436,141 @@ def test_period_fortune_is_byte_identical_with_the_flag_on(monkeypatch) -> None:
     on = repr(_build_period_fortune(birth, intent, date(2026, 7, 27), "daily"))
 
     assert on == off
+
+
+# ── 환원 전이 배선 (P1-c1b) ──────────────────────────────────────────────
+
+
+def _reversal_chain(tier: str = "confirmed"):
+    """대운에서 亥卯未가 확정된 뒤 세운 巳가 들어오는 체인."""
+    def call(luck_branches=None):
+        if "亥" in list(luck_branches or []):
+            return [_Hap("three_harmony", ("卯", "未", "亥"),
+                         ("year", "month", "luck"), tier, "transform", "木")]
+        return []
+
+    return assemble_relation_state_chain(
+        natal_nodes=(_NATAL[0], _NATAL[1]),
+        daewoon_nodes=(_node("daewoon", "", "亥", "水"),),
+        sewoon_nodes=(_node("sewoon", "", "巳", "火"),),
+        resolve_branch_hap=call, period_keys=_PERIODS,
+    )
+
+
+def test_reversal_is_applied_in_the_sewoon_frame() -> None:
+    """대운에서 木으로 확정된 亥가 세운 巳亥冲으로 水로 돌아온다."""
+    sewoon = _reversal_chain().frames[2]
+    assert len(sewoon.transitions) == 1
+    assert sewoon.base_snapshot_id != sewoon.snapshot.snapshot_id
+    state = next(
+        s for s in sewoon.snapshot.element_states if s.node_id == "daewoon.branch:亥")
+    assert state.resolved_element == "水"
+
+
+def test_sewoon_parent_is_the_daewoon_final_snapshot() -> None:
+    chain = _reversal_chain()
+    assert chain.frames[2].snapshot.parent_snapshot_id == (
+        chain.frames[1].snapshot.snapshot_id)
+
+
+def test_applied_result_is_inherited_not_the_base_snapshot() -> None:
+    """다음 층 부모는 적용 **결과**여야 한다.
+
+    base 를 넘기면 환원이 해당 frame 내부 기록에만 남고 계층 상태에는 반영되지 않는다.
+    세운에서 전이가 일어났다면 그 결과가 하위 층으로 승계돼야 한다.
+    """
+    chain = _reversal_chain()
+    sewoon = chain.frames[2]
+    assert sewoon.transitions
+    # 조립 루프가 승계에 쓰는 값은 최종 snapshot 이다.
+    assert sewoon.snapshot.snapshot_id != sewoon.base_snapshot_id
+    hai = next(
+        s for s in sewoon.snapshot.element_states if s.node_id == "daewoon.branch:亥")
+    assert hai.resolution_status is ResolutionStatus.ORIGINAL
+
+
+def test_frames_without_transitions_keep_their_base_snapshot_id() -> None:
+    """환원과 무관한 시기마다 snapshot ID 가 흔들리면 안 된다."""
+    for frame in _chain("酉", "未").frames:
+        assert frame.transitions == ()
+        assert frame.base_snapshot_id == frame.snapshot.snapshot_id
+
+
+def test_wiring_does_not_change_chains_without_reversal() -> None:
+    """배선만으로 기존 shadow chain 이 변하면 안 된다."""
+    a, b = _chain("酉", "未"), _chain("酉", "未")
+    assert [f.snapshot.snapshot_id for f in a.frames] == [
+        f.snapshot.snapshot_id for f in b.frames]
+    assert all(f.transitions == () for f in a.frames)
+
+
+def test_incomplete_transform_produces_no_transition() -> None:
+    """미완성 변환은 환원이 아니다 — 배선 뒤에도 그대로다."""
+    chain = _reversal_chain(tier="none")
+    assert all(f.transitions == () for f in chain.frames)
+    assert chain.terminal_frame.base_snapshot_id == (
+        chain.terminal_frame.snapshot.snapshot_id)
+
+
+def test_reverted_node_is_not_reverted_again() -> None:
+    """환원 뒤 상태는 TRANSFORMED 가 아니므로 다음 층에서 새 후보가 생기지 않는다."""
+    from saju_engines.relation_reversal import detect_reversal_candidates
+
+    chain = _reversal_chain()
+    sewoon = chain.frames[2]
+    again = detect_reversal_candidates(
+        previous_snapshot=sewoon.snapshot, previous_graph=sewoon.graph,
+        current_snapshot=dataclasses.replace(
+            sewoon.snapshot, layer="wolwoon",
+            parent_snapshot_id=sewoon.snapshot.snapshot_id),
+        current_graph=sewoon.graph,
+    )
+    assert again.candidates == ()
+
+
+def test_transition_metrics_are_counted() -> None:
+    metrics = _reversal_chain().aggregate_metrics()
+    assert metrics["reversal_candidate_count"] == 1
+    assert metrics["reversal_applied_count"] == 1
+    assert metrics["reversal_dependency_path_count"] == 1
+
+
+def test_transition_stage_failure_invalidates_the_whole_chain(monkeypatch) -> None:
+    """shadow 의미론은 fail-closed — 적용 전 상태로 조용히 이어가지 않는다."""
+    def boom(**_kwargs):
+        raise RuntimeError("전이 단계 폭발")
+
+    monkeypatch.setattr(rsc, "detect_reversal_candidates", boom)
+    with pytest.raises(RelationStateAssemblyError) as caught:
+        _reversal_chain()
+    assert caught.value.kind is rsc.ShadowFailureKind.TRANSITION_STAGE_FAILURE
+
+
+def test_transition_failure_does_not_break_production(monkeypatch) -> None:
+    """production 은 fail-open — 요청은 정상 완료된다."""
+    monkeypatch.setattr(rsc, "should_build_relation_state_chain", lambda: True)
+
+    def boom(**_kwargs):
+        raise RuntimeError("전이 단계 폭발")
+
+    monkeypatch.setattr(rsc, "detect_reversal_candidates", boom)
+    assert relation_state_chain_shadow(
+        natal_branches=[("year", "卯"), ("month", "未")],
+        daewoon_branch="亥", sewoon_branch="巳",
+        resolve_branch_hap=_real_resolver(), period_keys=_PERIODS,
+    ) is None
+
+
+def test_chain_with_transitions_is_deterministic() -> None:
+    a, b = _reversal_chain(), _reversal_chain()
+    assert [f.snapshot.snapshot_id for f in a.frames] == [
+        f.snapshot.snapshot_id for f in b.frames]
+    assert [t.transition_id for f in a.frames for t in f.transitions] == [
+        t.transition_id for f in b.frames for t in f.transitions]
+
+
+def test_rejections_are_not_mixed_into_transitions() -> None:
+    """기각은 전이가 아니다 — 내부 진단으로만 둔다."""
+    for frame in _reversal_chain().frames:
+        assert all(hasattr(t, "transition_type") for t in frame.transitions)
+        assert all(hasattr(r, "reason_codes") for r in frame.transition_rejections)

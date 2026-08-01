@@ -77,8 +77,10 @@ def _harmony_chain(daewoon: str, sewoon: str, *, tier: str, mode: str):
 
 
 def _detect(chain):
+    prev, cur = chain.frames[1], chain.frames[2]
     return detect_reversal_candidates(
-        previous_frame=chain.frames[1], current_frame=chain.frames[2],
+        previous_snapshot=prev.snapshot, previous_graph=prev.graph,
+        current_snapshot=cur.snapshot, current_graph=cur.graph,
     )
 
 
@@ -181,8 +183,8 @@ def test_same_character_at_a_different_position_does_not_revert() -> None:
         previous_snapshot=prev_snap)
 
     detection = detect_reversal_candidates(
-        previous_frame=_frame("daewoon", prev_graph, prev_snap),
-        current_frame=_frame("sewoon", cur_graph, cur_snap),
+        previous_snapshot=prev_snap, previous_graph=prev_graph,
+        current_snapshot=cur_snap, current_graph=cur_graph,
     )
     # 巳는 일지 亥와 충하지만 변환된 것은 월지 亥다.
     assert all(c.node_id != hai_month.node_id for c in detection.candidates)
@@ -218,8 +220,8 @@ def test_preexisting_clash_is_diagnosed_not_reverted() -> None:
         graph=graph, layer="sewoon", period_key="2003", previous_snapshot=prev)
 
     detection = detect_reversal_candidates(
-        previous_frame=_frame("daewoon", graph, prev),
-        current_frame=_frame("sewoon", graph, cur),
+        previous_snapshot=prev, previous_graph=graph,
+        current_snapshot=cur, current_graph=graph,
     )
     assert detection.candidates == ()
     assert any(
@@ -273,7 +275,8 @@ def _reversal_frames(*, include_harmony_in_current: bool, clash_target: str = "�
 def test_dependency_path_is_preferred() -> None:
     prev, cur = _reversal_frames(include_harmony_in_current=True)
     (candidate,) = detect_reversal_candidates(
-        previous_frame=prev, current_frame=cur).candidates
+        previous_snapshot=prev.snapshot, previous_graph=prev.graph,
+        current_snapshot=cur.snapshot, current_graph=cur.graph).candidates
     assert candidate.evidence_path is EvidencePath.DEPENDENCY_LINK
 
 
@@ -285,7 +288,8 @@ def test_node_intersection_fallback_when_dependency_is_missing() -> None:
     prev, cur = _reversal_frames(include_harmony_in_current=False)
     assert not cur.graph.relation_dependencies
     (candidate,) = detect_reversal_candidates(
-        previous_frame=prev, current_frame=cur).candidates
+        previous_snapshot=prev.snapshot, previous_graph=prev.graph,
+        current_snapshot=cur.snapshot, current_graph=cur.graph).candidates
     assert candidate.evidence_path is EvidencePath.NODE_INTERSECTION_FALLBACK
     assert candidate.reason_codes == (
         ReversalReason.REVERSAL_BY_NODE_INTERSECTION_FALLBACK.value,
@@ -322,8 +326,8 @@ def test_two_clashes_on_one_relation_are_not_a_conflict() -> None:
         graph=cur_graph, layer="sewoon", period_key="2003", previous_snapshot=prev)
 
     (candidate,) = detect_reversal_candidates(
-        previous_frame=_frame("daewoon", prev_graph, prev),
-        current_frame=_frame("sewoon", cur_graph, cur),
+        previous_snapshot=prev, previous_graph=prev_graph,
+        current_snapshot=cur, current_graph=cur_graph,
     ).candidates
     assert candidate.evidence_path is EvidencePath.DEPENDENCY_LINK
     assert "亥巳" in candidate.cause_relation_id      # 卯酉가 아니다
@@ -364,8 +368,8 @@ def test_conflicting_evidence_blocks_automatic_reversal() -> None:
         graph=cur_graph, layer="sewoon", period_key="2003", previous_snapshot=prev)
 
     detection = detect_reversal_candidates(
-        previous_frame=_frame("daewoon", prev_graph, prev),
-        current_frame=_frame("sewoon", cur_graph, cur),
+        previous_snapshot=prev, previous_graph=prev_graph,
+        current_snapshot=cur, current_graph=cur_graph,
     )
     assert detection.candidates == ()
     conflict = [
@@ -400,7 +404,8 @@ def test_multiple_governing_targets_stay_unconfirmed() -> None:
         active_relation_ids=(*prev.snapshot.active_relation_ids, extra.relation_id))
 
     detection = detect_reversal_candidates(
-        previous_frame=_frame("daewoon", prev_graph, prev_snap), current_frame=cur)
+        previous_snapshot=prev_snap, previous_graph=prev_graph,
+        current_snapshot=cur.snapshot, current_graph=cur.graph)
     assert detection.candidates == ()
     assert any(
         ReversalReason.REVERSAL_UNCONFIRMED.value in r.reason_codes
@@ -416,7 +421,10 @@ def test_non_parent_child_frames_are_rejected() -> None:
     chain = _harmony_chain("亥", "巳", tier="confirmed", mode="transform")
     with pytest.raises(ValueError, match="부모–자식"):
         detect_reversal_candidates(
-            previous_frame=chain.frames[0], current_frame=chain.frames[2])
+            previous_snapshot=chain.frames[0].snapshot,
+            previous_graph=chain.frames[0].graph,
+            current_snapshot=chain.frames[2].snapshot,
+            current_graph=chain.frames[2].graph)
 
 
 def test_metrics_are_low_cardinality() -> None:

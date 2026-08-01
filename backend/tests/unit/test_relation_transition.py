@@ -91,9 +91,11 @@ def _setup(*, extra_current_edges=(), harmony_members=None):
 def _apply(previous, current, candidates=None):
     if candidates is None:
         candidates = detect_reversal_candidates(
-            previous_frame=previous, current_frame=current).candidates
+        previous_snapshot=previous.snapshot, previous_graph=previous.graph,
+        current_snapshot=current.snapshot, current_graph=current.graph).candidates
     return apply_reversal_transitions(
-        previous_frame=previous, current_frame=current, candidates=candidates)
+        previous_snapshot=previous.snapshot, current_snapshot=current.snapshot,
+        current_graph=current.graph, candidates=candidates)
 
 
 def _state(snapshot, node_id):
@@ -217,7 +219,8 @@ def test_current_confirmed_transform_blocks_automatic_reversal() -> None:
     """현재 층에서 다시 확정 변환 중이면 원래 오행으로 덮지 않는다."""
     previous, current = _setup()
     candidates = detect_reversal_candidates(
-        previous_frame=previous, current_frame=current).candidates
+        previous_snapshot=previous.snapshot, previous_graph=previous.graph,
+        current_snapshot=current.snapshot, current_graph=current.graph).candidates
     again = edge_from_resolution(
         relation_id="six:巳亥化水@luck", relation_family="six:巳亥",
         relation_type="six", member_node_ids=(_HAI.node_id,),
@@ -237,7 +240,8 @@ def test_current_confirmed_transform_blocks_automatic_reversal() -> None:
 def test_stale_candidate_is_rejected() -> None:
     previous, current = _setup()
     (candidate,) = detect_reversal_candidates(
-        previous_frame=previous, current_frame=current).candidates
+        previous_snapshot=previous.snapshot, previous_graph=previous.graph,
+        current_snapshot=current.snapshot, current_graph=current.graph).candidates
     stale = dataclasses.replace(candidate, current_snapshot_id="다른-스냅샷")
     result = _apply(previous, current, (stale,))
     assert result.applied_transitions == ()
@@ -248,7 +252,8 @@ def test_stale_candidate_is_rejected() -> None:
 def test_graph_fingerprint_mismatch_is_rejected() -> None:
     previous, current = _setup()
     (candidate,) = detect_reversal_candidates(
-        previous_frame=previous, current_frame=current).candidates
+        previous_snapshot=previous.snapshot, previous_graph=previous.graph,
+        current_snapshot=current.snapshot, current_graph=current.graph).candidates
     drifted = dataclasses.replace(candidate, current_graph_fingerprint="0" * 64)
     result = _apply(previous, current, (drifted,))
     assert result.applied_transitions == ()
@@ -259,7 +264,8 @@ def test_graph_fingerprint_mismatch_is_rejected() -> None:
 def test_previous_state_mismatch_is_rejected() -> None:
     previous, current = _setup()
     (candidate,) = detect_reversal_candidates(
-        previous_frame=previous, current_frame=current).candidates
+        previous_snapshot=previous.snapshot, previous_graph=previous.graph,
+        current_snapshot=current.snapshot, current_graph=current.graph).candidates
     wrong = dataclasses.replace(candidate, from_element="金")
     result = _apply(previous, current, (wrong,))
     assert result.applied_transitions == ()
@@ -270,7 +276,8 @@ def test_previous_state_mismatch_is_rejected() -> None:
 def test_missing_affecting_relation_is_rejected() -> None:
     previous, current = _setup()
     (candidate,) = detect_reversal_candidates(
-        previous_frame=previous, current_frame=current).candidates
+        previous_snapshot=previous.snapshot, previous_graph=previous.graph,
+        current_snapshot=current.snapshot, current_graph=current.graph).candidates
     ghost = dataclasses.replace(candidate, cause_relation_id="clash:없음@x+y")
     result = _apply(previous, current, (ghost,))
     assert result.applied_transitions == ()
@@ -282,7 +289,8 @@ def test_multiple_candidates_for_one_node_block_application() -> None:
     """어느 충이 최종 원인인지 코드가 임의로 고르지 않는다."""
     previous, current = _setup()
     (candidate,) = detect_reversal_candidates(
-        previous_frame=previous, current_frame=current).candidates
+        previous_snapshot=previous.snapshot, previous_graph=previous.graph,
+        current_snapshot=current.snapshot, current_graph=current.graph).candidates
     twin = dataclasses.replace(
         candidate, candidate_id=candidate.candidate_id + "|2")
     result = _apply(previous, current, (candidate, twin))
@@ -300,7 +308,8 @@ def test_multiple_candidates_for_one_node_block_application() -> None:
 def test_candidate_order_does_not_change_the_result() -> None:
     previous, current = _setup()
     (candidate,) = detect_reversal_candidates(
-        previous_frame=previous, current_frame=current).candidates
+        previous_snapshot=previous.snapshot, previous_graph=previous.graph,
+        current_snapshot=current.snapshot, current_graph=current.graph).candidates
     other_node = dataclasses.replace(
         candidate, node_id=_MI.node_id,
         candidate_id="reversal:natal.month.branch:未|x")
@@ -329,7 +338,8 @@ def test_non_parent_child_frames_are_rejected() -> None:
     previous, current = _setup()
     with pytest.raises(ValueError, match="부모–자식"):
         apply_reversal_transitions(
-            previous_frame=current, current_frame=previous, candidates=())
+            previous_snapshot=current.snapshot, current_snapshot=previous.snapshot,
+            current_graph=previous.graph, candidates=())
 
 
 def test_no_candidates_leaves_the_snapshot_equivalent() -> None:
