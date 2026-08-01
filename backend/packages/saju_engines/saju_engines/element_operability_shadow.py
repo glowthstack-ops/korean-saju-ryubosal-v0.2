@@ -38,6 +38,7 @@ from enum import StrEnum
 from saju_shared_types.constants import STEM_ELEMENT
 from saju_shared_types.enums import Stem
 
+from .branch_relation_collector import collect_branch_relation_instances
 from .element_operability_grade import (
     OperabilityEvaluation,
     OperabilityStatus,
@@ -205,6 +206,9 @@ def build_operability_shadow_bundle(
         raise OperabilityShadowError(
             OperabilityShadowFailureKind.RELATION_CHAIN_UNAVAILABLE, "frame 없음")
     terminal = chain.terminal_frame
+    # 생조원 교란 근거. 이걸 빼면 SupportProfile 이 DISRUPTED·PRESENT_MIXED 로 갈 수
+    # 없다(첫 분포 측정에서 두 값이 0건으로 나와 드러났다).
+    branch_relations = collect_branch_relation_instances(nodes=terminal.graph.nodes)
     targets = select_operability_targets(
         terminal_frame=terminal, luck_stems=luck_stems)
 
@@ -213,7 +217,7 @@ def build_operability_shadow_bundle(
         try:
             profile = extract_element_operability_profile(
                 target=target, nodes=terminal.graph.nodes,
-                branch_relations=(),
+                branch_relations=branch_relations,
                 pillar_branches=pillar_branches or {},
             )
         except Exception as exc:  # noqa: BLE001 - 분류해서 다시 던진다
