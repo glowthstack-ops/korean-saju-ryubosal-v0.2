@@ -6,9 +6,10 @@ P1-a·P1-b1 은 순수 함수만 추가해 플래그가 필요 없었다. P1-b2 
 
 두 플래그의 관계:
 
-    graph  만 ON  → 그래프까지만 만든다
-    state  만 ON  → 그래프도 만든다(상태 조립의 재료라 없으면 못 만든다)
-    둘 다 ON      → 그래프를 **한 번만** 만든다
+    graph       만 ON → 그래프까지만 만든다
+    state       만 ON → 그래프도 만든다(상태 조립의 재료라 없으면 못 만든다)
+    operability 만 ON → 그래프와 상태 체인을 만든다(실현도의 선행 재료다)
+    여러 개 ON        → 각각 **한 번만** 만든다
 
 `os.environ` 을 직접 읽는 곳은 이 모듈뿐이다. 서비스는 해석된 값을 읽는다.
 """
@@ -19,6 +20,7 @@ import os as _os
 
 _GRAPH_ENV = "SAJU_LUCK_RELATION_GRAPH_SHADOW_ENABLED"
 _STATE_ENV = "SAJU_LUCK_RELATION_STATE_SHADOW_ENABLED"
+_OPERABILITY_ENV = "SAJU_LUCK_ELEMENT_OPERABILITY_SHADOW_ENABLED"
 
 
 def _env_flag(name: str, default: bool) -> bool:
@@ -41,12 +43,26 @@ LUCK_RELATION_GRAPH_SHADOW_ENABLED: bool = _env_flag(_GRAPH_ENV, False)
 #: 상태 원장 체인(P1-b2) shadow. ON 이면 그래프도 만든다.
 LUCK_RELATION_STATE_SHADOW_ENABLED: bool = _env_flag(_STATE_ENV, False)
 
+#: 오행 실현도(P2-4) shadow. 상태 체인이 선행 재료라 ON 이면 체인도 만든다.
+#: 상태 플래그와 합치지 않는다 — P1 과 P2 를 **개별적으로 측정**해야 한다.
+LUCK_ELEMENT_OPERABILITY_SHADOW_ENABLED: bool = _env_flag(_OPERABILITY_ENV, False)
+
 
 def should_build_relation_graph() -> bool:
     """그래프를 만들어야 하는가. 상태 플래그가 켜져 있으면 그래프 플래그와 무관하게 만든다."""
-    return LUCK_RELATION_GRAPH_SHADOW_ENABLED or LUCK_RELATION_STATE_SHADOW_ENABLED
+    return LUCK_RELATION_GRAPH_SHADOW_ENABLED or should_build_relation_state_chain()
 
 
 def should_build_relation_state_chain() -> bool:
-    """상태 체인을 조립해야 하는가."""
-    return LUCK_RELATION_STATE_SHADOW_ENABLED
+    """상태 체인을 조립해야 하는가.
+
+    실현도 shadow 가 켜져 있으면 상태 플래그가 꺼져 있어도 만든다 — 체인이 선행 재료다.
+    두 플래그가 모두 ON 이어도 호출부가 한 번만 부르므로 중복 생성되지 않는다.
+    """
+    return (LUCK_RELATION_STATE_SHADOW_ENABLED
+            or LUCK_ELEMENT_OPERABILITY_SHADOW_ENABLED)
+
+
+def should_build_element_operability() -> bool:
+    """실현도 평가를 해야 하는가."""
+    return LUCK_ELEMENT_OPERABILITY_SHADOW_ENABLED
