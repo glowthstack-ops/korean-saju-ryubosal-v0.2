@@ -30,6 +30,7 @@ from typing import Any
 from saju_manse_analysis.relations.hap_modes import resolve_branch_hap
 
 from saju_api.services.manse_service import calculate
+from saju_engines.element_operability_grade import OPERABILITY_ANCHOR
 from saju_engines.element_operability_shadow import (
     OperabilityShadowError,
     build_operability_shadow_bundle,
@@ -45,6 +46,15 @@ from saju_engines.relation_state_chain import (
 from saju_engines.role_activation_projection import CanonicalRole, CanonicalRoleBasis
 from saju_manse_core.calendar.sexagenary_cycle import year_ganzi
 from saju_shared_types.birth_input import BirthInput
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _operability_ablations import (  # noqa: E402
+    ALLOWED_TRANSITIONS,
+    KNOWN_ABLATIONS,
+    ROOT_DEPTH_MAIN_QI_FULLY_CAP_V1,
+    apply_root_depth_ablation,
+    derive_root_depth_for_audit,
+)
 
 #: 기존 회귀 픽스처에서 수집한 고유 명식(생년월일·시각). 무작위 생성은 넣지 않는다.
 FIXTURE_BIRTHS: tuple[tuple[int, int, int, str], ...] = (
@@ -121,7 +131,9 @@ def _canonical_key(result: Any, gender: str, daewoon: str, sewoon: str) -> str:
     ))
 
 
-def _measure_one(birth: BirthInput, ref: date) -> dict[str, Any]:
+def _measure_one(
+    birth: BirthInput, ref: date, ablation: str | None = None,
+) -> dict[str, Any]:
     """입력 하나의 shadow 결과. 순수 계산이라 플래그와 무관하다."""
     result = calculate(birth)
     if result.pillars is None:
@@ -174,9 +186,52 @@ def _measure_one(birth: BirthInput, ref: date) -> dict[str, Any]:
         "chain_metrics": chain.aggregate_metrics(),
         "unresolved_relations": len(
             chain.terminal_frame.snapshot.unresolved_relation_ids),
-        "targets": [_target_row(t) for t in bundle.targets],
+        "targets": [
+            _paired(t, _target_row(t)) if ablation else _target_row(t)
+            for t in bundle.targets
+        ],
         "build_duration_ms": round(bundle.build_metrics.build_duration_ms, 3),
     }
+
+
+def _paired(target: Any, row: dict[str, Any]) -> dict[str, Any]:
+    """같은 target 의 baseline·candidate 를 한 행에 담는다.
+
+    별도 실행 두 번으로 만들면 모집단·정렬 차이가 결과 이동으로 오인된다.
+    """
+    depth = derive_root_depth_for_audit(target.profile)
+    status, reason = apply_root_depth_ablation(
+        status=target.evaluation.status, has_main_qi_root=depth.has_main_qi_root)
+    projection = target.role_projection
+    row.update({
+        "natal_root_depth": depth.natal_root_depth.value,
+        "transit_root_depth": depth.transit_root_depth.value,
+        "strongest_root_depth": depth.strongest_root_depth.value,
+        "has_main_qi_root": depth.has_main_qi_root,
+        "baseline_status": target.evaluation.status.value,
+        "candidate_status": status.value,
+        "baseline_anchor": target.evaluation.anchor,
+        "candidate_anchor": OPERABILITY_ANCHOR[status],
+        "ablation_reason": reason.value,
+        # 활성도는 overlay 로 바꾸지 않는다 — P2-3 매핑을 함께 바꾸면 원인이 섞인다.
+        "baseline_favorable": projection.favorable_activation.level.value,
+        "baseline_adverse": projection.adverse_activation.level.value,
+        "baseline_neutral": projection.neutral_activation.level.value,
+        "baseline_tension": projection.structural_tension.level.value,
+        "candidate_activation_level": _ACTIVATION_BY_STATUS[status.value],
+        "baseline_activation_level": _ACTIVATION_BY_STATUS[
+            target.evaluation.status.value],
+    })
+    return row
+
+
+#: P2-3 의 실현도 → 활성도 매핑. **여기서 바꾸지 않는다** — 후보 정책이 활성도까지
+#: 움직이는지 보려면 기존 매핑을 그대로 적용해야 한다.
+_ACTIVATION_BY_STATUS = {
+    "fully_operable": "high", "operable": "high",
+    "partially_operable": "moderate", "weakened": "low",
+    "suppressed": "low", "unknown": "unknown",
+}
 
 
 def _target_row(target: Any) -> dict[str, Any]:
@@ -241,9 +296,44 @@ def _run_suite_matrix(repo_root: Path) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _ablation_summary(targets: list[dict[str, Any]]) -> dict[str, Any]:
+    """baseline↔candidate 이동. **활성도 이동을 따로 센다** — 상태만 움직이고 활성도는
+    그대로일 수 있고, 그렇다면 P3 입력의 변별력은 늘지 않는다."""
+    transitions = Counter(
+        f"{t['baseline_status']}->{t['candidate_status']}" for t in targets)
+    illegal = sorted({
+        k for k in transitions
+        if tuple(k.split("->")) not in ALLOWED_TRANSITIONS
+    })
+    moved = [t for t in targets
+             if t["baseline_status"] != t["candidate_status"]]
+    return {
+        "policy": ROOT_DEPTH_MAIN_QI_FULLY_CAP_V1,
+        "status_transitions": dict(sorted(transitions.items())),
+        "illegal_transitions": illegal,
+        "status_changed": len(moved),
+        "activation_changed": sum(
+            1 for t in targets
+            if t["baseline_activation_level"] != t["candidate_activation_level"]),
+        "root_depth": dict(sorted(
+            Counter(t["strongest_root_depth"] for t in targets).items())),
+        "moved_by_layer_component": dict(sorted(
+            Counter(f"{t['layer']}.{t['component']}" for t in moved).items())),
+        "moved_by_role": dict(sorted(
+            Counter(t["canonical_role"] for t in moved).items())),
+        "moved_by_rule": dict(sorted(
+            Counter(t["matched_rule_id"] for t in moved).items())),
+        "ablation_reason": dict(sorted(
+            Counter(t["ablation_reason"] for t in targets).items())),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument(
+        "--ablation", choices=KNOWN_ABLATIONS, default=None,
+        help="이름 있는 감사 overlay. 없으면 기존 첫 shadow 측정을 그대로 재현한다.")
     parser.add_argument(
         "--with-suite", action="store_true",
         help="A 코호트(스위트 R0~R3)까지 실행 — 오래 걸린다")
@@ -261,7 +351,8 @@ def main() -> int:
             for ref in FIXTURE_REFERENCE_DATES:
                 total += 1
                 try:
-                    row = _measure_one(_birth(y, m, d, hhmm, gender, ref), ref)
+                    row = _measure_one(
+                        _birth(y, m, d, hhmm, gender, ref), ref, args.ablation)
                 except Ineligible as exc:
                     ineligible[exc.reason] += 1
                     continue
@@ -301,6 +392,8 @@ def main() -> int:
             1 for t in targets if t["raw_element"] != t["resolved_element"]),
         "invariant_violations": dict(sorted(_invariant_violations(rows).items())),
     }
+    if args.ablation == ROOT_DEPTH_MAIN_QI_FULLY_CAP_V1:
+        summary["ablation"] = _ablation_summary(targets)
     if args.with_suite:
         summary["production_matrix"] = _run_suite_matrix(repo_root)
 
