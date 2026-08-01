@@ -8,13 +8,14 @@ production 영향  없음 — 플래그 3종 모두 기본 OFF
 
 ## 판정
 
-```
-verdict   SHADOW_BASELINE_PASS_WITH_REVIEW
+```yaml
+production_nonregression_verdict: PASS
+semantic_distribution_verdict: PASS_WITH_REVIEW
+overall_verdict: PASS_WITH_REVIEW
 ```
 
-하드 게이트는 전건 통과했다. 다만 **B 코호트 분포에서 뿌리 판정이 과도하게 관대**하고,
-**A 코호트(R0~R3 생산 비회귀 매트릭스)는 이번 실행에서 돌리지 않았다.** 후자는 다음
-사이클에서 닫는다 — 그 전까지 이 문서의 생산 불변 주장은 기존 스위트 1회 통과에 근거한다.
+두 축을 분리한다. 생산 비회귀는 R0~R3 매트릭스로 닫혔고, 분포 쪽은 **뿌리 판정이 과도하게
+관대**해 검토가 남는다(§9). 전체 verdict 는 `CAL-ROOT-DEPTH-01` 이 닫힌 뒤 올린다.
 
 ---
 
@@ -24,10 +25,39 @@ verdict   SHADOW_BASELINE_PASS_WITH_REVIEW
 분포가 아니다. 이 문서의 비율은 **existing-fixture shadow distribution** 이다.
 
 ```
-A 생산 비회귀   기존 회귀 스위트 전체 × R0~R3       ← 이번 실행 미수행
+A 생산 비회귀   기존 회귀 스위트 전체 × R0~R3       ← 전건 통과 (§1-1)
 B 분포          고유 적격 입력만                    ← 아래 수치의 모집단
 C 의미론 골든   규칙 의도 확인. 비율에 넣지 않음     ← 기존 회귀 스위트가 담당
 ```
+
+### 1-1. A 코호트 — R0~R3 매트릭스
+
+```
+R0  graph=F state=F oper=F   exit 0
+R1  graph=F state=T oper=F   exit 0
+R2  graph=F state=F oper=T   exit 0
+R3  graph=T state=T oper=T   exit 0
+```
+
+각 조합은 env 를 명시 주입한 subprocess 로 실행했다 — 현재 셸을 오염시키지 않는다.
+
+**detached worktree 를 쓰지 않았다.** `saju_*` 가 메인 리포 경로로 editable 설치돼 있어,
+worktree 에서 pytest 를 돌려도 import 되는 코드는 메인 리포의 것이다. 워크트리를 측정한다고
+믿으면서 다른 트리를 재게 된다. 트리가 clean 이고 HEAD 가 정확히 `fa66cb1` 이므로 메인
+리포에서 실행해 측정 대상과 import 대상을 일치시켰다.
+
+#### 이 매트릭스가 증명하는 것과 아닌 것
+
+```
+증명한다     네 플래그 조합 각각에서 기존 생산 assertion 전건 통과
+             (period_fortune 응답 byte 동일 · OFF inert · 점수·status·rank 회귀 포함)
+             shadow 예외가 생산 요청으로 전파되지 않음
+증명하지 않는다  요청별 생산 산출물을 R0~R3 사이에서 직접 byte 비교한 결과
+```
+
+스크립트는 실행별 exit code 를 수집하며 요청 단위 fingerprint 를 교차 비교하지 않는다.
+생산 불변의 근거는 **스위트 안의 불변 회귀들이 각 조합에서 통과한다는 사실**이다. 요청 단위
+직접 대조가 필요해지면 별도 하네스를 만든다 — 지금 있는 것보다 강한 주장을 하지 않는다.
 
 ### B 코호트
 
@@ -207,14 +237,27 @@ target 4개 초과                                     0
 이는 P2-0 에서 확정한 "지장간 정기/중기/여기를 강도 계수로 바꾸지 않는다" 를 따른 결과이고
 **규칙 위반이 아니다.** 다만 실현도 등급이 상위에 몰리면 후속 계층에서 변별력이 떨어진다.
 
+### 확정된 방향 — CAL-ROOT-DEPTH-01
+
+뿌리를 없애는 것이 아니라 **존재와 최고 등급 자격을 분리**한다(2026-08-01 확정).
+
 ```
-검토 선택지 (지금 결정하지 않는다)
-  ① 뿌리를 정기·중기로 제한
-  ② 여기 뿌리를 별도 상태로 분리(DIRECT_ROOT_RESIDUAL_ONLY)
-  ③ 그대로 두고 P3 이벤트 연결에서 변별
+같은 오행의 지장간 존재     direct root 유지
+정기·중기·여기              RootDepth 로 별도 기록
+FULLY_OPERABLE 자격         정기 뿌리가 있을 때만
+중기·여기만 있는 경우        유근이되 최대 OPERABLE
+DIRECT_TRANSIT_ROOT         깊이와 무관하게 최대 OPERABLE (기존 정책 유지)
 ```
 
-셋 다 명리 판단이 섞여 있어 사용자 확정이 필요하다.
+수치 감점(정기 1.0 / 중기 0.7 / 여기 0.4)은 도입하지 않는다 — `matched_rule_id` 단일 규칙
+계약이 깨진다. 중기·여기 뿌리가 여럿이라고 정기와 동등하게 승격시키지도 않는다(개수는
+evidence 로만 보존).
+
+깊이 차등은 **출처의 직접 주장이 아니라 우리 엔진의 보수적 해상도 정책**이다. 자료는 같은
+오행의 지장간을 직접 뿌리로 보는 것과 금생수가 水의 뿌리가 아닌 것까지만 지지한다.
+
+착수 전에 `CAL-ROOT-01a` ablation 으로 같은 312 target 에 현행·후보 두 정책을 나란히 적용해
+전환 규모와 위치를 먼저 본다.
 
 ### SUPPRESSED 가 1건뿐이다
 
@@ -226,14 +269,13 @@ target 4개 초과                                     0
 ## 10. 하지 않은 것
 
 ```
-A 코호트 R0~R3 생산 비회귀 매트릭스   미수행
-coverage-only 보충 코호트            미작성
-첫 shadow 를 켠 운영 측정             없음 — 플래그는 계속 OFF
+요청 단위 생산 산출물 R0~R3 직접 대조   미수행 (§1-1)
+coverage-only 보충 코호트              미작성 — 뿌리 정책 변경 후로 미룬다
+첫 shadow 를 켠 운영 측정               없음 — 플래그는 계속 OFF
 ```
 
-`--with-suite` 옵션으로 R0~R3 매트릭스를 실행할 수 있으나 이번 사이클에서 돌리지 않았다.
-그 전까지 생산 불변 주장의 근거는 **기본 플래그(R0) 상태의 전체 스위트 통과 1회**뿐이다.
-`SHADOW_BASELINE_PASS` 가 아니라 `PASS_WITH_REVIEW` 인 이유가 이것이다.
+전체 verdict 가 `PASS_WITH_REVIEW` 인 이유는 이제 생산 비회귀가 아니라 **뿌리 해상도**다.
+`CAL-ROOT-DEPTH-01` 이 닫히고 재측정이 끝나면 `SHADOW_BASELINE_PASS` 로 올린다.
 
 ---
 
