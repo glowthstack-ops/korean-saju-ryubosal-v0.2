@@ -63,6 +63,27 @@ def _seed_admins() -> None:
 _KST = ZoneInfo("Asia/Seoul")
 
 
+def daily_fortune_pregen_schedule(
+    now: datetime,
+) -> tuple[datetime, date, datetime]:
+    """(생성 시각, 대상 날짜, export 시각). **순수 함수 — 테스트 가능하게 분리한다.**
+
+    두 시각이 자정을 사이에 두고 갈라져 있는 것이 핵심이다. 생성은 전날 23:50 이고
+    export 는 그 다음 00:05 다. `write_threads_export` 가 오늘 보드만 쓰므로, 생성
+    시점에 부르면 언제나 하루 이르러 건너뛰어진다(2026-08-02 실측).
+
+    대상 날짜는 sleep **전에** 고정한다. 뒤에서 다시 now 를 읽으면 생성이 자정을 넘겨
+    끝났을 때 +1 이 하루를 건너뛴 날짜가 된다(2026-08-01 실측).
+    """
+    run_at = now.replace(hour=23, minute=50, second=0, microsecond=0)
+    if run_at <= now:
+        run_at += timedelta(days=1)
+    target = (run_at + timedelta(days=1)).date()
+    export_at = (run_at + timedelta(days=1)).replace(
+        hour=0, minute=5, second=0, microsecond=0)
+    return run_at, target, export_at
+
+
 async def _daily_fortune_pregen_loop() -> None:
     """보드를 **사용자 요청과 무관하게** 준비한다 (env SAJU_DAILY_FORTUNE_PREGEN=1 전용).
 
@@ -77,7 +98,11 @@ async def _daily_fortune_pregen_loop() -> None:
     """
     from saju_engines.daily_fortune_cache import default_cache
 
-    from .services import daily_fortune_polish
+    from .services import (
+        daily_fortune_export,
+        daily_fortune_polish,
+        daily_fortune_service,
+    )
 
     log = logging.getLogger("saju.daily_fortune")
 
@@ -89,22 +114,44 @@ async def _daily_fortune_pregen_loop() -> None:
         except Exception:  # noqa: BLE001 — 루프 유지, 다음 주기 재시도
             log.exception("보드 선생성 실패 date=%s", target)
 
+    async def _export(target: date) -> None:
+        """오늘이 된 보드를 스레드용 파일로 내보낸다.
+
+        `write_threads_export` 는 **오늘 보드일 때만** 쓴다. 사전생성은 언제나 전날
+        23:50 이라 그 시점의 `now.date()` 는 보드 날짜보다 하루 이르고, 따라서 생성
+        경로의 export 는 항상 건너뛰어진다. 자정을 넘긴 뒤 한 번 더 부르는 이 단계가
+        없으면 파일이 기동 시점 날짜에 멈춘다(2026-08-02 실측: 8/2 보드는 캐시에
+        있는데 파일은 8/1 자였다).
+
+        가드를 완화해 고치지 않는다 — 미래 보드가 오늘 파일을 덮는 사고를 막는 것이
+        그 가드의 목적이고, 여기서는 호출 **시점**을 바로잡는다.
+        """
+        try:
+            board = await asyncio.to_thread(
+                daily_fortune_service.get_board, default_cache(), target
+            )
+            if not await asyncio.to_thread(
+                daily_fortune_export.write_threads_export, board, today=target
+            ):
+                log.warning("스레드 export 건너뜀 date=%s", target)
+        except Exception:  # noqa: BLE001 — 루프 유지, 다음 주기 재시도
+            log.exception("스레드 export 실패 date=%s", target)
+
     # 기동 즉시 당일 보충 — 지금 접속하는 사용자가 생성을 기다리지 않게 한다.
-    await _ensure(datetime.now(_KST).date())
+    today = datetime.now(_KST).date()
+    await _ensure(today)
+    await _export(today)
 
     while True:
         now = datetime.now(_KST)
-        run_at = now.replace(hour=23, minute=50, second=0, microsecond=0)
-        if run_at <= now:
-            run_at += timedelta(days=1)
-        # 목표 날짜를 **sleep 전에** 고정한다. 뒤에서 다시 now 를 읽으면, sleep 이
-        # 자정을 넘겨 깨어났을 때(직전 _ensure 가 60건 생성+LLM 교정으로 10분 넘게
-        # 걸리는 경우가 있다) +1 이 하루를 건너뛴 날짜가 된다. 실제로 그렇게 만들어진
-        # 미래 보드가 스레드 export 파일을 덮어 토요일에 일요일 운세가 올라갔다
-        # (2026-08-01).
-        target = (run_at + timedelta(days=1)).date()
+        run_at, target, export_at = daily_fortune_pregen_schedule(now)
         await asyncio.sleep((run_at - now).total_seconds())
         await _ensure(target)
+        # 자정을 넘겨 target 이 '오늘' 이 된 뒤 내보낸다. 생성이 오래 걸려 이미 지난
+        # 시각이면 즉시 실행된다.
+        await asyncio.sleep(
+            max(0.0, (export_at - datetime.now(_KST)).total_seconds()))
+        await _export(target)
 
 
 @contextlib.asynccontextmanager

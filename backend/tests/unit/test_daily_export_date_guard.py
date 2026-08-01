@@ -95,7 +95,13 @@ def test_pregen_target_is_pinned_before_sleep() -> None:
     ).read_text(encoding="utf-8")
     body = src.split("async def _daily_fortune_pregen_loop")[1].split("\nasync def ")[0]
     sleep_at = body.index("await asyncio.sleep(")
-    assert "target = " in body[:sleep_at], "목표 날짜가 sleep 이전에 고정돼야 한다"
+    # 표현은 바뀔 수 있다(2026-08-02: 시각 계산을 순수 함수로 분리). 고정할 것은 **순서** 다
+    # — 대상 날짜가 sleep 이전에 정해져야 한다.
+    before = body[:sleep_at]
+    assert (
+        "target = " in before
+        or "target, export_at = daily_fortune_pregen_schedule" in before
+    ), "목표 날짜가 sleep 이전에 고정돼야 한다"
     assert "datetime.now(_KST) + timedelta(days=1)" not in body[sleep_at:], (
         "sleep 이후 now 를 다시 읽어 +1 하면 자정을 넘길 때 하루를 건너뛴다"
     )
