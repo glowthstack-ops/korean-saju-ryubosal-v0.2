@@ -48,6 +48,10 @@ from saju_manse_core.calendar.sexagenary_cycle import year_ganzi
 from saju_shared_types.birth_input import BirthInput
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _activation_resolution_candidates import (  # noqa: E402
+    ACTIVATION_RESOLUTION_CANDIDATES_V1,
+)
+from _activation_resolution_candidates import summarize as _activation_summary  # noqa: E402
 from _operability_ablations import (  # noqa: E402
     ALLOWED_TRANSITIONS,
     KNOWN_ABLATIONS,
@@ -187,7 +191,8 @@ def _measure_one(
         "unresolved_relations": len(
             chain.terminal_frame.snapshot.unresolved_relation_ids),
         "targets": [
-            _paired(t, _target_row(t)) if ablation else _target_row(t)
+            _paired(t, _target_row(t))
+            if ablation == ROOT_DEPTH_MAIN_QI_FULLY_CAP_V1 else _target_row(t)
             for t in bundle.targets
         ],
         "build_duration_ms": round(bundle.build_metrics.build_duration_ms, 3),
@@ -253,6 +258,7 @@ def _target_row(target: Any) -> dict[str, Any]:
         "adverse": projection.adverse_activation.level.value,
         "neutral": projection.neutral_activation.level.value,
         "tension": projection.structural_tension.level.value,
+        "baseline_anchor": evaluation.anchor,
         "reason_codes": list(evaluation.reason_codes),
         "disruption_evidence": len(profile.evidence_ids),
     }
@@ -332,7 +338,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument(
-        "--ablation", choices=KNOWN_ABLATIONS, default=None,
+        "--ablation",
+        choices=(*KNOWN_ABLATIONS, ACTIVATION_RESOLUTION_CANDIDATES_V1), default=None,
         help="이름 있는 감사 overlay. 없으면 기존 첫 shadow 측정을 그대로 재현한다.")
     parser.add_argument(
         "--with-suite", action="store_true",
@@ -394,6 +401,8 @@ def main() -> int:
     }
     if args.ablation == ROOT_DEPTH_MAIN_QI_FULLY_CAP_V1:
         summary["ablation"] = _ablation_summary(targets)
+    if args.ablation == ACTIVATION_RESOLUTION_CANDIDATES_V1:
+        summary["activation_candidates"] = _activation_summary(targets)
     if args.with_suite:
         summary["production_matrix"] = _run_suite_matrix(repo_root)
 
