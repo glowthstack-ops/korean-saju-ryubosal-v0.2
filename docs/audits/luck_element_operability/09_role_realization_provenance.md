@@ -7,6 +7,18 @@ overall: ROLE_REALIZATION_PROVENANCE_INCOMPLETE
 **완료 감사가 아니라 checkpoint 다.** runner-up 을 동일한 production 실현 경로로 재생할 수
 있는지가 아직 증명되지 않았다.
 
+### 검증 관계
+
+```yaml
+validated_base_head:   eeaed83
+validated_fingerprint: f32757b
+checkpoint_commit:     c8e7b4b
+```
+
+스위트는 **커밋 직전의 동일 트리**를 검증했고 `c8e7b4b` 가 그 검증된 변경을 담았다.
+커밋 해시 자체가 검증된 것이 아니다 — 이 구분을 흐리면 "커밋이 통과했다" 는 표현이
+검증 범위를 실제보다 넓게 만든다.
+
 ---
 
 ## 1. 확정된 것
@@ -146,24 +158,145 @@ status 승격 차이는 **행동으로 증명되지 않았다** — 관측 코�
 Runner-up canonical realization replay
 ```
 
-```
-1. 실현 경계를 순수 resolver 로 추출 (inert refactor — production byte 불변)
-2. primary 土 를 강제 입력해 기존 canonical 5역할 완전 재현
-3. 동일 입력에서 selected_yongsin_element 만 水 로 바꿔 재실행
-4. 실행 순서 독립성 확인 (土→水 / 水→土 / 水 단독 결과 동일)
-```
-
-2가 실패하면 3으로 넘어가지 않는다.
-
-### 판정 분기
+한 번에 구현하지 않는다. 세 단계로 나누고 각 단계에 독립 승인점을 둔다.
 
 ```
-C1-B   primary 재현 성공 + runner-up 독립 실행 성공 + 순서 독립 + 선택 feedback 없음
-       → YongsinDecisionSet 계약 진행
-
-C2     primary 전용 mutable 상태 의존 · selected_model 결합 불가 · 순서 의존
-       → runner-up 오행·점수·margin 만 보존, P2/P3 alternate projection 금지
+01c1-a   역할 실현 경계 inert 추출
+01c1-b   primary·runner-up 독립 재생
+01c1-c   provenance 판정과 종료 감사
 ```
+
+### 01c1-a — 실현 resolver 추출
+
+기존 production 경로를 다음 경계로 감싼다. **동작을 바꾸지 않는 inert refactor 다.**
+
+```python
+resolve_realized_roles(
+    *,
+    chart_context,
+    selected_yongsin_element,
+    useful_candidates,
+    model_outputs,
+) -> RoleRealizationResult
+```
+
+결과가 보존해야 하는 것.
+
+```
+selected_yongsin_element   top_model            selected_model
+special_roles              model_complete       model_map_promoted
+base_role_map              final_role_map       reason_codes
+```
+
+하드 게이트.
+
+```
+기존 canonical 역할표 전건 동일
+기존 selected_model 동일
+기존 confidence·status·warnings 동일
+후보 점수·순위 동일
+production 응답·LLM 입력 동일
+```
+
+### 01c1-b — primary 부터 재생
+
+**primary 재현이 첫 번째 승인점이다.** 사례 A 의 실제 선택인 土 만 먼저 넣는다.
+
+```
+forced yongsin = 土
+→ selected_model      eokbu_normal
+→ model_complete      true
+→ model_map_promoted  true
+→ final_role_map      기존 canonical 과 5역할 전부 동일
+```
+
+하나라도 다르면 **runner-up 재생으로 넘어가지 않는다.**
+
+성공한 뒤에야 같은 원본 입력에서 水 를 넣는다.
+
+```
+forced yongsin = 水
+→ top_model · selected_model · model_complete · special branch · model_map_promoted
+   를 모두 실제 재계산·재판정하고 final_role_map 을 산출한다
+```
+
+외부 역할표는 기대값이 아니라 **산출 후 비교 대상**으로만 쓴다.
+
+#### 순서 독립성
+
+각 실행은 fresh context 에서 수행한다.
+
+```
+土 단독 · 水 단독 · 土→水 · 水→土 · 水→水 반복
+```
+
+성립해야 하는 것.
+
+```
+水 final_role_map · selected_model · model_map_promoted 전건 동일
+土 결과도 실행 순서와 무관
+원본 model_outputs·useful_candidates 불변
+```
+
+primary 실행에서 변형된 `roles`·model 객체·request-local dict 를 runner-up 실행에
+재사용하지 않는다.
+
+#### 선택 단계로의 feedback 확인
+
+실현 resolver 가 다음을 수정하지 않는지 **별도로** 고정한다.
+
+```
+useful score · useful_sorted · yongsin_el · competing · selected decision margin
+```
+
+실현 경로가 이 값을 다시 쓰면 C1-B 가 아니라 선택·실현 결합 문제를 다시 연다.
+
+### 01c1-c — 판정
+
+#### C1-B
+
+```yaml
+scenario: C1B_PROVENANCE_DEPENDENT_ALTERNATIVE
+primary_replay:     PASS
+runner_up_replay:   PASS
+order_independence: PASS
+model_provenance:   AVAILABLE
+selection_feedback: NONE
+```
+
+runner-up 역할표의 origin 은 **실제 경로대로** 기록한다.
+
+```
+완전 모델맵 승격       → COUNTERFACTUAL_COMPLETE_MODEL_MAP
+부분 모델 + 정적 폴백   → COUNTERFACTUAL_FALLBACK_ROLE_MAP
+특수분기               → COUNTERFACTUAL_SPECIAL_ROLE_MAP
+```
+
+셋을 뭉뚱그려 "`_classify_roles` 파생" 이라고 부르지 않는다. 01c0 에서 실제로 그렇게
+불러 canonical 의 출처를 잘못 고정했다. 8건 코호트 실측에서도 `MODEL_MAP` 과
+`SPECIAL_BRANCH` 두 종류가 나왔고, bridge 계열 2건은 완비 모델이 아니면서 폴백도
+아니었다.
+
+#### C2
+
+다음 중 하나라도 있으면 C2 다.
+
+```
+primary 를 추출한 resolver 로 재현하지 못함
+runner-up selected_model 을 안정적으로 결합하지 못함
+primary 실행의 mutable 상태가 필요함
+실행 순서에 따라 결과가 달라짐
+강제 yongsin 이 production 과 다른 보정 경로를 사용함
+```
+
+```yaml
+scenario: C2_UNREALIZABLE_DECISION_ALTERNATIVE
+runner_up_element:       AVAILABLE
+runner_up_score:         AVAILABLE
+counterfactual_role_map: UNAVAILABLE
+```
+
+이 경우 runner-up 오행·점수·margin 까지만 보존하고 P2/P3 alternate 투영은 금지한다.
 
 ---
 
