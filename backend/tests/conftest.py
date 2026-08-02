@@ -1,4 +1,9 @@
-"""Shared test fixtures."""
+"""Shared test fixtures.
+
+운영 자원 격리가 이 파일의 첫 번째 책임이다. DB(`_isolate_test_db`)와 같은 층에
+**LLM 실호출**과 **스레드 export 파일**을 둔다 — 둘 다 테스트가 실제로 오염시킨
+전적이 있다(2026-08-03).
+"""
 
 from __future__ import annotations
 
@@ -17,6 +22,112 @@ from saju_shared_types.pillars import FourPillarsResult
 PillarSpec = tuple[Stem, Branch]
 
 _MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
+
+
+class LiveLLMCallBlocked(RuntimeError):
+    """테스트 프로세스에서 LLM 공급자 실호출을 차단했다."""
+
+
+ProviderCall = Callable[[dict, str, str, int, float], tuple[str, int, int, int]]
+
+#: 차단 전의 진짜 공급자 호출부. `live_llm` 마커가 붙은 테스트만 이걸 되돌린다.
+_REAL_PROVIDERS: dict[str, ProviderCall] = {}
+
+
+def _blocked_provider_call(
+    profile: dict, system: str, prompt: str, max_tokens: int, timeout: float,
+) -> tuple[str, int, int, int]:
+    """네트워크 대신 즉시 실패한다. 응답을 흉내 내지 않는다."""
+    raise LiveLLMCallBlocked(
+        f"테스트에서 LLM 실호출 차단 — provider={profile.get('provider')} "
+        f"model={profile.get('model')} prompt_chars={len(prompt)}"
+    )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _block_live_llm() -> Iterator[None]:
+    """`_PROVIDERS` 항목 = 실제 네트워크 경계를 세션 내내 막는다.
+
+    **경계 선택**이 핵심이다. 한 단계 위(`_call_profile`)를 막으면 공급자 스텁을
+    `_PROVIDERS` 에 넣어 폴백을 검증하는 기존 테스트가 자기 스텁에 닿지 못한다.
+    항목 단위로 막으면 그 테스트의 `setitem` 이 차단을 덮고, 끝나면 차단으로
+    되돌아온다.
+
+    **세션 스코프인 이유**도 핵심이다. 일운 교정은 데몬 스레드로 나가므로 함수
+    스코프로 막으면 teardown 뒤 깨어난 스레드가 진짜 호출을 낸다.
+
+    `is_available()` 은 건드리지 않는다 — 키 존재 여부는 사실대로 두고 네트워크만
+    끊는다. 그래야 가용성 판정 자체를 검증하는 테스트가 거짓을 보지 않는다.
+    """
+    from saju_api.services import llm_client
+
+    _REAL_PROVIDERS.update(llm_client._PROVIDERS)
+    mp = pytest.MonkeyPatch()
+    for provider in llm_client._PROVIDERS:
+        mp.setitem(llm_client._PROVIDERS, provider, _blocked_provider_call)
+    try:
+        yield
+    finally:
+        mp.undo()
+
+
+@pytest.fixture(autouse=True)
+def _allow_live_llm_when_marked(request: pytest.FixtureRequest) -> Iterator[None]:
+    """`@pytest.mark.live_llm` 이 붙은 테스트에서만 차단을 푼다(현재 사용처 없음)."""
+    if request.node.get_closest_marker("live_llm") is None or not _REAL_PROVIDERS:
+        yield
+        return
+    from saju_api.services import llm_client
+
+    mp = pytest.MonkeyPatch()
+    for provider, call in _REAL_PROVIDERS.items():
+        mp.setitem(llm_client._PROVIDERS, provider, call)
+    try:
+        yield
+    finally:
+        mp.undo()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_background_polish_threads() -> Iterator[None]:
+    """lazy 경로의 백그라운드 교정 예약을 끈다.
+
+    라우터가 데몬 스레드를 띄우면 응답 뒤에도 캐시 보드가 비동기로 바뀐다. 실제로
+    `test_today_endpoint_and_headers` 의 ETag 재검증은 **실호출이 느려서** 통과하고
+    있었다 — 교정이 빨라지면 두 번째 요청의 ETag 가 달라져 깨진다. 예약 배선 자체는
+    `test_no_live_llm_in_tests` 가 따로 고정한다.
+    """
+    from saju_api.services import daily_fortune_polish
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(daily_fortune_polish, "maybe_schedule_polish", lambda *a, **k: False)
+    try:
+        yield
+    finally:
+        mp.undo()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_threads_export(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Iterator[None]:
+    """`오늘의운세.txt` 를 임시 경로로 돌린다.
+
+    공개 라우터에는 날짜 파라미터가 없어 테스트도 **오늘의 진짜 보드**를 만든다.
+    그래서 export 의 '오늘 보드일 때만 쓴다' 가드는 통과해 버리고, 운영 파일이
+    테스트 산출물로 덮인다(2026-08-03 실측: 교정 PARTIAL 파일이 FAILED 로 교체됨).
+    """
+    from saju_api.services import daily_fortune_export
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(
+        daily_fortune_export, "THREADS_EXPORT_PATH",
+        tmp_path_factory.mktemp("threads_export") / "오늘의운세.txt",
+    )
+    try:
+        yield
+    finally:
+        mp.undo()
 
 
 def _test_dsn(base: str) -> str:

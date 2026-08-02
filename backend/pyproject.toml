@@ -71,6 +71,9 @@ where = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "live_llm: LLM 공급자 실호출을 허용한다(과금 발생 — 기본 차단의 명시적 예외).",
+]
 
 [tool.ruff]
 target-version = "py312"

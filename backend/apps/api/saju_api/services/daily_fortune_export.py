@@ -95,7 +95,7 @@ def render_threads_text(board: DailyFortuneBoard) -> str:
 
 
 def write_threads_export(
-    board: DailyFortuneBoard, path: Path = THREADS_EXPORT_PATH,
+    board: DailyFortuneBoard, path: Path | None = None,
     *, today: date | None = None,
 ) -> bool:
     """스레드용 텍스트 파일 갱신(원자적 교체). 실패해도 예외를 전파하지 않는다.
@@ -110,12 +110,15 @@ def write_threads_export(
 
     Args:
         board: 기록할 보드.
-        path: 대상 경로.
+        path: 대상 경로. None이면 **호출 시점에** `THREADS_EXPORT_PATH` 를 읽는다.
+            기본값을 시그니처에 박으면 정의 시점에 고정돼 테스트가 격리할 수 없고,
+            실제로 테스트 실행이 운영 파일을 덮었다(2026-08-03 실측).
         today: 기준 날짜(테스트 주입용). None이면 KST 오늘.
 
     Returns:
         실제로 파일을 쓴 경우에만 True. 날짜 불일치로 건너뛰면 False.
     """
+    target = path if path is not None else THREADS_EXPORT_PATH
     ref = today or datetime.now(_KST).date()
     if board.fortune_date != ref:
         logger.info(
@@ -124,10 +127,10 @@ def write_threads_export(
         )
         return False
     try:
-        tmp = path.with_suffix(".txt.tmp")
+        tmp = target.with_suffix(".txt.tmp")
         tmp.write_text(render_threads_text(board), encoding="utf-8")
-        tmp.replace(path)
+        tmp.replace(target)
         return True
     except OSError as exc:
-        logger.warning("오늘의 운세 스레드 export 실패 path=%s err=%s", path, exc)
+        logger.warning("오늘의 운세 스레드 export 실패 path=%s err=%s", target, exc)
         return False
