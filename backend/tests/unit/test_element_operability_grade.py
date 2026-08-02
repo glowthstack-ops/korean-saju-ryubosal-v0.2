@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import inspect
 
+import pytest
+
 from saju_engines import element_operability_grade as mod
 from saju_engines.element_operability_grade import (
     OPERABILITY_ANCHOR,
@@ -22,6 +24,7 @@ from saju_engines.element_operability_profile import (
     CutOffStatus,
     ElementOperabilityProfile,
     ObstructionProfile,
+    RootDepth,
     RootProfile,
     RootStatus,
     StageApplicability,
@@ -35,10 +38,14 @@ def _profile(
     *, root: RootStatus, support: SupportStatus = SupportStatus.ABSENT,
     cut_off: CutOffStatus = CutOffStatus.CUT_OFF_ABSENT, stage: str | None = None,
     resolved: str | None = "水", evidence: tuple[str, ...] = (),
+    depth: str = "main_qi",
 ) -> ElementOperabilityProfile:
     return ElementOperabilityProfile(
         node_id="sewoon.stem:癸", raw_element="水", resolved_element=resolved,
-        root=RootProfile(root), support=SupportProfile(support),
+        root=RootProfile(
+            root, strongest_root_depth=RootDepth(depth),
+            has_main_qi_root=RootDepth(depth) is RootDepth.MAIN_QI),
+        support=SupportProfile(support),
         obstruction=ObstructionProfile(cut_off),
         stage=StageModifier(
             StageApplicability.APPLICABLE, stem="癸", branch="未", stage=stage,
@@ -118,6 +125,37 @@ def test_natal_root_with_stable_support_is_fully_operable() -> None:
         root=RootStatus.DIRECT_NATAL_ROOT,
         support=SupportStatus.INDIRECT_GENERATION_STABLE,
     ) is OperabilityStatus.FULLY_OPERABLE
+
+
+def test_non_main_qi_root_cannot_reach_fully_operable() -> None:
+    """중기·여기만으로는 최고 등급 자격이 없다 — 유근 자체는 유지된다(CAL-ROOT-01c)."""
+    for root in (RootStatus.DIRECT_NATAL_ROOT,
+                 RootStatus.DIRECT_NATAL_AND_TRANSIT_ROOT):
+        for support in SupportStatus:
+            for cut_off in CutOffStatus:
+                for stage in (None, "묘"):
+                    for depth in ("middle_qi", "residual_qi"):
+                        assert _status(
+                            root=root, support=support, cut_off=cut_off,
+                            stage=stage, depth=depth,
+                        ) is not OperabilityStatus.FULLY_OPERABLE
+
+
+def test_non_main_qi_root_is_still_rooted() -> None:
+    """무근 분기로 떨어지지 않는다 — 자격만 제한하고 유근 판정은 그대로다."""
+    rule = evaluate_element_operability(_profile(
+        root=RootStatus.DIRECT_NATAL_ROOT,
+        support=SupportStatus.INDIRECT_GENERATION_STABLE,
+        depth="middle_qi")).matched_rule_id
+    assert "ROOTLESS" not in rule
+    assert rule == "R20_NATAL_NON_MAIN_ROOT_CAP"
+
+
+def test_non_main_qi_cap_yields_operable_not_lower() -> None:
+    """한 단계만 제한한다 — PARTIALLY 로 추가 하향하지 않는다."""
+    assert _status(
+        root=RootStatus.DIRECT_NATAL_AND_TRANSIT_ROOT, depth="middle_qi",
+    ) is OperabilityStatus.OPERABLE
 
 
 def test_natal_root_survives_disrupted_support() -> None:
@@ -264,3 +302,15 @@ def test_output_carries_no_activation_axis() -> None:
     result = evaluate_element_operability(_profile(root=RootStatus.ABSENT))
     for field in vars(result):
         assert not any(w in field.lower() for w in _FORBIDDEN), field
+
+
+@pytest.mark.parametrize("depth", ["none", "unknown"])
+def test_missing_depth_is_not_treated_as_a_non_main_cap(depth: str) -> None:
+    """`has_main_qi_root=False` 는 중기·여기뿐 아니라 NONE·UNKNOWN 에서도 나온다.
+
+    직접 뿌리가 있는데 깊이가 NONE·UNKNOWN 인 것은 프로필 불변식 위반이다. 조용히
+    OPERABLE 로 낮추면 그 모순이 정상 결과로 흡수된다.
+    """
+    assert _status(
+        root=RootStatus.DIRECT_NATAL_AND_TRANSIT_ROOT, depth=depth,
+    ) is OperabilityStatus.FULLY_OPERABLE

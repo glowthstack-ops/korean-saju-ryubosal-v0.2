@@ -30,6 +30,7 @@ from enum import StrEnum
 from .element_operability_profile import (
     CutOffStatus,
     ElementOperabilityProfile,
+    RootDepth,
     RootStatus,
     SupportStatus,
 )
@@ -104,9 +105,26 @@ def _match_rule(profile: ElementOperabilityProfile) -> tuple[str, OperabilitySta
     support = profile.support.status
     stable_support = support is SupportStatus.INDIRECT_GENERATION_STABLE
 
+    # 정기 뿌리가 없으면 최고 등급 자격을 주지 않는다(CAL-ROOT-01c). 유근 여부는 그대로
+    # 유지하고 **자격만** 제한한다 — 중기·여기 차등 감점이나 가중치는 도입하지 않는다.
+    #
+    # `has_main_qi_root=False` 로 판정하지 않는다. 그 값은 중기·여기뿐 아니라 NONE·UNKNOWN
+    # 에서도 False 라서, 직접 뿌리가 있는데 깊이가 NONE 인 모순 조합까지 조용히 하향시킨다.
+    # 하향은 **명시적으로 중기·여기일 때만** 한다.
+    main_qi = profile.root.strongest_root_depth is RootDepth.MAIN_QI
+    non_main = profile.root.strongest_root_depth in (
+        RootDepth.MIDDLE_QI, RootDepth.RESIDUAL_QI)
+
     # ── 유근: 원국 + 운 ─────────────────────────────────────────────
     if profile.root.status is RootStatus.DIRECT_NATAL_AND_TRANSIT_ROOT:
+        if not cut_off and main_qi:
+            return "R10_NATAL_AND_TRANSIT_ROOT_CLEAR", OperabilityStatus.FULLY_OPERABLE
+        if not cut_off and non_main:
+            return ("R10_NATAL_AND_TRANSIT_NON_MAIN_ROOT_CAP",
+                    OperabilityStatus.OPERABLE)
         if not cut_off:
+            # 직접 뿌리인데 깊이가 NONE·UNKNOWN — 프로필 불변식 위반이다. 조용히 하향하지
+            # 않고 기존 결과를 유지한다.
             return "R10_NATAL_AND_TRANSIT_ROOT_CLEAR", OperabilityStatus.FULLY_OPERABLE
         if weak:
             return "R11_NATAL_AND_TRANSIT_ROOT_CUT_OFF_WEAK_STAGE", (
@@ -116,6 +134,8 @@ def _match_rule(profile: ElementOperabilityProfile) -> tuple[str, OperabilitySta
 
     # ── 유근: 원국 ─────────────────────────────────────────────────
     if profile.root.status is RootStatus.DIRECT_NATAL_ROOT:
+        if not cut_off and stable_support and non_main:
+            return "R20_NATAL_NON_MAIN_ROOT_CAP", OperabilityStatus.OPERABLE
         if not cut_off and stable_support:
             return "R20_NATAL_ROOT_STABLE_SUPPORT", OperabilityStatus.FULLY_OPERABLE
         if not cut_off:
