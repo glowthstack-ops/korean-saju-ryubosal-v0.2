@@ -32,6 +32,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from saju_manse_analysis.yongsin import candidates as cand_mod
+from saju_manse_analysis.yongsin import role_realization as realization_mod
 from saju_manse_analysis.yongsin.candidates import _classify_roles
 
 from saju_api.services.manse_service import calculate
@@ -94,30 +95,26 @@ def test_canonical_comes_from_the_complete_model_map_not_classify_roles() -> Non
     assert y.canonical_roles != _classify_roles(y.final["yongsin"])
 
 
-def test_promotion_requires_completeness_and_no_special_branch() -> None:
-    """승격 조건과 승격 시 대입원을 계산식으로 고정한다."""
+#: 실현 규칙(승격 조건·특수분기 우선·부분맵 폴백)은 **소스 문자열이 아니라 행동**으로
+#: `test_role_realization_boundary` 가 고정한다. 01c1-a 에서 경계를 뽑기 전에는 경로가
+#: 함수 안에 잠겨 있어 소스 pinning 밖에 방법이 없었다.
+
+
+def test_promotion_expression_lives_in_the_extracted_boundary() -> None:
+    """승격 판정이 `build_yongsin` 이 아니라 실현 경계에 있다."""
+    boundary = inspect.getsource(realization_mod.resolve_realized_roles)
+    assert "model_map_promoted = special_kind is None and model_complete" in boundary
+    assert "roles = {k: getattr(selected_model, k) for k in _ROLE_KEYS}" in boundary
+    # 호출부에는 판정식이 남아 있지 않다 — 경계 결과를 받아 쓰기만 한다.
     src = _source()
-    assert "model_map_promoted = not special_roles and model_complete" in src
-    assert "roles = {k: getattr(selected_model, k) for k in _ROLE_KEYS}" in src
-
-
-def test_special_branch_flag_is_set_before_promotion_gate() -> None:
-    """특수분기가 승격보다 우선한다.
-
-    근거는 근접성이 아니라 **같은 이름에 대한 대입 순서**다. `special_roles = True` 가 모두
-    `model_map_promoted` 계산보다 앞에서 실행되므로 특수분기는 승격에서 항상 제외된다.
-    """
-    src = _source()
-    gate = src.index("model_map_promoted = ")
-    flags = [i for i in range(len(src)) if src.startswith("special_roles = True", i)]
-    assert flags
-    assert all(i < gate for i in flags)
+    assert "model_map_promoted = not special_roles and model_complete" not in src
+    assert "model_map_promoted = realization.model_map_promoted" in src
 
 
 def test_incomplete_model_cannot_be_promoted() -> None:
-    """부분맵(johu·pattern_sangsin)은 5역할 완비가 아니라 승격되지 않는다."""
-    assert "model_complete = selected_model is not None and all(" in _source()
+    """부분맵(johu·pattern_sangsin)은 5역할 완비가 아니라 승격 대상이 아니다."""
     partial = [c for c in _case_a().candidate_models if c.is_auxiliary]
+    assert partial
     assert any(
         any(getattr(c, k) is None for k in _ROLE_KEYS) for c in partial
     )
@@ -368,22 +365,44 @@ def _production_sources() -> list[Path]:
     return files
 
 
+def _referenced_names(path: Path) -> tuple[set[str], set[str]]:
+    """(import 된 모듈 경로, 코드에서 참조된 식별자).
+
+    **텍스트 검색이 아니라 AST 다.** 처음엔 문자열 스캔이었는데, 다른 모듈이 docstring
+    에서 "이 타입을 쓰지 않는다" 고 설명한 것까지 위반으로 잡았다(2026-08-03 실측).
+    주석·docstring 의 언급은 배선이 아니다.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    modules: set[str] = set()
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(a.name for a in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            modules.add(node.module or "")
+            names.update(a.name for a in node.names)
+        elif isinstance(node, ast.Name):
+            names.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            names.add(node.attr)
+    return modules, names
+
+
 def test_role_candidates_has_no_production_import() -> None:
     """`eeaed83` 계약은 SUPERSEDED — production import 가 0이어야 한다."""
     sources = _production_sources()
     assert len(sources) > 100, "production 소스 스캔 범위가 비었다"
     offenders = [
         str(p) for p in sources
-        if "role_candidates" in p.read_text(encoding="utf-8")
+        if any("role_candidates" in m for m in _referenced_names(p)[0])
     ]
     assert offenders == []
 
 
 def test_role_candidate_set_is_not_constructed_in_production() -> None:
     """타입 노출·직렬화·LLM 입력 어디에도 들어가지 않는다."""
+    banned = {"RoleCandidateSet", "RoleModelCandidate", "build_role_candidate_set"}
     offenders = [
-        str(p) for p in _production_sources()
-        if "RoleCandidateSet" in p.read_text(encoding="utf-8")
-        or "RoleModelCandidate" in p.read_text(encoding="utf-8")
+        str(p) for p in _production_sources() if _referenced_names(p)[1] & banned
     ]
     assert offenders == []

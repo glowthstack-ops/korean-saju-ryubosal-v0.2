@@ -37,6 +37,13 @@ from .operational_role_config import (
     TEN_GOD_HAP_MODE_PHRASE,
     TEN_GOD_HAP_REASON,
 )
+from .role_realization import (
+    _ROLE_KEYS,
+    _WEAK,
+    RoleRealizationChartContext,
+    _e,
+    resolve_realized_roles,
+)
 from .special_cases import detect_special_cases
 
 # 격각(隔位, 비인접) 판정용 인접 자리쌍 — 年月·月日·日時 만 인접. 나머지(年日·年時·月時)=격각.
@@ -46,14 +53,13 @@ _ADJ_POSITION_PAIRS = frozenset({
     frozenset({"day", "hour"}),
 })
 
-# 2계층 역할(YONGSIN_OPERATIONAL_ROLE_SPEC) — 역할 키 순서와 한글 라벨.
-_ROLE_KEYS = ("yongsin", "heesin", "gisin", "gusin", "hansin")
+# 2계층 역할(YONGSIN_OPERATIONAL_ROLE_SPEC) — 한글 라벨(키 순서 `_ROLE_KEYS` 는
+# role_realization 이 SSOT).
 _ROLE_KO = {
     "yongsin": "용신", "heesin": "희신", "gisin": "기신",
     "gusin": "구신", "hansin": "한신",
 }
 
-_WEAK = {"극신약", "태신약", "신약", "중화신약"}
 _NEUTRAL = {"중화", "중화신강"}
 _STRONG = {"신강", "태신강", "극신강"}
 _COLD_MONTHS = {Branch.HAE, Branch.JA, Branch.CHUK}
@@ -90,10 +96,6 @@ _DAMAGE_REPAIR: dict[str, str] = {
     "pyeonin_dosik": "wealth",                  # 재성으로 편인 제어
     "bigyeob_jaengjae": "officer",              # 관성으로 비겁 제어
 }
-
-
-def _e(el: Element) -> str:
-    return str(el)
 
 
 def _strongest_pressure(groups: dict[str, float]) -> str:
@@ -2043,53 +2045,37 @@ def build_yongsin(
         (e for e, (_s, _mdl, role) in useful_sorted if role == "yongsin"),
         useful_candidates[0].element if useful_candidates else None,
     )
-    roles = _classify_roles(yongsin_el)
-    special_roles = False  # bridge/무비겁 특수분기 — 이미 맥락 교정된 맵(아래 교정 제외)
-    if top_model == "bridge_tonggwan" and yongsin_el:
-        roles, tiebreak_reason = _classify_bridge_roles(
-            g, groups, checks["bridge_required"].detail, useful, yongsin_el,
-            pillars, force, month_branch,
-        )
-        if tiebreak_reason:
-            warnings.append(tiebreak_reason)
-        special_roles = True
-    elif (
-        top_model == "support_day_master"
-        and band in _WEAK
-        and groups.get("peer", 0.0) <= 0.0
-        and yongsin_el == _e(g["peer"])
-    ):
-        roles = {
-            "yongsin": _e(g["peer"]),
-            "heesin": _e(g["resource"]),
-            "gisin": _e(g["output"]),
-            "gusin": _e(g["wealth"]),
-            "hansin": _e(g["officer"]),
-        }
-        special_roles = True
-
-    # 선택 모델(동일 model_type·yongsin 중 최고 confidence) — 희신 과다 교정과
-    # operational 계층이 함께 소비한다.
-    selected_model = next(
-        (
-            m
-            for m in sorted(models, key=lambda x: -x.confidence)
-            if m.model_type == top_model and m.yongsin == yongsin_el
-        ),
-        None,
-    )
-    model_complete = selected_model is not None and all(
-        getattr(selected_model, k) for k in _ROLE_KEYS
-    )
+    # 실현 경계(CAL-ROLE-BORDERLINE-01c1-a): 용신 오행이 정해진 뒤의 5역할 확정을
+    # 순수 경계로 뽑았다. 판정 순서·규칙은 그대로다 — 특수분기가 모델맵 승격보다 앞서고,
+    # 정적 생극 순환은 부분맵 모델과 특수분기의 폴백 전용이다.
+    #
     # 모델맵 채택(2026-07-12 데굴님 확정 — 전면): 정적 생극 순환은 원국 과다·강약·구조를
     # 무시하고 배정한다(실사용 오류: 살중용인에서 '水生木이니 水=희신'이 관살 압박을 길로
     # 판정 / 신강 억부 희=비겁 / 군겁쟁재 희=재성 / 식상과다 희=관성 / 인성과다 병을 한신·
     # 구신으로 방치). 각 모델의 자체 역할맵이 구조 교정값이므로 **5역할 완비 선택 모델은
-    # final 도 자체맵을 채택**한다. 정적 순환은 부분맵 모델(johu/pattern/disease 등)과
-    # bridge/무비겁 특수분기(이미 맥락 교정된 맵)의 폴백 전용.
-    model_map_promoted = not special_roles and model_complete
-    if model_map_promoted:
-        roles = {k: getattr(selected_model, k) for k in _ROLE_KEYS}
+    # final 도 자체맵을 채택**한다.
+    realization = resolve_realized_roles(
+        chart_context=RoleRealizationChartContext(
+            group_elements=g,
+            group_strengths=groups,
+            strength_band=band,
+            pillars=pillars,
+            force=force,
+            month_branch=month_branch,
+            bridge_required_detail=checks["bridge_required"].detail,
+        ),
+        selected_yongsin_element=yongsin_el,
+        useful_scores=useful,
+        model_outputs=models,
+        top_model_type=top_model,
+        static_classifier=_classify_roles,
+        bridge_classifier=_classify_bridge_roles,
+    )
+    warnings.extend(realization.warnings)  # 통관 동점 타이브레이크 사유 — 순서 유지
+    roles = realization.final_role_map.as_dict()
+    selected_model = realization.selected_model
+    model_complete = realization.model_complete
+    model_map_promoted = realization.model_map_promoted
 
     final = {
         **roles,
