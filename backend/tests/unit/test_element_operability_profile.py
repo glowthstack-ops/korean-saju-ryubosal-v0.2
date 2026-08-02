@@ -238,3 +238,94 @@ def test_signature_and_output_carry_no_judgement() -> None:
     for field, value in vars(profile).items():
         assert not any(w in field.lower() for w in _FORBIDDEN), field
         assert not isinstance(value, float), f"수치 유입: {field}"
+
+
+# ── 지장간 깊이 (CAL-ROOT-01b) ───────────────────────────────────────────
+
+
+def test_hidden_stem_depth_mapping_covers_all_twelve_branches() -> None:
+    """배열 길이로 역할을 배정하지 않는다 — 지지마다 지장간이 1~3개로 다르다."""
+    from saju_engines.element_operability_profile import (
+        RootDepth,
+        hidden_stems_with_depth,
+    )
+    from saju_shared_types.enums import Branch
+
+    for branch in Branch:
+        pairs = hidden_stems_with_depth(branch)
+        depths = [d for _stem, d in pairs]
+        assert pairs, branch.value
+        assert depths.count(RootDepth.MAIN_QI) == 1, branch.value
+        assert RootDepth.NONE not in depths and RootDepth.UNKNOWN not in depths
+        if len(pairs) == 1:
+            assert depths == [RootDepth.MAIN_QI]
+        if len(pairs) == 3:
+            assert set(depths) == {
+                RootDepth.MAIN_QI, RootDepth.MIDDLE_QI, RootDepth.RESIDUAL_QI}
+
+
+def test_main_qi_root_is_detected() -> None:
+    """子의 정기 癸水 — 水의 MAIN_QI 뿌리."""
+    from saju_engines.element_operability_profile import RootDepth
+    profile = _extract(_stem("sewoon", "", "癸", "水"), [_n("natal", "day", "子")])
+    assert profile.root.strongest_root_depth is RootDepth.MAIN_QI
+    assert profile.root.has_main_qi_root is True
+    # 子의 지장간은 壬(여기)·癸(정기) 로 **둘 다 水** 다 — 인스턴스마다 깊이가 다르다.
+    assert any(i.depth is RootDepth.MAIN_QI for i in profile.root.instances)
+    assert {i.depth for i in profile.root.instances} >= {RootDepth.MAIN_QI}
+
+
+def test_residual_only_root_is_not_main_qi() -> None:
+    """申의 여기 戊土 — 土 뿌리이되 정기가 아니다."""
+    from saju_engines.element_operability_profile import RootDepth
+    profile = _extract(_stem("sewoon", "", "戊", "土"), [_n("natal", "day", "申")])
+    assert profile.root.status is RootStatus.DIRECT_NATAL_ROOT   # 유근은 유지
+    assert profile.root.strongest_root_depth is RootDepth.RESIDUAL_QI
+    assert profile.root.has_main_qi_root is False
+
+
+def test_scope_depths_are_preserved_separately() -> None:
+    """원국 여기 + 운 정기 → 전체는 MAIN_QI, 범위별 값은 따로 남는다."""
+    from saju_engines.element_operability_profile import RootDepth
+    profile = _extract(
+        _stem("sewoon", "", "戊", "土"),
+        [_n("natal", "day", "申"), _n("daewoon", "", "戌")])
+    assert profile.root.natal_root_depth is RootDepth.RESIDUAL_QI
+    assert profile.root.transit_root_depth is RootDepth.MAIN_QI
+    assert profile.root.strongest_root_depth is RootDepth.MAIN_QI
+    assert profile.root.has_main_qi_root is True
+
+
+def test_no_direct_root_is_none_not_unknown() -> None:
+    """조사했으나 뿌리가 없는 것과 판정 불가는 다르다."""
+    from saju_engines.element_operability_profile import RootDepth
+    profile = _extract(_stem("sewoon", "", "癸", "水"), [_n("natal", "year", "酉")])
+    assert profile.root.strongest_root_depth is RootDepth.NONE
+    assert profile.root.has_main_qi_root is False
+
+
+def test_unresolved_element_yields_unknown_depth() -> None:
+    from saju_engines.element_operability_profile import RootDepth
+    target = ProfileTarget(
+        "daewoon.branch:亥", "daewoon", "", "branch", "亥", "水", None)
+    profile = _extract(target, [_n("natal", "day", "子")])
+    assert profile.root.strongest_root_depth is RootDepth.UNKNOWN
+
+
+def test_indirect_generation_never_enters_root_depth() -> None:
+    """금생수를 水의 RESIDUAL_QI 로 올리면 뿌리와 생조의 구분이 무너진다."""
+    from saju_engines.element_operability_profile import RootDepth
+    profile = _extract(_stem("sewoon", "", "癸", "水"), [_n("natal", "year", "酉")])
+    assert profile.support.status is SupportStatus.INDIRECT_GENERATION_STABLE
+    assert profile.root.strongest_root_depth is RootDepth.NONE
+
+
+def test_combine_prefers_the_deepest_but_unknown_wins() -> None:
+    """한 범위가 판정 불가면 '확실히 MAIN_QI' 라고 말할 수 없다 — 보수적으로 UNKNOWN."""
+    from saju_engines.element_operability_profile import RootDepth, combine_root_depths
+    assert combine_root_depths(
+        RootDepth.RESIDUAL_QI, RootDepth.MAIN_QI) is RootDepth.MAIN_QI
+    assert combine_root_depths(
+        RootDepth.NONE, RootDepth.MIDDLE_QI) is RootDepth.MIDDLE_QI
+    assert combine_root_depths(
+        RootDepth.MAIN_QI, RootDepth.UNKNOWN) is RootDepth.UNKNOWN

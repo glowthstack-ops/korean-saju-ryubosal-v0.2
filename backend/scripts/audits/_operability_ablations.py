@@ -22,30 +22,11 @@ from saju_engines.element_operability_grade import (
     OPERABILITY_ANCHOR,
     OperabilityStatus,
 )
+from saju_engines.element_operability_profile import RootDepth
 
 #: 이름 있는 ablation. boolean 플래그로 두면 나중에 다른 정책과 결과를 구별할 수 없다.
 ROOT_DEPTH_MAIN_QI_FULLY_CAP_V1 = "root-depth-main-qi-fully-cap-v1"
 KNOWN_ABLATIONS = (ROOT_DEPTH_MAIN_QI_FULLY_CAP_V1,)
-
-
-class RootDepth(StrEnum):
-    """직접 뿌리의 지장간 깊이. `INDIRECT_GENERATION` 은 여기 포함되지 않는다."""
-
-    MAIN_QI = "main_qi"
-    MIDDLE_QI = "middle_qi"
-    RESIDUAL_QI = "residual_qi"
-    NONE = "none"
-    UNKNOWN = "unknown"
-
-
-_ORDER = {
-    RootDepth.MAIN_QI: 3, RootDepth.MIDDLE_QI: 2,
-    RootDepth.RESIDUAL_QI: 1, RootDepth.NONE: 0, RootDepth.UNKNOWN: -1,
-}
-_BY_TYPE = {
-    "main": RootDepth.MAIN_QI, "middle": RootDepth.MIDDLE_QI,
-    "residual": RootDepth.RESIDUAL_QI,
-}
 
 
 class AblationReason(StrEnum):
@@ -61,27 +42,18 @@ class RootDepthProfile:
     has_main_qi_root: bool
 
 
-def _deepest(depths: list[RootDepth]) -> RootDepth:
-    return max(depths, key=lambda d: _ORDER[d]) if depths else RootDepth.NONE
-
-
 def derive_root_depth_for_audit(profile: Any) -> RootDepthProfile:
-    """뿌리 인스턴스에서 깊이를 뽑는다. 여러 뿌리면 **가장 깊은 자격**을 대표로 쓴다."""
-    if profile.resolved_element is None:
-        return RootDepthProfile(
-            RootDepth.UNKNOWN, RootDepth.UNKNOWN, RootDepth.UNKNOWN, False)
-    natal, transit = [], []
-    for instance in profile.root.instances:
-        depth = _BY_TYPE.get(instance.hidden_stem_type)
-        if depth is None:
-            continue
-        (natal if instance.layer == "natal" else transit).append(depth)
-    natal_depth, transit_depth = _deepest(natal), _deepest(transit)
-    strongest = _deepest([natal_depth, transit_depth])
+    """production 프로필이 이미 계산한 깊이를 그대로 읽는다.
+
+    **복사본을 두지 않는다.** 감사 overlay 가 깊이를 다시 계산하면, 01d 에서 결과가 같아도
+    "같은 판정을 썼다" 가 아니라 "우연히 일치했다" 가 되어 재현이 무의미해진다.
+    """
+    root = profile.root
     return RootDepthProfile(
-        natal_root_depth=natal_depth, transit_root_depth=transit_depth,
-        strongest_root_depth=strongest,
-        has_main_qi_root=strongest is RootDepth.MAIN_QI,
+        natal_root_depth=root.natal_root_depth,
+        transit_root_depth=root.transit_root_depth,
+        strongest_root_depth=root.strongest_root_depth,
+        has_main_qi_root=root.has_main_qi_root,
     )
 
 
