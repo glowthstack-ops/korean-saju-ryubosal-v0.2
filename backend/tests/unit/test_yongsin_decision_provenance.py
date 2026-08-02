@@ -108,7 +108,7 @@ def test_promotion_expression_lives_in_the_extracted_boundary() -> None:
     # 호출부에는 판정식이 남아 있지 않다 — 경계 결과를 받아 쓰기만 한다.
     src = _source()
     assert "model_map_promoted = not special_roles and model_complete" not in src
-    assert "model_map_promoted = realization.model_map_promoted" in src
+    assert "model_map_promoted = realized.model_map_promoted" in src
 
 
 def test_incomplete_model_cannot_be_promoted() -> None:

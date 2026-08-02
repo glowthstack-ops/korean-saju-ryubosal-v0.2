@@ -2036,10 +2036,9 @@ def build_yongsin(
         status = "candidate"
 
     # selected_model/confidence는 실제 top 용신을 만든 모델로 보고(첫 생성 모델 아님).
+    # `top_model` 도출은 실현 경계 안으로 옮겼다 — 강제 용신 재생이 primary 의 모델을
+    # 물려받지 않게 하려면 용신 오행과 함께 다시 정해져야 한다(01c1-b0).
     model_conf = {m.model_type: m.confidence for m in models}
-    top_model = useful_candidates[0].model if useful_candidates else (
-        models[0].model_type if models else None
-    )
     # 용·희·기·구·한 최종 배정: 용신 기준 생극 구조로 1개씩 분할.
     yongsin_el = next(
         (e for e, (_s, _mdl, role) in useful_sorted if role == "yongsin"),
@@ -2065,17 +2064,19 @@ def build_yongsin(
             bridge_required_detail=checks["bridge_required"].detail,
         ),
         selected_yongsin_element=yongsin_el,
+        useful_candidates=useful_candidates,
         useful_scores=useful,
         model_outputs=models,
-        top_model_type=top_model,
         static_classifier=_classify_roles,
         bridge_classifier=_classify_bridge_roles,
     )
-    warnings.extend(realization.warnings)  # 통관 동점 타이브레이크 사유 — 순서 유지
-    roles = realization.final_role_map.as_dict()
-    selected_model = realization.selected_model
-    model_complete = realization.model_complete
-    model_map_promoted = realization.model_map_promoted
+    realized = realization.result
+    warnings.extend(realized.warnings)  # 통관 동점 타이브레이크 사유 — 순서 유지
+    roles = realized.final_role_map.as_dict()
+    top_model = realized.top_model_type
+    selected_model = realization.selected_model_ref  # 읽기 전용 참조
+    model_complete = realized.model_complete
+    model_map_promoted = realized.model_map_promoted
 
     final = {
         **roles,

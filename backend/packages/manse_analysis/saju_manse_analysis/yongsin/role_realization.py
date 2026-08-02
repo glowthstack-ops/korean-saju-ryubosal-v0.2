@@ -22,7 +22,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum
 from typing import Protocol
@@ -30,7 +30,7 @@ from typing import Protocol
 from saju_shared_types.analysis import ForceAnalysis
 from saju_shared_types.enums import Branch, Element
 from saju_shared_types.pillars import FourPillarsResult
-from saju_shared_types.yongsin import YongsinCandidateModel
+from saju_shared_types.yongsin import ElementCandidate, YongsinCandidateModel
 
 #: 2계층 역할(YONGSIN_OPERATIONAL_ROLE_SPEC) — 역할 키 순서.
 _ROLE_KEYS = ("yongsin", "heesin", "gisin", "gusin", "hansin")
@@ -93,7 +93,11 @@ class RoleRealizationChartContext:
 
 @dataclass(frozen=True)
 class RoleRealizationResult:
-    """실현 판정의 전체 근거. 어느 갈래로 갔는지를 사후에 재구성할 수 있어야 한다."""
+    """실현 판정의 **의미론** 전체. 비교·fingerprint·회귀의 대상은 이것뿐이다.
+
+    mutable 모델 객체는 여기 들어오지 않는다 — identity 가 의미론 비교에 섞이거나
+    fingerprint·직렬화에 우연히 실려 나가는 통로를 아예 만들지 않는다.
+    """
 
     selected_yongsin_element: str | None
     top_model_type: str | None
@@ -108,8 +112,21 @@ class RoleRealizationResult:
     reason_codes: tuple[str, ...]
     #: 특수분기가 만든 경고. 순수성을 지키려고 호출부의 리스트를 직접 건드리지 않는다.
     warnings: tuple[str, ...]
-    #: 후속 operational 계층이 소비하는 선택 모델 **참조**. 여기서 변형하지 않는다.
-    selected_model: YongsinCandidateModel | None
+
+
+@dataclass(frozen=True)
+class RoleRealizationExecution:
+    """의미론 결과 + 운영 참조.
+
+    `selected_model_ref` 는 **출력 전용**이다. 기존 operational 계층이 읽기 전용으로
+    소비하라고 넘기는 값이지, 다음 replay 의 입력 자원이 아니다. 강제 용신 재생에서
+    이 참조를 입력으로 되먹이면 primary 의 모델이 살아남아 반사실이 오염된다.
+    """
+
+    result: RoleRealizationResult
+    selected_model_ref: YongsinCandidateModel | None = field(
+        compare=False, repr=False, hash=False,
+    )
 
 
 class StaticRoleClassifier(Protocol):
@@ -134,38 +151,72 @@ class BridgeRoleClassifier(Protocol):
     ) -> tuple[dict[str, str | None], str | None]: ...
 
 
+def _derive_top_model_type(
+    selected_yongsin_element: str | None,
+    useful_candidates: Sequence[ElementCandidate],
+    model_outputs: Sequence[YongsinCandidateModel],
+) -> str | None:
+    """선택된 용신 오행을 만든 모델 종류.
+
+    production 은 `useful_candidates[0].model` 을 쓴다. 정렬 키가
+    `(role == "yongsin", score)` 내림차순이라 yongsin 역할 후보가 하나라도 있으면
+    index 0 이 곧 확정된 용신 오행의 후보이고, 하나도 없으면 용신 오행 자체가
+    index 0 에서 나온다 — 두 규칙은 **항상 같은 항목**을 가리킨다(8건 코호트 실측).
+
+    그런데도 오행 기준으로 뽑는 이유는 강제 용신 재생 때문이다. index 0 고정을 그대로
+    두면 용신만 바꾼 반사실 실행이 primary 의 모델을 그대로 물려받아 실현 경로가
+    오염된다.
+    """
+    if not useful_candidates:
+        return model_outputs[0].model_type if model_outputs else None
+    if selected_yongsin_element is None:
+        return useful_candidates[0].model
+    for candidate in useful_candidates:
+        if candidate.element == selected_yongsin_element:
+            return candidate.model
+    return None  # 그 오행을 만든 후보가 없다 — 물려받지 않는다
+
+
 def resolve_realized_roles(
     *,
     chart_context: RoleRealizationChartContext,
     selected_yongsin_element: str | None,
+    useful_candidates: Sequence[ElementCandidate],
     useful_scores: Mapping[str, tuple[float, str, str]],
     model_outputs: Sequence[YongsinCandidateModel],
-    top_model_type: str | None,
     static_classifier: StaticRoleClassifier,
     bridge_classifier: BridgeRoleClassifier,
-) -> RoleRealizationResult:
+) -> RoleRealizationExecution:
     """용신 오행이 정해진 뒤의 5역할 확정을 그대로 재현한다.
 
     판정 순서는 기존 코드와 같다. **특수분기가 승격보다 앞선다** — 통관·무비겁 맵은
     이미 맥락 교정값이라 모델맵으로 덮으면 안 된다.
 
+        ⓪ 용신 오행을 만든 모델 종류를 다시 도출한다
         ① 정적 생극 순환으로 base 를 만든다
         ② 통관·무비겁이면 그 맵으로 교체하고 special 로 표시한다
         ③ 선택 모델(동일 model_type·yongsin 중 최고 confidence)을 찾는다
         ④ special 이 아니고 5역할 완비면 그 모델의 자체 역할표로 승격한다
 
+    **강제할 수 있는 입력은 용신 오행 하나뿐이다.** `top_model`·`selected_model`·
+    `model_complete`·`model_map_promoted` 는 입력으로 받지 않고 여기서 다시 정한다 —
+    받으면 반사실 재생이 primary 의 판정을 물려받는다.
+
     Args:
         chart_context: 특수분기가 쓰는 원국 맥락.
-        selected_yongsin_element: 이미 확정된 용신 오행(없으면 None).
+        selected_yongsin_element: 확정(또는 강제)된 용신 오행. 없으면 None.
+        useful_candidates: 오행 단위 후보. 모델 종류 도출에 쓴다.
         useful_scores: 통관 희신 폴백이 참조하는 후보 점수표.
         model_outputs: 후보 모델 전체.
-        top_model_type: 최상위 후보를 만든 모델 종류.
         static_classifier: 정적 생극 분류기(호출부 주입 — 순환 import 방지).
         bridge_classifier: 통관 분류기(호출부 주입).
 
     Returns:
-        실현 결과. 역할표는 frozen 이고 `as_dict()` 는 매번 새 dict 를 만든다.
+        의미론 결과 + 운영 참조. 역할표는 frozen 이고 `as_dict()` 는 매번 새 dict 다.
     """
+    top_model_type = _derive_top_model_type(
+        selected_yongsin_element, useful_candidates, model_outputs
+    )
     base_map = static_classifier(selected_yongsin_element)
     roles: dict[str, str | None] = dict(base_map)
     reason_codes: list[str] = []
@@ -235,18 +286,20 @@ def resolve_realized_roles(
     confidence = (
         Decimal(str(selected_model.confidence)) if selected_model is not None else None
     )
-    return RoleRealizationResult(
-        selected_yongsin_element=selected_yongsin_element,
-        top_model_type=top_model_type,
-        selected_model_type=selected_model.model_type if selected_model else None,
-        selected_model_confidence=confidence,
-        special_role_kind=special_kind,
-        model_complete=model_complete,
-        model_map_promoted=model_map_promoted,
-        base_role_map=RealizedRoleMap.from_mapping(base_map),
-        final_role_map=RealizedRoleMap.from_mapping(roles),
-        realization_origin=origin,
-        reason_codes=tuple(reason_codes),
-        warnings=tuple(warnings),
-        selected_model=selected_model,
+    return RoleRealizationExecution(
+        result=RoleRealizationResult(
+            selected_yongsin_element=selected_yongsin_element,
+            top_model_type=top_model_type,
+            selected_model_type=selected_model.model_type if selected_model else None,
+            selected_model_confidence=confidence,
+            special_role_kind=special_kind,
+            model_complete=model_complete,
+            model_map_promoted=model_map_promoted,
+            base_role_map=RealizedRoleMap.from_mapping(base_map),
+            final_role_map=RealizedRoleMap.from_mapping(roles),
+            realization_origin=origin,
+            reason_codes=tuple(reason_codes),
+            warnings=tuple(warnings),
+        ),
+        selected_model_ref=selected_model,
     )

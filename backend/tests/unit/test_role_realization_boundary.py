@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+import inspect
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -22,6 +24,7 @@ import pytest
 from saju_manse_analysis.yongsin import candidates as cand_mod
 from saju_manse_analysis.yongsin.role_realization import (
     RoleRealizationOrigin,
+    RoleRealizationResult,
     resolve_realized_roles,
 )
 
@@ -75,11 +78,44 @@ def test_boundary_is_on_the_production_path(monkeypatch) -> None:
     """포획된 인자가 실제 산출과 이어진다 — 죽은 코드가 아니다."""
     y, kwargs = _capture(_CASE_A, monkeypatch)
     assert kwargs["selected_yongsin_element"] == y.final["yongsin"]
-    assert kwargs["top_model_type"] == y.final["selected_model"]
     assert set(kwargs) == {
-        "chart_context", "selected_yongsin_element", "useful_scores",
-        "model_outputs", "top_model_type", "static_classifier", "bridge_classifier",
+        "chart_context", "selected_yongsin_element", "useful_candidates",
+        "useful_scores", "model_outputs", "static_classifier", "bridge_classifier",
     }
+
+
+def test_resolver_does_not_accept_derived_decisions_as_input() -> None:
+    """강제할 수 있는 것은 용신 오행 하나뿐이다.
+
+    `top_model`·`selected_model`·`model_complete`·`model_map_promoted` 를 입력으로
+    받으면 강제 용신 재생이 primary 의 판정을 그대로 물려받아 반사실이 성립하지 않는다.
+    """
+    params = set(inspect.signature(resolve_realized_roles).parameters)
+    forbidden = {
+        "top_model_type", "top_model", "selected_model", "selected_model_ref",
+        "selected_model_type", "model_complete", "model_map_promoted",
+        "special_role_kind", "final_role_map",
+    }
+    assert params & forbidden == set()
+
+
+def test_derived_top_model_matches_the_production_rule(monkeypatch) -> None:
+    """오행 기준 도출이 production 의 index-0 규칙과 코호트 전건에서 같다.
+
+    정렬 키가 `(role == "yongsin", score)` 내림차순이라 yongsin 역할 후보가 있으면
+    index 0 이 곧 확정 용신의 후보다. 그런데도 오행 기준으로 뽑는 이유는 강제 재생
+    때문이며, 두 규칙이 실제로 같은지를 여기서 고정한다.
+    """
+    for birth_date, birth_time, gender in _COHORT:
+        birth = BirthInput(
+            birth_date=birth_date, birth_time=birth_time, birth_place_name="서울",
+            gender=gender, reference_date=date(2026, 7, 27),
+        )
+        y, kwargs = _capture(birth, monkeypatch)
+        candidates = kwargs["useful_candidates"]
+        production_rule = candidates[0].model if candidates else None
+        derived = resolve_realized_roles(**kwargs).result.top_model_type
+        assert derived == production_rule == y.final["selected_model"]
 
 
 # ── primary 土 재현 ──────────────────────────────────────────────────────
@@ -88,7 +124,7 @@ def test_boundary_is_on_the_production_path(monkeypatch) -> None:
 def test_primary_case_a_replay_matches_the_contract(monkeypatch) -> None:
     """사례 A 의 실제 선택(土)을 그대로 넣어 재생한다."""
     y, kwargs = _capture(_CASE_A, monkeypatch)
-    replay = resolve_realized_roles(**kwargs)
+    replay = resolve_realized_roles(**kwargs).result
 
     assert replay.selected_yongsin_element == "土"
     assert replay.selected_model_type == "eokbu_normal"
@@ -109,7 +145,8 @@ def test_primary_case_a_replay_matches_the_contract(monkeypatch) -> None:
 def test_primary_replay_equals_production_canonical(monkeypatch) -> None:
     """재생 결과가 production canonical 5역할과 전부 같다."""
     y, kwargs = _capture(_CASE_A, monkeypatch)
-    assert resolve_realized_roles(**kwargs).final_role_map.as_dict() == y.canonical_roles
+    execution = resolve_realized_roles(**kwargs)
+    assert execution.result.final_role_map.as_dict() == y.canonical_roles
 
 
 def test_replay_is_deterministic_and_leaves_inputs_untouched(monkeypatch) -> None:
@@ -133,7 +170,7 @@ def test_replay_is_deterministic_and_leaves_inputs_untouched(monkeypatch) -> Non
 def test_role_map_hands_out_fresh_dicts(monkeypatch) -> None:
     """`as_dict()` 를 바꿔도 결과가 흔들리지 않는다 — mutable 내부 상태를 넘기지 않는다."""
     _, kwargs = _capture(_CASE_A, monkeypatch)
-    replay = resolve_realized_roles(**kwargs)
+    replay = resolve_realized_roles(**kwargs).result
     borrowed = replay.final_role_map.as_dict()
     borrowed["yongsin"] = "破壞"
     assert replay.final_role_map.as_dict()["yongsin"] == "土"
@@ -148,9 +185,9 @@ def test_role_map_hands_out_fresh_dicts(monkeypatch) -> None:
 def test_missing_selected_model_falls_back_to_static_map(monkeypatch) -> None:
     """선택 모델을 못 찾으면 승격하지 않고 정적 생극 폴백을 쓴다."""
     _, kwargs = _capture(_CASE_A, monkeypatch)
-    replay = resolve_realized_roles(**{**kwargs, "model_outputs": ()})
+    replay = resolve_realized_roles(**{**kwargs, "model_outputs": ()}).result
 
-    assert replay.selected_model is None
+    assert replay.selected_model_type is None
     assert replay.model_complete is False
     assert replay.model_map_promoted is False
     assert replay.realization_origin is RoleRealizationOrigin.STATIC_FALLBACK_ROLE_MAP
@@ -163,12 +200,19 @@ def test_partial_model_falls_back_to_static_map(monkeypatch) -> None:
     _, kwargs = _capture(_CASE_A, monkeypatch)
     partial = [m for m in kwargs["model_outputs"] if m.is_auxiliary]
     assert partial, "부분맵 모델이 없으면 이 갈래를 검증할 수 없다"
-    forced = [m.model_copy(update={"yongsin": "土"}) for m in partial]
+    forced_models = [m.model_copy(update={"yongsin": "土"}) for m in partial]
+    # 모델 종류는 후보표에서 도출되므로 후보표도 함께 부분맵 모델을 가리켜야 한다.
+    forced_candidates = [
+        c.model_copy(update={"model": forced_models[0].model_type})
+        if c.element == "土" else c
+        for c in kwargs["useful_candidates"]
+    ]
 
     replay = resolve_realized_roles(**{
-        **kwargs, "model_outputs": forced, "top_model_type": forced[0].model_type,
-    })
-    assert replay.selected_model is not None
+        **kwargs, "model_outputs": forced_models,
+        "useful_candidates": forced_candidates,
+    }).result
+    assert replay.selected_model_type == forced_models[0].model_type
     assert replay.model_complete is False
     assert replay.model_map_promoted is False
     assert replay.realization_origin is RoleRealizationOrigin.STATIC_FALLBACK_ROLE_MAP
@@ -208,7 +252,7 @@ def test_realization_origin_is_recorded_per_case(monkeypatch) -> None:
             gender=gender, reference_date=date(2026, 7, 27),
         )
         y, kwargs = _capture(birth, monkeypatch)
-        replay = resolve_realized_roles(**kwargs)
+        replay = resolve_realized_roles(**kwargs).result
         assert replay.final_role_map.as_dict() == y.canonical_roles
         assert replay.selected_yongsin_element == y.final["yongsin"]
         seen.add(replay.realization_origin)
@@ -225,11 +269,42 @@ def test_special_branch_precedes_model_map_promotion(monkeypatch) -> None:
         gender="male", reference_date=date(2026, 7, 27),
     )
     y, kwargs = _capture(bridge, monkeypatch)
-    replay = resolve_realized_roles(**kwargs)
+    replay = resolve_realized_roles(**kwargs).result
     assert replay.special_role_kind == "bridge_tonggwan"
     assert replay.model_map_promoted is False
     assert replay.realization_origin is RoleRealizationOrigin.BRIDGE_SPECIAL_ROLE_MAP
     assert replay.final_role_map.as_dict() == y.canonical_roles
+
+
+# ── selected_model_ref 오염 방지 (01c1-b0) ──────────────────────────────
+
+
+def test_semantic_result_holds_no_model_object() -> None:
+    """의미론 결과에 mutable 모델 객체가 없다 — identity 가 비교·지문에 새지 않는다."""
+    fields = {f.name for f in dataclasses.fields(RoleRealizationResult)}
+    assert "selected_model" not in fields
+    assert "selected_model_ref" not in fields
+    assert {"selected_model_type", "selected_model_confidence"} <= fields
+
+
+def test_model_ref_is_excluded_from_equality(monkeypatch) -> None:
+    """참조가 달라도 의미론이 같으면 같은 실행이다."""
+    _, kwargs = _capture(_CASE_A, monkeypatch)
+    execution = resolve_realized_roles(**kwargs)
+    assert execution.selected_model_ref is not None
+
+    stripped = dataclasses.replace(execution, selected_model_ref=None)
+    assert stripped == execution
+    assert stripped.result == execution.result
+    # 모델 **객체** 는 repr 에 실려 나가지 않는다(의미론 필드인 모델 종류는 남는다).
+    assert type(execution.selected_model_ref).__name__ not in repr(execution)
+    assert execution.result.selected_model_type == "eokbu_normal"
+
+
+def test_model_ref_is_not_reusable_as_replay_input() -> None:
+    """참조를 입력으로 되먹일 통로가 없다 — 시그니처에 자리가 없다."""
+    params = inspect.signature(resolve_realized_roles).parameters
+    assert not any("model_ref" in name for name in params)
 
 
 # ── eeaed83 비배선 유지 ──────────────────────────────────────────────────
