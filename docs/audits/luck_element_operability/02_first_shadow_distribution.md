@@ -9,13 +9,20 @@ production 영향  없음 — 플래그 3종 모두 기본 OFF
 ## 판정
 
 ```yaml
-production_nonregression_verdict: PASS
+production_nonregression_verdict: PASS      # ce90c32 에서 재검증(04 문서 §8)
+root_depth_semantics_verdict: PASS          # CAL-ROOT-DEPTH-01 완료
+relation_identity_verdict: PASS             # 9cd3722 과잉 전파 분리
+activation_resolution_verdict: OPEN         # CAL-ACTIVATION-RESOLUTION-01
 semantic_distribution_verdict: PASS_WITH_REVIEW
 overall_verdict: PASS_WITH_REVIEW
 ```
 
-두 축을 분리한다. 생산 비회귀는 R0~R3 매트릭스로 닫혔고, 분포 쪽은 **뿌리 판정이 과도하게
-관대**해 검토가 남는다(§9). 전체 verdict 는 `CAL-ROOT-DEPTH-01` 이 닫힌 뒤 올린다.
+verdict 를 축별로 나눈다. 하나로 뭉개면 "뿌리 문제가 남았는가" 와 "활성도 해상도가 열려
+있는가" 를 구별할 수 없다. 전체가 `PASS_WITH_REVIEW` 인 이유는 뿌리 정책 실패가 아니라
+`activation_resolution_verdict: OPEN` 이다.
+
+이 문서의 분포 수치는 **첫 측정 시점(뿌리 정책 변경 전)** 값이다. 이행 결과는
+`04_root_depth_migration.md` 를 본다.
 
 ---
 
@@ -237,7 +244,27 @@ target 4개 초과                                     0
 이는 P2-0 에서 확정한 "지장간 정기/중기/여기를 강도 계수로 바꾸지 않는다" 를 따른 결과이고
 **규칙 위반이 아니다.** 다만 실현도 등급이 상위에 몰리면 후속 계층에서 변별력이 떨어진다.
 
-### 확정된 방향 — CAL-ROOT-DEPTH-01
+### 조치 완료 — CAL-ROOT-DEPTH-01
+
+```
+초기 관측   FULLY_OPERABLE 67% · 모든 지장간 깊이가 최고등급 자격에 동일하게 작용
+조치        direct root 존재는 유지 · MAIN_QI 만 FULLY 자격 ·
+            MIDDLE_QI/RESIDUAL_QI 는 최대 OPERABLE
+결과        52 target 이 FULLY→OPERABLE · FULLY_OPERABLE 50.3% ·
+            UNKNOWN·무근·절각·12운성 분포 불변 · activation level 변경 0
+```
+
+**`FULLY 50.3%` 는 더 이상 결함 판정으로 쓰지 않는다.** 관측값은 높지만 기존 회귀 fixture 의
+편향 가능성이 있고, 남은 최고등급 행은 `MAIN_QI` 자격을 충족한다. 추가 하향은 별도 근거
+없이 수행하지 않는다.
+
+```
+해결   ROOT_DEPTH_OVERGENEROUS_FULLY_ELIGIBILITY
+신규   ACTIVATION_LEVEL_COMPRESSION
+       FULLY 와 OPERABLE 이 모두 HIGH — RootDepth 개선이 P3 해상도에 전달되지 않는다
+```
+
+#### 당시 확정한 방향 (기록)
 
 뿌리를 없애는 것이 아니라 **존재와 최고 등급 자격을 분리**한다(2026-08-01 확정).
 
