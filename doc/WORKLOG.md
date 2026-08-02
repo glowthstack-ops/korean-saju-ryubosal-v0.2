@@ -9178,3 +9178,33 @@ pytest 2309 passed·ruff·mypy clean. 후속 보류: 사건 의미축 완전 분
 - **미해결(사전 존재)**: `risk_exposure_readiness=DEGRADED`,
   `risk_bootstrap_reason=RISK_BOOTSTRAP_LEASE_INVALID`. 위험 엔진 lease 가 만료 상태다.
   이번 재기동으로 생긴 것이 아니라 주간 재검증 루틴 미실행 건이며 별도 처리가 필요하다.
+
+## 2026-08-02 — 위험 lease preflight (RISK-LEASE-REVALIDATION-01a)
+
+- **정정(철회)**: 앞선 기록의 `adapter_identity_hash=null` 가설을 철회한다. 실제 필드명은
+  `identity_hash` 이고 값이 있다(`24f64a029fc6c556`). 존재하지 않는 키를 조회해 `None` 을
+  받은 **측정 오류**였다. loader 는 `body["identity_hash"]` 를 비교하므로 그 경로는 정상이다.
+  이후 감사자가 같은 잘못된 추적을 반복하지 않도록 남긴다.
+- **현재 무효 사유**: `validation_expires_at` (2026-07-30T05:29Z) 경과 — **만료 단독**.
+  동일 model·identity·형식의 lease 를 발급 시각만 바꿔 두 번 확인해 재현했다.
+- **거부 경로**: identity 불일치 · model 불일치 · 서명 불일치 · 본문 손상 · 부재 · 만료 ·
+  runway 부족(현재 loader 가 정의한 것만). runway 는 `require_runway=False` 로 만료와 분리 확인.
+- **유료 예산(dry-run, provider 호출 0)**: 13형 × 3표본 = **39표본**,
+  countTokens 39 + generateContent 39 = **78콜**. S13 cache-hit replay 3건 포함
+  (공통 prefix `_KO × 175`, 정책 하한 8,192tok 상회). 요청 본문 문자 총합 149,882.
+- **운영 상태 불변**: `DEGRADED` / `BYPASS_UNVALIDATED` 유지. 운영 lease·readiness 미변경,
+  수동 연장·우회 없음.
+
+```yaml
+reported_null_identity_hypothesis: RETRACTED
+actual_lease_identity_present: PASS
+expiry_only_reproduction: PASS
+identity_write_read_roundtrip: PASS
+identity_mismatch_rejection: PASS
+loader_rejection_paths: PASS
+failure_preserves_degraded: PASS
+paid_call_budget_generated: PASS
+provider_calls: 0
+overall: IDENTITY_AND_LEASE_PREFLIGHT_PASS
+paid_validation_status: READY_FOR_EXPLICIT_APPROVAL
+```
