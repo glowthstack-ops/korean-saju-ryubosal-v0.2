@@ -64,10 +64,14 @@ LLM이 사주를 계산·추론하지 않는다. **만세력 엔진이 계산하
   | 게이트 | 명령 | 통과 표현 |
   |---|---|---|
   | 전체 pytest | `./scripts/run_suite.sh` | `VALID_SUITE_PASS` |
-  | 정적 검사 | `ruff check .` | `All checks passed` |
+  | 정적 검사 | `./scripts/lint.sh` | `All checks passed` |
   | production 타입 | `./scripts/typecheck.sh` | `production mypy gate clean` |
   | 유지 스크립트 타입 | `./scripts/typecheck_maintained_scripts.sh` | `maintained scripts mypy gate clean` |
+  | 4종 일괄 | `./scripts/gates.sh` (`--quick`=스위트 제외) | `GATE RECORD` 에 게이트별 state·exit |
   | full-tree mypy | `python -m mypy --no-incremental .` | 비차단 부채 감사 — production gate와 혼용 금지 |
+
+  - **게이트는 스크립트로만 호출한다.** 모든 게이트 스크립트가 호출 위치와 무관하게 저장소 루트를 스스로 확정한다. `cd backend && ruff check .` 처럼 손으로 묶으면, 호출자가 이미 `backend`에 있을 때 `cd`가 실패하고 `&&` 때문에 ruff는 **실행되지 않은 채** `cd`의 exit code 1이 lint 실패로 보고된다(2026-08-03 실측). **미실행과 실패는 다른 상태다.**
+  - 게이트 출력을 파이프로 넘기지 않는다. `ruff check . | tail -1`은 파이프라인 exit code가 `tail`의 것이라 ruff의 1을 삼킨다(2026-07-30 실측). exit code는 직접 읽는다.
 
   - **전체 pytest 스위트는 반드시 `./scripts/run_suite.sh`로 실행한다.** pytest exit code가 0이어도 실행 중 저장소 내용이 변경되면 결과는 유효하지 않다. 유효한 전체 스위트 통과는 다음을 **모두** 만족해야 한다.
     - `test_exit_code = 0`
