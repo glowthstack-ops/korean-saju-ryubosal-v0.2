@@ -68,13 +68,28 @@ def set_usage_sink(sink: Callable[..., None] | None) -> None:
 
 
 def _emit_usage(**fields: object) -> None:
-    """호출 1건을 sink로 보낸다(best-effort — 로깅 실패가 LLM 응답을 막지 않게)."""
+    """호출 1건을 sink로 보낸다(best-effort — 로깅 실패가 LLM 응답을 막지 않게).
+
+    **전달 정책은 그대로다** — 실패해도 재시도하지 않고 사용자 요청을 실패시키지 않는다.
+    다만 조용히 사라지지는 않는다. 이전에는 `except: pass` 라서 DB 장애 중 기록이 통째로
+    유실돼도 아무 신호가 없었고, 나중에 `llm_usage` 침묵을 '호출 없음'으로 읽을 수 있었다
+    (LLM-USAGE-OBSERVABILITY-01).
+
+    통지는 **같은 sink 에 의존하지 않는다** — 드롭을 세는 수단이 함께 드롭되면 계측이
+    무의미하다. 그래서 error sink 가 아니라 프로세스 로거로 직접 남긴다.
+    """
     if _usage_sink is None:
         return
     try:
         _usage_sink(**fields)
-    except Exception:  # noqa: BLE001 — 사용량 로깅 실패는 무시(응답 우선)
-        pass
+    except Exception as exc:  # noqa: BLE001 — 사용량 로깅 실패는 응답을 막지 않는다
+        _logger.error(
+            "event=usage_accounting_sink_write_failed sink_type=%s exception_type=%s "
+            "call_type=%s ref_id=%s surface=%s model=%s detail=%s",
+            type(_usage_sink).__name__, type(exc).__name__,
+            fields.get("call_type"), fields.get("ref_id"),
+            fields.get("surface"), fields.get("model"), str(exc)[:200],
+        )
 
 
 _config_cache: dict | None = None

@@ -176,9 +176,23 @@ def main() -> int:
 
     profile = copy.deepcopy(llm_client.load_config()["fallback"])
     print(f"모델: {profile['model']}  generation_extras: {profile.get('generation_extras')}")
+    # 회계 범위를 실행 결과에 드러낸다(LLM-USAGE-OBSERVABILITY-01). 이 smoke 는
+    # `_call_openai` 를 **직접** 불러 production 어댑터가 만드는 요청 그대로를 검증한다.
+    # 그래서 `generate_reading` 의 회계 깔때기를 지나지 않고, COST_LEDGER·llm_usage 어디에도
+    # 남지 않는다. 억지로 회계에 편입하면 smoke 가 상위 계층에 종속돼 목적이 훼손된다 —
+    # 대신 **제외 사실을 보이게** 한다.
+    print(
+        "billing_scope=diagnostic_unledgered "
+        "usage_ledger_recorded=false "
+        f"live_call_opt_in={str(args.confirm_live_call).lower()}"
+    )
     if not args.confirm_live_call:
         print("\n--confirm-live-call 미지정 — 외부 호출 없이 종료합니다(opt-in).")
         return 0
+    print(
+        "이 호출은 실제 provider 비용이 발생할 수 있지만 애플리케이션 COST_LEDGER 에는 "
+        "기록되지 않는 진단 호출입니다."
+    )
 
     results: dict[str, Any] = {}
 
