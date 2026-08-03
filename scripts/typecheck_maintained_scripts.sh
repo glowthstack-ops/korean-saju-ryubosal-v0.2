@@ -36,6 +36,8 @@ MAINTAINED=(
     scripts/audit_amhap_saturation.py
     scripts/audit_wealth_taxonomy_separability.py
     scripts/shadow_daewoon_hwa_post_selection.py
+    # 임계값 판정 기준선 — ROLE_CLOSE_MARGIN 을 조정할 때마다 같은 모집단으로 재측정한다
+    scripts/audits/measure_role_margin_census.py
 )
 
 missing=()

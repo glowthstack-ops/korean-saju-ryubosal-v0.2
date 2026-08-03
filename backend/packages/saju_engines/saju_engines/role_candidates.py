@@ -97,8 +97,9 @@ class RoleCandidateSet:
     primary: RoleModelCandidate
     alternate: RoleModelCandidate | None
     absolute_margin: Decimal | None
-    #: 진단용으로 보존하되 v1 게이트에는 쓰지 않는다 — 26 표본으로 두 번째 임계값을 세우면
-    #: 근거 없는 조건이 하나 더 생긴다.
+    #: 진단용으로 보존하되 v1 게이트에는 쓰지 않는다 — **13 independent charts** 로 두
+    #: 번째 임계값을 세우면 근거 없는 조건이 하나 더 생긴다. (초판은 "26 표본" 이라
+    #: 적었으나 성별 두 행이 같은 관측의 반복이라 유효 표본은 13 이다 — MC-A 실측.)
     relative_margin: Decimal | None
     role_map_equivalent: bool
     difference_kinds: tuple[RoleMapDifferenceKind, ...]
