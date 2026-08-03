@@ -1,11 +1,12 @@
 # 역할 실현 provenance 중간 감사 (CAL-ROLE-BORDERLINE-01c0)
 
 ```yaml
-overall: ROLE_REALIZATION_PROVENANCE_INCOMPLETE
+overall: C1B_PROVENANCE_DEPENDENT_ALTERNATIVE      # 01c1-c 확정
 ```
 
-**완료 감사가 아니라 checkpoint 다.** runner-up 을 동일한 production 실현 경로로 재생할 수
-있는지가 아직 증명되지 않았다.
+01c0 은 `ROLE_REALIZATION_PROVENANCE_INCOMPLETE` checkpoint 로 닫혔고, 01c1 의 세 슬라이스가
+그 미결을 해소했다. 아래 1~3장은 **01c0 시점의 기록을 그대로 둔다** — 정정 이력이 감사의
+본체이므로 결론이 바뀌었다고 덮어쓰지 않는다. 최종 판정은 7장에 있다.
 
 ### 검증 관계
 
@@ -371,3 +372,98 @@ margin census 도 진행하지 않는다. runner-up 역할표를 동일 producti
 ```
 
 **runner-up 水의 최종 역할표는 회귀 기대값으로 고정하지 않았다** — 아직 재생하지 않았다.
+(01c1-b1 에서 재생했다. 7장 참조.)
+
+---
+
+## 7. 종료 감사 — CAL-ROLE-BORDERLINE-01c1-c
+
+```yaml
+scenario: C1B_PROVENANCE_DEPENDENT_ALTERNATIVE
+
+primary_replay:                  PASS
+runner_up_standalone_replay:     PASS
+order_independence:              CONFIRMED
+repeated_replay_idempotence:     CONFIRMED
+input_immutability:              PASS
+model_provenance:                AVAILABLE
+selection_feedback:              NONE
+counterfactual_role_realization: CONFIRMED
+```
+
+### 슬라이스별 커밋
+
+```
+57b020e  01c1-a   실현 경계 inert 추출 + primary 土 재현
+ad8f7c2  01c1-b0  의미론 결과 / 모델 참조 분리 + top_model 상속 차단
+bef4166  01c1-b1  水 단독 fresh replay
+(이 커밋) 01c1-b2  5실행 순서 독립성 + 01c1-c 종료 감사
+```
+
+### 실현 경로 — 두 오행
+
+```
+土  eokbu_normal     조회 성공 · 완비   → 승격      COMPLETE_MODEL_ROLE_MAP
+    土 용 / 金 희 / 木 기 / 火 구 / 水 한        confidence 0.6033
+
+水  pattern_sangsin  조회 성공 · 부분맵 → 폴백      STATIC_FALLBACK_ROLE_MAP
+    水 용 / 金 희 / 土 기 / 火 구 / 木 한        confidence 0.7
+```
+
+runner-up origin 은 `COUNTERFACTUAL_STATIC_FALLBACK_MAP` 이다.
+
+**직접 원인을 함께 고정한다** — `STATIC_FALLBACK_FROM_INCOMPLETE_MODEL_MAP` 이지
+`STATIC_FALLBACK_FROM_MODEL_LOOKUP_MISS` 가 아니다. 결과가 같아도 계약이 다르고, 01c1-b0
+이전이라면 후자로 잘못 기록됐다(아래).
+
+### b0 이 판정을 갈랐다
+
+`top_model` 은 production 에서 `useful_candidates[0].model` 로 **index 가 고정**돼 있었다.
+그대로 두고 水 를 강제하면 primary 의 `eokbu_normal` 을 물려받고, 조회 키가
+`model_type == eokbu_normal AND yongsin == 水` 가 되어 실패한다. 같은
+`STATIC_FALLBACK`, 같은 역할표, **전혀 다른 근거**다.
+
+오행 기준 도출로 바꾸고 두 규칙의 동치를 고정했다 — 정렬 키가 `(role == "yongsin", score)`
+내림차순이라 yongsin 역할 후보가 있으면 index 0 이 곧 확정 용신의 후보이고, 없으면 용신
+오행 자체가 index 0 에서 나온다(8건 코호트 실측).
+
+### 순서 독립성
+
+```
+E1  fresh → 土        E2  fresh → 水        E3  fresh → 土 → 水
+E4  fresh → 水 → 土    E5  fresh → 水 → 水
+```
+
+세션 사이에만 재포획하고 세션 안에서는 하지 않는다 — 중간에 다시 포획하면 앞 실행의
+영향이 지워져 순서 의존성을 검출할 수 없다.
+
+```
+水 5종  E2 · E3.2 · E4.1 · E5.1 · E5.2   의미론 12필드 전건 동일
+土 3종  E1 · E3.1 · E4.2                 의미론 12필드 전건 동일
+입력 지문  모든 호출 전후 동일 (오행 제외 canonical fingerprint)
+되먹임    두 번째 호출 입력에 첫 실행 산출물 identity 부재
+```
+
+`selected_model_ref` 는 입력 모델을 그대로 돌려주는 통과 참조라 입력에서 그 id 가 보이는
+것은 되먹임이 아니다 — 구조 검사에서 분리했다.
+
+### 사후 비교는 근거가 아니다
+
+관측된 水 역할표가 `_classify_roles(水)` 와 같다. 실현 경로가 정적 폴백이었으니 당연하고,
+**반대로 이 일치를 보고 경로를 추정하면 01c0 의 오류를 반복한다.** origin 은 산출로만 정했다.
+
+### 해제되는 차단
+
+```yaml
+counterfactual_role_map: AVAILABLE      # 실현 경로·근거와 함께 보존 가능
+margin_census:           UNBLOCKED
+p3_alternate_projection: UNBLOCKED_PENDING_DESIGN
+
+eeaed83:
+  contract:           SUPERSEDED        # 유지
+  production_wiring:  CANCELLED         # 유지
+  replacement:        READY_FOR_DESIGN  # YongsinDecisionSet 은 RealizedRoleMap 을 재사용한다
+```
+
+`eeaed83` 은 여전히 배선하지 않는다. 대체 계약을 설계할 때 폐기된 `CanonicalRoleMap` 이
+아니라 production 이 실제로 쓰는 `RealizedRoleMap` 을 재사용한다.
