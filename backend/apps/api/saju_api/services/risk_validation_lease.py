@@ -26,13 +26,33 @@ from pathlib import Path
 
 from saju_engines import risk_engine_config
 
-__all__ = ["LEASE_TTL_DAYS", "MIN_RUNWAY_HOURS", "invalidate_lease",
-           "lease_path", "load_valid_lease", "write_lease"]
+__all__ = ["LEASE_STATUS_EXPIRED", "LEASE_STATUS_EXPIRING",
+           "LEASE_STATUS_IDENTITY_MISMATCH", "LEASE_STATUS_INVALIDATED",
+           "LEASE_STATUS_MISSING", "LEASE_STATUS_SIGNATURE_INVALID",
+           "LEASE_STATUS_VALID", "LEASE_TTL_DAYS", "MIN_RUNWAY_HOURS",
+           "invalidate_lease", "lease_path", "lease_status",
+           "load_valid_lease", "write_lease"]
 
 _logger = logging.getLogger("saju_api.risk")
 
 LEASE_TTL_DAYS = 7  # Preview 모델 — 백엔드 버전 변동 대비 짧은 유효기간
 MIN_RUNWAY_HOURS = 12  # 기동 시 최소 잔여 유효기간(만료 임박 기동 방지)
+
+# lease 진단 상태 — 운영 대응이 상태별로 다르므로 단일 INVALID로 합치지
+# 않는다(health 노출 시 "RISK_TOKEN_COUNTER_" + 값):
+#   MISSING            배포 산출물·볼륨 마운트 확인
+#   SIGNATURE_INVALID  변조·배포 이상 조사(또는 .env.risk 미로드)
+#   INVALIDATED        invalidate_lease 호출됨 — modelVersion 변경 조사
+#   IDENTITY_MISMATCH  모델·사전 변경 → manifest 재감수 필요
+#   EXPIRED            재검증 실행
+#   EXPIRING           만료 임박(runway 미달) — 만료 전 재검증
+LEASE_STATUS_VALID = "VALID"
+LEASE_STATUS_MISSING = "VALIDATION_MISSING"
+LEASE_STATUS_SIGNATURE_INVALID = "LEASE_SIGNATURE_INVALID"
+LEASE_STATUS_INVALIDATED = "LEASE_INVALIDATED"
+LEASE_STATUS_IDENTITY_MISMATCH = "IDENTITY_MISMATCH"
+LEASE_STATUS_EXPIRED = "LEASE_EXPIRED"
+LEASE_STATUS_EXPIRING = "LEASE_EXPIRING"
 
 _STATE_DIR = Path(__file__).resolve().parents[4] / "var" / "risk_state"
 
@@ -112,6 +132,76 @@ def load_valid_lease(model_id: str, identity_hash: str,
             model_id, expires - now, MIN_RUNWAY_HOURS)
         return None
     return body
+
+
+def lease_status(model_id: str,
+                 identity_hash: str | None = None) -> dict:
+    """lease 진단 상태(읽기 전용 — health·운영 관측 전용).
+
+    게이트 판정에는 쓰지 않는다: 자격 판정은 load_valid_lease가 그대로
+    담당하고(시그니처·동작 불변), 본 함수는 **왜 무효인지**만 해소한다.
+    두 결함이 동시에 성립하면 복구를 막는 근본 원인을 우선 보고한다:
+    MISSING > INVALIDATED > SIGNATURE_INVALID > IDENTITY_MISMATCH >
+    EXPIRED > EXPIRING > VALID.
+
+    INVALIDATED를 SIGNATURE_INVALID보다 먼저 보는 이유: invalidate_lease
+    가 hmac을 제거하므로 서명을 먼저 검사하면 의도적 무효화가 변조와
+    구분되지 않고 상태가 도달 불가가 된다.
+
+    Args:
+        model_id: 대상 모델 ID.
+        identity_hash: 현재 등록 adapter의 identity hash. None이면
+            identity 대조를 건너뛴다(adapter 미등록 — artifact 결함 등).
+
+    Returns:
+        status(위 상태값) · expires_at(ISO 문자열, 읽기 불가 시 None) ·
+        model_version · lease_id.
+    """
+    unknown: dict = {"status": LEASE_STATUS_MISSING, "expires_at": None,
+                     "model_version": None, "lease_id": None}
+    path = lease_path(model_id)
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        body = record["body"]
+        if not isinstance(body, dict):
+            raise TypeError("body 타입 불일치")
+    except (OSError, ValueError, KeyError, TypeError):
+        return unknown
+
+    expires_raw = body.get("validation_expires_at")
+    try:
+        expires = datetime.fromisoformat(str(expires_raw))
+    except (TypeError, ValueError):
+        expires = None
+    out: dict = {
+        "status": LEASE_STATUS_VALID,
+        "expires_at": str(expires_raw) if expires is not None else None,
+        "model_version": (str(body["reported_model_version"])
+                          if body.get("reported_model_version") else None),
+        "lease_id": (str(body["lease_id"])
+                     if body.get("lease_id") else None),
+    }
+
+    if record.get("invalidated"):
+        out["status"] = LEASE_STATUS_INVALIDATED
+        return out
+    if not hmac.compare_digest(_sign(body), str(record.get("hmac", ""))):
+        out["status"] = LEASE_STATUS_SIGNATURE_INVALID
+        return out
+    if identity_hash is not None and body.get(
+            "identity_hash") != identity_hash:
+        out["status"] = LEASE_STATUS_IDENTITY_MISMATCH
+        return out
+    if expires is None:
+        # 서명은 유효하나 만료 시각을 읽을 수 없다 = 자격 판정 불가.
+        out["status"] = LEASE_STATUS_MISSING
+        return out
+    now = datetime.now(UTC)
+    if expires <= now:
+        out["status"] = LEASE_STATUS_EXPIRED
+    elif expires - now < timedelta(hours=MIN_RUNWAY_HOURS):
+        out["status"] = LEASE_STATUS_EXPIRING
+    return out
 
 
 def invalidate_lease(model_id: str, reason: str) -> None:

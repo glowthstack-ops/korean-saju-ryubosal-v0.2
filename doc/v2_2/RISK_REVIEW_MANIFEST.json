@@ -11,6 +11,11 @@
   "presentation_policy_hash": "0596ee6744cd8bf9",
   "risk_exposure_version": "risk-expose-r4.1.0-canary",
   "adapter_validation_policy_hash": "ccb348d0555601d2ad9f6f1bb507695a407e15d0ce54cc84edbf4a7b1292483d",
+  "validation_hash_contract": {
+    "validationCorpusHash": "결정적 검증 입력 identity — manifest/runtime 일치 판정에 사용",
+    "validationPolicyHash": "결정적 검증 계약 identity — manifest/runtime 일치 판정에 사용",
+    "validationArtifactHash": "identifies the exact reviewed validation report and is retained for provenance and tamper detection. It is not part of recurring lease identity matching because the report contains provider-observed runtime values that may vary between otherwise equivalent validation runs."
+  },
   "expose_pipeline": {
     "reviewed": true,
     "expose_policy_hash": "c409cc83ad144955",
@@ -28,8 +33,8 @@
         "providerRequestSchemaVersion": "1",
         "resolvedModelId": "gemini-3-flash-preview",
         "validationPolicyHash": "ccb348d0555601d2ad9f6f1bb507695a407e15d0ce54cc84edbf4a7b1292483d",
-        "validationCorpusHash": "97b078b9e223b66a7a4f6a5a2adad311f43f0327c8e7c22ab32b58a2ae059c6e",
-        "validationArtifactHash": "dcbb37c36f1755628023106c4c2e5d485747ba96c1f1d113433c2cbff519e37e",
+        "validationCorpusHash": "ce324c1519179a15cf8d591c427e7911c0abfab65cdf66b8faf9d966fda6ceb7",
+        "validationArtifactHash": "4856d5a9f7e41fdbf6d8de129a2214f116c515df0ee4e31cb3faa2519f749923",
         "reviewed": true
       }
     ]

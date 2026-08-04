@@ -238,6 +238,11 @@ def register_adapter(adapter: TokenCounterAdapter) -> None:
     # 등록≠검증(감수 50차 §4 — 등록과 canary 활성화 분리): shadow 대조 후
     # 감수를 거쳐야 VALIDATED가 된다.
     _VALIDATION.setdefault(adapter.model_id, "SHADOW_VALIDATING")
+    # 캐시 적중 보호창은 휘발성 런타임 상태다 — 재등록(=기동·재검증 반영)
+    # 시점에 해제한다. 영구 차단(tombstone)은 여기서 다루지 않는다.
+    # 관측 지표는 남긴다(창만 닫고 누적 횟수는 보존 — 반복 진입 추적용).
+    _CACHE_OBSERVED_UNTIL.pop(adapter.model_id, None)
+    _cache_metrics(adapter.model_id)["expires_at"] = None
 
 
 def set_validation_state(model_id: str, state: str) -> None:
@@ -286,6 +291,74 @@ _SUSPENSION_LEDGER = _STATE_DIR / "adapter_suspensions_ledger.jsonl"
 _EXPOSURE_DISABLED_MARKER = _STATE_DIR / "exposure_disabled.marker"
 _LOCAL_PERSISTENCE_FAILED = False
 _IN_PROCESS_LOCK = _threading.Lock()  # 동일 프로세스 thread/async 동기화
+
+# 캐시 미검증 identity에서 cached_input>0을 관측했을 때의 **휘발성** 보호
+# (RISK-CACHE-SUSPEND-01 완화 — 2026-08-04 데굴님 승인).
+#
+# 근거: cache_path_validated=false 는 "비캐시 경로는 검증됐고 캐시 응답의
+# 계수 계약은 아직 검증하지 않았다"는 뜻이다. 따라서 적중 1회는 identity
+# 손상·provider drift의 증거가 아니라 **미검증 capability의 발현**이며,
+# reviewed identity를 영구 무효화(tombstone)할 사유가 되지 않는다. 응답
+# 폐기·안전 fallback은 호출부(risk_llm_pipeline)가 그대로 수행하고, 여기서는
+# 같은 프로세스에서 미검증 캐시 응답이 반복돼 호출이 낭비되는 것만 막는다.
+# 프로세스 재기동·재등록으로 해제되는 휘발성 상태다(파일 기록 없음).
+CACHE_OBSERVED_BYPASS_SECONDS = 600
+_CACHE_OBSERVED_UNTIL: dict[str, float] = {}
+
+# 보호창 관측 지표(2026-08-04 승인 §3) — 적중이 반복되면 창이 매번
+# 재시작되므로, provider가 캐시를 계속 적용하면 사실상 무기한 BYPASS가
+# 될 수 있다. 첫 릴리즈에서는 그대로 두되 **관측 가능**해야 한다.
+#   entries        보호창 진입 횟수(닫힌 상태에서 새로 연 횟수)
+#   extensions     연속 연장 횟수(이미 열린 창을 다시 연 횟수)
+#   discarded      보호창 때문에 주입이 BYPASS된 요청 수
+#   last_observed  마지막 캐시 관측 시각(UTC ISO)
+_CACHE_PROTECTION_METRICS: dict[str, dict] = {}
+
+
+def _cache_metrics(model_id: str) -> dict:
+    return _CACHE_PROTECTION_METRICS.setdefault(
+        model_id, {"entries": 0, "extensions": 0, "discarded": 0,
+                   "last_observed": None, "expires_at": None})
+
+
+def cache_protection_metrics(model_id: str) -> dict:
+    """보호창 관측 지표 사본(관측 전용)."""
+    return dict(_cache_metrics(model_id))
+
+
+def _cache_observed_active(model_id: str) -> bool:
+    """미검증 캐시 적중 보호창이 열려 있는가(휘발성)."""
+    import time
+    until = _CACHE_OBSERVED_UNTIL.get(model_id)
+    return until is not None and time.monotonic() < until
+
+
+def cache_protection_expires_at(model_id: str) -> str | None:
+    """보호창 만료 예정 시각(UTC ISO) — 닫혀 있으면 None."""
+    if not _cache_observed_active(model_id):
+        return None
+    return _cache_metrics(model_id).get("expires_at")
+
+
+def cache_path_state(model_id: str) -> str:
+    """캐시 경로 관측 상태(관측 전용 — 게이트 판정에 쓰지 않는다).
+
+    CACHE_PATH_VALIDATED           corpus(S13)로 캐시 경로까지 검증됨
+    CACHE_PATH_NOT_OBSERVED        미검증이며 적중 관측 없음(정상 운영)
+    CACHE_PATH_OBSERVED_UNVALIDATED 미검증 상태에서 적중 관측 — 보호창 열림
+    UNREGISTERED                   adapter 미등록
+
+    전역 tombstone(SUSPENDED)은 실제 계수 계약 위반에만 남는다 —
+    본 상태는 그와 구분되는 경고·측정 상태다.
+    """
+    adapter = _REGISTRY.get(model_id)
+    if adapter is None:
+        return "UNREGISTERED"
+    if adapter.cache_path_validated:
+        return "CACHE_PATH_VALIDATED"
+    return ("CACHE_PATH_OBSERVED_UNVALIDATED"
+            if _cache_observed_active(model_id)
+            else "CACHE_PATH_NOT_OBSERVED")
 
 
 def adapter_identity_hash(adapter: TokenCounterAdapter) -> str:
@@ -413,6 +486,11 @@ def resolve_expose_counter(
     if suspended or not state_ok:
         # 저장소 불가용(손상·권한)도 BYPASS(감수 54차 §2) — 'suspension
         # 없음'으로 처리하지 않는다.
+        return None
+    if _cache_observed_active(resolved_model_id):
+        # 미검증 캐시 경로 적중 후 휘발성 보호창(RISK-CACHE-SUSPEND-01):
+        # identity는 유효하지만 창이 닫힐 때까지 주입하지 않는다.
+        _cache_metrics(resolved_model_id)["discarded"] += 1
         return None
     for entry in manifest_counters:
         if _manifest_entry_matches(adapter, entry):
@@ -551,67 +629,50 @@ def record_cache_observation(model_id: str, cached_input: int) -> None:
     cache 경로가 corpus(S13 cache-hit 표본)로 검증된 identity
     (cache_path_validated=true)는 cached_input>0을 **관측 로그로만**
     기록하고 차단하지 않는다 — undercount 검사는 별도(record_count_
-    observation)로 캐시와 무관하게 존속한다. 미검증 identity에서 최초
-    관측되면 기존대로 CACHE_PATH_UNVALIDATED 전역 차단(fail-closed —
-    suspension 저장소·ledger 기록, 새 corpus/identity 감수 전 재활성화
-    금지).
+    observation)로 캐시와 무관하게 존속한다.
+
+    미검증 identity(cache_path_validated=false)의 적중은 **휘발성 보호창**
+    만 연다(RISK-CACHE-SUSPEND-01 완화 — 2026-08-04 데굴님 승인). 구현은
+    전역 SUSPENDED + ledger tombstone이었으나, B1 이후 미검증 등록이
+    상시화되므로 provider의 우연한 암묵 캐시 적중 한 번이 reviewed
+    identity를 영구 무효화하는 것은 과도하다. 응답 폐기·안전 fallback은
+    호출부가 그대로 수행한다(계약 유지).
+
+    전역 tombstone은 **실제 계수 계약 위반**에만 남는다: undercount
+    (record_count_observation) · 검증된 캐시 경로에서의 위반 · model/
+    provider identity 변경(lease modelVersion 대조).
     """
     if cached_input <= 0:
         return
+    import logging
+    _log = logging.getLogger("saju_api.risk")
     adapter = _REGISTRY.get(model_id)
     if adapter is not None and adapter.cache_path_validated:
         # 검증된 cache 경로 — 관측 필드만(감수 62차): 차단·ledger 기록 없음.
-        import logging
-        logging.getLogger("saju_api.risk").info(
-            "risk_cache_observation model=%s cached_input=%d "
-            "(cache_path_validated — 관측만)", model_id, cached_input)
+        _log.info("risk_cache_observation model=%s cached_input=%d "
+                  "(cache_path_validated — 관측만)", model_id, cached_input)
         return
-    _VALIDATION[model_id] = "SUSPENDED"
-    adapter = _REGISTRY.get(model_id)
+    import time
+    from datetime import datetime, timedelta
+    was_open = _cache_observed_active(model_id)
+    _CACHE_OBSERVED_UNTIL[model_id] = (
+        time.monotonic() + CACHE_OBSERVED_BYPASS_SECONDS)
+    now = datetime.now(UTC)
+    metrics = _cache_metrics(model_id)
+    # 이미 열린 창을 다시 여는 것은 **연장**이다 — 연장이 계속 쌓이면
+    # 사실상 무기한 BYPASS이므로 진입과 분리해 센다.
+    metrics["extensions" if was_open else "entries"] += 1
+    metrics["last_observed"] = now.isoformat()
+    metrics["expires_at"] = (
+        now + timedelta(seconds=CACHE_OBSERVED_BYPASS_SECONDS)).isoformat()
     identity = (adapter_identity_hash(adapter) if adapter is not None
                 else f"unregistered:{model_id}")
-    import fcntl
-    import json as _json
-    import os
-    import tempfile
-    from datetime import datetime
-    _SUSPENSION_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with _IN_PROCESS_LOCK, open(_SUSPENSION_LOCK_FILE, "w") as lock_f:
-        fcntl.flock(lock_f, fcntl.LOCK_EX)
-        try:
-            with open(_SUSPENSION_LEDGER, "a", encoding="utf-8") as lf:
-                lf.write(_json.dumps({
-                    "identity": identity, "model_id": model_id,
-                    "event": "CACHE_PATH_UNVALIDATED",
-                    "cached_input": cached_input,
-                    "at": datetime.now(UTC).isoformat(),
-                }, ensure_ascii=False, sort_keys=True) + "\n")
-                lf.flush()
-                os.fsync(lf.fileno())
-            records, _ok = _shared_suspensions()
-            entry = records.get(identity) or {
-                "model_id": model_id, "undercount_detected_count": 0,
-                "first_undercount_request_id_hash": "",
-                "adapter_suspended_at": datetime.now(UTC).isoformat(),
-            }
-            entry["cache_path_unvalidated"] = True
-            records[identity] = entry
-            fd, tmp = tempfile.mkstemp(dir=str(_SUSPENSION_FILE.parent))
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                _json.dump(records, f, ensure_ascii=False, sort_keys=True)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp, _SUSPENSION_FILE)
-        except OSError:
-            global _LOCAL_PERSISTENCE_FAILED
-            try:
-                _EXPOSURE_DISABLED_MARKER.write_text(
-                    "cache_observation_persistence_failed",
-                    encoding="utf-8")
-            except OSError:
-                _LOCAL_PERSISTENCE_FAILED = True
-        finally:
-            fcntl.flock(lock_f, fcntl.LOCK_UN)
+    _log.warning(
+        "risk_cache_observation event=CACHE_PATH_OBSERVED_UNVALIDATED "
+        "model=%s identity=%s cached_input=%d — 응답 폐기 + %ds 주입 보호"
+        "(tombstone 아님, 재검증으로 해소) entries=%d extensions=%d",
+        model_id, identity, cached_input, CACHE_OBSERVED_BYPASS_SECONDS,
+        metrics["entries"], metrics["extensions"])
 
 
 def resolve_counter(resolved_model_id: str) -> TokenCounterAdapter | None:

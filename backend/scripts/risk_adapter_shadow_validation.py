@@ -8,10 +8,21 @@ promptTokenCount — cached+non-cached 전체, 청구 할인 전)를 전수 대�
 검증 프레이밍 오버헤드 귀속 후) · request shape 누락=0 · model mismatch=0
 · rerouting 후 recount 누락=0 · S13 cache-hit 3표본 적중.
 
+2026-08-04 개정(B1 — 데굴님 확정):
+- **S13 캐시 적중은 전체 합격의 하드 조건이 아니다.** Gemini 암묵 캐시는
+  best-effort이며 동일 코드 3회 실행에서 1회만 적중했다(계수 정확도는
+  3회 모두 undercount 0). 미적중=`cacheValidationStatus=NOT_OBSERVED` →
+  `cache_path_validated=false`로 등록(런타임에서 cached_input>0이 나오면
+  응답 폐기). 적중했는데 계수가 어긋난 경우에만 FAILED=불합격.
+- **validationCorpusHash는 요청 본문 파생 항목에서만 산출**한다
+  (identityCorpus). 실행 관측값을 identity에 넣으면 코드가 그대로여도
+  매 실행 identity가 달라져 주간 재검증이 manifest 재감수를 유발했다.
+- 외부 호출 전 운영 HMAC 키를 검증한다(dev 기본키면 즉시 종료).
+
 감수 62차 추가:
 - S13 cache-hit replay: 대형 공통 prefix(≥8,192tok) 워밍업 후 동일 body
-  재호출 — cached_input>0 상태에서 promptTokenCount 일관성 검증(재시도
-  5회 후 미적중=불합격).
+  재호출 — cached_input>0 상태에서 promptTokenCount 일관성 검증
+  (2026-08-04 B1로 불합격 조건에서 제외).
 - shape별 validated_framing_overhead: 동일 shape 표본 간 고정 음수
   delta만 오버헤드로 귀속(가변이면 불합격). 범용 tolerance 금지.
 - 응답 최상위 modelVersion 수집(표본 간 일치 필수) → **validation
@@ -75,6 +86,13 @@ from saju_shared_types.risk_engine import (  # noqa: E402
 )
 
 _API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+# identity corpus에 참여하는 표본 필드 — 전부 요청 본문에서 파생된다.
+# 실행 시점 관측값(counted/reported_total_input/cached_input/passed 등)은
+# 여기 넣지 않는다(2026-08-04 승인 조건 ⑦).
+_IDENTITY_SAMPLE_FIELDS = ("sample_id", "category", "tier",
+                           "resolved_model_id", "attempt_kind",
+                           "request_digest", "request_shape_digest")
+
 _SYSTEM = ("당신은 사주 통변 보조입니다. 제공된 사실과 점수만 자연어로"
            " 설명하며 간지·점수를 직접 계산하지 않습니다.")
 _KO = ("2026년 하반기의 계약과 이동 흐름을 알고 싶습니다. 현재 전세"
@@ -322,7 +340,25 @@ def main() -> int:
     parser.add_argument("--out-dir", default=str(
         Path(__file__).resolve().parents[1] / "compiled"
         / "risk_adapter_validation"))
+    # 결정성 반복 검증(manifest 재감수 전 조건 ⑥)에서는 운영 lease를
+    # 건드리지 않는다 — artifact는 --out-dir로, lease는 이 플래그로 격리.
+    parser.add_argument("--no-lease", action="store_true",
+                        help="합격해도 운영 lease를 기록하지 않는다"
+                             "(결정성 반복 검증용)")
     args = parser.parse_args()
+
+    # 외부 호출 **전** HMAC 키 검증(2026-08-04 승인 조건 ②): dev 기본키로
+    # 서명한 lease는 서버가 서명 불일치로 거부한다. 실제로 .env만 로드한
+    # 채 39표본을 돌려 통과시켰으나 lease를 쓸 수 없었던 사고가 있었다
+    # (2026-08-04). 판정 기준은 런타임과 동일 SSOT를 쓴다.
+    from saju_api.services.risk_exposure_service import _audit_hmac_key_valid
+    if not _audit_hmac_key_valid():
+        print("[중단] RISK_AUDIT_HMAC_KEY_B64 미설정/비정상 — dev 기본키로"
+              " 서명한 lease는 서버가 거부한다(외부 호출 전 종료).\n"
+              "       ./scripts/revalidate_risk_lease.sh 로 실행할 것"
+              "(.env + .env.risk 를 서버와 동일하게 로드한다).",
+              file=sys.stderr)
+        return 2
 
     from saju_api.services.gemini_token_adapter import _api_key
     api_key = _api_key()
@@ -395,9 +431,11 @@ def main() -> int:
         }
         if warmup_reported is not None:
             record["warmup_reported_total_input"] = warmup_reported
-            # 적중 실패는 즉시 불합격 표시(캐시 상태 검증 불가)
+            # B1(2026-08-04 데굴님 확정): 캐시 적중은 provider best-effort
+            # 이므로 계수기 전체 합격의 하드 조건에서 분리한다 — 미적중은
+            # 불합격이 아니라 NOT_OBSERVED(캐시 capability 미검증).
+            # 적중했는데 계수가 어긋난 경우에만 FAILED로 불합격.
             record["cache_hit_achieved"] = cached > 0
-            record["passed"] = record["passed"] and cached > 0
         (supp_records if sample["reroute"] else records).append(record)
         print(f"  {sample['sample_id']:26s} counted={counted:6d}"
               f" reported={reported:6d} delta={counted - reported:+3d}"
@@ -427,9 +465,25 @@ def main() -> int:
     for r in records:
         oh = overhead_by_shape.get(r["request_shape_digest"], 0)
         r["validated_framing_overhead"] = oh
-        r["passed"] = bool(
-            (r["counted"] + oh >= r["reported_total_input"])
-            and r.get("cache_hit_achieved", True))
+        # 합격 = 계수 계약(undercount 없음)만. 캐시 적중 여부는 별도 축
+        # (cacheValidationStatus)으로 뺀다 — B1.
+        r["passed"] = bool(r["counted"] + oh >= r["reported_total_input"])
+
+    # 캐시 capability 검증(계수기 검증과 독립):
+    #   VALIDATED    3표본 전부 적중 + 적중 표본의 계수 계약 충족
+    #   NOT_OBSERVED 적중이 한 건도 관측되지 않음(= 미검증, 불합격 아님)
+    #   FAILED       적중했는데 계수가 어긋남(= 실제 결함)
+    s13_records = [r for r in records
+                   if r["category"] == "S13_cache_hit_replay"]
+    cache_observed = [r for r in s13_records if r.get("cache_hit_achieved")]
+    if not cache_observed:
+        cache_validation_status = "NOT_OBSERVED"
+    elif not all(r["passed"] for r in cache_observed):
+        cache_validation_status = "FAILED"
+    elif len(cache_observed) == len(s13_records):
+        cache_validation_status = "VALIDATED"
+    else:
+        cache_validation_status = "NOT_OBSERVED"  # 부분 적중=미검증
     identity_wo_corpus = {
         "providerId": "gemini", "resolvedModelId": args.model,
         "counterVersion": GEMINI_COUNTER_VERSION,
@@ -445,7 +499,18 @@ def main() -> int:
     # qualifying corpus(native 30)에만** 결속 — fallback 부록이 바뀌어도
     # primary identity가 변하지 않는다.
     native_corpus = {"identity": identity_wo_corpus, "samples": records}
-    corpus_hash = _digest(native_corpus)  # validationCorpusHash(정본)
+    # identity corpus(2026-08-04 데굴님 승인 조건 ⑦): **요청 본문에서
+    # 파생되는 항목만** identity에 참여한다. 실행 시점 관측값(counted·
+    # reported·cached_input 등)을 넣으면 코드가 그대로여도 매 실행 identity
+    # 가 달라져 "주간 재검증=lease만 갱신"이 성립하지 않는다(실측 확인:
+    # 동일 코드 3회 실행에서 cached_input만 달라져 corpus hash 3종 발생).
+    # 관측값은 artifact의 nativeValidationCorpus에 전량 보존된다.
+    identity_corpus = {
+        "identity": identity_wo_corpus,
+        "samples": [{k: r[k] for k in _IDENTITY_SAMPLE_FIELDS}
+                    for r in records],
+    }
+    corpus_hash = _digest(identity_corpus)  # validationCorpusHash(정본)
     corpus_hash_short = corpus_hash[:16]
     supplementary_evidence = {"samples": supp_records}
     supplementary_hash = _digest(supplementary_evidence)
@@ -561,28 +626,35 @@ def main() -> int:
             "required_shape_set_hash": required_shape_set_hash,
         },
         "framingOverheadConsistent": overhead_consistent,
-        "cacheSamplesValidated": (
-            sum(1 for r in records
-                if r["category"] == "S13_cache_hit_replay"
-                and r.get("cache_hit_achieved") and r["passed"]) == 3),
+        # 캐시 경로 검증 결과(B1) — adapter 등록 시 cache_path_validated로
+        # 그대로 전달된다. VALIDATED가 아니면 false로 등록되고, 런타임에서
+        # cached_input>0이 관측되면 응답을 폐기한다(CACHE_PATH_UNVALIDATED).
+        "cacheValidationStatus": cache_validation_status,
+        "cacheSamplesValidated": cache_validation_status == "VALIDATED",
+        "cacheHitSamplesObserved": len(cache_observed),
         "modelVersionsObserved": sorted(model_versions),
         "modelVersionConsistent": len(model_versions) == 1,
+        # 전체 합격 = 계수기 검증만(B1). 캐시는 FAILED(적중했는데 계수
+        # 불일치)일 때만 불합격 사유가 되고, NOT_OBSERVED는 합격을 막지
+        # 않는다 — 미검증 상태로 등록될 뿐이다.
         "pass": (len(records) == 39 and undercount == 0
                  and overhead_consistent
                  and recount_performed == 3
                  and len(model_versions) == 1
-                 and sum(1 for r in records
-                         if r["category"] == "S13_cache_hit_replay"
-                         and r.get("cache_hit_achieved")) == 3
+                 and cache_validation_status != "FAILED"
                  and all(r["passed"] for r in all_records)),
     }
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     artifact_path = out_dir / f"{args.model}__{corpus_hash_short}.json"
     artifact_body = {
-        # native corpus(정본 — validationCorpusHash의 유일한 입력)와
-        # rerouting 부록·메타데이터를 분리 보관(감수 58차 §2).
+        # native corpus(실행 관측값 전량 보존 — 증거)와 rerouting 부록·
+        # 메타데이터를 분리 보관(감수 58차 §2).
         "nativeValidationCorpus": native_corpus,
+        # identityCorpus = validationCorpusHash의 유일한 입력(요청 본문
+        # 파생 항목만). runtime의 _artifact_corpus_ok가 이 필드를 재해시해
+        # 대조한다(필드 부재=구 schema로 간주하고 native 재해시로 폴백).
+        "identityCorpus": identity_corpus,
         "validationCorpusHash": corpus_hash,
         "validationCorpusHashShort": corpus_hash_short,
         "supplementaryReroutingEvidence": supplementary_evidence,
@@ -606,7 +678,9 @@ def main() -> int:
     # validation lease 기록(감수 62차 P1 — artifact/운영 lease 분리):
     # 합격 시에만. 실제 reported modelVersion·만료(7일)를 lease에 담고
     # artifact는 불변으로 유지한다(주간 재검증=lease만 갱신).
-    if report["pass"]:
+    if report["pass"] and args.no_lease:
+        print("\nvalidation lease: 기록 생략(--no-lease) — 운영 lease 무변경")
+    elif report["pass"]:
         from saju_api.services.risk_validation_lease import write_lease
         from saju_api.services.token_counter_registry import (
             adapter_identity_hash,
@@ -624,11 +698,16 @@ def main() -> int:
             samples_summary={
                 "native_samples": len(records),
                 "undercount": undercount,
-                "cache_hit_samples": sum(
-                    1 for r in records
-                    if r["category"] == "S13_cache_hit_replay"),
+                # 실제 적중 표본 수(구 구현은 S13 표본 수 3을 그대로 세어
+                # 미적중에도 3이 기록됐다 — B1에서 교정).
+                "cache_hit_samples": len(cache_observed),
+                "cache_validation_status": cache_validation_status,
             })
         print(f"\nvalidation lease: {lease_file}")
+    print(f"\n캐시 경로 검증: {cache_validation_status}"
+          f" (적중 {len(cache_observed)}/{len(s13_records)})"
+          f" → cache_path_validated="
+          f"{str(report['cacheSamplesValidated']).lower()}")
     print("\n== §11 보고 ==")
     print(json.dumps(report, ensure_ascii=False, indent=1))
     print(f"\nartifact: {artifact_path}")

@@ -72,11 +72,22 @@ _REVIEWED_COUNTER_CORPUS_HASHES: frozenset[str] = frozenset({
     # (39표본 delta 전부 0·undercount 0).
     # [이력] f7f33358…(r1·12형×36)은 감수 62차 캐시 경로 정책 개정으로
     # 폐기(identity eda667c6 tombstone 보존 — CACHE_PATH_UNVALIDATED).
-    # [감수 62차 승격(2026-07-23 계획 승인)] countTokens-v1beta-r2 ·
-    # 13형×3=39표본(S13 cache-hit replay 3건: prefix 8,810tok·cached
-    # 3,942·counted==reported) · undercount 0 · framing overhead 전부 0 ·
-    # modelVersion 일관 · validation lease(7일) 분리 도입.
-    "97b078b9e223b66a7a4f6a5a2adad311f43f0327c8e7c22ab32b58a2ae059c6e",
+    # [이력] 97b078b9…(감수 62차 승격, 2026-07-23)은 RISK-LEASE-
+    # REVALIDATION-01c(2026-08-04)로 대체. 폐기 사유는 결함이 아니라
+    # **검증 입력이 낡음**: 7/23 이후 사고수 확장 커밋 4건이 위험 블록
+    # 본문을 바꿔 위험 블록 포함 표본 20건의 request_digest가 달라졌다
+    # (구조는 불변 — shape digest 7종 전부 동일).
+    # [RISK-LEASE-REVALIDATION-01c 승격(2026-08-04 데굴님 승인)]
+    # countTokens-v1beta-r2 · 13형×3=39표본 · undercount 0 · framing
+    # overhead 전부 0 · modelVersion 일관 · rerouting recount 3/3.
+    # reviewed identity 4요소·countMode·validationPolicyHash 전부 불변 —
+    # 바뀐 것은 corpus 본문뿐이다.
+    # 결정성 증거(3회, 동일 HEAD·스크립트·env): corpusHash 3회 동일,
+    # 캐시 관측이 0/3(run4·runA)과 3/3(runB)으로 갈렸는데도 corpus
+    # identity·pass 동일 — 관측값이 identity에 참여하지 않음을 실측.
+    # 감수 대상 artifact=runB(캐시 경로까지 3/3 검증 →
+    # cache_path_validated=true).
+    "ce324c1519179a15cf8d591c427e7911c0abfab65cdf66b8faf9d966fda6ceb7",
 })
 
 _ADAPTER_VALIDATION_DIR = (
@@ -97,15 +108,21 @@ def _token_counter_candidates() -> list[dict]:
     for path in sorted(_ADAPTER_VALIDATION_DIR.glob("*.json")):
         artifact = json.loads(path.read_text(encoding="utf-8"))
         corpus_hash = str(artifact["validationCorpusHash"])
-        # artifact 무결성(감수 58차 §2): validationCorpusHash는 **native
-        # corpus(해당 모델 30표본)만의** 재해시와 일치해야 후보 자격 —
-        # 다른 모델의 rerouting 부록은 supplementaryReroutingHash로 분리
+        # artifact 무결성(감수 58차 §2): validationCorpusHash는 **해당
+        # 모델 corpus만의** 재해시와 일치해야 후보 자격 — 다른 모델의
+        # rerouting 부록은 supplementaryReroutingHash로 분리
         # (파일 수정=후보 탈락이 아니라 생성 실패로 조기 노출).
+        #
+        # 재해시 대상은 `identityCorpus`(2026-08-04 — 요청 본문 파생
+        # 항목만)이며, 이 필드가 없는 구 schema artifact는 기존대로
+        # `nativeValidationCorpus` 전체를 재해시한다. runtime의
+        # _artifact_corpus_ok와 동일한 판정이어야 한다.
         import hashlib
         # 정본=전체 digest(감수 57차 §5) — 축약(16자)은 파일명·표시 전용.
         recomputed = hashlib.sha256(json.dumps(
-            artifact["nativeValidationCorpus"], ensure_ascii=False,
-            sort_keys=True).encode()).hexdigest()
+            artifact.get("identityCorpus")
+            or artifact["nativeValidationCorpus"],
+            ensure_ascii=False, sort_keys=True).encode()).hexdigest()
         if recomputed != corpus_hash:
             raise ValueError(
                 f"adapter validation artifact 무결성 실패: {path.name}")
@@ -189,6 +206,21 @@ def build_manifest() -> dict:
         "risk_exposure_version": RISK_EXPOSURE_VERSION,
         # adapter 승격 기준(감수 51차 — 실측 전 선행 고정): 변경=재감수 신호.
         "adapter_validation_policy_hash": _adapter_validation_policy_hash(),
+        # 해시 3종의 역할 분리(2026-08-04 데굴님 승인) — 문서 필드다.
+        # runtime 대조에는 corpus/policy hash만 쓰이며, artifact hash를
+        # 다시 identity 비교에 넣으면 제거한 비결정성이 재발한다.
+        "validation_hash_contract": {
+            "validationCorpusHash": "결정적 검증 입력 identity — manifest/"
+                                    "runtime 일치 판정에 사용",
+            "validationPolicyHash": "결정적 검증 계약 identity — manifest/"
+                                    "runtime 일치 판정에 사용",
+            "validationArtifactHash":
+                "identifies the exact reviewed validation report and is "
+                "retained for provenance and tamper detection. It is not "
+                "part of recurring lease identity matching because the "
+                "report contains provider-observed runtime values that may "
+                "vary between otherwise equivalent validation runs.",
+        },
         "expose_pipeline": {
             # 통합 pre-canary 감수 §8(2026-07-17): 두 e2e 불변식
             # (undercount·cache가 DELIVER 전 폐기 / SUPPRESSED=baseline

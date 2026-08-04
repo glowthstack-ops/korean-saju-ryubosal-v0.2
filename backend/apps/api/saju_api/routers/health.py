@@ -58,8 +58,17 @@ async def health() -> dict[str, object]:
                               "service_readiness": "READY"}
     try:
         from ..services.risk_exposure_monitor import risk_readiness_snapshot
-        out.update({k: str(v) for k, v in risk_readiness_snapshot().items()
-                    if v is not None})
+
+        # JSON 원형을 보존한다(2026-08-04): 이전 구현은 전 값을 str()로
+        # 바꾸고 None을 **버렸다**. 그 결과 ①만료 시각을 읽을 수 없을 때
+        # 필드가 사라져 "읽지 못함"과 "필드 없음"이 구분되지 않고 ②지표
+        # dict가 파이썬 repr 문자열로 나갔다. 기존 필드는 전부 문자열이라
+        # 이 변경으로 표현이 달라지지 않는다.
+        for key, value in risk_readiness_snapshot().items():
+            out[key] = (value
+                        if value is None or isinstance(
+                            value, str | int | float | bool | dict | list)
+                        else str(value))
     except Exception:  # noqa: BLE001 — 관측 실패가 health를 막지 않는다
         pass
     # beta flag는 gitignore된 .env.beta에만 있어 켜졌는지 확인할 수단이 없었다.

@@ -151,8 +151,14 @@ _ARTIFACT_DIR = (Path(__file__).resolve().parents[4] / "compiled"
 
 
 def _artifact_corpus_ok(model_id: str, corpus_hash: str) -> bool:
-    """validation artifact의 native corpus·artifact 재해시 검증(감수 59차
-    §1·§3) — runtime이 artifact를 직접 신뢰 근거로 쓰므로 둘 다 확인."""
+    """validation artifact의 corpus·artifact 재해시 검증(감수 59차 §1·§3)
+    — runtime이 artifact를 직접 신뢰 근거로 쓰므로 둘 다 확인.
+
+    corpus 재해시 대상은 `identityCorpus`(2026-08-04 — 요청 본문 파생
+    항목만)이며, 이 필드가 없는 **구 schema artifact는 기존대로**
+    `nativeValidationCorpus` 전체를 재해시한다(운영 중 artifact를 그대로
+    유지하기 위한 폴백 — 새 schema로 교체되면 자동으로 새 경로를 탄다).
+    """
     import hashlib
     if not corpus_hash or not _ARTIFACT_DIR.exists():
         return False
@@ -162,8 +168,9 @@ def _artifact_corpus_ok(model_id: str, corpus_hash: str) -> bool:
             native = artifact["nativeValidationCorpus"]
             if native["identity"].get("resolvedModelId") != model_id:
                 continue
+            hashed = artifact.get("identityCorpus") or native
             native_ok = hashlib.sha256(json.dumps(
-                native, ensure_ascii=False, sort_keys=True).encode()
+                hashed, ensure_ascii=False, sort_keys=True).encode()
             ).hexdigest() == corpus_hash == str(
                 artifact.get("validationCorpusHash"))
             artifact_ok = hashlib.sha256(json.dumps(

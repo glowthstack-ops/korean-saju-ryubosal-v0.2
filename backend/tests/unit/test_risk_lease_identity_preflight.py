@@ -66,15 +66,26 @@ def test_same_lease_is_valid_before_expiry_and_invalid_after(temp_state) -> None
     assert lease_mod.load_valid_lease(_MODEL, _IDENTITY) is None
 
 
-def test_operational_lease_carries_an_identity_and_is_only_expired() -> None:
-    """운영 lease 를 읽기만 한다 — 수정하지 않는다."""
+def test_operational_lease_carries_an_identity_field() -> None:
+    """운영 lease 를 읽기만 한다 — 수정하지 않는다.
+
+    본래 이 테스트는 만료 여부(`expires <= now`)까지 단언해 2026-08-02
+    시점의 **DEGRADED 상태 자체**를 고정했다. 그 상태는 RISK-LEASE-
+    REVALIDATION-01c(2026-08-04)로 해소됐고, 만료 단언을 남겨두면
+    ①복구 직후 스위트가 실패하고 ②7일마다 lease 갱신 여부에 따라
+    통과/실패가 뒤집히는 시한폭탄이 된다. 시점 상태가 아니라 **필드
+    계약**(철회된 가설의 재발 방지)만 고정한다.
+
+    만료·서명·identity 등 무효 사유의 판정은 lease_status 회귀
+    (test_risk_lease_status_diagnostics.py)가 상태별로 고정한다.
+    """
     if not _OPERATIONAL.exists():          # 개발 환경에는 없을 수 있다
         pytest.skip("운영 lease 파일 없음")
     body = json.loads(_OPERATIONAL.read_text(encoding="utf-8"))["body"]
     assert body.get("identity_hash")       # null 이 아니다 — 철회된 가설
     assert "adapter_identity_hash" not in body   # 그런 필드는 없다
-    expires = datetime.fromisoformat(body["validation_expires_at"])
-    assert expires <= datetime.now(UTC)     # 무효 사유는 만료다
+    # 형식만 확인한다(시점 상태 단언 금지).
+    datetime.fromisoformat(body["validation_expires_at"])
 
 
 # ── identity 왕복 ────────────────────────────────────────────────────────

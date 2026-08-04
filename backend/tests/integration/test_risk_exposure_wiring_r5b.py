@@ -8,6 +8,9 @@ reviewed:false·adapter 부재 → 위험 정보 미주입), 재작성 흐름 �
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
+
+import pytest
 
 from saju_api.services import chat_service
 from saju_engines import risk_engine_config
@@ -1062,40 +1065,119 @@ def test_clause_hash_is_keyed_hmac() -> None:
 # ── 감수 54차 fixture ─────────────────────────────────────────────
 
 
-def test_concurrent_suspension_writes_are_not_lost() -> None:
-    """§2: 동시 writer 갱신 유실 차단(flock read-modify-write) — adapter
-    A·B를 병렬 기록해도 최종 파일에 둘 다 존재."""
+def _run_concurrent_suspension_writes(state_root: Path) -> tuple[list[str], dict]:
+    """지정한 state_root 안에서만 동시 suspension 기록을 수행한다.
+
+    경로를 인자로 **주입**받는다 — import 시점에 고정되는 모듈 상수를
+    테스트가 그대로 쓰면 운영 상태 디렉터리에 기록된다(2026-08-04 실측).
+    """
     import json as _json
     import threading
 
+    from saju_api.services import token_counter_registry as reg
     from saju_api.services.token_counter_registry import (
-        _SUSPENSION_FILE,
         TokenCounterAdapter,
         adapter_identity_hash,
         record_count_observation,
         register_adapter,
     )
 
-    ids = []
-    for name in ("conc-a", "conc-b"):
-        adapter = TokenCounterAdapter(
-            model_id=name, mode="MODEL_TOKENIZER", counter=len,
-            provider_id="prov", counter_version="v1")
-        register_adapter(adapter)
-        ids.append(adapter_identity_hash(adapter))
-    threads = [threading.Thread(
-        target=record_count_observation,
-        args=(name, 10, 20), kwargs={"request_id_hash": name})
-        for name in ("conc-a", "conc-b")]
-    for th in threads:
-        th.start()
-    for th in threads:
-        th.join()
-    records = _json.loads(_SUSPENSION_FILE.read_text(encoding="utf-8"))
+    state_root.mkdir(parents=True, exist_ok=True)
+    mp = pytest.MonkeyPatch()
+    mp.setattr(reg, "_SUSPENSION_FILE", state_root / "adapter_suspensions.json")
+    mp.setattr(reg, "_SUSPENSION_LOCK_FILE", state_root / "adapter_suspensions.lock")
+    mp.setattr(reg, "_SUSPENSION_LEDGER",
+               state_root / "adapter_suspensions_ledger.jsonl")
+    mp.setattr(reg, "_EXPOSURE_DISABLED_MARKER",
+               state_root / "exposure_disabled.marker")
+    try:
+        ids = []
+        for name in ("conc-a", "conc-b"):
+            adapter = TokenCounterAdapter(
+                model_id=name, mode="MODEL_TOKENIZER", counter=len,
+                provider_id="prov", counter_version="v1")
+            register_adapter(adapter)
+            ids.append(adapter_identity_hash(adapter))
+        threads = [threading.Thread(
+            target=record_count_observation,
+            args=(name, 10, 20), kwargs={"request_id_hash": name})
+            for name in ("conc-a", "conc-b")]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+        records = _json.loads(
+            (state_root / "adapter_suspensions.json").read_text(encoding="utf-8"))
+        return ids, records
+    finally:
+        mp.undo()
+
+
+def _snapshot_tree(root: Path) -> dict[str, str]:
+    """디렉터리의 (상대경로 → 내용 sha256) — 부재=빈 스냅샷."""
+    import hashlib
+
+    if not root.exists():
+        return {}
+    return {
+        str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted(root.rglob("*")) if p.is_file()
+    }
+
+
+def test_concurrent_suspension_writes_are_not_lost(tmp_path) -> None:
+    """§2: 동시 writer 갱신 유실 차단(flock read-modify-write) — adapter
+    A·B를 병렬 기록해도 최종 파일에 둘 다 존재."""
+    ids, records = _run_concurrent_suspension_writes(tmp_path / "risk_state")
     assert all(identity in records for identity in ids)
-    # 정리(테스트 격리).
-    remaining = {k: v for k, v in records.items() if k not in ids}
-    _SUSPENSION_FILE.write_text(_json.dumps(remaining), encoding="utf-8")
+
+
+def test_concurrent_write_does_not_touch_production_state(tmp_path) -> None:
+    """운영 상태 디렉터리는 테스트 실행 전후로 **완전히 동일**해야 한다.
+
+    2026-08-04: 이 테스트가 격리 없이 운영 `backend/var/risk_state/` 에
+    기록해 tombstone ledger 에 `conc-a`/`conc-b` 18행이 누적됐다. 감사
+    추적(실제 suspension 사고 분석)과 재현성을 훼손하므로 회귀로 고정한다.
+    """
+    production_root = (Path(__file__).resolve().parents[2]
+                       / "var" / "risk_state")
+    before = _snapshot_tree(production_root)
+
+    state_root = tmp_path / "risk_state"
+    ids, _records = _run_concurrent_suspension_writes(state_root)
+
+    assert _snapshot_tree(production_root) == before, (
+        "테스트가 운영 risk_state 를 변경했다")
+    # 기록은 오직 주입한 경로 아래에만 생성된다.
+    written = _snapshot_tree(state_root)
+    assert "adapter_suspensions.json" in written
+    assert "adapter_suspensions_ledger.jsonl" in written
+    ledger = (state_root / "adapter_suspensions_ledger.jsonl").read_text(
+        encoding="utf-8")
+    assert all(identity in ledger for identity in ids)
+    # 테스트 model ID 가 운영 ledger 로 새지 않는다.
+    production_ledger = production_root / "adapter_suspensions_ledger.jsonl"
+    if production_ledger.exists():
+        body = production_ledger.read_text(encoding="utf-8")
+        assert "conc-a" not in body and "conc-b" not in body
+
+
+def test_risk_state_isolated_by_default(tmp_path) -> None:
+    """conftest autouse 격리 — 명시 주입이 없어도 운영 경로를 쓰지 않는다.
+
+    (6) "운영 경로가 명시적으로 주입되지 않은 테스트 환경에서는 임시
+    경로를 사용한다" 를 고정한다.
+    """
+    from saju_api.services import risk_validation_lease as lease_mod
+    from saju_api.services import token_counter_registry as reg
+
+    production_root = (Path(__file__).resolve().parents[2]
+                       / "var" / "risk_state")
+    for path in (reg._SUSPENSION_FILE, reg._SUSPENSION_LOCK_FILE,
+                 reg._SUSPENSION_LEDGER, reg._EXPOSURE_DISABLED_MARKER,
+                 lease_mod._STATE_DIR):
+        assert production_root not in Path(path).parents, (
+            f"운영 risk_state 경로가 주입되지 않은 채 노출됐다: {path}")
 
 
 def test_suspension_store_corruption_is_bypass(monkeypatch) -> None:
@@ -2132,8 +2214,13 @@ def test_suspension_between_attempts_stops_risky_calls(monkeypatch,
 
 def test_cache_observation_blocks_identity(monkeypatch,
                                            tmp_path) -> None:
-    """감수 60차 §7: cached_input>0 최초 관측 → CACHE_PATH_UNVALIDATED
-    ledger 기록 + identity 전역 차단(별도 감수 전 재활성화 금지)."""
+    """cached_input>0 최초 관측 → 주입 차단(감수 60차 §7).
+
+    2026-08-04(RISK-CACHE-SUSPEND-01) 이후 차단 수단은 ledger tombstone이
+    아니라 **휘발성 보호창**이다: 미검증 캐시 경로의 적중은 계수 계약
+    위반이 아니라 미검증 capability의 발현이므로 reviewed identity를
+    영구 무효화하지 않는다.
+    """
     from saju_api.services import token_counter_registry as reg
     from saju_api.services.token_counter_registry import (
         TokenCounterAdapter,
@@ -2164,8 +2251,12 @@ def test_cache_observation_blocks_identity(monkeypatch,
     assert resolve_expose_counter("cache-model", [entry]) is not None
     record_cache_observation("cache-model", cached_input=17)
     assert resolve_expose_counter("cache-model", [entry]) is None
-    ledger = (tmp_path / "s.jsonl").read_text(encoding="utf-8")
-    assert "CACHE_PATH_UNVALIDATED" in ledger
+    assert not (tmp_path / "s.jsonl").exists()  # tombstone 없음
+    assert reg.cache_path_state("cache-model") == (
+        "CACHE_PATH_OBSERVED_UNVALIDATED")
+    # 보호창이 닫히면 재감수 없이 복귀한다(영구 차단과의 차이).
+    reg._CACHE_OBSERVED_UNTIL.pop("cache-model", None)
+    assert resolve_expose_counter("cache-model", [entry]) is not None
 
 
 def test_bootstrap_noop_outside_expose_modes() -> None:
@@ -2364,12 +2455,14 @@ def test_cache_hit_discards_response_before_delivery(
     assert len(calls) == 1
     initial = result["attempts"][0]
     assert "CACHE_PATH_UNVALIDATED" in initial["audit_issues"]
-    ledger = (tmp_path / "l.jsonl").read_text(encoding="utf-8")
-    assert "CACHE_PATH_UNVALIDATED" in ledger
-    from saju_api.services.token_counter_registry import (
-        set_validation_state,
-    )
-    set_validation_state("flow-model", "SUSPENDED")
+    # RISK-CACHE-SUSPEND-01(2026-08-04): 응답 폐기·안전 종결은 그대로이나
+    # identity tombstone은 남기지 않는다 — 휘발성 보호창으로 대체.
+    assert not (tmp_path / "l.jsonl").exists()
+    from saju_api.services import token_counter_registry as _reg
+    assert _reg._cache_observed_active("flow-model")
+    assert _reg.cache_path_state("flow-model") == (
+        "CACHE_PATH_OBSERVED_UNVALIDATED")
+    _reg._CACHE_OBSERVED_UNTIL.pop("flow-model", None)
 
 
 def test_suppressed_request_is_baseline_plus_guard_only(

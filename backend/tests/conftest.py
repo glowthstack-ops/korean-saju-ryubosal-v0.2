@@ -130,6 +130,41 @@ def _isolate_threads_export(
         mp.undo()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_risk_state(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """위험 어댑터 suspension·lease 상태를 테스트마다 임시 경로로 돌린다.
+
+    이 경로들은 **운영 상태**다(tombstone ledger는 append-only이고
+    `_is_globally_suspended` 가 읽는다). 격리하지 않은 테스트가 실제
+    `backend/var/risk_state/` 에 기록해 온 사실이 확인됐다(2026-08-04:
+    `conc-a`/`conc-b` 18행 누적). 기능 장애는 없었지만 실제 suspension
+    사고를 분석할 때 테스트 기록과 운영 기록을 갈라내야 하는 비용이
+    생기고, 실행마다 파일이 달라져 재현성이 깨진다.
+
+    개별 테스트가 자기 fixture 로 다시 monkeypatch 하는 것은 그대로
+    동작한다(나중 patch 가 이긴다). 여기서는 **명시적으로 주입하지 않은
+    테스트가 운영 경로를 쓰는 일이 없도록** 기본값을 임시 경로로 돌린다.
+    """
+    try:
+        from saju_api.services import risk_validation_lease as lease_mod
+        from saju_api.services import token_counter_registry as reg
+    except ImportError:  # saju_api 미가용 환경(순수 엔진 테스트) — 무해
+        yield
+        return
+
+    root = tmp_path_factory.mktemp("risk_state")
+    mp = pytest.MonkeyPatch()
+    mp.setattr(reg, "_SUSPENSION_FILE", root / "adapter_suspensions.json")
+    mp.setattr(reg, "_SUSPENSION_LOCK_FILE", root / "adapter_suspensions.lock")
+    mp.setattr(reg, "_SUSPENSION_LEDGER", root / "adapter_suspensions_ledger.jsonl")
+    mp.setattr(reg, "_EXPOSURE_DISABLED_MARKER", root / "exposure_disabled.marker")
+    mp.setattr(lease_mod, "_STATE_DIR", root)
+    try:
+        yield
+    finally:
+        mp.undo()
+
+
 def _test_dsn(base: str) -> str:
     """운영 DSN의 DB명 뒤에 _test를 붙인 테스트 DSN(쿼리 파라미터 보존)."""
     head, _, tail = base.rpartition("/")

@@ -36,6 +36,9 @@ def isolated_state(tmp_path, monkeypatch):
     monkeypatch.setattr(lease_mod, "_STATE_DIR", tmp_path)
     monkeypatch.setattr(reg, "_REGISTRY", {})
     monkeypatch.setattr(reg, "_VALIDATION", {})
+    # 캐시 보호창·관측 지표도 프로세스 전역이라 테스트 간 누수된다.
+    monkeypatch.setattr(reg, "_CACHE_OBSERVED_UNTIL", {})
+    monkeypatch.setattr(reg, "_CACHE_PROTECTION_METRICS", {})
     return tmp_path
 
 
@@ -59,14 +62,83 @@ def test_cache_observation_validated_identity_no_suspend(
     assert not (isolated_state / "adapter_suspensions_ledger.jsonl").exists()
 
 
-def test_cache_observation_unvalidated_identity_suspends(
+def test_cache_observation_unvalidated_identity_no_tombstone(
         isolated_state) -> None:
+    """RISK-CACHE-SUSPEND-01(2026-08-04 완화): 미검증 캐시 경로 적중은
+    identity 손상이 아니라 미검증 capability의 발현이다 — 전역 tombstone
+    금지, 휘발성 보호창만 연다(응답 폐기는 호출부가 계속 수행)."""
     register_adapter(_adapter(cache_ok=False))
     record_cache_observation("m-test", cached_input=5000)
-    assert reg._VALIDATION["m-test"] == "SUSPENDED"
-    ledger = (isolated_state
-              / "adapter_suspensions_ledger.jsonl").read_text("utf-8")
-    assert "CACHE_PATH_UNVALIDATED" in ledger
+    assert reg._VALIDATION["m-test"] != "SUSPENDED"
+    assert not (isolated_state / "adapter_suspensions_ledger.jsonl").exists()
+    assert not (isolated_state / "adapter_suspensions.json").exists()
+    assert reg.cache_path_state("m-test") == "CACHE_PATH_OBSERVED_UNVALIDATED"
+
+
+def test_cache_observation_opens_volatile_bypass_window(
+        isolated_state, monkeypatch) -> None:
+    """보호창이 열린 동안 주입용 counter 해소가 BYPASS(None) 되고,
+    창이 닫히면 identity 무효화 없이 그대로 복귀한다."""
+    adapter = _adapter(cache_ok=False)
+    register_adapter(adapter)
+    reg.set_validation_state("m-test", "VALIDATED")
+    entry = {"reviewed": True, "resolvedModelId": "m-test",
+             "providerId": "gemini", "counterVersion": "r-test",
+             "providerRequestSchemaVersion": "1",
+             "countMode": "PROVIDER_EXACT",
+             "validationPolicyHash": reg.adapter_validation_policy_hash(),
+             "validationCorpusHash": "c" * 64}
+    assert reg.resolve_expose_counter("m-test", [entry]) is not None
+    record_cache_observation("m-test", cached_input=42)
+    assert reg.resolve_expose_counter("m-test", [entry]) is None
+    # 창 만료 = 재검증·재등록 없이 복귀(tombstone과의 결정적 차이)
+    monkeypatch.setitem(reg._CACHE_OBSERVED_UNTIL, "m-test", 0.0)
+    assert reg.resolve_expose_counter("m-test", [entry]) is not None
+    assert reg.cache_path_state("m-test") == "CACHE_PATH_NOT_OBSERVED"
+
+
+def test_cache_protection_metrics_separate_entry_and_extension(
+        isolated_state) -> None:
+    """진입과 연장을 분리해 센다 — 적중이 반복되면 창이 매번 재시작되어
+    사실상 무기한 BYPASS가 될 수 있으므로 연장 누적이 보여야 한다."""
+    register_adapter(_adapter(cache_ok=False))
+    record_cache_observation("m-test", cached_input=10)   # 진입
+    record_cache_observation("m-test", cached_input=10)   # 연장
+    record_cache_observation("m-test", cached_input=10)   # 연장
+    m = reg.cache_protection_metrics("m-test")
+    assert (m["entries"], m["extensions"]) == (1, 2)
+    assert m["last_observed"] is not None
+    assert reg.cache_protection_expires_at("m-test") is not None
+    # 창이 닫힌 뒤의 적중은 다시 '진입'이다.
+    reg._CACHE_OBSERVED_UNTIL.pop("m-test", None)
+    assert reg.cache_protection_expires_at("m-test") is None
+    record_cache_observation("m-test", cached_input=10)
+    assert reg.cache_protection_metrics("m-test")["entries"] == 2
+
+
+def test_cache_protection_counts_discarded_requests(isolated_state) -> None:
+    """보호창 때문에 주입이 BYPASS된 요청 수를 센다."""
+    register_adapter(_adapter(cache_ok=False))
+    reg.set_validation_state("m-test", "VALIDATED")
+    entry = {"reviewed": True, "resolvedModelId": "m-test",
+             "providerId": "gemini", "counterVersion": "r-test",
+             "providerRequestSchemaVersion": "1",
+             "countMode": "PROVIDER_EXACT",
+             "validationPolicyHash": reg.adapter_validation_policy_hash(),
+             "validationCorpusHash": "c" * 64}
+    record_cache_observation("m-test", cached_input=5)
+    assert reg.resolve_expose_counter("m-test", [entry]) is None
+    assert reg.resolve_expose_counter("m-test", [entry]) is None
+    assert reg.cache_protection_metrics("m-test")["discarded"] == 2
+
+
+def test_register_adapter_clears_cache_window(isolated_state) -> None:
+    """휘발성 상태는 재등록(기동·재검증 반영)으로 해제된다."""
+    register_adapter(_adapter(cache_ok=False))
+    record_cache_observation("m-test", cached_input=7)
+    assert reg._cache_observed_active("m-test")
+    register_adapter(_adapter(cache_ok=False))
+    assert not reg._cache_observed_active("m-test")
 
 
 def test_undercount_still_suspends_even_with_cache_validated(
@@ -82,10 +154,15 @@ def test_undercount_still_suspends_even_with_cache_validated(
 # ── tombstone 지속 + 새 identity 해소 ───────────────────────────────────
 
 
-def test_tombstone_persists_new_identity_clears(isolated_state) -> None:
+def test_tombstone_persists_new_identity_clears(
+        isolated_state, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "saju_engines.risk_engine_config.RISK_AUDIT_HMAC_KEY", b"k" * 48)
     old = _adapter()
     register_adapter(old)
-    record_cache_observation("m-test", cached_input=1)  # 구 identity 차단
+    # tombstone 유발은 **실제 계수 계약 위반**(undercount)으로 한다 —
+    # 캐시 적중은 2026-08-04부터 tombstone 사유가 아니다.
+    reg.record_count_observation("m-test", counted=100, reported=150)
     suspended, ok = reg._is_globally_suspended(adapter_identity_hash(old))
     assert suspended and ok
     # state 파일 삭제로도 부활 불가(ledger tombstone)

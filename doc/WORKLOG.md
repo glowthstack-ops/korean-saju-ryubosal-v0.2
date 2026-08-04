@@ -9208,3 +9208,339 @@ provider_calls: 0
 overall: IDENTITY_AND_LEASE_PREFLIGHT_PASS
 paid_validation_status: READY_FOR_EXPLICIT_APPROVAL
 ```
+
+## 2026-08-04 — 위험 계수기 lease 유료 재검증 실행 + 진단 분리 (RISK-LEASE-REVALIDATION-01b)
+
+### 배경
+
+`/health` 가 `risk_exposure_readiness=DEGRADED` / `risk_bootstrap_reason=
+RISK_BOOTSTRAP_LEASE_INVALID` 를 계속 보고했다. 이 이름 때문에 "위험 판정에 별도
+LLM 을 쓴다" 는 오해가 가능해 먼저 호출 경로를 전수 확인했다.
+
+**확인 결과 — 위험 판정에 LLM 은 관여하지 않는다.**
+
+- 위험 경로의 생성 LLM 호출 지점은 `risk_exposure_bootstrap.run_exposed_reading`
+  단 하나이며, 그것이 **본 답변 생성 호출 자체**다(`injected_prompt` = baseline +
+  위험 블록). 별도 위험 검사 호출이 아니다. 정상 경로 1회, 결정적 감사 위반 시에만
+  REVISION_1 / REGENERATE 추가(최대 3회).
+- 후보·등급·노출 조건은 전부 규칙(`risk_engine`/`risk_scoring`/`risk_selection`/
+  `risk_presentation`) — LLM 호출 0건. 출력은 `risk_claim_audit` 3단 결정적 감사로
+  재검사된다.
+- `gemini-3-flash-preview` 는 별도 위험 판정 모델이 아니라 `reading_model()` 자체이며,
+  lease 가 검증하는 대상은 **countTokens 계수 경로와 identity 정합성**이다.
+
+### 유료 재검증 3회 실행(합성 39표본, 사용자 데이터 미사용)
+
+| 회차 | env | 결과 | 비고 |
+|---|---|---|---|
+| run1 | `.env` 만 | 통과(39/39, undercount 0, S13 3건 적중) | HMAC 이 dev 기본키 → **lease 서명 무효** |
+| run2 | `.env`+`.env.risk` | 불합격 | S13 캐시 3건 전부 `cached=0` |
+| run3 | `.env`+`.env.risk` | 불합격 | 동일 |
+
+production artifact 디렉터리는 `--out-dir` 로 격리해 미접촉(md5 불변), lease 는
+원본 복원. 재기동 후 상태 동일(`DEGRADED`/`BYPASS_UNVALIDATED`).
+
+### 결함 1 — 코드 드리프트로 identity 가 이미 무효 (앞선 "만료 단독" 진단 보완)
+
+RISK-LEASE-REVALIDATION-01a 는 lease 무효 사유를 "만료 단독" 으로 기록했다. 그 자체는
+맞지만 **복구 가능성 판단으로는 불완전**했다: 재검증하면 corpus hash 가
+`97b078b9…` → `8e7a3814…` 로 바뀐다.
+
+- 원인은 측정 편차가 아니라 **요청 본문 변경**: `request_digest` 20건 상이
+  (S03/S07/S08/S09/S10/S11/S13 = 위험 블록 포함 표본 전부). 위험 블록이 없는
+  S01/S02/S04/S05/S06/S12 는 무변경.
+- 유발 커밋(7/23 이후): `398c7f5`(위험 33종 shadow) · `16da6a2`(출력 3층 프레임) ·
+  `cef3f6f`(베타 관측 플래그) · `64860b2`(PAIRWISE 개방).
+- **구조 계약은 유지**: `request_shape_digest` 0건 변경, reviewed shape 7종 전부 동일,
+  framing overhead 전부 0 → 런타임 `REQUEST_SHAPE_NOT_REVIEWED` 문제 없음.
+- 따라서 lease 갱신만으로는 복구 불가 — manifest 재감수가 필요하다.
+
+### 결함 2 — 합격 기준이 provider best-effort 기능에 걸려 있었음 (B1 으로 개정)
+
+동일 코드 3회에서 유일하게 달라진 필드가 S13 `cached_input`(run1 `3943` → run2/3 `0`)
+이었다. 계수 정확도는 3회 모두 완전(undercount 0, delta +0)했는데도 `pass` 가 S13 적중
+3건을 하드 요구해 재검증이 확률적으로 실패했다.
+
+### 적용 변경 (2026-08-04 데굴님 승인)
+
+1. **B1 — 캐시 검증 분리**(`scripts/risk_adapter_shadow_validation.py`):
+   `cacheValidationStatus` = `VALIDATED` / `NOT_OBSERVED` / `FAILED`.
+   미적중은 불합격이 아니라 미검증(`cache_path_validated=false` 등록), 적중했는데
+   계수가 어긋난 경우만 `FAILED`=불합격. `samples_summary.cache_hit_samples` 가
+   미적중에도 3을 기록하던 계수 오류도 교정.
+2. **identity 결정성**: `validationCorpusHash` 를 요청 본문 파생 항목만 담은
+   `identityCorpus` 에서 산출. 실행 관측값은 `nativeValidationCorpus` 에 전량 보존하되
+   identity 에 미참여. `_artifact_corpus_ok` 는 `identityCorpus` 우선·구 schema 폴백.
+3. **dev HMAC 키 fail-fast**: 외부 호출 **전** `_audit_hmac_key_valid()` 로 중단(exit 2).
+4. **`scripts/revalidate_risk_lease.sh`**: 서버와 동일 규칙으로 env 로드
+   (`.env`→`.env.risk`→`.env.beta`), `REPEAT=n` 으로 결정성 반복 확인.
+5. **`/health` 호환 패치**: 구필드 3종 유지 + 세부 4종 추가
+   (`risk_token_counter_validation` · `risk_token_counter_model` ·
+   `risk_token_counter_lease_expires_at`(읽기 불가 시 null) · `risk_degradation_reason`).
+6. **reason 세분화**: `lease_status()` 진단 전용 함수 신설 — 7상태
+   (VALID/VALIDATION_MISSING/LEASE_SIGNATURE_INVALID/LEASE_INVALIDATED/
+   IDENTITY_MISMATCH/LEASE_EXPIRED/LEASE_EXPIRING). `load_valid_lease` 시그니처·
+   게이트 동작 불변. 우선순위는 MISSING > INVALIDATED > SIGNATURE_INVALID >
+   IDENTITY_MISMATCH > EXPIRED > EXPIRING.
+   - 승인안은 SIGNATURE_INVALID 를 INVALIDATED 보다 위에 뒀으나, `invalidate_lease`
+     가 hmac 을 제거하므로 그 순서로는 INVALIDATED 가 **도달 불가**가 된다. 의도적
+     무효화와 변조를 구분하기 위해 INVALIDATED 를 먼저 판정한다(테스트로 고정).
+
+### 감사 항목 등재 (별도 처리 필요)
+
+- **RISK-CALL-INVARIANT-01**: EXPOSE 경로가 감사 실패 시 최대 3회
+  `generateContent`(INITIAL→REVISION_1→REGENERATE_WITHOUT_RISK)를 호출한다.
+  `1요청=1LLM호출 + 결정적 패치·fallback` 원칙과 충돌 — 위반 문장 제거·안전 템플릿
+  치환으로 대체 가능한지 검토 필요. REGENERATE 는 baseline 전체 재생성이라 비용이 가장 크다.
+- **RISK-CACHE-SUSPEND-01**: `cache_path_validated=false` 로 등록된 상태에서 실요청에
+  암묵 캐시가 적중하면 `record_cache_observation` 이 응답 폐기에 더해 identity 를
+  **전역 SUSPENDED(tombstone)** 로 강등한다. B1 로 미검증 등록이 상시화되므로, 캐시가
+  잦은 운영에서 tombstone 이 유발될 수 있다. 미검증 상태의 캐시 적중은 사고(SUSPENDED)가
+  아니라 재검증 대상(UNVALIDATED)으로 강등 수위를 낮추는 안을 별도 감수 필요.
+- **RISK-LEASE-ENV-01**: `.env.risk` 미로드 시 dev HMAC 으로 검증이 완주돼 lease 를
+  쓰지만 서버가 거부한다(이번에 실제 발생). fail-fast + 래퍼 스크립트로 차단했으나,
+  운영 문서의 재검증 절차를 래퍼 호출로 통일해야 한다.
+
+### 게이트
+
+- 신규 `backend/tests/unit/test_risk_lease_status_diagnostics.py` 13종 통과
+  (7상태 + 우선순위 4종 + 게이트 불변 1종).
+- risk 전체 회귀 통과.
+
+### 남은 결정
+
+manifest 재감수(`doc/v2_2/RISK_REVIEW_MANIFEST.json` 의 `validationCorpusHash`·
+`validationArtifactHash` 갱신 + 구 artifact 제거)는 **미실행**. 승인 조건 7종
+(env 동일 로드 · dev키 차단 · 동일 코드 3회 · corpus hash 3회 동일 · 캐시 적중과 무관하게
+동일 pass · undercount 0 · 관측값 identity 미참여) 확인 후 별도 상신한다.
+
+## 2026-08-04 — RISK-CACHE-SUSPEND-01 완화 + identity 결정성 3회 확인
+
+### RISK-CACHE-SUSPEND-01 — 캐시 미검증 적중의 전역 tombstone 제거 (승인 반영)
+
+`cache_path_validated=false` 는 "비캐시 경로는 검증됐고 캐시 응답의 계수 계약은 아직
+검증하지 않았다" 는 뜻이다. 따라서 `cached_input>0` 관측 1회는 identity 손상·provider
+drift 의 증거가 아니라 **미검증 capability 의 발현**이며, B1 이후 미검증 등록이
+상시화되므로 reviewed identity 를 영구 무효화하는 것은 과도하다.
+
+- **변경**(`token_counter_registry.record_cache_observation`): 전역 `SUSPENDED` +
+  ledger tombstone → **휘발성 보호창**(`CACHE_OBSERVED_BYPASS_SECONDS=600`, 프로세스
+  메모리, 파일 기록 없음). `resolve_expose_counter` 가 창이 열린 동안 None(BYPASS) 을
+  반환하고, `register_adapter`(기동·재검증 반영) 또는 창 만료로 **재감수 없이** 해제된다.
+- **유지**: 응답 폐기(`CACHE_PATH_UNVALIDATED` integrity issue) → 안전 fallback,
+  비캐시 응답 정상 처리, 캐시 미검증이 위험 후보·등급·노출 판단에 무영향.
+- **tombstone 존치 사유**: undercount(`record_count_observation`) · 검증된 캐시 경로의
+  계약 위반 · model/provider identity 변경(lease modelVersion 대조). 캐시 적중은 제외.
+- **관측**: `cache_path_state()` 4상태 — `CACHE_PATH_VALIDATED` /
+  `CACHE_PATH_NOT_OBSERVED` / `CACHE_PATH_OBSERVED_UNVALIDATED` / `UNREGISTERED`.
+  `/health` 에 `risk_cache_path_state` 로 노출(readiness=READY 인데 주입만 BYPASS 되는
+  상태가 운영에서 보이지 않으면 안 되므로 필드 추가).
+- **명칭 주의**: 승인안의 `SUSPENDED_CONTRACT_VIOLATION` 은 **개념 구분**으로만 반영하고
+  영속 상태값은 기존 `SUSPENDED` 를 유지했다 — ledger/state 파일에 이미 기록된 값이라
+  개명하면 기존 tombstone 판정이 깨진다. 이제 이 값은 계약 위반에만 남는다.
+- 회귀: 기존 2종을 신 계약으로 교체(`test_cache_observation_unvalidated_identity_
+  no_tombstone`, 통합 2건) + 신규 2종(보호창 개폐·재등록 해제). tombstone 지속 테스트는
+  유발 트리거를 캐시 적중 → undercount 로 교체.
+
+### 래퍼 보강 — 실행은 명시적 opt-in
+
+`--execute` 없이는 네트워크 호출을 시작하지 않는다(기본=preflight). preflight 출력:
+로드된 env 목록·`.env`/`.env.risk`/스크립트 fingerprint·HMAC key fingerprint(값 미출력)·
+model/provider·git HEAD·out-dir·예상 표본 수·production lease/artifact 영향 여부.
+`--repeat N` 과, 검증 스크립트의 `--no-lease`(합격해도 운영 lease 미기록) 추가.
+
+### identity 결정성 3회 확인 (승인 조건 ①~⑦)
+
+동일 HEAD(`ae67b62`)·동일 스크립트·동일 `.env`+`.env.risk`·동일 model/provider 로 3회.
+
+| | run4 | runA | runB |
+|---|---|---|---|
+| corpusHash | `ce324c15…` | `ce324c15…` | `ce324c15…` |
+| pass | true | true | true |
+| undercount | 0 | 0 | 0 |
+| cacheValidationStatus | NOT_OBSERVED(0/3) | NOT_OBSERVED(0/3) | **VALIDATED(3/3)** |
+
+- **runB 가 결정적 증거**: 캐시 적중이 0/3 → 3/3 으로 갈렸는데도 corpusHash 와 pass 가
+  동일했다. 조건 ⑤(캐시 적중과 무관한 동일 pass)·⑦(관측값 identity 미참여)을 실측으로
+  만족한다. `identityCorpus` 재해시 = `validationCorpusHash` 도 3회 모두 일치.
+- 격리 확인: production artifact md5 불변, 운영 lease `md5sum -c` OK(미기록).
+- 조건 ⑥(수정 전후 artifact 계약 동일) 충족 — 완화 패치는 런타임 registry 만 바꾸고
+  artifact 산출(`validationPolicyHash` = `ccb348d0…`, report 필드 집합)은 불변이라
+  기존 1회를 모집단에 포함해 총 3회로 판정했다.
+
+### 주의: `validationArtifactHash` 는 회차마다 달라진다
+
+`report` 에 캐시 실측이 포함되므로 artifactHash 는 결정적이지 않다. 다만 런타임
+`_manifest_entry_matches` 는 **artifactHash 를 대조하지 않는다**(corpusHash·policyHash·
+identity 4요소·reviewed 만 검사). `_artifact_corpus_ok` 도 artifact 자체의 자기정합만
+확인한다. 따라서 주간 재검증이 manifest 갱신을 유발하지 않는다는 목표는 달성됐고,
+manifest 의 artifactHash 필드는 **기록용**이라는 점을 감수 시 명확히 해야 한다.
+
+### 게이트
+
+ruff `All checks passed` · `production mypy gate clean`(370) ·
+`maintained scripts mypy gate clean`(6) · 전체 스위트 `VALID_SUITE_PASS`.
+
+## 2026-08-04 — 보호창 관측·mode 정합·artifact identity 불변식 (승인 §2~§4 반영)
+
+### `/health` — readiness 와 mode 의 의미 분리
+
+보호창이 열리면 자격(검증된 비캐시 adapter 등록)은 유효한데 주입만 BYPASS 되므로
+`READY` + 정상 mode 로 보이면 운영이 오독한다. 이제 다음과 같이 구분한다.
+
+- `risk_exposure_readiness` = **자격**(검증된 비캐시 adapter 가 등록되어 있는가)
+- `risk_exposure_mode` = **현재 동작**(지금 요청이 실제로 타는 경로).
+  보호창 중에는 `BYPASS_CACHE_PATH_UNVALIDATED`.
+- `risk_degradation_reason` 은 lease 결함이 없을 때 보호창 사유
+  (`RISK_CACHE_PATH_OBSERVED_UNVALIDATED`)를 채운다.
+- 추가 필드: `risk_cache_protection_expires_at`(닫혀 있으면 null) ·
+  `risk_cache_protection_metrics`.
+
+canonical 상태값은 앞서 정한 4상태 어휘(`CACHE_PATH_OBSERVED_UNVALIDATED`)를 유지했다
+— 승인 예시의 `PROTECTION_ACTIVE` 는 같은 상태의 비공식 표기로 읽었다.
+
+### 보호창 관측 지표(승인 §3 — 무기한 BYPASS 가능성 대비)
+
+적중이 반복되면 창이 매번 재시작되므로 provider 가 캐시를 계속 적용하면 사실상 무기한
+BYPASS 가 될 수 있다. 첫 릴리즈에서는 그대로 두되 다음을 관측한다:
+`entries`(진입) · `extensions`(연속 연장) · `discarded`(보호창으로 BYPASS 된 요청 수) ·
+`last_observed`. 재등록은 창만 닫고 **누적 지표는 보존**한다(반복 진입 추적).
+
+### artifact identity 불변식 3종 고정(신규 테스트 6종)
+
+`backend/tests/unit/test_risk_artifact_identity_invariants.py`:
+
+1. **artifactHash 변경만으로는 identity 불일치가 되지 않는다** — 동일 corpus·policy 에서
+   report(실측)만 다른 두 실행은 corpusHash 동일·manifest 일치 판정 동일.
+2. **corpusHash·policyHash 변경은 재감수를 요구한다** — 각각 `_manifest_entry_matches`
+   실패.
+3. **artifact 내용과 artifactHash 불일치 = fail-closed** — 변조·identityCorpus 수정 모두
+   `_artifact_corpus_ok` False.
+4. 구 schema(identityCorpus 부재) 폴백 유지 — 교체 전 운영 artifact 무효화 방지.
+
+`validationArtifactHash` 는 **provenance-only** 다: 특정 감수 실행 보고서를 식별하고
+변조를 탐지하기 위해 보관하되, report 에 provider 관측 실행값이 들어가므로 동등한
+검증 실행 사이에서도 달라질 수 있어 주기적 lease identity 비교에는 쓰지 않는다.
+runtime 은 이미 그렇게 동작한다(`_manifest_entry_matches` 는 artifactHash 미대조).
+
+### 게이트
+
+risk 전체 회귀 통과(신규 6종 + 보호창 지표 2종 포함).
+
+### 교정 — `/health` 직렬화가 null 을 삼키고 dict 를 repr 로 내보내던 문제
+
+`routers/health.py` 가 readiness snapshot 의 **전 값을 `str(v)` 로 바꾸고 `None` 을
+버리고** 있었다. 기존 필드가 전부 문자열이라 드러나지 않았으나 이번 추가로 노출됐다:
+
+- `risk_cache_protection_expires_at=None` 이 응답에서 **사라져** "읽지 못함"과
+  "필드 없음"이 구분되지 않았다(승인 §1 의 "읽기 불가 시 null 명시" 위반 —
+  `risk_token_counter_lease_expires_at` 도 lease 부재 시 같은 문제였다).
+- `risk_cache_protection_metrics` 가 `"{'entries': 0, ...}"` 파이썬 repr 문자열로 나갔다.
+
+JSON 원형(str/int/float/bool/dict/list/None)을 보존하도록 교정. 기존 필드는 전부
+문자열이라 표현 변화 없음. 실측 확인 완료.
+
+### 최종 게이트
+
+`VALID_SUITE_PASS`(start/end head·fingerprint 동일, exit 0) · ruff `All checks passed` ·
+`production mypy gate clean`(370) · `maintained scripts mypy gate clean`(6) ·
+health/risk 회귀 통과.
+
+## 2026-08-04 — RISK-LEASE-REVALIDATION-01c 반영 + 테스트 상태 격리(RISK-TEST-ISOLATION-01)
+
+### manifest 재감수 반영 (데굴님 승인)
+
+- 구 artifact `97b078b9…` 제거 → `gemini-3-flash-preview__ce324c1519179a15.json`(runB) 배치.
+  동일 모델 reviewed artifact **정확히 1개** 확인.
+- **manifest 는 손편집 대상이 아니라 생성물**이다(`stored == build_manifest()` 회귀).
+  SSOT 인 `scripts/risk_review_manifest.py` 를 고쳐 재생성했다:
+  ①`_REVIEWED_COUNTER_CORPUS_HASHES` 를 `ce324c15…` 로 교체(= 실제 `reviewed:true`
+  선언 지점) ②corpus 재해시를 `identityCorpus` 우선 + 구 schema 폴백으로 수정
+  (미수정 시 "artifact 무결성 실패"로 생성 자체가 막힌다) ③`validation_hash_contract`
+  최상위 필드로 해시 3종 역할 명시(artifactHash = provenance-only).
+- 결과 diff = 두 해시 + 계약 필드. reviewed identity 4요소·countMode·
+  validationPolicyHash 불변.
+- 새 identity(`9f6b8a79…`)로 lease 재발급 — 운영 키 서명 유효, 만료 2026-08-11.
+
+### 적용 후 확인(전 항목 통과)
+
+```
+service_readiness=READY · risk_exposure_readiness=READY · risk_exposure_mode=expose
+risk_token_counter_validation=VALID · risk_cache_path_state=CACHE_PATH_VALIDATED
+risk_degradation_reason=null · risk_bootstrap_reason=null
+```
+
+canary smoke 7/7. 실 `/api/v2/chat` 요청으로 **INJECTED 실경로 확인**:
+`disposition=INJECTED · episode_count=2 · compression_mode=TIERED ·
+output_schema_state=RISK_ENABLED · adapter_state=VALIDATED`, 종결
+**DELIVER_GENERATED**(답변이 `RISK_SAFE_FALLBACK_TEMPLATE` 과 불일치, REVISION/
+REGENERATE 미발생 = generateContent 1회). undercount·CACHE_PATH·SUSPENDED·
+MODEL_VERSION_MISMATCH 로그 0건, 보호창 미진입(metrics 전부 0), artifact 단일.
+
+fail-closed 동작도 함께 관측: 도메인 2개 질문(이사+계약)=`BYPASS/
+QUESTION_TYPE_NOT_ALLOWED`, 후보 없는 명식=`SUPPRESSED/NO_EXPOSABLE_EPISODE`.
+
+### RISK-TEST-ISOLATION-01 — 테스트가 운영 상태 디렉터리에 기록하던 결함
+
+`test_concurrent_suspension_writes_are_not_lost` 가 `tmp_path` 격리 없이 모듈 상수
+경로를 그대로 써서 **운영** `backend/var/risk_state/` 에 기록해 왔다. 실측 결과
+ledger 767행 중 **766행이 테스트 행**(`conc-a`/`conc-b`, 2026-07-16부터 누적)이고
+운영 행은 1행(`eda667c6…` CACHE_PATH_UNVALIDATED, 7/17)뿐이었다. 기능 장애는 없다
+(identity 교집합 0) — 그러나 실제 suspension 사고 분석 시 테스트/운영 기록을
+갈라내야 하고 실행마다 파일이 달라져 재현성이 깨진다.
+
+- **conftest autouse 격리**: `_SUSPENSION_FILE`·`_SUSPENSION_LOCK_FILE`·
+  `_SUSPENSION_LEDGER`·`_EXPOSURE_DISABLED_MARKER`·lease `_STATE_DIR` 을 테스트마다
+  임시 경로로 돌린다. 개별 테스트의 자체 monkeypatch 는 그대로 우선한다.
+  (`_isolate_threads_export` 와 같은 계열의 사고 — 선례 존재.)
+- **경로 주입**: 동시성 테스트를 `_run_concurrent_suspension_writes(state_root)` 로
+  분리해 경로를 인자로 받게 했다(import 시점 고정 상수 사용 금지).
+- **회귀 3종**: 유실 없음(기존) / 운영 트리 스냅샷 전후 동일 + 테스트 model ID 가
+  운영 ledger 에 없음 / autouse 격리로 운영 경로가 노출되지 않음.
+
+### 기존 766행 보존적 정리
+
+전체 초기화 없이 `model_id ∈ {conc-a, conc-b}` 행만 제거했다.
+
+1. 읽기 전용 백업 — `backend/var/risk_state/archive/suspension_ledger_before_
+   test_cleanup_20260804.jsonl`(sha256 `c972d695…`, 767행) + state 파일 백업.
+   `backend/var/` 는 gitignore 대상이라 커밋되지 않는다.
+2. 재확인: 테스트 행은 전부 `event=SUSPENDED`·request_id_hash 2종·identity 12종,
+   운영 identity 와 교집합 0.
+3. 원본 **바이트 라인 그대로** 필터(재직렬화 금지) → atomic replace(fsync+os.replace).
+4. 결과: 767행 → 1행, 보존 행 byte-for-byte 동일 확인. `adapter_suspensions.json`
+   은 무변경(운영 항목 1건 유지).
+5. 재기동 후 `/health` 전 항목 정상 재확인.
+
+### 게이트
+
+ruff · production mypy · maintained scripts · 전체 스위트 재실행 결과는 아래 절에 기록.
+
+### 스위트 교정 — 복구가 회귀를 깨뜨린 건(정상 신호)
+
+격리 패치 후 전체 스위트에서 1건 실패:
+`test_risk_lease_identity_preflight.py::test_operational_lease_carries_an_identity_
+and_is_only_expired`. 원인은 격리가 아니라 **lease 복구 그 자체**였다 — 이 테스트가
+`assert expires <= now` 로 2026-08-02 시점의 **DEGRADED 상태를 고정**하고 있어,
+lease 를 되살리면 반드시 깨진다(= 스위트가 장애 지속을 요구하는 상태였다).
+
+시점 상태 단언을 제거하고 **필드 계약**(identity_hash 존재 · adapter_identity_hash
+부재 — 철회된 가설 재발 방지)만 남겼다. 만료·서명·identity 무효 판정은
+`test_risk_lease_status_diagnostics.py` 가 7상태로 이미 고정한다. 남겨뒀다면 7일마다
+lease 갱신 여부로 통과/실패가 뒤집히는 시한폭탄이 된다.
+
+### 최종 게이트 (RISK-LEASE-REVALIDATION-01c + RISK-TEST-ISOLATION-01)
+
+- ruff `All checks passed` · `production mypy gate clean`(370) ·
+  `maintained scripts mypy gate clean`(6)
+- 전체 스위트 `VALID_SUITE_PASS`
+- **격리 실증**: 전체 스위트 실행 전후 운영 `adapter_suspensions_ledger.jsonl`
+  md5 동일 · 1행 유지(이전에는 실행마다 테스트 행이 누적됐다).
+
+### 후속 기준 — 보호창 연속 연장(RISK-CACHE-SUSPEND-01 잔여)
+
+`extensions` 가 계속 증가하면 provider 가 캐시를 지속 적용한다는 뜻이고, 600초 창이
+매번 재시작되므로 **사실상 무기한 위험 노출 BYPASS** 가 된다. 후속 기준:
+연속 연장이 임계를 넘으면 운영 경고를 발생시키되 **영속 tombstone 으로 승격하지
+않는다**(계약 위반이 아니라 미검증 capability 의 지속 발현이므로). 임계값·경고 채널은
+`extensions` 실측 분포를 본 뒤 정한다. 현 단계는 관측만 한다.
