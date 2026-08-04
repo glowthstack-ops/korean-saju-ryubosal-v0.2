@@ -74,6 +74,7 @@ from saju_engines.precompute import CompositeBuilder
 from saju_engines.profile_engine import profile_facts_for
 from saju_engines.query_parser import (
     ACCIDENT_SAGO_RE,
+    AFFIRMATION_RE,
     implies_self_counterpart,
     parse_message,
 )
@@ -1628,6 +1629,18 @@ _OFFER_MARKERS = (
     "알려주시면",
     "알려 주시면",
 )
+# 답변 말미 고지 줄(`※ …`) — offer 추출 시 tail 계산에서 제외한다.
+_NOTICE_LINE_RE = re.compile(r"^\s*[※*]\s*")
+
+# 되물음에 대한 답변일 때의 우선 지시(2026-08-04) — 수락('그래/봐줘')이 아니라 네가 던진
+# 질문에 사용자가 내용으로 답한 경우다. 수락용 문구를 그대로 쓰면 LLM 이 '제안 수락'으로
+# 오해해 사용자의 답 내용을 버리므로 분리한다.
+_OFFER_ANSWER_DIRECTIVE = (
+    "[중요·되물음 답변 — 다른 표기보다 우선 적용]\n"
+    "직전 답변 끝에서 네가 사용자에게 질문했고, 이번 발화는 그 질문에 대한 답이다. 새 질문으로 "
+    "취급하거나 범위를 다시 좁혀 달라고 되묻지 말 것. 사용자의 답을 전제로 받아들여 직전 "
+    "주제·시점·대상을 그대로 이어 풀어라. 네가 직전에 던진 질문은 다음과 같다: 「{offer}」"
+)
 # 동의+이어보기('그래 봐줘')일 때, 직전 답변 끝에 제시한 제안을 이어 답하라는 우선 지시.
 _OFFER_CONTINUE_DIRECTIVE = (
     "[중요·이어보기 — 다른 표기보다 우선 적용]\n"
@@ -1638,17 +1651,40 @@ _OFFER_CONTINUE_DIRECTIVE = (
 
 
 def _extract_offer(answer: str) -> str:
-    """직전 답변 끝의 '이어서 봐드릴게요/어느 쪽 보고 싶으세요' 류 제안 문장을 뽑는다(없으면 '').
+    """직전 답변 끝의 제안·되물음 문장을 뽑는다(없으면 '').
 
     페르소나 규칙상 답변 끝에 후속 제안/질문을 붙이므로 마지막 1~2문장에서 제안 표지가 있는
     부분만 취한다(토큰 가드 300자). 제안이 없으면 빈 문자열 → 이어보기 지시 미적용.
+
+    **질문형 마감**(2026-08-04 실로그): 마커 목록은 제안 어구('짚어드릴까요'·'궁금해요')만
+    담고 있어, 페르소나가 사용자에게 직접 묻고 끝낸 경우('…절대 양보할 수 없는 한 가지는
+    무엇인가요?')를 하나도 잡지 못했다. 그 결과 last_offer 가 비고 → offer-answer 링킹이
+    통째로 죽어 사용자의 답('역시 외모지')이 NEW 로 끊겨 "질문 범위가 넓어요"로 바운스됐다.
+    마커를 늘리는 대신 **마지막 문장이 물음표로 끝나면 대기 질문으로 인정**한다.
+
+    - '마지막 문장'으로 한정하는 이유: tail 2문장 전체에 적용하면 본문 중간 수사의문문
+      ('이 시기가 정말 좋을까요? 결론적으로는 …')까지 제안으로 잡힌다.
+    - 답변 말미의 고지 줄(`※ 관계 신호는 시험(beta) 관측치예요`)은 tail 계산에서 제외한다.
+      고지가 붙으면 실제 질문이 마지막 문장 밖으로 밀려나기 때문이다.
     """
     if not answer:
         return ""
-    sents = [s.strip() for s in re.split(r"(?<=[.!?。])\s+|\n+", answer.strip()) if s.strip()]
+    body = "\n".join(
+        line for line in answer.strip().splitlines() if not _NOTICE_LINE_RE.match(line)
+    )
+    sents = [s.strip() for s in re.split(r"(?<=[.!?。])\s+|\n+", body.strip()) if s.strip()]
+    if not sents:
+        return ""
     tail = sents[-2:] if len(sents) >= 2 else sents
     picked = [s for s in tail if any(m in s for m in _OFFER_MARKERS)]
+    if sents[-1].endswith("?") and sents[-1] not in picked:
+        picked.append(sents[-1])
     return " ".join(picked)[:300].strip()
+
+
+def _offer_is_question(offer: str) -> bool:
+    """추출된 offer 가 사용자에게 던진 질문인가(수락형 제안과 구분)."""
+    return offer.rstrip().endswith("?")
 
 
 def update_thread_offer(
@@ -4289,7 +4325,18 @@ def chat(
     if prior_answer and (is_affirm_continue(question) or is_followup_turn):
         _offer = _extract_offer(prior_answer)
         if _offer:
-            trailing.append(_OFFER_CONTINUE_DIRECTIVE.format(offer=_offer))
+            # 되물음 답변과 제안 수락을 구분한다(2026-08-04) — 질문형 마감에 내용으로
+            # 답한 턴에 수락용 문구를 쓰면 사용자의 답이 버려진다. 수락어('그래/봐줘')로
+            # 받은 경우는 질문형이어도 기존 이어보기 지시가 맞다.
+            _accepted = is_affirm_continue(question) or AFFIRMATION_RE.fullmatch(
+                question.strip()
+            )
+            _directive = (
+                _OFFER_ANSWER_DIRECTIVE
+                if _offer_is_question(_offer) and not _accepted
+                else _OFFER_CONTINUE_DIRECTIVE
+            )
+            trailing.append(_directive.format(offer=_offer))
     # 스레드 내 서두 반복 금지 — 직전 답변이 있으면 그 첫 문장을 제시해 같은 패턴 서두를
     # 차단한다(2026-07-06 테스터: 한 스레드 안에서도 비슷한 형태의 답변 반복).
     if prior_answer:
