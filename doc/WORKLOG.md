@@ -9609,3 +9609,22 @@ offer-answer 링킹 규칙(2026-07-22)은 이미 있었다. 문제는 그 입력
 사용자 답변 내용("외모")을 **영구 프로필 사실**로 저장하는 것은 넣지 않았다. user facts
 ledger(user_explicit 슬롯)·외적 인상 신호와 연결 후보이지만 슬롯·수명 설계가 필요하다.
 이번엔 해당 턴의 대화 맥락으로만 전달한다.
+
+### 무인증 스레드 배선 보완 (2026-08-04 승인 — 별도 커밋)
+
+`_extract_offer` 를 고쳐도 라우터가 직접 답변을 생성하는 경로(비로그인)는 offer 저장
+지점을 지나지 않아, 같은 대화가 **로그인 여부에 따라 다르게 동작**했다(로그인=연결,
+비로그인=too_broad). 기능 확장이 아니라 누락된 배선이므로 라우터에서
+`update_thread_offer` 를 호출한다(백그라운드 경로와 동일 함수 → 동일 해석 결과).
+
+불변식은 라우터 레벨 회귀 5종으로 고정한다
+(`tests/integration/test_chat_anonymous_offer_link.py`, LLM 미호출·고정 답변):
+
+| 불변식 | 회귀 |
+|---|---|
+| 해당 스레드 offer만 갱신 | 이웃 스레드 last_offer `''` 유지 |
+| 되물음 답변 연결 | 무인증 2턴 HTTP 요청 — 2턴 status != too_broad |
+| 새 도메인은 새 스레드 | 건강 질문 `is_follow_up=False` |
+| 저장 실패가 답변을 막지 않음 | 추출 실패 주입 → answer 정상 + `last_offer=''` |
+| 인증·무인증 해석 동일 | `state.last_offer == _extract_offer(answer)` |
+| 사용자 답변 본문 미영속화 | `last_offer` 에 사용자 발화 미포함 |

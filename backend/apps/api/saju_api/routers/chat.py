@@ -273,6 +273,12 @@ def chat(
             ref_id=req.thread_id,
         )
         prep = prep.model_copy(update={"status": "answered", "answer": answer})
+        # 이 경로는 라우터가 답변을 직접 생성하므로 chat_service 의 offer 저장
+        # 지점을 지나지 않는다 — 스레드가 있으면 여기서 갱신해야 다음 턴의
+        # 되물음 답변이 링킹된다(2026-08-04: 배경 경로와 동일 계약).
+        # 대화 상태 자체는 prep 단계에서 이미 영속화되어 있다(history 만 없다).
+        if req.thread_id:
+            chat_service.update_thread_offer(req.thread_id, answer)
 
     # 정책/범위/need_subject(즉시 응답) — 로그인+스레드+DB면 동기 영속화.
     if owner_id and req.thread_id and prep.answer and history is not None:
