@@ -96,6 +96,18 @@ def _sinsal_text_by_name() -> dict[str, dict]:
 
 
 @lru_cache(maxsize=1)
+def canonical_sinsal_names() -> frozenset[str]:
+    """사전에 실재하는 신살 표기 전체 — 출력 계층의 훼손 탐지 기준(SSOT).
+
+    LLM 이 엔진이 준 신살명의 글자를 바꿔 쓰는 사례가 있어(2026-08-06 실측: 대화 이력
+    570건 중 '격격살' 1건 — 격각살의 훼손), 출력 정리 단계가 "사전에 있는 이름인가"를
+    물을 수 있어야 한다. 이름의 출처를 그 이름이 정의된 이 모듈에 두어, 표기 목록이
+    두 곳으로 갈라지지 않게 한다.
+    """
+    return frozenset(_sinsal_text_by_name())
+
+
+@lru_cache(maxsize=1)
 def _favorability_by_role() -> dict[str, dict]:
     return {item["role"]: item for item in _load("favorability_text.json")["items"]}
 

@@ -120,6 +120,7 @@ from saju_engines.task_procedures import (
     detect_task_pack,
     procedure_reference_block,
 )
+from saju_engines.time_parser import DAY_WORD_OFFSETS as _TP_DAY_WORDS
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_lifestyle_context, build_topic_context
 from saju_engines.user_facts import user_facts_block
@@ -1744,8 +1745,9 @@ _YEAR_DIGEST_DIRECTIVE = (
     "범위가 넓다). 각 해가 어느 대운에 속하는지 배경을 깔고, 그 10년 안에서 대운이 바뀌는 "
     "교운기(전환기)가 있으면 그 시기의 갑작스럽고 비자발적인 전환 에너지를 반드시 함께 "
     "반영하라(교운 근접 해일수록 변동 폭이 크다). 강하게 작동하는 해와 주의가 필요한 해를 "
-    "골라 총평하고, 답변 끝에 '어느 해를 더 자세히 보고 싶은지' 한 가지를 자연스럽게 물어 — "
-    "사용자가 특정 연도를 지정하면 그때 그 해의 월별 상세를 풀어주겠다고 안내하라."
+    "골라 총평하라. 마무리 질문을 따로 더 만들지 말고, 시스템 지시의 마지막 마무리 질문 "
+    "하나의 소재를 '어느 해를 더 자세히 보고 싶은지'로 삼아 — 사용자가 특정 연도를 "
+    "지정하면 그때 그 해의 월별 상세를 풀어주겠다고 안내하라."
 )
 
 # 이사 해석 — 십성(이사 유형·이유)과 용신/기신(이사 길흉)을 분리시킨다. LLM이 천간의 기신
@@ -1779,12 +1781,39 @@ _RELOCATION_DESTINATION_DIRECTIVE = (
     "나열로 답을 채우지 말 것."
 )
 
+#: 기준 시점 대비 날짜 관계를 한국어로. 어휘는 파서 사전(`time_parser._DAY_WORDS`)을
+#: 역인덱스로 재사용한다 — 같은 말이 파싱 쪽과 서술 쪽에서 갈라지지 않게 한다.
+_DAY_OFFSET_LABEL: dict[int, str] = {
+    **{v: k for k, v in _TP_DAY_WORDS.items()}, -1: "어제", -2: "그제",
+}
+
+
+def _relative_day_label(target: date, today: date) -> str:
+    """대상 날짜가 오늘 기준 언제인지 — '오늘'·'내일'·'모레'·'5일 뒤'·'3일 전'.
+
+    LLM 이 날짜만 보고 그 날을 '오늘'로 부르던 결함(2026-08-06)의 대응이다. 지칭을
+    계산으로 확정해 넘기고, 서술은 그 말을 그대로 쓰게 한다.
+    """
+    delta = (target - today).days
+    if delta in _DAY_OFFSET_LABEL:
+        return _DAY_OFFSET_LABEL[delta]
+    return f"{abs(delta)}일 {'뒤' if delta > 0 else '전'}"
+
+
 # 특정일(단일 날짜) 질문 — 당일 중심 상세 서술 강제(2026-07-22 테스터 신고: '9/30 이사
 # 주의점'에 월·연 기간 기운 서술이 답을 채우고, 당일 지침은 두루뭉술하게 흐려지던 결함).
-# 서술 전용 — 위 [해당 일 일운] 블록(엔진 계산값)이 함께 주입된다.
+# 서술 전용 — 위 [해당 일 운세] 블록(엔진 계산값)이 함께 주입된다.
+#
+# 블록명은 실제 헤더와 같아야 한다(2026-08-06). 예전에는 이 문구가 `[해당 일 일운]` 을
+# 가리켰는데 그런 헤더는 어디에도 없었다 — 끊어진 참조였다.
+#
+# 기준 시점 대비 관계({relative})를 함께 준다. 날짜만 주면 LLM 이 그 날을 '오늘'로
+# 부르는 일이 잦았다(실측: '내일' 질문 17건 중 5건이 답변에서 '오늘'로 지칭).
 _SINGLE_DAY_FOCUS_DIRECTIVE = (
     "[중요·특정일 질문 — 다른 표기보다 우선 적용]\n"
-    "사용자가 특정한 '그 날'({date})을 물었다. 답의 중심은 그 날이다: 위 [해당 일 일운] "
+    "사용자가 특정한 '그 날'({date} = 기준 시점 대비 {relative})을 물었다. 그 날을 "
+    "지칭할 때 이 관계를 그대로 쓰고, 오늘이 아닌 날을 '오늘'이라고 부르지 마라. "
+    "답의 중심은 그 날이다: 위 [해당 일 운세] "
     "블록의 간지·길흉·십성을 1차 근거로, 그 날 실행할 행동 지침을 구체적 단위(계약·서류 "
     "확인, 금전 지출, 이동 동선·일정 관리, 컨디션·감정 관리 등)로 정리하라. 월·연 단위 "
     "기운 서술은 배경 설명 한두 줄로만 제한하고, 질문받지 않은 다른 기간의 흐름을 늘어놓지 "
@@ -2173,7 +2202,8 @@ _MONTH_PICK_DIRECTIVE = (
     "나열로 답하지 말고, 아래 월별 흐름(오늘부터 12개월)에서 유리한 달 1~3개를 골라 월 "
     "단위로 답하라. 각 달은 '이 달에 된다' 단정이 아니라 기운이 열리는 창으로 표현하고, "
     "12개월 너머에 더 강한 해가 있으면 '길게 보면 ○○○○년이 더 크다' 정도로만 짧게 "
-    "덧붙여라. 끝에 특정 달의 상세나 다른 해의 달을 이어 볼지 자연스럽게 물어라."
+    "덧붙여라. 마무리 질문을 따로 더 만들지 말고, 시스템 지시의 마지막 마무리 질문 하나의 "
+    "소재를 '특정 달의 상세나 다른 해의 달을 이어 볼지'로 삼아라."
 )
 _DAY_PICK_DIRECTIVE = (
     "[응답 형식 — '어느 날(날짜)' 질문] 사용자가 특정 기간 없이 날짜를 물었다. 대화 "
@@ -4504,7 +4534,11 @@ def chat(
         except Exception:  # noqa: BLE001 — 앵커 산출 실패가 특정일 지시 자체를 막지 않도록
             _sm_note = ""
         trailing.append(
-            _SINGLE_DAY_FOCUS_DIRECTIVE.format(date=_d0_iso, solar_month_note=_sm_note)
+            _SINGLE_DAY_FOCUS_DIRECTIVE.format(
+                date=_d0_iso,
+                relative=_relative_day_label(date.fromisoformat(_d0_iso), today),
+                solar_month_note=_sm_note,
+            )
         )
     # 이사 질문 — 십성(유형)과 용신/기신(길흉)을 분리해 답하도록 강제(2026-06-18).
     if _is_relocation_intent(intent):
