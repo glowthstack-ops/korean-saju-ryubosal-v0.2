@@ -168,9 +168,16 @@ def test_pregen_target_is_pinned_before_sleep() -> None:
         Path(__file__).resolve().parents[2] / "apps" / "api" / "saju_api" / "main.py"
     ).read_text(encoding="utf-8")
     body = src.split("async def _daily_fortune_pregen_loop")[1].split("\nasync def ")[0]
-    sleep_at = body.index("await asyncio.sleep(")
-    # 표현은 바뀔 수 있다(2026-08-02: 시각 계산을 순수 함수로 분리). 고정할 것은 **순서** 다
-    # — 대상 날짜가 sleep 이전에 정해져야 한다.
+    # 대기 표현은 바뀌어 왔다(2026-08-02: 순수 함수 분리 / 2026-08-06: 벽시계 재확인
+    # `sleep_until`). 어느 쪽이든 **루프의 첫 대기**가 기준점이다.
+    sleep_markers = [
+        i
+        for pat in ("await asyncio.sleep(", "await sleep_until(")
+        if (i := body.find(pat)) != -1
+    ]
+    assert sleep_markers, "루프에 대기가 없다 — 구조가 바뀌었으면 이 회귀를 갱신할 것"
+    sleep_at = min(sleep_markers)
+    # 고정할 것은 **순서** 다 — 대상 날짜가 sleep 이전에 정해져야 한다.
     before = body[:sleep_at]
     assert (
         "target = " in before

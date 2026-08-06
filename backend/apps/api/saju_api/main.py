@@ -7,7 +7,7 @@ import contextlib
 import logging
 import os
 import traceback
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -90,6 +90,48 @@ def daily_fortune_pregen_schedule(
     return run_at, target, export_at
 
 
+#: 벽시계 재확인 간격(초). 이 값이 곧 발화 시각의 최대 오차다.
+_CLOCK_RECHECK_STEP = 60.0
+
+
+async def sleep_until(
+    target: datetime,
+    *,
+    step: float = _CLOCK_RECHECK_STEP,
+    now_fn: Callable[[], datetime] | None = None,
+    sleep_fn: Callable[[float], Awaitable[None]] | None = None,
+) -> None:
+    """**벽시계가** target 에 닿을 때까지 잔다 — 한 번에 길게 자지 않는다.
+
+    `asyncio.sleep` 은 monotonic 타이머다. 남은 시간을 벽시계로 한 번 계산해 그대로
+    자면, 자는 동안 벽시계가 보정될 때 깨어나는 벽시계 시각이 어긋난다. 두 시계가
+    같은 속도로 간다는 가정이 깨지기 때문이고, 그 가정은 이 개발기에서 실제로 깨졌다.
+
+    2026-08-06 실측: 08:56 기동, 21:00 발화 예정. 자는 동안 벽시계가 **50분 28초 뒤로**
+    밀려(monotonic 47,275초 vs 벽시계 44,247초) 태스크가 20:09 에 깨어났다. 그 시각엔
+    게시 기준일이 아직 당일이라 export 가드가 익일 보드를 막았고, 21시 게시가 실패했다.
+    가드는 정확히 설계대로 동작했다 — 어긋난 것은 발화 시각이다.
+
+    step 이내로 나눠 자며 매번 벽시계를 다시 읽으면 어긋남이 한 조각 이내로 제한된다.
+    하루 한 번 태스크에 60초 간격이면 깨어남은 약 780회로, 비용은 무시할 수준이다.
+
+    벽시계가 **앞으로** 뛰어 target 을 지나쳤으면 즉시 반환한다(지연 발화 방지).
+
+    Args:
+        target: 이 벽시계 시각에 닿으면 반환한다.
+        step: 한 번에 자는 최대 시간(초) = 발화 오차 상한.
+        now_fn: 현재 시각 공급자(테스트 주입용). None 이면 KST 현재 시각.
+        sleep_fn: 대기 함수(테스트 주입용). None 이면 `asyncio.sleep`.
+    """
+    now_fn = now_fn or (lambda: datetime.now(_KST))
+    sleep_fn = sleep_fn or asyncio.sleep
+    while True:
+        remaining = (target - now_fn()).total_seconds()
+        if remaining <= 0:
+            return
+        await sleep_fn(min(step, remaining))
+
+
 async def _daily_fortune_pregen_loop() -> None:
     """보드를 **사용자 요청과 무관하게** 준비한다 (env SAJU_DAILY_FORTUNE_PREGEN=1 전용).
 
@@ -165,14 +207,16 @@ async def _daily_fortune_pregen_loop() -> None:
     while True:
         now = datetime.now(_KST)
         run_at, target, export_at = daily_fortune_pregen_schedule(now)
-        await asyncio.sleep((run_at - now).total_seconds())
+        # **벽시계 기준으로 기다린다.** 남은 시간을 한 번 계산해 그대로 자면 자는 동안의
+        # 시계 보정을 놓쳐 엉뚱한 벽시계 시각에 깨어난다(2026-08-06: 50분 일찍 깨어나
+        # 21시 게시 실패). 발화 시각이 게시 기준일 경계와 맞물려 있어 오차가 곧 결함이다.
+        await sleep_until(run_at)
         await _ensure(target)
         # 21시 — 게시 기준일이 이미 target 이라 여기서 파일이 익일자로 교체된다.
         await _export(target)
         # 00:05 — 21시 쓰기가 실패했고 재기동도 없었던 경우를 위한 멱등 재확인.
         # 생성이 오래 걸려 이미 지난 시각이면 즉시 실행된다.
-        await asyncio.sleep(
-            max(0.0, (export_at - datetime.now(_KST)).total_seconds()))
+        await sleep_until(export_at)
         await _export(target)
 
 
