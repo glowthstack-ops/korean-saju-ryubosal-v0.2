@@ -145,7 +145,9 @@ def test_default_export_path_is_resolved_at_call_time(tmp_path) -> None:
     monkey = pytest.MonkeyPatch()
     monkey.setattr(daily_fortune_export, "THREADS_EXPORT_PATH", target)
     try:
-        assert daily_fortune_export.write_threads_export(board, today=today) is True
+        assert (
+            daily_fortune_export.write_threads_export(board, publish_date=today) is True
+        )
     finally:
         monkey.undo()
     assert target.exists()
