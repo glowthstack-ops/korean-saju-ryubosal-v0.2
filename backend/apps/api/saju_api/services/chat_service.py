@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import time
 from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -121,6 +122,7 @@ from saju_engines.task_procedures import (
     procedure_reference_block,
 )
 from saju_engines.time_parser import DAY_WORD_OFFSETS as _TP_DAY_WORDS
+from saju_engines.time_parser import LIFE_STAGE_AGE_RANGES
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_lifestyle_context, build_topic_context
 from saju_engines.user_facts import user_facts_block
@@ -131,7 +133,7 @@ from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.career_transition import CareerQueryResolution, CareerTransitionKind
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef, TimeExclusion
 from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES, EVENT_TYPE
-from saju_shared_types.events import EventKey
+from saju_shared_types.events import EventCandidate, EventKey
 from saju_shared_types.execution_plan import ExecutionPlan, SubjectInjectionPolicy
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import (
@@ -1749,6 +1751,108 @@ _YEAR_DIGEST_DIRECTIVE = (
     "하나의 소재를 '어느 해를 더 자세히 보고 싶은지'로 삼아 — 사용자가 특정 연도를 "
     "지정하면 그때 그 해의 월별 상세를 풀어주겠다고 안내하라."
 )
+
+# 전 생애/인생 단계 스캔(2026-08-07 데굴님 승인) — 발동 키워드. C13 단계 어휘(초년/청년/
+# 중년/말년/평생)는 파서의 time_range.life_stage로 들어오고, 아래 정규식은 파서가 단계
+# 어휘로 잡지 않는 전 생애 표현('살면서', '내 인생에서' 등)을 보강한다.
+_LIFETIME_RE = re.compile(r"평생|일생|인생\s*전체|살면서|죽기\s*전|내\s*인생")
+# 전 생애 표 상한 — 발견된 연 후보 중 표에 올릴 연도 수(Top 8~12 승인안의 상한)와
+# 10년 구간당 상한(특정 대운 구간 쏠림 방지 — 총운 다변화의 '균등 배분 아님' 원칙:
+# 상한 안에서는 점수순 그대로, 무신호 연도 강제 충원 금지).
+_LIFETIME_TABLE_MAX_YEARS = 12
+_LIFETIME_PER_DECADE_CAP = 3
+# 원거리 시점 창의 온디맨드 세운 보강 폭 상한(연) — 기존 매직넘버(_lo_y + 11)를 상수화
+# (2026-08-07, 동작 불변). 전 생애 스캔은 이 상한을 쓰지 않는다(위 lifetime 경로).
+_FAR_WINDOW_MAX_YEARS = 12
+
+
+def _select_lifetime_years(
+    candidates: list[EventCandidate],
+    lo_year: int,
+    hi_year: int,
+    max_rows: int = _LIFETIME_TABLE_MAX_YEARS,
+    per_decade_cap: int = _LIFETIME_PER_DECADE_CAP,
+) -> list[int]:
+    """전 생애/단계 창의 연 후보에서 digest 표에 올릴 연도를 선별한다.
+
+    연도별 최고 후보 점수 순으로 고르되 10년 구간당 상한을 둬 한 대운 구간이 표를
+    독점하지 않게 한다. 후보가 존재하는 연도만 오른다(품질 게이트 — 표 밖 연도를
+    '신호 없음'으로 단정하는 서술은 디렉티브에서 별도 차단).
+
+    Args:
+        candidates: 창 내 연 단위 이벤트 후보(의도 필터 통과분).
+        lo_year: 창 시작 연도. hi_year: 창 끝 연도.
+        max_rows: 표 연도 수 상한. per_decade_cap: 10년 구간당 상한.
+
+    Returns:
+        선별된 연도 목록(오름차순).
+    """
+    best: dict[int, int] = {}
+    for c in candidates:
+        if len(c.period) == 4:
+            y = int(c.period)
+            if lo_year <= y <= hi_year:
+                best[y] = max(best.get(y, -1), c.score)
+    picked: list[int] = []
+    per_dec: dict[int, int] = {}
+    for y, _s in sorted(best.items(), key=lambda kv: (-kv[1], kv[0])):
+        dec = (y - lo_year) // 10
+        if per_dec.get(dec, 0) >= per_decade_cap:
+            continue
+        picked.append(y)
+        per_dec[dec] = per_dec.get(dec, 0) + 1
+        if len(picked) >= max_rows:
+            break
+    return sorted(picked)
+
+
+def _lifetime_directive(
+    stage: str, lo_year: int, hi_year: int, this_year: int, lo_age: int, hi_age: int
+) -> str:
+    """전 생애/인생 단계 스캔의 응답 형식 디렉티브(2026-08-07 데굴님 승인안).
+
+    구성: 대운 큰 흐름 배경 → (있으면) 과거 후보 회고·적중 확인 유도 → 미래 후보
+    전망(Activation Window·단정 금지). 표 밖 연도의 '신호 없음' 단정과 100세 초과
+    서술을 금지하고, 100세 초과 요청은 한 줄 안내로 끊는다.
+
+    Args:
+        stage: 인생 단계 라벨('평생'/'초년'/'청년'/'중년'/'말년').
+        lo_year: 창 시작 연도. hi_year: 창 끝 연도. this_year: 올해(과거/미래 분리 기준).
+        lo_age: 단계 시작 나이. hi_age: 단계 끝 나이.
+
+    Returns:
+        프롬프트 트레일링에 붙일 디렉티브 문자열.
+    """
+    scope_label = (
+        f"평생(출생~약 100세, {lo_year}~{hi_year}년)"
+        if stage == "평생"
+        else f"{stage}({lo_age}~{hi_age}세 무렵, {lo_year}~{hi_year}년)"
+    )
+    parts = [
+        f"[응답 형식 — 인생 단계 스캔] 이 질문의 대상 구간은 {scope_label}이다. "
+        "먼저 이 구간을 지나는 대운들의 큰 흐름(환경의 계절)을 배경으로 깔고, 제공된 "
+        "후보 연도들을 그 배경 위에서 짚어라. 12개월 월별 나열·특정 달 단정은 하지 말 것."
+    ]
+    if lo_year < this_year:
+        parts.append(
+            f"{this_year}년 이전의 후보 연도는 이미 지난 시기다 — '이런 흐름이 지나갔을 "
+            "시기'로 회고하고 실제 그랬는지 가볍게 확인을 유도하라(단정 금지). "
+            f"{this_year}년 이후의 후보 연도는 '사건이 확정되는 해'가 아니라 '관련 "
+            "에너지가 활성화되는 창'이다 — 반드시 가능성·기류로 표현하라."
+        )
+    else:
+        parts.append(
+            "후보 연도는 '사건이 확정되는 해'가 아니라 '관련 에너지가 활성화되는 "
+            "창'이다 — 반드시 가능성·기류로 표현하라."
+        )
+    parts.append(
+        "표에 오른 연도는 신호가 상대적으로 강해 선별된 해다 — 표에 없는 해를 '아무 "
+        "일 없는 해'로 단정하지 말 것. 백세 이후는 다루지 않는다 — 요청받아도 '풀이는 "
+        "백세까지를 기준으로 본다'고 한 줄로만 안내하라. 마무리 질문을 따로 더 만들지 "
+        "말고, 시스템 지시의 마지막 마무리 질문 하나의 소재를 '어느 해(또는 시기)를 "
+        "자세히 볼지'로 삼아라."
+    )
+    return " ".join(parts)
 
 # 이사 해석 — 십성(이사 유형·이유)과 용신/기신(이사 길흉)을 분리시킨다. LLM이 천간의 기신
 # 역할로 이사 '유형'을 설명하던 오류(2026-06-18 데굴님 지적: 甲을 정관이 아닌 기신으로만 서술)를
@@ -3580,6 +3684,19 @@ def chat(
         re.search(r"언제|몇\s*월|몇\s*년|어느\s*(해|달|연도|월|시기)|타이밍|이사\s*시기", question)
     )
     relo_decided = _relo_dest and not _asks_move_timing
+    # 전 생애/인생 단계 스캔(2026-08-07 데굴님 승인) — C13 단계 어휘(파서 life_stage)
+    # 또는 전 생애 키워드(_LIFETIME_RE)로 발동한다. 기존 10년 digest·원거리 12년 창보다
+    # 먼저 분기하며, 근거 데이터는 이미 계산된 대운표의 sewoon(전 생애 세운)을 재사용한다.
+    _life_stage = intent.time_range.life_stage if intent.time_range is not None else None
+    if _life_stage is None and _LIFETIME_RE.search(question):
+        _life_stage = "평생"
+    lifetime_scan = (
+        _life_stage is not None
+        and period_fortune is None
+        and not is_structural
+        and not relo_decided
+        and intent.query_type is not QueryType.DATE_RECOMMENDATION
+    )
     # 기간 없이 '달/날짜' 입도만 명시한 질문(2026-07-03) — vague_future(연 단위 digest)보다
     # 먼저 판정한다. 택일로 분류된 질문(DATE_RECOMMENDATION)은 기존 택일 라우트가 담당.
     timing_gran = _timing_granularity(question)
@@ -3589,6 +3706,7 @@ def chat(
         and not is_structural
         and period_fortune is None
         and not relo_decided
+        and not lifetime_scan
         and (intent.time_range is None or not intent.time_range.start)
         and intent.query_type is not QueryType.DATE_RECOMMENDATION
     )
@@ -3602,6 +3720,7 @@ def chat(
         and not is_retro
         and not relo_decided
         and not gran_no_period
+        and not lifetime_scan
         and (intent.time_range is None or not intent.time_range.start)
     )
     # 답변 지평 정책(2026-07-09 데굴님) — 무시점 미래 질문의 서술 범위를 질문 유형별로
@@ -3642,6 +3761,65 @@ def chat(
                     occupation_category=occupation_category,
                 )
 
+    # 전 생애/단계 스캔 — 대상 창(단계 나이→연도)의 연 단위 세운을 조립해 이벤트를
+    # 발견한다. 세운 간지·운품질은 대운표 sewoon(이미 계산된 전 생애치) 재사용이라
+    # 재계산이 없고, 첫 대운 시작 전 유년 몇 해만 luck_years로 보충한다(절대원칙 9).
+    # 이벤트 채점(YEAR 레벨)만 요청 시점 수행 — 소요는 로그로 실측한다(P2 판단 근거).
+    _lt_lo_y = _lt_hi_y = 0
+    if lifetime_scan and result.luck_cycles is not None and result.luck_cycles.daewoon_table:
+        assert _life_stage is not None  # lifetime_scan=True가 보장(타입 좁히기)
+        _t0_lt = time.monotonic()
+        _dw0 = result.luck_cycles.daewoon_table[0]
+        _birth_y = (
+            _dw0.approx_start_date.year - _dw0.start_age
+            if _dw0.approx_start_date is not None
+            else today.year
+        )
+        _lo_age, _hi_age = LIFE_STAGE_AGE_RANGES[_life_stage]
+        _lt_lo_y, _lt_hi_y = _birth_y + _lo_age, _birth_y + _hi_age  # 상한=100세(경계표 최대)
+        _sewoon_by_year = {
+            pl.label: pl
+            for dw in result.luck_cycles.daewoon_table
+            for pl in dw.sewoon
+        }
+        _have_lt = {pl.label for pl in result.luck_cycles.yearly_luck}
+        _from_dw = [
+            _sewoon_by_year[str(y)]
+            for y in range(_lt_lo_y, _lt_hi_y + 1)
+            if str(y) in _sewoon_by_year and str(y) not in _have_lt
+        ]
+        _pre_dw_years = [
+            y
+            for y in range(_lt_lo_y, _lt_hi_y + 1)
+            if str(y) not in _sewoon_by_year and str(y) not in _have_lt
+        ]
+        _extra_lt = luck_years(chart_birth, _pre_dw_years) if _pre_dw_years else []
+        year_result = result.model_copy(deep=True)
+        assert year_result.luck_cycles is not None
+        year_result.luck_cycles.yearly_luck = sorted(
+            list(year_result.luck_cycles.yearly_luck) + _from_dw + _extra_lt,
+            key=lambda pl: pl.label,
+        )
+        year_scored = _get_scorer().score_legacy_personalized(
+            year_result,
+            levels={GanjiLevel.YEAR},
+            fav_override=_fav_override,
+            signature=_sig,
+            cohort=_cohort,
+            occupation_status=occupation_status,
+            relationship_status=relationship_status,
+            occupation_category=occupation_category,
+        )
+        default_period = (str(_lt_lo_y), str(_lt_hi_y))
+        _logger.info(
+            "lifetime scan: stage=%s 창=%d~%d(%d년) 조립+채점 %.0fms",
+            _life_stage,
+            _lt_lo_y,
+            _lt_hi_y,
+            _lt_hi_y - _lt_lo_y + 1,
+            (time.monotonic() - _t0_lt) * 1000,
+        )
+
     if period_fortune is not None or is_structural:
         candidates = []
         bundles = []
@@ -3662,6 +3840,15 @@ def chat(
         candidates = _get_intent_filter().filter(candidates, str(intent.domain))
         scope_h: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
         bundles = _get_graph().retrieve(scope_h)
+    elif lifetime_scan and _lt_hi_y:
+        # 전 생애/단계 창 내 연 후보만 — 월 후보는 빼서 연 단위 발견에 집중하게 한다.
+        _lo_s, _hi_s = str(_lt_lo_y), str(_lt_hi_y)
+        candidates = [
+            c for c in year_scored if len(c.period) == 4 and _lo_s <= c.period <= _hi_s
+        ]
+        candidates = _get_intent_filter().filter(candidates, str(intent.domain))
+        scope_lt: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
+        bundles = _get_graph().retrieve(scope_lt)
     elif vague_future:
         # 세운(연) 중심 — 월 후보는 빼서 LLM이 10년 연 단위 흐름에 집중하게 한다.
         lo, hi = str(today.year), str(today.year + 9)
@@ -3685,7 +3872,7 @@ def chat(
                     and not intent.time_range.end):
                 _hi_y = max(_hi_y, _lo_y + 9)
             _fill_years = [
-                y for y in range(_lo_y, min(_hi_y, _lo_y + 11) + 1)
+                y for y in range(_lo_y, min(_hi_y, _lo_y + _FAR_WINDOW_MAX_YEARS - 1) + 1)
                 if str(y) not in _have_years]
             if _fill_years:
                 _far_extra = luck_years(chart_birth, _fill_years)
@@ -3778,6 +3965,7 @@ def chat(
     wants_monthly = (
         period_fortune is None
         and not vague_future
+        and not lifetime_scan
         and not relo_decided
         and (
             monthly_explicit
@@ -3822,6 +4010,15 @@ def chat(
             c for c in scored_win if c.period in win_set and (c.event_key, c.period) not in seen_h
         ]
         result_for_llm = result_win
+    elif lifetime_scan and _lt_hi_y and year_result.luck_cycles is not None:
+        # 전 생애/단계 스캔 → 발견된 연 후보 중 선별한 연도만 표로(창 전체 나열은 토큰
+        # 예산 초과 — 절대원칙 2). 선별은 점수순+10년 구간 상한(_select_lifetime_years).
+        _lt_rows = _select_lifetime_years(candidates, _lt_lo_y, _lt_hi_y)
+        if _lt_rows:
+            overview = build_monthly_overview(
+                year_result, year_scored, months=[str(y) for y in _lt_rows]
+            )
+            result_for_llm = year_result
     elif vague_future and year_result.luck_cycles is not None:
         # 막연한 시점 → 올해부터 10년 세운 흐름 digest(연별 운 품질·우세 사건). 월별 표 미생성.
         avail = {pl.label for pl in year_result.luck_cycles.yearly_luck}
@@ -4000,6 +4197,11 @@ def chat(
         span = _daewoon_span_context(year_result, year_digest_years[0], year_digest_years[-1])
         if span:
             structural = structural + [span]
+    # 전 생애/단계 스캔 → 창 전체를 지나는 대운 배경·교운기를 구조 블록에 싣는다.
+    if structural is not None and lifetime_scan and _lt_hi_y:
+        span_lt = _daewoon_span_context(year_result, _lt_lo_y, _lt_hi_y)
+        if span_lt:
+            structural = structural + [span_lt]
     # P2a — pairwise(본인+동반자 1명)이고 동반자 birth가 확보되면 대상별 명식 블록을 가산 주입.
     # per_subject/chat_compare는 건드리지 않는다(본인 base 유지). birth 없으면 블록 생략(본인
     # 명식으로 대체하지 않음 — 기존 pairwise 경로 그대로). companion_only 등은 P2b 이후.
@@ -4428,7 +4630,16 @@ def chat(
     # 응답 형식 — 막연한 시점이면 10년 연(세운) digest+연도 지정 유도, 기간 없는 '달/날짜'
     # 입도 질문이면 12개월 월별 흐름에서 달 단위로(연 나열 금지 — 2026-07-03), 그 외 사건형
     # 연 질문은 12개월 나열 대신 연간 요약+핵심 달로.
-    if vague_future and not _relo_dest:
+    if lifetime_scan and _lt_hi_y and not _relo_dest:
+        # 전 생애/단계 스캔 — 대운 배경 위 후보 연도 서술 + 과거/미래 분리 + 100세 안내.
+        assert _life_stage is not None  # lifetime_scan=True가 보장(타입 좁히기)
+        _lo_age_d, _hi_age_d = LIFE_STAGE_AGE_RANGES[_life_stage]
+        trailing.append(
+            _lifetime_directive(
+                _life_stage, _lt_lo_y, _lt_hi_y, today.year, _lo_age_d, _hi_age_d
+            )
+        )
+    elif vague_future and not _relo_dest:
         # 지평 정책이 잡힌 질문은 10년 digest 대신 지평 강제 지시(밖 서술 금지 + 한 줄 안내).
         trailing.append(
             horizon_directive(horizon) if horizon is not None else _YEAR_DIGEST_DIRECTIVE
@@ -4441,8 +4652,10 @@ def chat(
     # 맞느냐'로 서술하고 교체기 체감 신호도 함께(리포트 대운 섹션과 공용 관점, 2026-06-23 확장).
     # 지평 정책 질문 중 대운 배경이 필요한 건 구조 결정형(natal_fit)뿐 — 즉시형·전망형에
     # 대운 프레이밍을 붙이면 다시 장기 서술로 흐른다(2026-07-09 지평 정책).
-    _wants_daewoon_frame = _is_daewoon_question(intent, question) or (
-        vague_future and (horizon is None or horizon.natal_fit)
+    _wants_daewoon_frame = (
+        _is_daewoon_question(intent, question)
+        or lifetime_scan  # 전 생애/단계 스캔 — 단계 어휘(말년 등)는 _DAEWOON_KEYS에 없다
+        or (vague_future and (horizon is None or horizon.natal_fit))
     )
     # 반사실 컨텍스트(2026-07-21 데굴님 확정) — '왜 늦어/왜 안 됐지/했다면 어땠을까' 류를
     # 도메인 범용으로 처리. fail-closed: 기간·근거 미확정이면 제한 지시만(체리피킹·자동

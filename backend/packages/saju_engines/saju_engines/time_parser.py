@@ -31,10 +31,19 @@ _DAY_WORDS = {"오늘": 0, "내일": 1, "모레": 2, "글피": 3}
 DAY_WORD_OFFSETS: dict[str, int] = _DAY_WORDS
 # C3.5 요일 — Python weekday()(월=0 … 일=6). '다음주 월요일'은 특정 일운(주 전체 아님).
 _WEEKDAYS = {"월": 0, "화": 1, "수": 2, "목": 3, "금": 4, "토": 5, "일": 6}
-# C13 인생 단계 어휘.
+# C13 인생 단계 어휘. '청년'은 인구통계 용법("청년 대출") 오탐이 잦아 단계 문맥
+# 접미(기/때/시절/에)가 붙을 때만 인정한다(_YOUTH_STAGE_RE).
 _LIFE_STAGES = {
     "초년": "초년", "중년": "중년", "말년": "말년", "노후": "말년",
     "평생": "평생", "일생": "평생",
+}
+_YOUTH_STAGE_RE = re.compile(r"청년\s*(?:기|때|시절|에)")
+#: 단계별 (시작나이, 끝나이) — 근묘화실(년주=초년·월주=청년·일주=중년·시주=말년)
+#: 4분법을 100세 시대 기준으로 재조정한 현대 명리 통용 경계(2026-08-07 데굴님 확정).
+#: '평생'=출생~100세. chat의 전 생애 스캔 창·100세 상한이 이 표를 공유한다.
+LIFE_STAGE_AGE_RANGES: dict[str, tuple[int, int]] = {
+    "초년": (0, 25), "청년": (26, 50), "중년": (51, 75), "말년": (76, 100),
+    "평생": (0, 100),
 }
 _HALF = {"상반기": ("01", "06"), "하반기": ("07", "12")}
 # C5b 슬래시/대시 날짜 — "6/17", "6-17", "2026-06-17"(선택 연도). 뒤에 숫자·구분자가
@@ -192,13 +201,22 @@ def parse_time(
                 start=start, end=end, urgency=urgency,
             ), TimeScope.LIFE_STAGE
 
-    # C13 인생 단계.
-    for word, stage in _LIFE_STAGES.items():
-        if word in text:
-            return TimeRange(
-                type="relative", granularity=Granularity.DAEWOON,
-                life_stage=stage, urgency=urgency,
-            ), TimeScope.LIFE_STAGE
+    # C13 인생 단계 — birth_year가 있으면 단계 경계 나이(LIFE_STAGE_AGE_RANGES)를
+    # 연도로 환산해 start/end를 채운다. C12 나이 표현과의 비대칭('88세쯤'은 연도가
+    # 잡히는데 '말년에'는 안 잡혀 올해 창으로 오답하던 결함) 보완(2026-08-07).
+    stage_hit = next((s for w, s in _LIFE_STAGES.items() if w in text), None)
+    if stage_hit is None and _YOUTH_STAGE_RE.search(text):
+        stage_hit = "청년"
+    if stage_hit is not None:
+        lo_age, hi_age = LIFE_STAGE_AGE_RANGES[stage_hit]
+        start = end = None
+        if birth_year is not None:
+            start = str(birth_year + lo_age)
+            end = str(birth_year + hi_age)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAEWOON,
+            life_stage=stage_hit, start=start, end=end, urgency=urgency,
+        ), TimeScope.LIFE_STAGE
 
     # C14 대운 단위.
     if re.search(r"(다음|이번|현재)\s*대운|대운\s*교운", text):
