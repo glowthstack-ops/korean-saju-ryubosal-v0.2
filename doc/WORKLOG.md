@@ -10019,3 +10019,68 @@ API 노출은 8/6 그대로다(자정 기준 유지).
 | `test_forward_clock_jump_returns_immediately` | 앞으로 뛰어 지나쳤으면 지체 없이 반환 |
 | `test_no_single_sleep_exceeds_the_recheck_step` | 한 조각이 step 을 넘지 않음(오차 상한) |
 | `test_already_past_target_does_not_sleep` | 이미 지난 시각이면 자지 않음 |
+
+---
+
+## 전 생애(연 단위) 이벤트 발견 스캔 — P0 (2026-08-07 데굴님 승인) ✅
+
+기존에는 "평생/인생 전체" 질문도 vague_future 10년 digest(올해~+9)에 그쳤고,
+"말년에/노후에"는 C13이 연도 미환산(start=None)이라 올해 창으로 오답했다.
+
+### 구현
+
+- **인생 단계 경계(현대 명리 확인 후 확정)**: 근묘화실 4분법의 100세 시대 재조정 —
+  초년 0~25 / 청년 26~50 / 중년 51~75 / 말년(노후) 76~100 / 평생 0~100세.
+  `time_parser.LIFE_STAGE_AGE_RANGES` 단일 출처. '청년'은 오탐(인구통계 용법) 방지 위해
+  단계 접미(기/때/시절/에)가 있을 때만 인정.
+- **C13 연도 환산**: birth_year 기반 start/end 채움(C12 나이 표현과 대칭화).
+- **발동**: `intent.time_range.life_stage`(파서) 또는 `_LIFETIME_RE`(평생|일생|인생 전체|
+  살면서|죽기 전|내 인생) — 기존 10년 digest·원거리 12년 창보다 먼저 분기.
+- **데이터**: 대운표 `daewoon_table[i].sewoon`(이미 계산된 전 생애 세운) 재사용 +
+  첫 대운 이전 유년만 `luck_years` 보충 → YEAR 레벨 재채점. **101년 조립+채점 실측
+  171ms** — 사전계산(T1) 확장 불필요 판정(P2 보류).
+- **선별(토큰 가드)**: `_select_lifetime_years` — 연도별 최고점수 순 + 10년 구간당 3개
+  상한 + 총 12개 상한. 후보 존재 연도만(무신호 연도 강제 충원 금지).
+- **디렉티브**: 대운 배경 위 후보 서술 + 과거 후보 회고(적중 확인 유도, 확정안 ①) +
+  미래는 Activation Window·단정 금지 + 표 밖 연도 "신호 없음" 단정 금지 +
+  **100세 초과는 한 줄 안내로 종결(확정안 ④)**. 대운 framing/교운기 디렉티브 동반.
+- **정리**: 원거리 창 매직넘버(`_lo_y + 11`) → `_FAR_WINDOW_MAX_YEARS = 12` 상수화.
+
+### 검증
+
+- 신규 `test_time_parser_life_stage.py`(9) + `test_lifetime_scan_routing.py`(9),
+  기존 `test_answer_horizon.py`의 '노후' 기대값을 신경로로 갱신(지평 정책 미적용
+  보호는 유지).
+- dry_run 실측: "평생 재물운" → 1980~2080 창, 연도별 흐름 표 12개 연도(2003~2070
+  분산), 대운 배경 101년 + 교운기, 프롬프트 22.2k chars(예산 내).
+- VALID_SUITE_PASS · ruff All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean.
+
+### 남은 것(보류)
+
+- P2: 성능상 불필요 판정 — 필요 시 Precompute T1 전 생애 확장.
+- 멀티턴: lifetime 창의 후속 질문 승계는 기존 time_range 승계 규칙을 따름(전용 가드 미도입).
+
+---
+
+## 오늘의 운세 00:05 재확인 — 동일 내용 쓰기 생략 (2026-08-09) ✅
+
+8/9 00:05:00.011 에 스레드 txt 가 재기록된 원인 조사(데굴님 문의): LLM 재생성 아님 —
+`llm_usage` 실측상 호출은 8/8 21:00:22 `daily_fortune_polish` 1건뿐. main 루프의 00:05
+멱등 재확인이 21시 쓰기 성공 여부와 무관하게 **매일 같은 내용을 다시 써** mtime 만
+갱신된 것(당시 docstring에도 "정상 경로에서는 같은 내용을 다시 쓴다"로 명시된 설계).
+
+### 변경
+
+- `write_threads_export`: 쓰기 전 기존 파일 내용 비교 → 동일하면 생략(INFO "재확인
+  통과 — 동일 내용") · 실제 기록 시 INFO "export 기록"(성공 경로 무로그 공백도 해소).
+  비교를 호출부가 아닌 함수 내부에 둠 — 날짜 가드와 같은 이유(새 호출부 우회 불가).
+  반환 계약 재정의: True = "파일이 게시 기준일 보드 내용으로 최신"(기록 또는 생략).
+- 21시 실패 복구 기능은 불변: 파일 없음·내용 상이·UTF-8 손상 → 새로 씀.
+
+### 검증
+
+`test_daily_export_unchanged_skip.py` 4건(동일 내용 mtime 불변 / 상이 내용 재기록 /
+파일 없음 기록 / 손상 파일 교체 — caplog 함정 회피, mtime_ns 검증) + 기존 날짜 가드
+회귀 통과. VALID_SUITE_PASS · ruff All checks passed · production mypy gate clean ·
+maintained scripts mypy gate clean.

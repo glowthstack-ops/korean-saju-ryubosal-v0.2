@@ -139,8 +139,15 @@ def write_threads_export(
             실제로 테스트 실행이 운영 파일을 덮었다(2026-08-03 실측).
         publish_date: 게시 기준일(테스트 주입용). None이면 `threads_publish_date()`.
 
+    기존 파일과 **내용이 같으면 쓰지 않는다**(2026-08-09 데굴님 승인). 00:05 재확인이
+    21시 쓰기 성공 여부와 무관하게 매일 같은 내용을 다시 써 mtime 이 갱신됐고, 파일
+    기록만 보면 불필요한 재생성처럼 보였다. 비교를 호출부가 아니라 여기 둔 이유는
+    날짜 가드와 같다 — 호출부가 늘어도 우회할 수 없다. 재기동 직후의 보충 export 도
+    같은 이유로 조용히 생략된다.
+
     Returns:
-        실제로 파일을 쓴 경우에만 True. 날짜 불일치로 건너뛰면 False.
+        파일이 게시 기준일 보드 내용으로 최신이면 True(실제 기록 또는 동일 내용
+        생략). 날짜 불일치·쓰기 실패로 파일을 보장하지 못하면 False.
     """
     target = path if path is not None else THREADS_EXPORT_PATH
     ref = publish_date or threads_publish_date()
@@ -151,9 +158,23 @@ def write_threads_export(
         )
         return False
     try:
+        text = render_threads_text(board)
+        try:
+            if target.read_text(encoding="utf-8") == text:
+                logger.info(
+                    "오늘의 운세 export 재확인 통과 — 동일 내용, 쓰기 생략 date=%s",
+                    board.fortune_date,
+                )
+                return True
+        except (OSError, UnicodeDecodeError):
+            pass  # 기존 파일 없음·읽기 불가 — 새로 쓴다
         tmp = target.with_suffix(".txt.tmp")
-        tmp.write_text(render_threads_text(board), encoding="utf-8")
+        tmp.write_text(text, encoding="utf-8")
         tmp.replace(target)
+        logger.info(
+            "오늘의 운세 스레드 export 기록 date=%s bytes=%d",
+            board.fortune_date, len(text.encode("utf-8")),
+        )
         return True
     except OSError as exc:
         logger.warning("오늘의 운세 스레드 export 실패 path=%s err=%s", target, exc)
