@@ -81,9 +81,11 @@ from saju_engines.section_claim_audit import (
     claim_directive,
 )
 from saju_engines.structural_context import (
+    ANSWER_CLARITY_DIRECTIVE,
     AVOID_DATE_CERTAINTY_DIRECTIVE,
     BARNUM_SUPPRESSION_DIRECTIVE,
     DECISION_ATTITUDE_DIRECTIVE,
+    DOCUMENT_IMAGERY_DIRECTIVE,
     EVIDENCE_FIDELITY_DIRECTIVE,
     GONGMANG_ACTIVATION_DIRECTIVE,
     KEYWORD_COMBO_TRANSLATION_DIRECTIVE,
@@ -93,6 +95,8 @@ from saju_engines.structural_context import (
     TENDENCY_SHIFT_DIRECTIVE,
     UNCERTAINTY_TRANSLATION_DIRECTIVE,
     activity_keyword_lines,
+    document_caution_block,
+    document_contrast_block,
     era_energy_lines,
     external_impression_lines,
     health_lines,
@@ -795,6 +799,9 @@ class _ReportData:
             EVIDENCE_FIDELITY_DIRECTIVE,
             # 질문 무관 성격 칭찬 서두 금지(2026-07-22 — 바넘 문장 억제).
             BARNUM_SUPPRESSION_DIRECTIVE,
+            # 명확한 답 계약(2026-08-10 테스터 피드백 — chat과 공용): 섹션 첫 문단 판정
+            # 선언, 유보 표현 총량 제한(조건문 번역), 판정 용어 결과어 번역, 중요도 순 서술.
+            ANSWER_CLARITY_DIRECTIVE,
         ]
         # 확정 용신 적용 안내를 원국 prefix 뒤에 부착(전 섹션 공통) — 확정 5역할을 길흉 기준으로,
         # 엔진 최초 도출(확정 전 후보)은 기본값으로 병기. 확정=도출 일치 시 빈 문자열(미부착).
@@ -2391,6 +2398,13 @@ def build_section_context(
         )
         if _suggestion_lines:
             lines += [*_suggestion_lines, DIRECTION_SUGGESTION_INSTRUCTION]
+    # 문서·계약 주의점/대비 + 물상 어휘(2026-08-10 리포트 배선) — 문서·계약이 걸리는
+    # 도메인 섹션(직업/이사/학업)에만. 인성 과다/약세=주의점, 용신·희신+적정 세력=대비
+    # 관점(상호 배타). 조건 미성립=미주입 → 기존 섹션 프롬프트 byte 불변. 서술 전용(inert).
+    if _ds_domain in ("career", "relocation", "education"):
+        _doc_block = document_caution_block(data.result) or document_contrast_block(data.result)
+        if _doc_block:
+            lines += ["", _doc_block, DOCUMENT_IMAGERY_DIRECTIVE]
     # 재물 준비기(P3) — 5년 종합(W-06)·행동 전략(W-08)에만 서술 전용 맥락 주입(판정 불변).
     if sid in ("W-06", "W-08"):
         _prep_lines = preparation_context_lines(data.preparation_context)

@@ -10113,3 +10113,27 @@ maintained scripts mypy gate clean.
   없는 반기 한정은 반영하지 않음(절대 원칙 유지).
 - **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
   maintained scripts mypy gate clean. event graph 스냅샷 재컴파일(v1.1.0, validate 통과).
+
+## 2026-08-10 — 명확한 답 계약(테스터 피드백) + 리포트 문서 서술 레이어 배선 ✅
+
+테스터 공통 피드백("그래서 어쩌라고 — 명확하지 않아서 더 답답") 반영. 원칙(성사·발생
+단정 금지)과 명확성은 충돌하지 않는다 — 유불리·시기·행동 판정은 엔진이 이미 계산한
+데이터의 요약이므로 단문으로 선언한다는 재해석이 핵심.
+
+- **ANSWER_CLARITY_DIRECTIVE**(structural_context, 챗·리포트 공용 상시): ①첫 문단에서
+  유리/불리/조건부 3진 판정 선언+핵심 시기 1~2개+지금 할 행동 1개(예/아니오형 질문은
+  '있다/없다/조건부다'로 먼저) ②판정·시기·행동 문장에 유보 표현 금지 — 불확실성은
+  조건문으로 번역('성사의 조건은 X'), 유보는 답 전체 한두 곳으로 제한 ③기신·구신·한신
+  판정 용어는 결과어로 번역 ④중요도 순 서술(월별 균등 나열 금지) ⑤끝맺음은 기존 마무리
+  소유자 한 번에 행동이 담기게(자연문 — 번호 목록·별도 요약 섹션 금지, 사용자 확정).
+- **시스템 프롬프트 규칙 8 보강**: 마무리 소유권 계약의 리터럴 앵커("답변 끝에 핵심을
+  한두 문장으로 정리")를 보존한 채 괄호로 '핵심 판정+지금 취할 행동' 요구 추가
+  (test_answer_closing_and_terms 소유권 회귀 통과 확인).
+- **길이 제한 없음**(사용자 확정) — 챗 1,500자 상한 등 기존 분량 규칙 불변.
+- **리포트 P2/P3/P4 배선**: 문서·계약 주의점/대비 블록+물상 어휘 디렉티브를 도메인 섹션
+  (career: Y-06·F-15·J-05·J-06 / relocation: RL-04·RL-06)에 조건부 주입 — 조건 미성립
+  명식·비도메인 섹션은 기존 프롬프트 불변. ANSWER_CLARITY는 리포트 전 섹션 공통 prefix.
+- 회귀: test_answer_clarity_layer.py 6건(계약 불변식·챗 주입·리포트 prefix·섹션 조건부
+  주입 3분기).
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean.

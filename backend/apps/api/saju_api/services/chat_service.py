@@ -98,6 +98,7 @@ from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.selection_intent import detect_selection_query
 from saju_engines.shadow_scoring import domain_to_expression_key
 from saju_engines.structural_context import (
+    ANSWER_CLARITY_DIRECTIVE,
     BARNUM_SUPPRESSION_DIRECTIVE,
     CONCLUSION_FIRST_DIRECTIVE,
     DAEWOON_FRAMING_DIRECTIVE,
@@ -4403,6 +4404,9 @@ def chat(
         # 추상 불확실성 문구('가능성 열림·조건 확인 필요') 금지 — 상시(2026-07-22 P0,
         # structural_context 공용 — 테마 리포트 전 섹션 prefix에도 동일 적용).
         UNCERTAINTY_TRANSLATION_DIRECTIVE,
+        # 명확한 답 계약(2026-08-10 테스터 피드백) — 첫 문단 3진 판정+시기+행동, 유보 표현
+        # 총량 제한(조건문 번역), 판정 용어 결과어 번역, 중요도 순 서술. 상시(리포트 공용).
+        ANSWER_CLARITY_DIRECTIVE,
         # 근거 밖 사건 창작·저신뢰 정밀 단정·억지 긍정 보완 금지 — 상시(P4, 리포트 공용).
         EVIDENCE_FIDELITY_DIRECTIVE,
         # 질문 무관 성격 칭찬 서두 금지 — 상시(2026-07-22, 리포트 공용).
