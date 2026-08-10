@@ -813,3 +813,135 @@ def external_impression_lines(
     for s in notes:
         lines.append(f"- (참고) {s.modern_ko}")
     return lines
+
+
+# ── 문서·계약 주의점(2026-08-10 승인 P2) — 대중 콘텐츠형 자기점검을 엔진 판정으로 번역 ──
+# 조건 성립 시에만 블록 생성(미성립=None → 기존 프롬프트 byte 불변). 서술 전용(inert) —
+# 점수·후보·간지·판정에 영향 없음. 약세 임계 12%는 relation_target_ten_god_rules의
+# weak_group_power_lt와 동일 기준(계층 간 정합), 과다 임계 30%는 십성군 세력 강 관례 재사용.
+_RESOURCE_EXCESS_PCT = 30.0
+_RESOURCE_WEAK_PCT = 12.0
+# 일간 오행을 생(生)하는 오행 = 인성 오행(生我者印).
+_RESOURCE_ELEMENT_OF: dict[str, str] = {"木": "水", "火": "木", "土": "火", "金": "土", "水": "金"}
+_UNFAVORABLE_ROLES = frozenset({"기신", "구신"})
+
+
+def document_caution_block(result: ManseV2Result) -> str | None:
+    """문서·계약형 질문용 개인화 주의점 블록. 조건 미성립이면 None(무주입).
+
+    스크립트형 대중 콘텐츠가 "네 사주가 인성 과다인지/뿌리가 있는지 스스로 봐라"로
+    시청자에게 맡기는 두 자기점검을, 엔진이 이미 계산한 값(십성군 세력·용기신 역할)으로
+    확정해 주입한다 — ①인성 과다(+기신/구신이면 강조)=계약이 나를 묶는 문서가 될 수 있음
+    ②인성 약세=성사보다 동요·지연 배경. 원시 퍼센트·내부 코드는 본문에 노출하지 않는다
+    (모듈 누출 계약). 마무리 계약 준수 — 위치 고정('말미에' 류) 없이 본문에 녹여 쓰게 한다.
+
+    Args:
+        result: 만세 결과(force_analysis·pillars·yongsin_analysis 사용, 전부 optional 안전).
+
+    Returns:
+        주의점 블록 문자열, 또는 조건 미성립 시 None.
+    """
+    fa = result.force_analysis
+    if fa is None:
+        return None
+    resource_pct = float(fa.ten_gods.groups.get("resource", 0.0))
+
+    unfavorable = False
+    if result.pillars is not None and result.pillars.day.stem:
+        from saju_shared_types.constants import STEM_ELEMENT, Stem
+
+        from .event_scoring import favorability_map
+
+        try:
+            day_el = str(STEM_ELEMENT[Stem(result.pillars.day.stem)])
+        except (KeyError, ValueError):
+            day_el = ""
+        resource_el = _RESOURCE_ELEMENT_OF.get(day_el, "")
+        role = favorability_map(result).get(resource_el, "")
+        unfavorable = role in _UNFAVORABLE_ROLES
+
+    lines: list[str] = []
+    if resource_pct >= _RESOURCE_EXCESS_PCT:
+        line = (
+            "- 이 명식은 문서·자격·후견의 기운(인성)이 두텁게 자리한 구조다. 새 계약·문서가 "
+            "기회이면서 동시에 나를 묶는 의무가 될 수 있으니, 도장을 찍기 전 조항·기간·해지 "
+            "조건을 점검하는 태도를 함께 권하라."
+        )
+        if unfavorable:
+            line += (
+                " 특히 이 기운은 이 명식에서 부담으로 작동하기 쉬운 축이라, 계약의 실속"
+                "(비용·의무·구속 기간)을 따져보도록 안내하라."
+            )
+        lines.append(line)
+    elif resource_pct < _RESOURCE_WEAK_PCT:
+        lines.append(
+            "- 이 명식은 문서·자격·후견의 기운(인성)이 얇게 자리한 구조다. 문서·계약 신호가 "
+            "와도 단번의 성사보다 흔들림·지연을 거치기 쉬우니, 확정 전에 보완 장치(재검토 "
+            "시간·믿을 만한 검토자)를 두는 태도를 권하라."
+        )
+    if not lines:
+        return None
+    return (
+        "[문서·계약 주의점 — 엔진 판정]\n"
+        + "\n".join(lines)
+        + "\n서술 지침: 이 주의점은 별도 경고 섹션이나 고정 마무리 문구로 만들지 말고, "
+        "계약·문서를 다루는 대목의 본문 흐름에 자연스럽게 한 번만 녹여 서술하라."
+    )
+
+
+# 문서운 물상 어휘(2026-08-10 P4) — 서술 전용. 물상·서사 풍부화 정책(풀이 품질 정책)의
+# 문서 도메인 적용. 은유는 장식이며 근거가 아니다 — 신호 없는 대목에서 은유로 사건을
+# 만들어내는 것을 지시문 자체가 차단한다. 감수 대상(어휘 추가·삭제는 감수에서).
+DOCUMENT_IMAGERY_DIRECTIVE = (
+    "[문서운 물상 어휘 — 서술 전용]\n"
+    "계약·문서·자격 신호를 서술할 때 추상어로 끝내지 말고 물상 은유를 한두 번 활용하라 — "
+    "'도장을 쥐는 흐름', '멈춰 있던 문서가 움직이기 시작한다', '기존 판을 갈아끼우는 교체' 등. "
+    "은유는 엔진 신호가 있는 대목에서만 쓰고, 은유를 근거 삼아 데이터에 없는 사건·시기를 "
+    "만들어내지 말 것(성사·당첨 단정 금지 규칙은 그대로 적용)."
+)
+
+_FAVORABLE_ROLES = frozenset({"용신", "희신"})
+
+
+def document_contrast_block(result: ManseV2Result) -> str | None:
+    """문서·계약형 질문용 대비(contrast) 블록 — 인성이 이롭게 작동하는 명식 한정(P3).
+
+    주의점(document_caution_block)의 보완 서사다: 같은 계약·문서 신호가 명식에 따라
+    '묶는 의무'가 되기도 '기회·결실'이 되기도 한다는 대비를, 이 명식의 계산된 역할
+    (인성 오행=용신/희신)과 알맞은 세력(과다·약세 아님)을 근거로 한 문장 짚게 한다.
+    주의점 조건(과다/약세)이 성립하면 None — 두 블록은 상호 배타(중복 서술 방지).
+    서술 전용(inert), 원시 퍼센트·내부 코드 미노출, 위치 고정 문구 없음.
+
+    Args:
+        result: 만세 결과(force_analysis·pillars·yongsin_analysis 사용, optional 안전).
+
+    Returns:
+        대비 블록 문자열, 또는 조건 미성립 시 None.
+    """
+    fa = result.force_analysis
+    if fa is None or result.pillars is None or not result.pillars.day.stem:
+        return None
+    resource_pct = float(fa.ten_gods.groups.get("resource", 0.0))
+    if not (_RESOURCE_WEAK_PCT <= resource_pct < _RESOURCE_EXCESS_PCT):
+        return None
+
+    from saju_shared_types.constants import STEM_ELEMENT, Stem
+
+    from .event_scoring import favorability_map
+
+    try:
+        day_el = str(STEM_ELEMENT[Stem(result.pillars.day.stem)])
+    except (KeyError, ValueError):
+        return None
+    role = favorability_map(result).get(_RESOURCE_ELEMENT_OF.get(day_el, ""), "")
+    if role not in _FAVORABLE_ROLES:
+        return None
+    return (
+        "[문서·계약 대비 관점 — 엔진 판정]\n"
+        "- 이 명식은 문서·자격·후견의 기운(인성)이 이롭게 작동하는 축이며 세력도 알맞게 "
+        "자리한다. 같은 계약·문서 신호가 어떤 명식에서는 나를 묶는 의무가 되기 쉽지만, 이 "
+        "명식에서는 기회·결실 쪽으로 발현되기 쉽다 — 계약을 다룰 때 이 대비를 근거와 함께 "
+        "한 문장으로 짚어 주라(당첨·성사 단정은 금지, 발현되기 쉬운 방향으로만).\n"
+        "서술 지침: 별도 섹션·고정 마무리 문구로 만들지 말고 관련 대목의 본문 흐름에 "
+        "자연스럽게 한 번만 녹여 서술하라."
+    )

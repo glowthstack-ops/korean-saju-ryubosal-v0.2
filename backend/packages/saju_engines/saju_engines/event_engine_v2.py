@@ -215,6 +215,7 @@ class EventEngineV2:
         enable_mt4_subtype: str = "off",
         risk_mode: str | None = None,
         daewoon_hwa_mode: str = "current",
+        enable_resource_clash_renewal: bool = False,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -235,11 +236,16 @@ class EventEngineV2:
             daewoon_hwa_mode: 대운 합화 배경 처리(기본 'current' — 기존 ±3% 랭킹 반영).
                 'post_selection'이면 점수·reason_codes를 건드리지 않고 시점 배경 맵만
                 채운다(DW-HWA 감사 판정 반영). 기본값이 'current'라 production 불변.
+            enable_resource_clash_renewal: 인성 동요 신호(기본 OFF — feature flag,
+                2026-08-10 승인). 운 충이 원국 인성 글자를 칠 때 문서 교체 계열
+                (contract_document/relocation/career_change) 가산 + 인성군 세력 게이트
+                (relation_target_ten_god_rules, reviewed:false). OFF면 기존 결과 불변.
         """
         self._enable_mt1_awareness = enable_mt1_awareness
         self._enable_mt2_emergence = enable_mt2_emergence
         self._enable_mt3_directional = enable_mt3_directional
         self._mt4_mode = enable_mt4_subtype
+        self._enable_resource_clash_renewal = enable_resource_clash_renewal
         # MT4 shadow 진단 사이드채널(결과 payload·LLM 입력 미포함 — debug-only). score()마다 초기화.
         self.mt4_shadow: list[dict] = []
         # ── 위험 엔진 R0(RISK_ENGINE.md) — 기회 파이프라인과 독립 shadow 사이드채널 ──
@@ -593,7 +599,9 @@ class EventEngineV2:
         cands = self._gate.apply(cands, gate_ctx)
         # 발동·궁성 — 해당 시점 관계 적중(+ 일지 복음 발동: 운 지지=원국 일지).
         layer = target_layer
-        activations = _activations(hits, layer) + _bokeum_activations(result, target, layer)
+        activations = (
+            _activations(hits, layer, result) + _bokeum_activations(result, target, layer)
+        )
         # P1-6 §12 — 관계 벡터 shadow projection 수집(읽기 전용 — cands·hits·
         # activations를 변형하지 않고 primitive만 복사한다. 탐지 재호출 0).
         rel_shadow_sink = getattr(self._rel_shadow_tls, "sink", None)
@@ -617,10 +625,18 @@ class EventEngineV2:
             if self._mt4_mode != "off" and result.pillars and result.pillars.day
             else ""
         )
+        # 인성 동요 신호(feature flag) — 원국 십성군 세력 %는 약근 게이트 판정용.
+        group_powers = (
+            dict(result.force_analysis.ten_gods.groups)
+            if self._enable_resource_clash_renewal and result.force_analysis is not None
+            else None
+        )
         cands = self._relpalace.apply(
             cands, activations,
             mt4_mode=self._mt4_mode, gender=marriage_flow.gender,
             day_element=day_el, shadow_sink=self.mt4_shadow,
+            renewal_enabled=self._enable_resource_clash_renewal,
+            ten_god_group_powers=group_powers,
         )
         # 용신 품질 — 시점 유입 글자 오행의 용기신 역할. 본 천간이 합화(化)면 化神 오행으로 길흉
         # 판단(生剋制化 우선 — 사건 종류는 불변, 길흉만 化神 기준). 대운 배경 합화는 제외(국소).
@@ -817,7 +833,7 @@ class EventEngineV2:
         # 피자극 대상 provenance — 충·형은 '무엇을 쳤는가'로 도메인이 갈리므로(재성 충≠
         # 배우자궁 충≠사회궁 충) 자극 궁성의 천간/지지 십성·글자를 사실에 보존한다.
         relations: list[RelationFact] = []
-        for a in _activations(hits, layer):
+        for a in _activations(hits, layer, result):
             god, letter = _natal_target(result, a.palace, a.position)
             relations.append(RelationFact(
                 kind=a.kind, palace=a.palace, position=a.position,
@@ -1007,8 +1023,14 @@ _HAP_SUBTYPE: dict[RelationType, str] = {
 }
 
 
-def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActivation]:
-    """합충형파해 적중 → (관계종류, 자극궁, 층위) 발동 목록(공망류 제외)."""
+def _activations(
+    hits: list[RelationHit], layer: LuckLayer, result: ManseV2Result
+) -> list[RelationActivation]:
+    """합충형파해 적중 → (관계종류, 자극궁, 층위) 발동 목록(공망류 제외).
+
+    피자극 원국 글자의 십성(target_ten_god)을 함께 보존한다 — 충·형은 '무엇을
+    쳤는가'로 의미가 갈리므로(인성 충=문서 동요 등). 기존 필드·순서는 불변.
+    """
     out: list[RelationActivation] = []
     for hit in hits:
         kind = _REL_KIND.get(hit.type)
@@ -1019,6 +1041,7 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
         for ref in hit.natal_refs:
             palace = _POS_PILLAR.get(ref.position)
             if palace is not None:
+                target_god, _ = _natal_target(result, palace, position)
                 out.append(RelationActivation(
                     RelationKind(kind), palace, layer, position=position,
                     hap_subtype=subtype, element=hit.element,
@@ -1029,6 +1052,7 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
                     luck_branch=hit.luck_ref.branch or "",
                     natal_stem=ref.stem or "",
                     natal_branch=ref.branch or "",
+                    target_ten_god=target_god.value if target_god else None,
                 ))
     return out
 

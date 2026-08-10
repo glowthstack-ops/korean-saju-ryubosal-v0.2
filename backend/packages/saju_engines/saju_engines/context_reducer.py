@@ -120,13 +120,31 @@ _DOMAIN_PRIMARY_EVENT: dict[str, EventKey] = {
 # 질문 도메인(intent.domains) → 구조 패턴 domain_hints(EventKeyV2 값) 집합. 도메인 우선 선별용.
 # general/미지원 도메인은 매핑 없음 → domains=None(strength desc)로 폴백.
 _DOMAIN_EVENT_KEYS: dict[str, set[str]] = {
-    "career": {"career_change", "job_gain", "promotion", "business_start", "business_expansion"},
+    # contract_document는 taxonomy상 career 도메인(event_taxonomy_v2) — 계약·문서 질문에서
+    # 관인상생 등 domain_hints의 contract_document가 매칭되도록 포함한다(2026-08-10 감사).
+    "career": {
+        "career_change", "job_gain", "promotion", "business_start",
+        "business_expansion", "contract_document",
+    },
     "wealth": {"wealth_change", "windfall"},
     "relationship": {"relationship_change", "new_relationship", "marriage_signal", "childbirth"},
     "education": {"education_admission", "education_completion"},
     "health": {"health_attention"},
     "relocation": {"relocation"},
 }
+
+def _pattern_domain_keys(intent: IntentJson) -> set[str]:
+    """구조 패턴 도메인 우선 선별용 EventKey 집합.
+
+    domains(복수)가 비고 domain(단수)만 채워지는 파서 경로가 있어 둘을 합친다
+    (능동 제안 경로와 동일한 방어 — 2026-08-10 감사에서 이 경로만 누락 확인).
+    미지원 도메인은 빈 집합 → 호출부가 None으로 폴백(strength desc).
+    """
+    keys: set[str] = set()
+    for name in {str(d) for d in intent.domains} | {str(intent.domain)}:
+        keys |= _DOMAIN_EVENT_KEYS.get(name, set())
+    return keys
+
 
 # 능동 제안(docs/15) 미노출 질문 유형 — 방향 제안이 소음·부적절이 되는 유형.
 _NO_SUGGESTION_QUERY_TYPES = (
@@ -1862,9 +1880,7 @@ def build_llm_input(
 
     limit = CALL_LIMITS[call_type]
     # 구조 패턴(질문 가변 suffix) — 전체 감지 후 질문 도메인 우선 상위 N 선별(내부/노출 분리).
-    _domain_keys: set[str] = set()
-    for _d in intent.domains:
-        _domain_keys |= _DOMAIN_EVENT_KEYS.get(str(_d), set())
+    _domain_keys = _pattern_domain_keys(intent)
     selected_patterns = select_llm_patterns(
         detect_structure_patterns(result), domains=_domain_keys or None
     )

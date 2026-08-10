@@ -31,6 +31,9 @@ from pathlib import Path
 from typing import Any
 
 _ENV_VAR = "DAEWOON_HWA_MODE"
+# 인성 동요→문서 교체 신호(2026-08-10 승인, relation_target_ten_god_rules) — on|off.
+# 점수(occurrence selection)에 영향을 주므로 채널 무관 프로세스 단위로 하나다.
+_ENV_VAR_RENEWAL = "RESOURCE_CLASH_RENEWAL"
 
 
 class DaewoonHwaMode(StrEnum):
@@ -50,6 +53,8 @@ class EventEngineFlags:
     """이벤트 엔진 생성 플래그. 채널이 아니라 프로세스 단위로 하나다."""
 
     daewoon_hwa_mode: DaewoonHwaMode = DaewoonHwaMode.CURRENT
+    # 인성 동요 신호 — 기본 OFF(기존 출력 byte 불변). 감수·회귀 확인 후 전환.
+    resource_clash_renewal: bool = False
 
 
 def parse_daewoon_hwa_mode(raw: str | None) -> DaewoonHwaMode:
@@ -77,10 +82,34 @@ def parse_daewoon_hwa_mode(raw: str | None) -> DaewoonHwaMode:
         ) from None
 
 
+def parse_on_off(raw: str | None, *, env_var: str) -> bool:
+    """'on'|'off' 환경변수 → bool. 인식할 수 없으면 **예외**(조용한 폴백 없음).
+
+    Args:
+        raw: 환경변수 원문. None·빈 문자열이면 False(OFF 기본).
+        env_var: 오류 메시지용 변수명.
+
+    Returns:
+        True(on) / False(off·미설정).
+
+    Raises:
+        ValueError: 허용값('on'/'off') 밖 — 오타 배포가 조용히 무의미해지는 것을 막는다.
+    """
+    text = (raw or "").strip().lower()
+    if not text or text == "off":
+        return False
+    if text == "on":
+        return True
+    raise ValueError(f"{env_var}={raw!r} 는 허용값이 아닙니다. 허용: on, off")
+
+
 def _load_flags() -> EventEngineFlags:
     """환경에서 플래그를 한 번 읽는다(import 시점 고정)."""
     return EventEngineFlags(
         daewoon_hwa_mode=parse_daewoon_hwa_mode(_os.environ.get(_ENV_VAR)),
+        resource_clash_renewal=parse_on_off(
+            _os.environ.get(_ENV_VAR_RENEWAL), env_var=_ENV_VAR_RENEWAL,
+        ),
     )
 
 
@@ -111,6 +140,9 @@ def build_event_engine_v2(dictionaries_dir: Path, **overrides: Any) -> Any:
 
     kwargs: dict[str, Any] = dict(marriage_engine_flags())
     kwargs["daewoon_hwa_mode"] = active_event_engine_flags().daewoon_hwa_mode.value
+    kwargs["enable_resource_clash_renewal"] = (
+        active_event_engine_flags().resource_clash_renewal
+    )
     kwargs.update(overrides)
     return EventEngineV2(dictionaries_dir, **kwargs)
 
@@ -120,4 +152,9 @@ def event_engine_flag_snapshot() -> dict[str, str]:
 
     env 만 보면 "env 에는 켰는데 실제 분기는 current" 인 상태를 구분할 수 없다.
     """
-    return {"daewoon_hwa_mode": active_event_engine_flags().daewoon_hwa_mode.value}
+    return {
+        "daewoon_hwa_mode": active_event_engine_flags().daewoon_hwa_mode.value,
+        "resource_clash_renewal": (
+            "on" if active_event_engine_flags().resource_clash_renewal else "off"
+        ),
+    }

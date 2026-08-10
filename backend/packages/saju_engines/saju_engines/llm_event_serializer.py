@@ -29,6 +29,9 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "JOBCHANGE_PRESSURE": "압박성 이직",
     "JOBCHANGE_OPPORTUNITY": "기회성 이직",
     "PROFILE_public_official": "공직 발령·전보",
+    # 인성 동요 신호(2026-08-10, relation_target_ten_god_rules) — 일반 REL_ 보다 앞.
+    "REL_CHUNG_RESOURCE_RENEWAL": "문서 교체 자극(기존 계약·문서를 깨고 갈아타는 흐름)",
+    "REL_CHUNG_RESOURCE_UNROOTED": "문서 동요(받치는 힘 약함 — 성사보다 흔들림·지연 배경)",
     "REL_": "관계 발동",
     "FLOW_GEN": "상생 흐름",
     "FLOW_REVERSE": "역행 흐름",
@@ -49,6 +52,9 @@ _CONTENT_LABELS = frozenset({
     "상생 흐름", "역행 흐름",
     "합격 기류", "불합격 위험", "퇴직·이탈 리스크", "특수직군 길화",
     "압박성 이직", "기회성 이직", "공직 발령·전보",
+    # 인성 동요 신호 — LLM이 그대로 풀어 써야 할 '내용'(교체 방향/동요 게이트).
+    "문서 교체 자극(기존 계약·문서를 깨고 갈아타는 흐름)",
+    "문서 동요(받치는 힘 약함 — 성사보다 흔들림·지연 배경)",
 })
 INTERNAL_JARGON_LABELS: tuple[str, ...] = tuple(
     ko

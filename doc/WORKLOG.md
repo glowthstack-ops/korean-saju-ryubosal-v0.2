@@ -10084,3 +10084,32 @@ API 노출은 8/6 그대로다(자정 기준 유지).
 파일 없음 기록 / 손상 파일 교체 — caplog 함정 회피, mtime_ns 검증) + 기존 날짜 가드
 회귀 통과. VALID_SUITE_PASS · ruff All checks passed · production mypy gate clean ·
 maintained scripts mypy gate clean.
+
+## 2026-08-10 — 문서운 스크립트 대조 반영 (인성 동요 신호 + 서술 레이어) ✅
+
+대중 문서운 콘텐츠(2026 하반기 문서운 유튜브 스크립트)와의 풀이 방식 대조 감사에서 확인된
+실갭만 원칙에 맞게 교정 수용(사용자 승인 범위 A~E).
+
+- **감사 발견**: ①`events/*.json` 신호 룰은 21키 재설계에서 매칭기 삭제로 **점수 산출 사문화**
+  (Graph RAG 근거·lint 전용 — tenGodGroupStrong·MT 계열 JSON 필드도 inert)
+  ②chat 도메인 매핑에 `contract_document` 누락 ③구조 패턴 경로 단수 domain 방어 누락
+  ④관인상생 감지기= 존재 규칙뿐(사전 detector_source와 불일치)·operability 게이트 없음
+  (감지기 강화는 별도 작업으로 분리).
+- **P0 버그픽스**: `_DOMAIN_EVENT_KEYS.career`+`contract_document`, `_pattern_domain_keys()`
+  단수 domain 병합(context_reducer).
+- **P1 인성 동요 신호(로직)**: 운 충이 원국 인성 글자를 칠 때 문서 교체 계열
+  (contract_document/relocation/career_change) 가산 — `relation_target_ten_god_rules`
+  (relation_palace_modifier.json, reviewed:false) + RelationPalaceEngine 대상 십성 패스 +
+  `RelationActivation.target_ten_god`. 뿌리 게이트=십성군 세력 재사용(resource<12% →
+  축소 가산+UNROOTED 동요 reason). **feature flag `RESOURCE_CLASH_RENEWAL=on|off, 기본 OFF**
+  (event_engine_config SSOT·health 노출) — 기본 출력 byte 불변, 전환은 감수 후.
+  회귀: 1988-01-10 甲일간+子(정인) × 2026 병오년 자오충 픽스처.
+- **P2/P3 서술 블록(inert)**: `document_caution_block`(인성 과다=묶는 문서/약세=동요·지연)·
+  `document_contrast_block`(용신/희신+적정 세력=기회·결실 대비) — chat 직업/이사/학업
+  도메인 한정, 상호 배타, 조건 미성립=미주입. 원시 % 미노출·마무리 계약 준수.
+- **P4 물상 어휘**: `DOCUMENT_IMAGERY_DIRECTIVE`(계약·문서 질문 한정) +
+  event_forms.json `contract_document` 5형태(교체·갱신 판갈이형 포함, 감수 대기).
+- **채택 금지 확인**: 일간 코호트 판정·단일 신호 사건명 단정·정적 생 체인 자동 작동·근거
+  없는 반기 한정은 반영하지 않음(절대 원칙 유지).
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean. event graph 스냅샷 재컴파일(v1.1.0, validate 통과).

@@ -136,3 +136,52 @@ def test_jobchange_classification_label() -> None:
     ))
     assert opportunity.favorability > 0
     assert "JOBCHANGE_OPPORTUNITY" in opportunity.reason_codes
+
+
+# ── 인성 동요 신호 회귀(2026-08-10) — 스크립트 케이스 재현: 甲일간+子(정인), 2026 자오충 ──
+
+
+@pytest.fixture(scope="module")
+def wood_resource_chart():
+    """甲일간·일지 子(본기 癸=정인)·인성군 세력 30% — 2026 병오년 세운 午가 子를 충."""
+    return calculate(BirthInput(
+        calendar_type="solar", birth_date="1988-01-10", birth_time="10:30",
+        birth_place_name="서울", gender="male", reference_date="2026-08-10",
+    ))
+
+
+def test_resource_clash_renewal_off_default(wood_resource_chart) -> None:
+    """flag OFF(기본) — REL_CHUNG_RESOURCE_* 근거코드가 어디에도 없다(기존 출력 불변)."""
+    dicts = Path(__file__).resolve().parents[2] / "dictionaries"
+    cands = EventEngineV2(dicts).score(wood_resource_chart)
+    assert cands
+    assert not any(
+        rc.startswith("REL_CHUNG_RESOURCE_")
+        for c in cands for rc in c.reason_codes
+    )
+
+
+def test_resource_clash_renewal_on_tags_sewoon_2026(wood_resource_chart) -> None:
+    """flag ON — 세운 2026(자오충)에서 contract_document·career_change에 RENEWAL 근거.
+
+    인성군 세력 30%(>=12%)이므로 UNROOTED(동요 격하)가 아닌 RENEWAL이어야 한다.
+    후보 (event,period) 키 집합은 OFF와 동일해야 한다(가산·태깅만 — 생성/제거 없음).
+    """
+    dicts = Path(__file__).resolve().parents[2] / "dictionaries"
+    base = EventEngineV2(dicts).score(wood_resource_chart)
+    on = EventEngineV2(dicts, enable_resource_clash_renewal=True).score(wood_resource_chart)
+
+    keys = lambda cs: {(str(c.event_key), c.period) for c in cs}  # noqa: E731
+    assert keys(base) == keys(on)
+
+    tagged_2026 = {
+        str(c.event_key) for c in on
+        if c.period == "2026"
+        and any(rc == "REL_CHUNG_RESOURCE_RENEWAL" for rc in c.reason_codes)
+    }
+    assert {"contract_document", "career_change"} <= tagged_2026
+    # 세력 충분(30%) — 동요 격하 코드는 세운 2026에 없어야 한다.
+    assert not any(
+        rc == "REL_CHUNG_RESOURCE_UNROOTED"
+        for c in on if c.period == "2026" for rc in c.reason_codes
+    )

@@ -103,6 +103,7 @@ from saju_engines.structural_context import (
     DAEWOON_FRAMING_DIRECTIVE,
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
     DECISION_ATTITUDE_DIRECTIVE,
+    DOCUMENT_IMAGERY_DIRECTIVE,
     EVIDENCE_FIDELITY_DIRECTIVE,
     GONGMANG_ACTIVATION_DIRECTIVE,
     LOVE_MARRIAGE_UNIFIED_DIRECTIVE,
@@ -114,6 +115,8 @@ from saju_engines.structural_context import (
     TRAIT_FEEDBACK_DIRECTIVE,
     UNCERTAINTY_TRANSLATION_DIRECTIVE,
     daewoon_progression_lines,
+    document_caution_block,
+    document_contrast_block,
     spouse_star_directive,
 )
 from saju_engines.task_procedures import (
@@ -4405,6 +4408,17 @@ def chat(
         # 질문 무관 성격 칭찬 서두 금지 — 상시(2026-07-22, 리포트 공용).
         BARNUM_SUPPRESSION_DIRECTIVE,
     ]
+    # 문서·계약 주의점/대비(2026-08-10 P2·P3) — 문서·계약이 걸리는 도메인(직업/이사/학업)
+    # 질문에서만: 인성 과다/약세 성립 시 주의점, 인성 용신/희신+적정 세력이면 대비 관점
+    # (상호 배타). 미성립·타 도메인은 None/미주입 → 기존 프롬프트 byte 불변. 서술 전용(inert).
+    if {Domain.CAREER, Domain.RELOCATION, Domain.EDUCATION} & {intent.domain, *intent.domains}:
+        _doc_block = document_caution_block(result) or document_contrast_block(result)
+        if _doc_block:
+            trailing.append(_doc_block)
+        # 문서운 물상 어휘(P4) — 블록이 섰거나 질문이 명시적으로 계약·문서를 다룰 때만
+        # (일반 직업 질문 전체의 프롬프트를 바꾸지 않는다 — 변경 표면 최소화).
+        if _doc_block or any(k in question for k in ("계약", "문서", "도장", "서류")):
+            trailing.append(DOCUMENT_IMAGERY_DIRECTIVE)
     # 관계 신호 beta 노출(슬라이스 1 — 테스터 피드백용, RELATIONSHIP_BETA_EXPOSE 플래그).
     # 플래그 off면 이 분기가 실행되지 않아 기존 출력 byte-identical. 관계·결혼 질문일 때만
     # 질문 창 기간의 관계 벡터 3축(평가분)을 beta 블록으로 주입 + 단정 금지 가드. 미평가

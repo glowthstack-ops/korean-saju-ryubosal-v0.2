@@ -138,6 +138,43 @@ def test_select_llm_patterns_domain_priority() -> None:
     assert ordered[0].pattern_id == "B"
 
 
+def test_domain_event_keys_include_contract_document() -> None:
+    """career 도메인 집합에 contract_document 포함 — taxonomy(CONTRACT_DOCUMENT→career)와 정합.
+
+    누락 시 계약·문서 질문에서 관인상생 등의 contract_document domain_hint가
+    절대 매칭되지 않는다(2026-08-10 감사 결함 1).
+    """
+    from saju_engines.context_reducer import _DOMAIN_EVENT_KEYS
+
+    assert "contract_document" in _DOMAIN_EVENT_KEYS["career"]
+
+
+def test_pattern_domain_keys_merges_singular_domain() -> None:
+    """domains(복수)가 비고 domain(단수)만 채워져도 도메인 우선 선별이 동작한다.
+
+    능동 제안 경로에는 있던 단수 병합 방어가 구조 패턴 경로에 없던 결함
+    (2026-08-10 감사 결함 2)의 회귀 가드.
+    """
+    from saju_engines.context_reducer import _DOMAIN_EVENT_KEYS, _pattern_domain_keys
+    from saju_shared_types.intent import Domain, IntentJson, QueryType
+
+    single = IntentJson(
+        intent_id="t1", query_type=QueryType.DOMAIN_ANALYSIS, domain=Domain.CAREER,
+    )
+    assert _pattern_domain_keys(single) == _DOMAIN_EVENT_KEYS["career"]
+
+    both = IntentJson(
+        intent_id="t2", query_type=QueryType.DOMAIN_ANALYSIS,
+        domain=Domain.CAREER, domains=[Domain.WEALTH],
+    )
+    assert _pattern_domain_keys(both) == (
+        _DOMAIN_EVENT_KEYS["career"] | _DOMAIN_EVENT_KEYS["wealth"]
+    )
+
+    empty = IntentJson(intent_id="t3", query_type=QueryType.DOMAIN_ANALYSIS)
+    assert _pattern_domain_keys(empty) == set()
+
+
 def test_prefix_no_longer_carries_patterns(result) -> None:
     """구조 패턴은 캐시 프리픽스에서 제거됨(질문 가변 suffix로 이전). 프리픽스는 결정적."""
     from saju_engines.context_reducer import build_birth_summary

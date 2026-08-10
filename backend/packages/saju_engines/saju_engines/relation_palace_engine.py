@@ -45,6 +45,10 @@ class RelationActivation:
     # 'six_harmony'|'three_harmony'|'directional'|'stem'|None. element=삼합/방합 완성 오행(한자).
     hap_subtype: str | None = None
     element: str | None = None
+    # 피자극 원국 글자의 십성(로마자 TenGod value, 예: 'ZHENGYIN') — 충·형은 '무엇을
+    # 쳤는가'로 의미가 갈리므로 대상 십성을 보존한다(2026-08-10 인성 동요 신호).
+    # None이면 일간 자신·미정의 라벨 — 대상 십성 조건 룰은 매칭하지 않는다.
+    target_ten_god: str | None = None
 
 
 _MAX_RELATION_DELTA = 22.0  # 발동 보너스 총량 상한(포화 보정 — reviewed:false)
@@ -209,6 +213,8 @@ class RelationPalaceEngine:
         }
         self._palace: dict[str, dict] = raw["palace_map"]
         self._rel_to_palace: list[dict] = raw["relation_to_palace_event_rules"]
+        # 피자극 대상 십성 조건 룰(궁성 무관) — 구 사전엔 없을 수 있어 기본 빈 목록.
+        self._target_ten_god_rules: list[dict] = raw.get("relation_target_ten_god_rules", [])
         self._compounds: list[dict] = raw["compound_relation_patterns"]
         self._layer_w: dict[str, float] = {
             k: float(v["score_multiplier"]) for k, v in raw["relation_layer_weights"].items()
@@ -224,12 +230,20 @@ class RelationPalaceEngine:
         gender: str = "unknown",
         day_element: str = "",
         shadow_sink: list[dict] | None = None,
+        renewal_enabled: bool = False,
+        ten_god_group_powers: dict[str, float] | None = None,
     ) -> list[EventCandidateV2]:
         """후보에 관계·궁성 발동 보너스를 적용한다.
 
         MT4(§9): mt4_mode='off'면 기존 동작 그대로(byte 불변). 'shadow'면 관계 도메인 HAP 활성의
         합 종류(subtype) multiplier를 **계산만** 해 shadow_sink에 기록하고 점수·reason은 불변.
         'apply'면 합산 전 보너스에 multiplier를 곱하고(상향 없음 ≤1.0) MT4 reason을 단다.
+
+        renewal_enabled(2026-08-10, feature flag 기본 OFF): 피자극 대상 십성 조건 룰
+        (relation_target_ten_god_rules — 인성 동요→문서 교체 등)을 활성화한다. OFF면
+        기존 결과 byte 불변. ten_god_group_powers는 원국 십성군 세력 %(force_analysis.
+        ten_gods.groups) — 룰의 세력 게이트(약하면 축소 가산+동요 reason) 판정에 쓰며,
+        None이면 게이트 판정 불가로 항상 base_bonus를 쓴다.
         """
         kinds = {a.kind for a in activations}
         compound_bonus = self._compound_bonus(kinds)
@@ -285,6 +299,29 @@ class RelationPalaceEngine:
                 reasons.append(f"REL_{act.kind.value}_{act.palace.value}")
                 # 병렬 provenance — 기존 `reason_codes` 는 값·순서·중복 모두 불변.
                 instances.append(relation_reason_instance(act, bonus))
+            # ── 피자극 대상 십성 조건 룰(궁성 무관 — 2026-08-10 인성 동요 신호) ──
+            # 궁성 domain 불일치로 위 루프가 건너뛴 발동도 대상 십성이 맞으면 가산한다.
+            # 총량은 아래 _MAX_RELATION_DELTA 상한을 그대로 공유한다(포화 방지).
+            if renewal_enabled:
+                for act in activations:
+                    for rule in self._target_ten_god_rules:
+                        if act.kind.value != rule["relation"]:
+                            continue
+                        if act.target_ten_god not in rule["target_ten_gods"]:
+                            continue
+                        if ek not in rule["likely_events"]:
+                            continue
+                        power = (ten_god_group_powers or {}).get(rule["group_key"])
+                        weak = (
+                            power is not None
+                            and power < float(rule["weak_group_power_lt"])
+                        )
+                        layer_mult = self._layer_w.get(f"{act.layer.value}_to_natal", 1.0)
+                        bonus = float(rule["weak_bonus" if weak else "base_bonus"]) * layer_mult
+                        delta += bonus
+                        best_palace = act.palace
+                        reasons.append(str(rule["weak_reason" if weak else "reason"]))
+                        instances.append(relation_reason_instance(act, bonus))
             if compound_bonus and best_palace is not None:
                 delta += compound_bonus
                 reasons.append("REL_COMPOUND")
