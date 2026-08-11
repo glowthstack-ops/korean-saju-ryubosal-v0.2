@@ -1952,6 +1952,47 @@ _TASK_RISK_CHECK_DIRECTIVE = (
     "확인하라'처럼 단계 분기로 안내할 것."
 )
 
+# 구설 소재·당사자 프레임 가드(2026-08-11 데굴님 승인) — "지금은 가족적인 문제로 인해
+# 구설이 심해"가 '가족 간의 오해나 구설'·'가족의 요구'로 재해석된 실사용 오류. 원인
+# 표지(로 인해/때문에/탓에)로 구설류 어휘와 연결된 질문이면, 사용자가 밝힌 인과 구조
+# (소재)와 갈등 당사자를 구분하는 서술 전용 디렉티브를 주입한다(점수·판정 불변).
+# 문장 경계([.?!\n])를 넘는 인과 서술은 미지원(P0) — 같은 문장 안의 순방향(원인→구설)·
+# 역방향(구설→원인) 두 어순만 잡는다.
+_GOSSIP_WORDS = r"구설|논란|소문|루머|뒷말|악플|스캔들|입방아"
+_GOSSIP_CAUSE_FORWARD_RE = re.compile(
+    rf"([^.?!\n]+?)(?:로\s*인해|때문에|탓에)[^.?!\n]*?(?:{_GOSSIP_WORDS})"
+)
+_GOSSIP_CAUSE_REVERSE_RE = re.compile(
+    rf"(?:{_GOSSIP_WORDS})[^.?!\n]*?[는데니고서,]\s*([^.?!\n]+?)\s*(?:때문|탓)"
+)
+_GOSSIP_TOPIC_FRAME_DIRECTIVE = (
+    "[중요·구설 해석 규칙 — 소재와 당사자 구분]\n"
+    "사용자는 '{cause}'이(가) 원인이 되어 구설(주변에서 도는 말)이 이는 상황을 말했다. "
+    "밝힌 인과 구조를 그대로 보존하라 — 그것은 구설의 소재(원인)이지 갈등의 상대방이 "
+    "아니다. 사용자가 당사자 간 다툼을 직접 말하지 않는 한, 원인에 등장한 인물·집단"
+    "(가족 등)과의 갈등·요구·화해 구도로 재해석하지 말고('가족 간 갈등'·'가족의 요구' 같은 "
+    "표현 금지), 외부에서 도는 말(평판·소문)이 언제 가라앉고 그때까지 어떻게 처신할지를 "
+    "중심으로 서술하라. 마무리 후속 질문도 사용자가 말하지 않은 사실(다툼·요구의 존재)을 "
+    "전제하지 말 것."
+)
+
+
+def _gossip_cause_clause(question: str) -> str | None:
+    """구설 질문의 원인 절 추출(없으면 None).
+
+    같은 문장 안에서 원인 표지와 구설류 어휘가 연결된 경우만 인정한다. 순방향
+    ("가족 문제로 인해 구설이…")을 먼저 보고, 없으면 역방향("구설이 심한데 가족 문제
+    때문이야")을 본다. 원인 절은 디렉티브에 그대로 인용되므로 앞뒤 공백·구두점만
+    정리하고 과도하게 길면 뒤쪽 30자만 남긴다.
+    """
+    m = _GOSSIP_CAUSE_FORWARD_RE.search(question)
+    if m is None:
+        m = _GOSSIP_CAUSE_REVERSE_RE.search(question)
+    if m is None:
+        return None
+    cause = m.group(1).strip(" ,·…~\t")
+    return cause[-30:] if cause else None
+
 # 특정일의 절기월 앵커 — 질문일이 양력 달과 다른 절기월에 속할 때만 붙는다(2026-07-22
 # 데굴님 지적 재발: 7/4는 소서(7/7) 전이라 甲午월(라벨 2026-06) 소속인데 '7월 운'으로 서술).
 _SINGLE_DAY_SOLAR_MONTH_NOTE = (
@@ -4771,6 +4812,11 @@ def chat(
                 solar_month_note=_sm_note,
             )
         )
+    # 구설 질문 — 소재(원인)와 갈등 당사자 구분 강제(2026-08-11). 원인 절이 추출된
+    # 경우에만 주입 — 무원인 구설 질문("구설수 있을까?")은 기존 서술 그대로.
+    _gossip_cause = _gossip_cause_clause(question)
+    if _gossip_cause is not None:
+        trailing.append(_GOSSIP_TOPIC_FRAME_DIRECTIVE.format(cause=_gossip_cause))
     # 이사 질문 — 십성(유형)과 용신/기신(길흉)을 분리해 답하도록 강제(2026-06-18).
     if _is_relocation_intent(intent):
         trailing.append(_RELOCATION_REASON_DIRECTIVE)

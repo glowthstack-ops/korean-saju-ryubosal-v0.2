@@ -405,3 +405,20 @@ def test_task_check_includes_procedure_pack() -> None:
     preview = res.json()["prompt_preview"] or ""
     assert "[과업 절차 참고 — 주택 계약·대출·이사" in preview
     assert "대출 승인이 나야 잔금" in preview  # L1 의존관계가 점검 근거로 주입
+
+
+def test_gossip_cause_frame_directive_injected() -> None:
+    """원인 표지+구설 질문 → 소재·당사자 구분 디렉티브가 원인 절 인용과 함께 실린다."""
+    res = _post("지금은 가족적인 문제로 인해 구설이 심해. 가라앉을까?")
+    assert res.status_code == 200, res.text
+    preview = res.json()["prompt_preview"] or ""
+    assert "[중요·구설 해석 규칙 — 소재와 당사자 구분]" in preview
+    assert "가족적인 문제" in preview  # 사용자가 밝힌 원인 절이 그대로 인용된다
+
+
+def test_plain_gossip_question_has_no_frame_directive() -> None:
+    """무원인 구설 질문은 기존 서술 유지 — 디렉티브 미주입."""
+    res = _post("올해 구설수가 있을까?")
+    assert res.status_code == 200, res.text
+    preview = res.json()["prompt_preview"] or ""
+    assert "[중요·구설 해석 규칙" not in preview
