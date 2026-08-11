@@ -269,7 +269,12 @@ EVENT_WORDS: dict[EventKeyV2, list[str]] = {
     EventKeyV2.RELOCATION: ["이사", "이동수", "여행", "해외 이동"],
     EventKeyV2.LEGAL_CONFLICT: ["소송", "고소", "법적"],
     EventKeyV2.HEALTH_ATTENTION: ["건강", "수술", "병원"],
-    EventKeyV2.SOCIAL_CONFLICT: ["갈등", "다툼", "구설"],
+    # 구설·평판 어휘 확장(2026-08-11): '논란이 생겨서 이미지가 나빠졌는데 앞으로
+    # 어떻게 될까?' 류 평판 사건 서술이 어휘 미탐지로 too_broad에 빠졌다. '구설'이
+    # '구설수'를 부분문자열로 포괄하듯 아래도 표면형 그대로 매칭된다. '소문'은
+    # 긍정 문맥('좋은 소문')과 구분이 안 돼 제외.
+    EventKeyV2.SOCIAL_CONFLICT: ["갈등", "다툼", "구설", "논란", "스캔들", "루머",
+                                 "악플", "뒷말", "입방아"],
     EventKeyV2.CREATIVE_OUTPUT: ["작품", "프로젝트", "성과물"],
     EventKeyV2.PUBLIC_EXPOSURE: ["오디션", "대회", "경연", "선거", "공개 발표"],
 }
