@@ -10137,3 +10137,87 @@ maintained scripts mypy gate clean.
   주입 3분기).
 - **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
   maintained scripts mypy gate clean.
+
+## 2026-08-13 — 총운(RPT_FULL) 생애 개편: 25섹션 + 생애 변곡점 연표 ✅
+
+"총운인데 실질 10년만 보인다"는 사용자 지적 반영 — spec 기간은 출생~+90년이었으나
+실효 미래 스캔이 `_FORECAST_FORWARD_YEARS=5`로 잘려 있었고, 전 생애 스캔(2026-08-07
+P0)은 채팅에만 배선돼 있었다. docs/10 3장 규격 개정(사용자 승인) 후 배선.
+
+- **목차 22→25섹션**(docs/10 3장·3-1~3-4절 신설): F-14=생애 변곡점 연표(교체, 출생~90세
+  연 단위 스캔), F-15=조직 규모 적합 보강, F-17=연애·결혼 전용 분리(+미혼 배우자상),
+  신설 F-17b(부모·가족)/F-17c(자녀)/F-18b(이사·주거, region 블록 포함). F-13은 잔여
+  생애 전체 대운 로드맵으로 확장. `FULL_TOTAL_TARGET` 41k→48k(A4 약 24~30장),
+  LLM 호출 25회. 신규 ID는 접미형(재번호화 금지) — `_F04_DEPENDENTS`/`_F21_DEPS`/
+  `_SECTION_DOMAIN`(F-17c=relationship·F-18b=relocation) 등재.
+- **lifetime_scan 엔진 승격**(saju_engines/lifetime_scan.py): 채팅 lifetime scan의
+  선별(`select_lifetime_years`)·조립(`lifetime_pillars`+`merge_yearly_luck`)을 공용
+  이관. 채팅=12행/10년당3 동작 불변(chat_service는 별칭 위임), 리포트=20행/10년당3+
+  클러스터 캡2(`overview_cluster_key` — context_reducer 공용 축, 총운 다변화와 동일).
+- **F-14 배선**(report_service `_ReportData`): 대운표 sewoon 재사용+유년 보충 후 YEAR
+  재채점(절대원칙 9), 연표 행=연도·만나이·세운간지·도메인 라벨 6종·길흉 결·사건·점수.
+  표의 간지·점수는 allowed_ganji/scores 합류(정합성 검사 2·3 정합). F-16/F-18은 같은
+  스캔의 도메인 행 발췌(`lifetime_domain_lines`) — 섹션 간 수치 불일치 방지. 근접 5년
+  스펙트럼 표는 보조로 유지.
+- **정책 3건(사용자 확정)**: ①분량 상향+조직 규모 적합(`_ORG_SCALE_DIRECTIVE`, 서술
+  전용 — docs/10 3-2 표가 SSOT) ②부모·사별="이별·상실 계열 신호" 프레임만, 사망·사별
+  단정 report_checks `_PROHIBITED_PATTERNS` 추가 ③미혼 배우자상=재미요소로 외모 추측
+  적극 허용(수치·확정 단정만 금지) — 궁합 RP-03 실존 상대 금지는 별개 유지(이원 정책).
+- **FE**: section-display 라벨(F-14 인생의 변곡점 연표·F-17b/F-17c/F-18b)·총운 카드
+  문구. 기간은 기존 lifetimePeriod 그대로.
+- 회귀: test_lifetime_scan_engine.py 5건(클러스터 캡·채팅 동작 불변·조립 계약) +
+  test_report_phase9/test_report_service 25섹션·의존성·디렉티브 갱신.
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean · frontend tsc/production build 통과.
+
+## 2026-08-13 — 총운 실사용 교정 2차: 현재 대운 마커 + 십년 풀이 페이지 ✅
+
+생애 개편 직후 데굴님 실사용 리포트에서 발견된 결함 2건 교정.
+
+- **현재 대운 임의 판단 차단(모든 풀이 공통)**: 엔진은 `current_daewoon_index`를
+  계산하는데 프롬프트에 표기가 없어 LLM이 나이 계산으로 추정 — 지난 대운(신묘)을
+  '현재', 이미 시작된 대운(임진 2025~)을 '시작될 미래'로 오판. 리포트 `[대운표]`
+  (luck_block)·채팅 `[간지달력(압축)]`(DaewoonEntry.status 신설) 양쪽 대운 행에
+  엔진 판정 상태(`[지남]`/`← 현재 대운(오늘 포함, 엔진 판정)`/`[예정]`) 표기 +
+  "나이·연도 계산으로 재추정 금지" 가드 줄. F-07은 [예정] 대운 서술 금지 스코프 명시.
+- **잔여 대운 절단 차단**: 대운표 데이터는 10행(생애 전체) 존재 — 모델이 서술을
+  임의로 끊은 것(65~75세에서 종료). F-13에 잔여 대운 전수 체크리스트
+  (`remaining_daewoon_checklist`, 엔진 나열) 부착.
+- **세운 5년 고착 교정 — 십년 풀이 하위 페이지(F-14-D\*, 데굴님 '10년 단위 페이지
+  분리' 제안 채택)**: F-14 뒤에 현재 대운~90세 창 대운당 1페이지 동적 생성.
+  `_expand_full_plans` + ReportBuilder `plan_expander` 훅(plan 계층은 spec만 알아
+  순수 유지 — 잔여 대운 수는 명식 데이터 필요). 페이지 입력=그 10년 세운 전 연도
+  (`year_spectrum_lines` 재사용, 전 생애 병합 결과+생애 풀), 근접 5년 스펙트럼·전역
+  top 후보 미부착(같은 5년 반복 구조 차단). 분량 900~2,900자/페이지, F-21 의존성에
+  십년 페이지 포함. LLM 호출 25+잔여 대운 수(통상 5~10).
+- **도메인 섹션 생애 연동 전면화**: `lifetime_domain_lines`를 전역 연표 발췌 →
+  도메인 풀 직접 선별(최대 5행·10년 구간당 2·클러스터 캡 2)로 재작성,
+  `_LIFETIME_DOMAIN_SECTIONS`(F-15/F-16/F-17/F-17c=childbirth 한정/F-18/F-18b) 배선.
+- docs/10 3-1 규격 보강(동적 확장 규칙 명문화)·상품 분량 표기(A4 약 28~40장).
+- 회귀: test_context_reducer(대운 상태 마커·가드) + test_report_service(마커·체크리스트·
+  십년 페이지 배치·생애 도메인 행) 갱신, 총 43건 통과.
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean.
+- **추가(같은 날)**: F-22/Y-12 용어 풀이가 전 섹션 공통 '조밀한 산문' 지시에 눌려 한
+  문단으로 뭉치던 문제 — 부록 예외 명시(용어마다 '- 용어: 설명' 목록 줄바꿈), 회귀
+  테스트 고정. 검증: VALID_SUITE_PASS · 게이트 4종 clean.
+
+## 2026-08-13 — 분할 페이지 확장 3차: 한해 반기 분할 + 테마 연도별 상세 ✅
+
+데굴님 확정: "한해풀이 12개월이 어렵다면 상·하반기로, 테마운세도 특정 달·해만 반복되지
+않게 페이지를 분리해 가능한 많은 풀이 제공". `_expand_report_plans`(구 `_expand_full_plans`
+일반화 — RPT_FULL 십년 페이지 포함 3상품 공용 확장 훅)로 구현.
+
+- **RPT_YEAR**: 생성 시 Y-05(월별 흐름)를 **Y-05-H1(상반기 1~6월)·H2(하반기 7~12월)
+  2페이지로 교체** — 각 달 2~4문장 보장, 반기 밖 달 서술 금지. 호출 12→13회.
+- **RPT_FOCUS**: '기간 종합'(W-06/J-05/R-05/RP-06/RL-06/C-03) 뒤에 **예측 창 연도당
+  1페이지**(`{ID}-Y{연도}`, 통상 6) 삽입 — 그 해 세운 스펙트럼 행+그 해 12개월 표
+  (도메인 스코프)만 부착, 전역 top 후보 미부착(같은 달·해 반복 구조 차단).
+- 엔진: `month_overview_lines(months_filter=…)` 구간 필터 신설(기존 호출 불변),
+  `_ReportData.month_slice_block`·`month_page_windows`·`year_page_years`,
+  가이드 2종(`_HALF_YEAR_PAGE_GUIDE`/`_FOCUS_YEAR_PAGE_GUIDE`).
+- docs/10: §4 연도별 상세 규격·§4-2 Y-05 반기 분할·§9 비용 모델 갱신.
+- 회귀: test_report_service(반기 분할·연도 페이지 배치·표 구간 검사)·
+  test_report_topic_scoping(고정+연도 페이지 분리 계상) 갱신, 38건 통과.
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean. (게이트 기록은 본 커밋 기준)

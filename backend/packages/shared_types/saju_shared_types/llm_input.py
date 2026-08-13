@@ -112,6 +112,10 @@ class DaewoonEntry(BaseModel):
     ganji: str
     age_range: str  # '45~54세'
     jiao_date: str = ""  # 교운일(대운 시작) — 교운기 영향 판단용(항목 1)
+    # 현재 대운 기준 상태(엔진 current_daewoon_index 판정): '지남'/'현재'/'예정'.
+    # 빈 문자열=판정 불가(reference 없음) — 렌더에서 생략(하위호환). LLM이 현재 대운을
+    # 나이 계산으로 임의 추정하던 결함 차단(2026-08-13 데굴님 실사용 발견).
+    status: str = ""
 
 
 class SelectedYear(BaseModel):

@@ -276,7 +276,7 @@ def score_table_lines(
 
 def month_overview_lines(
     result: ManseV2Result, scored: list[EventCandidate], domain: str | None = None,
-    *, notable_only: bool = False,
+    *, notable_only: bool = False, months_filter: set[str] | None = None,
 ) -> list[str]:
     """이 해 12개월 전체를 한 줄씩 — 월 간지·운 품질 등급·우세 도메인·강도밴드·길흉·대표 신호.
 
@@ -295,17 +295,26 @@ def month_overview_lines(
     lc = result.luck_cycles
     if lc is None or not lc.monthly_luck:
         return []
+    # months_filter(YYYY-MM 라벨 집합) — 분할 페이지(한해 상·하반기, 테마 연도별 상세,
+    # 2026-08-13)가 자기 구간의 달만 받도록 한다. None=전체(기존 동작 불변).
+    pool_months = (
+        lc.monthly_luck
+        if months_filter is None
+        else [p for p in lc.monthly_luck if p.label in months_filter]
+    )
+    if not pool_months:
+        return []
     by_period: dict[str, list[EventCandidate]] = {}
     for c in scored:
         if domain is not None and _DOMAIN_BY_KEY.get(str(c.event_key)) != domain:
             continue  # 테마 섹션 — 대표 사건을 주제 도메인으로 한정(운 품질 등급은 항상 표기).
         by_period.setdefault(c.period, []).append(c)
     # 연도별로 묶어 각 해의 12개월을 빠짐없이 출력한다(다년 예측 — ★주목은 연도 내 상대 기준).
-    years = sorted({p.label[:4] for p in lc.monthly_luck})
+    years = sorted({p.label[:4] for p in pool_months})
     multi = len(years) > 1
     lines: list[str] = []
     for yr in years:
-        months = [p for p in lc.monthly_luck if p.label[:4] == yr]
+        months = [p for p in pool_months if p.label[:4] == yr]
         rep: dict[str, EventCandidate | None] = {}
         month_score: dict[str, int] = {}
         for p in months:

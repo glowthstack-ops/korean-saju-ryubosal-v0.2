@@ -862,6 +862,15 @@ def _dominant_trigger(c: EventCandidate) -> str:
     return max(c.signals, key=lambda s: abs(s.weight)).type
 
 
+def overview_cluster_key(c: EventCandidate) -> tuple[str, str, str]:
+    """총운 다변화의 의미 클러스터 키 — 사건×길흉 방향×지배 신호 계열.
+
+    reduce_overview_candidates의 클러스터 축과 동일하며, 생애 변곡점 연표(lifetime_scan)가
+    같은 축으로 중복을 압축한다(docs/10 3-1 — 2026-08-13 생애 개편).
+    """
+    return (str(c.event_key), _overview_direction(c), _dominant_trigger(c))
+
+
 def _life_fit_sort_key(c: EventCandidate) -> tuple:
     """reduce_candidates와 동일한 정렬 계층(life_fit>personal_match>score>raw) — 불변."""
     return (
@@ -904,7 +913,7 @@ def reduce_overview_candidates(
     clusters: dict[tuple, dict] = {}
     order: list[tuple] = []
     for c in pool:
-        key = (str(c.event_key), _overview_direction(c), _dominant_trigger(c))
+        key = overview_cluster_key(c)
         if key not in clusters:
             clusters[key] = {"rep": c, "periods": [c.period], "count": 1}
             order.append(key)
@@ -1168,12 +1177,20 @@ def build_calendar_context(
     # 정확한 교운일은 만세력 엔진 trace에 있다(approx_start_date는 대략값) — 가장 가까운
     # 정확 교운일을 매칭해 프롬프트에 제공한다(사용자 지적 2026-06-12).
     exact_jiao = _exact_jiao_dates(result)
+    # 현재 대운 상태 — 엔진 판정(current_daewoon_index)을 그대로 표기. LLM이 나이
+    # 계산으로 현재 대운을 임의 추정·오판하던 결함 차단(2026-08-13 데굴님 실사용 발견).
+    _cur_dw = lc.current_daewoon_index
     daewoon = [
         DaewoonEntry(
             period=f"{d.approx_start_date.year}~{d.approx_end_date.year}",
             ganji=d.ganji,
             age_range=f"{d.start_age}~{d.start_age + 9}세",
             jiao_date=_nearest_jiao(d.approx_start_date, exact_jiao),
+            status=(
+                ""
+                if _cur_dw is None
+                else ("현재" if d.index == _cur_dw else ("지남" if d.index < _cur_dw else "예정"))
+            ),
         )
         for d in lc.daewoon_table
         if long_term or d.ganji in wanted_dw
@@ -2199,11 +2216,24 @@ def serialize_llm_input(payload: LlmInput) -> str:
     lines += [
         "[간지달력(압축)]",
     ]
+    _dw_any_status = False
     for d in payload.calendar_context.daewoon:
         period = d.period.replace("~", "-")
         ages = d.age_range.replace("~", "-")
         jiao = f", 교운일 {d.jiao_date}" if d.jiao_date else ""
-        lines.append(f"대운 {d.ganji} ({period}, {ages}{jiao})")
+        _dtag = {
+            "현재": " ← 현재 대운(오늘 포함, 엔진 판정)",
+            "지남": " [지남]",
+            "예정": " [예정]",
+        }.get(d.status, "")
+        _dw_any_status = _dw_any_status or bool(_dtag)
+        lines.append(f"대운 {d.ganji} ({period}, {ages}{jiao}){_dtag}")
+    if _dw_any_status:
+        lines.append(
+            "※ 현재 대운·지남/예정 판정은 위 엔진 표기가 확정값이다 — 나이·연도 계산으로 "
+            "재추정하지 말고 표기를 그대로 따를 것(지난 대운을 현재로, 현재 대운을 "
+            "'시작될' 미래로 쓰지 말 것)."
+        )
     for y in payload.calendar_context.selected_years:
         lines.append(f"세운 {y.year} {y.ganji} (대운 {y.daewoon} 내) — 선별: {y.reason_selected}")
     for m in payload.calendar_context.selected_months:

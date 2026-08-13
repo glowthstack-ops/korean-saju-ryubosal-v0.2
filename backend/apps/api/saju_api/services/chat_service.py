@@ -58,6 +58,13 @@ from saju_engines.effective_subjects import AttachedCompanion, build_effective_s
 from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
 from saju_engines.intent_event_filter import IntentEventFilter
+from saju_engines.lifetime_scan import (
+    CHAT_TABLE_MAX_YEARS,
+    PER_DECADE_CAP,
+    lifetime_pillars,
+    merge_yearly_luck,
+    select_lifetime_years,
+)
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
 from saju_engines.luck_hierarchy import build_luck_hierarchy
 from saju_engines.luck_hierarchy_render import (
@@ -137,7 +144,7 @@ from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.career_transition import CareerQueryResolution, CareerTransitionKind
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef, TimeExclusion
 from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES, EVENT_TYPE
-from saju_shared_types.events import EventCandidate, EventKey
+from saju_shared_types.events import EventKey
 from saju_shared_types.execution_plan import ExecutionPlan, SubjectInjectionPolicy
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import (
@@ -1761,53 +1768,17 @@ _YEAR_DIGEST_DIRECTIVE = (
 # 어휘로 잡지 않는 전 생애 표현('살면서', '내 인생에서' 등)을 보강한다.
 _LIFETIME_RE = re.compile(r"평생|일생|인생\s*전체|살면서|죽기\s*전|내\s*인생")
 # 전 생애 표 상한 — 발견된 연 후보 중 표에 올릴 연도 수(Top 8~12 승인안의 상한)와
-# 10년 구간당 상한(특정 대운 구간 쏠림 방지 — 총운 다변화의 '균등 배분 아님' 원칙:
-# 상한 안에서는 점수순 그대로, 무신호 연도 강제 충원 금지).
-_LIFETIME_TABLE_MAX_YEARS = 12
-_LIFETIME_PER_DECADE_CAP = 3
+# 10년 구간당 상한. 값·선별 로직은 lifetime_scan 엔진으로 승격(2026-08-13 — 리포트
+# F-14 생애 변곡점 연표와 공용). 채팅 동작 불변(같은 상한·같은 알고리즘).
+_LIFETIME_TABLE_MAX_YEARS = CHAT_TABLE_MAX_YEARS
+_LIFETIME_PER_DECADE_CAP = PER_DECADE_CAP
 # 원거리 시점 창의 온디맨드 세운 보강 폭 상한(연) — 기존 매직넘버(_lo_y + 11)를 상수화
 # (2026-08-07, 동작 불변). 전 생애 스캔은 이 상한을 쓰지 않는다(위 lifetime 경로).
 _FAR_WINDOW_MAX_YEARS = 12
 
 
-def _select_lifetime_years(
-    candidates: list[EventCandidate],
-    lo_year: int,
-    hi_year: int,
-    max_rows: int = _LIFETIME_TABLE_MAX_YEARS,
-    per_decade_cap: int = _LIFETIME_PER_DECADE_CAP,
-) -> list[int]:
-    """전 생애/단계 창의 연 후보에서 digest 표에 올릴 연도를 선별한다.
-
-    연도별 최고 후보 점수 순으로 고르되 10년 구간당 상한을 둬 한 대운 구간이 표를
-    독점하지 않게 한다. 후보가 존재하는 연도만 오른다(품질 게이트 — 표 밖 연도를
-    '신호 없음'으로 단정하는 서술은 디렉티브에서 별도 차단).
-
-    Args:
-        candidates: 창 내 연 단위 이벤트 후보(의도 필터 통과분).
-        lo_year: 창 시작 연도. hi_year: 창 끝 연도.
-        max_rows: 표 연도 수 상한. per_decade_cap: 10년 구간당 상한.
-
-    Returns:
-        선별된 연도 목록(오름차순).
-    """
-    best: dict[int, int] = {}
-    for c in candidates:
-        if len(c.period) == 4:
-            y = int(c.period)
-            if lo_year <= y <= hi_year:
-                best[y] = max(best.get(y, -1), c.score)
-    picked: list[int] = []
-    per_dec: dict[int, int] = {}
-    for y, _s in sorted(best.items(), key=lambda kv: (-kv[1], kv[0])):
-        dec = (y - lo_year) // 10
-        if per_dec.get(dec, 0) >= per_decade_cap:
-            continue
-        picked.append(y)
-        per_dec[dec] = per_dec.get(dec, 0) + 1
-        if len(picked) >= max_rows:
-            break
-    return sorted(picked)
+# 선별 로직은 lifetime_scan 엔진의 정본을 쓴다(테스트·기존 호출부 호환 별칭).
+_select_lifetime_years = select_lifetime_years
 
 
 def _lifetime_directive(
@@ -3822,29 +3793,12 @@ def chat(
         )
         _lo_age, _hi_age = LIFE_STAGE_AGE_RANGES[_life_stage]
         _lt_lo_y, _lt_hi_y = _birth_y + _lo_age, _birth_y + _hi_age  # 상한=100세(경계표 최대)
-        _sewoon_by_year = {
-            pl.label: pl
-            for dw in result.luck_cycles.daewoon_table
-            for pl in dw.sewoon
-        }
-        _have_lt = {pl.label for pl in result.luck_cycles.yearly_luck}
-        _from_dw = [
-            _sewoon_by_year[str(y)]
-            for y in range(_lt_lo_y, _lt_hi_y + 1)
-            if str(y) in _sewoon_by_year and str(y) not in _have_lt
-        ]
-        _pre_dw_years = [
-            y
-            for y in range(_lt_lo_y, _lt_hi_y + 1)
-            if str(y) not in _sewoon_by_year and str(y) not in _have_lt
-        ]
+        # 조립은 lifetime_scan 엔진 공용(2026-08-13 승격) — 동작 불변(대운표 sewoon 재사용
+        # + 첫 대운 이전 유년만 luck_years 보충 + 라벨 정렬 병합).
+        _from_dw, _pre_dw_years = lifetime_pillars(result, _lt_lo_y, _lt_hi_y)
         _extra_lt = luck_years(chart_birth, _pre_dw_years) if _pre_dw_years else []
-        year_result = result.model_copy(deep=True)
+        year_result = merge_yearly_luck(result, [*_from_dw, *_extra_lt])
         assert year_result.luck_cycles is not None
-        year_result.luck_cycles.yearly_luck = sorted(
-            list(year_result.luck_cycles.yearly_luck) + _from_dw + _extra_lt,
-            key=lambda pl: pl.label,
-        )
         year_scored = _get_scorer().score_legacy_personalized(
             year_result,
             levels={GanjiLevel.YEAR},
