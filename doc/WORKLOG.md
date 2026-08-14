@@ -10221,3 +10221,29 @@ P0)은 채팅에만 배선돼 있었다. docs/10 3장 규격 개정(사용자 �
   test_report_topic_scoping(고정+연도 페이지 분리 계상) 갱신, 38건 통과.
 - **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
   maintained scripts mypy gate clean. (게이트 기록은 본 커밋 기준)
+
+## 2026-08-14 — 점수표 부록 저작 지시문 사용자 노출(누출) 수정 ✅
+
+실사용 테마사주(R-08 '근거와 점수') 리포트에서 LLM용 지시문이 본문에 그대로 노출된
+결함 수정. 메커니즘은 "LLM 미경유 직접 출력"이 아니라 **verbatim 복사 지시 + 표
+블록에 지시문이 물리적으로 섞임**: 점수표 섹션 가이드가 "표를 한 글자도 바꾸지 말고
+포함하라"고 지시하는데, 데이터 블록에 `[점수표 — 그대로 인용…]` 지시 라인과 표 안
+캡션 `(신호 강도는 좋고 나쁨이 아니라…)`(헤더·구분선과 데이터 행 사이 평문 —
+마크다운 표 렌더링도 파손)이 끼어 있어 LLM이 충실히 복사했다.
+
+- `report_event_input.score_table_lines`: 표 안 캡션 제거(표 블록=순수 데이터 행만),
+  근거 셀 마커 `[시기 참고 — …]` → `(시기 참고 — 점수의 직접 근거 아님)` 순화
+  (테스트 마커 '시기 참고' 유지).
+- `report_service`: `_SCORE_TABLE_GUIDE` 공통 상수 신설(W-09·J-08·R-08·RP-10 동일
+  문자열 4중복 통합) — 대괄호 라벨 줄 본문 복사 금지 + '신호 강도=발동 강도(길흉
+  아님), 예상 방향과 함께 읽기'를 LLM 자기 문장으로 안내하도록 지시. C-08도 라벨
+  복사 금지 추가. 데이터 블록 지시 라인은 중립 라벨 `[점수표]`로 교체.
+- 안전망 2중화: `_tighten`에 `_AUTHORING_LEAK_LINE` 결정적 제거(라벨 줄·구 캡션 줄),
+  `report_checks` 검사 8(내부용어 노출 soft)에 `[점수표`·`표 밖 새 수치 생성 금지`·
+  `[시기 참고 —` 마커 등재.
+- 점검 결과 참고: 진짜 LLM 미경유 첨부인 간지 달력표는 깨끗. 챗 경로의 '그대로
+  인용' 인접 패턴(상위 운 결합·택일)은 프로즈 서술이라 저위험 — 미수정. RL-08은
+  `_SCORE_TABLE_SECTIONS` 소속이지만 `_SECTION_GUIDES` 미등록(기본 가이드) 상태 —
+  verbatim 지시가 없어 누출 저위험이나 표 활용 지시 부재는 별도 검토 대상.
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean.

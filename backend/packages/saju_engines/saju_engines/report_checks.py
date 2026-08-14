@@ -102,6 +102,12 @@ class ReportChecker:
         leaked = [label for label in INTERNAL_JARGON_LABELS if label in text]
         if "근거 경로" in text:
             leaked.append("근거 경로")
+        # 저작 지시 누출(2026-08-14) — 점수표 부록의 내부 라벨·지시문이 verbatim 복사
+        # 지시에 딸려 본문에 노출된 경우(실사용 리포트 실증). soft 기록 — 결정적 제거는
+        # report_service._tighten 안전망이 담당한다.
+        for marker in ("[점수표", "표 밖 새 수치 생성 금지", "[시기 참고 —"):
+            if marker in text:
+                leaked.append(marker)
         if leaked:
             violations.append("내부용어 노출(순화 필요): " + ", ".join(leaked))
 

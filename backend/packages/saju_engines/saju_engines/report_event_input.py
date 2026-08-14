@@ -236,6 +236,11 @@ def score_table_lines(
     2026-07-22 데굴님 확정(P2): '점수'는 길흉이 아니라 발동 강도이므로 '신호 강도'로
     표기하고, 사건명은 결과 방향 인지 라벨(event_display_ko — '횡재+손실' 모순 차단)로
     치환한다. 판정·점수 값 자체는 불변(표기 전용).
+
+    이 표 블록은 순수 데이터 행만 담는다(2026-08-14 누출 수정) — 부록 섹션이 표를
+    verbatim 복사하도록 지시받으므로, 표에 끼운 평문 캡션·지시문은 사용자 본문에
+    그대로 노출되고 마크다운 표 렌더링도 깨뜨린다. '신호 강도=발동 강도' 안내는
+    섹션 가이드(_SCORE_TABLE_GUIDE)가 LLM 자기 문장 서술로 맡는다.
     """
     if result.pillars is None:
         return []
@@ -243,8 +248,6 @@ def score_table_lines(
     out = [
         "| 시점 | 운간지 | 사건 | 신호 강도 | 신뢰도 | 예상 방향 | 십성·관계 근거 |",
         "|---|---|---|---|---|---|---|",
-        "(신호 강도는 좋고 나쁨이 아니라 그 주제가 얼마나 강하게 발동하는가다 — "
-        "강도가 높고 방향이 부정이면 '강하게 부정 쪽으로 변동'을 뜻한다)",
     ]
     for c in sorted(candidates, key=lambda x: (x.period, -x.score)):
         p = lookup.get(c.period)
@@ -257,13 +260,14 @@ def score_table_lines(
             # 기여 일치(P0 감사, 2026-07-22): 그 시기의 관계 적중은 기간 공통 데이터라,
             # 이 후보 점수에 관계 신호가 실제 기여('관계 발동')했을 때만 점수 근거로
             # 제시한다. 아니면 '시기 참고'로 구분 — 무관 관계가 점수 근거처럼 보이는
-            # 착시 차단(관계별 delta 구조화는 후속 과제).
+            # 착시 차단(관계별 delta 구조화는 후속 과제). 이 마커는 표 셀에 실려
+            # 사용자에게 그대로 보이므로 대괄호 없는 읽기용 표현을 쓴다(2026-08-14).
             rel_contributed = any(
                 s.name == "관계 발동" or s.type in ("relation", "hap", "clash")
                 for s in c.signals
             )
             if rels and not rel_contributed:
-                rels = f"[시기 참고 — 이 후보 점수의 직접 근거 아님] {rels}"
+                rels = f"(시기 참고 — 점수의 직접 근거 아님) {rels}"
             evidence = tengods + (" · " + rels if rels else "")
         else:
             evidence = "—"
