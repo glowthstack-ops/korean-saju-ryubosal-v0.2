@@ -403,6 +403,52 @@ def parse_time(
             urgency=urgency,
         ), TimeScope.DATE_LEVEL if n_days <= 31 else TimeScope.SHORT_TERM
 
+    # C5c 월 생략 단일 날짜 — "28일 오전에 시험", "이번 달 28일에", "다음 달 3일부터".
+    # 임박한 특정일을 대화에서 가장 흔하게 지칭하는 형태인데 규칙이 없어 시점이 통째로
+    # 소실되던 결함 수정(2026-08-14 데굴님 지적: '28일 오전 필기 시험'이 TIMELESS로
+    # 떨어져 내년 상반기 전망으로 답함). 오탐을 막기 위해 날짜 지칭 문맥(조사 에/날/은/
+    # 이/부터 또는 오전/오후/아침/저녁)이 뒤따를 때만 잡고, 기간·빈도 용법("3일 동안",
+    # "3일에 한 번", "100일 남았어")은 제외한다. 'N월 N일'(C5b)·'N일 내에'(C8b)는
+    # 앞서 반환되므로 여기 도달하지 않는다. 연도 미지정 이월 규칙은 C5b와 동일: 이미
+    # 지난 날짜면 미래로(과거시제 표지 시 그대로), '이번 달' 명시는 그 달 고정.
+    m = re.search(
+        r"(?:(이번\s*달|이달|다음\s*달|오는)\s*)?(?<!\d)(\d{1,2})\s*일"
+        r"(?=\s*(?:오전|오후|아침|저녁|날|부터"
+        r"|에(?!\s*(?:한\s*번|\d+\s*번|번씩|꼴))"
+        r"|이(?![내후])|은))",
+        text,
+    )
+    if m:
+        prefix = (m.group(1) or "").replace(" ", "")
+        dy = int(m.group(2))
+        if 1 <= dy <= 31:
+            past_ok = bool(_PAST_TENSE_RE.search(text))
+            if prefix in ("이번달", "이달"):
+                offsets = [0]  # 명시된 이번 달 고정(지난 날짜여도 그 달)
+            elif prefix == "다음달":
+                offsets = [1]
+            else:
+                offsets = [0, 1, 2]  # 가장 가까운 유효 날짜(31일 등 짧은 달 건너뜀)
+            anchor_d = None
+            for off in offsets:
+                yy = today.year + (today.month - 1 + off) // 12
+                mm = (today.month - 1 + off) % 12 + 1
+                try:
+                    cand = date(yy, mm, dy)
+                except ValueError:  # 그 달에 없는 날(9월 31일 등)은 다음 달로
+                    continue
+                if past_ok or prefix in ("이번달", "이달") or cand >= today:
+                    anchor_d = cand
+                    break
+            if anchor_d is not None:
+                return TimeRange(
+                    type="absolute",
+                    granularity=Granularity.HOUR if hour_level else Granularity.DAY,
+                    start=anchor_d.isoformat(),
+                    end=anchor_d.isoformat(),
+                    urgency=urgency,
+                ), TimeScope.SHORT_TERM
+
     # C5 월 단위 — "5월", "이번달", "다음 달". 당해 연도 기준(실로그 B2 "5월은 어때?"가
     # 6월 발화에서도 같은 해 5월과의 비교 맥락) — "내년" 명시 시에만 +1.
     # 다중 월 비교("8월과 10월 중 언제가 나아?")는 두 달을 모두 잡아 min~max 구간으로 스팬한다

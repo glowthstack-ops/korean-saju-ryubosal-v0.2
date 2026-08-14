@@ -10247,3 +10247,22 @@ P0)은 채팅에만 배선돼 있었다. docs/10 3장 규격 개정(사용자 �
   verbatim 지시가 없어 누출 저위험이나 표 활용 지시 부재는 별도 검토 대상.
 - **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
   maintained scripts mypy gate clean.
+
+## 2026-08-14 — 시점 파서 C5c: 월 생략 단일 날짜("28일") 지원 ✅
+
+실사용 결함: "28일 오전에 필기 시험이 있는데 잘 볼 수 있을까?"가 TIMELESS로 떨어져
+시험 도메인 기본 전망 창(올해 10월+내년 상반기)으로 답함. 원인 = 날짜 규칙이 전부
+월을 요구(C5b 'N월 N일', C11 외부 일정 앵커 'M월 D일')해 **월 생략 "D일"(임박 날짜의
+최빈 지칭)을 잡는 규칙 부재**. "이번 달 28일"도 C5 월 단위로 뭉개져 일 해상도 소실.
+
+- `time_parser`에 C5c 신설(C8b 뒤·C5 앞): `(이번 달|이달|다음 달|오는)? D일` + 날짜
+  지칭 문맥 lookahead(조사 에/날/은/이/부터, 오전/오후/아침/저녁)일 때만 매칭.
+  오탐 가드 = 기간·빈도 용법 제외("3일 동안"·"3일에 한 번"·"100일 남았어"·`(?<!\d)`),
+  '이내/이후'는 기존 규칙에 양보. 이월 규칙은 C5b 동일(지난 날짜→미래, 과거시제
+  표지 시 그대로, '이번 달' 명시는 그 달 고정), 짧은 달의 없는 날(9/31)은 다음 유효
+  달로. granularity=DAY·scope=SHORT_TERM — C5b와 동일 계약이라 하류(일운 컨텍스트·
+  시점 정합 레이어) 배선 불변.
+- 테스트: `test_time_parser_bare_day.py` 신설 8건(원 사례·접두사·이월·과거시제·짧은 달·
+  오탐 4종·인접 규칙 C8b/C5b/C5 비회귀).
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean.
