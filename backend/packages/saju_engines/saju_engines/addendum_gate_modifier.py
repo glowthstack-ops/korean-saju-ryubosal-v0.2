@@ -29,7 +29,13 @@ class GateContext:
 
     present_gods: set[TenGod] = field(default_factory=set)
     layers: set[LuckLayer] = field(default_factory=set)
-    void_active: bool = False  # 그 기간 운 지지가 원국 공망(미해공)
+    void_active: bool = False  # 그 기간 운 지지가 원국 공망을 자극(종류 무관 — risk facts 호환)
+    # 공망 자극 종류(2026-08-21 데굴님 확정 의미론 — 三命通會 '合則不能空'):
+    #   'clash'   충발 — 확정 불변식(발현 지연+변동성 보조)대로 지연 게이트 적용
+    #   'fill'    전실 — 가장 명확한 실체화(지연·감점 아님, 신호만)
+    #   'combine' 합   — 공망 차단막 약화 + 억제되던 대상의 활성화(지연·감점 아님, 신호만)
+    # 비어 있으면(구 호출자) void_active 만으로 기존 동작(충발 취급)을 유지한다.
+    void_kinds: set[str] = field(default_factory=set)
     # student/employee/public_official/business_owner/freelancer/unemployed/retired
     occupation_status: str | None = None
     relationship_status: str | None = None  # single/dating/married/divorced
@@ -93,10 +99,17 @@ class AddendumGateModifier:
                     reasons.append("PROFILE_wealth_to_expansion")
 
             # ── void_activation_modifier ─────────────────────────
-            if ctx.void_active:
+            # 확정 의미론(2026-08-21): 지연·감점은 **충발에만**. 전실·합은 공망의
+            # 억제가 풀리는 신호라 방향이 반대다 — 서술용 reason만 남긴다.
+            # ('해소=공허·지연'으로 뒤집혀 서술되던 결함의 원인 수정 — 申·巳 육합 사례)
+            if "clash" in ctx.void_kinds or (ctx.void_active and not ctx.void_kinds):
                 score -= 10
-                timing = EventTiming.DELAY  # 공망 — 방향은 유지하고 발현만 지연
+                timing = EventTiming.DELAY  # 공망 충발 — 방향은 유지하고 발현만 지연
                 reasons.append("VOID_delay")
+            if "fill" in ctx.void_kinds:
+                reasons.append("VOID_FILL")  # 전실 — 실체화(감점·지연 없음)
+            if "combine" in ctx.void_kinds:
+                reasons.append("VOID_COMBINE_RELEASE")  # 합 — 차단막 약화·대상 활성화
 
             new_score = max(0, score)  # 중간 100 클램프 제거 — raw 누적 보존(게이트는 감점만)
             out.append(c.model_copy(update={

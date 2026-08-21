@@ -591,9 +591,19 @@ class EventEngineV2:
         present_gods = {s.ten_god for s in signals}
         layers = {layer for layer, _ in stack}
         hits = self._relation_hits(result, level, target)
-        void_active = any(h.type in _VOID_TYPES for h in hits)
+        # 공망 자극 종류 분리(2026-08-21 확정 의미론) — 충발만 지연, 전실·합은 신호만.
+        void_kinds: set[str] = set()
+        for h in hits:
+            if h.type is RelationType.VOID_TRIGGER_CLASH:
+                void_kinds.add("clash")
+            elif h.type is RelationType.VOID_FILL:
+                void_kinds.add("fill")
+            elif h.type is RelationType.VOID_RELEASE_COMBINE:
+                void_kinds.add("combine")
+        void_active = bool(void_kinds)
         gate_ctx = GateContext(
             present_gods=present_gods, layers=layers, void_active=void_active,
+            void_kinds=void_kinds,
             occupation_status=occupation_status, relationship_status=relationship_status,
         )
         cands = self._gate.apply(cands, gate_ctx)
@@ -1592,9 +1602,20 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
         ))
     for ko in reason_codes_ko(c.reason_codes):
         signals.append(Signal(type="reason", name=ko, effect=ko, weight=0.0))
-    # 불안정 신호 텍스트 보존(공망 → context_reducer 검토월 판정).
-    if any(r.startswith("VOID_") for r in c.reason_codes):
+    # 불안정 신호 텍스트 보존(공망 충발 → context_reducer 검토월 판정). 서브타입 구분
+    # (2026-08-21 확정 의미론): 지연은 충발(VOID_delay)만, 전실·합은 별도 라벨 —
+    # '해소'가 '지연·공허'로 서술되던 결함(申·巳 육합 사례) 차단.
+    if any(r.startswith("VOID_delay") for r in c.reason_codes):
         signals.append(Signal(type="void", name="void", effect="공망 지연", weight=0.0))
+    if "VOID_FILL" in c.reason_codes:
+        signals.append(Signal(
+            type="void", name="void_fill", effect="공망 전실(실체화)", weight=0.0,
+        ))
+    if "VOID_COMBINE_RELEASE" in c.reason_codes:
+        signals.append(Signal(
+            type="void", name="void_combine",
+            effect="공망 해소·접촉(합 — 억제 완화)", weight=0.0,
+        ))
     polarity = (
         _QUALITY_TO_POLARITY.get(c.quality, EventPolarity.NEUTRAL)
         if c.quality else EventPolarity.NEUTRAL

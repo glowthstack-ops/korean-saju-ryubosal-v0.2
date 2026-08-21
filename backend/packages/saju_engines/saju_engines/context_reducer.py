@@ -1287,8 +1287,10 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
 _MAX_SIGNALS_KO = 4  # 후보별 동반 신호 표기 상한
 
 # 검토월 고정 문구(P0-2) — 판정은 LlmEventCandidate.review_month(구조 필드), 노출은 이 문구.
+# 2026-08-21 개정: '중복 충'은 어떤 코드도 생산하지 않는 죽은 표현이라 제거하고,
+# 실근거인 공망 충발만 명시한다(전실·해소는 검토월 근거가 아니다 — 확정 의미론).
 _REVIEW_MONTH_NOTE = (
-    "이동·변동 신호는 강하나 공망·중복 충으로 계약 유지력이 낮은 시기 — "
+    "이동·변동 신호는 강하나 공망 충발로 계약 유지력이 낮은 시기 — "
     "'실행월'이 아니라 '검토월'(조사·조건 확인까지)로 안내할 것."
 )
 
@@ -1383,13 +1385,12 @@ def _to_llm_candidate(
                 stem_el, branch_el, fav_map.get(stem_el, ""), fav_map
             )
             caution = nuance_note
-    # 검토월 판정(G3 — 계사월 케이스 일반화): 불안정 신호(중복 충·공망·대운 공망)가
-    # 동반되면 이동·변동 신호가 강해도 계약 유지력이 낮다 — 실행이 아니라 검토의 시기.
-    # P0-2(2026-08-21): caution 문자열 concat 대신 구조 필드(review_month)로 분리 —
-    # 렌더는 candidate_block이 고정 문구(_REVIEW_MONTH_NOTE)로 노출한다.
-    unstable = any(
-        ("중복 충" in (s.effect or "")) or ("공망" in (s.effect or "")) for s in c.signals
-    )
+    # 검토월 판정(G3 — 계사월 케이스 일반화): 공망 **충발** 동반이면 이동·변동 신호가
+    # 강해도 계약 유지력이 낮다 — 실행이 아니라 검토의 시기.
+    # 2026-08-21 확정 의미론: 전실·해소(합) 신호는 '공망' 문자열을 포함해도 검토월
+    # 근거가 아니다(억제가 풀리는 방향) — '공망 지연'(충발) 신호만 매칭한다.
+    # ('중복 충' 매칭은 생산자가 없는 dead branch라 제거.)
+    unstable = any("공망 지연" in (s.effect or "") for s in c.signals)
     # 방향 인지 표시 라벨(2026-07-22 P2) — '횡재+손실' 모순 차단. 방향 함의 키는 결과
     # 방향에 맞는 라벨로, 그 외·비V2 키는 기존 라벨 유지(판정·점수 불변).
     _disp = event_display_ko(str(c.event_key), c.quality, c.timing)
