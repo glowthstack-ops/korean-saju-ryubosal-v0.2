@@ -39,6 +39,15 @@ def _beta_flag_snapshot() -> dict[str, bool]:
         pass
     flags["daily_fortune_pregen"] = os.getenv("SAJU_DAILY_FORTUNE_PREGEN") == "1"
     try:
+        # 상담 결론 의미론(P1) — stage 행동 지침 블록. 실제 분기 상수를 노출한다.
+        from saju_engines import counseling_arbiter as _counsel
+
+        flags["counseling_semantics_enabled"] = bool(
+            _counsel.COUNSELING_SEMANTICS_ENABLED
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    try:
         # 총운 V2(P0~P3) — 어느 논리 버전으로 답변이 나가는지 운영에서 확인 가능해야 한다.
         from saju_engines import period_v2_config as _p2
 
