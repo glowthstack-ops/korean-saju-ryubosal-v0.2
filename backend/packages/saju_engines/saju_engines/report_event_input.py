@@ -21,6 +21,7 @@ from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_timing import derive_marriage_stage
 
 from . import sinsal_modifier_config as _sinsal_cfg
+from .candidate_semantics import candidate_semantics, review_month_from_signals
 from .context_reducer import event_ko, polarity_ko
 from .ganji_calendar import relation_hits
 from .llm_event_serializer import score_band
@@ -146,9 +147,18 @@ def _sinsal_channel_note(
 
 
 def precise_candidate_clusters(
-    result: ManseV2Result, candidates: list[EventCandidate]
+    result: ManseV2Result, candidates: list[EventCandidate],
+    *,
+    fav_map: dict[str, str] | None = None,
+    rank_by_period: dict[str, tuple[int, bool, int]] | None = None,
 ) -> list[str]:
-    """후보를 시점 클러스터로 묶어 운간지·per-글자 십성·관계 분해·점수를 정밀 출력한다."""
+    """후보를 시점 클러스터로 묶어 운간지·per-글자 십성·관계 분해·점수를 정밀 출력한다.
+
+    2026-08-21 채팅 패리티: fav_map을 주면 시점별 결실 뉘앙스 마커(⚠계약·결실 불리/
+    ↗통관 순화/⚠길신 누설)와 후보별 검토월(공망 충발 한정)을 함께 표기하고,
+    rank_by_period를 주면 '기간 내 상대 N/M위'(절대 강도와 분리)를 병기한다.
+    판정·점수 불변 — 표기 전용.
+    """
     if result.pillars is None:
         return []
     lookup = _pillar_lookup(result)
@@ -171,15 +181,31 @@ def precise_candidate_clusters(
         rels = _relation_lines(p, _level(period), result)
         if rels:
             head += " · 관계: " + ", ".join(rels)
+        nuance_note = ""
+        if fav_map:
+            _cat, nuance_note, _rev = candidate_semantics(evs[0], p.ganji, fav_map)
+        if rank_by_period and period in rank_by_period:
+            _r, _tied, _n = rank_by_period[period]
+            head += (
+                f" · 기간 내 상대 {_r}/{_n}위{'(공동)' if _tied else ''}"
+                "(절대 강도와 별개 — 표현이 같아도 상대 비중은 이 순위)"
+            )
         lines.append(head)
+        if nuance_note:
+            lines.append(f"  ⚠유불리: {nuance_note}")
         note = _sinsal_channel_note(result, period, p.ganji, evs)
         if note:
             lines.append(f"  {note}")
         for c in evs:
+            review = (
+                " · 검토월(공망 충발 — 계약 유지력 낮음, 조사·조건 확인까지)"
+                if fav_map and review_month_from_signals(list(c.signals)) else ""
+            )
             lines.append(
                 f"  - {event_display_ko(str(c.event_key), c.quality, c.timing)}: "
                 f"신호 강도 {c.score} · "
-                f"신뢰도 {confidence_ko(c.confidence)} · {_dir(c)}{_marriage_stage_note(c)}"
+                f"신뢰도 {confidence_ko(c.confidence)} · {_dir(c)}"
+                f"{review}{_marriage_stage_note(c)}"
             )
     return lines
 

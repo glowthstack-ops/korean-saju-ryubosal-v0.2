@@ -19,19 +19,12 @@ from datetime import date as date_cls
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from saju_manse_analysis.yongsin.operational_role_config import (
-    is_favorable_role,
-    is_unfavorable_role,
-)
-
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
-    CONTROLS,
-    GENERATES,
     STEM_ELEMENT,
     ten_god,
 )
-from saju_shared_types.enums import Branch, Element, Stem
+from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_engine import LayerEvidenceScope
 from saju_shared_types.process_fact import EventGateAction
 
@@ -78,6 +71,7 @@ from . import marriage_timing_profile as _mtp
 from . import period_v2_config
 from . import sinsal_modifier_config as _sinsal_cfg
 from .amhap_luck import detect_luck_amhap
+from .candidate_semantics import ganji_result_nuance, review_month_from_signals
 from .chart_interpretation import build_chart_interpretation, incoming_ten_god_note
 from .direction_suggestion import (
     DIRECTION_SUGGESTION_INSTRUCTION,
@@ -1298,44 +1292,14 @@ _REVIEW_MONTH_NOTE = (
 def _ganji_result_nuance(
     stem_el: str, branch_el: str, stem_role: str, fav_map: dict[str, str]
 ) -> tuple[str, str, str]:
-    """그 달 천간 역할 × 지지와의 생극으로 본 '결실(계약·실속)' 유불리 뉘앙스.
+    """결실 뉘앙스 — 공용 모듈 위임(채팅·리포트 동일 판정, 2026-08-21 분리).
 
-    천간만 보는 단순 휴리스틱의 비대칭(흉=⚠불리만, 길=무경고)을 보정한다. 천간 흉신이라도
-    지지 용·희신을 생하면 통관(관인상생)으로 순화되고, 천간 길신이라도 지지로 누설·피극되면
-    실속이 약화된다 — 어느 쪽도 단정하지 않게 표시.
+    본체는 candidate_semantics.ganji_result_nuance — 판정 규칙은 이동 전과 동일하다.
 
     Returns:
         (마커, 설명, 카테고리). 카테고리 ∈ {'unfavorable','tonggwan','leak',''}.
     """
-    try:
-        s_el, b_el = Element(stem_el), Element(branch_el)
-    except ValueError:
-        return "", "", ""
-    branch_role = fav_map.get(branch_el, "")
-    stem_gen_branch = GENERATES.get(s_el) == b_el  # 천간 → 지지 생
-    branch_ctrl_stem = CONTROLS.get(b_el) == s_el  # 지지 → 천간 극
-    if is_unfavorable_role(stem_role):
-        if stem_gen_branch and is_favorable_role(branch_role):
-            return (
-                "↗통관 순화",
-                "천간이 흉신이나 그 달 지지(용·희신)를 생하는 통관(관인상생)으로 순화 — "
-                "흉이 일간을 돕는 쪽으로 흐른다(다만 천간 흉신이라 과한 낙관은 금물).",
-                "tonggwan",
-            )
-        return (
-            "⚠계약·결실 불리",
-            "천간 흉신 — 사건이 일어나도 계약·결실·실속에 불리한 시기(우호 단정 금지).",
-            "unfavorable",
-        )
-    if is_favorable_role(stem_role):
-        if (stem_gen_branch and is_unfavorable_role(branch_role)) or branch_ctrl_stem:
-            return (
-                "⚠천간 길신 누설",
-                "천간은 길신이나 그 달 지지로 누설·피극되어 결실·실속이 약화 — "
-                "'좋은 달'로 과하게 단정하지 말 것.",
-                "leak",
-            )
-    return "", "", ""
+    return ganji_result_nuance(stem_el, branch_el, stem_role, fav_map)
 
 
 def _to_llm_candidate(
@@ -1385,12 +1349,8 @@ def _to_llm_candidate(
                 stem_el, branch_el, fav_map.get(stem_el, ""), fav_map
             )
             caution = nuance_note
-    # 검토월 판정(G3 — 계사월 케이스 일반화): 공망 **충발** 동반이면 이동·변동 신호가
-    # 강해도 계약 유지력이 낮다 — 실행이 아니라 검토의 시기.
-    # 2026-08-21 확정 의미론: 전실·해소(합) 신호는 '공망' 문자열을 포함해도 검토월
-    # 근거가 아니다(억제가 풀리는 방향) — '공망 지연'(충발) 신호만 매칭한다.
-    # ('중복 충' 매칭은 생산자가 없는 dead branch라 제거.)
-    unstable = any("공망 지연" in (s.effect or "") for s in c.signals)
+    # 검토월 판정(G3) — 공망 **충발** 동반 시에만(공용 모듈 위임, 2026-08-21 확정 의미론).
+    unstable = review_month_from_signals(list(c.signals))
     # 방향 인지 표시 라벨(2026-07-22 P2) — '횡재+손실' 모순 차단. 방향 함의 키는 결과
     # 방향에 맞는 라벨로, 그 외·비V2 키는 기존 라벨 유지(판정·점수 불변).
     _disp = event_display_ko(str(c.event_key), c.quality, c.timing)

@@ -22,6 +22,8 @@ from typing import Any, Protocol
 
 from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
+from saju_engines import counseling_arbiter
+from saju_engines.candidate_semantics import candidate_semantics
 from saju_engines.chart_interpretation import build_chart_interpretation
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
@@ -150,6 +152,7 @@ from saju_shared_types.event_taxonomy_v2 import event_facets
 from saju_shared_types.events import EventCandidate, EventPolarity
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectKind
+from saju_shared_types.llm_input import LlmEventCandidate
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.report import (
     ReportResult,
@@ -959,6 +962,17 @@ class _ReportData:
         self._yr_hi = spec.period.end[:4]
         # 섹션 도메인 후보의 시점 그룹(보조 근거 보존용) — domain_candidates 가 채운다.
         self._domain_period_groups: dict[str, dict[str, list[EventCandidate]]] = {}
+        # CDS 리포트 배선(2026-08-21) — 도메인별 기간 내 상대 순위(rank, 동점, 모집단).
+        # domain_candidates가 pool 산출 시 채운다. 절대 강도와 분리된 표기 전용.
+        self._domain_rank: dict[str, dict[str, tuple[int, bool, int]]] = {}
+        # 결실 뉘앙스·상담 결론 산출용 용희기구한 맵(채팅과 동일 원천).
+        self.fav_map: dict[str, str] = favorability_map(self.result)
+        # 기간 라벨 → 간지(뉘앙스 판정·상담 결론용 캐시).
+        self._ganji_by_label: dict[str, str] = {}
+        _lc0 = self.result.luck_cycles
+        if _lc0 is not None:
+            for _p in (*_lc0.yearly_luck, *_lc0.monthly_luck):
+                self._ganji_by_label[_p.label] = _p.ganji
         # 테마 증거 번들 — 실행당 1회. 테마 FOCUS 가 아니면 None(기존 경로 유지).
         self.evidence_bundle: ThemeEvidenceBundle | None = (
             build_theme_evidence_bundle(pool, spec.topic)
@@ -1249,6 +1263,16 @@ class _ReportData:
         # 극성 예비분을 확보해야 하므로 상한을 넉넉히 주고 아래에서 n 으로 자른다.
         pool, groups = _period_representatives(scoped, max(n * 4, n), _CANDIDATE_RANK_KEY)
         self._domain_period_groups[domain] = groups
+        # CDS-P1a 리포트 배선 — 기간 대표 pool 전량 competition rank(raw 기준, 표기 전용).
+        _raws = [c.raw_total for c in pool]
+        self._domain_rank[domain] = {
+            str(c.period): (
+                1 + sum(1 for v in _raws if v > c.raw_total),
+                sum(1 for v in _raws if v == c.raw_total) > 1,
+                len(pool),
+            )
+            for c in pool
+        }
         salience = _CANDIDATE_RANK_KEY
         cautions = sorted(
             (c for c in pool if str(c.polarity) == EventPolarity.NEGATIVE_OR_FORCED),
@@ -1779,9 +1803,47 @@ class _ReportData:
                     branches.add(d.ganji[1])
         return luck_hap_mode_lines(self.result, sorted(stems), sorted(branches))
 
+    def counseling_lines(self, domain: str, spec: ReportSpec) -> list[str]:
+        """[상담 결론] 블록 — 도메인 대표 후보 1건의 stage 행동지침(CDS 리포트 배선).
+
+        채팅과 동일한 arbiter(순수 함수·INV-A~G)를 쓴다. 플래그 OFF면 빈 목록
+        (섹션 프롬프트 byte 불변). 목차·판정·점수 불변 — 컨텍스트 재료만 추가
+        (절대원칙 10). 도메인 캡: 교육(선발)=competition, 관계=big_decision(조건부
+        상한), 건강=health, 분석 창 시작 시점 미성년=미산출.
+        """
+        if not counseling_arbiter.COUNSELING_SEMANTICS_ENABLED:
+            return []
+        cands = self.domain_candidates(domain)
+        if not cands:
+            return []
+        top = max(cands, key=lambda c: (c.score, c.raw_total))
+        period = str(top.period)
+        cat, _note, review = candidate_semantics(
+            top, self._ganji_by_label.get(period, ""), self.fav_map
+        )
+        llm_c = LlmEventCandidate(
+            event_key=top.event_key, event_ko=event_ko(top.event_key),
+            period=period, ganji=self._ganji_by_label.get(period, ""), daewoon_context="",
+            score=min(100, top.score), confidence=str(top.confidence),
+            polarity=str(top.polarity), activation=top.activation,
+            favorability=top.favorability, quality=top.quality or "",
+            evidence_path=list(top.evidence_path),
+            result_nuance=cat, review_month=review,
+        )
+        start_year = int(spec.period.start[:4])
+        minor = 0 <= (start_year - self._chart_birth.birth_date.year) <= 19
+        sem = counseling_arbiter.build_counseling(
+            llm_c, None,
+            competition=domain == "education",
+            big_decision=domain == "relationship",
+            health=domain == "health",
+            minor=minor,
+        )
+        return counseling_arbiter.counseling_block_lines(sem)
+
     def luck_block(
         self, candidates: list[EventCandidate] | None = None, *, daewoon_only: bool = False,
-        include_event_candidates: bool = True,
+        include_event_candidates: bool = True, domain: str | None = None,
     ) -> list[str]:
         """[대운표]+[이벤트 후보] — 운 관련 섹션의 데이터 블록.
 
@@ -1839,7 +1901,12 @@ class _ReportData:
                 "[이벤트 후보 — 시점 클러스터·정밀 십성/관계. 점수는 확정값, 재계산 금지. "
                 "아래 십성·관계 라벨만 사용하고 '재성 지지 충' 같은 임의 표현을 만들지 말 것]"
             )
-            clusters = precise_candidate_clusters(self.result, cands)
+            # CDS 리포트 배선 — 결실 뉘앙스·검토월·기간 내 상대 순위 병기(채팅 패리티).
+            clusters = precise_candidate_clusters(
+                self.result, cands,
+                fav_map=self.fav_map,
+                rank_by_period=self._domain_rank.get(domain or ""),
+            )
             if clusters:
                 lines += clusters
             else:
@@ -2693,11 +2760,37 @@ def _policy_evidence(
             ),
         }.get(policy.mode, "[시점 근거]")
         lines.append(label)
+        # CDS 리포트 배선(2026-08-21) — 시점별 상대 순위·결실 뉘앙스·검토월 병기
+        # (채팅 패리티, 표기 전용). rank 기준 pool은 도메인 기간 대표 집합.
+        _cds_domain = _SECTION_DOMAIN.get(section_id, "")
+        if _cds_domain and _cds_domain not in data._domain_rank:
+            data.domain_candidates(_cds_domain)  # rank map 채움(선별 결과는 미사용)
+        _rank_map = data._domain_rank.get(_cds_domain, {})
         for cl in shown:
             reps = ", ".join(
                 dict.fromkeys(str(c.event_key) for c in cl.representatives)
             )
             line = f"{cl.period}: {reps} (근거 관점 {', '.join(cl.source_view_ids)})"
+            if cl.period in _rank_map:
+                _r, _tied, _n = _rank_map[cl.period]
+                line += (
+                    f" · 기간 내 상대 {_r}/{_n}위{'(공동)' if _tied else ''}"
+                    "(절대 강도와 별개)"
+                )
+            _rep0 = cl.representatives[0] if cl.representatives else None
+            if _rep0 is not None:
+                _cat, _nnote, _rev = candidate_semantics(
+                    _rep0, data._ganji_by_label.get(cl.period, ""), data.fav_map
+                )
+                _marker = {
+                    "unfavorable": "⚠계약·결실 불리",
+                    "leak": "⚠천간 길신 누설",
+                    "tonggwan": "↗통관 순화",
+                }.get(_cat, "")
+                if _marker:
+                    line += f" · {_marker}"
+                if _rev:
+                    line += " · 검토월(공망 충발 — 조사·조건 확인까지)"
             if cl.companions:
                 cos = ", ".join(
                     dict.fromkeys(str(c.event_key) for c in cl.companions)
@@ -2964,6 +3057,12 @@ def build_section_context(
         _doc_block = document_caution_block(data.result) or document_contrast_block(data.result)
         if _doc_block:
             lines += ["", _doc_block, DOCUMENT_IMAGERY_DIRECTIVE]
+    # 상담 결론(CDS 리포트 배선, 2026-08-21) — 도메인 섹션에 stage 행동지침·요약 태세
+    # 주입(테마사주 패리티). 플래그 OFF=byte 불변, 목차·판정·점수 불변(절대원칙 10).
+    if _ds_domain:
+        _counsel = data.counseling_lines(_ds_domain, spec)
+        if _counsel:
+            lines += ["", *_counsel]
     # 재물 준비기(P3) — 5년 종합(W-06)·행동 전략(W-08)에만 서술 전용 맥락 주입(판정 불변).
     if sid in ("W-06", "W-08"):
         _prep_lines = preparation_context_lines(data.preparation_context)
@@ -3063,7 +3162,9 @@ def build_section_context(
                 lines.append(f"[서술 형식: {policy.narrative_mode}]")
         # 후보 상세 — 도메인 스코프면 자기 도메인 후보(길·흉 포함), 아니면 전역 top 후보.
         elif section_domain is not None:
-            lines += data.luck_block(data.domain_candidates(section_domain))
+            lines += data.luck_block(
+                data.domain_candidates(section_domain), domain=section_domain
+            )
         else:
             # 2부 과거·메타 섹션은 [대운표]만 — 미래 이벤트 후보가 섞이는 시간범위 불일치 차단.
             lines += data.luck_block(daewoon_only=sid in _DAEWOON_ONLY_SECTIONS)
