@@ -25,6 +25,7 @@ from saju_manse_analysis.luck.luck_calendar import luck_month_label
 from saju_engines import (
     EventEngineV2,
     GraphIndex,
+    counseling_arbiter,
     filter_year_candidates,
     load_event_graph,
     period_v2_config,
@@ -4875,6 +4876,26 @@ def chat(
         compat = _compat_prompt_block(result, partner_birth, today, partner_label)
         if compat:
             trailing.append(compat)
+
+    # ── 상담 결론 의미론(P1) — 엔진 evidence→arbiter 행동 지침→LLM 표현 ──────
+    # 플래그 OFF(기본)면 블록·계약이 붙지 않아 프롬프트 byte 불변. 단일 대상 사건
+    # 질문 한정(총운 다변화·pairwise 제외 — 다후보/다대상 stance는 P2 범위).
+    if (
+        counseling_arbiter.COUNSELING_SEMANTICS_ENABLED
+        and payload.event_candidates
+        and not _overview_mode
+        and partner_birth is None
+    ):
+        _sem = counseling_arbiter.build_counseling(
+            payload.event_candidates[0], payload.monthly_overview,
+            competition=competition_active,
+            big_decision=_is_big_decision(intent, question),
+            health=intent.domain is Domain.HEALTH,
+            minor=_minor_lifestage_directive_text(birth, intent, today) is not None,
+        )
+        _sem_lines = counseling_arbiter.counseling_block_lines(_sem)
+        if _sem_lines:
+            trailing.append("\n".join(_sem_lines))
 
     # ── P4-1 커리어 전이 chat beta(최소 cohort) ────────────────────────
     # prepare 는 LLM을 호출하지 않는다 — 기존 단일 generate_reading 호출을 유지한다.

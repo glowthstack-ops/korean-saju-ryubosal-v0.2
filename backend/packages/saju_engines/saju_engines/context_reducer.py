@@ -1411,6 +1411,11 @@ def _to_llm_candidate(
         result_nuance=nuance_cat,
         review_month=unstable,
         favorability_ko=_favorability_ko(c.favorability),
+        # 상담 결론 arbiter 입력(P1) — 비노출 원값 전달(INV-C: 재합성 금지).
+        activation=c.activation,
+        favorability=c.favorability,
+        quality=c.quality or "",
+        evidence_path=list(c.evidence_path),
         sinsal_modifiers=list(sinsal_modifiers or []),
         sinsal_channel_note=sinsal_channel_note,
         layer_grounding=_layer_grounding(c),

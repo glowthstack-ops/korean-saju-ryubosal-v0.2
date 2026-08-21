@@ -206,6 +206,14 @@ class LlmEventCandidate(BaseModel):
     review_month: bool = False
     # scoring operational rank guard 문구 — caution_note와 분리 보존(P0-2 concat 해체).
     operational_caution: str = ""
+    # ── 상담 결론 arbiter 입력(P1) — 직렬화(프롬프트 텍스트)에는 노출하지 않는다 ──
+    # activation/favorability: EventCandidate 이중 채널 원값(INV-C: 재합성 금지).
+    activation: float = 0.0
+    favorability: float = 0.0
+    # quality: 사건 방향·경험 품질 원값('pressure' 등 — direction 라벨의 원천).
+    quality: str = ""
+    # evidence_path: reason_codes 전달(HOLD 차단 근거·결과축 코드 판별용 provenance).
+    evidence_path: list[str] = Field(default_factory=list)
     # 결과 유불리 밴드(유리/불리, 중립이면 빈 문자열) — 발생 가능성(score)과 분리된 길흉 채널.
     # 시험 합·불, 특수직군 길화, 퇴직 리스크, 이직 압박/기회 등이 합산된 net 유불리.
     favorability_ko: str = ""
