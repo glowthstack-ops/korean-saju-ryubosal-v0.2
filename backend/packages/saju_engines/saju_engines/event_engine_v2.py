@@ -141,6 +141,8 @@ _VOID_TYPES = {
     RelationType.VOID_TRIGGER_CLASH,
     RelationType.VOID_RELEASE_COMBINE,
 }
+# 공망 신호의 원국 궁위 한글 표기(오지목 방지용 쌍 라벨).
+_VOID_POS_KO = {"year": "년지", "month": "월지", "day": "일지", "hour": "시지"}
 _POS_PILLAR: dict[str, Pillar4] = {
     "year": Pillar4.YEAR, "month": Pillar4.MONTH,
     "day": Pillar4.DAY, "hour": Pillar4.HOUR,
@@ -592,18 +594,33 @@ class EventEngineV2:
         layers = {layer for layer, _ in stack}
         hits = self._relation_hits(result, level, target)
         # 공망 자극 종류 분리(2026-08-21 확정 의미론) — 충발만 지연, 전실·합은 신호만.
+        # 글자 쌍·궁위를 함께 보존한다 — 쌍이 없으면 LLM이 공망지를 다른 지지로
+        # 오지목한다(실측: 시지 巳 공망을 '일지 亥 공망'으로 작문).
         void_kinds: set[str] = set()
+        void_pairs: dict[str, str] = {}
         for h in hits:
             if h.type is RelationType.VOID_TRIGGER_CLASH:
                 void_kinds.add("clash")
             elif h.type is RelationType.VOID_FILL:
                 void_kinds.add("fill")
+                nb = h.natal_refs[0] if h.natal_refs else None
+                if nb is not None and nb.branch:
+                    void_pairs.setdefault(
+                        "fill", f"{nb.branch}({_VOID_POS_KO.get(nb.position, nb.position)})"
+                    )
             elif h.type is RelationType.VOID_RELEASE_COMBINE:
                 void_kinds.add("combine")
+                nb = h.natal_refs[0] if h.natal_refs else None
+                if h.luck_ref.branch and nb is not None and nb.branch:
+                    void_pairs.setdefault(
+                        "combine",
+                        f"{h.luck_ref.branch}-{nb.branch}"
+                        f"({_VOID_POS_KO.get(nb.position, nb.position)})",
+                    )
         void_active = bool(void_kinds)
         gate_ctx = GateContext(
             present_gods=present_gods, layers=layers, void_active=void_active,
-            void_kinds=void_kinds,
+            void_kinds=void_kinds, void_pairs=void_pairs,
             occupation_status=occupation_status, relationship_status=relationship_status,
         )
         cands = self._gate.apply(cands, gate_ctx)
@@ -1607,15 +1624,26 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
     # '해소'가 '지연·공허'로 서술되던 결함(申·巳 육합 사례) 차단.
     if any(r.startswith("VOID_delay") for r in c.reason_codes):
         signals.append(Signal(type="void", name="void", effect="공망 지연", weight=0.0))
-    if "VOID_FILL" in c.reason_codes:
+    _fill = next((r for r in c.reason_codes if r.startswith("VOID_FILL")), None)
+    if _fill is not None:
+        _fb = _fill.partition(":")[2]
         signals.append(Signal(
-            type="void", name="void_fill", effect="공망 전실(실체화)", weight=0.0,
+            type="void", name="void_fill",
+            effect=(
+                f"공망 전실(실체화 — 공망지 {_fb} 채움)" if _fb
+                else "공망 전실(실체화)"
+            ),
+            weight=0.0,
         ))
-    if "VOID_COMBINE_RELEASE" in c.reason_codes:
-        signals.append(Signal(
-            type="void", name="void_combine",
-            effect="공망 해소·접촉(합 — 억제 완화)", weight=0.0,
-        ))
+    _comb = next((r for r in c.reason_codes if r.startswith("VOID_COMBINE_RELEASE")), None)
+    if _comb is not None:
+        _pair = _comb.partition(":")[2]
+        if _pair and "-" in _pair:
+            _lb, _, _nb = _pair.partition("-")
+            _eff = f"공망 해소·접촉(운 {_lb}이 공망지 {_nb}와 합 — 억제 완화)"
+        else:
+            _eff = "공망 해소·접촉(합 — 억제 완화)"
+        signals.append(Signal(type="void", name="void_combine", effect=_eff, weight=0.0))
     polarity = (
         _QUALITY_TO_POLARITY.get(c.quality, EventPolarity.NEUTRAL)
         if c.quality else EventPolarity.NEUTRAL

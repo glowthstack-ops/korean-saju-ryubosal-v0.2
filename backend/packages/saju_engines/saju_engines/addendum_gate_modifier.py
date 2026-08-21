@@ -36,6 +36,9 @@ class GateContext:
     #   'combine' 합   — 공망 차단막 약화 + 억제되던 대상의 활성화(지연·감점 아님, 신호만)
     # 비어 있으면(구 호출자) void_active 만으로 기존 동작(충발 취급)을 유지한다.
     void_kinds: set[str] = field(default_factory=set)
+    # 종류별 글자 쌍 라벨(예: combine → '申-巳(시지)') — reason code 접미로 보존해
+    # LLM이 공망지를 다른 지지로 오지목하지 않게 한다.
+    void_pairs: dict[str, str] = field(default_factory=dict)
     # student/employee/public_official/business_owner/freelancer/unemployed/retired
     occupation_status: str | None = None
     relationship_status: str | None = None  # single/dating/married/divorced
@@ -107,9 +110,15 @@ class AddendumGateModifier:
                 timing = EventTiming.DELAY  # 공망 충발 — 방향은 유지하고 발현만 지연
                 reasons.append("VOID_delay")
             if "fill" in ctx.void_kinds:
-                reasons.append("VOID_FILL")  # 전실 — 실체화(감점·지연 없음)
+                _fp = ctx.void_pairs.get("fill", "")
+                # 전실 — 실체화(감점·지연 없음). 접미=공망지(궁위).
+                reasons.append(f"VOID_FILL:{_fp}" if _fp else "VOID_FILL")
             if "combine" in ctx.void_kinds:
-                reasons.append("VOID_COMBINE_RELEASE")  # 합 — 차단막 약화·대상 활성화
+                _cp = ctx.void_pairs.get("combine", "")
+                # 합 — 차단막 약화·대상 활성화. 접미=운글자-공망지(궁위).
+                reasons.append(
+                    f"VOID_COMBINE_RELEASE:{_cp}" if _cp else "VOID_COMBINE_RELEASE"
+                )
 
             new_score = max(0, score)  # 중간 100 클램프 제거 — raw 누적 보존(게이트는 감점만)
             out.append(c.model_copy(update={

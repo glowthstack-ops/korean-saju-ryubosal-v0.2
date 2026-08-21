@@ -73,10 +73,33 @@ for _rid, _desc, _keys in PROHIBITIONS:
         _PROHIBITION_BY_KEY.setdefault(_k, []).append(_desc)
 
 
+def _void_pair_label(code: str) -> str | None:
+    """공망 서브타입 코드의 글자 쌍 접미를 라벨에 반영(오지목 방지 — 2026-08-21).
+
+    'VOID_COMBINE_RELEASE:申-巳(시지)' → '공망 해소·접촉(운 申이 공망지 巳(시지)와 합)'.
+    쌍이 없으면 None(일반 prefix 라벨 사용).
+    """
+    if code.startswith("VOID_COMBINE_RELEASE:"):
+        pair = code.partition(":")[2]
+        luck_b, _, natal_b = pair.partition("-")
+        if luck_b and natal_b:
+            return f"공망 해소·접촉(운 {luck_b}이 공망지 {natal_b}와 합 — 억제 완화)"
+    if code.startswith("VOID_FILL:"):
+        branch = code.partition(":")[2]
+        if branch:
+            return f"공망 전실(실체화 — 공망지 {branch} 채움)"
+    return None
+
+
 def reason_codes_ko(reason_codes: list[str]) -> list[str]:
     """근거코드 목록 → 사람용 한글 분류(중복 제거, 순서 보존)."""
     out: list[str] = []
     for code in reason_codes:
+        pair_label = _void_pair_label(code)
+        if pair_label is not None:
+            if pair_label not in out:
+                out.append(pair_label)
+            continue
         for prefix, ko in _REASON_PREFIX_KO.items():
             if code.startswith(prefix):
                 if ko not in out:

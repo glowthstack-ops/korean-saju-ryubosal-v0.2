@@ -81,6 +81,20 @@ def test_legacy_signals_subtype_labels() -> None:
     assert any("공망 지연" in s.effect for s in clash.signals)
 
 
+def test_pair_suffix_carried_to_signal_label() -> None:
+    # 글자 쌍·궁위 보존 — 없으면 LLM이 공망지를 다른 지지로 오지목한다(亥 오지목 실측).
+    out = AddendumGateModifier().apply(
+        [_cand(60)],
+        GateContext(
+            void_active=True, void_kinds={"combine"},
+            void_pairs={"combine": "申-巳(시지)"},
+        ),
+    )
+    legacy = to_legacy_candidate(out[0])
+    effects = [s.effect for s in legacy.signals]
+    assert any("운 申이 공망지 巳(시지)와 합" in e for e in effects)
+
+
 def test_reason_codes_ko_subtypes() -> None:
     assert reason_codes_ko(["VOID_COMBINE_RELEASE"]) == ["공망 해소·접촉(합 — 억제 완화)"]
     assert reason_codes_ko(["VOID_FILL"]) == ["공망 전실(실체화)"]
