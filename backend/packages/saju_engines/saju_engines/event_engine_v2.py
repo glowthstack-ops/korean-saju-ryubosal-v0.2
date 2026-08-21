@@ -644,6 +644,11 @@ class EventEngineV2:
         hwa_el = _target_hwa_element(target, result, fav_map)
         stem_bound = _target_stem_bound(target, result, fav_map) if hwa_el is None else False
         role = _period_role(target, fav_map, stem_element=hwa_el, stem_bound=stem_bound)
+        # 접힘 전 천간/지지 역할 라벨 보존(P0-1) — NEUTRAL이어도 evidence는 남긴다(INV-E).
+        stem_lbl, branch_lbl = _period_role_labels(
+            target, fav_map, stem_element=hwa_el, stem_bound=stem_bound
+        )
+        role_labels = {"stem_role": stem_lbl, "branch_role": branch_lbl}
         if role is not PolarityRole.NEUTRAL:
             note = (
                 f"HWA_길흉_{hwa_el}" if hwa_el
@@ -652,11 +657,16 @@ class EventEngineV2:
             cands = [  # provenance-audit: not-risk (EventCandidateV2)
                 c.model_copy(update={
                     "polarity_role": role,
+                    **role_labels,
                     **({"reason_codes": [*c.reason_codes, note]} if note else {}),
                 })
                 for c in cands
             ]
             cands = self._yongi.apply(cands)
+        else:
+            cands = [  # provenance-audit: not-risk (EventCandidateV2)
+                c.model_copy(update=role_labels) for c in cands
+            ]
         # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
         # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
         cands = self._exam.apply(cands, present_gods)
@@ -1456,6 +1466,26 @@ def _period_role(
     return PolarityRole.NEUTRAL
 
 
+def _period_role_labels(
+    target: LuckPillar,
+    fav_map: dict[str, str],
+    stem_element: str | None = None,
+    stem_bound: bool = False,
+) -> tuple[str, str]:
+    """시점 유입 천간/지지 오행의 역할 라벨 두 개를 접지 않고 보존(P0-1, 2026-08-21).
+
+    _period_role이 PolarityRole 1개로 접으면서 버리던 원천 라벨('용신'~'한신'|'')을
+    독립 evidence로 돌려준다. 합화(化)·합거(制) 처리 기준은 _period_role과 동일.
+    ⚠ INV-E: "천간=결과축, 지지=과정축" 같은 단계 의미 부여 금지 — 라벨은 evidence 전용.
+    """
+    try:
+        stem_el = stem_element or str(STEM_ELEMENT[Stem(target.stem)])
+        branch_el = str(BRANCH_ELEMENT[Branch(target.branch)])
+    except (KeyError, ValueError):
+        return "", ""
+    return ("" if stem_bound else fav_map.get(stem_el, ""), fav_map.get(branch_el, ""))
+
+
 def _rank_context(
     activations: list[RelationActivation],
     present_gods: set[TenGod],
@@ -1528,13 +1558,32 @@ _EVENT_TYPE_LEGACY: dict[str, EventType] = {
     "progress": EventType.PROGRESS, "instant": EventType.INSTANT, "hybrid": EventType.HYBRID,
 }
 
+# 12운성 event_phase 내부값 → 한글 라벨(P0-5, 2026-08-21). 그동안 영문 원시값
+# (formalization 등)이 동반 신호 문자열로 프롬프트까지 그대로 누출되던 버그 수정.
+# 값 목록 SSOT = dictionaries/event_engine/twelve_stage_modifier.json의 event_phase.
+_EVENT_PHASE_KO: dict[str, str] = {
+    "new_start": "새 국면 시작",
+    "exposure_volatility": "노출·변동",
+    "formalization": "공식화 단계",
+    "stabilization": "안정화 단계",
+    "peak": "정점 단계",
+    "decline_adjustment": "조정·숨고르기",
+    "fatigue_problem": "피로·문제 표면화",
+    "closure_hidden": "마무리·잠복",
+    "storage_concealment": "갈무리·보관",
+    "cut_reset": "단절·재정비",
+    "conception_planning": "구상·기획",
+    "nurturing_preparation": "준비·육성",
+}
+
 
 def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
     """EventCandidateV2 → 레거시 EventCandidate(다운스트림 DTO). 신 차원은 동반 신호로 표면화."""
     quality_txt = QUALITY_KO.get(c.quality, "") if c.quality else ""
     conf_txt = CONFIDENCE_KO.get(c.confidence_level, "")
     palace_txt = PALACE_KO.get(c.palace, "") if c.palace else ""
-    head = [b for b in (conf_txt, quality_txt, palace_txt, c.event_phase) if b]
+    phase_txt = _EVENT_PHASE_KO.get(c.event_phase or "", c.event_phase or "")
+    head = [b for b in (conf_txt, quality_txt, palace_txt, phase_txt) if b]
     signals: list[Signal] = []
     if head:  # 사건화 강도·품질·궁성·단계 — LLM 입력 풍부화(첫 동반 신호).
         signals.append(Signal(
@@ -1572,4 +1621,9 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
         life_fit=c.life_fit,
         personal_match=c.personal_match,
         favorability=c.favorability,  # 결과 길흉 채널 — 다운스트림 LLM 입력까지 전달
+        # 활성 채널 복구(P0-1) — favorability와 독립 유지(INV-C: 단일 축 재합성 금지).
+        activation=c.activation,
+        # 천간/지지 역할 라벨 — 독립 evidence 전용(INV-E: 단계 의미 부여 금지).
+        stem_role=c.stem_role,
+        branch_role=c.branch_role,
     )

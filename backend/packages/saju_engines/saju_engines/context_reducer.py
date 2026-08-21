@@ -1286,6 +1286,12 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
 
 _MAX_SIGNALS_KO = 4  # 후보별 동반 신호 표기 상한
 
+# 검토월 고정 문구(P0-2) — 판정은 LlmEventCandidate.review_month(구조 필드), 노출은 이 문구.
+_REVIEW_MONTH_NOTE = (
+    "이동·변동 신호는 강하나 공망·중복 충으로 계약 유지력이 낮은 시기 — "
+    "'실행월'이 아니라 '검토월'(조사·조건 확인까지)로 안내할 것."
+)
+
 
 def _ganji_result_nuance(
     stem_el: str, branch_el: str, stem_role: str, fav_map: dict[str, str]
@@ -1365,6 +1371,7 @@ def _to_llm_candidate(
     # 본다. 천간 흉신이라도 지지 용·희신을 생하면 순화, 천간 길신이라도 누설·피극되면 약화
     # (천간만 보는 단순 단정의 비대칭 보정, 2026-06-12 → 2026-06-15).
     caution = ""
+    nuance_cat = ""
     if fav_map and len(period_ganji) == 2:
         try:
             stem_el = str(STEM_ELEMENT[Stem(period_ganji[0])])
@@ -1372,21 +1379,17 @@ def _to_llm_candidate(
         except ValueError:
             stem_el = branch_el = ""
         if stem_el and branch_el:
-            _m, nuance_note, _cat = _ganji_result_nuance(
+            _m, nuance_note, nuance_cat = _ganji_result_nuance(
                 stem_el, branch_el, fav_map.get(stem_el, ""), fav_map
             )
             caution = nuance_note
     # 검토월 판정(G3 — 계사월 케이스 일반화): 불안정 신호(중복 충·공망·대운 공망)가
     # 동반되면 이동·변동 신호가 강해도 계약 유지력이 낮다 — 실행이 아니라 검토의 시기.
+    # P0-2(2026-08-21): caution 문자열 concat 대신 구조 필드(review_month)로 분리 —
+    # 렌더는 candidate_block이 고정 문구(_REVIEW_MONTH_NOTE)로 노출한다.
     unstable = any(
         ("중복 충" in (s.effect or "")) or ("공망" in (s.effect or "")) for s in c.signals
     )
-    if unstable:
-        review_note = (
-            "이동·변동 신호는 강하나 공망·중복 충으로 계약 유지력이 낮은 시기 — "
-            "'실행월'이 아니라 '검토월'(조사·조건 확인까지)로 안내할 것."
-        )
-        caution = f"{caution} {review_note}".strip()
     # 방향 인지 표시 라벨(2026-07-22 P2) — '횡재+손실' 모순 차단. 방향 함의 키는 결과
     # 방향에 맞는 라벨로, 그 외·비V2 키는 기존 라벨 유지(판정·점수 불변).
     _disp = event_display_ko(str(c.event_key), c.quality, c.timing)
@@ -1405,6 +1408,8 @@ def _to_llm_candidate(
         incoming_note=note,
         amhap_notes=amhap_notes,
         caution_note=caution,
+        result_nuance=nuance_cat,
+        review_month=unstable,
         favorability_ko=_favorability_ko(c.favorability),
         sinsal_modifiers=list(sinsal_modifiers or []),
         sinsal_channel_note=sinsal_channel_note,
@@ -2006,11 +2011,19 @@ def _apply_rank_guards(
     for idx, reason_key in guards:  # 감점 큰 순(정렬됨)
         if attached >= max_guards:
             break
-        cn = payload.event_candidates[idx].caution_note
-        phrase = guard_caution_phrase(reason_key, cn)
+        cand = payload.event_candidates[idx]
+        # 중복 지시문 억제 판정은 사용자에게 보이는 caution 전체 기준(뉘앙스+검토월).
+        visible_caution = " ".join(
+            t for t in (cand.caution_note, _REVIEW_MONTH_NOTE if cand.review_month else "") if t
+        )
+        phrase = guard_caution_phrase(reason_key, visible_caution)
         cost = estimate_tokens(phrase) + 2  # 구분 공백 여유
         if remaining >= cost:  # 본문 우선 — 헤드룸 부족 시 skip(미부착)
-            payload.event_candidates[idx].caution_note = f"{cn} {phrase}".strip() if cn else phrase
+            # P0-2: caution_note concat 대신 전용 필드 — 렌더는 '해석 주의:' 별도 줄.
+            cand.operational_caution = (
+                f"{cand.operational_caution} {phrase}".strip()
+                if cand.operational_caution else phrase
+            )
             remaining -= cost
             attached += 1
 
@@ -2274,7 +2287,16 @@ def serialize_llm_input(payload: LlmInput) -> str:
             block.append("  운 암합(보조·물밑): " + " / ".join(c.amhap_notes))
         if with_notes and c.caution_note:
             # 유불리 주의 — 천간 흉신 시기는 발생해도 결실 불리(우호 단정 방지).
+            # P0-2: 이 줄은 결실 뉘앙스 전용 — 검토월·operational guard는 아래 별도 줄
+            # (과정·결과·해석층을 한 문자열로 뭉치지 않는다).
             block.append(f"  ⚠유불리: {c.caution_note}")
+        if with_notes and c.review_month:
+            # 검토월(G3 구조화) — 발생 강도와 별개로 계약 유지력이 낮은 시기.
+            block.append(f"  검토월: {_REVIEW_MONTH_NOTE}")
+        if with_notes and c.operational_caution:
+            # 작동성 rank guard — 과한 긍정 차단 지시(불리 단정 아님). 문구가 자체
+            # '[해석 주의]' 태그를 포함하므로 접두어를 더하지 않는다.
+            block.append(f"  {c.operational_caution}")
         if with_notes and c.sinsal_modifiers:
             # 신살 보조 태그(Phase A-1) — 숫자 없는 한글 강도어·효과 태그만. 단독 근거 금지.
             tags = " / ".join(_sinsal_modifier_str(s) for s in c.sinsal_modifiers)
@@ -2347,8 +2369,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
             _cand_out.append(
                 f"(총운 서술 체크리스트: 위 {_n_cands}개 후보 각각을 그 시기와 함께 "
                 "최소 한 문장씩 답변에 포함할 것. 후보의 성격(갈등·마찰/손실·지출/압박·"
-                "부담)과 결과 유불리 '불리'는 완곡하게 뒤집거나 생략하지 말 것 — ⚠ 표시가 "
-                "있는 시기를 '긍정적'으로 요약하는 것은 금지)"
+                "부담)은 그 사건을 겪는 과정·경험의 결이지 그 자체가 '결과 실패·불리'가 "
+                "아니다 — 결과의 유불리는 '결과 유불리'·'⚠유불리' 줄이 따로 판정한다. "
+                "두 축을 구분해 서술하되 어느 쪽도 완곡하게 뒤집거나 생략하지 말 것 — "
+                "⚠ 표시가 있는 시기를 '긍정적'으로 요약하는 것은 금지)"
             )
         # 결혼 출력 가드(Step 3·4) — 관계 도메인 질문 + MT 단계가 있을 때만 코드 결정 지시문 주입.
         # risk 코드(충·쟁합·기신)면 관계 변화·갈등 가능성 병기 강제(Step 4 분기).

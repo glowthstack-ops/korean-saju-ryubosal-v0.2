@@ -194,7 +194,18 @@ class LlmEventCandidate(BaseModel):
     # 운 암합(보조 자료) — 점수 미반영, 물밑·비공식 뉘앙스 참고용(2026-06-12 자료).
     amhap_notes: list[str] = Field(default_factory=list)
     # 유불리 주의(후보별 사실) — 천간 흉신 시기: 발생해도 계약·결실 불리(우호 단정 방지).
+    # P0-2(2026-08-21) 이후 이 필드는 결실 뉘앙스 설명문 전용이다 — 검토월 문구는
+    # review_month로, operational guard 문구는 operational_caution으로 분리(3중 concat 해체).
     caution_note: str = ""
+    # 결실 뉘앙스 카테고리(구조화) — _ganji_result_nuance 산출값 그대로.
+    # '' | 'unfavorable'(천간 흉신) | 'tonggwan'(통관 순화) | 'leak'(길신 누설).
+    # 상담 결론 의미론의 outcome 축 원천 — 텍스트 파싱 없이 판정에 쓸 수 있게 승격(P0-2).
+    result_nuance: str = ""
+    # 검토월 판정(G3 구조화) — True면 이동·변동 신호는 강하나 계약 유지력이 낮아
+    # '실행월'이 아니라 '검토월'. 렌더 계층이 고정 문구로 노출한다(P0-2).
+    review_month: bool = False
+    # scoring operational rank guard 문구 — caution_note와 분리 보존(P0-2 concat 해체).
+    operational_caution: str = ""
     # 결과 유불리 밴드(유리/불리, 중립이면 빈 문자열) — 발생 가능성(score)과 분리된 길흉 채널.
     # 시험 합·불, 특수직군 길화, 퇴직 리스크, 이직 압박/기회 등이 합산된 net 유불리.
     favorability_ko: str = ""

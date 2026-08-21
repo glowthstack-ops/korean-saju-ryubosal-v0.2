@@ -260,6 +260,13 @@ class EventCandidateV2(BaseModel):
     candidate_source_layers: list[str] = Field(default_factory=list)
     source_ten_gods: list[TenGod] = Field(default_factory=list)
     polarity_role: PolarityRole = PolarityRole.NEUTRAL
+    # ── 시점 유입 글자의 천간/지지 역할 라벨 보존(상담 결론 의미론 P0-1, 2026-08-21) ──
+    # _period_role이 두 라벨을 PolarityRole 1개로 접으면서 소실되던 원천 evidence.
+    # 값은 favorability_map 라벨('용신'|'희신'|'기신'|'구신'|'한신'|'') 그대로.
+    # ⚠ INV-E: 독립 evidence 전용 — "천간=결과축, 지지=과정축" 같은 단계 의미 부여 금지.
+    #   stage 연결은 사건별 기존 SSOT 매핑(SIGNAL_AXIS_MAP 등)이 있을 때만 허용한다.
+    stem_role: str = ""
+    branch_role: str = ""
     palace: Pillar4 | None = None  # 발동된 궁성(생활 영역)
     twelve_stage: TwelveStage | None = None  # 사건 상태를 정한 12운성
     event_phase: str | None = None  # 12운성이 부여한 발현 단계(formalization/peak/cut 등)

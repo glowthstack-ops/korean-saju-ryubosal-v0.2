@@ -159,6 +159,8 @@ from saju_shared_types.intent import (
 from saju_shared_types.llm_input import (
     DateChoiceRow,
     DateSelectionBlock,
+    LlmEventCandidate,
+    MonthOverviewRow,
     PeriodFortune,
     PeriodFortuneSlot,
     RelationshipContext,
@@ -2098,14 +2100,63 @@ def _is_accident_risk_question(question: str) -> bool:
 # 미루라, 조급함이 신호). 결정 어미가 동반된 결혼·이혼 질문에만 적용한다.
 _BIG_DECISION_KEYS = ("결혼", "이혼", "재혼", "파혼", "헤어")
 _DECISION_MARKERS = ("할까", "말까", "해도", "좋을까", "결정", "하는 게", "하는게", "해야")
-_BIG_DECISION_DIRECTIVE = (
-    "[큰 결정 타이밍 — 결혼·이혼 등 인생을 바꾸는 결정]\n"
-    "결혼·이혼 같은 큰 결정은 '시기'를 함께 보라. 제공된 운 품질(연·월 등급·후보 유불리)에서 "
-    "이 시기가 기신운·저점이거나 돈·건강·관계가 함께 흔들리는 신호면, 결정을 서두르지 말고 "
-    "'시간을 견디며 뒤로 미루는 것'을 권하라(운 저점엔 큰 결정 보류 — 조급함 자체가 신호). "
-    "운이 받쳐주면 차분히 검토해도 좋다고 안내하라. '반드시 하라/하지 마라'식 단정·운명론은 "
-    "금지 — 가능성·권유로만. 결정의 책임은 본인에게 있음을 존중하라."
+# P0-3 재설계(2026-08-21, 상담 결론 의미론): '저점인가' 판정을 LLM에 위임하던 술어를
+# 코드로 옮기되, 산출을 셋으로 분리한다 — ①사건 국소(event-local) 불리 근거가 있으면 보류
+# 권고 ②배경 저점만 있으면 배경 사실 언급으로 한정(저점 단독은 보류 근거 금지 — INV-B:
+# luck은 비거부권) ③둘 다 없으면 차분한 검토. "전체 운이 저점"≠"이 결정을 미루는 게 낫다".
+_BIG_DECISION_COMMON = (
+    "'반드시 하라/하지 마라'식 단정·운명론은 금지 — 가능성·권유로만. "
+    "결정의 책임은 본인에게 있음을 존중하라."
 )
+_BIG_DECISION_HEAD = "[큰 결정 타이밍 — 결혼·이혼 등 인생을 바꾸는 결정]\n"
+# 배경 저점 판정에 쓰는 월 등급 라벨(luck_label 기준 — 혼합 등급은 저점으로 세지 않는다).
+_LOW_LUCK_GRADES = ("강한 기신운", "기신운(부분)")
+
+
+def _big_decision_directive(
+    cands: list[LlmEventCandidate], overview_rows: list[MonthOverviewRow]
+) -> str:
+    """큰 결정 보류/검토 디렉티브 — 엔진 판정 기반 3분기(코드가 판정, LLM은 표현만).
+
+    event-local 불리 근거(결실 뉘앙스 unfavorable/검토월/결과 유불리 불리)가 있을 때만
+    보류 권고를 지시한다. 배경 저점(기신운 등급)은 단독으로 보류 근거가 될 수 없고
+    배경 사실로만 언급하게 한다(INV-B·INV-F — 역할 일괄 투영의 action 층 재생산 방지).
+    """
+    local_reasons: list[str] = []
+    if any(c.result_nuance == "unfavorable" for c in cands):
+        local_reasons.append("결실·실속 불리(천간 흉신)")
+    if any(c.review_month for c in cands):
+        local_reasons.append("검토월(계약 유지력 낮음)")
+    if any(c.favorability_ko == "불리(결과 주의)" for c in cands):
+        local_reasons.append("결과 유불리 '불리'")
+    cand_periods = {c.period for c in cands}
+    low_luck = any(
+        row.luck_grade in _LOW_LUCK_GRADES and (not cand_periods or row.period in cand_periods)
+        for row in overview_rows
+    )
+    if local_reasons:
+        return (
+            _BIG_DECISION_HEAD
+            + f"이 시기 후보에 불리 판정({' · '.join(local_reasons)})이 엔진에서 확인됐다. "
+            "결정을 서두르지 말고 '시간을 견디며 뒤로 미루는 것'을 권하라(조급함 자체가 "
+            "신호). 무엇이 불리한지(조건·결실·유지력)를 근거 그대로 짚어 주라. "
+            + _BIG_DECISION_COMMON
+        )
+    if low_luck:
+        return (
+            _BIG_DECISION_HEAD
+            + "전반 배경 기운이 낮은 구간(기신운 등급)이라는 엔진 판정은 있으나, 이 결정 "
+            "자체의 불리 근거는 확인되지 않았다. 배경 저점은 배경 사실로만 언급하고 그것만을 "
+            "이유로 보류를 권하지 말 것 — 결정의 유불리는 후보 신호가 있는 대목에서만 "
+            "판정하라. 서두를 이유가 없다는 톤으로 차분한 검토를 안내하라. "
+            + _BIG_DECISION_COMMON
+        )
+    return (
+        _BIG_DECISION_HEAD
+        + "큰 결정은 시기를 함께 보되, 제공된 후보·운 데이터에 이 결정을 미룰 불리 근거는 "
+        "확인되지 않았다 — 차분히 검토해도 좋다고 안내하라. 없는 불리 신호를 균형을 위해 "
+        "만들어 붙이지 말 것. " + _BIG_DECISION_COMMON
+    )
 
 
 def _is_big_decision(intent: IntentJson, question: str) -> bool:
@@ -4812,9 +4863,11 @@ def chat(
     # 인연 출처 — '주변 사람 vs 새로운 사람' 질문이면 합·도화=가까운 / 충·역마=새 인연 근거(비단정).
     if _is_partner_source_question(question):
         trailing.append(PARTNER_SOURCE_DIRECTIVE)
-    # 큰 결정(결혼·이혼) 타이밍 — 운 저점이면 보류 권고(궁합 자료). 이혼이면 사유 severity 분기도.
+    # 큰 결정(결혼·이혼) 타이밍 — P0-3: 보류/검토 분기를 엔진 판정(payload 근거)으로 결정.
     if _is_big_decision(intent, question):
-        trailing.append(_BIG_DECISION_DIRECTIVE)
+        trailing.append(
+            _big_decision_directive(payload.event_candidates, payload.monthly_overview)
+        )
     if _is_divorce_question(question):
         trailing.append(_DIVORCE_SEVERITY_DIRECTIVE)
     # 궁합(pairwise) — 상대가 첨부되면 엔진 계산 궁합 신호 블록을 입력에 덧붙인다.
