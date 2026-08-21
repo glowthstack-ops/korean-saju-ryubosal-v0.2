@@ -1656,8 +1656,21 @@ def build_monthly_overview(
     # 같아 보여도 '진짜 중요한 달'이 변별되게(절대값보다 상대 순위 신뢰 — docs/07).
     ranked = sorted(month_raw.items(), key=lambda kv: (-kv[1], kv[0]))
     rank_of = {p: i + 1 for i, (p, _v) in enumerate(ranked[:3])}
+    # CDS-P1a — 전 월 competition rank(동점=같은 순위)·동점 여부·모집단. 절대 강도
+    # 표현(tone 포화)과 분리된 상대 중요도 축. arbiter 판정에는 쓰지 않는다(표현 전용).
+    raw_values = list(month_raw.values())
+    full_rank = {
+        p: 1 + sum(1 for v in raw_values if v > raw) for p, raw in month_raw.items()
+    }
+    tied = {
+        p: sum(1 for v in raw_values if v == raw) > 1 for p, raw in month_raw.items()
+    }
     for row in rows:
         row.strength_rank = rank_of.get(row.period)
+        if row.period in full_rank:
+            row.period_rank = full_rank[row.period]
+            row.period_rank_tied = tied[row.period]
+            row.period_rank_population = len(month_raw)
     return rows
 
 
@@ -1979,6 +1992,16 @@ def build_llm_input(
             max_output_chars=limit.max_output_chars or limit.max_output_tokens,
         ),
     )
+    # CDS-P1a — 후보에 기간 내 상대 순위 복사(월별 표 competition rank). 표현 전용.
+    _rank_rows = {
+        r.period: r for r in payload.monthly_overview if r.period_rank is not None
+    }
+    for _c in (*payload.event_candidates, *payload.out_of_range_candidates):
+        _row = _rank_rows.get(_c.period)
+        if _row is not None:
+            _c.period_rank = _row.period_rank
+            _c.period_rank_tied = _row.period_rank_tied
+            _c.period_rank_population = _row.period_rank_population
     _apply_rank_guards(payload, result, selected, ganji, intent, call_type, reserved_tokens)
     return payload
 
@@ -2277,6 +2300,16 @@ def serialize_llm_input(payload: LlmInput) -> str:
         if with_notes and c.favorability_ko:
             # 결과 유불리 — 발생 가능성(강도)과 분리된 길흉('강한 달=좋은 달'이 아님).
             block.append(f"  결과 유불리: {c.favorability_ko}(발생 가능성과 별개)")
+        if with_notes and c.period_rank:
+            # CDS-P1a — 절대 강도(위 표현)와 상대 중요도를 분리 전달. 포화된 강도
+            # 표현이 같아도 이 순위가 기간 내 실제 비중이다(판정 아님 — 서술 참고).
+            _tied = " 공동" if c.period_rank_tied else ""
+            block.append(
+                f"  강도 맥락: 기간 내 상대 {c.period_rank}/{c.period_rank_population}위"
+                f"{_tied} — 절대 강도 표현과 별개(표현이 같아도 상대 비중은 이 순위 기준. "
+                "순위가 낮으면 '이 기간엔 비슷한 달이 여럿'으로, 절대 강도가 낮은데 1위면 "
+                "'크진 않지만 기간 내에선 가장 두드러짐'으로 구분해 서술)"
+            )
         if with_notes and c.signals_ko:
             block.append("  동반 신호: " + " / ".join(c.signals_ko))
         if with_notes and _rel_focus and c.marriage_stage:

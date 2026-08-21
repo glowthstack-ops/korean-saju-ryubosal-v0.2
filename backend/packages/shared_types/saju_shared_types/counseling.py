@@ -68,6 +68,20 @@ class FrictionMark(BaseModel):
 StageDirection = Literal["favorable", "adverse", "mixed", "neutral", "unknown"]
 
 
+class StageEvidenceSource(BaseModel):
+    """단계 근거 1건의 provenance (CDS-P1b, 2026-08-21 방향 재설정).
+
+    stage는 명리 primitive가 아니라 상담 의미론의 lifecycle 축이다 — 기존 domain
+    SSOT가 stage provenance를 **명시 제공**할 때만 근거가 생기며, 그렇지 않은
+    도메인/단계는 UNKNOWN이 정상 상태다(coverage 100%를 위해 임의의 십성·12운성
+    매핑을 만들지 않는다 — 데굴님 확정).
+    """
+
+    type: str  # 'event_stage_tags' | 'ganji_nuance' | 'review_month' | 'gate' | 'outcome_code' …
+    code: str
+    reviewed: bool = False  # 해당 매핑이 감수·승인된 SSOT 유래인가
+
+
 class StageAssessment(BaseModel):
     """단계 1개의 평가 — 근거(evidence) 없는 단계는 만들지 않는다(fail-closed)."""
 
@@ -75,6 +89,7 @@ class StageAssessment(BaseModel):
     direction: StageDirection = "unknown"
     frictions: list[FrictionMark] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
+    sources: list[StageEvidenceSource] = Field(default_factory=list)
 
 
 ActivationBand = Literal["high", "moderate", "low", "unknown"]

@@ -214,6 +214,11 @@ class LlmEventCandidate(BaseModel):
     quality: str = ""
     # evidence_path: reason_codes 전달(HOLD 차단 근거·결과축 코드 판별용 provenance).
     evidence_path: list[str] = Field(default_factory=list)
+    # CDS-P1a — 후보 기간의 기간 내 상대 순위(monthly_overview에서 복사). 절대 강도
+    # (tone_for_score)와 분리된 표현 전용 축 — arbiter의 PROCEED/HOLD 판정에 쓰지 않는다.
+    period_rank: int | None = None
+    period_rank_tied: bool = False
+    period_rank_population: int = 0
     # 결과 유불리 밴드(유리/불리, 중립이면 빈 문자열) — 발생 가능성(score)과 분리된 길흉 채널.
     # 시험 합·불, 특수직군 길화, 퇴직 리스크, 이직 압박/기회 등이 합산된 net 유불리.
     favorability_ko: str = ""
@@ -295,6 +300,12 @@ class MonthOverviewRow(BaseModel):
     # 창 내 상대 강도 순위(1=최강, 클램프 전 raw 가중 합 기준) — 톤이 포화돼도
     # '진짜 중요한 달'이 변별되게(절대값보다 상대 순위 신뢰 — docs/07 리스크 1).
     strength_rank: int | None = None
+    # CDS-P1a(2026-08-21) — 기간 내 상대 순위 전량(competition rank). strength_rank가
+    # 상위 3위 표기 전용인 것과 달리 전 월을 대상으로 하며, 동점·모집단을 함께 보존해
+    # '절대 강도(tone) ≠ 상대 중요도(rank)'를 분리 표현한다. arbiter 판정 미사용(표현 전용).
+    period_rank: int | None = None
+    period_rank_tied: bool = False
+    period_rank_population: int = 0
     # 그 달 간지의 용기신 역할 '癸水 구신·巳火 희신' — 발생 강도와 별개로 유불리
     # (구신 천간 달=계약·결실 불리)가 표에서 변별되게(2026-06-12 사용자 도메인 지식).
     luck_roles: str = ""

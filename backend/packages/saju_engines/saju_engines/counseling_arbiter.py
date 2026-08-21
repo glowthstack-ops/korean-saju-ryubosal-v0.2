@@ -24,6 +24,7 @@ from saju_shared_types.counseling import (
     FrictionMark,
     StageAction,
     StageAssessment,
+    StageEvidenceSource,
     StageScope,
 )
 from saju_shared_types.event_taxonomy_v2 import EVENT_PROCESS_ROLE, EVENT_STAGE_TAGS
@@ -173,6 +174,9 @@ def _assess_stages(c: LlmEventCandidate, outlook: str) -> list[StageAssessment]:
     for st in tag_stages:
         a = _get(st)
         a.evidence.append(f"stage_tag:{st.value}")
+        a.sources.append(StageEvidenceSource(
+            type="event_stage_tags", code=str(c.event_key), reviewed=True,
+        ))
         if st in (StageScope.OPPORTUNITY, StageScope.PROCESS):
             a.direction = "neutral"
         elif st in (StageScope.REALIZATION, StageScope.OUTCOME):
@@ -195,6 +199,9 @@ def _assess_stages(c: LlmEventCandidate, outlook: str) -> list[StageAssessment]:
             a.direction = "neutral"
         a.frictions.extend(process_marks)
         a.evidence.extend(m.source for m in process_marks)
+        a.sources.extend(StageEvidenceSource(
+            type="friction", code=m.source, reviewed=True,
+        ) for m in process_marks)
 
     # 결정 단계 — 결실 뉘앙스·검토월·결과축 증거가 있을 때만.
     decision_marks = [m for m in frictions if m.stage is StageScope.DECISION]
@@ -203,6 +210,14 @@ def _assess_stages(c: LlmEventCandidate, outlook: str) -> list[StageAssessment]:
         a = _get(StageScope.DECISION)
         a.frictions.extend(decision_marks)
         a.evidence.extend(m.source for m in decision_marks)
+        a.sources.extend(StageEvidenceSource(
+            type="ganji_nuance" if m.source.startswith("ganji_") else "review_month",
+            code=m.source, reviewed=True,
+        ) for m in decision_marks)
+        if has_outcome_evidence:
+            a.sources.append(StageEvidenceSource(
+                type="outcome_channel", code=f"favorability_band:{outlook}", reviewed=True,
+            ))
         if c.result_nuance == "unfavorable" or outlook == "adverse":
             a.direction = "adverse"
         elif outlook in ("favorable", "workable"):
@@ -218,6 +233,9 @@ def _assess_stages(c: LlmEventCandidate, outlook: str) -> list[StageAssessment]:
         a = _get(StageScope.OUTCOME)
         a.direction = "adverse"
         a.evidence.append("ganji_nuance_leak")
+        a.sources.append(StageEvidenceSource(
+            type="ganji_nuance", code="leak", reviewed=True,
+        ))
 
     return list(stages.values())
 

@@ -74,12 +74,14 @@ from saju_engines.luck_hierarchy_render import (
     render_period_role_summary,
     render_v2_slot_status,
 )
+from saju_engines.marriage_marker_shadow import detect_marriage_marker_shadow
 from saju_engines.period_role_summary import build_period_role_summary
 from saju_engines.period_safe_template import build_safe_period_answer
 from saju_engines.persona import PersonaEngine
 from saju_engines.planner import build_execution_plan
 from saju_engines.policy_echo_audit import detect_policy_echo, strip_policy_echo
 from saju_engines.precompute import CompositeBuilder
+from saju_engines.prediction import PredictionEngines
 from saju_engines.profile_engine import profile_facts_for
 from saju_engines.query_parser import (
     ACCIDENT_SAGO_RE,
@@ -381,6 +383,7 @@ _scorer: EventEngineV2 | None = None
 _graph_index: GraphIndex | None = None
 _date_engine: DateSelectionEngine | None = None
 _persona_engine: PersonaEngine | None = None
+_prediction_engines: PredictionEngines | None = None
 _intent_filter: IntentEventFilter | None = None
 # 지역 추천 오케스트레이터(P4-A 배선) — compiled 프로필·행정 registry 필요. 미빌드면 None.
 _region_orchestrator: object | None = None
@@ -558,6 +561,14 @@ def _get_persona_engine() -> PersonaEngine:
     if _persona_engine is None:
         _persona_engine = PersonaEngine(_DICTS)
     return _persona_engine
+
+
+def _get_prediction() -> PredictionEngines:
+    """E4 예측 엔진(shadow 관측 전용 — CDS-S1). 프롬프트·판정에 연결 금지."""
+    global _prediction_engines
+    if _prediction_engines is None:
+        _prediction_engines = PredictionEngines(_DICTS)
+    return _prediction_engines
 
 
 def _months_between(start_month: str, end_month: str, cap: int = 13) -> list[str]:
@@ -4905,6 +4916,43 @@ def chat(
         _sem_lines = counseling_arbiter.counseling_block_lines(_sem)
         if _sem_lines:
             trailing.append("\n".join(_sem_lines))
+
+    # ── CDS-P1d marriage marker shadow(관측 전용 — 2026-08-21 데굴님 확정) ─────
+    # Detection≠Interpretation≠Exposure 3층 분리: 여기서는 감지·로그만 하고,
+    # MarriageOutputGuard의 claim permission(False)·단계 상한은 그대로다.
+    # MT 전환 승인 판단용 실측 데이터 축적이 목적(사용자 출력·LLM 입력 연결 금지).
+    if payload.event_candidates and (
+        intent.domain is Domain.RELATIONSHIP
+        or any(
+            str(c.event_key) in ("marriage_signal", "new_relationship")
+            for c in payload.event_candidates
+        )
+    ):
+        _mk = detect_marriage_marker_shadow(
+            payload.event_candidates, relationship_status or ""
+        )
+        if _mk.commitment_marker or _mk.formalization_marker:
+            _logger.info(
+                "marriage_marker_shadow commitment=%s formalization=%s "
+                "reasons=%s unevaluated=%d thread=%s",
+                _mk.commitment_marker, _mk.formalization_marker,
+                _mk.reasons, len(_mk.unevaluated), thread_id,
+            )
+
+    # ── CDS-S1 E4 timeline shadow(프롬프트 미노출 — completion UNKNOWN 허용) ──
+    # 실행월 엔진 승격이 아니라 'coverage 명시된' shadow 관측: 지원 stage의
+    # false projection률을 기존 후보(검토월·ENTRY 계열)와 대조하기 위한 로그.
+    if candidates:
+        _top = max(candidates, key=lambda c: c.score)
+        _tl = _get_prediction().build_timeline(_top.event_key, candidates)
+        if _tl is not None:
+            _logger.info(
+                "e4_timeline_shadow event=%s window=%s~%s scores(i/a/c)=%d/%d/%d "
+                "phases=%s thread=%s",
+                _top.event_key, _tl.activation_window.start, _tl.activation_window.end,
+                _tl.scores.interest, _tl.scores.action, _tl.scores.completion,
+                [(p.period, p.stage) for p in _tl.phases[:6]], thread_id,
+            )
 
     # ── P4-1 커리어 전이 chat beta(최소 cohort) ────────────────────────
     # prepare 는 LLM을 호출하지 않는다 — 기존 단일 generate_reading 호출을 유지한다.
