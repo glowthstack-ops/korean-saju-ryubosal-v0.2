@@ -4836,8 +4836,13 @@ def chat(
     system = None
     if persona is not None:
         # 호칭 자리({resolvedHonorific})에 대화 기준 사주의 별명을 넣는다(하드코딩 '회원' 제거).
-        block = _get_persona_engine().build_block(persona, subject_label or "회원")
-        system = llm_client._SYSTEM_PROMPT + "\n\n" + block
+        # 저장 검증 도입(2026-08-21) 이전에 들어간 무효 조합이 남아 있을 수 있다 —
+        # 그때는 500 대신 페르소나 블록 없이(기본 문체) 진행한다(report_service와 동일 정책).
+        try:
+            block = _get_persona_engine().build_block(persona, subject_label or "회원")
+            system = llm_client._SYSTEM_PROMPT + "\n\n" + block
+        except ValueError as exc:
+            _logger.warning("페르소나 블록 생략(무효 조합) — %s", exc)
     # generate_reading은 system 미지정 시 _SYSTEM_PROMPT를 쓰므로 예약분도 실제 전송 시스템 기준.
     sys_for_budget = system or llm_client._SYSTEM_PROMPT
     reserve = estimate_tokens(sys_for_budget) + estimate_tokens("\n".join(trailing))
