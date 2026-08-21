@@ -150,6 +150,39 @@ def test_big_decision_caps_summary() -> None:
     assert sem.summary_stance == "PROCEED_WITH_CONDITIONS"
 
 
+# ── P2-1: EVENT_STAGE_TAGS 소비 ─────────────────────────────────────────────
+
+
+def test_stage_tags_vocabulary_and_relationship_cap() -> None:
+    from saju_shared_types.counseling import StageScope
+    from saju_shared_types.event_taxonomy_v2 import EVENT_STAGE_TAGS
+
+    valid = {s.value for s in StageScope}
+    for key, tags in EVENT_STAGE_TAGS.items():
+        assert set(tags) <= valid, key
+    # 관계 키는 marker 게이트 미구현 상한(기회·과정)을 넘는 태그를 갖지 않는다.
+    assert "decision" not in EVENT_STAGE_TAGS[
+        next(k for k in EVENT_STAGE_TAGS if str(k) == "marriage_signal")]
+
+
+def test_f4_high_activation_unknown_outcome_separates_stages() -> None:
+    # F4: 기회·과정은 진행하되 결과 미지 단계(실행)는 UNKNOWN — 지어내지 않는다.
+    sem = ca.build_counseling(_cand(activation=90.0, favorability=0.0))
+    assert sem.stage_action_policy["opportunity"] == "proceed"
+    assert sem.stage_action_policy["process"] == "proceed"
+    assert sem.stage_action_policy.get("realization") == "unknown"
+    assert sem.summary_stance == "PROCEED"
+    assert "realization" in sem.unknown_stages
+
+
+def test_realization_direction_requires_outcome_evidence() -> None:
+    # relocation(실행 단계 태그) — 결과 증거 없으면 unknown, 있으면 방향 부여.
+    blank = ca.build_counseling(_cand(event_key="relocation", favorability=0.0))
+    assert blank.stage_action_policy["realization"] == "unknown"
+    fav = ca.build_counseling(_cand(event_key="relocation", favorability=0.7))
+    assert fav.stage_action_policy["realization"] == "proceed"
+
+
 # ── 렌더 계약 ───────────────────────────────────────────────────────────────
 
 

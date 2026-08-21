@@ -2114,6 +2114,15 @@ _BIG_DECISION_HEAD = "[큰 결정 타이밍 — 결혼·이혼 등 인생을 바
 _LOW_LUCK_GRADES = ("강한 기신운", "기신운(부분)")
 
 
+_HEDGE_SENT_SPLIT_RE = re.compile(r"(?<=[.!?요네다])\s+")
+
+
+def _hedge_density(answer: str) -> tuple[int, int]:
+    """유보 어미('수 있') 포함 문장 수와 전체 문장 수 — P1-b 관측 전용(판정·수정 없음)."""
+    sents = [s for s in _HEDGE_SENT_SPLIT_RE.split(answer) if s.strip()]
+    return sum(1 for s in sents if "수 있" in s), len(sents)
+
+
 def _big_decision_directive(
     cands: list[LlmEventCandidate], overview_rows: list[MonthOverviewRow]
 ) -> str:
@@ -5131,6 +5140,16 @@ def chat(
             _logger.warning(
                 "policy_echo_stripped count=%d matched=%s thread=%s",
                 _removed, [e.matched for e in _echoes], thread_id,
+            )
+    # P1-b 유보 어미 밀도 계측(관측 전용 — 재생성 기본화 금지 확정(2026-07-27) 준수):
+    # '수 있' 문장 비율이 계약 ②항(최대 두 문장)을 크게 넘으면 로그로 남겨,
+    # 계약 문구 강화의 효과를 실측한다(감사 기준선: 2026-08-21 문장의 11.4%).
+    if answer:
+        _hs, _hn = _hedge_density(answer)
+        if _hn >= 6 and _hs / _hn > 0.25:
+            _logger.info(
+                "hedge_density_high ratio=%.2f (%d/%d) thread=%s",
+                _hs / _hn, _hs, _hn, thread_id,
             )
     # 총운 커버리지 계측(관측 전용 — 재생성·재호출 없음, 데굴님 확정): 누락 후보를
     # 로그로 남겨 입력 구조 개선(후보 블록 후치 등)의 효과를 실측한다.

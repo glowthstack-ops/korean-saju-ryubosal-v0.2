@@ -26,7 +26,7 @@ from saju_shared_types.counseling import (
     StageAssessment,
     StageScope,
 )
-from saju_shared_types.event_taxonomy_v2 import EVENT_PROCESS_ROLE
+from saju_shared_types.event_taxonomy_v2 import EVENT_PROCESS_ROLE, EVENT_STAGE_TAGS
 from saju_shared_types.llm_input import LlmEventCandidate, MonthOverviewRow
 
 
@@ -155,13 +155,35 @@ def _assess_stages(c: LlmEventCandidate, outlook: str) -> list[StageAssessment]:
             stages[stage] = StageAssessment(stage=stage)
         return stages[stage]
 
-    # 주 단계 — 사건 형성 자체는 극성이 아니라 neutral(형성력은 activation 밴드가 전달).
-    role = EVENT_PROCESS_ROLE.get(c.event_key, "")
-    primary = _ROLE_TO_STAGE.get(role)
-    if primary is not None:
-        a = _get(primary)
-        a.direction = "neutral"
-        a.evidence.append(f"process_role:{role}")
+    # 주 단계 — EVENT_STAGE_TAGS(P2-1, SSOT 유래)가 있으면 그 단계 집합을, 없으면
+    # EVENT_PROCESS_ROLE 접힘을 쓴다. 사건 형성 자체는 극성이 아니라 neutral
+    # (형성력은 activation 밴드가 전달). 실행·실속 단계는 결과 증거가 있을 때만
+    # 방향을 부여한다 — 무근거 '실행 진행' 지침 방지(fail-closed).
+    tag_stages: list[StageScope] = []
+    for tag in EVENT_STAGE_TAGS.get(c.event_key, ()):
+        try:
+            tag_stages.append(StageScope(tag))
+        except ValueError:
+            continue
+    if not tag_stages:
+        role = EVENT_PROCESS_ROLE.get(c.event_key, "")
+        primary = _ROLE_TO_STAGE.get(role)
+        if primary is not None:
+            tag_stages = [primary]
+    for st in tag_stages:
+        a = _get(st)
+        a.evidence.append(f"stage_tag:{st.value}")
+        if st in (StageScope.OPPORTUNITY, StageScope.PROCESS):
+            a.direction = "neutral"
+        elif st in (StageScope.REALIZATION, StageScope.OUTCOME):
+            if outlook in ("favorable", "workable"):
+                a.direction = "favorable"
+            elif outlook in ("adverse", "weak"):
+                a.direction = "adverse"
+            elif outlook == "mixed":
+                a.direction = "mixed"
+            # outlook unknown → direction unknown 유지(정책 UNKNOWN — 서술 금지).
+        # DECISION 태그는 평가 슬롯만 연다 — 방향은 아래 결정 블록이 증거로 정한다.
 
     # 과정 단계 — 경험 마찰(압박·갈등·지연)이 있으면 평가를 만들되 direction 은 중립 유지
     # (INV-G: 마찰은 유불리가 아니다).
