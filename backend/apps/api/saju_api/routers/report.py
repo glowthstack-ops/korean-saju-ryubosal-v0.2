@@ -138,6 +138,8 @@ class ReportJobStatus(BaseModel):
     sections_total: int
     result: dict | None = None
     error: str | None = None
+    #: 작성 시점(ISO) — PDF 저장 파일명 등 내용 식별용(2026-08-24).
+    created_at: str | None = None
 
 
 def _run_report_job(
@@ -256,4 +258,5 @@ def get_job(job_id: str, owner_id: OwnerId, jobs: Jobs) -> ReportJobStatus:
         sections_total=rec.sections_total,
         result=rec.result,
         error=rec.error,
+        created_at=rec.created_at.isoformat() if rec.created_at else None,
     )

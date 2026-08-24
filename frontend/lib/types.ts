@@ -239,6 +239,8 @@ export interface ReportJobStatus {
   sections_total: number;
   result?: unknown | null;
   error?: string | null;
+  /** 작성 시점(ISO) — PDF 저장 파일명 등 내용 식별용. */
+  created_at?: string | null;
 }
 
 export interface HiddenStem {
