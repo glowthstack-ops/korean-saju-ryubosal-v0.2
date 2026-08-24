@@ -140,6 +140,47 @@ def test_all_signatures_satisfiable_within_a_year() -> None:
     assert unsatisfiable_signatures(_catalog()) == []
 
 
+def test_flag_default_off_and_cache_namespace_split() -> None:
+    """플래그는 pytest 환경에서 OFF(v1 바이트 불변)이고, v2 캐시 키는 v1 과 갈라진다."""
+    import saju_engines.daily_fortune_v2 as dfv2
+    from saju_shared_types.daily_fortune import content_version_for
+
+    d = dt.date(2026, 8, 24)
+    assert dfv2.DAILY_FORTUNE_MODEL_V2_ENABLED is False
+    assert dfv2.active_content_version(d) == content_version_for(d)
+    v2_version = dfv2.content_version_v2_for(d)
+    assert v2_version != content_version_for(d)
+    assert v2_version.endswith(dfv2.MODEL_V2_VERSION)
+
+
+def test_compute_board_v2_reuses_v1_pipeline_with_v2_pool() -> None:
+    """v2 보드: 60일주·검증 스키마 통과, 노출 사건은 전부 v2 카탈로그(48종) 소속."""
+    from saju_engines.daily_fortune_v2 import compute_board_v2, load_catalog_v2
+
+    d = dt.date(2026, 8, 24)
+    catalog = load_catalog_v2()
+    board = compute_board_v2(v1.build_day_context(d), v1.load_daily_dicts_for(d))
+    assert len(board.fortunes) == 60
+    assert board.content_version.endswith("model.v2.0")
+    for fortune in board.fortunes:
+        for event in fortune.events:
+            assert event.event_key in catalog.events  # weather 등 제외 사건 불노출
+        assert fortune.headline_event_key in catalog.events
+
+
+def test_service_generate_uses_v1_when_flag_off(monkeypatch) -> None:
+    """플래그 OFF 면 서비스 생성 경로가 v2 를 호출하지 않는다(라이브 불변 담보)."""
+    from saju_api.services import daily_fortune_service as svc
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise AssertionError("플래그 OFF 에서 compute_board_v2 호출")
+
+    monkeypatch.setattr(svc, "compute_board_v2", _boom)
+    board = svc._generate(dt.date(2026, 8, 24))
+    assert len(board.fortunes) == 60
+    assert "model.v2.0" not in board.content_version
+
+
 def test_scoring_ignores_expr_confidence_field_entirely() -> None:
     """ec 는 v2 evidence 경로에 존재하지 않는다 — 같은 입력이면 같은 activation."""
     catalog = _catalog()

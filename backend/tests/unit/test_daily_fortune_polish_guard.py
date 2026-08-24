@@ -15,7 +15,7 @@ from saju_api.services import daily_fortune_polish as polish
 from saju_engines.daily_fortune_cache import InMemoryDailyFortuneCache
 from saju_engines.daily_ilju_fortune import build_day_context, compute_board, load_daily_dicts
 from saju_engines.llm_guard import CALL_LIMITS, estimate_tokens
-from saju_shared_types.daily_fortune import CONTENT_VERSION
+from saju_shared_types.daily_fortune import content_version_for
 
 _D = date(2026, 7, 23)
 
@@ -137,7 +137,7 @@ def test_unknown_or_duplicate_ilju_lines(board) -> None:
 
 def test_polish_board_provider_failure_keeps_raw(board, monkeypatch) -> None:
     cache = InMemoryDailyFortuneCache()
-    cache.save_board(_D, CONTENT_VERSION, board, 3600)
+    cache.save_board(_D, content_version_for(_D), board, 3600)
 
     def _boom(*args, **kwargs):
         raise RuntimeError("공급자 실패")
@@ -145,7 +145,7 @@ def test_polish_board_provider_failure_keeps_raw(board, monkeypatch) -> None:
     monkeypatch.setattr(polish.llm_client, "generate_reading", _boom)
     result = polish.polish_board(cache, _D)
     assert result is not None and result["accepted"] == 0
-    stored = cache.load_board(_D, CONTENT_VERSION)
+    stored = cache.load_board(_D, content_version_for(_D))
     assert stored is not None and stored.polish_status == "FAILED"
     # FAILED 보드는 자동 재교정하지 않는다(날짜당 1회 원칙)
     assert polish.polish_board(cache, _D) is None
@@ -153,8 +153,8 @@ def test_polish_board_provider_failure_keeps_raw(board, monkeypatch) -> None:
 
 def test_polish_lock_single_owner(board, monkeypatch) -> None:
     cache = InMemoryDailyFortuneCache()
-    cache.save_board(_D, CONTENT_VERSION, board, 3600)
-    token = cache.acquire_lock("polish", _D, CONTENT_VERSION, 600)
+    cache.save_board(_D, content_version_for(_D), board, 3600)
+    token = cache.acquire_lock("polish", _D, content_version_for(_D), 600)
     assert token is not None
     monkeypatch.setattr(
         polish.llm_client, "generate_reading", lambda *a, **k: _echo_response(board)

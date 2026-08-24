@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from dataclasses import dataclass
+from datetime import date as DateType
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -26,8 +28,13 @@ from saju_engines import daily_ilju_fortune as v1
 from saju_manse_core.pillars.gongmang import gongmang_branches
 from saju_manse_core.pillars.twelve_unseong import twelve_unseong
 from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
-from saju_shared_types.daily_fortune import DayGanjiContext
+from saju_shared_types.daily_fortune import (
+    DailyFortuneBoard,
+    DayGanjiContext,
+    content_version_for,
+)
 from saju_shared_types.daily_fortune_v2 import (
+    MODEL_V2_VERSION,
     PRIOR_VALUE,
     RELATION_CHANNELS,
     SIPSEONG_GROUPS,
@@ -298,15 +305,17 @@ class SlotSelectionV2:
     fallback_used: bool
 
 
-def select_slots_v2(
-    catalog: DailyEventCatalogV2,
-    ch: dict[str, float],
-    seed_base: str,
-) -> SlotSelectionV2:
-    """게이트 통과 후보만으로 v1 선발 불변식 하에 3슬롯을 뽑는다.
+def build_pool_v2(
+    catalog: DailyEventCatalogV2, ch: dict[str, float]
+) -> tuple[list[v1._ScoredEvent], frozenset[str], bool]:
+    """(일주, 날짜)의 선발 후보 풀 — 게이트 통과 사건 + 슬롯 공백 폴백.
 
     good/caution 풀이 비면 최상위 비적격 후보 1개를 감점 상태로 주입한다
-    (§22-1 잠정 폴백 — 카드 3슬롯 계약 유지).
+    (§22-1 잠정 폴백 — 카드 3슬롯 계약 유지). 선발과 보드 빌드가 같은 풀을
+    쓰도록 여기 한 곳에서만 구성한다.
+
+    Returns:
+        (후보 풀, 게이트 통과 event_key 집합, 폴백 사용 여부).
     """
     results = [
         score_event_v2(key, model, ch) for key, model in catalog.events.items()
@@ -333,6 +342,16 @@ def select_slots_v2(
             if candidates:
                 pool.append(candidates[0])
                 fallback_used = True
+    return pool, eligible_keys, fallback_used
+
+
+def select_slots_v2(
+    catalog: DailyEventCatalogV2,
+    ch: dict[str, float],
+    seed_base: str,
+) -> SlotSelectionV2:
+    """게이트 통과 후보만으로 v1 선발 불변식 하에 3슬롯을 뽑는다."""
+    pool, eligible_keys, fallback_used = build_pool_v2(catalog, ch)
     good, caution, support = v1._select_slots(pool, seed_base)
     return SlotSelectionV2(
         good=good, caution=caution, support=support,
@@ -414,3 +433,65 @@ def unsatisfiable_signatures(
                 del remaining[key]
         day += _dt.timedelta(days=1)
     return sorted(remaining)
+
+
+# ── 라이브 배선 (Phase 2) — 플래그 기본 OFF, C10 동결 중엔 beta registry 가 우선 ──
+
+#: v2 채점 경로 활성화 — `.env.beta` 로만 켠다(import 시점 상수, pytest 는 OFF 기준).
+#: ON 이어도 beta pool registry 활성 기간에는 registry 가 선행하므로 사용자 출력은
+#: 풀 계약을 따른다 — 동결과 충돌하지 않는다.
+DAILY_FORTUNE_MODEL_V2_ENABLED = os.getenv("SAJU_DAILY_FORTUNE_MODEL_V2") == "1"
+
+
+def content_version_v2_for(target_date: DateType) -> str:
+    """v2 경로의 캐시 namespace — v1 키와 반드시 갈라진다(캐시 오염 방지).
+
+    플래그를 켜고 끌 때 같은 날짜의 v1 보드가 v2 로(또는 반대로) 서빙되면 안 된다 —
+    namespace 분리가 그 유일한 방어다.
+    """
+    return f"{content_version_for(target_date)}|{MODEL_V2_VERSION}"
+
+
+def active_content_version(target_date: DateType) -> str:
+    """플래그 상태를 반영한 캐시 namespace — 보드 생성·조회·교정이 같은 키를 쓴다.
+
+    조회(get_board)와 LLM 교정(polish)이 서로 다른 키를 보면 교정이 유령 보드에
+    붙는다 — 파생 지점을 이 함수 하나로 좁힌다.
+    """
+    if DAILY_FORTUNE_MODEL_V2_ENABLED:
+        return content_version_v2_for(target_date)
+    return content_version_for(target_date)
+
+
+def compute_board_v2(
+    ctx: DayGanjiContext,
+    dicts: v1.DailyFortuneDicts,
+    catalog: DailyEventCatalogV2 | None = None,
+) -> DailyFortuneBoard:
+    """3층 판정 모델로 60일주 보드를 산출한다(결정론).
+
+    채점·게이트·폴백만 v2 로 바꾸고, 선발 불변식·헤드라인 재배정·문구 렌더·중복
+    감사는 v1 `compute_board` 파이프라인을 `scored_rows` 주입으로 재사용한다.
+    문구·서사 사전은 여전히 v1(dicts)이 SSOT 다.
+
+    Args:
+        ctx: 오늘 일진·월운·세운 간지.
+        dicts: v1 사전 3종(문구 렌더용 — 카탈로그 서사 포함).
+        catalog: v2 채점 카탈로그(기본: 컴파일 스냅샷 원본 로드).
+
+    Returns:
+        `content_version` 이 v2 namespace 로 표시된 보드.
+    """
+    cat = catalog or load_catalog_v2()
+    from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index
+
+    scored_rows: dict[str, list[v1._ScoredEvent]] = {}
+    for idx in range(60):
+        stem, branch = ganzi_from_index(idx)
+        ch = day_channels(stem, branch, ctx)
+        pool, _eligible, _fallback = build_pool_v2(cat, ch)
+        scored_rows[f"{stem.value}{branch.value}"] = pool
+    board = v1.compute_board(ctx, dicts, scored_rows=scored_rows)
+    return board.model_copy(
+        update={"content_version": content_version_v2_for(ctx.the_date)}
+    )

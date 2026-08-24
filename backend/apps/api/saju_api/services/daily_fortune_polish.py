@@ -21,8 +21,8 @@ from datetime import date
 from typing import Any
 
 from saju_engines.daily_fortune_cache import DailyFortuneCache
+from saju_engines.daily_fortune_v2 import active_content_version
 from saju_shared_types.daily_fortune import (
-    CONTENT_VERSION,
     PROMPT_VERSION,
     DailyFortuneBoard,
 )
@@ -217,11 +217,15 @@ def polish_board(cache: DailyFortuneCache, d: date) -> dict[str, Any] | None:
 
     날짜당 1회 원칙: 락 TTL(10분) 안의 중복 시도는 차단되고, 실패(FAILED)
     보드는 자동 재호출하지 않는다(운영자 수동 재실행 전용 경로만 허용).
+
+    캐시 키는 조회 경로와 같은 `active_content_version` 을 쓴다 — v2 플래그가
+    켜졌을 때 교정이 v1 키의 유령 보드에 붙는 사고 방지(§22-6).
     """
-    board = cache.load_board(d, CONTENT_VERSION)
+    version = active_content_version(d)
+    board = cache.load_board(d, version)
     if board is None or board.polish_status != "RAW":
         return None
-    token = cache.acquire_lock("polish", d, CONTENT_VERSION, _POLISH_LOCK_TTL)
+    token = cache.acquire_lock("polish", d, version, _POLISH_LOCK_TTL)
     if token is None:
         return None
     try:
@@ -239,10 +243,10 @@ def polish_board(cache: DailyFortuneCache, d: date) -> dict[str, Any] | None:
             logger.warning("daily fortune polish 공급자 실패 date=%s err=%s", d, exc)
             failed = board.model_copy(deep=True)
             failed.polish_status = "FAILED"
-            cache.save_board(d, CONTENT_VERSION, failed, board_ttl_seconds(d))
+            cache.save_board(d, version, failed, board_ttl_seconds(d))
             return {"accepted": 0, "error": str(exc)}
         updated, audit = validate_and_apply(board, response)
-        cache.save_board(d, CONTENT_VERSION, updated, board_ttl_seconds(d))
+        cache.save_board(d, version, updated, board_ttl_seconds(d))
         write_threads_export(updated)  # 교정 반영분으로 스레드 텍스트 갱신
         logger.info(
             "daily fortune polish date=%s audit=%s",
@@ -251,7 +255,7 @@ def polish_board(cache: DailyFortuneCache, d: date) -> dict[str, Any] | None:
         )
         return audit
     finally:
-        cache.release_lock("polish", d, CONTENT_VERSION, token)
+        cache.release_lock("polish", d, version, token)
 
 
 _attempted: set[str] = set()
@@ -262,7 +266,7 @@ def maybe_schedule_polish(cache: DailyFortuneCache, d: date) -> bool:
     """lazy 경로용 — 프로세스당 날짜·버전 1회, 데몬 스레드로 교정 예약."""
     if not llm_client.is_available():
         return False
-    key = f"{d.isoformat()}|{CONTENT_VERSION}|{PROMPT_VERSION}"
+    key = f"{d.isoformat()}|{active_content_version(d)}|{PROMPT_VERSION}"
     with _attempted_mutex:
         if key in _attempted:
             return False

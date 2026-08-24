@@ -921,6 +921,7 @@ def _lotto_slot_open(d: date, ilju_index: int) -> bool:
 def compute_board(
     ctx: DayGanjiContext, dicts: DailyFortuneDicts,
     selection_override: Mapping[str, Mapping[str, str]] | None = None,
+    scored_rows: Mapping[str, list[_ScoredEvent]] | None = None,
 ) -> DailyFortuneBoard:
     """60일주 전체 보드를 산출한다(결정론 — 동일 입력이면 동일 출력).
 
@@ -933,20 +934,28 @@ def compute_board(
             (`_select_slots`·`_headline_candidates`·`_rebalance_headlines` 미호출).
             베타 pool snapshot 을 선택의 SSOT 로 쓰는 렌더링 경로 전용이며,
             None 이면 라이브 거동이 바이트 단위로 동일하다.
+        scored_rows: 일주(한자 2자) → 채점 결과 목록. 주어지면 v1 `_score_event`
+            패스를 건너뛰고 이 후보 풀을 그대로 쓴다 — 3층 판정 모델(v2,
+            `daily_fortune_v2.compute_board_v2`)이 선발·렌더 파이프라인을 재사용하는
+            주입 지점. None 이면 라이브 거동이 바이트 단위로 동일하다.
     """
     d = ctx.the_date
     per_ilju: list[dict[str, Any]] = []
     for idx in range(60):
         stem, branch = ganzi_from_index(idx)
-        scored = [
-            _score_event(key, ev, stem, branch, ctx)
-            for key, ev in dicts.catalog["events"].items()
-        ]
+        ilju = f"{stem.value}{branch.value}"
+        if scored_rows is not None:
+            scored = list(scored_rows[ilju])
+        else:
+            scored = [
+                _score_event(key, ev, stem, branch, ctx)
+                for key, ev in dicts.catalog["events"].items()
+            ]
         per_ilju.append({
             "index": idx,
             "stem": stem,
             "branch": branch,
-            "ilju": f"{stem.value}{branch.value}",
+            "ilju": ilju,
             "scored": scored,
         })
 
