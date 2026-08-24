@@ -1,0 +1,151 @@
+"""3층 판정 모델(v2) 단위 테스트 — docs/17 §22 계약 검증."""
+
+from __future__ import annotations
+
+import datetime as dt
+import json
+from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
+
+from saju_engines import daily_ilju_fortune as v1
+from saju_engines.daily_fortune_v2 import (
+    EXCLUDED_FROM_V1,
+    day_channels,
+    load_catalog_v2,
+    score_event_v2,
+    select_slots_v2,
+    signature_satisfied,
+    unsatisfiable_signatures,
+    validate_against_v1,
+)
+from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index
+from saju_manse_core.pillars.gongmang import gongmang_branches
+from saju_shared_types.daily_fortune_v2 import DailyEventModelV2
+from saju_shared_types.enums import Branch, Stem
+
+_DICTS = Path(__file__).resolve().parents[2] / "dictionaries" / "daily_fortune"
+
+
+def _catalog():
+    return load_catalog_v2(str(_DICTS / "daily_event_catalog_v2.json"))
+
+
+def test_catalog_has_48_events_and_approved_overrides() -> None:
+    """§22-3: 48종, weather 제외, family_talk 이중 슬롯."""
+    catalog = _catalog()
+    assert len(catalog.events) == 48
+    assert EXCLUDED_FROM_V1.isdisjoint(catalog.events)
+    assert catalog.events["family_talk"].slots == ["support", "good"]
+    # 구조 검증 통과 ≠ 명리 감수 — 감수 전 상태가 위조되면 안 된다.
+    assert catalog.reviewed is False
+
+
+def test_catalog_matches_v1_identity() -> None:
+    """key/label/domain/valence 는 v1 과 갈라질 수 없다."""
+    v1_catalog = json.loads(
+        (_DICTS / "daily_event_catalog.json").read_text(encoding="utf-8")
+    )
+    assert validate_against_v1(_catalog(), v1_catalog) == []
+
+
+def test_v2_schema_forbids_v1_scoring_fields() -> None:
+    """v2 는 채점 전용 스키마 — expr_confidence 등 v1 필드 유입은 즉시 실패(§22-1)."""
+    base = {
+        "label": "x", "domain": "money", "valence": "good", "slots": ["good"],
+        "prior": "상", "required_signature": None, "evidence": {"편재": 0.5},
+    }
+    DailyEventModelV2.model_validate(base)
+    with pytest.raises(ValidationError):
+        DailyEventModelV2.model_validate({**base, "expr_confidence": 0.9})
+
+
+def test_comm_exclusive_triggers() -> None:
+    """소통 4종 배타 규칙(§22-3): 해+상관만 있는 날 — 구설 성립, 말다툼 불성립."""
+    catalog = _catalog()
+    ch = {"hae": 1.0, "상관": 1.0}
+    assert signature_satisfied(ch, catalog.events["rumor_caution"].required_signature)
+    assert not signature_satisfied(
+        ch, catalog.events["argument_caution"].required_signature
+    )
+    # 충이 생기면 말다툼이 성립한다.
+    assert signature_satisfied(
+        {**ch, "chung": 1.0}, catalog.events["argument_caution"].required_signature
+    )
+
+
+def test_signature_surface_threshold_blocks_weak_hidden_stems() -> None:
+    """표면성 규칙(§22-2): 중기·여기(0.3) 단독으로는 십성 리프가 성립하지 않는다."""
+    assert not signature_satisfied({"편인": 0.3}, "편인")
+    assert signature_satisfied({"편인": 0.7}, "편인")
+    # 그룹 별칭은 구성원 최댓값으로 판정한다.
+    assert signature_satisfied({"겁재": 1.0}, "비겁")
+    assert not signature_satisfied({"겁재": 0.3}, "비겁")
+
+
+def test_gongmang_channel_rules() -> None:
+    """공망일 채널: 공망지 아닌 날 0 / 충발 1.0 유지 / 육합 0.4 감쇄(合則不能空)."""
+    ctx_base = v1.build_day_context(dt.date(2026, 8, 24))
+
+    def _ch(ilju_stem: str, ilju_branch: str, day_stem: str, day_branch: str) -> dict:
+        ctx = ctx_base.model_copy(
+            update={"day_stem": day_stem, "day_branch": day_branch}
+        )
+        return day_channels(Stem(ilju_stem), Branch(ilju_branch), ctx)
+
+    # 甲子일주 공망 = 戌亥: 戌일은 공망일, 午일은 아니다.
+    assert Branch("戌") in gongmang_branches(Stem("甲"), Branch("子"))
+    assert _ch("甲", "子", "甲", "戌")["gongmang"] == 1.0
+    assert _ch("甲", "子", "甲", "午")["gongmang"] == 0.0
+    # 己亥일주 공망 = 辰巳: 巳일은 巳亥 충 동반 — 충발은 감쇄 없이 1.0(§22-2).
+    assert _ch("己", "亥", "己", "巳")["gongmang"] == 1.0
+    assert _ch("己", "亥", "己", "巳")["chung"] == 1.0
+    # 육합 감쇄(0.4) 사례가 60일주 × 공망지 안에 실제로 존재해야 규칙이 산다.
+    damped = []
+    for i in range(60):
+        stem, branch = ganzi_from_index(i)
+        for void in gongmang_branches(stem, branch):
+            ch = _ch(str(stem), str(branch), "甲", str(void))
+            if ch["gongmang"] == 0.4:
+                damped.append((str(stem) + str(branch), str(void)))
+    assert damped, "육합 감쇄 사례 부재 — 감쇄 규칙이 죽은 코드"
+
+
+def test_ineligible_event_never_beats_eligible_pool() -> None:
+    """게이트 미성립 후보는 감점(0.3배)돼 폴백 밖에서는 선발되지 않는다."""
+    catalog = _catalog()
+    ctx = v1.build_day_context(dt.date(2026, 8, 24))
+    for i in range(60):
+        stem, branch = ganzi_from_index(i)
+        ch = day_channels(stem, branch, ctx)
+        sel = select_slots_v2(catalog, ch, f"2026-08-24|{stem.value}{branch.value}|t")
+        if sel.fallback_used:
+            continue
+        for scored in (sel.good, sel.caution, sel.support):
+            assert scored.event_key in sel.eligible_keys
+
+
+def test_fallback_fills_caution_when_all_gated() -> None:
+    """전 caution 게이트 미성립(빈 채널)에서도 카드 3슬롯 계약이 유지된다(§22-1)."""
+    catalog = _catalog()
+    sel = select_slots_v2(catalog, {}, "seed|fallback")
+    assert sel.fallback_used is True
+    assert sel.caution.valence == "caution"
+    assert sel.good.valence == "good"
+
+
+def test_all_signatures_satisfiable_within_a_year() -> None:
+    """§22-4: eligible=0 signature 는 결함 — 고정 연도 전수에서 전부 성립해야 한다."""
+    assert unsatisfiable_signatures(_catalog()) == []
+
+
+def test_scoring_ignores_expr_confidence_field_entirely() -> None:
+    """ec 는 v2 evidence 경로에 존재하지 않는다 — 같은 입력이면 같은 activation."""
+    catalog = _catalog()
+    ch = {"편재": 1.0, "saeng_a": 0.6}
+    result = score_event_v2("money_small_gain", catalog.events["money_small_gain"], ch)
+    assert result.eligible
+    again = score_event_v2("money_small_gain", catalog.events["money_small_gain"], ch)
+    assert result.scored.activation == again.scored.activation
+    assert 5 <= result.scored.probability <= 95

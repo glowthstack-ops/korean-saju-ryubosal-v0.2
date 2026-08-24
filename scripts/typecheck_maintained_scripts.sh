@@ -32,6 +32,8 @@ MAINTAINED=(
     # 운영 smoke
     scripts/smoke_daily_beta.py
     scripts/smoke_openai_fallback.py
+    # 사전 v2 검증·컴파일 파이프라인 — 카탈로그 수정 시마다 재실행한다(docs/17 §22-6)
+    scripts/build_daily_fortune_v2_snapshot.py
     # 재현 기준선 — 설계 변경 전후를 같은 모집단으로 재측정한다
     scripts/audit_amhap_saturation.py
     scripts/audit_wealth_taxonomy_separability.py
