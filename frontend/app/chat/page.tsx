@@ -386,8 +386,9 @@ export default function ChatPage() {
   }
 
   return (
-    // pb-24: 하단 고정 입력바에 가려지지 않도록 본문 끝에 여백 확보.
-    <div className="pb-28">
+    // pb-28: 하단 고정 입력바에 가려지지 않도록 본문 끝에 여백 확보.
+    // -mb-20: 루트 레이아웃 공통 하단 여백(pb-20) 상쇄 — 입력바가 fixed라 이 페이지는 자체 pb-28만 쓴다.
+    <div className="-mb-20 pb-28">
       {showSwitch && (
         <Modal title="사주 변경" onClose={() => setShowSwitch(false)}>
           <div className="space-y-1.5">
