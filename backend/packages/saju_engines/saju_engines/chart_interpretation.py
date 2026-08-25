@@ -535,7 +535,7 @@ def _build_excerpts(
 _MAX_SINSAL_EXCERPTS = 5
 # 궁성론(2026-06-12 사용자 확정) — 같은 신살도 자리에 따라 시기·대상·작용이 갈린다.
 _SINSAL_PALACE_LABEL = {
-    "year": "년주(조상·고향·초년)",
+    "year": "연주(조상·고향·초년)",
     "month": "월주(부모·직장·사회·청년 — 작용력 최대)",
     "day": "일주(나·배우자·장년)",
     "hour": "시주(자녀·내면·말년)",
@@ -594,7 +594,7 @@ def _sinsal_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
                 pos_texts.append(bypos["personal"])
         bypos_note = (" 위치별: " + " / ".join(pos_texts)) if pos_texts else ""
         # 실위치 앵커 — '위치별: 년·월에 있으면 …' 일반론을 실제 위치로 오인해 신살을
-        # 다른 주로 옮겨 말하던 오독 차단(2026-07-21 데굴님 실로그: 년주 천을귀인을
+        # 다른 주로 옮겨 말하던 오독 차단(2026-07-21 데굴님 실로그: 연주 천을귀인을
         # '월주에 있는 천을귀인'으로 서술). 일반론 문구가 붙는 경우에만 덧붙인다.
         if bypos_note and pos:
             labels = "·".join(_SINSAL_PALACE_LABEL[p].split("(")[0] for p in pos)

@@ -66,7 +66,7 @@ def test_candidates_carry_pruned_modifiers(chart, candidates, bundles, scorer) -
     # 후보당 신살 태그는 최대 3개(pruning 가드).
     for c in payload.event_candidates:
         assert len(c.sinsal_modifiers) <= cfg.SINSAL_PAYLOAD_MAX_PER_EVENT
-        # 후보당 domain_match=False 최대 1, 년주 background 최대 1.
+        # 후보당 domain_match=False 최대 1, 연주 background 최대 1.
         assert sum(1 for m in c.sinsal_modifiers if not m.domain_match) <= 1
     # career 질문 → 적어도 한 후보엔 신살 태그가 붙는다(1980 차트는 월주 신살 보유).
     assert any(c.sinsal_modifiers for c in payload.event_candidates)

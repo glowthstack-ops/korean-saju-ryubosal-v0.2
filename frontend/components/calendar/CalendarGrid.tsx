@@ -130,7 +130,7 @@ function DayDetail({ d, luck, onClose }: { d: CalendarDay; luck?: LuckPillar; on
       {/* 단일 grid: 라벨 열 = 최장 항목명(max-content) 기준 고정, 값 열 = 나머지(1fr). */}
       <div className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-0.5">
         {row("음력", `${d.lunar_date}${d.is_leap_month ? " (윤달)" : ""}`)}
-        {row("년주", `${d.year_ganji} (${d.year_ganji_ko}) · ${d.year_zodiac}띠`)}
+        {row("연주", `${d.year_ganji} (${d.year_ganji_ko}) · ${d.year_zodiac}띠`)}
         {row("월주", `${d.month_ganji} (${d.month_ganji_ko})`)}
         {row("일주", `${d.day_ganji} (${d.day_ganji_ko})`)}
         {d.naeum && row("납음(일주)", d.naeum)}

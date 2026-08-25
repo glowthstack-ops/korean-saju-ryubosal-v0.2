@@ -461,7 +461,7 @@ TEMPORAL_KO: dict[TemporalMode, str] = {
     TemporalMode.IMMEDIATE: "즉시",
 }
 PALACE_KO: dict[Pillar4, str] = {
-    Pillar4.YEAR: "년주(가족·배경)",
+    Pillar4.YEAR: "연주(가족·배경)",
     Pillar4.MONTH: "월주(직업·사회)",
     Pillar4.DAY: "일주(배우자·거처)",
     Pillar4.HOUR: "시주(자녀·결과)",

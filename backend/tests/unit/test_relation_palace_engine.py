@@ -152,7 +152,7 @@ def test_compound_always_with_constituent_codes() -> None:
 
 
 def _resource_clash_act() -> RelationActivation:
-    """년주 충 + 피자극 글자=정인 — 년주는 contract_document 도메인이 아니어서
+    """연주 충 + 피자극 글자=정인 — 연주는 contract_document 도메인이 아니어서
     기존 (관계,궁성) 경로가 매칭하지 않는 격리 조건이다."""
     return RelationActivation(
         RelationKind.CHUNG, Pillar4.YEAR, LuckLayer.SEWOON,

@@ -106,7 +106,7 @@ def detect_geokguk(
 
     # 4) 보조 구조: 월지 외 천간 십성의 발현(보조격 표현 금지 → "발현").
     auxiliary: list[str] = []
-    for pos, label in (("year", "년주"), ("month", "월간"), ("hour", "시주")):
+    for pos, label in (("year", "연주"), ("month", "월간"), ("hour", "시주")):
         p = getattr(pillars, pos)
         if p is None:
             continue

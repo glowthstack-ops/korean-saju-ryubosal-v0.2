@@ -66,7 +66,7 @@ def test_no_ranking_words() -> None:
             assert banned not in reading
 
 
-# 5. 년주 결측 graceful → None.
+# 5. 연주 결측 graceful → None.
 def test_missing_year_graceful() -> None:
     from types import SimpleNamespace
     stub = SimpleNamespace(pillars=SimpleNamespace(year=None))

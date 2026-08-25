@@ -105,15 +105,15 @@ REACTIVATION_RELATION_PREFIXES: tuple[str, ...] = (
     "삼합완성", "반합성립", "방합완성", "자형", "삼형",
 )
 
-# ── payload pruning(가드) — 후보당 노출 상한·도메인 비정렬/년주 배경 캡 ──
+# ── payload pruning(가드) — 후보당 노출 상한·도메인 비정렬/연주 배경 캡 ──
 SINSAL_PAYLOAD_MAX_PER_EVENT = 3
 # natal 신살은 도메인 레벨(모든 후보 동일) → 토큰 절약 위해 상위 N개 후보에만 부착.
 SINSAL_PAYLOAD_MAX_CANDIDATES = 2
 SINSAL_PAYLOAD_MAX_DOMAIN_UNMATCHED = 1  # domain_match=False 최대 노출
-SINSAL_PAYLOAD_MAX_YEAR_BACKGROUND = 1  # 년주 background 길성/흉살 최대 노출
+SINSAL_PAYLOAD_MAX_YEAR_BACKGROUND = 1  # 연주 background 길성/흉살 최대 노출
 # 위치 → 직렬화용 짧은 궁성 라벨(payload 텍스트).
 PALACE_SHORT_LABEL: dict[str, str] = {
-    "year": "년주", "month": "월주(사회궁)", "day": "일주", "hour": "시주",
+    "year": "연주", "month": "월주(사회궁)", "day": "일주", "hour": "시주",
 }
 
 # ── §9 강도 밴드(internal_weight → LLM 한글 강도어) ──

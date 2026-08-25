@@ -93,7 +93,7 @@ def test_twin_wrap_keeps_day_and_uses_sidubeop() -> None:
     # 甲일 亥시 = 乙亥. 둘째 → 子시 wrap → 甲일 시두법 子시 천간 = 甲 → 甲子.
     stem, branch, wrapped = twin_adjusted_hour_pillar("乙", "亥", "甲", 2)
     assert wrapped is True
-    assert (stem, branch) == ("甲", "子")  # 일주·년주·월주는 호출 측에서 불변 유지
+    assert (stem, branch) == ("甲", "子")  # 일주·연주·월주는 호출 측에서 불변 유지
 
 
 def test_chart_variant_state() -> None:

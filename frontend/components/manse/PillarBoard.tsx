@@ -113,7 +113,7 @@ export function PillarBoard({ result }: { result: ManseResult }) {
         <Column title="시주" p={hour} />
         <Column title="일주" p={day} />
         <Column title="월주" p={month} />
-        <Column title="년주" p={year} />
+        <Column title="연주" p={year} />
       </div>
     </section>
   );
