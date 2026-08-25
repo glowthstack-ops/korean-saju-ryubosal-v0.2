@@ -150,9 +150,10 @@ def _run_report_job(
     store = ReportJobStore()
     store.mark_running(job_id)
 
-    def _on_progress(done: int, _total: int) -> None:
+    def _on_progress(done: int, total: int) -> None:
+        # total = 분할 페이지 확장 후 실제 총 장 수 — 생성 시점의 확장 전 계획 수를 교체한다.
         try:
-            store.update_progress(job_id, done)
+            store.update_progress(job_id, done, total)
         except Exception:  # noqa: BLE001 — 진행 갱신 실패가 생성을 막지 않도록
             pass
 
