@@ -88,7 +88,7 @@ describe("subject-mapping", () => {
       yongsin_registered: false, mulsang_registered: false,
       birth: { calendar_type: "solar", birth_date: "2015-03-01", birth_place_name: "서울" },
     };
-    expect(subjectEotPreference(base)).toBe(true); // 구 레코드(time_options 없음) = 백엔드 기본값
+    expect(subjectEotPreference(base)).toBe(false); // 구 레코드(time_options 없음) = 백엔드 기본값(미적용)
     expect(subjectEotPreference({
       ...base, birth: { ...base.birth, time_options: { apply_equation_of_time: false } },
     })).toBe(false);
@@ -97,7 +97,7 @@ describe("subject-mapping", () => {
     })).toBe(true);
     expect(subjectEotPreference({
       ...base, birth: { ...base.birth, time_options: { day_boundary_rule: "23:00" } },
-    })).toBe(true); // 부분 옵션 — eot 미지정이면 기본 적용
+    })).toBe(false); // 부분 옵션 — eot 미지정이면 기본 미적용
   });
 
   it("profile → basic maps gender to M/F and city/display_name", () => {

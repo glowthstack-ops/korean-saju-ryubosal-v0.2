@@ -37,9 +37,9 @@ function trimTime(t: string | null | undefined): string | null {
 }
 
 /** 저장된 사주의 균시차 사용 여부 — 로그인 사주는 사주별 속성(birth.time_options)이
-  진실 소스다(기기 로컬 토글은 비로그인 전용). 미저장(구 레코드)은 백엔드 기본값 true. */
+  진실 소스다(기기 로컬 토글은 비로그인 전용). 미저장(구 레코드)은 백엔드 기본값 false(미적용). */
 export function subjectEotPreference(s: SubjectSummary): boolean {
-  return s.birth.time_options?.["apply_equation_of_time"] !== false;
+  return s.birth.time_options?.["apply_equation_of_time"] === true;
 }
 
 /** SubjectSummary.birth → Profile(화면·만세력 호출용). region은 저장되지 않아 빈 값. */
