@@ -2027,17 +2027,29 @@ _CAREER_NONREGULAR_DIRECTIVE = (
 # 생활형 횡재(로또·연금복권·소액 주식 등) — 일상적 재미·소액 시도 맥락. 번호 요청('로또 번호')은
 # query_parser에서 OUT_OF_SCOPE로 이미 거부된다(여기 도달 = 흐름·시기 질문). CLAUDE.md 절대원칙 8
 # (2026-06-20 개정): 생활형 횡재는 시기·흐름·유불리·태도를 자유롭게 풀되, 하드 가드만 유지.
+# 강한 횡재 키 — 단독으로 생활형 횡재(재미·소액·추첨) 맥락이 확정되는 어휘.
 _LIFESTYLE_WINDFALL_KEYS = (
     "로또",
     "복권",
     "연금복권",
+    "경마",
+    "토토",
+)
+# 약한 횡재 키 — 소액·재미로도, 자산 운용으로도 쓰이는 어휘. 투자 표지가 없을 때만 횡재로 본다
+# (2026-09-01 실로그: '주식의 장기 투자가 실제 내 이익으로 돌아올까?'가 '주식' 한 단어로 횡재
+# 판정돼 답 전체가 '오늘 복권 한 장' 프레임으로 흘렀다). 청약은 추첨형 선발 코어와 별개로
+# 여기서는 어휘 판정만 한다.
+_LIFESTYLE_WINDFALL_WEAK_KEYS = (
     "주식",
     "코인",
     "비트코인",
     "펀드",
     "청약",
-    "경마",
-    "토토",
+)
+# 투자 표지 — 약한 키와 함께 나오면 생활형 횡재가 아니라 재물 운용·축적 질문이다.
+_INVESTMENT_MARKERS = (
+    "장기", "중장기", "투자", "수익률", "수익", "이익", "손실", "원금", "자산", "포트폴리오",
+    "적립", "배당", "매도 시점", "손절", "익절", "물타기",
 )
 _LIFESTYLE_WINDFALL_DIRECTIVE = (
     "[생활형 횡재 — 표현 자유 우선 적용]\n"
@@ -2051,13 +2063,56 @@ _LIFESTYLE_WINDFALL_DIRECTIVE = (
 )
 
 
-def _is_lifestyle_windfall(intent: IntentJson, question: str) -> bool:
-    """생활형 횡재 질문 여부 — 재물/횡재 의도 + 생활형 키워드(번호 요청은 이미 정책 거부됨)."""
-    wealth_ctx = intent.domain is Domain.WEALTH or str(intent.event_key) in (
+# 투자·자산 운용 질문 전용 — 횡재에서 빠진 주식·코인·펀드 질문이 일반 재물 풀이로 떨어지면
+# 절대원칙 8의 하드 가드(종목 픽·수익 확정·과몰입)가 사라지므로, 가드는 그대로 두고 주제만
+# '재물 운용·축적 흐름'으로 고정한다. 시간 범위는 [답변 지평] 디렉티브가 따로 소유하므로
+# 여기서 다시 정하지 않는다(단일 소유). 페르소나·점수·판정에는 개입하지 않는다.
+_INVESTMENT_FLOW_DIRECTIVE = (
+    "[재물 운용 질문 — 주제 고정]\n"
+    "이 질문은 복권·소액 재미가 아니라 투자·자산 운용의 흐름을 묻는 것이다. 답의 중심은 "
+    "재성(정재·편재)의 세력과 용신 여부, 운에서 재성·식상·비겁이 들어오는 시기가 축적에 "
+    "유리한지 소모·유출로 기우는지, 그리고 이 명식이 꾸준히 쌓는 쪽인지 단기 회전이 맞는 "
+    "쪽인지다. 복권·당첨·오늘 하루의 길흉·구매 장소 같은 횡재 프레임은 쓰지 않는다. "
+    "다음은 지킨다: ①특정 종목·코인·상품을 찍어 주지 않는다 ②'수익이 난다/원금을 회복한다' "
+    "같은 결과 단정은 하지 않는다(가능성·기류로) ③전 재산 투입 등 과몰입은 권하지 않는다."
+)
+
+
+def _wealth_context(intent: IntentJson) -> bool:
+    """재물 도메인 또는 횡재·재물 변화 이벤트 의도인가."""
+    return intent.domain is Domain.WEALTH or str(intent.event_key) in (
         "windfall",
         "wealth_change",
     )
-    return wealth_ctx and any(k in question for k in _LIFESTYLE_WINDFALL_KEYS)
+
+
+def _has_investment_marker(question: str) -> bool:
+    """질문에 투자·자산 운용 표지가 있는가."""
+    return any(m in question for m in _INVESTMENT_MARKERS)
+
+
+def _is_lifestyle_windfall(intent: IntentJson, question: str) -> bool:
+    """생활형 횡재 질문 여부 — 재물/횡재 의도 + 생활형 키워드(번호 요청은 이미 정책 거부됨).
+
+    강한 키(로또·복권 등)는 단독으로 횡재. 약한 키(주식·코인·펀드·청약)는 투자 표지가 없을
+    때만 횡재로 본다 — '주식운 어때'는 횡재, '주식 장기 투자 수익 날까'는 재물 운용 질문.
+    """
+    if not _wealth_context(intent):
+        return False
+    if any(k in question for k in _LIFESTYLE_WINDFALL_KEYS):
+        return True
+    return any(k in question for k in _LIFESTYLE_WINDFALL_WEAK_KEYS) and \
+        not _has_investment_marker(question)
+
+
+def _is_investment_flow(intent: IntentJson, question: str) -> bool:
+    """투자·자산 운용 질문 여부 — 약한 횡재 키 + 투자 표지(강한 횡재 키가 있으면 횡재 우선)."""
+    if not _wealth_context(intent):
+        return False
+    if any(k in question for k in _LIFESTYLE_WINDFALL_KEYS):
+        return False
+    return any(k in question for k in _LIFESTYLE_WINDFALL_WEAK_KEYS) and \
+        _has_investment_marker(question)
 
 
 # 사고수(事故數) 해석 지식팩(2026-07-23 데굴님 제공 강의 자료 증류) — 사고·안전 질문에서
@@ -4870,6 +4925,10 @@ def chat(
     # 당첨단정 거부는 유지). CLAUDE.md 절대원칙 8 개정(2026-06-20 데굴님 승인).
     if _is_lifestyle_windfall(intent, question):
         trailing.append(_LIFESTYLE_WINDFALL_DIRECTIVE)
+    # 투자·자산 운용(주식 장기 투자 등) — 횡재 프레임을 막고 재물 운용 축으로 고정, 하드 가드 유지
+    # (2026-09-01 실로그: 장기 투자 질문이 '오늘 복권' 답으로 흘렀다). 횡재와 상호 배타.
+    elif _is_investment_flow(intent, question):
+        trailing.append(_INVESTMENT_FLOW_DIRECTIVE)
     # 사고수 — 사고·안전 위험 질문이면 해석 축(이동·문서·통제력·외부유입)과 단정 금지
     # 프레임을 고정한다(2026-07-23 데굴님 제공 자료 증류). 파서가 HEALTH로 흡수하므로
     # 후보·위험 신호는 건강·안전 축으로 이미 필터돼 들어온다.
