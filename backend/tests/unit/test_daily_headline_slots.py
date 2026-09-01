@@ -163,3 +163,49 @@ def test_small_find_disappears_from_headlines_after_activation(dicts) -> None:
         day = EFF + dt.timedelta(days=i)
         board = M.compute_board(M.build_day_context(day), M.load_daily_dicts_for(day))
         assert all(str(f.headline_event_key) != "small_find" for f in board.fortunes)
+
+
+def test_lucky_places_revision_date_gate() -> None:
+    """행운의 장소 개정(v1.12)은 9/3 부터 — 9/2 까지는 v1.11, 7/30 이전은 v1.10(3단 게이트).
+
+    승격 시점에 이미 생성·export 된 당일 보드가 재생성·재교정되지 않도록 캐시 namespace 를
+    날짜로 가른다. 세 버전의 스냅샷이 모두 커밋돼 있어야 재현 가능하다.
+    """
+    from datetime import date, timedelta
+
+    from saju_engines.daily_fortune_snapshot import load_snapshot
+    from saju_shared_types.daily_fortune import (
+        DICT_VERSION,
+        DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION,
+        PREVIOUS_DICT_VERSION,
+        active_dict_version,
+    )
+    from saju_shared_types.daily_fortune import (
+        LUCKY_PLACES_REVISION_EFFECTIVE_FROM as EFF,
+    )
+    from saju_shared_types.daily_fortune import (
+        SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM as EFF_OLD,
+    )
+
+    assert EFF == date(2026, 9, 3) and EFF_OLD < EFF
+    assert active_dict_version(EFF_OLD - timedelta(days=1)) == PREVIOUS_DICT_VERSION
+    assert active_dict_version(EFF - timedelta(days=1)) == DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION
+    assert active_dict_version(EFF) == DICT_VERSION == "dict.v1.12"
+    for ver in (PREVIOUS_DICT_VERSION, DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION, DICT_VERSION):
+        assert load_snapshot(ver) is not None, ver
+
+
+def test_lucky_places_are_drop_in_friendly() -> None:
+    """행운의 장소는 예약·티켓·회원권 없이 지나가다 머물 수 있는 곳이어야 한다(2026-09-01)."""
+    from saju_engines.daily_ilju_fortune import load_daily_dicts
+
+    places = load_daily_dicts().places["places"]
+    assert len(places) == 40
+    names = [v["name"] for v in places.values()]
+    for banned in ("부동산", "상담소", "공방", "클래스", "공연장", "아쿠아리움", "사우나",
+                   "스파", "수영장", "피트니스", "야시장", "전자상가", "금은방", "철물"):
+        assert not any(banned in n for n in names), banned
+    assert "우체국" in names and "버스 정류장" in names and "분식집" in names
+    # 도메인 커버리지 — 9개 도메인 모두 최소 1곳(교체가 커버리지를 깨지 않았다).
+    for dom in ("money", "love", "work", "social", "news", "document", "move", "health", "leisure"):
+        assert any(dom in v["domains"] for v in places.values()), dom

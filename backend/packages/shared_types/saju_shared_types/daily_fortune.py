@@ -21,7 +21,10 @@ ENGINE_VERSION = "engine.v1"
 # v1.7: 사전 3종 검수 상태(reviewed·review_note) 명시 + 컴파일 스냅샷 파이프라인 도입
 # v1.6: 연애 Top5가 good 오늘의연애 신호 일주 우선 정렬(love_line과 정합, beta·감수 대상)
 # v1.5: love_line 강한 신호 게이트(sg≥3)·reunion 문구 여운 중심 수정
-DICT_VERSION = "dict.v1.11"
+# v1.12(2026-09-01): 행운의 장소 UX 점검 — 예약·티켓·회원권이 필요한 13곳을 "지나가다
+#   머물러도 이상하지 않은 곳"으로 교체(우체국·생활용품점·버스 정류장·분식집 등), 3곳 표현
+#   손질, place_phrases 조사 오류("편의점를") 제거. 키·이름만 바뀌고 순서·도메인·오행은 유지.
+DICT_VERSION = "dict.v1.12"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -36,6 +39,12 @@ CONTENT_VERSION = (
 SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM = date(2026, 7, 30)
 #: 활성화 이전 계약(스냅샷이 함께 커밋돼 있어야 재현 가능하다).
 PREVIOUS_DICT_VERSION = "dict.v1.10"
+#: 행운의 장소 개정(v1.12) 활성화 기준일 — 이미 생성·export 된 9/2 보드는 v1.11 을 유지하고
+#: 9/3 보드(9/2 21시 선생성)부터 새 사전을 쓴다. 캐시 namespace 가 날짜별로 갈리므로
+#: 승격 시점에 당일 보드가 재생성·재교정되지 않는다(2026-09-01 데굴님 승인).
+LUCKY_PLACES_REVISION_EFFECTIVE_FROM = date(2026, 9, 3)
+#: 그 기준일 이전(7/30~9/2)에 적용되는 사전 버전.
+DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION = "dict.v1.11"
 
 
 def active_dict_version(target_date: date) -> str:
@@ -45,10 +54,12 @@ def active_dict_version(target_date: date) -> str:
         target_date: 운세 대상 날짜(KST 기준).
 
     Returns:
-        기준일 이전이면 이전 버전, 이후면 현재 `DICT_VERSION`.
+        7/30 이전 v1.10 → 9/3 이전 v1.11 → 이후 현재 `DICT_VERSION`(v1.12).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
+    if target_date < LUCKY_PLACES_REVISION_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION
     return DICT_VERSION
 
 

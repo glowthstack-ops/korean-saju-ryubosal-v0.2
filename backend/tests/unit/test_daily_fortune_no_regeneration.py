@@ -30,7 +30,7 @@ from saju_api.services.daily_fortune_export import (
     threads_publish_date,
 )
 from saju_engines.daily_fortune_cache import InMemoryDailyFortuneCache
-from saju_shared_types.daily_fortune import CONTENT_VERSION
+from saju_shared_types.daily_fortune import content_version_for
 
 _KST = ZoneInfo("Asia/Seoul")
 
@@ -95,7 +95,9 @@ def test_a_failed_board_is_not_retried_automatically(llm: _CountingLLM) -> None:
     cache = InMemoryDailyFortuneCache()
     daily_fortune_polish.generate_and_polish(cache, _TARGET)
 
-    board = cache.load_board(_TARGET, CONTENT_VERSION)
+    # 보드는 그 날짜의 계약(content_version_for)으로 저장된다 — 전역 상수(최신 사전)가
+    # 아니다. 날짜 게이트로 사전 버전이 갈리면(7/30·9/3) 상수 조회는 유령 키를 본다.
+    board = cache.load_board(_TARGET, content_version_for(_TARGET))
     assert board is not None and board.polish_status == "FAILED"
 
     daily_fortune_polish.generate_and_polish(cache, _TARGET)

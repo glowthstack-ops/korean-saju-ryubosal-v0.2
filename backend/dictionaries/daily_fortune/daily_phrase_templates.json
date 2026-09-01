@@ -1,6 +1,6 @@
 {
   "schema": "daily_phrase_templates.v1",
-  "version": "dict.v1.5",
+  "version": "dict.v1.6",
   "reviewed": false,
   "runtime_status": "ACTIVE",
   "review_status": "PENDING",
@@ -1908,7 +1908,7 @@
   "place_phrases": [
     "오늘의 행운은 {place} 근처에 머물러요.",
     "{place}에서 좋은 기운이 기다리고 있어요.",
-    "지나는 길에 {place}를 들러보세요. 반가운 일이 생길지도!"
+    "지나는 길에 {place} 쪽으로 발길을 돌려보세요. 반가운 일이 생길지도!"
   ],
   "lotto_phrases": [
     "작은 돈복이 따라붙는 날! 출퇴근길에 로또 한 장쯤 가볍게 도전해 보세요♪",

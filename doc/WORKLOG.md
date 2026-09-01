@@ -10359,3 +10359,36 @@ timeless)이었고, 원인은 `chat_service._is_lifestyle_windfall`이 재물 �
   REVISION). 기존 export 날짜 가드·동일내용 생략·polish guard·selection contracts 비회귀.
 - **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
   maintained scripts mypy gate clean.
+
+## 2026-09-01 — 행운의 장소 UX 점검: 지나가다 머물 수 있는 곳으로 교체 (dict.v1.12) ✅
+
+사용자 지적("부동산 상담소 — 가고 싶다고 자주 갈 수 있는 장소가 아니다"). 40곳 전수 점검
+기준 = 예약·티켓·회원권·특정 용건 없이 **지나가다 머물러도 이상하지 않은가**.
+
+- **교체 13곳**(도메인·오행·사전 순서 유지 → 선택 인덱스 불변): 부동산 상담소→우체국,
+  철물·공구 상가→생활용품점, 전자상가→지하철역 상가, 금은방 거리→쇼핑몰 1층, 공방·클래스→
+  공원 벤치, 도예·공예 공방→소품샵, 공연장→버스 정류장, 아쿠아리움→분수대 앞, 운동하는 곳→
+  동네 운동장, 피트니스 센터→동네 체육공원, 목욕탕·수영장→동네 약국, 스파·사우나→코인 세탁방,
+  야시장→분식집. **표현 손질 3곳**: 화원·식물원→동네 화원, 물가 산책로→강변 다리 위(물가
+  산책길과 중복), 가구·리빙숍→리빙숍. 유지 24곳.
+- **문구 템플릿**: place_phrases "지나는 길에 {place}를 들러보세요"의 조사 오류("편의점를")
+  → "{place} 쪽으로 발길을 돌려보세요"(조사 무관형). API `place_phrase`에만 영향.
+- **버전·캐시**: `DICT_VERSION=dict.v1.12`, 원본 places dict.v1.3·templates dict.v1.6.
+  `active_dict_version` 3단 날짜 게이트(<7/30 v1.10 / <9/3 v1.11 / 9/3~ v1.12,
+  `LUCKY_PLACES_REVISION_EFFECTIVE_FROM`) — 이미 생성·export 된 9/2 보드는 v1.11 namespace
+  그대로, 9/3 보드(9/2 21시 선생성)부터 새 사전. 승격 시점 재생성·재교정 없음.
+  스냅샷 `compiled/daily_fortune_dict.v1.12.json` 컴파일(structural_validation=passed,
+  reviewed=false 유지 — 명리 감수가 아닌 UX 점검). 베타 풀은 비활성(env 미설정)이라 preflight
+  영향 없음.
+- **문서**: docs/17 §13 선정 기준 추가.
+- **테스트**: `test_lucky_places_revision_date_gate`(3단 게이트·세 스냅샷 존재),
+  `test_lucky_places_are_drop_in_friendly`(금칙 장소어 14종 부재·신규 장소 존재·9도메인
+  커버리지). 스냅샷 회귀·drift·selection contracts·headline slots 비회귀.
+- **기존 테스트 정정 3건(잠복 결함)**: `test_daily_fortune_no_regeneration`·`test_no_live_llm_in_tests`가
+  전역 상수 `CONTENT_VERSION`(최신 사전)으로 보드를 조회했다 — 서비스는 날짜별
+  `content_version_for(d)`로 저장하므로 날짜 게이트로 버전이 갈리는 구간(7/30·9/3)에서 유령 키를
+  본다(첫 게이트 실행에서 실측). 날짜별 조회로 교체. `test_daily_legacy_display`의 7/30 경계 기대는
+  2단 가정이라 3단(7/30→v1.11, 9/3→v1.12)으로 갱신. 리졸버(`daily_contract_resolver`)는
+  `active_dict_version()`을 그대로 쓰므로 코드 변경 없음.
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean.
