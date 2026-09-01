@@ -177,3 +177,18 @@ def test_output_budget_fixture(board) -> None:
     }, ensure_ascii=False)
     worst_output = "\n".join([worst_record] * 60)
     assert estimate_tokens(worst_output) <= limit.max_output_tokens * 0.8
+
+
+def test_polish_prompt_has_prose_rule_without_version_bump() -> None:
+    """퇴고 프롬프트에 문장 결 규칙(7)이 있고, PROMPT_VERSION 은 올리지 않는다(2026-09-01).
+
+    PROMPT_VERSION 은 content_version(캐시 namespace·베타 풀 대조)에 들어가므로 문구 개정만으로
+    올리면 당일 보드 재생성·재교정과 베타 풀 불일치가 생긴다. 개정은 감사 필드로만 남긴다.
+    """
+    from saju_shared_types.daily_fortune import PROMPT_VERSION
+
+    assert "7) 문장 결" in polish._SYSTEM
+    assert "주어" in polish._SYSTEM and "상투구" in polish._SYSTEM
+    assert "원문에 있던 만큼만" in polish._SYSTEM  # 검증기(문장 수·기호)와의 충돌 방지 장치
+    assert PROMPT_VERSION == "polish.v1"
+    assert polish.PROMPT_REVISION == "2026-09-01.prose"

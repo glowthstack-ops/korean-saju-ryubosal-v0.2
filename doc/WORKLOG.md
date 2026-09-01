@@ -10336,3 +10336,26 @@ timeless)이었고, 원인은 `chat_service._is_lifestyle_windfall`이 재물 �
   process_fact_extractor·query_parser 계열 비회귀.
 - **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
   maintained scripts mypy gate clean.
+
+## 2026-09-01 — 오늘의 운세: 퇴고 프롬프트 문장 결 규칙 + 스레드 파일 행운의 장소 장소명만 ✅
+
+- **퇴고 프롬프트 규칙 7(문장 결)**: `daily_fortune_polish._SYSTEM`에 페르소나 공통 문단과
+  같은 자료(주어·목적어 생략 / 문장 길이 변주 / 행동·결론 전치 / 상투구 회피)를 1~3문장 카드
+  길이에 맞춰 축약 추가. 도치·말줄임표·긴 호흡은 카드에 맞지 않아 제외. 마지막 문장("말줄임표·
+  감탄 기호는 원문에 있던 만큼만")으로 검증기(문장 수·길이·신규 숫자)와 충돌 방지. 규칙 1
+  (의미·강도·장소·로또 유무 불변) 우선 유지. 토큰 여유 24k(한도 30k 중 5.8k 사용).
+- **버전 승격 회피(제안 정정)**: 처음 제안한 `PROMPT_VERSION=polish.v2` 승격은 `content_version`
+  (캐시 namespace·베타 풀 대조 `daily_beta_registry`)의 구성 요소라 당일·익일 보드 캐시가 보이지
+  않게 되어 재생성+재교정(LLM 비용)과 동결 베타 풀(`beta-daily-pool.c10.v2.json` polish.v1)
+  불일치를 유발한다. 승격하지 않고 `PROMPT_REVISION="2026-09-01.prose"`를 감사(audit)에만
+  기록. 새 프롬프트는 다음 교정 호출(21시 익일 선생성)부터 자연 적용.
+- **스레드 파일 행운의 장소**: `daily_fortune_export._fortune_block`이 문장형 `place_phrase`
+  ("지나는 길에 편의점를 들러보세요…" — 조사 오류 노출)를 쓰던 것을 웹 카드
+  (`DailyFortuneCard`)와 동일하게 `lucky_place.name`(장소명)만 쓰도록 변경. API 응답의
+  `place_phrase`는 그대로.
+- **문서**: docs/17 §1-3 교정 원칙에 문장 결 규칙·버전 정책·스레드 장소 표기 추가.
+- **테스트**: `test_threads_export_uses_place_name_only`(60건 전부 장소명·phrase 미포함),
+  `test_polish_prompt_has_prose_rule_without_version_bump`(규칙 7 존재·PROMPT_VERSION 불변·
+  REVISION). 기존 export 날짜 가드·동일내용 생략·polish guard·selection contracts 비회귀.
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean.

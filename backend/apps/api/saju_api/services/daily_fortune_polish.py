@@ -37,6 +37,10 @@ _POLISH_LOCK_TTL = 600  # 초 — LLM 타임아웃(90s)·검증·저장을 모�
 _CALL_TYPE = "daily_fortune_polish"
 
 # 레코드별 출력 상한(자) — 출력 토큰 예산 산정의 근거(llm_guard 한도표 주석 참조)
+# 프롬프트 개정 표식 — 감사(audit)에만 기록한다. PROMPT_VERSION 은 content_version(캐시
+# namespace·베타 풀 대조)의 구성 요소라 문구 개정만으로 올리면 당일 보드가 재생성·재교정되고
+# 동결된 베타 풀과 어긋난다. 개정은 다음 교정 호출부터 자연 적용된다.
+PROMPT_REVISION = "2026-09-01.prose"
 MAX_HEADLINE_CHARS = 120
 MAX_PLACE_CHARS = 60
 MAX_LOTTO_CHARS = 80
@@ -69,6 +73,16 @@ _SYSTEM = (
     "추가 금지).\n"
     "6) 응답은 입력과 동일한 구조의 JSONL 만 출력한다 — 설명·코드펜스·빈 줄 금지. "
     "각 줄: {\"ilju\":..., \"headline\":..., \"place_phrase\":..., \"lotto\":...}\n"
+    # 7) 문장 결(PROMPT_REVISION 2026-09-01 데굴님 승인) — 페르소나 공통 문단(persona.py)과 같은
+    # 자료(주어·목적어 생략 / 어순 변주 / 길이 변주 / 상투구 회피)를 1~3문장 카드 길이에
+    # 맞춰 축약했다. 도치·말줄임표·긴 호흡은 여기 맞지 않아 뺐고, 마지막 문장은 문장 수·
+    # 길이·신규 숫자 검증(validate_and_apply)과 충돌하지 않도록 기호를 원문 수준으로 묶는다.
+    "7) 문장 결: 방송 대본을 읽는 게 아니라 아는 사람이 아침에 한마디 건네는 말처럼 쓴다. "
+    "앞뒤로 알 수 있는 주어('당신은'·'오늘 당신의')와 되풀이되는 목적어는 빼고 이어 쓴다. "
+    "문장 길이를 똑같이 맞추지 말고 한 문장은 짧게, 한 문장은 조금 길게 호흡을 달리한다. "
+    "'A는 B예요' 식 설명문만 잇지 말고 문맥에 맞을 때는 행동이나 결론을 앞에 둔다. "
+    "'결론적으로'·'중요한 것은'·'~하는 것이 중요해요'·'~라고 할 수 있어요' 같은 상투구는 "
+    "더 구체적인 말로 바꾼다. 말줄임표·감탄 기호는 원문에 있던 만큼만 쓴다.\n"
 )
 
 
@@ -208,6 +222,7 @@ def validate_and_apply(
         "duplicate_iljus": duplicate_iljus,
         "missing_iljus": sorted(set(by_ilju) - set(parsed)),
         "prompt_version": PROMPT_VERSION,
+        "prompt_revision": PROMPT_REVISION,
     }
     return updated, audit
 

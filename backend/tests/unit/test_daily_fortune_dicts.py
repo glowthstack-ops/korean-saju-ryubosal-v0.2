@@ -189,3 +189,22 @@ def test_threads_export_writes_date_header(tmp_path) -> None:
     # 이 테스트의 관심사는 렌더 내용이므로 고정 날짜를 기준일로 함께 주입한다.
     assert write_threads_export(board, out, publish_date=_date(2026, 7, 23)) is True
     assert out.read_text(encoding="utf-8").startswith("[오늘의 운세 — 2026-07-23")
+
+
+def test_threads_export_uses_place_name_only() -> None:
+    """스레드 파일의 행운의 장소는 웹 카드와 같이 장소명만 쓴다(2026-09-01) — 문장형 phrase 금지."""
+    from datetime import date as _date
+
+    from saju_api.services.daily_fortune_export import render_threads_text
+    from saju_api.services.daily_fortune_service import _generate
+
+    board = _generate(_date(2026, 7, 23))
+    text = render_threads_text(board)
+    place_lines = [ln for ln in text.splitlines() if ln.startswith("- 행운의 장소: ")]
+    assert len(place_lines) == len(board.fortunes)
+    by_ilju_name = {f.lucky_place.name for f in board.fortunes}
+    for ln in place_lines:
+        assert ln[len("- 행운의 장소: "):] in by_ilju_name, ln
+    for f in board.fortunes:
+        if f.lucky_place.phrase != f.lucky_place.name:
+            assert f.lucky_place.phrase not in text, f.lucky_place.phrase

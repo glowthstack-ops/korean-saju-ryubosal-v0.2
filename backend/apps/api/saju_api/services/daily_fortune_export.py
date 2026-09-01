@@ -87,7 +87,9 @@ def render_threads_text(board: DailyFortuneBoard) -> str:
         for ev in f.events:
             label = _SLOT_LABEL.get(ev.slot, ev.slot)
             block.append(f"- {label}: {ev.phrase} ({ev.probability}%)")
-        block.append(f"- 행운의 장소: {f.lucky_place.phrase}")
+        # 장소명만 — 웹 카드(DailyFortuneCard)와 동일 표기(2026-09-01 데굴님 지시).
+        # phrase(문장형)는 조사 오류("편의점를")까지 노출돼 스레드에서는 쓰지 않는다.
+        block.append(f"- 행운의 장소: {f.lucky_place.name}")
         if f.love_line:  # 일일 연애운 확장(beta)
             block.append(f"- 오늘의 연애: {f.love_line}")
         if f.lotto_phrase:
