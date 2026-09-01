@@ -10317,3 +10317,22 @@ timeless)이었고, 원인은 `chat_service._is_lifestyle_windfall`이 재물 �
   강한 키 우선·재물 맥락 필수·종목 픽 거부 유지), 총 8건.
 - **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
   maintained scripts mypy gate clean.
+
+## 2026-09-01 — 파서 재물 어휘 등재: 코인·비트코인·펀드·청약 ✅
+
+앞 항목(생활형 횡재 오탐 수정)에서 발견한 별건을 사용자 지시로 적용. "코인 자산 원금
+회복될까"·"펀드 수익률 괜찮을까"·"비트코인 지금 사도 될까"가 `Domain.WEALTH` 어휘 부재로
+`general`에 떨어져 횡재·투자 지시문 어느 쪽도 붙지 않던 갭.
+
+- `query_parser._DOMAIN_WORDS[Domain.WEALTH]`에 "코인", "비트코인", "펀드", "청약" 추가.
+  도메인 어휘는 부분문자열 매칭(사이·사고만 경계)이라 '코인노래방' 같은 동형은 재물로
+  잡힐 수 있다 — 실로그에 없는 형태라 경계 규칙은 두지 않았다.
+- 생활형 횡재↔투자 운용 분기는 chat_service의 약한 키·투자 표지가 그대로 담당
+  (코인·펀드·청약은 이미 약한 키). '청약'의 추첨형 선발 코어(selection_allocation)는
+  도메인과 무관하게 따로 감지하므로 영향 없음(회귀 통과).
+- **테스트**: `test_lifestyle_windfall_policy.py` — 투자 질문 케이스에 코인·펀드·비트코인·
+  청약 4건 추가, 흐름 질문에 '소액으로 코인 해볼까'·'비트코인 지금 사도 될까' 추가,
+  `test_investment_products_route_to_wealth_domain` 신설. selection_allocation·
+  process_fact_extractor·query_parser 계열 비회귀.
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean.
