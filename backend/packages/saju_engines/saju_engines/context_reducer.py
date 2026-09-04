@@ -1407,6 +1407,12 @@ def _prev_month(month: str) -> str:
     return f"{y - 1}-12" if m == 1 else f"{y}-{m - 1:02d}"
 
 
+def _next_month(month: str) -> str:
+    """'YYYY-MM' 다음 달 라벨."""
+    y, m = int(month[:4]), int(month[5:7])
+    return f"{y + 1}-01" if m == 12 else f"{y}-{m + 1:02d}"
+
+
 def build_reference_frame(
     today: date_cls,
     intent: IntentJson,
@@ -1472,6 +1478,22 @@ def build_reference_frame(
                 f" 이 중 {start_m}~{_prev_month(cur)}는 이미 지났다(과거형으로만, "
                 f"앞으로의 권고·트리거로 쓰지 말 것) — 남은 구간은 {cur}~{end_m}이다."
             )
+        elif start_m == cur:
+            # 창이 현재 절기월로 시작 — 라벨(YYYY-MM)의 달 숫자가 오늘 양력 달보다 앞설 수
+            # 있어(절입 직전: 9/4의 '이달'=丙申월='2026-08') LLM이 '지난 8월'로 오인해 과거형으로
+            # 흐르던 결함 차단(2026-09-04 데굴님 실로그). 다음 달까지 늘어난 창이면 두 구간을 구분.
+            if end_m > cur:
+                note += (
+                    f" 이 중 {cur}는 현재 진행 중인 절기월(지난 구간이 아니다)이고 "
+                    f"{_next_month(cur)}~{end_m}는 곧 시작되는 다음 절기월 구간이다 — "
+                    "전체를 현재·미래형으로 서술하고, 이달 잔여 구간의 흐름과 다음 달 흐름을 "
+                    "구분해 각각 짚을 것."
+                )
+            else:
+                note += (
+                    f" {cur}는 현재 진행 중인 절기월(지난 구간이 아니다) — 현재·미래형으로 "
+                    "서술하고 과거 회고처럼 쓰지 말 것."
+                )
         elif end_m < cur:
             # 창 전체가 과거(회고 질문) — 걸침 케이스만 표시하던 P6의 사각지대. 과거 창이
             # 미래 예측처럼 서술되던 결함 교정(2026-07-21 데굴님 실로그: '2025년 몇월에

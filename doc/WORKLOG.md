@@ -10392,3 +10392,32 @@ timeless)이었고, 원인은 `chat_service._is_lifestyle_windfall`이 재물 �
   `active_dict_version()`을 그대로 쓰므로 코드 변경 없음.
 - **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
   maintained scripts mypy gate clean.
+
+## 2026-09-04 — 절입 직전 '이달' 시제 결함: 회고 오판 교정 + 다음 절기월 창 확장 ✅
+
+데굴님 실로그: 9/4(백로 9/7 전, '이달'=丙申월='2026-08') "이달에 사업 서류 제출하면 선정될까"가
+①진행 중인 8월은 물론 10월 흐름까지 과거형("탄탄했던 시기")으로 서술 ②잔여 3일인데 곧
+시작되는 丁酉월(9월) 내용이 없음. '이달'=2026-08 해석 자체는 절기 기준이라 맞다(데굴님 확인).
+
+- **원인①(시제)**: `chat_service._question_time_direction`이 파서의 **절기월 라벨**(`2026-08`)을
+  **양력** `today.month`(`2026-09`)와 비교해 "창 전체 과거"로 판정 → `_RETRO_TENSE_DIRECTIVE`
+  강제. `build_reference_frame`(context_reducer)은 이미 `current_month_label`(절기) 기준이라 두
+  레이어의 기준이 어긋나 있었다. 매달 양력 1일~절입일 사이 '이달/이번 달' 질문에서 재발하는 구조.
+- **교정①**: `_question_time_direction(…, current_month_label)` 인자 추가, 과거창(①)·미래창(①b)
+  비교 기준을 `luck_month`로 통일(미주입 시 양력 폴백 = 기존 동작). 호출부는 이미 산출된
+  `luck_month` 전달. **원칙: 월 라벨(YYYY-MM) 비교 기준은 항상 절기 luck_month, 양력 today.month 금지.**
+- **교정②(창 확장, 승인)**: `_extend_current_month_near_boundary` — 상대형·월 단위·start=end=현재
+  절기월인 창만, 다음 절입까지 잔여 ≤`CURRENT_MONTH_EXTEND_REMAINING_DAYS`(10일)이면 end를 다음
+  절기월로 확장(파싱 직후 후처리, `_augment_time_by_similarity` 뒤). 파서 불변 — 당월 단독 해석이
+  필요한 다른 경로(총운·택일) 무영향. 잔여 일수는 `_current_luck_month_remaining_days` 헬퍼로 분리해
+  `_current_luck_month_detail`과 공유.
+- **교정③(기준 시점 문구)**: `build_reference_frame`에 창이 현재 절기월로 시작하는 분기 추가 —
+  "현재 진행 중인 절기월(지난 구간이 아니다)" + 확장 창이면 "다음 절기월 구간" 구분·현재·미래형
+  서술 지시(`_next_month` 헬퍼). 라벨 `08`을 보고 '지난 8월'로 오인하는 경로 차단.
+- **결정**: "이번 달과 다음 달"이 당월 하나로 파싱되는 것은 절기 기준이라 정상(데굴님 확정, 미수정).
+- **실기동 검증(dry_run)**: 질문 기간 `2026-08 ~ 2026-09`, 丁酉월 행 포함, 회고 지시문 없음,
+  "이미 지났다"는 기간 외 배경 후보(2026-02)에만 표기.
+- **테스트**: `test_retro_tense.py` +7 — 절기 라벨 주입 시 비회고/미주입 폴백/전월은 회고 유지,
+  잔여 3일 확장·15일 미확장·절대형·다중 월 미확장, 기준 시점 문구(단독·확장 창).
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean.

@@ -20,7 +20,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
-from saju_manse_analysis.luck.luck_calendar import luck_month_label
+from saju_manse_analysis.luck.luck_calendar import luck_month_label, shift_month_label
 
 from saju_engines import (
     EventEngineV2,
@@ -250,13 +250,73 @@ def _current_luck_month_detail(birth: BirthInput, today: date, timezone: str = "
     sm_s, sm_e = _solar_month_range(label, timezone)
     total = (sm_e - sm_s).days + 1
     elapsed = (today - sm_s).days + 1
-    remaining = (sm_e - today).days + 1  # 오늘 포함, 다음 절입 전일까지 남은 일수
+    remaining = _current_luck_month_remaining_days(today, label, timezone)
     return (
         f"{label} = {mp.ganji}월(절기월). 양력 {sm_s.isoformat()}~{sm_e.isoformat()} 진행 중 — "
         f"오늘 {today.isoformat()}은 이 절기월 {elapsed}/{total}일차(남은 약 {remaining}일). "
         f"라벨의 '{label[5:7]}'월은 절입 시작 캘린더월이라 오늘 캘린더월({today.month}월)과 "
         f"다를 수 있다."
     )
+
+
+def _current_luck_month_remaining_days(
+    today: date, label: str, timezone: str = "Asia/Seoul"
+) -> int:
+    """현재 절기월(label)의 다음 절입 전일까지 남은 일수(오늘 포함).
+
+    Args:
+        today: 기준일.
+        label: 오늘이 속한 절기월 라벨(YYYY-MM).
+        timezone: 차트 타임존(절기 경계 산정 기준).
+    """
+    _sm_s, sm_e = _solar_month_range(label, timezone)
+    return (sm_e - today).days + 1
+
+
+# '이달' 질문에서 다음 절기월을 함께 풀이하는 잔여 일수 임계값. 절기월의 약 1/3 미만이 남은
+# 시점이면 당월만 답하는 것은 실질적으로 며칠치 답이라 다음 달 흐름을 덧붙인다(2026-09-04 승인).
+CURRENT_MONTH_EXTEND_REMAINING_DAYS = 10
+
+
+def _extend_current_month_near_boundary(
+    intent: IntentJson,
+    today: date,
+    current_month_label: str,
+    timezone: str = "Asia/Seoul",
+) -> IntentJson:
+    """'이달' 단일 창이 절기월 끝에 임박하면 다음 절기월까지 창을 늘린다(결정론 후처리).
+
+    대상은 상대형·월 단위·start=end=현재 절기월인 창만이다(파서의 '이번 달/이달' 규칙 출력).
+    절대형('8월')·다중 월·일 단위 창은 건드리지 않는다. 파서 자체는 수정하지 않아 당월 단독
+    해석이 필요한 다른 경로(총운·택일 등)엔 영향이 없다.
+
+    배경(2026-09-04 데굴님 실로그): 9/4는 백로(9/7) 전이라 '이달'=丙申월('2026-08')이 맞지만
+    남은 날이 3일이라 당월만 풀이하면 실질 답이 며칠치에 그친다 — 곧 시작되는 丁酉월('2026-09')
+    흐름이 함께 나와야 한다.
+
+    Args:
+        intent: 파싱된 의도.
+        today: 기준일.
+        current_month_label: 오늘이 속한 절기월 라벨(YYYY-MM).
+        timezone: 차트 타임존(절기 경계 산정 기준).
+
+    Returns:
+        조건 충족 시 end를 다음 절기월로 늘린 사본, 아니면 원본 그대로.
+    """
+    tr = intent.time_range
+    if (
+        tr is None
+        or tr.type != "relative"
+        or tr.granularity is not Granularity.MONTH
+        or tr.start != current_month_label
+        or tr.end != current_month_label
+    ):
+        return intent
+    remaining = _current_luck_month_remaining_days(today, current_month_label, timezone)
+    if remaining > CURRENT_MONTH_EXTEND_REMAINING_DAYS:
+        return intent
+    new_tr = tr.model_copy(update={"end": shift_month_label(current_month_label, 1)})
+    return intent.model_copy(update={"time_range": new_tr})
 
 
 def _date_solar_month_note(birth: BirthInput, target: date, timezone: str) -> str:
@@ -454,19 +514,27 @@ def _question_time_direction(
     intent: IntentJson,
     state: ConversationState | None,
     today: date,
+    current_month_label: str | None = None,
 ) -> bool:
     """질문의 시간 방향 판정 — True=과거 회고(retro).
 
     우선순위: ①창 전체가 오늘 이전인 절대창(구조 신호 — 문구와 무관, 2026-07-21 실로그:
     '2025년 몇월에 성공했을까'가 문구 매칭 실패로 미래 모드가 되던 결함) ②과거 문구
     (_PAST_KEYWORDS·축약 과거형) ③미래 문구 ④자체 신호 없는 open_when은 직전 방향 승계.
+
+    current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM). 월 단위 창(YYYY-MM)은 파서가
+        절기월 라벨로 만들므로 같은 기준으로 비교해야 한다. 양력 today.month와 비교하면 절입
+        직전 구간(예: 9/4는 백로 전이라 丙申월='2026-08')에서 진행 중인 '이달'이 "창 전체
+        과거"로 뒤집혀 답변 전체가 과거형이 된다(2026-09-04 데굴님 실로그: '이달에 서류 제출하면
+        선정될까'가 10월 흐름까지 회고형으로 서술). 미주입 시 양력 폴백(기존 동작).
     """
+    cur_month = current_month_label or f"{today.year}-{today.month:02d}"
     tr = intent.time_range
     if tr is not None and (tr.start or tr.end) and not tr.end_offset_days:
         end = tr.end or tr.start
         if end:
             end_m = end[:7] if len(end) >= 7 else f"{end}-12"
-            if end_m < f"{today.year}-{today.month:02d}":
+            if end_m < cur_month:
                 return True
         # ①b 창 전체가 오늘 이후인 절대창 — 준비 완료 사실 나열('이미 계약도 끝냈고 잔금만
         # 남았는데')의 축약 과거형이 회고로 뒤집히지 않게 한다(2026-07-22 실로그: 9/30 명시
@@ -475,7 +543,7 @@ def _question_time_direction(
         if start:
             starts_future = (
                 start[:10] > today.isoformat() if len(start) >= 10
-                else start[:7] > f"{today.year}-{today.month:02d}"
+                else start[:7] > cur_month
             )
             if starts_future:
                 return False
@@ -3477,6 +3545,8 @@ def chat(
     intent = _augment_domain_by_similarity(intent, question)
     # 규칙이 시점을 못 잡은 경우만 임베딩 시점 분류기로 보강(rules-first, 결정론 날짜 합성).
     intent = _augment_time_by_similarity(intent, question, today, luck_month)
+    # '이달' 단일 창이 절기월 끝에 임박(잔여 ≤10일)하면 다음 절기월까지 창을 늘린다(결정론 후처리).
+    intent = _extend_current_month_near_boundary(intent, today, luck_month)
     # 규칙이 비교 mode를 못 잡은 완곡·변형 표현만 유사도로 보강(P3d-2, strict gated·rules-first).
     intent = _augment_companion_mode_by_similarity(intent, question)
 
@@ -3790,7 +3860,7 @@ def chat(
     # 시간 방향 판정 — 창 전체 과거(구조) > 과거 문구 > 미래 문구, 둘 다 없는 open_when 후속
     # ('월단위로')은 직전 턴 방향(state.last_retro)을 상속해 미래/과거 창을 일관 유지
     # (2026-06-30 시점 정합, 2026-07-21 구조 신호 추가 — _question_time_direction).
-    is_retro = _question_time_direction(question, intent, state, today)
+    is_retro = _question_time_direction(question, intent, state, today, luck_month)
     if state is not None:
         state = state.model_copy(update={"last_retro": is_retro})
     default_period: tuple[str, str] | None = None
