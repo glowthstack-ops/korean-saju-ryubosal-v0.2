@@ -163,6 +163,29 @@ _LAMENT = re.compile(
     r"인생(?:은|이)?\s*왜|왜\s*이(?:럴까|러지)"
 )
 
+#: 반복 행동 패턴 자기 질문(2026-09-06 데굴님 승인) — "나는 왜 끝에 가면 항상 이렇게 하나".
+#: 반복 표지(항상/늘/매번/…/끝에 가면)와 이유·행동 의문 표지가 함께 있을 때만 Q8(원국 구조)로
+#: 본다. 시점·분야 없이 실행되는 경로라 과잉 트리거를 막기 위해 두 표지 동시 요구.
+#: '늘'은 '오늘/하늘'의 음절이라 뒤에 공백이 오는 단독형만 받는다.
+_REPEAT_MARK = (
+    r"(?:항상|(?<!오)(?<!하)늘\s|매번|맨날|자꾸|번번이|반복(?:해서|적으로)?|버릇|습관"
+    r"|이런\s*식으로|끝에\s*(?:가면|는|서)|마무리)"
+)
+_WHY_ACT_MARK = (
+    r"(?:왜|하나(?:요|\?|\s|$)|하지|하냐|하는지|하는\s*걸까|그러(?:지|나|는지|는\s*걸까)"
+    r"|되나|되지|되는\s*걸까|그럴까|이럴까|이러는|그러는)"
+)
+BEHAVIOR_PATTERN_RE = re.compile(
+    rf"{_REPEAT_MARK}.{{0,20}}{_WHY_ACT_MARK}|왜.{{0,20}}{_REPEAT_MARK}"
+)
+
+#: 중립 과거 행동 설명(2026-09-06 데굴님 승인) — "나는 왜 이랬을까", "내가 그때 왜 그랬을까".
+#: 기존 Q5는 '왜…힘들었' 한 구절만 잡아 실패어 없는 회고가 종합운→too_broad로 빠졌다.
+#: 실패어(안 됐/늦었…)가 있는 형태는 counterfactual_context가 별도 모드로 잡는다.
+NEUTRAL_PAST_EXPLANATION_RE = re.compile(
+    r"왜.{0,24}(?:그랬|이랬|저랬|했을까|했었|한\s*걸까|했던\s*(?:걸까|거지))|그때.{0,10}왜"
+)
+
 
 # 사무실/사업장 이전 신호 — relocation_kind=office 판정용(R4). 집 이사(일지)와 달리 월주 중심.
 _OFFICE_RELOCATION_WORDS = (
@@ -468,12 +491,12 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     # Q10 — 개운/보완 (D-3).
     if re.search(r"조심해야|보완|개운|비방|피해야|주의해야", text):
         return QueryType.REMEDY
-    # Q5 — 과거 설명/역검증 (C15).
+    # Q5 — 과거 설명/역검증 (C15). 중립 회고('왜 그랬을까')도 포함(2026-09-06).
     if re.search(
         r"왜.{0,8}힘들었|맞춰\s*봐|언제인지\s*맞|무슨\s*일이?\s*있었"
         r"|운\s*때문|이유가\s*사주|운이랑\s*관련",
         text,
-    ):
+    ) or NEUTRAL_PAST_EXPLANATION_RE.search(text):
         return QueryType.EVENT_EXPLANATION
     # Q3 — 시기 탐색.
     if "언제" in text:
@@ -487,13 +510,14 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
         r"어떤\s*사람|성격|사이|관계|부딪|잘\s*지내", text
     ):
         return QueryType.RELATIONSHIP_ANALYSIS
-    # Q8 — 명식 구조 (D2-12 포함). 일주 캐릭터/기질형 + 용희기구한 질문(v2.2.1).
+    # Q8 — 명식 구조 (D2-12 포함). 일주 캐릭터/기질형 + 용희기구한 질문(v2.2.1)
+    # + 반복 행동 패턴 자기 질문('왜 항상 이렇게 하나' — 2026-09-06).
     if re.search(
         r"용신|희신|기신|구신|한신|내\s*사주|mbti|성격|성향|격국|신강|신약|도화|역마살"
         r"|공망|일주|캐릭터|기질|타고난|어떤\s*사람|십성|신살|궁성",
         text,
         re.IGNORECASE,
-    ):
+    ) or BEHAVIOR_PATTERN_RE.search(text):
         return QueryType.CHART_ANALYSIS
     # Q9 — 관계 분석.
     if re.search(r"사이는\s*어때|부모\s*복|관계는", text):

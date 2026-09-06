@@ -56,7 +56,10 @@ _SLASH_DATE_RE = re.compile(
 )
 # 과거시제 표지 — 있으면 연도 미지정 과거 날짜를 '내년 택일'로 밀지 않고 그 해(과거)로 둔다
 # ("6/17에 계약했는데" → 2026-06-17). 미래 택일("7월 4일 이사하려고")은 표지가 없어 영향 없음.
-_PAST_TENSE_RE = re.compile(r"했|찍었|샀|봤|갔|왔|였|었[어은는을다나]|지났|끝났|난\s*뒤")
+# 과거 관형형 서술('넣은 건 6월 17일이야'·'계약한 게 5월 3일')도 과거로 본다(2026-09-06).
+_PAST_TENSE_RE = re.compile(
+    r"했|찍었|샀|봤|갔|왔|였|었[어은는을다나]|지났|끝났|난\s*뒤|[가-힣][은ㄴ]\s*(?:건|게|거)\b"
+)
 
 
 def parse_time(
@@ -515,6 +518,20 @@ def parse_time(
         ), TimeScope.MID_TERM
     if "내후년" in text:
         year_key = str(today.year + 2)
+        return TimeRange(
+            type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
+            urgency=urgency,
+        ), TimeScope.MID_TERM
+    # 과거 연 단위 — '재작년'이 '작년'을 포함하므로 먼저 본다. chat의 회고 키워드에는
+    # 있었으나 파서에 없어 '작년에 왜 그랬을까'가 시점 없음→too_broad로 빠졌다(2026-09-06).
+    if "재작년" in text:
+        year_key = str(today.year - 2)
+        return TimeRange(
+            type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
+            urgency=urgency,
+        ), TimeScope.MID_TERM
+    if "작년" in text:
+        year_key = str(today.year - 1)
         return TimeRange(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
             urgency=urgency,

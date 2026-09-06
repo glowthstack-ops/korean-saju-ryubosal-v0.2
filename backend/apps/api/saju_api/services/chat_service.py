@@ -86,6 +86,8 @@ from saju_engines.profile_engine import profile_facts_for
 from saju_engines.query_parser import (
     ACCIDENT_SAGO_RE,
     AFFIRMATION_RE,
+    BEHAVIOR_PATTERN_RE,
+    NEUTRAL_PAST_EXPLANATION_RE,
     implies_self_counterpart,
     parse_message,
 )
@@ -110,6 +112,7 @@ from saju_engines.shadow_scoring import domain_to_expression_key
 from saju_engines.structural_context import (
     ANSWER_CLARITY_DIRECTIVE,
     BARNUM_SUPPRESSION_DIRECTIVE,
+    BEHAVIOR_PATTERN_DIRECTIVE,
     CONCLUSION_FIRST_DIRECTIVE,
     DAEWOON_FRAMING_DIRECTIVE,
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
@@ -122,6 +125,7 @@ from saju_engines.structural_context import (
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     PARTNER_SOURCE_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
+    RETRO_BEHAVIOR_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
     TRAIT_FEEDBACK_DIRECTIVE,
     UNCERTAINTY_TRANSLATION_DIRECTIVE,
@@ -3887,6 +3891,17 @@ def chat(
     # 데이터가 불필요하다. 월별 이벤트 후보·근거 경로·과거 흐름을 빼고 원국 구조·명식 해석·구조
     # 블록만 남겨 답변이 엉뚱한 월별 사건으로 새지 않게 한다(2026-06-16 사용자 지적).
     is_structural = intent.query_type is QueryType.CHART_ANALYSIS
+    # 시점 없는 중립 과거 회고('그때 왜 그랬을까' — 2026-09-06 데굴님): 사용자가 이미 특정
+    # 시점을 마음에 둔 후회·평가 질문이라 흐름표를 펼칠 대상이 아니다. 후속 턴이면 대화 상태가
+    # 시점·도메인을 승계해(time_shift) 여기로 오지 않고 그 시기 배경(대운·세운) 경로를 탄다.
+    # 승계할 맥락이 없을 때만 — 원국 성향 층으로 답하고 시점·사건 확인 질문을 유도한다.
+    retro_fixed_moment = (
+        intent.query_type is QueryType.EVENT_EXPLANATION
+        and NEUTRAL_PAST_EXPLANATION_RE.search(question) is not None
+        and (intent.time_range is None or not intent.time_range.start)
+    )
+    if retro_fixed_moment:
+        is_structural = True
     if is_structural:
         default_period = None  # 시점 창 불요 — '질문 기간 내 후보 없음' 빈 안내까지 차단
 
@@ -4757,8 +4772,23 @@ def chat(
     # 선택형(비교·의사결정) 질문 — 결론(권고 방향) 선제시 후 근거(상담 사례 파생 P0-1).
     if intent.query_type in (QueryType.COMPARISON, QueryType.DECISION_SUPPORT):
         trailing.append(CONCLUSION_FIRST_DIRECTIVE)
+    # 반복 행동 패턴 자기 질문('왜 항상 이렇게 하나') — 3층 분리 + 관리 프레임(2026-09-06).
+    # 파서가 Q8로 보낸 원국 질문 중 반복 표지가 있는 경우에만 — 일반 성격 질문에는 붙지 않는다.
+    is_behavior_pattern = (
+        intent.query_type is QueryType.CHART_ANALYSIS
+        and BEHAVIOR_PATTERN_RE.search(question) is not None
+    )
+    if is_behavior_pattern:
+        trailing.append(BEHAVIOR_PATTERN_DIRECTIVE)
+    # 중립 과거 행동 회고('그때 왜 그랬을까') — 운=배경 신호, 인과 확정 금지(2026-09-06).
+    # 실패어형('왜 안 됐지')은 counterfactual_context가 담당하므로 중립형에만 붙인다.
+    if (
+        intent.query_type is QueryType.EVENT_EXPLANATION
+        and NEUTRAL_PAST_EXPLANATION_RE.search(question) is not None
+    ):
+        trailing.append(RETRO_BEHAVIOR_DIRECTIVE)
     # 개운/보완 질문 — 결핍·기신은 극복 아니라 관리 프레임(상담 사례 파생 P0-4).
-    if intent.query_type is QueryType.REMEDY:
+    if intent.query_type is QueryType.REMEDY or is_behavior_pattern:
         trailing.append(MANAGE_NOT_OVERCOME_DIRECTIVE)
     # 규범 당위형 질문('결혼 꼭 해야 하나') — 사회적 정답 강요 차단(상담 사례 파생 P0-3).
     if _is_normative_question(question):

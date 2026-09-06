@@ -128,10 +128,10 @@ interface LinkResult {
 | Q2 | domain_analysis | "재물운 풀이해줘" | 분야 점수/강약점/주요 시기 |
 | Q3 | timing_search | "언제 결혼할까", "문창귀인이 언제 들어와?" | 후보 연/월 + 가능성 |
 | Q4 | date_recommendation | "이사가기 좋은 날", "로또 사기 좋은 날과 방향" | 추천 날짜 랭킹 (+방위/시간대) |
-| Q5 | event_explanation | "내 초년운은 왜 힘들었을까", "언제인지 맞춰봐" | 과거 사건 원인 + 역검증 |
+| Q5 | event_explanation | "내 초년운은 왜 힘들었을까", "언제인지 맞춰봐", "내가 그때 왜 그랬을까" | 과거 사건 원인 + 역검증 + 과거 행동 회고(2026-09-06) |
 | Q6 | comparison | 하위 3종: ⓐ compatibility "남편이랑 내 궁합" ⓑ competition "둘 중 누가 당선될까" ⓒ ranking "5명 중 나랑 합이 좋은 사람은 누구야" | 적합도 / 상대 우열 / 순위 |
 | Q7 | decision_support | "회사 생활 vs 자영업 어떤 게 맞아?", "분양에 도전해?" | 선택지별 장단/위험/추천 |
-| Q8 | chart_analysis | "내 용신이 뭐야", "나를 mbti로 설명하면?" | 명식 구조/특징 |
+| Q8 | chart_analysis | "내 용신이 뭐야", "나를 mbti로 설명하면?", "나는 왜 끝에 가면 항상 이렇게 하나" | 명식 구조/특징 + 반복 행동 패턴(2026-09-06) |
 | Q9 | relationship_analysis | "남편과의 사이는 어때?", "부모복 아내복 자식복" | 관계 패턴/개선점 |
 | Q10 | remedy | "조심해야 할 부분 있어?", "공망 보완할 방법은", "맞는 음식", "잘 맞는 절 추천" | 회피 시기/주의 행동/오행 보완 |
 | Q11 | terminology_education | "월주 공망이 무슨 뜻이야", "용신 희신 구신 기신은 뭐야?" | 용어 설명 (+본인 사주 적용 예) — 풀이 파이프라인 미진입 가능 |
@@ -285,6 +285,18 @@ Q4 date_recommendation (instant/hybrid):
 Q5 event_explanation (past):
   과거 간지달력 → Event Scoring(역방향) → evidence path → LLM
   "맞춰봐" 신호(C15) → Past Validation 모드: 후보 제시 후 사용자 확인 유도
+  중립 회고("그때 왜 그랬을까", 2026-09-06) — 고정 시점에 대한 후회·평가 질문(흐름표 불요):
+    후속 턴이면 대화 상태에서 시점·도메인 승계(time_shift) → 그 시기 대운·세운 = 배경 신호
+    승계 맥락 없음 → 구조 답변(시점 창·후보·흐름표 없음) + 시점·사건 확인 질문
+    + RETRO_BEHAVIOR_DIRECTIVE(3층 분리 — 원국·궁위=성향 구조 / 대운·세운=당시 배경·압력
+      (원인 아님, 인과 확정 금지) / 실제 행동·결과=별도 사실, 미서술 시 사건 창작 금지)
+
+Q8 chart_analysis (structural, 시점·이벤트 데이터 불요):
+  원국 구조(십성 세력·격국·신강약·용신) + 명식 해석 자료(궁위별 십성·12운성) + 구조 블록 → LLM
+  반복 행동 패턴("왜 항상 이렇게 하나", 2026-09-06) → BEHAVIOR_PATTERN_DIRECTIVE
+    (3층 분리 + 관리 프레임. 궁위→행동 단계 연결은 정통 규칙이 아닌 **서사화용 해석 규칙**이며
+     보조 단서 — 시주=후반·결과·표출 자리라 마무리 단계와 연결 가능, '천간=마음/지지=행동/
+     운성=태도' 고정 등식 금지)
 
 Q6 comparison:
   ⓐ compatibility: 대상별 ChartAnalysis → Compatibility Engine(E13) → 관계 유형별 풀이

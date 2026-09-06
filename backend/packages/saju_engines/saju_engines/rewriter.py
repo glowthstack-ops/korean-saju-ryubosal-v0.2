@@ -179,6 +179,10 @@ def assess(
         QueryType.TERMINOLOGY_EDUCATION, QueryType.FEEDBACK_CORRECTION,
         QueryType.EMOTIONAL_SUPPORT, QueryType.OUT_OF_SCOPE,
         QueryType.CHART_ANALYSIS,
+        # 과거 설명(Q5)은 시점이 없어도 되묻지 않는다 — 후속 턴은 시점을 승계하고, 맥락이
+        # 없으면 chat이 원국 성향 층으로 답하며 시점·사건 확인을 유도한다
+        # ('나는 왜 이랬을까'가 too_broad로 빠지던 결함 — 2026-09-06).
+        QueryType.EVENT_EXPLANATION,
         # 비교/궁합/경쟁은 '무엇을 비교할지(대상)'가 곧 분석 대상이라 시점·분야 없이도 실행한다.
         # (대상 모호는 위 ambiguous 가드가 이미 need_subject로 처리.)
         QueryType.COMPARISON,

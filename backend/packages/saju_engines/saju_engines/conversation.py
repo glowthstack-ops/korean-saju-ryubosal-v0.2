@@ -149,6 +149,37 @@ _PLACE_SEEKING_RE = re.compile(
 # 동의+이어보기('그래 봐줘'·'응 보여줘'·'좋아 계속') — 직전 답변의 제안 수락. AFFIRMATION_RE에
 # '봐줘'가 없어 fullmatch 실패하고, '봐줘'가 _READING_REQUEST_RE에 걸려 '새 풀이 요청'으로
 # 끊기던 결함 차단(2026-06-25 데굴님 지적: '그래 봐줘'가 직전 이직 맥락을 잃고 일반 총운으로 빠짐).
+#: 도메인 중립 사건 — 사건 기본 도메인(직업)이 있지만 이사·결혼·학업 어느 스레드에나 붙는다.
+#: 후속 턴이 명시 도메인어 없이 이 사건만 들고 오면 직전 스레드 도메인을 유지한다.
+_DOMAIN_NEUTRAL_EVENTS = frozenset({"contract_document"})
+#: 명시 연도·미래 표지 — 있으면 회고 앵커링을 하지 않는다(사용자가 미래를 말한 것).
+_FUTURE_DATE_MARK_RE = re.compile(r"20\d{2}\s*년|내년|내후년|다음\s*달|내달|다음\s*주")
+
+
+def _retro_anchor_bare_date(tr: TimeRange | None, today: date) -> TimeRange | None:
+    """회고 스레드에서 미래로 잡힌 일·월 단위 절대 시점을 한 해 전(과거)으로 되돌린다.
+
+    파서의 연도 미지정 날짜 규칙은 택일 의도(미래 편향)라 지난 날짜를 내년으로 올린다.
+    회고 스레드에서는 반대로 지난 해 같은 날이 맞다. 되돌린 날짜가 오늘 이전일 때만 적용.
+    """
+    if tr is None or tr.type != "absolute" or not tr.start:
+        return tr
+    if tr.granularity not in (Granularity.DAY, Granularity.MONTH):
+        return tr
+    start, end = tr.start, tr.end or tr.start
+    if len(start) < 7 or start[:10] <= today.isoformat():
+        return tr  # 이미 과거·오늘이면 손대지 않는다
+
+    def _back(label: str) -> str:
+        return f"{int(label[:4]) - 1:04d}{label[4:]}"
+
+    new_start, new_end = _back(start), _back(end)
+    probe = new_start if len(new_start) >= 10 else f"{new_start}-01"
+    if probe > today.isoformat():
+        return tr
+    return tr.model_copy(update={"start": new_start, "end": new_end})
+
+
 # 동의어로 시작 + (선택)이어보기/풀이 동사로 끝나고 새 도메인이 없을 때만 직전 의도를 승계한다.
 _AFFIRM_CONTINUE_RE = re.compile(
     r"^(?:그래(?:요)?|그러[자지]|응+|네+|넵|예+|어+|좋아(?:요)?|좋지|콜|오케이?|오키|ok|okay"
@@ -258,14 +289,29 @@ class ConversationEngine:
         )
 
         # 슬롯 상속 보강: 파서가 직접 상속 못 한 경우(참조어형) 도메인/대상 병합.
+        explicit_domains = bool(_detect_domains(text))
+        prev_domain = prev.domain if prev is not None else Domain.GENERAL
         for intent in parsed.intents:
             if link.is_follow_up and intent.domain is Domain.GENERAL and link.inherited_domain:
                 intent.domain = link.inherited_domain
+            # 도메인 중립 사건(계약·문서)은 사건 기본 도메인(직업)으로 스레드를 갈아타지 않는다 —
+            # 이사 스레드의 '계약금을 넣은 건 6월 17일이야'가 직업 도메인으로 새던 결함
+            # (2026-09-06 데굴님 테스트 대화). 명시 도메인어가 있으면 전환을 존중한다.
+            neutral_event = (
+                link.is_follow_up and not explicit_domains
+                and intent.event_key in _DOMAIN_NEUTRAL_EVENTS
+                and prev_domain is not Domain.GENERAL
+            )
+            if neutral_event:
+                intent.domain = prev_domain
+                intent.domains = []
             # 의도 연속성: 후속 턴이 새 사건·도메인을 들고 오지 않은 '시점·사실 보완'(예:
             # '7월 4일은 갑오월이야')이면 직전 질문의 query_type·event_key를 이어받아 같은
             # 주제(계약·이사 평가 등)를 계속 다룬다 — 막연한 하루 운세로 리셋되지 않게.
             if link.is_follow_up and prev is not None:
-                introduces_new = intent.event_key is not None or bool(_detect_domains(text))
+                introduces_new = (
+                    intent.event_key is not None and not neutral_event
+                ) or explicit_domains
                 weak = intent.query_type in (
                     QueryType.FORTUNE_OVERVIEW, QueryType.DOMAIN_ANALYSIS,
                 )
@@ -295,6 +341,14 @@ class ConversationEngine:
                     intent.query_type = QueryType.COMPARISON
             if resolution.correction:
                 intent.query_type = QueryType.FEEDBACK_CORRECTION
+
+        # 회고 스레드의 연도 없는 날짜('6월 17일이야')는 과거로 앵커링한다(2026-09-06 데굴님
+        # 테스트 대화: 7/4 이사 회고 뒤 '계약금 넣은 건 6월 17일'이 택일용 미래 편향으로 2027년이
+        # 되어 회고가 꺼지고 다음 턴까지 미래 서술로 흐른 결함). 파서는 스레드 방향을 모르므로
+        # 여기서 보정한다 — 명시 연도·미래 표지가 없고, 한 해 전 같은 날이 오늘 이전일 때만.
+        if link.is_follow_up and state.last_retro and not _FUTURE_DATE_MARK_RE.search(text):
+            for intent in parsed.intents:
+                intent.time_range = _retro_anchor_bare_date(intent.time_range, today)
 
         # 이번 턴 자체 시점 보유 여부 — 배제 재요청 해제(P2)·시점 출처 메타(P7)의 근거.
         # 승계로 덮어쓰기 전에 판정해야 한다.
