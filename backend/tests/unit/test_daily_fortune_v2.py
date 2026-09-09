@@ -32,10 +32,10 @@ def _catalog():
     return load_catalog_v2(str(_DICTS / "daily_event_catalog_v2.json"))
 
 
-def test_catalog_has_48_events_and_approved_overrides() -> None:
-    """§22-3: 48종, weather 제외, family_talk 이중 슬롯."""
+def test_catalog_has_64_events_and_approved_overrides() -> None:
+    """§22-3·§22-7: 64종(48 + 2026-09-10 확장 16), weather 제외, family_talk 이중 슬롯."""
     catalog = _catalog()
-    assert len(catalog.events) == 48
+    assert len(catalog.events) == 64
     assert EXCLUDED_FROM_V1.isdisjoint(catalog.events)
     assert catalog.events["family_talk"].slots == ["support", "good"]
     # 구조 검증 통과 ≠ 명리 감수 — 감수 전 상태가 위조되면 안 된다.
@@ -150,7 +150,11 @@ def test_flag_default_off_and_cache_namespace_split() -> None:
     assert dfv2.active_content_version(d) == content_version_for(d)
     v2_version = dfv2.content_version_v2_for(d)
     assert v2_version != content_version_for(d)
-    assert v2_version.endswith(dfv2.MODEL_V2_VERSION)
+    # 모델 버전은 날짜가 고른다(§22-7 경계) — 8/24 는 확장 이전이라 model.v2.0 이다.
+    from saju_shared_types.daily_fortune_v2 import active_model_v2_version
+
+    assert v2_version.endswith(active_model_v2_version(d))
+    assert active_model_v2_version(d) != dfv2.MODEL_V2_VERSION
 
 
 def test_compute_board_v2_reuses_v1_pipeline_with_v2_pool() -> None:

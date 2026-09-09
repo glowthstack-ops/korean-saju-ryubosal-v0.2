@@ -56,7 +56,8 @@ def places() -> dict[str, Any]:
 
 def test_catalog_counts_and_schema(catalog: dict[str, Any]) -> None:
     events = catalog["events"]
-    assert len(events) == 49  # 일일 연애운 확장(love 사건 +4: good 2·caution 2)
+    # 49(연애 +4) → 65: 2026-09-10 §22-7 확장(good 11·caution 5). weather 는 v1 에만 남는다.
+    assert len(events) == 65
     by_valence = {"good": 0, "caution": 0}
     support_only = 0
     for key, ev in events.items():
@@ -76,9 +77,10 @@ def test_catalog_counts_and_schema(catalog: dict[str, Any]) -> None:
             support_only += 1
     # good 12 + support 전용 6(모두 valence=good) = 18 → +love good 2 = 20,
     # caution 27 → +love caution 2 = 29(일일 연애운 확장).
-    assert by_valence["caution"] == 29
-    assert by_valence["good"] == 20
-    assert support_only == 6
+    # 2026-09-10 §22-7 확장: good +11(support 전용 +5) → 31, caution +5 → 34.
+    assert by_valence["caution"] == 34
+    assert by_valence["good"] == 31
+    assert support_only == 11
 
 
 def test_caution_slots_are_caution_only(catalog: dict[str, Any]) -> None:
@@ -116,8 +118,14 @@ def _all_user_facing_texts(catalog: dict[str, Any], templates: dict[str, Any]) -
     texts: list[str] = [ev["label"] for ev in catalog["events"].values()]
     for tpl in templates["events"].values():
         texts += tpl["fragments"] + tpl["actions"] + tpl["results"]
+        # §23 결 층 — 십성군별 행동 문장도 사용자 노출 텍스트다.
+        for sents in (tpl.get("tone_actions") or {}).values():
+            texts += sents
     for g in templates["generic"].values():
         texts += g["fragments"] + g["actions"] + g["results"]
+    for channel in (templates.get("stage_results") or {}).values():
+        for sents in channel.values():
+            texts += sents
     texts += templates["place_phrases"] + templates["lotto_phrases"]
     return texts
 

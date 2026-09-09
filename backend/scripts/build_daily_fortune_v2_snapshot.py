@@ -6,7 +6,7 @@
 v1 파이프라인(`build_daily_fortune_snapshot.py`)과 분리한다 — C10 동결 기간에 v1
 스냅샷·digest 를 건드리지 않기 위해서다. 검증 항목:
 
-1. pydantic 스키마 (48종·채널 참조·가중 범위·extra 금지)
+1. pydantic 스키마 (64종 — §22-3 48 + §22-7 16·채널 참조·가중 범위·extra 금지)
 2. v1 카탈로그와의 정합 — key/label/domain/valence 일치, weather_water_safety 제외
 3. **signature 성립 가능성** (§22-4): 고정 연도 전 일자 × 60일주에서 성립 0회 게이트는
    결함으로 차단(v1 초판 낙상 사례)

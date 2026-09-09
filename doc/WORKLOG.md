@@ -10421,3 +10421,48 @@ timeless)이었고, 원인은 `chat_service._is_lifestyle_windfall`이 재물 �
   잔여 3일 확장·15일 미확장·절대형·다중 월 미확장, 기준 시점 문구(단독·확장 창).
 - **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
   maintained scripts mypy gate clean.
+
+## 2026-09-10 — 오늘의 운세: 사건 카탈로그 48→64종 확장(§22-7) + 표현 결(tone) 층(§23) ✅
+
+데굴님 지적: "일일 간지는 달라지는데 동일한 운세가 나오는 경우가 많다." 십성·12운성이 충분히
+쓰이는지 점검 요청 → 원인 진단 → 카탈로그 확장 승인 → 결 층 승인("다음 진행하자") 순으로 진행.
+
+- **진단(30일×60일주 v2 시뮬레이션)**: 십성·12운성은 채점 입력일 뿐 문장에는 닿지 않았다
+  (`_headline`은 사건 키+회전 서수만, LLM 교정은 간지 미수신). 채점 안에서도 good 선발은 십성
+  75%·12운성 12%. good 20/caution 28에 good 헤드라인 자격 12종, move 길 사건 0종 → 상위 5종이
+  헤드라인 57% 점유. 오늘 천간 십성은 같은 일간 6일주에 동일 → 그룹 내 good 고유 2.67/6.
+- **§22-3 개정**: "임의 증감 금지" → "변경은 승인 개정으로만"(절차 6단계). §22-7 개정 이력 신설.
+- **카탈로그 +16(good 11·caution 5)**: work_smooth·opinion_accepted·smooth_trip·errand_done·
+  body_light·appetite_joy·answer_arrives·unexpected_offer·learning_click·forgotten_money·give_care /
+  emotion_rush·overconfidence·close_person_expense·procrastination·rumination. 신규 good은 12운성
+  기능 채널(활동↑·재생·수렴·둔화·이탈·과속)을 출전권에 넣었다. 동의어 그룹 3개 신설
+  (task_pace·money_outflow·discovery), small_find·lend_money 재배정. 제외: 약속 갑자기 변경
+  (travel_schedule 동일 기제)·오후 기운 빠짐(fatigue 클론)·가족 챙김(family_talk 중복→give_care).
+  신문 띠별 운세 8곳(한경·경북일보·뉴스경남·더쎈뉴스·대구신문·잡포스트·CBC·이데일리)에서 장면만
+  가져오고 문장은 새로 썼다.
+- **사전 4종**: v2 카탈로그(§22-7 표 그대로) / v1 카탈로그(affinity 3종은 v2 evidence에서 기계
+  유도 — v1은 라이브 경로 아님) / taxonomy.v2(어휘 합회·운성 추가, 16건 분류) / 문구 템플릿
+  (16종 fragment 5·action 3·result 2).
+- **결 층(§23)**: `headline = fragment(사건) + action(사건×오늘 십성군 5) + result(12운성 채널 7×valence)`.
+  십성군은 그룹 내 동일하므로 그룹 내 차별화는 12운성 결과 문장이 담당. `day_tone()` 순수 함수,
+  `_headline(tone=)`, compute_board 배선. 결 풀 `tone_actions` 640·`stage_results` 42.
+  **결 키 없는 사전=바이트 불변**(과거 스냅샷은 자동으로 옛 거동). 결 활성 시 결과 문장 항상(3문장).
+  love_line·베타 풀 렌더 미적용. 선발·점수·Top5·로또·장소 불변(테스트로 고정).
+- **버전·경계**: DICT_VERSION dict.v1.13(확장+결 층 동시) · MODEL_V2_VERSION model.v2.1 ·
+  `CATALOG_EXPANSION_EFFECTIVE_FROM=2026-09-12`(9/11 보드까지 48종·옛 문장, 9/12 보드부터 신규).
+  v2도 날짜가 버전을 고른다: `active_model_v2_version` + `load_catalog_v2_for`(과거=model.v2.0
+  스냅샷). 재기동 후 Redis 보드 키 2개 불변, 오늘 보드 dict.v1.12·model.v2.0·POLISHED 그대로 서빙.
+- **재측정(64종, 결 층 전)**: headline 상위5 점유 57→43%, headline 종류 39/48→47/64, 12운성 제거
+  시 good 변화 12→22%, 그룹 내 good 고유 2.67→3.04, (일간,오늘천간) 결정률 59→50%. 십성 76%는
+  구조라 불변 → 결 층의 근거.
+- **테스트**: `test_daily_catalog_expansion.py` +9(사전 정합·경계·실노출·12운성 출전권),
+  `test_daily_tone_layer.py` +10(커버리지·day_tone 정의·결 키 없는 사전 바이트 불변·십성군별
+  행동 상이·판정 불변·그룹 내 결과 상이·3문장). 기존 7파일 개수·경계 갱신(49→65, 48→64,
+  헤드라인 자격 19→30, 4단 사전 게이트, move good 존재 고정, v1 동결 비교는 날짜별 사전으로).
+- **함정 2건**: ①스위트 실행 중 docstring 한 줄을 고쳐 `SOURCE_CHANGED_DURING_RUN`(재실행).
+  ②`load_daily_dicts()`는 컴파일 스냅샷 우선 — 결 풀을 넣고 스냅샷을 재빌드하기 전 smoke가
+  옛 조합을 냈다. 사전 수정 = 반드시 스냅샷 재빌드까지.
+- **남은 것**: 결 풀·신규 16종 명리·카피 감수(reviewed=false), 12운성 result가 사건과 어긋나는
+  조합(coda 성격) 검수, 연애 라인 결 적용 여부·10십성 세분은 별도 승인.
+- **검증**: VALID_SUITE_PASS · All checks passed · production mypy gate clean ·
+  maintained scripts mypy gate clean.

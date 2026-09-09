@@ -41,6 +41,7 @@ from saju_shared_types.daily_fortune_v2 import (
     DailyEventCatalogV2,
     DailyEventModelV2,
     SignatureExpr,
+    active_model_v2_version,
 )
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_engine import TWELVE_STAGE_KO_TO_KEY
@@ -91,9 +92,33 @@ def wonjin_pairs(relations_path: str = str(_RELATIONS_PATH)) -> frozenset[frozen
 
 @lru_cache(maxsize=1)
 def load_catalog_v2(path: str = str(_CATALOG_V2_PATH)) -> DailyEventCatalogV2:
-    """v2 카탈로그 로드 + pydantic 검증 (48종)."""
+    """v2 카탈로그 로드 + pydantic 검증 (현재 버전, 64종)."""
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     return DailyEventCatalogV2.model_validate(raw)
+
+
+@lru_cache(maxsize=4)
+def load_catalog_v2_for(target_date: DateType) -> DailyEventCatalogV2:
+    """그 날짜의 계약에 맞는 v2 카탈로그 — v1 `load_daily_dicts_for` 와 같은 규약.
+
+    현재 버전이면 원본 사전을, 과거 버전이면 커밋된 컴파일 스냅샷
+    (`compiled/daily_fortune_v2_{version}.json`)에 담긴 카탈로그를 쓴다. 재기동이나
+    캐시 유실이 있어도 과거 날짜는 과거 계약(48종)으로 재생된다.
+
+    Args:
+        target_date: 운세 대상 날짜(KST).
+
+    Returns:
+        해당 버전의 카탈로그. 과거 스냅샷이 없으면 현재 원본으로 폴백한다.
+    """
+    version = active_model_v2_version(target_date)
+    if version == MODEL_V2_VERSION:
+        return load_catalog_v2()
+    snapshot = _BACKEND / "compiled" / f"daily_fortune_v2_{version}.json"
+    if not snapshot.exists():
+        return load_catalog_v2()
+    raw = json.loads(snapshot.read_text(encoding="utf-8"))
+    return DailyEventCatalogV2.model_validate(raw["catalog"])
 
 
 def _element_direction(src: str, dst: str) -> str:
@@ -368,7 +393,7 @@ def validate_against_v1(
 ) -> list[str]:
     """v1 카탈로그와의 정합 검사 — 위반 메시지 목록(비면 통과).
 
-    v2 는 §22-3 표의 48종만 담는다: v1 전체에서 제외 사건을 뺀 집합과 key 가 정확히
+    v2 는 §22-3·§22-7 표의 64종만 담는다: v1 전체에서 제외 사건을 뺀 집합과 key 가 정확히
     일치해야 하고, 사건 정체성(label/domain/valence)은 v1 과 갈라질 수 없다.
     """
     errors: list[str] = []
@@ -447,9 +472,10 @@ def content_version_v2_for(target_date: DateType) -> str:
     """v2 경로의 캐시 namespace — v1 키와 반드시 갈라진다(캐시 오염 방지).
 
     플래그를 켜고 끌 때 같은 날짜의 v1 보드가 v2 로(또는 반대로) 서빙되면 안 된다 —
-    namespace 분리가 그 유일한 방어다.
+    namespace 분리가 그 유일한 방어다. 모델 버전은 **날짜가 고른다**(§22-7 확장 경계):
+    기준일 이전 날짜는 model.v2.0 키를 유지해 이미 교정된 보드가 재생성되지 않는다.
     """
-    return f"{content_version_for(target_date)}|{MODEL_V2_VERSION}"
+    return f"{content_version_for(target_date)}|{active_model_v2_version(target_date)}"
 
 
 def active_content_version(target_date: DateType) -> str:
@@ -477,12 +503,12 @@ def compute_board_v2(
     Args:
         ctx: 오늘 일진·월운·세운 간지.
         dicts: v1 사전 3종(문구 렌더용 — 카탈로그 서사 포함).
-        catalog: v2 채점 카탈로그(기본: 컴파일 스냅샷 원본 로드).
+        catalog: v2 채점 카탈로그(기본: **날짜가 고른 버전** — `load_catalog_v2_for`).
 
     Returns:
         `content_version` 이 v2 namespace 로 표시된 보드.
     """
-    cat = catalog or load_catalog_v2()
+    cat = catalog or load_catalog_v2_for(ctx.the_date)
     from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index
 
     scored_rows: dict[str, list[v1._ScoredEvent]] = {}

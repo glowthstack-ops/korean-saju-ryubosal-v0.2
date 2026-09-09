@@ -22,7 +22,8 @@ _DICTS = Path(M.__file__).resolve().parents[3] / "dictionaries" / "daily_fortune
 
 #: 재성 — 주제(재물·거래·자원) 활성 신호. G0 판정의 기준이다.
 _WEALTH_TEN_GODS = ("편재", "정재")
-_EVIDENCE_FAMILIES = {"비겁", "식상", "재성", "관성", "인성", "충형파해"}
+#: 합회·운성은 2026-09-10 §22-7 확장에서 추가(합·12운성이 출전권인 사건의 정직한 분류).
+_EVIDENCE_FAMILIES = {"비겁", "식상", "재성", "관성", "인성", "충형파해", "합회", "운성"}
 _CONDITIONS = {"favorable_only", "requires_adverse", "mixed_trigger"}
 _ROLES = {"full", "support_only", "caution_only"}
 _G0_SCOPES = {"money_slice", "deferred_document", "not_applicable"}
@@ -181,11 +182,14 @@ def test_taxonomy_declares_inert_status(taxonomy) -> None:
 # ── OA-9m 이 딛고 설 사실 ─────────────────────────────────────────────────
 
 
-def test_move_domain_has_no_good_event(taxonomy) -> None:
-    """move 의 헤드라인 표 0장은 자격 설정이 아니라 사건 부재에서 온다.
+def test_move_domain_now_has_good_events(taxonomy) -> None:
+    """move 의 헤드라인 표 0장은 자격 설정이 아니라 사건 부재에서 왔다(OA-9b findings).
 
-    이 사실이 바뀌면(길 move 사건이 생기면) OA-9m 의 전제가 달라지므로 알려야 한다.
+    2026-09-10 §22-7 확장으로 길 move 사건(smooth_trip·errand_done)이 생겨 OA-9m 의
+    전제가 바뀌었다 — 이 테스트가 그 사실을 고정한다. 다시 0종이 되면 회귀다.
     """
     move = {k: t for k, t in taxonomy["events"].items() if t["domain"] == "move"}
     assert move
-    assert all(t["polarity"] == "caution" for t in move.values())
+    good = {k for k, t in move.items() if t["polarity"] == "good"}
+    assert good == {"smooth_trip", "errand_done"}
+    assert any(t["polarity"] == "caution" for t in move.values())

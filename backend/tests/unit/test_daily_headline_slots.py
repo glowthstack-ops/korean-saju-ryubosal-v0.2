@@ -55,13 +55,13 @@ def test_headline_slots_falls_back_to_slots(dicts) -> None:
 
 
 def test_headline_eligible_count_increased(dicts) -> None:
-    """자격 사건 14종 → 20종(OA-6a) → 19종(OA-6a2 에서 small_find 철회)."""
+    """자격 사건 14종 → 20종(OA-6a) → 19종(OA-6a2 small_find 철회) → 30종(§22-7 +11)."""
     events = dicts.catalog["events"]
     eligible = [
         k for k, e in events.items()
         if "good" in (e.get("headline_slots") or e["slots"])
     ]
-    assert len(eligible) == 19
+    assert len(eligible) == 30
 
 
 def test_opened_events_actually_reach_headline(dicts) -> None:
@@ -175,7 +175,11 @@ def test_lucky_places_revision_date_gate() -> None:
 
     from saju_engines.daily_fortune_snapshot import load_snapshot
     from saju_shared_types.daily_fortune import (
+        CATALOG_EXPANSION_EFFECTIVE_FROM as EFF_CAT,
+    )
+    from saju_shared_types.daily_fortune import (
         DICT_VERSION,
+        DICT_VERSION_BEFORE_CATALOG_EXPANSION,
         DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION,
         PREVIOUS_DICT_VERSION,
         active_dict_version,
@@ -187,11 +191,17 @@ def test_lucky_places_revision_date_gate() -> None:
         SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM as EFF_OLD,
     )
 
-    assert EFF == date(2026, 9, 3) and EFF_OLD < EFF
+    assert EFF == date(2026, 9, 3) and EFF_OLD < EFF < EFF_CAT
     assert active_dict_version(EFF_OLD - timedelta(days=1)) == PREVIOUS_DICT_VERSION
     assert active_dict_version(EFF - timedelta(days=1)) == DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION
-    assert active_dict_version(EFF) == DICT_VERSION == "dict.v1.12"
-    for ver in (PREVIOUS_DICT_VERSION, DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION, DICT_VERSION):
+    # 9/3~9/11 은 v1.12(행운의 장소 개정), 9/12 부터 v1.13(§22-7 카탈로그 확장) — 4단 게이트.
+    assert active_dict_version(EFF) == DICT_VERSION_BEFORE_CATALOG_EXPANSION == "dict.v1.12"
+    assert active_dict_version(EFF_CAT - timedelta(days=1)) == "dict.v1.12"
+    assert active_dict_version(EFF_CAT) == DICT_VERSION == "dict.v1.13"
+    for ver in (
+        PREVIOUS_DICT_VERSION, DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION,
+        DICT_VERSION_BEFORE_CATALOG_EXPANSION, DICT_VERSION,
+    ):
         assert load_snapshot(ver) is not None, ver
 
 

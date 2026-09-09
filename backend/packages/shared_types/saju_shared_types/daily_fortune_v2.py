@@ -3,19 +3,44 @@
 v2 카탈로그는 **채점 모델 전용**이다: prior / required_signature / evidence.
 문구·서사(narrative) 자산은 v1 카탈로그가 SSOT 로 유지된다 — 두 파일에 같은 서사를
 복제하면 드리프트가 생기므로, v2 는 사건 정체성(label·domain·valence·slots)과 채점
-계약만 담는다. 48종 목록·값의 SSOT 는 docs/17 §22-3 표다(임의 증감 금지).
+계약만 담는다. 64종 목록·값의 SSOT 는 docs/17 §22-3·§22-7 표다(변경은 승인 개정으로만).
 """
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from saju_shared_types.daily_fortune import DailyDomain, DailySlot
+from saju_shared_types.daily_fortune import (
+    CATALOG_EXPANSION_EFFECTIVE_FROM,
+    DailyDomain,
+    DailySlot,
+)
 
 #: v2 채점 모델 버전 — 스냅샷 파일명·플래그 경로 캐시 키의 일부.
-MODEL_V2_VERSION = "model.v2.0"
+#: v2.1(2026-09-10): 카탈로그 48→64종(docs/17 §22-7). 사건 후보가 늘어 선발이 바뀌므로
+#: v1 사전과 같은 날짜 경계(CATALOG_EXPANSION_EFFECTIVE_FROM)로 버전을 고른다 — 이미
+#: 생성·교정된 9/10·9/11 보드가 재생성(LLM 재교정)되지 않게 하기 위해서다.
+MODEL_V2_VERSION = "model.v2.1"
+#: 기준일 이전 날짜에 적용되는 v2 모델 버전(48종). 스냅샷
+#: `compiled/daily_fortune_v2_model.v2.0.json` 이 함께 커밋돼 있어야 과거 날짜를 재현할 수 있다.
+PREVIOUS_MODEL_V2_VERSION = "model.v2.0"
+
+
+def active_model_v2_version(target_date: date) -> str:
+    """그 날짜에 적용할 v2 채점 모델 버전 — v1 `active_dict_version` 과 같은 경계를 쓴다.
+
+    Args:
+        target_date: 운세 대상 날짜(KST 기준).
+
+    Returns:
+        9/12 이전 `PREVIOUS_MODEL_V2_VERSION`(48종) → 이후 `MODEL_V2_VERSION`(64종).
+    """
+    if target_date < CATALOG_EXPANSION_EFFECTIVE_FROM:
+        return PREVIOUS_MODEL_V2_VERSION
+    return MODEL_V2_VERSION
 
 #: prior 3등급 → 사전확률 가산치 (§22-1: signature=출전권, prior=순위만).
 PriorTier = Literal["상", "중", "하"]
@@ -116,7 +141,7 @@ class DailyEventModelV2(BaseModel):
 
 
 class DailyEventCatalogV2(BaseModel):
-    """v2 카탈로그 전체 — 48종 (docs/17 §22-3, weather_water_safety 제외)."""
+    """v2 카탈로그 전체 — 64종 (docs/17 §22-3·§22-7, weather_water_safety 제외)."""
 
     version: str
     #: 사람의 명리 감수 여부 — 구조 검증 통과와 별개(v1 파이프라인과 동일 규약).

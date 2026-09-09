@@ -74,9 +74,11 @@ def test_non_strict_mode_flags_instead_of_raising() -> None:
 
 
 def test_resolver_applies_the_date_boundary_dictionary() -> None:
-    """7/30 경계가 실제로 적용된다 — 9/3(행운의 장소 개정) 경계까지 3단으로 갈린다."""
+    """7/30 경계가 실제로 적용된다 — 9/3(행운의 장소)·9/12(카탈로그 확장) 경계까지 4단."""
     from saju_shared_types.daily_fortune import (
+        CATALOG_EXPANSION_EFFECTIVE_FROM,
         DICT_VERSION,
+        DICT_VERSION_BEFORE_CATALOG_EXPANSION,
         DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION,
         LUCKY_PLACES_REVISION_EFFECTIVE_FROM,
         PREVIOUS_DICT_VERSION,
@@ -87,8 +89,13 @@ def test_resolver_applies_the_date_boundary_dictionary() -> None:
         resolve_day_contracts(_BOUNDARY).active_dict_version
         == DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION
     )
+    # 9/3~9/11 은 v1.12, 9/12 부터 v1.13(§22-7 카탈로그 확장).
     assert (
         resolve_day_contracts(LUCKY_PLACES_REVISION_EFFECTIVE_FROM).active_dict_version
+        == DICT_VERSION_BEFORE_CATALOG_EXPANSION
+    )
+    assert (
+        resolve_day_contracts(CATALOG_EXPANSION_EFFECTIVE_FROM).active_dict_version
         == DICT_VERSION
     )
     # 경계 이전은 strict 로 막히지만, 완화 모드에서 이전 버전을 가리키는지 확인한다.

@@ -27,6 +27,7 @@ from typing import Any
 
 from saju_manse_core.calendar.ganji_calendar import build_month
 from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index
+from saju_manse_core.pillars.twelve_unseong import twelve_unseong
 from saju_shared_types.constants import (
     BRANCH_BREAKS,
     BRANCH_CLASHES,
@@ -52,8 +53,9 @@ from saju_shared_types.daily_fortune import (
     content_version_for,
 )
 from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.event_engine import TWELVE_STAGE_KO_TO_KEY
 
-_DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries" / "daily_fortune"
+_DICTS_DEFAULT =Path(__file__).resolve().parents[3] / "dictionaries" / "daily_fortune"
 
 # 신호 그룹 가중 (PRD §10 — 합계 0.95, 나머지 0.05는 중첩 보너스)
 _GROUP_WEIGHTS: dict[str, float] = {
@@ -781,6 +783,52 @@ def rotation_ring_status(dicts: DailyFortuneDicts, event_key: str) -> str:
     return "" if len(ring) >= _ROTATION_MIN_RING else "insufficient_eligible_families"
 
 
+#: 십성 → 십성군 (docs/17 §23-1). 행동 문장의 결을 고르는 5축.
+_SIPSEONG_GROUP: dict[str, str] = {
+    "비견": "비겁", "겁재": "비겁", "식신": "식상", "상관": "식상",
+    "편재": "재성", "정재": "재성", "편관": "관성", "정관": "관성",
+    "편인": "인성", "정인": "인성",
+}
+#: 12운성 → 대표 기능 채널 (docs/17 §23-1 — §22-2 표의 최대 가중 채널, 제왕만 과속).
+_STAGE_TONE_CHANNEL: dict[str, str] = {
+    "JANGSAENG": "renewal", "MOKYOK": "renewal", "TAE": "renewal", "YANG": "renewal",
+    "GWANDAE": "activity_up", "GEONROK": "activity_up", "JEWANG": "overdrive",
+    "SOE": "stamina_down", "BYEONG": "stamina_down", "SA": "pace_down",
+    "JEOL": "disengage", "MYO": "closure",
+}
+
+
+@dataclass(frozen=True)
+class DayTone:
+    """(일주, 날짜)의 표현 결 — 문체 전용, 판정에 관여하지 않는다 (docs/17 §23)."""
+
+    sipseong_group: str  # 오늘 천간 → 일간 십성의 군(비겁·식상·재성·관성·인성)
+    stage_channel: str  # 오늘 천간이 일지에서 갖는 12운성의 대표 기능 채널
+
+
+def day_tone(ilju_stem: Stem, ilju_branch: Branch, ctx: DayGanjiContext) -> DayTone:
+    """오늘의 결을 계산한다 — 순수 함수, 결정론.
+
+    Args:
+        ilju_stem: 일주 천간(=일간).
+        ilju_branch: 일주 지지(=일지).
+        ctx: 오늘 일진 간지.
+
+    Returns:
+        십성군(오늘 천간 기준)과 12운성 채널(오늘 천간 → 일지).
+    """
+    day_stem = Stem(ctx.day_stem)
+    if day_stem == ilju_stem:
+        sipseong = "비견"
+    else:
+        sipseong = ten_god(ilju_stem, day_stem).value
+    stage_key = str(TWELVE_STAGE_KO_TO_KEY.get(twelve_unseong(day_stem, ilju_branch), ""))
+    return DayTone(
+        sipseong_group=_SIPSEONG_GROUP[sipseong],
+        stage_channel=_STAGE_TONE_CHANNEL.get(stage_key, "activity_up"),
+    )
+
+
 def _headline(
     dicts: DailyFortuneDicts,
     event_key: str,
@@ -790,6 +838,7 @@ def _headline(
     romance_scope: bool = False,
     rotation_key: str = "",
     day_ordinal: int | None = None,
+    tone: DayTone | None = None,
 ) -> str:
     """오늘의 한마디 — fragment + action (+ result) 조합, 결정론 seed.
 
@@ -799,14 +848,22 @@ def _headline(
     서사 family가 있으면 그 family의 문장 풀을 쓴다(OA-8a) — 사건은 그대로 두고
     장면·행동·결과만 다른 서사 기능으로 바꾼다.
 
+    **표현 결 층(docs/17 §23)**: `tone` 이 주어지고 사전에 결 풀(`tone_actions`·
+    `stage_results`)이 있을 때만 행동 문장은 오늘 십성군 풀에서, 결과 문장은 12운성
+    채널 풀에서 고르고 결과 문장을 항상 붙인다. 둘 중 하나라도 없으면 이 함수는
+    이전 조합과 바이트 단위로 같다 — 과거 날짜 스냅샷은 결 키가 없어 자동으로 옛
+    거동이 된다.
+
     Args:
         romance_scope: 연애 전용 신호가 **강할 때만** True. 관계 계열 사건의 기본
             표현은 일반 관계(대화·접점)이고, 연애 맥락은 이 게이트를 통과한 카드에서만
             쓴다 — 상대의 존재·행동·마음을 전제하지 않기 위해서다.
+        tone: 오늘의 결(`day_tone`). None 이면 결 층을 쓰지 않는다.
     """
     generic_kind = "caution" if band == "s1" else "good"
     generic = dicts.templates["generic"][generic_kind]
-    tpl = dicts.templates["events"].get(event_key) or generic
+    event_tpl = dicts.templates["events"].get(event_key)
+    tpl = event_tpl or generic
     _mode, family = resolve_narrative(
         dicts, event_key, seed_base,
         day_ordinal=day_ordinal, rotation_key=rotation_key,
@@ -820,6 +877,27 @@ def _headline(
     fragments = list(tpl["fragments"])
     actions = list(tpl["actions"])
     results = list(tpl["results"])
+
+    # 결 층 — 행동은 십성군 풀, 결과는 12운성 채널 풀(둘 다 있을 때만 활성).
+    tone_actions = (
+        ((event_tpl or {}).get("tone_actions") or {}).get(tone.sipseong_group)
+        if tone is not None else None
+    )
+    stage_results = (
+        (dicts.templates.get("stage_results") or {})
+        .get(tone.stage_channel, {})
+        .get(generic_kind)
+        if tone is not None else None
+    )
+    tone_active = bool(tone_actions) and bool(stage_results)
+    if tone_active:
+        assert tone_actions is not None and stage_results is not None  # narrow
+        base_actions, base_results = actions, results
+        actions, results = list(tone_actions), list(stage_results)
+        if salt >= 3:  # 중복 지속 시 사건 풀을 합류시킨다(기존 사다리와 같은 문턱)
+            actions += base_actions
+            results += base_results
+
     if salt >= 3:  # 중복 지속 시 행동 풀 확장
         actions += generic["actions"]
         results += generic["results"]
@@ -827,7 +905,7 @@ def _headline(
         fragments += generic["fragments"]
     s = _stable_hash(f"{seed_base}|headline|{salt}")
     parts = [_pick(fragments, s), _pick(actions, s // 7)]
-    if band in ("s5", "s4", "s1") or salt >= 3:
+    if tone_active or band in ("s5", "s4", "s1") or salt >= 3:
         parts.append(_pick(results, s // 31))
     return " ".join(parts)
 
@@ -1076,6 +1154,8 @@ def compute_board(
         # 연애 표현 게이트 — 기존 '오늘의 연애' 신호(독립 원인 그룹 ≥3)를 재사용한다.
         # 새 점수를 만들지 않고 **표현 범위만** 좁힌다.
         romance_scope = _has_good_love_signal(row["scored"])
+        # 표현 결(docs/17 §23) — 문체 전용. 결 풀이 없는 사전(과거 계약)에서는 무시된다.
+        tone = day_tone(row["stem"], row["branch"], ctx)
         headline = ""
         for salt in range(_DUP_RETRY):  # 당일 60건 내 완전 중복 회피
             headline = _headline(
@@ -1083,6 +1163,7 @@ def compute_board(
                 romance_scope=romance_scope,
                 # OA-8b 회전 — 날짜 서수로 후보를 한 칸씩 민다(일주가 출발점).
                 rotation_key=ilju, day_ordinal=d.toordinal(),
+                tone=tone,
             )
             if headline not in used_headlines:
                 break
