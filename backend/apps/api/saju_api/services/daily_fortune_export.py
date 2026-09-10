@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from saju_engines.daily_text_policy import sanitize_board
 from saju_shared_types.daily_fortune import DailyFortuneBoard, DailyIljuFortune
 
 logger = logging.getLogger(__name__)
@@ -160,7 +161,7 @@ def write_threads_export(
         )
         return False
     try:
-        text = render_threads_text(board)
+        text = render_threads_text(sanitize_board(board))  # 노출 문장 정책(기호 제거)
         try:
             if target.read_text(encoding="utf-8") == text:
                 logger.info(

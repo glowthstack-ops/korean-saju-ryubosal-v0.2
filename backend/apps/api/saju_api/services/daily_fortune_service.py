@@ -23,6 +23,7 @@ from saju_engines.daily_ilju_fortune import (
     compute_board,
     load_daily_dicts_for,
 )
+from saju_engines.daily_text_policy import sanitize_board
 from saju_shared_types.constants import BRANCH_KO, STEM_KO
 from saju_shared_types.daily_fortune import (
     DailyFortuneBoard,
@@ -119,6 +120,17 @@ def _active_content_version(d: date) -> str:
 
 
 def get_board(
+    cache: DailyFortuneCache | None, today: date | None = None
+) -> DailyFortuneBoard:
+    """오늘자 보드 반환 — 캐시·생성 경로 뒤에 노출 문장 정책(이모지·기호 제거)을 건다.
+
+    정리는 복사본에만 적용된다(캐시·엔진 출력 바이트 불변). 과거 계약(dict.v1.12 이하)
+    보드에 남은 ♪·♥ 도 여기서 걷힌다(2026-09-10 데굴님 지시).
+    """
+    return sanitize_board(_get_board_raw(cache, today))
+
+
+def _get_board_raw(
     cache: DailyFortuneCache | None, today: date | None = None
 ) -> DailyFortuneBoard:
     """오늘자 보드 반환 — 캐시 미스면 생성 락 후 lazy 생성.

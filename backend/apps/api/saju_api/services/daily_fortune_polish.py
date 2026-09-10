@@ -22,6 +22,7 @@ from typing import Any
 
 from saju_engines.daily_fortune_cache import DailyFortuneCache
 from saju_engines.daily_fortune_v2 import active_content_version
+from saju_engines.daily_text_policy import strip_symbols
 from saju_shared_types.daily_fortune import (
     PROMPT_VERSION,
     DailyFortuneBoard,
@@ -40,7 +41,7 @@ _CALL_TYPE = "daily_fortune_polish"
 # 프롬프트 개정 표식 — 감사(audit)에만 기록한다. PROMPT_VERSION 은 content_version(캐시
 # namespace·베타 풀 대조)의 구성 요소라 문구 개정만으로 올리면 당일 보드가 재생성·재교정되고
 # 동결된 베타 풀과 어긋난다. 개정은 다음 교정 호출부터 자연 적용된다.
-PROMPT_REVISION = "2026-09-01.prose"
+PROMPT_REVISION = "2026-09-10.no-symbols"  # 이모지·특수기호 금지(데굴님 지시)
 MAX_HEADLINE_CHARS = 120
 MAX_PLACE_CHARS = 60
 MAX_LOTTO_CHARS = 80
@@ -83,6 +84,8 @@ _SYSTEM = (
     "'A는 B예요' 식 설명문만 잇지 말고 문맥에 맞을 때는 행동이나 결론을 앞에 둔다. "
     "'결론적으로'·'중요한 것은'·'~하는 것이 중요해요'·'~라고 할 수 있어요' 같은 상투구는 "
     "더 구체적인 말로 바꾼다. 말줄임표·감탄 기호는 원문에 있던 만큼만 쓴다.\n"
+    "8) 이모지와 장식 기호(♪ ♥ ★ ✨ 화살표 등)는 쓰지 않는다 — 문장부호는 마침표·쉼표·"
+    "물음표·느낌표·가운뎃점만 쓴다.\n"
 )
 
 
@@ -161,6 +164,12 @@ def validate_and_apply(
         if not isinstance(headline, str) or not isinstance(place_phrase, str):
             rejected[ilju] = "missing_fields"
             continue
+        # 노출 문장 정책 — 모델이 덧붙인 이모지·장식 기호는 폐기 대신 제거하고 받는다.
+        headline = strip_symbols(headline)
+        place_phrase = strip_symbols(place_phrase)
+        if isinstance(lotto, str):
+            lotto = strip_symbols(lotto)
+        rec = {**rec, "headline": headline, "place_phrase": place_phrase, "lotto": lotto}
         reason = _reject_reason(headline, raw.headline, MAX_HEADLINE_CHARS)
         if reason is None and len(_SENTENCE_END.findall(headline)) > max(
             3, len(_SENTENCE_END.findall(raw.headline))

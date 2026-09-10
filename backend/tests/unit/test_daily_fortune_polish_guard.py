@@ -191,4 +191,6 @@ def test_polish_prompt_has_prose_rule_without_version_bump() -> None:
     assert "주어" in polish._SYSTEM and "상투구" in polish._SYSTEM
     assert "원문에 있던 만큼만" in polish._SYSTEM  # 검증기(문장 수·기호)와의 충돌 방지 장치
     assert PROMPT_VERSION == "polish.v1"
-    assert polish.PROMPT_REVISION == "2026-09-01.prose"
+    # 개정 표식은 감사 전용 — 2026-09-10 이모지·기호 금지(규칙 8)도 REVISION 만 올렸다.
+    assert polish.PROMPT_REVISION == "2026-09-10.no-symbols"
+    assert "8) 이모지" in polish._SYSTEM
