@@ -109,6 +109,7 @@ from saju_engines.structural_context import (
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
+    TONE_LAYER_DIRECTIVE,
     UNCERTAINTY_TRANSLATION_DIRECTIVE,
     activity_keyword_lines,
     document_caution_block,
@@ -1027,6 +1028,9 @@ class _ReportData:
             # 명확한 답 계약(2026-08-10 테스터 피드백 — chat과 공용): 섹션 첫 문단 판정
             # 선언, 유보 표현 총량 제한(조건문 번역), 판정 용어 결과어 번역, 중요도 순 서술.
             ANSWER_CLARITY_DIRECTIVE,
+            # 표현 결(2026-09-10 daily §23 이식, chat 공용) — 기간 클러스터의 '운 결' 줄을
+            # 문체 힌트로만 쓰게 한다(점수·판정 불변).
+            TONE_LAYER_DIRECTIVE,
         ]
         # 확정 용신 적용 안내를 원국 prefix 뒤에 부착(전 섹션 공통) — 확정 5역할을 길흉 기준으로,
         # 엔진 최초 도출(확정 전 후보)은 기본값으로 병기. 확정=도출 일치 시 빈 문자열(미부착).

@@ -22,6 +22,7 @@ from saju_shared_types.marriage_timing import derive_marriage_stage
 
 from . import sinsal_modifier_config as _sinsal_cfg
 from .candidate_semantics import candidate_semantics, review_month_from_signals
+from .chart_interpretation import incoming_stage_note, incoming_ten_god_note
 from .context_reducer import event_ko, polarity_ko
 from .ganji_calendar import relation_hits
 from .llm_event_serializer import score_band
@@ -191,6 +192,11 @@ def precise_candidate_clusters(
                 "(절대 강도와 별개 — 표현이 같아도 상대 비중은 이 순위)"
             )
         lines.append(head)
+        # 표현 결(daily §23 이식, 2026-09-10) — 행동=운 천간 십성 유입, 흐름=12운성 유입.
+        # 문체 전용(점수·판정 무관) — 리포트에는 운의 성질이 문체로 가는 통로가 없었다.
+        tone = _tone_line(result, p.ganji, fav_map)
+        if tone:
+            lines.append(tone)
         if nuance_note:
             lines.append(f"  ⚠유불리: {nuance_note}")
         note = _sinsal_channel_note(result, period, p.ganji, evs)
@@ -208,6 +214,17 @@ def precise_candidate_clusters(
                 f"{review}{_marriage_stage_note(c)}"
             )
     return lines
+
+
+def _tone_line(result: ManseV2Result, ganji: str, fav_map: dict[str, str] | None) -> str:
+    """기간 헤더 아래 '운 결' 1줄 — 행동(십성 유입)·흐름(12운성 유입) 결. 없으면 빈 문자열."""
+    day_master = result.pillars.day_master if result.pillars else ""
+    if not day_master or len(ganji) != 2:
+        return ""
+    action = incoming_ten_god_note(day_master, ganji, fav_map or {})
+    flow = incoming_stage_note(day_master, ganji)
+    parts = [x for x in (f"행동={action}" if action else "", f"흐름={flow}" if flow else "") if x]
+    return "  운 결(문체 전용): " + " / ".join(parts) if parts else ""
 
 
 def _adjacent_period(a: str, b: str) -> bool:

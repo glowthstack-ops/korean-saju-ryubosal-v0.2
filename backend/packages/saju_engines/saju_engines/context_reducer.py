@@ -72,7 +72,11 @@ from . import period_v2_config
 from . import sinsal_modifier_config as _sinsal_cfg
 from .amhap_luck import detect_luck_amhap
 from .candidate_semantics import ganji_result_nuance, review_month_from_signals
-from .chart_interpretation import build_chart_interpretation, incoming_ten_god_note
+from .chart_interpretation import (
+    build_chart_interpretation,
+    incoming_stage_note,
+    incoming_ten_god_note,
+)
 from .direction_suggestion import (
     DIRECTION_SUGGESTION_INSTRUCTION,
     detect_direction_suggestions,
@@ -96,6 +100,7 @@ from .marriage_telemetry import build_marriage_telemetry, emit_marriage_telemetr
 from .relation_claim_audit import canonical_claim_lines
 from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
+from .structural_context import TONE_LAYER_DIRECTIVE
 from .structure_patterns import detect_structure_patterns, select_llm_patterns
 
 TOP_N_CANDIDATES = 5  # 기본 Top N (docs/03 B5 — 3~5)
@@ -162,6 +167,8 @@ _BASE_INSTRUCTION = (
     "해당 대목을 조용히 생략하고, '제공되지 않았다'·'재계산은 제공되지 않았다' 같은 안내·메타 "
     "문구는 답변에 쓰지 말 것."
 )
+# 표현 결 층 — chat·report 공용 상수(structural_context.TONE_LAYER_DIRECTIVE) 를 지시문에 잇는다.
+_TONE_LAYER_INSTRUCTION = " " + TONE_LAYER_DIRECTIVE
 # 기간 총운(E9) framing — 같은 위계·사건화 철학, 출력은 해당 기간 단위로 한정.
 # 하루 운세(E9 daily) — 하루 안에 가능한 범위로 한정(사용자 확정 2026-06-12).
 _DAILY_INSTRUCTION = (
@@ -1324,10 +1331,13 @@ def _to_llm_candidate(
         if len(signals_ko) >= _MAX_SIGNALS_KO:
             break
     note = ""
+    stage_note = ""
     if day_master and period_ganji:
         # 후보별 note 는 operational guard 미적용(후보 다수 → 토큰 과증, Phase 5b-1 조건 5/7).
         # 운세 해석 operational guard 는 단일 기간 build_luck_grounding 에서만 붙인다.
         note = incoming_ten_god_note(day_master, period_ganji, fav_map or {})
+        # 표현 결(12운성 유입) — 흐름·결과 서술의 결. 문체 전용(daily §23 이식, 2026-09-10).
+        stage_note = incoming_stage_note(day_master, period_ganji)
     # 운 암합(보조) — 점수 미반영, 물밑·비공식 뉘앙스 참고(2026-06-12 자료).
     amhap_notes: list[str] = []
     if result is not None and result.pillars is not None and len(period_ganji) == 2:
@@ -1367,6 +1377,7 @@ def _to_llm_candidate(
         direction=_direction_for(c),
         signals_ko=signals_ko,
         incoming_note=note,
+        stage_note=stage_note,
         amhap_notes=amhap_notes,
         caution_note=caution,
         result_nuance=nuance_cat,
@@ -1968,7 +1979,7 @@ def build_llm_input(
                 + (_LUCK_SINSAL_INSTRUCTION if period_fortune.sinsal_lines else "")
                 if period_fortune is not None
                 else _BASE_INSTRUCTION
-            ),
+            ) + (_TONE_LAYER_INSTRUCTION if any(c.stage_note for c in llm_candidates) else ""),
         ),
         budget=LlmBudget(
             max_input_tokens=limit.max_input_tokens,
@@ -2303,6 +2314,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
             block.append(f"  {c.recurrence_note}")
         if with_notes and c.incoming_note:
             block.append(f"  해석: {c.incoming_note}")
+        if with_notes and c.stage_note:
+            # 표현 결(12운성 유입) — 흐름·결과 서술의 결(문체 전용, 점수·판정 무관).
+            block.append(f"  결(12운성): {c.stage_note}")
         if with_notes and c.amhap_notes:
             # 운 암합 — 보조(물밑·비공식), 단독 결론 금지.
             block.append("  운 암합(보조·물밑): " + " / ".join(c.amhap_notes))

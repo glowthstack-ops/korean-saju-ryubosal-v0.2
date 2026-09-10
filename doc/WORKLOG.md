@@ -10562,3 +10562,17 @@ v1.12 라 라이브 전 — 버전 범프 없음, MODEL_V2_VERSION 도 불변).
   selection_allocation_weights 를 원본에서 재생성해 커밋본과 비교 + 런타임/빌드 버전 상수 일치. 현재 전부 일치.
 - 회귀 `test_dead_path_regressions.py` 5건. 미처리(기록만): `events/*.json` score 는 그래프 triggers weight 로만
   쓰이고 채점엔 사문(2026-08 기록 유지), `PRECOMPUTE_DICT_VERSION="1.0.0"` 은 캐시 키라 유지.
+
+## 2026-09-10 — 표현 결(tone) 층 채팅·리포트 이식 ✅ (권장 순서 2)
+
+daily docs/17 §23 의 "십성=행동 결, 12운성=흐름 결"을 LLM 입력 힌트로 옮겼다. 문체 전용·점수 불변.
+- 축: 운 간지의 **일간 기준** 십성(기존 `incoming_ten_god_note`, 행동 결)·12운성(신규
+  `incoming_stage_note`, 흐름 결). 새 명리 매핑 없이 `twelve_stages_text.incoming`(사문이던 문장)을
+  재활용 — counseling.py:76 "임의의 십성·12운성 매핑 금지"와 충돌 없음.
+- chat: `LlmEventCandidate.stage_note` + 후보 블록 '결(12운성):' 줄 + 지시문에 `TONE_LAYER_DIRECTIVE`
+  (structural_context 공용, stage_note 가 하나라도 있을 때 부착).
+- report: `precise_candidate_clusters` 기간 헤더 아래 '운 결(문체 전용): 행동=… / 흐름=…' 1줄
+  (`_tone_line`) + 전 섹션 공통 prefix 에 같은 지시.
+- 표본(1980-11-22 男 "올해 이직운"): 후보 11건마다 결 줄 1개, 프롬프트 21,307자 중 증가분 약 770자(지시문 포함) — 채팅 한도 안.
+- 회귀 `test_tone_layer_transfer.py` 4건. docs/06 eventCandidates 에 incomingNote·stageNote·지시 개정.
+- 부수 발견: `llm_event_serializer.serialize_candidate_v2` 는 소비처 없음(사문, 테스트만 참조) — 미정리.

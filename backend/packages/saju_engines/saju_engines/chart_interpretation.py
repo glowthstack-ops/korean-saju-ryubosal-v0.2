@@ -27,6 +27,7 @@ from saju_manse_analysis.yongsin.operational_role_config import (
     is_unfavorable_role,
 )
 
+from saju_manse_core.pillars.twelve_unseong import twelve_unseong
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
     STEM_ELEMENT,
@@ -697,6 +698,35 @@ def _operational_guard_suffix(elements: list[str], operational_map: dict[str, st
             seen.add(el)
             lines.append(f"※ 운 {el}: {LUCK_OPERATIONAL_GUARD[role]}")
     return " ".join(lines)
+
+
+def incoming_stage_note(day_master: str, ganji: str) -> str:
+    """운 유입 간지의 일간 기준 12운성 해석 1줄 — **표현 결 전용**(점수·판정 무관).
+
+    daily 결 층(docs/17 §23)의 이식(2026-09-10): 채팅·리포트에는 운의 성질이 문체로
+    이어지는 통로가 점수 밴드 어조뿐이었다. `twelve_stages_text.json[incoming]`(운에서
+    X를 만나면 — …)의 첫 문장을 후보/기간 옆에 붙여 LLM 이 흐름·결과 서술의 결을 고르게
+    한다. 십성 유입 노트(`incoming_ten_god_note`)가 행동 권유의 결이라면 이것은 흐름의
+    결이다.
+
+    Args:
+        day_master: 일간(한자 1자).
+        ganji: 운 간지(한자 2자).
+
+    Returns:
+        ``"운에서 장생을 만나면 — 새로운 시작·배움·인연의 에너지가 켜진다."`` 꼴.
+        계산 불가·사전 미비면 빈 문자열.
+    """
+    if not day_master or len(ganji) != 2:
+        return ""
+    try:
+        stage_name = twelve_unseong(Stem(day_master), Branch(ganji[1]))
+    except ValueError:
+        return ""
+    item = _stage_by_name().get(stage_name)
+    if not item or not item.get("incoming"):
+        return ""
+    return _first_sentence(item["incoming"], 90)
 
 
 def incoming_ten_god_note(

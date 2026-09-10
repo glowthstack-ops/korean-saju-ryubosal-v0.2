@@ -191,6 +191,8 @@ class LlmEventCandidate(BaseModel):
     signals_ko: list[str] = Field(default_factory=list)
     # v2.2.1 — 운 유입 글자의 일간 기준 십성 해석(해석 사전 발췌, 엔진 계산).
     incoming_note: str = ""
+    # 표현 결(12운성 유입, 2026-09-10 daily §23 이식) — 흐름·결과 서술의 결. 문체 전용·점수 무관.
+    stage_note: str = ""
     # 운 암합(보조 자료) — 점수 미반영, 물밑·비공식 뉘앙스 참고용(2026-06-12 자료).
     amhap_notes: list[str] = Field(default_factory=list)
     # 유불리 주의(후보별 사실) — 천간 흉신 시기: 발생해도 계약·결실 불리(우호 단정 방지).
