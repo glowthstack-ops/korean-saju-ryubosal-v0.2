@@ -421,10 +421,10 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 | 이탈 | 사 0.8 / 절 1.0 | 관심 철회·거리두기 |
 | 수렴 | 묘 1.0 | 마감·수납·안으로 |
 | 재생 | 장생 1.0 / 목욕 0.6 / 태·양 0.5 | 태동·환기 |
-| 흔들림 `unsettled` | 목욕 1.0 | 감정 동요·호기심·유혹·미숙(§22-8 잔여 채널, 2026-09-10 4차 — 사전 미배선) |
-| 단장 `poised` | 관대 1.0 | 준비·격식·의욕(§22-8, 미배선) |
-| 노련 `seasoned` | 쇠 1.0 | 경험·힘 빼기·완숙(§22-8, 미배선) |
-| 구상 `incubation` | 태 1.0 / 양 0.8 | 계획·잉태·보호·양육(§22-8, 미배선) |
+| 흔들림 `unsettled` | 목욕 1.0 | 감정 동요·호기심·유혹·미숙(§22-8 잔여 채널, 2026-09-10 4차 — B안 배선) |
+| 단장 `poised` | 관대 1.0 | 준비·격식·의욕(§22-8, B안 배선) |
+| 노련 `seasoned` | 쇠 1.0 | 경험·힘 빼기·완숙(§22-8, B안 배선) |
+| 구상 `incubation` | 태 1.0 / 양 0.8 | 계획·잉태·보호·양육(§22-8, B안 배선) |
 
 **오행 5방향** (지지쌍 0.6 + 천간쌍 0.4 합성): 생아(유입 지원)·아생(발산·표현·소모)·극아(외압)·아극(관리 부담·처리량)·비화(동조·경쟁·과속).
 
@@ -442,7 +442,7 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
 | money_small_gain 공돈 | 상 | 편재 ∨ 생아 | 편재 .6 생아 .4 식신 .3 육합 .2 공망 −.4 |
-| overspend_caution 충동구매 | 상 | (아생 ∨ 비화) ∧ 재성 | 아생 .5 비화 .4 편재 .4 활동↑ .2 공망 .2 |
+| overspend_caution 충동구매 | 상 | (아생 ∨ 비화) ∧ 재성 | 아생 .5 비화 .4 편재 .4 활동↑ .2 흔들림 .2 공망 .2 |
 | money_good_deal 득템 | 상 | 정재 ∨ 식신 | 정재 .6 식신 .4 아극 .3 공망 −.3 |
 | treat_received 대접 | 상 | 생아 ∨ 식신 | 생아 .6 식신 .4 육합 .3 원진 −.2 |
 | small_find 발견 | 중 | 편재 ∨ 재생 | 편재 .5 재생 .4 생아 .2 공망 .2 |
@@ -450,19 +450,19 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 **RECOG·COORD — 평가·조율**
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
-| praise_recognition 인정 | 상 | 관성 ∨ 인성 | 정관 .5 편관 .3 정인 .4 활동↑ .3 공망 −.3 |
+| praise_recognition 인정 | 상 | 관성 ∨ 인성 | 정관 .5 편관 .3 정인 .4 활동↑ .3 단장 .2 공망 −.3 |
 | teamwork_flow 협업 | 상 | 비겁 ∨ 육합 ∨ 삼합 | 비견 .5 육합 .4 삼합 .4 식신 .3 원진 −.3 충 −.2 |
-| document_progress 서류 순조 | 상 | 인성 ∨ 관성 | 정인 .5 정관 .4 육합 .4 공망 −.5 해 −.2 |
+| document_progress 서류 순조 | 상 | 인성 ∨ 관성 | 정인 .5 정관 .4 육합 .4 단장 .2 공망 −.5 해 −.2 |
 | idea_flash 아이디어 | 상 | 식상 ∨ 편인 | 상관 .4 식신 .35 편인 .35 재생 .3 공망 .2 |
-| focus_flow 집중 | 상 | 인성 ∨ 활동↑ | 정인 .5 편인 .3 활동↑ .4 충 −.3 원진 −.3 |
+| focus_flow 집중 | 상 | 인성 ∨ 활동↑ | 정인 .5 편인 .3 활동↑ .4 노련 .2 충 −.3 원진 −.3 |
 
 **COMM — 소통 4종 (트리거 배타 규칙)**
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
 | argument_caution 말다툼 | 상 | 충 ∨ 겁재 (해·파 불인정) | 충 .6 겁재 .5 상관 .3 비화 .2 형 .2 |
 | rumor_caution 구설 | 중 | 상관 ∧ (해 ∨ 원진) (충 불요) | 상관 .6 해 .4 원진 .4 파 .2 |
-| misunderstanding_caution 전달 어긋남 | 중 | 해 ∨ 공망 | 해 .6 공망 .5 편인 .3 |
-| love_misread 연애 오해 | 중 | 식상 ∧ (원진 ∨ 해) | 상관 .5 식신 .3 원진 .5 해 .4 |
+| misunderstanding_caution 전달 어긋남 | 중 | 해 ∨ 공망 | 해 .6 공망 .5 편인 .3 흔들림 .2 |
+| love_misread 연애 오해 | 중 | 식상 ∧ (원진 ∨ 해) | 상관 .5 식신 .3 원진 .5 해 .4 흔들림 .3 |
 
 **BOND — 관계 온도 (연결/철회 분리)**
 | 사건 | prior | signature | evidence |
@@ -505,12 +505,12 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 | overexertion_recovery_caution 방전 | 중 | (아생 ∨ 아극) ∧ (활동↑ ∨ 과속) | 아생 .4 아극 .4 활동↑ .4 과속 .5 형 .2 |
 | sleep_recovery_caution 잠 부족 | 중 | 편인 ∨ 둔화 | 편인 .5 둔화 .5 원진 .3 체력↓ .3 |
 | digestive_rhythm_caution 소화 | 중 | 편인(倒食) ∨ 극아 | 편인 .5 극아 .5 형 .2 |
-| rest_recharge 쉼 | 상 | 없음(포용) | 체력↓ .4 공망 .4 수렴 .4 둔화 .3 |
+| rest_recharge 쉼 | 상 | 없음(포용) | 체력↓ .4 공망 .4 수렴 .4 둔화 .3 노련 .2 |
 
 **PHYS — 신체 (object hazard)**
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
-| careless_injury_caution 부주의 다침 | 하 | (충 ∨ 형) ∧ (공망 ∨ 둔화) | 충 .4 형 .4 공망 .3 둔화 .4 편관 .3 |
+| careless_injury_caution 부주의 다침 | 하 | (충 ∨ 형) ∧ (공망 ∨ 둔화) | 충 .4 형 .4 공망 .3 둔화 .4 편관 .3 흔들림 .2 노련 −.2 |
 | fall_slip_caution 낙상 | 하 | 충 ∧ (파 ∨ 해 ∨ 둔화) | 충 .6 파 .5 해 .35 둔화 .4 |
 | cut_burn_tool_caution 칼·화상 | 하 | (충 ∨ 형) ∧ (金 ∨ 火) | 충 .3 형 .4 金 .5 火 .5 편관 .2 |
 | sports_overuse_caution 운동 무리 | 중 | (비화 ∨ 활동↑) ∧ 형 | 비화 .4 활동↑ .4 형 .5 과속 .4 |
@@ -520,7 +520,7 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
 | walk_refresh 산책 | 상 | 없음(포용) | 생아 .4 재생 .5 공망 .3 체력↓ .2 |
-| tidy_luck 정리 | 상 | 없음(포용) | 수렴 .5 파 .3 공망 .4 정인 .2 |
+| tidy_luck 정리 | 상 | 없음(포용) | 수렴 .5 파 .3 공망 .4 정인 .2 구상 .2 |
 
 ### 22-4. 감사 규격 (funnel — 상설)
 
@@ -544,7 +544,7 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 
 - ENGINE_VERSION·DICT_VERSION 동시 범프 + 회귀 스냅샷 재생성. **C10 동결(±2026-08-28)까지 라이브 적용 금지** — 차기 풀부터.
 - 사전 스키마: 기존 `ten_god_affinity/relation_affinity/element_affinity` → `prior/required_signature/evidence` 로 대체(카탈로그 v2). validate→compile→regression 파이프라인 준수(§CLAUDE.md 원칙 5).
-- P1(후속): 일지 기준 역마 / 표면성 세분(가중 재산정) / ~~12운성 잔여 채널~~(§22-8 — 채널 정의·엔진 4차 완료, 사전 배선은 승인 대기) / 문구 variant(관계 유형별) / 쿨다운·커버리지 선발 승격.
+- P1(후속): 일지 기준 역마 / 표면성 세분(가중 재산정) / ~~12운성 잔여 채널~~(§22-8 — 4차 채널 정의·B안 배선 완료) / 문구 variant(관계 유형별) / 쿨다운·커버리지 선발 승격.
 
 ### 22-7. 카탈로그 개정 이력 — 2026-09-10 확장 (48 → 64종, 사용자 승인)
 
@@ -565,25 +565,25 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 **good 11종**
 | 사건 | 도메인 · 슬롯 | prior | signature | evidence |
 |---|---|---|---|---|
-| work_smooth 일이 술술 풀릴 확률 | work · good/support | 상 | 활동↑ ∧ (정재 ∨ 정관 ∨ 정인) | 활동↑ .5 정재 .3 정관 .3 정인 .3 육합 .2 공망 −.4 충 −.3 |
-| opinion_accepted 의견이 받아들여질 확률 | work · good/support | 상 | 식상 ∧ (관성 ∨ 육합) | 식신 .4 상관 .15 정관 .4 육합 .4 원진 −.3 해 −.3 |
+| work_smooth 일이 술술 풀릴 확률 | work · good/support | 상 | 활동↑ ∧ (정재 ∨ 정관 ∨ 정인) | 활동↑ .5 정재 .3 정관 .3 정인 .3 육합 .2 단장 .2 공망 −.4 충 −.3 |
+| opinion_accepted 의견이 받아들여질 확률 | work · good/support | 상 | 식상 ∧ (관성 ∨ 육합) | 식신 .4 상관 .15 정관 .4 육합 .4 단장 .2 원진 −.3 해 −.3 |
 | smooth_trip 이동·외출이 순조로울 확률 | move · good/support | 상 | (활동↑ ∨ 재생) ∧ (삼합 ∨ 육합 ∨ 생아) | 활동↑ .4 재생 .4 삼합 .4 육합 .3 생아 .3 공망 −.4 충 −.2 |
 | errand_done 미뤄둔 볼일이 한 번에 끝날 확률 | move · support(헤드라인 자격) | 중 | 아극 ∧ (활동↑ ∨ 수렴) | 아극 .5 활동↑ .4 수렴 .3 정재 .3 공망 −.3 |
 | body_light 몸이 가볍고 컨디션 좋을 확률 | health · good/support | 상 | (생아 ∨ 인성) ∧ (재생 ∨ 활동↑) | 생아 .5 정인 .3 재생 .4 활동↑ .4 극아 −.3 형 −.2 |
 | appetite_joy 먹는 게 유난히 맛있을 확률 | health · support(헤드라인 자격) | 중 | 식신 ∧ (생아 ∨ 육합) | 식신 .6 생아 .3 육합 .2 편인 −.4 |
 | answer_arrives 미뤄진 답이 정리될 확률 | news · good/support | 중 | 관성 ∧ (육합 ∨ 삼합 ∨ 충) | 정관 .5 편관 .3 육합 .4 삼합 .3 충 .3 공망 −.4 |
 | unexpected_offer 예상 밖 제안을 받을 확률 | news · good/support | 중 | (편재 ∨ 편관) ∧ (충 ∨ 삼합) | 편재 .4 편관 .4 충 .4 삼합 .3 재생 .2 공망 −.3 |
-| learning_click 배우던 게 머리에 쏙 들어올 확률 | document · support(헤드라인 자격) | 중 | 정인 ∧ (재생 ∨ 활동↑ ∨ 육합) | 정인 .6 편인 .3 재생 .3 활동↑ .2 육합 .2 충 −.3 원진 −.2 |
+| learning_click 배우던 게 머리에 쏙 들어올 확률 | document · support(헤드라인 자격) | 중 | 정인 ∧ (재생 ∨ 활동↑ ∨ 육합) | 정인 .6 편인 .3 재생 .3 활동↑ .2 육합 .2 구상 .1 충 −.3 원진 −.2 |
 | forgotten_money 잊고 있던 돈·물건을 찾을 확률 | money · support(헤드라인 자격) | 중 | 재성 ∧ (수렴 ∨ 파) | 정재 .4 편재 .4 수렴 .5 파 .3 공망 .2 |
 | give_care 누군가를 챙겨주고 뿌듯할 확률 | social · support(헤드라인 자격) | 중 | 아생 ∧ 식신 | 아생 .5 식신 .5 육합 .3 정인 .2 겁재 −.3 |
 
 **caution 5종**
 | 사건 | 도메인 | prior | signature | evidence |
 |---|---|---|---|---|
-| emotion_rush_caution 감정이 앞서 말이 세질 확률 | social | 중 | 과속 ∧ 식상 | 과속 .5 상관 .5 비화 .3 형 .2 정인 −.3 |
+| emotion_rush_caution 감정이 앞서 말이 세질 확률 | social | 중 | 과속 ∧ 식상 | 과속 .5 상관 .5 비화 .3 형 .2 흔들림 .2 정인 −.3 |
 | overconfidence_caution 자신감이 과해 실수할 확률 | work | 중 | (과속 ∨ 활동↑) ∧ 비겁 | 과속 .5 활동↑ .3 비견 .4 겁재 .3 정인 −.2 |
 | close_person_expense_caution 가까운 사람 때문에 지출할 확률 | money | 중 | 겁재 ∧ (육합 ∨ 삼합 ∨ 식신) | 겁재 .6 육합 .3 삼합 .3 식신 .3 정재 −.2 |
-| procrastination_caution 귀찮아서 미룰 확률 | work | 중 | (둔화 ∨ 이탈) ∧ (편인 ∨ 공망) | 둔화 .5 이탈 .4 편인 .4 공망 .3 정관 −.3 |
+| procrastination_caution 귀찮아서 미룰 확률 | work | 중 | (둔화 ∨ 이탈) ∧ (편인 ∨ 공망) | 둔화 .5 이탈 .4 편인 .4 공망 .3 구상 .2 정관 −.3 |
 | rumination_caution 지난 일을 곱씹어 마음이 무거울 확률 | health | 중 | 편인 ∧ (원진 ∨ 수렴 ∨ 이탈) | 편인 .5 원진 .4 수렴 .3 이탈 .3 식신 −.3 |
 
 **동의어 그룹(상충 사건 동시 노출 금지).** 신설 `task_pace_group`(work_smooth·errand_done·procrastination_caution), `money_outflow_group`(close_person_expense_caution·lend_money_caution — lend_money 재배정), `discovery_group`(forgotten_money·small_find — small_find 재배정). 기존 그룹 편입: smooth_trip→movement_safety_group, body_light·appetite_joy→recovery_group, answer_arrives→incoming_news, emotion_rush_caution→speech_trouble.
@@ -658,7 +658,11 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 | work_smooth 헤드라인 | 69 | 75 | 82 |
 | love_misread 슬롯 | 37 | 51 | 51 |
 
-읽기: A안은 이미 최다인 idea_flash 를 더 키운다(권장하지 않음). B안은 흔들림·단장·노련·구상이 각각 caution·work·health·document 사건에 고르게 실리고 상위 점유가 내려간다. **B안을 권장**하되 learning_click 헤드라인 11→41 은 가중 .2→.1 로 낮출지 승인 시 함께 결정. 승인되면 §22-3 표·v2 카탈로그·(v1 대응 없음) 스냅샷 재빌드·재측정으로 반영한다.
+읽기: A안은 이미 최다인 idea_flash 를 더 키운다(권장하지 않음). B안은 흔들림·단장·노련·구상이 각각 caution·work·health·document 사건에 고르게 실리고 상위 점유가 내려간다.
+
+**결정(2026-09-10 사용자 승인 "B안, 가중은 실험 후 나은 쪽").** learning_click 구상 가중 .2 vs .1 을 같은 조건으로 실험: 전역 지표는 동일(상위 점유 43%·종류 47·그룹 good 고유 3.07), .2 는 learning_click 헤드라인 11→41 로 같은 도메인 주력 document_progress(44)에 육박하고 변경 95장, .1 은 26 으로 균형이 유지되고 변경 84장 → **.1 채택**. 반영: §22-3 표 14행(evidence 만, 게이트 불변)·v2 카탈로그·taxonomy(해당 사건 subject/adverse 에 `운성` 추가)·model.v2.1 in-place 스냅샷. v1 카탈로그는 12운성 대응이 없어 무변경. 회귀 `test_residual_stage_channels_wired_per_b_plan` 이 배선표를 고정한다(표 밖 사건의 잔여 채널 참조 금지).
+
+최종 재측정(HEAD 스냅샷 대비, 1,800장): 헤드라인 84장 변경, 슬롯 good 34·support 86·caution 41. 상위 5종 점유 44→43%, 그룹 내 good 고유 3.03→3.07, learning_click 헤드라인 11→26, document_progress 37→44, work_smooth 69→82, love_misread 슬롯 37→51, rest_recharge 69→84.
 
 ## 23. 표현 결(tone) 층 — 십성·12운성의 문장 반영 (2026-09-10 사용자 승인)
 
@@ -702,7 +706,7 @@ headline = fragment(사건)  +  action(사건 × 오늘 십성)  +  result(12운
 ### 23-4. 남은 것
 
 - 사전은 여전히 `reviewed=false`(전문가 감수 전). 2차에서 내부 전수 감수(§23-5)를 거쳤으나 외부 명리 감수는 별개다.
-- 12운성 결과 풀 12스테이지 세분은 3차에서 적용됐다(문체 전용). §22-6 P1 "12운성 잔여 채널"(채점)은 4차에서 §22-8 로 채널 정의·엔진 완료, 사전 배선은 승인 대기.
+- 12운성 결과 풀 12스테이지 세분은 3차에서 적용됐다(문체 전용). §22-6 P1 "12운성 잔여 채널"(채점)은 4차에서 §22-8 로 채널 정의·B안 배선까지 완료.
 - §23-5 의 카탈로그 감수 발견 5건(채점 규칙)은 사용자 승인으로 §22-7 2차 개정에 반영됐다.
 
 ### 23-5. 개정 이력 — 2026-09-10 2차 (사용자 승인: "남은 것 마무리 + 별도 승인 건 진행")

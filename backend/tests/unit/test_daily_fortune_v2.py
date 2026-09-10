@@ -227,29 +227,32 @@ def test_residual_stage_channels_follow_stage_definition() -> None:
     assert ch["unsettled"] == 1.0 and ch["renewal"] == 0.6
 
 
-def test_residual_stage_channels_are_inert_until_wired() -> None:
-    """사전이 잔여 채널을 참조하지 않는 동안(§22-8 배선 승인 전) 선발·점수는 바이트 불변."""
-    from saju_engines import daily_fortune_v2 as V2
-    from saju_engines.daily_fortune_v2 import compute_board_v2
+def test_residual_stage_channels_wired_per_b_plan() -> None:
+    """§22-8 B안(2026-09-10 사용자 승인, learning_click 구상 .1 은 실험 선택) — 배선표 고정.
+
+    evidence 만 싣고 게이트는 바꾸지 않는다. 표 밖 사건은 잔여 채널을 참조하지 않는다
+    (배선 확장은 승인 개정으로만).
+    """
     from saju_shared_types.daily_fortune_v2 import RESIDUAL_STAGE_CHANNELS
 
-    catalog = load_catalog_v2()
-    for key, ev in catalog.events.items():
-        assert not set(ev.evidence) & set(RESIDUAL_STAGE_CHANNELS), key
-        assert not set(json.dumps(ev.required_signature, ensure_ascii=False).split('"')) & set(
-            RESIDUAL_STAGE_CHANNELS
-        ), key
-    d = dt.date(2026, 9, 12)
-    with_channels = compute_board_v2(v1.build_day_context(d), v1.load_daily_dicts_for(d))
-    stripped = {
-        stage: {k: w for k, w in values.items() if k not in RESIDUAL_STAGE_CHANNELS}
-        for stage, values in V2._STAGE_CHANNEL_VALUES.items()
+    wiring = {
+        "love_misread": {"unsettled": 0.3},
+        "misunderstanding_caution": {"unsettled": 0.2},
+        "overspend_caution": {"unsettled": 0.2},
+        "careless_injury_caution": {"unsettled": 0.2, "seasoned": -0.2},
+        "emotion_rush_caution": {"unsettled": 0.2},
+        "document_progress": {"poised": 0.2},
+        "praise_recognition": {"poised": 0.2},
+        "work_smooth": {"poised": 0.2},
+        "opinion_accepted": {"poised": 0.2},
+        "rest_recharge": {"seasoned": 0.2},
+        "focus_flow": {"seasoned": 0.2},
+        "learning_click": {"incubation": 0.1},
+        "tidy_luck": {"incubation": 0.2},
+        "procrastination_caution": {"incubation": 0.2},
     }
-    original = V2._STAGE_CHANNEL_VALUES
-    V2._STAGE_CHANNEL_VALUES = stripped
-    try:
-        without = compute_board_v2(v1.build_day_context(d), v1.load_daily_dicts_for(d))
-    finally:
-        V2._STAGE_CHANNEL_VALUES = original
-    assert with_channels.model_dump() == without.model_dump()
-
+    for key, ev in load_catalog_v2().events.items():
+        got = {ch: w for ch, w in ev.evidence.items() if ch in RESIDUAL_STAGE_CHANNELS}
+        assert got == wiring.get(key, {}), (key, got)
+        leaves = set(json.dumps(ev.required_signature, ensure_ascii=False).split('"'))
+        assert not leaves & set(RESIDUAL_STAGE_CHANNELS), key

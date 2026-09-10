@@ -10529,3 +10529,12 @@ v1.12 라 라이브 전 — 버전 범프 없음, MODEL_V2_VERSION 도 불변).
 (회귀로 고정). 사전 배선은 §22-3 명리 판단이라 승인 개정 절차 — shadow 만 측정(A안 180장 변경·idea_flash
 증폭 / B안 95장 변경·상위 점유 44→43%, B안 권장). docs/17 §22-2 행 4·§22-6 상태·§22-8 신설, taxonomy 어휘
 설명, `STAGE_CHANNELS_V2`/`RESIDUAL_STAGE_CHANNELS`, 테스트 2건.
+
+## 2026-09-10 — 오늘의 운세 4차-b: §22-8 잔여 채널 B안 배선 (learning_click 구상 .1 실험 선택) ✅
+
+데굴님 "B안으로, 가중은 둘 다 실험 후 나은 쪽". .2/.1 동일 조건 실험: 전역 지표 동일, .2 는 learning_click
+헤드라인 41 로 document_progress(44)에 육박·변경 95장, .1 은 26·변경 84장 → .1 채택.
+- 반영: v2 카탈로그 14사건 evidence(게이트 불변), taxonomy 10사건에 `운성` 추가(good=subject·caution=adverse),
+  docs/17 §22-3 표 14행·§22-2 상태·§22-8 결정 기록, model.v2.1 in-place 스냅샷. v1 카탈로그 무변경(12운성 대응 없음).
+- 회귀: inert 테스트 → 배선표 고정 테스트(`test_residual_stage_channels_wired_per_b_plan`)로 교체.
+- 최종 재측정(1,800장): 헤드라인 84 변경, 상위 점유 44→43%, 그룹 good 고유 3.03→3.07.

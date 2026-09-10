@@ -1,9 +1,9 @@
 {
  "model_version": "model.v2.1",
- "compiled_at": "2026-09-10T00:47:50.147627+00:00",
+ "compiled_at": "2026-09-10T02:03:17.592541+00:00",
  "source": {
   "name": "daily_event_catalog_v2.json",
-  "sha256": "51a4c66b61f60a3b0853b4a030a62bf5b04160e7b54291cdb7ae9f1e27d90830",
+  "sha256": "bfefd9b494945fa4afd6034e0c44a7e290f636d3a963922e89e379994793d16d",
   "reviewed": false,
   "review_note": "docs/17 §22-3·§22-7 표가 SSOT. 구조 검증 통과 상태·명리 감수 전. 2026-09-10 §22-7 개정으로 48→64종(사용자 승인)."
  },
@@ -60,7 +60,8 @@
      "bihwa": 0.4,
      "편재": 0.4,
      "activity_up": 0.2,
-     "gongmang": 0.2
+     "gongmang": 0.2,
+     "unsettled": 0.2
     }
    },
    "money_good_deal": {
@@ -151,7 +152,8 @@
      "편관": 0.3,
      "정인": 0.4,
      "activity_up": 0.3,
-     "gongmang": -0.3
+     "gongmang": -0.3,
+     "poised": 0.2
     }
    },
    "teamwork_flow": {
@@ -199,7 +201,8 @@
      "정관": 0.4,
      "yukhap": 0.4,
      "gongmang": -0.5,
-     "hae": -0.2
+     "hae": -0.2,
+     "poised": 0.2
     }
    },
    "idea_flash": {
@@ -244,7 +247,8 @@
      "편인": 0.3,
      "activity_up": 0.4,
      "chung": -0.3,
-     "wonjin": -0.3
+     "wonjin": -0.3,
+     "seasoned": 0.2
     },
     "headline_slots": [
      "good"
@@ -314,7 +318,8 @@
     "evidence": {
      "hae": 0.6,
      "gongmang": 0.5,
-     "편인": 0.3
+     "편인": 0.3,
+     "unsettled": 0.2
     }
    },
    "love_misread": {
@@ -339,7 +344,8 @@
      "상관": 0.5,
      "식신": 0.3,
      "wonjin": 0.5,
-     "hae": 0.4
+     "hae": 0.4,
+     "unsettled": 0.3
     }
    },
    "love_spark": {
@@ -946,7 +952,8 @@
      "stamina_down": 0.4,
      "gongmang": 0.4,
      "closure": 0.4,
-     "pace_down": 0.3
+     "pace_down": 0.3,
+     "seasoned": 0.2
     },
     "headline_slots": [
      "good"
@@ -979,7 +986,9 @@
      "hyeong": 0.4,
      "gongmang": 0.3,
      "pace_down": 0.4,
-     "편관": 0.3
+     "편관": 0.3,
+     "unsettled": 0.2,
+     "seasoned": -0.2
     }
    },
    "fall_slip_caution": {
@@ -1121,7 +1130,8 @@
      "closure": 0.5,
      "pa": 0.3,
      "gongmang": 0.4,
-     "정인": 0.2
+     "정인": 0.2,
+     "incubation": 0.2
     },
     "headline_slots": [
      "good"
@@ -1154,7 +1164,8 @@
      "정인": 0.3,
      "yukhap": 0.2,
      "gongmang": -0.4,
-     "chung": -0.3
+     "chung": -0.3,
+     "poised": 0.2
     }
    },
    "opinion_accepted": {
@@ -1182,7 +1193,8 @@
      "정관": 0.4,
      "yukhap": 0.4,
      "wonjin": -0.3,
-     "hae": -0.3
+     "hae": -0.3,
+     "poised": 0.2
     }
    },
    "smooth_trip": {
@@ -1398,7 +1410,8 @@
      "activity_up": 0.2,
      "chung": -0.3,
      "wonjin": -0.2,
-     "yukhap": 0.2
+     "yukhap": 0.2,
+     "incubation": 0.1
     }
    },
    "forgotten_money": {
@@ -1474,7 +1487,8 @@
      "상관": 0.5,
      "bihwa": 0.3,
      "hyeong": 0.2,
-     "정인": -0.3
+     "정인": -0.3,
+     "unsettled": 0.2
     }
    },
    "overconfidence_caution": {
@@ -1557,7 +1571,8 @@
      "disengage": 0.4,
      "편인": 0.4,
      "gongmang": 0.3,
-     "정관": -0.3
+     "정관": -0.3,
+     "incubation": 0.2
     }
    },
    "rumination_caution": {
