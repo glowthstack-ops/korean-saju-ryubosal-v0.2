@@ -7,7 +7,9 @@ reviewed:false 초안 — 점수 약화·라벨 강등·품질 태깅으로 후�
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from saju_shared_types.event_engine import (
     EventCandidateV2,
@@ -16,6 +18,26 @@ from saju_shared_types.event_engine import (
     LuckLayer,
     TenGod,
 )
+
+_DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
+#: 공망 충발 감점 기본값 — void_repetition_modifier.json score_effect.void_unresolved.
+_VOID_UNRESOLVED_DEFAULT = -10
+
+
+def load_void_unresolved_delta(dictionaries_dir: Path = _DICTS_DEFAULT) -> int:
+    """공망 충발 감점을 사전에서 읽는다(사전이 SSOT — 2026-09-10 배선).
+
+    2026-09-10 사문 감사: 이 모듈은 docstring 에서 `void_repetition_modifier.json` 을
+    적용한다고 했지만 파일을 읽지 않았다(값이 우연히 같았을 뿐). 파일이 없거나 형식이
+    깨지면 기본값으로 물러난다(운영 차단 금지).
+    """
+    path = Path(dictionaries_dir) / "event_engine" / "void_repetition_modifier.json"
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return int(raw["void_activation_modifier"]["score_effect"]["void_unresolved"])
+    except (OSError, KeyError, TypeError, ValueError):
+        return _VOID_UNRESOLVED_DEFAULT
+
 
 _WEALTH = {TenGod.ZHENGCAI, TenGod.PIANCAI}
 _OUTPUT = {TenGod.SHISHEN, TenGod.SHANGGUAN}
@@ -45,7 +67,21 @@ class GateContext:
 
 
 class AddendumGateModifier:
-    """후보에 안전 게이트·프로필 분기·공망 보정을 적용한다."""
+    """후보에 안전 게이트·프로필 분기·공망 보정을 적용한다.
+
+    수치 파라미터 중 사전이 SSOT 인 것은 공망 충발 감점 하나
+    (`void_repetition_modifier.json` score_effect.void_unresolved). 프로필 분기 규칙
+    (`user_profile_event_gate.json`)은 서술 규격이며 구현은 이 클래스의 분기다 —
+    JSON 의 `implemented_by` 가 규칙↔reason code 대응을 선언하고 테스트가 대조한다.
+    """
+
+    def __init__(self, dictionaries_dir: Path = _DICTS_DEFAULT) -> None:
+        self._void_delta = load_void_unresolved_delta(dictionaries_dir)
+
+    @property
+    def void_unresolved_delta(self) -> int:
+        """공망 충발 감점(음수) — 사전 값."""
+        return self._void_delta
 
     def apply(
         self, candidates: list[EventCandidateV2], ctx: GateContext
@@ -106,7 +142,7 @@ class AddendumGateModifier:
             # 억제가 풀리는 신호라 방향이 반대다 — 서술용 reason만 남긴다.
             # ('해소=공허·지연'으로 뒤집혀 서술되던 결함의 원인 수정 — 申·巳 육합 사례)
             if "clash" in ctx.void_kinds or (ctx.void_active and not ctx.void_kinds):
-                score -= 10
+                score += self._void_delta  # 사전 score_effect.void_unresolved(기본 −10)
                 timing = EventTiming.DELAY  # 공망 충발 — 방향은 유지하고 발현만 지연
                 reasons.append("VOID_delay")
             if "fill" in ctx.void_kinds:

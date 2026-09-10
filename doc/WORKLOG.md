@@ -10538,3 +10538,27 @@ v1.12 라 라이브 전 — 버전 범프 없음, MODEL_V2_VERSION 도 불변).
   docs/17 §22-3 표 14행·§22-2 상태·§22-8 결정 기록, model.v2.1 in-place 스냅샷. v1 카탈로그 무변경(12운성 대응 없음).
 - 회귀: inert 테스트 → 배선표 고정 테스트(`test_residual_stage_channels_wired_per_b_plan`)로 교체.
 - 최종 재측정(1,800장): 헤드라인 84 변경, 상위 점유 44→43%, 그룹 good 고유 3.03→3.07.
+
+## 2026-09-10 — 리포트·채팅 사문(死文) 경로 정리 + 컴파일 스냅샷 드리프트 가드 확대 ✅ (권장 순서 1·3)
+
+데굴님 "권장대로 진행". daily 감사 기법(사문 감점·드리프트)을 리포트·채팅에 옮긴 첫 묶음.
+탐색 에이전트 보고 중 영향 큰 4건은 코드로 직접 재검증한 뒤 수정.
+
+- **모순 근거 통로 복구**: `graph_retrieval._bundle_for` 가 존재하지 않는 `contradicts` 엣지 타입을
+  찾아 목록이 항상 비어 있었다(컴파일 그래프 엣지 타입 9종에 없음). retrieval 시점에 `triggers`
+  규칙의 candidate polarity 로 파생(지배 극성=가중 합 큰 쪽, 반대 극성 규칙 라벨 반환). 초판은
+  "경로 밖 규칙"으로 걸러 0건 — 경로가 모든 규칙을 지나므로 조건 제거. 결과 4/21 이벤트에서
+  "반대 근거" 생성(career_change ← 정관합+용신 등). docs/04 Retrieval 3 개정.
+- **운 기둥 12운성 해설**: `build_luck_grounding` 이 원국용 `natal` 문장을 붙이고 `incoming` 은 한
+  번도 읽히지 않았다 → incoming 우선.
+- **게이트 사전**: `void_repetition_modifier.json` 을 게이트가 읽지 않았다 → score_effect.void_unresolved
+  를 SSOT 로 로드(기본값 폴백), 구 `void_resolved_by_relation +6` 은 2026-08-21 확정 의미론(合則不能空)과
+  어긋나 0 으로. `user_profile_event_gate.json` 은 서술 규격(SPEC_ONLY) 으로 선언하고 규칙별
+  `implemented_by`(reason code) 를 적어 코드와 대조(미구현 6건 명시: 학생·무직·퇴직·직장인 재물·
+  연애중·자녀 있음).
+- **리포트 사전 버전**: `ReportBuilder` 기본값 "1.0.0" 고정 노출 → `dictionary_version.report_dict_version`
+  (사전 디렉터리 JSON 해시 12자, 결정론) 배선.
+- **드리프트 테스트 4종**(`test_compiled_snapshot_drift.py`): event_graph·structure_patterns·direction_suggestions·
+  selection_allocation_weights 를 원본에서 재생성해 커밋본과 비교 + 런타임/빌드 버전 상수 일치. 현재 전부 일치.
+- 회귀 `test_dead_path_regressions.py` 5건. 미처리(기록만): `events/*.json` score 는 그래프 triggers weight 로만
+  쓰이고 채점엔 사문(2026-08 기록 유지), `PRECOMPUTE_DICT_VERSION="1.0.0"` 은 캐시 키라 유지.

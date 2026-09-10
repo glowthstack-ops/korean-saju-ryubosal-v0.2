@@ -41,6 +41,7 @@ from saju_engines.daewoon_background import (
     background_evidence_block,
 )
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
+from saju_engines.dictionary_version import report_dict_version
 from saju_engines.direction_suggestion import (
     DIRECTION_SUGGESTION_INSTRUCTION,
     detect_direction_suggestions,
@@ -3856,6 +3857,8 @@ def generate_report(
 
     builder = ReportBuilder(
         dictionaries_dir=_DICTS,
+        # 표지·부록의 '사전 버전' — 기본값 "1.0.0" 고정 노출 결함 수정(2026-09-10 사문 감사).
+        dict_version=report_dict_version(_DICTS),
         context_builder=lambda plan, s: build_section_context(plan, s, data),
         generate_fn=generate_fn,
         progress_fn=progress_fn,

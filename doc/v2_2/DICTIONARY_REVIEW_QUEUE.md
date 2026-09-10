@@ -78,3 +78,5 @@ review_status  = PENDING  → 명리 감수 미완료
 
 - 위험 사전 REL 7 · MOV 6 · HLT 8 · LEG 6 — `doc/v2_2/RISK_DICTIONARY_REVIEW.md`
 - 지역 오행 Tier B — `doc/v2_2/docs/12_REGION_ELEMENT_ENGINE.md`
+
+**2026-09-10 사문 감사 후속**: `event_engine/void_repetition_modifier.json` 은 `runtime_status=PARAMETER_SOURCE`(void_unresolved 만 코드가 읽음), `user_profile_event_gate.json` 은 `SPEC_ONLY`(implemented_by 로 구현 여부 선언 — 미구현 6건). 감수 시 "코드가 읽는 필드" 만 점수에 영향이 있음을 전제로 볼 것.

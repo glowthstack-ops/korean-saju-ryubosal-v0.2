@@ -199,7 +199,9 @@ def build_luck_grounding(
     note = incoming_ten_god_note(day_master, ganji, fav, natal_operational_role_map(result))
     stage_name = getattr(luck_pillar, "twelve_unseong", "")
     stage = _stage_by_name().get(stage_name)
-    stage_txt = _first_sentence(stage["natal"], 110) if stage else ""
+    # 운 기둥은 '운 유입' 문장(incoming)을 쓴다 — 2026-09-10 이전에는 원국용 natal 을 잘못
+    # 붙였고 incoming 은 한 번도 읽히지 않았다(사문 감사). 일주 해설(natal)은 그대로.
+    stage_txt = _first_sentence(stage.get("incoming") or stage["natal"], 110) if stage else ""
     pillar_line = (
         f"{note} · 십이운성 {stage_name}"
         + (f"({stage_txt})" if stage_txt else "")
