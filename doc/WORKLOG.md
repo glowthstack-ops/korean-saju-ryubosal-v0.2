@@ -10650,3 +10650,11 @@ daily docs/17 §23 의 "십성=행동 결, 12운성=흐름 결"을 LLM 입력 �
   단정·일대일 고정 금지, 시점은 보조).
 - 회귀 `test_career_field_question.py`(파서 양/음성·사전 원칙·기준 명식 근거·2턴 프롬프트·시점 미승계).
 - docs/08 career 행, docs/03 IntentJson careerField, docs/05 사전 등재, 검토 큐.
+
+## 2026-09-10 — 직업 분야 근거를 테마사주에도 반영 (F-15·J-04·J-07) ✅
+
+데굴님 확인("테마사주와 채팅 모두?") — 채팅만 반영돼 있어 리포트에 같은 엔진·규칙을 배선했다.
+- `_ReportData.career_field_block()`(캐시): 제안 통로 = 현재 대운(approx_start/end 로 판정)·세운 천간 십성.
+- `build_section_context`: `_CAREER_FIELD_SECTIONS={F-15, J-04, J-07}` 에 블록 + `_CAREER_FIELD_REPORT_DIRECTIVE`
+  (조직 규모 적합과 결합). J-05(타임라인)는 제외. F-15 섹션 지시문 갱신.
+- docs/10 F-15 행·3-2a 신설. 회귀 2건 추가(FOCUS career J-04/J-07·J-05 제외, FULL F-15+조직 규모·F-02 제외·캐시).

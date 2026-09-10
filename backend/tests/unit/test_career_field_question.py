@@ -143,3 +143,54 @@ def test_field_question_does_not_inherit_previous_month_scope() -> None:
     parsed2, *_ = ConversationEngine().process_turn(state, "그럼 승진은 어때?", _TODAY)
     assert parsed2.intents[0].time_range is not None
     assert parsed2.intents[0].time_range.start == "2026-09"
+
+
+# ── 테마사주(리포트) — F-15·J-04·J-07 에 같은 근거 블록·지침 ─────────────────────
+
+
+def _report_data(product_code: str, topic: str | None):
+    from saju_api.services.report_service import _ReportData
+    from saju_shared_types.intent import SubjectKind, SubjectRef
+    from saju_shared_types.report import ReportPeriod, ReportSpec
+
+    birth = BirthInput(
+        calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:40",
+        birth_place_name="서울", gender="male", apply_true_solar_time=False,
+    )
+    kwargs = {"topic": topic} if topic else {}
+    spec = ReportSpec(
+        product_code=product_code,
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        period=ReportPeriod(start="2024-01", end="2030-12"), **kwargs,
+    )
+    return spec, _ReportData(birth, spec, date(2026, 6, 15), owner_id=None, subject_id=None)
+
+
+def test_report_career_sections_carry_field_block_and_directive() -> None:
+    from saju_api.services.report_service import build_section_context
+    from saju_engines.report_plan import build_section_plans
+
+    spec, data = _report_data("RPT_FOCUS", "career")
+    plans = {p.section_id: p for p in build_section_plans(spec)}
+    for sid in ("J-04", "J-07"):
+        ctx = build_section_context(plans[sid], spec, data)
+        assert "[직업 분야 근거" in ctx.body_prompt, sid
+        assert "[직업 분야 지침" in ctx.body_prompt, sid
+        assert "제안·기회 통로 대운" in ctx.body_prompt, sid
+    # 타임라인 섹션(J-05)은 분야 블록을 싣지 않는다.
+    ctx5 = build_section_context(plans["J-05"], spec, data)
+    assert "[직업 분야 근거" not in ctx5.body_prompt
+
+
+def test_report_full_f15_has_block_and_org_scale_together() -> None:
+    from saju_api.services.report_service import build_section_context
+    from saju_engines.report_plan import build_section_plans
+
+    spec, data = _report_data("RPT_FULL", None)
+    plans = {p.section_id: p for p in build_section_plans(spec)}
+    ctx = build_section_context(plans["F-15"], spec, data)
+    assert "[직업 분야 근거" in ctx.body_prompt and "[직업 분야 지침" in ctx.body_prompt
+    assert "[조직 규모 적합" in ctx.body_prompt
+    other = build_section_context(plans["F-02"], spec, data)
+    assert "[직업 분야 근거" not in other.body_prompt
+    assert data.career_field_block() == data.career_field_block()  # 캐시·결정론

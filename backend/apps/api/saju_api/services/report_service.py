@@ -24,6 +24,7 @@ from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
 from saju_engines import counseling_arbiter
 from saju_engines.candidate_semantics import candidate_semantics
+from saju_engines.career_field import build_career_field_facts, render_career_field_lines
 from saju_engines.chart_interpretation import build_chart_interpretation
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
@@ -437,8 +438,9 @@ _SECTION_GUIDES: dict[str, str] = {
     "표에 없는 해를 '아무 일 없는 해'로 단정하지 말 것. 월별 상세는 변곡 연도당 최대 1~2개 "
     "달만. [연도별 흐름] 표는 가까운 몇 해의 해상도 보강용 보조 자료다. 90세 이후는 '풀이는 "
     "90세까지를 기준으로 본다'고 한 줄로만 안내할 것.",
-    "F-15": "직업 구조(관성·식상·재성)와 적합 분야·추구 방향을 서술하고, [조직 규모 적합] "
-    "지침에 따라 어울리는 조직 결(대기업/중견·중소/스타트업 등)을 짚을 것 — 합격·승진 단정 금지.",
+    "F-15": "직업 구조(관성·식상·재성)와 적합 분야·추구 방향을 서술하되 적합 분야는 [직업 분야 "
+    "근거](십성 기능 표)와 [직업 분야 지침]을 따르고, [조직 규모 적합] 지침에 따라 어울리는 조직 "
+    "결(대기업/중견·중소/스타트업 등)을 짚을 것 — 합격·승진 단정 금지.",
     "F-17": "연애·결혼의 구조와 흐름(만남·결혼 신호·안정기)을 서술할 것 — 부모·자녀는 별도 "
     "섹션 몫이므로 다루지 말 것. 결혼 단정·재촉·낙인 표현 금지.",
     "F-17b": "부모·가족과의 관계 결, 부모의 건강을 챙기면 좋을 주의 시기(인성 동요 신호)와 "
@@ -621,6 +623,19 @@ _YEAR_SPECTRUM_SECTIONS = {"W-06", "J-05", "R-05", "RP-06", "RL-06", "C-03", "F-
 
 # 조직 규모 적합(F-15 — docs/10 3-2, 2026-08-13 사용자 확정). 서술 전용 매핑: 점수·날짜·
 # 간지·판정에 관여하지 않는다. 표의 SSOT는 docs/10 3-2 — 어휘가 커지면 사전(JSON) 승격.
+# 직업 분야·적합 분야(2026-09-10 데굴님 제공 자료 — dictionaries/career_fields.json). 채팅의
+# _CAREER_FIELD_DIRECTIVE 와 같은 규칙을 섹션 길이에 맞춘 것. 점수·판정 불변(서술 근거 전용).
+_CAREER_FIELD_SECTIONS = frozenset({"F-15", "J-04", "J-07"})
+_CAREER_FIELD_REPORT_DIRECTIVE = (
+    "[직업 분야 지침 — 서술 전용] 위 [직업 분야 근거]의 두드러진 십성·배합을 근거로 어울리는 "
+    "직업군 2~3개를 이름으로 짚고, 각각 '어떤 기능과 방식으로 일하는가'(생산·표현·거래·관리·"
+    "통제·탐구·전승)로 이유를 붙일 것. 원국 적성(어떤 일이 맞나)과 '제안·기회 통로'(현재 대운·"
+    "세운 천간 십성 — 어떤 쪽에서 제안이 오기 쉬운가)를 구분해 쓰고, [조직 규모 적합]과 결합해 "
+    "'어떤 직무를 어떤 규모의 조직에서'로 구체화할 것. 금지: '재성이 많으니 사업가'식 단정, 십성 "
+    "유무로 적성 확정·부적합 단정, 'X격이면 Y직업' 고정, 근거에 없는 직업군 추가. 직업명은 여러 "
+    "십성 기능이 겹치므로 일대일 고정을 피하고 조건(일간 감당력·용희신·배합)에 따른 강조점 차이를 "
+    "짚을 것. 학파별 배속 차이가 있는 참고 해석임을 한 문장으로만 밝힐 것."
+)
 _ORG_SCALE_DIRECTIVE = (
     "[조직 규모 적합 — 서술 전용 지침] 아래 매핑으로 본인 구조에 결이 맞는 조직 규모·문화"
     "(조직 구조·의사소통·매출 규모의 차이)를 짚을 것: ①정관·정인 중심(규범 수용·위계 적응·"
@@ -1783,6 +1798,35 @@ class _ReportData:
             if line:
                 out.append(f"{period}: {line}")
         return out
+
+    def career_field_block(self) -> list[str]:
+        """[직업 분야 근거] 블록(캐시) — 원국 십성 기능 표 + 제안 통로(현재 대운·세운 천간 십성).
+
+        채팅 `_career_field_context` 와 같은 엔진. 실패는 빈 목록(섹션 생성을 막지 않는다).
+        """
+        cached = getattr(self, "_career_field_lines", None)
+        if cached is not None:
+            return list(cached)
+        incoming: list[tuple[str, str]] = []
+        try:
+            lc = self.result.luck_cycles
+            if lc is not None:
+                for d in lc.daewoon_table:
+                    if d.approx_start_date <= self.today < d.approx_end_date and d.stem_ten_god:
+                        incoming.append((f"대운 {d.ganji}", d.stem_ten_god))
+                        break
+            yp = luck_years(self._chart_birth, [self.today.year])
+            if yp and yp[0].stem_ten_god:
+                incoming.append((str(self.today.year), yp[0].stem_ten_god))
+        except Exception:  # noqa: BLE001 — 통로 계산 실패가 분야 근거를 막지 않는다
+            incoming = []
+        try:
+            lines = render_career_field_lines(build_career_field_facts(self.result, incoming))
+        except Exception:  # noqa: BLE001
+            _logger.exception("career field block failed")
+            lines = []
+        self._career_field_lines = lines
+        return list(lines)
 
     def luck_hap_lines(self, candidates: list[EventCandidate]) -> list[str]:
         """후보 기간 운(세운·월운·대운) 천간이 원국과 맺는 천간합의 작용 모드 줄.
@@ -3195,6 +3239,12 @@ def build_section_context(
             "그대로 쓰지 말고, 이 인과를 일상어로 풀어 설명에 녹일 것]",
             *data.evidence_paths,
         ]
+    # 직업 분야 근거(2026-09-10) — 십성 기능 표 블록 + 지침. F-15(적합 분야)·J-04(발현 형태)·
+    # J-07(행동 전략). 채팅과 같은 엔진(career_field)·같은 규칙, 점수 불변.
+    if sid in _CAREER_FIELD_SECTIONS:
+        field_block = data.career_field_block()
+        if field_block:
+            lines += ["", *field_block, _CAREER_FIELD_REPORT_DIRECTIVE]
     # 생애 개편 서술 디렉티브(docs/10 3-2·3-3) — 조직 규모 적합(F-15)·미혼 배우자상(F-17).
     if sid == "F-15":
         lines += ["", _ORG_SCALE_DIRECTIVE]
