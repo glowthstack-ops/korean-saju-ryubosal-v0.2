@@ -10607,3 +10607,13 @@ daily docs/17 §23 의 "십성=행동 결, 12운성=흐름 결"을 LLM 입력 �
   메타에서는 제외(중복 노출 방지). `select_table_candidates(fanout_cap=2)` 도 같은 방식(cap×3 → 캡 → cap).
 - 실측(40명식 live): 채팅 클론 쌍 82→49(2.05→1.23/명식), 리포트 361→178(9.03→4.45), 상충 0 유지.
 - 회귀: `test_selection_contradiction_guard.py` 캡 준수·off 경로 보존. docs/03 B5 규격 추가.
+
+## 2026-09-10 — 3층 P0(진단 상설화) + P1-a(12운성 보정 포화 수정) ✅ (사용자 승인 "승인할께")
+
+- **P0**: `scripts/audit_event_layer_ablation.py`(allowlist) + `test_event_layer_ablation_audit.py`.
+- **P1-a 원인 2건**: ①층 누적(세운+월운+대운 단계 보정 합산→cap) ②`_combo_bonus` 가 월운·일운·
+  sewoon_has_event_candidate 조건을 무시해 `SEWOON_EVENT_WOLWOON_ILWOON_TRIGGER`(+8 전 사건)가 **모든
+  후보에 무조건** 가산. 수정: 성숙도 우선 층 1개만 + 조건 전수 평가(fail-closed) + `stage_combo` 기여 분리,
+  합계 상한 ±18 유지.
+- 재측정: +18 포화 45.5%→0%, 스테이지 평균 제왕 +11.1 … 절 −5.3(사전 의도 복원), 수정 전후 기간 top
+  변경 23.9%. 기존 12운성 단위 테스트·회귀 케이스·reason code 결정론 통과. 상세 제안서 §7.

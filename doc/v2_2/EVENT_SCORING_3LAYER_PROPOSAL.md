@@ -1,6 +1,6 @@
 # 이벤트 채점 3층 판정 모델 도입 제안 (권장 순서 5 — shadow 진단, 2026-09-10)
 
-> 상태: **제안(승인 대기)**. 라이브 코드 무변경. 근거 수치는 40명식 × 2026년(연운+월운) shadow
+> 상태: 2026-09-10 사용자 승인 → **P0 완료·P1-a 적용 완료**(§7). P1-b(채널화)·P2 는 §4 대로 후속. 근거 수치는 40명식 × 2026년(연운+월운) shadow
 > (`EventEngineV2.score`, contributions 재구성 ablation). 스크립트는 세션 스크래치패드
 > (`shadow_layer_ablation.py`, `shadow_stage_saturation.py`) — 채택 시 `backend/scripts/` 로 이관.
 
@@ -83,3 +83,66 @@ daewoon_transition 5% · yongi 5% · gate 2% · rank 1%.
 - 권장 순서 1~4 결과: WORKLOG 2026-09-10 항목들, `test_dead_path_regressions.py`, `test_compiled_snapshot_drift.py`,
   `test_tone_layer_transfer.py`, `test_selection_contradiction_guard.py`.
 - 클론 캡(순서 4 — 2단계) 승인 대기: period×지배 신호 ≤2 + 재충원(채팅 13/40·리포트 40/40 명식 변화).
+
+## 7. 적용 이력 (2026-09-10 승인 후)
+
+**P0 — 진단 상설화(점수 불변).** `scripts/audit_event_layer_ablation.py`(maintained allowlist) +
+`tests/unit/test_event_layer_ablation_audit.py`(형태·범위·결정론만 고정, 상한 강제 없음).
+
+**P1-a — 12운성 보정 층 누적 제거 + 조합 보너스 조건 전수 평가 + 기여 분리.** 포화의 원인은 둘이었다.
+1. `TwelveStageModifier.apply` 가 source_layer 마다 단계 보정을 **누적**(세운 +12, 월운 +15, 대운 +10 …).
+   → 사건 성숙도 우선 층 하나(세운>월운>대운>일운 — phase 를 정하던 층)만 적용.
+2. `_combo_bonus` 가 `wolwoon_*`·`ilwoon_*`·`sewoon_has_event_candidate` 조건을 **평가하지 않아**,
+   그 조건만 가진 `SEWOON_EVENT_WOLWOON_ILWOON_TRIGGER`(+8, 전 사건)가 모든 후보에 무조건 붙었다.
+   → condition 의 모든 키 평가, 미지 키는 fail-closed. 조합 보너스는 `stage_combo` 기여로 분리,
+   상한은 문서 불변식대로 합계 ±18 유지.
+
+재측정(40명식 × 2026, 같은 스크립트):
+
+| 지표 | 수정 전 | 수정 후 |
+|---|---|---|
+| stage 기여 +18 포화율 | 45.5% | **0.0%** |
+| 스테이지 평균(제왕/건록/장생/목욕/태/사/병/절) | 13.0/11.7/13.9/11.4/10.3/7.1/3.9/6.1 | **11.1/6.8/5.1/3.0/2.2/−2.0/−4.9/−5.3** |
+| stage 제거 시 기간 top 변경 | 16.1% | 10.7% (부풀려진 상수분 제거) |
+| stage_combo |기여| 비중 | (stage 에 섞임) | 0.2% (조건 성립 시에만) |
+| 수정 전후 기간 top 변경 / 연간 Top-5 집합 변경 | – | 23.9% / 80.0% |
+
+읽기: 사(死)·병·절이 음수, 제왕·건록·장생이 양수 — 사전 `score_modifier` 의 의도가 처음으로 순위에
+반영된다. 변경 폭(기간 top 24%)은 크지만 "12운성이 사건 상태를 정한다"는 사전 원칙의 복원이다.
+회귀: 기존 `test_twelve_stage_modifier.py`(단일 층·감점·조합·상한) 전부 통과.
+
+## 8. P1-b 초안 — 12운성 기능 채널 evidence 표 (승인 대기, 라이브 미적용)
+
+유도 규칙(기계적·새 명리 판단 없음): 스테이지→채널 대응은 daily §22-2 + §22-8(장생→재생 / 목욕→재생·흔들림 /
+태·양→재생·구상 / 관대→활동↑·단장 / 건록→활동↑ / 제왕→활동↑·과속 / 쇠→체력↓·노련 / 병→체력↓·둔화 / 사→둔화·이탈 /
+절→이탈 / 묘→수렴). 사건별 `event_specific_modifiers.boost/reduce_stages`(없으면 `stage_modifier_rules.good_for/caution_for`)의
+스테이지를 채널로 펼쳐 ±1 씩 세고, 최대 |값| 을 .4 로 정규화(.1 단위). 즉 **현행 사전이 이미 말하는 것을 채널 언어로
+옮긴 것**이며, 가중의 절대 크기·부호 재검토가 승인 대상이다.
+
+| 사건 | 채널 evidence 초안 |
+|---|---|
+| career_change | disengage +0.4, renewal +0.2, unsettled +0.2, stamina_down +0.2, seasoned +0.2, pace_down +0.2, activity_up -0.2 |
+| job_gain | activity_up +0.4, pace_down -0.3, disengage -0.3, renewal +0.1, poised +0.1, overdrive +0.1, stamina_down -0.1 |
+| promotion | activity_up +0.4, stamina_down -0.3, poised +0.1, overdrive +0.1, seasoned -0.1, pace_down -0.1, disengage -0.1 |
+| business_start | renewal +0.4, activity_up +0.3, incubation +0.3, pace_down -0.3, poised +0.1, stamina_down -0.1, disengage -0.1, closure -0.1 |
+| business_expansion | activity_up +0.4, stamina_down -0.4, pace_down -0.4, renewal +0.2, unsettled +0.2, overdrive +0.2, seasoned -0.2, disengage -0.2, closure -0.2 |
+| wealth_change | activity_up +0.4, overdrive +0.2, closure +0.2, stamina_down -0.2, pace_down -0.2 |
+| windfall | unsettled +0.4, overdrive +0.4, pace_down -0.4, disengage -0.4, closure -0.4, incubation -0.4 |
+| contract_document | activity_up +0.4, poised +0.2, closure +0.2, renewal -0.2, unsettled -0.2, stamina_down -0.2, pace_down -0.2, disengage -0.2 |
+| education_admission | renewal +0.4, activity_up +0.2, poised +0.2, incubation +0.2, stamina_down -0.2, pace_down -0.2, disengage -0.2 |
+| education_completion | renewal -0.4, activity_up +0.3, incubation -0.3, poised +0.1, pace_down +0.1, disengage +0.1, closure +0.1 |
+| relationship_change | renewal +0.4, unsettled +0.1, incubation +0.1 |
+| new_relationship | renewal +0.4, unsettled +0.1, pace_down -0.1, disengage -0.1, closure -0.1, incubation +0.1 |
+| marriage_signal | activity_up +0.4, poised +0.2, renewal -0.2, unsettled -0.2, disengage -0.2, stamina_down -0.2, pace_down -0.2 |
+| childbirth | renewal +0.4, incubation +0.3, stamina_down -0.1, pace_down -0.1, disengage -0.1 |
+| relocation | renewal +0.4, unsettled +0.2, disengage +0.2, activity_up -0.2 |
+| legal_conflict | activity_up -0.4, overdrive +0.4, renewal +0.4, unsettled +0.4, disengage +0.4, stamina_down +0.4, pace_down +0.4, poised -0.4 |
+| health_attention | stamina_down +0.4, pace_down +0.4, disengage +0.4, seasoned +0.2, renewal -0.2, activity_up -0.2 |
+| social_conflict | activity_up -0.4, overdrive -0.4 |
+| preparation_delay | stamina_down +0.4, pace_down +0.4, disengage +0.4, seasoned +0.2, closure +0.2, renewal +0.2, incubation +0.2 |
+| creative_output | renewal +0.4, incubation +0.2, unsettled +0.1 |
+| public_exposure | renewal +0.4, unsettled +0.4, activity_up +0.4, overdrive +0.4, pace_down -0.4, disengage -0.4, closure -0.4 |
+
+적용 방식(승인 시): `TwelveStageModifier` 가 성숙도 우선 층의 스테이지 → 채널 값(§22-2 가중)을 만들고
+`Σ evidence×채널값 × 스케일(현행 |score_modifier| 평균 ≈ 8)` 을 `stage` 기여로 싣는다(상한 ±18 유지). 검증은 P1-a 와
+같은 ablation(포화율·스테이지 평균 분포·기간 top 변경률) + 회귀(daily 이식: 감점 채널 도달 가능·gate-evidence 정합).
