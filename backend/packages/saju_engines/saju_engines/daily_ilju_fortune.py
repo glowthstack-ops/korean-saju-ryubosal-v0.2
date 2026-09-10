@@ -804,6 +804,7 @@ class DayTone:
 
     sipseong_group: str  # 오늘 천간 → 일간 십성의 군(비겁·식상·재성·관성·인성)
     stage_channel: str  # 오늘 천간이 일지에서 갖는 12운성의 대표 기능 채널
+    sipseong: str = ""  # 오늘 천간 → 일간 십성(10종, §23-1 2차) — 비어 있으면 군 풀로 물러난다
 
 
 def day_tone(ilju_stem: Stem, ilju_branch: Branch, ctx: DayGanjiContext) -> DayTone:
@@ -815,7 +816,7 @@ def day_tone(ilju_stem: Stem, ilju_branch: Branch, ctx: DayGanjiContext) -> DayT
         ctx: 오늘 일진 간지.
 
     Returns:
-        십성군(오늘 천간 기준)과 12운성 채널(오늘 천간 → 일지).
+        십성군·십성(오늘 천간 기준)과 12운성 채널(오늘 천간 → 일지).
     """
     day_stem = Stem(ctx.day_stem)
     if day_stem == ilju_stem:
@@ -826,6 +827,7 @@ def day_tone(ilju_stem: Stem, ilju_branch: Branch, ctx: DayGanjiContext) -> DayT
     return DayTone(
         sipseong_group=_SIPSEONG_GROUP[sipseong],
         stage_channel=_STAGE_TONE_CHANNEL.get(stage_key, "activity_up"),
+        sipseong=sipseong,
     )
 
 
@@ -849,10 +851,15 @@ def _headline(
     장면·행동·결과만 다른 서사 기능으로 바꾼다.
 
     **표현 결 층(docs/17 §23)**: `tone` 이 주어지고 사전에 결 풀(`tone_actions`·
-    `stage_results`)이 있을 때만 행동 문장은 오늘 십성군 풀에서, 결과 문장은 12운성
+    `stage_results`)이 있을 때만 행동 문장은 오늘 십성 풀에서, 결과 문장은 12운성
     채널 풀에서 고르고 결과 문장을 항상 붙인다. 둘 중 하나라도 없으면 이 함수는
     이전 조합과 바이트 단위로 같다 — 과거 날짜 스냅샷은 결 키가 없어 자동으로 옛
     거동이 된다.
+
+    행동 풀은 10십성(`sipseong_actions[십성]`)을 먼저 보고, 없으면 5군
+    (`tone_actions[십성군]`)으로 물러난다(§23-1 2차). 사건이 `stage_result_exclude`
+    로 채널을 제외하면 결과 문장은 채널 풀 대신 사건 기본 풀에서 고른다(§23-2 —
+    채널 뜻이 사건과 반대인 조합의 감수 결과).
 
     Args:
         romance_scope: 연애 전용 신호가 **강할 때만** True. 관계 계열 사건의 기본
@@ -878,25 +885,33 @@ def _headline(
     actions = list(tpl["actions"])
     results = list(tpl["results"])
 
-    # 결 층 — 행동은 십성군 풀, 결과는 12운성 채널 풀(둘 다 있을 때만 활성).
-    tone_actions = (
-        ((event_tpl or {}).get("tone_actions") or {}).get(tone.sipseong_group)
-        if tone is not None else None
-    )
-    stage_results = (
-        (dicts.templates.get("stage_results") or {})
-        .get(tone.stage_channel, {})
-        .get(generic_kind)
-        if tone is not None else None
-    )
+    # 결 층 — 행동은 십성(10) → 십성군(5) 풀, 결과는 12운성 채널 풀(둘 다 있을 때만 활성).
+    tone_actions: list[str] | None = None
+    stage_results: list[str] | None = None
+    stage_excluded = False
+    if tone is not None:
+        ev = event_tpl or {}
+        tone_actions = (
+            (ev.get("sipseong_actions") or {}).get(tone.sipseong)
+            or (ev.get("tone_actions") or {}).get(tone.sipseong_group)
+        )
+        stage_results = (
+            (dicts.templates.get("stage_results") or {})
+            .get(tone.stage_channel, {})
+            .get(generic_kind)
+        )
+        stage_excluded = tone.stage_channel in (ev.get("stage_result_exclude") or ())
     tone_active = bool(tone_actions) and bool(stage_results)
     if tone_active:
         assert tone_actions is not None and stage_results is not None  # narrow
         base_actions, base_results = actions, results
-        actions, results = list(tone_actions), list(stage_results)
+        actions = list(tone_actions)
+        # 제외 채널이면 결과 문장은 사건 기본 풀 그대로(채널 풀 미사용).
+        results = base_results if stage_excluded else list(stage_results)
         if salt >= 3:  # 중복 지속 시 사건 풀을 합류시킨다(기존 사다리와 같은 문턱)
             actions += base_actions
-            results += base_results
+            if not stage_excluded:
+                results += base_results
 
     if salt >= 3:  # 중복 지속 시 행동 풀 확장
         actions += generic["actions"]
@@ -947,19 +962,26 @@ def _has_good_love_signal(scored: list[_ScoredEvent]) -> bool:
 
 
 def _love_line(
-    dicts: DailyFortuneDicts, scored: list[_ScoredEvent], seed_base: str
+    dicts: DailyFortuneDicts,
+    scored: list[_ScoredEvent],
+    seed_base: str,
+    tone: DayTone | None = None,
 ) -> str | None:
     """일일 연애운 한 줄(확장·beta) — 강한 love 전용 신호가 있을 때만 노출.
 
     대표 신호 선택·게이트는 `_love_pick`에 위임한다. 게이트 미통과면 총운 헤드라인이
     이미 그날을 커버하므로 별도 '오늘의 연애' 줄을 만들지 않는다(None). 발생≠확정 —
     '오늘의 연애 흐름'만 서술한다.
+
+    Args:
+        tone: 오늘의 결(docs/17 §23-2 2차 — 연애 라인도 헤드라인과 같은 결을 쓴다).
+            결 풀이 없는 사전에서는 무시된다(바이트 불변).
     """
     pick, band = _love_pick(scored)
     if pick is None:
         return None
     # 기존 문장 조합 machinery 재사용(스타일·중복 회피 동일). love seed로 분리.
-    return _headline(dicts, pick.event_key, band, seed_base + "|love", 0)
+    return _headline(dicts, pick.event_key, band, seed_base + "|love", 0, tone=tone)
 
 
 def _lucky_place(
@@ -1197,7 +1219,7 @@ def compute_board(
                 dicts.templates["lotto_phrases"],
                 _stable_hash(f"{seed_base}|lotto"),
             )
-        love_line = _love_line(dicts, row["scored"], seed_base)
+        love_line = _love_line(dicts, row["scored"], seed_base, tone=tone)
         fortunes.append(
             DailyIljuFortune(
                 ilju=ilju,

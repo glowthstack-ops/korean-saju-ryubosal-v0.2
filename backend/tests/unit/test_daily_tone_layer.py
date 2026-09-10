@@ -21,6 +21,7 @@ from saju_shared_types.daily_fortune import (
 from saju_shared_types.enums import Branch, Stem
 
 GROUPS = ("비겁", "식상", "재성", "관성", "인성")
+SIPSEONG = ("비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인")
 CHANNELS = (
     "renewal", "activity_up", "overdrive", "stamina_down", "pace_down", "disengage",
     "closure",
@@ -43,7 +44,7 @@ def _ctx(day_stem: str, day_branch: str) -> DayGanjiContext:
 
 
 def test_tone_pools_cover_every_v2_event(dicts) -> None:
-    """64종 × 5군 ≥2문장, 7채널 × good/caution ≥3문장."""
+    """64종 × 5군 ≥2문장 + 64종 × 10십성 ≥2문장, 7채널 × good/caution ≥3문장."""
     events = dicts.templates["events"]
     for key in load_catalog_v2().events:
         tone = events[key].get("tone_actions")
@@ -51,6 +52,16 @@ def test_tone_pools_cover_every_v2_event(dicts) -> None:
         for group, sents in tone.items():
             assert len(sents) >= 2, (key, group)
             assert all(s.strip() for s in sents), (key, group)
+        # §23-1 2차 — 10십성 풀은 전 사건 필수(없으면 군 풀로 물러나지만 규격은 전수).
+        fine = events[key].get("sipseong_actions")
+        assert fine and tuple(fine) == SIPSEONG, key
+        all_fine = [s for sents in fine.values() for s in sents]
+        assert len(all_fine) == len(set(all_fine)) == 20, key
+        for sip, sents in fine.items():
+            assert all(s.strip() and s.endswith(".") for s in sents), (key, sip)
+        # 제외 채널은 실제 채널 이름만, 전부 제외는 금지(결 층이 무의미해진다).
+        excl = events[key].get("stage_result_exclude") or []
+        assert set(excl) <= set(CHANNELS) and len(excl) < len(CHANNELS), (key, excl)
     stage = dicts.templates["stage_results"]
     assert tuple(stage) == CHANNELS
     for channel, pools in stage.items():
@@ -65,10 +76,12 @@ def test_day_tone_matches_definition() -> None:
     """십성군 = 오늘 천간 → 일간 십성의 군, 채널 = 오늘 천간이 일지에서 갖는 12운성."""
     # 甲 일간에 己 천간 = 정재 → 재성군. 己 는 丑 에서 묘(墓) → closure.
     t = M.day_tone(Stem("甲"), Branch("丑"), _ctx("己", "丑"))
-    assert t == M.DayTone(sipseong_group="재성", stage_channel="closure")
+    assert t == M.DayTone(sipseong_group="재성", stage_channel="closure", sipseong="정재")
     # 같은 천간(甲→甲)은 비견 → 비겁군. 甲 은 寅 에서 건록 → activity_up.
     t = M.day_tone(Stem("甲"), Branch("寅"), _ctx("甲", "子"))
-    assert t == M.DayTone(sipseong_group="비겁", stage_channel="activity_up")
+    assert t == M.DayTone(sipseong_group="비겁", stage_channel="activity_up", sipseong="비견")
+    # 甲 일간에 戊 천간 = 편재 — 같은 재성군이라도 십성은 갈린다(10십성 세분의 근거).
+    assert M.day_tone(Stem("甲"), Branch("丑"), _ctx("戊", "子")).sipseong == "편재"
     # 甲 은 卯 에서 제왕 → overdrive(과속), 申 에서 절 → disengage.
     assert M.day_tone(Stem("庚"), Branch("卯"), _ctx("甲", "子")).stage_channel == "overdrive"
     assert M.day_tone(Stem("庚"), Branch("申"), _ctx("甲", "子")).stage_channel == "disengage"
@@ -82,6 +95,7 @@ def test_day_tone_is_deterministic_and_covers_all_channels() -> None:
         a, b = M.day_tone(stem, branch, ctx), M.day_tone(stem, branch, ctx)
         assert a == b
         assert a.sipseong_group in GROUPS and a.stage_channel in CHANNELS
+        assert a.sipseong in SIPSEONG and M._SIPSEONG_GROUP[a.sipseong] == a.sipseong_group
         seen.add(a.stage_channel)
     assert seen == set(CHANNELS)
 
@@ -145,6 +159,71 @@ def test_different_sipseong_groups_give_different_actions(dicts) -> None:
     assert len(actions) == len(GROUPS), texts
 
 
+def test_sipseong_pool_preferred_over_group_pool(dicts) -> None:
+    """10십성 풀이 있으면 정/편이 서로 다른 행동 문장을 내고, 각각 자기 풀에서 나온다."""
+    tpl = dicts.templates["events"]["money_good_deal"]
+    pairs = (
+        ("정재", "편재"), ("비견", "겁재"), ("식신", "상관"), ("정관", "편관"), ("정인", "편인"),
+    )
+    for a, b in pairs:
+        ta = M.DayTone(M._SIPSEONG_GROUP[a], "renewal", sipseong=a)
+        tb = M.DayTone(M._SIPSEONG_GROUP[b], "renewal", sipseong=b)
+        xa = M._headline(dicts, "money_good_deal", "s4", "seed|甲子", 0, tone=ta)
+        xb = M._headline(dicts, "money_good_deal", "s4", "seed|甲子", 0, tone=tb)
+        assert xa != xb, (a, b, xa)
+        assert any(s in xa for s in tpl["sipseong_actions"][a]), (a, xa)
+        assert any(s in xb for s in tpl["sipseong_actions"][b]), (b, xb)
+        # 군 풀 문장은 쓰지 않는다(10십성 풀이 우선).
+        assert not any(s in xa for s in tpl["tone_actions"][M._SIPSEONG_GROUP[a]]), xa
+
+
+def test_sipseong_falls_back_to_group_pool_when_absent(dicts) -> None:
+    """십성이 비어 있거나(옛 호출) 10십성 풀이 없는 사전에서는 군 풀로 물러난다."""
+    tpl = dicts.templates["events"]["work_smooth"]
+    tone0 = M.DayTone("관성", "closure")  # sipseong="" — 옛 호출 형태
+    text = M._headline(dicts, "work_smooth", "s4", "seed|乙丑", 0, tone=tone0)
+    assert any(s in text for s in tpl["tone_actions"]["관성"]), text
+    stripped = {k: v for k, v in dicts.templates.items()}
+    stripped["events"] = {
+        k: {kk: vv for kk, vv in v.items() if kk != "sipseong_actions"}
+        for k, v in dicts.templates["events"].items()
+    }
+    d2 = M.DailyFortuneDicts(catalog=dicts.catalog, templates=stripped, places=dicts.places)
+    tone = M.DayTone("관성", "closure", sipseong="정관")
+    text2 = M._headline(d2, "work_smooth", "s4", "seed|乙丑", 0, tone=tone)
+    assert any(s in text2 for s in tpl["tone_actions"]["관성"]), text2
+
+
+def _base_results(tpl: dict) -> list[str]:
+    """사건 기본 결과 풀 — 최상위 + 서사 family(연애 변형 포함) 전부."""
+    out = list(tpl["results"])
+    for fam in (tpl.get("families") or {}).values():
+        out += fam.get("results", [])
+        out += (fam.get("romantic") or {}).get("results", [])
+    return out
+
+
+def test_excluded_channel_uses_event_base_results(dicts) -> None:
+    """감수 B — 채널 뜻이 사건과 반대인 조합은 채널 풀 대신 사건 기본 결과 풀을 쓴다."""
+    events = dicts.templates["events"]
+    excl = {k: v.get("stage_result_exclude") or [] for k, v in events.items()}
+    assert "activity_up" in excl["rest_recharge"] and "closure" in excl["love_cooldown"]
+    for key, band in (("rest_recharge", "s4"), ("love_cooldown", "s1")):
+        kind = "caution" if band == "s1" else "good"
+        for channel in excl[key]:
+            tone = M.DayTone("인성", channel, sipseong="정인")
+            text = M._headline(dicts, key, band, "seed|丙寅", 0, tone=tone)
+            assert not any(r in text for r in dicts.templates["stage_results"][channel][kind]), text
+            assert any(r in text for r in _base_results(events[key])), text
+            assert any(a in text for a in events[key]["sipseong_actions"]["정인"]), text
+            assert text.count(" ") >= 2  # 제외돼도 3문장 유지
+        # 제외되지 않은 채널은 채널 풀 그대로.
+        other = next(c for c in CHANNELS if c not in excl[key])
+        tone = M.DayTone("인성", other, sipseong="정인")
+        text = M._headline(dicts, key, band, "seed|丙寅", 0, tone=tone)
+        assert any(r in text for r in dicts.templates["stage_results"][other][kind]), text
+
+
 # ── 4. 보드 수준 — 판정 불변 + 그룹 내 차별화 ────────────────────────────────
 
 
@@ -193,8 +272,13 @@ def test_shared_headline_event_in_stem_group_gets_distinct_results(board_after) 
         if len(rows) < 2:
             continue
         results_by_channel: dict[str, set[str]] = {}
+        excl = (
+            M.load_daily_dicts_for(d).templates["events"][_key].get("stage_result_exclude") or []
+        )
         for f in rows:
             tone = M.day_tone(Stem(f.ilju[0]), Branch(f.ilju[1]), ctx)
+            if tone.stage_channel in excl:
+                continue  # 제외 채널은 사건 기본 풀 — 채널 비교 대상이 아니다
             kind = "caution" if _band_of(f) == "s1" else "good"
             hit = [r for r in stage[tone.stage_channel][kind] if r in f.headline]
             assert hit, (f.ilju, f.headline)
@@ -210,6 +294,29 @@ def _band_of(fortune) -> str:
     """헤드라인이 caution 사건이면 s1(주의 우세) — 그 외는 good 밴드로 취급."""
     valence = load_catalog_v2().events[fortune.headline_event_key].valence
     return "s1" if valence == "caution" else "s4"
+
+
+def test_love_line_uses_tone_when_active(board_after) -> None:
+    """§23-2 2차 — 연애 라인도 결을 쓴다: 결 풀 제거 보드와 문장이 달라지고 3문장이 된다."""
+    d, board = board_after
+    dicts = M.load_daily_dicts_for(d)
+    stripped = {
+        k: v for k, v in dicts.templates.items() if k not in ("stage_results", "tone_layer")
+    }
+    stripped["events"] = {
+        key: {kk: vv for kk, vv in tpl.items() if kk not in ("tone_actions", "sipseong_actions")}
+        for key, tpl in dicts.templates["events"].items()
+    }
+    plain = compute_board_v2(
+        M.build_day_context(d),
+        M.DailyFortuneDicts(catalog=dicts.catalog, templates=stripped, places=dicts.places),
+    )
+    shown = [(a, b) for a, b in zip(board.fortunes, plain.fortunes, strict=True) if a.love_line]
+    assert shown, "이 날짜에 love_line 노출 일주가 없다 — 픽스처 날짜를 바꿀 것"
+    for a, b in shown:
+        assert b.love_line is not None  # 게이트(선발)는 결과 무관
+        assert a.love_line.count(" ") >= 2, a.love_line
+    assert any(a.love_line != b.love_line for a, b in shown)
 
 
 def test_headlines_have_three_sentences_when_tone_active(board_after) -> None:
