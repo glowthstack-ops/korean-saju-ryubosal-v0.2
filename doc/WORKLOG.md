@@ -10617,3 +10617,14 @@ daily docs/17 §23 의 "십성=행동 결, 12운성=흐름 결"을 LLM 입력 �
   합계 상한 ±18 유지.
 - 재측정: +18 포화 45.5%→0%, 스테이지 평균 제왕 +11.1 … 절 −5.3(사전 의도 복원), 수정 전후 기간 top
   변경 23.9%. 기존 12운성 단위 테스트·회귀 케이스·reason code 결정론 통과. 상세 제안서 §7.
+
+## 2026-09-10 — 3층 P1-b: 12운성 기능 채널 evidence 모델 적용 ✅ (사용자 승인 "좋아 진행해")
+
+- `twelve_stage_modifier.json` `channel_model`(stage_channels 12 × 채널값, event_channel_evidence 21, scale 20) = stage 기여 SSOT.
+  구 score_modifier/good_for/caution_for/boost·reduce 는 채점 미사용(phase 원천·초안 출처, runtime_note).
+- `TwelveStageModifier.channel_delta` + 폴백. 회귀 3건(전수 커버·사문 채널 금지·공식 일치·구 목록 무영향·부호 불변식).
+- 재측정: 포화 0%, 스테이지 평균 제왕 +3.2 … 사 −1.0(부호 정합), stage 제거 시 기간 top 변경 18.0%(원래 16.1%, P1-a 10.7%),
+  P1-a 대비 기간 top 변경 26.1%. 제안서 §9. P2 설계 §10(착수 전 shadow·prior 등급표 승인).
+- **P2 shadow(같은 날)**: base 3등급 양자화(A)·evidence 순위(B) 모두 Top-5 도메인 1.90→1.95, 종류 2.60→2.48 로 이득 없이
+  순위만 변경(A 18%/65%, B 29%/82%) → **P2 보류 권고**(제안서 §10-1). 재개 조건 = 사건 세분으로 required 게이트가 후보를 가를 때.
+

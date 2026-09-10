@@ -46,6 +46,15 @@ class _LayerStageCombo(BaseModel):
     good_for: list[str] = []
 
 
+class _ChannelModel(BaseModel):
+    """채널 모델(P1-b, 2026-09-10) — stage 기여의 채점 SSOT."""
+
+    model_config = ConfigDict(extra="ignore")
+    scale: float
+    stage_channels: dict[TwelveStage, dict[str, float]]
+    event_channel_evidence: dict[str, dict[str, float]]
+
+
 class TwelveStageModifier:
     """brancher 후보에 12운성 보정을 적용한다."""
 
@@ -66,6 +75,10 @@ class TwelveStageModifier:
         self._combos: list[_LayerStageCombo] = [
             _LayerStageCombo.model_validate(c) for c in raw["layer_stage_combination_rules"]
         ]
+        # 채널 모델(P1-b) — 있으면 채점 SSOT, 없으면 구 규칙(score_modifier·good_for)로 물러난다.
+        cm = raw.get("channel_model")
+        active = bool(cm) and cm.get("runtime_status") == "ACTIVE"
+        self._channel: _ChannelModel | None = _ChannelModel.model_validate(cm) if active else None
         # stage → group
         self._stage_group: dict[TwelveStage, str] = {}
         for gkey, g in raw["stage_groups"].items():
@@ -107,14 +120,18 @@ class TwelveStageModifier:
                 rule = self._stage.get(stage)
                 if rule is None:
                     continue
-                mag = abs(rule.score_modifier)
-                # 이벤트별 boost/reduce 우선, 없으면 stage의 good_for/caution_for.
-                if (spec and stage in spec.boost_stages) or ek in rule.good_for:
-                    delta = mag
-                elif (spec and stage in spec.reduce_stages) or ek in rule.caution_for:
-                    delta = -mag
+                if self._channel is not None:
+                    # P1-b — 기능 채널 evidence: Σ evidence×채널값×스케일(사건별 표가 SSOT).
+                    delta = self.channel_delta(ek, stage)
                 else:
-                    delta = rule.score_modifier  # 중립 — 단계 기본 부호
+                    mag = abs(rule.score_modifier)
+                    # (구 규칙) 이벤트별 boost/reduce 우선, 없으면 stage의 good_for/caution_for.
+                    if (spec and stage in spec.boost_stages) or ek in rule.good_for:
+                        delta = mag
+                    elif (spec and stage in spec.reduce_stages) or ek in rule.caution_for:
+                        delta = -mag
+                    else:
+                        delta = rule.score_modifier  # 중립 — 단계 기본 부호
                 chosen_stage, phase = stage, rule.event_phase
                 break
 
@@ -142,6 +159,23 @@ class TwelveStageModifier:
             })
             out.append(new)
         return sorted(out, key=lambda x: -x.score)
+
+    @property
+    def channel_model_active(self) -> bool:
+        """채널 모델(P1-b)이 채점 SSOT 인가."""
+        return self._channel is not None
+
+    def channel_delta(self, event_key: str, stage: TwelveStage) -> int:
+        """채널 모델의 stage 기여 — round(scale × Σ evidence[사건][ch] × stage_channels[stage][ch]).
+
+        사건 표에 없는 사건·채널 값이 없는 스테이지는 0(중립). 상한은 호출자가 합계에 건다.
+        """
+        if self._channel is None:
+            return 0
+        ev = self._channel.event_channel_evidence.get(event_key) or {}
+        ch = self._channel.stage_channels.get(stage) or {}
+        total = sum(w * ch.get(name, 0.0) for name, w in ev.items())
+        return int(round(self._channel.scale * total))
 
     #: 조합 규칙 condition 키 → (층, 비교 종류). 사전에 있는 키를 **전부** 평가한다.
     _COND_KEYS: dict[str, tuple[LuckLayer, str]] = {

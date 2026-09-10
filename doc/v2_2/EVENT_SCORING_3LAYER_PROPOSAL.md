@@ -1,6 +1,6 @@
 # 이벤트 채점 3층 판정 모델 도입 제안 (권장 순서 5 — shadow 진단, 2026-09-10)
 
-> 상태: 2026-09-10 사용자 승인 → **P0 완료·P1-a 적용 완료**(§7). P1-b(채널화)·P2 는 §4 대로 후속. 근거 수치는 40명식 × 2026년(연운+월운) shadow
+> 상태: 2026-09-10 사용자 승인 → **P0·P1-a·P1-b 적용 완료**(§7·§9). P2 는 §10 설계 후 착수. 근거 수치는 40명식 × 2026년(연운+월운) shadow
 > (`EventEngineV2.score`, contributions 재구성 ablation). 스크립트는 세션 스크래치패드
 > (`shadow_layer_ablation.py`, `shadow_stage_saturation.py`) — 채택 시 `backend/scripts/` 로 이관.
 
@@ -111,7 +111,7 @@ daewoon_transition 5% · yongi 5% · gate 2% · rank 1%.
 반영된다. 변경 폭(기간 top 24%)은 크지만 "12운성이 사건 상태를 정한다"는 사전 원칙의 복원이다.
 회귀: 기존 `test_twelve_stage_modifier.py`(단일 층·감점·조합·상한) 전부 통과.
 
-## 8. P1-b 초안 — 12운성 기능 채널 evidence 표 (승인 대기, 라이브 미적용)
+## 8. P1-b — 12운성 기능 채널 evidence 표 (2026-09-10 사용자 승인 "좋아 진행해" → 적용, §9)
 
 유도 규칙(기계적·새 명리 판단 없음): 스테이지→채널 대응은 daily §22-2 + §22-8(장생→재생 / 목욕→재생·흔들림 /
 태·양→재생·구상 / 관대→활동↑·단장 / 건록→활동↑ / 제왕→활동↑·과속 / 쇠→체력↓·노련 / 병→체력↓·둔화 / 사→둔화·이탈 /
@@ -146,3 +146,58 @@ daewoon_transition 5% · yongi 5% · gate 2% · rank 1%.
 적용 방식(승인 시): `TwelveStageModifier` 가 성숙도 우선 층의 스테이지 → 채널 값(§22-2 가중)을 만들고
 `Σ evidence×채널값 × 스케일(현행 |score_modifier| 평균 ≈ 8)` 을 `stage` 기여로 싣는다(상한 ±18 유지). 검증은 P1-a 와
 같은 ablation(포화율·스테이지 평균 분포·기간 top 변경률) + 회귀(daily 이식: 감점 채널 도달 가능·gate-evidence 정합).
+
+## 9. P1-b 적용 이력 (2026-09-10)
+
+- 사전 `twelve_stage_modifier.json` 에 `channel_model`(runtime_status=ACTIVE) 신설: `stage_channels`(12스테이지 × §22-2/§22-8 채널값),
+  `event_channel_evidence`(§8 표 21사건), `scale=20`. 이 섹션이 stage 기여의 채점 SSOT — `score_modifier`/`good_for`/
+  `caution_for`/`event_specific.boost·reduce_stages` 는 채점에 쓰이지 않는다(event_phase 원천·초안 출처로 보존, `runtime_note`).
+- `TwelveStageModifier.channel_delta(event, stage) = round(scale × Σ evidence×채널값)`; 성숙도 우선 층 1개, `stage_combo`
+  분리, 합계 ±18 유지. channel_model 이 없거나 INACTIVE 면 구 규칙 폴백.
+- 회귀(`test_twelve_stage_modifier.py` +3): 21사건·12스테이지 전수 커버, 채널은 어떤 스테이지에서든 도달 가능(사문 채널 금지),
+  공식 일치, 구 목록 변경이 채점에 무영향, 스테이지 부호 불변식(제왕·건록·장생 > 0, 병·절 < 0), |delta| ≤ 18.
+
+재측정(40명식 × 2026):
+
+| 지표 | 원래(누적+무조건 combo) | P1-a | **P1-b** |
+|---|---|---|---|
+| stage +18 포화율 | 45.5% | 0% | 0% |
+| 스테이지 평균 제왕/건록/장생/목욕/태/사/병/절 | 13.0/11.7/13.9/11.4/10.3/7.1/3.9/6.1 | 11.1/6.8/5.1/3.0/2.2/−2.0/−4.9/−5.3 | 3.2/2.5/2.8/3.1/1.8/−1.0/−0.4/−0.9 |
+| stage |기여| 비중 | 14% | 12.7%* | 6.7% |
+| stage 제거 시 기간 top 변경 | 16.1% | 10.7% | **18.0%** |
+| 직전 단계 대비 기간 top 변경 / Top-5 집합 변경 | – | 23.9% / 80% | 26.1% / 77.5% |
+
+(*P1-a 수치는 6명식 표본.) 읽기: 채널화로 절대 크기는 줄었지만(정규화 .4 × 스케일 20), 스테이지가 **상수가 아니라
+사건별로 갈리는 신호**가 되어 순위 변별력(제거 시 18%)은 원래보다 높다. 스케일 상향(예: 30)은 크기만 키우므로
+운영 피드백 후 결정.
+
+## 10. P2 설계 — required / prior / evidence 분리 (착수 전 설계)
+
+현행 `ten_god_brancher` 규칙 점수(base)는 **사건 prior 와 신호 강도(evidence)가 한 값**이다(SINGLE_BIJIAN→social_conflict 34 등
+× transit_source_strength). P2 는 이를 분리한다.
+
+1. **required**: 후보 생성 규칙(단일/군/특정 조합)의 십성 집합 = 출전권. 관계·궁성·12운성은 출전권이 아니라 evidence(현행과 같음).
+   추가 required 는 두지 않는다(daily 와 달리 사건 21종이 넓은 타입이라 게이트를 더 두면 후보가 사라진다 — 측정 후 결정).
+2. **prior**: 사건×규칙 base score 를 3등급(상 .30/중 .20/하 .12 — daily 와 같은 값)으로 양자화한 `prior_tier` 와, 규칙 강도
+   (신호 개수·표면성)로 분리. 순위 동률 해소에만 prior 사용, 가산은 evidence 만.
+3. **evidence**: stage(P1-b 채널)·flow·relation·yongi·gate·daewoon_transition 그대로.
+4. 검증: 회귀 3종(게이트 리프 evidence 필수 / 감점 채널 도달 가능 / 규칙별 성립 가능성 연 전수) + ablation 재측정.
+5. 승인 필요: prior 3등급 배정표(규칙 base score → 등급 매핑 규칙: ≥50 상 / 35~49 중 / <35 하 — 기계적 초안).
+
+착수 순서: shadow 로 prior/evidence 분리 점수를 병렬 계산해 현행 순위와 비교(변경률·도메인 커버리지) → 표 제시 → 승인 후 배선.
+
+### 10-1. P2 shadow 결과 (2026-09-10) — 착수 보류 권고
+
+40명식 × 2026, 라이브 무변경(`shadow_p2_prior.py`). prior 등급 분포(후보): 상 45% / 중 38% / 하 17%.
+
+| 안 | Top-5 도메인 수 | Top-5 사건 종류 수 | 현행 대비 기간 top 변경 | Top-5 집합 변경 |
+|---|---|---|---|---|
+| 현행(base + evidence) | 1.90 | 2.60 | – | – |
+| A: base 3등급 양자화(60/45/30) + evidence | 1.95 | 2.48 | 18.0% | 65.0% |
+| B: evidence 합 순위, prior 는 동률 해소 | 1.95 | 2.48 | 29.1% | 82.5% |
+
+읽기: 두 안 모두 조망 다양성(도메인·종류)에 이득이 없고 순위만 크게 흔든다. daily 에서 3층 분리가 효과를 낸 이유는
+required_signature(출전권)가 후보 구성을 바꿨기 때문인데, 리포트·채팅 21종은 십성 규칙이 이미 출전권 역할을 해
+prior/evidence 재배치만으로는 얻을 것이 없다. **권고: P2 는 보류.** 3층 이식의 실익(사문 감점 차단·게이트-evidence
+정합·12운성 채널화)은 P0·P1-a·P1-b 로 이미 확보됐다. 재개 조건: 사건 21종을 세분(예: 커리어 3트랙·관계 사건 시스템)해
+required 게이트가 실제로 후보 구성을 가르는 시점.
