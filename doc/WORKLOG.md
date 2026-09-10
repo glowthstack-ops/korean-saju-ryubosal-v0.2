@@ -10590,3 +10590,12 @@ daily docs/17 §23 의 "십성=행동 결, 12운성=흐름 결"을 LLM 입력 �
   선별 변경이라 사용자 승인 대기(적용 시 reduce_overview_candidates·select_table_candidates 에 캡+재충원,
   접힌 사건은 "같은 신호에서 갈라진 사건" 메타로 보존).
 - 참고: `scripts/audit_signal_routing.py` 는 daily 카탈로그 감사 스크립트(리포트·채팅 funnel 아님) — 승격 대상 아님.
+
+## 2026-09-10 — 이벤트 채점 3층 판정 shadow 진단 + 제안서 (권장 순서 5, 라이브 무변경) ✅
+
+`doc/v2_2/EVENT_SCORING_3LAYER_PROPOSAL.md`. 40명식 × 2026(연·월운) ablation:
+- 기여 비중 base 50%·flow 14%·stage 14%·relation 7%. 제거 시 기간 top 변경: daewoon_transition 31%·
+  base 31%·flow 22%·relation 21%·stage 16%·yongi 1.4%(길흉 전용 — 설계 의도).
+- **12운성 보정 포화**: 기여값이 상한 +18 인 후보 46%. 사·절·병도 과반 양수 → 스테이지가 사건 상태를
+  구분하지 못함(daily 진단과 같은 구조). 원인 good_for/caution_for 광범위 + combo bonus 가산.
+- 제안 P0(진단 상설화, 점수 불변) / P1(12운성 기능 채널화, 승인) / P2(required·prior·evidence 분리).
