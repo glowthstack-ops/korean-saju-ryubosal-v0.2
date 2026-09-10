@@ -5,7 +5,8 @@ daily 에서는 동의어 그룹으로 '같은 현상의 반대 결과' 동시 �
 (2026-07-14 감수 확정 — 다른 시기의 반대 흐름은 정보다). 그래서 여기서 막는 상충은
 **같은 시기·같은 도메인·반대 방향** 쌍으로 한정한다. 40명식 shadow 실측(2026-09-10)에서
 0건이었고, 이 테스트가 그 상태를 고정한다. 클론(같은 시기·다른 사건·신호 벡터 cos≥0.85)은
-실측 채팅 총운 2.05쌍/명식·리포트 표 9.03쌍/명식 — 캡 도입은 별도 승인(선별 변경).
+실측 채팅 총운 2.05쌍/명식·리포트 표 9.03쌍/명식 → fan-out 캡(시기×지배 신호 ≤2, 2026-09-10
+사용자 승인)으로 1.23·5.17 로 낮췄다. 캡 준수를 여기서 고정한다.
 """
 
 from __future__ import annotations
@@ -104,8 +105,42 @@ def test_no_same_period_opposite_direction_pairs_in_report_table(selections) -> 
         assert not contradiction_pairs(table), (bd, contradiction_pairs(table))
 
 
-def test_clone_audit_metric_is_reported_not_enforced(selections) -> None:
-    """클론 쌍 수는 감사 지표다 — 상한을 강제하지 않고 '측정 가능'만 고정(캡은 별도 승인)."""
+def test_fanout_cap_limits_same_period_same_trigger(selections) -> None:
+    """fan-out 캡(2026-09-10 승인): 같은 (시기, 지배 신호) 사건은 채팅 총운·리포트 표 모두 ≤2."""
+    from saju_engines.context_reducer import OVERVIEW_FANOUT_CAP, _dominant_trigger
+
+    for bd, overview, table in selections:
+        for sel in (overview, table):
+            per_key: dict[tuple[str, str], int] = {}
+            for c in sel:
+                k = (str(c.period), _dominant_trigger(c))
+                per_key[k] = per_key.get(k, 0) + 1
+            assert max(per_key.values(), default=0) <= OVERVIEW_FANOUT_CAP, (bd, per_key)
+        assert len(overview) <= 5 and len(table) <= 12
+
+
+def test_fanout_cap_off_restores_previous_behavior() -> None:
+    """fanout_cap=None 이면 이전 선별과 같다(재충원 예산도 top_n 으로 돌아간다)."""
+    from datetime import date as _date
+
+    scorer = EventEngineV2(_DICTS)
+    bd, bt, g = _CORPUS[0]
+    chart = calculate(BirthInput(
+        calendar_type="solar", birth_date=bd, birth_time=bt, birth_place_name="서울",
+        gender=g, reference_date=_date(2026, 6, 11),
+    ))
+    pool = [
+        c for c in scorer.score_legacy(chart, levels={GanjiLevel.YEAR, GanjiLevel.MONTH})
+        if str(c.period).startswith("2026")
+    ]
+    off = reduce_overview_candidates(pool, "2026-01", "2026-12", fanout_cap=None)[0]
+    on = reduce_overview_candidates(pool, "2026-01", "2026-12")[0]
+    assert len(off) == 5 and len(on) <= 5
+    assert select_table_candidates(pool, fanout_cap=None) != []
+    assert len(select_table_candidates(pool)) <= 12
+
+
+def test_clone_audit_metric_is_measurable(selections) -> None:
+    """클론 쌍 수(cos≥0.85)는 감사 지표 — 캡 뒤에도 측정 가능해야 한다(상한 강제 아님)."""
     for _bd, overview, table in selections:
         assert clone_pairs(overview) >= 0 and clone_pairs(table) >= 0
-        assert len(overview) <= 5 and len(table) <= 12

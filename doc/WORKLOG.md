@@ -10599,3 +10599,11 @@ daily docs/17 §23 의 "십성=행동 결, 12운성=흐름 결"을 LLM 입력 �
 - **12운성 보정 포화**: 기여값이 상한 +18 인 후보 46%. 사·절·병도 과반 양수 → 스테이지가 사건 상태를
   구분하지 못함(daily 진단과 같은 구조). 원인 good_for/caution_for 광범위 + combo bonus 가산.
 - 제안 P0(진단 상설화, 점수 불변) / P1(12운성 기능 채널화, 승인) / P2(required·prior·evidence 분리).
+
+## 2026-09-10 — fan-out 캡 적용 (권장 순서 4 — 2단계, 사용자 승인 "승인할께") ✅
+
+- `reduce_overview_candidates(fanout_cap=2)`: 세 패스를 top_n×3 예산으로 돌린 뒤 (시기, 지배 신호) 캡 →
+  top_n 재충원. 접힌 사건은 대표 노트에 "같은 시기·같은 신호에서 갈라진 사건(접힘)"으로 보존, dropped
+  메타에서는 제외(중복 노출 방지). `select_table_candidates(fanout_cap=2)` 도 같은 방식(cap×3 → 캡 → cap).
+- 실측(40명식 live): 채팅 클론 쌍 82→49(2.05→1.23/명식), 리포트 361→178(9.03→4.45), 상충 0 유지.
+- 회귀: `test_selection_contradiction_guard.py` 캡 준수·off 경로 보존. docs/03 B5 규격 추가.

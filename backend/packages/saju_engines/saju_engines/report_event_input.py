@@ -23,7 +23,7 @@ from saju_shared_types.marriage_timing import derive_marriage_stage
 from . import sinsal_modifier_config as _sinsal_cfg
 from .candidate_semantics import candidate_semantics, review_month_from_signals
 from .chart_interpretation import incoming_stage_note, incoming_ten_god_note
-from .context_reducer import event_ko, polarity_ko
+from .context_reducer import _dominant_trigger, event_ko, polarity_ko
 from .ganji_calendar import relation_hits
 from .llm_event_serializer import score_band
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
@@ -237,7 +237,7 @@ def _adjacent_period(a: str, b: str) -> bool:
 
 
 def select_table_candidates(
-    pool: list[EventCandidate], cap: int = 12
+    pool: list[EventCandidate], cap: int = 12, fanout_cap: int | None = 2
 ) -> list[EventCandidate]:
     """부록 점수표 후보 계층 선별(P3, 2026-07-22 데굴님 확정) — 점수순 Top-N 편향 교정.
 
@@ -245,6 +245,10 @@ def select_table_candidates(
     ②결과 방향(긍정/부정/지연/중립)별 대표 후보를 존재하는 방향만 우선 확보 — 고정 긍정
     쿼터 금지(억지 낙관 편향 차단, 실제 후보가 있을 때만 노출) ③잔여는 점수순 충원.
     판정·점수 불변 — 표에 실을 후보의 '선별'만 바꾼다.
+
+    fanout_cap(2026-09-10 사용자 승인 — daily 클론 감사 이식): ④같은 (시기, 지배 신호)에서
+    갈라진 사건은 상한(기본 2)까지만 — cap 의 3배로 뽑은 뒤 캡을 적용하고 cap 으로 자른다
+    (재충원). 40명식 shadow: 클론 쌍 9.03→5.17/명식, 시기당 최대 행 3.77→2.00, 시기 6.47→6.83.
     """
     ranked = sorted(pool, key=lambda c: -c.score)
     deduped: list[EventCandidate] = []
@@ -263,11 +267,22 @@ def select_table_candidates(
         if d not in seen_dir:
             seen_dir.add(d)
             picked.append(c)
+    budget = cap * 3 if fanout_cap else cap
     for c in deduped:
-        if len(picked) >= cap:
+        if len(picked) >= budget:
             break
         if c not in picked:
             picked.append(c)
+    if fanout_cap:
+        kept: list[EventCandidate] = []
+        seen: dict[tuple[str, str], int] = {}
+        for c in picked:
+            key = (str(c.period), _dominant_trigger(c))
+            if seen.get(key, 0) >= fanout_cap:
+                continue
+            seen[key] = seen.get(key, 0) + 1
+            kept.append(c)
+        picked = kept
     return sorted(picked[:cap], key=lambda c: (str(c.period), -c.score))
 
 

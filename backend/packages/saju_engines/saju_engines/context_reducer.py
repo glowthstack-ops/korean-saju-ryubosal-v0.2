@@ -832,6 +832,10 @@ OVERVIEW_DOMAIN_CAP = 2
 # '주요 이벤트' 그 자체이므로 커버리지보다 먼저 선정한다. 실측: 커버리지 패스가 슬롯을
 # 전부 소모해 결혼 신호 98점이 이동 82·건강 75점에 밀려 탈락(총운이 최상위 사건을 누락).
 OVERVIEW_CO_TOP_WINDOW = 10
+# fan-out 캡(2026-09-10 사용자 승인 — daily 클론 감사 이식): 같은 시기·같은 지배 신호에서
+# 갈라진 사건은 최대 2개만 조망에 올리고, 나머지는 대표에 '접힘' 메타로 남긴다. 40명식 shadow:
+# 클론 쌍 2.05→1.23/명식, 시기 3.48→3.77, 도메인 3.20→3.33(선별을 넓게 뽑은 뒤 캡·재충원).
+OVERVIEW_FANOUT_CAP = 2
 # 선정 제외 강신호 메타의 포함 기준(2026-07-14 3차 평가 — 데굴님 확정): co-top 창(−10)
 # 만으로는 85점급 '강' 신호가 여전히 침묵 가능(최고점 100 기준 창 밖) → 상대 창은
 # 커버리지 게이트와 동일(−30), 절대 하한은 '가능성이 높습니다' 등급(70). 나열 폭주
@@ -891,8 +895,12 @@ def reduce_overview_candidates(
     month_bounds: dict[str, tuple[str, str]] | None = None,
     top_n: int = TOP_N_CANDIDATES,
     score_floor: int = SCORE_FLOOR,
+    fanout_cap: int | None = OVERVIEW_FANOUT_CAP,
 ) -> tuple[list[EventCandidate], dict[int, str], list[str]]:
-    """총운형 후보 선별 — 의미 클러스터링 + 품질 게이트 다양화.
+    """총운형 후보 선별 — 의미 클러스터링 + 품질 게이트 다양화 + fan-out 캡.
+
+    fanout_cap: 같은 (시기, 지배 신호) 클러스터 상한(기본 2). 세 패스를 top_n 의 3배 예산으로
+        돌린 뒤 캡을 적용하고 top_n 으로 자른다(재충원). None 이면 캡 없음(이전 거동).
 
     Returns:
         (선별 후보, {선별 인덱스: 반복 신호 노트}, 선정 제외 강신호 메타 줄들).
@@ -942,6 +950,7 @@ def reduce_overview_candidates(
     selected: list[dict] = [top]
     covered = {_domain_of(top)}
     remaining = [cl for cl in ranked[1:]]
+    budget = top_n * 3 if fanout_cap else top_n  # 캡 적용 시 넓게 뽑아 재충원
 
     def _domain_count(d: str) -> int:
         return sum(1 for s in selected if _domain_of(s) == d)
@@ -955,7 +964,7 @@ def reduce_overview_candidates(
     # co-top 패스 — 최고점 근접 클러스터는 도메인 커버리지보다 먼저(그 자체가 '주요
     # 이벤트'). 게이트·조건부 도메인 캡은 동일 적용(단일 도메인 90점대 나열로의 회귀 방지).
     for cl in remaining:
-        if len(selected) >= top_n:
+        if len(selected) >= budget:
             break
         if cl["rep"].score < top_score - OVERVIEW_CO_TOP_WINDOW:
             continue  # 정렬은 life_fit 우선이라 점수 비단조 — 창 밖만 건너뛴다
@@ -969,7 +978,7 @@ def reduce_overview_candidates(
 
     # 커버리지 패스 — 미포함 도메인의 최상위 클러스터를 게이트 통과 시에만 1개씩.
     for cl in remaining:
-        if len(selected) >= top_n:
+        if len(selected) >= budget:
             break
         d = _domain_of(cl)
         if cl in selected or d in covered or not _passes_gate(cl):
@@ -980,7 +989,7 @@ def reduce_overview_candidates(
     # 안에서 조망 — 약한 후보로 3~5개를 강제 충원하지 않는다). 동일 도메인 상한은
     # '미포함 유효 도메인이 남아 있을 때만' 적용(조건부) — 압도 도메인 집중은 보존.
     for cl in remaining:
-        if len(selected) >= top_n:
+        if len(selected) >= budget:
             break
         if cl in selected or not _passes_gate(cl):
             continue
@@ -997,16 +1006,45 @@ def reduce_overview_candidates(
         selected.append(cl)
         covered.add(d)
 
+    # fan-out 캡 — 같은 (시기, 지배 신호) 에서 갈라진 사건은 상한까지만, 나머지는 접힘.
+    folded_by_key: dict[tuple[str, str], list[dict]] = {}
+    folded_set: list[dict] = []
+    if fanout_cap:
+        kept: list[dict] = []
+        seen: dict[tuple[str, str], int] = {}
+        for cl in selected:
+            fo_key = (str(cl["rep"].period), _dominant_trigger(cl["rep"]))
+            if seen.get(fo_key, 0) >= fanout_cap:
+                folded_by_key.setdefault(fo_key, []).append(cl)
+                folded_set.append(cl)
+                continue
+            seen[fo_key] = seen.get(fo_key, 0) + 1
+            kept.append(cl)
+        selected = kept[:top_n]
+
     out: list[EventCandidate] = []
     notes: dict[int, str] = {}
     for idx, cl in enumerate(selected):
         out.append(cl["rep"])
+        parts: list[str] = []
         if cl["count"] > 1:
             others = sorted(p for p in cl["periods"] if p != cl["rep"].period)
-            notes[idx] = (
+            parts.append(
                 f"반복 신호: 같은 계열 신호가 {', '.join(others)}에도 나타남"
                 f"(총 {cl['count']}회 — 대표 시기 {cl['rep'].period})"
             )
+        fo_key = (str(cl["rep"].period), _dominant_trigger(cl["rep"]))
+        folded = folded_by_key.pop(fo_key, [])
+        if folded:
+            labels = ", ".join(
+                _EVENT_KO_V2.get(f["rep"].event_key, str(f["rep"].event_key)) for f in folded
+            )
+            parts.append(
+                f"같은 시기·같은 신호에서 갈라진 사건(접힘): {labels} — 별개 사건으로 나열하지 "
+                "말고 이 사건의 다른 얼굴로 함께 서술 가능"
+            )
+        if parts:
+            notes[idx] = " / ".join(parts)
 
     # 선정 제외 강신호 메타(2026-07-14 not_selected_due_to_limit — 감수 확정 방식):
     # 근-최고점(co-top 창)인데 개인화 가중·슬롯 제한으로 밀린 클러스터는 '신호 없음'이
@@ -1026,6 +1064,8 @@ def reduce_overview_candidates(
             or rep.score < top_score - OVERVIEW_RELATIVE_WINDOW
         ):
             continue
+        if cl in folded_set:
+            continue  # 접힌 사건은 대표의 메타에 이미 실렸다(중복 노출 방지)
         if getattr(rep, "life_fit", 0.0) < top_fit - OVERVIEW_LIFE_FIT_WINDOW:
             reason = "현재 생활 맥락 가중(개인화 적합도)에서 후순위"
         else:
