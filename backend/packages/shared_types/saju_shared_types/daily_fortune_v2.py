@@ -54,7 +54,12 @@ RELATION_CHANNELS: tuple[str, ...] = (
 STAGE_CHANNELS_V2: tuple[str, ...] = (
     "activity_up", "overdrive", "stamina_down", "pace_down",
     "disengage", "closure", "renewal",
+    # §22-8 잔여 채널(2026-09-10 4차) — 목욕=흔들림 / 관대=단장·의욕 / 쇠=노련 / 태·양=구상·양육.
+    # 기존 7채널 값은 그대로 두고 덧붙인다(가산) — 사전이 참조하기 전까지 선발에 영향 없음.
+    "unsettled", "poised", "seasoned", "incubation",
 )
+#: 잔여 채널만 따로 — 배선 감사·inert 회귀용.
+RESIDUAL_STAGE_CHANNELS: tuple[str, ...] = ("unsettled", "poised", "seasoned", "incubation")
 #: 오행 5방향 채널.
 ELEMENT_DIRECTION_CHANNELS: tuple[str, ...] = (
     "saeng_a", "a_saeng", "geuk_a", "a_geuk", "bihwa",

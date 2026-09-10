@@ -194,3 +194,62 @@ def test_scoring_ignores_expr_confidence_field_entirely() -> None:
     again = score_event_v2("money_small_gain", catalog.events["money_small_gain"], ch)
     assert result.scored.activation == again.scored.activation
     assert 5 <= result.scored.probability <= 95
+
+
+# ── §22-8 잔여 12운성 채널(2026-09-10 4차) — 정의·가산·inert ─────────────────────
+
+
+def test_residual_stage_channels_follow_stage_definition() -> None:
+    """목욕=흔들림 / 관대=단장·의욕 / 쇠=노련 / 태 1.0·양 0.8=구상·양육. 기존 7채널 값은 불변."""
+    from saju_engines.daily_fortune_v2 import _STAGE_CHANNEL_VALUES, day_channels
+    from saju_shared_types.daily_fortune import DayGanjiContext
+    from saju_shared_types.daily_fortune_v2 import RESIDUAL_STAGE_CHANNELS
+
+    expected = {
+        "MOKYOK": ("unsettled", 1.0), "GWANDAE": ("poised", 1.0), "SOE": ("seasoned", 1.0),
+        "TAE": ("incubation", 1.0), "YANG": ("incubation", 0.8),
+    }
+    for stage, (name, value) in expected.items():
+        assert _STAGE_CHANNEL_VALUES[stage][name] == value
+    # 기존 7채널 값은 가산 전과 같다(목욕 재생 .6, 관대 활동↑ .7, 쇠 체력↓ .6, 태·양 재생 .5).
+    assert _STAGE_CHANNEL_VALUES["MOKYOK"]["renewal"] == 0.6
+    assert _STAGE_CHANNEL_VALUES["GWANDAE"]["activity_up"] == 0.7
+    assert _STAGE_CHANNEL_VALUES["SOE"]["stamina_down"] == 0.6
+    assert _STAGE_CHANNEL_VALUES["TAE"]["renewal"] == 0.5
+    assert _STAGE_CHANNEL_VALUES["YANG"]["renewal"] == 0.5
+    # day_channels 에 4채널이 항상 실린다. 甲 천간은 子 에서 목욕 → unsettled 1.0.
+    ctx = DayGanjiContext(
+        the_date=dt.date(2026, 9, 12), day_stem="甲", day_branch="子",
+        month_stem="丁", month_branch="酉", year_stem="丙", year_branch="午",
+    )
+    ch = day_channels(Stem("乙"), Branch("子"), ctx)
+    assert all(name in ch for name in RESIDUAL_STAGE_CHANNELS)
+    assert ch["unsettled"] == 1.0 and ch["renewal"] == 0.6
+
+
+def test_residual_stage_channels_are_inert_until_wired() -> None:
+    """사전이 잔여 채널을 참조하지 않는 동안(§22-8 배선 승인 전) 선발·점수는 바이트 불변."""
+    from saju_engines import daily_fortune_v2 as V2
+    from saju_engines.daily_fortune_v2 import compute_board_v2
+    from saju_shared_types.daily_fortune_v2 import RESIDUAL_STAGE_CHANNELS
+
+    catalog = load_catalog_v2()
+    for key, ev in catalog.events.items():
+        assert not set(ev.evidence) & set(RESIDUAL_STAGE_CHANNELS), key
+        assert not set(json.dumps(ev.required_signature, ensure_ascii=False).split('"')) & set(
+            RESIDUAL_STAGE_CHANNELS
+        ), key
+    d = dt.date(2026, 9, 12)
+    with_channels = compute_board_v2(v1.build_day_context(d), v1.load_daily_dicts_for(d))
+    stripped = {
+        stage: {k: w for k, w in values.items() if k not in RESIDUAL_STAGE_CHANNELS}
+        for stage, values in V2._STAGE_CHANNEL_VALUES.items()
+    }
+    original = V2._STAGE_CHANNEL_VALUES
+    V2._STAGE_CHANNEL_VALUES = stripped
+    try:
+        without = compute_board_v2(v1.build_day_context(d), v1.load_daily_dicts_for(d))
+    finally:
+        V2._STAGE_CHANNEL_VALUES = original
+    assert with_channels.model_dump() == without.model_dump()
+

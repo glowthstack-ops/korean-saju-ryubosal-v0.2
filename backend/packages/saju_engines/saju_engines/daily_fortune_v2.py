@@ -38,6 +38,7 @@ from saju_shared_types.daily_fortune_v2 import (
     PRIOR_VALUE,
     RELATION_CHANNELS,
     SIPSEONG_GROUPS,
+    STAGE_CHANNELS_V2,
     DailyEventCatalogV2,
     DailyEventModelV2,
     SignatureExpr,
@@ -61,18 +62,19 @@ SIGNATURE_THRESHOLD = 0.5
 
 #: 12운성 → 기능 채널 값 (§22-2 표).
 _STAGE_CHANNEL_VALUES: dict[str, dict[str, float]] = {
-    "GWANDAE": {"activity_up": 0.7},
+    # 기존 7채널(§22-2) + 잔여 채널 4(§22-8, 2026-09-10 4차 — 가산·inert).
+    "GWANDAE": {"activity_up": 0.7, "poised": 1.0},
     "GEONROK": {"activity_up": 1.0},
     "JEWANG": {"activity_up": 1.0, "overdrive": 0.8},
-    "SOE": {"stamina_down": 0.6},
+    "SOE": {"stamina_down": 0.6, "seasoned": 1.0},
     "BYEONG": {"stamina_down": 1.0, "pace_down": 0.6},
     "SA": {"pace_down": 1.0, "disengage": 0.8},
     "JEOL": {"disengage": 1.0},
     "MYO": {"closure": 1.0},
     "JANGSAENG": {"renewal": 1.0},
-    "MOKYOK": {"renewal": 0.6},
-    "TAE": {"renewal": 0.5},
-    "YANG": {"renewal": 0.5},
+    "MOKYOK": {"renewal": 0.6, "unsettled": 1.0},
+    "TAE": {"renewal": 0.5, "incubation": 1.0},
+    "YANG": {"renewal": 0.5, "incubation": 0.8},
 }
 
 _GEN = {"木": "火", "火": "土", "土": "金", "金": "水", "水": "木"}
@@ -187,10 +189,7 @@ def day_channels(
     # 12운성 기능 채널 (오늘 일진 천간의 내 일지 12운성)
     stage_key = str(TWELVE_STAGE_KO_TO_KEY.get(twelve_unseong(ds, ilju_branch), ""))
     stage_values = _STAGE_CHANNEL_VALUES.get(stage_key, {})
-    for name in (
-        "activity_up", "overdrive", "stamina_down", "pace_down",
-        "disengage", "closure", "renewal",
-    ):
+    for name in STAGE_CHANNELS_V2:
         ch[name] = stage_values.get(name, 0.0)
     if ch["overdrive"] and STEM_ELEMENT[ds] == STEM_ELEMENT[ilju_stem]:
         ch["overdrive"] = min(1.0, ch["overdrive"] + 0.2)  # 비화 동반 과속 강화
