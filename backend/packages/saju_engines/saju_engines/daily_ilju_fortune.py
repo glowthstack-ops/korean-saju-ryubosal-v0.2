@@ -805,6 +805,7 @@ class DayTone:
     sipseong_group: str  # 오늘 천간 → 일간 십성의 군(비겁·식상·재성·관성·인성)
     stage_channel: str  # 오늘 천간이 일지에서 갖는 12운성의 대표 기능 채널
     sipseong: str = ""  # 오늘 천간 → 일간 십성(10종, §23-1 2차) — 비어 있으면 군 풀로 물러난다
+    stage: str = ""  # 오늘 천간→일지 12운성 키(§23-1 3차) — 비어 있으면 채널 풀로 물러난다
 
 
 def day_tone(ilju_stem: Stem, ilju_branch: Branch, ctx: DayGanjiContext) -> DayTone:
@@ -816,7 +817,7 @@ def day_tone(ilju_stem: Stem, ilju_branch: Branch, ctx: DayGanjiContext) -> DayT
         ctx: 오늘 일진 간지.
 
     Returns:
-        십성군·십성(오늘 천간 기준)과 12운성 채널(오늘 천간 → 일지).
+        십성군·십성(오늘 천간 기준)과 12운성 채널·스테이지(오늘 천간 → 일지).
     """
     day_stem = Stem(ctx.day_stem)
     if day_stem == ilju_stem:
@@ -828,6 +829,7 @@ def day_tone(ilju_stem: Stem, ilju_branch: Branch, ctx: DayGanjiContext) -> DayT
         sipseong_group=_SIPSEONG_GROUP[sipseong],
         stage_channel=_STAGE_TONE_CHANNEL.get(stage_key, "activity_up"),
         sipseong=sipseong,
+        stage=stage_key,
     )
 
 
@@ -857,9 +859,11 @@ def _headline(
     거동이 된다.
 
     행동 풀은 10십성(`sipseong_actions[십성]`)을 먼저 보고, 없으면 5군
-    (`tone_actions[십성군]`)으로 물러난다(§23-1 2차). 사건이 `stage_result_exclude`
-    로 채널을 제외하면 결과 문장은 채널 풀 대신 사건 기본 풀에서 고른다(§23-2 —
-    채널 뜻이 사건과 반대인 조합의 감수 결과).
+    (`tone_actions[십성군]`)으로 물러난다(§23-1 2차). 결과 풀은 12스테이지
+    (`stage_results_by_stage[스테이지]`)를 먼저 보고, 없으면 7채널(`stage_results[채널]`)로
+    물러난다(§23-1 3차). 사건이 `stage_result_exclude` 로 채널을 제외하면 그 채널에 속한
+    스테이지도 함께 제외돼 결과 문장은 사건 기본 풀에서 고른다(§23-2 — 채널 뜻이 사건과
+    반대인 조합의 감수 결과).
 
     Args:
         romance_scope: 연애 전용 신호가 **강할 때만** True. 관계 계열 사건의 기본
@@ -896,6 +900,10 @@ def _headline(
             or (ev.get("tone_actions") or {}).get(tone.sipseong_group)
         )
         stage_results = (
+            (dicts.templates.get("stage_results_by_stage") or {})
+            .get(tone.stage, {})
+            .get(generic_kind)
+        ) or (
             (dicts.templates.get("stage_results") or {})
             .get(tone.stage_channel, {})
             .get(generic_kind)

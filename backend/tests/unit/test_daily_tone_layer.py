@@ -26,6 +26,16 @@ CHANNELS = (
     "renewal", "activity_up", "overdrive", "stamina_down", "pace_down", "disengage",
     "closure",
 )
+STAGES = (
+    "JANGSAENG", "MOKYOK", "GWANDAE", "GEONROK", "JEWANG", "SOE", "BYEONG", "SA", "MYO",
+    "JEOL", "TAE", "YANG",
+)
+
+
+def _result_pool(templates: dict, tone: M.DayTone, kind: str) -> list[str]:
+    """결과 문장 풀 — 12스테이지 우선, 없으면 7채널(엔진과 같은 순서)."""
+    by_stage = (templates.get("stage_results_by_stage") or {}).get(tone.stage, {}).get(kind)
+    return list(by_stage or templates["stage_results"][tone.stage_channel][kind])
 
 
 @pytest.fixture(scope="module")
@@ -67,6 +77,16 @@ def test_tone_pools_cover_every_v2_event(dicts) -> None:
     for channel, pools in stage.items():
         for kind in ("good", "caution"):
             assert len(pools[kind]) >= 3, (channel, kind)
+    # §23-1 3차 — 12스테이지 풀은 전 스테이지 필수, 스테이지 간·채널 풀과 문장 중복 금지.
+    by_stage = dicts.templates["stage_results_by_stage"]
+    assert tuple(by_stage) == STAGES
+    seen: set[str] = {s for pools in stage.values() for k in pools.values() for s in k}
+    for st, pools in by_stage.items():
+        for kind in ("good", "caution"):
+            assert len(pools[kind]) >= 3, (st, kind)
+            for sent in pools[kind]:
+                assert sent not in seen, (st, kind, sent)
+                seen.add(sent)
 
 
 # ── 2. day_tone 정의·결정론 ──────────────────────────────────────────────────
@@ -76,10 +96,14 @@ def test_day_tone_matches_definition() -> None:
     """십성군 = 오늘 천간 → 일간 십성의 군, 채널 = 오늘 천간이 일지에서 갖는 12운성."""
     # 甲 일간에 己 천간 = 정재 → 재성군. 己 는 丑 에서 묘(墓) → closure.
     t = M.day_tone(Stem("甲"), Branch("丑"), _ctx("己", "丑"))
-    assert t == M.DayTone(sipseong_group="재성", stage_channel="closure", sipseong="정재")
+    assert t == M.DayTone(
+        sipseong_group="재성", stage_channel="closure", sipseong="정재", stage="MYO"
+    )
     # 같은 천간(甲→甲)은 비견 → 비겁군. 甲 은 寅 에서 건록 → activity_up.
     t = M.day_tone(Stem("甲"), Branch("寅"), _ctx("甲", "子"))
-    assert t == M.DayTone(sipseong_group="비겁", stage_channel="activity_up", sipseong="비견")
+    assert t == M.DayTone(
+        sipseong_group="비겁", stage_channel="activity_up", sipseong="비견", stage="GEONROK"
+    )
     # 甲 일간에 戊 천간 = 편재 — 같은 재성군이라도 십성은 갈린다(10십성 세분의 근거).
     assert M.day_tone(Stem("甲"), Branch("丑"), _ctx("戊", "子")).sipseong == "편재"
     # 甲 은 卯 에서 제왕 → overdrive(과속), 申 에서 절 → disengage.
@@ -96,6 +120,7 @@ def test_day_tone_is_deterministic_and_covers_all_channels() -> None:
         assert a == b
         assert a.sipseong_group in GROUPS and a.stage_channel in CHANNELS
         assert a.sipseong in SIPSEONG and M._SIPSEONG_GROUP[a.sipseong] == a.sipseong_group
+        assert a.stage in STAGES and M._STAGE_TONE_CHANNEL[a.stage] == a.stage_channel
         seen.add(a.stage_channel)
     assert seen == set(CHANNELS)
 
@@ -106,6 +131,8 @@ def test_same_stem_group_shares_sipseong_but_not_stage() -> None:
     tones = [M.day_tone(Stem("甲"), Branch(b), ctx) for b in ("子", "寅", "辰", "午", "申", "戌")]
     assert len({t.sipseong_group for t in tones}) == 1
     assert len({t.stage_channel for t in tones}) >= 3
+    # 12스테이지는 같은 천간의 6일주(지지가 전부 다름)에서 전부 다르다 — 3차의 근거.
+    assert len({t.stage for t in tones}) == 6
 
 
 # ── 3. 렌더 규칙 ─────────────────────────────────────────────────────────────
@@ -137,6 +164,7 @@ def test_headline_uses_tone_pools_when_active(dicts) -> None:
                 # 행동 문장은 해당 십성군 풀의 것이어야 한다.
                 assert any(a in text for a in tpl["tone_actions"][group]), (group, text)
                 # 결과 문장은 해당 채널 good 풀의 것이어야 한다(s2 밴드에도 붙는다).
+                # stage="" 이라 12스테이지 풀은 건너뛰고 채널 풀로 물러난다.
                 pool = dicts.templates["stage_results"][channel]["good"]
                 assert any(r in text for r in pool), (channel, text)
                 assert len(parts) >= 3
@@ -203,6 +231,37 @@ def _base_results(tpl: dict) -> list[str]:
     return out
 
 
+def test_stage_pool_preferred_over_channel_pool(dicts) -> None:
+    """12스테이지 풀이 있으면 결과 문장은 그 풀에서, 채널 풀은 쓰지 않는다(§23-1 3차)."""
+    by_stage = dicts.templates["stage_results_by_stage"]
+    for st in STAGES:
+        ch = M._STAGE_TONE_CHANNEL[st]
+        for band, kind in (("s4", "good"), ("s1", "caution")):
+            key = "money_good_deal" if kind == "good" else "argument_caution"
+            tone = M.DayTone("재성", ch, sipseong="정재", stage=st)
+            text = M._headline(dicts, key, band, "seed|甲子", 0, tone=tone)
+            assert any(r in text for r in by_stage[st][kind]), (st, text)
+            assert not any(r in text for r in dicts.templates["stage_results"][ch][kind]), text
+    # 같은 채널에 속한 두 스테이지(예: 관대·건록)는 서로 다른 결과 문장을 낸다.
+    a = M._headline(
+        dicts, "money_good_deal", "s4", "seed|甲子", 0,
+        tone=M.DayTone("재성", "activity_up", sipseong="정재", stage="GWANDAE"),
+    )
+    b = M._headline(
+        dicts, "money_good_deal", "s4", "seed|甲子", 0,
+        tone=M.DayTone("재성", "activity_up", sipseong="정재", stage="GEONROK"),
+    )
+    assert a != b
+
+
+def test_stage_pool_falls_back_to_channel_pool_when_absent(dicts) -> None:
+    stripped = {k: v for k, v in dicts.templates.items() if k != "stage_results_by_stage"}
+    d2 = M.DailyFortuneDicts(catalog=dicts.catalog, templates=stripped, places=dicts.places)
+    tone = M.DayTone("재성", "closure", sipseong="정재", stage="MYO")
+    text = M._headline(d2, "money_good_deal", "s4", "seed|甲子", 0, tone=tone)
+    assert any(r in text for r in dicts.templates["stage_results"]["closure"]["good"]), text
+
+
 def test_excluded_channel_uses_event_base_results(dicts) -> None:
     """감수 B — 채널 뜻이 사건과 반대인 조합은 채널 풀 대신 사건 기본 결과 풀을 쓴다."""
     events = dicts.templates["events"]
@@ -211,15 +270,20 @@ def test_excluded_channel_uses_event_base_results(dicts) -> None:
     for key, band in (("rest_recharge", "s4"), ("love_cooldown", "s1")):
         kind = "caution" if band == "s1" else "good"
         for channel in excl[key]:
-            tone = M.DayTone("인성", channel, sipseong="정인")
+            # 채널 제외는 그 채널에 속한 스테이지 풀에도 적용된다.
+            st = next(s for s, c in M._STAGE_TONE_CHANNEL.items() if c == channel)
+            tone = M.DayTone("인성", channel, sipseong="정인", stage=st)
             text = M._headline(dicts, key, band, "seed|丙寅", 0, tone=tone)
-            assert not any(r in text for r in dicts.templates["stage_results"][channel][kind]), text
+            channel_pool = dicts.templates["stage_results"][channel][kind]
+            assert not any(r in text for r in channel_pool), text
+            by_stage = dicts.templates["stage_results_by_stage"][st][kind]
+            assert not any(r in text for r in by_stage), text
             assert any(r in text for r in _base_results(events[key])), text
             assert any(a in text for a in events[key]["sipseong_actions"]["정인"]), text
             assert text.count(" ") >= 2  # 제외돼도 3문장 유지
         # 제외되지 않은 채널은 채널 풀 그대로.
         other = next(c for c in CHANNELS if c not in excl[key])
-        tone = M.DayTone("인성", other, sipseong="정인")
+        tone = M.DayTone("인성", other, sipseong="정인")  # stage="" → 채널 풀
         text = M._headline(dicts, key, band, "seed|丙寅", 0, tone=tone)
         assert any(r in text for r in dicts.templates["stage_results"][other][kind]), text
 
@@ -260,10 +324,10 @@ def test_tone_layer_does_not_change_selection(board_after) -> None:
 
 
 def test_shared_headline_event_in_stem_group_gets_distinct_results(board_after) -> None:
-    """같은 일간 그룹에서 같은 헤드라인 사건을 받은 일주들은 채널이 다르면 결과 문장이 다르다."""
+    """같은 일간 그룹·같은 헤드라인 사건 일주들은 스테이지가 다르면 결과 문장이 다르다."""
     d, board = board_after
     ctx = M.build_day_context(d)
-    stage = M.load_daily_dicts_for(d).templates["stage_results"]
+    templates = M.load_daily_dicts_for(d).templates
     checked = 0
     by_group: dict[tuple[str, str], list] = {}
     for f in board.fortunes:
@@ -280,9 +344,9 @@ def test_shared_headline_event_in_stem_group_gets_distinct_results(board_after) 
             if tone.stage_channel in excl:
                 continue  # 제외 채널은 사건 기본 풀 — 채널 비교 대상이 아니다
             kind = "caution" if _band_of(f) == "s1" else "good"
-            hit = [r for r in stage[tone.stage_channel][kind] if r in f.headline]
+            hit = [r for r in _result_pool(templates, tone, kind) if r in f.headline]
             assert hit, (f.ilju, f.headline)
-            results_by_channel.setdefault(tone.stage_channel, set()).add(hit[0])
+            results_by_channel.setdefault(tone.stage, set()).add(hit[0])
         if len(results_by_channel) >= 2:
             pools = list(results_by_channel.values())
             assert pools[0].isdisjoint(pools[1])

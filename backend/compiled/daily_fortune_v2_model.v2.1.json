@@ -1,9 +1,9 @@
 {
  "model_version": "model.v2.1",
- "compiled_at": "2026-09-10T00:24:49.182079+00:00",
+ "compiled_at": "2026-09-10T00:47:50.147627+00:00",
  "source": {
   "name": "daily_event_catalog_v2.json",
-  "sha256": "22030da7752a66abc71b7eed44d380a0a4c35e2f8009e047ac52bd9ad2c74475",
+  "sha256": "51a4c66b61f60a3b0853b4a030a62bf5b04160e7b54291cdb7ae9f1e27d90830",
   "reviewed": false,
   "review_note": "docs/17 §22-3·§22-7 표가 SSOT. 구조 검증 통과 상태·명리 감수 전. 2026-09-10 §22-7 개정으로 48→64종(사용자 승인)."
  },
@@ -363,7 +363,8 @@
      "saeng_a": 0.4,
      "renewal": 0.4,
      "wonjin": -0.4,
-     "chung": -0.2
+     "chung": -0.2,
+     "samhap": 0.3
     }
    },
    "love_deepening": {

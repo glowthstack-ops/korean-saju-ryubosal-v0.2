@@ -184,17 +184,16 @@ def _leaves(expr) -> list[str]:
     return [leaf for sub in expr[1:] for leaf in _leaves(sub)]
 
 
-def test_new_events_gate_leaves_carry_positive_evidence() -> None:
-    """게이트에 든 채널은 evidence 에 양의 가중이 있어야 한다.
+def test_gate_leaves_carry_positive_evidence() -> None:
+    """게이트에 든 채널은 evidence 에 양의 가중이 있어야 한다 — 전 64종.
 
     없으면 그 채널로 통과한 날이 구조적으로 낮게 채점된다(answer_arrives 삼합·learning_click
-    육합이 그랬다). 십성군 리프는 구성 십성 중 하나면 된다.
+    육합, 구 48종 love_spark 삼합이 그랬다 — 2026-09-10 3차). 십성군 리프는 구성 십성 중
+    하나면 된다.
     """
     from saju_shared_types.daily_fortune_v2 import SIPSEONG_GROUPS
 
     for key, ev in load_catalog_v2().events.items():
-        if key not in NEW_KEYS:
-            continue
         for leaf in _leaves(ev.required_signature):
             members = SIPSEONG_GROUPS.get(leaf, (leaf,))
             assert any(ev.evidence.get(m, 0.0) > 0 for m in members), (key, leaf)
