@@ -171,3 +171,53 @@ def test_stage_channels_gate_good_events_now() -> None:
         and any(ch in str(m.required_signature) for ch in STAGE_CHANNELS)
     ]
     assert len(gated_good) >= 6, gated_good
+
+
+# ── §22-7 2차 개정(2026-09-10, 채점 규칙 감수 5건) — 사문 감점·게이트/evidence 불일치 차단 ──
+
+
+def _leaves(expr) -> list[str]:
+    if expr is None:
+        return []
+    if isinstance(expr, str):
+        return [expr]
+    return [leaf for sub in expr[1:] for leaf in _leaves(sub)]
+
+
+def test_new_events_gate_leaves_carry_positive_evidence() -> None:
+    """게이트에 든 채널은 evidence 에 양의 가중이 있어야 한다.
+
+    없으면 그 채널로 통과한 날이 구조적으로 낮게 채점된다(answer_arrives 삼합·learning_click
+    육합이 그랬다). 십성군 리프는 구성 십성 중 하나면 된다.
+    """
+    from saju_shared_types.daily_fortune_v2 import SIPSEONG_GROUPS
+
+    for key, ev in load_catalog_v2().events.items():
+        if key not in NEW_KEYS:
+            continue
+        for leaf in _leaves(ev.required_signature):
+            members = SIPSEONG_GROUPS.get(leaf, (leaf,))
+            assert any(ev.evidence.get(m, 0.0) > 0 for m in members), (key, leaf)
+
+
+def test_negative_stage_evidence_is_reachable_with_gate() -> None:
+    """감점 12운성 채널은 게이트의 12운성 요구와 같은 스테이지에서 동시 성립 가능해야 한다.
+
+    12운성 채널은 오늘 천간→일지 단일 스테이지에서만 파생되므로, 게이트가 재생∨활동↑ 을
+    요구하는데 체력↓ 를 감점하면 그 감점은 성립 0회(사문)다(body_light·procrastination 사례).
+    """
+    from saju_engines.daily_fortune_v2 import _STAGE_CHANNEL_VALUES
+
+    for key, ev in load_catalog_v2().events.items():
+        gate_stage = {leaf for leaf in _leaves(ev.required_signature) if leaf in STAGE_CHANNELS}
+        if not gate_stage:
+            continue
+        for ch, w in ev.evidence.items():
+            if ch not in STAGE_CHANNELS or w >= 0:
+                continue
+            reachable = any(
+                ch in values and gate_stage & set(values)
+                for values in _STAGE_CHANNEL_VALUES.values()
+            )
+            assert reachable, (key, ch, sorted(gate_stage))
+

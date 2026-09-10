@@ -1,9 +1,9 @@
 {
  "model_version": "model.v2.1",
- "compiled_at": "2026-09-09T15:33:16.983472+00:00",
+ "compiled_at": "2026-09-10T00:24:49.182079+00:00",
  "source": {
   "name": "daily_event_catalog_v2.json",
-  "sha256": "45cb34b2f8ecd68d217e7f1cf64f01fc772537ced1d8fa6c0886825ee75ca67a",
+  "sha256": "22030da7752a66abc71b7eed44d380a0a4c35e2f8009e047ac52bd9ad2c74475",
   "reviewed": false,
   "review_note": "docs/17 §22-3·§22-7 표가 SSOT. 구조 검증 통과 상태·명리 감수 전. 2026-09-10 §22-7 개정으로 48→64종(사용자 승인)."
  },
@@ -1177,7 +1177,7 @@
     ],
     "evidence": {
      "식신": 0.4,
-     "상관": 0.3,
+     "상관": 0.15,
      "정관": 0.4,
      "yukhap": 0.4,
      "wonjin": -0.3,
@@ -1275,8 +1275,8 @@
      "정인": 0.3,
      "renewal": 0.4,
      "activity_up": 0.4,
-     "stamina_down": -0.5,
-     "hyeong": -0.2
+     "hyeong": -0.2,
+     "geuk_a": -0.3
     }
    },
    "appetite_joy": {
@@ -1332,7 +1332,8 @@
      "편관": 0.3,
      "yukhap": 0.4,
      "chung": 0.3,
-     "gongmang": -0.4
+     "gongmang": -0.4,
+     "samhap": 0.3
     }
    },
    "unexpected_offer": {
@@ -1395,7 +1396,8 @@
      "renewal": 0.3,
      "activity_up": 0.2,
      "chung": -0.3,
-     "wonjin": -0.2
+     "wonjin": -0.2,
+     "yukhap": 0.2
     }
    },
    "forgotten_money": {
@@ -1554,7 +1556,7 @@
      "disengage": 0.4,
      "편인": 0.4,
      "gongmang": 0.3,
-     "activity_up": -0.4
+     "정관": -0.3
     }
    },
    "rumination_caution": {

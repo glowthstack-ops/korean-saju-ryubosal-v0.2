@@ -562,14 +562,14 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 | 사건 | 도메인 · 슬롯 | prior | signature | evidence |
 |---|---|---|---|---|
 | work_smooth 일이 술술 풀릴 확률 | work · good/support | 상 | 활동↑ ∧ (정재 ∨ 정관 ∨ 정인) | 활동↑ .5 정재 .3 정관 .3 정인 .3 육합 .2 공망 −.4 충 −.3 |
-| opinion_accepted 의견이 받아들여질 확률 | work · good/support | 상 | 식상 ∧ (관성 ∨ 육합) | 식신 .4 상관 .3 정관 .4 육합 .4 원진 −.3 해 −.3 |
+| opinion_accepted 의견이 받아들여질 확률 | work · good/support | 상 | 식상 ∧ (관성 ∨ 육합) | 식신 .4 상관 .15 정관 .4 육합 .4 원진 −.3 해 −.3 |
 | smooth_trip 이동·외출이 순조로울 확률 | move · good/support | 상 | (활동↑ ∨ 재생) ∧ (삼합 ∨ 육합 ∨ 생아) | 활동↑ .4 재생 .4 삼합 .4 육합 .3 생아 .3 공망 −.4 충 −.2 |
 | errand_done 미뤄둔 볼일이 한 번에 끝날 확률 | move · support(헤드라인 자격) | 중 | 아극 ∧ (활동↑ ∨ 수렴) | 아극 .5 활동↑ .4 수렴 .3 정재 .3 공망 −.3 |
-| body_light 몸이 가볍고 컨디션 좋을 확률 | health · good/support | 상 | (생아 ∨ 인성) ∧ (재생 ∨ 활동↑) | 생아 .5 정인 .3 재생 .4 활동↑ .4 체력↓ −.5 형 −.2 |
+| body_light 몸이 가볍고 컨디션 좋을 확률 | health · good/support | 상 | (생아 ∨ 인성) ∧ (재생 ∨ 활동↑) | 생아 .5 정인 .3 재생 .4 활동↑ .4 극아 −.3 형 −.2 |
 | appetite_joy 먹는 게 유난히 맛있을 확률 | health · support(헤드라인 자격) | 중 | 식신 ∧ (생아 ∨ 육합) | 식신 .6 생아 .3 육합 .2 편인 −.4 |
-| answer_arrives 미뤄진 답이 정리될 확률 | news · good/support | 중 | 관성 ∧ (육합 ∨ 삼합 ∨ 충) | 정관 .5 편관 .3 육합 .4 충 .3 공망 −.4 |
+| answer_arrives 미뤄진 답이 정리될 확률 | news · good/support | 중 | 관성 ∧ (육합 ∨ 삼합 ∨ 충) | 정관 .5 편관 .3 육합 .4 삼합 .3 충 .3 공망 −.4 |
 | unexpected_offer 예상 밖 제안을 받을 확률 | news · good/support | 중 | (편재 ∨ 편관) ∧ (충 ∨ 삼합) | 편재 .4 편관 .4 충 .4 삼합 .3 재생 .2 공망 −.3 |
-| learning_click 배우던 게 머리에 쏙 들어올 확률 | document · support(헤드라인 자격) | 중 | 정인 ∧ (재생 ∨ 활동↑ ∨ 육합) | 정인 .6 편인 .3 재생 .3 활동↑ .2 충 −.3 원진 −.2 |
+| learning_click 배우던 게 머리에 쏙 들어올 확률 | document · support(헤드라인 자격) | 중 | 정인 ∧ (재생 ∨ 활동↑ ∨ 육합) | 정인 .6 편인 .3 재생 .3 활동↑ .2 육합 .2 충 −.3 원진 −.2 |
 | forgotten_money 잊고 있던 돈·물건을 찾을 확률 | money · support(헤드라인 자격) | 중 | 재성 ∧ (수렴 ∨ 파) | 정재 .4 편재 .4 수렴 .5 파 .3 공망 .2 |
 | give_care 누군가를 챙겨주고 뿌듯할 확률 | social · support(헤드라인 자격) | 중 | 아생 ∧ 식신 | 아생 .5 식신 .5 육합 .3 정인 .2 겁재 −.3 |
 
@@ -579,7 +579,7 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 | emotion_rush_caution 감정이 앞서 말이 세질 확률 | social | 중 | 과속 ∧ 식상 | 과속 .5 상관 .5 비화 .3 형 .2 정인 −.3 |
 | overconfidence_caution 자신감이 과해 실수할 확률 | work | 중 | (과속 ∨ 활동↑) ∧ 비겁 | 과속 .5 활동↑ .3 비견 .4 겁재 .3 정인 −.2 |
 | close_person_expense_caution 가까운 사람 때문에 지출할 확률 | money | 중 | 겁재 ∧ (육합 ∨ 삼합 ∨ 식신) | 겁재 .6 육합 .3 삼합 .3 식신 .3 정재 −.2 |
-| procrastination_caution 귀찮아서 미룰 확률 | work | 중 | (둔화 ∨ 이탈) ∧ (편인 ∨ 공망) | 둔화 .5 이탈 .4 편인 .4 공망 .3 활동↑ −.4 |
+| procrastination_caution 귀찮아서 미룰 확률 | work | 중 | (둔화 ∨ 이탈) ∧ (편인 ∨ 공망) | 둔화 .5 이탈 .4 편인 .4 공망 .3 정관 −.3 |
 | rumination_caution 지난 일을 곱씹어 마음이 무거울 확률 | health | 중 | 편인 ∧ (원진 ∨ 수렴 ∨ 이탈) | 편인 .5 원진 .4 수렴 .3 이탈 .3 식신 −.3 |
 
 **동의어 그룹(상충 사건 동시 노출 금지).** 신설 `task_pace_group`(work_smooth·errand_done·procrastination_caution), `money_outflow_group`(close_person_expense_caution·lend_money_caution — lend_money 재배정), `discovery_group`(forgotten_money·small_find — small_find 재배정). 기존 그룹 편입: smooth_trip→movement_safety_group, body_light·appetite_joy→recovery_group, answer_arrives→incoming_news, emotion_rush_caution→speech_trouble.
@@ -608,6 +608,20 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 읽기: 후보 부족은 풀렸고 12운성이 good 슬롯에 실제로 관여하기 시작했다. 그러나 십성 지배(76%)와 일간 그룹 수렴(6일주 중 3종)은 후보 수로 풀리는 문제가 아니다 — 오늘 천간 십성이 같은 일간 6일주에 동일하다는 구조 때문이며, 이것이 후속 표현 결 층(12운성 결과 문장으로 그룹 내 차별화)의 근거다. 신규 caution 5종은 caution 슬롯에는 오르지만 headline 은 거의 없다(caution headline 은 s1 밴드 한정 — 정상).
 
 **후속.** 표현 결(tone) 층 — §23 으로 같은 날(2026-09-10) 승인·구현. dict.v1.13 은 §22-7 확장과 §23 결 층을 함께 담는다(경계 9/12 하나).
+
+**2차 개정 — 채점 규칙 감수 5건(2026-09-10 사용자 승인, model.v2.1 in-place).** 내부 명리 감수(§23-5)에서 신규 16종의 채점 규칙 5건이 지적됐고 위 표에 반영했다. 9/12 이전에는 어떤 보드도 model.v2.1 을 쓰지 않으므로 라이브 전 in-place 개정이며 버전 범프 없음(dict.v1.13 과 같은 논리).
+
+| # | 사건 | 지적 | 개정 |
+|---|---|---|---|
+| ① | body_light | 체력↓ −.5 는 게이트(재생∨활동↑)와 같은 12운성 축이라 성립 0회(사문) | 체력↓ −.5 → 극아 −.3(외압·긴장 = 컨디션 저하, v1 대응 없음) |
+| ② | procrastination_caution | 활동↑ −.4 도 게이트(둔화∨이탈)와 배타(사문) | 활동↑ −.4 → 정관 −.3(기한·원칙 의식이 미룸을 막는다, v1 ten_god −.3) |
+| ③ | answer_arrives | 게이트의 삼합에 evidence 없음 → 삼합 통과일이 구조적으로 낮게 채점 | 삼합 .3 추가(v1 three_harmony_complete .3·half_harmony .15) |
+| ④ | learning_click | 게이트의 육합에 evidence 없음 | 육합 .2 추가(v1 six_combination .2) |
+| ⑤ | opinion_accepted | 상관 .3 + 정관 .4 동시 가점 = 통념상 상관견관(반발) 조합이 상위 | 상관 .3 → .15(식신 주축) |
+
+회귀(`test_daily_catalog_expansion.py`): 신규 16종의 게이트 리프는 evidence 양의 가중 필수 / 전 사건의 감점 12운성 채널은 게이트 12운성과 같은 스테이지에서 동시 성립 가능해야 함. 참고: 구 48종의 love_spark 도 게이트(삼합)에 evidence 가 없다 — 이번 범위 밖, 별도 검토.
+
+재측정(9/12~10/11 × 60일주 = 1,800장, 개정 전후 같은 스크립트): 헤드라인 70장 변경, 슬롯 변경 good 45·support 35·caution 3. 전역 지표는 유지(상위 5종 점유 43→44%, headline 종류 47/64, 그룹 내 good 고유 3.04→3.02). 사건별: body_light 슬롯 171→153(극아 감점 작동), answer_arrives 24→29·헤드라인 17→23, learning_click 42→46·헤드라인 8→11, opinion_accepted 슬롯 56→33·헤드라인 30→6(상관 통과일 순위 하락), procrastination 31→29.
 
 ---
 
@@ -654,7 +668,7 @@ headline = fragment(사건)  +  action(사건 × 오늘 십성)  +  result(12운
 
 - 사전은 여전히 `reviewed=false`(전문가 감수 전). 2차에서 내부 전수 감수(§23-5)를 거쳤으나 외부 명리 감수는 별개다.
 - 12운성 채널 세분(§22-6 P1 "12운성 잔여 채널", 7채널 → 12스테이지 결과 풀)은 별도 승인.
-- §23-5 의 카탈로그 감수 발견 5건(채점 규칙)은 사용자 판단 대기 — 결 층 범위 밖(점수에 닿는다).
+- §23-5 의 카탈로그 감수 발견 5건(채점 규칙)은 사용자 승인으로 §22-7 2차 개정에 반영됐다.
 
 ### 23-5. 개정 이력 — 2026-09-10 2차 (사용자 승인: "남은 것 마무리 + 별도 승인 건 진행")
 
@@ -666,6 +680,6 @@ headline = fragment(사건)  +  action(사건 × 오늘 십성)  +  result(12운
 
 **연애 라인 결 적용.** `_love_line(tone=)` — 헤드라인과 같은 결. 결 키 없는 사전은 바이트 불변.
 
-**카탈로그 감수(§22-7 16종, 채점 규칙 — 미적용·사용자 판단 대기).** 십성·12운성·관계 채널 배정은 통념과 부합(12종 이견 없음). 지적 5건: ①body_light 체력↓ −.5 는 게이트(재생∨활동↑)와 같은 축이라 성립 0회(사문) ②procrastination 활동↑ −.4 도 같은 이유로 사문 ③answer_arrives 게이트의 삼합에 evidence 가중 없음 ④learning_click 게이트의 육합에 evidence 가중 없음 ⑤opinion_accepted 상관 .3+정관 .4 동시 가점은 통념상 상관견관(반발) 조합. 채점 변경은 §22-3 표 개정·재측정이 따르므로 결 층과 분리해 별도 승인으로 남긴다.
+**카탈로그 감수(§22-7 16종, 채점 규칙 — 같은 날 사용자 승인 후 §22-7 2차 개정으로 반영).** 십성·12운성·관계 채널 배정은 통념과 부합(12종 이견 없음). 지적 5건: ①body_light 체력↓ −.5 는 게이트(재생∨활동↑)와 같은 축이라 성립 0회(사문) ②procrastination 활동↑ −.4 도 같은 이유로 사문 ③answer_arrives 게이트의 삼합에 evidence 가중 없음 ④learning_click 게이트의 육합에 evidence 가중 없음 ⑤opinion_accepted 상관 .3+정관 .4 동시 가점은 통념상 상관견관(반발) 조합. 채점 변경은 §22-3 표 개정·재측정이 따르므로 결 층 커밋과 분리했다 — 개정 내용·재측정은 §22-7 2차 개정 표.
 
 **재측정(9/12 보드).** 같은 일간 6일주 헤드라인 고유 6/6(10그룹 전부), 10십성 풀 적중 60/60, 연애 라인 3문장. 선발·점수·Top5·로또·장소 불변(테스트 고정).

@@ -1,10 +1,10 @@
 {
   "dict_version": "dict.v1.13",
-  "compiled_at": "2026-09-09T23:52:04.114624+00:00",
+  "compiled_at": "2026-09-10T00:24:49.582097+00:00",
   "structural_validation": "passed",
   "sources": {
     "daily_event_catalog.json": {
-      "sha256": "d542a464aef423776e4f3646ea62e7267774071b180856cbe64f9f1cd550fa3e",
+      "sha256": "ca0f36cb67cad085b40f0f12d61b0ba23b7506078e430cee0818d16dd2f4d329",
       "version": "dict.v1.13",
       "reviewed": false,
       "runtime_status": "ACTIVE",
@@ -1771,7 +1771,7 @@
         "expr_confidence": 0.9,
         "ten_god_affinity": {
           "식신": 0.4,
-          "상관": 0.3,
+          "상관": 0.15,
           "정관": 0.4
         },
         "relation_affinity": {
@@ -1877,7 +1877,9 @@
         },
         "relation_affinity": {
           "six_combination": 0.4,
-          "clash": 0.3
+          "clash": 0.3,
+          "three_harmony_complete": 0.3,
+          "half_harmony": 0.15
         },
         "element_affinity": {}
       },
@@ -1918,7 +1920,8 @@
           "편인": 0.3
         },
         "relation_affinity": {
-          "clash": -0.3
+          "clash": -0.3,
+          "six_combination": 0.2
         },
         "element_affinity": {},
         "headline_slots": [
@@ -2040,7 +2043,8 @@
         "base_weight": 0.2,
         "expr_confidence": 0.9,
         "ten_god_affinity": {
-          "편인": 0.4
+          "편인": 0.4,
+          "정관": -0.3
         },
         "relation_affinity": {},
         "element_affinity": {}

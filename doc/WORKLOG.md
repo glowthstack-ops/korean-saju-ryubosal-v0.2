@@ -10489,3 +10489,20 @@ v1.12 라 라이브 전 — 버전 범프 없음, MODEL_V2_VERSION 도 불변).
 - **테스트**: `test_daily_tone_layer.py` 커버리지 확장(10십성·제외 유효성) + 신규 4건(정/편 상이·군
   폴백·제외 채널 기본 풀·연애 라인 결). 그룹 내 결과 비교는 제외 채널을 건너뛴다.
 - **문서**: docs/17 §23-1/2/3/4 개정 + §23-5 개정 이력, DICTIONARY_REVIEW_QUEUE.
+
+## 2026-09-10 — 오늘의 운세 §22-7 2차: 채점 규칙 감수 5건 반영 (model.v2.1 in-place) ✅
+
+데굴님 "그래 진행하자". 결 층 2차 커밋(92fa510)에서 분리해 둔 채점 규칙 지적 5건을 §22-3 표에
+반영했다. 9/12 이전 보드는 model.v2.1 을 쓰지 않으므로 라이브 전 in-place(버전 범프 없음).
+
+- ① body_light 체력↓ −.5(사문) → 극아 −.3 ② procrastination 활동↑ −.4(사문) → 정관 −.3
+  ③ answer_arrives 삼합 .3 추가 ④ learning_click 육합 .2 추가 ⑤ opinion_accepted 상관 .3→.15.
+  v1 카탈로그는 유도 규칙대로 동기(십성→ten_god, 삼합 x→three_harmony_complete x·half_harmony x/2,
+  육합→six_combination, 오행 채널 무대응). v2·v1 스냅샷 재빌드.
+- **회귀 2건 추가**: 신규 16종 게이트 리프 evidence 양의 가중 필수 / 전 사건 감점 12운성 채널은 게이트
+  스테이지와 동시 성립 가능(사문 차단). 구 48종 love_spark 도 게이트 삼합에 evidence 가 없음 — 범위
+  밖으로 기록만.
+- **재측정(1,800장)**: 헤드라인 70장 변경(good 45·support 35·caution 3). 전역 지표 유지(상위5 43→44%,
+  종류 47/64, 그룹 good 고유 3.04→3.02). body_light 171→153, answer_arrives 헤드라인 17→23,
+  learning_click 8→11, opinion_accepted 헤드라인 30→6(상관 통과일 순위 하락 — 의도된 효과).
+- 문서: docs/17 §22-7 표·2차 개정 표, §23-4/§23-5 상태 갱신, DICTIONARY_REVIEW_QUEUE.
