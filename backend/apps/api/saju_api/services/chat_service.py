@@ -30,6 +30,7 @@ from saju_engines import (
     load_event_graph,
     period_v2_config,
 )
+from saju_engines.career_field import build_career_field_facts, render_career_field_lines
 from saju_engines.chart_interpretation import build_luck_grounding
 from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
@@ -1183,6 +1184,32 @@ def _relocation_reason_lines(
     ]
 
 
+def _career_field_context(birth: BirthInput, result: ManseV2Result, today: date) -> list[str]:
+    """직업 분야 근거 블록 — 원국 십성 분포·역할·격국·배합 + 현재 세운/월운 천간 십성(제안 통로).
+
+    데굴님 지적(2026-09-10): '이직 제안이 온다면 어떤 분야가 확률이 높을까'가 직전 턴의 시점
+    (9월) 이직 질문으로 처리됐다. 분야 질문은 원국 축이 답이고, 제안이 들어오는 통로는 현재 운의
+    천간 십성으로 보조한다. 실패는 조용히 빈 블록(풀이를 막지 않는다 — 원칙 11 취지).
+    """
+    incoming: list[tuple[str, str]] = []
+    try:
+        year_pillars = luck_years(birth, [today.year])
+        if year_pillars and year_pillars[0].stem_ten_god:
+            incoming.append((str(today.year), year_pillars[0].stem_ten_god))
+        tz = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
+        label = _current_luck_month(today, tz)
+        mp = next((p for p in luck_months(birth, int(label[:4])) if p.label == label), None)
+        if mp is not None and mp.stem_ten_god:
+            incoming.append((label, mp.stem_ten_god))
+    except Exception:  # noqa: BLE001 — 통로 계산 실패가 분야 풀이를 막지 않는다
+        incoming = []
+    try:
+        return render_career_field_lines(build_career_field_facts(result, incoming))
+    except Exception:  # noqa: BLE001
+        _logger.exception("career field context failed")
+        return []
+
+
 def _relocation_reason_context(
     birth: BirthInput,
     intent: IntentJson,
@@ -2192,6 +2219,21 @@ def _is_investment_flow(intent: IntentJson, question: str) -> bool:
 # 원자료의 살(煞)·귀신·조상 서사는 서비스 정책상 배제하고, 명리 신호 축 4개
 # (이동 역마 충형 / 문서 인성 충극 / 통제력 관성 손상·태왕 고집 / 외부 유입 대비)만 남겼다.
 # LLM은 제공된 후보·형충회합 근거에 붙여서만 각 축을 언급한다(엔진 계산 우선 원칙).
+# 직업 분야·직종·적성 질문(2026-09-10 데굴님 제공 자료 — dictionaries/career_fields.json). 시점형
+# 이직 답으로 흐르지 않게 답의 축을 '어떤 기능·방식으로 일하는가'에 고정한다.
+_CAREER_FIELD_DIRECTIVE = (
+    "[직업 분야 풀이 — 분야·직종·적성 질문 전용]\n"
+    "이 질문은 '언제'가 아니라 '어떤 분야·직무'를 묻는다. 첫 문단에서 [직업 분야 근거]의 두드러진 "
+    "십성·배합을 근거로 가장 유력한 직업군 2~3개를 이름으로 답하고, 각각 '어떤 기능과 방식으로 "
+    "일하는가'(생산·표현·거래·관리·통제·탐구·전승 중 무엇)로 이유를 붙일 것. '제안·기회가 들어오는 "
+    "통로'가 있으면 원국 적성(어떤 일이 맞나)과 현재 운의 통로(어떤 쪽에서 제안이 오기 쉬운가)를 "
+    "구분해 서술하고, 시점 서술은 한두 문장의 보조로만 둘 것(월별 타이밍 분석으로 흐르지 말 것). "
+    "금지: '재성이 많으니 사업가'식 단정, 특정 십성이 있어서 적성 확정·없어서 부적합이라는 표현, "
+    "'X격이면 Y직업' 고정, 근거 블록에 없는 직업군 추가. 직업명은 여러 십성 기능이 겹치므로 "
+    "'개발자=한 십성' 같은 일대일 고정을 피하고, 같은 직업군 안에서도 조건(일간 감당력·용희신·"
+    "배합)에 따라 강조점이 달라짐을 짚을 것. 학파별 배속 차이가 있는 참고 해석임을 한 문장으로 "
+    "밝히되 면책 반복은 금지."
+)
 _ACCIDENT_RISK_KEYS = ("횡액", "다치", "다칠", "부상", "낙상", "골절")
 _ACCIDENT_RISK_DIRECTIVE = (
     "[사고수 풀이 — 사고·안전 위험 질문 전용]\n"
@@ -4396,6 +4438,9 @@ def chat(
         structural = structural + _relocation_region_context(birth, intent, today)
         # 목적지 미지정/시도·수도권 범위면 시군구 후보를 매칭·랭킹해 추천(P4-A 배선, 2026-06-26).
         structural = structural + _region_recommendation_context(birth, intent, today)
+    # 직업 분야·직종·적성 질문(2026-09-10) — 원국 십성 기능 표 근거 + 현재 운 천간 십성(제안 통로).
+    if structural is not None and intent.career_field:
+        structural = structural + _career_field_context(birth, result, today)
     # 토픽 질문(직업·재물·건강·시험·연애)은 해당 Topic Builder 모듈을 실행해 확정 신호·정책 톤
     # 주입(옵션1 채팅 배선, 2026-06-26). relocation은 위 지역/이사 경로가 담당.
     if structural is not None and not _is_relocation_intent(intent):
@@ -5029,6 +5074,9 @@ def chat(
     # (2026-09-01 실로그: 장기 투자 질문이 '오늘 복권' 답으로 흘렀다). 횡재와 상호 배타.
     elif _is_investment_flow(intent, question):
         trailing.append(_INVESTMENT_FLOW_DIRECTIVE)
+    # 직업 분야·직종·적성 질문 — 답의 축을 시점이 아니라 원국 십성 기능에 고정(2026-09-10).
+    if intent.career_field:
+        trailing.append(_CAREER_FIELD_DIRECTIVE)
     # 사고수 — 사고·안전 위험 질문이면 해석 축(이동·문서·통제력·외부유입)과 단정 금지
     # 프레임을 고정한다(2026-07-23 데굴님 제공 자료 증류). 파서가 HEALTH로 흡수하므로
     # 후보·위험 신호는 건강·안전 축으로 이미 필터돼 들어온다.

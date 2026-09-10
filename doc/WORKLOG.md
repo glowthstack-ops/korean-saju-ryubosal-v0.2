@@ -10635,3 +10635,18 @@ daily docs/17 §23 의 "십성=행동 결, 12운성=흐름 결"을 LLM 입력 �
   + 출력 기호 제거(PROMPT_REVISION 2026-09-10.no-symbols, PROMPT_VERSION 불변 — 캐시 재교정 없음) / `get_board` 응답·
   스레드 export 는 복사본 정리(오늘·내일 v1.12 보드의 캐시 문장도 즉시 정리, 엔진 렌더·캐시 바이트 불변).
 - 프론트 카드의 UI 아이콘(🌟⚠️🍀💕📍🥇💰)은 풀이 문장이 아니라 그대로 둠(요청 시 제거).
+
+## 2026-09-10 — 직업 분야·직종·적성 질문 대응 (데굴님 지적 + 제공 자료) ✅
+
+실사례: '9월중에 이직운' → '이직 제안이 온다면 어떤 분야가 확률이 높을까'가 같은 intent(career·career_change)
+로 파싱되고 직전 시점(2026-09)을 승계해 타이밍 답이 반복됐다. 원인 3: 파서에 분야 패턴 없음 / 시점 승계
+가드가 '언제'·'어디'만 앎 / 적성 근거 자료 없음.
+- 사전 `dictionaries/career_fields.json`(제공 자료 원문: 십성 10 기능표·판단 요소 6·배합 9·용희신 조건 6·원칙 5,
+  thresholds 는 기계 기본값 표기) + `shared_types/career_fields.py`.
+- 엔진 `career_field.py`: 십성 분포(effective_percent)·억부 역할·격국·구조 패턴(SANGGWAN_SAENGJAE 등)·현재 세운/월운
+  천간 십성(제안 통로) → `[직업 분야 근거]` 블록(점수·판정 아님).
+- 파서 `career_field` 플래그(분야 어휘 + career 도메인/강한 어휘) / conversation 시점 승계 제외 / chat_service
+  블록 + `_CAREER_FIELD_DIRECTIVE`(직업군 2~3개를 이름으로, 기능·방식으로 이유, 원국 적성 vs 운의 통로 구분,
+  단정·일대일 고정 금지, 시점은 보조).
+- 회귀 `test_career_field_question.py`(파서 양/음성·사전 원칙·기준 명식 근거·2턴 프롬프트·시점 미승계).
+- docs/08 career 행, docs/03 IntentJson careerField, docs/05 사전 등재, 검토 큐.

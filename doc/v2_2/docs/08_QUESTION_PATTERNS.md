@@ -113,7 +113,7 @@
 | employment | 308 | event=employment (취업 — 이직과 구분) |
 | move | 243 | event=relocation |
 | marriage | 222 | event=marriage |
-| career | 203 | domain=career (적성/진로 포함) |
+| career | 203 | domain=career (적성/진로 포함). **분야·직종·적성 질문(2026-09-10)**: "이직 제안이 온다면 어떤 분야가 확률이 높을까", "나한테 맞는 직업이 뭘까", "어떤 일을 해야 잘 풀릴까" — 분야 어휘(분야·직종·업종·직군·직무·어떤 일/직업·적성·천직·맞는 일) → `career_field=true`. 답의 축은 시점이 아니라 원국 십성 기능(사전 `career_fields.json`) + 현재 운 천간 십성(제안 통로). 직전 턴 시점 승계 대상 아님. 실사례: '9월 이직운' 뒤 이 질문이 9월 타이밍 답으로 흐른 결함 |
 | family | 166 | domain=family / relationship_analysis |
 | love | 150 | event=relationship_start |
 | health | 147 | domain=health |

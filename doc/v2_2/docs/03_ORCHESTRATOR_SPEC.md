@@ -174,6 +174,7 @@ interface IntentJson {
   domains?: Domain[];                  // 결합 질문 ("이직운과 재물운") — 주 domain + 부가
   eventKey?: EventKey;
   eventKeys?: EventKey[];              // "이직 관련 운과 재혼운, 재혼 후 자녀" 류
+  careerField?: boolean;               // 직업 분야·직종·적성 질문(docs/08 career, 2026-09-10) — 원국 십성 기능 축, 시점 미승계
 
   // ── 시점 (docs/08 C차원 18패턴 수용) ──
   timeScope: 'long_term' | 'mid_term' | 'short_term' | 'date_level' | 'hour_level'

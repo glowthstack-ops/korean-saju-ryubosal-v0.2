@@ -80,3 +80,5 @@ review_status  = PENDING  → 명리 감수 미완료
 - 지역 오행 Tier B — `doc/v2_2/docs/12_REGION_ELEMENT_ENGINE.md`
 
 **2026-09-10 사문 감사 후속**: `event_engine/void_repetition_modifier.json` 은 `runtime_status=PARAMETER_SOURCE`(void_unresolved 만 코드가 읽음), `user_profile_event_gate.json` 은 `SPEC_ONLY`(implemented_by 로 구현 여부 선언 — 미구현 6건). 감수 시 "코드가 읽는 필드" 만 점수에 영향이 있음을 전제로 볼 것.
+
+**2026-09-10 신설 `career_fields.json`(reviewed=false)**: 데굴님 제공 십성×직업 기능 참고표를 그대로 옮김. 감수 관점: 학파별 배속 차이, `thresholds`(강함 25%·과다 30%·두드러짐 10% — 자료에 없는 기계 기본값), 배합 파생 규칙 2건(비겁→식상·인성→일간→식상은 구조 패턴 id 없이 군 활성으로 판정).

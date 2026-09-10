@@ -401,6 +401,8 @@ class ConversationEngine:
             and not _READING_REQUEST_RE.search(text)
             and not _TIME_SEEKING_RE.search(text)
             and not _PLACE_SEEKING_RE.search(text)
+            # 직업 분야·적성 질문은 원국 축이라 직전 시점(예: '9월')을 잇지 않는다(2026-09-10).
+            and not any(getattr(i, "career_field", False) for i in parsed.intents)
             # P2 승계 가드 — 직전 시점이 배제 창과 겹치면 오염 승계를 차단한다(배제 기간은
             # 절대 target으로 승격 금지). 시점 미확정으로 두면 broad/재질문 경로가 처리.
             and not overlaps_exclusions(tr_year_span(last.time_range), exclusions)

@@ -187,6 +187,25 @@ NEUTRAL_PAST_EXPLANATION_RE = re.compile(
 )
 
 
+# 직업 분야·직종·적성 질문(2026-09-10 데굴님 지적: '이직 제안이 온다면 어떤 분야가 확률이 높을까'가
+# 시점형 이직 질문으로 처리됐다). 분야 어휘가 있으면 career 도메인의 분야 질문으로 표시한다.
+_CAREER_FIELD_RE = re.compile(
+    r"어떤\s*(?:분야|직종|업종|직군|직무|일|직업|쪽)|무슨\s*(?:분야|직종|업종|일|직업)|어느\s*(?:분야|직종|업종|쪽)"
+    r"|분야(?:가|는|에|로|를)?\s*(?:잘|맞|좋|유리|확률|어울|추천)|(?:직종|업종|직군|직무)(?:이|은|는|가)?\s*(?:잘|맞|좋|유리|어울|추천)"
+    r"|적성|천직|(?:맞는|어울리는|잘\s*맞는)\s*(?:일|직업|직무|직종|분야)|무슨\s*일을\s*(?:해야|하면)"
+)
+# 분야 어휘 중 문맥 없이도 직업 질문으로 볼 만한 것(도메인이 일반이면 career 로 승격).
+_CAREER_FIELD_STRONG_RE = re.compile(
+    r"적성|천직|(?:맞는|어울리는)\s*(?:직업|직무|직종|분야)"
+    r"|(?:어떤|무슨|어느)\s*(?:직업|직종|직무|직군|업종)|어떤\s*일을\s*(?:해야|하면)"
+)
+
+
+def detect_career_field(text: str) -> bool:
+    """직업 분야·직종·적성 질문인가(도메인 무관 어휘 감지 — 호출자가 도메인과 결합)."""
+    return bool(_CAREER_FIELD_RE.search(text))
+
+
 # 사무실/사업장 이전 신호 — relocation_kind=office 판정용(R4). 집 이사(일지)와 달리 월주 중심.
 _OFFICE_RELOCATION_WORDS = (
     "사무실 이전", "사업장 이전", "사무실 이사", "사업장 이사",
@@ -825,6 +844,15 @@ def parse_message(
             constraints=constraints,
             output=style,
         ))
+        # 직업 분야 질문 — career 도메인이거나 강한 분야 어휘면 표시하고 도메인을 career 로 맞춘다.
+        # 분야는 원국 십성 기능이 답의 축 — 자체 시점은 남기되 승계 대상에서 뺀다(conversation).
+        _last = intents[-1]
+        if detect_career_field(piece) and (
+            _last.domain is Domain.CAREER or _CAREER_FIELD_STRONG_RE.search(piece)
+        ):
+            _last.career_field = True
+            if _last.domain is not Domain.CAREER:
+                _last.domain = Domain.CAREER
     return ParsedMessage(
         intents=intents, output_style=style,
         trace={  # P0 — 시점 해소 추적(파싱 계층)

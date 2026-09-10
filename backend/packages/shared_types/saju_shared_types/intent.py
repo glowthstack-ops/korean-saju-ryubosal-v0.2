@@ -288,6 +288,9 @@ class IntentJson(BaseModel):
 
     # R4 — 이사 종류(집=일지 중심 / 사무실=월주 중심). 기본 home(선택, 원칙 11).
     relocation_kind: str = "home"  # home|office
+    # 직업 분야·직종·적성 질문(docs/08 career_field, 2026-09-10): '어떤 분야/직종/일이 맞나·
+    # 제안이 온다면 어떤 분야' — 시점이 아니라 원국 십성 기능이 답의 축. 시점 승계 대상 아님.
+    career_field: bool = False
 
     constraints: Constraints = Field(default_factory=Constraints)
     output: OutputStyle = Field(default_factory=OutputStyle)
