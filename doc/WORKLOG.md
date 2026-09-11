@@ -10696,3 +10696,23 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
 - 회귀: `test_realtime_log_misses_20260911.py`(신규 8건) + career_field·b13·task_procedures 파일에 추가. docs/08 career 행 갱신.
 - 남은 미처리(다음 차수): 구 단위 지역 추천(5)·육친 운(6)·구매 결정(7)·본문 출생정보 즉석 입력(8)·숫자/영문 별칭(9)·
   3일 지평(10)·명식 정정(11)·주말부부 합가(12)·동반자 제외 지시·claim_recheck 낡은 문구·진술형 발화·토큰 상한 재축약.
+
+## 2026-09-11 — 실로그 미인식 사례 2차(추천 순서 5·6·7·8) ✅ (데굴님 승인 + 6번 지시)
+
+5. **구 단위·생활권 지역 추천**(#845~849·1009·1013): 거주 어휘(어느 구·어떤 구·어느 동·생활권·살기에·에 사는게) +
+   `_SUBUNIT_SCOPE_RE`(`<지명>(에서|내|안) (어느|어떤|어디) (구|동|생활권)`) 스코프 + 거주 평가형 목적지('용인 수지에 사는게').
+   chat `_region_recommendation_context(question)`: 하위 단위 요구면 시군구 해소돼도 단락하지 않고 해소된 전체 이름을 범위로.
+   `_normalize_region` 폴백: 엔진 해소기로 시군구 코드→등재 키('용인 수지'→'경기도 용인시 수지구'). 실측: 창원→성산구 등 하위 후보,
+   수지→신봉동·상현동…, 용인 수지→단건 적합 블록.
+6. **육친 운**(#1175·1303): `detect_kin_axis`(`<육친어>(의) 운|복|덕|인연`) → CHART_ANALYSIS·관계 도메인. **데굴님 지시**: 등록 동반자의
+   관계·표시 이름이 맞으면 그 대상 기준(스레드 `_match_aliases` 해소 우선), 없으면 본인 명식 육친 축 — conversation.resolve_subjects
+   가 미등록 육친어를 unresolved에 넣지 않고 본인으로 확정, chat `_kin_axis_module`이 본인 단독일 때만 M04(부모)/M05(자녀) 교체.
+   운/복 접미 없는 '자녀랑 나는 어때'는 확인 질문 유지.
+7. **구매·지출 결정**(#1759·1761): 재물 어휘 구매·구입·지출·목돈·큰돈·자동차·중고차·현금자산·할부·차를 바꾸/차량/새 차.
+8. **본문 괄호 출생정보**(#2003): `attach_parenthetical_births` — '신랑(1975.04.04 시간모름)'을 그 토큰의 즉석 대상(INLINE_TEMP,
+   label=신랑)으로 합치고 미해소 관계어 제거(등록 해소된 대상이 있으면 등록 우선). conversation은 괄호 토큰을 unresolved 제외.
+   chat `_inline_subject_birth`: InlineBirth→BirthInput(출생지 없으면 기준 사주 출생지, 시각 없으면 시간 미상), `_companion_birth`
+   가 `inline:<label>`을 해석(pairwise·companion_only 공통), `[즉석 대상 안내]` 한 줄 주입. 본인+후보 2명(multi_with_self)은 미지원 유지.
+- 회귀: `test_realtime_log_misses_20260911.py` 2차 21건 추가(총 29). docs/08 relocation·wealth·relationship 행 갱신.
+- 남은 미처리: 숫자/영문 별칭(9)·3일 지평(10)·명식 정정(11)·주말부부 합가(12)·동반자 제외 지시·claim_recheck 낡은 문구·진술형 발화·
+  토큰 상한 재축약·본인+후보 2명 비교(multi_with_self).

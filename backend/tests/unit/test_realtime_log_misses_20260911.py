@@ -76,3 +76,161 @@ def test_application_channel_question_is_career() -> None:
     assert intent.domain is Domain.CAREER
     res = cs.chat(_BIRTH, q, _TODAY, dry_run=True, owner_id="t")
     assert res.status == "dry_run", res.answer
+
+
+# ═══ 2차(추천 순서 5·6·7·8, 2026-09-11 데굴님 승인) ═══════════════════════════
+
+from saju_engines.companion_alias import AliasEntry  # noqa: E402
+from saju_engines.conversation_store import ConversationStore  # noqa: E402
+
+_CHILD = BirthInput(
+    calendar_type="solar", birth_date="2015-05-05", birth_time="10:00",
+    birth_place_name="서울", gender="female", reference_date="2026-08-21",
+)
+
+
+def _thread_chat(q: str, alias_index: dict, births: dict, tid: str) -> cs.ChatResponse:
+    store = ConversationStore()
+    try:
+        return cs.chat(
+            _BIRTH, q, _TODAY, dry_run=True, store=store, thread_id=tid, owner_id="t",
+            companion_alias_index=alias_index, companion_births=births,
+        )
+    finally:
+        store.delete(tid)
+
+
+# ── 5. 구 단위·생활권 지역 추천 ─────────────────────────────────────────────
+
+@pytest.mark.parametrize("q,scope", [
+    ("창원에서는 어느 구가 가장 좋아?", "창원"),
+    ("내 동반자와 같이 살기에 창원에서는 어느 구가 적합할까?", "창원"),
+    ("응 봐줘 수지안에서 어떤 생활권이 맞을지", "수지"),
+])
+def test_subunit_region_question_is_relocation_with_scope(q: str, scope: str) -> None:
+    intent = parse_message(q, _TODAY).intents[0]
+    assert intent.domain is Domain.RELOCATION
+    assert intent.constraints.target_region == scope
+
+
+def test_residence_fit_question_has_target_region() -> None:
+    """실로그 #1013 — '용인 수지에 사는게 잘 맞을까'가 관계 도메인으로 새던 오라우팅."""
+    intent = parse_message("나는 용인 수지에 사는게 잘 맞을까?", _TODAY).intents[0]
+    assert intent.domain is Domain.RELOCATION
+    assert intent.constraints.target_region == "용인 수지"
+
+
+def test_subunit_scope_yields_candidates_inside_scope() -> None:
+    """창원 하위 구·동 후보가 추천 블록에 실린다(전국 폴백 아님). 엔진 미빌드면 스킵."""
+    if cs._get_region_orchestrator() is None:
+        pytest.skip("지역 추천 엔진 미빌드")
+    res = cs.chat(_BIRTH, "창원에서는 어느 구가 가장 좋아?", _TODAY, dry_run=True, owner_id="t")
+    assert res.status == "dry_run", res.answer
+    text = res.prompt_preview or ""
+    i = text.find("[지역 오행 추천(참고)")
+    assert i >= 0
+    assert "창원시" in text[i:i + 600]
+    # 수지구처럼 시군구로 해소되는 범위도 하위 단위 요구면 그 안의 동 후보를 추천한다.
+    res2 = cs.chat(_BIRTH, "수지안에서 어떤 생활권이 맞을지", _TODAY, dry_run=True, owner_id="t")
+    t2 = res2.prompt_preview or ""
+    j = t2.find("[지역 오행 추천(참고)")
+    assert j >= 0 and "수지구" in t2[j:j + 600]
+
+
+# ── 6. 육친 운 — 등록 동반자 우선, 없으면 본인 명식 육친 축 ───────────────────
+
+@pytest.mark.parametrize("q,axis", [
+    ("내 부모님 운은 어때?", "parent"),
+    ("자녀운 어때?", "child"),
+    ("아들 운은 어때", "child"),
+    ("자식복이 있을까", "child"),
+])
+def test_kin_axis_question_is_self_chart_analysis(q: str, axis: str) -> None:
+    from saju_engines.query_parser import detect_kin_axis
+
+    assert detect_kin_axis(q) == axis
+    intent = parse_message(q, _TODAY).intents[0]
+    assert intent.query_type is QueryType.CHART_ANALYSIS
+    assert intent.domain is Domain.RELATIONSHIP
+    assert [s.kind for s in intent.subjects] == [SubjectKind.SELF]
+
+
+@pytest.mark.parametrize("q", ["자녀랑 나는 어때?", "엄마 운전 조심해야 해?"])
+def test_non_axis_kin_mentions_are_untouched(q: str) -> None:
+    from saju_engines.query_parser import detect_kin_axis
+
+    assert detect_kin_axis(q) is None
+
+
+def test_kin_axis_unregistered_uses_self_module_in_thread() -> None:
+    res = _thread_chat("내 부모님 운은 어때?", {}, {}, "t-kin-self")
+    assert res.status == "dry_run", res.answer
+    assert [s.kind for s in res.intents[0].subjects] == [SubjectKind.SELF]
+    assert "부모·윗사람" in (res.prompt_preview or "")
+
+
+def test_kin_axis_registered_child_reads_that_companion() -> None:
+    """데굴님 지시 — 등록 동반자의 관계·표시 이름이 맞으면 그 대상 기준(육친 축 모듈 아님)."""
+    idx = {
+        "자녀": [AliasEntry("c1", "민지호", "child", "relation_synonym")],
+        "민지호": [AliasEntry("c1", "민지호", "child", "label")],
+    }
+    res = _thread_chat("자녀운 어때?", idx, {"c1": _CHILD}, "t-kin-reg")
+    assert res.status == "dry_run", res.answer
+    subj = res.intents[0].subjects
+    assert any(s.kind is SubjectKind.COMPANION and s.companion_id == "c1" for s in subj)
+    assert "자녀·표현" not in (res.prompt_preview or "")
+
+
+def test_kin_reference_without_axis_still_asks_which_one() -> None:
+    res = _thread_chat("자녀랑 나는 어때?", {}, {}, "t-kin-ask")
+    assert res.status == "need_subject"
+
+
+# ── 7. 구매·지출 결정 ─────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("q", [
+    "차를 바꾸려고 하는데 과연 좋은 선택일까?",
+    "현금자산이 있는데 그걸로 중고차를 구매할까 하는데. 좋은 선택일까?",
+])
+def test_purchase_decision_is_wealth(q: str) -> None:
+    intent = parse_message(q, _TODAY).intents[0]
+    assert intent.domain is Domain.WEALTH
+    res = cs.chat(_BIRTH, q, _TODAY, dry_run=True, owner_id="t")
+    assert res.status == "dry_run", res.answer
+
+
+# ── 8. 본문 괄호 출생정보 → 즉석 대상 ────────────────────────────────────────
+
+def test_parenthetical_birth_attaches_to_token() -> None:
+    q = "나는 지금 결혼한 신랑(1975.04.04 시간모름)고 사주가 궁금하다"
+    intent = parse_message(q, _TODAY).intents[0]
+    assert len(intent.subjects) == 1
+    s = intent.subjects[0]
+    assert s.kind is SubjectKind.INLINE_TEMP and s.label == "신랑"
+    assert s.inline_birth is not None and s.inline_birth.date == "1975-04-04"
+    assert s.inline_birth.time is None
+
+
+def test_inline_subject_birth_is_computed_with_note() -> None:
+    """실로그 #2003 — 즉석 대상 출생정보가 need_subject로 끝나지 않고 계산·안내된다."""
+    q = "나는 지금 결혼한 신랑(1975.04.04 시간모름)고 사주가 궁금하다"
+    res = cs.chat(_BIRTH, q, _TODAY, dry_run=True, owner_id="t")
+    assert res.status == "dry_run", res.answer
+    assert "[즉석 대상 안내] 신랑" in (res.prompt_preview or "")
+    res2 = cs.chat(
+        _BIRTH, "동생(1998.07.23 여자)이랑 궁합 봐줘", _TODAY, dry_run=True, owner_id="t",
+    )
+    assert res2.status == "dry_run", res2.answer
+    t2 = res2.prompt_preview or ""
+    assert "[즉석 대상 안내] 동생" in t2 and "동생(" in t2  # 궁합 경로에도 대상 명식·안내
+
+
+def test_parenthetical_birth_prefers_registered_companion_in_thread() -> None:
+    idx = {"신랑": [AliasEntry("h1", "신랑", "husband", "label")]}
+    res = _thread_chat(
+        "신랑(1975.04.04 시간모름) 사주가 궁금하다", idx, {"h1": _CHILD}, "t-paren-reg",
+    )
+    assert res.status == "dry_run", res.answer
+    subj = res.intents[0].subjects
+    assert [s.kind for s in subj] == [SubjectKind.COMPANION] and subj[0].companion_id == "h1"

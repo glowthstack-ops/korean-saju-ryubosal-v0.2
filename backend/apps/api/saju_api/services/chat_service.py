@@ -89,6 +89,7 @@ from saju_engines.query_parser import (
     AFFIRMATION_RE,
     BEHAVIOR_PATTERN_RE,
     NEUTRAL_PAST_EXPLANATION_RE,
+    detect_kin_axis,
     implies_self_counterpart,
     parse_message,
 )
@@ -1158,6 +1159,53 @@ def _date_selection_block(
     )
 
 
+def _inline_subject_birth(
+    intent: IntentJson, cid: str, base: BirthInput,
+) -> BirthInput | None:
+    """본문 즉석 출생정보(INLINE_TEMP)를 BirthInput으로 만든다(2026-09-11 실로그 #2003).
+
+    출생지가 본문에 없으면 기준 사주의 출생지로 보정한다(프롬프트에 안내 한 줄 —
+    _inline_birth_note). 시각이 없으면 시간 미상(3주) 모드.
+    """
+    for s in intent.subjects:
+        if s.kind is not SubjectKind.INLINE_TEMP or f"inline:{s.label}" != cid:
+            continue
+        ib = s.inline_birth
+        if ib is None:
+            return None
+        gender = {"M": "male", "F": "female"}.get(ib.gender or "")
+        try:
+            return BirthInput(
+                calendar_type="lunar" if ib.calendar_type == "lunar" else "solar",
+                birth_date=date.fromisoformat(ib.date),
+                birth_time=ib.time,
+                birth_time_unknown=ib.time is None,
+                birth_place_name=ib.birthplace or base.birth_place_name,
+                latitude=ib.latitude if ib.birthplace else None,
+                longitude=ib.longitude if ib.birthplace else None,
+                timezone=ib.timezone if ib.birthplace else None,
+                gender=gender,
+            )
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def _inline_birth_note(intent: IntentJson, base: BirthInput) -> list[str]:
+    """출생지 없이 본문에 적힌 즉석 대상이 있으면 보정 기준을 LLM에 알린다(단정 금지 톤)."""
+    names = [
+        s.label for s in intent.subjects
+        if s.kind is SubjectKind.INLINE_TEMP and s.inline_birth and not s.inline_birth.birthplace
+    ]
+    if not names:
+        return []
+    return [
+        f"[즉석 대상 안내] {', '.join(names)}: 본문의 생년월일로 계산했고 출생지가 없어 "
+        f"기준 사주의 출생지({base.birth_place_name})로 시간 보정했다. "
+        "시각이 없으면 시주 없이(3주) 본 것이다."
+    ]
+
+
 def _is_relocation_intent(intent: IntentJson) -> bool:
     """이사 도메인/이벤트 질문인가 — 그룹(다인) M10 분기 게이트."""
     return intent.domain is Domain.RELOCATION or intent.event_key is EventKey.RELOCATION
@@ -1293,7 +1341,29 @@ def _normalize_region(phrase: str, known: list[str]) -> str | None:
     if phrase in known:
         return phrase
     suffix = [k for k in known if k.endswith(" " + phrase)]
-    return suffix[0] if len(suffix) == 1 else None
+    if len(suffix) == 1:
+        return suffix[0]
+    # 폴백(2026-09-11): '용인 수지'처럼 접미 일치가 안 되는 구어 지명은 지역 엔진 해소기로
+    # 시군구 코드를 확정한 뒤 전체 이름으로 등재 키를 찾는다(모호하면 그대로 None).
+    try:
+        orch = _get_region_orchestrator()
+        if orch is None:
+            return None
+        from saju_shared_types.region_element import RegionLevel
+
+        code, _amb = orch._engine.resolve_region(phrase, RegionLevel.SIG)  # type: ignore[attr-defined]
+        if code is None:
+            return None
+        prof = orch._engine._profiles.get(code)  # type: ignore[attr-defined]
+        full = prof.full_name if prof is not None else None
+    except Exception:  # noqa: BLE001 — 해소 실패는 미등재와 같게 취급
+        return None
+    if not full:
+        return None
+    if full in known:
+        return full
+    starts = [k for k in known if full.startswith(k)]
+    return max(starts, key=len) if starts else None
 
 
 def _relocation_region_context(
@@ -1378,10 +1448,16 @@ def _get_region_orchestrator() -> object | None:
     return _region_orchestrator
 
 
+# 하위 단위 추천 요구 — '어느 구·어떤 생활권·어느 동'
+# (2026-09-11: 시군구가 해소돼도 그 안의 후보를 추천한다).
+_SUBUNIT_REQUEST_RE = re.compile(r"(?:어느|어떤|어디)\s*(?:구|동|생활권|동네)")
+
+
 def _region_recommendation_context(
     birth: BirthInput,
     intent: IntentJson,
     today: date,
+    question: str = "",
 ) -> list[str]:
     """이사 '지역 추천'(목적지 미지정/시도·수도권 scope)을 시군구 후보로 surface(P4-A 배선).
 
@@ -1401,9 +1477,16 @@ def _region_recommendation_context(
         scope: str | None = None
         if phrase:
             code, _amb = orch._engine.resolve_region(phrase, RegionLevel.SIG)  # type: ignore[attr-defined]
-            if code is not None:
+            subunit = bool(_SUBUNIT_REQUEST_RE.search(question))
+            if code is not None and not subunit:
                 return []  # 특정 시군구 → 단건 궁합 경로가 담당
-            scope = phrase  # 시도·수도권 등 범위로 해석(미해소 시 엔진이 전국 폴백+노트)
+            if code is not None:
+                # 하위 단위 요구('수지 안에서 어떤 생활권') — 해소된 시군구 전체 이름을 범위로.
+                _prof = orch._engine._profiles.get(code)  # type: ignore[attr-defined]
+                scope = _prof.full_name if _prof is not None else phrase
+            else:
+                # 시도·수도권·통합시('창원') 등 범위로 해석(미해소 시 엔진이 전국 폴백+노트).
+                scope = phrase
         from saju_engines.event_scoring import favorability_map
 
         chart = calculate(birth.model_copy(update={"reference_date": today}))
@@ -1519,11 +1602,28 @@ _DOMAIN_TOPIC_MODULE = {
 }
 
 
+_KIN_AXIS_MODULE = {"parent": "M04", "child": "M05"}
+
+
+def _kin_axis_module(intent: IntentJson, question: str) -> str | None:
+    """육친 운 질문('부모님 운·자녀운')이고 대상이 본인뿐이면 M04/M05(2026-09-11).
+
+    등록 동반자가 해소돼 대상에 들어 있으면 그 대상 기준 풀이(기존 경로)이므로 교체하지 않는다.
+    """
+    axis = detect_kin_axis(question)
+    if axis is None:
+        return None
+    if any(s.kind is not SubjectKind.SELF for s in intent.subjects):
+        return None
+    return _KIN_AXIS_MODULE.get(axis)
+
+
 def _topic_module_context(
     birth: BirthInput,
     intent: IntentJson,
     today: date,
     future_floor: str | None = None,
+    question: str = "",
 ) -> list[str]:
     """질문 도메인에 해당하는 Topic Builder 모듈을 실행해 확정 신호+정책 톤을 구조 블록에 싣는다.
 
@@ -1533,7 +1633,7 @@ def _topic_module_context(
     future_floor('YYYY-MM')가 주어지면 그 달 이전의 월 findings를 버린다 — 미래지향 질문('언제
     들어올까')에서 토픽 참고 신호가 이미 지난 달을 메인처럼 노출하던 시점 오류 차단(2026-06-30).
     """
-    module_id = _DOMAIN_TOPIC_MODULE.get(intent.domain)
+    module_id = _kin_axis_module(intent, question) or _DOMAIN_TOPIC_MODULE.get(intent.domain)
     if module_id is None:
         return []
     try:
@@ -3772,6 +3872,8 @@ def chat(
         b = (companion_births or {}).get(cid)
         if b is None and cid == "inline:partner":
             return partner_birth
+        if b is None and cid.startswith("inline:"):
+            b = _inline_subject_birth(intent, cid, birth)
         return b
 
     if (
@@ -4437,7 +4539,7 @@ def chat(
         # 목적지 지역이 명시되면 지역 오행 × 용신 궁합도 함께 surface(2026-06-18 보완).
         structural = structural + _relocation_region_context(birth, intent, today)
         # 목적지 미지정/시도·수도권 범위면 시군구 후보를 매칭·랭킹해 추천(P4-A 배선, 2026-06-26).
-        structural = structural + _region_recommendation_context(birth, intent, today)
+        structural = structural + _region_recommendation_context(birth, intent, today, question)
     # 직업 분야·직종·적성 질문(2026-09-10) — 원국 십성 기능 표 근거 + 현재 운 천간 십성(제안 통로).
     if structural is not None and intent.career_field:
         structural = structural + _career_field_context(birth, result, today)
@@ -4446,7 +4548,7 @@ def chat(
     if structural is not None and not _is_relocation_intent(intent):
         # 미래지향 질문(비회고)은 토픽 참고 신호도 현재 달부터 — 지난 달 노출 차단(시점 정합).
         _floor = current_month if (not is_retro and current_month) else None
-        structural = structural + _topic_module_context(birth, intent, today, _floor)
+        structural = structural + _topic_module_context(birth, intent, today, _floor, question)
     # 주간(일 범위) 질문은 7일 일별 일운을 surface — 월운으로 뭉뚱그려지던 결함 보완(2026-06-18).
     if structural is not None and _is_day_range(intent):
         structural = structural + _weekly_overview_lines(birth, intent, today)
@@ -4463,15 +4565,18 @@ def chat(
     # P2a — pairwise(본인+동반자 1명)이고 동반자 birth가 확보되면 대상별 명식 블록을 가산 주입.
     # per_subject/chat_compare는 건드리지 않는다(본인 base 유지). birth 없으면 블록 생략(본인
     # 명식으로 대체하지 않음 — 기존 pairwise 경로 그대로). companion_only 등은 P2b 이후.
+    # 즉석 대상 안내(2026-09-11) — 본문 출생정보로 계산한 대상이 있으면 보정 기준을 알린다.
+    # 구조 블록이 없는 궁합(per_subject) 경로에도 실리도록 구조 블록 조립이 끝난 뒤에 붙인다.
+    _inline_note = _inline_birth_note(intent, birth)
+    if _inline_note:
+        structural = (structural or []) + _inline_note
     subject_blocks: list[SubjectBlock] = []
     relationship_context: RelationshipContext | None = None
     ranking_truncated = False
     _inj = plan.subject_injection
     if _inj is not None and _inj.mode == "pairwise" and len(_inj.companion_subject_ids) == 1:
         _cid = _inj.companion_subject_ids[0]
-        _comp_birth = (companion_births or {}).get(_cid)
-        if _comp_birth is None and _cid == "inline:partner":
-            _comp_birth = partner_birth
+        _comp_birth = _companion_birth(_cid)
         if _comp_birth is not None:
             _comp_result = calculate(_comp_birth.model_copy(update={"reference_date": today}))
             _eff = next((e for e in plan.effective_subjects if e.subject_id == _cid), None)

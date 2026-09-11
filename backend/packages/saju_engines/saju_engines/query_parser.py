@@ -70,6 +70,10 @@ _DOMAIN_WORDS: dict[Domain, list[str]] = {
     ],
     Domain.WEALTH: [
         "재물", "돈", "투자", "유산", "로또", "횡재", "주식", "문서운", "분양",
+        # 구매·지출 결정 어휘(2026-09-11 실로그: '차를 바꾸려고 하는데 좋은 선택일까?', '현금자산
+        # 으로 중고차를 구매할까'가 general→too_broad). '차' 단독은 다의어라 등재하지 않는다.
+        "구매", "구입", "지출", "목돈", "큰돈", "자동차", "중고차", "현금자산", "할부",
+        "차를 바꾸", "차 바꾸", "차량", "새 차", "새차",
         # 재산·보안 어휘(2026-07-23 사고수 확장): 도난·분실·사기·피싱 질문이
         # general로 떨어지지 않고 재물 도메인→위험 노출(finance) 경로로 연결된다.
         "도난", "분실", "소매치기", "절도", "사기", "피싱", "해킹",
@@ -91,6 +95,9 @@ _DOMAIN_WORDS: dict[Domain, list[str]] = {
         # 승계하던 결함). 타 도메인 오염을 피해 거주·추천 의미가 분명한 구(句)만 등재.
         "살면 좋은", "살기 좋은", "살 곳", "살 만한", "거주지",
         "어디서 살", "어디 살", "어느 지역", "어느 동네", "지역 추천", "동네 추천",
+        # 하위 단위 추천형(2026-09-11 실로그: '창원에서는 어느 구가 가장 좋아?', '수지 안에서
+        # 어떤 생활권이 맞을지', '용인 수지에 사는게 잘 맞을까?'가 general/관계로 빠짐).
+        "어느 구", "어떤 구", "어느 동", "생활권", "살기에", "에 사는게", "에 사는 게", "어떤 지역",
     ],
     Domain.RELATIONSHIP: [
         "연애", "결혼", "재혼", "이혼", "별거", "파혼", "이별", "궁합", "재회", "배우자", "인연",
@@ -132,6 +139,12 @@ _RELATION_WORDS: dict[str, CompanionRelationType] = {
 }
 
 _DIRECTIONS = ["남동", "남서", "북동", "북서", "동", "서", "남", "북"]
+# 하위 단위 추천 스코프 — '<지명>(에서|내|안) (어느|어떤|어디) (구|동|생활권|지역|동네)'.
+_SUBUNIT_SCOPE_RE = re.compile(
+    r"([가-힣]{2,6}?(?:시|군|구)?)\s*(?:에서는|에서|내에서|내|안에서|안)\s*(?:은|는)?\s*"
+    r"(?:어느|어떤|어디)\s*(?:구|동|생활권|지역|동네)"
+)
+_SCOPE_STOPWORDS = {"우리", "여기", "거기", "지금", "그럼", "근데", "그리고", "나라", "우리나라"}
 # 시군구 지명 구(句) — 선택적 시도 접두 + 시/군/구('서울 중구', '고양시 일산동구').
 _REGION_PHRASE = r"(?:[가-힣]{2,}\s+)?[가-힣]{1,}(?:특별자치시|시|군|구)"
 # 시도·광역 단축명 — 지역 추천 스코프('서울 내', '경기도에서') 포착용(2026-06-26).
@@ -195,6 +208,34 @@ BEHAVIOR_PATTERN_RE = re.compile(
 NEUTRAL_PAST_EXPLANATION_RE = re.compile(
     r"왜.{0,24}(?:그랬|이랬|저랬|했을까|했었|한\s*걸까|했던\s*(?:걸까|거지))|그때.{0,10}왜"
 )
+
+
+# 육친 운(2026-09-11 실로그: '내 부모님 운은 어때?'가 too_broad, '자녀운'이 동반자 확인으로 빠짐).
+# '<육친어>(의) 운|복|덕|인연'은 등록 동반자를 가리키는 말이 아니라 본인 명식의 육친 축(인성·
+# 식상) 질문이다 — 원국 질문이라 시점 불요(CHART_ANALYSIS), 도메인은 관계. 등록 동반자 중
+# 관계·표시 이름이 맞는 대상이 있으면 그 대상 기준으로 본다(스레드 해소가 대상을 채운다 —
+# 데굴님 지시 2026-09-11). 형제·자매는 축 모듈이 없어 원국 관계 해석만 한다.
+_KIN_PARENT_WORDS = ("부모님", "부모", "어머니", "아버지", "엄마", "아빠")
+_KIN_CHILD_WORDS = ("자녀", "자식", "아들", "딸")
+_KIN_SIBLING_WORDS = ("형제", "자매")
+_KIN_WORDS = _KIN_PARENT_WORDS + _KIN_CHILD_WORDS + _KIN_SIBLING_WORDS
+_KIN_AXIS_RE = re.compile(
+    r"(?P<kin>" + "|".join(sorted(_KIN_WORDS, key=len, reverse=True)) + r")(?:의)?\s*"
+    r"(?:운세|운(?![동전영행])|복(?![잡])|덕|인연)"
+)
+
+
+def detect_kin_axis(text: str) -> str | None:
+    """육친 운 질문이면 축 이름('parent'/'child'/'sibling'), 아니면 None."""
+    m = _KIN_AXIS_RE.search(text)
+    if not m:
+        return None
+    kin = m.group("kin")
+    if kin in _KIN_PARENT_WORDS:
+        return "parent"
+    if kin in _KIN_CHILD_WORDS:
+        return "child"
+    return "sibling"
 
 
 # 직업 분야·직종·적성 질문(2026-09-10 데굴님 지적: '이직 제안이 온다면 어떤 분야가 확률이 높을까'가
@@ -442,6 +483,57 @@ def _parse_inline_births(text: str, today: date | None = None) -> list[SubjectRe
     return out
 
 
+# 대상 토큰 바로 뒤 괄호 속 출생정보 — '신랑(1975.04.04 시간모름)', '동생(1998.07.23 여자)'.
+_PAREN_BIRTH_RE = re.compile(r"([가-힣A-Za-z0-9]{1,10})\s*[(（]([^)）]*\d[^)）]*)[)）]")
+
+
+def attach_parenthetical_births(
+    text: str, subjects: list[SubjectRef], today: date | None = None,
+) -> tuple[list[SubjectRef], set[str]]:
+    """괄호 출생정보를 앞 토큰의 대상에 붙인다(2026-09-11 실로그: '신랑(1975.04.04 시간모름)'이
+    미등록 '신랑' + 즉석 인물 2명으로 갈라져 need_subject).
+
+    - 같은 날짜의 즉석 인물(INLINE_TEMP)에 토큰을 표시명으로 붙인다.
+    - 그 토큰의 **미해소** 관계어 대상(companion_id 없음)은 제거한다(즉석 인물이 대신한다).
+      등록 해소된 대상(companion_id 있음)이 있으면 등록 정보가 더 풍부하므로 그쪽을 남기고
+      즉석 인물을 제거한다.
+
+    Returns:
+        (정리된 subjects, 괄호 출생정보가 붙은 토큰 집합)
+    """
+    attached: set[str] = set()
+    out = list(subjects)
+    for m in _PAREN_BIRTH_RE.finditer(text):
+        token, inner = m.group(1), m.group(2)
+        births = _parse_inline_births(inner, today)
+        if not births:
+            continue
+        bdate = births[0].inline_birth.date if births[0].inline_birth else None
+        registered = [
+            s for s in out
+            if s.kind is SubjectKind.COMPANION and s.companion_id and token.endswith(s.label)
+        ]
+        if registered:
+            out = [
+                s for s in out
+                if not (s.kind is SubjectKind.INLINE_TEMP and s.inline_birth
+                        and s.inline_birth.date == bdate)
+            ]
+            attached.add(token)
+            continue
+        out = [
+            s for s in out
+            if not (s.kind is SubjectKind.COMPANION and s.companion_id is None
+                    and token.endswith(s.label))
+        ]
+        for s in out:
+            same_date = s.inline_birth is not None and s.inline_birth.date == bdate
+            if s.kind is SubjectKind.INLINE_TEMP and same_date:
+                s.label = token
+        attached.add(token)
+    return out, attached
+
+
 def _detect_subjects(
     text: str, today: date | None = None,
 ) -> tuple[list[SubjectRef], SubjectMode]:
@@ -465,6 +557,7 @@ def _detect_subjects(
             subjects.append(SubjectRef(kind=SubjectKind.COMPANION, label=word))
             break
     subjects += _parse_inline_births(text, today)
+    subjects, _ = attach_parenthetical_births(text, subjects, today)
 
     pairwise = bool(re.search(r"궁합|나랑\s*(?:잘\s*)?맞|내\s*사주가\s*잘\s*맞", text))
     ranking = bool(re.search(r"누구야|누가\s|순위|등수|1등부터", text))
@@ -658,6 +751,12 @@ def _detect_constraints(text: str) -> Constraints:
             r"새\s*집은?|이사는)\s*(" + _REGION_PHRASE + r")",
             text,
         )
+    if tr_m is None:  # "용인 수지에 사는게 잘 맞을까" — 거주 평가형(2026-09-11 실로그 #1013).
+        tr_m = re.search(
+            r"([가-힣]{2,6}(?:\s+[가-힣]{2,6})?)\s*에\s*(?:사는\s*게|사는게|살기|살면|거주)", text
+        )
+        if tr_m and tr_m.group(1).split()[0] in _SCOPE_STOPWORDS:
+            tr_m = None
     if tr_m:
         c.target_region = tr_m.group(1).strip()
     # 지역 추천 스코프(시도·광역) — "서울 내에 살면 좋은 지역", "경기도에서 살 곳" 등 추천형은
@@ -672,6 +771,12 @@ def _detect_constraints(text: str) -> Constraints:
         # 거주·추천 맥락에서만 스코프로 채택(예: '서울에 재물운'은 스코프 아님).
         if sm and re.search(r"살|거주|이사|정착|지역\s*추천|동네|어디", text):
             c.target_region = sm.group(1).strip()
+    # 시군구·지명 스코프 — "창원에서는 어느 구가", "수지 안에서 어떤 생활권" 처럼 하위 단위
+    # (구·동·생활권)를 묻는 질문은 앞의 지명을 후보 범위로 잡는다(2026-09-11 실로그 미인식).
+    if c.target_region is None:
+        um = _SUBUNIT_SCOPE_RE.search(text)
+        if um and um.group(1) not in _SCOPE_STOPWORDS:
+            c.target_region = um.group(1).strip()
     if re.search(r"한다면|간다면|만난다면|된다면", text):
         cond = re.search(r"([가-힣\d\s.]+?(?:한다면|간다면|만난다면|된다면))", text)
         c.conditional = cond.group(1).strip() if cond else "조건부"
@@ -917,6 +1022,19 @@ def parse_message(
             _last.career_field = True
             if _last.domain is not Domain.CAREER:
                 _last.domain = Domain.CAREER
+        # 육친 운 — 원국 육친 축 질문. 관계어가 대상으로 잡혔어도 미해소면 본인 명식으로 본다
+        # (등록 동반자 해소는 스레드 엔진이 subjects를 덮어쓴다).
+        if detect_kin_axis(piece) is not None:
+            _last.query_type = QueryType.CHART_ANALYSIS
+            if _last.domain is Domain.GENERAL:
+                _last.domain = Domain.RELATIONSHIP
+            if all(
+                s.kind is SubjectKind.COMPANION and s.companion_id is None
+                and s.label in _KIN_WORDS
+                for s in _last.subjects
+            ):
+                _last.subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
+                _last.subject_mode = SubjectMode.SINGLE
     return ParsedMessage(
         intents=intents, output_style=style,
         trace={  # P0 — 시점 해소 추적(파싱 계층)

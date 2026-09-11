@@ -48,6 +48,8 @@ from .query_parser import (
     INCLUSIVE_WE_RE,
     _detect_domains,
     _parse_inline_births,
+    attach_parenthetical_births,
+    detect_kin_axis,
     implies_self_counterpart,
     parse_message,
     strip_parenthetical,
@@ -71,6 +73,12 @@ _CUMULATIVE_RE = re.compile(r"앞서\s*물어본\s*(\d+)\s*명|이전에\s*물�
 # 강한 별칭(신랑/아가/N호)은 인물 지칭이 명확해 조사와 무관하게 감지('아가는'도 대상).
 # '아가'는 '나아가/들어가' 부분문자열 오인 방지로 앞 한글 음절·뒤 '씨' 제외.
 _STRONG_REF_RE = re.compile(r"(?<![가-힣])(\d+\s*호|신랑|아가)(?!씨)")
+# 괄호 출생정보 토큰 — attach_parenthetical_births와 같은 형태('신랑(1975.04.04 시간모름)').
+_PAREN_BIRTH_TOKEN_RE = re.compile(r"([가-힣A-Za-z0-9]{1,10})\s*[(（][^)）]*\d[^)）]*[)）]")
+_KIN_WORDS_SET = {
+    "부모님", "부모", "어머니", "아버지", "엄마", "아빠",
+    "자녀", "자식", "아들", "딸", "형제", "자매",
+}
 # 관계어(엄마/와이프/아들…)는 소유격·동반격·사주/궁합/운 인접일 때만 — 일반 주격('엄마가 …')
 # 오탐 방지. '신랑'은 강한 별칭으로 이미 처리하므로 제외.
 # 소유격('아들의 …')은 뒤에 풀이성 명사(사주/궁합/운 등)가 이어질 때만 대상 지칭으로 본다 —
@@ -279,7 +287,7 @@ class ConversationEngine:
         current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM) — '이번 달' 등 상대 시점을
             절기 기준으로 파싱하도록 parse_message에 전달(미주입 시 양력 폴백).
         """
-        resolution = self.resolve_subjects(state, text)
+        resolution = self.resolve_subjects(state, text, today)
         link = self.link_question(state, text)
 
         prev = state.last_intent if link.is_follow_up else None
@@ -501,9 +509,21 @@ class ConversationEngine:
 
     # ── T4.4 Subject Resolution (A0) ─────────────────────────────
 
-    def resolve_subjects(self, state: ConversationState, text: str) -> SubjectResolution:
-        """대상 확정 — intent보다 먼저. 모호하면 추측하지 않고 unresolved로 표시."""
+    def resolve_subjects(
+        self, state: ConversationState, text: str, today: date | None = None,
+    ) -> SubjectResolution:
+        """대상 확정 — intent보다 먼저. 모호하면 추측하지 않고 unresolved로 표시.
+
+        today는 즉석 출생일의 미래 날짜 배제에 쓴다(query_parser와 같은 규칙).
+        """
         correction = bool(_CORRECTION_RE.search(text))
+        # 육친 운('부모님 운·자녀운') — 미등록 관계어면 확인 질문 대신 본인 명식 육친 축으로
+        # 본다(2026-09-11 데굴님 지시: 등록 동반자가 있으면 그 대상, 없으면 본인 원국).
+        kin_axis = detect_kin_axis(text)
+        # 괄호 출생정보가 붙은 토큰('신랑(1975.04.04 시간모름)')은 미등록이어도 확인 대상이 아니다.
+        paren_tokens = {
+            m.group(1) for m in _PAREN_BIRTH_TOKEN_RE.finditer(text)
+        }
         time_unknown = bool(_TIME_UNKNOWN_RE.search(text))
 
         subjects: list[SubjectRef] = []
@@ -539,9 +559,15 @@ class ConversationEngine:
         resolved_ids = {s.companion_id for s in subjects if s.companion_id}
         ref_tokens = [m.group(1).replace(" ", "") for m in _STRONG_REF_RE.finditer(scan_text)]
         ref_tokens += [m.group(1).replace(" ", "") for m in _REL_REF_RE.finditer(scan_text)]
+        kin_axis_self = False
         for tok in ref_tokens:
             key = normalize_token(tok)
             if _mention_excluded(norm_text, key):  # 미등록 + 제외 의사 — 확인 질문 대상 아님
+                continue
+            if any(pt.endswith(tok) for pt in paren_tokens):  # 괄호 출생정보 → 즉석 인물로 처리
+                continue
+            if kin_axis is not None and tok in _KIN_WORDS_SET:  # 미등록 육친 운 → 본인 원국
+                kin_axis_self = True
                 continue
             already = key in self._index and any(
                 ae.subject_id in resolved_ids for ae in self._index[key]
@@ -550,8 +576,9 @@ class ConversationEngine:
                 unresolved.append(tok)
 
         # A6/A7 — 인라인 생년월일 → 임시 인물(Entity Tracking 등록은 상태 갱신에서).
-        inline = _parse_inline_births(text)
+        inline = _parse_inline_births(text, today)
         subjects += inline
+        subjects, _ = attach_parenthetical_births(text, subjects, today)
 
         # F4 — 누적 참조: 이전 턴의 임시 인물을 집합으로 재호출.
         cumulative = _CUMULATIVE_RE.search(text)
@@ -578,6 +605,9 @@ class ConversationEngine:
         ):
             subjects.insert(0, SubjectRef(kind=SubjectKind.SELF, label="본인"))
 
+        if not subjects and not unresolved and kin_axis_self:
+            # 미등록 육친 운 — 직전 대상을 잇지 않고 본인 명식(육친 축)으로 확정.
+            subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
         if not subjects and not unresolved:
             # 직전 턴 subject 상속, 그것도 없으면 self (A0 4순위).
             inherited = state.active_subjects or [
