@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuthPanel } from "@/components/layout/AuthPanel";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useGnb } from "@/components/providers/GnbProvider";
 import { useReportNotifications } from "@/components/providers/ReportNotificationsProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 import { getSubject } from "@/lib/subjects";
@@ -46,7 +47,8 @@ const PAGE_TITLES: [string, string][] = [
 ];
 
 export function Gnb() {
-  const [open, setOpen] = useState(false);
+  // 드로어 열림 상태는 전역(GnbProvider) — 페이지의 [로그인] 버튼 등에서도 연다.
+  const { open, openGnb, closeGnb } = useGnb();
   // 스크롤 방향에 따라 top bar 숨김/표시(아래로 스크롤=숨김, 위로 스크롤=표시).
   const [hidden, setHidden] = useState(false);
   const pathname = usePathname();
@@ -64,10 +66,10 @@ export function Gnb() {
 
   // 라우트 이동 시 자동으로 닫고, 헤더를 다시 보이게 한다.
   useEffect(() => {
-    setOpen(false);
+    closeGnb();
     setHidden(false);
     setShowInfo(false);
-  }, [pathname]);
+  }, [pathname, closeGnb]);
 
   // 선택 사주의 출생정보 로드(로그인 + 선택 시). 실패는 조용히 무시(툴팁 미표시).
   useEffect(() => {
@@ -112,7 +114,7 @@ export function Gnb() {
         <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3">
           <button
             aria-label={badgeCount > 0 ? `메뉴 열기 (새 풀이 알림 ${badgeCount}건)` : "메뉴 열기"}
-            onClick={() => setOpen(true)}
+            onClick={openGnb}
             className="relative rounded p-1 text-gray-700 hover:bg-gray-100"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -185,7 +187,7 @@ export function Gnb() {
           className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
             open ? "opacity-100" : "opacity-0"
           }`}
-          onClick={() => setOpen(false)}
+          onClick={closeGnb}
         />
         <aside
           className={`absolute left-0 top-0 flex h-full w-80 max-w-[85vw] flex-col bg-white shadow-xl transition-transform duration-300 ease-out ${
@@ -198,7 +200,7 @@ export function Gnb() {
               <span className="font-semibold">메뉴</span>
               <button
                 aria-label="메뉴 닫기"
-                onClick={() => setOpen(false)}
+                onClick={closeGnb}
                 className="rounded p-1 text-gray-500 hover:bg-gray-100"
               >
                 ✕
