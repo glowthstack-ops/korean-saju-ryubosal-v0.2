@@ -21,8 +21,9 @@ from datetime import date
 from typing import Any
 
 from saju_engines.daily_fortune_cache import DailyFortuneCache
+from saju_engines.daily_fortune_v2 import active_content_version
+from saju_engines.daily_text_policy import strip_symbols
 from saju_shared_types.daily_fortune import (
-    CONTENT_VERSION,
     PROMPT_VERSION,
     DailyFortuneBoard,
 )
@@ -37,6 +38,10 @@ _POLISH_LOCK_TTL = 600  # 초 — LLM 타임아웃(90s)·검증·저장을 모�
 _CALL_TYPE = "daily_fortune_polish"
 
 # 레코드별 출력 상한(자) — 출력 토큰 예산 산정의 근거(llm_guard 한도표 주석 참조)
+# 프롬프트 개정 표식 — 감사(audit)에만 기록한다. PROMPT_VERSION 은 content_version(캐시
+# namespace·베타 풀 대조)의 구성 요소라 문구 개정만으로 올리면 당일 보드가 재생성·재교정되고
+# 동결된 베타 풀과 어긋난다. 개정은 다음 교정 호출부터 자연 적용된다.
+PROMPT_REVISION = "2026-09-10.no-symbols"  # 이모지·특수기호 금지(데굴님 지시)
 MAX_HEADLINE_CHARS = 120
 MAX_PLACE_CHARS = 60
 MAX_LOTTO_CHARS = 80
@@ -69,6 +74,18 @@ _SYSTEM = (
     "추가 금지).\n"
     "6) 응답은 입력과 동일한 구조의 JSONL 만 출력한다 — 설명·코드펜스·빈 줄 금지. "
     "각 줄: {\"ilju\":..., \"headline\":..., \"place_phrase\":..., \"lotto\":...}\n"
+    # 7) 문장 결(PROMPT_REVISION 2026-09-01 데굴님 승인) — 페르소나 공통 문단(persona.py)과 같은
+    # 자료(주어·목적어 생략 / 어순 변주 / 길이 변주 / 상투구 회피)를 1~3문장 카드 길이에
+    # 맞춰 축약했다. 도치·말줄임표·긴 호흡은 여기 맞지 않아 뺐고, 마지막 문장은 문장 수·
+    # 길이·신규 숫자 검증(validate_and_apply)과 충돌하지 않도록 기호를 원문 수준으로 묶는다.
+    "7) 문장 결: 방송 대본을 읽는 게 아니라 아는 사람이 아침에 한마디 건네는 말처럼 쓴다. "
+    "앞뒤로 알 수 있는 주어('당신은'·'오늘 당신의')와 되풀이되는 목적어는 빼고 이어 쓴다. "
+    "문장 길이를 똑같이 맞추지 말고 한 문장은 짧게, 한 문장은 조금 길게 호흡을 달리한다. "
+    "'A는 B예요' 식 설명문만 잇지 말고 문맥에 맞을 때는 행동이나 결론을 앞에 둔다. "
+    "'결론적으로'·'중요한 것은'·'~하는 것이 중요해요'·'~라고 할 수 있어요' 같은 상투구는 "
+    "더 구체적인 말로 바꾼다. 말줄임표·감탄 기호는 원문에 있던 만큼만 쓴다.\n"
+    "8) 이모지와 장식 기호(♪ ♥ ★ ✨ 화살표 등)는 쓰지 않는다 — 문장부호는 마침표·쉼표·"
+    "물음표·느낌표·가운뎃점만 쓴다.\n"
 )
 
 
@@ -147,6 +164,12 @@ def validate_and_apply(
         if not isinstance(headline, str) or not isinstance(place_phrase, str):
             rejected[ilju] = "missing_fields"
             continue
+        # 노출 문장 정책 — 모델이 덧붙인 이모지·장식 기호는 폐기 대신 제거하고 받는다.
+        headline = strip_symbols(headline)
+        place_phrase = strip_symbols(place_phrase)
+        if isinstance(lotto, str):
+            lotto = strip_symbols(lotto)
+        rec = {**rec, "headline": headline, "place_phrase": place_phrase, "lotto": lotto}
         reason = _reject_reason(headline, raw.headline, MAX_HEADLINE_CHARS)
         if reason is None and len(_SENTENCE_END.findall(headline)) > max(
             3, len(_SENTENCE_END.findall(raw.headline))
@@ -208,6 +231,7 @@ def validate_and_apply(
         "duplicate_iljus": duplicate_iljus,
         "missing_iljus": sorted(set(by_ilju) - set(parsed)),
         "prompt_version": PROMPT_VERSION,
+        "prompt_revision": PROMPT_REVISION,
     }
     return updated, audit
 
@@ -217,11 +241,15 @@ def polish_board(cache: DailyFortuneCache, d: date) -> dict[str, Any] | None:
 
     날짜당 1회 원칙: 락 TTL(10분) 안의 중복 시도는 차단되고, 실패(FAILED)
     보드는 자동 재호출하지 않는다(운영자 수동 재실행 전용 경로만 허용).
+
+    캐시 키는 조회 경로와 같은 `active_content_version` 을 쓴다 — v2 플래그가
+    켜졌을 때 교정이 v1 키의 유령 보드에 붙는 사고 방지(§22-6).
     """
-    board = cache.load_board(d, CONTENT_VERSION)
+    version = active_content_version(d)
+    board = cache.load_board(d, version)
     if board is None or board.polish_status != "RAW":
         return None
-    token = cache.acquire_lock("polish", d, CONTENT_VERSION, _POLISH_LOCK_TTL)
+    token = cache.acquire_lock("polish", d, version, _POLISH_LOCK_TTL)
     if token is None:
         return None
     try:
@@ -239,10 +267,10 @@ def polish_board(cache: DailyFortuneCache, d: date) -> dict[str, Any] | None:
             logger.warning("daily fortune polish 공급자 실패 date=%s err=%s", d, exc)
             failed = board.model_copy(deep=True)
             failed.polish_status = "FAILED"
-            cache.save_board(d, CONTENT_VERSION, failed, board_ttl_seconds(d))
+            cache.save_board(d, version, failed, board_ttl_seconds(d))
             return {"accepted": 0, "error": str(exc)}
         updated, audit = validate_and_apply(board, response)
-        cache.save_board(d, CONTENT_VERSION, updated, board_ttl_seconds(d))
+        cache.save_board(d, version, updated, board_ttl_seconds(d))
         write_threads_export(updated)  # 교정 반영분으로 스레드 텍스트 갱신
         logger.info(
             "daily fortune polish date=%s audit=%s",
@@ -251,7 +279,7 @@ def polish_board(cache: DailyFortuneCache, d: date) -> dict[str, Any] | None:
         )
         return audit
     finally:
-        cache.release_lock("polish", d, CONTENT_VERSION, token)
+        cache.release_lock("polish", d, version, token)
 
 
 _attempted: set[str] = set()
@@ -262,7 +290,7 @@ def maybe_schedule_polish(cache: DailyFortuneCache, d: date) -> bool:
     """lazy 경로용 — 프로세스당 날짜·버전 1회, 데몬 스레드로 교정 예약."""
     if not llm_client.is_available():
         return False
-    key = f"{d.isoformat()}|{CONTENT_VERSION}|{PROMPT_VERSION}"
+    key = f"{d.isoformat()}|{active_content_version(d)}|{PROMPT_VERSION}"
     with _attempted_mutex:
         if key in _attempted:
             return False

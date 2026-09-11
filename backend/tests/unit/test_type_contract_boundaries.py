@@ -155,7 +155,9 @@ def test_beta_path_returns_before_touching_the_cache() -> None:
     """
     from saju_api.services import daily_fortune_service as svc
 
-    src = inspect.getsource(svc.get_board)
+    # get_board 는 노출 문장 정리 래퍼(2026-09-10) — 베타·캐시 경로 본체는 _get_board_raw.
+    src = inspect.getsource(svc._get_board_raw)
+    assert "sanitize_board(_get_board_raw(" in inspect.getsource(svc.get_board)
     assert "beta_board, _audit = render_beta(" in src
     assert "return beta_board" in src
     # 캐시 경로는 별도 변수로 Optional 을 그대로 받는다.

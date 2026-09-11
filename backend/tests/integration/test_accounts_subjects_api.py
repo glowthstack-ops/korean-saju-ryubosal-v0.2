@@ -198,6 +198,23 @@ def test_full_flow_register_subject_profile_persona() -> None:
     assert r.status_code == 200
     assert r.json()["difficulty"] == "easy"
 
+    # 무효 조합(호칭 '자네'=하게체 전용 + 반말체)은 저장 전 422로 거부되고
+    # 기존 저장값은 유지된다(2026-08-21 실측 500 회귀 방지).
+    r = _request(
+        "PUT", "/api/v2/account/persona",
+        headers=auth,
+        json={
+            "speech": {"politeness": "banmal", "style": "banmal_chae"},
+            "user_honorific": {"type": "preset", "preset_id": "jane"},
+        },
+    )
+    assert r.status_code == 422
+    assert "페르소나 조합 무효" in r.json()["detail"]
+    r = _request("GET", "/api/v2/account/persona", headers=auth)
+    assert r.status_code == 200
+    assert r.json()["difficulty"] == "easy"
+    assert r.json()["user_honorific"]["preset_id"] != "jane"
+
     # 타 계정은 이 사주에 접근 불가(owner 격리)
     other = _request(
         "POST", "/api/v2/auth/register",

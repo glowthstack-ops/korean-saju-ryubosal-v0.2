@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from saju_engines.chat_history_store import ChatHistoryStore
 from saju_engines.companion_alias import AliasEntry, build_companion_alias_index
 from saju_engines.conversation_store import ConversationStore
+from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.profile_engine import profile_event_signals
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.birth_input import BirthInput
@@ -173,6 +174,14 @@ def _run_chat_answer(
         # 동기 경로 전용이던 갱신이 비동기 경로에서 누락돼 후속이 too_broad로 끊기던
         # 결함 교정(2026-07-21).
         chat_service.update_thread_offer(thread_id, answer)
+    except TokenBudgetExceeded as exc:
+        # 입력 상한 초과(2026-09-11 실로그 #650~654: 일반 오류문으로 3회 연속 종료) —
+        # 오류가 아니라 범위 좁히기 안내로 마감한다. 한도 상수는 바꾸지 않는다(절대원칙 9).
+        history.complete_turn(
+            message_id, chat_service.TOKEN_BUDGET_ANSWER, status="done",
+            meta={"error": str(exc)[:300]},
+        )
+        chat_service.update_thread_offer(thread_id, "")
     except Exception as exc:  # noqa: BLE001 — 어떤 실패든 사용자 안내문으로 마감
         history.complete_turn(
             message_id,

@@ -56,7 +56,8 @@ def places() -> dict[str, Any]:
 
 def test_catalog_counts_and_schema(catalog: dict[str, Any]) -> None:
     events = catalog["events"]
-    assert len(events) == 49  # 일일 연애운 확장(love 사건 +4: good 2·caution 2)
+    # 49(연애 +4) → 65: 2026-09-10 §22-7 확장(good 11·caution 5). weather 는 v1 에만 남는다.
+    assert len(events) == 65
     by_valence = {"good": 0, "caution": 0}
     support_only = 0
     for key, ev in events.items():
@@ -76,9 +77,10 @@ def test_catalog_counts_and_schema(catalog: dict[str, Any]) -> None:
             support_only += 1
     # good 12 + support 전용 6(모두 valence=good) = 18 → +love good 2 = 20,
     # caution 27 → +love caution 2 = 29(일일 연애운 확장).
-    assert by_valence["caution"] == 29
-    assert by_valence["good"] == 20
-    assert support_only == 6
+    # 2026-09-10 §22-7 확장: good +11(support 전용 +5) → 31, caution +5 → 34.
+    assert by_valence["caution"] == 34
+    assert by_valence["good"] == 31
+    assert support_only == 11
 
 
 def test_caution_slots_are_caution_only(catalog: dict[str, Any]) -> None:
@@ -116,8 +118,14 @@ def _all_user_facing_texts(catalog: dict[str, Any], templates: dict[str, Any]) -
     texts: list[str] = [ev["label"] for ev in catalog["events"].values()]
     for tpl in templates["events"].values():
         texts += tpl["fragments"] + tpl["actions"] + tpl["results"]
+        # §23 결 층 — 십성군별 행동 문장도 사용자 노출 텍스트다.
+        for sents in (tpl.get("tone_actions") or {}).values():
+            texts += sents
     for g in templates["generic"].values():
         texts += g["fragments"] + g["actions"] + g["results"]
+    for channel in (templates.get("stage_results") or {}).values():
+        for sents in channel.values():
+            texts += sents
     texts += templates["place_phrases"] + templates["lotto_phrases"]
     return texts
 
@@ -185,7 +193,26 @@ def test_threads_export_writes_date_header(tmp_path) -> None:
     assert "2026-07-23" in first and "오늘의 운세" in first  # 대상 날짜 최상단
     assert text.count("일주") >= 60
     out = tmp_path / "오늘의운세.txt"
-    # export 는 **오늘 보드일 때만** 쓴다(2026-08-01 사고 — 미래 보드가 파일을 덮었다).
+    # export 는 **게시 기준일 보드일 때만** 쓴다(2026-08-01 사고 — 미래 보드가 파일을 덮었다).
     # 이 테스트의 관심사는 렌더 내용이므로 고정 날짜를 기준일로 함께 주입한다.
-    assert write_threads_export(board, out, today=_date(2026, 7, 23)) is True
+    assert write_threads_export(board, out, publish_date=_date(2026, 7, 23)) is True
     assert out.read_text(encoding="utf-8").startswith("[오늘의 운세 — 2026-07-23")
+
+
+def test_threads_export_uses_place_name_only() -> None:
+    """스레드 파일의 행운의 장소는 웹 카드와 같이 장소명만 쓴다(2026-09-01) — 문장형 phrase 금지."""
+    from datetime import date as _date
+
+    from saju_api.services.daily_fortune_export import render_threads_text
+    from saju_api.services.daily_fortune_service import _generate
+
+    board = _generate(_date(2026, 7, 23))
+    text = render_threads_text(board)
+    place_lines = [ln for ln in text.splitlines() if ln.startswith("- 행운의 장소: ")]
+    assert len(place_lines) == len(board.fortunes)
+    by_ilju_name = {f.lucky_place.name for f in board.fortunes}
+    for ln in place_lines:
+        assert ln[len("- 행운의 장소: "):] in by_ilju_name, ln
+    for f in board.fortunes:
+        if f.lucky_place.phrase != f.lucky_place.name:
+            assert f.lucky_place.phrase not in text, f.lucky_place.phrase

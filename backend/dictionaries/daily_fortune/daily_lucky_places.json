@@ -1,6 +1,6 @@
 {
   "schema": "daily_lucky_places.v1",
-  "version": "dict.v1.2",
+  "version": "dict.v1.3",
   "reviewed": false,
   "runtime_status": "ACTIVE",
   "review_status": "PENDING",
@@ -65,8 +65,8 @@
         "move"
       ]
     },
-    "gym": {
-      "name": "운동하는 곳",
+    "neighborhood_field": {
+      "name": "동네 운동장",
       "element": "火",
       "domains": [
         "health",
@@ -155,8 +155,8 @@
         "leisure"
       ]
     },
-    "bath_pool": {
-      "name": "목욕탕·수영장",
+    "pharmacy": {
+      "name": "동네 약국",
       "element": "水",
       "domains": [
         "health",
@@ -173,7 +173,7 @@
       ]
     },
     "garden_center": {
-      "name": "화원·식물원",
+      "name": "동네 화원",
       "element": "木",
       "domains": [
         "love",
@@ -190,8 +190,8 @@
         "news"
       ]
     },
-    "wood_workshop": {
-      "name": "공방·클래스",
+    "park_bench": {
+      "name": "공원 벤치",
       "element": "木",
       "domains": [
         "work",
@@ -217,8 +217,8 @@
         "leisure"
       ]
     },
-    "concert_hall": {
-      "name": "공연장",
+    "bus_stop": {
+      "name": "버스 정류장",
       "element": "火",
       "domains": [
         "leisure",
@@ -235,8 +235,8 @@
         "health"
       ]
     },
-    "night_market": {
-      "name": "야시장",
+    "snack_bar": {
+      "name": "분식집",
       "element": "火",
       "domains": [
         "money",
@@ -244,8 +244,8 @@
         "leisure"
       ]
     },
-    "pottery_studio": {
-      "name": "도예·공예 공방",
+    "gift_shop": {
+      "name": "소품샵",
       "element": "土",
       "domains": [
         "leisure",
@@ -253,8 +253,8 @@
         "love"
       ]
     },
-    "real_estate_office": {
-      "name": "부동산 상담소",
+    "post_office": {
+      "name": "우체국",
       "element": "土",
       "domains": [
         "document",
@@ -271,8 +271,8 @@
         "social"
       ]
     },
-    "furniture_store": {
-      "name": "가구·리빙숍",
+    "living_shop": {
+      "name": "리빙숍",
       "element": "土",
       "domains": [
         "move",
@@ -280,8 +280,8 @@
         "leisure"
       ]
     },
-    "jewelry_street": {
-      "name": "금은방 거리",
+    "mall_ground_floor": {
+      "name": "쇼핑몰 1층",
       "element": "金",
       "domains": [
         "money",
@@ -289,8 +289,8 @@
         "leisure"
       ]
     },
-    "hardware_store": {
-      "name": "철물·공구 상가",
+    "household_goods_store": {
+      "name": "생활용품점",
       "element": "金",
       "domains": [
         "work",
@@ -298,8 +298,8 @@
         "money"
       ]
     },
-    "fitness_center": {
-      "name": "피트니스 센터",
+    "sports_park": {
+      "name": "동네 체육공원",
       "element": "金",
       "domains": [
         "health",
@@ -307,8 +307,8 @@
         "social"
       ]
     },
-    "electronics_mall": {
-      "name": "전자상가",
+    "subway_station_arcade": {
+      "name": "지하철역 상가",
       "element": "金",
       "domains": [
         "news",
@@ -316,8 +316,8 @@
         "money"
       ]
     },
-    "aquarium": {
-      "name": "아쿠아리움",
+    "fountain_front": {
+      "name": "분수대 앞",
       "element": "水",
       "domains": [
         "love",
@@ -334,8 +334,8 @@
         "health"
       ]
     },
-    "harbor_walk": {
-      "name": "물가 산책로",
+    "riverside_bridge": {
+      "name": "강변 다리 위",
       "element": "水",
       "domains": [
         "health",
@@ -343,8 +343,8 @@
         "move"
       ]
     },
-    "spa_sauna": {
-      "name": "스파·사우나",
+    "coin_laundry": {
+      "name": "코인 세탁방",
       "element": "水",
       "domains": [
         "health",

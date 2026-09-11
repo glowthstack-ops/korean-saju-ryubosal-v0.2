@@ -89,13 +89,20 @@ class ReportBuilder:
         generate_fn: GenerateFn,
         dict_version: str = "1.0.0",
         progress_fn: ProgressFn | None = None,
+        plan_expander: Callable[[list[SectionPlan]], list[SectionPlan]] | None = None,
     ) -> None:
-        """LLM·컨텍스트 빌더 주입(사이드이펙트는 서비스 계층 책임)."""
+        """LLM·컨텍스트 빌더 주입(사이드이펙트는 서비스 계층 책임).
+
+        plan_expander: 고정 목차(build_section_plans)를 명식 데이터 기반으로 확장하는
+        훅(예: RPT_FULL 십년 풀이 하위 페이지 — docs/10 3-1, 잔여 대운 수는 spec만으로
+        알 수 없어 서비스 계층이 주입한다). None이면 고정 목차 그대로.
+        """
         self._checker = ReportChecker(dictionaries_dir)
         self._build_context = context_builder
         self._generate = generate_fn
         self._dict_version = dict_version
         self._progress = progress_fn
+        self._plan_expander = plan_expander
 
     def build(self, spec: ReportSpec, display_name: str = "회원") -> ReportResult:
         """보고서 생성 — dependsOn 순서 보장, 실패 섹션만 재생성(≤2회).
@@ -104,6 +111,8 @@ class ReportBuilder:
         부분 산출물은 보존한다.
         """
         plans = build_section_plans(spec)
+        if self._plan_expander is not None:
+            plans = self._plan_expander(plans)
         done: dict[str, SectionResult] = {}
         cost = ReportCost()
         yongsin: str | None = None

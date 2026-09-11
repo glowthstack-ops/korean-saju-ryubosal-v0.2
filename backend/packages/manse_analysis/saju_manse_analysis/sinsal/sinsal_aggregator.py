@@ -344,7 +344,7 @@ def sinsal_for_luck(
     items.sort(key=lambda s: _POLARITY_ORDER.get(s.polarity, 1))
 
     # 복음: 운 간지 == 원국 주 간지. 일주복음은 기존 호환을 위해 이름 "복음" 유지.
-    labels = {"year": "년주", "month": "월주", "day": "일주", "hour": "시주"}
+    labels = {"year": "연주", "month": "월주", "day": "일주", "hour": "시주"}
     matches: list[LuckSinsal] = []
     for pos, p in _positions(pillars):
         if stem == Stem(p.stem) and branch == Branch(p.branch):

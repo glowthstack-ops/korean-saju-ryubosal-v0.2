@@ -63,6 +63,10 @@ compiled/
   event_rules_v1.0.0.json
 ```
 
+### career_fields.json (2026-09-10 신설 — 데굴님 제공 자료)
+
+십성 → 직업 **기능**(생산·표현·거래·관리·통제·탐구·전승) 대응표. 직업명 고정이 아니라 "어떤 기능과 방식으로 일하는가"를 근거로 쓴다. 구성: `principles`(단정 금지 원칙 5) / `ten_gods`(10종: traits·job_groups·distinction·conditions·favorable_roles·caution) / `judgment_factors`(월령·격국·일간 강약·용희신·배합·위치) / `combinations`(식신생재 등 9 — 구조 패턴 id 또는 derived_rule) / `yongsin_modifiers`(용희신 조건 6) / `thresholds`(엔진 문턱 — 자료에 없는 기계 기본값, 감수 대상). 소비: `saju_engines/career_field.py` → 채팅 `[직업 분야 근거]` 블록(점수·판정 아님). reviewed=false.
+
 ## 핵심 스키마
 
 ### stems.json (항목 예)

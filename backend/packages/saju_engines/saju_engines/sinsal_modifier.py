@@ -225,7 +225,7 @@ def _payload_tier(m: SinsalModifier) -> int:
         return 3
     if (not m.domain_match) and m.activation_status == "strongly_activated":
         return 4
-    return 5  # domain_match=False 배경/잠재(년주 배경 길성·흉살 등)
+    return 5  # domain_match=False 배경/잠재(연주 배경 길성·흉살 등)
 
 
 def select_llm_sinsal_modifiers(
@@ -235,8 +235,8 @@ def select_llm_sinsal_modifiers(
     """후보 payload 노출용 pruning(가드) — 우선순위·개수 상한 적용 → LLM subset 반환.
 
     우선순위: domain_match+strongly > +activated > +background > (불일치)+strongly.
-    상한: 총 max_per_event(기본 3); domain_match=False 최대 1; 년주 background 최대 1.
-    domain_match=False 배경(tier5)은 년주 background 길성/흉살만 허용한다.
+    상한: 총 max_per_event(기본 3); domain_match=False 최대 1; 연주 background 최대 1.
+    domain_match=False 배경(tier5)은 연주 background 길성/흉살만 허용한다.
     """
     ranked = sorted(modifiers, key=lambda m: (_payload_tier(m), -m.internal_weight, m.name))
     out: list[LlmSinsalModifier] = []
@@ -247,7 +247,7 @@ def select_llm_sinsal_modifiers(
             break
         tier = _payload_tier(m)
         if tier == 5:
-            # domain_match=False 배경은 년주 background 길성/흉살만(§가드).
+            # domain_match=False 배경은 연주 background 길성/흉살만(§가드).
             is_year_bg = m.position == "year" and m.activation_status in ("background", "latent")
             if not is_year_bg or year_bg >= cfg.SINSAL_PAYLOAD_MAX_YEAR_BACKGROUND:
                 continue

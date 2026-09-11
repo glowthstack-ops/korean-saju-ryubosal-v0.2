@@ -112,6 +112,10 @@ class DaewoonEntry(BaseModel):
     ganji: str
     age_range: str  # '45~54세'
     jiao_date: str = ""  # 교운일(대운 시작) — 교운기 영향 판단용(항목 1)
+    # 현재 대운 기준 상태(엔진 current_daewoon_index 판정): '지남'/'현재'/'예정'.
+    # 빈 문자열=판정 불가(reference 없음) — 렌더에서 생략(하위호환). LLM이 현재 대운을
+    # 나이 계산으로 임의 추정하던 결함 차단(2026-08-13 데굴님 실사용 발견).
+    status: str = ""
 
 
 class SelectedYear(BaseModel):
@@ -187,10 +191,36 @@ class LlmEventCandidate(BaseModel):
     signals_ko: list[str] = Field(default_factory=list)
     # v2.2.1 — 운 유입 글자의 일간 기준 십성 해석(해석 사전 발췌, 엔진 계산).
     incoming_note: str = ""
+    # 표현 결(12운성 유입, 2026-09-10 daily §23 이식) — 흐름·결과 서술의 결. 문체 전용·점수 무관.
+    stage_note: str = ""
     # 운 암합(보조 자료) — 점수 미반영, 물밑·비공식 뉘앙스 참고용(2026-06-12 자료).
     amhap_notes: list[str] = Field(default_factory=list)
     # 유불리 주의(후보별 사실) — 천간 흉신 시기: 발생해도 계약·결실 불리(우호 단정 방지).
+    # P0-2(2026-08-21) 이후 이 필드는 결실 뉘앙스 설명문 전용이다 — 검토월 문구는
+    # review_month로, operational guard 문구는 operational_caution으로 분리(3중 concat 해체).
     caution_note: str = ""
+    # 결실 뉘앙스 카테고리(구조화) — _ganji_result_nuance 산출값 그대로.
+    # '' | 'unfavorable'(천간 흉신) | 'tonggwan'(통관 순화) | 'leak'(길신 누설).
+    # 상담 결론 의미론의 outcome 축 원천 — 텍스트 파싱 없이 판정에 쓸 수 있게 승격(P0-2).
+    result_nuance: str = ""
+    # 검토월 판정(G3 구조화) — True면 이동·변동 신호는 강하나 계약 유지력이 낮아
+    # '실행월'이 아니라 '검토월'. 렌더 계층이 고정 문구로 노출한다(P0-2).
+    review_month: bool = False
+    # scoring operational rank guard 문구 — caution_note와 분리 보존(P0-2 concat 해체).
+    operational_caution: str = ""
+    # ── 상담 결론 arbiter 입력(P1) — 직렬화(프롬프트 텍스트)에는 노출하지 않는다 ──
+    # activation/favorability: EventCandidate 이중 채널 원값(INV-C: 재합성 금지).
+    activation: float = 0.0
+    favorability: float = 0.0
+    # quality: 사건 방향·경험 품질 원값('pressure' 등 — direction 라벨의 원천).
+    quality: str = ""
+    # evidence_path: reason_codes 전달(HOLD 차단 근거·결과축 코드 판별용 provenance).
+    evidence_path: list[str] = Field(default_factory=list)
+    # CDS-P1a — 후보 기간의 기간 내 상대 순위(monthly_overview에서 복사). 절대 강도
+    # (tone_for_score)와 분리된 표현 전용 축 — arbiter의 PROCEED/HOLD 판정에 쓰지 않는다.
+    period_rank: int | None = None
+    period_rank_tied: bool = False
+    period_rank_population: int = 0
     # 결과 유불리 밴드(유리/불리, 중립이면 빈 문자열) — 발생 가능성(score)과 분리된 길흉 채널.
     # 시험 합·불, 특수직군 길화, 퇴직 리스크, 이직 압박/기회 등이 합산된 net 유불리.
     favorability_ko: str = ""
@@ -272,6 +302,12 @@ class MonthOverviewRow(BaseModel):
     # 창 내 상대 강도 순위(1=최강, 클램프 전 raw 가중 합 기준) — 톤이 포화돼도
     # '진짜 중요한 달'이 변별되게(절대값보다 상대 순위 신뢰 — docs/07 리스크 1).
     strength_rank: int | None = None
+    # CDS-P1a(2026-08-21) — 기간 내 상대 순위 전량(competition rank). strength_rank가
+    # 상위 3위 표기 전용인 것과 달리 전 월을 대상으로 하며, 동점·모집단을 함께 보존해
+    # '절대 강도(tone) ≠ 상대 중요도(rank)'를 분리 표현한다. arbiter 판정 미사용(표현 전용).
+    period_rank: int | None = None
+    period_rank_tied: bool = False
+    period_rank_population: int = 0
     # 그 달 간지의 용기신 역할 '癸水 구신·巳火 희신' — 발생 강도와 별개로 유불리
     # (구신 천간 달=계약·결실 불리)가 표에서 변별되게(2026-06-12 사용자 도메인 지식).
     luck_roles: str = ""

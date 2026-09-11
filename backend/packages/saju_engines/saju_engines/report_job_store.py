@@ -68,21 +68,22 @@ class ReportJobStore:
         """실행 시작 표시."""
         self._set_status(job_id, "running")
 
-    def update_progress(self, job_id: str, sections_done: int) -> None:
-        """진행 섹션 수 갱신."""
+    def update_progress(self, job_id: str, sections_done: int, sections_total: int) -> None:
+        """진행 섹션 수 갱신 — 분모는 분할 페이지 확장 후 실제 총수로 동기화."""
         with self._connect() as conn:
             conn.execute(
-                "UPDATE report_jobs SET sections_done=%s, updated_at=now() WHERE job_id=%s",
-                (sections_done, job_id),
+                "UPDATE report_jobs SET sections_done=%s, sections_total=%s, "
+                "updated_at=now() WHERE job_id=%s",
+                (sections_done, sections_total, job_id),
             )
 
     def complete(self, job_id: str, result: dict, sections_done: int) -> None:
-        """완료 — 결과 저장."""
+        """완료 — 결과 저장. 총수도 실제 작성 장 수와 일치시킨다."""
         with self._connect() as conn:
             conn.execute(
                 "UPDATE report_jobs SET status='completed', result=%s::jsonb, "
-                "sections_done=%s, updated_at=now() WHERE job_id=%s",
-                (json.dumps(result, ensure_ascii=False), sections_done, job_id),
+                "sections_done=%s, sections_total=%s, updated_at=now() WHERE job_id=%s",
+                (json.dumps(result, ensure_ascii=False), sections_done, sections_done, job_id),
             )
 
     def fail(self, job_id: str, error: str) -> None:

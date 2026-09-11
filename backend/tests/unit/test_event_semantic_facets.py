@@ -6,7 +6,9 @@ facet 은 섹션 라우팅용 **메타데이터**다. 점수·극성·confidence
   ① fail-closed 를 **축 단위**로 한다 — `wealth_change` 는 family 는 알지만 subtype 과
      process_role 은 모른다. 키 전체를 버리지 않는다.
   ② `stage_tags` 는 기존 SSOT 가 부여한 값만 쓴다 — 관계 3키를 로드맵 6단계에 강제
-     배분하지 않는다(현재 확정 매핑이 없어 비어 있는 것이 계약이다).
+     배분하지 않는다. (개정 2026-08-21 상담 결론 의미론 P2-1: '비어 있음'에서
+     'SSOT 유래분만 채움'으로 — 값 어휘는 StageScope 5단계, 관계 키는 marker 게이트
+     미구현 상한(기회·과정)을 넘지 않는다. 출처 없는 키는 계속 빈 튜플.)
   ③ 미등록 키는 family 까지 UNKNOWN 이므로 세부 라우팅에서 자동 제외된다.
 """
 
@@ -56,11 +58,22 @@ def test_marriage_signal_role_is_not_inferred_from_the_name() -> None:
 # ── ② stage_tags 는 비어 있는 것이 계약 ──────────────────────────────────
 
 
-def test_stage_tags_are_empty_until_the_ssot_assigns_them() -> None:
-    """관계 3키를 6단계에 강제 배분하면 없는 근거를 만들어 낸다."""
-    assert EVENT_STAGE_TAGS == {}
-    for key in ("new_relationship", "relationship_change", "marriage_signal"):
-        assert event_facets(key)["stage_tags"] == ()
+def test_stage_tags_only_from_ssot_with_relationship_cap() -> None:
+    """P2-1 개정 계약 — SSOT 유래 StageScope 값만, 관계 키는 marker 상한(①②) 준수.
+
+    구계약('비어 있어야 한다')은 2026-08-21 상담 결론 의미론 P2-1 승인으로 대체됐다.
+    핵심 취지(이름 추론 금지·관계 키 강제 배분 금지)는 아래 단언으로 승계한다.
+    """
+    valid = {"opportunity", "process", "decision", "realization", "outcome"}
+    for key, tags in EVENT_STAGE_TAGS.items():
+        assert tags, f"{key}: 빈 튜플이면 항목 자체를 두지 않는다(fail-closed)"
+        assert set(tags) <= valid, key
+    # 관계 키 — decision 이상은 marker 게이트 구현 전까지 부여 금지.
+    for key in ("new_relationship", "marriage_signal"):
+        tags = set(event_facets(key)["stage_tags"])  # type: ignore[arg-type]
+        assert tags <= {"opportunity", "process"}, key
+    # relationship_change 는 transition(직교 축)이라 단계 태그를 갖지 않는다.
+    assert event_facets("relationship_change")["stage_tags"] == ()
 
 
 # ── ③ 미등록 키 ──────────────────────────────────────────────────────────

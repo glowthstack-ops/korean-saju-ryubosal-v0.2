@@ -38,9 +38,18 @@ def _spec(product_code: str = "RPT_FOCUS") -> ReportSpec:
 
 
 def test_plan_report_focus_contexts() -> None:
-    """RPT_FOCUS 8섹션 — 고정 prefix + 데이터 블록 + 검사 기준 실값."""
+    """RPT_FOCUS 8섹션 + 연도별 상세 페이지(C-03 뒤, 예측 창 연도당 1 — 2026-08-13)."""
     contexts = report_service.plan_report(_BIRTH, _spec(), _TODAY)
-    assert [c.section_id for c in contexts] == [f"C-{n:02d}" for n in range(1, 9)]
+    ids = [c.section_id for c in contexts]
+    fixed = [i for i in ids if "-Y" not in i]
+    year_pages = [i for i in ids if "-Y" in i]
+    assert fixed == [f"C-{n:02d}" for n in range(1, 9)]
+    # 기간이 2026년으로 스코프된 spec — 예측 창 연도 페이지는 2026 하나, C-03 바로 뒤.
+    assert year_pages == ["C-03-Y2026"]
+    assert ids.index("C-03-Y2026") == ids.index("C-03") + 1
+    yp = next(c for c in contexts if c.section_id == "C-03-Y2026")
+    assert "[이 해 세운 — 2026년]" in yp.body_prompt
+    assert "[월별 흐름 — 2026년 12개월" in yp.body_prompt
     for c in contexts:
         assert "[원국·명식 구조" in c.body_prompt  # 대화와 동일한 고정 prefix(캐시 공용)
         assert "[명식 해석 자료" in c.body_prompt
@@ -90,16 +99,75 @@ def test_wealth_section_surfaces_wealth_capacity() -> None:
     assert "발동 조건" in w05.body_prompt  # 재성국 완성·충개고·식상생재(운 발동) 안내
 
 
+def test_plan_report_year_half_pages() -> None:
+    """RPT_YEAR — Y-05가 상·하반기 2페이지로 분할(2026-08-13, 12개월 전부 서술 보장)."""
+    contexts = report_service.plan_report(_BIRTH, _spec("RPT_YEAR"), _TODAY)
+    ids = [c.section_id for c in contexts]
+    assert "Y-05" not in ids  # 단일 월별 섹션은 반기 2페이지로 대체된다.
+    h1_pos, h2_pos = ids.index("Y-05-H1"), ids.index("Y-05-H2")
+    assert ids.index("Y-04") < h1_pos < h2_pos < ids.index("Y-06")
+    h1 = next(c for c in contexts if c.section_id == "Y-05-H1")
+    h2 = next(c for c in contexts if c.section_id == "Y-05-H2")
+    assert "상반기(1~6월)의 6개 달" in h1.body_prompt
+    assert "하반기(7~12월)의 6개 달" in h2.body_prompt
+    # 월별 흐름 표는 자기 반기의 달만 담는다(모듈 블록의 달 언급은 별개 — 표만 검사).
+    h1_table = h1.body_prompt.split("[월별 흐름 — ")[1].split("\n\n")[0]
+    h2_table = h2.body_prompt.split("[월별 흐름 — ")[1].split("\n\n")[0]
+    assert "2026-03" in h1_table and "2026-09" not in h1_table
+    assert "2026-09" in h2_table and "2026-03" not in h2_table
+
+
 def test_plan_report_full_natal_sections() -> None:
-    """RPT_FULL — F-02 일주 서사, F-04 용신 확정(이후 섹션 일관 검사 기준)."""
+    """RPT_FULL — F-02 일주 서사, F-04 용신 확정(이후 섹션 일관 검사 기준).
+
+    25섹션 = 생애 개편(2026-08-13, docs/10 3장) — F-17b/F-17c/F-18b 신설.
+    """
     contexts = report_service.plan_report(_BIRTH, _spec("RPT_FULL"), _TODAY)
-    assert len(contexts) == 22
+    # 고정 25섹션 + 십년 풀이 하위 페이지(현재 대운~90세 창, 잔여 대운 수 — docs/10 3-1).
+    fixed = [c for c in contexts if not c.section_id.startswith("F-14-D")]
+    decades = [c for c in contexts if c.section_id.startswith("F-14-D")]
+    assert len(fixed) == 25
+    assert decades, "십년 풀이 페이지가 최소 1개 생성돼야 한다"
+    # 십년 페이지 — 그 대운 정보 + 십년 세운 흐름 표, 근접 5년 스펙트럼·전역 후보 미부착.
+    d1 = decades[0]
+    assert "[이 페이지의 대운]" in d1.body_prompt
+    assert "[십년 세운 흐름" in d1.body_prompt
+    assert "[연도별 흐름" not in d1.body_prompt
+    # F-14 바로 뒤에 연속 배치.
+    ids = [c.section_id for c in contexts]
+    f14_pos = ids.index("F-14")
+    assert ids[f14_pos + 1 : f14_pos + 1 + len(decades)] == [c.section_id for c in decades]
+    # 도메인 섹션 생애 연동 — 근접 5년 반복 결함 교정(후보가 있는 도메인엔 생애 행 부착).
+    domain_lt = [
+        c for c in contexts
+        if c.section_id in ("F-15", "F-16", "F-17", "F-18", "F-18b")
+        and "[생애 " in c.body_prompt
+    ]
+    assert domain_lt, "도메인 섹션에 생애 변곡 행이 최소 한 곳은 부착돼야 한다"
     f02 = next(c for c in contexts if c.section_id == "F-02")
     assert "노란 돼지" in f02.body_prompt  # interpretations/ilju.json 직렬화
     f04 = next(c for c in contexts if c.section_id == "F-04")
     assert f04.yongsin_element == "土"
     f10 = next(c for c in contexts if c.section_id == "F-10")
     assert f10.yongsin_element is None  # 빌더가 F-04 통과 후 전파
+    # 생애 변곡점 연표(F-14) — 표 골격 + 근접 5년 스펙트럼 보조가 함께 부착된다.
+    f14 = next(c for c in contexts if c.section_id == "F-14")
+    assert "[생애 변곡점 연표" in f14.body_prompt
+    assert "[연도별 흐름" in f14.body_prompt
+    # 신규 섹션 디렉티브 — 조직 규모 적합(F-15)·미혼 배우자상(F-17, 프로필 미입력 기본).
+    f15 = next(c for c in contexts if c.section_id == "F-15")
+    assert "[조직 규모 적합" in f15.body_prompt
+    f17 = next(c for c in contexts if c.section_id == "F-17")
+    assert "[미혼 배우자상" in f17.body_prompt
+    # 현재 대운 마커(2026-08-13 실사용 결함 교정) — 대운표 행에 엔진 판정 표기 +
+    # 재추정 금지 가드. F-07(대운 개관)은 [예정] 대운 서술 금지 스코프.
+    f07 = next(c for c in contexts if c.section_id == "F-07")
+    assert "← 현재 대운(오늘 포함, 엔진 판정)" in f07.body_prompt
+    assert "재추정하지 말고 표기를 그대로 따를 것" in f07.body_prompt
+    assert "[예정] 대운은 이 섹션에서 서술하지 말 것" in f07.body_prompt
+    # F-13 — 잔여 대운 전수 체크리스트(중간 절단 차단).
+    f13 = next(c for c in contexts if c.section_id == "F-13")
+    assert "[잔여 대운 체크리스트" in f13.body_prompt
 
 
 def test_f22_ganji_calendar_table_and_terminology() -> None:
@@ -116,6 +184,9 @@ def test_f22_ganji_calendar_table_and_terminology() -> None:
     )
     assert "[용어 사전" in f22.body_prompt
     assert "[이벤트 후보" not in f22.body_prompt
+    # 용어 풀이 줄바꿈 계약(2026-08-13 데굴님 지적 — 한 문단 뭉침 교정): 용어마다
+    # 한 줄 목록, 조밀한 산문 규칙의 예외 명시.
+    assert "'- 용어: 설명' 마크다운 목록" in f22.body_prompt
 
     # 결정론적 달력표 — 대운(생애)·세운 10년·월운 120개월, 간지 한자(한글) 병기.
     md = data.ganji_calendar_md()
@@ -172,5 +243,6 @@ def test_report_api_dry_run() -> None:
     })
     assert res.status_code == 200, res.text
     body = res.json()
-    assert body["status"] == "dry_run" and body["section_count"] == 8
+    # 8 고정 섹션 + 연도별 상세 1페이지(2026 스코프 — 2026-08-13 분할 페이지 확장).
+    assert body["status"] == "dry_run" and body["section_count"] == 9
     assert "[원국·명식 구조" in body["sections"][0]["body_prompt"]

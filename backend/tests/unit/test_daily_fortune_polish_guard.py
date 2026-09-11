@@ -15,7 +15,7 @@ from saju_api.services import daily_fortune_polish as polish
 from saju_engines.daily_fortune_cache import InMemoryDailyFortuneCache
 from saju_engines.daily_ilju_fortune import build_day_context, compute_board, load_daily_dicts
 from saju_engines.llm_guard import CALL_LIMITS, estimate_tokens
-from saju_shared_types.daily_fortune import CONTENT_VERSION
+from saju_shared_types.daily_fortune import content_version_for
 
 _D = date(2026, 7, 23)
 
@@ -137,7 +137,7 @@ def test_unknown_or_duplicate_ilju_lines(board) -> None:
 
 def test_polish_board_provider_failure_keeps_raw(board, monkeypatch) -> None:
     cache = InMemoryDailyFortuneCache()
-    cache.save_board(_D, CONTENT_VERSION, board, 3600)
+    cache.save_board(_D, content_version_for(_D), board, 3600)
 
     def _boom(*args, **kwargs):
         raise RuntimeError("공급자 실패")
@@ -145,7 +145,7 @@ def test_polish_board_provider_failure_keeps_raw(board, monkeypatch) -> None:
     monkeypatch.setattr(polish.llm_client, "generate_reading", _boom)
     result = polish.polish_board(cache, _D)
     assert result is not None and result["accepted"] == 0
-    stored = cache.load_board(_D, CONTENT_VERSION)
+    stored = cache.load_board(_D, content_version_for(_D))
     assert stored is not None and stored.polish_status == "FAILED"
     # FAILED 보드는 자동 재교정하지 않는다(날짜당 1회 원칙)
     assert polish.polish_board(cache, _D) is None
@@ -153,8 +153,8 @@ def test_polish_board_provider_failure_keeps_raw(board, monkeypatch) -> None:
 
 def test_polish_lock_single_owner(board, monkeypatch) -> None:
     cache = InMemoryDailyFortuneCache()
-    cache.save_board(_D, CONTENT_VERSION, board, 3600)
-    token = cache.acquire_lock("polish", _D, CONTENT_VERSION, 600)
+    cache.save_board(_D, content_version_for(_D), board, 3600)
+    token = cache.acquire_lock("polish", _D, content_version_for(_D), 600)
     assert token is not None
     monkeypatch.setattr(
         polish.llm_client, "generate_reading", lambda *a, **k: _echo_response(board)
@@ -177,3 +177,20 @@ def test_output_budget_fixture(board) -> None:
     }, ensure_ascii=False)
     worst_output = "\n".join([worst_record] * 60)
     assert estimate_tokens(worst_output) <= limit.max_output_tokens * 0.8
+
+
+def test_polish_prompt_has_prose_rule_without_version_bump() -> None:
+    """퇴고 프롬프트에 문장 결 규칙(7)이 있고, PROMPT_VERSION 은 올리지 않는다(2026-09-01).
+
+    PROMPT_VERSION 은 content_version(캐시 namespace·베타 풀 대조)에 들어가므로 문구 개정만으로
+    올리면 당일 보드 재생성·재교정과 베타 풀 불일치가 생긴다. 개정은 감사 필드로만 남긴다.
+    """
+    from saju_shared_types.daily_fortune import PROMPT_VERSION
+
+    assert "7) 문장 결" in polish._SYSTEM
+    assert "주어" in polish._SYSTEM and "상투구" in polish._SYSTEM
+    assert "원문에 있던 만큼만" in polish._SYSTEM  # 검증기(문장 수·기호)와의 충돌 방지 장치
+    assert PROMPT_VERSION == "polish.v1"
+    # 개정 표식은 감사 전용 — 2026-09-10 이모지·기호 금지(규칙 8)도 REVISION 만 올렸다.
+    assert polish.PROMPT_REVISION == "2026-09-10.no-symbols"
+    assert "8) 이모지" in polish._SYSTEM

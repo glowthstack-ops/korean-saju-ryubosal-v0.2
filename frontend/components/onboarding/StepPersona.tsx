@@ -19,6 +19,10 @@ const STYLE_BY_POLITENESS: Record<"jondae" | "banmal", { id: Style; label: strin
   ],
 };
 
+// 호칭 프리셋별 전용 말투(docs/11 5-2 — honorific_presets.json allowedStyles와 동일).
+// 미강제 시 무효 조합이 저장돼 채팅이 422/500으로 막힌다(2026-08-21 실측: jane+반말체).
+const STYLE_BY_HONORIFIC: Partial<Record<Preset, Style[]>> = { jane: ["hagae"] };
+
 // 호칭 프리셋과 허용 politeness(docs/11 5-2 제약).
 const HONORIFICS: { id: Preset; label: string; allow: ("jondae" | "banmal")[] }[] = [
   { id: "name_nim", label: "○○님", allow: ["jondae"] },
@@ -57,7 +61,7 @@ export function StepPersona({ value, onChange }: Props) {
   const politeness = value.speech.politeness;
 
   function setPoliteness(p: "jondae" | "banmal") {
-    const style = STYLE_BY_POLITENESS[p][0].id;
+    let style = STYLE_BY_POLITENESS[p][0].id;
     // 사용자가 지정한 호칭은 말투를 바꿔도 유지한다. custom 호칭은 그대로 두고(자유 입력엔 프리셋
     // politeness 제약이 없음), preset 호칭은 새 politeness와 정말로 충돌할 때만 기본값으로 보정한다.
     const h = value.user_honorific;
@@ -66,9 +70,34 @@ export function StepPersona({ value, onChange }: Props) {
       const ok = HONORIFICS.find((x) => x.id === h.preset_id)?.allow.includes(p);
       if (!ok) {
         honorific = { type: "preset", preset_id: p === "jondae" ? "name_nim" : "name_only" };
+      } else if (h.preset_id) {
+        // 살아남은 호칭에 전용 말투가 있으면(자네→하게체) 기본 말투 대신 그 말투로 맞춘다.
+        const only = STYLE_BY_HONORIFIC[h.preset_id];
+        if (only && !only.includes(style)) style = only[0];
       }
     }
     onChange({ ...value, speech: { politeness: p, style }, user_honorific: honorific });
+  }
+
+  function setStyle(s: Style) {
+    // 전용 말투 호칭(자네=하게체)과 충돌하는 말투를 고르면 호칭을 반말 기본값으로 보정한다.
+    const h = value.user_honorific;
+    let honorific = h;
+    if (h.type !== "custom" && h.preset_id) {
+      const only = STYLE_BY_HONORIFIC[h.preset_id];
+      if (only && !only.includes(s)) honorific = { type: "preset", preset_id: "name_only" };
+    }
+    onChange({ ...value, speech: { politeness, style: s }, user_honorific: honorific });
+  }
+
+  function setHonorific(id: Preset) {
+    // 전용 말투가 있는 호칭(자네)을 고르면 말투를 그 전용 말투(하게체)로 자동 전환한다.
+    const only = STYLE_BY_HONORIFIC[id];
+    const speech =
+      only && !only.includes(value.speech.style)
+        ? { politeness, style: only[0] }
+        : value.speech;
+    onChange({ ...value, speech, user_honorific: { type: "preset", preset_id: id } });
   }
 
   return (
@@ -107,11 +136,7 @@ export function StepPersona({ value, onChange }: Props) {
 
       <Row label="말투">
         {STYLE_BY_POLITENESS[politeness].map((s) => (
-          <Chip
-            key={s.id}
-            active={value.speech.style === s.id}
-            onClick={() => onChange({ ...value, speech: { politeness, style: s.id } })}
-          >
+          <Chip key={s.id} active={value.speech.style === s.id} onClick={() => setStyle(s.id)}>
             {s.label}
           </Chip>
         ))}
@@ -122,9 +147,7 @@ export function StepPersona({ value, onChange }: Props) {
           <Chip
             key={h.id}
             active={value.user_honorific.preset_id === h.id}
-            onClick={() =>
-              onChange({ ...value, user_honorific: { type: "preset", preset_id: h.id } })
-            }
+            onClick={() => setHonorific(h.id)}
           >
             {h.label}
           </Chip>

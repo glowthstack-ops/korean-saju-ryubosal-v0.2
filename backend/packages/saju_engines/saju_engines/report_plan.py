@@ -1,8 +1,9 @@
 """보고서 고정 목차 (v2.2 Phase 9, docs/10 3·4장 — 전체 규격).
 
-RPT_FULL(22)·RPT_FOCUS generic(8)은 섹션 임의 추가·삭제·병합·순서변경 금지. dependsOn 규칙:
-F-04(용신 확정)가 F-10~F-20 전체의 선행, F-21은 F-13~F-20 완료 후. F-08/F-09(과거 검증)를
-미래(4부)보다 앞에 두는 것은 신뢰 형성 원칙(docs/01)에 따른 고정 순서.
+RPT_FULL(25 — 2026-08-13 생애 개편)·RPT_FOCUS generic(8)은 섹션 임의 추가·삭제·병합·순서변경
+금지. dependsOn 규칙: F-04(용신 확정)가 F-10~F-20(신규 F-17b/F-17c/F-18b 포함) 전체의 선행,
+F-21은 4부(F-13~F-18b)·5부(F-19~F-20) 완료 후. F-08/F-09(과거 검증)를 미래(4부)보다 앞에
+두는 것은 신뢰 형성 원칙(docs/01)에 따른 고정 순서.
 
 테마 전용 목차(_THEME_TOCS): 주제별 스토리 구조가 다르다는 사용자 확정(2026-06-14)에 따라
 generic FOCUS 대신 주제 전용 목차를 쓴다. 현재 재물운(wealth=W-01~W-09)만 정의. 각 테마 목차
@@ -14,7 +15,7 @@ from __future__ import annotations
 from saju_shared_types.intent import SubjectKind
 from saju_shared_types.report import ModuleCall, ReportSpec, SectionPlan, TargetChars
 
-# RPT_FULL — 22섹션(docs/10 3장 표 그대로): (id, 제목, 모듈, min, max).
+# RPT_FULL — 25섹션(docs/10 3장 표 그대로, 2026-08-13 생애 개편): (id, 제목, 모듈, min, max).
 _FULL_TOC: list[tuple[str, str, list[str], int, int]] = [
     ("F-01", "사주 원국 개요", ["T0"], 2_500, 3_500),
     ("F-02", "일간과 타고난 기질", ["T0", "M03"], 3_000, 4_000),
@@ -29,11 +30,14 @@ _FULL_TOC: list[tuple[str, str, list[str], int, int]] = [
     ("F-11", "올해 세운과 활성 신호", ["T1", "M15"], 3_000, 4_000),
     ("F-12", "현 시점 성향 시프트", ["M03"], 2_000, 3_000),
     ("F-13", "향후 대운 로드맵", ["T1", "M03"], 4_500, 5_500),
-    ("F-14", "고점 이벤트 연도 Top", ["M07", "M01", "M09"], 4_500, 5_500),
-    ("F-15", "직업·사업 전망", ["M07", "M08"], 4_000, 5_000),
+    ("F-14", "생애 변곡점 연표", ["M07", "M01", "M09"], 4_500, 5_500),
+    ("F-15", "직업·사업 전망", ["M07", "M08", "M03"], 4_500, 5_500),
     ("F-16", "재물 전망", ["M09"], 3_500, 4_500),
-    ("F-17", "관계·가정 전망", ["M01", "M02", "M04", "M05"], 4_000, 5_000),
+    ("F-17", "연애·결혼 전망", ["M01", "M02"], 4_000, 5_000),
+    ("F-17b", "부모·가족 전망", ["M04"], 2_500, 3_500),
+    ("F-17c", "자녀 전망", ["M05"], 2_500, 3_500),
     ("F-18", "건강 전망과 주의 시기", ["M11"], 3_000, 4_000),
+    ("F-18b", "이사·주거 이동", ["M10"], 3_000, 4_000),
     ("F-19", "도메인별 행동 전략", ["E8"], 3_500, 4_500),
     ("F-20", "개운·보완 가이드", ["E8"], 2_500, 3_500),
     ("F-21", "핵심 요약 카드", [], 1_500, 2_000),
@@ -174,9 +178,10 @@ _TOPIC_MODULE: dict[str, str] = {
     "compatibility": "M13",
 }
 
-# RPT_FULL dependsOn 규칙(3장).
-_F04_DEPENDENTS = [f"F-{n:02d}" for n in range(10, 21)]  # F-10~F-20
-_F21_DEPS = [f"F-{n:02d}" for n in range(13, 21)]  # F-13~F-20
+# RPT_FULL dependsOn 규칙(3장) — 신규 접미 섹션(F-17b/F-17c/F-18b)도 F-04 선행·F-21 선행.
+_FULL_SUFFIX_SECTIONS = ["F-17b", "F-17c", "F-18b"]
+_F04_DEPENDENTS = [f"F-{n:02d}" for n in range(10, 21)] + _FULL_SUFFIX_SECTIONS  # F-10~F-20
+_F21_DEPS = [f"F-{n:02d}" for n in range(13, 21)] + _FULL_SUFFIX_SECTIONS  # 4·5부
 # RPT_YEAR dependsOn — Y-02(용신 확정)가 Y-03~Y-11 전체의 선행(검사 4 용신 일관).
 _Y02_DEPENDENTS = [f"Y-{n:02d}" for n in range(3, 12)]  # Y-03~Y-11
 
@@ -196,7 +201,7 @@ def calibrate_chars(lo: int, hi: int) -> tuple[int, int]:
     return 900, 2_900  # 표준·타임라인·복원 등
 
 
-FULL_TOTAL_TARGET = 41_000  # 캘리브레이션 후 합계 목표 ±10%(A4 약 25장)
+FULL_TOTAL_TARGET = 48_000  # 캘리브레이션 후 합계 목표 ±10%(A4 약 24~30장 — 25섹션 생애 개편)
 YEAR_TOTAL_TARGET = 18_000  # 한해풀이 합계 목표 ±10%(A4 약 11~14장)
 
 

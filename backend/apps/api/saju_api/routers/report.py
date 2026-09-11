@@ -138,6 +138,8 @@ class ReportJobStatus(BaseModel):
     sections_total: int
     result: dict | None = None
     error: str | None = None
+    #: 작성 시점(ISO) — PDF 저장 파일명 등 내용 식별용(2026-08-24).
+    created_at: str | None = None
 
 
 def _run_report_job(
@@ -148,9 +150,10 @@ def _run_report_job(
     store = ReportJobStore()
     store.mark_running(job_id)
 
-    def _on_progress(done: int, _total: int) -> None:
+    def _on_progress(done: int, total: int) -> None:
+        # total = 분할 페이지 확장 후 실제 총 장 수 — 생성 시점의 확장 전 계획 수를 교체한다.
         try:
-            store.update_progress(job_id, done)
+            store.update_progress(job_id, done, total)
         except Exception:  # noqa: BLE001 — 진행 갱신 실패가 생성을 막지 않도록
             pass
 
@@ -256,4 +259,5 @@ def get_job(job_id: str, owner_id: OwnerId, jobs: Jobs) -> ReportJobStatus:
         sections_total=rec.sections_total,
         result=rec.result,
         error=rec.error,
+        created_at=rec.created_at.isoformat() if rec.created_at else None,
     )

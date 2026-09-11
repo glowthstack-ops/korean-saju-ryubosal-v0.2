@@ -1,6 +1,6 @@
 """Precompute Store — luck_composites PostgreSQL 저장소 (v2.2 Phase 2.5 T2.5.3·T2.5.5).
 
-대상 인스턴스는 v1 DB(5432)와 분리된 전용 `saju-v2-db`(호스트 5433, docker-compose.yml)다.
+대상 인스턴스는 v1 DB(5432)와 분리된 전용 `saju-v2-db`(호스트 15432, docker-compose.yml)다.
 접속 문자열은 `SAJU_V2_DATABASE_URL` 환경 변수로 받는다(.env.example 참조).
 
 규칙(docs/09·07):

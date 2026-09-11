@@ -26,12 +26,24 @@ from saju_shared_types.intent import (
 
 # C3 일 단위 상대어 — 글피(+3일)까지 사전 등재(docs/08 C3).
 _DAY_WORDS = {"오늘": 0, "내일": 1, "모레": 2, "글피": 3}
+#: 같은 어휘를 서술 쪽(프롬프트의 날짜 지칭)에서도 쓴다 — 파싱과 서술이 다른 말을 쓰면
+#: 사용자가 '모레'라고 물었는데 답은 '2일 뒤'라고 부르는 어긋남이 생긴다(2026-08-06).
+DAY_WORD_OFFSETS: dict[str, int] = _DAY_WORDS
 # C3.5 요일 — Python weekday()(월=0 … 일=6). '다음주 월요일'은 특정 일운(주 전체 아님).
 _WEEKDAYS = {"월": 0, "화": 1, "수": 2, "목": 3, "금": 4, "토": 5, "일": 6}
-# C13 인생 단계 어휘.
+# C13 인생 단계 어휘. '청년'은 인구통계 용법("청년 대출") 오탐이 잦아 단계 문맥
+# 접미(기/때/시절/에)가 붙을 때만 인정한다(_YOUTH_STAGE_RE).
 _LIFE_STAGES = {
     "초년": "초년", "중년": "중년", "말년": "말년", "노후": "말년",
     "평생": "평생", "일생": "평생",
+}
+_YOUTH_STAGE_RE = re.compile(r"청년\s*(?:기|때|시절|에)")
+#: 단계별 (시작나이, 끝나이) — 근묘화실(연주=초년·월주=청년·일주=중년·시주=말년)
+#: 4분법을 100세 시대 기준으로 재조정한 현대 명리 통용 경계(2026-08-07 데굴님 확정).
+#: '평생'=출생~100세. chat의 전 생애 스캔 창·100세 상한이 이 표를 공유한다.
+LIFE_STAGE_AGE_RANGES: dict[str, tuple[int, int]] = {
+    "초년": (0, 25), "청년": (26, 50), "중년": (51, 75), "말년": (76, 100),
+    "평생": (0, 100),
 }
 _HALF = {"상반기": ("01", "06"), "하반기": ("07", "12")}
 # C5b 슬래시/대시 날짜 — "6/17", "6-17", "2026-06-17"(선택 연도). 뒤에 숫자·구분자가
@@ -44,7 +56,10 @@ _SLASH_DATE_RE = re.compile(
 )
 # 과거시제 표지 — 있으면 연도 미지정 과거 날짜를 '내년 택일'로 밀지 않고 그 해(과거)로 둔다
 # ("6/17에 계약했는데" → 2026-06-17). 미래 택일("7월 4일 이사하려고")은 표지가 없어 영향 없음.
-_PAST_TENSE_RE = re.compile(r"했|찍었|샀|봤|갔|왔|였|었[어은는을다나]|지났|끝났|난\s*뒤")
+# 과거 관형형 서술('넣은 건 6월 17일이야'·'계약한 게 5월 3일')도 과거로 본다(2026-09-06).
+_PAST_TENSE_RE = re.compile(
+    r"했|찍었|샀|봤|갔|왔|였|었[어은는을다나]|지났|끝났|난\s*뒤|[가-힣][은ㄴ]\s*(?:건|게|거)\b"
+)
 
 
 def parse_time(
@@ -189,13 +204,25 @@ def parse_time(
                 start=start, end=end, urgency=urgency,
             ), TimeScope.LIFE_STAGE
 
-    # C13 인생 단계.
-    for word, stage in _LIFE_STAGES.items():
-        if word in text:
-            return TimeRange(
-                type="relative", granularity=Granularity.DAEWOON,
-                life_stage=stage, urgency=urgency,
-            ), TimeScope.LIFE_STAGE
+    # C13 인생 단계 — birth_year가 있으면 단계 경계 나이(LIFE_STAGE_AGE_RANGES)를
+    # 연도로 환산해 start/end를 채운다. C12 나이 표현과의 비대칭('88세쯤'은 연도가
+    # 잡히는데 '말년에'는 안 잡혀 올해 창으로 오답하던 결함) 보완(2026-08-07).
+    # '7일생·1980년 10월 8일생'(출생일 접미)의 '일생'은 생애가 아니다(2026-09-11 실로그 #1791:
+    # 즉석 출생일 2건이 '평생' 창(출생~100세)으로 잡혀 궁합 비교가 생애 지평으로 풀리던 결함).
+    stage_text = re.sub(r"\d\s*일생", "", text)
+    stage_hit = next((s for w, s in _LIFE_STAGES.items() if w in stage_text), None)
+    if stage_hit is None and _YOUTH_STAGE_RE.search(text):
+        stage_hit = "청년"
+    if stage_hit is not None:
+        lo_age, hi_age = LIFE_STAGE_AGE_RANGES[stage_hit]
+        start = end = None
+        if birth_year is not None:
+            start = str(birth_year + lo_age)
+            end = str(birth_year + hi_age)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAEWOON,
+            life_stage=stage_hit, start=start, end=end, urgency=urgency,
+        ), TimeScope.LIFE_STAGE
 
     # C14 대운 단위.
     if re.search(r"(다음|이번|현재)\s*대운|대운\s*교운", text):
@@ -368,7 +395,8 @@ def parse_time(
     #     상대 일수만 잡는다(2026-07-01 데굴님 지적: '이후 10일 내에 로또 좋은 날'이 시점 미파싱으로
     #     직전 하루를 과승계해 택일이 하루만 잡히던 결함). '열흘'(10) 한글수도 허용.
     md = re.search(r"(?:이후|앞으로|향후|다가오는)\s*(\d{1,3})\s*일", text) or re.search(
-        r"(\d{1,3})\s*일\s*(?:내에|안에|이내|이내에|안으로)", text
+        # '3일내'(띄어쓰기·조사 없음)도 받는다(2026-09-11 실로그 #1315). '내내'는 제외.
+        r"(\d{1,3})\s*일\s*(?:내에|안에|이내|이내에|안으로|내(?!내))", text
     )
     n_days = int(md.group(1)) if md else 0
     if not n_days and re.search(
@@ -381,6 +409,52 @@ def parse_time(
             start=today.isoformat(), end=(today + timedelta(days=n_days)).isoformat(),
             urgency=urgency,
         ), TimeScope.DATE_LEVEL if n_days <= 31 else TimeScope.SHORT_TERM
+
+    # C5c 월 생략 단일 날짜 — "28일 오전에 시험", "이번 달 28일에", "다음 달 3일부터".
+    # 임박한 특정일을 대화에서 가장 흔하게 지칭하는 형태인데 규칙이 없어 시점이 통째로
+    # 소실되던 결함 수정(2026-08-14 데굴님 지적: '28일 오전 필기 시험'이 TIMELESS로
+    # 떨어져 내년 상반기 전망으로 답함). 오탐을 막기 위해 날짜 지칭 문맥(조사 에/날/은/
+    # 이/부터 또는 오전/오후/아침/저녁)이 뒤따를 때만 잡고, 기간·빈도 용법("3일 동안",
+    # "3일에 한 번", "100일 남았어")은 제외한다. 'N월 N일'(C5b)·'N일 내에'(C8b)는
+    # 앞서 반환되므로 여기 도달하지 않는다. 연도 미지정 이월 규칙은 C5b와 동일: 이미
+    # 지난 날짜면 미래로(과거시제 표지 시 그대로), '이번 달' 명시는 그 달 고정.
+    m = re.search(
+        r"(?:(이번\s*달|이달|다음\s*달|오는)\s*)?(?<!\d)(\d{1,2})\s*일"
+        r"(?=\s*(?:오전|오후|아침|저녁|날|부터"
+        r"|에(?!\s*(?:한\s*번|\d+\s*번|번씩|꼴))"
+        r"|이(?![내후])|은))",
+        text,
+    )
+    if m:
+        prefix = (m.group(1) or "").replace(" ", "")
+        dy = int(m.group(2))
+        if 1 <= dy <= 31:
+            past_ok = bool(_PAST_TENSE_RE.search(text))
+            if prefix in ("이번달", "이달"):
+                offsets = [0]  # 명시된 이번 달 고정(지난 날짜여도 그 달)
+            elif prefix == "다음달":
+                offsets = [1]
+            else:
+                offsets = [0, 1, 2]  # 가장 가까운 유효 날짜(31일 등 짧은 달 건너뜀)
+            anchor_d = None
+            for off in offsets:
+                yy = today.year + (today.month - 1 + off) // 12
+                mm = (today.month - 1 + off) % 12 + 1
+                try:
+                    cand = date(yy, mm, dy)
+                except ValueError:  # 그 달에 없는 날(9월 31일 등)은 다음 달로
+                    continue
+                if past_ok or prefix in ("이번달", "이달") or cand >= today:
+                    anchor_d = cand
+                    break
+            if anchor_d is not None:
+                return TimeRange(
+                    type="absolute",
+                    granularity=Granularity.HOUR if hour_level else Granularity.DAY,
+                    start=anchor_d.isoformat(),
+                    end=anchor_d.isoformat(),
+                    urgency=urgency,
+                ), TimeScope.SHORT_TERM
 
     # C5 월 단위 — "5월", "이번달", "다음 달". 당해 연도 기준(실로그 B2 "5월은 어때?"가
     # 6월 발화에서도 같은 해 5월과의 비교 맥락) — "내년" 명시 시에만 +1.
@@ -448,6 +522,20 @@ def parse_time(
         ), TimeScope.MID_TERM
     if "내후년" in text:
         year_key = str(today.year + 2)
+        return TimeRange(
+            type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
+            urgency=urgency,
+        ), TimeScope.MID_TERM
+    # 과거 연 단위 — '재작년'이 '작년'을 포함하므로 먼저 본다. chat의 회고 키워드에는
+    # 있었으나 파서에 없어 '작년에 왜 그랬을까'가 시점 없음→too_broad로 빠졌다(2026-09-06).
+    if "재작년" in text:
+        year_key = str(today.year - 2)
+        return TimeRange(
+            type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
+            urgency=urgency,
+        ), TimeScope.MID_TERM
+    if "작년" in text:
+        year_key = str(today.year - 1)
         return TimeRange(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
             urgency=urgency,

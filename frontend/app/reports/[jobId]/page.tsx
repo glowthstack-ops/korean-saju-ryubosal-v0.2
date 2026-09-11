@@ -12,6 +12,26 @@ import type { ReportJobStatus } from "@/lib/types";
 
 const POLL_MS = 3000;
 
+/** PDF 저장 파일명 — 내용 식별용: 테마·대상·작성시점·짧은 코드 (2026-08-24 사용자 요청). */
+function reportFileName(
+  heading: string,
+  who: string | undefined,
+  createdAt: string | null | undefined,
+  jobId: string,
+): string {
+  const dt = createdAt ? new Date(createdAt) : new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  const stamp = `${String(dt.getFullYear()).slice(2)}${p(dt.getMonth() + 1)}${p(
+    dt.getDate(),
+  )}-${p(dt.getHours())}${p(dt.getMinutes())}`;
+  const code = jobId.replace(/-/g, "").slice(0, 6).toUpperCase();
+  return ["테마사주", heading, who, stamp, code]
+    .filter(Boolean)
+    .join("_")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/\s+/g, "");
+}
+
 interface ReportResultLike {
   sections?: ReportSection[];
   status?: string;
@@ -45,6 +65,15 @@ export default function ReportJobPage() {
       if (timer.current) clearTimeout(timer.current);
     };
   }, [jobId]);
+
+  // 완료 시 탭 제목 = 파일명 — 버튼 없이 Ctrl+P 로 저장해도 같은 이름이 되게 한다.
+  useEffect(() => {
+    if (job?.status !== "completed") return;
+    const r = (job.result ?? {}) as ReportResultLike;
+    const h = r.spec ? themeLabel(r.spec.product_code ?? "", r.spec.topic ?? null) : "풀이 결과";
+    const w = r.spec?.subjects?.map((s) => s.label).filter(Boolean).join(",");
+    document.title = reportFileName(h, w, job.created_at, jobId);
+  }, [job, jobId]);
 
   if (error) return <p className="text-sm text-red-500">{error}</p>;
   if (!job) return <p className="text-sm text-gray-500">불러오는 중…</p>;
@@ -97,7 +126,7 @@ export default function ReportJobPage() {
             {who && <span className="ml-2 text-sm font-normal text-gray-500">· {who}</span>}
           </h1>
         </div>
-        <PdfExportButton />
+        <PdfExportButton filename={reportFileName(heading, who, job.created_at, jobId)} />
       </div>
       {result.status === "on_hold" && (
         <p className="rounded bg-amber-50 p-2 text-xs text-amber-700">

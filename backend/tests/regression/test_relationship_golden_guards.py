@@ -91,7 +91,7 @@ def test_p1_trine_exposed_without_ranking(rendered) -> None:
         partner_chart = calculate(BirthInput(**sample["partner"]))
         dyn = analyze_trine_dynamics(self_chart, partner_chart)
         if dyn is None:
-            assert layers["p1"] == []      # 년주 부재면 추측하지 않는다
+            assert layers["p1"] == []      # 연주 부재면 추측하지 않는다
             continue
         assert dyn.exposure == "beta"
         text = "\n".join(layers["p1"])

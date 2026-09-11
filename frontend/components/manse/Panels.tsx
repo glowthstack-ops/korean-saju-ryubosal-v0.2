@@ -565,7 +565,7 @@ function itemLine(item: Record<string, unknown>, pillars: Pillars): string {
   const chars = (scope === "stem" || scope === "branch")
     ? ordered.map((p) => posChar(pillars, p, scope)).join("")
     : ((item.members as string[]) ?? []).join("");
-  // 간여지동은 오행이 핵심 → "간여지동: 庚申(년주, 오행: 금)" 전용 포맷.
+  // 간여지동은 오행이 핵심 → "간여지동: 庚申(연주, 오행: 금)" 전용 포맷.
   if (String(item.relation_type) === "gan_yeo_ji_dong") {
     const posJu = ordered.map((p) => `${POS_KO[p] ?? p}주`).join("·");
     const els = [...new Set((item.affected_elements as string[] | undefined) ?? [])]
@@ -736,9 +736,9 @@ export function StructurePanel({ result }: { result: ManseResult }) {
 
 export function SinsalPanel({ result }: { result: ManseResult }) {
   const sinsal = result.traditional_extras?.sinsal?.full_list ?? [];
-  // 시주·일주·월주·년주 — 상단 명식과 동일한 순서로 자리별 박스 구분.
+  // 시주·일주·월주·연주 — 상단 명식과 동일한 순서로 자리별 박스 구분.
   const cols: [("hour" | "day" | "month" | "year"), string][] = [
-    ["hour", "시주"], ["day", "일주"], ["month", "월주"], ["year", "년주"],
+    ["hour", "시주"], ["day", "일주"], ["month", "월주"], ["year", "연주"],
   ];
   return (
     <section>

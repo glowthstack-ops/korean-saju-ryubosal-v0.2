@@ -141,6 +141,8 @@ _VOID_TYPES = {
     RelationType.VOID_TRIGGER_CLASH,
     RelationType.VOID_RELEASE_COMBINE,
 }
+# 공망 신호의 원국 궁위 한글 표기(오지목 방지용 쌍 라벨).
+_VOID_POS_KO = {"year": "년지", "month": "월지", "day": "일지", "hour": "시지"}
 _POS_PILLAR: dict[str, Pillar4] = {
     "year": Pillar4.YEAR, "month": Pillar4.MONTH,
     "day": Pillar4.DAY, "hour": Pillar4.HOUR,
@@ -215,6 +217,7 @@ class EventEngineV2:
         enable_mt4_subtype: str = "off",
         risk_mode: str | None = None,
         daewoon_hwa_mode: str = "current",
+        enable_resource_clash_renewal: bool = False,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -235,11 +238,16 @@ class EventEngineV2:
             daewoon_hwa_mode: 대운 합화 배경 처리(기본 'current' — 기존 ±3% 랭킹 반영).
                 'post_selection'이면 점수·reason_codes를 건드리지 않고 시점 배경 맵만
                 채운다(DW-HWA 감사 판정 반영). 기본값이 'current'라 production 불변.
+            enable_resource_clash_renewal: 인성 동요 신호(기본 OFF — feature flag,
+                2026-08-10 승인). 운 충이 원국 인성 글자를 칠 때 문서 교체 계열
+                (contract_document/relocation/career_change) 가산 + 인성군 세력 게이트
+                (relation_target_ten_god_rules, reviewed:false). OFF면 기존 결과 불변.
         """
         self._enable_mt1_awareness = enable_mt1_awareness
         self._enable_mt2_emergence = enable_mt2_emergence
         self._enable_mt3_directional = enable_mt3_directional
         self._mt4_mode = enable_mt4_subtype
+        self._enable_resource_clash_renewal = enable_resource_clash_renewal
         # MT4 shadow 진단 사이드채널(결과 payload·LLM 입력 미포함 — debug-only). score()마다 초기화.
         self.mt4_shadow: list[dict] = []
         # ── 위험 엔진 R0(RISK_ENGINE.md) — 기회 파이프라인과 독립 shadow 사이드채널 ──
@@ -585,15 +593,42 @@ class EventEngineV2:
         present_gods = {s.ten_god for s in signals}
         layers = {layer for layer, _ in stack}
         hits = self._relation_hits(result, level, target)
-        void_active = any(h.type in _VOID_TYPES for h in hits)
+        # 공망 자극 종류 분리(2026-08-21 확정 의미론) — 충발만 지연, 전실·합은 신호만.
+        # 글자 쌍·궁위를 함께 보존한다 — 쌍이 없으면 LLM이 공망지를 다른 지지로
+        # 오지목한다(실측: 시지 巳 공망을 '일지 亥 공망'으로 작문).
+        void_kinds: set[str] = set()
+        void_pairs: dict[str, str] = {}
+        for h in hits:
+            if h.type is RelationType.VOID_TRIGGER_CLASH:
+                void_kinds.add("clash")
+            elif h.type is RelationType.VOID_FILL:
+                void_kinds.add("fill")
+                nb = h.natal_refs[0] if h.natal_refs else None
+                if nb is not None and nb.branch:
+                    void_pairs.setdefault(
+                        "fill", f"{nb.branch}({_VOID_POS_KO.get(nb.position, nb.position)})"
+                    )
+            elif h.type is RelationType.VOID_RELEASE_COMBINE:
+                void_kinds.add("combine")
+                nb = h.natal_refs[0] if h.natal_refs else None
+                if h.luck_ref.branch and nb is not None and nb.branch:
+                    void_pairs.setdefault(
+                        "combine",
+                        f"{h.luck_ref.branch}-{nb.branch}"
+                        f"({_VOID_POS_KO.get(nb.position, nb.position)})",
+                    )
+        void_active = bool(void_kinds)
         gate_ctx = GateContext(
             present_gods=present_gods, layers=layers, void_active=void_active,
+            void_kinds=void_kinds, void_pairs=void_pairs,
             occupation_status=occupation_status, relationship_status=relationship_status,
         )
         cands = self._gate.apply(cands, gate_ctx)
         # 발동·궁성 — 해당 시점 관계 적중(+ 일지 복음 발동: 운 지지=원국 일지).
         layer = target_layer
-        activations = _activations(hits, layer) + _bokeum_activations(result, target, layer)
+        activations = (
+            _activations(hits, layer, result) + _bokeum_activations(result, target, layer)
+        )
         # P1-6 §12 — 관계 벡터 shadow projection 수집(읽기 전용 — cands·hits·
         # activations를 변형하지 않고 primitive만 복사한다. 탐지 재호출 0).
         rel_shadow_sink = getattr(self._rel_shadow_tls, "sink", None)
@@ -617,10 +652,18 @@ class EventEngineV2:
             if self._mt4_mode != "off" and result.pillars and result.pillars.day
             else ""
         )
+        # 인성 동요 신호(feature flag) — 원국 십성군 세력 %는 약근 게이트 판정용.
+        group_powers = (
+            dict(result.force_analysis.ten_gods.groups)
+            if self._enable_resource_clash_renewal and result.force_analysis is not None
+            else None
+        )
         cands = self._relpalace.apply(
             cands, activations,
             mt4_mode=self._mt4_mode, gender=marriage_flow.gender,
             day_element=day_el, shadow_sink=self.mt4_shadow,
+            renewal_enabled=self._enable_resource_clash_renewal,
+            ten_god_group_powers=group_powers,
         )
         # 용신 품질 — 시점 유입 글자 오행의 용기신 역할. 본 천간이 합화(化)면 化神 오행으로 길흉
         # 판단(生剋制化 우선 — 사건 종류는 불변, 길흉만 化神 기준). 대운 배경 합화는 제외(국소).
@@ -628,6 +671,11 @@ class EventEngineV2:
         hwa_el = _target_hwa_element(target, result, fav_map)
         stem_bound = _target_stem_bound(target, result, fav_map) if hwa_el is None else False
         role = _period_role(target, fav_map, stem_element=hwa_el, stem_bound=stem_bound)
+        # 접힘 전 천간/지지 역할 라벨 보존(P0-1) — NEUTRAL이어도 evidence는 남긴다(INV-E).
+        stem_lbl, branch_lbl = _period_role_labels(
+            target, fav_map, stem_element=hwa_el, stem_bound=stem_bound
+        )
+        role_labels = {"stem_role": stem_lbl, "branch_role": branch_lbl}
         if role is not PolarityRole.NEUTRAL:
             note = (
                 f"HWA_길흉_{hwa_el}" if hwa_el
@@ -636,11 +684,16 @@ class EventEngineV2:
             cands = [  # provenance-audit: not-risk (EventCandidateV2)
                 c.model_copy(update={
                     "polarity_role": role,
+                    **role_labels,
                     **({"reason_codes": [*c.reason_codes, note]} if note else {}),
                 })
                 for c in cands
             ]
             cands = self._yongi.apply(cands)
+        else:
+            cands = [  # provenance-audit: not-risk (EventCandidateV2)
+                c.model_copy(update=role_labels) for c in cands
+            ]
         # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
         # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
         cands = self._exam.apply(cands, present_gods)
@@ -817,7 +870,7 @@ class EventEngineV2:
         # 피자극 대상 provenance — 충·형은 '무엇을 쳤는가'로 도메인이 갈리므로(재성 충≠
         # 배우자궁 충≠사회궁 충) 자극 궁성의 천간/지지 십성·글자를 사실에 보존한다.
         relations: list[RelationFact] = []
-        for a in _activations(hits, layer):
+        for a in _activations(hits, layer, result):
             god, letter = _natal_target(result, a.palace, a.position)
             relations.append(RelationFact(
                 kind=a.kind, palace=a.palace, position=a.position,
@@ -1007,8 +1060,14 @@ _HAP_SUBTYPE: dict[RelationType, str] = {
 }
 
 
-def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActivation]:
-    """합충형파해 적중 → (관계종류, 자극궁, 층위) 발동 목록(공망류 제외)."""
+def _activations(
+    hits: list[RelationHit], layer: LuckLayer, result: ManseV2Result
+) -> list[RelationActivation]:
+    """합충형파해 적중 → (관계종류, 자극궁, 층위) 발동 목록(공망류 제외).
+
+    피자극 원국 글자의 십성(target_ten_god)을 함께 보존한다 — 충·형은 '무엇을
+    쳤는가'로 의미가 갈리므로(인성 충=문서 동요 등). 기존 필드·순서는 불변.
+    """
     out: list[RelationActivation] = []
     for hit in hits:
         kind = _REL_KIND.get(hit.type)
@@ -1019,6 +1078,7 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
         for ref in hit.natal_refs:
             palace = _POS_PILLAR.get(ref.position)
             if palace is not None:
+                target_god, _ = _natal_target(result, palace, position)
                 out.append(RelationActivation(
                     RelationKind(kind), palace, layer, position=position,
                     hap_subtype=subtype, element=hit.element,
@@ -1029,6 +1089,7 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
                     luck_branch=hit.luck_ref.branch or "",
                     natal_stem=ref.stem or "",
                     natal_branch=ref.branch or "",
+                    target_ten_god=target_god.value if target_god else None,
                 ))
     return out
 
@@ -1432,6 +1493,26 @@ def _period_role(
     return PolarityRole.NEUTRAL
 
 
+def _period_role_labels(
+    target: LuckPillar,
+    fav_map: dict[str, str],
+    stem_element: str | None = None,
+    stem_bound: bool = False,
+) -> tuple[str, str]:
+    """시점 유입 천간/지지 오행의 역할 라벨 두 개를 접지 않고 보존(P0-1, 2026-08-21).
+
+    _period_role이 PolarityRole 1개로 접으면서 버리던 원천 라벨('용신'~'한신'|'')을
+    독립 evidence로 돌려준다. 합화(化)·합거(制) 처리 기준은 _period_role과 동일.
+    ⚠ INV-E: "천간=결과축, 지지=과정축" 같은 단계 의미 부여 금지 — 라벨은 evidence 전용.
+    """
+    try:
+        stem_el = stem_element or str(STEM_ELEMENT[Stem(target.stem)])
+        branch_el = str(BRANCH_ELEMENT[Branch(target.branch)])
+    except (KeyError, ValueError):
+        return "", ""
+    return ("" if stem_bound else fav_map.get(stem_el, ""), fav_map.get(branch_el, ""))
+
+
 def _rank_context(
     activations: list[RelationActivation],
     present_gods: set[TenGod],
@@ -1504,13 +1585,32 @@ _EVENT_TYPE_LEGACY: dict[str, EventType] = {
     "progress": EventType.PROGRESS, "instant": EventType.INSTANT, "hybrid": EventType.HYBRID,
 }
 
+# 12운성 event_phase 내부값 → 한글 라벨(P0-5, 2026-08-21). 그동안 영문 원시값
+# (formalization 등)이 동반 신호 문자열로 프롬프트까지 그대로 누출되던 버그 수정.
+# 값 목록 SSOT = dictionaries/event_engine/twelve_stage_modifier.json의 event_phase.
+_EVENT_PHASE_KO: dict[str, str] = {
+    "new_start": "새 국면 시작",
+    "exposure_volatility": "노출·변동",
+    "formalization": "공식화 단계",
+    "stabilization": "안정화 단계",
+    "peak": "정점 단계",
+    "decline_adjustment": "조정·숨고르기",
+    "fatigue_problem": "피로·문제 표면화",
+    "closure_hidden": "마무리·잠복",
+    "storage_concealment": "갈무리·보관",
+    "cut_reset": "단절·재정비",
+    "conception_planning": "구상·기획",
+    "nurturing_preparation": "준비·육성",
+}
+
 
 def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
     """EventCandidateV2 → 레거시 EventCandidate(다운스트림 DTO). 신 차원은 동반 신호로 표면화."""
     quality_txt = QUALITY_KO.get(c.quality, "") if c.quality else ""
     conf_txt = CONFIDENCE_KO.get(c.confidence_level, "")
     palace_txt = PALACE_KO.get(c.palace, "") if c.palace else ""
-    head = [b for b in (conf_txt, quality_txt, palace_txt, c.event_phase) if b]
+    phase_txt = _EVENT_PHASE_KO.get(c.event_phase or "", c.event_phase or "")
+    head = [b for b in (conf_txt, quality_txt, palace_txt, phase_txt) if b]
     signals: list[Signal] = []
     if head:  # 사건화 강도·품질·궁성·단계 — LLM 입력 풍부화(첫 동반 신호).
         signals.append(Signal(
@@ -1519,9 +1619,31 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
         ))
     for ko in reason_codes_ko(c.reason_codes):
         signals.append(Signal(type="reason", name=ko, effect=ko, weight=0.0))
-    # 불안정 신호 텍스트 보존(공망 → context_reducer 검토월 판정).
-    if any(r.startswith("VOID_") for r in c.reason_codes):
+    # 불안정 신호 텍스트 보존(공망 충발 → context_reducer 검토월 판정). 서브타입 구분
+    # (2026-08-21 확정 의미론): 지연은 충발(VOID_delay)만, 전실·합은 별도 라벨 —
+    # '해소'가 '지연·공허'로 서술되던 결함(申·巳 육합 사례) 차단.
+    if any(r.startswith("VOID_delay") for r in c.reason_codes):
         signals.append(Signal(type="void", name="void", effect="공망 지연", weight=0.0))
+    _fill = next((r for r in c.reason_codes if r.startswith("VOID_FILL")), None)
+    if _fill is not None:
+        _fb = _fill.partition(":")[2]
+        signals.append(Signal(
+            type="void", name="void_fill",
+            effect=(
+                f"공망 전실(실체화 — 공망지 {_fb} 채움)" if _fb
+                else "공망 전실(실체화)"
+            ),
+            weight=0.0,
+        ))
+    _comb = next((r for r in c.reason_codes if r.startswith("VOID_COMBINE_RELEASE")), None)
+    if _comb is not None:
+        _pair = _comb.partition(":")[2]
+        if _pair and "-" in _pair:
+            _lb, _, _nb = _pair.partition("-")
+            _eff = f"공망 해소·접촉(운 {_lb}이 공망지 {_nb}와 합 — 억제 완화)"
+        else:
+            _eff = "공망 해소·접촉(합 — 억제 완화)"
+        signals.append(Signal(type="void", name="void_combine", effect=_eff, weight=0.0))
     polarity = (
         _QUALITY_TO_POLARITY.get(c.quality, EventPolarity.NEUTRAL)
         if c.quality else EventPolarity.NEUTRAL
@@ -1548,4 +1670,9 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
         life_fit=c.life_fit,
         personal_match=c.personal_match,
         favorability=c.favorability,  # 결과 길흉 채널 — 다운스트림 LLM 입력까지 전달
+        # 활성 채널 복구(P0-1) — favorability와 독립 유지(INV-C: 단일 축 재합성 금지).
+        activation=c.activation,
+        # 천간/지지 역할 라벨 — 독립 evidence 전용(INV-E: 단계 의미 부여 금지).
+        stem_role=c.stem_role,
+        branch_role=c.branch_role,
     )

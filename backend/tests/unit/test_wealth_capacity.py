@@ -24,10 +24,12 @@ _DICTS = _BACKEND / "dictionaries"
 
 
 def _chart(date_: str, time_: str) -> ManseV2Result:
+    # 사례 채록 당시 기준(균시차 적용)을 고정 — 기본값 변경(2026-08-25)과 무관하게 유지.
     return calculate(
         BirthInput(
             calendar_type="solar", birth_date=date_, birth_time=time_,
             birth_place_name="서울", gender="male",
+            time_options={"apply_equation_of_time": True},
         )
     )
 

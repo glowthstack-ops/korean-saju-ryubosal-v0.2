@@ -46,8 +46,11 @@ from .companion_alias import (
 from .query_parser import (
     AFFIRMATION_RE,
     INCLUSIVE_WE_RE,
+    SELF_MATCH_RE,
     _detect_domains,
     _parse_inline_births,
+    attach_parenthetical_births,
+    detect_kin_axis,
     implies_self_counterpart,
     parse_message,
     strip_parenthetical,
@@ -71,6 +74,19 @@ _CUMULATIVE_RE = re.compile(r"앞서\s*물어본\s*(\d+)\s*명|이전에\s*물�
 # 강한 별칭(신랑/아가/N호)은 인물 지칭이 명확해 조사와 무관하게 감지('아가는'도 대상).
 # '아가'는 '나아가/들어가' 부분문자열 오인 방지로 앞 한글 음절·뒤 '씨' 제외.
 _STRONG_REF_RE = re.compile(r"(?<![가-힣])(\d+\s*호|신랑|아가)(?!씨)")
+# 일반 별칭 지칭(2026-09-11 실로그: '남자1과 잘될 수 있을까?', 'jw의 사주가 궁금합니다'가
+# 대상 없이 too_broad). 영문 2~10자 또는 한글+숫자 토큰이 소유격·동반격·'사주' 앞에 오면
+# 대상 지칭으로 보고, 미등록이면 확인 질문(원칙 7)으로 넘긴다. 일반 한글 단어는 제외.
+_GENERIC_REF_RE = re.compile(
+    r"(?<![가-힣A-Za-z0-9])([A-Za-z]{2,10}|[가-힣]{1,4}\d{1,2})"
+    r"(?=의\s*사주|이랑|랑|과\s|와\s|\s*사주)"
+)
+# 괄호 출생정보 토큰 — attach_parenthetical_births와 같은 형태('신랑(1975.04.04 시간모름)').
+_PAREN_BIRTH_TOKEN_RE = re.compile(r"([가-힣A-Za-z0-9]{1,10})\s*[(（][^)）]*\d[^)）]*[)）]")
+_KIN_WORDS_SET = {
+    "부모님", "부모", "어머니", "아버지", "엄마", "아빠",
+    "자녀", "자식", "아들", "딸", "형제", "자매",
+}
 # 관계어(엄마/와이프/아들…)는 소유격·동반격·사주/궁합/운 인접일 때만 — 일반 주격('엄마가 …')
 # 오탐 방지. '신랑'은 강한 별칭으로 이미 처리하므로 제외.
 # 소유격('아들의 …')은 뒤에 풀이성 명사(사주/궁합/운 등)가 이어질 때만 대상 지칭으로 본다 —
@@ -149,6 +165,37 @@ _PLACE_SEEKING_RE = re.compile(
 # 동의+이어보기('그래 봐줘'·'응 보여줘'·'좋아 계속') — 직전 답변의 제안 수락. AFFIRMATION_RE에
 # '봐줘'가 없어 fullmatch 실패하고, '봐줘'가 _READING_REQUEST_RE에 걸려 '새 풀이 요청'으로
 # 끊기던 결함 차단(2026-06-25 데굴님 지적: '그래 봐줘'가 직전 이직 맥락을 잃고 일반 총운으로 빠짐).
+#: 도메인 중립 사건 — 사건 기본 도메인(직업)이 있지만 이사·결혼·학업 어느 스레드에나 붙는다.
+#: 후속 턴이 명시 도메인어 없이 이 사건만 들고 오면 직전 스레드 도메인을 유지한다.
+_DOMAIN_NEUTRAL_EVENTS = frozenset({"contract_document"})
+#: 명시 연도·미래 표지 — 있으면 회고 앵커링을 하지 않는다(사용자가 미래를 말한 것).
+_FUTURE_DATE_MARK_RE = re.compile(r"20\d{2}\s*년|내년|내후년|다음\s*달|내달|다음\s*주")
+
+
+def _retro_anchor_bare_date(tr: TimeRange | None, today: date) -> TimeRange | None:
+    """회고 스레드에서 미래로 잡힌 일·월 단위 절대 시점을 한 해 전(과거)으로 되돌린다.
+
+    파서의 연도 미지정 날짜 규칙은 택일 의도(미래 편향)라 지난 날짜를 내년으로 올린다.
+    회고 스레드에서는 반대로 지난 해 같은 날이 맞다. 되돌린 날짜가 오늘 이전일 때만 적용.
+    """
+    if tr is None or tr.type != "absolute" or not tr.start:
+        return tr
+    if tr.granularity not in (Granularity.DAY, Granularity.MONTH):
+        return tr
+    start, end = tr.start, tr.end or tr.start
+    if len(start) < 7 or start[:10] <= today.isoformat():
+        return tr  # 이미 과거·오늘이면 손대지 않는다
+
+    def _back(label: str) -> str:
+        return f"{int(label[:4]) - 1:04d}{label[4:]}"
+
+    new_start, new_end = _back(start), _back(end)
+    probe = new_start if len(new_start) >= 10 else f"{new_start}-01"
+    if probe > today.isoformat():
+        return tr
+    return tr.model_copy(update={"start": new_start, "end": new_end})
+
+
 # 동의어로 시작 + (선택)이어보기/풀이 동사로 끝나고 새 도메인이 없을 때만 직전 의도를 승계한다.
 _AFFIRM_CONTINUE_RE = re.compile(
     r"^(?:그래(?:요)?|그러[자지]|응+|네+|넵|예+|어+|좋아(?:요)?|좋지|콜|오케이?|오키|ok|okay"
@@ -248,7 +295,7 @@ class ConversationEngine:
         current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM) — '이번 달' 등 상대 시점을
             절기 기준으로 파싱하도록 parse_message에 전달(미주입 시 양력 폴백).
         """
-        resolution = self.resolve_subjects(state, text)
+        resolution = self.resolve_subjects(state, text, today)
         link = self.link_question(state, text)
 
         prev = state.last_intent if link.is_follow_up else None
@@ -258,14 +305,29 @@ class ConversationEngine:
         )
 
         # 슬롯 상속 보강: 파서가 직접 상속 못 한 경우(참조어형) 도메인/대상 병합.
+        explicit_domains = bool(_detect_domains(text))
+        prev_domain = prev.domain if prev is not None else Domain.GENERAL
         for intent in parsed.intents:
             if link.is_follow_up and intent.domain is Domain.GENERAL and link.inherited_domain:
                 intent.domain = link.inherited_domain
+            # 도메인 중립 사건(계약·문서)은 사건 기본 도메인(직업)으로 스레드를 갈아타지 않는다 —
+            # 이사 스레드의 '계약금을 넣은 건 6월 17일이야'가 직업 도메인으로 새던 결함
+            # (2026-09-06 데굴님 테스트 대화). 명시 도메인어가 있으면 전환을 존중한다.
+            neutral_event = (
+                link.is_follow_up and not explicit_domains
+                and intent.event_key in _DOMAIN_NEUTRAL_EVENTS
+                and prev_domain is not Domain.GENERAL
+            )
+            if neutral_event:
+                intent.domain = prev_domain
+                intent.domains = []
             # 의도 연속성: 후속 턴이 새 사건·도메인을 들고 오지 않은 '시점·사실 보완'(예:
             # '7월 4일은 갑오월이야')이면 직전 질문의 query_type·event_key를 이어받아 같은
             # 주제(계약·이사 평가 등)를 계속 다룬다 — 막연한 하루 운세로 리셋되지 않게.
             if link.is_follow_up and prev is not None:
-                introduces_new = intent.event_key is not None or bool(_detect_domains(text))
+                introduces_new = (
+                    intent.event_key is not None and not neutral_event
+                ) or explicit_domains
                 weak = intent.query_type in (
                     QueryType.FORTUNE_OVERVIEW, QueryType.DOMAIN_ANALYSIS,
                 )
@@ -295,6 +357,14 @@ class ConversationEngine:
                     intent.query_type = QueryType.COMPARISON
             if resolution.correction:
                 intent.query_type = QueryType.FEEDBACK_CORRECTION
+
+        # 회고 스레드의 연도 없는 날짜('6월 17일이야')는 과거로 앵커링한다(2026-09-06 데굴님
+        # 테스트 대화: 7/4 이사 회고 뒤 '계약금 넣은 건 6월 17일'이 택일용 미래 편향으로 2027년이
+        # 되어 회고가 꺼지고 다음 턴까지 미래 서술로 흐른 결함). 파서는 스레드 방향을 모르므로
+        # 여기서 보정한다 — 명시 연도·미래 표지가 없고, 한 해 전 같은 날이 오늘 이전일 때만.
+        if link.is_follow_up and state.last_retro and not _FUTURE_DATE_MARK_RE.search(text):
+            for intent in parsed.intents:
+                intent.time_range = _retro_anchor_bare_date(intent.time_range, today)
 
         # 이번 턴 자체 시점 보유 여부 — 배제 재요청 해제(P2)·시점 출처 메타(P7)의 근거.
         # 승계로 덮어쓰기 전에 판정해야 한다.
@@ -347,6 +417,8 @@ class ConversationEngine:
             and not _READING_REQUEST_RE.search(text)
             and not _TIME_SEEKING_RE.search(text)
             and not _PLACE_SEEKING_RE.search(text)
+            # 직업 분야·적성 질문은 원국 축이라 직전 시점(예: '9월')을 잇지 않는다(2026-09-10).
+            and not any(getattr(i, "career_field", False) for i in parsed.intents)
             # P2 승계 가드 — 직전 시점이 배제 창과 겹치면 오염 승계를 차단한다(배제 기간은
             # 절대 target으로 승격 금지). 시점 미확정으로 두면 broad/재질문 경로가 처리.
             and not overlaps_exclusions(tr_year_span(last.time_range), exclusions)
@@ -445,9 +517,21 @@ class ConversationEngine:
 
     # ── T4.4 Subject Resolution (A0) ─────────────────────────────
 
-    def resolve_subjects(self, state: ConversationState, text: str) -> SubjectResolution:
-        """대상 확정 — intent보다 먼저. 모호하면 추측하지 않고 unresolved로 표시."""
+    def resolve_subjects(
+        self, state: ConversationState, text: str, today: date | None = None,
+    ) -> SubjectResolution:
+        """대상 확정 — intent보다 먼저. 모호하면 추측하지 않고 unresolved로 표시.
+
+        today는 즉석 출생일의 미래 날짜 배제에 쓴다(query_parser와 같은 규칙).
+        """
         correction = bool(_CORRECTION_RE.search(text))
+        # 육친 운('부모님 운·자녀운') — 미등록 관계어면 확인 질문 대신 본인 명식 육친 축으로
+        # 본다(2026-09-11 데굴님 지시: 등록 동반자가 있으면 그 대상, 없으면 본인 원국).
+        kin_axis = detect_kin_axis(text)
+        # 괄호 출생정보가 붙은 토큰('신랑(1975.04.04 시간모름)')은 미등록이어도 확인 대상이 아니다.
+        paren_tokens = {
+            m.group(1) for m in _PAREN_BIRTH_TOKEN_RE.finditer(text)
+        }
         time_unknown = bool(_TIME_UNKNOWN_RE.search(text))
 
         subjects: list[SubjectRef] = []
@@ -483,9 +567,16 @@ class ConversationEngine:
         resolved_ids = {s.companion_id for s in subjects if s.companion_id}
         ref_tokens = [m.group(1).replace(" ", "") for m in _STRONG_REF_RE.finditer(scan_text)]
         ref_tokens += [m.group(1).replace(" ", "") for m in _REL_REF_RE.finditer(scan_text)]
+        ref_tokens += [m.group(1) for m in _GENERIC_REF_RE.finditer(scan_text)]
+        kin_axis_self = False
         for tok in ref_tokens:
             key = normalize_token(tok)
             if _mention_excluded(norm_text, key):  # 미등록 + 제외 의사 — 확인 질문 대상 아님
+                continue
+            if any(pt.endswith(tok) for pt in paren_tokens):  # 괄호 출생정보 → 즉석 인물로 처리
+                continue
+            if kin_axis is not None and tok in _KIN_WORDS_SET:  # 미등록 육친 운 → 본인 원국
+                kin_axis_self = True
                 continue
             already = key in self._index and any(
                 ae.subject_id in resolved_ids for ae in self._index[key]
@@ -494,8 +585,9 @@ class ConversationEngine:
                 unresolved.append(tok)
 
         # A6/A7 — 인라인 생년월일 → 임시 인물(Entity Tracking 등록은 상태 갱신에서).
-        inline = _parse_inline_births(text)
+        inline = _parse_inline_births(text, today)
         subjects += inline
+        subjects, _ = attach_parenthetical_births(text, subjects, today)
 
         # F4 — 누적 참조: 이전 턴의 임시 인물을 집합으로 재호출.
         cumulative = _CUMULATIVE_RE.search(text)
@@ -515,13 +607,17 @@ class ConversationEngine:
         # 본인도 대상에 포함한다(2026-07-22 실로그: '우리가 주의할 점은?'+남편 첨부가 본인
         # 배제된 companion_only로 빠져 출생정보 확인 오류·남편 단독 풀이 오판). '우리 남편'
         # 소유격은 INCLUSIVE_WE_RE가 조사 필수라 매칭되지 않는다.
+        # 본인 포함 궁합 구문('내 사주와 더 잘 맞는 사람이 누구야')도 같은 취급(2026-09-11).
         if (
             subjects
-            and INCLUSIVE_WE_RE.search(text)
+            and (INCLUSIVE_WE_RE.search(text) or SELF_MATCH_RE.search(text))
             and not any(s.kind is SubjectKind.SELF for s in subjects)
         ):
             subjects.insert(0, SubjectRef(kind=SubjectKind.SELF, label="본인"))
 
+        if not subjects and not unresolved and kin_axis_self:
+            # 미등록 육친 운 — 직전 대상을 잇지 않고 본인 명식(육친 축)으로 확정.
+            subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
         if not subjects and not unresolved:
             # 직전 턴 subject 상속, 그것도 없으면 self (A0 4순위).
             inherited = state.active_subjects or [

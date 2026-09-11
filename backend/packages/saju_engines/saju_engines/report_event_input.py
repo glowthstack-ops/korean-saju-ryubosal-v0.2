@@ -21,7 +21,9 @@ from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_timing import derive_marriage_stage
 
 from . import sinsal_modifier_config as _sinsal_cfg
-from .context_reducer import event_ko, polarity_ko
+from .candidate_semantics import candidate_semantics, review_month_from_signals
+from .chart_interpretation import incoming_stage_note, incoming_ten_god_note
+from .context_reducer import _dominant_trigger, event_ko, polarity_ko
 from .ganji_calendar import relation_hits
 from .llm_event_serializer import score_band
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
@@ -146,9 +148,18 @@ def _sinsal_channel_note(
 
 
 def precise_candidate_clusters(
-    result: ManseV2Result, candidates: list[EventCandidate]
+    result: ManseV2Result, candidates: list[EventCandidate],
+    *,
+    fav_map: dict[str, str] | None = None,
+    rank_by_period: dict[str, tuple[int, bool, int]] | None = None,
 ) -> list[str]:
-    """후보를 시점 클러스터로 묶어 운간지·per-글자 십성·관계 분해·점수를 정밀 출력한다."""
+    """후보를 시점 클러스터로 묶어 운간지·per-글자 십성·관계 분해·점수를 정밀 출력한다.
+
+    2026-08-21 채팅 패리티: fav_map을 주면 시점별 결실 뉘앙스 마커(⚠계약·결실 불리/
+    ↗통관 순화/⚠길신 누설)와 후보별 검토월(공망 충발 한정)을 함께 표기하고,
+    rank_by_period를 주면 '기간 내 상대 N/M위'(절대 강도와 분리)를 병기한다.
+    판정·점수 불변 — 표기 전용.
+    """
     if result.pillars is None:
         return []
     lookup = _pillar_lookup(result)
@@ -171,17 +182,49 @@ def precise_candidate_clusters(
         rels = _relation_lines(p, _level(period), result)
         if rels:
             head += " · 관계: " + ", ".join(rels)
+        nuance_note = ""
+        if fav_map:
+            _cat, nuance_note, _rev = candidate_semantics(evs[0], p.ganji, fav_map)
+        if rank_by_period and period in rank_by_period:
+            _r, _tied, _n = rank_by_period[period]
+            head += (
+                f" · 기간 내 상대 {_r}/{_n}위{'(공동)' if _tied else ''}"
+                "(절대 강도와 별개 — 표현이 같아도 상대 비중은 이 순위)"
+            )
         lines.append(head)
+        # 표현 결(daily §23 이식, 2026-09-10) — 행동=운 천간 십성 유입, 흐름=12운성 유입.
+        # 문체 전용(점수·판정 무관) — 리포트에는 운의 성질이 문체로 가는 통로가 없었다.
+        tone = _tone_line(result, p.ganji, fav_map)
+        if tone:
+            lines.append(tone)
+        if nuance_note:
+            lines.append(f"  ⚠유불리: {nuance_note}")
         note = _sinsal_channel_note(result, period, p.ganji, evs)
         if note:
             lines.append(f"  {note}")
         for c in evs:
+            review = (
+                " · 검토월(공망 충발 — 계약 유지력 낮음, 조사·조건 확인까지)"
+                if fav_map and review_month_from_signals(list(c.signals)) else ""
+            )
             lines.append(
                 f"  - {event_display_ko(str(c.event_key), c.quality, c.timing)}: "
                 f"신호 강도 {c.score} · "
-                f"신뢰도 {confidence_ko(c.confidence)} · {_dir(c)}{_marriage_stage_note(c)}"
+                f"신뢰도 {confidence_ko(c.confidence)} · {_dir(c)}"
+                f"{review}{_marriage_stage_note(c)}"
             )
     return lines
+
+
+def _tone_line(result: ManseV2Result, ganji: str, fav_map: dict[str, str] | None) -> str:
+    """기간 헤더 아래 '운 결' 1줄 — 행동(십성 유입)·흐름(12운성 유입) 결. 없으면 빈 문자열."""
+    day_master = result.pillars.day_master if result.pillars else ""
+    if not day_master or len(ganji) != 2:
+        return ""
+    action = incoming_ten_god_note(day_master, ganji, fav_map or {})
+    flow = incoming_stage_note(day_master, ganji)
+    parts = [x for x in (f"행동={action}" if action else "", f"흐름={flow}" if flow else "") if x]
+    return "  운 결(문체 전용): " + " / ".join(parts) if parts else ""
 
 
 def _adjacent_period(a: str, b: str) -> bool:
@@ -194,7 +237,7 @@ def _adjacent_period(a: str, b: str) -> bool:
 
 
 def select_table_candidates(
-    pool: list[EventCandidate], cap: int = 12
+    pool: list[EventCandidate], cap: int = 12, fanout_cap: int | None = 2
 ) -> list[EventCandidate]:
     """부록 점수표 후보 계층 선별(P3, 2026-07-22 데굴님 확정) — 점수순 Top-N 편향 교정.
 
@@ -202,6 +245,10 @@ def select_table_candidates(
     ②결과 방향(긍정/부정/지연/중립)별 대표 후보를 존재하는 방향만 우선 확보 — 고정 긍정
     쿼터 금지(억지 낙관 편향 차단, 실제 후보가 있을 때만 노출) ③잔여는 점수순 충원.
     판정·점수 불변 — 표에 실을 후보의 '선별'만 바꾼다.
+
+    fanout_cap(2026-09-10 사용자 승인 — daily 클론 감사 이식): ④같은 (시기, 지배 신호)에서
+    갈라진 사건은 상한(기본 2)까지만 — cap 의 3배로 뽑은 뒤 캡을 적용하고 cap 으로 자른다
+    (재충원). 40명식 shadow: 클론 쌍 9.03→5.17/명식, 시기당 최대 행 3.77→2.00, 시기 6.47→6.83.
     """
     ranked = sorted(pool, key=lambda c: -c.score)
     deduped: list[EventCandidate] = []
@@ -220,11 +267,22 @@ def select_table_candidates(
         if d not in seen_dir:
             seen_dir.add(d)
             picked.append(c)
+    budget = cap * 3 if fanout_cap else cap
     for c in deduped:
-        if len(picked) >= cap:
+        if len(picked) >= budget:
             break
         if c not in picked:
             picked.append(c)
+    if fanout_cap:
+        kept: list[EventCandidate] = []
+        seen: dict[tuple[str, str], int] = {}
+        for c in picked:
+            key = (str(c.period), _dominant_trigger(c))
+            if seen.get(key, 0) >= fanout_cap:
+                continue
+            seen[key] = seen.get(key, 0) + 1
+            kept.append(c)
+        picked = kept
     return sorted(picked[:cap], key=lambda c: (str(c.period), -c.score))
 
 
@@ -236,6 +294,11 @@ def score_table_lines(
     2026-07-22 데굴님 확정(P2): '점수'는 길흉이 아니라 발동 강도이므로 '신호 강도'로
     표기하고, 사건명은 결과 방향 인지 라벨(event_display_ko — '횡재+손실' 모순 차단)로
     치환한다. 판정·점수 값 자체는 불변(표기 전용).
+
+    이 표 블록은 순수 데이터 행만 담는다(2026-08-14 누출 수정) — 부록 섹션이 표를
+    verbatim 복사하도록 지시받으므로, 표에 끼운 평문 캡션·지시문은 사용자 본문에
+    그대로 노출되고 마크다운 표 렌더링도 깨뜨린다. '신호 강도=발동 강도' 안내는
+    섹션 가이드(_SCORE_TABLE_GUIDE)가 LLM 자기 문장 서술로 맡는다.
     """
     if result.pillars is None:
         return []
@@ -243,8 +306,6 @@ def score_table_lines(
     out = [
         "| 시점 | 운간지 | 사건 | 신호 강도 | 신뢰도 | 예상 방향 | 십성·관계 근거 |",
         "|---|---|---|---|---|---|---|",
-        "(신호 강도는 좋고 나쁨이 아니라 그 주제가 얼마나 강하게 발동하는가다 — "
-        "강도가 높고 방향이 부정이면 '강하게 부정 쪽으로 변동'을 뜻한다)",
     ]
     for c in sorted(candidates, key=lambda x: (x.period, -x.score)):
         p = lookup.get(c.period)
@@ -257,13 +318,14 @@ def score_table_lines(
             # 기여 일치(P0 감사, 2026-07-22): 그 시기의 관계 적중은 기간 공통 데이터라,
             # 이 후보 점수에 관계 신호가 실제 기여('관계 발동')했을 때만 점수 근거로
             # 제시한다. 아니면 '시기 참고'로 구분 — 무관 관계가 점수 근거처럼 보이는
-            # 착시 차단(관계별 delta 구조화는 후속 과제).
+            # 착시 차단(관계별 delta 구조화는 후속 과제). 이 마커는 표 셀에 실려
+            # 사용자에게 그대로 보이므로 대괄호 없는 읽기용 표현을 쓴다(2026-08-14).
             rel_contributed = any(
                 s.name == "관계 발동" or s.type in ("relation", "hap", "clash")
                 for s in c.signals
             )
             if rels and not rel_contributed:
-                rels = f"[시기 참고 — 이 후보 점수의 직접 근거 아님] {rels}"
+                rels = f"(시기 참고 — 점수의 직접 근거 아님) {rels}"
             evidence = tengods + (" · " + rels if rels else "")
         else:
             evidence = "—"
@@ -276,7 +338,7 @@ def score_table_lines(
 
 def month_overview_lines(
     result: ManseV2Result, scored: list[EventCandidate], domain: str | None = None,
-    *, notable_only: bool = False,
+    *, notable_only: bool = False, months_filter: set[str] | None = None,
 ) -> list[str]:
     """이 해 12개월 전체를 한 줄씩 — 월 간지·운 품질 등급·우세 도메인·강도밴드·길흉·대표 신호.
 
@@ -295,17 +357,26 @@ def month_overview_lines(
     lc = result.luck_cycles
     if lc is None or not lc.monthly_luck:
         return []
+    # months_filter(YYYY-MM 라벨 집합) — 분할 페이지(한해 상·하반기, 테마 연도별 상세,
+    # 2026-08-13)가 자기 구간의 달만 받도록 한다. None=전체(기존 동작 불변).
+    pool_months = (
+        lc.monthly_luck
+        if months_filter is None
+        else [p for p in lc.monthly_luck if p.label in months_filter]
+    )
+    if not pool_months:
+        return []
     by_period: dict[str, list[EventCandidate]] = {}
     for c in scored:
         if domain is not None and _DOMAIN_BY_KEY.get(str(c.event_key)) != domain:
             continue  # 테마 섹션 — 대표 사건을 주제 도메인으로 한정(운 품질 등급은 항상 표기).
         by_period.setdefault(c.period, []).append(c)
     # 연도별로 묶어 각 해의 12개월을 빠짐없이 출력한다(다년 예측 — ★주목은 연도 내 상대 기준).
-    years = sorted({p.label[:4] for p in lc.monthly_luck})
+    years = sorted({p.label[:4] for p in pool_months})
     multi = len(years) > 1
     lines: list[str] = []
     for yr in years:
-        months = [p for p in lc.monthly_luck if p.label[:4] == yr]
+        months = [p for p in pool_months if p.label[:4] == yr]
         rep: dict[str, EventCandidate | None] = {}
         month_score: dict[str, int] = {}
         for p in months:

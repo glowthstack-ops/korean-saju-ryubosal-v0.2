@@ -172,9 +172,34 @@ EVENT_PROCESS_ROLE: dict[EventKeyV2, str] = {
     EventKeyV2.RELOCATION: "movement",
 }
 
-#: 로드맵 단계. 기존 SSOT 가 부여한 값만 담는다 — 현재 확정 매핑이 없어 비어 있다.
-#: 비워 두는 것이 계약이다. 세 관계 키를 6단계에 강제 배분하지 않는다.
-EVENT_STAGE_TAGS: dict[EventKeyV2, tuple[str, ...]] = {}
+#: 로드맵 단계. 기존 SSOT 가 부여한 값만 담는다 — 이름만 보고 추론하지 않는다.
+#:
+#: 상담 결론 의미론 P2-1(2026-08-21 승인): 값 어휘는 StageScope 5단계
+#: (opportunity/process/decision/realization/outcome — saju_shared_types.counseling).
+#: 각 항목의 출처 SSOT 를 주석으로 남긴다. 출처가 없는 키는 계속 비워 둔다(fail-closed).
+#: 신규 명리 판정이 아니라 기존 SSOT 값의 재라벨링이며, 불변식(점수·길흉·성사 불관여)은
+#: 그대로다. PROCESS/RETENTION 을 새로 만드는 매핑은 명리 감수 전이므로 넣지 않는다.
+EVENT_STAGE_TAGS: dict[EventKeyV2, tuple[str, ...]] = {
+    # 커리어 — career_effect_adapter.SIGNAL_AXIS_MAP(7축) + 선발 코어 접힘.
+    EventKeyV2.JOB_GAIN: ("opportunity", "process", "realization"),
+    #   ↑ SELECTION_PROGRESS(과정)+ENTRY_REALIZATION(실행)+선발 OPPORTUNITY_OPEN(기회)
+    EventKeyV2.CAREER_CHANGE: ("opportunity",),        # OPPORTUNITY_ACTIVATION 축
+    EventKeyV2.PROMOTION: ("decision", "outcome"),     # AGREEMENT_QUALITY+STABILIZATION 축
+    EventKeyV2.CONTRACT_DOCUMENT: ("decision",),       # AGREEMENT_QUALITY 축(instant 사건)
+    EventKeyV2.BUSINESS_START: ("opportunity",),       # OPPORTUNITY_ACTIVATION 축
+    EventKeyV2.BUSINESS_EXPANSION: ("realization",),   # EVENT_PROCESS_ROLE=expansion
+    # 선발·배치 — selection_allocation.SelectionStage 9단계의 5단계 접힘(승인 설계 §1-7).
+    EventKeyV2.EDUCATION_ADMISSION: ("opportunity", "process", "decision"),
+    # 관계 — MarriageStage/RelationshipStage. marker 게이트 미구현 상한(①②)을 그대로
+    # 존중한다 — decision 이상은 marker 구현 전까지 부여하지 않는다.
+    EventKeyV2.NEW_RELATIONSHIP: ("opportunity",),
+    EventKeyV2.MARRIAGE_SIGNAL: ("opportunity", "process"),
+    # 범용 — EVENT_PROCESS_ROLE 의 realization 계열 role 접힘(승인 설계 §4-1 표).
+    EventKeyV2.RELOCATION: ("realization",),           # movement
+    EventKeyV2.CREATIVE_OUTPUT: ("realization",),      # production
+    EventKeyV2.PUBLIC_EXPOSURE: ("realization",),      # exposure
+    EventKeyV2.WINDFALL: ("realization",),             # unexpected_gain
+}
 
 
 #: 문자열 키 조회용 미러(EventKeyV2 는 StrEnum 이지만 타입 검사를 위해 분리).
@@ -269,7 +294,12 @@ EVENT_WORDS: dict[EventKeyV2, list[str]] = {
     EventKeyV2.RELOCATION: ["이사", "이동수", "여행", "해외 이동"],
     EventKeyV2.LEGAL_CONFLICT: ["소송", "고소", "법적"],
     EventKeyV2.HEALTH_ATTENTION: ["건강", "수술", "병원"],
-    EventKeyV2.SOCIAL_CONFLICT: ["갈등", "다툼", "구설"],
+    # 구설·평판 어휘 확장(2026-08-11): '논란이 생겨서 이미지가 나빠졌는데 앞으로
+    # 어떻게 될까?' 류 평판 사건 서술이 어휘 미탐지로 too_broad에 빠졌다. '구설'이
+    # '구설수'를 부분문자열로 포괄하듯 아래도 표면형 그대로 매칭된다. '소문'은
+    # 긍정 문맥('좋은 소문')과 구분이 안 돼 제외.
+    EventKeyV2.SOCIAL_CONFLICT: ["갈등", "다툼", "구설", "논란", "스캔들", "루머",
+                                 "악플", "뒷말", "입방아"],
     EventKeyV2.CREATIVE_OUTPUT: ["작품", "프로젝트", "성과물"],
     EventKeyV2.PUBLIC_EXPOSURE: ["오디션", "대회", "경연", "선거", "공개 발표"],
 }
@@ -431,7 +461,7 @@ TEMPORAL_KO: dict[TemporalMode, str] = {
     TemporalMode.IMMEDIATE: "즉시",
 }
 PALACE_KO: dict[Pillar4, str] = {
-    Pillar4.YEAR: "년주(가족·배경)",
+    Pillar4.YEAR: "연주(가족·배경)",
     Pillar4.MONTH: "월주(직업·사회)",
     Pillar4.DAY: "일주(배우자·거처)",
     Pillar4.HOUR: "시주(자녀·결과)",

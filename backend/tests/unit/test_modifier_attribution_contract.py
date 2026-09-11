@@ -37,7 +37,8 @@ def test_relation_activations_use_target_layer_only() -> None:
     """
     src = _src(event_engine_v2)
     assert "layer = target_layer" in src
-    assert "_activations(hits, layer)" in src
+    # result 인자는 피자극 대상 십성 provenance용(2026-08-10) — 층위 계약과 무관.
+    assert "_activations(hits, layer, result)" in src
     # hits 자체가 target 기둥 기준이다.
     assert "self._relation_hits(result, level, target)" in src
 

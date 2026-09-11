@@ -153,7 +153,7 @@ export async function clearCalibration(): Promise<void> {
 // 만세력 결과 페이지의 토글 상태를 간지달력(일운) 등 다른 라우트와 공유하는 용도.
 const EOT_KEY = "ryubosal:applyEquationOfTime";
 
-/** 균시차 사용 여부를 저장한다(기본값 true와 무관하게 명시 저장). */
+/** 균시차 사용 여부를 저장한다(기본값 false와 무관하게 명시 저장). */
 export function saveEotPreference(value: boolean): void {
   try {
     localStorage.setItem(EOT_KEY, value ? "1" : "0");
@@ -162,12 +162,12 @@ export function saveEotPreference(value: boolean): void {
   }
 }
 
-/** 저장된 균시차 사용 여부를 읽는다. 미저장/접근 불가 시 기본값 true. */
+/** 저장된 균시차 사용 여부를 읽는다. 미저장/접근 불가 시 기본값 false(미적용). */
 export function loadEotPreference(): boolean {
   try {
-    return localStorage.getItem(EOT_KEY) !== "0";
+    return localStorage.getItem(EOT_KEY) === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 

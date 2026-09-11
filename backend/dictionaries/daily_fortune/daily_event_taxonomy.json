@@ -1,6 +1,6 @@
 {
   "schema": "daily_event_taxonomy.v1",
-  "version": "taxonomy.v1",
+  "version": "taxonomy.v2",
   "audit_id": "OA-9b",
   "runtime_status": "INERT",
   "review_status": "PENDING",
@@ -12,7 +12,9 @@
       "재성": "편재·정재 — 재물·거래·자원이라는 주제",
       "관성": "편관·정관 — 규율·압박·인정",
       "인성": "편인·정인 — 수용·문서·보호",
-      "충형파해": "지지 충·형·파·해 — 구조적 충돌·마찰"
+      "충형파해": "지지 충·형·파·해 — 구조적 충돌·마찰",
+      "합회": "육합·삼합 — 결속·성사·연결(§22-7 추가)",
+      "운성": "12운성 기능 채널(활동↑·과속·체력↓·둔화·이탈·수렴·재생 + 잔여 흔들림·단장·노련·구상 §22-8) — 페이스·신체 상태·감정 동요·준비(§22-7 추가, §22-8 확장)"
     },
     "manifestation_condition": {
       "favorable_only": "우호 근거만으로 성립한다(주제 활성 = 발현).",
@@ -45,7 +47,10 @@
       "semantic_group": "money_opportunity",
       "semantic_family": "small_benefit",
       "primary_evidence_family": "재성",
-      "subject_evidence": ["재성", "식상"],
+      "subject_evidence": [
+        "재성",
+        "식상"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -59,7 +64,10 @@
       "semantic_group": "money_opportunity",
       "semantic_family": "favorable_transaction",
       "primary_evidence_family": "재성",
-      "subject_evidence": ["재성", "식상"],
+      "subject_evidence": [
+        "재성",
+        "식상"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -73,8 +81,15 @@
       "semantic_group": "money_caution",
       "semantic_family": "overspending",
       "primary_evidence_family": "비겁",
-      "subject_evidence": ["재성"],
-      "adverse_evidence": ["비겁", "식상", "충형파해"],
+      "subject_evidence": [
+        "재성"
+      ],
+      "adverse_evidence": [
+        "비겁",
+        "식상",
+        "충형파해",
+        "운성"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": true,
@@ -87,8 +102,13 @@
       "semantic_group": "money_caution",
       "semantic_family": "lending_or_collection",
       "primary_evidence_family": "비겁",
-      "subject_evidence": ["재성"],
-      "adverse_evidence": ["비겁", "충형파해"],
+      "subject_evidence": [
+        "재성"
+      ],
+      "adverse_evidence": [
+        "비겁",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": true,
@@ -101,8 +121,13 @@
       "semantic_group": "money_caution",
       "semantic_family": "loss_or_leakage",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["재성"],
-      "adverse_evidence": ["비겁", "충형파해"],
+      "subject_evidence": [
+        "재성"
+      ],
+      "adverse_evidence": [
+        "비겁",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -115,8 +140,14 @@
       "semantic_group": "money_caution",
       "semantic_family": "loss_or_leakage",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["재성"],
-      "adverse_evidence": ["비겁", "인성", "충형파해"],
+      "subject_evidence": [
+        "재성"
+      ],
+      "adverse_evidence": [
+        "비겁",
+        "인성",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -129,8 +160,14 @@
       "semantic_group": "money_caution",
       "semantic_family": "loss_or_leakage",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["재성"],
-      "adverse_evidence": ["비겁", "관성", "충형파해"],
+      "subject_evidence": [
+        "재성"
+      ],
+      "adverse_evidence": [
+        "비겁",
+        "관성",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -143,7 +180,11 @@
       "semantic_group": "social_favor",
       "semantic_family": "resource_received",
       "primary_evidence_family": "인성",
-      "subject_evidence": ["인성", "재성", "식상"],
+      "subject_evidence": [
+        "인성",
+        "재성",
+        "식상"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -157,7 +198,11 @@
       "semantic_group": "social_favor",
       "semantic_family": "support_person",
       "primary_evidence_family": "인성",
-      "subject_evidence": ["인성", "관성", "비겁"],
+      "subject_evidence": [
+        "인성",
+        "관성",
+        "비겁"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -171,7 +216,11 @@
       "semantic_group": "social_gathering",
       "semantic_family": "enjoyable_meeting",
       "primary_evidence_family": "식상",
-      "subject_evidence": ["식상", "비겁", "재성"],
+      "subject_evidence": [
+        "식상",
+        "비겁",
+        "재성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -185,7 +234,11 @@
       "semantic_group": "social_gathering",
       "semantic_family": "close_conversation",
       "primary_evidence_family": "인성",
-      "subject_evidence": ["인성", "비겁", "식상"],
+      "subject_evidence": [
+        "인성",
+        "비겁",
+        "식상"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -199,8 +252,15 @@
       "semantic_group": "social_friction",
       "semantic_family": "verbal_conflict",
       "primary_evidence_family": "식상",
-      "subject_evidence": ["식상"],
-      "adverse_evidence": ["식상", "관성", "비겁", "충형파해"],
+      "subject_evidence": [
+        "식상"
+      ],
+      "adverse_evidence": [
+        "식상",
+        "관성",
+        "비겁",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -213,8 +273,15 @@
       "semantic_group": "social_friction",
       "semantic_family": "reputation_talk",
       "primary_evidence_family": "식상",
-      "subject_evidence": ["식상"],
-      "adverse_evidence": ["식상", "비겁", "관성", "충형파해"],
+      "subject_evidence": [
+        "식상"
+      ],
+      "adverse_evidence": [
+        "식상",
+        "비겁",
+        "관성",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -227,7 +294,11 @@
       "semantic_group": "news_incoming",
       "semantic_family": "renewed_contact",
       "primary_evidence_family": "비겁",
-      "subject_evidence": ["비겁", "인성", "식상"],
+      "subject_evidence": [
+        "비겁",
+        "인성",
+        "식상"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -241,7 +312,11 @@
       "semantic_group": "news_incoming",
       "semantic_family": "awaited_news",
       "primary_evidence_family": "인성",
-      "subject_evidence": ["인성", "식상", "관성"],
+      "subject_evidence": [
+        "인성",
+        "식상",
+        "관성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -255,8 +330,16 @@
       "semantic_group": "news_friction",
       "semantic_family": "miscommunication",
       "primary_evidence_family": "인성",
-      "subject_evidence": ["식상"],
-      "adverse_evidence": ["인성", "식상", "관성", "충형파해"],
+      "subject_evidence": [
+        "식상"
+      ],
+      "adverse_evidence": [
+        "인성",
+        "식상",
+        "관성",
+        "충형파해",
+        "운성"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -269,7 +352,12 @@
       "semantic_group": "work_recognition",
       "semantic_family": "acknowledgement",
       "primary_evidence_family": "관성",
-      "subject_evidence": ["관성", "인성", "식상"],
+      "subject_evidence": [
+        "관성",
+        "인성",
+        "식상",
+        "운성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -283,7 +371,12 @@
       "semantic_group": "work_collaboration",
       "semantic_family": "cooperation",
       "primary_evidence_family": "비겁",
-      "subject_evidence": ["비겁", "관성", "인성", "식상"],
+      "subject_evidence": [
+        "비겁",
+        "관성",
+        "인성",
+        "식상"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -297,7 +390,10 @@
       "semantic_group": "work_creation",
       "semantic_family": "idea",
       "primary_evidence_family": "식상",
-      "subject_evidence": ["식상", "인성"],
+      "subject_evidence": [
+        "식상",
+        "인성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -311,7 +407,11 @@
       "semantic_group": "work_execution",
       "semantic_family": "concentration",
       "primary_evidence_family": "인성",
-      "subject_evidence": ["인성", "식상"],
+      "subject_evidence": [
+        "인성",
+        "식상",
+        "운성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -325,7 +425,11 @@
       "semantic_group": "love_attraction",
       "semantic_family": "spark",
       "primary_evidence_family": "식상",
-      "subject_evidence": ["식상", "재성", "관성"],
+      "subject_evidence": [
+        "식상",
+        "재성",
+        "관성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -339,7 +443,11 @@
       "semantic_group": "love_bonding",
       "semantic_family": "deepening",
       "primary_evidence_family": "재성",
-      "subject_evidence": ["재성", "관성", "식상"],
+      "subject_evidence": [
+        "재성",
+        "관성",
+        "식상"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -353,7 +461,11 @@
       "semantic_group": "love_attraction",
       "semantic_family": "renewed_contact",
       "primary_evidence_family": "재성",
-      "subject_evidence": ["재성", "식상", "관성"],
+      "subject_evidence": [
+        "재성",
+        "식상",
+        "관성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "mixed_trigger",
       "headline_role": "full",
@@ -367,8 +479,15 @@
       "semantic_group": "love_friction",
       "semantic_family": "cooling",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["재성", "관성"],
-      "adverse_evidence": ["인성", "비겁", "충형파해"],
+      "subject_evidence": [
+        "재성",
+        "관성"
+      ],
+      "adverse_evidence": [
+        "인성",
+        "비겁",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -381,8 +500,16 @@
       "semantic_group": "love_friction",
       "semantic_family": "miscommunication",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["식상"],
-      "adverse_evidence": ["식상", "비겁", "관성", "충형파해"],
+      "subject_evidence": [
+        "식상"
+      ],
+      "adverse_evidence": [
+        "식상",
+        "비겁",
+        "관성",
+        "충형파해",
+        "운성"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -395,7 +522,11 @@
       "semantic_group": "document_flow",
       "semantic_family": "smooth_process",
       "primary_evidence_family": "인성",
-      "subject_evidence": ["인성", "관성"],
+      "subject_evidence": [
+        "인성",
+        "관성",
+        "운성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
       "headline_role": "full",
@@ -409,8 +540,15 @@
       "semantic_group": "document_caution",
       "semantic_family": "recheck",
       "primary_evidence_family": "인성",
-      "subject_evidence": ["인성"],
-      "adverse_evidence": ["인성", "식상", "비겁", "충형파해"],
+      "subject_evidence": [
+        "인성"
+      ],
+      "adverse_evidence": [
+        "인성",
+        "식상",
+        "비겁",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -423,8 +561,14 @@
       "semantic_group": "document_caution",
       "semantic_family": "third_party_request",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["재성", "인성"],
-      "adverse_evidence": ["비겁", "충형파해"],
+      "subject_evidence": [
+        "재성",
+        "인성"
+      ],
+      "adverse_evidence": [
+        "비겁",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": true,
@@ -437,8 +581,13 @@
       "semantic_group": "document_caution",
       "semantic_family": "third_party_request",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["재성"],
-      "adverse_evidence": ["비겁", "충형파해"],
+      "subject_evidence": [
+        "재성"
+      ],
+      "adverse_evidence": [
+        "비겁",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": true,
@@ -451,8 +600,14 @@
       "semantic_group": "document_caution",
       "semantic_family": "fine_print",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["재성", "인성"],
-      "adverse_evidence": ["인성", "충형파해"],
+      "subject_evidence": [
+        "재성",
+        "인성"
+      ],
+      "adverse_evidence": [
+        "인성",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": true,
@@ -465,8 +620,14 @@
       "semantic_group": "document_caution",
       "semantic_family": "scope_confusion",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["인성"],
-      "adverse_evidence": ["인성", "식상", "충형파해"],
+      "subject_evidence": [
+        "인성"
+      ],
+      "adverse_evidence": [
+        "인성",
+        "식상",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -479,8 +640,14 @@
       "semantic_group": "document_caution",
       "semantic_family": "loss_or_leakage",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["인성"],
-      "adverse_evidence": ["비겁", "인성", "충형파해"],
+      "subject_evidence": [
+        "인성"
+      ],
+      "adverse_evidence": [
+        "비겁",
+        "인성",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -493,8 +660,15 @@
       "semantic_group": "health_caution",
       "semantic_family": "energy_drain",
       "primary_evidence_family": "관성",
-      "subject_evidence": ["관성"],
-      "adverse_evidence": ["관성", "인성", "식상", "충형파해"],
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "인성",
+        "식상",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -507,8 +681,16 @@
       "semantic_group": "health_caution",
       "semantic_family": "minor_injury",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["관성"],
-      "adverse_evidence": ["관성", "식상", "비겁", "충형파해"],
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "식상",
+        "비겁",
+        "충형파해",
+        "운성"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -521,8 +703,14 @@
       "semantic_group": "health_caution",
       "semantic_family": "minor_injury",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["관성"],
-      "adverse_evidence": ["관성", "비겁", "충형파해"],
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "비겁",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -535,8 +723,14 @@
       "semantic_group": "health_caution",
       "semantic_family": "minor_injury",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["관성"],
-      "adverse_evidence": ["관성", "식상", "충형파해"],
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "식상",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -549,8 +743,14 @@
       "semantic_group": "health_caution",
       "semantic_family": "overexertion",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["비겁"],
-      "adverse_evidence": ["비겁", "식상", "충형파해"],
+      "subject_evidence": [
+        "비겁"
+      ],
+      "adverse_evidence": [
+        "비겁",
+        "식상",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -563,8 +763,14 @@
       "semantic_group": "health_caution",
       "semantic_family": "overexertion",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["관성"],
-      "adverse_evidence": ["관성", "식상", "충형파해"],
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "식상",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -577,8 +783,14 @@
       "semantic_group": "health_caution",
       "semantic_family": "rest_deficit",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["인성"],
-      "adverse_evidence": ["인성", "식상", "충형파해"],
+      "subject_evidence": [
+        "인성"
+      ],
+      "adverse_evidence": [
+        "인성",
+        "식상",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -591,8 +803,14 @@
       "semantic_group": "health_caution",
       "semantic_family": "body_rhythm",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["관성"],
-      "adverse_evidence": ["관성", "인성", "충형파해"],
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "인성",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -605,8 +823,14 @@
       "semantic_group": "health_caution",
       "semantic_family": "home_hazard",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["관성"],
-      "adverse_evidence": ["관성", "식상", "충형파해"],
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "식상",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -619,7 +843,12 @@
       "semantic_group": "health_care",
       "semantic_family": "rest",
       "primary_evidence_family": "인성",
-      "subject_evidence": ["인성", "식상", "관성"],
+      "subject_evidence": [
+        "인성",
+        "식상",
+        "관성",
+        "운성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "mixed_trigger",
       "headline_role": "full",
@@ -633,7 +862,10 @@
       "semantic_group": "leisure_refresh",
       "semantic_family": "walk",
       "primary_evidence_family": "식상",
-      "subject_evidence": ["식상", "인성"],
+      "subject_evidence": [
+        "식상",
+        "인성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "mixed_trigger",
       "headline_role": "full",
@@ -647,7 +879,12 @@
       "semantic_group": "leisure_order",
       "semantic_family": "tidying",
       "primary_evidence_family": "인성",
-      "subject_evidence": ["인성", "재성", "관성"],
+      "subject_evidence": [
+        "인성",
+        "재성",
+        "관성",
+        "운성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "mixed_trigger",
       "headline_role": "full",
@@ -661,7 +898,11 @@
       "semantic_group": "leisure_serendipity",
       "semantic_family": "chance_find",
       "primary_evidence_family": "재성",
-      "subject_evidence": ["재성", "식상", "인성"],
+      "subject_evidence": [
+        "재성",
+        "식상",
+        "인성"
+      ],
       "adverse_evidence": [],
       "manifestation_condition": "mixed_trigger",
       "headline_role": "support_only",
@@ -675,8 +916,15 @@
       "semantic_group": "move_caution",
       "semantic_family": "loss_or_leakage",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["비겁"],
-      "adverse_evidence": ["인성", "비겁", "식상", "충형파해"],
+      "subject_evidence": [
+        "비겁"
+      ],
+      "adverse_evidence": [
+        "인성",
+        "비겁",
+        "식상",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -689,8 +937,15 @@
       "semantic_group": "move_caution",
       "semantic_family": "schedule_disruption",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["관성"],
-      "adverse_evidence": ["관성", "비겁", "식상", "충형파해"],
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "비겁",
+        "식상",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -703,8 +958,14 @@
       "semantic_group": "move_caution",
       "semantic_family": "schedule_disruption",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["관성"],
-      "adverse_evidence": ["관성", "비겁", "충형파해"],
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "비겁",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
@@ -717,13 +978,309 @@
       "semantic_group": "move_caution",
       "semantic_family": "weather_hazard",
       "primary_evidence_family": "충형파해",
-      "subject_evidence": ["관성"],
-      "adverse_evidence": ["관성", "비겁", "충형파해"],
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "비겁",
+        "충형파해"
+      ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
       "g0_candidate": false,
       "g0_rollout_scope": "not_applicable",
       "note": ""
+    },
+    "work_smooth": {
+      "domain": "work",
+      "polarity": "good",
+      "semantic_group": "work_execution",
+      "semantic_family": "smooth_flow",
+      "primary_evidence_family": "운성",
+      "subject_evidence": [
+        "운성",
+        "재성",
+        "관성",
+        "인성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "활동↑(관대·건록·제왕)가 출전권 — 12운성이 good 슬롯에 관여하는 첫 사건."
+    },
+    "opinion_accepted": {
+      "domain": "work",
+      "polarity": "good",
+      "semantic_group": "work_recognition",
+      "semantic_family": "proposal_accepted",
+      "primary_evidence_family": "식상",
+      "subject_evidence": [
+        "식상",
+        "관성",
+        "합회",
+        "운성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "식상(표현) ∧ 관성/육합(수용). praise_recognition(관·인)과 기제가 다르다."
+    },
+    "smooth_trip": {
+      "domain": "move",
+      "polarity": "good",
+      "semantic_group": "move_flow",
+      "semantic_family": "smooth_movement",
+      "primary_evidence_family": "운성",
+      "subject_evidence": [
+        "운성",
+        "합회",
+        "인성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "move 도메인 첫 길 사건(OA-9b findings.move_has_no_good_event 해소)."
+    },
+    "errand_done": {
+      "domain": "move",
+      "polarity": "good",
+      "semantic_group": "move_flow",
+      "semantic_family": "errands",
+      "primary_evidence_family": "재성",
+      "subject_evidence": [
+        "재성",
+        "운성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "아극(처리량) ∧ 활동↑/수렴. support 본문 + 헤드라인 자격."
+    },
+    "body_light": {
+      "domain": "health",
+      "polarity": "good",
+      "semantic_group": "health_care",
+      "semantic_family": "vitality",
+      "primary_evidence_family": "운성",
+      "subject_evidence": [
+        "운성",
+        "인성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "rest_recharge 외 health 두 번째 good. fatigue 와 극성 반대 짝(recovery_group)."
+    },
+    "appetite_joy": {
+      "domain": "health",
+      "polarity": "good",
+      "semantic_group": "health_care",
+      "semantic_family": "appetite",
+      "primary_evidence_family": "식상",
+      "subject_evidence": [
+        "식상",
+        "인성",
+        "합회"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "식신 신체 물상. 편인(倒食) 음수로 digestive_rhythm 과 분리."
+    },
+    "answer_arrives": {
+      "domain": "news",
+      "polarity": "good",
+      "semantic_group": "news_incoming",
+      "semantic_family": "awaited_decision",
+      "primary_evidence_family": "관성",
+      "subject_evidence": [
+        "관성",
+        "합회"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "mixed_trigger",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "충 .3 양의 방아쇠(보류가 움직인다). good_news_arrives(인·생아)와 분리."
+    },
+    "unexpected_offer": {
+      "domain": "news",
+      "polarity": "good",
+      "semantic_group": "news_incoming",
+      "semantic_family": "unexpected_proposal",
+      "primary_evidence_family": "재성",
+      "subject_evidence": [
+        "재성",
+        "관성",
+        "합회"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "mixed_trigger",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "편재/편관 ∧ 충/삼합 — 변동이 계기가 되는 장면(docs/17 §7 '예상 밖 제안')."
+    },
+    "learning_click": {
+      "domain": "document",
+      "polarity": "good",
+      "semantic_group": "document_flow",
+      "semantic_family": "learning",
+      "primary_evidence_family": "인성",
+      "subject_evidence": [
+        "인성",
+        "운성",
+        "합회"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "document 두 번째 good. 인성=문서·학습(2026-09-10 사용자 승인)."
+    },
+    "forgotten_money": {
+      "domain": "money",
+      "polarity": "good",
+      "semantic_group": "money_opportunity",
+      "semantic_family": "recovered_asset",
+      "primary_evidence_family": "재성",
+      "subject_evidence": [
+        "재성",
+        "운성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "mixed_trigger",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "재성 ∧ 수렴(묘=창고)/파. 파 .3 양의 방아쇠. small_find 와 discovery_group."
+    },
+    "give_care": {
+      "domain": "social",
+      "polarity": "good",
+      "semantic_group": "social_favor",
+      "semantic_family": "giving",
+      "primary_evidence_family": "식상",
+      "subject_evidence": [
+        "식상",
+        "인성",
+        "합회"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "아생(발산·베풂) ∧ 식신 — treat_received(생아·받음)의 방향 반대 짝."
+    },
+    "emotion_rush_caution": {
+      "domain": "social",
+      "polarity": "caution",
+      "semantic_group": "social_friction",
+      "semantic_family": "emotional_outburst",
+      "primary_evidence_family": "운성",
+      "subject_evidence": [
+        "식상",
+        "비겁"
+      ],
+      "adverse_evidence": [
+        "운성",
+        "충형파해"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "과속(제왕+비화) ∧ 식상 — 충 없이 성립. argument 와 speech_trouble 그룹."
+    },
+    "overconfidence_caution": {
+      "domain": "work",
+      "polarity": "caution",
+      "semantic_group": "work_caution",
+      "semantic_family": "overconfidence",
+      "primary_evidence_family": "운성",
+      "subject_evidence": [
+        "비겁"
+      ],
+      "adverse_evidence": [
+        "운성"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "work 도메인 첫 caution. sports_overuse(형 필수)와 분리."
+    },
+    "close_person_expense_caution": {
+      "domain": "money",
+      "polarity": "caution",
+      "semantic_group": "money_caution",
+      "semantic_family": "social_expense",
+      "primary_evidence_family": "비겁",
+      "subject_evidence": [
+        "합회",
+        "식상"
+      ],
+      "adverse_evidence": [
+        "비겁"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "겁재(분탈) ∧ 합/식신(자리). lend_money(거래)와 money_outflow_group. 재성 양수 없음 → g0 비대상."
+    },
+    "procrastination_caution": {
+      "domain": "work",
+      "polarity": "caution",
+      "semantic_group": "work_caution",
+      "semantic_family": "procrastination",
+      "primary_evidence_family": "운성",
+      "subject_evidence": [
+        "인성"
+      ],
+      "adverse_evidence": [
+        "운성"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "둔화/이탈 ∧ 편인/공망 — docs/17 §7 '귀찮아서 미룸'."
+    },
+    "rumination_caution": {
+      "domain": "health",
+      "polarity": "caution",
+      "semantic_group": "health_caution",
+      "semantic_family": "rumination",
+      "primary_evidence_family": "인성",
+      "subject_evidence": [
+        "인성"
+      ],
+      "adverse_evidence": [
+        "충형파해",
+        "운성"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "편인(사색 과다) ∧ 원진/수렴/이탈 — 마음의 무게(신문 운세 조사 장면)."
     }
   },
   "findings": {
@@ -731,6 +1288,7 @@
     "single_good_event_domains": "health 10종 중 good 1종(rest_recharge), document 7종 중 good 1종(document_progress). 두 도메인의 낮은 Top1 은 affinity 이전에 후보 구성의 문제다.",
     "g0_candidates": "재성 양수를 받는 caution 5종 — money 2종(overspend_caution, lend_money_caution)은 승인 범위, document 3종(guarantee_stamp_caution, name_lending_caution, contract_clause_caution)은 별도 승인 대기.",
     "same_form_outside_money": "argument_caution(상관)·misunderstanding_caution(편인)·contract_recheck_caution(편인)도 주제 신호가 불리 발현을 겸한다. 다만 상관·편인은 그 자체로 부정 방향 성분을 갖는 신호라 재성 사례와 동일하게 볼 수 없다 — 감수 대상으로 남긴다.",
-    "g1_sibling_pairs": "같은 semantic_group·같은 primary_evidence_family·같은 polarity 쌍: money_opportunity(재성) 2종, social_friction(식상) 2종, news_incoming 2종은 primary 가 갈리므로 제외, health_caution/minor_injury(충형파해) 3종, move_caution/schedule_disruption(충형파해) 2종, document_caution/third_party_request(충형파해) 2종."
+    "g1_sibling_pairs": "같은 semantic_group·같은 primary_evidence_family·같은 polarity 쌍: money_opportunity(재성) 2종, social_friction(식상) 2종, news_incoming 2종은 primary 가 갈리므로 제외, health_caution/minor_injury(충형파해) 3종, move_caution/schedule_disruption(충형파해) 2종, document_caution/third_party_request(충형파해) 2종.",
+    "catalog_expansion_2026_09_10": "§22-7 개정으로 16종 추가(good 11·caution 5). move 도메인 길 사건 부재, health·document good 단일 문제를 해소. 신규 사건은 v2 evidence 를 기준으로 분류했고 어휘에 합회·운성 2군을 추가했다."
   }
 }

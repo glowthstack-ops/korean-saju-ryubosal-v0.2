@@ -54,15 +54,37 @@ _DOMAIN_WORDS: dict[Domain, list[str]] = {
         # 채용 절차·보상 어휘 — 같은 누락으로 묶여 있던 것들. 라우팅만 바꾸며
         # 합격·연봉 결과 단정은 기존 승부 단정 금지 가드가 그대로 담당한다.
         "경력직", "이력서", "면접", "연봉", "커리어",
+        # 지원 경로 어휘(2026-09-11 실로그: '내가 원서를 내야 해 아님 추천이나 제안을 받게
+        # 될까'가 general→too_broad). '지원'은 지원금과 동형이라 등재하지 않는다.
+        "원서", "입사", "채용", "구직", "취직",
+        # '업무'(2026-09-11 실로그: '리더가 다른 팀으로 가는데 내 업무 방향은 더 힘들어질까?'
+        # — 감정 오분류를 걷어내도 도메인이 비어 general로 남았다).
+        "업무",
+        # 연예·예술 직군 어휘(2026-08-11 실사용 미탐지: '집안 자랑하다가 그게 발목을
+        # 잡아서 연기인생을 망치게 될 것 같아. 앞으로 어떻게 될까?'가 general→too_broad로
+        # 세 번 연속 바운스 — '연기인생'이 직업 신호인데 어휘가 일반 직장 계열뿐이었다).
+        # '연기' 단독은 延期('결혼식이 연기됐어')와 동형이라 등재 금지 — 복합형만 둔다.
+        # '배우' 단독도 배우자(관계 도메인)·배우다(학습) 동형이라 조사·명사 결합형만 둔다.
+        "연예", "데뷔", "소속사", "캐스팅", "연기자", "연기인생", "연기 인생",
+        "연기력", "연기 활동", "연기 생활", "연기 경력", "배우로", "배우 생활", "배우 활동",
     ],
     Domain.WEALTH: [
         "재물", "돈", "투자", "유산", "로또", "횡재", "주식", "문서운", "분양",
+        # 구매·지출 결정 어휘(2026-09-11 실로그: '차를 바꾸려고 하는데 좋은 선택일까?', '현금자산
+        # 으로 중고차를 구매할까'가 general→too_broad). '차' 단독은 다의어라 등재하지 않는다.
+        "구매", "구입", "지출", "목돈", "큰돈", "자동차", "중고차", "현금자산", "할부",
+        "차를 바꾸", "차 바꾸", "차량", "새 차", "새차",
         # 재산·보안 어휘(2026-07-23 사고수 확장): 도난·분실·사기·피싱 질문이
         # general로 떨어지지 않고 재물 도메인→위험 노출(finance) 경로로 연결된다.
         "도난", "분실", "소매치기", "절도", "사기", "피싱", "해킹",
         # 차입·부채 흐름도 재물 도메인(2026-07-12 실사용: '대출 시 어떤 흐름'이
         # general→too_broad로 빠지던 결함). 상환·이자 등 파생어는 대출/빚이 포괄.
         "대출", "융자", "빚", "부채",
+        # 투자 상품·추첨 어휘(2026-09-01 실사용: '코인 자산 원금 회복될까'·'펀드 수익률
+        # 괜찮을까'·'비트코인 지금 사도 될까'가 general로 떨어져 횡재/투자 지시문 어느 쪽도
+        # 붙지 않았다). 생활형 횡재↔투자 운용 분기는 chat_service의 약한 키·투자 표지가 담당.
+        # '청약'은 추첨형 선발 코어(selection_allocation)가 도메인과 무관하게 따로 감지한다.
+        "코인", "비트코인", "펀드", "청약",
     ],
     Domain.RELOCATION: [
         "이사", "이동수", "이주",
@@ -73,6 +95,12 @@ _DOMAIN_WORDS: dict[Domain, list[str]] = {
         # 승계하던 결함). 타 도메인 오염을 피해 거주·추천 의미가 분명한 구(句)만 등재.
         "살면 좋은", "살기 좋은", "살 곳", "살 만한", "거주지",
         "어디서 살", "어디 살", "어느 지역", "어느 동네", "지역 추천", "동네 추천",
+        # 하위 단위 추천형(2026-09-11 실로그: '창원에서는 어느 구가 가장 좋아?', '수지 안에서
+        # 어떤 생활권이 맞을지', '용인 수지에 사는게 잘 맞을까?'가 general/관계로 빠짐).
+        "어느 구", "어떤 구", "어느 동", "생활권", "살기에", "에 사는게", "에 사는 게", "어떤 지역",
+        # 합가·동거 재개(2026-09-11 실로그: '주말부부를 그만하고 싶은데 그런 운이 있어?'가
+        # general→too_broad). '다시 합칠 수 있는 시기'와 같은 거주 이동 경로로 본다.
+        "주말부부", "주말 부부", "합가", "합치", "다시 같이 살", "함께 살 수", "같이 살 수",
     ],
     Domain.RELATIONSHIP: [
         "연애", "결혼", "재혼", "이혼", "별거", "파혼", "이별", "궁합", "재회", "배우자", "인연",
@@ -114,6 +142,12 @@ _RELATION_WORDS: dict[str, CompanionRelationType] = {
 }
 
 _DIRECTIONS = ["남동", "남서", "북동", "북서", "동", "서", "남", "북"]
+# 하위 단위 추천 스코프 — '<지명>(에서|내|안) (어느|어떤|어디) (구|동|생활권|지역|동네)'.
+_SUBUNIT_SCOPE_RE = re.compile(
+    r"([가-힣]{2,6}?(?:시|군|구)?)\s*(?:에서는|에서|내에서|내|안에서|안)\s*(?:은|는)?\s*"
+    r"(?:어느|어떤|어디)\s*(?:구|동|생활권|지역|동네)"
+)
+_SCOPE_STOPWORDS = {"우리", "여기", "거기", "지금", "그럼", "근데", "그리고", "나라", "우리나라"}
 # 시군구 지명 구(句) — 선택적 시도 접두 + 시/군/구('서울 중구', '고양시 일산동구').
 _REGION_PHRASE = r"(?:[가-힣]{2,}\s+)?[가-힣]{1,}(?:특별자치시|시|군|구)"
 # 시도·광역 단축명 — 지역 추천 스코프('서울 내', '경기도에서') 포착용(2026-06-26).
@@ -131,8 +165,12 @@ _TERM_WORDS = ["공망", "용신", "희신", "기신", "구신", "한신", "격"
 #:
 #: 둘 다 어간 매칭으로 EMOTIONAL_SUPPORT 에 삼켜져 기존 회귀가 깨졌다(실측). 그래서
 #: 현재형 어미만 받는다 — 과거형(`힘들었`)과 관형형(`힘들때`)은 제외된다.
+#:
+#: '힘들어지/힘들어질'도 제외한다(2026-09-11 실로그: "리더가 다른 팀으로 가는데 내 업무
+#: 방향은 더 힘들어질까? 10월부터" 가 감정 토로로 삼켜져 공감 템플릿만 나갔다). 변화
+#: 예측('더 힘들어질까')은 감정이 아니라 분석 질문이다.
 _EMOTION_WORDS = re.compile(
-    r"스트레스|힘들[어다지네고]|힘드[네니]|고장나서|우울|지치|버겁"
+    r"스트레스|힘들(?:어(?![지질])|[다지네고])|힘드[네니]|고장나서|우울|지치|버겁"
 )
 
 #: B13 한탄·자조 어법. **도메인·명리 용어가 없을 때만** 적용한다(호출부 가드).
@@ -150,6 +188,127 @@ _LAMENT = re.compile(
     r"(?:하나도|뭐\s*하나|되는\s*(?:일|게))\s*(?:없|안)|"
     r"인생(?:은|이)?\s*왜|왜\s*이(?:럴까|러지)"
 )
+
+#: 반복 행동 패턴 자기 질문(2026-09-06 데굴님 승인) — "나는 왜 끝에 가면 항상 이렇게 하나".
+#: 반복 표지(항상/늘/매번/…/끝에 가면)와 이유·행동 의문 표지가 함께 있을 때만 Q8(원국 구조)로
+#: 본다. 시점·분야 없이 실행되는 경로라 과잉 트리거를 막기 위해 두 표지 동시 요구.
+#: '늘'은 '오늘/하늘'의 음절이라 뒤에 공백이 오는 단독형만 받는다.
+_REPEAT_MARK = (
+    r"(?:항상|(?<!오)(?<!하)늘\s|매번|맨날|자꾸|번번이|반복(?:해서|적으로)?|버릇|습관"
+    r"|이런\s*식으로|끝에\s*(?:가면|는|서)|마무리)"
+)
+_WHY_ACT_MARK = (
+    r"(?:왜|하나(?:요|\?|\s|$)|하지|하냐|하는지|하는\s*걸까|그러(?:지|나|는지|는\s*걸까)"
+    r"|되나|되지|되는\s*걸까|그럴까|이럴까|이러는|그러는)"
+)
+BEHAVIOR_PATTERN_RE = re.compile(
+    rf"{_REPEAT_MARK}.{{0,20}}{_WHY_ACT_MARK}|왜.{{0,20}}{_REPEAT_MARK}"
+)
+
+#: 중립 과거 행동 설명(2026-09-06 데굴님 승인) — "나는 왜 이랬을까", "내가 그때 왜 그랬을까".
+#: 기존 Q5는 '왜…힘들었' 한 구절만 잡아 실패어 없는 회고가 종합운→too_broad로 빠졌다.
+#: 실패어(안 됐/늦었…)가 있는 형태는 counterfactual_context가 별도 모드로 잡는다.
+NEUTRAL_PAST_EXPLANATION_RE = re.compile(
+    r"왜.{0,24}(?:그랬|이랬|저랬|했을까|했었|한\s*걸까|했던\s*(?:걸까|거지))|그때.{0,10}왜"
+)
+
+
+# 명식 정정 발화(2026-09-11 실로그 #1179: '시주가 경인인데?'가 too_broad). 간지는 엔진이
+# 계산한 값과 대조해 결정론으로 답한다(LLM·추정 금지 — 절대원칙 1). chat_service가 소비.
+_PILLAR_CLAIM_RE = re.compile(
+    r"(?P<pillar>년주|월주|일주|시주)(?:가|는|은|이)?\s*(?P<ganji>[가-힣]{2})\s*"
+    r"(?:인데|아니야|아닌가|아니냐|맞아|맞나|맞지|이야|야|이잖아|잖아|라고|라던데)"
+)
+_PILLAR_KEY = {"년주": "year", "월주": "month", "일주": "day", "시주": "hour"}
+_STEM_KO_SET = frozenset("갑을병정무기경신임계")
+_BRANCH_KO_SET = frozenset("자축인묘진사오미신유술해")
+
+
+def parse_pillar_claim(text: str) -> tuple[str, str] | None:
+    """명식 기둥 주장('시주가 경인인데?') → ('hour', '경인'). 60갑자 한글이 아니면 None."""
+    m = _PILLAR_CLAIM_RE.search(text)
+    if not m:
+        return None
+    ganji = m.group("ganji")
+    if ganji[0] not in _STEM_KO_SET or ganji[1] not in _BRANCH_KO_SET:
+        return None
+    return _PILLAR_KEY[m.group("pillar")], ganji
+
+
+# 본인 포함 궁합 구문 — '내 사주와 (더) 잘 맞는', '나랑 (더) 잘 맞아'(2026-09-11: 후보 2명 비교
+# '둘 중 내 사주와 더 잘 맞는 사람이 누구야'가 본인 제외 비교로 빠지던 결함).
+SELF_MATCH_RE = re.compile(
+    r"(?:내|제)\s*사주(?:와|랑|과|하고)\s*(?:더\s*)?(?:잘\s*)?맞|(?:나|저)(?:랑|와|하고)\s*(?:더\s*)?(?:잘\s*)?맞"
+)
+
+
+# 육친 운(2026-09-11 실로그: '내 부모님 운은 어때?'가 too_broad, '자녀운'이 동반자 확인으로 빠짐).
+# '<육친어>(의) 운|복|덕|인연'은 등록 동반자를 가리키는 말이 아니라 본인 명식의 육친 축(인성·
+# 식상) 질문이다 — 원국 질문이라 시점 불요(CHART_ANALYSIS), 도메인은 관계. 등록 동반자 중
+# 관계·표시 이름이 맞는 대상이 있으면 그 대상 기준으로 본다(스레드 해소가 대상을 채운다 —
+# 데굴님 지시 2026-09-11). 형제·자매는 축 모듈이 없어 원국 관계 해석만 한다.
+_KIN_PARENT_WORDS = ("부모님", "부모", "어머니", "아버지", "엄마", "아빠")
+_KIN_CHILD_WORDS = ("자녀", "자식", "아들", "딸")
+_KIN_SIBLING_WORDS = ("형제", "자매")
+_KIN_WORDS = _KIN_PARENT_WORDS + _KIN_CHILD_WORDS + _KIN_SIBLING_WORDS
+_KIN_AXIS_RE = re.compile(
+    r"(?P<kin>" + "|".join(sorted(_KIN_WORDS, key=len, reverse=True)) + r")(?:의)?\s*"
+    r"(?:운세|운(?![동전영행])|복(?![잡])|덕|인연)"
+)
+
+
+def detect_kin_axis(text: str) -> str | None:
+    """육친 운 질문이면 축 이름('parent'/'child'/'sibling'), 아니면 None."""
+    m = _KIN_AXIS_RE.search(text)
+    if not m:
+        return None
+    kin = m.group("kin")
+    if kin in _KIN_PARENT_WORDS:
+        return "parent"
+    if kin in _KIN_CHILD_WORDS:
+        return "child"
+    return "sibling"
+
+
+# 직업 분야·직종·적성 질문(2026-09-10 데굴님 지적: '이직 제안이 온다면 어떤 분야가 확률이 높을까'가
+# 시점형 이직 질문으로 처리됐다). 분야 어휘가 있으면 career 도메인의 분야 질문으로 표시한다.
+# 2026-09-11 확장: '어떤 도메인에서 연락이 들어올까'가 여전히 시점형으로 처리됐다.
+# 분야 명사에 도메인·업계·산업·영역·회사·기업·조직·필드를 더하고,
+# '<분야 명사>에서 연락/제안/스카웃/오퍼' 구문을 인식한다.
+# 단독 '<명사>에서 연락' 구문의 명사에는 회사·기업·조직을 넣지 않는다
+# — '그 회사에서 언제 연락 올까'는 특정 회사의 시점 질문이다.
+# 회사·기업·조직은 어떤/무슨/어느가 붙을 때만 분야 질문으로 본다.
+_FIELD_NOUN = r"(?:분야|직종|업종|직군|직무|도메인|업계|산업|영역|필드)"
+# '뭘 해먹고 살아야 할까'류 생계 관용구(2026-09-11 실로그: '내 사준 기반으로 나는 뭘 해먹고
+# 살아야할까?'가 too_broad — 분야 명사가 없고 '사주' 오타로 도메인도 비었다).
+_LIVING_IDIOM = (
+    r"(?:뭘|무엇을|뭐를|뭐\s*하며|무슨\s*일\s*하며)\s*"
+    r"(?:해\s*먹고|하고|하며|하면서)?\s*(?:먹고\s*)?살"
+)
+_OFFER_WORD = r"(?:연락|제안|제의|스카웃|스카우트|오퍼|러브콜|콜)"
+_CAREER_FIELD_RE = re.compile(
+    r"어떤\s*(?:분야|직종|업종|직군|직무|일|직업|쪽|도메인|업계|산업|영역|필드|회사|기업|조직)"
+    r"|무슨\s*(?:분야|직종|업종|일|직업|도메인|업계|산업|영역|회사|기업)"
+    r"|어느\s*(?:분야|직종|업종|쪽|도메인|업계|산업|영역|회사|기업|조직)"
+    r"|분야(?:가|는|에|로|를)?\s*(?:잘|맞|좋|유리|확률|어울|추천)|(?:직종|업종|직군|직무)(?:이|은|는|가)?\s*(?:잘|맞|좋|유리|어울|추천)"
+    r"|적성|천직|(?:맞는|어울리는|잘\s*맞는)\s*(?:일|직업|직무|직종|분야)|무슨\s*일을\s*(?:해야|하면)"
+    r"|" + _LIVING_IDIOM
+    + r"|" + _FIELD_NOUN + r"\s*(?:쪽)?\s*(?:에서|으로부터|로부터)\s*.{0,12}?" + _OFFER_WORD
+)
+# 분야 어휘 중 문맥 없이도 직업 질문으로 볼 만한 것(도메인이 일반이면 career 로 승격).
+# '회사·기업·조직'은 단독으로는 승격하지 않는다(career 도메인일 때만 분야로 본다 — 오탐 방지).
+_CAREER_FIELD_STRONG_RE = re.compile(
+    r"적성|천직|(?:맞는|어울리는)\s*(?:직업|직무|직종|분야)"
+    r"|(?:어떤|무슨|어느)\s*(?:직업|직종|직무|직군|업종)|어떤\s*일을\s*(?:해야|하면)"
+    r"|(?:어떤|무슨|어느)\s*(?:도메인|업계|산업)\s*(?:쪽)?\s*(?:에서|으로부터|로부터)\s*.{0,12}?"
+    + _OFFER_WORD
+    + r"|" + _LIVING_IDIOM
+)
+
+
+def detect_career_field(text: str) -> bool:
+    """직업 분야·직종·적성 질문인가(도메인 무관 어휘 감지 — 호출자가 도메인과 결합)."""
+    return bool(_CAREER_FIELD_RE.search(text))
 
 
 # 사무실/사업장 이전 신호 — relocation_kind=office 판정용(R4). 집 이사(일지)와 달리 월주 중심.
@@ -289,9 +448,73 @@ def _detect_event(text: str) -> EventKey | None:
     return min(found)[1] if found else None
 
 
-def _parse_inline_births(text: str) -> list[SubjectRef]:
-    """인라인 생년월일(A6/A7) — '91년 10월 31일 오후 3시 부천' / '1998.07.23 여자'."""
+# 날짜 뒤 일정 표현 — 이 날짜는 출생일이 아니라 사건 날짜다(2026-09-11 실로그: '2026년 8월
+# 25일에 시험이 있어 그날의 운세'가 2026-08-25생 임시 동반자로 잡혀 본인이 빠지고 need_subject).
+_SCHEDULE_AFTER_DATE_RE = re.compile(
+    r"^\s*(?:에|엔|에는|날|날에|부터|까지)?\s*[^\n.?!]{0,10}?"
+    r"(?:시험|면접|이사|계약|결혼식|수술|출장|약속|발표|행사|모임|예정|있어|있습니다|있는데|있거든)"
+)
+
+
+def _is_schedule_date(text: str, end: int) -> bool:
+    """날짜 매치 직후가 일정 표현이면 True(출생일 아님)."""
+    return bool(_SCHEDULE_AFTER_DATE_RE.search(text[end:end + 24]))
+
+
+_INLINE_BIRTH_RES = (
+    re.compile(
+        r"(?:음력\s*)?(\d{2,4})년\s*(\d{1,2})월\s*(\d{1,2})일(?:생)?"
+        r"(?:\s*(오전|오후)?\s*(\d{1,2})시(?:\s*(\d{1,2})분)?)?"
+    ),
+    re.compile(r"(\d{4})\.(\d{2})\.(\d{2})\s*(여자|남자)?"),
+)
+
+
+def mask_inline_birth_spans(text: str, today: date | None = None) -> str:
+    """즉석 출생일 구간을 공백으로 가린 본문 — 시점 파서 입력용(2026-09-11).
+
+    '1972년 11월 7일생 … 1980년 10월 8일생' 의 '11월 7일'이 올해 날짜 창으로, '일생'이 생애
+    지평으로 잡히던 누수를 막는다. 출생일로 채택되는 구간(일정 표현·미래 날짜 배제 규칙 통과)만
+    가리므로 사건 날짜('8월 25일에 시험')는 그대로 시점으로 남는다.
+    """
+    out = list(text)
+    for rx in _INLINE_BIRTH_RES:
+        for m in rx.finditer(text):
+            if rx is _INLINE_BIRTH_RES[0]:
+                year = int(m.group(1))
+                year += 1900 if year >= 30 and year < 100 else (2000 if year < 30 else 0)
+                try:
+                    bd = f"{year}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+                    date.fromisoformat(bd)
+                except ValueError:
+                    continue
+            else:
+                bd = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+            if _is_schedule_date(text, m.end()):
+                continue
+            try:
+                if today is not None and date.fromisoformat(bd) > today:
+                    continue
+            except ValueError:
+                continue
+            for i in range(m.start(), m.end()):
+                out[i] = " "
+    return "".join(out)
+
+
+def _parse_inline_births(text: str, today: date | None = None) -> list[SubjectRef]:
+    """인라인 생년월일(A6/A7) — '91년 10월 31일 오후 3시 부천' / '1998.07.23 여자'.
+
+    배제 규칙(2026-09-11): ①날짜 뒤에 일정 표현이 붙으면 사건 날짜다 ②기준일(today)보다
+    미래인 날짜는 태어난 사람이 있을 수 없다. 둘 다 출생일로 보지 않는다.
+    """
     out: list[SubjectRef] = []
+
+    def _excluded(birth_date: str, end: int) -> bool:
+        if _is_schedule_date(text, end):
+            return True
+        return today is not None and date.fromisoformat(birth_date) > today
+
     # 'YY[YY]년 M월 D일 [오전/오후 H시] [지명]' 형태.
     for m in re.finditer(
         r"(?:음력\s*)?(\d{2,4})년\s*(\d{1,2})월\s*(\d{1,2})일(?:생)?"
@@ -310,6 +533,8 @@ def _parse_inline_births(text: str) -> list[SubjectRef]:
             "M" if re.search(r"남자|남성|남자친구", text) else None
         )
         birth_date = f"{year}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        if _excluded(birth_date, m.end()):
+            continue
         out.append(SubjectRef(
             kind=SubjectKind.INLINE_TEMP,
             label=f"{birth_date} {'여' if gender == 'F' else '남' if gender == 'M' else '?'}",
@@ -320,6 +545,8 @@ def _parse_inline_births(text: str) -> list[SubjectRef]:
     # 'YYYY.MM.DD 여자/남자' 형태(A7).
     for m in re.finditer(r"(\d{4})\.(\d{2})\.(\d{2})\s*(여자|남자)?", text):
         birth_date = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+        if _excluded(birth_date, m.end()):
+            continue
         gender = {"여자": "F", "남자": "M"}.get(m.group(4) or "")
         out.append(SubjectRef(
             kind=SubjectKind.INLINE_TEMP,
@@ -329,8 +556,64 @@ def _parse_inline_births(text: str) -> list[SubjectRef]:
     return out
 
 
-def _detect_subjects(text: str) -> tuple[list[SubjectRef], SubjectMode]:
-    """대상 추출(A1~A9 부분) — 관계어/별칭/인라인. 기본 self."""
+# 대상 토큰 바로 뒤 괄호 속 출생정보 — '신랑(1975.04.04 시간모름)', '동생(1998.07.23 여자)'.
+_PAREN_BIRTH_RE = re.compile(r"([가-힣A-Za-z0-9]{1,10})\s*[(（]([^)）]*\d[^)）]*)[)）]")
+
+
+def attach_parenthetical_births(
+    text: str, subjects: list[SubjectRef], today: date | None = None,
+) -> tuple[list[SubjectRef], set[str]]:
+    """괄호 출생정보를 앞 토큰의 대상에 붙인다(2026-09-11 실로그: '신랑(1975.04.04 시간모름)'이
+    미등록 '신랑' + 즉석 인물 2명으로 갈라져 need_subject).
+
+    - 같은 날짜의 즉석 인물(INLINE_TEMP)에 토큰을 표시명으로 붙인다.
+    - 그 토큰의 **미해소** 관계어 대상(companion_id 없음)은 제거한다(즉석 인물이 대신한다).
+      등록 해소된 대상(companion_id 있음)이 있으면 등록 정보가 더 풍부하므로 그쪽을 남기고
+      즉석 인물을 제거한다.
+
+    Returns:
+        (정리된 subjects, 괄호 출생정보가 붙은 토큰 집합)
+    """
+    attached: set[str] = set()
+    out = list(subjects)
+    for m in _PAREN_BIRTH_RE.finditer(text):
+        token, inner = m.group(1), m.group(2)
+        births = _parse_inline_births(inner, today)
+        if not births:
+            continue
+        bdate = births[0].inline_birth.date if births[0].inline_birth else None
+        registered = [
+            s for s in out
+            if s.kind is SubjectKind.COMPANION and s.companion_id and token.endswith(s.label)
+        ]
+        if registered:
+            out = [
+                s for s in out
+                if not (s.kind is SubjectKind.INLINE_TEMP and s.inline_birth
+                        and s.inline_birth.date == bdate)
+            ]
+            attached.add(token)
+            continue
+        out = [
+            s for s in out
+            if not (s.kind is SubjectKind.COMPANION and s.companion_id is None
+                    and token.endswith(s.label))
+        ]
+        for s in out:
+            same_date = s.inline_birth is not None and s.inline_birth.date == bdate
+            if s.kind is SubjectKind.INLINE_TEMP and same_date:
+                s.label = token
+        attached.add(token)
+    return out, attached
+
+
+def _detect_subjects(
+    text: str, today: date | None = None,
+) -> tuple[list[SubjectRef], SubjectMode]:
+    """대상 추출(A1~A9 부분) — 관계어/별칭/인라인. 기본 self.
+
+    today는 즉석 출생일의 미래 날짜 배제에만 쓴다(없으면 일정 표현 배제만 적용).
+    """
     subjects: list[SubjectRef] = []
     exclude_self = bool(re.search(r"나를\s*제외", text))
     # 괄호 주석은 대상 지정이 아니다 — 관계어·별칭 스캔은 괄호 제거본으로(인라인 생년월일은 원문).
@@ -346,9 +629,13 @@ def _detect_subjects(text: str) -> tuple[list[SubjectRef], SubjectMode]:
         if re.search(rf"{word}(?=$|[^가-힣]|의|이랑|과|와|은|는)", scan_text):
             subjects.append(SubjectRef(kind=SubjectKind.COMPANION, label=word))
             break
-    subjects += _parse_inline_births(text)
+    subjects += _parse_inline_births(text, today)
+    subjects, _ = attach_parenthetical_births(text, subjects, today)
 
-    pairwise = bool(re.search(r"궁합|나랑\s*(?:잘\s*)?맞|내\s*사주가\s*잘\s*맞", text))
+    pairwise = bool(
+        re.search(r"궁합|나랑\s*(?:잘\s*)?맞|내\s*사주가\s*잘\s*맞", text)
+        or SELF_MATCH_RE.search(text)
+    )
     ranking = bool(re.search(r"누구야|누가\s|순위|등수|1등부터", text))
     group = bool(re.search(r"종합해서|둘\s*다|모두|우리\s*가족|함께", text))
     inclusive_we = bool(INCLUSIVE_WE_RE.search(text))
@@ -368,6 +655,10 @@ def _detect_subjects(text: str) -> tuple[list[SubjectRef], SubjectMode]:
     else:
         subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
         mode = SubjectMode.SINGLE
+    # 본인 포함 궁합 구문('내 사주와 더 잘 맞는 사람이 누구야')이면 순위·비교 모드여도 본인을
+    # 대상에 넣는다 — 본인 + 후보 2명 이상은 실행 계층에서 multi_with_self가 된다.
+    if SELF_MATCH_RE.search(text) and not any(s.kind is SubjectKind.SELF for s in subjects):
+        subjects.insert(0, SubjectRef(kind=SubjectKind.SELF, label="본인"))
     return subjects, mode
 
 
@@ -394,6 +685,9 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
         return QueryType.OUT_OF_SCOPE
     # Q12 — 이의/정정 (B9/B10/A10): 직전 답변 참조 신호가 있어야 한다("vs ... 맞아?"는 Q7).
     if re.search(r"아니야\s*\?|틀렸|헷갈려|다시\s*체크|라던데\s*맞아|했잖아", text):
+        return QueryType.FEEDBACK_CORRECTION
+    # Q12b — 명식 기둥 주장('시주가 경인인데?'): 엔진 계산값과 대조하는 정정 발화(2026-09-11).
+    if parse_pillar_claim(text) is not None:
         return QueryType.FEEDBACK_CORRECTION
     # Q11 — 용어 교육 (B12): 용어 + 뜻/뭐야. 단 소유격("내 용신")은 본인 명식 → Q8.
     is_term = any(w in text for w in _TERM_WORDS)
@@ -456,12 +750,12 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     # Q10 — 개운/보완 (D-3).
     if re.search(r"조심해야|보완|개운|비방|피해야|주의해야", text):
         return QueryType.REMEDY
-    # Q5 — 과거 설명/역검증 (C15).
+    # Q5 — 과거 설명/역검증 (C15). 중립 회고('왜 그랬을까')도 포함(2026-09-06).
     if re.search(
         r"왜.{0,8}힘들었|맞춰\s*봐|언제인지\s*맞|무슨\s*일이?\s*있었"
         r"|운\s*때문|이유가\s*사주|운이랑\s*관련",
         text,
-    ):
+    ) or NEUTRAL_PAST_EXPLANATION_RE.search(text):
         return QueryType.EVENT_EXPLANATION
     # Q3 — 시기 탐색.
     if "언제" in text:
@@ -475,13 +769,14 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
         r"어떤\s*사람|성격|사이|관계|부딪|잘\s*지내", text
     ):
         return QueryType.RELATIONSHIP_ANALYSIS
-    # Q8 — 명식 구조 (D2-12 포함). 일주 캐릭터/기질형 + 용희기구한 질문(v2.2.1).
+    # Q8 — 명식 구조 (D2-12 포함). 일주 캐릭터/기질형 + 용희기구한 질문(v2.2.1)
+    # + 반복 행동 패턴 자기 질문('왜 항상 이렇게 하나' — 2026-09-06).
     if re.search(
         r"용신|희신|기신|구신|한신|내\s*사주|mbti|성격|성향|격국|신강|신약|도화|역마살"
         r"|공망|일주|캐릭터|기질|타고난|어떤\s*사람|십성|신살|궁성",
         text,
         re.IGNORECASE,
-    ):
+    ) or BEHAVIOR_PATTERN_RE.search(text):
         return QueryType.CHART_ANALYSIS
     # Q9 — 관계 분석.
     if re.search(r"사이는\s*어때|부모\s*복|관계는", text):
@@ -539,6 +834,12 @@ def _detect_constraints(text: str) -> Constraints:
             r"새\s*집은?|이사는)\s*(" + _REGION_PHRASE + r")",
             text,
         )
+    if tr_m is None:  # "용인 수지에 사는게 잘 맞을까" — 거주 평가형(2026-09-11 실로그 #1013).
+        tr_m = re.search(
+            r"([가-힣]{2,6}(?:\s+[가-힣]{2,6})?)\s*에\s*(?:사는\s*게|사는게|살기|살면|거주)", text
+        )
+        if tr_m and tr_m.group(1).split()[0] in _SCOPE_STOPWORDS:
+            tr_m = None
     if tr_m:
         c.target_region = tr_m.group(1).strip()
     # 지역 추천 스코프(시도·광역) — "서울 내에 살면 좋은 지역", "경기도에서 살 곳" 등 추천형은
@@ -553,6 +854,12 @@ def _detect_constraints(text: str) -> Constraints:
         # 거주·추천 맥락에서만 스코프로 채택(예: '서울에 재물운'은 스코프 아님).
         if sm and re.search(r"살|거주|이사|정착|지역\s*추천|동네|어디", text):
             c.target_region = sm.group(1).strip()
+    # 시군구·지명 스코프 — "창원에서는 어느 구가", "수지 안에서 어떤 생활권" 처럼 하위 단위
+    # (구·동·생활권)를 묻는 질문은 앞의 지명을 후보 범위로 잡는다(2026-09-11 실로그 미인식).
+    if c.target_region is None:
+        um = _SUBUNIT_SCOPE_RE.search(text)
+        if um and um.group(1) not in _SCOPE_STOPWORDS:
+            c.target_region = um.group(1).strip()
     if re.search(r"한다면|간다면|만난다면|된다면", text):
         cond = re.search(r"([가-힣\d\s.]+?(?:한다면|간다면|만난다면|된다면))", text)
         c.conditional = cond.group(1).strip() if cond else "조건부"
@@ -667,8 +974,9 @@ def parse_message(
     # B2 단답 후속: 시점 슬롯만 교체, 나머지 직전 intent 상속.
     # 연 단위 다중·부정·정정 표현은 제약 해소를 거친다(2026-07-14 P1 — "2026년 27년은
     # 의미없고 2033년이 중요해"에서 첫 연도가 시점으로 저장되던 결함 교정).
+    time_text = mask_inline_birth_spans(text, today)  # 즉석 출생일은 시점이 아니다
     time_range, time_scope, time_items = parse_time_with_constraints(
-        text, today, birth_year, current_month_label
+        time_text, today, birth_year, current_month_label
     )
     time_exclusions = [
         it for it in time_items if it.role is TimeConstraintRole.EXCLUDED
@@ -747,7 +1055,7 @@ def parse_message(
             )
 
     pieces = _split_questions(text)
-    subjects, mode = _detect_subjects(text)
+    subjects, mode = _detect_subjects(text, today)
     style = _detect_output_style(text)
     constraints = _detect_constraints(text)
 
@@ -766,7 +1074,7 @@ def parse_message(
         if not domains and event_key is not None:
             domains = [Domain(EVENT_DOMAIN[event_key])]
         piece_time, piece_scope, _ = parse_time_with_constraints(
-            piece, today, birth_year, current_month_label
+            mask_inline_birth_spans(piece, today), today, birth_year, current_month_label
         )
         if piece_time is None:
             piece_time, piece_scope = time_range, time_scope
@@ -789,6 +1097,28 @@ def parse_message(
             constraints=constraints,
             output=style,
         ))
+        # 직업 분야 질문 — career 도메인이거나 강한 분야 어휘면 표시하고 도메인을 career 로 맞춘다.
+        # 분야는 원국 십성 기능이 답의 축 — 자체 시점은 남기되 승계 대상에서 뺀다(conversation).
+        _last = intents[-1]
+        if detect_career_field(piece) and (
+            _last.domain is Domain.CAREER or _CAREER_FIELD_STRONG_RE.search(piece)
+        ):
+            _last.career_field = True
+            if _last.domain is not Domain.CAREER:
+                _last.domain = Domain.CAREER
+        # 육친 운 — 원국 육친 축 질문. 관계어가 대상으로 잡혔어도 미해소면 본인 명식으로 본다
+        # (등록 동반자 해소는 스레드 엔진이 subjects를 덮어쓴다).
+        if detect_kin_axis(piece) is not None:
+            _last.query_type = QueryType.CHART_ANALYSIS
+            if _last.domain is Domain.GENERAL:
+                _last.domain = Domain.RELATIONSHIP
+            if all(
+                s.kind is SubjectKind.COMPANION and s.companion_id is None
+                and s.label in _KIN_WORDS
+                for s in _last.subjects
+            ):
+                _last.subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
+                _last.subject_mode = SubjectMode.SINGLE
     return ParsedMessage(
         intents=intents, output_style=style,
         trace={  # P0 — 시점 해소 추적(파싱 계층)
