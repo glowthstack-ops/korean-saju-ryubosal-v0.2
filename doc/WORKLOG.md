@@ -10668,3 +10668,15 @@ daily docs/17 §23 의 "십성=행동 결, 12운성=흐름 결"을 LLM 입력 �
   삭제 — 비로그인 진입은 홈으로 replace + 사이드바 열기. `SubjectGateway`(테마사주·AI상담) 안내에 [로그인] 버튼.
 - 남은 "좌측 메뉴(☰)" 문구: themes/reports/settings/onboarding/chat 5곳(동작 문제 없음, 요청 시 같은 버튼으로 통일).
 - 검증: tsc / production build / vitest 36 통과. 커밋 d7c2753.
+
+## 2026-09-11 — 직업 분야 질문 어휘 확장: '어떤 도메인에서 연락이 들어올까' (데굴님 지적) ✅
+
+실로그: '내게 이직이나 취업 제안이 온다면 어떤 도메인에서 연락이 들어올까?'가 `career_field` 로 잡히지 않아
+시점형 이직 답(2027-01·02 월별 타이밍)이 나갔다. 원인은 분야 어휘 누락(도메인·업계·산업·영역·회사 없음,
+'<명사>에서 연락/제안' 구문 미인식) — 구조 문제 아님.
+- `query_parser._CAREER_FIELD_RE`: 의문사 + 도메인·업계·산업·영역·필드·회사·기업·조직, `<분야 명사>(쪽)?에서/으로부터 …
+  연락|제안|제의|스카웃|오퍼|러브콜|콜` 구문 추가. `_CAREER_FIELD_STRONG_RE`(일반→career 승격): 의문사 + 도메인·업계·산업
+  + 연락 구문만. 회사·기업·조직은 단독 승격 없음 — '그 회사에서 언제 연락 올까'(시점) 오탐 방지.
+- 회귀 `test_career_field_question.py`: 양성 4건(원문·업계·회사 스카웃·산업 오퍼)·음성 1건 추가. docs/08 career 행 갱신.
+- 검증: dry_run 프롬프트에 `[직업 분야 근거]`·`[직업 분야 풀이]`·제안 통로 포함, 직전 9월 창 미승계.
+  `run_suite.sh` VALID_SUITE_PASS / lint All checks passed / production mypy gate clean / maintained scripts mypy gate clean.

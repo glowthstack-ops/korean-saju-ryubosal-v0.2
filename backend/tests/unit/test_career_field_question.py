@@ -39,6 +39,12 @@ _BIRTH = BirthInput(
     "어떤 일을 해야 잘 풀릴까",
     "적성에 맞는 분야는?",
     "무슨 직종이 저한테 어울릴까요",
+    # 2026-09-11 — 실로그: '도메인'·'업계' 등 분야 명사 + '…에서 연락/제안' 구문이
+    # 시점형으로 처리됐다.
+    "내게 이직이나 취업 제안이 온다면 어떤 도메인에서 연락이 들어올까?",
+    "어떤 업계에서 연락이 올까",
+    "어떤 회사에서 스카웃 제안이 들어올까",
+    "무슨 산업 쪽에서 오퍼가 올까",
 ])
 def test_parser_marks_career_field(q: str) -> None:
     assert detect_career_field(q)
@@ -51,6 +57,7 @@ def test_parser_marks_career_field(q: str) -> None:
     "이번에 어떤 주식 살까",
     "어느 지역이 살기 좋아",
     "올해 재물운 어때",
+    "그 회사에서 언제 연락 올까",  # 특정 회사의 시점 질문 — 분야 아님
 ])
 def test_parser_does_not_mark_non_field_questions(q: str) -> None:
     intent = parse_message(q, _TODAY).intents[0]
