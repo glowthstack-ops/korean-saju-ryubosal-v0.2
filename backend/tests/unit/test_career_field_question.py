@@ -45,6 +45,9 @@ _BIRTH = BirthInput(
     "어떤 업계에서 연락이 올까",
     "어떤 회사에서 스카웃 제안이 들어올까",
     "무슨 산업 쪽에서 오퍼가 올까",
+    # 2026-09-11 — 실로그: 생계 관용구('뭘 해먹고 살'). '사준' 오타로 도메인 어휘도 없었다.
+    "내 사준 기반으로 나는 뭘 해먹고 살아야할까?",
+    "나는 무엇을 하며 살아야 할까",
 ])
 def test_parser_marks_career_field(q: str) -> None:
     assert detect_career_field(q)

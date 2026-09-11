@@ -54,6 +54,12 @@ _DOMAIN_WORDS: dict[Domain, list[str]] = {
         # 채용 절차·보상 어휘 — 같은 누락으로 묶여 있던 것들. 라우팅만 바꾸며
         # 합격·연봉 결과 단정은 기존 승부 단정 금지 가드가 그대로 담당한다.
         "경력직", "이력서", "면접", "연봉", "커리어",
+        # 지원 경로 어휘(2026-09-11 실로그: '내가 원서를 내야 해 아님 추천이나 제안을 받게
+        # 될까'가 general→too_broad). '지원'은 지원금과 동형이라 등재하지 않는다.
+        "원서", "입사", "채용", "구직", "취직",
+        # '업무'(2026-09-11 실로그: '리더가 다른 팀으로 가는데 내 업무 방향은 더 힘들어질까?'
+        # — 감정 오분류를 걷어내도 도메인이 비어 general로 남았다).
+        "업무",
         # 연예·예술 직군 어휘(2026-08-11 실사용 미탐지: '집안 자랑하다가 그게 발목을
         # 잡아서 연기인생을 망치게 될 것 같아. 앞으로 어떻게 될까?'가 general→too_broad로
         # 세 번 연속 바운스 — '연기인생'이 직업 신호인데 어휘가 일반 직장 계열뿐이었다).
@@ -143,8 +149,12 @@ _TERM_WORDS = ["공망", "용신", "희신", "기신", "구신", "한신", "격"
 #:
 #: 둘 다 어간 매칭으로 EMOTIONAL_SUPPORT 에 삼켜져 기존 회귀가 깨졌다(실측). 그래서
 #: 현재형 어미만 받는다 — 과거형(`힘들었`)과 관형형(`힘들때`)은 제외된다.
+#:
+#: '힘들어지/힘들어질'도 제외한다(2026-09-11 실로그: "리더가 다른 팀으로 가는데 내 업무
+#: 방향은 더 힘들어질까? 10월부터" 가 감정 토로로 삼켜져 공감 템플릿만 나갔다). 변화
+#: 예측('더 힘들어질까')은 감정이 아니라 분석 질문이다.
 _EMOTION_WORDS = re.compile(
-    r"스트레스|힘들[어다지네고]|힘드[네니]|고장나서|우울|지치|버겁"
+    r"스트레스|힘들(?:어(?![지질])|[다지네고])|힘드[네니]|고장나서|우울|지치|버겁"
 )
 
 #: B13 한탄·자조 어법. **도메인·명리 용어가 없을 때만** 적용한다(호출부 가드).
@@ -196,6 +206,12 @@ NEUTRAL_PAST_EXPLANATION_RE = re.compile(
 # — '그 회사에서 언제 연락 올까'는 특정 회사의 시점 질문이다.
 # 회사·기업·조직은 어떤/무슨/어느가 붙을 때만 분야 질문으로 본다.
 _FIELD_NOUN = r"(?:분야|직종|업종|직군|직무|도메인|업계|산업|영역|필드)"
+# '뭘 해먹고 살아야 할까'류 생계 관용구(2026-09-11 실로그: '내 사준 기반으로 나는 뭘 해먹고
+# 살아야할까?'가 too_broad — 분야 명사가 없고 '사주' 오타로 도메인도 비었다).
+_LIVING_IDIOM = (
+    r"(?:뭘|무엇을|뭐를|뭐\s*하며|무슨\s*일\s*하며)\s*"
+    r"(?:해\s*먹고|하고|하며|하면서)?\s*(?:먹고\s*)?살"
+)
 _OFFER_WORD = r"(?:연락|제안|제의|스카웃|스카우트|오퍼|러브콜|콜)"
 _CAREER_FIELD_RE = re.compile(
     r"어떤\s*(?:분야|직종|업종|직군|직무|일|직업|쪽|도메인|업계|산업|영역|필드|회사|기업|조직)"
@@ -203,7 +219,8 @@ _CAREER_FIELD_RE = re.compile(
     r"|어느\s*(?:분야|직종|업종|쪽|도메인|업계|산업|영역|회사|기업|조직)"
     r"|분야(?:가|는|에|로|를)?\s*(?:잘|맞|좋|유리|확률|어울|추천)|(?:직종|업종|직군|직무)(?:이|은|는|가)?\s*(?:잘|맞|좋|유리|어울|추천)"
     r"|적성|천직|(?:맞는|어울리는|잘\s*맞는)\s*(?:일|직업|직무|직종|분야)|무슨\s*일을\s*(?:해야|하면)"
-    r"|" + _FIELD_NOUN + r"\s*(?:쪽)?\s*(?:에서|으로부터|로부터)\s*.{0,12}?" + _OFFER_WORD
+    r"|" + _LIVING_IDIOM
+    + r"|" + _FIELD_NOUN + r"\s*(?:쪽)?\s*(?:에서|으로부터|로부터)\s*.{0,12}?" + _OFFER_WORD
 )
 # 분야 어휘 중 문맥 없이도 직업 질문으로 볼 만한 것(도메인이 일반이면 career 로 승격).
 # '회사·기업·조직'은 단독으로는 승격하지 않는다(career 도메인일 때만 분야로 본다 — 오탐 방지).
@@ -212,6 +229,7 @@ _CAREER_FIELD_STRONG_RE = re.compile(
     r"|(?:어떤|무슨|어느)\s*(?:직업|직종|직무|직군|업종)|어떤\s*일을\s*(?:해야|하면)"
     r"|(?:어떤|무슨|어느)\s*(?:도메인|업계|산업)\s*(?:쪽)?\s*(?:에서|으로부터|로부터)\s*.{0,12}?"
     + _OFFER_WORD
+    + r"|" + _LIVING_IDIOM
 )
 
 
@@ -357,9 +375,32 @@ def _detect_event(text: str) -> EventKey | None:
     return min(found)[1] if found else None
 
 
-def _parse_inline_births(text: str) -> list[SubjectRef]:
-    """인라인 생년월일(A6/A7) — '91년 10월 31일 오후 3시 부천' / '1998.07.23 여자'."""
+# 날짜 뒤 일정 표현 — 이 날짜는 출생일이 아니라 사건 날짜다(2026-09-11 실로그: '2026년 8월
+# 25일에 시험이 있어 그날의 운세'가 2026-08-25생 임시 동반자로 잡혀 본인이 빠지고 need_subject).
+_SCHEDULE_AFTER_DATE_RE = re.compile(
+    r"^\s*(?:에|엔|에는|날|날에|부터|까지)?\s*[^\n.?!]{0,10}?"
+    r"(?:시험|면접|이사|계약|결혼식|수술|출장|약속|발표|행사|모임|예정|있어|있습니다|있는데|있거든)"
+)
+
+
+def _is_schedule_date(text: str, end: int) -> bool:
+    """날짜 매치 직후가 일정 표현이면 True(출생일 아님)."""
+    return bool(_SCHEDULE_AFTER_DATE_RE.search(text[end:end + 24]))
+
+
+def _parse_inline_births(text: str, today: date | None = None) -> list[SubjectRef]:
+    """인라인 생년월일(A6/A7) — '91년 10월 31일 오후 3시 부천' / '1998.07.23 여자'.
+
+    배제 규칙(2026-09-11): ①날짜 뒤에 일정 표현이 붙으면 사건 날짜다 ②기준일(today)보다
+    미래인 날짜는 태어난 사람이 있을 수 없다. 둘 다 출생일로 보지 않는다.
+    """
     out: list[SubjectRef] = []
+
+    def _excluded(birth_date: str, end: int) -> bool:
+        if _is_schedule_date(text, end):
+            return True
+        return today is not None and date.fromisoformat(birth_date) > today
+
     # 'YY[YY]년 M월 D일 [오전/오후 H시] [지명]' 형태.
     for m in re.finditer(
         r"(?:음력\s*)?(\d{2,4})년\s*(\d{1,2})월\s*(\d{1,2})일(?:생)?"
@@ -378,6 +419,8 @@ def _parse_inline_births(text: str) -> list[SubjectRef]:
             "M" if re.search(r"남자|남성|남자친구", text) else None
         )
         birth_date = f"{year}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        if _excluded(birth_date, m.end()):
+            continue
         out.append(SubjectRef(
             kind=SubjectKind.INLINE_TEMP,
             label=f"{birth_date} {'여' if gender == 'F' else '남' if gender == 'M' else '?'}",
@@ -388,6 +431,8 @@ def _parse_inline_births(text: str) -> list[SubjectRef]:
     # 'YYYY.MM.DD 여자/남자' 형태(A7).
     for m in re.finditer(r"(\d{4})\.(\d{2})\.(\d{2})\s*(여자|남자)?", text):
         birth_date = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+        if _excluded(birth_date, m.end()):
+            continue
         gender = {"여자": "F", "남자": "M"}.get(m.group(4) or "")
         out.append(SubjectRef(
             kind=SubjectKind.INLINE_TEMP,
@@ -397,8 +442,13 @@ def _parse_inline_births(text: str) -> list[SubjectRef]:
     return out
 
 
-def _detect_subjects(text: str) -> tuple[list[SubjectRef], SubjectMode]:
-    """대상 추출(A1~A9 부분) — 관계어/별칭/인라인. 기본 self."""
+def _detect_subjects(
+    text: str, today: date | None = None,
+) -> tuple[list[SubjectRef], SubjectMode]:
+    """대상 추출(A1~A9 부분) — 관계어/별칭/인라인. 기본 self.
+
+    today는 즉석 출생일의 미래 날짜 배제에만 쓴다(없으면 일정 표현 배제만 적용).
+    """
     subjects: list[SubjectRef] = []
     exclude_self = bool(re.search(r"나를\s*제외", text))
     # 괄호 주석은 대상 지정이 아니다 — 관계어·별칭 스캔은 괄호 제거본으로(인라인 생년월일은 원문).
@@ -414,7 +464,7 @@ def _detect_subjects(text: str) -> tuple[list[SubjectRef], SubjectMode]:
         if re.search(rf"{word}(?=$|[^가-힣]|의|이랑|과|와|은|는)", scan_text):
             subjects.append(SubjectRef(kind=SubjectKind.COMPANION, label=word))
             break
-    subjects += _parse_inline_births(text)
+    subjects += _parse_inline_births(text, today)
 
     pairwise = bool(re.search(r"궁합|나랑\s*(?:잘\s*)?맞|내\s*사주가\s*잘\s*맞", text))
     ranking = bool(re.search(r"누구야|누가\s|순위|등수|1등부터", text))
@@ -816,7 +866,7 @@ def parse_message(
             )
 
     pieces = _split_questions(text)
-    subjects, mode = _detect_subjects(text)
+    subjects, mode = _detect_subjects(text, today)
     style = _detect_output_style(text)
     constraints = _detect_constraints(text)
 

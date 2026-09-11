@@ -10680,3 +10680,19 @@ daily docs/17 §23 의 "십성=행동 결, 12운성=흐름 결"을 LLM 입력 �
 - 회귀 `test_career_field_question.py`: 양성 4건(원문·업계·회사 스카웃·산업 오퍼)·음성 1건 추가. docs/08 career 행 갱신.
 - 검증: dry_run 프롬프트에 `[직업 분야 근거]`·`[직업 분야 풀이]`·제안 통로 포함, 직전 9월 창 미승계.
   `run_suite.sh` VALID_SUITE_PASS / lint All checks passed / production mypy gate clean / maintained scripts mypy gate clean.
+
+## 2026-09-11 — 실로그 미인식 사례 전수 점검 + 추천 순서 1·2·3·4·13 처리 (데굴님 승인) ✅
+
+DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subject 35·policy 5)을 현재 코드 dry_run(단일 턴)
+으로 재판정 → 55건 여전히 바운스, 28건은 그 사이 해소. 원자료는 세션 scratchpad/rejudge.json. 이번 처리:
+1. **시험일 질문의 동반자 바운스**(#1747~1755): 본문 'YYYY년 M월 D일'이 즉석 출생일로 잡혀 본인이 대상에서 빠짐.
+   `_parse_inline_births(text, today)` 배제 규칙 ①날짜 뒤 일정 표현(시험·면접·이사·계약·예정·있어…) ②기준일보다 미래.
+   `_detect_subjects`/`parse_message`가 today 전달. 기존 3형식('91년 10월 31일 오후 3시', '…일생', 'YYYY.MM.DD 여자') 유지.
+2. **업무 변화 질문 정서 오분류**(#1959): `_EMOTION_WORDS` '힘들어' 뒤 '지/질' 제외(변화 예측 ≠ 감정 토로). 도메인 가드 확장 없음.
+3. **생계 관용구**(#1527): `_LIVING_IDIOM`('뭘/무엇을 해먹고·하며 살') → career_field(STRONG 승격 포함).
+4. **지원 경로·업무 어휘**(#455·#1959): career 도메인 어휘 원서·입사·채용·구직·취직·업무('지원'은 지원금 동형이라 제외).
+13. **기능 탐문 '지역오행도 볼 수 있어?'**(#839): `task_procedures.build_feature_answer` — 지역오행 한정 고정 즉답
+   (검수 전 초안·단정 금지 톤), 운세 신호 가드보다 먼저 평가. 다른 기능명은 미등재.
+- 회귀: `test_realtime_log_misses_20260911.py`(신규 8건) + career_field·b13·task_procedures 파일에 추가. docs/08 career 행 갱신.
+- 남은 미처리(다음 차수): 구 단위 지역 추천(5)·육친 운(6)·구매 결정(7)·본문 출생정보 즉석 입력(8)·숫자/영문 별칭(9)·
+  3일 지평(10)·명식 정정(11)·주말부부 합가(12)·동반자 제외 지시·claim_recheck 낡은 문구·진술형 발화·토큰 상한 재축약.
