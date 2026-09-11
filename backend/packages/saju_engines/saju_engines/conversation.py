@@ -46,6 +46,7 @@ from .companion_alias import (
 from .query_parser import (
     AFFIRMATION_RE,
     INCLUSIVE_WE_RE,
+    SELF_MATCH_RE,
     _detect_domains,
     _parse_inline_births,
     attach_parenthetical_births,
@@ -73,6 +74,13 @@ _CUMULATIVE_RE = re.compile(r"앞서\s*물어본\s*(\d+)\s*명|이전에\s*물�
 # 강한 별칭(신랑/아가/N호)은 인물 지칭이 명확해 조사와 무관하게 감지('아가는'도 대상).
 # '아가'는 '나아가/들어가' 부분문자열 오인 방지로 앞 한글 음절·뒤 '씨' 제외.
 _STRONG_REF_RE = re.compile(r"(?<![가-힣])(\d+\s*호|신랑|아가)(?!씨)")
+# 일반 별칭 지칭(2026-09-11 실로그: '남자1과 잘될 수 있을까?', 'jw의 사주가 궁금합니다'가
+# 대상 없이 too_broad). 영문 2~10자 또는 한글+숫자 토큰이 소유격·동반격·'사주' 앞에 오면
+# 대상 지칭으로 보고, 미등록이면 확인 질문(원칙 7)으로 넘긴다. 일반 한글 단어는 제외.
+_GENERIC_REF_RE = re.compile(
+    r"(?<![가-힣A-Za-z0-9])([A-Za-z]{2,10}|[가-힣]{1,4}\d{1,2})"
+    r"(?=의\s*사주|이랑|랑|과\s|와\s|\s*사주)"
+)
 # 괄호 출생정보 토큰 — attach_parenthetical_births와 같은 형태('신랑(1975.04.04 시간모름)').
 _PAREN_BIRTH_TOKEN_RE = re.compile(r"([가-힣A-Za-z0-9]{1,10})\s*[(（][^)）]*\d[^)）]*[)）]")
 _KIN_WORDS_SET = {
@@ -559,6 +567,7 @@ class ConversationEngine:
         resolved_ids = {s.companion_id for s in subjects if s.companion_id}
         ref_tokens = [m.group(1).replace(" ", "") for m in _STRONG_REF_RE.finditer(scan_text)]
         ref_tokens += [m.group(1).replace(" ", "") for m in _REL_REF_RE.finditer(scan_text)]
+        ref_tokens += [m.group(1) for m in _GENERIC_REF_RE.finditer(scan_text)]
         kin_axis_self = False
         for tok in ref_tokens:
             key = normalize_token(tok)
@@ -598,9 +607,10 @@ class ConversationEngine:
         # 본인도 대상에 포함한다(2026-07-22 실로그: '우리가 주의할 점은?'+남편 첨부가 본인
         # 배제된 companion_only로 빠져 출생정보 확인 오류·남편 단독 풀이 오판). '우리 남편'
         # 소유격은 INCLUSIVE_WE_RE가 조사 필수라 매칭되지 않는다.
+        # 본인 포함 궁합 구문('내 사주와 더 잘 맞는 사람이 누구야')도 같은 취급(2026-09-11).
         if (
             subjects
-            and INCLUSIVE_WE_RE.search(text)
+            and (INCLUSIVE_WE_RE.search(text) or SELF_MATCH_RE.search(text))
             and not any(s.kind is SubjectKind.SELF for s in subjects)
         ):
             subjects.insert(0, SubjectRef(kind=SubjectKind.SELF, label="본인"))

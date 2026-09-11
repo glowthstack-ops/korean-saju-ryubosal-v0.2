@@ -10716,3 +10716,23 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
 - 회귀: `test_realtime_log_misses_20260911.py` 2차 21건 추가(총 29). docs/08 relocation·wealth·relationship 행 갱신.
 - 남은 미처리: 숫자/영문 별칭(9)·3일 지평(10)·명식 정정(11)·주말부부 합가(12)·동반자 제외 지시·claim_recheck 낡은 문구·진술형 발화·
   토큰 상한 재축약·본인+후보 2명 비교(multi_with_self).
+
+## 2026-09-11 — 실로그 미인식 사례 3차(남은 항목 전부) ✅ (데굴님 승인)
+
+- **9 숫자·영문 별칭**(#1615·1617·2005): conversation `_GENERIC_REF_RE`(영문 2~10자·한글+숫자 + 의 사주/이랑/과/와) → 미등록이면
+  need_subject 확인('남자1'·'jw'), 등록이면 해소. 일반 한글 단어 제외.
+- **10 'N일내'**(#1315): time_parser C8b에 `내(?!내)` 허용('3일내' → 오늘~3일 롤링 창).
+- **11 명식 정정**(#1179): `parse_pillar_claim` → FEEDBACK_CORRECTION, chat `_pillar_claim_answer`(정책 라우트보다 먼저)가
+  엔진 기둥과 대조해 결정론 답변(일치/불일치·기준·표준시↔진태양시·시지 경계 반대편 시주·입력 확인 안내). 조사 헬퍼 `_josa`.
+- **12 주말부부 합가**(#829~837): 거주 어휘 주말부부·합가·합치·다시 같이 살·함께 살 수.
+- **13 제외 지시**·**15 진술형 후속**: 이미 해소(2026-07-12·07-22 규칙) — 회귀 고정 테스트만 추가.
+- **14 반박 canned**(#895): `_recheck_continuation` 게이트 subject_id→thread_id(비로그인·dry_run도 재검토 경로), canned
+  '준비 중' 문구 → '이전 풀이 맥락을 찾지 못했어요 …' 로 교체.
+- **16 토큰 상한 초과**(#650~654): `TOKEN_BUDGET_ANSWER` 상수, chat generate_reading 호출 `TokenBudgetExceeded` → too_broad 안내,
+  라우터 `_run_chat_answer` 도 오류 대신 안내로 마감(status done, meta.error 보존). 한도 상수 불변.
+- **17 본인+후보 2명**(#1791~1795): 파서·conversation `SELF_MATCH_RE`로 본인 삽입 → multi_with_self; chat
+  `_multi_with_self_subject_blocks`(본인 기준·후보 최대 4명·RANKING_SAFETY_GUARDS) + `[본인 기준 후보 비교 지침]`.
+  부수 결함 2건 수정: 즉석 출생일이 시점으로 새던 누수(`mask_inline_birth_spans` — 시점 파서 입력만 가림, 사건 날짜는 유지),
+  '7일생'의 '일생'이 평생 창(출생~100세)으로 잡히던 결함(time_parser stage_text).
+- 회귀: `test_realtime_log_misses_20260911.py` 3차 18건 추가(총 47). docs/08 move·family·personality 행 갱신.
+- 실로그 점검 항목 전부 처리 완료. 다음 관측 포인트: 새 실로그에서 too_broad/need_subject 재집계.

@@ -92,6 +92,7 @@ from saju_engines.query_parser import (
     detect_kin_axis,
     implies_self_counterpart,
     parse_message,
+    parse_pillar_claim,
 )
 from saju_engines.relation_claim_audit import (
     audit_relation_claims,
@@ -151,7 +152,9 @@ from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.career_transition import CareerQueryResolution, CareerTransitionKind
+from saju_shared_types.constants import BRANCH_KO, STEM_KO
 from saju_shared_types.conversation import ConversationState, ResultSummaryRef, TimeExclusion
+from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES, EVENT_TYPE
 from saju_shared_types.events import EventKey
 from saju_shared_types.execution_plan import ExecutionPlan, SubjectInjectionPolicy
@@ -421,6 +424,11 @@ def _date_day_fortune_note(birth: BirthInput, dates: list[date], timezone: str) 
     )
 
 
+# 입력 토큰 상한 초과 안내(2026-09-11) — 오류가 아니라 범위 좁히기 안내로 마감(라우터 공용).
+TOKEN_BUDGET_ANSWER = (
+    "질문 범위가 넓어 분석량이 한도를 초과했어요. 기간이나 분야를 좁혀 다시 물어봐 주세요."
+)
+
 # 정책 라우트 고정 응답(T3.8 — docs/03 B4 하단). LLM 미호출 템플릿.
 _POLICY_ANSWERS = {
     "fixed_policy": (
@@ -437,8 +445,8 @@ _POLICY_ANSWERS = {
         "본인 사주에 적용한 예시와 함께 설명드릴게요."
     ),
     "claim_recheck": (
-        "이전 풀이에 대한 지적 감사합니다. 해당 판정을 재검산하려면 대화 이력 연동이 "
-        "필요합니다(준비 중). 출생 정보를 다시 확인해 주시면 즉시 재계산해 드릴게요."
+        "이전 풀이에 대한 지적 감사합니다. 이 대화에서 이전 풀이 맥락을 찾지 못했어요. "
+        "어떤 풀이(주제·시기)에 대한 지적인지 알려주시면 엔진 근거를 다시 확인해 드릴게요."
     ),
 }
 
@@ -1157,6 +1165,88 @@ def _date_selection_block(
         hour_fits=hour_fits,
         relocation_reasons=relocation_reasons,
     )
+
+
+def _ganji_ko(ganji: str | None) -> str:
+    """한자 간지 2자 → 한글('庚寅'→'경인'). 변환 불가면 빈 문자열."""
+    if not ganji or len(ganji) != 2:
+        return ""
+    try:
+        return STEM_KO[Stem(ganji[0])] + BRANCH_KO[Branch(ganji[1])]
+    except (ValueError, KeyError):
+        return ""
+
+
+_PILLAR_LABEL = {"year": "년주", "month": "월주", "day": "일주", "hour": "시주"}
+
+
+def _josa(word: str, with_batchim: str, without: str) -> str:
+    """받침 유무로 조사를 고른다('경인'+과 / '기사'+와)."""
+    if not word:
+        return without
+    code = ord(word[-1])
+    if 0xAC00 <= code <= 0xD7A3 and (code - 0xAC00) % 28 != 0:
+        return with_batchim
+    return without
+
+
+def _pillar_claim_answer(question: str, birth: BirthInput, today: date) -> str | None:
+    """명식 기둥 주장('시주가 경인인데?')에 엔진 계산값으로 결정론 답변(LLM 미호출).
+
+    간지 판정은 절대 LLM에 맡기지 않는다(절대원칙 1). 계산 기준(생시·출생지·진태양시 보정)을
+    함께 보여 주고, 다르면 입력 확인을 안내한다. 시지 경계 민감이면 반대편 시주도 알린다.
+    """
+    claim = parse_pillar_claim(question)
+    if claim is None:
+        return None
+    key, claimed = claim
+    label = _PILLAR_LABEL[key]
+    try:
+        result = calculate(birth.model_copy(update={"reference_date": today}))
+    except Exception:  # noqa: BLE001 — 계산 실패면 일반 경로에 맡긴다
+        return None
+    pillars = result.pillars
+    if pillars is None:
+        return None
+    pillar = getattr(pillars, key, None)
+    tc = result.time_correction
+    basis = f"입력 생년월일 {birth.birth_date}"
+    if birth.birth_time is not None:
+        basis += f" {birth.birth_time.strftime('%H:%M')}"
+    basis += f", 출생지 {birth.birth_place_name}"
+    if tc is not None and birth.birth_time is not None:
+        basis += f", 진태양시 보정 {tc.longitude_correction_minutes:+.0f}분"
+    if pillar is None:
+        return (
+            f"입력된 출생 시각이 없어 {label}를 세우지 않았어요({basis}). 말씀하신 {claimed}가 "
+            f"맞다면 출생 시각을 입력해 주시면 {label}를 포함해 다시 계산해 드릴게요."
+        )
+    ko = _ganji_ko(pillar.ganji)
+    shown = f"{pillar.ganji}({ko})" if ko else pillar.ganji
+    if ko == claimed:
+        return f"네, 엔진 계산도 {label}가 {shown}입니다. 기준: {basis}."
+    lines = [
+        f"엔진 계산으로는 {label}가 {shown}{_josa(ko or pillar.ganji, '이', '')}에요. "
+        f"말씀하신 '{claimed}'{_josa(claimed, '과', '와')}는 다릅니다. 기준: {basis}.",
+    ]
+    if key == "hour" and tc is not None:
+        std_ko = _ganji_ko(tc.standard_time_hour_pillar)
+        if tc.hour_pillar_changed_by_true_solar_time and std_ko:
+            lines.append(
+                f"표준시 기준으로는 {tc.standard_time_hour_pillar}({std_ko})이지만 "
+                f"진태양시 보정으로 {shown}{_josa(ko, '이', '가')} 됐어요."
+            )
+        alt_ko = _ganji_ko(tc.alternative_hour_pillar)
+        if tc.boundary_sensitive and alt_ko:
+            lines.append(
+                f"출생 시각이 시지 경계에 가까워 기록 오차 2~3분이면 "
+                f"{tc.alternative_hour_pillar}({alt_ko})가 될 수 있어요."
+            )
+        lines.append("시주는 출생 시각과 출생지에 따라 달라지니 입력을 한 번 확인해 주세요.")
+    else:
+        lines.append(f"{label}는 생년월일(과 절기)로 정해지니 입력한 날짜를 확인해 주세요.")
+    lines.append("입력이 맞다면 엔진 계산값을 기준으로 풀이합니다.")
+    return " ".join(lines)
 
 
 def _inline_subject_birth(
@@ -3120,6 +3210,51 @@ def _compare_subject_blocks(
     return [primary_block, other_block], rc
 
 
+def _multi_with_self_subject_blocks(
+    injection: SubjectInjectionPolicy,
+    self_result: ManseV2Result,
+    self_label: str,
+    others: list[tuple[str, str, ManseV2Result]],
+    year: int,
+) -> tuple[list[SubjectBlock], RelationshipContext]:
+    """본인 + 후보 2~4명(2026-09-11) — 본인이 기준(참조), 후보는 compact 명식 블록.
+
+    '둘 중 내 사주와 더 잘 맞는 사람이 누구야'류. 순위·점수·확률은 만들지 않고(절대원칙 8)
+    후보별 본인과의 궁합 관점을 조건부 상대 경향으로만 설명하게 한다.
+    """
+    blocks: list[SubjectBlock] = [
+        SubjectBlock(
+            subject_id=injection.primary_subject_id or "self",
+            role="self",
+            label=self_label,
+            is_primary=True,
+            chart=build_birth_summary(self_result),
+            current_period=_current_period_line(self_result, year),
+        )
+    ]
+    for sid, label, res in others:
+        blocks.append(
+            SubjectBlock(
+                subject_id=sid,
+                role="companion",
+                label=label,
+                is_primary=False,
+                chart=build_birth_summary(res),
+                current_period=_current_period_line(res, year),
+            )
+        )
+    rc = RelationshipContext(
+        mode="multi_with_self",
+        relation_type=None,
+        relation_basis="unknown",
+        perspective_hints=["각 후보를 본인 기준 궁합 관점으로 따로 본다"],
+        safety_guards=list(RANKING_SAFETY_GUARDS),
+        primary_subject_id=blocks[0].subject_id,
+        companion_subject_ids=[b.subject_id for b in blocks[1:]],
+    )
+    return blocks, rc
+
+
 def _ranking_subject_blocks(
     injection: SubjectInjectionPolicy,
     primary_result: ManseV2Result,
@@ -3752,7 +3887,9 @@ def chat(
     # 직전 풀이 재검토(B) — 이의/반문 + 활성 스레드 분석 맥락이면 canned 폴백 대신 직전 주제를
     # 상속해 정상 분석 경로로 흘리고, recheck 지시문으로 엔진 근거 재검토를 시킨다(subject 확정 시).
     is_recheck = False
-    if subject_id is not None:
+    # 게이트는 스레드 맥락(직전 intent) 존재 여부다(2026-09-11: subject_id 게이트라 비로그인·
+    # dry_run이 canned '준비 중' 문구로 빠지던 결함 — 직전 intent가 없으면 함수가 그대로 반환).
+    if thread_id is not None:
         intent, is_recheck = _recheck_continuation(intent, prior_intent)
         # 재검토로 분석 전환되면 스레드 맥락(last_intent)도 분석으로 갱신한다 — 다음 턴('그래' 등
         # 약한 후속)이 FEEDBACK_CORRECTION을 상속해 다시 canned로 빠지는 연쇄를 끊는다.
@@ -3771,6 +3908,19 @@ def chat(
     if nonregular and career_presupposed and EventKey.JOB_GAIN not in intent.event_keys:
         intent = intent.model_copy(update={"event_keys": [*intent.event_keys, EventKey.JOB_GAIN]})
 
+    # 명식 기둥 주장('시주가 경인인데?') — 엔진 계산값과 대조해 결정론 즉답(2026-09-11).
+    # 정책 라우트(FEEDBACK_CORRECTION canned)보다 먼저 본다 — 간지 대조는 이력 맥락이 필요 없다.
+    pillar_answer = _pillar_claim_answer(question, birth, today)
+    if pillar_answer is not None:
+        _save_thread(store, state)
+        return ChatResponse(
+            status="policy",
+            answer=pillar_answer,
+            intents=parsed.intents,
+            thread_id=thread_id,
+            turn_no=state.turn_no if state else None,
+            repeated=repeated,
+        )
     # 비분석 라우트(T3.8) — 엔진/LLM 미호출.
     plan = build_execution_plan(intent)
     if plan.policy_route is not None:
@@ -4573,6 +4723,7 @@ def chat(
     subject_blocks: list[SubjectBlock] = []
     relationship_context: RelationshipContext | None = None
     ranking_truncated = False
+    multi_with_self_mode = False
     _inj = plan.subject_injection
     if _inj is not None and _inj.mode == "pairwise" and len(_inj.companion_subject_ids) == 1:
         _cid = _inj.companion_subject_ids[0]
@@ -4668,6 +4819,35 @@ def chat(
                 "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
             }
         )
+    elif (
+        _inj is not None and _inj.mode == "multi_with_self"
+        and len(_inj.companion_subject_ids) >= 2
+    ):
+        # 본인 + 후보 2~4명(2026-09-11 실로그 #1791~1795): 본인이 기준(base 교체 없음),
+        # 후보별 명식 블록. birth 없는 후보는 건너뛴다(즉석 출생정보는 _companion_birth가 해석).
+        _capped = _inj.companion_subject_ids[:_RANKING_CAP]
+        _cands: list[tuple[str, str, ManseV2Result]] = []
+        for _cid in _capped:
+            _cb = _companion_birth(_cid)
+            if _cb is None:
+                continue
+            _eff_c = next((e for e in plan.effective_subjects if e.subject_id == _cid), None)
+            _cands.append((
+                _cid,
+                (_eff_c.label if _eff_c else None) or "후보",
+                calculate(_cb.model_copy(update={"reference_date": today})),
+            ))
+        if _cands:
+            subject_blocks, relationship_context = _multi_with_self_subject_blocks(
+                _inj, result, subject_label or "본인", _cands, year=today.year,
+            )
+            multi_with_self_mode = True
+            ranking_truncated = len(_inj.companion_subject_ids) > _RANKING_CAP
+            plan = plan.model_copy(
+                update={
+                    "subject_injection": _inj.model_copy(update={"execution_enabled": True}),
+                }
+            )
     # P3c-1 — 경쟁 비교: pairwise/compare 실행 경로는 그대로 두고 관계맥락을 competition으로,
     # 안전 가드를 승부 단정 금지로 교체(승률·순위·당락 산출 금지). 대상 2명일 때만.
     competition_active = False
@@ -4861,6 +5041,17 @@ def chat(
         if ranking_truncated:
             _rank_dir += " (대상이 많아 등록 순 최대 4명까지만 반영했다.)"
         trailing.append(_rank_dir)
+    # 본인 + 후보 다자(2026-09-11): 후보별 본인과의 궁합 관점, 순위·점수·승률 단정 금지.
+    if multi_with_self_mode:
+        _mws_dir = (
+            "[본인 기준 후보 비교 지침] 이 요청은 본인과 여러 후보의 궁합을 각각 살펴 조건별로 "
+            "비교하는 요청이다. 후보마다 본인과의 관계 신호(조화·보완·긴장)를 따로 설명하고, "
+            "'누가 더 낫다'는 순위·점수·확률·승률 단정을 하지 말 것. 어느 조건에서 어느 후보와의 "
+            "신호가 강한지, 각각 무엇을 보완해야 하는지로 정리할 것."
+        )
+        if ranking_truncated:
+            _mws_dir += " (후보가 많아 앞 4명까지만 반영했다.)"
+        trailing.append(_mws_dir)
     # 직전 풀이 재검토(B) — 이의/반문 후속이면 엔진 근거로 재검토하도록 지시(출생정보 재요청 금지).
     if is_recheck:
         trailing.append(_RECHECK_DIRECTIVE)
@@ -5478,14 +5669,22 @@ def chat(
                 intents=parsed.intents, thread_id=thread_id,
                 turn_no=state.turn_no if state else None)
     else:
-        answer = llm_client.generate_reading(
-            prompt_text,
-            call_type=call_type,
-            system=system,
-            owner_id=owner_id,
-            surface="chat",
-            ref_id=thread_id,
-        )
+        try:
+            answer = llm_client.generate_reading(
+                prompt_text,
+                call_type=call_type,
+                system=system,
+                owner_id=owner_id,
+                surface="chat",
+                ref_id=thread_id,
+            )
+        except TokenBudgetExceeded as exc:
+            # 호출 직전 최종 검사 초과(위험 주입 등 직렬화 후 가산분) — 일반 오류 대신 안내.
+            _logger.warning("chat token budget exceeded at call: %s", exc)
+            return ChatResponse(
+                status="too_broad", answer=TOKEN_BUDGET_ANSWER, intents=parsed.intents,
+                thread_id=thread_id, turn_no=state.turn_no if state else None,
+            )
         answer = _normalize_ganji_gloss(answer)  # 간지 병기 보정.
         # P4-1 출력 감사 — 실패하면 커리어 지시문을 뺀 프롬프트로 **1회만** 재생성해
         # 기존 직업운 경로로 완전 복귀한다(감사 전 원문 전달 금지, 3회 호출 금지).

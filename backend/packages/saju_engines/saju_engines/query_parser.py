@@ -98,6 +98,9 @@ _DOMAIN_WORDS: dict[Domain, list[str]] = {
         # 하위 단위 추천형(2026-09-11 실로그: '창원에서는 어느 구가 가장 좋아?', '수지 안에서
         # 어떤 생활권이 맞을지', '용인 수지에 사는게 잘 맞을까?'가 general/관계로 빠짐).
         "어느 구", "어떤 구", "어느 동", "생활권", "살기에", "에 사는게", "에 사는 게", "어떤 지역",
+        # 합가·동거 재개(2026-09-11 실로그: '주말부부를 그만하고 싶은데 그런 운이 있어?'가
+        # general→too_broad). '다시 합칠 수 있는 시기'와 같은 거주 이동 경로로 본다.
+        "주말부부", "주말 부부", "합가", "합치", "다시 같이 살", "함께 살 수", "같이 살 수",
     ],
     Domain.RELATIONSHIP: [
         "연애", "결혼", "재혼", "이혼", "별거", "파혼", "이별", "궁합", "재회", "배우자", "인연",
@@ -207,6 +210,35 @@ BEHAVIOR_PATTERN_RE = re.compile(
 #: 실패어(안 됐/늦었…)가 있는 형태는 counterfactual_context가 별도 모드로 잡는다.
 NEUTRAL_PAST_EXPLANATION_RE = re.compile(
     r"왜.{0,24}(?:그랬|이랬|저랬|했을까|했었|한\s*걸까|했던\s*(?:걸까|거지))|그때.{0,10}왜"
+)
+
+
+# 명식 정정 발화(2026-09-11 실로그 #1179: '시주가 경인인데?'가 too_broad). 간지는 엔진이
+# 계산한 값과 대조해 결정론으로 답한다(LLM·추정 금지 — 절대원칙 1). chat_service가 소비.
+_PILLAR_CLAIM_RE = re.compile(
+    r"(?P<pillar>년주|월주|일주|시주)(?:가|는|은|이)?\s*(?P<ganji>[가-힣]{2})\s*"
+    r"(?:인데|아니야|아닌가|아니냐|맞아|맞나|맞지|이야|야|이잖아|잖아|라고|라던데)"
+)
+_PILLAR_KEY = {"년주": "year", "월주": "month", "일주": "day", "시주": "hour"}
+_STEM_KO_SET = frozenset("갑을병정무기경신임계")
+_BRANCH_KO_SET = frozenset("자축인묘진사오미신유술해")
+
+
+def parse_pillar_claim(text: str) -> tuple[str, str] | None:
+    """명식 기둥 주장('시주가 경인인데?') → ('hour', '경인'). 60갑자 한글이 아니면 None."""
+    m = _PILLAR_CLAIM_RE.search(text)
+    if not m:
+        return None
+    ganji = m.group("ganji")
+    if ganji[0] not in _STEM_KO_SET or ganji[1] not in _BRANCH_KO_SET:
+        return None
+    return _PILLAR_KEY[m.group("pillar")], ganji
+
+
+# 본인 포함 궁합 구문 — '내 사주와 (더) 잘 맞는', '나랑 (더) 잘 맞아'(2026-09-11: 후보 2명 비교
+# '둘 중 내 사주와 더 잘 맞는 사람이 누구야'가 본인 제외 비교로 빠지던 결함).
+SELF_MATCH_RE = re.compile(
+    r"(?:내|제)\s*사주(?:와|랑|과|하고)\s*(?:더\s*)?(?:잘\s*)?맞|(?:나|저)(?:랑|와|하고)\s*(?:더\s*)?(?:잘\s*)?맞"
 )
 
 
@@ -429,6 +461,47 @@ def _is_schedule_date(text: str, end: int) -> bool:
     return bool(_SCHEDULE_AFTER_DATE_RE.search(text[end:end + 24]))
 
 
+_INLINE_BIRTH_RES = (
+    re.compile(
+        r"(?:음력\s*)?(\d{2,4})년\s*(\d{1,2})월\s*(\d{1,2})일(?:생)?"
+        r"(?:\s*(오전|오후)?\s*(\d{1,2})시(?:\s*(\d{1,2})분)?)?"
+    ),
+    re.compile(r"(\d{4})\.(\d{2})\.(\d{2})\s*(여자|남자)?"),
+)
+
+
+def mask_inline_birth_spans(text: str, today: date | None = None) -> str:
+    """즉석 출생일 구간을 공백으로 가린 본문 — 시점 파서 입력용(2026-09-11).
+
+    '1972년 11월 7일생 … 1980년 10월 8일생' 의 '11월 7일'이 올해 날짜 창으로, '일생'이 생애
+    지평으로 잡히던 누수를 막는다. 출생일로 채택되는 구간(일정 표현·미래 날짜 배제 규칙 통과)만
+    가리므로 사건 날짜('8월 25일에 시험')는 그대로 시점으로 남는다.
+    """
+    out = list(text)
+    for rx in _INLINE_BIRTH_RES:
+        for m in rx.finditer(text):
+            if rx is _INLINE_BIRTH_RES[0]:
+                year = int(m.group(1))
+                year += 1900 if year >= 30 and year < 100 else (2000 if year < 30 else 0)
+                try:
+                    bd = f"{year}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+                    date.fromisoformat(bd)
+                except ValueError:
+                    continue
+            else:
+                bd = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+            if _is_schedule_date(text, m.end()):
+                continue
+            try:
+                if today is not None and date.fromisoformat(bd) > today:
+                    continue
+            except ValueError:
+                continue
+            for i in range(m.start(), m.end()):
+                out[i] = " "
+    return "".join(out)
+
+
 def _parse_inline_births(text: str, today: date | None = None) -> list[SubjectRef]:
     """인라인 생년월일(A6/A7) — '91년 10월 31일 오후 3시 부천' / '1998.07.23 여자'.
 
@@ -559,7 +632,10 @@ def _detect_subjects(
     subjects += _parse_inline_births(text, today)
     subjects, _ = attach_parenthetical_births(text, subjects, today)
 
-    pairwise = bool(re.search(r"궁합|나랑\s*(?:잘\s*)?맞|내\s*사주가\s*잘\s*맞", text))
+    pairwise = bool(
+        re.search(r"궁합|나랑\s*(?:잘\s*)?맞|내\s*사주가\s*잘\s*맞", text)
+        or SELF_MATCH_RE.search(text)
+    )
     ranking = bool(re.search(r"누구야|누가\s|순위|등수|1등부터", text))
     group = bool(re.search(r"종합해서|둘\s*다|모두|우리\s*가족|함께", text))
     inclusive_we = bool(INCLUSIVE_WE_RE.search(text))
@@ -579,6 +655,10 @@ def _detect_subjects(
     else:
         subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
         mode = SubjectMode.SINGLE
+    # 본인 포함 궁합 구문('내 사주와 더 잘 맞는 사람이 누구야')이면 순위·비교 모드여도 본인을
+    # 대상에 넣는다 — 본인 + 후보 2명 이상은 실행 계층에서 multi_with_self가 된다.
+    if SELF_MATCH_RE.search(text) and not any(s.kind is SubjectKind.SELF for s in subjects):
+        subjects.insert(0, SubjectRef(kind=SubjectKind.SELF, label="본인"))
     return subjects, mode
 
 
@@ -605,6 +685,9 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
         return QueryType.OUT_OF_SCOPE
     # Q12 — 이의/정정 (B9/B10/A10): 직전 답변 참조 신호가 있어야 한다("vs ... 맞아?"는 Q7).
     if re.search(r"아니야\s*\?|틀렸|헷갈려|다시\s*체크|라던데\s*맞아|했잖아", text):
+        return QueryType.FEEDBACK_CORRECTION
+    # Q12b — 명식 기둥 주장('시주가 경인인데?'): 엔진 계산값과 대조하는 정정 발화(2026-09-11).
+    if parse_pillar_claim(text) is not None:
         return QueryType.FEEDBACK_CORRECTION
     # Q11 — 용어 교육 (B12): 용어 + 뜻/뭐야. 단 소유격("내 용신")은 본인 명식 → Q8.
     is_term = any(w in text for w in _TERM_WORDS)
@@ -891,8 +974,9 @@ def parse_message(
     # B2 단답 후속: 시점 슬롯만 교체, 나머지 직전 intent 상속.
     # 연 단위 다중·부정·정정 표현은 제약 해소를 거친다(2026-07-14 P1 — "2026년 27년은
     # 의미없고 2033년이 중요해"에서 첫 연도가 시점으로 저장되던 결함 교정).
+    time_text = mask_inline_birth_spans(text, today)  # 즉석 출생일은 시점이 아니다
     time_range, time_scope, time_items = parse_time_with_constraints(
-        text, today, birth_year, current_month_label
+        time_text, today, birth_year, current_month_label
     )
     time_exclusions = [
         it for it in time_items if it.role is TimeConstraintRole.EXCLUDED
@@ -990,7 +1074,7 @@ def parse_message(
         if not domains and event_key is not None:
             domains = [Domain(EVENT_DOMAIN[event_key])]
         piece_time, piece_scope, _ = parse_time_with_constraints(
-            piece, today, birth_year, current_month_label
+            mask_inline_birth_spans(piece, today), today, birth_year, current_month_label
         )
         if piece_time is None:
             piece_time, piece_scope = time_range, time_scope

@@ -234,3 +234,199 @@ def test_parenthetical_birth_prefers_registered_companion_in_thread() -> None:
     assert res.status == "dry_run", res.answer
     subj = res.intents[0].subjects
     assert [s.kind for s in subj] == [SubjectKind.COMPANION] and subj[0].companion_id == "h1"
+
+
+# ═══ 3차(남은 항목 전부, 2026-09-11 데굴님 승인) ═══════════════════════════════
+
+from saju_engines.llm_guard import TokenBudgetExceeded  # noqa: E402
+from saju_engines.query_parser import mask_inline_birth_spans, parse_pillar_claim  # noqa: E402
+
+_LOVER = BirthInput(
+    calendar_type="solar", birth_date="1985-03-03", birth_time="10:00",
+    birth_place_name="서울", gender="male", reference_date="2026-08-21",
+)
+
+
+def _thread_seq(turns: list[str], alias_index: dict, births: dict, tid: str) -> list:
+    store = ConversationStore()
+    out = []
+    prior = None
+    try:
+        for q in turns:
+            out.append(cs.chat(
+                _BIRTH, q, _TODAY, dry_run=True, store=store, thread_id=tid, owner_id="t",
+                companion_alias_index=alias_index, companion_births=births, prior_answer=prior,
+            ))
+            prior = "(직전 답변 요지)"
+    finally:
+        store.delete(tid)
+    return out
+
+
+# ── 9. 숫자·영문 별칭 ─────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("q,token", [
+    ("남자1과 잘될 수 있을까?", "남자1"),
+    ("jw의 사주가 궁금합니다.", "jw"),
+])
+def test_generic_alias_unregistered_asks_which_one(q: str, token: str) -> None:
+    res = _thread_seq([q], {}, {}, f"t-alias-{token}")[0]
+    assert res.status == "need_subject"
+    assert token in (res.answer or "")
+
+
+def test_generic_alias_registered_resolves() -> None:
+    idx = {"남자1": [AliasEntry("m1", "남자1", "lover", "label")]}
+    res = _thread_seq(["남자1과 잘될 수 있을까?"], idx, {"m1": _LOVER}, "t-alias-reg")[0]
+    assert res.status == "dry_run", res.answer
+    assert any(s.companion_id == "m1" for s in res.intents[0].subjects)
+
+
+# ── 10. 'N일내' 단기 창 ──────────────────────────────────────────────────────
+
+def test_three_days_window_without_spacing() -> None:
+    intent = parse_message("3일내 나에게 일어질 이슈에 대해서 알랴줘", _TODAY).intents[0]
+    assert intent.time_range is not None
+    assert intent.time_range.start == "2026-08-21" and intent.time_range.end == "2026-08-24"
+
+
+# ── 11. 명식 정정 발화 — 결정론 답변 ─────────────────────────────────────────
+
+def test_pillar_claim_parsing() -> None:
+    assert parse_pillar_claim("시주가 경인인데?") == ("hour", "경인")
+    assert parse_pillar_claim("월주는 정해 아니야?") == ("month", "정해")
+    assert parse_pillar_claim("시주가 가나인데?") is None  # 60갑자 아님
+    assert parse_pillar_claim("이번 주 운세 어때") is None
+    qt = parse_message("시주가 경인인데?", _TODAY).intents[0].query_type
+    assert qt is QueryType.FEEDBACK_CORRECTION
+
+
+def test_pillar_claim_answer_is_deterministic_from_engine() -> None:
+    res = cs.chat(_BIRTH, "시주가 경인인데?", _TODAY, dry_run=True, owner_id="t")
+    assert res.status == "policy"
+    ans = res.answer or ""
+    assert "엔진 계산으로는 시주가 戊辰(무진)" in ans and "'경인'과는 다릅니다" in ans
+    assert "진태양시 보정" in ans and "입력을 한 번 확인" in ans
+    res2 = cs.chat(_BIRTH, "일주가 기해인데?", _TODAY, dry_run=True, owner_id="t")
+    assert res2.status == "policy" and "일주가 己亥(기해)입니다" in (res2.answer or "")
+
+
+# ── 12. 주말부부 합가 ─────────────────────────────────────────────────────────
+
+def test_weekend_couple_reunion_is_relocation() -> None:
+    q = ("지금 창원시 마산합포구에 살고 있고 동반자는 거창에서 일하고 있어. 주말부부 중이야. "
+         "이제 주말 부부를 그만하고 싶은데 그런 운이 있어?")
+    intent = parse_message(q, _TODAY).intents[0]
+    assert intent.domain is Domain.RELOCATION
+    res = cs.chat(_BIRTH, q, _TODAY, dry_run=True, owner_id="t")
+    assert res.status == "dry_run", res.answer
+
+
+# ── 13. 동반자 제외 지시(기존 규칙 회귀 고정) ────────────────────────────────
+
+def test_exclusion_instruction_keeps_self_even_when_registered() -> None:
+    idx = {"아들": [AliasEntry("s1", "아들", "son", "relation_synonym")]}
+    r1, r2 = _thread_seq(
+        ["9월 30일에 이사가 예정인데 비용 지출이 걱정이야", "아들사주는 빼고 봐줘"],
+        idx, {"s1": _CHILD}, "t-exclude",
+    )
+    assert r2.status == "dry_run", r2.answer
+    assert [s.kind for s in r2.intents[0].subjects] == [SubjectKind.SELF]
+
+
+# ── 14. 이전 답 반박 — 스레드 맥락이면 재검토 경로 ────────────────────────────
+
+def test_challenge_with_thread_context_rechecks_instead_of_canned() -> None:
+    r1, r2 = _thread_seq(
+        ["2026년 연애운 어때?", "그럼 기간상 26년에 어디선가 만나야 하는거아니야?"],
+        {}, {}, "t-recheck",
+    )
+    assert r2.status == "dry_run", r2.answer
+    assert "재검토" in (r2.prompt_preview or "")
+
+
+def test_challenge_without_context_uses_updated_canned_text() -> None:
+    res = cs.chat(
+        _BIRTH, "그럼 기간상 26년에 어디선가 만나야 하는거아니야?", _TODAY,
+        dry_run=True, owner_id="t",
+    )
+    assert res.status == "policy"
+    ans = res.answer or ""
+    assert "준비 중" not in ans and "이전 풀이 맥락을 찾지 못했어요" in ans
+
+
+# ── 15. 진술형 후속(기존 offer-answer 규칙 회귀 고정) ─────────────────────────
+
+@pytest.mark.parametrize("first,statement", [
+    (
+        "이사 비용이 걱정인데 8월에 지출 흐름 어때?",
+        "중도금이지. 가급적 조금만 보내는걸로 하고 싶어서.",
+    ),
+    ("이직 준비 중인데 10월 흐름 어때?", "없어.. 서류나 포트폴리오 ㅠㅠ"),
+])
+def test_statement_followup_continues_thread(first: str, statement: str) -> None:
+    r1, r2 = _thread_seq([first, statement], {}, {}, f"t-stmt-{abs(hash(first)) % 1000}")
+    assert r2.status == "dry_run", r2.answer
+    assert r2.intents[0].domain is r1.intents[0].domain
+
+
+# ── 16. 토큰 상한 초과 — 오류가 아니라 범위 좁히기 안내 ─────────────────────────
+
+def test_token_budget_exceeded_at_call_returns_guidance(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _boom(*_a, **_k):
+        raise TokenBudgetExceeded("chat_single: 입력 99999tok > 상한 22000tok")
+
+    monkeypatch.setattr(cs.llm_client, "generate_reading", _boom)
+    res = cs.chat(_BIRTH, "올해 직업운 어때?", _TODAY, dry_run=False, owner_id="t")
+    assert res.status == "too_broad"
+    assert res.answer == cs.TOKEN_BUDGET_ANSWER
+
+
+def test_router_background_maps_token_budget_to_guidance(monkeypatch: pytest.MonkeyPatch) -> None:
+    from saju_api.routers import chat as chat_router
+
+    class _Hist:
+        calls: list = []
+
+        def complete_turn(self, message_id, answer, status="done", meta=None):
+            self.calls.append((message_id, answer, status, meta))
+
+    def _boom(*_a, **_k):
+        raise TokenBudgetExceeded("chat_single: 입력 99999tok > 상한 22000tok")
+
+    monkeypatch.setattr(cs.llm_client, "generate_reading", _boom)
+    monkeypatch.setattr(cs, "update_thread_offer", lambda *_a, **_k: None)
+    hist = _Hist()
+    chat_router._run_chat_answer(hist, 1, "o", "th", "prompt", "chat_single", None)  # type: ignore[arg-type]
+    assert hist.calls and hist.calls[0][1] == cs.TOKEN_BUDGET_ANSWER and hist.calls[0][2] == "done"
+
+
+# ── 17. 본인 + 후보 2명 비교(multi_with_self) ─────────────────────────────────
+
+_TWO_CANDIDATES = (
+    "1972년 11월 7일생이 남편일 경우와 1980년 10월 8일생이 남편일 경우\n"
+    "둘 중 내 사주와 더 잘 맞는 사람이 누구야?"
+)
+
+
+def test_self_plus_two_candidates_parsed_with_self() -> None:
+    intent = parse_message(_TWO_CANDIDATES, _TODAY).intents[0]
+    kinds = [s.kind for s in intent.subjects]
+    assert kinds == [SubjectKind.SELF, SubjectKind.INLINE_TEMP, SubjectKind.INLINE_TEMP]
+    assert intent.time_range is None  # 출생일이 시점으로 새지 않는다
+
+
+def test_inline_birth_spans_are_masked_for_time_parsing() -> None:
+    masked = mask_inline_birth_spans(_TWO_CANDIDATES, _TODAY)
+    assert "11월 7일" not in masked and "10월 8일" not in masked
+    # 사건 날짜는 남긴다.
+    assert "8월 25일" in mask_inline_birth_spans("2026년 8월 25일에 시험이 있어", _TODAY)
+
+
+def test_self_plus_two_candidates_runs_multi_with_self() -> None:
+    res = cs.chat(_BIRTH, _TWO_CANDIDATES, _TODAY, dry_run=True, owner_id="t")
+    assert res.status == "dry_run", res.answer
+    text = res.prompt_preview or ""
+    assert "[본인 기준 후보 비교 지침]" in text
+    assert "1972-11-07" in text and "1980-10-08" in text
+    assert "순위·점수·확률·승률 단정을 하지 말 것" in text

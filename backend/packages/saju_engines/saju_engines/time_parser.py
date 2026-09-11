@@ -207,7 +207,10 @@ def parse_time(
     # C13 인생 단계 — birth_year가 있으면 단계 경계 나이(LIFE_STAGE_AGE_RANGES)를
     # 연도로 환산해 start/end를 채운다. C12 나이 표현과의 비대칭('88세쯤'은 연도가
     # 잡히는데 '말년에'는 안 잡혀 올해 창으로 오답하던 결함) 보완(2026-08-07).
-    stage_hit = next((s for w, s in _LIFE_STAGES.items() if w in text), None)
+    # '7일생·1980년 10월 8일생'(출생일 접미)의 '일생'은 생애가 아니다(2026-09-11 실로그 #1791:
+    # 즉석 출생일 2건이 '평생' 창(출생~100세)으로 잡혀 궁합 비교가 생애 지평으로 풀리던 결함).
+    stage_text = re.sub(r"\d\s*일생", "", text)
+    stage_hit = next((s for w, s in _LIFE_STAGES.items() if w in stage_text), None)
     if stage_hit is None and _YOUTH_STAGE_RE.search(text):
         stage_hit = "청년"
     if stage_hit is not None:
@@ -392,7 +395,8 @@ def parse_time(
     #     상대 일수만 잡는다(2026-07-01 데굴님 지적: '이후 10일 내에 로또 좋은 날'이 시점 미파싱으로
     #     직전 하루를 과승계해 택일이 하루만 잡히던 결함). '열흘'(10) 한글수도 허용.
     md = re.search(r"(?:이후|앞으로|향후|다가오는)\s*(\d{1,3})\s*일", text) or re.search(
-        r"(\d{1,3})\s*일\s*(?:내에|안에|이내|이내에|안으로)", text
+        # '3일내'(띄어쓰기·조사 없음)도 받는다(2026-09-11 실로그 #1315). '내내'는 제외.
+        r"(\d{1,3})\s*일\s*(?:내에|안에|이내|이내에|안으로|내(?!내))", text
     )
     n_days = int(md.group(1)) if md else 0
     if not n_days and re.search(
