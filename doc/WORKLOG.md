@@ -10658,3 +10658,13 @@ daily docs/17 §23 의 "십성=행동 결, 12운성=흐름 결"을 LLM 입력 �
 - `build_section_context`: `_CAREER_FIELD_SECTIONS={F-15, J-04, J-07}` 에 블록 + `_CAREER_FIELD_REPORT_DIRECTIVE`
   (조직 규모 적합과 결합). J-05(타임라인)는 제외. F-15 섹션 지시문 갱신.
 - docs/10 F-15 행·3-2a 신설. 회귀 2건 추가(FOCUS career J-04/J-07·J-05 제외, FULL F-15+조직 규모·F-02 제외·캐시).
+
+## 2026-09-11 — 비로그인 [로그인] 버튼 → 사이드바 계정 패널 직접 열기 (데굴님 지시) ✅
+
+비로그인 상태에서 메인의 [로그인]이 `/sajus`로 이동해 "좌측 메뉴(☰)에서 로그인해 주세요" 안내만 있는 페이지가
+떴다. 드로어 열림 상태가 `Gnb` 로컬 state라 페이지에서 열 방법이 없던 것이 원인.
+- `components/providers/GnbProvider.tsx` 신설(`openGnb`/`closeGnb`), `Providers`에 등록, `Gnb`는 컨텍스트 사용.
+- `DailyHomeCard` [로그인]·메인 상단 버튼(비로그인 시 [로그인])이 사이드바를 연다. `/sajus` 비로그인 안내 섹션
+  삭제 — 비로그인 진입은 홈으로 replace + 사이드바 열기. `SubjectGateway`(테마사주·AI상담) 안내에 [로그인] 버튼.
+- 남은 "좌측 메뉴(☰)" 문구: themes/reports/settings/onboarding/chat 5곳(동작 문제 없음, 요청 시 같은 버튼으로 통일).
+- 검증: tsc / production build / vitest 36 통과. 커밋 d7c2753.
