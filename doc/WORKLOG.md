@@ -10736,3 +10736,11 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
   '7일생'의 '일생'이 평생 창(출생~100세)으로 잡히던 결함(time_parser stage_text).
 - 회귀: `test_realtime_log_misses_20260911.py` 3차 18건 추가(총 47). docs/08 move·family·personality 행 갱신.
 - 실로그 점검 항목 전부 처리 완료. 다음 관측 포인트: 새 실로그에서 too_broad/need_subject 재집계.
+
+## 2026-09-13 — 홈 화면 중복 버튼 정리 ✅ (데굴님 승인)
+
+- **문제**: 비로그인 홈에 [로그인] 버튼이 상단 소개 카드와 `DailyHomeCard` CTA 카드에 하나씩, 두 개 노출됐다(둘 다 사이드바 계정 패널을 여는 같은 동작).
+- **변경**(`frontend/components/daily/DailyHomeCard.tsx`): CTA 카드의 [로그인] 버튼과 `useGnb` 의존 제거. 버튼은 [만세력에서 사주등록](비회원이 일주를 확보하는 경로) 하나만 남기고,
+  [일주 전체보기]는 로그인 상태 카드와 같은 `일주 전체보기 →` 텍스트 링크로 통일. 상단 소개 카드의 [로그인]·안내문은 유지.
+- docs/17 §1-1 비로그인 표시 규격 문구 갱신.
+- 검증: `tsc --noEmit` 통과 · `next build`(NEXT_DIST_DIR=.next-build, dev 서버와 분리) 통과.

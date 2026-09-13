@@ -3,7 +3,8 @@
 // 메인 무료 영역 최상단 가로 전체 카드 — 일주별 오늘의 운세 (PRD UI/UX 2·3항).
 // - 기준 사주 확인 중: 스켈레톤(로그인 CTA 깜빡임 방지)
 // - 일주 확보(로그인 선택 사주 또는 게스트 프로필): 해당 일주 운세 + [일주 전체보기]
-// - 미확보: 타이틀 + 오늘 날짜(요일) + [로그인](사이드바 계정 패널 열기)·[만세력에서 사주등록] + [일주 전체보기]
+// - 미확보: 타이틀 + 오늘 날짜(요일) + [만세력에서 사주등록] + 일주 전체보기 링크
+//   (로그인 버튼은 상단 소개 카드와 중복이라 두지 않는다 — 2026-09-13)
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -13,7 +14,6 @@ import {
   getDailyBoard,
   getDailyFortune,
 } from "@/lib/daily-fortune";
-import { useGnb } from "@/components/providers/GnbProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 import { useCurrentIlju } from "@/lib/use-current-ilju";
 
@@ -22,7 +22,6 @@ const SLOT_ICON: Record<string, string> = { good: "🌟", caution: "⚠️", sup
 export function DailyHomeCard() {
   const { status, ilju } = useCurrentIlju();
   const { selected } = useSelectedSubject(); // 표시용 별명(로그인 선택 사주) — 게스트는 일주만
-  const { openGnb } = useGnb(); // [로그인] → 사이드바(계정 패널) 열기
   const [single, setSingle] = useState<DailyFortuneSingle | null>(null);
   const [failed, setFailed] = useState(false);
   // CTA 카드용 오늘 날짜(요일) — 클라이언트 재계산 금지, API 값만 사용
@@ -106,19 +105,12 @@ export function DailyHomeCard() {
       <p className="mt-2 text-sm text-gray-600">
         내 일주(태어난 날의 기운)를 알면 매일 아침 5초 만에 오늘의 흐름을 확인할 수 있어요.
       </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={openGnb}
-          className="rounded bg-gray-800 px-3 py-1.5 text-sm text-white"
-        >
-          로그인
-        </button>
-        <Link href="/manse" className="rounded border px-3 py-1.5 text-sm">
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Link href="/manse" className="rounded bg-gray-800 px-3 py-1.5 text-sm text-white">
           만세력에서 사주등록
         </Link>
-        <Link href="/daily" className="rounded border px-3 py-1.5 text-sm">
-          일주 전체보기
+        <Link href="/daily" className="text-sm text-gray-700 underline">
+          일주 전체보기 →
         </Link>
       </div>
     </section>
