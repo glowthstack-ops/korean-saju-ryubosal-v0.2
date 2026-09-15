@@ -1,5 +1,5 @@
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo, naeumElement, yinyangSign } from "@/lib/elements";
-import type { ManseResult, Pillar } from "@/lib/types";
+import { JA_HOUR_RULE_LABEL, type JaHourRule, type ManseResult, type Pillar } from "@/lib/types";
 
 function Cell(
   { char, ko, element, mark, sub, isVoid = false }:
@@ -86,8 +86,20 @@ function Column({ title, p }: { title: string; p: Pillar | null }) {
   );
 }
 
-export function PillarBoard({ result }: { result: ManseResult }) {
+export function PillarBoard({
+  result,
+  applyEquationOfTime,
+}: {
+  result: ManseResult;
+  /** 균시차 적용 여부 — 엔진 응답에는 적용 플래그가 없어 화면 상태를 받는다. 미전달 시 배지 생략. */
+  applyEquationOfTime?: boolean;
+}) {
   const { year, month, day, hour, day_master } = result.pillars;
+  // 자시 규칙은 엔진이 실제로 쓴 값(time_correction.ja_hour_rule)을 그대로 표시한다.
+  // "none"은 엔진에서 standard_zi와 동일 동작이라 정자시로 표기.
+  const tc = result.time_correction as Record<string, unknown> | null;
+  const jaRule: JaHourRule =
+    tc?.ja_hour_rule === "early_late_zi" ? "early_late_zi" : "standard_zi";
   // 원국에서 실제 공망에 해당하는 지지(중복 제거).
   const voidChars = [...new Set(
     [hour, day, month, year].filter((p) => p?.gongmang_hit).map((p) => p!.branch),
@@ -107,6 +119,16 @@ export function PillarBoard({ result }: { result: ManseResult }) {
         <span className="flex items-center gap-1 text-gray-500">
           <span className="font-bold text-gray-700">⊘</span>
           공망{voidChars.length ? `: ${voidChars.map((c) => `${c}(${ganjiKo(c)})`).join(", ")}` : " 없음"}
+        </span>
+        {/* 이 명식이 어떤 시간 옵션으로 계산됐는지 — 진태양시 카드의 선택과 항상 일치한다.
+            좁은 폭에서는 범례 아래 한 줄을 통째로 차지(왼쪽 정렬), sm 이상에서만 오른쪽 끝에 붙인다. */}
+        <span className="flex basis-full items-center gap-1 text-gray-500 sm:ml-auto sm:basis-auto">
+          {applyEquationOfTime !== undefined && (
+            <span className="rounded bg-gray-100 px-1.5 py-0.5">
+              균시차 {applyEquationOfTime ? "적용" : "미적용"}
+            </span>
+          )}
+          <span className="rounded bg-gray-100 px-1.5 py-0.5">{JA_HOUR_RULE_LABEL[jaRule]}</span>
         </span>
       </div>
       <div className="flex gap-2">

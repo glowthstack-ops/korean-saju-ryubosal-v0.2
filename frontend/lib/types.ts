@@ -33,9 +33,26 @@ export interface BirthInputDTO {
   timezone?: string | null;
   gender?: "male" | "female" | "unknown" | null;
   // 시간 보정 옵션(부분 지정) — 미지정 필드는 백엔드 기본값(모두 적용)을 따른다.
-  // 저장된 사주는 챗·리포트 풀이가 이 값을 그대로 쓰므로, 등록 시점의 균시차 기준이 영속된다.
+  // 저장된 사주는 챗·리포트 풀이가 이 값을 그대로 쓰므로, 등록 시점의 균시차·자시 규칙이 영속된다.
   time_options?: Record<string, unknown> | null;
 }
+
+/** 자시(子時) 처리 규칙 — 백엔드 TimeCalculationOptions.ja_hour_rule 중 UI에 노출하는 값.
+  - standard_zi: 정자시. 23시부터 다음 날 일주(자시 전체를 익일로). 백엔드·스펙 기본값.
+  - early_late_zi: 야자시·조자시 구분. 23시대(야자시)는 당일 일주 유지, 0시대(조자시)는 그날 일주.
+    시주 천간은 두 규칙 모두 일주 천간 기준 둔시법(2026-09-15 데굴님 확정).
+  백엔드의 "none"은 standard_zi와 동작이 완전히 같아 UI에 노출하지 않는다. */
+export type JaHourRule = "standard_zi" | "early_late_zi";
+export const DEFAULT_JA_HOUR_RULE: JaHourRule = "standard_zi";
+/** 자시 규칙 표시 라벨 — 진태양시 카드 라디오와 명식 카드 배지가 같은 문구를 쓴다. */
+export const JA_HOUR_RULE_LABEL: Record<JaHourRule, string> = {
+  standard_zi: "정자시",
+  early_late_zi: "야자시·조자시 구분",
+};
+export const JA_HOUR_RULE_DESC: Record<JaHourRule, string> = {
+  standard_zi: "23시부터 다음 날 일주",
+  early_late_zi: "자정까지 당일 일주",
+};
 
 // 계정(ID+PIN) 인증
 export interface AuthToken {

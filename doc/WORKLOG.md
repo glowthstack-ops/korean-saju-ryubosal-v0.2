@@ -10744,3 +10744,35 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
   [일주 전체보기]는 로그인 상태 카드와 같은 `일주 전체보기 →` 텍스트 링크로 통일. 상단 소개 카드의 [로그인]·안내문은 유지.
 - docs/17 §1-1 비로그인 표시 규격 문구 갱신.
 - 검증: `tsc --noEmit` 통과 · `next build`(NEXT_DIST_DIR=.next-build, dev 서버와 분리) 통과.
+
+## 2026-09-15 — 자시(子時) 처리 규칙 토글 프론트 노출 + 명식 카드 옵션 배지 ✅ (데굴님 승인)
+
+- **배경**: 1981-03-10 23:24 청주(균시차 미적용) 사주가 戊子 일주로 보인다는 보고. 엔진 직접 호출은 丁亥(진태양시 22:53 → 亥시)였고,
+  戊子는 DB 저장 사주의 출생시각이 **23:55**(진태양시 23:24 → 子시 → 23:00 경계 규칙으로 익일)라서 생긴 결과 — 엔진 오류 아님.
+  다만 야자시 유파는 이 경우 丁亥를 기대하므로 이미 있는 `ja_hour_rule` 옵션을 프론트에 노출하기로 결정.
+- **엔진 사실 확인**: `ja_hour_rule="none"`은 `standard_zi`와 출력이 바이트 단위로 동일(`time_boundary.day_pillar_offset`가 같은 분기,
+  시주 계산은 이 값을 읽지 않음). `day_boundary_rule="00:00"`도 `early_late_zi`와 동일. 실제 동작은 정자시/야자시·조자시 구분 두 가지뿐.
+  야자시 시주 천간은 당일 일간 기준 둔시법(丁亥일 야자시 → 庚子시) 유지 — 익일 일간 유파 변형은 미도입(데굴님 확정).
+- **변경(프론트만, 백엔드 무변경)**:
+  - `lib/types.ts`: `JaHourRule`("standard_zi"|"early_late_zi")·`DEFAULT_JA_HOUR_RULE`·표시 라벨 상수. "none"은 UI 미노출.
+  - `lib/storage.ts`: 비로그인 기기 로컬 `ryubosal:jaHourRule` save/load. `lib/subject-mapping.ts`: `subjectJaHourRule`(구 레코드·none·미지원 값 → 정자시),
+    `buildTimeOptions(eot, ja)` — 균시차·자시 규칙을 항상 함께 싣는 단일 조립점.
+  - `app/manse/result/page.tsx`: `jaHourRule` 상태, `applyTimeOptions`로 균시차 토글과 통합(로그인=`updateSubject`로 사주별 영속, 비로그인=localStorage),
+    월운·검증 호출에도 동일 timeOptions 전달.
+  - `components/manse/Panels.tsx` `TrueSolarTimeCard`: 균시차 체크박스 옆 2지선다 라디오(정자시 / 야자시·조자시 구분), "자시 규칙" 행,
+    최종 계산 시각이 23시대일 때만 "자시 규칙에 따라 일주가 바뀝니다" 경고(0시대는 두 규칙 동일).
+  - `components/manse/PillarBoard.tsx`: 명식 카드 범례 우측에 `균시차 적용/미적용` + 자시 규칙 배지. 자시 규칙은 엔진 응답 `time_correction.ja_hour_rule`을 표시.
+  - `lib/use-current-ilju.ts`·`components/calendar/CalendarGrid.tsx`·`components/onboarding/Wizard.tsx`: 오늘의 운세 일주·간지달력 오버레이·등록/수정 저장이
+    같은 규칙을 쓰도록 `ja_hour_rule` 배선(edit 는 저장값 보존, add 는 기기 설정 시드). 챗·리포트는 저장 birth를 그대로 쓰므로 자동 반영.
+  - `tests/subject-mapping.test.ts`: `subjectJaHourRule`·`buildTimeOptions` 케이스 추가.
+- **기본값**: 정자시(`standard_zi`, 스펙 v2_1 §10 `late_zi_23`). 구 레코드는 키 없음 → 정자시로 해석해 기존 명식 byte 불변.
+- **검증**: `tsc --noEmit` 통과 · vitest 38/38 · `next build`(.next-prod) 통과 · Playwright 헤드리스(게스트 플로우) 실측:
+  23:24 → 두 규칙 모두 丁亥/辛亥(경고 없음), 23:55 → 정자시 戊子/壬子 ↔ 야자시·조자시 구분 丁亥/庚子(경고 표시), 새로고침 후 기기 설정 복원.
+- 미변경: `StepYongsin`(등록 중 용신 미리보기)은 time_options 없이 호출 — 등록 완료 후 만세력 화면과 다를 수 있음(기존과 동일, 별도 판단 필요).
+- **후속(같은 날, 데굴님 지적)** 좁은 폭에서 카드 헤더·명식 범례가 줄바꿈되며 어긋나는 문제: `Panels.Card` 헤더를 `flex-wrap`으로 바꾸고
+  제목은 `whitespace-nowrap`, action 은 `basis-full sm:basis-auto sm:ml-auto`(모바일=제목 아래 한 줄 왼쪽 정렬, sm 이상=제목 오른쪽).
+  체크박스·라디오 라벨 `whitespace-nowrap`. `PillarBoard` 옵션 배지도 같은 규칙(`basis-full sm:ml-auto sm:basis-auto`).
+  action 슬롯 사용처는 `TrueSolarTimeCard` 뿐이라 다른 카드 영향 없음. 360px·640px 헤드리스 스크린샷으로 확인, tsc·vitest·build 통과.
+- **후속 2(데굴님 지적)** 출생 요약 바(`BirthSummaryBar`)가 좁은 폭에서 '순행대/운'처럼 단어 중간에서 끊기던 문제: 한 문자열 대신
+  `(달력) 날짜 시각` / `출생지` / `성별 대운방향` 세 조각을 `whitespace-nowrap` span 으로 두고 `flex-wrap` 컨테이너에서 항목 단위로만
+  줄바꿈. 구분점(·)은 조각 앞에 붙어 다음 줄로 함께 내려간다. 320px 헤드리스로 확인, tsc·vitest·build 통과.

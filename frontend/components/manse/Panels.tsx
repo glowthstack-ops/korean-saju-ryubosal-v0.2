@@ -6,7 +6,11 @@ import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { fetchLuckMonths } from "@/lib/api";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
 import { applyCalibrationToLuckCycles, applyCalibrationToLuckPillars } from "@/lib/luck-calibration";
-import type { CalibrationResult, LuckPillar, LuckSinsal, ManseResult, Profile } from "@/lib/types";
+import {
+  JA_HOUR_RULE_DESC, JA_HOUR_RULE_LABEL,
+  type CalibrationResult, type JaHourRule, type LuckPillar, type LuckSinsal, type ManseResult,
+  type Profile,
+} from "@/lib/types";
 
 // 백엔드 응답에 일부 필드가 없어도(구버전/부분 데이터) 깨지지 않도록 방어.
 function ent(obj: Record<string, number> | undefined | null): [string, number][] {
@@ -58,10 +62,14 @@ function Card({
 }) {
   return (
     <section className="rounded-lg border bg-white p-4">
-      <h2 className="mb-2 flex items-center text-sm font-semibold">
-        {title}
-        {info && <InfoTooltip text={info} />}
-        {action && <span className="ml-auto font-normal">{action}</span>}
+      {/* 헤더: 제목은 줄바꿈 금지. action 은 좁은 폭(모바일)에서 제목 아래 한 줄을 통째로 차지하고
+          sm 이상에서만 제목 오른쪽에 붙는다 — 제목·컨트롤이 서로 밀어내며 어긋나는 것을 막는다. */}
+      <h2 className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm font-semibold">
+        <span className="flex items-center whitespace-nowrap">
+          {title}
+          {info && <InfoTooltip text={info} />}
+        </span>
+        {action && <span className="basis-full font-normal sm:ml-auto sm:basis-auto">{action}</span>}
       </h2>
       {children}
     </section>
@@ -76,40 +84,89 @@ export function BirthSummaryBar({ result }: { result: ManseResult }) {
     ? "시간 모름"
     : String(s.birth_time ?? "").slice(0, 5);
   const dir = s.daewoon_direction === "forward" ? "순행대운" : s.daewoon_direction === "backward" ? "역행대운" : "";
+  const genderKo = s.gender === "male" ? "남성" : s.gender === "female" ? "여성" : "";
+  // 항목 단위로만 줄바꿈되도록 각 항목을 nowrap 조각으로 두고 구분점(·)은 조각 사이에만 넣는다.
+  // 한 문자열로 이어 붙이면 좁은 폭에서 '순행대/운'처럼 단어 중간이 끊긴다(2026-09-15 데굴님 지적).
+  const parts = [
+    `(${cal}) ${String(s.birth_date)} ${time}`,
+    String(s.birth_place_name),
+    [genderKo, dir].filter(Boolean).join(" "),
+  ].filter(Boolean);
   return (
-    <div className="rounded-lg bg-gray-900 p-3 text-sm text-white">
-      ({cal}) {String(s.birth_date)} {time} · {String(s.birth_place_name)} ·{" "}
-      {s.gender === "male" ? "남성" : s.gender === "female" ? "여성" : ""} {dir}
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-gray-900 p-3 text-sm text-white">
+      {parts.map((part, i) => (
+        <span key={part} className="flex items-center gap-x-2 whitespace-nowrap">
+          {i > 0 && <span className="text-gray-400">·</span>}
+          {part}
+        </span>
+      ))}
     </div>
   );
+}
+
+// 최종 계산 시각(진태양시 반영)이 23시대인지 — 이때만 자시 규칙에 따라 일주가 바뀐다.
+// (0시대는 두 규칙 모두 그날 일주라 차이가 없다.)
+function isLateZiHour(tc: Record<string, unknown>): boolean {
+  const m = String(tc.final_chart_datetime ?? "").match(/T(\d{2}):/);
+  return m ? Number(m[1]) === 23 : false;
 }
 
 export function TrueSolarTimeCard({
   result,
   applyEquationOfTime = true,
   onToggleEquationOfTime,
+  jaHourRule = "standard_zi",
+  onChangeJaHourRule,
 }: {
   result: ManseResult;
   applyEquationOfTime?: boolean;
   onToggleEquationOfTime?: (value: boolean) => void;
+  jaHourRule?: JaHourRule;
+  onChangeJaHourRule?: (value: JaHourRule) => void;
 }) {
   const tc = result.time_correction as Record<string, unknown> | null;
   if (!tc) return null;
   const changed = Boolean(tc.hour_pillar_changed_by_true_solar_time);
+  const lateZi = isLateZiHour(tc);
   return (
     <Card
       title="시간 보정 · 진태양시"
-      info="태어난 지역의 경도와 균시차를 반영해 실제 태양 위치 기준 시각으로 맞춘 값입니다. 태어난 '시(時)' 기둥을 정확히 정하는 데 씁니다."
+      info="태어난 지역의 경도와 균시차를 반영해 실제 태양 위치 기준 시각으로 맞춘 값입니다. 태어난 '시(時)' 기둥을 정확히 정하는 데 씁니다. 자시 규칙은 23시대 출생의 일주를 당일로 볼지 다음 날로 볼지 정합니다."
       action={
-        onToggleEquationOfTime && (
-          <label className="flex items-center gap-1 text-[11px] text-gray-500">
-            <input
-              type="checkbox"
-              checked={applyEquationOfTime}
-              onChange={(e) => onToggleEquationOfTime(e.target.checked)}
-            />
-            균시차 사용
-          </label>
+        (onToggleEquationOfTime || onChangeJaHourRule) && (
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
+            {onToggleEquationOfTime && (
+              <label className="flex items-center gap-1 whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={applyEquationOfTime}
+                  onChange={(e) => onToggleEquationOfTime(e.target.checked)}
+                />
+                균시차 사용
+              </label>
+            )}
+            {onChangeJaHourRule && (
+              // 엔진 동작이 두 가지뿐(none은 standard_zi와 동일)이라 2지선다 라디오.
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1" role="radiogroup" aria-label="자시 처리 규칙">
+                {(["standard_zi", "early_late_zi"] as const).map((rule) => (
+                  <label
+                    key={rule}
+                    className="flex items-center gap-1 whitespace-nowrap"
+                    title={JA_HOUR_RULE_DESC[rule]}
+                  >
+                    <input
+                      type="radio"
+                      name="ja-hour-rule"
+                      value={rule}
+                      checked={jaHourRule === rule}
+                      onChange={() => onChangeJaHourRule(rule)}
+                    />
+                    {JA_HOUR_RULE_LABEL[rule]}
+                  </label>
+                ))}
+              </span>
+            )}
+          </span>
         )
       }
     >
@@ -123,6 +180,15 @@ export function TrueSolarTimeCard({
           </span>
         </li>
         <li>진태양시: {fmtDT(tc.true_solar_datetime)}</li>
+        <li>
+          자시 규칙: {JA_HOUR_RULE_LABEL[jaHourRule]} ({JA_HOUR_RULE_DESC[jaHourRule]})
+        </li>
+        {lateZi && (
+          // 23시대 출생 — 정자시면 다음 날, 야자시·조자시 구분이면 당일 일주. 규칙 선택이 일주를 바꾼다.
+          <li className="rounded bg-amber-100 p-1 text-amber-800">
+            ⚠ 자시(23시대) 출생: 자시 규칙에 따라 일주가 바뀝니다 — 정자시는 다음 날 일주, 야자시·조자시 구분은 당일 일주
+          </li>
+        )}
         {changed && (
           <li className="rounded bg-amber-100 p-1 text-amber-800">
             ⚠ 진태양시 적용으로 시주 변경: {String(tc.standard_time_hour_pillar)}(일반시) → {String(tc.true_solar_time_hour_pillar)}(진태양시)

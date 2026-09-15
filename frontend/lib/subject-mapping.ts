@@ -3,7 +3,15 @@
 // 쓰므로 두 표현을 무손실에 가깝게 변환한다. 저장용 BirthInput에는 reference_date를 넣지
 // 않는다(질의 시점에 엔진이 부여). gender는 BirthInput male/female ↔ BasicProfile M/F로 매핑.
 
-import type { BasicProfile, BirthInputDTO, Profile, SajuLocation, SubjectSummary } from "./types";
+import {
+  DEFAULT_JA_HOUR_RULE,
+  type BasicProfile,
+  type BirthInputDTO,
+  type JaHourRule,
+  type Profile,
+  type SajuLocation,
+  type SubjectSummary,
+} from "./types";
 
 /** Profile → 저장용 BirthInput(reference_date 제외).
 
@@ -40,6 +48,23 @@ function trimTime(t: string | null | undefined): string | null {
   진실 소스다(기기 로컬 토글은 비로그인 전용). 미저장(구 레코드)은 백엔드 기본값 false(미적용). */
 export function subjectEotPreference(s: SubjectSummary): boolean {
   return s.birth.time_options?.["apply_equation_of_time"] === true;
+}
+
+/** 저장된 사주의 자시 처리 규칙 — 균시차와 같은 사주별 속성. 미저장(구 레코드)·미지원 값
+  ("none" 포함)은 백엔드 기본값 정자시(standard_zi)로 해석해 기존 결과가 바뀌지 않는다. */
+export function subjectJaHourRule(s: SubjectSummary): JaHourRule {
+  return s.birth.time_options?.["ja_hour_rule"] === "early_late_zi"
+    ? "early_late_zi"
+    : DEFAULT_JA_HOUR_RULE;
+}
+
+/** 화면 상태(균시차·자시 규칙) → 만세력·월운·일운·검증 호출과 저장에 공통으로 쓰는 time_options.
+  두 값을 항상 함께 실어 챗·리포트·간지달력·오늘의 운세가 만세력 화면과 같은 명식을 쓰게 한다. */
+export function buildTimeOptions(
+  applyEquationOfTime: boolean,
+  jaHourRule: JaHourRule,
+): { apply_equation_of_time: boolean; ja_hour_rule: JaHourRule } {
+  return { apply_equation_of_time: applyEquationOfTime, ja_hour_rule: jaHourRule };
 }
 
 /** SubjectSummary.birth → Profile(화면·만세력 호출용). region은 저장되지 않아 빈 값. */

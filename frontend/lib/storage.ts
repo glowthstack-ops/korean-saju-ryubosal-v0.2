@@ -1,6 +1,7 @@
 // 사용자 프로필을 IndexedDB에 암호화 저장한다.
 // 키는 AES-GCM 256 비트 non-extractable CryptoKey로, IndexedDB에 저장되지만 추출 불가능하다.
 
+import { DEFAULT_JA_HOUR_RULE, type JaHourRule } from "./types";
 import type { CalibrationResult, Profile } from "./types";
 
 const DB_NAME = "ryubosal";
@@ -168,6 +169,31 @@ export function loadEotPreference(): boolean {
     return localStorage.getItem(EOT_KEY) === "1";
   } catch {
     return false;
+  }
+}
+
+// ── 자시(子時) 처리 규칙 저장(비로그인 기기 로컬) ──────────────────
+// 균시차와 같은 성격의 표시·계산 옵션. 로그인 사주는 사주별 속성(birth.time_options.ja_hour_rule)이
+// 진실 소스이고, 이 키는 비로그인(IndexedDB 프로필) 전용이다.
+const JA_HOUR_RULE_KEY = "ryubosal:jaHourRule";
+
+/** 자시 처리 규칙을 저장한다. */
+export function saveJaHourRulePreference(value: JaHourRule): void {
+  try {
+    localStorage.setItem(JA_HOUR_RULE_KEY, value);
+  } catch {
+    /* SSR/프라이빗 모드 등 접근 불가 시 무시 */
+  }
+}
+
+/** 저장된 자시 처리 규칙을 읽는다. 미저장/접근 불가/미지원 값이면 기본값 정자시(standard_zi). */
+export function loadJaHourRulePreference(): JaHourRule {
+  try {
+    return localStorage.getItem(JA_HOUR_RULE_KEY) === "early_late_zi"
+      ? "early_late_zi"
+      : DEFAULT_JA_HOUR_RULE;
+  } catch {
+    return DEFAULT_JA_HOUR_RULE;
   }
 }
 
