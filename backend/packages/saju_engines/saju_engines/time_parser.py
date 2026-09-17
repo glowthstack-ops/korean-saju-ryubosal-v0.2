@@ -13,6 +13,7 @@ from datetime import date, timedelta
 
 from saju_manse_analysis.luck.luck_calendar import shift_month_label
 
+from saju_manse_core.calendar.lunar_solar_converter import lunar_to_solar
 from saju_shared_types.intent import (
     AgeRange,
     AnchorDate,
@@ -804,6 +805,64 @@ _TODAY_DATE_STATEMENT_RE = re.compile(
 )
 
 
+# 명절 앵커(2026-09-17 실로그: "추석 전에 들어올까 아니면 추석 후에" — 추석이 시점으로 파싱되지
+# 않아 월운으로만 답했다). 음력 명절은 음력→양력 변환(캘린더 규칙, 명리 계산 아님). '설'은
+# '설명·설득' 오탐을 막기 위해 명절 문맥 접미가 있을 때만 잡는다.
+_HOLIDAY_RES: tuple[tuple[re.Pattern[str], str, str, int, int], ...] = (
+    (re.compile(r"추석|한가위"), "추석", "lunar", 8, 15),
+    (
+        re.compile(r"설날|구정|음력\s*설|설\s*(?:연휴|명절|전에|후에|전후|때|지나)"),
+        "설날", "lunar", 1, 1,
+    ),
+    (re.compile(r"신정"), "신정", "solar", 1, 1),
+    (re.compile(r"크리스마스|성탄절"), "크리스마스", "solar", 12, 25),
+)
+# 이만큼 지난 명절까지는 '올해 것'(회고·직후 질문), 그보다 지나면 내년.
+_HOLIDAY_PAST_GRACE_DAYS = 45
+
+
+def _holiday_date(kind: str, month: int, day: int, year: int) -> date:
+    if kind == "lunar":
+        return lunar_to_solar(date(year, month, day), False)
+    return date(year, month, day)
+
+
+def holiday_anchor(text: str, today: date) -> AnchorDate | None:
+    """텍스트의 명절 표현 → 가장 가까운 해당 명절 양력 날짜 앵커(없으면 None)."""
+    for pat, label, kind, month, day in _HOLIDAY_RES:
+        if not pat.search(text):
+            continue
+        try:
+            this_year = _holiday_date(kind, month, day, today.year)
+            target = (
+                this_year
+                if (today - this_year).days <= _HOLIDAY_PAST_GRACE_DAYS
+                else _holiday_date(kind, month, day, today.year + 1)
+            )
+        except (ValueError, KeyError, IndexError):
+            return None
+        return AnchorDate(label=label, date=target.isoformat())
+    return None
+
+
+def _attach_holiday_anchor(
+    text: str, today: date, tr: TimeRange | None, scope: TimeScope
+) -> tuple[TimeRange | None, TimeScope]:
+    """명절 앵커를 시점 결과에 붙인다 — 시점이 없으면 그 명절이 든 달(단일 달)로 세운다."""
+    anchor = holiday_anchor(text, today)
+    if anchor is None:
+        return tr, scope
+    if tr is None:
+        ym = anchor.date[:7]
+        return TimeRange(
+            type="absolute", granularity=Granularity.MONTH, start=ym, end=ym,
+            anchor_dates=[anchor],
+        ), TimeScope.SHORT_TERM
+    if any(a.date == anchor.date for a in tr.anchor_dates):
+        return tr, scope
+    return tr.model_copy(update={"anchor_dates": [*tr.anchor_dates, anchor]}), scope
+
+
 def parse_time_with_constraints(
     text: str,
     today: date,
@@ -826,6 +885,7 @@ def parse_time_with_constraints(
     # 진술 절만 제거하므로 "오늘 운세 봐줘"류 순수 '오늘' 요청은 영향 없다.
     text = _TODAY_DATE_STATEMENT_RE.sub(" ", text)
     tr, scope = parse_time(text, today, birth_year, current_month_label)
+    tr, scope = _attach_holiday_anchor(text, today, tr, scope)
     items = extract_time_constraints(text, today)
     if not items:
         return tr, scope, items

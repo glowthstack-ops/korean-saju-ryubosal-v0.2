@@ -160,6 +160,7 @@ from saju_shared_types.events import EventKey
 from saju_shared_types.execution_plan import ExecutionPlan, SubjectInjectionPolicy
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import (
+    AnchorDate,
     Domain,
     Granularity,
     IntentJson,
@@ -178,6 +179,7 @@ from saju_shared_types.llm_input import (
     RelationshipContext,
     SubjectBlock,
 )
+from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.precompute import CompositeLevel
 from saju_shared_types.profile import PersonaConfig
@@ -264,7 +266,8 @@ def _current_luck_month_detail(birth: BirthInput, today: date, timezone: str = "
         f"{label} = {mp.ganji}월(절기월). 양력 {sm_s.isoformat()}~{sm_e.isoformat()} 진행 중 — "
         f"오늘 {today.isoformat()}은 이 절기월 {elapsed}/{total}일차(남은 약 {remaining}일). "
         f"라벨의 '{label[5:7]}'월은 절입 시작 캘린더월이라 오늘 캘린더월({today.month}월)과 "
-        f"다를 수 있다."
+        f"다를 수 있다. 이 달은 '{int(label[5:7])}월({mp.ganji}월)'처럼 부르고 "
+        "'○력 N월' 같은 표기는 쓰지 말 것."
     )
 
 
@@ -375,6 +378,74 @@ def _explicit_dates(question: str, default_year: int) -> list[date]:
             seen.add(dt)
             out.append(dt)
     return out
+
+
+_ANCHOR_WINDOW_BEFORE_DAYS = 7
+_ANCHOR_WINDOW_AFTER_DAYS = 7
+_ANCHOR_WINDOW_MAX_DAYS = 24
+
+
+def _anchor_window_day_note(
+    birth: BirthInput, anchor: AnchorDate, today: date, timezone: str
+) -> str:
+    """앵커(명절·일정) 전후 일운 창 — '추석 전/후' 비교를 일 단위 엔진 사실로 답하게 한다.
+
+    창 = [min(오늘, 앵커-7) .. 앵커+7](최대 24일). 각 날의 일운 간지·십성·운 품질 등급을
+    나열하고 앵커 전/후 구간의 등급 집계를 엔진이 미리 세어 준다(LLM 집계 금지).
+    """
+    try:
+        ad = date.fromisoformat(anchor.date)
+    except ValueError:
+        return ""
+    start = ad - timedelta(days=_ANCHOR_WINDOW_BEFORE_DAYS)
+    if today < ad:
+        start = min(today, start)
+    end = ad + timedelta(days=_ANCHOR_WINDOW_AFTER_DAYS)
+    if (end - start).days + 1 > _ANCHOR_WINDOW_MAX_DAYS:
+        start = end - timedelta(days=_ANCHOR_WINDOW_MAX_DAYS - 1)
+    by_label: dict[str, LuckPillar] = {}
+    for y, m in sorted({(d.year, d.month) for d in (start, ad, end)}):
+        try:
+            days = luck_days(birth, y, m)
+        except (ValueError, RuntimeError):
+            days = []
+        by_label.update({p.label: p for p in days})
+    rows: list[str] = []
+    before: Counter[str] = Counter()
+    after: Counter[str] = Counter()
+    cur = start
+    while cur <= end:
+        dp = by_label.get(cur.isoformat())
+        if dp is not None:
+            grade = getattr(dp, "luck_label", "") or "등급 없음"
+            mark = f"({anchor.label})" if cur == ad else ""
+            rows.append(
+                f"{cur:%m-%d}{mark} {dp.ganji} 천간 {dp.stem_ten_god or '?'}"
+                f"·지지 {dp.branch_ten_god or '?'}·{grade}"
+            )
+            if cur < ad:
+                before[grade] += 1
+            elif cur > ad:
+                after[grade] += 1
+        cur += timedelta(days=1)
+    if not rows:
+        return ""
+
+    def _tally(c: Counter[str]) -> str:
+        return "·".join(f"{k} {v}일" for k, v in c.most_common()) or "없음"
+
+    b_end = (ad - timedelta(days=1)).isoformat()
+    a_start = (ad + timedelta(days=1)).isoformat()
+    return (
+        f"[앵커 전후 일운 — 엔진 확정 사실] 앵커: {anchor.label} {anchor.date}. "
+        + " / ".join(rows)
+        + f". 앵커 전({start.isoformat()}~{b_end}) 등급 집계: {_tally(before)} ; "
+        f"앵커 후({a_start}~{end.isoformat()}) 등급 집계: {_tally(after)}. "
+        "질문이 앵커 전/후를 비교하면 첫 문단에서 '앵커 전이 유리 / 앵커 후가 유리 / 뚜렷한 차이 "
+        "없음' 중 하나로 판정하고 근거 날짜(일운 간지·십성·등급)를 들 것 — 월운으로 뭉뚱그리거나 "
+        "다른 달로 답을 옮기지 말 것. 질문한 사건이 아닌 다른 사건(횡재 등)으로 바꿔 답하지 말 것. "
+        "이 창 밖 시기(다음 달 이후)는 배경으로 한 줄 이하."
+    )
 
 
 def _date_day_fortune_note(birth: BirthInput, dates: list[date], timezone: str) -> str:
@@ -1916,6 +1987,16 @@ _THREAD_OPENING_BAN = (
     "[서두 반복 금지 — 직전 답변의 첫 문장] “{opening}” — 이번 답변을 이 문장과 같은 "
     "패턴·유사 표현으로 시작하지 말 것. 전개 구성도 직전 답변을 그대로 본뜨지 말고, 이번 질문 "
     "고유의 내용으로 서두를 열 것."
+)
+
+# 되물음 귀속 오류 차단(2026-09-17 실로그: 직전 답변 말미의 "계약이나 이사 소식이 있으신가요?"를
+# 다음 턴에서 "말씀하신 문서 계약이나 이사 계획"으로 사용자 발화처럼 귀속했고, 프로필에 없는
+# '전문 엔지니어링 업무'를 지어냈다).
+_THREAD_ATTRIBUTION_RULE = (
+    "[귀속 규칙 — 스레드 공통] 직전 답변 끝에서 네가 던진 되물음·제안은 사용자가 말한 사실이 "
+    "아니다. 사용자가 그 질문에 답하지 않았다면 그 내용을 '말씀하신 ~'으로 사용자에게 귀속하지 "
+    "말 것. 사용자의 직업·상황·계획은 [사용자 제공 사실]이나 이번 질문에 적힌 것만 쓰고, 없으면 "
+    "지어내지 말 것."
 )
 
 # 직전 답변의 '제안' 표지 — '그래 봐줘' 수락 시 그 제안을 이어가도록 추출하는 단서.
@@ -4561,8 +4642,13 @@ def chat(
         ):
             # 다중 월 창('지난 1년'=직전 12개월 등, 2026-06-12) — 질문 창 그대로 월별 표.
             window_months = _months_between(start_label, end_label)
+        elif start_label and len(start_label) == 7 and (not end_label or end_label == start_label):
+            # 단일 절기월 명시('9월', '2026년 9월') — 그 달 하나만(답변 시간 지평 정책). 이전엔
+            # 연도 분기로 흘러 12개월 요약·유력 달 종합이 질문 밖 달(5월·12월)을 골자로 올렸다
+            # (2026-09-17 실로그: '9월 소식이 추석 전/후?'에 12월 손실 서술이 섞임).
+            window_months = [start_label]
         elif start_label and len(start_label) >= 4:
-            # 명시 연·월('2025년 8월', '2025') — 해당 달력 연도.
+            # 명시 연('2025') — 해당 달력 연도.
             target_year = int(start_label[:4])
         elif gran_no_period or any(
             k in question for k in ("앞으로", "향후", "다가오는", "1년 내", "1년내")
@@ -5158,6 +5244,8 @@ def chat(
         _prev_opening = first_sentence(prior_answer)
         if _prev_opening:
             trailing.append(_THREAD_OPENING_BAN.format(opening=_prev_opening))
+    if prior_answer or is_followup_turn:  # 후속 턴이면 직전 답이 저장되지 않았어도(dry-run) 적용
+        trailing.append(_THREAD_ATTRIBUTION_RULE)
     # 사용자 확정 용신 적용 안내 — 확정 5역할을 길흉 기준으로, 엔진 최초 도출은 기본값으로 병기.
     if _confirmed_yongsin is not None:
         from saju_engines.event_scoring import confirmed_yongsin_note
@@ -5201,6 +5289,12 @@ def chat(
         _df_note = _date_day_fortune_note(birth, _date_targets, _tz)
         if _df_note:
             trailing.append(_df_note)
+    elif _tr is not None and _tr.anchor_dates:
+        # 명절·일정 앵커('추석 전/후') — 앵커 전후 일운 창을 엔진 사실로 주입해 일 단위로 답하게
+        # 한다(2026-09-17 실로그: 추석이 파싱되지 않아 월운으로 얼버무리고 질문을 회피).
+        _an_note = _anchor_window_day_note(birth, _tr.anchor_dates[0], today, _tz)
+        if _an_note:
+            trailing.append(_an_note)
     # 상황 제약 — 비정직원이면서 직장운(재직 전제 사건) 맥락이면 '취업'을 함께 짚게 하고,
     # 그 외(이사 등 비career 맥락)에서 무직 키워드가 잡히면 기존 '이직→이사' 분기를 적용한다.
     if nonregular and (career_presupposed or intent.domain is Domain.CAREER):

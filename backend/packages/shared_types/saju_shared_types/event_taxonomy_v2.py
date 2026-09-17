@@ -284,7 +284,10 @@ EVENT_WORDS: dict[EventKeyV2, list[str]] = {
     EventKeyV2.BUSINESS_EXPANSION: ["사업 확장", "분점", "확장"],
     EventKeyV2.WEALTH_CHANGE: ["재물", "수입", "지출", "투자"],
     EventKeyV2.WINDFALL: ["로또", "복권", "횡재"],
-    EventKeyV2.CONTRACT_DOCUMENT: ["계약", "문서"],
+    # 제안·제의(2026-09-17 실로그): "9월의 제안이나 소식은 추석 전/후?"가 사건 없는 후속 턴으로
+    # 잡혀 직전 사건(횡재)을 승계했다. 제안류는 계약·문서 계열의 유입 신호로 본다. '오퍼'는
+    # 부동산·투자 맥락과 모호해 의도적으로 제외(test_career_inflow_vocabulary 정책 유지).
+    EventKeyV2.CONTRACT_DOCUMENT: ["계약", "문서", "제안", "제의"],
     EventKeyV2.EDUCATION_ADMISSION: ["국가고시", "자격증", "시험", "합격", "입시", "입학", "진학"],
     EventKeyV2.EDUCATION_COMPLETION: ["졸업", "수료"],
     EventKeyV2.RELATIONSHIP_CHANGE: ["이별", "헤어", "권태", "이혼", "별거", "파혼"],

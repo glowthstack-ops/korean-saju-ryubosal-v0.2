@@ -1587,10 +1587,15 @@ def build_monthly_overview(
     # 그 달/해의 운 품질 등급(luck_label) — 엔진이 이미 계산한 권위 라벨. 길흉(좋은 달/부담 달)은
     # 사건 밀도가 아니라 이 운 품질이 1차 기준이므로 LLM에 함께 전달한다(길흉=용신/기신 우선).
     luck_grade_by_period: dict[str, str] = {}
+    # 그 달 천간·지지 십성(엔진 확정) — 행에 병기한다. 이전엔 역할만 있어 LLM이 십성을 스스로
+    # 계산했고 丁(己일간 편인)을 '정인'으로 틀렸다(2026-09-17 실로그, 절대원칙 1).
+    ten_gods_by_period: dict[str, tuple[str, str]] = {}
     if result.luck_cycles is not None:
         for pl in (*result.luck_cycles.monthly_luck, *result.luck_cycles.yearly_luck):
             if pl.luck_label:
                 luck_grade_by_period[pl.label] = pl.luck_label
+            if pl.stem_ten_god or pl.branch_ten_god:
+                ten_gods_by_period[pl.label] = (pl.stem_ten_god, pl.branch_ten_god)
 
     def _roles_for(period: str) -> str:
         """그 달 천간·지지의 용기신 역할 '癸水 구신·巳火 희신' — 유불리 변별용."""
@@ -1603,11 +1608,12 @@ def build_monthly_overview(
         except ValueError:
             return ""
         parts = []
+        s_tg, b_tg = ten_gods_by_period.get(period, ("", ""))
         if fav_map.get(stem_el):
-            parts.append(f"{gj[0]}{stem_el} {fav_map[stem_el]}")
+            parts.append(f"{gj[0]}{stem_el} {s_tg + '·' if s_tg else ''}{fav_map[stem_el]}")
         if fav_map.get(branch_el):
-            parts.append(f"{gj[1]}{branch_el} {fav_map[branch_el]}")
-        roles = "·".join(parts)
+            parts.append(f"{gj[1]}{branch_el} {b_tg + '·' if b_tg else ''}{fav_map[branch_el]}")
+        roles = " / ".join(parts)
         # 천간 역할 × 지지 생극(통관/누설)을 본 결실 유불리 마커 — 행에 직접 부착(각주만으론
         # 묻힘). 흉천간 통관이면 순화(↗), 길천간 누설이면 과낙관 경계(⚠)로 대칭 표시.
         marker, _note, _cat = _ganji_result_nuance(
@@ -2575,6 +2581,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 )
         lines.append(
             f"(표 읽는 법: 사건명은 그 {_unit} 발생 가능성 순 — '>' 앞이 우세. [간지 역할]은 "
+            "'丁火 편인·희신 / 酉金 식신·한신'처럼 그 간지의 십성·용기신 역할이다 — 십성은 이 "
+            "표기를 그대로 쓰고 직접 계산하지 말 것; 역할은 "
             f"유불리 — 천간이 구신·기신인 {_unit}{_n} 사건이 발생해도 계약·결실·실속에 불리할 수 "
             f"있으니 '좋은 {_unit}'로 단정하지 말 것(발생 강도와 유불리를 구분). 단 마커가 "
             "'↗통관 순화'면 흉천간이 지지 용·희신을 생해 순화된 것(검토 시기 아님, 과낙관만 경계), "
