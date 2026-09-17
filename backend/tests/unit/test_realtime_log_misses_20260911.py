@@ -377,6 +377,9 @@ def test_token_budget_exceeded_at_call_returns_guidance(monkeypatch: pytest.Monk
         raise TokenBudgetExceeded("chat_single: 입력 99999tok > 상한 22000tok")
 
     monkeypatch.setattr(cs.llm_client, "generate_reading", _boom)
+    # 가용성은 명시 스텁 — .env 키 유무·선행 테스트의 지연 로드 순서에 의존하지 않는다
+    # (test_llm_client_failover 뒤에서 is_available()이 False로 남아 dry_run이 되던 순서 의존 제거).
+    monkeypatch.setattr(cs.llm_client, "is_available", lambda: True)
     res = cs.chat(_BIRTH, "올해 직업운 어때?", _TODAY, dry_run=False, owner_id="t")
     assert res.status == "too_broad"
     assert res.answer == cs.TOKEN_BUDGET_ANSWER

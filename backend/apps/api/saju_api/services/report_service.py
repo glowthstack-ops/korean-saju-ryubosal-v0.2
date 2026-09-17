@@ -3087,7 +3087,7 @@ def build_section_context(
             lines += [
                 "",
                 "[구조 패턴 — 의미 설명 태그(구조 라벨일 뿐, 사건·길흉 확정 아님·도메인은 후보)]",
-                *[p.llm_tag for p in _patterns],
+                *[p.llm_line for p in _patterns],  # 별칭 병기(F6)
                 _STRUCTURE_PATTERN_INSTRUCTION,
             ]
     # 능동 제안(docs/15 Phase C) — 재물·직업 도메인 섹션에 '고려' 수준 재료 주입.

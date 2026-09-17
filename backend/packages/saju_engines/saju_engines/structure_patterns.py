@@ -25,6 +25,7 @@ from saju_manse_analysis.structure.geokguk_eval import _group_counts, _tg_counts
 
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
+    CONTROLS,
     STEM_ELEMENT,
     group_elements,
     hidden_stems_for,
@@ -38,6 +39,7 @@ from saju_shared_types.structure_patterns import (
     StructurePatternEntry,
 )
 
+from .event_scoring import favorability_map
 from .health_vulnerability import analyze_health_vulnerability
 from .relationship_relative_sinsal import get_relative_sinsal
 from .wealth_capacity import analyze_wealth_capacity
@@ -45,7 +47,7 @@ from .wealth_capacity import analyze_wealth_capacity
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 _STORAGE_CLASH_PAIRS = (("辰", "戌"), ("丑", "未"))  # 묘고 충 지지쌍(충개고)
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
-STRUCTURE_PATTERNS_VERSION = "1.1.0"  # 1.1.0: 사고수 확장 23종(2026-07-23)
+STRUCTURE_PATTERNS_VERSION = "1.2.0"  # 1.2.0: 용어 감사 63종+별칭 14건(2026-09-17)
 
 
 @lru_cache(maxsize=8)
@@ -82,6 +84,9 @@ _RESCUE_DERIVED: dict[str, list[tuple[str, str]]] = {
         ("SAL_IN_SANGSAENG", "인성"), ("SIKSIN_JESAL", "식신"),
         ("SALJUNG_YONGIN", "인성"), ("SALJUNG_YONGSIK", "식신"),  # P1 살중용인/용식(F3)
     ],
+    # F6(2026-09-17 용어 감사): 파격 구제 근거를 그대로 라벨화 — 관살제겁/재제효인.
+    "bigyeob_jaengjae": [("GWANSAL_JEGEOP", "관성")],
+    "pyeonin_dosik": [("JAEJE_HYOIN", "재성")],
 }
 
 # 전왕(일행득기) special_pattern.name(dominant) → pattern_id (P2, F3).
@@ -96,6 +101,37 @@ _ELEMENT_OVERWHELM: list[tuple[str, str, str]] = [
     ("火", "金", "HWADA_GEUMSAK"), ("金", "木", "GEUMDA_MOKJEOL"), ("土", "水", "TODA_SUTAK"),
     ("水", "火", "SUDA_HWAMYEOL"),
 ]
+# F6(2026-09-17): 과다 물상 확장 13종 — 기존 7종과 달리 '약한 쪽'에 세력 하한을 둔다
+# (존재하되 결핍 또는 표면 세력 12% 미만). 생자 과다 3 · 설기 과다 5 · 반극 5.
+_ELEMENT_OVERWHELM_WEAK: list[tuple[str, str, str]] = [
+    ("木", "火", "MOKDA_HWASIK"), ("火", "土", "HWADA_TOCHO"), ("金", "水", "GEUMDA_SUTAK"),
+    ("木", "水", "MOKDA_SUCHUK"), ("火", "木", "HWADA_MOKBUN"), ("土", "火", "TODA_HWAHOE"),
+    ("金", "土", "GEUMDA_TOBYEON"), ("水", "金", "SUDA_GEUMCHIM"),
+    ("木", "金", "MOKGYEON_GEUMGYEOL"), ("土", "木", "TOJUNG_MOKJEOL"),
+    ("水", "土", "SUDA_TORYU"), ("火", "水", "HWAYEOM_SUYEOL"), ("金", "火", "GEUMDA_HWASIK"),
+]
+_WEAK_VIS = 12.0  # '존재하되 약' 표면 세력 상한(%)
+_THICK_VIS = 30.0  # '두터움/왕' 표면 세력 하한(%) — 목토소통·토수지소
+# 두 오행 배합(F6): (일간 오행, 상대 오행, pattern_id, 배제 과다 패턴, 일간 비신약 요구).
+# 상생 3종은 일간이 신약이 아니고(약한 일간의 生은 설기) 상대 오행이 결핍이 아니며 대응
+# 과다 물상이 미성립일 때, 상극 2종은 극당하는 쪽 일간이 버틸 때(비신약·상대 비과다) 성립.
+# 글자 존재 ≠ 작용 성립 → depends 모드. 마지막 원소 = 상대 오행 과다 시 배제 여부.
+_ELEMENT_HARMONY: list[tuple[str, str, str, str, bool]] = [
+    ("火", "土", "HWATO_SEONGJA", "HWADA_TOCHO", False),
+    ("土", "金", "TOGEUM_YUKSU", "TODA_GEUMMAE", False),
+    ("水", "木", "SUMOK_CHEONGHWA", "SUDA_MOKBU", False),
+    ("木", "金", "GEUMMOK_DONGRYANG", "GEUMDA_MOKJEOL", True),
+    ("金", "火", "HWAGEUM_JUIN", "HWADA_GEUMSAK", True),
+]
+_WINTER_BRANCHES = {"亥", "子", "丑"}
+_SUMMER_BRANCHES = {"巳", "午", "未"}
+_TRANSFORM_GEOK: dict[str, str] = {  # 化神 오행 → 화기격 pattern_id (F6)
+    "土": "HWATO_GYEOK", "金": "HWAGEUM_GYEOK", "水": "HWASU_GYEOK",
+    "木": "HWAMOK_GYEOK", "火": "HWAHWA_GYEOK",
+}
+_RESOURCE_MODEL_TYPES = {"resource_as_yongsin", "resource_curbs_output", "resource_pattern_officer"}
+_OUTPUT_MODEL_TYPES = {"eokbu_normal", "output_as_yongsin"}
+_RESOURCE_TG = {TenGod.JEONGIN, TenGod.PYEONIN}
 _STRONG_BANDS = {"신강", "태신강", "극신강"}
 _WEAK_BANDS = {"신약", "태신약", "극신약"}  # 9단계 밴드(strength_score) 약측
 _PUNISHMENT_TRIPLES = (frozenset({"寅", "巳", "申"}), frozenset({"丑", "戌", "未"}))
@@ -202,6 +238,7 @@ def detect_structure_patterns(
                 evidence=ev,
                 llm_tag=entry.llm_tag,
                 classical_note=entry.classical_note,
+                aliases=list(entry.aliases),
             )
         )
 
@@ -270,19 +307,46 @@ def detect_structure_patterns(
         emit("INDA_SINYAK", _clamp(0.4 + groups["resource"] / total, 0.4, 0.8), "natal")
 
     # ── D. 합 작용 (adapter: resolve_stem_hap) — 합래/합거/합반 ──
-    canon = result.yongsin_analysis.canonical_roles if result.yongsin_analysis is not None else {}
-    fav = {el: role for el, role in canon.items() if role}
+    # 오행→역할 맵(favorability_map). canonical_roles 는 역할→오행 키라 뒤집어 쓰면 빈 맵이 된다
+    # (F6 에서 발견·수정 — 이전엔 affected.role 이 항상 '' 이었다).
+    fav = favorability_map(result)
+    gwansal_mixed = counts.get("정관", 0) >= 1 and counts.get("편관", 0) >= 1
     for r in resolve_stem_hap(pillars, fav):
         scope = "luck" if r.luck_origin else "natal"
         pair = f"{r.pair[0]}{r.pair[1]}합"
+        if r.chart_transform and r.transform_element and not r.luck_origin:  # 화기격 5종(F6)
+            tpid = _TRANSFORM_GEOK.get(r.transform_element)
+            if tpid:
+                real = any("진화" in n for n in r.notes)
+                emit(tpid, 0.6 if real else 0.45, "natal",
+                     (pair, "진화(일간 무근)" if real else "가화(일간 유근)"))
         if r.hap_mode == "transform":
             continue  # 합화(化)는 P0 combination_clash 밖 — 합화격/용신 계층 소관
+        affected_tg = {a.ten_god for a in r.affected}
+        # 원국 합은 direction 없이 bind(합반)로만 판정되므로 거살/거관/기신합거는 bind·away 공통.
+        bound_or_away = r.hap_mode == "bind" or r.direction == "away"
+        if bound_or_away and gwansal_mixed:  # 거살유관/거관유살(F6): 관살 병존 + 편관/정관 묶임
+            if "편관" in affected_tg and "정관" not in affected_tg:
+                emit("GEOSAL_YUGWAN", 0.55, scope, (pair, "편관 합반·정관 잔류"))
+            elif "정관" in affected_tg and "편관" not in affected_tg:
+                emit("GEOGWAN_YUSAL", 0.55, scope, (pair, "정관 합반·편관 잔류"))
+        if bound_or_away and any(a.role in ("기신", "구신") for a in r.affected):
+            emit("GISIN_HAPGEO", 0.55, scope, (pair, "기·구신 합에 묶임"))  # 기신합거(F6)
         if r.direction == "away":
             emit("HAPGEO", 0.6, scope, (pair,))
         elif r.direction == "toward":
             emit("HAPRAE", 0.6, scope, (pair,))
         if r.hap_mode == "bind":
             emit("HAPBAN", 0.55, scope, (pair,))
+            # 탐합망극(F6): 묶인 천간이 원국의 다른 천간(합 밖)을 극하는 오행이면 그 극이 약해진다.
+            bound_pos = set(r.positions)
+            other_els = {
+                STEM_ELEMENT[Stem(p.stem)]
+                for pos in ("year", "month", "day", "hour")
+                if pos not in bound_pos and (p := getattr(pillars, pos)) is not None
+            }
+            if any(CONTROLS[STEM_ELEMENT[Stem(a.stem)]] in other_els for a in r.affected):
+                emit("TAMHAP_MANGGEUK", 0.5, scope, (pair, "극하는 천간이 합에 묶임"))
         if r.contend:  # 쟁합·투합 — P1, F3
             emit("JAENGHAP", 0.55, scope, (pair,))
 
@@ -346,8 +410,108 @@ def detect_structure_patterns(
         for strong_el, weak_el, pid in _ELEMENT_OVERWHELM:  # 오행 극제 물상
             if strong_el in exc and vis.get(weak_el, 0.0) > 0 and weak_el not in exc:
                 emit(pid, 0.55, "natal", (f"{strong_el}과다·{weak_el} 존재",))
-        if dm_el == "木" and vis.get("火", 0.0) > 0 and "火" not in defi:
+        # 과다 물상 확장 13종(F6): 과다 + 상대 오행 '존재하되 약'(결핍 또는 12% 미만).
+        for strong_el, weak_el, pid in _ELEMENT_OVERWHELM_WEAK:
+            wv = vis.get(weak_el, 0.0)
+            if strong_el in exc and wv > 0 and (weak_el in defi or wv < _WEAK_VIS):
+                emit(pid, 0.5, "natal", (f"{strong_el}과다·{weak_el} 약({wv:.0f}%)",))
+        if (
+            dm_el == "木" and vis.get("火", 0.0) > 0 and "火" not in defi
+            and "MOKDA_HWASIK" not in seen  # F6: 목다화식이면 '통명' 아님
+        ):
             emit("MOKHWA_TONGMYEONG", 0.55, "natal", ("木일간·火 통명",))
+        # 두 오행 배합(F6): 일간 오행 × 상대 오행. 대응 과다 물상 미성립이 전제.
+        for base_el, other_el, pid, excl_pid, excl_other_exc in _ELEMENT_HARMONY:
+            if dm_el != base_el or vis.get(other_el, 0.0) <= 0 or other_el in defi:
+                continue
+            if excl_pid in seen or band in _WEAK_BANDS:
+                continue
+            if excl_other_exc and other_el in exc:
+                continue
+            emit(pid, 0.5, "natal", (f"{base_el}일간({band})·{other_el} 존재",))
+        if (  # 금백수청(F6): 금수상관 조건 + 일간 비신약 + 탁수·열조 배제(金/土/火 과다 없음).
+            dm_el == "金" and vis.get("水", 0.0) > 0 and "水" not in defi
+            and band not in _WEAK_BANDS and not ({"金", "土", "火"} & exc)
+        ):
+            emit("GEUMBAEK_SUCHEONG", 0.5, "natal", ("金일간·水 청",))
+        if (  # 목토소통(F6): 土 일간 두터움 + 木 존재, 목다토붕 미성립.
+            dm_el == "土" and vis.get("木", 0.0) > 0 and "木" not in defi
+            and ("土" in exc or vis.get("土", 0.0) >= _THICK_VIS) and "MOKDA_TOBUNG" not in seen
+        ):
+            emit("MOKTO_SOTONG", 0.5, "natal", (f"土 두터움({vis.get('土', 0.0):.0f}%)·木 존재",))
+        if (  # 토수지소(F6): 水 일간 왕 + 土 존재, 토다수탁 미성립.
+            dm_el == "水" and vis.get("土", 0.0) > 0 and "土" not in defi
+            and ("水" in exc or vis.get("水", 0.0) >= _THICK_VIS) and "TODA_SUTAK" not in seen
+        ):
+            emit("TOSU_JISO", 0.5, "natal", (f"水 왕({vis.get('水', 0.0):.0f}%)·土 존재",))
+        # 조후 명칭(F6): 월지 계절 × 일간 오행 × 火/水 유무.
+        natal_stem_els = {
+            str(STEM_ELEMENT[Stem(p.stem)])
+            for pos in ("year", "month", "day", "hour")
+            if (p := getattr(pillars, pos)) is not None
+        }
+        mb = pillars.month.branch if pillars.month is not None else ""
+        if dm_el == "木" and mb in _WINTER_BRANCHES and vis.get("火", 0.0) > 0:
+            revealed = "火" in natal_stem_els
+            emit("HANMOK_HYANGYANG", 0.55 if revealed else 0.45, "natal",
+                 (f"겨울({mb})·火 " + ("투간" if revealed else "지장"),))
+        fire_lack = "火" in defi or vis.get("火", 0.0) == 0
+        water_lack = "水" in defi or vis.get("水", 0.0) == 0
+        if dm_el in ("金", "水") and mb in _WINTER_BRANCHES and fire_lack:
+            emit("GEUMHAN_SURAENG", 0.5, "natal", (f"겨울({mb})·火 결핍",))
+        if dm_el in ("火", "土") and mb in _SUMMER_BRANCHES and water_lack:
+            emit("HWAYEOM_TOJO", 0.5, "natal", (f"여름({mb})·水 결핍",))
+        # 천간·지지 비유(F6): 글자 존재 기반, context_only(작용 성립은 별도).
+        dm_stem = pillars.day.stem
+        other_stems = [
+            p.stem for pos in ("year", "month", "hour")
+            if (p := getattr(pillars, pos)) is not None
+        ]
+        all_stems = set(other_stems) | {dm_stem}
+        natal_branch_set = {
+            p.branch for pos in ("year", "month", "day", "hour")
+            if (p := getattr(pillars, pos)) is not None
+        }
+        if dm_stem == "乙" and "甲" in other_stems:
+            emit("DEUNGRA_GYEGAP", 0.45, "natal", ("乙일간·甲 투출",))
+        if {"丁", "甲", "庚"} <= all_stems:
+            emit("BYEOKGAP_INJEONG", 0.5 if dm_stem == "丁" else 0.45, "natal",
+                 ("丁·甲·庚 천간 동시",))
+        elif {"丁", "庚"} <= all_stems:
+            emit("JEONGHWA_YEONGEUM", 0.45, "natal", ("丁·庚 천간",))
+        if dm_stem == "丁" and "丙" in other_stems:
+            emit("BYEONGHWA_TALGWANG", 0.45, "natal", ("丁일간·丙 투출",))
+        if "甲" in all_stems and ("土" in exc or vis.get("土", 0.0) >= _THICK_VIS):
+            emit("GAPMOK_SOTO", 0.45, "natal", (f"甲·土 강({vis.get('土', 0.0):.0f}%)",))
+        if "戊" in all_stems and "水" in exc:
+            emit("MUTO_JESU", 0.45, "natal", ("戊·水 과다",))
+        if dm_stem == "甲" and "水" in exc and "寅" in natal_branch_set:
+            emit("SUTANG_GIHO", 0.45, "natal", ("甲일간·水 과다·寅",))
+        if dm_stem == "甲" and "火" in exc and "辰" in natal_branch_set:
+            emit("HWACHI_SEUNGRYONG", 0.45, "natal", ("甲일간·火 과다·辰",))
+        # 십성 강약·균형(F6).
+        officer_el = str(ge["officer"])
+        off_vis, dm_vis = vis.get(officer_el, 0.0), vis.get(dm_el, 0.0)
+        if (
+            counts.get("편관", 0) >= 1 and band in ("중화", "중화신강", "신강")
+            and dm_vis > 0 and 0.8 <= off_vis / dm_vis <= 1.25
+            and (groups["output"] >= 1 or groups["resource"] >= 1)
+        ):
+            emit("SINSAL_YANGJEONG", 0.5, "natal", (f"관 {off_vis:.0f}%≈일간 {dm_vis:.0f}%",))
+        if counts.get("편관", 0) >= 1 and groups["wealth"] >= 1 and band in _STRONG_BANDS and (
+            officer_el in defi or off_vis < _WEAK_VIS
+        ):
+            emit("JAEJA_YAKSAL", 0.5, "natal", (f"{band}·편관 약({off_vis:.0f}%)·재성",))
+        if counts.get("편관", 0) >= 1 and groups["wealth"] / total >= 0.30 and band in _WEAK_BANDS:
+            emit("JAEDA_SAENGSAL", 0.55, "natal", (f"재성 {groups['wealth'] / total:.0%}·{band}",))
+        if band in _STRONG_BANDS and groups["resource"] / total >= 0.35 and groups["peer"] >= 1:
+            emit("INWANG_SINWANG", 0.5, "natal", (f"{band}·인성 {groups['resource'] / total:.0%}",))
+        if band in _STRONG_BANDS and (
+            groups["output"] + groups["wealth"] + groups["officer"]
+        ) / total <= 0.15:
+            emit("SINWANG_MUUI", 0.55, "natal", (f"{band}·식재관 통로 부재",))
+        if band in _WEAK_BANDS and groups["output"] / total >= 0.35:
+            emit("SEOLGI_TAEGWA", 0.5, "natal", (f"{band}·식상 {groups['output'] / total:.0%}",))
         if dm_el == "金" and vis.get("水", 0.0) > 0 and "水" not in defi:
             emit("GEUMSU_SANGGWAN", 0.55, "natal", ("金일간·水 식상",))
         if wealth_el in exc and vis.get(resource_el, 0.0) > 0:  # 재극인/탐재괴인(재 과다)
@@ -366,6 +530,79 @@ def detect_structure_patterns(
                 emit("SUHWA_GIJE", 0.5, "natal", ("水火 균형",))
             elif "水" in defi or "火" in defi or abs(su - hwa) >= 30:
                 emit("SUHWA_MIJE", 0.5, "natal", ("水火 불균형",))
+
+    # 살중제경(F6): 관살 2+ 이고 제(식상)·화(인성)가 있으나 관살 수에 못 미침.
+    if groups["officer"] >= 2 and 1 <= groups["output"] + groups["resource"] < groups["officer"]:
+        emit("SALJUNG_JEGYEONG", 0.5, "natal",
+             (f"관살 {groups['officer']}·제화 {groups['output'] + groups['resource']}",))
+    # 재관인상생(F6): 재·관·인 병존 + 재극인 미성립(관성이 통관).
+    if (
+        "JAE_SAENGGWAN" in seen
+        and ("GWAN_IN_SANGSAENG" in seen or "SAL_IN_SANGSAENG" in seen)
+        and "JAE_GEUGIN" not in seen and "TAMJAE_GOEIN" not in seen
+        and force is not None
+        and force.five_elements.visible_percent.get(
+            str(group_elements(STEM_ELEMENT[Stem(pillars.day.stem)])["resource"]), 0.0
+        ) >= _WEAK_VIS
+    ):
+        emit("JAEGWANIN_SANGSAENG", 0.5, "natal", ("재생관·관인상생 연쇄·재극인 없음·인성 유력",))
+    # 용신 선택 모델 어댑터(F6): 식상설수/인다용재/기식취인 — 점수 불변, 라벨만.
+    ya = result.yongsin_analysis
+    selected_model = str(ya.final.get("selected_model") or "") if ya is not None else ""
+    if force is not None:
+        band_y = force.strength.band
+        if (
+            selected_model in _OUTPUT_MODEL_TYPES and band_y in _STRONG_BANDS
+            and groups["output"] >= 1
+        ):
+            emit("SIKSANG_SEOLSU", 0.55, "natal", (f"{band_y}·모델 {selected_model}",))
+    if selected_model == "wealth_breaks_resource" and groups["wealth"] >= 1:
+        emit("INDA_YONGJAE", 0.55, "natal", ("모델 재성용신형(인성과다)",))
+    if selected_model in _RESOURCE_MODEL_TYPES and counts.get("식신", 0) >= 1:
+        emit("GISIK_CHWIIN", 0.5, "natal", (f"식신 존재·모델 {selected_model}",))
+    # 용신 유력/무력(F6): 정적 용신 오행의 통근·표면 세력.
+    if ya is not None and force is not None:
+        yong_el = ya.canonical_roles.get("yongsin") or None  # 역할→오행 키
+        if yong_el:
+            rooted = any(
+                hs.element == yong_el
+                for pos in ("year", "month", "day", "hour")
+                if (p := getattr(pillars, pos)) is not None
+                for hs in p.hidden_stems
+            )
+            yv = force.five_elements.visible_percent.get(yong_el, 0.0)
+            deficient = yong_el in force.five_elements.deficient_elements
+            if rooted and yv >= _WEAK_VIS and not deficient:
+                # 거의 모든 명식이 유력/무력 중 하나에 해당 → 상위 6 잠식 방지로 강도 낮춤.
+                emit("YONGSIN_YURYEOK", 0.4, "natal", (f"용신 {yong_el} 통근·{yv:.0f}%",))
+            elif not rooted or deficient:
+                emit("YONGSIN_MURYEOK", 0.5, "natal",
+                     (f"용신 {yong_el} " + ("무근" if not rooted else "결핍"),))
+    # 성중유패/패중유성(F6): 격국 성패 등급 어댑터.
+    if geok is not None and geok.evaluation is not None:
+        ev = geok.evaluation
+        if (
+            ev.confidence_grade in ("A", "B") and ev.total_active >= 1
+            and ev.total_rescued == 0 and ev.success_failure_grade != "failure_with_rescue"
+        ):
+            emit("SEONGJUNG_YUPAE", 0.5, "natal",
+                 (f"격 신뢰 {ev.confidence_grade}·파격 {ev.total_active}·구제 없음",))
+        elif ev.success_failure_grade == "failure_with_rescue":
+            emit("PAEJUNG_YUSEONG", 0.5, "natal", (f"구제 {ev.total_rescued}/{ev.total_active}",))
+    # 특수 배치(F6, 설명 태그 전용): 일록귀시·시상편재·천원일기.
+    hour = pillars.hour
+    if hour is not None:
+        if hour.twelve_unseong == "건록":
+            emit("ILROK_GWISI", 0.4, "natal", (f"시지 {hour.branch} 건록",))
+        if hour.stem_ten_god == "편재" and any(
+            hs.element == hour.stem_element
+            for pos in ("year", "month", "day", "hour")
+            if (p := getattr(pillars, pos)) is not None
+            for hs in p.hidden_stems
+        ):
+            emit("SISANG_PYEONJAE", 0.45, "natal", (f"시간 {hour.stem} 편재 통근",))
+        if len({p.stem for p in (pillars.year, pillars.month, pillars.day, hour)}) == 1:
+            emit("CHEONWON_ILGI", 0.5, "natal", (f"4천간 {pillars.day.stem}",))
 
     # 양인합살(adapter, P1): 양인격 + 편관.
     if geok is not None and geok.main_structure == "양인격" and counts.get("편관", 0) >= 1:
@@ -396,6 +633,17 @@ def detect_structure_patterns(
         if found is not None:
             note = f"월지 잡기 {found.value}" + ("(투간)" if revealed else "(미투간·개고 대기)")
             emit("JAPGI_JAEGWAN_GYEOK", 0.6 if revealed else 0.45, "natal", (note,))
+        # 잡기인수격(F6): 같은 규칙을 인성으로 — 월지 사고 지장간 인성 + 투간 여부.
+        found_in: TenGod | None = None
+        revealed_in = False
+        for hs, _kind, _w in hidden_stems_for(Branch(month.branch)):
+            if ten_god(dm, hs) in _RESOURCE_TG:
+                found_in = ten_god(dm, hs)
+                if str(hs) in natal_stems:
+                    revealed_in = True
+        if found_in is not None:
+            note_in = f"월지 잡기 {found_in.value}" + ("(투간)" if revealed_in else "(미투간)")
+            emit("JAPGI_INSU_GYEOK", 0.55 if revealed_in else 0.4, "natal", (note_in,))
 
     # ── H. 사고수 확장 — 역마·형 세분·행동/제어·건강 부담 (2026-07-23 승인안 A) ──
     # 역마는 글자살(寅申巳亥 보유)이 아니라 연지·일지 삼합국 기준 상대 12신살로
@@ -500,6 +748,14 @@ def detect_structure_patterns(
         if heat or cold:
             emit("CLIMATE_IMBALANCE_ACTIVE", 0.5, "natal",
                  ("열조 부담" if heat else "한습 부담",))
+        # 천한지동(F6): 한습 부담 + 천간에 火(丙丁) 부재 + (겨울 월지 또는 火 표면 0).
+        if cold and not ({"丙", "丁"} & {
+            p.stem for pos in ("year", "month", "day", "hour")
+            if (p := getattr(pillars, pos)) is not None
+        }):
+            mb2 = pillars.month.branch
+            if mb2 in _WINTER_BRANCHES or vis2.get("火", 0.0) == 0:
+                emit("CHEONHAN_JIDONG", 0.55, "natal", (f"한습·火 천간 부재·월지 {mb2}",))
 
         # 인성 지원 약화 — 부재/잠복/약/피극 세분(단독 사건 판정 금지, 보조 라벨).
         ge2 = group_elements(STEM_ELEMENT[Stem(pillars.day.stem)])

@@ -48,6 +48,9 @@ class StructurePatternEntry(BaseModel):
     # 전통 해석 문구('~해석하기도 한다' 형, 220자 이내) — 사고수 확장(2026-07-23).
     # LLM 3층 출력(전통 해석층) 전용. 단정·질병명·사건 확정 금지. 없으면 llm_tag만 사용.
     classical_note: str | None = None
+    # 별칭(동의어·이표기, 2026-09-17 용어 감사). 같은 구조를 다른 이름으로 부르는 고전·학파
+    # 표현을 라벨에 병기해 풀이가 어느 이름으로 물어도 같은 패턴을 짚게 한다. 감지 조건 불변.
+    aliases: list[str] = Field(default_factory=list)
 
 
 class StructurePatternDict(BaseModel):
@@ -81,3 +84,11 @@ class DetectedPattern(BaseModel):
     evidence: list[str] = Field(default_factory=list)
     llm_tag: str = ""
     classical_note: str | None = None  # 전통 해석층 문구(사전 승계, 사고수 확장)
+    aliases: list[str] = Field(default_factory=list)  # 별칭(사전 승계) — 표기 전용
+
+    @property
+    def llm_line(self) -> str:
+        """LLM 주입 한 줄 = llm_tag + 별칭 병기. 별칭이 없으면 llm_tag 그대로(기존 바이트 불변)."""
+        if not self.aliases:
+            return self.llm_tag
+        return f"{self.llm_tag} [별칭: {'·'.join(self.aliases)}]"

@@ -2163,7 +2163,7 @@ def _append_structure_patterns(lines: list[str], patterns: list[DetectedPattern]
         return
     lines += ["", "[구조 패턴 — 의미 설명 태그(구조 라벨일 뿐, 사건·길흉 확정 아님·도메인은 후보)]"]
     for p in patterns:
-        lines.append(p.llm_tag)
+        lines.append(p.llm_line)  # llm_tag + 별칭 병기(F6, 별칭 없으면 바이트 동일)
 
 
 def _append_operational_summary(lines: list[str], s: YongsinOperationalSummary | None) -> None:

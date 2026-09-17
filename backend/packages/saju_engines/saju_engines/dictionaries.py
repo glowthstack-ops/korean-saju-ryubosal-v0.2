@@ -2766,10 +2766,15 @@ def _lint_structure_patterns(file: StructurePatternDict) -> list[str]:
     event_keys = {e.value for e in EventKeyV2}
     ten_gods = {t.value for t in _TenGodRoman}
     seen: set[str] = set()
+    names = {p.name_ko for p in file.patterns}
     for p in file.patterns:
         if p.pattern_id in seen:
             errors.append(f"{rel}: 중복 pattern_id — {p.pattern_id}")
         seen.add(p.pattern_id)
+        # 별칭(F6): 다른 패턴의 정식 명칭과 겹치면 두 라벨이 같은 이름을 다투므로 금지.
+        for al in p.aliases:
+            if al.split("(")[0] in names:
+                errors.append(f"{rel}: {p.pattern_id} 별칭 '{al}'이 다른 패턴 정식 명칭과 충돌")
         for h in p.domain_hints:
             if h not in event_keys:
                 errors.append(f"{rel}: {p.pattern_id} domain_hints 미정렬(EventKeyV2 아님) — {h}")
