@@ -308,7 +308,10 @@ class ConversationEngine:
         explicit_domains = bool(_detect_domains(text))
         prev_domain = prev.domain if prev is not None else Domain.GENERAL
         for intent in parsed.intents:
-            if link.is_follow_up and intent.domain is Domain.GENERAL and link.inherited_domain:
+            if (
+                link.is_follow_up and intent.domain is Domain.GENERAL and link.inherited_domain
+                and not intent.chart_caution  # 명식 주의점은 원국 전반 — 직전 분야로 좁히지 않는다
+            ):
                 intent.domain = link.inherited_domain
             # 도메인 중립 사건(계약·문서)은 사건 기본 도메인(직업)으로 스레드를 갈아타지 않는다 —
             # 이사 스레드의 '계약금을 넣은 건 6월 17일이야'가 직업 도메인으로 새던 결함
@@ -398,6 +401,7 @@ class ConversationEngine:
             link.is_follow_up and prev is not None
             and primary.domain is Domain.GENERAL
             and prev.domain is not Domain.GENERAL
+            and not primary.chart_caution  # 명식 주의점은 원국 전반 — 직전 분야(재물)로 안 좁힘
         ):
             for intent in parsed.intents:
                 if intent.domain is Domain.GENERAL:
@@ -419,6 +423,8 @@ class ConversationEngine:
             and not _PLACE_SEEKING_RE.search(text)
             # 직업 분야·적성 질문은 원국 축이라 직전 시점(예: '9월')을 잇지 않는다(2026-09-10).
             and not any(getattr(i, "career_field", False) for i in parsed.intents)
+            # 명식 주의점('내 사주 주의점')도 원국 축 — 직전 시점을 잇지 않는다(2026-09-17).
+            and not any(getattr(i, "chart_caution", False) for i in parsed.intents)
             # P2 승계 가드 — 직전 시점이 배제 창과 겹치면 오염 승계를 차단한다(배제 기간은
             # 절대 target으로 승격 금지). 시점 미확정으로 두면 broad/재질문 경로가 처리.
             and not overlaps_exclusions(tr_year_span(last.time_range), exclusions)

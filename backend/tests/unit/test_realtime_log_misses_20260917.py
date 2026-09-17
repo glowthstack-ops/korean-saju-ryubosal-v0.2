@@ -101,3 +101,48 @@ def test_monthly_overview_row_carries_ten_gods() -> None:
     assert "[丁火 편인·희신 / 酉金 식신·한신]" in body
     assert "십성은 이 표기를 그대로 쓰고 직접 계산하지 말 것" in body
     assert "'9월(丁酉월)'처럼 부르고" in body
+
+
+# ── 6. '내 사주에서 주의해야 할 점' — 명식 범위 주의점(2턴 대화 3번째 질문) ────────
+
+_Q3 = "그럼 내 사주에서 주의해야할 점은 뭐야?"
+
+
+def test_chart_caution_routes_to_chart_analysis() -> None:
+    from saju_shared_types.intent import Domain, QueryType
+
+    it = parse_message(_Q3, _TODAY).intents[0]
+    assert it.query_type is QueryType.CHART_ANALYSIS and it.chart_caution
+    assert it.domain is Domain.GENERAL and it.time_range is None
+    # 분야가 붙은 개운 질문은 기존 경로(REMEDY+분야 기본 기간) 유지.
+    it2 = parse_message("내 사주에서 재물 관련해 주의해야 할 점은?", _TODAY).intents[0]
+    assert it2.query_type is QueryType.REMEDY and not it2.chart_caution
+
+
+def test_chart_caution_standalone_not_too_broad() -> None:
+    res = cs.chat(_BIRTH, _Q3, _TODAY, dry_run=True, owner_id="t")
+    assert res.status == "dry_run", "단독 질문이 too_broad 안내로 빠지면 안 된다"
+    body = res.prompt_preview or ""
+    assert "[명식 주의점 — 원국 범위]" in body and "[극복 아니라 관리]" in body
+    assert "[월별 요약 —" not in body and "[이벤트 후보 —" not in body  # 헤더형(지시문 인용 제외)
+
+
+def test_chart_caution_in_thread_ignores_inherited_month_and_anchor() -> None:
+    from saju_shared_types.intent import Domain
+
+    store = ConversationStore()
+    tid = "t-20260917-caution"
+    try:
+        cs.chat(_BIRTH, _Q1, _TODAY, dry_run=True, store=store, thread_id=tid, owner_id="t")
+        cs.chat(_BIRTH, _Q2, _TODAY, dry_run=True, store=store, thread_id=tid, owner_id="t")
+        third = cs.chat(_BIRTH, _Q3, _TODAY, dry_run=True, store=store, thread_id=tid, owner_id="t")
+    finally:
+        store.delete(tid)
+    it = third.intents[0]
+    assert it.chart_caution and it.time_range is None, "직전 9월 시점을 승계하면 안 된다"
+    assert it.domain is Domain.GENERAL and it.event_key is None
+    body = third.prompt_preview or ""
+    assert "[명식 주의점 — 원국 범위]" in body
+    assert "질문 기간: 2026-09" not in body
+    assert "[앵커 전후 일운" not in body, "추석 앵커가 다음 턴까지 따라오면 안 된다"
+    assert "[월별 요약 —" not in body

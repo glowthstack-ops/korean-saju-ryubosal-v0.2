@@ -438,6 +438,14 @@ def _detect_domains(text: str) -> list[Domain]:
     return [d for _pos, d in sorted(found)]
 
 
+# 명식 범위 표지 — '내/제/본인 사주·명식·원국' 또는 '사주에서/사주상/명식의'.
+_CHART_SCOPE_RE = re.compile(
+    r"(?:내|제|나의|저의|본인)\s*(?:사주|명식|원국)|(?:사주|명식|원국)\s*(?:에서|상|의|는)"
+)
+# 주의점 어휘 — chart_caution 플래그(관리 프레임 지시문·시점 미승계).
+_CAUTION_RE = re.compile(r"주의|조심|약점|단점|취약|리스크|문제점")
+
+
 def _detect_event(text: str) -> EventKey | None:
     """가장 먼저 등장하는 이벤트 키."""
     found: list[tuple[int, EventKey]] = []
@@ -747,8 +755,12 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     date_marker = re.search(r"\d{1,2}\s*[월일]|오늘|내일|모레", text)
     if eval_words and date_act and date_marker:
         return QueryType.DATE_RECOMMENDATION
-    # Q10 — 개운/보완 (D-3).
+    # Q10 — 개운/보완 (D-3). 단 '내 사주에서 주의할 점'처럼 명식 범위 + 분야 없음이면 Q8(원국
+    # 구조 — 시점 불요)로 보낸다(2026-09-17 실로그: REMEDY+무시점·무분야 → too_broad, 스레드
+    # 안에서는 직전 시점·도메인을 승계해 '9월 이직' 답으로 이탈). 분야가 있으면 기존 개운 경로.
     if re.search(r"조심해야|보완|개운|비방|피해야|주의해야", text):
+        if _CHART_SCOPE_RE.search(text) and not _detect_domains(text):
+            return QueryType.CHART_ANALYSIS
         return QueryType.REMEDY
     # Q5 — 과거 설명/역검증 (C15). 중립 회고('왜 그랬을까')도 포함(2026-09-06).
     if re.search(
@@ -1100,6 +1112,12 @@ def parse_message(
         # 직업 분야 질문 — career 도메인이거나 강한 분야 어휘면 표시하고 도메인을 career 로 맞춘다.
         # 분야는 원국 십성 기능이 답의 축 — 자체 시점은 남기되 승계 대상에서 뺀다(conversation).
         _last = intents[-1]
+        # 명식 범위 주의점('내 사주에서 주의할 점') — Q8 + chart_caution(시점·도메인 미승계).
+        if (
+            _last.query_type is QueryType.CHART_ANALYSIS
+            and _CHART_SCOPE_RE.search(piece) and _CAUTION_RE.search(piece)
+        ):
+            _last.chart_caution = True
         if detect_career_field(piece) and (
             _last.domain is Domain.CAREER or _CAREER_FIELD_STRONG_RE.search(piece)
         ):

@@ -1992,6 +1992,16 @@ _THREAD_OPENING_BAN = (
 # 되물음 귀속 오류 차단(2026-09-17 실로그: 직전 답변 말미의 "계약이나 이사 소식이 있으신가요?"를
 # 다음 턴에서 "말씀하신 문서 계약이나 이사 계획"으로 사용자 발화처럼 귀속했고, 프로필에 없는
 # '전문 엔지니어링 업무'를 지어냈다).
+# 명식 범위 주의점 지시(2026-09-17 실로그: '내 사주에서 주의할 점' 이 스레드 직전 시점·사건을 승계해
+# '9월 이직 제안' 답으로 이탈). 원국 약점 축으로 고정하고 운은 '켜지는 조건'으로만 연결한다.
+_CHART_CAUTION_DIRECTIVE = (
+    "[명식 주의점 — 원국 범위] 이번 질문은 특정 시점·사건이 아니라 타고난 명식의 주의점이다. 답의 "
+    "축은 ①기신·구신의 작동 역할과 그것이 켜지는 조건 ②과다·결핍 오행과 그 부담(건강 취약 구조 "
+    "포함) ③불리 방향의 구조 패턴 ④공망·형충 등 원국 배경이다. 이달이나 특정 달의 사건(이직·계약 "
+    "등)으로 답하지 말고, 운은 '어떤 운이 올 때 이 약점이 켜지는가'로만 연결하라. 각 주의점은 관리 "
+    "기준(루틴·기준선)과 함께 제시할 것."
+)
+
 _THREAD_ATTRIBUTION_RULE = (
     "[귀속 규칙 — 스레드 공통] 직전 답변 끝에서 네가 던진 되물음·제안은 사용자가 말한 사실이 "
     "아니다. 사용자가 그 질문에 답하지 않았다면 그 내용을 '말씀하신 ~'으로 사용자에게 귀속하지 "
@@ -5215,8 +5225,10 @@ def chat(
     ):
         trailing.append(RETRO_BEHAVIOR_DIRECTIVE)
     # 개운/보완 질문 — 결핍·기신은 극복 아니라 관리 프레임(상담 사례 파생 P0-4).
-    if intent.query_type is QueryType.REMEDY or is_behavior_pattern:
+    if intent.query_type is QueryType.REMEDY or is_behavior_pattern or intent.chart_caution:
         trailing.append(MANAGE_NOT_OVERCOME_DIRECTIVE)
+    if intent.chart_caution:  # 명식 범위 주의점 — 시점 사건이 아니라 원국 약점 축(2026-09-17)
+        trailing.append(_CHART_CAUTION_DIRECTIVE)
     # 규범 당위형 질문('결혼 꼭 해야 하나') — 사회적 정답 강요 차단(상담 사례 파생 P0-3).
     if _is_normative_question(question):
         trailing.append(NON_NORMATIVE_REASSURANCE_DIRECTIVE)
@@ -5289,7 +5301,12 @@ def chat(
         _df_note = _date_day_fortune_note(birth, _date_targets, _tz)
         if _df_note:
             trailing.append(_df_note)
-    elif _tr is not None and _tr.anchor_dates:
+    elif (
+        _tr is not None and _tr.anchor_dates
+        # 이번 질문이 그 앵커를 직접 말할 때만 — 승계된 시점 창의 앵커가 다음 턴('내 사주 주의점')
+        # 까지 따라와 일운 창이 새던 누수 차단.
+        and any(a.label in question for a in _tr.anchor_dates)
+    ):
         # 명절·일정 앵커('추석 전/후') — 앵커 전후 일운 창을 엔진 사실로 주입해 일 단위로 답하게
         # 한다(2026-09-17 실로그: 추석이 파싱되지 않아 월운으로 얼버무리고 질문을 회피).
         _an_note = _anchor_window_day_note(birth, _tr.anchor_dates[0], today, _tz)
