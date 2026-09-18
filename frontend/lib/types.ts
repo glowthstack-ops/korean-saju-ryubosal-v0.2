@@ -44,7 +44,7 @@ export interface BirthInputDTO {
   백엔드의 "none"은 standard_zi와 동작이 완전히 같아 UI에 노출하지 않는다. */
 export type JaHourRule = "standard_zi" | "early_late_zi";
 export const DEFAULT_JA_HOUR_RULE: JaHourRule = "standard_zi";
-/** 자시 규칙 표시 라벨 — 진태양시 카드 라디오와 명식 카드 배지가 같은 문구를 쓴다. */
+/** 자시 규칙 표시 라벨 — 진태양시 카드 체크박스와 명식 카드 배지가 같은 문구를 쓴다. */
 export const JA_HOUR_RULE_LABEL: Record<JaHourRule, string> = {
   standard_zi: "정자시",
   early_late_zi: "야자시·조자시 구분",

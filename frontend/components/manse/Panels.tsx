@@ -146,25 +146,19 @@ export function TrueSolarTimeCard({
               </label>
             )}
             {onChangeJaHourRule && (
-              // 엔진 동작이 두 가지뿐(none은 standard_zi와 동일)이라 2지선다 라디오.
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-1" role="radiogroup" aria-label="자시 처리 규칙">
-                {(["standard_zi", "early_late_zi"] as const).map((rule) => (
-                  <label
-                    key={rule}
-                    className="flex items-center gap-1 whitespace-nowrap"
-                    title={JA_HOUR_RULE_DESC[rule]}
-                  >
-                    <input
-                      type="radio"
-                      name="ja-hour-rule"
-                      value={rule}
-                      checked={jaHourRule === rule}
-                      onChange={() => onChangeJaHourRule(rule)}
-                    />
-                    {JA_HOUR_RULE_LABEL[rule]}
-                  </label>
-                ))}
-              </span>
+              // 엔진 동작이 두 가지뿐(none은 standard_zi와 동일)이라 체크박스 하나.
+              // 해제 = 정자시(기본, 23시부터 다음 날 일주) / 체크 = 야자시·조자시 구분(자정까지 당일 일주).
+              <label
+                className="flex items-center gap-1 whitespace-nowrap"
+                title={JA_HOUR_RULE_DESC.early_late_zi}
+              >
+                <input
+                  type="checkbox"
+                  checked={jaHourRule === "early_late_zi"}
+                  onChange={(e) => onChangeJaHourRule(e.target.checked ? "early_late_zi" : "standard_zi")}
+                />
+                {JA_HOUR_RULE_LABEL.early_late_zi}
+              </label>
             )}
           </span>
         )
