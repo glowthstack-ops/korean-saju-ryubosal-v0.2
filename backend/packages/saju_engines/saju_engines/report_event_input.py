@@ -20,12 +20,14 @@ from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_timing import derive_marriage_stage
 
+from . import period_v2_config
 from . import sinsal_modifier_config as _sinsal_cfg
 from .candidate_semantics import candidate_semantics, review_month_from_signals
 from .chart_interpretation import incoming_stage_note, incoming_ten_god_note
 from .context_reducer import _dominant_trigger, event_ko, polarity_ko
 from .ganji_calendar import relation_hits
 from .llm_event_serializer import score_band
+from .opportunity_engine import EVENT_DOMAINS, detect_opportunities, format_opportunity_notes
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
 
 
@@ -202,6 +204,10 @@ def precise_candidate_clusters(
         note = _sinsal_channel_note(result, period, p.ganji, evs)
         if note:
             lines.append(f"  {note}")
+        # P1 기회·호전(2026-09-18, 채팅 패리티) — 위험 신호의 긍정 대칭. 시점의 후보 사건 키
+        # 도메인에 한정해 상위 2개만, 성사·당첨·확정 표현 금지 문구 동반. 점수·판정 불변.
+        for opp in _opportunity_lines(result, p, evs, fav_map):
+            lines.append(f"  {opp}")
         for c in evs:
             review = (
                 " · 검토월(공망 충발 — 계약 유지력 낮음, 조사·조건 확인까지)"
@@ -225,6 +231,30 @@ def _tone_line(result: ManseV2Result, ganji: str, fav_map: dict[str, str] | None
     flow = incoming_stage_note(day_master, ganji)
     parts = [x for x in (f"행동={action}" if action else "", f"흐름={flow}" if flow else "") if x]
     return "  운 결(문체 전용): " + " / ".join(parts) if parts else ""
+
+
+def _opportunity_lines(
+    result: ManseV2Result, pillar: LuckPillar, evs: list[EventCandidate],
+    fav_map: dict[str, str] | None,
+) -> list[str]:
+    """시점 클러스터용 '호전·기회 신호' 줄(플래그 OFF·용신 맵 부재면 빈 목록 — byte 불변)."""
+    if not period_v2_config.OPPORTUNITY_ENABLED or not fav_map:
+        return []
+    domains: set[str] = set()
+    codes: list[str] = []
+    for c in evs:
+        domains.update(EVENT_DOMAINS.get(str(c.event_key), ()))
+        codes.extend(c.evidence_path)
+    try:
+        signals = detect_opportunities(
+            result, pillar, fav_map, reason_codes=codes, domains=domains or None,
+        )
+    except (KeyError, ValueError):
+        return []
+    notes = format_opportunity_notes(signals)
+    if not notes:
+        return []
+    return ["호전·기회 신호(엔진 판정 — 성사·당첨·확정 표현 금지): " + " / ".join(notes)]
 
 
 def _adjacent_period(a: str, b: str) -> bool:

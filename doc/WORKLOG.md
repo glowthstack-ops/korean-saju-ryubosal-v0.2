@@ -10955,3 +10955,11 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
 - **P2(신살·구조 → 위험 보조 트리거) 보류 사유**: 위험 사전 항목은 scope별 감수 해시(reviewHashes)로 잠겨 있어 규칙을 고치면
   `risk_restamp.py`가 해당 항목을 reviewed=false로 강등한다. 항목 편집 vs family 단위 보조 증폭 층(env 버전 범프+재스탬프) 중
   선택이 필요하며, 어느 쪽이든 노출 lease 재검증(유료 --execute)이 얽힌다 — 데굴님 결정 대기.
+
+## 2026-09-18 — 리포트 경로 '호전·기회 신호' 배선 (P1 후속, 데굴님 지시)
+
+- `report_event_input.precise_candidate_clusters`: 시점 클러스터 헤더·표현 결·유불리·신살 줄 뒤에 `호전·기회 신호(엔진 판정 — 성사·
+  당첨·확정 표현 금지)` 1줄(상위 2, 시점 후보의 사건 키 도메인 `EVENT_DOMAINS` 합집합에 한정, 후보 근거 코드 전달). 플래그
+  `SAJU_OPPORTUNITY_ENABLED` OFF·fav_map 부재면 byte 불변. 이 함수를 쓰는 리포트 도메인 섹션(F-13~F-18b·Y-05 등 이벤트 후보
+  블록)에 자동 반영. 점수표(score_table_lines)·월별 요약에는 넣지 않았다(표 셀 누출 방지 원칙).
+- 회귀: `tests/unit/test_report_opportunity_lines.py`(ON/OFF·도메인 한정·줄 위치·fav_map 부재).
