@@ -7,9 +7,11 @@
 from __future__ import annotations
 
 import calendar as _cal
+import os
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from saju_manse_analysis.relations.hap_mitigation import HapMitigation, resolve_hap_mitigation
 from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
 from saju_manse_core.calendar.sexagenary_cycle import (
     day_ganzi,
@@ -87,6 +89,33 @@ def _branch_effect(branch: Branch, useful: set[str], unfavorable: set[str]) -> L
         element=str(BRANCH_ELEMENT[branch]),  # 정기 대표 오행
         type=_polarity_type(score), score=score, detail="·".join(parts),
     )
+
+
+# P1 합 완화(2026-09-18 데굴님 지시 — 전문가 취지 "기신 억제 + 관운 강화", "지병 완화").
+# 운 흉신 글자가 원국과의 합거로 묶이면 그 글자의 흉 점수를 절반으로 낮추고 등급에 '합거 완화'를
+# 표기한다(제거 아님 — 방향은 유지). 플래그는 saju_engines.period_v2_config와 같은 환경변수를
+# 읽는다(이 패키지는 saju_engines를 import 할 수 없어 여기서 따로 읽는다). 기본 OFF = 기존 byte.
+HAP_MITIGATION_ENABLED: bool = (
+    os.environ.get("SAJU_HAP_MITIGATION_ENABLED", "false").strip().lower() in ("1", "true", "yes")
+)
+# CALIBRATE: 묶인 흉 글자의 점수 배율(데굴님 승인 제안값 — shadow 실측 후 조정).
+HAP_MITIGATION_FACTOR = 0.5
+
+
+def _fav_map_from_sets(useful: set[str], unfavorable: set[str]) -> dict[str, str]:
+    """useful/unfavorable 오행 집합 → 합 판정용 역할 맵(용신/기신 2역할 — boon 판정에 충분)."""
+    return {**{el: "용신" for el in useful}, **{el: "기신" for el in unfavorable}}
+
+
+def _mitigated_label(code: str, label: str, summary: str) -> tuple[str, str, str]:
+    """합거 완화가 적용된 달의 등급 표기 — '강한 기신운'은 별도 코드, 그 외는 괄호 안에 병기."""
+    if code == "pure_gisin_luck":
+        return (
+            "gisin_mitigated", "기신운(합거 완화)",
+            "천간·지지가 흉신이나 흉 글자가 합으로 묶여 부담이 완화된 운 — 지병 완화(제거 아님)",
+        )
+    new_label = label[:-1] + "·합거 완화)" if label.endswith(")") else f"{label}(합거 완화)"
+    return (code, new_label, f"{summary} · 흉 글자 합거로 부담 완화(제거 아님)")
 
 
 def _relation_modifier(
@@ -188,7 +217,7 @@ def _coarse_alignment(code: str) -> str:
     """세분 라벨 → 기존 coarse 라벨(용신운/기신운/혼합/평운) 호환."""
     if code in ("pure_yongsin_luck", "partial_yongsin"):
         return "용신운"
-    if code in ("pure_gisin_luck", "partial_gisin"):
+    if code in ("pure_gisin_luck", "partial_gisin", "gisin_mitigated"):
         return "기신운"
     if code in ("mixed_yongsin_surface", "mixed_gisin_surface"):
         return "혼합"
@@ -198,14 +227,29 @@ def _coarse_alignment(code: str) -> str:
 def _luck_effect(
     stem: Stem, branch: Branch, useful: set[str], unfavorable: set[str], period_type: str,
     relations: list[str], transformed: list[str], void: bool,
+    mitigation: HapMitigation | None = None,
 ) -> dict:
     """천간·지지·관계를 분리 평가하고 가중 점수·세분 라벨을 산출.
 
     지지는 방향(용신/기신) 평가 후 공망·충 동태(_branch_dynamics)로 작동력·사건성을 조정한다.
+    mitigation(P1, 플래그 ON일 때만 전달)이 있으면 합거로 묶인 흉 글자의 점수를
+    HAP_MITIGATION_FACTOR 배로 낮추고 등급 표기에 '합거 완화'를 병기한다 — 방향(기신)은 유지.
     """
     stem_eff = _stem_effect(stem, useful, unfavorable)
     branch_eff = _branch_effect(branch, useful, unfavorable)
     _branch_dynamics(branch_eff, branch, void, relations, useful, unfavorable)
+    mitigated = False
+    if mitigation is not None:
+        if mitigation.branch_mitigated and branch_eff.type == "기신":
+            branch_eff.score = round(branch_eff.score * HAP_MITIGATION_FACTOR, 4)
+            branch_eff.branch_label = (
+                f"{branch_eff.branch_label} · 합거 완화" if branch_eff.branch_label else "합거 완화"
+            )
+            mitigated = True
+        if mitigation.stem_mitigated and stem_eff.type == "기신":
+            stem_eff.score = round(stem_eff.score * HAP_MITIGATION_FACTOR, 4)
+            stem_eff.detail = f"{stem_eff.detail} · 합거 완화".lstrip(" ·")
+            mitigated = True
     rel_mod = _relation_modifier(transformed, useful, unfavorable)
     w_s, w_b = _PERIOD_WEIGHTS.get(period_type, (0.4, 0.6))
     score = round(w_s * stem_eff.score + w_b * branch_eff.score + rel_mod, 4)
@@ -213,6 +257,8 @@ def _luck_effect(
         ("완성" in r or "성립" in r) for r in relations
     )
     code, label, summary = _luck_label(stem_eff.type, branch_eff.type, strong)
+    if mitigated:
+        code, label, summary = _mitigated_label(code, label, summary)
     if branch_eff.branch_label:  # 공망/충 동태를 요약에 덧붙임
         summary = f"{summary} · 지지 {branch_eff.branch_label}"
     return {
@@ -347,7 +393,17 @@ def _luck_pillar(
     gong = _gongmang_activation(branch, pillars)
     transformed = _transformed_elements(branch, pillars)
     void = str(branch) in set(pillars.gongmang_branches)
-    eff = _luck_effect(stem, branch, useful, unfavorable, period_type, rels, transformed, void)
+    mitigation = (
+        resolve_hap_mitigation(
+            pillars, _fav_map_from_sets(useful, unfavorable),
+            luck_stem=str(stem), luck_branch=str(branch),
+        )
+        if HAP_MITIGATION_ENABLED else None
+    )
+    eff = _luck_effect(
+        stem, branch, useful, unfavorable, period_type, rels, transformed, void,
+        mitigation=mitigation,
+    )
     return LuckPillar(
         label=label,
         period_type=period_type,

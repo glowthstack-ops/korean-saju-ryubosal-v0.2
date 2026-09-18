@@ -248,6 +248,9 @@ class LlmEventCandidate(BaseModel):
     marriage_stability_risk: bool = False
     # D1-B — 기간 근거(층위). 점수·등급·순위는 이 값에 영향받지 않는다.
     layer_grounding: LlmLayerGrounding | None = None
+    # P1 합 완화(2026-09-18) — 그 시점 운 간지가 원국과 맺는 합의 엔진 판정 줄(서술 전용,
+    # 점수 불변). 플래그 OFF면 빈 목록(프롬프트 byte 불변).
+    hap_notes: list[str] = Field(default_factory=list)
 
 
 class LlmEvidence(BaseModel):

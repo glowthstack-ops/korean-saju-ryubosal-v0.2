@@ -28,6 +28,9 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "CAREER_SPECIAL": "특수직군 길화",
     "JOBCHANGE_PRESSURE": "압박성 이직",
     "JOBCHANGE_OPPORTUNITY": "기회성 이직",
+    # P1 합 완화(2026-09-18) — 합거로 묶인 흉신의 완화·합 결과 관에 의한 관운 강화(길흉 채널 전용).
+    "制_합거_흉완화": "합거 흉 완화(묶인 흉신 — 제거 아님)",
+    "化_관운강화": "관운 강화(합 결과 오행이 관)",
     "PROFILE_public_official": "공직 발령·전보",
     # 인성 동요 신호(2026-08-10, relation_target_ten_god_rules) — 일반 REL_ 보다 앞.
     "REL_CHUNG_RESOURCE_RENEWAL": "문서 교체 자극(기존 계약·문서를 깨고 갈아타는 흐름)",

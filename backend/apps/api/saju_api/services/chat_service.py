@@ -76,6 +76,11 @@ from saju_engines.luck_hierarchy_render import (
     render_v2_slot_status,
 )
 from saju_engines.marriage_marker_shadow import detect_marriage_marker_shadow
+from saju_engines.month_coverage_audit import (
+    audit_month_coverage,
+    build_coverage_notes,
+    patch_month_coverage,
+)
 from saju_engines.period_role_summary import build_period_role_summary
 from saju_engines.period_safe_template import build_safe_period_answer
 from saju_engines.persona import PersonaEngine
@@ -173,6 +178,7 @@ from saju_shared_types.llm_input import (
     DateChoiceRow,
     DateSelectionBlock,
     LlmEventCandidate,
+    LlmInput,
     MonthOverviewRow,
     PeriodFortune,
     PeriodFortuneSlot,
@@ -5529,7 +5535,9 @@ def chat(
             health=intent.domain is Domain.HEALTH,
             minor=_minor_lifestage_directive_text(birth, intent, today) is not None,
         )
-        _sem_lines = counseling_arbiter.counseling_block_lines(_sem)
+        _sem_lines = counseling_arbiter.counseling_block_lines(
+            _sem, allowed_periods=_candidate_periods(payload)
+        )
         if _sem_lines:
             trailing.append("\n".join(_sem_lines))
 
@@ -5805,6 +5813,9 @@ def chat(
         # P0 관계 의미 패치(2026-07-27) — 엔진 판정을 뒤집은 서술은 전달 금지.
         # 재호출 없이 해당 문장만 canonical claim으로 교체한다.
         answer = _audit_relation_answer(answer, payload.period_fortune, thread_id)
+        # P0 월 커버리지 감사(2026-09-18) — 기반 최고 달 누락·비후보 달 결정 권고를
+        # 재호출 없이 엔진 확정 문장 삽입으로 보정한다(플래그 OFF면 byte 불변).
+        answer = _audit_month_coverage_answer(answer, payload, thread_id)
         # P0.5 — 내부 서술 정책이 답변에 그대로 노출되면 해당 문장만 제거한다.
         _echoes = detect_policy_echo(answer)
         if _echoes:
@@ -6104,6 +6115,46 @@ def _audit_career_transition_answer(
         owner_id=owner_id, surface="chat", ref_id=thread_id,
     )
     return _normalize_ganji_gloss(retried)
+
+
+def _candidate_periods(payload: LlmInput) -> tuple[str, ...]:
+    """이번 턴 이벤트 후보의 기간 라벨(순서 보존 dedup) — 결정 행동 허용 시기의 SSOT."""
+    return tuple(dict.fromkeys(c.period for c in payload.event_candidates))
+
+
+def _audit_month_coverage_answer(answer: str, payload: LlmInput, thread_id: str | None) -> str:
+    """P0 월 커버리지 감사(2026-09-18 데굴님 지시) — 누락·격상을 결정론으로 보정한다.
+
+    **LLM 재호출은 하지 않는다**(재생성 철회 확정). 검사 ① 엔진이 지목한 기반 최고 달이
+    답변에 없으면, ② 이벤트 후보에 없는 달에 결정 권고(수락·계약·실행)를 붙였으면 위반이고,
+    교정은 엔진 확정값으로 만든 문단을 되묻기 앞에 삽입하는 것뿐이다(본문 삭제 없음).
+    총운(overview) 모드는 유력 달 순위가 서술 골격이 아니라 대상에서 뺀다.
+
+    Args:
+        answer: 정규화·관계 감사까지 마친 답변.
+        payload: 이번 턴 LLM 입력(월별 요약·이벤트 후보 보유).
+        thread_id: 스레드 식별자(로깅).
+
+    Returns:
+        통과했거나 교정 문단이 덧붙은 답변.
+    """
+    if not period_v2_config.MONTH_COVERAGE_AUDIT_ENABLED or not answer:
+        return answer
+    if payload.overview_mode or not payload.monthly_overview:
+        return answer
+    audit = audit_month_coverage(answer, payload.monthly_overview, _candidate_periods(payload))
+    if audit.passed:
+        _logger.info("month_coverage_audit result=pass thread=%s", thread_id)
+        return answer
+    notes = build_coverage_notes(audit, payload.monthly_overview)
+    _logger.warning(
+        "month_coverage_audit result=violation kinds=%s missing=%s promoted=%s thread=%s",
+        audit.violations,
+        [r.period for r in audit.missing_best],
+        [list(p.periods) for p in audit.promoted],
+        thread_id,
+    )
+    return patch_month_coverage(answer, notes)
 
 
 def _audit_relation_answer(answer, period_fortune, thread_id):

@@ -85,6 +85,7 @@ from .direction_suggestion import (
 )
 from .event_engine_v2 import EventEngineV2
 from .event_scoring import favorability_map
+from .hap_lines import luck_hap_mode_lines
 from .layer_evidence_scope import (
     classify_layer_evidence_scope,
     normalize_layers,
@@ -97,6 +98,7 @@ from .marriage_output_guard import (
     marriage_guard_directive,
 )
 from .marriage_telemetry import build_marriage_telemetry, emit_marriage_telemetry
+from .month_coverage_audit import best_quality_rows
 from .relation_claim_audit import canonical_claim_lines
 from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
@@ -677,11 +679,9 @@ def _best_quality_months(rows: list[MonthOverviewRow]) -> str:
 
     길 방향 등급만 대상(기신·혼합은 '좋은 달'로 지목하지 않는다). 너무 길지 않게 최대 3개.
     """
-    for grade in _BEST_GRADE_PRIORITY:
-        hits = [r.period for r in rows if r.luck_grade == grade]
-        if hits:
-            return ", ".join(f"{p}({grade})" for p in hits[:3])
-    return ""
+    return ", ".join(
+        f"{r.period}({r.luck_grade})" for r in best_quality_rows(rows, limit=3)
+    )
 
 
 def event_ko(key: EventKey | str) -> str:
@@ -1404,6 +1404,7 @@ def _to_llm_candidate(
     # 방향 인지 표시 라벨(2026-07-22 P2) — '횡재+손실' 모순 차단. 방향 함의 키는 결과
     # 방향에 맞는 라벨로, 그 외·비V2 키는 기존 라벨 유지(판정·점수 불변).
     _disp = event_display_ko(str(c.event_key), c.quality, c.timing)
+    hap_notes = _candidate_hap_notes(result, period_ganji)
     return LlmEventCandidate(
         event_key=c.event_key,
         event_ko=_disp if _disp != str(c.event_key) else event_ko(c.event_key),
@@ -1438,7 +1439,23 @@ def _to_llm_candidate(
         # B2 — stage_reason(MT 전용)에 없는 REL_CHUNG_* 등 배우자궁 충·형·파·해를
         # full evidence_path로 판정해 출력 가드에 전달(방향 누수 차단, 점수 불변).
         marriage_stability_risk=has_stability_risk(list(c.evidence_path)),
+        hap_notes=hap_notes,
     )
+
+
+def _candidate_hap_notes(result: ManseV2Result | None, ganji: str) -> list[str]:
+    """P1 — 후보 시점 운 간지가 원국과 맺는 합의 엔진 판정 줄(운 관여 합만). 플래그 OFF면 빈 목록.
+
+    리포트가 쓰는 luck_hap_mode_lines를 재사용한다. 전문가 취지("지병 완화, 제거 아님")에 맞춰
+    묶임 효과 문구만 '흉 제거'→'흉 완화'로 바꾼다(hap_lines 원문은 리포트 byte 보존을 위해 불변).
+    """
+    if not period_v2_config.HAP_MITIGATION_ENABLED or result is None or len(ganji) < 2:
+        return []
+    try:
+        lines = luck_hap_mode_lines(result, luck_stems=[ganji[0]], luck_branches=[ganji[1]])
+    except (KeyError, ValueError):
+        return []
+    return [ln.replace("유리(흉 제거)", "유리(흉 완화)") for ln in lines if ln.startswith("운 ")]
 
 
 def _sinsal_modifier_str(s: LlmSinsalModifier) -> str:
@@ -1621,6 +1638,9 @@ def build_monthly_overview(
         )
         if marker:
             roles += f" {marker}"
+        if "합거 완화" in luck_grade_by_period.get(period, ""):
+            # P1 — 등급에 합거 완화가 붙은 달은 행에도 표지(흉 단정 방지, 지병 완화 취지).
+            roles += " ↘합거 완화(흉신 묶임 — 부담 완화, 제거 아님)"
         return roles
 
     def _transition_for(period: str) -> str:
@@ -2340,6 +2360,12 @@ def serialize_llm_input(payload: LlmInput) -> str:
         if with_notes and c.favorability_ko:
             # 결과 유불리 — 발생 가능성(강도)과 분리된 길흉('강한 달=좋은 달'이 아님).
             block.append(f"  결과 유불리: {c.favorability_ko}(발생 가능성과 별개)")
+        if with_notes and c.hap_notes:
+            # P1 합 작용(엔진 판정) — 흉신 묶임은 '완화'이지 '제거'가 아니다(전문가 취지).
+            block.append(
+                "  합 작용(엔진 판정 — 흉신 묶임은 부담 완화이지 제거가 아님): "
+                + " / ".join(c.hap_notes)
+            )
         if with_notes and c.period_rank:
             # CDS-P1a — 절대 강도(위 표현)와 상대 중요도를 분리 전달. 포화된 강도
             # 표현이 같아도 이 순위가 기간 내 실제 비중이다(판정 아님 — 서술 참고).
@@ -2540,6 +2566,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
         has_rank = False
         has_branch = False
         has_grade = False
+        has_mitigated = False
         for row in payload.monthly_overview:
             row_cmp = cur_month[: len(row.period)] if cur_month else ""
             past_mark = " · 지남(과거형으로만)" if row_cmp and row.period < row_cmp else ""
@@ -2560,6 +2587,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
             # 운 품질 등급 — 길흉(좋은 달/부담 달)의 1차 기준. 사건명 앞에 둬서 묻히지 않게.
             grade_mark = f" 〈{row.luck_grade}〉" if row.luck_grade else ""
             has_grade = has_grade or bool(row.luck_grade)
+            has_mitigated = has_mitigated or ("합거 완화" in row.luck_grade)
             # 발현 분기 — 같은 계열에서 함께 점수화됐으나 표(top-2)에서 잘린 형제(예: 이사)를
             # 모든 달에서 노출(top-3 종합에만 의존하지 않게). 압축형, 안내는 표 하단에 1회.
             branch_mark = f" · 분기 {row.branch_ko}" if row.branch_ko else ""
@@ -2595,6 +2623,14 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 f"십성으로 얹어 '무슨 일'을 설명한다. '강한 용신운' {_unit}{_n} 두드러진 사건이 "
                 f"없어도 기반이 가장 좋은(가장 도움되는) {_unit}로 짚을 것."
                 if has_grade
+                else ""
+            )
+            + (
+                # P1 합 완화(2026-09-18) — 등급에 붙는 '합거 완화'의 읽는 법(지병 완화 취지).
+                f" '합거 완화'가 붙은 등급은 흉신 글자가 원국과의 합으로 묶여 부담이 완화된 "
+                f"{_unit}이다(지병 완화 — 제거 아님) — 흉을 강하게 단정하지 말고 완화된 부담으로, "
+                "합의 결과 오행이 관이면 관(직장·조직) 작용이 강해지는 결로 서술할 것."
+                if has_mitigated
                 else ""
             )
             + (
@@ -2675,7 +2711,14 @@ def serialize_llm_input(payload: LlmInput) -> str:
                     bits.append(mr.transition)
                 line = f"{mr.strength_rank}위 {mr.period} {mr.ganji}: " + " · ".join(bits)
                 roles_txt = mr.luck_roles or ""
-                if "계약·결실 불리" in roles_txt:
+                if "계약·결실 불리" in roles_txt and "합거 완화" in roles_txt:
+                    # P1 — 천간 흉신 주의는 남기되, 흉신 묶임(합거 완화)으로 부담이 완화된 달은
+                    # '검토월' 단정도 우호 단정도 하지 않는다(지병 완화 취지).
+                    line += (
+                        " — 천간이 흉신이라 결실·실속은 주의하되, 흉신 글자가 합으로 묶여 부담이 "
+                        "완화된 달(검토월 단정·우호 단정 모두 금지, 완화된 부담으로 서술)"
+                    )
+                elif "계약·결실 불리" in roles_txt:
                     line += (
                         " — 발생 신호는 강하나 결실·실속이 불리한 '검토월' 성격"
                         "(이 달을 우호적으로만 서술 금지)"
@@ -2691,6 +2734,15 @@ def serialize_llm_input(payload: LlmInput) -> str:
                         "'좋은 달'로 단정하지 말 것"
                     )
                 lines.append(line)
+            # 기반 최고 달 재지목(2026-09-18 데굴님 지시) — 월별 요약 머리의 같은 값을 결론
+            # 골자 옆에 한 번 더 둔다. 실로그: 머리 지시만으로는 LLM이 그 달(2026-10 강한
+            # 용신운)을 통째로 건너뛰었다(전문가 반박 사례). 사후 감사(month_coverage_audit)와 쌍.
+            _best_again = _best_quality_months(payload.monthly_overview)
+            if _best_again:
+                lines.append(
+                    f"기반 최고 {_unit}: {_best_again} — 질문 사건의 후보가 없어도 반드시 "
+                    "한 번 언급할 것(누락 금지)"
+                )
     # 총운 모드 — 미뤄둔 이벤트 후보·제외 강신호 블록을 여기(월별·유력 달 뒤,
     # 최종 지시문 인접)에 삽입한다. 월별 표가 비어도 반드시 방출된다.
     if payload.overview_mode and _cand_out is not lines and _cand_out:

@@ -10807,3 +10807,48 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
   관리 기준 동반) + MANAGE_NOT_OVERCOME 적용. 앵커 일운 창은 이번 질문이 앵커명을 직접 말할 때만 주입.
 - 회귀: `test_realtime_log_misses_20260917.py` +3(총 10). 게이트 4종 통과.
 
+
+## 2026-09-18 — 자시 규칙 토글을 체크박스 하나로 단일화 ✅ (데굴님 지시)
+
+- **배경**: 자시 규칙 선택지가 정자시 / 야자시·조자시 구분 두 개뿐이라 2지선다 라디오가 과했다(데굴님 지시: "체크 박스로 야자시/조자시 사용 항목만").
+- **변경(프론트만, 백엔드·저장 키 무변경)**:
+  - `components/manse/Panels.tsx` `TrueSolarTimeCard`: 라디오 그룹 → 균시차와 같은 체크박스 하나 `야자시·조자시 구분`.
+    해제 = 정자시(`standard_zi`, 기본) / 체크 = `early_late_zi`. 카드 본문 "자시 규칙: …" 행·명식 카드 배지·23시대 경고는 그대로라 현재 적용 규칙명은 계속 보인다.
+  - `lib/types.ts`: 라벨 상수 주석만 "라디오" → "체크박스".
+- **검증**: frontend `tsc` exit 0 · production build 성공(정적 20페이지). 매핑 테스트(`tests/subject-mapping.test.ts`)는 로직 무변경이라 영향 없음.
+
+## 2026-09-18 — 전문가 반박 사례(12개월 이직운) 대응: P0 월 커버리지 감사 + P1 합 완화·관운 강화 ✅ (데굴님 승인)
+
+- **배경**: 데굴 차트(己亥 일주) 12개월 이직운 답변을 전문가가 반박 — "26년 10월도 좋다 / 1월은 좋다고 보기 어렵다 /
+  (2월 壬寅) 인성·재성이 천간·지지에서 관으로 합이 되어 기신이 사라진다 → 기신 억제 + 관운 강화, 단 제거가 아니라
+  지병 완화 / 庚子월은 격변". dry_run 재현 결과 엔진값은 전문가와 같은 방향(2026-10 luck_score 0.88 강한 용신운·
+  [기반 최고 달] 명시, 2027-01 0.24 부분·이직 후보 아님, 2026-12 絶·압박성 이직 2위)이었고, 어긋난 것은
+  ① LLM이 10월을 건너뛰고 후보에 없는 1월을 '적극 수락' 달로 격상한 준수 결함, ② 엔진 관계 층은 丁壬合 합화 확정·
+  化木, 寅亥合 합반·합거·壬/甲 boon으로 판정했는데 월 등급·이벤트 유불리·프롬프트가 그 판정을 소비하지 않은 모델 결함.
+- **P0 월 커버리지 감사(LLM 재호출 없음)** — 플래그 `SAJU_MONTH_COVERAGE_AUDIT_ENABLED`(기본 OFF, .env.beta ON):
+  - `saju_engines/month_coverage_audit.py`(신규): 검사 ① 기반 최고 달 라벨(연·월/N월/간지) 미출현, ② 이벤트 후보에
+    없는 달에 결정 행동어(수락·계약 체결·도장·입사·실행에 옮김…) 부착 — 문단 안 직전 문장의 달을 승계, 부정·유보 문맥과
+    허용 달 동반 문장은 제외(보수적). 교정은 엔진 확정값 템플릿 문단을 되묻기 앞에 삽입(본문 삭제 없음).
+  - `context_reducer`: [유력 달 종합] 끝에 `기반 최고 달:` 고정 줄 재지목. `counseling_arbiter.counseling_block_lines`:
+    `allowed_periods` 인자 → "결정 행동 허용 시기: 후보 달 목록" 줄. `chat_service`: `_candidate_periods`·
+    `_audit_month_coverage_answer`(관계 감사 뒤, 총운 모드 제외) 배선, 로그 `month_coverage_audit result=…`.
+  - 회귀: `tests/unit/test_month_coverage_audit.py`(실로그 답변 발췌로 두 위반 재현·교정 후 재감사 통과).
+- **P1 합 완화·관운 강화** — 플래그 `SAJU_HAP_MITIGATION_ENABLED`(기본 OFF, .env.beta ON; luck_cycles는 패키지
+  의존 방향 때문에 같은 환경변수를 따로 읽음):
+  - `saju_manse_analysis/relations/hap_mitigation.py`(신규, SSOT): 운 천간 흉신의 천간합 합거(bind·away·boon) →
+    stem_mitigated, 운 지지 흉신의 **육합** 합거 → branch_mitigated(삼합·방합 제외), 합/합화 결과 오행이 관이면
+    officer_elements(엔진이 化 불성으로 본 합도 포함 — 전문가 취지 승인).
+  - 월 등급(`luck_cycles`): 묶인 흉 글자 점수 ×0.5(`HAP_MITIGATION_FACTOR`), '강한 기신운'→`gisin_mitigated`
+    "기신운(합거 완화)", 그 외는 괄호 안 "·합거 완화" 병기, 방향(기신운)은 유지.
+  - 이벤트 유불리(`event_engine_v2._apply_hap_mitigation`): **점수 채널(polarity_role→yongi)은 기존 판정 그대로**,
+    길흉 채널만 완화 역할(`_period_role` stem/branch_mitigated — 직접 역할에서 빼되 다른 직접 역할이 없으면 HAN_BAD
+    잔존)로 다시 재어 차이를 fav_adj에 가산. 관 계열(career_change·job_gain·promotion)은 본 천간이 관으로 합화한
+    경우도 완화 대상 + `HAP_OFFICER_BOOST` 0.3. reason_code `制_합거_흉완화`·`化_관운강화`(한글 라벨 추가).
+    데굴 2027-02 career_change: favorability −1.0 → 0.0(중립, 유리 단정 아님), 점수·활성 ON/OFF 동일(동점 나열 순서만 변동 가능).
+  - 프롬프트(`context_reducer`): 후보별 "합 작용(엔진 판정 …)" 줄(`LlmEventCandidate.hap_notes`, 리포트의
+    `luck_hap_mode_lines` 재사용·'흉 제거'→'흉 완화' 문구), 월별 요약 행 `↘합거 완화` 표지, 범례 읽는 법, 유력 달 종합의
+    '검토월' 문구를 완화 달 전용 문구로 분기.
+  - 회귀: `tests/unit/test_hap_mitigation.py`(판정기·월 등급 ON/OFF·유불리 ON/OFF·후보 합 줄).
+- **미실행/보류**: 천간 합거의 점수 채널(yongi)은 기존 '건너뜀' 유지(길흉 채널만 완화) — 점수 불변 원칙 우선.
+  가중치(0.5·0.3·극성 잔존 HAN_BAD)는 제안값이며 shadow 실측 후 조정. `hap_lines._EFFECT_KO` 원문('흉 제거')은 리포트
+  byte 보존을 위해 미변경(후속 검토).

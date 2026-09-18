@@ -52,6 +52,16 @@ EVENT_LOCAL_TRIGGER_GATE_ENABLED: bool = _env_flag("SAJU_EVENT_LOCAL_TRIGGER_GAT
 # 선택해 후보 ID로 비교한다. **사용자에게는 legacy 결과만 반환**하며 scoped는 감사
 # 전용이다. 계측 비용(선별 1회 추가)이 있어 기본 OFF이고 측정 환경에서만 켠다.
 EVENT_PROCESS_DUAL_RUN_ENABLED: bool = _env_flag("SAJU_EVENT_PROCESS_DUAL_RUN_ENABLED")
+# P0 월 커버리지 감사(2026-09-18 데굴님 지시, 전문가 반박 사례) — 기반 최고 달 누락·
+# 비후보 달 결정 권고를 LLM 재호출 없이 엔진 확정 문장 삽입으로 보정한다. 점수·판정 불변.
+MONTH_COVERAGE_AUDIT_ENABLED: bool = _env_flag("SAJU_MONTH_COVERAGE_AUDIT_ENABLED")
+# P1 합 완화(2026-09-18 데굴님 지시 — 전문가 취지 "기신 억제 + 관운 강화", "지병 완화") —
+# 운 흉신 글자가 합거로 묶이면 결과 유불리(favorability)를 한 단계 완화하고, 합 결과 오행이
+# 관이면 관 계열 사건에 관운 강화 보정을 더한다. 점수·순위·사건 종류 불변. 월 등급 쪽은
+# saju_manse_analysis.luck.luck_cycles가 같은 환경변수를 따로 읽는다(패키지 의존 방향).
+HAP_MITIGATION_ENABLED: bool = _env_flag("SAJU_HAP_MITIGATION_ENABLED")
+# CALIBRATE: 관운 강화 favorability 가산(데굴님 승인 제안값, shadow 실측 후 조정).
+HAP_OFFICER_BOOST: float = 0.3
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -113,6 +123,8 @@ def active_versions() -> dict[str, str | bool]:
         "local_adverse_only_enabled": LOCAL_ADVERSE_ONLY_ENABLED,
         "event_local_trigger_gate_enabled": EVENT_LOCAL_TRIGGER_GATE_ENABLED,
         "event_process_dual_run_enabled": EVENT_PROCESS_DUAL_RUN_ENABLED,
+        "month_coverage_audit_enabled": MONTH_COVERAGE_AUDIT_ENABLED,
+        "hap_mitigation_enabled": HAP_MITIGATION_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

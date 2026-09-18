@@ -18,6 +18,7 @@ from datetime import date
 from pathlib import Path
 from types import MappingProxyType
 
+from saju_manse_analysis.relations.hap_mitigation import resolve_hap_mitigation
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
 from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_role
 
@@ -60,6 +61,7 @@ from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.risk_engine import RiskCandidate, RiskEngineMode
 from saju_shared_types.wealth_capacity import WealthCapacity
 
+from . import period_v2_config
 from .addendum_gate_modifier import AddendumGateModifier, GateContext
 from .career_mobility_modifier import CareerMobilityContext, CareerMobilityModifier
 from .cohort_calibration import CohortStats
@@ -671,6 +673,10 @@ class EventEngineV2:
         hwa_el = _target_hwa_element(target, result, fav_map)
         stem_bound = _target_stem_bound(target, result, fav_map) if hwa_el is None else False
         role = _period_role(target, fav_map, stem_element=hwa_el, stem_bound=stem_bound)
+        # P1 합 완화(2026-09-18): 점수 채널(polarity_role→yongi)은 위 기존 판정 그대로 두고,
+        # 아래 _apply_hap_mitigation이 길흉 채널(favorability)만 완화 역할 기준으로 다시 잰다.
+        # 천간 합거의 '제거→완화' 통일도 길흉 채널에서만 나타난다(잔존 약흉) — 점수·순위 불변.
+        _hap_on = period_v2_config.HAP_MITIGATION_ENABLED
         # 접힘 전 천간/지지 역할 라벨 보존(P0-1) — NEUTRAL이어도 evidence는 남긴다(INV-E).
         stem_lbl, branch_lbl = _period_role_labels(
             target, fav_map, stem_element=hwa_el, stem_bound=stem_bound
@@ -694,6 +700,10 @@ class EventEngineV2:
             cands = [  # provenance-audit: not-risk (EventCandidateV2)
                 c.model_copy(update=role_labels) for c in cands
             ]
+        # P1 합 완화(2026-09-18) — 합거로 묶인 흉 글자의 유불리를 한 단계 완화하고, 합 결과가
+        # 관이면 관 계열 후보에 관운 강화를 더한다. favorability(fav_adj)만 — 점수·순위 불변.
+        if _hap_on:
+            cands = _apply_hap_mitigation(cands, target, result, fav_map, hwa_el, role)
         # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
         # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
         cands = self._exam.apply(cands, present_gods)
@@ -1409,6 +1419,71 @@ def _daewoon_hwa_evidence(
     )
 
 
+# 관운 강화 대상 — 관(官) 계열 사건(이직·취업·승진). 합 결과 오행이 관일 때만 보정한다.
+_OFFICER_EVENT_KEYS: frozenset[EventKeyV2] = frozenset({
+    EventKeyV2.CAREER_CHANGE, EventKeyV2.JOB_GAIN, EventKeyV2.PROMOTION,
+})
+
+
+def _apply_hap_mitigation(
+    cands: list[EventCandidateV2],
+    target: LuckPillar,
+    result: ManseV2Result,
+    fav_map: dict[str, str],
+    hwa_el: str | None,
+    base_role: PolarityRole,
+) -> list[EventCandidateV2]:
+    """P1 합 완화·관운 강화(2026-09-18 데굴님 지시, 전문가 취지) — favorability만 보정한다.
+
+    - 완화: 운 흉신 글자가 원국과의 합거로 묶이면 극성을 원값(base_role) 대신 완화 역할로 다시
+      매기고, 그 차이(_ROLE_FAV 기준)를 fav_adj에 더한다. polarity_role·score·순위는 그대로
+      둔다(점수 불변 — 활성/길흉 이중 채널 중 길흉 채널만).
+    - 관운 강화: 합/합화 결과 오행이 관이면 관 계열 후보(_OFFICER_EVENT_KEYS)에 한해, 본 천간이
+      관으로 합화(化)한 경우 그 천간도 완화 대상으로 보고 HAP_OFFICER_BOOST를 더한다
+      ("재성이 관으로 합 → 기신 억제 + 관운 강화"). 다른 사건 계열은 化神 역할(기신)을 그대로 본다.
+    """
+    if result.pillars is None:
+        return cands
+    try:
+        mit = resolve_hap_mitigation(
+            result.pillars, fav_map, luck_stem=target.stem, luck_branch=target.branch,
+        )
+    except (KeyError, ValueError):
+        return cands
+    if not mit.any:
+        return cands
+    general = _period_role(
+        target, fav_map, stem_element=hwa_el,
+        stem_mitigated=mit.stem_mitigated, branch_mitigated=mit.branch_mitigated,
+    )
+    officer_hwa = hwa_el is not None and hwa_el in mit.officer_elements
+    officer = _period_role(
+        target, fav_map, stem_element=hwa_el,
+        stem_mitigated=mit.stem_mitigated or officer_hwa, branch_mitigated=mit.branch_mitigated,
+    )
+    base_fav = _ROLE_FAV.get(base_role, 0.0)
+    out: list[EventCandidateV2] = []
+    for c in cands:
+        career = bool(mit.officer_elements) and c.event_key in _OFFICER_EVENT_KEYS
+        mitigated_delta = _ROLE_FAV.get(officer if career else general, 0.0) - base_fav
+        delta = mitigated_delta
+        reasons: list[str] = []
+        if mitigated_delta != 0.0:  # 완화가 실제로 길흉을 움직인 경우에만 근거 코드를 남긴다
+            reasons.append("制_합거_흉완화")
+        if career:
+            delta += period_v2_config.HAP_OFFICER_BOOST
+            reasons.append("化_관운강화")
+        if delta == 0.0:
+            out.append(c)
+            continue
+        prev = c.contributions.get("fav_adj", 0.0)
+        out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+            "reason_codes": [*c.reason_codes, *reasons],
+            "contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)},
+        }))
+    return out
+
+
 def _target_stem_bound(
     target: LuckPillar, result: ManseV2Result, fav_map: dict[str, str]
 ) -> bool:
@@ -1458,6 +1533,8 @@ def _period_role(
     fav_map: dict[str, str],
     stem_element: str | None = None,
     stem_bound: bool = False,
+    stem_mitigated: bool = False,
+    branch_mitigated: bool = False,
 ) -> PolarityRole:
     """시점 유입 글자(천간 우선, 지지 보조) 오행의 용기신 역할 → 극성.
 
@@ -1465,6 +1542,9 @@ def _period_role(
     한신의 생(生) 관계로 간접 길흉(약)을 판정한다(직접 신호를 덮지 않는 보조 계층).
     stem_element: 본 천간이 합화(化)했을 때의 化神 오행 — 길흉을 化神 기준으로 본다(生剋制化 우선).
     stem_bound: 본 천간이 합거(制)로 묶여 흉이 무력화되면 True — 천간을 길흉 판정에서 건너뛴다.
+    stem_mitigated/branch_mitigated(P1 합 완화, 2026-09-18): 묶인 흉 글자를 직접 역할에서는
+    빼되 없애지는 않는다 — 다른 글자의 직접 역할이 없으면 약한 흉(HAN_BAD)이 잔존한다
+    ("지병 완화, 제거 아님" — 전문가 취지). 길신 글자에는 적용하지 않는다.
     """
     try:
         stem_el = stem_element or str(STEM_ELEMENT[Stem(target.stem)])
@@ -1474,6 +1554,11 @@ def _period_role(
     # 制/합거 무력화 — 묶인 천간은 역할 없음(빈 라벨)으로 처리해 흉을 끌지 않게 한다.
     stem_lbl = "" if stem_bound else fav_map.get(stem_el, "")
     branch_lbl = fav_map.get(branch_el, "")
+    residual = False
+    if stem_mitigated and is_unfavorable_role(stem_lbl):
+        stem_lbl, residual = "", True
+    if branch_mitigated and is_unfavorable_role(branch_lbl):
+        branch_lbl, residual = "", True
     # 0) 천간·지지가 같은 방향으로 겹친 강한 신호 — 모두 용신(강한 용신운)/모두 흉(기·구).
     if stem_lbl == "용신" and branch_lbl == "용신":
         return PolarityRole.YONG_STRONG
@@ -1484,6 +1569,9 @@ def _period_role(
         direct = _FAV_ROLE.get(lbl)
         if direct is not None:
             return direct
+    # 1.5) 완화된 흉 글자만 남음 → 약한 흉 잔존(제거가 아니라 완화).
+    if residual:
+        return PolarityRole.HAN_BAD
     # 2) 직접 역할 없음 → 한신 생(生) 간접 길흉(천간 우선 — 묶인 천간은 제외).
     elems = (branch_el,) if stem_bound else (stem_el, branch_el)
     for el in elems:
