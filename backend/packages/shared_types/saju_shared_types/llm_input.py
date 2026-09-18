@@ -254,6 +254,9 @@ class LlmEventCandidate(BaseModel):
     # 사건 어휘 층(2026-09-18) — 공통 사건 유형(경쟁·경합/지연·보류/기회 유입 …) 결정론 분류.
     # 사건명·길흉 확정 아님, 서술 참고. 플래그 OFF면 빈 목록(프롬프트 byte 불변).
     process_types: list[str] = Field(default_factory=list)
+    # 기회·호전 신호(P1, 2026-09-18) — 경량 기회 엔진 판정 줄(서술 참고, 성사 확정 아님).
+    # 플래그 OFF면 빈 목록(프롬프트 byte 불변).
+    opportunity_notes: list[str] = Field(default_factory=list)
 
 
 class LlmEvidence(BaseModel):

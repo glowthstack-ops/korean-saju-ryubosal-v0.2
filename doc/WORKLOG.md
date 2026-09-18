@@ -10926,3 +10926,23 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
 - 동의어 그룹 7개 신설·재배정 6건. 잔여 12운성 채널(노련·단장·흔들림)을 게이트에 쓰는 사건 3종 승인 개정(§22-8 배선표 +3).
 - 회귀: `test_daily_catalog_expansion_3.py`; 기존 카운트 핀(65→83·64→82·caution 43·good 40·support 13) 갱신, 2차 확장 테스트는 날짜별
   활성 버전으로 검사하도록 수정. 감수: 사전 reviewed:false 유지(외부 감수 대기).
+
+## 2026-09-18 — P1 기회·호전 사전 + 경량 엔진 (위험 사전의 긍정 대칭 층, 데굴님 승인)
+
+- **사전** `dictionaries/opportunities/{career,finance,contract_legal,relationship,relocation,selection,health_safety}.json` 36종.
+  항목 = opportunityId·kind(opportunity/achievement/maintenance/relief = 기회 발생/실제 성취/유지·후속/해소·경감)·family(공통 사건
+  유형 긍정 id)·baseValue·triggerRules/amplifierRules/dampenerRules·manifestations·allowedClaimScope·prohibitedClaims. 규칙 문법은
+  위험 사전과 같은 꼴(AND 조건: polarityRoleIn·tenGod(Group)·rooted·relation(+Palace/+TargetTenGodGroup)·voidState·hapMitigation
+  (mitigated/officer/harmed/bound)·structure(chunggeun_clear/rescue_ok/tonggwan_present)·twelveStageIn·luckGradeIn·yeokma·reasonPrefix).
+  스키마 `OpportunityMappingFile`(extra=forbid) 등록, validate_dictionaries 103개 통과. reviewed:false(감수 대상).
+- **엔진** `saju_engines/opportunity_engine.py`(경량, 별도): LuckPillar 관계·역할·공망·합 완화·구조 배경·상대 역마로 사실을 뽑아
+  점수 = base + Σ트리거(기본 .3) + 증폭 − 감쇠, 문턱 `OPPORTUNITY_MIN_SCORE` 0.5. 위험 엔진의 감수 매니페스트·노출 게이트는 재사용
+  하지 않음(데굴님 결정). 점수·순위·favorability 불변.
+- **노출** 채팅 후보 블록 "호전·기회 신호(엔진 판정 — 성사·당첨·확정 표현 금지)" 줄(상위 2, 사건 키→도메인 매핑 `EVENT_DOMAINS`로
+  무관 도메인 차단). 플래그 `SAJU_OPPORTUNITY_ENABLED`(기본 OFF, .env.beta ON). 리포트(report_event_input)는 후보 직렬화 경로가
+  달라 다음 단계에서 배선.
+- **스모크(데굴 차트)**: 2027-02 壬寅 — 직업 기회 유입(관성 천간합·관 합화 재료)·미수금 회수(재성 육합·완화)·자율성 확대; 2027-06 丙午 —
+  해결·해소(통관); 2026-10 — 강한 용신운 유지. 육합이 합거(묶임)면 '연결 성사' 감쇠(bound) — 寅亥合 오판 방지. 구조·등급 단독
+  트리거는 .25로 낮춰 증폭 없이는 문턱 미달.
+- 회귀: `tests/unit/test_opportunity_engine.py`(사전 7도메인·family·확정 금지·스키마 거부, 문턱·정렬·도메인 제한, 후보 줄 플래그).
+- 12개월 이직운 dry_run 15,422 토큰(한도 22k 내).

@@ -1,0 +1,352 @@
+{
+  "version": "1.0.0",
+  "domain": "relationship",
+  "reviewed": false,
+  "purpose": "기회·호전 사전(P1, 2026-09-18 데굴님 승인) — 위험 사전(risks/)의 긍정 대칭 층. 경량 엔진(opportunity_engine)이 LuckPillar 관계·역할·공망·합 완화·구조 배경으로 판정하며 점수·순위는 바꾸지 않는다(서술·favorability 참고). 성사·당첨·확정 표현 금지. family는 event_process_types 긍정 유형 id.",
+  "items": [
+    {
+      "opportunityId": "REL_NEW_CONNECTION",
+      "domain": "relationship",
+      "kind": "opportunity",
+      "family": "connection",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "REL_NEW_T1",
+          "relation": "YUKHAP",
+          "relationPalace": "day"
+        },
+        {
+          "id": "REL_NEW_T2",
+          "relation": "STEM_HAP",
+          "tenGodGroup": "wealth"
+        },
+        {
+          "id": "REL_NEW_T3",
+          "relation": "STEM_HAP",
+          "tenGodGroup": "officer"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "REL_NEW_A1",
+          "twelveStageIn": [
+            "장생",
+            "목욕"
+          ],
+          "strength": 0.2
+        },
+        {
+          "id": "REL_NEW_A2",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "REL_NEW_D1",
+          "voidState": "active",
+          "strength": 0.3
+        },
+        {
+          "id": "REL_NEW_D2",
+          "relation": "CHUNG",
+          "relationPalace": "day",
+          "strength": 0.3
+        },
+        {
+          "id": "REL_NEW_D3",
+          "hapMitigation": "bound",
+          "strength": 0.4
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "meeting",
+          "ko": "호감이 오가는 만남·소개"
+        },
+        {
+          "id": "dating",
+          "ko": "교제 시작·관계 합의"
+        }
+      ],
+      "allowedClaimScope": [
+        "만남·연결 가능성",
+        "관계 확인 체크포인트"
+      ],
+      "prohibitedClaims": [
+        "결혼 확정",
+        "인연 단정"
+      ],
+      "note": "일지 육합·배우자성 천간합 — 연결 성사 계열. 결혼 확정은 MT 가드 소관. 육합이 합거(묶임)면 성사가 아니라 얽힘이라 감쇠.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "REL_TRUST_RECOVERY",
+      "domain": "relationship",
+      "kind": "maintenance",
+      "family": "recovery",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "REL_RCV_T1",
+          "relation": "YUKHAP",
+          "relationPalace": "day",
+          "twelveStageIn": [
+            "장생",
+            "목욕",
+            "태",
+            "양"
+          ]
+        },
+        {
+          "id": "REL_RCV_T2",
+          "voidState": "release",
+          "relationPalace": "day"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "REL_RCV_A1",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "REL_RCV_D1",
+          "relation": "HAE",
+          "relationPalace": "day",
+          "strength": 0.3
+        },
+        {
+          "id": "REL_RCV_D2",
+          "hapMitigation": "bound",
+          "strength": 0.4
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "trust_back",
+          "ko": "신뢰 회복·재회"
+        },
+        {
+          "id": "stable",
+          "ko": "공동생활·관계 안정"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "일지 합 + 재생 단계 — 서먹했던 연결의 회복. 육합이 합거(묶임)면 성사가 아니라 얽힘이라 감쇠.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "REL_CONFLICT_RESOLVED",
+      "domain": "relationship",
+      "kind": "relief",
+      "family": "settlement",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "REL_STL_T1",
+          "hapMitigation": "mitigated",
+          "relationPalace": "day"
+        },
+        {
+          "id": "REL_STL_T2",
+          "structure": "tonggwan_present",
+          "tenGodGroup": "resource"
+        },
+        {
+          "id": "REL_STL_T3",
+          "relation": "YUKHAP",
+          "tenGodGroup": "output"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "REL_STL_A1",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "REL_STL_D1",
+          "relation": "HYEONG",
+          "relationPalace": "day",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "resolved",
+          "ko": "갈등 해결·오해 해소"
+        },
+        {
+          "id": "agreement",
+          "ko": "관계에 대한 합의"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "합거 완화·통관·식상 합 — 갈등이 정리되는 시점.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "REL_SUPPORT_NETWORK",
+      "domain": "relationship",
+      "kind": "opportunity",
+      "family": "protection",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "REL_SUP_T1",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "relation": "YUKHAP"
+        },
+        {
+          "id": "REL_SUP_T2",
+          "relation": "SAMHAP",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "REL_SUP_D1",
+          "voidState": "active",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "helper",
+          "ko": "조력자·협력자 확보"
+        },
+        {
+          "id": "network",
+          "ko": "관계망 확대·모임 합류"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "인성 길신 합·삼합 성립 — 도움과 연결.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "REL_FAMILY_HARMONY",
+      "domain": "relationship",
+      "kind": "relief",
+      "family": "settlement",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "REL_FAM_T1",
+          "relation": "YUKHAP",
+          "relationPalace": "month",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        },
+        {
+          "id": "REL_FAM_T2",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "relationPalace": "month"
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "REL_FAM_D1",
+          "relation": "CHUNG",
+          "relationPalace": "month",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "family_talk",
+          "ko": "가족과의 화해·분담 합의"
+        },
+        {
+          "id": "support",
+          "ko": "필요한 가족 지원 확보"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "월주(부모·가족 자리) 합·인성 길신.",
+      "reviewed": false
+    }
+  ]
+}

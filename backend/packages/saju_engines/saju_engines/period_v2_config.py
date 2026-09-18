@@ -81,6 +81,10 @@ STRUCTURE_BACKGROUND_ENABLED: bool = _env_flag("SAJU_STRUCTURE_BACKGROUND_ENABLE
 # CALIBRATE(A2): 충근(용·희신 유일 뿌리 충) 감점 / 개두·절각(운 기둥)·통관 부재 감점.
 STRUCTURE_ROOT_PENALTY: float = 0.2
 STRUCTURE_PILLAR_PENALTY: float = 0.1
+# 기회·호전 사전(P1, 2026-09-18 승인) — 위험 사전의 긍정 대칭 층. 경량 엔진 판정을 후보 서술에
+# '호전·기회 신호' 줄로 노출한다. 점수·순위 불변, 성사 확정 금지. 기본 OFF.
+OPPORTUNITY_ENABLED: bool = _env_flag("SAJU_OPPORTUNITY_ENABLED")
+OPPORTUNITY_MIN_SCORE: float = 0.5  # CALIBRATE: 노출 문턱(base + 트리거 합 − 감쇠)
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -147,6 +151,7 @@ def active_versions() -> dict[str, str | bool]:
         "relation_terms_v2_enabled": RELATION_TERMS_V2_ENABLED,
         "event_lexicon_enabled": EVENT_LEXICON_ENABLED,
         "structure_background_enabled": STRUCTURE_BACKGROUND_ENABLED,
+        "opportunity_enabled": OPPORTUNITY_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

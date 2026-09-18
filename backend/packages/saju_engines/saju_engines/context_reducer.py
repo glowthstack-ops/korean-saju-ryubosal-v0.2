@@ -62,6 +62,7 @@ from saju_shared_types.llm_input import (
     UsefulGods,
     YongsinOperationalSummary,
 )
+from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_timing import derive_marriage_stage
 from saju_shared_types.sinsal import LlmSinsalModifier
@@ -100,6 +101,7 @@ from .marriage_output_guard import (
 )
 from .marriage_telemetry import build_marriage_telemetry, emit_marriage_telemetry
 from .month_coverage_audit import best_quality_rows
+from .opportunity_engine import EVENT_DOMAINS, detect_opportunities, format_opportunity_notes
 from .relation_claim_audit import canonical_claim_lines
 from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
@@ -1406,6 +1408,7 @@ def _to_llm_candidate(
     # 방향에 맞는 라벨로, 그 외·비V2 키는 기존 라벨 유지(판정·점수 불변).
     _disp = event_display_ko(str(c.event_key), c.quality, c.timing)
     hap_notes = _candidate_hap_notes(result, period_ganji)
+    opportunity_notes = _candidate_opportunity_notes(result, c, fav_map)
     process_types = (
         derive_process_types(
             str(c.event_key), list(c.evidence_path),
@@ -1450,7 +1453,38 @@ def _to_llm_candidate(
         marriage_stability_risk=has_stability_risk(list(c.evidence_path)),
         hap_notes=hap_notes,
         process_types=process_types,
+        opportunity_notes=opportunity_notes,
     )
+
+
+def _luck_pillar_for(result: ManseV2Result, period: str) -> LuckPillar | None:
+    """기간 라벨 → LuckPillar(세운/월운/일운). 없으면 None."""
+    lc = result.luck_cycles
+    if lc is None:
+        return None
+    for p in [*lc.yearly_luck, *lc.monthly_luck, *lc.daily_luck]:
+        if p.label == period:
+            return p
+    return None
+
+
+def _candidate_opportunity_notes(
+    result: ManseV2Result | None, c: EventCandidate, fav_map: dict[str, str] | None,
+) -> list[str]:
+    """P1 — 후보 시점의 기회·호전 신호 줄(상위 2). 플래그 OFF·재료 부재면 빈 목록(byte 불변)."""
+    if not period_v2_config.OPPORTUNITY_ENABLED or result is None or not fav_map:
+        return []
+    pillar = _luck_pillar_for(result, c.period)
+    if pillar is None:
+        return []
+    try:
+        signals = detect_opportunities(
+            result, pillar, fav_map, reason_codes=list(c.evidence_path),
+            domains=EVENT_DOMAINS.get(str(c.event_key)),
+        )
+    except (KeyError, ValueError):
+        return []
+    return format_opportunity_notes(signals)
 
 
 def _candidate_hap_notes(result: ManseV2Result | None, ganji: str) -> list[str]:
@@ -2424,6 +2458,12 @@ def serialize_llm_input(payload: LlmInput) -> str:
         if with_notes and c.process_types:
             # 사건 어휘 층 — '어떤 종류의 문제/개선인가'(사건·손실 확정 아님).
             block.append("  사건 유형(엔진 분류): " + " / ".join(c.process_types))
+        if with_notes and c.opportunity_notes:
+            # P1 기회·호전 — 위험 신호의 긍정 대칭. 발현 형태는 가능성이며 성사 확정이 아니다.
+            block.append(
+                "  호전·기회 신호(엔진 판정 — 성사·당첨·확정 표현 금지): "
+                + " / ".join(c.opportunity_notes)
+            )
         if with_notes and c.hap_notes:
             # P1 합 작용(엔진 판정) — 흉신 묶임은 '완화'이지 '제거'가 아니다(전문가 취지).
             block.append(

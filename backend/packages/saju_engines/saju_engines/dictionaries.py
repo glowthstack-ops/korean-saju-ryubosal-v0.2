@@ -1734,6 +1734,64 @@ def risk_rule_hash(item: RiskItem) -> str:
     return risk_scope_hash(item, "shadow_structure")
 
 
+class OpportunityRuleSpec(_AliasModel):
+    """opportunities/<domain>.json 룰 1건 — 조건 전부 AND(opportunity_engine 규칙 문법)."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    id: str
+    strength: float | None = None
+    polarity_role_in: list[str] | None = Field(default=None, alias="polarityRoleIn")
+    ten_god: str | None = Field(default=None, alias="tenGod")
+    ten_god_group: str | None = Field(default=None, alias="tenGodGroup")
+    ten_god_group2: str | None = Field(default=None, alias="tenGodGroup2")
+    rooted: bool | None = None
+    relation: str | None = None
+    relation_palace: str | None = Field(default=None, alias="relationPalace")
+    relation_target_ten_god_group: str | None = Field(
+        default=None, alias="relationTargetTenGodGroup",
+    )
+    void_state: str | None = Field(default=None, alias="voidState")
+    hap_mitigation: str | None = Field(default=None, alias="hapMitigation")
+    structure: str | None = None
+    twelve_stage_in: list[str] | None = Field(default=None, alias="twelveStageIn")
+    luck_grade_in: list[str] | None = Field(default=None, alias="luckGradeIn")
+    yeokma: bool | None = None
+    reason_prefix: str | None = Field(default=None, alias="reasonPrefix")
+
+
+class OpportunityManifestation(_AliasModel):
+    id: str
+    ko: str
+
+
+class OpportunityItem(_AliasModel):
+    """기회·호전 사전 항목 — 위험 사전의 긍정 대칭(P1, 2026-09-18)."""
+
+    opportunity_id: str = Field(alias="opportunityId")
+    domain: str
+    kind: Literal["opportunity", "achievement", "maintenance", "relief"]
+    family: str
+    base_value: float = Field(alias="baseValue", ge=0.0, le=1.0)
+    trigger_rules: list[OpportunityRuleSpec] = Field(alias="triggerRules", min_length=1)
+    amplifier_rules: list[OpportunityRuleSpec] = Field(default_factory=list, alias="amplifierRules")
+    dampener_rules: list[OpportunityRuleSpec] = Field(default_factory=list, alias="dampenerRules")
+    minimum_triggers: int = Field(default=1, alias="minimumTriggers", ge=1)
+    manifestations: list[OpportunityManifestation] = Field(min_length=1)
+    allowed_claim_scope: list[str] = Field(default_factory=list, alias="allowedClaimScope")
+    prohibited_claims: list[str] = Field(default_factory=list, alias="prohibitedClaims")
+    note: str = ""
+    reviewed: bool = False
+
+
+class OpportunityMappingFile(_AliasModel):
+    version: str
+    domain: str
+    reviewed: bool = False
+    purpose: str = ""
+    items: list[OpportunityItem]
+
+
 class RiskMappingFile(_AliasModel):
     version: str
     domain: str
@@ -2220,6 +2278,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
 _EVENT_MAPPING_DIR = "events"
 # risks/<domain>.json — 위험 이벤트 사전(RISK_ENGINE.md, EventKeyV2와 별도 risk_id 네임스페이스).
 _RISK_MAPPING_DIR = "risks"
+_OPPORTUNITY_MAPPING_DIR = "opportunities"
 
 
 def schema_for(rel_path: str) -> type[BaseModel] | None:
@@ -2231,6 +2290,8 @@ def schema_for(rel_path: str) -> type[BaseModel] | None:
         return EventMappingFile
     if parent == _RISK_MAPPING_DIR:
         return RiskMappingFile
+    if parent == _OPPORTUNITY_MAPPING_DIR:
+        return OpportunityMappingFile
     return None
 
 
