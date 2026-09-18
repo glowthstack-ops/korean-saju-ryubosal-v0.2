@@ -13,7 +13,7 @@
     "classical_note": "전통 해석 문구('~해석하기도 한다' 형, 220자 이내). LLM 3층 출력(전통 해석층) 전용 — 단정·질병명·사건 확정 금지. 없는 항목은 llm_tag만 사용.",
     "punishment_school": "형 체계(schoolProfile): 삼형 2조(寅巳申=일지 관여설·丑戌未=위치 무관), 상형 子卯=인접설, 자형 辰午酉亥(2자리+). manse_core relations.py 판정을 단일 소스로 승계.",
     "yeokma_rule": "역마 판정: 寅申巳亥 글자살이 아니라 연지·일지 삼합국 기준 상대 12신살(relative_sinsal)로 산출한다(2026-07-23 데굴님 정정). 사생지 충돌은 MOVEMENT_BRANCH_CLASH로만 라벨.",
-    "aliases": "별칭(동의어·이표기). 감지 조건은 본 항목과 동일하며 LLM 라인에 '[별칭: …]'로 병기한다(2026-09-17 용어 감사)."
+    "aliases": "별칭(동의어·이표기). 감지 조건은 본 항목과 동일하며 LLM 라인에 '[별칭: …]'로 병기한다(2026-09-17 용어 감사). 2026-09-18 전문가 참고 기준 반영: 겁재탈재·재자살·신약살왕·편인탈식·식상태과·인성태과 6건 추가(동의어 중복 계산 방지)."
   },
   "patterns": [
     {
@@ -551,7 +551,8 @@
       "classical_note": null,
       "aliases": [
         "효신탈식(梟神奪食)",
-        "도식(倒食)"
+        "도식(倒食)",
+        "편인탈식(偏印奪食)"
       ]
     },
     {
@@ -596,7 +597,8 @@
       "classical_note": null,
       "aliases": [
         "비겁쟁재(比劫爭財)",
-        "군비쟁재(群比爭財)"
+        "군비쟁재(群比爭財)",
+        "겁재탈재(劫財奪財)"
       ]
     },
     {
@@ -680,7 +682,9 @@
       "llm_usage": "explanation_tag_only",
       "llm_tag": "재생살: 돈·욕심·목표(재성)가 압박·리스크(편관)를 키우는 구조 — 목표·금전 부담을 감당할 보조성 점검",
       "classical_note": null,
-      "aliases": []
+      "aliases": [
+        "재자살(財滋殺)"
+      ]
     },
     {
       "pattern_id": "JAEDA_SINYAK",
@@ -760,7 +764,8 @@
       "llm_tag": "관다신약: 관성이 강한데 일간이 약한 구조 — 책임·압박·규칙이 과중, 직장 스트레스·과로 관리 필요",
       "classical_note": null,
       "aliases": [
-        "살중신경(殺重身輕)"
+        "살중신경(殺重身輕)",
+        "신약살왕(身弱殺旺)"
       ]
     },
     {
@@ -2015,7 +2020,7 @@
       ],
       "detector_source": "adapter:resolve_stem_hap(contend)",
       "llm_usage": "explanation_tag_only",
-      "llm_tag": "쟁합·투합: 한 글자를 두고 둘 이상이 합을 다투는 작용 — 경쟁 관계·삼각 구도·선택 압박(길흉 별도)",
+      "llm_tag": "쟁합·투합: 한 글자를 두고 둘 이상이 합을 다투는 작용 — 기회·관심·이익 배분의 경쟁, 관계의 전일성 부족(길흉 별도 · 삼각관계·몫 절반 단정 금지)",
       "classical_note": null,
       "aliases": []
     },
@@ -4914,7 +4919,9 @@
       "llm_usage": "explanation_tag_only",
       "llm_tag": "인왕신왕: 인성과 일간이 함께 강한 구조 — 배경·지식이 두터우나 발산 통로(식상·재)가 과제",
       "classical_note": null,
-      "aliases": []
+      "aliases": [
+        "인성태과(印星太過)"
+      ]
     },
     {
       "pattern_id": "SINWANG_MUUI",
@@ -5052,7 +5059,9 @@
       "llm_usage": "explanation_tag_only",
       "llm_tag": "설기태과: 식상으로 기운을 지나치게 내보내 일간이 약해지는 구조 — 표현·활동 과잉으로 소진되기 쉬움",
       "classical_note": null,
-      "aliases": []
+      "aliases": [
+        "식상태과(食傷太過)"
+      ]
     },
     {
       "pattern_id": "GISIN_HAPGEO",
@@ -5569,6 +5578,6 @@
       "aliases": []
     }
   ],
-  "compiled_at": "2026-09-17T05:22:52.188849+00:00",
-  "snapshot_version": "1.2.0"
+  "compiled_at": "2026-09-18T05:19:52.607332+00:00",
+  "snapshot_version": "1.3.0"
 }

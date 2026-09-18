@@ -62,6 +62,25 @@ MONTH_COVERAGE_AUDIT_ENABLED: bool = _env_flag("SAJU_MONTH_COVERAGE_AUDIT_ENABLE
 HAP_MITIGATION_ENABLED: bool = _env_flag("SAJU_HAP_MITIGATION_ENABLED")
 # CALIBRATE: 관운 강화 favorability 가산(데굴님 승인 제안값, shadow 실측 후 조정).
 HAP_OFFICER_BOOST: float = 0.3
+# 관계 용어 층위 정리 v2(2026-09-18 데굴님 승인, 전문가 참고 기준) — 서술·표기 전용, 점수·판정 불변:
+# 구조 패턴 4단 서술(작용→영역→양상→성립 조건), 쟁합의 십성 라벨, 합처봉충 표기, 세운병림 표지.
+RELATION_TERMS_V2_ENABLED: bool = _env_flag("SAJU_RELATION_TERMS_V2_ENABLED")
+# CALIBRATE: 용희신 합거 손상(길신 묶임) favorability 감점·월 등급 감점(HAP_MITIGATION 플래그 공유).
+HAP_HARM_PENALTY: float = 0.3
+# CALIBRATE(2026-09-18 데굴님 승인, HAP_MITIGATION 플래그 공유 — 배경 감점, favorability만):
+# 運破格(운 십성이 격의 상신을 손상 + 원국 구응 없음)·기신 성국(운 지지로 완성된 국의 오행이
+# 기·구신).
+GEOK_BREAK_PENALTY: float = 0.2
+GISIN_LOCAL_PENALTY: float = 0.2
+# 사건 어휘 층(2026-09-18 데굴님 승인, 전문가 참고 기준 B1·B2·B6) — 서술·표기·감사 전용, 점수 불변:
+# 후보별 '공통 사건 유형' 결정론 분류, 사건 서술 계약(경쟁≠탈락≠손실·기회≠성취≠유지·체감→관찰 가능
+# 사건 번역·발생→진행→결과→후속), 손실 확정어 감사.
+EVENT_LEXICON_ENABLED: bool = _env_flag("SAJU_EVENT_LEXICON_ENABLED")
+# 구조 배경 보강(A2, 2026-09-18 승인) — 충근·개두절각·통관 부재·구응 손상·특수격 역행. 판정 층.
+STRUCTURE_BACKGROUND_ENABLED: bool = _env_flag("SAJU_STRUCTURE_BACKGROUND_ENABLED")
+# CALIBRATE(A2): 충근(용·희신 유일 뿌리 충) 감점 / 개두·절각(운 기둥)·통관 부재 감점.
+STRUCTURE_ROOT_PENALTY: float = 0.2
+STRUCTURE_PILLAR_PENALTY: float = 0.1
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -125,6 +144,9 @@ def active_versions() -> dict[str, str | bool]:
         "event_process_dual_run_enabled": EVENT_PROCESS_DUAL_RUN_ENABLED,
         "month_coverage_audit_enabled": MONTH_COVERAGE_AUDIT_ENABLED,
         "hap_mitigation_enabled": HAP_MITIGATION_ENABLED,
+        "relation_terms_v2_enabled": RELATION_TERMS_V2_ENABLED,
+        "event_lexicon_enabled": EVENT_LEXICON_ENABLED,
+        "structure_background_enabled": STRUCTURE_BACKGROUND_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

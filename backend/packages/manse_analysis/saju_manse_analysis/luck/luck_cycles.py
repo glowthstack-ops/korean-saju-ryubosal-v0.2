@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 from saju_manse_analysis.relations.hap_mitigation import HapMitigation, resolve_hap_mitigation
 from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
+from saju_manse_analysis.structure.luck_structure_flags import resolve_luck_structure_flags
 from saju_manse_core.calendar.sexagenary_cycle import (
     day_ganzi,
     ganzi_from_index,
@@ -100,6 +101,13 @@ HAP_MITIGATION_ENABLED: bool = (
 )
 # CALIBRATE: 묶인 흉 글자의 점수 배율(데굴님 승인 제안값 — shadow 실측 후 조정).
 HAP_MITIGATION_FACTOR = 0.5
+HAP_HARM_MODIFIER = 0.1  # CALIBRATE: 희용신 합반 감점(관계 보정 ±0.2 범위와 같은 자릿수)
+# A2 구조 배경(2026-09-18 승인) — 운 기둥 개두·절각으로 억제되는 쪽의 점수 배율, 충근 요약 표기.
+STRUCTURE_BACKGROUND_ENABLED: bool = (
+    os.environ.get("SAJU_STRUCTURE_BACKGROUND_ENABLED", "false").strip().lower()
+    in ("1", "true", "yes")
+)
+STRUCTURE_SUPPRESS_FACTOR = 0.85  # CALIBRATE
 
 
 def _fav_map_from_sets(useful: set[str], unfavorable: set[str]) -> dict[str, str]:
@@ -251,6 +259,10 @@ def _luck_effect(
             stem_eff.detail = f"{stem_eff.detail} · 합거 완화".lstrip(" ·")
             mitigated = True
     rel_mod = _relation_modifier(transformed, useful, unfavorable)
+    harmed = mitigation is not None and (mitigation.stem_harmed or mitigation.branch_harmed)
+    if harmed:
+        # 희용신 손상·합반 — 원국 길신이 운 글자에 묶여 지원·조절 기능이 약해진다(완화의 대칭).
+        rel_mod = round(rel_mod - HAP_HARM_MODIFIER, 4)
     w_s, w_b = _PERIOD_WEIGHTS.get(period_type, (0.4, 0.6))
     score = round(w_s * stem_eff.score + w_b * branch_eff.score + rel_mod, 4)
     strong = branch_eff.has_clash or branch_eff.is_void or any(
@@ -259,13 +271,59 @@ def _luck_effect(
     code, label, summary = _luck_label(stem_eff.type, branch_eff.type, strong)
     if mitigated:
         code, label, summary = _mitigated_label(code, label, summary)
+    if harmed:
+        summary = f"{summary} · 원국 용·희신이 합으로 묶여 지원·조절 기능 약화(희용신 합반)"
+    if HAP_MITIGATION_ENABLED and any(
+        r.partition(":")[0] in ("삼합완성", "반합성립", "방합완성")
+        and r.partition(":")[2] in unfavorable
+        for r in relations
+    ):
+        # 기신 성국(局) — 점수는 _relation_modifier(변환 오행 −0.1)가 이미 반영, 표기만 덧붙인다.
+        summary = f"{summary} · 기신 성국(局) — 불리 오행이 국을 이뤄 기존 불균형 확대"
     if branch_eff.branch_label:  # 공망/충 동태를 요약에 덧붙임
         summary = f"{summary} · 지지 {branch_eff.branch_label}"
     return {
         "stem_effect": stem_eff, "branch_effect": branch_eff, "luck_score": score,
         "luck_label_code": code, "luck_label": label, "luck_summary": summary,
-        "coarse": _coarse_alignment(code),
+        "coarse": _coarse_alignment(code), "rel_mod": rel_mod,
     }
+
+
+def _apply_structure_background_month(
+    eff: dict, pillars: FourPillarsResult, useful: set[str], unfavorable: set[str],
+    stem: Stem, branch: Branch, period_type: str,
+) -> None:
+    """A2 — 운 기둥 개두·절각으로 억제되는 쪽 점수를 STRUCTURE_SUPPRESS_FACTOR 배로 낮춘다.
+
+    충근·통관 부재는 요약 표기만(충 동태·관계 보정이 점수는 이미 반영). eff를 제자리 갱신한다.
+    """
+    fl = resolve_luck_structure_flags(
+        pillars, _fav_map_from_sets(useful, unfavorable),
+        luck_stem=str(stem), luck_branch=str(branch),
+    )
+    if not fl.any:
+        return
+    stem_eff, branch_eff = eff["stem_effect"], eff["branch_effect"]
+    marks: list[str] = []
+    if fl.luck_gaedu and branch_eff.score != 0.0:
+        branch_eff.score = round(branch_eff.score * STRUCTURE_SUPPRESS_FACTOR, 4)
+        marks.append("운 기둥 개두(지지 작용 억제)")
+    elif fl.luck_jeolgak and stem_eff.score != 0.0:
+        stem_eff.score = round(stem_eff.score * STRUCTURE_SUPPRESS_FACTOR, 4)
+        marks.append("운 기둥 절각(천간 작용 억제)")
+    if marks:
+        w_s, w_b = _PERIOD_WEIGHTS.get(period_type, (0.4, 0.6))
+        eff["luck_score"] = round(
+            w_s * stem_eff.score + w_b * branch_eff.score + eff.get("rel_mod", 0.0), 4
+        )
+    if fl.chunggeun_useful:
+        marks.append("충근(필요한 천간의 뿌리가 충 — 유지 기반 약화)")
+    elif fl.chunggeun_unfavorable:
+        marks.append("충근(불리한 기운의 뿌리 정리)")
+    if fl.tonggwan_absent:
+        marks.append(f"통관 부재({fl.tonggwan_absent})")
+    if marks:
+        eff["luck_summary"] = f"{eff['luck_summary']} · " + " · ".join(marks)
 
 
 def _relations_to_chart(stem: Stem, branch: Branch, pillars: FourPillarsResult) -> list[str]:
@@ -404,6 +462,10 @@ def _luck_pillar(
         stem, branch, useful, unfavorable, period_type, rels, transformed, void,
         mitigation=mitigation,
     )
+    if STRUCTURE_BACKGROUND_ENABLED:
+        _apply_structure_background_month(
+            eff, pillars, useful, unfavorable, stem, branch, period_type,
+        )
     return LuckPillar(
         label=label,
         period_type=period_type,

@@ -47,12 +47,17 @@ class HapMitigation:
     stem_mitigated: bool = False  # 운 천간(흉신)이 천간합 합거로 묶임 → 흉 한 단계 완화
     branch_mitigated: bool = False  # 운 지지(흉신)가 육합 합거로 묶임 → 흉 한 단계 완화
     officer_elements: tuple[str, ...] = ()  # 합/합화 결과 오행 중 관(官)인 것(관운 강화 재료)
+    stem_harmed: bool = False  # 운 천간이 원국 용·희신 천간을 합거로 묶음 → 길신 손상(약)
+    branch_harmed: bool = False  # 운 지지가 원국 용·희신 지지를 육합 합거로 묶음(공망지는 제외)
     notes: tuple[str, ...] = ()  # 서술용 짧은 표지('지지 寅亥合 합거 — 亥 정재·구신 완화' 등)
 
     @property
     def any(self) -> bool:
         """완화 또는 관운 강화 재료가 하나라도 있으면 True."""
-        return self.stem_mitigated or self.branch_mitigated or bool(self.officer_elements)
+        return (
+            self.stem_mitigated or self.branch_mitigated or bool(self.officer_elements)
+            or self.stem_harmed or self.branch_harmed
+        )
 
 
 def officer_element(day_master: str) -> str:
@@ -63,22 +68,30 @@ def officer_element(day_master: str) -> str:
 
 def _stem_part(
     pillars: FourPillarsResult, favorability: dict[str, str], luck_stem: str, officer: str,
-) -> tuple[bool, list[str], list[str]]:
-    """운 천간 판정 → (완화 여부, 관운 강화 오행 목록, 표지)."""
+) -> tuple[bool, bool, list[str], list[str]]:
+    """운 천간 판정 → (완화 여부, 길신 손상 여부, 관운 강화 오행 목록, 표지)."""
     try:
         stem_el = str(STEM_ELEMENT[Stem(luck_stem)])
         stem_res: list[StemHapResolution] = resolve_stem_hap(
             pillars, favorability, luck_stems=[luck_stem],
         )
     except (KeyError, ValueError):
-        return False, [], []
+        return False, False, [], []
     mitigated = False
+    harmed = False
     officers: list[str] = []
     notes: list[str] = []
     for sr in stem_res:
         if not sr.luck_origin:
             continue
         pair = "".join(sr.pair)
+        if sr.hap_mode == "bind" and sr.direction == "away" and any(
+            a.effect == "harm" and a.stem != luck_stem for a in sr.affected
+        ):
+            # 희용신 손상·합반 — 운 천간이 원국 길신 천간을 묶어 지원·조절 기능이 약해진다.
+            harmed = True
+            lost = "·".join(f"{a.stem} {a.ten_god}" for a in sr.affected if a.effect == "harm")
+            notes.append(f"천간 {pair}合 합거 — {lost} 길신 손상(지원·조절 기능 약화)")
         if sr.transform_element and str(sr.transform_element) == officer and (
             (sr.hap_mode == "transform" and sr.transform_tier == "confirmed")
             or (sr.hap_mode == "bind" and sr.direction == "away")
@@ -92,29 +105,38 @@ def _stem_part(
         ):
             mitigated = True
             notes.append(f"천간 {pair}合 합거 — 운 천간 {luck_stem} 흉 완화(지병 완화)")
-    return mitigated, officers, notes
+    return mitigated, harmed, officers, notes
 
 
 def _branch_part(
     pillars: FourPillarsResult, favorability: dict[str, str], luck_branch: str, officer: str,
-) -> tuple[bool, list[str], list[str]]:
-    """운 지지 판정(육합만) → (완화 여부, 관운 강화 오행 목록, 표지)."""
+) -> tuple[bool, bool, list[str], list[str]]:
+    """운 지지 판정(육합만) → (완화 여부, 길신 손상 여부, 관운 강화 오행 목록, 표지)."""
     try:
         branch_el = str(BRANCH_ELEMENT[Branch(luck_branch)])
         branch_res: list[BranchHapResolution] = resolve_branch_hap(
             pillars, favorability, luck_branches=[luck_branch],
         )
     except (KeyError, ValueError):
-        return False, [], []
+        return False, False, [], []
     mitigated = False
+    harmed = False
     officers: list[str] = []
     notes: list[str] = []
+    void = set(pillars.gongmang_branches)
     for br in branch_res:
         if not br.luck_origin or br.kind != "six":
             continue
         members = "".join(br.members)
         bound_away = br.hap_mode == "bind" and br.direction == "away"
         boon = [a for a in br.affected if a.effect == "boon"]
+        harm = [a for a in br.affected if a.effect == "harm"]
+        if bound_away and harm and not any(m in void for m in br.members):
+            # 희용신 손상·합반. 단 합 글자 중 공망지가 있으면 合則不能空(합=억제 완화·활성화)이
+            # 우선이라 손상으로 보지 않는다(GONGMANG_HAP_SEMANTICS) — 데굴 차트 巳申合(巳 공망).
+            harmed = True
+            lost = "·".join(f"{a.stem} {a.ten_god}" for a in harm)
+            notes.append(f"지지 {members}合 합거 — {lost} 길신 손상(지원·조절 기능 약화)")
         if br.transform_element and str(br.transform_element) == officer and (
             bound_away or (br.hap_mode == "transform" and br.transform_tier == "confirmed")
         ):
@@ -124,7 +146,7 @@ def _branch_part(
             mitigated = True
             bound = "·".join(f"{a.stem} {a.ten_god}" for a in boon)
             notes.append(f"지지 {members}合 합거 — {bound} 흉 완화(지병 완화, 제거 아님)")
-    return mitigated, officers, notes
+    return mitigated, harmed, officers, notes
 
 
 def resolve_hap_mitigation(
@@ -149,19 +171,23 @@ def resolve_hap_mitigation(
     if pillars.month is None or pillars.day is None:
         return HapMitigation()
     officer = officer_element(pillars.day_master)
-    stem_m = False
+    stem_m = stem_h = False
     officers: list[str] = []
     notes: list[str] = []
     if luck_stem:
-        stem_m, officers, notes = _stem_part(pillars, favorability, luck_stem, officer)
-    branch_m = False
+        stem_m, stem_h, officers, notes = _stem_part(pillars, favorability, luck_stem, officer)
+    branch_m = branch_h = False
     if luck_branch:
-        branch_m, b_officers, b_notes = _branch_part(pillars, favorability, luck_branch, officer)
+        branch_m, branch_h, b_officers, b_notes = _branch_part(
+            pillars, favorability, luck_branch, officer,
+        )
         officers += b_officers
         notes += b_notes
     return HapMitigation(
         stem_mitigated=stem_m,
         branch_mitigated=branch_m,
+        stem_harmed=stem_h,
+        branch_harmed=branch_h,
         officer_elements=tuple(dict.fromkeys(officers)),
         notes=tuple(dict.fromkeys(notes)),
     )

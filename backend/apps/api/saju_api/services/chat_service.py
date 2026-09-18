@@ -58,6 +58,7 @@ from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
 from saju_engines.event_engine_config import build_event_engine_v2
+from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.lifetime_scan import (
@@ -5053,6 +5054,10 @@ def chat(
         # 질문 무관 성격 칭찬 서두 금지 — 상시(2026-07-22, 리포트 공용).
         BARNUM_SUPPRESSION_DIRECTIVE,
     ]
+    # 사건 서술 계약(2026-09-18 전문가 참고 기준 B2) — 발생→진행→결과→후속, 경쟁≠탈락≠손실,
+    # 체감→관찰 가능 사건 번역. 사전(life_event_lexicon) SSOT, 플래그 OFF면 byte 불변.
+    if period_v2_config.EVENT_LEXICON_ENABLED:
+        trailing.append(event_narration_directive())
     # 문서·계약 주의점/대비(2026-08-10 P2·P3) — 문서·계약이 걸리는 도메인(직업/이사/학업)
     # 질문에서만: 인성 과다/약세 성립 시 주의점, 인성 용신/희신+적정 세력이면 대비 관점
     # (상호 배타). 미성립·타 도메인은 None/미주입 → 기존 프롬프트 byte 불변. 서술 전용(inert).
@@ -6142,16 +6147,24 @@ def _audit_month_coverage_answer(answer: str, payload: LlmInput, thread_id: str 
         return answer
     if payload.overview_mode or not payload.monthly_overview:
         return answer
-    audit = audit_month_coverage(answer, payload.monthly_overview, _candidate_periods(payload))
+    types_by_period: dict[str, set[str]] = {}
+    for c in payload.event_candidates:
+        if c.process_types:
+            types_by_period.setdefault(c.period, set()).update(c.process_types)
+    audit = audit_month_coverage(
+        answer, payload.monthly_overview, _candidate_periods(payload),
+        process_types_by_period=types_by_period or None,
+    )
     if audit.passed:
         _logger.info("month_coverage_audit result=pass thread=%s", thread_id)
         return answer
     notes = build_coverage_notes(audit, payload.monthly_overview)
     _logger.warning(
-        "month_coverage_audit result=violation kinds=%s missing=%s promoted=%s thread=%s",
+        "month_coverage_audit result=violation kinds=%s missing=%s promoted=%s loss=%s thread=%s",
         audit.violations,
         [r.period for r in audit.missing_best],
         [list(p.periods) for p in audit.promoted],
+        [list(x.periods) for x in audit.loss_overclaims],
         thread_id,
     )
     return patch_month_coverage(answer, notes)

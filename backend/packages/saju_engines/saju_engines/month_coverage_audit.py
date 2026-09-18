@@ -37,6 +37,12 @@ _NEGATION_RE = re.compile(r"보다는|말고|삼가|미루|피하|금물|않|마
 # 월 언급 — '2027년 1월' / '1월'. '12개월' 같은 기간 표현은 숫자 뒤가 '개'라 걸리지 않는다.
 _MONTH_RE = re.compile(r"(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월(?!\s*간)")
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?。])\s+|\n+")
+# 손실 확정어(B6) — 경쟁·배분·얽힘 신호를 '빼앗긴다·잃는다'로 결론짓는 표현.
+_LOSS_CLAIM_RE = re.compile(
+    r"빼앗기|빼앗길|잃(?:게|어|는|을)|손해를\s*(?:보|입)|날리|날아가|망하|탕진|"
+    r"손실이\s*(?:난|생기|발생)"
+)
+_LOSS_TYPE = "손실·손상"
 
 
 @dataclass(frozen=True)
@@ -47,6 +53,14 @@ class PromotedSentence:
     periods: tuple[str, ...]  # 그 문장이 가리킨 비허용 달(YYYY-MM)
 
 
+@dataclass(frozen=True)
+class LossOverclaim:
+    """손실 확정어를 붙였으나 그 달 후보에 '손실·손상' 유형이 없는 문장 1건(B6, 2026-09-18)."""
+
+    sentence: str
+    periods: tuple[str, ...]
+
+
 @dataclass
 class MonthCoverageAudit:
     """감사 결과 — 위반 목록과 교정에 필요한 엔진 확정값."""
@@ -54,6 +68,7 @@ class MonthCoverageAudit:
     missing_best: list[MonthOverviewRow] = field(default_factory=list)
     promoted: list[PromotedSentence] = field(default_factory=list)
     allowed_periods: tuple[str, ...] = ()
+    loss_overclaims: list[LossOverclaim] = field(default_factory=list)
 
     @property
     def violations(self) -> list[str]:
@@ -63,6 +78,8 @@ class MonthCoverageAudit:
             out.append("best_month_missing")
         if self.promoted:
             out.append("non_candidate_month_promoted")
+        if self.loss_overclaims:
+            out.append("loss_overclaim")
         return out
 
     @property
@@ -130,6 +147,7 @@ def audit_month_coverage(
     answer: str,
     rows: list[MonthOverviewRow],
     allowed_periods: tuple[str, ...] | list[str],
+    process_types_by_period: dict[str, set[str]] | None = None,
 ) -> MonthCoverageAudit:
     """답변을 엔진 확정값(기반 최고 달·행동 허용 달)과 대조한다.
 
@@ -148,6 +166,8 @@ def audit_month_coverage(
     audit.missing_best = [r for r in best_quality_rows(rows) if not _mentions_period(answer, r)]
 
     monthly = [r for r in rows if len(r.period) >= 7]
+    if process_types_by_period and monthly:
+        audit.loss_overclaims = _find_loss_overclaims(answer, monthly, process_types_by_period)
     if not audit.allowed_periods or not monthly:
         return audit
     allowed = set(audit.allowed_periods)
@@ -172,6 +192,35 @@ def audit_month_coverage(
     return audit
 
 
+def _find_loss_overclaims(
+    answer: str,
+    monthly: list[MonthOverviewRow],
+    types_by_period: dict[str, set[str]],
+) -> list[LossOverclaim]:
+    """검사 ③(B6) — 손실 확정어 문장이 가리키는 달의 후보 유형에 '손실·손상'이 없으면 위반.
+
+    후보 유형이 아예 없는 달(types 미분류)은 판단 재료가 없어 건드리지 않는다. 부정·유보 문맥과
+    허용된 손실 달을 함께 언급한 문장은 모호로 두어 제외한다(보수적).
+    """
+    out: list[LossOverclaim] = []
+    for paragraph in answer.split("\n\n"):
+        carried: list[str] = []
+        for sentence in _SENTENCE_SPLIT_RE.split(paragraph):
+            s = sentence.strip()
+            if not s:
+                continue
+            mentioned = _resolve_month_mentions(s, monthly)
+            if mentioned:
+                carried = mentioned
+            if not _LOSS_CLAIM_RE.search(s) or _NEGATION_RE.search(s):
+                continue
+            periods = [p for p in (mentioned or carried) if p in types_by_period]
+            if not periods or any(_LOSS_TYPE in types_by_period[p] for p in periods):
+                continue
+            out.append(LossOverclaim(sentence=s, periods=tuple(periods)))
+    return out
+
+
 def _period_ko(period: str, ganji: str = "") -> str:
     """'2026-10'+'戊戌' → '2026년 10월(戊戌월)', '2027' → '2027년'."""
     year, month = _period_parts(period)
@@ -192,6 +241,15 @@ def build_coverage_notes(audit: MonthCoverageAudit, rows: list[MonthOverviewRow]
             f"덧붙여 엔진 기준으로 이 기간에 기반(전반 운)이 가장 좋은 {unit}은 {items}입니다. "
             f"질문하신 사건의 두드러진 신호가 이 {unit}에 없더라도, 준비와 기반 다지기에 "
             "가장 도움이 되는 시기로 봐 두시면 좋습니다."
+        )
+    if audit.loss_overclaims:
+        ganji_of = {r.period: r.ganji for r in rows}
+        bad = sorted({p for s in audit.loss_overclaims for p in s.periods})
+        bad_ko = " · ".join(_period_ko(p, ganji_of.get(p, "")) for p in bad)
+        notes.append(
+            f"※ 엔진 기준 {bad_ko}의 신호는 경쟁·배분·얽힘·지연 같은 '문제의 종류'까지이며, 실제 "
+            "손실은 확인 대상이지 자동 결론이 아닙니다. 경쟁이 생겨도 선발될 수 있고, 정산 이견은 "
+            "합의·지연·손실 중 어느 쪽으로도 갈 수 있습니다."
         )
     if audit.promoted:
         ganji_of = {r.period: r.ganji for r in rows}

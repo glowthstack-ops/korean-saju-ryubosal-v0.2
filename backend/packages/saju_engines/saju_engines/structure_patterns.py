@@ -47,7 +47,7 @@ from .wealth_capacity import analyze_wealth_capacity
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 _STORAGE_CLASH_PAIRS = (("辰", "戌"), ("丑", "未"))  # 묘고 충 지지쌍(충개고)
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
-STRUCTURE_PATTERNS_VERSION = "1.2.0"  # 1.2.0: 용어 감사 63종+별칭 14건(2026-09-17)
+STRUCTURE_PATTERNS_VERSION = "1.3.0"  # 1.3.0: 전문가 참고 기준 — 별칭 6건·쟁합 문구(2026-09-18)
 
 
 @lru_cache(maxsize=8)

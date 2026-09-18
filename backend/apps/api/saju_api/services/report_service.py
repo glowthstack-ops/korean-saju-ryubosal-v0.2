@@ -22,7 +22,7 @@ from typing import Any, Protocol
 
 from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
-from saju_engines import counseling_arbiter
+from saju_engines import counseling_arbiter, period_v2_config
 from saju_engines.candidate_semantics import candidate_semantics
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
 from saju_engines.chart_interpretation import build_chart_interpretation
@@ -54,6 +54,7 @@ from saju_engines.event_engine_config import (
     active_event_engine_flags,
     build_event_engine_v2,
 )
+from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.event_scoring import confirmed_yongsin_note, favorability_map
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
@@ -1047,6 +1048,9 @@ class _ReportData:
             # 문체 힌트로만 쓰게 한다(점수·판정 불변).
             TONE_LAYER_DIRECTIVE,
         ]
+        # 사건 서술 계약(2026-09-18 전문가 참고 기준 B2, chat 공용) — 플래그 OFF면 byte 불변.
+        if period_v2_config.EVENT_LEXICON_ENABLED:
+            self.prefix_lines.append(event_narration_directive())
         # 확정 용신 적용 안내를 원국 prefix 뒤에 부착(전 섹션 공통) — 확정 5역할을 길흉 기준으로,
         # 엔진 최초 도출(확정 전 후보)은 기본값으로 병기. 확정=도출 일치 시 빈 문자열(미부착).
         if self._confirmed_yongsin is not None:

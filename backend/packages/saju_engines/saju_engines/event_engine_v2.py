@@ -20,9 +20,11 @@ from types import MappingProxyType
 
 from saju_manse_analysis.relations.hap_mitigation import resolve_hap_mitigation
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
+from saju_manse_analysis.structure.luck_geok_break import geok_break
+from saju_manse_analysis.structure.luck_structure_flags import resolve_luck_structure_flags
 from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_role
 
-from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
+from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT, main_hidden_stem, ten_god
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_engine import (
     TEN_GOD_GROUP,
@@ -704,6 +706,11 @@ class EventEngineV2:
         # 관이면 관 계열 후보에 관운 강화를 더한다. favorability(fav_adj)만 — 점수·순위 불변.
         if _hap_on:
             cands = _apply_hap_mitigation(cands, target, result, fav_map, hwa_el, role)
+            # 4번(2026-09-18 승인) — 運破格·기신 성국 배경 감점(favorability만, 점수·순위 불변).
+            cands = _apply_structure_background(cands, target, result, fav_map)
+        if period_v2_config.STRUCTURE_BACKGROUND_ENABLED:
+            # A2(2026-09-18 승인) — 충근·개두절각·통관 부재·구응 손상·특수격 역행(favorability만).
+            cands = _apply_luck_structure_flags(cands, target, result, fav_map)
         # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
         # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
         cands = self._exam.apply(cands, present_gods)
@@ -1419,6 +1426,145 @@ def _daewoon_hwa_evidence(
     )
 
 
+_LOCAL_COMPLETE_KINDS = ("삼합완성", "반합성립", "방합완성")  # 국(局) 성립으로 보는 관계 표기
+
+
+def _natal_ten_gods(result: ManseV2Result) -> list[str]:
+    """원국 천간(일간 제외)·지지 본기의 십성 목록(운 파격 구응 판정용)."""
+    p = result.pillars
+    if p is None:
+        return []
+    dm = Stem(p.day_master)
+    out: list[str] = []
+    for pos, pil in (("year", p.year), ("month", p.month), ("day", p.day), ("hour", p.hour)):
+        if pil is None:
+            continue
+        if pos != "day":
+            out.append(str(ten_god(dm, Stem(pil.stem))))
+        out.append(str(ten_god(dm, main_hidden_stem(Branch(pil.branch)))))
+    return out
+
+
+def _apply_structure_background(
+    cands: list[EventCandidateV2],
+    target: LuckPillar,
+    result: ManseV2Result,
+    fav_map: dict[str, str],
+) -> list[EventCandidateV2]:
+    """運破格·기신 성국 배경 감점(2026-09-18 데굴님 승인) — favorability(fav_adj)만 보정한다.
+
+    - 기신 성국: 운 지지가 원국과 삼합완성·반합성립·방합완성을 이루고 그 국의 오행이 기·구신이면
+      GISIN_LOCAL_PENALTY 감점(기존 불균형의 확대). 월 등급 쪽은 luck_cycles._relation_modifier가
+      이미 −0.1을 반영하므로 여기서는 사건 길흉 채널만 다룬다.
+    - 運破格: 운 천간·지지 십성이 원국 격의 상신을 손상하는 파격 십성이고 원국에 구응이 없으면
+      GEOK_BREAK_PENALTY 감점. 구응이 있으면 감점 없이 '경향' 근거 코드만 남긴다(성패·구응 병행).
+    상위 설명(충·용신 손상·파격)의 중복 계산을 피하려고 각 항목은 한 시점에 최대 1회만 적용한다.
+    """
+    delta = 0.0
+    reasons: list[str] = []
+    for rel in target.relations_to_chart:
+        kind, _, el = rel.partition(":")
+        if kind in _LOCAL_COMPLETE_KINDS and is_unfavorable_role(fav_map.get(el, "")):
+            delta -= period_v2_config.GISIN_LOCAL_PENALTY
+            reasons.append(f"局_기신성국_{el}")
+            break
+    geok = result.geokguk.main_structure if result.geokguk is not None else None
+    breaks = geok_break(geok, [target.stem_ten_god, target.branch_ten_god], _natal_ten_gods(result))
+    for b in breaks:
+        if b.rescued:
+            reasons.append(f"格_운파격경향_{b.pattern}")
+            continue
+        delta -= period_v2_config.GEOK_BREAK_PENALTY
+        reasons.append(f"格_운파격_{b.pattern}")
+        break
+    if not reasons:
+        return cands
+    out: list[EventCandidateV2] = []
+    for c in cands:
+        prev = c.contributions.get("fav_adj", 0.0)
+        out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+            "reason_codes": [*c.reason_codes, *reasons],
+            **({"contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)}}
+               if delta else {}),
+        }))
+    return out
+
+
+def _apply_luck_structure_flags(
+    cands: list[EventCandidateV2],
+    target: LuckPillar,
+    result: ManseV2Result,
+    fav_map: dict[str, str],
+) -> list[EventCandidateV2]:
+    """A2 구조 배경(2026-09-18 승인) — favorability(fav_adj)만 보정, 점수·순위·사건 종류 불변.
+
+    - 충근: 용·희신 천간의 유일한 뿌리가 충 → −STRUCTURE_ROOT_PENALTY, 기·구신 뿌리 충 →
+      +절반(흉 정리).
+    - 개두·절각(운 기둥): 억제되는 쪽이 용·희신이면 −STRUCTURE_PILLAR_PENALTY, 기·구신이면 +절반.
+      원국 기둥의 개두·절각은 감점 없이 표지만(데굴님 결정 — 실증 근거 부재).
+    - 통관 부재: −STRUCTURE_PILLAR_PENALTY(대립을 중재할 기운 없음).
+    - 구응 손상: 運破格 '경향'을 '파격'으로 격상 — GEOK_BREAK_PENALTY(경향 코드는 그대로 두고 손상
+      코드를 추가 — 상위 설명의 중복 계산 방지를 위해 한 시점 1회).
+    - 특수격 역행: −GEOK_BREAK_PENALTY.
+    """
+    if result.pillars is None:
+        return cands
+    geok = result.geokguk.main_structure if result.geokguk is not None else None
+    special = result.geokguk.special_pattern if result.geokguk is not None else None
+    try:
+        fl = resolve_luck_structure_flags(
+            result.pillars, fav_map, luck_stem=target.stem, luck_branch=target.branch,
+            geok_name=geok, luck_ten_gods=(target.stem_ten_god, target.branch_ten_god),
+            special_pattern=special,
+        )
+    except (KeyError, ValueError):
+        return cands
+    if not fl.any:
+        return cands
+    delta = 0.0
+    reasons: list[str] = []
+    root_p = period_v2_config.STRUCTURE_ROOT_PENALTY
+    pil_p = period_v2_config.STRUCTURE_PILLAR_PENALTY
+    if fl.chunggeun_useful:
+        delta -= root_p
+        reasons.append("根_충근_기반손상")
+    elif fl.chunggeun_unfavorable:
+        delta += root_p / 2
+        reasons.append("根_충근_흉정리")
+    if fl.luck_gaedu or fl.luck_jeolgak:
+        code = "柱_개두" if fl.luck_gaedu else "柱_절각"
+        if fl.suppressed_role in ("용신", "희신"):
+            delta -= pil_p
+            reasons.append(f"{code}_길신억제")
+        elif fl.suppressed_role in ("기신", "구신"):
+            delta += pil_p / 2
+            reasons.append(f"{code}_흉신억제")
+        else:
+            reasons.append(f"{code}_표지")
+    # 원국 기둥 개두·절각은 달과 무관한 상수라 후보 근거에 넣지 않는다(모든 달에 반복되는 잡음).
+    # 표지는 LuckStructureFlags.natal_gaedu_jeolgak에 남겨 원국 서술 쪽에서 쓴다.
+    if fl.tonggwan_absent:
+        delta -= pil_p
+        reasons.append("通_통관부재")
+    if fl.rescue_damaged:
+        delta -= period_v2_config.GEOK_BREAK_PENALTY
+        reasons.append(f"格_운파격_구응손상_{fl.rescue_damaged[0]}")
+    if fl.special_breach:
+        delta -= period_v2_config.GEOK_BREAK_PENALTY
+        reasons.append("特_특수격역행")
+    if not reasons:
+        return cands
+    out: list[EventCandidateV2] = []
+    for c in cands:
+        prev = c.contributions.get("fav_adj", 0.0)
+        out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+            "reason_codes": [*c.reason_codes, *reasons],
+            **({"contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)}}
+               if delta else {}),
+        }))
+    return out
+
+
 # 관운 강화 대상 — 관(官) 계열 사건(이직·취업·승진). 합 결과 오행이 관일 때만 보정한다.
 _OFFICER_EVENT_KEYS: frozenset[EventKeyV2] = frozenset({
     EventKeyV2.CAREER_CHANGE, EventKeyV2.JOB_GAIN, EventKeyV2.PROMOTION,
@@ -1473,6 +1619,10 @@ def _apply_hap_mitigation(
         if career:
             delta += period_v2_config.HAP_OFFICER_BOOST
             reasons.append("化_관운강화")
+        if mit.stem_harmed or mit.branch_harmed:
+            # 희용신 손상·합반 — 운 글자가 원국 길신을 묶어 지원·조절 기능이 약해진다(완화의 대칭).
+            delta -= period_v2_config.HAP_HARM_PENALTY
+            reasons.append("制_합거_길신손상")
         if delta == 0.0:
             out.append(c)
             continue

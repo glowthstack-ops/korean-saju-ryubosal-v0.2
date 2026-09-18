@@ -84,6 +84,7 @@ from .direction_suggestion import (
     select_direction_suggestions,
 )
 from .event_engine_v2 import EventEngineV2
+from .event_lexicon import derive_process_types, process_type_legend
 from .event_scoring import favorability_map
 from .hap_lines import luck_hap_mode_lines
 from .layer_evidence_scope import (
@@ -1405,6 +1406,14 @@ def _to_llm_candidate(
     # 방향에 맞는 라벨로, 그 외·비V2 키는 기존 라벨 유지(판정·점수 불변).
     _disp = event_display_ko(str(c.event_key), c.quality, c.timing)
     hap_notes = _candidate_hap_notes(result, period_ganji)
+    process_types = (
+        derive_process_types(
+            str(c.event_key), list(c.evidence_path),
+            [*signals_ko, note, stage_note, caution, *amhap_notes, *hap_notes],
+            c.favorability,
+        )
+        if period_v2_config.EVENT_LEXICON_ENABLED else []
+    )
     return LlmEventCandidate(
         event_key=c.event_key,
         event_ko=_disp if _disp != str(c.event_key) else event_ko(c.event_key),
@@ -1440,6 +1449,7 @@ def _to_llm_candidate(
         # full evidence_path로 판정해 출력 가드에 전달(방향 누수 차단, 점수 불변).
         marriage_stability_risk=has_stability_risk(list(c.evidence_path)),
         hap_notes=hap_notes,
+        process_types=process_types,
     )
 
 
@@ -2187,9 +2197,56 @@ def _append_structure_patterns(lines: list[str], patterns: list[DetectedPattern]
     """
     if not patterns:
         return
+    if period_v2_config.RELATION_TERMS_V2_ENABLED:
+        # 4단 서술(2026-09-18 전문가 참고 기준): 작용→영향 영역→가능한 양상→성립 조건 순으로
+        # 읽게 해 '쟁합이 있으니 돈을 빼앗긴다'류의 사건 확정을 구조적으로 막는다. 사전 필드
+        # (llm_tag·domain_hints·polarity_mode·evidence)만 재배열하며 새 명리 규칙은 없다.
+        lines += [
+            "",
+            "[구조 패턴 — 작용→영향 영역→가능한 양상→성립 조건 순으로 읽을 것. 구조 라벨일 뿐 "
+            "사건·길흉 확정이 아니며, 영역은 후보·양상은 조건부다]",
+        ]
+        for p in patterns:
+            lines.append(_pattern_four_stage_line(p))
+        return
     lines += ["", "[구조 패턴 — 의미 설명 태그(구조 라벨일 뿐, 사건·길흉 확정 아님·도메인은 후보)]"]
     for p in patterns:
         lines.append(p.llm_line)  # llm_tag + 별칭 병기(F6, 별칭 없으면 바이트 동일)
+
+
+_POLARITY_MODE_KO = {
+    "favorable": "대체로 이롭게 작동하나 과다·운 손상 시 반전 가능",
+    "unfavorable": "불리하게 작동하기 쉬우나 용기신·제어 장치에 따라 완화",
+    "depends_on_yonggi_and_control": "용기신·제어 여부에 따라 유불리가 갈림(길흉 별도)",
+    "context_only": "맥락 표지 — 길흉을 정하지 않음",
+}
+
+
+def _sewoon_line(y: SelectedYear) -> str:
+    """세운 한 줄 — RELATION_TERMS_V2면 대운과 같은 간지일 때 세운병림 표지를 병기한다.
+
+    세운병림(歲運並臨)은 같은 작용의 중첩·강조일 뿐 그 자체가 흉이 아니다(전문가 참고 기준
+    2026-09-18). 표지 전용이며 점수는 불변.
+    """
+    mark = ""
+    if period_v2_config.RELATION_TERMS_V2_ENABLED and y.ganji and y.ganji == y.daewoon:
+        mark = " · 세운병림(대운과 같은 간지 — 같은 작용의 중첩·강조, 그 자체는 흉이 아님)"
+    return f"세운 {y.year} {y.ganji} (대운 {y.daewoon} 내){mark} — 선별: {y.reason_selected}"
+
+
+def _pattern_four_stage_line(p: DetectedPattern) -> str:
+    """구조 패턴 1건 → '이름: [작용] … [영역] … [양상] … [성립 조건] …' 한 줄(별칭 병기)."""
+    tag = p.llm_tag
+    if tag.startswith(f"{p.name_ko}:"):
+        tag = tag[len(p.name_ko) + 1:].strip()
+    areas = "·".join(dict.fromkeys(event_ko(h) for h in p.domain_hints)) or "명시 영역 없음"
+    mode = _POLARITY_MODE_KO.get(p.polarity_mode or "", "길흉 별도")
+    conds = " · ".join(dict.fromkeys(p.evidence)) or "사전 성립 조건 없음"
+    alias = f" [별칭: {'·'.join(p.aliases)}]" if p.aliases else ""
+    return (
+        f"{p.name_ko}: [작용] {tag} [영역·후보] {areas} [양상] {mode} "
+        f"[성립 조건] {conds}{alias}"
+    )
 
 
 def _append_operational_summary(lines: list[str], s: YongsinOperationalSummary | None) -> None:
@@ -2336,7 +2393,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
             "'시작될' 미래로 쓰지 말 것)."
         )
     for y in payload.calendar_context.selected_years:
-        lines.append(f"세운 {y.year} {y.ganji} (대운 {y.daewoon} 내) — 선별: {y.reason_selected}")
+        lines.append(_sewoon_line(y))
     for m in payload.calendar_context.selected_months:
         _mtag = _cur_tag if cur_month and m.period == cur_month else ""
         lines.append(f"월운 {m.period} {m.ganji}{_mtag}")
@@ -2355,11 +2412,18 @@ def serialize_llm_input(payload: LlmInput) -> str:
             f"— {tone_for_score(c.score)} · {c.direction or polarity_ko(c.polarity)}"
         )
 
+    def process_type_legend_lines(cands: list[LlmEventCandidate]) -> list[str]:
+        """사건 유형 줄이 하나라도 있으면 범례 1줄(플래그 OFF면 빈 목록이라 byte 불변)."""
+        return [process_type_legend()] if any(c.process_types for c in cands) else []
+
     def candidate_block(c: LlmEventCandidate, with_notes: bool = True) -> list[str]:
         block = [candidate_line(c)]
         if with_notes and c.favorability_ko:
             # 결과 유불리 — 발생 가능성(강도)과 분리된 길흉('강한 달=좋은 달'이 아님).
             block.append(f"  결과 유불리: {c.favorability_ko}(발생 가능성과 별개)")
+        if with_notes and c.process_types:
+            # 사건 어휘 층 — '어떤 종류의 문제/개선인가'(사건·손실 확정 아님).
+            block.append("  사건 유형(엔진 분류): " + " / ".join(c.process_types))
         if with_notes and c.hap_notes:
             # P1 합 작용(엔진 판정) — 흉신 묶임은 '완화'이지 '제거'가 아니다(전문가 취지).
             block.append(
@@ -2391,7 +2455,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
             block.append(f"  결(12운성): {c.stage_note}")
         if with_notes and c.amhap_notes:
             # 운 암합 — 보조(물밑·비공식), 단독 결론 금지.
-            block.append("  운 암합(보조·물밑): " + " / ".join(c.amhap_notes))
+            block.append(
+                "  운 암합(보조·물밑 — 숨은 연결·이해관계의 해석일 뿐, "
+                "외도·배신의 직접 근거 아님): " + " / ".join(c.amhap_notes)
+            )
         if with_notes and c.caution_note:
             # 유불리 주의 — 천간 흉신 시기는 발생해도 결실 불리(우호 단정 방지).
             # P0-2: 이 줄은 결실 뉘앙스 전용 — 검토월·operational guard는 아래 별도 줄
@@ -2452,6 +2519,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
             "기간 전체를 대표하지 않음, 강도는 표현 그대로 인용. 점수·백분율 등 "
             "숫자 수치는 제공되지 않았다 — '98점'류 수치를 지어내 말하지 말 것]"
         )
+        _cand_out += process_type_legend_lines(payload.event_candidates)
         if payload.no_candidates_in_period:
             _cand_out.append(
                 "질문 기간 내 해당 도메인 후보 없음 — '해당 기간에는 뚜렷한 신호가 "

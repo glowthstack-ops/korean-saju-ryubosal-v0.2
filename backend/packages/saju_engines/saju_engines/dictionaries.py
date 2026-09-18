@@ -1745,6 +1745,87 @@ class FavorabilityRulesFile(_AliasModel):
     items: list[FavorabilityRule]
 
 
+class EventFormSpec(_AliasModel):
+    """event_forms.json 발현 형태 1건."""
+
+    name: str
+    prob: float = Field(ge=0.0, le=1.0)
+
+
+class EventFormsItem(_AliasModel):
+    """event_forms.json 사건 키 1건 — prob 합 ≤ 1.0(초과분은 로더가 정규화하나 사전은 ≤1로 유지)."""
+
+    event_key: str = Field(alias="eventKey")
+    forms: list[EventFormSpec] = Field(min_length=1)
+    reviewed: bool = False
+
+
+class EventFormsFile(_AliasModel):
+    version: str
+    note: str = ""
+    items: list[EventFormsItem]
+
+
+class ProcessTypeMatch(_AliasModel):
+    """공통 사건 유형 결정론 분류 규칙(event_process_types.json)."""
+
+    reason_prefixes: list[str] = Field(default_factory=list)
+    signal_keywords: list[str] = Field(default_factory=list)
+    event_keys: list[str] = Field(default_factory=list)
+    favorability: str = "any"  # any | adverse | favorable
+
+
+class ProcessTypeSpec(_AliasModel):
+    """공통 사건 유형 1건 — 사건 라벨·길흉 확정이 아니라 '어떤 종류의 문제/개선'인지."""
+
+    id: str
+    name_ko: str
+    valence: str  # negative | positive | neutral
+    description: str
+    examples: list[str] = Field(default_factory=list)
+    linked_actions: list[str] = Field(default_factory=list)
+    match: ProcessTypeMatch = Field(default_factory=ProcessTypeMatch)
+    loss_is_conclusion: bool = False
+    reviewed: bool = False
+
+
+class EventProcessTypesFile(_AliasModel):
+    schema_: str = Field(alias="schema")
+    version: str
+    reviewed: bool = False
+    purpose: str = ""
+    match_rules: str = ""
+    stage_model: dict = Field(default_factory=dict)
+    items: list[ProcessTypeSpec]
+
+
+class LifeEventArea(_AliasModel):
+    id: str
+    name_ko: str
+    negative_events: list[str] = Field(default_factory=list)
+    positive_events: list[str] = Field(default_factory=list)
+
+
+class PerceivedToObservable(_AliasModel):
+    perceived: str
+    observable: str
+
+
+class LifeEventLexiconFile(_AliasModel):
+    """life_event_lexicon.json — 관찰 가능 사건 어휘·체감 번역 표·단계 사례(서술 어휘 SSOT)."""
+
+    schema_: str = Field(alias="schema")
+    version: str
+    reviewed: bool = False
+    purpose: str = ""
+    areas: list[LifeEventArea]
+    perceived_to_observable: list[PerceivedToObservable] = Field(default_factory=list)
+    stage_examples: dict = Field(default_factory=dict)
+    improvement_to_positive: list[dict] = Field(default_factory=list)
+    daily_domain_to_area: dict[str, str] = Field(default_factory=dict)
+    separation_rules: list[str] = Field(default_factory=list)
+
+
 class UnseongStageSpec(_AliasModel):
     """십이운성 한 단계의 성향 계수 (common/twelve_unseong_groups.json).
 
@@ -2108,6 +2189,9 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "direction_suggestions.json": DirectionSuggestionDict,
     "events/taxonomy.json": TaxonomyFile,
     "favorability_rules.json": FavorabilityRulesFile,
+    "event_forms.json": EventFormsFile,
+    "event_process_types.json": EventProcessTypesFile,
+    "life_event_lexicon.json": LifeEventLexiconFile,
     "interpretations/ilju.json": IljuFile,
     "interpretations/ten_gods_text.json": TenGodsTextFile,
     "interpretations/twelve_stages_text.json": TwelveStagesTextFile,
@@ -2171,6 +2255,26 @@ def validate_dictionaries(directory: Path) -> list[str]:
             for item in data.get("items", []):
                 if item.get("eventKey") not in valid_keys:
                     errors.append(f"{rel}: 미등록 이벤트 키 — {item.get('eventKey')}")
+        if rel == "event_forms.json":
+            seen_keys: set[str] = set()
+            for item in data.get("items", []):
+                key = item.get("eventKey")
+                if key not in valid_keys:
+                    errors.append(f"{rel}: 미등록 이벤트 키 — {key}")
+                if key in seen_keys:
+                    errors.append(f"{rel}: 사건 키 중복 — {key}")
+                seen_keys.add(key)
+                if sum(f.get("prob", 0.0) for f in item.get("forms", [])) > 1.0 + 1e-9:
+                    errors.append(f"{rel}: {key} prob 합 > 1.0")
+        if rel == "event_process_types.json":
+            ids = [item.get("id") for item in data.get("items", [])]
+            dupes = sorted({i for i in ids if ids.count(i) > 1})
+            if dupes:
+                errors.append(f"{rel}: 유형 id 중복 — {dupes}")
+            for item in data.get("items", []):
+                for key in item.get("match", {}).get("event_keys", []):
+                    if key not in valid_keys:
+                        errors.append(f"{rel}: {item.get('id')} 미등록 이벤트 키 — {key}")
     return errors
 
 

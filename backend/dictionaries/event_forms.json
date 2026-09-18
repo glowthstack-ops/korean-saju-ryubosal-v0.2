@@ -1,45 +1,45 @@
 {
-  "version": "1.0.0",
-  "note": "이벤트별 발현 형태(docs/02 E3 — 같은 신호도 발현이 다름). prob 합 ≤ 1.0. 초안 — 검수 대상.",
+  "version": "1.1.0",
+  "note": "이벤트별 발현 형태(docs/02 E3 — 같은 신호도 발현이 다름). prob 합 ≤ 1.0. 초안 — 검수 대상. 1.1.0(2026-09-18): 전문가 참고 기준 '생활 영역별 사건 목록'으로 21종 전량 확장 — 발현 형태는 긍정·중립·반대 발현을 함께 두어 '손실 자동 결론'을 막는다. 초안 — 검수 대상. 기존 promotion·job_gain·contract_document의 prob 합(>1)은 로더 정규화와 같은 비율로 사전에서 정규화했다(런타임 출력 동일 — 이름 순서 불변).",
   "items": [
     {
       "eventKey": "career_change",
       "forms": [
         {
           "name": "이직(회사 이동)",
-          "prob": 0.45
+          "prob": 0.184
         },
         {
           "name": "역할·직무 변경",
-          "prob": 0.3
+          "prob": 0.122
         },
         {
           "name": "조직 개편·배치 전환",
-          "prob": 0.2
+          "prob": 0.082
         },
         {
           "name": "자발적 퇴사",
-          "prob": 0.45
+          "prob": 0.184
         },
         {
           "name": "이직 동반 퇴사",
-          "prob": 0.35
+          "prob": 0.143
         },
         {
           "name": "휴직·일시 중단",
-          "prob": 0.15
+          "prob": 0.061
         },
         {
           "name": "스카우트·이직 제의",
-          "prob": 0.2
+          "prob": 0.082
         },
         {
           "name": "업종·산업 변경",
-          "prob": 0.2
+          "prob": 0.082
         },
         {
           "name": "권고사직·구조조정성 이탈",
-          "prob": 0.15
+          "prob": 0.06
         }
       ],
       "reviewed": false
@@ -49,19 +49,19 @@
       "forms": [
         {
           "name": "승진·직급 상승",
-          "prob": 0.4
+          "prob": 0.333
         },
         {
           "name": "발령·전보(근무지·부서 이동)",
-          "prob": 0.3
+          "prob": 0.25
         },
         {
           "name": "직책·역할 확대",
-          "prob": 0.3
+          "prob": 0.25
         },
         {
           "name": "승진시험·승급 합격",
-          "prob": 0.2
+          "prob": 0.167
         }
       ],
       "reviewed": false
@@ -71,23 +71,23 @@
       "forms": [
         {
           "name": "취업·입사",
-          "prob": 0.4
+          "prob": 0.32
         },
         {
           "name": "시험·채용 합격",
-          "prob": 0.35
+          "prob": 0.28
         },
         {
           "name": "공직·공공기관 입사",
-          "prob": 0.15
+          "prob": 0.12
         },
         {
           "name": "자격증·서류 합격",
-          "prob": 0.2
+          "prob": 0.16
         },
         {
           "name": "인턴·계약직 진입",
-          "prob": 0.15
+          "prob": 0.12
         }
       ],
       "reviewed": false
@@ -155,22 +155,382 @@
       "forms": [
         {
           "name": "신규 계약 체결(매매·임대·용역)",
-          "prob": 0.35
+          "prob": 0.28
         },
         {
           "name": "기존 계약 교체·갱신(판을 갈아타는 이동 — 이사·이직 동반)",
-          "prob": 0.3
+          "prob": 0.24
         },
         {
           "name": "자격·증명 취득(합격증·등록·인허가)",
-          "prob": 0.25
-        },
-        {
-          "name": "금융·행정 서류 실행(대출·명의·신고)",
           "prob": 0.2
         },
         {
+          "name": "금융·행정 서류 실행(대출·명의·신고)",
+          "prob": 0.16
+        },
+        {
           "name": "계약 해지·정리",
+          "prob": 0.12
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "business_start",
+      "forms": [
+        {
+          "name": "창업·개업",
+          "prob": 0.3
+        },
+        {
+          "name": "동업 시작·지분 참여",
+          "prob": 0.2
+        },
+        {
+          "name": "부업·프리랜서 전환",
+          "prob": 0.2
+        },
+        {
+          "name": "사업자 등록·인허가",
+          "prob": 0.15
+        },
+        {
+          "name": "매장·사무실 계약",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "business_expansion",
+      "forms": [
+        {
+          "name": "거래처·고객 확대",
+          "prob": 0.3
+        },
+        {
+          "name": "신규 계약 수주",
+          "prob": 0.25
+        },
+        {
+          "name": "지점·인력 확충",
+          "prob": 0.2
+        },
+        {
+          "name": "지분 조정·투자 유치",
+          "prob": 0.15
+        },
+        {
+          "name": "사업 축소·정리(반대 발현)",
+          "prob": 0.1
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "windfall",
+      "forms": [
+        {
+          "name": "공돈·보너스·환급",
+          "prob": 0.3
+        },
+        {
+          "name": "자산 평가 상승·매각 차익",
+          "prob": 0.2
+        },
+        {
+          "name": "미수금·대여금 회수",
+          "prob": 0.2
+        },
+        {
+          "name": "소액 당첨·경품",
+          "prob": 0.15
+        },
+        {
+          "name": "예상 밖 지출(반대 발현)",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "education_admission",
+      "forms": [
+        {
+          "name": "입학·선발 합격",
+          "prob": 0.35
+        },
+        {
+          "name": "불합격·재도전",
+          "prob": 0.2
+        },
+        {
+          "name": "시험·심사 일정 변경",
+          "prob": 0.15
+        },
+        {
+          "name": "장학·연구 지원 선정",
+          "prob": 0.15
+        },
+        {
+          "name": "전공·진로 변경",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "education_completion",
+      "forms": [
+        {
+          "name": "졸업·수료",
+          "prob": 0.3
+        },
+        {
+          "name": "자격 취득·갱신",
+          "prob": 0.25
+        },
+        {
+          "name": "논문·과제 통과",
+          "prob": 0.2
+        },
+        {
+          "name": "교육 과정 이수",
+          "prob": 0.15
+        },
+        {
+          "name": "졸업 지연·휴학",
+          "prob": 0.1
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "relationship_change",
+      "forms": [
+        {
+          "name": "교제·독점성에 대한 갈등",
+          "prob": 0.25
+        },
+        {
+          "name": "관계 진전 지연",
+          "prob": 0.2
+        },
+        {
+          "name": "연락 중단·관계 소원",
+          "prob": 0.2
+        },
+        {
+          "name": "결별·별거",
+          "prob": 0.2
+        },
+        {
+          "name": "재회·화해",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "marriage_signal",
+      "forms": [
+        {
+          "name": "결혼 결정·상견례",
+          "prob": 0.3
+        },
+        {
+          "name": "동거·혼인신고",
+          "prob": 0.2
+        },
+        {
+          "name": "배우자 관계 갈등",
+          "prob": 0.2
+        },
+        {
+          "name": "결혼 일정 변경·취소",
+          "prob": 0.15
+        },
+        {
+          "name": "이혼·별거 논의",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "childbirth",
+      "forms": [
+        {
+          "name": "임신·출산",
+          "prob": 0.4
+        },
+        {
+          "name": "자녀 계획·입양 결정",
+          "prob": 0.2
+        },
+        {
+          "name": "자녀 양육 부담 증가",
+          "prob": 0.2
+        },
+        {
+          "name": "돌봄 담당 변경",
+          "prob": 0.2
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "legal_conflict",
+      "forms": [
+        {
+          "name": "이의 제기·민원",
+          "prob": 0.25
+        },
+        {
+          "name": "신고·고소·소송",
+          "prob": 0.2
+        },
+        {
+          "name": "조사·감사·징계 심의",
+          "prob": 0.2
+        },
+        {
+          "name": "손해배상·합의",
+          "prob": 0.2
+        },
+        {
+          "name": "계약 해지 분쟁",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "health_attention",
+      "forms": [
+        {
+          "name": "진료·검진",
+          "prob": 0.3
+        },
+        {
+          "name": "치료·입원",
+          "prob": 0.2
+        },
+        {
+          "name": "활동 제한·병가",
+          "prob": 0.2
+        },
+        {
+          "name": "회복·복귀",
+          "prob": 0.15
+        },
+        {
+          "name": "돌봄 필요 증가",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "social_conflict",
+      "forms": [
+        {
+          "name": "협업 갈등",
+          "prob": 0.3
+        },
+        {
+          "name": "약속 취소·관계 소원",
+          "prob": 0.2
+        },
+        {
+          "name": "연락 차단·모임 탈퇴",
+          "prob": 0.2
+        },
+        {
+          "name": "모임·팀에서의 배제",
+          "prob": 0.15
+        },
+        {
+          "name": "중재·화해",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "preparation_delay",
+      "forms": [
+        {
+          "name": "승인 보류·반려",
+          "prob": 0.25
+        },
+        {
+          "name": "일정 지연·재작업",
+          "prob": 0.25
+        },
+        {
+          "name": "서류 보완 요구",
+          "prob": 0.2
+        },
+        {
+          "name": "입주·매매 지연",
+          "prob": 0.15
+        },
+        {
+          "name": "결정 철회·재심사",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "creative_output",
+      "forms": [
+        {
+          "name": "결과물 발표·출시",
+          "prob": 0.3
+        },
+        {
+          "name": "저작물·성과 인정",
+          "prob": 0.25
+        },
+        {
+          "name": "결과물 오류·재작업",
+          "prob": 0.2
+        },
+        {
+          "name": "성과 귀속 다툼",
+          "prob": 0.15
+        },
+        {
+          "name": "무단 사용 대응",
+          "prob": 0.1
+        }
+      ],
+      "reviewed": false
+    },
+    {
+      "eventKey": "public_exposure",
+      "forms": [
+        {
+          "name": "주목·발탁",
+          "prob": 0.25
+        },
+        {
+          "name": "비판·민원 제기",
+          "prob": 0.2
+        },
+        {
+          "name": "소문·오해 확산",
+          "prob": 0.2
+        },
+        {
+          "name": "해명·정정 요구",
+          "prob": 0.2
+        },
+        {
+          "name": "사적 정보 공개",
           "prob": 0.15
         }
       ],
