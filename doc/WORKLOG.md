@@ -10988,3 +10988,17 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
   family 0.03, 역마→이동 family 0.03 등). OFF면 후보·직렬화 동일.
 - 회귀: `tests/unit/test_risk_auxiliary_amplifiers.py`(사전 계약·lint 거부, 순수·유계·멱등, 6축 불변·우선도만 상승, 플래그 byte
   불변, 표현 라벨). 기존 risk 테스트군 통과.
+
+## 2026-09-18 — 오늘의 운세 신살 채널 8종 (docs/17 §22-9 4차, 데굴님 지시 "오늘의 운세에도 반영")
+
+- **취지**: 위험 엔진 P2 보조 증폭 층의 오늘의 운세 대응. 개인 명식을 쓰지 않는 경로라 원국 신살·구조 배경 대신 **일간·일지 기준
+  오늘 일진 신살**만 채널로 승격. 신살=보조 신호 원칙 동일 — `required_signature` 에 쓰면 스키마 거부, evidence 가중 ≤ .3.
+- **채널**(`SINSAL_CHANNELS`, `daily_fortune_v2.sinsal_channels` — sinsal_catalog 표 재사용): 귀인(천을 1.0·천덕/월덕 .6·금여/암록 .5)
+  · 상해(양인 1.0·백호 .6·현침 .4) · 손실(12신살 겁살 1.0·재살/망신 .8·육해/천살 .6·월살 .5) · 이동(역마 1.0·지살 .6) · 매력(년살 1.0·
+  홍염 .8) · 위상(장성 1.0·반안 .8) · 은둔(화개 1.0) · 귀문(귀문관살 1.0). 12신살은 `relationship_relative_sinsal.get_relative_sinsal`
+  (일지 삼합국 기준) 재사용.
+- **배선**: 40사건 41항목(evidence 만, 게이트 불변). 가중 실험 A(.3/.2 전부) vs B(meet_helper·referral·praise·love_spark .3→.2): B 채택
+  (헤드라인 변경 331→252, 상위 5종 점유 39.3%→39.3% 불변, 종류 57→56; A는 39.7%·55 — 상위 집중 방향).
+- **버전**: model.v2.2 in-place(경계 9/20 이전이라 v2.2 보드 미생성 — §22-8 v2.1 in-place 와 같은 조건), 스냅샷 재빌드
+  (satisfiability 통과). v1 사전 무변경. taxonomy `신살` family 추가. 문서 §22-2 포인터·§22-3/§22-7 행 evidence 병기·§22-9 신설.
+- 회귀: `tests/unit/test_daily_sinsal_channels.py`(甲子 기준 고전표 정합·게이트 거부·배선표 고정·분류 정합), taxonomy 어휘 테스트에 `신살` 추가.

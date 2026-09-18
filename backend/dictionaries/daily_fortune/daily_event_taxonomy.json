@@ -14,7 +14,8 @@
       "인성": "편인·정인 — 수용·문서·보호",
       "충형파해": "지지 충·형·파·해 — 구조적 충돌·마찰",
       "합회": "육합·삼합 — 결속·성사·연결(§22-7 추가)",
-      "운성": "12운성 기능 채널(활동↑·과속·체력↓·둔화·이탈·수렴·재생 + 잔여 흔들림·단장·노련·구상 §22-8) — 페이스·신체 상태·감정 동요·준비(§22-7 추가, §22-8 확장)"
+      "운성": "12운성 기능 채널(활동↑·과속·체력↓·둔화·이탈·수렴·재생 + 잔여 흔들림·단장·노련·구상 §22-8) — 페이스·신체 상태·감정 동요·준비(§22-7 추가, §22-8 확장)",
+      "신살": "신살 채널 8종(귀인·상해·손실·이동·매력·위상·은둔·귀문 §22-9) — 일간·일지 기준 오늘 일진 신살, evidence 전용(게이트 금지, §22-9 추가)"
     },
     "manifestation_condition": {
       "favorable_only": "우호 근거만으로 성립한다(주제 활성 = 발현).",
@@ -89,7 +90,8 @@
         "비겁",
         "식상",
         "충형파해",
-        "운성"
+        "운성",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -108,7 +110,8 @@
       ],
       "adverse_evidence": [
         "비겁",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -127,7 +130,8 @@
       ],
       "adverse_evidence": [
         "비겁",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -147,7 +151,8 @@
       "adverse_evidence": [
         "비겁",
         "인성",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -167,7 +172,8 @@
       "adverse_evidence": [
         "비겁",
         "관성",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -202,7 +208,8 @@
       "subject_evidence": [
         "인성",
         "관성",
-        "비겁"
+        "비겁",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -220,7 +227,8 @@
       "subject_evidence": [
         "식상",
         "비겁",
-        "재성"
+        "재성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -281,7 +289,8 @@
         "식상",
         "비겁",
         "관성",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -316,7 +325,8 @@
       "subject_evidence": [
         "인성",
         "식상",
-        "관성"
+        "관성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -339,7 +349,8 @@
         "식상",
         "관성",
         "충형파해",
-        "운성"
+        "운성",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -357,7 +368,8 @@
         "관성",
         "인성",
         "식상",
-        "운성"
+        "운성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -429,7 +441,8 @@
       "subject_evidence": [
         "식상",
         "재성",
-        "관성"
+        "관성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -465,7 +478,8 @@
       "subject_evidence": [
         "재성",
         "식상",
-        "관성"
+        "관성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "mixed_trigger",
@@ -509,7 +523,8 @@
         "비겁",
         "관성",
         "충형파해",
-        "운성"
+        "운성",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -568,7 +583,8 @@
       ],
       "adverse_evidence": [
         "비겁",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -587,7 +603,8 @@
       ],
       "adverse_evidence": [
         "비겁",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -690,7 +707,8 @@
         "식상",
         "비겁",
         "충형파해",
-        "운성"
+        "운성",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -710,7 +728,8 @@
       "adverse_evidence": [
         "관성",
         "비겁",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -730,7 +749,8 @@
       "adverse_evidence": [
         "관성",
         "식상",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -750,7 +770,8 @@
       "adverse_evidence": [
         "비겁",
         "식상",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -790,7 +811,8 @@
       "adverse_evidence": [
         "인성",
         "식상",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -830,7 +852,8 @@
       "adverse_evidence": [
         "관성",
         "식상",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -848,7 +871,8 @@
         "인성",
         "식상",
         "관성",
-        "운성"
+        "운성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "mixed_trigger",
@@ -865,7 +889,8 @@
       "primary_evidence_family": "식상",
       "subject_evidence": [
         "식상",
-        "인성"
+        "인성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "mixed_trigger",
@@ -884,7 +909,8 @@
         "인성",
         "재성",
         "관성",
-        "운성"
+        "운성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "mixed_trigger",
@@ -924,7 +950,8 @@
         "인성",
         "비겁",
         "식상",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -945,7 +972,8 @@
         "관성",
         "비겁",
         "식상",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -965,7 +993,8 @@
       "adverse_evidence": [
         "관성",
         "비겁",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -1003,7 +1032,8 @@
         "운성",
         "재성",
         "관성",
-        "인성"
+        "인성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -1022,7 +1052,8 @@
         "식상",
         "관성",
         "합회",
-        "운성"
+        "운성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -1040,7 +1071,8 @@
       "subject_evidence": [
         "운성",
         "합회",
-        "인성"
+        "인성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -1127,7 +1159,8 @@
       "subject_evidence": [
         "재성",
         "관성",
-        "합회"
+        "합회",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "mixed_trigger",
@@ -1201,7 +1234,8 @@
       ],
       "adverse_evidence": [
         "운성",
-        "충형파해"
+        "충형파해",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -1219,7 +1253,8 @@
         "비겁"
       ],
       "adverse_evidence": [
-        "운성"
+        "운성",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -1275,7 +1310,8 @@
       ],
       "adverse_evidence": [
         "충형파해",
-        "운성"
+        "운성",
+        "신살"
       ],
       "manifestation_condition": "requires_adverse",
       "headline_role": "caution_only",
@@ -1294,7 +1330,8 @@
         "인성",
         "합회",
         "충형파해",
-        "운성"
+        "운성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -1313,7 +1350,8 @@
         "합회",
         "식상",
         "인성",
-        "운성"
+        "운성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -1368,7 +1406,8 @@
       "subject_evidence": [
         "관성",
         "인성",
-        "합회"
+        "합회",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -1386,7 +1425,8 @@
       "subject_evidence": [
         "합회",
         "운성",
-        "인성"
+        "인성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",
@@ -1405,7 +1445,8 @@
         "인성",
         "식상",
         "합회",
-        "운성"
+        "운성",
+        "신살"
       ],
       "adverse_evidence": [],
       "manifestation_condition": "favorable_only",

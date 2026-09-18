@@ -433,6 +433,8 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 
 **오행 활성(간이 object hazard)**: 金·火 각각 — 오늘 천간·지지 본기 1.0 / 지장간만 0.5. "火 강하니 화상" 단정 금지 — 충·형 등 부주의 신호 동반 시 상대 상승만.
 
+**신살 채널 8종(§22-9, 2026-09-18 4차)**: 일간·일지 기준 오늘 일진 신살 — 귀인·상해·손실·이동·매력·위상·은둔·귀문. **evidence 전용**(게이트 금지 — 스키마 거부). 정의·배선·재측정은 §22-9.
+
 ### 22-3. 사건 카탈로그 규격 (82종 — 전체 규격, 변경은 승인 개정으로만; 초판 48 + 2차 16(§22-7) + 3차 18(§22-7 3차))
 
 각 사건 = `prior(상/중/하) · required_signature(게이트식) · evidence(채널: 가중)`. ∨=or, ∧=and.
@@ -443,7 +445,7 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
 | money_small_gain 공돈 | 상 | 편재 ∨ 생아 | 편재 .6 생아 .4 식신 .3 육합 .2 공망 −.4 |
-| overspend_caution 충동구매 | 상 | (아생 ∨ 비화) ∧ 재성 | 아생 .5 비화 .4 편재 .4 활동↑ .2 흔들림 .2 공망 .2 |
+| overspend_caution 충동구매 | 상 | (아생 ∨ 비화) ∧ 재성 | 아생 .5 비화 .4 편재 .4 활동↑ .2 흔들림 .2 공망 .2 신살손실 .2 |
 | money_good_deal 득템 | 상 | 정재 ∨ 식신 | 정재 .6 식신 .4 아극 .3 공망 −.3 |
 | treat_received 대접 | 상 | 생아 ∨ 식신 | 생아 .6 식신 .4 육합 .3 원진 −.2 |
 | small_find 발견 | 중 | 편재 ∨ 재생 | 편재 .5 재생 .4 생아 .2 공망 .2 |
@@ -451,7 +453,7 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 **RECOG·COORD — 평가·조율**
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
-| praise_recognition 인정 | 상 | 관성 ∨ 인성 | 정관 .5 편관 .3 정인 .4 활동↑ .3 단장 .2 공망 −.3 |
+| praise_recognition 인정 | 상 | 관성 ∨ 인성 | 정관 .5 편관 .3 정인 .4 활동↑ .3 단장 .2 공망 −.3 신살위상 .2 |
 | teamwork_flow 협업 | 상 | 비겁 ∨ 육합 ∨ 삼합 | 비견 .5 육합 .4 삼합 .4 식신 .3 원진 −.3 충 −.2 |
 | document_progress 서류 순조 | 상 | 인성 ∨ 관성 | 정인 .5 정관 .4 육합 .4 단장 .2 공망 −.5 해 −.2 |
 | idea_flash 아이디어 | 상 | 식상 ∨ 편인 | 상관 .4 식신 .35 편인 .35 재생 .3 공망 .2 |
@@ -461,67 +463,67 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
 | argument_caution 말다툼 | 상 | 충 ∨ 겁재 (해·파 불인정) | 충 .6 겁재 .5 상관 .3 비화 .2 형 .2 |
-| rumor_caution 구설 | 중 | 상관 ∧ (해 ∨ 원진) (충 불요) | 상관 .6 해 .4 원진 .4 파 .2 |
-| misunderstanding_caution 전달 어긋남 | 중 | 해 ∨ 공망 | 해 .6 공망 .5 편인 .3 흔들림 .2 |
-| love_misread 연애 오해 | 중 | 식상 ∧ (원진 ∨ 해) | 상관 .5 식신 .3 원진 .5 해 .4 흔들림 .3 |
+| rumor_caution 구설 | 중 | 상관 ∧ (해 ∨ 원진) (충 불요) | 상관 .6 해 .4 원진 .4 파 .2 신살손실 .2 |
+| misunderstanding_caution 전달 어긋남 | 중 | 해 ∨ 공망 | 해 .6 공망 .5 편인 .3 흔들림 .2 신살귀문 .2 |
+| love_misread 연애 오해 | 중 | 식상 ∧ (원진 ∨ 해) | 상관 .5 식신 .3 원진 .5 해 .4 흔들림 .3 신살매력 .2 |
 
 **BOND — 관계 온도 (연결/철회 분리)**
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
-| love_spark 설렘 | 상 | 육합 ∨ 삼합 ∨ 생아 | 육합 .5 삼합 .3 생아 .4 재생 .4 원진 −.4 충 −.2 |
+| love_spark 설렘 | 상 | 육합 ∨ 삼합 ∨ 생아 | 육합 .5 삼합 .3 생아 .4 재생 .4 원진 −.4 충 −.2 신살매력 .2 |
 | love_deepening 심화 | 상 | 육합 ∨ 삼합 (합 필수) | 육합 .6 삼합 .4 생아 .3 원진 −.4 파 −.3 |
-| love_reunion 재회 연락 | 중 | 충 ∨ 육합 | 충 .4 육합 .4 재생 .4 공망 .2 |
+| love_reunion 재회 연락 | 중 | 충 ∨ 육합 | 충 .4 육합 .4 재생 .4 공망 .2 신살매력 .2 |
 | love_cooldown 냉각 | 중 | 원진 ∨ 해 ∨ 파 ∨ 이탈 (식상 불요) | 원진 .5 해 .4 파 .4 이탈 .5 편인 .3 |
-| pleasant_meeting 모임 | 상 | 비화 ∨ 삼합 (육합 1:1 불인정) | 비화 .5 삼합 .5 식신 .4 원진 −.3 |
+| pleasant_meeting 모임 | 상 | 비화 ∨ 삼합 (육합 1:1 불인정) | 비화 .5 삼합 .5 식신 .4 원진 −.3 신살매력 .2 |
 | family_talk 가까운 대화 | 중 | (육합 ∨ 생아) ∧ (식상 ∨ 비화) | 육합 .5 생아 .4 식신 .5 비화 .3 정인 .3 충 −.3 — **slots: support+good** |
-| meet_helper 귀인 | 상 | 생아 ∨ 인성 | 생아 .6 정인 .4 육합 .3 공망 −.3 |
+| meet_helper 귀인 | 상 | 생아 ∨ 인성 | 생아 .6 정인 .4 육합 .3 공망 −.3 신살귀인 .2 |
 | old_contact 옛 인연 | 중 | 충 ∨ 육합 | 충 .4 육합 .3 재생 .4 공망 .2 정인 .2 |
-| good_news_arrives 소식 | 상 | 인성 ∨ 생아 | 정인 .5 생아 .4 육합 .3 공망 −.4 해 −.2 |
+| good_news_arrives 소식 | 상 | 인성 ∨ 생아 | 정인 .5 생아 .4 육합 .3 공망 −.4 해 −.2 신살귀인 .2 |
 
 **ATTN·POSS·CLOSE·MOVE — 주의·소지·마감·이동 (구 공망·충 클론군의 독립 mechanism)**
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
 | authorization_scope_caution 부탁 혼선 | 중 | (공망 ∨ 해) ∧ 원진 | 공망 .5 해 .4 원진 .5 |
 | document_device_caution 서류·폰 | 중 | 공망 ∧ 충 | 공망 .6 충 .4 둔화 .3 |
-| home_vehicle_lock_caution 문단속 | 중 | 파 ∧ (공망 ∨ 수렴) | 파 .6 공망 .4 수렴 .4 |
-| lost_item_caution 물건 흘림 | 중 | 공망 ∧ 파 | 공망 .6 파 .5 겁재 .3 |
-| traffic_delay_caution 이동 지연 | 중 | 공망 | 공망 .6 충 .3 둔화 .2 |
-| travel_schedule_caution 일정 어긋남 | 중 | 공망 ∧ 해 | 공망 .5 해 .6 둔화 .2 |
+| home_vehicle_lock_caution 문단속 | 중 | 파 ∧ (공망 ∨ 수렴) | 파 .6 공망 .4 수렴 .4 신살손실 .2 |
+| lost_item_caution 물건 흘림 | 중 | 공망 ∧ 파 | 공망 .6 파 .5 겁재 .3 신살손실 .3 |
+| traffic_delay_caution 이동 지연 | 중 | 공망 | 공망 .6 충 .3 둔화 .2 신살이동 .2 |
+| travel_schedule_caution 일정 어긋남 | 중 | 공망 ∧ 해 | 공망 .5 해 .6 둔화 .2 신살이동 .2 |
 | contract_recheck_caution 재확인 | 중 | 인성 ∧ (해 ∨ 공망) | 편인 .5 해 .4 공망 .4 |
 | contract_clause_caution 작은 글씨 | 중 | 편인 ∧ (재성 ∨ 겁재) | 편인 .5 정재 .3 겁재 .4 해 .3 |
-| belongings_security_caution 도난·분실 | 하 | 겁재 ∧ (공망 ∨ 파) | 겁재 .6 공망 .4 파 .4 |
-| account_phishing_caution 피싱 | 하 | 편인 ∧ (해 ∨ 원진) | 편인 .5 해 .4 원진 .3 둔화 .3 |
+| belongings_security_caution 도난·분실 | 하 | 겁재 ∧ (공망 ∨ 파) | 겁재 .6 공망 .4 파 .4 신살손실 .3 |
+| account_phishing_caution 피싱 | 하 | 편인 ∧ (해 ∨ 원진) | 편인 .5 해 .4 원진 .3 둔화 .3 신살손실 .2 |
 
 **COORD-신뢰위임 3형제**
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
-| lend_money_caution 금전 거래 | 중 | 비겁 | 겁재 .5 비견 .4 아극 .3 원진 .3 |
-| guarantee_stamp_caution 보증·도장 | 하 | 비겁 ∧ 관성 | 겁재 .4 정관 .4 편관 .3 원진 .2 |
-| name_lending_caution 명의 | 하 | 비겁 ∧ 편관 | 겁재 .4 편관 .5 원진 .3 |
+| lend_money_caution 금전 거래 | 중 | 비겁 | 겁재 .5 비견 .4 아극 .3 원진 .3 신살손실 .2 |
+| guarantee_stamp_caution 보증·도장 | 하 | 비겁 ∧ 관성 | 겁재 .4 정관 .4 편관 .3 원진 .2 신살손실 .2 |
+| name_lending_caution 명의 | 하 | 비겁 ∧ 편관 | 겁재 .4 편관 .5 원진 .3 신살손실 .2 |
 
 **ENERGY — 소모·회복 (fatigue/방전 분리)**
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
 | fatigue_caution 피곤 | 상 | 체력↓ ∨ 극아 | 체력↓ .6 극아 .5 둔화 .3 |
 | overexertion_recovery_caution 방전 | 중 | (아생 ∨ 아극) ∧ (활동↑ ∨ 과속) | 아생 .4 아극 .4 활동↑ .4 과속 .5 형 .2 |
-| sleep_recovery_caution 잠 부족 | 중 | 편인 ∨ 둔화 | 편인 .5 둔화 .5 원진 .3 체력↓ .3 |
+| sleep_recovery_caution 잠 부족 | 중 | 편인 ∨ 둔화 | 편인 .5 둔화 .5 원진 .3 체력↓ .3 신살귀문 .2 |
 | digestive_rhythm_caution 소화 | 중 | 편인(倒食) ∨ 극아 | 편인 .5 극아 .5 형 .2 |
-| rest_recharge 쉼 | 상 | 없음(포용) | 체력↓ .4 공망 .4 수렴 .4 둔화 .3 노련 .2 |
+| rest_recharge 쉼 | 상 | 없음(포용) | 체력↓ .4 공망 .4 수렴 .4 둔화 .3 노련 .2 신살은둔 .2 |
 
 **PHYS — 신체 (object hazard)**
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
-| careless_injury_caution 부주의 다침 | 하 | (충 ∨ 형) ∧ (공망 ∨ 둔화) | 충 .4 형 .4 공망 .3 둔화 .4 편관 .3 흔들림 .2 노련 −.2 |
-| fall_slip_caution 낙상 | 하 | 충 ∧ (파 ∨ 해 ∨ 둔화) | 충 .6 파 .5 해 .35 둔화 .4 |
-| cut_burn_tool_caution 칼·화상 | 하 | (충 ∨ 형) ∧ (金 ∨ 火) | 충 .3 형 .4 金 .5 火 .5 편관 .2 |
-| sports_overuse_caution 운동 무리 | 중 | (비화 ∨ 활동↑) ∧ 형 | 비화 .4 활동↑ .4 형 .5 과속 .4 |
-| fire_electric_check_caution 불·전기 | 하 | 火 ∧ (파 ∨ 공망) | 火 .6 파 .4 공망 .3 |
+| careless_injury_caution 부주의 다침 | 하 | (충 ∨ 형) ∧ (공망 ∨ 둔화) | 충 .4 형 .4 공망 .3 둔화 .4 편관 .3 흔들림 .2 노련 −.2 신살상해 .3 |
+| fall_slip_caution 낙상 | 하 | 충 ∧ (파 ∨ 해 ∨ 둔화) | 충 .6 파 .5 해 .35 둔화 .4 신살상해 .3 |
+| cut_burn_tool_caution 칼·화상 | 하 | (충 ∨ 형) ∧ (金 ∨ 火) | 충 .3 형 .4 金 .5 火 .5 편관 .2 신살상해 .3 |
+| sports_overuse_caution 운동 무리 | 중 | (비화 ∨ 활동↑) ∧ 형 | 비화 .4 활동↑ .4 형 .5 과속 .4 신살상해 .2 |
+| fire_electric_check_caution 불·전기 | 하 | 火 ∧ (파 ∨ 공망) | 火 .6 파 .4 공망 .3 신살상해 .2 |
 
 **LEISURE — 환기**
 | 사건 | prior | signature | evidence |
 |---|---|---|---|
-| walk_refresh 산책 | 상 | 없음(포용) | 생아 .4 재생 .5 공망 .3 체력↓ .2 |
-| tidy_luck 정리 | 상 | 없음(포용) | 수렴 .5 파 .3 공망 .4 정인 .2 구상 .2 |
+| walk_refresh 산책 | 상 | 없음(포용) | 생아 .4 재생 .5 공망 .3 체력↓ .2 신살이동 .2 |
+| tidy_luck 정리 | 상 | 없음(포용) | 수렴 .5 파 .3 공망 .4 정인 .2 구상 .2 신살은둔 .2 |
 
 ### 22-4. 감사 규격 (funnel — 상설)
 
@@ -566,14 +568,14 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 **good 11종**
 | 사건 | 도메인 · 슬롯 | prior | signature | evidence |
 |---|---|---|---|---|
-| work_smooth 일이 술술 풀릴 확률 | work · good/support | 상 | 활동↑ ∧ (정재 ∨ 정관 ∨ 정인) | 활동↑ .5 정재 .3 정관 .3 정인 .3 육합 .2 단장 .2 공망 −.4 충 −.3 |
-| opinion_accepted 의견이 받아들여질 확률 | work · good/support | 상 | 식상 ∧ (관성 ∨ 육합) | 식신 .4 상관 .15 정관 .4 육합 .4 단장 .2 원진 −.3 해 −.3 |
-| smooth_trip 이동·외출이 순조로울 확률 | move · good/support | 상 | (활동↑ ∨ 재생) ∧ (삼합 ∨ 육합 ∨ 생아) | 활동↑ .4 재생 .4 삼합 .4 육합 .3 생아 .3 공망 −.4 충 −.2 |
+| work_smooth 일이 술술 풀릴 확률 | work · good/support | 상 | 활동↑ ∧ (정재 ∨ 정관 ∨ 정인) | 활동↑ .5 정재 .3 정관 .3 정인 .3 육합 .2 단장 .2 공망 −.4 충 −.3 신살위상 .2 |
+| opinion_accepted 의견이 받아들여질 확률 | work · good/support | 상 | 식상 ∧ (관성 ∨ 육합) | 식신 .4 상관 .15 정관 .4 육합 .4 단장 .2 원진 −.3 해 −.3 신살위상 .2 |
+| smooth_trip 이동·외출이 순조로울 확률 | move · good/support | 상 | (활동↑ ∨ 재생) ∧ (삼합 ∨ 육합 ∨ 생아) | 활동↑ .4 재생 .4 삼합 .4 육합 .3 생아 .3 공망 −.4 충 −.2 신살이동 .3 |
 | errand_done 미뤄둔 볼일이 한 번에 끝날 확률 | move · support(헤드라인 자격) | 중 | 아극 ∧ (활동↑ ∨ 수렴) | 아극 .5 활동↑ .4 수렴 .3 정재 .3 공망 −.3 |
 | body_light 몸이 가볍고 컨디션 좋을 확률 | health · good/support | 상 | (생아 ∨ 인성) ∧ (재생 ∨ 활동↑) | 생아 .5 정인 .3 재생 .4 활동↑ .4 극아 −.3 형 −.2 |
 | appetite_joy 먹는 게 유난히 맛있을 확률 | health · support(헤드라인 자격) | 중 | 식신 ∧ (생아 ∨ 육합) | 식신 .6 생아 .3 육합 .2 편인 −.4 |
 | answer_arrives 미뤄진 답이 정리될 확률 | news · good/support | 중 | 관성 ∧ (육합 ∨ 삼합 ∨ 충) | 정관 .5 편관 .3 육합 .4 삼합 .3 충 .3 공망 −.4 |
-| unexpected_offer 예상 밖 제안을 받을 확률 | news · good/support | 중 | (편재 ∨ 편관) ∧ (충 ∨ 삼합) | 편재 .4 편관 .4 충 .4 삼합 .3 재생 .2 공망 −.3 |
+| unexpected_offer 예상 밖 제안을 받을 확률 | news · good/support | 중 | (편재 ∨ 편관) ∧ (충 ∨ 삼합) | 편재 .4 편관 .4 충 .4 삼합 .3 재생 .2 공망 −.3 신살귀인 .2 |
 | learning_click 배우던 게 머리에 쏙 들어올 확률 | document · support(헤드라인 자격) | 중 | 정인 ∧ (재생 ∨ 활동↑ ∨ 육합) | 정인 .6 편인 .3 재생 .3 활동↑ .2 육합 .2 구상 .1 충 −.3 원진 −.2 |
 | forgotten_money 잊고 있던 돈·물건을 찾을 확률 | money · support(헤드라인 자격) | 중 | 재성 ∧ (수렴 ∨ 파) | 정재 .4 편재 .4 수렴 .5 파 .3 공망 .2 |
 | give_care 누군가를 챙겨주고 뿌듯할 확률 | social · support(헤드라인 자격) | 중 | 아생 ∧ 식신 | 아생 .5 식신 .5 육합 .3 정인 .2 겁재 −.3 |
@@ -581,11 +583,11 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 **caution 5종**
 | 사건 | 도메인 | prior | signature | evidence |
 |---|---|---|---|---|
-| emotion_rush_caution 감정이 앞서 말이 세질 확률 | social | 중 | 과속 ∧ 식상 | 과속 .5 상관 .5 비화 .3 형 .2 흔들림 .2 정인 −.3 |
-| overconfidence_caution 자신감이 과해 실수할 확률 | work | 중 | (과속 ∨ 활동↑) ∧ 비겁 | 과속 .5 활동↑ .3 비견 .4 겁재 .3 정인 −.2 |
+| emotion_rush_caution 감정이 앞서 말이 세질 확률 | social | 중 | 과속 ∧ 식상 | 과속 .5 상관 .5 비화 .3 형 .2 흔들림 .2 정인 −.3 신살귀문 .2 |
+| overconfidence_caution 자신감이 과해 실수할 확률 | work | 중 | (과속 ∨ 활동↑) ∧ 비겁 | 과속 .5 활동↑ .3 비견 .4 겁재 .3 정인 −.2 신살상해 .2 |
 | close_person_expense_caution 가까운 사람 때문에 지출할 확률 | money | 중 | 겁재 ∧ (육합 ∨ 삼합 ∨ 식신) | 겁재 .6 육합 .3 삼합 .3 식신 .3 정재 −.2 |
 | procrastination_caution 귀찮아서 미룰 확률 | work | 중 | (둔화 ∨ 이탈) ∧ (편인 ∨ 공망) | 둔화 .5 이탈 .4 편인 .4 공망 .3 구상 .2 정관 −.3 |
-| rumination_caution 지난 일을 곱씹어 마음이 무거울 확률 | health | 중 | 편인 ∧ (원진 ∨ 수렴 ∨ 이탈) | 편인 .5 원진 .4 수렴 .3 이탈 .3 식신 −.3 |
+| rumination_caution 지난 일을 곱씹어 마음이 무거울 확률 | health | 중 | 편인 ∧ (원진 ∨ 수렴 ∨ 이탈) | 편인 .5 원진 .4 수렴 .3 이탈 .3 식신 −.3 신살은둔 .2 신살귀문 .3 |
 
 **동의어 그룹(상충 사건 동시 노출 금지).** 신설 `task_pace_group`(work_smooth·errand_done·procrastination_caution), `money_outflow_group`(close_person_expense_caution·lend_money_caution — lend_money 재배정), `discovery_group`(forgotten_money·small_find — small_find 재배정). 기존 그룹 편입: smooth_trip→movement_safety_group, body_light·appetite_joy→recovery_group, answer_arrives→incoming_news, emotion_rush_caution→speech_trouble.
 
@@ -643,13 +645,13 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 **good 9종**
 | 사건 | 도메인 · 슬롯 | prior | signature | evidence |
 |---|---|---|---|---|
-| approval_resumes 보류됐던 승인·지급이 풀릴 확률 | document · good/support | 중 | (정관 ∨ 정인) ∧ (육합 ∨ 충) | 정관 .4 정인 .4 육합 .4 충 .3 활동↑ .2 공망 −.4 해 −.2 |
-| misunderstanding_cleared 오해가 풀리고 화해할 확률 | social · good/support | 중 | 육합 ∧ (식상 ∨ 인성) | 육합 .6 식신 .3 정인 .3 재생 .2 원진 −.5 해 −.4 충 −.2 |
+| approval_resumes 보류됐던 승인·지급이 풀릴 확률 | document · good/support | 중 | (정관 ∨ 정인) ∧ (육합 ∨ 충) | 정관 .4 정인 .4 육합 .4 충 .3 활동↑ .2 공망 −.4 해 −.2 신살위상 .2 |
+| misunderstanding_cleared 오해가 풀리고 화해할 확률 | social · good/support | 중 | 육합 ∧ (식상 ∨ 인성) | 육합 .6 식신 .3 정인 .3 재생 .2 원진 −.5 해 −.4 충 −.2 신살귀인 .2 |
 | burden_settled 미뤄둔 빚·의무를 정리할 확률 | money · support(헤드라인 자격) | 중 | 정재 ∧ (수렴 ∨ 아극) | 정재 .5 수렴 .4 아극 .4 정관 .2 겁재 −.3 공망 −.3 |
 | early_catch 실수를 미리 잡아낼 확률 | work · support(헤드라인 자격) | 중 | 정인 ∧ (편관 ∨ 노련 ∨ 파) | 정인 .5 편관 .3 노련 .4 파 .3 공망 −.3 겁재 −.2 |
-| referral_received 추천·소개를 받을 확률 | social · good/support | 중 | (정관 ∨ 정인) ∧ (육합 ∨ 삼합) | 정관 .4 정인 .4 육합 .4 삼합 .3 생아 .3 원진 −.3 |
-| trust_restored 서먹했던 사이가 회복될 확률 | love · good/support | 중 | (육합 ∨ 삼합) ∧ 재생 | 육합 .5 삼합 .3 재생 .5 정인 .2 원진 −.5 파 −.3 |
-| relief_news 부담을 덜어주는 소식이 올 확률 | news · good/support | 중 | (인성 ∨ 식신) ∧ (육합 ∨ 수렴) | 정인 .4 식신 .4 육합 .3 수렴 .3 극아 −.3 공망 −.3 |
+| referral_received 추천·소개를 받을 확률 | social · good/support | 중 | (정관 ∨ 정인) ∧ (육합 ∨ 삼합) | 정관 .4 정인 .4 육합 .4 삼합 .3 생아 .3 원진 −.3 신살귀인 .2 |
+| trust_restored 서먹했던 사이가 회복될 확률 | love · good/support | 중 | (육합 ∨ 삼합) ∧ 재생 | 육합 .5 삼합 .3 재생 .5 정인 .2 원진 −.5 파 −.3 신살귀인 .2 |
+| relief_news 부담을 덜어주는 소식이 올 확률 | news · good/support | 중 | (인성 ∨ 식신) ∧ (육합 ∨ 수렴) | 정인 .4 식신 .4 육합 .3 수렴 .3 극아 −.3 공망 −.3 신살귀인 .2 |
 | autonomy_day 내 뜻대로 정할 여지가 생길 확률 | work · good/support | 중 | 비견 ∧ (활동↑ ∨ 단장) | 비견 .5 활동↑ .4 단장 .3 정재 .2 편관 −.3 공망 −.2 |
 | demand_up 찾는 사람이 늘어날 확률 | money · good/support | 중 | 식상 ∧ 재성 | 식신 .4 상관 .3 정재 .3 편재 .4 활동↑ .2 공망 −.3 |
 
@@ -731,6 +733,92 @@ DICT_VERSION dict.v1.14 · MODEL_V2_VERSION model.v2.2 · 날짜 경계 `CATALOG
 **결정(2026-09-10 사용자 승인 "B안, 가중은 실험 후 나은 쪽").** learning_click 구상 가중 .2 vs .1 을 같은 조건으로 실험: 전역 지표는 동일(상위 점유 43%·종류 47·그룹 good 고유 3.07), .2 는 learning_click 헤드라인 11→41 로 같은 도메인 주력 document_progress(44)에 육박하고 변경 95장, .1 은 26 으로 균형이 유지되고 변경 84장 → **.1 채택**. 반영: §22-3 표 14행(evidence 만, 게이트 불변)·v2 카탈로그·taxonomy(해당 사건 subject/adverse 에 `운성` 추가)·model.v2.1 in-place 스냅샷. v1 카탈로그는 12운성 대응이 없어 무변경. 회귀 `test_residual_stage_channels_wired_per_b_plan` 이 배선표를 고정한다(표 밖 사건의 잔여 채널 참조 금지).
 
 최종 재측정(HEAD 스냅샷 대비, 1,800장): 헤드라인 84장 변경, 슬롯 good 34·support 86·caution 41. 상위 5종 점유 44→43%, 그룹 내 good 고유 3.03→3.07, learning_click 헤드라인 11→26, document_progress 37→44, work_smooth 69→82, love_misread 슬롯 37→51, rest_recharge 69→84.
+
+### 22-9. 신살 채널 — 정의·배선·재측정 (2026-09-18 4차, 사용자 지시 "오늘의 운세에도 반영")
+
+**배경.** 위험 엔진의 P2 family 보조 증폭 층(RISK_ENGINE.md §3-7 — 흉 극성 동반 신살·구조 배경을 AMPLIFIER 근거로만
+덧붙임)을 오늘의 운세에 대응시킨다. 오늘의 운세는 개인 명식을 쓰지 않으므로(§10 제외 원칙) 원국 신살·구조 배경은 쓸 수 없고,
+**일간·일지 기준 오늘 일진의 신살**만 채널로 승격한다. 원칙은 같다 — 신살은 독립 트리거가 아니라 보조 신호다: `required_signature`
+에 신살 채널을 쓰면 스키마가 거부하고(`_validate_signature`), evidence 가중은 .3 이하로 둔다.
+
+**정의(`day_channels` → `sinsal_channels`, 만세력 `sinsal_catalog` 표 그대로·재정의 없음).**
+
+| 채널 | 원신호 | 값 | 의미 |
+|---|---|---|---|
+| 귀인 `sinsal_noble` | 천을귀인(일간→오늘 지지) / 천덕·월덕(오늘 월지→오늘 천간·지지) / 금여·암록(일간→오늘 지지) | 1.0 / .6 / .5 | 조력·보호·순조 |
+| 상해 `sinsal_hazard` | 양인(일간→오늘 지지) / 백호(오늘 일진 간지) / 현침(오늘 천간 甲辛·지지 卯午申) | 1.0 / .6 / .4 | 과강·날카로움·부주의 상해 |
+| 손실 `sinsal_loss` | 12신살(일지 삼합국→오늘 지지) 겁살 / 재살·망신살 / 육해살·천살 / 월살 | 1.0 / .8 / .6 / .5 | 분실·노출·지체 |
+| 이동 `sinsal_move` | 12신살 역마살 / 지살 | 1.0 / .6 | 이동·외출·일정 |
+| 매력 `sinsal_charm` | 12신살 년살(도화) / 홍염(일간→오늘 지지) | 1.0 / .8 | 끌림·설렘·오해 |
+| 위상 `sinsal_status` | 12신살 장성살 / 반안살 | 1.0 / .8 | 인정·안정·주도 |
+| 은둔 `sinsal_retreat` | 12신살 화개살 | 1.0 | 정리·쉼·곱씹음 |
+| 귀문 `sinsal_gwimun` | 귀문관살(일지-오늘 지지 쌍) | 1.0 | 예민·직관·감정 동요 |
+
+**배선(evidence 만, 게이트 불변 — 40사건 41항목).** caution 에는 상해·손실·귀문·이동, good 에는 귀인·위상·매력·이동·은둔.
+§22-3·§22-7 표의 evidence 셀에도 같은 값을 병기했다.
+
+| 사건 | 신살 evidence |
+|---|---|
+| account_phishing_caution | 신살손실 .2 |
+| approval_resumes | 신살위상 .2 |
+| belongings_security_caution | 신살손실 .3 |
+| careless_injury_caution | 신살상해 .3 |
+| cut_burn_tool_caution | 신살상해 .3 |
+| emotion_rush_caution | 신살귀문 .2 |
+| fall_slip_caution | 신살상해 .3 |
+| fire_electric_check_caution | 신살상해 .2 |
+| good_news_arrives | 신살귀인 .2 |
+| guarantee_stamp_caution | 신살손실 .2 |
+| home_vehicle_lock_caution | 신살손실 .2 |
+| lend_money_caution | 신살손실 .2 |
+| lost_item_caution | 신살손실 .3 |
+| love_misread | 신살매력 .2 |
+| love_reunion | 신살매력 .2 |
+| love_spark | 신살매력 .2 |
+| meet_helper | 신살귀인 .2 |
+| misunderstanding_caution | 신살귀문 .2 |
+| misunderstanding_cleared | 신살귀인 .2 |
+| name_lending_caution | 신살손실 .2 |
+| opinion_accepted | 신살위상 .2 |
+| overconfidence_caution | 신살상해 .2 |
+| overspend_caution | 신살손실 .2 |
+| pleasant_meeting | 신살매력 .2 |
+| praise_recognition | 신살위상 .2 |
+| referral_received | 신살귀인 .2 |
+| relief_news | 신살귀인 .2 |
+| rest_recharge | 신살은둔 .2 |
+| rumination_caution | 신살은둔 .2 · 신살귀문 .3 |
+| rumor_caution | 신살손실 .2 |
+| sleep_recovery_caution | 신살귀문 .2 |
+| smooth_trip | 신살이동 .3 |
+| sports_overuse_caution | 신살상해 .2 |
+| tidy_luck | 신살은둔 .2 |
+| traffic_delay_caution | 신살이동 .2 |
+| travel_schedule_caution | 신살이동 .2 |
+| trust_restored | 신살귀인 .2 |
+| unexpected_offer | 신살귀인 .2 |
+| walk_refresh | 신살이동 .2 |
+| work_smooth | 신살위상 .2 |
+
+**가중 실험(§22-8 과 같은 방식 — 9/20~10/19 × 60일주 = 1,800장, HEAD 스냅샷 대비, LLM 0회).**
+
+| 지표 | 현행 | A안(전부 .3/.2) | B안(meet_helper·referral·praise·love_spark .3→.2) |
+|---|---|---|---|
+| 헤드라인 변경 | – | 331 | 252 |
+| headline 상위 5종 점유 | 39.3% | 39.7% | 39.3% |
+| headline 사건 종류 | 57 | 55 | 56 |
+| meet_helper 헤드라인 | 48 | 110 | 61 |
+| praise_recognition 헤드라인 | 153 | 199 | 180 |
+| love_spark 헤드라인 | 35 | 73 | 53 |
+| referral_received 헤드라인 | 5 | 18 | 14 |
+
+읽기: A안은 이미 많은 praise_recognition·meet_helper 를 더 키운다(§22-8 이 기각한 방향). **B안 채택** — 상위 점유 불변, 종류 감소 1.
+슬롯 변경(A안 기준) good 255·support 379·caution 188. 일주별 30일 good 고유 사건 중앙값 13 → 13.
+
+**버전.** model.v2.2 in-place(경계 9/20 이전 — v2.2 보드는 아직 생성된 적 없음, §22-8 의 v2.1 in-place 와 같은 조건). v1 사전(dict.v1.14)
+은 신살 대응이 없어 무변경. taxonomy 어휘에 `신살` family 추가(배선 사건의 subject/adverse 에 정확히 1회). 감수: 사전 reviewed:false
+유지 — 런타임 게이트 아님(품질 절차). 회귀 `test_daily_sinsal_channels.py`(표 정합·게이트 거부·배선표 고정·분류 정합).
+
 
 ## 23. 표현 결(tone) 층 — 십성·12운성의 문장 반영 (2026-09-10 사용자 승인)
 

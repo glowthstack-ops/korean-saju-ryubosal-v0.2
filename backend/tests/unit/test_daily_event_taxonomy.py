@@ -23,7 +23,8 @@ _DICTS = Path(M.__file__).resolve().parents[3] / "dictionaries" / "daily_fortune
 #: 재성 — 주제(재물·거래·자원) 활성 신호. G0 판정의 기준이다.
 _WEALTH_TEN_GODS = ("편재", "정재")
 #: 합회·운성은 2026-09-10 §22-7 확장에서 추가(합·12운성이 출전권인 사건의 정직한 분류).
-_EVIDENCE_FAMILIES = {"비겁", "식상", "재성", "관성", "인성", "충형파해", "합회", "운성"}
+#: 신살은 2026-09-18 §22-9 4차(신살 채널 8종, evidence 전용)에서 추가.
+_EVIDENCE_FAMILIES = {"비겁", "식상", "재성", "관성", "인성", "충형파해", "합회", "운성", "신살"}
 _CONDITIONS = {"favorable_only", "requires_adverse", "mixed_trigger"}
 _ROLES = {"full", "support_only", "caution_only"}
 # deferred_money: 2026-09-18 3차 확장의 money caution 2종 — 구조 후보이나 승인 슬라이스 밖.

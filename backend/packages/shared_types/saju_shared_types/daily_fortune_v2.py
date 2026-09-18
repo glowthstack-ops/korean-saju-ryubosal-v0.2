@@ -25,7 +25,8 @@ from saju_shared_types.daily_fortune import (
 #: v1 사전과 같은 날짜 경계(CATALOG_EXPANSION_EFFECTIVE_FROM)로 버전을 고른다 — 이미
 #: 생성·교정된 9/10·9/11 보드가 재생성(LLM 재교정)되지 않게 하기 위해서다.
 #: v2.2(2026-09-18): 카탈로그 64→82종 3차 확장(docs/17 §22-7 3차).
-#: 경계는 CATALOG_EXPANSION_3_EFFECTIVE_FROM.
+#: 경계는 CATALOG_EXPANSION_3_EFFECTIVE_FROM. 같은 날 4차(§22-9 신살 채널 8종, evidence 전용)를
+#: 경계(9/20) 이전에 in-place 반영 — v2.2 보드는 아직 생성된 적이 없어 재생성 문제가 없다.
 MODEL_V2_VERSION = "model.v2.2"
 #: 3차 경계 이전(9/12~9/19)에 적용되는 v2 모델 버전(64종). 스냅샷 model.v2.1 이 커밋돼 있다.
 MODEL_V2_VERSION_BEFORE_EXPANSION_3 = "model.v2.1"
@@ -83,11 +84,24 @@ SIPSEONG_GROUPS: dict[str, tuple[str, ...]] = {
 }
 #: 오행 활성(간이 object hazard) 채널.
 HAZARD_CHANNELS: tuple[str, ...] = ("metal", "fire")
+#: 신살 채널(§22-9, 2026-09-18 4차 — 데굴님 지시 "오늘의 운세에도 반영"). 일간·일지 기준 오늘
+#: 일진의 신살만 본다(개인 명식 불사용 — §10 제외 원칙 유지). **evidence 전용** — 신살은 독립
+#: 트리거가 아니므로(RISK_ENGINE.md §3-1 원칙과 동일) required_signature 에 쓰면 스키마가 거부한다.
+SINSAL_CHANNELS: tuple[str, ...] = (
+    "sinsal_noble",    # 귀인: 천을 1.0 / 천덕·월덕 .6 / 금여·암록 .5
+    "sinsal_hazard",   # 상해: 양인 1.0 / 백호(오늘 일진) .6 / 현침 .4
+    "sinsal_loss",     # 손실·노출(12신살): 겁살 1.0 / 재살·망신 .8 / 육해·천살 .6 / 월살 .5
+    "sinsal_move",     # 이동(12신살): 역마 1.0 / 지살 .6
+    "sinsal_charm",    # 매력: 년살(도화) 1.0 / 홍염 .8
+    "sinsal_status",   # 위상(12신살): 장성 1.0 / 반안 .8
+    "sinsal_retreat",  # 은둔·수렴(12신살): 화개 1.0
+    "sinsal_gwimun",   # 예민·직관: 귀문관살(일지-오늘 지지) 1.0
+)
 
 #: signature/evidence 가 참조할 수 있는 이름 전체.
 ALLOWED_CHANNEL_NAMES: frozenset[str] = frozenset(
     RELATION_CHANNELS + STAGE_CHANNELS_V2 + ELEMENT_DIRECTION_CHANNELS
-    + SIPSEONG_CHANNELS + tuple(SIPSEONG_GROUPS) + HAZARD_CHANNELS
+    + SIPSEONG_CHANNELS + tuple(SIPSEONG_GROUPS) + HAZARD_CHANNELS + SINSAL_CHANNELS
 )
 
 #: 게이트식 — 문자열 리프 또는 ["or"|"and", 하위식...]. None = 무게이트(포용 사건).
@@ -104,6 +118,8 @@ def _validate_signature(expr: object) -> list[str]:
     if isinstance(expr, str):
         if expr not in ALLOWED_CHANNEL_NAMES:
             errors.append(f"미정의 채널: {expr}")
+        elif expr in SINSAL_CHANNELS:
+            errors.append(f"신살 채널은 게이트 금지(evidence 전용, §22-9): {expr}")
         return errors
     if not isinstance(expr, list) or not expr or expr[0] not in ("or", "and"):
         errors.append(f"게이트식 형식 오류: {expr!r}")

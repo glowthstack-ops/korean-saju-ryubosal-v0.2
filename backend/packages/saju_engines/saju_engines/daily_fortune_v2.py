@@ -24,6 +24,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from saju_manse_analysis.sinsal import sinsal_catalog as _sc
+
 from saju_engines import daily_ilju_fortune as v1
 from saju_manse_core.pillars.gongmang import gongmang_branches
 from saju_manse_core.pillars.twelve_unseong import twelve_unseong
@@ -37,6 +39,7 @@ from saju_shared_types.daily_fortune_v2 import (
     MODEL_V2_VERSION,
     PRIOR_VALUE,
     RELATION_CHANNELS,
+    SINSAL_CHANNELS,
     SIPSEONG_GROUPS,
     STAGE_CHANNELS_V2,
     DailyEventCatalogV2,
@@ -77,6 +80,15 @@ _STAGE_CHANNEL_VALUES: dict[str, dict[str, float]] = {
     "YANG": {"renewal": 0.5, "incubation": 0.8},
 }
 
+#: 12신살(일지 삼합국 기준 오늘 지지) → 신살 채널·값 (§22-9).
+_TWELVE_SINSAL_CHANNEL: dict[str, tuple[str, float]] = {
+    "겁살": ("sinsal_loss", 1.0), "재살": ("sinsal_loss", 0.8), "망신살": ("sinsal_loss", 0.8),
+    "육해살": ("sinsal_loss", 0.6), "천살": ("sinsal_loss", 0.6), "월살": ("sinsal_loss", 0.5),
+    "역마살": ("sinsal_move", 1.0), "지살": ("sinsal_move", 0.6),
+    "연살": ("sinsal_charm", 1.0),
+    "장성살": ("sinsal_status", 1.0), "반안살": ("sinsal_status", 0.8),
+    "화개살": ("sinsal_retreat", 1.0),
+}
 _GEN = {"木": "火", "火": "土", "土": "金", "金": "水", "水": "木"}
 _OVR = {"木": "土", "土": "水", "水": "火", "火": "金", "金": "木"}
 
@@ -222,6 +234,9 @@ def day_channels(
         grade = 0.7 if htype == "main" else 0.3
         ch[_tg(hs)] = max(ch[_tg(hs)], grade)
 
+    # 신살 채널(§22-9, 4차) — 일간·일지 기준 오늘 일진 신살. evidence 전용(게이트는 스키마가 거부).
+    ch.update(sinsal_channels(ilju_stem, ilju_branch, ds, db, helpers[0]))
+
     # 오행 활성(간이 object hazard) — 金·火: 천간·본기 1.0 / 지장간만 0.5
     main_elem = BRANCH_ELEMENT[db].value
     for name, elem in (("metal", "金"), ("fire", "火")):
@@ -231,6 +246,59 @@ def day_channels(
         elif any(STEM_ELEMENT[hs].value == elem for hs, _t in hidden):
             value = 0.5
         ch[name] = value
+    return ch
+
+
+def sinsal_channels(
+    ilju_stem: Stem, ilju_branch: Branch, day_stem: Stem, day_branch: Branch,
+    month_branch: Branch,
+) -> dict[str, float]:
+    """신살 채널 8종 (§22-9) — 일간·일지 기준 오늘 일진의 신살만 본다(개인 명식 불사용).
+
+    표는 만세력 엔진의 default 신살 테이블(sinsal_catalog)을 그대로 읽는다 — 여기서 신살을
+    재정의하지 않는다. 천덕·월덕만 오늘의 월지(절기)를 기준으로 오늘 천간·지지를 본다.
+
+    Args:
+        ilju_stem: 일주 천간(=일간).
+        ilju_branch: 일주 지지(=일지).
+        day_stem: 오늘 일진 천간.
+        day_branch: 오늘 일진 지지.
+        month_branch: 오늘의 절기 월지(천덕·월덕 기준).
+
+    Returns:
+        SINSAL_CHANNELS 전부를 키로 갖는 채널값(0..1) — 매칭 없으면 0.0.
+    """
+    ch: dict[str, float] = {name: 0.0 for name in SINSAL_CHANNELS}
+    # 귀인 — 천을(일간→오늘 지지) 1.0 / 천덕·월덕(월지→오늘 천간·지지) .6 / 금여·암록 .5
+    if day_branch in _sc.CHEONEUL.get(ilju_stem, []):
+        ch["sinsal_noble"] = 1.0
+    if _sc.WOLDEOK.get(month_branch) == day_stem or _sc.CHEONDEOK.get(month_branch) in (
+        day_stem, day_branch,
+    ):
+        ch["sinsal_noble"] = max(ch["sinsal_noble"], 0.6)
+    if _sc.GEUMYEO.get(ilju_stem) == day_branch or _sc.AMROK.get(ilju_stem) == day_branch:
+        ch["sinsal_noble"] = max(ch["sinsal_noble"], 0.5)
+    # 상해 — 양인(일간→오늘 지지) 1.0 / 백호(오늘 일진 간지) .6 / 현침(오늘 글자) .4
+    if _sc.YANGIN.get(ilju_stem) == day_branch:
+        ch["sinsal_hazard"] = 1.0
+    if (day_stem, day_branch) in _sc.BAEKHO:
+        ch["sinsal_hazard"] = max(ch["sinsal_hazard"], 0.6)
+    if day_stem in _sc.HYEONCHIM_STEMS or day_branch in _sc.HYEONCHIM_BRANCHES:
+        ch["sinsal_hazard"] = max(ch["sinsal_hazard"], 0.4)
+    # 12신살 — 일지 삼합국 기준 오늘 지지의 상대 위치(relationship_relative_sinsal 재사용)
+    from .relationship_relative_sinsal import get_relative_sinsal
+
+    name, value = _TWELVE_SINSAL_CHANNEL.get(
+        get_relative_sinsal(ilju_branch, day_branch).sinsal, ("", 0.0),
+    )
+    if name:
+        ch[name] = max(ch[name], value)
+    # 매력 — 홍염(일간→오늘 지지) .8 (년살 1.0 은 위 12신살)
+    if _sc.HONGYEOM.get(ilju_stem) == day_branch:
+        ch["sinsal_charm"] = max(ch["sinsal_charm"], 0.8)
+    # 예민·직관 — 귀문관살(일지-오늘 지지 쌍)
+    if frozenset({ilju_branch, day_branch}) in _sc.GWIMUN:
+        ch["sinsal_gwimun"] = 1.0
     return ch
 
 
