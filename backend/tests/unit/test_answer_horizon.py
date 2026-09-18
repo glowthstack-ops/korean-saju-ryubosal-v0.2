@@ -128,8 +128,14 @@ def test_horizon_directive_allows_one_line_notice() -> None:
     assert "한 줄 안내만 허용" in text
 
 
-def test_long_term_question_keeps_ten_year_digest() -> None:
-    """명시적 장기 질문(노후 등)은 기존 10년 연 단위 digest 유지(정책 미적용)."""
+def test_long_term_question_skips_horizon_policy() -> None:
+    """명시적 장기 질문(노후 등)은 지평 정책 미적용 — 전 생애/단계 스캔이 담당.
+
+    2026-08-07 전 생애 스캔 도입으로 '노후'는 10년 digest가 아니라 말년(76~100세)
+    단계 스캔으로 라우팅된다. 이 테스트의 보호 대상(지평 정책이 장기 질문을
+    3~6개월 창으로 좁히지 않는 것)은 그대로 유지된다.
+    """
     text = _prompt("노후 운세가 궁금해")
     assert "[답변 지평]" not in text
-    assert "약 10년의 흐름" in text
+    assert "[응답 형식 — 인생 단계 스캔]" in text
+    assert "말년(76~100세 무렵" in text

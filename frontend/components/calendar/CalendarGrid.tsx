@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchLuckDays } from "@/lib/api";
 // 일운 오버레이 기준 사주 해석은 공통 resolver 사용(일주별 오늘의 운세 메인 카드와 동일 규칙):
-// 로그인=선택 사주(사주별 균시차), 게스트=IndexedDB 프로필+기기 균시차 토글.
+// 로그인=선택 사주(사주별 균시차·자시 규칙), 게스트=IndexedDB 프로필+기기 설정.
+import { buildTimeOptions } from "@/lib/subject-mapping";
 import { resolveOverlayProfile } from "@/lib/use-current-ilju";
 import type { CalendarDay, CalendarMonth, LuckPillar, LuckSinsal, Profile } from "@/lib/types";
 
@@ -130,7 +131,7 @@ function DayDetail({ d, luck, onClose }: { d: CalendarDay; luck?: LuckPillar; on
       {/* 단일 grid: 라벨 열 = 최장 항목명(max-content) 기준 고정, 값 열 = 나머지(1fr). */}
       <div className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-0.5">
         {row("음력", `${d.lunar_date}${d.is_leap_month ? " (윤달)" : ""}`)}
-        {row("년주", `${d.year_ganji} (${d.year_ganji_ko}) · ${d.year_zodiac}띠`)}
+        {row("연주", `${d.year_ganji} (${d.year_ganji_ko}) · ${d.year_zodiac}띠`)}
         {row("월주", `${d.month_ganji} (${d.month_ganji_ko})`)}
         {row("일주", `${d.day_ganji} (${d.day_ganji_ko})`)}
         {d.naeum && row("납음(일주)", d.naeum)}
@@ -174,9 +175,9 @@ export function CalendarGrid({ data }: { data: CalendarMonth }) {
     resolveOverlayProfile()
       .then((resolved) => {
         if (!resolved) return;
-        // 로그인 사주 = 사주별 저장값, 게스트 = 기기 토글 — 만세력·챗·리포트와 동일 기준.
-        const { profile: p, eot } = resolved;
-        const timeOptions = { apply_equation_of_time: eot };
+        // 로그인 사주 = 사주별 저장값, 게스트 = 기기 설정 — 만세력·챗·리포트와 동일 기준.
+        const { profile: p, eot, jaHourRule } = resolved;
+        const timeOptions = buildTimeOptions(eot, jaHourRule);
         return fetchLuckDays(p, data.year, data.month, undefined, timeOptions).then((days) => {
           if (!alive) return;
           const map: Record<string, LuckPillar> = {};

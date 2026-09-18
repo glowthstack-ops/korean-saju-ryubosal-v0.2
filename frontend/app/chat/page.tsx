@@ -386,8 +386,9 @@ export default function ChatPage() {
   }
 
   return (
-    // pb-24: 하단 고정 입력바에 가려지지 않도록 본문 끝에 여백 확보.
-    <div className="pb-28">
+    // pb-28: 하단 고정 입력바에 가려지지 않도록 본문 끝에 여백 확보.
+    // -mb-20: 루트 레이아웃 공통 하단 여백(pb-20) 상쇄 — 입력바가 fixed라 이 페이지는 자체 pb-28만 쓴다.
+    <div className="-mb-20 pb-28">
       {showSwitch && (
         <Modal title="사주 변경" onClose={() => setShowSwitch(false)}>
           <div className="space-y-1.5">
@@ -551,16 +552,19 @@ export default function ChatPage() {
                   ? `inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-4 py-2 text-left ${bubbleFontCls} text-white`
                   : m.error
                     ? `inline-block max-w-[95%] rounded-2xl bg-red-50 px-4 py-3 ${bubbleFontCls} text-red-700`
-                    : `inline-block max-w-[95%] rounded-2xl bg-gray-100 px-4 py-3 ${bubbleFontCls} text-gray-800`
+                    : m.pending
+                      ? "block max-w-[95%] py-1" // 대기 스켈레톤 — 말풍선 배경 없이 본문 폭 사용
+                      : `inline-block max-w-[95%] rounded-2xl bg-gray-100 px-4 py-3 ${bubbleFontCls} text-gray-800`
               }
             >
               {m.role === "user" ? (
                 m.text
               ) : m.pending ? (
-                <span className={`flex items-center gap-2 ${bubbleFontCls} text-gray-500`}>
-                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-400" />
-                  답변 생성 중…
-                </span>
+                <div className="space-y-2.5" role="status" aria-label="답변 생성 중">
+                  <div className="chat-skeleton-line w-full" />
+                  <div className="chat-skeleton-line w-11/12" style={{ animationDelay: "0.15s" }} />
+                  <div className="chat-skeleton-line w-2/3" style={{ animationDelay: "0.3s" }} />
+                </div>
               ) : (
                 <div className={`prose ${proseFontCls} max-w-none prose-p:my-1.5 prose-headings:mt-2 prose-headings:mb-1 prose-li:my-0.5`}>
                   <ReactMarkdown>{m.text}</ReactMarkdown>
@@ -585,7 +589,13 @@ export default function ChatPage() {
           </div>
         ))}
 
-        {busy && <p className="text-sm text-gray-400">풀이 작성 중…</p>}
+        {busy && (
+          <div className="max-w-[95%] space-y-2.5 py-1" role="status" aria-label="풀이 작성 중">
+            <div className="chat-skeleton-line w-full" />
+            <div className="chat-skeleton-line w-11/12" style={{ animationDelay: "0.15s" }} />
+            <div className="chat-skeleton-line w-2/3" style={{ animationDelay: "0.3s" }} />
+          </div>
+        )}
         <div ref={bottomRef} />
       </section>
 

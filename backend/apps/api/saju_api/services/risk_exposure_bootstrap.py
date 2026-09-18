@@ -372,7 +372,12 @@ def build_risk_payload(
         if question_type is not None:
             episodes, selection_omitted = select_episodes(
                 episodes, eligible, budget_for(question_type))
-    payload = build_presentation(episodes, eligible, claims_by_risk_id)
+    # family 보조 증폭 라벨(P2) — aux:* 근거의 한글 라벨(플래그 OFF면 근거가 없어 무영향).
+    from saju_engines.risk_auxiliary import auxiliary_labels
+    payload = build_presentation(
+        episodes, eligible, claims_by_risk_id,
+        aux_labels=auxiliary_labels(risks_dir.parent),
+    )
     if payload is not None:
         payload["exposureFilterAudit"] = filter_audit
         payload["selectionOmitted"] = [

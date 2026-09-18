@@ -1,4 +1,4 @@
-"""년주 (Year Pillar) — anchored on the 입춘 boundary, not the calendar year."""
+"""연주 (Year Pillar) — anchored on the 입춘 boundary, not the calendar year."""
 
 from __future__ import annotations
 

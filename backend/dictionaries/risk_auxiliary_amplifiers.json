@@ -1,0 +1,348 @@
+{
+  "version": "1.0.0",
+  "purpose": "위험 family 단위 보조 증폭 층(P2, 2026-09-18 데굴님 결정). risks/*.json 항목(reviewHashes 잠김)을 편집하지 않고, 흉 극성(GI/GI_STRONG/HAN_BAD)과 동반된 원국 신살·운 신살·구조 배경·합 손상을 기존 후보에 aux:* AMPLIFIER 근거 + aux_bonus(상한 0.15)로 덧붙인다. 조건 종류 사이 AND, 목록 안 OR. 신살 단독·극성 단독 증폭 금지(lint). 후보 신설 없음. reviewed:false=감수 전(런타임 게이트 아님, 품질 절차).",
+  "items": [
+    {
+      "id": "AUX_ACC_NATAL_BLOOD",
+      "riskFamilyIn": [
+        "accident_injury",
+        "mobility_safety",
+        "vehicle_transport"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "natalSinsalIn": [
+        "백호",
+        "양인",
+        "현침",
+        "괴강"
+      ],
+      "strength": 0.3,
+      "labelKo": "원국의 과격·상해 계열 배경(백호·양인·현침류)이 흉한 흐름과 겹쳐 사고·상해 형태의 부담이 조금 더 커질 수 있음",
+      "note": "원국 신살은 배경. 운 흉 극성 + 사고 family 후보가 이미 있을 때만."
+    },
+    {
+      "id": "AUX_ACC_LUCK_BLOOD",
+      "riskFamilyIn": [
+        "accident_injury",
+        "mobility_safety",
+        "vehicle_transport"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "luckSinsalIn": [
+        "백호",
+        "양인",
+        "현침",
+        "겁살",
+        "재살",
+        "천살"
+      ],
+      "strength": 0.35,
+      "labelKo": "이 시기 운의 신살(백호·양인·겁살류)이 흉한 흐름과 겹쳐 돌발·상해 부담을 더하는 배경",
+      "note": "운 신살 — 시점 한정 배경."
+    },
+    {
+      "id": "AUX_ACC_LUCK_TANGHWA",
+      "riskFamilyIn": [
+        "accident_injury"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "luckSinsalIn": [
+        "탕화살",
+        "낙정관살"
+      ],
+      "strength": 0.25,
+      "labelKo": "화상·낙상 상징 신살이 이 시기 흉한 흐름과 겹침(상징적 배경 — 단정하지 않음)",
+      "note": "탕화(화열·화상 상징)·낙정관살(낙상 상징) — 계수 낮게."
+    },
+    {
+      "id": "AUX_HLT_JEOLGAK",
+      "riskFamilyIn": [
+        "health_burden",
+        "vitality_load",
+        "existing_condition",
+        "treatment_recovery",
+        "recovery_capacity",
+        "health_management"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "structureIn": [
+        "luck_jeolgak",
+        "chunggeun_useful"
+      ],
+      "strength": 0.3,
+      "labelKo": "운 기둥의 절각·용희신 뿌리 충으로 버티는 힘이 약해진 배경 — 체력·회복 부담이 더 크게 느껴질 수 있음",
+      "note": "뿌리 손상 = 회복 기반 약화."
+    },
+    {
+      "id": "AUX_HLT_LUCK_SINSAL",
+      "riskFamilyIn": [
+        "health_burden",
+        "vitality_load",
+        "existing_condition",
+        "treatment_recovery",
+        "physical_workload"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "luckSinsalIn": [
+        "육해살",
+        "현침",
+        "백호",
+        "천라지망"
+      ],
+      "strength": 0.25,
+      "labelKo": "이 시기 지체·수술 상징 신살(육해·현침류)이 흉한 흐름과 겹침 — 몸 상태 점검을 앞당길 배경",
+      "note": "신살 단정 금지 문구."
+    },
+    {
+      "id": "AUX_FIN_HAP_HARM",
+      "riskFamilyIn": [
+        "cashflow",
+        "investment",
+        "peer_finance",
+        "settlement"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "hapIn": [
+        "stem_harmed",
+        "branch_harmed"
+      ],
+      "strength": 0.35,
+      "labelKo": "운의 글자가 원국의 용희신을 합으로 묶어(길신 손상) 재물 흐름의 버팀목이 약해진 배경",
+      "note": "합거 손상 = 길신 묶임(지병 완화의 반대 방향)."
+    },
+    {
+      "id": "AUX_FIN_LUCK_GEOP",
+      "riskFamilyIn": [
+        "cashflow",
+        "investment",
+        "peer_finance",
+        "property_security"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "luckSinsalIn": [
+        "겁살",
+        "망신살",
+        "재살"
+      ],
+      "strength": 0.25,
+      "labelKo": "이 시기 손실·노출 상징 신살(겁살·망신살류)이 흉한 흐름과 겹침 — 지출·보증·분실 점검 배경",
+      "note": ""
+    },
+    {
+      "id": "AUX_LEG_GUGYO",
+      "riskFamilyIn": [
+        "document_liability",
+        "contract",
+        "legal_dispute",
+        "liability",
+        "housing_contract"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "natalSinsalIn": [
+        "구교살",
+        "재살"
+      ],
+      "luckSinsalIn": [
+        "구교살",
+        "재살",
+        "망신살",
+        "천라지망"
+      ],
+      "strength": 0.25,
+      "labelKo": "관재·구설 상징 신살(구교·재살류)이 원국과 이 시기 운에 함께 있어 문서·분쟁 부담이 더해지는 배경",
+      "note": "원국 AND 운 동반 요구 — 둘 다 명시(조건 종류 사이 AND)."
+    },
+    {
+      "id": "AUX_LEG_LUCK_ONLY",
+      "riskFamilyIn": [
+        "document_liability",
+        "contract",
+        "legal_dispute",
+        "liability"
+      ],
+      "polarityRoleIn": [
+        "GI_STRONG"
+      ],
+      "luckSinsalIn": [
+        "구교살",
+        "재살",
+        "천라지망"
+      ],
+      "strength": 0.2,
+      "labelKo": "강한 흉 흐름에 관재·구설 상징 신살이 겹친 배경(문서 확인·기한 관리)",
+      "note": "운 단독은 GI_STRONG 한정."
+    },
+    {
+      "id": "AUX_REL_WONJIN",
+      "riskFamilyIn": [
+        "relationship_stability",
+        "relationship_adjustment",
+        "communication_conflict",
+        "workplace_conflict"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "luckSinsalIn": [
+        "원진",
+        "원진(元辰)",
+        "귀문관살",
+        "고란살",
+        "음양차착"
+      ],
+      "strength": 0.25,
+      "labelKo": "반목·오해 상징 신살(원진·귀문류)이 이 시기 흉한 흐름과 겹쳐 감정 마찰이 길어질 수 있는 배경",
+      "note": ""
+    },
+    {
+      "id": "AUX_REL_NATAL_GOSIN",
+      "riskFamilyIn": [
+        "relationship_stability",
+        "relationship_adjustment"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG"
+      ],
+      "natalSinsalIn": [
+        "고신살",
+        "과숙살",
+        "고란살",
+        "음양차착"
+      ],
+      "luckSinsalIn": [
+        "원진",
+        "원진(元辰)",
+        "고란살",
+        "음양차착",
+        "귀문관살"
+      ],
+      "strength": 0.2,
+      "labelKo": "원국의 고독·거리감 배경과 이 시기 반목 상징 신살이 함께 있어 관계 조정 부담이 더해질 수 있음",
+      "note": "원국 AND 운."
+    },
+    {
+      "id": "AUX_FAM_MOURNING",
+      "riskFamilyIn": [
+        "family_responsibility",
+        "health_burden",
+        "existing_condition"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "luckSinsalIn": [
+        "상문",
+        "조객"
+      ],
+      "strength": 0.25,
+      "labelKo": "상문·조객(애도 상징)이 이 시기 흉한 흐름과 겹침 — 가족·주변 돌봄 부담이 커질 수 있는 상징적 배경(사건 단정 금지)",
+      "note": "상문·조객은 상징 — 사망·상실 단정 금지."
+    },
+    {
+      "id": "AUX_SEL_RESCUE",
+      "riskFamilyIn": [
+        "selection_process",
+        "hiring",
+        "evaluation",
+        "placement",
+        "assignment",
+        "work_role"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "structureIn": [
+        "rescue_damaged",
+        "tonggwan_absent",
+        "special_breach"
+      ],
+      "strength": 0.3,
+      "labelKo": "격을 지키는 구응이 손상되거나 통관이 없는 배경 — 평가·선발에서 버팀목이 약해질 수 있음",
+      "note": "운파격 구응 손상·통관 부재·특수격 역행."
+    },
+    {
+      "id": "AUX_WORK_GAEDU",
+      "riskFamilyIn": [
+        "work_role",
+        "workplace_conflict",
+        "placement",
+        "assignment"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "structureIn": [
+        "luck_gaedu",
+        "luck_jeolgak"
+      ],
+      "strength": 0.2,
+      "labelKo": "운 기둥의 개두·절각으로 기운이 막힌 배경 — 역할 부담이 실제보다 무겁게 느껴질 수 있음",
+      "note": ""
+    },
+    {
+      "id": "AUX_MOV_YEOKMA",
+      "riskFamilyIn": [
+        "relocation_change",
+        "move_execution",
+        "mobility_load",
+        "housing_defect",
+        "housing_contract"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "luckSinsalIn": [
+        "역마살",
+        "지살",
+        "겁살",
+        "격각살"
+      ],
+      "strength": 0.2,
+      "labelKo": "이동 상징 신살(역마·지살류)이 흉한 흐름과 겹침 — 일정·이동 계획의 차질 배경",
+      "note": "역마는 중립 — 흉 극성 동반일 때만 부담 배경."
+    }
+  ]
+}

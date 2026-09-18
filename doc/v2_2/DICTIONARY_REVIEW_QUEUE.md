@@ -58,6 +58,8 @@ review_status  = PENDING  → 명리 감수 미완료
 | 감수 후 가능한 변경 | 장소 추가·삭제, 오행 재배정 |
 | 관련 fixture | 같은 파일(`test_places_schema`) |
 
+**2026-09-10 추가분(dict.v1.13, 외부 감수 전)**: ①사건 16종(§22-7 — good 11·caution 5, v1/v2 카탈로그·taxonomy.v2·문구 템플릿) ②표현 결 풀(§23 — 사건×십성 행동 1,280 + 5군 폴백 640, 12운성 채널 결과 42, 사건별 채널 제외 18슬롯). **내부 전수 감수 완료(2026-09-10 2차, docs/17 §23-5)**: 행동 42건·결과 16건 교체, 모순 조합 84건 해소. 결 풀은 점수에 영향 없음(문체 전용). 채점 규칙 지적 5건(body_light·procrastination 사문 감점, answer_arrives 삼합·learning_click 육합 가중 누락, opinion_accepted 상관+정관 동시 가점)은 사용자 승인으로 §22-7 2차 개정에 반영(model.v2.1 in-place). love_spark 삼합 .3 도 3차에서 반영. 3차 추가분: 12스테이지 결과 풀 72문장(§23-6, 내부 감수 교체 23건) — 외부 감수 대상. 4차(§22-8): 잔여 12운성 채널 4종(흔들림·단장·노련·구상) B안 배선 14사건 — 채점 규칙이라 외부 감수 우선순위 높음.
+
 **우선순위 근거**: 60일주 전체 사용자에게 매일 반복 노출되므로, 잘못된 규칙 하나의
 노출 범위가 커리어 beta 보다 넓다. 다만 커리어 완료 조건은 아니다.
 
@@ -76,3 +78,7 @@ review_status  = PENDING  → 명리 감수 미완료
 
 - 위험 사전 REL 7 · MOV 6 · HLT 8 · LEG 6 — `doc/v2_2/RISK_DICTIONARY_REVIEW.md`
 - 지역 오행 Tier B — `doc/v2_2/docs/12_REGION_ELEMENT_ENGINE.md`
+
+**2026-09-10 사문 감사 후속**: `event_engine/void_repetition_modifier.json` 은 `runtime_status=PARAMETER_SOURCE`(void_unresolved 만 코드가 읽음), `user_profile_event_gate.json` 은 `SPEC_ONLY`(implemented_by 로 구현 여부 선언 — 미구현 6건). 감수 시 "코드가 읽는 필드" 만 점수에 영향이 있음을 전제로 볼 것.
+
+**2026-09-10 신설 `career_fields.json`(reviewed=false)**: 데굴님 제공 십성×직업 기능 참고표를 그대로 옮김. 감수 관점: 학파별 배속 차이, `thresholds`(강함 25%·과다 30%·두드러짐 10% — 자료에 없는 기계 기본값), 배합 파생 규칙 2건(비겁→식상·인성→일간→식상은 구조 패턴 id 없이 군 활성으로 판정).

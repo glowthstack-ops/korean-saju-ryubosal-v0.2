@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { DailyHomeCard } from "@/components/daily/DailyHomeCard";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useGnb } from "@/components/providers/GnbProvider";
 
 interface Service {
   href: string;
@@ -43,6 +44,7 @@ const PAID: Service[] = [
 
 export default function HomePage() {
   const { isLoggedIn } = useAuth();
+  const { openGnb } = useGnb();
 
   return (
     <div className="space-y-6">
@@ -53,12 +55,23 @@ export default function HomePage() {
           있어요. 사주와 운의 계산은 정해진 명리 규칙대로 정확하게 하고, AI는 그 결과를 알기 쉬운
           말로 풀어드립니다.
         </p>
-        <Link
-          href="/sajus"
-          className="mt-4 inline-block rounded bg-gray-800 px-4 py-2 text-sm text-white"
-        >
-          내 사주목록 →
-        </Link>
+        {isLoggedIn ? (
+          <Link
+            href="/sajus"
+            className="mt-4 inline-block rounded bg-gray-800 px-4 py-2 text-sm text-white"
+          >
+            내 사주목록 →
+          </Link>
+        ) : (
+          // 비로그인 — 별도 안내 페이지 대신 사이드바(계정 패널)를 바로 연다.
+          <button
+            type="button"
+            onClick={openGnb}
+            className="mt-4 inline-block rounded bg-gray-800 px-4 py-2 text-sm text-white"
+          >
+            로그인
+          </button>
+        )}
         {!isLoggedIn && (
           <p className="mt-2 text-xs text-gray-400">
             비회원은 만세력·간지달력을 기기당 1개 사주로 바로 이용할 수 있어요. 로그인하면 여러 사주를

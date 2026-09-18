@@ -16,10 +16,11 @@ from saju_manse_analysis.relations.hap_modes import (
     resolve_stem_hap,
 )
 
-from saju_shared_types.constants import STEM_INDEX
-from saju_shared_types.enums import Stem
+from saju_shared_types.constants import BRANCH_CLASHES, STEM_INDEX, ten_god
+from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.manse_result import ManseV2Result
 
+from . import period_v2_config
 from .event_scoring import favorability_map
 
 _TIER_KO = {"confirmed": "확정", "conditional": "조건부", "none": "불성"}
@@ -36,7 +37,31 @@ def _affected_txt(a: object) -> str:
     return f"{s} {eff}".rstrip()
 
 
-def _format(r: StemHapResolution, fav: dict[str, str]) -> str:
+_TEN_GOD_GROUP_KO = {
+    "정관": "관성", "편관": "관성", "정재": "재성", "편재": "재성",
+    "정인": "인성", "편인": "인성", "식신": "식상", "상관": "식상", "비견": "비겁", "겁재": "비겁",
+}
+
+
+def _contend_label(r: StemHapResolution, day_master: str | None) -> str:
+    """쟁합·투합 표기 — RELATION_TERMS_V2면 다투는 글자의 십성군(관성/재성/인성 쟁합)을 병기.
+
+    참고 기준(2026-09-18): 관성 쟁합=직위·선발·인정의 경쟁, 재성 쟁합=수익·거래·자원 배분의
+    경쟁, 인성 쟁합=지원·문서·자격을 둘러싼 경쟁 — '몫 절반'·삼각관계 단정은 하지 않는다.
+    """
+    if not (period_v2_config.RELATION_TERMS_V2_ENABLED and r.contested_stem and day_master):
+        return "쟁합·투합"
+    try:
+        god = str(ten_god(Stem(day_master), Stem(r.contested_stem)))
+    except (KeyError, ValueError):
+        return "쟁합·투합"
+    group = _TEN_GOD_GROUP_KO.get(god)
+    if r.contested_stem == day_master:
+        return "쟁합·투합(일간을 두고 다툼 — 관계·선택의 경쟁)"
+    return f"쟁합·투합({group} 쟁합 — {god} {r.contested_stem})" if group else "쟁합·투합"
+
+
+def _format(r: StemHapResolution, fav: dict[str, str], day_master: str | None = None) -> str:
     """StemHapResolution → 한 줄(모드+영향+신뢰도). 운 합은 '운 ' 접두."""
     # 표기 순서를 천간 표준순(甲→癸)으로 정규화 — 자리 순서에 따른 戊癸/癸戊 중복 방지.
     a, b = sorted(r.pair, key=lambda s: STEM_INDEX[Stem(s)])
@@ -67,7 +92,7 @@ def _format(r: StemHapResolution, fav: dict[str, str]) -> str:
     if r.weakened:
         flags.append("隔位 약화")
     if r.contend:
-        flags.append("쟁합·투합")
+        flags.append(_contend_label(r, day_master))
     if flags:
         tail += " · " + "·".join(flags)
     return f"{prefix}{pair} → {body}{tail}"
@@ -107,7 +132,7 @@ def natal_hap_mode_lines(result: ManseV2Result) -> list[str]:
     fav = favorability_map(result)
     p = result.pillars
     # 쟁합(동일 글자 다자)으로 같은 줄이 중복될 수 있어 순서 보존 dedup.
-    lines = [_format(r, fav) for r in resolve_stem_hap(p, fav)]
+    lines = [_format(r, fav, p.day_master) for r in resolve_stem_hap(p, fav)]
     lines += [_format_branch(r) for r in resolve_branch_hap(p, fav) if not r.luck_origin]
     return list(dict.fromkeys(lines))
 
@@ -128,14 +153,38 @@ def luck_hap_mode_lines(
     lines: list[str] = []
     if luck_stems:
         lines += [
-            _format(r, fav)
+            _format(r, fav, p.day_master)
             for r in resolve_stem_hap(p, fav, luck_stems=luck_stems)
             if r.luck_origin
         ]
     if luck_branches:
-        lines += [
-            _format_branch(r)
-            for r in resolve_branch_hap(p, fav, luck_branches=luck_branches)
-            if r.luck_origin
+        natal_branches = [
+            Branch(x.branch) for x in (p.year, p.month, p.day, p.hour) if x is not None
         ]
+        for r in resolve_branch_hap(p, fav, luck_branches=luck_branches):
+            if not r.luck_origin:
+                continue
+            line = _format_branch(r)
+            if period_v2_config.RELATION_TERMS_V2_ENABLED and r.kind == "six":
+                line += _hapcheo_bongchung_suffix(r, natal_branches)
+            lines.append(line)
     return list(dict.fromkeys(lines))
+
+
+def _hapcheo_bongchung_suffix(r: BranchHapResolution, natal_branches: list[Branch]) -> str:
+    """합처봉충(合處逢沖) 표기 — 합으로 연결된 두 글자 중 하나를 원국 다른 지지가 충하면 병기.
+
+    참고 기준(2026-09-18): 계약·협업·관계의 재편, 유지하던 연결의 흔들림. 표기 전용이며
+    충 자체의 점수·변동성은 관계 판정이 이미 반영한다(중복 계산 없음).
+    """
+    hits: list[str] = []
+    for m in r.members:
+        mb = Branch(m)
+        for nb in natal_branches:
+            if nb != mb and frozenset({mb, nb}) in BRANCH_CLASHES:
+                tag = f"{nb}충{mb}"
+                if tag not in hits:
+                    hits.append(tag)
+    if not hits:
+        return ""
+    return " · 합처봉충(" + "·".join(hits) + " — 합 자리에 충 개입: 연결의 재편·흔들림)"

@@ -1,0 +1,921 @@
+{
+  "schema": "event_process_types.v1",
+  "version": "1.0.0",
+  "reviewed": false,
+  "purpose": "작용(합충·십성·신살)과 생활 사건 사이의 중간 층 '공통 사건 유형'. 사건 라벨(EventKey)·길흉은 여기서 확정하지 않는다. 엔진이 후보의 근거 코드·신호·유불리 밴드로 결정론 분류하고 LLM은 '어떤 종류의 문제/개선인지'로만 쓴다. 경쟁 발생≠탈락≠손실, 기회 유입≠성취≠유지를 분리한다(2026-09-18 전문가 참고 기준).",
+  "match_rules": "reason_prefixes: 후보 reason_code startswith / signal_keywords: 동반 신호·해석 줄 부분일치 / event_keys: 사건 키 제한(비면 무관) / favorability: any|adverse(≤-0.2)|favorable(≥0.2). 셋 중 하나라도 맞으면 후보(favorability 조건은 AND). loss_is_conclusion=false: '손실' 유형은 다른 유형의 자동 결론이 아니다.",
+  "stage_model": {
+    "negative": {
+      "발생": "awareness",
+      "진행": "exploration·action",
+      "결과": "decision",
+      "후속 영향": "실행·실속·유지(상담 결론 단계)"
+    },
+    "positive": {
+      "기회 발생": "awareness",
+      "진행": "exploration·action",
+      "실제 성취": "decision",
+      "유지·후속 효과": "실행·실속·유지(상담 결론 단계)"
+    },
+    "note": "E4 타임라인 단계(awareness→exploration→action→decision)와 상담 결론 단계별 행동(기회/과정/결정/실행/실속·유지)에 대응. 이름만 다를 뿐 새 단계가 아니다."
+  },
+  "items": [
+    {
+      "id": "competition",
+      "name_ko": "경쟁·경합",
+      "valence": "negative",
+      "description": "동일한 자리·기회·자원에 경쟁자가 생김",
+      "examples": [
+        "채용·승진 경쟁",
+        "거래처 경쟁",
+        "입학·선발 경쟁"
+      ],
+      "linked_actions": [
+        "쟁합·투합",
+        "비겁쟁재"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "格_운파격_비겁쟁재",
+          "格_운파격경향_비겁쟁재"
+        ],
+        "signal_keywords": [
+          "쟁합",
+          "비겁",
+          "겁재"
+        ],
+        "event_keys": [],
+        "favorability": "any"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "allocation_dispute",
+      "name_ko": "배분·귀속 다툼",
+      "valence": "negative",
+      "description": "돈·지분·성과·책임이 누구에게 돌아갈지 다툼",
+      "examples": [
+        "수익 배분 다툼",
+        "성과 귀속 다툼",
+        "정산 차질"
+      ],
+      "linked_actions": [
+        "재성 쟁합",
+        "비겁쟁재"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "格_운파격_비겁쟁재"
+        ],
+        "signal_keywords": [
+          "쟁합",
+          "겁재"
+        ],
+        "event_keys": [
+          "wealth_change",
+          "windfall",
+          "business_expansion",
+          "creative_output"
+        ],
+        "favorability": "any"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "entanglement",
+      "name_ko": "관계의 얽힘",
+      "valence": "negative",
+      "description": "여러 사람·계약·의무가 연결되어 선택이 복잡해짐",
+      "examples": [
+        "교제 여부·독점성 갈등",
+        "이해관계 복잡화"
+      ],
+      "linked_actions": [
+        "쟁합·투합",
+        "합반",
+        "암합"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "합반",
+          "암합",
+          "쟁합"
+        ],
+        "event_keys": [
+          "relationship_change",
+          "new_relationship",
+          "marriage_signal",
+          "social_conflict"
+        ],
+        "favorability": "any"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "delay",
+      "name_ko": "지연·보류",
+      "valence": "negative",
+      "description": "결정·승인·지급·진행이 예정대로 이루어지지 않음",
+      "examples": [
+        "승인 보류",
+        "지급 지연",
+        "입주 지연"
+      ],
+      "linked_actions": [
+        "합반",
+        "기능 약화",
+        "묘고(일부 해석)"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "VOID"
+        ],
+        "signal_keywords": [
+          "합반",
+          "공망",
+          "지연",
+          "보류"
+        ],
+        "event_keys": [
+          "preparation_delay",
+          "contract_document"
+        ],
+        "favorability": "any"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "constraint",
+      "name_ko": "제약·구속",
+      "valence": "negative",
+      "description": "규정·계약·책임 때문에 선택·활동 범위가 제한됨",
+      "examples": [
+        "보직 제한",
+        "계약 조건 구속"
+      ],
+      "linked_actions": [
+        "불리한 관살",
+        "합반"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "JOBCHANGE_PRESSURE"
+        ],
+        "signal_keywords": [
+          "편관",
+          "압박",
+          "관살"
+        ],
+        "event_keys": [],
+        "favorability": "adverse"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "conflict",
+      "name_ko": "충돌·분쟁",
+      "valence": "negative",
+      "description": "요구·이익·규칙이 맞지 않아 대립이 드러남",
+      "examples": [
+        "이의 제기",
+        "협업 갈등",
+        "징계 심의"
+      ],
+      "linked_actions": [
+        "충·형·해",
+        "상관견관",
+        "통관 부족"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "REL_CHUNG",
+          "REL_HYEONG",
+          "格_운파격_상관견관",
+          "格_운파격_관살혼잡"
+        ],
+        "signal_keywords": [
+          "충",
+          "형",
+          "해:",
+          "상관견관"
+        ],
+        "event_keys": [
+          "legal_conflict",
+          "social_conflict"
+        ],
+        "favorability": "any"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "separation",
+      "name_ko": "분리·중단",
+      "valence": "negative",
+      "description": "관계·계약·업무·거래의 연결이 끊김",
+      "examples": [
+        "계약 해지",
+        "결별",
+        "거래 중단"
+      ],
+      "linked_actions": [
+        "충",
+        "합처봉충",
+        "연결 손상"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "합처봉충",
+          "충:",
+          "해지"
+        ],
+        "event_keys": [],
+        "favorability": "adverse"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "relocation_reshuffle",
+      "name_ko": "이동·교체·재편",
+      "valence": "neutral",
+      "description": "장소·담당자·직위·관계·소유 구조가 바뀜",
+      "examples": [
+        "부서 이동",
+        "이사",
+        "담당자 교체"
+      ],
+      "linked_actions": [
+        "충",
+        "형충회합 재편"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "충",
+          "역마",
+          "이동"
+        ],
+        "event_keys": [
+          "relocation",
+          "career_change",
+          "promotion"
+        ],
+        "favorability": "any"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "support_erosion",
+      "name_ko": "지원·기반 약화",
+      "valence": "negative",
+      "description": "후원·자금·인력·자격·시설 등 유지 기반이 줄어듦",
+      "examples": [
+        "예산 삭감",
+        "후원 종료",
+        "장학금 중단"
+      ],
+      "linked_actions": [
+        "충근",
+        "인성·상신 손상",
+        "희용신 합반"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "制_合거_길신손상",
+          "制_합거_길신손상",
+          "REL_CHUNG_RESOURCE",
+          "格_운파격_재극인",
+          "충근"
+        ],
+        "signal_keywords": [
+          "길신 손상",
+          "인성 충",
+          "뿌리"
+        ],
+        "event_keys": [],
+        "favorability": "any"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "execution_setback",
+      "name_ko": "실행·성과 차질",
+      "valence": "negative",
+      "description": "시작했지만 결과물을 만들거나 인정받는 데 문제가 생김",
+      "examples": [
+        "재작업",
+        "결과물 반려",
+        "성과 미반영"
+      ],
+      "linked_actions": [
+        "효신탈식",
+        "인성 과다",
+        "제살태과"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "格_운파격_편인도식"
+        ],
+        "signal_keywords": [
+          "도식",
+          "편인",
+          "제살태과"
+        ],
+        "event_keys": [
+          "creative_output",
+          "education_completion"
+        ],
+        "favorability": "any"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "burden",
+      "name_ko": "부담·책임 증가",
+      "valence": "negative",
+      "description": "업무·비용·부양·관리 책임이 늘어남",
+      "examples": [
+        "담당 업무 증가",
+        "부양비 부담",
+        "공동비용 증가"
+      ],
+      "linked_actions": [
+        "재다신약",
+        "신약살왕",
+        "재생살"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "格_운파격_재생살",
+          "局_기신성국"
+        ],
+        "signal_keywords": [
+          "재다신약",
+          "살중신경",
+          "재생살",
+          "편관"
+        ],
+        "event_keys": [],
+        "favorability": "adverse"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "exposure",
+      "name_ko": "노출·발견",
+      "valence": "neutral",
+      "description": "숨겨졌던 문제·정보·관계가 드러남",
+      "examples": [
+        "비판·민원",
+        "소문 확산",
+        "오해"
+      ],
+      "linked_actions": [
+        "투출·활성화",
+        "망신(보조)"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "투출",
+          "망신",
+          "노출"
+        ],
+        "event_keys": [
+          "public_exposure"
+        ],
+        "favorability": "any"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "recurrence",
+      "name_ko": "반복·재발·번복",
+      "valence": "negative",
+      "description": "같은 문제의 재등장·재심사·재작업·결정 철회",
+      "examples": [
+        "동일 오류 재발",
+        "재심사",
+        "분쟁 재개"
+      ],
+      "linked_actions": [
+        "복음",
+        "반음",
+        "자형"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "복음",
+          "반음",
+          "자형",
+          "재발",
+          "번복"
+        ],
+        "event_keys": [],
+        "favorability": "any"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "loss",
+      "name_ko": "손실·손상",
+      "valence": "negative",
+      "description": "자산·권한·신뢰·물품·신체 등에 실제 손해가 발생",
+      "examples": [
+        "미수금 손실",
+        "자산 매각 손실",
+        "부상"
+      ],
+      "linked_actions": [
+        "필요한 기능의 손상(넓은 해석)"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "制_합거_길신손상",
+          "CAREER_EXIT"
+        ],
+        "signal_keywords": [
+          "손실",
+          "손상"
+        ],
+        "event_keys": [],
+        "favorability": "adverse"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "resolution",
+      "name_ko": "회복·해소·재개",
+      "valence": "positive",
+      "description": "지연이 풀리고, 합의가 이루어지고, 활동이 다시 시작됨",
+      "examples": [
+        "승인 지연 해소",
+        "합의 성립",
+        "복직"
+      ],
+      "linked_actions": [
+        "제화·통관·구응 성립",
+        "불리한 묶임 해제"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "制_합거_흉완화",
+          "化_관운강화",
+          "EXAM_PASS"
+        ],
+        "signal_keywords": [
+          "공망 해소",
+          "통관",
+          "완화",
+          "제화"
+        ],
+        "event_keys": [],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "opportunity_inflow",
+      "name_ko": "기회 유입",
+      "valence": "positive",
+      "description": "선택하거나 시도할 수 있는 가능성이 생김",
+      "examples": [
+        "채용 제안",
+        "거래 문의",
+        "소개",
+        "공모·지원 기회"
+      ],
+      "linked_actions": [
+        "필요한 기운이 지원을 받음",
+        "필요한 합·연결 성립"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "JOBCHANGE_OPPORTUNITY"
+        ],
+        "signal_keywords": [
+          "기회",
+          "유입",
+          "제안"
+        ],
+        "event_keys": [],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "connection",
+      "name_ko": "연결·협력 성사",
+      "valence": "positive",
+      "description": "사람·조직·자원이 실제로 연결됨",
+      "examples": [
+        "협업 시작",
+        "제휴 체결",
+        "팀 합류",
+        "교제 시작"
+      ],
+      "linked_actions": [
+        "필요한 합·연결 성립",
+        "통관·중재"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "육합",
+          "삼합",
+          "합화",
+          "관계 발동"
+        ],
+        "event_keys": [
+          "new_relationship",
+          "business_expansion",
+          "social_conflict"
+        ],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "selection_pass",
+      "name_ko": "선발·통과·승인",
+      "valence": "positive",
+      "description": "경쟁이나 심사를 통과함",
+      "examples": [
+        "합격",
+        "선정",
+        "승진",
+        "허가·승인"
+      ],
+      "linked_actions": [
+        "관인상생",
+        "정관+인성"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "EXAM_PASS",
+          "PROFILE_public_official"
+        ],
+        "signal_keywords": [
+          "관인상생",
+          "합격"
+        ],
+        "event_keys": [
+          "job_gain",
+          "education_admission",
+          "promotion",
+          "contract_document"
+        ],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "acquisition",
+      "name_ko": "획득·수령",
+      "valence": "positive",
+      "description": "돈·자산·권리·보상을 실제로 얻음",
+      "examples": [
+        "급여·보너스 수령",
+        "지원금 지급",
+        "자산 취득"
+      ],
+      "linked_actions": [
+        "재성 발동·재성국 완성",
+        "식상생재"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "재성국",
+          "식상생재",
+          "횡재",
+          "투간"
+        ],
+        "event_keys": [
+          "wealth_change",
+          "windfall"
+        ],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "completion",
+      "name_ko": "완수·실현",
+      "valence": "positive",
+      "description": "계획이나 시도가 결과로 이어짐",
+      "examples": [
+        "프로젝트 완료",
+        "졸업",
+        "계약 이행",
+        "입주"
+      ],
+      "linked_actions": [
+        "필요한 기능이 풀림",
+        "공망 전실"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "전실",
+          "완성",
+          "실체화"
+        ],
+        "event_keys": [
+          "education_completion",
+          "creative_output",
+          "contract_document",
+          "relocation"
+        ],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "recognition",
+      "name_ko": "인정·보상",
+      "valence": "positive",
+      "description": "노력이나 성과가 평가와 대가로 연결됨",
+      "examples": [
+        "포상",
+        "좋은 평가",
+        "공로 인정"
+      ],
+      "linked_actions": [
+        "관인상생",
+        "식상생재"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "정관",
+          "인정",
+          "관인상생"
+        ],
+        "event_keys": [
+          "promotion",
+          "creative_output",
+          "public_exposure"
+        ],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "expansion",
+      "name_ko": "확대·성장",
+      "valence": "positive",
+      "description": "기존 성과의 규모와 범위가 커짐",
+      "examples": [
+        "고객 증가",
+        "판로 확대",
+        "소득 증가",
+        "역할 확대"
+      ],
+      "linked_actions": [
+        "재성국 완성",
+        "용신 강화"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "확장",
+          "용신운",
+          "강한 용신운"
+        ],
+        "event_keys": [
+          "business_expansion",
+          "wealth_change",
+          "promotion"
+        ],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "stabilization",
+      "name_ko": "유지·정착",
+      "valence": "positive",
+      "description": "얻은 기회와 성과가 안정적으로 지속됨",
+      "examples": [
+        "재계약",
+        "고용 안정",
+        "정기 수입 확보"
+      ],
+      "linked_actions": [
+        "용신 뿌리·통근",
+        "조후 충족"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "통근",
+          "안정",
+          "용신운"
+        ],
+        "event_keys": [],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "recovery",
+      "name_ko": "회복·복구",
+      "valence": "positive",
+      "description": "잃거나 약해진 기능·관계·자산을 되찾음",
+      "examples": [
+        "관계 회복",
+        "미수금 회수",
+        "명예 회복",
+        "데이터 복구"
+      ],
+      "linked_actions": [
+        "손상된 기반·연결의 회복",
+        "공망 해소"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "회복",
+          "해소",
+          "공망 해소"
+        ],
+        "event_keys": [],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "settlement",
+      "name_ko": "해결·해소",
+      "valence": "positive",
+      "description": "막힘과 갈등이 정리됨",
+      "examples": [
+        "분쟁 종결",
+        "승인 지연 해소",
+        "오해 해소"
+      ],
+      "linked_actions": [
+        "통관·중재",
+        "구응 성립",
+        "합거 완화"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "制_합거_흉완화"
+        ],
+        "signal_keywords": [
+          "통관",
+          "완화",
+          "구응"
+        ],
+        "event_keys": [],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "protection",
+      "name_ko": "보호·지원",
+      "valence": "positive",
+      "description": "외부의 도움으로 어려움을 감당할 여건이 생김",
+      "examples": [
+        "후원 확보",
+        "돌봄 지원",
+        "조력자 등장"
+      ],
+      "linked_actions": [
+        "인성 지원",
+        "귀인 신살(보조)"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "인성",
+          "귀인",
+          "조력"
+        ],
+        "event_keys": [],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "relief",
+      "name_ko": "부담 경감",
+      "valence": "positive",
+      "description": "비용·책임·업무·의무가 줄어듦",
+      "examples": [
+        "채무 상환",
+        "업무 분담",
+        "불리한 의무 종료"
+      ],
+      "linked_actions": [
+        "과도한 경쟁·압박 조절",
+        "불리한 연결 정리",
+        "기신 합거"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "制_합거_흉완화"
+        ],
+        "signal_keywords": [
+          "완화",
+          "제살",
+          "합거"
+        ],
+        "event_keys": [],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "autonomy",
+      "name_ko": "선택권·자율성 확대",
+      "valence": "positive",
+      "description": "스스로 결정할 여지가 커짐",
+      "examples": [
+        "복수 제안 확보",
+        "독립",
+        "업무 재량 확대"
+      ],
+      "linked_actions": [
+        "변화로 더 나은 기반",
+        "비겁 독립"
+      ],
+      "match": {
+        "reason_prefixes": [],
+        "signal_keywords": [
+          "독립",
+          "재량"
+        ],
+        "event_keys": [
+          "career_change",
+          "business_start",
+          "relocation"
+        ],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    },
+    {
+      "id": "loss_prevention",
+      "name_ko": "손실 방지·피해 축소",
+      "valence": "positive",
+      "description": "문제가 커지기 전에 발견하거나 대응함",
+      "examples": [
+        "계약 오류 수정",
+        "결함 조기 발견",
+        "대체 자원 확보"
+      ],
+      "linked_actions": [
+        "구응·제화 성립",
+        "기신 합거 완화"
+      ],
+      "match": {
+        "reason_prefixes": [
+          "制_합거_흉완화"
+        ],
+        "signal_keywords": [
+          "조기",
+          "정정",
+          "완화"
+        ],
+        "event_keys": [],
+        "favorability": "favorable"
+      },
+      "loss_is_conclusion": false,
+      "reviewed": false
+    }
+  ]
+}

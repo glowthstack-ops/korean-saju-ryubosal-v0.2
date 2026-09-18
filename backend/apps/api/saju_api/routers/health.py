@@ -39,6 +39,22 @@ def _beta_flag_snapshot() -> dict[str, bool]:
         pass
     flags["daily_fortune_pregen"] = os.getenv("SAJU_DAILY_FORTUNE_PREGEN") == "1"
     try:
+        # 오늘의 운세 3층 판정 모델(docs/17 §22) — 어느 채점 경로가 활성인지 노출한다.
+        from saju_engines import daily_fortune_v2 as _dfv2
+
+        flags["daily_fortune_model_v2"] = bool(_dfv2.DAILY_FORTUNE_MODEL_V2_ENABLED)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        # 상담 결론 의미론(P1) — stage 행동 지침 블록. 실제 분기 상수를 노출한다.
+        from saju_engines import counseling_arbiter as _counsel
+
+        flags["counseling_semantics_enabled"] = bool(
+            _counsel.COUNSELING_SEMANTICS_ENABLED
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    try:
         # 총운 V2(P0~P3) — 어느 논리 버전으로 답변이 나가는지 운영에서 확인 가능해야 한다.
         from saju_engines import period_v2_config as _p2
 

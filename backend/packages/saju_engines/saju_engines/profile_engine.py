@@ -1,7 +1,7 @@
 """사용자 프로필 엔진 (v2.2 Phase 8.5 T8.5.1~T8.5.4·T8.5.8~T8.5.10, docs/11).
 
 - 1단계 변환: BasicProfile → 만세력 BirthInput(보정은 기존 엔진 그대로 — 재구현 금지).
-- 쌍둥이 시주 조정(2-2): order≥2 → 시주 (n-1)칸 전진. wrap 시 일·월·년주 불변,
+- 쌍둥이 시주 조정(2-2): order≥2 → 시주 (n-1)칸 전진. wrap 시 일·월·연주 불변,
   천간은 원 일간 기준 시두법(twin_wrap_convention 기본값 — 변경은 사용자 승인 필요).
 - 2단계 연동: occupation→E3/E6, marital→M01/M02 분기, children→동반자 제안.
 - Just-in-time 수집(1장 원칙 2): 세션 내 1회 요청, 거절 시 재요청 금지 + 한계 고지.
@@ -94,7 +94,7 @@ def twin_adjusted_hour_pillar(
     """출생 순서에 따른 시주 전진 — (천간, 지지, wrap 여부).
 
     order=1: 변형 없음. order=n: 시지 (n-1)칸 전진 + 시두법 재계산(60갑자 전진과
-    동일 결과). wrap(亥→子) 시에도 일·월·년주는 불변 — 조정은 시주 1기둥뿐.
+    동일 결과). wrap(亥→子) 시에도 일·월·연주는 불변 — 조정은 시주 1기둥뿐.
     천간은 **원 일간** 기준 시두법으로 산출(TWIN_WRAP_CONVENTION 기본값).
     """
     shift = order - 1

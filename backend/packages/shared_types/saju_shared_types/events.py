@@ -129,3 +129,11 @@ class EventCandidate(BaseModel):
     # 결과 길흉(−1.0~+1.0) — "사건 형성도(score) ≠ 유불리(favorability)"의 길흉 채널을
     # 다운스트림(LLM 입력)까지 전달. 양수=유리·음수=불리·0=중립/미정(EventCandidateV2에서 옮김).
     favorability: float = 0.0
+    # 사건 형성도(길흉 기여 제외, display 스케일) — favorability와 독립인 활성 채널.
+    # V2의 이중 채널 중 activation이 legacy 변환에서 드롭되던 것을 복구(P0-1, 2026-08-21).
+    # ⚠ INV-C: 이 값과 favorability를 단일 good/bad 축으로 재합성하지 말 것.
+    activation: float = 0.0
+    # 시점 유입 글자의 천간/지지 역할 라벨('용신'~'한신'|'') — 독립 evidence 전용(INV-E:
+    # "천간=결과, 지지=과정" 일괄 해석 금지, 단계 연결은 사건별 SSOT 매핑이 있을 때만).
+    stem_role: str = ""
+    branch_role: str = ""

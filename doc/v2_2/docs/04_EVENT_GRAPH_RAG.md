@@ -107,6 +107,7 @@ interface GraphEdge {
 1. **전체 검색 금지**. intent의 graphScope(EventKey 목록)에서 역방향으로 `triggers` 엣지를 따라 관련 신호 노드만 탐색.
 2. 경로 깊이 제한: 기본 5 hop. evidence path는 `운 노드 → 간지 → 관계 → 판정 보정 → 이벤트` 순서로 정규화.
 3. 충돌 근거(`contradicts`)도 함께 반환 — LLM이 일방적 단정을 하지 않도록.
+   - **파생 규칙(2026-09-10 개정)**: 빌더는 `contradicts` 엣지를 내지 않는다(관계 노드의 충돌은 `conflicts_with`). 충돌 근거는 retrieval 시점에 **같은 이벤트를 촉발하는 규칙의 candidate polarity** 로 파생한다 — 극성별 `triggers` 가중 합이 큰 쪽(동률이면 positive)을 지배 입장으로 보고, 반대 극성(positive ↔ negative_or_forced) 규칙 노드를 돌려준다. conditional·neutral 은 어느 쪽의 반대도 아니다. 이전에는 존재하지 않는 엣지 타입을 찾아 목록이 항상 비어 있었다(사문 감사에서 발견). 회귀: `tests/unit/test_dead_path_regressions.py`.
 4. `prohibition_rule` 노드는 해당 이벤트에 연결된 것을 항상 첨부 (예: windfall → "당첨 단정 금지").
 
 ## Retrieval 출력
@@ -116,7 +117,7 @@ interface EvidenceBundle {
   eventKey: EventKey;
   paths: EvidencePath[];
   supports: string[];        // 보조 근거 노드 ID
-  contradicts: string[];     // 충돌 근거 노드 ID
+  contradicts: string[];     // 충돌 근거 — 반대 극성 규칙의 라벨(2026-09-10: interpretationHints 와 같은 형식, LLM 가독)
   prohibitions: string[];    // 금기 표현 규칙
   interpretationHints: string[];  // 해석 규칙 노드의 텍스트
 }

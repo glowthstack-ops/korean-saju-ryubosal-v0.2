@@ -60,6 +60,27 @@ CATALOG_META: dict[str, dict] = {
     "과숙살": {"category": "isolation_conflict", "polarity": "caution", "tags": ["고독", "이별"]},
     "단교관살": {"category": "health_risk", "polarity": "caution", "tags": ["낙상", "수족"]},
     "협록": {"category": "wealth_status", "polarity": "positive", "tags": ["록", "협조"]},
+    # 2026-09-18 전문가 참고 기준 추가 7종(통설표, 데굴님 승인) — 보조 상징이며 사건 예측 근거 아님.
+    "음양차착": {
+        "category": "relationship_social", "polarity": "caution",
+        "tags": ["관계 어긋남", "혼인 과정"],
+    },
+    "고란살": {
+        "category": "isolation_conflict", "polarity": "caution", "tags": ["배우자 고독", "불편"],
+    },
+    "구교살": {
+        "category": "isolation_conflict", "polarity": "caution", "tags": ["얽힘", "분쟁", "제약"],
+    },
+    "원진(元辰)": {
+        "category": "isolation_conflict", "polarity": "caution", "tags": ["불안정", "불화"],
+    },
+    "탕화살": {"category": "health_risk", "polarity": "caution", "tags": ["화열", "화상(상징)"]},
+    "상문": {
+        "category": "isolation_conflict", "polarity": "caution", "tags": ["상실", "애도(상징)"],
+    },
+    "조객": {
+        "category": "isolation_conflict", "polarity": "caution", "tags": ["상실", "애도(상징)"],
+    },
     # 공망은 신살과 별개 레이어(StructureAnalysis.gongmang)로 표시한다.
 }
 
@@ -259,3 +280,34 @@ ILGWI: set[tuple[S, B]] = {
 CHEONMUN_BRANCHES: set[B] = {B.SUL, B.HAE}
 CHEONRA = (B.SUL, B.HAE)   # 천라
 JIMANG = (B.JIN, B.SA)     # 지망
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-18 추가 7종 통설표(데굴님 승인 — "통설표를 이용"). 학파별 산출 차이가 있어 근거를
+# 명시한다.
+# 성별 정보가 없는 계산 경로라 陽男陰女/陰男陽女 구분은 **연간(年干)의 음양**으로 대신한다(통설의
+# 한 갈래). 결과는 표시·해석 보조이며 점수·용신에 쓰지 않는다.
+# ---------------------------------------------------------------------------
+# 음양차착(陰陽差錯) — 일주 12종(통설: 丙子 丁丑 戊寅 辛卯 壬辰 癸巳 丙午 丁未 戊申 辛酉 壬戌 癸亥).
+EUMYANG_CHACHAK: set[tuple[S, B]] = {
+    (S.BYEONG, B.JA), (S.JEONG, B.CHUK), (S.MU, B.IN), (S.SIN, B.MYO), (S.IM, B.JIN), (S.GYE, B.SA),
+    (S.BYEONG, B.O), (S.JEONG, B.MI), (S.MU, B.SIN), (S.SIN, B.YU), (S.IM, B.SUL), (S.GYE, B.HAE),
+}
+# 고란살(孤鸞煞) — 일주(통설: 甲寅 乙巳 丁巳 戊申 辛亥). 고신·과숙과 산출법이 다른 별개 항목.
+GORAN: set[tuple[S, B]] = {
+    (S.GAP, B.IN), (S.EUL, B.SA), (S.JEONG, B.SA), (S.MU, B.SIN), (S.SIN, B.HAE),
+}
+# 탕화살(湯火煞) — 일지 丑·寅·午(통설). 실제 사고 예측 근거 아님.
+TANGHWA_DAY_BRANCHES: set[B] = {B.CHUK, B.IN, B.O}
+# 상문(喪門)=연지 앞 두 자리(+2), 조객(弔客)=연지 뒤 두 자리(−2) — 통설. 사망 예고 해석 금지.
+SANGMUN_OFFSET = 2
+JOGAEK_OFFSET = -2
+# 구교살(勾絞煞) — 연지 기준 앞 세 자리(勾, +3)·뒤 세 자리(絞, −3). 陽年生은 勾=+3·絞=−3, 陰年生은
+# 반대(통설). 여기서는 연간 음양으로 구분한다.
+GUGYO_OFFSETS_YANG = (3, -3)
+# 원진(元辰) — 연지 기준, 양간년: 子→未 丑→申 寅→酉 卯→戌 辰→亥 巳→子 午→丑 未→寅 申→卯 酉→辰
+# 戌→巳 亥→午(충 지지의 다음 자리, +7). 음간년: 子→巳 … (충 지지의 앞 자리, +5). 怨嗔과 다른 개념.
+WONJIN_YUAN_OFFSET_YANG = 7
+WONJIN_YUAN_OFFSET_YIN = 5
+YANG_STEMS: set[S] = {S.GAP, S.BYEONG, S.MU, S.GYEONG, S.IM}
+

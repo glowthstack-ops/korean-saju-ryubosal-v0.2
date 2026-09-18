@@ -73,6 +73,15 @@ def test_past_tense_narrative_is_not_emotional_support(question: str) -> None:
     assert _intent(question).query_type is QueryType.EVENT_EXPLANATION
 
 
+@pytest.mark.parametrize("question", [
+    # 2026-09-11 실로그 — 변화 예측('힘들어질까·힘들어지면')은 감정 토로가 아니라 분석 질문이다.
+    "아 내 위의 리더가 다른팀으로가는데 그럼 나의업무 방향은 더 힘들어질까? 10월부터",
+    "앞으로 더 힘들어지면 어떡하지",
+])
+def test_change_prediction_is_not_emotional_support(question: str) -> None:
+    assert _intent(question).query_type is not QueryType.EMOTIONAL_SUPPORT
+
+
 def test_question_mark_does_not_flip_the_classification() -> None:
     """물음표 하나로 판정이 뒤집히지 않는다.
 

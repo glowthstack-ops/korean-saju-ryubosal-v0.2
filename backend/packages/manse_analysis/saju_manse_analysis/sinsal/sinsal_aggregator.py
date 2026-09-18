@@ -167,6 +167,32 @@ def _detect(pillars: FourPillarsResult) -> list[_Detection]:
                 if Branch(p.branch) in pair_b:
                     out.append(("천라지망", "isolation_conflict", pos, kind))
 
+    # ── 2026-09-18 추가 7종(통설표) — 보조 상징. 성별 부재라 연간 음양으로 陽/陰年을 대신한다.
+    year_stem = Stem(pillars.year.stem)
+    yang_year = year_stem in cat.YANG_STEMS
+    if day_gz in cat.EUMYANG_CHACHAK:
+        day_txt = f"{day_gz[0]}{day_gz[1]}"
+        out.append(("음양차착", "relationship_social", "day", f"{day_txt} 음양차착(일주)"))
+    if day_gz in cat.GORAN:
+        out.append(("고란살", "isolation_conflict", "day", f"{day_gz[0]}{day_gz[1]} 고란(일주)"))
+    if day_branch in cat.TANGHWA_DAY_BRANCHES:
+        out.append(("탕화살", "health_risk", "day", f"일지 {day_branch} 탕화(상징)"))
+    yb = BRANCH_INDEX[year_branch]
+    year_targets: list[tuple[str, Branch, str]] = [
+        ("상문", cat.branch_at(yb + cat.SANGMUN_OFFSET), "연지 앞 두 자리"),
+        ("조객", cat.branch_at(yb + cat.JOGAEK_OFFSET), "연지 뒤 두 자리"),
+    ]
+    gu, gyo = cat.GUGYO_OFFSETS_YANG if yang_year else tuple(-o for o in cat.GUGYO_OFFSETS_YANG)
+    year_targets.append(("구교살", cat.branch_at(yb + gu), "勾(연지 기준)"))
+    year_targets.append(("구교살", cat.branch_at(yb + gyo), "絞(연지 기준)"))
+    yuan_off = cat.WONJIN_YUAN_OFFSET_YANG if yang_year else cat.WONJIN_YUAN_OFFSET_YIN
+    year_targets.append(("원진(元辰)", cat.branch_at(yb + yuan_off), "연지 기준 元辰(연간 음양)"))
+    for name, tgt, basis_txt in year_targets:
+        meta = cat.CATALOG_META[name]
+        for pos, p in positions:
+            if pos != "year" and Branch(p.branch) == tgt:
+                basis = f"년지 {year_branch} 기준 {p.branch} — {basis_txt}"
+                out.append((name, meta["category"], pos, basis))
     # 협록(夾祿): 일간 정록(L)을 두 지지가 L-1·L+1로 끼면(夾) 성립.
     rok = cat.CHEONROK[day_stem]
     prev_b = cat.branch_at(BRANCH_INDEX[rok] - 1)
@@ -344,7 +370,7 @@ def sinsal_for_luck(
     items.sort(key=lambda s: _POLARITY_ORDER.get(s.polarity, 1))
 
     # 복음: 운 간지 == 원국 주 간지. 일주복음은 기존 호환을 위해 이름 "복음" 유지.
-    labels = {"year": "년주", "month": "월주", "day": "일주", "hour": "시주"}
+    labels = {"year": "연주", "month": "월주", "day": "일주", "hour": "시주"}
     matches: list[LuckSinsal] = []
     for pos, p in _positions(pillars):
         if stem == Stem(p.stem) and branch == Branch(p.branch):

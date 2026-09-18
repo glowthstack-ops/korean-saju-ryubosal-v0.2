@@ -7,19 +7,43 @@
     "occupation_status": {
       "source": "구조적 분류(O02 공직/O17 학생/O18 무직)는 category_id 우선, 그 외는 employment_form으로 employee/freelancer/business_owner 결정",
       "map": {
-        "정규직": "employee", "계약직": "employee", "무급가족종사": "employee",
-        "프리랜서": "freelancer", "자영업": "business_owner", "법인대표": "business_owner",
+        "정규직": "employee",
+        "계약직": "employee",
+        "무급가족종사": "employee",
+        "프리랜서": "freelancer",
+        "자영업": "business_owner",
+        "법인대표": "business_owner",
         "O02": "public_official",
-        "O17": "student", "O18": "unemployed", "_default": "unknown"
+        "O17": "student",
+        "O18": "unemployed",
+        "_default": "unknown"
       }
     },
     "relationship_status": {
       "source": "extended.marital_status",
-      "map": {"미혼": "single", "연애중": "dating", "기혼": "married", "재혼": "married", "별거": "divorced", "이혼": "divorced", "사별": "single", "_default": "unknown"}
+      "map": {
+        "미혼": "single",
+        "연애중": "dating",
+        "기혼": "married",
+        "재혼": "married",
+        "별거": "divorced",
+        "이혼": "divorced",
+        "사별": "single",
+        "_default": "unknown"
+      }
     },
-    "education_status": {"source": "occupation.category_id == O17 → student, else not_student", "default": "unknown"},
-    "business_status": {"source": "employment_form in (자영업, 법인대표) → operating, else none", "default": "unknown"},
-    "moving_intent": {"source": "별도 필드 없음 — 추후 온보딩 추가 전까지 unknown", "default": "unknown"}
+    "education_status": {
+      "source": "occupation.category_id == O17 → student, else not_student",
+      "default": "unknown"
+    },
+    "business_status": {
+      "source": "employment_form in (자영업, 법인대표) → operating, else none",
+      "default": "unknown"
+    },
+    "moving_intent": {
+      "source": "별도 필드 없음 — 추후 온보딩 추가 전까지 unknown",
+      "default": "unknown"
+    }
   },
   "rules": {
     "career_signal_for_student": "취업보다 입학·시험·인턴·진로 선택으로 우선 해석",
@@ -35,5 +59,34 @@
     "childbirth_signal_without_profile": "출산 확정 금지, 결과물·프로젝트(creative_output)로 대체",
     "childbirth_signal_with_children_only": "추가 출산은 연령·자녀 수 게이트 통과 시에만"
   },
-  "missing_profile_behavior": "해당 상태 필드가 unknown이면 게이트를 적용하지 않고 후보를 중립적으로 유지(정밀도만 하락, docs/11 4장 영향표)."
+  "missing_profile_behavior": "해당 상태 필드가 unknown이면 게이트를 적용하지 않고 후보를 중립적으로 유지(정밀도만 하락, docs/11 4장 영향표).",
+  "runtime_status": "SPEC_ONLY",
+  "runtime_note": "규칙은 한글 서술 규격이며 코드가 읽지 않는다(2026-09-10 사문 감사). 구현은 saju_engines/addendum_gate_modifier.py 의 분기이고, implemented_by 가 규칙별 reason code 를 선언한다(빈 목록=미구현·기본 동작). 테스트가 reason code 실존을 대조한다.",
+  "implemented_by": {
+    "career_signal_for_student": [],
+    "career_signal_for_employee": [
+      "PROFILE_job_gain_to_promotion"
+    ],
+    "career_signal_for_public_official": [
+      "PROFILE_public_official_promotion",
+      "PROFILE_public_official_transfer"
+    ],
+    "career_signal_for_unemployed": [],
+    "career_signal_for_retired": [],
+    "wealth_signal_for_business_owner": [
+      "PROFILE_wealth_to_expansion"
+    ],
+    "wealth_signal_for_employee": [],
+    "relationship_signal_for_single": [
+      "GATE_marriage_signal_weak"
+    ],
+    "relationship_signal_for_dating": [],
+    "relationship_signal_for_married": [
+      "PROFILE_new_relationship_to_change"
+    ],
+    "childbirth_signal_without_profile": [
+      "GATE_childbirth_to_creative"
+    ],
+    "childbirth_signal_with_children_only": []
+  }
 }

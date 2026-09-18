@@ -1,0 +1,273 @@
+{
+  "version": "1.0.0",
+  "domain": "health_safety",
+  "reviewed": false,
+  "purpose": "기회·호전 사전(P1, 2026-09-18 데굴님 승인) — 위험 사전(risks/)의 긍정 대칭 층. 경량 엔진(opportunity_engine)이 LuckPillar 관계·역할·공망·합 완화·구조 배경으로 판정하며 점수·순위는 바꾸지 않는다(서술·favorability 참고). 성사·당첨·확정 표현 금지. family는 event_process_types 긍정 유형 id.",
+  "items": [
+    {
+      "opportunityId": "HLT_RECOVERY",
+      "domain": "health_safety",
+      "kind": "maintenance",
+      "family": "recovery",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "HLT_RCV_T1",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "twelveStageIn": [
+            "장생",
+            "목욕",
+            "태",
+            "양"
+          ]
+        },
+        {
+          "id": "HLT_RCV_T2",
+          "hapMitigation": "mitigated",
+          "tenGodGroup": "officer"
+        },
+        {
+          "id": "HLT_RCV_T3",
+          "voidState": "release",
+          "relationPalace": "day"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "HLT_RCV_A1",
+          "luckGradeIn": [
+            "강한 용신운"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "HLT_RCV_D1",
+          "relation": "HYEONG",
+          "strength": 0.3
+        },
+        {
+          "id": "HLT_RCV_D2",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "recovery",
+          "ko": "증상 호전·치료 후 회복"
+        },
+        {
+          "id": "return",
+          "ko": "일상·업무 복귀"
+        }
+      ],
+      "allowedClaimScope": [
+        "회복 여건",
+        "휴식·관리 체크포인트"
+      ],
+      "prohibitedClaims": [
+        "완치·치료 확정",
+        "질병명 언급"
+      ],
+      "note": "인성(보호) 길신 + 재생 단계, 압박 완화 — 회복 여건. 의료 조언 아님.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "HLT_TREATMENT_ACCESS",
+      "domain": "health_safety",
+      "kind": "opportunity",
+      "family": "protection",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "HLT_TRT_T1",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "relation": "YUKHAP"
+        },
+        {
+          "id": "HLT_TRT_T2",
+          "tenGod": "정인",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "rooted": true
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "HLT_TRT_D1",
+          "voidState": "active",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "care",
+          "ko": "필요한 진료·치료 시작"
+        },
+        {
+          "id": "support",
+          "ko": "돌봄·생활 지원 확보"
+        }
+      ],
+      "allowedClaimScope": [
+        "지원 여건",
+        "확인 체크포인트"
+      ],
+      "prohibitedClaims": [
+        "치료 효과 확정"
+      ],
+      "note": "인성 길신 합·통근 — 보호·지원 여건.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "HLT_LOAD_RELIEF",
+      "domain": "health_safety",
+      "kind": "relief",
+      "family": "relief",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "HLT_RLF_T1",
+          "hapMitigation": "mitigated",
+          "tenGodGroup": "officer"
+        },
+        {
+          "id": "HLT_RLF_T2",
+          "structure": "chunggeun_clear",
+          "strength": 0.25
+        },
+        {
+          "id": "HLT_RLF_T3",
+          "tenGod": "식신",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "tenGodGroup2": "officer"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "HLT_RLF_A1",
+          "twelveStageIn": [
+            "묘",
+            "쇠"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "HLT_RLF_D1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "rest",
+          "ko": "휴식 여건 마련·업무 부담 경감"
+        },
+        {
+          "id": "routine",
+          "ko": "생활 리듬 회복"
+        }
+      ],
+      "allowedClaimScope": [
+        "휴식 여건",
+        "관리 체크포인트"
+      ],
+      "prohibitedClaims": [
+        "건강 회복 확정"
+      ],
+      "note": "관살(압박) 완화·식신제살 — 부담 경감.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "HLT_STAMINA_UP",
+      "domain": "health_safety",
+      "kind": "maintenance",
+      "family": "stabilization",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "HLT_STM_T1",
+          "luckGradeIn": [
+            "강한 용신운"
+          ],
+          "strength": 0.25
+        },
+        {
+          "id": "HLT_STM_T2",
+          "tenGodGroup": "peer",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "twelveStageIn": [
+            "건록",
+            "관대"
+          ]
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "HLT_STM_D1",
+          "relation": "CHUNG",
+          "relationPalace": "day",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "stamina",
+          "ko": "활동 능력·컨디션 유지"
+        },
+        {
+          "id": "routine_stable",
+          "ko": "생활 유지 여건 안정"
+        }
+      ],
+      "allowedClaimScope": [
+        "컨디션 여건"
+      ],
+      "prohibitedClaims": [
+        "건강 확정"
+      ],
+      "note": "강한 용신운·비겁 길신 활동 단계 — 유지.",
+      "reviewed": false
+    }
+  ]
+}

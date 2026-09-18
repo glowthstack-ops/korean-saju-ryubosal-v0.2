@@ -229,3 +229,24 @@ def test_budget_from_call_limits(chart, candidates, bundles, scorer) -> None:
         "이직운", _intent(), chart, candidates, bundles, scorer, call_type="chat_compare",
     )
     assert payload.budget.max_input_tokens == 22_000
+
+
+def test_daewoon_status_marker_and_guard(chart, candidates, bundles, scorer) -> None:
+    """대운 행 상태(지남/현재/예정) = 엔진 current_daewoon_index 판정 표기.
+
+    LLM이 나이 계산으로 현재 대운을 임의 추정해 지난 대운을 '현재', 현재 대운을
+    '시작될 미래'로 서술하던 결함 차단(2026-08-13 데굴님 실사용 발견).
+    """
+    intent = _intent(time_scope=TimeScope.LONG_TERM)  # 대운 전체 포함 경로
+    payload = build_llm_input("내 인생 흐름 봐줘", intent, chart, candidates, bundles, scorer)
+    dws = payload.calendar_context.daewoon
+    assert dws, "장기 질문은 대운 전체가 포함돼야 한다"
+    assert all(d.status in ("지남", "현재", "예정") for d in dws)
+    assert sum(1 for d in dws if d.status == "현재") == 1
+    # 순서 불변식 — 지남 < 현재 < 예정.
+    order = {"지남": 0, "현재": 1, "예정": 2}
+    ranks = [order[d.status] for d in dws]
+    assert ranks == sorted(ranks)
+    text = serialize_llm_input(payload)
+    assert "← 현재 대운(오늘 포함, 엔진 판정)" in text
+    assert "재추정하지 말고 표기를 그대로 따를 것" in text

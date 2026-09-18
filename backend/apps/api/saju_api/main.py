@@ -7,7 +7,7 @@ import contextlib
 import logging
 import os
 import traceback
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -33,7 +33,7 @@ from .routers import (
     report,
     subjects,
 )
-from .services import error_logging, usage_logging
+from .services import daily_fortune_export, error_logging, usage_logging
 
 # 앱 로거 콘솔 노출(2026-07-14 관측성) — uvicorn 기본 로깅은 자체(uvicorn.*) 로거만
 # 핸들링해 엔진·서비스의 INFO 진단 로그(overview_selection 등)가 침묵한다. 루트가 아니라
@@ -66,16 +66,24 @@ _KST = ZoneInfo("Asia/Seoul")
 def daily_fortune_pregen_schedule(
     now: datetime,
 ) -> tuple[datetime, date, datetime]:
-    """(생성 시각, 대상 날짜, export 시각). **순수 함수 — 테스트 가능하게 분리한다.**
+    """(생성 시각, 대상 날짜, 재확인 export 시각). **순수 함수 — 테스트 가능하게 분리한다.**
 
-    두 시각이 자정을 사이에 두고 갈라져 있는 것이 핵심이다. 생성은 전날 23:50 이고
-    export 는 그 다음 00:05 다. `write_threads_export` 가 오늘 보드만 쓰므로, 생성
-    시점에 부르면 언제나 하루 이르러 건너뛰어진다(2026-08-02 실측).
+    생성은 전날 21:00(`THREADS_PUBLISH_HOUR`)이다. 그 시각부터 스레드 파일의 게시
+    기준일이 익일로 넘어가므로, 생성 직후 곧바로 export 까지 끝낼 수 있다(2026-08-05
+    확정 — 이전에는 23:50 생성 후 자정을 넘겨야 export 가드를 통과했다).
+
+    세 번째 값은 대상 날짜 00:05 로, 21시 쓰기가 실패했고 재기동도 없었던 경우를 위한
+    **멱등 재확인**이다. 정상 경로에서는 기존 파일과 내용이 같아 쓰기가 생략된다
+    (export 쪽 동일 내용 비교, 2026-08-09 — 이전에는 매일 같은 내용을 다시 써 mtime 이
+    갱신돼 불필요한 재생성처럼 보였다).
 
     대상 날짜는 sleep **전에** 고정한다. 뒤에서 다시 now 를 읽으면 생성이 자정을 넘겨
     끝났을 때 +1 이 하루를 건너뛴 날짜가 된다(2026-08-01 실측).
     """
-    run_at = now.replace(hour=23, minute=50, second=0, microsecond=0)
+    run_at = now.replace(
+        hour=daily_fortune_export.THREADS_PUBLISH_HOUR,
+        minute=0, second=0, microsecond=0,
+    )
     if run_at <= now:
         run_at += timedelta(days=1)
     target = (run_at + timedelta(days=1)).date()
@@ -84,22 +92,69 @@ def daily_fortune_pregen_schedule(
     return run_at, target, export_at
 
 
+#: 벽시계 재확인 간격(초). 이 값이 곧 발화 시각의 최대 오차다.
+_CLOCK_RECHECK_STEP = 60.0
+
+
+async def sleep_until(
+    target: datetime,
+    *,
+    step: float = _CLOCK_RECHECK_STEP,
+    now_fn: Callable[[], datetime] | None = None,
+    sleep_fn: Callable[[float], Awaitable[None]] | None = None,
+) -> None:
+    """**벽시계가** target 에 닿을 때까지 잔다 — 한 번에 길게 자지 않는다.
+
+    `asyncio.sleep` 은 monotonic 타이머다. 남은 시간을 벽시계로 한 번 계산해 그대로
+    자면, 자는 동안 벽시계가 보정될 때 깨어나는 벽시계 시각이 어긋난다. 두 시계가
+    같은 속도로 간다는 가정이 깨지기 때문이고, 그 가정은 이 개발기에서 실제로 깨졌다.
+
+    2026-08-06 실측: 08:56 기동, 21:00 발화 예정. 자는 동안 벽시계가 **50분 28초 뒤로**
+    밀려(monotonic 47,275초 vs 벽시계 44,247초) 태스크가 20:09 에 깨어났다. 그 시각엔
+    게시 기준일이 아직 당일이라 export 가드가 익일 보드를 막았고, 21시 게시가 실패했다.
+    가드는 정확히 설계대로 동작했다 — 어긋난 것은 발화 시각이다.
+
+    step 이내로 나눠 자며 매번 벽시계를 다시 읽으면 어긋남이 한 조각 이내로 제한된다.
+    하루 한 번 태스크에 60초 간격이면 깨어남은 약 780회로, 비용은 무시할 수준이다.
+
+    벽시계가 **앞으로** 뛰어 target 을 지나쳤으면 즉시 반환한다(지연 발화 방지).
+
+    Args:
+        target: 이 벽시계 시각에 닿으면 반환한다.
+        step: 한 번에 자는 최대 시간(초) = 발화 오차 상한.
+        now_fn: 현재 시각 공급자(테스트 주입용). None 이면 KST 현재 시각.
+        sleep_fn: 대기 함수(테스트 주입용). None 이면 `asyncio.sleep`.
+    """
+    now_fn = now_fn or (lambda: datetime.now(_KST))
+    sleep_fn = sleep_fn or asyncio.sleep
+    while True:
+        remaining = (target - now_fn()).total_seconds()
+        if remaining <= 0:
+            return
+        await sleep_fn(min(step, remaining))
+
+
 async def _daily_fortune_pregen_loop() -> None:
     """보드를 **사용자 요청과 무관하게** 준비한다 (env SAJU_DAILY_FORTUNE_PREGEN=1 전용).
 
-    23:50 KST 에 익일 보드를 선생성·교정하고, **기동 즉시 당일 누락을 보충**한다.
-    23:50 태스크만 두면 그 시각에 서버가 떠 있지 않았던 경우(배포·재기동·신규 환경)
-    당일 보드가 비어 첫 사용자가 60건 생성 + LLM 교정을 그대로 기다리게 된다.
+    21:00 KST 에 익일 보드를 선생성·교정하고 스레드 파일까지 익일자로 교체하며,
+    **기동 즉시 누락을 보충**한다. 21:00 태스크만 두면 그 시각에 서버가 떠 있지 않았던
+    경우(배포·재기동·신규 환경) 보드가 비어 첫 사용자가 60건 생성 + LLM 교정을 그대로
+    기다리게 된다.
 
-    기본 off — 개발·테스트·임시 서버가 자정마다 LLM 을 호출하지 않도록 운영에서만
-    명시적으로 켠다. 보충은 멱등이다(보드가 이미 있으면 재생성하지 않고, 교정도
-    polish_status 가 RAW 일 때만 수행된다). 실패해도 루프를 유지하며, 최후 보루로
-    당일 요청의 lazy 생성이 남는다(무중단).
+    기본 off — 개발·테스트·임시 서버가 매일 LLM 을 호출하지 않도록 운영에서만
+    명시적으로 켠다. 실패해도 루프를 유지하며, 최후 보루로 당일 요청의 lazy 생성이
+    남는다(무중단).
+
+    **멱등의 근거는 캐시 하나다.** 보드가 이미 있으면 `get_board` 가 재생성하지 않고,
+    `polish_board` 도 `polish_status` 가 RAW 일 때만 LLM 을 부른다. 그래서 이 멱등은
+    캐시가 살아 있는 동안에만 성립한다 — Redis 에 볼륨이 없던 동안에는 컨테이너
+    recreate 마다 기록이 사라져 같은 날짜를 다시 만들었다(docker-compose.yml 주석의
+    실측 참조). 여기 코드를 고치는 것만으로는 그 낭비가 닫히지 않으므로 둘을 함께 본다.
     """
     from saju_engines.daily_fortune_cache import default_cache
 
     from .services import (
-        daily_fortune_export,
         daily_fortune_polish,
         daily_fortune_service,
     )
@@ -115,42 +170,55 @@ async def _daily_fortune_pregen_loop() -> None:
             log.exception("보드 선생성 실패 date=%s", target)
 
     async def _export(target: date) -> None:
-        """오늘이 된 보드를 스레드용 파일로 내보낸다.
+        """보드를 스레드용 파일로 내보낸다.
 
-        `write_threads_export` 는 **오늘 보드일 때만** 쓴다. 사전생성은 언제나 전날
-        23:50 이라 그 시점의 `now.date()` 는 보드 날짜보다 하루 이르고, 따라서 생성
-        경로의 export 는 항상 건너뛰어진다. 자정을 넘긴 뒤 한 번 더 부르는 이 단계가
-        없으면 파일이 기동 시점 날짜에 멈춘다(2026-08-02 실측: 8/2 보드는 캐시에
-        있는데 파일은 8/1 자였다).
+        **기준 날짜를 인자로 넘기지 않는다.** `write_threads_export` 가 시계로 게시
+        기준일을 정하게 두어야 가드가 실제로 동작한다. `publish_date=target` 을 넘기면
+        비교가 언제나 참이 되어(보드도 target 이다) 가드를 우회한다 — 임의 날짜 보드가
+        파일을 덮는 것(2026-08-01 사고)을 막는 장치가 무력화된다.
 
-        가드를 완화해 고치지 않는다 — 미래 보드가 오늘 파일을 덮는 사고를 막는 것이
-        그 가드의 목적이고, 여기서는 호출 **시점**을 바로잡는다.
+        21시 이후에는 익일 보드가, 그 전에는 당일 보드가 통과한다. 따라서 21:00 생성
+        직후의 호출과 00:05 재확인 호출이 **둘 다** target 보드로 통과한다.
         """
         try:
             board = await asyncio.to_thread(
                 daily_fortune_service.get_board, default_cache(), target
             )
             if not await asyncio.to_thread(
-                daily_fortune_export.write_threads_export, board, today=target
+                daily_fortune_export.write_threads_export, board
             ):
                 log.warning("스레드 export 건너뜀 date=%s", target)
         except Exception:  # noqa: BLE001 — 루프 유지, 다음 주기 재시도
             log.exception("스레드 export 실패 date=%s", target)
 
-    # 기동 즉시 당일 보충 — 지금 접속하는 사용자가 생성을 기다리지 않게 한다.
-    today = datetime.now(_KST).date()
-    await _ensure(today)
-    await _export(today)
+    # 기동 즉시 보충 — 지금 접속하는 사용자가 생성을 기다리지 않게 한다.
+    #
+    # **보충 대상은 게시 기준일 하나뿐이다**(2026-08-06). 21시 전이면 그게 곧 오늘이라
+    # 종전과 같고, 21시 이후면 익일만 준비한다. 이전에는 오늘과 익일을 둘 다 불러
+    # 21시 이후 재기동이 LLM 교정을 최대 2회 냈는데, 그중 오늘 몫은 **이미 어제 21시에
+    # 만들어 스레드로 내보낸 것을 다시 만드는 것**이라 값이 없다(남은 수명도 3시간 미만).
+    #
+    # 오늘 보드가 캐시에 없더라도 여기서 채우지 않는다. 라우터의 lazy 경로가 엔진
+    # 생성으로 즉시 응답하고, 교정이 정말 필요하면 `maybe_schedule_polish` 가 요청이
+    # 있을 때만 한 번 낸다. 아무도 접속하지 않는 시간대의 선제 교정은 순수 낭비다.
+    now = datetime.now(_KST)
+    publish = daily_fortune_export.threads_publish_date(now)
+    await _ensure(publish)
+    await _export(publish)
 
     while True:
         now = datetime.now(_KST)
         run_at, target, export_at = daily_fortune_pregen_schedule(now)
-        await asyncio.sleep((run_at - now).total_seconds())
+        # **벽시계 기준으로 기다린다.** 남은 시간을 한 번 계산해 그대로 자면 자는 동안의
+        # 시계 보정을 놓쳐 엉뚱한 벽시계 시각에 깨어난다(2026-08-06: 50분 일찍 깨어나
+        # 21시 게시 실패). 발화 시각이 게시 기준일 경계와 맞물려 있어 오차가 곧 결함이다.
+        await sleep_until(run_at)
         await _ensure(target)
-        # 자정을 넘겨 target 이 '오늘' 이 된 뒤 내보낸다. 생성이 오래 걸려 이미 지난
-        # 시각이면 즉시 실행된다.
-        await asyncio.sleep(
-            max(0.0, (export_at - datetime.now(_KST)).total_seconds()))
+        # 21시 — 게시 기준일이 이미 target 이라 여기서 파일이 익일자로 교체된다.
+        await _export(target)
+        # 00:05 — 21시 쓰기가 실패했고 재기동도 없었던 경우를 위한 멱등 재확인.
+        # 생성이 오래 걸려 이미 지난 시각이면 즉시 실행된다.
+        await sleep_until(export_at)
         await _export(target)
 
 

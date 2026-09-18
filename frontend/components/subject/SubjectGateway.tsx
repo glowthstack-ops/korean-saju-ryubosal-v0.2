@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useGnb } from "@/components/providers/GnbProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 import { InlinePartnerForm } from "@/components/subject/InlinePartnerForm";
 import { SubjectCard } from "@/components/subject/SubjectCard";
@@ -33,6 +34,7 @@ export function SubjectGateway({
 }: Props) {
   const mode: CompanionMode = companionMode ?? (requireCompanion ? "required" : "none");
   const { ready, isLoggedIn } = useAuth();
+  const { openGnb } = useGnb(); // 비로그인 안내의 [로그인] → 사이드바(계정 패널) 열기
   const { setSelected, setCompanion } = useSelectedSubject();
   const [subjects, setSubjects] = useState<SubjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,9 +59,16 @@ export function SubjectGateway({
       <section className="rounded-lg bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">{title ?? "사주 선택"}</h2>
         <p className="mt-2 text-sm text-gray-600">
-          이 서비스는 로그인 후 이용할 수 있어요. 좌측 메뉴(☰)에서 아이디·PIN으로 로그인하거나 새
-          계정을 만들어 주세요. 같은 아이디·PIN이면 어느 기기에서나 사주목록이 이어집니다.
+          이 서비스는 로그인 후 이용할 수 있어요. 아이디·PIN으로 로그인하거나 새 계정을 만들어
+          주세요. 같은 아이디·PIN이면 어느 기기에서나 사주목록이 이어집니다.
         </p>
+        <button
+          type="button"
+          onClick={openGnb}
+          className="mt-3 rounded bg-gray-800 px-3 py-1.5 text-sm text-white"
+        >
+          로그인
+        </button>
       </section>
     );
   }

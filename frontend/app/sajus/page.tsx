@@ -2,11 +2,13 @@
 
 // 사주목록(관리) — 별명·생년월일시·용신/물상 등록여부 표시, 추가/수정/삭제.
 // 삭제는 스낵바 '되돌리기'로 취소 가능(미취소 시 일정 시간 후 실제 삭제 반영).
+// 비로그인 진입은 안내 페이지를 보여주지 않고 홈으로 돌려보내며 사이드바(계정 패널)를 연다.
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useGnb } from "@/components/providers/GnbProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 import { SubjectCard } from "@/components/subject/SubjectCard";
 import { deleteSubject, listSubjects } from "@/lib/subjects";
@@ -17,6 +19,7 @@ const UNDO_MS = 5000;
 export default function SajusPage() {
   const router = useRouter();
   const { ready, isLoggedIn } = useAuth();
+  const { openGnb } = useGnb();
   const { selected, setSelected, reconcile } = useSelectedSubject();
   const [subjects, setSubjects] = useState<SubjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +40,14 @@ export default function SajusPage() {
     if (isLoggedIn) load();
     else setSubjects([]);
   }, [isLoggedIn, load]);
+
+  // 비로그인 확정 시 홈으로 이동 + 사이드바 열기(로그인 항목이 바로 보이도록).
+  useEffect(() => {
+    if (ready && !isLoggedIn) {
+      router.replace("/");
+      openGnb();
+    }
+  }, [ready, isLoggedIn, router, openGnb]);
 
   // 실제 삭제 커밋(타이머 만료 또는 다른 삭제 시작 시).
   const commitDelete = useCallback((s: SubjectSummary) => {
@@ -64,18 +75,7 @@ export default function SajusPage() {
     setPending(null);
   }, [pending]);
 
-  if (!ready) return <p className="text-sm text-gray-500">확인 중…</p>;
-  if (!isLoggedIn) {
-    return (
-      <section className="rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-bold">사주목록</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          로그인하면 여러 사주를 등록·관리하고 어느 기기에서나 이어서 볼 수 있어요. 좌측 메뉴(☰)에서
-          아이디·PIN으로 로그인해 주세요.
-        </p>
-      </section>
-    );
-  }
+  if (!ready || !isLoggedIn) return <p className="text-sm text-gray-500">확인 중…</p>;
 
   return (
     <div className="space-y-4">

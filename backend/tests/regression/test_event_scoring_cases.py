@@ -177,6 +177,8 @@ def test_case12_daewoon_transition_reemployment_ranking() -> None:
         calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:40",
         birth_place_name="서울 구로구", latitude=37.4944, longitude=126.8563,
         timezone="Asia/Seoul", gender="male",
+        # 사례 채록 당시 기준(균시차 적용) 고정 — 기본값 변경(2026-08-25)과 무관하게 유지.
+        time_options={"apply_equation_of_time": True},
     )
     result = calculate(birth)
     assert result.luck_cycles is not None

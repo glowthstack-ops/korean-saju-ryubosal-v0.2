@@ -303,6 +303,57 @@ _GANJI_RE = re.compile(f"([{_STEM_CHARS}])([{_BRANCH_CHARS}])(?!\\()")
 _NESTED_GLOSS_RE = re.compile(r"[가-힣]{2}\(([一-鿿]{2})\(([가-힣]{2})\)\)")
 _SELF_GLOSS_RE = re.compile(r"([가-힣]{2,})\(\1\)")
 
+# ── 신살 표기 훼손 교정 (2026-08-06 데굴님 지적) ──
+# LLM 이 엔진에서 받은 신살명의 글자를 바꿔 쓰는 일이 있다. 대화 이력 570건 전수 검사에서
+# 사전에 없는 신살형 토큰 17종이 나왔으나, 실제로 **존재하지 않는 용어**는 '격격살'
+# (격각살 隔角殺 의 훼손) 하나뿐이었다. 나머지는 통용 변형('현침살'·'백호살'·'연살')이거나
+# 정상 명리어(형살·흉살·관살…)·일반어(몸살·햇살)였다.
+#
+# 그래서 **없는 말만 고친다.** 변형 표기는 틀린 말이 아니므로 손대지 않는다 — 통용 독음을
+# 기계적으로 사전 표기로 밀어붙이면 교정이 아니라 개입이 된다(2026-08-06 사용자 확정).
+_SINSAL_TYPO_FIX = {"격격살": "격각살"}
+
+# 훼손 탐지용 — 3자 이상('격격살'·'천을귀인')만 본다. 2자 토큰(몸살·햇살·형살)은 사전의
+# 2자 이름(년살·겁살)과 한 글자 차이가 흔해 걸러낸다.
+_SINSAL_TOKEN_RE = re.compile(r"[가-힣]{2,4}살|[가-힣]{1,3}귀인")
+
+
+def _is_one_char_swap(a: str, b: str) -> bool:
+    """길이가 같고 한 글자만 다른가 — 관측된 훼손(격격살↔격각살)의 형태다.
+
+    삽입·삭제까지 넓히지 않는다. 그러면 '재생살'↔'재살', '현침살'↔'현침' 처럼 **정상
+    용어와 통용 변형**이 매번 걸려 로그가 소음이 된다. 탐지 목적은 새 훼손을 드러내는
+    것이지 표기 흔들림을 세는 것이 아니다.
+    """
+    if len(a) != len(b):
+        return False
+    return sum(x != y for x, y in zip(a, b, strict=True)) == 1
+
+
+def _normalize_sinsal_terms(text: str) -> str:
+    """존재하지 않는 신살 표기를 사전 표기로 되돌리고, 새 훼손은 로그로 드러낸다.
+
+    엔진이 프롬프트로 준 이름을 LLM 이 바꿔 놓은 것이므로 교정이 곧 원상복구다. 사전에
+    있는 이름은 어떤 경우에도 건드리지 않는다.
+    """
+    for wrong, right in _SINSAL_TYPO_FIX.items():
+        text = text.replace(wrong, right)
+    try:
+        from saju_engines.chart_interpretation import canonical_sinsal_names
+
+        known = canonical_sinsal_names()
+    except Exception:  # noqa: BLE001 — 사전 미가용 시 탐지만 포기(출력은 그대로)
+        return text
+    for token in set(_SINSAL_TOKEN_RE.findall(text)):
+        if len(token) < 3 or token in known:
+            continue
+        near = [n for n in known if _is_one_char_swap(token, n)]
+        if near:
+            _logger.warning(
+                "sinsal_term_drift token=%s 사전_후보=%s", token, sorted(near)
+            )
+    return text
+
 
 def _normalize_ganji(text: str) -> str:
     """간지(천간+지지) 표기를 '한자(한글)'로 통일한다 — 혼용·부분 음역 교정."""
@@ -329,6 +380,7 @@ def _sanitize_output(text: str) -> str:
     일괄 적용된다.
     """
     cleaned = _normalize_ganji(text)  # 간지 한자/한글 혼용 → 한자(한글) 병기
+    cleaned = _normalize_sinsal_terms(cleaned)  # 격격살 → 격각살 (없는 말만)
     cleaned = _NESTED_GLOSS_RE.sub(r"\1(\2)", cleaned)  # 한글(한자(한글)) → 한자(한글)
     cleaned = _SELF_GLOSS_RE.sub(r"\1", cleaned)        # 정재(정재) → 정재
     cleaned = _STRIKETHROUGH_RE.sub("", cleaned)
@@ -512,8 +564,12 @@ _SYSTEM_PROMPT = (
     "6. 점수·숫자를 답변에 노출하지 않는다 — 강도는 제공된 표현 문장으로만 전달한다.\n"
     "7. 출력은 마크다운 기호(#, *, |, ### 등) 없이 평문으로, 공백 포함 1,500자 이내로 "
     "쓴다. 취소선(~~…~~)·자기수정 표기를 쓰지 말고, 고친 흔적 없이 최종 확정 내용만 쓴다.\n"
-    "8. 답변 끝에 핵심을 한두 문장으로 정리하고, 사용자가 이어서 생각해볼 만한 질문 "
-    "1개를 자연스럽게 덧붙인다.\n"
+    "8. 답변 끝에 핵심을 한두 문장으로 정리하고(그 정리에 핵심 판정과 지금 취할 행동이 "
+    "담기게 하라), 사용자가 이어서 생각해볼 만한 질문 "
+    "1개를 자연스럽게 덧붙인다. 마무리는 이 한 번뿐이다 — 다른 지시가 말미 서술이나 "
+    "되묻기를 요구하더라도 마무리 문단을 두 번 쓰지 말고, 다른 지시가 정한 소재를 이 "
+    "질문 하나에 담아라. 제안·행동 지침은 본문 흐름에 녹이고, 물음표로 끝나는 문장은 "
+    "답 전체에서 이 마지막 질문 하나뿐이어야 한다.\n"
     "9. 사용자가 제시한 전제·판단·시기 선호를 존중한다 — 특정 시기를 빼달라거나"
     "('6월은 빼고 그 다음부터') 본인 생각을 말하면 부정·반박하지 말고('아무 신호 없다고 "
     "생각하셨겠지만 사실은…' 류 가르치려는 표현 금지) 사용자가 보고 싶어 하는 범위를 중심으로 "
