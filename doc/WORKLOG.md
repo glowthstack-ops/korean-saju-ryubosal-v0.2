@@ -10946,3 +10946,12 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
   트리거는 .25로 낮춰 증폭 없이는 문턱 미달.
 - 회귀: `tests/unit/test_opportunity_engine.py`(사전 7도메인·family·확정 금지·스키마 거부, 문턱·정렬·도메인 제한, 후보 줄 플래그).
 - 12개월 이직운 dry_run 15,422 토큰(한도 22k 내).
+
+## 2026-09-18 — P3 실사례 픽스처 스키마·러너 준비 (실사례는 운영 중 수집 — 데굴님)
+
+- `backend/tests/fixtures/life_event_cases.jsonl`(템플릿 1행), `doc/v2_2/LIFE_EVENT_CASES.md`(스키마·판정 원칙·개인정보 규칙),
+  `backend/tests/regression/test_life_event_cases.py`(사례 0건이면 skip; 있으면 사례별 엔진 실행 → 사건 키·사건 유형·기회 family 대조).
+- 사례는 '정답'이 아니라 어긋남 감지용 — 실패 시 규칙을 바로 고치지 않고 WORKLOG 기록 후 승인.
+- **P2(신살·구조 → 위험 보조 트리거) 보류 사유**: 위험 사전 항목은 scope별 감수 해시(reviewHashes)로 잠겨 있어 규칙을 고치면
+  `risk_restamp.py`가 해당 항목을 reviewed=false로 강등한다. 항목 편집 vs family 단위 보조 증폭 층(env 버전 범프+재스탬프) 중
+  선택이 필요하며, 어느 쪽이든 노출 lease 재검증(유료 --execute)이 얽힌다 — 데굴님 결정 대기.
