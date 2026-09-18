@@ -4,7 +4,7 @@
   "audit_id": "OA-9b",
   "runtime_status": "INERT",
   "review_status": "PENDING",
-  "review_note": "OA-9b 분류 — 엔진이 로드하지 않는다(런타임 스냅샷 3종에 포함되지 않음). G0/G1 shadow 가 이 파일만 읽는다. 라이브 승격 시에는 daily_event_catalog.json 병합 + DICT_VERSION 승격 + 스냅샷 재빌드를 거친다. primary_evidence_family 는 기계 산출이 아니라 명리 판정이므로 감수 대상이다.",
+  "review_note": "OA-9b 분류 — 엔진이 로드하지 않는다(런타임 스냅샷 3종에 포함되지 않음). G0/G1 shadow 가 이 파일만 읽는다. 라이브 승격 시에는 daily_event_catalog.json 병합 + DICT_VERSION 승격 + 스냅샷 재빌드를 거친다. primary_evidence_family 는 기계 산출이 아니라 명리 판정이므로 감수 대상이다. 2026-09-18 3차 확장 18종 추가(INERT 유지).",
   "vocabulary": {
     "evidence_family": {
       "비겁": "비견·겁재 — 경쟁·분탈·동조",
@@ -29,7 +29,8 @@
     "g0_rollout_scope": {
       "money_slice": "G0 1차 적용 대상(승인 범위).",
       "deferred_document": "재성 양수를 받는 caution 이지만 money 도메인이 아니다 — 별도 승인 전까지 적용하지 않는다.",
-      "not_applicable": "재성 양수 기여가 없다."
+      "not_applicable": "재성 양수 기여가 없다.",
+      "deferred_money": "재성 양수를 받는 money caution 이지만 승인된 1차 슬라이스(overspend·lend_money) 밖이다 — 별도 승인 전까지 적용하지 않는다(2026-09-18 3차 확장 2종)."
     }
   },
   "invariants": [
@@ -1281,6 +1282,351 @@
       "g0_candidate": false,
       "g0_rollout_scope": "not_applicable",
       "note": "편인(사색 과다) ∧ 원진/수렴/이탈 — 마음의 무게(신문 운세 조사 장면)."
+    },
+    "approval_resumes": {
+      "domain": "document",
+      "polarity": "good",
+      "semantic_group": "document_flow",
+      "semantic_family": "resumption",
+      "primary_evidence_family": "관성",
+      "subject_evidence": [
+        "관성",
+        "인성",
+        "합회",
+        "충형파해",
+        "운성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "misunderstanding_cleared": {
+      "domain": "social",
+      "polarity": "good",
+      "semantic_group": "social_bond",
+      "semantic_family": "reconciliation",
+      "primary_evidence_family": "합회",
+      "subject_evidence": [
+        "합회",
+        "식상",
+        "인성",
+        "운성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "burden_settled": {
+      "domain": "money",
+      "polarity": "good",
+      "semantic_group": "money_settlement",
+      "semantic_family": "relief",
+      "primary_evidence_family": "재성",
+      "subject_evidence": [
+        "재성",
+        "운성",
+        "관성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "early_catch": {
+      "domain": "work",
+      "polarity": "good",
+      "semantic_group": "work_execution",
+      "semantic_family": "loss_prevention",
+      "primary_evidence_family": "인성",
+      "subject_evidence": [
+        "인성",
+        "관성",
+        "운성",
+        "충형파해"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "referral_received": {
+      "domain": "social",
+      "polarity": "good",
+      "semantic_group": "social_bond",
+      "semantic_family": "referral",
+      "primary_evidence_family": "관성",
+      "subject_evidence": [
+        "관성",
+        "인성",
+        "합회"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "trust_restored": {
+      "domain": "love",
+      "polarity": "good",
+      "semantic_group": "love_bond",
+      "semantic_family": "recovery",
+      "primary_evidence_family": "합회",
+      "subject_evidence": [
+        "합회",
+        "운성",
+        "인성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "relief_news": {
+      "domain": "news",
+      "polarity": "good",
+      "semantic_group": "incoming_news",
+      "semantic_family": "relief",
+      "primary_evidence_family": "인성",
+      "subject_evidence": [
+        "인성",
+        "식상",
+        "합회",
+        "운성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "autonomy_day": {
+      "domain": "work",
+      "polarity": "good",
+      "semantic_group": "work_execution",
+      "semantic_family": "autonomy",
+      "primary_evidence_family": "비겁",
+      "subject_evidence": [
+        "비겁",
+        "운성",
+        "재성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "demand_up": {
+      "domain": "money",
+      "polarity": "good",
+      "semantic_group": "money_opportunity",
+      "semantic_family": "expansion",
+      "primary_evidence_family": "식상",
+      "subject_evidence": [
+        "식상",
+        "재성",
+        "운성"
+      ],
+      "adverse_evidence": [],
+      "manifestation_condition": "favorable_only",
+      "headline_role": "full",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "settlement_dispute_caution": {
+      "domain": "money",
+      "polarity": "caution",
+      "semantic_group": "money_caution",
+      "semantic_family": "allocation_dispute",
+      "primary_evidence_family": "비겁",
+      "subject_evidence": [
+        "재성"
+      ],
+      "adverse_evidence": [
+        "비겁",
+        "충형파해"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": true,
+      "g0_rollout_scope": "deferred_money",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상. G0 구조 후보(caution+재성 양수)이나 이번 슬라이스(money_slice: overspend·lend_money)에는 포함하지 않는다 — deferred_money."
+    },
+    "decision_deferred_caution": {
+      "domain": "document",
+      "polarity": "caution",
+      "semantic_group": "document_flow",
+      "semantic_family": "deferral",
+      "primary_evidence_family": "운성",
+      "subject_evidence": [
+        "운성"
+      ],
+      "adverse_evidence": [
+        "운성",
+        "관성",
+        "인성",
+        "충형파해"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "tangled_requests_caution": {
+      "domain": "social",
+      "polarity": "caution",
+      "semantic_group": "social_bond",
+      "semantic_family": "entanglement",
+      "primary_evidence_family": "합회",
+      "subject_evidence": [
+        "합회"
+      ],
+      "adverse_evidence": [
+        "합회",
+        "비겁",
+        "인성",
+        "충형파해"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "repeat_mistake_caution": {
+      "domain": "work",
+      "polarity": "caution",
+      "semantic_group": "work_execution",
+      "semantic_family": "recurrence",
+      "primary_evidence_family": "충형파해",
+      "subject_evidence": [
+        "충형파해"
+      ],
+      "adverse_evidence": [
+        "충형파해",
+        "운성",
+        "인성"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "credit_overlooked_caution": {
+      "domain": "work",
+      "polarity": "caution",
+      "semantic_group": "work_recognition",
+      "semantic_family": "credit_overlooked",
+      "primary_evidence_family": "식상",
+      "subject_evidence": [
+        "식상"
+      ],
+      "adverse_evidence": [
+        "식상",
+        "관성",
+        "충형파해"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "payment_delay_caution": {
+      "domain": "money",
+      "polarity": "caution",
+      "semantic_group": "money_caution",
+      "semantic_family": "payment_delay",
+      "primary_evidence_family": "재성",
+      "subject_evidence": [
+        "재성"
+      ],
+      "adverse_evidence": [
+        "운성"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": true,
+      "g0_rollout_scope": "deferred_money",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상. G0 구조 후보(caution+재성 양수)이나 이번 슬라이스(money_slice: overspend·lend_money)에는 포함하지 않는다 — deferred_money."
+    },
+    "family_duty_caution": {
+      "domain": "social",
+      "polarity": "caution",
+      "semantic_group": "family",
+      "semantic_family": "schedule_change",
+      "primary_evidence_family": "인성",
+      "subject_evidence": [
+        "인성"
+      ],
+      "adverse_evidence": [
+        "인성",
+        "비겁",
+        "충형파해"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "complaint_caution": {
+      "domain": "work",
+      "polarity": "caution",
+      "semantic_group": "work_feedback",
+      "semantic_family": "complaint",
+      "primary_evidence_family": "관성",
+      "subject_evidence": [
+        "관성"
+      ],
+      "adverse_evidence": [
+        "관성",
+        "충형파해",
+        "식상"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
+    },
+    "device_glitch_caution": {
+      "domain": "move",
+      "polarity": "caution",
+      "semantic_group": "home_safety",
+      "semantic_family": "device_glitch",
+      "primary_evidence_family": "충형파해",
+      "subject_evidence": [
+        "충형파해"
+      ],
+      "adverse_evidence": [
+        "충형파해",
+        "인성"
+      ],
+      "manifestation_condition": "requires_adverse",
+      "headline_role": "caution_only",
+      "g0_candidate": false,
+      "g0_rollout_scope": "not_applicable",
+      "note": "2026-09-18 §22-7 3차 확장(전문가 참고 기준 사건 목록 대조) — v2 evidence 기준 기계 분류, 감수 대상."
     }
   },
   "findings": {

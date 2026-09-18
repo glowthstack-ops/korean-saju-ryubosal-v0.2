@@ -267,9 +267,9 @@ def test_love_top5_prioritizes_good_love_line() -> None:
 
 
 def test_love_catalog_expanded() -> None:
-    """love 도메인 사건 5종(확장) — good·caution 모두 존재."""
+    """love 도메인 사건 5종(확장) + trust_restored(3차) = 6종 — good·caution 모두 존재."""
     dicts = load_daily_dicts()
     loves = {k: v for k, v in dicts.catalog["events"].items() if v["domain"] == "love"}
-    assert len(loves) == 5
+    assert len(loves) == 6
     vals = {v["valence"] for v in loves.values()}
     assert vals == {"good", "caution"}

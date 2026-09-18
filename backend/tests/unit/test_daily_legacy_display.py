@@ -94,8 +94,18 @@ def test_resolver_applies_the_date_boundary_dictionary() -> None:
         resolve_day_contracts(LUCKY_PLACES_REVISION_EFFECTIVE_FROM).active_dict_version
         == DICT_VERSION_BEFORE_CATALOG_EXPANSION
     )
+    # 9/12~9/19 는 v1.13, 9/20 부터 v1.14(§22-7 3차 확장).
+    from saju_shared_types.daily_fortune import (
+        CATALOG_EXPANSION_3_EFFECTIVE_FROM,
+        DICT_VERSION_BEFORE_CATALOG_EXPANSION_3,
+    )
+
     assert (
         resolve_day_contracts(CATALOG_EXPANSION_EFFECTIVE_FROM).active_dict_version
+        == DICT_VERSION_BEFORE_CATALOG_EXPANSION_3
+    )
+    assert (
+        resolve_day_contracts(CATALOG_EXPANSION_3_EFFECTIVE_FROM).active_dict_version
         == DICT_VERSION
     )
     # 경계 이전은 strict 로 막히지만, 완화 모드에서 이전 버전을 가리키는지 확인한다.

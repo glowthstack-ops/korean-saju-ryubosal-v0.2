@@ -33,9 +33,9 @@ def _catalog():
 
 
 def test_catalog_has_64_events_and_approved_overrides() -> None:
-    """§22-3·§22-7: 64종(48 + 2026-09-10 확장 16), weather 제외, family_talk 이중 슬롯."""
+    """§22-3·§22-7: 82종(48 + 2026-09-10 확장 16 + 2026-09-18 확장 18), weather 제외."""
     catalog = _catalog()
-    assert len(catalog.events) == 64
+    assert len(catalog.events) == 82
     assert EXCLUDED_FROM_V1.isdisjoint(catalog.events)
     assert catalog.events["family_talk"].slots == ["support", "good"]
     # 구조 검증 통과 ≠ 명리 감수 — 감수 전 상태가 위조되면 안 된다.
@@ -250,9 +250,16 @@ def test_residual_stage_channels_wired_per_b_plan() -> None:
         "learning_click": {"incubation": 0.1},
         "tidy_luck": {"incubation": 0.2},
         "procrastination_caution": {"incubation": 0.2},
+        # 2026-09-18 3차 확장(§22-7 3차, 사용자 승인) — 신규 사건 3종은 잔여 채널을 evidence 와
+        # 게이트 양쪽에 쓴다(승인 개정: 노련=점검·힘 빼기, 단장=재량·의욕, 흔들림=반복 실수).
+        "early_catch": {"seasoned": 0.4},
+        "autonomy_day": {"poised": 0.3},
+        "repeat_mistake_caution": {"unsettled": 0.3},
     }
+    gate_allowed = {"early_catch", "autonomy_day", "repeat_mistake_caution"}
     for key, ev in load_catalog_v2().events.items():
         got = {ch: w for ch, w in ev.evidence.items() if ch in RESIDUAL_STAGE_CHANNELS}
         assert got == wiring.get(key, {}), (key, got)
         leaves = set(json.dumps(ev.required_signature, ensure_ascii=False).split('"'))
-        assert not leaves & set(RESIDUAL_STAGE_CHANNELS), key
+        if key not in gate_allowed:
+            assert not leaves & set(RESIDUAL_STAGE_CHANNELS), key

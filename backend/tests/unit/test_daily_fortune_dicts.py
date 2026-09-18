@@ -57,7 +57,8 @@ def places() -> dict[str, Any]:
 def test_catalog_counts_and_schema(catalog: dict[str, Any]) -> None:
     events = catalog["events"]
     # 49(연애 +4) → 65: 2026-09-10 §22-7 확장(good 11·caution 5). weather 는 v1 에만 남는다.
-    assert len(events) == 65
+    # 65 → 83: 2026-09-18 §22-7 3차 확장(good 9·caution 9).
+    assert len(events) == 83
     by_valence = {"good": 0, "caution": 0}
     support_only = 0
     for key, ev in events.items():
@@ -78,9 +79,10 @@ def test_catalog_counts_and_schema(catalog: dict[str, Any]) -> None:
     # good 12 + support 전용 6(모두 valence=good) = 18 → +love good 2 = 20,
     # caution 27 → +love caution 2 = 29(일일 연애운 확장).
     # 2026-09-10 §22-7 확장: good +11(support 전용 +5) → 31, caution +5 → 34.
-    assert by_valence["caution"] == 34
-    assert by_valence["good"] == 31
-    assert support_only == 11
+    # 2026-09-18 3차 확장: good +9(support 전용 +2) → 40, caution +9 → 43.
+    assert by_valence["caution"] == 43
+    assert by_valence["good"] == 40
+    assert support_only == 13
 
 
 def test_caution_slots_are_caution_only(catalog: dict[str, Any]) -> None:

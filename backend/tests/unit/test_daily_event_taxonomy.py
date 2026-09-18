@@ -26,7 +26,8 @@ _WEALTH_TEN_GODS = ("편재", "정재")
 _EVIDENCE_FAMILIES = {"비겁", "식상", "재성", "관성", "인성", "충형파해", "합회", "운성"}
 _CONDITIONS = {"favorable_only", "requires_adverse", "mixed_trigger"}
 _ROLES = {"full", "support_only", "caution_only"}
-_G0_SCOPES = {"money_slice", "deferred_document", "not_applicable"}
+# deferred_money: 2026-09-18 3차 확장의 money caution 2종 — 구조 후보이나 승인 슬라이스 밖.
+_G0_SCOPES = {"money_slice", "deferred_document", "deferred_money", "not_applicable"}
 
 
 @pytest.fixture(scope="module")

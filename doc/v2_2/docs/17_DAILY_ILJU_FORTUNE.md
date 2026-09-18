@@ -433,7 +433,7 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 
 **오행 활성(간이 object hazard)**: 金·火 각각 — 오늘 천간·지지 본기 1.0 / 지장간만 0.5. "火 강하니 화상" 단정 금지 — 충·형 등 부주의 신호 동반 시 상대 상승만.
 
-### 22-3. 사건 카탈로그 규격 (64종 — 전체 규격, 변경은 승인 개정으로만)
+### 22-3. 사건 카탈로그 규격 (82종 — 전체 규격, 변경은 승인 개정으로만; 초판 48 + 2차 16(§22-7) + 3차 18(§22-7 3차))
 
 각 사건 = `prior(상/중/하) · required_signature(게이트식) · evidence(채널: 가중)`. ∨=or, ∧=and.
 
@@ -629,6 +629,73 @@ eligibility(required_signature)  사건별 최소 성립 조건 — 출전권. �
 재측정(9/12~10/11 × 60일주 = 1,800장, 개정 전후 같은 스크립트): 헤드라인 70장 변경, 슬롯 변경 good 45·support 35·caution 3. 전역 지표는 유지(상위 5종 점유 43→44%, headline 종류 47/64, 그룹 내 good 고유 3.04→3.02). 사건별: body_light 슬롯 171→153(극아 감점 작동), answer_arrives 24→29·헤드라인 17→23, learning_click 42→46·헤드라인 8→11, opinion_accepted 슬롯 56→33·헤드라인 30→6(상관 통과일 순위 하락), procrastination 31→29.
 
 ---
+
+**3차 개정 — 2026-09-18 확장 (64 → 82종, 사용자 승인).**
+
+**발단.** 전문가 참고 기준 '생활 영역별 사건 목록(부정·긍정)'과 '공통 사건 유형'을 카탈로그와 대조한 결과, good 사건이
+유입·획득·인정·연결 위주라 회복·해소·부담 경감·손실 방지·자율·확대 계열이 없었고, caution 에는 배분 이견·결정 보류·
+부탁 얽힘·반복 실수·평가 누락·지급 지연·가족 일정·민원·기기 말썽이 없었다. 공백 진단(9/12~10/11 × 60일주, OA-7b 스크립트):
+헤드라인 상위 5종 누적 64.7%(공돈 24.2%), 상위 10종 88.6%.
+
+**추가 사건 18종.** 규격·표기는 §22-3 과 동일. 게이트 리프 양의 evidence·감점 12운성 성립 가능성 회귀를 통과한 값이다
+(decision_deferred 의 활동↑ −.2, early_catch 의 과속 −.3 은 게이트 12운성과 배타라 사문 — 작성 단계에서 제거·교체).
+
+**good 9종**
+| 사건 | 도메인 · 슬롯 | prior | signature | evidence |
+|---|---|---|---|---|
+| approval_resumes 보류됐던 승인·지급이 풀릴 확률 | document · good/support | 중 | (정관 ∨ 정인) ∧ (육합 ∨ 충) | 정관 .4 정인 .4 육합 .4 충 .3 활동↑ .2 공망 −.4 해 −.2 |
+| misunderstanding_cleared 오해가 풀리고 화해할 확률 | social · good/support | 중 | 육합 ∧ (식상 ∨ 인성) | 육합 .6 식신 .3 정인 .3 재생 .2 원진 −.5 해 −.4 충 −.2 |
+| burden_settled 미뤄둔 빚·의무를 정리할 확률 | money · support(헤드라인 자격) | 중 | 정재 ∧ (수렴 ∨ 아극) | 정재 .5 수렴 .4 아극 .4 정관 .2 겁재 −.3 공망 −.3 |
+| early_catch 실수를 미리 잡아낼 확률 | work · support(헤드라인 자격) | 중 | 정인 ∧ (편관 ∨ 노련 ∨ 파) | 정인 .5 편관 .3 노련 .4 파 .3 공망 −.3 겁재 −.2 |
+| referral_received 추천·소개를 받을 확률 | social · good/support | 중 | (정관 ∨ 정인) ∧ (육합 ∨ 삼합) | 정관 .4 정인 .4 육합 .4 삼합 .3 생아 .3 원진 −.3 |
+| trust_restored 서먹했던 사이가 회복될 확률 | love · good/support | 중 | (육합 ∨ 삼합) ∧ 재생 | 육합 .5 삼합 .3 재생 .5 정인 .2 원진 −.5 파 −.3 |
+| relief_news 부담을 덜어주는 소식이 올 확률 | news · good/support | 중 | (인성 ∨ 식신) ∧ (육합 ∨ 수렴) | 정인 .4 식신 .4 육합 .3 수렴 .3 극아 −.3 공망 −.3 |
+| autonomy_day 내 뜻대로 정할 여지가 생길 확률 | work · good/support | 중 | 비견 ∧ (활동↑ ∨ 단장) | 비견 .5 활동↑ .4 단장 .3 정재 .2 편관 −.3 공망 −.2 |
+| demand_up 찾는 사람이 늘어날 확률 | money · good/support | 중 | 식상 ∧ 재성 | 식신 .4 상관 .3 정재 .3 편재 .4 활동↑ .2 공망 −.3 |
+
+**caution 9종**
+| 사건 | 도메인 | prior | signature | evidence |
+|---|---|---|---|---|
+| settlement_dispute_caution 정산·배분에서 이견이 생길 확률 | money | 중 | 겁재 ∧ (재성 ∨ 파) | 겁재 .5 편재 .3 정재 .3 파 .4 원진 .2 육합 −.2 |
+| decision_deferred_caution 결정이 미뤄질 확률 | document | 중 | (공망 ∨ 둔화) ∧ (관성 ∨ 인성) | 공망 .5 둔화 .4 정관 .3 정인 .3 해 .2 육합 −.3 |
+| tangled_requests_caution 여러 부탁에 얽힐 확률 | social | 중 | (육합 ∨ 삼합) ∧ (겁재 ∨ 편인) | 육합 .4 삼합 .3 겁재 .4 편인 .3 원진 .3 정관 −.2 |
+| repeat_mistake_caution 같은 실수를 되풀이할 확률 | work | 중 | (형 ∨ 비화) ∧ (둔화 ∨ 흔들림) | 형 .5 비화 .3 둔화 .4 흔들림 .3 편인 .2 정인 −.3 |
+| credit_overlooked_caution 애쓴 만큼 티가 안 날 확률 | work | 중 | 상관 ∧ 관성 | 상관 .5 정관 .3 편관 .3 해 .3 원진 .2 정인 −.3 |
+| payment_delay_caution 받을 돈이 늦어질 확률 | money | 중 | 공망 ∧ 재성 | 공망 .5 정재 .4 편재 .3 둔화 .3 육합 −.3 |
+| family_duty_caution 가족 일로 일정이 바뀔 확률 | social | 중 | (정인 ∨ 비견) ∧ (충 ∨ 해) | 정인 .4 비견 .3 충 .4 해 .3 공망 .2 육합 −.3 |
+| complaint_caution 민원·항의를 받을 확률 | work | 중 | 편관 ∧ (충 ∨ 형) | 편관 .5 충 .4 형 .4 상관 .2 정인 −.3 |
+| device_glitch_caution 기기·서비스가 말썽 부릴 확률 | move | 중 | 파 ∧ (편인 ∨ 아극) | 파 .5 편인 .4 아극 .4 金 .2 정인 −.2 |
+
+**동의어 그룹.** 신설 settlement_group(burden_settled·settlement_dispute_caution), attention_group(early_catch·repeat_mistake_caution·
+overconfidence_caution 재배정), love_bond_group(trust_restored·love_cooldown 재배정), cooperation_group(tangled_requests_caution·
+teamwork_flow 재배정 — help_flow 는 meet_helper·referral_received), recognition_group(credit_overlooked_caution·praise_recognition 재배정),
+family_group(family_duty_caution·family_talk 재배정), feedback_group(complaint_caution·opinion_accepted 재배정). 기존 편입:
+approval_resumes·decision_deferred_caution→contract_recheck_group, misunderstanding_cleared→speech_trouble, relief_news→incoming_news,
+autonomy_day→task_pace_group, payment_delay_caution→money_gain, device_glitch_caution→home_safety_group.
+
+**제외한 후보.** 몸 회복 체감(body_light 클론) / 조력자 확보(meet_helper 중복) / 작은 손실 방지(early_catch 와 기제 동일) /
+약속 취소(2차에서 제외한 기제) / 기밀 유출(rumor_caution 클론) / 유지·정착·서비스 복구(하루 단위 관찰 불가).
+
+**잔여 채널 게이트 사용(§22-8 개정).** early_catch(노련)·autonomy_day(단장)·repeat_mistake_caution(흔들림)은 잔여 채널을 evidence 와
+게이트 양쪽에 쓴다 — B안 배선표에 3건 추가(승인 개정). 그 외 사건의 게이트 금지는 유지.
+
+**분류·v1·마이그레이션.** taxonomy(INERT) 18종 기계 분류. v1 affinity 는 v2 evidence 에서 기계 유도(2차 규칙 동일).
+DICT_VERSION dict.v1.14 · MODEL_V2_VERSION model.v2.2 · 날짜 경계 `CATALOG_EXPANSION_3_EFFECTIVE_FROM = 2026-09-20`(9/19 보드까지
+64종·model.v2.1, 9/20 보드부터 82종 — 승인 다음 날 21시 선생성분부터). 과거 날짜는 model.v2.1 스냅샷으로 재생. signature 연 전수
+성립 검증 통과(18종 전부). 문구 템플릿 18종(fragments 5·actions 3·results 2·tone 5군·sipseong 10, 명리 용어·숫자·기호 금지).
+
+**재측정(2026-09-20~10-19 × 60일주 = 1,800장, v2 채점, LLM 0회, 같은 창에서 경계만 바꿔 비교).**
+
+| 지표 | 64종 | 82종 |
+|---|---|---|
+| headline 상위 5종 점유 | 42.1% | 39.4% |
+| headline 으로 등장한 사건 종류 | 45/64 | 57/82 |
+| 일주별 30일 good 고유 사건 수(중앙값) | 12 | 13 |
+| 일주별 30일 headline 고유 사건 수(중앙값) | 16 | 17 |
+| 같은 날 일간 그룹 6일주의 good 고유 수(평균) | 3.07 | 3.17 |
+
+읽기: 후보 계열 공백(회복·해소·부담 경감·배분·보류·얽힘)이 메워져 헤드라인 종류가 45→57로 늘었다. 상위 5종 집중은 소폭 완화됐고,
+일간 그룹 수렴(6일주 중 3종)은 구조 문제라 §23 결 층이 계속 담당한다. 신규 caution 은 caution 슬롯에 오르며 headline 은 s1 밴드 한정(정상).
 
 ### 22-8. 잔여 12운성 채널 — 정의·가산·배선 제안 (2026-09-10 4차, 사용자 지시 "진행")
 

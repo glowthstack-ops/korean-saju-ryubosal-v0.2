@@ -65,7 +65,7 @@ def test_all_dictionaries_carry_the_16_new_events() -> None:
     assert NEW_KEYS <= set(dicts.catalog["events"])
     assert NEW_KEYS <= set(dicts.templates["events"])
     assert NEW_KEYS <= set(catalog_v2.events)
-    assert len(catalog_v2.events) == 64
+    assert len(catalog_v2.events) == 82  # 2026-09-18 3차 확장(+18) 이후 현재 원본
     for key in NEW_GOOD:
         assert catalog_v2.events[key].valence == "good", key
     for key in NEW_CAUTION:
@@ -100,12 +100,18 @@ def test_synonym_groups_pair_contradicting_events() -> None:
 
 
 def test_version_boundary_is_shared_by_v1_and_v2() -> None:
+    # 2026-09-18 3차 확장 이후 9/12 경계 직후 구간(9/12~9/19)은 중간 버전(v1.13·model.v2.1)이다.
+    from saju_shared_types.daily_fortune import DICT_VERSION_BEFORE_CATALOG_EXPANSION_3
+    from saju_shared_types.daily_fortune_v2 import MODEL_V2_VERSION_BEFORE_EXPANSION_3
+
     assert active_dict_version(_BEFORE) == DICT_VERSION_BEFORE_CATALOG_EXPANSION
-    assert active_dict_version(_AFTER) == DICT_VERSION
+    assert active_dict_version(_AFTER) == DICT_VERSION_BEFORE_CATALOG_EXPANSION_3
     assert active_model_v2_version(_BEFORE) == PREVIOUS_MODEL_V2_VERSION
-    assert active_model_v2_version(_AFTER) == MODEL_V2_VERSION
+    assert active_model_v2_version(_AFTER) == MODEL_V2_VERSION_BEFORE_EXPANSION_3
     assert content_version_v2_for(_BEFORE).endswith(PREVIOUS_MODEL_V2_VERSION)
-    assert content_version_v2_for(_AFTER).endswith(MODEL_V2_VERSION)
+    assert content_version_v2_for(_AFTER).endswith(MODEL_V2_VERSION_BEFORE_EXPANSION_3)
+    assert DICT_VERSION != DICT_VERSION_BEFORE_CATALOG_EXPANSION_3
+    assert MODEL_V2_VERSION != MODEL_V2_VERSION_BEFORE_EXPANSION_3
 
 
 def test_past_dates_load_the_48_event_snapshot() -> None:
@@ -142,8 +148,9 @@ def test_new_events_actually_reach_cards(boards_after) -> None:
     exposed_good: set[str] = set()
     exposed_caution: set[str] = set()
     headline: set[str] = set()
-    for board in boards_after.values():
-        assert board.content_version.endswith(MODEL_V2_VERSION)
+    for d, board in boards_after.items():
+        # 9/20 부터는 3차 확장 버전(model.v2.2)이라 날짜별 활성 버전으로 확인한다.
+        assert board.content_version.endswith(active_model_v2_version(d))
         for f in board.fortunes:
             keys = _slot_keys(f)
             if keys["good"] in NEW_KEYS:

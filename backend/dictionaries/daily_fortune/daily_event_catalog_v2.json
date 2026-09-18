@@ -1,7 +1,7 @@
 {
   "version": "catalog.v2",
   "reviewed": false,
-  "review_note": "docs/17 §22-3·§22-7 표가 SSOT. 구조 검증 통과 상태·명리 감수 전. 2026-09-10 §22-7 개정으로 48→64종(사용자 승인).",
+  "review_note": "docs/17 §22-3·§22-7 표가 SSOT. 구조 검증 통과 상태·명리 감수 전. 2026-09-10 §22-7 개정으로 48→64종(사용자 승인). 2026-09-18 §22-7 3차 개정으로 64→82종(사용자 승인: 회복·해소·부담 경감·손실 방지·자율 계열 good 9 + 배분·보류·얽힘·반복·평가·지연·가족·민원·기기 caution 9). 동의어 그룹 6건 재배정.",
   "events": {
     "money_small_gain": {
       "label": "공돈이 생길 확률",
@@ -129,7 +129,7 @@
         "good",
         "support"
       ],
-      "synonym_group": null,
+      "synonym_group": "recognition_group",
       "prior": "상",
       "required_signature": [
         "or",
@@ -153,7 +153,7 @@
         "good",
         "support"
       ],
-      "synonym_group": "help_flow",
+      "synonym_group": "cooperation_group",
       "prior": "상",
       "required_signature": [
         "or",
@@ -414,7 +414,7 @@
       "slots": [
         "caution"
       ],
-      "synonym_group": null,
+      "synonym_group": "love_bond_group",
       "prior": "중",
       "required_signature": [
         "or",
@@ -461,7 +461,7 @@
         "support",
         "good"
       ],
-      "synonym_group": null,
+      "synonym_group": "family_group",
       "prior": "중",
       "required_signature": [
         "and",
@@ -1165,7 +1165,7 @@
         "good",
         "support"
       ],
-      "synonym_group": null,
+      "synonym_group": "feedback_group",
       "prior": "상",
       "required_signature": [
         "and",
@@ -1487,7 +1487,7 @@
       "slots": [
         "caution"
       ],
-      "synonym_group": null,
+      "synonym_group": "attention_group",
       "prior": "중",
       "required_signature": [
         "and",
@@ -1589,6 +1589,521 @@
         "closure": 0.3,
         "disengage": 0.3,
         "식신": -0.3
+      }
+    },
+    "approval_resumes": {
+      "label": "보류됐던 승인·지급이 풀릴 확률",
+      "domain": "document",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "contract_recheck_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        [
+          "or",
+          "정관",
+          "정인"
+        ],
+        [
+          "or",
+          "yukhap",
+          "chung"
+        ]
+      ],
+      "evidence": {
+        "정관": 0.4,
+        "정인": 0.4,
+        "yukhap": 0.4,
+        "chung": 0.3,
+        "activity_up": 0.2,
+        "gongmang": -0.4,
+        "hae": -0.2
+      }
+    },
+    "misunderstanding_cleared": {
+      "label": "오해가 풀리고 화해할 확률",
+      "domain": "social",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "speech_trouble",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        "yukhap",
+        [
+          "or",
+          "식상",
+          "인성"
+        ]
+      ],
+      "evidence": {
+        "yukhap": 0.6,
+        "식신": 0.3,
+        "정인": 0.3,
+        "renewal": 0.2,
+        "wonjin": -0.5,
+        "hae": -0.4,
+        "chung": -0.2
+      }
+    },
+    "burden_settled": {
+      "label": "미뤄둔 빚·의무를 정리할 확률",
+      "domain": "money",
+      "valence": "good",
+      "slots": [
+        "support"
+      ],
+      "synonym_group": "settlement_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        "정재",
+        [
+          "or",
+          "closure",
+          "a_geuk"
+        ]
+      ],
+      "evidence": {
+        "정재": 0.5,
+        "closure": 0.4,
+        "a_geuk": 0.4,
+        "정관": 0.2,
+        "겁재": -0.3,
+        "gongmang": -0.3
+      },
+      "headline_slots": [
+        "good"
+      ]
+    },
+    "early_catch": {
+      "label": "실수를 미리 잡아낼 확률",
+      "domain": "work",
+      "valence": "good",
+      "slots": [
+        "support"
+      ],
+      "synonym_group": "attention_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        "정인",
+        [
+          "or",
+          "편관",
+          "seasoned",
+          "pa"
+        ]
+      ],
+      "evidence": {
+        "정인": 0.5,
+        "편관": 0.3,
+        "seasoned": 0.4,
+        "pa": 0.3,
+        "gongmang": -0.3,
+        "겁재": -0.2
+      },
+      "headline_slots": [
+        "good"
+      ]
+    },
+    "referral_received": {
+      "label": "추천·소개를 받을 확률",
+      "domain": "social",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "help_flow",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        [
+          "or",
+          "정관",
+          "정인"
+        ],
+        [
+          "or",
+          "yukhap",
+          "samhap"
+        ]
+      ],
+      "evidence": {
+        "정관": 0.4,
+        "정인": 0.4,
+        "yukhap": 0.4,
+        "samhap": 0.3,
+        "saeng_a": 0.3,
+        "wonjin": -0.3
+      }
+    },
+    "trust_restored": {
+      "label": "서먹했던 사이가 회복될 확률",
+      "domain": "love",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "love_bond_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        [
+          "or",
+          "yukhap",
+          "samhap"
+        ],
+        "renewal"
+      ],
+      "evidence": {
+        "yukhap": 0.5,
+        "samhap": 0.3,
+        "renewal": 0.5,
+        "정인": 0.2,
+        "wonjin": -0.5,
+        "pa": -0.3
+      }
+    },
+    "relief_news": {
+      "label": "부담을 덜어주는 소식이 올 확률",
+      "domain": "news",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "incoming_news",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        [
+          "or",
+          "인성",
+          "식신"
+        ],
+        [
+          "or",
+          "yukhap",
+          "closure"
+        ]
+      ],
+      "evidence": {
+        "정인": 0.4,
+        "식신": 0.4,
+        "yukhap": 0.3,
+        "closure": 0.3,
+        "geuk_a": -0.3,
+        "gongmang": -0.3
+      }
+    },
+    "autonomy_day": {
+      "label": "내 뜻대로 정할 여지가 생길 확률",
+      "domain": "work",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "task_pace_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        "비견",
+        [
+          "or",
+          "activity_up",
+          "poised"
+        ]
+      ],
+      "evidence": {
+        "비견": 0.5,
+        "activity_up": 0.4,
+        "poised": 0.3,
+        "정재": 0.2,
+        "편관": -0.3,
+        "gongmang": -0.2
+      }
+    },
+    "demand_up": {
+      "label": "찾는 사람이 늘어날 확률",
+      "domain": "money",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": null,
+      "prior": "중",
+      "required_signature": [
+        "and",
+        "식상",
+        "재성"
+      ],
+      "evidence": {
+        "식신": 0.4,
+        "상관": 0.3,
+        "정재": 0.3,
+        "편재": 0.4,
+        "activity_up": 0.2,
+        "gongmang": -0.3
+      }
+    },
+    "settlement_dispute_caution": {
+      "label": "정산·배분에서 이견이 생길 확률",
+      "domain": "money",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "settlement_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        "겁재",
+        [
+          "or",
+          "재성",
+          "pa"
+        ]
+      ],
+      "evidence": {
+        "겁재": 0.5,
+        "편재": 0.3,
+        "정재": 0.3,
+        "pa": 0.4,
+        "wonjin": 0.2,
+        "yukhap": -0.2
+      }
+    },
+    "decision_deferred_caution": {
+      "label": "결정이 미뤄질 확률",
+      "domain": "document",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "contract_recheck_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        [
+          "or",
+          "gongmang",
+          "pace_down"
+        ],
+        [
+          "or",
+          "관성",
+          "인성"
+        ]
+      ],
+      "evidence": {
+        "gongmang": 0.5,
+        "pace_down": 0.4,
+        "정관": 0.3,
+        "정인": 0.3,
+        "hae": 0.2,
+        "yukhap": -0.3
+      }
+    },
+    "tangled_requests_caution": {
+      "label": "여러 부탁에 얽힐 확률",
+      "domain": "social",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "cooperation_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        [
+          "or",
+          "yukhap",
+          "samhap"
+        ],
+        [
+          "or",
+          "겁재",
+          "편인"
+        ]
+      ],
+      "evidence": {
+        "yukhap": 0.4,
+        "samhap": 0.3,
+        "겁재": 0.4,
+        "편인": 0.3,
+        "wonjin": 0.3,
+        "정관": -0.2
+      }
+    },
+    "repeat_mistake_caution": {
+      "label": "같은 실수를 되풀이할 확률",
+      "domain": "work",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "attention_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        [
+          "or",
+          "hyeong",
+          "bihwa"
+        ],
+        [
+          "or",
+          "pace_down",
+          "unsettled"
+        ]
+      ],
+      "evidence": {
+        "hyeong": 0.5,
+        "bihwa": 0.3,
+        "pace_down": 0.4,
+        "unsettled": 0.3,
+        "편인": 0.2,
+        "정인": -0.3
+      }
+    },
+    "credit_overlooked_caution": {
+      "label": "애쓴 만큼 티가 안 날 확률",
+      "domain": "work",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "recognition_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        "상관",
+        "관성"
+      ],
+      "evidence": {
+        "상관": 0.5,
+        "정관": 0.3,
+        "편관": 0.3,
+        "hae": 0.3,
+        "wonjin": 0.2,
+        "정인": -0.3
+      }
+    },
+    "payment_delay_caution": {
+      "label": "받을 돈이 늦어질 확률",
+      "domain": "money",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "money_gain",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        "gongmang",
+        "재성"
+      ],
+      "evidence": {
+        "gongmang": 0.5,
+        "정재": 0.4,
+        "편재": 0.3,
+        "pace_down": 0.3,
+        "yukhap": -0.3
+      }
+    },
+    "family_duty_caution": {
+      "label": "가족 일로 일정이 바뀔 확률",
+      "domain": "social",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "family_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        [
+          "or",
+          "정인",
+          "비견"
+        ],
+        [
+          "or",
+          "chung",
+          "hae"
+        ]
+      ],
+      "evidence": {
+        "정인": 0.4,
+        "비견": 0.3,
+        "chung": 0.4,
+        "hae": 0.3,
+        "gongmang": 0.2,
+        "yukhap": -0.3
+      }
+    },
+    "complaint_caution": {
+      "label": "민원·항의를 받을 확률",
+      "domain": "work",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "feedback_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        "편관",
+        [
+          "or",
+          "chung",
+          "hyeong"
+        ]
+      ],
+      "evidence": {
+        "편관": 0.5,
+        "chung": 0.4,
+        "hyeong": 0.4,
+        "상관": 0.2,
+        "정인": -0.3
+      }
+    },
+    "device_glitch_caution": {
+      "label": "기기·서비스가 말썽 부릴 확률",
+      "domain": "move",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "home_safety_group",
+      "prior": "중",
+      "required_signature": [
+        "and",
+        "pa",
+        [
+          "or",
+          "편인",
+          "a_geuk"
+        ]
+      ],
+      "evidence": {
+        "pa": 0.5,
+        "편인": 0.4,
+        "a_geuk": 0.4,
+        "metal": 0.2,
+        "정인": -0.2
       }
     }
   }

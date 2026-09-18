@@ -14,6 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from saju_shared_types.daily_fortune import (
+    CATALOG_EXPANSION_3_EFFECTIVE_FROM,
     CATALOG_EXPANSION_EFFECTIVE_FROM,
     DailyDomain,
     DailySlot,
@@ -23,7 +24,11 @@ from saju_shared_types.daily_fortune import (
 #: v2.1(2026-09-10): 카탈로그 48→64종(docs/17 §22-7). 사건 후보가 늘어 선발이 바뀌므로
 #: v1 사전과 같은 날짜 경계(CATALOG_EXPANSION_EFFECTIVE_FROM)로 버전을 고른다 — 이미
 #: 생성·교정된 9/10·9/11 보드가 재생성(LLM 재교정)되지 않게 하기 위해서다.
-MODEL_V2_VERSION = "model.v2.1"
+#: v2.2(2026-09-18): 카탈로그 64→82종 3차 확장(docs/17 §22-7 3차).
+#: 경계는 CATALOG_EXPANSION_3_EFFECTIVE_FROM.
+MODEL_V2_VERSION = "model.v2.2"
+#: 3차 경계 이전(9/12~9/19)에 적용되는 v2 모델 버전(64종). 스냅샷 model.v2.1 이 커밋돼 있다.
+MODEL_V2_VERSION_BEFORE_EXPANSION_3 = "model.v2.1"
 #: 기준일 이전 날짜에 적용되는 v2 모델 버전(48종). 스냅샷
 #: `compiled/daily_fortune_v2_model.v2.0.json` 이 함께 커밋돼 있어야 과거 날짜를 재현할 수 있다.
 PREVIOUS_MODEL_V2_VERSION = "model.v2.0"
@@ -36,10 +41,13 @@ def active_model_v2_version(target_date: date) -> str:
         target_date: 운세 대상 날짜(KST 기준).
 
     Returns:
-        9/12 이전 `PREVIOUS_MODEL_V2_VERSION`(48종) → 이후 `MODEL_V2_VERSION`(64종).
+        9/12 이전 `PREVIOUS_MODEL_V2_VERSION`(48종) → 9/20 이전 model.v2.1(64종) → 이후
+        `MODEL_V2_VERSION`(82종).
     """
     if target_date < CATALOG_EXPANSION_EFFECTIVE_FROM:
         return PREVIOUS_MODEL_V2_VERSION
+    if target_date < CATALOG_EXPANSION_3_EFFECTIVE_FROM:
+        return MODEL_V2_VERSION_BEFORE_EXPANSION_3
     return MODEL_V2_VERSION
 
 #: prior 3등급 → 사전확률 가산치 (§22-1: signature=출전권, prior=순위만).

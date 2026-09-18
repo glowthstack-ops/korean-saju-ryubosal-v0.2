@@ -55,13 +55,13 @@ def test_headline_slots_falls_back_to_slots(dicts) -> None:
 
 
 def test_headline_eligible_count_increased(dicts) -> None:
-    """자격 사건 14종 → 20종(OA-6a) → 19종(OA-6a2 small_find 철회) → 30종(§22-7 +11)."""
+    """자격 사건 14종 → 20종(OA-6a) → 19종(small_find 철회) → 30종(§22-7 +11) → 39종(3차 +9)."""
     events = dicts.catalog["events"]
     eligible = [
         k for k, e in events.items()
         if "good" in (e.get("headline_slots") or e["slots"])
     ]
-    assert len(eligible) == 30
+    assert len(eligible) == 39
 
 
 def test_opened_events_actually_reach_headline(dicts) -> None:
@@ -197,7 +197,14 @@ def test_lucky_places_revision_date_gate() -> None:
     # 9/3~9/11 은 v1.12(행운의 장소 개정), 9/12 부터 v1.13(§22-7 카탈로그 확장) — 4단 게이트.
     assert active_dict_version(EFF) == DICT_VERSION_BEFORE_CATALOG_EXPANSION == "dict.v1.12"
     assert active_dict_version(EFF_CAT - timedelta(days=1)) == "dict.v1.12"
-    assert active_dict_version(EFF_CAT) == DICT_VERSION == "dict.v1.13"
+    # 9/12~9/19 는 v1.13, 9/20 부터 v1.14(§22-7 3차 확장) — 5단 게이트.
+    from saju_shared_types.daily_fortune import (
+        CATALOG_EXPANSION_3_EFFECTIVE_FROM,
+        DICT_VERSION_BEFORE_CATALOG_EXPANSION_3,
+    )
+
+    assert active_dict_version(EFF_CAT) == DICT_VERSION_BEFORE_CATALOG_EXPANSION_3 == "dict.v1.13"
+    assert active_dict_version(CATALOG_EXPANSION_3_EFFECTIVE_FROM) == DICT_VERSION == "dict.v1.14"
     for ver in (
         PREVIOUS_DICT_VERSION, DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION,
         DICT_VERSION_BEFORE_CATALOG_EXPANSION, DICT_VERSION,

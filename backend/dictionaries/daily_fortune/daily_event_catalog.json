@@ -4,7 +4,7 @@
   "reviewed": false,
   "runtime_status": "ACTIVE",
   "review_status": "PENDING",
-  "review_note": "runtime_status=ACTIVE — 점수·등급 산출에 실제로 쓰인다. review_status=PENDING — 명리 감수 미완료(비활성 규칙이 아니다). 구조 검증은 compiled/daily_fortune_{DICT_VERSION}.json 이 보장. 대기 목록: doc/v2_2/DICTIONARY_REVIEW_QUEUE.md",
+  "review_note": "runtime_status=ACTIVE — 점수·등급 산출에 실제로 쓰인다. review_status=PENDING — 명리 감수 미완료(비활성 규칙이 아니다). 구조 검증은 compiled/daily_fortune_{DICT_VERSION}.json 이 보장. 대기 목록: doc/v2_2/DICTIONARY_REVIEW_QUEUE.md 2026-09-18 3차 확장 18종은 v2 evidence 에서 기계 유도(§22-7 규칙).",
   "presentation_policy": {
     "headline_slots_reviewed": true,
     "reviewed_at": "2026-07-28",
@@ -287,7 +287,7 @@
         "good",
         "support"
       ],
-      "synonym_group": null,
+      "synonym_group": "recognition_group",
       "base_weight": 0.33,
       "expr_confidence": 1.0,
       "ten_god_affinity": {
@@ -473,7 +473,7 @@
         "good",
         "support"
       ],
-      "synonym_group": "help_flow",
+      "synonym_group": "cooperation_group",
       "base_weight": 0.33,
       "expr_confidence": 0.95,
       "ten_god_affinity": {
@@ -980,7 +980,7 @@
       "slots": [
         "support"
       ],
-      "synonym_group": null,
+      "synonym_group": "family_group",
       "base_weight": 0.33,
       "expr_confidence": 0.85,
       "ten_god_affinity": {
@@ -1656,7 +1656,7 @@
       "slots": [
         "caution"
       ],
-      "synonym_group": null,
+      "synonym_group": "love_bond_group",
       "base_weight": 0.28,
       "expr_confidence": 0.8,
       "ten_god_affinity": {
@@ -1739,7 +1739,7 @@
         "good",
         "support"
       ],
-      "synonym_group": null,
+      "synonym_group": "feedback_group",
       "base_weight": 0.3,
       "expr_confidence": 0.9,
       "ten_god_affinity": {
@@ -1972,7 +1972,7 @@
       "slots": [
         "caution"
       ],
-      "synonym_group": null,
+      "synonym_group": "attention_group",
       "base_weight": 0.2,
       "expr_confidence": 0.9,
       "ten_god_affinity": {
@@ -2038,6 +2038,381 @@
       },
       "relation_affinity": {},
       "element_affinity": {}
+    },
+    "approval_resumes": {
+      "label": "보류됐던 승인·지급이 풀릴 확률",
+      "domain": "document",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "contract_recheck_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "정관": 0.4,
+        "정인": 0.4
+      },
+      "relation_affinity": {
+        "six_combination": 0.4,
+        "clash": 0.3,
+        "harm": -0.2
+      },
+      "element_affinity": {}
+    },
+    "misunderstanding_cleared": {
+      "label": "오해가 풀리고 화해할 확률",
+      "domain": "social",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "speech_trouble",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "식신": 0.3,
+        "정인": 0.3
+      },
+      "relation_affinity": {
+        "six_combination": 0.6,
+        "harm": -0.4,
+        "clash": -0.2
+      },
+      "element_affinity": {}
+    },
+    "burden_settled": {
+      "label": "미뤄둔 빚·의무를 정리할 확률",
+      "domain": "money",
+      "valence": "good",
+      "slots": [
+        "support"
+      ],
+      "synonym_group": "settlement_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "정재": 0.5,
+        "정관": 0.2,
+        "겁재": -0.3
+      },
+      "relation_affinity": {},
+      "element_affinity": {},
+      "headline_slots": [
+        "good"
+      ]
+    },
+    "early_catch": {
+      "label": "실수를 미리 잡아낼 확률",
+      "domain": "work",
+      "valence": "good",
+      "slots": [
+        "support"
+      ],
+      "synonym_group": "attention_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "정인": 0.5,
+        "편관": 0.3
+      },
+      "relation_affinity": {
+        "break": 0.3
+      },
+      "element_affinity": {},
+      "headline_slots": [
+        "good"
+      ]
+    },
+    "referral_received": {
+      "label": "추천·소개를 받을 확률",
+      "domain": "social",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "help_flow",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "정관": 0.4,
+        "정인": 0.4
+      },
+      "relation_affinity": {
+        "six_combination": 0.4,
+        "three_harmony_complete": 0.3,
+        "half_harmony": 0.15
+      },
+      "element_affinity": {}
+    },
+    "trust_restored": {
+      "label": "서먹했던 사이가 회복될 확률",
+      "domain": "love",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "love_bond_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "정인": 0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.5,
+        "three_harmony_complete": 0.3,
+        "half_harmony": 0.15,
+        "break": -0.3
+      },
+      "element_affinity": {}
+    },
+    "relief_news": {
+      "label": "부담을 덜어주는 소식이 올 확률",
+      "domain": "news",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "incoming_news",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "정인": 0.4,
+        "식신": 0.4
+      },
+      "relation_affinity": {
+        "six_combination": 0.3
+      },
+      "element_affinity": {}
+    },
+    "autonomy_day": {
+      "label": "내 뜻대로 정할 여지가 생길 확률",
+      "domain": "work",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": "task_pace_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "비견": 0.5,
+        "정재": 0.2,
+        "편관": -0.3
+      },
+      "relation_affinity": {},
+      "element_affinity": {}
+    },
+    "demand_up": {
+      "label": "찾는 사람이 늘어날 확률",
+      "domain": "money",
+      "valence": "good",
+      "slots": [
+        "good",
+        "support"
+      ],
+      "synonym_group": null,
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "식신": 0.4,
+        "상관": 0.3,
+        "정재": 0.3,
+        "편재": 0.4
+      },
+      "relation_affinity": {},
+      "element_affinity": {}
+    },
+    "settlement_dispute_caution": {
+      "label": "정산·배분에서 이견이 생길 확률",
+      "domain": "money",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "settlement_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "겁재": 0.5,
+        "편재": 0.3,
+        "정재": 0.3
+      },
+      "relation_affinity": {
+        "break": 0.4,
+        "six_combination": -0.2
+      },
+      "element_affinity": {}
+    },
+    "decision_deferred_caution": {
+      "label": "결정이 미뤄질 확률",
+      "domain": "document",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "contract_recheck_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "정관": 0.3,
+        "정인": 0.3
+      },
+      "relation_affinity": {
+        "harm": 0.2,
+        "six_combination": -0.3
+      },
+      "element_affinity": {}
+    },
+    "tangled_requests_caution": {
+      "label": "여러 부탁에 얽힐 확률",
+      "domain": "social",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "cooperation_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "겁재": 0.4,
+        "편인": 0.3,
+        "정관": -0.2
+      },
+      "relation_affinity": {
+        "six_combination": 0.4,
+        "three_harmony_complete": 0.3,
+        "half_harmony": 0.15
+      },
+      "element_affinity": {}
+    },
+    "repeat_mistake_caution": {
+      "label": "같은 실수를 되풀이할 확률",
+      "domain": "work",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "attention_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "편인": 0.2,
+        "정인": -0.3
+      },
+      "relation_affinity": {
+        "punishment": 0.5
+      },
+      "element_affinity": {}
+    },
+    "credit_overlooked_caution": {
+      "label": "애쓴 만큼 티가 안 날 확률",
+      "domain": "work",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "recognition_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "상관": 0.5,
+        "정관": 0.3,
+        "편관": 0.3,
+        "정인": -0.3
+      },
+      "relation_affinity": {
+        "harm": 0.3
+      },
+      "element_affinity": {}
+    },
+    "payment_delay_caution": {
+      "label": "받을 돈이 늦어질 확률",
+      "domain": "money",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "money_gain",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "정재": 0.4,
+        "편재": 0.3
+      },
+      "relation_affinity": {
+        "six_combination": -0.3
+      },
+      "element_affinity": {}
+    },
+    "family_duty_caution": {
+      "label": "가족 일로 일정이 바뀔 확률",
+      "domain": "social",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "family_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "정인": 0.4,
+        "비견": 0.3
+      },
+      "relation_affinity": {
+        "clash": 0.4,
+        "harm": 0.3,
+        "six_combination": -0.3
+      },
+      "element_affinity": {}
+    },
+    "complaint_caution": {
+      "label": "민원·항의를 받을 확률",
+      "domain": "work",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "feedback_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "편관": 0.5,
+        "상관": 0.2,
+        "정인": -0.3
+      },
+      "relation_affinity": {
+        "clash": 0.4,
+        "punishment": 0.4
+      },
+      "element_affinity": {}
+    },
+    "device_glitch_caution": {
+      "label": "기기·서비스가 말썽 부릴 확률",
+      "domain": "move",
+      "valence": "caution",
+      "slots": [
+        "caution"
+      ],
+      "synonym_group": "home_safety_group",
+      "base_weight": 0.2,
+      "expr_confidence": 0.9,
+      "ten_god_affinity": {
+        "편인": 0.4,
+        "정인": -0.2
+      },
+      "relation_affinity": {
+        "break": 0.5
+      },
+      "element_affinity": {
+        "金": 0.2
+      }
     }
   },
   "narrative_modes": {

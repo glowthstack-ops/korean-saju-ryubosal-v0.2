@@ -27,7 +27,12 @@ ENGINE_VERSION = "engine.v1"
 # v1.13(2026-09-10): 사건 카탈로그 48→64종 확장(docs/17 §22-7, 사용자 승인). good 11·caution 5
 #   추가, small_find/lend_money 동의어 그룹 재배정, 문구 템플릿 16종 추가. 사건 후보가 늘어
 #   선발 결과가 바뀌므로 날짜 경계(CATALOG_EXPANSION_EFFECTIVE_FROM)로 계약을 고른다.
-DICT_VERSION = "dict.v1.13"
+# v1.14(2026-09-18): 사건 카탈로그 64→82종 3차 확장(docs/17 §22-7, 사용자 승인 — 전문가 참고
+#   기준 사건 목록 대조). good 9(회복·해소·부담 경감·손실 방지·자율·확대)·caution 9(배분 이견·
+#   결정 보류·부탁 얽힘·반복 실수·평가 누락·지급 지연·가족 일정·민원·기기 말썽) 추가, 동의어 그룹
+#   6건 재배정,
+#   문구 템플릿 18종 추가. 날짜 경계(CATALOG_EXPANSION_3_EFFECTIVE_FROM)로 계약을 고른다.
+DICT_VERSION = "dict.v1.14"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -55,6 +60,11 @@ DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION = "dict.v1.11"
 CATALOG_EXPANSION_EFFECTIVE_FROM = date(2026, 9, 12)
 #: 그 기준일 이전(9/3~9/11)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_CATALOG_EXPANSION = "dict.v1.12"
+#: 사건 카탈로그 3차 확장(v1.14, docs/17 §22-7 3차) 활성화 기준일 — 승인(9/18) 다음 날 21시
+#: 선생성분부터 = 9/20 보드(2026-09-18 데굴님 승인). 9/19 보드까지는 v1.13(64종).
+CATALOG_EXPANSION_3_EFFECTIVE_FROM = date(2026, 9, 20)
+#: 그 기준일 이전(9/12~9/19)에 적용되는 사전 버전.
+DICT_VERSION_BEFORE_CATALOG_EXPANSION_3 = "dict.v1.13"
 
 
 def active_dict_version(target_date: date) -> str:
@@ -64,8 +74,8 @@ def active_dict_version(target_date: date) -> str:
         target_date: 운세 대상 날짜(KST 기준).
 
     Returns:
-        7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 이후 현재
-        `DICT_VERSION`(v1.13).
+        7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 이후 현재
+        `DICT_VERSION`(v1.14).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -73,6 +83,8 @@ def active_dict_version(target_date: date) -> str:
         return DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION
     if target_date < CATALOG_EXPANSION_EFFECTIVE_FROM:
         return DICT_VERSION_BEFORE_CATALOG_EXPANSION
+    if target_date < CATALOG_EXPANSION_3_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_CATALOG_EXPANSION_3
     return DICT_VERSION
 
 
