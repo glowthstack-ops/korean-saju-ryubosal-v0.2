@@ -85,6 +85,11 @@ STRUCTURE_PILLAR_PENALTY: float = 0.1
 # '호전·기회 신호' 줄로 노출한다. 점수·순위 불변, 성사 확정 금지. 기본 OFF.
 OPPORTUNITY_ENABLED: bool = _env_flag("SAJU_OPPORTUNITY_ENABLED")
 OPPORTUNITY_MIN_SCORE: float = 0.5  # CALIBRATE: 노출 문턱(base + 트리거 합 − 감쇠)
+# 위험 family 보조 증폭 층(P2, 2026-09-18 데굴님 결정) — 위험 사전 항목을 편집하지 않고, 흉 극성과
+# 동반된 신살·구조·합 배경을 family 단위 AMPLIFIER 근거 + aux_bonus(상한 risk_scoring의
+# _AUX_MAX_BONUS)로 덧붙인다. 후보 생성·적격성·원인 수·persistence 불변(rankable 우선도만
+# 소폭 보정). 기본 OFF.
+RISK_AUX_AMPLIFIER_ENABLED: bool = _env_flag("SAJU_RISK_AUX_AMPLIFIER_ENABLED")
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -152,6 +157,7 @@ def active_versions() -> dict[str, str | bool]:
         "event_lexicon_enabled": EVENT_LEXICON_ENABLED,
         "structure_background_enabled": STRUCTURE_BACKGROUND_ENABLED,
         "opportunity_enabled": OPPORTUNITY_ENABLED,
+        "risk_aux_amplifier_enabled": RISK_AUX_AMPLIFIER_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

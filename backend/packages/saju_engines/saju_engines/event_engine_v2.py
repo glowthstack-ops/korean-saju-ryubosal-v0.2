@@ -104,6 +104,7 @@ from .marriage_flow_modifier import (
 )
 from .reality_context import RealityContext
 from .relation_palace_engine import RelationActivation, RelationPalaceEngine
+from .risk_auxiliary import apply_auxiliary_amplifiers, build_auxiliary_facts
 from .risk_engine import (
     HealthContext,
     LegalProcessContext,
@@ -281,6 +282,7 @@ class EventEngineV2:
         self._risk_shadow_health: list[HealthContext] | None = None
         self._risk_shadow_legal: list[LegalProcessContext] | None = None
         self._risk_shadow_selections: list[SelectionContext] | None = None
+        self._dictionaries_dir = dictionaries_dir  # 보조 증폭 사전(P2) 지연 로드 경로
         try:
             self._risk: RiskEngine | None = RiskEngine(dictionaries_dir)
         except FileNotFoundError:
@@ -910,7 +912,7 @@ class EventEngineV2:
         _sink = getattr(self._risk_tls, "sink", None)
         if _sink is None:  # score() 밖 직접 호출(테스트 등) — 레거시 경로
             _sink = self.risk_shadow
-        _sink.extend(self._risk.generate(
+        generated = self._risk.generate(
             facts,
             selection_context=self._risk_shadow_selection,
             selection_contexts=self._risk_shadow_selections,
@@ -918,7 +920,18 @@ class EventEngineV2:
             mobility_contexts=self._risk_shadow_mobility,
             health_contexts=self._risk_shadow_health,
             legal_contexts=self._risk_shadow_legal,
-        ))
+        )
+        if period_v2_config.RISK_AUX_AMPLIFIER_ENABLED and generated:
+            # family 단위 보조 증폭 층(P2) — 위험 사전 항목 불변. 흉 극성 동반 신살·구조·합
+            # 배경을 기존 후보에 aux:* AMPLIFIER 근거 + aux_bonus로 덧붙인다(후보 신설 없음).
+            generated = apply_auxiliary_amplifiers(
+                generated,
+                build_auxiliary_facts(
+                    result, target, fav_map, polarity_role=facts.polarity_role.value,
+                ),
+                dictionaries_dir=self._dictionaries_dir,
+            )
+        _sink.extend(generated)
 
     def _wealth_activations(
         self,

@@ -1798,6 +1798,42 @@ class RiskMappingFile(_AliasModel):
     items: list[RiskItem]
 
 
+# family 단위 보조 증폭 층(P2, 2026-09-18 데굴님 결정) — 위험 사전 항목(reviewHashes로 잠김)을
+# 건드리지 않고, 흉 극성과 동반된 신살·구조·합 배경을 family/risk_id 단위 AMPLIFIER 근거로
+# 덧붙인다. 신살 단독 트리거 금지(polarityRoleIn 필수 — 흉 극성 GI/GI_STRONG/HAN_BAD만).
+AUX_ADVERSE_POLARITY_ROLES: frozenset[str] = frozenset({"GI", "GI_STRONG", "HAN_BAD"})
+AUX_STRUCTURE_FLAGS: frozenset[str] = frozenset({
+    "luck_gaedu", "luck_jeolgak", "chunggeun_useful", "tonggwan_absent",
+    "rescue_damaged", "special_breach",
+})
+AUX_HAP_FLAGS: frozenset[str] = frozenset({
+    "stem_harmed", "branch_harmed", "stem_mitigated", "branch_mitigated",
+})
+
+
+class RiskAuxiliaryAmplifierItem(_AliasModel):
+    """보조 증폭 항목 1건 — 조건 종류 사이 AND, 목록 안 OR. 극성 조건은 필수."""
+
+    id: str
+    risk_family_in: list[str] = Field(default_factory=list, alias="riskFamilyIn")
+    risk_id_in: list[str] = Field(default_factory=list, alias="riskIdIn")
+    polarity_role_in: list[str] = Field(alias="polarityRoleIn")
+    natal_sinsal_in: list[str] = Field(default_factory=list, alias="natalSinsalIn")
+    luck_sinsal_in: list[str] = Field(default_factory=list, alias="luckSinsalIn")
+    structure_in: list[str] = Field(default_factory=list, alias="structureIn")
+    hap_in: list[str] = Field(default_factory=list, alias="hapIn")
+    strength: float = Field(ge=0.0, le=1.0)
+    label_ko: str = Field(alias="labelKo")  # LLM 노출 라벨(완곡 — 신살 단정 금지)
+    note: str = ""
+    reviewed: bool = False
+
+
+class RiskAuxiliaryAmplifierFile(_AliasModel):
+    version: str
+    purpose: str = ""
+    items: list[RiskAuxiliaryAmplifierItem]
+
+
 class FavorabilityRulesFile(_AliasModel):
     version: str
     items: list[FavorabilityRule]
@@ -2250,6 +2286,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "event_forms.json": EventFormsFile,
     "event_process_types.json": EventProcessTypesFile,
     "life_event_lexicon.json": LifeEventLexiconFile,
+    "risk_auxiliary_amplifiers.json": RiskAuxiliaryAmplifierFile,
     "interpretations/ilju.json": IljuFile,
     "interpretations/ten_gods_text.json": TenGodsTextFile,
     "interpretations/twelve_stages_text.json": TwelveStagesTextFile,
@@ -2327,6 +2364,8 @@ def validate_dictionaries(directory: Path) -> list[str]:
                 seen_keys.add(key)
                 if sum(f.get("prob", 0.0) for f in item.get("forms", [])) > 1.0 + 1e-9:
                     errors.append(f"{rel}: {key} prob 합 > 1.0")
+        if rel == "risk_auxiliary_amplifiers.json":
+            errors.extend(_lint_risk_auxiliary(directory, data))
         if rel == "event_process_types.json":
             ids = [item.get("id") for item in data.get("items", [])]
             dupes = sorted({i for i in ids if ids.count(i) > 1})
@@ -2336,6 +2375,53 @@ def validate_dictionaries(directory: Path) -> list[str]:
                 for key in item.get("match", {}).get("event_keys", []):
                     if key not in valid_keys:
                         errors.append(f"{rel}: {item.get('id')} 미등록 이벤트 키 — {key}")
+    return errors
+
+
+def _lint_risk_auxiliary(directory: Path, data: dict) -> list[str]:
+    """risk_auxiliary_amplifiers.json 충돌 — id 중복·흉 극성 필수·대상/배경 조건 필수·미등록 값."""
+    rel = "risk_auxiliary_amplifiers.json"
+    errors: list[str] = []
+    families: set[str] = set()
+    risk_ids: set[str] = set()
+    for path in sorted((directory / _RISK_MAPPING_DIR).glob("*.json")):
+        try:
+            risk_data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for item in risk_data.get("items", []):
+            risk_ids.add(str(item.get("riskId")))
+            if item.get("riskFamily"):
+                families.add(str(item["riskFamily"]))
+    seen: set[str] = set()
+    for item in data.get("items", []):
+        iid = str(item.get("id"))
+        if iid in seen:
+            errors.append(f"{rel}: id 중복 — {iid}")
+        seen.add(iid)
+        roles = set(item.get("polarityRoleIn", []))
+        if not roles or not roles <= AUX_ADVERSE_POLARITY_ROLES:
+            errors.append(
+                f"{rel}: {iid} polarityRoleIn은 흉 극성만 허용(비어 있으면 안 됨) — {sorted(roles)}"
+            )
+        if not item.get("riskFamilyIn") and not item.get("riskIdIn"):
+            errors.append(f"{rel}: {iid} riskFamilyIn/riskIdIn 중 하나 필수")
+        for fam in item.get("riskFamilyIn", []):
+            if fam not in families:
+                errors.append(f"{rel}: {iid} 미등록 riskFamily — {fam}")
+        for rid in item.get("riskIdIn", []):
+            if rid not in risk_ids:
+                errors.append(f"{rel}: {iid} 미등록 riskId — {rid}")
+        if not any(item.get(k) for k in ("natalSinsalIn", "luckSinsalIn", "structureIn", "hapIn")):
+            errors.append(
+                f"{rel}: {iid} 배경 조건(신살·구조·합) 중 하나 필수 — 극성 단독 증폭 금지"
+            )
+        bad_structure = set(item.get("structureIn", [])) - AUX_STRUCTURE_FLAGS
+        if bad_structure:
+            errors.append(f"{rel}: {iid} 미등록 structureIn — {sorted(bad_structure)}")
+        bad_hap = set(item.get("hapIn", [])) - AUX_HAP_FLAGS
+        if bad_hap:
+            errors.append(f"{rel}: {iid} 미등록 hapIn — {sorted(bad_hap)}")
     return errors
 
 

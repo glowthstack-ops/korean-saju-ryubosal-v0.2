@@ -10963,3 +10963,28 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
   `SAJU_OPPORTUNITY_ENABLED` OFF·fav_map 부재면 byte 불변. 이 함수를 쓰는 리포트 도메인 섹션(F-13~F-18b·Y-05 등 이벤트 후보
   블록)에 자동 반영. 점수표(score_table_lines)·월별 요약에는 넣지 않았다(표 셀 누출 방지 원칙).
 - 회귀: `tests/unit/test_report_opportunity_lines.py`(ON/OFF·도메인 한정·줄 위치·fav_map 부재).
+
+## 2026-09-18 — P2 위험 family 단위 보조 증폭 층 (데굴님 결정: 항목 편집 대신 family 층)
+
+- **결정 배경**: 위험 사전 항목은 reviewHashes로 잠겨 룰 편집=감수 강등. 데굴님 결정으로 항목을 건드리지 않는 family 단위
+  보조 층으로 감. 함께 재검토한 'reviewed:false' 3종(기회 36·사건 어휘 3·오늘의 운세 18)은 런타임에서 아무것도 막지 않는다
+  (reviewed를 읽는 곳은 위험 엔진의 `_reviewed_by_id`·payload diagnostics뿐) — 외부 감수는 품질 절차이며 진행 차단 조건이 아님.
+- **사전** `dictionaries/risk_auxiliary_amplifiers.json` 15종(사고 3·건강 2·재물 2·문서/법률 2·관계 2·가족 1·선발/역할 2·이동 1).
+  항목 = id·riskFamilyIn/riskIdIn·polarityRoleIn(GI/GI_STRONG/HAN_BAD 필수)·natalSinsalIn/luckSinsalIn/structureIn/hapIn(하나 이상
+  필수, 종류 사이 AND·목록 안 OR)·strength(≤0.35)·labelKo(완곡)·reviewed:false. 스키마 `RiskAuxiliaryAmplifierFile`(extra=forbid)
+  + lint `_lint_risk_auxiliary`(id 중복·흉 극성·배경 조건·미등록 family/riskId/structureIn/hapIn).
+- **엔진** `saju_engines/risk_auxiliary.py`: 만세력 산출(원국 full_list·운 luck_sinsal)과 기존 판정(`resolve_luck_structure_flags`·
+  `resolve_hap_mitigation`)에서 사실을 읽어, 기존 후보에 `aux:<id>` AMPLIFIER 근거(source_group auxiliary) + `aux_bonus`
+  (0.15×(1−Π(1−s)), 상한 0.15)를 덧붙인다. 후보 신설·삭제 없음, 무매칭 후보는 같은 객체. 배선 `event_engine_v2._collect_risk_shadow`
+  (generate 직후, 플래그 `SAJU_RISK_AUX_AMPLIFIER_ENABLED` 기본 OFF·.env.beta ON).
+- **점수**: `RiskCandidate.aux_bonus` 신설, `risk_priority`/`structural_priority`에 `timed_base × (1+aux_bonus)`(교운기 modifier와
+  같은 자리), cause registry `aux:*`→AMPLIFIER(cause-semantics-v4). occurrence·원인 표·persistence·compound·protection·confidence
+  불변(테스트로 고정). 선별·표현의 우선도 호출 3곳에 aux_bonus 전달.
+- **표현**: `build_presentation(aux_labels=…)` → 레코드 `auxiliarySignals`(P2 tier 필드 추가), 라벨은 사전 문구 그대로.
+  `risk_exposure_bootstrap.build_risk_payload`가 라벨 공급.
+- **감수 표면**: manifest 재생성(scoring_config_hash·cause_semantics_hash·presentation_policy_hash 변경 — 재감수 신호). 항목 scope
+  해시 본문 불변이라 env 버전 범프·재스탬프 없음. 노출 lease 재검증(유료 --execute)은 별도 결정.
+- **스모크(데굴 차트 2026~2027 월운, shadow)**: 613 후보 중 99에 보조 근거(원국 현침→사고 family 0.045, 운 기둥 개두·절각→역할
+  family 0.03, 역마→이동 family 0.03 등). OFF면 후보·직렬화 동일.
+- 회귀: `tests/unit/test_risk_auxiliary_amplifiers.py`(사전 계약·lint 거부, 순수·유계·멱등, 6축 불변·우선도만 상승, 플래그 byte
+  불변, 표현 라벨). 기존 risk 테스트군 통과.
