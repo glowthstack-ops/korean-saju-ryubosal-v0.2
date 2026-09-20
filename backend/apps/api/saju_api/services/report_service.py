@@ -73,7 +73,11 @@ from saju_engines.palace_relationship_network import (
     palace_network_lines,
 )
 from saju_engines.preparation_context import build_preparation_context
-from saju_engines.profile_engine import profile_event_signals, profile_facts_lines
+from saju_engines.profile_engine import (
+    living_room_facing_from,
+    profile_event_signals,
+    profile_facts_lines,
+)
 from saju_engines.relationship_hints import relation_context_lines
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
@@ -97,6 +101,18 @@ from saju_engines.section_claim_audit import (
     audit_and_patch_generated_section,
     audit_daewoon_hwa_claims,
     claim_directive,
+)
+from saju_engines.sinsal_direction import (
+    SAMJAE_INSTRUCTION,
+    SINSAL_DIRECTION_INSTRUCTION,
+    build_sinsal_direction_block,
+    format_landmark_line,
+    format_profile_lines,
+    format_purpose_table_lines,
+    format_samjae_lines,
+    format_sinsal_direction_lines,
+    landmark_from_facing,
+    profile_from_result,
 )
 from saju_engines.structural_context import (
     ANSWER_CLARITY_DIRECTIVE,
@@ -450,6 +466,16 @@ _SECTION_GUIDES: dict[str, str] = {
     "F-17c": "자녀 인연의 구조(시주·자녀성), 출생 가능성이 활성화되는 시기 후보, 자녀와의 "
     "관계·양육 결을 서술할 것 — 임신·출산 단정 금지. 무자녀·미혼이면 가능성 서술로, 자녀 "
     "정보가 입력돼 있으면 그 관계 중심으로.",
+    "F-20b": "아래 [방위 활용] 재료(연지 삼합 기준 12신살 방위판·목적 13종 표·삼재 흐름)를 "
+    "'나의 방향운' 형식으로 풀 것 — ①동·남·서·북 네 방향판(각 방향의 3신살 구간과 어울리는 "
+    "활동)을 먼저 소개하고 ②공부·수면·만남·발표·영업·이사 등 목적별로 '어느 쪽을 어떻게(바라보기/"
+    "위치/머리/이동/출입구)' 활용하는지 본인 방 기준으로 안내한 뒤 ③가까운 삼재 해가 있으면 3단계 "
+    "변화 흐름으로 짚을 것. 방향 자체의 길흉 단정 금지, 앞 섹션의 용신 오행 방위와 합산 금지"
+    "(별개 질문임을 한 문장).",
+    "Y-11b": "아래 [방위 활용]·[삼재 흐름] 재료로 이 해의 방위 활용과 삼재 단계를 풀 것 — 목적별 "
+    "방향(본인 방 기준)을 올해 계획(시험·이사·만남·발표 등)과 연결해 안내하고, 올해가 삼재 해면 "
+    "들/눌/날 어느 단계인지와 그 의미(이동→마찰·적응→정리)를, 아니면 삼재 해가 아님을 한 문장"
+    "으로만. 길흉 단정·공포 조장 금지, Y-11 용신 오행 방위와 합산 금지.",
     "F-18b": "생애에서 이동(이사·주거 변화) 신호가 강해지는 시기와 이동의 성격(주거/직장 동반 "
     "등)을 서술할 것 — 이사 확정 단정 금지, 시기는 활성화 창으로. 지역 추천은 아래 거주지 "
     "블록이 있을 때만 그 범위에서.",
@@ -689,6 +715,27 @@ _FOCUS_YEAR_PAGE_GUIDE = (
     "달을 결과와 묶어 단정하지 말고 '움직임이 강해지는 창'으로 표현할 것. 다른 해의 "
     "사건을 끌어오거나 앞 페이지에서 이미 다룬 해를 같은 문장으로 반복하지 말 것."
 )
+
+# 12신살 방위 활용(docs/18, 2026-09-20 데굴님 결정) — 전용 섹션(총운 F-20b·한해 Y-11b)은 전체
+# 방향판+목적 13종 표, 테마 리포트는 행동 전략 섹션에 주제 목적만 주입(목차 불변). generic FOCUS
+# C-07은 topic(education→공부, health→숙면)으로 결정. 서술 전용 — 점수·판정·날짜 불변.
+# 이 표가 리포트 섹션→목적의 **단일 원천**이다(사전 trigger_domains 는 채팅 능동 제안 전용).
+_SINSAL_DIRECTION_FULL_SECTIONS = {"F-20b", "Y-11b"}
+_SINSAL_DIRECTION_THEME_SECTIONS: dict[str, tuple[str, ...]] = {
+    "W-08": ("sales",),
+    "J-07": ("presentation", "leadership"),
+    "R-07": ("dating", "beauty"),
+    "RL-07": ("relocation", "travel"),
+}
+_SINSAL_DIRECTION_TOPIC_PURPOSES: dict[str, tuple[str, ...]] = {
+    "education": ("study",), "health": ("sleep",),
+}
+# 삼재 흐름 부착 섹션 — 값=연도 범위 종류. today3=오늘~+2년, forecast=예측 창, year=대상 연도.
+_SAMJAE_SECTIONS: dict[str, str] = {
+    "F-11": "today3", "F-14": "forecast", "Y-04": "year",
+    "W-06": "forecast", "J-05": "forecast", "R-05": "forecast", "RL-06": "forecast",
+    "C-03": "forecast",
+}
 
 # 도메인 섹션 → 생애 도메인 변곡 행(장기 연동) 매핑 — 모든 도메인 섹션이 근접 5년만
 # 반복하던 결함 교정(2026-08-13). 값=(도메인, 사건 키 필터, 헤더 라벨).
@@ -1002,6 +1049,9 @@ class _ReportData:
         self.detected_patterns = detect_structure_patterns(self.result)  # 구조 패턴(섹션별 선별)
         # 능동 제안(docs/15) — 재물·직업 도메인 섹션에 도메인 우선 top-2 주입.
         self.direction_suggestions = detect_direction_suggestions(self.result)
+        # 12신살 방위 프로필(docs/18) — 연지 고정, 섹션마다 재계산하지 않는다(서술 전용).
+        self.sinsal_direction_profile = profile_from_result(self.result)
+        self._samjae_lines_cache: dict[str, list[str]] = {}
         self.wealth_capacity = analyze_wealth_capacity(self.result)  # 원국 횡재 그릇(운 분리)
         # 재물 준비기(P3) — 발현 후보년·선행 준비년 서술 전용 맥락(W-06/W-08 주입, inert).
         self.preparation_context = build_preparation_context(
@@ -1225,6 +1275,68 @@ class _ReportData:
             for d in lc.daewoon_table:
                 years.update(range(d.approx_start_date.year, d.approx_end_date.year + 1))
         return sorted(years)
+
+    # ── 12신살 방위 활용·삼재(docs/18) ─────────────────────────────────────
+    def _living_room_facing(self) -> str | None:
+        """확장 프로필의 거실 주 창 8방위(랜드마크) — 채팅과 같은 순수 함수 재사용."""
+        return living_room_facing_from(self.extended_profile)
+
+    def sinsal_direction_full_block(self, spec: ReportSpec) -> list[str]:
+        """전용 섹션(F-20b·Y-11b) — 4방 방향판 + 목적 13종 표 + 랜드마크 + 기준점 고지."""
+        profile = self.sinsal_direction_profile
+        if profile is None:
+            return []
+        lines = ["[방위 활용 — 12신살 기준(서술 전용, 점수·판정 무관)]"]
+        lines += format_profile_lines(profile)
+        lines += format_purpose_table_lines(profile)
+        lm = landmark_from_facing(profile, self._living_room_facing())
+        if lm is not None:
+            lines.append(format_landmark_line(lm))
+        else:
+            lines.append(
+                "랜드마크 없음 — '본인 방(지금 있는 자리) 기준 절대 방위'로 안내하고 나침반 앱 "
+                "확인을 권할 것."
+            )
+        lines.append("기준점: 본인 방(책상·침대 등 본인 위치) 기준 — 본문에 한 줄로 밝힐 것.")
+        return lines
+
+    def sinsal_direction_theme_block(self, purposes: tuple[str, ...]) -> list[str]:
+        """테마·generic 행동 전략 섹션 — 주제 목적만 짧게(목차 불변, 능동 제안)."""
+        from saju_shared_types.sinsal_direction import DirectionPurpose
+
+        if not purposes:
+            return []
+        block = build_sinsal_direction_block(
+            self.result, [DirectionPurpose(p) for p in purposes],
+            living_room_facing=self._living_room_facing(), proactive=True,
+            profile=self.sinsal_direction_profile,  # __init__ 에서 1회 계산한 프로필 재사용
+        )
+        return format_sinsal_direction_lines(block)[1:]  # 선행 빈 줄 제거(호출부가 넣는다)
+
+    def samjae_lines(self, kind: str, spec: ReportSpec) -> list[str]:
+        """[삼재 흐름] — kind=today3(오늘~+2년) / forecast(예측 창) / year(대상 연도).
+
+        섹션마다 같은 입력(같은 연도·같은 후보 풀)이라 kind 별로 1회만 계산해 캐시한다.
+        """
+        cached = self._samjae_lines_cache.get(kind)
+        if cached is not None:
+            return cached
+        lines = self._samjae_lines_uncached(kind, spec)
+        self._samjae_lines_cache[kind] = lines
+        return lines
+
+    def _samjae_lines_uncached(self, kind: str, spec: ReportSpec) -> list[str]:
+        """samjae_lines 의 실제 계산."""
+        if kind == "year":
+            start = spec.period.start[:4]
+            years = [int(start)] if start.isdigit() else [self.today.year]
+        elif kind == "forecast":
+            years = _forecast_years(spec, self.today)
+        else:
+            years = list(range(self.today.year, self.today.year + 3))
+        return format_samjae_lines(
+            self.result, years, current_year=self.today.year, candidates=list(self.scored),
+        )[1:]
 
     def tense_anchor_lines(self, spec: ReportSpec) -> list[str]:
         """[기준 시점] — '오늘'과 과거/현재/미래 시제를 사실로 못박는다(시제 추론 불요).
@@ -3116,6 +3228,32 @@ def build_section_context(
         _counsel = data.counseling_lines(_ds_domain, spec)
         if _counsel:
             lines += ["", *_counsel]
+    # 12신살 방위 활용·삼재(docs/18) — 전용 섹션은 전체 방향판, 테마는 주제 목적만, 삼재는 창 안
+    # 삼재 해만(무소음). 전부 서술 전용 재료(목차·점수·판정 불변).
+    if sid in _SINSAL_DIRECTION_FULL_SECTIONS:
+        _sd_full = data.sinsal_direction_full_block(spec)
+        if _sd_full:
+            lines += ["", *_sd_full, SINSAL_DIRECTION_INSTRUCTION]
+        _sj = data.samjae_lines("year" if sid == "Y-11b" else "forecast", spec)
+        if _sj:
+            lines += ["", *_sj, SAMJAE_INSTRUCTION]
+        elif sid == "Y-11b":
+            lines += [
+                "",
+                "[삼재 흐름] 이 해는 삼재 해가 아니다 — 삼재를 언급하지 말고 한 문장으로만 밝힐 것",
+            ]
+    else:
+        _sd_purposes = _SINSAL_DIRECTION_THEME_SECTIONS.get(sid) or (
+            _SINSAL_DIRECTION_TOPIC_PURPOSES.get(spec.topic or "", ()) if sid == "C-07" else ()
+        )
+        _sd_theme = data.sinsal_direction_theme_block(_sd_purposes)
+        if _sd_theme:
+            lines += ["", *_sd_theme, SINSAL_DIRECTION_INSTRUCTION]
+        _sj_kind = _SAMJAE_SECTIONS.get(sid)
+        if _sj_kind:
+            _sj = data.samjae_lines(_sj_kind, spec)
+            if _sj:
+                lines += ["", *_sj, SAMJAE_INSTRUCTION]
     # 재물 준비기(P3) — 5년 종합(W-06)·행동 전략(W-08)에만 서술 전용 맥락 주입(판정 불변).
     if sid in ("W-06", "W-08"):
         _prep_lines = preparation_context_lines(data.preparation_context)

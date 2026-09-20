@@ -15,7 +15,8 @@ from __future__ import annotations
 from saju_shared_types.intent import SubjectKind
 from saju_shared_types.report import ModuleCall, ReportSpec, SectionPlan, TargetChars
 
-# RPT_FULL — 25섹션(docs/10 3장 표 그대로, 2026-08-13 생애 개편): (id, 제목, 모듈, min, max).
+# RPT_FULL — 26섹션(docs/10 3장 표 그대로, 2026-08-13 생애 개편 + 2026-09-20 F-20b 방위 활용):
+# (id, 제목, 모듈, min, max).
 _FULL_TOC: list[tuple[str, str, list[str], int, int]] = [
     ("F-01", "사주 원국 개요", ["T0"], 2_500, 3_500),
     ("F-02", "일간과 타고난 기질", ["T0", "M03"], 3_000, 4_000),
@@ -40,6 +41,7 @@ _FULL_TOC: list[tuple[str, str, list[str], int, int]] = [
     ("F-18b", "이사·주거 이동", ["M10"], 3_000, 4_000),
     ("F-19", "도메인별 행동 전략", ["E8"], 3_500, 4_500),
     ("F-20", "개운·보완 가이드", ["E8"], 2_500, 3_500),
+    ("F-20b", "방위 활용 가이드(12신살 방향운)", [], 2_500, 3_500),
     ("F-21", "핵심 요약 카드", [], 1_500, 2_000),
     ("F-22", "간지 달력표 + 용어 해설", ["T1"], 2_000, 3_000),
 ]
@@ -127,7 +129,8 @@ _THEME_TOCS: dict[str, list[tuple[str, str, list[str], int, int]]] = {
 }
 
 # RPT_YEAR 한해풀이(2026-06-14 사용자 확정) — 총운(RPT_FULL)에서 단일 년도에 의미 있는
-# 항목만 발췌·중복 제거한 12섹션. 장기 항목(생애 대운 로드맵·과거 복원·고점 연도 Top·
+# 항목만 발췌·중복 제거한 13섹션(2026-09-20 Y-11b 방위·삼재 추가). 장기 항목(생애 대운
+# 로드맵·과거 복원·고점 연도 Top·
 # 성격 종합)은 제외하고, 원국+용신은 1섹션(Y-02)으로 압축한다. 세운 기준은 달력연도
 # 1~12월(spec.period가 그 해로 스코프). 분량을 조여 공백 정상화 시 A4 약 14~18장
 # (본문 21,600~28,400자, 1p≈1,600자). 목차 자체는 고정 규격 — 임의 변형 금지.
@@ -143,6 +146,7 @@ _YEAR_TOC: list[tuple[str, str, list[str], int, int]] = [
     ("Y-09", "건강·주의 시기", ["M11"], 1_500, 2_000),
     ("Y-10", "올해의 행동 전략", ["E8"], 1_800, 2_400),
     ("Y-11", "개운·보완 가이드", ["E8"], 1_400, 1_800),
+    ("Y-11b", "올해의 방위 활용과 삼재 흐름", [], 1_400, 1_800),
     ("Y-12", "간지 달력표(12개월)와 용어", ["T1"], 1_500, 2_000),
 ]
 
@@ -179,11 +183,11 @@ _TOPIC_MODULE: dict[str, str] = {
 }
 
 # RPT_FULL dependsOn 규칙(3장) — 신규 접미 섹션(F-17b/F-17c/F-18b)도 F-04 선행·F-21 선행.
-_FULL_SUFFIX_SECTIONS = ["F-17b", "F-17c", "F-18b"]
-_F04_DEPENDENTS = [f"F-{n:02d}" for n in range(10, 21)] + _FULL_SUFFIX_SECTIONS  # F-10~F-20
+_FULL_SUFFIX_SECTIONS = ["F-17b", "F-17c", "F-18b", "F-20b"]  # F-20b — 방위 활용(2026-09-20)
+_F04_DEPENDENTS = [f"F-{n:02d}" for n in range(10, 21)] + _FULL_SUFFIX_SECTIONS  # F-10~F-20b
 _F21_DEPS = [f"F-{n:02d}" for n in range(13, 21)] + _FULL_SUFFIX_SECTIONS  # 4·5부
 # RPT_YEAR dependsOn — Y-02(용신 확정)가 Y-03~Y-11 전체의 선행(검사 4 용신 일관).
-_Y02_DEPENDENTS = [f"Y-{n:02d}" for n in range(3, 12)]  # Y-03~Y-11
+_Y02_DEPENDENTS = [f"Y-{n:02d}" for n in range(3, 12)] + ["Y-11b"]  # Y-03~Y-11 + Y-11b
 
 
 def calibrate_chars(lo: int, hi: int) -> tuple[int, int]:
@@ -201,8 +205,8 @@ def calibrate_chars(lo: int, hi: int) -> tuple[int, int]:
     return 900, 2_900  # 표준·타임라인·복원 등
 
 
-FULL_TOTAL_TARGET = 48_000  # 캘리브레이션 후 합계 목표 ±10%(A4 약 24~30장 — 25섹션 생애 개편)
-YEAR_TOTAL_TARGET = 18_000  # 한해풀이 합계 목표 ±10%(A4 약 11~14장)
+FULL_TOTAL_TARGET = 48_000  # 캘리브레이션 후 합계 목표 ±10%(A4 약 24~30장 — 26섹션, F-20b 포함)
+YEAR_TOTAL_TARGET = 20_000  # 한해풀이 합계 목표 ±10%(A4 약 12~15장 — 13섹션, Y-11b 포함 2026-09-20)
 
 
 def _tc(lo: int, hi: int) -> TargetChars:

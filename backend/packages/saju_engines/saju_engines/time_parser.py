@@ -651,7 +651,12 @@ _COMPARE_MARK_RE = re.compile(r"비교|둘\s*중|중\s*(?:언제|어디|뭐|누�
 # 가정 신호 — 그룹 직후 어미('2030년이라면').
 _HYPO_TAIL_RE = re.compile(r"^\s*(?:이?라면|이면)")
 # 연도 그룹 내부 구분자 — 이것만으로 이어지면 같은 그룹("2026년 27년", "2026, 2027년").
-_YEAR_SEP_RE = re.compile(r"^[\s,·~\-과와랑년및]*(?:이랑)?[\s,·~\-과와랑년및]*$")
+_YEAR_SEP_RE = re.compile(r"^[\s,·~\-—∼과와랑년및]*(?:이랑)?[\s,·~\-—∼과와랑년및]*$")
+# 범위 연결 짝 — 'A년부터 B년까지'·'A년에서 B년 사이/동안'만 한 그룹(스팬 A~B)으로 묶는다
+# (2026-09-20 데굴님 지적: '부터'가 그룹을 끊어 끝 연도만 대상이 되던 결함). 짝이 없는
+# '에서'('2027년에서 2028년으로 미뤄도')·'그리고'(비교 나열)는 종전대로 그룹을 끊는다.
+_YEAR_RANGE_OPEN_RE = re.compile(r"^\s*년?\s*(?:부터|에서)(?:는|라도|만)?\s*$")
+_YEAR_RANGE_CLOSE_RE = re.compile(r"^\s*년?\s*(?:까지|사이|동안)")
 # 상대 연도 어휘 — 배제/정정 구문에 흔한 '올해 말고 내년' 지원.
 _REL_YEAR_WORDS = {"올해": 0, "금년": 0, "내년": 1, "내후년": 2}
 
@@ -709,7 +714,10 @@ def extract_time_constraints(text: str, today: date) -> list[TimeConstraintItem]
     groups: list[list[tuple[int, int, int]]] = [[mentions[0]]]
     for cur in mentions[1:]:
         prev_end = groups[-1][-1][2]
-        if _YEAR_SEP_RE.match(text[prev_end:cur[1]]):
+        between = text[prev_end:cur[1]]
+        if _YEAR_SEP_RE.match(between) or (
+            _YEAR_RANGE_OPEN_RE.match(between) and _YEAR_RANGE_CLOSE_RE.match(text[cur[2]:])
+        ):
             groups[-1].append(cur)
         else:
             groups.append([cur])

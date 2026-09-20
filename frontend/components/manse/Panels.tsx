@@ -9,6 +9,7 @@ import { applyCalibrationToLuckCycles, applyCalibrationToLuckPillars } from "@/l
 import {
   JA_HOUR_RULE_DESC, JA_HOUR_RULE_LABEL,
   type CalibrationResult, type JaHourRule, type LuckPillar, type LuckSinsal, type ManseResult,
+  type SamjaeInfo,
   type Profile,
 } from "@/lib/types";
 
@@ -869,8 +870,28 @@ function sinsalTitle(s: LuckSinsal): string {
   return `${SINSAL_POLARITY_KO[s.polarity] ?? "신살"} · ${s.name}`;
 }
 
+// 삼재 배지 색 — 복(emerald)/평(violet)/악(rose)/미평가(violet). 색은 '성격'이지 길흉 확정이 아니다.
+const SAMJAE_QUALITY_STYLE: Record<string, string> = {
+  bok: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  normal: "bg-violet-50 text-violet-700 ring-violet-200",
+  ak: "bg-rose-50 text-rose-700 ring-rose-200",
+  none: "bg-violet-50 text-violet-700 ring-violet-200",
+};
+
+function samjaeTitle(s: SamjaeInfo): string {
+  const head = `${s.label_ko} — ${s.theme_ko}`;
+  const quality = s.quality_label
+    ? `\n${s.quality_label} 성격 우세(강도 ${s.strength_label ?? "-"})${s.overlap_label ? ` · ${s.overlap_label}` : ""}` +
+      (s.stage_quality_phrase ? `\n단계×성격: ${s.stage_quality_phrase}` : "")
+    : "";
+  const evidence = s.evidence && s.evidence.length > 0
+    ? `\n근거: ${s.evidence.map((e) => `${e.note}(${e.effect === "positive" ? "+" : e.effect === "negative" ? "−" : "·"})`).join(" / ")}`
+    : "";
+  return `${head}${quality}${evidence}\n${s.basis} · 입춘 기준 세운 · 복=대길 아님, 악=사고 확정 아님(작용 조건의 우세 방향)`;
+}
+
 function LuckCol({
-  topLabel, stem, branch, stemEl, branchEl, stemGod, branchGod, unseong, sinsal,
+  topLabel, stem, branch, stemEl, branchEl, stemGod, branchGod, unseong, sinsal, samjae,
   current, selected, onClick, colRef,
 }: {
   topLabel: string;
@@ -882,6 +903,7 @@ function LuckCol({
   branchGod: string;
   unseong?: string;
   sinsal?: LuckSinsal[];
+  samjae?: SamjaeInfo | null;
   current?: boolean;
   selected?: boolean;
   onClick?: () => void;
@@ -909,6 +931,14 @@ function LuckCol({
       </div>
       <div className="text-[10px] leading-none text-gray-400">{branchGod}</div>
       {unseong && <div className="text-[10px] leading-none text-gray-400">{unseong}</div>}
+      {samjae && (
+        <span
+          title={samjaeTitle(samjae)}
+          className={`rounded px-1 text-[9px] font-medium leading-tight ring-1 ${SAMJAE_QUALITY_STYLE[samjae.quality ?? "none"]}`}
+        >
+          {samjae.label_ko}{samjae.quality_label ? `·${samjae.quality_label.charAt(0)}` : ""}
+        </span>
+      )}
       {sinsal && sinsal.length > 0 && (
         <div className="mt-0.5 w-full border-t border-gray-200 pt-0.5">
           <div className="flex flex-wrap justify-center gap-x-0.5 gap-y-px leading-tight">
@@ -1068,7 +1098,7 @@ export function LuckPanel({
             <LuckCol key={y.label} topLabel={y.label} stem={y.stem} branch={y.branch}
               stemEl={y.stem_effect?.element} branchEl={y.branch_effect?.element}
               stemGod={y.stem_ten_god} branchGod={y.branch_ten_god} unseong={y.twelve_unseong}
-              sinsal={y.luck_sinsal}
+              sinsal={y.luck_sinsal} samjae={y.samjae}
               current={Number(y.label) === lc.current_year} selected={Number(y.label) === selYear}
               colRef={Number(y.label) === selYear ? syRef : undefined}
               onClick={() => selectYear(Number(y.label))} />

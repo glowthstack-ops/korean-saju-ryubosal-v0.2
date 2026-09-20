@@ -120,13 +120,13 @@ def test_plan_report_year_half_pages() -> None:
 def test_plan_report_full_natal_sections() -> None:
     """RPT_FULL — F-02 일주 서사, F-04 용신 확정(이후 섹션 일관 검사 기준).
 
-    25섹션 = 생애 개편(2026-08-13, docs/10 3장) — F-17b/F-17c/F-18b 신설.
+    26섹션 = 생애 개편(2026-08-13, docs/10 3장) 25 + F-20b 방위 활용(2026-09-20, docs/18).
     """
     contexts = report_service.plan_report(_BIRTH, _spec("RPT_FULL"), _TODAY)
-    # 고정 25섹션 + 십년 풀이 하위 페이지(현재 대운~90세 창, 잔여 대운 수 — docs/10 3-1).
+    # 고정 26섹션 + 십년 풀이 하위 페이지(현재 대운~90세 창, 잔여 대운 수 — docs/10 3-1).
     fixed = [c for c in contexts if not c.section_id.startswith("F-14-D")]
     decades = [c for c in contexts if c.section_id.startswith("F-14-D")]
-    assert len(fixed) == 25
+    assert len(fixed) == 26
     assert decades, "십년 풀이 페이지가 최소 1개 생성돼야 한다"
     # 십년 페이지 — 그 대운 정보 + 십년 세운 흐름 표, 근접 5년 스펙트럼·전역 후보 미부착.
     d1 = decades[0]

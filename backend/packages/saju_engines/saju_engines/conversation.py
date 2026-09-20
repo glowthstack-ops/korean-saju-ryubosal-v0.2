@@ -425,6 +425,8 @@ class ConversationEngine:
             and not any(getattr(i, "career_field", False) for i in parsed.intents)
             # 명식 주의점('내 사주 주의점')도 원국 축 — 직전 시점을 잇지 않는다(2026-09-17).
             and not any(getattr(i, "chart_caution", False) for i in parsed.intents)
+            # 12신살 방위 활용 질문(책상·머리 방향)도 원국 연지 축 — 시점 미승계(docs/18).
+            and not any(getattr(i, "direction_purpose", None) for i in parsed.intents)
             # P2 승계 가드 — 직전 시점이 배제 창과 겹치면 오염 승계를 차단한다(배제 기간은
             # 절대 target으로 승격 금지). 시점 미확정으로 두면 broad/재질문 경로가 처리.
             and not overlaps_exclusions(tr_year_span(last.time_range), exclusions)

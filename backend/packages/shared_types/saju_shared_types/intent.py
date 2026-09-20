@@ -295,6 +295,10 @@ class IntentJson(BaseModel):
     # 원국 약점(기신 작동·과다/결핍·불리 구조)이 답의 축. Q8(CHART_ANALYSIS)로 잡히며 시점·도메인
     # 승계 대상이 아니다(스레드 안에서 '9월 이직'으로 새던 결함).
     chart_caution: bool = False
+    # 12신살 방위 활용 질문(docs/18, 2026-09-20): '책상을 어느 방향에', '머리는 어느 쪽으로' 등
+    # 목적(DirectionPurpose 값)·사용 방식(UsageMode 값). 원국 연지 축이라 시점 승계 대상 아님.
+    direction_purpose: str | None = None
+    direction_usage_mode: str | None = None
 
     constraints: Constraints = Field(default_factory=Constraints)
     output: OutputStyle = Field(default_factory=OutputStyle)

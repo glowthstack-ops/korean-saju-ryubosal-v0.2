@@ -89,7 +89,7 @@ from saju_engines.planner import build_execution_plan
 from saju_engines.policy_echo_audit import detect_policy_echo, strip_policy_echo
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.prediction import PredictionEngines
-from saju_engines.profile_engine import profile_facts_for
+from saju_engines.profile_engine import profile_context_for
 from saju_engines.query_parser import (
     ACCIDENT_SAGO_RE,
     AFFIRMATION_RE,
@@ -4965,6 +4965,10 @@ def chat(
     # 총운 다변화(2026-07-14) — 총운형 멀티도메인 질문만 의미 클러스터링+품질 게이트
     # 선별을 쓴다(한 사건이 기간만 바꿔 Top5를 독점 → 단일 도메인 쏠림 답변 차단).
     _overview_mode = _is_overview_multi_domain(intent, question)
+    # 물상(2단계 프로필) 사실 맥락 + 거실 창 방향 — 프로필 행 1회 조회(연결 1회).
+    _profile_facts, _living_room_facing = profile_context_for(
+        subject_id, str(intent.domains[0]) if intent.domains else "general"
+    )
     payload = build_llm_input(
         question,
         intent,
@@ -4990,9 +4994,9 @@ def chat(
         subject_blocks=subject_blocks,
         relationship_context=relationship_context,
         # 물상(2단계 프로필) 사실 맥락 — 질문 도메인 관련 항목만 풀이에 사실로 주입.
-        profile_facts=profile_facts_for(
-            subject_id, str(intent.domains[0]) if intent.domains else "general"
-        ),
+        profile_facts=_profile_facts,
+        # 12신살 방위 랜드마크(docs/18 P2) — 거실 주 창 방향(부재=None, 기능 차단 없음).
+        living_room_facing=_living_room_facing,
         overview_mode=_overview_mode,
         # P2-3a — 축소 전에 후보 범위를 산출한다. 플래그 OFF 동안 선별·출력 불변.
         process_context=_process_context,

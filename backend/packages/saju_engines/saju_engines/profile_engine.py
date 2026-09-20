@@ -421,3 +421,35 @@ def profile_facts_for(subject_id: str | None, domain: str | None) -> list[str]:
         if profile is not None:
             return profile_facts_lines(profile.extended, domain)
     return []
+
+
+def profile_context_for(
+    subject_id: str | None, domain: str | None
+) -> tuple[list[str], str | None]:
+    """저장된 subject 프로필을 **1회** 읽어 (도메인 사실 줄, 거실 주 창 8방위)를 함께 돌려준다.
+
+    채팅 턴이 같은 행을 두 번 조회(연결 2회)하지 않도록 한 함수로 묶는다(리뷰 수정 2026-09-20).
+    부재·unknown·무DB·실패는 조용히 ([], None)(규칙 11).
+    """
+    if not subject_id:
+        return [], None
+    import contextlib
+
+    from .profile_store import ProfileStore
+
+    with contextlib.suppress(Exception):
+        profile = ProfileStore().load(subject_id)
+        if profile is not None:
+            return (
+                profile_facts_lines(profile.extended, domain),
+                living_room_facing_from(profile.extended),
+            )
+    return [], None
+
+
+def living_room_facing_from(extended: ExtendedProfile | None) -> str | None:
+    """확장 프로필 → 거실 주 창 8방위(unknown·부재=None). 채팅·리포트 공용 순수 함수."""
+    if extended is None or not extended.residence:
+        return None
+    facing = extended.residence.living_room_facing
+    return None if facing in (None, "unknown") else str(facing)

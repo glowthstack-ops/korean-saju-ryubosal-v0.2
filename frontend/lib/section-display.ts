@@ -33,6 +33,7 @@ const SECTION_DISPLAY: Record<string, SectionDisplay> = {
   "F-18b": { label: "이사와 터전의 이동", blurb: "삶의 터전이 움직이는 시기를 살펴봐요." },
   "F-19": { label: "분야별 행동 가이드", blurb: "언제 무엇을 하면 좋을지 전략을 드려요." },
   "F-20": { label: "운을 살리는 생활 팁", blurb: "일상에서 기운을 북돋우는 방법이에요." },
+  "F-20b": { label: "나의 방향운", blurb: "공부·잠·만남·발표마다 어느 쪽을 어떻게 쓸지 봐요." },
   "F-21": { label: "핵심 요약 카드", blurb: "전체 풀이를 한 장으로 압축했어요." },
   "F-22": { label: "간지 달력과 용어 풀이", blurb: "날짜별 기운표와 어려운 말 풀이예요." },
 
@@ -111,6 +112,7 @@ const SECTION_DISPLAY: Record<string, SectionDisplay> = {
   "Y-09": { label: "올해 건강·주의 시기", blurb: "올해 몸에서 챙길 시기를 짚어요." },
   "Y-10": { label: "올해 행동 가이드", blurb: "분기별로 무엇을 하면 좋을지 드려요." },
   "Y-11": { label: "올해 운을 살리는 팁", blurb: "일상에서 기운을 북돋우는 방법이에요." },
+  "Y-11b": { label: "올해의 방향운과 삼재", blurb: "올해 방향 활용법과 삼재 흐름을 봐요." },
   "Y-12": { label: "간지 달력과 용어 풀이", blurb: "올해 달력표와 어려운 말 풀이예요." },
 };
 

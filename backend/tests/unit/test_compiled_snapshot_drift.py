@@ -20,13 +20,16 @@ from types import ModuleType
 
 from saju_engines.dictionaries import (
     _lint_direction_suggestions,
+    _lint_sinsal_direction,
     _lint_structure_patterns,
 )
 from saju_engines.direction_suggestion import DIRECTION_SUGGESTIONS_VERSION
 from saju_engines.graph_builder import GRAPH_VERSION, build_event_graph, load_event_graph
 from saju_engines.selection_allocation import SELECTION_WEIGHTS_VERSION
+from saju_engines.sinsal_direction import SINSAL_DIRECTION_VERSION
 from saju_engines.structure_patterns import STRUCTURE_PATTERNS_VERSION
 from saju_shared_types.direction_suggestions import DirectionSuggestionDict
+from saju_shared_types.sinsal_direction import SinsalDirectionDict
 from saju_shared_types.structure_patterns import StructurePatternDict
 
 _BACKEND = Path(__file__).resolve().parents[2]
@@ -101,6 +104,25 @@ def test_direction_suggestions_snapshot_matches_source() -> None:
     assert committed == parsed.model_dump(by_alias=True), (
         "direction_suggestions 스냅샷이 원본과 다르다 — "
         "`python scripts/build_direction_suggestions_snapshot.py` 재실행 필요"
+    )
+
+
+# ── 12신살 방위 활용(docs/18) ────────────────────────────────────────────────
+
+
+def test_sinsal_direction_snapshot_matches_source() -> None:
+    script = _load_script("build_sinsal_direction_snapshot")
+    assert script.SINSAL_DIRECTION_VERSION == SINSAL_DIRECTION_VERSION
+    parsed = SinsalDirectionDict.model_validate(
+        json.loads((_DICTS / "sinsal_direction.json").read_text("utf-8"))
+    )
+    assert not _lint_sinsal_direction(parsed)
+    committed = _read(_COMPILED / f"sinsal_direction_v{SINSAL_DIRECTION_VERSION}.json")
+    assert committed.pop("snapshot_version") == SINSAL_DIRECTION_VERSION
+    committed.pop("compiled_at", None)
+    assert committed == parsed.model_dump(by_alias=True), (
+        "sinsal_direction 스냅샷이 원본과 다르다 — "
+        "`python scripts/build_sinsal_direction_snapshot.py` 재실행 필요"
     )
 
 

@@ -66,6 +66,7 @@ from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_timing import derive_marriage_stage
 from saju_shared_types.sinsal import LlmSinsalModifier
+from saju_shared_types.sinsal_direction import DirectionPurpose
 from saju_shared_types.structure_patterns import DetectedPattern
 
 from . import marriage_timing_profile as _mtp
@@ -103,6 +104,14 @@ from .marriage_telemetry import build_marriage_telemetry, emit_marriage_telemetr
 from .month_coverage_audit import best_quality_rows
 from .opportunity_engine import EVENT_DOMAINS, detect_opportunities, format_opportunity_notes
 from .relation_claim_audit import canonical_claim_lines
+from .sinsal_direction import (
+    SAMJAE_INSTRUCTION,
+    SINSAL_DIRECTION_INSTRUCTION,
+    build_sinsal_direction_block,
+    detect_purposes_for_intent,
+    format_samjae_lines,
+    format_sinsal_direction_lines,
+)
 from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
 from .structural_context import TONE_LAYER_DIRECTIVE
@@ -1778,6 +1787,41 @@ def build_monthly_overview(
     return rows
 
 
+# 삼재 흐름 미노출 유형 — 용어교육·피드백·범위외·비교(승부 가드)·개운(방향 질문이 주제).
+_NO_SAMJAE_QUERY_TYPES = (
+    *_NO_SUGGESTION_QUERY_TYPES,
+    QueryType.COMPARISON,
+    QueryType.REMEDY,
+)
+
+
+def _direction_purposes(intent: IntentJson) -> tuple[list[DirectionPurpose], bool]:
+    """(목적 목록, 능동 여부) — 방향 질문(direction_purpose)이면 수동 1목적, 아니면 능동 트리거."""
+
+    if intent.direction_purpose:
+        try:
+            return [DirectionPurpose(intent.direction_purpose)], False
+        except ValueError:
+            return [], True
+    return detect_purposes_for_intent(intent), True
+
+
+def _samjae_years(intent: IntentJson, today: date_cls | None) -> list[int]:
+    """삼재 조회 연도 — 오늘~+2년 ∪ 질문 창 연도(최대 10년), 오름차순."""
+    years: set[int] = set()
+    if today is not None:
+        years.update(range(today.year, today.year + 3))
+    tr = intent.time_range
+    if tr is not None and tr.start:
+        try:
+            y0 = int(str(tr.start)[:4])
+            y1 = int(str(tr.end)[:4]) if tr.end else y0
+            years.update(range(y0, min(y1, y0 + 9) + 1))
+        except ValueError:
+            pass
+    return sorted(years)
+
+
 def build_llm_input(
     user_question: str,
     intent: IntentJson,
@@ -1804,6 +1848,7 @@ def build_llm_input(
     process_context=None,
     process_scope_audit: dict | None = None,
     audit_context=None,
+    living_room_facing: str | None = None,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
 
@@ -2040,6 +2085,26 @@ def build_llm_input(
         else []
     )
 
+    # 12신살 방위 활용(docs/18) — 방향 질문이면 그 목적(수동), 아니면 도메인 트리거로 최대 2목적
+    # (능동). 능동 미노출 유형(용어교육·피드백·범위외·비교)은 detect_purposes_for_intent 가
+    # 빈 목록으로 걸러낸다 — 감정지원(Q13)은 상담·명상 방향을 능동 제안해야 하므로(docs/18 §5-1)
+    # 여기서 _NO_SUGGESTION_QUERY_TYPES 로 다시 막지 않는다(2026-09-20 리뷰 수정).
+    # 삼재는 오늘~+2년 + 질문 창 연도 중 삼재 해만(무소음). 둘 다 서술 전용(점수 무관).
+    _dir_purposes, _dir_proactive = _direction_purposes(intent)
+    _sinsal_direction = build_sinsal_direction_block(
+        result, _dir_purposes, living_room_facing=living_room_facing,
+        proactive=_dir_proactive,
+    )
+    _samjae_lines = (
+        format_samjae_lines(
+            result, _samjae_years(intent, today),
+            current_year=today.year if today else None,
+            candidates=candidates,  # 사건 방향·영역 등급(복/평/악) 합성용 — 점수 불변
+        )
+        if today is not None and intent.query_type not in _NO_SAMJAE_QUERY_TYPES
+        else []
+    )
+
     payload = LlmInput(
         user_question=user_question,
         resolved_intent=intent,
@@ -2070,6 +2135,8 @@ def build_llm_input(
         relationship_context=relationship_context,
         detected_patterns=selected_patterns,
         direction_suggestions=selected_suggestions,
+        sinsal_direction=_sinsal_direction,
+        samjae_context=_samjae_lines,
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
         monthly_overview=monthly_overview or [],
@@ -2932,6 +2999,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
     _append_structure_patterns(lines, payload.detected_patterns)
     # 능동 제안 — 세운 의존이라 동적 suffix 전용(프리픽스 캐시 불변). 비었으면 무헤더.
     lines += format_direction_suggestion_lines(payload.direction_suggestions)
+    # 12신살 방위 활용·삼재(docs/18) — 대상별 프로필이라 동적 suffix 전용. 비었으면 무헤더.
+    lines += format_sinsal_direction_lines(payload.sinsal_direction)
+    lines += payload.samjae_context
     if payload.evidence:  # 근거 경로 — 후보·증거 있을 때만(구조 질문 등 빈 헤더 방지).
         lines.append("")
         lines.append("[근거 경로]")
@@ -2974,6 +3044,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(_STRUCTURE_PATTERN_INSTRUCTION)
     if payload.direction_suggestions:
         lines.append(DIRECTION_SUGGESTION_INSTRUCTION)
+    if payload.sinsal_direction is not None:
+        lines.append(SINSAL_DIRECTION_INSTRUCTION)
+    if payload.samjae_context:
+        lines.append(SAMJAE_INSTRUCTION)
     if payload.profile_facts:
         lines.append(_PROFILE_FACTS_INSTRUCTION)
     if payload.event_candidates:
@@ -3043,6 +3117,13 @@ def serialize_with_guard(
     # 신살은 보조 레이어라 토큰 압박 시 가장 먼저 버린다 → 무거운 질문에서도 고정 prefix(excerpt)·
     # 후보 본문은 보존돼 캐시 불변(test_fixed_prefix)·풀이 품질을 지킨다(§10-2).
     no_sinsal = _drop_sinsal_aux(payload)
+    # 12신살 방위 능동 제안·삼재 흐름도 서술 보조층(inert)이라 같은 단계에서 버린다 — 단
+    # 사용자가 직접 방향을 물은 수동 블록은 답의 본체이므로 유지(리뷰 수정 2026-09-20: 새 블록이
+    # 어느 단계에서도 잘리지 않아 무거운 질문이 too_broad 로 빠질 수 있었다).
+    if no_sinsal.sinsal_direction is not None and no_sinsal.sinsal_direction.proactive:
+        no_sinsal = no_sinsal.model_copy(update={"sinsal_direction": None})
+    if no_sinsal.samjae_context:
+        no_sinsal = no_sinsal.model_copy(update={"samjae_context": []})
     text = serialize_llm_input(no_sinsal)
     try:
         return text, guard.check_input(text, reserve_tokens=reserve_tokens)

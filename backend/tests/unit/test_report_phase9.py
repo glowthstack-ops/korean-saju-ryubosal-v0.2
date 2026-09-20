@@ -15,7 +15,7 @@ from saju_engines.report_builder import (
     load_model_prices,
 )
 from saju_engines.report_checks import ReportChecker
-from saju_engines.report_plan import FULL_TOTAL_TARGET, build_section_plans
+from saju_engines.report_plan import FULL_TOTAL_TARGET, YEAR_TOTAL_TARGET, build_section_plans
 from saju_shared_types.intent import SubjectKind, SubjectRef
 from saju_shared_types.profile import PersonaConfig
 from saju_shared_types.report import (
@@ -42,16 +42,23 @@ def _spec(product: str = "RPT_FULL", topic: str | None = None) -> ReportSpec:
 # ── 목차 규격(3·4장 — 임의 변경 금지) ────────────────────────────
 
 
-def test_full_toc_is_25_sections_in_fixed_order() -> None:
-    """생애 개편(2026-08-13, docs/10 3장) — 22섹션 + F-17b/F-17c/F-18b 신설 = 25섹션."""
+def test_full_toc_is_26_sections_in_fixed_order() -> None:
+    """생애 개편(2026-08-13) 25섹션 + F-20b 방위 활용(2026-09-20, docs/18) = 26섹션."""
     plans = build_section_plans(_spec("RPT_FULL"))
     expected = [f"F-{n:02d}" for n in range(1, 18)]  # F-01~F-17
-    expected += ["F-17b", "F-17c", "F-18", "F-18b"]
-    expected += [f"F-{n:02d}" for n in range(19, 23)]  # F-19~F-22
+    expected += ["F-17b", "F-17c", "F-18", "F-18b", "F-19", "F-20", "F-20b", "F-21", "F-22"]
     assert [p.section_id for p in plans] == expected
     # 분량 합계 목표 FULL_TOTAL_TARGET ±10% — 캘리브레이션 min/max 평균 기준.
     mid = sum((p.target_chars.min + p.target_chars.max) / 2 for p in plans)
     assert abs(mid - FULL_TOTAL_TARGET) <= FULL_TOTAL_TARGET * 0.10
+
+
+def test_year_toc_total_within_target() -> None:
+    """RPT_YEAR 13섹션(Y-11b 포함) 캘리브레이션 중간값 합이 YEAR_TOTAL_TARGET ±10% 안(리뷰 가드)."""
+    plans = build_section_plans(_spec("RPT_YEAR"))
+    assert [p.section_id for p in plans] == [f"Y-{n:02d}" for n in range(1, 12)] + ["Y-11b", "Y-12"]
+    mid = sum((p.target_chars.min + p.target_chars.max) / 2 for p in plans)
+    assert abs(mid - YEAR_TOTAL_TARGET) <= YEAR_TOTAL_TARGET * 0.10
 
 
 def test_full_depends_on_rules() -> None:
@@ -59,10 +66,10 @@ def test_full_depends_on_rules() -> None:
     plans = {p.section_id: p for p in build_section_plans(_spec("RPT_FULL"))}
     for n in range(10, 21):
         assert plans[f"F-{n:02d}"].depends_on == ["F-04"]
-    for sid in ("F-17b", "F-17c", "F-18b"):
+    for sid in ("F-17b", "F-17c", "F-18b", "F-20b"):
         assert plans[sid].depends_on == ["F-04"]
     assert plans["F-21"].depends_on == [
-        *[f"F-{n:02d}" for n in range(13, 21)], "F-17b", "F-17c", "F-18b",
+        *[f"F-{n:02d}" for n in range(13, 21)], "F-17b", "F-17c", "F-18b", "F-20b",
     ]
     assert plans["F-01"].depends_on == []
 

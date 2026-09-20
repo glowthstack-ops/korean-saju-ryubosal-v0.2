@@ -42,7 +42,9 @@ from saju_shared_types.event_taxonomy_v2 import LEGACY_EVENT_KEY_MAP
 from saju_shared_types.events import EventKey, EventPolarity, EventType
 from saju_shared_types.marriage_timing import MarriageStage
 from saju_shared_types.region_element import RegionGeoFeature
+from saju_shared_types.sinsal_direction import SinsalDirectionDict
 from saju_shared_types.structure_patterns import StructurePatternDict
+from saju_shared_types.twelve_sinsal import TWELVE_SINSAL_ORDER
 
 _FAVORABILITY = ("용신", "희신", "기신", "구신", "한신")
 _POSITIVE_FAVORABILITY = ("용신", "희신")
@@ -2281,6 +2283,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "relations.json": RelationsFile,
     "structure_patterns.json": StructurePatternDict,
     "direction_suggestions.json": DirectionSuggestionDict,
+    "sinsal_direction.json": SinsalDirectionDict,
     "events/taxonomy.json": TaxonomyFile,
     "favorability_rules.json": FavorabilityRulesFile,
     "event_forms.json": EventFormsFile,
@@ -3145,6 +3148,47 @@ def _lint_direction_suggestions(
     return errors
 
 
+def _lint_sinsal_direction(file: SinsalDirectionDict) -> list[str]:
+    """sinsal_direction.json — 12신살 전수·4구간 3개씩 순서·목적 primary 등급·삼재 대응 검사."""
+    errors: list[str] = []
+    rel = "sinsal_direction.json"
+    names = [e.name for e in file.sinsals]
+    if sorted(names) != sorted(TWELVE_SINSAL_ORDER):
+        errors.append(f"{rel}: 12신살 목록 불일치 — {names}")
+    if any(n == "연살" for n in names):
+        errors.append(f"{rel}: '연살' 표기 금지 — 년살로 정규화")
+    by_name = {e.name: e for e in file.sinsals}
+    for g in file.groups:
+        for idx, n in enumerate(g.sinsals, start=1):
+            e = by_name.get(n)
+            if e is None:
+                errors.append(f"{rel}: 구간 {g.key}의 미등록 신살 — {n}")
+            elif e.group is not g.key or e.sequence_index != idx:
+                errors.append(f"{rel}: {n} 구간/순서 불일치 — 기대 {g.key}#{idx}")
+    seen: set[str] = set()
+    for p in file.purposes:
+        if p.purpose in seen:
+            errors.append(f"{rel}: 중복 purpose — {p.purpose}")
+        seen.add(p.purpose)
+        if p.grades[p.primary_sinsals[0]] != "fit":
+            errors.append(f"{rel}: {p.purpose} 1순위 신살 {p.primary_sinsals[0]} 등급이 fit 아님")
+        for n in p.primary_sinsals:
+            if p.grades[n] == "caution":
+                errors.append(f"{rel}: {p.purpose} primary 신살 {n} 이 caution 등급")
+    q = file.samjae_quality
+    if q.thresholds.bok <= 0 or q.thresholds.ak >= 0:
+        errors.append(f"{rel}: samjae_quality 임계 부호 오류(bok>0, ak<0)")
+    if sum(v for v in q.weights.model_dump().values()) <= 0:
+        errors.append(f"{rel}: samjae_quality 가중치 합이 0")
+    expected = {"enter": "역마살", "stay": "육해살", "exit": "화개살"}
+    for st in file.samjae_stages:
+        if expected.get(st.stage) != st.sinsal:
+            errors.append(
+                f"{rel}: 삼재 {st.stage} ↔ {st.sinsal} 대응 오류(기대 {expected.get(st.stage)})"
+            )
+    return errors
+
+
 def lint_dictionaries(directory: Path) -> list[str]:
     """충돌 검사(dict:lint). 스키마 위반 파일은 여기서 건너뛴다(validate가 보고)."""
     errors: list[str] = []
@@ -3163,6 +3207,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_structure_patterns(parsed))
         elif isinstance(parsed, DirectionSuggestionDict):
             errors.extend(_lint_direction_suggestions(directory, parsed))
+        elif isinstance(parsed, SinsalDirectionDict):
+            errors.extend(_lint_sinsal_direction(parsed))
         elif isinstance(parsed, EventMappingFile):
             errors.extend(_lint_event_mapping(rel, parsed))
         elif isinstance(parsed, RiskMappingFile):

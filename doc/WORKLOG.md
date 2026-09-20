@@ -11002,3 +11002,67 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
 - **버전**: model.v2.2 in-place(경계 9/20 이전이라 v2.2 보드 미생성 — §22-8 v2.1 in-place 와 같은 조건), 스냅샷 재빌드
   (satisfiability 통과). v1 사전 무변경. taxonomy `신살` family 추가. 문서 §22-2 포인터·§22-3/§22-7 행 evidence 병기·§22-9 신설.
 - 회귀: `tests/unit/test_daily_sinsal_channels.py`(甲子 기준 고전표 정합·게이트 거부·배선표 고정·분류 정합), taxonomy 어휘 테스트에 `신살` 추가.
+
+## 2026-09-20 — 12신살 방위 활용 계층 + 삼재 (docs/18, 데굴님 제공 자료 2편 승인)
+
+- **원천 규칙 SSOT**: `saju_shared_types/twelve_sinsal.py` — 삼합 고지+1=겁살, 子→亥 순회. 관계(상대 12신살)·공간(방위)·시간
+  (삼재) 세 소비처가 한 표를 공유(제안서 4군×12지지 표와 전수 일치 검증). `relationship_relative_sinsal._BASE_MAPS`는 별칭.
+- **년살 정규화(결정 1)**: 관계 엔진 `_SINSAL_READING`·오늘의 운세 `_TWELVE_SINSAL_CHANNEL`·타입 독스트링·RELATIONSHIP_READING.md 의
+  `연살`→`년살`. 카탈로그·sinsal_text.json은 원래 년살. LLM 출력 용어 감사(`test_answer_closing_and_terms`)의 '연살' 허용은 독음
+  변형 수용이라 유지.
+- **사전**: `dictionaries/sinsal_direction.json`(groups 4·sinsals 12·purposes 13·samjae_stages 3, `reviewed:true` — 결정 3) +
+  스키마 `shared_types/sinsal_direction.py` + lint `_lint_sinsal_direction` + `scripts/build_sinsal_direction_snapshot.py` →
+  `compiled/sinsal_direction_v1.0.0.json` + 드리프트 테스트 등록.
+- **엔진** `saju_engines/sinsal_direction.py`: 프로필(12섹터·4방 방향판, 구간 순서 정렬)·목적 추천(개별 신살 등급, 같은 4방 안
+  주의 신살)·능동 트리거(도메인/질문유형/모듈)·랜드마크(거실 창 8방위→창 쪽/등진 쪽, 간방 모호 표시 — 결정 4 보완안)·삼재
+  블록·지시문 2종. 점수·판정 무관(inert).
+- **삼재(결정 5)**: `LuckPillar.samjae`(세운 전용, 입춘 기준 `year_ganzi`) — 만세력 세운 카드 보라 배지(툴팁에 근거·"흉운 점수
+  아님"), 채팅 `[삼재 흐름]`(오늘~+2년 ∪ 질문 창 삼재 해만), 리포트 F-11/F-14/Y-04/Y-11b/테마 5년 종합. 사건 점수 미연결.
+- **채팅**: 파서 `detect_direction_purpose`(방향 표지+사전 keywords+사용 방식 어휘) → `IntentJson.direction_purpose/
+  direction_usage_mode`, 배치·시선·머리·출입구는 Q10, 이사·여행은 기존 방위 경로 유지+블록 부가, 시점 미승계(conversation).
+  능동: `detect_purposes_for_intent`(최대 2). `chat_service`가 `living_room_facing_for(subject_id)` 전달.
+- **리포트(결정 2)**: RPT_FULL **F-20b 방위 활용 가이드**(26섹션), RPT_YEAR **Y-11b 올해의 방위 활용과 삼재 흐름**(13섹션) 신설
+  (dependsOn 규칙 동일 확장, 프론트 표시명 추가). 테마: W-08 영업 / J-07 발표·리더십 / R-07 소개팅·외모 / RL-07 이사·여행 /
+  C-07 education→공부·health→숙면. docs/10 표·규칙·카운트 갱신, docs/08 D2-2 구현 상태, docs/07 T7.8.
+- **회귀**: `tests/unit/test_sinsal_direction.py` 신설(표 전수·삼재·정규화·사전·스냅샷·등급 분리·랜드마크·트리거·파서·프롬프트·
+  미승계·리포트 섹션·세운 필드), 목차 카운트 테스트 25→26 갱신.
+
+## 2026-09-20 — 삼재 고도화: stage × quality 2축 (docs/18 §4-2, 데굴님 승인 — 겹삼재 실판정·내부 플래그 비노출)
+
+- **quality(복/평/악)**: `saju_engines/samjae_quality.py::evaluate_samjae` — 기존 산출값만 합성(세운·대운 luck_score, 충 성격 주석,
+  E8 십성 과다/부족 임계, 사건 후보 길흉 방향, 대운·세운 동조). 가중치·임계(±0.25)는 사전 `samjae_quality` 절의 캘리브레이션
+  상수. 평삼재 필수 상태. 강도(약/중/강)와 방향 분리. 겹삼재=대운 지지 삼재권 / 삼재 세운 지지와 원국 지지 충(natal_clash) → 강도 가산만(일지 축은 지지 집합 서로소라 불가).
+- **타입**: `SamjaeInfo` 확장(quality·quality_label·quality_score·strength·stage_quality_phrase·evidence·domains·overlap·
+  `event_signal_included`(내부 플래그, 미노출)). 사전 v1.1.0(스키마 `SamjaeQualityConfig`, 9칸 검증, lint 임계 부호).
+- **배선**: `manse_service._calculate` → `enrich_samjae_quality`(세운·대운표 sewoon, 후보 없이) → 만세력 배지 `들삼재·복`+툴팁;
+  채팅 `format_samjae_lines(candidates=…)`·리포트 `samjae_lines(self.scored)`로 사건 방향·영역 등급까지. `SAMJAE_INSTRUCTION` ⑥
+  "점수·내부 신호명·데이터/후보 유무 언급 금지". luck_score·사건 점수 불변.
+- 회귀: `test_sinsal_direction.py` ⑪(설정 9칸·임계 lint, 만세력 보강, 점수-근거 정합, 후보 도메인 등급, 줄 금칙어, 일지 겹삼재).
+
+## 2026-09-20 — 연도 범위 파싱 보정 ('2034년부터 2036년까지' → 2034~2036, 데굴님 지적)
+
+- **결함**: `extract_time_constraints`의 그룹 구분자(`_YEAR_SEP_RE`)가 '부터/에서'를 그룹 경계로 봐 두 연도가 별개 그룹이 되고,
+  끝 연도만 술어(어때) 창에 걸려 TARGET → 시점이 2036 단일 창으로 좁혀졌다. 삼재 블록도 그 창을 따라 2036년만 실렸다.
+- **수정**: 범위 연결어('부터'·'에서'·'그리고'·'—'·'∼')를 같은 그룹 구분자로 인정 → 한 그룹 스팬(2034~2036)이 TARGET/MENTION으로
+  잡혀 retarget이 `2034..2036` YEAR 창을 만든다. 배제('말고')·비교 구문은 여전히 그룹을 끊는다(회귀 유지).
+- **효과**: 채팅 `[삼재 흐름]`에 2034 들삼재(악·강·대운+충 겹삼재)/2035 눌삼재(악·중)/2036 날삼재(복·약)가 각각 실린다(dry-run 실측).
+- 회귀: `tests/unit/test_time_constraints.py::test_year_range_with_buteo_kkaji_spans_all_years`(3표현 + 배제 구문 불변 + 삼재 창).
+
+## 2026-09-20 — 코드 리뷰 반영 (12신살 방위·삼재·연도 범위, 커밋 전 점검)
+
+- **파서**: 방향 질문 감지에 공간 단서 필수(비유 '공부 방향·방향을 잡다'·양자택일 '어느 쪽이 좋을까'·짧은 키워드 '가게/화장/회의'
+  오탐 차단, 최장 키워드 우선, 출입구·이동은 목적 어휘 필수), 시점 후속 턴에 direction 플래그 미승계, 목적→도메인은 사전 `domain`
+  (코드 맵 제거). 연도 범위는 '부터/에서(는·라도)…까지/사이/동안' 짝일 때만 묶어 '그리고' 비교·'에서…으로' 연기 구문 회귀 차단.
+- **삼재**: 근거 effect=반올림 기여 부호, 세운 기둥 없는 해는 stage만(quality None), 후보 방향은 표준 `result_direction`
+  (pressure=활성, 방향 0), 저장된 `pillar.samjae` stage 재사용·조회 맵 1회, 라벨 표 재사용(`report_event_input`/
+  `selection_allocation`), 택일(Q4)엔 역마 능동 제안 미부착, 감정지원(Q13) 상담·명상 능동 제안이 실제로 나가도록 외부 게이트 제거.
+- **가드·I/O**: 토큰 초과 Tier 0에서 능동 방위·삼재 블록 제거(수동 유지), 채팅 프로필 행 1회 조회(`profile_context_for`), 리포트
+  삼재 줄 kind 별 캐시·테마 블록에 캐시 프로필 전달, 랜드마크 문구·거실 창 추출 공용 함수화.
+- **기타**: `YEAR_TOTAL_TARGET` 20,000(13섹션)+가드 테스트, 유지 스크립트 allowlist에 스냅샷 빌더 추가, 보정 뷰 삼재 배지는 단계만,
+  `trigger_modules`/`purposes_for_module` 제거(리포트 섹션 표가 단일 원천), docstring 보강.
+
+## 2026-09-20 — 출력 후처리: 기간 괄호 군더더기 교정 (데굴님 지적)
+
+- `llm_client._sanitize_output` 에 `_PERIOD_WRAP_RE` 추가: '1월(辛丑(신축)월)'·'2026년(丙午(병오)년)' → '1월 辛丑(신축)월'·
+  '2026년 丙午(병오)년'. 단위 뒤 괄호 안이 '한자(한글)[단위]' 꼴일 때만 펴고 설명 괄호('1월(입춘 전)')는 유지. 채팅·리포트·
+  두 공급자 공통 지점. 회귀: `test_llm_client_failover.py::test_sanitize_unwraps_period_ganji_parentheses`.

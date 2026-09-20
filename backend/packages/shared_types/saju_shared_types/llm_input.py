@@ -17,6 +17,7 @@ from .intent import IntentJson
 from .luck_hierarchy import LuckHierarchy
 from .relation_semantics import RelationSemantics
 from .sinsal import LlmSinsalModifier
+from .sinsal_direction import SinsalDirectionBlock
 from .structure_patterns import DetectedPattern
 
 
@@ -516,6 +517,11 @@ class LlmInput(BaseModel):
     # 능동 제안(docs/15) — 세운 의존이라 질문 가변 suffix 전용(캐시 프리픽스 금지),
     # 도메인 우선 top-2. LLM은 '고려' 수준 재서술만(판정·점수 불변).
     direction_suggestions: list[DirectionSuggestion] = Field(default_factory=list)
+    # 12신살 방위 활용(docs/18) — 연지 고정 프로필 + 목적별 추천. 수동(방향 질문) 또는 능동(도메인
+    # 트리거). 동적 suffix 전용(프로필·랜드마크가 대상별로 달라 프리픽스 캐시에 넣지 않는다).
+    sinsal_direction: SinsalDirectionBlock | None = None
+    # 삼재 흐름(docs/18 §4) — 질문 창 안의 삼재 해만(없으면 빈 목록). 맥락 신호, 점수 아님.
+    samjae_context: list[str] = Field(default_factory=list)
     evidence: list[LlmEvidence] = Field(default_factory=list)
     past_validation: PastValidationSummary | None = None
     style_rules: LlmStyleRules = Field(default_factory=LlmStyleRules)

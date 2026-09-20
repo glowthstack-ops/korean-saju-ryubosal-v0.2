@@ -26,6 +26,7 @@ import saju_manse_core.time_correction.true_solar_time as true_solar_time
 from saju_engines.context_reducer import event_ko
 from saju_engines.event_engine_v2 import EventEngineV2
 from saju_engines.event_scoring import favorability_map_from_model
+from saju_engines.samjae_quality import enrich_samjae_quality
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_manse_core.pillars.day_pillar import day_pillar
 from saju_manse_core.pillars.hour_pillar import hour_pillar_for_branch
@@ -621,6 +622,9 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
             "boundary_diagnostics": boundary_trace,
         },
     )
+
+    # 삼재 quality(복/평/악·강도·겹삼재) — 세운 카드용, 기존 운 점수 불변(docs/18 §4-2).
+    enrich_samjae_quality(result)
 
     # 검증 질문은 result(루크·용신 포함)가 있어야 이벤트 엔진으로 연도별 이벤트를 검출하므로
     # result 구성 후 생성해 부착한다(이벤트형 질문 — 모델별 기대 극성).

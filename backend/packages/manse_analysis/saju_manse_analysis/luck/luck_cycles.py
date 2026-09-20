@@ -46,6 +46,7 @@ from saju_shared_types.constants import (
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.luck import DaewoonItem, LuckCycles, LuckPillar, LuckPolarity
 from saju_shared_types.pillars import FourPillarsResult
+from saju_shared_types.twelve_sinsal import samjae_for
 
 # 운 종류별 (천간, 지지) 가중치 — 긴 운일수록 지지(기반) 비중↑.
 _PERIOD_WEIGHTS: dict[str, tuple[float, float]] = {
@@ -487,6 +488,10 @@ def _luck_pillar(
         luck_summary=eff["luck_summary"],
         solar_term_range=solar_range,
         luck_sinsal=sinsal_for_luck(pillars, stem, branch),
+        # 삼재(세운만) — 원국 연지 삼합국 기준 역마/육해/화개 세운. 맥락 라벨 전용(점수 무관).
+        samjae=(
+            samjae_for(Branch(pillars.year.branch), branch) if period_type == "year" else None
+        ),
     )
 
 

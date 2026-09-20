@@ -355,6 +355,29 @@ export interface LuckSinsal {
   polarity: string; // positive(길신) / caution(흉성) / neutral(신살)
 }
 
+/** 삼재 단계(세운 전용) — 연지 삼합 기준 역마/육해/화개 세운. 흉운 점수가 아니라 3년 흐름 라벨. */
+export interface SamjaeEvidence {
+  signal: string;
+  effect: "positive" | "negative" | "neutral";
+  note: string;
+}
+
+export interface SamjaeInfo {
+  stage: "enter" | "stay" | "exit";
+  label_ko: string; // 들삼재 / 눌삼재 / 날삼재
+  sinsal: string;
+  sequence_index: number;
+  theme_ko: string;
+  basis: string;
+  // quality(복/평/악) — 원국·대운·세운 작용 판정(docs/18 §4-2). 미평가면 null.
+  quality?: "bok" | "normal" | "ak" | null;
+  quality_label?: string | null; // 복삼재 / 평삼재 / 악삼재
+  strength_label?: string | null; // 약 / 중 / 강
+  stage_quality_phrase?: string | null;
+  evidence?: SamjaeEvidence[];
+  overlap_label?: string | null; // 대운 겹삼재 · 일지 겹삼재
+}
+
 export interface DaewoonItem {
   index: number;
   start_age: number;
@@ -397,6 +420,7 @@ export interface LuckPillar {
   luck_summary?: string;
   solar_term_range?: string | null;
   luck_sinsal?: LuckSinsal[];
+  samjae?: SamjaeInfo | null; // 세운(period_type=year)에만 채워진다
 }
 
 export interface LuckCycles {

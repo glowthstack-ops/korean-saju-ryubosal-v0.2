@@ -345,3 +345,38 @@ def test_minor_lifestage_directive() -> None:
         ),
     })
     assert _minor_lifestage_directive_text(birth, adult_intent, _TODAY) is None
+
+
+def test_year_range_with_buteo_kkaji_spans_all_years() -> None:
+    """'2034년부터 2036년까지' → 2034~2036 스팬(끝 연도만 잡히던 결함, 2026-09-20 데굴님 지적)."""
+    from saju_engines.context_reducer import _samjae_years
+    from saju_engines.query_parser import parse_message
+    from saju_engines.time_parser import parse_time_with_constraints
+
+    for q in (
+        "2034년부터 2036년까지 직업운이랑 재물운 흐름이 어때?",
+        "2034년에서 2036년 사이 이사 시기 봐줘",
+        "2034~2036년 재물운",
+    ):
+        tr, _scope, items = parse_time_with_constraints(q, date(2026, 9, 20))
+        assert tr is not None and (tr.start, tr.end) == ("2034", "2036"), q
+        assert len(items) == 1 and (items[0].start_year, items[0].end_year) == (2034, 2036), q
+        intent = parse_message(q, date(2026, 9, 20)).intents[0]
+        assert intent.time_range is not None
+        assert (intent.time_range.start, intent.time_range.end) == ("2034", "2036"), q
+        assert _samjae_years(intent, date(2026, 9, 20)) == [2026, 2027, 2028, 2034, 2035, 2036]
+    # 조사 변형('부터는')도 범위.
+    tr, _s, items = parse_time_with_constraints("2034년부터는 2036년까지 흐름", date(2026, 9, 20))
+    assert tr is not None and (tr.start, tr.end) == ("2034", "2036") and len(items) == 1
+    # 배제·비교·연기 구문은 그대로(범위 짝이 아닌 접속은 그룹을 끊는다 — 리뷰 회귀 가드).
+    tr, _s, items = parse_time_with_constraints("2034년 말고 2036년 봐줘", date(2026, 9, 20))
+    assert tr is not None and (tr.start, tr.end) == ("2036", "2036")
+    assert len(items) == 2
+    tr, _s, items = parse_time_with_constraints(
+        "2034년 그리고 2036년 중 언제가 나아?", date(2026, 9, 20)
+    )
+    assert len(items) == 2 and all(it.role.value == "comparison" for it in items)
+    tr, _s, items = parse_time_with_constraints(
+        "2027년에서 2028년으로 미뤄도 될까", date(2026, 9, 20)
+    )
+    assert len(items) == 2 and tr is not None and (tr.start, tr.end) == ("2027", "2027")

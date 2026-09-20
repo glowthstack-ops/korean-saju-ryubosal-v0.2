@@ -85,7 +85,7 @@ _TWELVE_SINSAL_CHANNEL: dict[str, tuple[str, float]] = {
     "겁살": ("sinsal_loss", 1.0), "재살": ("sinsal_loss", 0.8), "망신살": ("sinsal_loss", 0.8),
     "육해살": ("sinsal_loss", 0.6), "천살": ("sinsal_loss", 0.6), "월살": ("sinsal_loss", 0.5),
     "역마살": ("sinsal_move", 1.0), "지살": ("sinsal_move", 0.6),
-    "연살": ("sinsal_charm", 1.0),
+    "년살": ("sinsal_charm", 1.0),
     "장성살": ("sinsal_status", 1.0), "반안살": ("sinsal_status", 0.8),
     "화개살": ("sinsal_retreat", 1.0),
 }

@@ -302,6 +302,12 @@ _GANJI_RE = re.compile(f"([{_STEM_CHARS}])([{_BRANCH_CHARS}])(?!\\()")
 #     일반화해 '정재(정재)'처럼 같은 한글을 괄호로 되풀이한다 → 괄호 군더더기만 제거.
 _NESTED_GLOSS_RE = re.compile(r"[가-힣]{2}\(([一-鿿]{2})\(([가-힣]{2})\)\)")
 _SELF_GLOSS_RE = re.compile(r"([가-힣]{2,})\(\1\)")
+# (3) 기간 괄호 군더더기(2026-09-20 데굴님 지적): '1월(辛丑(신축)월)'·'2026년(丙午(병오)년)'처럼
+#     달·해 숫자 뒤에 간지를 괄호로 한 번 더 싸는 표기 → '1월 辛丑(신축)월'로 편다. 단위 뒤 괄호
+#     안이 '한자(한글)[단위]' 꼴일 때만(설명 괄호 '1월(입춘 전)' 류는 그대로).
+_PERIOD_WRAP_RE = re.compile(
+    r"(\d{1,4})(년|월|일)\(([一-鿿]{2})\(([가-힣]{2})\)(?:\2)?\)"
+)
 
 # ── 신살 표기 훼손 교정 (2026-08-06 데굴님 지적) ──
 # LLM 이 엔진에서 받은 신살명의 글자를 바꿔 쓰는 일이 있다. 대화 이력 570건 전수 검사에서
@@ -383,6 +389,7 @@ def _sanitize_output(text: str) -> str:
     cleaned = _normalize_sinsal_terms(cleaned)  # 격격살 → 격각살 (없는 말만)
     cleaned = _NESTED_GLOSS_RE.sub(r"\1(\2)", cleaned)  # 한글(한자(한글)) → 한자(한글)
     cleaned = _SELF_GLOSS_RE.sub(r"\1", cleaned)        # 정재(정재) → 정재
+    cleaned = _PERIOD_WRAP_RE.sub(r"\1\2 \3(\4)\2", cleaned)  # 1월(辛丑(신축)월) → 1월 辛丑(신축)월
     cleaned = _STRIKETHROUGH_RE.sub("", cleaned)
     if cleaned == text:
         return text

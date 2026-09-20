@@ -311,6 +311,85 @@ def detect_career_field(text: str) -> bool:
     return bool(_CAREER_FIELD_RE.search(text))
 
 
+# ── 12신살 방위 활용 질문(docs/18, 2026-09-20) ────────────────────────────────
+# '어느 방향/쪽/방위' 류 방향 표지 + 사용 방식 어휘. 목적은 사전 keywords(사전 SSOT)로 판정한다.
+_DIRECTION_ASK_RE = re.compile(
+    r"(?:어느|어떤|무슨|좋은|맞는|유리한)\s*(?:쪽\s*)?(?:방향|방위)"
+    r"|방향(?:은|이|을|으로)?\s*(?:어디|어느|뭐|좋)"
+    r"|(?:머리|책상|침대|화장대|거울|모니터|출입구|현관|문|가게|매장|점포|자리)"
+    r"\s*(?:을|를|은|는|의|가|이)?\s*(?:방향|쪽|방위)"
+    r"|머리를?\s*(?:어느|어떤)\s*쪽"
+    r"|(?:어느|어떤)\s*쪽(?:으로|에|을)\s*(?:두|놓|향|앉|보|눕|가면|가야|가는|가)"
+    r"|(?:어느|어떤)\s*자리에\s*앉"
+)
+# 주의: '남동쪽으로 이사' 같은 단순 방위 명시는 constraints.direction(이사 방위 경로) 몫이라
+# 여기 표지에 넣지 않는다 — 택일 질문이 방향 질문으로 잡히지 않게.
+# 주의: '어느 쪽이 좋을까'(양자택일 관용구)만으로는 방향 질문이 아니다 — 위 표지처럼 공간 단서
+# (방향·방위·가구·머리·앉기·이동)가 있어야 한다(리뷰 수정 2026-09-20).
+#: 목적 어휘 없이 사용 방식만으로 확정하는 기본 목적 — 출입구·이동은 목적 어휘 필수.
+_DIRECTION_DEFAULT_BY_USAGE: dict[str, str] = {"head": "sleep", "face": "study"}
+# 사용 방식 어휘(순서=우선) — 머리>바라보기>출입구>이동>위치.
+_DIRECTION_USAGE_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("head", ("머리", "베개", "잘 때", "잠잘", "누울")),
+    ("face", ("바라보", "보고 앉", "향해 앉", "모니터", "시선", "마주")),
+    ("entrance", ("출입구", "현관", "문 방향", "입구")),
+    ("move", ("여행", "출장", "이사", "떠나", "이동", "옮기")),
+    ("position", ("책상", "침대", "화장대", "거울", "놓", "배치", "자리")),
+)
+# 비유적 '방향'(진로·공부 방향·사업 방향성·방향을 잡다)은 나침반 방위 질문이 아니다 — 리뷰 수정
+# (2026-09-20: '어떤 쪽으로 공부 방향을 잡을까'가 Q10+방위 블록으로 오라우팅).
+_DIRECTION_METAPHOR_RE = re.compile(
+    r"(?:공부|진로|사업|커리어|경력|인생|삶|투자|연구|기획|정책|전략|목표)\s*(?:의\s*)?방향"
+    r"|방향성|방향(?:을|은|이)?\s*(?:잡|정하|설정|찾)"
+)
+# 방향 질문이 Q10(개운·보완)으로 재라우팅되지 않는 유형 — 택일·비교·결정·설명·관계는 원 경로 유지.
+_DIRECTION_KEEP_QUERY_TYPES = frozenset({
+    QueryType.DATE_RECOMMENDATION, QueryType.COMPARISON, QueryType.DECISION_SUPPORT,
+    QueryType.EVENT_EXPLANATION, QueryType.RELATIONSHIP_ANALYSIS, QueryType.OUT_OF_SCOPE,
+    QueryType.TERMINOLOGY_EDUCATION, QueryType.FEEDBACK_CORRECTION,
+})
+
+
+def _direction_purpose_domain(purpose: str) -> Domain:
+    """목적 → intent 도메인(사전 `PurposeEntry.domain` — 코드 맵 없음)."""
+    from .sinsal_direction import load_sinsal_direction_dict
+
+    for entry in load_sinsal_direction_dict().purposes:
+        if str(entry.purpose) == purpose:
+            return Domain(entry.domain)
+    return Domain.GENERAL
+
+
+def detect_direction_purpose(text: str) -> tuple[str, str] | None:
+    """방위 활용 질문이면 (목적, 사용 방식) 값 쌍, 아니면 None.
+
+    방향 표지가 있어야 하며 목적은 사전 keywords(docs/18)로 결정한다. 목적 어휘가 없으면
+    사용 방식 어휘로 기본 목적을 정한다(머리→숙면, 바라보기→공부, 출입구→영업, 이동→여행).
+    """
+    low = text.lower()
+    if not _DIRECTION_ASK_RE.search(low) or _DIRECTION_METAPHOR_RE.search(low):
+        return None
+    from .sinsal_direction import load_sinsal_direction_dict  # 지연 — 파서 import 비용 분리
+
+    usage: str | None = None
+    for mode, words in _DIRECTION_USAGE_WORDS:
+        if any(w in low for w in words):
+            usage = mode
+            break
+    # 가장 긴 키워드가 매칭된 목적을 고른다(짧은 어휘의 우연 매칭이 긴 어휘를 이기지 않게).
+    best: tuple[int, str, str] | None = None
+    for entry in load_sinsal_direction_dict().purposes:
+        for k in entry.keywords:
+            if k.lower() in low and (best is None or len(k) > best[0]):
+                best = (len(k), str(entry.purpose), str(entry.usage_mode))
+    if best is not None:
+        return best[1], usage or best[2]
+    # 목적 어휘 없음 — 사용 방식만으로 확정 가능한 것(머리→숙면, 바라보기→공부)만 기본값.
+    if usage in _DIRECTION_DEFAULT_BY_USAGE:
+        return _DIRECTION_DEFAULT_BY_USAGE[usage], usage
+    return None
+
+
 # 사무실/사업장 이전 신호 — relocation_kind=office 판정용(R4). 집 이사(일지)와 달리 월주 중심.
 _OFFICE_RELOCATION_WORDS = (
     "사무실 이전", "사업장 이전", "사무실 이사", "사업장 이사",
@@ -1042,6 +1121,10 @@ def parse_message(
             "time_range": time_range,
             "time_scope": time_scope,
             "time_exclusions": time_exclusions,
+            # 방향 질문 플래그는 연지 고정 정보라 시점 후속('그럼 올해는?')에 이어지지 않는다
+            # (리뷰 수정 2026-09-20: 같은 방위 블록이 반복되고 삼재·제안이 억제되던 누출).
+            "direction_purpose": None,
+            "direction_usage_mode": None,
         })
         return ParsedMessage(
             intents=[inherited], is_follow_up=True, inherited_from=prev_intent.intent_id,
@@ -1124,6 +1207,17 @@ def parse_message(
             _last.career_field = True
             if _last.domain is not Domain.CAREER:
                 _last.domain = Domain.CAREER
+        # 12신살 방위 활용 질문(docs/18) — 목적·사용 방식 표시. 이사·여행(이동)은 기존 이사 방위
+        # 경로를 유지하고 블록만 덧붙이며, 그 외 배치·시선·머리 질문은 Q10(개운·보완)으로 잡는다.
+        _dp = detect_direction_purpose(piece)
+        if _dp is not None:
+            _last.direction_purpose, _last.direction_usage_mode = _dp
+            if _last.query_type not in _DIRECTION_KEEP_QUERY_TYPES and _dp[0] not in (
+                "travel", "relocation"
+            ):
+                _last.query_type = QueryType.REMEDY
+            if _last.domain is Domain.GENERAL:
+                _last.domain = _direction_purpose_domain(_dp[0])
         # 육친 운 — 원국 육친 축 질문. 관계어가 대상으로 잡혔어도 미해소면 본인 명식으로 본다
         # (등록 동반자 해소는 스레드 엔진이 subjects를 덮어쓴다).
         if detect_kin_axis(piece) is not None:
