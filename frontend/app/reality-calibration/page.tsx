@@ -15,6 +15,7 @@ export default function RealityCalibrationPage() {
   const [subjects, setSubjects] = useState<SubjectSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [summary, setSummary] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -58,6 +59,13 @@ export default function RealityCalibrationPage() {
       {done ? (
         <div className="space-y-3 text-sm">
           <p className="text-green-700">저장됐습니다. 풀이에 반영됩니다.</p>
+          {summary.length > 0 && (
+            <ul className="space-y-1 rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+              {summary.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          )}
           <div className="flex items-center gap-3">
             {/* 재편집 — 다시 열면 이전 입력이 그대로 채워진 상태로 수정할 수 있다(prior 프리필). */}
             <button
@@ -76,7 +84,10 @@ export default function RealityCalibrationPage() {
         <StepRealityCalibration
           key={activeId}
           subjectId={activeId}
-          onDone={() => setDone(true)}
+          onDone={(r) => {
+            setSummary(r?.summary ?? []);
+            setDone(true);
+          }}
         />
       ) : (
         <p className="text-sm text-zinc-500">등록된 사주가 없습니다.</p>

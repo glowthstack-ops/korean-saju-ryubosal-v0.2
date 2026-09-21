@@ -23,12 +23,14 @@ from saju_engines.reality_calibration import (
     pillars_signature,
     prior_answers_from_rows,
     rows_from_submission,
+    submission_summary,
 )
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.life_event import (
     RealityCalibrationQuestionSet,
     RealityCalibrationSubmission,
+    RealityCalibrationSubmitResult,
     RealityCalibrationYearAnswer,
     SignalFingerprint,
 )
@@ -84,15 +86,15 @@ def questions(
     return qset.model_copy(update={"prior": prior})
 
 
-@router.post("/{subject_id}/submit")
+@router.post("/{subject_id}/submit", response_model=RealityCalibrationSubmitResult)
 def submit(
     subject_id: str,
     submission: RealityCalibrationSubmission,
     owner_id: OwnerId,
     subjects: Subjects,
     life_events: LifeEvents,
-) -> dict[str, int]:
-    """연도별 선택을 LifeEventRow로 적재한다(수집만). 적재 행 수를 반환."""
+) -> RealityCalibrationSubmitResult:
+    """연도별 선택을 LifeEventRow로 적재한다(수집만). 적재 행 수 + 사용자용 요약을 반환."""
     if submission.subject_id != subject_id:
         raise HTTPException(status_code=400, detail="subject_id 불일치")
     record = subjects.get(subject_id)
@@ -114,7 +116,7 @@ def submit(
         "version": _CALIB_PAYLOAD_VERSION,
         "answers": [a.model_dump(mode="json") for a in submission.answers],
     })
-    return {"stored": stored}
+    return submission_summary(rows, submission, stored)
 
 
 def _month_fingerprints(

@@ -479,6 +479,7 @@ export interface CalibrationQuestion {
   period_label: string;
   period_range?: string;
   question_text: string;
+  hint?: string; // 이 해를 묻는 이유(사용자용 부제, CAL-P3)
   ask_domains: string[];
   options: string[];
   events?: CalibrationEventItem[];
@@ -502,7 +503,8 @@ export interface CalibrationResult {
   evidence_count: number;
   match_rate: number;
   selected_model: string | null;
-  explanation: string[];
+  explanation: string[]; // 내부 진단(개발·감수용) — 화면에는 user_summary를 쓴다
+  user_summary?: string[]; // 사용자용 결과 설명(근거 한 줄·역할 의미·다음 행동, CAL-P3)
 }
 
 export interface ManseResult {
@@ -653,6 +655,16 @@ export interface RealityCalibrationYear {
   salience: number;
   daewoon_transition: boolean;
   events: RealityCalibrationEvent[];
+  age?: number | null; // 만 나이(CAL-R1)
+  band_ko?: string; // 생애 구간 라벨(사회초년기 등)
+  hint?: string; // 이 해를 묻는 이유
+}
+export interface RealityCalibrationSubmitResult {
+  stored: number;
+  confirmed: number;
+  not_happened: number;
+  years_answered: number;
+  summary: string[]; // 사용자용 요약(템플릿 문장)
 }
 export interface RealityCalibrationQuestionSet {
   subject_id: string | null;

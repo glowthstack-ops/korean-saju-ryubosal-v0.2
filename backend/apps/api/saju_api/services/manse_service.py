@@ -69,7 +69,8 @@ _POLARITY_EXPECTED = {
     "conditional": "mixed",
     "neutral": "neutral",
 }
-_EVENTS_PER_QUESTION = 4
+# 연도별 후보 사건 상한 — 질문 생성기가 카테고리 다양성·중복 회피로 4건을 고른다(CAL-P3).
+_EVENTS_PER_QUESTION = 8
 # 검증 질문 표시용 라벨 보수화 — 일부 이벤트는 실제 사건 판정이 아니라 십성·관계 신호에서
 # 파생된 proxy 라벨이라 사용자가 구체 사건으로 오인하지 않게 완화한다(노출 전용, 사전 불변).
 _CALIB_LABEL_OVERRIDE = {
