@@ -102,6 +102,36 @@ def _pillar_groups(pillar: LuckPillar) -> list[str]:
     return out
 
 
+def domain_grades_for_year(
+    cands: list[EventCandidate], cfg: SamjaeQualityConfig
+) -> list[SamjaeDomainGrade]:
+    """한 해 후보 목록 → 도메인별 길흉 등급(유리/혼합/주의). 후보 없는 도메인은 생략.
+
+    삼재 quality(⑤항)와 방향 회피 판정(docs/19 §4 조건 ④)이 공유한다 — 같은 후보가 두 곳에서
+    다른 등급으로 읽히지 않게 한 함수로 둔다. 임계는 사전 `samjae_quality.thresholds.domain`.
+    """
+    by_domain: dict[str, list[EventCandidate]] = {}
+    for c in cands:
+        dom = _DOMAIN_BY_KEY.get(str(c.event_key))
+        if dom is None:
+            continue
+        by_domain.setdefault(dom, []).append(c)
+    out: list[SamjaeDomainGrade] = []
+    for dom in _DOMAIN_ORDER:
+        dnet = _net_direction(by_domain.get(dom, []))
+        if dnet is None:
+            continue
+        grade = (
+            "favorable" if dnet >= cfg.thresholds.domain
+            else "caution" if dnet <= -cfg.thresholds.domain
+            else "mixed"
+        )
+        out.append(SamjaeDomainGrade(
+            domain=dom, domain_ko=_DOMAIN_KO[dom], grade=grade, net=round(dnet, 4),
+        ))
+    return out
+
+
 def evaluate_samjae(
     result: ManseV2Result,
     year: int,
@@ -225,24 +255,7 @@ def evaluate_samjae_pillar(
                 note="그 해 사건 후보의 길흉 방향이 "
                 + ("유리 쪽" if net > 0.05 else "불리 쪽" if net < -0.05 else "혼재"),
             ))
-            by_domain: dict[str, list[EventCandidate]] = {}
-            for c in cands:
-                dom = _DOMAIN_BY_KEY.get(str(c.event_key))
-                if dom is None:
-                    continue
-                by_domain.setdefault(dom, []).append(c)
-            for dom in _DOMAIN_ORDER:
-                dnet = _net_direction(by_domain.get(dom, []))
-                if dnet is None:
-                    continue
-                grade = (
-                    "favorable" if dnet >= cfg.thresholds.domain
-                    else "caution" if dnet <= -cfg.thresholds.domain
-                    else "mixed"
-                )
-                domains.append(SamjaeDomainGrade(
-                    domain=dom, domain_ko=_DOMAIN_KO[dom], grade=grade, net=round(dnet, 4),
-                ))
+            domains = domain_grades_for_year(cands, cfg)
 
     # ⑥ 대운·세운 동조
     amin = cfg.thresholds.alignment_min_abs

@@ -40,6 +40,7 @@ from saju_shared_types.event_engine import EventKeyV2, TenGodGroup
 from saju_shared_types.event_engine import TenGod as _TenGodRoman
 from saju_shared_types.event_taxonomy_v2 import LEGACY_EVENT_KEY_MAP
 from saju_shared_types.events import EventKey, EventPolarity, EventType
+from saju_shared_types.folk_direction import FolkTabooDict
 from saju_shared_types.marriage_timing import MarriageStage
 from saju_shared_types.region_element import RegionGeoFeature
 from saju_shared_types.sinsal_direction import SinsalDirectionDict
@@ -2284,6 +2285,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "structure_patterns.json": StructurePatternDict,
     "direction_suggestions.json": DirectionSuggestionDict,
     "sinsal_direction.json": SinsalDirectionDict,
+    "folk_taboo_direction.json": FolkTabooDict,
     "events/taxonomy.json": TaxonomyFile,
     "favorability_rules.json": FavorabilityRulesFile,
     "event_forms.json": EventFormsFile,
@@ -3158,6 +3160,9 @@ def _lint_sinsal_direction(file: SinsalDirectionDict) -> list[str]:
     if any(n == "연살" for n in names):
         errors.append(f"{rel}: '연살' 표기 금지 — 년살로 정규화")
     by_name = {e.name: e for e in file.sinsals}
+    for entry in file.sinsals:  # docs/19 §2 — 회피/활용 맥락 전수
+        if not entry.avoid_contexts or not entry.use_contexts:
+            errors.append(f"{rel}: {entry.name} avoid_contexts/use_contexts 비어 있음")
     for g in file.groups:
         for idx, n in enumerate(g.sinsals, start=1):
             e = by_name.get(n)
@@ -3189,6 +3194,30 @@ def _lint_sinsal_direction(file: SinsalDirectionDict) -> list[str]:
     return errors
 
 
+def _lint_folk_taboo(file: FolkTabooDict) -> list[str]:
+    """folk_taboo_direction.json — 5종 키 고정·문구 템플릿 치환자·금지 문형·적용 행위 검사."""
+    errors: list[str] = []
+    rel = "folk_taboo_direction.json"
+    keys = [t.key for t in file.taboos]
+    if sorted(keys) != sorted(["samsal", "daejanggun", "taese", "sepa", "son"]):
+        errors.append(f"{rel}: 흉방 5종 키 불일치 — {keys}")
+    for ph in ("{direction}", "{reasons}", "{names}"):
+        if ph not in file.phrase_template:
+            errors.append(f"{rel}: phrase_template 에 {ph} 치환자 없음")
+    if "FOLK_TABOO" not in file.grades or "STRONG_FOLK_TABOO" not in file.grades:
+        errors.append(f"{rel}: grades 에 FOLK_TABOO/STRONG_FOLK_TABOO 라벨 필요")
+    actions = set(file.applies_actions)
+    for t in file.taboos:
+        if not t.reason_ko.endswith("라"):
+            errors.append(f"{rel}: {t.key} reason_ko 는 '…라'(이유 구)로 끝나야 한다")
+        for a in t.avoid_actions:
+            if a not in actions and not any(a.startswith(x) or x.startswith(a) for x in actions):
+                errors.append(f"{rel}: {t.key} avoid_actions '{a}' 가 applies_actions 에 없음")
+    if not any("무조건" in f or "흉방" in f for f in file.forbidden_framings):
+        errors.append(f"{rel}: forbidden_framings 에 절대흉방 문형이 있어야 한다")
+    return errors
+
+
 def lint_dictionaries(directory: Path) -> list[str]:
     """충돌 검사(dict:lint). 스키마 위반 파일은 여기서 건너뛴다(validate가 보고)."""
     errors: list[str] = []
@@ -3209,6 +3238,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_direction_suggestions(directory, parsed))
         elif isinstance(parsed, SinsalDirectionDict):
             errors.extend(_lint_sinsal_direction(parsed))
+        elif isinstance(parsed, FolkTabooDict):
+            errors.extend(_lint_folk_taboo(parsed))
         elif isinstance(parsed, EventMappingFile):
             errors.extend(_lint_event_mapping(rel, parsed))
         elif isinstance(parsed, RiskMappingFile):

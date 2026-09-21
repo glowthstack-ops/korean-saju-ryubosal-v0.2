@@ -35,6 +35,20 @@ FIT_GRADE_KO: dict[str, str] = {
     "fit": "적합", "support": "보조", "neutral": "중립", "caution": "주의",
 }
 
+#: 서비스 판정 등급 5단계(docs/19 §1) — 사전 4등급 위에 얹는 **계산값**. 절대흉방(ABSOLUTE_AVOID)은
+#: 만들지 않는다. STRONG_AVOID 는 목적 충돌(caution) + 시간·공간 중첩 조건(docs/19 §4)으로만 나온다.
+Verdict = Literal["BEST_USE", "GOOD_USE", "NEUTRAL", "CAUTION", "STRONG_AVOID"]
+
+VERDICT_KO: dict[str, str] = {
+    "BEST_USE": "적극 활용", "GOOD_USE": "잘 맞음", "NEUTRAL": "중립",
+    "CAUTION": "주의(목적 충돌)", "STRONG_AVOID": "강한 회피",
+}
+
+#: 사전 등급 → 기본 verdict(중첩 조건 평가 전).
+VERDICT_BY_GRADE: dict[str, str] = {
+    "fit": "BEST_USE", "support": "GOOD_USE", "neutral": "NEUTRAL", "caution": "CAUTION",
+}
+
 
 class SinsalGroupKey(StrEnum):
     """12신살 3개씩 4구간(영상 §6) — 각 구간은 순서가 있는 상태 전이(sequence)."""
@@ -86,7 +100,7 @@ class UsageStrategy(StrEnum):
 
 
 class DirectionPurpose(StrEnum):
-    """사용 목적 13종(영상 §8 표 전체 — 임의 추가·삭제 금지)."""
+    """사용 목적 16종(영상 §8 표 13종 + docs/19 §3 자료 3종 — 임의 추가·삭제 금지)."""
 
     STUDY = "study"  # 공부·시험
     RESEARCH = "research"  # 연구·기획
@@ -101,6 +115,9 @@ class DirectionPurpose(StrEnum):
     RELOCATION = "relocation"  # 이사·환경 변화
     COUNSELING = "counseling"  # 상담·명상
     REFLECTION = "reflection"  # 자기성찰·정리
+    RECONCILIATION = "reconciliation"  # 화해·관계회복(docs/19 §3)
+    NEW_START = "new_start"  # 새로운 일 시작(docs/19 §3)
+    SETTLING = "settling"  # 안정·정착(docs/19 §3)
 
 
 # ── 사전 스키마(dictionaries/sinsal_direction.json) ─────────────────────────
@@ -120,6 +137,10 @@ class SinsalDirectionEntry(BaseModel):
     strategy: UsageStrategy
     action_hints: list[str] = Field(min_length=1)
     cautions: list[str] = Field(default_factory=list)
+    # docs/19 §2 — 이 신살 방향이 특히 −가 되는 상황 / +가 되는 상황(같은 방향도 목적에 따라
+    # 뒤집힘).
+    avoid_contexts: list[str] = Field(default_factory=list)
+    use_contexts: list[str] = Field(default_factory=list)
 
 
 class SinsalGroupEntry(BaseModel):
@@ -267,7 +288,7 @@ class SinsalDirectionDict(BaseModel):
     notes: list[str] = Field(default_factory=list)
     sinsals: list[SinsalDirectionEntry] = Field(min_length=12, max_length=12)
     groups: list[SinsalGroupEntry] = Field(min_length=4, max_length=4)
-    purposes: list[PurposeEntry] = Field(min_length=13, max_length=13)
+    purposes: list[PurposeEntry] = Field(min_length=16, max_length=16)
     samjae_stages: list[SamjaeStageEntry] = Field(min_length=3, max_length=3)
     samjae_quality: SamjaeQualityConfig
     forbidden_framings: list[str] = Field(default_factory=list)
@@ -338,23 +359,35 @@ class SinsalDirectionProfile(BaseModel):
 
 
 class DirectionPick(BaseModel):
-    """목적 추천 1건 — 어느 신살·지지·4방을 어떤 등급·행동으로."""
+    """목적 추천 1건 — 어느 신살·지지·4방을 어떤 등급·행동으로.
+
+    `grade` 는 사전 등급(정적), `verdict` 는 서비스 판정 5단계(docs/19 §1). verdict 는 기본값이
+    등급 대응값이며 `direction_avoidance.annotate_avoidance` 가 시간·공간 중첩(docs/19 §4)을
+    평가해 CAUTION→STRONG_AVOID 로 올리거나 BEST_USE 에 일치 근거를 덧붙인다.
+    """
 
     sinsal: str
     branch: str
     absolute_direction: Cardinal4
     grade: FitGrade
     action: str
+    verdict: Verdict = "NEUTRAL"
+    verdict_evidence: list[str] = Field(default_factory=list)  # 한글 근거(수치 없음)
+    same_quadrant_as_fit: bool = False  # 적합 방향과 같은 4방 안의 주의 신살(지지 단위 구분용)
 
 
 class SinsalDirectionRecommendation(BaseModel):
-    """목적 1종에 대한 방향 활용 추천(길방 1개가 아니라 적합/주의 분리)."""
+    """목적 1종에 대한 방향 활용 추천(길방 1개가 아니라 적합/피함 분리).
+
+    cautions 는 그 목적의 caution 등급 **전부**(docs/19 §6-3 — 2026-09-21 데굴님 결정). 적합 방향과
+    같은 4방 안의 것은 `same_quadrant_as_fit` 로 표시해 지지 단위 안내에 쓴다.
+    """
 
     purpose: DirectionPurpose
     purpose_ko: str
     usage_mode: UsageMode
     picks: list[DirectionPick]  # 적합·보조(우선순위순)
-    cautions: list[DirectionPick]  # 같은 4방 안에서 주의할 신살(월살 등)
+    cautions: list[DirectionPick]  # 목적 한정 피할 방향(caution 전부, 같은 4방 우선)
     strategy: UsageStrategy
 
 
@@ -372,10 +405,15 @@ class LandmarkNote(BaseModel):
 
 
 class SinsalDirectionBlock(BaseModel):
-    """LLM 입력 블록 — 프로필 요약 + 목적별 추천 + 랜드마크·기준점 고지."""
+    """LLM 입력 블록 — 프로필 요약 + 목적별 추천 + 랜드마크·기준점 고지.
+
+    수동(proactive=False)이면 목적 전체 한 줄표(상황별 조언 재료)와 회피 근거 줄이 함께 실린다
+    (docs/19 §6). 능동이면 목적 추천만 짧게.
+    """
 
     profile: SinsalDirectionProfile
     recommendations: list[SinsalDirectionRecommendation] = Field(default_factory=list)
     landmark: LandmarkNote | None = None
     anchor: Anchor = Anchor.USER_POSITION
     proactive: bool = True  # 능동 제안(질문이 방향을 직접 묻지 않음)
+    avoidance_basis: list[str] = Field(default_factory=list)  # 중첩 판정 기준(연도·세운 신살 등)

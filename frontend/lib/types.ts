@@ -378,6 +378,17 @@ export interface SamjaeInfo {
   overlap_label?: string | null; // 대운 겹삼재 · 일지 겹삼재
 }
 
+// 민속 흉방(docs/19 §5) — 그해 지지 기준 삼살·대장군·태세·세파(개인 사주 무관한 공통 금기, 삼재와 별개).
+export interface FolkTabooHit {
+  key: string; // samsal | daejanggun | taese | sepa | son
+  name_ko: string;
+  direction: "동" | "남" | "서" | "북";
+  branches: string[];
+  reason_ko: string;
+  period: "year" | "year3" | "day";
+  basis_ko: string;
+}
+
 export interface DaewoonItem {
   index: number;
   start_age: number;
@@ -421,6 +432,7 @@ export interface LuckPillar {
   solar_term_range?: string | null;
   luck_sinsal?: LuckSinsal[];
   samjae?: SamjaeInfo | null; // 세운(period_type=year)에만 채워진다
+  folk_taboos?: FolkTabooHit[]; // 세운 전용 — 그해 민속 흉방 4종(추가 정보, 점수 무관)
 }
 
 export interface LuckCycles {

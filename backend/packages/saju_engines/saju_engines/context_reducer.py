@@ -38,7 +38,7 @@ from saju_shared_types.event_taxonomy_v2 import (
 from saju_shared_types.event_taxonomy_v2 import EVENT_KO as _EVENT_KO_V2
 from saju_shared_types.events import EventCandidate, EventKey
 from saju_shared_types.graph import EvidenceBundle
-from saju_shared_types.intent import IntentJson, QueryType
+from saju_shared_types.intent import Domain, IntentJson, QueryType
 from saju_shared_types.llm_input import (
     BirthChartSummary,
     ChartInterpretation,
@@ -79,6 +79,7 @@ from .chart_interpretation import (
     incoming_stage_note,
     incoming_ten_god_note,
 )
+from .direction_avoidance import annotate_avoidance
 from .direction_suggestion import (
     DIRECTION_SUGGESTION_INSTRUCTION,
     detect_direction_suggestions,
@@ -88,6 +89,7 @@ from .direction_suggestion import (
 from .event_engine_v2 import EventEngineV2
 from .event_lexicon import derive_process_types, process_type_legend
 from .event_scoring import favorability_map
+from .folk_direction import FOLK_TABOO_INSTRUCTION, folk_taboo_summary, format_folk_taboo_lines
 from .hap_lines import luck_hap_mode_lines
 from .layer_evidence_scope import (
     classify_layer_evidence_scope,
@@ -105,6 +107,7 @@ from .month_coverage_audit import best_quality_rows
 from .opportunity_engine import EVENT_DOMAINS, detect_opportunities, format_opportunity_notes
 from .relation_claim_audit import canonical_claim_lines
 from .sinsal_direction import (
+    DIRECTION_ANSWER_DIRECTIVE,
     SAMJAE_INSTRUCTION,
     SINSAL_DIRECTION_INSTRUCTION,
     build_sinsal_direction_block,
@@ -1803,7 +1806,54 @@ def _direction_purposes(intent: IntentJson) -> tuple[list[DirectionPurpose], boo
             return [DirectionPurpose(intent.direction_purpose)], False
         except ValueError:
             return [], True
+    if intent.direction_question:
+        # 목적 미해소 방향 질문 — 승계 도메인 기반 능동 목적을 쓰지 않고(docs/19 §6-5) 수동 모드로
+        # 방향판 + 목적 전체 표만 준다(되묻지 않음).
+        return [], False
     return detect_purposes_for_intent(intent), True
+
+
+# 민속 흉방 전체 블록을 싣는 행위 어휘(큰 공간 변동) — docs/19 §5-2 applies_actions 와 같은 범위.
+_FOLK_ACTION_RE = re.compile(
+    r"이사|개업|건축|증축|수리|터파기|공사|인테리어|리모델링|토석|이장|혼례|결혼식"
+)
+
+
+def _folk_taboo_lines(
+    intent: IntentJson, question: str, today: date_cls | None
+) -> list[str]:
+    """[민속 흉방] 줄 — 이사·이동·공사 질문은 전체(그날 손방 포함), 그 외 방향 질문은 고지 한 줄.
+
+    방향과 무관한 질문에는 싣지 않는다(무소음). 기준 연도는 회피 판정과 같은 `_avoidance_year`.
+    """
+    if today is None:
+        return []
+    full = (
+        intent.direction_purpose in ("travel", "relocation")
+        or intent.domain is Domain.RELOCATION
+        or (
+            intent.query_type is QueryType.DATE_RECOMMENDATION
+            and bool(_FOLK_ACTION_RE.search(question))
+        )
+        or (intent.direction_question and bool(_FOLK_ACTION_RE.search(question)))
+    )
+    if not full and not intent.direction_question:
+        return []
+    year = _avoidance_year(intent, today)
+    day: date_cls | None = None
+    if full:
+        tr = intent.time_range
+        start = str(tr.start) if tr is not None and tr.start else ""
+        day = date_cls.fromisoformat(start) if len(start) == 10 else today
+    return format_folk_taboo_lines(folk_taboo_summary(year, day), full=full)
+
+
+def _avoidance_year(intent: IntentJson, today: date_cls) -> int:
+    """회피 판정 기준 연도 — 질문 시점 창의 시작 연도, 없으면 오늘 연도(docs/19 §4-1)."""
+    tr = intent.time_range
+    if tr is not None and tr.start and str(tr.start)[:4].isdigit():
+        return int(str(tr.start)[:4])
+    return today.year
 
 
 def _samjae_years(intent: IntentJson, today: date_cls | None) -> list[int]:
@@ -2095,6 +2145,12 @@ def build_llm_input(
         result, _dir_purposes, living_room_facing=living_room_facing,
         proactive=_dir_proactive,
     )
+    # 피할 방향 중첩 판정(docs/19 §4) — 기준 연도 = 질문 시점 연도, 없으면 오늘 연도. 사전 등급
+    # 위에 verdict(STRONG_AVOID/BEST_USE 근거)만 얹는다(점수 불변).
+    if _sinsal_direction is not None and today is not None:
+        _sinsal_direction = annotate_avoidance(
+            _sinsal_direction, result, _avoidance_year(intent, today), candidates,
+        )
     _samjae_lines = (
         format_samjae_lines(
             result, _samjae_years(intent, today),
@@ -2104,6 +2160,8 @@ def build_llm_input(
         if today is not None and intent.query_type not in _NO_SAMJAE_QUERY_TYPES
         else []
     )
+
+    _folk_lines = _folk_taboo_lines(intent, user_question, today)
 
     payload = LlmInput(
         user_question=user_question,
@@ -2137,6 +2195,7 @@ def build_llm_input(
         direction_suggestions=selected_suggestions,
         sinsal_direction=_sinsal_direction,
         samjae_context=_samjae_lines,
+        folk_taboo_context=_folk_lines,
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
         monthly_overview=monthly_overview or [],
@@ -3002,6 +3061,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
     # 12신살 방위 활용·삼재(docs/18) — 대상별 프로필이라 동적 suffix 전용. 비었으면 무헤더.
     lines += format_sinsal_direction_lines(payload.sinsal_direction)
     lines += payload.samjae_context
+    lines += payload.folk_taboo_context
     if payload.evidence:  # 근거 경로 — 후보·증거 있을 때만(구조 질문 등 빈 헤더 방지).
         lines.append("")
         lines.append("[근거 경로]")
@@ -3046,8 +3106,12 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(DIRECTION_SUGGESTION_INSTRUCTION)
     if payload.sinsal_direction is not None:
         lines.append(SINSAL_DIRECTION_INSTRUCTION)
+        if not payload.sinsal_direction.proactive:  # 사용자가 직접 방향을 물은 턴 — 답 구성 계약
+            lines.append(DIRECTION_ANSWER_DIRECTIVE)
     if payload.samjae_context:
         lines.append(SAMJAE_INSTRUCTION)
+    if payload.folk_taboo_context:
+        lines.append(FOLK_TABOO_INSTRUCTION)
     if payload.profile_facts:
         lines.append(_PROFILE_FACTS_INSTRUCTION)
     if payload.event_candidates:
@@ -3124,6 +3188,16 @@ def serialize_with_guard(
         no_sinsal = no_sinsal.model_copy(update={"sinsal_direction": None})
     if no_sinsal.samjae_context:
         no_sinsal = no_sinsal.model_copy(update={"samjae_context": []})
+    # 민속 흉방 고지(추가 정보)도 같은 단계에서 버린다 — 전체 블록(이사·공사 질문)은 답의 재료라
+    # 유지.
+    # 사용자가 직접 방향을 물은 턴(수동 블록)에서는 고지도 답의 필수 재료라 남긴다.
+    _manual_direction = (
+        no_sinsal.sinsal_direction is not None and not no_sinsal.sinsal_direction.proactive
+    )
+    if no_sinsal.folk_taboo_context and not _manual_direction and not any(
+        ln.startswith("[민속 흉방 — ") for ln in no_sinsal.folk_taboo_context
+    ):
+        no_sinsal = no_sinsal.model_copy(update={"folk_taboo_context": []})
     text = serialize_llm_input(no_sinsal)
     try:
         return text, guard.check_input(text, reserve_tokens=reserve_tokens)

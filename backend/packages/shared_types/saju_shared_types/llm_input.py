@@ -522,6 +522,9 @@ class LlmInput(BaseModel):
     sinsal_direction: SinsalDirectionBlock | None = None
     # 삼재 흐름(docs/18 §4) — 질문 창 안의 삼재 해만(없으면 빈 목록). 맥락 신호, 점수 아님.
     samjae_context: list[str] = Field(default_factory=list)
+    # 민속 흉방(docs/19 §5) — 이사·이동·공사 질문은 전체 블록, 그 외 방향 질문은 고지 한 줄(추가
+    # 정보). 개인 12신살과 별개 층. 없으면 빈 목록(무소음).
+    folk_taboo_context: list[str] = Field(default_factory=list)
     evidence: list[LlmEvidence] = Field(default_factory=list)
     past_validation: PastValidationSummary | None = None
     style_rules: LlmStyleRules = Field(default_factory=LlmStyleRules)

@@ -55,14 +55,14 @@
   각 구간은 **순서 있는 상태 전이**(`sequence_ko`)와 방향판 제목(`quadrant_theme`)을 가진다.
 - `sinsals[12]`: 핵심 의미·서비스 적용·기본 사용 방식·활용 전략(8종: activate/focus/face/settle/move/modulate/shield/reflect)·
   행동 문구·주의 문구. 이 의미는 전통 해석의 현대 **활용 해석**이며 별도 모듈로 격리한다.
-- `purposes[13]`: 공부·시험 / 연구·기획 / 메이크업·외모 연출 / 소개팅·데이트 / 영업·장사 / SNS·유튜브·브랜딩 / 발표·인지도 /
-  리더십·협상 / 숙면 / 여행·이동 / 이사·환경 변화 / 상담·명상 / 자기성찰·정리. 각 목적은 파서 어휘(`keywords`)·사용 방식·
+- `purposes[16]`: 공부·시험 / 연구·기획 / 메이크업·외모 연출 / 소개팅·데이트 / 영업·장사 / SNS·유튜브·브랜딩 / 발표·인지도 /
+  리더십·협상 / 숙면 / 여행·이동 / 이사·환경 변화 / 상담·명상 / 자기성찰·정리 / 화해·관계회복 / 새로운 일 시작 / 안정·정착(뒤 3종은 docs/19 §3, 2026-09-21). 각 목적은 파서 어휘(`keywords`)·사용 방식·
   우선 신살·**12신살 전체 등급**(누락 시 스키마 거부)·행동 템플릿·수동 질문 도메인(`domain`)·채팅 능동 트리거(`trigger_domains`)를
   가진다(리포트 섹션→목적은 `report_service` 표가 단일 원천 — 사전에 두지 않는다).
   같은 구간 안에서도 등급이 갈린다(소개팅: 년살 fit / 월살 caution).
 - `samjae_stages[3]`: 들삼재(역마살)·눌삼재(육해살)·날삼재(화개살) — 핵심 신호·현대 사건 후보·서술 지침.
 - lint(`_lint_sinsal_direction`): 12신살 전수·'연살' 금지·구간 순서·목적 1순위=fit·primary에 caution 금지·삼재 대응.
-- 파이프라인: validate → `scripts/build_sinsal_direction_snapshot.py` → `compiled/sinsal_direction_v{VERSION}.json`(현재 1.1.0) →
+- 파이프라인: validate → `scripts/build_sinsal_direction_snapshot.py` → `compiled/sinsal_direction_v{VERSION}.json`(현재 1.2.0 — 2026-09-21 등급 합집합·목적 16종·신살 맥락 필드) →
   드리프트 테스트(`test_compiled_snapshot_drift.py`). 런타임은 스냅샷 우선 로드.
 
 ## 4. 삼재 (시간 축)
@@ -121,6 +121,12 @@
   Tier 0에서 먼저 잘리고 수동 블록은 유지된다.
 - **랜드마크**: `profile_engine.living_room_facing_for(subject_id)` → 블록에 창 쪽/창 등진 쪽 병기(간방 모호 표시).
 - 블록 `[방위 활용 — 12신살 기준]` + `SINSAL_DIRECTION_INSTRUCTION`. 캐시 프리픽스 불변(대상별 프로필).
+- **2026-09-21 개정(docs/19)**: ①수동 방향 질문은 되묻지 않고 `기본 방향(질문 목적) → 목적 전체 한 줄표(상황별 조언 재료) →
+  피할 방향(그 목적의 caution 전부, 같은 4방 제한 폐지)` 순으로 싣는다. 목적을 못 잡아도 사용 방식(머리→숙면, 바라보기→공부)으로
+  확정하고, 둘 다 없으면 방향판+표만 준다(`IntentJson.direction_question`). ②방향 질문은 승계 도메인 기반 능동 목적을 쓰지 않고,
+  직전 되물음(offer)의 '답'으로 링크하지 않는다(실로그: 공부 방향 되물음 뒤 '잘때는 어떤방향'이 제안 수락으로 링크돼 천살이 수면에
+  적용). ③등급은 5단계 verdict(적극 활용/잘 맞음/중립/주의(목적 충돌)/강한 회피)로 표시하고 강한 회피는 세운·삼재·영역 중첩으로만
+  (docs/19 §4). ④민속 흉방(삼살·대장군·태세·세파·손방)은 별개 층으로 추가 정보 고지(docs/19 §5).
 
 ### 5-2. 리포트 (`report_service.build_section_context`)
 

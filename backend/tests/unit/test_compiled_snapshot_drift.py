@@ -20,15 +20,18 @@ from types import ModuleType
 
 from saju_engines.dictionaries import (
     _lint_direction_suggestions,
+    _lint_folk_taboo,
     _lint_sinsal_direction,
     _lint_structure_patterns,
 )
 from saju_engines.direction_suggestion import DIRECTION_SUGGESTIONS_VERSION
+from saju_engines.folk_direction import FOLK_TABOO_VERSION
 from saju_engines.graph_builder import GRAPH_VERSION, build_event_graph, load_event_graph
 from saju_engines.selection_allocation import SELECTION_WEIGHTS_VERSION
 from saju_engines.sinsal_direction import SINSAL_DIRECTION_VERSION
 from saju_engines.structure_patterns import STRUCTURE_PATTERNS_VERSION
 from saju_shared_types.direction_suggestions import DirectionSuggestionDict
+from saju_shared_types.folk_direction import FolkTabooDict
 from saju_shared_types.sinsal_direction import SinsalDirectionDict
 from saju_shared_types.structure_patterns import StructurePatternDict
 
@@ -138,4 +141,23 @@ def test_selection_allocation_weights_snapshot_matches_source() -> None:
     assert committed == raw, (
         "selection_allocation_weights 스냅샷이 원본과 다르다 — "
         "`python scripts/build_selection_allocation_snapshot.py` 재실행 필요"
+    )
+
+
+# ── 민속 흉방(docs/19 §5) ────────────────────────────────────────────────────
+
+
+def test_folk_taboo_snapshot_matches_source() -> None:
+    script = _load_script("build_folk_taboo_snapshot")
+    assert script.FOLK_TABOO_VERSION == FOLK_TABOO_VERSION
+    parsed = FolkTabooDict.model_validate(
+        json.loads((_DICTS / "folk_taboo_direction.json").read_text("utf-8"))
+    )
+    assert not _lint_folk_taboo(parsed)
+    committed = _read(_COMPILED / f"folk_taboo_direction_v{FOLK_TABOO_VERSION}.json")
+    assert committed.pop("snapshot_version") == FOLK_TABOO_VERSION
+    committed.pop("compiled_at", None)
+    assert committed == parsed.model_dump(by_alias=True), (
+        "folk_taboo_direction 스냅샷이 원본과 다르다 — "
+        "`python scripts/build_folk_taboo_snapshot.py` 재실행 필요"
     )

@@ -11066,3 +11066,36 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
 - `llm_client._sanitize_output` 에 `_PERIOD_WRAP_RE` 추가: '1월(辛丑(신축)월)'·'2026년(丙午(병오)년)' → '1월 辛丑(신축)월'·
   '2026년 丙午(병오)년'. 단위 뒤 괄호 안이 '한자(한글)[단위]' 꼴일 때만 펴고 설명 괄호('1월(입춘 전)')는 유지. 채팅·리포트·
   두 공급자 공통 지점. 회귀: `test_llm_client_failover.py::test_sanitize_unwraps_period_ganji_parentheses`.
+
+## 2026-09-21 — 피할 방향 판정(5등급·강한 회피) + 민속 흉방 레이어 (docs/19, 데굴님 승인)
+
+- **배경**: 같은 사주에 수면 방향이 '남쪽 未 천살'(1번 대화)과 '북쪽 丑 반안살'(2번 대화)로 갈림. 계산은 동일(申子辰 삼합)했고
+  원인은 ①'잘때는'(붙여쓰기)이 머리 어휘·숙면 keyword 에 없어 목적 미검출 ②직전 답 되물음(last_offer)+12자 이하 발화가
+  offer-slot(TIME_SHIFT)으로 링크돼 query_type·education 승계 ③능동 트리거가 '공부(천살)' 블록 주입 ④되물음 답변 지시문이
+  "직전 주제를 이어 풀어라"로 고정.
+- **D1**: 파서 머리 어휘(잘때·잘땐·취침·잠자리·잠자는·누워)·표지 명사(취침·잠자리·수면) 추가, '책상' 위치 어휘 제거,
+  `is_direction_question`·`IntentJson.direction_question`; 대화 계층 offer-slot/offer-answer 링크·도메인 승계 제외; chat_service
+  되물음 지시문 가드; 수동 방향 질문 = 기본 방향 + 목적 전체 표(피함 열) + caution 전부(같은 4방 제한 폐지, 되묻지 않음);
+  5등급 verdict(적극 활용/잘 맞음/중립/주의(목적 충돌)/강한 회피) + 지침 ⑧⑨(절대 흉방 금지·목적 한정 회피).
+- **D2**: `direction_avoidance.py` — ①caution 전제 + ②세운 지지=방향 지지(삼재 테마 중첩 포함) ③악삼재/기신운 ④목적 도메인 사건
+  흐름 불리(`samjae_quality.domain_grades_for_year` 공용화) 중 2개 이상 → STRONG_AVOID(근거 줄), 복삼재/용신운 일치는
+  BEST_USE 근거만. 채팅·리포트 테마 블록·F-20b/Y-11b 강한 회피 줄. 픽스처 1980-11-22 는 2034 들삼재·악삼재라 자료 사례 A 재현.
+- **D3**: 민속 흉방 레이어 — `folk_taboo_direction.json`(삼살·대장군·태세·세파·손방, reviewed) → 스냅샷 1.0.0 + lint + 드리프트
+  테스트; `folk_direction.py`(그해 지지 4종·음력 손방·'민속에서는 ○쪽은 …라는 이유로 피하는 방향' 템플릿 문구·
+  `enrich_folk_taboos`). 채팅(이사·이동·공사=전체 블록, 그 외 방향 질문=고지 한 줄, `LlmInput.folk_taboo_context`), 리포트
+  F-20b/Y-11b + 테마 행동 전략 섹션(RL-07 전체·그 외 고지 — 데굴님 지시), 택일 `DateCandidate.folk_direction_note`
+  (이사·개업·혼례), 세운 카드 `LuckPillar.folk_taboos` + 프론트 '흉방' 배지. 기원 분리(삼살방 표는 12신살 BASE_MAPS 미참조).
+  2026 丙午 검산: 북=삼살+세파(강한 중첩)·동=대장군·남=태세.
+- **D4**: `sinsal_direction.json` 1.2.0 — 자료 피함 합집합(소개팅+육해, 영업+천살, 발표+재살, 공부·연구+지살, 여행+반안),
+  목적 3종 추가(화해·관계회복/새로운 일 시작/안정·정착 → 16종), 신살별 `avoid_contexts/use_contexts`, 숙면 keywords,
+  forbidden_framings('절대 피해야 할 방향' 등). 규격 docs/19 §9-1 구현 위치표, docs/18 §5-1 개정 주석.
+- 회귀: `test_sinsal_direction.py`(⑫ 절, 63→ 추가) · `test_folk_direction.py`(신규) · `test_compiled_snapshot_drift.py` 민속 항목.
+- **2026-09-21 후속(테스트 답 검토)**: 방향 질문 프롬프트가 payload 20.6k + 예약 ~4k로 22k 상한을 넘어 Tier 0 트림에서
+  민속 고지가 빠지고 상황별 조언이 답에서 누락. 데굴님 결정 = 재료를 잘라내지 않고 **대화형 입력 상한 22,000→28,000**
+  (`llm_guard.CALL_LIMITS`, docs/09 §8). `DIRECTION_ANSWER_DIRECTIVE`(기본 방향·상황별 3~4목적·피할 방향·민속 고지 4부분 필수,
+  운 흐름은 뒷받침 범위에서 짧게)를 수동 방위 블록 뒤에 부착. 수동 방향 턴에서는 민속 고지를 트림 대상에서 제외.
+  회귀: `test_sinsal_direction.py::test_direction_question_prompt_keeps_all_parts_without_trim`, `test_llm_guard.py` 상한값.
+  불필요 항목 점검(방향 질문에 실리는 사건 후보 3.3k·월별 요약 2.0k·유력 달 0.7k·상담 계약 0.4k·답변 지평 등)은 데굴님 판단 대기.
+- **불필요 항목 제거(같은 날 데굴님 승인)**: 방향 질문(Q10+direction_question)을 구조 질문 게이트(`is_structural`)에 태워
+  사건 후보·월별 요약·유력 달·상담 계약·답변 지평·근거 경로를 비우고, 토픽 모듈 신호·건강 취약 구조도 제외(약 8.8k 절감).
+  회귀 테스트에 금지 블록 목록 고정.

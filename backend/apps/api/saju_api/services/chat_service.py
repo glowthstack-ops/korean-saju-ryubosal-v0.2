@@ -1209,6 +1209,7 @@ def _date_selection_block(
                 c.reasons
                 + (["손없는 날"] if c.son_eomneun_nal and "손없는 날" not in c.reasons else [])
                 + (["주말"] if c.is_weekend else [])
+                + ([c.folk_direction_note] if c.folk_direction_note else [])
             ),
         )
         for c in result.candidates
@@ -3466,7 +3467,9 @@ def _structural_context(
         _q_compact = question.replace(" ", "")
         if "연애운" in _q_compact and "결혼운" in _q_compact:
             out.append(LOVE_MARRIAGE_UNIFIED_DIRECTIVE)
-    if general or domain is Domain.HEALTH:
+    # 방향 질문(숙면→health 도메인)에는 건강 취약 구조를 싣지 않는다 — 방향 답과 무관(docs/19 §6).
+    _direction_remedy = bool(intent.direction_question) and intent.query_type is QueryType.REMEDY
+    if (general or domain is Domain.HEALTH) and not _direction_remedy:
         hv = analyze_health_vulnerability(result, favorability_map(result))
         out += health_lines(result, hv, today.year)
     # 외적 인상·매력 신호 — 자체 allowlist·gender·band 게이트(미해당 시 무언급). 외모 직접질문은
@@ -4283,6 +4286,13 @@ def chat(
     # 데이터가 불필요하다. 월별 이벤트 후보·근거 경로·과거 흐름을 빼고 원국 구조·명식 해석·구조
     # 블록만 남겨 답변이 엉뚱한 월별 사건으로 새지 않게 한다(2026-06-16 사용자 지적).
     is_structural = intent.query_type is QueryType.CHART_ANALYSIS
+    # 방향 질문(Q10 REMEDY + direction_question, docs/19 §6 — 2026-09-21 데굴님 승인): 사건 후보·
+    # 12개월 요약·유력 달·상담 결론·답변 지평·근거 경로(약 8.4k, 41%)는 연지 축 방향 답과 무관하고
+    # 답이 월별 흐름으로 새는 직접 원인이라 구조 질문과 같이 시점·이벤트 재료를 뺀다. 이사·여행
+    # 방향은 REMEDY 가 아니라 기존 이사 방위·택일 경로 유지.
+    _direction_remedy = bool(intent.direction_question) and intent.query_type is QueryType.REMEDY
+    if _direction_remedy:
+        is_structural = True
     # 시점 없는 중립 과거 회고('그때 왜 그랬을까' — 2026-09-06 데굴님): 사용자가 이미 특정
     # 시점을 마음에 둔 후회·평가 질문이라 흐름표를 펼칠 대상이 아니다. 후속 턴이면 대화 상태가
     # 시점·도메인을 승계해(time_shift) 여기로 오지 않고 그 시기 배경(대운·세운) 경로를 탄다.
@@ -4798,7 +4808,8 @@ def chat(
         structural = structural + _career_field_context(birth, result, today)
     # 토픽 질문(직업·재물·건강·시험·연애)은 해당 Topic Builder 모듈을 실행해 확정 신호·정책 톤
     # 주입(옵션1 채팅 배선, 2026-06-26). relocation은 위 지역/이사 경로가 담당.
-    if structural is not None and not _is_relocation_intent(intent):
+    # 방향 질문은 도메인 토픽 신호(M11 건강 등)도 뺀다 — 방향 답과 무관한 보조 재료(docs/19 §6).
+    if structural is not None and not _is_relocation_intent(intent) and not _direction_remedy:
         # 미래지향 질문(비회고)은 토픽 참고 신호도 현재 달부터 — 지난 달 노출 차단(시점 정합).
         _floor = current_month if (not is_retro and current_month) else None
         structural = structural + _topic_module_context(birth, intent, today, _floor, question)
@@ -5060,7 +5071,8 @@ def chat(
     ]
     # 사건 서술 계약(2026-09-18 전문가 참고 기준 B2) — 발생→진행→결과→후속, 경쟁≠탈락≠손실,
     # 체감→관찰 가능 사건 번역. 사전(life_event_lexicon) SSOT, 플래그 OFF면 byte 불변.
-    if period_v2_config.EVENT_LEXICON_ENABLED:
+    # 방향 질문(사건 재료 없음)에는 사건 서술 계약을 붙이지 않는다(docs/19 §6 — 2026-09-21 승인).
+    if period_v2_config.EVENT_LEXICON_ENABLED and not _direction_remedy:
         trailing.append(event_narration_directive())
     # 문서·계약 주의점/대비(2026-08-10 P2·P3) — 문서·계약이 걸리는 도메인(직업/이사/학업)
     # 질문에서만: 인성 과다/약세 성립 시 주의점, 인성 용신/희신+적정 세력이면 대비 관점
@@ -5250,7 +5262,12 @@ def chat(
     # 제안 이어보기 — '그래 봐줘' 류 수락, 또는 슬롯 답변('2026년')처럼 후속으로 판정된 턴이면
     # 직전 답변의 제안을 그대로 이어 답하게 한다(수락어 없는 슬롯 답변도 제안과 연결 — 2026-07-01
     # 데굴님 지적: '어느 해의 월별 흐름?' 뒤 '2026년'이 제안 맥락을 잃던 결함).
-    if prior_answer and (is_affirm_continue(question) or is_followup_turn):
+    # 방향 질문은 직전 되물음의 답이 아니다 — 되물음 답변/이어보기 지시문을 붙이지 않는다
+    # (docs/19 §7 P0-b: '직전 주제를 그대로 이어 풀어라'가 수면 방향 질문을 공부 흐름으로 끌고 감).
+    _is_direction_q = bool(intent.direction_question or intent.direction_purpose)
+    if prior_answer and not _is_direction_q and (
+        is_affirm_continue(question) or is_followup_turn
+    ):
         _offer = _extract_offer(prior_answer)
         if _offer:
             # 되물음 답변과 제안 수락을 구분한다(2026-08-04) — 질문형 마감에 내용으로

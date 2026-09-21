@@ -23,7 +23,8 @@ from saju_shared_types.enums import Branch
 from saju_shared_types.intent import Domain, IntentJson, QueryType
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.sinsal_direction import (
-    FIT_GRADE_KO,
+    VERDICT_BY_GRADE,
+    VERDICT_KO,
     Anchor,
     Cardinal4,
     Direction8Code,
@@ -54,7 +55,7 @@ from saju_shared_types.twelve_sinsal import (
 
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
-SINSAL_DIRECTION_VERSION = "1.1.0"
+SINSAL_DIRECTION_VERSION = "1.2.0"
 
 #: 12지지 고정 방위 — 寅卯辰=동 / 巳午未=남 / 申酉戌=서 / 亥子丑=북. 각도 경계는 두지 않는다.
 BRANCH_CARDINAL: dict[Branch, Cardinal4] = {
@@ -203,6 +204,7 @@ def recommend_for_purpose(
         picks.append(DirectionPick(
             sinsal=name, branch=sec.branch, absolute_direction=sec.absolute_direction,
             grade=entry.grades[name], action=_fill_action(entry, sec),
+            verdict=VERDICT_BY_GRADE[entry.grades[name]],
         ))
     for sec in profile.sectors:  # primary 외 적합·보조는 후순위로 보충
         g = entry.grades[sec.relative_sinsal]
@@ -211,18 +213,26 @@ def recommend_for_purpose(
                 sinsal=sec.relative_sinsal, branch=sec.branch,
                 absolute_direction=sec.absolute_direction, grade=g,
                 action=_fill_action(entry, sec),
+                verdict=VERDICT_BY_GRADE[g],
             ))
     pick_cards = {p.absolute_direction for p in picks if p.grade == "fit"}
-    cautions = [
-        DirectionPick(
-            sinsal=sec.relative_sinsal, branch=sec.branch,
-            absolute_direction=sec.absolute_direction, grade="caution",
-            action=dic.sinsal(sec.relative_sinsal).cautions[0]
-            if dic.sinsal(sec.relative_sinsal).cautions else "",
-        )
-        for sec in profile.sectors
-        if entry.grades[sec.relative_sinsal] == "caution" and sec.absolute_direction in pick_cards
-    ]
+    # 피할 방향 = 그 목적의 caution 등급 전부(docs/19 §6-3). 적합 방향과 같은 4방 안의 것을
+    # 앞에 두어 지지 단위 구분("서쪽 중 酉는 피함")을 먼저 쓰게 한다.
+    cautions = sorted(
+        (
+            DirectionPick(
+                sinsal=sec.relative_sinsal, branch=sec.branch,
+                absolute_direction=sec.absolute_direction, grade="caution",
+                action=dic.sinsal(sec.relative_sinsal).cautions[0]
+                if dic.sinsal(sec.relative_sinsal).cautions else "",
+                verdict="CAUTION",
+                same_quadrant_as_fit=sec.absolute_direction in pick_cards,
+            )
+            for sec in profile.sectors
+            if entry.grades[sec.relative_sinsal] == "caution"
+        ),
+        key=lambda c: (not c.same_quadrant_as_fit, BRANCH_ORDER.index(Branch(c.branch))),
+    )
     return SinsalDirectionRecommendation(
         purpose=purpose, purpose_ko=entry.name_ko, usage_mode=entry.usage_mode,
         picks=picks, cautions=cautions,
@@ -331,21 +341,34 @@ def format_sinsal_direction_lines(block: SinsalDirectionBlock | None) -> list[st
         return []
     lines = ["", "[방위 활용 — 12신살 기준(서술 전용, 점수·판정 무관)]"]
     lines += format_profile_lines(block.profile)
+    if block.avoidance_basis:
+        lines.append("중첩 판정 기준: " + " · ".join(block.avoidance_basis))
     for rec in block.recommendations:
         lines.append(
             f"◆ 목적 '{rec.purpose_ko}' — 사용 방식: {USAGE_MODE_KO[rec.usage_mode]}"
         )
         for i, p in enumerate(rec.picks):
             head = (
-                f"  · [{FIT_GRADE_KO[p.grade]}] {p.absolute_direction}쪽 {p.branch} "
+                f"  · [{VERDICT_KO[p.verdict]}] {p.absolute_direction}쪽 {p.branch} "
                 f"{sinsal_label(p.sinsal)}"
             )
             # 1순위만 행동 문장을 붙이고 나머지는 후보로만 나열(토큰 절약·반복 차단).
             lines.append(f"{head} — {p.action}" if i == 0 else head)
+            if p.verdict_evidence:
+                lines.append("    근거: " + " / ".join(p.verdict_evidence))
         for c in rec.cautions:
-            lines.append(
-                f"  · [주의] 같은 {c.absolute_direction}쪽 안의 {c.branch} {c.sinsal} — {c.action}"
+            where = (
+                f"같은 {c.absolute_direction}쪽 안의 " if c.same_quadrant_as_fit
+                else f"{c.absolute_direction}쪽 "
             )
+            lines.append(
+                f"  · [{VERDICT_KO[c.verdict]}] {where}{c.branch} {c.sinsal} — {c.action}"
+            )
+            if c.verdict_evidence:
+                lines.append("    근거: " + " / ".join(c.verdict_evidence))
+    if not block.proactive:
+        # 수동 방향 질문 — 상황별 조언 재료(목적 전체 한 줄표, docs/19 §6-2). 되묻지 않는다.
+        lines += format_purpose_table_lines(block.profile)
     lines.append(
         f"기준점: {ANCHOR_KO[block.anchor]} — 사용자가 기준점을 말하지 않았으면 "
         "이 기준임을 한 줄로 밝힐 것."
@@ -370,12 +393,17 @@ def format_purpose_table_lines(
 ) -> list[str]:
     """목적 13종 전체를 한 줄씩 — 리포트 전용 섹션(F-20b·Y-11b)용 목적별 방향판."""
     dic = dictionary or load_sinsal_direction_dict()
-    lines = ["[목적별 활용 방향 — 목적 13종 전체(우선 신살 → 방향, 같은 4방 안 주의 신살)]"]
+    lines = [
+        f"[목적별 활용 방향 — 목적 {len(dic.purposes)}종 전체"
+        "(우선 신살 → 방향 · 보조 · 피함=그 목적에 한해 피하는 지지)]"
+    ]
     for entry in dic.purposes:
         rec = recommend_for_purpose(profile, entry.purpose, dic)
         first = rec.picks[0]
         rest = " · ".join(f"{p.branch} {p.sinsal}" for p in rec.picks[1:3])
-        caution = " / ".join(f"{c.branch} {c.sinsal}" for c in rec.cautions)
+        caution = " · ".join(
+            f"{c.absolute_direction}{c.branch} {c.sinsal}" for c in rec.cautions
+        )
         mode = USAGE_MODE_KO[rec.usage_mode].split("(")[0]
         line = (
             f"- {entry.name_ko}({mode}): {first.absolute_direction}쪽 {first.branch} "
@@ -384,7 +412,7 @@ def format_purpose_table_lines(
         if rest:
             line += f" [보조: {rest}]"
         if caution:
-            line += f" [주의: {caution}]"
+            line += f" [피함: {caution}]"
         lines.append(line)
     return lines
 
@@ -399,7 +427,28 @@ SINSAL_DIRECTION_INSTRUCTION = (
     "'활용 방향'으로 질문을 분리해 병기할 것. ⑤'활용해 볼 수 있다'·'연결해 해석한다' 톤 — "
     "'이 방향이면 합격/성공/결혼' 류 단정 금지. ⑥각도·도수를 지어내지 말 것. 나침반 확인은 "
     "권고로만. ⑦기준점(방 중심/본인 자리)을 한 줄로 밝히고, 랜드마크(창 쪽)가 있으면 그것으로 "
-    "행동을 구체화할 것."
+    "행동을 구체화할 것. ⑧답 순서(방향을 직접 물은 질문): 먼저 질문 목적의 [적극 활용]·[잘 맞음] "
+    "방향을 기본 방향으로 한 문단 → 이어서 [목적별 활용 방향] 표에서 사용자 상황(대화 주제·직업·"
+    "생활)에 가까운 목적 3~4개를 골라 '○○이 중요하다면'으로 짧게 — 각 목적의 사용 방식 그대로"
+    "(공부는 바라보기, 영업은 출입구, 숙면은 머리 — 다른 목적의 방향을 머리 방향에 붙이지 말 것) "
+    "→ 마지막에 [주의(목적 충돌)]·[강한 회피] 방향을 '그 목적으로는 ○쪽 △ □□살 쪽을 피하는 편이 "
+    "좋다'처럼 목적 한정으로 쓸 것. 되묻지 말고 이 재료로 바로 답할 것. ⑨피할 방향은 흉사 예고가 "
+    "아니라 '그 목적과 성질이 맞지 않는다'는 뜻 — '절대 흉방'·'어떤 경우에도 피하라'는 표현 금지. "
+    "[강한 회피]는 근거 줄(세운·삼재·영역 신호의 중첩)을 문장으로 풀어 '지금 시기에는'이라는 시간 "
+    "한정을 붙일 것. 근거 없는 방향에 회피를 지어내지 말 것."
+)
+
+
+DIRECTION_ANSWER_DIRECTIVE = (
+    "[방향 질문 답 구성 — 필수] 이 질문은 방향을 묻는 질문이다. 답은 반드시 다음 네 부분을 먼저 "
+    "모두 담고, 월별·연도별 운 흐름은 방향 조언을 뒷받침하는 범위에서만 짧게(그 자체를 본문으로 "
+    "펼치지 말 것): "
+    "①기본 방향 — 질문 목적의 [적극 활용]·[잘 맞음] 방향과 사용 방식, 기준점 한 줄 "
+    "②상황별 조언 — [목적별 활용 방향] 표에서 사용자 상황에 가까운 목적 3~4개를 골라 '○○이 "
+    "중요하다면 …쪽(지지 신살)을 …방식으로'로 각 한두 문장(각 목적의 사용 방식 그대로) "
+    "③피할 방향 — [주의(목적 충돌)]·[강한 회피] 전부를 '그 목적으로는 … 피하는 편이 좋다'로 "
+    "④민속 고지 — [민속 흉방] 재료가 있으면 '민속에서는 ○쪽은 …한 이유로 피하는 방향으로 본다'는 "
+    "한 문장(이사·증축 등 큰 공간 변동에 한함을 함께). 원국 기질은 방향 선택의 이유로 한두 문장만."
 )
 
 

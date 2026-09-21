@@ -299,6 +299,10 @@ class IntentJson(BaseModel):
     # 목적(DirectionPurpose 값)·사용 방식(UsageMode 값). 원국 연지 축이라 시점 승계 대상 아님.
     direction_purpose: str | None = None
     direction_usage_mode: str | None = None
+    # 방향 질문 표지가 있으면 True(목적을 못 잡았어도). 방향 질문은 직전 되물음의 '답'으로 링크하지
+    # 않고 승계 도메인 기반 능동 목적도 쓰지 않는다(docs/19 §7, 2026-09-21 결함: 공부 방향 뒤
+    # '잘때는 어떤방향'이 제안 수락으로 링크돼 천살(공부)이 수면 방향으로 나감).
+    direction_question: bool = False
 
     constraints: Constraints = Field(default_factory=Constraints)
     output: OutputStyle = Field(default_factory=OutputStyle)

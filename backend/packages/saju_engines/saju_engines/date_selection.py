@@ -28,6 +28,7 @@ from saju_shared_types.enums import Branch, Element
 from saju_shared_types.events import EventKey
 from saju_shared_types.precompute import CompositeLevel, LuckComposite
 
+from .folk_direction import folk_note_for_day
 from .relocation import (
     _signed_weight,
     is_son_eomneun_nal,
@@ -61,6 +62,10 @@ _DOMAIN_KO: dict[str, str] = {
     "relocation": "이사", "wealth": "재물", "career": "직업", "relationship": "관계",
     "health": "건강", "education": "학업", "general": "전반",
 }
+
+
+#: 민속 흉방 근거 줄을 붙이는 택일 목적(사전 applies_actions: 이사·개업·혼례 — docs/19 §5-3).
+_FOLK_NOTE_PURPOSES = frozenset({"relocation", "business_start", "marriage_signal"})
 
 
 class DateSelectionEngine:
@@ -219,6 +224,10 @@ class DateSelectionEngine:
             cautions: list[str] = []
             if options.get("volatilityWarning"):
                 cautions.append(_VOLATILITY_CAUTION)
+            # 민속 흉방 근거 줄(docs/19 §5-3) — 이사·개업·혼례 목적에만, 점수 불변(추가 정보).
+            folk_note = (
+                folk_note_for_day(day) if str(purpose) in _FOLK_NOTE_PURPOSES else None
+            )
             candidates.append(DateCandidate(
                 date=c.period_key,
                 purpose=purpose,
@@ -234,6 +243,7 @@ class DateSelectionEngine:
                 is_holiday=holiday_name is not None,
                 is_weekend=is_weekend,
                 son_eomneun_nal=son,
+                folk_direction_note=folk_note,
             ))
 
         candidates.sort(key=lambda c: (-c.scores.final, c.date))

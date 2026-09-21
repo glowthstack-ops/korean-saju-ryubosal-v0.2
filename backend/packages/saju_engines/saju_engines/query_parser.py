@@ -316,7 +316,8 @@ def detect_career_field(text: str) -> bool:
 _DIRECTION_ASK_RE = re.compile(
     r"(?:어느|어떤|무슨|좋은|맞는|유리한)\s*(?:쪽\s*)?(?:방향|방위)"
     r"|방향(?:은|이|을|으로)?\s*(?:어디|어느|뭐|좋)"
-    r"|(?:머리|책상|침대|화장대|거울|모니터|출입구|현관|문|가게|매장|점포|자리)"
+    r"|(?:머리|책상|침대|화장대|거울|모니터|출입구|현관|문|가게|매장|점포|자리"
+    r"|취침|잠자리|수면|잠잘\s*때|잘\s*때)"
     r"\s*(?:을|를|은|는|의|가|이)?\s*(?:방향|쪽|방위)"
     r"|머리를?\s*(?:어느|어떤)\s*쪽"
     r"|(?:어느|어떤)\s*쪽(?:으로|에|을)\s*(?:두|놓|향|앉|보|눕|가면|가야|가는|가)"
@@ -329,12 +330,17 @@ _DIRECTION_ASK_RE = re.compile(
 #: 목적 어휘 없이 사용 방식만으로 확정하는 기본 목적 — 출입구·이동은 목적 어휘 필수.
 _DIRECTION_DEFAULT_BY_USAGE: dict[str, str] = {"head": "sleep", "face": "study"}
 # 사용 방식 어휘(순서=우선) — 머리>바라보기>출입구>이동>위치.
+# 머리 어휘에 붙여쓰기 '잘때·잘땐'·'취침·잠자리·잠자는·누워'를 둔다(2026-09-21 실로그: '잘때는
+# 어떤방향이 좋을까'가 '잘 때'(띄어쓰기)에만 걸려 목적 미검출 → 직전 공부 목적이 수면에 적용).
+# '책상'은 공부 목적 keyword 라 position 어휘에서 뺀다(사전 usage_mode=face 를 덮던 결함).
 _DIRECTION_USAGE_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("head", ("머리", "베개", "잘 때", "잠잘", "누울")),
+    ("head", (
+        "머리", "베개", "잘 때", "잘때", "잘땐", "잠잘", "잠자는", "잠자리", "취침", "누울", "누워",
+    )),
     ("face", ("바라보", "보고 앉", "향해 앉", "모니터", "시선", "마주")),
     ("entrance", ("출입구", "현관", "문 방향", "입구")),
     ("move", ("여행", "출장", "이사", "떠나", "이동", "옮기")),
-    ("position", ("책상", "침대", "화장대", "거울", "놓", "배치", "자리")),
+    ("position", ("침대", "화장대", "거울", "놓", "배치", "자리")),
 )
 # 비유적 '방향'(진로·공부 방향·사업 방향성·방향을 잡다)은 나침반 방위 질문이 아니다 — 리뷰 수정
 # (2026-09-20: '어떤 쪽으로 공부 방향을 잡을까'가 Q10+방위 블록으로 오라우팅).
@@ -358,6 +364,16 @@ def _direction_purpose_domain(purpose: str) -> Domain:
         if str(entry.purpose) == purpose:
             return Domain(entry.domain)
     return Domain.GENERAL
+
+
+def is_direction_question(text: str) -> bool:
+    """방향 표지(공간 단서 + 방향·방위·쪽)가 있는 질문인가 — 목적 감지와 무관한 표지 판정.
+
+    대화 계층(offer 링크 제외)·chat_service(되물음 답변 지시문 제외)·context_reducer(능동 목적
+    미사용)가 공유한다(docs/19 §7 P0-b/P0-c).
+    """
+    low = text.lower()
+    return bool(_DIRECTION_ASK_RE.search(low)) and not _DIRECTION_METAPHOR_RE.search(low)
 
 
 def detect_direction_purpose(text: str) -> tuple[str, str] | None:
@@ -1212,12 +1228,19 @@ def parse_message(
         _dp = detect_direction_purpose(piece)
         if _dp is not None:
             _last.direction_purpose, _last.direction_usage_mode = _dp
+            _last.direction_question = True
             if _last.query_type not in _DIRECTION_KEEP_QUERY_TYPES and _dp[0] not in (
                 "travel", "relocation"
             ):
                 _last.query_type = QueryType.REMEDY
             if _last.domain is Domain.GENERAL:
                 _last.domain = _direction_purpose_domain(_dp[0])
+        elif is_direction_question(piece):
+            # 목적·사용 방식을 못 잡은 방향 질문('어떤 방향이 좋을까') — 되묻지 않고 목적 전체
+            # 방향판으로 답한다(docs/19 §6-1). Q10 으로 잡되 도메인은 승계하지 않는다.
+            _last.direction_question = True
+            if _last.query_type not in _DIRECTION_KEEP_QUERY_TYPES:
+                _last.query_type = QueryType.REMEDY
         # 육친 운 — 원국 육친 축 질문. 관계어가 대상으로 잡혔어도 미해소면 본인 명식으로 본다
         # (등록 동반자 해소는 스레드 엔진이 subjects를 덮어쓴다).
         if detect_kin_axis(piece) is not None:

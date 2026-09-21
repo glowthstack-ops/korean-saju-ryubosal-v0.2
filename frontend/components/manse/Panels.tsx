@@ -9,7 +9,7 @@ import { applyCalibrationToLuckCycles, applyCalibrationToLuckPillars } from "@/l
 import {
   JA_HOUR_RULE_DESC, JA_HOUR_RULE_LABEL,
   type CalibrationResult, type JaHourRule, type LuckPillar, type LuckSinsal, type ManseResult,
-  type SamjaeInfo,
+  type FolkTabooHit, type SamjaeInfo,
   type Profile,
 } from "@/lib/types";
 
@@ -890,8 +890,16 @@ function samjaeTitle(s: SamjaeInfo): string {
   return `${head}${quality}${evidence}\n${s.basis} · 입춘 기준 세운 · 복=대길 아님, 악=사고 확정 아님(작용 조건의 우세 방향)`;
 }
 
+// 민속 흉방 배지 제목 — '민속에서는 ○쪽은 …라는 이유로 피하는 방향' 추가 정보(개인 12신살·삼재와 별개).
+function folkTitle(hits: FolkTabooHit[]): string {
+  const lines = hits.map((h) =>
+    `${h.direction}쪽 — ${h.name_ko}${h.branches.length ? `(${h.branches.join("·")})` : ""}: 민속에서는 ${h.reason_ko}는 이유로 피하는 방향으로 봅니다.`,
+  );
+  return `민속 흉방(${hits[0]?.basis_ko ?? ""}) — 이사·개업·증축·터파기 등 큰 공간 변동에 한함\n${lines.join("\n")}\n개인 12신살 방향·삼재와 별개 층 · 흉사 확정 아님`;
+}
+
 function LuckCol({
-  topLabel, stem, branch, stemEl, branchEl, stemGod, branchGod, unseong, sinsal, samjae,
+  topLabel, stem, branch, stemEl, branchEl, stemGod, branchGod, unseong, sinsal, samjae, folk,
   current, selected, onClick, colRef,
 }: {
   topLabel: string;
@@ -904,6 +912,7 @@ function LuckCol({
   unseong?: string;
   sinsal?: LuckSinsal[];
   samjae?: SamjaeInfo | null;
+  folk?: FolkTabooHit[];
   current?: boolean;
   selected?: boolean;
   onClick?: () => void;
@@ -937,6 +946,14 @@ function LuckCol({
           className={`rounded px-1 text-[9px] font-medium leading-tight ring-1 ${SAMJAE_QUALITY_STYLE[samjae.quality ?? "none"]}`}
         >
           {samjae.label_ko}{samjae.quality_label ? `·${samjae.quality_label.charAt(0)}` : ""}
+        </span>
+      )}
+      {folk && folk.length > 0 && (
+        <span
+          title={folkTitle(folk)}
+          className="rounded bg-stone-100 px-1 text-[9px] font-medium leading-tight text-stone-600 ring-1 ring-stone-200"
+        >
+          흉방 {Array.from(new Set(folk.map((h) => h.direction))).join("·")}
         </span>
       )}
       {sinsal && sinsal.length > 0 && (
@@ -1098,7 +1115,7 @@ export function LuckPanel({
             <LuckCol key={y.label} topLabel={y.label} stem={y.stem} branch={y.branch}
               stemEl={y.stem_effect?.element} branchEl={y.branch_effect?.element}
               stemGod={y.stem_ten_god} branchGod={y.branch_ten_god} unseong={y.twelve_unseong}
-              sinsal={y.luck_sinsal} samjae={y.samjae}
+              sinsal={y.luck_sinsal} samjae={y.samjae} folk={y.folk_taboos}
               current={Number(y.label) === lc.current_year} selected={Number(y.label) === selYear}
               colRef={Number(y.label) === selYear ? syRef : undefined}
               onClick={() => selectYear(Number(y.label))} />

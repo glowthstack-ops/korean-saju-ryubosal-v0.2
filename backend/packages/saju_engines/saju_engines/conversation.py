@@ -52,6 +52,7 @@ from .query_parser import (
     attach_parenthetical_births,
     detect_kin_axis,
     implies_self_counterpart,
+    is_direction_question,
     parse_message,
     strip_parenthetical,
 )
@@ -402,6 +403,8 @@ class ConversationEngine:
             and primary.domain is Domain.GENERAL
             and prev.domain is not Domain.GENERAL
             and not primary.chart_caution  # 명식 주의점은 원국 전반 — 직전 분야(재물)로 안 좁힘
+            # 방향 질문은 목적이 도메인을 정한다 — 직전 도메인(공부 등)을 잇지 않는다(docs/19 §7).
+            and not primary.direction_question
         ):
             for intent in parsed.intents:
                 if intent.domain is Domain.GENERAL:
@@ -771,9 +774,15 @@ class ConversationEngine:
         # offer-slot — 직전 답변이 제안(offer)으로 끝났고('어느 해의 월별 흐름?') 짧게 슬롯값으로
         # 답하면('2026년'·'A안') '그래' 없이도 제안 수락으로 본다. 새 도메인/총운/새풀이는 제외
         # (우선순위 #1: 명시 새 도메인 최우선). 시점 슬롯은 위 2순위가 이미 처리한다.
+        # 방향 질문('잘때는 어떤방향이 좋을까')은 직전 되물음의 답이 아니라 새 질문이다 — offer
+        # 슬롯·
+        # offer 답변 링크에서 제외(docs/19 §7 P0-b, 2026-09-21 실로그: 공부 방향 되물음 뒤 수면
+        # 방향 질문이 제안 수락으로 링크돼 query_type·도메인을 승계).
+        is_direction_q = is_direction_question(text)
         if (
             state.last_offer
             and len(compact) <= 12
+            and not is_direction_q
             and not _detect_domains(text)
             and not _FRESH_OVERVIEW_RE.search(text)
             and not _READING_REQUEST_RE.search(text)
@@ -786,6 +795,7 @@ class ConversationEngine:
         # drill-down으로 승계한다.
         if (
             state.last_offer
+            and not is_direction_q
             and not _detect_domains(text)
             and not _FRESH_OVERVIEW_RE.search(text)
             and not _READING_REQUEST_RE.search(text)

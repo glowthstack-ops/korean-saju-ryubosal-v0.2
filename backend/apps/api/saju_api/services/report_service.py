@@ -43,6 +43,7 @@ from saju_engines.daewoon_background import (
 )
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.dictionary_version import report_dict_version
+from saju_engines.direction_avoidance import annotate_avoidance, strong_avoid_lines
 from saju_engines.direction_suggestion import (
     DIRECTION_SUGGESTION_INSTRUCTION,
     detect_direction_suggestions,
@@ -56,6 +57,11 @@ from saju_engines.event_engine_config import (
 )
 from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.event_scoring import confirmed_yongsin_note, favorability_map
+from saju_engines.folk_direction import (
+    FOLK_TABOO_INSTRUCTION,
+    folk_taboo_summary,
+    format_folk_taboo_lines,
+)
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
 from saju_engines.lifetime_scan import (
@@ -466,16 +472,23 @@ _SECTION_GUIDES: dict[str, str] = {
     "F-17c": "자녀 인연의 구조(시주·자녀성), 출생 가능성이 활성화되는 시기 후보, 자녀와의 "
     "관계·양육 결을 서술할 것 — 임신·출산 단정 금지. 무자녀·미혼이면 가능성 서술로, 자녀 "
     "정보가 입력돼 있으면 그 관계 중심으로.",
-    "F-20b": "아래 [방위 활용] 재료(연지 삼합 기준 12신살 방위판·목적 13종 표·삼재 흐름)를 "
-    "'나의 방향운' 형식으로 풀 것 — ①동·남·서·북 네 방향판(각 방향의 3신살 구간과 어울리는 "
-    "활동)을 먼저 소개하고 ②공부·수면·만남·발표·영업·이사 등 목적별로 '어느 쪽을 어떻게(바라보기/"
-    "위치/머리/이동/출입구)' 활용하는지 본인 방 기준으로 안내한 뒤 ③가까운 삼재 해가 있으면 3단계 "
-    "변화 흐름으로 짚을 것. 방향 자체의 길흉 단정 금지, 앞 섹션의 용신 오행 방위와 합산 금지"
-    "(별개 질문임을 한 문장).",
+    "F-20b": "아래 [방위 활용] 재료(연지 삼합 기준 12신살 방위판·목적 전체 표(피함 열)·강한 회피·"
+    "민속 흉방·삼재 흐름)를 '나의 방향운' 형식으로 풀 것 — ①동·남·서·북 네 방향판(각 방향의 3신살 "
+    "구간과 어울리는 활동)을 먼저 소개하고 ②공부·수면·만남·발표·영업·이사 등 목적별로 '어느 쪽을 "
+    "어떻게(바라보기/위치/머리/이동/출입구)' 활용하는지와 그 목적에는 피하는 지지를 본인 방 "
+    "기준으로 "
+    "안내한 뒤 ③[강한 회피]가 있으면 시간 한정으로 짚고 ④민속 흉방은 '민속에서는 ○쪽은 …한 이유로 "
+    "피하는 방향으로 본다'는 추가 정보로 이사·증축 등 큰 공간 변동에 한해 한 문단, ⑤가까운 "
+    "삼재 해가 "
+    "있으면 3단계 변화 흐름으로 짚을 것. 방향 자체의 길흉 단정·절대흉방 금지, 앞 섹션의 용신 오행 "
+    "방위와 합산 금지(별개 질문임을 한 문장).",
     "Y-11b": "아래 [방위 활용]·[삼재 흐름] 재료로 이 해의 방위 활용과 삼재 단계를 풀 것 — 목적별 "
-    "방향(본인 방 기준)을 올해 계획(시험·이사·만남·발표 등)과 연결해 안내하고, 올해가 삼재 해면 "
-    "들/눌/날 어느 단계인지와 그 의미(이동→마찰·적응→정리)를, 아니면 삼재 해가 아님을 한 문장"
-    "으로만. 길흉 단정·공포 조장 금지, Y-11 용신 오행 방위와 합산 금지.",
+    "방향(본인 방 기준)과 피하는 지지를 올해 계획(시험·이사·만남·발표 등)과 연결해 안내하고, [강한 "
+    "회피]가 있으면 올해 한정으로, 민속 흉방은 '민속에서는 ○쪽은 …한 이유로 피하는 방향으로 "
+    "본다'는 "
+    "추가 정보로 이사·증축 등에 한해 짧게, 올해가 삼재 해면 들/눌/날 어느 단계인지와 그 의미(이동→"
+    "마찰·적응→정리)를, 아니면 삼재 해가 아님을 한 문장으로만. 길흉 단정·공포 조장·절대흉방 금지, "
+    "Y-11 용신 오행 방위와 합산 금지.",
     "F-18b": "생애에서 이동(이사·주거 변화) 신호가 강해지는 시기와 이동의 성격(주거/직장 동반 "
     "등)을 서술할 것 — 이사 확정 단정 금지, 시기는 활성화 창으로. 지역 추천은 아래 거주지 "
     "블록이 있을 때만 그 범위에서.",
@@ -1289,6 +1302,14 @@ class _ReportData:
         lines = ["[방위 활용 — 12신살 기준(서술 전용, 점수·판정 무관)]"]
         lines += format_profile_lines(profile)
         lines += format_purpose_table_lines(profile)
+        # 강한 회피(docs/19 §4) — 기준 연도(한해=대상 연도, 총운=오늘 연도)의 중첩 판정만 한 줄씩.
+        _year = self.report_year(spec) if spec.product_code == "RPT_YEAR" else self.today.year
+        _sa = strong_avoid_lines(profile, self.result, _year, list(self.scored))
+        if _sa:
+            lines += _sa
+        # 민속 흉방(docs/19 §5) — 기준 연도의 연간 4종(손방은 날짜 단위라 리포트엔 없음). 추가 정보.
+        lines += format_folk_taboo_lines(folk_taboo_summary(_year), full=True)
+        lines.append(FOLK_TABOO_INSTRUCTION)
         lm = landmark_from_facing(profile, self._living_room_facing())
         if lm is not None:
             lines.append(format_landmark_line(lm))
@@ -1311,7 +1332,18 @@ class _ReportData:
             living_room_facing=self._living_room_facing(), proactive=True,
             profile=self.sinsal_direction_profile,  # __init__ 에서 1회 계산한 프로필 재사용
         )
+        if block is not None:
+            block = annotate_avoidance(block, self.result, self.today.year, list(self.scored))
         return format_sinsal_direction_lines(block)[1:]  # 선행 빈 줄 제거(호출부가 넣는다)
+
+    def report_year(self, spec: ReportSpec) -> int:
+        """방향 판정·민속 흉방 기준 연도 — 리포트 기간 시작 연도(없으면 오늘 연도)."""
+        start = spec.period.start[:4]
+        return int(start) if start.isdigit() else self.today.year
+
+    def folk_taboo_lines(self, spec: ReportSpec, *, full: bool) -> list[str]:
+        """[민속 흉방] — 기준 연도의 연간 4종(손방은 날짜 단위라 리포트엔 없음). 추가 정보 전용."""
+        return format_folk_taboo_lines(folk_taboo_summary(self.report_year(spec)), full=full)
 
     def samjae_lines(self, kind: str, spec: ReportSpec) -> list[str]:
         """[삼재 흐름] — kind=today3(오늘~+2년) / forecast(예측 창) / year(대상 연도).
@@ -3249,6 +3281,13 @@ def build_section_context(
         _sd_theme = data.sinsal_direction_theme_block(_sd_purposes)
         if _sd_theme:
             lines += ["", *_sd_theme, SINSAL_DIRECTION_INSTRUCTION]
+            # 민속 흉방(docs/19 §5) — 테마사주 행동 전략 섹션에도 반영(2026-09-21 데굴님 지시):
+            # 이사·이동 테마는 전체 블록, 그 외 테마는 고지 한 줄(추가 정보).
+            # 기준 연도 = 리포트 대상 연도.
+            _folk_full = bool({"relocation", "travel"} & set(_sd_purposes))
+            _folk = data.folk_taboo_lines(spec, full=_folk_full)
+            if _folk:
+                lines += [*_folk, FOLK_TABOO_INSTRUCTION]
         _sj_kind = _SAMJAE_SECTIONS.get(sid)
         if _sj_kind:
             _sj = data.samjae_lines(_sj_kind, spec)

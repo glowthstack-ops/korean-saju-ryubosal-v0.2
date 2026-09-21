@@ -151,7 +151,7 @@ def test_dictionary_validates_and_lints_clean() -> None:
     parsed = SinsalDirectionDict.model_validate(_raw())
     assert not _lint_sinsal_direction(parsed)
     assert parsed.reviewed is True  # 2026-09-20 데굴님 결정: 감수 없이 적용
-    assert len(parsed.purposes) == 13 and len(parsed.sinsals) == 12 and len(parsed.groups) == 4
+    assert len(parsed.purposes) == 16 and len(parsed.sinsals) == 12 and len(parsed.groups) == 4
     assert [g.sinsals for g in parsed.groups] == [
         ["겁살", "재살", "천살"], ["지살", "년살", "월살"],
         ["망신살", "장성살", "반안살"], ["역마살", "육해살", "화개살"],
@@ -216,9 +216,18 @@ def test_dating_grades_split_inside_activity_group() -> None:
     assert study.picks[0].sinsal == "천살" and study.usage_mode.value == "face"
     sleep = recommend_for_purpose(p, DirectionPurpose.SLEEP)
     assert sleep.picks[0].sinsal == "반안살" and sleep.usage_mode.value == "head"
-    assert any(c.sinsal == "역마살" for c in recommend_for_purpose(
-        build_direction_profile(Branch.YU), DirectionPurpose.SLEEP).cautions) is False
-    # 巳酉丑: 반안=戌(서), 역마=亥(북) — 다른 4방이라 주의 목록엔 안 실린다(같은 4방만 주의).
+    # docs/19 §6-3(2026-09-21): 피할 방향은 그 목적의 caution 전부. 巳酉丑은 반안=戌(서)·역마=亥(북)
+    # 으로 4방이 달라도 역마살이 [피함]에 실리고, 같은 4방 여부는 플래그로만 구분한다.
+    yu_sleep = recommend_for_purpose(build_direction_profile(Branch.YU), DirectionPurpose.SLEEP)
+    yeokma = next(c for c in yu_sleep.cautions if c.sinsal == "역마살")
+    assert yeokma.branch == "亥" and yeokma.absolute_direction == "북"
+    assert yeokma.verdict == "CAUTION" and yeokma.same_quadrant_as_fit is False
+    assert {c.sinsal for c in yu_sleep.cautions} == {"지살", "년살", "역마살"}
+    assert yu_sleep.picks[0].verdict == "BEST_USE"
+    # 같은 4방 안의 주의 신살이 먼저 온다(지지 단위 구분을 먼저 쓰게).
+    assert [c.same_quadrant_as_fit for c in rec.cautions] == sorted(
+        [c.same_quadrant_as_fit for c in rec.cautions], reverse=True
+    )
 
 
 def test_landmark_translates_facing_and_flags_ambiguity() -> None:
@@ -605,3 +614,215 @@ def test_natal_clash_overlap_follows_relations(chart) -> None:
     info = evaluate_samjae(chart, 2034)
     assert info is not None and info.strength is not None
     assert info.strength <= 1.0 and "daewoon" in info.overlap and cfg_bonus > 0
+
+
+# ── ⑫ 피할 방향 판정(docs/19, 2026-09-21 데굴님 승인) — 5등급·중첩·되물음 없음 ──────────
+
+
+def test_verdict_thresholds_have_no_absolute_avoid() -> None:
+    """① caution 전제 + ②③④ 중 2개 이상 → STRONG_AVOID. caution 이 아니면 회피로 올리지 않는다."""
+    from saju_engines.direction_avoidance import decide_verdict
+
+    assert decide_verdict("caution", 0) == "CAUTION"
+    assert decide_verdict("caution", 1) == "CAUTION"
+    assert decide_verdict("caution", 2) == "STRONG_AVOID"
+    assert decide_verdict("caution", 3) == "STRONG_AVOID"
+    for g in ("fit", "support", "neutral"):
+        assert decide_verdict(g, 3) != "STRONG_AVOID"  # 절대흉방 없음
+    assert decide_verdict("fit", 3) == "BEST_USE" and decide_verdict("support", 0) == "GOOD_USE"
+
+
+def test_case_a_sleep_yeokma_enter_samjae_ak_is_strong_avoid(chart) -> None:
+    """자료 사례 A — 숙면 × 역마 방향 × 들삼재 × 악삼재 → 강한 회피(근거 2건). 다른 caution 은
+    주의."""
+    from saju_engines.direction_avoidance import annotate_avoidance, build_avoidance_context
+
+    ctx = build_avoidance_context(chart, 2034)
+    assert ctx is not None and ctx.transit_sinsal == "역마살" and ctx.unfavorable
+    assert ctx.samjae is not None and ctx.samjae.label_ko == "들삼재"
+    block = build_sinsal_direction_block(chart, [DirectionPurpose.SLEEP], proactive=False)
+    assert block is not None
+    annotate_avoidance(block, chart, 2034)
+    rec = block.recommendations[0]
+    yeokma = next(c for c in rec.cautions if c.sinsal == "역마살")
+    assert yeokma.verdict == "STRONG_AVOID" and yeokma.branch == "寅"
+    assert len(yeokma.verdict_evidence) == 2 and "들삼재" in yeokma.verdict_evidence[0]
+    assert "악삼재" in yeokma.verdict_evidence[1]
+    assert all(c.verdict == "CAUTION" for c in rec.cautions if c.sinsal != "역마살")
+    assert rec.picks[0].verdict == "BEST_USE" and rec.picks[0].verdict_evidence == []
+    text = "\n".join(format_sinsal_direction_lines(block))
+    assert "[강한 회피] 동쪽 寅 역마살" in text and "근거:" in text
+    assert "중첩 판정 기준: 2034년 세운 寅=역마살(들삼재·악삼재)" in text
+    assert not any(ch.isdigit() for ch in text.split("근거:")[1].split("\n")[0].replace("2034", ""))
+
+
+def test_no_overlap_year_keeps_caution_only(chart) -> None:
+    """2026(午 세운=재살·용신운): 숙면 caution 방향과 세운 지지가 안 겹치고 불리 신호도 없어
+    주의만."""
+    from saju_engines.direction_avoidance import annotate_avoidance, strong_avoid_lines
+
+    block = build_sinsal_direction_block(chart, [DirectionPurpose.SLEEP], proactive=False)
+    assert block is not None
+    annotate_avoidance(block, chart, 2026)
+    assert {c.verdict for c in block.recommendations[0].cautions} == {"CAUTION"}
+    assert strong_avoid_lines(block.profile, chart, 2026) == []
+    # 복/용신운 + 세운 지지 일치는 BEST_USE 에 '시간·공간 일치' 근거만(등급 신설 없음).
+    study = build_sinsal_direction_block(chart, [DirectionPurpose.STUDY], proactive=False)
+    assert study is not None
+    annotate_avoidance(study, chart, 2026)  # 午=재살은 공부 support
+    jae = next(p for p in study.recommendations[0].picks if p.sinsal == "재살")
+    assert jae.verdict == "GOOD_USE" and jae.verdict_evidence
+    assert "시간·공간 일치" in jae.verdict_evidence[0]
+
+
+def test_domain_caution_counts_as_overlap_condition(chart) -> None:
+    """조건 ④ — 목적 도메인의 그 해 사건 흐름이 불리(caution)면 중첩 1건으로 센다."""
+    from saju_engines.direction_avoidance import annotate_avoidance, build_avoidance_context
+    from saju_shared_types.events import (
+        Confidence,
+        EventCandidate,
+        EventKey,
+        EventPolarity,
+        EventType,
+    )
+
+    def _c(key: EventKey, period: str, score: int, quality: str) -> EventCandidate:
+        return EventCandidate(
+            event_key=key, event_type=list(EventType)[0], period=period, score=score,
+            confidence=Confidence.MEDIUM, polarity=EventPolarity.POSITIVE, quality=quality,
+        )
+
+    cands = [_c(EventKey.CAREER_CHANGE, "2036-03", 80, "conflict")]
+    ctx = build_avoidance_context(chart, 2036, cands)  # 辰=화개살·날삼재·평삼재 → ③ 거짓
+    assert ctx is not None and not ctx.unfavorable
+    assert ctx.domain_grades.get("career") == "caution"
+    # 발표(career): 화개살 caution × 辰 세운 일치(②) × 커리어 불리(④) → 강한 회피(사례 C 구조).
+    block = build_sinsal_direction_block(chart, [DirectionPurpose.PRESENTATION], proactive=False)
+    assert block is not None
+    annotate_avoidance(block, chart, 2036, cands)
+    hwagae = next(c for c in block.recommendations[0].cautions if c.sinsal == "화개살")
+    assert hwagae.verdict == "STRONG_AVOID"
+    assert any("커리어" in e or "직업" in e for e in hwagae.verdict_evidence)
+    # 후보 없이 같은 해면 ② 하나뿐 → 주의.
+    block2 = build_sinsal_direction_block(chart, [DirectionPurpose.PRESENTATION], proactive=False)
+    assert block2 is not None
+    annotate_avoidance(block2, chart, 2036)
+    hw2 = next(c for c in block2.recommendations[0].cautions if c.sinsal == "화개살")
+    assert hw2.verdict == "CAUTION"
+
+
+def test_manual_block_has_full_purpose_table_and_avoid_column(chart) -> None:
+    """수동 방향 질문 = 기본 방향 + 목적 전체 표(피함 열) — 되묻지 않는다(docs/19 §6)."""
+    intent = parse_message("잘때는 어떤방향이 좋을까", _TODAY).intents[0]
+    assert intent.direction_purpose == "sleep" and intent.direction_question
+    payload = build_llm_input(
+        "잘때는 어떤방향이 좋을까", intent, chart, [], [], cs._get_scorer(), today=_TODAY,
+    )
+    text = serialize_llm_input(payload)
+    assert "◆ 목적 '숙면'" in text and "[적극 활용] 북쪽 丑 반안살" in text
+    assert "[목적별 활용 방향 — 목적" in text and "[피함:" in text
+    assert "숙면(잠잘 때 머리 방향): 북쪽 丑 반안살" in text
+    assert "[주의(목적 충돌)] 동쪽 寅 역마살" in text  # 같은 4방이 아니어도 피할 방향 전부
+    assert "⑧답 순서" in text and "절대 흉방" in text
+    # 능동 블록엔 목적 전체 표가 실리지 않는다.
+    edu = IntentJson(intent_id="a", query_type=QueryType.DOMAIN_ANALYSIS, domain=Domain.EDUCATION)
+    text_p = serialize_llm_input(build_llm_input(
+        "공부운 어때", edu, chart, [], [], cs._get_scorer(), today=_TODAY,
+    ))
+    assert "◆ 목적 '공부·시험'" in text_p and "[목적별 활용 방향 — 목적" not in text_p
+
+
+def test_unresolved_direction_question_uses_table_not_inherited_purpose(chart) -> None:
+    """목적·사용 방식 없는 '어떤 방향이 좋을까' — 승계 도메인 능동 목적 없이 방향판+표로 답한다."""
+    intent = parse_message("어떤 방향이 좋을까", _TODAY).intents[0]
+    intent.domain = Domain.EDUCATION  # 직전 턴 승계를 흉내
+    assert intent.direction_question and intent.direction_purpose is None
+    assert intent.query_type is QueryType.REMEDY
+    payload = build_llm_input(
+        "어떤 방향이 좋을까", intent, chart, [], [], cs._get_scorer(), today=_TODAY,
+    )
+    assert payload.sinsal_direction is not None and not payload.sinsal_direction.proactive
+    assert payload.sinsal_direction.recommendations == []
+    text = serialize_llm_input(payload)
+    assert "[목적별 활용 방향" in text and "◆ 목적 '공부·시험'" not in text
+
+
+@pytest.mark.parametrize("q", [
+    "잘때는 어떤방향이 좋을까", "잘땐 머리를 어느 쪽으로", "취침 방향 알려줘",
+    "잠자리 방향은 어디가 좋아",
+])
+def test_parser_sleep_variants_without_spacing(q: str) -> None:
+    assert detect_direction_purpose(q) == ("sleep", "head")
+
+
+def test_desk_question_keeps_dictionary_usage_mode() -> None:
+    """'책상 방향'은 공부 목적 keyword — 사전 사용 방식(바라보기)을 위치 어휘가 덮지 않는다."""
+    assert detect_direction_purpose("공부할때 책상방향을 추천해줘") == ("study", "face")
+
+
+def test_direction_question_is_not_linked_as_offer_answer() -> None:
+    """실로그(2026-09-21): 공부 방향 답의 되물음 뒤 '잘때는 어떤방향이 좋을까'가 제안 수락
+    (TIME_SHIFT)으로 링크돼 query_type·education 도메인을 승계하고 천살(공부)이 수면에
+    적용됐다 — NEW 로 끊는다."""
+    from saju_engines.conversation import ConversationEngine
+    from saju_shared_types.conversation import ConversationState
+
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="d", turn_no=0)
+    parsed, state, _r, _l = eng.process_turn(state, "공부할때 책상방향을 추천해줘", _TODAY)
+    assert parsed.intents[0].direction_purpose == "study"
+    state.last_offer = (
+        "지금 준비하고 계신 공부가 어떤 자격을 위한 과정인지 말씀해 주시면 더 세밀하게 짚어드릴 수 "
+        "있는데 어떠신가요?"
+    )
+    parsed, state, _r, link = eng.process_turn(state, "잘때는 어떤방향이 좋을까", _TODAY)
+    it = parsed.intents[0]
+    assert not link.is_follow_up
+    assert it.direction_purpose == "sleep" and it.domain is Domain.HEALTH
+    assert it.query_type is QueryType.REMEDY and it.time_range is None
+    # 되물음 답변형(서술 답)은 여전히 이어진다(기존 offer-answer 경로 보존).
+    state.last_offer = "제품형인지 서비스형인지 궁금해요"
+    _p, _s, _r, link2 = eng.process_turn(state, "웹 서비스인데 이미 개발은 끝났어", _TODAY)
+    assert link2.is_follow_up
+
+
+def test_report_full_section_lists_strong_avoid_for_year() -> None:
+    """RPT_YEAR 2034(들삼재·악삼재)의 Y-11b 에 강한 회피 줄이 실리고, 2026 에는 없다."""
+    y34 = {
+        c.section_id: c
+        for c in report_service.plan_report(_BIRTH, _spec("RPT_YEAR", year=2034), _TODAY)
+    }
+    body = y34["Y-11b"].body_prompt
+    assert "[강한 회피 — 2034년 기준" in body and "- 숙면: 동쪽 寅 역마살" in body
+    assert "[피함:" in body
+    y26 = {c.section_id: c for c in report_service.plan_report(_BIRTH, _spec("RPT_YEAR"), _TODAY)}
+    assert "[강한 회피 — " not in y26["Y-11b"].body_prompt
+
+
+def test_direction_question_prompt_keeps_all_parts_without_trim() -> None:
+    """실측(2026-09-21 테스트 답): 방향 질문 프롬프트가 22k 상한을 넘어 Tier 0 트림에서 민속 고지가
+    빠지고 상황별 조언이 답에서 누락됐다. 상한 28k(데굴님 결정)에서 네 부분 재료(기본·상황별 표·
+    피할 방향·민속 고지)와 답 구성 계약이 모두 실려야 한다."""
+    from saju_engines.llm_guard import CALL_LIMITS
+    from saju_engines.sinsal_direction import DIRECTION_ANSWER_DIRECTIVE
+
+    assert CALL_LIMITS["chat_single"].max_input_tokens == 28_000
+    res = cs.chat(_BIRTH, "잠잘때 좋은 방향을 추천해줘", _TODAY, dry_run=True)
+    assert res.status == "dry_run"
+    p = res.prompt_preview or ""
+    # 방향 질문은 시점·사건 축(사건 후보·월별 요약·유력 달·상담 계약·답변 지평·근거 경로)과
+    # 도메인 보조(건강 취약 구조·M11 토픽)를 싣지 않는다(2026-09-21 데굴님 승인 — 약 8.8k 제거).
+    heads = [ln for ln in p.splitlines() if ln.startswith("[")]
+    for banned in (
+        "[이벤트 후보 —", "[월별 요약 —", "[유력 달 종합 —", "[상담 결론 —", "[답변 지평]",
+        "[근거 경로]", "[원국 건강 취약 구조", "[M11·health", "[사건 서술 계약",
+    ):
+        assert not any(h.startswith(banned) for h in heads), banned  # 블록 자체가 없다
+    assert "[명식 해석 자료" in p and "[원국·명식 구조" in p  # 원국 배경은 유지
+    assert "◆ 목적 '숙면'" in p and "[적극 활용] 북쪽 丑 반안살" in p
+    assert "[목적별 활용 방향 — 목적 16종" in p and "[피함:" in p
+    assert "[민속 흉방 고지 — 丙午년" in p and "[민속 흉방 지침]" in p
+    assert DIRECTION_ANSWER_DIRECTIVE in p and "[방위 활용 지침]" in p
+    # 이사 방향 질문은 기존 이사 방위 경로 위에 민속 전체 블록.
+    res2 = cs.chat(_BIRTH, "이사는 어느 방향으로 가면 좋을까", _TODAY, dry_run=True)
+    assert "[민속 흉방 — 2026 丙午년" in (res2.prompt_preview or "")

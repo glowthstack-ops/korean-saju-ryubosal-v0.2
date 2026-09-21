@@ -1,13 +1,11 @@
-"""12신살 방위 활용 사전 → 검증·컴파일 스냅샷 빌드 (CLAUDE.md 원칙 5).
+"""민속 흉방 사전 → 검증·컴파일 스냅샷 빌드 (CLAUDE.md 원칙 5, docs/19 §5).
 
-dictionaries/sinsal_direction.json 을 validate + lint 한 뒤
-compiled/sinsal_direction_v{VERSION}.json 스냅샷으로 기록한다. 운영 런타임은 이 스냅샷을
-우선 로드한다(saju_engines.sinsal_direction.load_sinsal_direction_dict).
-
-설계: doc/v2_2/docs/18_SINSAL_DIRECTION.md.
+dictionaries/folk_taboo_direction.json 을 validate + lint 한 뒤
+compiled/folk_taboo_direction_v{VERSION}.json 스냅샷으로 기록한다. 런타임은 스냅샷을 우선 로드한다
+(saju_engines.folk_direction.load_folk_taboo_dict).
 
 사용법:
-    python scripts/build_sinsal_direction_snapshot.py [dictionaries_dir] [compiled_dir]
+    python scripts/build_folk_taboo_snapshot.py [dictionaries_dir] [compiled_dir]
 종료 코드 0=성공, 1=검증/린트 실패.
 """
 
@@ -18,38 +16,38 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from saju_engines.dictionaries import _lint_sinsal_direction
-from saju_shared_types.sinsal_direction import SinsalDirectionDict
+from saju_engines.dictionaries import _lint_folk_taboo
+from saju_shared_types.folk_direction import FolkTabooDict
 
 _BACKEND = Path(__file__).resolve().parent.parent
 _DEFAULT_DICTS = _BACKEND / "dictionaries"
 _DEFAULT_COMPILED = _BACKEND / "compiled"
-SINSAL_DIRECTION_VERSION = "1.2.0"
+FOLK_TABOO_VERSION = "1.0.0"
 
 
 def build(dictionaries_dir: Path, compiled_dir: Path) -> int:
     """스냅샷을 빌드한다. 성공 0, 실패 1."""
-    src = dictionaries_dir / "sinsal_direction.json"
+    src = dictionaries_dir / "folk_taboo_direction.json"
     if not src.exists():
         print(f"[skip] 원본 없음: {src}", file=sys.stderr)
         return 1
     try:
-        parsed = SinsalDirectionDict.model_validate(json.loads(src.read_text("utf-8")))
+        parsed = FolkTabooDict.model_validate(json.loads(src.read_text("utf-8")))
     except Exception as exc:  # noqa: BLE001 — 검증 실패는 종료코드로 보고
         print(f"[fail] 스키마 검증 실패: {exc}", file=sys.stderr)
         return 1
-    errors = _lint_sinsal_direction(parsed)
+    errors = _lint_folk_taboo(parsed)
     if errors:
         for e in errors:
             print(f"[lint] {e}", file=sys.stderr)
         return 1
     snapshot = parsed.model_dump(by_alias=True)
     snapshot["compiled_at"] = datetime.now(UTC).isoformat()
-    snapshot["snapshot_version"] = SINSAL_DIRECTION_VERSION
+    snapshot["snapshot_version"] = FOLK_TABOO_VERSION
     compiled_dir.mkdir(parents=True, exist_ok=True)
-    out = compiled_dir / f"sinsal_direction_v{SINSAL_DIRECTION_VERSION}.json"
+    out = compiled_dir / f"folk_taboo_direction_v{FOLK_TABOO_VERSION}.json"
     out.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"[ok] {out} ({len(parsed.purposes)} purposes, {len(parsed.sinsals)} sinsals)")
+    print(f"[ok] {out} ({len(parsed.taboos)} taboos)")
     return 0
 
 
