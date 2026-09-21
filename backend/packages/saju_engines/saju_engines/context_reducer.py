@@ -107,6 +107,7 @@ from .month_coverage_audit import best_quality_rows
 from .opportunity_engine import EVENT_DOMAINS, detect_opportunities, format_opportunity_notes
 from .relation_claim_audit import canonical_claim_lines
 from .sinsal_direction import (
+    ASKED_DIRECTION_DIRECTIVE,
     DIRECTION_ANSWER_DIRECTIVE,
     SAMJAE_INSTRUCTION,
     SINSAL_DIRECTION_INSTRUCTION,
@@ -2143,7 +2144,7 @@ def build_llm_input(
     _dir_purposes, _dir_proactive = _direction_purposes(intent)
     _sinsal_direction = build_sinsal_direction_block(
         result, _dir_purposes, living_room_facing=living_room_facing,
-        proactive=_dir_proactive,
+        proactive=_dir_proactive, asked_direction=intent.direction_asked,
     )
     # 피할 방향 중첩 판정(docs/19 §4) — 기준 연도 = 질문 시점 연도, 없으면 오늘 연도. 사전 등급
     # 위에 verdict(STRONG_AVOID/BEST_USE 근거)만 얹는다(점수 불변).
@@ -3108,6 +3109,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(SINSAL_DIRECTION_INSTRUCTION)
         if not payload.sinsal_direction.proactive:  # 사용자가 직접 방향을 물은 턴 — 답 구성 계약
             lines.append(DIRECTION_ANSWER_DIRECTIVE)
+        if payload.sinsal_direction.asked_direction_ko is not None:
+            lines.append(ASKED_DIRECTION_DIRECTIVE)
     if payload.samjae_context:
         lines.append(SAMJAE_INSTRUCTION)
     if payload.folk_taboo_context:

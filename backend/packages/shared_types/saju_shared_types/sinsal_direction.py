@@ -28,6 +28,26 @@ Cardinal4 = Literal["동", "남", "서", "북"]
 #: 8방위 코드(프로필 Direction8과 동일 표기) — 거실 주 창 방향 등 랜드마크 입력용.
 Direction8Code = Literal["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
+#: 12지지 방위 = 30° 등분, 子=정북 중심(345°~15°) — 2026-09-21 데굴님 승인(docs/18 §1-8 개정).
+#: 16방위 이름 중 간방 4개(북동·남동·남서·북서)를 뺀 12개와 1:1 이라 사용자 노출 라벨로 쓴다.
+#: 값 = (16방위 이름, 중심 각도). 구간은 중심 ±15°. 도수는 표기된 구간만 인용(임의 도수 생성 금지).
+BRANCH_COMPASS: dict[str, tuple[str, int]] = {
+    "子": ("정북", 0), "丑": ("북북동", 30), "寅": ("동북동", 60), "卯": ("정동", 90),
+    "辰": ("동남동", 120), "巳": ("남남동", 150), "午": ("정남", 180), "未": ("남남서", 210),
+    "申": ("서남서", 240), "酉": ("정서", 270), "戌": ("서북서", 300), "亥": ("북북서", 330),
+}
+
+
+def compass_range(branch: str) -> str:
+    """지지의 나침반 구간 문자열('345°~15°')."""
+    center = BRANCH_COMPASS[branch][1]
+    return f"{(center - 15) % 360}°~{(center + 15) % 360}°"
+
+
+def branch_compass_label(branch: str) -> str:
+    """지지 → '북북동 15°~45°'(16방위 이름 + 구간). 프롬프트·리포트 공용 라벨."""
+    return f"{BRANCH_COMPASS[branch][0]} {compass_range(branch)}"
+
 #: 목적 × 신살 적합 등급(정성 4단계 — 수치 점수 금지, docs/18 §3).
 FitGrade = Literal["fit", "support", "neutral", "caution"]
 
@@ -417,3 +437,7 @@ class SinsalDirectionBlock(BaseModel):
     anchor: Anchor = Anchor.USER_POSITION
     proactive: bool = True  # 능동 제안(질문이 방향을 직접 묻지 않음)
     avoidance_basis: list[str] = Field(default_factory=list)  # 중첩 판정 기준(연도·세운 신살 등)
+    # 사용자가 지목한 방향('남쪽은 어때?') — 첫 목적 기준으로 그 방향의 지지별 판정(docs/19 §6-7).
+    asked_direction_ko: str | None = None
+    asked_code: str | None = None  # 16방위 코드(N/NNE/NE/…) — 정방·간방·16방위 표현 분기용
+    asked_sectors: list[DirectionPick] = Field(default_factory=list)

@@ -50,6 +50,8 @@ from .query_parser import (
     _detect_domains,
     _parse_inline_births,
     attach_parenthetical_births,
+    detect_asked_direction,
+    detect_direction_purpose,
     detect_kin_axis,
     implies_self_counterpart,
     is_direction_question,
@@ -369,6 +371,29 @@ class ConversationEngine:
         if link.is_follow_up and state.last_retro and not _FUTURE_DATE_MARK_RE.search(text):
             for intent in parsed.intents:
                 intent.time_range = _retro_anchor_bare_date(intent.time_range, today)
+
+        # 방향 지목 후속('남쪽은 어때?'·'그럼 동쪽은?') — 이번 발화의 방향이 클론(직전 값)을 덮고,
+        # 직전 방향 질문의 목적·사용 방식을 잇는다(docs/19 §6-7). 목적 없이 방향만 물은 첫 턴은
+        # 방향판 전체로 답한다.
+        _asked_now = detect_asked_direction(text)
+        if _asked_now is not None:
+            for intent in parsed.intents:
+                if intent.query_type not in (
+                    QueryType.DATE_RECOMMENDATION, QueryType.COMPARISON,
+                ):
+                    intent.direction_asked = _asked_now
+        if link.is_follow_up and prev is not None and prev.direction_purpose:
+            for intent in parsed.intents:
+                if intent.direction_asked and not intent.direction_purpose:
+                    intent.direction_purpose = prev.direction_purpose
+                    intent.direction_usage_mode = prev.direction_usage_mode
+                    intent.direction_question = True
+                    if intent.query_type not in (
+                        QueryType.DATE_RECOMMENDATION, QueryType.COMPARISON,
+                    ):
+                        intent.query_type = QueryType.REMEDY
+                    if intent.domain is Domain.GENERAL:
+                        intent.domain = prev.domain
 
         # 이번 턴 자체 시점 보유 여부 — 배제 재요청 해제(P2)·시점 출처 메타(P7)의 근거.
         # 승계로 덮어쓰기 전에 판정해야 한다.
@@ -708,6 +733,16 @@ class ConversationEngine:
         if state.last_intent is None:
             return LinkResult(is_follow_up=False, link_kind=LinkKind.NEW)
         parent_id = state.last_intent.intent_id
+
+        # 0순위 — 직전 턴이 방향 질문이고 이번 발화가 특정 방향을 지목('남쪽은 어때?')하면 같은
+        # 목적의 방향 판정 후속이다(docs/19 §6-7). 새 목적·도메인 어휘가 있으면 아래 일반 규칙으로.
+        if (
+            state.last_intent.direction_purpose
+            and detect_asked_direction(text) is not None
+            and detect_direction_purpose(text) is None
+            and not _detect_domains(text)
+        ):
+            return self._follow(parent_id, LinkKind.DRILL_DOWN, state)
 
         # 1순위 — 명시적 참조어/판정 인용 → follow-up 확정.
         if re.search(r"그\s*사람|그때|그\s*시기|이번\s*운|라고\s*했잖|그럼\s", text):

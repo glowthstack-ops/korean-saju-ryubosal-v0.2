@@ -826,3 +826,112 @@ def test_direction_question_prompt_keeps_all_parts_without_trim() -> None:
     # 이사 방향 질문은 기존 이사 방위 경로 위에 민속 전체 블록.
     res2 = cs.chat(_BIRTH, "이사는 어느 방향으로 가면 좋을까", _TODAY, dry_run=True)
     assert "[민속 흉방 — 2026 丙午년" in (res2.prompt_preview or "")
+
+
+# ── ⑬ 방향 지목 후속('남쪽은 어때?') — docs/19 §6-7 (2026-09-21 실로그) ────────────
+
+
+@pytest.mark.parametrize("q,code", [
+    ("남쪽은 어때?", "S"), ("그럼 동쪽은?", "E"), ("남동쪽으로 두면 어때", "SE"),
+    ("북쪽이 좋아?", "N"), ("서북쪽은 괜찮아?", "NW"), ("남쪽 지방 여행", None),
+    ("동쪽 하늘이 맑네", None), ("북북서는 어때?", "NNW"), ("동남동 방향으로 하면?", "ESE"),
+    ("북동은 어때", "NE"),
+])
+def test_detect_asked_direction(q: str, code: str | None) -> None:
+    from saju_engines.query_parser import detect_asked_direction
+
+    assert detect_asked_direction(q) == code
+
+
+def test_asked_direction_followup_keeps_purpose_and_judges_sectors(chart) -> None:
+    """실로그: '잠잘때 좋은 방향' 뒤 '남쪽은 어때?'가 공부(남쪽 未 천살) 답으로 샜다 — 같은
+    목적(숙면)으로 그 방향의 지지별 판정을 싣고 최우선 지시문을 붙인다."""
+    from saju_engines.conversation import ConversationEngine
+    from saju_engines.sinsal_direction import ASKED_DIRECTION_DIRECTIVE
+    from saju_shared_types.conversation import ConversationState
+
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="ask", turn_no=0)
+    _p, state, _r, _l = eng.process_turn(state, "잠잘때 좋은 방향을 추천해줘", _TODAY)
+    state.last_offer = "혹시 숙면 외에 특별히 신경 쓰고 계신 공간 배치가 있으신가요?"
+    parsed, state, _r, link = eng.process_turn(state, "남쪽은 어때?", _TODAY)
+    it = parsed.intents[0]
+    assert link.is_follow_up and it.direction_purpose == "sleep" and it.direction_asked == "S"
+    assert it.query_type is QueryType.REMEDY and it.direction_question
+    text = serialize_llm_input(build_llm_input(
+        "남쪽은 어때?", it, chart, [], [], cs._get_scorer(), today=_TODAY,
+    ))
+    assert "◆ 질문한 방향 '남쪽'(180°) — 목적 '숙면' 기준 칸별 판정" in text
+    assert "정중앙(대표) 午 재살(災殺·수옥살) [정남 165°~195°] [중립]" in text
+    assert "동쪽으로 살짝 틀면 巳 겁살(劫殺) [남남동 135°~165°] [중립]" in text
+    assert "서쪽으로 살짝 틀면 未 천살(天殺) [남남서 195°~225°] [중립]" in text
+    assert "권고: 정중앙(정남 165°~195°) 그대로" in text
+    assert "→ 기본 방향 북쪽 丑 반안살[북북동 15°~45°][적극 활용]과 비교해 답할 것" in text
+    assert ASKED_DIRECTION_DIRECTIVE in text
+    # 참조어 후속('그럼 동쪽은?')도 이번 발화의 방향이 직전 클론 값을 덮는다.
+    parsed, state, _r, link = eng.process_turn(state, "그럼 동쪽은?", _TODAY)
+    it2 = parsed.intents[0]
+    assert it2.direction_asked == "E" and it2.direction_purpose == "sleep"
+    text2 = serialize_llm_input(build_llm_input(
+        "그럼 동쪽은?", it2, chart, [], [], cs._get_scorer(), today=_TODAY,
+    ))
+    assert "정중앙(대표) 卯 육해살(六害殺) [정동 75°~105°] [중립]" in text2
+    assert "寅 역마살(驛馬殺) [동북동 45°~75°] [주의(목적 충돌)]" in text2
+    assert "남쪽으로 살짝 틀면 辰 화개살(華蓋殺) [동남동 105°~135°] [잘 맞음]" in text2
+    assert "권고: 정중앙보다 남쪽으로 살짝 틀어 동남동 105°~135°(辰 화개살)에 맞추는 편이" in text2
+    # 간방은 두 칸 사이의 선 — 양쪽 칸 판정 + 틀 방향 권고('경계' 표현 없음).
+    parsed, state, _r, _l = eng.process_turn(state, "남동쪽으로 두면 어때", _TODAY)
+    text3 = serialize_llm_input(build_llm_input(
+        "남동쪽으로 두면 어때", parsed.intents[0], chart, [], [], cs._get_scorer(), today=_TODAY,
+    ))
+    seg = text3.split("◆ 질문한 방향 '남동쪽'(135°)")[1].split("→ 기본 방향")[0]
+    assert "동쪽으로 틀면 辰 화개살(華蓋殺) [동남동 105°~135°] [잘 맞음]" in seg
+    assert "남쪽으로 틀면 巳 겁살(劫殺) [남남동 135°~165°] [중립]" in seg
+    assert "권고: 남동쪽 정중앙(135°)은 두 칸 사이의 선이므로 동쪽으로 틀어 동남동 105°~135°" in seg
+    assert "午 재살" not in seg and "경계" not in seg
+    # 16방위는 한 칸.
+    parsed, state, _r, _l = eng.process_turn(state, "북북서는 어때?", _TODAY)
+    assert parsed.intents[0].direction_asked == "NNW"
+    text4 = serialize_llm_input(build_llm_input(
+        "북북서는 어때?", parsed.intents[0], chart, [], [], cs._get_scorer(), today=_TODAY,
+    ))
+    seg4 = text4.split("◆ 질문한 방향 '북북서쪽'(337.5°)")[1].split("→ 기본 방향")[0]
+    assert "亥 망신살(亡身殺) [북북서 315°~345°] [중립]" in seg4 and seg4.count("\n  · ") == 1
+
+
+def test_asked_direction_without_prior_purpose_uses_board_only(chart) -> None:
+    intent = parse_message("남쪽은 어때?", _TODAY).intents[0]
+    assert intent.direction_asked == "S" and intent.direction_purpose is None
+    assert intent.query_type is QueryType.REMEDY and intent.direction_question
+    text = serialize_llm_input(build_llm_input(
+        "남쪽은 어때?", intent, chart, [], [], cs._get_scorer(), today=_TODAY,
+    ))
+    assert "◆ 질문한 방향 '남쪽'(180°) — 목적 미지정" in text
+    assert "[목적별 활용 방향 — 목적 16종" in text
+
+
+def test_asked_direction_does_not_hijack_date_recommendation() -> None:
+    intent = parse_message("6월중에 남동쪽으로 이사한다면 어떤 날이 좋을까", _TODAY).intents[0]
+    assert intent.query_type is QueryType.DATE_RECOMMENDATION
+    assert intent.direction_asked == "SE" and not intent.direction_question
+
+
+def test_compass_labels_are_thirty_degree_sectors(chart) -> None:
+    """지지=30° 구간(子 정북 345°~15° 중심), 16방위 이름 병기 — 방향판·추천·목적 표·랜드마크
+    공통."""
+    from saju_shared_types.sinsal_direction import BRANCH_COMPASS, branch_compass_label
+
+    assert branch_compass_label("子") == "정북 345°~15°"
+    assert branch_compass_label("丑") == "북북동 15°~45°"
+    assert branch_compass_label("亥") == "북북서 315°~345°"
+    assert [BRANCH_COMPASS[b][1] for b in "子丑寅卯辰巳午未申酉戌亥"] == list(range(0, 360, 30))
+    intent = parse_message("잠잘때 좋은 방향을 추천해줘", _TODAY).intents[0]
+    text = serialize_llm_input(build_llm_input(
+        "잠잘때 좋은 방향을 추천해줘", intent, chart, [], [], cs._get_scorer(), today=_TODAY,
+        living_room_facing="SE",
+    ))
+    assert "丑 반안살(북북동 15°~45°)" in text and "방위 각도: 12지지=30° 구간" in text
+    assert "[적극 활용] 북쪽 丑 반안살(攀鞍殺) [북북동 15°~45°]" in text
+    assert "숙면(잠잘 때 머리 방향): 북쪽 丑 반안살(攀鞍殺)[북북동 15°~45°]" in text
+    assert "남동은 두 칸 사이의 선이라 나침반 각도로 어느 칸인지 확인을 권할 것" in text
+    assert "두 지지에 걸치" not in text and "지어내지 말 것 — 나침반 앱" in text

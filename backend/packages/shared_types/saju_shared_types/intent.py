@@ -303,6 +303,9 @@ class IntentJson(BaseModel):
     # 않고 승계 도메인 기반 능동 목적도 쓰지 않는다(docs/19 §7, 2026-09-21 결함: 공부 방향 뒤
     # '잘때는 어떤방향'이 제안 수락으로 링크돼 천살(공부)이 수면 방향으로 나감).
     direction_question: bool = False
+    # 사용자가 특정 방향을 지목해 물음('남쪽은 어때?', '동쪽으로 두면?') — 8방위 코드(N/NE/E/…).
+    # 직전 방향 질문의 목적(숙면 등)을 이어받아 **그 방향을 같은 목적으로 판정**한다(docs/19 §6-7).
+    direction_asked: str | None = None
 
     constraints: Constraints = Field(default_factory=Constraints)
     output: OutputStyle = Field(default_factory=OutputStyle)

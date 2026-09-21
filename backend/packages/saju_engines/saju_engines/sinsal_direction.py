@@ -23,6 +23,7 @@ from saju_shared_types.enums import Branch
 from saju_shared_types.intent import Domain, IntentJson, QueryType
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.sinsal_direction import (
+    BRANCH_COMPASS,
     VERDICT_BY_GRADE,
     VERDICT_KO,
     Anchor,
@@ -39,6 +40,7 @@ from saju_shared_types.sinsal_direction import (
     SinsalDirectionProfile,
     SinsalDirectionRecommendation,
     UsageMode,
+    branch_compass_label,
 )
 from saju_shared_types.twelve_sinsal import (
     BASE_MAPS,
@@ -296,6 +298,62 @@ def landmark_from_facing(
 # ── 블록 조립·직렬화 ──────────────────────────────────────────────────────────
 
 
+#: 질문 방향 코드(16방위) → (한글, 중심 각도, 종류, 판정 지지). 종류: cardinal=정방(첫 지지가 정중앙
+#: 대표, 뒤 둘은 양옆) / inter=간방(두 칸 사이의 선 — 양쪽 칸 판정 + 틀 방향 권고) /
+#: sixteen=지지 1칸.
+_ASKED_DIRECTIONS: dict[str, tuple[str, float, str, tuple[Branch, ...]]] = {
+    "N": ("북", 0, "cardinal", (Branch.JA, Branch.HAE, Branch.CHUK)),
+    "NNE": ("북북동", 22.5, "sixteen", (Branch.CHUK,)),
+    "NE": ("북동", 45, "inter", (Branch.CHUK, Branch.IN)),
+    "ENE": ("동북동", 67.5, "sixteen", (Branch.IN,)),
+    "E": ("동", 90, "cardinal", (Branch.MYO, Branch.IN, Branch.JIN)),
+    "ESE": ("동남동", 112.5, "sixteen", (Branch.JIN,)),
+    "SE": ("남동", 135, "inter", (Branch.JIN, Branch.SA)),
+    "SSE": ("남남동", 157.5, "sixteen", (Branch.SA,)),
+    "S": ("남", 180, "cardinal", (Branch.O, Branch.SA, Branch.MI)),
+    "SSW": ("남남서", 202.5, "sixteen", (Branch.MI,)),
+    "SW": ("남서", 225, "inter", (Branch.MI, Branch.SIN)),
+    "WSW": ("서남서", 247.5, "sixteen", (Branch.SIN,)),
+    "W": ("서", 270, "cardinal", (Branch.YU, Branch.SIN, Branch.SUL)),
+    "WNW": ("서북서", 292.5, "sixteen", (Branch.SUL,)),
+    "NW": ("북서", 315, "inter", (Branch.SUL, Branch.HAE)),
+    "NNW": ("북북서", 337.5, "sixteen", (Branch.HAE,)),
+}
+_VERDICT_RANK = {"BEST_USE": 4, "GOOD_USE": 3, "NEUTRAL": 2, "CAUTION": 1, "STRONG_AVOID": 0}
+
+
+def _fmt_deg(v: float) -> str:
+    """중심 각도 표기 — 22.5° / 45°."""
+    return f"{int(v)}°" if float(v).is_integer() else f"{v}°"
+
+
+def asked_direction_sectors(
+    profile: SinsalDirectionProfile,
+    purpose: DirectionPurpose,
+    asked: str,
+    dictionary: SinsalDirectionDict | None = None,
+) -> list[DirectionPick]:
+    """지목한 방향의 지지들을 그 목적의 사전 등급으로 판정(지지 단위, docs/19 §0-5)."""
+    dic = dictionary or load_sinsal_direction_dict()
+    entry = dic.purpose(purpose)
+    out: list[DirectionPick] = []
+    spec = _ASKED_DIRECTIONS.get(asked)
+    for b in (spec[3] if spec else ()):
+        sec = next(x for x in profile.sectors if x.branch == str(b))
+        g = entry.grades[sec.relative_sinsal]
+        sin = dic.sinsal(sec.relative_sinsal)
+        action = (
+            _fill_action(entry, sec) if g in ("fit", "support")
+            else (sin.cautions[0] if g == "caution" and sin.cautions else sin.core_meaning)
+        )
+        out.append(DirectionPick(
+            sinsal=sec.relative_sinsal, branch=sec.branch,
+            absolute_direction=sec.absolute_direction, grade=g, action=action,
+            verdict=VERDICT_BY_GRADE[g],
+        ))
+    return out
+
+
 def build_sinsal_direction_block(
     result: ManseV2Result,
     purposes: list[DirectionPurpose],
@@ -304,10 +362,12 @@ def build_sinsal_direction_block(
     proactive: bool = True,
     dictionary: SinsalDirectionDict | None = None,
     profile: SinsalDirectionProfile | None = None,
+    asked_direction: str | None = None,
 ) -> SinsalDirectionBlock | None:
     """LLM 입력 블록 — 원국 없음 또는 목적 없음(능동 모드)이면 None.
 
-    profile을 주면(리포트가 1회 계산해 둔 값) 프로필을 다시 만들지 않는다.
+    profile을 주면(리포트가 1회 계산해 둔 값) 프로필을 다시 만들지 않는다. asked_direction(8방위
+    코드)이 있으면 첫 목적 기준으로 그 방향의 지지별 판정을 함께 싣는다(목적이 없으면 방향판만).
     """
     if proactive and not purposes:  # 대부분의 턴 — 프로필을 만들기 전에 끝낸다
         return None
@@ -316,10 +376,18 @@ def build_sinsal_direction_block(
     if profile is None:
         return None
     recs = [recommend_for_purpose(profile, p, dic) for p in purposes]
+    spec = _ASKED_DIRECTIONS.get(asked_direction or "")
+    asked_ko = spec[0] if spec else None
+    asked_secs = (
+        asked_direction_sectors(profile, purposes[0], asked_direction, dic)
+        if spec is not None and asked_direction is not None and purposes else []
+    )
     return SinsalDirectionBlock(
         profile=profile, recommendations=recs,
         landmark=landmark_from_facing(profile, living_room_facing),
         anchor=Anchor.USER_POSITION, proactive=proactive,
+        asked_direction_ko=asked_ko, asked_sectors=asked_secs,
+        asked_code=asked_direction if spec is not None else None,
     )
 
 
@@ -330,8 +398,15 @@ def format_profile_lines(profile: SinsalDirectionProfile) -> list[str]:
         "방향 자체의 길흉이 아니라 '그 방향의 신살 × 무엇을 하려는가'로 활용도를 본다.",
     ]
     for q in profile.quadrants:
-        pairs = " · ".join(f"{b} {s}" for b, s in zip(q.branches, q.sinsals, strict=True))
+        pairs = " · ".join(
+            f"{b} {s}({branch_compass_label(b)})"
+            for b, s in zip(q.branches, q.sinsals, strict=True)
+        )
         lines.append(f"- {q.absolute_direction}쪽 — {q.theme}: {pairs} → {q.service_use}")
+    lines.append(
+        "방위 각도: 12지지=30° 구간(子 정북 345°~15° 중심). 북동·남동·남서·북서는 두 칸 사이의 "
+        "선(45°·135°·225°·315°)이라 나침반 각도로 어느 칸인지 확인한다."
+    )
     return lines
 
 
@@ -350,7 +425,7 @@ def format_sinsal_direction_lines(block: SinsalDirectionBlock | None) -> list[st
         for i, p in enumerate(rec.picks):
             head = (
                 f"  · [{VERDICT_KO[p.verdict]}] {p.absolute_direction}쪽 {p.branch} "
-                f"{sinsal_label(p.sinsal)}"
+                f"{sinsal_label(p.sinsal)} [{branch_compass_label(p.branch)}]"
             )
             # 1순위만 행동 문장을 붙이고 나머지는 후보로만 나열(토큰 절약·반복 차단).
             lines.append(f"{head} — {p.action}" if i == 0 else head)
@@ -362,10 +437,13 @@ def format_sinsal_direction_lines(block: SinsalDirectionBlock | None) -> list[st
                 else f"{c.absolute_direction}쪽 "
             )
             lines.append(
-                f"  · [{VERDICT_KO[c.verdict]}] {where}{c.branch} {c.sinsal} — {c.action}"
+                f"  · [{VERDICT_KO[c.verdict]}] {where}{c.branch} {c.sinsal} "
+                f"[{branch_compass_label(c.branch)}] — {c.action}"
             )
             if c.verdict_evidence:
                 lines.append("    근거: " + " / ".join(c.verdict_evidence))
+    if block.asked_direction_ko is not None:
+        lines += _format_asked_lines(block)
     if not block.proactive:
         # 수동 방향 질문 — 상황별 조언 재료(목적 전체 한 줄표, docs/19 §6-2). 되묻지 않는다.
         lines += format_purpose_table_lines(block.profile)
@@ -378,12 +456,91 @@ def format_sinsal_direction_lines(block: SinsalDirectionBlock | None) -> list[st
     return lines
 
 
+def _format_asked_lines(block: SinsalDirectionBlock) -> list[str]:
+    """◆ 질문한 방향 — 정방은 정중앙 칸 대표+양옆 '…로 틀면', 간방은 양쪽 칸 판정+틀 방향 권고,
+    16방위는 한 칸. '경계'·'두 지지에 걸친다' 대신 16방위 이름과 각도로 쓴다(2026-09-21 승인)."""
+    spec = _ASKED_DIRECTIONS.get(block.asked_code or "")
+    if spec is None:
+        return []
+    ko, deg, kind, _branches = spec
+    head = f"◆ 질문한 방향 '{ko}쪽'({_fmt_deg(deg)})"
+    if not block.recommendations:
+        return [head + " — 목적 미지정: 위 4방 방향판에서 그 방향의 칸으로 답할 것"]
+    rec = block.recommendations[0]
+    lines = [head + f" — 목적 '{rec.purpose_ko}' 기준 칸별 판정"]
+
+    def _row(p: DirectionPick, prefix: str) -> str:
+        return (
+            f"  · {prefix}{p.branch} {sinsal_label(p.sinsal)} [{branch_compass_label(p.branch)}] "
+            f"[{VERDICT_KO[p.verdict]}] — {p.action}"
+        )
+
+    secs = block.asked_sectors
+    if kind == "sixteen":
+        lines.append(_row(secs[0], ""))
+    elif kind == "cardinal":
+        center, left, right = secs[0], secs[1], secs[2]
+        cardinal_ch = BRANCH_COMPASS[center.branch][0][-1]  # 정북→북, 정동→동
+
+        def _tilt(side: DirectionPick) -> str:
+            """양옆 칸의 16방위 이름에서 정방 글자를 뺀 쪽 — 북북서→서, 동북동→북, 동남동→남."""
+            return next(ch for ch in BRANCH_COMPASS[side.branch][0] if ch != cardinal_ch)
+
+        lines.append(_row(center, "정중앙(대표) "))
+        for side in (left, right):
+            lines.append(_row(side, f"{_tilt(side)}쪽으로 살짝 틀면 "))
+        best = max(secs, key=lambda x: _VERDICT_RANK[x.verdict])
+        if _VERDICT_RANK[best.verdict] > _VERDICT_RANK[center.verdict]:
+            tilt = _tilt(best)
+            lines.append(
+                f"  권고: 정중앙보다 {tilt}쪽으로 살짝 틀어 {branch_compass_label(best.branch)}"
+                f"({best.branch} {best.sinsal})에 맞추는 편이 낫다"
+            )
+        else:
+            lines.append(f"  권고: 정중앙({branch_compass_label(center.branch)}) 그대로")
+    else:  # inter — 두 칸 사이의 선
+        a, b = secs[0], secs[1]
+        for side in (a, b):
+            tilt = BRANCH_COMPASS[side.branch][0][0]  # 북북동→북, 동북동→동
+            lines.append(_row(side, f"{tilt}쪽으로 틀면 "))
+        ra, rb = _VERDICT_RANK[a.verdict], _VERDICT_RANK[b.verdict]
+        if ra == rb:
+            lines.append(f"  권고: 두 칸의 판정이 같다 — {ko}쪽 어느 쪽이든 동일")
+        else:
+            best = a if ra > rb else b
+            tilt = BRANCH_COMPASS[best.branch][0][0]
+            lines.append(
+                f"  권고: {ko}쪽 정중앙({_fmt_deg(deg)})은 두 칸 사이의 선이므로 {tilt}쪽으로 틀어 "
+                f"{branch_compass_label(best.branch)}({best.branch} {best.sinsal})에 두는 편이 낫다"
+            )
+    for p in secs:
+        if p.verdict_evidence:
+            lines.append(f"    근거({p.branch}): " + " / ".join(p.verdict_evidence))
+    if rec.picks:
+        best = rec.picks[0]
+        lines.append(
+            f"  → 기본 방향 {best.absolute_direction}쪽 {best.branch} {best.sinsal}"
+            f"[{branch_compass_label(best.branch)}][{VERDICT_KO[best.verdict]}]과 비교해 답할 것"
+        )
+    return lines
+
+
+def _side_compass(side: str) -> str:
+    """'辰 화개살' → '辰 동남동 105°~135°'(랜드마크 간방 확인 문구용)."""
+    b = side.split()[0]
+    return f"{b} {branch_compass_label(b)}"
+
+
 def format_landmark_line(lm: LandmarkNote) -> str:
     """랜드마크(거실 주 창) 프롬프트 줄 — 채팅·리포트 공용(문구 단일 원천)."""
     return (
         f"랜드마크(프로필 거실 주 창={lm.facing_ko}): 창 쪽={', '.join(lm.window_side)} / "
         f"창을 등진 쪽={', '.join(lm.opposite_side)}"
-        + (" — 간방이라 두 지지에 걸치므로 나침반 앱으로 확인을 권할 것." if lm.ambiguous else "")
+        + (
+            f" — {lm.facing_ko}은 두 칸 사이의 선이라 나침반 각도로 어느 칸인지 확인을 권할 것"
+            f"({' / '.join(_side_compass(x) for x in lm.window_side)})."
+            if lm.ambiguous else ""
+        )
         + " 거실 창 기준이므로 침실·서재는 방 창 방향을 따로 확인하라고 안내할 것."
     )
 
@@ -407,7 +564,7 @@ def format_purpose_table_lines(
         mode = USAGE_MODE_KO[rec.usage_mode].split("(")[0]
         line = (
             f"- {entry.name_ko}({mode}): {first.absolute_direction}쪽 {first.branch} "
-            f"{sinsal_label(first.sinsal)}"
+            f"{sinsal_label(first.sinsal)}[{branch_compass_label(first.branch)}]"
         )
         if rest:
             line += f" [보조: {rest}]"
@@ -425,8 +582,10 @@ SINSAL_DIRECTION_INSTRUCTION = (
     "안내할 것. ③같은 4방 안에서도 신살마다 쓰임이 다르니 지지 단위까지 짚을 것(예: 서쪽 중 "
     "酉가 년살). ④용신 오행 방위(색·방향 개운)와 합산하지 말고, 둘 다 있으면 '오행 보완 방향'과 "
     "'활용 방향'으로 질문을 분리해 병기할 것. ⑤'활용해 볼 수 있다'·'연결해 해석한다' 톤 — "
-    "'이 방향이면 합격/성공/결혼' 류 단정 금지. ⑥각도·도수를 지어내지 말 것. 나침반 확인은 "
-    "권고로만. ⑦기준점(방 중심/본인 자리)을 한 줄로 밝히고, 랜드마크(창 쪽)가 있으면 그것으로 "
+    "'이 방향이면 합격/성공/결혼' 류 단정 금지. ⑥각도는 위에 표기된 16방위 이름·구간(예: 북북동 "
+    "15°~45°)만 그대로 인용하고 다른 도수를 지어내지 말 것 — 나침반 앱의 각도로 확인하라고 안내. "
+    "'경계'·'두 지지에 걸친다'는 말 대신 '북쪽으로 살짝 틀면 북북동(丑)'처럼 틀 방향으로 쓸 것. "
+    "⑦기준점(방 중심/본인 자리)을 한 줄로 밝히고, 랜드마크(창 쪽)가 있으면 그것으로 "
     "행동을 구체화할 것. ⑧답 순서(방향을 직접 물은 질문): 먼저 질문 목적의 [적극 활용]·[잘 맞음] "
     "방향을 기본 방향으로 한 문단 → 이어서 [목적별 활용 방향] 표에서 사용자 상황(대화 주제·직업·"
     "생활)에 가까운 목적 3~4개를 골라 '○○이 중요하다면'으로 짧게 — 각 목적의 사용 방식 그대로"
@@ -449,6 +608,18 @@ DIRECTION_ANSWER_DIRECTIVE = (
     "③피할 방향 — [주의(목적 충돌)]·[강한 회피] 전부를 '그 목적으로는 … 피하는 편이 좋다'로 "
     "④민속 고지 — [민속 흉방] 재료가 있으면 '민속에서는 ○쪽은 …한 이유로 피하는 방향으로 본다'는 "
     "한 문장(이사·증축 등 큰 공간 변동에 한함을 함께). 원국 기질은 방향 선택의 이유로 한두 문장만."
+)
+
+
+ASKED_DIRECTION_DIRECTIVE = (
+    "[질문한 방향 답 — 최우선] 사용자가 특정 방향을 지목해 물었다. 답의 첫 문단은 **같은 목적**"
+    "(직전 질문의 목적, 위 '◆ 질문한 방향' 줄의 목적)으로 그 방향의 지지별 판정을 그대로 옮긴다 — "
+    "적극 활용/잘 맞음이면 가능, 중립이면 '무난하지만 우선 방향은 아니다', 주의/강한 회피면 그 "
+    "목적에는 피하는 편. 정방(북·동·남·서)은 정중앙 칸을 대표로 답하고 양옆 칸은 '…쪽으로 살짝 "
+    "틀면'으로, 간방(북동 등)은 두 칸의 판정과 '권고' 줄의 틀 방향을 그대로, 16방위(북북서 "
+    "등)는 그 한 칸으로 — 각도는 표기된 구간만 인용. 이어서 기본 방향과 한두 문장으로 비교한다. "
+    "그 방향이 다른 목적(공부·영업 등)에 "
+    "좋다는 말로 목적을 바꿔 답하지 말 것 — 필요하면 마지막에 한 문장으로만 덧붙인다."
 )
 
 

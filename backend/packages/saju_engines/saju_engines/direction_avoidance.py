@@ -157,6 +157,12 @@ def annotate_avoidance(
     if ctx is None:
         return block
     block.avoidance_basis = [ctx.basis_line()]
+    if block.asked_sectors and block.recommendations:
+        domain0 = dic.purpose(block.recommendations[0].purpose).domain
+        for a in block.asked_sectors:
+            ev = _overlap_evidence(ctx, a, domain0)
+            a.verdict = decide_verdict(a.grade, len(ev))  # type: ignore[assignment]
+            a.verdict_evidence = ev if a.verdict == "STRONG_AVOID" else []
     for rec in block.recommendations:
         domain = dic.purpose(rec.purpose).domain
         for c in rec.cautions:

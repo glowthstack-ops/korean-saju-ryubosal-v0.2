@@ -366,6 +366,38 @@ def _direction_purpose_domain(purpose: str) -> Domain:
     return Domain.GENERAL
 
 
+# 방향 지목 어휘 → 8방위 코드. 간방은 두 표기(남동/동남) 모두. '남쪽은 어때?'·'동쪽으로 두면?' 등
+# 직전 방향 질문의 후속에서 특정 방향을 판정해 달라는 신호(docs/19 §6-7, 2026-09-21 실로그).
+# 16방위(북북동 등)는 '쪽' 없이도 방향 지목으로 본다(고유 어휘). 2·1글자는 쪽/방향/방위 동반 필수.
+_ASKED_DIRECTION_RE = re.compile(
+    r"(?P<d3>북북동|동북동|동남동|남남동|남남서|서남서|서북서|북북서)\s*(?:쪽|방향|방위)?"
+    r"|(?P<d2>남동|동남|남서|서남|북동|동북|북서|서북)\s*(?:쪽|방향|방위)?"
+    r"|(?P<d1>동|서|남|북)\s*(?:쪽|방향|방위)"
+)
+_ASKED_DIRECTION_CODE: dict[str, str] = {
+    "북북동": "NNE", "동북동": "ENE", "동남동": "ESE", "남남동": "SSE",
+    "남남서": "SSW", "서남서": "WSW", "서북서": "WNW", "북북서": "NNW",
+    "남동": "SE", "동남": "SE", "남서": "SW", "서남": "SW", "북동": "NE", "동북": "NE",
+    "북서": "NW", "서북": "NW", "동": "E", "서": "W", "남": "S", "북": "N",
+}
+_ASKED_DIRECTION_ASK_RE = re.compile(
+    r"어때|어떨|어떤가|괜찮|좋을까|좋아|좋은가|나쁘|안\s*좋|되나|될까|두면|향하면|보면|하면"
+    r"|(?:은|는|이|가|으로|로)\s*\??\s*$"
+)
+
+
+def detect_asked_direction(text: str) -> str | None:
+    """특정 방향을 지목해 묻는 발화면 8방위 코드, 아니면 None.
+
+    '남동쪽으로 이사한다면 어떤 날'처럼 방향이 조건으로만 쓰인 택일 문장도 코드는 잡되, 방향
+    판정 질문으로의 승격(direction_question)은 호출자가 query_type 으로 결정한다.
+    """
+    m = _ASKED_DIRECTION_RE.search(text)
+    if m is None or not _ASKED_DIRECTION_ASK_RE.search(text):
+        return None
+    return _ASKED_DIRECTION_CODE[m.group("d3") or m.group("d2") or m.group("d1")]
+
+
 def is_direction_question(text: str) -> bool:
     """방향 표지(공간 단서 + 방향·방위·쪽)가 있는 질문인가 — 목적 감지와 무관한 표지 판정.
 
@@ -1240,6 +1272,14 @@ def parse_message(
             # 방향판으로 답한다(docs/19 §6-1). Q10 으로 잡되 도메인은 승계하지 않는다.
             _last.direction_question = True
             if _last.query_type not in _DIRECTION_KEEP_QUERY_TYPES:
+                _last.query_type = QueryType.REMEDY
+        # 특정 방향 지목('남쪽은 어때?') — 택일·비교 등 유지 유형이 아니면 방향 판정 질문으로.
+        # 목적은 대화 계층이 직전 방향 질문에서 잇는다(없으면 방향판 전체로 답).
+        _asked = detect_asked_direction(piece)
+        if _asked is not None:
+            _last.direction_asked = _asked
+            if _last.query_type not in _DIRECTION_KEEP_QUERY_TYPES:
+                _last.direction_question = True
                 _last.query_type = QueryType.REMEDY
         # 육친 운 — 원국 육친 축 질문. 관계어가 대상으로 잡혔어도 미해소면 본인 명식으로 본다
         # (등록 동반자 해소는 스레드 엔진이 subjects를 덮어쓴다).
