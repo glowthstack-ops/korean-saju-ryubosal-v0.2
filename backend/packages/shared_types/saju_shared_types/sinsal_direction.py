@@ -441,3 +441,27 @@ class SinsalDirectionBlock(BaseModel):
     asked_direction_ko: str | None = None
     asked_code: str | None = None  # 16방위 코드(N/NNE/NE/…) — 정방·간방·16방위 표현 분기용
     asked_sectors: list[DirectionPick] = Field(default_factory=list)
+
+
+class YongsinDirectionEntry(BaseModel):
+    """용희기구한 역할 1개의 오행 보완 방위 줄 — `calendar/direction_rules.json` 8방위 사전 기준."""
+
+    role: str  # 용신/희신/한신/기신/구신
+    element: str  # 오행(한자)
+    directions: list[str] = Field(default_factory=list)  # 8방위 한글('동','남동' …)
+    tone: str  # 보완 방향·우선 / 보완 방향·보조 / 무난 / 보완 효과 없음
+
+
+class YongsinDirectionNote(BaseModel):
+    """오행 보완 방향 첨언 블록(2026-09-22 데굴님 승인) — 12신살 활용 방향과 **별개 층**.
+
+    수동 방향 질문(사용자가 직접 방향을 물은 턴)에만 실리며, 12신살 판정과 합산·상쇄하지 않는다
+    (docs/18 §1-5 분리 병기). 기신·구신 방위는 '피함'이 아니라 '보완 효과 없음·삼가'로 완화한다 —
+    12신살의 '주의(목적 충돌)'와 회피 목록이 둘이 되지 않게 한다. 서술 전용(점수·판정 불변).
+    """
+
+    entries: list[YongsinDirectionEntry] = Field(default_factory=list)
+    source: Literal["engine", "confirmed"] = "engine"  # confirmed = 사용자 확정 용신 기준
+    # 질문한 방향('남쪽은 어때?')의 오행·역할 — 8방위는 1개, 16방위 중간(북북동 등)은 인접 2개.
+    asked_direction_ko: str | None = None
+    asked_entries: list[YongsinDirectionEntry] = Field(default_factory=list)

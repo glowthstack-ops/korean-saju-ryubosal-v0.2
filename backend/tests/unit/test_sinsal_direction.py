@@ -935,3 +935,126 @@ def test_compass_labels_are_thirty_degree_sectors(chart) -> None:
     assert "숙면(잠잘 때 머리 방향): 북쪽 丑 반안살(攀鞍殺)[북북동 15°~45°]" in text
     assert "남동은 두 칸 사이의 선이라 나침반 각도로 어느 칸인지 확인을 권할 것" in text
     assert "두 지지에 걸치" not in text and "지어내지 말 것 — 나침반 앱" in text
+
+
+# ── ⑭ 오행 보완 방향 첨언(용희기구한 길방) — 2026-09-22 데굴님 승인 ──────────────
+
+_FAV_TEST = {"土": "용신", "火": "희신", "木": "기신", "水": "구신", "金": "한신"}
+_SLEEP_Q = "잘 때 머리를 어느 쪽으로 두면 좋을까"
+_SUPPLEMENT_HEAD = (
+    "[오행 보완 방향 — 용희기구한 기준(첨언, 12신살 활용 방향과 별개 · 엔진 도출 용신)]"
+)
+
+
+def test_yongsin_direction_note_roles_and_tone() -> None:
+    """역할별 8방위(direction_rules.json)와 완화 톤 — 기신·구신에 '피함' 어휘를 쓰지 않는다."""
+    from saju_engines.yongsin_direction import (
+        build_yongsin_direction_note,
+        format_yongsin_direction_lines,
+    )
+
+    note = build_yongsin_direction_note(_FAV_TEST, "NNE")
+    assert note is not None
+    assert [e.role for e in note.entries] == ["용신", "희신", "한신", "기신", "구신"]
+    assert note.entries[0].directions == ["남서", "북동"]
+    assert note.entries[4].directions == ["북"]
+    lines = "\n".join(format_yongsin_direction_lines(note))
+    assert "- 용신 土 → 남서·북동 (보완 방향·우선)" in lines
+    assert "- 구신 水 → 북 (보완 효과 없음 — 오래 머무는 자리로는 삼가)" in lines
+    # 16방위 중간(북북동)은 인접 8방위 2개(북 水·북동 土)의 오행·역할을 함께 짚는다.
+    assert "- 질문한 방향 '북북동' = 인접 8방위 기준 북 水(구신)" in lines
+    assert "북동 土(용신)" in lines
+    assert "피함" not in lines and "흉방" not in lines
+    assert build_yongsin_direction_note({}) is None  # 용신 미도출 = 무소음
+    assert build_yongsin_direction_note(_FAV_TEST, confirmed=True).source == "confirmed"
+
+
+def test_manual_direction_prompt_carries_element_supplement(chart) -> None:
+    """수동 방향 질문: 12신살 블록 뒤에 오행 보완 첨언 + 지침 + 답 구성 ④. 이 명식은 土 용신."""
+    from saju_engines.yongsin_direction import YONGSIN_DIRECTION_INSTRUCTION
+
+    intent = parse_message(_SLEEP_Q, _TODAY).intents[0]
+    payload = build_llm_input(_SLEEP_Q, intent, chart, [], [], cs._get_scorer(), today=_TODAY)
+    assert payload.yongsin_direction is not None
+    assert payload.yongsin_direction.source == "engine"
+    text = serialize_llm_input(payload)
+    assert _SUPPLEMENT_HEAD in text
+    assert "- 용신 土 → 남서·북동 (보완 방향·우선)" in text
+    assert "- 희신 火 → 남 (보완 방향·보조)" in text
+    i_sinsal = text.index("[방위 활용 — 12신살")
+    i_elem = text.index("[오행 보완 방향")
+    i_folk = text.index("[민속 흉방 고지")
+    assert i_sinsal < i_elem < i_folk
+    assert YONGSIN_DIRECTION_INSTRUCTION in text and "④오행 보완 첨언" in text
+    # 사용자 확정 용신 override — 그 역할맵으로 바뀌고 출처가 '사용자 확정 용신'.
+    confirmed = {"水": "용신", "金": "희신", "土": "기신", "火": "구신", "木": "한신"}
+    payload2 = build_llm_input(
+        _SLEEP_Q, intent, chart, [], [], cs._get_scorer(), today=_TODAY,
+        favorability=confirmed, favorability_confirmed=True,
+    )
+    text2 = serialize_llm_input(payload2)
+    assert "· 사용자 확정 용신)]" in text2
+    assert "- 용신 水 → 북 (보완 방향·우선)" in text2
+
+
+def test_element_supplement_only_on_manual_direction_turns(chart) -> None:
+    """능동 제안 턴·이사 방향(자체 8방위 적합도 보유)에는 첨언을 싣지 않는다."""
+    q = "올해 시험 운은 어때?"
+    intent = parse_message(q, _TODAY).intents[0]
+    payload = build_llm_input(q, intent, chart, [], [], cs._get_scorer(), today=_TODAY)
+    assert payload.sinsal_direction is not None and payload.sinsal_direction.proactive
+    assert payload.yongsin_direction is None
+    q2 = "이사는 어느 방향으로 가면 좋을까"
+    intent2 = parse_message(q2, _TODAY).intents[0]
+    assert intent2.direction_purpose == "relocation"
+    payload2 = build_llm_input(q2, intent2, chart, [], [], cs._get_scorer(), today=_TODAY)
+    assert payload2.yongsin_direction is None
+    preview = cs.chat(_BIRTH, q2, _TODAY, dry_run=True).prompt_preview or ""
+    assert "[오행 보완 방향 — " not in preview  # 계약 ④ 문구(조건부)는 남고 블록만 없다
+
+
+def test_asked_direction_followup_adds_element_role_line(chart) -> None:
+    """'남쪽은 어때?' 후속 — 질문한 방향의 오행·역할(남=火 희신) 줄이 첨언에 붙는다."""
+    from saju_engines.conversation import ConversationEngine
+    from saju_shared_types.conversation import ConversationState
+
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="ask-el", turn_no=0)
+    _p, state, _r, _l = eng.process_turn(state, "잠잘때 좋은 방향을 추천해줘", _TODAY)
+    parsed, state, _r, _l = eng.process_turn(state, "남쪽은 어때?", _TODAY)
+    it = parsed.intents[0]
+    assert it.direction_asked == "S"
+    text = serialize_llm_input(build_llm_input(
+        "남쪽은 어때?", it, chart, [], [], cs._get_scorer(), today=_TODAY,
+    ))
+    assert "- 질문한 방향 '남' = 남 火(희신) — 보완 방향·보조" in text
+
+
+def test_element_supplement_survives_token_trim(chart) -> None:
+    """토큰 초과 시 능동 블록·삼재는 잘려도 수동 방향 질문의 첨언은 유지된다(답의 재료)."""
+    from saju_engines.context_reducer import serialize_with_guard
+    from saju_engines.llm_guard import CALL_LIMITS
+
+    intent = parse_message(_SLEEP_Q, _TODAY).intents[0]
+    payload = build_llm_input(_SLEEP_Q, intent, chart, [], [], cs._get_scorer(), today=_TODAY)
+    base_tokens = serialize_with_guard(payload, "chat_single")[1]
+    reserve = max(0, CALL_LIMITS["chat_single"].max_input_tokens - base_tokens + 50)
+    text, _n = serialize_with_guard(payload, "chat_single", reserve_tokens=reserve)
+    assert "[오행 보완 방향" in text and "[방위 활용" in text
+
+
+def test_ilju_summary_rule_is_chat_wide_and_referenced_by_direction_directive(chart) -> None:
+    """일주 요약 규칙(2026-09-22): 채팅 전체 공통 지시문 + 방향 답 계약은 그 규칙을 가리킨다."""
+    from saju_engines.context_reducer import _ILJU_SUMMARY_INSTRUCTION
+    from saju_engines.sinsal_direction import DIRECTION_ANSWER_DIRECTIVE
+
+    assert "'밝은 면'·'그림자' 구절 중" in _ILJU_SUMMARY_INSTRUCTION
+    assert "narrative 문단의 재서술" in _ILJU_SUMMARY_INSTRUCTION
+    assert "[일주 요약 규칙]" in DIRECTION_ANSWER_DIRECTIVE
+    for q in (_SLEEP_Q, "올해 이직 운은 어때?"):  # 방향 질문·일반 질문 모두
+        intent = parse_message(q, _TODAY).intents[0]
+        text = serialize_llm_input(
+            build_llm_input(q, intent, chart, [], [], cs._get_scorer(), today=_TODAY)
+        )
+        assert _ILJU_SUMMARY_INSTRUCTION in text, q
+        assert "밝은 면: " in text and "그림자: " in text  # 요약 재료(사전 traits)가 함께 실린다

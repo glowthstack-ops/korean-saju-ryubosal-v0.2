@@ -5008,6 +5008,10 @@ def chat(
         profile_facts=_profile_facts,
         # 12신살 방위 랜드마크(docs/18 P2) — 거실 주 창 방향(부재=None, 기능 차단 없음).
         living_room_facing=_living_room_facing,
+        # 오행 보완 방향 첨언(2026-09-22) — 사용자 확정 용신이 있으면 그 역할맵으로, 없으면
+        # 엔진 도출(favorability_map)로 폴백. 수동 방향 질문에만 실린다.
+        favorability=_fav_override,
+        favorability_confirmed=_fav_override is not None,
         overview_mode=_overview_mode,
         # P2-3a — 축소 전에 후보 범위를 산출한다. 플래그 OFF 동안 선별·출력 불변.
         process_context=_process_context,

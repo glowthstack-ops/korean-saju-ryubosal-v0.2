@@ -120,6 +120,11 @@ from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_mo
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
 from .structural_context import TONE_LAYER_DIRECTIVE
 from .structure_patterns import detect_structure_patterns, select_llm_patterns
+from .yongsin_direction import (
+    YONGSIN_DIRECTION_INSTRUCTION,
+    build_yongsin_direction_note,
+    format_yongsin_direction_lines,
+)
 
 TOP_N_CANDIDATES = 5  # 기본 Top N (docs/03 B5 — 3~5)
 SCORE_FLOOR = 40  # docs/06 톤 표: <40은 언급 생략 구간 → LLM 미전달
@@ -263,6 +268,18 @@ _MEANING_INSTRUCTION = (
     "지금 들어온 글자와 어떤 관계를 맺어 이런 신호가 되는가'의 이야기로 풍부하게 서술할 "
     "것 — 점수와 간지를 낭독만 하지 말 것. 단, 간지·점수·합충 성립 판정의 재계산·변경은 "
     "여전히 금지."
+)
+# 일주 요약 계약(2026-09-22 데굴님 결정, 채팅 전체) — 일주를 성향 근거로 인용할 때 사전 narrative
+# (물상 서사)를 재서술하지 않고 traits('밝은 면/그림자') 구절 1개를 쉬운 말 한 문장으로 요약한다.
+# 실답 결함: 방향 답의 기질 문장이 '정원사·강물' 서사 재서술과 사전에 없는 성향('깊은 고민')
+# 추정으로 답마다 흔들렸다. 구절 후보는 사전 6구절로 한정(우선 안정성 — 데굴님 결정 b).
+_ILJU_SUMMARY_INSTRUCTION = (
+    "[일주 요약 규칙] 일주(日柱)를 성향·기질의 근거로 인용할 때는 [명식 해석 자료]의 일주 "
+    "'밝은 면'·'그림자' 구절 중 질문 주제와 맞는 **1개만** 골라 '○○님의 己亥(기해) 일주는 "
+    "…하기 쉬운 구조입니다'처럼 쉬운 말 한 문장으로 요약하고, 바로 다음 문장에서 답의 본론"
+    "(방향·시기·행동)으로 연결할 것. 물상·비유(정원사·강물 등)와 narrative 문단의 재서술, "
+    "성격 여러 개 나열, 사전에 없는 성향(예: '깊은 고민에 빠지기 쉬운') 추정은 금지. 일주 간지는 "
+    "[원국·명식 구조] 값 그대로 한자(한글) 병기."
 )
 # regression_2025_08 — 단일 합·십성으로 사건명 재해석 금지(동반 신호 매트릭스가 결정).
 _MATRIX_INSTRUCTION = (
@@ -1900,6 +1917,8 @@ def build_llm_input(
     process_scope_audit: dict | None = None,
     audit_context=None,
     living_room_facing: str | None = None,
+    favorability: dict[str, str] | None = None,
+    favorability_confirmed: bool = False,
 ) -> LlmInput:
     """축소 → 계약 조립 (T3.4+T3.5). 모든 수치는 입력 시점에 확정 완료.
 
@@ -1919,6 +1938,9 @@ def build_llm_input(
         비워 두면 계산 결과가 로그에만 남는다.
     audit_context: `DualRunAuditContext`. 주면 dual-run 결과를 redacted JSONL로
         적재한다. 질문 원문·프로필은 받지 않으며 식별자는 HMAC으로 치환된다.
+    favorability: 용희기구한 {오행: 역할} — 사용자 확정 용신 override(있을 때만). None 이면
+        `favorability_map(result)`(엔진 도출)로 폴백. 오행 보완 방향 첨언(수동 방향 질문)에만 쓴다.
+    favorability_confirmed: favorability 가 사용자 확정 용신 기준인지(첨언 출처 표기용).
     """
     graph_scope = [k for k in [intent.event_key, *intent.event_keys] if k is not None]
     # 다중 도메인 질문(예: '이직, 이사')은 secondary 도메인의 대표 이벤트도 후보 범위에 포함한다
@@ -2163,6 +2185,21 @@ def build_llm_input(
     )
 
     _folk_lines = _folk_taboo_lines(intent, user_question, today)
+    # 오행 보완 방향 첨언(2026-09-22 데굴님 승인) — 사용자가 직접 방향을 물은 턴(수동 블록)에만.
+    # 12신살 활용 방향과 별개 층(docs/18 §1-5 분리 병기), 합산 금지. 능동·택일·이사 경로 미노출.
+    _yongsin_direction = (
+        build_yongsin_direction_note(
+            favorability if favorability is not None else favorability_map(result),
+            intent.direction_asked, confirmed=favorability_confirmed,
+        )
+        if _sinsal_direction is not None and not _sinsal_direction.proactive
+        # 이사 방향은 택일 경로가 용희기구한 8방위 적합도(direction_fit)를 이미 싣는다 — 같은 답에
+        # 오행 방위 결론이 둘이 되지 않게 제외(택일·이사 미변경 원칙).
+        and date_selection is None
+        and intent.direction_purpose != "relocation"
+        and intent.domain is not Domain.RELOCATION
+        else None
+    )
 
     payload = LlmInput(
         user_question=user_question,
@@ -2197,6 +2234,7 @@ def build_llm_input(
         sinsal_direction=_sinsal_direction,
         samjae_context=_samjae_lines,
         folk_taboo_context=_folk_lines,
+        yongsin_direction=_yongsin_direction,
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
         monthly_overview=monthly_overview or [],
@@ -3061,6 +3099,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
     lines += format_direction_suggestion_lines(payload.direction_suggestions)
     # 12신살 방위 활용·삼재(docs/18) — 대상별 프로필이라 동적 suffix 전용. 비었으면 무헤더.
     lines += format_sinsal_direction_lines(payload.sinsal_direction)
+    # 오행 보완 방향 첨언 — 12신살 블록 바로 뒤(별개 층, 수동 방향 질문 전용).
+    lines += format_yongsin_direction_lines(payload.yongsin_direction)
     lines += payload.samjae_context
     lines += payload.folk_taboo_context
     if payload.evidence:  # 근거 경로 — 후보·증거 있을 때만(구조 질문 등 빈 헤더 방지).
@@ -3092,6 +3132,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
     lines.append(payload.style_rules.llm_instruction)
     if payload.chart_interpretation is not None:
         lines.append(_MEANING_INSTRUCTION)
+        lines.append(_ILJU_SUMMARY_INSTRUCTION)
         lines.append(_AUXILIARY_INSTRUCTION)
         lines.append(_SINSAL_POSITION_INSTRUCTION)
         lines.append(_ORIGIN_INSTRUCTION)
@@ -3111,6 +3152,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
             lines.append(DIRECTION_ANSWER_DIRECTIVE)
         if payload.sinsal_direction.asked_direction_ko is not None:
             lines.append(ASKED_DIRECTION_DIRECTIVE)
+    if payload.yongsin_direction is not None:
+        lines.append(YONGSIN_DIRECTION_INSTRUCTION)
     if payload.samjae_context:
         lines.append(SAMJAE_INSTRUCTION)
     if payload.folk_taboo_context:
