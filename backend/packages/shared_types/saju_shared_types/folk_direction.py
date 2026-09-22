@@ -25,8 +25,14 @@ TabooBasis = Literal[
     "annual_trine", "annual_directional", "annual_branch", "annual_clash", "lunar_day"
 ]
 
-#: 민속 흉방 등급 2단계 — 연간 흉방 2종 이상 중첩이면 강한 주의.
+#: 민속 흉방 등급 2단계 — 이사 판정층(MOVE) 흉방 2종 이상 중첩이면 강한 주의.
 FolkGrade = Literal["FOLK_TABOO", "STRONG_FOLK_TABOO"]
+
+#: 계층(2026-09-22 데굴님 승인, 검색 근거 docs/19 §5-4)
+#: - MOVE = 이사·이동 판정(삼살·대장군·손방, 한국 실무 3종)
+#: - GROUND = 동토·좌향 참고(태세·세파) — 이사 판정에 넣지 않고 건축·터파기·집 좌향 질문에만
+#:   한 문장.
+TabooTier = Literal["MOVE", "GROUND"]
 
 
 class FolkTabooEntry(BaseModel):
@@ -42,6 +48,10 @@ class FolkTabooEntry(BaseModel):
     character_ko: str
     avoid_actions: list[str] = Field(min_length=1)
     importance: Literal["very_high", "high", "optional"]
+    tier: TabooTier  # MOVE(이사 판정) / GROUND(동토·좌향 참고)
+    # 좌향 완화 문구("三煞可向不可坐"·"太歲可坐不可向") — 답에 그대로 병기해 강도를 낮춘다.
+    # 없으면 빈 문자열.
+    mitigation_ko: str = ""
 
     @model_validator(mode="after")
     def _table_matches_basis(self) -> FolkTabooEntry:
@@ -67,8 +77,12 @@ class FolkTabooDict(BaseModel):
     notes: list[str] = Field(default_factory=list)
     phrase_template: str  # {direction}·{reasons}·{names} 치환
     scope_note: str
+    # 원거리 고지(2026-09-22) — 전통 문헌: 120보 이내 근거리 이사만 방위를 가린다.
+    # 이사 전체 블록에 한 줄.
+    distance_note: str
     applies_actions: list[str] = Field(min_length=1)
     grades: dict[FolkGrade | str, str]
+    tiers: dict[TabooTier | str, str] = Field(default_factory=dict)  # 계층 라벨(표시용)
     taboos: list[FolkTabooEntry] = Field(min_length=5, max_length=5)
     excluded: list[str] = Field(default_factory=list)
     forbidden_framings: list[str] = Field(default_factory=list)
@@ -97,15 +111,19 @@ class FolkTabooHit(BaseModel):
     reason_ko: str
     period: Literal["year", "year3", "day"]
     basis_ko: str  # '2026 丙午년' / '음력 8월 11일'
+    tier: TabooTier = "MOVE"
+    mitigation_ko: str = ""
+    span_ko: str = ""  # 대장군방 3년 고정 구간('2025~2027') — 그 외 빈 문자열
 
 
 class FolkDirectionNote(BaseModel):
     """4방 1칸의 민속 흉방 요약 — 연간 흉방 중첩 등급 + 손방 표시."""
 
     direction: Cardinal4
-    hits: list[FolkTabooHit] = Field(default_factory=list)  # 연간(삼살·대장군·태세·세파)
+    hits: list[FolkTabooHit] = Field(default_factory=list)  # 이사 판정층(MOVE: 삼살·대장군)
+    ground_hits: list[FolkTabooHit] = Field(default_factory=list)  # 참고층(GROUND: 태세·세파)
     son_today: bool = False  # 그날 손방이 이 방향인가
-    grade: FolkGrade = "FOLK_TABOO"
+    grade: FolkGrade = "FOLK_TABOO"  # MOVE 층 중첩으로만 결정(참고층·손방은 안 센다)
 
 
 class FolkTabooSummary(BaseModel):

@@ -378,7 +378,8 @@ export interface SamjaeInfo {
   overlap_label?: string | null; // 대운 겹삼재 · 일지 겹삼재
 }
 
-// 민속 흉방(docs/19 §5) — 그해 지지 기준 삼살·대장군·태세·세파(개인 사주 무관한 공통 금기, 삼재와 별개).
+// 민속 흉방(docs/19 §5) — 그해 지지 기준(개인 사주 무관한 공통 금기, 삼재와 별개).
+// 2026-09-22: 세운 카드 배지는 이사 판정층(MOVE: 삼살·대장군)만 받는다 — 태세·세파는 동토·좌향 참고층.
 export interface FolkTabooHit {
   key: string; // samsal | daejanggun | taese | sepa | son
   name_ko: string;
@@ -387,6 +388,9 @@ export interface FolkTabooHit {
   reason_ko: string;
   period: "year" | "year3" | "day";
   basis_ko: string;
+  tier?: "MOVE" | "GROUND";
+  mitigation_ko?: string; // 좌향 완화 문구(三煞可向不可坐 등)
+  span_ko?: string; // 대장군방 3년 고정 구간('2025~2027')
 }
 
 export interface DaewoonItem {
@@ -432,7 +436,7 @@ export interface LuckPillar {
   solar_term_range?: string | null;
   luck_sinsal?: LuckSinsal[];
   samjae?: SamjaeInfo | null; // 세운(period_type=year)에만 채워진다
-  folk_taboos?: FolkTabooHit[]; // 세운 전용 — 그해 민속 흉방 4종(추가 정보, 점수 무관)
+  folk_taboos?: FolkTabooHit[]; // 세운 전용 — 그해 이사 판정층 흉방(삼살·대장군, 추가 정보, 점수 무관)
 }
 
 export interface LuckCycles {

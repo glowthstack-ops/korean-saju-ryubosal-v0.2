@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Collapsible } from "@/components/layout/Collapsible";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { fetchLuckMonths } from "@/lib/api";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
@@ -520,9 +521,8 @@ export function GeokgukPanel({ result }: { result: ManseResult }) {
         </ul>
       )}
       {candidates.length > 1 && (
-        <details className="mt-1.5 text-xs text-gray-500">
-          <summary className="cursor-pointer">격 후보</summary>
-          <ul className="mt-1 space-y-0.5">
+        <Collapsible title="격 후보" className="mt-2">
+          <ul className="space-y-0.5 text-gray-500">
             {candidates.map((c, i) => (
               <li key={i} className={i === 0 ? "text-gray-700" : ""}>
                 {String(c.name)}<span className="text-gray-400"> · {String(c.source)}</span>
@@ -531,7 +531,7 @@ export function GeokgukPanel({ result }: { result: ManseResult }) {
               </li>
             ))}
           </ul>
-        </details>
+        </Collapsible>
       )}
     </Card>
   );
@@ -761,11 +761,10 @@ export function StructurePanel({ result }: { result: ManseResult }) {
             {diagramItems.map((i, idx) => <InteractionRow key={idx} item={i} pillars={pillars} />)}
           </div>
         )}
-      </section>
-      {/* 구조 항목 전체 텍스트 나열(병존·간여지동·공망 포함) — 기본 접힘. */}
-      <details className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-600">
-        <summary className="cursor-pointer font-semibold text-gray-700">원국 구조 상세</summary>
-        <ul className="mt-1.5 space-y-0.5">
+      {/* 구조 항목 전체 텍스트 나열(병존·간여지동·공망 포함) — 기본 접힘. 카드 하단에 두어
+          격 후보·대운 상세 정리와 위치를 통일(2026-09-22 데굴님 지시). */}
+      <Collapsible title="원국 구조 상세" className="mx-4 mt-3">
+        <ul className="space-y-0.5">
           {allItems.length === 0 && (
             <li className="text-gray-400">합·충·형·파·해·병존 등 특이 항목 없음</li>
           )}
@@ -790,7 +789,8 @@ export function StructurePanel({ result }: { result: ManseResult }) {
             </span>
           </div>
         </div>
-      </details>
+      </Collapsible>
+      </section>
     </div>
   );
 }
@@ -977,6 +977,69 @@ function LuckCol({
   );
 }
 
+// 선택한 세운의 삼재·민속 흉방 상세 — 월운 스트립 하단에 연도와 함께 노출(2026-09-22 데굴님 지시).
+// 배지의 title 툴팁은 마우스 오버 전용이라 모바일에서 볼 수 없었다. 세운 컬럼을 탭(=선택)하는 기존
+// 제스처로 같은 정보를 펼친다. 배지가 없는 해는 렌더하지 않는다(무소음).
+function SelectedYearNote({ pillar }: { pillar: LuckPillar }) {
+  const samjae = pillar.samjae ?? null;
+  const folk = pillar.folk_taboos ?? [];
+  if (!samjae && folk.length === 0) return null;
+  return (
+    <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-[11px] leading-snug text-gray-700">
+      <div className="mb-1 font-semibold text-gray-800">
+        {pillar.label}년 {pillar.stem}{pillar.branch}({ganjiKo(pillar.stem)}{ganjiKo(pillar.branch)})
+        <span className="ml-1 font-normal text-[10px] text-gray-400">선택한 해 상세 정보</span>
+      </div>
+      {samjae && (
+        <div className="mb-1.5">
+          <span className={`mr-1 rounded px-1 text-[10px] font-medium ring-1 ${SAMJAE_QUALITY_STYLE[samjae.quality ?? "none"]}`}>
+            {samjae.label_ko}{samjae.quality_label ? `·${samjae.quality_label}` : ""}
+          </span>
+          <span>{samjae.theme_ko}</span>
+          {samjae.quality_label && (
+            <div className="mt-0.5 text-gray-600">
+              {samjae.quality_label} 성격 우세(강도 {samjae.strength_label ?? "-"})
+              {samjae.overlap_label ? ` · ${samjae.overlap_label}` : ""}
+              {samjae.stage_quality_phrase ? ` · ${samjae.stage_quality_phrase}` : ""}
+            </div>
+          )}
+          {samjae.evidence && samjae.evidence.length > 0 && (
+            <div className="mt-0.5 text-gray-500">
+              근거: {samjae.evidence.map((e) => `${e.note}(${e.effect === "positive" ? "+" : e.effect === "negative" ? "−" : "·"})`).join(" / ")}
+            </div>
+          )}
+          <div className="mt-0.5 text-[10px] text-gray-400">
+            {samjae.basis} · 입춘 기준 세운 · 복=대길 아님, 악=사고 확정 아님(작용 조건의 우세 방향)
+          </div>
+        </div>
+      )}
+      {folk.length > 0 && (
+        <div>
+          <div className="mb-0.5">
+            <span className="mr-1 rounded bg-stone-100 px-1 text-[10px] font-medium text-stone-600 ring-1 ring-stone-200">
+              민속 흉방
+            </span>
+            <span className="text-gray-500">{folk[0]?.basis_ko} · 이사·개업·증축·터파기 등 큰 공간 변동에 한함</span>
+          </div>
+          <ul className="ml-3 list-disc space-y-0.5">
+            {folk.map((h) => (
+              <li key={h.key}>
+                <span className="font-medium">{h.direction}쪽 {h.name_ko}</span>
+                {h.branches.length ? `(${h.branches.join("·")}${h.span_ko ? ` · ${h.span_ko} 고정` : ""})` : ""}
+                {" — "}민속에서는 {h.reason_ko}는 이유로 피하는 방향으로 봅니다.
+                {h.mitigation_ko ? ` 다만 ${h.mitigation_ko}` : ""}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-0.5 text-[10px] text-gray-400">
+            개인 12신살 방향·삼재와 별개 층 · 흉사 확정 아님 · 바라보기·머리·위치·출입구 배치에는 적용하지 않음
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LuckStrip({
   label,
   hint,
@@ -1110,7 +1173,7 @@ export function LuckPanel({
       </LuckStrip>
 
       {sewoon.length > 0 && (
-        <LuckStrip label="세운" hint="선택 시 해당 월운이 표시됩니다">
+        <LuckStrip label="세운" hint="선택 시 해당 월운과 삼재·흉방 상세가 표시됩니다">
           {[...sewoon].reverse().map((y) => (
             <LuckCol key={y.label} topLabel={y.label} stem={y.stem} branch={y.branch}
               stemEl={y.stem_effect?.element} branchEl={y.branch_effect?.element}
@@ -1140,10 +1203,17 @@ export function LuckPanel({
           )}
         </LuckStrip>
       )}
+      {selYear != null && (() => {
+        // 선택한 해의 세운 기둥 — 현재 대운의 세운에서 먼저 찾고, 없으면 대운표 전체에서 찾는다.
+        // 카드는 월운 스트립 하단(2026-09-22 데굴님 지시 — 상단에서 이동).
+        const y =
+          sewoon.find((p) => Number(p.label) === selYear)
+          ?? lc.daewoon_table.flatMap((d) => d.sewoon ?? []).find((p) => Number(p.label) === selYear);
+        return y ? <SelectedYearNote pillar={y} /> : null;
+      })()}
 
-      <details className="mt-4">
-        <summary className="cursor-pointer text-xs font-semibold text-gray-700">대운 상세 정리</summary>
-        <div className="mt-2 overflow-x-auto">
+      <Collapsible title="대운 상세 정리" className="mt-4">
+        <div className="overflow-x-auto">
           <table className="w-full text-center text-[11px]">
             <thead className="text-gray-400">
               <tr className="border-b">
@@ -1193,7 +1263,7 @@ export function LuckPanel({
             <dd className="inline"> — 공망=실속·지연(작동력↓), 충=사건화·변동(트리거↑), 공망충발=비었던 기운이 충 자극으로 사건화(불안정)</dd>
           </div>
         </dl>
-      </details>
+      </Collapsible>
     </Card>
   );
 }

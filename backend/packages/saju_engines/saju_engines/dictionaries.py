@@ -3215,6 +3215,18 @@ def _lint_folk_taboo(file: FolkTabooDict) -> list[str]:
                 errors.append(f"{rel}: {t.key} avoid_actions '{a}' 가 applies_actions 에 없음")
     if not any("무조건" in f or "흉방" in f for f in file.forbidden_framings):
         errors.append(f"{rel}: forbidden_framings 에 절대흉방 문형이 있어야 한다")
+    # 계층(2026-09-22): 태세·세파는 GROUND(이사 판정 제외), 삼살·대장군·손방은 MOVE.
+    # 원거리 고지(120보) 필수.
+    expected_tier = {
+        "samsal": "MOVE", "daejanggun": "MOVE", "son": "MOVE", "taese": "GROUND", "sepa": "GROUND",
+    }
+    for t in file.taboos:
+        if expected_tier.get(t.key) != t.tier:
+            errors.append(f"{rel}: {t.key} tier 는 {expected_tier.get(t.key)} 여야 한다 — {t.tier}")
+        if t.tier == "GROUND" and any(a in ("이사", "이동", "큰 변동") for a in t.avoid_actions):
+            errors.append(f"{rel}: {t.key}(GROUND) avoid_actions 에 이사·이동이 있으면 안 된다")
+    if "120보" not in file.distance_note:
+        errors.append(f"{rel}: distance_note 는 120보 근거리 규칙을 담아야 한다")
     return errors
 
 

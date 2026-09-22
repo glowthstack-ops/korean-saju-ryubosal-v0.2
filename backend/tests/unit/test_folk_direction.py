@@ -4,7 +4,10 @@
 남 태세, 대장군 3년 고정) ②손방 음력 끝자리 규칙 + 손 없는 날 정합(기존 택일 규칙 불변) ③문구가
 사전 템플릿 '민속에서는 ○쪽은 …라는 이유로 피하는 방향' 형식 ④채팅: 이사·공사 질문=전체 블록,
 그 외 방향 질문=고지 한 줄, 방향 무관 질문=무소음 ⑤리포트 F-20b/Y-11b ⑥택일 근거 줄 ⑦세운 카드 부착
-⑧기원 분리(삼살방 표는 12신살 BASE_MAPS 를 참조하지 않음) ⑨스키마·lint.
+⑧기원 분리(삼살방 표는 12신살 BASE_MAPS 를 참조하지 않음) ⑨스키마·lint
+⑩계층(2026-09-22 데굴님 승인): MOVE(삼살·대장군·손방)만 판정·고지·택일 근거·세운 배지,
+GROUND(태세·세파)는 참고 줄, 중첩은 MOVE끼리만(2022 壬寅 북=삼살+대장군), 좌향 완화 문구·원거리
+고지 병기.
 """
 
 from __future__ import annotations
@@ -76,13 +79,23 @@ def test_daejanggun_fixed_for_three_years() -> None:
     assert {annual_folk_taboos(y)[1].direction for y in (2028, 2029, 2030)} == {"남"}
 
 
-def test_2026_north_is_strong_overlap_and_grades() -> None:
+def test_2026_tiers_split_and_overlap_counts_move_only() -> None:
+    """2026: 북=삼살(판정)+세파(참고) → 중첩 아님. 남=태세는 참고층만(판정 없음). 2022 壬寅은
+    북에 삼살+대장군이 겹쳐 STRONG."""
     s = folk_taboo_summary(2026)
     by = {n.direction: n for n in s.notes}
-    assert by["북"].grade == "STRONG_FOLK_TABOO"
-    assert {h.key for h in by["북"].hits} == {"samsal", "sepa"}
-    assert by["동"].grade == "FOLK_TABOO" and by["남"].grade == "FOLK_TABOO"
+    assert by["북"].grade == "FOLK_TABOO"
+    assert [h.key for h in by["북"].hits] == ["samsal"]
+    assert [h.key for h in by["북"].ground_hits] == ["sepa"]
+    assert by["동"].grade == "FOLK_TABOO" and [h.key for h in by["동"].hits] == ["daejanggun"]
+    assert by["동"].hits[0].span_ko == "2025~2027"
+    assert by["남"].hits == [] and [h.key for h in by["남"].ground_hits] == ["taese"]
     assert "서" not in by and s.year_ganji == "丙午" and s.son is None and s.son_free_day is None
+    s22 = folk_taboo_summary(2022)
+    north = next(n for n in s22.notes if n.direction == "북")
+    assert north.grade == "STRONG_FOLK_TABOO"
+    assert {h.key for h in north.hits} == {"samsal", "daejanggun"}
+    assert {h.tier for h in annual_folk_taboos(2026)} == {"MOVE", "GROUND"}
 
 
 def test_samsal_origin_is_separate_from_twelve_sinsal() -> None:
@@ -132,14 +145,23 @@ def test_phrase_uses_template_and_reason_grammar() -> None:
     north = next(n for n in s.notes if n.direction == "북")
     text = phrase_for_note(north)
     assert text.startswith("민속에서는 북쪽은 ")
-    assert "자리이고 그해 태세와 충(沖)하는 정반대 자리라는 이유로 피하는 방향으로 봅니다" in text
-    assert "삼살방(亥·子·丑)·세파방(子)" in text and "강한 민속 주의 방향" in text
+    assert "살(煞)이 모이는 자리라는 이유로 피하는 방향으로 봅니다(삼살방(亥·子·丑))" in text
+    # 참고층은 판정 문구에 안 섞인다.
+    assert "세파방" not in text and "강한 민속 주의 방향" not in text
+    assert "다만 그쪽을 향해 가는 것은 전통적으로 허용하고" in text  # 좌향 완화(三煞可向不可坐)
     full = "\n".join(format_folk_taboo_lines(s, full=True))
     assert "[민속 흉방 — 2026 丙午년" in full and "손방(그날): 음력 8월 11일 → 동쪽" in full
     assert "오늘 손방도 이 방향입니다" in full and "범위:" in full
+    assert "(대장군방 2025~2027 3년 고정)" in full
+    assert "- 참고(동토·좌향 참고, 이사 판정 아님): 북쪽 세파방(子)" in full
+    assert "남쪽 태세방(午) — 건축·증축·터파기·땅을 건드리는 행위·집 좌향에서만 꺼림" in full
+    assert "太歲可坐不可向" in full and "- 원거리 고지: 전통 문헌은 현재 집에서 120보 이내" in full
+    assert "남쪽[민속 주의 방향]" not in full  # 태세만 걸린 남쪽은 판정 줄이 없다
     assert "사고" not in full and "무조건" not in full
     brief = "\n".join(format_folk_taboo_lines(s, full=False))
-    assert brief.startswith("\n[민속 흉방 고지 — 丙午년") and "북쪽=삼살방·세파방(중첩)" in brief
+    assert brief.startswith("\n[민속 흉방 고지 — 丙午년")
+    assert "북쪽=삼살방 · 동쪽=대장군방(2025~2027 고정)" in brief
+    assert "세파" not in brief and "태세" not in brief and "중첩" not in brief
     assert "배치(바라보기·머리·위치·출입구)에는 적용하지 않으며" in brief
 
 
@@ -225,13 +247,12 @@ def test_theme_report_sections_carry_folk_taboo_and_verdicts() -> None:
 
 def test_folk_note_for_day_and_luck_pillar_attachment(chart) -> None:
     note = folk_note_for_day(date(2026, 9, 21))
-    assert note.startswith("민속 흉방(추가 정보): 손방 동쪽 · 올해 삼살방 북")
-    assert "세파방 북" in note and "대장군방 동" in note and "태세방 남" in note
+    assert note == "민속 흉방(추가 정보): 손방 동쪽 · 올해 삼살방 북 · 대장군방 동"
+    assert "세파방" not in note and "태세방" not in note  # 참고층은 택일 근거에 안 싣는다
     assert folk_note_for_day(date(2026, 9, 20)).startswith("민속 흉방(추가 정보): 손 없는 날")
     years = {p.label: p for p in chart.luck_cycles.yearly_luck}
-    assert [h.name_ko for h in years["2026"].folk_taboos] == [
-        "삼살방", "대장군방", "태세방", "세파방",
-    ]
+    assert [h.name_ko for h in years["2026"].folk_taboos] == ["삼살방", "대장군방"]  # 배지 2종
+    assert years["2026"].folk_taboos[1].span_ko == "2025~2027"
     assert years["2026"].folk_taboos[0].direction == "북"
     assert all(m.folk_taboos == [] for m in chart.luck_cycles.monthly_luck)
     assert years["2026"].luck_score == calculate(_BIRTH).luck_cycles.yearly_luck[
@@ -272,6 +293,15 @@ def test_dictionary_validates_and_lints() -> None:
     parsed = FolkTabooDict.model_validate(_raw())
     assert not _lint_folk_taboo(parsed) and parsed.reviewed is True
     assert [t.key for t in parsed.taboos] == ["samsal", "daejanggun", "taese", "sepa", "son"]
+    assert parsed.version == "1.1.0"
+    assert {t.key: t.tier for t in parsed.taboos} == {
+        "samsal": "MOVE", "daejanggun": "MOVE", "son": "MOVE", "taese": "GROUND", "sepa": "GROUND",
+    }
+    # 참고층에 이사·이동을 되돌리면 lint 가 막는다.
+    raw = _raw()
+    next(t for t in raw["taboos"] if t["key"] == "sepa")["avoid_actions"].append("이사")
+    errs = _lint_folk_taboo(FolkTabooDict.model_validate(raw))
+    assert any("sepa(GROUND)" in e for e in errs)
     raw = _raw()
     raw["taboos"][0]["table"].pop("寅午戌")
     with pytest.raises(ValueError):

@@ -22,7 +22,7 @@ from saju_shared_types.folk_direction import FolkTabooDict
 _BACKEND = Path(__file__).resolve().parent.parent
 _DEFAULT_DICTS = _BACKEND / "dictionaries"
 _DEFAULT_COMPILED = _BACKEND / "compiled"
-FOLK_TABOO_VERSION = "1.0.0"
+FOLK_TABOO_VERSION = "1.1.0"
 
 
 def build(dictionaries_dir: Path, compiled_dir: Path) -> int:
