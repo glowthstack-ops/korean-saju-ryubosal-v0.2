@@ -47,6 +47,59 @@ LIFE_STAGE_AGE_RANGES: dict[str, tuple[int, int]] = {
     "평생": (0, 100),
 }
 _HALF = {"상반기": ("01", "06"), "하반기": ("07", "12")}
+# C7b 계절 — 절기 기준 석 달(寅卯辰=봄·巳午未=여름·申酉戌=가을·亥子丑=겨울). 월 라벨이
+# 절기 월운(YYYY-MM)이라 양력 통념(겨울=12~2월)이 아니라 절기 월로 잡는다(2026-09-23 데굴님
+# 승인 — '올 겨울 작업 수주가 잘될까?'가 시점 미파싱→too_broad로 바운스되던 결함).
+# 값 = 계절 첫 절기월 숫자(라벨 기준). 겨울은 11월 시작이라 익년 1월까지 연도를 넘는다.
+_SEASON_START_MONTH = {"봄": 2, "여름": 5, "가을": 8, "겨울": 11}
+# 수식어(올/이번/내년/작년/지난/다음/오는/다가오는) + 계절어. '봄'은 동사 명사형('사주 봄')과
+# 동형이라 수식어 없이 단독이면 조사·접미(철/에/엔/은/는/까지/부터/동안/쯤)가 붙을 때만 인정.
+_SEASON_RE = re.compile(
+    r"(올해|올|이번|금년|내년|작년|지난|다가오는|오는|다음)?\s*(봄|여름|가을|겨울)"
+    r"(철|에|엔|은|는|까지|부터|동안|쯤|경|이|의)?"
+)
+
+
+def _season_range(text: str, this_month: str) -> tuple[str, str] | None:
+    """계절어를 절기 월 라벨 구간(start, end)으로 푼다(C7b). 없으면 None.
+
+    연도 결정은 오늘의 절기 달(this_month) 기준으로, 그 해 계절이 '이전/진행/종료' 어느
+    상태인지 본다. 겨울은 11·12·익년 1월이라 1월이면 진행 중인 겨울의 시작 연도는 전년.
+    올/이번/금년=그 해 계절(지났어도 회고), 내년=+1, 작년=−1, 지난=가장 최근에 끝난 계절,
+    다음/오는/다가오는·무수식=아직 오지 않았거나 진행 중이면 그 해, 끝났으면 다음 해.
+    """
+    m = _SEASON_RE.search(text)
+    if m is None:
+        return None
+    qualifier, season, suffix = m.group(1), m.group(2), m.group(3)
+    if season == "봄" and qualifier is None and suffix is None:
+        return None
+    # 특정 월('겨울 12월에')이 함께 있으면 더 좁은 월 규칙(C5)에 양보한다.
+    if re.search(r"(?<![\d/\-])\d{1,2}\s*월", text):
+        return None
+    cy, cm = int(this_month[:4]), int(this_month[5:7])
+    first = _SEASON_START_MONTH[season]
+    if season == "겨울":
+        base = cy - 1 if cm == 1 else cy
+        state = "in" if cm in (11, 12, 1) else "before"
+    else:
+        base = cy
+        last = first + 2
+        state = "before" if cm < first else ("in" if cm <= last else "after")
+    if qualifier in ("올해", "올", "이번", "금년"):
+        year = base
+    elif qualifier == "내년":
+        year = base + 1
+    elif qualifier == "작년":
+        year = base - 1
+    elif qualifier == "지난":
+        year = base if state == "after" else base - 1
+    elif qualifier in ("다음", "오는", "다가오는"):
+        year = base if state == "before" else base + 1
+    else:
+        year = base + 1 if state == "after" else base
+    start = f"{year}-{first:02d}"
+    return start, shift_month_label(start, 2)
 # C5b 슬래시/대시 날짜 — "6/17", "6-17", "2026-06-17"(선택 연도). 뒤에 숫자·구분자가
 # 이어지거나(긴 수열) 기간·범위 단위(월/년/주/개월/시간/살/분/초/%)가 붙으면 제외해
 # "8-10월"(월 범위)·"3-4년" 등 오인을 막는다. 일(日)·'에'·'이후/부터'는 허용.
@@ -344,6 +397,14 @@ def parse_time(
             start=monday.isoformat(), end=(monday + timedelta(days=6)).isoformat(),
             urgency=urgency,
         ), TimeScope.SHORT_TERM
+
+    # C7b 계절 — "올 겨울", "이번 봄에", "내년 여름", "지난 가을"(절기 석 달, 반기와 같은 형).
+    season = _season_range(text, this_month)
+    if season is not None:
+        return TimeRange(
+            type="absolute", granularity=Granularity.MONTH,
+            start=season[0], end=season[1], urgency=urgency,
+        ), TimeScope.MID_TERM
 
     # C7 반기 (특정월보다 먼저 — "하반기"가 월 표현과 혼동되지 않게).
     for word, (m1, m2) in _HALF.items():
