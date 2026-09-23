@@ -1,0 +1,1115 @@
+{
+  "schema": "sinsal_direction/v1",
+  "version": "1.2.0",
+  "reviewed": true,
+  "notes": [
+    "12신살 방위 활용 해석(docs/18). 연지 삼합국 기준 12신살을 12지지 방위에 배치하고, 방향 자체의 길흉이 아니라 '그 방향의 신살 × 사용 목적'으로 활용도를 판정한다.",
+    "이 사전의 신살 의미는 전통 12신살 해석을 현대 생활에 맞게 재해석한 '활용 해석'이다. 용신·희신 오행 방위(calendar/direction_rules.json)와 별개 체계이며 합산하지 않는다.",
+    "등급은 정성 4단계(fit 적합 / support 보조 / neutral 중립 / caution 주의)만 쓴다. 수치 점수는 영상 근거가 없어 두지 않는다.",
+    "각도 경계는 정의하지 않는다 — 지지·4방 라벨만 쓴다(寅卯辰=동, 巳午未=남, 申酉戌=서, 亥子丑=북).",
+    "삼재는 역마살→육해살→화개살 세운의 3년 sequence이며 흉운 점수가 아니다. 사건 점수 파이프라인에 넣지 않고 맥락 신호로만 쓴다.",
+    "2026-09-20 데굴님 결정: 감수 없이 적용(reviewed=true). 명칭 표준 년살(도화살).",
+    "samjae_quality(2026-09-20 데굴님 승인): 가중치·임계는 명리 근거가 아니라 서비스 캘리브레이션 상수다. 데이터를 쌓으며 조정한다. 겹삼재=대운 지지가 삼재권(daewoon) 또는 삼재 세운 지지가 원국 지지와 충(natal_clash, 기존 relations_to_chart 재사용) — 방향(복/악)이 아니라 강도에만 가산. 일지 삼합 기준 삼재는 연지 삼재와 지지 집합이 서로소라 겹칠 수 없어 쓰지 않는다.",
+    "파서 keywords는 부분 문자열 매칭이라 '가게'(동사 '가게 되면')·'화장'(화장실)·'회의'(회의적) 같은 짧은 어휘를 두지 않는다 — 리뷰 수정(2026-09-20). 리포트 섹션→목적 배선은 report_service 표(섹션 정책)가 단일 원천이며 사전에 trigger_modules 를 두지 않는다.",
+    "2026-09-21 데굴님 승인(docs/19): 피할 방향 자료를 합집합으로 통합(소개팅+육해, 영업+천살, 발표+재살, 공부·연구+지살, 여행+반안), 목적 3종 추가(화해·관계회복/새로운 일 시작/안정·정착), 신살별 avoid_contexts·use_contexts 추가. 절대흉방 없음 — 회피는 목적 한정."
+  ],
+  "forbidden_framings": [
+    "○쪽은 나쁜 방향이다",
+    "흉방이니 피하라",
+    "반드시 그 방향으로 해야 한다",
+    "삼재라서 큰일이다",
+    "삼재는 나쁜 해다",
+    "이 방향으로 하면 합격/성공/결혼한다",
+    "복삼재니까 대길",
+    "악삼재니까 사고가 난다",
+    "삼재 데이터가 없어서",
+    "절대 피해야 할 방향이다",
+    "어떤 경우에도 그 방향은 안 된다"
+  ],
+  "groups": [
+    {
+      "key": "trial",
+      "name_ko": "시련·외압",
+      "sinsals": [
+        "겁살",
+        "재살",
+        "천살"
+      ],
+      "character": "멈춤, 집중, 외부 압력",
+      "service_use": "공부 · 연구 · 사색 · 계획",
+      "sequence_ko": "경쟁/빼앗김 → 얽힘/구속 → 외력 앞에서 멈춤",
+      "quadrant_theme": "집중과 연구"
+    },
+    {
+      "key": "activity",
+      "name_ko": "활동·경험",
+      "sinsals": [
+        "지살",
+        "년살",
+        "월살"
+      ],
+      "character": "이동, 교류, 노출",
+      "service_use": "영업 · 만남 · 브랜딩 · 콘텐츠",
+      "sequence_ko": "이동/접촉 → 매력·노출 → 그 과정의 고초",
+      "quadrant_theme": "활동과 매력"
+    },
+    {
+      "key": "achievement",
+      "name_ko": "성취·안정",
+      "sinsals": [
+        "망신살",
+        "장성살",
+        "반안살"
+      ],
+      "character": "사회적 노출 → 권한 → 안착",
+      "service_use": "발표 · 리더십 · 성취 · 휴식",
+      "sequence_ko": "드러남 → 주도권 → 안착",
+      "quadrant_theme": "성취와 안정"
+    },
+    {
+      "key": "transition",
+      "name_ko": "변화·수렴",
+      "sinsals": [
+        "역마살",
+        "육해살",
+        "화개살"
+      ],
+      "character": "변화 → 마찰 → 정리",
+      "service_use": "여행 · 변화 · 자기성찰 · 상담",
+      "sequence_ko": "큰 변화 → 마찰·고생 → 수렴·정리",
+      "quadrant_theme": "변화와 정리"
+    }
+  ],
+  "sinsals": [
+    {
+      "name": "겁살",
+      "hanja": "劫殺",
+      "group": "trial",
+      "sequence_index": 1,
+      "core_meaning": "경쟁·쟁취·긴장",
+      "service_use": "경쟁 분석, 집중 작업",
+      "default_usage_mode": "position",
+      "strategy": "focus",
+      "action_hints": [
+        "경쟁 상황을 분석하거나 긴장감이 필요한 집중 작업 자리로 활용해 볼 수 있습니다."
+      ],
+      "cautions": [
+        "휴식·교류 자리로는 긴장이 남기 쉬운 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "화해",
+        "협업 합의",
+        "편안한 데이트",
+        "공동분배"
+      ],
+      "use_contexts": [
+        "경쟁",
+        "승부",
+        "집중"
+      ]
+    },
+    {
+      "name": "재살",
+      "hanja": "災殺",
+      "alias": "수옥살",
+      "group": "trial",
+      "sequence_index": 2,
+      "core_meaning": "얽힘·구속·붙잡힘",
+      "service_use": "장시간 집중, 세밀 검토",
+      "default_usage_mode": "position",
+      "strategy": "focus",
+      "action_hints": [
+        "오래 붙잡고 앉아 있어야 하는 공부·검토 자리로 활용해 볼 수 있습니다."
+      ],
+      "cautions": [
+        "화장대·외모 연출 자리로 쓰면 계속 붙잡혀 수정하게 되는 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "빠른 의사결정",
+        "데이트",
+        "즉흥적 표현",
+        "빠른 회전 업무"
+      ],
+      "use_contexts": [
+        "장시간 공부",
+        "검토"
+      ]
+    },
+    {
+      "name": "천살",
+      "hanja": "天殺",
+      "group": "trial",
+      "sequence_index": 3,
+      "core_meaning": "내가 통제하기 어려운 것·스승",
+      "service_use": "공부, 연구, 학습, 자료 탐색",
+      "default_usage_mode": "face",
+      "strategy": "face",
+      "action_hints": [
+        "책상이나 모니터를 이 방향을 바라보도록 두고 학습·연구·자료 탐색과 연결해 볼 수 있습니다."
+      ],
+      "cautions": [
+        "주도권이 필요한 협상·발표 자리에서는 압도되기 쉬운 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "영업",
+        "빠른 실행",
+        "적극적 확장"
+      ],
+      "use_contexts": [
+        "공부",
+        "연구",
+        "사색",
+        "스승"
+      ]
+    },
+    {
+      "name": "지살",
+      "hanja": "地殺",
+      "group": "activity",
+      "sequence_index": 1,
+      "core_meaning": "이동·사람의 출입",
+      "service_use": "영업, 매장 출입구, 네트워킹",
+      "default_usage_mode": "entrance",
+      "strategy": "activate",
+      "action_hints": [
+        "출입구·동선처럼 사람이 드나드는 쪽을 열어 두는 방향으로 활용해 볼 수 있습니다."
+      ],
+      "cautions": [
+        "조용히 머물러야 하는 자리로는 출입이 잦아 산만해지기 쉬운 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "숙면",
+        "장시간 정적인 작업"
+      ],
+      "use_contexts": [
+        "영업",
+        "외근",
+        "이동",
+        "네트워킹"
+      ]
+    },
+    {
+      "name": "년살",
+      "hanja": "年殺",
+      "alias": "도화살",
+      "group": "activity",
+      "sequence_index": 2,
+      "core_meaning": "도화·매력·노출",
+      "service_use": "화장, 소개팅, 촬영, 브랜딩",
+      "default_usage_mode": "position",
+      "strategy": "activate",
+      "action_hints": [
+        "화장대·거울·촬영 자리처럼 자신을 드러내는 활동과 연결해 볼 수 있습니다.",
+        "창이 이 방향이면 촬영·연출 때는 열고 평소에는 블라인드로 노출을 조절하는 식으로 활용합니다."
+      ],
+      "cautions": [
+        "고독한 연구·집중 자리로는 목적 적합도가 상대적으로 낮은 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "비밀 유지",
+        "은둔 작업",
+        "노출을 피해야 하는 일"
+      ],
+      "use_contexts": [
+        "소개팅",
+        "화장",
+        "촬영",
+        "브랜딩"
+      ]
+    },
+    {
+      "name": "월살",
+      "hanja": "月殺",
+      "group": "activity",
+      "sequence_index": 3,
+      "core_meaning": "고초·성장통",
+      "service_use": "결과를 만들기 위한 작업 과정",
+      "default_usage_mode": "position",
+      "strategy": "shield",
+      "action_hints": [
+        "결과물을 만드는 작업 과정의 자리로 쓰되, 가리거나 장식해 노출을 줄이는 방향으로 활용합니다."
+      ],
+      "cautions": [
+        "같은 활동 구간이라도 년살과 달리 소개팅·매력 표현 자리로는 적극 권하지 않는 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "소개팅",
+        "중요한 첫인상",
+        "편안함이 중요한 자리"
+      ],
+      "use_contexts": [
+        "제작 과정",
+        "반복 작업"
+      ]
+    },
+    {
+      "name": "망신살",
+      "hanja": "亡身殺",
+      "group": "achievement",
+      "sequence_index": 1,
+      "core_meaning": "세상에 드러남",
+      "service_use": "발표, 콘텐츠 공개, 인지도",
+      "default_usage_mode": "face",
+      "strategy": "activate",
+      "action_hints": [
+        "발표·공개·인지도가 필요한 활동에서 이 방향을 바라보거나 활용해 볼 수 있습니다."
+      ],
+      "cautions": [
+        "조용히 숨어 정리해야 하는 시기에는 노출감이 커지는 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "비밀 상담",
+        "기밀 협상",
+        "숨겨야 할 일"
+      ],
+      "use_contexts": [
+        "발표",
+        "콘텐츠 공개",
+        "홍보"
+      ]
+    },
+    {
+      "name": "장성살",
+      "hanja": "將星殺",
+      "group": "achievement",
+      "sequence_index": 2,
+      "core_meaning": "권한·주도권",
+      "service_use": "리더십, 협상, 의사결정",
+      "default_usage_mode": "position",
+      "strategy": "activate",
+      "action_hints": [
+        "회의·협상·결정을 내리는 자리(상석)를 이 방향에 두는 식으로 활용해 볼 수 있습니다."
+      ],
+      "cautions": [
+        "휴식·수용이 필요한 자리로는 힘이 들어가기 쉬운 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "화해",
+        "양보가 필요한 협상",
+        "상대 중심 상담"
+      ],
+      "use_contexts": [
+        "리더십",
+        "지휘",
+        "결정"
+      ]
+    },
+    {
+      "name": "반안살",
+      "hanja": "攀鞍殺",
+      "group": "achievement",
+      "sequence_index": 3,
+      "core_meaning": "안착·안정",
+      "service_use": "휴식, 숙면, 정착",
+      "default_usage_mode": "head",
+      "strategy": "settle",
+      "action_hints": [
+        "잠잘 때 머리를 이 방향으로 두거나 휴식·정착 자리로 활용해 볼 수 있습니다."
+      ],
+      "cautions": [
+        "변화·도전이 필요한 활동에는 안주하기 쉬운 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "급격한 변화",
+        "빠른 이동이 핵심인 활동"
+      ],
+      "use_contexts": [
+        "숙면",
+        "휴식",
+        "정착"
+      ]
+    },
+    {
+      "name": "역마살",
+      "hanja": "驛馬殺",
+      "group": "transition",
+      "sequence_index": 1,
+      "core_meaning": "이동·환경 변화",
+      "service_use": "여행, 이사, 새로운 활동",
+      "default_usage_mode": "move",
+      "strategy": "move",
+      "action_hints": [
+        "여행·이사·새 활동처럼 움직임 자체가 목적일 때 이 방향을 활용해 볼 수 있습니다.",
+        "이 방향이 벽으로 막혀 있으면 변화 흐름이 정체되기 쉬운 배치로 관찰합니다(단정 아님)."
+      ],
+      "cautions": [
+        "숙면·정착 자리로는 안정성이 낮은 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "숙면",
+        "정착",
+        "차분한 장기 집중"
+      ],
+      "use_contexts": [
+        "여행",
+        "이사",
+        "변화",
+        "외부활동"
+      ]
+    },
+    {
+      "name": "육해살",
+      "hanja": "六害殺",
+      "group": "transition",
+      "sequence_index": 2,
+      "core_meaning": "변화 과정의 마찰",
+      "service_use": "인간관계 재정비, 실행 과정",
+      "default_usage_mode": "position",
+      "strategy": "focus",
+      "action_hints": [
+        "'집 떠나면 고생'처럼 알고도 실행하는 과정의 자리 — 관계 재정비·실행 점검과 연결해 볼 수 있습니다."
+      ],
+      "cautions": [
+        "새 만남·휴식 자리로는 마찰과 소모가 따르기 쉬운 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "민감한 관계 협상",
+        "소개팅",
+        "갈등 해결의 첫 자리"
+      ],
+      "use_contexts": [
+        "변화 후 적응·문제 파악"
+      ]
+    },
+    {
+      "name": "화개살",
+      "hanja": "華蓋殺",
+      "group": "transition",
+      "sequence_index": 3,
+      "core_meaning": "수렴·사색·정신성",
+      "service_use": "명상, 상담, 글쓰기, 자기성찰",
+      "default_usage_mode": "position",
+      "strategy": "reflect",
+      "action_hints": [
+        "명상·상담·글쓰기처럼 안으로 모으는 활동의 자리로 활용해 볼 수 있습니다."
+      ],
+      "cautions": [
+        "영업·노출·교류가 목적인 활동에는 은둔 성향이 강한 방향으로 해석합니다."
+      ],
+      "avoid_contexts": [
+        "영업",
+        "사교",
+        "대중 노출",
+        "활발한 네트워킹"
+      ],
+      "use_contexts": [
+        "상담",
+        "명상",
+        "연구",
+        "자기성찰"
+      ]
+    }
+  ],
+  "purposes": [
+    {
+      "purpose": "study",
+      "name_ko": "공부·시험",
+      "domain": "education",
+      "keywords": [
+        "공부",
+        "시험",
+        "수험",
+        "독서",
+        "학습",
+        "책상"
+      ],
+      "usage_mode": "face",
+      "primary_sinsals": [
+        "천살",
+        "재살",
+        "겁살"
+      ],
+      "grades": {
+        "겁살": "support",
+        "재살": "support",
+        "천살": "fit",
+        "지살": "caution",
+        "년살": "caution",
+        "월살": "neutral",
+        "망신살": "neutral",
+        "장성살": "neutral",
+        "반안살": "neutral",
+        "역마살": "caution",
+        "육해살": "neutral",
+        "화개살": "support"
+      },
+      "action_template": "책상·모니터를 {direction}쪽({branch} {sinsal})을 바라보도록 두고 학업·연구·자료 탐색과 연결해 해석합니다.",
+      "trigger_domains": [
+        "education"
+      ]
+    },
+    {
+      "purpose": "research",
+      "name_ko": "연구·기획",
+      "domain": "education",
+      "keywords": [
+        "연구",
+        "기획",
+        "논문",
+        "설계",
+        "사색"
+      ],
+      "usage_mode": "face",
+      "primary_sinsals": [
+        "천살",
+        "화개살",
+        "재살"
+      ],
+      "grades": {
+        "겁살": "support",
+        "재살": "support",
+        "천살": "fit",
+        "지살": "caution",
+        "년살": "caution",
+        "월살": "neutral",
+        "망신살": "neutral",
+        "장성살": "neutral",
+        "반안살": "neutral",
+        "역마살": "caution",
+        "육해살": "neutral",
+        "화개살": "support"
+      },
+      "action_template": "연구·기획 자리는 {direction}쪽({branch} {sinsal})을 바라보는 배치로 깊은 사고와 연결해 해석합니다.",
+      "trigger_domains": []
+    },
+    {
+      "purpose": "beauty",
+      "name_ko": "메이크업·외모 연출",
+      "domain": "relationship",
+      "keywords": [
+        "화장대",
+        "메이크업",
+        "화장할",
+        "화장하",
+        "거울",
+        "스타일링",
+        "외모"
+      ],
+      "usage_mode": "position",
+      "primary_sinsals": [
+        "년살"
+      ],
+      "grades": {
+        "겁살": "neutral",
+        "재살": "caution",
+        "천살": "neutral",
+        "지살": "support",
+        "년살": "fit",
+        "월살": "caution",
+        "망신살": "support",
+        "장성살": "neutral",
+        "반안살": "neutral",
+        "역마살": "neutral",
+        "육해살": "neutral",
+        "화개살": "neutral"
+      },
+      "action_template": "화장대·거울은 {direction}쪽({branch} {sinsal}) 영역에 두어 자신을 드러내는 활동과 연결해 해석합니다.",
+      "trigger_domains": []
+    },
+    {
+      "purpose": "dating",
+      "name_ko": "소개팅·데이트",
+      "domain": "relationship",
+      "keywords": [
+        "소개팅",
+        "데이트",
+        "만남",
+        "매력",
+        "썸",
+        "첫만남"
+      ],
+      "usage_mode": "position",
+      "primary_sinsals": [
+        "년살",
+        "지살"
+      ],
+      "grades": {
+        "겁살": "neutral",
+        "재살": "caution",
+        "천살": "neutral",
+        "지살": "support",
+        "년살": "fit",
+        "월살": "caution",
+        "망신살": "support",
+        "장성살": "neutral",
+        "반안살": "neutral",
+        "역마살": "neutral",
+        "육해살": "caution",
+        "화개살": "caution"
+      },
+      "action_template": "만남·매력 표현은 {direction}쪽({branch} {sinsal})을 활용 방향으로 해석합니다 — 같은 방향 안의 월살 자리는 적극 권하지 않습니다.",
+      "trigger_domains": [
+        "relationship"
+      ]
+    },
+    {
+      "purpose": "sales",
+      "name_ko": "영업·장사",
+      "domain": "wealth",
+      "keywords": [
+        "영업",
+        "장사",
+        "매장",
+        "점포",
+        "가게 출입",
+        "가게 문",
+        "가게는",
+        "가게의",
+        "손님",
+        "출입구"
+      ],
+      "usage_mode": "entrance",
+      "primary_sinsals": [
+        "지살",
+        "년살"
+      ],
+      "grades": {
+        "겁살": "caution",
+        "재살": "caution",
+        "천살": "caution",
+        "지살": "fit",
+        "년살": "support",
+        "월살": "neutral",
+        "망신살": "support",
+        "장성살": "support",
+        "반안살": "neutral",
+        "역마살": "neutral",
+        "육해살": "neutral",
+        "화개살": "caution"
+      },
+      "action_template": "출입구·동선은 {direction}쪽({branch} {sinsal})을 열어 두는 방향으로 해석합니다.",
+      "trigger_domains": [
+        "wealth"
+      ]
+    },
+    {
+      "purpose": "branding",
+      "name_ko": "SNS·유튜브·브랜딩",
+      "domain": "career",
+      "keywords": [
+        "유튜브",
+        "sns",
+        "브랜딩",
+        "촬영",
+        "콘텐츠",
+        "인스타",
+        "방송"
+      ],
+      "usage_mode": "face",
+      "primary_sinsals": [
+        "년살",
+        "망신살"
+      ],
+      "grades": {
+        "겁살": "neutral",
+        "재살": "caution",
+        "천살": "neutral",
+        "지살": "support",
+        "년살": "fit",
+        "월살": "caution",
+        "망신살": "fit",
+        "장성살": "support",
+        "반안살": "neutral",
+        "역마살": "neutral",
+        "육해살": "neutral",
+        "화개살": "caution"
+      },
+      "action_template": "촬영·노출은 {direction}쪽({branch} {sinsal})을 바라보거나 열어 두는 방향으로 해석합니다.",
+      "trigger_domains": []
+    },
+    {
+      "purpose": "presentation",
+      "name_ko": "발표·인지도",
+      "domain": "career",
+      "keywords": [
+        "발표",
+        "프레젠테이션",
+        "강의",
+        "면접",
+        "인지도",
+        "피티"
+      ],
+      "usage_mode": "face",
+      "primary_sinsals": [
+        "망신살",
+        "장성살"
+      ],
+      "grades": {
+        "겁살": "neutral",
+        "재살": "caution",
+        "천살": "caution",
+        "지살": "neutral",
+        "년살": "support",
+        "월살": "neutral",
+        "망신살": "fit",
+        "장성살": "support",
+        "반안살": "neutral",
+        "역마살": "neutral",
+        "육해살": "neutral",
+        "화개살": "caution"
+      },
+      "action_template": "발표·공개 자리는 {direction}쪽({branch} {sinsal})을 바라보는 배치로 드러남과 연결해 해석합니다.",
+      "trigger_domains": [
+        "career"
+      ]
+    },
+    {
+      "purpose": "leadership",
+      "name_ko": "리더십·협상",
+      "domain": "career",
+      "keywords": [
+        "리더십",
+        "협상",
+        "회의실",
+        "회의 때",
+        "회의할",
+        "상석",
+        "의사결정",
+        "팀장",
+        "대표 자리",
+        "주도권"
+      ],
+      "usage_mode": "position",
+      "primary_sinsals": [
+        "장성살"
+      ],
+      "grades": {
+        "겁살": "caution",
+        "재살": "neutral",
+        "천살": "caution",
+        "지살": "neutral",
+        "년살": "neutral",
+        "월살": "neutral",
+        "망신살": "support",
+        "장성살": "fit",
+        "반안살": "support",
+        "역마살": "neutral",
+        "육해살": "caution",
+        "화개살": "neutral"
+      },
+      "action_template": "회의·협상·결정 자리는 {direction}쪽({branch} {sinsal}) 영역을 주도권 자리로 해석합니다.",
+      "trigger_domains": [
+        "career"
+      ]
+    },
+    {
+      "purpose": "sleep",
+      "name_ko": "숙면",
+      "domain": "health",
+      "keywords": [
+        "잠",
+        "숙면",
+        "침대",
+        "머리 방향",
+        "머리를",
+        "수면",
+        "불면",
+        "베개",
+        "잘때",
+        "잘 때",
+        "취침",
+        "잠자리"
+      ],
+      "usage_mode": "head",
+      "primary_sinsals": [
+        "반안살"
+      ],
+      "grades": {
+        "겁살": "neutral",
+        "재살": "neutral",
+        "천살": "neutral",
+        "지살": "caution",
+        "년살": "caution",
+        "월살": "neutral",
+        "망신살": "neutral",
+        "장성살": "neutral",
+        "반안살": "fit",
+        "역마살": "caution",
+        "육해살": "neutral",
+        "화개살": "support"
+      },
+      "action_template": "잠잘 때 머리를 {direction}쪽({branch} {sinsal})으로 두는 배치를 안착·휴식과 연결해 해석합니다.",
+      "trigger_domains": [
+        "health"
+      ]
+    },
+    {
+      "purpose": "travel",
+      "name_ko": "여행·이동",
+      "domain": "relocation",
+      "keywords": [
+        "여행",
+        "출장",
+        "떠나",
+        "나들이",
+        "여행 방향"
+      ],
+      "usage_mode": "move",
+      "primary_sinsals": [
+        "역마살",
+        "지살"
+      ],
+      "grades": {
+        "겁살": "neutral",
+        "재살": "caution",
+        "천살": "neutral",
+        "지살": "support",
+        "년살": "neutral",
+        "월살": "neutral",
+        "망신살": "neutral",
+        "장성살": "neutral",
+        "반안살": "caution",
+        "역마살": "fit",
+        "육해살": "caution",
+        "화개살": "neutral"
+      },
+      "action_template": "현 위치 기준 {direction}쪽({branch} {sinsal})으로의 이동을 움직임 활용 방향으로 해석합니다.",
+      "trigger_domains": []
+    },
+    {
+      "purpose": "relocation",
+      "name_ko": "이사·환경 변화",
+      "domain": "relocation",
+      "keywords": [
+        "이사 방향",
+        "이사",
+        "거처",
+        "환경 변화",
+        "사무실 이전",
+        "옮기"
+      ],
+      "usage_mode": "move",
+      "primary_sinsals": [
+        "역마살"
+      ],
+      "grades": {
+        "겁살": "caution",
+        "재살": "caution",
+        "천살": "neutral",
+        "지살": "support",
+        "년살": "neutral",
+        "월살": "neutral",
+        "망신살": "neutral",
+        "장성살": "neutral",
+        "반안살": "support",
+        "역마살": "fit",
+        "육해살": "caution",
+        "화개살": "neutral"
+      },
+      "action_template": "현 거주지 기준 {direction}쪽({branch} {sinsal})은 이동·환경 변화 활용 방향으로 해석합니다 — 용신 오행 방위와는 별개 질문이므로 합치지 않습니다.",
+      "trigger_domains": [
+        "relocation"
+      ]
+    },
+    {
+      "purpose": "counseling",
+      "name_ko": "상담·명상",
+      "domain": "general",
+      "keywords": [
+        "명상",
+        "상담",
+        "기도",
+        "요가",
+        "힐링",
+        "마음 다스"
+      ],
+      "usage_mode": "position",
+      "primary_sinsals": [
+        "화개살"
+      ],
+      "grades": {
+        "겁살": "neutral",
+        "재살": "support",
+        "천살": "support",
+        "지살": "caution",
+        "년살": "caution",
+        "월살": "neutral",
+        "망신살": "caution",
+        "장성살": "neutral",
+        "반안살": "support",
+        "역마살": "neutral",
+        "육해살": "neutral",
+        "화개살": "fit"
+      },
+      "action_template": "명상·상담 자리는 {direction}쪽({branch} {sinsal}) 영역에서 안으로 모으는 활동과 연결해 해석합니다.",
+      "trigger_domains": []
+    },
+    {
+      "purpose": "reflection",
+      "name_ko": "자기성찰·정리",
+      "domain": "general",
+      "keywords": [
+        "성찰",
+        "정리",
+        "마음 정리",
+        "글쓰기",
+        "일기",
+        "회고",
+        "정리하고 싶"
+      ],
+      "usage_mode": "position",
+      "primary_sinsals": [
+        "화개살",
+        "육해살",
+        "역마살"
+      ],
+      "grades": {
+        "겁살": "neutral",
+        "재살": "neutral",
+        "천살": "support",
+        "지살": "caution",
+        "년살": "caution",
+        "월살": "neutral",
+        "망신살": "neutral",
+        "장성살": "neutral",
+        "반안살": "neutral",
+        "역마살": "support",
+        "육해살": "support",
+        "화개살": "fit"
+      },
+      "action_template": "정리·성찰은 {direction}쪽({branch} {sinsal}) — 변화→마찰→정리 구간 전체를 활용 방향으로 해석합니다.",
+      "trigger_domains": []
+    },
+    {
+      "purpose": "reconciliation",
+      "name_ko": "화해·관계회복",
+      "domain": "relationship",
+      "keywords": [
+        "화해",
+        "관계 회복",
+        "관계회복",
+        "오해를 풀",
+        "다시 가까워"
+      ],
+      "usage_mode": "position",
+      "primary_sinsals": [
+        "반안살"
+      ],
+      "grades": {
+        "겁살": "caution",
+        "재살": "neutral",
+        "천살": "neutral",
+        "지살": "neutral",
+        "년살": "neutral",
+        "월살": "neutral",
+        "망신살": "neutral",
+        "장성살": "caution",
+        "반안살": "fit",
+        "역마살": "neutral",
+        "육해살": "caution",
+        "화개살": "neutral"
+      },
+      "action_template": "화해·관계 회복 자리는 {direction}쪽({branch} {sinsal}) 영역에서 상대 중심으로 앉는 배치로 해석합니다.",
+      "trigger_domains": []
+    },
+    {
+      "purpose": "new_start",
+      "name_ko": "새로운 일 시작",
+      "domain": "career",
+      "keywords": [
+        "새로운 일",
+        "새 일을",
+        "새 사업",
+        "첫 출근",
+        "창업",
+        "개업 자리"
+      ],
+      "usage_mode": "position",
+      "primary_sinsals": [
+        "지살",
+        "역마살"
+      ],
+      "grades": {
+        "겁살": "neutral",
+        "재살": "caution",
+        "천살": "neutral",
+        "지살": "fit",
+        "년살": "neutral",
+        "월살": "neutral",
+        "망신살": "neutral",
+        "장성살": "neutral",
+        "반안살": "neutral",
+        "역마살": "fit",
+        "육해살": "neutral",
+        "화개살": "neutral"
+      },
+      "action_template": "새로운 일의 시작 자리는 {direction}쪽({branch} {sinsal})을 활동·이동이 열리는 방향으로 두는 배치로 해석합니다.",
+      "trigger_domains": []
+    },
+    {
+      "purpose": "settling",
+      "name_ko": "안정·정착",
+      "domain": "general",
+      "keywords": [
+        "정착",
+        "자리 잡",
+        "눌러앉",
+        "안정적으로 머물"
+      ],
+      "usage_mode": "position",
+      "primary_sinsals": [
+        "반안살"
+      ],
+      "grades": {
+        "겁살": "neutral",
+        "재살": "neutral",
+        "천살": "neutral",
+        "지살": "neutral",
+        "년살": "neutral",
+        "월살": "neutral",
+        "망신살": "neutral",
+        "장성살": "neutral",
+        "반안살": "fit",
+        "역마살": "caution",
+        "육해살": "neutral",
+        "화개살": "neutral"
+      },
+      "action_template": "안정·정착 자리는 {direction}쪽({branch} {sinsal}) 영역을 오래 머무는 자리로 해석합니다.",
+      "trigger_domains": []
+    }
+  ],
+  "samjae_stages": [
+    {
+      "stage": "enter",
+      "label_ko": "들삼재",
+      "sinsal": "역마살",
+      "core_signal": "진입 · 이동 · 변화 · 환경 전환",
+      "event_candidates": [
+        "이사",
+        "이직",
+        "부서 이동",
+        "여행",
+        "생활권 변화",
+        "새로운 인간관계",
+        "업무 변화",
+        "새 프로젝트",
+        "외부 활동 증가"
+      ],
+      "reading_note": "반드시 나쁜 사건이 아니라 움직임이 커지는 단계로 서술한다. 이동·변화 계열 사건의 활성화 배경으로만 쓴다."
+    },
+    {
+      "stage": "stay",
+      "label_ko": "눌삼재",
+      "sinsal": "육해살",
+      "core_signal": "변화 이후의 마찰 · 적응 · 얽힘",
+      "event_candidates": [
+        "새 환경 적응",
+        "관계 마찰",
+        "계획 수정",
+        "피로 누적",
+        "진행 과정의 장애",
+        "협업 조정",
+        "생활 패턴 불안정"
+      ],
+      "reading_note": "역마=움직인다, 육해=움직인 결과를 몸으로 겪는다. 적응·마찰·조정 계열 사건의 배경으로만 쓴다."
+    },
+    {
+      "stage": "exit",
+      "label_ko": "날삼재",
+      "sinsal": "화개살",
+      "core_signal": "마무리 · 정리 · 수렴 · 내면화",
+      "event_candidates": [
+        "관계 정리",
+        "환경 정착",
+        "기존 일 마무리",
+        "혼자 있는 시간 증가",
+        "생각 정리",
+        "상담",
+        "연구",
+        "학습",
+        "자기성찰"
+      ],
+      "reading_note": "재앙의 마지막 해가 아니라 이동→마찰/적응→정리 흐름의 수렴 단계로 서술한다. 종료·정리·성찰 계열 사건의 배경으로만 쓴다."
+    }
+  ],
+  "samjae_quality": {
+    "weights": {
+      "annual_luck": 0.45,
+      "daewoon_luck": 0.25,
+      "event_direction": 0.2,
+      "clash_note": 0.1,
+      "ten_god_balance": 0.15,
+      "alignment_bonus": 0.1
+    },
+    "thresholds": {
+      "bok": 0.25,
+      "ak": -0.25,
+      "domain": 0.25,
+      "alignment_min_abs": 0.15
+    },
+    "strength": {
+      "luck_weight": 0.6,
+      "trigger_weight": 0.4,
+      "trigger_max": 1.5,
+      "overlap_bonus": 0.2,
+      "bands": {
+        "weak": 0.33,
+        "moderate": 0.66
+      }
+    },
+    "overlap_kinds": [
+      {
+        "kind": "daewoon",
+        "label_ko": "대운 겹삼재",
+        "phrase": "대운 지지도 삼재권에 있어 변화 흐름이 10년 단위 배경과 겹친다 — 작용 강도가 커지지만 방향(복/악)은 바뀌지 않는다."
+      },
+      {
+        "kind": "natal_clash",
+        "label_ko": "충 겹삼재",
+        "phrase": "삼재 세운 지지가 원국 지지를 충(沖)해 변화가 몸으로 강하게 체감되기 쉽다 — 강도만 커지며 방향은 세운·대운 판정이 정한다."
+      }
+    ],
+    "stage_quality_phrases": [
+      {
+        "stage": "enter",
+        "quality": "bok",
+        "phrase": "좋은 이동·확장·새 출발"
+      },
+      {
+        "stage": "enter",
+        "quality": "normal",
+        "phrase": "이동·변화 기류는 생기지만 유·불리 어느 쪽으로도 강하게 기울지 않음"
+      },
+      {
+        "stage": "enter",
+        "quality": "ak",
+        "phrase": "강제 이동·급변·불안정"
+      },
+      {
+        "stage": "stay",
+        "quality": "bok",
+        "phrase": "노력의 성과·새 환경 적응"
+      },
+      {
+        "stage": "stay",
+        "quality": "normal",
+        "phrase": "적응·조정의 과제는 있으나 지원과 부담이 비슷해 결과는 실행 방식에 좌우됨"
+      },
+      {
+        "stage": "stay",
+        "quality": "ak",
+        "phrase": "마찰·피로·관계/실행 장애"
+      },
+      {
+        "stage": "exit",
+        "quality": "bok",
+        "phrase": "안정적 정리·성과 확정"
+      },
+      {
+        "stage": "exit",
+        "quality": "normal",
+        "phrase": "정리·마무리 흐름이 있으나 성과 확정도 손실도 뚜렷하지 않은 마무리"
+      },
+      {
+        "stage": "exit",
+        "quality": "ak",
+        "phrase": "손실 정리·관계 단절·고립"
+      }
+    ],
+    "quality_meaning": {
+      "bok": "삼재 특유의 변화·변동이 있지만 그것이 명식에 유리하게 작용할 가능성이 상대적으로 높은 상태(대길 아님)",
+      "normal": "변화는 나타날 수 있으나 긍정·부정 어느 한쪽으로 강하게 기울지 않음",
+      "ak": "삼재 변화와 불리한 운 신호가 중첩되어 부담·손실·마찰 쪽으로 발현될 조건이 더 많음(사고 확정 아님)"
+    }
+  }
+}

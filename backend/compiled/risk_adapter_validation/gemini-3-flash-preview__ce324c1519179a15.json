@@ -950,8 +950,8 @@
    },
    {
     "attempt_kind": "INITIAL",
-    "cache_hit_achieved": true,
-    "cached_input": 3943,
+    "cache_hit_achieved": false,
+    "cached_input": 0,
     "category": "S13_cache_hit_replay",
     "counted": 8837,
     "passed": true,
@@ -968,8 +968,8 @@
    },
    {
     "attempt_kind": "INITIAL",
-    "cache_hit_achieved": true,
-    "cached_input": 3943,
+    "cache_hit_achieved": false,
+    "cached_input": 0,
     "category": "S13_cache_hit_replay",
     "counted": 8837,
     "passed": true,
@@ -986,8 +986,8 @@
    },
    {
     "attempt_kind": "INITIAL",
-    "cache_hit_achieved": true,
-    "cached_input": 3943,
+    "cache_hit_achieved": false,
+    "cached_input": 0,
     "category": "S13_cache_hit_replay",
     "counted": 8837,
     "passed": true,
@@ -1005,10 +1005,10 @@
   ]
  },
  "report": {
-  "cacheHitSamplesObserved": 3,
-  "cacheSamplesValidated": true,
-  "cacheValidationStatus": "VALIDATED",
-  "cached_input_observed": 11829,
+  "cacheHitSamplesObserved": 0,
+  "cacheSamplesValidated": false,
+  "cacheValidationStatus": "NOT_OBSERVED",
+  "cached_input_observed": 0,
   "canonicalOutputSchemaHash": "9b250baa05519b538ff8774cf8f3a81144703f4c425f3249f17afe6aa7732eed",
   "framingOverheadConsistent": true,
   "geminiTransportSchemaHash": "796c649fbfcf3b39a0a2bca6d1eed5a10bba85d320ebd6b5df561f34d12e1fca",
@@ -1126,10 +1126,10 @@
    "validated_framing_overhead": 0
   },
   {
-   "cache_hit_samples": 3,
+   "cache_hit_samples": 0,
    "digest": "fbd8293a4196ea791d18f450adb35436791c57944cb0b11ce0bfde5aa2d1f4f9",
    "name": "INITIAL_INJECTED",
-   "non_cache_samples": 9,
+   "non_cache_samples": 12,
    "validated_framing_overhead": 0
   }
  ],
@@ -1183,11 +1183,11 @@
   ]
  },
  "supplementaryReroutingHash": "a4e71c1d538f69b3c8519eb7d7c3eb09dd12807e59d970de95da0e0eee570560",
- "validationArtifactHash": "4856d5a9f7e41fdbf6d8de129a2214f116c515df0ee4e31cb3faa2519f749923",
+ "validationArtifactHash": "63bdcb9baffca673f6b636d03ec546afdcd7cfbf49614bc310b7b8aa71c96a98",
  "validationCorpusHash": "ce324c1519179a15cf8d591c427e7911c0abfab65cdf66b8faf9d966fda6ceb7",
  "validationCorpusHashShort": "ce324c1519179a15",
  "volatile": {
-  "generated_at": "2026-08-04T03:52:12.423249+00:00",
+  "generated_at": "2026-08-21T06:51:07.014449+00:00",
   "script": "risk_adapter_shadow_validation.py"
  }
 }

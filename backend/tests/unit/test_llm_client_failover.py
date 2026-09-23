@@ -134,6 +134,19 @@ def test_sanitize_collapses_duplicate_gloss() -> None:
     assert s("이미 표준형 己亥(기해)는") == "이미 표준형 己亥(기해)는"
 
 
+def test_sanitize_unwraps_period_ganji_parentheses() -> None:
+    """'1월(辛丑(신축)월)' → '1월 辛丑(신축)월' (2026-09-20 데굴님 지적). 설명 괄호는 유지."""
+    s = llm_client._sanitize_output
+    assert s("1월(辛丑(신축)월)에는") == "1월 辛丑(신축)월에는"
+    assert s("2026년(丙午(병오)년) 흐름") == "2026년 丙午(병오)년 흐름"
+    # 괄호 안 간지에 병기가 없거나 단위가 빠져도 같은 꼴로 편다(병기는 _normalize_ganji 보충).
+    assert s("3월(乙卯월)은") == "3월 乙卯(을묘)월은"
+    assert s("3월(乙卯(을묘))은") == "3월 乙卯(을묘)월은"
+    # 설명 괄호('입춘 전')·이미 표준형인 표기는 손대지 않는다.
+    assert s("1월(입춘 전)에는") == "1월(입춘 전)에는"
+    assert s("1월 辛丑(신축)월에는") == "1월 辛丑(신축)월에는"
+
+
 def test_primary_output_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> None:
     """generate_reading 반환값에서 취소선이 제거된다(채팅·리포트 공통 경로)."""
     def fake_gemini(profile, system, prompt, max_tokens, timeout):

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  profileToBasic, profileToBirthDTO, subjectEotPreference, summaryToProfile,
+  buildTimeOptions, profileToBasic, profileToBirthDTO, subjectEotPreference, subjectJaHourRule,
+  summaryToProfile,
 } from "@/lib/subject-mapping";
 import type { Profile, SubjectSummary } from "@/lib/types";
 
@@ -88,7 +89,7 @@ describe("subject-mapping", () => {
       yongsin_registered: false, mulsang_registered: false,
       birth: { calendar_type: "solar", birth_date: "2015-03-01", birth_place_name: "서울" },
     };
-    expect(subjectEotPreference(base)).toBe(true); // 구 레코드(time_options 없음) = 백엔드 기본값
+    expect(subjectEotPreference(base)).toBe(false); // 구 레코드(time_options 없음) = 백엔드 기본값(미적용)
     expect(subjectEotPreference({
       ...base, birth: { ...base.birth, time_options: { apply_equation_of_time: false } },
     })).toBe(false);
@@ -97,7 +98,7 @@ describe("subject-mapping", () => {
     })).toBe(true);
     expect(subjectEotPreference({
       ...base, birth: { ...base.birth, time_options: { day_boundary_rule: "23:00" } },
-    })).toBe(true); // 부분 옵션 — eot 미지정이면 기본 적용
+    })).toBe(false); // 부분 옵션 — eot 미지정이면 기본 미적용
   });
 
   it("profile → basic maps gender to M/F and city/display_name", () => {
@@ -105,5 +106,31 @@ describe("subject-mapping", () => {
     expect(basic.gender).toBe("F");
     expect(basic.display_name).toBe("별명이");
     expect(basic.birth_place.city).toBe("부산");
+  });
+
+  it("사주별 자시 규칙: early_late_zi만 구분, 미저장·none·standard_zi·미지원 값은 정자시", () => {
+    // 백엔드 "none"은 standard_zi와 동작이 같으므로 UI에서는 정자시로 해석한다.
+    const base: SubjectSummary = {
+      subject_id: "s", owner_id: "u", kind: "self", label: "x", aliases: [],
+      relation_to_user: null, gender: "male", is_minor: false, subscribed: false,
+      yongsin_registered: false, mulsang_registered: false,
+      birth: { calendar_type: "solar", birth_date: "1981-03-10", birth_place_name: "청주" },
+    };
+    const withRule = (rule: unknown): SubjectSummary => ({
+      ...base, birth: { ...base.birth, time_options: { ja_hour_rule: rule } },
+    });
+    expect(subjectJaHourRule(base)).toBe("standard_zi"); // 구 레코드 = 백엔드 기본값
+    expect(subjectJaHourRule(withRule("standard_zi"))).toBe("standard_zi");
+    expect(subjectJaHourRule(withRule("none"))).toBe("standard_zi");
+    expect(subjectJaHourRule(withRule("early_late_zi"))).toBe("early_late_zi");
+    expect(subjectJaHourRule(withRule("bogus"))).toBe("standard_zi");
+  });
+
+  it("buildTimeOptions는 균시차·자시 규칙을 항상 함께 싣는다", () => {
+    expect(buildTimeOptions(false, "early_late_zi")).toEqual({
+      apply_equation_of_time: false, ja_hour_rule: "early_late_zi",
+    });
+    const dto = profileToBirthDTO(PROFILE, buildTimeOptions(true, "standard_zi"));
+    expect(dto.time_options).toEqual({ apply_equation_of_time: true, ja_hour_rule: "standard_zi" });
   });
 });

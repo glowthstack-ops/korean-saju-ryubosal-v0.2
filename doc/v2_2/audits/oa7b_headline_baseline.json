@@ -1,62 +1,59 @@
 {
   "audit_id": "OA-7b",
-  "generated_from_commit": "a2c6366",
-  "dict_version": "dict.v1.9",
+  "generated_from_commit": "d6f56a6",
+  "dict_version": "dict.v1.13",
   "selector_version": "oa6b_board_domain_cap_v1",
-  "selection_seed_contract": "legacy_content_version_coupled",
-  "cross_dict_version_comparable": false,
-  "note": "이 기준선은 선택 seed에 CONTENT_VERSION(=DICT_VERSION 포함)이 결합된 계약에서 생성됐다. DICT_VERSION 이 오르면 동점 tie-break 이 재배열되어(실측 3.7%) 다른 버전의 결과와 직접 비교할 수 없다. OA-6d 이후 새 기준선을 쓴다.",
   "date_range": {
-    "from": "2026-07-01",
-    "to": "2026-07-30"
+    "from": "2026-09-12",
+    "to": "2026-10-11"
   },
   "cards": 1800,
-  "generation_command": "python scripts/audit_daily_headline_baseline.py 2026-07-01 30",
+  "generation_command": "python scripts/audit_daily_headline_baseline.py 2026-09-12 30",
   "source_digest": {
-    "daily_event_catalog.json": "b007e56175060c5b40cb5fb171e6adc641de598aff9cf2beab01b012a1ee0519",
-    "daily_phrase_templates.json": "05d26d7744f84d7f7fb801eecbe22e64d926b7b5399a8333f4e79b2e3484bd8d",
-    "daily_lucky_places.json": "8feaf0169951d4a1cb799b1fdde35edf529eb6877a1baf660ceb27d4b3eef5f1"
+    "daily_event_catalog.json": "ca0f36cb67cad085b40f0f12d61b0ba23b7506078e430cee0818d16dd2f4d329",
+    "daily_phrase_templates.json": "4e344bfbab3e730e2242f60fd8dd4af4b70339c18be9131ba43248c3986daa8d",
+    "daily_lucky_places.json": "2f533e501d6a66c6c8ca0653e0b2541b87380b4ac00d6f7406f2aab5438b53dd"
   },
   "metrics": {
     "window": {
-      "start": "2026-07-01",
+      "start": "2026-09-12",
       "days": 30,
       "cards": 1800
     },
     "A_opened_rank_distribution": {
       "rest_recharge": {
-        "rank1": 3,
-        "rank2": 6,
-        "rank3": 12,
-        "rank4plus": 1779,
-        "final_headline": 28
+        "rank1": 2,
+        "rank2": 3,
+        "rank3": 6,
+        "rank4plus": 1789,
+        "final_headline": 27
       },
       "tidy_luck": {
         "rank1": 1,
-        "rank2": 4,
-        "rank3": 23,
-        "rank4plus": 1772,
-        "final_headline": 22
+        "rank2": 2,
+        "rank3": 13,
+        "rank4plus": 1784,
+        "final_headline": 14
       },
       "walk_refresh": {
-        "rank1": 1,
+        "rank1": 0,
         "rank2": 0,
-        "rank3": 2,
+        "rank3": 3,
         "rank4plus": 1797,
-        "final_headline": 3
+        "final_headline": 2
       },
       "small_find": {
         "rank1": 0,
         "rank2": 0,
         "rank3": 0,
         "rank4plus": 1800,
-        "final_headline": 1
+        "final_headline": 0
       },
       "focus_flow": {
         "rank1": 0,
-        "rank2": 4,
-        "rank3": 7,
-        "rank4plus": 1789,
+        "rank2": 7,
+        "rank3": 16,
+        "rank4plus": 1777,
         "final_headline": 0
       },
       "family_talk": {
@@ -68,120 +65,98 @@
       }
     },
     "B_domain_transition_cost": {
-      "money → document": {
+      "money → health": {
+        "count": 1,
+        "mean": 0.0,
+        "max": 0,
+        "p90": 0
+      },
+      "money → leisure": {
+        "count": 9,
+        "mean": 2.22,
+        "max": 6,
+        "p90": 4
+      },
+      "money → love": {
+        "count": 28,
+        "mean": 3.0,
+        "max": 9,
+        "p90": 4
+      },
+      "money → news": {
+        "count": 15,
+        "mean": 4.2,
+        "max": 8,
+        "p90": 7
+      },
+      "money → social": {
+        "count": 9,
+        "mean": 2.56,
+        "max": 5,
+        "p90": 4
+      },
+      "money → work": {
+        "count": 22,
+        "mean": 2.82,
+        "max": 6,
+        "p90": 4
+      },
+      "work → document": {
         "count": 3,
         "mean": 1.33,
         "max": 2,
         "p90": 1
       },
-      "money → health": {
-        "count": 2,
-        "mean": 2.5,
-        "max": 3,
-        "p90": 2
-      },
-      "money → leisure": {
-        "count": 12,
-        "mean": 2.33,
-        "max": 6,
-        "p90": 5
-      },
-      "money → love": {
-        "count": 36,
-        "mean": 3.64,
-        "max": 7,
-        "p90": 6
-      },
-      "money → news": {
-        "count": 13,
-        "mean": 3.62,
-        "max": 7,
-        "p90": 6
-      },
-      "money → social": {
-        "count": 10,
-        "mean": 1.2,
-        "max": 3,
-        "p90": 3
-      },
-      "money → work": {
-        "count": 14,
-        "mean": 1.71,
-        "max": 4,
-        "p90": 3
-      },
-      "work → document": {
-        "count": 5,
-        "mean": 2.0,
-        "max": 3,
-        "p90": 3
-      },
       "work → health": {
-        "count": 2,
-        "mean": 1.0,
+        "count": 4,
+        "mean": 0.25,
         "max": 1,
-        "p90": 1
+        "p90": 0
       },
       "work → leisure": {
-        "count": 2,
-        "mean": 2.5,
-        "max": 3,
-        "p90": 2
+        "count": 1,
+        "mean": 0.0,
+        "max": 0,
+        "p90": 0
       },
       "work → love": {
+        "count": 13,
+        "mean": 0.62,
+        "max": 2,
+        "p90": 1
+      },
+      "work → news": {
         "count": 9,
         "mean": 1.67,
         "max": 3,
         "p90": 3
       },
-      "work → news": {
-        "count": 7,
-        "mean": 1.0,
-        "max": 2,
-        "p90": 1
-      },
       "work → social": {
-        "count": 6,
-        "mean": 0.83,
+        "count": 9,
+        "mean": 0.44,
         "max": 1,
         "p90": 1
       }
     },
     "C_daily_max_event_share": [
       {
-        "date": "2026-07-01",
+        "date": "2026-09-12",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 30.0,
-        "final_top_event": "money_small_gain",
-        "final_top_share": 25.0,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-02",
-        "raw_top_event": "money_small_gain",
-        "raw_top_share": 28.3,
-        "final_top_event": "money_small_gain",
-        "final_top_share": 28.3,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-03",
-        "raw_top_event": "money_small_gain",
-        "raw_top_share": 30.0,
+        "raw_top_share": 31.7,
         "final_top_event": "money_small_gain",
         "final_top_share": 23.3,
         "top_changed": false
       },
       {
-        "date": "2026-07-04",
+        "date": "2026-09-13",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 33.3,
+        "raw_top_share": 25.0,
         "final_top_event": "money_small_gain",
-        "final_top_share": 20.0,
+        "final_top_share": 23.3,
         "top_changed": false
       },
       {
-        "date": "2026-07-05",
+        "date": "2026-09-14",
         "raw_top_event": "money_small_gain",
         "raw_top_share": 21.7,
         "final_top_event": "money_small_gain",
@@ -189,39 +164,47 @@
         "top_changed": false
       },
       {
-        "date": "2026-07-06",
+        "date": "2026-09-15",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 21.7,
+        "raw_top_share": 18.3,
         "final_top_event": "money_small_gain",
-        "final_top_share": 20.0,
+        "final_top_share": 18.3,
         "top_changed": false
       },
       {
-        "date": "2026-07-07",
-        "raw_top_event": "money_small_gain",
-        "raw_top_share": 40.0,
-        "final_top_event": "money_small_gain",
-        "final_top_share": 30.0,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-08",
-        "raw_top_event": "money_small_gain",
-        "raw_top_share": 23.3,
-        "final_top_event": "money_small_gain",
-        "final_top_share": 21.7,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-09",
+        "date": "2026-09-16",
         "raw_top_event": "money_small_gain",
         "raw_top_share": 28.3,
         "final_top_event": "money_small_gain",
-        "final_top_share": 26.7,
+        "final_top_share": 25.0,
         "top_changed": false
       },
       {
-        "date": "2026-07-10",
+        "date": "2026-09-17",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 31.7,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 23.3,
+        "top_changed": false
+      },
+      {
+        "date": "2026-09-18",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 30.0,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 28.3,
+        "top_changed": false
+      },
+      {
+        "date": "2026-09-19",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 26.7,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 25.0,
+        "top_changed": false
+      },
+      {
+        "date": "2026-09-20",
         "raw_top_event": "money_small_gain",
         "raw_top_share": 20.0,
         "final_top_event": "money_small_gain",
@@ -229,15 +212,39 @@
         "top_changed": false
       },
       {
-        "date": "2026-07-11",
+        "date": "2026-09-21",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 28.3,
+        "raw_top_share": 25.0,
         "final_top_event": "money_small_gain",
-        "final_top_share": 23.3,
+        "final_top_share": 25.0,
         "top_changed": false
       },
       {
-        "date": "2026-07-12",
+        "date": "2026-09-22",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 20.0,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 20.0,
+        "top_changed": false
+      },
+      {
+        "date": "2026-09-23",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 30.0,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 25.0,
+        "top_changed": false
+      },
+      {
+        "date": "2026-09-24",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 28.3,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 25.0,
+        "top_changed": false
+      },
+      {
+        "date": "2026-09-25",
         "raw_top_event": "money_small_gain",
         "raw_top_share": 26.7,
         "final_top_event": "money_small_gain",
@@ -245,95 +252,63 @@
         "top_changed": false
       },
       {
-        "date": "2026-07-13",
+        "date": "2026-09-26",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 18.3,
+        "raw_top_share": 33.3,
         "final_top_event": "money_small_gain",
-        "final_top_share": 18.3,
+        "final_top_share": 28.3,
         "top_changed": false
       },
       {
-        "date": "2026-07-14",
+        "date": "2026-09-27",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 23.3,
-        "final_top_event": "money_small_gain",
-        "final_top_share": 20.0,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-15",
-        "raw_top_event": "money_small_gain",
-        "raw_top_share": 28.3,
-        "final_top_event": "money_small_gain",
-        "final_top_share": 25.0,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-16",
-        "raw_top_event": "money_small_gain",
-        "raw_top_share": 30.0,
-        "final_top_event": "money_small_gain",
-        "final_top_share": 23.3,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-17",
-        "raw_top_event": "money_small_gain",
-        "raw_top_share": 30.0,
-        "final_top_event": "money_small_gain",
-        "final_top_share": 23.3,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-18",
-        "raw_top_event": "money_small_gain",
-        "raw_top_share": 30.0,
-        "final_top_event": "money_small_gain",
-        "final_top_share": 21.7,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-19",
-        "raw_top_event": "money_small_gain",
-        "raw_top_share": 38.3,
+        "raw_top_share": 36.7,
         "final_top_event": "money_small_gain",
         "final_top_share": 26.7,
         "top_changed": false
       },
       {
-        "date": "2026-07-20",
+        "date": "2026-09-28",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 23.3,
+        "raw_top_share": 33.3,
         "final_top_event": "money_small_gain",
-        "final_top_share": 21.7,
+        "final_top_share": 28.3,
         "top_changed": false
       },
       {
-        "date": "2026-07-21",
-        "raw_top_event": "praise_recognition",
-        "raw_top_share": 18.3,
-        "final_top_event": "praise_recognition",
-        "final_top_share": 18.3,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-22",
+        "date": "2026-09-29",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 20.0,
+        "raw_top_share": 26.7,
         "final_top_event": "money_small_gain",
-        "final_top_share": 20.0,
+        "final_top_share": 25.0,
         "top_changed": false
       },
       {
-        "date": "2026-07-23",
+        "date": "2026-09-30",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 16.7,
+        "raw_top_share": 30.0,
         "final_top_event": "money_small_gain",
-        "final_top_share": 16.7,
+        "final_top_share": 26.7,
         "top_changed": false
       },
       {
-        "date": "2026-07-24",
+        "date": "2026-10-01",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 28.3,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 26.7,
+        "top_changed": false
+      },
+      {
+        "date": "2026-10-02",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 43.3,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 26.7,
+        "top_changed": false
+      },
+      {
+        "date": "2026-10-03",
         "raw_top_event": "money_small_gain",
         "raw_top_share": 21.7,
         "final_top_event": "money_small_gain",
@@ -341,23 +316,31 @@
         "top_changed": false
       },
       {
-        "date": "2026-07-25",
+        "date": "2026-10-04",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 38.3,
+        "raw_top_share": 26.7,
         "final_top_event": "money_small_gain",
-        "final_top_share": 23.3,
+        "final_top_share": 21.7,
         "top_changed": false
       },
       {
-        "date": "2026-07-26",
+        "date": "2026-10-05",
         "raw_top_event": "money_small_gain",
-        "raw_top_share": 23.3,
+        "raw_top_share": 20.0,
         "final_top_event": "money_small_gain",
-        "final_top_share": 23.3,
+        "final_top_share": 20.0,
         "top_changed": false
       },
       {
-        "date": "2026-07-27",
+        "date": "2026-10-06",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 20.0,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 20.0,
+        "top_changed": false
+      },
+      {
+        "date": "2026-10-07",
         "raw_top_event": "money_small_gain",
         "raw_top_share": 33.3,
         "final_top_event": "money_small_gain",
@@ -365,114 +348,129 @@
         "top_changed": false
       },
       {
-        "date": "2026-07-28",
+        "date": "2026-10-08",
         "raw_top_event": "money_small_gain",
         "raw_top_share": 30.0,
         "final_top_event": "money_small_gain",
-        "final_top_share": 23.3,
+        "final_top_share": 21.7,
         "top_changed": false
       },
       {
-        "date": "2026-07-29",
+        "date": "2026-10-09",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 31.7,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 21.7,
+        "top_changed": false
+      },
+      {
+        "date": "2026-10-10",
+        "raw_top_event": "money_small_gain",
+        "raw_top_share": 40.0,
+        "final_top_event": "money_small_gain",
+        "final_top_share": 26.7,
+        "top_changed": false
+      },
+      {
+        "date": "2026-10-11",
         "raw_top_event": "money_small_gain",
         "raw_top_share": 28.3,
         "final_top_event": "money_small_gain",
-        "final_top_share": 25.0,
-        "top_changed": false
-      },
-      {
-        "date": "2026-07-30",
-        "raw_top_event": "money_small_gain",
-        "raw_top_share": 33.3,
-        "final_top_event": "money_small_gain",
-        "final_top_share": 21.7,
+        "final_top_share": 28.3,
         "top_changed": false
       }
     ],
     "D_headline_pareto": {
-      "top5_cum_pct": 60.2,
-      "top8_cum_pct": 80.1,
-      "top10_cum_pct": 89.1,
+      "top5_cum_pct": 64.7,
+      "top8_cum_pct": 82.0,
+      "top10_cum_pct": 88.6,
       "events": [
         {
           "event_key": "money_small_gain",
-          "count": 412,
-          "share_pct": 22.9,
+          "count": 436,
+          "share_pct": 24.2,
           "domain": "money",
           "valence": "good"
         },
         {
           "event_key": "praise_recognition",
-          "count": 234,
-          "share_pct": 13.0,
-          "domain": "work",
-          "valence": "good"
-        },
-        {
-          "event_key": "good_news_arrives",
-          "count": 163,
-          "share_pct": 9.1,
-          "domain": "news",
-          "valence": "good"
-        },
-        {
-          "event_key": "teamwork_flow",
-          "count": 143,
-          "share_pct": 7.9,
+          "count": 247,
+          "share_pct": 13.7,
           "domain": "work",
           "valence": "good"
         },
         {
           "event_key": "meet_helper",
-          "count": 132,
-          "share_pct": 7.3,
+          "count": 189,
+          "share_pct": 10.5,
           "domain": "social",
           "valence": "good"
         },
         {
           "event_key": "document_progress",
-          "count": 128,
-          "share_pct": 7.1,
+          "count": 154,
+          "share_pct": 8.6,
           "domain": "document",
           "valence": "good"
         },
         {
+          "event_key": "teamwork_flow",
+          "count": 138,
+          "share_pct": 7.7,
+          "domain": "work",
+          "valence": "good"
+        },
+        {
           "event_key": "idea_flash",
-          "count": 118,
-          "share_pct": 6.6,
+          "count": 112,
+          "share_pct": 6.2,
           "domain": "work",
           "valence": "good"
         },
         {
           "event_key": "love_spark",
-          "count": 111,
-          "share_pct": 6.2,
+          "count": 104,
+          "share_pct": 5.8,
           "domain": "love",
           "valence": "good"
         },
         {
+          "event_key": "good_news_arrives",
+          "count": 96,
+          "share_pct": 5.3,
+          "domain": "news",
+          "valence": "good"
+        },
+        {
           "event_key": "argument_caution",
-          "count": 103,
-          "share_pct": 5.7,
+          "count": 61,
+          "share_pct": 3.4,
           "domain": "social",
           "valence": "caution"
         },
         {
-          "event_key": "money_good_deal",
-          "count": 60,
-          "share_pct": 3.3,
-          "domain": "money",
+          "event_key": "old_contact",
+          "count": 57,
+          "share_pct": 3.2,
+          "domain": "news",
           "valence": "good"
         },
         {
           "event_key": "overspend_caution",
-          "count": 52,
-          "share_pct": 2.9,
+          "count": 54,
+          "share_pct": 3.0,
           "domain": "money",
           "valence": "caution"
         },
         {
-          "event_key": "old_contact",
+          "event_key": "money_good_deal",
+          "count": 34,
+          "share_pct": 1.9,
+          "domain": "money",
+          "valence": "good"
+        },
+        {
+          "event_key": "unexpected_offer",
           "count": 32,
           "share_pct": 1.8,
           "domain": "news",
@@ -480,80 +478,73 @@
         },
         {
           "event_key": "rest_recharge",
-          "count": 28,
-          "share_pct": 1.6,
+          "count": 27,
+          "share_pct": 1.5,
           "domain": "health",
           "valence": "good"
         },
         {
           "event_key": "treat_received",
-          "count": 27,
-          "share_pct": 1.5,
+          "count": 15,
+          "share_pct": 0.8,
           "domain": "social",
           "valence": "good"
         },
         {
           "event_key": "tidy_luck",
-          "count": 22,
-          "share_pct": 1.2,
+          "count": 14,
+          "share_pct": 0.8,
           "domain": "leisure",
-          "valence": "good"
-        },
-        {
-          "event_key": "love_deepening",
-          "count": 10,
-          "share_pct": 0.6,
-          "domain": "love",
           "valence": "good"
         },
         {
           "event_key": "pleasant_meeting",
-          "count": 8,
-          "share_pct": 0.4,
+          "count": 13,
+          "share_pct": 0.7,
           "domain": "social",
           "valence": "good"
         },
         {
-          "event_key": "misunderstanding_caution",
-          "count": 6,
-          "share_pct": 0.3,
-          "domain": "news",
-          "valence": "caution"
-        },
-        {
-          "event_key": "love_reunion",
-          "count": 5,
-          "share_pct": 0.3,
+          "event_key": "love_deepening",
+          "count": 7,
+          "share_pct": 0.4,
           "domain": "love",
           "valence": "good"
         },
         {
-          "event_key": "walk_refresh",
+          "event_key": "misunderstanding_caution",
           "count": 3,
           "share_pct": 0.2,
-          "domain": "leisure",
-          "valence": "good"
-        },
-        {
-          "event_key": "small_find",
-          "count": 1,
-          "share_pct": 0.1,
-          "domain": "leisure",
-          "valence": "good"
-        },
-        {
-          "event_key": "contract_clause_caution",
-          "count": 1,
-          "share_pct": 0.1,
-          "domain": "document",
+          "domain": "news",
           "valence": "caution"
+        },
+        {
+          "event_key": "walk_refresh",
+          "count": 2,
+          "share_pct": 0.1,
+          "domain": "leisure",
+          "valence": "good"
         },
         {
           "event_key": "contract_recheck_caution",
-          "count": 1,
+          "count": 2,
           "share_pct": 0.1,
           "domain": "document",
           "valence": "caution"
+        },
+        {
+          "event_key": "fatigue_caution",
+          "count": 2,
+          "share_pct": 0.1,
+          "domain": "health",
+          "valence": "caution"
+        },
+        {
+          "event_key": "love_reunion",
+          "count": 1,
+          "share_pct": 0.1,
+          "domain": "love",
+          "valence": "good"
         }
       ]
     }

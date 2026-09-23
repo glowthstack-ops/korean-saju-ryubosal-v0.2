@@ -44,8 +44,11 @@ class CallLimit:
 # ([사용자 제공 정보] 블록, 캡 10건)과 특정일 일운·세대주 분리 디렉티브가 대화 입력에 더해지는
 # 분을 흡수 — 대화 연속성(사실 상속) 개선 건.
 CALL_LIMITS: dict[str, CallLimit] = {
-    "chat_single": CallLimit(22_000, 5_000, max_output_chars=1_500),
-    "chat_compare": CallLimit(22_000, 5_500, max_output_chars=2_400),
+    # 2026-09-21 데굴님 결정: 22,000→28,000. 방향 질문(방위 활용 수동 블록+목적 16종 표+민속 고지)이
+    # 후행 지시문·시스템 프롬프트 예약분과 합쳐 22k를 넘어 Tier 0 트림에서 민속 고지가 잘렸다 —
+    # 재료를 잘라내는 대신 상한을 올린다(불필요 항목 점검은 별도, docs/09 §8).
+    "chat_single": CallLimit(28_000, 5_000, max_output_chars=1_500),
+    "chat_compare": CallLimit(28_000, 5_500, max_output_chars=2_400),
     "query_parser": CallLimit(2_000, 300),
     "report_focus_section": CallLimit(15_000, 8_000, max_output_chars=4_500),
     "report_full_section": CallLimit(15_000, 8_000, max_output_chars=4_500),

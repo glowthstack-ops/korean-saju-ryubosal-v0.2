@@ -554,7 +554,7 @@
   },
   "palace_map": {
     "year_pillar": {
-      "name": "년주",
+      "name": "연주",
       "domain": [
         "가족 뿌리",
         "조상",
@@ -877,6 +877,23 @@
         "reputation"
       ],
       "interpretation": "가족 뿌리, 고향, 오래된 관계, 외부 평판이 흔들린다."
+    }
+  ],
+  "relation_target_ten_god_rules": [
+    {
+      "id": "CHUNG_RESOURCE_RENEWAL",
+      "note": "피자극 대상 십성 조건 룰(2026-08-10 승인) — 궁성 무관, 운 충이 원국 인성(문서·자격·후견) 글자를 칠 때 기존 문서·계약의 해체→교체(갱신·이동) 계열 사건화 자극. 충=발동 단일 등식이 아니라 인성군 세력 게이트로 성사/동요를 가른다(세력 약=버티지 못해 동요·지연 배경). 길흉 확정은 여기서 하지 않는다 — 용기신 품질 계층이 담당(절대원칙 3·4).",
+      "relation": "CHUNG",
+      "target_ten_gods": ["ZHENGYIN", "PIANYIN"],
+      "group_key": "resource",
+      "likely_events": ["contract_document", "relocation", "career_change"],
+      "base_bonus": 8,
+      "weak_group_power_lt": 12.0,
+      "weak_bonus": 4,
+      "reason": "REL_CHUNG_RESOURCE_RENEWAL",
+      "weak_reason": "REL_CHUNG_RESOURCE_UNROOTED",
+      "interpretation": "정체된 문서·계약·거처의 기운이 충으로 움직인다 — 기존 판을 깨고 갈아타는 교체·갱신·이동 자극.",
+      "reviewed": false
     }
   ],
   "event_gate_rules_with_relation_and_palace": {

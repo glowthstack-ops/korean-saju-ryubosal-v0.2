@@ -66,7 +66,7 @@ def test_candidates_carry_pruned_modifiers(chart, candidates, bundles, scorer) -
     # 후보당 신살 태그는 최대 3개(pruning 가드).
     for c in payload.event_candidates:
         assert len(c.sinsal_modifiers) <= cfg.SINSAL_PAYLOAD_MAX_PER_EVENT
-        # 후보당 domain_match=False 최대 1, 년주 background 최대 1.
+        # 후보당 domain_match=False 최대 1, 연주 background 최대 1.
         assert sum(1 for m in c.sinsal_modifiers if not m.domain_match) <= 1
     # career 질문 → 적어도 한 후보엔 신살 태그가 붙는다(1980 차트는 월주 신살 보유).
     assert any(c.sinsal_modifiers for c in payload.event_candidates)
@@ -140,13 +140,13 @@ def test_drop_sinsal_aux_noop_without_sinsal(chart, candidates, bundles, scorer)
 def test_trim_drops_sinsal_before_excerpts(chart, candidates, bundles, scorer) -> None:
     """토큰 초과 시 신살 보조가 먼저 빠지고 고정 prefix(해석 발췌)는 보존된다(Tier0)."""
     from saju_engines.context_reducer import _drop_sinsal_aux
-    from saju_engines.llm_guard import estimate_tokens
+    from saju_engines.llm_guard import CALL_LIMITS, estimate_tokens
     payload = build_llm_input("올해 이직운 어때?", _intent(), chart, candidates, bundles, scorer,
                               today=date(2026, 6, 11))
     if not any(c.sinsal_modifiers or c.sinsal_channel_note for c in payload.event_candidates):
         return  # 신살이 없으면 트림 우선순위 무관(스킵)
     n_tok = estimate_tokens(serialize_llm_input(_drop_sinsal_aux(payload)))
-    reserve = 22000 - n_tok - 5  # full 초과·no_sinsal 통과 유도
+    reserve = CALL_LIMITS["chat_single"].max_input_tokens - n_tok - 5  # 초과·no_sinsal 통과 유도
     text, _ = serialize_with_guard(payload, "chat_single", reserve_tokens=reserve)
     assert "신살 보조" not in text and "시기색채" not in text  # 신살 먼저 제거
     assert ("보조 — 단독 판정" in text) or ("명식 해석" in text)  # excerpt(prefix) 보존

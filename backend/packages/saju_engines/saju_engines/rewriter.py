@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel, Field
 
 from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectKind
@@ -98,13 +100,59 @@ def _context_suggestions(last: IntentJson | None) -> list[RewriteSuggestion]:
     return out
 
 
+# ── 사건 서술(고민 상담)형 감지 — B3 예외(2026-08-11 데굴님 승인) ────────────────
+# "과거 사건 서술 + 우려 + 막연 미래 질의"는 시점·분야 어휘가 없어도 범위를 되묻지
+# 않고 실행한다. 실사용 보고: "집안 자랑하다가 그게 발목을 잡아서 연기인생을 망치게
+# 될 것 같아. 앞으로 어떻게 될까?"가 표현을 바꿔도 세 번 연속 좁히기 메뉴로 튕겼다
+# — 상황을 구체적으로 서술했는데 되물으면 서술이 통째로 무시된다.
+# 통과 후 서술 범위는 답변 지평 정책(docs/16, horizon.resolve_horizon)이 잡는다.
+# 세 신호를 모두 요구해 "앞으로 내 운세 알려줘" 같은 무맥락 질문은 기존대로 좁힌다.
+#
+# 과거 서술절 연결어미: -았/었는데·-았/었더니(축약형 했·됐·갔·왔·졌…은 아래
+# _has_past_narrative가 받침 ㅆ으로 일반화), -다가('다가오는 3년' 같은 시간어는 제외).
+_NARRATIVE_CONNECTIVE = re.compile(r"([가-힣])(?:는데|더니)")
+_NARRATIVE_DAGA = re.compile(r"[가-힣]다가(?!오|올|온|와)")
+# 우려·부정 결과 어휘 — 사건이 나쁘게 번질 것을 걱정하는 표현만 열거한다.
+_CONCERN = re.compile(
+    r"망치|망칠|망하|망할|발목|잘못되|잘못될|꼬이|꼬여|틀어지|무너지|끝장|"
+    r"잃을|잃게|위기|큰일|문제가?\s*(?:생|되|터)|일이\s*터|사고를?\s*치|손해|피해|걱정|불안"
+)
+# 막연 미래 질의 — 특정 시점 없이 앞날을 묻는 어법.
+_VAGUE_FUTURE_ASK = re.compile(r"앞으로|어떻게\s*될|어찌\s*될|어떻게\s*해야|어떡")
+
+_SSANG_SIOT_JONG = 20  # 한글 음절 종성 인덱스 — ㅆ(과거 시제 선어말어미 축약의 공통 받침)
+
+
+def _has_past_narrative(text: str) -> bool:
+    """과거 서술절(-았/었는데·-았/었더니, -다가) 존재 여부.
+
+    '했는데·됐는데·나빠졌는데'처럼 과거 선어말어미가 어간에 축약된 표면형은 열거가
+    불가능하므로, 연결어미 앞 음절의 받침이 ㅆ인지로 일반화해 판정한다.
+    '활동 중인데' 같은 현재 서술이나 '걱정되는데' 같은 비과거형은 통과하지 않는다.
+    """
+    for m in _NARRATIVE_CONNECTIVE.finditer(text):
+        if (ord(m.group(1)) - 0xAC00) % 28 == _SSANG_SIOT_JONG:
+            return True
+    return bool(_NARRATIVE_DAGA.search(text))
+
+
+def _is_incident_concern(text: str) -> bool:
+    """사건 서술(고민 상담)형 — 과거 서술절 + 우려 + 막연 미래 질의 3신호 동시 충족."""
+    return bool(
+        text
+        and _has_past_narrative(text)
+        and _CONCERN.search(text)
+        and _VAGUE_FUTURE_ASK.search(text)
+    )
+
+
 def assess(
     intent: IntentJson, original_query: str = "", last_intent: IntentJson | None = None,
 ) -> QueryAssessment:
     """B3 판정표 적용.
 
     | 시점 | 분야 | 대상 | 처리 |
-    | ✗ | ✗ | 확정 | too_broad → 선택지 제안(실행 안 함) |
+    | ✗ | ✗ | 확정 | too_broad → 선택지 제안(실행 안 함) — 단 사건 서술형은 실행 |
     | ✓ | ✗ | 확정 | 종합운 실행 |
     | ✗ | ✓ | 확정 | 분야 기본 기간 적용 |
     | ✓ | ✓ | 확정 | 바로 실행 |
@@ -131,6 +179,10 @@ def assess(
         QueryType.TERMINOLOGY_EDUCATION, QueryType.FEEDBACK_CORRECTION,
         QueryType.EMOTIONAL_SUPPORT, QueryType.OUT_OF_SCOPE,
         QueryType.CHART_ANALYSIS,
+        # 과거 설명(Q5)은 시점이 없어도 되묻지 않는다 — 후속 턴은 시점을 승계하고, 맥락이
+        # 없으면 chat이 원국 성향 층으로 답하며 시점·사건 확인을 유도한다
+        # ('나는 왜 이랬을까'가 too_broad로 빠지던 결함 — 2026-09-06).
+        QueryType.EVENT_EXPLANATION,
         # 비교/궁합/경쟁은 '무엇을 비교할지(대상)'가 곧 분석 대상이라 시점·분야 없이도 실행한다.
         # (대상 모호는 위 ambiguous 가드가 이미 need_subject로 처리.)
         QueryType.COMPARISON,
@@ -138,6 +190,10 @@ def assess(
         return QueryAssessment(status="ok")
 
     if not has_time and not has_domain:
+        # 사건 서술(고민 상담)형은 되묻지 않고 실행한다(B3 예외, 2026-08-11) —
+        # 서술 범위는 chat의 vague_future 경로에서 답변 지평 정책(docs/16)이 잡는다.
+        if _is_incident_concern(original_query):
+            return QueryAssessment(status="ok")
         # 활성 스레드가 있으면 직전 분야를 잇는 제안, 없으면 일반 목록으로 폴백.
         return QueryAssessment(
             status="too_broad",

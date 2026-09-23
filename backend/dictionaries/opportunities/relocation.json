@@ -1,0 +1,321 @@
+{
+  "version": "1.0.0",
+  "domain": "relocation",
+  "reviewed": false,
+  "purpose": "기회·호전 사전(P1, 2026-09-18 데굴님 승인) — 위험 사전(risks/)의 긍정 대칭 층. 경량 엔진(opportunity_engine)이 LuckPillar 관계·역할·공망·합 완화·구조 배경으로 판정하며 점수·순위는 바꾸지 않는다(서술·favorability 참고). 성사·당첨·확정 표현 금지. family는 event_process_types 긍정 유형 id.",
+  "items": [
+    {
+      "opportunityId": "MOV_HOUSING_SECURED",
+      "domain": "relocation",
+      "kind": "achievement",
+      "family": "acquisition",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "MOV_HSG_T1",
+          "relation": "YUKHAP",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        },
+        {
+          "id": "MOV_HSG_T2",
+          "voidState": "fill",
+          "tenGodGroup": "resource"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "MOV_HSG_A1",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "MOV_HSG_D1",
+          "voidState": "active",
+          "strength": 0.4
+        },
+        {
+          "id": "MOV_HSG_D2",
+          "hapMitigation": "bound",
+          "strength": 0.4
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "housing",
+          "ko": "원하는 집 확보·유리한 임대차 계약"
+        },
+        {
+          "id": "purchase",
+          "ko": "주택 매매 성사"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "인성(문서·거처) 길신 합 — 계약 체결 계열. 육합이 합거(묶임)면 성사가 아니라 얽힘이라 감쇠.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "MOV_MOVE_COMPLETED",
+      "domain": "relocation",
+      "kind": "achievement",
+      "family": "completion",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "MOV_CMP_T1",
+          "relation": "CHUNG",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "tenGodGroup": "output"
+        },
+        {
+          "id": "MOV_CMP_T2",
+          "relation": "SAMHAP",
+          "yeokma": true
+        },
+        {
+          "id": "MOV_CMP_T3",
+          "voidState": "fill",
+          "relationPalace": "day"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "MOV_CMP_A1",
+          "twelveStageIn": [
+            "장생",
+            "건록"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "MOV_CMP_D1",
+          "relation": "HAE",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "moved",
+          "ko": "입주·이사 완료"
+        },
+        {
+          "id": "commute",
+          "ko": "통근·생활환경 개선"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "길신 충(필요한 변화)·역마 삼합 — 이동이 결실로.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "MOV_TRIP_SUCCESS",
+      "domain": "relocation",
+      "kind": "achievement",
+      "family": "completion",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "MOV_TRP_T1",
+          "yeokma": true,
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        },
+        {
+          "id": "MOV_TRP_T2",
+          "tenGodGroup": "output",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "relation": "SAMHAP"
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "MOV_TRP_D1",
+          "voidState": "active",
+          "strength": 0.3
+        },
+        {
+          "id": "MOV_TRP_D2",
+          "relation": "HYEONG",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "trip",
+          "ko": "원하는 여행·출장 성사"
+        },
+        {
+          "id": "transfer",
+          "ko": "원하는 근무지 이동"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "역마 길신 — 이동 자체가 성과.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "MOV_DEPOSIT_RETURNED",
+      "domain": "relocation",
+      "kind": "maintenance",
+      "family": "recovery",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "MOV_DEP_T1",
+          "voidState": "release",
+          "tenGodGroup": "wealth"
+        },
+        {
+          "id": "MOV_DEP_T2",
+          "relation": "YUKHAP",
+          "relationTargetTenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "MOV_DEP_D1",
+          "relation": "HAE",
+          "relationTargetTenGodGroup": "wealth",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "deposit",
+          "ko": "보증금 반환·정산 완료"
+        },
+        {
+          "id": "repair_done",
+          "ko": "수리·공사 완료"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "재성 공망 해소·합 — 묶인 돈·일의 정리.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "MOV_COMMUTE_RELIEF",
+      "domain": "relocation",
+      "kind": "relief",
+      "family": "relief",
+      "baseValue": 0.2,
+      "triggerRules": [
+        {
+          "id": "MOV_CMR_T1",
+          "hapMitigation": "mitigated",
+          "yeokma": true
+        },
+        {
+          "id": "MOV_CMR_T2",
+          "structure": "chunggeun_clear",
+          "strength": 0.25
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "MOV_CMR_D1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "commute_relief",
+          "ko": "이동 부담·통근 부담 경감"
+        },
+        {
+          "id": "settle",
+          "ko": "정착 여건 마련"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "이동 압박(역마 기신)이 합거로 완화.",
+      "reviewed": false
+    }
+  ]
+}

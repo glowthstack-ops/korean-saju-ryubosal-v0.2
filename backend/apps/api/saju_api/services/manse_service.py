@@ -26,6 +26,8 @@ import saju_manse_core.time_correction.true_solar_time as true_solar_time
 from saju_engines.context_reducer import event_ko
 from saju_engines.event_engine_v2 import EventEngineV2
 from saju_engines.event_scoring import favorability_map_from_model
+from saju_engines.folk_direction import enrich_folk_taboos
+from saju_engines.samjae_quality import enrich_samjae_quality
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_manse_core.pillars.day_pillar import day_pillar
 from saju_manse_core.pillars.hour_pillar import hour_pillar_for_branch
@@ -67,7 +69,8 @@ _POLARITY_EXPECTED = {
     "conditional": "mixed",
     "neutral": "neutral",
 }
-_EVENTS_PER_QUESTION = 4
+# 연도별 후보 사건 상한 — 질문 생성기가 카테고리 다양성·중복 회피로 4건을 고른다(CAL-P3).
+_EVENTS_PER_QUESTION = 8
 # 검증 질문 표시용 라벨 보수화 — 일부 이벤트는 실제 사건 판정이 아니라 십성·관계 신호에서
 # 파생된 proxy 라벨이라 사용자가 구체 사건으로 오인하지 않게 완화한다(노출 전용, 사전 불변).
 _CALIB_LABEL_OVERRIDE = {
@@ -621,6 +624,11 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
             "boundary_diagnostics": boundary_trace,
         },
     )
+
+    # 삼재 quality(복/평/악·강도·겹삼재) — 세운 카드용, 기존 운 점수 불변(docs/18 §4-2).
+    enrich_samjae_quality(result)
+    # 민속 흉방(삼살·대장군·태세·세파) — 세운 카드 배지용 추가 정보, 점수 불변(docs/19 §5).
+    enrich_folk_taboos(result)
 
     # 검증 질문은 result(루크·용신 포함)가 있어야 이벤트 엔진으로 연도별 이벤트를 검출하므로
     # result 구성 후 생성해 부착한다(이벤트형 질문 — 모델별 기대 극성).

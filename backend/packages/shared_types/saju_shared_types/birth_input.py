@@ -12,7 +12,7 @@ class TimeCalculationOptions(BaseModel):
     apply_true_solar_time: bool = True
     apply_daylight_saving: bool = True
     apply_longitude_correction: bool = True
-    apply_equation_of_time: bool = True
+    apply_equation_of_time: bool = False
 
     day_boundary_rule: Literal["23:00", "00:00"] = "23:00"
     ja_hour_rule: Literal["standard_zi", "early_late_zi", "none"] = "standard_zi"

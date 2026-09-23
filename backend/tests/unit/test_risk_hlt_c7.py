@@ -117,7 +117,7 @@ _HLT_POSITIVE_CASES: list[tuple[str, dict, list[HealthContext]]] = [
         role=PolarityRole.GI, stage=TwelveStage.BYEONG,
     ), [_CONDITION_CONFIRMED]),
     # 소모 구조 shape(기신 관살=책임 과다) + 체력 기반(비겁군) 충 — 22차 계약.
-    # (년주 사용 — 일·월주 충은 REL·MOV targeted 대표와 겹친다.)
+    # (연주 사용 — 일·월주 충은 REL·MOV targeted 대표와 겹친다.)
     ("HLT_FATIGUE_ACCUMULATION", dict(
         gods={TenGod.QISHA: {LuckLayer.SEWOON}},
         relations=[RelationFact(RelationKind.CHUNG, Pillar4.YEAR,

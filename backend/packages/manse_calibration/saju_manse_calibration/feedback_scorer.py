@@ -20,6 +20,7 @@ from saju_shared_types.calibration import (
 )
 from saju_shared_types.yongsin import AggregatedYongsinResult, YongsinCandidateModel
 
+from .result_narrator import narrate
 from .trait_tagging import classify_trait_denial_kind
 
 # 채점 축 가중(docs/14 P1): 영역 극성 = 주축(이벤트 1건보다 크게), 변동성 = 보조.
@@ -353,6 +354,9 @@ def score_calibration(
         return CalibrationResult(
             status="uncertain",
             explanation=["유효한 피드백이 부족합니다(기억나지 않음 제외)."],
+            user_summary=narrate(
+                "uncertain", None, 0, 0, questions, answers_by_id, _PROBE_TYPES,
+            ),
             model_scores={k: round(v, 4) for k, v in scores.items()},
             trait_probe_feedback=trait_feedback,
             trait_llm_hints=trait_hints,
@@ -379,6 +383,9 @@ def score_calibration(
             evidence_count=0,
             model_scores={k: round(v, 4) for k, v in scores.items()},
             explanation=["primary 모델 부재(보조 모델만 존재) → 단독 확정 불가."],
+            user_summary=narrate(
+                "uncertain", None, 0, 0, questions, answers_by_id, _PROBE_TYPES,
+            ),
             trait_probe_feedback=trait_feedback,
             trait_llm_hints=trait_hints,
             deficiency_pair_feedback=pair_feedback,
@@ -436,6 +443,10 @@ def score_calibration(
         weighted_model_scores={k: round(v, 4) for k, v in weighted.items()},
         selected_model=best,
         explanation=explanation,
+        user_summary=narrate(
+            status, m, hits[best], totals[best], questions, answers_by_id, _PROBE_TYPES,
+            close_gap=(status == "probable" and gap < 0.15 and match_rate >= 0.75),
+        ),
         trait_probe_feedback=trait_feedback,
         trait_llm_hints=trait_hints,
         deficiency_pair_feedback=pair_feedback,

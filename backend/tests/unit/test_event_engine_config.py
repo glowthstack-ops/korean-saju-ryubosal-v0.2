@@ -151,7 +151,10 @@ def test_snapshot_reports_effective_mode(monkeypatch: pytest.MonkeyPatch) -> Non
         C, "EVENT_ENGINE_FLAGS",
         EventEngineFlags(daewoon_hwa_mode=DaewoonHwaMode.POST_SELECTION),
     )
-    assert event_engine_flag_snapshot() == {"daewoon_hwa_mode": "post_selection"}
+    assert event_engine_flag_snapshot() == {
+        "daewoon_hwa_mode": "post_selection",
+        "resource_clash_renewal": "off",
+    }
 
 
 def test_health_exposes_event_engine_flags() -> None:
@@ -164,3 +167,38 @@ def test_health_exposes_event_engine_flags() -> None:
     assert body["event_engine_flags"]["daewoon_hwa_mode"] in {
         m.value for m in DaewoonHwaMode
     }
+
+
+# ── 인성 동요 신호 플래그(RESOURCE_CLASH_RENEWAL, 2026-08-10) ────────────────
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [(None, False), ("", False), ("off", False), ("on", True), (" ON ", True)],
+)
+def test_parse_on_off_valid(raw: str | None, expected: bool) -> None:
+    from saju_engines.event_engine_config import parse_on_off
+
+    assert parse_on_off(raw, env_var="RESOURCE_CLASH_RENEWAL") is expected
+
+
+@pytest.mark.parametrize("raw", ["true", "1", "yes", "enable"])
+def test_parse_on_off_invalid_raises(raw: str) -> None:
+    """오타 배포가 조용히 무의미해지지 않도록 허용값 밖은 예외."""
+    from saju_engines.event_engine_config import parse_on_off
+
+    with pytest.raises(ValueError):
+        parse_on_off(raw, env_var="RESOURCE_CLASH_RENEWAL")
+
+
+@pytest.mark.usefixtures("fake_engine")
+def test_factory_passes_renewal_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """팩토리가 SSOT 의 인성 동요 플래그를 엔진 kwargs 로 전달한다(기본 OFF)."""
+    engine = build_event_engine_v2(_DICTS_MARKER)
+    assert engine.kwargs["enable_resource_clash_renewal"] is False
+
+    monkeypatch.setattr(
+        C, "EVENT_ENGINE_FLAGS", EventEngineFlags(resource_clash_renewal=True),
+    )
+    engine_on = build_event_engine_v2(_DICTS_MARKER)
+    assert engine_on.kwargs["enable_resource_clash_renewal"] is True

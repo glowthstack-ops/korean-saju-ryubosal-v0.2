@@ -215,6 +215,6 @@ def test_luck_sinsal_marks_fuyin_for_all_matching_pillars(make_pillars) -> None:
         (Stem.BYEONG, Branch.IN), (Stem.JEONG, Branch.MYO), Stem.BYEONG,
     )
     year_names = [s.name for s in sinsal_for_luck(natal, Stem.GAP, Branch.JA)]
-    assert "복음(년주)" in year_names
+    assert "복음(연주)" in year_names
     day_names = [s.name for s in sinsal_for_luck(natal, Stem.BYEONG, Branch.IN)]
     assert day_names[0] == "복음"

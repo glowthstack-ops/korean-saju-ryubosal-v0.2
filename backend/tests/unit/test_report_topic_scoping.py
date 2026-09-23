@@ -63,7 +63,12 @@ def test_focus_dry_run_runs_for_career_and_wealth() -> None:
     today = date(2026, 6, 13)
     career = report_service.plan_report(birth, _spec("career"), today)
     wealth = report_service.plan_report(birth, _spec("wealth"), today)
-    assert len(career) == 8 and len(wealth) == 9
+    # 고정 목차(career 8·wealth 9) + 연도별 상세 페이지(예측 창 연도당 1 — 2026-08-13).
+    career_fixed = [c for c in career if "-Y" not in c.section_id]
+    wealth_fixed = [c for c in wealth if "-Y" not in c.section_id]
+    assert len(career_fixed) == 8 and len(wealth_fixed) == 9
+    assert any(c.section_id.startswith("J-05-Y") for c in career)
+    assert any(c.section_id.startswith("W-06-Y") for c in wealth)
     # W-09 부록에는 실제 점수표(마크다운 표)가 박힌다.
     w09 = next(c for c in wealth if c.section_id == "W-09")
     assert "| 시점 | 운간지" in w09.body_prompt

@@ -132,7 +132,7 @@ _REL_POSITIVE_CASES: list[tuple[str, dict, list[RelationshipContext]]] = [
                                 target_ten_god=TenGod.BIJIAN)],
         role=PolarityRole.GI,
     ), []),
-    # 가족궁(년주) 직접 충(targeted) + 실제 책임 확인.
+    # 가족궁(연주) 직접 충(targeted) + 실제 책임 확인.
     ("REL_FAMILY_BURDEN", dict(
         relations=[RelationFact(RelationKind.CHUNG, Pillar4.YEAR)],
         role=PolarityRole.GI,
@@ -254,7 +254,7 @@ def test_partner_unknown_exposable_when_relationship_question(engine: RiskEngine
 
 
 def test_family_palace_does_not_create_partner_candidate(engine: RiskEngine) -> None:
-    """가족궁(년주) 충 → FAMILY_BURDEN 경로만 — 배우자 재조정 후보 미생성."""
+    """가족궁(연주) 충 → FAMILY_BURDEN 경로만 — 배우자 재조정 후보 미생성."""
     cands = engine.generate(
         _facts(relations=[RelationFact(RelationKind.CHUNG, Pillar4.YEAR)],
                role=PolarityRole.GI),

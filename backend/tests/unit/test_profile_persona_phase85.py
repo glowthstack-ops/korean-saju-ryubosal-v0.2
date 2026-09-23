@@ -93,7 +93,7 @@ def test_twin_wrap_keeps_day_and_uses_sidubeop() -> None:
     # 甲일 亥시 = 乙亥. 둘째 → 子시 wrap → 甲일 시두법 子시 천간 = 甲 → 甲子.
     stem, branch, wrapped = twin_adjusted_hour_pillar("乙", "亥", "甲", 2)
     assert wrapped is True
-    assert (stem, branch) == ("甲", "子")  # 일주·년주·월주는 호출 측에서 불변 유지
+    assert (stem, branch) == ("甲", "子")  # 일주·연주·월주는 호출 측에서 불변 유지
 
 
 def test_chart_variant_state() -> None:
@@ -293,6 +293,44 @@ def test_persona_block_is_template_substitution(persona_engine) -> None:
     assert '"길동님"' in block
     assert "해요체" in block and "~예요" in block
     assert "점수·날짜·간지·판정을 바꾸는 것" in block  # 문체 전용 고지(절대 원칙 12)
+
+
+def test_persona_block_has_shared_prose_guide(persona_engine) -> None:
+    """공통 문장 결 문단(2026-09-01) — 5축 조합이 달라도 동일 고정 문구가 붙고, 슬롯부만 다르다.
+
+    AI 문체(주어·목적어 완결, 정석 어순 나열, 일정한 문장 길이)를 푸는 지침은 페르소나 계층의
+    고정 문구로 두어 모든 페르소나에 일괄 적용된다(즉석 작문 아님 — 슬롯 없는 상수).
+    """
+    marker = "[문장 결 — 모든 페르소나 공통]"
+    configs = [
+        PersonaConfig(),  # 여성·40대·해요체·길동님
+        PersonaConfig(
+            counselor_gender="neutral", counselor_age_band="20s",
+            speech=SpeechConfig(politeness="banmal", style="banmal_chae"),
+            user_honorific=UserHonorific(type="custom", custom_text="너"),
+        ),
+        PersonaConfig(
+            counselor_gender="male", counselor_age_band="60s_plus",
+            speech=SpeechConfig(politeness="jondae", style="hapsyo"),
+            user_honorific=UserHonorific(preset_id="seonsaengnim"),
+        ),
+    ]
+    blocks = [persona_engine.build_block(c, "길동") for c in configs]
+    guides = [b.split(marker, 1)[1] for b in blocks]
+    heads = [b.split(marker, 1)[0] for b in blocks]
+    assert len(set(guides)) == 1, "고정 문단은 조합과 무관하게 동일해야 한다"
+    assert len(set(heads)) == 3, "슬롯 치환부는 조합마다 달라야 한다"
+    guide = guides[0]
+    # 세 장치 + 상투구 + 종결어미 규칙 우선 잠금.
+    assert "주어" in guide and "목적어" in guide and "생략" in guide
+    assert "어순" in guide and "문맥에 맞을 때" in guide
+    assert "문장 길이" in guide
+    assert "결론적으로" in guide and "핵심은 다음과 같다" in guide
+    assert "종결어미·존대 수준·호칭 규칙 안에서" in guide
+    # 슬롯이 고정 문단 안으로 새지 않는다.
+    assert "{" not in guide and "}" not in guide
+    # 순서: 슬롯 치환부(금지 고지) 다음에 공통 문단.
+    assert blocks[0].index("점수·날짜·간지·판정을 바꾸는 것") < blocks[0].index(marker)
 
 
 def test_persona_block_rejects_invalid(persona_engine) -> None:

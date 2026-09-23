@@ -146,3 +146,93 @@ def test_compound_always_with_constituent_codes() -> None:
     codes = out[0].reason_codes
     assert "REL_COMPOUND" in codes  # 합+충 복합 → COMPOUND 발생 전제 확인
     assert any(c.startswith("REL_") and c != "REL_COMPOUND" for c in codes)
+
+
+# ── 인성 동요 신호(2026-08-10, relation_target_ten_god_rules) — feature flag ──────
+
+
+def _resource_clash_act() -> RelationActivation:
+    """연주 충 + 피자극 글자=정인 — 연주는 contract_document 도메인이 아니어서
+    기존 (관계,궁성) 경로가 매칭하지 않는 격리 조건이다."""
+    return RelationActivation(
+        RelationKind.CHUNG, Pillar4.YEAR, LuckLayer.SEWOON,
+        position="branch", target_ten_god="ZHENGYIN",
+    )
+
+
+def test_renewal_off_by_default_unchanged() -> None:
+    """flag OFF(기본) — 인성 충이어도 기존 결과 byte 불변."""
+    e = _eng()
+    out = e.apply([_cand("contract_document", 50)], [_resource_clash_act()])
+    assert out[0].score == 50
+    assert out[0].palace is None
+    assert not any("RESOURCE" in r for r in out[0].reason_codes)
+
+
+def test_renewal_on_boosts_contract_document() -> None:
+    """flag ON + 인성 세력 충분 — 문서 교체 가산 + RENEWAL reason + palace 부여."""
+    e = _eng()
+    out = e.apply(
+        [_cand("contract_document", 50)], [_resource_clash_act()],
+        renewal_enabled=True, ten_god_group_powers={"resource": 25.0},
+    )
+    c = out[0]
+    assert c.score > 50
+    assert "REL_CHUNG_RESOURCE_RENEWAL" in c.reason_codes
+    assert c.palace is Pillar4.YEAR
+
+
+def test_renewal_weak_resource_gated() -> None:
+    """인성군 세력이 약하면(12% 미만) 축소 가산 + UNROOTED(동요) reason.
+
+    스크립트 유래 규칙 '인성이 뿌리내려야 충을 버텨 성사로 이어진다'의 계산 번역 —
+    기존 십성군 세력 재사용(2026-08-10 사용자 확정).
+    """
+    e = _eng()
+    strong = e.apply(
+        [_cand("contract_document", 50)], [_resource_clash_act()],
+        renewal_enabled=True, ten_god_group_powers={"resource": 25.0},
+    )[0]
+    weak = e.apply(
+        [_cand("contract_document", 50)], [_resource_clash_act()],
+        renewal_enabled=True, ten_god_group_powers={"resource": 5.0},
+    )[0]
+    assert "REL_CHUNG_RESOURCE_UNROOTED" in weak.reason_codes
+    assert "REL_CHUNG_RESOURCE_RENEWAL" not in weak.reason_codes
+    assert 50 < weak.score < strong.score
+
+
+def test_renewal_powers_unknown_uses_base_bonus() -> None:
+    """세력 정보 미제공(None) — 게이트 판정 불가 시 base_bonus(동요 격하 없음)."""
+    e = _eng()
+    out = e.apply(
+        [_cand("contract_document", 50)], [_resource_clash_act()],
+        renewal_enabled=True, ten_god_group_powers=None,
+    )[0]
+    assert "REL_CHUNG_RESOURCE_RENEWAL" in out.reason_codes
+
+
+def test_renewal_non_resource_target_no_match() -> None:
+    """피자극 십성이 인성이 아니면(재성 등) 룰 미적용."""
+    e = _eng()
+    act = RelationActivation(
+        RelationKind.CHUNG, Pillar4.YEAR, LuckLayer.SEWOON,
+        position="branch", target_ten_god="ZHENGCAI",
+    )
+    out = e.apply(
+        [_cand("contract_document", 50)], [act],
+        renewal_enabled=True, ten_god_group_powers={"resource": 25.0},
+    )
+    assert out[0].score == 50
+
+
+def test_renewal_relocation_and_career_also_boosted() -> None:
+    """likely_events 3종(contract_document/relocation/career_change) 모두 가산 대상."""
+    e = _eng()
+    for ek in ("relocation", "career_change"):
+        out = e.apply(
+            [_cand(ek, 50)], [_resource_clash_act()],
+            renewal_enabled=True, ten_god_group_powers={"resource": 25.0},
+        )
+        assert out[0].score > 50, ek
+        assert "REL_CHUNG_RESOURCE_RENEWAL" in out[0].reason_codes, ek

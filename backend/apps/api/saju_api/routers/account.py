@@ -37,7 +37,16 @@ def get_persona(owner_id: OwnerId, store: Accounts) -> PersonaConfig:
 
 @router.put("/persona", response_model=PersonaConfig)
 def put_persona(persona: PersonaConfig, owner_id: OwnerId, store: Accounts) -> PersonaConfig:
-    """계정 페르소나 저장/갱신."""
+    """계정 페르소나 저장/갱신 — 5-2 조합 제약(호칭↔politeness·style)을 저장 전에 검증한다.
+
+    무효 조합을 그대로 저장하면 이후 모든 채팅이 build_block 에서 500이 난다
+    (2026-08-21 실측: 'jane'+banmal_chae). 무효면 422로 거부한다.
+    """
+    from ..services.chat_service import _get_persona_engine
+
+    validation = _get_persona_engine().validate(persona)
+    if not validation.valid:
+        raise HTTPException(status_code=422, detail=f"페르소나 조합 무효: {validation.errors}")
     store.save_persona(owner_id, persona)
     return persona
 

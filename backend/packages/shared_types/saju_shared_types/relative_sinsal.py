@@ -16,7 +16,8 @@ class RelativeSinsalResult(BaseModel):
     Attributes:
         base_branch: 기준 지지(예: '亥').
         target_branch: 상대 지지(예: '卯').
-        sinsal: 12신살명(겁살/재살/천살/지살/연살/월살/망신/장성/반안/역마/육해/화개 계열).
+        sinsal: 12신살명(겁살/재살/천살/지살/년살/월살/망신/장성/반안/역마/육해/화개 계열).
+            년살 표기 고정('연살' 금지, 2026-09-20).
         tier: 노출 등급 — 'expose'(노출) | 'movement'(이동계 노출) | 'internal'(약노출·내부).
         relationship_reading: 중립 관계 역학 문구(internal이면 빈 문자열).
         confidence: 신뢰도 라벨('medium' 기본).

@@ -40,9 +40,12 @@ from saju_shared_types.event_engine import EventKeyV2, TenGodGroup
 from saju_shared_types.event_engine import TenGod as _TenGodRoman
 from saju_shared_types.event_taxonomy_v2 import LEGACY_EVENT_KEY_MAP
 from saju_shared_types.events import EventKey, EventPolarity, EventType
+from saju_shared_types.folk_direction import FolkTabooDict
 from saju_shared_types.marriage_timing import MarriageStage
 from saju_shared_types.region_element import RegionGeoFeature
+from saju_shared_types.sinsal_direction import SinsalDirectionDict
 from saju_shared_types.structure_patterns import StructurePatternDict
+from saju_shared_types.twelve_sinsal import TWELVE_SINSAL_ORDER
 
 _FAVORABILITY = ("용신", "희신", "기신", "구신", "한신")
 _POSITIVE_FAVORABILITY = ("용신", "희신")
@@ -1734,15 +1737,190 @@ def risk_rule_hash(item: RiskItem) -> str:
     return risk_scope_hash(item, "shadow_structure")
 
 
+class OpportunityRuleSpec(_AliasModel):
+    """opportunities/<domain>.json 룰 1건 — 조건 전부 AND(opportunity_engine 규칙 문법)."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    id: str
+    strength: float | None = None
+    polarity_role_in: list[str] | None = Field(default=None, alias="polarityRoleIn")
+    ten_god: str | None = Field(default=None, alias="tenGod")
+    ten_god_group: str | None = Field(default=None, alias="tenGodGroup")
+    ten_god_group2: str | None = Field(default=None, alias="tenGodGroup2")
+    rooted: bool | None = None
+    relation: str | None = None
+    relation_palace: str | None = Field(default=None, alias="relationPalace")
+    relation_target_ten_god_group: str | None = Field(
+        default=None, alias="relationTargetTenGodGroup",
+    )
+    void_state: str | None = Field(default=None, alias="voidState")
+    hap_mitigation: str | None = Field(default=None, alias="hapMitigation")
+    structure: str | None = None
+    twelve_stage_in: list[str] | None = Field(default=None, alias="twelveStageIn")
+    luck_grade_in: list[str] | None = Field(default=None, alias="luckGradeIn")
+    yeokma: bool | None = None
+    reason_prefix: str | None = Field(default=None, alias="reasonPrefix")
+
+
+class OpportunityManifestation(_AliasModel):
+    id: str
+    ko: str
+
+
+class OpportunityItem(_AliasModel):
+    """기회·호전 사전 항목 — 위험 사전의 긍정 대칭(P1, 2026-09-18)."""
+
+    opportunity_id: str = Field(alias="opportunityId")
+    domain: str
+    kind: Literal["opportunity", "achievement", "maintenance", "relief"]
+    family: str
+    base_value: float = Field(alias="baseValue", ge=0.0, le=1.0)
+    trigger_rules: list[OpportunityRuleSpec] = Field(alias="triggerRules", min_length=1)
+    amplifier_rules: list[OpportunityRuleSpec] = Field(default_factory=list, alias="amplifierRules")
+    dampener_rules: list[OpportunityRuleSpec] = Field(default_factory=list, alias="dampenerRules")
+    minimum_triggers: int = Field(default=1, alias="minimumTriggers", ge=1)
+    manifestations: list[OpportunityManifestation] = Field(min_length=1)
+    allowed_claim_scope: list[str] = Field(default_factory=list, alias="allowedClaimScope")
+    prohibited_claims: list[str] = Field(default_factory=list, alias="prohibitedClaims")
+    note: str = ""
+    reviewed: bool = False
+
+
+class OpportunityMappingFile(_AliasModel):
+    version: str
+    domain: str
+    reviewed: bool = False
+    purpose: str = ""
+    items: list[OpportunityItem]
+
+
 class RiskMappingFile(_AliasModel):
     version: str
     domain: str
     items: list[RiskItem]
 
 
+# family 단위 보조 증폭 층(P2, 2026-09-18 데굴님 결정) — 위험 사전 항목(reviewHashes로 잠김)을
+# 건드리지 않고, 흉 극성과 동반된 신살·구조·합 배경을 family/risk_id 단위 AMPLIFIER 근거로
+# 덧붙인다. 신살 단독 트리거 금지(polarityRoleIn 필수 — 흉 극성 GI/GI_STRONG/HAN_BAD만).
+AUX_ADVERSE_POLARITY_ROLES: frozenset[str] = frozenset({"GI", "GI_STRONG", "HAN_BAD"})
+AUX_STRUCTURE_FLAGS: frozenset[str] = frozenset({
+    "luck_gaedu", "luck_jeolgak", "chunggeun_useful", "tonggwan_absent",
+    "rescue_damaged", "special_breach",
+})
+AUX_HAP_FLAGS: frozenset[str] = frozenset({
+    "stem_harmed", "branch_harmed", "stem_mitigated", "branch_mitigated",
+})
+
+
+class RiskAuxiliaryAmplifierItem(_AliasModel):
+    """보조 증폭 항목 1건 — 조건 종류 사이 AND, 목록 안 OR. 극성 조건은 필수."""
+
+    id: str
+    risk_family_in: list[str] = Field(default_factory=list, alias="riskFamilyIn")
+    risk_id_in: list[str] = Field(default_factory=list, alias="riskIdIn")
+    polarity_role_in: list[str] = Field(alias="polarityRoleIn")
+    natal_sinsal_in: list[str] = Field(default_factory=list, alias="natalSinsalIn")
+    luck_sinsal_in: list[str] = Field(default_factory=list, alias="luckSinsalIn")
+    structure_in: list[str] = Field(default_factory=list, alias="structureIn")
+    hap_in: list[str] = Field(default_factory=list, alias="hapIn")
+    strength: float = Field(ge=0.0, le=1.0)
+    label_ko: str = Field(alias="labelKo")  # LLM 노출 라벨(완곡 — 신살 단정 금지)
+    note: str = ""
+    reviewed: bool = False
+
+
+class RiskAuxiliaryAmplifierFile(_AliasModel):
+    version: str
+    purpose: str = ""
+    items: list[RiskAuxiliaryAmplifierItem]
+
+
 class FavorabilityRulesFile(_AliasModel):
     version: str
     items: list[FavorabilityRule]
+
+
+class EventFormSpec(_AliasModel):
+    """event_forms.json 발현 형태 1건."""
+
+    name: str
+    prob: float = Field(ge=0.0, le=1.0)
+
+
+class EventFormsItem(_AliasModel):
+    """event_forms.json 사건 키 1건 — prob 합 ≤ 1.0(초과분은 로더가 정규화하나 사전은 ≤1로 유지)."""
+
+    event_key: str = Field(alias="eventKey")
+    forms: list[EventFormSpec] = Field(min_length=1)
+    reviewed: bool = False
+
+
+class EventFormsFile(_AliasModel):
+    version: str
+    note: str = ""
+    items: list[EventFormsItem]
+
+
+class ProcessTypeMatch(_AliasModel):
+    """공통 사건 유형 결정론 분류 규칙(event_process_types.json)."""
+
+    reason_prefixes: list[str] = Field(default_factory=list)
+    signal_keywords: list[str] = Field(default_factory=list)
+    event_keys: list[str] = Field(default_factory=list)
+    favorability: str = "any"  # any | adverse | favorable
+
+
+class ProcessTypeSpec(_AliasModel):
+    """공통 사건 유형 1건 — 사건 라벨·길흉 확정이 아니라 '어떤 종류의 문제/개선'인지."""
+
+    id: str
+    name_ko: str
+    valence: str  # negative | positive | neutral
+    description: str
+    examples: list[str] = Field(default_factory=list)
+    linked_actions: list[str] = Field(default_factory=list)
+    match: ProcessTypeMatch = Field(default_factory=ProcessTypeMatch)
+    loss_is_conclusion: bool = False
+    reviewed: bool = False
+
+
+class EventProcessTypesFile(_AliasModel):
+    schema_: str = Field(alias="schema")
+    version: str
+    reviewed: bool = False
+    purpose: str = ""
+    match_rules: str = ""
+    stage_model: dict = Field(default_factory=dict)
+    items: list[ProcessTypeSpec]
+
+
+class LifeEventArea(_AliasModel):
+    id: str
+    name_ko: str
+    negative_events: list[str] = Field(default_factory=list)
+    positive_events: list[str] = Field(default_factory=list)
+
+
+class PerceivedToObservable(_AliasModel):
+    perceived: str
+    observable: str
+
+
+class LifeEventLexiconFile(_AliasModel):
+    """life_event_lexicon.json — 관찰 가능 사건 어휘·체감 번역 표·단계 사례(서술 어휘 SSOT)."""
+
+    schema_: str = Field(alias="schema")
+    version: str
+    reviewed: bool = False
+    purpose: str = ""
+    areas: list[LifeEventArea]
+    perceived_to_observable: list[PerceivedToObservable] = Field(default_factory=list)
+    stage_examples: dict = Field(default_factory=dict)
+    improvement_to_positive: list[dict] = Field(default_factory=list)
+    daily_domain_to_area: dict[str, str] = Field(default_factory=dict)
+    separation_rules: list[str] = Field(default_factory=list)
 
 
 class UnseongStageSpec(_AliasModel):
@@ -2106,8 +2284,14 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "relations.json": RelationsFile,
     "structure_patterns.json": StructurePatternDict,
     "direction_suggestions.json": DirectionSuggestionDict,
+    "sinsal_direction.json": SinsalDirectionDict,
+    "folk_taboo_direction.json": FolkTabooDict,
     "events/taxonomy.json": TaxonomyFile,
     "favorability_rules.json": FavorabilityRulesFile,
+    "event_forms.json": EventFormsFile,
+    "event_process_types.json": EventProcessTypesFile,
+    "life_event_lexicon.json": LifeEventLexiconFile,
+    "risk_auxiliary_amplifiers.json": RiskAuxiliaryAmplifierFile,
     "interpretations/ilju.json": IljuFile,
     "interpretations/ten_gods_text.json": TenGodsTextFile,
     "interpretations/twelve_stages_text.json": TwelveStagesTextFile,
@@ -2136,6 +2320,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
 _EVENT_MAPPING_DIR = "events"
 # risks/<domain>.json — 위험 이벤트 사전(RISK_ENGINE.md, EventKeyV2와 별도 risk_id 네임스페이스).
 _RISK_MAPPING_DIR = "risks"
+_OPPORTUNITY_MAPPING_DIR = "opportunities"
 
 
 def schema_for(rel_path: str) -> type[BaseModel] | None:
@@ -2147,6 +2332,8 @@ def schema_for(rel_path: str) -> type[BaseModel] | None:
         return EventMappingFile
     if parent == _RISK_MAPPING_DIR:
         return RiskMappingFile
+    if parent == _OPPORTUNITY_MAPPING_DIR:
+        return OpportunityMappingFile
     return None
 
 
@@ -2171,6 +2358,75 @@ def validate_dictionaries(directory: Path) -> list[str]:
             for item in data.get("items", []):
                 if item.get("eventKey") not in valid_keys:
                     errors.append(f"{rel}: 미등록 이벤트 키 — {item.get('eventKey')}")
+        if rel == "event_forms.json":
+            seen_keys: set[str] = set()
+            for item in data.get("items", []):
+                key = item.get("eventKey")
+                if key not in valid_keys:
+                    errors.append(f"{rel}: 미등록 이벤트 키 — {key}")
+                if key in seen_keys:
+                    errors.append(f"{rel}: 사건 키 중복 — {key}")
+                seen_keys.add(key)
+                if sum(f.get("prob", 0.0) for f in item.get("forms", [])) > 1.0 + 1e-9:
+                    errors.append(f"{rel}: {key} prob 합 > 1.0")
+        if rel == "risk_auxiliary_amplifiers.json":
+            errors.extend(_lint_risk_auxiliary(directory, data))
+        if rel == "event_process_types.json":
+            ids = [item.get("id") for item in data.get("items", [])]
+            dupes = sorted({i for i in ids if ids.count(i) > 1})
+            if dupes:
+                errors.append(f"{rel}: 유형 id 중복 — {dupes}")
+            for item in data.get("items", []):
+                for key in item.get("match", {}).get("event_keys", []):
+                    if key not in valid_keys:
+                        errors.append(f"{rel}: {item.get('id')} 미등록 이벤트 키 — {key}")
+    return errors
+
+
+def _lint_risk_auxiliary(directory: Path, data: dict) -> list[str]:
+    """risk_auxiliary_amplifiers.json 충돌 — id 중복·흉 극성 필수·대상/배경 조건 필수·미등록 값."""
+    rel = "risk_auxiliary_amplifiers.json"
+    errors: list[str] = []
+    families: set[str] = set()
+    risk_ids: set[str] = set()
+    for path in sorted((directory / _RISK_MAPPING_DIR).glob("*.json")):
+        try:
+            risk_data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for item in risk_data.get("items", []):
+            risk_ids.add(str(item.get("riskId")))
+            if item.get("riskFamily"):
+                families.add(str(item["riskFamily"]))
+    seen: set[str] = set()
+    for item in data.get("items", []):
+        iid = str(item.get("id"))
+        if iid in seen:
+            errors.append(f"{rel}: id 중복 — {iid}")
+        seen.add(iid)
+        roles = set(item.get("polarityRoleIn", []))
+        if not roles or not roles <= AUX_ADVERSE_POLARITY_ROLES:
+            errors.append(
+                f"{rel}: {iid} polarityRoleIn은 흉 극성만 허용(비어 있으면 안 됨) — {sorted(roles)}"
+            )
+        if not item.get("riskFamilyIn") and not item.get("riskIdIn"):
+            errors.append(f"{rel}: {iid} riskFamilyIn/riskIdIn 중 하나 필수")
+        for fam in item.get("riskFamilyIn", []):
+            if fam not in families:
+                errors.append(f"{rel}: {iid} 미등록 riskFamily — {fam}")
+        for rid in item.get("riskIdIn", []):
+            if rid not in risk_ids:
+                errors.append(f"{rel}: {iid} 미등록 riskId — {rid}")
+        if not any(item.get(k) for k in ("natalSinsalIn", "luckSinsalIn", "structureIn", "hapIn")):
+            errors.append(
+                f"{rel}: {iid} 배경 조건(신살·구조·합) 중 하나 필수 — 극성 단독 증폭 금지"
+            )
+        bad_structure = set(item.get("structureIn", [])) - AUX_STRUCTURE_FLAGS
+        if bad_structure:
+            errors.append(f"{rel}: {iid} 미등록 structureIn — {sorted(bad_structure)}")
+        bad_hap = set(item.get("hapIn", [])) - AUX_HAP_FLAGS
+        if bad_hap:
+            errors.append(f"{rel}: {iid} 미등록 hapIn — {sorted(bad_hap)}")
     return errors
 
 
@@ -2766,10 +3022,15 @@ def _lint_structure_patterns(file: StructurePatternDict) -> list[str]:
     event_keys = {e.value for e in EventKeyV2}
     ten_gods = {t.value for t in _TenGodRoman}
     seen: set[str] = set()
+    names = {p.name_ko for p in file.patterns}
     for p in file.patterns:
         if p.pattern_id in seen:
             errors.append(f"{rel}: 중복 pattern_id — {p.pattern_id}")
         seen.add(p.pattern_id)
+        # 별칭(F6): 다른 패턴의 정식 명칭과 겹치면 두 라벨이 같은 이름을 다투므로 금지.
+        for al in p.aliases:
+            if al.split("(")[0] in names:
+                errors.append(f"{rel}: {p.pattern_id} 별칭 '{al}'이 다른 패턴 정식 명칭과 충돌")
         for h in p.domain_hints:
             if h not in event_keys:
                 errors.append(f"{rel}: {p.pattern_id} domain_hints 미정렬(EventKeyV2 아님) — {h}")
@@ -2889,6 +3150,86 @@ def _lint_direction_suggestions(
     return errors
 
 
+def _lint_sinsal_direction(file: SinsalDirectionDict) -> list[str]:
+    """sinsal_direction.json — 12신살 전수·4구간 3개씩 순서·목적 primary 등급·삼재 대응 검사."""
+    errors: list[str] = []
+    rel = "sinsal_direction.json"
+    names = [e.name for e in file.sinsals]
+    if sorted(names) != sorted(TWELVE_SINSAL_ORDER):
+        errors.append(f"{rel}: 12신살 목록 불일치 — {names}")
+    if any(n == "연살" for n in names):
+        errors.append(f"{rel}: '연살' 표기 금지 — 년살로 정규화")
+    by_name = {e.name: e for e in file.sinsals}
+    for entry in file.sinsals:  # docs/19 §2 — 회피/활용 맥락 전수
+        if not entry.avoid_contexts or not entry.use_contexts:
+            errors.append(f"{rel}: {entry.name} avoid_contexts/use_contexts 비어 있음")
+    for g in file.groups:
+        for idx, n in enumerate(g.sinsals, start=1):
+            e = by_name.get(n)
+            if e is None:
+                errors.append(f"{rel}: 구간 {g.key}의 미등록 신살 — {n}")
+            elif e.group is not g.key or e.sequence_index != idx:
+                errors.append(f"{rel}: {n} 구간/순서 불일치 — 기대 {g.key}#{idx}")
+    seen: set[str] = set()
+    for p in file.purposes:
+        if p.purpose in seen:
+            errors.append(f"{rel}: 중복 purpose — {p.purpose}")
+        seen.add(p.purpose)
+        if p.grades[p.primary_sinsals[0]] != "fit":
+            errors.append(f"{rel}: {p.purpose} 1순위 신살 {p.primary_sinsals[0]} 등급이 fit 아님")
+        for n in p.primary_sinsals:
+            if p.grades[n] == "caution":
+                errors.append(f"{rel}: {p.purpose} primary 신살 {n} 이 caution 등급")
+    q = file.samjae_quality
+    if q.thresholds.bok <= 0 or q.thresholds.ak >= 0:
+        errors.append(f"{rel}: samjae_quality 임계 부호 오류(bok>0, ak<0)")
+    if sum(v for v in q.weights.model_dump().values()) <= 0:
+        errors.append(f"{rel}: samjae_quality 가중치 합이 0")
+    expected = {"enter": "역마살", "stay": "육해살", "exit": "화개살"}
+    for st in file.samjae_stages:
+        if expected.get(st.stage) != st.sinsal:
+            errors.append(
+                f"{rel}: 삼재 {st.stage} ↔ {st.sinsal} 대응 오류(기대 {expected.get(st.stage)})"
+            )
+    return errors
+
+
+def _lint_folk_taboo(file: FolkTabooDict) -> list[str]:
+    """folk_taboo_direction.json — 5종 키 고정·문구 템플릿 치환자·금지 문형·적용 행위 검사."""
+    errors: list[str] = []
+    rel = "folk_taboo_direction.json"
+    keys = [t.key for t in file.taboos]
+    if sorted(keys) != sorted(["samsal", "daejanggun", "taese", "sepa", "son"]):
+        errors.append(f"{rel}: 흉방 5종 키 불일치 — {keys}")
+    for ph in ("{direction}", "{reasons}", "{names}"):
+        if ph not in file.phrase_template:
+            errors.append(f"{rel}: phrase_template 에 {ph} 치환자 없음")
+    if "FOLK_TABOO" not in file.grades or "STRONG_FOLK_TABOO" not in file.grades:
+        errors.append(f"{rel}: grades 에 FOLK_TABOO/STRONG_FOLK_TABOO 라벨 필요")
+    actions = set(file.applies_actions)
+    for t in file.taboos:
+        if not t.reason_ko.endswith("라"):
+            errors.append(f"{rel}: {t.key} reason_ko 는 '…라'(이유 구)로 끝나야 한다")
+        for a in t.avoid_actions:
+            if a not in actions and not any(a.startswith(x) or x.startswith(a) for x in actions):
+                errors.append(f"{rel}: {t.key} avoid_actions '{a}' 가 applies_actions 에 없음")
+    if not any("무조건" in f or "흉방" in f for f in file.forbidden_framings):
+        errors.append(f"{rel}: forbidden_framings 에 절대흉방 문형이 있어야 한다")
+    # 계층(2026-09-22): 태세·세파는 GROUND(이사 판정 제외), 삼살·대장군·손방은 MOVE.
+    # 원거리 고지(120보) 필수.
+    expected_tier = {
+        "samsal": "MOVE", "daejanggun": "MOVE", "son": "MOVE", "taese": "GROUND", "sepa": "GROUND",
+    }
+    for t in file.taboos:
+        if expected_tier.get(t.key) != t.tier:
+            errors.append(f"{rel}: {t.key} tier 는 {expected_tier.get(t.key)} 여야 한다 — {t.tier}")
+        if t.tier == "GROUND" and any(a in ("이사", "이동", "큰 변동") for a in t.avoid_actions):
+            errors.append(f"{rel}: {t.key}(GROUND) avoid_actions 에 이사·이동이 있으면 안 된다")
+    if "120보" not in file.distance_note:
+        errors.append(f"{rel}: distance_note 는 120보 근거리 규칙을 담아야 한다")
+    return errors
+
+
 def lint_dictionaries(directory: Path) -> list[str]:
     """충돌 검사(dict:lint). 스키마 위반 파일은 여기서 건너뛴다(validate가 보고)."""
     errors: list[str] = []
@@ -2907,6 +3248,10 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_structure_patterns(parsed))
         elif isinstance(parsed, DirectionSuggestionDict):
             errors.extend(_lint_direction_suggestions(directory, parsed))
+        elif isinstance(parsed, SinsalDirectionDict):
+            errors.extend(_lint_sinsal_direction(parsed))
+        elif isinstance(parsed, FolkTabooDict):
+            errors.extend(_lint_folk_taboo(parsed))
         elif isinstance(parsed, EventMappingFile):
             errors.extend(_lint_event_mapping(rel, parsed))
         elif isinstance(parsed, RiskMappingFile):
