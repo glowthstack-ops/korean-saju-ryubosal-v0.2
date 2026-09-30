@@ -158,6 +158,15 @@ _OFFER_MONTHLY_RE = re.compile(r"월별|달별|월\s*단위|매월|달마다")
 _TIME_SEEKING_RE = re.compile(
     r"언제|할\s*수\s*있을[까지]|가능할[까지]|몇\s*살|몇\s*년\s*(뒤|후)|언제부터"
 )
+# 택일 창 안의 최상급 선택 후속('그럼 가장 좋은 날은 언제야?') — 직전 택일 답이 제시한 후보
+# 중 하나를 고르는 질문이라 '언제'가 붙어도 시점-탐색이 아니다. 직전 택일 질문(유계 창)의
+# query_type·event·시점 창을 그대로 잇는다(2026-09-30 실로그: '이번 주 로또 좋은 날' 뒤
+# '가장 좋은 날은 언제야?'가 timing_search·open_when 10년 창으로 열려 재물 도메인 상위 후보인
+# 계약·문서 2027~2028 답으로 이탈). 최상급·선택 표지 + 날/때 표지가 함께 있을 때만.
+_BEST_PICK_RE = re.compile(
+    r"(?:가장|제일|최고|그\s*중|이\s*중|그중|하나만|딱\s*(?:하루|한\s*날))"
+    r".{0,12}(?:날|하루|때|타이밍|언제)"
+)
 # 장소-탐색 질문(어디서 살까·지역 추천) — '언제'가 아니라 '어디'를 묻는 공간 질문이라 직전 시점
 # 창을 승계하면 안 된다(2026-06-26 데굴님 지적: 7/4 이사 지정 뒤 '서울 살 곳 추천'까지 7/4
 # 일운·질문기간·이사 타이밍 장치가 통째로 승계되던 과잉승계). 추천형 거주·지역 표현을 차단한다.
@@ -307,6 +316,10 @@ class ConversationEngine:
             current_month_label=current_month_label,
         )
 
+        # 택일 창 안의 최상급 선택 후속 — 직전 택일 질문의 유계 창·사건·유형을 그대로 잇는다.
+        # 아래 '언제' 시점-탐색 미승계 가드보다 먼저 판정해 창이 10년으로 열리지 않게 한다.
+        best_pick_inherited = self._inherit_best_pick(parsed, prev, link, text)
+
         # 슬롯 상속 보강: 파서가 직접 상속 못 한 경우(참조어형) 도메인/대상 병합.
         explicit_domains = bool(_detect_domains(text))
         prev_domain = prev.domain if prev is not None else Domain.GENERAL
@@ -441,7 +454,7 @@ class ConversationEngine:
         # 시점을 안 들고 오고 '새 풀이/리셋' 신호도 아니면 직전 턴의 시점 창을 이어받는다(2026-06-23
         # 데굴님 지적: 8/31·9/30=2026 맥락의 후속 '대출 안 나오나?'가 link=NEW로 떨어져 막연한 미래
         # 10년 흐름으로 빠짐). 사용자가 명시 시점을 새로 주거나 총운·새 풀이를 요청하면 미승계.
-        inherited_time_used = False
+        inherited_time_used = best_pick_inherited
         last = state.last_intent
         if (
             last is not None and last.time_range is not None and last.time_range.start
@@ -861,6 +874,40 @@ class ConversationEngine:
 
         # 4순위 — 새로운 도메인+완결 질문 → 새 스레드 문맥.
         return LinkResult(is_follow_up=False, link_kind=LinkKind.NEW)
+
+    @staticmethod
+    def _inherit_best_pick(
+        parsed: ParsedMessage, prev: IntentJson | None, link: LinkResult, text: str,
+    ) -> bool:
+        """택일 창 안의 최상급 선택 후속이면 직전 택일 intent의 창·사건·유형을 잇는다.
+
+        조건: 후속 링크 + 직전 query_type이 DATE_RECOMMENDATION이고 시점 창이 유계(start·end)
+        + 이번 턴에 새 도메인·사건이 없음 + 최상급/선택 표지(_BEST_PICK_RE). 조건을 만족하면
+        모든 intent를 직전 창으로 덮고 True를 반환한다(시점 출처 메타의 '승계' 근거).
+        최상급 표지가 없는 '그럼 언제야?'류는 기존대로 시점-탐색(미승계)으로 남긴다.
+        """
+        if (
+            not link.is_follow_up or prev is None
+            or prev.query_type is not QueryType.DATE_RECOMMENDATION
+            or prev.time_range is None
+            or not (prev.time_range.start and prev.time_range.end)
+            or _detect_domains(text)
+            or not _BEST_PICK_RE.search(text)
+        ):
+            return False
+        if any(i.event_key is not None and i.event_key != prev.event_key for i in parsed.intents):
+            return False
+        for intent in parsed.intents:
+            intent.query_type = prev.query_type
+            intent.domain = prev.domain
+            intent.domains = list(prev.domains)
+            intent.event_key = prev.event_key
+            intent.event_keys = list(prev.event_keys)
+            intent.relocation_kind = prev.relocation_kind
+            intent.time_range = prev.time_range
+            intent.time_scope = prev.time_scope
+            intent.constraints = prev.constraints.model_copy(deep=True)
+        return True
 
     @staticmethod
     def _follow(parent_id: str, kind: LinkKind, state: ConversationState) -> LinkResult:
